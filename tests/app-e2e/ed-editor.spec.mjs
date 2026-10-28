@@ -323,7 +323,7 @@ test('phone width: the grouped row fits one line at 390, 360 and 344, page itsel
     await expect.poll(() => row.evaluate(el => el.scrollWidth - el.clientWidth), `row at ${width}`).toBeLessThanOrEqual(0);
   }
   await page.setViewportSize({width: 390, height: 844});
-  await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '·', '▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
+  await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '· ▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
   const heights = await row.locator('button:visible').evaluateAll(list => list.map(b => Math.round(b.getBoundingClientRect().height)));
   for (const h of heights) expect(h).toBeLessThanOrEqual(28);
   const tops = await row.locator('button:visible').evaluateAll(list => new Set(list.map(b => Math.round(b.getBoundingClientRect().top))).size);

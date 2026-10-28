@@ -78,7 +78,7 @@ root.replaceChildren(listView, editorView);
 function renderList() {
   const status = el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spListStatus:''}});
   const head = el('div', {class:'sp-head'}, el('h2', {text:'내 공유 페이지'}),
-    el('button', {type:'button', class:'primary', dataset:{spNew:''}, text:'새 공유 페이지'}));
+    el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'}));
   const body = [];
   if (listState === 'loading' && !pages) status.textContent = '불러오는 중…';
   else if (listState === 'error') {

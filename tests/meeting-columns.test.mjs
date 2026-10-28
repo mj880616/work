@@ -109,7 +109,7 @@ test('사업 보고 자료 줄 ⋯: 자료실 자료면 두 항목, 줄 누르�
   const doc={id:'d1',title:'가상 안건지',file_name:'가상 <안건지>.hwp',mime_type:'application/x-hwp',file_id:'drive-d1',drive_url:'https://drive.google.com/file/d/drive-d1/view'};
   assert.deepEqual(meetingFileFile(doc),{name:'가상 <안건지>.hwp',mime:'application/x-hwp',documentId:'d1',driveId:'drive-d1',driveUrl:'https://drive.google.com/file/d/drive-d1/view'});
   const html=fileMoreHtml(doc);
-  assert.match(html,/<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: 가상 &lt;안건지&gt;.hwp">⋯<\/summary>/);
+  assert.match(html,/<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: 가상 &lt;안건지&gt;.hwp"><span class="more-dots" aria-hidden="true">⋯<\/span><\/summary>/);
   assert.match(html,/data-fa-menu="open"[^>]*>Drive에서 열기<\/button><button[^>]*data-fa-menu="download"[^>]*>내려받기<\/button>/);
   assert.match(html,/data-fa-doc="d1"/);assert.match(html,/data-fa-id="drive-d1"/);
   // 파일 번호·주소가 없는 옛 행은 열 길도 내려받을 길도 없으니 ⋯를 그리지 않는다.

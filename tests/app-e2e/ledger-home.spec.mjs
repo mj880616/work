@@ -192,9 +192,15 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   for(const text of ['원장 가져오기','원장 후보 만들기','가져온 묶음','확정'])await expect(page.locator('#ledgerView').getByRole('button',{name:text,exact:true})).toHaveCount(0);
   // 첫 화면은 검색 RPC를 부르지 않는다. 쓰기 요청도 없다.
   expect(db.search).toHaveLength(0);expect(db.fix).toHaveLength(0);expect(db.posts).toHaveLength(0);
-  // [+ 기록하기]는 작은 버튼.
+  // [+ 기록하기]는 작은 버튼. UI-화면정리 C(B⑥): 폰은 다른 화면과 같은 동그란 [+](하단 탭 위 오른쪽에 떠 있음, 혼자 한 줄을 차지하지 않음).
   const add=browse.getByRole('button',{name:'+ 기록하기'});
-  expect((await add.boundingBox()).height).toBeLessThanOrEqual(34);
+  const addBox=await add.boundingBox();
+  expect(addBox.height).toBeLessThanOrEqual(width<761?36:34);
+  if(width<761){
+   expect(await add.evaluate(b=>getComputedStyle(b).position)).toBe('fixed');
+   expect(Math.abs(addBox.width-addBox.height)).toBeLessThanOrEqual(1);
+   expect(addBox.x+addBox.width).toBeGreaterThan(width-40);
+  }
   expect(await noSideScroll(page)).toBe(true);
  });
 

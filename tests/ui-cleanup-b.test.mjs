@@ -49,12 +49,9 @@ test('⑤ 오전/오후 글자를 새로 화면 시각에 붙이지 않는다', 
   assert.deepEqual(found, []);
 });
 
-// 사업 보고 화면(meeting-columns.js·meeting-round-detail.js와 index.html 사업 보고 칸)은 그 화면을 고치는 다른 작업 뒤에 맞춘다(PR 본문 '남은 일').
-const MORE_LATER = new Set(['meeting-columns.js', 'meeting-round-detail.js', 'index.html']);
 test('③ ⋯ 버튼의 점은 공용 <span class="more-dots">⋯</span> 하나로 그린다', () => {
   const bad = [];
   for (const f of scripts) {
-    if (MORE_LATER.has(f)) continue;
     const t = code(read(f));
     for (const m of t.matchAll(/>\s*⋯\s*</g)) {
       const before = t.slice(Math.max(0, m.index - 40), m.index);

@@ -16,8 +16,14 @@ async function expectTitle(page, text, { wide, bodyTitle, wideCount = 0 }) {
   }
 }
 
-// 업무일지: the chosen day.
-export const expectJournalDay = (page, text) => expectTitle(page, text, { wide: toplineShown(page), bodyTitle: '#journalRoot [data-journal-day-title]' });
+// 업무일지: the chosen day. UI-화면정리 C: a phone (~760px) has no body title line either (the pressed day in the week row shows it);
+// the day card is named by aria-label there.
+export async function expectJournalDay(page, text) {
+  const width = page.viewportSize()?.width || 0;
+  if (width > 760 || toplineShown(page)) return expectTitle(page, text, { wide: toplineShown(page), bodyTitle: '#journalRoot [data-journal-day-title]' });
+  await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveCount(0);
+  await expect(page.locator('#journalRoot [data-journal-day]')).toHaveAttribute('aria-label', text);
+}
 // 일기: the open day.
 export const expectDiaryDay = (page, text) => expectTitle(page, text, { wide: toplineShown(page), bodyTitle: '#diaryRoot [data-diary-detail] h3' });
 // 프로젝트: the detail's name. Docked on the right (PC): the top line names it, the head keeps only the summary line (with the colour dot).

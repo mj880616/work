@@ -133,16 +133,18 @@ function renderWeek() {
 }
 // UI-중복제목삭제: with the PC top line (1024px~) the chosen day is already named there ("일정 › 업무일지 › 10월 6일 화요일"), so the day card has no
 // title line of its own there (the element is not made; the card is named by aria-label instead). Below that width the line is made, as before.
-const toplineWide = window.matchMedia?.('(min-width:1024px)');
+// UI-화면정리 C(2026-10-28 명진 요청 20:03 B①): a phone (~760px) shows the chosen day already as the pressed day in the week row under the
+// week range, so the day card's own title line is not made there either (the date was shown twice). Only 761~1023px keeps the line.
+const noDayTitle = window.matchMedia?.('(max-width:760px),(min-width:1024px)');
 function syncDayTitle() {
   const box = $('[data-journal-day]'); if (!box) return;
   let title = box.querySelector('[data-journal-day-title]');
-  if (toplineWide?.matches) { title?.remove(); box.removeAttribute('aria-labelledby'); box.setAttribute('aria-label', longDay(selected)); return; }
+  if (noDayTitle?.matches) { title?.remove(); box.removeAttribute('aria-labelledby'); box.setAttribute('aria-label', longDay(selected)); return; }
   if (!title) { title = document.createElement('h3'); title.id = 'journalDayTitle'; title.tabIndex = -1; title.dataset.journalDayTitle = ''; box.prepend(title); }
   box.removeAttribute('aria-label'); box.setAttribute('aria-labelledby', 'journalDayTitle');
   title.textContent = longDay(selected);
 }
-toplineWide?.addEventListener?.('change', syncDayTitle);
+noDayTitle?.addEventListener?.('change', syncDayTitle);
 function renderLine({keepStatus = false} = {}) {
   syncDayTitle();
   // UI-상단줄제목: the chosen day goes to the PC top line's place (kptu:where-item, topbar-actions.js).

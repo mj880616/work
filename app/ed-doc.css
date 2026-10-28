@@ -198,12 +198,6 @@
 /* 화면정리 A2(2026-10-28): 줄이 좁아도 [제목 1 ▾] 글자 단계 버튼은 글자 폭 아래로 줄지 않는다(줄면 가운데 맞춘 글자의 왼쪽이 잘렸다). 남는 폭은 다른 버튼이 줄어 맞춘다. */
 .ed-grouped .ed-tools .ed-style{flex:0 0 auto;min-width:0;justify-content:center;border-color:transparent}
 .ed-grouped .ed-tools .ed-caret{font-size:.7em}
-/* [·]와 [▾]: 붙은 두 칸 한 덩어리 */
-.ed-grouped .ed-tools .ed-pair{display:flex;flex:0 0 auto;align-items:center;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle)}
-.ed-grouped .ed-tools .ed-pair button{flex:0 0 auto;min-width:20px}
-.ed-grouped .ed-tools .ed-pair button+button{border-left:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-top-left-radius:0;border-bottom-left-radius:0}
-.ed-grouped .ed-tools .ed-pair button:first-child{border-top-right-radius:0;border-bottom-right-radius:0}
 .ed-group-menu .ed-gap{margin-left:0}
 .ed-bar .ed-group-menu button{justify-content:flex-start}
 .ed-bar .ed-group-menu button[aria-pressed="true"]::before{content:"✓";color:var(--kptu-primary-ink);margin-right:2px}
-.ed-grouped .ed-tools [data-ed-cmd="symDot"] .ed-caret{font-size:1em;opacity:1}
