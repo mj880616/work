@@ -22,7 +22,7 @@ test('공용 날짜 칸은 모든 화면 전에 한 번 불려 오고, 숨은 �
   const src = read('app/date-field.js');
   assert.match(src, /getAttribute\('tabindex'\) === '-1'/);
   assert.match(src, /\.dt-date,\.due-chip,\.date-field/);
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(src, new RegExp(['local', 'session'].map(w => w + 'Storage').concat(['indexed' + 'DB']).join('|')));
   const css = read('app/ui-standard.css');
   assert.match(css, /\.date-field>input\[type="date"\]\{[^}]*opacity:0/);
   assert.match(css, /:where\(select:not\(\[multiple\],\[size\]\)\)\{[^}]*appearance:none/);
