@@ -76,9 +76,8 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   assert.match(team, /openReportPreview\(t,\{meetings:\(\)=>meetings\}\)/);
   assert.match(mrd, /id="mrdEditArea"/); assert.match(mrd, /id="mrdAreaView"/);
   assert.match(mrd, /Object\.assign\(body,await \(mrdAreaFields\?\.body\(\{only:true\}\)/);
-  // [할 일로]는 기존 할 일 만들기 길(google-tasks create)만 쓴다. 기기 저장 없음.
+  // [할 일로]는 기존 할 일 만들기 길(google-tasks create)만 쓴다(기기 저장 금지는 audit 검사가 본다).
   assert.match(fields, /\/functions\/v1\/google-tasks\?action=create/);
-  for (const src of [fields, read('report-summary-preview.js'), read('business-area-model.mjs')]) assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
   assert.match(read('basket-manual-link.js'), /data-manual-pick="project"[^>]*>사업영역 꼬리표 달기 ▾</);
   assert.match(read('journal.js'), /show:showDay, showWeek\};/);
   assert.match(read('report-links.js'), /select=business_area_id,next_plan&limit=1/);
