@@ -72,7 +72,7 @@ const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<
 for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 고르기 → 저장 → 참고 묶음 화면 → 이름 바꾸기 → 주간 정리에 없음 ${width}`,async({page},info)=>{
  const f=await fixture(page,{width}),detail=await openNote(page,width);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
- await expect(detail.locator('[data-manual-pick]')).toHaveText(['담당조직 고르기 ▾','프로젝트 고르기 ▾','참고 ▾']);
+ await expect(detail.locator('[data-manual-pick]')).toHaveText(['담당조직 고르기 ▾','사업영역 꼬리표 달기 ▾','참고 ▾']);
  await tap(page,detail.locator('[data-manual-pick="reference"]'),width);
  const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
  await expect(sheet.locator('h2')).toHaveText('참고 묶음 선택');

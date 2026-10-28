@@ -309,3 +309,43 @@
 #meetingRoundDetailModal .mrd-leave button.mini{box-sizing:border-box;width:auto;min-width:0;flex:none;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px)}
 #meetingRoundDetailModal #mrdLoading{margin:0;padding:var(--kptu-space-3) 0;font-size:var(--ds-text-row,13px);color:var(--kptu-faint)}
 #meetingRoundDetailModal #mrdLoading.error{color:var(--kptu-danger)}
+
+/* MTG-프로젝트합치기 2단계: 사업영역 꼬리표·다음 할 일 칸(쓰기·고치기·보기), 사업 보고 위 [사업요약표 미리보기]·⋯ [사업영역 관리]. 작고 낮게. */
+.biz-area-fields{display:grid;gap:var(--kptu-space-2)}
+.biz-next-plan>summary{cursor:pointer;font-size:13px;color:var(--kptu-muted);padding:2px 0}
+.biz-next-plan textarea{width:100%;box-sizing:border-box;margin-top:var(--kptu-space-2);font-size:13px}
+.mrd-area-view{margin:var(--kptu-space-2) 0;font-size:13px}
+.mrd-area-view .biz-area-line{margin:0 0 4px;color:var(--kptu-muted)}
+.biz-plan-list{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:2px}
+.biz-plan-list li{display:flex;align-items:center;gap:var(--kptu-space-2);justify-content:space-between;font-size:13px}
+.biz-plan-list li>span:first-child{min-width:0;overflow-wrap:anywhere}
+.report-preview-btn{margin-left:auto}
+.report-more{position:relative}
+.report-more>summary{list-style:none;cursor:pointer;padding:2px 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);font-size:13px;line-height:1.6}
+.report-more>summary::-webkit-details-marker{display:none}
+.report-more-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;display:grid;gap:2px;padding:4px;min-width:120px;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
+.biz-preview{width:min(860px,calc(100vw - 16px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink);display:none;flex-direction:column}
+.biz-preview[open]{display:flex}
+.biz-preview-head,.biz-preview-bar,.biz-preview-foot{display:flex;align-items:center;gap:var(--kptu-space-2);padding:6px var(--kptu-space-3)}
+.biz-preview-head h2{margin:0;font-size:15px;flex:1}
+.biz-preview-bar{flex-wrap:wrap;font-size:13px;border-bottom:1px solid var(--kptu-border)}
+.biz-preview-range>summary{cursor:pointer;color:var(--kptu-muted)}
+.biz-preview-range label{display:inline-flex;align-items:center;gap:4px;margin-right:6px}
+.biz-preview-scroll{overflow:auto;padding:var(--kptu-space-3);flex:1}
+.biz-paper{max-width:794px;margin:0 auto;padding:24px 28px;background:var(--kptu-surface);border:1px solid var(--kptu-border);font-size:13px;line-height:1.5}
+.biz-paper h3{font-size:14px;margin:12px 0 6px}
+.biz-sum-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.biz-sum-table th,.biz-sum-table td{border:1px solid var(--kptu-border-strong);padding:4px 6px;vertical-align:top;text-align:left;font-weight:400;overflow-wrap:anywhere}
+.biz-sum-table thead th{font-weight:700;text-align:center;background:var(--kptu-surface-subtle)}
+.biz-sum-table th:nth-child(1),.biz-sum-table td:nth-child(1){width:18%}
+.biz-sum-table thead th:nth-child(2){width:18%}
+.biz-sum-table thead th:nth-child(4){width:10%}
+.biz-cell-line{display:block;width:100%;padding:1px 0;border:0;background:none;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.biz-cell-line:hover,.biz-cell-line:focus-visible{text-decoration:underline}
+.biz-cell-plan{margin:2px 0 0;color:var(--kptu-muted)}
+.biz-untagged{margin:6px 0;color:var(--kptu-muted)}
+.biz-untagged>summary{cursor:pointer}
+.biz-detail-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.biz-day{color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+.biz-preview-foot{justify-content:space-between;border-top:1px solid var(--kptu-border)}
+.biz-preview-foot .status{margin:0;font-size:12px}

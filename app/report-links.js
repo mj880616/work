@@ -33,6 +33,9 @@ export function noteColumnFromRows(key,column,rows,rt=rtOf()){
 }
 export const linksAvailable=(rt)=>probe('links','/rest/v1/app_record_links?select=source_meeting_id&limit=1',rt);
 export const locationAvailable=(rt)=>probe('location','/rest/v1/app_meetings?select=location&limit=1',rt);
+// MTG-프로젝트합치기 2단계: 사업영역 꼬리표·다음 할 일 칸(20261028191500). 없으면 두 칸을 숨기고 지금처럼 저장한다.
+export const areaAvailable=(rt)=>probe('area','/rest/v1/app_meetings?select=business_area_id,next_plan&limit=1',rt);
+export const noteAreaFromMeetings=(rows,rt)=>noteColumnFromRows('area','business_area_id',rows,rt);
 export const noteLocationFromMeetings=(rows,rt)=>noteColumnFromRows('location','location',rows,rt);
 
 // 사업 보고 하나에 연결된 곳(프로젝트·조직) 목록. DB-2 전에는 옛 project_id 한 곳.

@@ -20,6 +20,7 @@
 // (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping) — except the request rows, which journal.js saves through
 // weekly-exec-requests.js. journal.js stays the only renderer of #journalRoot and calls
 // renderWeekly() into the box it owns.
+import {weeklyAreaRecords} from './business-area-model.mjs';
 import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
   compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, OTHERS, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
@@ -227,8 +228,14 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const fileEdits = {editable:!!draftRead && !draftRead.missing, loading:!m.weekDraft || m.weekDraft.status === 'loading', row:draftRead?.row ?? null};
   const editFile = item => applyDocEdit(item, edits.get(item.file.id));
 
+  // ② 줄에는 시각을 붙이지 않는다(칸 이름·이름·차수만).
+  const areaLine = meeting => meetingLine({...meeting, meeting_at:null});
   const summary = part('summary', s => {
-    const all = rawRecords, records = all.filter(r => keep(r, 'summary'));
+    // MTG-프로젝트합치기 2단계: 사업영역 꼬리표를 직접 단 사업 보고도 ② 재료(진행 = 보고 한 줄, 이후 계획 = 다음 할 일).
+    // 꼬리표가 빈 옛 보고는 넣지 않는다(지난 주 보고서가 달라지지 않게). 옛 진행 기록·바구니 프로젝트 연결은 그대로(결정 ⑦).
+    // 사업 보고 읽기는 ③의 재료라 ② 출처 목록(WEEKLY_SOURCES.summary)에는 넣지 않는다: 읽히면 함께 놓이고, 못 읽으면 ③이 실패를 알린다.
+    const areaRecords = ok(m, 'meetings') ? days.flatMap(day => weeklyAreaRecords(ok(m, 'meetings'), day, areaLine).map(r => ({...r, day}))) : [];
+    const all = [...rawRecords, ...areaRecords], records = all.filter(r => keep(r, 'summary'));
     const tree = ok(m, 'catalog');
     // WEEKLY-자료요약: 프로젝트에만 연결된 자료 → 그 프로젝트 줄(placeRecords가 자리를 찾음). 같은 프로젝트의 그 주 기록과 비교한다.
     const fileRecords = files.projects.map(({doc, id, name}) => {

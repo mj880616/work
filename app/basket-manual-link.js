@@ -17,6 +17,7 @@ export const MANUAL_LINK_REASON='직접 연결';
 export const MANUAL_LINK_LIMIT=20;
 export const TASK_LIMITS=Object.freeze({title:1024,notes:8192});
 // REF-참고묶음: 'reference' = a reference bundle (app_reference_bundles, link column bundle_id). It is never report material.
+// MTG-프로젝트합치기 2단계: 바구니에서 프로젝트 고르기 버튼·창 이름은 '사업영역 꼬리표 달기'(저장은 같은 연결 줄, 주간보고 ②에 그대로 — 결정 ⑦). 나머지 글자는 3단계에서.
 const KIND_NAME={organization:'담당조직',project:'프로젝트',reference:'참고'};
 const MANUAL_ERROR_TEXT=Object.freeze({
   NOTE_CHANGED:'업데이트가 그사이 바뀌었어요. 최신 업데이트를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.',
@@ -131,7 +132,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
       // REF-참고묶음 (질문 3: an update may be in an organization and a bundle at once): bundles are rows with a check box, like organizations.
       const ref=b=>{const name=b.name||'이름 없는 묶음',state=done.get(linkKey('reference',b.id));return state?doneItem(state,name,'home-choice-row','style="--home-choice-depth:0"'):orgRow(b,picked.has(linkKey('reference',b.id)),esc);};
       if(kind==='reference')return {title:'참고 묶음 선택',search:'묶음 이름 검색',html:choices.bundles?.length?choices.bundles.map(ref).join(''):'<p class="home-choice-label">고를 수 있는 참고 묶음이 없어요.</p>'};
-      return {title:'프로젝트 선택',search:'프로젝트 이름 검색',html:choices.projects.length?choices.projects.map(row).join(''):'<p class="home-choice-label">고를 수 있는 프로젝트가 없어요.</p>'};
+      return {title:'사업영역 꼬리표 달기',search:'사업영역 이름 검색',html:choices.projects.length?choices.projects.map(row).join(''):'<p class="home-choice-label">고를 수 있는 프로젝트가 없어요.</p>'};
     },
     onSelect:(kind,value)=>{
       if(kind==='task-project'){if(task)task.project=value;paint();return;}
@@ -204,7 +205,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     const done=[...linked().keys()].length,only=filesOnly(n);
     return `<section class="basket-manual" data-manual-link data-enter-save aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">${only?'조직·프로젝트 자료로 넣기':'조직·프로젝트에 연결'}</h3>
 ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'')}</div></details>`}
-<div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button><button type="button" data-manual-pick="reference" aria-haspopup="dialog" aria-expanded="false">참고 ▾</button></div>
+<div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">사업영역 꼬리표 달기 ▾</button><button type="button" data-manual-pick="reference" aria-haspopup="dialog" aria-expanded="false">참고 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 수 없어요.</p>`:''}
 <p class="basket-manual-hint">${only?'담당조직이나 프로젝트를 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
 <div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind!=='reference'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">${t.kind==='reference'?'요약 (선택 · 비우면 업데이트 본문이 보여요)':'기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)'}<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}${filesMarkup(n,t,key)}</div>`;}).join('')}</div>

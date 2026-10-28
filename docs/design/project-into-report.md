@@ -206,3 +206,22 @@
 
 - `docs/migration-history.md`에 `20261028160000_ai_usage_costs`·`20261028170000_note_folders` 행이 없다(다른 PR 범위). 이 PR도 같은 파일 충돌을 피하려고 행을 더하지 않았다 — 커맨드센터 원장 정리 때 함께.
 - 로컬 `node --test tests/security/*.test.mjs`에서 Deno가 필요한 `real Deno provider location contract` 6건이 이 세션 환경에서 실패했다. 시험 이름대로 실제 Deno 실행 파일이 필요한 시험이고 이번 변경(SQL·문서·DB 시험)과 닿는 곳이 없다(추정, clean main 재현은 하지 않음 — CI 결과로 판단).
+
+---
+
+## 11. 2단계 화면 구현 기록 (MTG-프로젝트합치기 2단계 PR)
+
+명진 결정(요청함 10/28 19:38): ① 꼬리표 하나 ② 옛 보고는 첫 연결 프로젝트를 화면에서 꼬리표처럼(일괄 채우기 없음) ③ 미리보기 담당 칸 비움·HWP는 기존 규칙 ④ 다음 할 일은 작게 접힌 칸 + 줄마다 [할 일로](자동 동기화 없음) ⑤ AI 요약 고친 내용은 주간 임시저장 칸 ⑥ 지난 진행 기록 보기 화면은 만들지 않음(데이터 보존) ⑦ 바구니 프로젝트 연결은 주간보고 ②에 그대로.
+
+| 무엇 | 어디 | 비고 |
+| --- | --- | --- |
+| 규칙 한 곳 | `app/business-area-model.mjs` | 꼬리표(`shownArea`: 직접 단 것 → 없으면 `project_id` 빌림), 다음 할 일 줄·1000자, 주·경로, 미리보기 재료, 주간보고 ② 재료, 사업영역 칩 |
+| 쓰기 창·고치기 창 칸 | `app/business-area-fields.js` `mountAreaFields` (team.js `#meetingAreaFields`, meeting-round-detail.js `#mrdEditArea`) | [사업영역] 고르기 = `report-places-sheet.js` `pickBusinessArea`(공용 고르기 창 `projectRow`, 하나만). [연결할 곳]에서 프로젝트를 고르면 손대지 않은 꼬리표를 첫 프로젝트로 미리 고름. 칸이 서버에 없으면(400) 숨김 |
+| 보기 면 | `paintAreaView` (`#mrdAreaView`) | '사업영역 …' 한 줄(빌린 것은 "(연결에서)"), 다음 할 일 줄마다 [할 일로] = 기존 `google-tasks?action=create`(보고·사업영역 연결 줄 함께), 이어진 할 일과 글이 같으면 '할 일에 있음' |
+| 목록·칩 | team.js `reportRows`·`meetingColumnList` 한 곳에서 거름 | 칸 칩 아래 사업영역 칩([전체]·1단·[꼬리표 없음 n]). 목록 줄 작은 글자는 직접 단 꼬리표만 |
+| [사업요약표 미리보기] | `app/report-summary-preview.js` | 사업 보고 화면이 읽어 둔 보고로 계산만(저장 없음). 표 줄 세우기 = 주간보고 `placeRecords`, 보고 한 줄 = `meetingLine`(시각 뺌). ‹ › 주 넘기기·[기간 바꾸기]. 줄을 누르면 그 보고. [HWP로 내려받기] = 그 주 [주간 정리]의 기존 한글 파일 상자(`KPTUJournal.showWeek(day,{hwpx:true})`) |
+| ⋯ [사업영역 관리] | index.html `#reportMore`(`<details>`) | 지금 프로젝트 화면(만들기·이름·순서·접기 그대로)으로 간다. 3단계에서 프로젝트 메뉴를 걷을 때 이 창 안으로 옮긴다 |
+| 주간보고 ② | `journal-weekly.js` summary | **직접 단 꼬리표**의 사업 보고만 "보고 → 이후: 다음 할 일"로 사업영역 줄에. 옛 보고는 넣지 않음(지난 주 보고서 유지). `readWeekMeetings`가 두 칸을 함께 읽음(없으면 400 → 지금처럼) |
+| 바구니 | `basket-manual-link.js` | [연결하기] 창의 '프로젝트 고르기' → **[사업영역 꼬리표 달기]**(저장은 같은 연결 줄). [사업 보고로 옮기기]는 이미 있음 |
+
+남은 것: 사업영역 AI 한 줄 요약(`ai-assist`, Edge 별도 PR·배포 전 정지)과 그 고친 내용 저장(주간 임시저장 칸), 쓰기 창의 AI 사업영역 추천, 3단계(옛 프로젝트 메뉴·진행 기록 입력칸 제거, ⋯ [사업영역 관리] 창을 사업 보고 안으로), 바구니·자료실·일정의 나머지 '프로젝트' 글자.
