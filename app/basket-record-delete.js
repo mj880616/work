@@ -135,7 +135,7 @@ export const isLegacyNoteDeleteReply=({data,status})=>status===400&&data?.code==
 
 // Shared outcome shape: deleted | missing | failed | unknown | cancelled | busy | stale.
 // A thrown write is never guessed: the row is read again to report the real state.
-async function remove(kind,id,{rt,isCurrent,confirmText,write}){
+async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false}){
   const key=`${kind}:${id}`;
   if(pending.has(key))return {status:'busy',message:RECORD_DELETE_TEXT.BUSY};
   pending.add(key);
@@ -148,7 +148,7 @@ async function remove(kind,id,{rt,isCurrent,confirmText,write}){
     const message=await confirmText();
     if(!current())return {status:'stale'};
     if(message.status){if(message.status==='missing')notify();return message;}
-    if(!globalThis.confirm(message.text)||!current())return {status:'cancelled'};
+    if((!confirmed&&!globalThis.confirm(message.text))||!current())return {status:'cancelled'};
     let status,result;
     if(write){
       result=await write({message,expectedSessionEpoch,path});
@@ -257,9 +257,9 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
 // 함수가 그 종류를 모르면(DB 적용 전) '준비 중'을 알리고 삭제 요청을 보내지 않는다(예전 note-delete 경로도 쓰지 않는다).
 // 서버 쪽 삭제 가로채기 트리거가 DELETE를 휴지통 표시로 바꾸므로 같은 owner-RLS DELETE 한 번을 보내고, 도착은 목록으로 확인한 뒤에만 알린다.
 // 연결·첨부(Drive)는 건드리지 않는다. 안내는 '휴지통으로 옮겼어요 · 되돌리기' 한 줄(offerUndoNotice)이라 결과 글은 비워 둔다.
-async function deleteNoteToTrash(noteId,{rt,isCurrent}){
+async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false}){
   const owner=scope(rt);
-  return remove('note',noteId,{rt,isCurrent,confirmText:async()=>{
+  return remove('note',noteId,{rt,isCurrent,confirmed,confirmText:async()=>{
     const first=await readTrashKind('note',rt);
     if(first.state!==TRASH_STATE.READY)return {status:'failed',message:otherDeleteBlockedText('note',first.state)};
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
@@ -286,8 +286,9 @@ async function deleteNoteToTrash(noteId,{rt,isCurrent}){
 
 // describe: the confirmation text for a row that is not a basket memo (JOURNAL-일기: "…일기를 지웁니다").
 // keepFiles (a note): the owner-RLS REST delete only; the files stay in Drive (NOTE-파일붙이기).
-export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false,trash=false}={}){
-  if(trash)return deleteNoteToTrash(noteId,{rt,isCurrent});
+// confirmed(NOTE-탐색기 여러 개 지우기): 부른 쪽이 'n개를 지울까요?'를 한 번 물었으면 노트마다 다시 묻지 않는다(휴지통 길만).
+export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false,trash=false,confirmed=false}={}){
+  if(trash)return deleteNoteToTrash(noteId,{rt,isCurrent,confirmed});
   return remove('note',noteId,{rt,isCurrent,confirmText:async()=>{
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
     if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};

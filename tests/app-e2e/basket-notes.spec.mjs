@@ -69,7 +69,8 @@ for(const width of [390,1280]){
   await expect(noteList(page).nth(0)).toContainText('임금협상 정리');await expect(noteList(page).nth(1)).toContainText('오래된 노트');
   // BASKET-노트입력창: no blue dot before a note title (a pinned note keeps its pin).
   await expect(page.locator('[data-note-host] .note-dot')).toHaveCount(0);
-  await expect(noteList(page).nth(0)).toContainText('합성 임금 프로젝트');
+  // NOTE-탐색기 ②: a note row is one line (title + date); link chips are not drawn in the list (the open note still shows them).
+  await expect(noteList(page).nth(0)).not.toContainText('합성 임금 프로젝트');
   await expect(page.locator('[data-note-host]')).not.toContainText('회의 준비 메모');
   await page.locator('[data-note-search]').fill('기본급');
   await expect(noteList(page)).toHaveCount(1);await expect(noteList(page)).toContainText('임금협상 정리');

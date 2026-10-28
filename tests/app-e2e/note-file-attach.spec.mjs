@@ -92,7 +92,8 @@ for (const width of [390, 1280]) {
     expect(f.uploads).toEqual([{noteId: 'new-1', name: '교섭 일정.pdf', rawText: false}]);
     await expect(bar.locator('[data-quick-input]')).toHaveValue(''); await expect(bar.locator('[data-basket-file]')).toHaveCount(0);
     await expect(bar.locator('[data-quick-lock]')).toBeHidden();
-    await expect(page.locator('[data-note-row="new-1"]')).toContainText('첨부 1개');
+    // NOTE-탐색기 ②: the one-line row marks files with 📎 (its name says how many).
+    await expect(page.locator('[data-note-row="new-1"] .nx-clip')).toHaveAttribute('aria-label', '첨부 1개');
     // Files only: the first file's name is the title, the body stays empty.
     await bar.locator('input[type=file]').setInputFiles([fileBuffer('현장 사진 모음.pdf')]);
     await press(page, bar.locator('[data-quick-save]'), width);
