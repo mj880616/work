@@ -12,6 +12,9 @@ const ALLOWED=new Set([
  'docs/20261025030000_tg_personal_days.postcheck.sql','docs/20261025030000_tg_personal_days.rollback.sql','docs/20261025030000_tg_personal_days.summary.md',
  'docs/migration-history.md','docs/design/tg-personal.md',
  'docs/design/multi-user-audit.md', // 설계 문서(표 이름만 나열, 읽는 코드 아님) — #1451
+ // Web2에 물어보기(FEAT-1029묶음 ①): 이 표를 읽지 않음을 확인하는 확인 SQL·시험만(읽는 코드 아님).
+ 'docs/20261029061500_ask_web2.postcheck.sql','tests/auth-handoff/ask-web2-db.test.mjs','tests/auth-handoff/ask-web2-fixture.mjs',
+ 'tests/security/ai-assist-ask-web2.test.mjs',
  'tests/auth-handoff/tg-personal-days.test.mjs','tests/auth-handoff/package.json','tests/security/tg-personal-isolation.test.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
