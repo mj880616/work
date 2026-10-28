@@ -135,6 +135,8 @@
     target?.click?.();
   }
 
+  // FEAT-1029묶음 ②: 18시(서울) 뒤 홈을 열면 내일 교섭·회의 전 한 장을 한 번 만든다(규칙·만들기는 pre-meeting-sheet.js 하나).
+  function preMeetingAuto(){if(new Date(Date.now()+9*36e5).getUTCHours()<18)return;void import('./pre-meeting-sheet.js').then(m=>m.autoMakeTomorrow()).catch(()=>{})}
   function install(){
     prepareStructure();
     revealHomeShell();
@@ -144,10 +146,10 @@
       const goto=e.target.closest?.('[data-hdv-goto]');
       if(goto)window.KPTURouter?.go?.(goto.dataset.hdvGoto,{source:'home-dashboard'});
     });
-    window.KPTURouter?.on?.('home',()=>schedule(40));
+    window.KPTURouter?.on?.('home',()=>{schedule(40);preMeetingAuto()});
     window.addEventListener('kptu:session-changed',()=>{renderEpoch+=1;userId='';workspaceId='';schedule(120)});
     ['kptu:tasks-changed','kptu:projects-changed','kptu:calendar-changed','kptu:documents-changed'].forEach(name=>window.addEventListener(name,()=>schedule(80)));
-    schedule(80);
+    schedule(80);preMeetingAuto();
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();

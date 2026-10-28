@@ -499,6 +499,11 @@ const aiDraft = day => draftFor(materials.journalDrafts?.status === 'ok' ? mater
 // After 18:00 KST, on today with no line and no draft, ask the server once with the day's materials (일정·한 일·회의·소식·업무 통화).
 // Waits until those reads have landed (a failed one is just left out). The server checks the same rules again and never overwrites.
 const DRAFT_SOURCES = ['events', 'tasks', 'meetings', 'basket', 'orgUpdates', 'projectUpdates', 'calls', 'journalDrafts'];
+// FEAT-1029묶음 ②: 18시(서울) 뒤 업무일지를 열면 내일 교섭·회의 전 한 장을 한 번 만든다(규칙·만들기는 pre-meeting-sheet.js 하나, 서버가 다시 봄).
+function preMeetingAuto() {
+  if (new Date(Date.now() + 9 * 3600 * 1000).getUTCHours() < 18) return;
+  void import('./pre-meeting-sheet.js').then(m => m.autoMakeTomorrow(rt)).catch(() => {});
+}
 async function maybeDraft() {
   const day = todayKey(), key = `${ownerScope(rt)}:${day}`, read = materials.journalDrafts;
   if (mode !== 'day' || selected !== day || linesState !== 'ok' || read?.status !== 'ok') return;
@@ -605,6 +610,7 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
   void checkOverlaps();
   void maybeDraft();
   maybeNextWeek();
+  preMeetingAuto();
 }
 async function loadLines(run, scope) {
   linesState = 'loading'; renderLine();
