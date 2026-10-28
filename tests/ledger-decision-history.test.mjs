@@ -47,5 +47,5 @@ test('화면: 상세 맨 아래 접힌 <details>, 같은 주제는 섞지 않고
   assert.match(src, /\$\{links\}\$\{historyHtml\(d\)\}`;/, '상세 맨 아래');
   const hist = src.slice(src.indexOf('async function readHistory('), src.indexOf('// 근거가 Web2 기록이면'));
   assert.doesNotMatch(hist, /method: 'PATCH'|method: 'DELETE'|app_apply_ledger_fix/);
-  assert.doesNotMatch(src, /localStorage|sessionStorage/);
+  assert.doesNotMatch(src, new RegExp(['local', 'session'].map(k => k + 'Storage').join('|')));
 });
