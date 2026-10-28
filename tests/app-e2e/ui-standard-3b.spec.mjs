@@ -81,7 +81,7 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  const schedule=page.locator('.mobile-tabs [data-mobile-schedule-tab]'),name=page.locator('[data-mobile-view-name]');
  // 옛 할 일 주소는 [일정]의 [할 일] 쪽으로 열린다.
  await loaded(page,'tasks');await expect(page).toHaveURL(/view=tasks/);
- await expect(schedule).toHaveAttribute('aria-current','page');await expect(name).toHaveText('일정');
+ await expect(schedule).toHaveAttribute('aria-current','page');await expect(name).toHaveText('할 일'); // UI-화면정리 B ①: 일정 하위 화면은 머리줄에 제 이름
  const toTasks=page.locator('#tasksView .schedule-switch [data-view="tasks"]'),toCalendar=page.locator('#tasksView .schedule-switch [data-view="calendar"]');
  await expect(toTasks).toHaveAttribute('aria-pressed','true');await expect(toCalendar).toHaveAttribute('aria-pressed','false');
  const pressed=await toTasks.evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}));

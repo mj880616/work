@@ -186,7 +186,7 @@ for(const width of [390,1440]){
     const panel=await page.locator('.lu-more-panel').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.x+panel.width).toBeLessThanOrEqual(width);expect(panel.y+panel.height).toBeLessThanOrEqual(900);
     await page.keyboard.press('Escape');await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
-    await menu(page);/* UI-화면정리 B ①: 큰 제목 '자료실'은 폰 머리줄·PC 위쪽 줄이 맡아 본문에서는 읽기 프로그램용이므로 머리 줄 빈 곳을 누른다 */await page.locator('#libraryListCard .add-list-head').click({position:{x:1,y:1}});await expect(page.locator('.lu-more-panel')).toBeHidden();
+    await menu(page);/* UI-화면정리 B ①: 큰 제목 '자료실'은 폰 머리줄·PC 위쪽 줄이 맡아 본문에서는 읽기 프로그램용이므로 검색칸(메뉴 밖)을 누른다 */await page.locator('#documentSearch').click();await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
     await menu(page);await page.goBack();await expect(page.locator('.lu-more-panel')).toBeHidden();await expect(page).toHaveURL(url);
     // D-3c pseudo-element: click 4px outside the visible 32px icon.
@@ -350,7 +350,7 @@ for(const width of [390,1280]){
       expect(await meeting.locator('option').evaluateAll(opts=>opts.map(o=>o.value))).toEqual(['','recent','older']);
       const labels=await meeting.locator('option').allTextContents();
       expect(labels[0]).toBe('연결 안 함');
-      const expected=await page.evaluate(m=>['정책 회의','2차',new Date(m.meeting_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})].join(' · '),state.meetings[1]);
+      const expected=await page.evaluate(m=>['정책 회의','2차',new Date(m.meeting_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})].join(' · '),state.meetings[1]);
       expect(labels[1]).toBe(expected);
       await page.screenshot({path:`/tmp/library-meeting-edit-modal-${width}.png`,fullPage:true});
       await meeting.selectOption('recent');
