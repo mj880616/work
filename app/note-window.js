@@ -6,10 +6,11 @@
 //   There is no [업데이트 | 노트] switch here: an update is written from the update input (차이 — PR 본문).
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {openEdWindow} from './ed-window.js';
-import {createNoteDoc, noteTitleFromText, setNoteFolder} from './basket-data.js';
+import {createNoteDoc, noteTitleFromText} from './basket-data.js';
 import {createUploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle} from './basket-upload.js';
 import {notePhotos} from './note-body.js';
 import {NOTE_TEXT_MAX} from './note-doc.mjs';
+import {requestNoteAiTitle} from './note-ai-title.js';
 
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
@@ -44,7 +45,7 @@ function titleRow({value = '', folder = null, placeholder = '노트 제목(비�
 
 // A new note. text: the note input's letters (kept as written). upload: the note input's own batch {getBatch, isBusy, onChange, reset}
 // (optional). noteFolder: {label(), open(trigger)} (optional; note-folder-pick.js, or the note screen's own). With write:true and get() the window
-// puts the new note into the chosen folder itself after the save (the same setNoteFolder write as the note screen); without it the opener does.
+// puts the new note into the chosen folder itself after the save (noteFolder.put: the same setNoteFolderRef write as the note screen); without it the opener does.
 // onClose({saved, text}) — saved = {kind:'note', id} after a save.
 export function openNoteWindow({text = '', title = '새 노트', rt = window.KPTURuntime, upload = null, noteFolder = null, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
@@ -66,9 +67,11 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
       const first = list.entries.find(entry => entry.kind !== 'success')?.file?.name;
       const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() ? value : null}, rt);
       saved = {kind: 'note', id: note.id};
-      if (noteFolder?.write && noteFolder.get?.()) {
-        try { await setNoteFolder({id: note.id}, noteFolder.get(), rt); }
-        catch { warning = `노트는 저장했지만 '${noteFolder.get()}' 폴더에 넣지 못했어요. 노트 ⋯의 [폴더로 옮기기]로 옮겨 주세요.`; }
+      void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: AI 요약 제목(서버가 정함, 기다리지 않음)
+      // NOTE-탐색기 후속 ⑤: 고른 폴더(폴더 나무 고르기 창, 폴더 id)에 넣는 일은 noteFolder.put(note-folder-pick.js, setNoteFolderRef 한 길)이 한다.
+      if (noteFolder?.write && noteFolder.get?.() && noteFolder.put) {
+        try { await noteFolder.put({id: note.id}); }
+        catch { warning = `노트는 저장했지만 '${noteFolder.label()}' 폴더에 넣지 못했어요. 노트 ⋯의 [폴더로 옮기기]로 옮겨 주세요.`; }
       }
       if (count) {
         try { await uploadNoteFiles(note.id, list, {rt, isCurrent: () => rt.session.read()?.user?.id === owner, onChange: () => files.picker.render()}); }
