@@ -10,6 +10,7 @@ import {createNoteDoc, noteTitleFromText, setNoteFolder} from './basket-data.js'
 import {createUploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle} from './basket-upload.js';
 import {notePhotos} from './note-body.js';
 import {NOTE_TEXT_MAX} from './note-doc.mjs';
+import {requestNoteAiTitle} from './note-ai-title.js';
 
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
@@ -66,6 +67,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
       const first = list.entries.find(entry => entry.kind !== 'success')?.file?.name;
       const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() ? value : null}, rt);
       saved = {kind: 'note', id: note.id};
+      void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: AI 요약 제목(서버가 정함, 기다리지 않음)
       if (noteFolder?.write && noteFolder.get?.()) {
         try { await setNoteFolder({id: note.id}, noteFolder.get(), rt); }
         catch { warning = `노트는 저장했지만 '${noteFolder.get()}' 폴더에 넣지 못했어요. 노트 ⋯의 [폴더로 옮기기]로 옮겨 주세요.`; }
