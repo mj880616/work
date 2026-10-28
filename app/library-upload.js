@@ -3,7 +3,7 @@ import {renderFilterChips} from './filter-chips.js';
 import {readView,saveView} from './library-view-pref.js';
 import {RECENT_UPLOAD_LIMIT,RECENT_UPLOAD_MORE,recentUploads,isNewUpload,uploadTimeLabel,rememberFolder,cleanRecentFolders} from './library-move.mjs';
 import {renderCategoryChips,toggleCategoryOff} from './category-chips.js';
-import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially,confirmText,resultText} from './library-select.js';
+import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially} from './library-select.js';
 import {isLibraryPhoto,hydrateLibraryThumbs} from './library-photo.js';
 import {foldPhotoSets,isPhotoSet,photoMeetingChunks} from './library-photoset.mjs';
 import {reportPhotosHtml,mountReportPhotos} from './report-photos.js';
@@ -11,6 +11,7 @@ import {GROUP_BY,GROUP_LABELS,fileKindOf,buildTree,treeHtml,keys as luTreeKeys,w
 import {mountLibraryFolders} from './library-folders.js';
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {notify,NOTICE_UNDO_MS} from './small-notice.js';
 import {takeLibraryDocumentRequest,takeLibrarySelectionRequest} from './basket-library-send.js';
 import {isHwpName,requestHwpEdit} from './hwp-drive.js';
 import {pressFile,downloadFile,openInDrive,canOpenInDrive,fileAttrs,driveOpenUrl} from './file-actions.js';
@@ -33,7 +34,6 @@ const LU_SESSION='kptu_collab_session_v1';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
 let luEditSequence=0,luEditView=0,luEditor=null,luEditObservedScope=null;const luEditAttempts=new Map();
 // These tokens own only the lifetime of in-flight UI work, not deletion authority.
-const luDeleteTokens=new Set();
 window.addEventListener('kptu:before-reload',event=>{if(luUploadEntries.length&&!document.querySelector('#documentModal')?.classList.contains('hidden'))event.detail.otherDraft=true});
 function luRead(){if(window.KPTURuntime?.session)return window.KPTURuntime.session.read();try{return JSON.parse(localStorage.getItem(LU_SESSION)||'null')}catch{return null}}
 async function luEnsure(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();luSession=window.KPTURuntime.session.read();return ok}luSession=luRead();if(!luSession)return false;if((luSession.expires_at||0)<Math.floor(Date.now()/1000)+60&&luSession.refresh_token){const r=await fetch(LU_SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:LU_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:luSession.refresh_token})});if(!r.ok)return false;const d=await r.json();d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);luSession=d;localStorage.setItem(LU_SESSION,JSON.stringify(d))}return true}
@@ -310,7 +310,7 @@ async function luUploadOrOriginal(original){if(luUploading)return;const projectI
 function luEnsureManageUi(){if(document.querySelector('#libraryManageModal'))return;document.body.insertAdjacentHTML('beforeend',`<div id="libraryManageModal" class="modal hidden" aria-hidden="true"><div class="modal-card medium-card"><div class="modal-head"><div><h2>자료 분류 수정</h2></div><button id="libraryManageClose" class="icon-btn" type="button">×</button></div><div id="libraryCategoryEditor" class="library-category-editor"></div></div></div><div id="libraryEditModal" class="modal hidden" data-enter-save aria-hidden="true"><div class="modal-card small-card"><div class="modal-head"><div><h2>자료 수정</h2></div><button id="libraryEditClose" class="icon-btn" type="button">×</button></div><input id="libraryEditId" type="hidden"><div id="libraryEditFile" class="library-edit-file" hidden><div id="libraryEditFileLine" aria-live="polite"></div><details id="libraryEditPrev" class="library-edit-prev" hidden><summary>이전 파일 ▾</summary><div id="libraryEditPrevList"></div></details><input id="libraryEditReplaceInput" class="library-file-input" type="file" tabindex="-1" aria-label="교체할 파일"></div><label>자료명<input id="libraryEditTitle" type="text"></label><div class="library-edit-grid"><label>분류<select id="libraryEditCategory">${categoryOptions('')}</select></label><label>프로젝트<select id="libraryEditProject"></select></label><label>사업 보고<select id="libraryEditMeeting"></select></label><label>출처<input id="libraryEditSource" type="text"></label><label>문서 날짜<input id="libraryEditDate" type="date"></label></div><label>태그<input id="libraryEditTags" type="text" placeholder="쉼표로 구분"></label><label>설명<textarea id="libraryEditDescription" rows="4"></textarea></label><div class="modal-action-footer"><div id="libraryEditStatus" class="status"></div><button id="libraryEditSave" data-enter-save-submit class="primary wide" type="button">수정 저장</button></div></div></div>`);document.querySelector('#libraryManageClose').onclick=()=>luClose('libraryManageModal');document.querySelector('#libraryEditClose').onclick=()=>luClose('libraryEditModal');document.querySelector('#libraryEditSave').onclick=luSaveEdit;luBindReplaceFile()}
 function luOpen(id){const m=document.querySelector('#'+id);m?.classList.remove('hidden');m?.setAttribute('aria-hidden','false');if(m)window.dispatchEvent(new CustomEvent('kptu:dialog-opened',{detail:{modal:m}}))}
 function luClose(id){if(id==='libraryEditModal'){luEditSequence++;luEditor=null}const m=document.querySelector('#'+id);m?.classList.add('hidden');m?.setAttribute('aria-hidden','true');if(m)window.dispatchEvent(new CustomEvent('kptu:dialog-closed',{detail:{modal:m}}))}
-async function luLoadDocuments(){if(!luWorkspace)return;luDocuments=await luApi('/rest/v1/app_documents?workspace_id=eq.'+luWorkspace+'&select=*&order=document_date.desc.nullslast,created_at.desc');await luLoadPhotoMeetings()}
+async function luLoadDocuments(){if(!luWorkspace)return;luDocuments=await luApi('/rest/v1/app_documents?workspace_id=eq.'+luWorkspace+'&select=*&order=document_date.desc.nullslast,created_at.desc');if(luGone.size&&Array.isArray(luDocuments))luDocuments=luDocuments.filter(d=>!luGone.has(d.id));await luLoadPhotoMeetings()}
 // ACT-사진 4단계: 사업 보고에 붙은 사진을 사업 보고마다 한 줄로 묶으려면 그 사업 보고의 제목·일시·칸이 필요하다. 사업 보고 표는 읽기만 한다(소유자 RLS, 휴지통 사업 보고는 서버가 숨김).
 // 번호 → 사업 보고 행. 물어봤는데 안 돌아온 번호(휴지통)는 null 로 둔다. 읽지 못하면 null: 묶지 않고 사진을 한 장 한 줄로 그대로 보인다.
 let luPhotoMeetings=null;
@@ -324,6 +324,8 @@ async function luLoadPhotoMeetings(){
   }catch(e){luPhotoMeetings=null;console.warn('library photo meetings read failed',e?.message||e)}
 }
 const luListDocs=()=>foldPhotoSets(luDocuments,luPhotoMeetings);
+// LIB-정리보충 ②: 사진 묶음 줄(사업 보고 하나)의 실제 사진 자료 행들. 묶음은 계산된 줄이라 옮길 때는 이 행들을 한 번에 옮긴다(사업 보고 연결은 그대로).
+function luPhotoSetMembers(meetingId){const set=luListDocs().find(d=>isPhotoSet(d)&&d.meeting_id===meetingId);if(!set)return [];const ids=new Set((set.photos||[]).map(p=>p.id));return luDocuments.filter(d=>ids.has(d.id))}
 // 묶음 줄: 사업 보고 하나 = 한 줄. 누르면 그 사업 보고(사진 보기는 사업 보고 화면 쪽 단계에서 이어 붙는다). 사진은 자료실에서 고르거나 옮기거나 지울 수 없다(사업 보고에서 다룸).
 function luPhotoSetRowHtml(d){
   const label=luEsc(d.title),date=luDisplayName(d).date,mid=luEsc(d.meeting_id);
@@ -369,7 +371,7 @@ window.addEventListener('kptu:library-folders-changed',()=>{if(!luWorkspace)retu
 function luLoadOrganizations(){if(luOrganizations||luOrganizationsLoading||!luWorkspace)return luOrganizationsLoading;luOrganizationsLoading=Promise.all([luApi('/rest/v1/app_suborganizations?workspace_id=eq.'+encodeURIComponent(luWorkspace)+'&select=id,name,active&order=id.asc'),import('./organization-order.js')]).then(([rows])=>{luOrganizations=window.KPTUOrganizationOrder?.sort?.(rows||[])||rows||[]}).catch(()=>{luOrganizations=[]}).finally(()=>{luOrganizationsLoading=null;luRenderLibrary()});return luOrganizationsLoading}
 const LU_PROJECT_COLORS=['green','blue','orange','purple','pink','yellow','red','gray'];
 function luProjectColor(project){const rows=luCatalog()?.projects||[];let top=project,guard=0;while(top?.parent_id&&guard++<5){const up=rows.find(p=>p.id===top.parent_id);if(!up)break;top=up}const key=LU_PROJECT_COLORS.includes(top?.metadata?.color)?top.metadata.color:'gray';return {color:key,tone:top!==project?'soft':''}}
-const luKindKey=k=>k==='파일'?'other':k==='그림'?'img':k.toLowerCase();
+const luKindKey=k=>k==='파일'?'other':k==='그림'?'img':k==='웹'?'web':k.toLowerCase();
 function luRenderGroupBy(){
   const host=document.querySelector('#libraryGroupBy');if(!host)return;
   renderFilterChips(host,{label:'묶기',controls:'documentList',small:true,value:luGroupBy,options:GROUP_BY.filter(value=>value!=='folder'||luFoldersReady).map(value=>({value,label:GROUP_LABELS[value]})),onChange:value=>{if(value===luGroupBy)return;luGroupBy=value;luInFolder=null;luSessionFolder=value==='folder';luUserChangedView('groupBy');luOpened.clear();luFilterOpen.clear();luShowAll.clear();if(value==='organization')luLoadOrganizations();luRenderLibrary()}});
@@ -479,7 +481,7 @@ const luFolderViews=()=>(luGroupBy==='project'||luGroupBy==='folder')&&luFolders
 // LIB-폴더로옮기기 ③: 끌기는 어느 묶기에서나(종류·담당조직·월별은 왼쪽에 뜨는 놓을 곳 목록으로). 폰 길게 누르기는 폴더 토글이 보이는 묶기에서만(luFolderViews).
 const luCanDrag=()=>!!LU_FINE?.matches&&luFoldersReady;
 // 파일 줄은 그 프로젝트 틀에 폴더가 있을 때만 끌 수 있다(놓을 곳이 없으면 끌지 않음). 줄 HTML은 luRowHtml 그대로에 draggable만 붙인다.
-function luDragRowHtml(d,node){const html=luRowHtml(d,node);if(isPhotoSet(d)||!luCanDrag()||!(luGroupBy==='folder'||luGroupBy==='category'||luFolders_.some(f=>(f.project_id||null)===(d.project_id||null))))return html;return html.replace('<article class="lu-row','<article draggable="true" class="lu-row')}
+function luDragRowHtml(d,node){const html=luRowHtml(d,node);if((isPhotoSet(d)&&luGroupBy!=='folder')||!luCanDrag()||!(luGroupBy==='folder'||luGroupBy==='category'||luFolders_.some(f=>(f.project_id||null)===(d.project_id||null))))return html;return html.replace('<article class="lu-row','<article draggable="true" class="lu-row')}
 // LIB-줄안이름바꾸기: 줄 우클릭·⋯ 메뉴의 [이름 바꾸기] 또는 줄을 고른 채 F2 → 창 없이 그 줄 제목이 입력칸이 된다(글자 전체 선택).
 // Enter·바깥 누르기=저장, Esc=취소. 저장하면 줄 위 한 줄에 '이름을 바꿨어요 · 되돌리기'. 바꾸는 것은 Web2 제목뿐(Drive 원본 파일 이름 그대로).
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH)이고 제목 칸을 사용자 값('user')으로 남긴다(library-rename.js). 브라우저 저장소는 쓰지 않는다.
@@ -555,7 +557,7 @@ async function luRenameUndo(id,renamed,snapshot){
   finally{luRenameBusy=false}
 }
 function luFolderStatus(text,error=false){const el=document.querySelector('#libraryFolderStatusLine');if(!el)return;el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error)}
-function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({enter:luEnterFolder,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luSel?[...luSel]:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luSel&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luSel&&ids.every(id=>luSel.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luSel&&[...done,...failed].some(id=>luSel.has(id));luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder}});return luFolderUi}
+function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({enter:luEnterFolder,photoSetDocs:luPhotoSetMembers,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luSel?[...luSel]:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luSel&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luSel&&ids.every(id=>luSel.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luSel&&[...done,...failed].some(id=>luSel.has(id));luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder}});return luFolderUi}
 // 토글 하나를 접거나 편다(폴더 ⋯ 메뉴의 [접기·펼치기]). 상태는 머리를 눌렀을 때와 같은 곳(luOpened·luFilterOpen)에 적는다.
 const luNodeEl=key=>[...document.querySelectorAll('#documentList details[data-lu-node]')].find(x=>x.dataset.luNode===key);
 const luNodeOpen=key=>!!luNodeEl(key)?.open;
@@ -770,27 +772,79 @@ window.addEventListener('kptu:view-changed',()=>{luEditView++;if(luEditor)luClos
 window.addEventListener('kptu:dialog-closed',event=>{if(event.detail?.modal?.id==='libraryEditModal'&&luEditor){luEditSequence++;luEditor=null}});
 window.addEventListener('kptu:session-changed',()=>{if(luEditSameScope(luEditObservedScope))return;luEditObservedScope=null;luEditAttempts.clear();luEditSequence++;luEditor=null;luEditOriginal=null;luEditBaseline=null;luClose('libraryEditModal');luEditSelectors.forEach(key=>{const input=document.querySelector('#libraryEdit'+key);if(input)input.value=''})});
 function luDeleteScope(){const rt=window.KPTURuntime;if(typeof rt?.api!=='function'||typeof rt.session?.read!=='function'||typeof rt.context?.read!=='function')return null;const scope=luEditScope(),session=rt.session.read();return scope&&typeof scope.owner==='string'&&scope.owner.trim()&&typeof scope.workspace==='string'&&scope.workspace.trim()&&typeof session?.access_token==='string'&&session.access_token.trim()?scope:null}
-function luDeleteCurrent(token){const scope=luDeleteScope();if(!luDeleteTokens.has(token)||!scope||!['owner','workspace','epoch'].every(key=>scope[key]===token.scope[key])||window.KPTURouter?.current!=='library'){luDeleteTokens.delete(token);return false}return true}
-window.addEventListener('kptu:session-changed',event=>{for(const token of luDeleteTokens){const detail=event.detail,session=detail?.session;if(!luDeleteCurrent(token)||(detail&&Object.prototype.hasOwnProperty.call(detail,'session')&&(!session?.access_token?.trim?.()||session.user?.id!==token.scope.owner))||(detail&&Object.prototype.hasOwnProperty.call(detail,'epoch')&&detail.epoch!==token.scope.epoch))luDeleteTokens.delete(token)}});
-window.addEventListener('kptu:view-changed',event=>{for(const token of luDeleteTokens)if(event.detail?.view!=='library'||event.detail?.source!=='session'||!luDeleteCurrent(token))luDeleteTokens.delete(token)});
-async function luDeleteDocument(id){
+// LIB-바로지우기 (2026-10-28 명진 요청 08:28 ①, 11:53 결정 ②): 지우기를 누르면 확인 없이 그 줄을 목록에서 바로 빼고 위쪽 작은 알림 '지웠어요 · 되돌리기'(6초).
+// 서버·Drive 처리(document-actions delete, 하나씩 삭제와 같은 길)는 6초가 지난 뒤 뒤에서 보낸다. [되돌리기]·Ctrl+Z는 아무 요청도 보내지 않고 줄을 되살린다.
+// 서버에 휴지통 되살리기 길이 없어서 되돌리기는 '보내기 전 기다림'으로 만든다(보낸 뒤에는 '이미 지웠어요'로 답함 — 명진 결정: 서버 되살리기는 이번에 만들지 않음).
+// - 로그인·업무공간이 바뀌면(epoch·owner·workspace, 또는 바뀐 로그인 알림을 받음) 보내지 않고 취소한다. 보낸 뒤의 결과도 그 로그인에서만 화면에 반영한다.
+// - 자료실을 떠나거나 창이 숨겨지면 기다리지 않고 바로 보낸다(사용자가 이미 지우기로 한 것). 결과 알림은 작은 알림으로, Drive 다시 연결은 자료실에 있을 때만 묻는다.
+// - 실패하면 그 줄을 목록에 되살리고 작은 알림. 기다리는 동안 목록을 다시 읽어도 지울 줄(luGone)은 보이지 않고, 같은 자료를 두 번 보내지 않는다(luGone + document-delete.js 잠금).
+const LU_DELETE_WAIT_MS=6000;
+const luGone=new Set(),luSentBatches=new Set();let luGoneBatches=[],luDeleteRouteSeq=0;
+function luRestoreRows(rows){const have=new Set(luDocuments.map(d=>d.id));const back=rows.filter(d=>!have.has(d.id));if(back.length){luDocuments=[...luDocuments,...back].sort((a,b)=>String(b.document_date||'').localeCompare(String(a.document_date||''))||String(b.created_at||'').localeCompare(String(a.created_at||'')));}luRenderLibrary()}
+function luBatchCurrent(batch){return !batch.revoked&&luSameScope(batch.scope)}
+function luQueueDelete(ids){
   const scope=luDeleteScope();
-  if(typeof id!=='string'||!id.trim())return;
-  if(!scope){alert('로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.');return}
-  const token=Object.freeze({id,scope:Object.freeze(scope)});luDeleteTokens.add(token);
-  const isCurrent=()=>luDeleteCurrent(token);
-  try{
-    if(!isCurrent())return;
-    let d=luDocuments.find(x=>x.id===token.id);
-    if(!d){const rows=await luApi('/rest/v1/app_documents?id=eq.'+encodeURIComponent(token.id)+'&workspace_id=eq.'+encodeURIComponent(scope.workspace)+'&select=*&limit=1',{expectedSessionEpoch:scope.epoch,singleFlight:false});if(!isCurrent())return;d=rows?.[0]}
-    if(!isCurrent()||d?.id!==token.id||d.workspace_id!==scope.workspace)return;
-    const registration=Object.freeze({...d});
-    let helper;try{helper=await import('./document-delete.js')}catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return}
-    if(!isCurrent())return;
-    if(await helper.deleteDocument(registration,{api:luApi,maybeReconnect:luMaybeReconnectDrive,expectedSessionEpoch:scope.epoch,isCurrent})&&isCurrent()){luDocuments=luDocuments.filter(x=>x.id!==token.id);luRenderLibrary()}
-  }catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.')}
-  finally{luDeleteTokens.delete(token)}
+  if(!scope){notify('로그인 세션을 확인하지 못했어요. 다시 로그인한 뒤 자료 목록을 먼저 확인해 주세요.',{error:true});return false}
+  // 화면이 들고 있는 자료(같은 업무공간)만 지운다. 붙잡을 때의 사본을 고정해 뒤에 목록 값이 바뀌어도 보낼 ID는 그대로.
+  const rows=ids.map(id=>luDocuments.find(d=>d.id===id)).filter(d=>d&&!luGone.has(d.id)&&!isPhotoSet(d)&&d.workspace_id===scope.workspace).map(d=>Object.freeze({...d}));
+  if(!rows.length)return false;
+  const batch={rows,scope:Object.freeze({...scope}),timer:0,sent:false,revoked:false};
+  for(const d of rows)luGone.add(d.id);
+  luDocuments=luDocuments.filter(d=>!luGone.has(d.id));
+  if(luSel){for(const d of rows)luSel.delete(d.id);if(!luSel.size)luSel=null}
+  luRenderLibrary();luGoneBatches.push(batch);
+  const undo=()=>{
+    if(batch.sent)return {status:'failed',message:'이미 지워서 되돌릴 수 없어요.'};
+    clearTimeout(batch.timer);batch.sent=true;batch.revoked=true;luGoneBatches=luGoneBatches.filter(b=>b!==batch);for(const d of rows)luGone.delete(d.id);
+    if(!luSameScope(batch.scope))return {status:'stale'};
+    luRestoreRows(rows);return true;
+  };
+  notify(rows.length>1?`${rows.length}개를 지웠어요`:'지웠어요',{undo,label:rows.length>1?`지우기 ${rows.length}개`:'지우기',ms:LU_DELETE_WAIT_MS});
+  batch.timer=setTimeout(()=>void luSendDelete(batch),LU_DELETE_WAIT_MS);
+  return true;
 }
+function luSameScope(a){const b=luDeleteScope();return !!b&&['owner','workspace','epoch'].every(k=>a[k]===b[k])}
+async function luSendDelete(batch){
+  if(batch.sent)return;batch.sent=true;clearTimeout(batch.timer);luGoneBatches=luGoneBatches.filter(b=>b!==batch);
+  const {rows,scope}=batch,isCurrent=()=>luBatchCurrent(batch);
+  const release=list=>{for(const d of list)luGone.delete(d.id)};
+  luSentBatches.add(batch);
+  try{
+    if(!isCurrent()){release(rows);return}
+    let helper;try{helper=await import('./document-delete.js')}catch{release(rows);if(isCurrent()){luRestoreRows(rows);notify('자료를 지우지 못했어요. 다시 시도해 주세요.',{error:true})}return}
+    let stopped=null;
+    const result=await deleteSequentially(rows.map(d=>d.id),async id=>{
+      const d=rows.find(x=>x.id===id),bulk={};
+      const ok=await helper.deleteDocument(d,{api:luApi,maybeReconnect:luMaybeReconnectDrive,expectedSessionEpoch:scope.epoch,isCurrent,bulk});
+      if(bulk.stop)stopped=bulk.error||null;
+      return {ok:!!ok,stop:!!bulk.stop};
+    },{isCurrent});
+    const done=new Set(result.done),bad=rows.filter(d=>!done.has(d.id));
+    release(rows);
+    if(!isCurrent())return;// 보낸 뒤 로그인이 바뀌었으면 결과를 화면에 반영하지 않는다(다음 목록 읽기가 서버 상태를 보여 줌).
+    if(bad.length){luRestoreRows(bad);notify(bad.length===rows.length?(rows.length>1?`${bad.length}개를 지우지 못해 목록에 되살렸어요.`:'지우지 못해 목록에 되살렸어요.'):`${done.size}개를 지웠고 ${bad.length}개는 지우지 못해 되살렸어요.`,{error:true,note:'로그인·Google Drive 연결을 확인한 뒤 다시 지워 주세요.'})}
+    if(done.size)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
+    // Drive 연결이 만료돼 멈췄으면, 자료실에 있을 때만 다시 연결을 묻는다(보낼 때 잡은 로그인 번호로).
+    // 묻는 동안·연결 주소를 받는 동안 다른 화면을 다녀오면(로그인 갱신으로 같은 화면을 다시 그린 것은 빼고) 이동하지 않는다.
+    const routeSeq=luDeleteRouteSeq,here=()=>isCurrent()&&window.KPTURouter?.current==='library'&&routeSeq===luDeleteRouteSeq;
+    if(stopped&&luIsDriveAuthError(stopped)&&here())await luMaybeReconnectDrive(stopped,{isCurrent:here,expectedSessionEpoch:scope.epoch});
+  }finally{luSentBatches.delete(batch)}
+}
+function luFlushDeletes(){for(const b of [...luGoneBatches])void luSendDelete(b)}
+window.addEventListener('kptu:view-changed',e=>{if(!(e.detail?.view==='library'&&e.detail?.source==='session'))luDeleteRouteSeq++;if(e.detail?.view!=='library')luFlushDeletes()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushDeletes()});
+// 바뀐 로그인 알림을 받으면(다른 사람·로그아웃·빈 토큰·다른 번호) 기다리는 것은 취소, 보내는 중인 것은 결과를 화면에 반영하지 않는다.
+// 알림 뒤 원래 로그인으로 돌아와도 취소는 그대로(되살아나 몰래 보내지 않음). 같은 사람의 토큰 갱신은 그대로 둔다.
+window.addEventListener('kptu:session-changed',event=>{
+  const detail=event.detail,session=detail?.session;
+  for(const b of [...luGoneBatches,...luSentBatches]){
+    const changed=!luSameScope(b.scope)||(detail&&Object.prototype.hasOwnProperty.call(detail,'session')&&(!session?.access_token?.trim?.()||session.user?.id!==b.scope.owner))||(detail&&Object.prototype.hasOwnProperty.call(detail,'epoch')&&detail.epoch!==b.scope.epoch);
+    if(!changed)continue;
+    b.revoked=true;
+    if(!b.sent){clearTimeout(b.timer);b.sent=true;luGoneBatches=luGoneBatches.filter(x=>x!==b);for(const d of b.rows)luGone.delete(d.id);if(luSameScope(b.scope))luRestoreRows(b.rows)}
+  }
+});
+function luDeleteDocument(id){if(typeof id!=='string'||!id.trim())return;luQueueDelete([id])}
 // LIB-여러개삭제: [선택] → 자료 줄 왼쪽 네모 칸 → 위쪽 줄 '[전체] n개 골랐음 [삭제] [취소]'. 상태 주인은 luSel(null이면 선택 모드 아님, 화면 기억만).
 // 지우기는 하나씩 삭제와 같은 document-delete.js·서버 경로를 한 번에 하나씩 차례로 부른다. 되돌리기는 없고, 지우기 전 확인은 한 번.
 let luSel=null,luSelBusy=false;
@@ -923,38 +977,10 @@ function luAfterBulk(ids,failed,fromSelection=true){
   for(const row of document.querySelectorAll('#documentList .lu-row[data-lu-document]'))if(ok.has(row.dataset.luDocument)){row.classList.remove('lu-flash');void row.offsetWidth;row.classList.add('lu-flash')}
 }
 function luSelAll(){if(!luSel||luSelBusy)return;luPickToggle(luVisibleIds())}
-async function luSelDelete(){
+function luSelDelete(){
   if(!luSel||luSelBusy||!luSel.size)return;
-  const scope=luDeleteScope();
-  if(!scope){alert('로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.');return}
   const shown=luVisibleIds(),ids=[...luSel].filter(id=>luDocuments.some(d=>d.id===id)).sort((a,b)=>shown.indexOf(a)-shown.indexOf(b));// 화면에 보이는 차례로
-  if(!ids.length)return;
-  if(!confirm(confirmText(ids.length)))return;
-  const token=Object.freeze({id:'bulk',scope:Object.freeze(scope)});luDeleteTokens.add(token);
-  const isCurrent=()=>luDeleteCurrent(token);
-  luSelBusy=true;luSyncPicks();
-  const count=document.querySelector('#librarySelectCount');
-  let result=null;
-  try{
-    let helper;try{helper=await import('./document-delete.js')}catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return}
-    result=await deleteSequentially(ids,async id=>{
-      const d=luDocuments.find(x=>x.id===id);if(!d)return {ok:false};
-      const bulk={},ok=await helper.deleteDocument(Object.freeze({...d}),{api:luApi,maybeReconnect:luMaybeReconnectDrive,expectedSessionEpoch:scope.epoch,isCurrent,bulk});
-      return {ok:!!ok,stop:!!bulk.stop};
-    },{isCurrent,onProgress:({index,total})=>{if(count&&isCurrent())count.textContent=`지우는 중 ${index}/${total}`}});
-  }catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.')}
-  finally{luDeleteTokens.delete(token);luSelBusy=false}
-  if(!result)return luSyncPicks();
-  // 화면을 떠났거나 로그인이 바뀐 뒤에는 건드리지 않는다.
-  if(window.KPTURouter?.current==='library'){
-    const gone=new Set(result.done);
-    luDocuments=luDocuments.filter(x=>!gone.has(x.id));
-    luSel=new Set([...result.failed,...result.skipped]);
-    if(!luSel.size)luSel=null;
-    luRenderLibrary();
-    alert(resultText(result));
-  }
-  if(result.done.length)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
+  if(ids.length)luQueueDelete(ids);
 }
 function luBindSelect(){
   const list=document.querySelector('#documentList');

@@ -70,28 +70,31 @@ export async function run(page,base,width,check,{shot=null}={}){
   if(shot)await page.screenshot({path:shot,fullPage:false});
   await page.locator('#librarySelectAll').click();
   check(await count(page),'0개 골랐음','all off');
-  // 취소: 확인창 거절이면 서버 요청 없음
+  // LIB-바로지우기: 묻지 않고 바로 목록에서 빠지고 작은 알림 '5개를 지웠어요 · 되돌리기'. 서버 요청은 알림이 사라진 뒤에 보낸다.
   await page.locator('#librarySelectAll').click();
-  const dialogs=[];
-  page.on('dialog',async d=>{dialogs.push({type:d.type(),message:d.message()});await (dialogs.length===1?d.dismiss():d.accept())});
+  const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.type());await d.dismiss()});
   await page.locator('#librarySelectDelete').click();
-  await page.waitForTimeout(150);
-  check(dialogs[0],{type:'confirm',message:'5개를 지울까요?\nDrive 파일은 휴지통으로 이동해요(30일 뒤 사라짐).'},'confirm text');
-  check(state.deletes.length,0,'declined confirm sends nothing');
-  // 확인: 차례로 지우고 a2만 실패해 남는다
+  check(await rows(),0,'rows leave at once');
+  check(await page.locator('#kptuNotice .kptu-notice-text').textContent(),'5개를 지웠어요','small notice');
+  check(state.deletes.length,0,'nothing sent before undo window ends');
+  // 되돌리기: 요청 없이 모두 되살림
+  await page.locator('#kptuNotice .kptu-notice-undo').click();
+  check(await rows(),5,'undo restores rows');
+  await page.waitForTimeout(7000);
+  check(state.deletes.length,0,'undo sends nothing');
+  // 다시 고르고 지우기: 알림이 사라진 뒤 차례로 보내고 a2만 실패해 되살아난다
+  await page.locator('#librarySelectBtn').click();
+  await page.locator('#librarySelectAll').click();
   await page.locator('#librarySelectDelete').click();
-  await page.waitForFunction(()=>!document.querySelector('#librarySelectDelete')||document.querySelector('#librarySelectCount')?.textContent==='1개 골랐음',null,{timeout:15000});
+  check(await rows(),0,'rows leave again');
+  await page.waitForFunction(()=>document.querySelectorAll('#documentList [data-lu-document]').length===1,null,{timeout:20000});
   check(state.deletes.map(x=>x.document_id),['a3','a2','a1','n2','n1'],'same server path, one by one in screen order');
   check(state.deletes.every(x=>x.action==='delete'),true,'action delete');
   check(state.peak,1,'one request at a time');
-  check(dialogs[2].type,'alert','result alert');
-  check(/^4개를 지웠고 1개는 지우지 못했어요/.test(dialogs[2].message),true,'partial failure message');
-  check(await rows(),1,'only failed row remains');
-  check(await page.locator('[data-lu-pick="a2"]').isChecked(),true,'failed stays selected');
-  check(await page.locator('#librarySelectBar').isVisible(),true,'still selecting');
-  // 취소로 모드 끝
-  await page.locator('#librarySelectCancel').click();
-  check(await page.locator('#documentList .lu-pick').count(),0,'boxes gone');
+  check(await page.locator('[data-lu-document="a2"]').count(),1,'failed row comes back');
+  check(/^4개를 지웠고 1개는 지우지 못해 되살렸어요/.test(await page.locator('#kptuNotice .kptu-notice-text').textContent()),true,'partial failure notice');
+  check(dialogs,[],'no browser dialogs');
+  check(await page.locator('#documentList .lu-pick').count(),0,'select mode ends after delete');
   check(await page.locator('#librarySelectBar').isVisible(),false,'bar hidden');
   check(await page.locator('#librarySelectBtn').isVisible(),true,'select button back');
   check(state.errors,[],'no page errors');

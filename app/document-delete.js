@@ -75,7 +75,7 @@ export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionE
       }
     }catch(e){
       if(!isCurrent())return false;
-      if(bulk){bulk.stop=sessionError(e)||driveAuthError(e);return false}
+      if(bulk){bulk.stop=sessionError(e)||driveAuthError(e);if(bulk.stop)bulk.error=e;return false}
       alert(luDeleteErrorMessage(e));
       if(!isCurrent())return false;
       if(!unconfirmedOutcome(e)&&!sessionError(e)&&driveAuthError(e)){
