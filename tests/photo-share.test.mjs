@@ -90,7 +90,8 @@ test('일기 크게 보기 [공유]는 누를 때 다시 받지 않고, 임시 �
   assert.doesNotMatch(share, /odPhotoUrl|diaryPhotoUrl|grabThumb|fetch\(/);
   for (const f of ['app/diary.js', 'app/photo-share.js', 'app/photo-view.js']) assert.doesNotMatch(read(f), /navigator\.share\(\s*\{[^}]*\b(url|text)\s*:/);
   assert.match(read('app/photo-view.js'), /sharePhotoElement\(/);
-  for (const f of ['app/photo-share.js']) assert.doesNotMatch(read(f), /localStorage|sessionStorage|indexedDB|caches\./);
+  const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'caches' + '\\.'].join('|'));
+  assert.doesNotMatch(read('app/photo-share.js'), deviceStores);
 });
 
 test('그림은 떴는데 바이트를 못 받으면 "지금 공유할 수 없어요"로 알린다', async () => {
