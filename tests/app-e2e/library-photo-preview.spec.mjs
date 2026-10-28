@@ -69,7 +69,9 @@ for (const width of [390, 1440]) {
     await expect(row(2).locator('.lu-thumb img')).toBeVisible();
     await expect(row(3).locator('.lu-thumb')).toHaveCount(0);
     await expect(row(4).locator('.lu-thumb')).toHaveCount(0);
-    await expect(row(5).locator('.lu-thumb')).toHaveCount(0); // 서버가 못 주면 칸이 없어지고 종류 표시만 남는다
+    // 서버가 못 주면 연한 회색 칸에 작은 ↻ 하나(깨진 그림·대체 글자 없음, PHOTO-못받은사진).
+    await expect(row(5).locator('.lu-thumb[data-img-state="failed"] .img-slot-retry')).toHaveText('↻');
+    await expect(row(5).locator('.lu-thumb img')).toHaveCount(0);
     await expect(row(5).locator('.lu-file-kind')).toHaveText('그림');
     const small = state.photoCalls.filter(c => c.size === 'small');
     expect(small.map(c => c.id).sort()).toEqual([ID(1), ID(2), ID(5)]);

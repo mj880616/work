@@ -216,13 +216,13 @@ for(const width of [390,1280]){
  });
 }
 
-test('사진 보기가 아직 안 되면(배포 전) 칸은 사진 표시, 크게 보기는 "Drive에서 열기" 링크',async({page})=>{
+test('사진 보기가 아직 안 되면(배포 전) 칸은 작은 ↻, 크게 보기는 ↻ + "Drive에서 열기" 링크',async({page})=>{
  const f=await fixture(page,{photoView:false});await openDiary(page,390);
- await expect(cell(page,'2026-10-03').locator('.diary-photo-mark')).toHaveText('사진');
+ await expect(cell(page,'2026-10-03').locator('.diary-photo[data-img-state="failed"] .img-slot-retry.is-passive')).toHaveText('↻');
  await expect(cell(page,'2026-10-03').locator('a')).toHaveCount(0);
  await cell(page,'2026-10-03').click();
- await expect(page.locator('#diaryRoot [data-diary-grid] .diary-photo-mark')).toHaveCount(2);
- await page.locator('#diaryRoot [data-diary-grid] .diary-grid-item').first().click();
+ await expect(page.locator('#diaryRoot [data-diary-grid] .img-slot-retry:not(.is-passive)')).toHaveCount(2);
+ await page.locator('#diaryRoot [data-diary-grid] .diary-grid-item').first().click({position:{x:4,y:4}});
  const links=page.locator('#diaryRoot [data-diary-viewer] a.diary-photo-link');
  await expect(links).toHaveCount(2);await expect(links.first()).toHaveAttribute('href','https://drive.google.com/file/d/pa/view');
  await expect(links.first()).toHaveText('Drive에서 열기');
@@ -656,8 +656,9 @@ test('사진: 브라우저가 그리지 못한 사진은 한 번 다시 읽고, 
  await openDiary(page,390);
  const box=cell(page,'2026-10-03').locator('.diary-photo');
  await expect(box).toHaveAttribute('data-state','link');
- await expect(box.locator('img')).toHaveCount(0);
- await expect(box.locator('.diary-photo-mark')).toHaveText('사진');
+ await expect(box.locator('img[src]')).toHaveCount(0);
+ await expect(box).toHaveAttribute('data-img-state','failed');
+ await expect(box.locator('.img-slot-retry')).toHaveText('↻');
  expect(f.photoReads.filter(r=>r.file_id==='pa'&&r.size==='small')).toHaveLength(2);
  expect(f.writes).toEqual([]);
 });

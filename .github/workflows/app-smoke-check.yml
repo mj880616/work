@@ -304,6 +304,9 @@ jobs:
       - name: Check OneDrive small-picture copies on the phone (OD-폰보관, cache key·limits·cleanup·one audit allowance, synthetic)
         run: node --test tests/od-thumb-cache.test.mjs
 
+      - name: Check picture cells (PHOTO-못받은사진, gray while loading, small retry mark when failed, every image place uses it, synthetic)
+        run: node --test tests/img-slot.test.mjs
+
       - name: Check OneDrive warm-up after app start (OD-미리받기, status·this month·few small pictures in memory, synthetic)
         run: node --test tests/od-warm.test.mjs
 

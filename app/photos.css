@@ -45,7 +45,6 @@
 #appView #photosView .photos-cal-cell.is-blank{ background:transparent; }
 #appView #photosView .photos-cal-cell .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #photosView .photos-cal-cell img{ width:100%; height:100%; object-fit:cover; display:block; }
-#appView #photosView .photos-cal-cell .diary-photo-mark{ display:none; }
 #appView #photosView .photos-cal-n{ position:absolute; left:3px; top:2px; z-index:1; line-height:1; }
 #appView #photosView button.photos-cal-cell .photos-cal-n,#appView #photosView .photos-cal-c{ color:var(--ds-photo-ink); text-shadow:0 0 3px var(--ds-photo-scrim); }
 #appView #photosView .photos-cal-c{ position:absolute; right:3px; bottom:2px; z-index:1; font-size:10px; line-height:1; font-variant-numeric:tabular-nums; }

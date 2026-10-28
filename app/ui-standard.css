@@ -1008,7 +1008,6 @@
 #appView #basketView button.basket-file-thumb{ position:relative; box-sizing:border-box; display:block; width:56px; height:56px; min-height:56px; margin:0; padding:0; overflow:hidden; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface-subtle); cursor:zoom-in; box-shadow:none; }
 #appView #basketView .basket-file-thumb .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #basketView .basket-file-thumb img{ display:block; width:100%; height:100%; object-fit:cover; }
-#appView #basketView .basket-file-thumb .diary-photo-mark{ display:grid; place-items:center; height:100%; font-size:11px; color:var(--kptu-muted); }
 #appView #basketView .basket-file-kind{ width:56px; height:56px; min-width:56px; border-radius:var(--ds-radius-control); font-size:12px; }
 #appView #basketView .basket-file-body{ display:flex; flex-direction:column; min-width:0; gap:2px; }
 #appView #basketView .basket-file-name{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); overflow-wrap:anywhere; }
