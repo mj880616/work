@@ -214,3 +214,23 @@ export function documentsInTrashedFolders(folders,items,ready=true){if(!ready)re
 export function cleanFolderName(raw){const name=String(raw??'').replace(/[\u0000-\u001f\u007f]/g,'').trim();return name.length>=1&&[...name].length<=40?name:null}
 // DB 거절(23514 + LIB_FOLDER_*)을 일상어로.
 export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_PHOTOSET_PARTIAL/.test(m))return e?.partial?'사진 묶음 일부를 되돌리지 못했어요. 목록을 확인해 주세요.':'사진 묶음을 옮기지 못해 그대로 두었어요.';if(/LIB_FOLDER_DEPTH/.test(m))return `폴더는 ${folderDepthLimitFrom(m)}단까지만 만들 수 있어요.`;if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
+
+// LIB-정리보충 ③(2026-10-28 10:41): '폴더 밖' 자료의 폴더 추천(AI 쓰지 않음). 이미 폴더에 든 자료 중
+// 제목 첫 낱말(흔한 말 '자료·파일·사본' 등과 숫자는 건너뜀)이 같은 자료가 든 폴더만 후보이고, 분류·프로젝트가 같으면 1점씩 더한다.
+// 가장 높은 점수의 폴더가 하나뿐일 때만 추천(헷갈리면 추천하지 않음).
+const COMMON_WORDS=new Set(['자료','파일','문서','사본','복사본','최종','수정','수정본','첨부','붙임','new','copy','file']);
+const titleWord=t=>String(t||'').replace(/\.[a-z0-9]{2,5}$/i,'').split(/[\s_\-·.,()[\]{}<>「」『』"'~]+/).map(w=>w.toLowerCase()).find(w=>w.length>=2&&!/^\d+$/.test(w)&&!COMMON_WORDS.has(w))||'';
+export function folderSuggestions(outside,{docs=[],items=[],folders=[],categoryOf=c=>c}={}){
+  const alive=new Set(folders.map(f=>f.id)),where=new Map(items.filter(x=>alive.has(x.folder_id)).map(x=>[x.document_id,x.folder_id]));
+  const inside=docs.filter(d=>!d?.photoset&&where.has(d.id)).map(d=>({folder:where.get(d.id),word:titleWord(d.title||d.file_name),category:categoryOf(d.category),project:d.project_id||null}));
+  const out=new Map();
+  for(const d of outside){
+    if(!d||d.photoset||where.has(d.id))continue;
+    const word=titleWord(d.title||d.file_name),category=categoryOf(d.category),project=d.project_id||null,best=new Map();
+    if(!word)continue;
+    for(const x of inside){if(x.word!==word)continue;const score=2+(category&&x.category===category?1:0)+(project&&x.project===project?1:0);if(score>(best.get(x.folder)||0))best.set(x.folder,score)}
+    const top=Math.max(0,...best.values());if(top<2)continue;
+    const winners=[...best].filter(([,s])=>s===top);if(winners.length===1)out.set(d.id,winners[0][0]);
+  }
+  return out;
+}
