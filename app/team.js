@@ -316,7 +316,7 @@ window.KPTUReportEntry={open:async(opts={})=>{
 window.KPTUTeamData.reportTargets=()=>reportTargetMap;
 Object.assign(window.KPTUTeamData,{targetName:targetNameOf,reportLabel:reportLinkLabel,refreshReportLinks:loadReportLinks,reportTargetsOf});
 let meetingEntryKind=DEFAULT_KIND,meetingEntryOnSaved=null;
-let entryArea=null;const areaFields=()=>entryArea||=mountAreaFields($('#meetingAreaFields'),{onMessage:m=>setStatus($('#meetingStatus'),m,'error')});
+let entryArea=null;const areaFields=()=>entryArea||=mountAreaFields($('#meetingAreaFields'),{onMessage:m=>setStatus($('#meetingStatus'),m,'error'),material:()=>({title:$('#meetingTitle')?.value||'',text:$('#meetingTranscript')?.value||''})});
 const entryRoundRows=createFieldRows(['meetingRoundNo','meetingShortName']);
 function entryKind(){return isReportKind(meetingEntryKind)?meetingEntryKind:DEFAULT_KIND}
 function paintEntryWords(){

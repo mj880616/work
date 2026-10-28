@@ -194,7 +194,7 @@ const mrdTkey=t=>t.kind+':'+t.id;
 function mrdTargetName(t){return window.KPTUTeamData?.targetName?.(t)||mrdNames.get(mrdTkey(t))||(t.kind==='project'?mrdProjects.find(x=>x.id===t.id)?.name:'')||(t.kind==='project'?'프로젝트':'담당조직')}
 function mrdLinkText(m){const label=window.KPTUTeamData?.reportLabel?.(m)||(m.project_id?mrdProjects.find(x=>x.id===m.project_id)?.name:'');return label?`연결 ${label}`:null}
 let mrdSummaries=null,mrdAreaFields=null;
-function mrdArea(){const host=document.querySelector('#mrdEditArea');if(!host)return null;if(!mrdAreaFields||!host.isConnected||!host.childElementCount)mrdAreaFields=mountAreaFields(host,{onMessage:msg=>{const st=document.querySelector('#mrdEditStatus');if(st){st.textContent=msg;st.className='status error'}}});return mrdAreaFields}
+function mrdArea(){const host=document.querySelector('#mrdEditArea');if(!host)return null;if(!mrdAreaFields||!host.isConnected||!host.childElementCount)mrdAreaFields=mountAreaFields(host,{onMessage:msg=>{const st=document.querySelector('#mrdEditStatus');if(st){st.textContent=msg;st.className='status error'}},material:()=>({title:document.querySelector('#mrdEditTitle')?.value||'',text:document.querySelector('#mrdEditTranscript')?.value||''})});return mrdAreaFields}
 function mrdSummaryBox(){if(!mrdSummaries){const host=document.querySelector('#mrdEditSummaries');if(!host)return null;mrdSummaries=createReportSummaries({host,nameOf:mrdTargetName,meetingId:()=>mrdEditor?.id||null,rt:window.KPTURuntime})}return mrdSummaries}
 function mrdPaintPlaces(){const b=document.querySelector('#mrdEditPlaces');if(b)b.textContent=targetsLabel(mrdEditTargets,mrdTargetName,'연결 안 함')}
 async function mrdChoosePlaces(trigger){

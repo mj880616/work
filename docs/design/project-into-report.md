@@ -267,3 +267,11 @@ draft.area_summaries = { "<사업영역 id>": { "text": "한 줄", "hash": "a1:<
 2. `app/report-summary-preview.js` `paint()`: 표를 그린 뒤 그 기간이 월~일 한 주이면 표에 나온 사업영역 id로 `area_week_summary` 한 번(`basket-ai-summary.js`의 ai-assist 호출 공용 함수) → 사업영역 칸 '진행'에 한 줄, `empty`·실패·한도는 지금처럼 보고 줄. 한 줄 옆 작은 [고치기] → 1번 함수로 `edited:true` 저장. 기간을 바꾼(한 주가 아닌) 미리보기는 AI를 부르지 않음.
 3. `app/journal-weekly.js` ②·`journal-hwpx.js`: 그 주 `draft.area_summaries`가 있으면 사업영역 줄의 진행 칸 첫 줄로(고친 줄 우선). 없으면 지금처럼.
 4. `app/business-area-fields.js` `mountAreaFields`: [사업영역] 버튼 옆 작은 [AI 추천] → 쓰기 창 제목·결과(`#meetingTranscript`)·다음 할 일 글로 `area_suggest` → 후보 칩 최대 3개, 누르면 그 꼬리표로(손대지 않은 꼬리표만, `touched` 규칙 그대로). 자동으로 부르지 않음.
+
+## 13. 사업영역 AI 화면 연결 (12.4 붙일 자리, 화면 PR)
+
+- **임시저장 칸**(`app/weekly-draft-store.js`): `readDraft`·`makeDraft`·`merge3`·`keepDocsOnly`가 `area_summaries`를 다시 실어 보낸다. 고친 줄(`edited:true`)만 3자 비교 칸 `area:<id>`(한글 파일 상자 충돌 질문 이름 '사업요약표 사업영역 한 줄'), AI 줄은 세 판 중 `at`이 더 나중 것. 한쪽에서 고친 줄을 지웠으면(되돌리기) 옛 AI 줄도 두지 않는다. `hasContent`에는 넣지 않는다(상자에서 고친 것이 아님). 사람이 고치는 길은 `changeWeekAreaSummary({start, areaId, text})`(`changeWeekDocs`와 같은 다시 읽고 조건부 쓰기, 빈 글 = 고친 줄 지움). 고친 줄 200자(서버 `readAreaSummaries`와 같음).
+- **미리보기**(`app/report-summary-preview.js`): 기간이 월~일 한 주이고 표에 꼬리표 단 보고가 있을 때만, 표를 그린 뒤 표의 꼬리표 id(20개까지, 표 순서)로 `area_week_summary` 한 번. 꼬리표마다 '진행' 칸 = `- 한 줄 [고치기]` + 접힌 '보고 n건'(누르면 그 보고), 이후 계획은 지금처럼. 한 줄이 없는(`empty`) 꼬리표는 보고 줄 그대로 + 작은 [한 줄 쓰기]. 같은 주·같은 보고 판이면 이 페이지 메모리의 답을 다시 쓴다(기기 저장 없음).
+- **조용한 실패**: 한도(`monthly_limit`·`daily_limit`)·준비 전·실패면 표는 보고 줄 그대로, 위 줄(‹ 기간 › 옆)에 작은 안내 한 줄('이번 달 AI 한도에 닿았어요 · 보고 줄로 보여요'). 그때는 임시저장에서 **고친 줄만** 읽어 보여 준다(AI 줄은 보고가 바뀌었을 수 있어 쓰지 않음). 기다리는 동안 같은 자리에 'AI 한 줄 만드는 중…'(aria-busy).
+- **주간보고 ②**(`journal-weekly.js` `weeklySummary`): 그 주 임시저장에 한 줄이 있는 꼬리표는 보고 줄들 대신 `한 줄 → 이후: 다음 할 일(겹침 없이)` 한 줄(`business-area-model.mjs` `summarizeAreaRecords`). 화면 ②·초안 복사·한글 파일이 같은 모델이라 미리보기의 [HWP로 내려받기]와 같은 글이 된다. 한 줄이 없으면 지금처럼.
+- **쓰기 창 추천**(`app/business-area-fields.js`): [사업영역] 아래 작은 [AI 추천]을 누를 때만 `area_suggest`(제목 + 결과 + 다음 할 일, 3,000자) → 후보 칩 최대 3개(테두리만). 칩을 눌러야 그 꼬리표(직접 고른 것과 같이 `touched`). 건너뜀(`short`·`secret`·`no_areas`)·한도·실패는 칩 없이 작은 안내. 새로 쓰기 창(`team.js`)·고치기 창(`meeting-round-detail.js`) 둘 다.
