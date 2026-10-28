@@ -24,7 +24,7 @@ const item=(kind,n,extra={})=>({kind,source:extra.source??(kind==='update'||kind
   snippet:extra.snippet??`임금교섭 쟁점 ${n}`,occurred_at:extra.at??'2026-10-27T01:00:00+00:00',day:extra.day??null,organization_id:extra.org??null,
   ...(kind==='call'||kind==='telegram'?{summary:extra.summary??`임금교섭 요약 ${n} 010-1234-5678`}:{})});
 const SEARCH={
-  [WS]:[item('meeting',1,{org:ORG}),item('call',2,{title:'A 사업장 통화'}),item('telegram',3,{title:'가상 단톡 · 교섭 소식'}),item('update',4),item('update',5,{snippet:'AI_EXCLUDED_NOTE 임금교섭'})],
+  [WS]:[item('meeting',1,{org:ORG}),item('call',2,{title:'A 사업장 통화'}),{...item('telegram',3,{title:'가상 단톡 · 교섭 소식'}),room_key:'room-1'},item('update',4),item('update',5,{snippet:'AI_EXCLUDED_NOTE 임금교섭'})],
   [OTHER_WS]:[item('meeting',50,{snippet:'STRANGER_SECRET 임금교섭'})],
 };
 const LEDGER={
@@ -98,6 +98,7 @@ test('answer: one AI call, lines without evidence / unknown refs / HTML / phone 
   assert.equal(out.sources[0].kind,'meeting');
   const s2=out.sources.find(s=>s.id===id(11));assert.deepEqual([s2.sent,s2.tag,s2.snippet],[false,'교섭·전략','']);
   assert.equal(out.sources.find(s=>s.id===id(5)).sent,false);
+  assert.equal(out.sources.find(s=>s.kind==='telegram').room,'room-1');assert.equal(out.sources.find(s=>s.kind==='call').room,null);
   // Stored: old row (31+ days) deleted, new row with sources without snippet.
   assert.equal(db.app_ask_answers.length,1);
   const saved=db.app_ask_answers[0];
