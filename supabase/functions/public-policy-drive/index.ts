@@ -7,6 +7,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://mj880616.github.io',
   'https://work.bokdoong.com',
   'https://desk.bokdoong.com',
+  'https://bokdoong.com',
 ]);
 
 function corsHeaders(req: Request) {

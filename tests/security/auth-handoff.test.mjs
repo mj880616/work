@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { harness, issue, json, sealedFixture, SUBJECT, OTHER } from './helpers/auth-handoff.mjs';
 
-test('handoff restricts OPTIONS and actual POST to three exact origins', async () => {
-  for (const origin of ['https://desk.bokdoong.com', 'https://work.bokdoong.com', 'https://mj880616.github.io']) {
+test('handoff restricts OPTIONS and actual POST to four exact origins', async () => {
+  for (const origin of ['https://desk.bokdoong.com', 'https://work.bokdoong.com', 'https://mj880616.github.io', 'https://bokdoong.com']) {
     const h = harness();
     for (const method of ['OPTIONS', 'POST']) {
       const r = await h.send({ action: 'seal', refresh_token: 'synthetic-refresh' }, { origin, method, auth: true });
@@ -14,7 +14,7 @@ test('handoff restricts OPTIONS and actual POST to three exact origins', async (
       assert.equal(r.headers.get('Cache-Control'), 'no-store');
     }
   }
-  for (const origin of ['https://evil.example', 'https://sub.desk.bokdoong.com', 'https://desk.bokdoong.com.evil.example', 'null', null, 'file://', 'capacitor://localhost']) {
+  for (const origin of ['https://evil.example', 'https://sub.desk.bokdoong.com', 'https://desk.bokdoong.com.evil.example', 'http://bokdoong.com', 'https://www.bokdoong.com', 'https://bokdoong.com.evil.example', 'https://evilbokdoong.com', 'https://bokdoong.com:8443', 'null', null, 'file://', 'capacitor://localhost']) {
     const h = harness();
     for (const method of ['OPTIONS', 'POST']) {
       const r = await h.send({ action: 'seal', refresh_token: 'synthetic-refresh' }, { origin, method, auth: true });

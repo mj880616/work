@@ -6,7 +6,8 @@ const ANON = Deno.env.get('SUPABASE_ANON_KEY') || SERVICE;
 const ORIGINS = new Set([
   'https://desk.bokdoong.com',
   'https://work.bokdoong.com',
-  'https://mj880616.github.io'
+  'https://mj880616.github.io',
+  'https://bokdoong.com'
 ]);
 const TTL = 5 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

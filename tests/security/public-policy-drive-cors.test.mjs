@@ -8,9 +8,25 @@ test('Drive reconnect CORS explicitly allows every production Web2 origin',()=>{
   for(const origin of [
     'https://mj880616.github.io',
     'https://work.bokdoong.com',
-    'https://desk.bokdoong.com'
+    'https://desk.bokdoong.com',
+    'https://bokdoong.com'
   ]) assert.equal(source.includes(`'${origin}'`),true,origin);
   assert.equal(source.includes("ALLOWED_ORIGINS.has(origin) ? origin : 'https://mj880616.github.io'"),true);
+  assert.match(source,/const ALLOWED_ORIGINS = new Set\(\[/);
+});
+
+test('Drive CORS allowlist is an exact set of four origins (no prefix or suffix match)',()=>{
+  const block=source.match(/const ALLOWED_ORIGINS = new Set\(\[([\s\S]*?)\]\);/);
+  assert.ok(block);
+  const origins=[...block[1].matchAll(/'([^']+)'/g)].map(m=>m[1]).sort();
+  assert.deepEqual(origins,[
+    'https://bokdoong.com',
+    'https://desk.bokdoong.com',
+    'https://mj880616.github.io',
+    'https://work.bokdoong.com'
+  ].sort());
+  const uses=[...source.matchAll(/\borigin\b[^\n]*/g)].map(m=>m[0]);
+  assert.equal(uses.some(line=>/origin\.(startsWith|endsWith|includes|indexOf|match)\(|\.(includes|indexOf)\(origin\)/.test(line)),false);
 });
 
 
