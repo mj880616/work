@@ -23,9 +23,9 @@ async function boot(page,width,{folders=[],items=[],trashMode='ready'}={}){
     const req=route.request(),url=new URL(req.url()),m=req.method(),body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     if(m!=='GET')s.writes.push({table:'folders',method:m,id:eq(url,'id')||null,body});
     if(m==='GET')return route.fulfill({json:s.folders});
-    if(m==='POST'){if(body.parent_id&&depth(body.parent_id)>=3)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 3 levels'));const made={...body,id:'new-'+(++seq),created_at:new Date().toISOString()};s.folders.push(made);return route.fulfill(/return=representation/.test(req.headers()['prefer']||'')?{status:201,json:[made]}:{status:201,body:''})}
+    if(m==='POST'){if(body.parent_id&&depth(body.parent_id)>=100)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 100 levels'));const made={...body,id:'new-'+(++seq),created_at:new Date().toISOString()};s.folders.push(made);return route.fulfill(/return=representation/.test(req.headers()['prefer']||'')?{status:201,json:[made]}:{status:201,body:''})}
     const f=s.folders.find(x=>x.id===eq(url,'id'));
-    if(m==='PATCH'){if('parent_id'in body&&body.parent_id&&depth(body.parent_id)+height(f.id)>3)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 3 levels'));Object.assign(f,body);return route.fulfill({status:204,body:''})}
+    if(m==='PATCH'){if('parent_id'in body&&body.parent_id&&depth(body.parent_id)+height(f.id)>100)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 100 levels'));Object.assign(f,body);return route.fulfill({status:204,body:''})}
     if(m==='DELETE'){const group=[f.id];for(let i=0;i<group.length;i++)for(const c of s.folders.filter(x=>x.parent_id===group[i]))group.push(c.id);s.trash.push({root:f.id,folders:s.folders.filter(x=>group.includes(x.id)),deleted_at:'2026-10-25T05:00:00Z'});s.folders=s.folders.filter(x=>!group.includes(x.id));return route.fulfill({status:204,body:''})}
   });
   // 휴지통 함수 흉내: trashMode 'missing'은 DB 적용 전(옛 함수가 이 종류를 모름), 'failed'는 일시 실패.
@@ -60,7 +60,7 @@ const noScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=inn
 
 for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
   test.use({hasTouch:width<761});
-  test(`만들기·안에 만들기(3단까지)·이름 바꾸기·위로/아래로, 프로젝트 토글은 ⋯=폴더 만들기만 ${width}`,async({page},info)=>{
+  test(`만들기·안에 만들기(4단 넘어서도, 들여쓰기는 4단까지)·이름 바꾸기·위로/아래로, 프로젝트 토글은 ⋯=폴더 만들기만 ${width}`,async({page},info)=>{
     const {s,errors}=await boot(page,width);
     // ⋯는 작은 버튼(28px, 누르는 범위 44px). 누르면 토글은 여닫히지 않고 메뉴만.
     const more=menuOf(page,'p:top-a');await expect(more).toHaveAttribute('aria-label','폴더 만들기: 공공기관 기능개혁 대응');
@@ -95,11 +95,13 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('이름을 바꿨어요');
     await page.locator('#libraryFolderStatusLine .lu-undo').click();await expect(libraryNodeHead(page,'f:'+f1).locator('.lu-node-name')).toHaveText('가상 회의록');
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'PATCH',id:f1,body:{name:'가상 회의록'}});
-    // 안에 새 폴더 → 3단까지. 3단 폴더 메뉴에는 '안에 새 폴더'가 없다.
+    // LIB-폴더100단: 안에 새 폴더 → 3단을 넘어 5단까지 만든다. 5단 폴더 메뉴에도 '안에 새 폴더'가 있고, 들여쓰기는 4단에서 멈춘다.
     let parent=f1;
-    for(const name of ['2단','3단']){await press(page,menuOf(page,'f:'+parent),width);await press(page,action(page,'안에 새 폴더'),width);await page.locator('#libraryFolderName').fill(name);await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();parent=s.folders.at(-1).id;expect(s.folders.at(-1).parent_id).not.toBeNull()}
+    for(const name of ['2단','3단','4단','5단']){await press(page,menuOf(page,'f:'+parent),width);await press(page,action(page,'안에 새 폴더'),width);await page.locator('#libraryFolderName').fill(name);await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();parent=s.folders.at(-1).id;expect(s.folders.at(-1).parent_id).not.toBeNull()}
     await page.locator('#libraryExpandAll').click();
-    await press(page,menuOf(page,'f:'+parent),width);await expect(action(page,'안에 새 폴더')).toHaveCount(0);await page.keyboard.press('Escape');await expect(page.locator('#luFolderMenu')).toBeHidden();
+    await expect(libraryNode(page,'f:'+parent)).toHaveAttribute('style',/--lu-depth:4(;|$)/);
+    await expect(libraryNode(page,'f:'+s.folders.at(-2).id)).toHaveAttribute('style',/--lu-depth:4(;|$)/);
+    await press(page,menuOf(page,'f:'+parent),width);await expect(action(page,'안에 새 폴더')).toHaveCount(1);await page.keyboard.press('Escape');await expect(page.locator('#luFolderMenu')).toBeHidden();
     // '프로젝트 없음' 안에도 폴더를 만든다. 보관·확인 불가 토글에는 ⋯가 없다.
     await press(page,menuOf(page,'p:none'),width);await press(page,action(page,'새 폴더'),width);await page.locator('#libraryFolderName').fill('가상 정리함');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.folders.at(-1)).toMatchObject({project_id:null,parent_id:null,name:'가상 정리함'});
@@ -193,7 +195,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
   });
 });
 
-test('DB가 거절하면(3단 초과) 일상어 한 줄로 알리고 서버 값으로 다시 그린다',async({page})=>{
+test('DB가 거절하면(DB 적용 전 3단 규칙) 일상어 한 줄로 알리고 서버 값으로 다시 그린다',async({page})=>{
   const folders=[{id:'f1',project_id:'top-a',name:'1단',sort_order:0},{id:'f2',project_id:'top-a',parent_id:'f1',name:'2단',sort_order:0},{id:'f3',project_id:'top-a',parent_id:'f2',name:'3단',sort_order:0}];
   const {s,errors}=await boot(page,1280,{folders});
   // 화면이 모르는 사이 서버에서 3단이 이미 찼다고 하자: 2단 아래로 새 폴더를 시도 → 거절.

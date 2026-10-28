@@ -1,11 +1,12 @@
 // LIB-토글트리 ③(docs/design/library-tree.md 6절): 자료실 전용 폴더 편집 — ⋯ 메뉴·작은 창·저장.
 // 목록 그리기는 library-upload.js의 luRenderLibrary 하나다. 이 모듈은 폴더 메뉴(⋯), 이름·옮길 곳을 고르는 작은 창,
 // 저장(기존 소유자 RLS REST: app_library_folders·app_library_folder_items)만 맡고, 저장 뒤 reload()로 다시 그리게 한다.
-// 순환·3단·같은 프로젝트 틀은 DB 트리거가 지키고(거절 SQLSTATE 23514 + LIB_FOLDER_*), 화면은 같은 규칙으로 고를 수 있는 곳만 보인다.
+// 순환·100단(folder-limits.mjs)·같은 프로젝트 틀은 DB 트리거가 지키고(거절 SQLSTATE 23514 + LIB_FOLDER_*), 화면은 같은 규칙으로 고를 수 있는 곳만 보인다.
 // 폴더·자료 연결만 바꾼다. 자료(app_documents)·프로젝트·Drive 파일은 건드리지 않는다.
 import {createAnchoredMenu} from './anchored-menu.js';
 import {FOLDER_DEPTH,OUTSIDE_KEY,SORT_GAP,canAddChild,cleanFolderName,folderTrashCounts,folderDepth,folderErrorText,folderMoveTargets,folderReorderPlan,folderSiblings,nextSortOrder} from './library-tree.js';
 import {pickerRows} from './library-move.mjs';
+import {folderIndent} from './folder-limits.mjs';
 import {createMovePicker} from './library-move-picker.js';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
@@ -91,7 +92,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function openDialog({title,hint='',name=null,targets=null,save='저장',submit,trigger}){
     const d=ensureDialog();d.trigger=trigger||document.activeElement;d.title.textContent=title;d.hint.textContent=hint;d.hint.hidden=!hint;d.status.textContent='';d.status.className='status';
     d.nameField.hidden=name===null;d.name.value=name??'';
-    d.targets.hidden=!targets;d.targets.innerHTML=(targets||[]).map((t,i)=>`<button type="button" role="radio" class="lu-folder-target" data-lu-target="${esc(t.value)}" aria-checked="false" tabindex="${i?-1:0}" style="--lu-target-depth:${t.depth||0}">${esc(t.label)}</button>`).join('');
+    d.targets.hidden=!targets;d.targets.innerHTML=(targets||[]).map((t,i)=>`<button type="button" role="radio" class="lu-folder-target" data-lu-target="${esc(t.value)}" aria-checked="false" tabindex="${i?-1:0}" style="--lu-target-depth:${folderIndent(t.depth)}">${esc(t.label)}</button>`).join('');
     d.save.textContent=save;d.save.disabled=!!targets;d.submit=submit;
     d.root.classList.remove('hidden');d.root.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog?.activate?.(d.root,{trigger:d.trigger,initialFocus:name!==null?d.name:d.targets.querySelector('[data-lu-target]'),onRequestClose:closeDialog});
@@ -196,7 +197,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // 끌 수 있는 것: 폴더 머리, 파일 줄(고른 줄이 여럿이면 고른 것 모두). 놓을 곳:
   //   프로젝트 묶기: 같은 프로젝트 틀 안의 폴더 머리(그 안으로), 같은 상위 형제 폴더의 위·아래 끝(그 앞·뒤로), 그 틀의 프로젝트 머리(폴더 밖으로)
   //   폴더 보기: 틀과 무관하게 모든 폴더 머리(그 안으로), 형제 폴더 위·아래 끝, 맨 위 '폴더 밖' 머리(폴더 밖으로)
-  // 자기·자기 아래·3단 초과는 놓을 수 없음 표시. 키보드는 ⋯ 메뉴(위로·아래로·옮기기…)가 같은 일을 한다.
+  // 자기·자기 아래·100단 초과는 놓을 수 없음 표시. 키보드는 ⋯ 메뉴(위로·아래로·옮기기…)가 같은 일을 한다.
   // 놓은 뒤에는 '옮겼어요 · 되돌리기' 한 줄. 바깥 파일을 올리는 끌어놓기(library-drop.js)는 dataTransfer에 'Files'가 있을 때만 반응하고,
   // 여기는 안에서 시작한 끌기(drag)만 보므로 서로 부딪치지 않는다.
   let drag=null;
