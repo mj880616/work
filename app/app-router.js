@@ -19,7 +19,16 @@
   // one more parameter (?view=basket&pane=todo), like the 일정 sub screens are written as their own ?view=. The default side has no parameter.
   // The router owns the address and the history entries of it; the screen (basket.js) owns what is drawn and is told through the view hook
   // (detail.sub) and, for a back/forward step inside the same screen, kptu:sub-changed.
-  const SUB_PARAMS={basket:{param:'pane',values:['todo']}};
+  // NAV-새로고침제자리: [노트] is a side of the same screen too (?view=basket&pane=note), so a reload on the note side stays there.
+  const SUB_PARAMS={basket:{param:'pane',values:['todo','note']}};
+  // NAV-새로고침제자리: the place inside a screen (an open note, the folder entered, the day picked) is written to the address as
+  // the screen's own parameters, so a reload (pull-to-refresh) opens the same place. Each screen lists its keys here and writes them
+  // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
+  // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
+  // Nothing is stored anywhere else (no device storage, no new server state).
+  const PLACE_PARAMS={basket:['note','doc','folder'],library:['folder'],diary:['day'],journal:['day','mode'],calendar:['date'],team:['org'],calls:['box','call']};
+  const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
+  const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
   const viewName=view=>VIEW_ALIAS[view]||view;
   let bound=false,routeEntry=null,returningTo=null,goSeq=0;
@@ -74,12 +83,34 @@
     return rule?subName(view,new URLSearchParams(location.search).get(rule.param)):null;
   }
 
-  function syncUrl(view,{replace=false,sub=null}={}){
+  function place(view){
+    const keys=PLACE_PARAMS[view],out={};
+    if(!keys||viewFromUrl()!==view)return out;
+    const params=new URLSearchParams(location.search);
+    for(const key of keys){const value=params.get(key);if(value&&PLACE_VALUE.test(value))out[key]=value;}
+    return out;
+  }
+  function setPlace(view,values={}){
+    const keys=PLACE_PARAMS[view];
+    if(!keys||api.current!==view||viewFromUrl()!==view||!authenticatedShellReady())return false;
+    const u=new URL(location.href);
+    for(const [key,value] of Object.entries(values)){
+      if(!keys.includes(key))continue;
+      if(value===null||value===undefined||value==='')u.searchParams.delete(key);
+      else if(PLACE_VALUE.test(String(value)))u.searchParams.set(key,String(value));
+    }
+    const next=u.pathname+(u.search||'')+u.hash;
+    if(next!==location.pathname+location.search+location.hash)history.replaceState(history.state,'',next);
+    return true;
+  }
+
+  function syncUrl(view,{replace=false,sub=null,keepPlace=false}={}){
     if(!authenticatedShellReady()||!viewExists(view))return;
     const u=new URL(location.href);
     if(view==='home'&&!u.searchParams.has('project'))u.searchParams.delete(VIEW_PARAM);
     else u.searchParams.set(VIEW_PARAM,urlName(view));
     for(const rule of Object.values(SUB_PARAMS))u.searchParams.delete(rule.param);
+    if(!keepPlace)for(const key of PLACE_KEYS)u.searchParams.delete(key);
     if(subName(view,sub))u.searchParams.set(SUB_PARAMS[view].param,sub);
     const next=u.pathname+(u.search||'')+u.hash;
     const current=location.pathname+location.search+location.hash;
@@ -279,7 +310,7 @@
     const view=viewFromUrl();
     if(!view)return false;
     const written=new URLSearchParams(location.search).get(VIEW_PARAM);
-    if(written!==null&&written!==view&&written!==urlName(view))syncUrl(view,{replace:true,sub:subFromUrl(view)});
+    if(written!==null&&written!==view&&written!==urlName(view))syncUrl(view,{replace:true,sub:subFromUrl(view),keepPlace:true});
     const target=document.getElementById(view+'View');
     const sub=subFromUrl(view);
     if(api.current===view&&target&&!target.classList.contains('hidden')){
@@ -350,7 +381,7 @@
 
   // syncNavigation: repaint the menu marks for the current view (topbar-actions.js calls it when the 761~1023px row hands
   // its buttons back to the PC sidebar, whose [일정] head marks its whole group).
-  const api={current:null,sub:null,go,setSub,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,sub:null,go,setSub,place,setPlace,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
   // currententrychange comes before popstate and names the entry left, so a traversal's

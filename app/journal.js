@@ -468,10 +468,15 @@ function renderMode() {
 function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;
   mode = next; editing = null;
-  renderMode();
+  writePlace(); renderMode();
   if (mode === 'week') { renderWeekly_(); void checkOverlaps(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); radarDay(); }
 }
-function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); renderDay(); renderWeekly_(); radarDay(); }
+// NAV-새로고침제자리: the day shown (?day=, left out for today) and [주간 정리] (?mode=week) are written to the address (no history
+// entry of their own), so a reload opens the same day or the same weekly view; enter() reads them back.
+function writePlace() {
+  window.KPTURouter?.setPlace?.('journal', {day:selected === todayKey() ? null : selected, mode:mode === 'week' ? 'week' : null});
+}
+function render() { writePlace(); renderMode(); renderWeek(); renderLine({keepStatus:true}); renderDay(); renderWeekly_(); radarDay(); }
 
 const readers = {
   events: () => readWeekScheduleEvents(start, rt),
@@ -577,7 +582,7 @@ function goThisWeek() {
 }
 function selectDay(day) {
   if (day === selected) return;
-  selected = day; editing = null; renderWeek(); renderLine(); renderDay(); radarDay();
+  selected = day; editing = null; writePlace(); renderWeek(); renderLine(); renderDay(); radarDay();
 }
 
 const saveMessage = error => error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.'
@@ -1222,8 +1227,12 @@ function enter(detail) {
     renderMode();
     window.scrollTo({top:back.scroll, behavior:'instant'});
     if (back.focus?.isConnected) back.focus.focus({preventScroll:true});
+    writePlace();
     return;
   }
+  const place = window.KPTURouter?.place?.('journal') || {};
+  if (/^\d{4}-\d{2}-\d{2}$/.test(place.day || '')) { selected = place.day; start = weekStart(place.day); }
+  if (place.mode === 'week') { mode = 'week'; editing = null; }
   loadWeek({shared:true});
 }
 window.KPTURouter?.on?.('journal', enter);

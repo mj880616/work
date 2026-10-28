@@ -164,14 +164,21 @@ async function loadMonth({force = false} = {}) {
 function moveMonth(step) {
   const next = new Date(Date.UTC(cursor.year, cursor.month + step, 1));
   cursor = {year:next.getUTCFullYear(), month:next.getUTCMonth()};
-  closeDetail(); loadMonth();
+  closeDetail(); writePlace(); loadMonth();
 }
 
+// NAV-새로고침제자리: the day open (?day=YYYY-MM-DD), or the month shown when it is not this month (?day=YYYY-MM), is written to the
+// address (no history entry of its own; the open day keeps its layer entry), so a reload opens the same place.
+function writePlace() {
+  const t = seoulParts(new Date()), month = `${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}`;
+  window.KPTURouter?.setPlace?.('diary', {day:selected || (t.year === cursor.year && t.month === cursor.month ? null : month)});
+}
 function selectDay(day, {focus = false} = {}) {
   selected = day; source = 'all';
   days.querySelectorAll('[data-diary-day]').forEach(cell => cell.setAttribute('aria-pressed', String(cell.dataset.diaryDay === day)));
   renderDetail();
   dayLayer ||= window.KPTURouter?.layer?.open('diary-day', {close:() => { closeDetail({fromBack:true}); return true; }}) || null;
+  writePlace();
   requestAnimationFrame(() => { detail.scrollIntoView({block:'nearest', behavior:'smooth'}); if (focus) (detail.querySelector('h3') || detail.querySelector('[data-diary-detail-close]'))?.focus(); });
 }
 // BUG-오늘버튼: [오늘] goes to this month (when needed) and chooses today, opening its detail like a tap on the day.
@@ -179,7 +186,7 @@ function selectDay(day, {focus = false} = {}) {
 function goToday() {
   const t = seoulParts(new Date()), day = todayKey();
   if (t.year === cursor.year && t.month === cursor.month) { if (selected !== day) selectDay(day); return; }
-  cursor = {year:t.year, month:t.month}; closeDetail();
+  cursor = {year:t.year, month:t.month}; closeDetail(); writePlace();
   loadMonth().then(() => { if (!edit && !selected && loadedMonth === monthKey() && monthKey() === monthOf(day)) selectDay(day); });
 }
 // UI-상단줄제목: the open day goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it.
@@ -200,6 +207,7 @@ function closeDetail({fromBack = false} = {}) {
   closeViewer({fromBack, restore:false});
   selected = null; sendWhere(null); detail.hidden = true; detail.replaceChildren();
   days.querySelectorAll('[aria-pressed="true"]').forEach(cell => cell.setAttribute('aria-pressed', 'false'));
+  if (!fromBack) writePlace();
   const opened = dayLayer; dayLayer = null; if (!fromBack) opened?.close();
   renderList();
 }
@@ -950,14 +958,19 @@ window.addEventListener('kptu:session-changed', () => {
 function enter() {
   const back = takeOdReturn();
   if (back) ensureOdStatus().then(() => finishOdReturn(back));
-  const day = takeRequestedDay(rt);
+  const placed = window.KPTURouter?.place?.('diary')?.day || '';
+  const day = takeRequestedDay(rt) || (/^\d{4}-\d{2}-\d{2}$/.test(placed) ? placed : null);
+  if (!day && /^\d{4}-\d{2}$/.test(placed)) {
+    const [y, m] = placed.split('-').map(Number);
+    if (m >= 1 && m <= 12 && (y !== cursor.year || m - 1 !== cursor.month)) { cursor = {year:y, month:m - 1}; closeDetail(); writePlace(); }
+  }
   if (day) {
     const [y, m] = day.split('-').map(Number);
     if (y !== cursor.year || m - 1 !== cursor.month) { cursor = {year:y, month:m - 1}; closeDetail(); }
     loadMonth().then(() => selectDay(day, {focus:true}));
     return;
   }
-  loadMonth();
+  writePlace(); loadMonth();
 }
 window.KPTURouter?.on?.('diary', enter);
 window.KPTUDiary = {refresh:() => loadMonth({force:true})};

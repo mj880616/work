@@ -319,7 +319,8 @@ window.addEventListener('kptu:basket-pane',()=>syncMenuLocation());
 document.addEventListener('click',async event=>{
   const button=event.target.closest?.('#appView [data-basket-kind-nav]');if(!button)return;
   try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
-  window.KPTURouter?.go('basket',{source:'delegated'});
+  // NAV-새로고침제자리: the note side is written to the address (?view=basket&pane=note) like [챙길 것].
+  window.KPTURouter?.go('basket',{source:'delegated',sub:button.dataset.basketKindNav==='note'?'note':null});
 });
 // UI-자주가는링크: PC sidebar '자주 가는 링크 ›' opens the small links window beside it (quick-links.js owns the window and its saving).
 document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener('click',async event=>{

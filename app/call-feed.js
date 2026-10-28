@@ -84,9 +84,22 @@ async function loadRaw(id) {
 let rendering = false;
 const guardRender = fn => (...a) => { const was = rendering; rendering = true; try { return fn(...a); } finally { rendering = was; } };
 const paintList = guardRender(paintListNow), paintDetail = guardRender(paintDetailNow);
+// NAV-새로고침제자리: the box (?box=personal) and the open call (?call=<id>) are written to the address (no history entry of their own;
+// the phone keeps its layer entries), so a reload opens the same box and call. The address is read once when this module loads and
+// applied after the first list read; until then nothing is written.
+let placed = (() => { const q = new URLSearchParams(location.search); return q.get('view') === 'calls' ? {box:q.get('box') === 'personal' ? 'personal' : null, call:/^[A-Za-z0-9_.:-]{1,80}$/.test(q.get('call') || '') ? q.get('call') : null} : null; })();
+function applyPlace() {
+  const p = placed; if (!p || !state.loaded) return;
+  placed = null;
+  if (p.box === 'personal' && !state.pmissing) setBox('personal');
+  const r = p.call && rowOf(p.call);
+  if (r && isPersonal(r) === (state.box === 'personal')) select(p.call);
+}
 // ---------- paint (the only renderer of #callsView)
 function paint() {
   const root = view(); if (!root) return;
+  if (placed && state.loaded) { applyPlace(); paint(); return; }
+  if (!placed) window.KPTURouter?.setPlace?.('calls', {box:state.box === 'personal' ? 'personal' : null, call:state.selected || null});
   const wide = pc.matches, open = !!state.selected;
   paintList(); paintDetail();
   $('#cfList').hidden = !wide && open; $('#cfDetail').hidden = !wide && !open;
