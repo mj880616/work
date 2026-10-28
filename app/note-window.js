@@ -10,6 +10,7 @@ import {createNoteDoc, noteTitleFromText} from './basket-data.js';
 import {createUploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle} from './basket-upload.js';
 import {notePhotos} from './note-body.js';
 import {NOTE_TEXT_MAX} from './note-doc.mjs';
+import {requestNoteAiTitle} from './note-ai-title.js';
 
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
@@ -66,6 +67,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
       const first = list.entries.find(entry => entry.kind !== 'success')?.file?.name;
       const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() ? value : null}, rt);
       saved = {kind: 'note', id: note.id};
+      void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: AI 요약 제목(서버가 정함, 기다리지 않음)
       // NOTE-탐색기 후속 ⑤: 고른 폴더(폴더 나무 고르기 창, 폴더 id)에 넣는 일은 noteFolder.put(note-folder-pick.js, setNoteFolderRef 한 길)이 한다.
       if (noteFolder?.write && noteFolder.get?.() && noteFolder.put) {
         try { await noteFolder.put({id: note.id}); }

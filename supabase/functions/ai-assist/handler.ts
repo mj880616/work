@@ -36,6 +36,9 @@
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import {
+  hasOwnTitle, looksSecret, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
+} from "./note-title.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -104,7 +107,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -167,6 +170,7 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   call_refill_not_ready: "통화 정보 채우기가 아직 준비되지 않았어요.",
   call_refill_not_pending: "이미 채웠거나 채울 수 없는 통화예요.",
   call_refill_unavailable: "통화 정보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  note_title_unavailable: "노트 제목을 저장하지 못했어요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   text_pending: "글자를 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.",
@@ -377,6 +381,7 @@ type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_i
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
+type NoteTitleInput = { kind: "note_title"; id: string };
 type HwpConvertInput = { kind: "hwp_convert"; doc_type: HwpConvertDocType; text: string };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
@@ -422,7 +427,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -455,6 +460,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     const parsed = parseCallRefillRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "call_refill", ...parsed };
+  }
+  // 노트 AI 요약 제목(note_title, NOTE-탐색기 ③): 노트 ID 하나만 받는다. 글은 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "note_title") {
+    const parsed = parseNoteTitleRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "note_title", ...parsed };
   }
   // HWP 서식변환(hwp_convert): 문서 종류와 붙여 넣은 글(20000자까지)만 받는다. 다른 기록은 읽지 않는다.
   if (b.kind === "hwp_convert") {
@@ -2997,6 +3008,81 @@ async function runCallRefill(ctx: Ctx, input: CallRefillInput, deps: RadarDeps):
   return json({ ok: true, kind: "call_refill", id: input.id, title: parsed.title, counterpart, organization_id: orgId });
 }
 
+// ---- 쓰임 note_title: 노트 AI 요약 제목(NOTE-탐색기 ③, note-title.ts) ------------------------------------------------------
+// 노트를 처음 저장한 뒤 한 번. AI를 부르지 않는 경우(skipped)는 사용량에 잡지 않는다. 부르면 월 AI 상한·하루 횟수 안에서만, 사용량 줄(app_ai_daily_usage)에 더한다.
+// 저장은 그 노트 행의 metadata.ai_title(+ai_title_at)만, 읽은 뒤 바뀌지 않았을 때만(updated_at 같음·ai_title 없음). 제목 칸은 건드리지 않는다.
+async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const note = await readOne(ctx, `app_notes?id=eq.${input.id}&workspace_id=eq.${ws}&kind=eq.note&select=id,workspace_id,title,raw_text,updated_at,metadata,archived_at,ai_export_allowed&limit=2`);
+  if (!note || String(note.id).toLowerCase() !== input.id || String(note.workspace_id).toLowerCase() !== ctx.workspaceId) throw new Fail(404, "not_found");
+  const meta = note.metadata && typeof note.metadata === "object" && !Array.isArray(note.metadata) ? note.metadata as Record<string, unknown> : {};
+  const text = typeof note.raw_text === "string" ? note.raw_text : "";
+  const skip = (reason: string) => { deps.log("note_title_skipped", { reason }); return json({ ok: true, kind: "note_title", id: input.id, skipped: reason }); };
+  if (note.archived_at != null || note.ai_export_allowed !== true) return skip("not_allowed");
+  if (typeof meta.ai_title === "string" && meta.ai_title.trim()) return skip("done");
+  if (meta.ai_off === true) return skip("not_allowed");
+  if (hasOwnTitle(note.title, text)) return skip("own_title");
+  if (looksSecret(`${typeof note.title === "string" ? note.title : ""}\n${text}`)) return skip("secret");
+  const material = noteTitleMaterial(text);
+  if ([...material].length < 8) return skip("short");
+  const updatedAt = typeof note.updated_at === "string" ? note.updated_at : "";
+  if (!updatedAt) throw new Fail(503, "read_unavailable");
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "note_title", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: NOTE_TITLE_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: NOTE_TITLE_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "note_title", strict: true, schema: NOTE_TITLE_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: NOTE_TITLE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const title = parseNoteTitle(outputText(result.raw, 16 * 1024) ?? "");
+  if (!title) return skip("no_title");
+  // 읽은 뒤 바뀌었으면(그 사이 고침·다른 기기 저장) 쓰지 않는다: updated_at이 같고 ai_title이 아직 없을 때만.
+  // rest()는 쓰기 응답을 읽지 않으므로, 쓴 뒤 그 행을 다시 읽어 이번에 적은 시각(ai_title_at)이 들어갔는지로 확인한다.
+  const stamp = new Date(deps.now()).toISOString();
+  try {
+    await rest(ctx, `app_notes?id=eq.${input.id}&workspace_id=eq.${ws}&kind=eq.note&updated_at=eq.${encodeURIComponent(updatedAt)}&metadata->>ai_title=is.null`, {
+      method: "PATCH", prefer: "return=minimal", body: { metadata: { ...meta, ai_title: title, ai_title_at: stamp } },
+    });
+  } catch {
+    throw new Fail(503, "note_title_unavailable");
+  }
+  const after = await readOne(ctx, `app_notes?id=eq.${input.id}&workspace_id=eq.${ws}&kind=eq.note&select=id,metadata&limit=2`);
+  const afterMeta = after?.metadata && typeof after.metadata === "object" && !Array.isArray(after.metadata) ? after.metadata as Record<string, unknown> : {};
+  if (afterMeta.ai_title_at !== stamp || afterMeta.ai_title !== title) return skip("changed");
+  const sentChars = chars(material);
+  deps.log("note_title_done", { size: sentChars });
+  return json({ ok: true, kind: "note_title", id: input.id, title });
+}
+
 async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id`, {
     method: "POST",
@@ -3041,6 +3127,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "hwp_convert") return await runHwpConvert(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 
