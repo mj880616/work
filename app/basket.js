@@ -1,3 +1,4 @@
+import {waitInlineHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {basketOcrFor} from './basket-ocr-runtime.js';
@@ -546,7 +547,7 @@ function renderList() {
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
     return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span class="more-dots" aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${requestTagsHtml(noteRequests(note), esc)}</button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
   }).join('');
-  listStatus.textContent = visible.length ? `${visible.length}개 업데이트` : loadingRun ? '불러오는 중…' : '업데이트 없음';
+  if (!visible.length && loadingRun) listStatus.innerHTML = waitInlineHtml(); else listStatus.textContent = visible.length ? `${visible.length}개 업데이트` : '업데이트 없음';
   listStatus.toggleAttribute('data-basket-empty', !visible.length && !loadingRun);
   const unclassifiedCount = visibleNotes(notes, links, 'unclassified', docs).length;
   root.querySelector('[data-basket-filter-count]').textContent = ' ' + unclassifiedCount;
@@ -822,7 +823,7 @@ async function refresh() {
   if (busy) return;
   const run = ++epoch, owner = scope();
   loadingRun = run;
-  listStatus.textContent = '불러오는 중…'; root.querySelector('[data-basket-retry]').hidden = true;
+  listStatus.innerHTML = waitInlineHtml(); root.querySelector('[data-basket-retry]').hidden = true;
   // UI-바구니첨부메모 PR 3: 자료실 분류 칩은 내 분류 목록을 따른다(목록이 오면 'kptu:document-categories-changed'로 다시 그린다).
   void loadDocumentCategories();
   try {
@@ -1046,7 +1047,7 @@ async function rereadLinks() {
     const attr = active && ['data-basket-row', 'data-basket-row-more', 'data-basket-unlink', 'data-basket-chip-open'].find(name => active.hasAttribute(name));
     const value = attr && active.getAttribute(attr), noteId = active?.closest('[data-basket-row-item]')?.dataset.basketRowItem;
     // renderList writes the note count; a result message already on that line (delete, disconnect) stays.
-    const said = listStatus.textContent, counted = /^(\d+개 업데이트|아직 업데이트가 없어요|불러오는 중…)?$/.test(said);
+    const said = listStatus.textContent, counted = /^(\d+개 업데이트|업데이트 없음)?$/.test(said);
     links = result.links; docs = result.docs; renderList(); if (selected) { paintStateLine(); paintJournalButton(); }
     if (!counted) listStatus.textContent = said;
     if (attr && !active.isConnected) (root.querySelector(`[${attr}="${CSS.escape(value)}"]`) || (noteId && root.querySelector(`[data-basket-row="${CSS.escape(noteId)}"]`)) || (selected && detail.querySelector('[data-basket-read-text]')))?.focus({preventScroll:true});

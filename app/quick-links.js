@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // UI-자주가는링크 (2026-10-22 사용자 승인): PC 사이드바 [쓰기] 아래 '자주 가는 링크 ›' 한 줄이 여는 작은 창.
 // - 창은 그 줄 오른쪽에서 위쪽으로 열린다(창 아래끝 = 줄 아래끝, 화면 밖으로 나가지 않음; anchored-popup.js beside:'up').
 // - 바깥 누르기·Esc로 닫힌다. 링크는 새 탭(rel="noopener noreferrer").
@@ -299,7 +300,7 @@ function viewHtml() {
   }).join('');
   const loading = state.status === 'loading' && !state.links;
   return `<div class="ql-head"><h2>자주 가는 링크</h2><button type="button" class="ql-btn" data-ql-edit ${loading ? 'disabled' : ''}>편집</button></div>`
-    + (loading ? '<p class="ql-empty" role="status">불러오는 중…</p>' : sections)
+    + (loading ? waitHtml({rows:3}) : sections)
     + `<p class="ql-note" role="status" aria-live="polite">${esc(state.note)}</p>`;
 }
 

@@ -1,3 +1,4 @@
+import {waitHtml, failHtml} from './wait-state.js';
 import {seoulDateKey,seoulClock} from './meeting-time.js';
 import {todayEvents} from './home-read-model.js';
 // List and week share KST day calculation and event/task rows. Month owns normalized bar geometry.
@@ -24,7 +25,7 @@ export function appendDayRows(container,date,items,known=true){
   if(count){
     const button=document.createElement('button');button.type='button';button.className='clv-tasks'+(pending.some(t=>t.overdue)?' clv-tasks-overdue':'');button.textContent=(events.length||!known?'':'일정 없음 · ')+`할 일 ${count}개 ›`;
     button.addEventListener('click',()=>window.KPTUCalendarDayOverflow?.open(date,items));container.append(button);
-  }else if(!events.length){const empty=document.createElement('div');empty.className='clv-empty';const failed=window.KPTUCalendarPersistence?.state?.()==='failed';if(!known)empty.dataset.calendarPending='';empty.textContent=known?'일정 없음':failed?'불러오지 못함':'불러오는 중…';container.append(empty)}
+  }else if(!events.length){const empty=document.createElement('div');empty.className='clv-empty';const failed=window.KPTUCalendarPersistence?.state?.()==='failed';if(!known)empty.dataset.calendarPending='';if(known)empty.textContent='일정 없음';else empty.innerHTML=failed?failHtml():waitHtml({rows:1});container.append(empty)}
 }
 export function captureDayFocus(box,previous){
   const active=document.activeElement;

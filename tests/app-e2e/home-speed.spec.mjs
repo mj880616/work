@@ -88,7 +88,7 @@ test('calendar copy survives reload but is ignored on next KST day',async({page}
   await ready(page);
   await page.clock.setFixedTime(new Date('2026-10-06T15:00:00Z'));
   const next=start(page);
-  await expect(page.locator('[data-home-card="calendar"]')).toContainText('불러오는 중',{timeout:500});await next;
+  await expect(page.locator('[data-home-card="calendar"] [data-wait]')).toHaveCount(1,{timeout:500});await next;
 });
 test('latest failure is visible and does not replace the last successful copy',async({page})=>{
   const c=await openHome(page);await ready(page);c.setFailure('google-calendar');await start(page);

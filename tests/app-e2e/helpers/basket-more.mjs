@@ -14,7 +14,7 @@ export async function showBasketRow(page,id){
  for(const segment of ['unclassified','classified','archived']){
   const button=page.locator(`#basketView [data-basket-filter="${segment}"]`);
   await expect(button).toBeVisible();await button.click();await expect(button).toHaveAttribute('aria-pressed','true');
-  await expect(page.locator('[data-basket-list-status]')).not.toHaveText('불러오는 중…');
+  await expect(page.locator('[data-basket-list-status] [data-wait]')).toHaveCount(0);
   if(await row.count())return row;
  }
  await expect(row).toBeVisible();

@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // MD-표시보완: 바구니 메모의 .html 첨부(ChatGPT HTML)를 칸막이 iframe으로 보여 준다(hwp-frame.js와 같은 sandbox 방식).
 // - sandbox="allow-scripts"만 준다(allow-same-origin·forms·popups·top-navigation 없음). 문서는 고유 origin("null")이 되어
 //   Web2 창(parent·top)·로그인 정보·저장소·쿠키에 닿지 못하고, 폼 제출·새 창·최상위 이동도 막힌다.
@@ -165,7 +166,7 @@ async function loadHtmlView(box, file, {noteId, isCurrent, rt}) {
   const live = () => box.isConnected && isCurrent();
   const say = text => { const p = document.createElement('p'); p.className = 'basket-html-message'; p.setAttribute('role', 'status'); p.textContent = `${file.file_name || 'HTML'}: ${text}`; box.replaceChildren(p); };
   if (Number(file.size_bytes) > HTML_MAX_BYTES) return say(HTML_FRAME_TEXT.tooLarge);
-  say('불러오는 중…');
+  box.innerHTML = waitHtml({rows:4});
   try { const {html} = await openBasketHtml(noteId, file.drive_file_id, {rt}); if (live()) mountHtmlFrame(box, html, {title: file.file_name || 'ChatGPT HTML'}); }
   catch (err) { if (live()) say(err?.message || HTML_FRAME_TEXT.failed); }
 }

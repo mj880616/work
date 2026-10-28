@@ -161,10 +161,10 @@ test('a segment tap during the first basket read keeps the loading line and then
  await page.route(SB+'/rest/v1/app_notes?**',async route=>{await gate;return route.fallback();});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  const status=page.locator('[data-basket-list-status]');
- await expect(status).toHaveText('불러오는 중…');
+ await expect(status.locator('[data-wait]')).toHaveCount(1);await expect(status).toHaveText('');
  for(const segment of ['classified','unclassified']){
   await filterChip(page,segment).click();await expect(filterChip(page,segment)).toHaveAttribute('aria-pressed','true');
-  await expect(status).toHaveText('불러오는 중…');await expect(status).not.toHaveAttribute('data-basket-empty','');
+  await expect(status.locator('[data-wait]')).toHaveCount(1);await expect(status).not.toHaveAttribute('data-basket-empty','');
  }
  release();
  await expect(page.locator(`[data-basket-row="${PLAIN}"]`)).toBeVisible();
