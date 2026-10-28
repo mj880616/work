@@ -1,8 +1,6 @@
 /* HWP 편집 화면(?view=hwp: 내 기기 파일·Drive 편집). 머리줄·버튼 배치와 편집기 frame 높이만 정하고 나머지는 공용 카드·버튼을 쓴다. */
 .hwp-lab [hidden]{display:none}
 .hwp-lab .hwp-lab-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:8px}
-.hwp-lab .hwp-lab-head h2{flex:1 1 auto;min-width:0;margin:0;font-size:18px;line-height:1.35;font-weight:800}
-.hwp-lab .hwp-lab-note{margin:0 0 12px;color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
 .hwp-lab .hwp-lab-actions:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .hwp-lab .hwp-lab-actions button{min-height:var(--kptu-touch-target)}
 .hwp-lab .hwp-drive-bar a:not([hidden]){display:inline-flex;align-items:center;min-height:var(--kptu-touch-target);padding:0 4px}
@@ -13,21 +11,38 @@
 /* Phone: [파일 선택] on its own row, the two save buttons side by side in equal halves. */
 @media(max-width:760px){
   .hwp-lab .hwp-lab-head{display:block}
-  .hwp-lab .hwp-lab-head h2{margin-bottom:10px}
   /* UI-버튼전수조사(2026-10-24): 폰도 버튼은 글자 폭(폭 전체 반반 칸 대신 한 줄에 나란히, 넘치면 다음 줄). */
   .hwp-lab .hwp-file-actions:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;gap:8px}
   .hwp-lab .hwp-file-actions button{width:auto;margin:0}
 }
-/* PC: title and buttons share one row so the editor takes the rest of the window. */
+/* PC: 버튼 한 줄(오른쪽 끝 [전체 화면]) 아래 상태 한 줄, 나머지 창 높이는 편집기가 가득 채운다(HWP-화면가득: 겹친 제목·안내문 없음). */
 @media(min-width:1024px){
-  .hwp-lab .hwp-lab-head h2{flex:0 1 auto;margin-right:auto}
-  .hwp-lab .hwp-lab-note{margin-bottom:4px}
-  .hwp-lab .hwp-lab-editor{height:max(560px,calc(100dvh - 200px - var(--kptu-topline-space,0px)))}
+  .hwp-lab .hwp-lab-full{margin-left:auto}
+  .hwp-lab .hwp-lab-editor{height:max(560px,calc(100dvh - 150px - var(--kptu-topline-space,0px)))}
 }
-/* HWP-노조양식: 전체 화면(Ctrl+숫자 키보드 잠금) 버튼 줄. 지원하지 않는 기기에서는 버튼이 숨겨져 줄이 비면 접힌다. */
-.hwp-lab .hwp-lab-tools{display:flex;gap:8px;margin:0 0 8px}
-.hwp-lab .hwp-lab-tools:not(:has(button:not([hidden]))){display:none}
-.hwp-lab .hwp-lab-tools button{min-height:var(--kptu-touch-target)}
+/* HWP-화면가득: 폰·폴드(1023px 이하)와 PC [전체 화면](data-full)에서는 카드가 화면 전체(data-focus).
+   위 얇은 한 줄([✕]·파일 이름·[파일 ▾]·[저장 ▾]) + 편집기만. 버튼 줄·만든 문서 줄·[전체 화면]은 위 줄 메뉴가 대신한다. */
+.hwp-lab .hwp-lab-bar{display:none}
+#appView #hwpView .hwp-lab[data-focus]{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;box-sizing:border-box;width:auto;max-width:none;height:auto;margin:0;padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);border:0;border-radius:0;box-shadow:none;background:var(--kptu-surface)}
+#appView #hwpView .hwp-lab[data-focus] .hwp-lab-bar{display:flex;flex:0 0 auto;align-items:center;gap:6px;min-height:40px;padding:max(4px,env(safe-area-inset-top)) 8px 4px 4px;box-sizing:border-box;border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#appView #hwpView .hwp-lab[data-focus] .hwp-bar-close{flex:0 0 32px;border-color:transparent;background:transparent;color:var(--kptu-muted);font-size:16px}
+#appView #hwpView .hwp-lab[data-focus] .hwp-bar-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row,14px);font-weight:500;color:var(--kptu-ink)}
+#appView #hwpView .hwp-lab[data-focus] .hwp-bar-menu{flex:0 0 auto}
+#appView #hwpView .hwp-lab[data-focus] :is(.hwp-lab-head,.hwp-conv-bar){display:none}
+#appView #hwpView .hwp-lab[data-focus] .hwp-lab-status{flex:0 0 auto;min-height:0;margin:0;padding:2px 10px;font-size:var(--ds-text-meta,12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#appView #hwpView .hwp-lab[data-focus] .hwp-lab-status:empty{display:none}
+#appView #hwpView .hwp-lab[data-focus] .hwp-lab-status[data-state="error"]{white-space:normal}
+#appView #hwpView .hwp-lab[data-focus] .hwp-lab-editor{flex:1 1 auto;height:auto;min-height:0;border:0;border-radius:0}
+/* 화면 가득인 동안 폰 머리줄('HWP 편집' 겹친 제목)·아래 메뉴 줄은 그리지 않는다(가려진 채 Tab으로 닿지 않게). */
+html:has(#hwpView:not(.hidden) .hwp-lab[data-focus]){--kptu-mobile-tab-height:0px}
+html:has(#hwpView:not(.hidden) .hwp-lab[data-focus]) :is(.mobile-tabs,.mobile-shell-header){display:none}
+/* 위 줄 [파일 ▾]·[저장 ▾] 메뉴 판(공용 anchored-menu). 콤팩트·톤다운. */
+.hwp-bar-panel{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
+.hwp-bar-panel[hidden]{display:none}
+.hwp-bar-panel button{display:block;width:100%;height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:0;padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control,8px);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);cursor:pointer}
+.hwp-bar-panel button:hover:not(:disabled){background:var(--kptu-surface-subtle)}
+.hwp-bar-panel button:disabled{color:var(--kptu-muted);cursor:default}
+.hwp-bar-panel button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 /* HWP-서식변환: 위 줄(만든 문서의 파일 이름 + 오른쪽 [내려받기]·[자료실에 저장])과 [노조 서식으로 만들기] 작은 창. 콤팩트·톤다운. */
 .hwp-lab .hwp-conv-bar:not([hidden]){margin:0 0 8px}
 .hwp-lab .hwp-conv-name{flex:1 1 140px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--kptu-ink)}

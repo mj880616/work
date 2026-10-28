@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {servePagesCors} from './helpers/hwp-editor.mjs';
+import {servePagesCors,hwpPress,openHwpMenu,hwpMenuItem} from './helpers/hwp-editor.mjs';
 // HWP-편집기 메뉴 입구: ☰ 메뉴(phone) and the sidebar (PC) open [HWP 편집]. The editor (about 20MB) loads only on this
 // screen. A device file is downloaded as HWP or handed to the library's own [+ 자료 등록] dialog, where the person
 // picks project and category; nothing else goes to the server. Leaving with unsaved edits asks first.
@@ -71,36 +71,55 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
 
   await enterFromMenu(page,width);
   expect(seen.editor.length).toBeGreaterThan(0);
-  await expect(page.locator('#hwpLabTitle')).toHaveText('HWP 편집');
+  // HWP-화면가득: 겹친 제목·안내문 없이 화면 이름은 읽는 이름으로만 둔다.
+  await expect(page.locator('#hwpView')).toHaveAttribute('aria-label','HWP 편집');
+  await expect(page.locator('#hwpView h2')).toHaveCount(0);
+  await expect(page.locator('#hwpView .hwp-lab-note')).toHaveCount(0);
   await expect(page.locator('#hwpLabEditor iframe')).toHaveAttribute('sandbox','allow-scripts');
-  for(const name of ['파일 선택','내 기기에 저장','자료실에 올리기'])await expect(page.locator('#hwpView').getByRole('button',{name,exact:true})).toBeVisible();
   await expect(page.locator('#hwpLabUpload')).toBeDisabled();
-  const [pick,save,upload,editor]=await Promise.all(['#hwpLabPick','#hwpLabSave','#hwpLabUpload','#hwpLabEditor'].map(id=>box(page.locator(id))));
-  // UI-버튼줄이기: [파일 선택]·[자료실에 올리기]는 보조 32px, [내 기기에 저장]은 주 동작 36px. 누르는 범위는 ::after 44px.
-  expect([pick.h,save.h,upload.h]).toEqual([32,36,32]);
-  for(const id of ['#hwpLabPick','#hwpLabSave','#hwpLabUpload'])expect(await page.locator(id).evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight))).toBeGreaterThanOrEqual(44);
+  const editor=await box(page.locator('#hwpLabEditor'));
   if(width<761){
-    await expect(page.locator('[data-mobile-view-name]')).toHaveText('HWP 편집');
-    // UI-버튼전수조사(2026-10-24): 폰도 버튼은 글자 폭으로 한 줄에 나란히(폭 전체·반반 칸 아님). 높이가 달라(36·32) 가운데로 비교.
-    for(const b of [save,upload])expect(Math.abs((b.y+b.h/2)-(pick.y+pick.h/2))).toBeLessThanOrEqual(1);
-    expect(pick.x).toBeLessThan(save.x);expect(save.x).toBeLessThan(upload.x);
-    for(const b of [pick,save,upload])expect(b.w).toBeLessThan(width/2);
-    expect(upload.x+upload.w).toBeLessThanOrEqual(width);
+    // 폰: 편집기가 화면 가득. 위 얇은 한 줄([✕]·파일 이름·[파일 ▾]·[저장 ▾])만 보이고 버튼 줄·[전체 화면]·폰 머리줄·아래 메뉴 줄은 없다.
+    await expect(page.locator('#hwpLabBar')).toBeVisible();
+    await expect(page.locator('#hwpLabName')).toHaveText('HWP 편집');
+    for(const hidden of ['.hwp-lab-head','#hwpLabFull','.mobile-tabs','.mobile-shell-header'])await expect(page.locator(hidden)).toBeHidden();
+    const bar=await box(page.locator('#hwpLabBar'));
+    expect(bar.y).toBeLessThanOrEqual(1);
+    expect(bar.h).toBeLessThanOrEqual(48);
+    expect(editor.x).toBeLessThanOrEqual(1);
+    expect(editor.w).toBeGreaterThanOrEqual(width-1);
+    expect(editor.y).toBeLessThanOrEqual(90);
+    expect(editor.y+editor.h).toBeGreaterThanOrEqual(844-1);
+    // [파일 ▾]: 파일 선택·노조 양식으로 새 문서·노조 서식으로 만들기. [저장 ▾]: 내 기기에 저장·자료실에 올리기(파일을 열기 전에는 꺼짐).
+    await openHwpMenu(page,'hwpLabPick');
+    await expect(page.locator('#hwpBarMenu button')).toHaveText(['파일 선택','노조 양식으로 새 문서','노조 서식으로 만들기']);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#hwpBarMenu')).toBeHidden();
+    await openHwpMenu(page,'hwpLabSave');
+    await expect(page.locator('#hwpBarMenu button')).toHaveText(['내 기기에 저장','자료실에 올리기']);
+    await expect(hwpMenuItem(page,'hwpLabSave')).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#hwpBarMenu')).toBeHidden();
   }else{
-    // Title and buttons share one row; the editor takes the content width and most of the window height.
-    const title=await box(page.locator('#hwpLabTitle'));
-    expect(Math.abs((title.y+title.h/2)-(pick.y+pick.h/2))).toBeLessThanOrEqual(8);
-    expect(new Set([pick,save,upload].map(b=>Math.round(b.y+b.h/2))).size).toBe(1);// UI-버튼줄이기: 높이가 달라(32·36·32) 가운데로 비교
+    for(const name of ['파일 선택','내 기기에 저장','자료실에 올리기','전체 화면'])await expect(page.locator('#hwpView').getByRole('button',{name,exact:true})).toBeVisible();
+    await expect(page.locator('#hwpLabBar')).toBeHidden();
+    const [pick,save,upload,full]=await Promise.all(['#hwpLabPick','#hwpLabSave','#hwpLabUpload','#hwpLabFull'].map(id=>box(page.locator(id))));
+    // UI-버튼줄이기: [파일 선택]·[자료실에 올리기]는 보조 32px, [내 기기에 저장]은 주 동작 36px. 누르는 범위는 ::after 44px.
+    expect([pick.h,save.h,upload.h]).toEqual([32,36,32]);
+    for(const id of ['#hwpLabPick','#hwpLabSave','#hwpLabUpload'])expect(await page.locator(id).evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight))).toBeGreaterThanOrEqual(44);
+    // 버튼 한 줄(오른쪽 끝 [전체 화면]). 높이가 달라(32·36·32) 가운데로 비교.
+    expect(new Set([pick,save,upload,full].map(b=>Math.round(b.y+b.h/2))).size).toBe(1);
+    expect(full.x).toBeGreaterThan(upload.x);
+    // 편집기는 내용 폭과 창 높이를 가득 채운다(PC 상단 줄 40px + 간격 8px 포함). 편집기 아래가 창 안에 들어온다.
     expect(editor.w).toBeGreaterThanOrEqual(900);
-    // UI-상단줄: PC 상단 줄(40px + 간격 8px)만큼 편집기 높이가 줄었다(900 - 200 - 48). 편집기 아래가 창 안에 들어오는지도 본다.
-    expect(editor.h).toBeGreaterThanOrEqual(680-48);
+    expect(editor.h).toBeGreaterThanOrEqual(700-48);
     expect(editor.y+editor.h).toBeLessThanOrEqual(900);
   }
 
   page.on('dialog',dialog=>{seen.dialogs.push(dialog.message());void dialog.dismiss()});
   await openAndType(page,width);
   await page.screenshot({path:info.outputPath(`hwp-menu-${width}.png`)});
-  await page.locator('#hwpLabUpload').click();
+  await hwpPress(page,'hwpLabUpload');
   // The library's own dialog opens with the edited HWP selected; project and category stay for the person.
   await expect(page.locator('#libraryView')).toBeVisible();
   await expect(page.locator('#documentModal')).toBeVisible();
@@ -126,16 +145,17 @@ test('leaving with unsaved edits asks first; a downloaded file leaves without as
   await openAndType(page,390);
   const asked=[];
   page.once('dialog',dialog=>{asked.push(dialog.message());void dialog.dismiss()});
-  await page.locator('.mobile-tabs [data-view="home"]').click();
+  // HWP-화면가득: 폰은 [✕](= 뒤로가기)로 이전 화면. 저장 안 한 내용이 있으면 한 번 묻는다.
+  await page.locator('#hwpLabClose').click();
   await expect.poll(()=>asked.length).toBe(1);
   expect(asked[0]).toContain('저장하지 않은 고친 내용');
   await expect(page.locator('#hwpView')).toBeVisible();
 
-  const [file]=await Promise.all([page.waitForEvent('download'),page.locator('#hwpLabSave').click()]);
+  const [file]=await Promise.all([page.waitForEvent('download'),hwpPress(page,'hwpLabSave')]);
   expect(file.suggestedFilename()).toBe('sample-수정.hwp');
   await expect(status(page)).toHaveText(/sample-수정\.hwp\(\d+KB\)을 내려받았습니다/);
   page.on('dialog',dialog=>{asked.push(dialog.message());void dialog.dismiss()});
-  await page.locator('.mobile-tabs [data-view="home"]').click();
+  await page.locator('#hwpLabClose').click();
   await expect(page.locator('#homeView')).toBeVisible();
   expect(asked).toHaveLength(1);
 
@@ -148,8 +168,9 @@ test('leaving with unsaved edits asks first; a downloaded file leaves without as
   await page.waitForTimeout(2500);
   page.removeAllListeners('dialog');
   page.once('dialog',dialog=>{asked.push(dialog.message());void dialog.accept()});
-  await page.locator('.mobile-tabs [data-view="calendar"]').click();
-  await expect(page.locator('#calendarView')).toBeVisible();
+  // 폰 뒤로가기도 [✕]와 같이 이전 화면으로 간다(묻고 나서).
+  await page.evaluate(()=>history.back());
+  await expect(page.locator('#homeView')).toBeVisible();
   expect(asked).toHaveLength(2);
   expect(seen.library).toEqual([]);
   expect(seen.external).toEqual([]);

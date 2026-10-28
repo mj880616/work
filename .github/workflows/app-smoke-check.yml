@@ -38,6 +38,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
+      - 'tests/hwp-fill-screen.test.mjs'
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
@@ -119,6 +120,7 @@ on:
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
+      - 'tests/hwp-fill-screen.test.mjs'
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
@@ -223,6 +225,9 @@ jobs:
 
       - name: Check HWP union-form conversion (numbers, template pick, in-editor fill, engine line)
         run: node --test tests/hwp-convert.test.mjs
+
+      - name: Check HWP editor fills the screen (phone, PC fullscreen, page-width refit)
+        run: node --test tests/hwp-fill-screen.test.mjs
 
       - name: Meeting files·text grouping and pinned PDF reader
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs

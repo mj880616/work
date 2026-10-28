@@ -454,9 +454,9 @@
 .modal :is(h2,h3,h4,legend,label,summary,.modal-head b):not(.md-body *),
 .home-choice-sheet :is(h2,button[aria-pressed="true"]){ font-weight:var(--ds-weight-medium); }
 
-/* 화면 제목 18px(HWP 편집 상자 제목), 창 제목 18px. 창 제목 크기는 공용 대화상자 규칙(D-6b, workspace-ui.css)이 --kptu-text-title로 정하므로 창 안에서만 그 값을 바꾼다. */
+/* 창 제목 18px. 창 제목 크기는 공용 대화상자 규칙(D-6b, workspace-ui.css)이 --kptu-text-title로 정하므로 창 안에서만 그 값을 바꾼다. */
 .modal{ --kptu-text-title:var(--ds-text-title); }
-#appView #hwpView .hwp-lab-head h2,.modal :is(.modal-head h2,.w1b-detail-head h2),.home-choice-sheet h2,.theme-panel h2{ font-size:var(--ds-text-title); line-height:1.4; }
+.modal :is(.modal-head h2,.w1b-detail-head h2),.home-choice-sheet h2,.theme-panel h2{ font-size:var(--ds-text-title); line-height:1.4; }
 
 /* 입력: 높이 하나·0.5px 선·모서리 8px. 여러 줄 칸은 높이만 그대로. */
 
@@ -477,7 +477,6 @@
 .modal hr,.mobile-menu-panel hr{ border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
 
 /* HWP 편집: 안내 12px 흐린 색, 편집기 칸막이 바깥 틀은 0.5px 선·모서리 8px, 바탕은 밝게(칸막이 안은 그대로). */
-#appView #hwpView .hwp-lab-note{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #hwpView .hwp-lab-status{ font-size:var(--ds-text-row); }
 #appView #hwpView .hwp-lab-editor{ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--ds-frame-paper); }
 #appView #calendarView .calendar-google-panel .updated{ font-weight:var(--ds-weight-regular); }

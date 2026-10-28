@@ -52,7 +52,8 @@ const index = patch(join(studio, 'index.html'), [
   // The guard runs before every studio script (theme/locale init read browser storage synchronously).
   // studio-styles.js (HWP-노조양식) only adds style shortcuts/buttons; it reads the editor's own style box.
   // studio-convert.js (HWP-서식변환) answers one message from the Web2 page: it fills a template in a second, separate document.
-  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>\n  <script src="../../studio-styles.js"></script>\n  <script src="../../studio-convert.js"></script>`],
+  // studio-fit.js (HWP-화면가득) re-fits the page width when the narrow editor frame is resized (rotate, fold/unfold).
+  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>\n  <script src="../../studio-styles.js"></script>\n  <script src="../../studio-convert.js"></script>\n  <script src="../../studio-fit.js"></script>`],
 ]);
 // HWP-서식변환: studio-convert.js가 쓸 엔진 클래스를 내놓는 한 줄(expose-engine.mjs). 편집기 번들(assets/index-*.js)에만 더한다.
 for (const name of readdirSync(join(studio, 'assets'))) {

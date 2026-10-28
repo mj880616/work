@@ -9,6 +9,12 @@ export function accountButton(page){
   return page.locator('#appView>.app-topline [data-account-open]:visible,#mobileMenuOpen:visible,#mobileMenuTab:visible');
 }
 export async function clickView(page,view){
+  // HWP-화면가득: 폰·폴드 폭의 HWP 편집은 화면 가득이라 아래 탭·메뉴가 그려지지 않는다. 사람처럼 [✕]로 먼저 이전 화면에 나온다.
+  const hwpClose=page.locator('#hwpView:not(.hidden) #hwpLabClose:visible');
+  if(view!=='hwp'&&await hwpClose.count()){
+    await hwpClose.click();
+    await page.waitForFunction(()=>document.querySelector('#hwpView')?.classList.contains('hidden'));
+  }
   await page.waitForFunction(()=>{
     if(!document.querySelector('#appView.kptu-ui-ready'))return false;
     const tabs=document.querySelector('.mobile-tabs');

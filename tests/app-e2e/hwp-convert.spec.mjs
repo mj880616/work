@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {servePagesCors} from './helpers/hwp-editor.mjs';
+import {servePagesCors,hwpPress,openHwpMenu} from './helpers/hwp-editor.mjs';
 // HWP-서식변환: [HWP 편집] > [노조 서식으로 만들기]. 문서 종류 칩 + 글 칸 + 오른쪽 아래 [취소][만들기] → 자료실 "양식"의 그 종류 빈 양식을 받고
 // (document-actions hwp-open) → AI(ai-assist hwp_convert) → 편집기 칸막이 안에서 양식에 채워 편집기에 열기 → 위 줄 [내려받기]·[자료실에 저장].
 // 서버(Supabase)는 모두 흉내 낸다. 빈 양식은 저장소의 시험 샘플(tests/fixtures/hwp-lab/sample.hwp: 시험 문장 한 줄)이다.
@@ -70,13 +70,14 @@ async function fixture(page,width,{ai}={}){
   await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
   return {sent,errors,external};
 }
-const press=async(page,locator,width)=>{await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();};
+// HWP-화면가득: 이름(문자열)으로 주면 HWP 편집 위 줄 메뉴 안의 버튼도 누른다(helpers/hwp-editor.mjs hwpPress).
+const press=async(page,locator,width)=>{if(typeof locator==='string')return hwpPress(page,locator,{tap:width<761});await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();};
 const dialog=page=>page.locator('#hwpConvertModal');
 
 for(const width of [390,1280])test(`paste a text, make it in the union form, check it in the editor, download and save to the library ${width}`,async({page},info)=>{
   const f=await fixture(page,width);
   await expect(page.locator('#hwpConvBar')).toBeHidden();
-  await press(page,page.locator('#hwpLabConvert'),width);
+  await press(page,'hwpLabConvert',width);
   await expect(dialog(page)).toBeVisible();
   // Small window: three type chips, a text box, [취소][만들기] at the bottom right; [만들기] waits for a text.
   await expect(dialog(page).locator('[data-doc-type]')).toHaveText(['보고서','공문','회의자료']);
@@ -97,14 +98,24 @@ for(const width of [390,1280])test(`paste a text, make it in the union form, che
   expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'tpl-letter'}]);
   await expect(page.locator('#hwpLabStatus')).toHaveText(/^공문_\d{4}\.hwp · \d+쪽 · 5문단을 넣었어요\. 확인하고 고친 뒤 \[내려받기\] 또는 \[자료실에 저장\]을 누르세요\./,{timeout:60000});
   // Top line: the file name and, on the right, [내려받기] [자료실에 저장].
-  await expect(page.locator('#hwpConvBar')).toBeVisible();
-  await expect(page.locator('#hwpConvName')).toHaveText(/^공문_\d{4}\.hwp$/);
-  await expect(page.locator('#hwpConvBar button')).toHaveText(['내려받기','자료실에 저장']);
+  if(width<1024){
+    // 폰: 만든 문서 이름은 위 얇은 줄에, [내려받기]·[자료실에 저장]은 [저장 ▾] 안에.
+    await expect(page.locator('#hwpConvBar')).toBeHidden();
+    await expect(page.locator('#hwpLabName')).toHaveText(/^공문_\d{4}\.hwp$/);
+    await openHwpMenu(page,'hwpConvDownload',{tap:true});
+    await expect(page.locator('#hwpBarMenu button')).toHaveText(['내려받기','자료실에 저장']);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#hwpBarMenu')).toBeHidden();
+  }else{
+    await expect(page.locator('#hwpConvBar')).toBeVisible();
+    await expect(page.locator('#hwpConvName')).toHaveText(/^공문_\d{4}\.hwp$/);
+    await expect(page.locator('#hwpConvBar button')).toHaveText(['내려받기','자료실에 저장']);
+  }
   await expect(page.locator('#hwpLabSave')).toBeHidden();
   await expect(page.locator('#hwpLabUpload')).toBeHidden();
   await page.screenshot({path:info.outputPath(`hwp-convert-done-${width}.png`)});
 
-  const [file]=await Promise.all([page.waitForEvent('download'),press(page,page.locator('#hwpConvDownload'),width)]);
+  const [file]=await Promise.all([page.waitForEvent('download'),press(page,'hwpConvDownload',width)]);
   expect(file.suggestedFilename()).toMatch(/^공문_\d{4}\.hwp$/);
   const bytes=[...readFileSync(await file.path())];
   expect(bytes.slice(0,4)).toEqual([0xd0,0xcf,0x11,0xe0]);
@@ -115,7 +126,7 @@ for(const width of [390,1280])test(`paste a text, make it in the union form, che
   expect(text.indexOf('1.추진배경')).toBeLessThan(text.indexOf('1)가상회의진행.'));
   expect(text.indexOf('1)가상회의진행.')).toBeLessThan(text.indexOf('2)가상협의완료.'));
 
-  await press(page,page.locator('#hwpConvLibrary'),width);
+  await press(page,'hwpConvLibrary',width);
   await expect(page.locator('#hwpLabStatus')).toHaveText('자료실에 새 문서로 저장했어요. 분류·프로젝트는 자료실에서 정해 주세요.',{timeout:30000});
   expect(f.sent.library).toHaveLength(1);
   expect(Object.keys(f.sent.library[0]).sort()).toEqual(['file','title']);
