@@ -18,7 +18,7 @@
 -- expect: triggers hash = 기록
 -- expect: indexes hash = 기록
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261028010000' and name='onedrive_photo_index')=1 then '예' else '아니오' end as value
-union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261029120000') then '예' else '아니오' end
+union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261029124500') then '예' else '아니오' end
 union all select 'every connected index re-walked',case when not exists(select 1 from public.app_onedrive_connections
   where folder_id is not null and (index_done_at is null or index_done_at < timestamptz '2026-10-28 23:00:00+00')) then '예' else '아니오' end
 union all select 'RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.app_diary_stars') and relrowsecurity) then '예' else '아니오' end

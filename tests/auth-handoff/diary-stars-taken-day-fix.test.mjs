@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic (no real photo or file names).
-// PHOTO-찍은시각 바로잡기 DB(20261029120000): 원드라이브 별표의 taken_day를 새 규칙으로 다시 받은 색인 날짜와 같게 맞춘다(데이터만).
+// PHOTO-찍은시각 바로잡기 DB(20261029124500): 원드라이브 별표의 taken_day를 새 규칙으로 다시 받은 색인 날짜와 같게 맞춘다(데이터만).
 // - 색인을 아직 다시 받지 않은 연결이 있으면 아무것도 바꾸지 않고 멈춘다.
 // - 새 규칙 색인 줄(updated_at ≥ 고침 기준)만 기준으로 쓰고, 직접 올린 사진 별표·색인에 없는 별표·옛 줄은 그대로 둔다.
 // - 두 번 적용은 멈추고, 되돌리기는 기록 1행만 지운다. 사전·사후 확인 SQL은 적용 전·후·되돌린 뒤 기대대로 나온다.
@@ -16,7 +16,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,WS_A} from './basket4-fixture.mjs';
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
-const STEM='20261029120000_diary_stars_taken_day_fix';
+const STEM='20261029124500_diary_stars_taken_day_fix';
 
 test('diary stars taken_day fix: waits for the re-walked index, fixes onedrive stars only, pair files',{timeout:180000},async t=>{
  const directory=await mkdtemp(join(tmpdir(),'stars-day-fix-pg-')),sock=createServer();await new Promise(r=>sock.listen(0,'127.0.0.1',r));const port=sock.address().port;await new Promise(r=>sock.close(r));
@@ -67,12 +67,12 @@ test('diary stars taken_day fix: waits for the re-walked index, fixes onedrive s
    const post=await check('postcheck');
    for(const k of ['stars agree with history','RLS still enabled','one owner policy','no anon or public table privilege'])assert.equal(post[k],'예',k);
    for(const k of ['stars rows','onedrive stars rows','constraints hash','indexes hash','owner RLS grants hash','column grants hash','policies hash','triggers hash'])assert.equal(post[k],pre[k],k);
-   assert.equal((await rows("select count(*)::int n from supabase_migrations.schema_migrations where version='20261029120000' and name='diary_stars_taken_day_fix'"))[0].n,1);
+   assert.equal((await rows("select count(*)::int n from supabase_migrations.schema_migrations where version='20261029124500' and name='diary_stars_taken_day_fix'"))[0].n,1);
   });
 
   await t.test('rollback removes only the record; postcheck still agrees',async()=>{
    await pool.query(await read(`docs/${STEM}.rollback.sql`));
-   assert.equal((await rows("select count(*)::int n from supabase_migrations.schema_migrations where version='20261029120000'"))[0].n,0);
+   assert.equal((await rows("select count(*)::int n from supabase_migrations.schema_migrations where version='20261029124500'"))[0].n,0);
    assert.equal((await check('postcheck'))['stars agree with history'],'예');
    assert.equal((await check('precheck'))['new migration absent'],'예');
   });

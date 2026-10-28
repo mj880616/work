@@ -15,7 +15,7 @@ lock table public.app_diary_stars in share row exclusive mode;
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261029120000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261029124500')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261028010000' and name = 'onedrive_photo_index') <> 1
      or exists (select 1 from public.app_onedrive_connections
          where folder_id is not null and (index_done_at is null or index_done_at < timestamptz '2026-10-28 23:00:00+00'))
@@ -50,5 +50,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261029120000', 'diary_stars_taken_day_fix', array['PHOTO taken time fix: onedrive stars take taken_day from the re-walked photo index (data only; no column, grant, policy or function change)']);
+values ('20261029124500', 'diary_stars_taken_day_fix', array['PHOTO taken time fix: onedrive stars take taken_day from the re-walked photo index (data only; no column, grant, policy or function change)']);
 commit;
