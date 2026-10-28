@@ -19,7 +19,7 @@ import {createFieldRows} from './report-entry-rows.js'; // MTG-보고창정리: 
 import {missingOrganizationLabel} from './project-trash-model.mjs'; // TRASH-화면2: 휴지통에 든 조직을 가리키는 연결의 빈 이름
 import {mountSplitResize} from './split-resize.js';
 import {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
-import {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,LEGACY_NOTE} from './report-links.js';
+import {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,noteAreaFromMeetings,LEGACY_NOTE} from './report-links.js';
 import {mountAreaFields} from './business-area-fields.js';
 import {areaRoots,areaChipOptions,matchesAreaChip,areaIdOf} from './business-area-model.mjs'; // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 + 다음 할 일 칸
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -262,7 +262,7 @@ function targetNameOf(t){return (t.kind==='project'?projectName(t.id):orgNames.g
 function reportTargetsOf(m){return reportTargetMap.get(m?.id)||(m?.project_id?[{kind:'project',id:m.project_id}]:[])}
 function reportLinkLabel(m){return targetsLabel(reportTargetsOf(m),targetNameOf)}
 async function loadReportLinks(){
-  noteLocationFromMeetings(meetings); // 장소 칸이 서버에 있는지: 이미 읽은 사업 보고 줄(select=*)로 정한다. 입력 창을 열 때 새 요청을 보내지 않는다.
+  noteLocationFromMeetings(meetings);noteAreaFromMeetings(meetings); // 장소 칸이 서버에 있는지: 이미 읽은 사업 보고 줄(select=*)로 정한다. 입력 창을 열 때 새 요청을 보내지 않는다.
   try{
     const [map,orgs]=await Promise.all([readAllReportTargets(meetings),api('/rest/v1/app_suborganizations?workspace_id=eq.'+workspace.id+'&select=id,name&limit=1000')]);
     reportTargetMap=map;orgNames=new Map((orgs||[]).map(o=>[o.id,o.name]));

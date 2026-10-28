@@ -18,7 +18,7 @@ export function mountAreaFields(host,{onMessage=()=>{}}={}){
   host.innerHTML=`<label><span>사업영역 <span class="optional">꼬리표 하나</span></span><button type="button" class="secondary field-btn" data-biz-area-pick aria-haspopup="dialog">꼬리표 없음</button></label>
 <details class="biz-next-plan" data-biz-plan-box><summary>다음 할 일 <span class="optional" data-biz-plan-count></span></summary><textarea rows="3" maxlength="${NEXT_PLAN_MAX}" data-biz-plan aria-label="다음 할 일" placeholder="한 줄에 하나 — 주간보고 '이후 계획'에 들어가요"></textarea></details>`;
   const button=host.querySelector('[data-biz-area-pick]'),box=host.querySelector('[data-biz-plan-box]'),plan=host.querySelector('[data-biz-plan]'),count=host.querySelector('[data-biz-plan-count]');
-  let area='',legacy=false,touched=false,base='',ready=false,run=0;
+  let area='',legacy=false,touched=false,base='',ready=false,editing=false,run=0;
   const paintCount=()=>{const n=nextPlanLines(plan.value).length;count.textContent=n?`${n}줄`:''};
   async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):'꼬리표 없음';button.title=legacy?'옛 보고라 첫 연결 프로젝트를 꼬리표처럼 보여 줘요. 고르면 꼬리표로 저장돼요.':''}
   button.addEventListener('click',async()=>{try{const s=await sheetMod();await s.pickBusinessArea(button,{chosen:legacy?'':area,onMessage,onPick:id=>{area=id;legacy=false;touched=true;void paint()}})}catch(e){onMessage(e?.message||'사업영역을 불러오지 못했어요.')}});
@@ -27,7 +27,9 @@ export function mountAreaFields(host,{onMessage=()=>{}}={}){
     // 창을 열 때: meeting(고치기) 또는 areaId(새로 쓰기 미리 고름).
     start({meeting=null,areaId='',plan:text=''}={}){
       const shown=meeting?shownArea(meeting):{id:String(areaId||''),legacy:false};
-      area=shown.id;legacy=shown.legacy;touched=false;plan.value=meeting?String(meeting.next_plan||''):String(text||'');box.open=!!plan.value.trim();paintCount();base=api.draft();void paint();
+      editing=!!meeting;area=shown.id;legacy=shown.legacy;touched=false;plan.value=meeting?String(meeting.next_plan||''):String(text||'');box.open=!!plan.value.trim();paintCount();base=api.draft();void paint();
+      // 고치기: 읽은 줄(select=*)에 칸이 있는지로 정한다(새 요청 없음). 새로 쓰기: 사업 보고 화면이 읽은 줄로 정해 둔 답(noteAreaFromMeetings)을 쓴다.
+      if(meeting){ready=Object.hasOwn(meeting,'business_area_id');host.hidden=!ready;return}
       void areaAvailable().then(ok=>{ready=!!ok;host.hidden=!ok},()=>{ready=false;host.hidden=true});
     },
     // [연결할 곳]에서 프로젝트를 골랐는데 꼬리표를 아직 손대지 않았으면 그 첫 프로젝트를 미리 고른다(고치기 창의 옛 꼬리표는 그대로).
@@ -37,7 +39,8 @@ export function mountAreaFields(host,{onMessage=()=>{}}={}){
     changed:()=>api.draft()!==base,
     // 저장 몸통에 더할 칸. 칸이 없으면 {}. 옛 보고에서 빌려 보인 꼬리표는 손대지 않았으면 저장하지 않는다(결정 ②).
     async body({only=false}={}){
-      if(!ready&&!(await areaAvailable().catch(()=>false)))return {};
+      if(!ready&&!editing)ready=await areaAvailable().catch(()=>false); // 새로 쓰기: 확인이 아직이면 기다린다(보통 이미 정해져 있어 요청 없음)
+      if(!ready)return {};
       const out={},value=nextPlanValue(plan.value);
       if(!only||api.changed()){out.business_area_id=legacy?null:(area||null);out.next_plan=value}
       return out;
