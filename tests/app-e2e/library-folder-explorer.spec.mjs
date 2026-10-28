@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
-import {bootLibrary,libFolder,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveEnabledNames,movePicker} from './helpers/library-folder-server.mjs';
+import {bootLibrary,libFolder,libDoc,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveEnabledNames,movePicker} from './helpers/library-folder-server.mjs';
 // LIB-폴더탐색기 화면 ①(docs/design/library-tree.md 12절): 묶기 '폴더'(프로젝트와 상관없는 폴더 나무), 폴더 메뉴(이름 바꾸기 F2·안에 새 폴더·접기/펼치기·폴더 지우기),
 // 줄 안 이름 바꾸기, 빈 곳 우클릭 [새 폴더], 틀을 넘는 옮기기(DB 적용 전에는 '준비 중' 안내).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -91,7 +91,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     await press(page,menuButton(page,'f:fa'),width);await expect(folderMenuItem(page,'접기')).toBeVisible();
     await press(page,folderMenuItem(page,'접기'),width);await expect(libraryNode(page,'f:fa')).not.toHaveAttribute('open','');
     // 폴더 밖 줄의 ⋯는 [새 폴더]만.
-    await press(page,menuButton(page,'x:out'),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['새 폴더']);await page.keyboard.press('Escape');
+    await press(page,menuButton(page,'x:out'),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['새 폴더','전체 고르기']);await page.keyboard.press('Escape');
     expect(s.writes).toEqual([]);expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
 
@@ -177,7 +177,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     // 목록 바탕(어느 토글도 아님): 포인터 자리에서 [새 폴더].
     await page.evaluate(()=>document.querySelector('#documentList').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:420,clientY:360})));
-    await expect(page.locator('#luFolderMenu')).toBeVisible();await expect(page.locator('#luFolderMenu button')).toHaveText(['새 폴더']);
+    await expect(page.locator('#luFolderMenu')).toBeVisible();await expect(page.locator('#luFolderMenu button')).toHaveText(['새 폴더','전체 고르기']);
     const box=await page.locator('#luFolderMenu').boundingBox();expect(Math.abs(box.x-420)).toBeLessThan(40);expect(Math.abs(box.y-360)).toBeLessThan(40);
     await page.keyboard.press('Escape');await expect(page.locator('#luFolderMenu')).toBeHidden();
     // 열린 폴더 본문의 빈 곳 = 그 폴더 메뉴.
@@ -195,3 +195,23 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 });
+
+// LIB-정리보충 ③(10:41): '폴더 밖' 비우기 — ⋯ [전체 고르기]로 폴더 밖 자료 모두 고르기, 자료마다 작은 폴더 추천 '📁 ○○?'(AI 없음, 제목 첫 낱말이 같은 자료가 든 폴더).
+for(const width of [390,1280])test.describe(`폴더 밖 정리 ${width}`,()=>{test.use({hasTouch:width<761});test(`폴더 밖 전체 고르기·폴더 추천 ${width}`,async({page})=>{
+  const docs=[libDoc('a-1','top-a',{title:'임단협 1차 회의'}),libDoc('a-2','top-a',{title:'임단협 2차 회의'}),libDoc('a1-1','child-a1',{title:'성명 초안'}),libDoc('n-1',null,{title:'투쟁속보 10호'})];
+  const {s,errors}=await bootLibrary(page,width,{docs,folders:FOLDERS,items:ITEMS,group:'폴더'});
+  await expandLibraryTree(page);
+  // a-2('임단협…')는 a-1이 든 '가상 C'를 추천. a1-1('성명…')은 같은 첫 낱말이 없어 추천 없음.
+  const tip=page.locator('[data-lu-document="a-2"] [data-lu-suggest]');
+  await expect(tip).toHaveText('📁 가상 C?');await expect(page.locator('[data-lu-document="a1-1"] [data-lu-suggest]')).toHaveCount(0);
+  expect(await noScroll(page)).toBe(true);
+  // 추천을 누르면 자료는 열리지 않고 그 폴더로 옮겨진다.
+  await press(page,tip,width);
+  await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fc');
+  await expect(page).toHaveURL(/view=library/);
+  // ⋯ [전체 고르기] → 폴더 밖에 남은 자료(a1-1) 모두 골라진 선택 모드.
+  await press(page,menuButton(page,'x:out'),width);await press(page,folderMenuItem(page,'전체 고르기'),width);
+  await expect(page.locator('#documentList .lu-row input.lu-pick:checked')).toHaveCount(1);
+  await expect(page.locator('[data-lu-document="a1-1"] input.lu-pick')).toBeChecked();
+  expect(errors).toEqual([]);
+});});

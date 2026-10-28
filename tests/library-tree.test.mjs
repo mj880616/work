@@ -167,3 +167,19 @@ test('폴더 보기 편집 규칙(free): 형제·옮길 곳·위로/아래로가
   assert.match(m.folderErrorText({message:'new row violates row-level security policy for table "app_library_folder_items"'}),/준비 중/);
   assert.match(m.folderErrorText({message:'LIB_FOLDER_SCOPE: x'}),/준비 중/);
 });
+
+test('폴더 밖 자료의 폴더 추천: 제목 첫 낱말·분류·프로젝트가 같은 자료가 든 폴더, 헷갈리면 추천 없음',()=>{
+  const folders=[{id:'fa'},{id:'fb'}];
+  const docs=[doc('in1','p',{title:'투쟁속보 10호',category:'투쟁'}),doc('in2','q',{title:'교섭 요구안',category:'교섭'}),doc('in3','q',{title:'교섭 결과',category:'교섭'})];
+  const items=[{document_id:'in1',folder_id:'fa'},{document_id:'in2',folder_id:'fb'},{document_id:'in3',folder_id:'gone'}];
+  const out=[doc('o1','x',{title:'투쟁속보 11호',category:'선전'}),doc('o2','q',{title:'임금 자료',category:'교섭'}),doc('o3','z',{title:'회의록',category:'기타'}),{...doc('o4','p'),photoset:true}];
+  const got=m.folderSuggestions(out,{docs:[...docs,...out],items,folders});
+  // o2는 제목 첫 낱말이 같은 자료가 없어 추천 없음(분류·프로젝트만 같아서는 추천하지 않음).
+  assert.deepEqual([...got],[['o1','fa']]);
+  // 흔한 첫 낱말('자료')은 건너뛰고 다음 낱말로 본다.
+  assert.deepEqual([...m.folderSuggestions([doc('o6','q',{title:'자료 임단협 3차'})],{docs:[doc('c','q',{title:'임단협 1차'})],items:[{document_id:'c',folder_id:'fb'}],folders})],[['o6','fb']]);
+  assert.equal(m.folderSuggestions([doc('o7','q',{title:'자료 a-1'})],{docs:[doc('d','q',{title:'자료 a-2'})],items:[{document_id:'d',folder_id:'fb'}],folders}).size,0);
+  // 두 폴더가 같은 점수면 추천하지 않는다.
+  const tie=m.folderSuggestions([doc('o5','q',{title:'투쟁 교섭',category:'투쟁'})],{docs:[doc('a','q',{title:'투쟁 일지',category:'기타'}),doc('b','q',{title:'투쟁 소식',category:'기타'})],items:[{document_id:'a',folder_id:'fa'},{document_id:'b',folder_id:'fb'}],folders});
+  assert.equal(tie.size,0);
+});

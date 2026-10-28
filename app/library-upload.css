@@ -420,3 +420,7 @@
 .lu-more-panel .lu-menu-head{margin:0;padding:4px var(--kptu-space-3,12px) 2px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 /* LIB-후속1 ⑤: 분류 묶기에서 끌 때 놓일 분류 묶음 전체(머리 + 안의 줄)를 연한 강조색으로. */
 #appView #libraryView #documentList details.lu-node.lu-drop-group{background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}
+
+/* LIB-정리보충 ③: '폴더 밖' 자료 줄의 폴더 추천 '📁 ○○?' — 작고 낮은 글자 버튼(줄 높이를 늘리지 않음), 긴 폴더 이름은 말줄임. */
+#appView #libraryView .lu-suggest{flex:0 1 auto;max-width:9em;min-height:24px;margin-left:auto;padding:0 6px;border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta,12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+#appView #libraryView .lu-suggest:hover,#appView #libraryView .lu-suggest:focus-visible{color:var(--kptu-primary-ink);border-color:var(--kptu-primary-ink)}
