@@ -71,7 +71,7 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   const html = read('index.html'), team = read('team.js'), mrd = read('meeting-round-detail.js'), fields = read('business-area-fields.js');
   assert.match(html, /id="meetingAreaFields"/);
   assert.match(html, /id="reportPreviewBtn"[^>]*>사업요약표 미리보기</);
-  assert.match(html, /<details id="reportMore"[^]*?data-report-areas>사업영역 관리</);
+  assert.match(html, /<details id="reportMore"[^]*?data-report-areas data-view="projects">사업영역 관리</);
   assert.match(team, /activity_kind:entryKind\(\),project_id:projectId,\.\.\.areaBody,/);
   assert.match(team, /openReportPreview\(t,\{meetings:\(\)=>meetings\}\)/);
   assert.match(mrd, /id="mrdEditArea"/); assert.match(mrd, /id="mrdAreaView"/);

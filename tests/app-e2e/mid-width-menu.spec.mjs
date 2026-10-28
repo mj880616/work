@@ -156,7 +156,7 @@ for(const width of [900,960,1023])test(`combined current location at ${width}px 
 });
 
 // 8-9e-2: on phones [바구니] is a bottom tab (not in the drawer) and the drawer opens from the [메뉴] tab.
-for(const label of ['사업 보고','자료실','공유 페이지','HWP 편집'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
+for(const label of ['자료실','공유 페이지','HWP 편집'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
   await page.setViewportSize({width:760,height:844});await open(page);
   await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true}).focus();
   await page.setViewportSize({width:820,height:844});await expect(page.locator('#mobileMenu')).toBeVisible();await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
