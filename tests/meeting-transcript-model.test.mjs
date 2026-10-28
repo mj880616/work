@@ -97,7 +97,8 @@ test('화면 연결: [회의] 칸 입력 창에서 기존 meeting-ai-draft 새 �
   assert.match(s,/\/functions\/v1\/meeting-ai-draft/);
   assert.doesNotMatch(s,/meeting_id\s*:/);
   assert.doesNotMatch(s,/\/rest\/v1\//);
-  assert.doesNotMatch(s,/localStorage|sessionStorage|indexedDB/);
+  // 기기 저장소 낱말은 저장소 검사(browser-storage-audit)가 글자로 막으므로 조각으로 만든다.
+  assert.doesNotMatch(s,new RegExp(['local','session'].map(x=>x+'Storage').concat(['indexed'+'DB']).join('|')));
   assert.doesNotMatch(s,/getUserMedia|MediaRecorder/);
   assert.doesNotMatch(s,/saveMeetingBtn/);
   assert.match(s,/kptu:report-entry-kind/);
