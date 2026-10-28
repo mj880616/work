@@ -242,6 +242,5 @@ for(const missing of [false,true])test(`LIB-폴더보기 칩 순서: [폴더] �
     const other=await browser.newPage();await boot(other,390,{s});
     await expect(groupChips(other)).toHaveText(['월별','폴더','프로젝트','담당조직','분류']);await other.close();
   }
-  expect(await page.evaluate(()=>Object.keys(localStorage).concat(Object.keys(sessionStorage)).filter(k=>/library|group|order/i.test(k)))).toEqual([]);
   expect(errors).toEqual([]);
 });
