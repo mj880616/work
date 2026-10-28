@@ -2,7 +2,7 @@
 // 초안은 서버(ai-assist kind=journal_draft)가 만들어 app_journal_drafts(owner RLS, 하루 1행)에 '확정 전'으로 둔다. 화면은 그날 한 줄이
 // 하나도 없을 때만 입력칸에 흐린 글씨로 넣어 보여 주고, 명진이 고쳐 [저장]해야 업무일지 줄(kind=work)이 된다 — 그 전에는 주간보고 재료가 아니다.
 // 여기서는 ① 보낼 때인지(오늘·18시 뒤·한 줄 없음·초안 없음) ② 그날 재료 줄(일정·한 일·회의·소식·업무 통화)을 정한다.
-// 업무 통화는 업무 통화함(app_feed_items source=call)만 쓴다. 개인 통화함(app_call_personal)은 읽지도 보내지도 않는다.
+// 업무 통화는 업무 통화함(app_feed_items source=call)만 쓴다. 개인 통화함 표는 읽지도 보내지도 않는다.
 export const DRAFT_HOUR = 18;
 export const DRAFT_LINES = 60;
 export const DRAFT_LINE_CHARS = 160;

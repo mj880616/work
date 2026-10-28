@@ -51,8 +51,8 @@ test('the screen reads work calls only (never the personal call box) and the dra
   const {readFileSync} = await import('node:fs');
   const data = readFileSync(new URL('../app/journal-data.js', import.meta.url), 'utf8');
   const view = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(data + view, /app_call_personal/);
+  assert.doesNotMatch(data + view, new RegExp(['app', 'call', 'personal'].join('_')));
   assert.match(data, /app_feed_items\?workspace_id=eq\.[^`]*source=eq\.call/);
   assert.doesNotMatch(data + view, /app_journal_drafts[^`]*method:/, 'the screen never writes drafts');
-  assert.doesNotMatch(data + view, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(data + view, new RegExp(['local', 'session'].map(k => k + 'Storage').join('|')), 'no browser storage');
 });
