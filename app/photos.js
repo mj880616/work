@@ -1,4 +1,4 @@
-import {waitHtml, failHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
 // PHOTO-사진메뉴(docs/design/photo-menu.md, 시안 photo-menu-mock.html): '사진' 메뉴(?view=photos). #photosView의 유일한 그리기 주인.
 // 원드라이브 사진·동영상 색인(Edge onedrive-photos, PR 1410: library·months·days·media-url·photo-delete·trash-*)을 읽어 갤러리처럼 보여 준다.
 // - 위 칩 줄: [사진] [달력] [휴지통] · 오른쪽 끝 거르기(전체·★·동영상·스크린샷)·[－][＋]·원드라이브 아이콘(od-link.js).
@@ -102,7 +102,7 @@ async function startSync(r) {
       let step;
       try { step = await odSync(rt); }
       catch (error) { const wait = odSyncDelay(error); if (wait === null) throw error; saw = true; await new Promise(ok => setTimeout(ok, wait)); continue; }
-      if (step.more || step.indexing) { if (!saw && current(r)) note('사진 목록 받는 중…'); saw = true; }
+      if (step.more || step.indexing) { if (!saw && current(r)) noteEl.innerHTML = waitInlineHtml(); saw = true; }
       if (!step.more) { syncDone = true; break; }
     }
     if (current(r) && saw) { note(''); resetList(); render(); }
