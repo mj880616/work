@@ -1,11 +1,16 @@
 import {
-  AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_PHOTOS, graphNextLink, IMAGE_MIME, insideFolder,
-  MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, PHOTO_URLS_MAX, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed,
-  seoulDay, SIZES, SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, takenOf, validItemId,
+  AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_MAX, GRAPH_BATCH_PHOTOS, graphNextLink, insideFolder,
+  isMediaMime, LIBRARY_DEFAULT, LIBRARY_MAX, LIBRARY_SCAN_PAGES, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, MEDIA_URL_TTL_S, mediaFields,
+  MOVE_MAX, PHOTO_URLS_MAX, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed, seoulDay, SIZES, STAR_IDS_MAX,
+  SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, TRASH_PURGE_STEP, validItemId,
+  VIDEO_MIME,
 } from "./graph.ts";
 import type { OneDriveItem } from "./graph.ts";
 
 // 일기 2차(JOURNAL-일기원드라이브): 원드라이브 연결·폴더 지정·사진 읽기·사진 지우기(휴지통 이동). 권한 Files.ReadWrite(고른 폴더 안 사진만 다룸).
+// 사진 메뉴 ①(PHOTO-사진메뉴): 최신순 쪽 읽기(library)·달별(months)·날별(days) 장수, 재생·받기 주소(media-url), 여러 장 지우기,
+//   지운 사진은 고른 폴더 안 'Web2 휴지통' 폴더로 옮기고(되살리기 trash-restore, 30일 뒤 원드라이브 휴지통), 동영상·크기·위치·sha1 색인.
+//   권한 범위·소유자 확인·폴더 밖 거절은 그대로다(DB 20261028220000 적용 뒤 배포).
 // 로그인한 작업공간 소유자만 쓴다. 갱신 토큰은 service role로만 읽고 쓰며 응답·로그에 싣지 않는다.
 // 비밀값이 없으면 status가 configured:false로 답하고 나머지 동작은 424 onedrive_not_configured 로 멈춘다.
 const cors = {
@@ -33,8 +38,16 @@ class Fail extends Error {
 
 const CONN = "app_onedrive_connections", FOLDERS = "app_onedrive_folders", PHOTOS = "app_onedrive_photos";
 const DB_PAGE = 1000, UPSERT_CHUNK = 500, IN_CHUNK = 100;
-type FolderRow = { item_id: string; parent_id: string | null; name: string; enabled: boolean };
+type FolderRow = { item_id: string; parent_id: string | null; name: string; enabled: boolean; role?: string | null };
 type PhotoRow = { item_id: string; parent_id: string; name: string; taken_at: string; approx: boolean; taken_day: string };
+type MediaRow = PhotoRow & {
+  kind: string; mime: string | null; width: number | null; height: number | null; duration_ms: number | null; screenshot: boolean;
+  trashed_at?: string | null; orig_parent_id?: string | null;
+};
+const MEDIA_COLS = "item_id,parent_id,name,taken_at,approx,taken_day,kind,mime,width,height,duration_ms,screenshot";
+const FILTERS = ["all", "star", "video", "shot"] as const;
+type Filter = typeof FILTERS[number];
+const iso = (v: unknown) => new Date(String(v)).toISOString();
 
 // 이 함수가 쓰는 Supabase 부분만 적는다(시험에서 지어낸 것으로 바꿀 수 있게).
 // deno-lint-ignore no-explicit-any
@@ -237,15 +250,16 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     }
   }
   const readFolders = (workspaceId: string) => readAll<FolderRow>("onedrive_index_read_failed:folders", () =>
-    admin.from(FOLDERS).select("item_id,parent_id,name,enabled").eq("workspace_id", workspaceId).order("item_id"));
+    admin.from(FOLDERS).select("item_id,parent_id,name,enabled,role").eq("workspace_id", workspaceId).order("item_id"));
 
   // 맨 위 폴더에서 부모 id로 이어지는 폴더만 트리에 든다(이어지지 않는 폴더 = 지워졌거나 밖으로 옮겨짐 → 보이지 않음).
   // 사진이 보이려면 맨 위 폴더 아래로 거치는 모든 폴더가 켜져 있어야 한다(맨 위 폴더 자체는 늘 켜짐).
+  // 'Web2 휴지통' 폴더(role='trash')와 그 아래는 트리에 넣지 않는다(일기·사진·폴더 보기 어디에도 보이지 않음).
   function folderTree(rows: FolderRow[], topId: string) {
     const byId = new Map(rows.map((r) => [r.item_id, r]));
     const kids = new Map<string, FolderRow[]>();
     for (const r of rows) {
-      if (r.item_id === topId || !r.parent_id) continue;
+      if (r.item_id === topId || !r.parent_id || r.role === "trash") continue;
       (kids.get(r.parent_id) || kids.set(r.parent_id, []).get(r.parent_id)!).push(r);
     }
     const reach = new Map<string, { visible: boolean; depth: number }>([[topId, { visible: true, depth: 0 }]]);
@@ -284,9 +298,14 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     }
   }
 
-  // delta 한 쪽을 표에 반영한다. 지워진 항목·사진 아님·찍은 시각 없음은 색인에서 뺀다. 같은 쪽 안 중복 id는 마지막 것만.
-  async function applyDelta(workspaceId: string, topId: string, items: OneDriveItem[], stamp: string) {
+  // delta 한 쪽을 표에 반영한다. 지워진 항목·사진/동영상 아님·찍은 시각 없음은 색인에서 뺀다. 같은 쪽 안 중복 id는 마지막 것만.
+  // 여러 행 upsert는 보낸 칸만 고치되 한 묶음 안에서 빠진 칸은 null이 되므로, 칸 모양이 다른 행은 묶음을 나눈다:
+  //  ① 맨 위 폴더 바로 아래 'Web2 휴지통' 폴더 = 꺼짐·role trash로 ② 그 밖 폴더 = 켜짐·role 칸은 건드리지 않음
+  //  ③ 휴지통 안 사진 = 휴지통 칸(trashed_at·orig_parent_id)을 건드리지 않음 ④ 그 밖 사진 = 휴지통 칸을 비움(원드라이브에서 꺼냈으면 휴지통에서 빠짐).
+  // 반환: 이 쪽에서 찾은 휴지통 폴더 id(없으면 받은 값 그대로).
+  async function applyDelta(workspaceId: string, topId: string, items: OneDriveItem[], stamp: string, trashId: string | null = null) {
     const folders = new Map<string, Record<string, unknown>>(), photos = new Map<string, Record<string, unknown>>(), gone = new Set<string>();
+    const trashFolders = new Map<string, Record<string, unknown>>(), trashed = new Map<string, Record<string, unknown>>();
     for (const it of items) {
       if (!it || !validItemId(it.id)) continue;
       const parent = it.parentReference?.id;
@@ -296,35 +315,60 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       }
       if (it.folder) {
         if (typeof it.name !== "string" || !it.name || it.name.length > 400) continue;
-        folders.set(it.id, {
+        const row = {
           workspace_id: workspaceId, item_id: it.id, parent_id: it.id === topId ? null : (validItemId(parent) ? parent : null),
           name: it.name, updated_at: stamp,
-        });
+        };
+        const isTrash = it.id !== topId && (trashId ? trashId === it.id : parent === topId && it.name.normalize("NFC") === TRASH_NAME);
+        if (isTrash) {
+          trashId = it.id;
+          trashFolders.set(it.id, { ...row, enabled: false, role: "trash" });
+        } else folders.set(it.id, row);
         continue;
       }
-      const taken = it.file?.mimeType && IMAGE_MIME.test(it.file.mimeType) ? takenOf(it) : null;
+      const taken = isMediaMime(it.file?.mimeType) ? takenOf(it) : null;
       const day = taken && seoulDay(taken.at);
       if (!taken || !day || !validItemId(parent)) {
         gone.add(it.id);
         continue;
       }
       const name = typeof it.name === "string" && it.name ? it.name.slice(0, 400) : it.id;
-      photos.set(it.id, {
+      const row = {
         workspace_id: workspaceId, item_id: it.id, parent_id: parent, name, taken_at: taken.at, approx: taken.approx, taken_day: day, updated_at: stamp,
-      });
+        ...mediaFields(it),
+      };
+      photos.set(it.id, row);
     }
     for (const id of gone) {
       folders.delete(id);
+      trashFolders.delete(id);
       photos.delete(id);
     }
+    // 휴지통 폴더가 이 쪽에서 정해졌으면 사진을 그 기준으로 나눈다(쪽 안 순서와 상관없이).
+    for (const [id, row] of photos) {
+      if (trashId && row.parent_id === trashId) {
+        photos.delete(id);
+        trashed.set(id, row);
+      } else Object.assign(row, { trashed_at: null, orig_parent_id: null });
+    }
     await upsertRows("onedrive_index_save_failed:folders", FOLDERS, [...folders.values()]);
+    await upsertRows("onedrive_index_save_failed:trash_folder", FOLDERS, [...trashFolders.values()]);
     await upsertRows("onedrive_index_save_failed:photos", PHOTOS, [...photos.values()]);
+    await upsertRows("onedrive_index_save_failed:trashed", PHOTOS, [...trashed.values()]);
     if (gone.size) {
       const ids = [...gone];
       await deleteIn("onedrive_index_delete_failed:photos", PHOTOS, workspaceId, "item_id", ids);
       await deleteIn("onedrive_index_delete_failed:in_folder", PHOTOS, workspaceId, "parent_id", ids);
       await deleteIn("onedrive_index_delete_failed:folders", FOLDERS, workspaceId, "item_id", ids);
     }
+    return trashId;
+  }
+
+  // 이 작업공간의 'Web2 휴지통' 폴더 id(색인에 있으면). 없으면 null.
+  async function readTrashId(workspaceId: string): Promise<string | null> {
+    const { data, error } = await admin.from(FOLDERS).select("item_id").eq("workspace_id", workspaceId).eq("role", "trash").maybeSingle();
+    if (error) dbFail("onedrive_index_read_failed:trash", error);
+    return data && validItemId(data.item_id) ? data.item_id : null;
   }
 
   // 색인 한 걸음: 잠금 → (처음이면 다음 쪽 주소, 끝났으면 변경 주소)부터 시간·쪽 상한까지 받기 → 진행 저장·잠금 풀기.
@@ -343,6 +387,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     let next = graphNextLink(conn.next_link), delta = graphNextLink(conn.delta_link), done = conn.index_done_at || null;
     let synced = conn.synced_at || null, url = next || delta || first, more = true, pages = 0;
     try {
+      let trashId = await readTrashId(workspaceId);
       const token = await accessToken(workspaceId, conn);
       while (pages < maxPages && now() - startAt < budgetMs) {
         pages++;
@@ -354,12 +399,13 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
           next = null;
           delta = null;
           done = null;
+          trashId = null;
           url = first;
           continue;
         }
         graphCheck("onedrive_delta", r, "onedrive_folder_missing");
         const d = await bodyJson(r);
-        await applyDelta(workspaceId, folder.id, Array.isArray(d.value) ? d.value as OneDriveItem[] : [], stamp);
+        trashId = await applyDelta(workspaceId, folder.id, Array.isArray(d.value) ? d.value as OneDriveItem[] : [], stamp, trashId);
         const nl = graphNextLink(d["@odata.nextLink"]), dl = graphNextLink(d["@odata.deltaLink"]);
         if (nl) {
           next = nl;
@@ -404,6 +450,65 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     } catch {
       return null;
     }
+  }
+
+  const validMonth = (v: unknown): v is string => typeof v === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+  const monthEnd = (month: string) => {
+    const [y, m] = month.split("-").map(Number);
+    return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  };
+
+  // 색인이 덜 됐거나 10분 넘게 안 받았으면 짧게 한 걸음 받는다. 바쁨·요청 많음·일시 장애면 기록만 하고 지금까지의 색인으로 답한다.
+  async function autoSync(workspaceId: string, conn: Conn, folder: { id: string }) {
+    let indexing = !conn.index_done_at;
+    const synced = conn.synced_at ? Date.parse(conn.synced_at) : NaN;
+    if (indexing || !Number.isFinite(synced) || now() - synced > SYNC_STALE_MS) {
+      try {
+        indexing = (await syncStep(workspaceId, conn, folder, AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES)).indexing;
+      } catch (e) {
+        if (!(e instanceof Fail) || !["onedrive_index_busy", "onedrive_throttled", "onedrive_unavailable"].includes(e.code)) throw e;
+        log("onedrive_auto_sync_skipped:" + e.code);
+      }
+    }
+    return indexing;
+  }
+
+  // 거르기(all·star·video·shot). 별표는 화면이 자기 별표(app_diary_stars, owner RLS)에서 고른 사진 id를 star_ids로 보낸다:
+  // 이 함수(service_role)에는 별표 표 권한이 없고 더하지 않는다. star_ids는 내 색인 안에서 고르는 데만 쓴다(권한 판단에 쓰지 않음).
+  function readFilter(body: Record<string, unknown>) {
+    const filter = body.filter === undefined ? "all" : body.filter;
+    if (typeof filter !== "string" || !(FILTERS as readonly string[]).includes(filter)) throw new Fail(400, "onedrive_request_invalid");
+    let stars: Set<string> | null = null;
+    if (body.star_ids !== undefined) {
+      const ids = body.star_ids;
+      if (!Array.isArray(ids) || ids.length > STAR_IDS_MAX || !ids.every(validItemId)) throw new Fail(400, "onedrive_request_invalid");
+      stars = new Set(ids as string[]);
+    }
+    if (filter === "star" && !stars) throw new Fail(400, "onedrive_request_invalid");
+    return { filter: filter as Filter, stars };
+  }
+  const passes = (r: MediaRow, filter: Filter, stars: Set<string> | null) =>
+    filter === "video" ? r.kind === "video" : filter === "shot" ? r.screenshot === true : filter === "star" ? !!stars?.has(r.item_id) : true;
+  const itemOut = (r: MediaRow) => ({
+    id: r.item_id, name: r.name, taken_at: iso(r.taken_at), approx: r.approx === true, day: String(r.taken_day).slice(0, 10), kind: r.kind === "video" ? "video" : "photo",
+    mime: r.mime ?? null, width: r.width ?? null, height: r.height ?? null, duration_ms: r.duration_ms ?? null, screenshot: r.screenshot === true,
+  });
+  // 보이는(켠 폴더, 휴지통 아님) 색인 행을 거르기에 맞춰 읽는다. 별표는 고른 id만 묶음으로 읽는다.
+  async function readVisible(workspaceId: string, cols: string, filter: Filter, stars: Set<string> | null, more?: (q: Query) => Query) {
+    const base = () => {
+      let q = admin.from(PHOTOS).select(cols).eq("workspace_id", workspaceId).is("trashed_at", null);
+      if (filter === "video") q = q.eq("kind", "video");
+      if (filter === "shot") q = q.eq("screenshot", true);
+      return more ? more(q) : q;
+    };
+    if (filter !== "star") return await readAll<MediaRow>("onedrive_index_read_failed:media", () => base().order("item_id"));
+    const out: MediaRow[] = [], ids = [...stars!];
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      const { data, error } = await base().in("item_id", ids.slice(i, i + IN_CHUNK));
+      if (error) dbFail("onedrive_index_read_failed:stars", error);
+      if (Array.isArray(data)) out.push(...data as MediaRow[]);
+    }
+    return out;
   }
 
   const actions: Record<string, (ctx: { userId: string; workspaceId: string; body: Record<string, unknown> }) => Promise<Response>> = {
@@ -499,27 +604,18 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
 
     // 달 사진: 서버 색인에서 읽는다(켠 폴더와 그 아래만, 서울 날짜 기준). 색인이 덜 됐거나 10분 넘게 안 받았으면 짧게 한 걸음 받는다.
     // 그 한 걸음이 바쁨·요청 많음·일시 장애로 못 가면 기록만 하고 지금까지의 색인으로 답한다(연결 풀림은 그대로 알린다).
+    // 일기 날짜 화면은 사진(kind='photo')만 보인다(동영상은 사진 메뉴에서만). Web2 휴지통 안 사진은 빠진다(폴더 트리 밖).
     async photos({ workspaceId, body }) {
       const conn = await readConnection(workspaceId);
       const folder = folderOf(conn);
       const month = body.month;
-      if (typeof month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Fail(400, "onedrive_request_invalid");
-      let indexing = !conn!.index_done_at;
-      const synced = conn!.synced_at ? Date.parse(conn!.synced_at) : NaN;
-      if (indexing || !Number.isFinite(synced) || now() - synced > SYNC_STALE_MS) {
-        try {
-          indexing = (await syncStep(workspaceId, conn!, folder, AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES)).indexing;
-        } catch (e) {
-          if (!(e instanceof Fail) || !["onedrive_index_busy", "onedrive_throttled", "onedrive_unavailable"].includes(e.code)) throw e;
-          log("onedrive_auto_sync_skipped:" + e.code);
-        }
-      }
-      const [y, m] = month.split("-").map(Number);
-      const end = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      if (!validMonth(month)) throw new Fail(400, "onedrive_request_invalid");
+      const indexing = await autoSync(workspaceId, conn!, folder);
+      const end = monthEnd(month);
       const { reach } = folderTree(await readFolders(workspaceId), folder.id);
       const rows = await readAll<PhotoRow>("onedrive_index_read_failed:photos", () =>
-        admin.from(PHOTOS).select("item_id,parent_id,name,taken_at,approx,taken_day").eq("workspace_id", workspaceId)
-          .gte("taken_day", `${month}-01`).lt("taken_day", end).order("item_id"));
+        admin.from(PHOTOS).select("item_id,parent_id,name,taken_at,approx,taken_day").eq("workspace_id", workspaceId).eq("kind", "photo")
+          .is("trashed_at", null).gte("taken_day", `${month}-01`).lt("taken_day", end).order("item_id"));
       const days: Record<string, { id: string; name: string; taken_at: string; approx: boolean }[]> = {};
       for (const r of rows) {
         if (!reach.get(r.parent_id)?.visible) continue;
@@ -566,7 +662,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       });
     },
 
-    // 하위 폴더 켜기·끄기. 맨 위 폴더는 끌 수 없다(끄려면 다른 맨 위 폴더를 고른다).
+    // 하위 폴더 켜기·끄기. 맨 위 폴더는 끌 수 없다(끄려면 다른 맨 위 폴더를 고른다). 'Web2 휴지통' 폴더는 켤 수 없다(없는 폴더로 답함).
     async "folder-toggle"({ workspaceId, body }) {
       const conn = await readConnection(workspaceId);
       const folder = folderOf(conn);
@@ -574,10 +670,220 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         throw new Fail(400, "onedrive_request_invalid");
       }
       const { data, error } = await admin.from(FOLDERS).update({ enabled: body.enabled, updated_at: new Date(now()).toISOString() })
-        .eq("workspace_id", workspaceId).eq("item_id", body.folder_id).select("item_id");
+        .eq("workspace_id", workspaceId).eq("item_id", body.folder_id).is("role", null).select("item_id");
       if (error) dbFail("onedrive_folder_toggle_failed", error);
       if (!Array.isArray(data) || data.length !== 1) throw new Fail(404, "onedrive_folder_missing");
       return json({ folder: { id: body.folder_id, enabled: body.enabled } });
+    },
+
+    // 최신순 쪽 읽기(사진 메뉴 '사진' 보기). 켠 폴더(휴지통 제외)의 사진·동영상을 찍은 시각 내림차순으로 limit장씩.
+    // cursor = 앞 쪽 마지막 {t: 찍은 시각, id}. 같은 시각 묶음은 이 함수가 통째로 읽어 id 순서로 자르므로 빠지거나 겹치지 않는다.
+    // folder_id를 주면 그 폴더 바로 안만(꺼진 폴더도 열어 볼 수 있음). 한 요청은 색인 20쪽(2만 행)까지만 훑고, 못 채우면 그 자리 cursor를 준다.
+    async library({ workspaceId, body }) {
+      const conn = await readConnection(workspaceId);
+      const folder = folderOf(conn);
+      const { filter, stars } = readFilter(body);
+      const limit = body.limit === undefined ? LIBRARY_DEFAULT : body.limit;
+      if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > LIBRARY_MAX) throw new Fail(400, "onedrive_request_invalid");
+      let cursor: { t: string; id: string } | null = null;
+      if (body.cursor !== undefined && body.cursor !== null) {
+        const c = body.cursor as Record<string, unknown>;
+        if (!c || typeof c !== "object" || Array.isArray(c) || typeof c.t !== "string" || c.t.length > 40 || !Number.isFinite(Date.parse(c.t)) ||
+          !validItemId(c.id)) throw new Fail(400, "onedrive_request_invalid");
+        cursor = { t: iso(c.t), id: c.id };
+      }
+      let folderId: string | null = null;
+      if (body.folder_id !== undefined && body.folder_id !== null) {
+        if (!validItemId(body.folder_id)) throw new Fail(400, "onedrive_request_invalid");
+        folderId = body.folder_id;
+      }
+      const indexing = await autoSync(workspaceId, conn!, folder);
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      if (folderId && !reach.has(folderId)) throw new Fail(404, "onedrive_folder_missing");
+      const shows = (r: MediaRow) => folderId ? r.parent_id === folderId : !!reach.get(r.parent_id)?.visible;
+      const after = (r: MediaRow) => {
+        if (!cursor) return true;
+        const t = iso(r.taken_at);
+        return t < cursor.t || (t === cursor.t && r.item_id < cursor.id);
+      };
+      const order = (a: MediaRow, b: MediaRow) => iso(b.taken_at).localeCompare(iso(a.taken_at)) || (a.item_id < b.item_id ? 1 : a.item_id > b.item_id ? -1 : 0);
+      const inFolder = (q: Query) => folderId ? q.eq("parent_id", folderId) : q;
+      const seen = new Map<string, MediaRow>();
+      const add = (rows: MediaRow[]) => { for (const r of rows) if (after(r)) seen.set(r.item_id, r); };
+      let exhausted = true;
+      if (filter === "star") add(await readVisible(workspaceId, MEDIA_COLS, filter, stars, inFolder));
+      else {
+        const sameTime = (t: string) => readVisible(workspaceId, MEDIA_COLS, filter, stars, (q) => inFolder(q).eq("taken_at", t));
+        if (cursor) add(await sameTime(cursor.t));
+        let found = 0, lastT: string | null = null;
+        exhausted = false;
+        for (let page = 0;; page++) {
+          if (page >= LIBRARY_SCAN_PAGES) break;
+          let q = admin.from(PHOTOS).select(MEDIA_COLS).eq("workspace_id", workspaceId).is("trashed_at", null);
+          if (filter === "video") q = q.eq("kind", "video");
+          if (filter === "shot") q = q.eq("screenshot", true);
+          q = inFolder(q);
+          if (cursor) q = q.lt("taken_at", cursor.t);
+          // item_id 2차 정렬은 쪽 나누기를 결정적으로 만들 뿐이다(DB 정렬 규칙과 이 함수의 id 순서가 달라도, 같은 시각 묶음은 아래에서 통째로 다시 읽어 맞춘다).
+          const { data, error } = await q.order("taken_at", { ascending: false }).order("item_id", { ascending: false })
+            .range(page * DB_PAGE, page * DB_PAGE + DB_PAGE - 1);
+          if (error) dbFail("onedrive_index_read_failed:library", error);
+          const rows = Array.isArray(data) ? data as MediaRow[] : [];
+          add(rows);
+          for (const r of rows) if (shows(r)) found++;
+          if (rows.length) lastT = iso(rows[rows.length - 1].taken_at);
+          if (rows.length < DB_PAGE) {
+            exhausted = true;
+            break;
+          }
+          if (found > limit) break;
+        }
+        // 마지막으로 읽은 시각의 묶음을 통째로 채운다(쪽 경계에서 잘린 같은 시각 사진).
+        if (!exhausted && lastT) add(await sameTime(lastT));
+      }
+      const rows = [...seen.values()].sort(order);
+      const items: MediaRow[] = [];
+      let next: { t: string; id: string } | null = null;
+      for (const r of rows) {
+        if (!shows(r)) continue;
+        if (items.length === limit) {
+          next = { t: iso(items[items.length - 1].taken_at), id: items[items.length - 1].item_id };
+          break;
+        }
+        items.push(r);
+      }
+      if (!next && !exhausted && rows.length) {
+        const last = rows[rows.length - 1];
+        next = { t: iso(last.taken_at), id: last.item_id };
+      }
+      return json({ items: items.map(itemOut), next_cursor: next, indexing });
+    },
+
+    // 달별 장수(빠른 이동 막대·달 눈금): {"2026-10": 14, …}. 거르기는 library와 같다.
+    async months({ workspaceId, body }) {
+      const conn = await readConnection(workspaceId);
+      const folder = folderOf(conn);
+      const { filter, stars } = readFilter(body);
+      const indexing = await autoSync(workspaceId, conn!, folder);
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const rows = await readVisible(workspaceId, "item_id,parent_id,taken_day,kind,screenshot", filter, stars);
+      const months: Record<string, number> = {};
+      let total = 0;
+      for (const r of rows) {
+        if (!reach.get(r.parent_id)?.visible || !passes(r, filter, stars)) continue;
+        const m = String(r.taken_day).slice(0, 7);
+        months[m] = (months[m] || 0) + 1;
+        total++;
+      }
+      return json({ months, total, indexing });
+    },
+
+    // 한 달의 날별 장수와 대표 1장(달력 보기). 대표 = 그날 별표한 첫 장(star_ids), 없으면 첫 장(찍은 시각 오름차순).
+    async days({ workspaceId, body }) {
+      const conn = await readConnection(workspaceId);
+      const folder = folderOf(conn);
+      const month = body.month;
+      if (!validMonth(month)) throw new Fail(400, "onedrive_request_invalid");
+      const { filter, stars } = readFilter(body);
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const rows = (await readVisible(workspaceId, MEDIA_COLS, filter, stars, (q) => q.gte("taken_day", `${month}-01`).lt("taken_day", monthEnd(month))))
+        .filter((r) => reach.get(r.parent_id)?.visible && passes(r, filter, stars) && String(r.taken_day).startsWith(month + "-"))
+        .sort((a, b) => iso(a.taken_at).localeCompare(iso(b.taken_at)) || (a.item_id < b.item_id ? -1 : a.item_id > b.item_id ? 1 : 0));
+      const days: Record<string, { count: number; cover: { id: string; kind: string } }> = {};
+      for (const r of rows) {
+        const day = String(r.taken_day).slice(0, 10);
+        const cur = days[day];
+        const cover = { id: r.item_id, kind: r.kind === "video" ? "video" : "photo" };
+        if (!cur) days[day] = { count: 1, cover };
+        else {
+          cur.count++;
+          if (stars?.has(r.item_id) && !stars.has(cur.cover.id)) cur.cover = cover;
+        }
+      }
+      return json({ month, days });
+    },
+
+    // Web2 휴지통 목록. 원드라이브 앱에서 넣은 것처럼 옮긴 시각이 없는 사진은 지금을 옮긴 시각으로 적는다.
+    // 열 때마다 30일 지난 것을 오래된 순으로 20장까지 원드라이브 휴지통으로 보낸다(권한이 맞을 때만, 새 예약 작업 없음).
+    async "trash-list"({ workspaceId }) {
+      const conn = await readConnection(workspaceId);
+      const folder = folderOf(conn);
+      const trashId = await readTrashId(workspaceId);
+      if (!trashId) return json({ items: [], purged: 0, truncated: false });
+      const stamp = new Date(now()).toISOString();
+      const { error } = await admin.from(PHOTOS).update({ trashed_at: stamp }).eq("workspace_id", workspaceId).eq("parent_id", trashId).is("trashed_at", null);
+      if (error) dbFail("onedrive_trash_stamp_failed", error);
+      let rows = await readAll<MediaRow>("onedrive_index_read_failed:trash", () =>
+        admin.from(PHOTOS).select(MEDIA_COLS + ",trashed_at,orig_parent_id").eq("workspace_id", workspaceId).eq("parent_id", trashId).order("item_id"));
+      let purged = 0;
+      const limitAt = new Date(now() - TRASH_DAYS * 86400000).toISOString();
+      const old = rows.filter((r) => r.trashed_at && iso(r.trashed_at || stamp) < limitAt)
+        .sort((a, b) => iso(a.trashed_at || stamp).localeCompare(iso(b.trashed_at || stamp))).slice(0, TRASH_PURGE_STEP);
+      if (old.length && scopeAllowed(normalizeScopes(conn!.scope))) {
+        try {
+          const token = await accessToken(workspaceId, conn!);
+          const done = await purge(token, workspaceId, old.map((r) => r.item_id), trashId, folder, new Map());
+          purged = done.length;
+          const gone = new Set(done);
+          rows = rows.filter((r) => !gone.has(r.item_id));
+        } catch (e) {
+          // 비우기는 다음에 다시 한다. 목록은 그대로 보여 준다(연결 풀림은 그대로 알린다).
+          if (!(e instanceof Fail) || e.code === "onedrive_auth_expired") throw e;
+          log("onedrive_trash_purge_skipped:" + e.code);
+        }
+      }
+      const { byId } = folderTree(await readFolders(workspaceId), folder.id);
+      rows.sort((a, b) => iso(b.trashed_at || stamp).localeCompare(iso(a.trashed_at || stamp)) || (a.item_id < b.item_id ? 1 : -1));
+      const truncated = rows.length > TRASH_LIST_MAX;
+      const items = rows.slice(0, TRASH_LIST_MAX).map((r) => ({
+        ...itemOut(r), trashed_at: iso(r.trashed_at || stamp),
+        purge_at: new Date(Date.parse(iso(r.trashed_at || stamp)) + TRASH_DAYS * 86400000).toISOString(),
+        from: r.orig_parent_id ? { id: r.orig_parent_id, name: byId.get(r.orig_parent_id)?.name ?? null } : null,
+      }));
+      return json({ items, purged, truncated });
+    },
+
+    // 되살리기: Web2 휴지통 안 사진을 원래 폴더로(원래 폴더가 없어졌거나 휴지통이면 맨 위 폴더로) 옮긴다. 같은 이름이 있으면 원드라이브가 이름을 바꿔 넣는다(덮어쓰지 않음).
+    async "trash-restore"({ workspaceId, body }) {
+      const { conn, folder, ids } = await writeRequest(workspaceId, body, false);
+      const trashId = await readTrashId(workspaceId);
+      if (!trashId) throw new Fail(404, "onedrive_trash_missing");
+      const token = await accessToken(workspaceId, conn);
+      const { ok, failed, retryAfter } = await checkMedia(token, ids, folder, (it) => it.parentReference?.id === trashId ? null : "not_in_trash");
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const origin = new Map<string, string>();
+      for (let i = 0; i < ids.length; i += IN_CHUNK) {
+        const { data, error } = await admin.from(PHOTOS).select("item_id,orig_parent_id").eq("workspace_id", workspaceId).in("item_id", ids.slice(i, i + IN_CHUNK));
+        if (error) dbFail("onedrive_index_read_failed:restore", error);
+        for (const r of (Array.isArray(data) ? data : []) as { item_id: string; orig_parent_id: string | null }[]) {
+          if (r.orig_parent_id && reach.has(r.orig_parent_id)) origin.set(r.item_id, r.orig_parent_id);
+        }
+      }
+      const groups = new Map<string, OneDriveItem[]>();
+      for (const it of ok.values()) {
+        const target = origin.get(it.id) || folder.id;
+        (groups.get(target) || groups.set(target, []).get(target)!).push(it);
+      }
+      const restored: string[] = [];
+      let wait = retryAfter;
+      for (const [target, items] of groups) {
+        const moved = await moveItems(token, items, target, failed);
+        wait = Math.max(wait, moved.retryAfter);
+        await indexMoved(workspaceId, moved.done, { parent_id: target, trashed_at: null, orig_parent_id: null });
+        restored.push(...moved.done.keys());
+      }
+      return json({ restored, failed: Object.fromEntries(failed), ...(wait ? { retry_after: wait } : {}) });
+    },
+
+    // 바로 지우기·모두 비우기: Web2 휴지통 안 사진만 원드라이브 휴지통으로 보낸다(Graph DELETE, 원드라이브에서 30일 더 보관). confirm:true 필수.
+    async "trash-purge"({ workspaceId, body }) {
+      const { conn, folder, ids } = await writeRequest(workspaceId, body, true);
+      const trashId = await readTrashId(workspaceId);
+      if (!trashId) throw new Fail(404, "onedrive_trash_missing");
+      const token = await accessToken(workspaceId, conn);
+      const failed = new Map<string, string>();
+      const purged = await purge(token, workspaceId, ids, trashId, folder, failed);
+      return json({ purged, failed: Object.fromEntries(failed) });
     },
 
     async disconnect({ workspaceId }) {
@@ -589,37 +895,261 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     },
   };
 
-  // 사진이 맞고 고른 폴더 안에 있는지 확인한다(읽기·지우기가 함께 쓴다). 아니면 404(사진 아님·없음) 또는 403(폴더 밖).
+  // 사진·동영상이 맞고 고른 폴더 안에 있는지 확인한다(읽기·지우기가 함께 쓴다). 아니면 404(사진·동영상 아님·없음) 또는 403(폴더 밖).
   async function photoInFolder(token: string, id: string, folder: { path: string }) {
     const item = await getItem(token, id, "id,file,folder,parentReference");
-    if (item.id !== id || item.folder || !item.file?.mimeType || !IMAGE_MIME.test(item.file.mimeType)) throw new Fail(404, "onedrive_item_missing");
+    if (item.id !== id || item.folder || !isMediaMime(item.file?.mimeType)) throw new Fail(404, "onedrive_item_missing");
     if (!insideFolder(item.parentReference?.path, folder.path)) throw new Fail(403, "onedrive_outside_folder");
   }
 
-  // 사진 한 장 지우기 = 원드라이브 휴지통으로 보내기(Graph DELETE는 영구 삭제가 아니다). 고른 폴더 안의 사진만, confirm:true가 있을 때만.
-  async function photoDelete(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
+  // 쓰기 요청 공통: 연결·맨 위 폴더·ids(1~50, 같은 id는 하나로)·(지우기류는 confirm:true)·쓰기 권한 범위.
+  async function writeRequest(workspaceId: string, body: Record<string, unknown>, needConfirm: boolean) {
     const conn = await readConnection(workspaceId);
     const folder = folderOf(conn);
-    if (!validItemId(body.id) || body.confirm !== true) throw new Fail(400, "onedrive_request_invalid");
+    const ids = body.ids;
+    if ((needConfirm && body.confirm !== true) || !Array.isArray(ids) || !ids.length || ids.length > MOVE_MAX || !ids.every(validItemId)) {
+      throw new Fail(400, "onedrive_request_invalid");
+    }
     if (!scopeAllowed(normalizeScopes(conn!.scope))) throw new Fail(424, "onedrive_reconnect_needed");
-    const token = await accessToken(workspaceId, conn!);
-    await photoInFolder(token, body.id, folder);
-    const r = await call("onedrive_delete", `${GRAPH}/me/drive/items/${encodeURIComponent(body.id)}`, {
-      method: "DELETE", headers: { Authorization: `Bearer ${token}` },
-    });
-    if (r.status === 404) throw new Fail(404, "onedrive_item_missing");
-    if (r.status === 401) throw new Fail(424, "onedrive_auth_expired");
-    if (r.status === 403) throw new Fail(424, "onedrive_reconnect_needed");
-    if (r.status !== 204 && !r.ok) throw new Fail(502, "onedrive_delete_failed");
-    // 색인 행도 지운다. 실패해도 사진은 이미 휴지통이고 다음 변경 받기(delta)가 다시 지우므로 기록만 한다.
-    const { error } = await admin.from(PHOTOS).delete().eq("workspace_id", workspaceId).in("item_id", [body.id]);
-    if (error) log("onedrive_index_delete_failed:photo" + (/^[0-9A-Z]{5}$/.test(String(error.code)) ? ":" + error.code : ""));
-    return json({ deleted: true });
+    return { conn: conn!, folder, ids: [...new Set(ids as string[])] };
   }
 
-  // 사진이면서 고른 폴더 안인지(photoInFolder와 같은 판단, Graph 응답 본문만 보고). 맞으면 null, 아니면 실패 이름.
+  type Part = { status?: number; headers?: Record<string, string>; body?: Record<string, unknown> };
+  // Graph $batch 한 번(하위 요청 20개까지). 묶음 전체가 429·503이면 throttled(초)로, 그 밖의 실패는 빈 답으로 돌려준다(각 항목이 unavailable).
+  async function graphBatch(stage: string, token: string, requests: Record<string, unknown>[]) {
+    const r = await call(stage, `${GRAPH}/$batch`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ requests }),
+    });
+    const parts = new Map<string, Part>();
+    if (r.status === 429 || r.status === 503) {
+      log(stage + "_throttled:" + r.status);
+      return { parts, throttled: retryAfterSeconds(r.headers.get("retry-after"), now()) };
+    }
+    if (r.status === 401 || r.status === 403) throw new Fail(424, "onedrive_auth_expired");
+    if (!r.ok) {
+      log(stage + "_rejected:" + r.status);
+      return { parts, throttled: 0 };
+    }
+    const d = await bodyJson(r);
+    for (const x of Array.isArray(d.responses) ? d.responses : []) if (x && typeof x.id === "string") parts.set(x.id, x);
+    return { parts, throttled: 0 };
+  }
+  const partWait = (p: Part | undefined) => {
+    if (!p || (p.status !== 429 && p.status !== 503)) return 0;
+    const h: Record<string, string> = p.headers || {};
+    return retryAfterSeconds(String(h["Retry-After"] ?? h["retry-after"] ?? "") || null, now());
+  };
+
+  // 여러 장이 사진·동영상이고 고른 폴더 안인지 Graph에 묻는다(+ 추가 조건 extra). 통과한 항목과 실패 이름(missing·outside·throttled·unavailable·…)을 돌려준다.
+  async function checkMedia(token: string, ids: string[], folder: { path: string }, extra: (it: OneDriveItem) => string | null) {
+    const ok = new Map<string, OneDriveItem>(), failed = new Map<string, string>();
+    let retryAfter = 0;
+    for (let i = 0; i < ids.length; i += GRAPH_BATCH_MAX) {
+      const chunk = ids.slice(i, i + GRAPH_BATCH_MAX);
+      const { parts, throttled } = await graphBatch("onedrive_check", token, chunk.map((id, k) => ({
+        id: `m${k}`, method: "GET", url: `/me/drive/items/${encodeURIComponent(id)}?$select=id,name,file,folder,parentReference`,
+      })));
+      retryAfter = Math.max(retryAfter, throttled);
+      chunk.forEach((id, k) => {
+        const p = parts.get(`m${k}`), wait = partWait(p);
+        if (throttled || wait) {
+          retryAfter = Math.max(retryAfter, wait);
+          return void failed.set(id, "throttled");
+        }
+        if (!p || p.status === 404) return void failed.set(id, p ? "missing" : "unavailable");
+        if (p.status !== 200) return void failed.set(id, "unavailable");
+        const item = (p.body || {}) as OneDriveItem;
+        const bad = photoCheck(id, item, folder) || extra(item);
+        if (bad) return void failed.set(id, bad);
+        ok.set(id, item);
+      });
+    }
+    return { ok, failed, retryAfter };
+  }
+
+  // 여러 장을 한 폴더로 옮긴다(Graph PATCH parentReference, 같은 이름이면 원드라이브가 이름을 바꿔 넣음 = 덮어쓰지 않음).
+  // 성공은 done(id → 새 이름·원래 부모 id), 실패는 failed에 적는다.
+  async function moveItems(token: string, items: OneDriveItem[], targetId: string, failed: Map<string, string>) {
+    const done = new Map<string, { name: string | null; from: string | null }>();
+    let retryAfter = 0;
+    for (let i = 0; i < items.length; i += GRAPH_BATCH_MAX) {
+      const chunk = items.slice(i, i + GRAPH_BATCH_MAX);
+      const { parts, throttled } = await graphBatch("onedrive_move", token, chunk.map((it, k) => ({
+        id: `v${k}`, method: "PATCH", url: `/me/drive/items/${encodeURIComponent(it.id)}?@microsoft.graph.conflictBehavior=rename`,
+        headers: { "Content-Type": "application/json" }, body: { parentReference: { id: targetId } },
+      })));
+      retryAfter = Math.max(retryAfter, throttled);
+      chunk.forEach((it, k) => {
+        const p = parts.get(`v${k}`), wait = partWait(p);
+        if (throttled || wait) {
+          retryAfter = Math.max(retryAfter, wait);
+          return void failed.set(it.id, "throttled");
+        }
+        if (!p) return void failed.set(it.id, "unavailable");
+        if (p.status === 404) return void failed.set(it.id, "missing");
+        if (p.status === 401 || p.status === 403) return void failed.set(it.id, "forbidden");
+        if (p.status !== 200 && p.status !== 201) return void failed.set(it.id, "move_failed");
+        const name = typeof p.body?.name === "string" && p.body.name ? (p.body.name as string).slice(0, 400) : null;
+        done.set(it.id, { name, from: validItemId(it.parentReference?.id) ? it.parentReference!.id! : null });
+      });
+    }
+    return { done, retryAfter };
+  }
+
+  // 옮긴 사진의 색인 행을 바로 고친다(부모·휴지통 칸, 이름이 바뀌었으면 이름). 실패해도 다음 변경 받기(delta)가 맞추므로 기록만 한다.
+  async function indexMoved(workspaceId: string, done: Map<string, { name: string | null; from: string | null }>, fields: Record<string, unknown>, keepFrom = false) {
+    if (keepFrom) {
+      // Graph 답에 원래 부모 id가 없으면 색인의 지금 부모로 채운다(되살리기 자리).
+      const missing = [...done].filter(([, m]) => !m.from).map(([id]) => id);
+      for (let i = 0; i < missing.length; i += IN_CHUNK) {
+        const { data } = await admin.from(PHOTOS).select("item_id,parent_id").eq("workspace_id", workspaceId).in("item_id", missing.slice(i, i + IN_CHUNK));
+        for (const r of (Array.isArray(data) ? data : []) as { item_id: string; parent_id: string }[]) {
+          const m = done.get(r.item_id);
+          if (m && validItemId(r.parent_id)) m.from = r.parent_id;
+        }
+      }
+    }
+    const groups = new Map<string, string[]>();
+    for (const [id, m] of done) {
+      const key = keepFrom ? (m.from ?? "") : "";
+      (groups.get(key) || groups.set(key, []).get(key)!).push(id);
+    }
+    for (const [from, ids] of groups) {
+      for (let i = 0; i < ids.length; i += IN_CHUNK) {
+        const { error } = await admin.from(PHOTOS).update({ ...fields, ...(keepFrom ? { orig_parent_id: from || null } : {}) })
+          .eq("workspace_id", workspaceId).in("item_id", ids.slice(i, i + IN_CHUNK));
+        if (error) log("onedrive_index_move_failed" + (/^[0-9A-Z]{5}$/.test(String(error.code)) ? ":" + error.code : ""));
+      }
+    }
+    for (const [id, m] of done) {
+      if (!m.name) continue;
+      const { error } = await admin.from(PHOTOS).update({ name: m.name }).eq("workspace_id", workspaceId).eq("item_id", id).neq("name", m.name);
+      if (error) log("onedrive_index_move_failed:name" + (/^[0-9A-Z]{5}$/.test(String(error.code)) ? ":" + error.code : ""));
+    }
+  }
+
+  // Web2 휴지통 안 사진을 원드라이브 휴지통으로 보낸다(Graph DELETE는 영구 삭제가 아니다). 휴지통 밖 사진은 거절(not_in_trash).
+  async function purge(token: string, workspaceId: string, ids: string[], trashId: string, folder: { path: string }, failed: Map<string, string>) {
+    const { ok, failed: bad } = await checkMedia(token, ids, folder, (it) => it.parentReference?.id === trashId ? null : "not_in_trash");
+    for (const [id, why] of bad) {
+      // 원드라이브에서 이미 사라졌으면 색인만 지운다.
+      if (why === "missing") ok.set(id, { id });
+      else failed.set(id, why);
+    }
+    const done: string[] = [], list = [...ok.keys()];
+    for (let i = 0; i < list.length; i += GRAPH_BATCH_MAX) {
+      const chunk = list.slice(i, i + GRAPH_BATCH_MAX);
+      const real = chunk.filter((id) => bad.get(id) !== "missing");
+      const { parts, throttled } = real.length
+        ? await graphBatch("onedrive_purge", token, real.map((id, k) => ({ id: `d${k}`, method: "DELETE", url: `/me/drive/items/${encodeURIComponent(id)}` })))
+        : { parts: new Map<string, Part>(), throttled: 0 };
+      chunk.forEach((id) => {
+        const k = real.indexOf(id);
+        if (k < 0) return void done.push(id);
+        const p = parts.get(`d${k}`);
+        if (throttled || partWait(p)) return void failed.set(id, "throttled");
+        if (p && (p.status === 204 || p.status === 200 || p.status === 404)) return void done.push(id);
+        failed.set(id, p && (p.status === 401 || p.status === 403) ? "forbidden" : "delete_failed");
+      });
+    }
+    if (done.length) await deleteIn("onedrive_index_delete_failed:purge", PHOTOS, workspaceId, "item_id", done);
+    return done;
+  }
+
+  // 'Web2 휴지통' 폴더(맨 위 폴더 바로 아래 .Web2 휴지통)를 찾거나 만든다. 색인에 있으면 원드라이브에 아직 있는지 확인하고,
+  // 없으면(지워짐·밖으로 옮겨짐) 표시를 떼고 새로 만든다. 같은 이름이 이미 있으면(다른 기기에서 먼저 만듦) 그 폴더를 쓴다. 폴더는 꺼짐(일기·사진에 안 보임).
+  async function ensureTrash(token: string, workspaceId: string, folder: { id: string }) {
+    const known = await readTrashId(workspaceId);
+    if (known) {
+      try {
+        const it = await getItem(token, known, "id,name,folder,parentReference");
+        if (it.folder && it.id === known && it.parentReference?.id === folder.id) return known;
+      } catch (e) {
+        if (!(e instanceof Fail) || e.code !== "onedrive_item_missing") throw e;
+      }
+      const { error } = await admin.from(FOLDERS).update({ role: null }).eq("workspace_id", workspaceId).eq("item_id", known);
+      if (error) dbFail("onedrive_trash_save_failed:reset", error);
+    }
+    const r = await call("onedrive_trash_create", `${GRAPH}/me/drive/items/${encodeURIComponent(folder.id)}/children`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: TRASH_NAME, folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
+    });
+    let item: OneDriveItem;
+    if (r.status === 409) {
+      const found = await graph("onedrive_trash_find", token,
+        `/me/drive/items/${encodeURIComponent(folder.id)}:/${encodeURIComponent(TRASH_NAME)}:?$select=id,name,folder,parentReference`);
+      graphCheck("onedrive_trash_find", found, "onedrive_trash_missing");
+      item = (await bodyJson(found)) as OneDriveItem;
+    } else {
+      graphCheck("onedrive_trash_create", r, "onedrive_folder_missing");
+      item = (await bodyJson(r)) as OneDriveItem;
+    }
+    if (!item.folder || !validItemId(item.id) || item.parentReference?.id !== folder.id) {
+      log("onedrive_trash_invalid");
+      throw new Fail(502, "onedrive_unavailable");
+    }
+    const { error } = await admin.from(FOLDERS).upsert([{
+      workspace_id: workspaceId, item_id: item.id, parent_id: folder.id, name: TRASH_NAME, enabled: false, role: "trash", updated_at: new Date(now()).toISOString(),
+    }], { onConflict: "workspace_id,item_id" });
+    if (error) dbFail("onedrive_trash_save_failed", error);
+    return item.id;
+  }
+
+  // 지우기(명진 결정 1) = 고른 폴더 안 'Web2 휴지통' 폴더로 옮기기(되살리기는 trash-restore, 30일 뒤 원드라이브 휴지통).
+  // 한 장(id, 예전 화면과 같은 답) 또는 여러 장(ids ≤ 50). 고른 폴더 안 사진·동영상만, confirm:true가 있을 때만. 이미 휴지통 안이면 옮긴 것으로 친다.
+  async function photoDelete(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
+    const single = body.ids === undefined;
+    if (single && !validItemId(body.id)) throw new Fail(400, "onedrive_request_invalid");
+    const { conn, folder, ids } = await writeRequest(workspaceId, single ? { ...body, ids: [body.id] } : body, true);
+    const token = await accessToken(workspaceId, conn);
+    const trashId = await ensureTrash(token, workspaceId, folder);
+    const { ok, failed, retryAfter } = await checkMedia(token, ids, folder, () => null);
+    const already = [...ok.values()].filter((it) => it.parentReference?.id === trashId);
+    const moved = await moveItems(token, [...ok.values()].filter((it) => it.parentReference?.id !== trashId), trashId, failed);
+    const stamp = new Date(now()).toISOString();
+    await indexMoved(workspaceId, moved.done, { parent_id: trashId, trashed_at: stamp }, true);
+    const wait = Math.max(retryAfter, moved.retryAfter);
+    const done = [...moved.done.keys(), ...already.map((it) => it.id)];
+    if (single) {
+      const why = failed.get(ids[0]);
+      if (why === "missing" || why === "not_in_trash") throw new Fail(404, "onedrive_item_missing");
+      if (why === "outside") throw new Fail(403, "onedrive_outside_folder");
+      if (why === "throttled") throw new Fail(429, "onedrive_throttled", { retry_after: wait || 30 });
+      if (why === "forbidden") throw new Fail(424, "onedrive_reconnect_needed");
+      if (why) throw new Fail(502, "onedrive_delete_failed");
+      return json({ deleted: true, trashed: true });
+    }
+    return json({ deleted: failed.size === 0, moved: done, failed: Object.fromEntries(failed), ...(wait ? { retry_after: wait } : {}) });
+  }
+
+  // 동영상 재생·원본 받기 주소(media-url): 고른 폴더 안 사진·동영상 한 장의 짧게 사는(약 1시간) 사전 인증 주소만 돌려준다.
+  // 주소에는 접근 토큰·갱신 토큰이 들어가지 않는다. 화면은 메모리에만 두고 expires_in초 뒤 다시 받는다(저장하지 않음). 재생(play)은 동영상만.
+  async function mediaUrl(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
+    const conn = await readConnection(workspaceId);
+    const folder = folderOf(conn);
+    const purpose = body.purpose === undefined ? "download" : body.purpose;
+    if (!validItemId(body.id) || (purpose !== "play" && purpose !== "download")) throw new Fail(400, "onedrive_request_invalid");
+    const token = await accessToken(workspaceId, conn!);
+    const item = await getItem(token, body.id, "id,name,size,file,folder,parentReference,@microsoft.graph.downloadUrl");
+    const bad = photoCheck(body.id, item, folder);
+    if (bad === "outside") throw new Fail(403, "onedrive_outside_folder");
+    if (bad) throw new Fail(404, "onedrive_item_missing");
+    const mime = String(item.file?.mimeType || "").toLowerCase();
+    if (purpose === "play" && !VIDEO_MIME.test(mime)) throw new Fail(400, "onedrive_request_invalid");
+    const url = safeDownloadUrl(typeof item["@microsoft.graph.downloadUrl"] === "string" ? item["@microsoft.graph.downloadUrl"] : null);
+    if (!url) throw new Fail(502, "onedrive_media_unavailable");
+    return json({
+      url: url.toString(), expires_in: MEDIA_URL_TTL_S, kind: VIDEO_MIME.test(mime) ? "video" : "photo", mime,
+      size: typeof item.size === "number" ? item.size : null, name: typeof item.name === "string" ? item.name : null,
+    });
+  }
+
+  // 사진·동영상이면서 고른 폴더 안인지(photoInFolder와 같은 판단, Graph 응답 본문만 보고). 맞으면 null, 아니면 실패 이름.
   const photoCheck = (id: string, item: OneDriveItem, folder: { path: string }): string | null => {
-    if (!item || item.id !== id || item.folder || !item.file?.mimeType || !IMAGE_MIME.test(item.file.mimeType)) return "missing";
+    if (!item || item.id !== id || item.folder || !isMediaMime(item.file?.mimeType)) return "missing";
     if (!insideFolder(item.parentReference?.path, folder.path)) return "outside";
     return null;
   };
@@ -750,6 +1280,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (action === "photo") return await photo(member.workspace_id, body);
       if (action === "photo-urls") return await photoUrls(member.workspace_id, body);
       if (action === "photo-delete") return await photoDelete(member.workspace_id, body);
+      if (action === "media-url") return await mediaUrl(member.workspace_id, body);
       if (typeof action !== "string" || !Object.hasOwn(actions, action)) throw new Fail(400, "action_invalid");
       return await actions[action]({ userId: data.user.id, workspaceId: member.workspace_id, body });
     } catch (e) {
