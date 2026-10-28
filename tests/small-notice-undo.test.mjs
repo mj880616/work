@@ -11,15 +11,24 @@ test('작은 알림은 2초, 되돌리기 기록은 최근 10개', () => {
   assert.equal(UNDO_LIMIT, 10);
 });
 
-test('올려 두는 동안(마우스·손가락·초점)은 사라지지 않고, 떠나면 2초를 처음부터 다시 잰다', t => {
+test('올려 두는 동안(움직여 올린 마우스·누르고 있는 손가락·초점)은 사라지지 않고, 떠나면 2초를 처음부터 다시 잰다', t => {
   t.mock.timers.enable({apis: ['setTimeout']});
   const box = new EventTarget(); box.contains = () => false;
   let done = 0; holdTimer(box, 2000, () => done++);
-  t.mock.timers.tick(1500); box.dispatchEvent(new Event('pointerenter'));
-  t.mock.timers.tick(5000); assert.equal(done, 0);
-  box.dispatchEvent(new Event('pointerleave'));
-  t.mock.timers.tick(1999); assert.equal(done, 0);
-  t.mock.timers.tick(1); assert.equal(done, 1);
+  const ev = (type, extra = {}) => Object.assign(new Event(type), {pointerType: 'mouse', movementX: 0, movementY: 0, relatedTarget: null}, extra);
+  box.dispatchEvent(ev('pointermove')); // 가만히 있는 커서 밑에 뜬 것: 멈추지 않는다
+  t.mock.timers.tick(2000); assert.equal(done, 1);
+  holdTimer(box, 2000, () => done++);
+  t.mock.timers.tick(1500); box.dispatchEvent(ev('pointermove', {movementX: 3}));
+  t.mock.timers.tick(5000); assert.equal(done, 1);
+  box.dispatchEvent(ev('pointerout'));
+  t.mock.timers.tick(1999); assert.equal(done, 1);
+  t.mock.timers.tick(1); assert.equal(done, 2);
+  holdTimer(box, 2000, () => done++);
+  box.dispatchEvent(ev('pointerdown', {pointerType: 'touch'})); t.mock.timers.tick(5000); assert.equal(done, 2);
+  box.dispatchEvent(ev('pointerup', {pointerType: 'touch'}));
+  t.mock.timers.tick(1999); assert.equal(done, 2);
+  t.mock.timers.tick(1); assert.equal(done, 3);
   const box2 = new EventTarget(); box2.contains = () => false;
   let done2 = 0; const c = holdTimer(box2, 2000, () => done2++);
   box2.dispatchEvent(new Event('focusin')); t.mock.timers.tick(9000); assert.equal(done2, 0);

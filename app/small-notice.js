@@ -26,15 +26,19 @@ export function noticeMs({error=false,undo=false,ms}={}){if(Number.isFinite(ms)&
 // 알림 글자는 한 줄로. 줄바꿈·겹친 빈칸은 한 칸으로 줄인다(긴 설명은 note로 따로 작게).
 export function noticeText(text){return String(text??'').replace(/\s+/g,' ').trim()}
 
-// 올려 두는 동안 멈추는 시계: 마우스·손가락이 알림 위에 있거나 초점이 안에 있으면 멈추고, 떠나면 ms를 처음부터 다시 잰다.
-// box에서 떼어 낼 때 stop()을 부른다(듣는 것도 함께 정리).
+// 올려 두는 동안 멈추는 시계: 마우스가 실제로 움직여 올라오거나(가만히 있는 커서 밑에 알림이 새로 떠도 멈추지 않음),
+// 손가락이 누르고 있거나, 초점이 안에 있으면 멈추고, 떠나면 ms를 처음부터 다시 잰다. box에서 떼어 낼 때 stop()을 부른다.
+// 되돌리기 알림·작은 알림은 글 부분이 아래 목록 누르기를 막지 않게(pointer-events:none) 버튼에서만 이 신호가 온다.
 export function holdTimer(box,ms,onDone){
   let t=0,over=false,focus=false,stopped=false;const ac=new AbortController(),o={signal:ac.signal};
   const arm=()=>{clearTimeout(t);if(!stopped&&!over&&!focus)t=setTimeout(()=>{if(!stopped){stop();onDone()}},ms)};
   const stop=()=>{stopped=true;clearTimeout(t);ac.abort()};
-  box.addEventListener('pointerenter',()=>{over=true;clearTimeout(t)},o);
-  box.addEventListener('pointerleave',()=>{over=false;arm()},o);
-  box.addEventListener('pointercancel',()=>{over=false;arm()},o);
+  const hold=()=>{over=true;clearTimeout(t)},leave=()=>{if(!over)return;over=false;arm()};
+  box.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&!(e.movementX||e.movementY))return;if(e.pointerType==='mouse')hold()},o);
+  box.addEventListener('pointerdown',hold,o);
+  box.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')leave()},o);
+  box.addEventListener('pointercancel',leave,o);
+  box.addEventListener('pointerout',e=>{if(e.relatedTarget&&box.contains(e.relatedTarget))return;leave()},o);
   box.addEventListener('focusin',()=>{focus=true;clearTimeout(t)},o);
   box.addEventListener('focusout',e=>{if(e.relatedTarget&&box.contains(e.relatedTarget))return;focus=false;arm()},o);
   arm();return {stop,restart:arm};
@@ -101,6 +105,11 @@ export function holdToast(el,{ms}={}){
 }
 
 let host=null,clock=null,seq=0;
+// 되돌리기 알림(offerUndoNotice)이 뜰 때 앞서 떠 있던 작은 알림·#toast를 내린다(같은 자리라 [되돌리기]를 가리지 않게). 뒤에 뜨는 것은 CSS가 한 줄 아래로.
+export function hideSmallNotices(doc=globalThis.document){
+  const shared=doc?.getElementById?.('toast');if(shared&&!shared.classList.contains('hidden')){toastClock?.stop();toastClock=null;shared.classList.add('hidden')}
+  if(host&&!host.hidden){clock?.stop();clock=null;host.hidden=true;host.replaceChildren()}
+}
 function ensureHost(doc){
   if(host?.isConnected)return host;
   host=doc.createElement('div');host.id='kptuNotice';host.className='kptu-notice';host.hidden=true;

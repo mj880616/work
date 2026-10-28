@@ -157,6 +157,11 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
    자리는 --kptu-notice-top 하나로 정하고, 화면마다 bottom을 따로 올리던 덮어쓰기는 없앴다(docs/design-decisions.md '작은 알림 자리'). */
 :root{--kptu-notice-top:calc(env(safe-area-inset-top,0px) + 56px)}
 body.kptu-version-notice-open{--kptu-notice-top:calc(env(safe-area-inset-top,0px) + 56px + var(--kptu-version-notice-height,33px))}
+/* 되돌리기 알림이 떠 있는 동안 뒤에 뜬 작은 알림·#toast는 한 줄 아래로(겹쳐 [되돌리기]를 가리지 않게). */
+body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-top) + 44px)}
+/* 위쪽 알림 글 부분은 아래 목록(거르기 칩 등) 누르기를 막지 않는다. [되돌리기]·✕만 눌린다. */
+.kptu-undo-notice,.kptu-notice{pointer-events:none}
+.kptu-undo-notice button,.kptu-notice button{pointer-events:auto}
 .toast{position:fixed;left:50%;top:var(--kptu-notice-top);bottom:auto;transform:translateX(-50%);max-width:min(92vw,520px);box-sizing:border-box;background:var(--kptu-ink);color:var(--kptu-surface);padding:7px var(--kptu-space-3);border-radius:var(--kptu-radius-md);font-size:12px;z-index:100;box-shadow:var(--kptu-shadow-float)}
 /* BUG-바구니연결해제·UI-작은알림자리: one 2-second undo notice (basket-record-delete.js offerUndoNotice), at the top like every small notice. */
 .kptu-undo-notice{position:fixed;left:50%;top:var(--kptu-notice-top);bottom:auto;transform:translateX(-50%);z-index:110;display:flex;align-items:center;gap:var(--kptu-space-2);width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;padding:4px 4px 4px var(--kptu-space-3);background:var(--kptu-ink);color:var(--kptu-surface);border-radius:var(--kptu-radius-md);box-shadow:var(--kptu-shadow-float);font-size:13px;line-height:1.4}

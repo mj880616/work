@@ -9,7 +9,7 @@
 import {confirmLinks} from './basket-classification.js';
 import {TRASH_STATE,TRASH_TEXT,otherDeleteText,otherDeleteBlockedText} from './project-trash-model.mjs';
 import {readTrashKind,restoreFromTrashKind} from './trash-rpc.js';
-import {holdTimer,recordUndo,dropUndo,NOTICE_UNDO_MS} from './small-notice.js'; // UI-작은알림자리: 위쪽 2초·올려 두면 멈춤·Ctrl+Z 기록
+import {holdTimer,recordUndo,dropUndo,hideSmallNotices,NOTICE_UNDO_MS} from './small-notice.js'; // UI-작은알림자리: 위쪽 2초·올려 두면 멈춤·Ctrl+Z 기록
 
 const PAGE_SIZE=100;
 const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
@@ -230,7 +230,7 @@ export function offerUndoNotice({text=RECORD_DELETE_TEXT.DISCONNECTED,onUndo,ms=
   });
   // Ctrl+Z: the same onUndo once; the shared part says '되돌렸어요: …' (or why not) in its own top line.
   const entry=recordUndo({label:text,undo:async()=>{if(ran)return {silent:true};if(undoBox===box)closeUndoNotice();return run();}});
-  host.append(box);undoBox=box;later(Math.min(ms,UNDO_MS)||UNDO_MS,closeUndoNotice);
+  hideSmallNotices(doc);host.append(box);undoBox=box;later(Math.min(ms,UNDO_MS)||UNDO_MS,closeUndoNotice);
   return box;
 }
 
