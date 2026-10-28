@@ -81,7 +81,7 @@ test('top-level V3 navigation opens the library and keeps removed controls absen
   await expect(page.locator('#appView')).toHaveCount(0);
 });
 
-test('removed personal and photo deep links return to home while the retired media link opens the library',async({page})=>{
+test('removed personal deep links return to home, the retired media link opens the library, and ?view=photos is the new photo menu',async({page})=>{
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
@@ -94,10 +94,10 @@ test('removed personal and photo deep links return to home while the retired med
   await expect(page.locator('#libraryView')).toBeVisible({timeout:20000});
   await expect(page.locator('#mediaView')).toHaveCount(0);
   await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('library');
+  // PHOTO-사진메뉴: ?view=photos는 이제 새 '사진' 메뉴(원드라이브 갤러리)다. 옛 포토룸의 일정 사진 기록 칸은 돌아오지 않는다.
   await page.goto(app+'?view=photos');
-  await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
-  await expect(page.locator('#photosView')).toHaveCount(0);
-  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBeNull();
+  await expect(page.locator('#photosView')).toBeVisible({timeout:20000});
+  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('photos');
   await expect(page.locator('#eventRecordSection,#eventRecordList')).toHaveCount(0);
 });
 
