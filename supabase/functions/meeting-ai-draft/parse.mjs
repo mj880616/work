@@ -46,5 +46,12 @@ export function parseMeetingDraft(value) {
   if (!decisions && !information && !actions.length) {
     return { draft: { decisions: '', actions: [], information: raw }, warnings: ['AI 응답에서 유효한 내용을 찾지 못해 원문을 보존했습니다.'] };
   }
-  return { draft: { decisions, actions, information }, warnings };
+  // MTG-녹음초안: 회의 날짜(YYYY-MM-DD)·참석자(이름 목록)는 있을 때만 붙인다. 형식이 다르면 버린다(초안 검수용 보조 칸).
+  const extra = {};
+  if (typeof input.meeting_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.meeting_date.trim())) extra.meeting_date = input.meeting_date.trim();
+  if (Array.isArray(input.attendees)) {
+    const names = [...new Set(input.attendees.filter((x) => typeof x === 'string').map((x) => x.trim()).filter((x) => x && !/확인\s*필요/.test(x)))].slice(0, 50);
+    if (names.length) extra.attendees = names;
+  }
+  return { draft: { decisions, actions, information, ...extra }, warnings };
 }
