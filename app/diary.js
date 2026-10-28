@@ -10,7 +10,7 @@ import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPho
 import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPinch} from './photo-grid-size.js';
 import {swipeKind, shareFileName, putBack, UNDO_MS} from './photo-viewer-model.mjs';
 import {deleteNoteOriginal} from './basket-record-delete.js';
-import {odStatus, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, odPrefetchMonth, clearOdPhotoCache, forgetOdPhoto, odKeepReconcile, odStartPrefetch, odStopPrefetch, odKeepCount, odKeepClear, odKeepForOwner,
+import {odStatusCached, odTakeWarmMonth, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, odPrefetchMonth, clearOdPhotoCache, forgetOdPhoto, odKeepReconcile, odStartPrefetch, odStopPrefetch, odKeepCount, odKeepClear, odKeepForOwner,
   odErrorText, odSync, odSyncDelay, odFolderTree, odFolderToggle, odTreeRows, odTreeChanges, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn, odPhotoUrl, grabThumb} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
@@ -140,7 +140,7 @@ async function loadMonth({force = false} = {}) {
   const run = ++epoch, key = monthKey();
   status.textContent = '불러오는 중…'; $('[data-diary-retry]').hidden = true;
   rows = new Map(); odMonth = null; starSet = new Set(); starsState = 'loading'; renderMonth();
-  loadOd(run, key);
+  loadOd(run, key, force);
   try {
     const list = await readDiaryMonth(cursor.year, cursor.month, rt);
     if (!current(run)) return;
@@ -463,15 +463,18 @@ function closeViewer({fromBack = false, restore = true} = {}) {
 const odPanel = $('[data-diary-od]');
 function ensureOdStatus(force = false) {
   if (force) odStatusFlight = null;
-  odStatusFlight ||= odStatus(rt).then(next => { od = next; }, () => { od = {...OD_NONE}; });
+  // OD-미리받기: 앱을 켤 때 받아 둔 연결 상태가 있으면 그것을 쓴다(force면 서버에 다시 묻는다).
+  odStatusFlight ||= odStatusCached(rt, {force}).then(next => { od = next; }, () => { od = {...OD_NONE}; });
   return odStatusFlight;
 }
-async function loadOd(run, key) {
+async function loadOd(run, key, force = false) {
   const [year, month] = [cursor.year, cursor.month];
   await ensureOdStatus();
   if (!current(run)) return;
   const wantPhotos = od.connected && od.folder;
-  const [photos, stars] = await Promise.allSettled([wantPhotos ? odPhotos(rt, year, month) : Promise.resolve(null), readStars(year, month, rt)]);
+  // OD-미리받기: 처음 여는 달이 앱을 켤 때 받아 둔 이번 달이면 그 목록을 쓴다(다시 읽기는 늘 서버).
+  const monthFlight = !wantPhotos ? Promise.resolve(null) : (!force && odTakeWarmMonth(rt, year, month)) || odPhotos(rt, year, month);
+  const [photos, stars] = await Promise.allSettled([monthFlight, readStars(year, month, rt)]);
   if (!current(run) || key !== monthKey()) return;
   odMonth = photos.status === 'fulfilled' ? photos.value : null;
   starsState = stars.status === 'fulfilled' ? 'ready' : 'failed';

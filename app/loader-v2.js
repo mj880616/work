@@ -213,7 +213,9 @@
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js').catch(()=>{});
-  const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
+  const defer=window.requestIdleCallback?((fn,opts)=>window.requestIdleCallback(fn,opts)):((fn)=>setTimeout(fn,200));
+  // OD-미리받기: 첫 화면이 다 뜬 뒤 한가할 때 원드라이브 연결 확인·이번 달 목록·작은 그림 몇 장을 뒤에서 받아 둔다(기다리지 않음, 화면 없음).
+  defer(()=>import('./od-warm.js').catch(err=>console.warn('onedrive warm load failed',err?.name||'Error')),{timeout:5000});
 })().catch(err=>{
   console.error(err);
   document.body?.classList.remove('kptu-session-pending');
