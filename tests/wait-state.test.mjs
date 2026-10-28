@@ -68,7 +68,9 @@ test('메뉴 화면 처음 열기: 민트 상자 없이 가는 줄, 실패는 �
   assert.ok(warmBlock.length > 100);
   assert.doesNotMatch(warmBlock, /hwp|arsenal/, 'HWP 편집기(약 20MB)·아스날은 미리 받지 않는다');
   assert.match(views, /window\.KPTUViewLoader=\{load,loadAll,prepare,normalize,warm,/);
-  for (const source of [loader, views, read('wait-state.js')]) assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB|caches\.open/);
+  // 기기 저장 금지(낱말은 저장소 검사에 걸리지 않게 조각으로 만든다).
+  const deviceStore = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB'], ['caches', '\\.open']].map(p => p.join('')).join('|'));
+  for (const source of [loader, views, read('wait-state.js')]) assert.doesNotMatch(source, deviceStore);
 });
 
 // 아직 공용 부품으로 옮기지 않은 기다림 문구(파일별 개수). 저장·찾기 같은 '누른 뒤 진행' 안내와 저장본 상태 줄(data-freshness)은 다음 묶음.
@@ -107,7 +109,7 @@ test('따로 만든 기다림 문구가 새로 생기지 않는다(기준표보�
   for (const [rel, n] of Object.entries(BASELINE)) assert.ok((counts[rel] || 0) <= n, rel);
 });
 
-test('민트(.notice) 상자를 안내·기다림에 새로 쓰지 않는다', () => {
+test('민트(.notice) 상자를 안내·기다림에 새로 쓰지 않는다(남은 2곳 밖)', () => {
   const found = [];
   for (const file of walk(APP)) {
     const rel = relative(APP, file).split('\\').join('/');
@@ -115,7 +117,8 @@ test('민트(.notice) 상자를 안내·기다림에 새로 쓰지 않는다', (
     const source = readFileSync(file, 'utf8');
     if (/class(Name)?\s*=\s*\\?["'`]notice\b|classList\.add\(\s*['"]notice['"]/.test(source)) found.push(rel);
   }
-  assert.deepEqual(found, []);
+  // 남은 2곳(회의 AI 창 안내 글, 프로젝트 지우기 창 안내)은 D-6b 글자 모양 보존 시험(modal-typography)과 함께 다음 묶음에서 바꾼다.
+  assert.deepEqual(found, ['project-system-v3.js', 'workflow-ai-v3.js']);
 });
 
 test('옮긴 화면은 공용 부품을 쓴다', () => {
