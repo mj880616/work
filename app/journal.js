@@ -44,7 +44,9 @@ import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
-import {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js';
+import {weeklySummary, renderWeekly, weeklyReportText, renderNextWeekSheet} from './journal-weekly.js';
+import {readNextWeekSheet, makeNextWeekSheet} from './next-week-sheet-data.js';
+import {sheetView, shouldAutoMake, isAutoTime, seoulNow, openTarget as nextOpenTarget} from './next-week-sheet-model.mjs';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
@@ -84,7 +86,7 @@ root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" rol
 <section class="journal-radar" data-journal-radar hidden></section>
 <div class="journal-materials" data-journal-materials></div>
 </section>
-<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><p class="journal-muted journal-weekly-intro">주간보고 양식 순서로 이 주 기록을 모았어요. 화면에서 보기만 하고 저장하지 않아요.</p><div class="journal-hwpx" data-journal-hwpx></div><div class="journal-weekly-body" data-journal-weekly></div></section>`;
+<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><p class="journal-muted journal-weekly-intro">주간보고 양식 순서로 이 주 기록을 모았어요. 화면에서 보기만 하고 저장하지 않아요.</p><div class="journal-hwpx" data-journal-hwpx></div><div class="journal-weekly-body" data-journal-weekly></div></section>`;
 const $ = selector => root.querySelector(selector);
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 
@@ -102,6 +104,9 @@ let fileUi = freshFileUi();
 // MTG-기록겹침거르기 4단계: 겹쳐서 뺀 줄 접힘·되살리기 상태(탭 메모리뿐, 판정은 서버 표에만 저장). overlapFor = 겹침 확인을 이미 한 주 읽기(epoch).
 const freshOverlapUi = () => ({open:new Set(), busy:null, status:'', error:false});
 let overlapUi = freshOverlapUi(), overlapFor = -1;
+// JOURNAL-다음주준비: [다음 주] 칸 상태(탭 메모리뿐 — 장은 서버 표에만). nextAsked = 이번 방문에 자동 만들기를 이미 부른 주(owner:week).
+let nextUi = {busy:false, message:'', error:false, open:new Set()};
+const nextAsked = new Set();
 let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered (3 on an older Edge)
 let drafts = new Map(), saving = false;
 // JOURNAL-오늘한줄초안: days this visit already asked the server for an AI draft (owner:day; memory only, the server keeps one a day).
@@ -443,6 +448,7 @@ function renderWeekly_() {
   renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}), esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
   if (weeklyCalRefOpen) { const f = host.querySelector('details[data-journal-weekly="note-calRefs"]'); if (f) f.open = true; }
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
+  renderNextWeek_();
   if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
   if (execFocus) host.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   hwpx?.refresh();
@@ -476,7 +482,7 @@ function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;
   mode = next; editing = null;
   writePlace(); renderMode();
-  if (mode === 'week') { renderWeekly_(); void checkOverlaps(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); radarDay(); }
+  if (mode === 'week') { renderWeekly_(); void checkOverlaps(); maybeNextWeek(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); radarDay(); }
 }
 // NAV-새로고침제자리: the day shown (?day=, left out for today) and [주간 정리] (?mode=week) are written to the address (no history
 // entry of their own), so a reload opens the same day or the same weekly view; enter() reads them back.
@@ -504,7 +510,45 @@ async function maybeDraft() {
   if (selected === day && !saving && !editing) renderLine({keepStatus:true});
 }
 
+// JOURNAL-다음주준비: [주간 정리] 맨 위 [다음 주] 칸. 보이는 주의 다음 주 장(그 주 금요일에 만든 것)을 그린다.
+function renderNextWeek_() {
+  const box = $('[data-journal-next-week]');
+  if (!box || mode !== 'week') return;
+  for (const d of box.querySelectorAll('[data-journal-next-group]')) { if (d.open) nextUi.open.add(d.dataset.journalNextGroup); else nextUi.open.delete(d.dataset.journalNextGroup); }
+  const read = materials.nextWeek, week = shiftWeek(start, 1), now = new Date();
+  const state = !read || read.status === 'loading' ? 'loading' : read.status !== 'ok' ? 'failed' : read.items.missing ? 'missing' : 'ok';
+  const sheet = state === 'ok' ? read.items.sheet : null;
+  renderNextWeekSheet(box, {state, week, view:sheet ? sheetView(sheet, week) : null, canMake:start === seoulNow(now).thisMonday,
+    afterTime:isAutoTime(now), busy:nextUi.busy, message:nextUi.message, error:nextUi.error, open:nextUi.open});
+}
+// 금요일 15시 뒤(또는 토·일) 이번 주 [주간 정리]가 처음 열릴 때 다음 주 장이 없으면 한 번 만든다(mode=auto). 서버가 같은 규칙을 다시
+// 보고, 이미 있으면 덮지 않는다. [지금 만들기]·[다시 만들기]는 mode=user.
+async function makeNextWeek(kind) {
+  const run = epoch, scope = owner, week = shiftWeek(start, 1), thisMonday = start;
+  if (nextUi.busy) return;
+  nextUi.busy = true; nextUi.message = ''; nextUi.error = false; renderNextWeek_();
+  let result;
+  try { result = await makeNextWeekSheet({week, thisMonday, mode:kind}, rt); } catch { result = {ok:false, message:'만들지 못했어요. 잠시 뒤 다시 시도해 주세요.'}; }
+  if (!current(run, scope)) { nextUi.busy = false; return; }
+  nextUi.busy = false;
+  if (result.ok) {
+    if (result.sheet) materials.nextWeek = {status:'ok', items:{missing:false, sheet:result.sheet}};
+    nextUi.message = kind === 'user' && result.sheet ? '다음 주 준비를 만들었어요.' : '';
+  } else if (kind === 'user') { nextUi.message = result.message; nextUi.error = true; }
+  else if (result.code === 'not_ready' || result.code === 'next_week_sheet_not_ready') materials.nextWeek = {status:'ok', items:{missing:true, sheet:null}};
+  renderNextWeek_();
+}
+function maybeNextWeek() {
+  if (mode !== 'week') return;
+  const key = `${ownerScope(rt)}:${shiftWeek(start, 1)}`;
+  if (!shouldAutoMake({shownStart:start, read:materials.nextWeek, asked:nextAsked.has(key)})) return;
+  nextAsked.add(key);
+  void makeNextWeek('auto');
+}
+
 const readers = {
+  // JOURNAL-다음주준비: 보이는 주의 다음 주 장(표가 없으면 {missing:true}).
+  nextWeek: () => readNextWeekSheet(shiftWeek(start, 1), rt),
   events: () => readWeekScheduleEvents(start, rt),
   // JOURNAL-오늘한줄초안: 업무 통화(업무 통화함만)와 그 주 AI 초안(표가 없으면 {missing:true}).
   calls: () => readWeekCalls(start, rt),
@@ -557,6 +601,7 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
   renderDay(); renderWeekly_();
   void checkOverlaps();
   void maybeDraft();
+  maybeNextWeek();
 }
 async function loadLines(run, scope) {
   linesState = 'loading'; renderLine();
@@ -590,10 +635,10 @@ function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
   const sharedRun = shared || changedOwner ? ++sharedEpoch : sharedEpoch;
-  overlapUi = freshOverlapUi();
+  overlapUi = freshOverlapUi(); nextUi = {busy:false, message:'', error:false, open:nextUi.open};
   lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'calendarRefs'];
+  const keys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'calendarRefs'];
   for (const key of keys) materials[key] = {status:'loading'};
   delete materials.overlaps;
   if (shared || changedOwner) { loadKinds(sharedRun, scope); loadMemory(sharedRun, scope); memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
@@ -791,6 +836,23 @@ const RECORD = {
   org:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id ? '' : kind === 'up' ? `#wdUpdates [data-wd-up="${CSS.escape(id)}"]` : `#wdUpdates [data-basket-link="${CSS.escape(id)}"]`; },
   project:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id ? '' : kind === 'progress' ? `#ps3Body [data-ps3-record="${CSS.escape(id)}"]` : `#ps3Body [data-basket-link="${CSS.escape(id)}"]`; },
 };
+// JOURNAL-다음주준비: 장의 한 줄(저장된 줄 번호) → 원래 기록. 약속은 원장 화면에서 그 약속을 펼친 채로, 챙길 것은 정리함.
+async function openNextWeekLine(index, trigger) {
+  const sheet = materials.nextWeek?.status === 'ok' ? materials.nextWeek.items.sheet : null;
+  const target = nextOpenTarget(Array.isArray(sheet?.groups) ? sheet.groups[index] : null);
+  if (!target) return;
+  if (target.type === 'ledger') {
+    try {
+      await window.KPTUViewLoader?.load?.('ledger');
+      rememberReturn(trigger);
+      window.KPTULedgerBrowse?.show?.({openId:target.id});
+      if (!goView('ledger')) pendingReturn = null;
+    } catch { status.textContent = '원본을 열지 못했어요. 다시 시도해 주세요.'; }
+    return;
+  }
+  if (target.type === 'todos') { rememberReturn(trigger); if (!goView('basket')) pendingReturn = null; return; }
+  return openOriginal(target, trigger);
+}
 async function openOriginal(target, trigger) {
   const wide = !!WIDE?.matches, loader = window.KPTUViewLoader;
   status.textContent = '';
@@ -896,7 +958,7 @@ async function copyDraft() {
   const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'calls', 'journalDrafts', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
+  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }
@@ -1204,6 +1266,15 @@ root.addEventListener('click', event => {
   // HOME-줄누르기 ⑦: [주간 정리]의 5. 주요 일정 칸·끝낸 할 일·할 일 예정 줄 → 하루 화면의 일정·할 일 줄과 같은 열기.
   if (button.matches('[data-journal-weekly-event]')) { void openOriginal({type:'event', id:button.dataset.journalWeeklyEvent, calendarId:button.dataset.journalWeeklyCalendar || 'primary'}, button); return; }
   if (button.matches('[data-journal-weekly-task]')) { void openOriginal({type:'task', id:button.dataset.journalWeeklyTask}, button); return; }
+  // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, 핵심 줄 → 근거 묶음을 열고 그 줄로.
+  if (button.matches('[data-journal-next-make]')) { void makeNextWeek('user'); return; }
+  if (button.matches('[data-journal-next-open]')) { void openNextWeekLine(Number(button.dataset.journalNextOpen), button); return; }
+  if (button.matches('[data-journal-next-ref]')) {
+    const li = root.querySelector(`[data-journal-next-item="${CSS.escape(button.dataset.journalNextRef)}"]`), fold = li?.closest('details');
+    if (fold) { fold.open = true; nextUi.open.add(fold.dataset.journalNextGroup); }
+    li?.scrollIntoView({block:'nearest'}); li?.querySelector('[data-journal-next-open]')?.focus({preventScroll:true});
+    return;
+  }
   if (button.matches('[data-journal-open]')) { const target = opens.get(button.dataset.journalOpen); if (target) void openOriginal(target, button); return; }
   if (button.matches('[data-journal-original]')) { const target = opens.get(button.dataset.journalOriginal); button.closest('details')?.removeAttribute('open'); if (target) void openOriginal(target, button.closest('li')?.querySelector('[data-journal-open]') || button); return; }
   if (button.matches('[data-journal-complete]')) return void taskLine.complete(button.dataset.journalComplete, button);

@@ -428,3 +428,15 @@
 #appView #journalView button.journal-weekly-open::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - 16px); height:32px; }
 #appView #journalView button.journal-weekly-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #journalView button.journal-weekly-open:hover{ text-decoration:underline; text-underline-offset:2px; } }
+/* JOURNAL-다음주준비: [주간 정리] 맨 위 [다음 주] 칸. 콤팩트 — 제목 한 줄(만든 시각·[다시 만들기] 오른쪽), 핵심 세 가지, 접힌 묶음 한 줄씩. */
+#appView #journalView .journal-next-week{ display:flex; flex-direction:column; gap:4px; padding:8px 10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
+#appView #journalView .journal-next-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 8px; }
+#appView #journalView .journal-next-head > h4.journal-heading{ margin:0; font-size:var(--kptu-text-body); font-weight:700; color:var(--kptu-ink); }
+#appView #journalView .journal-next-meta{ display:inline-flex; align-items:center; gap:6px; font-size:var(--kptu-text-body); }
+#appView #journalView .journal-next-note{ margin:0; }
+#appView #journalView .journal-next-note.is-error{ color:var(--kptu-danger, var(--kptu-ink)); }
+#appView #journalView .journal-next-sub{ margin:2px 0 0; font-size:var(--kptu-text-body); font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
+#appView #journalView .journal-next-top{ margin:0; padding-left:20px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
+#appView #journalView .journal-next-group > summary{ cursor:pointer; font-size:var(--kptu-text-body); line-height:1.6; overflow-wrap:anywhere; }
+#appView #journalView .journal-next-label{ font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
+#appView #journalView .journal-next-group > .journal-weekly-list{ margin:2px 0 4px; }
