@@ -140,6 +140,9 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-photo-pick{ gap:4px; }
 #appView #diaryView .diary-doc{ min-width:0; }
 .diary-lv-menu .diary-menu-danger{ color:var(--kptu-danger); }
+#appView #diaryView .diary-head-menu-wrap{ position:relative; display:inline-flex; }
+#appView #diaryView .diary-head-menu{ position:absolute; top:calc(100% + 4px); right:0; left:auto; bottom:auto; z-index:30; min-width:8.5em; }
+#appView #diaryView .diary-head-menu[hidden]{ display:none; }
 #appView #diaryView .diary-doc-host{ min-height:120px; min-width:0; color:var(--kptu-ink); }
 #appView #diaryView .diary-text.is-doc{ white-space:normal; }
 #appView #diaryView .diary-thumbs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px 6px; }

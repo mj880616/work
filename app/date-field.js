@@ -31,16 +31,16 @@ export function skipDateInput(input) {
   return !!input.closest?.('.dt-date,.due-chip,.date-field');
 }
 
+// 보이는 글자는 칸(span)의 data-date-text를 CSS ::after가 그린다(글자 마디가 아니라서 label 글자·이름에 섞이지 않는다).
 function paint(box, input, empty) {
-  const text = box.querySelector('.date-field-text'), value = NATIVE_VALUE ? NATIVE_VALUE.get.call(input) : input.value;
-  const label = dateLabel(value);
-  text.textContent = label || empty;
+  const value = NATIVE_VALUE ? NATIVE_VALUE.get.call(input) : input.value, label = dateLabel(value);
+  box.dataset.dateText = label || empty;
   box.classList.toggle('is-empty', !label);
-  // 글자는 input 자기 칸(테두리·높이·여백은 화면 규칙 그대로) 안쪽 왼쪽에 겹친다. 글자 크기·색도 input을 따른다.
+  // 글자는 input 자기 칸(테두리·높이·여백은 화면 규칙 그대로) 안쪽 왼쪽에 겹친다. 글자 크기도 input을 따른다.
   try {
     const cs = getComputedStyle(input);
-    text.style.left = `${(parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0)}px`;
-    text.style.fontSize = cs.fontSize;
+    box.style.setProperty('--date-field-pad', `${(parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0)}px`);
+    box.style.setProperty('--date-field-size', cs.fontSize);
   } catch { /* 처음 그릴 때 아직 화면에 없으면 CSS 기본 자리 */ }
 }
 
@@ -50,16 +50,10 @@ export function enhanceDateInput(input, {empty = '날짜'} = {}) {
   if (skipDateInput(input) || !input.parentNode) return null;
   input.dataset.dateField = '1';
   const owner = input.parentElement;
-  // 감싸면 label 글자에 날짜 글자가 섞이므로, 이름이 없던 칸은 감싸기 전 label 글자를 이름으로 둔다.
-  if (!input.hasAttribute('aria-label') && !input.hasAttribute('aria-labelledby') && owner?.tagName === 'LABEL') {
-    const own = [...owner.childNodes].filter(n => n !== input).map(n => n.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
-    if (own) input.setAttribute('aria-label', own);
-  }
   const box = document.createElement('span');
   box.className = 'date-field' + (owner && (owner.tagName === 'LABEL' || getComputedStyle(input).display === 'block') ? ' is-block' : '');
-  const text = document.createElement('span'); text.className = 'date-field-text'; text.setAttribute('aria-hidden', 'true');
   const focused = document.activeElement === input;
-  input.before(box); box.append(input, text);
+  input.before(box); box.append(input);
   if (focused) input.focus({preventScroll: true});
   const blank = input.dataset.dateEmpty || empty;
   const redraw = () => paint(box, input, blank);

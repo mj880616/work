@@ -342,7 +342,7 @@ test('고치기에서 사진 하나 빼기, 글 없는 일기의 마지막 사�
  expect(f.rows.find(r=>r.id==='d5').attachments).toHaveLength(1);
  // UI-버튼통일 ①: [일기 지우기]는 ⋯ 안. 묻지 않고 바로 빠지고 위쪽 '일기를 지웠어요 · [되돌리기]'. 되돌리면 아무것도 보내지 않는다.
  let asked='';page.on('dialog',d=>{asked=d.message();d.dismiss();});
- await ed.locator('[data-diary-editor-more]').click();await page.locator('#diaryEditorMenu [data-diary-menu="delete"]').click();
+ await ed.locator('[data-diary-editor-more]').click();await page.locator('#diaryEditorMenu [data-diary-delete]').click();
  await expect(ed).toBeHidden();const undo=page.locator('[data-undo-notice]');
  await expect(undo).toContainText('10월 5일 일기를 지웠어요.');await expect(cell(page,'2026-10-05').locator('img')).toHaveCount(0);
  await undo.locator('[data-undo-action]').click();await expect(undo).toContainText('일기를 되돌렸어요.');
@@ -350,7 +350,7 @@ test('고치기에서 사진 하나 빼기, 글 없는 일기의 마지막 사�
  await page.waitForTimeout(600);expect(f.deletes).toEqual([]);
  // 다시 지우고 알림이 닫히면(2초) 그때 note-delete를 보낸다.
  await cell(page,'2026-10-05').click();await page.locator('#diaryRoot [data-diary-edit]').click();
- await ed.locator('[data-diary-editor-more]').click();await page.locator('#diaryEditorMenu [data-diary-menu="delete"]').click();
+ await ed.locator('[data-diary-editor-more]').click();await page.locator('#diaryEditorMenu [data-diary-delete]').click();
  await page.mouse.move(2,690);
  await expect(undo).toBeHidden({timeout:8000});
  await expect.poll(()=>f.deletes.length,{timeout:8000}).toBeGreaterThan(0);

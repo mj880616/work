@@ -1504,11 +1504,11 @@ button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
 }
 .date-field{ position:relative; display:inline-flex; max-width:100%; min-width:0; vertical-align:middle; }
 .date-field.is-block{ display:flex; width:100%; }
-.date-field>input[type="date"]{ flex:1 1 auto; min-width:0; color:transparent; }
+.date-field>input[type="date"]{ flex:1 1 auto; min-width:0; }
 .date-field>input[type="date"]::-webkit-datetime-edit{ opacity:0; }
-.date-field-text{ position:absolute; left:10px; right:28px; top:50%; transform:translateY(-50%); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.2; color:var(--kptu-ink); font-weight:var(--ds-weight-regular); pointer-events:none; }
-.date-field.is-empty .date-field-text{ color:var(--kptu-faint); }
-.date-field:has(>input:disabled) .date-field-text{ color:var(--kptu-muted); }
+.date-field::after{ content:attr(data-date-text); position:absolute; left:var(--date-field-pad,10px); right:28px; top:50%; transform:translateY(-50%); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.2; font-size:var(--date-field-size,1em); color:var(--kptu-ink); font-weight:var(--ds-weight-regular); pointer-events:none; }
+.date-field.is-empty::after{ color:var(--kptu-faint); }
+.date-field:has(>input:disabled)::after{ color:var(--kptu-muted); }
 /* ⑤ 체크칸·라디오 줄(A1 내 프로필 담당 사업장에서 발견, 전수): 공용 label 기본(base-ui.css label{flex-direction:column})이 체크칸을 글자 위 가운데로
    올려놓지 않도록, 바로 안에 체크칸·라디오가 있는 label은 한 줄 '☐ 이름'이다. 강도는 label 기본과 같고(뒤에 와서 이김) 화면 규칙은 그대로 이긴다. */
 label:where(:has(> input:is([type="checkbox"],[type="radio"]))){ flex-direction:row; align-items:center; }
