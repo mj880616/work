@@ -268,6 +268,9 @@ jobs:
       - name: Check OneDrive small-picture copies on the phone (OD-폰보관, cache key·limits·cleanup·one audit allowance, synthetic)
         run: node --test tests/od-thumb-cache.test.mjs
 
+      - name: Check photo grid size and full-screen photo gestures (OD-사진크기·OD-크게보기, steps·pinch·server save·swipe·undo, synthetic)
+        run: node --test tests/photo-grid-size.test.mjs
+
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs
 
@@ -294,6 +297,9 @@ jobs:
 
       - name: Check small notice and confirm parts (UI-작은알림)
         run: node --test tests/small-notice.test.mjs
+
+      - name: Check browser dialog sweep baseline (UI-알림창정리)
+        run: node --test tests/notice-sweep.test.mjs
 
       - name: Check library, project, share and upload units (STAB-단위시험등록)
         run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs

@@ -121,7 +121,8 @@ export function odTreeRows(tree, draft, expanded) {
 export const odTreeChanges = (tree, draft) => tree.folders.filter(f => draft.has(f.id) && draft.get(f.id) !== f.enabled).map(f => ({id: f.id, enabled: draft.get(f.id)}));
 export const odFolderSet = (rt, folderId) => odCall(rt, {action: 'folder-set', folder_id: folderId});
 export const odDisconnect = rt => odCall(rt, {action: 'disconnect'});
-export const odDelete = (rt, id) => odCall(rt, {action: 'photo-delete', id, confirm: true});
+// 휴지통으로 보내기. keepalive: 화면을 떠나는 순간(되돌리기 시간 중 앱 닫기)에도 요청이 끝까지 나가게 한다(그때는 세션 갱신 없이 지금 토큰으로).
+export const odDelete = (rt, id, {keepalive = false} = {}) => rt.api(OD_FN, {method: 'POST', body: {action: 'photo-delete', id, confirm: true}, singleFlight: false, timeoutMs: OD_TIMEOUT_MS, ...(keepalive ? {keepalive: true, refreshSession: false} : {})});
 
 // 한 달치 사진: {days:{'YYYY-MM-DD':[{id,name,taken_at,approx}]}, truncated}. 모양이 맞는 것만 받는다.
 export async function odPhotos(rt, year, month) {

@@ -1,6 +1,7 @@
 // REF-참고묶음 화면 2 (docs/design/ref-bundle.md 6·7-3절): 참고 고르기 → 저장 → 참고 묶음 화면 → 이름 바꾸기 → 주간 정리에 없음.
 // 가짜 이름·가짜 글만 쓴다. 서버는 흉내(app_reference_bundles·app_record_links·app_notes·연결 RPC)이고 상태를 기억한다.
 import {test,expect} from '@playwright/test';
+import {answerAsk} from './helpers/small-notice.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 test.use({hasTouch:true});
@@ -175,8 +176,8 @@ test('참고 묶음 화면: 담당조직 목록 맨 아래 입구, 묶음 더하
  await page.locator(`#rbList [data-rb-bundle="${fresh.id}"]`).click();
  await page.locator('#rbDetail [data-rb-detail-more]').click();
  await expect(page.locator('#rbMenu button')).toHaveText(['이름 바꾸기','묶음 지우기']);
- page.once('dialog',d=>d.accept());
  await page.locator('#rbMenu [data-rb-act="delete"]').click();
+ expect(await answerAsk(page,true)).toContain('묶음을 지울까요?');
  await expect(page.locator('#rbList [data-rb-bundle]')).toHaveCount(3);
  expect(f.writes.filter(w=>w.method==='DELETE'&&w.table==='bundles')).toHaveLength(1);
 
