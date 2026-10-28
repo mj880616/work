@@ -1,7 +1,7 @@
 /* FEAT-1029묶음 ④ 성명·보도자료 초안 창(app/press-draft.js). 콤팩트·톤다운, 기존 --kptu-* 변수만. 폰: 한 칸씩, PC(1024px~): 근거 | 미리보기 두 칸. */
 .press-draft{width:min(1180px,calc(100vw - 16px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);display:none;flex-direction:column;font-size:13px}
 .press-draft[open]{display:flex}
-.press-draft::backdrop{background:rgba(0,0,0,.35)}
+.press-draft::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
 .pd-head{display:flex;align-items:center;gap:var(--kptu-space-2);padding:6px var(--kptu-space-3);border-bottom:1px solid var(--kptu-border)}
 .pd-head h2{margin:0;font-size:15px;flex:1;min-width:0}
 .pd-icon{position:relative;border:0;background:none;color:var(--kptu-muted);font-size:18px;line-height:1;padding:4px 6px;cursor:pointer}
