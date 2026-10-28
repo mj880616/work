@@ -27,7 +27,7 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
   function taskLine(ev,row){
     const wrap=document.createElement('div');wrap.className='gt-day-row';wrap.dataset.calendarTaskLine=ev.id;wrap.dataset.taskInlineRow='';
     const menu=document.createElement('button');menu.type='button';menu.className='gt-day-menu task-inline-more';menu.dataset.calendarTaskMenu=ev.id;
-    menu.textContent='⋯';menu.setAttribute('aria-label',(ev.title||'제목 없음')+' 메뉴');menu.setAttribute('aria-haspopup','true');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-controls','calendarTaskMenu');
+    menu.innerHTML='<span class="more-dots" aria-hidden="true">⋯</span>';menu.setAttribute('aria-label',(ev.title||'제목 없음')+' 메뉴');menu.setAttribute('aria-haspopup','true');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-controls','calendarTaskMenu');
     wrap.append(row,menu);return wrap;
   }
   let openSeq=0;

@@ -4,8 +4,7 @@
 .home-quick-modes button[aria-pressed="true"],#basketView .quick-mode-group button[aria-pressed="true"],.quick-pill-button[aria-checked="true"] { background:var(--kptu-surface); color:var(--kptu-ink); }
 .home-quick .home-basket-link,#basketView .quick-text-link { min-height:44px; border:0; background:transparent; color:var(--kptu-primary-ink); text-align:right; }
 
-#basketView .quick-pill-button { min-height:30px; font-family:inherit; font-size:12px; background:var(--kptu-surface-subtle); }
-#basketView .quick-mode-group .quick-pill-button { background:transparent; }
+#basketView .quick-pill-button { min-height:30px; font-family:inherit; font-size:12px; }
 /* Retain a 44px target around the 30px painted pill, as in base-ui.css. */
 #basketView .quick-pill-button::after,.quick-pill-button::after { content:""; position:absolute; left:0; right:0; top:calc(50% - 22px); height:44px; }
 #basketView .quick-pill-primary { background:var(--kptu-primary); color:var(--kptu-on-primary); }

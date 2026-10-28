@@ -27,7 +27,7 @@ const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
 const pc = window.matchMedia('(min-width:1024px)');
 const phone = window.matchMedia('(max-width:760px)');
-const MORE = '<span aria-hidden="true">⋯</span>';
+const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 
 let state = fresh(), run = 0, layer = null, boxLayer = null, undo = null, ledgerAsk = null, loadP = null;
 function fresh() { return {edits:new Map(), editMissing:false, editFail:false, edit:null, who:null, sum:null, owner:'', loaded:false, loading:false, missing:false, error:'', rows:[], prows:[], pmissing:false, pfail:false, days:[], orgs:[], mine:new Set(), box:'work', selected:null, raw:new Map(), rawOpen:false, link:null, confirm:null, status:'', busy:false}; }

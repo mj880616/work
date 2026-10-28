@@ -21,7 +21,7 @@ const $=sel=>document.querySelector(sel);
 const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
 const pc=window.matchMedia('(min-width:1024px)');
 const md=value=>{const t=Date.parse(value);if(Number.isNaN(t))return '';const p=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric'}).formatToParts(new Date(t));const get=k=>p.find(x=>x.type===k)?.value||'';return `${get('month')}.${get('day')}`;};
-const MORE='<span aria-hidden="true">⋯</span>';
+const MORE='<span class="more-dots" aria-hidden="true">⋯</span>';
 
 let state=freshState(),run=0,layer=null,pendingOpen=null;
 function freshState(){return {owner:'',loaded:false,loading:false,error:'',bundles:[],links:[],selected:null,mode:'',draft:'',order:null,status:'',detailStatus:'',busy:false};}

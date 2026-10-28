@@ -90,7 +90,7 @@ function renderList() {
       el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
       el('span', {class:`sp-pill ${page.status === 'published' ? 'is-on' : ''}`, text:page.status === 'published' ? '게시' : '초안'})),
     el('button', {type:'button', class:'sp-row-more', dataset:{spRowMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
-      'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {'aria-hidden':'true', text:'⋯'}))))));
+      'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'}))))));
   if (box?.length) body.push(el('details', {class:'sp-box', open:boxOpen, dataset:{spBox:''}},
     el('summary', {class:'sp-box-summary', text:`보관함 ${box.length}`}),
     el('ul', {class:'sp-list sp-box-list', 'aria-label':'보관함'}, box.map(page => el('li', {},
@@ -98,7 +98,7 @@ function renderList() {
         el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
         el('span', {class:'sp-row-meta', text:day(page.updated_at)})),
       el('button', {type:'button', class:'sp-row-more', dataset:{spBoxMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
-        'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {'aria-hidden':'true', text:'⋯'})))))));
+        'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'})))))));
   listView.replaceChildren(head, status, ...body);
   view.dataset.sharePagesReady = '1';
 }
@@ -336,7 +336,7 @@ function viewNode(block, b, count) {
     el('button', {type:'button', class:'sp-vblock-edit', dataset:{spEdit:String(b)}, 'aria-label':`${n}번째 블록 ${label} 고치기`},
       el('span', {class:'sp-vblock-hint', 'aria-hidden':'true', text:'고치기'})),
     el('details', {class:'sp-more', dataset:{spMore:String(b)}},
-      el('summary', {class:'sp-more-button', 'aria-label':`${n}번째 블록 ${label} 메뉴`}, el('span', {'aria-hidden':'true', text:'⋯'})),
+      el('summary', {class:'sp-more-button', 'aria-label':`${n}번째 블록 ${label} 메뉴`}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'})),
       el('div', {class:'sp-more-panel', role:'group', 'aria-label':`${n}번째 블록 ${label} 옮기기·지우기`}, blockTools(block, b, count))));
   return box;
 }
@@ -474,7 +474,7 @@ function renderFull() {
       el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
       el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'})),
     el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':'프로젝트·링크', 'data-ctx':'off', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
-      el('span', {'aria-hidden':'true', text:'⋯'})),
+      el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'})),
     el('div', {class:'sp-top-extra', id:'spTopExtra', dataset:{spTopExtra:''}},
       el('label', {class:'sp-top-project'}, el('span', {text:'프로젝트'}), el('select', {class:'sp-top-select', dataset:{spProject:''}})),
       el('button', {type:'button', class:'sp-tool', 'aria-expanded':'false', 'aria-controls':'spLinksPanel', dataset:{spLinksOpen:''}, text:'링크'})),
