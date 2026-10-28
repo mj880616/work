@@ -12,3 +12,12 @@ export function selectMyOrganizations(organizations, assignees) {
 // The ids of my organizations, for screens that keep the others' records under one "그 외" group.
 export const myOrganizationIds = (organizations, assignees) => new Set(selectMyOrganizations(organizations, assignees).organizations.map(row => row.id));
 export const OTHERS = '그 외';
+// ORG-고르기통일: every place where I choose an organization (record places, task links, event checks, feed links, library
+// bulk change, basket [연결하기]) offers only this set, in organization-order.js order. 내 프로필 → 담당 사업장 is the one
+// exception: it is where the assignment is decided, so it lists every organization. Pickers that showed nothing when I have
+// no assignment keep that (whenNone:'none'); the others keep the rule's fallback (every active organization).
+// tests/org-picker-mine.test.mjs fails when a new file reads app_suborganizations without this rule or a stated reason.
+export function pickMyOrganizations(organizations, assignees, {whenNone = 'all'} = {}) {
+  const mine = selectMyOrganizations(organizations || [], assignees || []);
+  return mine.fallback && whenNone === 'none' ? [] : mine.organizations;
+}
