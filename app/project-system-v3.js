@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {fileAttrs,menuItemsHtml} from './file-actions.js';
 import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,seoulDateKey} from './meeting-time.js';
@@ -197,7 +198,7 @@ function readLast(){return lastProject.read(user?.id)}
 // Scroll of the detail and the list, kept when a 🧺 record opens its note and restored on return.
 function detailScroll(){const m=$('#ps3DetailModal');return {pane:$('#ps3DetailPane')?.scrollTop||0,card:m?.querySelector('.modal-card')?.scrollTop||0,modal:m?.scrollTop||0,list:$('#projectGrid .ps3-plist')?.scrollTop||0,page:window.scrollY||0}}
 function restoreScroll(s){if(!s)return;const set=()=>{const m=$('#ps3DetailModal'),pane=$('#ps3DetailPane'),list=$('#projectGrid .ps3-plist'),card=m?.querySelector('.modal-card');if(pane)pane.scrollTop=s.pane||0;if(list)list.scrollTop=s.list||0;if(card)card.scrollTop=s.card||0;if(m)m.scrollTop=s.modal||0;window.scrollTo({top:s.page||0,behavior:'instant'})};set();requestAnimationFrame(set)}
-function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),2400)}
+function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 async function googleCalendarCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await api(u.toString(),{method,body,...(expectedSessionEpoch==null?{}:{expectedSessionEpoch})});if(d?.error&&!d?.partial_failure)throw new Error(d.error||'Google Calendar 요청 실패');return d}
 async function googleCalendarStatus(){const cached=window.__KPTU_GOOGLE_STATE__;if(cached&&typeof cached.connected==='boolean'&&Array.isArray(cached.calendars)){googleCalendarState=cached;return cached}try{googleCalendarState=await googleCalendarCall('status');window.__KPTU_GOOGLE_STATE__={...(window.__KPTU_GOOGLE_STATE__||{}),...(googleCalendarState||{})};return googleCalendarState}catch(e){googleCalendarState={connected:false,calendars:[],warning:e?.message||String(e)};return googleCalendarState}}
 const writableGoogleCalendars=s=>(s?.calendars||[]).filter(x=>['owner','writer'].includes(x.accessRole||''));

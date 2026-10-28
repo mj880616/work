@@ -1,40 +1,132 @@
-// UI-작은알림 (2026-10-28 명진 요청 08:28): 브라우저 기본 알림창('desk.bokdoong.com 내용:') 대신 쓰는 공용 부품 두 가지.
-// ① notify(text,{undo}) — 화면 아래(하단바 위) 작은 알림 한 줄. 몇 초 뒤 조용히 사라지고, 되돌릴 수 있는 일이면 [되돌리기]를 같이 둔다.
-//    한 번에 하나만 보인다(새 알림이 앞 알림을 갈아 끼움). 앞 알림의 [되돌리기]는 그때 같이 사라진다.
+// UI-작은알림 (2026-10-28 명진 요청 08:28·10:52): 브라우저 기본 알림창('desk.bokdoong.com 내용:') 대신 쓰는 공용 부품.
+// ① notify(text,{undo,label}) — 화면 위쪽(맨 위 줄 바로 아래, 목록 위) 가운데 작은 알림 한 줄. 폰 하단바·손가락에 가리지 않는다.
+//    2초 뒤 저절로 사라지고, 알림 위에 마우스·손가락이 있거나 키보드 초점이 안에 있는 동안은 사라지지 않는다(오류는 5초).
+//    한 번에 하나만 보인다(새 알림이 앞 알림을 갈아 끼움). 되돌릴 수 있는 일이면 [되돌리기]를 같이 두고, 되돌리기 기록(③)에도 올린다.
 // ② askConfirm(anchor,{text,ok}) — 되돌릴 수 없는 일만 묻는 작은 확인창. 누른 자리 근처에 뜨고 하단바에 가리지 않는다. Promise<boolean>.
 //    Esc·바깥 누르기·폰 뒤로가기 = 취소. 브라우저 기본 confirm과 달리 화면을 멈추지 않는다.
-// 둘 다 화면에만 있고 아무것도 저장하지 않는다. 노트·사진·업데이트 등 다른 화면도 이 파일을 그대로 가져다 쓴다(자료실이 처음).
+// ③ 되돌리기 기록(UNDO_LIMIT=10개) + PC Ctrl+Z(맥 ⌘Z). 가장 최근 것부터 하나씩 되돌리고 '되돌렸어요: 폴더 옮기기 3개'처럼 한 줄 알린다.
+//    글 쓰는 칸(input·textarea·select·contenteditable·노트 편집기 .ed-editor·[data-own-undo] 안)에서는 건드리지 않아 글자 되돌리기가 그대로다.
+//    HWP 편집기는 iframe 안이라 키가 여기까지 오지 않는다. 기록은 이 화면 메모리에만 있다: 새로고침·다른 화면으로 이동·로그인 바뀜이면 비운다.
+//    기기에 아무것도 저장하지 않는다. 대상은 서버에서 되살릴 수 있는 일(휴지통 삭제·옮기기·이름·종류 바꾸기 등)만 올린다.
+//
+// 다른 화면이 붙여 쓰는 법(자료실 등):
+//   (가) 알림과 함께: notify('옮겼어요 3개',{label:'폴더 옮기기 3개',undo:async()=>{…서버에 되돌리기 요청…; return 결과}})
+//       → [되돌리기] 버튼과 Ctrl+Z가 같은 undo를 부른다(한 번만 실행됨).
+//   (나) 알림 없이 기록만: const id=recordUndo({label:'이름 바꾸기',undo}); 나중에 필요 없어지면 dropUndo(id).
+//   (다) 이미 쓰는 공용 되돌리기 알림 offerUndoNotice(basket-record-delete.js)는 이 기록에 저절로 올라간다.
+//   undo가 돌려줄 수 있는 값: 없음·true·{status:'restored'|'ok'} = 되돌림 성공 → '되돌렸어요: label'.
+//     false·{status:'failed'|'unknown'…, message} 또는 throw = '되돌리지 못했어요: label'(message가 있으면 그 글).
+//     {status:'conflict'|'stale'} = 그사이 다른 기기·다른 곳에서 바뀜 → 덮어쓰지 않고 '다른 곳에서 바뀌어 되돌리지 않았어요: label'.
+//     {silent:true} = 화면이 직접 결과를 알렸음(이 부품은 아무 말도 하지 않음).
 import {placeAnchored,clearAnchored} from './anchored-popup.js';
 
-export const NOTICE_MS=5000,NOTICE_UNDO_MS=6000,NOTICE_ERROR_MS=8000;
-// 알림이 떠 있는 시간: 오류는 조금 길게, 되돌리기가 있으면 누를 틈을 준다.
+export const NOTICE_MS=2000,NOTICE_UNDO_MS=2000,NOTICE_ERROR_MS=5000,UNDO_LIMIT=10;
+// 알림이 떠 있는 시간: 2초(명진 결정 10:52). 오류는 읽을 틈을 주려고 조금 길게. 올려 두면(마우스·손가락·초점) 그동안은 멈춘다.
 export function noticeMs({error=false,undo=false,ms}={}){if(Number.isFinite(ms)&&ms>0)return ms;return error?NOTICE_ERROR_MS:undo?NOTICE_UNDO_MS:NOTICE_MS}
 // 알림 글자는 한 줄로. 줄바꿈·겹친 빈칸은 한 칸으로 줄인다(긴 설명은 note로 따로 작게).
 export function noticeText(text){return String(text??'').replace(/\s+/g,' ').trim()}
 
-let host=null,timer=0,seq=0;
+// 올려 두는 동안 멈추는 시계: 마우스·손가락이 알림 위에 있거나 초점이 안에 있으면 멈추고, 떠나면 ms를 처음부터 다시 잰다.
+// box에서 떼어 낼 때 stop()을 부른다(듣는 것도 함께 정리).
+export function holdTimer(box,ms,onDone){
+  let t=0,over=false,focus=false,stopped=false;const ac=new AbortController(),o={signal:ac.signal};
+  const arm=()=>{clearTimeout(t);if(!stopped&&!over&&!focus)t=setTimeout(()=>{if(!stopped){stop();onDone()}},ms)};
+  const stop=()=>{stopped=true;clearTimeout(t);ac.abort()};
+  box.addEventListener('pointerenter',()=>{over=true;clearTimeout(t)},o);
+  box.addEventListener('pointerleave',()=>{over=false;arm()},o);
+  box.addEventListener('pointercancel',()=>{over=false;arm()},o);
+  box.addEventListener('focusin',()=>{focus=true;clearTimeout(t)},o);
+  box.addEventListener('focusout',e=>{if(e.relatedTarget&&box.contains(e.relatedTarget))return;focus=false;arm()},o);
+  arm();return {stop,restart:arm};
+}
+
+// ③ 되돌리기 기록. 화면 메모리 배열 하나뿐(기기 저장 없음).
+const undoStack=[];let undoSeq=0,undoBusy=false,undoView=null;
+const routerView=()=>globalThis.window?.KPTURouter?.current??null;
+export const undoLabel=text=>noticeText(text).split(/(?<=[.!?。])\s/)[0].replace(/[.。]$/,'')||'방금 한 일';
+function makeEntry({label,undo}){let ran=false;return {id:++undoSeq,label:undoLabel(label),run:async()=>{if(ran)return {silent:true};ran=true;return undo()}}}
+function pushEntry(entry){
+  if(undoView!==routerView()){undoStack.length=0;undoView=routerView()}
+  undoStack.push(entry);while(undoStack.length>UNDO_LIMIT)undoStack.shift();
+  return entry.id;
+}
+export function recordUndo({label,undo}={}){return typeof undo==='function'?pushEntry(makeEntry({label,undo})):0}
+export function dropUndo(id){const i=undoStack.findIndex(e=>e.id===id);if(i>=0)undoStack.splice(i,1)}
+export function clearUndo(){undoStack.length=0}
+export const undoLabels=()=>undoStack.map(e=>e.label);
+const FAIL=/fail|unknown|error|missing|blocked|denied/i,CONFLICT=/conflict|stale|changed/i;
+// undo 결과를 알림 한 줄로. 반환 {text,error} 또는 null(말하지 않음).
+export function undoResultLine(label,result){
+  if(result?.silent)return null;
+  const status=String(result?.status??'');
+  if(CONFLICT.test(status))return {text:`다른 곳에서 바뀌어 되돌리지 않았어요: ${label}`,error:true};
+  if(result===false||FAIL.test(status))return {text:result?.message||`되돌리지 못했어요: ${label}`,error:true};
+  return {text:`되돌렸어요: ${label}`,error:false};
+}
+async function runEntry(entry,doc){
+  dropUndo(entry.id);undoBusy=true;let result;
+  try{result=await entry.run()}catch{result=false}finally{undoBusy=false}
+  const line=undoResultLine(entry.label,result);
+  if(line)notify(line.text,{error:line.error,doc});
+}
+// 가장 최근 기록 하나를 되돌린다(Ctrl+Z). 되돌린 게 있으면 true. 앞 되돌리기가 끝나기 전 누름은 무시한다.
+export async function undoLast({doc=globalThis.document}={}){
+  if(undoBusy)return true;
+  const entry=undoStack.at(-1);if(!entry)return false;
+  await runEntry(entry,doc);return true;
+}
+// 글 쓰는 칸 안이면 그 칸의 글자 되돌리기를 그대로 둔다.
+const OWN_UNDO='input,textarea,select,[contenteditable]:not([contenteditable="false"]),.ed-editor,[data-own-undo]';
+export function isUndoKey(e){return !!(e&&(e.ctrlKey||e.metaKey))&&!e.shiftKey&&!e.altKey&&String(e.key).toLowerCase()==='z'}
+export function ownsUndo(target){return !!(target&&typeof target.closest==='function'&&target.closest(OWN_UNDO))}
+if(typeof globalThis.document?.addEventListener==='function'&&!globalThis.__kptuUndoKeyBound){
+  globalThis.__kptuUndoKeyBound=true;
+  document.addEventListener('keydown',e=>{
+    if(!isUndoKey(e)||e.defaultPrevented||e.isComposing||ownsUndo(e.target)||ownsUndo(document.activeElement))return;
+    if(!undoStack.length&&!undoBusy)return;
+    e.preventDefault();void undoLast();
+  });
+  globalThis.addEventListener?.('kptu:view-changed',e=>{if(e.detail?.view!==undoView)clearUndo()});
+  globalThis.addEventListener?.('kptu:session-changed',clearUndo);
+}
+
+// 화면들이 같이 쓰는 #toast(app/index.html 한 칸)도 같은 규칙: 위쪽·2초·올려 두면 멈춤. 글은 부르는 쪽이 먼저 넣고 holdToast(el)를 부른다.
+// 시계가 하나라 앞 화면의 시계가 뒤 알림을 일찍 지우지 않는다. 작은 알림(#kptuNotice)과 같은 자리라 하나가 뜨면 다른 하나는 내린다.
+let toastClock=null;
+export function holdToast(el,{ms}={}){
+  if(!el)return;toastClock?.stop();
+  if(host&&!host.hidden){clock?.stop();clock=null;host.hidden=true;host.replaceChildren()}
+  el.classList.remove('hidden');
+  toastClock=holdTimer(el,Number.isFinite(ms)&&ms>0?ms:NOTICE_MS,()=>{toastClock=null;el.classList.add('hidden')});
+}
+
+let host=null,clock=null,seq=0;
 function ensureHost(doc){
   if(host?.isConnected)return host;
   host=doc.createElement('div');host.id='kptuNotice';host.className='kptu-notice';host.hidden=true;
   host.setAttribute('role','status');host.setAttribute('aria-live','polite');
   doc.body.append(host);return host;
 }
-// {undo:async()=>…, undoLabel, note, error, ms}. 반환: {close} — 화면이 먼저 알림을 거둘 때.
-export function notify(text,{undo=null,undoLabel='되돌리기',note='',error=false,ms,doc=globalThis.document}={}){
+// {undo:async()=>…, label, undoLabel, note, error, ms}. 반환: {close} — 화면이 먼저 알림을 거둘 때.
+// undo가 있으면 되돌리기 기록에도 올린다(record:false면 올리지 않음). label은 '되돌렸어요: …'에 쓰는 말(없으면 알림 글 첫 문장).
+// [되돌리기]를 누르든 Ctrl+Z든 undo는 한 번만 돌고, 끝나면 결과 한 줄(되돌렸어요/되돌리지 못했어요/다른 곳에서 바뀜)을 이 부품이 알린다.
+export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리기',note='',error=false,ms,record=true,doc=globalThis.document}={}){
   const line=noticeText(text);if(!doc||!line)return {close(){}};
-  const box=ensureHost(doc),token=++seq;clearTimeout(timer);
+  const box=ensureHost(doc),token=++seq;clock?.stop();clock=null;
+  const shared=doc.getElementById?.('toast');if(shared&&!shared.classList.contains('hidden')){toastClock?.stop();toastClock=null;shared.classList.add('hidden')}
   box.replaceChildren();box.classList.toggle('error',!!error);
   if(error){box.setAttribute('role','alert');box.removeAttribute('aria-live')}else{box.setAttribute('role','status');box.setAttribute('aria-live','polite')}
   const span=doc.createElement('span');span.className='kptu-notice-text';span.textContent=line;box.append(span);
-  const close=()=>{if(token!==seq)return;clearTimeout(timer);box.hidden=true;box.replaceChildren()};
+  const close=()=>{if(token!==seq)return;clock?.stop();clock=null;box.hidden=true;box.replaceChildren()};
   if(undo){
-    const b=doc.createElement('button');b.type='button';b.className='kptu-notice-undo';b.textContent=undoLabel;
-    b.addEventListener('click',()=>{if(token!==seq)return;close();void undo()},{once:true});box.append(b);
+    const entry=makeEntry({label:label||line,undo});if(record)pushEntry(entry);
+    const b=doc.createElement('button');b.type='button';b.className='kptu-notice-undo';b.textContent=buttonLabel;
+    b.addEventListener('click',()=>{if(token!==seq||undoBusy)return;close();void runEntry(entry,doc)},{once:true});box.append(b);
   }
   if(note){const small=doc.createElement('small');small.className='kptu-notice-note';small.textContent=noticeText(note);box.append(small)}
   const x=doc.createElement('button');x.type='button';x.className='kptu-notice-close';x.setAttribute('aria-label','알림 닫기');x.textContent='✕';x.addEventListener('click',close,{once:true});box.append(x);
   box.hidden=false;
-  timer=setTimeout(close,noticeMs({error,undo:!!undo,ms}));
+  clock=holdTimer(box,noticeMs({error,undo:!!undo,ms}),close);
   return {close};
 }
 

@@ -13,6 +13,7 @@
 //   지우기   → one confirmation, then KPTUGoogleTasks.deleteTask.
 // State stays with each screen: the screen passes find(id, el) to read its own task and optional hooks to draw its own change
 // (apply / saved / removed); this module keeps only which tasks are being saved now (in memory) and nothing in browser storage.
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {placeAnchored, followAnchor} from './anchored-popup.js';
@@ -26,8 +27,7 @@ const ownerNow = () => window.KPTURuntime?.session?.read?.()?.user?.id || '';
 export function toast(text) {
   const box = document.querySelector('#toast');
   if (!box) return;
-  box.textContent = text; box.classList.remove('hidden');
-  clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.add('hidden'), 3200);
+  box.textContent = text; kptuHoldToast(box);
 }
 // 을/를 by the last Hangul letter of the name (other endings: 을(를)).
 export function objectParticle(name) {

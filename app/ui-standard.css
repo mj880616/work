@@ -384,7 +384,7 @@
   /* 하단 탭에 [바구니]가 있으므로 "바구니 전체 보기"는 뺀다. */
   #appView #homeView .home-quick .home-basket-link{ display:none; }
   #appView #homeView.view-panel,#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
-  html:has(#homeView:not(.hidden)) .toast,html:has(#tasksView:not(.hidden)) .toast,html:has(#basketView:not(.hidden) [data-basket-list]:not([hidden])) .toast,html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])) .toast{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--kptu-keyboard-inset,0px) + var(--kptu-quick-dock,0px) + 8px + env(safe-area-inset-bottom))!important; }
+  /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 
   /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로. */
   #appView #basketView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px 44px; font-size:14px; line-height:21px; resize:none; overflow-y:auto; }
@@ -928,8 +928,7 @@
 
   /* 바구니 위쪽 줄에는 필터 [미분류·분류·보류]만 남는다. 필터가 숨으면(노트 목록) 줄도 자리를 차지하지 않는다. */
   #appView #basketView:has(> [data-basket-list][hidden]) > .basket-switch-row{ min-height:0; margin:0; }
-  /* 토스트도 전환 줄 위로. 바구니 메모 목록은 위 빠른 입력 규칙(더 구체적)이 입력칸 높이까지 더한다. */
-  html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView,#basketView):not(.hidden))) .toast{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + 8px + env(safe-area-inset-bottom))!important; }
+  /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 }
 
 /* ───────── UI-할일입력(2026-10-18 사용자 결정): 일정 [할 일]은 공용 [+] 대신 늘 보이는 입력 칸 + [추가] ─────────

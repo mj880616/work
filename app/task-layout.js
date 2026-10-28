@@ -1,3 +1,4 @@
+const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 (()=>{
 'use strict';
 const notify=(text,opt)=>import('./small-notice.js').then(m=>m.notify(text,opt)).catch(()=>{}); // UI-알림창정리: 일반 스크립트라 공용 작은 알림을 동적 import로
@@ -12,7 +13,7 @@ const due=v=>{if(!v)return'기한 미정';const d=new Date(v);return d.toLocaleD
 const dateValue=v=>{if(!v)return'';const d=new Date(v);if(Number.isNaN(d.getTime()))return'';const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`};
 const projectName=id=>projects.find(x=>x.id===id)?.name||'';
 const canDelete=t=>t?.created_by===userId;
-function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),2200)}
+function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function root(){const r=$('#taskList');if(r)r.classList.add('tl-task-list');return r}
 function rememberOpen(){root()?.querySelectorAll('details[data-tl-state]').forEach(d=>openState.set(d.dataset.tlState,d.open))}
 function stateOpen(key,fallback){return openState.has(key)?openState.get(key):fallback}

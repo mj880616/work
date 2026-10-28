@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {confirmLinks,ERROR_TEXT} from './basket-classification.js';
 import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-link-records.js';
@@ -358,7 +359,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     box.replaceChildren();
     for(const action of task.recover){const b=document.createElement('button');b.type='button';b.textContent=action.label;b.dataset.manualTaskRecover=action.key;box.append(b);}
   }
-  function showToast(message){const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>toast.classList.add('hidden'),3200);}
+  function showToast(message){const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;kptuHoldToast(toast);}
   async function saveTask(){
     const n=note();if(mode!=='task'||!task||!n||isBusy())return;
     if(task.unknown){task.status='앞선 결과를 먼저 확인해 주세요. 새 할 일은 만들지 않았어요.';paint();return;}

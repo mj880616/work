@@ -16,10 +16,15 @@ test('작은 알림 글자는 한 줄로 줄인다', () => {
   assert.equal(noticeText(null), '');
 });
 
-test('공용 부품은 브라우저 기본 알림창을 쓰지 않고 하단바 위에 뜬다', () => {
+test('공용 부품은 브라우저 기본 알림창을 쓰지 않고, 작은 알림은 화면 위쪽에 뜬다(확인창은 하단바 위)', () => {
   const js = readFileSync(new URL('../app/small-notice.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../app/base-ui.css', import.meta.url), 'utf8');
   assert.doesNotMatch(js, /\b(alert|confirm)\(/);
-  assert.match(css, /\.kptu-notice\{[^}]*--kptu-mobile-tab-height/);
+  for (const sel of ['\\.kptu-notice', '\\.kptu-undo-notice', '\\.toast']) {
+    const rule = css.match(new RegExp('(?:^|\\n)' + sel + '\\{([^}]*)\\}'));
+    assert.ok(rule, sel);
+    assert.match(rule[1], /top:var\(--kptu-notice-top\)/, sel);
+    assert.match(rule[1], /bottom:auto/, sel);
+  }
   assert.match(js, /\.mobile-tabs/);
 });

@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatSeoulTime} from './meeting-time.js';
 import { createAnchoredMenu } from './anchored-menu.js';
@@ -87,7 +88,7 @@ const linkKey=l=>l?.project_id?'p:'+l.project_id:l?.meeting_id?'m:'+l.meeting_id
 const keyLink=k=>k.startsWith('p:')?{project_id:k.slice(2)}:k.startsWith('m:')?{meeting_id:k.slice(2)}:{organization_id:k.slice(2)};
 const workspaceOf=()=>rt?.context?.read?.()?.workspace?.id||window.__KPTU_BOOT_CONTEXT__?.workspace?.id||'';
 const tasksViewShown=()=>{const v=document.querySelector('#tasksView');return !!v&&!v.classList.contains('hidden')};
-function toast(msg){const t=document.querySelector('#toast');if(!t){setSync(msg,true);return}t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),3200)}
+function toast(msg){const t=document.querySelector('#toast');if(!t){setSync(msg,true);return}t.textContent=msg;kptuHoldToast(t)}
 function errorText(e){const msg=String(e?.message||e);if(/TASKS_SCOPE_REQUIRED|권한/.test(msg))return 'Google 할 일 권한을 다시 연결해 주세요(할 일 탭).';if(/연결되지/.test(msg))return 'Google 계정을 연결하면 Google 할 일을 함께 볼 수 있습니다(할 일 탭).';return msg}
 // Link choices: active projects in the shared catalog's tree order, and organizations explicitly assigned to this user in the
 // shared organization order (TASK-조직순서), split into its groups.

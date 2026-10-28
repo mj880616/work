@@ -188,7 +188,7 @@ test('cancelled server-path confirmation sends nothing; missing session sends no
 test('disconnect wording and the × name fall back to "이" without a name',()=>{
   assert.equal(mod.disconnectConfirmText(''),'이 연결을 해제할까요? 업데이트는 남아요');
   assert.equal(mod.disconnectLabel('합성 프로젝트'),'합성 프로젝트 연결 해제');
-  assert.equal(mod.UNDO_MS,5000);
+  assert.equal(mod.UNDO_MS,2000);
 });
 
 // Undo re-links through the existing confirm-links RPC only: one note read, one RPC, same place and summary.
