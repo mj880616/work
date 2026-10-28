@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { answerAsk } from './helpers/small-notice.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
@@ -112,14 +113,14 @@ test('1280 calendar: right-click on an event opens the small menu at the pointer
 test('1280 calendar: [일정 삭제] asks first; cancel keeps the event, OK sends the same delete the window sends', async ({ page }) => {
   const { state, chip } = await openCalendar(page);
   const menu = eventMenu(page);
-  page.once('dialog', d => d.dismiss());
   await chip.click({ button: 'right' }); await expect(menu).toBeVisible();
   await menu.getByRole('button', { name: '일정 삭제' }).click();
+  expect(await answerAsk(page, false)).toContain('Google 일정을 삭제할까요?');
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
   expect(state.writes).toEqual([]);
-  page.once('dialog', d => d.accept());
   await chip.click({ button: 'right' }); await expect(menu).toBeVisible();
   await menu.getByRole('button', { name: '일정 삭제' }).click();
+  await answerAsk(page, true);
   await expect.poll(() => state.writes.length).toBe(1);
   expect(state.writes[0]).toMatchObject({ action: 'delete-event', calendar_id: 'source', event_id: 'ctx-event' });
 });

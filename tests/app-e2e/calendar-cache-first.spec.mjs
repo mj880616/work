@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { answerAsk } from './helpers/small-notice.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -177,8 +178,8 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await listEvent(page,'gone').click();
     await expect(page.locator('#ciGoogleDelete')).toBeEnabled();
     state.hold=true;
-    page.once('dialog',d=>d.accept());
     await page.locator('#ciGoogleDelete').click();
+    await answerAsk(page,true);
     await expect.poll(()=>state.deleted).toEqual(['gone']);
     await expect.poll(()=>copiedIds(page)).toEqual(['keep']);
     const home=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)||'null'),HOME_KEY);
