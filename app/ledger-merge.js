@@ -3,6 +3,7 @@
 // - [합치기] → 해 보기(app_apply_ledger_fix p_dry_run=true)로 미리 확인 → [반영] 한 번 = 같은 요청을 한 번(남길 기록에 근거 추가 + 합쳐진 기록 폐기, 지우지 않음).
 //   반영 직후 10초 [되돌리기], 그 뒤에는 "합친 기록 n건"에서 [합침 취소](app_undo_ledger_fix). 쓰기는 기존 수정 요청 함수 둘뿐이다(새 DB 함수·권한 없음).
 // - 읽기는 소유자 RLS REST뿐. 겹침 표·원장 표가 없으면(404) 칸을 조용히 숨긴다. 상태는 이 탭 메모리에만 있다(브라우저 저장소 없음).
+import { waitInlineHtml } from './wait-state.js'; // UI-기다림표시통일 2차: 미리보기를 확인하는 동안 버튼 옆 글자 없는 회색 칸
 import { samePairs, locationsOf, mergeCandidates, mergeRequest, previewText, dryRunMatches, recentMerges, originLabel, kindLabel, sideLabel, MERGE_TEXT } from './ledger-merge-model.mjs';
 import { fixErrorText, UNDO_MS } from './ledger-fix-model.mjs';
 import { offerUndoNotice } from './basket-record-delete.js';
@@ -143,7 +144,7 @@ function candidateHtml(c) {
   const preview = open && state.preview ? `<div class="lf-preview" data-lm-preview><p class="lm-line">${esc(state.preview.line)}</p>
       <div class="lf-actions"><button type="button" class="primary" data-lm-action="apply"${busy ? ' disabled' : ''}>${state.busy === 'apply' ? '반영하는 중…' : MERGE_TEXT.apply}</button>
       <button type="button" class="lg-text-btn" data-lm-action="cancel"${busy ? ' disabled' : ''}>${MERGE_TEXT.cancel}</button></div></div>` : '';
-  const action = open && state.preview ? '' : `<button type="button" class="secondary" data-lm-action="merge" data-lm-key="${esc(c.key)}"${busy ? ' disabled' : ''}>${open && state.busy === 'preview' ? MERGE_TEXT.working : MERGE_TEXT.merge}</button>`;
+  const action = open && state.preview ? '' : `<button type="button" class="secondary" data-lm-action="merge" data-lm-key="${esc(c.key)}"${busy ? ' disabled' : ''}${open && state.busy === 'preview' ? ' aria-busy="true"' : ''}>${MERGE_TEXT.merge}</button>${open && state.busy === 'preview' ? waitInlineHtml() : ''}`;
   return `<li class="lm-item" data-lm-item="${esc(c.key)}"><div class="lm-pair">${sideHtml(c.keep)}<span class="lm-same" aria-hidden="true">=</span>${sideHtml(c.drop)}</div>${action}${preview}</li>`;
 }
 function recentHtml(r) {

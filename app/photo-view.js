@@ -2,7 +2,7 @@
 // 화면 위를 덮는 전체 화면 보기에 ×, Esc, 폰 뒤로 가기(라우터 층 하나)가 있다. 사진은 basket-files photo(노트 번호 + 파일 번호)로 읽는다.
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
-import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement} from './photo-share.js';
+import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement, paintPhotoNote} from './photo-share.js';
 import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -81,7 +81,7 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = n
   }
   const noteEl = document.createElement('p'); noteEl.className = 'basket-photo-note'; noteEl.setAttribute('role', 'status');
   let noteTimer = null;
-  const note = (text, ms = 0) => { clearTimeout(noteTimer); noteEl.textContent = text; if (ms) noteTimer = setTimeout(() => { noteEl.textContent = ''; }, ms); };
+  const note = (text, ms = 0) => { clearTimeout(noteTimer); paintPhotoNote(noteEl, text); if (ms) noteTimer = setTimeout(() => { noteEl.textContent = ''; }, ms); };
   // [공유]: 화면에 뜬 그림을 바로 넘긴다(일기 크게 보기와 같은 photo-share.js). 아직 안 떴으면 '사진 받는 중…' 뒤에 넘긴다.
   const shareShown = () => {
     const el = stage.querySelector('.diary-photo'), shownItem = item, name = String(item?.file?.name || '');

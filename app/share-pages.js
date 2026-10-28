@@ -79,7 +79,7 @@ root.replaceChildren(listView, editorView);
 function renderList() {
   const status = el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spListStatus:''}});
   const head = el('div', {class:'sp-head'}, el('h2', {text:'내 공유 페이지'}),
-    el('button', {type:'button', class:'primary', dataset:{spNew:''}, text:'새 공유 페이지'}));
+    el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'}));
   const body = [];
   if (listState === 'loading' && !pages) status.innerHTML = waitInlineHtml();
   else if (listState === 'error') {
@@ -258,7 +258,7 @@ function editNode(block, b, count) {
   const box = el('section', {class:`sp-block sp-block-${block.type} is-editing`, 'aria-label':`${n}번째 블록 ${label}`, dataset:{spBlock:String(b), spType:block.type}},
     el('div', {class:'sp-block-head'}, el('h3', {text:label}), tools));
   if (block.type === 'doc') {
-    const host = el('div', {class:'sp-doc-host', dataset:{spDocHost:String(b)}}, el('p', {class:'sp-hint', text:'편집기를 여는 중…'}));
+    const host = el('div', {class:'sp-doc-host', dataset:{spDocHost:String(b)}}, waitEl({rows: 3}));
     box.append(host);
     const mount = ++docMount;
     createDocEditor({host, value:block.doc, label:`${n}번째 블록 글`, placeholder:'여기에 쓰세요', photos:photosFor(editing),
@@ -488,7 +488,7 @@ function renderFull() {
         el('button', {type:'button', class:'sp-tool', 'aria-label':'링크 창 닫기', dataset:{spLinksClose:''}, text:'닫기'})),
       el('p', {class:'sp-hint', text:'게시 상태일 때만 링크를 받은 사람이 볼 수 있어요. 초안으로 바꾸면 모든 링크에서 바로 안 보여요.'}),
       el('div', {dataset:{spLinks:''}})));
-  const host = el('div', {class:'sp-full-doc', dataset:{spDocHost:'0'}}, el('p', {class:'sp-hint', text:'편집기를 여는 중…'}), title);
+  const host = el('div', {class:'sp-full-doc', dataset:{spDocHost:'0'}}, waitEl({rows: 3}), title);
   dropDocEditor();
   editorView.replaceChildren(top, host);
   paintStatusButtons(); renderLinks(); void paintProjects();

@@ -120,5 +120,5 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
 export function meetingFileFile(d){return {name:d?.file_name||d?.title||'',mime:d?.mime_type||'',documentId:d?.file_id?d.id:'',driveId:d?.file_id||'',driveUrl:d?.drive_url||''}}
 export function fileMoreHtml(d,name=d?.file_name||d?.title||'파일'){
   const fa=meetingFileFile(d),items=menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu'});
-  return items?`<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: ${esc(name)}">⋯</summary><div class="file-line-more-panel" role="group" aria-label="파일 메뉴">${items}</div></details>`:'';
+  return items?`<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: ${esc(name)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="file-line-more-panel" role="group" aria-label="파일 메뉴">${items}</div></details>`:'';
 }

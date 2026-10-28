@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {fileAttrs,menuItemsHtml} from './file-actions.js';
@@ -57,6 +57,7 @@ function projectSaveCurrent(r){return saveEditorCurrent(r.editor)&&r.editor.requ
 function readSaveDraft(e){return e.fields.map(field=>field.value)}
 function saveAttemptComplete(a){return a.bodyState==='confirmed'&&(!a.modulesNeeded||a.modulesState==='confirmed')&&(!a.phaseWanted||a.phaseState==='confirmed'&&a.phaseConfirmed===a.phaseWanted)&&(!a.googleNeeded||a.googleState==='confirmed')}
 function saveBusy(e,value){if(e.button?.isConnected){e.button.disabled=value;e.button.toggleAttribute('aria-busy',value)}if(e.kind==='record')e.form.closest('[data-ps3-record]').dataset.saving=value?'1':'0'}
+function saveWait(e){if(!saveEditorCurrent(e))return;e.status.innerHTML=waitInlineHtml();e.status.className='status'} // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 function saveNotice(e,text,{confirm=false}={}){if(!saveEditorCurrent(e))return;e.status.textContent=text;e.status.className='status';if(confirm){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='저장 결과 확인';b.onclick=()=>e.kind==='milestone'?recoverMilestone(e):recoverSave(e);e.status.append(document.createTextNode(' '),b)}}
 function saveStatus(form,selector){let s=selector?$(selector):form.querySelector('[data-ps3-save-state]');if(!s){s=document.createElement('div');s.dataset.ps3SaveState='';s.className='status';s.setAttribute('role','status');form.append(s)}return s}
 function configureSaveEditor({key,kind,form,modal=null,targetId=null,projectId=null,workstreamId=null,button,status,fields,source=null}){
@@ -65,7 +66,7 @@ function configureSaveEditor({key,kind,form,modal=null,targetId=null,projectId=n
   e.attempt=saveAttempts.get(attemptKey(e))||null;saveEditors.set(key,e);
   if(e.attempt?.liveDraft&&(!workstreamId||workstreamId===e.attempt.workstreamId))e.fields.forEach((field,i)=>{field.value=e.attempt.liveDraft[i]??field.value});
   e.baseline=JSON.stringify(readSaveDraft(e));saveBusy(e,!!e.attempt?.pending);
-  if(e.attempt){const a=e.attempt;saveNotice(e,a.pending?'앞선 저장 결과를 기다리는 중…':'앞선 저장 결과를 확인해 주세요.',{confirm:!a.pending});if(a.pending)a.done.then(()=>{if(saveEditorCurrent(e)&&e.attempt===a){e.kind==='milestone'?milestoneReadyButton(e):saveBusy(e,false);saveNotice(e,'앞선 저장 처리가 끝났습니다. 저장 결과를 확인해 주세요.',{confirm:true})}})}
+  if(e.attempt){const a=e.attempt;if(a.pending)saveWait(e);else saveNotice(e,'앞선 저장 결과를 확인해 주세요.',{confirm:true});if(a.pending)a.done.then(()=>{if(saveEditorCurrent(e)&&e.attempt===a){e.kind==='milestone'?milestoneReadyButton(e):saveBusy(e,false);saveNotice(e,'앞선 저장 처리가 끝났습니다. 저장 결과를 확인해 주세요.',{confirm:true})}})}
   return e;
 }
 function closeSaveEditor(modal){for(const e of saveEditors.values())if(e.modal===modal&&!e.closed){if(e.attempt){e.attempt.liveDraft=readSaveDraft(e);if(!e.attempt.pending&&saveAttemptComplete(e.attempt)&&!e.attempt.needsReview)saveAttempts.delete(attemptKey(e))}e.closed=true;e.seq=++saveSequence}}
@@ -103,7 +104,7 @@ async function recoverSave(e){
     if(a.phaseState==='unknown'){const rows=await read('/rest/v1/app_project_workstreams?'+new URLSearchParams({id:'eq.'+a.workstreamId,project_id:'eq.'+a.projectId,select:'*'}));if(!Array.isArray(rows)||rows.length!==1||rows[0].id!==a.workstreamId||rows[0].project_id!==a.projectId)throw new Error('진행 단계를 확인하지 못했습니다.');a.phaseConfirmed=rows[0].phase;a.phaseState=a.phaseConfirmed===a.phaseWanted?'confirmed':'idle'}
     a.needsReview=false;e.attempt=a;saveNotice(e,'선택한 기존 항목을 사용합니다. 입력을 확인한 뒤 저장해 주세요.');
   };
-  e.reading=true;saveBusy(e,true);saveNotice(e,'저장 결과를 확인하는 중…');
+  e.reading=true;saveBusy(e,true);saveWait(e);
   try{
     if(a.knownId!=null)await accept({id:a.knownId});
     else{
@@ -224,8 +225,8 @@ async function prepareMilestoneGoogle(e){
   try{
     if(source&&!linked){sel.innerHTML='<option value="">Google 연결 없음</option>';hint.textContent='기존 미연동 일정입니다. 수정해도 Google 일정을 새로 만들지 않습니다.';e.googleReady=true;return}
     const address=linked?{calendarId:source.google_calendar_id,eventId:source.google_event_id}:null;
-    sel.innerHTML='<option value="">Google Calendar 확인 중…</option>';hint.textContent='Google Calendar 연결 상태를 확인하는 중…';
-    const status=await googleCalendarCall('status',{expectedSessionEpoch:e.epoch});if(!saveEditorCurrent(e))return;
+    sel.innerHTML='<option value=""></option>';sel.setAttribute('aria-busy','true');hint.innerHTML=waitInlineHtml();
+    const status=await googleCalendarCall('status',{expectedSessionEpoch:e.epoch});sel.removeAttribute('aria-busy');if(!saveEditorCurrent(e))return;
     const writable=writableGoogleCalendars(status);e.calendars=writable;
     if(!status?.connected||!writable.length)throw new Error(status?.warning?'Google Calendar 재연결이 필요합니다: '+status.warning:status?.connected?'쓰기 가능한 캘린더가 없습니다.':'Google Calendar 연결이 필요합니다.');
     if(linked){
@@ -308,7 +309,7 @@ function ensureUi(){if($('#ps3DetailModal'))return;document.body.insertAdjacentH
 <div id="ps3WorkstreamModal" class="modal hidden" data-enter-save role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3WorkstreamHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">진행상황</div><h2 id="ps3WorkstreamHeading">진행상황 수정</h2></div><button class="icon-btn" data-ps3-close="ps3WorkstreamModal" aria-label="닫기">×</button></div><label>제목<input id="ps3WsTitle" maxlength="160"></label><label class="hidden">단계<select id="ps3WsPhase">${Object.entries(PHASE).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><div class="modal-action-footer"><div id="ps3WsState" class="status" role="status"></div><div class="ps3-modal-actions save-row"><button id="ps3WsDelete" class="ghost ps3-danger save-row-start hidden">삭제</button><button id="ps3WsSave" data-enter-save-submit class="primary">저장</button></div></div></div></div>
 
 <div id="ps3MilestoneModal" class="modal hidden" data-enter-save role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3MilestoneHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">주요 일정</div><h2 id="ps3MilestoneHeading">주요 일정 추가</h2></div><button class="icon-btn" data-ps3-close="ps3MilestoneModal" aria-label="닫기">×</button></div><label>제목<input id="ps3MilestoneTitle"></label><label>일시<input id="ps3MilestoneAt" type="hidden" data-datetime-input="일시"></label><label>Google 세부캘린더<select id="ps3MilestoneGoogle"></select><small id="ps3MilestoneGoogleHint" class="muted"></small></label><label>메모<textarea id="ps3MilestoneNotes" rows="3"></textarea></label><div class="modal-action-footer"><div id="ps3MilestoneState" class="status" role="status"></div><div class="ps3-modal-actions save-row"><button id="ps3MilestoneDelete" class="ghost ps3-danger save-row-start hidden">삭제</button><button id="ps3MilestoneSave" data-enter-save-submit class="primary">저장</button></div></div></div></div>
-<div id="ps3DeleteModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3DeleteHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="ps3DeleteHeading">프로젝트 삭제</h2></div><button class="icon-btn" data-ps3-close="ps3DeleteModal" aria-label="닫기">×</button></div><div id="ps3DeleteMessage" class="notice"></div><p data-ps3-delete-note class="muted"></p><button id="ps3DeleteConfirm" class="primary wide ps3-danger-btn">삭제</button><div id="ps3DeleteState" class="status"></div></div></div>
+<div id="ps3DeleteModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3DeleteHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="ps3DeleteHeading">프로젝트 삭제</h2></div><button class="icon-btn" data-ps3-close="ps3DeleteModal" aria-label="닫기">×</button></div><div id="ps3DeleteMessage" class="muted"></div><p data-ps3-delete-note class="muted"></p><button id="ps3DeleteConfirm" class="primary wide ps3-danger-btn">삭제</button><div id="ps3DeleteState" class="status"></div></div></div>
 <div id="ps3ArchiveModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3ArchiveHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="ps3ArchiveHeading">보관한 프로젝트</h2></div><button class="icon-btn" data-ps3-close="ps3ArchiveModal" aria-label="닫기">×</button></div><div id="ps3ArchiveTabs" class="ps3-archive-tabs" role="group" aria-label="보관과 휴지통" hidden><button type="button" class="mini" data-ps3-archive-tab="archive">보관</button><button type="button" class="mini" data-ps3-archive-tab="trash">휴지통</button></div><p data-ps3-archive-hint class="muted">삭제하지 않고 목록에서만 숨긴 프로젝트입니다.</p><div id="ps3ArchiveList" class="ps3-archive-list"></div></div></div>`);bindDateTimeFields($('#ps3MilestoneModal'))}
 // D-project-list: names first; optional metadata has one run owner, shared with archive rows.
 let listCounts={},summaryRun=0;
@@ -801,7 +802,7 @@ async function recoverMilestone(e){
   const acceptGoogle=event=>{a.address=freezeSave({calendarId:event.calendarId,eventId:event.id});a.observedAddress=null;a.googleCurrent=freezeSave(structuredClone(event));e.googleBefore=a.googleCurrent;e.googleReady=true;a.googleState=googleMatchesPayload(event,a.googleWanted||{})?'confirmed':'idle'};
   const acceptLocal=async row=>{const rows=await localRows(row.id);if(rows.length!==1)throw new Error('선택한 프로젝트 기록을 확인하지 못했습니다.');const fresh=rows[0];if(fresh.google_calendar_id&&fresh.google_event_id)acceptGoogle(await getGoogle(a.observedAddress||{calendarId:fresh.google_calendar_id,eventId:fresh.google_event_id}));else if(a.googleNeeded)throw new Error('선택한 기록의 Google 연결을 확인하지 못했습니다.');a.knownId=fresh.id;a.row=structuredClone(fresh);a.savedBody=structuredClone(fresh);a.bodyState='confirmed';a.needsReview=false;saveNotice(e,'선택한 기존 일정을 사용합니다. 입력을 확인한 뒤 저장해 주세요.')};
   const pick=async(label,load,accept)=>{const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=label;b.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);try{const rows=await load();saveNotice(e,rows.length?'확인할 기존 항목을 직접 골라 주세요.':'목록에서 찾지 못했습니다. 입력을 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const c=document.createElement('button');c.type='button';c.className='secondary';c.textContent=String(row.title||'제목 없음')+' · 이 항목 사용';c.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);try{await accept(row)}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),c);const hint=document.createElement('small');hint.textContent=String(row.start||row.start_at||'')+' · '+String(row.calendarId||row.id);e.status.append(hint)}}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),b)};
-  e.reading=true;saveBusy(e,true);saveNotice(e,'Google 일정과 프로젝트 기록을 확인하는 중…');
+  e.reading=true;saveBusy(e,true);saveWait(e);
   try{
     const rows=await localRows(a.knownId||a.localId);if(rows.length===1){await acceptLocal(rows[0]);return}
     if(a.address){try{acceptGoogle(await getGoogle(a.observedAddress||a.address))}catch(error){if(a.googleState!=='compensated'){a.googleState='unknown';a.needsReview=true}}}

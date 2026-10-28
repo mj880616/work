@@ -1,4 +1,7 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml} from './wait-state.js';
+// UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
+const RADAR_WAIT = '\u0000wait';
+const radarStatusHtml = text => text === RADAR_WAIT ? waitInlineHtml() : esc(text);
 // JOURNAL-챙길것 1단계 + AI-서버연동 S5: the "챙길 것" box (docs/design/todo-radar.md 4·5·10·11절).
 // One renderer per host element: the home card body (#homeView [data-home-card="radar"], below 주요 일정) and the journal box
 // above the day card (#journalView [data-journal-radar]). home-read.js and journal.js only make the empty host and tell it
@@ -41,7 +44,7 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 async function find(mode) {
   const scope = sameScope();
   if (shared.finding) return shared.finding;
-  shared.status = '챙길 것을 찾는 중…'; notify(false);
+  shared.status = RADAR_WAIT; notify(false);
   shared.finding = findTodos(mode).then(result => {
     if (scope !== radarScope(rt)) return result;
     if (!result.ok && result.code === 'not_ready') shared.fnMissing = true;
@@ -198,7 +201,7 @@ export function mountRadar(host, {place}) {
     const doneToggle = done.length ? `<button type="button" class="radar-link" data-radar-done-toggle aria-expanded="${doneOpen}">처리함 ${done.length} ${doneOpen ? '▾' : '▸'}</button>` : '';
     const foot = more || doneToggle ? `<div class="radar-foot">${more}${doneToggle}</div>` : '';
     const doneHtml = done.length ? `<div class="radar-done" data-radar-done>${doneOpen ? `<ul class="radar-list">${done.map(rowHtml).join('')}</ul>` : ''}</div>` : '';
-    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list" data-radar-open>${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${foot}${doneHtml}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
+    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${radarStatusHtml(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list" data-radar-open>${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${foot}${doneHtml}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${radarStatusHtml(shared.status)}</p></div>`;
     host.setAttribute('aria-labelledby', titleId);
     host.dataset.state = state;
     // The same drawing is not redrawn, so a button is never replaced under a finger or the keyboard focus.

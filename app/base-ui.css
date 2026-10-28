@@ -244,6 +244,8 @@ body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-
 .data-freshness[hidden]{display:none}
 .data-freshness.data-freshness-warn{color:var(--kptu-danger)}
 .data-freshness .data-freshness-retry{min-height:28px}
+/* UI-기다림표시통일 2차: 읽는 중·새로 읽는 중은 글자 대신 가는 줄 하나(wait-state.js barHtml)가 줄 너비를 다 쓴다. */
+.data-freshness>.wait-only-bar{flex:1 1 100%}
 /* JOURNAL-하루개편 ⑥: 업무일지에서 누른 기록이 조직·프로젝트 화면에서 열리면 그 기록을 잠깐(1.6초) 강조한다. journal.js가 붙였다 뗀다. */
 [data-journal-flash]{ animation:kptu-journal-flash 1.6s ease-out 1; border-radius:var(--kptu-radius-md); }
 @keyframes kptu-journal-flash{ 0%,35%{ background-color:var(--ds-kind-journal-soft); box-shadow:0 0 0 2px var(--ds-kind-journal-ink); } 100%{ background-color:transparent; box-shadow:0 0 0 0 transparent; } }

@@ -318,7 +318,8 @@ test('사진 목록 받는 중: 429면 retry_after초 뒤, 409면 몇 초 뒤 �
   f.syncPlan = [{ more: true, indexing: true }, { status: 429, json: { error: 'onedrive_throttled', retry_after: 1 } }, { more: true, indexing: true }, { more: false, indexing: false }];
   await openDiary(page, 390);
   const panel = page.locator('#diaryRoot [data-diary-od]');
-  await expect(panel.locator('[data-od-sync]')).toContainText('사진 목록 받는 중…');
+  // UI-기다림표시통일 2차: 받는 중 글자 대신 회색 칸(wait-state.js) + 받은 장수.
+  await expect(panel.locator('[data-od-sync] [data-wait]')).toHaveCount(1);
   await expect(panel.locator('[data-od-sync]')).toContainText('30장');
   await expect(panel.locator('[data-od-sync]')).toHaveCount(0, { timeout: 15000 });
   expect(f.edge.filter(b => b.action === 'sync')).toHaveLength(4);

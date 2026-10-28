@@ -10,9 +10,9 @@
 //   [본문 2 ▾] | 굵게 기울임 밑줄 | 글자색 ▾ 형광펜 ▾ | 정렬 ▾ | 목록 ▾ 번호 ▾ | 표 ▾ 링크 | · ※ → ① (each ▾) | ↶ ↷ | ⌄
 //   ⌄ = 취소선 인용 구분선 들여쓰기 내어쓰기 서식 지우기 서식 없이 붙여넣기 「」 (그리고 폭이 모자라 옮겨진 버튼)
 // ED-서식줄묶음 (2026-10-23 사용자 13:16): on a phone (max-width 760px) the same buttons are grouped so the row fits on one line:
-//   [본문 2 ▾] [굵게] [·] [▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
+//   [본문 2 ▾] [굵게] [· ▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
 //   글자 ▾ = 기울임 밑줄 취소선 글자색 형광펜 서식 지우기 / 문단 ▾ = 정렬 목록 번호 들여쓰기 내어쓰기 인용 구분선
-//   넣기 ▾ = 표 사진 링크 서식 없이 붙여넣기 / 기호 ▾ = ※ → ① 「」 ([·] puts · in at once, the ▾ beside it picks a similar dot)
+//   넣기 ▾ = 표 사진 링크 서식 없이 붙여넣기 / 기호 ▾ = ※ → ① 「」 ([· ▾] is one button as on a wider screen: its list starts with ·)
 // The grouped buttons are the same nodes (moved, so their commands and state stay); a button that opens choices (글자색, 정렬, 목록…)
 // opens its own popover under itself, over the group popover. Wider than a phone nothing changes.
 // [표] opens a grid to pick rows × columns; a table cell's right-click (a phone's long press) menu adds and removes rows and
@@ -182,7 +182,8 @@ const GROUPS = [
   ['gSym', '기호 ▾', '기호 고르기', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
-const PHONE_ORDER = ['style', 'strong', 'dotNow', 'symDot', ...GROUP_KEYS, 'undo', 'redo'];
+// UI-화면정리 C(2026-10-28 명진 요청 20:03 B④): 폰도 PC와 같은 [· ▾] 한 칸(따로 있던 [·][▾] 두 칸은 하나로). 점은 펼친 목록 맨 앞.
+const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'undo', 'redo'];
 
 // A button's text. A label that ends in " ▾" gets a small caret of its own (hidden from screen readers).
 function setLabel(b, text) {
@@ -277,13 +278,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   more.append(chevron());
   tools.append(more);
   const homeTools = [...tools.children].filter(b => b !== more);
-  // ED-서식줄묶음: the phone's group buttons and the [·] that puts a dot in at once. They sit outside the row until a phone needs them.
+  // ED-서식줄묶음: the phone's group buttons. They sit outside the row until a phone needs them.
   for (const [key, text, aria] of GROUPS) {
     const b = btn(text, {edCmd: key, edGroup: 'phone'}, aria);
     b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false');
     buttons[key] = b;
   }
-  buttons.dotNow = btn('·', {edSym: '·', edGroup: 'phone'}, '점 넣기');
   const panels = {};
   panels.more = panel('ed-more-menu', '서식 더 보기');
   const homeMore = [];
@@ -1451,7 +1451,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(queueFit) : null;
   resize?.observe(tools);
   // ED-서식줄묶음: a phone gets the grouped row; wider screens get the full row back (the same button nodes move to and fro).
-  const pair = document.createElement('span'); pair.className = 'ed-pair'; pair.setAttribute('role', 'group');
   function setGrouped(on) {
     if (on === grouped) return;
     closePanels();
@@ -1459,17 +1458,13 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     grouped = on;
     root.classList.toggle('ed-grouped', on);
     if (on) {
-      // [·] and [▾] sit in one pair so the row's spacing treats them as a single block.
-      pair.replaceChildren(buttons.dotNow, buttons.symDot);
-      tools.replaceChildren(...PHONE_ORDER.map(k => k === 'dotNow' ? pair : k === 'symDot' ? null : buttons[k]).filter(Boolean), more);
+      tools.replaceChildren(...PHONE_ORDER.map(k => buttons[k]).filter(Boolean), more);
       for (const [key, , , items] of GROUPS) panels[key].replaceChildren(...items.map(k => buttons[k]).filter(Boolean));
       panels.more.replaceChildren();
-      setLabel(buttons.symDot, '▾'); buttons.symDot.setAttribute('aria-label', '점 기호 고르기');
     } else {
       tools.replaceChildren(...homeTools, more);
       panels.more.replaceChildren(...homeMore);
       for (const key of GROUP_KEYS) panels[key].replaceChildren();
-      setLabel(buttons.symDot, '· ▾');
     }
     more.hidden = on;
     paint(); queueFit();

@@ -328,11 +328,13 @@
 @media(max-width:760px){
   /* [달력 | 할 일 | 업무일지 | 일기]의 폰 위치·모양은 아래 "UI-버튼작게 ③"(하단 전환 줄)이 정한다. */
 
+  /* UI-화면정리 C(B⑥ 추가 버튼 자리 하나로): 화면의 새 항목 추가는 PC 오른쪽 위 작은 [+ ○○], 폰은 이 동그란 [+] 하나. 원장 [+ 기록하기](폰에서 혼자 한 줄이던 것)·공유 페이지 [+ 새 공유 페이지]도 여기에 든다.
+     목록이 바뀌면 tests/ui-cleanup-c.test.mjs가 화면 버튼 목록과 맞는지 본다. */
   /* 동그란 [+]: 일정(달력=일정 추가)·할 일·프로젝트·자료실·회의(UI-선택표시통일 추가)·일기(바구니 [노트]는 BASKET-노트입력창에서 업데이트와 같은 입력칸으로 바뀜)의 위쪽 추가 버튼을 하단 탭 바로 위 오른쪽에 띄운다.
      같은 버튼(같은 창을 엶)의 모양만 바꾼다. 보이는 원 36px(버튼 자체), 누르는 범위 44px(::after, 앱의 다른 버튼과 같은 방식). 자판이 열리면 감춘다.
      위치는 이 규칙 하나가 정한다(화면 기준 fixed). 그래서 [+]를 품은 화면 칸(.view-panel)과 그 조상에는 transform·will-change·filter·contain처럼
      fixed의 기준을 칸으로 바꾸는 값을 두지 않는다. */
-  #appView #calendarView .calendar-toolbar #newEventBtn,#appView #projectsView #newProjectBtn,#appView #libraryView #newDocumentBtn,#appView #meetingsView #newMeetingBtn,#appView #diaryView #newDiaryBtn{
+  #appView #calendarView .calendar-toolbar #newEventBtn,#appView #projectsView #newProjectBtn,#appView #libraryView #newDocumentBtn,#appView #meetingsView #newMeetingBtn,#appView #diaryView #newDiaryBtn,#appView #ledgerView button.lb-add,#appView #pagesView .sp-root button.primary[data-sp-new]{
     position:fixed; z-index:28; right:calc(16px + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2 + env(safe-area-inset-right));
     bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom) + var(--ds-fab-gap) + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2);
     box-sizing:border-box; display:grid; place-items:center; width:var(--ds-fab-size); min-width:var(--ds-fab-size); height:var(--ds-fab-size); min-height:var(--ds-fab-size);
@@ -340,17 +342,17 @@
   }
   #appView #calendarView .calendar-toolbar #newEventBtn > *{ display:none; }
   /* + 는 글자 대신 선으로 그린 SVG 아이콘(8-9e-3): 글꼴 높이 때문에 위로 치우치지 않게 가로·세로 정가운데. 장식이라 낭독되지 않는다(이름은 aria-label). */
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn)::before{
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new])::before{
     content:""; position:absolute; inset:0; margin:auto; display:block; width:20px; height:20px; background:var(--kptu-on-primary);
     -webkit-mask:var(--ds-fab-plus) center / 20px 20px no-repeat; mask:var(--ds-fab-plus) center / 20px 20px no-repeat;
   }
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn)::after{
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new])::after{
     content:""; position:absolute; inset:calc((var(--ds-fab-size) - var(--kptu-touch-target,44px)) / 2); width:auto; height:auto; border-radius:50%;
   }
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-  body.kptu-mobile-keyboard #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn){ display:none; }
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+  body.kptu-mobile-keyboard #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]){ display:none; }
   /* 목록 마지막 줄이 [+]에 가리지 않게 아래 여백(누르는 범위 + 간격 + 여유). */
-  #appView :is(#projectsView,#libraryView,#meetingsView,#diaryView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
+  #appView :is(#projectsView,#libraryView,#meetingsView,#diaryView,#ledgerView,#pagesView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
   /* 일정은 달력 칸이 화면 아래까지 차도록 높이를 재므로(calendar-month-view.js) 여백 대신 기존 끝 여백(::after)을 [+]·전환 줄만큼 늘린다. */
   #appView #calendarView:not(.hidden)::after{ height:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--ds-fab-gap) + var(--kptu-touch-target,44px) + 8px); }
 

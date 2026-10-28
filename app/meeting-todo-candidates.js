@@ -3,6 +3,7 @@
 // 후보 줄은 정리함 [챙길 것]과 같은 부품(inbox-todos.js)이다: [할 일로]는 기존 Google 할 일 만들기 경로, [무시]는 같은 처리.
 // 후보는 올리기만 하고 할 일 만들기는 사용자가 누른다. 화면은 회의 ID만 보내고 글은 보내지 않는다. 브라우저 저장소를 쓰지 않는다.
 import {mountInboxTodos} from './inbox-todos.js';
+import {waitInlineHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 import {findMeetingTodos, readMeetingCandidates} from './todo-radar-data.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
@@ -21,7 +22,7 @@ export function mountMeetingTodos({button, host, line, rt = window.KPTURuntime, 
   button.addEventListener('click', async () => {
     const id = meetingId();
     if (busy || !id) return;
-    busy = true; button.disabled = true; button.setAttribute('aria-busy', 'true'); say('후속 할 일 후보를 찾는 중…');
+    busy = true; button.disabled = true; button.setAttribute('aria-busy', 'true'); line.innerHTML = waitInlineHtml(); line.dataset.state = '';
     let result;
     try { result = await findMeetingTodos(id); } catch { result = {ok: false, message: '후보를 찾지 못했어요. 다시 눌러 주세요.'}; }
     busy = false; button.disabled = false; button.removeAttribute('aria-busy');

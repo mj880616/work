@@ -1,6 +1,7 @@
 import {requestNoteAiTitle} from './note-ai-title.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
+import { waitInlineHtml } from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
 import { readPlaces, placeSheetHtml, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText } from './update-places.js';
@@ -196,7 +197,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const read=async path=>{if(!active())throw new Error('입력창이나 로그인이 바뀌었습니다.');const d=await taskRuntime.api('/functions/v1/google-tasks?action='+path,{singleFlight:false,expectedSessionEpoch:a.epoch});if(!active())throw new Error('입력창이나 로그인이 바뀌었습니다.');return d};
     const tasks=async()=>{const d=await read('tasks&pending_scope=all');if(!Array.isArray(d?.tasks)||d.needs_reconnect||d.error)throw new Error(d?.warning||d?.error||'Google 할 일 목록을 확인하지 못했습니다.');return d.tasks.filter(taskIdentity)};
     const accept=async row=>{const exact=(await tasks()).filter(t=>t.id===row.id&&t.taskListId===row.taskListId);if(exact.length!==1)throw new Error('선택한 기존 할 일을 확인하지 못했습니다.');const links=taskLinkKeys(await read('links&task_id='+encodeURIComponent(row.id)));a.task=structuredClone(exact[0]);a.bodyState='confirmed';a.links=links;a.linkState='confirmed';a.needsReview=false;taskNotice('선택한 기존 할 일을 사용합니다. 입력을 확인한 뒤 저장해 주세요.')};
-    taskReading=true;saving=true;taskControls(true);taskNotice('할 일과 프로젝트 연결을 확인하는 중…');
+    taskReading=true;saving=true;taskControls(true);status.innerHTML=waitInlineHtml();
     try{
       if(a.task)await accept(a.task);
       else{const rows=await tasks();taskNotice(rows.length?'저장된 할 일을 직접 골라 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했습니다. 입력은 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=row.title+' · 이 항목 사용';b.onclick=async()=>{if(!active()||taskReading)return;taskReading=true;saving=true;taskControls(true);try{await accept(row)}catch(error){if(active())taskNotice(error.message||String(error),{confirm:true})}finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}};status.append(document.createTextNode(' '),b);const hint=document.createElement('small');hint.textContent=[row.taskListTitle||'Google 할 일',row.due?String(row.due).slice(0,10):'기한 없음',row.notes||''].join(' · ');status.append(hint)}}

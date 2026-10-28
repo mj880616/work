@@ -148,7 +148,7 @@ function rowHtml(g){
   const label=[g.date||'날짜 없음',g.kind||'종류 없음',g.round?g.round+'차':'',`자료 ${g.materials.length}개`,`결과 ${result}`,g.note].filter(Boolean).join(', ');
   const fileRows=g.items.map(item=>{
     if(item.kind==='text'){const first=item.text.split('\n').find(Boolean)||'';return `<div class="file-line mff-text-line"><span class="file-kind" data-kind="other" aria-hidden="true">글</span><span class="file-line-main"><b>${esc(first.slice(0,60))}</b><small>붙여 넣은 결과 글 · ${item.text.length}자</small></span><span class="file-line-state">결과</span></div>`}
-    const meta=item.role==='result'?({reading:'본문 읽는 중…',done:'본문을 결과 칸에 넣어요',failed:(item.readNote||'본문 못 읽음')+' · 파일만 첨부'}[item.read]||''):'';
+    const meta=item.role==='result'?({done:'본문을 결과 칸에 넣어요',failed:(item.readNote||'본문 못 읽음')+' · 파일만 첨부'}[item.read]||''):'';
     const state=item.uploaded?'완료':item.error?'실패':'';
     const end=locked||item.uploaded?'':`<select class="mff-role" data-mff-role="${esc(item.id)}" aria-label="${esc(item.file.name)} 결과·자료 고르기">${item.role?'':'<option value="" selected>고르기</option>'}<option value="result"${item.role==='result'?' selected':''}>결과</option><option value="material"${item.role==='material'?' selected':''}>자료</option></select><button class="icon-btn file-line-x" type="button" data-mff-remove="${esc(item.id)}" aria-label="${esc(item.file.name)} 빼기">×</button>`;
     return fileLine({name:item.file.name,meta,state:item.uploaded?'success':item.error?'error':item.read==='reading'?'uploading':'',label:state||(locked?ROLE_LABEL[item.role]||'':''),end,attrs:` data-mff-item="${esc(item.id)}"`});
@@ -170,8 +170,8 @@ function paint(){
   const skipped=groups.filter(g=>!['ready','done'].includes(g.state)).length,retry=ready.some(g=>g.items.some(i=>i.error));
   const button=$('#mffCreate');
   button.disabled=saving||reading||!ready.length;
-  button.textContent=saving?'만드는 중…':reading?'본문 읽는 중…':ready.length?`회의 ${ready.length}건 ${retry?'다시 ':''}만들기`:'만들기';
-  if(saving)button.setAttribute('aria-busy','true');else button.removeAttribute('aria-busy');
+  button.textContent=saving?'만드는 중…':ready.length?`회의 ${ready.length}건 ${retry?'다시 ':''}만들기`:'만들기';
+  if(saving||reading)button.setAttribute('aria-busy','true');else button.removeAttribute('aria-busy');
   const status=$('#mffStatus');
   status.textContent=runMessage||(skipped&&!saving?`확인이 필요한 ${skipped}건은 만들지 않아요`:'');
   status.className='status'+(runMessage&&/실패/.test(runMessage)?' error':'');

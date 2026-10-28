@@ -76,10 +76,11 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
  for(const [name,rows]of Object.entries(samples)){
   await view(page,name);
   // 8-9e-2: the phone projects add button is the round [+] (no label text); covered by ui-standard-3b. UI-선택표시통일: meetings too.
+  // UI-화면정리 C: 공유 페이지 [+ 새 공유 페이지]·원장 [+ 기록하기]도 폰은 동그란 [+](글자 없음, tests/ui-cleanup-c.test.mjs).
   // UI-PC회의: PC(≥1024) 회의는 유형별 열 — 열 제목(.mcol-name)·차수(.mcol-round) 13px, 날짜·자료(.mcol-meta) 12px.
   const list=name==='meetings'&&width>=1024?rows.map(([sel,size])=>[sel==='.meeting-list-title h3'?'.mcol-name':sel==='.meeting-list-row p'?'.mcol-meta':sel,size]).concat([['.mcol-round',13]]):rows;
   for(const [selector,size]of list){if(width<=760&&(name==='projects'||name==='meetings')&&selector==='button.primary')continue;const el=page.locator('#'+name+'View '+selector).first();await expect(el).toHaveCount(1);await expect(el).toHaveCSS('font-size',size+'px');}
-  const clip=await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,buttons:[...el.querySelectorAll('button.primary,button.secondary,button.mini')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id))).filter(b=>b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}));
+  const clip=await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,buttons:[...el.querySelectorAll('button.primary,button.secondary,button.mini')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&(['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id)||b.matches('[data-sp-new],.lb-add')))).filter(b=>b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}));
   expect(clip).toEqual({overflow:false,buttons:[]});
  }
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);

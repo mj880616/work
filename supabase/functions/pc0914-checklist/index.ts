@@ -14,6 +14,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null,{status:204,headers:cors});
   const origin=req.headers.get("origin")||"";
   if (origin && origin!=="https://mj880616.github.io") return new Response(JSON.stringify({error:"origin"}),{status:403,headers:cors});
+  // 쓰기는 브라우저(허용 주소)에서 온 요청만 받는다. 브라우저는 다른 주소로 POST할 때 Origin을 항상 보내므로, Origin이 없는 쓰기는 거절한다.
+  if (req.method==="POST" && !origin) return new Response(JSON.stringify({error:"origin"}),{status:403,headers:cors});
   const sb=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   if(req.method==="GET"){
     const {data,error}=await sb.from("checklist_state").select("item_key,checked,updated_at").eq("checklist","pc0914");

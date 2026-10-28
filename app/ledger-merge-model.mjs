@@ -14,7 +14,6 @@ export const RECENT_LIMIT = 10; // 취소할 수 있는 최근 합침 수
 export const MERGE_TEXT = Object.freeze({
   summary: n => `겹친 기록 ${n}건`,
   recent: n => `합친 기록 ${n}건`,
-  working: '확인하는 중…',
   merge: '합치기',
   apply: '반영',
   cancel: '취소',

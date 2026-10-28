@@ -101,7 +101,7 @@ test('reopening shows the last result first, marks the refresh, then replaces it
   await expect.poll(()=>holding).toBeTruthy();
   await expect(page.locator('#gtTaskSection')).toContainText('직전 결과');
   // CAL-저장본먼저: the shared freshness line (data-freshness.js) marks the refresh.
-  await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toHaveText('새로 불러오는 중');
+  await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toHaveAttribute('data-freshness','refresh');await expect(page.locator('#gtTaskSection [data-gt-fresh]').locator('[data-wait]')).toHaveCount(1);
   await expect(page.locator('#gtTaskBody [data-wait]')).toHaveCount(0);
   release();
   await expect(page.locator('#gtTaskSection')).toContainText('새 결과');

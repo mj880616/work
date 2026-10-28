@@ -241,7 +241,9 @@
 
 /* MTG-후속할일후보: 후속 할 일 칸의 [후속 할 일 만들기]는 작고 낮은 보조 버튼(공용 작은 버튼 값, 누르는 범위 44px은 button.mini::after)이고,
    후보 줄은 정리함 [챙길 것]과 같은 부품(.inbox-todo-*)이라 정리함 화면(basket.css)과 같은 값으로 이 창 안에서만 그린다. */
-#meetingRoundDetailModal .mrd-make-todos{box-sizing:border-box;width:auto;min-width:0;flex:none;margin:0 0 0 auto;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
+/* UI-화면정리 C: '후속 할 일'의 추가 단추는 머리 [+] 하나. AI 후보 찾기는 [+]로 연 입력 줄 아래 작은 글자 단추(새로 쓸 때만). */
+#meetingRoundDetailModal .mrd-make-todos{grid-column:1/-1;justify-self:start;box-sizing:border-box;width:auto;min-width:0;margin:0;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 4px;border:0;background:transparent;box-shadow:none;color:var(--kptu-primary-text);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
+#meetingRoundDetailModal .mrd-make-todos[hidden]{display:none}
 #meetingRoundDetailModal .mrd-make-todos:disabled{opacity:.6;cursor:default}
 #meetingRoundDetailModal #mrdTodoLine:empty{display:none}
 #meetingRoundDetailModal #mrdTodoLine[data-state="error"]{color:var(--kptu-danger)}

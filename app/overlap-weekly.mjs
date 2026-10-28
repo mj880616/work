@@ -116,7 +116,6 @@ export function weekCandidates(records, meetings, rows, max = WEEK_MAX_PAIRS) {
 export const batches = (pairs, size = WEEK_BATCH) => Array.from({length: Math.ceil(pairs.length / size)}, (_, i) => pairs.slice(i * size, (i + 1) * size));
 
 export const OVERLAP_WEEK_TEXT = Object.freeze({
-  checking: '겹치는 기록을 확인하는 중…',
   count: n => `겹쳐서 ${n}건 뺐어요`,
   show: '보기',
   kept: '남긴 사업 보고',

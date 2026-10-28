@@ -188,7 +188,8 @@
 #appView #ledgerView .lb-auto{ color:var(--kptu-primary-ink); }
 /* LEDGER-화면정리·LEDGER-수정요청(2026-10-24): 첫 화면 칸(안 지킨 약속·추적 중·칩·최근 자동), 이야기 타임라인, [+ 기록하기], 고치기 칸.
    값은 공용 토큰만. 보조 버튼은 작은 크기(UI-버튼기준), 누르는 범위 44px. 큰 채운 버튼은 고치기 칸의 [반영] 하나. */
-#appView #ledgerView .lb-add{ position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
+/* UI-화면정리 C(B⑥): [+ 기록하기]는 다른 화면의 [+ ○○]처럼 주 색으로 채운 작은 버튼(검색 줄 오른쪽 끝). 폰은 ui-standard.css의 동그란 [+]. */
+#appView #ledgerView .lb-add{ position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--kptu-primary); border-radius:var(--ds-radius-control); background:var(--kptu-primary); color:var(--kptu-on-primary); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
 #appView #ledgerView .lb-add::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #ledgerView .lb-add:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #ledgerView .lb-sec{ margin:12px 0 0; min-width:0; }
