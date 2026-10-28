@@ -238,7 +238,8 @@
 .ps3-rec-basket [data-link-summary-status]:empty{display:none}
 .ps3-rec-basket [data-link-summary-latest]{overflow-wrap:anywhere}
 .ps3-rec-basket [data-link-summary-form] .basket-link-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
-.ps3-rec-basket [data-link-summary-form] :is(.basket-link-actions button,[data-link-summary-current],[data-link-summary-ai-box] button){min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
+.ps3-rec-basket [data-link-summary-form] :is(.basket-link-actions button,[data-link-summary-current],[data-link-summary-ai-box] button){position:relative;min-height:var(--ds-compact-height,32px);display:inline-flex;align-items:center;padding:0 10px;box-sizing:border-box}
+.ps3-rec-basket [data-link-summary-form] :is(.basket-link-actions button,[data-link-summary-current],[data-link-summary-ai-box] button)::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .ps3-rec-basket .ai-summary-row,.ps3-rec-basket .ai-summary-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
 .ps3-rec-basket .ai-summary-status{min-width:0;font-size:var(--kptu-text-meta);color:var(--kptu-muted);overflow-wrap:anywhere}
 .ps3-add-plus{flex:0 0 auto;display:inline-grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:-8px -8px -8px 0;padding:0;border:0;border-radius:999px;background:transparent;color:var(--kptu-link);font-size:22px;font-weight:400;line-height:1;cursor:pointer}

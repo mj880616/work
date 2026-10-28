@@ -47,7 +47,8 @@ jobs:
           grep -q "id=\"psSave\"" app/profile-settings.js
           grep -q "ps-legacy-chip" app/profile-settings.js
           grep -q "산하조직 연결 전" app/profile-settings.js
-          grep -q "id=\"psLogout\"" app/profile-settings.js
+          # 화면정리 A1(2026-10-28): 로그아웃은 메뉴(계정) 한 곳에만 — 프로필 화면 안에 다시 두지 않는다.
+          if grep -q "id=\"psLogout\"" app/profile-settings.js; then echo "profile logout duplicated in the profile view"; exit 1; fi
           if grep -Eq "profile-workplace-edit-mode|profile-workplace-legacy|profile-workplace-sync" app/loader-v2.js; then
             echo 'profile post-render correction module returned to active loader'; exit 1
           fi

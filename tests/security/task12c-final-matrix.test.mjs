@@ -66,7 +66,7 @@ test('Task 12C leaves Google Calendar, Tasks, and Drive return paths intact', ()
   assert.match(tasks, /const raw='tasks\.'\+platform/);
   assert.match(calendar, /redirect_uri:CALLBACK/);
   assert.match(callback, /calendarRedirect\('connected', state\)/);
-  assert.match(callback, /const DRIVE_APP_URL = 'https:\/\/desk\.bokdoong\.com\/work\/app\/\?view=library';/);
+  assert.match(callback, /const DRIVE_APP_URL = 'https:\/\/bokdoong\.com\/work\/app\/\?view=library';/);
 });
 
 test('Task 12C final matrix remains mandatory in authorization CI', () => {

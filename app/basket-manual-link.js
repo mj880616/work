@@ -210,7 +210,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
 <p class="basket-manual-hint">${only?'담당조직이나 사업영역을 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
 <div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind!=='reference'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">${t.kind==='reference'?'요약 (선택 · 비우면 업데이트 본문이 보여요)':'기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)'}<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}${filesMarkup(n,t,key)}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${esc(link.status)}</p>
-<div class="basket-actions save-row"><button type="button" data-manual-cancel>취소</button><button type="button" class="quick-pill-primary" data-manual-confirm data-enter-save-submit>${confirmLabel(n)}</button></div></section>`;
+<div class="basket-actions save-row"><button type="button" class="secondary" data-manual-cancel>취소</button><button type="button" class="quick-pill-primary" data-manual-confirm data-enter-save-submit>${confirmLabel(n)}</button></div></section>`;
   }
   const taskProjectName=()=>task?.project?choices?.projects.find(x=>x.project.id===task.project)?.project.name||'사업영역':'사업영역';
   function paintTaskProject(){
@@ -226,7 +226,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
 <div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc('사업영역: '+project):'사업영역'}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
 <p class="basket-manual-hint">만든 할 일은 이 업데이트의 ‘이 업데이트로 만든 할 일’에 기록돼요.</p>
 <p data-manual-task-status role="status">${esc(task.status)}</p><div data-manual-task-recover></div>
-<div class="basket-actions save-row"><button type="button" data-manual-task-cancel>취소</button><button type="button" class="quick-pill-primary" data-manual-task-save data-enter-save-submit>할 일 만들기</button></div></section>`;
+<div class="basket-actions save-row"><button type="button" class="secondary" data-manual-task-cancel>취소</button><button type="button" class="quick-pill-primary" data-manual-task-save data-enter-save-submit>할 일 만들기</button></div></section>`;
   }
   function paint(){
     if(!host)return;

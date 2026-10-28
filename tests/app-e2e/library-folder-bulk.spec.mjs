@@ -42,6 +42,22 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     expect(errors).toEqual([]);
   });
 
+  // 폰 뒤로가기(갤럭시 뒤로)·브라우저 뒤로 = 선택 풀기(노트와 같은 규칙). 자료실 화면은 그대로, 다시 [선택]하면 처음부터.
+  test(`뒤로가기는 선택 모드만 풀고 자료실에 남는다 ${width}`,async({page})=>{
+    const {errors}=await boot(page,width);
+    await pick(page,['a-2'],width);
+    await page.goBack();
+    await expect(bar(page)).toBeHidden();
+    await expect(page.locator('#librarySelectBtn')).toBeVisible();
+    await expect(page.locator('#libraryView')).toBeVisible();
+    await expect(page.locator('[data-lu-pick="a-2"]')).toHaveCount(0);
+    await pick(page,['a-1'],width);
+    await press(page,page.locator('#librarySelectCancel'),width);
+    await expect(bar(page)).toBeHidden();
+    await expect(page.locator('#libraryView')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
   test(`프로젝트 바꾸기: 고른 자료 모두, 사용자 수정 표시, 칸 기록 user, 되돌리기 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width);
     await pick(page,['a-2','a1-1'],width);
