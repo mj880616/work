@@ -6,6 +6,7 @@
 import {readSummary, monthLabel, warnText, summaryLine, detailRows, entryRows, parseEntry, lastMonth, krw} from './ai-usage-model.mjs';
 import {isOwner, readDriveStatus, updateDriveStatus} from './collection-status.js';
 
+const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 // 처음 읽기는 수집 칸과 같은 drive-summary GET ?action=status 한 번(ai_usage 칸)을 함께 쓴다(탭마다 10분 한 번, 요청을 늘리지 않음).
 // 금액을 넣거나 지운 직후에만 GET ?action=ai_usage로 바로 다시 읽고, 함께 쓰는 상태 답도 그 값으로 맞춘다.
 export function readAiUsage(rt, {fresh = false} = {}) {

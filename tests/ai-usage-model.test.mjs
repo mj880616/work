@@ -42,3 +42,27 @@ test('화면 파일은 기기 저장을 쓰지 않고, 금액은 서버 표에�
   assert.match(src, /\/rest\/v1\/app_ai_cost_entries/);
   assert.match(src, /drive-summary\?action=ai_usage/);
 });
+
+test('줄 붙이기: 상태 답의 ai_usage로 그리고, 칸이 없으면 숨김(실제 mount·refresh 실행)', async () => {
+  const { mountAiUsageLine } = await import('../app/ai-usage-line.js');
+  const { resetCollectionCache } = await import('../app/collection-status.js');
+  const mk = () => ({ hidden: false, innerHTML: '', addEventListener() {}, removeEventListener() {}, querySelector: () => null, contains: () => false });
+  const rtWith = data => {
+    const calls = [];
+    const ctx = { user: { id: 'u' }, workspace: { id: 'ws', slug: 'kptu-work' }, membership: { role: 'owner' } };
+    return { calls, context: { read: () => ctx }, session: { read: () => ({ access_token: 't', user: { id: 'u' } }) }, api: async path => { calls.push(path); return data; } };
+  };
+  resetCollectionCache();
+  const rt = rtWith({ ok: true, ai_usage: s });
+  const host = mk(), m = mountAiUsageLine(host, { rt });
+  await m.refresh();
+  assert.equal(host.hidden, false);
+  assert.match(host.innerHTML, /AI 사용량\(10월, 추정\)/);
+  assert.deepEqual(rt.calls, ['/functions/v1/drive-summary?action=status']);
+  m.destroy();
+  resetCollectionCache();
+  const old = rtWith({ ok: true }), host2 = mk(), m2 = mountAiUsageLine(host2, { rt: old });
+  await m2.refresh();
+  assert.equal(host2.hidden, true);
+  m2.destroy(); resetCollectionCache();
+});
