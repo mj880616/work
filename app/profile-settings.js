@@ -88,8 +88,9 @@ async function load(){
 async function loadCalRef(){
   try{
     const host=$('#psCalRefPanel');if(!host)return;
-    if(!calRef||calRef.host!==host){const m=await import('./calendar-ref-settings.js');calRef={host,api:m.mountCalendarRefSettings(host,{rt,userId:()=>user?.id})}}
-    await calRef.api.load();
+    // 한 칸에 한 번만 붙인다: 프로필을 거의 동시에 두 번 읽으면(화면 열기·프로필 갱신) 모듈을 받는 사이 두 번 붙어 바꿀 때마다 두 번 저장·확인하던 경쟁을 막는다.
+    if(!calRef||calRef.host!==host){const ready=import('./calendar-ref-settings.js').then(m=>m.mountCalendarRefSettings(host,{rt,userId:()=>user?.id}));calRef={host,ready};ready.catch(()=>{if(calRef?.ready===ready)calRef=null})}
+    await (await calRef.ready).load();
   }catch(e){console.error('calendar ref settings',e?.name||'Error')}
 }
 function discardEdits(){want.clear();const name=$('#psName'),title=$('#psTitle');if(name)name.value=saved.name;if(title)title.value=saved.title;if($('#psWorkplaceList'))renderWorkplaces()}
