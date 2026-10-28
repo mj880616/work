@@ -3,5 +3,5 @@
 select 'table' as kind,'public.app_journal_drafts' as name,coalesce(to_regclass('public.app_journal_drafts')::text,'absent') as definition
 union all select 'owner function',p.oid::regprocedure::text,p.prosecdef::text
   from pg_proc p where p.oid=to_regprocedure('private.app_is_workspace_owner(uuid)')
-union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261029010000'
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261029014500'
 order by 1,2;

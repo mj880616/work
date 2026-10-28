@@ -5,14 +5,14 @@ begin;
 --  - 행: 작업공간·날짜(하루 1행, 기본 키)·초안 한 줄(1~300자, 줄바꿈·제어 문자 없음 — 업무일지 한 줄 규칙과 같음)·만든 시각.
 --  - 쓰는 곳: ai-assist kind=journal_draft(내 로그인 토큰, owner RLS)가 넣기만 한다. 화면은 읽기만, 고치지 않는다(고친 글은 업무일지 줄로 저장).
 -- 권한: owner만(private.app_is_workspace_owner). authenticated: 읽기·넣기(칸 4개)·지우기. 고치기 없음. anon·PUBLIC·service_role 권한 없음.
--- 짝: docs/20261029010000_journal_ai_drafts.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261029014500_journal_ai_drafts.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261029010000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261029014500')
      or to_regclass('public.app_journal_drafts') is not null
      or to_regclass('public.app_workspaces') is null
      or not exists (select 1 from pg_proc
@@ -66,5 +66,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261029010000', 'journal_ai_drafts', array['JOURNAL-오늘한줄초안: app_journal_drafts (owner RLS, one AI draft line per day, select/insert/delete for authenticated, no update)']);
+values ('20261029014500', 'journal_ai_drafts', array['JOURNAL-오늘한줄초안: app_journal_drafts (owner RLS, one AI draft line per day, select/insert/delete for authenticated, no update)']);
 commit;
