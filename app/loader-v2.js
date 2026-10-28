@@ -214,6 +214,8 @@
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js').catch(()=>{});
+  // APP-폰앱새로 ②: 폰 앱(KPTUAndroid)의 [공유]로 받은 것을 정리함 확인 줄로 넣는다. 앱이 아니면 아무것도 하지 않는다. 첫 화면이 뜬 뒤 붙인다(시작 화면 이동과 겹치지 않게). 기다리지 않는다.
+  import('./basket-share.js').catch(err=>console.warn('share intake load failed',err?.name||'Error'));
   const defer=window.requestIdleCallback?((fn,opts)=>window.requestIdleCallback(fn,opts)):((fn)=>setTimeout(fn,200));
   // OD-미리받기: 첫 화면이 다 뜬 뒤 한가할 때 원드라이브 연결 확인·이번 달 목록·작은 그림 몇 장을 뒤에서 받아 둔다(기다리지 않음, 화면 없음).
   defer(()=>import('./od-warm.js').catch(err=>console.warn('onedrive warm load failed',err?.name||'Error')),{timeout:5000});

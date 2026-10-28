@@ -340,6 +340,9 @@ jobs:
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
         run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
 
+      - name: Check phone share intake model (APP-폰앱새로 ②)
+        run: node --test tests/share-intake-model.test.mjs
+
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs
 
