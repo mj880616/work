@@ -82,6 +82,10 @@ import {
   packOrgs, parseOrgSummary,
 } from "./org-summary.ts";
 import {
+  type BriefItem, briefPeople, packBriefItems, parsePeopleBrief, PEOPLE_BRIEF_DAYS, PEOPLE_BRIEF_INSTRUCTIONS, PEOPLE_BRIEF_MAX_OUTPUT_TOKENS,
+  PEOPLE_BRIEF_MAX_PEOPLE, PEOPLE_BRIEF_READ_LIMIT, PEOPLE_BRIEF_SCHEMA, peopleBriefMaterial, whoIn as briefWhoIn,
+} from "./org-people-brief.ts";
+import {
   addDays as addDayKeys, packScheduleRecords, parseScheduleRequest, parseScheduleTitles, SCHEDULE_BODY_BYTES, SCHEDULE_MAX_OUTPUT_TOKENS,
   SCHEDULE_MAX_NAMES, SCHEDULE_TITLES_INSTRUCTIONS, SCHEDULE_TITLES_SCHEMA, scheduleMaterial, type ScheduleEvent, type ScheduleRecord,
 } from "./schedule-titles.ts";
@@ -124,7 +128,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, area_week_summary: 30, area_suggest: 60 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, area_week_summary: 30, area_suggest: 60, org_people_brief: 60 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -192,6 +196,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   journal_draft_unavailable: "오늘 한 줄 초안을 읽거나 저장하지 못했어요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  org_people_not_ready: "주요 인물 기능이 아직 준비되지 않았어요.",
+  org_people_unavailable: "주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   text_pending: "글자를 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.",
   no_file_text: "요약할 글자가 없어요.",
   internal_error: "AI 요청을 처리하지 못했어요.",
@@ -397,6 +403,7 @@ type LedgerCandidatesInput = { kind: "ledger_candidates" };
 type LedgerAutoInput = { kind: "ledger_auto" };
 type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
+type OrgPeopleBriefInput = { kind: "org_people_brief"; organization_id: string };
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
@@ -449,7 +456,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | AreaWeekSummaryInput | AreaSuggestInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | AreaWeekSummaryInput | AreaSuggestInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -503,6 +510,13 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
+  // ORG-주요인물 '요즘': 조직 ID 하나만 받는다.
+  if (b.kind === "org_people_brief") {
+    if (Object.keys(b).sort().join(",") !== "kind,organization_id" || typeof b.organization_id !== "string" || !UUID.test(b.organization_id)) {
+      throw new Fail(400, "invalid_request");
+    }
+    return { kind: "org_people_brief", organization_id: b.organization_id.toLowerCase() };
+  }
   // 사업영역 AI(business-area.ts): 한 줄 요약은 주·사업영역 ID만, 추천은 쓰기 창의 제목·글만.
   if (b.kind === "area_week_summary") {
     const parsed = parseAreaWeekRequest(b);
@@ -2593,6 +2607,139 @@ async function runOrgSummary(ctx: Ctx, input: OrgSummaryInput, deps: RadarDeps):
   return json({ ...base, kept: [...new Set(kept)], items, empty, partial });
 }
 
+// ---- 쓰임: 담당조직 주요 인물 '요즘' 한 문장(org_people_brief, ORG-주요인물) ----------------------------------------
+
+const PEOPLE_TABLE = "app_org_key_people", PEOPLE_BRIEF_TABLE = "app_org_key_people_briefs";
+type StoredBrief = { day: string; brief: string; detail: string | null; people_ids: string[] };
+
+async function readPeopleOrFail(ctx: Ctx, path: string): Promise<Record<string, unknown>[]> {
+  let rows: unknown;
+  try { rows = await rest(ctx, path); } catch (e) {
+    if ((e as Error)?.message === "rest_404") throw new Fail(503, "org_people_not_ready");
+    throw new Fail(503, "org_people_unavailable");
+  }
+  if (!Array.isArray(rows)) throw new Fail(503, "org_people_unavailable");
+  return rows as Record<string, unknown>[];
+}
+
+// 재료 하나 읽기: 실패하면 그 재료 없이(partial) 진행한다.
+async function softList(ctx: Ctx, path: string, flags: { partial: boolean }): Promise<Record<string, unknown>[]> {
+  try {
+    const rows = await rest(ctx, path);
+    if (!Array.isArray(rows)) { flags.partial = true; return []; }
+    if (rows.length >= PEOPLE_BRIEF_READ_LIMIT) flags.partial = true;
+    return rows as Record<string, unknown>[];
+  } catch { flags.partial = true; return []; }
+}
+
+async function writePeopleBrief(ctx: Ctx, org: string, existing: boolean, row: StoredBrief, nowMs: number): Promise<void> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const patch = () => rest(ctx, `${PEOPLE_BRIEF_TABLE}?organization_id=eq.${org}&workspace_id=eq.${ws}`, {
+    method: "PATCH", prefer: "return=minimal", body: { ...row, updated_at: new Date(nowMs).toISOString() } });
+  if (existing) { await patch(); return; }
+  try {
+    await rest(ctx, PEOPLE_BRIEF_TABLE, { method: "POST", prefer: "return=minimal", body: { organization_id: org, workspace_id: ctx.workspaceId, ...row } });
+  } catch (e) {
+    // 그 사이 다른 창이 행을 만들었으면(겹침) 고친다.
+    if ((e as Error)?.message === "rest_409") { await patch(); return; }
+    throw e;
+  }
+}
+
+async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now(), today = kstDay(started), from = addDays(today, -PEOPLE_BRIEF_DAYS);
+  const ws = encodeURIComponent(ctx.workspaceId), org = input.organization_id;
+  const orgRows = await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&id=eq.${org}&select=id,workspace_id,name&limit=2`);
+  const orgRow = orgRows.find((o) => String(o.id).toLowerCase() === org && String(o.workspace_id).toLowerCase() === ctx.workspaceId);
+  if (!orgRow) throw new Fail(404, "not_found");
+  const people = briefPeople((await readPeopleOrFail(ctx, `${PEOPLE_TABLE}?workspace_id=eq.${ws}&organization_id=eq.${org}&select=id,organization_id,name,match_names&order=sort_order.asc,created_at.asc&limit=${PEOPLE_BRIEF_MAX_PEOPLE}`))
+    .filter((r) => String(r.organization_id).toLowerCase() === org));
+  const base = { ok: true, kind: "org_people_brief", organization_id: org };
+  if (!people.length) return json({ ...base, empty: true });
+  const ids = people.map((p) => p.id).sort();
+  const savedRows = await readPeopleOrFail(ctx, `${PEOPLE_BRIEF_TABLE}?workspace_id=eq.${ws}&organization_id=eq.${org}&select=organization_id,day,brief,detail,people_ids&limit=1`);
+  const saved = savedRows.find((r) => String(r.organization_id).toLowerCase() === org);
+  const savedIds = Array.isArray(saved?.people_ids) ? (saved!.people_ids as unknown[]).map((v) => String(v).toLowerCase()).sort() : [];
+  // 하루 한 번: 오늘 것이 있고 주요 인물이 그대로면 AI를 부르지 않는다.
+  if (saved && saved.day === today && typeof saved.brief === "string" && savedIds.join(",") === ids.join(",")) {
+    return json({ ...base, cached: true, brief: saved.brief, detail: typeof saved.detail === "string" ? saved.detail : null });
+  }
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "org_people_brief", started, config.price);
+  const flags = { partial: false };
+  const items: BriefItem[] = [];
+  const add = (day: unknown, type: BriefItem["type"], who: string[], text: unknown) => {
+    if (!who.length || typeof text !== "string" || !text.trim()) return;
+    items.push({ day: typeof day === "string" && /^\d{4}-\d{2}-\d{2}/.test(day) ? day.slice(0, 10) : "", type, who, text });
+  };
+  // 업무 통화: 상대·제목에 이름 → 요약(없으면 제목).
+  for (const c of await softList(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&day=gte.${from}&select=id,workspace_id,day,title,summary,counterpart&order=day.desc&limit=${PEOPLE_BRIEF_READ_LIMIT}`, flags)) {
+    if (String(c.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
+    add(c.day, "call", briefWhoIn([c.counterpart, c.title], people), [c.counterpart, c.summary || c.title].filter((v) => typeof v === "string" && v).join(" — "));
+  }
+  // 열린 챙길 것·기다리는 약속.
+  for (const c of await softList(ctx, `app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&select=workspace_id,summary,evidence,due,created_at&order=created_at.desc&limit=100`, flags)) {
+    if (String(c.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
+    add(c.due ?? String(c.created_at ?? "").slice(0, 10), "todo", briefWhoIn([c.summary, c.evidence], people), c.summary);
+  }
+  for (const r of await softList(ctx, `app_ledger_records?workspace_id=eq.${ws}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&select=workspace_id,title,counterparty,follow_up_on&limit=100`, flags)) {
+    if (String(r.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
+    add(r.follow_up_on, "promise", briefWhoIn([r.counterparty, r.title], people), `${r.title}${typeof r.counterparty === "string" ? ` (상대 ${r.counterparty})` : ""}`);
+  }
+  const { packed, partial: cutShort } = packBriefItems(items);
+  const partial = flags.partial || cutShort;
+  if (!packed.length) return json({ ...base, empty: true, partial });
+
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const orgName = typeof orgRow.name === "string" ? [...orgRow.name.trim()].slice(0, MAX_TARGET_NAME_CHARS).join("") : "";
+  const material = peopleBriefMaterial(orgName, people, packed, today);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: PEOPLE_BRIEF_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: PEOPLE_BRIEF_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "org_people_brief", strict: true, schema: PEOPLE_BRIEF_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: PEOPLE_BRIEF_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parsePeopleBrief(result.raw);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  try {
+    await writePeopleBrief(ctx, org, !!saved, { day: today, brief: parsed.brief, detail: parsed.detail, people_ids: ids }, deps.now());
+  } catch {
+    throw new Fail(503, "org_people_unavailable");
+  }
+  // 기록에는 숫자만 남긴다(재료·문장 없음).
+  deps.log("org_people_brief_done", { people: people.length, records: packed.length, partial });
+  return json({ ...base, brief: parsed.brief, detail: parsed.detail, partial });
+}
+
 // ---- 쓰임 6: 주요 일정 제목 다듬기(schedule_titles, WEEKLY-일정다듬기) ---------------------------------------------
 
 // 재료: 그 주 월요일부터 일정 마지막 날까지의 조직 기록·업데이트(바구니)·업무일지 한 줄·사업 기록(내 프로젝트) + 담당조직·프로젝트 이름.
@@ -3476,6 +3623,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "ledger_fix") return await runLedgerFix(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "org_people_brief") return await runOrgPeopleBrief(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "hwp_convert") return await runHwpConvert(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
