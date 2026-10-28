@@ -70,7 +70,7 @@
   #appView>.app-nav .mid-menu-trigger{margin-left:auto}
   #appView>.app-nav .nav-btn:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
   .mobile-menu-panel [hidden]{display:none}
-  .mobile-menu-panel button[aria-current="page"]{background:var(--kptu-primary);color:var(--kptu-on-primary)}
+  .mobile-menu-panel button[aria-current="page"]{background:var(--ds-select-bg);color:var(--ds-select-ink);box-shadow:var(--ds-select-mark-left)}
   .mobile-menu-panel button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 }
 

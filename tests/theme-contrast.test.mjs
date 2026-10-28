@@ -52,7 +52,7 @@ test('the allowed color list is one list of ten that the screen, the pick window
 
 // 보조 글자는 4.5:1을 목표로 하되 0.05 여유를 둔다(산뜻한 다섯은 모두 4.5 이상, 아래 별도 시험).
 const MUTED_MIN=4.45;
-// 레몬은 산뜻한 노랑이라 강조색(버튼 바탕)이 밝은 바탕과 3:1이 될 수 없다(견본 #F5CC00은 약 1.5:1). 그래서 글자 쪽에서 보장한다:
+// 레몬은 산뜻한 노랑이라 강조색(버튼 바탕)이 밝은 바탕과 3:1이 될 수 없다(견본 #F5CC00은 약 1.5:1, 지금 버터·겨자 #e3c25a는 약 1.6:1). 그래서 글자 쪽에서 보장한다:
 // 버튼·선택 표시 글자는 진한 갈색(7:1 이상), 글자·링크·구역 제목·탭 글자는 진한 노랑(--kptu-primary-text). 그림 요소(고른 줄 막대 등)는 레몬만 1.3:1로 낮추고 나머지는 3:1을 지킨다.
 const NONTEXT_MIN=name=>name==='lemon'?1.3:3;
 const VIVID=['sky','mint','coral','lemon','red'];
@@ -196,15 +196,59 @@ test('the browser-test helper reads the same list',async()=>{
   assert.deepEqual(helper.THEMES,[...THEMES]);
 });
 
-// MTG-3칸정리 ①: 고른 줄 표시(공용 .kptu-pick-row) = 연한 강조 바탕 + 왼쪽 굵은 줄 + 진한 글자. 열 가지 색의 밝은/어두운 값 모두에서 줄과 글자가 보인다.
+// MTG-3칸정리 ① → UI-선택표시톤다운: 고른 줄 표시(공용 .kptu-pick-row) = 연한 강조 바탕 + 왼쪽 얇은 선 + 보통 글자. 값은 선택 표시 토큰.
 test('고른 줄 표시: 바탕·왼쪽 줄·글자가 열 가지 색 모두에서 보인다',()=>{
   const rule=readFileSync('app/ui-standard.css','utf8').match(/#appView \.kptu-pick-row\[aria-current="true"\]\{([^}]*)\}/);
   assert.ok(rule,'shared selected-row rule');
-  assert.match(rule[1],/background:var\(--kptu-primary-soft\)/);assert.match(rule[1],/inset 4px 0 0 var\(--kptu-primary\)/);assert.match(rule[1],/color:var\(--kptu-ink\)/);
+  assert.match(rule[1],/background:var\(--ds-select-bg\)/);assert.match(rule[1],/box-shadow:var\(--ds-select-mark-left\)/);assert.match(rule[1],/color:var\(--ds-select-ink\)/);
   for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]]){
     need(`${name} ${mode} text on selected`,c['--kptu-ink'],c['--kptu-primary-soft'],7);
-    need(`${name} ${mode} bar on page`,c['--kptu-primary'],c['--kptu-surface'],NONTEXT_MIN(name));
-    need(`${name} ${mode} bar on selected`,c['--kptu-primary'],c['--kptu-primary-soft'],NONTEXT_MIN(name));
     assert.notEqual(c['--kptu-primary-soft'].toLowerCase(),c['--kptu-surface'].toLowerCase(),`${name} ${mode} selected differs from page`);
   }
+});
+
+// UI-선택표시톤다운(명진 2026-10-28 18:40): 선택 표시 규칙 — 고른 메뉴·탭·전환·필터는 연한 바탕 + 얇은 선, 꽉 칠한 주 색은 누르는 주 버튼에만, 오늘 표시는 동그라미 테두리.
+const tokenBlock=css.slice(css.indexOf('--ds-select-bg:'),css.indexOf('--ds-today-ring:'));
+// 글자로 쓰는 강조색(--kptu-primary-text): 수수한 다섯은 주 버튼 색, 산뜻한 다섯은 읽히는 글자색.
+const accentText=(name,c)=>VIVID.includes(name)?c['--kptu-primary-ink']:c['--kptu-primary'];
+test('선택 표시 토큰: 연한 바탕·보통 글자·강조 글자색의 얇은 선, 오늘은 테두리(값은 theme-tokens.css 한 곳)',()=>{
+  const v=vars(css.slice(css.indexOf('--ds-select-bg:')-2,css.indexOf('--ds-today-ring:')+200));
+  assert.equal(v['--ds-select-bg'],'var(--kptu-primary-soft)');
+  assert.equal(v['--ds-select-ink'],'var(--kptu-ink)');
+  assert.equal(v['--ds-select-line'],'var(--kptu-primary-text)');
+  assert.equal(v['--ds-select-mark-left'],'inset 2px 0 0 var(--ds-select-line)');
+  assert.equal(v['--ds-today-ring'],'inset 0 0 0 1.5px var(--kptu-primary-text)');
+  assert.ok(tokenBlock.length>0);
+  assert.equal((css.match(/--ds-select-bg:/g)||[]).length,1,'declared once (dark mode reuses it through --kptu-* values)');
+  for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]]){
+    const line=accentText(name,c);
+    need(`${name} ${mode} selected text`,c['--kptu-ink'],c['--kptu-primary-soft'],7);
+    for(const surface of ['--kptu-primary-soft','--kptu-surface','--kptu-bg'])need(`${name} ${mode} selection line / today ring on ${surface}`,line,c[surface],3);
+    need(`${name} ${mode} today number`,line,c['--kptu-surface'],4.5);
+  }
+});
+test('선택 표시 규칙: 고른 상태·오늘 표시는 주 색으로 꽉 칠하지 않는다(app의 모든 CSS)',()=>{
+  const STATE=/\[aria-(pressed|checked|selected)="true"\]|\[aria-current|\.active\b|\.is-selected\b|\.is-current\b|:checked|\.today\b/;
+  const FILL=/background(-color)?:\s*var\(--(kptu-primary|kptu-primary-ink|kptu-primary-hover|ds-select-line)\)/;
+  const bad=[];
+  for(const file of readdirSync('app').filter(name=>name.endsWith('.css')&&name!=='theme-tokens.css')){
+    const text=readFileSync('app/'+file,'utf8').replace(/\/\*[\s\S]*?\*\//g,'');
+    for(const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)){
+      const selector=m[1].trim();
+      // 진행 단계 막대(공유 페이지 지금 단계)는 그림 요소라 대상 아님.
+      // ::before 얇은 선(가로 전환의 아래 선)은 선이라 대상 아님.
+      if(STATE.test(selector)&&FILL.test(m[2])&&!/\.sr-stage\.is-current|::before/.test(selector))bad.push(file+': '+selector.slice(0,80));
+    }
+  }
+  assert.deepEqual(bad,[],'use --ds-select-bg + --ds-select-line (or --ds-today-ring for today)');
+});
+test('선택 표시 규칙: 색별 조정(레몬은 버터·겨자, 빨강은 벽돌색, 코랄은 주 버튼만 살짝 낮춤)',()=>{
+  assert.equal(light('lemon')['--kptu-primary'],'#e3c25a');assert.equal(light('lemon')['--kptu-bg'],'#fbf8ec');
+  assert.equal(light('red')['--kptu-primary'],'#b23a2e');
+  assert.equal(light('coral')['--kptu-primary'],'#b8553a');assert.equal(light('coral')['--kptu-primary-ink'],'#a83a1f','coral: only the button color moves');
+  // 레몬 바탕은 덜 노랗게: 파랑 채널이 230 이상(예전 #fffbe0은 224).
+  assert.ok(rgb(light('lemon')['--kptu-bg'])[2]*255>=230);
+  // 레몬 강조색은 형광이 아니다: 채도를 예전(#f5cc00, 100%)보다 낮게.
+  const sat=hex=>{const v=rgb(hex),mx=Math.max(...v),mn=Math.min(...v),l=(mx+mn)/2;return mx===mn?0:(mx-mn)/(1-Math.abs(2*l-1))};
+  assert.ok(sat(light('lemon')['--kptu-primary'])<0.8&&sat(dark('lemon')['--kptu-primary'])<0.7);
 });

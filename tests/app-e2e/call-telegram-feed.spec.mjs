@@ -102,7 +102,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect(page).toHaveURL(/view=calls/);
  await expect(view.locator('[data-cf-day]')).toHaveText(['10. 6. (화)','10. 4. (일)']);
  const first=view.locator(`[data-cf-row="${C1}"]`);
- await expect(first.locator('.feed-time')).toHaveText('09:42');await expect(first.locator('.feed-title')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(first.locator('.feed-org')).toHaveText('예시지부 · 홍길동 위원장');
+ await expect(first.locator('.feed-time')).toHaveText('09:42');await expect(first.locator('.feed-title')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(first.locator('.feed-org')).toHaveText('예시지부');
  // 같은 날은 시각 내림차순.
  await expect(view.locator('[data-cf-row]')).toHaveCount(3);
  expect(await view.locator('[data-cf-row]').evaluateAll(els=>els.map(e=>e.dataset.cfRow))).toEqual([C1,C2,C3]);

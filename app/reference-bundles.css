@@ -10,7 +10,7 @@
 #referenceView .rb-row{display:grid;grid-template-columns:minmax(0,1fr) auto 16px;align-items:center;gap:8px;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px 12px;border:0;border-bottom:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
 #referenceView .rb-row:last-child{border-bottom:0}
 #referenceView button.rb-row:hover{background:var(--kptu-surface-subtle)}
-#referenceView .rb-row.is-selected{background:var(--kptu-primary-soft)}
+#referenceView .rb-row.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
 #referenceView .rb-row:focus-visible,#referenceView .rb-item-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 #referenceView .rb-order-row{grid-template-columns:minmax(0,1fr) auto auto}
 #referenceView .rb-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

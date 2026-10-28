@@ -282,7 +282,7 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
   #ps3DetailPane .ps3-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
   #ps3DetailPane.has-project .ps3-pane-empty{display:none}
   /* 고른 프로젝트 줄: 연한 초록(고르기 창의 고른 줄과 같음). */
-  #appView #projectsView .ps3-plist .kptu-list-row.is-selected{background:var(--kptu-primary-soft)}
+  #appView #projectsView .ps3-plist .kptu-list-row.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
   /* "+ 프로젝트": 작은 버튼 높이(--ds-compact-height). */
   #appView #projectsView .ps3-plist .ps3-project-toolbar button#newProjectBtn{height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 var(--ds-compact-pad-x)}
   /* 상세 칸 안의 상세 창(같은 요소). */

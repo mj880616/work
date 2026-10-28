@@ -1,8 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {THEMES} from './helpers/theme-list.mjs';
 import {openHome} from './helpers/home-entry.mjs';
-// UI-테마선택색(2026-10-22): 전환·필터의 고른 쪽 = 테마 주 버튼 색 + 흰 글자, 폰 하단 탭·PC 사이드바는 지금 화면 하나만,
-// 폰 메뉴 판 타일 여섯은 같은 모양. 테마 10종(THEMES)에서 글자/바탕 대비 4.5:1 이상.
+// UI-선택표시톤다운(2026-10-28, UI-테마선택색 2026-10-22를 바꿈): 전환·필터·메뉴의 고른 쪽 = 연한 바탕(--ds-select-bg) + 얇은 선 + 보통 글자,
+// 꽉 칠한 주 색은 [추가] 같은 누르는 주 버튼에만. 폰 하단 탭·PC 사이드바는 지금 화면 하나만. 폰 메뉴 판 타일은 같은 모양. 테마 10종(THEMES)에서 글자 대비 4.5:1 이상.
 const nav=page=>page.locator('#appView>.app-nav');
 async function open(page,width,theme='olive'){
  await page.setViewportSize({width,height:width<761?844:900});
@@ -17,30 +17,38 @@ const fg=loc=>loc.evaluate(el=>getComputedStyle(el).color);
 const lum=c=>{const [r,g,b]=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4});return .2126*r+.7152*g+.0722*b};
 const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
 
+const shadow=loc=>loc.evaluate(el=>getComputedStyle(el).boxShadow);
+// 가로 전환의 아래 얇은 선은 ::before 막대(버튼 자체 그림자는 없음).
+const underline=loc=>loc.evaluate(el=>{const s=getComputedStyle(el,'::before');return s.content==='none'?'':s.backgroundColor});
 for(const theme of THEMES){
- test(`${theme}: 선택색이 주 버튼 색이고 글자 대비 4.5:1 이상`,async({page})=>{
+ test(`${theme}: 고른 쪽은 연한 바탕 + 얇은 선, 꽉 칠한 색은 [추가]만, 글자 대비 4.5:1 이상`,async({page})=>{
   const errors=await open(page,1280,theme);
   const primary=await rgb(page,'var(--kptu-primary)'),on=await rgb(page,'var(--kptu-on-primary)');
-  expect(ratio(primary,on)).toBeGreaterThanOrEqual(4.5);
-  // 홈 빠른 입력 [추가]와 같은 색, 고른 [바구니|할 일|업데이트] 쪽도 같은 색.
+  const soft=await rgb(page,'var(--ds-select-bg)'),ink=await rgb(page,'var(--ds-select-ink)'),line=await rgb(page,'var(--ds-select-line)');
+  expect(ratio(primary,on)).toBeGreaterThanOrEqual(4.5);expect(ratio(soft,ink)).toBeGreaterThanOrEqual(4.5);
+  expect(soft).not.toBe(primary);
+  // 고른 [바구니|할 일|업데이트] 쪽: 연한 바탕 + 아래 얇은 선. 홈 빠른 입력 [추가]만 주 색으로 채운다.
   const modes=page.locator('#homeView .home-quick-modes [data-quick-mode][aria-pressed="true"]').first();
   await expect(modes).toBeVisible();
-  expect(await bg(modes)).toBe(primary);expect(await fg(modes)).toBe(on);
+  expect(await bg(modes)).toBe(soft);expect(await fg(modes)).toBe(ink);expect(await underline(modes)).toBe(line);expect(await shadow(modes)).toBe('none');
   const save=page.locator('#homeView .home-quick button.home-quick-save').first();
   expect(await bg(save)).toBe(primary);
   const unsel=page.locator('#homeView .home-quick-modes [data-quick-mode][aria-pressed="false"]').first();
-  expect(await bg(unsel)).not.toBe(primary);
-  // 사이드바: 지금 화면 하나만 채워지고 글자는 흰색.
+  expect(await bg(unsel)).not.toBe(soft);
+  // 사이드바: 지금 화면 하나만 연한 바탕 + 왼쪽 얇은 선, 주 색으로 채운 항목은 없다.
   const filled=await nav(page).locator('button,a').evaluateAll(els=>els.filter(e=>e.getClientRects().length&&getComputedStyle(e).backgroundColor!=='rgba(0, 0, 0, 0)').map(e=>e.textContent.trim()));
   expect(filled).toEqual(['홈']);
+  const home=nav(page).locator('.active:visible, [aria-current]:visible').first();
+  expect(await bg(home)).toBe(soft);expect(await shadow(home)).toContain(line);
+  expect(await nav(page).locator('button,a').evaluateAll((els,p)=>els.filter(e=>getComputedStyle(e).backgroundColor===p).length,primary)).toBe(0);
   expect(errors).toEqual([]);
  });
 }
 
 test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화면 하나(이전 항목 표시가 남지 않음)',async({page})=>{
  const errors=await open(page,1280);
- const primary=await rgb(page,'var(--kptu-primary)');
- const filledNames=()=>nav(page).locator('button,a').evaluateAll((els,p)=>els.filter(e=>e.getClientRects().length&&getComputedStyle(e).backgroundColor===p).map(e=>e.textContent.trim()),primary);
+ const soft=await rgb(page,'var(--ds-select-bg)');
+ const filledNames=()=>nav(page).locator('button,a').evaluateAll((els,p)=>els.filter(e=>e.getClientRects().length&&getComputedStyle(e).backgroundColor===p).map(e=>e.textContent.trim()),soft);
  const seen=async name=>{await expect.poll(filledNames).toEqual([name]);await expect(nav(page).locator('.active:visible, [aria-current]:visible')).not.toHaveCount(0)};
  // 자료실 → 공유 페이지: 포인터가 이전 항목(자료실) 위에 남아 있어도 표시는 한 곳.
  await nav(page).locator('.nav-btn[data-view="library"]').click();await expect(page.locator('#libraryView')).toBeVisible();await seen('자료실');
@@ -57,20 +65,20 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
 });
 
 for(const theme of ['olive','sky','lemon']){
- test(`폰 390 ${theme}: 하단 탭 지금 화면은 테마 색 동그라미+흰 아이콘, 메뉴 화면에서는 [메뉴]`,async({page})=>{
+ test(`폰 390 ${theme}: 하단 탭 지금 화면은 연한 동그라미 + 강조색 아이콘, 메뉴 화면에서는 [메뉴]`,async({page})=>{
   const errors=await open(page,390,theme);
-  // 글자로 쓰는 강조색은 --kptu-primary-text(레몬은 진한 노랑, 나머지는 주 버튼 색과 같거나 읽히는 변형). 동그라미 바탕은 주 버튼 색.
-  const primary=await rgb(page,'var(--kptu-primary)'),on=await rgb(page,'var(--kptu-on-primary)'),text=await rgb(page,'var(--kptu-primary-text)');
+  // 글자로 쓰는 강조색은 --kptu-primary-text(레몬은 진한 노랑, 나머지는 주 버튼 색과 같거나 읽히는 변형). 동그라미 바탕은 연한 선택 바탕.
+  const soft=await rgb(page,'var(--ds-select-bg)'),text=await rgb(page,'var(--kptu-primary-text)');
   const tabs=page.locator('#appView>.mobile-tabs');
   const cur=tabs.locator('[aria-current="page"]');
   await expect(cur).toHaveCount(1);await expect(cur).toContainText('홈');
-  expect(await bg(cur.locator('svg'))).toBe(primary);expect(await fg(cur.locator('svg'))).toBe(on);expect(await fg(cur)).toBe(text);
+  expect(await bg(cur.locator('svg'))).toBe(soft);expect(await fg(cur.locator('svg'))).toBe(text);expect(await fg(cur)).toBe(text);
   expect(await bg(tabs.locator('button:not([aria-current]) svg').first())).toBe('rgba(0, 0, 0, 0)');
   // 메뉴로 닿는 화면 다섯: [메뉴]만 지금 화면.
   for(const view of ['library','meetings','hwp','pages']){
    await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view}View`)).toBeVisible();
    await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('#mobileMenuTab')).toHaveAttribute('aria-current','page');
-   expect(await bg(tabs.locator('#mobileMenuTab svg'))).toBe(primary);
+   expect(await bg(tabs.locator('#mobileMenuTab svg'))).toBe(soft);
   }
   await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();
   await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');await expect(tabs.locator('[aria-current="page"]')).toContainText('프로젝트');
@@ -87,14 +95,14 @@ test('폰 390: 메뉴 판 타일 여덟이 같은 모양이고 낮다(CALL·TG: 
  expect(errors).toEqual([]);
 });
 
-test('폰 390: 일정 전환·정리함 필터·자료실 칩의 고른 쪽이 테마 주 버튼 색',async({page})=>{
+test('폰 390: 일정 전환·자료실 칩의 고른 쪽이 연한 바탕 + 얇은 선',async({page})=>{
  const errors=await open(page,390,'navy');
- const primary=await rgb(page,'var(--kptu-primary)'),on=await rgb(page,'var(--kptu-on-primary)');
+ const primary=await rgb(page,'var(--ds-select-bg)'),on=await rgb(page,'var(--ds-select-ink)'),line=await rgb(page,'var(--ds-select-line)');
  await page.evaluate(()=>window.KPTURouter.go('calendar'));await expect(page.locator('#calendarView')).toBeVisible();
  const sw=page.locator('#appView .schedule-switch button[aria-pressed="true"]').first();await expect(sw).toBeVisible();
- expect(await bg(sw)).toBe(primary);expect(await fg(sw)).toBe(on);
+ expect(await bg(sw)).toBe(primary);expect(await fg(sw)).toBe(on);expect(await underline(sw)).toBe(line);
  await page.evaluate(()=>window.KPTURouter.go('library'));await expect(page.locator('#libraryView')).toBeVisible();
  const chip=page.locator('#libraryView .filter-chips button[aria-checked="true"], #libraryView #libraryCategoryFilter button[aria-pressed="true"]').first();
- if(await chip.count()){expect(await bg(chip)).toBe(primary);expect(await fg(chip)).toBe(on)}
+ if(await chip.count()){expect(await bg(chip)).toBe(primary);expect(await fg(chip)).toBe(on);expect(await chip.evaluate(el=>getComputedStyle(el).borderTopColor)).toBe(line)}
  expect(errors).toEqual([]);
 });

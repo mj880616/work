@@ -31,7 +31,7 @@
   #wdDetailPane .so-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
   #wdDetailPane.has-org .so-pane-empty{display:none}
   /* 고른 조직 줄: 연한 초록(프로젝트 목록의 고른 줄과 같음). */
-  #appView #teamView #soOrganizationList .kptu-list-row.is-selected{background:var(--kptu-primary-soft)}
+  #appView #teamView #soOrganizationList .kptu-list-row.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
   /* 상세 칸 안의 상세 창(같은 요소). */
   #wdDetailPane>#wdModal.wd-docked{position:static;inset:auto;display:block;justify-items:normal;align-items:normal;padding:0;background:transparent;z-index:auto}
   #wdDetailPane>#wdModal.wd-docked.hidden{display:none}

@@ -34,10 +34,11 @@
 .feed-view .feed-day{padding:8px 4px 2px;font-size:11px;color:var(--kptu-muted);letter-spacing:.02em}
 .feed-view .feed-call{display:flex;align-items:baseline;gap:8px;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px 8px;border:0;border-bottom:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
 .feed-view .feed-call:hover{background:var(--kptu-surface-subtle)}
-.feed-view .feed-call.is-selected{background:var(--kptu-primary-soft)}
+.feed-view .feed-call.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
 .feed-view .feed-time{flex:none;width:38px;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 .feed-view .feed-title{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.feed-view .feed-org{flex:0 0 auto;padding:1px 6px;border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap}
+/* UI-선택표시톤다운 ③: 꼬리표는 제목보다 튀지 않게 차분한 회갈색(종류 '그 밖' 회색 짝 토큰), 글자는 조직 약칭 하나(call-feed.js tagOf). */
+.feed-view .feed-org{flex:0 0 auto;padding:1px 6px;border-radius:var(--ds-radius-control);background:var(--ds-kind-other-soft);font-size:var(--ds-text-meta);color:var(--ds-kind-other-ink);white-space:nowrap}
 /* UI-표잘림전수: 조직 표 글자는 '…'로 자르지 않는다. 줄여야 하면 옆 제목(.feed-title)이 줄어들고, 폰에서는 조직 이름이 줄바꿈한다. */
 @media(max-width:760px){.feed-view .feed-org{flex:0 1 auto;max-width:45%;white-space:normal;overflow-wrap:anywhere}}
 
@@ -81,7 +82,7 @@
 .feed-view .feed-cnt{flex:none;font-size:11px}
 .feed-view .feed-day-center{text-align:center;padding:10px 0 4px}
 .feed-view .feed-rd{position:relative;display:flex;align-items:flex-start;gap:8px;padding:5px 4px;border-bottom:var(--ds-line-width) solid var(--kptu-border)}
-.feed-view .feed-rd.is-selected{background:var(--kptu-primary-soft)}
+.feed-view .feed-rd.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
 .feed-view .feed-dot{flex:none;display:flex;align-items:center;justify-content:center;width:22px;height:22px;margin-top:2px;border-radius:50%;font-size:11px;font-weight:var(--ds-weight-medium)}
 .feed-view .feed-rdb{display:block;flex:1 1 auto;min-width:0;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-ink);font:inherit;text-align:left;cursor:pointer}
 .feed-view .feed-rdb:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
@@ -167,7 +168,8 @@
   html:has(#appView .feed-view:not(.hidden)) main{padding-bottom:12px}
   #appView .feed-view:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
   #appView .feed-view .feed-split{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3)}
-  #appView .feed-view .feed-list{grid-column:1;grid-row:1;max-height:100%;overflow-y:auto;overscroll-behavior:contain}
+  /* UI-선택표시톤다운 ②: 목록 칸은 세로로만 움직인다. 긴 제목은 '…'로 줄고(.feed-title) 꼬리표는 약칭이라, 가로 스크롤 막대가 생기지 않게 가로 넘침은 자른다. */
+  #appView .feed-view .feed-list{grid-column:1;grid-row:1;max-height:100%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
   #appView .feed-view .feed-pane{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
 }
 
@@ -216,7 +218,7 @@
 .feed-view .feed-chips{display:flex;flex-wrap:wrap;gap:4px}
 .feed-view .feed-chip{position:relative;margin:0;padding:1px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:10px;background:var(--kptu-surface-subtle);color:var(--kptu-ink);font:inherit;font-size:12px;cursor:pointer}
 .feed-view .feed-chip::after{content:"";position:absolute;inset:-6px -2px}
-.feed-view .feed-chip[aria-pressed="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.feed-view .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--kptu-primary-ink)}
 .feed-view .feed-chip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .feed-view .feed-grp{padding:8px 0 2px;font-size:11px;color:var(--kptu-faint,var(--kptu-muted))}
 .feed-view .feed-person{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:var(--ds-line-width) solid var(--kptu-border);font-size:var(--ds-text-row)}
@@ -232,13 +234,13 @@
 /* 텔레그램 4-나: 칸 줄(전체·폴더·+ 폴더·보관함), 줄 밀기 버튼, 행 ⋯ */
 .feed-view .feed-chiprow{display:flex;align-items:center;gap:4px;margin:0 0 4px;padding:2px 0;overflow-x:auto;scrollbar-width:none}
 .feed-view .feed-chiprow::-webkit-scrollbar{display:none}
-.feed-view .feed-chiprow .feed-chip[aria-pressed="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.feed-view .feed-chiprow .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--kptu-primary-ink)}
 .feed-view .feed-chiprow .feed-chip.is-add{background:transparent;border-style:dashed}
 .feed-view .feed-chiprow .feed-chip.is-box{margin-left:auto}
 .feed-view .feed-chiprow .feed-folder-more{width:var(--ds-compact-height-sm,24px);height:var(--ds-compact-height-sm,24px)}
 .feed-view .feed-swipe{position:relative;overflow:hidden}
 .feed-view .feed-swipe>.feed-rd{z-index:1;background:var(--kptu-surface);touch-action:pan-y;transition:transform .18s ease}
-.feed-view .feed-swipe>.feed-rd.is-selected{background:var(--kptu-primary-soft)}
+.feed-view .feed-swipe>.feed-rd.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
 .feed-view .feed-swipe>.feed-rd.is-drag{transition:none}
 .feed-view .feed-acts{position:absolute;top:0;bottom:0;display:flex}
 .feed-view .feed-acts-start{left:0}
