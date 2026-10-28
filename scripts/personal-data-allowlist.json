@@ -23,12 +23,6 @@
       "kinds": ["email"],
       "paths": ["app/editor-lib/"],
       "reason": "외부 오픈소스 라이브러리 LICENSE의 저작자 메일(원문 유지 의무)."
-    },
-    {
-      "kinds": ["mobile"],
-      "paths": ["wedding/gift-desk/"],
-      "hashes": ["8acd8bbfc4dfccda"],
-      "reason": "결정 대기: 행사 당일 안내 페이지의 연락처. 명진이 페이지 삭제를 결정하면 이 항목을 지운다(SEC-공개저장소점검)."
     }
   ]
 }

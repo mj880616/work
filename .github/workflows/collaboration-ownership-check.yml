@@ -34,7 +34,9 @@ jobs:
           if grep -Eq 'ccNotif|data-kptu-notifications|notificationsView|notification-center-ui|push-notifications-ui' app/index.html app/loader-v2.js app/view-loader.js app/styles.css app/team.js; then
             echo 'notification UI/runtime returned'; exit 1
           fi
-          if grep -Eq 'FirebaseMessaging|FirebaseApp|KPTUNativePush|POST_NOTIFICATIONS|MESSAGING_EVENT|firebase-messaging' android-app/app/src/main/java/kr/or/kptu/work/MainActivity.java android-app/app/src/main/AndroidManifest.xml android-app/app/build.gradle; then
+          # 폰 앱 v2(Kotlin)로 바뀐 뒤에도 앱 소스 전체를 본다. 파일이 없으면 grep 오류(2)로 검사가 빠지지 않게 폴더를 지정한다.
+          test -d android-app/app/src/main
+          if grep -rEq 'FirebaseMessaging|FirebaseApp|KPTUNativePush|POST_NOTIFICATIONS|MESSAGING_EVENT|firebase-messaging' android-app/app/src/main android-app/app/build.gradle; then
             echo 'Android push integration returned'; exit 1
           fi
           if grep -Eq "addEventListener\('push'|addEventListener\('notificationclick'" app/sw.js; then
