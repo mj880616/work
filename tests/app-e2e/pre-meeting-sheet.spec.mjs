@@ -71,7 +71,12 @@ async function openOrg(page){
 async function openJournalAt(page,width){
  const nav=page.locator('.app-nav [data-view="journal"]');
  if(width>760&&await nav.isVisible())await nav.click();
- else{await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();await expect(page.locator('#calendarView')).toBeVisible();await page.locator('#calendarView .schedule-switch [data-view="journal"]').click();}
+ else{
+  // [일정] 탭은 마지막으로 본 쪽(달력·할 일·업무일지)을 연다. 업무일지가 아니면 위 전환 줄에서 고른다.
+  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
+  await expect(page.locator('#calendarView:visible, #journalView:visible, #tasksView:visible').first()).toBeVisible();
+  if(!await page.locator('#journalView').isVisible())await page.locator('.schedule-switch [data-view="journal"]:visible').first().click();
+ }
  await expect(page.locator('#journalView')).toBeVisible();
 }
 const noSideScroll=async page=>expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
