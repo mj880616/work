@@ -717,7 +717,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let hoverTimer = null, hoverId = null;
   function hoverOpen(target) {
     if (target === hoverId) return; clearTimeout(hoverTimer); hoverId = target;
-    if (target && !openSet.has(target) && !wideList.matches) hoverTimer = setTimeout(() => { if (drag && hoverId === target) { openSet.add(target); renderList(); showDrop(target); } }, 900);
+    if (target && !openSet.has(target) && !wideList.matches) hoverTimer = setTimeout(() => { if ((drag || touch?.grabbed) && hoverId === target) { openSet.add(target); renderList(); showDrop(target); } }, 900); // 폰 꾹 누른 채 끌기(touch)도
   }
   function edgeScroll(y) { const edge = 56; if (y < edge) window.scrollBy(0, -12); else if (y > innerHeight - edge) window.scrollBy(0, 12); }
   host.addEventListener('dragstart', e => {
@@ -731,31 +731,34 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 폰: 줄을 꾹 눌렀다 떼면 우클릭과 같은 메뉴(맨 위 [선택]), 꾹 누른 채 움직이면 끌기. 잡기 전에 움직이면 그대로 스크롤.
   const LONG_MS = 450, SLOP = 8, MOVED = 12;
   let touch = null, suppressUntil = 0;
-  const cancelTouch = () => { if (touch?.timer) clearTimeout(touch.timer); touch = null; };
-  host.addEventListener('pointerdown', e => {
-    if (e.pointerType !== 'touch' || !e.isPrimary || selected) return;
-    const row = e.target.closest?.('[data-nx-note],[data-nx-folder]'); if (!row || !host.contains(row) || e.target.closest('.basket-row-more,.basket-row-copy')) return;
-    cancelTouch();
-    touch = {row, x:e.clientX, y:e.clientY, grabbed:false, moved:false, target:undefined, timer:setTimeout(() => { if (!touch || touch.row !== row) return; touch.grabbed = true; row.classList.add('nx-grabbed'); try { navigator.vibrate?.(12); } catch {} }, LONG_MS)};
-  });
-  host.addEventListener('pointermove', e => { if (touch && !touch.grabbed && e.pointerType === 'touch' && Math.hypot(e.clientX - touch.x, e.clientY - touch.y) > SLOP) cancelTouch(); });
-  host.addEventListener('pointercancel', e => { if (e.pointerType === 'touch' && touch && !touch.grabbed) cancelTouch(); });
-  host.addEventListener('touchmove', e => {
+  // 끄는 동안 닫힌 폴더가 열리면(목록을 다시 그림) 잡은 줄은 화면에서 빠지지만 손가락 사건은 그 줄로 계속 온다(터치 대상은 처음 누른 요소).
+  // 그래서 움직임·뗌은 목록(host)이 아니라 잡은 줄 자체에서 듣는다(빠진 줄의 사건은 목록까지 올라오지 않음).
+  const cancelTouch = () => { if (touch?.timer) clearTimeout(touch.timer); const row = touch?.row; touch = null; row?.removeEventListener('touchmove', onTouchMove); row?.removeEventListener('touchend', onTouchEnd); row?.removeEventListener('touchcancel', onTouchCancel); };
+  const onTouchMove = e => {
     if (!touch?.grabbed) return; if (e.cancelable) e.preventDefault();
     const p = e.touches[0]; if (!p) return;
     if (Math.hypot(p.clientX - touch.x, p.clientY - touch.y) > MOVED) touch.moved = true;
     if (!touch.moved || !foldersReady || query) return;
     touch.target = dropTarget(document.elementFromPoint(p.clientX, p.clientY)); showDrop(touch.target); hoverOpen(touch.target); edgeScroll(p.clientY);
-  }, {passive:false});
-  host.addEventListener('touchend', e => {
+  };
+  const onTouchEnd = e => {
     if (!touch) return; if (!touch.grabbed) { cancelTouch(); return; }
     if (e.cancelable) e.preventDefault();
     const {row, moved, target} = touch; row.classList.remove('nx-grabbed'); clearDrop(); cancelTouch(); suppressUntil = Date.now() + 600;
     if (moved) { if (target !== undefined) void moveItems(dragItems(row), target); return; }
     const btn = row.querySelector(':scope > .basket-row-more, :scope > .nx-more');
     if (btn) { const r = row.getBoundingClientRect(); window.KPTUContextMenu?.pinAt?.(btn, r.left + Math.min(r.width / 2, 48), r.top + r.height / 2); rowMenu(btn); }
+  };
+  const onTouchCancel = () => { if (touch?.grabbed) { touch.row.classList.remove('nx-grabbed'); clearDrop(); } cancelTouch(); };
+  host.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch' || !e.isPrimary || selected) return;
+    const row = e.target.closest?.('[data-nx-note],[data-nx-folder]'); if (!row || !host.contains(row) || e.target.closest('.basket-row-more,.basket-row-copy')) return;
+    cancelTouch();
+    row.addEventListener('touchmove', onTouchMove, {passive:false}); row.addEventListener('touchend', onTouchEnd); row.addEventListener('touchcancel', onTouchCancel);
+    touch = {row, x:e.clientX, y:e.clientY, grabbed:false, moved:false, target:undefined, timer:setTimeout(() => { if (!touch || touch.row !== row) return; touch.grabbed = true; row.classList.add('nx-grabbed'); try { navigator.vibrate?.(12); } catch {} }, LONG_MS)};
   });
-  host.addEventListener('touchcancel', () => { if (touch?.grabbed) { touch.row.classList.remove('nx-grabbed'); clearDrop(); } cancelTouch(); });
+  host.addEventListener('pointermove', e => { if (touch && !touch.grabbed && e.pointerType === 'touch' && Math.hypot(e.clientX - touch.x, e.clientY - touch.y) > SLOP) cancelTouch(); });
+  host.addEventListener('pointercancel', e => { if (e.pointerType === 'touch' && touch && !touch.grabbed) cancelTouch(); });
   host.addEventListener('contextmenu', e => { if (touch || Date.now() < suppressUntil) e.preventDefault(); }, true);
   host.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nx-note],[data-nx-folder]')) { e.preventDefault(); e.stopPropagation(); } }, true);
   // A row's ⋯ (pressed, right-clicked or long-pressed): in select mode a picked row's menu is for all picked ones.

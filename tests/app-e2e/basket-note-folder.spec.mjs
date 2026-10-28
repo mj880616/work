@@ -10,7 +10,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-async function fixture(page, width, {table = true} = {}) {
+async function fixture(page, width, {table = true, more = []} = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -21,7 +21,7 @@ async function fixture(page, width, {table = true} = {}) {
     row('n2', '나 노트', '2026-10-12T01:00:00Z', { folder: '회의' }),
     row('n3', '다 노트', '2026-10-10T01:00:00Z'),
   ];
-  const folders = [{ id: U(1), workspace_id: 'w', parent_id: null, name: '회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }];
+  const folders = [{ id: U(1), workspace_id: 'w', parent_id: null, name: '회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }, ...more];
   let seq = 10;
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
@@ -150,5 +150,75 @@ for (const width of [390, 1280]) test(`before the folder table exists: folders b
   await expect(page.locator('[data-note-folder-status]')).toContainText('준비 중');
   await expect(picker(page)).toBeHidden();
   expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+// NOTE-탐색기 후속 ②(남은 시험 공백): 마우스로 노트·폴더 끌어 놓기(PC), 폰 꾹 누른 채 끌기(닫힌 폴더 위에 머물면 열림), 폰 들어가기 위치 줄.
+const extra = [{ id: U(2), workspace_id: 'w', parent_id: null, name: '기록', sort_order: 2048, created_at: '2026-10-01T00:00:00Z' }];
+async function mouseDrop(page, from, to) {
+  await page.evaluate(([a, b]) => {
+    const src = document.querySelector(a), dst = document.querySelector(b), dt = new DataTransfer();
+    src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    dst.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    dst.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    src.dispatchEvent(new DragEvent('dragend', { bubbles: true }));
+  }, [from, to]);
+}
+test('PC 1280: drag a note onto a folder in the left tree, then drag a folder into another folder; both undo', async ({ page }) => {
+  const f = await fixture(page, 1280, { more: extra });
+  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('draggable', 'true');
+  await mouseDrop(page, '#noteRows [data-nx-note="n1"]', `[data-nx-tree] [data-nx-folder="${U(1)}"]`);
+  await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata).toEqual({ tasks: [{ task_id: 't1' }], folder_id: U(1), folder: '회의' });
+  await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
+  await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .nx-num`)).toHaveText('2');
+  // A folder dropped on another folder goes inside it (the folder row's parent changes; the notes keep their folder id).
+  await mouseDrop(page, `[data-nx-tree] [data-nx-folder="${U(2)}"]`, `[data-nx-tree] [data-nx-folder="${U(1)}"]`);
+  await expect.poll(() => f.folders.find(x => x.id === U(2)).parent_id).toBe(U(1));
+  await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
+  await page.locator('#kptuNotice .kptu-notice-undo').click();
+  await expect.poll(() => f.folders.find(x => x.id === U(2)).parent_id).toBe(null);
+  expect(f.errors).toEqual([]);
+});
+
+test('phone 390: long-press a note and drag it onto a closed folder — the folder opens while held, the drop moves it', async ({ page }) => {
+  const f = await fixture(page, 390);
+  const cdp = await page.context().newCDPSession(page);
+  const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
+  const center = sel => page.locator(sel).first().evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  const folderRow = `#noteRows [data-nx-folder="${U(1)}"]`;
+  await expect(page.locator(`${folderRow} [data-nx-open]`)).toHaveAttribute('aria-expanded', 'false');
+  await page.locator('#noteRows [data-nx-note="n1"]').scrollIntoViewIfNeeded();
+  const from = await center('#noteRows [data-nx-note="n1"] .basket-title-text'), to = await center(`${folderRow} .nx-name`);
+  await touch('touchStart', [from]); await page.waitForTimeout(700);
+  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveClass(/nx-grabbed/);
+  for (const k of [0.25, 0.5, 0.75, 1]) await touch('touchMove', [{ x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }]);
+  await expect(page.locator(folderRow)).toHaveClass(/nx-drop/);
+  // Held over the closed folder for a moment: it opens (its note shows below), still the drop target.
+  await expect(page.locator(`${folderRow} [data-nx-open]`)).toHaveAttribute('aria-expanded', 'true', { timeout: 3000 });
+  await expect(page.locator('#noteRows [data-nx-note="n2"]')).toBeVisible();
+  await touch('touchEnd', []);
+  await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata.folder_id).toBe(U(1));
+  await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
+  await expect(page.locator('[data-note-detail]')).toBeHidden();
+  await cdp.detach();
+  expect(f.errors).toEqual([]);
+});
+
+test('phone 390: folder ⋯ [이 폴더로 들어가기] shows only that folder with the shared path line; the first step goes back to the top', async ({ page }) => {
+  const f = await fixture(page, 390);
+  await press(page, page.locator(`#noteRows [data-nx-folder-more="${U(1)}"]`), 390);
+  await press(page, page.locator('#noteDocMenu [data-nx-enter]'), 390);
+  const where = page.locator('[data-nx-where]');
+  await expect(where).toBeVisible();
+  await expect(where).toHaveClass(/fp-path/);
+  await expect(where).toHaveText('노트›회의');
+  await expect(where.locator('.fp-here[aria-current="location"]')).toHaveText('회의');
+  await expect(noteRow(page, 'n2')).toBeVisible();
+  await expect(noteRow(page, 'n1')).toHaveCount(0);
+  // One line, no horizontal page scroll on the phone.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await press(page, where.locator('.fp-step[data-nx-at=""]'), 390);
+  await expect(where).toBeHidden();
+  await expect(noteRow(page, 'n1')).toBeVisible();
   expect(f.errors).toEqual([]);
 });

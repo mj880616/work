@@ -264,3 +264,42 @@ test('PC 1280: 자료실 결과 줄에 지금 폴더 표시, 옮기면 바뀜',a
   await expect(panel(page).locator('[data-gs-group="update"] .gs-row-folder')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+// NOTE-탐색기 후속 ⑥(2026-10-28 10:44 ②): 노트 결과 줄 우클릭 = [폴더로 옮기기 ›]·[자료실 결과 n개 모두 고르기]·[열기]. 노트는 노트 폴더(노트 화면과 같은
+// 폴더 나무 고르기 창)로 그 자리에서 옮기고, 자료실 자료는 자료실 선택 모드로 넘긴다(종류별로 나눠 묻기). 옮긴 뒤 '되돌리기'는 원래 폴더(폴더 밖)로.
+test('PC 1280: 노트 결과 우클릭 [폴더로 옮기기 ›] → 노트 폴더 나무 창 → 옮기기·되돌리기',async({page})=>{
+  await page.setViewportSize({width:1280,height:860});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const calls=[],patches=[];let meta={},stamp=1;
+  const F1='00000000-0000-4000-8000-0000000000a1',F2='00000000-0000-4000-8000-0000000000a2';
+  await openHome(page,{beforeLoad:async()=>{
+    await routeSearch(page,calls);
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_note_folders',r=>r.fulfill({json:[{id:F1,parent_id:null,name:'회의',sort_order:1024,created_at:'2026-10-01T00:00:00+00:00'},{id:F2,parent_id:F1,name:'교섭 기록',sort_order:1024,created_at:'2026-10-01T00:00:00+00:00'}]}));
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{
+      const at=`2026-10-0${stamp}T00:00:00+00:00`;
+      if(r.request().method()==='PATCH'){const body=r.request().postDataJSON();patches.push(body);meta=body.metadata;stamp++;return r.fulfill({json:[{id:'d1',updated_at:`2026-10-0${stamp}T00:00:00+00:00`,metadata:meta}]})}
+      return r.fulfill({json:[{id:'d1',updated_at:at,metadata:meta}]});
+    });
+  }});
+  await top(page).click();await top(page).fill('교섭');
+  await expect(panel(page).locator('.gs-band')).not.toHaveCount(0);
+  await panel(page).locator('[data-gs-group="note"] .gs-row').first().click({button:'right'});
+  const menu=page.locator('#gsRowMenu');
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('button')).toHaveText(['폴더로 옮기기 ›','자료실 결과 1개 모두 고르기','열기']);
+  await menu.getByRole('button',{name:'폴더로 옮기기 ›'}).click();
+  const picker=page.locator('.lu-move-picker:visible');
+  await expect(picker).toBeVisible();
+  // 노트 화면과 같은 나무 줄(하위 폴더는 들여쓰기)과 [폴더 밖으로].
+  await expect(picker.locator('.lu-move-item')).toHaveText(['회의','교섭 기록']);
+  await expect(picker.getByRole('button',{name:'폴더 밖으로'})).toBeVisible();
+  await picker.locator('.lu-move-item',{hasText:'교섭 기록'}).click();
+  await expect.poll(()=>patches.length).toBe(1);
+  expect(patches[0].metadata).toEqual({folder_id:F2,folder:'교섭 기록'});
+  const notice=page.locator('#kptuNotice');
+  await expect(notice).toContainText('옮겼어요 노트 1개 → 📁 교섭 기록');
+  await notice.locator('.kptu-notice-undo').click();
+  await expect.poll(()=>patches.length).toBe(2);
+  expect(patches[1].metadata).toEqual({});
+  expect(errors).toEqual([]);
+});

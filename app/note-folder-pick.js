@@ -27,13 +27,37 @@ export function openNoteFolderPicker({anchor, folders, onPick, onClosed = null})
     onPick: id => onPick(folders.find(f => f.id === id) || null), onOut: () => onPick(null), onClosed});
 }
 
-// 노트 여러 개를 한 폴더로(전체 검색 결과). 한 번에 하나씩 같은 서버 길로 쓴다. before: 노트 id → 옮기기 전 폴더(되돌리기용, 모르면 비움).
+// 노트들이 지금 든 폴더(되돌리기용): 기존 owner-RLS 읽기 길로 metadata만 읽어 폴더 표의 폴더(없으면 null = 폴더 밖)로 바꾼다.
+async function noteFoldersNow(ids, folders, rt) {
+  const ws = rt.context.read()?.workspace?.id;
+  if (!ws || !ids.length) return new Map();
+  const rows = await rt.api(`/rest/v1/app_notes?workspace_id=eq.${encodeURIComponent(ws)}&kind=eq.note&id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,metadata`, {singleFlight: false});
+  const out = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const meta = row?.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata) ? row.metadata : {};
+    const id = typeof meta.folder_id === 'string' ? meta.folder_id : folderIdFromName(folders, meta.folder);
+    out.set(row.id, folders.find(f => f.id === id) || null);
+  }
+  return out;
+}
+// 노트 여러 개를 한 폴더로(전체 검색 결과). 한 번에 하나씩 노트 화면과 같은 서버 길(setNoteFolderRef)로 쓴다.
+// 반환 undo(): 옮긴 노트를 원래 폴더로(그 사이 다른 폴더로 옮겨진 노트는 건드리지 않음 — fromId 확인).
 export async function moveNotesToFolder(ids, folder, {rt = window.KPTURuntime, folders = []} = {}) {
+  let before = new Map();
+  try { before = await noteFoldersNow(ids, folders, rt); } catch { before = new Map(); }
   const done = [], failed = [];
   for (const id of ids) {
-    try { done.push({id, saved: await setNoteFolderRef({id}, folder, rt)}); } catch { failed.push(id); }
+    try { await setNoteFolderRef({id}, folder, rt); done.push(id); } catch { failed.push(id); }
   }
-  return {done, failed, place: noteFolderPlace(folders, folder?.id || null)};
+  const undo = async () => {
+    let back = 0;
+    for (const id of done) {
+      if (!before.has(id)) continue;
+      try { await setNoteFolderRef({id}, before.get(id), rt, {fromId: folder?.id || null}); back++; } catch { /* 그 사이 바뀐 노트는 그대로 둔다 */ }
+    }
+    return back > 0;
+  };
+  return {done, failed, place: noteFolderPlace(folders, folder?.id || null), undo: before.size ? undo : null};
 }
 
 // initial: 처음 고른 폴더 이름(서버 화면 설정에서 읽은 옛 이름, 없으면 null). 폴더 표를 읽은 뒤 같은 이름의 맨 위 폴더로 바꿔 둔다.
