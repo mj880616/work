@@ -95,7 +95,8 @@ for (const width of [390, 1280]) {
     await expect(page.locator('[data-note-detail]')).toBeHidden();
     // Outside press closes it without opening anything.
     await press(page, more, width); await expect(menu(page)).toBeVisible();
-    await page.locator('[data-note-list-status]').click({ force: true });
+    // NOTE-탐색기: the list status line is empty now (the count sits in the head as '노트 · n'); press that count instead.
+    await page.locator('[data-nx-count]').click({ force: true });
     await expect(menu(page)).toBeHidden(); await expect(page.locator('[data-note-detail]')).toBeHidden();
     // A second ⋯ moves the menu; the first one is closed.
     await press(page, more, width); await press(page, rowMore(page, 'n-md'), width);

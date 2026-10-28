@@ -75,8 +75,8 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   await expect(picker(page)).toBeVisible();
   await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
   await expect(picker(page)).toBeHidden();
+  await expect.poll(() => f.writes.filter(x => x.table === 'notes').length).toBe(1);
   const w = f.writes.filter(x => x.table === 'notes');
-  expect(w).toHaveLength(1);
   expect(w[0].body).toEqual({ metadata: { tasks: [{ task_id: 't1' }], folder_id: U(1), folder: '회의' } });
   expect(f.rows.find(r => r.id === 'n1').updated_at).toBe('2026-10-16T01:00:00Z');
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
