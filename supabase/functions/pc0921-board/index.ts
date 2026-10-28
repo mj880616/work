@@ -50,6 +50,8 @@ Deno.serve(async(req)=>{
   const cors:Record<string,string>={...baseCors};
   if(origin&&ALLOWED_ORIGINS.has(origin))cors["Access-Control-Allow-Origin"]=origin;
   if(origin&&!ALLOWED_ORIGINS.has(origin))return new Response(JSON.stringify({error:"origin"}),{status:403,headers:cors});
+  // 쓰기는 허용 주소의 브라우저 요청만 받는다. 브라우저는 다른 주소로 POST할 때 Origin을 항상 보내므로, Origin이 없는 쓰기는 거절한다.
+  if(req.method==="POST"&&!origin)return new Response(JSON.stringify({error:"origin"}),{status:403,headers:cors});
   if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
 
   const url=new URL(req.url);
