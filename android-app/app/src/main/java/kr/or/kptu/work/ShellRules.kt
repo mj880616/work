@@ -198,7 +198,7 @@ object ShellRules {
         return cut.ifEmpty { "공유 파일 ${index + 1}" }
     }
 
-    /** 종류: 소문자 type/subtype만. 모르면 application/octet-stream. 별표(image/*)도 모르는 것으로 본다. */
+    /** 종류: 소문자 type/subtype만. 모르면 application/octet-stream. 별표 꼴(image/별표)도 모르는 것으로 본다. */
     fun shareMime(value: String?): String {
         val v = value?.trim()?.lowercase() ?: return "application/octet-stream"
         return if (MIME.matches(v)) v else "application/octet-stream"
