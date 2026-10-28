@@ -268,6 +268,9 @@ jobs:
       - name: Check OneDrive photo queue (OD-속도, visible first, limited at once, synthetic)
         run: node --test tests/od-thumb-loader.test.mjs
 
+      - name: Check photo share shared part (OD-공유고침, share the shown photo, synthetic)
+        run: node --test tests/photo-share.test.mjs
+
       - name: Check OneDrive small-picture copies on the phone (OD-폰보관, cache key·limits·cleanup·one audit allowance, synthetic)
         run: node --test tests/od-thumb-cache.test.mjs
 

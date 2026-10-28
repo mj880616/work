@@ -115,6 +115,7 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-viewer-info[hidden]{ display:none; }
 #appView #diaryView .diary-viewer-info dt{ opacity:.7; }
 #appView #diaryView .diary-viewer-info dd{ margin:0; overflow-wrap:anywhere; }
+#appView #diaryView .diary-viewer-info .diary-viewer-original{ color:var(--ds-photo-ink); text-decoration:underline; }
 #appView #diaryView .diary-viewer-caption{ margin:0; max-height:6.5em; overflow-y:auto; padding:6px 16px 4px; text-align:center; font-size:var(--ds-text-row); line-height:1.5; overflow-wrap:anywhere; }
 #appView #diaryView .diary-viewer-caption:empty{ display:none; }
 #appView #diaryView .diary-text{ white-space:pre-wrap; overflow-wrap:anywhere; font-size:var(--ds-text-read); line-height:1.6; }

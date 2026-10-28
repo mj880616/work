@@ -1365,6 +1365,9 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
 .basket-photo-more-btn::-webkit-details-marker{display:none}
 .basket-photo-more-panel{position:absolute;right:0;top:100%;z-index:3;display:flex;flex-direction:column;min-width:140px;padding:4px;border-radius:var(--ds-radius-control);background:var(--ds-photo-stage);border:1px solid var(--ds-photo-ink)}
 .basket-photo-more-panel :is(a,button){display:block;min-height:44px;padding:0 12px;border:0;background:transparent;color:var(--ds-photo-ink);font-size:var(--ds-text-row);text-align:left;text-decoration:none;line-height:44px;cursor:pointer}
+.basket-photo-note{position:absolute;left:0;right:0;bottom:8px;z-index:2;margin:0;padding:0 16px;text-align:center;font-size:var(--ds-text-row);pointer-events:none}
+.basket-photo-note:empty{display:none}
+.basket-photo-note:not(:empty){text-shadow:0 0 4px var(--ds-photo-stage)}
 
 /* MTG-보고창칸정리(명진 2026-10-27 ⑤): 창 안 한 줄 입력칸·고르기 칸·고르기 버튼은 높이 하나(--ds-field-height 28px). 위 입력 규칙이 input·select를,
    아래가 칸처럼 생긴 버튼(.field-btn)과 날짜 칸(.dt-date)을 같은 높이·선·모서리로 맞춘다. 창마다 따로 덮지 않는다. */

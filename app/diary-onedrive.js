@@ -8,6 +8,7 @@ import './od-thumb-cache.js';
 import {ownerScope, diaryPhotos, todayKey} from './diary-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE} from './od-thumb-loader.js';
+import {holdPhotoBlob, holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
 
 export const OD_FN = '/functions/v1/onedrive-photos';
 const encode = encodeURIComponent;
@@ -336,6 +337,16 @@ export async function grabThumb(url, fetcher = globalThis.fetch) {
     return null;
   } finally { if (timer) clearTimeout(timer); }
 }
+// 서버가 넘기는 한 장의 그림 바이트(Blob). 크게 보기 [공유]가 화면의 그림을 바이트로 읽을 수 없을 때(원드라이브 주소가 CORS로 막힘) 한 번만 쓴다.
+export async function odPhotoBlob(rt, id, size = 'large', fetcher = globalThis.fetch) {
+  const local = await odPhotoBytes(rt, id, size, fetcher);
+  try { const blob = await (await fetcher(local)).blob(); return /^image\//.test(blob.type || '') ? blob : null; }
+  finally { URL.revokeObjectURL(local); }
+}
+// 화면에 뜬 그림의 바이트를 [공유]용으로 준비하는 길: 이 화면이 만든 주소(blob:)면 그 바이트, 원드라이브 주소면 CORS로 같은 그림(브라우저 캐시), 막히면 서버가 넘기는 바이트.
+export async function odShownBlob(rt, id, size, url, fetcher = globalThis.fetch) {
+  return (await localImageBlob(url, fetcher)) || (url.startsWith('blob:') ? null : await grabThumb(url, fetcher)) || await odPhotoBlob(rt, id, size, fetcher);
+}
 export const odKeepCount = (rt = window.KPTURuntime) => keepStore()?.count(ownerScope(rt)) ?? Promise.resolve(0);
 // [비우기]: 그림 사본만 지운다. 지금 돌던 미리 받기도 멈춘다(다음에 앱을 열면 다시 받는다).
 export async function odKeepClear() { odStopPrefetch(); return (await keepStore()?.clear()) || false; }
@@ -533,13 +544,13 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
   // 보관본이 깨져 있으면(url 없음) 그 사본을 지워 다음 시도는 새로 받게 한다.
   function showBlob(blob, url, keep = null) {
     const local = URL.createObjectURL(blob);
-    img.onload = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); shown(); };
-    img.onerror = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); img.hidden = true; img.removeAttribute('src'); if (url) l.bad(item.id, size, url); else if (keep) keepStore().remove(keep.owner, item.id); busy = false; failed(); };
+    img.onload = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); holdPhotoBlob(box, blob); shown(); };
+    img.onerror = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); forgetPhotoBlob(box); img.hidden = true; img.removeAttribute('src'); if (url) l.bad(item.id, size, url); else if (keep) keepStore().remove(keep.owner, item.id); busy = false; failed(); };
     img.src = local; img.hidden = false;
   }
   function showUrl(url) {
-    img.onload = () => { img.onload = img.onerror = null; shown(); };
-    img.onerror = () => { img.onload = img.onerror = null; img.hidden = true; img.removeAttribute('src'); l.bad(item.id, size, url); busy = false; failed(); };
+    img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => odShownBlob(rt, item.id, size, url)); shown(); };
+    img.onerror = () => { img.onload = img.onerror = null; forgetPhotoBlob(box); img.hidden = true; img.removeAttribute('src'); l.bad(item.id, size, url); busy = false; failed(); };
     img.src = url; img.hidden = false;
   }
   function fromLoader(keep) {

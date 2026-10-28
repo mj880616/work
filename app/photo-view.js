@@ -2,6 +2,7 @@
 // 화면 위를 덮는 전체 화면 보기에 ×, Esc, 폰 뒤로 가기(라우터 층 하나)가 있다. 사진은 basket-files photo(노트 번호 + 파일 번호)로 읽는다.
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
+import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement} from './photo-share.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null;
@@ -48,8 +49,9 @@ function documentPhotoBox({file, getUrl, driveHref = ''}) {
     a.textContent = 'Drive에서 열기'; a.setAttribute('aria-label', `${shown} Drive에서 열기`);
     box.append(a);
   };
-  img.onload = () => { img.onload = img.onerror = null; box.dataset.state = 'shown'; };
-  img.onerror = fallback;
+  // OD-공유고침: 뜬 그림(이 화면이 받은 blob: 주소)을 [공유]가 그대로 넘길 수 있게 칸에 걸어 둔다(photo-share.js).
+  img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => imageElementBlob(img)); box.dataset.state = 'shown'; };
+  img.onerror = () => { forgetPhotoBlob(box); fallback(); };
   Promise.resolve().then(getUrl).then(url => { if (!url) throw new Error('url'); img.src = url; img.hidden = false; }, fallback);
   return {shown, box};
 }
@@ -70,10 +72,22 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = n
   for (const [b, dir, label, text] of [[prev, -1, '이전 사진', '‹'], [next, 1, '다음 사진', '›']]) {
     b.type = 'button'; b.className = 'basket-photo-step'; b.dataset.dir = String(dir); b.setAttribute('aria-label', label); b.textContent = text;
   }
+  const noteEl = document.createElement('p'); noteEl.className = 'basket-photo-note'; noteEl.setAttribute('role', 'status');
+  let noteTimer = null;
+  const note = (text, ms = 0) => { clearTimeout(noteTimer); noteEl.textContent = text; if (ms) noteTimer = setTimeout(() => { noteEl.textContent = ''; }, ms); };
+  // [공유]: 화면에 뜬 그림을 바로 넘긴다(일기 크게 보기와 같은 photo-share.js). 아직 안 떴으면 '사진 받는 중…' 뒤에 넘긴다.
+  const shareShown = () => {
+    const el = stage.querySelector('.diary-photo'), shownItem = item, name = String(item?.file?.name || '');
+    const nameOf = blob => (/\.(jpe?g|png|gif|webp)$/i.test(name) ? name : `사진.${/png/.test(blob.type) ? 'png' : /webp/.test(blob.type) ? 'webp' : /gif/.test(blob.type) ? 'gif' : 'jpg'}`);
+    sharePhotoElement(el, nameOf, {alive: () => current?.box === box && item === shownItem, note});
+  };
   const paintMenu = () => {
     if (!actions) return;
     more.innerHTML = '<summary class="basket-photo-more-btn" data-ctx="off" aria-label="사진 메뉴">⋯</summary><div class="basket-photo-more-panel" role="group" aria-label="사진 메뉴"></div>';
     const panel = more.querySelector('.basket-photo-more-panel');
+    const share = document.createElement('button'); share.type = 'button'; share.dataset.photoShare = ''; share.textContent = '공유';
+    share.addEventListener('click', () => { more.removeAttribute('open'); shareShown(); });
+    panel.append(share);
     (actions(item) || []).forEach((action, i) => {
       let el;
       if (action.href) { el = document.createElement('a'); el.href = action.href; el.target = '_blank'; el.rel = 'noopener noreferrer'; }
@@ -95,8 +109,8 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = n
     paintMenu();
   };
   if (nav) { bar.insertBefore(countEl, close); stage.append(prev, next); }
-  if (actions) bar.insertBefore(more, close);
-  const step = dir => { if (!nav) return; const to = index + dir; if (to < 0 || to >= nav.count) return; index = to; paint(); };
+  if (actions) { bar.insertBefore(more, close); stage.append(noteEl); }
+  const step = dir => { if (!nav) return; const to = index + dir; if (to < 0 || to >= nav.count) return; index = to; note(''); paint(); };
   prev.addEventListener('click', () => step(-1)); next.addEventListener('click', () => step(1));
   box.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); } });
   paint(first);
