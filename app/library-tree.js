@@ -5,7 +5,7 @@
 // source는 나중에 Drive 폴더 보기(DRIVE-자료트리)를 더할 자리다(결정 D10). 지금은 늘 'library'.
 
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
-export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'종류',month:'월별',folder:'폴더'});
+export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'분류',month:'월별',folder:'폴더'});
 // 결정 D12: 한 토글에 파일이 20개를 넘으면 20개만 보이고 [N건 더].
 export const FILE_LIMIT=20;
 // 결정 D3: 폴더 안 폴더는 3단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음).

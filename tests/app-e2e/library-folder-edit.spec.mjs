@@ -149,7 +149,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     // 자료 ⋯ → 폴더로 옮기기 ›(이름 바꾸기 바로 아래): 같은 프로젝트 틀의 폴더를 고를 수 있고, 하위는 들여쓴다.
     await page.locator('#libraryExpandAll').click();if(await page.locator('#libraryExpandAll').getAttribute('data-lu-expand')!=='close')await page.locator('#libraryExpandAll').click();
     await press(page,page.locator('[data-lu-menu="a-1"]'),width);
-    expect(await page.locator('#luMorePanel button').evaluateAll(xs=>xs.slice(0,2).map(x=>x.textContent.trim()))).toEqual(['이름 바꾸기F2','폴더로 옮기기›']);
+    expect(await page.locator('#luMorePanel button').evaluateAll(xs=>xs.slice(0,4).map(x=>x.textContent.trim()))).toEqual(['선택','이름 바꾸기F2','폴더로 옮기기›','분류 바꾸기›']);
     await press(page,page.locator('#luMorePanel [data-lu-move-open="a-1"]'),width);await expect(page.locator('#luMovePicker')).toBeVisible();
     expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 B','가상 B-1']);
     await expect(page.locator('#luMovePicker [data-lu-move-folder="00000000-0000-4000-8000-0000000000b1"]').last()).toHaveAttribute('style',/--lu-depth:\s*2/);

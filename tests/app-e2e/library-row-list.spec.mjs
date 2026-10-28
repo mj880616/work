@@ -286,10 +286,10 @@ for(const width of [390,1280]){
       expect(await ids()).toEqual(['ordinary-a','category-only','meeting-a','ordinary-b','meeting-b']);
       await onlyLibraryCategories(page,['회의'],{tap:width===390});expect(await ids()).toEqual(['category-only','meeting-b']);
       await page.screenshot({path:`/tmp/library-two-meetings-${width}.png`,fullPage:true});
-      // Keyboard (LIB-거르기전체): [전체] turns every category on, pressing it again turns every category off ('고른 종류 없음'), and a third press turns all on; [회의] off returns to the default.
+      // Keyboard (LIB-거르기전체): [전체] turns every category on, pressing it again turns every category off ('고른 분류 없음'), and a third press turns all on; [회의] off returns to the default.
       await pressed('전체').focus();await page.keyboard.press('Enter');
       await expect(rows).toHaveCount(5);await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toBeFocused();
-      await page.keyboard.press('Space');await expect(rows).toHaveCount(0);await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();await expect(page.locator('#documentList')).toHaveText('고른 종류 없음');
+      await page.keyboard.press('Space');await expect(rows).toHaveCount(0);await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');
       await page.keyboard.press('Enter');await expect(rows).toHaveCount(5);await expect(pressed('전체')).toBeFocused();
       await pressed('회의').click();await expect(rows).toHaveCount(3);await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');
       await focusLibraryProject(page,'top-a');

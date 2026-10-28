@@ -406,3 +406,15 @@
 #appView #libraryView .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-closed{display:none}
 #appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-open{display:inline}
 #appView #libraryView .lu-node-out .lu-node-name{color:var(--kptu-muted)}
+
+/* LIB-후속1 ① PC 선택 오류: 줄(role=button)이 누르는 동안 공용 눌림 규칙(ui-standard.css UI-눌림느낌)으로 1.5~3% 작아지면서
+   넓은 줄의 왼쪽 끝이 7~13px 오른쪽으로 밀려, 네모 칸 왼쪽·가운데를 누르면 손을 뗄 때 포인터가 줄 밖(목록)에 있어 클릭이 줄에 닿지 않았다.
+   선택 모드의 줄은 data-press="off"로 작아지지 않게 하고, 줄 어디를 눌러도(네모 칸 왼쪽 여백 포함) 고르기·풀기. 글자는 칠해지지 않게. */
+#appView #libraryView #libraryListCard.lu-selecting #documentList{-webkit-user-select:none;user-select:none}
+#appView #libraryView #documentList .lu-row.lu-row-picking:hover{background:var(--kptu-surface-subtle)}
+/* 일괄 작업 뒤 옮기거나 바뀐 줄: 잠깐 강조색으로 반짝(한 번). 움직임 줄이기면 색만 짧게. */
+@keyframes lu-flash{0%{background:var(--kptu-primary-soft)}100%{background:transparent}}
+#appView #libraryView #documentList .lu-row.lu-flash{animation:lu-flash 1.2s ease-out 1}
+@media(prefers-reduced-motion:reduce){#appView #libraryView #documentList .lu-row.lu-flash{animation-duration:.6s}}
+/* 선택 모드 메뉴 머리 'n개 골랐음'(누르는 것 아님, 작은 회색 글자). */
+.lu-more-panel .lu-menu-head{margin:0;padding:4px var(--kptu-space-3,12px) 2px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
