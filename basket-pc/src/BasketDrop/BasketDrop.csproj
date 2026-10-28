@@ -18,6 +18,9 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="app.ico" LogicalName="BasketDrop.app.ico" />
+    <EmbeddedResource Include="tray-pending.ico" LogicalName="BasketDrop.tray-pending.ico" />
+    <EmbeddedResource Include="tray-signedout.ico" LogicalName="BasketDrop.tray-signedout.ico" />
+    <EmbeddedResource Include="tray-signedout-pending.ico" LogicalName="BasketDrop.tray-signedout-pending.ico" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Velopack" Version="1.2.161" />

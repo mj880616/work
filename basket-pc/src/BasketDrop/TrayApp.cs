@@ -41,6 +41,7 @@ internal sealed class TrayApp : ApplicationContext
     private CancellationTokenSource? _signInCts;
     private PasteForm? _paste;
     private StatusForm? _status;
+    private TrayPicture _trayPicture = TrayPicture.Normal;
 
     private void Ui(Action action)
     {
@@ -65,7 +66,7 @@ internal sealed class TrayApp : ApplicationContext
 
         if (_store.RecoverInterrupted() > 0) _log.Write(LogCode.QueueRecovered);
 
-        _tray = new NotifyIcon { Icon = AppIcon.ForTray(), Visible = true, Text = "바구니 PC드롭" };
+        _tray = new NotifyIcon { Icon = AppIcon.ForTray(), Visible = true, Text = TrayStatus.Name };
         _tray.ContextMenuStrip = BuildMenu();
         _tray.DoubleClick += (_, _) => ShowPaste();
 
@@ -538,15 +539,22 @@ internal sealed class TrayApp : ApplicationContext
 
     private void RefreshTray()
     {
-        var items = _store.List();
-        var waiting = items.Count(i => i.State is ItemState.Pending or ItemState.Sending or ItemState.NotReached or ItemState.LoginRequired);
-        var check = items.Count(i => i.State is ItemState.Unknown or ItemState.Rejected);
-        var login = LoginText(_auth.State);
-        var text = $"바구니 PC드롭 · {login} · 대기 {waiting} · 확인 필요 {check}";
-        _loginStatusItem.Text = "로그인 상태: " + login;
+        var status = TrayStatus.From(_store.List().Select(i => i.State), _auth.State);
+        _loginStatusItem.Text = "로그인 상태: " + LoginText(_auth.State);
         _signInItem.Visible = _auth.State != AuthState.SignedIn;
         _signOutItem.Visible = _auth.State != AuthState.SignedOut;
-        _tray.Text = text.Length > 63 ? text[..63] : text;
+        _tray.Text = status.Tooltip;
+        ShowTrayPicture(status.Picture);
+    }
+
+    /// <summary>Swaps the tray picture only when it changes, and frees the one it replaces.</summary>
+    private void ShowTrayPicture(TrayPicture picture)
+    {
+        if (picture == _trayPicture) return;
+        var old = _tray.Icon;
+        _tray.Icon = AppIcon.ForTray(picture);
+        _trayPicture = picture;
+        old?.Dispose();
     }
 
     private void Balloon(string text, ToolTipIcon icon)
