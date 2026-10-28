@@ -1162,7 +1162,7 @@ window.KPTURouter.on('basket', detail => {
   void preloadMarkdown();
   const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt), wantedKind = takeBasketKindRequest(rt);
   // NAV-새로고침제자리: the place written in the address (an open note, the folder entered) — read before anything below closes it.
-  const place = window.KPTURouter.place?.('basket') || {};
+  const written = window.KPTURouter.place?.('basket') || {};
   if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) { window.KPTURouter.setSub('basket', paneSub(), {replace:true}); return; }
   const noteSide = detail?.sub === 'note' || wantedKind === 'note' || !!wantedDoc;
   noteDocs.close({focus:false,force:true}); showKind('memo',{address:false}); showPane(detail?.sub === 'todo' ? 'todo' : 'update'); void todo.refresh();
@@ -1170,7 +1170,7 @@ window.KPTURouter.on('basket', detail => {
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();
-  if (noteSide) showKind('note', {openId:wantedDoc || place.doc || null, folder:wantedDoc ? null : place.folder || null});
+  if (noteSide) showKind('note', {openId:wantedDoc || written.doc || null, folder:wantedDoc ? null : written.folder || null});
 });
 // UI-디자인손질 8: a note saved from the menu [쓰기] shows up here without leaving the current screen.
 // TRASH-다른삭제 5단계: 휴지통에서 되돌린 업데이트·노트가 이 화면 목록에 다시 나타나게 한다(지금 보고 있는 화면이고 작업 중이 아닐 때만. 아니면 다음에 열 때 다시 읽는다).

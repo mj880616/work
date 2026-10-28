@@ -87,7 +87,7 @@ const paintList = guardRender(paintListNow), paintDetail = guardRender(paintDeta
 // NAV-새로고침제자리: the box (?box=personal) and the open call (?call=<id>) are written to the address (no history entry of their own;
 // the phone keeps its layer entries), so a reload opens the same box and call. The address is read once when this module loads and
 // applied after the first list read; until then nothing is written.
-let placed = (() => { const q = new URLSearchParams(location.search); return q.get('view') === 'calls' ? {box:q.get('box') === 'personal' ? 'personal' : null, call:/^[A-Za-z0-9_.:-]{1,80}$/.test(q.get('call') || '') ? q.get('call') : null} : null; })();
+let placed = (() => { const q = new URLSearchParams(globalThis.location?.search || ''); return q.get('view') === 'calls' ? {box:q.get('box') === 'personal' ? 'personal' : null, call:/^[A-Za-z0-9_.:-]{1,80}$/.test(q.get('call') || '') ? q.get('call') : null} : null; })();
 function applyPlace() {
   const p = placed; if (!p || !state.loaded) return;
   placed = null;

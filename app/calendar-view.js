@@ -18,7 +18,7 @@ function range(appendPage=false){if(view==='month')return null;const first=view=
 // NAV-새로고침제자리: the first day shown (list: its first day, week: its Monday, month: the 1st) is written to the address as
 // ?view=calendar&date=YYYY-MM-DD when it is not today's default (no history entry of its own), so a reload shows the same dates.
 // The address is read once when this module loads; until it is applied nothing is written.
-let placeDate=(()=>{const q=new URLSearchParams(location.search),d=q.get('date')||'';return q.get('view')==='calendar'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(seoulDayStart(d).getTime())?d:null})();
+let placeDate=(()=>{const q=new URLSearchParams(globalThis.location?.search||''),d=q.get('date')||'';return q.get('view')==='calendar'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(seoulDayStart(d).getTime())?d:null})();
 function applyPlace(){
   if(!placeDate)return false;
   const d=seoulDayStart(placeDate);

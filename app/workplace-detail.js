@@ -386,7 +386,7 @@ function wdOrder(dock){const log=document.querySelector('#wdLog'),inbox=document
 // ORG-PC상세정리 ①: the pane has no title of its own; the top line's place shows "담당조직 › 조직명" (topbar-actions.js).
 // NAV-새로고침제자리: the organization open (?view=team&org=<id>) is written to the address (no history entry of its own; a phone window
 // keeps its own entry), so a reload opens it again. The address is read once when this module loads and applied when the list is drawn.
-let wdPlaced=(()=>{const q=new URLSearchParams(location.search),id=q.get('org')||'';return q.get('view')==='team'&&/^[A-Za-z0-9_.:-]{1,80}$/.test(id)?id:null})();
+let wdPlaced=(()=>{const q=new URLSearchParams(globalThis.location?.search||''),id=q.get('org')||'';return q.get('view')==='team'&&/^[A-Za-z0-9_.:-]{1,80}$/.test(id)?id:null})();
 function wdPaintSelection(){const m=document.querySelector('#wdModal'),open=!!m&&!m.classList.contains('hidden'),shown=wdDocked()&&open;if(!wdPlaced)window.KPTURouter?.setPlace?.('team',{org:open?wdTargetId:null});document.querySelector('#wdDetailPane')?.classList.toggle('has-org',shown);window.dispatchEvent(new CustomEvent('kptu:workplace-selection',{detail:{id:shown?wdTargetId:null}}));wdPaintWhere()}
 function wdPaintWhere(){const m=document.querySelector('#wdModal'),shown=wdDocked()&&!!m&&!m.classList.contains('hidden')&&wdOrg?.id===wdTargetId;window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'team',name:shown?wdOrg.name:null}}))}
 // On a PC with nothing chosen: the last organization seen on this device, else the first one in the list.
