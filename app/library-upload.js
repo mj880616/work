@@ -369,7 +369,7 @@ window.addEventListener('kptu:library-folders-changed',()=>{if(!luWorkspace)retu
 function luLoadOrganizations(){if(luOrganizations||luOrganizationsLoading||!luWorkspace)return luOrganizationsLoading;luOrganizationsLoading=Promise.all([luApi('/rest/v1/app_suborganizations?workspace_id=eq.'+encodeURIComponent(luWorkspace)+'&select=id,name,active&order=id.asc'),import('./organization-order.js')]).then(([rows])=>{luOrganizations=window.KPTUOrganizationOrder?.sort?.(rows||[])||rows||[]}).catch(()=>{luOrganizations=[]}).finally(()=>{luOrganizationsLoading=null;luRenderLibrary()});return luOrganizationsLoading}
 const LU_PROJECT_COLORS=['green','blue','orange','purple','pink','yellow','red','gray'];
 function luProjectColor(project){const rows=luCatalog()?.projects||[];let top=project,guard=0;while(top?.parent_id&&guard++<5){const up=rows.find(p=>p.id===top.parent_id);if(!up)break;top=up}const key=LU_PROJECT_COLORS.includes(top?.metadata?.color)?top.metadata.color:'gray';return {color:key,tone:top!==project?'soft':''}}
-const luKindKey=k=>k==='파일'?'other':k==='그림'?'img':k.toLowerCase();
+const luKindKey=k=>k==='파일'?'other':k==='그림'?'img':k==='웹'?'web':k.toLowerCase();
 function luRenderGroupBy(){
   const host=document.querySelector('#libraryGroupBy');if(!host)return;
   renderFilterChips(host,{label:'묶기',controls:'documentList',small:true,value:luGroupBy,options:GROUP_BY.filter(value=>value!=='folder'||luFoldersReady).map(value=>({value,label:GROUP_LABELS[value]})),onChange:value=>{if(value===luGroupBy)return;luGroupBy=value;luSessionFolder=value==='folder';luUserChangedView('groupBy');luOpened.clear();luFilterOpen.clear();luShowAll.clear();if(value==='organization')luLoadOrganizations();luRenderLibrary()}});

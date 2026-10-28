@@ -224,9 +224,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       const cKey=cHead?.parentElement?.dataset.luNode||'';
       if(cKey.startsWith('c:')){const name=cKey.slice(2);return {head:cHead,ok:drag.docs.some(d=>categoryOf(d.category)!==name),kind:'category',value:name}}
     }
-    const head=e.target?.closest?.('#documentList summary.lu-node-head');if(!head)return null;
+    // LIB-정리보충 ④(10:41): 폴더 머리뿐 아니라 열린 폴더 안의 자료 줄 위에 놓아도 그 자료가 든 폴더(가장 가까운 토글)로. '폴더 밖' 자료 줄이면 폴더 밖으로.
+    let head=e.target?.closest?.('#documentList summary.lu-node-head'),viaRow=false;
+    if(!head){const rowNode=e.target?.closest?.('#documentList .lu-row')?.closest('details.lu-node');if(rowNode){head=rowNode.querySelector(':scope > summary.lu-node-head');viaRow=!!head}}
+    if(!head)return null;
     const node=head.parentElement,key=node?.dataset.luNode;if(!key)return null;
-    const free=!!s().free,r=head.getBoundingClientRect(),y=e.clientY-r.top,edge=r.height/4;
+    const free=!!s().free,r=head.getBoundingClientRect(),y=e.clientY-r.top,edge=viaRow?-1:r.height/4;
     const sameFrame=frame=>drag.kind==='folder'?drag.frame===frame:drag.docs.every(d=>(d.project_id||null)===frame);
     // 맨 위 머리: 프로젝트 묶기는 그 프로젝트 머리, 폴더 보기는 '폴더 밖'.
     if(key.startsWith('p:')||key===OUTSIDE_KEY){
@@ -244,23 +247,36 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const ok=folderMoveTargets(s().folders,drag.id,free).includes(target.id);
     return {head,ok,kind:'into',target:target.id};
   }
-  function clearMarks(){hideDropPanel();document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging,#documentList .lu-grabbed,#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
+  // LIB-정리보충 10:42: 끄는 채 닫힌 폴더(또는 '폴더 밖'·프로젝트 토글) 위에 1초 머물면 저절로 열린다(탐색기 방식). 다른 곳으로 가거나 끌기가 끝나면 취소.
+  // 여는 것은 details.open만 바꾼다(목록을 다시 그리지 않아 끌기가 끊기지 않음). 펼침 기억은 기존 toggle 이벤트가 맡는다.
+  const HOVER_OPEN_MS=1000;let hoverKey='',hoverTimer=0;
+  function hoverOpen(t){
+    const node=t?.head?.parentElement,key=node?.dataset?.luNode||'';
+    const want=node&&!node.open&&t.kind!=='before'&&t.kind!=='after'?key:'';
+    if(want===hoverKey)return;
+    clearTimeout(hoverTimer);hoverKey=want;
+    if(want)hoverTimer=setTimeout(()=>{if(hoverKey===want&&(drag||touch?.grabbed)&&node.isConnected&&!node.open)node.open=true},HOVER_OPEN_MS);
+  }
+  function clearMarks(){clearTimeout(hoverTimer);hoverKey='';hideDropPanel();document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging,#documentList .lu-grabbed,#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
   function showMarks(t){
     if(!t)document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-group'));
     document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
     if(!t)return;t.head.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no');
     t.head.classList.add(!t.ok?'lu-drop-no':t.kind==='before'?'lu-drop-before':t.kind==='after'?'lu-drop-after':'lu-drop-into');
     document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>{if(el!==t.head.parentElement)el.classList.remove('lu-drop-group')});
-    t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&t.kind==='category');
+    // 놓일 묶음 전체(머리줄 + 안의 줄)를 연한 강조색으로: 분류 바꾸기, 그리고 자료를 폴더(또는 폴더 밖)에 넣을 때.
+    t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&(t.kind==='category'||(drag?.kind==='file'&&(t.kind==='into'||t.kind==='top'))));
   }
   const markDragging=d=>{for(const el of d?.els||[])el.classList.add('lu-dragging')};
   // 화면 가장자리 근처에서 끌면 목록이 저절로 움직인다(끌기가 끝나면 멈춤).
-  let scroller=null,scrollTimer=0,scrollDir=0;
+  let scroller=null,scrollTimer=0,scrollDir=0,scrollSpeed=0;
   function scrollParent(el){for(let n=el?.parentElement;n&&n!==document.body;n=n.parentElement){const o=getComputedStyle(n).overflowY;if((o==='auto'||o==='scroll')&&n.scrollHeight>n.clientHeight)return n}return null}
   function edgeScroll(y,list){
     scroller=scrollParent(list);const box=scroller?scroller.getBoundingClientRect():{top:0,bottom:innerHeight},edge=56;
     scrollDir=y<box.top+edge?-1:y>box.bottom-edge?1:0;
-    if(scrollDir&&!scrollTimer){const step=()=>{if(!scrollDir||(!drag&&!touch?.grabbed)){scrollTimer=0;return}(scroller||window).scrollBy(0,scrollDir*14);scrollTimer=requestAnimationFrame(step)};scrollTimer=requestAnimationFrame(step)}
+    // 10:42: 끝에 가까울수록 빠르게(가장자리 56px 안에서 4~24px씩). 처음엔 천천히 넘어간다.
+    const dist=scrollDir<0?y-box.top:box.bottom-y;scrollSpeed=scrollDir?Math.round(4+20*Math.min(1,Math.max(0,1-dist/edge))):0;
+    if(scrollDir&&!scrollTimer){const step=()=>{if(!scrollDir||(!drag&&!touch?.grabbed)){scrollTimer=0;return}(scroller||window).scrollBy(0,scrollDir*scrollSpeed);scrollTimer=requestAnimationFrame(step)};scrollTimer=requestAnimationFrame(step)}
   }
   function stopScroll(){scrollDir=0;if(scrollTimer&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(scrollTimer);scrollTimer=0}
   // 자료 여럿(또는 하나)을 폴더로/폴더 밖으로. 이전 자리를 기억해 '되돌리기'가 그 자리로 돌려놓는다(그 사이 또 바뀐 것은 건드리지 않음).
@@ -363,7 +379,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(d.kind==='file'&&!s().treeView)setTimeout(()=>{if(drag===d)showDropPanel(d)},0);
     });
     list.addEventListener('dragover',e=>{
-      if(!drag)return;const t=dropFor(e);showMarks(t);edgeScroll(e.clientY,list);
+      if(!drag)return;const t=dropFor(e);showMarks(t);hoverOpen(t);edgeScroll(e.clientY,list);
       if(!t)return;
       if(!t.ok){try{e.dataTransfer.dropEffect='none'}catch{}return}
       e.preventDefault();try{e.dataTransfer.dropEffect='move'}catch{}
@@ -404,7 +420,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       const p=e.touches[0];if(!p)return;
       if(Math.hypot(p.clientX-touch.x,p.clientY-touch.y)>MOVED)touch.moved=true;
       if(!touch.moved||!touch.drag)return;
-      touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);edgeScroll(p.clientY,list);
+      touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);hoverOpen(touch.drop);edgeScroll(p.clientY,list);
     },{passive:false});
     list.addEventListener('touchend',e=>{
       if(!touch)return;
