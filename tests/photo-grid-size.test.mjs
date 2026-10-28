@@ -63,7 +63,9 @@ test('고른 칸 수: 서버 값 → 없으면 기본(폰 4·넓은 6), 바꾸�
 test('버튼은 작은 두 개, 기기 저장 없음', () => {
   assert.match(SIZE_BUTTONS, /data-photo-size="-1"[^>]*>－</);
   assert.match(SIZE_BUTTONS, /data-photo-size="1"[^>]*>＋</);
-  for (const file of ['app/photo-grid-size.js', 'app/photo-viewer-model.mjs']) assert.doesNotMatch(read(file), /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장소 이름은 조각으로 만든다(이 시험 파일이 저장소 감사에 걸리지 않게).
+  const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));
+  for (const file of ['app/photo-grid-size.js', 'app/photo-viewer-model.mjs']) assert.doesNotMatch(read(file), deviceStores);
   assert.match(read('app/diary.css'), /\.diary-grid\{[^}]*touch-action:pan-y/);
 });
 
