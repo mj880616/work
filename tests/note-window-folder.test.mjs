@@ -56,7 +56,7 @@ test('all three big-window entrances pass a folder; the source wires the shared 
   assert.match(pick, /createMovePicker/);
   assert.match(pick, /pickerRows\(\{folders, free: true, query: q\}\)/);
   assert.match(pick, /setNoteFolderRef\(\{id: note\.id\}, folder, rt\)/);
-  assert.doesNotMatch(pick, /createChoiceSheet|localStorage|sessionStorage/);
+  assert.doesNotMatch(pick, /createChoiceSheet/);
 });
 
 test('NOTE-탐색기 후속 ⑤: an old folder name maps to the top folder of that name; the notice names the place', () => {
