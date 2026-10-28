@@ -1,0 +1,20 @@
+/* OD-연결아이콘: 원드라이브 아이콘 하나 + 드롭다운(app/od-link.js). 일기·사진 메뉴 공용. 판은 body에 붙으므로 화면 이름으로 좁히지 않는다. */
+.od-link{position:relative;min-width:32px;padding:0 6px;color:var(--kptu-info)}
+.od-link .od-link-cloud{display:block;opacity:.85}
+.od-link[data-state="off"]{color:var(--kptu-muted)}
+.od-link[data-state="off"] .od-link-cloud{opacity:.4}
+.od-link .od-link-dot{display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--kptu-danger);box-shadow:0 0 0 1.5px var(--kptu-surface)}
+.od-link[data-state="error"] .od-link-dot{display:block}
+.od-link[hidden]{display:none}
+.od-link-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
+.od-link-menu[hidden]{display:none}
+.od-link-menu .od-link-status{display:flex;align-items:center;gap:6px;margin:0;padding:6px 10px 4px;font-size:12px;color:var(--kptu-muted);overflow-wrap:anywhere}
+.od-link-menu .od-link-note{margin:0;padding:0 10px 4px;font-size:11px;color:var(--kptu-danger);overflow-wrap:anywhere}
+.od-link-menu .od-link-mark{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:var(--kptu-muted)}
+.od-link-menu .od-link-mark[data-state="ok"]{background:var(--kptu-info)}
+.od-link-menu .od-link-mark[data-state="error"]{background:var(--kptu-danger)}
+.od-link-menu button{display:flex;align-items:center;gap:6px;width:100%;min-height:36px;padding:0 10px;text-align:left;border:0;border-radius:var(--ds-radius-control,8px);background:transparent;color:var(--kptu-ink);font:inherit;font-size:13px;font-weight:400;cursor:pointer}
+.od-link-menu button:hover{background:var(--kptu-surface-subtle)}
+.od-link-menu button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.od-link-menu .od-link-check{flex:0 0 12px;width:12px;color:var(--kptu-info)}
+.od-link-menu .od-link-danger{color:var(--kptu-danger)}

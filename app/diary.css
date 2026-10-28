@@ -157,8 +157,6 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 
 /* JOURNAL-일기원드라이브 2단계: 연결 한 줄·폴더 고르기, 달력의 원드라이브 점, 사진 위 ★, 크게 보기의 ★ 개수와 ⋯(지우기). 색은 기존 토큰만. */
 #appView #diaryView .diary-od{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; padding:6px 8px; color:var(--kptu-muted); font-size:var(--ds-text-meta); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
-#appView #diaryView .diary-od-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-#appView #diaryView .diary-od-line span{ min-width:0; overflow-wrap:anywhere; }
 #appView #diaryView .diary-od-note{ margin:0; }
 #appView #diaryView .diary-od-note:empty{ display:none; }
 #appView #diaryView .diary-od-actions{ display:flex; flex-wrap:wrap; gap:8px; }
