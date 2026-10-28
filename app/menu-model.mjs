@@ -23,14 +23,16 @@ export const ITEMS = Object.freeze([
   {id: 'ledger', label: '원장', view: 'ledger', icon: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM9 8h6M9 12h6M9 16h4'},
   {id: 'photos', label: '사진', view: 'photos', icon: 'M3 6h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01'},
   {id: 'calls', label: '통화', view: 'calls', feed: true, icon: 'M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z'},
-  {id: 'telegram', label: '텔레그램 소식', view: 'telegram', feed: true, icon: 'M21 4 3 11l6 2 2 6 3-4 5 4z'}
+  {id: 'telegram', label: '텔레그램 소식', view: 'telegram', feed: true, icon: 'M21 4 3 11l6 2 2 6 3-4 5 4z'},
+  // 주소 개편 ② E1: [아스날]은 처음 자리가 [메뉴] 창 맨 아래(PC 사이드바도 맨 아래 묶음 끝, feed와 같은 자리). 메뉴 편집으로 옮길 수 있다.
+  {id: 'arsenal', label: '아스날', view: 'arsenal', feed: true, icon: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7l3.5 2.5-1.3 4h-4.4l-1.3-4zM12 3v4m3.5 2.5 4.6-1.5m-5.9 5.5 2.8 3.8m-7.2-3.8L7 17.3m1.5-7.8L3.9 8'}
 ]);
 export const MENU_ICON = 'M4 6h16M4 12h16M4 18h16';
 export const FIXED_ID = 'home';
 // 하단바 칸 수(홈 포함, [메뉴] 칸 제외). DB 검사는 여유를 두고 6개까지 받는다(view-prefs.js MENU_BAR_MAX).
 export const BAR_MAX = 5;
 export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'meetings', 'team']);
-export const DEFAULT_REST = Object.freeze(['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram']);
+export const DEFAULT_REST = Object.freeze(['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram', 'arsenal']);
 const KNOWN = new Map(ITEMS.map(item => [item.id, item]));
 export const itemOf = id => KNOWN.get(id) || null;
 export const labelOf = id => KNOWN.get(id)?.label || '';

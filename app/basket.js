@@ -630,7 +630,7 @@ function paintAttachments() {
   // Photos: a small preview through the owner-only basket-files photo view (the diary's path; never a public address).
   for(const thumb of detail.querySelectorAll('[data-basket-photo]')){
     const file=selected.attachments.find(f=>f.drive_file_id===thumb.dataset.basketPhoto);
-    if(file)thumb.append(photoElement(selected,file,'small',{label:'',link:false,rt}));
+    if(file)thumb.append(photoElement(selected,file,'small',{label:'',link:false,rt,retry:false}));
   }
   paintOcrControls();paintHtmlViews();
 }

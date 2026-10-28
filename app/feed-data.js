@@ -8,6 +8,7 @@
 // and updated_at; there is no insert or delete. Rows come in through collector-feed only.
 // TG-방날짜묶기: a telegram item's 삭제/되살리기 goes through the DB function app_feed_set_state; 삭제 is hidden_at (the 휴지통), never emptied by itself.
 import {readRecordPages} from './basket-link-records.js';
+import {myOrganizationIds} from './my-organizations.js';
 import {addDays, kstDay} from './feed-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 
@@ -173,14 +174,15 @@ export const editSummary = ({item = null, room = null, day = null, patch}, rt = 
   tgdg('app_feed_summary_edit', {p_item:item, p_room_key:room, p_day:day, p_patch:patch || {}}, rt);
 
 // Organizations for names and for the 조직 연결 box: every organization of the workspace (names of inactive ones are still shown on
-// old rows), plus which are mine (내 프로필 → 담당 사업장, the same rule as the 기록할 곳 sheet).
+// old rows), plus which are mine (my-organizations.js, ORG-고르기통일: the one rule every organization picker uses).
 export async function readOrganizations(rt = window.KPTURuntime) {
   const c = ctx(rt), ws = workspaceOf(rt);
   const [orgs, mine] = await Promise.all([
     readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encode(ws)}&select=id,name,aliases,active&order=id.asc`, rt),
     readRecordPages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encode(c.user?.id || '')}&select=organization_id&order=organization_id.asc`, rt).catch(() => []),
   ]);
-  return {orgs:orgs.filter(o => o?.id), mine:new Set(mine.map(a => a.organization_id))};
+  const rows = orgs.filter(o => o?.id);
+  return {orgs:rows, mine:myOrganizationIds(rows, mine)};
 }
 // 조직 연결 (요약 부품 통일 ②, minimal): the row's organization is set, and the summary (default: the core points) is added to that
 // organization's 기록 through the existing organization-record path (quick-save.js, app_suborganization_updates owner RLS).

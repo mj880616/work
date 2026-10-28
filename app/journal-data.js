@@ -27,6 +27,8 @@ import {noteJournalAt, MOVED_KEY} from './update-journal.js';
 import {dueDay, shortDay, tomorrowKey, moveTaskToDay} from './task-due.mjs';
 import {reportsMeeting, meetingKindKey, meetingKindName} from './journal-meeting-kinds.js';
 import {reportKindOf, reportKindLabel, DEFAULT_KIND} from './report-kinds.mjs';
+import {callLine} from './journal-draft-model.mjs';
+import {callAiAssist} from './basket-ai-summary.js';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -123,6 +125,38 @@ export async function changeWorkDay({day, row = null, change}, rt = window.KPTUR
   }
   throw Object.assign(new Error('다른 기기에서 이 날 기록이 계속 바뀌고 있어요. 다시 불러온 목록에서 확인해 주세요.'), {code:'day_changed', row:current});
 }
+
+// JOURNAL-오늘한줄초안: the week's AI drafts of '오늘 한 줄' (app_journal_drafts, owner RLS, one row a day, read only here — the server
+// ai-assist kind=journal_draft writes them). A draft is not a work line: the weekly report never reads this table. Before the DB step the
+// table is missing ({missing:true}) and the screen works as before.
+export async function readWeekDrafts(start, rt = window.KPTURuntime) {
+  const days = weekDays(start);
+  try {
+    const rows = await rt.api(`/rest/v1/app_journal_drafts?workspace_id=eq.${encode(workspace(rt))}&journal_day=gte.${days[0]}&journal_day=lte.${days[6]}&select=journal_day,draft_text&order=journal_day.asc&limit=7`);
+    return {missing:false, map:new Map((Array.isArray(rows) ? rows : []).filter(r => dayKey.test(r?.journal_day || '') && typeof r.draft_text === 'string' && r.draft_text.trim()).map(r => [r.journal_day, r.draft_text.trim()]))};
+  } catch (error) {
+    if (error?.status === 404) return {missing:true, map:new Map()};
+    throw error;
+  }
+}
+// Ask the server for today's draft once (it refuses before 18:00 KST, when a line or a draft is already there, and never overwrites).
+// Returns the draft text or '' (skipped or failed — the screen then simply shows no draft).
+export async function requestDayDraft(day, lines, rt = window.KPTURuntime) {
+  if (!lines.length) return '';
+  const result = await callAiAssist({kind:'journal_draft', day:checkDay(day), lines}, {rt});
+  return result?.ok && typeof result.data?.draft === 'string' ? result.data.draft.trim() : '';
+}
+// JOURNAL-오늘한줄초안 ②: the week's work calls (업무 통화함 app_feed_items source=call — the same owner-RLS read as the 통화 screen; the
+// personal call box table is never read here). Only short fields; no raw text.
+export async function readWeekCalls(start, rt = window.KPTURuntime) {
+  const days = weekDays(start);
+  const rows = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(workspace(rt))}&source=eq.call&hidden_at=is.null&day=gte.${days[0]}&day=lte.${days[6]}&select=id,day,occurred_at,title,summary,counterpart&order=occurred_at.asc,id.asc&limit=${WEEK_READ_CAP}`);
+  if (!Array.isArray(rows)) throw new Error('calls');
+  return Object.assign(rows.filter(r => r?.id && dayKey.test(r.day || '')), rows.length >= WEEK_READ_CAP ? {capped:true} : {});
+}
+const callItemsOn = (calls, day) => (calls || []).filter(row => row.day === day)
+  .map(row => ({text:callLine(row, row.occurred_at ? seoulClock(row.occurred_at) : ''), ...(row.summary ? {callSummary:String(row.summary)} : {})}))
+  .filter(item => item.text);
 
 // Materials of one week. Each reader fails on its own; the screen shows the rest and names the group that failed.
 // Google Calendar events from the first day (Korea time) up to, not including, the end day — the same google-calendar read
@@ -537,11 +571,13 @@ const okItems = (materials, source) => materials?.[source]?.status === 'ok' ? ma
 // The parts of the day card and their reads (journal.js [다시 시도] uses these keys).
 export const DAY_SOURCES = Object.freeze({
   tasks:['tasks'], activities:ACTIVITY_SOURCES, business:['basket', 'projectUpdates'], orgs:['basket', 'orgUpdates'],
-  events:['events'], docs:['documents'], shares:['sharePages'], movedNotes:['movedNotes'], memos:['basket'], refs:['basket'], unsent:['basket'],
+  events:['events'], docs:['documents'], shares:['sharePages'], movedNotes:['movedNotes'], memos:['basket'], refs:['basket'], unsent:['basket'], calls:['calls'],
 });
 export const REPORT_PARTS = Object.freeze([['activities', '회의·활동 결과'], ['business', '사업 소식'], ['orgs', '조직 소식']]);
 export const OTHER_PARTS = Object.freeze([['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['movedNotes', '노트로 옮긴 것'],
-  ['memos', '기타 메모'], ['refs', '참고'], ['unsent', '어디에도 안 보낸 업데이트']]);
+  ['memos', '기타 메모'], ['refs', '참고'], ['unsent', '어디에도 안 보낸 업데이트'],
+  // JOURNAL-오늘한줄초안 ②: 그날 업무 통화(업무 통화함만, 개인 통화 제외). 주간보고 재료가 아니라 그 밖의 기록에 두고, 오늘 한 줄 초안 재료로 쓴다.
+  ['calls', '업무 통화']]);
 // The whole day card: {tasks:{todo, overdue, done, ...state}, events:part, report:[part], others:[part]}; a part is {key, label, loading, failed,
 // capped, items:[{text, open, ...}], sections:[{name, items, opens, tags?}]}. kinds: journal-meeting-kinds readKinds() result.
 export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
@@ -569,6 +605,7 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
     part('orgs', '조직 소식', () => (basket || okItems(materials, 'orgUpdates')) ? sectioned(orgNewsOn({basket, orgUpdates:okItems(materials, 'orgUpdates')}, day, {open:true, unsorted:false})) : {}),
   ];
   const others = OTHER_PARTS.map(([key, label]) => part(key, label, () => {
+    if (key === 'calls') return {items:callItemsOn(okItems(materials, 'calls'), day)};
     if (key === 'docs') return {items:(okItems(materials, 'documents') || []).filter(doc => onDay(doc?.created_at, day)).map(doc => ({text:documentLine(doc), open:{type:'library'}}))};
     if (key === 'shares') return {items:(okItems(materials, 'sharePages') || []).filter(page => onDay(page?.updated_at, day)).map(page => ({text:sharePageLine(page), open:{type:'pages'}}))};
     if (key === 'movedNotes') return {items:movedNotesOn(okItems(materials, 'movedNotes'), day).map(note => ({text:note.line, open:{type:'notedoc', note:note.id}, noteMark:true}))};

@@ -95,11 +95,11 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     const day = box.dataset.diaryLvThumb, row = rowOf(day), owner = state.owner;
     if (!row) return;
     const photo = diaryPhotos(row)[0];
-    if (photo) { box.append(photoElement(row, photo, 'small', {label:'', link:false, rt})); box.classList.add('has-photo'); return; }
+    if (photo) { box.append(photoElement(row, photo, 'small', {label:'', link:false, rt, retry:false})); box.classList.add('has-photo'); return; }
     const month = await odMonthOf(day.slice(0, 7));
     const first = month?.days?.[day]?.[0];
     if (!first || owner !== state.owner || !box.isConnected) return;
-    box.append(odPhotoElement({kind:'od', source:'onedrive', key:first.id, id:first.id, day, name:first.name, taken_at:first.taken_at, approx:first.approx}, 'small', {label:'', rt}));
+    box.append(odPhotoElement({kind:'od', source:'onedrive', key:first.id, id:first.id, day, name:first.name, taken_at:first.taken_at, approx:first.approx}, 'small', {label:'', rt, retry:false}));
     box.classList.add('has-photo');
   }
 

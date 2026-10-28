@@ -92,10 +92,10 @@ for(const theme of ['olive','sky','lemon']){
  });
 }
 
-test('폰 390: 메뉴 판 타일 여덟이 같은 모양이고 낮다(CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가, MTG-프로젝트합치기 3단계: 사업 보고는 하단바로)',async({page})=>{
+test('폰 390: 메뉴 판 타일 아홉이 같은 모양이고 낮다(CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가, MTG-프로젝트합치기 3단계: 사업 보고는 하단바로)',async({page})=>{
  const errors=await open(page,390);
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu .mobile-menu-panel')).toBeVisible();
- const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(8);
+ const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(9);
  const look=await tiles.evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e);return {bg:s.backgroundColor,color:s.color,border:s.borderTopColor,h:Math.round(e.getBoundingClientRect().height)}}));
  for(const t of look){expect(t).toEqual(look[0]);expect(t.h).toBeLessThanOrEqual(60);expect(t.h).toBeGreaterThanOrEqual(44)}
  expect(errors).toEqual([]);

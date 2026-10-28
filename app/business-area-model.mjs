@@ -64,6 +64,25 @@ export const weeklyReportText = (line, meeting) => { const plan = nextPlanLines(
 export const weeklyAreaRecords = (meetings, day, lineOf) => (meetings || []).filter(m => areaIdOf(m) && seoulKey(m.meeting_at) === day)
   .map(m => ({id:areaIdOf(m), name:'', at:m.meeting_at, text:weeklyReportText(lineOf(m), m), requests:[]}));
 
+// MTG-프로젝트합치기 사업영역 AI(설계 12·13절): 그 주 임시저장의 사업영역 한 줄(summaries = {id: {text, edited}})이 있으면
+// 그 사업영역(꼬리표)의 보고 줄들 대신 한 줄 하나로 — '진행' = 한 줄, '이후 계획' = 그 보고들의 다음 할 일(겹치지 않게).
+// 한 줄이 없는 사업영역은 지금처럼 보고마다 한 줄. records 는 weeklyAreaRecords 를 날마다 모은 것({...r, day}), meetings 는 같은 재료.
+export function summarizeAreaRecords(records, meetings, summaries) {
+  const lines = summaries && typeof summaries === 'object' ? summaries : {};
+  if (!Object.keys(lines).length) return records;
+  const out = [], done = new Set();
+  for (const r of records) {
+    const line = lines[String(r.id).toLowerCase()];
+    if (!line?.text) { out.push(r); continue; }
+    if (done.has(r.id)) continue;
+    done.add(r.id);
+    const days = new Set(records.filter(x => x.id === r.id).map(x => x.day));
+    const plans = [...new Set((meetings || []).filter(m => areaIdOf(m) === r.id && days.has(seoulKey(m.meeting_at))).flatMap(m => nextPlanLines(m.next_plan)))];
+    out.push({...r, text:plans.length ? `${line.text} → 이후: ${plans.join(' / ')}` : line.text, requests:[], summarized:true});
+  }
+  return out;
+}
+
 // 사업 보고 화면 사업영역 칩: 트리 줄([{project, depth}]) → Map(id → 1단 사업영역 id).
 export function areaRoots(tree) {
   const roots = new Map(), trail = [];

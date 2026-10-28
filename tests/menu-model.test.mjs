@@ -9,7 +9,7 @@ test('기본 구성은 지금 화면과 같고 모든 항목이 정확히 한 �
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴가 없어지고 하단바 4번째 칸이 [사업 보고]다.
   assert.deepEqual(d.bar, ['home', 'basket', 'calendar', 'meetings', 'team']);
   // PHOTO-사진메뉴: [사진]은 처음 자리가 [메뉴] 창 안(원장 다음, 통화·텔레그램 위).
-  assert.deepEqual(d.rest, ['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram']);
+  assert.deepEqual(d.rest, ['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram', 'arsenal']);
   assert.equal(ITEMS.some(i => i.id === 'projects'), false, '[프로젝트] 메뉴 항목은 없다');
   assert.deepEqual([...d.bar, ...d.rest].sort(), ITEMS.map(i => i.id).sort());
   assert.equal(d.bar.length, BAR_MAX);
@@ -47,19 +47,21 @@ test('키보드 한 칸 옮기기는 칸 경계를 넘나든다', () => {
   l = stepItem(l, 'team', -1).layout;
   assert.equal(l.bar.at(-1), 'team', '[메뉴] 맨 위에서 위로 = 하단바 맨 아래');
   assert.equal(stepItem(defaultLayout(), 'note', -1).reason, 'full');
-  assert.equal(stepItem(defaultLayout(), 'telegram', 1).ok, false);
+  // 주소 개편 ②: [메뉴] 맨 아래는 [아스날]이라 그 아래로는 못 간다.
+  assert.equal(stepItem(defaultLayout(), 'arsenal', 1).ok, false);
+  assert.equal(stepItem(defaultLayout(), 'telegram', 1).layout.rest.at(-1), 'telegram');
 });
 
 test('PC 왼쪽 메뉴는 하단바 메뉴가 위, 나머지가 그 아래 같은 순서이고 통화·텔레그램은 끝에서 따로 붙는다', () => {
   const l = moveItem(defaultLayout(), 'team', 'rest', 0).layout;
   assert.deepEqual(pcOrder(l), [...l.bar, ...l.rest]);
   assert.deepEqual(pcOrder(defaultLayout()), ITEMS.map(item => item.id), '바꾸지 않았으면 지금까지의 PC 순서 그대로');
-  assert.deepEqual(pcSplit(defaultLayout()), {main: pcOrder(defaultLayout()).slice(0, -2), tail: ['calls', 'telegram']});
+  assert.deepEqual(pcSplit(defaultLayout()), {main: pcOrder(defaultLayout()).slice(0, -3), tail: ['calls', 'telegram', 'arsenal']});
   const moved = moveItem(defaultLayout(), 'calls', 'rest', 0).layout;
-  assert.deepEqual(pcSplit(moved).tail, ['telegram']);
+  assert.deepEqual(pcSplit(moved).tail, ['telegram', 'arsenal']);
   assert.ok(pcSplit(moved).main.includes('calls'));
   assert.deepEqual(midKeys(defaultLayout()).slice(0, 8), ['home', 'basket', 'calendar', 'tasks', 'journal', 'diary', 'note', 'meetings']);
-  assert.equal(midKeys(defaultLayout()).length, 16);
+  assert.equal(midKeys(defaultLayout()).length, 17);
 });
 
 test('하단바에서 지금 화면이 어느 칸인지', () => {

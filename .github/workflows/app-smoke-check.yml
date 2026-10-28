@@ -49,6 +49,7 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -142,6 +143,7 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -227,6 +229,9 @@ jobs:
       - name: Check telegram hourly send (new messages only, night rest, cumulative day summary)
         run: node --test tests/tg-feed-hourly.test.mjs
 
+      - name: Check journal evening AI draft rules (today line draft, work calls only)
+        run: node --test tests/journal-draft-model.test.mjs
+
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/home-cards-model.test.mjs tests/menu-home-prefs.test.mjs
 
@@ -266,6 +271,9 @@ jobs:
       - name: Meeting files·text grouping and pinned PDF reader
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
+      - name: Meeting transcript → meeting record draft (MTG-녹음초안)
+        run: node --test tests/meeting-transcript-model.test.mjs
+
       - name: Meeting card time, kind colors and PC layout
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
 
@@ -277,6 +285,9 @@ jobs:
 
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
+
+      - name: Organization pickers offer only my organizations (ORG-고르기통일)
+        run: node --test tests/org-picker-mine.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
@@ -299,6 +310,9 @@ jobs:
       - name: Check OneDrive small-picture copies on the phone (OD-폰보관, cache key·limits·cleanup·one audit allowance, synthetic)
         run: node --test tests/od-thumb-cache.test.mjs
 
+      - name: Check picture cells (PHOTO-못받은사진, gray while loading, small retry mark when failed, every image place uses it, synthetic)
+        run: node --test tests/img-slot.test.mjs
+
       - name: Check OneDrive warm-up after app start (OD-미리받기, status·this month·few small pictures in memory, synthetic)
         run: node --test tests/od-warm.test.mjs
 
@@ -310,6 +324,9 @@ jobs:
 
       - name: Check photo menu (PHOTO-사진메뉴 1차, newest-first list·day heads·calendar cover·multi star·delete undo·shared viewer, synthetic)
         run: node --test tests/photos-model.test.mjs
+
+      - name: Check arsenal menu (주소 개편 ② E1, newest-first list·season/competition/search filters·goal lines·https links only, real archive data)
+        run: node --test tests/arsenal-model.test.mjs
 
       - name: Check diary list view (JOURNAL-일기목록, month groups·pin·star·find·view memory·no device storage, synthetic)
         run: node --test tests/diary-list-model.test.mjs
@@ -364,6 +381,9 @@ jobs:
 
       - name: Check business report week list (MTG-프로젝트합치기 3단계)
         run: node --test tests/report-week.test.mjs
+
+      - name: Check business area AI on the report screen (MTG-프로젝트합치기 사업영역 AI 화면)
+        run: node --test tests/business-area-ai-screen.test.mjs
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs

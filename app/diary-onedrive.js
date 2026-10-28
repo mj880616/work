@@ -9,6 +9,7 @@ import {ownerScope, diaryPhotos, todayKey} from './diary-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE} from './od-thumb-loader.js';
 import {holdPhotoBlob, holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
+import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
 
 export const OD_FN = '/functions/v1/onedrive-photos';
 const encode = encodeURIComponent;
@@ -570,35 +571,43 @@ function observers() {
 }
 const RETRY_GAP_MS = 3000;
 // 사진 한 칸(.diary-photo는 직접 올린 사진과 같은 모양). 보일 때·곧 보일 때 받고, 멀어지면 차례가 안 온 요청은 거둔다.
-// 못 받으면 3초부터 두 배씩(60초까지) 기다렸다 다시 받고, 4번 넘게 실패하면 "사진" 표시로 쉰다. 그 칸이 화면에 다시 들어오면 처음부터 다시 받는다.
+// 표시는 공용 img-slot.js(PHOTO-못받은사진): 받는 중·다시 받기를 기다리는 동안은 글자 없는 연한 회색 칸, 받으면 그림, 끝내 못 받으면 작은 ↻.
+// 못 받으면 3초부터 두 배씩(60초까지) 기다렸다 다시 받고, 4번 넘게 실패하면 ↻로 쉰다. ↻를 누르거나 그 칸이 화면에 다시 들어오면 처음부터 다시 받는다
+// (↻는 기억해 둔 주소·'한 장씩' 표시를 지우고 새 주소부터 받는다). 못 받은 까닭은 data-img-why에만 남긴다(진단용, 화면에 안 보임).
 // eager: 화면 관찰 없이 바로 받는다(크게 보기의 앞뒤 칸). prio: eager일 때의 순서.
-export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime, eager = false, prio = VISIBLE} = {}) {
+// retry:false: 더 큰 누르기 칸의 바탕(달력 날짜 칸·목록 줄)이라 ↻는 표시만(누르면 바깥 칸이 열림, img-slot.js passive).
+export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime, eager = false, prio = VISIBLE, retry = true} = {}) {
   const box = document.createElement('span');
   box.className = 'diary-photo'; box.dataset.diaryPhoto = 'od:' + item.id;
   const img = document.createElement('img');
-  img.alt = label || '원드라이브 사진'; img.decoding = 'async'; img.referrerPolicy = 'no-referrer'; img.hidden = true;
-  box.append(img); box.dataset.state = 'idle';
+  img.alt = label || '사진'; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
+  box.append(img); box.dataset.state = 'idle'; slotBox(box);
   const l = odThumbLoader(rt);
-  let busy = false, holding = false, looking = false, failures = 0, timer = null, gaveUpAt = 0, visible = false, near = false, mark = null;
-  const setMark = on => {
-    if (on && !mark) { mark = document.createElement('span'); mark.className = 'diary-photo-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = '사진'; box.append(mark); }
-    else if (!on && mark) { mark.remove(); mark = null; }
-  };
+  let busy = false, holding = false, looking = false, failures = 0, timer = null, gaveUpAt = 0, visible = false, near = false, why = '';
   const wanted = () => eager || visible || near;
   const order = () => (eager ? prio : visible ? VISIBLE : NEAR);
-  const failed = () => {
-    failures++;
+  const giveUp = state => { box.dataset.state = state; gaveUpAt = Date.now(); slotFailed(box, again, why, {passive: !retry}); };
+  const failed = reason => {
+    failures++; why = reason || why || 'error';
     const wait = retryDelay(failures);
-    if (wait === null) { box.dataset.state = 'link'; setMark(true); gaveUpAt = Date.now(); return; }
-    box.dataset.state = 'retry';
+    if (wait === null) return giveUp('link');
+    box.dataset.state = 'retry'; slotLoading(box);
     timer = setTimeout(() => { timer = null; if (wanted()) request(); }, wait);
   };
-  function request() {
+  // ↻: 그 사진만 처음부터(기억한 주소·한 장씩 표시를 지우고) 다시 받는다.
+  function again() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    failures = 0; why = ''; busy = false; holding = false; looking = false;
+    l.forget(item.id);
+    box.dataset.state = 'idle';
+    request(true);
+  }
+  function request(force = false) {
     const state = box.dataset.state;
     if (state === 'shown' || state === 'gone' || timer) return;
     // 받는 중: 다시 보이면 기다리는 칸으로 다시 세고(거두지 않게), 순서만 당긴다.
     if (busy) { if (looking) return; if (holding) l.bump(item.id, size, order()); else { holding = true; l.get(item.id, size, order()); } return; }
-    busy = true; box.dataset.state = 'loading';
+    busy = true; box.dataset.state = 'loading'; slotLoading(box);
     const keep = keepOf(item, size, rt);
     // 폰에 보관된 작은 그림이 있으면 대기열을 거치지 않고 바로 보여 준다.
     if (keep) {
@@ -606,29 +615,29 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
       keepStore().get(keep.owner, item.id, size, keep.month).then(blob => {
         looking = false;
         if (blob) return showBlob(blob, null, keep);
-        if (!wanted()) { busy = false; box.dataset.state = 'idle'; return; }
-        fromLoader(keep);
+        if (!force && !wanted()) { busy = false; box.dataset.state = 'idle'; return; }
+        fromLoader(keep, force);
       });
       return;
     }
-    fromLoader(null);
+    fromLoader(null, force);
   }
-  const shown = () => { busy = false; failures = 0; box.dataset.state = 'shown'; setMark(false); };
+  const shown = () => { busy = false; failures = 0; why = ''; box.dataset.state = 'shown'; slotShown(box); };
   // 보관본이 깨져 있으면(url 없음) 그 사본을 지워 다음 시도는 새로 받게 한다.
   function showBlob(blob, url, keep = null) {
     const local = URL.createObjectURL(blob);
     img.onload = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); holdPhotoBlob(box, blob); shown(); };
-    img.onerror = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); forgetPhotoBlob(box); img.hidden = true; img.removeAttribute('src'); if (url) l.bad(item.id, size, url); else if (keep) keepStore().remove(keep.owner, item.id); busy = false; failed(); };
-    img.src = local; img.hidden = false;
+    img.onerror = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); forgetPhotoBlob(box); img.removeAttribute('src'); if (url) l.bad(item.id, size, url); else if (keep) keepStore().remove(keep.owner, item.id); busy = false; failed('img-blob'); };
+    img.src = local;
   }
   function showUrl(url) {
     img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => odShownBlob(rt, item.id, size, url)); shown(); };
-    img.onerror = () => { img.onload = img.onerror = null; forgetPhotoBlob(box); img.hidden = true; img.removeAttribute('src'); l.bad(item.id, size, url); busy = false; failed(); };
-    img.src = url; img.hidden = false;
+    img.onerror = () => { img.onload = img.onerror = null; forgetPhotoBlob(box); img.removeAttribute('src'); l.bad(item.id, size, url); busy = false; failed('img-url'); };
+    img.src = url;
   }
-  function fromLoader(keep) {
+  function fromLoader(keep, force = false) {
     holding = true;
-    l.get(item.id, size, order()).then(url => {
+    l.get(item.id, size, force ? VISIBLE : order()).then(url => {
       holding = false;
       if (!keep) return showUrl(url);
       // 보관할 수 있는 칸: 그림 바이트를 받아 보관하고 그 바이트로 보여 준다. 바이트를 못 받으면(CORS 등) 예전처럼 주소로 보여 준다.
@@ -640,12 +649,12 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
     }, error => {
       busy = false; holding = false;
       if (error?.code === 'dropped') { box.dataset.state = 'idle'; return; }
-      if (error?.code === 'missing' || error?.code === 'outside') { box.dataset.state = 'gone'; setMark(true); return; }
-      failed();
+      if (error?.code === 'missing' || error?.code === 'outside') { why = error.code; return giveUp('gone'); }
+      failed(String(error?.code || error?.message || 'error').slice(0, 30));
     });
   }
   const enter = () => {
-    if (box.dataset.state === 'link' && Date.now() - gaveUpAt >= RETRY_GAP_MS) { failures = 0; box.dataset.state = 'idle'; setMark(false); }
+    if (box.dataset.state === 'link' && Date.now() - gaveUpAt >= RETRY_GAP_MS) { failures = 0; box.dataset.state = 'idle'; slotLoading(box); }
     if (box.dataset.state !== 'link') request();
   };
   const leave = () => {

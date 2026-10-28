@@ -289,3 +289,14 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .fp-path .fp-step:hover,.fp-path .fp-step:focus-visible{background:var(--kptu-surface-subtle)}
 .fp-path .fp-here{padding:0 6px;color:var(--kptu-ink);font-weight:600}
 .fp-path .fp-sep{color:var(--kptu-muted)}
+/* IMG-빈칸(PHOTO-못받은사진 2026-10-29): 그림 칸 하나의 표시(공용 img-slot.js). 받는 중 = 글자 없는 연한 회색 칸, 못 받음 = 같은 칸 가운데 작은 ↻.
+   <img>는 다 받은 뒤에만 보인다. 받기에 실패한 그림(data-img-broken)은 어디서든 감춘다(깨진 그림 표시·대체 글자 금지). */
+html .img-slot:not([data-img-state="shown"]){background:color-mix(in srgb,var(--kptu-border) 55%,transparent)}
+.img-slot:not([data-img-state="shown"]) img,img[data-img-broken],img:not([src]),img[src=""]{visibility:hidden}
+.img-slot{position:relative}
+.img-slot-retry{position:absolute;left:50%;top:50%;z-index:1;transform:translate(-50%,-50%);display:grid;place-items:center;width:20px;height:20px;font-size:13px;line-height:1;color:var(--kptu-muted);cursor:pointer;user-select:none}
+.img-slot-retry::after{content:"";position:absolute;inset:-6px}
+.img-slot-retry.is-passive{pointer-events:none;cursor:inherit}
+.img-slot-retry:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:1px;border-radius:50%}
+.img-slot .diary-photo-link{position:absolute;left:0;right:0;bottom:8px;z-index:1;text-align:center}
+.act-photo-thumb.img-slot::before{content:none}

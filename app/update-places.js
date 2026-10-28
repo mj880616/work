@@ -14,6 +14,7 @@ import { projectRows, projectRow, orgGroupRows, orgRow } from './choice-sheet.js
 import { confirmLinks } from './basket-classification.js';
 import { announceRecordSaved, basketDetail } from './record-saved.js';
 import { readReferenceBundles } from './reference-bundles-data.js';
+import { pickMyOrganizations } from './my-organizations.js';
 
 // place: null (basket) | {kind:'organization'|'project'|'reference', id}
 // REF-참고묶음: 'reference' is a reference bundle (app_reference_bundles). It has no record table of its own, so an update for it is
@@ -58,7 +59,8 @@ export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = 
   const [ps, os, as, bs] = await Promise.all([sources.projects(), sources.orgs(), sources.assignments(), bundleRead]);
   if (!isCurrent()) return null;
   const ctx = rt.context.read(), order = window.KPTUOrganizationOrder;
-  const eligible = order.forPicker(os.filter(o => as.some(a => a.organization_id === o.id)));
+  // ORG-고르기통일: my organizations only (my-organizations.js); no assignment still offers none here, as before.
+  const eligible = order.forPicker(pickMyOrganizations(os, as, {whenNone: 'none'}));
   const recent = [], recentIds = new Set(), eligibleIds = new Set(eligible.map(o => o.id));
   // Page older records until three distinct organizations are found; one busy organization must not hide the others.
   for (let offset = 0; eligible.length && recentIds.size < Math.min(3, eligible.length); offset += 100) {

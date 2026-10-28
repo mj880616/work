@@ -254,7 +254,7 @@ async function renderCalendar() {
   for (const c of cells) {
     const el = document.createElement(c.count ? 'button' : 'span');
     el.className = 'photos-cal-cell';
-    if (c.count) { el.type = 'button'; el.dataset.photosCalDay = c.day; el.setAttribute('aria-label', `${dayHead(c.day)}, 사진 ${c.count}장`); el.append(odPhotoElement(c.rep, 'small', {label:'', rt})); }
+    if (c.count) { el.type = 'button'; el.dataset.photosCalDay = c.day; el.setAttribute('aria-label', `${dayHead(c.day)}, 사진 ${c.count}장`); el.append(odPhotoElement(c.rep, 'small', {label:'', rt, retry:false})); }
     el.append(Object.assign(document.createElement('span'), {className:'photos-cal-n', textContent:String(c.n)}));
     if (c.count) el.append(Object.assign(document.createElement('span'), {className:'photos-cal-c', textContent:String(c.count)}));
     grid.append(el);
