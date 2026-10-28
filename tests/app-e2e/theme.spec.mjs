@@ -213,7 +213,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
-   if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',textColor);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
+   if(width<=760){if(['basket','calendar','tasks','projects','meetings','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',textColor);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
     // BASKET-PC메뉴: 정리함 쪽에서는 하위 줄([업데이트]·[챙길 것])이 지금 화면이므로 하위 줄도 함께 찾는다.
     const navBtn=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn).active').first();await expect(navBtn).toBeVisible();
     const group=await navBtn.evaluate(el=>el.nextElementSibling?.classList.contains('nav-sub')===true);
@@ -344,8 +344,8 @@ for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account mat
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
  if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','13px');/* 8-9e-3: 메뉴 줄 13px */await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
-  /* BASKET-PC메뉴: 좁은 한 줄 메뉴(761px)는 [업데이트]·[챙길 것]이 늘어 [프로젝트]가 [메뉴] 창으로 넘어갈 수 있으므로, 줄에 남은 고르지 않은 항목([홈])으로 비교한다. */
-  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="projects"]')||document.querySelector('.app-nav [data-view="home"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
+  /* BASKET-PC메뉴: 좁은 한 줄 메뉴(761px)는 [업데이트]·[챙길 것]이 늘어 [사업 보고]가 [메뉴] 창으로 넘어갈 수 있으므로, 줄에 남은 고르지 않은 항목([홈])으로 비교한다(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다). */
+  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="meetings"]')||document.querySelector('.app-nav [data-view="home"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
  });expect(styles.account).toEqual(styles.nav);
 });

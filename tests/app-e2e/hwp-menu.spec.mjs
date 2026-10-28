@@ -124,7 +124,7 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
   await expect(page.locator('#libraryView')).toBeVisible();
   await expect(page.locator('#documentModal')).toBeVisible();
   await expect(page.locator('#librarySelectedFiles')).toContainText('sample-수정.hwp');
-  await expect(page.locator('#documentStatus')).toHaveText('HWP 편집에서 고친 파일을 넣었어요. 프로젝트·분류를 고른 뒤 [등록]을 누르세요.');
+  await expect(page.locator('#documentStatus')).toHaveText('HWP 편집에서 고친 파일을 넣었어요. 사업영역·분류를 고른 뒤 [등록]을 누르세요.');
   await expect(page.locator('#docProject')).toHaveValue('');
   await expect(page.locator('#docCategory')).toHaveValue('');
   expect(seen.library).toEqual([]);

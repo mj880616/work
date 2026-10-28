@@ -140,7 +140,7 @@ const titles=page=>page.locator('#documentList .lu-row-title');
 for(const width of [390,1280])test(`files-only memo goes into the organization as library documents, with no record ${width}`,async({page})=>{
  const f=await fixture(page,{width}),detail=await openNote(page,ONLY,width);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
- await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·프로젝트 자료로 넣기');
+ await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·사업영역 자료로 넣기');
  await pick(page,detail,'organization','합성 한빛지부',width);
  const target=detail.locator(`[data-manual-target="organization:${O}"]`);
  // No summary box by default; the files are said to go in as that organization's documents. One document moves from another organization? No: the HWP sits in a project only.
@@ -181,7 +181,7 @@ for(const width of [390,1280])test(`[기록도 남기기] on an organization add
 test('a memo with text keeps the required summary and its file goes into the organization automatically',async({page})=>{
  const f=await fixture(page,{width:1280}),detail=await openNote(page,TEXT,1280);
  await detail.getByRole('button',{name:'연결하기'}).click();
- await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·프로젝트에 연결');
+ await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·사업영역에 연결');
  await pick(page,detail,'organization','합성 한빛지부',1280);
  const target=detail.locator(`[data-manual-target="organization:${O}"]`);
  await expect(target.getByRole('button',{name:'기록도 남기기'})).toHaveCount(0);
@@ -199,7 +199,7 @@ test('a project and an organization together take the files in one write per doc
  const f=await fixture(page,{width:1280,docs}),detail=await openNote(page,ONLY,1280);
  await detail.getByRole('button',{name:'연결하기'}).click();
  await pick(page,detail,'project','합성 임단협',1280);await pick(page,detail,'organization','합성 한빛지부',1280);
- await expect(detail.locator(`[data-manual-target="project:${P}"] [data-manual-file-note]`)).toHaveText('파일 2개를 이 프로젝트 자료로 넣어요. 합성 지난 교섭에서 옮겨요.');
+ await expect(detail.locator(`[data-manual-target="project:${P}"] [data-manual-file-note]`)).toHaveText('파일 2개를 이 사업영역 자료로 넣어요. 합성 지난 교섭에서 옮겨요.');
  await expect(detail.locator(`[data-manual-target="organization:${O}"] [data-manual-file-note]`)).toHaveText('파일 2개를 이 담당조직 자료로 넣어요. 합성 샛별지부에서 옮겨요.');
  // A second project of the same kind is told the files go to the first one only.
  await detail.getByRole('button',{name:'자료로 넣기',exact:true}).click();
@@ -236,7 +236,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`organiz
  await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT]);
  await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);
  // 맞는 자료가 든 토글만 남고 모두 펼쳐진다(프로젝트에 붙은 자료 1건 + '프로젝트 없음' 5건). 토글 안은 날짜 최신순.
- await expect(page.locator('#documentList > details > summary .lu-node-count')).toHaveText(['1','5']);await expect(page.locator('#documentList > details > summary .lu-node-name').last()).toHaveText('프로젝트 없음');await expect(page.locator('#documentList > details:not([open])')).toHaveCount(0);
+ await expect(page.locator('#documentList > details > summary .lu-node-count')).toHaveText(['1','5']);await expect(page.locator('#documentList > details > summary .lu-node-name').last()).toHaveText('사업영역 없음');await expect(page.locator('#documentList > details:not([open])')).toHaveCount(0);
  await expect(page.locator('#documentList details[data-lu-node="p:none"] .lu-row')).toHaveText([/합성 공문/,/합성 교섭 일정/,/합성 집회 계획/,/합성 교육 안내/,/합성 국토부 지침/]);
  await expect(page.locator('#documentList .lu-row')).toHaveCount(6);
  await expect(page.locator('#documentList')).not.toContainText('다른 조직 자료');

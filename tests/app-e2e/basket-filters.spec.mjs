@@ -86,7 +86,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분
  await tap(page,classified,width);await expect(classified).toHaveAttribute('aria-pressed','true');expect((await look(classified)).bg).toBe(gray);
  const places=page.locator('[data-basket-place-filter]');await expect(places).toBeVisible();
  await expect(places).toHaveAttribute('role','radiogroup');await expect(places).toHaveAttribute('aria-label','분류된 곳');
- await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','프로젝트','참고','자료실','할 일','업무일지']);
+ await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','사업영역','참고','자료실','할 일','업무일지']);
  await expect(places.locator('[aria-checked="true"]')).toHaveText('전체');
  // It sits right under the segment row, and above the list.
  const segBox=await seg.first().boundingBox(),placeBox=await places.boundingBox(),listBox=await page.locator('#basketView [data-basket-rows]').boundingBox();
@@ -100,11 +100,11 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분
  await expect(page.locator(`[data-basket-row="${TASK}"]`)).toContainText('할 일 만듦');
  await expect(page.locator(`[data-basket-row-item="${DOC}"] .basket-row-links`)).toContainText('합성 공문');
  await capture(page,info,`basket-classified-${width}-${scheme}`);
- for(const [label,want] of [['담당조직',[ORG]],['프로젝트',[PROJ,FILED]],['자료실',[FILED,DOC]],['할 일',[TASK]],['전체',[ORG,PROJ,FILED,TASK,DOC]]]){
+ for(const [label,want] of [['담당조직',[ORG]],['사업영역',[PROJ,FILED]],['자료실',[FILED,DOC]],['할 일',[TASK]],['전체',[ORG,PROJ,FILED,TASK,DOC]]]){
   await tap(page,places.getByRole('radio',{name:label,exact:true}),width);
   await expect(places.locator('[aria-checked="true"]')).toHaveText(label);
   await expect.poll(()=>shown(page),label).toEqual(want);
-  if(label==='프로젝트')await capture(page,info,`basket-classified-project-${width}-${scheme}`);
+  if(label==='사업영역')await capture(page,info,`basket-classified-project-${width}-${scheme}`);
  }
  // Keyboard: arrows move along the place chips (shared filter-chips.js).
  await places.locator('[aria-checked="true"]').focus();await page.keyboard.press('ArrowRight');

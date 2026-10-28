@@ -121,13 +121,13 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`a memo 
 for(const width of [390,1280])test(`[자료로 넣기] puts the files into the project without a progress record ${width}`,async({page},info)=>{
  const f=await fixture(page,{width}),detail=await openNote(page,ONLY,width);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
- await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·프로젝트 자료로 넣기');
+ await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·사업영역 자료로 넣기');
  await expect(detail.locator('[data-manual-original]')).toHaveCount(0);
  await expect(detail.getByRole('button',{name:'자료로 넣기',exact:true})).toBeVisible();
  await pick(page,detail,'project','합성 임단협',width);
  const target=detail.locator(`[data-manual-target="project:${P}"]`);
  await expect(target.locator('textarea')).toHaveCount(0);
- await expect(target.locator('[data-manual-file-note]')).toHaveText('파일 2개를 이 프로젝트 자료로 넣어요. 합성 지난 교섭에서 옮겨요.');
+ await expect(target.locator('[data-manual-file-note]')).toHaveText('파일 2개를 이 사업영역 자료로 넣어요. 합성 지난 교섭에서 옮겨요.');
  await expect(target.getByRole('button',{name:'기록도 남기기'})).toHaveAttribute('aria-pressed','false');
  expect(await noWideScroll(page)).toBe(true);
  if(width===390)await capture(page,info,'put-panel-390');
@@ -189,7 +189,7 @@ for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미
  await expect(detail.locator('[data-basket-status]')).toHaveText('파일 2개를 합성 임단협 자료로 넣었어요.');
  expect(f.tables.app_record_links).toEqual([]);
  // The note screen line says where the files went, instead of 미분류.
- await expect(filedChip(detail.locator('[data-basket-state]'))).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
+ await expect(filedChip(detail.locator('[data-basket-state]'))).toHaveText('사업영역 자료: 합성 임단협 · 자료');
  await expect(detail.locator('.basket-note-meta')).not.toContainText('미분류');
  await tap(page,detail.locator('[data-basket-close]'),width);
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 1');
@@ -199,14 +199,14 @@ for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미
  await page.locator('[data-basket-filter="classified"]').click();
  const row=page.locator(`[data-basket-row-item="${ONLY}"]`);
  await expect(row.locator('.basket-row')).toContainText('분류 완료');
- await expect(filedChip(row)).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
+ await expect(filedChip(row)).toHaveText('사업영역 자료: 합성 임단협 · 자료');
  // A fresh load reads the same state from the documents alone (no stored flag).
  await page.reload();await page.waitForFunction(()=>!!window.KPTURouter?.go);await page.evaluate(()=>window.KPTURouter.go('basket'));
  await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
  await expect(page.locator(`[data-basket-row="${ONLY}"]`)).toHaveCount(0);
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 1');
  await page.locator('[data-basket-filter="classified"]').click();
- await expect(filedChip(page.locator(`[data-basket-row-item="${ONLY}"]`))).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
+ await expect(filedChip(page.locator(`[data-basket-row-item="${ONLY}"]`))).toHaveText('사업영역 자료: 합성 임단협 · 자료');
  expect(f.errors).toEqual([]);
 });
 
@@ -218,12 +218,12 @@ test('an already filed memo (no record link) is not 미분류 on load, and follo
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 0');
  await page.locator('[data-basket-filter="classified"]').click();
  const only=page.locator(`[data-basket-row-item="${ONLY}"]`);
- await expect(filedChip(only,OLD)).toHaveText('프로젝트 자료: 합성 지난 교섭 · 자료');
+ await expect(filedChip(only,OLD)).toHaveText('사업영역 자료: 합성 지난 교섭 · 자료');
  await expect(only.locator('[data-basket-filed]')).toHaveCount(1);
  // Moved to another project (library edit): the line follows on the next read.
  f.tables.app_documents[0].project_id=P;
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
- await expect(only.locator('[data-basket-filed]')).toHaveText(['프로젝트 자료: 합성 임단협 · 자료','프로젝트 자료: 합성 지난 교섭 · 자료']);
+ await expect(only.locator('[data-basket-filed]')).toHaveText(['사업영역 자료: 합성 임단협 · 자료','사업영역 자료: 합성 지난 교섭 · 자료']);
  // Taken out of every project: back to 미분류.
  for(const doc of f.tables.app_documents)doc.project_id=null;
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
@@ -250,7 +250,7 @@ test('[기록도 남기기] adds an optional summary and also records the memo',
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요. 파일 2개를 합성 임단협 자료로 넣었어요.');
  expect(f.rpc).toHaveLength(1);expect(f.rpc[0].p_targets).toEqual([{kind:'project',target_id:P,reason:'직접 연결',summary:'10/6 요구안 최종본 공유'}]);
  expect(f.calls('app_documents','PATCH')).toHaveLength(2);
- await expect(detail.locator('[data-basket-state]')).toContainText('프로젝트: 합성 임단협');
+ await expect(detail.locator('[data-basket-state]')).toContainText('사업영역: 합성 임단협');
  expect(f.errors).toEqual([]);
 });
 
@@ -261,11 +261,11 @@ test('a memo with text still needs a summary, and its attachment goes into that 
  await expect(detail.locator('[data-basket-file-card]')).toHaveCount(1);
  expect((await detail.locator('[data-basket-file-card]').boundingBox()).y).toBeGreaterThan((await detail.locator('[data-basket-read-text]').boundingBox()).y);
  await detail.getByRole('button',{name:'연결하기'}).click();
- await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·프로젝트에 연결');
+ await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·사업영역에 연결');
  await pick(page,detail,'project','합성 임단협',1280);
  const target=detail.locator(`[data-manual-target="project:${P}"]`);
  await expect(target.getByRole('button',{name:'기록도 남기기'})).toHaveCount(0);
- await expect(target.locator('[data-manual-file-note]')).toHaveText('파일 1개를 이 프로젝트 자료로 넣어요.');
+ await expect(target.locator('[data-manual-file-note]')).toHaveText('파일 1개를 이 사업영역 자료로 넣어요.');
  await target.locator('textarea').fill('2차 교섭 일정 합의');
  await detail.getByRole('button',{name:'연결',exact:true}).click();
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요. 파일 1개를 합성 임단협 자료로 넣었어요.');

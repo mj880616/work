@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 
 const context = { window: {} };
-runInNewContext(readFileSync(new URL('./matches.js', import.meta.url), 'utf8'), context);
+runInNewContext(readFileSync(new URL('../../app/arsenal/matches.js', import.meta.url), 'utf8'), context);
 const matches = context.window.ARSENAL_MATCHES;
 
 test('every archived score has one structured entry per goal, on the credited side', () => {

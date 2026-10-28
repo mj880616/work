@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { graph, vendored } from './check-loader-cache.mjs';
+import { isNoteFile, buildReleaseNotes, OUTPUT_PATH as releaseNotesPath } from '../app/release-notes-model.mjs';
 
 // CI-버전자동화(docs/design/ci-version-automation.md 4장): the repository references files
 // without ?v=. A Pages build output (Jekyll _site or a repository copy) gets every static
@@ -97,6 +98,9 @@ export function rewriteVersions(input) {
 /** Full build on an in-memory tree: rewritten files plus the regenerated manifest. */
 export function buildPages(input) {
   const { files } = rewriteVersions(input);
+  // UI-업데이트안내: app/release-notes/*.json(PR마다 1개) → 버전명을 붙인 app/release-notes.json(배포물에만). 기록 파일이 없으면 만들지 않는다.
+  const notes = Object.keys(files).filter(isNoteFile).map(file => [file, files[file]]);
+  if (notes.length) files[releaseNotesPath] = buildReleaseNotes(notes);
   const text = Object.fromEntries(Object.entries(files).map(([file, value]) => [file, typeof value === 'string' ? value : 'blob']));
   const bytes = file => !Object.hasOwn(files, file) ? null : typeof files[file] === 'string' ? Buffer.from(files[file], 'utf8') : files[file];
   files[manifestPath] = buildManifest(text, bytes);

@@ -6,6 +6,7 @@ import {readFileSync} from 'node:fs';
 import {servePagesCors} from './helpers/hwp-editor.mjs';
 import {tinyPdf} from './helpers/tiny-pdf.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {showAllReportWeeks} from './helpers/report-week.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
@@ -61,6 +62,8 @@ async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,extr
   await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#meetingsView')).toBeVisible({timeout:15000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  // MTG-프로젝트합치기 3단계: [목록]은 한 주씩이다. 기존·새로 만든 회의가 여러 주(2025.8~12)에 걸쳐 있어, 창을 열기 전에 [전체]로 모든 주를 본다.
+  await showAllReportWeeks(page);
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await page.locator('[data-meeting-mode="files"]').click();

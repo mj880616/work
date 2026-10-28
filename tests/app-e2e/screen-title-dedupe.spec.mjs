@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { toplineItem, expectProjectTitle } from './helpers/screen-title.mjs';
 import { expectProjectDetail } from './helpers/project-detail.mjs';
+import { showAllReportWeeks } from './helpers/report-week.mjs';
 // UI-중복제목삭제: with the PC top line (1024px~) already naming the open item ("일정 › 업무일지 › 10월 6일 화요일", "프로젝트 › 이름",
 // "사업 보고 › 이름 차수", "일정 › 일기 › 10월 3일 토요일"), the screen body has no title line of its own for it - the element is not made
 // (same way as the note, topline-note-title.spec.mjs). What carries other information stays: the week range, the project's summary line
@@ -57,6 +58,8 @@ for (const width of [1280, 1440]) {
     await expect(page.locator('#ps3Menu details.ps3-more')).toBeVisible();
     // 사업 보고: the result column's head has no name/round line; the meta line (칸) and ⋯ stay.
     await go(page, 'meetings');
+    // MTG-프로젝트합치기 3단계: [목록]은 한 주씩이고, 홈 공용 가짜 보고(home-entry.mjs)는 일시가 없어 어느 주에도 들지 않는다. [전체]로 모든 주를 본다.
+    await showAllReportWeeks(page);
     const result = page.locator('#meetingList #mcolResult');
     await expect(result).toHaveAttribute('data-meeting-result', /.+/);
     await expect(toplineItem(page)).toHaveText('테스트 회의 회차');

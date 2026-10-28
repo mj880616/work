@@ -85,13 +85,13 @@ const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<
 test('PC 1280: 사이드바 맨 아래 [통화]·[텔레그램 소식], 자주 가는 링크 바로 위',async({page})=>{
  const f=await fixture(page,{width:1280});
  const items=await page.locator('#appView>.app-nav .nav-btn:visible').allTextContents();
- expect(items.slice(-3,-1)).toEqual(['통화','텔레그램 소식']);
+ expect(items.slice(-4,-2)).toEqual(['통화','텔레그램 소식']);expect(items.at(-2)).toBe('아스날'); // 주소 개편 ②: 맨 아래 묶음 끝에 [아스날]
  // 빈 공간(.sidebar-spacer) 아래에 있다: 사이드바 맨 아래 묶음.
  const below=await page.evaluate(()=>{const s=document.querySelector('#appView>.app-nav .sidebar-spacer').getBoundingClientRect(),c=document.querySelector('#appView>.app-nav [data-view="calls"]').getBoundingClientRect();return c.top>=s.bottom-1});
  expect(below).toBe(true);
  // 하단 탭은 늘지 않는다.
  await page.setViewportSize({width:390,height:860});
- await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','정리함','일정','프로젝트','담당조직','메뉴']);
+ await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','정리함','일정','사업 보고','담당조직','메뉴']);
  expect(f.errors).toEqual([]);
 });
 

@@ -195,7 +195,8 @@
 .ed-grouped .ed-tools .ed-gap{margin-left:0}
 .ed-grouped .ed-tools button{flex:0 1 auto;min-width:20px;padding:0 3px;font-size:inherit}
 /* 버튼 겉모양 통일(UI-버튼기준): 줄 안 버튼은 모두 테두리 없이 두고 눌린 상태만 표시한다. */
-.ed-grouped .ed-tools .ed-style{min-width:0;justify-content:center;border-color:transparent}
+/* 화면정리 A2(2026-10-28): 줄이 좁아도 [제목 1 ▾] 글자 단계 버튼은 글자 폭 아래로 줄지 않는다(줄면 가운데 맞춘 글자의 왼쪽이 잘렸다). 남는 폭은 다른 버튼이 줄어 맞춘다. */
+.ed-grouped .ed-tools .ed-style{flex:0 0 auto;min-width:0;justify-content:center;border-color:transparent}
 .ed-grouped .ed-tools .ed-caret{font-size:.7em}
 /* [·]와 [▾]: 붙은 두 칸 한 덩어리 */
 .ed-grouped .ed-tools .ed-pair{display:flex;flex:0 0 auto;align-items:center;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle)}

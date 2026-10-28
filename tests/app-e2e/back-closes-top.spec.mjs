@@ -97,7 +97,7 @@ for(const platform of ['browser','android'])test.describe(`Back closes the top o
  test('with nothing open, Back reaches the previous tab',async({page})=>{
   const errors=await fixture(page);
   await page.locator('.mobile-tabs [data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();
-  await page.locator('.mobile-tabs [data-view="projects"]').click();await expect(page.locator('#projectsView')).toBeVisible();
+  await page.locator('.mobile-tabs [data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();
   await back(page);await expect(page.locator('#calendarView')).toBeVisible();
   await back(page);await expect(page.locator('#homeView')).toBeVisible();
   expect(errors).toEqual([]);

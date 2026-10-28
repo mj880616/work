@@ -6,7 +6,8 @@ import { signInWithSession } from './helpers/session-login.mjs';
 const app=testOrigin+'/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // 8-9e-2: 폰 하단 탭 6칸 중 화면 탭 다섯(메뉴 탭은 메뉴 창을 연다). 할 일은 [일정] 탭의 [할 일] 쪽.
-const tabs=['home','basket','calendar','projects','team'];
+// MTG-프로젝트합치기 3단계: 4번째 칸은 [사업 보고](사업영역 관리는 그 화면 ⋯ 안에서 연다).
+const tabs=['home','basket','calendar','meetings','team'];
 async function open(page,url=app+'?view=home'){
   const user={id:'home-qa',email:'home-qa@example.org'};
   await page.route(`${SB}/**`,route=>{
@@ -63,7 +64,8 @@ test('drawer consumes history before navigation, theme and logout',async({page})
     if(close==='back')await page.goBack();
     await expect(drawer).toBeHidden();await expect(page.locator('#homeView')).toBeVisible();
   }
-  await trigger.click();await page.locator('#mobileMenu [data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();
+  // 사업 보고는 하단바로 옮겨 메뉴 창에 없으므로 메뉴 창의 자료실로 본다.
+  await trigger.click();await page.locator('#mobileMenu [data-view="library"]').click();await expect(page.locator('#libraryView')).toBeVisible();
   await page.goBack();await expect(page.locator('#homeView')).toBeVisible();await expect(drawer).toBeHidden();
   await expect(trigger).toBeFocused();
   await trigger.click();await page.locator('#mobileMenu [data-theme-open]').click();await expect(page.locator('#themeModal')).toBeVisible();

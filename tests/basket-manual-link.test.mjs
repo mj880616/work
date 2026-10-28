@@ -33,7 +33,7 @@ test('one confirm call sends note id, note version and the manual targets unchan
 });
 
 test('a written summary is checked like the database check (over 2,000 refused); a blank or whitespace-only summary is allowed',()=>{
-  assert.equal(mod.invalidManualSelection([]).message,'연결할 담당조직이나 프로젝트를 골라 주세요.');
+  assert.equal(mod.invalidManualSelection([]).message,'연결할 담당조직이나 사업영역을 골라 주세요.');
   assert.equal(mod.invalidManualSelection([{...picks[0],summary:''}]),null);
   assert.equal(mod.invalidManualSelection([picks[0],{...picks[1],summary:' 　\n'}]),null);
   assert.equal(mod.invalidManualSelection([{...picks[0],summary:undefined}]),null);

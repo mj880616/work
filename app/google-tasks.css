@@ -137,7 +137,8 @@ div.gt-main{cursor:default}
 .gt-files-list li .gt-file{flex:1 1 auto;min-width:0;display:block;line-height:44px}
 .gt-files-list .gt-files-empty{color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
 .gt-files-actions{display:flex;gap:var(--kptu-space-2);margin-top:var(--kptu-space-2)}
-.gt-files-actions button{min-height:44px}
+.gt-files-actions button{position:relative;min-height:var(--ds-compact-height,32px)}
+.gt-files-actions button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .gt-files-status{min-height:1.4em;margin-top:var(--kptu-space-2);font-size:var(--kptu-text-meta);overflow-wrap:anywhere}
 .gt-files-status.error{color:var(--kptu-danger)}
 

@@ -239,7 +239,7 @@ test('쓰기 — 사진만: 그날 행을 먼저 만들고(일기·AI 끔) 2048p
  // 사진 고르기가 글보다 앞.
  const [pick,text]=await Promise.all([ed.locator('[data-diary-pick]').boundingBox(),ed.locator('[data-diary-text]').boundingBox()]);expect(pick.y).toBeLessThan(text.y);
  await ed.locator('[data-diary-input]').setInputFiles(await photoFiles(page,2));
- await expect(ed.locator('.diary-thumb.pending')).toHaveCount(2);await expect(ed.locator('[data-diary-count]')).toContainText('2/20장');
+ await expect(ed.locator('.diary-thumb.pending')).toHaveCount(2);await expect(ed.locator('[data-diary-count]')).toContainText('2/20');
  await ed.locator('[data-diary-save]').click();
  await expect(ed).toBeHidden();
  await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('일기를 저장했어요.');
@@ -313,7 +313,7 @@ test('21장째는 넣지 않고 안내, 중간에 실패하면 올린 사진은 
  const ed=page.locator('#diaryRoot [data-diary-editor]');
  await ed.locator('[data-diary-input]').setInputFiles(await photoFiles(page,3,{w:300,h:200}));
  await expect(ed.locator('[data-diary-editor-status]')).toHaveText('일기 사진은 하루 20장까지예요. 1장은 넣지 않았어요.');
- await expect(ed.locator('.diary-thumb.pending')).toHaveCount(2);await expect(ed.locator('[data-diary-count]')).toContainText('20/20장');
+ await expect(ed.locator('.diary-thumb.pending')).toHaveCount(2);await expect(ed.locator('[data-diary-count]')).toContainText('20/20');
  await expect(ed.locator('[data-diary-pick]')).toBeDisabled();
  await ed.locator('[data-diary-save]').click();
  await expect(ed.locator('[data-diary-editor-status]')).toContainText("1장은 올렸어요. 'IMG_2.png'부터 올리지 못했어요.");
@@ -340,11 +340,21 @@ test('고치기에서 사진 하나 빼기, 글 없는 일기의 마지막 사�
  page.once('dialog',d=>d.accept());await ed.locator('[data-diary-remove="only"]').click();
  await expect(ed.locator('[data-diary-editor-status]')).toContainText('사진 한 장만 있는 일기라 이 사진은 뺄 수 없어요');
  expect(f.rows.find(r=>r.id==='d5').attachments).toHaveLength(1);
- let asked='';page.once('dialog',d=>{asked=d.message();d.accept();});
- await ed.locator('[data-diary-delete]').click();
- await expect(ed).toBeHidden();
- expect(asked).toBe('10월 5일 일기를 지웁니다. 사진 1장은 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).');
- await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('일기를 지우고 첨부를 Drive 휴지통으로 옮겼어요.');
+ // UI-버튼통일 ①: [일기 지우기]는 ⋯ 안. 묻지 않고 바로 빠지고 위쪽 '일기를 지웠어요 · [되돌리기]'. 되돌리면 아무것도 보내지 않는다.
+ let asked='';page.on('dialog',d=>{asked=d.message();d.dismiss();});
+ await ed.locator('[data-diary-editor-more]').click();await page.locator('#diaryEditorMenu [data-diary-delete]').click();
+ await expect(ed).toBeHidden();const undo=page.locator('[data-undo-notice]');
+ await expect(undo).toContainText('10월 5일 일기를 지웠어요.');await expect(cell(page,'2026-10-05').locator('img')).toHaveCount(0);
+ await undo.locator('[data-undo-action]').click();await expect(undo).toContainText('일기를 되돌렸어요.');
+ await expect(cell(page,'2026-10-05').locator('img')).toHaveCount(1);
+ await page.waitForTimeout(600);expect(f.deletes).toEqual([]);
+ // 다시 지우고 알림이 닫히면(2초) 그때 note-delete를 보낸다.
+ await cell(page,'2026-10-05').click();await page.locator('#diaryRoot [data-diary-edit]').click();
+ await ed.locator('[data-diary-editor-more]').click();await page.locator('#diaryEditorMenu [data-diary-delete]').click();
+ await page.mouse.move(2,690);
+ await expect(undo).toBeHidden({timeout:8000});
+ await expect.poll(()=>f.deletes.length,{timeout:8000}).toBeGreaterThan(0);
+ expect(asked).toBe('');
  expect(f.deletes).toContainEqual({note_delete:'d5'});await expect(cell(page,'2026-10-05').locator('img')).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });

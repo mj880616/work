@@ -22,7 +22,7 @@ test('PC: list opens right below the pressed button, no dimming, Esc and outside
  expect(d.y).toBeGreaterThanOrEqual(t.y+t.height-1);expect(gap).toBeLessThanOrEqual(12);
  expect(Math.abs(d.x-t.x)).toBeLessThanOrEqual(1);expect(d.width).toBeLessThanOrEqual(360);
  expect(await sheet.evaluate(el=>getComputedStyle(el,'::backdrop').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
- await expect(sheet.getByRole('button',{name:'프로젝트 없음',exact:true})).toBeFocused();
+ await expect(sheet.getByRole('button',{name:'사업영역 없음',exact:true})).toBeFocused();
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();await expect(trigger).toBeFocused();
  await trigger.click();await expect(sheet).toBeVisible();
  await page.mouse.click(1200,800);await expect(sheet).toBeHidden();await expect(trigger).toBeFocused();
