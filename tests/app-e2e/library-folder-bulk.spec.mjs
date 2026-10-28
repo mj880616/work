@@ -76,7 +76,10 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     await expect.poll(()=>s.patches.length).toBe(2);
     for(const p of s.patches){expect(p.body.category).toBe('기타');expect(p.body.field_origin.category).toBe('user');expect(p.body.field_origin.project_id).toBe('ai')}
     await expect(line(page)).toContainText('2개의 분류을(를) 바꿨어요');
+    // 일괄 작업 뒤 선택 모드는 저절로 풀린다(LIB-후속1 ③). 다시 골라 담당조직을 바꾼다.
+    await expect(bar(page)).toBeHidden();
     s.patches.length=0;
+    await pick(page,['a-1','n-1'],width);
     await press(page,bar(page).getByRole('button',{name:'담당조직 바꾸기',exact:true}),width);
     await expect(menuItem(page,'가상 조직')).toBeVisible();await expect(menuItem(page,'담당조직 없음')).toBeVisible();
     await press(page,menuItem(page,'가상 조직'),width);
@@ -154,9 +157,10 @@ test.describe('LIB-후속1 PC 선택',()=>{
       if(want)await expect(pick).toBeChecked();else await expect(pick).not.toBeChecked();
     }
     await expect(page.locator('#documentModal')).toBeHidden();
-    // 칩·제목을 눌러도 고르기(열리지 않음).
-    await row.locator('.lu-row-title').click();await expect(pick).toBeChecked();
-    await row.locator('.lu-file-kind').click();await expect(pick).not.toBeChecked();
+    // 다섯 번 눌러 지금은 골라진 상태. 제목·종류 칩을 눌러도 풀기·고르기(열리지 않음).
+    await expect(pick).toBeChecked();
+    await row.locator('.lu-row-title').click();await expect(pick).not.toBeChecked();
+    await row.locator('.lu-file-kind').click();await expect(pick).toBeChecked();
     // Esc = 선택 모드 풀기.
     await page.keyboard.press('Escape');await expect(bar(page)).toBeHidden();
     expect(errors).toEqual([]);
