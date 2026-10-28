@@ -81,3 +81,5 @@
 .gs-row-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:600;cursor:pointer}
 .gs-row-menu button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
 .gs-row-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* SEARCH-선택옮기기 ③: 자료실 결과 줄의 지금 폴더 '📁 이름' — 작은 흐린 글자, 길면 말줄임. */
+.gs-row-folder{flex:0 1 auto;min-width:0;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-muted);font-size:11px}
