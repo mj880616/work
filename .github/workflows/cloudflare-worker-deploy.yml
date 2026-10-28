@@ -136,11 +136,9 @@ jobs:
           set -euo pipefail
           # Resolve the release URLs from the tree GitHub Pages serves before any production request.
           # A read/parse failure exits the step through set -e (no fallback URLs).
+          # DOMAIN-주소이전 ①-D1: the URLs are on bokdoong.com, the only Web2 host (desk and work redirect there).
           asset_urls="$(node scripts/cloudflare-check-urls.mjs "$PAGES_TREE")"
           IFS=$'\t' read -r APP_URL LOADER_URL PWA_URL SW_URL APP_ICON_URL <<< "$asset_urls"
-          # DOMAIN-주소이전 ①-E5: Web2 also opens on bokdoong.com/work/app/ with the same rules as desk.
-          web2_urls="$(node scripts/cloudflare-check-urls.mjs "$PAGES_TREE" --host bokdoong.com)"
-          IFS=$'\t' read -r WEB2_APP_URL WEB2_LOADER_URL WEB2_PWA_URL WEB2_SW_URL WEB2_APP_ICON_URL <<< "$web2_urls"
           USER_AGENT='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36'
 
           check_200() {
@@ -229,6 +227,42 @@ jobs:
             return 1
           }
 
+          # One redirect, exact status and Location (no --location): same path and ?query on bokdoong.com.
+          check_redirect() {
+            local url="$1"
+            local expected="$2"
+            local result=""
+
+            for attempt in {1..20}; do
+              result="$(curl \
+                --silent \
+                --show-error \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --header "User-Agent: $USER_AGENT" \
+                --output /dev/null \
+                --write-out '%{http_code}|%{redirect_url}' \
+                "$url" || true)"
+
+              if [[ "$result" == "302|$expected" ]]; then
+                echo "OK  $url -> 302 $expected"
+                return 0
+              fi
+
+              echo "WAIT ($attempt/20, $result)  $url"
+              sleep 5
+            done
+
+            echo "FAIL  $url (last $result, expected 302|$expected)"
+            return 1
+          }
+
+          check_redirect 'https://bokdoong.com/' 'https://bokdoong.com/work/app/'
+          check_redirect 'https://desk.bokdoong.com/' 'https://bokdoong.com/work/app/'
+          check_redirect 'https://desk.bokdoong.com/work/app/?view=library&drive=connected' 'https://bokdoong.com/work/app/?view=library&drive=connected'
+          check_redirect 'https://desk.bokdoong.com/work/app/onedrive-return.html?probe=1' 'https://bokdoong.com/work/app/onedrive-return.html?probe=1'
+          check_redirect 'https://work.bokdoong.com/work/app/?view=calendar' 'https://bokdoong.com/work/app/?view=calendar'
+
           for url in \
             https://bokdoong.com/ \
             https://work.bokdoong.com/ \
@@ -254,21 +288,14 @@ jobs:
           check_200 "$PWA_URL"
           check_200 "$APP_ICON_URL"
           check_200 'https://bokdoong.com/work/app/' 'text/html'
-          check_200 "$WEB2_SW_URL"
-          check_200 "$WEB2_APP_URL"
-          check_200 "$WEB2_LOADER_URL"
-          check_200 "$WEB2_PWA_URL"
-          check_200 "$WEB2_APP_ICON_URL"
+          check_200 'https://work.bokdoong.com/work/share/' 'text/html'
           check_icon 'https://bokdoong.com/favicon.png' 'image/png'
           check_icon 'https://bokdoong.com/favicon.ico' 'image/x-icon'
 
           for url in \
             "$APP_URL" \
             "$LOADER_URL" \
-            "$APP_ICON_URL" \
-            "$WEB2_APP_URL" \
-            "$WEB2_LOADER_URL" \
-            "$WEB2_APP_ICON_URL"
+            "$APP_ICON_URL"
           do
             headers="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --dump-header - --output /dev/null "$url")"
             if ! grep -qi 'cache-control: public, max-age=31536000, immutable' <<< "$headers"; then
@@ -279,7 +306,6 @@ jobs:
           done
 
           for missing_url in \
-            "https://desk.bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA" \
             "https://bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA"
           do
             missing_code="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --output /dev/null --write-out '%{http_code}' "$missing_url" || true)"
@@ -298,10 +324,9 @@ jobs:
           # These are stable URLs whose contents change on GitHub Pages deploys.
           # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
           for url in \
-            https://bokdoong.com/ \
+            https://bokdoong.com/work/app/ \
             https://work.bokdoong.com/work/assets/web1-design-lite.css \
             "$SW_URL" \
-            "$WEB2_SW_URL" \
             https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js
           do
             headers="$(curl \
