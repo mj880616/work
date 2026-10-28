@@ -39,6 +39,10 @@
 // 업무일지 '오늘 한 줄' 저녁 초안(kind=journal_draft, JOURNAL-오늘한줄초안, journal-draft.ts): 업무일지 화면이 오늘 18시 뒤 한 줄이 없을 때 한 번 부른다.
 //   화면은 그날 재료 줄(일정·한 일·회의·소식·업무 통화 요약, 60줄까지)만 보낸다(이 쓰임만 몸통 32KB). 초안은 owner RLS 표 app_journal_drafts에만
 //   넣는다(하루 1행). 그날 초안이나 업무일지 줄이 이미 있으면 AI를 부르지 않는다. 업무일지 줄(app_notes kind=work)은 쓰지 않는다.
+// 다음 주 준비 한 장(kind=next_week_sheet, JOURNAL-다음주준비, next-week-sheet.ts): 업무일지 [주간 정리]가 금요일 15시 뒤(또는 토·일) 처음 열릴 때
+//   다음 주 장이 없으면 한 번(mode=auto), [지금 만들기]·[다시 만들기]를 누를 때(mode=user) 부른다. 화면은 다음 주 재료 ①~⑥ 줄(150줄까지)만 보낸다
+//   (이 쓰임만 몸통 48KB). AI는 '핵심 세 가지'만 만들고, 줄과 함께 owner RLS 표 app_journal_next_week_sheets(주마다 1행)에 저장한다.
+//   AI 한도·실패여도 줄은 저장한다(ai_status limit|failed). Google·원장·챙길 것·회의 표에는 쓰지 않는다.
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
@@ -56,6 +60,10 @@ import {
   JOURNAL_DRAFT_BODY_BYTES, JOURNAL_DRAFT_HOUR, JOURNAL_DRAFT_INSTRUCTIONS, JOURNAL_DRAFT_MAX_OUTPUT_TOKENS, JOURNAL_DRAFT_SCHEMA,
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
 } from "./journal-draft.ts";
+import {
+  autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
+  nextWeekSheetMaterial, parseNextWeekSheet, parseNextWeekSheetRequest, addDays as addSheetDays, seoulClock, sentIndexes, type NextWeekItem, type NextWeekTopLine,
+} from "./next-week-sheet.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -128,7 +136,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, area_week_summary: 30, area_suggest: 60, org_people_brief: 60 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, area_week_summary: 30, area_suggest: 60, org_people_brief: 60 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -194,6 +202,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   note_title_unavailable: "노트 제목을 저장하지 못했어요.",
   journal_draft_not_ready: "오늘 한 줄 초안 기능이 아직 준비되지 않았어요.",
   journal_draft_unavailable: "오늘 한 줄 초안을 읽거나 저장하지 못했어요.",
+  next_week_sheet_not_ready: "다음 주 준비 기능이 아직 준비되지 않았어요.",
+  next_week_sheet_unavailable: "다음 주 준비 한 장을 읽거나 저장하지 못했어요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_people_not_ready: "주요 인물 기능이 아직 준비되지 않았어요.",
@@ -347,7 +357,7 @@ async function rest(ctx: Ctx, path: string, init: { method?: string; body?: unkn
   return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
 }
 
-const BODY_CAP_BYTES = Math.max(SCHEDULE_BODY_BYTES, HWP_CONVERT_BODY_BYTES, JOURNAL_DRAFT_BODY_BYTES);
+const BODY_CAP_BYTES = Math.max(SCHEDULE_BODY_BYTES, HWP_CONVERT_BODY_BYTES, JOURNAL_DRAFT_BODY_BYTES, NEXT_WEEK_SHEET_BODY_BYTES);
 // 몸통은 2KB까지. 주요 일정 제목 다듬기(kind=schedule_titles)만 일정 줄을 실어 20KB까지 받는다(한글 제목 30줄): 20KB까지 읽은 뒤 그 쓰임이 아니면
 // 선언 길이·실제 길이가 2KB를 넘을 때 전처럼 413으로 거절한다.
 async function readBody(req: Request): Promise<unknown> {
@@ -386,7 +396,7 @@ async function readBody(req: Request): Promise<unknown> {
   if (declaredBig || actualBig) {
     // 일정 제목 다듬기(20KB)와 HWP 서식변환(100KB)만 자기 상한까지 받는다. 그 상한을 넘으면 413.
     const kind = (body as { kind?: unknown } | null)?.kind;
-    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : MAX_BODY_BYTES;
+    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : kind === "next_week_sheet" ? NEXT_WEEK_SHEET_BODY_BYTES : MAX_BODY_BYTES;
     if (own === MAX_BODY_BYTES) throw new Fail(declaredBig ? 413 : 400, "invalid_request");
     if (raw.byteLength > own || (declared !== null && Number(declared) > own)) throw new Fail(413, "invalid_request");
   }
@@ -409,6 +419,7 @@ type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
+type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "auto" | "user"; items: NextWeekItem[] };
 type HwpConvertInput = { kind: "hwp_convert"; doc_type: HwpConvertDocType; text: string };
 type AreaWeekSummaryInput = { kind: "area_week_summary"; week_start: string; area_ids: string[] };
 type AreaSuggestInput = { kind: "area_suggest"; title: string; text: string };
@@ -501,6 +512,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     const parsed = parseJournalDraftRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "journal_draft", ...parsed };
+  }
+  // 다음 주 준비 한 장(next_week_sheet): 다음 주 월요일·만든 방식·재료 줄(150줄까지)만 받는다. 이미 있는 장은 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "next_week_sheet") {
+    const parsed = parseNextWeekSheetRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "next_week_sheet", ...parsed };
   }
   // HWP 서식변환(hwp_convert): 문서 종류와 붙여 넣은 글(20000자까지)만 받는다. 다른 기록은 읽지 않는다.
   if (b.kind === "hwp_convert") {
@@ -3285,6 +3302,126 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
   return json({ ok: true, kind: "journal_draft", day, draft: saved });
 }
 
+// ---- 쓰임 next_week_sheet: 다음 주 준비 한 장(JOURNAL-다음주준비, next-week-sheet.ts) ---------------------------------------
+// mode=auto: 금요일 15시(서울) 뒤나 토·일에, 다음 주 장이 아직 없을 때만 만든다(이미 있으면 그 장을 돌려줌 — 다른 기기·[지금 만들기]를 덮지 않음).
+// mode=user: [지금 만들기]·[다시 만들기]. 다음 주(또는 이번 주) 장을 새로 만들어 덮는다.
+// AI는 줄이 있을 때만 부르고, 월 상한·하루 횟수 안에서만 사용량 줄에 더한다. 한도·실패면 AI 줄 없이 ①~⑥만 저장한다.
+// 저장은 app_journal_next_week_sheets 한 표뿐(있으면 PATCH, 없으면 POST). 다른 표에는 쓰지 않는다.
+const NEXT_WEEK_TABLE = "app_journal_next_week_sheets";
+async function runNextWeekSheet(ctx: Ctx, input: NextWeekSheetInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const clock = seoulClock(started);
+  const week = input.week_start;
+  const thisMonday = addSheetDays(clock.nextMonday, -7);
+  if (input.mode === "auto" ? week !== clock.nextMonday : week !== clock.nextMonday && week !== thisMonday) throw new Fail(400, "invalid_request");
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const readSheet = async (): Promise<Record<string, unknown> | null> => {
+    let rows: unknown;
+    try {
+      rows = await rest(ctx, `${NEXT_WEEK_TABLE}?workspace_id=eq.${ws}&week_start=eq.${week}&select=workspace_id,week_start,top_lines,groups,ai_status,made_by,created_at,updated_at&limit=2`);
+    } catch (e) {
+      // 표가 없으면(DB 적용 전) PostgREST가 404를 준다.
+      throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "next_week_sheet_not_ready" : "next_week_sheet_unavailable");
+    }
+    if (!Array.isArray(rows) || rows.length > 1) throw new Fail(503, "next_week_sheet_unavailable");
+    const row = rows[0] as Record<string, unknown> | undefined;
+    if (!row) return null;
+    if (String(row.workspace_id).toLowerCase() !== ctx.workspaceId || row.week_start !== week) throw new Fail(503, "next_week_sheet_unavailable");
+    const { workspace_id: _ws, ...sheet } = row;
+    return sheet;
+  };
+  const existing = await readSheet();
+  if (input.mode === "auto") {
+    if (!autoTime(started)) {
+      deps.log("next_week_sheet_skipped", { reason: "not_yet" });
+      return json({ ok: true, kind: "next_week_sheet", week_start: week, sheet: existing, skipped: "not_yet" });
+    }
+    if (existing) {
+      deps.log("next_week_sheet_skipped", { reason: "done" });
+      return json({ ok: true, kind: "next_week_sheet", week_start: week, sheet: existing, skipped: "done" });
+    }
+  }
+
+  let top: NextWeekTopLine[] = [];
+  let aiStatus: "ok" | "limit" | "failed" | "skipped" = "skipped";
+  const material = nextWeekSheetMaterial(week, input.items);
+  if (material) {
+    const config = aiConfig(deps.env);
+    let budget: Awaited<ReturnType<typeof checkBudget>> | null = null;
+    if (!config) {
+      deps.log("ai_not_configured");
+      aiStatus = "failed";
+    } else {
+      try {
+        budget = await checkBudget(ctx, "next_week_sheet", started, config.price);
+      } catch (e) {
+        if (!(e instanceof Fail)) throw e;
+        aiStatus = e.status === 429 ? "limit" : "failed";
+      }
+    }
+    if (config && budget) {
+      let counted = true;
+      try {
+        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+      } catch {
+        counted = false;
+        aiStatus = "failed";
+      }
+      if (counted) {
+        const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+          model: config.model,
+          store: false,
+          max_output_tokens: NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS,
+          input: [
+            { role: "developer", content: NEXT_WEEK_SHEET_INSTRUCTIONS },
+            { role: "user", content: material },
+          ],
+          text: { format: { type: "json_schema", name: "next_week_sheet", strict: true, schema: NEXT_WEEK_SHEET_SCHEMA } },
+        });
+        const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+        if (used.input || used.output) {
+          try {
+            await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+          } catch {
+            deps.log("usage_record_failed");
+          }
+        }
+        if (!result.ok) {
+          deps.log(result.code);
+          aiStatus = "failed";
+        } else {
+          const parsed = parseNextWeekSheet(outputText(result.raw, 16 * 1024) ?? "", sentIndexes(input.items));
+          if (parsed) { top = parsed; aiStatus = "ok"; } else aiStatus = "failed";
+        }
+      }
+    }
+  }
+
+  const values = { top_lines: top, groups: input.items, ai_status: aiStatus, made_by: input.mode };
+  const patch = () => rest(ctx, `${NEXT_WEEK_TABLE}?workspace_id=eq.${ws}&week_start=eq.${week}`, {
+    method: "PATCH", prefer: "return=minimal", body: { ...values, updated_at: new Date(deps.now()).toISOString() },
+  });
+  try {
+    if (existing) await patch();
+    else {
+      try {
+        await rest(ctx, NEXT_WEEK_TABLE, { method: "POST", prefer: "return=minimal", body: { workspace_id: ctx.workspaceId, week_start: week, ...values } });
+      } catch (e) {
+        // 다른 기기가 먼저 넣었다: auto면 그 장을 그대로 두고, user면 덮는다.
+        if (!(e instanceof Error && e.message === "rest_409")) throw e;
+        if (input.mode === "user") await patch();
+      }
+    }
+  } catch {
+    throw new Fail(503, "next_week_sheet_unavailable");
+  }
+  const saved = await readSheet();
+  if (!saved) throw new Fail(503, "next_week_sheet_unavailable");
+  const sentSize = chars(material);
+  deps.log("next_week_sheet_done", { items: input.items.length, top: top.length, ai: aiStatus, size: sentSize });
+  return json({ ok: true, kind: "next_week_sheet", week_start: week, sheet: saved });
+}
+
 // ---- 쓰임 note_title: 노트 AI 요약 제목(NOTE-탐색기 ③, note-title.ts) ------------------------------------------------------
 // 노트를 처음 저장한 뒤 한 번. AI를 부르지 않는 경우(skipped)는 사용량에 잡지 않는다. 부르면 월 AI 상한·하루 횟수 안에서만, 사용량 줄(app_ai_daily_usage)에 더한다.
 // 저장은 그 노트 행의 metadata.ai_title(+ai_title_at)만, 읽은 뒤 바뀌지 않았을 때만(updated_at 같음·ai_title 없음). 제목 칸은 건드리지 않는다.
@@ -3629,6 +3766,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "next_week_sheet") return await runNextWeekSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_week_summary") return await runAreaWeekSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_suggest") return await runAreaSuggest(ctx, input, { env: deps.env, now, sleep, log, doFetch });
