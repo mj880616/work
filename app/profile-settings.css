@@ -48,3 +48,20 @@
 #profileView .ps-calref-color[aria-pressed="true"]{border-color:var(--kptu-primary);font-weight:700}
 #profileView .ps-calref-color[disabled]{opacity:.5}
 #profileView .ps-calref-check input{flex:none;width:16px;min-width:16px;height:16px;min-height:16px;margin:0;padding:0;accent-color:var(--kptu-primary)}
+/* UI-업데이트안내(설계 9.4): 맨 아래 접힌 [업데이트 기록] — 한 줄 요약(버전명·날짜·첫 줄) + 누르면 펼침. 새 색·카드 없음. */
+#profileView .ps-release[hidden]{display:none}
+#profileView .ps-release>summary.rn-title{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);cursor:pointer;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium,600)}
+#profileView .ps-release .rn-title-text{flex:1;min-width:0}
+#profileView .ps-release .rn-title-ver{color:var(--kptu-muted);font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular,400)}
+#profileView .rn-list{display:grid;gap:0;margin-top:4px;border-top:.5px solid var(--kptu-border)}
+#profileView .rn-note{border-bottom:.5px solid var(--kptu-border)}
+#profileView .rn-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);cursor:pointer;font-size:var(--ds-text-row)}
+#profileView .rn-ver{flex:none;font-variant-numeric:tabular-nums;font-weight:var(--ds-weight-medium,600)}
+#profileView .rn-date{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#profileView .rn-one{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#profileView .rn-now{flex:none;padding:0 6px;border-radius:var(--kptu-radius-sm);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta)}
+#profileView .rn-body{padding:0 0 6px 4px;font-size:var(--ds-text-row);overflow-wrap:anywhere}
+#profileView .rn-changes{margin:0;padding-left:18px}
+#profileView .rn-check{margin:4px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#profileView .rn-check-label{color:var(--kptu-ink);font-weight:var(--ds-weight-medium,600)}
+#profileView .rn-more{margin-top:6px}

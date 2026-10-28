@@ -149,7 +149,9 @@ window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='profile'&&c
 window.addEventListener('beforeunload',e=>{if($('#profileView')&&!$('#profileView').classList.contains('hidden')&&(saving||changeCount())){e.preventDefault();e.returnValue=''}});
 function syncMySpaceEntry(allowed=window.__KPTU_MYSPACE_ALLOWED__){$('#psMySpaceEntry')?.classList.toggle('hidden',!allowed)}
 window.addEventListener('kptu:myspace-access',event=>syncMySpaceEntry(event.detail?.allowed));
-async function boot(){installView();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
+// UI-업데이트안내: 맨 아래 접힌 [업데이트 기록] 칸 자리. 안은 release-notes-ui.js가 그린다(기록을 못 읽으면 숨긴 채).
+function installReleaseNotes(){const grid=$('#profileView .ps-profile-grid');if(!grid||$('#psReleaseNotes'))return;grid.insertAdjacentHTML('beforeend','<details class="panel ps-panel ps-release" id="psReleaseNotes" hidden></details>');import('./release-notes-ui.js').then(m=>m.mountReleaseNotes($('#psReleaseNotes'))).catch(()=>{})}
+async function boot(){installView();installReleaseNotes();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
 window.addEventListener('kptu:suborganization-updated',()=>{if(user&&!saving)load().catch(console.error)});
 window.addEventListener('kptu:session-changed',async()=>{user=null;workspaceId=null;workplaces=[];legacyWorkplaces=[];organizations=[];assignments=[];profileWorkplaces=[];baseline=new Set();want.clear();saved={name:'',title:''};const name=$('#psName'),title=$('#psTitle');if(name)name.value='';if(title)title.value='';if(await context()){bind();await load()}});
 window.__KPTU_PROFILE_SETTINGS_READY__=boot().catch(err=>{console.error('profile settings init',err);return false});
