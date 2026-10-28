@@ -71,7 +71,8 @@ test('code shape: owner only, key name only, no transcript stored, no prune/dele
  assert.match(index,/if \(data\?\.role !== 'owner'\) throw new AuthError\(403\)/);
  assert.match(index,/if \(data\.created_by !== userId\) throw new Fail\('not_found'\)/);
  assert.match(index,/Deno\.env\.get\(GEMINI_KEY_NAME\)/);assert.equal(m.GEMINI_KEY_NAME,'GEMINI_API_KEY');
- assert.doesNotMatch(index,/OPENAI|localStorage|\.delete\(\)|transcript_text|admin\.from\('app_meetings'\)|admin\.from\('app_documents'\)/);
+ assert.doesNotMatch(index,new RegExp(['local','session'].map(x=>x+'Storage').join('|')));
+ assert.doesNotMatch(index,/OPENAI|\.delete\(\)|transcript_text|admin\.from\('app_meetings'\)|admin\.from\('app_documents'\)/);
  // 작업 표에 글을 넣지 않는다: setJob·insert 몸통에 text 칸 없음
  for(const call of index.matchAll(/(?:setJob\([^;]*|from\(TABLE\)\.(?:insert|update)\([^;]*)/g))assert.doesNotMatch(call[0],/\btext\b|result\./);
  assert.match(index,/userDb\.from\('app_ai_external_usage'\)\.select/);
