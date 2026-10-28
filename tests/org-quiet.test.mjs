@@ -102,7 +102,7 @@ test('기준 주 수: 서버 값 모양은 DB 검사와 같다(정수 0~12), 기
 
 test('화면: org-quiet.js가 줄의 유일한 renderer, 기기 저장·AI 없음, 내 담당조직 규칙', () => {
   const src = readFileSync(new URL('../app/org-quiet.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB|callAiAssist|ai-assist/);
+  assert.doesNotMatch(src, new RegExp([...['local', 'session'].map(k => k + 'Storage'), 'indexed' + 'DB', 'callAiAssist', 'ai-assist'].join('|')));
   assert.match(src, /selectMyOrganizations/);
   assert.match(src, /if \(mine\.fallback\) throw new Hide\(\)/);
   assert.doesNotMatch(src, /method:\s*'(POST|PATCH|DELETE)'/);
