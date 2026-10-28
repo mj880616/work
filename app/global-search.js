@@ -68,6 +68,7 @@ function setText(text) {
 }
 async function run(query) {
   const mine = ++seq;
+  resetFolders();
   try {
     const r = await data.searchRecords(query, {per: PREVIEW});
     if (mine !== seq) return;
@@ -173,6 +174,7 @@ function paint(host, where) {
   host.append(box);
   const again = prevActive && host.querySelector(`[role="option"][data-gs-key="${CSS.escape(prevActive)}"]`);
   if (again) setActive(host, again, {scroll: false});
+  if (folderAsk.size) void loadFolders();
 }
 function groupNode(g, where) {
   const sec = el('section', 'gs-group'); sec.setAttribute('role', 'group'); sec.dataset.gsGroup = g.key;
@@ -193,6 +195,27 @@ function groupNode(g, where) {
   return sec;
 }
 const rowsByKey = new Map();
+// SEARCH-선택옮기기 ③(2026-10-28 10:44): 자료실 결과 줄마다 지금 들어 있는 폴더를 작게 '📁 회의자료'. 화면에 그린 자료의 폴더만 한 번에 읽는다
+// (자료실과 같은 소유자 표 app_library_folder_items·app_library_folders, 읽기만). 검색할 때마다·자료가 바뀌면(옮긴 뒤) 다시 읽어 바로 바뀐다. 메모리만.
+const docFolder = new Map(); let folderAsk = new Set(), folderSeq = 0;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function resetFolders() { docFolder.clear(); folderAsk = new Set(); folderSeq++; }
+async function loadFolders() {
+  const ids = [...folderAsk].filter(id => !docFolder.has(id) && UUID.test(id)); folderAsk = new Set();
+  const api = window.KPTURuntime?.api; if (!ids.length || typeof api !== 'function') return;
+  const mine = folderSeq; for (const id of ids) docFolder.set(id, '');
+  try {
+    const items = await api(`/rest/v1/app_library_folder_items?document_id=in.(${ids.map(encodeURIComponent).join(',')})&select=document_id,folder_id`);
+    const fids = [...new Set((Array.isArray(items) ? items : []).map(x => x.folder_id).filter(id => UUID.test(id || '')))];
+    const folders = fids.length ? await api(`/rest/v1/app_library_folders?id=in.(${fids.map(encodeURIComponent).join(',')})&select=id,name`) : [];
+    if (mine !== folderSeq) return;
+    const name = new Map((Array.isArray(folders) ? folders : []).map(f => [f.id, String(f.name || '')]));
+    let any = false; for (const x of items || []) if (name.get(x.folder_id)) { docFolder.set(x.document_id, name.get(x.folder_id)); any = true; }
+    if (any) paintAll();
+  } catch { /* 폴더 표시는 덤이다. 못 읽으면 표시 없이 둔다. */ }
+}
+window.addEventListener('kptu:documents-changed', () => { if (docFolder.size) { resetFolders(); if (state.groups) paintAll(); } });
+window.addEventListener('kptu:session-changed', resetFolders);
 function rowNode(item, key, where) {
   const row = el('div', 'gs-row'); row.setAttribute('role', 'option'); row.id = `gsOpt-${where}-${++optionSeq}`;
   const k = `${item.source}:${item.id}`; row.dataset.gsKey = k; rowsByKey.set(k, item);
@@ -201,6 +224,7 @@ function rowNode(item, key, where) {
   const head = el('span', 'gs-row-head');
   head.append(marked(item.title, state.words, 'gs-row-title'));
   if (item.state && STATE_LABEL[item.state]) head.append(el('span', `gs-state gs-state-${item.state}`, STATE_LABEL[item.state]));
+  if (item.source === 'document') { const f = docFolder.get(item.id); if (f) head.append(el('span', 'gs-row-folder', `📁 ${f}`)); else if (f === undefined) folderAsk.add(item.id); }
   main.append(head);
   const meta = [dateLabel(item), placeLabel(item)].filter(Boolean).join(' · ');
   if (meta) main.append(el('span', 'gs-row-meta', meta));

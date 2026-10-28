@@ -428,3 +428,9 @@
 #appView #libraryView .lu-path-step:hover,#appView #libraryView .lu-path-step:focus-visible{background:var(--kptu-surface-subtle)}
 #appView #libraryView .lu-path-here{padding:0 6px;color:var(--kptu-ink);font-weight:600}
 #appView #libraryView .lu-path-sep{color:var(--kptu-muted)}
+/* LIB-폴더보기 칩 순서(08:25 ②): 묶기 칩을 끌 때 놓일 자리는 칩 왼쪽 세로선(줄 끝이면 칩 줄 오른쪽 끝). 잡힌 칩은 살짝 흔들림(움직임 줄이기면 색만). */
+#appView #libraryView #libraryGroupBy .re-drop-before{border-top:0;border-left:2px solid var(--kptu-primary-ink)}
+#appView #libraryView #libraryGroupBy.re-drop-end{border-top:0;border-right:2px solid var(--kptu-primary-ink)}
+@keyframes lu-chip-wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-2deg)}75%{transform:rotate(2deg)}}
+#appView #libraryView #libraryGroupBy .re-dragging{animation:lu-chip-wiggle .25s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){#appView #libraryView #libraryGroupBy .re-dragging{animation:none}}
