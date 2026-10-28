@@ -26,7 +26,7 @@
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. */
-#appView #basketView :is(button:not(.basket-row,.basket-return-btn,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
+#appView #basketView :is(button:not(.basket-row,.basket-return-btn,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
 #appView #homeView .home-quick :is(.home-quick-modes button,.home-quick-save,.home-quick-new-note,[data-quick-options] button):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
@@ -322,7 +322,6 @@
 /* 일정+할 일: [일정] 탭 위쪽의 [달력 | 할 일] 전환은 폰에서만 보인다. */
 #appView .schedule-switch{ display:none; }
 /* 정리함 [업데이트 | 챙길 것] 전환도 같다(BASKET-PC메뉴): PC(761px~)는 왼쪽 메뉴 [정리함] 아래 하위 줄이 맡으므로 화면 위에는 그리지 않는다. */
-@media(min-width:761px){ #appView #basketView > .basket-head > .inbox-pane-switch:not([hidden]){ display:none; } }
 /* 담당조직 추가 링크는 폰에서만(PC는 위쪽 [+ 담당조직] 그대로). */
 #appView #teamView .so-add-link{ display:none; }
 
@@ -380,33 +379,20 @@
   #appView #basketView .home-quick .home-quick-entry{ align-items:stretch; }
   /* NOTE-파일붙이기: 노트 입력칸도 업데이트 입력칸처럼 왼쪽에 클립 자리(44px)를 둔다(위 규칙 그대로). */
 
-  /* 바구니 머리줄: 폰 화면 제목은 위 머리줄("바구니")이 맡으므로 [⋯]를 그 오른쪽 자리로 올린다(☰가 빠진 자리). 작은 아이콘, 누르는 범위 44px. */
-  #appView #basketView > .basket-head{ justify-content:flex-end; min-height:var(--kptu-touch-target,44px); margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; pointer-events:none; }
-  #appView #basketView > .basket-head :is(.basket-more,.inbox-pane-switch){ pointer-events:auto; }
-  #appView #basketView button.basket-more-trigger{ width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:22px; line-height:1; }
-  #appView #basketView .basket-more-trigger .basket-more-label{ display:none; }
+  /* BASKET-정리함한화면: 폰 화면 제목은 위 머리줄이 맡고, 화면 맨 위에는 '챙길 것 n · 업데이트 n · 마지막 찾기' 한 줄과 작은 [다시 찾기]만. 노트 쪽은 이 줄이 없다. */
+  #appView #basketView[data-kind="note"] > .basket-head{ display:none; }
   /* 필터 [미분류 N]·[분류]·[보류]은 화면 폭 가득. */
   #appView #basketView .basket-filters{ max-width:none; }
   #appView #basketView .basket-filter-count{ display:inline; }
   /* 메모가 없으면 가운데 회색 한 줄. */
-  #appView #basketView [data-basket-list-status][data-basket-empty]{ margin:32px 0; text-align:center; color:var(--kptu-muted); }
+  #appView #basketView [data-basket-list-status][data-basket-empty]{ margin:4px 0; color:var(--kptu-muted); }
 
-  /* [분류 요청] 뒤에 열리는 [분류 결과 입력] 창: 아래에서 올라오는 창(하단 탭 바로 위). */
-  #appView #basketView [data-classification-panel]:not([hidden]){
-    position:fixed; z-index:31; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + var(--kptu-keyboard-inset,0px));
-    box-sizing:border-box; max-height:calc(100dvh - var(--kptu-mobile-tab-height,0px) - var(--kptu-keyboard-inset,0px) - 96px); overflow-y:auto; overscroll-behavior:contain;
-    padding:4px calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left));
-    background:var(--kptu-surface); border-top:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box) var(--ds-radius-box) 0 0; box-shadow:var(--kptu-shadow-float);
-    animation:ds-sheet-up .2s ease-out;
-  }
-  #appView #basketView [data-classification-panel] .basket-approval-footer{ bottom:0; margin:0; }
   /* 담당조직: 위쪽 [+ 담당조직] 대신 목록 맨 아래 작은 글자 링크(같은 창을 엶). */
   #appView #teamView .so-team-actions #soAddOrg{ display:none; }
   #appView #teamView .so-add-link{ display:block; min-height:var(--kptu-touch-target,44px); margin:8px auto 0; padding:0 12px; border:0; background:transparent; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
   #appView #teamView .so-add-link.hidden{ display:none; }
 }
 @keyframes ds-sheet-up{ from{ transform:translateY(100%); } to{ transform:none; } }
-@media(max-width:760px) and (prefers-reduced-motion:reduce){ #appView #basketView [data-classification-panel]:not([hidden]){ animation:none; } }
 
 /* ───────── 3단계 3부(8-9e-3): 남은 화면·공용 셸·공용 창 ─────────
    1·2부와 같은 값·같은 모양. HWP 편집(#hwpView, 칸막이 iframe 안은 그대로)·게시판(#pagesView),
@@ -653,7 +639,6 @@
 
 /* ① 전환(세그먼트): 한 상자 안에 칸을 붙이고 칸 사이는 0.5px 선. 폭은 글자만큼, 왼쪽부터. */
 #appView #homeView .home-quick .home-quick-modes:not([hidden]),
-#appView #basketView .inbox-pane-switch:not([hidden]),
 #appView #calendarView .calendar-toolbar .calendar-view-switch:not([hidden]),
 .modal .event-create-modes:not([hidden]),
 .modal .meeting-create-modes{
@@ -662,9 +647,8 @@
 }
 #appView #homeView .home-quick .home-quick-modes .home-quick-update-split{ display:flex; align-items:stretch; }
 /* 두 칸 전환은 칸 폭을 같게(반반): 바구니 [업데이트|노트]·일정 창 [일정|할 일]. */
-#appView #basketView .inbox-pane-switch:not([hidden]),.modal .event-create-modes:not([hidden]),.modal .meeting-create-modes{ display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; }
+.modal .event-create-modes:not([hidden]),.modal .meeting-create-modes{ display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; }
 #appView #homeView .home-quick .home-quick-modes button,
-#appView #basketView .inbox-pane-switch button,
 #appView #calendarView .calendar-toolbar .calendar-view-switch button,
 .modal .event-create-modes button,
 .modal .meeting-create-modes button{
@@ -673,29 +657,24 @@
   color:var(--kptu-ink); background:var(--kptu-surface); border:0; border-radius:0; box-shadow:none;
 }
 #appView #homeView .home-quick .home-quick-modes > :is(button,div,span) + :is(button,div,span),
-#appView #basketView .inbox-pane-switch > :is(button,div) + :is(button,div),
 #appView #calendarView .calendar-toolbar .calendar-view-switch > :is(button,div) + :is(button,div),
 .modal .event-create-modes > :is(button,div) + :is(button,div),
 .modal .meeting-create-modes > button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
 #appView #homeView .home-quick .home-quick-modes > button:first-child,
-#appView #basketView .inbox-pane-switch > button:first-child,
 #appView #calendarView .calendar-toolbar .calendar-view-switch > button:first-child,
 .modal .event-create-modes > button:first-child,
 .modal .meeting-create-modes > button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
 #appView #homeView .home-quick .home-quick-modes > :last-child > button:last-child,
 #appView #homeView .home-quick .home-quick-modes > button:last-child,
-#appView #basketView .inbox-pane-switch > button:last-child,
 #appView #calendarView .calendar-toolbar .calendar-view-switch > button:last-child,
 .modal .event-create-modes > button:last-child,
 .modal .meeting-create-modes > button:last-child{ border-radius:0 var(--ds-radius-control) var(--ds-radius-control) 0; }
 #appView #homeView .home-quick .home-quick-modes button::after,
-#appView #basketView .inbox-pane-switch button::after,
 #appView #calendarView .calendar-toolbar .calendar-view-switch button::after,
 .modal .event-create-modes button::after,
 .modal .meeting-create-modes button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; transform:none; }
 #appView #homeView .home-quick .home-quick-modes [data-quick-mode][aria-pressed="true"],
 #appView #homeView .home-quick .home-quick-modes [data-quick-mode="update"][aria-pressed="true"] + [data-quick-org],
-#appView #basketView .inbox-pane-switch button[aria-pressed="true"],
 #appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"],
 .modal .event-create-modes button[data-event-mode][aria-pressed="true"],
 .modal .meeting-create-modes button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-line); }
@@ -737,22 +716,22 @@
 
 /* 눌림 색: 누르는 순간 기기 기본 탭 하이라이트(폰에서 민트·파란 빛)가 보이지 않게 끄고, 누르는 동안은 고른 쪽과 같은 회색.
    마우스가 올라가면 아주 옅은 바탕(--kptu-surface-subtle)만. 키보드 포커스 테두리는 그대로. */
-:is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .inbox-pane-switch button,#appView .schedule-switch button,
+:is(#appView #homeView .home-quick .home-quick-modes button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
   #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button){ -webkit-tap-highlight-color:transparent; }
-:is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .inbox-pane-switch button,#appView .schedule-switch button,
+:is(#appView #homeView .home-quick .home-quick-modes button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
   #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button):active:not([aria-pressed="true"],[aria-checked="true"],.active){ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 @media(hover:hover){
-  :is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .inbox-pane-switch button,#appView .schedule-switch button,
+  :is(#appView #homeView .home-quick .home-quick-modes button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
   #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button):hover:not(:active,[aria-pressed="true"],[aria-checked="true"],.active){ background:var(--kptu-surface-subtle); }
 }
 /* 전환 칸 사이 선은 마우스를 올려도 그대로(공용 버튼 :hover의 테두리 색이 선만 진하게 바꾸지 않게). */
-:is(#appView #homeView .home-quick .home-quick-modes,#appView #basketView .inbox-pane-switch,.modal .event-create-modes,.modal .meeting-create-modes,#appView .schedule-switch) > :is(button,div):hover{ border-color:var(--ds-line); }
+:is(#appView #homeView .home-quick .home-quick-modes,.modal .event-create-modes,.modal .meeting-create-modes,#appView .schedule-switch) > :is(button,div):hover{ border-color:var(--ds-line); }
 
 /* ③ 전환·필터 한 줄: 바구니 [업데이트 | 노트] 오른쪽에 [미분류·분류·보류](넘치면 다음 줄). 목록이 숨으면(노트·읽기·분류 창) 필터도 숨는다. */
 #appView #basketView .basket-switch-row:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 10px; min-height:var(--kptu-touch-target,44px); margin:0 0 8px; }
@@ -787,12 +766,6 @@
 }
 #appView #basketView .basket-read-actions button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 
-@media(min-width:761px){
-  #appView #basketView button.basket-more-trigger{ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
-  #appView #basketView button.basket-more-trigger::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
-  /* UI-바구니머리줄: 넓은 화면에서는 [⋯ 더보기]가 [업데이트|노트 · 미분류 · 분류 완료 · 보류] 줄 오른쪽 끝. 메뉴는 버튼 아래로 열린다. */
-  #appView #basketView .basket-switch-row > .basket-more{ margin-left:auto; }
-}
 
 /* 홈 빠른 입력칸(추가 요청): 세 모드 모두 처음엔 한 줄(46px, [추가]와 같은 높이·같은 줄)에서 시작해 길게 쓰면 늘어나고(home-quick.js),
    5줄을 넘으면 칸 안에서 스크롤. [추가]는 입력칸 첫 줄 옆에 그대로 붙어 있다(.home-quick-entry 위쪽 맞춤). */
@@ -877,18 +850,17 @@
    폰(760px 이하)에서 일정 [달력 | 할 일 | 업무일지 | 일기]와 바구니 [업데이트 | 노트]를 화면 위에서 빼서 아래 탭 6칸 바로 위 한 줄에 둔다.
    알약 세그먼트(보이는 높이 32px, 고른 쪽 회색, 누르는 범위 44px), 줄 높이 44px(--kptu-switch-dock), 바탕은 아래 탭과 같은 색.
    그리는 주인은 화면마다 하나 그대로다: 일정 네 화면은 index.html의 각 화면 칸 안 .schedule-switch(그 화면이 보일 때만 보임),
-   정리함의 [업데이트 | 챙길 것] 전환(BASKET-전환줄하단)도 이 줄에 들어간다: basket.js가 머리줄 안에 그리는 .inbox-pane-switch 하나가 그 주인이고,
-   폰에서만 같은 모양·같은 자리(입력칸 → 전환 줄 → 아래 탭)로 옮긴다. 머리줄에는 제목과 ⋯만 남는다.
+   (BASKET-정리함한화면: 정리함은 한 화면이 되어 이 줄에 들어가는 전환이 없다.)
    같은 요소의 자리만 이 규칙이 화면 기준 fixed로 옮기고, 다른 곳에 따로 그리지 않는다. PC(761px~)는 지금처럼 위.
    자판이 열리면(accessibility-dialog.js 공용 감지, body.kptu-mobile-keyboard) 아래 탭과 함께 숨고 --kptu-switch-dock은 0.
    공용 [+]·빠른 입력·목록 끝 여백·알림은 --kptu-switch-dock만큼 위로 올라간다(위 8-9e-2 규칙들, [+] 위치 규칙은 그 한 곳). */
 @media(max-width:760px){
-  html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]),#appView #basketView:not(.hidden) > .basket-head:not([hidden]) > .inbox-pane-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
+  html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
   /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(창의 선택 창은 탭 바로 위에서). */
   html.ed-window-open{ --kptu-switch-dock:0px; }
 
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch):not([hidden]){
+  #appView .schedule-switch:not([hidden]){
     position:fixed; z-index:28; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + (var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2);
     box-sizing:border-box; display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; align-items:stretch; gap:0;
     width:max-content; max-width:calc(100% - 24px); height:var(--ds-compact-height); min-height:0; margin:0 auto; padding:0;
@@ -898,21 +870,21 @@
     clip-path:inset(calc((var(--ds-compact-height) - var(--kptu-touch-target,44px)) / 2) -100vmax);
   }
   /* 칠한 줄 바탕은 누름을 받지 않으므로, 같은 자리에 보이지 않는 판을 깔아 알약 옆을 눌러도 뒤 화면이 눌리지 않게 한다. */
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch):not([hidden])::before{
+  #appView .schedule-switch:not([hidden])::before{
     content:""; position:absolute; z-index:-1; left:-100vmax; right:-100vmax; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px);
   }
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) button{
+  #appView .schedule-switch button{
     position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; width:auto; min-width:0; height:auto; min-height:0;
     margin:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap;
     color:var(--kptu-ink); background:var(--kptu-surface); border:0; border-radius:0; box-shadow:none; cursor:pointer;
   }
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) > button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) > button:first-child{ border-radius:var(--ds-chip-radius) 0 0 var(--ds-chip-radius); }
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) > button:last-child{ border-radius:0 var(--ds-chip-radius) var(--ds-chip-radius) 0; }
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
-  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
-  body.kptu-mobile-keyboard :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch){ display:none; }
+  #appView .schedule-switch > button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
+  #appView .schedule-switch > button:first-child{ border-radius:var(--ds-chip-radius) 0 0 var(--ds-chip-radius); }
+  #appView .schedule-switch > button:last-child{ border-radius:0 var(--ds-chip-radius) var(--ds-chip-radius) 0; }
+  #appView .schedule-switch button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+  #appView .schedule-switch button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+  #appView .schedule-switch button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+  body.kptu-mobile-keyboard #appView .schedule-switch{ display:none; }
 
   /* 바구니 위쪽 줄에는 필터 [미분류·분류·보류]만 남는다. 필터가 숨으면(노트 목록) 줄도 자리를 차지하지 않는다. */
   #appView #basketView:has(> [data-basket-list][hidden]) > .basket-switch-row{ min-height:0; margin:0; }
@@ -1161,7 +1133,6 @@ html :is(
   #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
   #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"],
   #appView #ledgerView .lb-chip:has(input:checked),
-  #appView #basketView .inbox-pane-switch [aria-pressed="true"],
   #appView #homeView .home-quick-modes [data-quick-mode][aria-pressed="true"],
   #appView #homeView .home-quick-modes [data-quick-mode="update"][aria-pressed="true"] + [data-quick-org],
   #appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"],
@@ -1175,7 +1146,6 @@ html :is(
 /* ① 가로 전환(세그먼트): 테두리가 없거나 이웃과 붙어 있어, 고른 칸 아래쪽 안에 얇은 선(2px)을 그린다.
    버튼 자체의 그림자·배경 그림은 그대로 두고(UI-버튼크기 '그림자 없음'), 누르는 범위 ::after와 겹치지 않게 ::before를 쓴다. */
 html :is(
-  #appView #basketView .inbox-pane-switch [aria-pressed="true"],
   #appView #homeView .home-quick-modes [data-quick-mode][aria-pressed="true"],
   #appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"],
   #appView .schedule-switch button[aria-pressed="true"],
@@ -1186,7 +1156,6 @@ html :is(
   .modal .meeting-create-modes button[aria-pressed="true"]
 ){ position:relative; }
 html :is(
-  #appView #basketView .inbox-pane-switch [aria-pressed="true"],
   #appView #homeView .home-quick-modes [data-quick-mode][aria-pressed="true"],
   #appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"],
   #appView .schedule-switch button[aria-pressed="true"],

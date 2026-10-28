@@ -5,7 +5,6 @@ import assert from 'node:assert/strict';
 import {noteJournalAt, journalGuard, setNoteJournal} from '../app/update-journal.js';
 import {noteClassified, visibleNotes, notePlaces, canKeepInJournal, noteHasOrgOrProject} from '../app/basket-data.js';
 import {noteTaskGuard} from '../app/basket-note-tasks.js';
-import {selectHandoffNotes} from '../app/basket-ai-handoff.js';
 import {dayCard, journalMemosOn, orgNewsOn} from '../app/journal-data.js';
 import {weeklySummary, weeklyReportText} from '../app/journal-weekly.js';
 
@@ -69,7 +68,7 @@ test('the task writer guards the mark too, so it never drops it', () => {
   assert.match(noteTaskGuard({updated_at:'u', metadata:{}}), /metadata->>journal_at=is\.null/);
 });
 
-test('a kept update leaves 미분류, shows under 분류 완료 · 업무일지, and leaves the AI classification batch', () => {
+test('a kept update leaves 미분류, shows under 분류 완료 · 업무일지', () => {
   const kept = {id:'k', metadata:{journal_at:AT}, ai_export_allowed:true, occurred_at:'2026-10-20T00:00:00Z'};
   const plain = {id:'p', metadata:{}, ai_export_allowed:true, occurred_at:'2026-10-20T00:00:00Z'};
   assert.equal(noteClassified(kept, []), true);
@@ -77,7 +76,6 @@ test('a kept update leaves 미분류, shows under 분류 완료 · 업무일지,
   assert.deepEqual(visibleNotes([kept, plain], [], 'classified', [], 'journal').map(n => n.id), ['k']);
   assert.deepEqual([...notePlaces(kept, [])], ['journal']);
   assert.equal(noteClassified({...kept, archived_at:AT}, []), false);
-  assert.deepEqual(selectHandoffNotes([kept, plain], [], new Date('2026-10-21T00:00:00Z')).map(n => n.id), ['p']);
 });
 
 test('the offer is only for an update that went to no organization and no project', () => {

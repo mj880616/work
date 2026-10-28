@@ -11,16 +11,3 @@ test('Edge catalog is an exact deployment-local copy of the unchanged browser so
   assert.ok(copy.startsWith(banner));assert.equal(copy.slice(banner.length),original);
 });
 
-test('committed synthetic handoff prompts remain byte for byte unchanged (the Drive copy no longer carries a prompt)',async()=>{
-  const f=JSON.parse(await readFile(new URL('../fixtures/basket-project-destinations.json',import.meta.url),'utf8'));
-  const [{select,basketProjects},{selectBasketOrganizations},{buildHandoff}]=await Promise.all([
-    import('../../supabase/functions/drive-summary/project-catalog-model.mjs'),import('../../supabase/functions/drive-summary/basket.mjs'),import('../../app/basket-ai-handoff.js'),
-  ]);
-  const now=new Date(f.now),projects=select(f.spaces);
-  for(const fallback of [false,true]){
-    const selected=selectBasketOrganizations(f.organizations,fallback?[]:f.assignees);
-    const copy=buildHandoff(f.notes,basketProjects(projects),selected.organizations,now,selected.fallback)+'\n';
-    const name=fallback?'basket-org-mine-handoff-fallback.txt':'basket-ai-handoff-prompt-example.txt';
-    assert.equal(copy,await readFile(new URL('../../docs/'+name,import.meta.url),'utf8'));
-  }
-});

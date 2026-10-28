@@ -56,6 +56,10 @@ async function find(mode) {
 // 정리함 [챙길 것] shows the same promises (INBOX-상대약속): read-only view of what the last finding in this tab returned.
 // Same scope guard as the radar itself; nothing is stored, so after a reload they are gone until the next finding.
 export function radarPromises() { sameScope(); return shared.promises; }
+// BASKET-정리함한화면: the 정리함 top line shows the same last-find time and has the same [다시 찾기] (one finder for every place).
+export function radarFindState() { sameScope(); return {checkedAt: shared.checkedAt, finding: !!shared.finding, status: shared.status, missing: shared.fnMissing}; }
+export const radarFindAgain = () => find('again');
+export const radarClock = value => clock(value);
 
 export function openSource(c) {
   const go = view => window.KPTURouter?.go?.(view, {source:'delegated'});

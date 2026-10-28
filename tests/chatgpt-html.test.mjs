@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 // MD-표시보완: ChatGPT 공유 링크 판별(정확한 도메인만), 붙여 넣은 HTML 문서 판별, 칸막이 문서(CSP 먼저)와 2MB 상한.
-import {chatgptShareUrl, chatgptShareLinks, extractHtmlDocument, frameDocument, FRAME_CSP, HTML_MAX_BYTES, htmlFileName, isHtmlName, utf8Bytes, CHATGPT_HTML_REQUEST} from '../app/chatgpt-html.mjs';
+import {chatgptShareUrl, chatgptShareLinks, extractHtmlDocument, frameDocument, FRAME_CSP, HTML_MAX_BYTES, htmlFileName, isHtmlName, utf8Bytes} from '../app/chatgpt-html.mjs';
 
 const ID = '670f1a2b-3c4d-8e9f-a0b1-c2d3e4f5a6b7';
 
@@ -57,10 +57,9 @@ test('the frame document puts the network-blocking policy first and keeps a lead
   assert.match(doc, /parent\.postMessage\(\{type:"web2-html-height"/);
 });
 
-test('size limit, file name and request text', () => {
+test('size limit and file name', () => {
   assert.equal(HTML_MAX_BYTES, 2 * 1024 * 1024);
   assert.equal(utf8Bytes('가a'), 4);
   assert.equal(htmlFileName(new Date('2026-10-15T05:30:00Z')), 'chatgpt-20261015-1430.html');
   assert.ok(isHtmlName('a.HTML') && isHtmlName('b.htm') && !isHtmlName('c.html.txt') && !isHtmlName(''));
-  assert.equal(CHATGPT_HTML_REQUEST, '위 답변을 외부 라이브러리·폰트·이미지 주소 없이 인라인 CSS와 인라인 SVG만 쓴 HTML 파일 하나로 만들어 줘. 카드·표·도식 모양을 살려 줘.');
 });

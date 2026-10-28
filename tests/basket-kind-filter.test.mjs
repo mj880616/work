@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { readBasket } from '../app/basket-data.js';
 import { readTaskSourceNotes } from '../app/basket-note-tasks.js';
-import { readClassificationSnapshot } from '../app/basket-classification.js';
 import { readLinkRecords } from '../app/basket-link-records.js';
 import { createBasketReader } from '../supabase/functions/drive-summary/basket-read.mjs';
 
@@ -44,14 +43,6 @@ test('task source notes come from basket rows only', async () => {
     return ROWS.filter(r => matches(r, u.searchParams) && r.metadata.tasks).map(r => ({id:r.id, tasks:r.metadata.tasks}));
   })});
   assert.deepEqual([...map.entries()], [['t-basket', 'basket-row']]);
-});
-
-test('AI classification snapshot treats a note id as missing', async () => {
-  const snapshot = await readClassificationSnapshot({items:[{note_id:'note-row'}, {note_id:'basket-row'}]}, rt(async path => {
-    const u = new URL(path, 'http://x');
-    return u.pathname.endsWith('/app_notes') ? ROWS.filter(r => matches(r, u.searchParams)) : [];
-  }));
-  assert.deepEqual(snapshot.notes.map(n => n.id), ['basket-row']);
 });
 
 test('linked records (project/organization screens) skip links whose source row is a note', async () => {
