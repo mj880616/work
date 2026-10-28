@@ -32,10 +32,20 @@
 //   AI가 내용을 비교해(same·different·unsure + 이유 120자) DB 함수 app_record_overlap_set으로 표 app_record_overlaps에 저장한다. 이미 판정된 짝은 다시 부르지 않는다.
 // 원장 고치기 미리보기(kind=ledger_fix, LEDGER-수정요청): 일상어 한 줄 → 원장 수정 요청 모양. AI 답은 다시 검사하고 DB 해 보기로 전·후만
 //   돌려준다(서버는 반영하지 않음). 교섭·전략(S2) 기록은 ⋯ [고치기]로 직접 지정한 한 건만 보낸다(2026-10-26 결정).
+// 사업영역 AI(MTG-프로젝트합치기, docs/design/project-into-report.md 6·12절, business-area.ts):
+//   area_week_summary = 사업요약표 '진행' 칸 한 줄 요약. 화면은 주(월요일)와 사업영역 ID만 보내고, 그 주 사업 보고는 서버가 내 로그인으로 읽는다.
+//     결과는 그 주 주간 임시저장 칸(app_weekly_exec_requests.draft.area_summaries)에 둔다. 사람이 고친 요약(edited)은 보내지도 덮어쓰지도 않는다(결정 ⑤).
+//   area_suggest = 사업 보고 쓰기 창의 사업영역 추천(요청 19:07 ②). 저장하지 않은 창의 제목·글만 받아 후보 최대 3개를 돌려준다(저장 없음).
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import {
+  AREA_SUGGEST_BODY_BYTES, AREA_SUGGEST_INSTRUCTIONS, AREA_SUGGEST_MAX_OUTPUT_TOKENS, AREA_SUGGEST_SCHEMA, AREA_SUMMARY_INSTRUCTIONS,
+  AREA_SUMMARY_MAX_OUTPUT_TOKENS, AREA_SUMMARY_READ_LIMIT, AREA_SUMMARY_SCHEMA, areaOptions, areaPath, areaSuggestMaterial, areaSummaryMaterial,
+  areaTree, isArea, packAreas, parseAreaSuggest, parseAreaSuggestRequest, parseAreaSummary, parseAreaWeekRequest, readAreaSummaries,
+  reportOf, reportsHash, suggestLooksSecret, suggestTooShort, withAreaSummaries, type AreaReport,
+} from "./business-area.ts";
 import {
   hasOwnTitle, looksSecret, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
 } from "./note-title.ts";
@@ -107,7 +117,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, area_week_summary: 30, area_suggest: 60 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -361,7 +371,7 @@ async function readBody(req: Request): Promise<unknown> {
   if (declaredBig || actualBig) {
     // 일정 제목 다듬기(20KB)와 HWP 서식변환(100KB)만 자기 상한까지 받는다. 그 상한을 넘으면 413.
     const kind = (body as { kind?: unknown } | null)?.kind;
-    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : MAX_BODY_BYTES;
+    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : MAX_BODY_BYTES;
     if (own === MAX_BODY_BYTES) throw new Fail(declaredBig ? 413 : 400, "invalid_request");
     if (raw.byteLength > own || (declared !== null && Number(declared) > own)) throw new Fail(413, "invalid_request");
   }
@@ -383,6 +393,8 @@ type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
 type HwpConvertInput = { kind: "hwp_convert"; doc_type: HwpConvertDocType; text: string };
+type AreaWeekSummaryInput = { kind: "area_week_summary"; week_start: string; area_ids: string[] };
+type AreaSuggestInput = { kind: "area_suggest"; title: string; text: string };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
 function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
@@ -427,7 +439,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | AreaWeekSummaryInput | AreaSuggestInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -475,6 +487,17 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
+  // 사업영역 AI(business-area.ts): 한 줄 요약은 주·사업영역 ID만, 추천은 쓰기 창의 제목·글만.
+  if (b.kind === "area_week_summary") {
+    const parsed = parseAreaWeekRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "area_week_summary", ...parsed };
+  }
+  if (b.kind === "area_suggest") {
+    const parsed = parseAreaSuggestRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "area_suggest", ...parsed };
+  }
   if (b.kind === "schedule_titles") {
     const parsed = parseScheduleRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
@@ -3083,6 +3106,228 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
   return json({ ok: true, kind: "note_title", id: input.id, title });
 }
 
+// ---- 사업영역 AI(MTG-프로젝트합치기, business-area.ts) ------------------------------------------------------------------
+// 한 줄 요약(area_week_summary)·쓰기 창 추천(area_suggest). 둘 다 월 AI 상한·하루 횟수 안에서만, 부르면 사용량 줄(app_ai_daily_usage)에 더한다.
+// AI를 부르지 않는 경우(고친 요약·같은 지문의 저장된 요약·보고 없음·짧거나 비밀 모양 글)는 사용량에 잡지 않는다.
+
+const WEEKLY_REQUESTS_TABLE = "app_weekly_exec_requests";
+const AREA_MEETING_FIELDS = "id,workspace_id,business_area_id,project_id,title,series_name,meeting_at,transcript_text,decisions,notes,activity_kind,next_plan,updated_at";
+
+// 내 사업영역(=프로젝트) 행. 휴지통은 RLS(app_spaces_trash_hidden)가 숨긴다. 받은 행도 작업공간·주인을 다시 확인한다.
+async function readAreaRows(ctx: Ctx): Promise<Record<string, unknown>[]> {
+  const rows = await readList(ctx, `app_spaces?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&owner_id=eq.${encodeURIComponent(ctx.userId)}&select=id,workspace_id,owner_id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`);
+  return rows.filter((r) => String(r.workspace_id).toLowerCase() === ctx.workspaceId && String(r.owner_id).toLowerCase() === ctx.userId);
+}
+
+// 그 주 사업 보고(휴지통은 RLS app_meetings_trash_hidden이 숨김). 꼬리표 칸이 없는 서버(400)도 read_unavailable
+// (꼬리표 칸은 run 107로 운영 적용됨 — 화면 문구 목록 app/basket-ai-summary.js를 이 PR에서 고치지 않으려고 새 오류 코드를 만들지 않음).
+async function readAreaMeetings(ctx: Ctx, filter: string, fromIso: string, toIso: string): Promise<Record<string, unknown>[]> {
+  let rows: unknown;
+  try {
+    rows = await rest(ctx, `app_meetings?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&${filter}&meeting_at=gte.${encodeURIComponent(fromIso)}&meeting_at=lt.${encodeURIComponent(toIso)}&select=${AREA_MEETING_FIELDS}&order=meeting_at.asc,id.asc&limit=${AREA_SUMMARY_READ_LIMIT}`);
+  } catch {
+    throw new Fail(503, "read_unavailable");
+  }
+  if (!Array.isArray(rows)) throw new Fail(503, "read_unavailable");
+  return (rows as Record<string, unknown>[]).filter((r) => String(r.workspace_id).toLowerCase() === ctx.workspaceId);
+}
+
+// 그 주 요청 표 행의 임시저장(주마다 1행). 표·칸이 아직 없으면(404·400) null — 그때는 저장된 요약 없이 돌고 저장도 하지 않는다.
+type WeekDraftRow = { exists: boolean; draft: unknown; savedAt: string | null };
+async function readWeekDraftRow(ctx: Ctx, week: string): Promise<WeekDraftRow | null> {
+  let rows: unknown;
+  try {
+    rows = await rest(ctx, `${WEEKLY_REQUESTS_TABLE}?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&week_start=eq.${week}&select=id,workspace_id,week_start,draft,draft_saved_at&limit=2`);
+  } catch (e) {
+    const m = (e as Error)?.message;
+    if (m === "rest_404" || m === "rest_400") { ctx.log("area_summary_draft_missing"); return null; }
+    throw new Fail(503, "read_unavailable");
+  }
+  if (!Array.isArray(rows) || rows.length > 1) throw new Fail(503, "read_unavailable");
+  const row = rows[0] as Record<string, unknown> | undefined;
+  if (!row) return { exists: false, draft: null, savedAt: null };
+  if (String(row.workspace_id).toLowerCase() !== ctx.workspaceId || row.week_start !== week) throw new Fail(503, "read_unavailable");
+  return { exists: true, draft: row.draft ?? null, savedAt: typeof row.draft_saved_at === "string" ? row.draft_saved_at : null };
+}
+
+// 조건부 쓰기(app/weekly-draft-store.js writeWeekDraft와 같은 규칙): 읽은 draft_saved_at이 그대로일 때만(처음이면 is.null), 행이 없으면 만든다(items=[]).
+// 그사이 다른 기기가 저장했으면(0행·409) 쓰지 않는다 — 요약은 응답으로 돌려주고 다음에 다시 저장된다. 쓰기 실패는 요청 실패로 만들지 않는다.
+// 판 번호(draft_saved_at)는 늘 앞 판보다 뒤. updated_at·items는 보내지 않는다.
+async function writeWeekDraftRow(ctx: Ctx, week: string, row: WeekDraftRow, draft: Record<string, unknown>, nowMs: number): Promise<boolean> {
+  const prev = Date.parse(row.savedAt ?? "");
+  const savedAt = Number.isFinite(prev) && !(nowMs > prev) ? new Date(prev + 1).toISOString() : new Date(nowMs).toISOString();
+  const headers = { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json", Prefer: "return=representation" };
+  const ws = encodeURIComponent(ctx.workspaceId);
+  try {
+    const r = row.exists
+      ? await ctx.doFetch(`${ctx.sb}/rest/v1/${WEEKLY_REQUESTS_TABLE}?workspace_id=eq.${ws}&week_start=eq.${week}&${row.savedAt ? `draft_saved_at=eq.${encodeURIComponent(row.savedAt)}` : "draft_saved_at=is.null"}&select=id`, {
+        method: "PATCH", headers, body: JSON.stringify({ draft, draft_saved_at: savedAt }),
+      })
+      : await ctx.doFetch(`${ctx.sb}/rest/v1/${WEEKLY_REQUESTS_TABLE}?select=id`, {
+        method: "POST", headers, body: JSON.stringify({ workspace_id: ctx.workspaceId, week_start: week, items: [], draft, draft_saved_at: savedAt }),
+      });
+    if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } ctx.log("area_summary_save_skipped", { status: r.status }); return false; }
+    const out = await readBoundedJson(r, { maxBytes: 64 * 1024 });
+    if (Array.isArray(out) && out.length === 1) return true;
+    ctx.log("area_summary_save_skipped", { status: 0 });
+    return false;
+  } catch {
+    ctx.log("area_summary_save_skipped", { status: -1 });
+    return false;
+  }
+}
+
+async function runAreaWeekSummary(ctx: Ctx, input: AreaWeekSummaryInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const today = kstDay(started);
+  // 400일보다 오래된 주·2주 넘게 앞선 주는 받지 않는다(org_summary와 같음).
+  if (input.week_start < addDays(today, -400) || input.week_start > addDays(today, 14)) throw new Fail(400, "invalid_request");
+  const week = input.week_start;
+  const tree = areaTree(await readAreaRows(ctx));
+  const areas = input.area_ids.filter((id) => tree.has(id) && isArea(tree, id));
+  if (!areas.length) throw new Fail(404, "not_found");
+  const wanted = new Set(areas), ids = areas.join(",");
+  const fromIso = seoulMidnight(week), toIso = seoulMidnight(addDays(week, 7));
+  // 꼬리표를 직접 단 보고만(사업요약표 미리보기 previewRecords·주간보고 ②와 같은 재료). 첫 연결 프로젝트로 빌려 보이는 옛 보고는 표에 들어가지 않으므로 요약에도 넣지 않는다.
+  const rows = await readAreaMeetings(ctx, `business_area_id=in.(${ids})`, fromIso, toIso);
+  let partial = rows.length >= AREA_SUMMARY_READ_LIMIT;
+  const byArea = new Map<string, AreaReport[]>(), seen = new Set<string>();
+  for (const row of rows) {
+    const tag = String(row.business_area_id ?? "").toLowerCase();
+    if (!wanted.has(tag)) continue;
+    const report = reportOf(row, kstDay);
+    if (!report || seen.has(report.id)) continue;
+    seen.add(report.id);
+    byArea.set(tag, [...(byArea.get(tag) ?? []), report]);
+  }
+  const draftRow = await readWeekDraftRow(ctx, week);
+  const saved = draftRow ? readAreaSummaries(draftRow.draft) : new Map();
+  const items: { area_id: string; summary: string; from: "edited" | "saved" | "ai" }[] = [];
+  const empty: string[] = [];
+  const targets: { id: string; name: string; reports: AreaReport[]; hash: string }[] = [];
+  for (const id of areas) {
+    const reports = byArea.get(id) ?? [], entry = saved.get(id);
+    // 사람이 고친 요약은 AI에 보내지도, 덮어쓰지도 않는다(결정 ⑤).
+    if (entry?.edited) { items.push({ area_id: id, summary: entry.text, from: "edited" }); continue; }
+    if (!reports.length) { empty.push(id); continue; }
+    const hash = await reportsHash(reports);
+    if (entry && entry.hash === hash) { items.push({ area_id: id, summary: entry.text, from: "saved" }); continue; }
+    targets.push({ id, name: areaPath(tree, id), reports, hash });
+  }
+  const base = { ok: true, kind: "area_week_summary", week_start: week };
+  if (!targets.length) return json({ ...base, items, empty, partial, saved: false });
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "area_week_summary", started, config.price);
+  const { packed, partial: cutShort } = packAreas(targets);
+  partial = partial || cutShort;
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = areaSummaryMaterial(packed, { start: week, end: addDays(week, 6) });
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: AREA_SUMMARY_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: AREA_SUMMARY_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "area_week_summary", strict: true, schema: AREA_SUMMARY_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: AREA_SUMMARY_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseAreaSummary(outputText(result.raw, 64 * 1024) ?? "", packed);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  const hashOf = new Map(targets.map((t) => [t.id, t.hash]));
+  const fresh = parsed.items.map(({ area, summary }) => ({ id: area.id, text: summary, hash: hashOf.get(area.id)! }));
+  for (const f of fresh) items.push({ area_id: f.id, summary: f.text, from: "ai" });
+  const answered = new Set(fresh.map((f) => f.id));
+  for (const t of targets) if (!answered.has(t.id)) empty.push(t.id);
+  let wrote = false;
+  if (draftRow && fresh.length) {
+    const next = withAreaSummaries(draftRow.draft, fresh, new Date(deps.now()).toISOString());
+    if (next) wrote = await writeWeekDraftRow(ctx, week, draftRow, next, deps.now());
+  }
+  // 기록에는 숫자만 남긴다(보고 글·요약 글 없음).
+  deps.log("area_week_summary_done", { areas: packed.length, written: fresh.length, dropped: parsed.dropped, partial, saved: wrote });
+  return json({ ...base, items, empty, partial, saved: wrote });
+}
+
+async function runAreaSuggest(ctx: Ctx, input: AreaSuggestInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const skip = (reason: string) => { deps.log("area_suggest_skipped", { reason }); return json({ ok: true, kind: "area_suggest", suggestions: [], skipped: reason }); };
+  if (suggestTooShort(input)) return skip("short");
+  // 비밀번호·토큰·키 모양 글은 AI에 보내지 않는다(10/28 17:23 결정).
+  if (suggestLooksSecret(input)) return skip("secret");
+  const options = areaOptions(await readAreaRows(ctx));
+  if (!options.length) return skip("no_areas");
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "area_suggest", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = areaSuggestMaterial(input, options);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: AREA_SUGGEST_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: AREA_SUGGEST_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "area_suggest", strict: true, schema: AREA_SUGGEST_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: AREA_SUGGEST_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const picks = parseAreaSuggest(outputText(result.raw, 16 * 1024) ?? "", options);
+  if (!picks) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  // 저장하지 않는다. 화면이 [사업영역] 칸에 후보로 보여 주고 명진이 고른다.
+  deps.log("area_suggest_done", { options: options.length, picks: picks.length });
+  return json({ ok: true, kind: "area_suggest", suggestions: picks.map((o) => ({ id: o.id, name: o.name })) });
+}
+
 async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id`, {
     method: "POST",
@@ -3129,6 +3374,8 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "area_week_summary") return await runAreaWeekSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "area_suggest") return await runAreaSuggest(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 
       const config = aiConfig(deps.env);

@@ -67,6 +67,7 @@ const EXCLUDED = new Map([
   ['ai-assist/todo-radar.ts', '챙길 것 한 줄은 할 일 이름(명사형)이고 요약이 아님'],
   ['ai-assist/overlap.ts', '두 기록이 같은 활동인지 가리는 판정 이유 한 문장(요약이 아님)'],
   ['ai-assist/call-refill.ts', '통화 제목·조직·상대 칸 채우기(핵심내용 요약은 쓰지 않음)'],
+  ['ai-assist/business-area.ts', '사업요약표 진행 칸 한 줄(명사형 끝맺음, 주간보고 문체)과 사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관'],
   ['ai-assist/note-title.ts', '노트 목록의 짧은 명사형 제목(제목, 문장 아님 — 10/28 09:24 말투 규칙과 무관)'],
   ['library-files/index.ts', '자료 제목 찾기(제목, 문장 아님)'],
   ['document-ai-index/index.ts', '검색용 색인 요약: 화면에 보이지 않고 AI 재료로만 쓰임. 화면에 보이게 되면 적용으로 옮길 것'],

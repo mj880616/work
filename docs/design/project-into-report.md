@@ -225,3 +225,45 @@
 | 바구니 | `basket-manual-link.js` | [연결하기] 창의 '프로젝트 고르기' → **[사업영역 꼬리표 달기]**(저장은 같은 연결 줄). [사업 보고로 옮기기]는 이미 있음 |
 
 남은 것: 사업영역 AI 한 줄 요약(`ai-assist`, Edge 별도 PR·배포 전 정지)과 그 고친 내용 저장(주간 임시저장 칸), 쓰기 창의 AI 사업영역 추천, 3단계(옛 프로젝트 메뉴·진행 기록 입력칸 제거, ⋯ [사업영역 관리] 창을 사업 보고 안으로), 바구니·자료실·일정의 나머지 '프로젝트' 글자.
+
+---
+
+## 12. 사업영역 AI 서버 쪽 (`ai-assist`, Edge PR — 배포 전 정지)
+
+명진 결정 ⑤(AI 요약 고친 내용은 주간 임시저장 칸), 요청 19:07 ②(쓰기 창 사업영역 AI 추천). 순수 규칙은 `supabase/functions/ai-assist/business-area.ts`, 입출력은 `handler.ts`. **DB 변경 없음.** 화면(`app/`)은 이 PR에서 고치지 않는다.
+
+### 12.1 `kind:"area_week_summary"` — 사업요약표 '진행' 한 줄
+
+- 요청: `{kind, week_start:"YYYY-MM-DD"(월요일), area_ids:[사업영역 id 1~20개]}`. 글은 보내지 않는다.
+- 서버가 내 로그인으로 읽는 것: 내 사업영역 목록(`app_spaces`, v2 프로젝트와 그 아래만, 휴지통은 RLS가 숨김), 그 주(서울 월 0시~다음 월 0시) **꼬리표를 직접 단** 사업 보고(`app_meetings.business_area_id`, 미리보기 `previewRecords`·주간보고 ②와 같은 재료 — 빌려 보이는 옛 보고는 표에 없으므로 빼고), 그 주 임시저장(`app_weekly_exec_requests.draft`).
+- 보내는 재료: 사업영역 경로 이름 + 보고마다 날짜·종류·제목·결과·결정·특이사항·다음 할 일(연락처는 `[전화]`·`[이메일]`로 지움, 보고 하나 1,200자, 사업영역마다 최근 15개, 전체 40,000자).
+- 답: `{ok, kind, week_start, items:[{area_id, summary, from}], empty:[area_id…], partial, saved}`
+  - `from:"edited"` = 사람이 고친 줄(AI에 보내지도, 덮어쓰지도 않음), `"saved"` = 지난번 AI 줄(보고 지문이 같아 AI를 부르지 않음), `"ai"` = 이번에 만든 줄.
+  - `empty` = 그 주 보고가 없거나 AI가 쓸 말이 없다고 한 사업영역 → 화면은 보고 제목을 `·`로 이어 대신한다(5절).
+  - `saved` = 임시저장 칸에 썼는지. 다른 기기가 그사이 저장했거나(조건 0행), 칸이 아직 없거나(404·400), 200 KiB에 가까우면 쓰지 않고 `false`(요약은 그대로 돌려줌).
+- 오류: 주·ID 모양 400, 남의·없는·v2 아닌 사업영역뿐이면 404, 꼬리표 칸이 없는 서버도 503 `read_unavailable`(칸은 run 107로 운영 적용됨, 새 오류 코드는 화면 문구 목록과 짝이라 만들지 않음), 한도 429 `monthly_limit`·`daily_limit`(하루 30회, 모든 쓰임 합계 80회 안).
+- 비용: 기존 월 상한 `MONTHLY_LIMIT_KRW`·사용량 기록 `app_ai_daily_usage` 안. 고친 줄·같은 지문·보고 없음은 AI를 부르지 않아 사용량에 잡지 않는다.
+
+### 12.2 임시저장 칸 모양 (`draft.area_summaries`) — 결정 ⑤
+
+```
+draft.area_summaries = { "<사업영역 id>": { "text": "한 줄", "hash": "a1:<32자>", "edited": false, "at": "<시각>" } }
+```
+
+- 기존 표 `app_weekly_exec_requests`(주마다 1행)의 `draft`(jsonb, 서버는 `v=1` 객체·200 KiB만 검사)에 칸 하나를 더 두는 것이라 **DB 변경이 없다**(기존 칸 권한 `draft`·`draft_saved_at` 그대로).
+- 서버 쓰기: `draft_saved_at` 조건 PATCH(처음이면 `is.null`), 행이 없으면 `items:[]`로 만든다 — `app/weekly-draft-store.js` `writeWeekDraft`와 같은 규칙. 다른 칸(rows·titles·docs·issued·confirmed …)은 받은 그대로 다시 싣는다. `edited:true` 항목은 절대 바꾸지 않는다.
+- 사람이 고친 줄은 화면이 `{text, hash:"", edited:true, at}`로 같은 조건부 쓰기로 저장한다(다음 화면 PR). 고친 줄을 지우면 다음 요청 때 AI 줄이 다시 만들어진다.
+- `hash` = 그 주 그 사업영역 보고의 (id, updated_at) 목록 SHA-256 앞 32자. 보고를 더하거나 고치면 바뀐다.
+
+### 12.3 `kind:"area_suggest"` — 쓰기 창 사업영역 추천
+
+- 요청: `{kind, title(200자 이하), text(3,000자 이하: 결과·다음 할 일)}`. 아직 저장하지 않은 창이라 글을 보낸다(이 쓰임만 몸통 16 KB, 나머지 쓰임은 2 KB 그대로).
+- 서버: 내 사업영역(보관 제외, 120개까지 '큰 › 작은' 경로)에서 맞는 순서대로 최대 3개. 목록 밖 참조는 버린다. **저장하지 않는다.**
+- 답: `{ok, kind, suggestions:[{id, name}]}`, AI를 부르지 않으면 `skipped:"short"|"secret"|"no_areas"`(글이 4자 미만 / 비밀번호·토큰·키 모양(10/28 17:23 결정) / 사업영역 없음). 하루 60회.
+
+### 12.4 화면 붙일 자리 (다음 화면 PR, 이 PR 범위 밖)
+
+1. `app/weekly-draft-store.js`: `readDraft`·`makeDraft`·`merge3`·`keepDocsOnly`가 `area_summaries`를 `issued`처럼 다시 실어 보내게(지금은 모르는 칸이라 다음 임시저장 때 빠진다 — 서버 줄은 다시 만들면 되지만 **고친 줄은 이것 없이는 저장할 수 없다**). 3자 비교 칸 열쇠 `area:<id>`(edited 항목만)로 충돌 질문에 넣기. 사업영역 하나만 바꾸는 `changeWeekAreaSummary({start, areaId, text|null})`(→ `changeWeekDocs`와 같은 다시 읽고 쓰기 3번).
+2. `app/report-summary-preview.js` `paint()`: 표를 그린 뒤 그 기간이 월~일 한 주이면 표에 나온 사업영역 id로 `area_week_summary` 한 번(`basket-ai-summary.js`의 ai-assist 호출 공용 함수) → 사업영역 칸 '진행'에 한 줄, `empty`·실패·한도는 지금처럼 보고 줄. 한 줄 옆 작은 [고치기] → 1번 함수로 `edited:true` 저장. 기간을 바꾼(한 주가 아닌) 미리보기는 AI를 부르지 않음.
+3. `app/journal-weekly.js` ②·`journal-hwpx.js`: 그 주 `draft.area_summaries`가 있으면 사업영역 줄의 진행 칸 첫 줄로(고친 줄 우선). 없으면 지금처럼.
+4. `app/business-area-fields.js` `mountAreaFields`: [사업영역] 버튼 옆 작은 [AI 추천] → 쓰기 창 제목·결과(`#meetingTranscript`)·다음 할 일 글로 `area_suggest` → 후보 칩 최대 3개, 누르면 그 꼬리표로(손대지 않은 꼬리표만, `touched` 규칙 그대로). 자동으로 부르지 않음.
