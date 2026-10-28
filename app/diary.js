@@ -52,7 +52,8 @@ const starBusy = new Set();
 const isStarred = item => starSet.has(starKey(item.source, item.key));
 let edit = null, editLayer = null;
 const monthKey = () => `${cursor.year}-${cursor.month}`;
-const monthOf = day => { const [y, m] = day.split('-').map(Number); return `${y}-${m - 1}`; };
+// 날짜 글자가 아닌 값(모양이 틀린 행)은 어느 달에도 맞지 않게 한다(목록·달력이 오류로 멈추지 않게).
+const monthOf = day => { const [y, m] = String(day ?? '').split('-').map(Number); return `${y}-${m - 1}`; };
 const current = run => run === epoch && owner === ownerScope(rt);
 // JOURNAL-일기목록: 지금 보기('calendar' | 'list'). 이번 접속에서 고른 값(chosenView)이 먼저, 없으면 서버 기억, 없으면 달력.
 // DB 적용 전에는 서버가 diary_view를 거절(400)해 기억만 건너뛰고, 이번 접속 동안은 고른 보기를 메모리로 유지한다.
