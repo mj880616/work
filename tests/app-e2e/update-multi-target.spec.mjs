@@ -5,7 +5,7 @@ import {typeInto} from './helpers/note-editor.mjs';
 // UPD-여러곳고르기: 홈 [업데이트 ▾] "기록할 곳 선택" 창에서 담당조직·프로젝트를 여러 곳 고른다.
 // 누르면 체크만 되고 창은 열린 채, 아래 'N곳 선택됨' + [취소] [저장], [저장]을 눌러야 닫히고 반영. 바구니(미분류)는 다른 곳과 함께
 // 고를 수 없다. 여러 곳이면 입력창 버튼이 '첫 곳 이름 외 N'. 저장은 바구니 업데이트 1건 + 기존 [연결하기] 경로
-// (app_basket_confirm_links)로 고른 곳 모두에 연결. 한 곳은 기존 그대로 그 곳 기록. 추가 뒤 바구니로 돌아가고 쓴 곳은 '최근' 맨 앞.
+// (app_basket_confirm_links)로 고른 곳 모두에 연결. 조직 한 곳은 기존 그대로 그 조직 기록, 사업영역 한 곳도 정리함 1건 + 연결(MTG-프로젝트합치기 3단계). 추가 뒤 바구니로 돌아가고 쓴 곳은 '최근' 맨 앞.
 // 이름은 모두 가짜(합성) 값.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const NAMES=['전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','서해선지부','공항철도지부'];
@@ -116,6 +116,19 @@ test('한 곳만 고르면 기존 그대로 그 곳 기록(연결 없음)',async
  await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(f.orgs).toEqual([{organization_id:ID(5),raw_text:'합성 기록',created_by:'home-test'}]);expect(f.notes).toEqual([]);expect(f.links).toEqual([]);
+});
+
+// MTG-프로젝트합치기 3단계: 사업영역(프로젝트) 하나만 고르면 진행 기록이 아니라 여러 곳과 같은 길(정리함 1건 + 연결)로 간다.
+test('사업영역 하나만 고르면 정리함 1건 + 그 사업영역에 연결(진행 기록 없음)',async({page})=>{
+ const {q,f}=await setup(page,1280);
+ await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-projects]').getByRole('button',{name:'합성 프로젝트',exact:true}).click();await save(page).click();
+ await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
+ await expect(page.locator('#toast')).toContainText('기록을 저장했습니다.');
+ expect(f.projects).toEqual([]);expect(f.orgs).toEqual([]);
+ expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({raw_text:'합성 기록'});
+ expect(f.links).toEqual([{p_note_id:'note-1',p_note_updated_at:'2026-10-22T01:00:00.123456Z',p_targets:[{kind:'project',target_id:PID,reason:'직접 연결'}]}]);
+ await expect(q).toHaveAttribute('data-mode','basket');
+ expect(f.errors).toEqual([]);
 });
 
 test('연결이 거절되면 업데이트는 정리함에 남고 안내(두 번 저장하지 않음)',async({page})=>{

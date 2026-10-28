@@ -20,7 +20,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   let busy=false,dialog=null;
   const s=()=>state();
   const folder=id=>s().folders.find(f=>f.id===id);
-  const frameName=pid=>pid?s().projectName(pid):'프로젝트 없음';
+  const frameName=pid=>pid?s().projectName(pid):'사업영역 없음';
   // 폴더 경로 이름(옮길 곳 고르기): "가 › 나 › 다".
   const pathName=id=>{const out=[];let f=folder(id),guard=0;while(f&&guard++<FOLDER_DEPTH+2){out.unshift(f.name);f=f.parent_id?folder(f.parent_id):null}return out.join(' › ')};
   // 자료의 폴더. 프로젝트 묶기에서는 자료의 프로젝트 틀과 맞는 연결만(설계 3.2, 어긋난 연결은 없는 것으로), 폴더 보기에서는 틀과 무관하게 연결 그대로(설계 12절).
@@ -129,7 +129,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='rename')startRename(id);
     else if(action==='toggle')toggleNode('f:'+id);
     else if(action==='up'||action==='down')void reorderFolder(id,action).then(()=>focusHead('f:'+id));
-    else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 고르세요.`:`${f.name}을(를) 옮길 곳을 고르세요. 같은 프로젝트 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
+    else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 고르세요.`:`${f.name}을(를) 옮길 곳을 고르세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
     else if(action==='delete')void trashFolder(f);
   }
   const headOf=key=>[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode===key);
@@ -179,7 +179,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // [+ 새 폴더 만들어 넣기]: 이름을 받아 맨 위 폴더 하나를 만들고(프로젝트 묶기 계열은 자료의 프로젝트 틀, 폴더 묶기는 폴더 밖) 곧바로 그 안에 넣는다.
   function newFolderAndPut(docs,trigger){
     const free=!!s().free,frame=free?null:(docs[0]?.project_id||null);
-    askName({title:'새 폴더 만들어 넣기',hint:`${docs.length>1?`고른 ${docs.length}개를`:'이 자료를'} 넣을 폴더예요. ${free?'폴더 밖(맨 위)에':frameName(frame)+' 안에'} 만들고, 자료의 프로젝트는 바뀌지 않아요.`,trigger,then:async name=>{
+    askName({title:'새 폴더 만들어 넣기',hint:`${docs.length>1?`고른 ${docs.length}개를`:'이 자료를'} 넣을 폴더예요. ${free?'폴더 밖(맨 위)에':frameName(frame)+' 안에'} 만들고, 자료의 사업영역은 바뀌지 않아요.`,trigger,then:async name=>{
       let created=null;
       const ok=await run(async()=>{const rows=await api(T_FOLDERS,{method:'POST',prefer:'return=representation',body:{workspace_id:s().workspace,project_id:frame,parent_id:null,name,sort_order:nextSortOrder(sibs(frame,null))}});created=Array.isArray(rows)?rows[0]?.id||null:null});
       if(!ok)return false;

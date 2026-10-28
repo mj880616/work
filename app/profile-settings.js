@@ -15,7 +15,7 @@ const $=sel=>document.querySelector(sel);
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function installView(){
   if($('#profileView'))return;
-  $('#appView')?.insertAdjacentHTML('beforeend',`<section id="profileView" class="view-panel hidden"><div class="ps-head"><h2>내 프로필</h2></div><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: 국장)" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel"><div class="ps-panel-head"><h3>담당 사업장</h3><span id="psWorkplaceCount" class="ps-state"></span></div><div id="psWorkplaceList"></div></article><article class="panel ps-panel" id="psCalRefPanel"></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button><button id="psLogout" class="mini ps-danger" type="button">로그아웃</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);
+  $('#appView')?.insertAdjacentHTML('beforeend',`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: 국장)" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel"><div class="ps-panel-head"><h3>담당 사업장</h3><span id="psWorkplaceCount" class="ps-state"></span></div><div id="psWorkplaceList"></div></article><article class="panel ps-panel" id="psCalRefPanel"></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);
 }
 async function context(){if(!rt?.session||!(await rt.session.ensure()))return false;user=await api('/auth/v1/user');const rows=await api(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id&limit=1`);workspaceId=rows?.[0]?.workspace_id||null;return !!workspaceId}
 function buildWorkplaces(){
@@ -134,7 +134,6 @@ async function save(){
 function bind(){
   if(bound)return;bound=true;
   $('#psSave')?.addEventListener('click',save);
-  $('#psLogout')?.addEventListener('click',()=>window.KPTUTeamAuth?.logout?.());
   $('#profileView')?.addEventListener('input',e=>{if(e.target.matches('#psName,#psTitle'))renderStatus()});
   $('#profileView')?.addEventListener('change',e=>{const box=e.target.closest?.('[data-ps-org-check]');if(!box||saving)return;want.set(box.dataset.psOrgCheck,box.checked);if(want.get(box.dataset.psOrgCheck)===baseline.has(box.dataset.psOrgCheck))want.delete(box.dataset.psOrgCheck);renderStatus()});
   window.KPTURouter?.on?.('profile',()=>load());
@@ -149,7 +148,9 @@ window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='profile'&&c
 window.addEventListener('beforeunload',e=>{if($('#profileView')&&!$('#profileView').classList.contains('hidden')&&(saving||changeCount())){e.preventDefault();e.returnValue=''}});
 function syncMySpaceEntry(allowed=window.__KPTU_MYSPACE_ALLOWED__){$('#psMySpaceEntry')?.classList.toggle('hidden',!allowed)}
 window.addEventListener('kptu:myspace-access',event=>syncMySpaceEntry(event.detail?.allowed));
-async function boot(){installView();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
+// UI-업데이트안내: 맨 아래 접힌 [업데이트 기록] 칸 자리. 안은 release-notes-ui.js가 그린다(기록을 못 읽으면 숨긴 채).
+function installReleaseNotes(){const grid=$('#profileView .ps-profile-grid');if(!grid||$('#psReleaseNotes'))return;grid.insertAdjacentHTML('beforeend','<details class="panel ps-panel ps-release" id="psReleaseNotes" hidden></details>');import('./release-notes-ui.js').then(m=>m.mountReleaseNotes($('#psReleaseNotes'))).catch(()=>{})}
+async function boot(){installView();installReleaseNotes();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
 window.addEventListener('kptu:suborganization-updated',()=>{if(user&&!saving)load().catch(console.error)});
 window.addEventListener('kptu:session-changed',async()=>{user=null;workspaceId=null;workplaces=[];legacyWorkplaces=[];organizations=[];assignments=[];profileWorkplaces=[];baseline=new Set();want.clear();saved={name:'',title:''};const name=$('#psName'),title=$('#psTitle');if(name)name.value='';if(title)title.value='';if(await context()){bind();await load()}});
 window.__KPTU_PROFILE_SETTINGS_READY__=boot().catch(err=>{console.error('profile settings init',err);return false});

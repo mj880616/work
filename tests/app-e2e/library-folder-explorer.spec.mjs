@@ -28,7 +28,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     expect(await childrenOf(page,'f:fa')).toEqual(['f:fc','n-1']);expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
     await expect(libraryNode(page,'f:fc')).toHaveAttribute('style',/--lu-depth:\s*1/);
     // 프로젝트 묶기에서는 틀이 다른 연결(n-1은 프로젝트 없음인데 폴더 fa는 top-a)을 '폴더에 없는 것'으로 본다(이전 동작 그대로).
-    await radio(page,'프로젝트').click();await expandLibraryTree(page);
+    await radio(page,'사업영역').click();await expandLibraryTree(page);
     expect(await childrenOf(page,'p:none')).toContain('n-1');expect(await childrenOf(page,'f:fa')).toEqual([]);
     await radio(page,'폴더').click();
     expect(s.writes).toEqual([]);
@@ -48,7 +48,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
       await expect(radio(other,'폴더')).toHaveAttribute('aria-checked','true');
       expect(await tops(other)).toEqual(['x:out','f:fa','f:fn']);
       // 다른 묶기로 바꾸면 그 값으로 바뀐다(폴더도 다른 값과 똑같이 덮어쓴다).
-      await radio(other,'프로젝트').click();
+      await radio(other,'사업영역').click();
       await expect.poll(()=>s.libraryView?.group_by,{timeout:5000}).toBe('project');
       expect(o.errors).toEqual([]);
     }finally{await other.close()}
@@ -221,7 +221,7 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await path.getByRole('button',{name:'자료실'}).click();expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);await expect(path).toBeHidden();
     // 들어간 채 묶기를 바꾸면 처음으로 돌아오고 위치 줄은 사라진다.
     await press(page,menuButton(page,'f:fn'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);expect(await tops(page)).toEqual(['f:fn']);
-    await radio(page,'프로젝트').click();await expect(path).toBeHidden();await radio(page,'폴더').click();expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    await radio(page,'사업영역').click();await expect(path).toBeHidden();await radio(page,'폴더').click();expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
     // 프로젝트 묶기의 폴더 메뉴에는 [이 폴더로 들어가기]가 없다(폴더 보기 전용).
     expect(s.writes).toEqual([]);expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });

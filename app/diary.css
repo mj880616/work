@@ -130,12 +130,21 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-danger{ color:var(--kptu-danger); }
 
 /* 쓰기·고치기: 사진 고르기를 맨 앞에. */
-#appView #diaryView .diary-field{ display:flex; flex-direction:column; gap:4px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView #diaryView .diary-field textarea{ min-height:120px; font-size:var(--ds-text-read); color:var(--kptu-ink); }
+/* UI-버튼통일(2026-10-28 19:16 시안 승인): 위 줄 [⋯]·✕는 테두리 상자 없는 아이콘, 날짜 칸(공용 .date-field) 옆 작은 [📷 사진 0/20], 칸 이름표 없음. */
+#appView #diaryView .save-row > button{ align-self:center; }
+#appView #diaryView .diary-head-ends{ display:inline-flex; align-items:center; gap:2px; margin-left:auto; }
+#appView #diaryView .diary-panel-head .icon-btn{ border-color:transparent; background:transparent; color:var(--kptu-muted); }
+#appView #diaryView .diary-panel-head .icon-btn:hover{ color:var(--kptu-ink); }
+#appView #diaryView .diary-edit-top{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+#appView #diaryView .diary-edit-top input[type="date"]{ box-sizing:border-box; width:auto; min-width:9.5em; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 10px; }
+#appView #diaryView .diary-photo-pick{ gap:4px; }
+#appView #diaryView .diary-doc{ min-width:0; }
+.diary-lv-menu .diary-menu-danger{ color:var(--kptu-danger); }
+#appView #diaryView .diary-head-menu-wrap{ position:relative; display:inline-flex; }
+#appView #diaryView .diary-head-menu{ position:absolute; top:calc(100% + 4px); right:0; left:auto; bottom:auto; z-index:30; min-width:8.5em; }
+#appView #diaryView .diary-head-menu[hidden]{ display:none; }
 #appView #diaryView .diary-doc-host{ min-height:120px; min-width:0; color:var(--kptu-ink); }
 #appView #diaryView .diary-text.is-doc{ white-space:normal; }
-#appView #diaryView .diary-pick{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-#appView #diaryView .diary-pick small{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #diaryView .diary-thumbs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px 6px; }
 #appView #diaryView .diary-thumb-cell{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #diaryView .diary-thumb-cell .diary-comment{ box-sizing:border-box; width:100%; min-width:0; font-size:var(--ds-text-meta); }

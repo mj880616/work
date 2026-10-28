@@ -134,8 +134,9 @@ for(const width of [390,1280]){
   expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w'});expect(f.writes[0].body).toMatchObject({kind:'note',title:'회의 준비 메모 첫 줄'});
   expect(f.rows.find(r=>r.id==='m1').raw_text).toBe('회의 준비 메모 첫 줄\n둘째 줄 내용');
   // Back to the basket from the note menu, after a confirmation.
-  page.once('dialog',d=>d.accept());
+  // UI-알림창정리(노트): 브라우저 기본 확인창 대신 공용 작은 확인창(small-notice.js askConfirm)에서 [돌리기].
   await page.locator('[data-note-more]').click();await page.locator('#noteDocMenu [data-note-to-basket]').click();
+  await page.locator('.kptu-ask button',{hasText:'돌리기'}).click();
   await expect(page.locator('[data-note-list-status]')).toHaveText('정리함으로 돌렸어요.');
   expect(f.writes[1].query).toMatchObject({id:'eq.m1',kind:'eq.note'});expect(f.writes[1].body).toMatchObject({kind:'basket',title:null});
   await expect(noteList(page)).toHaveCount(2);
@@ -261,7 +262,7 @@ test('phone back closes the new-note window and hands its text back to the note 
  await expect(edWin(page)).toHaveCount(0);await expect(page.locator('[data-note-list]')).toBeVisible();await expect(noteInput(page)).toBeFocused();
  await add.click();
  await typeInto(page,edWinText(page),'쓰던 글');
- await page.locator('.mobile-tabs [data-view="projects"]').click();
+ await page.locator('.mobile-tabs [data-view="meetings"]').click();
  const leave=page.locator('#edwCloseSheet');await expect(leave).toHaveAttribute('open','');
  await leave.getByRole('button',{name:'계속 쓰기',exact:true}).click();
  await expect(edWinText(page)).toHaveText('쓰던 글');
@@ -284,8 +285,8 @@ test('a note without body cannot go back to the basket and nothing is written',a
  await chooseBasketKind(page,'note');
  await noteList(page).filter({hasText:'오래된 노트'}).click();
  await expect(page.locator('[data-note-detail] [data-basket-read-text]')).toHaveText('본문이 없는 노트입니다.');
- page.once('dialog',d=>d.accept());
  await page.locator('[data-note-more]').click();await page.locator('#noteDocMenu [data-note-to-basket]').click();
+ await page.locator('.kptu-ask button',{hasText:'돌리기'}).click();
  await expect(page.locator('[data-note-detail] [data-basket-status]')).toContainText('정리함으로 돌릴 수 없어요');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

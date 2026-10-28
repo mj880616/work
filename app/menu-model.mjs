@@ -14,8 +14,8 @@ export const ITEMS = Object.freeze([
   {id: 'basket', label: '정리함', view: 'basket', icon: 'M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3', pc: ['pane:update', 'pane:todo']},
   {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'journal', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'journal', 'diary']},
   {id: 'note', label: '노트', kind: 'note', icon: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3'},
-  {id: 'projects', label: '프로젝트', view: 'projects', icon: 'M3 7h7l2 2h9v12H3zM3 7V4h7l2 3'},
-  {id: 'meetings', label: '사업 보고', view: 'meetings', icon: 'M4 5h16v11H9l-5 4z'},
+  // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.
+  {id: 'meetings', label: '사업 보고', view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},
   {id: 'library', label: '자료실', view: 'library', icon: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4'},
   {id: 'pages', label: '공유 페이지', view: 'pages', icon: 'M4 4h16v16H4zM4 10h16M10 10v10'},
   {id: 'team', label: '담당조직', view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
@@ -31,8 +31,8 @@ export const MENU_ICON = 'M4 6h16M4 12h16M4 18h16';
 export const FIXED_ID = 'home';
 // 하단바 칸 수(홈 포함, [메뉴] 칸 제외). DB 검사는 여유를 두고 6개까지 받는다(view-prefs.js MENU_BAR_MAX).
 export const BAR_MAX = 5;
-export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'projects', 'team']);
-export const DEFAULT_REST = Object.freeze(['note', 'meetings', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram', 'arsenal']);
+export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'meetings', 'team']);
+export const DEFAULT_REST = Object.freeze(['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram', 'arsenal']);
 const KNOWN = new Map(ITEMS.map(item => [item.id, item]));
 export const itemOf = id => KNOWN.get(id) || null;
 export const labelOf = id => KNOWN.get(id)?.label || '';

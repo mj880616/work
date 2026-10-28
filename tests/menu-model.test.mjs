@@ -6,9 +6,11 @@ import {dropIndex} from '../app/reorder-drag.js';
 // MENU-HOME-편집: 메뉴 순서의 결정 규칙을 한 곳에서 시험한다(PC 왼쪽 메뉴·폰 하단바·폰 [메뉴] 창이 모두 이 규칙을 읽는다).
 test('기본 구성은 지금 화면과 같고 모든 항목이 정확히 한 번 나온다', () => {
   const d = defaultLayout();
-  assert.deepEqual(d.bar, ['home', 'basket', 'calendar', 'projects', 'team']);
+  // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴가 없어지고 하단바 4번째 칸이 [사업 보고]다.
+  assert.deepEqual(d.bar, ['home', 'basket', 'calendar', 'meetings', 'team']);
   // PHOTO-사진메뉴: [사진]은 처음 자리가 [메뉴] 창 안(원장 다음, 통화·텔레그램 위).
-  assert.deepEqual(d.rest, ['note', 'meetings', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram', 'arsenal']);
+  assert.deepEqual(d.rest, ['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram', 'arsenal']);
+  assert.equal(ITEMS.some(i => i.id === 'projects'), false, '[프로젝트] 메뉴 항목은 없다');
   assert.deepEqual([...d.bar, ...d.rest].sort(), ITEMS.map(i => i.id).sort());
   assert.equal(d.bar.length, BAR_MAX);
   assert.ok(isDefaultLayout(d)); assert.equal(layoutToPrefs(d), null);
@@ -20,7 +22,7 @@ test('저장된 값이 이상해도 언제나 올바른 구성으로 읽는다',
   assert.deepEqual(n.bar, ['home', 'note', 'team'], '홈 맨 앞, 겹침·모르는 이름 제거');
   assert.ok(n.rest.includes('library') && !n.rest.includes('team') && !n.rest.includes('note'));
   assert.deepEqual([...n.bar, ...n.rest].sort(), ITEMS.map(i => i.id).sort(), '빠진 항목은 [메뉴] 쪽 끝에 붙는다');
-  const over = normalizeLayout({bar: ['home', 'basket', 'calendar', 'note', 'projects', 'team', 'library'], rest: []});
+  const over = normalizeLayout({bar: ['home', 'basket', 'calendar', 'note', 'meetings', 'team', 'library'], rest: []});
   assert.equal(over.bar.length, BAR_MAX); assert.deepEqual(over.rest.slice(0, 2), ['team', 'library'], '넘친 칸은 [메뉴] 쪽 맨 앞');
 });
 
@@ -29,10 +31,10 @@ test('옮기기: 홈은 고정, 하단바는 5칸까지, 위·아래 칸 사이�
   assert.equal(moveItem(d, 'home', 'rest', 0).reason, 'fixed');
   assert.equal(moveItem(d, 'note', 'bar', 1).reason, 'full', '가득 찬 하단바에는 못 넣는다');
   const out = moveItem(d, 'team', 'rest', 0);
-  assert.ok(out.ok); assert.deepEqual(out.layout.bar, ['home', 'basket', 'calendar', 'projects']); assert.equal(out.layout.rest[0], 'team');
+  assert.ok(out.ok); assert.deepEqual(out.layout.bar, ['home', 'basket', 'calendar', 'meetings']); assert.equal(out.layout.rest[0], 'team');
   const back = moveItem(out.layout, 'note', 'bar', 0);
-  assert.deepEqual(back.layout.bar, ['home', 'note', 'basket', 'calendar', 'projects'], '하단바 0번은 홈 자리라 1부터');
-  assert.equal(moveItem(d, 'basket', 'bar', 3).layout.bar.join(), 'home,calendar,projects,basket,team');
+  assert.deepEqual(back.layout.bar, ['home', 'note', 'basket', 'calendar', 'meetings'], '하단바 0번은 홈 자리라 1부터');
+  assert.equal(moveItem(d, 'basket', 'bar', 3).layout.bar.join(), 'home,calendar,meetings,basket,team');
   assert.equal(moveItem(d, 'nope', 'bar', 1).reason, 'unknown');
   for (const r of [moveItem(d, 'note', 'rest', 99), moveItem(d, 'basket', 'rest', -4)]) assert.deepEqual([...r.layout.bar, ...r.layout.rest].sort(), ITEMS.map(i => i.id).sort());
 });
@@ -59,15 +61,21 @@ test('PC 왼쪽 메뉴는 하단바 메뉴가 위, 나머지가 그 아래 같�
   assert.deepEqual(pcSplit(moved).tail, ['telegram', 'arsenal']);
   assert.ok(pcSplit(moved).main.includes('calls'));
   assert.deepEqual(midKeys(defaultLayout()).slice(0, 8), ['home', 'basket', 'pane:update', 'pane:todo', 'calendar', 'tasks', 'journal', 'diary']);
-  assert.equal(midKeys(defaultLayout()).length, 20);
+  assert.equal(midKeys(defaultLayout()).length, 19);
 });
 
 test('하단바에서 지금 화면이 어느 칸인지', () => {
   const d = defaultLayout();
-  assert.equal(barItemForView(d, 'tasks'), 'calendar'); assert.equal(barItemForView(d, 'meetings'), null); assert.equal(barItemForView(d, 'basket', true), null);
+  assert.equal(barItemForView(d, 'tasks'), 'calendar'); assert.equal(barItemForView(d, 'library'), null); assert.equal(barItemForView(d, 'basket', true), null);
+  // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 칸의 화면이다.
+  assert.equal(barItemForView(d, 'meetings'), 'meetings'); assert.equal(barItemForView(d, 'projects'), 'meetings');
   const l = moveItem(moveItem(d, 'team', 'rest', 0).layout, 'note', 'bar', 1).layout;
   assert.equal(barItemForView(l, 'basket', true), 'note'); assert.equal(barItemForView(l, 'team'), null);
-  assert.ok(menuSheetViews(l).includes('team') && !menuSheetViews(l).includes('meetings') === false);
+  assert.equal(barItemForView(l, 'projects'), 'meetings');
+  assert.ok(menuSheetViews(l).includes('team') && menuSheetViews(l).includes('library'));
+  assert.ok(!menuSheetViews(l).includes('meetings') && !menuSheetViews(l).includes('projects'));
+  const out = moveItem(d, 'meetings', 'rest', 0).layout;
+  assert.ok(menuSheetViews(out).includes('meetings') && menuSheetViews(out).includes('projects'), '사업 보고를 [메뉴] 쪽으로 빼면 사업영역 관리도 [메뉴] 칸 화면');
 });
 
 test('저장 값: 바꾸면 {bar, rest}, 기본으로 돌아오면 null', () => {

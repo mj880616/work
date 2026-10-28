@@ -8,6 +8,7 @@ import {dirname,resolve} from 'node:path';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
+import {showAllReportWeeks} from './helpers/report-week.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -314,6 +315,8 @@ async function showMeetings(page,rows,docs=[]){
   await page.route(`${SB}/rest/v1/app_documents**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(docs)}));
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  // MTG-프로젝트합치기 3단계: [목록]은 한 주씩이라 여러 주에 걸친 가짜 보고는 [전체]로 모두 본다(보고가 없으면 주 줄도 없다).
+  if(rows.length)await showAllReportWeeks(page);
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
 }
 
@@ -348,6 +351,7 @@ test('meeting names keep colors after reload and after older meetings are added'
   expect(await stripe(byId('c1'))).toBe(original.c1);
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  await showAllReportWeeks(page);// 새로 불러오면 다시 주 단위
   await selectFilter(page,'#meetingTypeFilter','all');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
   for(const [id,color] of Object.entries(original))expect(await stripe(byId(id)),id).toBe(color);
