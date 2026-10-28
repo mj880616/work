@@ -106,7 +106,10 @@ function cpForget(id,calendarId){
   for(const hit of cpRangeCache.values())if(hit.d?.events)hit.d={...hit.d,events:hit.d.events.filter(ev=>!same(ev))};
   const v=cpCopyRead(owner);if(v){for(const r of Object.values(v.ranges))r.events=r.events.filter(ev=>!same(ev));cpCopyStore(owner,v)}
   cpHomeCache()?.update('calendar',card=>({...card,rows:card.rows.filter(r=>!(r.id===id&&(!calendarId||r.calendarId===calendarId)))}));
+  cpChanged(id);
 }
+// HOME-줄누르기: 다른 화면(홈) 위에서 연 수정 창으로 고치거나 지운 일정을 그 화면이 다시 읽게 알린다(지연 덮어쓰기 없음).
+function cpChanged(id){try{window.dispatchEvent(new CustomEvent('kptu:calendar-changed',{detail:{source:'event',id}}))}catch{}}
 // An event saved in Web2: the screen, the saved ranges and the home copy show the saved version at once (the reload that follows
 // replaces them wholesale). prevCalendarId: the calendar it was in before a move.
 function cpPut(ev,prevCalendarId){
@@ -116,6 +119,7 @@ function cpPut(ev,prevCalendarId){
   for(const hit of cpRangeCache.values())if(hit.d?.events)hit.d={...hit.d,events:swap(hit.d.events)};
   const v=cpCopyRead(owner);if(v){for(const r of Object.values(v.ranges))r.events=cpCopyEvents(swap(r.events));cpCopyStore(owner,v)}
   cpHomeCache()?.update('calendar',card=>card.day!==dayKey()?card:{...card,rows:homeEventRows([...card.rows.filter(r=>!(r.id===ev.id&&r.calendarId===from)),ev],cpState)});
+  cpChanged(ev.id);
 }
 // An event opened from this device's copy: wait for the read under way (or read again when the last one failed) and answer
 // 'present', 'gone' (the latest read no longer has it) or 'unknown' (Google did not answer; the copy is still shown).

@@ -104,6 +104,38 @@
   flex: 0 0 4px;
   border-radius: 2px;
 }
+/* HOME-줄누르기: 누르면 그 자리로 가는 일정·약속 줄. 모양은 위 .home-event 그대로(버튼 기본 모양만 지움), 폰 줄 간격·구분선은 아래 규칙이 정한다. */
+.home-event-open {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+}
+@media (hover: hover) { .home-event-open:hover .home-title { text-decoration: underline; text-underline-offset: 2px; } }
+.home-event-open:focus-visible { outline: 2px solid var(--kptu-primary-ink); outline-offset: -2px; }
+.home-tomorrow-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.home-tomorrow-line > .home-event-open { flex: 1 1 auto; min-width: 0; width: auto; }
+.home-tomorrow-more {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: var(--ds-compact-height-sm, 28px);
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--kptu-primary-ink);
+  font-size: var(--ds-text-meta, 12px);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.home-tomorrow-more::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - var(--kptu-touch-target, 44px) / 2); height: var(--kptu-touch-target, 44px); }
 .home-title {
   font-size: 14px;
   line-height: 1.5;

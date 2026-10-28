@@ -13,6 +13,7 @@ import { createExtraCard } from './home-extra.js';
 import { mountHomeEdit } from './home-edit.js';
 import { paintFreshness } from './data-freshness.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
+import { openGoogleEvent, openGoogleEventMenu, eventAttrs, bindLineHold } from './event-open.js';
 import {
   ranges,
   dayKey,
@@ -415,7 +416,8 @@ function renderDday(rows){
   const today=dayKey();
   rows=rows.filter(m=>m.date>=today).map(m=>({...m,days:Math.round((Date.parse(m.date)-Date.parse(today))/86400000)}));
   if(!rows.length)return empty('dday','주요 일정 없음',true);
-  paint('dday',`<div class="home-chips">${rows.map(m=>`<button type="button" class="home-chip ${m.days<=3?'urgent':''}" data-home-project="${esc(m.project_id)}">${m.days===0?'D-day':'D-'+m.days} ${esc(m.title)}</button>`).join('')}</div>`,rows.length);
+  // HOME-줄누르기 ④: 달력에 이어진 주요 일정은 그 일정 수정 창(꾹 누르기·우클릭은 일정 메뉴), 이어지지 않은 것은 지금처럼 그 프로젝트.
+  paint('dday',`<div class="home-chips">${rows.map(m=>`<button type="button" class="home-chip ${m.days<=3?'urgent':''}" data-home-project="${esc(m.project_id)}" ${m.google_event_id?eventAttrs(m.google_event_id,m.google_calendar_id):''}>${m.days===0?'D-day':'D-'+m.days} ${esc(m.title)}</button>`).join('')}</div>`,rows.length);
 }
 function renderCalendar(rows){
   fillMount?.setEvents(rows.length);
@@ -423,7 +425,9 @@ function renderCalendar(rows){
   paint('calendar',rows.map(e=>{
     const time=e.allDay?'종일':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(e.start));
     const color=/^#[0-9a-f]{6}$/i.test(e.color)?e.color:'var(--kptu-primary-ink)';
-    return `<div class="home-event"><time>${time}</time><i style="background:${color}" aria-hidden="true"></i><span class="home-title">${esc(e.title)}</span></div>`;
+    // HOME-줄누르기 ①: 줄을 누르면 달력의 그 일정 수정 창, 꾹 누르기(폰)·우클릭(PC)은 달력의 일정 메뉴. 예전 사본(id 없음)은 누르지 않는 줄.
+    if(!e.id)return `<div class="home-event"><time>${time}</time><i style="background:${color}" aria-hidden="true"></i><span class="home-title">${esc(e.title)}</span></div>`;
+    return `<button type="button" class="home-event home-event-open" ${eventAttrs(e.id,e.calendarId)} aria-label="${esc(e.title||'제목 없음')} 일정 열기"><time>${time}</time><i style="background:${color}" aria-hidden="true"></i><span class="home-title">${esc(e.title)}</span></button>`;
   }).join(''),rows.length);
 }
 function restoreCopies(){
@@ -448,12 +452,12 @@ const loaders = {
     if (!ids.length) { saveCopy("dday",{rows:[]}); return empty("dday", "주요 일정 없음", true); }
     const ms = await share("milestones", () =>
         api(
-          `/rest/v1/app_project_milestones?project_id=${list(ids)}&start_at=gte.${encodeURIComponent(new Date(ranges().start).toISOString())}&or=(status.is.null,status.not.in.(done,completed,cancelled,canceled))&select=id,project_id,title,status,start_at&order=start_at.asc&limit=3`,
+          `/rest/v1/app_project_milestones?project_id=${list(ids)}&start_at=gte.${encodeURIComponent(new Date(ranges().start).toISOString())}&or=(status.is.null,status.not.in.(done,completed,cancelled,canceled))&select=id,project_id,title,status,start_at,google_calendar_id,google_event_id&order=start_at.asc&limit=3`,
         ),
       ),
       rows = milestoneChips(ps, ms);
     guard(run);
-    const copy=rows.map(m=>({project_id:m.project_id,project_name:ps.find(p=>p.id===m.project_id)?.name||'',title:m.title,date:m.date}));
+    const copy=rows.map(m=>({project_id:m.project_id,project_name:ps.find(p=>p.id===m.project_id)?.name||'',title:m.title,date:m.date,google_calendar_id:m.google_calendar_id||'',google_event_id:m.google_event_id||''}));
     saveCopy('dday',{rows:copy});renderDday(copy);
   },
   async calendar(run) {
@@ -680,6 +684,15 @@ root.addEventListener("click", async (event) => {
   }
   if (b.dataset.homeTaskMenu) return homeTasks.openMenu(b);
   try {
+    // HOME-줄누르기 ①③④: 오늘 일정·내일·이어진 D-day 칩 → 달력의 일정 수정 창(이 화면 위, 닫으면 홈 그대로).
+    if (b.dataset.googleEvent) return void openGoogleEvent(b.dataset.googleEvent, b.dataset.googleCalendar).catch(() => {});
+    // HOME-줄누르기 ⑤: 놓친 약속 → 원장 화면, 그 약속을 펼친 채로(뒤로가기는 홈).
+    if (b.dataset.homeMissed) {
+      await window.KPTUViewLoader.load("ledger");
+      window.KPTULedgerBrowse?.show?.({ openId: b.dataset.homeMissed });
+      window.KPTURouter?.go?.("ledger", { source: "delegated" });
+      return;
+    }
     if (b.dataset.homeProject) {
       await window.KPTUViewLoader.load("projects");
       await window.KPTUProjects.open(b.dataset.homeProject);
@@ -688,6 +701,24 @@ root.addEventListener("click", async (event) => {
     const c = b.closest("[data-home-card]");
     if (c) failure(c.dataset.homeCard);
   }
+});
+// HOME-줄누르기 ⑥: 꾹 누르기(폰)·우클릭(PC) — 일정 줄은 달력의 일정 메뉴, 할 일 줄은 그 줄의 ⋯ 메뉴(task-inline.js)를 누른 자리에.
+bindLineHold(root, {
+  selector: "[data-google-event],[data-home-task]",
+  onHold: (line, x, y) => {
+    if (line.dataset.googleEvent) return void openGoogleEventMenu(line, x, y).catch(() => {});
+    const more = line.querySelector("[data-home-task-menu]");
+    if (!more || more.disabled) return;
+    window.KPTUContextMenu?.pinAt?.(more, x, y);
+    homeTasks.openMenu(more);
+  },
+});
+// 수정 창·일정 메뉴로 고치거나 지운 일정(달력 저장 경로의 알림, 주요 일정 저장 포함): 홈의 오늘 일정·내일·주요 일정을 다시 읽는다.
+window.addEventListener("kptu:calendar-changed", () => {
+  if (window.KPTURouter.current !== "home" || !current(epoch)) return;
+  flights.delete("milestones");
+  void retry("calendar");
+  void loadCard("dday");
 });
 window.KPTURouter.on("home", start);
 window.addEventListener("focus", () => {
