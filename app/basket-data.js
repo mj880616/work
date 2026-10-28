@@ -277,7 +277,7 @@ async function patchNoteMetadata(note, change, rt) {
   const fresh = rows[0], old = plainObject(fresh.metadata) ? fresh.metadata : {};
   const metadata = change({...old});
   if (metadata === null) return fresh;
-  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}${requestsGuard(old)}${journalGuard(old)}${taskGuard(firstTaskId(old))}`;
+  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}${metaGuardValue('folder_id', old.folder_id)}${requestsGuard(old)}${journalGuard(old)}${taskGuard(firstTaskId(old))}`;
   const saved = await rt.api(`${base}&${guard}&select=id,updated_at,metadata`, {method:'PATCH', prefer:'return=representation', body:{metadata}});
   if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
   return saved[0];
@@ -320,9 +320,22 @@ export function setNoteFolder(note, name, rt = window.KPTURuntime, {from} = {}) 
   const target = name == null ? null : validateFolderName(name);
   return patchNoteMetadata(note, metadata => {
     const now = typeof metadata.folder === 'string' ? metadata.folder : null;
-    if (now === target && (target !== null || !Object.hasOwn(metadata, 'folder'))) return null;
+    if (now === target && (target !== null || !Object.hasOwn(metadata, 'folder')) && !Object.hasOwn(metadata, 'folder_id')) return null;
     if (from !== undefined && now !== from) throw Object.assign(new Error('노트가 그사이 다른 폴더로 옮겨졌어요.'), {code:'folder_moved'});
     if (target) metadata.folder = target; else delete metadata.folder;
+    delete metadata.folder_id; // 이름으로 고른 폴더(맨 위 폴더): 폴더 표 id는 지운다(note-tree.mjs가 이름으로 찾음)
+    return metadata;
+  }, rt);
+}
+// NOTE-탐색기(migration 20261028170000): 폴더 표의 한 폴더({id, name}, null = 폴더 밖)로 옮긴다. id와 이름(옛 화면·되돌리기 대비)을 함께 적고,
+// 다른 metadata 칸은 그대로, updated_at은 바꾸지 않는다. fromId(선택): 그 노트가 아직 그 폴더 id에 있을 때만(폴더 지우기 중 이어 하기).
+export function setNoteFolderRef(note, folder, rt = window.KPTURuntime, {fromId} = {}) {
+  const id = folder?.id || null, name = folder ? String(folder.name || '').trim() : null;
+  return patchNoteMetadata(note, metadata => {
+    const nowId = typeof metadata.folder_id === 'string' ? metadata.folder_id : null;
+    if (fromId !== undefined && nowId !== fromId) throw Object.assign(new Error('노트가 그사이 다른 폴더로 옮겨졌어요.'), {code:'folder_moved'});
+    if (nowId === id && (id ? metadata.folder === name : !Object.hasOwn(metadata, 'folder') && !Object.hasOwn(metadata, 'folder_id'))) return null;
+    if (id) { metadata.folder_id = id; metadata.folder = name; } else { delete metadata.folder_id; delete metadata.folder; }
     return metadata;
   }, rt);
 }
@@ -330,7 +343,7 @@ export function moveToBasket(note, rt = window.KPTURuntime) {
   const text = String(note?.raw_text || '');
   if (!text.trim() && !note?.attachments?.length) throw new Error('본문과 첨부가 없는 노트는 정리함으로 돌릴 수 없어요. 본문을 먼저 써 주세요.');
   if ([...text].length > 20000) throw new Error('정리함 업데이트는 20,000자까지라 이 노트는 돌릴 수 없어요. 본문을 줄여 주세요.');
-  if (!plainObject(note?.metadata) || !Object.hasOwn(note.metadata, 'folder')) return patchKind(note.id, 'note', {kind:'basket', title:null}, rt);
+  if (!plainObject(note?.metadata) || (!Object.hasOwn(note.metadata, 'folder') && !Object.hasOwn(note.metadata, 'folder_id'))) return patchKind(note.id, 'note', {kind:'basket', title:null}, rt);
   return moveFolderNoteToBasket(note, rt);
 }
 // UI-노트폴더: updates have no folders, so the folder goes with the same guarded write (other metadata keys stay).
@@ -338,9 +351,9 @@ async function moveFolderNoteToBasket(note, rt) {
   const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(note.id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
   const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('노트를 찾지 못했어요.');
-  const fresh = rows[0], metadata = {...(plainObject(fresh.metadata) ? fresh.metadata : {})}, was = metadata.folder;
-  delete metadata.folder;
-  const saved = await rt.api(`${base}&updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('folder', was)}`, {method:'PATCH', prefer:'return=representation', body:{kind:'basket', title:null, metadata, updated_at:new Date().toISOString()}});
+  const fresh = rows[0], metadata = {...(plainObject(fresh.metadata) ? fresh.metadata : {})}, was = metadata.folder, wasId = metadata.folder_id;
+  delete metadata.folder; delete metadata.folder_id;
+  const saved = await rt.api(`${base}&updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('folder', was)}${metaGuardValue('folder_id', wasId)}`, {method:'PATCH', prefer:'return=representation', body:{kind:'basket', title:null, metadata, updated_at:new Date().toISOString()}});
   if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
   return saved[0];
 }

@@ -46,9 +46,10 @@ test('all three big-window entrances pass a folder; the source wires the shared 
   assert.match(top, /createNoteFolderPick\(\{initial:lastViewedFolder\(\)/);
   assert.match(top, /noteFolder:\{[^}]*write:true\}/);
   const notes = readFileSync('app/basket-notes.js', 'utf8');
-  assert.match(notes, /noteFolder:\{label:\(\) => addTarget\(\)/);
+  // NOTE-탐색기: the note screen's two big windows use the folder tree picker (windowFolderPick / openAddPicker) and the folder-id write.
+  assert.match(notes, /noteFolder:\{label:\(\) => folderName\(addTarget\(\)\)/);
   assert.match(notes, /openNoteEditWindow\(\{[^]*folder,/);
-  assert.match(notes, /setNoteFolder\(note, name, rt\)/);
+  assert.match(notes, /setNoteFolderRef\(note, target, rt\)/);
   const pick = readFileSync('app/note-folder-pick.js', 'utf8');
   assert.match(pick, /viewPrefs\.get\('note_folder'\)/);
   assert.match(pick, /createChoiceSheet/);

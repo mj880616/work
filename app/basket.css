@@ -171,12 +171,48 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .note-editor label.note-md-toggle input { flex:none; width:18px; height:18px; min-height:0; min-width:0; margin:0; padding:0; accent-color:var(--kptu-primary); }
 .note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }
 /* UI-노트폴더: 검색칸 아래 한 줄 [전체][폴더…][폴더 없음](공용 filter-chips.js, 넘치면 옆으로 밂) + 줄 끝 폴더 ⋯. */
-.note-folder-bar { display:flex; align-items:center; gap:4px; min-width:0; margin:-4px 0 4px; }
-#appView #basketView .note-folder-bar > .note-folder-filter:not([hidden]) { flex:1 1 auto; width:auto; min-width:0; max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; background:transparent; border-radius:0; }
-#appView #basketView .note-folder-bar > .note-folder-filter::-webkit-scrollbar { display:none; }
-#appView #basketView .note-folder-bar > button.note-folder-more { flex:none; font-size:22px; line-height:1; }
+/* NOTE-탐색기(10/28 09:24): 맨 위 '노트 · 54 · 🔍 ⋯', 폴더 나무(📁 닫힘 / 📂 열림, ▸ 없음), 한 줄 노트, 선택 모드·끌어 놓기. 작고 낮게, 톤다운. */
+.note-list-head { display:flex; align-items:center; gap:6px; min-width:0; }
+.note-list-head > .note-search { flex:1 1 auto; min-width:0; }
+.nx-count { flex:none; font-size:12px; color:var(--kptu-muted); white-space:nowrap; }
+#appView #basketView .note-list-head > button.note-folder-more { flex:none; font-size:20px; line-height:1; }
 .note-folder-status { margin:0 0 6px; color:var(--kptu-muted); font-size:13px; }
-.note-row-folder { display:inline-flex; align-items:center; font-size:12px; color:var(--kptu-muted); }
+.nx-where { display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin:2px 0 4px; font-size:13px; color:var(--kptu-muted); }
+.nx-where button { min-height:28px; padding:0 6px; border:0; background:none; color:var(--kptu-link); font:inherit; cursor:pointer; border-radius:var(--kptu-radius-sm); }
+.nx-where [aria-current] { padding:0 6px; color:var(--kptu-ink); font-weight:600; }
+.nx-select-bar:not([hidden]) { position:sticky; top:0; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:2px 0 4px; padding:4px 6px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); font-size:13px; }
+.nx-select-bar button { min-height:30px; padding:0 8px; font-size:13px; }
+.nx-select-bar .nx-sel-close { margin-left:auto; }
+.nx-body { display:block; }
+[data-note-list].nx-wide .nx-body { display:grid; grid-template-columns:minmax(180px, 30%) minmax(0, 1fr); gap:10px; align-items:start; }
+.nx-tree:not([hidden]) { position:sticky; top:8px; max-height:calc(100vh - 140px); overflow:auto; padding-right:4px; border-right:1px solid var(--kptu-border); }
+.nx-row { position:relative; display:flex; align-items:center; min-width:0; }
+.nx-row.nx-folder, .nx-row.nx-outside { padding-left:calc(var(--nx-indent, 0) * 14px); }
+#appView #basketView .nx-row.nx-note { padding-left:calc(var(--nx-indent, 0) * 14px); }
+.nx-main { flex:1 1 auto; display:flex; align-items:center; gap:6px; min-width:0; min-height:36px; padding:0 6px; border:0; background:none; color:var(--kptu-ink); font:inherit; font-size:14px; text-align:left; cursor:pointer; border-radius:var(--kptu-radius-sm); }
+.nx-main:hover { background:var(--kptu-surface-subtle); }
+.nx-ico { flex:none; font-size:15px; line-height:1; }
+.nx-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nx-num { flex:none; font-size:12px; color:var(--kptu-muted); }
+.nx-outside .nx-name { color:var(--kptu-muted); }
+.nx-more { flex:none; }
+.nx-current > .nx-main { background:var(--kptu-primary-soft); font-weight:600; }
+#appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:36px; }
+#appView #basketView .nx-note .note-row .basket-title { flex:1 1 auto; min-width:0; font-weight:500; }
+.nx-path { flex:0 1 auto; min-width:0; max-width:40%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; color:var(--kptu-muted); }
+.nx-clip { flex:none; font-size:12px; }
+#appView #basketView .nx-note .note-row time { flex:none; font-size:12px; color:var(--kptu-muted); }
+.nx-pick { flex:none; display:inline-grid; place-items:center; width:16px; height:16px; border:1px solid var(--kptu-border-strong); border-radius:4px; font-size:11px; line-height:1; color:var(--kptu-on-primary); }
+.nx-picked .nx-pick { background:var(--kptu-primary); border-color:var(--kptu-primary); }
+.nx-picked { background:var(--kptu-primary-soft); }
+[data-note-list].nx-selecting .nx-row { animation:nx-wiggle .32s ease-in-out 1; }
+@keyframes nx-wiggle { 25% { transform:translateX(-1px); } 75% { transform:translateX(1px); } }
+@media (prefers-reduced-motion:reduce) { [data-note-list].nx-selecting .nx-row { animation:none; } }
+[data-note-list].nx-selecting { -webkit-user-select:none; user-select:none; }
+.nx-drop { background:var(--kptu-primary-soft); border-radius:var(--kptu-radius-sm); }
+.nx-dragging, .nx-grabbed { opacity:.55; }
+.nx-flash { animation:nx-flash 1.2s ease-out 1; }
+@keyframes nx-flash { from { background:var(--kptu-primary-soft); } to { background:transparent; } }
 .basket-to-note { margin:12px 0; }
 .basket-to-note .basket-text-label { margin:0 0 6px; }
 .basket-to-note-help { margin:0; color:var(--kptu-muted); font-size:12px; }
@@ -197,7 +233,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .basket-read-text.md-body table{ -webkit-overflow-scrolling:touch; }
 
 /* NOTE-추가폴더표시: 노트 입력칸의 [폴더 ▾]. UI-버튼기준 보조 작은 버튼(보이는 32px·누르는 범위 44px). PC는 입력칸 → [폴더 ▾] → [첨부] → [추가] 순서(간격 8px), 폰은 입력칸 위 한 줄. */
-#appView #basketView .home-quick button.home-quick-folder { position:relative; flex:0 1 auto; box-sizing:border-box; max-width:10em; height:var(--ds-compact-height, 32px); min-height:var(--ds-compact-height, 32px); margin:0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:inherit; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border)); border-radius:var(--ds-radius-control, 8px); }
+#appView #basketView .home-quick button.home-quick-folder { position:relative; flex:0 1 auto; box-sizing:border-box; max-width:10em; height:var(--ds-compact-height, 32px); min-height:var(--ds-compact-height, 32px); margin:0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:inherit; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--kptu-border); border-radius:var(--ds-radius-control, 8px); }
 #appView #basketView .home-quick button.home-quick-folder[hidden] { display:none; }
 #appView #basketView .home-quick button.home-quick-folder::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
 #appView #basketView .home-quick button.home-quick-folder:hover { background:var(--kptu-primary-soft); }

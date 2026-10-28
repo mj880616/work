@@ -219,6 +219,8 @@ jobs:
 
       - name: Check folder depth limit and indent (LIB-폴더100단)
         run: node --test tests/folder-limits.test.mjs
+      - name: NOTE-탐색기 노트 폴더 나무(순수 부분) 시험
+        run: node --test tests/note-tree.test.mjs
 
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
