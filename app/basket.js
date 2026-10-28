@@ -350,7 +350,7 @@ const counts={todo:null,update:null};
 function paintSummary(){
   const state=radarFindState();
   const parts=[counts.todo===null?null:`챙길 것 ${counts.todo}`,counts.update===null?null:`업데이트 ${counts.update}`,
-    state.finding?'찾는 중…':state.checkedAt?`마지막 찾기 ${radarClock(state.checkedAt)}`:null].filter(Boolean);
+    state.checkedAt?`마지막 찾기 ${radarClock(state.checkedAt)}`:null].filter(Boolean);
   summaryLine.textContent=parts.join(' · ');
   findButton.disabled=state.finding||state.missing;findButton.toggleAttribute('aria-busy',state.finding);
 }
