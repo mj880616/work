@@ -114,6 +114,7 @@ test('organization detail shows representative contact, system update time, and 
   await expect(page.locator('#wdAffChips .wd-aff-chip')).toHaveText(['운수산업협의회','안전인력사업단']);
   await expect(page.locator('#wdAffChips .wd-aff-chip.taskforce')).toHaveText(['안전인력사업단']);
   await expect(page.locator('#wdAffChips')).not.toContainText(' · ');
+  await page.locator('#wdMore [data-wd-tab="aff"]').click();
   await page.locator('#wdAffManage').click();
   await expect(page.locator('#wdAffModal')).toBeVisible();
   await page.locator('#wdAffNewKind').selectOption('taskforce');

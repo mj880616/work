@@ -434,7 +434,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // Two new elements carry their own PRJ-기록입력 rules that main never had: the header line (compared above on line 202)
   // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
   // UI-회의결과창정리: 묶음 설명(.mtg-note 12px)과 빈 상태(.mtg-empty 13px)도 자기 규칙이 있다(meeting-entry.spec에서 크기 확인).
-  const generic=el=>!(el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
+  // ORG-주요인물: 담당조직 상세 [주요 인물] 탭의 글(.okp-*)은 자기 규칙(작은 흐린 글씨)을 가진 새 요소라 양쪽 비교에서 뺀다(org-key-people.test 확인).
+  const generic=el=>!(String(el.class||'').startsWith('okp-')||el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
