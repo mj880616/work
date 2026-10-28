@@ -357,6 +357,34 @@ async function rest(ctx: Ctx, path: string, init: { method?: string; body?: unkn
   return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
 }
 
+// MULTI-노조사용자 단계 ①(docs/design/multi-user-audit.md 3절): 운영자 전용 기능(통화 calls·텔레그램 telegram)은 서버 허용 표로만 판정한다.
+// DB 함수 public.app_my_features()를 로그인 토큰으로 부른다(인자 없음: 화면이 보낸 작업공간·기능 값을 쓰지 않는다). 표 정책도 같은 판정으로 읽기를 막는다.
+// "missing" = DB 함수 없음(적용 전), "error" = 읽기 실패. 둘 다 '허용 아님'으로 다룬다(닫힌 쪽).
+async function myFeatures(ctx: Ctx): Promise<Set<string> | "missing" | "error"> {
+  let r: Response;
+  try {
+    r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/app_my_features`, {
+      method: "POST",
+      headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, Accept: "application/json", "Content-Type": "application/json" },
+      body: "{}",
+    });
+  } catch {
+    return "error";
+  }
+  if (!r.ok) {
+    try { await r.body?.cancel(); } catch { /* ignore */ }
+    return r.status === 404 ? "missing" : "error";
+  }
+  let value: unknown;
+  try { value = await readBoundedJson(r, { maxBytes: 4096 }); } catch { return "error"; }
+  if (!Array.isArray(value) || value.some((v) => typeof v !== "string")) return "error";
+  return new Set(value as string[]);
+}
+async function hasFeature(ctx: Ctx, feature: "calls" | "telegram"): Promise<boolean> {
+  const f = await myFeatures(ctx);
+  return f instanceof Set && f.has(feature);
+}
+
 const BODY_CAP_BYTES = Math.max(SCHEDULE_BODY_BYTES, HWP_CONVERT_BODY_BYTES, JOURNAL_DRAFT_BODY_BYTES, NEXT_WEEK_SHEET_BODY_BYTES);
 // 몸통은 2KB까지. 주요 일정 제목 다듬기(kind=schedule_titles)만 일정 줄을 실어 20KB까지 받는다(한글 제목 30줄): 20KB까지 읽은 뒤 그 쓰임이 아니면
 // 선언 길이·실제 길이가 2KB를 넘을 때 전처럼 413으로 거절한다.
@@ -1474,7 +1502,9 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
 
   // 업무 통화(CALL-원장재료 L-2, 설계 6절): 통화 메뉴 표(app_feed_items)에 이미 저장된 업무 통화의 제목·핵심내용만. 전사 원문(raw_text)·상대 표기(counterpart)는 읽지 않는다.
   // 통화 때문에 원장 자동 기록 전체가 깨지면 안 된다: 읽기 실패나 DB 미적용이면 통화만 건너뛴다.
+  // 통화가 허용되지 않은 작업공간(운영자 외)은 통화를 읽지 않고 건너뛴다(MULTI 단계 ①, 원장 자동 기록 자체는 모두 씀 — 결정 D3).
   try {
+    if (!(await hasFeature(ctx, "calls"))) throw new Error("calls_not_allowed");
     const callSince = encodeURIComponent(new Date(Math.max(Date.parse(sinceIso), Date.parse(CALL_FROM_ISO))).toISOString());
     const calls = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&or=(created_at.gte.${callSince},moved_at.gte.${callSince})&select=id,workspace_id,title,points,day,occurred_at,organization_id,project_id,created_at,moved_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
     if (Array.isArray(calls) && calls.length && await callKindReady(ctx)) {
@@ -2695,7 +2725,11 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
     items.push({ day: typeof day === "string" && /^\d{4}-\d{2}-\d{2}/.test(day) ? day.slice(0, 10) : "", type, who, text });
   };
   // 업무 통화: 상대·제목에 이름 → 요약(없으면 제목).
-  for (const c of await softList(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&day=gte.${from}&select=id,workspace_id,day,title,summary,counterpart&order=day.desc&limit=${PEOPLE_BRIEF_READ_LIMIT}`, flags)) {
+  // 통화가 허용되지 않은 작업공간은 통화 재료 없이 만든다(MULTI 단계 ①).
+  const callRows = await hasFeature(ctx, "calls")
+    ? await softList(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&day=gte.${from}&select=id,workspace_id,day,title,summary,counterpart&order=day.desc&limit=${PEOPLE_BRIEF_READ_LIMIT}`, flags)
+    : [];
+  for (const c of callRows) {
     if (String(c.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     add(c.day, "call", briefWhoIn([c.counterpart, c.title], people), [c.counterpart, c.summary || c.title].filter((v) => typeof v === "string" && v).join(" — "));
   }
@@ -3120,6 +3154,11 @@ async function runOverlapCheck(ctx: Ctx, input: OverlapCheckInput, deps: RadarDe
 // 핵심내용·전문은 건드리지 않는다. 개인 통화는 AI에 보내지 않고, 업무로 옮긴 그 한 건만 예외다(명진 승인). 기록에는 숫자만 남긴다.
 async function runCallRefill(ctx: Ctx, input: CallRefillInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
+  // 통화는 운영자 작업공간만(MULTI 단계 ①). 판정 함수가 없으면(DB 적용 전) 준비 안 됨, 읽기 실패는 503, 허용 없음은 403.
+  const features = await myFeatures(ctx);
+  if (features === "missing") throw new Fail(503, "call_refill_not_ready");
+  if (features === "error") throw new Fail(503, "read_unavailable");
+  if (!features.has("calls")) throw new Fail(403, "forbidden");
   const ws = encodeURIComponent(ctx.workspaceId);
   let rows: unknown;
   try {

@@ -28,6 +28,7 @@ function harness({dayRows=[],dayStatus=200,dup=false,rpc=()=>respond({ok:true,pe
     if(url.origin==='https://api.openai.com'){calls.openai.push(init.body);return ai();}
     assert.equal(url.origin,SB);
     const path=url.pathname.replace('/rest/v1/','');
+    if(path==='rpc/app_operator_feature_workspace')return respond(JSON.stringify(WS));
     if(path.startsWith('rpc/')){
       const fn=path.slice(4);
       // 방 정보·하루 요약 함수(TG-방날짜묶기)는 별도 시험(collector-feed-tg-roomday)에서 본다. 여기서는 이름표 함수 호출만 센다.

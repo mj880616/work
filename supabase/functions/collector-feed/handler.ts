@@ -55,7 +55,9 @@ export type CollectorFeedDeps = {
   log?: Log;
 };
 
-export const WORKSPACE_SLUG = "kptu-work";
+// MULTI-노조사용자 단계 ①: 저장할 작업공간은 고정 이름이 아니라 서버 허용 표(public.app_operator_features)에서 정한다.
+// 그 기능(통화 calls·텔레그램 telegram)이 허용된 작업공간이 정확히 하나일 때만 그 id를 돌려주는 DB 함수(service_role 전용).
+export const FEATURE_WORKSPACE_FN = "app_operator_feature_workspace";
 export const SECRET_HEADER = "x-collector-feed-secret";
 export const SECRET_NAME = "COLLECTOR_FEED_SECRET";
 export const SECRET_MIN_CHARS = 32;
@@ -299,6 +301,8 @@ type Db = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ rows: Record<string, unknown>[] } | "missing">;
   // 쓰기 DB 함수 호출(결과가 jsonb 한 개). 던지지 않고 단계 코드만 돌려준다: 이름·키가 든 오류 본문은 코드 글자(TG_SENDER_*·TGDG_*)만 뽑고 버린다.
   rpcObject: (fn: string, args: Record<string, unknown>) => Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; code: string }>;
+  // 값 하나를 돌려주는 읽기 DB 함수. 함수가 없으면(404) "missing", 그 밖의 실패는 503.
+  rpcScalar: (fn: string, args: Record<string, unknown>) => Promise<unknown>;
 };
 function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
   const headers = { apikey: key, Authorization: `Bearer ${key}` };
@@ -344,6 +348,12 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
       try { rows = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES }); } catch { throw new Fail(503, "DB_READ_FAILED"); }
       if (!Array.isArray(rows)) throw new Fail(503, "DB_READ_FAILED");
       return { rows: rows as Record<string, unknown>[] };
+    },
+    async rpcScalar(fn, args) {
+      const r = await send(`rpc/${fn}`, { method: "POST", headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(args) });
+      if (r.status === 404) { try { await r.body?.cancel(); } catch { /* ignore */ } return "missing"; }
+      if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Fail(503, "DB_READ_FAILED"); }
+      try { return await readBoundedJson(r, { maxBytes: 4096 }); } catch { throw new Fail(503, "DB_READ_FAILED"); }
     },
     async rpcObject(fn, args) {
       let r: Response;
@@ -395,10 +405,11 @@ async function addDay(db: Db, ws: string, day: string, source: string, delta: De
   throw new Fail(503, "DB_WRITE_FAILED");
 }
 
-async function workspaceId(db: Db) {
-  const rows = await db.get(`app_workspaces?slug=eq.${WORKSPACE_SLUG}&select=id&limit=2`);
-  const id = rows.length === 1 && typeof rows[0].id === "string" ? rows[0].id.toLowerCase() : "";
-  if (!/^[0-9a-f-]{36}$/.test(id)) throw new Fail(503, "WORKSPACE_UNAVAILABLE");
+// 허용된 작업공간이 없거나 둘 이상이면(함수가 null), 함수가 없으면(DB 적용 전) 저장하지 않고 503. 몸통의 작업공간 값은 받지 않는다(400).
+async function workspaceId(db: Db, feature: "calls" | "telegram") {
+  const value = await db.rpcScalar(FEATURE_WORKSPACE_FN, { p_feature: feature });
+  const id = typeof value === "string" ? value.toLowerCase() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new Fail(503, "WORKSPACE_UNAVAILABLE");
   return id;
 }
 
@@ -691,7 +702,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
         if (contextUse.n >= CONTEXT_LIMITS.dailyCalls) throw new Fail(429, "DAILY_LIMIT");
         contextUse.n++;
         const cdb = makeDb(sb, key, doFetch);
-        const cws = await workspaceId(cdb);
+        const cws = await workspaceId(cdb, "calls"); // 맥락(조직·프로젝트·사람)은 통화 분석용
         const orgs = await readOrgs(cdb, cws);
         const spaces = await cdb.get(`app_spaces?workspace_id=eq.${cws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`);
         // CALL-맥락사람: 사람 목록은 읽기 전용 DB 함수에서만 받는다. 함수가 아직 없으면(DB 적용 전) 이름만 돌려준다.
@@ -703,7 +714,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
       // 몸통을 먼저 다 검사한 뒤에 DB에 간다.
       const input = action === "call" ? parseCallBody(b) : action === "call_skip" ? parseSkipBody(b, today) : parseTelegramBody(b, today);
       const db = makeDb(sb, key, doFetch);
-      const ws = await workspaceId(db);
+      const ws = await workspaceId(db, action === "telegram" ? "telegram" : "calls");
       const out = action === "call" ? await runCall(db, ws, input as CallInput, nowMs)
         : action === "call_skip" ? await runCallSkip(db, ws, input as SkipInput, nowMs)
         : await runTelegram(db, ws, input as TelegramInput, nowMs, { doFetch, sleep, log, env: deps.env });

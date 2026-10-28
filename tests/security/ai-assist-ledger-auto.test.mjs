@@ -20,7 +20,7 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const item=(over={})=>({kind:'event',title:'가 지부 임금교섭 시작.',summary:'가 지부와 임금교섭 시작 합의.',date:'2026-10-20',sensitivity:'S1',source:'r1',event:'',same_as:'',counterparty:'',follow_up_on:'',decision_type:'',sure:true,reference:false,...over});
 const run={kind:'ledger_auto'};
 
-function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={},edits=[]}={}){
+function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={},edits=[],features=null}={}){
   const calls={openai:[],rest:[],rpc:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'},{workspace_id:WS,user_id:MEMBER,role:'member'}],
@@ -124,6 +124,7 @@ function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:i
     const bearer=(headers.get('Authorization')||'').replace(/^Bearer /,'');
     if(url.pathname==='/auth/v1/user')return users[bearer]?respond({id:users[bearer]}):respond({msg:'bad'},401);
     const uid=users[bearer];assert.ok(uid,'REST only with the caller token');
+    if(url.pathname==='/rest/v1/rpc/app_my_features'){calls.features=(calls.features||0)+1;if(features==='missing')return respond({code:'PGRST202',message:'function not found'},404);return respond((features??{[OWNER]:['calls','telegram']})[uid]||[]);}
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:decodeURIComponent(url.search),body:init.body,uid});
     if(table==='app_calendar_work_refs'&&!callsReady)return respond({code:'PGRST205',message:'schema cache'},404);
     if(table==='app_feed_items'&&feedFail)return respond({message:'synthetic db detail'},500);
@@ -627,4 +628,14 @@ test('calendar_ref: known_records include records dated within 7 days of the eve
   assert.ok(h.calls.rest.some(c=>c.table==='app_ledger_records'&&/date_start=gte\.2026-10-16/.test(c.query)));
   const logs=JSON.stringify(h.calls.logs);assert.ok(!logs.includes('폐기')&&!logs.includes('간담회'));
   assert.ok(!h.calls.rest.some(c=>c.method!=='GET'&&!['app_ai_daily_usage','app_ledger_auto_runs'].includes(c.table)&&!c.table.startsWith('rpc/')),'calendar material never drives todos, events, messages or Drive');
+});
+
+test('MULTI 단계 ①: a workspace without the calls feature runs ledger_auto without reading calls; the rest of the material still goes',async()=>{
+  const feed=[callRow(1,{points:['자료는 금요일까지']})];
+  for(const features of [{},'missing']){
+    const h=harness({...callOnly(feed),features});
+    const res=await post(h.handler,run);assert.equal(res.status,200);
+    assert.ok(!h.calls.rest.some(c=>c.table==='app_feed_items'),'calls are not read');
+    assert.ok(h.calls.logs.some(l=>l.code==='ledger_auto_call_skipped'),'logged as skipped');
+  }
 });
