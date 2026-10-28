@@ -197,6 +197,10 @@ test.describe('빈 곳 우클릭(PC)',()=>{
 
   // LIB-폴더100단 ②(2026-10-28 10:34): 깊은 폴더는 [이 폴더로 들어가기](PC는 폴더 줄 두 번 누르기도) → 그 폴더만 보이고 위치 줄 '자료실 › …'.
   // 위치 줄의 칸을 누르면 그 단계로, '자료실'은 처음 목록으로. 들어간 폴더의 들여쓰기는 그 폴더 기준 0단부터. 묶기를 바꾸면 처음으로.
+});
+
+for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
+  test.use({hasTouch:width<761});
   test(`폴더 들어가기와 위치 줄 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
     await radio(page,'폴더').click();
