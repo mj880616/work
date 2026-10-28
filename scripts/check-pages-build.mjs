@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { graph } from './check-loader-cache.mjs';
 import { readTree, versionOf, hashLength, buildManifest, manifestPath, versionable } from './build-pages.mjs';
 import router, { resetManifestMemo } from '../cloudflare/bokdoong-router.mjs';
+import { isNoteFile, collectNotes, buildReleaseNotes, OUTPUT_PATH as releaseNotesPath } from '../app/release-notes-model.mjs';
 
 // Checks a build-pages.mjs output: (a) every reference the build versions carries the content
 // hash of its target, (b) app/asset-manifest.json is exactly what the output files give, (c) the
@@ -29,6 +30,10 @@ export async function checkBuild(files) {
   }
   const manifest = buildManifest(text, file => Object.hasOwn(files, file) ? bytesOf(files, file) : null);
   if (String(files[manifestPath] ?? '') !== manifest) errors.push(`(b) ${manifestPath}가 결과 파일과 다릅니다.`);
+  // (d) UI-업데이트안내: 기록 파일이 모두 맞는 모양이고, app/release-notes.json이 그 파일들로 만든 것과 같다.
+  const notes = Object.keys(files).filter(isNoteFile).map(file => [file, files[file]]);
+  for (const error of collectNotes(notes).errors) errors.push(`(d) ${error}`);
+  if (notes.length && String(files[releaseNotesPath] ?? '') !== buildReleaseNotes(notes)) errors.push(`(d) ${releaseNotesPath}가 기록 파일과 다릅니다.`);
   const assets = JSON.parse(manifest).assets;
   const urls = [];
   for (const [file, entry] of Object.entries(assets)) {

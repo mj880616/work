@@ -1,3 +1,4 @@
+import {parseReleaseNotes,newSince,noticeText} from './release-notes-model.mjs';
 // Open tabs compare the deployed entry point with the app script they actually loaded.
 // Any deployed ?v= other than the running one is new (the Pages build makes it a content hash;
 // a rollback is a new deployment too). A dismissed value is not offered again in this tab.
@@ -6,6 +7,18 @@ export function startVersionNotice(scriptUrl){
   const version=raw=>/^[A-Za-z0-9._-]{1,64}$/.test(raw||'')?raw:null;
   const current=version(script.searchParams.get('v'));
   if(current===null)return;
+  // UI-업데이트안내: 이 화면이 열릴 때 배포물의 업데이트 기록에서 마지막 버전명(known)을 한 번 기억하고(메모리만),
+  // 새 버전이 뜨면 그 배포의 기록에서 known 뒤로 생긴 것만 세어 알림 한 줄 문구를 바꾼다. 못 읽으면 지금 문구 그대로.
+  const notesUrl=deploy=>{const url=new URL('./release-notes.json',script);url.searchParams.set('d',deploy);return url.href};
+  const readNotes=async deploy=>{try{const res=await fetch(notesUrl(deploy),{cache:'no-store'});return res.ok?parseReleaseNotes(await res.json()):null}catch{return null}};
+  let known=null,described=null;
+  setTimeout(()=>{void readNotes(current).then(list=>{if(list&&known===null)known=list.current})},3000);
+  async function describe(deployed){
+    if(described===deployed)return;described=deployed;
+    const list=await readNotes(deployed),text=noticeText(newSince(list,known));
+    const status=box?.querySelector('[role="status"]');
+    if(status&&latest===deployed&&status.textContent!==text)status.textContent=text;
+  }
   const dismissed=new Set(),drafts=new Map();
   let flight=null,lastCheck=-Infinity,latest=current,box=null,stopped=false;
   const visible=()=>document.visibilityState==='visible';
@@ -60,7 +73,7 @@ export function startVersionNotice(scriptUrl){
   function show(deployed){
     if(deployed===current||dismissed.has(deployed)||stopped)return;
     latest=deployed;
-    if(box)return;
+    if(box){void describe(deployed);return}
     // HOME-모바일정리①: 화면 맨 위 얇은 한 줄(아이콘 + 안내 + 글자 버튼 [새로고침] + ✕). PC·폰 같은 모양.
     box=document.createElement('aside');box.id='versionNotice';box.setAttribute('aria-label','새 버전 안내');
     box.innerHTML='<svg class="version-notice-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg><span role="status">새 버전이 있어요</span><button type="button" class="version-notice-reload" data-version-reload>새로고침</button><button type="button" class="version-notice-close" data-version-dismiss aria-label="닫기">✕</button>';
@@ -68,6 +81,7 @@ export function startVersionNotice(scriptUrl){
     box.querySelector('[data-version-reload]').onclick=()=>{if(allowReload())location.reload()};
     document.body.prepend(box);document.body.classList.add('kptu-version-notice-open');
     observer.observe(box);layout();
+    void describe(deployed);
   }
   function deployedVersion(html){
     const doc=new DOMParser().parseFromString(html,'text/html'),matches=[];
