@@ -69,7 +69,8 @@ async function boot(page,width){
 }
 
 for(const width of [390,1280]){
-  for(const view of ['meetings','library'])test(`delete helper fetch failure preserves documents and offers retry guidance ${view} ${width}px`,async({page})=>{
+  // LIB-바로지우기: 자료실 지우기는 확인창 없이 바로 빠지고 뒤에서 보낸다 — 자료실 쪽은 library-quick-delete.spec.mjs가 본다.
+  for(const view of ['meetings'])test(`delete helper fetch failure preserves documents and offers retry guidance ${view} ${width}px`,async({page})=>{
     const state=await boot(page,width),pageErrors=[];
     page.on('pageerror',e=>pageErrors.push(e.message));
     await page.route('**/app/document-delete.js*',route=>route.abort());
@@ -369,7 +370,8 @@ const deleteResults=[
   [{ok:true,drive_result:'no_file',drive_preserved:false,reason:'ordinary_library'},'자료 등록을 삭제했습니다. 이 자료에 연결된 Drive 파일 ID는 없었습니다.'],
   [{ok:true},DELETE_LEGACY]
 ];
-for(const width of [390,1280])for(const view of ['library','meetings']){
+for(const width of [390,1280])for(const view of ['meetings']){// 자료실은 library-quick-delete.spec.mjs
+
   for(const [payload,notice] of deleteResults)test(`delete integration confirmed ${payload.drive_result||'legacy'} ${view} ${width}px`,async({page})=>{
     const state=await boot(page,width);state.deletePayload=payload;
     const remove=await openDeleteControl(page,view);await spyActualDeleteRuntime(page);

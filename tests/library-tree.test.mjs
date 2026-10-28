@@ -118,7 +118,9 @@ test('파일 형식: 확장자를 먼저, 없으면 mime. 그림은 확장자 �
   assert.equal(m.fileKindOf('a.zip','application/zip'),'파일');assert.equal(m.fileKindOf('noext',''),'파일');
   // 확장자가 알려진 문서면 mime이 image여도 문서가 먼저.
   assert.equal(m.fileKindOf('a.pdf','image/png'),'PDF');
-  assert.deepEqual([...m.KIND_ORDER],['HWP','PDF','XLS','DOC','PPT','그림','파일']);
+  assert.deepEqual([...m.KIND_ORDER],['HWP','PDF','XLS','DOC','PPT','그림','웹','파일']);
+  // LIB-정리보충 ⑤: 웹 페이지 원본은 '웹'.
+  for(const name of ['a.html','a.HTM','성명.mhtml'])assert.equal(m.fileKindOf(name,''),'웹',name);assert.equal(m.fileKindOf('noext','text/html'),'웹');
 });
 
 test('접힌 줄 색 점: 그림이 든 토글은 그림 점이 PPT 뒤에 나온다',()=>{
@@ -182,4 +184,15 @@ test('폴더 밖 자료의 폴더 추천: 제목 첫 낱말·분류·프로젝�
   // 두 폴더가 같은 점수면 추천하지 않는다.
   const tie=m.folderSuggestions([doc('o5','q',{title:'투쟁 교섭',category:'투쟁'})],{docs:[doc('a','q',{title:'투쟁 일지',category:'기타'}),doc('b','q',{title:'투쟁 소식',category:'기타'})],items:[{document_id:'a',folder_id:'fa'},{document_id:'b',folder_id:'fb'}],folders});
   assert.equal(tie.size,0);
+});
+
+// LIB-정리보충 ②: 사진 묶음 줄은 묶음 안 사진이 모두 같은 폴더면 그 폴더 안에, 하나라도 다르면(일부만·없음) 폴더 밖에 한 줄.
+test('폴더 묶기: 사진 묶음 줄은 사진이 모두 같은 폴더일 때만 그 폴더 안',()=>{
+  const folders=[{id:'f1',project_id:null,parent_id:null,name:'F1',sort_order:0}];
+  const set=(id,photos)=>({...doc(id,null),photoset:true,photos:photos.map(p=>({id:p}))});
+  const docs=[set('photoset:m1',['p1','p2']),set('photoset:m2',['p3','p4']),set('photoset:m3',['p5'])];
+  const items=[{document_id:'p1',folder_id:'f1'},{document_id:'p2',folder_id:'f1'},{document_id:'p3',folder_id:'f1'}];
+  const out=m.buildTree({...base({docs,folders,items}),groupBy:'folder'});
+  assert.deepEqual(out.find(n=>n.key==='f:f1').files.map(d=>d.id),['photoset:m1']);
+  assert.deepEqual(out.find(n=>n.key==='x:out').files.map(d=>d.id).sort(),['photoset:m2','photoset:m3']);
 });
