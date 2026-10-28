@@ -1274,6 +1274,15 @@ function showDay(day) {
   if (week === start) { selectDay(day); return; }
   start = week; selected = day; loadWeek();
 }
-window.KPTUJournal = {refresh:() => loadWeek({shared:true}), show:showDay};
+// MTG-프로젝트합치기 2단계: 사업 보고 [사업요약표 미리보기]의 [HWP로 내려받기] — 그 주의 [주간 정리]를 열고 기존 주간보고 한글 파일 상자를 연다
+// (한글 양식·직전 주 확정본 담당 표기 규칙은 journal-hwpx.js 그대로, 결정 ③).
+function showWeek(day, {hwpx:openHwpx = false} = {}) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || ''))) return;
+  const week = weekStart(day);
+  if (week !== start) { start = week; selected = day; loadWeek(); }
+  if (mode !== 'week') setMode('week');
+  if (openHwpx) queueMicrotask(() => $('[data-journal-hwpx] [data-hwpx-start]:not([hidden])')?.click());
+}
+window.KPTUJournal = {refresh:() => loadWeek({shared:true}), show:showDay, showWeek};
 if (window.KPTURouter?.current === 'journal') enter();
 })();
