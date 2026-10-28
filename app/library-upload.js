@@ -398,7 +398,7 @@ function luRenderRecent(rows){
   box.hidden=false;
   box.innerHTML=`<div class="lu-recent-head"><span class="lu-recent-title" id="libraryRecentTitle">최근 올린 파일</span>${more?`<button type="button" class="lu-more-files lu-recent-more" data-lu-recent-more aria-expanded="${luRecentMore}" aria-controls="libraryRecentList">${luRecentMore?'접기':'더보기'}</button>`:''}</div><ul class="lu-recent-list" id="libraryRecentList" aria-labelledby="libraryRecentTitle">${shown.map(d=>{
     const name=luPhone()?luDisplayName(d).name:(d.title||d.file_name||'파일'),kind=luFileKind(d.file_name,d.mime_type);
-    return `<li><div class="lu-recent-row" role="button" tabindex="0" data-lu-recent="${luEsc(d.id)}" data-lu-menu="${luEsc(d.id)}" aria-controls="luMorePanel"><span class="lu-file-kind" data-lu-kind="${luKindKey(kind)}">${kind}</span><span class="lu-recent-name">${luEsc(name)}</span><span class="lu-recent-where">${luEsc(where(d))}</span><span class="lu-recent-time">${luEsc(uploadTimeLabel(d,now))}</span></div></li>`}).join('')}</ul>`;
+    return `<li><div class="lu-recent-row" role="button" tabindex="0" data-lu-recent="${luEsc(d.id)}"><span class="lu-file-kind" data-lu-kind="${luKindKey(kind)}">${kind}</span><span class="lu-recent-name">${luEsc(name)}</span><span class="lu-recent-where">${luEsc(where(d))}</span><span class="lu-recent-time">${luEsc(uploadTimeLabel(d,now))}</span></div></li>`}).join('')}</ul>`;
 }
 // 최근 칸의 줄: 그 파일이 든 묶음을 위 단까지 펴고 그 줄로 가서 잠깐 강조한다(눈에 띄는 움직임은 prefers-reduced-motion이면 색만 잠깐).
 function luGoToRecent(id){
@@ -414,6 +414,8 @@ function luBindRecent(){
   box.addEventListener('contextmenu',e=>{
     const row=e.target.closest?.('[data-lu-recent]');if(!row||e.shiftKey)return;
     e.preventDefault();e.stopPropagation();
+    // 메뉴는 그 줄을 누른 자리(⋯ 대신 줄 자체)에 붙인다. 줄 표시(data-lu-menu)는 이 메뉴를 여는 동안만 단다(목록 다시 그리면 사라짐).
+    row.dataset.luMenu=row.dataset.luRecent;row.setAttribute('aria-controls','luMorePanel');
     window.KPTUContextMenu?.pinAt?.(row,e.clientX,e.clientY);luOpenMenu(row);
   });
   box.addEventListener('click',e=>{
@@ -793,7 +795,7 @@ function luSelStartWith(id){if(luSelBusy||!luDocuments.some(d=>d.id===id))return
 // Esc = 선택 모드 풀기(열린 메뉴·창이 Esc를 먼저 가져가면 그쪽이 닫힌다).
 function luOnSelEscape(e){
   if(e.key!=='Escape'||e.defaultPrevented||!luSel||luSelBusy||window.KPTURouter?.current!=='library')return;
-  if(luActiveMenu||luFolderUi?.moveOpen||luBulkUi?.active||document.querySelector('.modal:not(.hidden),[role="dialog"]:not([hidden]):not(.hidden)'))return;
+  if(luActiveMenu||luFolderUi?.moveOpen||luBulkUi?.active||[...document.querySelectorAll('.modal,[role="dialog"]')].some(el=>!el.classList.contains('hidden')&&el.checkVisibility?.()))return;
   if(e.target?.closest?.('input:not([type=checkbox]),textarea,select,[contenteditable]'))return;
   e.preventDefault();luSelStop();
 }
