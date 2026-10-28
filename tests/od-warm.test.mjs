@@ -131,13 +131,12 @@ test('scheduler: waits for the first screen (timer + idle), once; skips on the d
   assert.equal(loads, 2);
 });
 
-test('the warm-up is loaded after the first screen is shown, not before; it stores nothing on the device', async () => {
+test('the warm-up is loaded after the first screen is shown, not before', async () => {
   const {readFileSync} = await import('node:fs');
   const loader = readFileSync('app/loader-v2.js', 'utf8');
   const ready = loader.indexOf('__KPTU_MARK_APP_UI_READY__?.('), warmAt = loader.indexOf("import('./od-warm.js')");
   assert.ok(ready > 0 && warmAt > ready, 'od-warm.js comes after the UI-ready mark');
-  const src = readFileSync('app/od-warm.js', 'utf8') + readFileSync('app/diary-onedrive.js', 'utf8');
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장소를 쓰지 않는 것은 browser-storage-audit.yml이 저장소 전체에서 막는다.
 });
 
 test('only a connected status is reused; not connected / not configured is asked again each time (a connection made elsewhere shows up)', async () => {
