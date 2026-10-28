@@ -69,8 +69,9 @@ for(const width of [412,884]){
     await page.setViewportSize({width,height:900});
     const asks=[];
     await openHome(page,{beforeLoad:()=>routes(page,{asks,recent:[{...ANSWER,ai_status:'ok',status:undefined}]})});
-    await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu .gs-menu-entry').click();
+    // 폰(412)은 메뉴 창 맨 위 검색칸이 입구. 884(접은 폴드 펼침 폭)는 같은 전체 화면 검색을 화면 이동으로 연다.
+    if(await page.locator('#mobileMenuTab').isVisible()){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu .gs-menu-entry').click();}
+    else await page.evaluate(async()=>{await window.KPTUViewLoader.load('search');window.KPTURouter.go('search',{source:'delegated'});});
     const view=page.locator('#searchView'),input=view.locator('.gs-view-input input');
     await expect(view).toBeVisible();
     // 빈 검색칸: 최근 물어본 것 1줄.
