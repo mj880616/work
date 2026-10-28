@@ -48,9 +48,11 @@ export const photoStripCommit = () => commitPending();
 //  isStarred(item), toggleStar(item): 별표(서버 저장은 부르는 쪽)
 //  deletable(item) → {ok, title}, take(item) → token|null(목록에서 빼고 다시 그림), restore(token), commit(token, {keepalive}) → Promise,
 //  errorText(error), onError(text): 닫힌 뒤 실패 알림, onClose({starChanged, restore})
+//  (PHOTO-사진메뉴 2차, 선택) play(item) → Promise<주소>: item.video면 칸 위 ▶를 누를 때 받아 <video>로 재생(주소는 메모리에만, 닫으면 버림).
+//   original(item)이 {download:true}를 돌려주면 [ⓘ] 판 맨 아래가 [⤓ 원본 받기] 단추가 되고 download(item)을 부른다. badge(item): 칸 위 작은 글('▶ 0:42').
 export function openPhotoStrip(opts) {
   const {host, list, index, title, layerName = 'diary-photo', element, label, when, caption = () => '', info, original, isStarred, toggleStar,
-    deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose} = opts;
+    deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose, play = null, download = null, badge = () => ''} = opts;
   const first = list();
   if (!first[index] || viewer) return null;
   let items = first.slice(), at = index, noteTimer = null;
@@ -67,7 +69,26 @@ export function openPhotoStrip(opts) {
     if (!slide || slide.dataset.filled) return;
     // 크게 보기는 화면 관찰 없이 바로 받는다: 보는 장이 먼저(VISIBLE), 앞뒤 2장은 그다음(NEAR).
     slide.dataset.filled = '1'; slide.append(element(items[i], 'large', {label:label(items[i], i), eager:true, prio:i === at ? 0 : 1}));
+    if (items[i].video && play) {
+      const b = Object.assign(document.createElement('button'), {type:'button', className:'diary-viewer-play', textContent:`▶${badge(items[i]) ? ' ' + badge(items[i]) : ''}`});
+      b.dataset.stripPlay = String(i); b.setAttribute('aria-label', '동영상 재생'); slide.append(b);
+    }
   };
+  // 동영상 재생: 그 장의 썸네일 자리에 기기 기본 재생 막대(소리 켠 채). 다른 장으로 넘기면 멈춘다.
+  async function playAt(i) {
+    const item = items[i], slide = strip.children[i];
+    if (!item || !slide || slide.querySelector('video')) return;
+    note('동영상 받는 중…');
+    let url;
+    try { url = await play(item); } catch (error) { note(errorText(error).replace(/^지우지 못했어요/, '재생하지 못했어요'), 4000); return; }
+    if (viewer?.box !== box || items[i] !== item) return;
+    const v = document.createElement('video');
+    v.className = 'diary-viewer-video'; v.controls = true; v.playsInline = true; v.preload = 'metadata'; v.src = url;
+    v.addEventListener('error', () => note('이 기기에서 재생 못 해요. [ⓘ 정보]의 원본 받기로 받아 주세요.', 5000), {once:true});
+    slide.querySelector('[data-strip-play]')?.remove();
+    slide.append(v); note('');
+    v.play?.()?.catch?.(() => {});
+  }
   const buildSlides = () => {
     strip.replaceChildren(...items.map(() => Object.assign(document.createElement('figure'), {className:'diary-slide'})));
     items.forEach((item, i) => { if (item.kind === 'upload') fill(i); });
@@ -81,7 +102,10 @@ export function openPhotoStrip(opts) {
     const item = items[at]; if (!item || infoEl.hidden) return;
     infoEl.replaceChildren(...info(item).filter(([, v]) => v).flatMap(([k, v]) => [Object.assign(document.createElement('dt'), {textContent:k}), Object.assign(document.createElement('dd'), {textContent:v})]));
     const o = original(item) || {}, dd = document.createElement('dd');
-    if (o.href) {
+    if (o.download && download) {
+      const b = Object.assign(document.createElement('button'), {type:'button', className:'diary-viewer-original', textContent:'⤓ 원본 받기'});
+      b.dataset.stripOriginal = ''; dd.append(b);
+    } else if (o.href) {
       const a = Object.assign(document.createElement('a'), {href:o.href, target:'_blank', rel:'noopener noreferrer', className:'diary-viewer-original', textContent:'원본 내려받기'});
       a.dataset.diaryOriginal = ''; dd.append(a);
     } else dd.textContent = o.text || '';
@@ -97,6 +121,7 @@ export function openPhotoStrip(opts) {
     const d = deletable(item);
     delBtn.disabled = !d.ok; delBtn.title = d.title;
     for (const step of [0, 1, -1, 2, -2]) fill(at + step);
+    strip.querySelectorAll('video').forEach(v => { if (v.parentElement !== strip.children[at]) v.pause?.(); });
     refresh(); paintInfo(); prepareShown();
   };
   const note = (text, ms = 0) => { clearTimeout(noteTimer); noteText(text); if (ms) noteTimer = setTimeout(() => { if (!pending) noteText(''); }, ms); };
@@ -154,6 +179,8 @@ export function openPhotoStrip(opts) {
     else if (event.target.closest('[data-diary-share]')) shareCurrent();
     else if (event.target.closest('[data-diary-undo]')) undoPending();
     else if (event.target.closest('[data-od-delete]')) deleteCurrent();
+    else if (event.target.closest('[data-strip-play]')) playAt(Number(event.target.closest('[data-strip-play]').dataset.stripPlay));
+    else if (event.target.closest('[data-strip-original]')) download?.(items[at]);
     else if (event.target.closest('[data-diary-info]')) { infoEl.hidden = !infoEl.hidden; infoBtn.setAttribute('aria-expanded', String(!infoEl.hidden)); paintInfo(); }
   });
   buildSlides(); host.append(box);
@@ -167,6 +194,7 @@ export function openPhotoStrip(opts) {
 export function closePhotoStrip({fromBack = false, restore = true} = {}) {
   if (!viewer) return;
   const {box, trigger, layer, starChanged, onClose} = viewer; viewer = null;
+  box.querySelectorAll('video').forEach(v => { v.pause?.(); v.removeAttribute('src'); });
   box.remove(); document.documentElement.classList.remove('diary-viewer-open');
   if (!fromBack) layer?.close();
   // 되돌리기 시간이 남았어도 닫으면 지금 휴지통으로 보낸다(되돌리기 버튼이 사라지므로).

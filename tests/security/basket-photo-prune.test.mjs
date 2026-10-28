@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {containsParam,jsonbContains} from './helpers/postgrest-jsonb.mjs';
 
 // Real basket-files handler + shared Drive code. Only the Supabase SDK and the Google HTTP boundary are modeled; no production access.
 // JOURNAL-일기사진정리: photo-prune (trash the Drive original of a photo taken out of a diary) and photo-orphans (read-only candidate list).
@@ -17,7 +18,7 @@ function harness(options={}){
   const admin={auth:{getUser:async()=>options.auth||{data:{user:{id:'synthetic-owner'}},error:null}},from:table=>{
     const q={table,filters:[],mutation:null,range:null,limit:null};calls.admin.push(q);
     const b={select:()=>b,eq:(k,v)=>{q.filters.push(['eq',k,v]);return b;},in:(k,v)=>{q.filters.push(['in',k,v]);return b;},
-      contains:(k,v)=>{q.filters.push(['contains',k,v]);return b;},order:()=>b,limit:n=>{q.limit=n;return b;},range:(a,z)=>{q.range=[a,z];return b;},
+      contains:(k,v)=>{q.filters.push(['contains',k,containsParam(v)]);return b;},order:()=>b,limit:n=>{q.limit=n;return b;},range:(a,z)=>{q.range=[a,z];return b;},
       is:()=>b,update:()=>{q.mutation='update';return b;},insert:()=>{q.mutation='insert';return b;},upsert:()=>{q.mutation='upsert';return b;},delete:()=>{q.mutation='delete';return b;},
       maybeSingle:async()=>exec(),single:async()=>exec(),then:(r,e)=>exec().then(r,e)};
     async function exec(){
@@ -28,7 +29,10 @@ function harness(options={}){
         if(q.mutation)throw new Error('prune must not write '+table);
         if(options.readError?.includes(table))return {data:null,error:{message:'synthetic-secret'}};
         let rows=table==='app_notes'?state.notes:state.documents;
-        for(const [op,k,v] of q.filters)rows=rows.filter(r=>op==='eq'?r[k]===v:op==='in'?v.includes(r[k]):(r[k]||[]).some(a=>a.drive_file_id===v[0].drive_file_id));
+        for(const [op,k,v] of q.filters){
+          if(op==='contains'){const m=jsonbContains(rows,k,v);if(m.error)return {data:null,error:m.error};rows=m.rows;continue;}
+          rows=rows.filter(r=>op==='eq'?r[k]===v:v.includes(r[k]));
+        }
         if(q.range)rows=rows.slice(q.range[0],q.range[1]+1);
         if(q.limit)rows=rows.slice(0,q.limit);
         return {data:structuredClone(rows),error:null};
@@ -101,6 +105,14 @@ test('only an owned image directly in the private basket folder is trashed',asyn
   assert.equal(r.status,200);
   assert.deepEqual([r.body.trashed,r.body.failed],[1,5]);
   assert.deepEqual(patches(r.calls).map(c=>c.path),['/drive/v3/files/ok']);
+});
+
+test('the note reference check sends PostgREST jsonb JSON text (attachments=cs.[{...}]), not an array literal',async()=>{
+  const r=await prune(['p1','p2'],{files:[file('p1'),file('p2')]});
+  const sent=r.calls.admin.filter(q=>q.table==='app_notes').flatMap(q=>q.filters.filter(f=>f[0]==='contains'));
+  assert.deepEqual(sent,[['contains','attachments','cs.[{"drive_file_id":"p1"}]'],['contains','attachments','cs.[{"drive_file_id":"p2"}]']]);
+  assert.equal(r.body.trashed,2);
+  assert.equal(r.calls.logs.includes('photo_prune_reference_unavailable'),false);
 });
 
 test('an unreadable reference table trashes nothing',async()=>{

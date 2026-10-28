@@ -31,9 +31,12 @@ test('portal root serves only its own static entry without forwarding credential
   assert.equal(calls[0].url, 'https://mj880616.github.io/work/personal/portal/?q=1');
   assert.equal(calls[0].headers.get('Cookie'), null);
   assert.equal(calls[0].headers.get('Authorization'), null);
-  const unknown = await request('https://bokdoong.com/work/app/');
-  assert.equal(unknown.response.status, 404);
-  assert.equal(unknown.calls.length, 0);
+  // DOMAIN-주소이전 ①-E5: /work/app/** is Web2 now (tests at the end); other paths stay closed.
+  for (const path of ['/other/', '/work', '/personal/portal/', '/read-think-write/']) {
+    const unknown = await request(`https://bokdoong.com${path}`);
+    assert.equal(unknown.response.status, 404, path);
+    assert.equal(unknown.calls.length, 0, path);
+  }
 });
 
 
@@ -630,4 +633,117 @@ test('Workers Logs are off so request URLs carrying link values are not stored',
   assert.match(config, /^\[observability\.logs\]\nenabled = false\ninvocation_logs = false$/m);
   const source = await readFile(new URL('../../cloudflare/bokdoong-router.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /console\./);
+});
+
+
+// DOMAIN-주소이전 ①-E5 (docs/design/domain-move.md 1.1·1.2): bokdoong.com/work/app/** opens Web2 with the same
+// rules as desk. The portal root and every desk/work/arsenal route keep their current behavior.
+test('bokdoong.com serves Web2 under /work/app/ without forwarding credentials', async () => {
+  for (const [url, origin] of [
+    ['https://bokdoong.com/work/app/auth-service.js', 'https://mj880616.github.io/work/app/auth-service.js'],
+    ['https://bokdoong.com/work/app/sw.js', 'https://mj880616.github.io/work/app/sw.js'],
+    ['https://bokdoong.com/work/app/onedrive-return.html', null],
+    ['https://bokdoong.com/work/app/login/confirmed.html', null]
+  ]) {
+    const { response, calls } = await request(url);
+    assert.equal(response.status, 200, url);
+    assert.equal(calls.length, 1, url);
+    if (origin) assert.equal(calls[0].url, origin, url);
+    assert.ok(calls[0].url.startsWith('https://mj880616.github.io/work/app/'), url);
+    assert.equal(calls[0].headers.get('Cookie'), null, url);
+    assert.equal(calls[0].headers.get('Authorization'), null, url);
+  }
+});
+
+test('bokdoong.com Web2 redirects match desk: slash added, Web1 paths go to work', async () => {
+  const appWithoutSlash = await request('https://bokdoong.com/work/app?view=calendar');
+  assert.equal(appWithoutSlash.response.status, 302);
+  assert.equal(appWithoutSlash.response.headers.get('Location'), 'https://bokdoong.com/work/app/?view=calendar');
+  assert.equal(appWithoutSlash.calls.length, 0);
+
+  for (const path of ['/work/p/?slug=example', '/work/share/', '/work/press/', '/work/']) {
+    const { response, calls } = await request(`https://bokdoong.com${path}`);
+    assert.equal(response.status, 302, path);
+    assert.equal(response.headers.get('Location'), `https://work.bokdoong.com${path}`, path);
+    assert.equal(calls.length, 0, path);
+  }
+});
+
+test('bokdoong.com Web2 HTML gets the 15-second freshness value and keeps no-cache', async () => {
+  const start = 1_800_000_000_000;
+  const bucket = start / 15000;
+  for (const [url, origin] of [
+    ['https://bokdoong.com/work/app/', `https://mj880616.github.io/work/app/?__fresh=${bucket}`],
+    ['https://bokdoong.com/work/app/index.html', `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`],
+    ['https://bokdoong.com/work/app/?view=calendar', `https://mj880616.github.io/work/app/?view=calendar&__fresh=${bucket}`]
+  ]) {
+    const { response, calls } = await atTime(start, url, { upstream: deskPage() });
+    assert.equal(calls[0].url, origin, url);
+    assert.equal(calls[0].cache, 'no-store', url);
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
+  }
+  // The portal root is not Web2 HTML: no freshness value.
+  const portal = await atTime(start, 'https://bokdoong.com/', { upstream: deskPage() });
+  assert.equal(portal.calls[0].url, 'https://mj880616.github.io/work/personal/portal/');
+});
+
+test('bokdoong.com Web2 versioned assets are immutable only when bytes match the manifest', async () => {
+  const url = 'https://bokdoong.com/work/app/app.js?v=58';
+  const good = { assets: { 'app/app.js': { v: ['58'], sha256: sha256('current bytes') } } };
+  const ok = await versioned(url, { manifest: good });
+  assert.equal(ok.response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+  assert.deepEqual([...ok.cache.keys()], [url]);
+  assert.doesNotMatch(ok.calls.find(call => !call.url.startsWith(MANIFEST)).url, /__fresh/);
+
+  const stale = await versioned(url, { manifest: { assets: { 'app/app.js': { v: ['58'], sha256: sha256('other') } } } });
+  assert.equal(stale.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+  assert.equal(stale.cache.size, 0);
+
+  // Separate edge cache entries per host: a desk entry is never served for bokdoong.com and vice versa.
+  const cache = new Map();
+  await versioned('https://desk.bokdoong.com/work/app/app.js?v=58', { manifest: good, cache });
+  await versioned(url, { manifest: good, cache });
+  assert.deepEqual([...cache.keys()].sort(), ['https://bokdoong.com/work/app/app.js?v=58', 'https://desk.bokdoong.com/work/app/app.js?v=58']);
+
+  // sw.js and the portal favicon are never pinned.
+  for (const other of ['https://bokdoong.com/work/app/sw.js?v=2', 'https://bokdoong.com/favicon.png?v=20260920']) {
+    const { response, cache: none } = await versioned(other, { manifest: good });
+    assert.notEqual(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', other);
+    assert.equal(none.size, 0, other);
+  }
+});
+
+test('bokdoong.com Web2 pages clear the browser cache once per epoch; the portal never does', async () => {
+  const page = () => new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  const first = await request('https://bokdoong.com/work/app/', { upstream: page() });
+  assert.equal(first.response.headers.get('Clear-Site-Data'), '"cache"');
+  const cookie = first.response.headers.get('Set-Cookie');
+  assert.match(cookie, /^kptu_cache_epoch=[\w-]+; Path=\/work\/app\/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax$/);
+  const later = await request('https://bokdoong.com/work/app/', { upstream: page(), headers: { Cookie: cookie.split(';')[0] } });
+  assert.equal(later.response.headers.get('Clear-Site-Data'), null);
+  const portal = await request('https://bokdoong.com/', { upstream: page() });
+  assert.equal(portal.response.headers.get('Clear-Site-Data'), null);
+  assert.equal(portal.response.headers.get('Set-Cookie'), null);
+});
+
+test('bokdoong.com Web2 upstream redirects stay on bokdoong.com without the freshness value', async () => {
+  const start = 1_800_000_000_000;
+  const upstream = new Response(null, {
+    status: 301,
+    headers: { Location: `https://mj880616.github.io/work/app/login/?__fresh=${start / 15000}` }
+  });
+  const { response } = await atTime(start, 'https://bokdoong.com/work/app/index.html', { upstream });
+  assert.equal(response.headers.get('Location'), 'https://bokdoong.com/work/app/login/');
+});
+
+test('E5 leaves desk, work and arsenal routes as they were', async () => {
+  const deskRoot = await request('https://desk.bokdoong.com/');
+  assert.equal(deskRoot.response.headers.get('Location'), 'https://desk.bokdoong.com/work/app/');
+  const deskApp = await request('https://desk.bokdoong.com/work/app/auth-service.js');
+  assert.equal(deskApp.response.status, 200);
+  const workApp = await request('https://work.bokdoong.com/work/app/');
+  assert.equal(workApp.calls[0].url, 'https://mj880616.github.io/work/app/');
+  assert.doesNotMatch(workApp.calls[0].url, /__fresh/);
+  const arsenalApp = await request('https://arsenal.bokdoong.com/work/app/');
+  assert.equal(arsenalApp.response.status, 404);
 });

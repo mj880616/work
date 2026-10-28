@@ -190,9 +190,11 @@ async function loadOnce() {
 }
 // 다시 읽은 목록에 펼친 기록이 아직 있으면 상세를 새로 읽고, 없으면(대체·폐기·추적 종료) 접는다.
 async function settleOpen(open) {
+  const reveal = open && state.reveal === open; if (reveal) state.reveal = null;
   if (!open || state.openId !== open) return;
   if (reopenPlan(open, allRows().map(r => r.id)) === 'close') { state.openId = null; state.quick = null; state.details.delete(open); state.detailError = ''; render(); return; }
   await refreshDetail(open);
+  if (reveal && state.openId === open) { const head = document.querySelector('#ledgerBrowseRoot')?.querySelector(`[data-lb-action="open"][data-lb-id="${CSS.escape(open)}"]`); head?.scrollIntoView?.({ block: 'center' }); head?.focus?.({ preventScroll: true }); }
 }
 async function refreshDetail(id) {
   try {
@@ -675,7 +677,9 @@ async function boot() {
   bind();
   await load();
   // 업무일지 "새로 기록된 약속 N"에서: 약속만 보이게 거른 뒤 화면을 연다(목록은 열 때 읽음).
-  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [] } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = null; state.condOpen = false; state.story = null; state.chipsOpen = false; state.more.clear(); } };
+  // HOME-줄누르기 ⑤: 홈 '놓친 약속' 줄 → openId: 첫 화면(검색 없음)에서 그 기록을 펼친 채로 연다. 화면이 열리며 읽는 load가 펼친 기록의
+  // 상세를 읽고(settleOpen), 다 그리면 그 줄로 옮긴다. 목록에 없으면(이미 지켜짐·폐기) 접힌 첫 화면 그대로.
+  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [], openId = null } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = UUID.test(String(openId || '')) ? String(openId) : null; state.reveal = state.openId; state.quick = null; state.condOpen = false; state.story = null; state.chipsOpen = false; state.more.clear(); } };
   return true;
 }
 window.__KPTU_LEDGER_BROWSE_READY__ = boot().catch(err => { console.error('ledger browse init', err?.name || 'error'); return false; });

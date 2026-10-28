@@ -8,13 +8,26 @@ const SERVICES = Object.freeze({
   }
 });
 
+// DOMAIN-주소이전 ①-E5: Web2 (/work/app/**) opens on bokdoong.com as well as desk. Both hosts get the
+// same Web2 rules (HTML freshness, verified immutable ?v= assets, once-per-epoch cache clearing).
+// The portal at bokdoong.com/ and every desk, work and arsenal route are unchanged.
+const WEB2_PREFIX = '/work/app/';
+const WEB2_HOSTS = new Set(['desk.bokdoong.com', 'bokdoong.com']);
+
+function web2Path(host, path) {
+  return WEB2_HOSTS.has(host) && path.startsWith(WEB2_PREFIX);
+}
+
 function allowedPath(host, path) {
-  if (host === 'bokdoong.com') return path === '/' || path === '/favicon.png' || path === '/favicon.ico';
+  if (host === 'bokdoong.com') {
+    return path === '/' || path === '/favicon.png' || path === '/favicon.ico' || path.startsWith(WEB2_PREFIX);
+  }
   return Boolean(SERVICES[host] && path.startsWith(SERVICES[host].prefix));
 }
 
 function upstreamPath(host, path) {
   if (host === 'bokdoong.com') {
+    if (path.startsWith(WEB2_PREFIX)) return path;
     if (path === '/favicon.png' || path === '/favicon.ico') return `/work/personal/portal${path}`;
     return '/work/personal/portal/';
   }
@@ -58,15 +71,14 @@ function hasCurrentEpoch(request) {
 
 // GitHub Pages serves HTML with max-age=600 and its CDN may answer an unchanged URL with a copy up
 // to 10 minutes old, so a fresh deploy would stay invisible to page loads and to app/version-notice.js
-// (which fetches /work/app/index.html). For desk HTML only, the Worker appends a value that changes
+// (which fetches /work/app/index.html). For Web2 HTML only (desk and bokdoong.com), the Worker appends a value that changes
 // every 15 seconds to the Pages URL (like ?t= for the manifest). The visitor's URL, the response
 // headers and the edge cache key are unchanged; ?v= assets never get it.
 const FRESH_PARAM = '__fresh';
 const FRESH_WINDOW_MS = 15000;
 
-function deskDocument(host, url) {
-  return host === 'desk.bokdoong.com'
-    && url.pathname.startsWith('/work/app/')
+function web2Document(host, url) {
+  return web2Path(host, url.pathname)
     && !url.searchParams.has('v')
     && (url.pathname.endsWith('/') || /\.html$/i.test(url.pathname));
 }
@@ -186,11 +198,11 @@ export default {
       incoming.pathname = SERVICES[host].root;
       return Response.redirect(incoming.href, 302);
     }
-    if (host === 'desk.bokdoong.com' && incoming.pathname === '/work/app') {
-      incoming.pathname = '/work/app/';
+    if (WEB2_HOSTS.has(host) && incoming.pathname === '/work/app') {
+      incoming.pathname = WEB2_PREFIX;
       return Response.redirect(incoming.href, 302);
     }
-    if (host === 'desk.bokdoong.com' && incoming.pathname.startsWith('/work/') && !incoming.pathname.startsWith('/work/app/')) {
+    if (WEB2_HOSTS.has(host) && incoming.pathname.startsWith('/work/') && !incoming.pathname.startsWith(WEB2_PREFIX)) {
       incoming.hostname = 'work.bokdoong.com';
       return Response.redirect(incoming.href, 302);
     }
@@ -203,7 +215,7 @@ export default {
     if (!allowedPath(host, incoming.pathname)) return new Response('Not found', { status: 404 });
 
     const originUrl = new URL(upstreamPath(host, incoming.pathname), PAGES_ORIGIN);
-    const freshDocument = deskDocument(host, incoming);
+    const freshDocument = web2Document(host, incoming);
     originUrl.search = freshDocument ? withFreshness(incoming.search) : incoming.search;
     const shareToken = sharePage ? shareTokenOf(incoming) : null;
     // The share page is one static file: nothing after ? is needed by Pages, and it may hold a link value.
@@ -213,7 +225,7 @@ export default {
       const value = request.headers.get(name);
       if (value) headers.set(name, value);
     }
-    const versionedAsset = host === 'desk.bokdoong.com'
+    const versionedAsset = web2Path(host, incoming.pathname)
       && incoming.searchParams.has('v')
       && !incoming.pathname.endsWith('/sw.js')
       && /\.(?:js|css|svg|png|ico|webp)$/i.test(incoming.pathname);
@@ -270,7 +282,7 @@ export default {
         responseHeaders.set('Location', target.href);
       }
     }
-    const webPage = host === 'desk.bokdoong.com'
+    const webPage = web2Path(host, incoming.pathname)
       && request.method === 'GET'
       && upstream.status === 200
       && /^text\/html\b/i.test(responseHeaders.get('Content-Type') || '');

@@ -28,8 +28,10 @@ export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사
 // OD-사진크기: photo_cols(폰 사진 격자 한 줄 칸 수 2·3·4·6)·photo_cols_wide(넓은 화면 6·8·10). 단계의 뜻은 photo-grid-size.js, 모양은 DB 검사(migration 20261028090000)와 같다.
 export const PHOTO_COLS = Object.freeze([2, 3, 4, 6]), PHOTO_COLS_WIDE = Object.freeze([6, 8, 10]);
 export const DIARY_VIEWS = Object.freeze(['calendar', 'list']); // 일기 [달력|목록] (JOURNAL-일기목록, migration 20261028100000). 적용 전에는 쓰기가 400이라 달력 그대로
+// PHOTO-사진메뉴 2차: photo_view = 사진 메뉴 거르기·칸 수 {filter: all|star|video|shot, cols: 3~12}(둘 다 선택, 명진 결정 6 — 일기 photo_cols와 따로). migration 20261028220000
+export const PHOTO_VIEW_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']);
 // OD-연결아이콘: diary_onedrive = 일기에서 원드라이브 사진 보이기(참·거짓, 기본 참). migration 20261028150000. 적용 전에는 쓰기가 400이라 이번 접속만 기억
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -54,6 +56,10 @@ export function validValue(key, value) {
     case 'photo_cols_wide': return PHOTO_COLS_WIDE.includes(value);
     case 'diary_view': return DIARY_VIEWS.includes(value);
     case 'diary_onedrive': return typeof value === 'boolean';
+    case 'photo_view': return !!value && typeof value === 'object' && !Array.isArray(value)
+      && Object.keys(value).every(name => name === 'filter' || name === 'cols')
+      && (!('filter' in value) || PHOTO_VIEW_FILTERS.includes(value.filter))
+      && (!('cols' in value) || (Number.isInteger(value.cols) && value.cols >= 3 && value.cols <= 12));
     case 'split_ratio': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => SPLIT_SCREENS.includes(name) && ratioOk(value[name]));
     default: return false;

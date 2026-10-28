@@ -779,7 +779,7 @@ async function openOriginal(target, trigger) {
       await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
       if (!window.KPTUCalendarEvents?.open) throw new Error('calendar');
       window.KPTUCalendarEvents.open(target.id, target.calendarId);
-      refocusAfter('#ciGoogleModal', trigger, () => { if (materials.events?.status === 'ok') void loadGroup('events'); });
+      refocusAfter('#ciGoogleModal', trigger, () => { if (materials.events?.status === 'ok') void loadGroup('events'); if (materials.upcoming?.status === 'ok') void loadGroup('upcoming'); });
       return;
     }
     // [달력 ›]: that day in the calendar (the calendar view shows the week/month/list that holds it).
@@ -1170,6 +1170,9 @@ root.addEventListener('click', event => {
   // WEEKLY-자료요약: [주간 정리]의 자료 줄 → 자료실에서 그 자료를 연다(바구니·검색과 같은 열기 요청, 돌아오기는 다른 원본 열기와 같음).
   if (button.matches('[data-journal-weekly-file-open]')) { rememberReturn(button); requestLibraryDocument(button.dataset.journalWeeklyFileOpen, rt); goView('library'); return; }
   if (button.matches('[data-journal-calendar]')) { void openOriginal({type:'calendar-day', day:selected}, button); return; }
+  // HOME-줄누르기 ⑦: [주간 정리]의 5. 주요 일정 칸·끝낸 할 일·할 일 예정 줄 → 하루 화면의 일정·할 일 줄과 같은 열기.
+  if (button.matches('[data-journal-weekly-event]')) { void openOriginal({type:'event', id:button.dataset.journalWeeklyEvent, calendarId:button.dataset.journalWeeklyCalendar || 'primary'}, button); return; }
+  if (button.matches('[data-journal-weekly-task]')) { void openOriginal({type:'task', id:button.dataset.journalWeeklyTask}, button); return; }
   if (button.matches('[data-journal-open]')) { const target = opens.get(button.dataset.journalOpen); if (target) void openOriginal(target, button); return; }
   if (button.matches('[data-journal-original]')) { const target = opens.get(button.dataset.journalOriginal); button.closest('details')?.removeAttribute('open'); if (target) void openOriginal(target, button.closest('li')?.querySelector('[data-journal-open]') || button); return; }
   if (button.matches('[data-journal-complete]')) return void taskLine.complete(button.dataset.journalComplete, button);

@@ -27,7 +27,7 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read, quietEmpty = false, hideSource = false, withPromises = true, openSource = () => {}, radarPromises = () => []}) {
   const readInboxCandidates = read || readAllInbox;
   let rows = [], state = 'loading', chip = 'open', run = 0, scope = radarScope(rt), status = '';
-  const copied = new Set(), busy = new Set(), unknown = new Map(), unmarked = new Map(), rowStatus = new Map();
+  const copied = new Set(), busy = new Set(), unknown = new Map(), unmarked = new Map(), dues = new Map(), rowStatus = new Map();
   host.hidden = true;
 
   const openRows = () => notPlanned(rows.filter(r => r.status === 'open'), taskTitles());
@@ -46,7 +46,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   function doneLabel(c) {
     if (c.status === 'dismissed') return '무시함';
     const task = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).find(t => t?.id === c.task_id);
-    const due = task ? dotDay(task.due || '') : '';
+    const due = c.task_due ? dotDay(c.task_due) : task ? dotDay(task.due || '') : '';
     return due ? `할 일로 보냄 · ${due}` : '할 일로 보냄';
   }
   function rowHtml(c) {
@@ -125,8 +125,8 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (result.status === 'unknown') { unknown.set(c.id, true); rowStatus.set(c.id, '결과를 확인하지 못했어요. 새로 만들지 않았어요. 할 일 화면에서 확인해 주세요.'); paint(); return; }
     if (result.status === 'failed') { rowStatus.set(c.id, result.code === 'session_required' ? '로그인이 필요해요. 다시 로그인한 뒤 눌러 주세요.' : '할 일로 넣지 못했어요. 다시 눌러 주세요.'); paint(); return; }
     window.KPTUGoogleTasks?.invalidateAfterCreate?.(); window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
-    if (result.status === 'marked_failed') { unmarked.set(c.id, result.task.id); rowStatus.set(c.id, '할 일은 만들었어요. 챙길 것에서 빼지 못했어요.'); paint(); return; }
-    rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = result.task.id; c.decided_at = new Date().toISOString();
+    if (result.status === 'marked_failed') { dues.set(c.id, draft.due || null); unmarked.set(c.id, result.task.id); rowStatus.set(c.id, '할 일은 만들었어요. 챙길 것에서 빼지 못했어요.'); paint(); return; }
+    rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = result.task.id; c.decided_at = new Date().toISOString(); c.task_due = draft.due || null;
     status = '할 일로 보냈어요.'; paint(); changed();
   }
 
@@ -149,9 +149,9 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (d.inboxTodoMark) {
       const c = byId(d.inboxTodoMark), taskId = unmarked.get(d.inboxTodoMark); if (!c || !taskId) return;
       busy.add(c.id); paint();
-      let ok = false; try { ok = await markTasked(c.id, taskId, rt); } catch { ok = false; }
+      let ok = false; try { ok = await markTasked(c.id, taskId, rt, new Date(), dues.get(c.id) || null); } catch { ok = false; }
       busy.delete(c.id);
-      if (ok) { unmarked.delete(c.id); rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = taskId; paint(); changed(); } else { rowStatus.set(c.id, '표시하지 못했어요. 다시 눌러 주세요.'); paint(); }
+      if (ok) { unmarked.delete(c.id); rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = taskId; c.task_due = dues.get(c.id) || null; paint(); changed(); } else { rowStatus.set(c.id, '표시하지 못했어요. 다시 눌러 주세요.'); paint(); }
     }
   });
   chips?.addEventListener('click', event => {

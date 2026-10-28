@@ -117,7 +117,7 @@
 | `pc0914-checklist` | Web1 공개 페이지(9/14 기자회견) |
 | `press-conference-files` | Web1 공개 페이지(9/14 기자회견) |
 | `joint-struggle-files` | Web1 공개 페이지(9/21 공동투쟁) |
-| `wedding-mc-shared` | 사용자 결정: 유지 |
+| `wedding-mc-shared` | 사용자 결정: 유지 → **2026-10-29 00:37 KST 운영에서 삭제**(5.2) |
 
 ### 3.3 삭제 때 함께 볼 것 (ENV-6c)
 
@@ -163,7 +163,6 @@
 | 20 | `rail-1007-plan` | Web1 공개 페이지 | v6 | 09-13 06:27 | false | 사용자 PC 보관(2.3) |
 | 21 | `rail-declaration-comments` | Web1 공개 페이지 | v3 | 09-11 03:57 | false | 사용자 PC 보관(2.3) |
 | 22 | `rail-declaration-content` | Web1 공개 페이지 | v4 | 09-11 04:10 | false | 사용자 PC 보관(2.3) |
-| 23 | `wedding-mc-shared` | 개인 공개 페이지 | v2 | 09-13 22:25 | false | work |
 | 24 | `rtw-ai-read` | 읽생기 | v7 | 09-21 04:41 | **true** | read-think-write |
 | 25 | `rtw-beta-status` | 읽생기 | v1 | 09-21 13:35 | false | read-think-write |
 | 26 | `rtw-claim-personal-owner` | 읽생기 | v2 | 09-18 23:23 | false | read-think-write |
@@ -223,3 +222,9 @@ version 1, verify_jwt=false, 비로그인 POST 401, OPTIONS 200, source b466910.
 - 3.2 유지 목록 9개는 모두 있고, 버전·배포 시각이 2.2와 같다(삭제 작업 중 바뀌지 않음).
 - 원장 ENV-7 행의 "true 10개 포함"(삭제 전 기준 메모)과 계산이 1개 다르다: 지금 true 8개 + 삭제된 true 3개(`push-notifications`·`pc0914-storage-test`·`pc-file-test`) = 11개. 당시 목록 원본이 없어 어느 쪽이 맞는지 확인할 수 없다(추정: 메모 때 셈 차이). 현재 값은 이 표가 기준이다.
 - 삭제된 8개의 원본은 되돌리기용으로 저장소에 남아 있다(work 6개 `supabase/functions/`, read-think-write 2개). 되돌릴 때는 2.2의 값으로 재배포한다.
+
+### 5.2 `wedding-mc-shared` 삭제 (2026-10-29)
+
+- 2026-10-29 00:37 KST, 명진 지시로 커맨드센터가 Supabase 대시보드에서 Edge `wedding-mc-shared`를 삭제했다(SEC-공개저장소점검 2차, 화면 `wedding/` 삭제 #1412 뒤 부르는 곳 없음).
+- 5절 표에서 23번 행을 뺐다(다른 행 번호는 그대로 둠). 원본 폴더 `supabase/functions/wedding-mc-shared/`도 같은 원장 롤업 PR에서 지웠다. 되돌릴 원본은 git 기록(main `2a74bde7` 이전 커밋)에 남아 있고, 되살릴 때는 2.2의 verify_jwt=false로 재배포한다.
+- DB 표 `wedding_mc_shared`는 데이터 보존 원칙에 따라 그대로 둔다(정리 여부는 별도 판단).

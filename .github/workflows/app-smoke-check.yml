@@ -10,6 +10,12 @@ on:
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'p/**'
+      - 'supabase/functions/basket-files/photo-prune.ts'
+      - 'supabase/functions/basket-files/note-delete.ts'
+      - 'tests/security/basket-photo-prune.test.mjs'
+      - 'tests/security/basket-note-delete.test.mjs'
+      - 'tests/security/basket-jsonb-contains.test.mjs'
+      - 'tests/security/helpers/postgrest-jsonb.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'tests/note-secret.test.mjs'
@@ -98,6 +104,12 @@ on:
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'p/**'
+      - 'supabase/functions/basket-files/photo-prune.ts'
+      - 'supabase/functions/basket-files/note-delete.ts'
+      - 'tests/security/basket-photo-prune.test.mjs'
+      - 'tests/security/basket-note-delete.test.mjs'
+      - 'tests/security/basket-jsonb-contains.test.mjs'
+      - 'tests/security/helpers/postgrest-jsonb.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'tests/note-secret.test.mjs'
@@ -308,7 +320,7 @@ jobs:
         run: node --test tests/ai-usage-model.test.mjs
 
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
-        run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs
+        run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
 
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs

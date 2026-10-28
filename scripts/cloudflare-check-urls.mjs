@@ -3,7 +3,10 @@ import { resolve } from 'node:path';
 
 // Reads the release chain from the build-pages.mjs output folder given as the only argument (what
 // GitHub Pages serves). The checkout has no ?v= since CI-버전자동화 3단계, so it is refused.
+// `--host bokdoong.com` gives the same URLs on bokdoong.com, where Web2 also opens since DOMAIN-주소이전 ①-E5.
+const WEB2_HOSTS = ['desk.bokdoong.com', 'bokdoong.com'];
 const [root, ...extra] = process.argv.slice(2);
+const host = extra.length === 2 && extra[0] === '--host' ? extra[1] : (extra.length ? null : WEB2_HOSTS[0]);
 
 // Keep the order in sync with Verify production routes' read command.
 const references = [
@@ -15,7 +18,9 @@ const references = [
 ];
 
 try {
-  if (!root || extra.length) throw new Error('usage: node scripts/cloudflare-check-urls.mjs <pages-build-output>');
+  if (!root || root.startsWith('--') || !WEB2_HOSTS.includes(host)) {
+    throw new Error(`usage: node scripts/cloudflare-check-urls.mjs <pages-build-output> [--host ${WEB2_HOSTS.join('|')}]`);
+  }
   const urls = references.map(([file, asset, prefix]) => {
     const source = readFileSync(resolve(root, file), 'utf8');
     const escapedAsset = asset.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -27,7 +32,7 @@ try {
     if (new Set(versions).size !== 1) {
       throw new Error(`${file}: conflicting ${asset}?v= references`);
     }
-    return `https://desk.bokdoong.com/work/app/${asset}?v=${versions[0]}`;
+    return `https://${host}/work/app/${asset}?v=${versions[0]}`;
   });
   // Emit nothing unless every reference has passed validation.
   console.log(urls.join('\t'));

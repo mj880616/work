@@ -1,4 +1,5 @@
 plugins {
+    // AGP 9는 Kotlin을 내장한다(org.jetbrains.kotlin.android 플러그인 불필요).
     id 'com.android.application'
 }
 
@@ -7,11 +8,16 @@ android {
     compileSdk 36
 
     defaultConfig {
+        // 옛 앱과 같은 앱 ID(설계 D11). 웹 native-auth-bridge.js의 로그인 복귀가 이 ID를 지정한다.
         applicationId 'kr.or.kptu.work'
-        minSdk 26
+        minSdk 29
         targetSdk 36
-        versionCode 14
-        versionName '0.1.13'
+        versionCode 20
+        versionName '0.2.0'
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     compileOptions {
@@ -24,4 +30,12 @@ android {
             minifyEnabled false
         }
     }
+}
+
+dependencies {
+    implementation 'androidx.activity:activity-ktx:1.10.1'
+    implementation 'androidx.core:core-ktx:1.16.0'
+    implementation 'androidx.browser:browser:1.8.0'
+    implementation 'androidx.webkit:webkit:1.12.0'
+    testImplementation 'junit:junit:4.13.2'
 }

@@ -66,7 +66,7 @@ test('?view=photos opens the new photo menu and never the retired photo room',as
   await page.goto(app+'?view=photos');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
   await expect(page.locator('#photosView')).toBeVisible({timeout:20000});
-  await expect(page.locator('#photosView [data-photos-tab]')).toHaveText(['사진','달력']);
+  await expect(page.locator('#photosView [data-photos-tab]')).toHaveText(['사진','달력','휴지통']);
   await page.waitForLoadState('networkidle');
   expect(seen.photoAssets).toEqual([]);
   expect(seen.eventMedia).toBe(0);

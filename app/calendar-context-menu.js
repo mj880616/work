@@ -33,6 +33,10 @@ const menu = createAnchoredMenu({
   }
 });
 
+// HOME-줄누르기: 다른 화면(홈 오늘 일정·내일·D-day 칩)의 일정 줄도 이 메뉴를 그대로 연다(폰 꾹 누르기·PC 우클릭).
+// trigger는 data-google-event·data-google-calendar를 가진 그 화면의 줄 버튼이다. 새 메뉴를 만들지 않는다.
+window.KPTUCalendarEventMenu = { open: trigger => menu.open(trigger) };
+
 document.addEventListener('contextmenu', e => {
   if (e.defaultPrevented || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
   if (!WIDE.matches || e.pointerType === 'touch') return;
