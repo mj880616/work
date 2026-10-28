@@ -1,3 +1,4 @@
+import {waitInlineHtml as ciWaitHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 창 상태 줄의 기다림은 글자 없는 회색 칸
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 확인창 대신 공용 작은 확인창
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
@@ -14,6 +15,7 @@ function ciLocal(v){return seoulInputValue(v)}
 function ciParts(v){return {date:seoulDateKey(v),time:seoulClock(v)}}
 function ciMinusDay(v){return seoulDateKey(addSeoulDays(seoulDayStart(v),-1))}
 function ciStatus(id,msg,err=false){const e=document.querySelector(id);if(e){e.textContent=msg||'';e.className='status'+(err?' error':'')}}
+function ciWait(id){const e=document.querySelector(id);if(e){e.innerHTML=ciWaitHtml();e.className='status'}}
 function ciToast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function ciOpen(id){const m=document.querySelector(id);if(m){m.classList.remove('hidden');m.setAttribute('aria-hidden','false')}}
 function ciClose(id){if(id==='#ciGoogleModal'){ciGoogleOpenSeq++;ciSaveRequest=null;ciGoogleSavePending=false}const m=document.querySelector(id);if(m){m.classList.add('hidden');m.setAttribute('aria-hidden','true')}}
@@ -45,7 +47,7 @@ async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
   const seq=++ciGoogleOpenSeq,owner=window.KPTURuntime?.session?.read?.()?.user?.id,epoch=ciRuntime().session.epoch();ciSaveRequest=null;ciGoogleSavePending=false;const pending=ciPendingWrites.get(ciUncertainKey(eventId,calendarId));
   ciGoogleOwner=owner;
   const active=()=>seq===ciGoogleOpenSeq&&epoch===ciRuntime().session.epoch()&&owner===window.KPTURuntime?.session?.read?.()?.user?.id&&!document.querySelector('#ciGoogleModal').classList.contains('hidden');
-  ciInject();ciGoogleCurrent=null;ciOpen('#ciGoogleModal');ciStatus('#ciGoogleStatus','Google 일정을 불러오는 중…');
+  ciInject();ciGoogleCurrent=null;ciOpen('#ciGoogleModal');ciWait('#ciGoogleStatus');
   const save=document.querySelector('#ciGoogleSave');save.disabled=true;save.textContent='변경사항 저장';save.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=true;document.querySelector('#ciGoogleCalendar').disabled=true;
   try{
     ciRuntime();if(!owner)throw new Error('로그인이 필요합니다.');
@@ -70,7 +72,7 @@ async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
     ciToggleGoogleTime();window.__KPTU_GOOGLE_EDIT_ORGS_PENDING__=e.organizationIds||[];
     if(window.__KPTU_SUBORGANIZATIONS_READY__)await window.__KPTU_SUBORGANIZATIONS_READY__;
     if(!active())return;
-    window.__KPTU_EDIT_GOOGLE_ORGS__?.(e.organizationIds||[]);if(pending){ciStatus('#ciGoogleStatus','이 일정의 앞선 저장 결과를 기다리는 중…');await pending.done;if(!active())return;}if(confirmed){ciStatus('#ciGoogleStatus','최신 상태를 확인하는 중…');const r=await confirmed;if(!active())return;if(r==='gone'){ciGoneEvent(eventId,calendarId);return}}if(ciGoogleGoneSeq===seq)return {seq,readFailed};ciGoogleReadySeq=seq;ciStatus('#ciGoogleStatus','');document.querySelector('#ciGoogleSave').disabled=ciGoogleSavePending;document.querySelector('#ciGoogleDelete').disabled=ciGoogleSavePending;
+    window.__KPTU_EDIT_GOOGLE_ORGS__?.(e.organizationIds||[]);if(pending){ciWait('#ciGoogleStatus');await pending.done;if(!active())return;}if(confirmed){ciWait('#ciGoogleStatus');const r=await confirmed;if(!active())return;if(r==='gone'){ciGoneEvent(eventId,calendarId);return}}if(ciGoogleGoneSeq===seq)return {seq,readFailed};ciGoogleReadySeq=seq;ciStatus('#ciGoogleStatus','');document.querySelector('#ciGoogleSave').disabled=ciGoogleSavePending;document.querySelector('#ciGoogleDelete').disabled=ciGoogleSavePending;
     return {seq,readFailed};
   }catch(e){if(active())ciStatus('#ciGoogleStatus',e.message||String(e),true)}
 }

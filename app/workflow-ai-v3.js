@@ -1,4 +1,5 @@
 import {toMeetingISO} from './meeting-time.js';
+import {waitInlineHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 (()=>{
 'use strict';
 const rt=window.KPTURuntime;if(!rt)return;
@@ -44,7 +45,7 @@ async function generateMeetingDraft(){
   const transcript=document.querySelector('#wfMeetingTranscript').value.trim(),st=document.querySelector('#wfMeetingAiStatus'),btn=document.querySelector('#wfMeetingGenerate');
   if(!transcript){st.textContent='녹취 스크립트나 텍스트 회의록을 입력해 주세요.';st.className='status error';return}
   const stillCurrent=()=>epoch===aiOpenEpoch&&currentMeeting?.id===meeting.id;
-  btn.disabled=true;st.textContent='회의자료 본문을 읽는 중…';st.className='status';
+  btn.disabled=true;st.innerHTML=waitInlineHtml();st.className='status';
   try{
     let ingestWarning=false;
     try{const ingest=await api('/functions/v1/meeting-ai-ingest',{method:'POST',body:{meeting_id:meeting.id}});if(!stillCurrent())return;ingestWarning=Boolean(ingest?.warnings?.length)}

@@ -73,15 +73,19 @@ test('메뉴 화면 처음 열기: 민트 상자 없이 가는 줄, 실패는 �
   for (const source of [loader, views, read('wait-state.js')]) assert.doesNotMatch(source, deviceStore);
 });
 
-// 아직 공용 부품으로 옮기지 않은 기다림 문구(파일별 개수). 저장·찾기 같은 '누른 뒤 진행' 안내와 저장본 상태 줄(data-freshness)은 다음 묶음.
+// 아직 공용 부품으로 옮기지 않은 기다림 문구(파일별 개수). 늘면 실패, 줄면 낮춘다.
+// 2차(저장본 상태 줄·검색·달력·누른 뒤 진행 안내)를 옮긴 뒤 남은 것: 사진 받기 작은 알림·일기·텔레그램·공유 페이지 편집기·노트 편집기,
+// 주간보고 복사 글의 '(불러오는 중)'(복사 글이라 유지 검토).
 const BASELINE = {
-  'basket-ai-summary.js': 1, 'basket-manual-link.js': 3, 'basket-notes.js': 1, 'basket.js': 1, 'business-area-fields.js': 1,
-  'calendar-interactions-v2.js': 3, 'calendar-list-view.js': 1, 'calendar-plus.js': 2, 'data-freshness.js': 2, 'diary.js': 3,
-  'global-search.js': 4, 'google-tasks.js': 1, 'home-quick.js': 1, 'hwp-lab.js': 7, 'journal-hwpx.js': 6, 'journal-weekly.js': 1,
-  'ledger-browse.js': 1, 'ledger-merge-model.mjs': 1, 'library-upload.js': 1, 'meeting-from-files.js': 2, 'meeting-round-detail.js': 1,
-  'meeting-todo-candidates.js': 1, 'overlap-weekly.mjs': 1, 'photo-share.js': 1, 'photo-strip.js': 1, 'photos.js': 3,
-  'project-system-v3.js': 4, 'share-pages.js': 2, 'task-inline.js': 1, 'telegram-feed.js': 2, 'todo-radar-data.js': 1, 'todo-radar.js': 1,
-  'workflow-ai-v3.js': 1, 'workplace-report.js': 1,
+  'basket-notes.js': 1, 'diary.js': 3, 'journal-weekly.js': 1, 'photo-share.js': 1, 'photo-strip.js': 1, 'photos.js': 3, 'share-pages.js': 2,
+  'telegram-feed.js': 2,
+  // 기다림 표시가 아닌 글자(그대로 둔다, 늘면 실패):
+  // - 상태 이름·서버 답 안내: 사진 글자 인식 상태 '읽는 중'(basket.js)·'글자 읽는 중'(basket-manual-link.js, summary-part-unify 시험),
+  //   서버 답 '글자 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.'(basket-ai-summary.js)·'챙길 것을 찾는 중이에요…'(todo-radar-data.js),
+  //   아직 안 열린 기능을 누를 때 작은 알림(task-inline.js).
+  // - 한글 편집기(약 20MB)·한글 파일 열기의 단계 안내(파일 받음·편집기 준비 중, hwp-drive-edit 시험): 수십 초 걸리는 일이라 단계 글자를 둔다.
+  'basket.js': 1, 'basket-manual-link.js': 1, 'basket-ai-summary.js': 1, 'todo-radar-data.js': 1, 'task-inline.js': 1,
+  'hwp-lab.js': 7, 'journal-hwpx.js': 4,
 };
 const SKIP = ['hwp-lab/', 'editor-lib/', 'pdf-lib/', 'markdown-lib/', 'legacy/', 'release-notes/'];
 const WAIT_WORDS = /불러오는 중|읽는 중|찾는 중|여는 중|받는 중|확인하는 중|기다리는 중|준비하는 중/g;
@@ -123,7 +127,11 @@ test('민트(.notice) 상자를 안내·기다림에 새로 쓰지 않는다(남
 
 test('옮긴 화면은 공용 부품을 쓴다', () => {
   for (const rel of ['journal.js', 'home-read.js', 'home-fill.js', 'telegram-feed.js', 'call-feed.js', 'photos.js', 'diary-list.js', 'ledger-browse.js',
-    'google-tasks.js', 'workplace-detail.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js', 'team.js', 'meeting-round-detail.js', 'calendar-day-items.js', 'basket.js']) {
+    'google-tasks.js', 'workplace-detail.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js', 'team.js', 'meeting-round-detail.js', 'calendar-day-items.js', 'basket.js',
+    // 2차
+    'data-freshness.js', 'global-search.js', 'calendar-list-view.js', 'calendar-interactions-v2.js', 'calendar-plus.js', 'project-system-v3.js',
+    'basket-manual-link.js', 'business-area-fields.js', 'home-quick.js', 'meeting-todo-candidates.js', 'workflow-ai-v3.js', 'library-upload.js',
+    'workplace-report.js', 'ledger-merge.js', 'todo-radar.js', 'journal-hwpx.js', 'journal-weekly.js']) {
     assert.match(read(rel), /from '\.\/wait-state\.js';/, rel);
   }
   assert.match(read('index.html'), /id="web1BoardDetailStatus" class="w1b-detail-status hidden"><div class="wait" data-wait role="status" aria-label="불러오는 중">/);

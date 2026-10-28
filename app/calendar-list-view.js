@@ -1,5 +1,6 @@
 import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js';
 import {dayKey} from './home-read-model.js';
+import {waitEl} from './wait-state.js';
 import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js';
 let observer=null,focusKey=null;
 export function stopList(){observer?.disconnect()}
@@ -20,7 +21,10 @@ export function renderList(options,{start,days,tasks,busy,error,more}){
     appendDayRows(section,date,dayItems(options,date,tasks),known);
     box.append(section);
   }
-  const button=document.createElement('button');button.type='button';button.id='calendarListMore';button.className='clv-more';button.textContent=error?'다시 불러오기':busy?'불러오는 중…':'다음 14일 불러오기';button.disabled=busy;button.addEventListener('click',more);box.append(button);
+  const button=document.createElement('button');button.type='button';button.id='calendarListMore';button.className='clv-more';button.textContent=error?'다시 불러오기':'다음 14일 불러오기';button.disabled=busy;button.addEventListener('click',more);
+  // UI-기다림표시통일 2차: 다음 14일을 받는 동안은 버튼 글자 대신 그 자리 위에 가는 줄 + 회색 빈 줄(wait-state.js).
+  if(busy){button.setAttribute('aria-busy','true');box.append(waitEl({rows:2}))}
+  box.append(button);
   restoreDayFocus(box,focusKey);
   if(!busy&&!error){observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting))more()});observer.observe(button)}
 }
