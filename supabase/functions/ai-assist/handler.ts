@@ -43,7 +43,7 @@
 //   다음 주 장이 없으면 한 번(mode=auto), [지금 만들기]·[다시 만들기]를 누를 때(mode=user) 부른다. 화면은 다음 주 재료 ①~⑥ 줄(150줄까지)만 보낸다
 //   (이 쓰임만 몸통 48KB). AI는 '핵심 세 가지'만 만들고, 줄과 함께 owner RLS 표 app_journal_next_week_sheets(주마다 1행)에 저장한다.
 //   AI 한도·실패여도 줄은 저장한다(ai_status limit|failed). Google·원장·챙길 것·회의 표에는 쓰지 않는다.
-// Web2에 물어보기(kind=ask_web2, FEAT-1029묶음 ①, ask-web2.ts·evidence.ts): 검색칸 질문 한 줄을 받아 서버가 낱말을 뽑고 기존 검색 함수 두 개
+// Web2에 물어보기(kind=ask_web2, FEAT-1029묶음 ①, web2-ask.ts·evidence.ts): 검색칸 질문 한 줄을 받아 서버가 낱말을 뽑고 기존 검색 함수 두 개
 //   (app_search_records — 업무 통화·텔레그램 종류 포함, app_ledger_search)를 내 로그인으로 불러 근거 줄을 모은 뒤 AI 한 번으로 줄마다 근거 꼬리표가 붙은 답을 만든다.
 //   근거가 없으면 AI를 부르지 않는다. 근거에 없는 ref·근거 없는 줄은 공용 근거 검사가 버린다. 원장 S2·AI 제외 노트는 근거 목록에만 보이고 AI에는 안 보낸다.
 //   재료 표(통화·텔레그램·노트 본문)를 직접 읽지 않는다(개인 통화함 표는 어떤 경로로도 안 읽음). 답은 owner RLS 표 app_ask_answers에 30일 둔다(넣을 때 30일 지난 행을 지움).
@@ -72,7 +72,7 @@ import {
   ASK_BASE_KINDS, ASK_DAILY_LIMIT, ASK_KEEP_DAYS, ASK_LEDGER_LIMIT, ASK_INSTRUCTIONS, ASK_MAX_OUTPUT_TOKENS, ASK_PER_KIND, ASK_RETRY_BELOW, ASK_RETRY_MAX,
   ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
   storedSources, type AskHit, type AskSource,
-} from "./ask-web2.ts";
+} from "./web2-ask.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -3739,7 +3739,7 @@ async function runAreaSuggest(ctx: Ctx, input: AreaSuggestInput, deps: RadarDeps
   return json({ ok: true, kind: "area_suggest", suggestions: picks.map((o) => ({ id: o.id, name: o.name })) });
 }
 
-// ---- 쓰임 ask_web2: Web2에 물어보기(FEAT-1029묶음 ①, ask-web2.ts·evidence.ts) ----------------------------------------------
+// ---- 쓰임 ask_web2: Web2에 물어보기(FEAT-1029묶음 ①, web2-ask.ts·evidence.ts) ----------------------------------------------
 const ASK_TABLE = "app_ask_answers";
 
 // 검색 DB 함수 호출(로그인 토큰, owner RLS). 오류 원문은 남기지 않고 상태 숫자만 Error에 담는다.

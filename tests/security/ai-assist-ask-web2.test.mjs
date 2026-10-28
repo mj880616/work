@@ -7,7 +7,7 @@ import {readFile} from 'node:fs/promises';
 // Checks: lines without evidence are dropped, S2 ledger and AI-excluded notes never reach AI, the server never reads the feed /
 // personal call tables (only the search RPCs), another workspace's rows never show, no AI call without evidence, monthly / daily limits.
 const {createAiAssistHandler,DAILY_LIMITS}=await import('../../supabase/functions/ai-assist/handler.ts');
-const ask=await import('../../supabase/functions/ai-assist/ask-web2.ts');
+const ask=await import('../../supabase/functions/ai-assist/web2-ask.ts');
 const ev=await import('../../supabase/functions/ai-assist/evidence.ts');
 
 const SB='https://synthetic.supabase.test',FN=`${SB}/functions/v1/ai-assist`;
@@ -121,7 +121,7 @@ test('AI material: no S2 ledger text, no AI-excluded note, no ids, phones masked
   assert.deepEqual(calls.rpc[0].args.p_kinds,[...ask.ASK_SEARCH_KINDS]);
   assert.equal(calls.rpc.find(r=>r.name==='app_ledger_search').args.p_max_sensitivity,'S2');
   // The static source of the ask path never names those tables either.
-  const src=(await readFile(new URL('../../supabase/functions/ai-assist/ask-web2.ts',import.meta.url),'utf8'))+(await readFile(new URL('../../supabase/functions/ai-assist/evidence.ts',import.meta.url),'utf8'));
+  const src=(await readFile(new URL('../../supabase/functions/ai-assist/web2-ask.ts',import.meta.url),'utf8'))+(await readFile(new URL('../../supabase/functions/ai-assist/evidence.ts',import.meta.url),'utf8'));
   const handlerSrc=await readFile(new URL('../../supabase/functions/ai-assist/handler.ts',import.meta.url),'utf8');
   const run=handlerSrc.slice(handlerSrc.indexOf('const ASK_TABLE'),handlerSrc.indexOf('async function insertCandidates'));
   for(const s of [src.replace(/^\/\/.*$/gm,''),run.replace(/^\s*\/\/.*$/gm,'')])assert.doesNotMatch(s,/app_feed_items|app_call_personal|app_tg_personal|app_tg_senders|raw_text/);
