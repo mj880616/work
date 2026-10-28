@@ -231,7 +231,9 @@ function renderDetail() {
   renderPhotos();
 }
 // ☆를 아직 쓸 수 없을 때의 안내. 원드라이브 준비 전에는 예전 안내 그대로.
-const starNote = () => !od.configured ? '원드라이브 연결 뒤 쓸 수 있어요' : starsState === 'loading' ? '별표를 불러오는 중이에요' : '별표를 지금은 쓸 수 없어요';
+// UI-기다림표시통일 2차: 별표를 읽는 동안은 글자 대신 회색 칸(starNoteHtml).
+const starNote = () => !od.configured ? '원드라이브 연결 뒤 쓸 수 있어요' : starsState === 'loading' ? '' : '별표를 지금은 쓸 수 없어요';
+const starNoteHtml = () => od.configured && starsState === 'loading' ? waitInlineHtml() : esc(starNote());
 const itemElement = (item, size, opts) => item.kind === 'od' ? odPhotoElement(item, size, opts) : photoElement(item.row, item.file, size, opts);
 // The day's photos: the ones uploaded here, then the OneDrive ones of the day, as one small square grid. [별표] keeps the starred ones.
 function renderPhotos() {
@@ -239,7 +241,7 @@ function renderPhotos() {
   if (!host || !selected) return;
   const row = rows.get(selected), all = dayItems(selected, row, odShown());
   if (source === 'star') {
-    if (starsState !== 'ready') { shown = []; host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>${esc(starNote())}</p>`; return; }
+    if (starsState !== 'ready') { shown = []; host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>${starNoteHtml()}</p>`; return; }
     shown = all.filter(isStarred);
     if (!shown.length) {
       host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>별표한 사진이 없어요.${od.configured && !od.connected ? ' <button type="button" class="secondary" data-od-connect>원드라이브 연결</button>' : ''}</p>`;
@@ -389,7 +391,7 @@ async function loadOd(run, key, force = false) {
 function renderOdPanel() {
   paintOdLink(odLinkBtn, od, odFault);
   const keepScroll = odPanel.querySelector('.diary-od-tree')?.scrollTop || 0;
-  const syncing = od.connected && od.folder && odSyncState.active ? `<p class="diary-od-sync" role="status" data-od-sync>사진 목록 받는 중…${odSyncState.count === null ? '' : ` ${odSyncState.count}장`}</p>` : '';
+  const syncing = od.connected && od.folder && odSyncState.active ? `<p class="diary-od-sync" role="status" data-od-sync aria-label="사진 목록 받기">${waitInlineHtml()}${odSyncState.count === null ? '' : ` ${odSyncState.count}장`}</p>` : '';
   const truncated = od.connected && od.folder && odMonth?.truncated && odShowOn() ? '<p class="diary-od-sync">이 달 사진은 일부만 읽었어요.</p>' : '';
   const modal = odSettings.html();
   // 연결 표시는 아이콘이 맡고, 이 칸은 받는 중·안내·설정 창이 있을 때만 보인다(일기 쓰기 중에는 숨김).
@@ -462,7 +464,7 @@ const cleanLive = () => { const out = {}; for (const [id, text] of Object.entrie
 // The text changed since the editor opened (or since the last save). Opening an old diary writes nothing: it is converted in memory.
 const textChanged = () => !!edit?.field && JSON.stringify(edit.field.getValue()) !== edit.baseJson;
 const dirty = () => !!edit && (edit.pending.length > 0 || textChanged() || commentsChanged());
-const EDITOR_LOADING = '편집기를 불러오는 중…';
+const EDITOR_LOADING = '\u0000wait'; // UI-기다림표시통일 2차: 편집기를 받는 동안 상태 줄은 글자 없는 회색 칸
 async function openEditor(day) {
   if (edit) return;
   let row = rows.get(day) || null;
@@ -496,7 +498,7 @@ async function mountField(session) {
     session.field = field; session.baseJson = JSON.stringify(field.getValue());
     if (session.pendingMerge) { field.setValue(session.pendingMerge); session.pendingMerge = null; }
     // Clear only our own loading line: a notice shown meanwhile (e.g. the 20-photo limit) stays.
-    if (!session.busy && editor.querySelector('[data-diary-editor-status]')?.textContent === EDITOR_LOADING) setEditorStatus('');
+    if (!session.busy && editor.querySelector('[data-diary-editor-status]')?.dataset.diaryEditorWait === '1') setEditorStatus('');
   } catch { if (edit === session) setEditorStatus('편집기를 불러오지 못했어요. 닫고 다시 열어 주세요.'); }
 }
 function dropField() {
@@ -544,7 +546,7 @@ function renderEditor(message = '') {
   editor.querySelectorAll('button,input,textarea').forEach(control => { if (edit.busy && !control.matches('[data-diary-editor-close]') && !edit.host.contains(control)) control.disabled = true; });
   edit.host.toggleAttribute('inert', !!edit.busy);
 }
-const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (line) line.textContent = message; };
+const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (!line) return; if (message === EDITOR_LOADING) line.innerHTML = waitInlineHtml(); else line.textContent = message; line.dataset.diaryEditorWait = message === EDITOR_LOADING ? '1' : ''; };
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
 function closeEditor({fromBack = false, force = false} = {}) {
   if (!edit) return true;

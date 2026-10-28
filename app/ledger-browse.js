@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml} from './wait-state.js';
 // AI-서버연동 S7-c: [원장] 화면의 원장 목록·검색 칸(#ledgerBrowseRoot). 이 모듈이 그 칸의 유일한 renderer다.
 // 검색은 S7-a 검색 RPC(app_ledger_search, SECURITY INVOKER라 owner RLS 그대로)만 쓴다. 기본은 업무만(L1), 관심 정보는 따로 고른다.
 // 화면(S7-c 정리): 검색칸 하나만 늘 보이고 나머지 조건은 [조건 ▾] 안(처음엔 접힘, 펼침 상태는 저장하지 않음). 걸린 조건은 칩, ✕로 하나씩 해제.
@@ -374,7 +374,10 @@ function render() {
   if (state.phase === 'loading') box.innerHTML = waitHtml({rows:6});
   else if (state.phase === 'error') box.innerHTML = '<p class="lg-error" role="alert">원장을 읽지 못했습니다.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
   else box.innerHTML = state.story ? storyHtml() : isSearching(state.filters) ? resultsHtml() : homeHtml();
-  root.querySelector('#lbStatus').textContent = state.busy ? '찾는 중…' : state.phase === 'ready' && !state.story && isSearching(state.filters) ? countLabel(state.rows.length, state.limit) : '';
+  // UI-기다림표시통일 2차: 찾는 동안 건수 자리는 글자 없는 회색 칸(wait-state.js).
+  const lbStatus = root.querySelector('#lbStatus');
+  if (state.busy) lbStatus.innerHTML = waitInlineHtml();
+  else lbStatus.textContent = state.phase === 'ready' && !state.story && isSearching(state.filters) ? countLabel(state.rows.length, state.limit) : '';
   root.querySelector('#lbChips').innerHTML = chipsHtml();
   root.querySelector('#lbError').innerHTML = (state.error ? `<p class="lg-error" role="alert">${esc(state.error)}</p>` : '')
     + (state.notice ? `<p class="lg-note" role="status" data-lb-notice>${esc(state.notice)}</p>` : '');

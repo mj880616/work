@@ -580,7 +580,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const summary = block('summary', '1) 요약');
   const s = model.summary;
   if (!status(summary, s, '프로젝트 기록')) {
-    if (model.overlap?.checking) { const p = muted(OV.checking); p.dataset.journalOverlapChecking = ''; p.setAttribute('role', 'status'); summary.append(p); }
+    // UI-기다림표시통일 2차: 겹친 기록을 확인하는 동안은 글자 없이 가는 줄(wait-state.js).
+    if (model.overlap?.checking) { const p = el('div'); p.innerHTML = waitHtml({rows: 1}); p.dataset.journalOverlapChecking = ''; summary.append(p); }
     if (s.failed.includes('catalog')) summary.append(muted('프로젝트 순서를 불러오지 못해 프로젝트 이름별로 보여요.'));
     if (s.areas.length) {
       const table = el('table', 'journal-weekly-table');
@@ -913,7 +914,8 @@ export function renderNextWeekSheet(host, ui) {
   host.append(head);
   const note = text => { const p = el('p', 'journal-muted journal-next-note', text); host.append(p); return p; };
   if (ui.message || ui.busy) { const p = note(ui.busy ? '만드는 중…' : ui.message); p.setAttribute('role', 'status'); if (ui.error) p.classList.add('is-error'); }
-  if (ui.state === 'loading') { note('불러오는 중…'); return; }
+  // UI-기다림표시통일 2차: 읽는 동안은 글자 없이 가는 줄 + 회색 빈 줄(wait-state.js).
+  if (ui.state === 'loading') { host.insertAdjacentHTML('beforeend', waitHtml({rows: 2})); return; }
   if (ui.state === 'missing') { note('다음 주 준비는 아직 준비 중이에요.'); return; }
   if (ui.state === 'failed') { note('다음 주 준비를 불러오지 못했어요.'); return; }
   if (!v) { note(ui.canMake ? (ui.afterTime ? '아직 만들지 않음.' : '금요일 15시 뒤에 만듦.') : '이 주에는 만든 장이 없음.'); return; }

@@ -445,6 +445,10 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
+  // UI-기다림표시통일 2차: 민트 상자는 완료 알림에만 — 회의 AI 창 안내·프로젝트 지우기 창 안내(main의 .notice)는 회색 글자(.muted)로 바꿨다.
+  // 글자 크기는 main 200번째 줄 그대로, 색은 초록 대신 main의 같은 창 회색 안내 글자(#ps3DeleteModal p.muted)와 같아야 한다.
+  const mainMuted=await original.locator('#ps3DeleteModal p.muted').first().evaluate(el=>getComputedStyle(el).color);
+  for(const row of before)for(const el of row.elements)if(el.class==='notice'){el.class='muted';el.color=mainMuted}
   for(const row of before)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
   expect(before).toHaveLength(16);
   for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i]))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);

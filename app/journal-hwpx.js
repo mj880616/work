@@ -35,6 +35,7 @@
 //   [처음부터]도 docs는 남긴다.
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
+import {waitHtml, waitInlineHtml} from './wait-state.js'; // UI-기다림표시통일 2차
 import {flashDone} from './press-feedback.js';
 import {loadDisputeState} from './org-dispute-stage.js';
 import {shortDay, reportDay, todayKey} from './journal-data.js';
@@ -408,8 +409,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       }));
     }
     const c = model?.calendar, cal = body.querySelector('[data-hwpx-calendar]');
-    if (cal) cal.textContent = !c || c.loading ? '5. 주요 일정 표: 달력 일정을 불러오는 중이에요.'
-      : c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
+    // UI-기다림표시통일 2차: 달력 일정을 받는 동안은 글자 대신 회색 칸(wait-state.js).
+    if (cal && (!c || c.loading)) cal.innerHTML = '5. 주요 일정 표: ' + waitInlineHtml();
+    else if (cal) cal.textContent = c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
       : c.noCalendar ? "5. 주요 일정 표: '공공운수노조' 달력을 찾지 못해 날짜만 넣어요."
       : `5. 주요 일정 표: ${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
     renderTitles(fullCalendar());
@@ -468,7 +470,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     }
     parts.push(el('p', 'journal-muted', '1. 2) 주요 일정과 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.'));
     const cal = el('p', 'journal-muted', ''); cal.dataset.hwpxCalendar = ''; parts.push(cal);
-    const loading = el('p', 'journal-muted', '이번 주 기록을 불러오는 중이에요. 다 오면 줄 옆에 보여요.'); loading.dataset.hwpxLoading = ''; loading.hidden = true; parts.push(loading);
+    const loading = el('div', 'journal-muted'); loading.innerHTML = waitHtml({rows: 1}); loading.dataset.hwpxLoading = ''; loading.hidden = true; parts.push(loading);
 
     const sum = el('section', 'journal-hwpx-part'); sum.dataset.hwpxPart = 'summary';
     sum.append(el('h5', 'journal-weekly-sub', '2. 1) 요약 — 내 줄'));

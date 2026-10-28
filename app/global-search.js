@@ -8,6 +8,7 @@
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
   groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
 import * as data from './global-search-data.js';
+import {waitEl, waitInlineEl} from './wait-state.js';
 import {renderFilterChips} from './filter-chips.js';
 import {placeAnchored, clearAnchored, followAnchor} from './anchored-popup.js';
 import {requestBasketNote, requestNoteDocOpen, requestTaskOpen} from './basket-note-tasks.js';
@@ -136,7 +137,7 @@ function paint(host, where) {
   host.replaceChildren();
   const box = el('div', 'gs-results');
   box.dataset.gsWhere = where;
-  const statusLine = el('p', 'gs-status'); statusLine.setAttribute('role', 'status'); statusLine.setAttribute('aria-live', 'polite');
+  const statusLine = el('div', 'gs-status'); statusLine.setAttribute('role', 'status'); statusLine.setAttribute('aria-live', 'polite');
   if (state.phase === 'idle') {
     statusLine.textContent = '두 글자 이상 입력하면 업데이트·노트·할 일·자료실·사업 보고·일정을 함께 찾아요.';
     box.append(statusLine); host.append(box); return;
@@ -152,9 +153,10 @@ function paint(host, where) {
     renderFilterChips(chips, {options, value: state.kind, label: '찾을 종류', small: true, onChange: v => chooseKind(v)});
     box.append(chips);
   }
-  if (state.phase === 'loading' && !state.groups) statusLine.textContent = '찾는 중…';
+  // UI-기다림표시통일 2차: 찾는 동안은 글자 없이 가는 줄 + 회색 빈 줄(wait-state.js).
+  const searching = () => statusLine.replaceChildren(waitEl({rows: state.groups ? 1 : 3}));
+  if (state.phase === 'loading') searching();
   else if (state.phase === 'error') statusLine.textContent = state.error;
-  else if (state.phase === 'loading') statusLine.textContent = '찾는 중…';
   box.append(statusLine);
   const list = el('div', 'gs-list'); list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', '검색 결과');
   list.id = `gsList-${where}`;
@@ -165,7 +167,7 @@ function paint(host, where) {
       if (state.phase === 'ready') statusLine.textContent = '찾은 기록이 없어요.';
     }
     for (const g of groups) if (g?.key) list.append(groupNode(g, where));
-    if (state.kind !== 'all' && state.kindBusy && !state.kindRows?.length) statusLine.textContent = '찾는 중…';
+    if (state.kind !== 'all' && state.kindBusy && !state.kindRows?.length) searching();
   }
   box.append(list);
   const notes = [];
@@ -190,7 +192,8 @@ function groupNode(g, where) {
     sec.append(more);
   }
   if (g.kindMode && state.kindMore) {
-    const more = el('div', 'gs-more', state.kindBusy ? '불러오는 중…' : '더 보기');
+    const more = el('div', 'gs-more', '더 보기');
+    if (state.kindBusy) { more.setAttribute('aria-busy', 'true'); more.append(' ', waitInlineEl()); }
     more.setAttribute('role', 'option'); more.id = `gsOpt-${where}-${++optionSeq}`; more.dataset.gsKey = `next:${g.key}`; more.dataset.gsNext = g.key;
     sec.append(more);
   }
