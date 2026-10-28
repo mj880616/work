@@ -811,4 +811,10 @@ window.addEventListener('kptu:view-changed', e => {
 window.addEventListener('kptu:session-changed', () => { run++; layer = null; shelfLayer = null; editLayer = null; undo = null; clearTimeout(undoTimer); state = fresh(); if (view()) paint(); });
 pc.addEventListener?.('change', () => { if (view() && !view().classList.contains('hidden')) { if (pc.matches && layer) { const l = layer; layer = null; l.close(); } paint(); } });
 paint();
-window.KPTUTelegramFeed = {reload:() => load()};
+// ORG-주요인물: 담당조직 [주요 인물] 탭의 텔레그램 줄이 부른다. 그 방·날 상세를 열고(item이 있으면 그 소식 원문을 펼침).
+async function showDay(room, day, item = '') {
+  if (!room || !day) return false;
+  if (!state.loaded || state.owner !== scopeOf(rt)) await load();
+  select(room, day, item); return true;
+}
+window.KPTUTelegramFeed = {reload:() => load(), show:showDay};
