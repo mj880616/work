@@ -6,12 +6,13 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, pruneDiaryPhotos, dropEmptyDiary, uploadDiaryPhotos, photoElement,
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
-  photoComments, cleanComments, saveDiaryComments, diaryPhotoUrl} from './diary-data.js';
+  photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPinch} from './photo-grid-size.js';
 import {swipeKind, shareFileName, putBack, UNDO_MS} from './photo-viewer-model.mjs';
+import {preparePhotoBlob, sharePhotoElement} from './photo-share.js';
 import {deleteNoteOriginal} from './basket-record-delete.js';
 import {odStatusCached, odTakeWarmMonth, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, odPrefetchMonth, clearOdPhotoCache, forgetOdPhoto, odKeepReconcile, odStartPrefetch, odStopPrefetch, odKeepCount, odKeepClear, odKeepForOwner,
-  odErrorText, odSync, odSyncDelay, odFolderTree, odFolderToggle, odTreeRows, odTreeChanges, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn, odPhotoUrl, grabThumb} from './diary-onedrive.js';
+  odErrorText, odSync, odSyncDelay, odFolderTree, odFolderToggle, odTreeRows, odTreeChanges, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
 import {renderDoc} from './ed-render.mjs';
@@ -331,6 +332,8 @@ if (typeof document !== 'undefined') {
   window.addEventListener('pagehide', () => { if (pendingDel) commitDelete({keepalive:true}); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && pendingDel) commitDelete({keepalive:true}); });
 }
+// Drive 원본 내려받기 주소(file-actions.js driveDownloadUrl과 같은 모양). Drive 로그인이 필요한 주소라 그대로 링크로 둔다.
+const originalHref = id => (typeof id === 'string' && /^[A-Za-z0-9_-]{1,255}$/.test(id) ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}` : '');
 const zoomed = () => (globalThis.visualViewport?.scale || 1) > 1.05;
 function openViewer(index) {
   if (!shown[index] || viewer) return;
@@ -361,7 +364,17 @@ function openViewer(index) {
     const item = items[at]; if (!item || info.hidden) return;
     const rows = [['찍은 때', `${shortDay(item.day)}${takenLabel(item) ? ' ' + takenLabel(item) : ''}`], ['파일', item.kind === 'od' ? item.name : (item.file?.file_name || '')], ['출처', item.kind === 'od' ? '원드라이브' : '직접 올린 사진']];
     info.replaceChildren(...rows.filter(([, v]) => v).flatMap(([k, v]) => [Object.assign(document.createElement('dt'), {textContent:k}), Object.assign(document.createElement('dd'), {textContent:v})]));
+    // [원본 내려받기]: 직접 올린 사진은 Drive 원본(Drive 로그인 필요). 원드라이브 사진은 원본을 넘기는 서버 동작이 아직 없어 원드라이브 앱에서 받는다.
+    const href = item.kind === 'upload' ? originalHref(item.file?.drive_file_id) : '';
+    const dd = document.createElement('dd');
+    if (href) {
+      const a = Object.assign(document.createElement('a'), {href, target:'_blank', rel:'noopener noreferrer', className:'diary-viewer-original', textContent:'원본 내려받기'});
+      a.dataset.diaryOriginal = ''; dd.append(a);
+    } else dd.textContent = '원드라이브 앱에서 받아 주세요';
+    info.append(Object.assign(document.createElement('dt'), {textContent:'원본'}), dd);
   };
+  const slidePhoto = i => strip.children[i]?.querySelector('.diary-photo') || null;
+  const prepareShown = () => { const el = slidePhoto(at); if (el) preparePhotoBlob(el); };
   const show = () => {
     const item = items[at];
     count.textContent = `${at + 1} / ${items.length}`;
@@ -370,9 +383,11 @@ function openViewer(index) {
     delBtn.disabled = !(item.kind === 'od' && od.canDelete);
     delBtn.title = item.kind === 'od' ? (od.canDelete ? '원드라이브 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요') : '직접 올린 사진은 일기 [수정]에서 빼요';
     for (const d of [0, 1, -1, 2, -2]) fill(at + d);
-    refresh(); paintInfo();
+    refresh(); paintInfo(); prepareShown();
   };
   const note = (text, ms = 0) => { clearTimeout(noteTimer); viewerNote(text); if (ms) noteTimer = setTimeout(() => { if (!pendingDel) viewerNote(''); }, ms); };
+  // 보는 장의 그림이 뜨면(load는 거품이 없어 잡기 단계로 듣는다) 그 그림의 바이트를 미리 준비해 [공유]를 바로 넘긴다.
+  strip.addEventListener('load', () => setTimeout(prepareShown, 0), true);
   strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && items[next]) { at = next; show(); } }, {passive:true});
   const step = dir => strip.scrollTo({left:Math.max(0, Math.min(items.length - 1, at + dir)) * strip.clientWidth, behavior:'smooth'});
   // 목록이 바뀐 뒤(지우기·되돌리기) 다시 짠다. id가 주어지면 그 사진으로 간다.
@@ -394,26 +409,11 @@ function openViewer(index) {
     reload(null);
     if (viewer) { clearTimeout(noteTimer); viewerNote('휴지통으로 옮겼어요'); viewer.undoShown(true); }
   }
-  async function shareCurrent() {
-    const item = items[at]; if (!item) return;
-    note('공유 준비 중…');
-    let blob = null;
-    try {
-      const url = item.kind === 'od' ? await odPhotoUrl(item.id, 'large', {rt}) : await diaryPhotoUrl(item.row.id, item.file.drive_file_id, 'large', {rt});
-      blob = await grabThumb(url);
-    } catch { blob = null; }
-    if (!viewer || items[at] !== item) return;
-    const file = blob && typeof File === 'function' ? new File([blob], shareFileName(item, blob.type), {type:blob.type || 'image/jpeg'}) : null;
-    if (file && navigator.canShare?.({files:[file]})) {
-      try { await navigator.share({files:[file]}); note(''); return; }
-      catch (error) { if (error?.name === 'AbortError') { note(''); return; } }
-    }
-    // 폰 공유 창을 못 쓰는 기기: 사진 파일로 저장한다(원드라이브 임시 주소는 로그인 없이 열리는 주소라 복사해 주지 않는다).
-    if (!blob) { note('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', 4000); return; }
-    const a = document.createElement('a'), local = URL.createObjectURL(blob);
-    a.href = local; a.download = file?.name || shareFileName(item, blob.type); document.body.append(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(local), 10000);
-    note('이 기기는 공유 창이 없어 사진 파일로 저장했어요.', 4000);
+  // OD-공유고침: [공유]는 화면에 이미 뜬 그림의 바이트를 바로 넘긴다(photo-share.js). 아직 안 떴을 때만 '사진 받는 중…'을 띄우고 뜨면 넘긴다.
+  // 원드라이브 그림 주소는 로그인 없이 열리는 임시 주소라 링크로 넘기지 않는다. 원본은 [ⓘ 정보] 안 [원본 내려받기](직접 올린 사진).
+  function shareCurrent() {
+    const item = items[at], el = slidePhoto(at); if (!item || !el) return;
+    sharePhotoElement(el, blob => shareFileName(item, blob.type), {alive:() => !!viewer && items[at] === item, note});
   }
   // 한 손가락 세로 밀기(사진 위): 위 = 별표, 아래 = 닫기. 가로 넘기기·확대(두 손가락)는 브라우저가 맡는다.
   let touch = null;

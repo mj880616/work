@@ -4,6 +4,7 @@
 // time, and are shown through its owner-only photo view (GET ?action=photo). No browser storage, no new save path.
 import {seoulDateKey} from './meeting-time.js';
 import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
+import {holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
 import {diaryDocToStore, diaryDocError} from './diary-doc.mjs';
 import {withMark} from './diary-list-model.mjs';
 
@@ -284,9 +285,9 @@ export function photoElement(row, file, size, {label = '', rt = window.KPTURunti
   // 'shown' only after the browser really drew the image (load). An error (revoked URL, undecodable file) forgets the
   // cached copy and reads once more; a second failure shows the same fallback as a failed photo view.
   const attempt = tries => diaryPhotoUrl(row.id, file.drive_file_id, size, {rt}).then(url => {
-    img.onload = () => { img.onload = img.onerror = null; box.dataset.state = 'shown'; };
+    img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => localImageBlob(url)); box.dataset.state = 'shown'; };
     img.onerror = () => {
-      img.onload = img.onerror = null; img.hidden = true; img.removeAttribute('src');
+      img.onload = img.onerror = null; forgetPhotoBlob(box); img.hidden = true; img.removeAttribute('src');
       const forgotten = forgetDiaryPhoto(row.id, file.drive_file_id, size, url);
       if (tries < 2) { box.dataset.state = 'retry'; forgotten.then(() => attempt(tries + 1)); } else fallback();
     };
