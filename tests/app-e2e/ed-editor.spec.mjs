@@ -1,6 +1,6 @@
 // ED-통합편집기 ①a: the editor part on its own (fixture page, no app shell, no network beyond the static files).
 // Button row (small, sideways scroll on a phone, focus kept), styles, marks, ①, lists, quote, table tools, photo place,
-// undo, paste as typed + [서식으로 바꾸기], no format while typing, composition safety, and reading the saved form back.
+// undo, markdown paste converted by itself (+ whole-text [서식으로 바꾸기]), no format while typing, composition safety, and reading the saved form back.
 import {test, expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
 
@@ -184,42 +184,99 @@ test('table: insert, type in cells, add and remove rows and columns, head row', 
   await expect(tools).toBeHidden();
 });
 
-test('pasting markdown letters keeps them as typed, then [서식으로 바꾸기] converts once and undo puts the letters back', async ({page}) => {
+// ED-폰마크다운붙여넣기 (2026-10-28): a markdown paste converts by itself, one undo step back to the letters.
+const pasteData = (page, data) => page.evaluate(d => {
+  const t = new DataTransfer(); for (const [k, v] of Object.entries(d)) t.setData(k, v);
+  document.querySelector('.ed-input').dispatchEvent(new ClipboardEvent('paste', {clipboardData: t, bubbles: true, cancelable: true}));
+}, data);
+const MD = '## 회의 결과\n\n**결정**: 진행\n\n1. 첫째\n2. 둘째\n\n| 항목 | 값 |\n|---|---|\n| 가 | 1 |';
+
+test('pasting markdown letters converts right away (no button); one undo puts the letters back', async ({page}) => {
   const box = await open(page);
-  const md = '## 회의 결과\n\n**결정**: 진행\n\n1. 첫째\n2. 둘째\n\n| 항목 | 값 |\n|---|---|\n| 가 | 1 |';
-  await page.evaluate(text => {
-    const data = new DataTransfer(); data.setData('text/plain', text);
-    document.querySelector('.ed-input').dispatchEvent(new ClipboardEvent('paste', {clipboardData: data, bubbles: true, cancelable: true}));
-  }, md);
-  await expect(box).toContainText('## 회의 결과');
-  await expect(box.locator('h2,h3,ol,table,strong')).toHaveCount(0);
-  const suggest = page.locator('.ed-suggest');
-  await expect(suggest).toBeVisible();
-  await suggest.getByRole('button', {name: '서식으로 바꾸기'}).click();
+  await pasteData(page, {'text/plain': MD});
   await expect(box.locator('h3')).toHaveText('회의 결과');
   await expect(box.locator('strong')).toHaveText('결정');
   await expect(box.locator('ol li')).toHaveCount(2);
   await expect(box.locator('table th')).toHaveCount(2);
-  await expect(suggest).toBeHidden();
+  await expect(page.locator('.ed-suggest')).toBeHidden();
+  await expect(page.locator('.ed-note')).toContainText('서식으로 바꿨어요');
   await tool(page, '되돌리기').click();
   await expect(box).toContainText('## 회의 결과');
-  await expect(box.locator('h3')).toHaveCount(0);
+  await expect(box.locator('h3,ol,table,strong')).toHaveCount(0);
+  // The letters were the choice: no whole-text offer for them.
+  await expect(page.locator('.ed-suggest')).toBeHidden();
 });
 
-test('plain letters without markdown marks paste as typed with no offer; dismiss hides the offer', async ({page}) => {
+test('a phone copy: a formatted copy that only wraps the same letters (signs and all) converts like plain letters', async ({page}) => {
   const box = await open(page);
-  const paste = text => page.evaluate(t => {
-    const data = new DataTransfer(); data.setData('text/plain', t);
-    document.querySelector('.ed-input').dispatchEvent(new ClipboardEvent('paste', {clipboardData: data, bubbles: true, cancelable: true}));
-  }, text);
-  await paste('2026.10.21. 회의\n- 참석: 3명');
+  const html = '<meta charset="utf-8"><div><span>## 공통</span></div><div><span>**굵게** 한 줄</span></div><div><span>1. 첫째</span></div>';
+  await pasteData(page, {'text/html': html, 'text/plain': '## 공통\n**굵게** 한 줄\n1. 첫째'});
+  await expect(box.locator('h3')).toHaveText('공통');
+  await expect(box.locator('strong')).toHaveText('굵게');
+  await expect(box).not.toContainText('## 공통');
+  await expect(box).not.toContainText('**');
+});
+
+test('a formatted copy that is already formatted (no signs in it) keeps its own format', async ({page}) => {
+  const box = await open(page);
+  await pasteData(page, {'text/html': '<p><b>결정</b>: 진행</p>', 'text/plain': '**결정**: 진행'});
+  await expect(box.locator('strong')).toHaveText('결정');
+  await expect(box).not.toContainText('**');
+});
+
+test('a keyboard clipboard row (letters put in as typed text, no paste event) converts too', async ({page}) => {
+  const box = await open(page);
+  await page.locator('.ed-input').focus();
+  await page.evaluate(text => {
+    document.querySelector('.ed-input').dispatchEvent(new InputEvent('beforeinput', {inputType: 'insertText', data: text, bubbles: true, cancelable: true}));
+  }, '## 공통\n**굵게** 한 줄');
+  await expect(box.locator('h3')).toHaveText('공통');
+  await expect(box.locator('strong')).toHaveText('굵게');
+  await tool(page, '되돌리기').click();
+  await expect(box).toContainText('## 공통');
+});
+
+test('plain letters without markdown marks paste as typed; a later markdown paste converts only its own part', async ({page}) => {
+  const box = await open(page);
+  await pasteData(page, {'text/plain': '2026.10.21. 회의\n- 참석: 3명'});
   await expect(page.locator('.ed-suggest')).toBeHidden();
   expect(await page.evaluate(() => window.plain())).toBe('2026.10.21. 회의\n\n- 참석: 3명');
-  await paste('\n**굵게**');
-  await expect(page.locator('.ed-suggest')).toBeVisible();
-  await page.locator('.ed-suggest').getByRole('button', {name: '그대로 두기'}).click();
+  await pasteData(page, {'text/plain': '\n**굵게**'});
+  await expect(box.locator('strong')).toHaveText('굵게');
+  await expect(box).toContainText('2026.10.21. 회의');
+  await expect(box).toContainText('- 참석: 3명');
+  await expect(box.locator('ul,ol')).toHaveCount(0);
+});
+
+test('a text saved as markdown letters shows a small [서식으로 바꾸기] that converts it whole; undo and dismiss', async ({page}) => {
+  const para = text => ({type: 'paragraph', attrs: {style: 'body2'}, content: text ? [{type: 'text', text}] : []});
+  const doc = {v: 'ed1', doc: {type: 'doc', content: [para('## 공통'), para(''), para('**굵게** 한 줄'), para('1. 첫째'), para('2. 둘째')]}};
+  const box = await open(page, doc);
+  const suggest = page.locator('.ed-suggest');
+  await expect(suggest).toBeVisible();
+  await expect(suggest).toContainText('이 글에 마크다운 기호가 보여요.');
+  await suggest.getByRole('button', {name: '서식으로 바꾸기'}).click();
+  await expect(box.locator('h3')).toHaveText('공통');
+  await expect(box.locator('strong')).toHaveText('굵게');
+  await expect(box.locator('ol li')).toHaveCount(2);
+  await expect(suggest).toBeHidden();
+  await tool(page, '되돌리기').click();
+  await expect(box).toContainText('## 공통');
+  await expect(box.locator('h3')).toHaveCount(0);
+  // Open again and keep the letters: × hides the offer.
+  await open(page, doc);
+  await expect(suggest).toBeVisible();
+  await suggest.getByRole('button', {name: '그대로 두기'}).click();
+  await expect(suggest).toBeHidden();
+  await expect(page.locator('.ed-input')).toContainText('## 공통');
+});
+
+test('a text with format already in it gets no whole-text offer', async ({page}) => {
+  const doc = {v: 'ed1', doc: {type: 'doc', content: [{type: 'heading', attrs: {level: 2}, content: [{type: 'text', text: '제목'}]},
+    {type: 'paragraph', attrs: {style: 'body2'}, content: [{type: 'text', text: '## 공통'}]}]}};
+  await open(page, doc);
+  await expect(page.locator('.ed-input h3, .ed-input h2').first()).toBeVisible();
   await expect(page.locator('.ed-suggest')).toBeHidden();
-  await expect(box).toContainText('**굵게**');
 });
 
 test('pasted HTML keeps allowed format only: no script, no outside image, unsafe links dropped', async ({page}) => {

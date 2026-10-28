@@ -52,6 +52,7 @@ on:
       - 'scripts/markdown/**'
       - 'scripts/editor/**'
       - 'tests/ed-editor.test.mjs'
+      - 'tests/ed-paste-markdown.test.mjs'
       - 'tests/ed-window.test.mjs'
       - 'tests/update-window.test.mjs'
       - 'tests/record-doc.test.mjs'
@@ -137,6 +138,7 @@ on:
       - 'scripts/markdown/**'
       - 'scripts/editor/**'
       - 'tests/ed-editor.test.mjs'
+      - 'tests/ed-paste-markdown.test.mjs'
       - 'tests/ed-window.test.mjs'
       - 'tests/update-window.test.mjs'
       - 'tests/record-doc.test.mjs'
@@ -252,6 +254,9 @@ jobs:
 
       - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
         run: node --test tests/ed-editor.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs
+
+      - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
+        run: node --test tests/ed-paste-markdown.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs

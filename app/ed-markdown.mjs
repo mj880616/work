@@ -135,3 +135,30 @@ export function plainToDocKeep(text) {
   });
   return cleanDoc({type:'doc', content});
 }
+
+// ED-폰마크다운붙여넣기 ②: a saved form that is only plain lines — paragraphs of unformatted letters and line breaks, nothing
+// else — whose letters look like markdown (an answer pasted in as letters before the paste converted by itself). Returns those
+// letters for [서식으로 바꾸기], else null: one line per paragraph (how a plain paste goes in, empty paragraphs = blank lines);
+// when a paragraph holds line breaks (an old plain note opened as one paragraph per run of lines), paragraphs are kept apart by
+// a blank line so the runs stay separate paragraphs. A form with
+// any heading, list, table, photo, mark, colour, alignment or indent is left alone: converting it whole would drop what was already formatted.
+// looks(text) is note-markdown.mjs looksLikeMarkdown (passed in so this file keeps loading nothing).
+export function markdownLettersOf(value, looks) {
+  const content = value?.doc?.content ?? value?.content;
+  if (!Array.isArray(content) || !content.length) return null;
+  const paras = [];
+  let breaks = false;
+  for (const block of content) {
+    const a = block?.attrs || {};
+    if (block?.type !== 'paragraph' || a.align || a.indent) return null;
+    let line = '';
+    for (const n of block.content || []) {
+      if (n?.type === 'hard_break') { line += '\n'; breaks = true; continue; }
+      if (n?.type !== 'text' || (n.marks && n.marks.length)) return null;
+      line += String(n.text ?? '');
+    }
+    paras.push(line);
+  }
+  const text = paras.join(breaks ? '\n\n' : '\n');
+  return text.trim() && looks(text) ? text : null;
+}
