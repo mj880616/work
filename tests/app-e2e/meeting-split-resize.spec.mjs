@@ -4,7 +4,7 @@ import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 // MTG-3칸폭끌기(2026-10-26 요청): PC(≥1024) 사업 보고 3단(왼쪽 회의 종류 / 가운데 차수 / 오른쪽 결과)의 두 경계를 끌어 칸 폭을 바꾼다.
 // 할 일·프로젝트·담당조직과 같은 공용 app/split-resize.js(경계 여러 개). 기본 1/6 : 1/6 : 2/3, 경계는 이웃 두 칸만 움직이고, 칸마다 최소 폭
-// (종류·차수 120, 결과 360), 두 번 누르면 그 경계만 기본, 키보드 ←→·Home·End, 고른 폭은 서버(프로필 view_prefs.split_ratio.reports)에 기억한다.
+// (종류·차수 120, 결과 360), 두 번 누르면 그 경계만 기본, 키보드 ←→·Home·End, 고른 폭은 서버(프로필 view_prefs.split_ratio.reports3 — UI-작은결정묶음 ④, 2단 reports와 따로)에 기억한다.
 // 칸 크기는 화면 안에서 한 번에 읽는다(그리는 도중 바뀌는 칸을 두 번에 나눠 잡지 않도록).
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -21,7 +21,7 @@ let prefs;
 async function open(page,width,options={}){
   await page.setViewportSize({width,height:900});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  prefs=await installViewPrefsServer(page,null,options);
+  prefs=await installViewPrefsServer(page,options.initial??null,options);
   await mockApp(page,columnState());
   await signIn(page,testOrigin+'/app/?view=meetings');
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
@@ -32,7 +32,7 @@ async function open(page,width,options={}){
   return errors;
 }
 const settle=page=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
-const stored=()=>prefs.value?.split_ratio?.reports??null;
+const stored=()=>prefs.value?.split_ratio?.reports3??null;
 const widths=page=>page.evaluate(()=>{
   const w=s=>document.querySelector(s).getBoundingClientRect().width,c=document.querySelector('#meetingList .mcol-layout'),st=getComputedStyle(c),g=parseFloat(st.columnGap)||0;
   return {kinds:w('#meetingList .mcol-kinds'),rounds:w('#meetingList .mcol-rounds'),result:w('#meetingList .mcol-result'),total:c.clientWidth-(parseFloat(st.paddingLeft)||0)-(parseFloat(st.paddingRight)||0)-2*g,gap:g,over:document.documentElement.scrollWidth-innerWidth};
@@ -138,4 +138,16 @@ test('중간 폭·폰에는 3단 경계선이 없고, PC로 넓히면 나타난�
  await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle').first()).toBeVisible();
  await page.setViewportSize({width:390,height:800});
  await expect(page.locator('.split-resize-handle:visible')).toHaveCount(0);
+});
+
+// UI-작은결정묶음 ④: 3단은 자기 이름(reports3)에만 쓰고, 아직 없으면 예전에 같이 쓰던 reports 값(두 경계 묶음)에서 시작한다. 2단 값은 건드리지 않는다.
+test('3단 폭은 reports3에 따로 기억하고 처음엔 예전 reports 값을 이어받는다',async({page})=>{
+ const old=0.350571; // 종류 0.2 · 차수 0.15 · 결과 0.65 (encodeTriple)
+ const errors=await open(page,1280,{initial:{split_ratio:{reports:old}}});
+ let m=await widths(page);expect(Math.abs(m.kinds/m.total-0.2)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-0.15)).toBeLessThan(0.01);
+ expect(stored()).toBeNull();
+ await dragTo(page,0,await xFor(page,0,0.15));
+ await expect.poll(()=>typeof stored()).toBe('number');
+ expect(prefs.value.split_ratio.reports).toBe(old);
+ expect(errors).toEqual([]);
 });
