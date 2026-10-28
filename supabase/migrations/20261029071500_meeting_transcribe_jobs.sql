@@ -18,7 +18,7 @@ set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261029070000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261029071500')
      or to_regclass('public.app_workspaces') is null
      or to_regclass('public.app_meetings') is null
      or to_regclass('public.app_meeting_transcribe_jobs') is not null
@@ -104,5 +104,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261029070000', 'meeting_transcribe_jobs', array['MTG-녹음초안 2단계: app_meeting_transcribe_jobs (owner read, service_role column insert/update + select, no delete, one running per workspace)']);
+values ('20261029071500', 'meeting_transcribe_jobs', array['MTG-녹음초안 2단계: app_meeting_transcribe_jobs (owner read, service_role column insert/update + select, no delete, one running per workspace)']);
 commit;
