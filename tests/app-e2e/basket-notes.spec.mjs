@@ -98,6 +98,8 @@ for(const width of [390,1280]){
   await expect(detail.locator('[data-note-read-actions]')).toHaveCount(0);
   await noteMenuAction(page,'data-note-edit');
   await expect(detail.locator('[data-note-title-input]')).toHaveValue('임금협상 정리');
+  // 편집기(본문 칸)가 붙은 뒤에 [저장]을 누른다. 붙기 전 [저장]은 '편집기를 여는 중' 안내를 보인다(제목 검사 전).
+  await expect(noteField(page)).toBeVisible();
   await detail.locator('[data-note-title-input]').fill('');
   await detail.locator('[data-note-save]').click();
   await expect(detail.locator('[data-basket-status]')).toHaveText('노트 제목을 입력해 주세요.');expect(f.writes).toEqual([]);
