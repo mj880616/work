@@ -79,11 +79,11 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const tops=await page.evaluate(()=>['.gs-menu-entry','#mobileAccountGroup','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
  expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
  { const nav=await rect(page.locator('#mobileMenu nav[aria-label="더 보기"]')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-nav.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-nav.bottom).toBeLessThanOrEqual(20); }
- // 큰 칸 3열(3줄): 노트·사업 보고·자료실 / HWP 편집·공유 페이지·원장 / 사진·통화·텔레그램 소식.
+ // 큰 칸 3열(4줄): 노트·사업 보고·자료실 / HWP 편집·공유 페이지·원장 / 사진·통화·텔레그램 소식 / 아스날(주소 개편 ② E1, 메뉴 창 맨 아래).
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);
+ await expect(tiles).toHaveText(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식','아스날']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),h:r.height};}));
- expect(new Set(boxes.map(b=>b.y)).size).toBe(3);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
+ expect(new Set(boxes.map(b=>b.y)).size).toBe(4);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
  for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
  // 계정 상자: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
  const account=page.locator('#mobileAccountGroup');
@@ -144,14 +144,14 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
  // BASKET-PC메뉴: [정리함] 아래 [업데이트]·[챙길 것], [노트]는 [일정] 다음.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"] .nav-sub-btn:visible')).toHaveText(['업데이트','챙길 것']);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','일정','노트','프로젝트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식',/^자주 가는 링크/]);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','일정','노트','프로젝트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();
- await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);
+ await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식','아스날']);
  await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 

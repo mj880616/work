@@ -302,7 +302,7 @@ jobs:
             https://work.bokdoong.com/work/assets/web1-design-lite.css \
             "$SW_URL" \
             "$WEB2_SW_URL" \
-            https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js
+            https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/app.js
           do
             headers="$(curl \
               --silent \

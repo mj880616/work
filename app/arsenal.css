@@ -1,0 +1,63 @@
+/* 주소 개편 ② E1: '아스날' 화면(#arsenalView). Web2 기준 콤팩트·톤다운(색은 theme-tokens.css 토큰만), 작은 버튼 32px(누르는 범위 44px).
+   PC(1024px~)는 목록 1/3 · 리뷰 2/3, 폰은 목록 → 리뷰 한 칸(#arsenalRoot[data-open]). */
+#appView #arsenalView .ars{ display:flex; flex-direction:column; gap:6px; min-width:0; font-size:var(--ds-text-row,14px); color:var(--kptu-ink); }
+#appView #arsenalView .ars-bar{ position:sticky; top:0; z-index:2; display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:4px 0; background:var(--kptu-bg); }
+#appView #arsenalView :is(.ars-filter,.ars-search){ min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 8px; font-size:var(--ds-compact-text,13px); color:var(--kptu-ink); background:var(--kptu-surface);
+  border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); box-shadow:none; }
+#appView #arsenalView .ars-filter{ width:auto; max-width:46%; }
+#appView #arsenalView .ars-search{ flex:1 1 140px; min-width:0; width:auto; }
+#appView #arsenalView .ars-count{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); white-space:nowrap; }
+#appView #arsenalView .ars-body{ display:grid; grid-template-columns:minmax(0,1fr); gap:10px; min-width:0; }
+#appView #arsenalView .ars[data-open="true"] .ars-list,#appView #arsenalView .ars:not([data-open="true"]) .ars-detail{ display:none; }
+@media(min-width:1024px){
+  #appView #arsenalView .ars-body{ grid-template-columns:minmax(0,1fr) minmax(0,2fr); align-items:start; }
+  #appView #arsenalView .ars[data-open="true"] .ars-list{ display:block; }
+  #appView #arsenalView .ars-list{ position:sticky; top:calc(var(--kptu-topline-space,0px) + 44px); max-height:calc(100vh - var(--kptu-topline-space,0px) - 60px); overflow-y:auto; }
+}
+#appView #arsenalView .ars-list{ min-width:0; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #arsenalView .ars-row{ display:flex; flex-direction:column; align-items:stretch; gap:1px; width:100%; min-width:0; min-height:var(--kptu-touch-target,44px); margin:0; padding:6px 4px; text-align:left;
+  color:var(--kptu-ink); background:transparent; border:0; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:0; box-shadow:none; font:inherit; font-weight:var(--ds-weight-regular,400); cursor:pointer; }
+#appView #arsenalView .ars-row:hover{ background:var(--kptu-surface-subtle); }
+#appView #arsenalView .ars-row[aria-pressed="true"]{ background:var(--ds-kind-other-soft); color:var(--ds-kind-other-ink); }
+#appView #arsenalView .ars-row:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+#appView #arsenalView .ars-row-top{ display:flex; align-items:center; gap:6px; min-width:0; }
+#appView #arsenalView .ars-date{ flex:none; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+#appView #arsenalView .ars-row-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:var(--ds-weight-medium,500); }
+#appView #arsenalView .ars-row-meta{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #arsenalView .ars-res{ flex:none; display:inline-grid; place-items:center; min-width:20px; height:18px; padding:0 4px; border-radius:var(--ds-radius-control,6px); font-size:11px; line-height:1; }
+#appView #arsenalView .ars-res-win{ color:var(--kptu-success); background:var(--kptu-success-soft); }
+#appView #arsenalView .ars-res-draw{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #arsenalView .ars-res-loss{ color:var(--kptu-danger); background:var(--kptu-danger-soft); }
+#appView #arsenalView .ars-note{ margin:8px 2px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #arsenalView :is(.ars-small,.ars-back){ position:relative; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 var(--ds-compact-pad-x,10px); font-size:var(--ds-compact-text,13px);
+  font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); box-shadow:none; }
+#appView #arsenalView :is(.ars-small,.ars-back)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #arsenalView .ars-back{ justify-self:start; }
+#appView #arsenalView .ars-detail{ min-width:0; }
+#appView #arsenalView .ars-review{ display:grid; gap:8px; min-width:0; padding:10px 12px; background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-box,8px); }
+#appView #arsenalView .ars-meta{ display:flex; flex-wrap:wrap; gap:2px 10px; margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #arsenalView .ars-score{ display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:10px; }
+#appView #arsenalView .ars-team{ min-width:0; overflow-wrap:anywhere; font-size:var(--ds-text-section,15px); font-weight:var(--ds-weight-medium,500); }
+#appView #arsenalView .ars-team.away{ text-align:right; }
+#appView #arsenalView .ars-score-num{ font-size:22px; font-weight:var(--ds-weight-medium,500); font-variant-numeric:tabular-nums; }
+#appView #arsenalView .goal-summary{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+#appView #arsenalView .goal-side{ min-width:0; }
+#appView #arsenalView .goal-side.away{ text-align:right; }
+#appView #arsenalView .goal-side :is(ul,p){ margin:0; padding:0; list-style:none; }
+#appView #arsenalView .goal-entry{ overflow-wrap:anywhere; font-size:13px; line-height:1.5; }
+#appView #arsenalView .goal-entry b{ font-weight:var(--ds-weight-medium,500); }
+#appView #arsenalView .ars-k{ margin:0 0 2px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #arsenalView .ars-faint{ color:var(--kptu-muted); }
+#appView #arsenalView .goal-source{ margin:0; font-size:11px; }
+#appView #arsenalView .ars-verdict{ margin:0; padding-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); font-size:var(--ds-text-read,15px); line-height:1.6; }
+#appView #arsenalView .ars-sec{ border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #arsenalView .ars-sec summary{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row,14px); font-weight:var(--ds-weight-medium,500); cursor:pointer; }
+#appView #arsenalView .ars-sec ul{ margin:0 0 8px; padding-left:18px; line-height:1.6; }
+#appView #arsenalView .ars-sec li + li{ margin-top:4px; }
+#appView #arsenalView .ars-stats{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); text-align:center; }
+#appView #arsenalView .ars-stat{ display:flex; flex-direction:column; min-width:0; }
+#appView #arsenalView .ars-stat b{ font-weight:var(--ds-weight-medium,500); overflow-wrap:anywhere; }
+#appView #arsenalView .ars-stat span{ font-size:11px; color:var(--kptu-muted); }
+#appView #arsenalView .ars-links{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin:0; font-size:var(--ds-text-meta,12px); }
+#appView #arsenalView .ars-links .ars-k{ margin:0; }
+#appView #arsenalView .ars-links a,#appView #arsenalView .goal-source a{ color:var(--kptu-primary-text,var(--kptu-ink)); overflow-wrap:anywhere; }

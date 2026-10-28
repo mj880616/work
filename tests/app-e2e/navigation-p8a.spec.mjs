@@ -6,7 +6,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app=`${appOrigin}/app/`;
-const views=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','pages','team','hwp','ledger','photos','calls','telegram'];
+const views=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 
