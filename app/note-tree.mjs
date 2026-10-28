@@ -6,11 +6,14 @@
 import {folderIndent} from './folder-limits.mjs';
 import {folderSiblings, folderSubtree, folderDepth} from './library-tree.js';
 import {plainInline} from './note-preview.mjs';
+import {noteMasked, looksSecret, SECRET_TITLE} from './note-secret.mjs';
 
 const plain = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isFolderId = v => typeof v === 'string' && UUID.test(v);
 export const OUTSIDE = 'out';
+// 폴더에 안 든 노트 묶음 이름(10/28 17:45 ④: '폴더 밖' → '폴더 없음', 나무 맨 아래).
+export const OUTSIDE_NAME = '폴더 없음';
 
 // 노트 → 폴더 id(없으면 null = 폴더 밖). folder_id가 적혀 있으면 그것만 본다(그 폴더가 없으면 폴더 밖).
 export function noteFolderId(note, folders) {
@@ -38,8 +41,10 @@ export function autoNoteTitle(text) {
   const line = String(text ?? '').split(/\r?\n/).map(v => v.trim()).find(Boolean) || '';
   return [...line.replace(/^#{1,6}\s+/, '')].slice(0, 200).join('').trim();
 }
+// NOTE-비밀메모(17:23 결정): 비밀번호·토큰·키 모양 글이 든 노트는 '비밀 메모'로 가린다(직접 쓴 제목이 따로 있고 그 제목은 비밀 모양이 아니면 그 제목).
 export function noteLineTitle(note) {
   const own = String(note?.title || '').trim();
+  if (noteMasked(note)) return own && own !== autoNoteTitle(note?.raw_text) && !looksSecret(own) ? own : SECRET_TITLE;
   const ai = plain(note?.metadata) && typeof note.metadata.ai_title === 'string' ? note.metadata.ai_title.trim() : '';
   if (own && (own !== autoNoteTitle(note?.raw_text) || !ai)) return own;
   if (ai) return ai;
@@ -95,7 +100,7 @@ export function treeRows({folders, notes, folderOf, root = null, isOpen = () => 
     const out = sort((byFolder.get(null) || []).filter(n => !matches || matches(n)));
     if (out.length) {
       const open = matches ? true : isOpen(OUTSIDE);
-      rows.push({type: 'outside', id: OUTSIDE, name: '폴더 밖', depth: 0, indent: 0, count: out.length, open});
+      rows.push({type: 'outside', id: OUTSIDE, name: OUTSIDE_NAME, depth: 0, indent: 0, count: out.length, open});
       if (open) for (const n of out) rows.push({type: 'note', id: n.id, note: n, depth: 1, indent: 1});
     }
   }
@@ -111,6 +116,28 @@ export function folderContents({folders, notes, folderOf, at = null, matches = n
   const rows = folderSiblings(folders, {free: true, parentId: at}).map(f => ({type: 'folder', id: f.id, name: f.name, depth: 0, indent: 0, count: total.get(f.id) || 0, open: false}));
   for (const n of sort(byFolder.get(at) || [])) rows.push({type: 'note', id: n.id, note: n, depth: 0, indent: 0});
   return rows;
+}
+// 10/28 17:45·17:55 화면 정리: 한 화면에 그릴 줄.
+// PC 오른쪽(phone=false): 고른 폴더의 노트만(폴더 줄 없음 — 폴더는 왼쪽 나무에만). at null·OUTSIDE = '폴더 없음' 노트.
+// 폰(phone=true): at null = 첫 화면 폴더 목록(맨 위 폴더 + 맨 아래 '폴더 없음'; 폴더가 하나도 없으면 바로 노트),
+//   at OUTSIDE = '폴더 없음' 노트, at 폴더 = 하위 폴더 줄 먼저 + 그 폴더 노트.
+// 찾는 중(matches)이면 둘 다 폴더와 상관없이 맞는 노트 전부(줄마다 폴더 경로).
+export function paneRows({folders, notes, folderOf, at = null, matches = null, phone = false, sort = list => list}) {
+  if (matches) return folderContents({folders, notes, folderOf, at, matches, sort});
+  const {byFolder, total} = placeNotes(notes, folders, folderOf);
+  const noteRows = list => sort(list).map(n => ({type: 'note', id: n.id, note: n, depth: 0, indent: 0}));
+  const folderRows = parent => folderSiblings(folders, {free: true, parentId: parent}).map(f => ({type: 'folder', id: f.id, name: f.name, depth: 0, indent: 0, count: total.get(f.id) || 0, open: false}));
+  const inFolder = at && at !== OUTSIDE && folders.some(f => f.id === at) ? at : null;
+  if (!phone) return noteRows(byFolder.get(inFolder) || []);
+  if (inFolder) return [...folderRows(inFolder), ...noteRows(byFolder.get(inFolder) || [])];
+  if (at === OUTSIDE || !folders.length) return noteRows(byFolder.get(null) || []);
+  return [...folderRows(null), {type: 'outside', id: OUTSIDE, name: OUTSIDE_NAME, depth: 0, indent: 0, count: (byFolder.get(null) || []).length, open: false}];
+}
+// 지금 보는 곳의 이름과 노트 수(위에 작게 '개발 · 7'). 폴더 수는 아래 폴더 포함.
+export function paneHead({folders, notes, folderOf, at = null}) {
+  const {byFolder, total} = placeNotes(notes, folders, folderOf);
+  const f = at && at !== OUTSIDE ? folders.find(x => x.id === at) : null;
+  return f ? {name: f.name, count: total.get(f.id) || 0} : {name: OUTSIDE_NAME, count: (byFolder.get(null) || []).length};
 }
 // 위치 줄: 맨 위부터 그 폴더까지(돌고 도는 값이 섞여도 200번에서 멈춤).
 export function folderPath(folders, id) {
