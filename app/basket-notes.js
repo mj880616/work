@@ -52,7 +52,7 @@ function showToast(message) {
   toast.textContent = message; kptuHoldToast(toast);
 }
 export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = () => {}, onMovedToBasket = () => {}}) {
-  let linkOpen = false, notes = [], links = [], selected = null, editing = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null;
+  let linkOpen = false, notes = [], links = [], selected = null, editing = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null, pendingFolder = null;
   // BUG-뒤로가기: an openSet note is one router layer, so Back returns to the list at the same scroll.
   let layer = null, listScroll = 0;
   // NOTE-탐색기: folders (app_note_folders rows; before the DB is applied, read-only folders made from the names notes hold),
@@ -156,7 +156,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (run !== epoch || owner !== scope()) return;
       notes = result.notes; links = result.links; loaded = true;
       foldersReady = fold.ready; foldersMissing = !!fold.missing; folders = fold.ready ? fold.folders : foldersFromNames(notes);
-      renderList();
+      // NAV-새로고침제자리: the folder entered before a reload (?folder=) is entered again once the folders are read.
+      if (pendingFolder) { const id = pendingFolder; pendingFolder = null; if (id === OUTSIDE ? !wideList.matches : folderById(id)) enter(id, {focus:false}); else renderList(); } else renderList();
       if (pendingOpen) { const id = pendingOpen; pendingOpen = null; if (notes.some(n => n.id === id)) open(id); }
     } catch {
       if (run !== epoch || owner !== scope()) return;
@@ -313,6 +314,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // returns to that project or organization, like an update openSet from there) and shows "← (name)으로 돌아가기".
     const from = !!selected && !!basketNoteOrigin(selected.id, rt);
     if (!from) layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
+    // NAV-새로고침제자리: the open note is written on its own entry (?doc=), so a reload reopens it; close drops it first.
+    if (layer && selected) window.KPTURouter?.setPlace?.('basket', {doc:selected.id});
     ++epoch; dropField(); editing = false; linkOpen = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
     // UI-엔터저장: title Enter / body Ctrl+Enter (PC) save through the shared rule (enter-save.js).
     detail.dataset.enterSave = '[data-note-save]';
@@ -361,6 +364,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     bigWriter?.close({silent:true}); bigWriter = null; dropField();
     closeMenu(); const id = selected.id; ++epoch; selected = null; editing = false; manual.reset();
     detail.replaceChildren(); detail.hidden = true; list.hidden = false; sendWhere(null); onOpenChange(false); renderList();
+    if (!fromBack) window.KPTURouter?.setPlace?.('basket', {doc:null});
     const openedLayer = layer; layer = null; if (!fromBack) openedLayer?.close();
     if (window.KPTURouter?.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
     if (focus) ((id ? host.querySelector(`[data-note-row="${CSS.escape(id)}"]`) : null) || host.querySelector('[data-note-search]'))?.focus({preventScroll:true});
@@ -915,11 +919,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     enter(id);
   }
   // 들어가기(10:34 ②): 그 폴더만 보이고 위에 '이름 · 장수'(2단 이상이면 위치 줄도). 폴더 위쪽은 왼쪽 나무에서 열어 둔다.
-  function enter(id) {
+  function enter(id, {focus = true} = {}) {
     at = id === OUTSIDE ? OUTSIDE : id && folderById(id) ? id : null;
     for (const f of at && at !== OUTSIDE ? folderPath(folders, at) : []) openSet.add(f.id);
     renderList();
-    (at !== null ? host.querySelector('#noteRows [data-note-row], #noteRows [data-nx-open]') || host.querySelector('[data-nx-back]') : host.querySelector('#noteRows [data-nx-open]') || host.querySelector('[data-note-search]'))?.focus({preventScroll:true});
+    // NAV-새로고침제자리: the folder entered is written to the address (?folder=, no entry of its own) after the list is drawn, so on a
+    // phone it lands on the folder screen's own layer entry and Back to the folder list leaves it out. A reload enters it again.
+    window.KPTURouter?.setPlace?.('basket', {folder:at});
+    if (focus) (at !== null ? host.querySelector('#noteRows [data-note-row], #noteRows [data-nx-open]') || host.querySelector('[data-nx-back]') : host.querySelector('#noteRows [data-nx-open]') || host.querySelector('[data-note-search]'))?.focus({preventScroll:true});
     if (!wideList.matches) window.scrollTo({top:0, behavior:'instant'});
   }
   // 폰 '←': 한 단계 위(맨 위 폴더·'폴더 없음'이면 첫 화면 폴더 목록).
@@ -948,7 +955,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // openId: a note just moved here from the basket opens once the list is read.
     // 휴지통에서 되돌린 노트를 목록에 다시 올린다(열어 둔 노트·편집 중이면 건드리지 않는다).
     reload() { if (loaded && !selected && !busy) void refresh(); },
-    show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
+    show({openId = null, folder = null} = {}) { void preloadMarkdown(); pendingOpen = openId; pendingFolder = folder; if (!folder && at) window.KPTURouter?.setPlace?.('basket', {folder:at}); if (!selected) void refresh(); },
     close,
     reset() { closeMenu(); void picker.close(); addPick = null; endSelect(); at = null; openSet = new Set(); { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,

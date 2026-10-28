@@ -401,7 +401,8 @@ function showPane(next){
   window.KPTURouter?.syncNavigation?.();window.dispatchEvent(new CustomEvent('kptu:basket-pane',{detail:{pane}}));
 }
 // BASKET-PC메뉴: the side shown is written to the address (?view=basket&pane=todo) by the router; the default side has no parameter.
-const paneSub=()=>pane==='todo'?'todo':null;
+// NAV-새로고침제자리: the note side is written the same way (?view=basket&pane=note), so a reload on [노트] opens [노트].
+const paneSub=()=>kind==='note'?'note':pane==='todo'?'todo':null;
 function setPane(next){
   if(next===pane||kind!=='memo'||busy||classification.isOpen()||selected)return;
   closeRowMenu();setMore(false);handoff.close();hideHandoffNotice();
@@ -410,13 +411,18 @@ function setPane(next){
 // Back / forward between the sides of this screen (kptu:sub-changed from the router). A step the screen has to refuse (busy, open record) puts the address back.
 window.addEventListener('kptu:sub-changed',e=>{
   if(e.detail?.view!=='basket')return;
-  const wanted=e.detail.sub==='todo'?'todo':'update';
-  if(wanted===pane)return;
-  if(kind!=='memo'||busy||classification.isOpen()||selected){window.KPTURouter?.setSub?.('basket',paneSub(),{replace:true});return;}
+  const wantedKind=e.detail.sub==='note'?'note':'memo',wanted=e.detail.sub==='todo'?'todo':'update';
+  if(wantedKind===kind&&wanted===pane)return;
+  if(busy||classification.isOpen()||selected||noteDocs.isBusy()||noteDocs.isOpen()){window.KPTURouter?.setSub?.('basket',paneSub(),{replace:true});return;}
   closeRowMenu();setMore(false);handoff.close();hideHandoffNotice();
-  showPane(wanted);
+  // NAV-새로고침제자리: a reload on the note side arrives here (the screen was shown before this module loaded, so its view hook did not
+  // run): the open note and the folder entered come from the address, like the view hook reads them.
+  if(wantedKind!==kind){const written=wantedKind==='note'?window.KPTURouter?.place?.('basket')||{}:{};showKind(wantedKind,{address:false,openId:written.doc||null,folder:written.folder||null});}
+  if(wantedKind==='memo')showPane(wanted);
 });
-function showKind(next,{openId=null}={}){
+// address: how the side reaches the address — 'replace' corrects it to the side shown (entering the screen), 'push' is a step of its
+// own (an update moved to the notes), false leaves it (a back/forward step already wrote it, or the screen is being left).
+function showKind(next,{openId=null,folder=null,address='replace'}={}){
   closeRowMenu();kind=next;root.dataset.kind=kind;
   basketTitle.textContent=kind==='note'?'노트':'정리함';
   const memo=kind==='memo';
@@ -424,7 +430,8 @@ function showKind(next,{openId=null}={}){
   paintListChrome();
   list.hidden=!memo||!!selected;moreWrap.hidden=!memo;noteHost.hidden=memo;if(!memo){setMore(false);hideHandoffNotice();}
   paintNavKind();
-  if(!memo)noteDocs.show({openId});
+  if(address&&window.KPTURouter?.current==='basket')window.KPTURouter.setSub?.('basket',paneSub(),{replace:address==='replace'});
+  if(!memo)noteDocs.show({openId,folder});
 }
 // UI-업데이트목록메뉴: a list row's menu item. 수정 opens the detail in edit mode; 연결하기·할 일 만들기 open the detail with that
 // panel already open (the detail's own button path); 노트로 옮기기 asks once (the row's text is not on screen), then runs the
@@ -499,7 +506,7 @@ async function saveToNote(){
     await moveToNote(id,title);
     if(run!==epoch||owner!==scope())return;
     notes=notes.filter(n=>n.id!==id);links=links.filter(l=>l.note_id!==id);busy=false;
-    closeDetail({force:true,focus:false});renderList();showKind('note',{openId:id});showToast('노트로 옮겼어요.');
+    closeDetail({force:true,focus:false});renderList();showKind('note',{openId:id,address:'push'});showToast('노트로 옮겼어요.');
   }catch{
     if(run!==epoch||owner!==scope())return;
     status.textContent='노트로 옮기지 못했어요. 다시 시도해 주세요.';
@@ -808,6 +815,8 @@ function openDetail(id, {edit = false} = {}) {
   // A note address (?note=) opens the note once; the list entry under it stays the plain list.
   // Opened from a project's or organization's record, the note has no entry of its own: one back returns to that project.
   if (!noteLayer) { clearNoteAddress(); if (!basketNoteOrigin(selected.id, rt)) openNoteLayer(); }
+  // NAV-새로고침제자리: the open update is written on its own entry (?note=), so a reload reopens it; closing drops it (clearNoteAddress).
+  if (noteLayer) window.KPTURouter.setPlace?.('basket', {note:selected.id});
   // Reading never opens the on-screen keyboard; only an explicit edit focuses the text.
   (editing ? detail.querySelector('[data-basket-text]') : readFocus()).focus();
   openDocEdit();
@@ -1129,7 +1138,7 @@ window.addEventListener('kptu:before-reload', e => {
 window.addEventListener('kptu:session-changed', () => {
   guardOcrPrivacy();
   const next = scope(); if (next === currentScope) return;
-  currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; docs = []; closeDetail({focus:false,force:true,cleanAddress:false}); noteDocs.reset(); showKind('memo'); renderList();
+  currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; docs = []; closeDetail({focus:false,force:true,cleanAddress:false}); noteDocs.reset(); showKind('memo',{address:false}); renderList();
 });
 window.addEventListener('kptu:before-view-change',e=>{
   if(retainedForTraversal&&((busy&&!handoffBusy)||quick?.isBusy()||quick?.hasDraft()||dirty()||manualDraft()||classification.isOpen()))e.detail.retainBasketDraft=true;
@@ -1149,19 +1158,21 @@ window.addEventListener('kptu:view-changed',e=>{
   setMore(false);if(!classification.isOpen())hideHandoffNotice();
   ocrGeneration++;
   if(e.detail?.retainBasketDraft){retainedForTraversal=true;return;}
-  retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});noteDocs.close({focus:false,force:true});showKind('memo');showPane('update');
+  retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});noteDocs.close({focus:false,force:true});showKind('memo',{address:false});showPane('update');
 });
 window.KPTURouter.on('basket', detail => {
   void preloadMarkdown();
   const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt), wantedKind = takeBasketKindRequest(rt);
+  // NAV-새로고침제자리: the place written in the address (an open note, the folder entered) — read before anything below closes it.
+  const written = window.KPTURouter.place?.('basket') || {};
   if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) { window.KPTURouter.setSub('basket', paneSub(), {replace:true}); return; }
-  noteDocs.close({focus:false,force:true}); showKind('memo'); showPane(detail?.sub === 'todo' ? 'todo' : 'update'); void todo.refresh();
+  const noteSide = detail?.sub === 'note' || wantedKind === 'note' || !!wantedDoc;
+  noteDocs.close({focus:false,force:true}); showKind('memo',{address:false}); showPane(detail?.sub === 'todo' ? 'todo' : 'update'); void todo.refresh();
   filter = 'unclassified'; place = 'all'; sub = 'all'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();
-  if (wantedDoc) showKind('note', {openId:wantedDoc});
-  else if (wantedKind === 'note') showKind('note');
+  if (noteSide) showKind('note', {openId:wantedDoc || written.doc || null, folder:wantedDoc ? null : written.folder || null});
 });
 // UI-디자인손질 8: a note saved from the menu [쓰기] shows up here without leaving the current screen.
 // TRASH-다른삭제 5단계: 휴지통에서 되돌린 업데이트·노트가 이 화면 목록에 다시 나타나게 한다(지금 보고 있는 화면이고 작업 중이 아닐 때만. 아니면 다음에 열 때 다시 읽는다).

@@ -1,4 +1,4 @@
-import {seoulDayStart,seoulDate,seoulParts,addSeoulDays} from './meeting-time.js';
+import {seoulDayStart,seoulDate,seoulParts,addSeoulDays,seoulDateKey} from './meeting-time.js';
 import {renderList,stopList} from './calendar-list-view.js';
 import {renderWeek,resetWeekScroll} from './calendar-week-view.js';
 import {dayItems,calendarDateKey} from './calendar-day-items.js';
@@ -15,7 +15,26 @@ let view=effectiveView();
 const thisWeek=()=>new Date(ranges().weekStart);
 let start=today(),weekStart=thisWeek(),days=14,pendingDays=0,tasks=[],options=null,busy=false,error=false,revision=0;
 function range(appendPage=false){if(view==='month')return null;const first=view==='week'?weekStart:start,end=new Date(first);end.setTime(addSeoulDays(end,view==='week'?7:pendingDays||days).getTime());const s=new Date(first),append=view==='list'&&appendPage&&pendingDays>days;if(append)s.setTime(addSeoulDays(s,days).getTime());return {s:new Date(calendarDateKey(s)+'T00:00:00+09:00'),e:new Date(calendarDateKey(end)+'T00:00:00+09:00'),append}}
+// NAV-새로고침제자리: the first day shown (list: its first day, week: its Monday, month: the 1st) is written to the address as
+// ?view=calendar&date=YYYY-MM-DD when it is not today's default (no history entry of its own), so a reload shows the same dates.
+// The address is read once when this module loads; until it is applied nothing is written.
+let placeDate=(()=>{const q=new URLSearchParams(globalThis.location?.search||''),d=q.get('date')||'';return q.get('view')==='calendar'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(seoulDayStart(d).getTime())?d:null})();
+function applyPlace(){
+  if(!placeDate)return false;
+  const d=seoulDayStart(placeDate);
+  if(view==='month'){const show=window.__KPTU_CALENDAR_SHOW_MONTH__;if(!show)return true;placeDate=null;show(d);return true}
+  placeDate=null;
+  if(view==='week')weekStart=new Date(addSeoulDays(d,-((seoulParts(d).weekday+6)%7)).getTime());else start=d;
+  reset();queueMicrotask(()=>window.KPTUCalendarPersistence?.refresh());
+  return false;
+}
+function writePlace(first){
+  const t=seoulParts(today()),f=seoulParts(first);
+  const isDefault=view==='month'?f.year===t.year&&f.month===t.month:seoulDateKey(first)===seoulDateKey(view==='week'?thisWeek():today());
+  window.KPTURouter?.setPlace?.('calendar',{date:isDefault?null:seoulDateKey(first)});
+}
 function render(next){
+  if(applyPlace())return;
   options=next;
   const grid=document.querySelector('#calendarGrid'),list=document.querySelector('#calendarList'),week=document.querySelector('#calendarWeek');if(!grid||!list||!week)return;
   grid.classList.toggle('hidden',view!=='month');list.classList.toggle('hidden',view!=='list');week.classList.toggle('hidden',view!=='week');grid.closest('#calendarView')?.classList.toggle('calendar-list-active',view!=='month');
@@ -24,6 +43,7 @@ function render(next){
   document.querySelector('#prevMonthBtn')?.setAttribute('aria-label',view==='list'?'이전 14일':view==='week'?'이전 주':'이전 달');document.querySelector('#nextMonthBtn')?.setAttribute('aria-label',view==='list'?'다음 14일':view==='week'?'다음 주':'다음 달');
   const first=view==='month'?seoulDate(next.year,next.month):view==='week'?weekStart:start,end=new Date(first);
   if(view!=='month')end.setTime(addSeoulDays(end,(view==='week'?7:days)-1).getTime());
+  writePlace(first);
   const sameMonth=seoulParts(first).year===seoulParts(end).year&&seoulParts(first).month===seoulParts(end).month;
   const full=view==='month'?`${seoulParts(first).year}년 ${seoulParts(first).month+1}월`:`${seoulParts(first).month+1}월 ${seoulParts(first).day}일 – ${sameMonth?'':`${seoulParts(end).month+1}월 `}${seoulParts(end).day}일`;
   const label=view==='month'?full:`${seoulParts(first).year}년 ${seoulParts(first).month+1}월 ${seoulParts(first).day}일 – ${sameMonth?'':`${seoulParts(end).year}년 ${seoulParts(end).month+1}월 `}${seoulParts(end).day}일`;
