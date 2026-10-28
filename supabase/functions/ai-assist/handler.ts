@@ -182,7 +182,6 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   call_refill_unavailable: "통화 정보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   note_title_unavailable: "노트 제목을 저장하지 못했어요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
-  area_not_ready: "사업영역 칸이 아직 준비되지 않았어요.",
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   text_pending: "글자를 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.",
   no_file_text: "요약할 글자가 없어요.",
@@ -3120,13 +3119,13 @@ async function readAreaRows(ctx: Ctx): Promise<Record<string, unknown>[]> {
   return rows.filter((r) => String(r.workspace_id).toLowerCase() === ctx.workspaceId && String(r.owner_id).toLowerCase() === ctx.userId);
 }
 
-// 그 주 사업 보고(휴지통은 RLS app_meetings_trash_hidden이 숨김). 꼬리표 칸이 아직 없는 서버(400)는 area_not_ready.
+// 그 주 사업 보고(휴지통은 RLS app_meetings_trash_hidden이 숨김). 꼬리표 칸이 없는 서버(400)도 read_unavailable
+// (꼬리표 칸은 run 107로 운영 적용됨 — 화면 문구 목록 app/basket-ai-summary.js를 이 PR에서 고치지 않으려고 새 오류 코드를 만들지 않음).
 async function readAreaMeetings(ctx: Ctx, filter: string, fromIso: string, toIso: string): Promise<Record<string, unknown>[]> {
   let rows: unknown;
   try {
     rows = await rest(ctx, `app_meetings?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&${filter}&meeting_at=gte.${encodeURIComponent(fromIso)}&meeting_at=lt.${encodeURIComponent(toIso)}&select=${AREA_MEETING_FIELDS}&order=meeting_at.asc,id.asc&limit=${AREA_SUMMARY_READ_LIMIT}`);
-  } catch (e) {
-    if ((e as Error)?.message === "rest_400") throw new Fail(503, "area_not_ready");
+  } catch {
     throw new Fail(503, "read_unavailable");
   }
   if (!Array.isArray(rows)) throw new Fail(503, "read_unavailable");

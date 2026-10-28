@@ -241,7 +241,7 @@
   - `from:"edited"` = 사람이 고친 줄(AI에 보내지도, 덮어쓰지도 않음), `"saved"` = 지난번 AI 줄(보고 지문이 같아 AI를 부르지 않음), `"ai"` = 이번에 만든 줄.
   - `empty` = 그 주 보고가 없거나 AI가 쓸 말이 없다고 한 사업영역 → 화면은 보고 제목을 `·`로 이어 대신한다(5절).
   - `saved` = 임시저장 칸에 썼는지. 다른 기기가 그사이 저장했거나(조건 0행), 칸이 아직 없거나(404·400), 200 KiB에 가까우면 쓰지 않고 `false`(요약은 그대로 돌려줌).
-- 오류: 주·ID 모양 400, 남의·없는·v2 아닌 사업영역뿐이면 404, 꼬리표 칸이 없는 서버 503 `area_not_ready`, 한도 429 `monthly_limit`·`daily_limit`(하루 30회, 모든 쓰임 합계 80회 안).
+- 오류: 주·ID 모양 400, 남의·없는·v2 아닌 사업영역뿐이면 404, 꼬리표 칸이 없는 서버도 503 `read_unavailable`(칸은 run 107로 운영 적용됨, 새 오류 코드는 화면 문구 목록과 짝이라 만들지 않음), 한도 429 `monthly_limit`·`daily_limit`(하루 30회, 모든 쓰임 합계 80회 안).
 - 비용: 기존 월 상한 `MONTHLY_LIMIT_KRW`·사용량 기록 `app_ai_daily_usage` 안. 고친 줄·같은 지문·보고 없음은 AI를 부르지 않아 사용량에 잡지 않는다.
 
 ### 12.2 임시저장 칸 모양 (`draft.area_summaries`) — 결정 ⑤
@@ -267,4 +267,3 @@ draft.area_summaries = { "<사업영역 id>": { "text": "한 줄", "hash": "a1:<
 2. `app/report-summary-preview.js` `paint()`: 표를 그린 뒤 그 기간이 월~일 한 주이면 표에 나온 사업영역 id로 `area_week_summary` 한 번(`basket-ai-summary.js`의 ai-assist 호출 공용 함수) → 사업영역 칸 '진행'에 한 줄, `empty`·실패·한도는 지금처럼 보고 줄. 한 줄 옆 작은 [고치기] → 1번 함수로 `edited:true` 저장. 기간을 바꾼(한 주가 아닌) 미리보기는 AI를 부르지 않음.
 3. `app/journal-weekly.js` ②·`journal-hwpx.js`: 그 주 `draft.area_summaries`가 있으면 사업영역 줄의 진행 칸 첫 줄로(고친 줄 우선). 없으면 지금처럼.
 4. `app/business-area-fields.js` `mountAreaFields`: [사업영역] 버튼 옆 작은 [AI 추천] → 쓰기 창 제목·결과(`#meetingTranscript`)·다음 할 일 글로 `area_suggest` → 후보 칩 최대 3개, 누르면 그 꼬리표로(손대지 않은 꼬리표만, `touched` 규칙 그대로). 자동으로 부르지 않음.
-5. `app/basket-ai-summary.js` 오류 문구에 `area_not_ready` 더하기.

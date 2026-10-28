@@ -169,7 +169,7 @@ test('area_week_summary: refused shapes, other owners\' areas, missing area colu
   assert.equal(stranger.status,404);
   assert.equal(h.calls.openai.length,0);
   const missing=await summary(harness({noAreaColumn:true}));
-  assert.equal(missing.status,503);assert.equal((await missing.json()).error,'area_not_ready');
+  assert.equal(missing.status,503);assert.equal((await missing.json()).error,'read_unavailable');
   const limited=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-27',requests:1,input_tokens:9e9,output_tokens:9e9}]});
   const r=await summary(limited);
   assert.equal(r.status,429);assert.equal((await r.json()).error,'monthly_limit');assert.equal(limited.calls.openai.length,0);
