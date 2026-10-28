@@ -280,6 +280,9 @@ jobs:
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
 
+      - name: Organization pickers offer only my organizations (ORG-고르기통일)
+        run: node --test tests/org-picker-mine.test.mjs
+
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
 
