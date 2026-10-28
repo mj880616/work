@@ -38,3 +38,15 @@ test('서버 거절 글의 숫자를 읽는다(DB 적용 전 3단 거절도 그�
   assert.equal(folderDepthLimitFrom('LIB_FOLDER_DEPTH: folders are limited to 100 levels'),100);
   assert.equal(folderDepthLimitFrom('LIB_FOLDER_DEPTH: x'),FOLDER_DEPTH_LIMIT);assert.equal(folderDepthLimitFrom(null),FOLDER_DEPTH_LIMIT);
 });
+
+test('노트 폴더(NOTE-탐색기)도 같은 100단: 서버 규칙 숫자 = 화면 한도',()=>{
+  const sql=read('supabase/migrations/20261028170000_note_folders.sql').replace(/--.*$/gm,'');
+  const limits=[...sql.matchAll(/NOTE_FOLDER_DEPTH: folders are limited to (\d+) levels/g)].map(m=>Number(m[1]));
+  assert.equal(limits.length,2);assert.ok(limits.every(n=>n===FOLDER_DEPTH_LIMIT));
+  assert.match(sql,new RegExp(`if v_above >= ${FOLDER_DEPTH_LIMIT} then`));assert.match(sql,new RegExp(`if v_above \\+ v_height > ${FOLDER_DEPTH_LIMIT} then`));
+  // 권한: 새 표만, owner 정책 하나, anon·PUBLIC·service_role 권한 없음. 기존 노트 표는 고치지 않는다(읽기만).
+  assert.match(sql,/revoke all on table public\.app_note_folders from public, anon, authenticated, service_role;/);
+  assert.doesNotMatch(sql,/grant [^;]* to (anon|public|service_role)/i);
+  assert.doesNotMatch(sql,/(update|alter table|delete from) public\.app_notes\b/i);
+  assert.equal(folderDepthLimitFrom('NOTE_FOLDER_DEPTH: folders are limited to 100 levels'),100);
+});
