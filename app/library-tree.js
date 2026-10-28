@@ -148,13 +148,16 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 // fileHtml(d, node)는 지금의 파일 줄(luRowHtml)을 그대로 쓴다. node는 그 줄이 든 토글(종류로 묶었을 때 같은 종류 표를 빼는 데 쓴다).
 // menu(n): 그 토글 머리에 ⋯ 버튼을 둘 때 접근성 이름(없으면 버튼 없음). 버튼 누르기는 토글을 여닫지 않는다(그리는 쪽이 막음).
 // canDrag(n): 폴더 머리를 끌 수 있게 할지(PC 끌어 놓기). 파일 줄의 끌기는 fileHtml이 정한다.
-export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,canDrag=null,pick=null}){
+// emoji: 폴더로 묶었을 때(LIB-폴더보기, 2026-10-28 명진 요청 08:25 ③) ▸ 삼각형 대신 닫힌 📁 / 열린 📂 글자, '폴더 밖'은 🗂 + 흐린 글자.
+export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,canDrag=null,pick=null,emoji=false}){
   const head=n=>{
     const dots=n.kinds.map(k=>`<i class="lu-kdot" data-lu-kind="${esc(kindKey(k))}"></i>`).join('');
-    const mark=n.kind==='folder'?'<svg class="lu-folder-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25a1 1 0 0 1 1-1h3.1l1.4 1.5h5.999a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H2.75a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
+    const face=emoji&&(n.kind==='folder'||n.key==='x:out');
+    const mark=face?(n.key==='x:out'?'<span class="lu-folder-emoji" aria-hidden="true">\u{1F5C2}</span>':'<span class="lu-folder-emoji" aria-hidden="true"><span class="lu-fe-closed">\u{1F4C1}</span><span class="lu-fe-open">\u{1F4C2}</span></span>')
+      :n.kind==='folder'?'<svg class="lu-folder-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25a1 1 0 0 1 1-1h3.1l1.4 1.5h5.999a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H2.75a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
       :n.color?`<span class="lu-pdot" data-color="${esc(n.color)}"${n.tone?` data-tone="${esc(n.tone)}"`:''} aria-hidden="true"></span>`:'';
     const more=menu?.(n);
-    return `<summary class="lu-node-head"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${dots?`<span class="lu-kdots" aria-hidden="true">${dots}</span>`:''}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true">⋯</button>`:''}</summary>`;
+    return `<summary class="lu-node-head${face?' lu-node-emoji':''}${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${dots?`<span class="lu-kdots" aria-hidden="true">${dots}</span>`:''}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true">⋯</button>`:''}</summary>`;
   };
   const body=n=>{
     const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;

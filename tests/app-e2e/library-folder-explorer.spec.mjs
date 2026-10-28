@@ -17,7 +17,9 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     await radio(page,'폴더').click();await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
     expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
     await expect(libraryNodeHead(page,'x:out').locator('.lu-node-name')).toHaveText('폴더 밖');
-    await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-icon')).toHaveCount(0);await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-icon')).toHaveCount(1);
+    // LIB-폴더보기: 폴더 묶기의 폴더 줄은 ▸ 대신 📁/📂 글자, '폴더 밖'은 🗂.
+    await expect(libraryNodeHead(page,'x:out').locator('.lu-folder-emoji')).toHaveText('\u{1F5C2}');await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toBeVisible();
+    await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-emoji .lu-fe-closed')).toHaveText('\u{1F4C1}');await expect(libraryNodeHead(page,'f:fa').locator('.lu-folder-icon')).toHaveCount(0);
     // 들어올 때는 모두 접힘(결정 D13). 폴더 안 폴더는 프로젝트가 달라도 parent_id를 따른다. 건수는 그 안 전체.
     await expect(page.locator('#documentList details[open]')).toHaveCount(0);
     await expect(count(page,'x:out')).toHaveText('2');await expect(count(page,'f:fa')).toHaveText('2');await expect(count(page,'f:fn')).toHaveText('0');
