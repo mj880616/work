@@ -22,8 +22,8 @@ async function open(page,url=app+'?view=home'){
   await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
-// BASKET-PC메뉴: 홈 / 정리함(업데이트·챙길 것) / 일정(달력→일정, 할 일·업무일지·일기) / 노트 / 사업 보고 …(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다)
-const order=['홈','정리함','업데이트','챙길 것','일정','할 일','업무일지','일기','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','아스날'];
+// BASKET-정리함한화면: 홈 / 정리함 / 일정(달력→일정, 할 일·업무일지·일기) / 노트 / 사업 보고 …(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다)
+const order=['홈','정리함','일정','할 일','업무일지','일기','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','아스날'];
 for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`mid menu is a reachable ordered prefix at ${width}px, font ${fontSize||'default'}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);
   const trigger=page.locator('#mobileMenuOpen');await expect(trigger).toBeVisible();
@@ -91,19 +91,19 @@ test('resize and font changes repartition; phone and PC return to their original
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
   // UI-PC일정묶음: back on the PC sidebar, 할 일·업무일지·일기 are sub rows under [일정] again (with [달력] first).
   expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','아스날','자주 가는 링크 ›']);
-  expect(await page.locator('.app-nav .nav-sub[aria-label="정리함"] .nav-sub-btn:not(.nav-btn)').allTextContents()).toEqual(['업데이트','챙길 것']);
+  expect(await page.locator('.app-nav .nav-sub[aria-label="정리함"]').count()).toBe(0);
   expect(await page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:not(.nav-btn)').allTextContents()).toEqual(['달력','할 일','업무일지','일기']);
   expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','할 일','업무일지','일기','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','아스날','자주 가는 링크 ›']);await expect(page.locator('.app-topline [data-account-open]')).toBeVisible();
 });
 
-// BASKET-PC메뉴: [업데이트]·[챙길 것]이 줄에 늘어 1023px 이하 줄에는 뒤쪽 칸이 들어가지 않는다. 글자를 키워 줄에서 빠진 공유 페이지의 지금 위치는
+// 1023px 이하 줄에는 뒤쪽 칸이 다 들어가지 않는다. 글자를 키워 줄에서 빠진 공유 페이지의 지금 위치는
 // [메뉴] 버튼과 메뉴 창 안 항목에 표시된다(줄 쪽 표시는 위 "reachable ordered prefix" 시험이 줄/창 어느 쪽이든 검사한다).
 test('recalculation preserves keyboard focus and highlights the hidden combined button',async({page})=>{
   await page.setViewportSize({width:900,height:844});await open(page);
   const home=page.locator('.app-nav [data-view="home"]');await home.focus();
   await page.setViewportSize({width:1000,height:844});await expect(home).toBeFocused();
   const trigger=page.locator('#mobileMenuOpen');await trigger.focus();await page.setViewportSize({width:900,height:844});await expect(trigger).toBeFocused();
-  await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='32px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
+  await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='40px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
   await expect.poll(()=>page.locator('.app-nav [data-view="pages"]').count()).toBe(0);
   await trigger.click();await page.locator('#mobileMenu [data-view="pages"]:visible').click();
   await expect(page.locator('#pagesView')).toBeVisible();await expect(trigger).toHaveAttribute('aria-current','page');await trigger.click();
