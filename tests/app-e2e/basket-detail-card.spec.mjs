@@ -145,12 +145,10 @@ for (const width of [390, 1280]) {
     // Notes: the row and the read view copy the same way (title as the first line).
     await press(page, page.locator('[data-basket-close]'), width);
     await openKindMenu(page,'note');await press(page, basketKindButton(page,'note'), width);
-    if (width >= 761) await press(page, page.locator('[data-note-row-copy="n-titled"]'), width);
-    else {
-      await expect(page.locator('[data-note-row-copy="n-titled"]')).toBeHidden();
-      await press(page, page.locator('[data-note-row-more="n-titled"]'), width);
-      await press(page, page.locator('#noteDocMenu').getByRole('button', { name: '복사', exact: true }), width);
-    }
+    // 17:45 ③: no [복사] icon on note rows (any width); [복사] is in the row's ⋯.
+    await expect(page.locator('[data-note-row-copy="n-titled"]')).toHaveCount(0);
+    await press(page, page.locator('[data-note-row-more="n-titled"]'), width);
+    await press(page, page.locator('#noteDocMenu').getByRole('button', { name: '복사', exact: true }), width);
     await expect(toast(page)).toHaveText('복사했습니다'); expect(await copied(page)).toBe('정리 노트\n\n쟁점\n\n• 기본급');
     await press(page, page.locator('[data-note-row="n-titled"]'), width);
     await page.evaluate(() => { window.__copied.length = 0; });

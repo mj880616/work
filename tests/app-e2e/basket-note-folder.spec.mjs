@@ -3,8 +3,9 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
 // NOTE-탐색기 (2026-10-28 09:24·10:34·11:01): the note list is a folder tree (app_note_folders, migration 20261028170000).
-// Phone: folders and notes on one screen (open folder → its notes indented below); PC: left folder tree, right the entered folder.
-// Notes without a folder sit in '🗂 폴더 밖'. A note written before the table keeps its folder by name (top folder of the same name).
+// 10/28 17:45·17:55 화면 정리: PC = 왼쪽 폴더 나무(맨 아래 '폴더 없음' + [+ 새 폴더]) · 오른쪽은 고른 폴더의 노트만 한 줄씩(위에 '이름 · 장수').
+// 폰 = 한 화면씩: 첫 화면 폴더 목록 → 누르면 그 폴더 화면('← 이름 · 장수', 하위 폴더 줄 먼저), 갤럭시 뒤로가기 = 폴더 목록.
+// Notes without a folder sit in '🗂 폴더 없음'. A note written before the table keeps its folder by name (top folder of the same name).
 // Row ⋯ / right-click / long-press = one menu with [선택] on top; select mode moves several at once; every move has [되돌리기].
 // Phone 390 and PC 1280. Names are made up.
 test.use({ hasTouch: true });
@@ -48,29 +49,51 @@ async function fixture(page, width, {table = true, more = []} = {}) {
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
 const picker = page => page.locator('#luMovePicker');
 const noteRow = (page, id) => page.locator(`#noteRows [data-note-row="${id}"]`);
-// Shows the notes of folder id: phone opens it in the tree, PC enters it from the left tree.
+// Shows the notes of folder id: phone enters that folder's screen from the folder list, PC picks it in the left tree.
 async function showFolder(page, width, id) {
   if (width >= 1024) await press(page, page.locator(`[data-nx-tree] [data-nx-open="${id}"]`), width);
   else await press(page, page.locator(`#noteRows [data-nx-open="${id}"]`), width);
 }
+// '폴더 없음' 노트: PC는 처음부터 오른쪽에 보인다(나무의 '폴더 없음'이 고른 곳), 폰은 첫 화면 맨 아래 '폴더 없음'을 눌러 들어간다.
+async function showOutside(page, width) {
+  if (width >= 1024) { await expect(page.locator('[data-nx-tree] [data-nx-outside]')).toHaveClass(/nx-current/); return; }
+  await press(page, page.locator('#noteRows [data-nx-open="out"]'), width);
+  await expect(page.locator('[data-nx-here]')).toContainText('폴더 없음');
+}
+const here = page => page.locator('[data-nx-here]');
 
-for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 밖, move with the shared picker and undo ${width}`, async ({ page }) => {
+for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 없음, move with the shared picker and undo ${width}`, async ({ page }) => {
   const f = await fixture(page, width);
-  // The old folder (metadata.folder '회의', no id) is the top folder of that name; the others are in 폴더 밖 (open from the start).
+  // The old folder (metadata.folder '회의', no id) is the top folder of that name; the others are in 폴더 없음 (at the bottom).
   await expect(page.locator(`[data-nx-folder="${U(1)}"]`).first()).toContainText('회의');
   await expect(page.locator(`[data-nx-folder="${U(1)}"] .nx-num`).first()).toHaveText('1');
-  await expect(noteRow(page, 'n1')).toBeVisible(); await expect(noteRow(page, 'n3')).toBeVisible();
+  await expect(page.locator('[data-nx-outside]').first()).toContainText('폴더 없음');
   await expect(page.locator('[data-note-row] .basket-preview')).toHaveCount(0);
+  // 17:45 ③: no copy icon on the rows.
+  await expect(page.locator('[data-note-row-copy], .basket-row-copy')).toHaveCount(0);
+  if (width >= 1024) {
+    // PC: folders only in the left tree (none on the right), the right shows 폴더 없음 notes with '폴더 없음 · 2' above.
+    await expect(page.locator('#noteRows [data-nx-folder]')).toHaveCount(0);
+    await expect(here(page)).toHaveText('폴더 없음 · 2');
+    await expect(page.locator('[data-nx-tree] [data-nx-new-top]')).toHaveText('+ 새 폴더');
+    await expect(noteRow(page, 'n1')).toBeVisible(); await expect(noteRow(page, 'n3')).toBeVisible();
+    await expect(noteRow(page, 'n2')).toHaveCount(0);
+  } else {
+    // Phone first screen: the folder list only (no note rows), 폴더 없음 last, then [+ 새 폴더].
+    await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(0);
+    await expect(page.locator('#noteRows > *').last()).toHaveText('+ 새 폴더');
+    await expect(here(page)).toBeHidden();
+  }
   await showFolder(page, width, U(1));
   await expect(noteRow(page, 'n2')).toBeVisible();
-  if (width >= 1024) {
-    await expect(page.locator('[data-nx-where]')).toContainText('노트');
-    await expect(page.locator('[data-nx-where] [aria-current]')).toHaveText('회의');
-    await press(page, page.locator('[data-nx-where] [data-nx-at=""]'), width);
-  }
-  // Row ⋯: [선택] first, then [폴더로 옮기기] opens the shared folder list; the note gets the folder id and name, nothing else changes.
+  await expect(noteRow(page, 'n1')).toHaveCount(0);
+  await expect(here(page)).toContainText('회의 · 1');
+  if (width < 1024) { await page.goBack(); await expect(page.locator(`#noteRows [data-nx-folder="${U(1)}"]`)).toBeVisible(); await expect(noteRow(page, 'n2')).toHaveCount(0); }
+  else await press(page, page.locator('[data-nx-tree] [data-nx-open="out"]'), width);
+  await showOutside(page, width);
+  // Row ⋯: [선택] first, [복사] in the menu, then [폴더로 옮기기] opens the shared folder list; the note gets the folder id and name, nothing else changes.
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
-  await expect(page.locator('#noteDocMenu button').first()).toHaveText('선택');
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', 'AI에 보내지 않기', '삭제']);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await expect(picker(page)).toBeVisible();
   await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);
@@ -80,16 +103,18 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   expect(w[0].body).toEqual({ metadata: { tasks: [{ task_id: 't1' }], folder_id: U(1), folder: '회의' } });
   expect(f.rows.find(r => r.id === 'n1').updated_at).toBe('2026-10-16T01:00:00Z');
   await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
-  await expect(page.locator(`[data-nx-folder="${U(1)}"] .nx-num`).first()).toHaveText('2');
-  // [되돌리기] puts it back in 폴더 밖.
+  await expect(here(page)).toContainText('폴더 없음 · 1');
+  if (width >= 1024) await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .nx-num`)).toHaveText('2');
+  // [되돌리기] puts it back in 폴더 없음.
   await press(page, page.locator('#kptuNotice .kptu-notice-undo'), width);
   await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata).toEqual({ tasks: [{ task_id: 't1' }] });
-  await expect(page.locator(`[data-nx-folder="${U(1)}"] .nx-num`).first()).toHaveText('1');
+  await expect(here(page)).toContainText('폴더 없음 · 2');
   expect(f.errors).toEqual([]);
 });
 
 for (const width of [390, 1280]) test(`select mode: [선택] → pick rows → move together → mode ends; Esc ends it ${width}`, async ({ page }) => {
   const f = await fixture(page, width);
+  await showOutside(page, width);
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
   await press(page, page.locator('#noteDocMenu [data-nx-select]'), width);
   await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
@@ -123,8 +148,9 @@ for (const width of [390, 1280]) test(`new folder inside a folder, delete moves 
   await expect.poll(() => f.folders.map(x => x.name)).toEqual(['회의', '하위']);
   const sub = f.folders[1];
   expect(sub.parent_id).toBe(U(1));
-  // The phone tree already opened 회의 when the folder was made inside it; the PC enters it.
-  if (width >= 1024) await showFolder(page, width, U(1));
+  await showFolder(page, width, U(1));
+  // Phone: the sub folder row comes first in 회의's screen, before its notes.
+  if (width < 1024) await expect(page.locator('#noteRows > *').first()).toHaveAttribute('data-nx-folder', sub.id);
   await press(page, page.locator('[data-note-row-more="n2"]'), width);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await press(page, picker(page).locator('.lu-move-item', { hasText: '하위' }), width);
@@ -145,6 +171,8 @@ for (const width of [390, 1280]) test(`new folder inside a folder, delete moves 
 for (const width of [390, 1280]) test(`before the folder table exists: folders by name, read only ${width}`, async ({ page }) => {
   const f = await fixture(page, width, { table: false });
   await expect(page.locator('[data-nx-folder="name:회의"]').first()).toContainText('회의');
+  await expect(page.locator('[data-nx-new-top]')).toHaveCount(0);
+  await showOutside(page, width);
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await expect(page.locator('[data-note-folder-status]')).toContainText('준비 중');
@@ -153,7 +181,7 @@ for (const width of [390, 1280]) test(`before the folder table exists: folders b
   expect(f.errors).toEqual([]);
 });
 
-// NOTE-탐색기 후속 ②(남은 시험 공백): 마우스로 노트·폴더 끌어 놓기(PC), 폰 꾹 누른 채 끌기(닫힌 폴더 위에 머물면 열림), 폰 들어가기 위치 줄.
+// NOTE-탐색기 후속 ②: 마우스로 노트·폴더 끌어 놓기(PC). 폰은 17:55부터 끌지 않고 꾹 누르기 메뉴·선택 모드로 옮긴다.
 const extra = [{ id: U(2), workspace_id: 'w', parent_id: null, name: '기록', sort_order: 2048, created_at: '2026-10-01T00:00:00Z' }];
 async function mouseDrop(page, from, to) {
   await page.evaluate(([a, b]) => {
@@ -180,45 +208,63 @@ test('PC 1280: drag a note onto a folder in the left tree, then drag a folder in
   expect(f.errors).toEqual([]);
 });
 
-test('phone 390: long-press a note and drag it onto a closed folder — the folder opens while held, the drop moves it', async ({ page }) => {
+test.describe('PC mouse (no touch)', () => { test.use({ hasTouch: false }); test('PC 1280: a row ⋯ shows only while the mouse is over the row', async ({ page }) => {
+  const f = await fixture(page, 1280);
+  const more = page.locator('[data-note-row-more="n1"]');
+  await page.mouse.move(5, 5);
+  await expect.poll(() => more.evaluate(el => getComputedStyle(el).opacity)).toBe('0');
+  await page.locator('[data-note-row="n1"]').hover();
+  await expect.poll(() => more.evaluate(el => getComputedStyle(el).opacity)).toBe('1');
+  // Right-click opens the same menu, with [복사] inside.
+  await page.locator('[data-note-row="n1"]').click({ button: 'right' });
+  await expect(page.locator('#noteDocMenu')).toBeVisible();
+  await expect(page.locator('#noteDocMenu [data-note-copy]')).toHaveText('복사');
+  expect(f.errors).toEqual([]);
+}); });
+
+test('phone 390: long-press a note opens its menu (no dragging); [폴더로 옮기기] moves it', async ({ page }) => {
   const f = await fixture(page, 390);
+  await showOutside(page, 390);
   const cdp = await page.context().newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
-  const center = sel => page.locator(sel).first().evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
-  const folderRow = `#noteRows [data-nx-folder="${U(1)}"]`;
-  await expect(page.locator(`${folderRow} [data-nx-open]`)).toHaveAttribute('aria-expanded', 'false');
-  await page.locator('#noteRows [data-nx-note="n1"]').scrollIntoViewIfNeeded();
-  const from = await center('#noteRows [data-nx-note="n1"] .basket-title-text'), to = await center(`${folderRow} .nx-name`);
+  const from = await page.locator('#noteRows [data-nx-note="n1"] .basket-title-text').evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveAttribute('draggable', 'false');
   await touch('touchStart', [from]); await page.waitForTimeout(700);
-  await expect(page.locator('#noteRows [data-nx-note="n1"]')).toHaveClass(/nx-grabbed/);
-  for (const k of [0.25, 0.5, 0.75, 1]) await touch('touchMove', [{ x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }]);
-  await expect(page.locator(folderRow)).toHaveClass(/nx-drop/);
-  // Held over the closed folder for a moment: it opens (its note shows below), still the drop target.
-  await expect(page.locator(`${folderRow} [data-nx-open]`)).toHaveAttribute('aria-expanded', 'true', { timeout: 3000 });
-  await expect(page.locator('#noteRows [data-nx-note="n2"]')).toBeVisible();
   await touch('touchEnd', []);
-  await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata.folder_id).toBe(U(1));
-  await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
+  await expect(page.locator('#noteDocMenu')).toBeVisible();
+  await expect(page.locator('#noteDocMenu button').first()).toHaveText('선택');
   await expect(page.locator('[data-note-detail]')).toBeHidden();
   await cdp.detach();
+  await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), 390);
+  await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), 390);
+  await expect.poll(() => f.rows.find(r => r.id === 'n1').metadata.folder_id).toBe(U(1));
+  await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개');
   expect(f.errors).toEqual([]);
 });
 
-test('phone 390: folder ⋯ [이 폴더로 들어가기] shows only that folder with the shared path line; the first step goes back to the top', async ({ page }) => {
-  const f = await fixture(page, 390);
-  await press(page, page.locator(`#noteRows [data-nx-folder-more="${U(1)}"]`), 390);
-  await press(page, page.locator('#noteDocMenu [data-nx-enter]'), 390);
-  const where = page.locator('[data-nx-where]');
-  await expect(where).toBeVisible();
-  await expect(where).toHaveClass(/fp-path/);
-  await expect(where).toHaveText('노트›회의');
-  await expect(where.locator('.fp-here[aria-current="location"]')).toHaveText('회의');
+test('phone 390: one screen at a time — folder list → folder (sub folder first, ← one level up), Back returns to the folder list', async ({ page }) => {
+  const f = await fixture(page, 390, { more: [{ id: U(3), workspace_id: 'w', parent_id: U(1), name: '하위', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }] });
+  await showFolder(page, 390, U(1));
+  await expect(here(page)).toHaveText('←회의 · 1');
+  await expect(page.locator('#noteRows > *').first()).toHaveAttribute('data-nx-folder', U(3));
   await expect(noteRow(page, 'n2')).toBeVisible();
   await expect(noteRow(page, 'n1')).toHaveCount(0);
-  // One line, no horizontal page scroll on the phone.
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await press(page, where.locator('.fp-step[data-nx-at=""]'), 390);
+  // A top folder has no path line ('← 회의 · 1' says it); a folder in a folder shows the shared path line.
+  const where = page.locator('[data-nx-where]');
   await expect(where).toBeHidden();
-  await expect(noteRow(page, 'n1')).toBeVisible();
+  await showFolder(page, 390, U(3));
+  await expect(where).toBeVisible();
+  await expect(where).toHaveClass(/fp-path/);
+  await expect(where).toHaveText('노트›회의›하위');
+  await expect(here(page)).toHaveText('←하위 · 0');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  // ← goes one level up; Galaxy Back goes to the folder list.
+  await press(page, page.locator('[data-nx-back]'), 390);
+  await expect(here(page)).toHaveText('←회의 · 1');
+  await page.goBack();
+  await expect(here(page)).toBeHidden();
+  await expect(page.locator(`#noteRows [data-nx-folder="${U(1)}"]`)).toBeVisible();
+  await expect(noteRow(page, 'n2')).toHaveCount(0);
+  await expect(page.locator('#basketView')).toBeVisible();
   expect(f.errors).toEqual([]);
 });

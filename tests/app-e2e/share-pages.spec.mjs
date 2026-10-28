@@ -310,12 +310,13 @@ test('Web1 reader draws the page as text only, with noindex and no stored link v
   expect(calls[0].headers.referer).toBeUndefined();
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   await expect(page.locator('meta[name="referrer"]')).toHaveAttribute('content', 'no-referrer');
-  // Summary on the green bar, stage bar with the current step marked.
+  // UI-선택표시톤다운: 요약은 꽉 칠한 초록 대신 연한 초록 바탕 + 왼쪽 얇은 초록 선 + 본문 글자색. 지금 단계는 막대로 표시.
   const summary = page.locator('.sr-summary');
   await expect(summary).toHaveText(samplePage.blocks[0].text);
-  const tokens = await page.evaluate(() => { const s = getComputedStyle(document.documentElement); return {primary:s.getPropertyValue('--kptu-primary').trim()}; });
-  expect(tokens.primary).toBe('#5c6a35');
-  await expect(summary).toHaveCSS('background-color', 'rgb(92, 106, 53)');
+  const tokens = await page.evaluate(() => { const s = getComputedStyle(document.documentElement); return {primary:s.getPropertyValue('--kptu-primary').trim(), soft:s.getPropertyValue('--kptu-primary-soft').trim()}; });
+  expect(tokens.primary).toBe('#5c6a35');expect(tokens.soft).toBe('#eef0e1');
+  await expect(summary).toHaveCSS('background-color', 'rgb(238, 240, 225)');
+  await expect(summary).toHaveCSS('box-shadow', 'rgb(92, 106, 53) 2px 0px 0px 0px inset');
   await expect(page.locator('.sr-stage')).toHaveCount(3);
   await expect(page.locator('.sr-stage[aria-current="step"]')).toHaveText('교섭');
   await expect(page.locator('.sr-stage.is-done')).toHaveCount(1);

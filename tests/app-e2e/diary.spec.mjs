@@ -703,11 +703,14 @@ for(const width of [390,1280]){
   await cell(page,'2026-10-04').click();
   await expectDiaryDay(page,'10월 4일 일요일');await expect(list).toBeHidden();
   await page.locator('#diaryRoot [data-diary-detail-close]').click();
-  // 표시색: 글만 있는 날 점·오늘 동그라미·고른 날 테두리는 --kptu-primary-ink, 사진 칸 바탕은 --kptu-primary-soft.
+  // 표시색: 글만 있는 날 점·고른 날 테두리는 --kptu-primary-ink, 오늘은 --kptu-primary-text 동그라미 테두리, 사진 칸 바탕은 --kptu-primary-soft.
   const color=(token)=>page.evaluate(t=>{const e=document.createElement('span');e.style.color=`var(${t})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},token);
   const ink=await color('--kptu-primary-ink');
   expect(await cell(page,'2026-10-04').locator('[data-diary-dot]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(ink);
-  expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(ink);
+  // UI-선택표시톤다운: 오늘은 칠하지 않고 강조 글자색 동그라미 테두리.
+  const accent=await color('--kptu-primary-text');
+  expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).boxShadow)).toContain(accent);
   await cell(page,'2026-10-04').click();
   expect(await cell(page,'2026-10-04').evaluate(el=>getComputedStyle(el).borderTopColor)).toBe(ink);
   expect(f.errors).toEqual([]);

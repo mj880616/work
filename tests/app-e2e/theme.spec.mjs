@@ -45,8 +45,8 @@ async function signIn(page){
 
 
 // SET-보기선택서버저장: 화면 색은 서버(프로필 view_prefs.theme)에 저장된다. 로그인 전 화면은 늘 기본(올리브)이고, 로그인 뒤 첫 화면을 공개하기 전에 저장된 색이 적용된다.
-const primary={olive:'#5c6a35',navy:'#263f5f',ink:'#4a4a46',lavender:'#61537f',teal:'#36676f',sky:'#2c77c4',mint:'#14846e',coral:'#c4532f',lemon:'#f5cc00',red:'#d7261e'};
-const pageColor={olive:'#f3f1ea',navy:'#f5f6f7',ink:'#f4f4f2',lavender:'#f5f3f8',teal:'#f1f6f7',sky:'#eef6fd',mint:'#eaf8f4',coral:'#fff2ec',lemon:'#fffbe0',red:'#fff1f0'};
+const primary={olive:'#5c6a35',navy:'#263f5f',ink:'#4a4a46',lavender:'#61537f',teal:'#36676f',sky:'#2c77c4',mint:'#14846e',coral:'#b8553a',lemon:'#e3c25a',red:'#b23a2e'};
+const pageColor={olive:'#f3f1ea',navy:'#f5f6f7',ink:'#f4f4f2',lavender:'#f5f3f8',teal:'#f1f6f7',sky:'#eef6fd',mint:'#eaf8f4',coral:'#fff2ec',lemon:'#fbf8ec',red:'#fff1f0'};
 test('this list follows the one allowed list of ten colors',()=>{expect(Object.keys(primary)).toEqual([...THEMES]);expect(Object.keys(pageColor)).toEqual([...THEMES])});
 // 아래 D-3b 시험의 카드 바탕(surface)도 같은 열 가지: 값은 theme-tokens.css의 --kptu-surface.
 const readPrimary=page=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary').trim());
@@ -218,7 +218,13 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
     const navBtn=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn).active').first();await expect(navBtn).toBeVisible();
     const group=await navBtn.evaluate(el=>el.nextElementSibling?.classList.contains('nav-sub')===true);
     if(group)await expect.poll(()=>navBtn.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-    else await matches('.app-nav :is(.nav-btn,.nav-sub-btn).active','backgroundColor',color);
+    else{
+     // UI-선택표시톤다운: 지금 화면은 연한 선택 바탕(--ds-select-bg) + 왼쪽 얇은 선. 주 색으로 채우지 않는다.
+     const soft=await page.evaluate(()=>{const e=document.createElement('i');e.style.color='var(--ds-select-bg)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
+     expect(soft).not.toBe(rgb(color));
+     await expect.poll(()=>navBtn.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(soft);
+     expect(await navBtn.evaluate(el=>getComputedStyle(el).boxShadow)).toContain('inset');
+    }
    }
    if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);

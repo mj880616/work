@@ -126,7 +126,8 @@ test('통화 1280: F2로 제목 입력, Esc는 취소(서버 호출 없음), 바
  expect(f.calls).toEqual([]);
  await row.focus();await page.keyboard.press('F2');
  await input.fill('바깥을 눌러 저장');
- await view.locator('#cfDetail').click({position:{x:20,y:200}});
+ // UI-선택표시톤다운 ④: PC 오른쪽 칸은 처음부터 맨 위 통화 상세라, 상세 안 버튼이 없는 빈 곳(칸 맨 아래)을 누른다.
+ {const pane=await view.locator('#cfDetail').boundingBox();await page.mouse.click(pane.x+12,pane.y+pane.height-8);}
  await expect.poll(()=>f.calls).toEqual([{p_id:W2,p_patch:{title:'바깥을 눌러 저장'}}]);
  await expect(view.locator('#cfList [data-cf-status]')).toContainText('제목을 바꿨어요');
  await row.focus();await page.keyboard.press('F2');

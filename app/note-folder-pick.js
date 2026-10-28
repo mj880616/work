@@ -79,7 +79,7 @@ export function createNoteFolderPick({rt = window.KPTURuntime, initial = null, t
   return {
     title,
     get: () => value,
-    label: () => folderOf(value)?.name || '폴더 밖',
+    label: () => folderOf(value)?.name || '폴더 없음',
     load,
     watch: fn => { watchers.push(fn); },
     // note-window.js의 noteFolder 자리: 단추를 누르면 폴더 나무 고르기 창이 단추 아래(PC)나 아래 시트(폰)로 열린다.

@@ -43,6 +43,8 @@ const isPersonal = r => r?.box === 'personal';
 // 오른쪽 상대 표와 제목의 주제는 feed-model.mjs 한 곳의 규칙(callWho·callTopic)으로 가른다. 조직은 연결 조직(organization_id)을 우선 쓴다.
 const orgOf = r => (isPersonal(r) ? null : state.orgs.find(o => o.id === r.organization_id) || null);
 const whoOf = r => callWho({organization:orgOf(r), counterpart:r.counterpart, personal:isPersonal(r)}).text;
+// UI-선택표시톤다운 ③: 목록 줄 오른쪽 꼬리표는 짧게 — 조직 약칭 하나(없으면 사람 이름). 전체 '조직 · 사람'은 상세 머리 줄에 그대로 있다.
+const tagOf = r => { const w = callWho({organization:orgOf(r), counterpart:r.counterpart, personal:isPersonal(r)}); return w.org || w.person; };
 // 손으로 고친 제목은 그대로 보인다(앞의 조직·사람을 떼는 규칙은 AI 제목에만).
 const topicOf = r => (r.edited?.title ? String(r.title || '').trim() : callTopic(r.title, {organization:orgOf(r), counterpart:r.counterpart})) || '(제목 없음)';
 const rowOf = id => state.rows.find(r => r.id === id) || state.prows.find(r => r.id === id) || null;
@@ -61,9 +63,12 @@ async function loadNow() {
       readCallEdits(rt).then(edits => ({edits, editMissing:false, editFail:false}), error => ({edits:new Map(), editMissing:true, editFail:!missingTable(error)})),
     ]);
     if (me !== run || owner !== scopeOf(rt)) return;
+    const firstLoad = !state.loaded || state.owner !== owner;
     const withEdits = r => applyCallEdit(r, edited.edits.get(r.id));
     Object.assign(state, {owner, loaded:true, loading:false, missing:false, error:'', rows:rows.map(withEdits), days, orgs:orgs.orgs, mine:orgs.mine}, personal, {prows:personal.prows.map(withEdits)}, edited);
     if (state.selected && !rowOf(state.selected)) closeDetail({quiet:true});
+    // UI-선택표시톤다운 ④: PC는 오른쪽 칸을 비워 두지 않고 처음 열 때부터 맨 위 통화의 핵심내용을 보인다(고른 줄 표시와 같다). 다시 불러오기에서는 지금 고른 상태를 그대로 둔다.
+    if (firstLoad && pc.matches && !state.selected) pickTop();
     window.KPTULedgerAuto?.callsOpened?.(rows);
   } catch (error) {
     if (me !== run || owner !== scopeOf(rt)) return;
@@ -124,7 +129,7 @@ const titleInputHtml = (cls = 'feed-title-input') => `<input type="text" class="
 const decideHtml = id => `<span class="feed-ask-btns feed-decide-btns"><button type="button" class="feed-text-btn" data-cf-decide="work" data-cf-id="${esc(id)}"${state.busy ? ' disabled' : ''}>업무</button><span class="feed-faint" aria-hidden="true">·</span><button type="button" class="feed-text-btn" data-cf-decide="personal" data-cf-id="${esc(id)}"${state.busy ? ' disabled' : ''}>개인</button></span>`;
 function rowHtml(r, {ask = false} = {}) {
   if (!ask && state.edit?.id === r.id && state.edit.where === 'list') return `<div class="feed-callrow feed-editing" data-cf-item="${esc(r.id)}"><div class="feed-call is-selected"><span class="feed-time">${esc(hhmm(r.occurred_at))}</span>${titleInputHtml()}</div></div>`;
-  const on = r.id === state.selected, org = ask ? '' : whoOf(r);
+  const on = r.id === state.selected, org = ask ? '' : tagOf(r);
   const badge = r.kind === 'unsure' && !ask ? '<span class="feed-badge">애매</span> ' : '';
   const open = `<button type="button" class="feed-call${on ? ' is-selected' : ''}" data-cf-row="${esc(r.id)}"${on ? ' aria-current="true"' : ''}><span class="feed-time">${esc(hhmm(r.occurred_at))}</span><span class="feed-title">${r.pinned_at ? '<span class="feed-pin" aria-label="고정">고정</span>' : ''}${badge}${esc(ask ? r.title || '(제목 없음)' : topicOf(r))}</span>${org ? `<span class="feed-org">${esc(org)}</span>` : ''}</button>`;
   if (ask) return `<div class="feed-callrow feed-ask" data-cf-item="${esc(r.id)}">${open}${decideHtml(r.id)}</div>`;
@@ -229,6 +234,12 @@ function select(id) {
   openLayer(); paint(); void loadRaw(id);
   (pc.matches ? $(`#cfList [data-cf-row="${CSS.escape(id)}"]`) : $('#cfDetail [data-cf-back]'))?.focus({preventScroll:true});
 }
+// 지금 통화함 목록의 맨 위 통화(날짜별 목록의 첫 줄, 없으면 확인할 통화의 첫 줄)를 고른 상태로 둔다. 그리기는 부르는 쪽 paint() 한 번.
+function pickTop() {
+  const top = state.box === 'personal' ? groupByDay(personalRows())[0]?.items[0] : groupByDay(state.rows)[0]?.items[0] || unsureRows()[0];
+  if (!top) return;
+  state.selected = top.id; void loadRaw(top.id);
+}
 function closeDetail({fromBack = false, quiet = false} = {}) {
   const id = state.selected;
   state.selected = null; state.link = null; state.who = null; state.sum = null; state.edit = null; state.rawOpen = false; state.confirm = null;
@@ -245,6 +256,7 @@ function setBox(next, {fromBack = false} = {}) {
   state.box = next; state.confirm = null; state.status = ''; undo = null;
   if (next === 'personal') { if (!pc.matches) boxLayer ||= window.KPTURouter?.layer?.open('call-box', {close:() => { boxLayer = null; setBox('work', {fromBack:true}); return true; }}) || null; }
   else { const l = boxLayer; boxLayer = null; if (!fromBack) l?.close(); }
+  if (pc.matches) pickTop();
   paint();
   $(next === 'personal' ? '#cfList [data-cf-box="work"]' : '#cfList [data-cf-box="personal"]')?.focus({preventScroll:true});
 }

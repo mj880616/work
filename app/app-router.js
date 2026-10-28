@@ -142,7 +142,9 @@
   function openLayer(name,{close,adoptOnly=false}){
     const known=layers.find(layer=>layer.name===name);
     if(known)return {close:()=>releaseLayer(known)};
-    const adopt=!releasing&&topOf(history.state)===name;
+    // NAV-새로고침제자리: after a reload the entry still lists the layers that were open (a phone note folder, then a note in it); they are
+    // reopened in the same order, so each one takes its place in that list instead of adding an entry.
+    const adopt=!releasing&&(topOf(history.state)===name||chainOf(history.state)[layers.length]===name);
     if(adoptOnly&&!adopt)return null;
     const layer={name,close,index:adopt?window.navigation?.currentEntry?.index:undefined};
     layers.push(layer);

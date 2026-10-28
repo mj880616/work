@@ -92,7 +92,8 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  await sameButtons(basket,height,quickHeight);
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary&&!(await c.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active'))))filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
- expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(primary);
+ // UI-선택표시톤다운: 고른 필터는 연한 선택 바탕 + 테두리 선(주 색 채움은 [추가]만).
+ {const on=await look(basket.locator('[data-basket-filter="unclassified"]'));expect(on.bg).toBe(await token(page,'--ds-select-bg'));expect(on.border).toBe(await token(page,'--ds-select-line'));expect(on.bg).not.toBe(primary);}
  // Keyboard opens and closes the menu; it does not push the list.
  const listTop=(await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y;
  await more.focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('aria-expanded','true');

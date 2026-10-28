@@ -243,3 +243,25 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 
 /* BASKET-전환버튼고정: [챙길 것] 쪽에는 ⋯ 메뉴가 없어도 자리(폭)는 그대로 둔다. 안 그러면 PC 머리줄의 전환 버튼이 ⋯ 폭만큼 밀린다(폰은 전환 줄이 아래로 가 영향 없음). */
 #basketView[data-pane="todo"] .basket-more { visibility:hidden; }
+/* 10/28 17:45·17:55 노트 화면 정리: 폴더 줄은 공용 버튼 모양(흰 칸·테두리·가운데 정렬)이 아닌 왼쪽 정렬 얇은 한 줄. 노란 📁/📂 글자 그대로. */
+#appView #basketView [data-note-list] button.nx-main { justify-content:flex-start; min-height:36px; padding:0 6px; border:0; background:none; box-shadow:none; text-align:left; font-size:14px; font-weight:400; }
+#appView #basketView [data-note-list] button.nx-main:hover { background:var(--kptu-surface-subtle); }
+#appView #basketView [data-note-list] .nx-current > button.nx-main { background:var(--kptu-primary-soft); font-weight:600; }
+#appView #basketView [data-note-list] #noteRows .nx-folder + .nx-folder, #appView #basketView [data-note-list] #noteRows .nx-folder + .nx-outside { border-top:var(--ds-line-width, .5px) solid var(--ds-line, var(--kptu-border)); }
+#appView #basketView [data-note-list] button:is(.nx-new-folder,.nx-back) { min-height:28px; padding:0 6px; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:13px; font-weight:400; justify-content:flex-start; }
+#appView #basketView [data-note-list] button.nx-new-folder { display:flex; margin:2px 0 0; }
+#appView #basketView [data-note-list] button:is(.nx-new-folder,.nx-back):hover { color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
+.nx-pane { min-width:0; }
+.nx-here:not([hidden]) { display:flex; align-items:center; gap:2px; min-height:28px; margin:0 0 2px; font-size:12px; color:var(--kptu-muted); }
+.nx-here-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-ink); font-weight:500; }
+.nx-here-num { flex:none; }
+#appView #basketView [data-note-list] .nx-here button.nx-back { min-width:32px; justify-content:center; font-size:15px; color:var(--kptu-ink); }
+.note-meta-ai-off { font-size:12px; color:var(--kptu-muted); }
+/* 17:45 ③: PC(마우스)는 노트·폴더 줄의 ⋯를 마우스를 올리거나 키보드로 갔을 때만 보인다(누르는 자리는 그대로). 손가락 기기는 그대로. */
+@media (hover:hover) and (pointer:fine) {
+  #appView #basketView [data-note-list] .nx-row > button:is(.basket-row-more,.nx-more) { opacity:0; transition:opacity .12s; }
+  #appView #basketView [data-note-list] .nx-row:is(:hover,:focus-within) > button:is(.basket-row-more,.nx-more),
+  #appView #basketView [data-note-list] .nx-row > button:is(.basket-row-more,.nx-more)[aria-expanded="true"] { opacity:1; }
+}
+/* 17:45 ③: 노트 줄에 [복사] 아이콘이 없으니 오른쪽은 ⋯ 한 칸만 비운다(PC·폰 같음). */
+#appView #basketView .note-row-item.nx-note > .basket-row { padding-right:48px; }
