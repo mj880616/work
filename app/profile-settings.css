@@ -65,3 +65,4 @@
 #profileView .rn-check{margin:4px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #profileView .rn-check-label{color:var(--kptu-ink);font-weight:var(--ds-weight-medium,600)}
 #profileView .rn-more{margin-top:6px}
+#profileView .rn-more[hidden]{display:none}
