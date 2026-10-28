@@ -286,10 +286,11 @@ async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false}){
 
 // describe: the confirmation text for a row that is not a basket memo (JOURNAL-일기: "…일기를 지웁니다").
 // keepFiles (a note): the owner-RLS REST delete only; the files stay in Drive (NOTE-파일붙이기).
-// confirmed(NOTE-탐색기 여러 개 지우기): 부른 쪽이 'n개를 지울까요?'를 한 번 물었으면 노트마다 다시 묻지 않는다(휴지통 길만).
+// confirmed(NOTE-탐색기 여러 개 지우기): 부른 쪽이 'n개를 지울까요?'를 한 번 물었으면 노트마다 다시 묻지 않는다.
+// 일기(UI-버튼통일 ①)는 묻지 않고 '되돌리기' 알림이 닫힌 뒤 보내므로 휴지통 길이 아닌 note-delete 길에서도 confirmed를 쓴다.
 export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false,trash=false,confirmed=false}={}){
   if(trash)return deleteNoteToTrash(noteId,{rt,isCurrent,confirmed});
-  return remove('note',noteId,{rt,isCurrent,confirmText:async()=>{
+  return remove('note',noteId,{rt,isCurrent,confirmed,confirmText:async()=>{
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
     if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};
     return {text:describe(info),info};
