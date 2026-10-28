@@ -3559,7 +3559,11 @@ async function runPreMeetingSheet(ctx: Ctx, input: PreMeetingSheetInput, deps: R
 
   // ⑤ 최근 30일 업무 통화·텔레그램(이 조직). 통화는 제목·요약, 텔레그램은 방 이름·요약만(보낸 사람·원문은 읽지 않음).
   const since = addDays(kstDay(started), -PRE_MEETING_FEED_DAYS);
-  for (const f of await soft(`app_feed_items?workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&source=in.(call,telegram)&select=id,workspace_id,organization_id,source,day,title,room_label,summary&order=day.desc&limit=${PRE_MEETING_FEED}`)) {
+  const feed = [
+    ...await soft(`app_feed_items?source=eq.call&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,summary&order=day.desc&limit=${PRE_MEETING_FEED}`),
+    ...await soft(`app_feed_items?source=eq.telegram&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,summary&order=day.desc&limit=${PRE_MEETING_FEED}`),
+  ].sort((x, y) => String(y.day ?? "").localeCompare(String(x.day ?? ""))).slice(0, PRE_MEETING_FEED);
+  for (const f of feed) {
     if (!mine(f) || String(f.organization_id).toLowerCase() !== org || !isUuid(f.id)) continue;
     const isCall = f.source === "call";
     const name = isCall ? text(f.title) : text(f.room_label);
