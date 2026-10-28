@@ -1,22 +1,21 @@
 // AI-사용량줄: 홈 수집 칸 바로 아래 'AI 사용량(n월, 추정)' 한 줄(PC·폰 공통). 이 파일이 이 자리의 유일한 상태 소유자이자 렌더러다.
-// - 읽기: drive-summary GET ?action=ai_usage(소유자 JWT). 함수가 아직 배포 전(404·405·CORS 실패)이거나 표가 없으면 줄을 숨긴다.
+// - 읽기: 수집 칸과 같은 drive-summary GET ?action=status 답의 ai_usage(소유자 JWT). 옛 함수(칸 없음)·표 없음이면 줄을 숨긴다.
 // - 평소 한 줄 요약, 누르면 펼침. 경고(월 상한 80%·잔액 1만 원 아래)가 있으면 노란 줄이 되고, 누르면 펼친 칸의 충전 입력이 열린다.
 // - 충전·청구 금액은 서버 표 app_ai_cost_entries에만 저장한다(기기 저장 없음). 고치기 대신 지우고 다시 넣는다.
-// - 한 탭에서 10분에 한 번만 묻는다(메모리만). 넣기·지우기 뒤에는 바로 다시 묻는다.
+// - 한 탭에서 10분에 한 번만 묻는다(메모리만, 수집 칸과 같은 요청). 넣기·지우기 뒤에는 바로 다시 묻는다.
 import {readSummary, monthLabel, warnText, summaryLine, detailRows, entryRows, parseEntry, lastMonth, krw} from './ai-usage-model.mjs';
-import {isOwner} from './collection-status.js';
+import {isOwner, readDriveStatus, updateDriveStatus} from './collection-status.js';
 
-export const CACHE_MS = 10 * 60 * 1000;
-const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-let cache = null; // {scope, at, promise}
+// 처음 읽기는 수집 칸과 같은 drive-summary GET ?action=status 한 번(ai_usage 칸)을 함께 쓴다(탭마다 10분 한 번, 요청을 늘리지 않음).
+// 금액을 넣거나 지운 직후에만 GET ?action=ai_usage로 바로 다시 읽고, 함께 쓰는 상태 답도 그 값으로 맞춘다.
 export function readAiUsage(rt, {fresh = false} = {}) {
-  const scope = scopeOf(rt), at = Date.now();
-  if (!fresh && cache && cache.scope === scope && at - cache.at < CACHE_MS) return cache.promise;
-  const promise = rt.api('/functions/v1/drive-summary?action=ai_usage', {refreshSession:false, singleFlight:false, timeoutMs:30000}).then(readSummary, () => null);
-  cache = {scope, at, promise};
-  return promise;
+  if (!fresh) return readDriveStatus(rt).then(data => readSummary(data?.ai_usage), () => null);
+  return rt.api('/functions/v1/drive-summary?action=ai_usage', {refreshSession:false, singleFlight:false, timeoutMs:30000}).then(data => {
+    const s = readSummary(data);
+    if (s) updateDriveStatus(rt, status => ({...status, ai_usage:s}));
+    return s;
+  }, () => null);
 }
-export function resetAiUsageCache() { cache = null; }
 
 export function mountAiUsageLine(host, {rt = window.KPTURuntime, now = () => Date.now()} = {}) {
   if (!host) return null;

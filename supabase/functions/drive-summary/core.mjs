@@ -500,13 +500,16 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       if (action !== 'status') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
       if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
       if (req.headers.get('x-drive-summary-cron-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
-      const { ownerId } = await authorize(req);
+      const { workspaceId, ownerId } = await authorize(req);
       if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
+      // AI-사용량줄: the home's one status request also carries the AI usage summary (null when its tables or the anon key
+      // are missing or a read fails). It never makes the status answer fail.
+      const aiUsagePromise = aiUsageSummary(req, workspaceId).catch(() => null);
       const token = await accessToken();
       const folder = await findFile(token, 'folder');
-      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null), text_backfill: null });
+      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null), text_backfill: null, ai_usage: await aiUsagePromise });
       await assertPrivate(token, folder.id);
-      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties), text_backfill: textBackfillStatus(folder.appProperties) });
+      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties), text_backfill: textBackfillStatus(folder.appProperties), ai_usage: await aiUsagePromise });
     } catch (error) {
       const code = error instanceof SummaryError ? error.message : 'STATUS_FAILED';
       return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
@@ -571,7 +574,14 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       return json({ ok: false, error: code }, error instanceof SummaryError ? error.status : 502);
     }
   }
-  // AI-사용량줄: GET ?action=ai_usage. Owner JWT only. Reads with the caller's token + anon key (owner RLS) and returns
+  async function aiUsageSummary(req, workspaceId) {
+    if (!env.SUPABASE_ANON_KEY) return null;
+    const at = now();
+    const rows = await readAiUsage({ fetcher, baseUrl: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY, userAuthorization: req.headers.get('Authorization'), workspaceId, now: at });
+    return { ok: true, ...summarizeAiUsage(rows, at, openAiPrice(env)) };
+  }
+  // AI-사용량줄: GET ?action=ai_usage. Owner JWT only. The home reads the same summary inside ?action=status; this path is
+  // only for a fresh read right after the owner adds or removes an amount. Reads with the caller's token + anon key (owner RLS) and returns
   // won amounts, limits, balances and the last 10 entered amounts. No Drive access, no writes.
   async function aiUsageRead(req) {
     const checkedAt = () => now().toISOString();

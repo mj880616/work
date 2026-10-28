@@ -136,3 +136,31 @@ test('계산: 80% 경고, 잔액(충전일부터 쓴 만큼 빼기), 실제 청�
   const g = summarizeAiUsage({ assist: [], feed: [], entries: [], external: [{ day: '2026-10-28', source: 'analysis', model: 'gemini-9-ultra', calls: 1, input_tokens: 1_000_000, audio_tokens: 0, output_tokens: 0 }] }, now, price);
   assert.equal(g.gemini.krw, 2800); assert.deepEqual(g.gemini.unknown_models, ['gemini-9-ultra']);
 });
+
+test('GET ?action=status도 같은 요약을 ai_usage 칸에 싣고, 표가 없으면 null로 두며 상태 답은 그대로 성공', async () => {
+  for (const [data, expectNull] of [[{}, false], [{ missing: 'app_ai_cost_entries' }, true]]) {
+    const calls = [];
+    const fetcher = async (input, init = {}) => {
+      const url = new URL(input), method = init.method || 'GET';
+      calls.push({ url, method, init });
+      if (url.hostname === 'oauth2.googleapis.com') return Response.json({ access_token: 'drive-token' });
+      if (url.hostname === 'www.googleapis.com') return Response.json({ files: [] });
+      if (url.pathname === '/auth/v1/user') return Response.json({ id: 'owner' });
+      const table = url.pathname.split('/').at(-1);
+      if (table === 'app_workspaces') return Response.json([{ id: 'ws' }]);
+      if (table === 'app_workspace_members') return Response.json([{ user_id: 'owner', role: 'owner' }]);
+      if (table === 'public_policy_drive_config') return Response.json([{ id: 1, google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }]);
+      if (data.missing === table) return Response.json({}, { status: 404 });
+      return Response.json([]);
+    };
+    const handler = createHandler({ env, fetcher, now: () => now });
+    const r = await handler(new Request('https://edge.test/drive-summary?action=status', { headers: { Authorization: 'Bearer owner-jwt' } }));
+    assert.equal(r.status, 200);
+    const body = await r.json();
+    assert.equal(body.ok, true);
+    if (expectNull) assert.equal(body.ai_usage, null);
+    else { assert.equal(body.ai_usage.ok, true); assert.equal(body.ai_usage.month, '2026-10'); }
+    assert.equal(calls.filter(c => c.method !== 'GET' && !c.url.hostname.includes('google')).length, 0);
+    for (const c of calls.filter(c => /app_ai_|app_feed_days/.test(c.url.pathname))) assert.equal(c.init.headers.apikey, 'anon');
+  }
+});
