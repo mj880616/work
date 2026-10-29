@@ -22,7 +22,7 @@ import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
   odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, addStar, removeStar, starKey, takenLabel, takeOdReturn} from './diary-onedrive.js';
 import {ownerScope} from './diary-data.js';
-import {seoulParts} from './meeting-time.js';
+import {seoulParts, seoulDateKey} from './meeting-time.js';
 import {SIZE_BUTTONS, WIDE_QUERY, createGridSizer} from './photo-grid-size.js';
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
@@ -268,16 +268,16 @@ async function renderCalendar() {
     } catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(odErrorText(error))}</p>`; return; }
     if (!current(r) || tab !== 'calendar' || calCursor !== ym || filter !== want) return;
   }
-  const {lead, cells} = calendarFromDays(ym, days);
+  const {lead, cells} = calendarFromDays(ym, days), today = seoulDateKey(new Date());
   const grid = document.createElement('div');
   grid.className = 'photos-cal';
   for (const w of ['일', '월', '화', '수', '목', '금', '토']) grid.append(Object.assign(document.createElement('span'), {className:'photos-cal-w', textContent:w}));
   for (let k = 0; k < lead; k++) grid.append(Object.assign(document.createElement('span'), {className:'photos-cal-cell is-blank'}));
   for (const c of cells) {
     const el = document.createElement(c.count ? 'button' : 'span');
-    el.className = 'photos-cal-cell';
+    el.className = c.day === today ? 'photos-cal-cell ds-today ds-today-sm' : 'photos-cal-cell';
     if (c.count) { el.type = 'button'; el.dataset.photosCalDay = c.day; el.setAttribute('aria-label', `${dayHead(c.day)}, 사진 ${c.count}장`); el.append(odPhotoElement(c.rep, 'small', {label:'', rt, retry:false})); }
-    el.append(Object.assign(document.createElement('span'), {className:'photos-cal-n', textContent:String(c.n)}));
+    el.append(Object.assign(document.createElement('span'), {className:c.day === today ? 'photos-cal-n ds-today-num' : 'photos-cal-n', textContent:String(c.n)}));
     if (c.count) el.append(Object.assign(document.createElement('span'), {className:'photos-cal-c', textContent:String(c.count)}));
     grid.append(el);
   }

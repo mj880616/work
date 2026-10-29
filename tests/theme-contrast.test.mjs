@@ -252,3 +252,34 @@ test('선택 표시 규칙: 색별 조정(레몬은 버터·겨자, 빨강은 �
   const sat=hex=>{const v=rgb(hex),mx=Math.max(...v),mn=Math.min(...v),l=(mx+mn)/2;return mx===mn?0:(mx-mn)/(1-Math.abs(2*l-1))};
   assert.ok(sat(light('lemon')['--kptu-primary'])<0.8&&sat(dark('lemon')['--kptu-primary'])<0.7);
 });
+
+// UI-오늘표시통일(명진 2026-10-29 16:33, 일기 달력 방식): 앱의 모든 달력 '오늘'은 공용 규칙 하나(ui-standard.css .ds-today·.ds-today-num).
+test('오늘 표시 토큰: 칸 둘레 선은 진한 강조 글자색, 모든 색·밝은/어두운 화면에서 칸 바탕 위 3:1 이상',()=>{
+  const v=vars(css);
+  assert.equal(v['--ds-today-line'],'var(--kptu-primary-ink)');
+  assert.equal(v['--ds-today-line-width'],'2px');assert.equal(v['--ds-today-line-width-sm'],'1.5px');
+  for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]])
+    for(const surface of ['--kptu-surface','--kptu-surface-subtle','--kptu-bg'])need(`${name} ${mode} today frame on ${surface}`,c['--kptu-primary-ink'],c[surface],3);
+});
+test('오늘 표시 규칙: 오늘 모양(선·동그라미·바탕)은 ui-standard.css 공용 규칙 한 곳에서만 그린다',()=>{
+  const TODAY=/\.ds-today(?![-\w])|\.ds-today-num|\.today\b|\.cwv-today|\.clv-today|\.rv-now|\[aria-current="date"\]/;
+  const LOOK=/(^|;|\s)(box-shadow|background(-color)?|border(-[a-z]+)*|outline)\s*:/;
+  const bad=[];
+  for(const file of readdirSync('app').filter(name=>name.endsWith('.css')&&name!=='ui-standard.css')){
+    const text=readFileSync('app/'+file,'utf8').replace(/\/\*[\s\S]*?\*\//g,'');
+    for(const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)){
+      const selector=m[1].trim().replace(/:not\([^)]*\)/g,'');
+      if(TODAY.test(selector)&&LOOK.test(m[2]))bad.push(file+': '+selector.slice(0,80));
+    }
+  }
+  assert.deepEqual(bad,[],'오늘 표시는 .ds-today/.ds-today-num 공용 규칙(ui-standard.css)만 쓴다');
+  const shared=readFileSync('app/ui-standard.css','utf8');
+  assert.match(shared,/#appView \.ds-today::before\{[^}]*border:var\(--ds-today-line-width\) solid var\(--ds-today-line\)/);
+  assert.match(shared,/#appView \.ds-today \.ds-today-num\{[^}]*box-shadow:var\(--kptu-shadow-today\)/);
+  // 오늘을 표시하는 달력은 모두 공용 클래스를 붙인다(칸 + 날짜 숫자).
+  for(const file of ['calendar-month-view.js','calendar-week-view.js','diary.js','journal.js','report-views.js','photos.js']){
+    const js=readFileSync('app/'+file,'utf8');
+    assert.ok(js.includes('ds-today')&&js.includes('ds-today-num'),file+': .ds-today + .ds-today-num');
+  }
+  assert.ok(readFileSync('app/calendar-list-view.js','utf8').includes("classList.add('ds-today')"),'calendar-list-view.js: 오늘 묶음 .ds-today');
+});

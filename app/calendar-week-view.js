@@ -78,9 +78,9 @@ export function renderWeek(options,{start,tasks}){
   for(let i=0;i<7;i++){
     const {date,items,timed}=days[i];
     const section=document.createElement('section');section.className='cwv-day';section.style.gridColumn=String(i+2);section.dataset.date=calendarDateKey(date);
-    if(section.dataset.date===dayKey())section.classList.add('cwv-today');
+    const isToday=section.dataset.date===dayKey();if(isToday)section.classList.add('cwv-today','ds-today');
     const header=document.createElement('header');header.className='cwv-header';
-    const label=document.createElement('h3');label.className='cwv-date';label.textContent=`${['일','월','화','수','목','금','토'][seoulParts(date).weekday]} ${seoulParts(date).day}`;header.append(label);
+    const label=document.createElement('h3');label.className='cwv-date'+(isToday?' ds-today-num':'');label.textContent=`${['일','월','화','수','목','금','토'][seoulParts(date).weekday]} ${seoulParts(date).day}`;header.append(label);
     const pending=items.filter(item=>item.source==='task'&&!item.done);
     if(pending.length){
       const count=document.createElement('button');count.type='button';count.className='cmv-task-count';

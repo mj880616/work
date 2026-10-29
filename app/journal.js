@@ -130,10 +130,10 @@ function renderWeek() {
     const button = document.createElement('button'), line = lines.get(day);
     button.type = 'button'; button.className = 'journal-date'; button.dataset.journalDate = day;
     if (i >= 5) button.classList.add(i === 6 ? 'sunday' : 'saturday');
-    if (day === today) button.setAttribute('aria-current', 'date');
+    if (day === today) { button.setAttribute('aria-current', 'date'); button.classList.add('ds-today'); }
     button.setAttribute('aria-pressed', String(day === selected));
     button.setAttribute('aria-label', `${longDay(day)}${line ? ', 한 줄 있음' : ''}`);
-    button.innerHTML = `<span class="journal-weekday" aria-hidden="true">${WEEKDAYS[i]}</span><span class="journal-num" aria-hidden="true">${seoulParts(day).day}</span>${line ? '<span class="journal-dot" data-journal-dot aria-hidden="true"></span>' : ''}`;
+    button.innerHTML = `<span class="journal-weekday" aria-hidden="true">${WEEKDAYS[i]}</span><span class="journal-num${day === today ? ' ds-today-num' : ''}" aria-hidden="true">${seoulParts(day).day}</span>${line ? '<span class="journal-dot" data-journal-dot aria-hidden="true"></span>' : ''}`;
     return button;
   }));
 }
