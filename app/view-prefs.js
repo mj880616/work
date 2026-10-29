@@ -36,7 +36,9 @@ export const PHOTO_VIEW_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']
 // OD-연결아이콘: diary_onedrive = 일기에서 원드라이브 사진 보이기(참·거짓, 기본 참). migration 20261028150000. 적용 전에는 쓰기가 400이라 이번 접속만 기억
 // FEAT-1029묶음 ③: quiet_weeks = 홈 '연락 없는 조직' 기준 주 수(정수 0=끔, 1~12주, 없으면 3주). 뜻은 org-quiet-model.mjs, 모양은 DB 검사(migration 20261029103000)와 같다.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 이 칸만 되돌리고 알린다(기본 3주 그대로).
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks']);
+// NOTE-보기3가지: note_view = 노트 화면 [폴더|목록|포스트잇] 중 마지막에 고른 보기(없으면 폴더). migration 20261029183000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억
+export const NOTE_VIEWS = Object.freeze(['folder', 'list', 'board']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -60,6 +62,7 @@ export function validValue(key, value) {
     case 'photo_cols': return PHOTO_COLS.includes(value);
     case 'photo_cols_wide': return PHOTO_COLS_WIDE.includes(value);
     case 'diary_view': return DIARY_VIEWS.includes(value);
+    case 'note_view': return NOTE_VIEWS.includes(value);
     case 'diary_onedrive': return typeof value === 'boolean';
     case 'quiet_weeks': return Number.isInteger(value) && value >= 0 && value <= 12;
     case 'photo_view': return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -119,7 +122,7 @@ const LEGACY = [
 ];
 
 // 고른 적 없을 때 화면이 보여 주는 값: 이 값으로 "바꾸는" 호출은 저장할 것이 없다.
-const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3 };
+const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder' };
 const defaultStorage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : prefs[path];
 

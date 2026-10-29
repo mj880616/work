@@ -93,8 +93,8 @@ for (const width of [390, 1280]) {
     await expect(page.locator('[data-note-detail]')).toBeHidden();
     // Outside press closes it without opening anything.
     await press(page, more, width); await expect(menu(page)).toBeVisible();
-    // NOTE-탐색기: the list status line is empty now (the count sits in the head as '노트 · n'); press that count instead.
-    await page.locator('[data-nx-count]').click({ force: true });
+    // NOTE-보기3가지: the head's count is read-aloud only now (the view switch sits in its place); press the search box instead.
+    await page.locator('[data-note-search]').click();
     await expect(menu(page)).toBeHidden(); await expect(page.locator('[data-note-detail]')).toBeHidden();
     // A second ⋯ moves the menu; the first one is closed.
     await press(page, more, width); await press(page, rowMore(page, 'n-md'), width);
