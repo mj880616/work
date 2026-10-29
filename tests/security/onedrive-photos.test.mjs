@@ -162,8 +162,10 @@ function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,moveRe
 }
 
 const connected={refresh_token:REFRESH,scope:'files.readwrite user.read',folder_id:'F1!100',folder_name:'카메라',folder_path:'/drive/root:/Pictures/Camera',connected_at:'2026-10-20T00:00:00Z'};
-const make=({admin=fakeAdmin({row:{...connected}}),ms=fakeMicrosoft(),env=ENV}={})=>({
-  admin,ms,handler:createOneDriveHandler(admin,{env:n=>env[n],fetch:ms.fetch,now:()=>NOW,log:()=>{}}),
+const FIX0='2000-01-01T00:00:00Z';
+// takenFixAt: 찍은 시각 고침 기준(운영 값은 graph.ts TAKEN_FIX_AT). 다른 시험은 옛 색인 다시 받기와 상관없게 아주 이른 값으로 둔다.
+const make=({admin=fakeAdmin({row:{...connected}}),ms=fakeMicrosoft(),env=ENV,now=()=>NOW,takenFixAt=FIX0}={})=>({
+  admin,ms,handler:createOneDriveHandler(admin,{env:n=>env[n],fetch:ms.fetch,now,log:()=>{},takenFixAt}),
 });
 const post=(handler,body,{jwt=JWT,type='application/json',method='POST'}={})=>handler(new Request('https://synthetic.test/functions/v1/onedrive-photos',{
   method,headers:{...(jwt?{Authorization:`Bearer ${jwt}`}:{}),...(type?{'Content-Type':type}:{})},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify(body)}:{})}));
@@ -238,7 +240,7 @@ test('auth-finish: exchanges the code on the server, stores the refresh token, a
 
 test('auth-finish first connection: plain insert with workspace_id, no upsert; save failures log the stage and DB code only',async()=>{
   const logs=[];const admin=fakeAdmin();const ms=fakeMicrosoft();
-  const handler=createOneDriveHandler(admin,{env:n=>ENV[n],fetch:ms.fetch,now:()=>NOW,log:c=>logs.push(c)});
+  const handler=createOneDriveHandler(admin,{env:n=>ENV[n],takenFixAt:FIX0,fetch:ms.fetch,now:()=>NOW,log:c=>logs.push(c)});
   const r=await post(handler,{action:'auth-finish',code:'synthetic-code-123',state:await startState(handler)});
   assert.equal(r.status,200);assert.deepEqual(admin.state.writes.map(w=>w.op),['insert']);
   assert.equal(admin.state.writes[0].v.workspace_id,WS);assert.equal(admin.state.row.refresh_token,REFRESH2);
@@ -247,7 +249,7 @@ test('auth-finish first connection: plain insert with workspace_id, no upsert; s
   assert.equal((await read(await post(handler,{action:'status'}))).connected,true);
   for(const [saveError,row,code] of [['insert',null,'onedrive_save_failed:insert:42501'],['update',{...connected},'onedrive_save_failed:update:42501']]){
     const logs2=[];const a=fakeAdmin({row,saveError});const m=fakeMicrosoft();
-    const h=createOneDriveHandler(a,{env:n=>ENV[n],fetch:m.fetch,now:()=>NOW,log:c=>logs2.push(c)});
+    const h=createOneDriveHandler(a,{env:n=>ENV[n],takenFixAt:FIX0,fetch:m.fetch,now:()=>NOW,log:c=>logs2.push(c)});
     const res=await post(h,{action:'auth-finish',code:'synthetic-code-123',state:await startState(h)});
     assert.equal(res.status,503);assert.deepEqual(await read(res),{error:'onedrive_unavailable'});
     assert.deepEqual(logs2,[code]);
@@ -260,7 +262,7 @@ test('auth-finish first connection: plain insert with workspace_id, no upsert; s
     [{status:500,body:{error:'server_error'}},503,'onedrive_token_rejected:500:server_error'],
   ]){
     const logs3=[];const a=fakeAdmin();const m=fakeMicrosoft({tokenReply:()=>reply});
-    const h=createOneDriveHandler(a,{env:n=>ENV[n],fetch:m.fetch,now:()=>NOW,log:c=>logs3.push(c)});
+    const h=createOneDriveHandler(a,{env:n=>ENV[n],takenFixAt:FIX0,fetch:m.fetch,now:()=>NOW,log:c=>logs3.push(c)});
     const res=await post(h,{action:'auth-finish',code:'synthetic-code-123',state:await startState(h)});
     assert.equal(res.status,status,code);assert.deepEqual(logs3,[code]);assert.equal(a.state.writes.length,0);
   }
@@ -273,10 +275,10 @@ test('auth-finish rejects forged, other-user, expired and replayed-shape states 
   for(const bad of [forged,state+'x','a.b','nodot',body,42,null,state+'.extra']){
     const r=await post(ctx.handler,{action:'auth-finish',code:'synthetic-code-123',state:bad});assert.equal(r.status,400,String(bad));
   }
-  const late=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],fetch:ctx.ms.fetch,now:()=>NOW+11*60*1000,log:()=>{}});
+  const late=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],takenFixAt:FIX0,fetch:ctx.ms.fetch,now:()=>NOW+11*60*1000,log:()=>{}});
   assert.equal((await post(late,{action:'auth-finish',code:'synthetic-code-123',state})).status,400);
   // 같은 서명이어도 다른 사용자 이름으로는 못 쓴다: 다른 사용자가 만든 상태를 이 사용자가 내면 거절
-  const otherAdmin=fakeAdmin();const otherUser=createOneDriveHandler({...otherAdmin,from:t=>t==='app_workspace_members'?{select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{workspace_id:WS,role:'owner'},error:null})}:otherAdmin.from(t)},{env:n=>ENV[n],fetch:ctx.ms.fetch,now:()=>NOW,log:()=>{}});
+  const otherAdmin=fakeAdmin();const otherUser=createOneDriveHandler({...otherAdmin,from:t=>t==='app_workspace_members'?{select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{workspace_id:WS,role:'owner'},error:null})}:otherAdmin.from(t)},{env:n=>ENV[n],takenFixAt:FIX0,fetch:ctx.ms.fetch,now:()=>NOW,log:()=>{}});
   assert.equal((await post(otherUser,{action:'auth-finish',code:'synthetic-code-123',state},{jwt:'other'})).status,400);
   assert.equal((await post(ctx.handler,{action:'auth-finish',code:'x',state})).status,400);
   assert.equal(ctx.ms.calls.length,0);assert.equal(ctx.admin.state.writes.length,0);
@@ -313,10 +315,10 @@ test('folder list: sub-folders only, sorted; folder-set refuses non-folders, the
 test('photos: read from the server index, grouped by Seoul day, photos only (videos indexed but not in the diary), sub-folders included, month checked',async()=>{
   const top={id:'F1!100',name:'카메라',folder:{},parentReference:{id:'ROOT!1'}};
   const ms=fakeMicrosoft({deltaPages:[[top,
-      {id:'A1',name:'a.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-12T15:30:00Z'},parentReference:{id:'F1!100'}}, // 서울 10-13 00:30
+      {id:'A1',name:'a.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-13T00:30:00Z'},parentReference:{id:'F1!100'}}, // 카메라 벽시계 서울 10-13 00:30(UTC로는 10-12)
       {id:'A2',name:'b.heic',file:{mimeType:'image/heic'},photo:{takenDateTime:'2026-10-13T01:00:00Z'},parentReference:{id:'F1!100'}},
       {id:'A3',name:'c.mp4',file:{mimeType:'video/mp4'},photo:{takenDateTime:'2026-10-13T01:00:00Z'},parentReference:{id:'F1!100'}},
-      {id:'A4',name:'d.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-09-30T20:00:00Z'},parentReference:{id:'F1!100'}}, // 서울 10-01
+      {id:'A4',name:'d.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-01T05:00:00Z'},parentReference:{id:'F1!100'}}, // 카메라 벽시계 서울 10-01 05:00(UTC로는 09-30)
       {id:'A5',name:'e.jpg',file:{mimeType:'image/jpeg'},fileSystemInfo:{createdDateTime:'2026-10-20T00:00:00Z'},parentReference:{id:'F1!100'}},
       {id:'A6',name:'f.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-11-01T00:00:00Z'},parentReference:{id:'F1!100'}},
       {id:'SUB',name:'하위',folder:{},parentReference:{id:'F1!100'}}],
@@ -585,12 +587,12 @@ test('sync: 410 from Graph clears the index and starts over; deleted items and n
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,5);
   ctx.ms.calls.length=0;
   const changes=[{id:'P1',deleted:{}},{id:'S21',deleted:{}},{id:'P2',name:'now.mp4',file:{mimeType:'video/mp4'},parentReference:{id:'S2'}}];
-  const later=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],fetch:fakeMicrosoft({deltaPages:tree(),deltaChanges:changes}).fetch,now:()=>NOW,log:()=>{}});
+  const later=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],takenFixAt:FIX0,fetch:fakeMicrosoft({deltaPages:tree(),deltaChanges:changes}).fetch,now:()=>NOW,log:()=>{}});
   assert.deepEqual(await read(await post(later,{action:'sync'})),{more:false,indexing:false});
   assert.deepEqual(ctx.admin.state.mem.tables.app_onedrive_photos.map(p=>p.item_id).sort(),['P0']);
   assert.ok(!ctx.admin.state.mem.tables.app_onedrive_folders.some(f=>f.item_id==='S21'));
   let gone=0;
-  const resync=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],fetch:fakeMicrosoft({deltaPages:tree(),deltaReply:tok=>tok==='latest'&&!gone++?new Response('{}',{status:410}):null}).fetch,now:()=>NOW,log:()=>{}});
+  const resync=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],takenFixAt:FIX0,fetch:fakeMicrosoft({deltaPages:tree(),deltaReply:tok=>tok==='latest'&&!gone++?new Response('{}',{status:410}):null}).fetch,now:()=>NOW,log:()=>{}});
   assert.deepEqual(await read(await post(resync,{action:'sync'})),{more:false,indexing:false});
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,5,'rebuilt from the first page');
 });
@@ -967,4 +969,93 @@ test('photos-move: many photos into one folder in $batch, original folder in the
   assert.ok(ctx.ms.calls.filter(c=>c.url.endsWith('/$batch')).every(c=>JSON.parse(c.init.body).requests.length<=20));
   const ro=make({admin:fakeAdmin({row:{...fresh,scope:'files.read user.read'},index:library()})});
   assert.deepEqual(await read(await post(ro.handler,{action:'photos-move',ids:['A1'],parent_id:'S1'})),{error:'onedrive_reconnect_needed'});
+});
+
+// ── 찍은 시각(2026-10-29): Graph photo.takenDateTime은 카메라 벽시계(한국 시각)에 'Z'만 붙여 준다 ──
+test('taken time: camera clock is read as Seoul wall time, created time (approx) stays UTC, the screen label shows the same wall time and day',async()=>{
+  const {cameraClockToUtc,takenOf}=await import('../../supabase/functions/onedrive-photos/graph.ts');
+  const {takenLabel}=await import('../../app/diary-onedrive.js');
+  const shot=at=>({id:'X',file:{mimeType:'image/jpeg'},photo:{takenDateTime:at}});
+  // 한국에서 10:00에 찍은 사진 → 진짜 UTC 01:00, 화면 10:00, 같은 날
+  const a=takenOf(shot('2026-10-29T10:00:00Z'));
+  assert.deepEqual(a,{at:'2026-10-29T01:00:00.000Z',approx:false});
+  assert.equal(seoulDay(a.at),'2026-10-29');assert.equal(takenLabel({taken_at:a.at,approx:false}),'10:00');
+  // 23:30 사진도 같은 날(옛 규칙은 다음 날 08:30으로 넘겼다)
+  const b=takenOf(shot('2026-10-29T23:30:00Z'));
+  assert.equal(seoulDay(b.at),'2026-10-29');assert.equal(takenLabel({taken_at:b.at,approx:false}),'23:30');
+  // 자정 직후·밀리초·시간대 없는 값
+  assert.equal(seoulDay(takenOf(shot('2026-10-30T00:05:00Z')).at),'2026-10-30');
+  assert.equal(cameraClockToUtc('2026-10-29T10:00:00.250Z'),'2026-10-29T01:00:00.250Z');
+  assert.equal(cameraClockToUtc('2026-10-29T10:00:00'),'2026-10-29T01:00:00.000Z');
+  // 시간대를 밝힌 값은 그대로 믿는다
+  assert.equal(cameraClockToUtc('2026-10-29T10:00:00+02:00'),'2026-10-29T08:00:00.000Z');
+  // 모양이 이상하면 찍은 시각을 버리고 파일 생성 시각(approx)으로
+  for(const bad of ['x','2026-13-01T00:00:00Z','2026-10-29',null,42])assert.equal(cameraClockToUtc(bad),null,String(bad));
+  // 파일 생성 시각(approx 줄)은 진짜 UTC라 바꾸지 않는다
+  const c=takenOf({id:'Y',file:{mimeType:'image/jpeg'},fileSystemInfo:{createdDateTime:'2026-10-29T01:00:00Z'}});
+  assert.deepEqual(c,{at:'2026-10-29T01:00:00Z',approx:true});assert.equal(takenLabel({taken_at:c.at,approx:true}),'대략 10:00');
+  const d=takenOf({id:'Z',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'nope'},fileSystemInfo:{createdDateTime:'2026-10-29T14:30:00Z'}});
+  assert.deepEqual(d,{at:'2026-10-29T14:30:00Z',approx:true});assert.equal(seoulDay(d.at),'2026-10-29');
+});
+
+test('taken time: the index stores the real time; library and day lists give it back unchanged (no double +9)',async()=>{
+  const ms=fakeMicrosoft({deltaPages:[[topItem,pic('E1','F1!100','2026-10-13T16:00:00Z'),pic('E2','F1!100','2026-10-13T09:15:00Z')]]});
+  const ctx=make({ms});
+  await post(ctx.handler,{action:'sync'});
+  const rows=Object.fromEntries(ctx.admin.state.mem.tables.app_onedrive_photos.map(r=>[r.item_id,r]));
+  assert.equal(rows.E1.taken_at,'2026-10-13T07:00:00.000Z');assert.equal(rows.E1.taken_day,'2026-10-13','16:00 photo stays on its day');
+  assert.equal(rows.E2.taken_at,'2026-10-13T00:15:00.000Z');assert.equal(rows.E2.taken_day,'2026-10-13');
+  const {takenLabel}=await import('../../app/diary-onedrive.js');
+  const month=await read(await post(ctx.handler,{action:'photos',month:'2026-10'}));
+  assert.deepEqual(month.days['2026-10-13'].map(p=>[p.id,takenLabel(p)]),[['E2','09:15'],['E1','16:00']]);
+  const lib=await read(await post(ctx.handler,{action:'library'}));
+  assert.deepEqual(lib.items.map(p=>[p.id,p.day,takenLabel(p)]),[['E1','2026-10-13','16:00'],['E2','2026-10-13','09:15']]);
+});
+
+test('taken time: an index finished before the fix is walked again from the start once; rows get the real time, rows OneDrive no longer has are swept',async()=>{
+  const FIX='2026-10-25T00:00:00Z',OLD='2026-10-20T00:00:00Z';
+  const old=(item_id,parent_id,taken_at,day)=>({workspace_id:WS,item_id,parent_id,name:'img-'+item_id+'.jpg',taken_at,approx:false,taken_day:day,updated_at:OLD,kind:'photo',trashed_at:null});
+  const index={
+    app_onedrive_folders:[{workspace_id:WS,item_id:'F1!100',parent_id:null,name:'카메라',enabled:true,updated_at:OLD},
+      {workspace_id:WS,item_id:'S1',parent_id:'F1!100',name:'2025',enabled:false,updated_at:OLD},
+      {workspace_id:WS,item_id:'GONEDIR',parent_id:'F1!100',name:'지운 폴더',enabled:true,updated_at:OLD}],
+    // 옛 규칙으로 적힌 줄: 16:00(카메라) 사진이 '16:00Z'로, 다음 날로 묶여 있다
+    app_onedrive_photos:[old('P0','F1!100','2026-10-13T16:00:00Z','2026-10-14'),old('GONE','F1!100','2026-10-13T01:00:00Z','2026-10-13')],
+  };
+  const row={...connected,index_done_at:OLD,synced_at:'2026-10-26T02:59:00Z',delta_link:'https://graph.microsoft.com/v1.0/me/drive/items/F1!100/delta?token=latest'};
+  const ms=fakeMicrosoft({deltaPages:[[topItem,dir('S1','F1!100','2025'),pic('P0','F1!100','2026-10-13T16:00:00Z'),pic('P1','S1')]]});
+  const ctx=make({admin:fakeAdmin({row,index}),ms,takenFixAt:FIX});
+  // 방금 받은 색인이라도(10분 안) 옛 규칙이면 달 조회가 다시 받기를 시작한다
+  const out=await read(await post(ctx.handler,{action:'photos',month:'2026-10'}));
+  assert.equal(out.indexing,false);
+  const deltaCalls=ms.calls.filter(c=>c.url.includes('/delta'));
+  assert.ok(deltaCalls.length>=1&&!new URL(deltaCalls[0].url).searchParams.has('token'),'starts from the first page, not the saved delta link');
+  const photos=Object.fromEntries(ctx.admin.state.mem.tables.app_onedrive_photos.map(r=>[r.item_id,r]));
+  assert.deepEqual(Object.keys(photos).sort(),['P0','P1'],'GONE swept');
+  assert.equal(photos.P0.taken_at,'2026-10-13T07:00:00.000Z');assert.equal(photos.P0.taken_day,'2026-10-13');
+  assert.deepEqual(out.days['2026-10-13'].map(p=>p.id),['P0'],'P1 is in a folder switched off');assert.equal(out.days['2026-10-14'],undefined);
+  const folders=Object.fromEntries(ctx.admin.state.mem.tables.app_onedrive_folders.map(r=>[r.item_id,r]));
+  assert.deepEqual(Object.keys(folders).sort(),['F1!100','S1'],'deleted folder swept, top kept');
+  assert.equal(folders.S1.enabled,false,'folder on/off choice kept');
+  assert.equal(ctx.admin.state.row.index_done_at,new Date(NOW).toISOString());assert.match(ctx.admin.state.row.delta_link,/token=latest$/);
+  // 한 번만: 다음 받기는 저장한 변경 주소로 이어 간다
+  ms.calls.length=0;
+  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:false,indexing:false});
+  assert.ok(ms.calls.filter(c=>c.url.includes('/delta')).every(c=>new URL(c.url).searchParams.get('token')==='latest'));
+  assert.deepEqual(ctx.admin.state.mem.tables.app_onedrive_photos.map(r=>r.item_id).sort(),['P0','P1']);
+});
+
+test('taken time: the re-walk spreads over requests like a first index (indexing:true until done) and keeps rows visible meanwhile',async()=>{
+  const FIX='2026-10-25T00:00:00Z',OLD='2026-10-20T00:00:00Z';
+  const index={app_onedrive_folders:[{workspace_id:WS,item_id:'F1!100',parent_id:null,name:'카메라',enabled:true,updated_at:OLD}],
+    app_onedrive_photos:Array.from({length:20},(_,i)=>({workspace_id:WS,item_id:'Q'+i,parent_id:'F1!100',name:'q.jpg',taken_at:'2026-10-13T01:00:00Z',approx:false,taken_day:'2026-10-13',updated_at:OLD,kind:'photo',trashed_at:null}))};
+  const pages=Array.from({length:20},(_,i)=>[pic('Q'+i,'F1!100')]);pages[0].unshift(topItem);
+  const row={...connected,index_done_at:OLD,synced_at:OLD,delta_link:'https://graph.microsoft.com/v1.0/me/drive/items/F1!100/delta?token=latest'};
+  const ctx=make({admin:fakeAdmin({row,index}),ms:fakeMicrosoft({deltaPages:pages}),takenFixAt:FIX});
+  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:true,indexing:true});
+  assert.equal(ctx.admin.state.row.index_done_at,null);assert.equal(ctx.admin.state.row.delta_link,null);
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,20,'nothing removed mid-walk');
+  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:false,indexing:false});
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,20);
+  assert.ok(ctx.admin.state.mem.tables.app_onedrive_photos.every(r=>r.taken_at==='2026-10-12T16:00:00.000Z'&&r.taken_day==='2026-10-13'));
 });
