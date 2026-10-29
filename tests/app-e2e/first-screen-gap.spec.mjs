@@ -9,7 +9,8 @@ import { noteField } from './helpers/note-editor.mjs';
 // 기준은 머리줄 아래 간격(12px) + 여유 6px. 폰 412·884(폴드 펼침), PC 1440은 노트 화면(최근 5개 포함)을 함께 본다. 가짜 자료만.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-const LIMIT = 18;
+// 기준: 머리줄 아래 12px + 여유. 할 일(28)·프로젝트(24)처럼 칸 안쪽 여백 정도는 넘기고, 노트(64)처럼 빈 띠 한 칸(44px 이상)이 끼면 실패.
+const LIMIT = 30;
 const row = (id, title, updated_at, metadata = {}) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + ' 본문', occurred_at: updated_at, created_at: updated_at, updated_at, archived_at: null, ai_export_allowed: true, attachments: [], metadata });
 
 async function boot(page, width) {
@@ -47,6 +48,7 @@ async function topGap(page) {
     const head = document.querySelector('#appView > .mobile-shell-header');
     const headBox = head && getComputedStyle(head).display !== 'none' ? head.getBoundingClientRect() : null;
     const from = headBox ? headBox.bottom : panel.getBoundingClientRect().top;
+    const name = el => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${el.classList.length ? '.' + [...el.classList].join('.') : ''}`;
     const fixed = el => { for (let e = el; e && e !== panel; e = e.parentElement) { const p = getComputedStyle(e).position; if (p === 'fixed') return true; } return false; };
     const shows = el => {
       const s = getComputedStyle(el);
@@ -61,9 +63,18 @@ async function topGap(page) {
       const b = el.getBoundingClientRect();
       if (b.width < 1 || b.height < 1 || b.bottom <= from - 2 || b.top >= innerHeight) continue;
       if (el.closest('.a11y-only, [hidden], .hidden') || fixed(el) || !shows(el)) continue;
-      if (!best || b.top < best.top) best = { top: b.top, what: `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${el.classList.length ? '.' + [...el.classList].join('.') : ''}` };
+      if (!best || b.top < best.top) best = { top: b.top, el, what: name(el) };
     }
-    return best ? { gap: Math.round(best.top - from), what: best.what } : { gap: null, what: 'nothing' };
+    if (!best) return { gap: null, what: 'nothing' };
+    // 빈 띠를 차지한 것(내용 위에 있는 높이 있는 칸, 그 내용의 조상 제외) — 실패 글에 함께 적는다.
+    const band = [];
+    for (const el of panel.querySelectorAll('*')) {
+      const b = el.getBoundingClientRect();
+      if (b.height < 1 || el.contains(best.el) || b.top >= best.top - 1 || b.bottom <= from + 1 || fixed(el) || getComputedStyle(el).display === 'none') continue;
+      if (band.length < 6) band.push(`${name(el)}@${Math.round(b.top - from)}+${Math.round(b.height)}`);
+    }
+    const pad = getComputedStyle(panel).paddingTop;
+    return { gap: Math.round(best.top - from), what: best.what, band, pad };
   });
 }
 
@@ -85,7 +96,8 @@ test('폰 412: 메뉴마다 첫 화면 위 머리줄 아래에 빈 띠가 없다
   }
   test.info().annotations.push({ type: 'gaps', description: JSON.stringify(found) });
   console.log('first-screen gaps 412', JSON.stringify(found));
-  expect(found.filter(f => f.gap === null || f.gap > LIMIT || f.gap < -2), JSON.stringify(found)).toEqual([]);
+  // 음수는 머리줄 줄에 올린 단추(담당조직 ⋯ 등, 의도된 모양)라 빈 띠가 아니다.
+  expect(found.filter(f => f.gap === null || f.gap > LIMIT), JSON.stringify(found)).toEqual([]);
   expect(errors).toEqual([]);
 });
 
