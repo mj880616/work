@@ -2,11 +2,14 @@
 // 순수 함수만 둔다(입출력은 handler.ts).
 // - 화면은 일정 값(일정 키·제목·시작·끝·장소)과 담당조직 id만 보낸다. Google 일정은 서버가 로그인 토큰으로 읽을 수 없어 화면이 보낸다(#1431과 같은 까닭).
 // - 재료(①~⑦)는 서버가 내 로그인 토큰으로 이미 있는 표에서 읽는다(owner RLS, 관리자 키 없음). 개인 통화함은 읽지 않는다.
-// - 원장 교섭·전략(S2) 기록은 줄로는 보이되(제목·날짜) AI에는 보내지 않는다. 텔레그램은 방 이름·요약만 보낸다(결정 4, 보낸 사람·원문 없음).
+// - 명진 결정 변경(10/29 07:29~07:30): 원장 교섭·전략(S2) 기록도 AI 재료로 보내 답 문장에 쓴다(줄의 '교섭·전략' 표시는 그대로).
+//   텔레그램은 방 이름·요약에 원문(업무 텔레그램 줄)과 보낸 사람 표시 이름까지 보낸다(tg-raw.ts, 소식마다 600자·8개 상한, 연락처 가림).
+//   개인 통화함·개인 텔레그램·일기는 계속 읽지 않는다. 통화는 제목·요약만(원문·상대 이름 없음).
 // - AI 답은 믿지 않는 입력: 공용 근거 검사(sheet-evidence.ts groundedLines)로 근거 번호가 보낸 줄에 없는 줄은 버린다.
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { looksSecret } from "./note-title.ts";
 import { CONTROL, chars, groundedLines, scrub } from "./sheet-evidence.ts";
+import { TG_RAW_CHARS, tgRawForAi } from "./tg-raw.ts";
 
 export const PRE_MEETING_HOUR = 18; // 전날 18시(서울) 뒤 자동(결정 2).
 export const PRE_MEETING_AHEAD_DAYS = 8; // 일정 시작이 지금부터 8일 안이어야 한다.
@@ -32,7 +35,8 @@ export const PRE_MEETING_GROUP_LABEL: Readonly<Record<string, string>> = Object.
 
 export type PreMeetingEvent = { event_key: string; title: string; start: string; end: string | null; location: string | null };
 export type PreMeetingRequest = { mode: "auto" | "user"; event: PreMeetingEvent; organization_id: string };
-// 재료 한 줄. ai는 AI에만 보내는 덧붙임 글(저장하지 않음). send=false면 줄로만 보이고 AI에는 보내지 않는다(S2·주요 인물).
+// 재료 한 줄. ai는 AI에만 보내는 덧붙임 글(저장하지 않음). send=false면 줄로만 보이고 AI에는 보내지 않는다(쟁의 단계 줄·주요 인물).
+// s2=true는 원장 교섭·전략 줄 표시(화면 꼬리표). 결정 변경으로 AI에도 보낸다.
 export type PreMeetingItem = {
   group: string; title: string; day: string | null; source_kind: string; source_id: string;
   ai?: string; send?: boolean; s2?: boolean;
@@ -84,12 +88,15 @@ const flat = (s: string) => s.replace(/\s+/g, " ").trim();
 // 저장·표시용 줄 제목: 한 줄로 펴고 120자까지.
 export const itemTitle = (s: string) => clip(flat(s), 120);
 
-// AI에 보낼 재료: 줄마다 번호(items 순서)를 붙인다. 비밀 모양·S2·보내지 않는 줄은 빼고 연락처는 지운다. 보낼 줄이 없으면 text는 빈 문자열.
+// 텔레그램 원문 → AI 덧붙임 글(보낸 사람 표시 이름, 연락처 가림, 600자). 이름 표를 못 읽었으면 라벨 그대로.
+export const sheetTgRaw = (raw: unknown, names?: ReadonlyMap<string, string>) => tgRawForAi(raw, names ?? new Map(), scrub, TG_RAW_CHARS);
+
+// AI에 보낼 재료: 줄마다 번호(items 순서)를 붙인다. 비밀 모양·보내지 않는 줄은 빼고 연락처는 지운다. S2는 '(교섭·전략)'을 붙여 보낸다. 보낼 줄이 없으면 text는 빈 문자열.
 export function preMeetingMaterial(event: PreMeetingEvent, orgName: string, stage: string | null, items: PreMeetingItem[]): { text: string; sent: Set<number> } {
   const sent = new Set<number>(), lines: string[] = [];
   items.forEach((it, i) => {
-    if (it.send === false || it.s2 || looksSecret(it.title) || (it.ai && looksSecret(it.ai))) return;
-    const label = PRE_MEETING_GROUP_LABEL[it.group] ?? it.group;
+    if (it.send === false || looksSecret(it.title) || (it.ai && looksSecret(it.ai))) return;
+    const label = (PRE_MEETING_GROUP_LABEL[it.group] ?? it.group) + (it.s2 ? "(교섭·전략)" : "");
     const extra = it.ai ? ` — ${scrub(flat(it.ai))}` : "";
     lines.push(`[${i}] ${label} · ${it.day ?? "날짜 없음"} · ${scrub(it.title)}${extra}`);
     sent.add(i);
@@ -103,6 +110,7 @@ export function preMeetingMaterial(event: PreMeetingEvent, orgName: string, stag
 export const PRE_MEETING_INSTRUCTIONS = [
   "너는 노동조합 상근자가 내일 교섭·회의에 들어가기 전에 보는 '한 장'을 쓴다.",
   "재료는 [번호]가 붙은 지난 교섭·회의 결과·원장 쟁점·우리 약속·최근 통화·텔레그램 소식·관련 자료 줄이다. 재료에 있는 일만 쓰고 지어내지 않는다.",
+  "텔레그램 줄의 '원문:' 뒤는 '시각 보낸 사람: 말'을 ' / '로 이은 원문 일부다. 누가 무슨 말을 했는지 쓸 수 있다.",
   "top: 들어가기 전에 꼭 알아야 할 것 세 가지. issues: 아직 풀리지 않은 쟁점(5줄까지). counterpart: 상대 쪽 사람·직책·태도(5줄까지, 재료에 있는 것만).",
   "한 줄 40자 안팎, 60자를 넘지 않는다. 줄마다 근거 줄 [번호]를 refs에 1개 이상 넣는다. 날짜는 '10/27'처럼 짧게. 줄바꿈·목록 기호·따옴표·이모지 없이.",
   AI_TONE_RULE,
