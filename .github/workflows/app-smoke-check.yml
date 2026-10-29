@@ -56,6 +56,8 @@ on:
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-transcript-model.test.mjs'
+      - 'tests/meeting-recorder-model.test.mjs'
+      - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -158,6 +160,8 @@ on:
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-transcript-model.test.mjs'
+      - 'tests/meeting-recorder-model.test.mjs'
+      - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -322,6 +326,9 @@ jobs:
 
       - name: Meeting transcript → meeting record draft (MTG-녹음초안)
         run: node --test tests/meeting-transcript-model.test.mjs
+
+      - name: Laptop recording rules (MTG-노트북녹음 2단계, segment roll·piece retry·text join·band words)
+        run: node --test tests/meeting-recorder-model.test.mjs
 
       - name: Meeting card time, kind colors and PC layout
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs

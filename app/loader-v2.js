@@ -220,6 +220,8 @@
   }
   // SEARCH-전체검색: 첫 화면을 그린 뒤 검색칸(PC 상단 줄)·메뉴 검색 입구를 붙인다. 기다리지 않는다.
   viewLoader.load('search').catch(err=>console.warn('search load failed',err?.name||'Error'));
+  // MTG-노트북녹음: 노트북 [녹음]·녹음 띠의 주인(앱 껍데기 한 곳). 첫 화면 뒤 한 번 붙여 메뉴를 옮겨도 녹음이 이어진다. 기다리지 않는다.
+  import('./meeting-recorder.js').catch(err=>console.warn('meeting recorder load failed',err?.name||'Error'));
   const {startVersionNotice}=await import('./version-notice.js');
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
