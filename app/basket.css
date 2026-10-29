@@ -46,7 +46,7 @@
 #basketView .home-quick { margin:12px 0; }
 #basketView .home-quick-entry { display:flex; align-items:flex-start; gap:8px; }
 #basketView .home-quick-input-wrap { flex:1; min-width:0; position:relative; }
-#basketView [data-quick-input] { min-height:72px; padding-left:44px; }
+#basketView [data-quick-input] { min-height:72px; }
 #basketView [data-quick-file-picker] { position:absolute; top:10px; left:8px; z-index:1; }
 #basketView [data-quick-options][hidden],#basketView [data-quick-basket-options][hidden],#basketView [data-quick-file-picker][hidden] { display:none; }
 #basketView .basket-title { font-size:15px; font-weight:600; }
