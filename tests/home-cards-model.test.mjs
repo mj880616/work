@@ -4,9 +4,9 @@ import {CARDS, DEFAULT_ORDER, normalizeCards, cardsToPrefs, isDefaultCards, remo
 
 // MENU-HOME-편집: 홈 칸의 기본 순서·빼기·더하기·옮기기 규칙.
 test('기본 순서는 지금 홈과 같다: 폰은 한 칸, PC는 왼쪽·오른쪽 칸', () => {
-  assert.deepEqual(DEFAULT_ORDER, ['calendar', 'tasks', 'missed', 'inbox', 'tomorrow', 'dday', 'radar', 'meetings', 'collect']);
+  assert.deepEqual(DEFAULT_ORDER, ['quiet', 'calendar', 'tasks', 'missed', 'inbox', 'tomorrow', 'dday', 'radar', 'meetings', 'collect']);
   assert.deepEqual(placement(DEFAULT_ORDER, true), {main: DEFAULT_ORDER, aside: []});
-  assert.deepEqual(placement(DEFAULT_ORDER, false), {main: ['calendar', 'tasks', 'meetings'], aside: ['dday', 'radar', 'collect']});
+  assert.deepEqual(placement(DEFAULT_ORDER, false), {main: ['calendar', 'tasks', 'meetings'], aside: ['quiet', 'dday', 'radar', 'collect']});
   assert.ok(isDefaultCards(undefined)); assert.equal(cardsToPrefs(DEFAULT_ORDER), null);
 });
 test('저장된 값이 이상해도 올바른 목록으로 읽고, 빈 목록은 전부 뺀 것', () => {
@@ -33,6 +33,7 @@ test('옮기기: 보이는 칸 기준 자리, 안 보이는 칸은 제자리', (
   assert.equal(pc.indexOf('meetings') < pc.indexOf('calendar'), true); assert.deepEqual(pc.filter(x => ['missed', 'inbox', 'tomorrow'].includes(x)), ['missed', 'inbox', 'tomorrow']);
   assert.equal(moveCard(DEFAULT_ORDER, 'calendar', 99, true).at(-1), 'calendar');
   assert.deepEqual(moveCard(DEFAULT_ORDER, 'zzz', 0), DEFAULT_ORDER);
-  assert.deepEqual(stepCard(DEFAULT_ORDER, 'calendar', -1, true), DEFAULT_ORDER);
-  assert.equal(stepCard(DEFAULT_ORDER, 'calendar', 1, true)[0], 'tasks');
+  assert.deepEqual(stepCard(DEFAULT_ORDER, 'quiet', -1, true), DEFAULT_ORDER);
+  assert.equal(stepCard(DEFAULT_ORDER, 'calendar', -1, true)[0], 'calendar');
+  assert.equal(stepCard(DEFAULT_ORDER, 'calendar', 1, true)[1], 'tasks');
 });

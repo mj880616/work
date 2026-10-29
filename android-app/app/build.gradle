@@ -37,5 +37,8 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.16.0'
     implementation 'androidx.browser:browser:1.8.0'
     implementation 'androidx.webkit:webkit:1.12.0'
+    // 단계 ③ 위젯: 30분 갱신·같은 이름 작업 하나(WorkManager), Origin 머리글을 그대로 보내는 HTTP 도구(OkHttp, 설계 4절).
+    implementation 'androidx.work:work-runtime:2.10.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     testImplementation 'junit:junit:4.13.2'
 }

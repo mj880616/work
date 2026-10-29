@@ -13,7 +13,7 @@ const radarStatusHtml = text => text === RADAR_WAIT ? waitInlineHtml() : esc(tex
 // - Nothing is kept in browser storage. A table or function that is not deployed yet hides the box quietly (as PR 838 does for [AI 요약]).
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked,
-  candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, quickDue, dotDay, dueChoices,
+  candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, quickDue, dotDay, dueChoices, sourceText,
   RADAR_SOURCE_LABEL, HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
 import {formatSeoulTime, seoulDateKey, seoulDayStart, addSeoulDays} from './meeting-time.js';
 import {copyText} from './copy-text.js';
@@ -79,6 +79,10 @@ export function openSource(c) {
       await window.KPTUViewLoader.load('team'); await window.KPTUWorkplace.open(c.organization_id);
     } else if (c.source_kind === 'project_update' && c.project_id) {
       await window.KPTUViewLoader.load('projects'); await window.KPTUProjects.open(c.project_id);
+    } else if (c.source_kind === 'telegram') {
+      // FEAT-1029 ⑤: the telegram screen on that room·day with the news row open (the same opener the 조직 주요 인물 list uses).
+      await window.KPTUViewLoader.load('telegram'); go('telegram');
+      if (c.tg?.room_key) await window.KPTUTelegramFeed?.show?.(c.tg.room_key, c.source_day, c.source_id);
     }
   };
   open().catch(() => toast('출처를 열지 못했어요. 다시 시도해 주세요.'));
@@ -149,8 +153,8 @@ export function mountRadar(host, {place}) {
   }
   function rowHtml(c) {
     const id = esc(c.id), isBusy = busy.has(c.id), open = c.status === 'open';
-    const source = RADAR_SOURCE_LABEL[c.source_kind];
-    const meta = open ? [source, c.due ? `제안 기한 ${dotDay(c.due)}` : ''].filter(Boolean).join(' · ') : `${doneLabel(c)} · ${source}`;
+    const source = sourceText(c), tg = c.source_kind === 'telegram';
+    const meta = open ? [source, tg ? dotDay(c.source_day) : '', c.due ? `제안 기한 ${dotDay(c.due)}` : ''].filter(Boolean).join(' · ') : `${doneLabel(c)} · ${source}`;
     const shownWhy = why.has(c.id);
     const more = c.evidence ? `<button type="button" class="radar-why" data-radar-why="${id}" aria-expanded="${shownWhy}" aria-label="근거 ${shownWhy ? '접기' : '보기'}">${shownWhy ? '▴' : '▾'}</button>` : '';
     let tools = '', below = '';
@@ -162,7 +166,7 @@ export function mountRadar(host, {place}) {
       tools = `<span class="radar-tools"><button type="button" class="radar-tool" data-radar-quick="${id}" aria-label="바로 할 일로" title="바로 할 일로"${dis}>✓</button><button type="button" class="radar-tool" data-radar-task="${id}" aria-label="고쳐서 넣기" title="고쳐서 넣기"${dis}>✎</button><button type="button" class="radar-tool" data-radar-dismiss="${id}" aria-label="무시" title="무시"${dis}>✕</button></span>`;
     }
     const note = rowStatus.get(c.id) ? `<p class="radar-row-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
-    return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><div class="radar-text"><span class="radar-summary">${esc(c.summary)}</span><span class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(meta)}</button>${more}</span></div>${tools}</div>${shownWhy ? `<p class="radar-evidence" data-radar-evidence>${esc(c.evidence)}</p>` : ''}${note}${below}</li>`;
+    return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><div class="radar-text"><span class="radar-summary">${esc(c.summary)}</span><span class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(meta)}</button>${more}</span></div>${tools}</div>${shownWhy ? `<p class="radar-evidence" data-radar-evidence>${esc(c.evidence)}${tg ? ` <button type="button" class="radar-link" data-radar-source="${id}">원문 보기 ›</button>` : ''}</p>` : ''}${note}${below}</li>`;
   }
   function promiseHtml(p, i) {
     const meta = ['상대 약속', RADAR_SOURCE_LABEL[p.source_kind], p.due ? `기한 ${dotDay(p.due)}` : ''].filter(Boolean).join(' · ');

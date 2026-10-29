@@ -9,7 +9,7 @@
 // - AI 답도 믿지 않는 입력: 세 줄까지, 줄마다 글자 수·HTML·제어 문자·연락처 검사, 근거 번호가 재료에 없는 줄은 버린다.
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { looksSecret } from "./note-title.ts";
-import { CONTROL, chars, groundedLines, scrub } from "./sheet-evidence.ts";
+import { CONTROL, chars, groundedLines, scrub } from "./evidence.ts";
 
 export const NEXT_WEEK_SHEET_HOUR = 15; // 금요일 15시(서울) 뒤 자동.
 export const NEXT_WEEK_SHEET_ITEMS = 150;
