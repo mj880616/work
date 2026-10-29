@@ -9,6 +9,7 @@
 // - AI 답도 믿지 않는 입력: 세 줄까지, 줄마다 글자 수·HTML·제어 문자·연락처 검사, 근거 번호가 재료에 없는 줄은 버린다.
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { looksSecret } from "./note-title.ts";
+import { CONTROL, chars, groundedLines, scrub } from "./evidence.ts";
 
 export const NEXT_WEEK_SHEET_HOUR = 15; // 금요일 15시(서울) 뒤 자동.
 export const NEXT_WEEK_SHEET_ITEMS = 150;
@@ -31,10 +32,6 @@ export type NextWeekTopLine = { text: string; refs: number[] };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const SOURCE_ID = /^[A-Za-z0-9_.:@-]{1,200}$/;
-const chars = (s: string) => [...s].length;
-const CONTROL = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]/;
-const PHONE = /(?:\+?82[-\s]?)?0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}/;
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 const oneLine = (v: unknown, max: number) => typeof v === "string" && !!v && v === v.trim() && !CONTROL.test(v) && chars(v) <= max;
 const isDay = (s: string) => DAY.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
 export const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
@@ -75,7 +72,6 @@ export function parseNextWeekSheetRequest(b: Record<string, unknown>): { week_st
   return { week_start: week, mode: b.mode as "auto" | "user", items };
 }
 
-const scrub = (s: string) => s.replace(new RegExp(EMAIL.source, "g"), "[이메일]").replace(new RegExp(PHONE.source, "g"), "[전화]");
 // AI에 보낼 재료: 줄마다 번호(items 순서)를 붙인다. 비밀 모양 줄은 빼고 연락처는 지운다. 보낼 줄이 없으면 빈 문자열.
 export function nextWeekSheetMaterial(weekStart: string, items: NextWeekItem[]): string {
   const lines: string[] = [];
@@ -118,22 +114,7 @@ export function parseNextWeekSheet(raw: string, sent: ReadonlySet<number>): Next
   let data: unknown;
   try { data = JSON.parse(raw); } catch { return null; }
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
-  const list = (data as Record<string, unknown>).lines;
-  if (!Array.isArray(list)) return null;
-  const out: NextWeekTopLine[] = [];
-  for (const v of list) {
-    if (out.length >= 3) break;
-    if (!v || typeof v !== "object") continue;
-    const t = (v as Record<string, unknown>).text, refs = (v as Record<string, unknown>).refs;
-    if (typeof t !== "string" || CONTROL.test(t) || t.includes("<") || t.includes(">")) continue;
-    const s = t.replace(/\s+/g, " ").replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, "").trim();
-    if (!s || chars(s) > NEXT_WEEK_SHEET_LINE_CHARS || PHONE.test(s) || EMAIL.test(s) || looksSecret(s)) continue;
-    if (!Array.isArray(refs)) continue;
-    const ok = [...new Set(refs.filter((n): n is number => Number.isInteger(n) && sent.has(n as number)))].slice(0, 5);
-    if (!ok.length) continue;
-    out.push({ text: s, refs: ok });
-  }
-  return out;
+  return groundedLines((data as Record<string, unknown>).lines, sent, { max: 3, maxChars: NEXT_WEEK_SHEET_LINE_CHARS });
 }
 
 // 보낸 줄 번호(비밀 모양으로 뺀 줄 제외).
