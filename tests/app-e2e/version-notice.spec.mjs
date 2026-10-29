@@ -187,7 +187,7 @@ test('unsaved linked summary draft still confirms before reload',async({page})=>
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
   const input=await editLinkSummary(page);await input.fill('QA record');
   const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
-  const d=await dialog;expect(d.message()).toContain('저장하지 않은 프로젝트 내용');await d.dismiss();await click;
+  const d=await dialog;expect(d.message()).toContain('저장하지 않은 사업영역 내용');await d.dismiss();await click;
   expect(await input.inputValue()).toBe('QA record');
 });
 // MTG-프로젝트합치기 결정 ⑥: 예전 'saved workstream reopened without edits reloads without confirmation'은 진행 항목 줄 → 진행 항목 창을

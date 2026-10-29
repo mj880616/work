@@ -1082,7 +1082,7 @@ test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 
   let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
   await solo.locator('[data-ps3-trash-purge]').click();
   await expect.poll(()=>asked).toContain('영구 삭제할까요');
-  expect(asked).toContain('프로젝트 연결만 풀립니다');expect(asked).toContain('되돌릴 수 없습니다');
+  expect(asked).toContain('사업영역 연결만 풀립니다');expect(asked).toContain('되돌릴 수 없습니다');
   expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
   await solo.locator('summary').click();
   page.once('dialog',d=>d.accept());await solo.locator('[data-ps3-trash-purge]').click();
@@ -1217,7 +1217,7 @@ test('TRASH 2단계: 휴지통 함수가 아직 없으면 삭제는 지금 문�
   const message=page.locator('#ps3DeleteMessage');
   await expect(message).toContainText('삭제합니다');await expect(message).toContainText('하위 사업영역 1개도 함께 삭제됩니다');
   await expect(page.locator('#ps3DeleteModal')).not.toContainText('휴지통');
-  await expect(page.locator('[data-ps3-delete-note]')).toContainText('프로젝트 연결만 해제함');
+  await expect(page.locator('[data-ps3-delete-note]')).toContainText('사업영역 연결만 해제함');
   await expect(page.locator('#ps3DeleteConfirm')).toHaveText('삭제');
   await page.locator('#ps3DeleteConfirm').click();
   await expect.poll(()=>state.spaces.some(x=>x.id==='main-1')).toBeFalsy();
@@ -1472,7 +1472,7 @@ for(const destination of ['library','back'])test(`PRJ dirty linked summary confi
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   if(destination==='library'){await page.locator('[data-ps3-library]').click()}
   else{await page.evaluate(()=>{history.replaceState({},'', '/app/');history.pushState({project:'main-1'},'', '/app/?project=main-1')});await page.goBack()}
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(message).toContain('저장하지 않은 프로젝트 내용');await expect(input).toHaveValue('이동 전 초안');
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(message).toContain('저장하지 않은 사업영역 내용');await expect(input).toHaveValue('이동 전 초안');
 });
 
 for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e record menu dismissal and targets ${width} fallback=${fallback}`,async({page})=>{

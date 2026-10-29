@@ -73,7 +73,7 @@ test('PC 1280: the list is an indented tree to the third level; the third level 
  await page.locator('#ps3Hierarchy .ps3-parent-link').first().click();await expectProjectTitle(page,'합성 정책 사업');
  // A main project counts every level under it before delete.
  const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();await more.locator('[data-ps3-delete-project]').click();
- await expect(page.locator('#ps3DeleteMessage')).toContainText('하위 프로젝트 2개');
+ await expect(page.locator('#ps3DeleteMessage')).toContainText('하위 사업영역 2개');
  expect(state.writes).toEqual([]);expect(errors).toEqual([]);
 });
 

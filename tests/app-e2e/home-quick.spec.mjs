@@ -24,7 +24,7 @@ test('quick task KST midnight, project, IME, partial success and request lock',a
  await expect(input).toBeDisabled();await expect(q.locator('[data-quick-mode="update"]')).toBeDisabled();
  await q.locator('[data-quick-save]').dispatchEvent('click');release();
  await expect(input).toHaveValue('QA');expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({due:'2026-10-08',links:[{project_id:'child'}]});
- await expect(q.locator('[data-quick-options]')).toBeVisible();await expect(page.locator('#toast')).toContainText('할 일은 저장했습니다. 프로젝트 연결');await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();
+ await expect(q.locator('[data-quick-options]')).toBeVisible();await expect(page.locator('#toast')).toContainText('할 일은 저장했습니다. 사업영역 연결');await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();
  await expect.poll(()=>requests.slice(before).filter(r=>r.action==='overview').length).toBe(0);
  expect(requests.slice(before).filter(r=>r.path.includes('google-calendar')||r.path.includes('app_project_milestones')||r.path.includes('app_suborganization_updates'))).toHaveLength(0);
 });

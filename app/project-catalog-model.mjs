@@ -26,7 +26,7 @@ export function tree(projects){
 export function basketProjects(projects){
   const trail=[];
   return tree(projects).flatMap(({project,depth})=>{
-    trail.length=depth;trail.push(project.name||'이름 없는 사업영역');
+    trail.length=depth;trail.push(project.name||'이름 없는 프로젝트');
     return ['done','completed'].includes(project.status)?[]:[{id:project.id,name:trail.join(' › ')}];
   });
 }
