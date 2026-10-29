@@ -1,6 +1,7 @@
 /* AI-서버연동 S7-b: [원장] 화면(#ledgerView). 값은 theme-tokens.css의 공용 토큰만 쓴다. 큰 버튼(.primary/.secondary)은
    ui-standard.css 규칙을 따르고, 이 파일은 칸 배치·표·작은 버튼(.lg-tool: 보이는 32px, 누르는 범위 44px)만 정한다. */
-#appView #ledgerView .lg-root{ display:flex; flex-direction:column; gap:16px; max-width:920px; }
+/* UI-전수디자인점검 F14: 칸 폭은 다른 화면처럼 본문을 꽉 채운다(전에는 920px로 좁았음). */
+#appView #ledgerView .lg-root{ display:flex; flex-direction:column; gap:16px; }
 #appView #ledgerView .lg-card{ display:flex; flex-direction:column; gap:10px; min-width:0; padding:16px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #ledgerView [data-lg-shell]{ display:flex; flex-direction:column; gap:16px; min-width:0; }
 #appView #ledgerView .lg-card h3{ margin:0; font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
@@ -54,6 +55,7 @@
    크기는 --ds-compact-*(32px, 누르는 범위 44px은 base-ui.css ::after)와 --ds-text-* 토큰만 쓴다. */
 #appView #ledgerView .lb-form{ display:flex; flex-direction:column; gap:6px; }
 #appView #ledgerView .lb-bar{ display:flex; align-items:center; gap:8px; min-width:0; }
+/* F14: 칸 안 '원장' 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 둔다(위 머리줄·경로 줄이 화면 이름을 보임). */
 #appView #ledgerView .lb-card h3.lb-h{ flex:none; margin:0; }
 #appView #ledgerView .lb-search{ position:relative; flex:1 1 auto; display:block; min-width:0; margin:0; }
 #appView #ledgerView .lb-search .lb-icon{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--kptu-muted); pointer-events:none; }
@@ -136,7 +138,6 @@
   #appView #ledgerView .lg-fields{ grid-template-columns:minmax(0,1fr); }
   #appView #ledgerView .lg-select{ max-width:160px; }
   /* 폰: 검색칸 한 줄, 결과는 종류·제목·날짜 한 줄(요지·ID는 줄을 눌러 펼친 상세에서). */
-  #appView #ledgerView .lb-card h3.lb-h{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
   #appView #ledgerView .lbr-2{ display:none; }
   #appView #ledgerView .lb-head{ min-height:40px; justify-content:center; }
   #appView #ledgerView .lb-f.lb-period{ flex-wrap:wrap; }

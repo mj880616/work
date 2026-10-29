@@ -149,10 +149,10 @@ function paint() {
   const root = view(); if (!root) return;
   const wide = pc.matches, open = !!state.sel;
   paintList(); paintDetail();
-  $('#tgList').hidden = !wide && open; $('#tgDetail').hidden = !wide && !open;
+  $('#tgList').hidden = !wide && open; $('#tgDetail').hidden = !open;
   const l = state.sel && lineAt(state.sel.room, state.sel.day);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'telegram', name:wide && state.sel ? (l?.room_label || '') || null : null}}));
-  mountSplitResize({container:$('#tgSplit'), name:'telegram', inherit:'tasks', label:'텔레그램 소식과 방 상세 칸 폭 조절', list:() => $('#tgList'), pane:() => $('#tgDetail'), active:() => pc.matches && !view()?.classList.contains('hidden')});
+  mountSplitResize({container:$('#tgSplit'), name:'telegram', inherit:'tasks', label:'텔레그램 소식과 방 상세 칸 폭 조절', list:() => $('#tgList'), pane:() => $('#tgDetail'), active:() => pc.matches && !!state.sel && !view()?.classList.contains('hidden')});
 }
 const TG_WAIT = '\u0000wait'; // UI-기다림표시통일 2차: 이전 날을 찾는 동안은 글자 없는 회색 칸
 const statusHtml = () => state.status === TG_WAIT ? waitInlineHtml() : esc(state.status);
@@ -277,7 +277,8 @@ function rawHtml(r) {
 }
 function paintDetail() {
   const box = $('#tgDetail'), sel = state.sel;
-  if (!sel) { box.innerHTML = '<p class="feed-empty feed-pane-empty">왼쪽에서 방을 누르면 그날 소식이 보여요.</p>'; return; }
+  // UI-전수디자인점검 F23: 고른 방이 없으면 오른쪽 칸을 그리지 않는다(paint()가 칸을 숨겨 목록이 넓어짐). 방을 저절로 고르지는 않는다(고르면 '봤음'이 서버에 남음).
+  if (!sel) { box.replaceChildren(); return; }
   const d = detailOf(), line = lineAt(sel.room, sel.day), items = d?.items || [];
   const label = line?.room_label || items[0]?.room_label || '텔레그램 방', nb = neighborDays(state.lines, sel.room, sel.day);
   const back = pc.matches ? '' : '<button type="button" class="back-text" data-tg-back>‹ 소식</button>';

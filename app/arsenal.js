@@ -16,7 +16,7 @@ const pc = window.matchMedia('(min-width:1024px)');
 
 function install() {
   if (document.getElementById('arsenalView')) return;
-  document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="arsenalView" class="view-panel view-wide hidden" aria-label="아스날">
+  document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="arsenalView" class="view-panel hidden" aria-label="아스날">
 <div id="arsenalRoot" class="ars">
 <div class="ars-bar" role="group" aria-label="경기 거르기">
 <label class="a11y-only" for="arsSeason">시즌</label><select id="arsSeason" class="ars-filter" data-ars-season><option value="${ALL}">전체 시즌</option></select>

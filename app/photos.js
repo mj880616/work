@@ -50,7 +50,7 @@ const HOLD_MS = 500, HOLD_MOVE = 10, DRAG_START = 12, EDGE = 56;
 
 function install() {
   if (document.getElementById('photosView')) return;
-  document.getElementById('appView')?.insertAdjacentHTML('beforeend', '<section id="photosView" class="view-panel view-wide hidden" aria-label="사진"><div id="photosRoot" class="photos"></div></section>');
+  document.getElementById('appView')?.insertAdjacentHTML('beforeend', '<section id="photosView" class="view-panel hidden" aria-label="사진"><div id="photosRoot" class="photos"></div></section>');
 }
 install();
 const root = document.getElementById('photosRoot');

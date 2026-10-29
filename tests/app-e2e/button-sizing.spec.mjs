@@ -108,7 +108,8 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
    // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.
    // UI-상단줄: the PC [계정 ▾] moved to the top line as a small button (32px visible, UI-버튼기준); its letters stay the menu's.
    if(selector.includes('account-open'))expect(await size(page.locator(selector).first()),selector).toEqual({...before,height:32,paddingLeft:'8px',paddingRight:'8px',font:'13px',weight:'400'});
-   else expect(await size(page.locator(selector).first()),selector).toEqual({...before,font:'13px',weight:'400'});}
+   // UI-전수디자인점검 F22: PC(1024px~) 사이드바 메뉴 줄의 보이는 높이는 28px(--ds-compact-height-sm).
+   else expect(await size(page.locator(selector).first()),selector).toEqual({...before,...(width>=1024?{height:28}:{}),font:'13px',weight:'400'});}
  }
  await original.close();
 });
@@ -167,7 +168,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
  // ⋯ 메뉴 안 항목은 버튼 모양이 아닌 메뉴(옛 크기 그대로). 창 안 [저장]·[삭제]는 새 기준.
  for(const selector of ['[data-ps3-toggle-done]','[data-ps3-edit-project]','[data-ps3-archive-project]','[data-ps3-delete-project]'])await standard(page,selector);
  await closeProjectDetail(page);
- await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave',width>=1024?32:36);/* UI-버튼줄이기: 담당조직 상세 [저장] 36px. ORG-PC상세정리: PC 상세 칸은 작은 버튼 32px */
+ await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave',32);/* ORG-PC상세정리 → UI-전수디자인점검 F08: 담당조직 상세 [저장]은 PC 칸·폰 창 모두 작은 버튼 32px */
  await closeOrganizationDetail(page);
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
 });

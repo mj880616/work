@@ -513,10 +513,12 @@
   /* UI-PC메모노트: [바구니] 아래 하위 메뉴 [업데이트]·[노트](항상 펼침, PC 사이드바만). 들여 쓴 작은 줄(36px·12px), 고른 쪽은 진한 글자·500.
      UI-PC일정묶음: [일정] 아래 [달력]·[할 일]·[업무일지]·[일기]도 같은 모양·같은 펼침(항상 펼침). 상위 [일정]은 네 화면 어디서든 고른 표시. */
   #appView > .app-nav .nav-sub{ display:flex; flex-direction:column; gap:2px; margin:0 0 2px 14px; padding-left:8px; border-left:var(--ds-line-width) solid var(--ds-line); }
-  #appView > .app-nav .nav-sub-btn{ position:relative; box-sizing:border-box; width:100%; min-height:36px; margin:0; padding:8px 10px; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-regular); text-align:left; cursor:pointer; }
+  #appView > .app-nav .nav-sub-btn{ position:relative; box-sizing:border-box; width:100%; min-height:calc(var(--ds-compact-height-sm) - 4px); margin:0; padding:3px 10px; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-regular); text-align:left; cursor:pointer; }
   #appView > .app-nav .nav-sub-btn:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
   #appView > .app-nav .nav-sub-btn.active{ color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }
   #appView > .app-nav .nav-sub-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+  /* F22: 손가락으로 누르는 PC(터치 화면)는 하위 메뉴도 누르는 범위를 지키려 예전 높이(36px). */
+  @media (pointer:coarse){ #appView > .app-nav .nav-sub-btn{ min-height:36px; padding-top:8px; padding-bottom:8px; } }
   /* [계정 ▾]도 메뉴와 같은 글자(13px·400). */
   #appView > .app-nav .account-trigger{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }
 }
@@ -1239,12 +1241,8 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 }
 .modal :is(#eventTaskProject){ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }
 /* 사업 보고 창 [연결할 곳] 버튼은 공용 .field-btn(아래 MTG-보고창칸정리)이 그린다: 칸과 같은 28px·창 폭. */
-/* ③ 담당조직 상세 [저장]: 36px, [크게]는 보조 버튼이라 32px(UI-버튼전수조사 2026-10-24, PC 상세 칸 ⤢·프로젝트 상세 ⤢와 같은 값). 같은 줄 가운데 맞춤.
+/* ③ 담당조직 상세 기록 입력의 ⤢·[저장] 모양은 workplace-detail.css 한 곳(UI-전수디자인점검 F08: 폰·PC 모두 입력칸 안 ⤢, [저장] 32px).
    프로젝트 상세 [기록]은 옆 입력칸과 한 높이(PRJ-화면다듬기)라 그대로 둔다. */
-#wdModal #wdInboxSave,
-#appView #teamView #wdModal #wdInboxSave{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
-#wdModal #wdInboxBig,
-#appView #teamView #wdModal:not(.wd-docked) #wdInboxBig{ align-self:center; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 /* ④ PC 할 일 수정 칸(요청함 08:43): 기한 날짜 칸과 [내일][모레][다음주][기한 없음]을 같은 줄·같은 높이(36px)로, 윗선·아랫선을 맞춘다.
    제목 줄 [↵ 저장]은 작은 버튼(32px). */
 @media(min-width:1024px){

@@ -103,7 +103,8 @@ test('desktop web uses compact left navigation and safe project detail margins',
   expect(desktop.mainMaxWidth).toBe('1920px');
   await clickView(page,'projects');
   await expect(page.locator('#projectsView')).toBeVisible();
-  expect(await page.locator('main').evaluate(el=>getComputedStyle(el).maxWidth)).toBe('1720px');
+  // UI-전수디자인점검 F21: 보통 화면도 넓은 화면(달력 등)과 같은 본문 폭 규칙 하나.
+  expect(await page.locator('main').evaluate(el=>getComputedStyle(el).maxWidth)).toBe('1920px');
 
   await page.evaluate(()=>{
     const modal=document.createElement('div');

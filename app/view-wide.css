@@ -1,5 +1,0 @@
-/* UI-PC업무일지폭: [일정] 묶음의 넓은 화면(달력·업무일지·일기, index.html의 .view-wide)은 PC(≥1024)에서 같은 바깥 폭 규칙 하나를 쓴다.
-   본문 칸 최대 1920px·좌우 여백 --kptu-wide-pad. 폰·중간 폭은 그대로. view-loader.js가 세 화면에 이 파일을 함께 불러온다(예전에는 calendar-ui.css·diary.css·journal.css에 같은 줄이 따로 있었다). */
-@media(min-width:1024px){
-  main:has(> #appView > .view-panel.view-wide:not(.hidden)){ --kptu-wide-pad:clamp(24px,2.2vw,42px); max-width:1920px; padding-left:var(--kptu-wide-pad); padding-right:var(--kptu-wide-pad); }
-}

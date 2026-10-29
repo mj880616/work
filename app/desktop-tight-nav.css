@@ -1,10 +1,10 @@
 @media (min-width:1024px){
   #appView.app-view{grid-template-columns:148px minmax(0,1fr);column-gap:20px}
   #appView>.app-nav{gap:3px;padding:var(--kptu-space-2);border-radius:var(--kptu-radius-lg)}
-  #appView>.app-nav .nav-btn{min-height:40px;padding:9px 10px;font-size:12.5px;white-space:nowrap}
+  #appView>.app-nav .nav-btn{font-size:12.5px;white-space:nowrap}
 }
 @media (min-width:1440px){
   #appView.app-view{grid-template-columns:156px minmax(0,1fr);column-gap:22px}
   #appView>.app-nav{padding:9px}
-  #appView>.app-nav .nav-btn{min-height:40px;padding:9px 10px;font-size:13px}
+  #appView>.app-nav .nav-btn{font-size:13px}
 }
