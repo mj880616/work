@@ -1,7 +1,10 @@
 import {waitInlineHtml, waitEl} from './wait-state.js';
 // SHARE-현장공유 PR 2(화면): the top of the "공유 페이지" menu (#sharePagesRoot). This module is the only renderer of that
 // region: my share pages list + [새 공유 페이지], and the editor (title, blocks, 초안/게시, project link, links).
-// The old Web1 cards below stay with web1-board.js, folded under "이전 페이지" (S7: not moved).
+// SHARE-보관함·HTML공유: one folded '보관함 n' under the list holds the kept share pages (newest first) and, below them, the old
+// Web1 cards (web1-board.js draws those into #web1BoardLegacy; this module only places that holder inside the 보관함 line).
+// The old '이전 페이지' and '지나간 업무 · 사업' folds are gone; no record is removed. HTML file pages (share-html.js) are lines
+// with an 'HTML' tag and their own ⋯ (링크 복사 · 새 파일로 바꾸기 · 링크 끄기/켜기 · 보관함으로 · 삭제); pressing one shows its preview.
 // SHARE-전체편집: a page that is one 글(doc) block — every new page — opens as a full writing screen (renderFull): one thin
 // line (‹ · 초안/게시 · 프로젝트 · 링크 · 저장), the editor's button row, a big title and the text, over the whole content area.
 // A page with old blocks (한 줄 현황 …) keeps the block editor below (설계 4.2, [새 편집기로 바꾸기]).
@@ -28,6 +31,8 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {archiveFilter, boxFilter, archiveConfirmText, archivePatch, undoPatch, restorePatch, shortTitle} from './share-pages-archive.mjs';
 import {deleteToTrash} from './trash-actions.js';
+import {createShareHtml} from './share-html.js';
+import {htmlState, HTML_STATE_TEXT} from './share-html-model.mjs';
 
 (() => {
 if (window.KPTUSharePages) return;
@@ -64,6 +69,10 @@ const message = (e, fallback) => (e?.status === 401 || e?.code === 'session_requ
 let scope = ownerScope(), epoch = 0;
 let pages = null, listState = 'idle';
 let box = null, boxOpen = false; // 보관함: the kept pages (id·title·updated_at), read with the list; folded unless opened
+// HTML file pages: the ids that have a file version, and each page's links (only off·expiry, never the link value).
+let htmlIds = new Set(), linksByPage = new Map();
+const isHtml = id => htmlIds.has(id);
+const htmlLineState = page => htmlState(page, linksByPage.get(page.id));
 let editing = null; // {id, title, status, project_id, blocks, updated_at, saved, links, linksState, mode:'full'|'blocks'}
 let busy = false, layer = null;
 // ED-통합편집기 ①b: the open 글(doc) block is edited with the new editor (ed-editor.js). One instance at a time, for the
@@ -78,8 +87,11 @@ root.replaceChildren(listView, editorView);
 // ── list ──
 function renderList() {
   const status = el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spListStatus:''}});
-  const head = el('div', {class:'sp-head'}, el('h2', {text:'내 공유 페이지'}),
-    el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'}));
+  const head = el('div', {class:'sp-head'},
+    el('h2', {}, '내 공유 페이지', pages?.length ? el('span', {class:'sp-count', text:` ${pages.length}`}) : null),
+    el('div', {class:'sp-head-actions'},
+      el('button', {type:'button', class:'secondary', 'aria-label':'새 HTML 공유 페이지', dataset:{spNewHtml:''}, text:'+ HTML'}),
+      el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'})));
   const body = [];
   if (listState === 'loading' && !pages) status.innerHTML = waitInlineHtml();
   else if (listState === 'error') {
@@ -87,19 +99,30 @@ function renderList() {
     body.push(el('button', {type:'button', class:'secondary', dataset:{spReload:''}, text:'다시 불러오기'}));
   } else if (pages && !pages.length) body.push(el('p', {class:'sp-empty', text:'아직 만든 공유 페이지가 없어요. [새 공유 페이지]로 시작해 보세요.'}));
   if (pages?.length) body.push(el('ul', {class:'sp-list', 'aria-label':'내 공유 페이지'}, pages.map(page => el('li', {},
-    el('button', {type:'button', class:'sp-row', dataset:{spOpen:page.id}},
+    el('button', {type:'button', class:'sp-row', dataset:isHtml(page.id) ? {spPreview:page.id} : {spOpen:page.id}},
       el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
-      el('span', {class:`sp-pill ${page.status === 'published' ? 'is-on' : ''}`, text:page.status === 'published' ? '게시' : '초안'})),
+      el('span', {class:'sp-kind', text:isHtml(page.id) ? 'HTML' : '블록'}),
+      isHtml(page.id)
+        ? el('span', {class:`sp-pill ${htmlLineState(page) === 'on' ? 'is-on' : ''}`, dataset:{spHtmlState:htmlLineState(page)}, text:HTML_STATE_TEXT[htmlLineState(page)]})
+        : el('span', {class:`sp-pill ${page.status === 'published' ? 'is-on' : ''}`, text:page.status === 'published' ? '게시' : '초안'})),
     el('button', {type:'button', class:'sp-row-more', dataset:{spRowMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
       'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'}))))));
-  if (box?.length) body.push(el('details', {class:'sp-box', open:boxOpen, dataset:{spBox:''}},
-    el('summary', {class:'sp-box-summary', text:`보관함 ${box.length}`}),
-    el('ul', {class:'sp-list sp-box-list', 'aria-label':'보관함'}, box.map(page => el('li', {},
-      el('div', {class:'sp-row sp-box-row'},
-        el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
-        el('span', {class:'sp-row-meta', text:day(page.updated_at)})),
-      el('button', {type:'button', class:'sp-row-more', dataset:{spBoxMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
-        'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'})))))));
+  // 보관함: kept share pages (newest first), then the old Web1 pages (fixed cards without a date, drawn by web1-board.js).
+  const legacy = document.querySelector('#web1BoardLegacy');
+  const legacyCount = legacy ? legacy.querySelectorAll('.w1b-card').length : 0;
+  const kept = box || [];
+  if (kept.length || legacy) {
+    const details = el('details', {class:'sp-box', open:boxOpen, dataset:{spBox:''}},
+      el('summary', {class:'sp-box-summary', text:`보관함 ${kept.length + legacyCount}`}),
+      kept.length ? el('ul', {class:'sp-list sp-box-list', 'aria-label':'보관함'}, kept.map(page => el('li', {},
+        el('div', {class:'sp-row sp-box-row'},
+          el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
+          el('span', {class:'sp-row-meta', text:day(page.updated_at)})),
+        el('button', {type:'button', class:'sp-row-more', dataset:{spBoxMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
+          'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'}))))) : null);
+    if (legacy) { legacy.hidden = false; details.append(legacy); }
+    body.push(details);
+  }
   listView.replaceChildren(head, status, ...body);
   view.dataset.sharePagesReady = '1';
 }
@@ -115,6 +138,14 @@ async function loadList({force = false} = {}) {
     if (run !== epoch || owner !== scope) return;
     if (!Array.isArray(rows) || !Array.isArray(kept)) throw new Error('bad list');
     pages = rows; box = kept; listState = 'ready';
+    // HTML file pages and their link states. Before the DB step these tables are missing: every page is then a block page.
+    const [versions, links] = await Promise.all([
+      rt.api(`/rest/v1/app_share_page_html?workspace_id=eq.${ws}&select=page_id`, {singleFlight:false}).catch(() => []),
+      rt.api(`/rest/v1/app_share_page_links?workspace_id=eq.${ws}&select=page_id,expires_at,disabled_at`, {singleFlight:false}).catch(() => [])]);
+    if (run !== epoch || owner !== scope) return;
+    htmlIds = new Set((Array.isArray(versions) ? versions : []).map(v => v.page_id));
+    linksByPage = new Map();
+    for (const link of Array.isArray(links) ? links : []) linksByPage.set(link.page_id, [...(linksByPage.get(link.page_id) || []), link]);
   } catch (e) {
     if (run !== epoch || owner !== scope) return;
     listState = 'error';
@@ -127,19 +158,39 @@ let rowMenu = null, rowBusy = false;
 const MENU_ITEMS = {
   list:'<button type="button" data-sp-row-action="archive">보관</button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제</button>',
   box:'<button type="button" data-sp-row-action="restore">되살리기</button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제</button>',
+  html:on => `<button type="button" data-sp-row-action="copy">링크 복사</button><button type="button" data-sp-row-action="replace">새 파일로 바꾸기</button>${on
+    ? '<button type="button" data-sp-row-action="link-off">링크 끄기</button>' : '<button type="button" data-sp-row-action="link-on">링크 켜기</button>'}<button type="button" data-sp-row-action="archive">보관함으로</button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제</button>`,
 };
 function ensureRowMenu() {
   return rowMenu ||= createAnchoredMenu({id:'spRowMenu', className:'task-inline-menu sp-row-menu', label:'공유 페이지 관리', historyKey:'kptuSharePageMenu',
     key:t => t.dataset.spRowMenu ? `list:${t.dataset.spRowMenu}` : `box:${t.dataset.spBoxMenu}`, canOpen:() => !rowBusy && !editing,
-    render:key => MENU_ITEMS[key.startsWith('box:') ? 'box' : 'list'],
+    render:key => {
+      if (key.startsWith('box:')) return MENU_ITEMS.box;
+      const id = key.slice(5), page = pages?.find(p => p.id === id);
+      return page && isHtml(id) ? MENU_ITEMS.html(htmlLineState(page) === 'on') : MENU_ITEMS.list;
+    },
     onAction:(button, active) => {
       const id = active.id.slice(active.id.indexOf(':') + 1), action = button.dataset.spRowAction;
+      const page = pages?.find(p => p.id === id);
+      if (page && ['copy', 'replace', 'link-off', 'link-on'].includes(action)) { void htmlAction(action, page); return; }
       if (action === 'archive') void archivePage(id);
       else if (action === 'restore') void restorePage(id);
       else if (action === 'trash') void trashPage(id);
     }});
 }
 const listNote = text => { const node = listView.querySelector('[data-sp-list-status]'); if (node) node.textContent = text; };
+const shareHtml = createShareHtml({rt, workspaceId, onChanged:() => { void loadList({force:true}); }});
+async function htmlAction(action, page) {
+  if (action === 'replace') { shareHtml.openReplace(page); return; }
+  if (rowBusy) return;
+  const owner = scope;
+  rowBusy = true;
+  listNote(action === 'copy' ? '링크를 복사하는 중…' : action === 'link-off' ? '링크를 끄는 중…' : '링크를 켜는 중…');
+  try {
+    const text = action === 'copy' ? await shareHtml.copyLink(page) : action === 'link-off' ? await shareHtml.linkOff(page) : await shareHtml.linkOn(page);
+    if (owner === scope) listNote(text);
+  } finally { rowBusy = false; }
+}
 async function archivePage(id) {
   const page = pages?.find(p => p.id === id);
   if (!page || rowBusy) return;
@@ -753,6 +804,8 @@ root.addEventListener('click', event => {
   if (!target || !root.contains(target)) return;
   const d = target.dataset;
   if ('spNew' in d) { if (!busy) showEditor(null); return; }
+  if ('spNewHtml' in d) { shareHtml.openNew(); return; }
+  if (d.spPreview) { const page = pages?.find(p => p.id === d.spPreview); if (page) void shareHtml.openPreview(page); return; }
   if ('spReload' in d) { void loadList({force:true}); return; }
   if (d.spRowMenu || d.spBoxMenu) { ensureRowMenu().open(target); return; }
   if (d.spOpen) { void openPage(d.spOpen); return; }
@@ -860,7 +913,7 @@ document.addEventListener('keydown', event => {
 window.addEventListener('beforeunload', event => { if (editing && dirty()) { event.preventDefault(); event.returnValue = ''; } });
 // Leaving the menu keeps the editor as it is (nothing is lost); the router forgets our history entry.
 window.addEventListener('kptu:view-changed', event => {
-  if (event.detail?.view !== 'pages') { layer = null; return; }
+  if (event.detail?.view !== 'pages') { layer = null; shareHtml.close(); return; }
   if (!editing) { void loadList(); return; }
   // Back in the menu with the editor still open: one history entry again so Back closes it first (not while traversing).
   if (event.detail?.source !== 'popstate') layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
@@ -870,6 +923,7 @@ window.addEventListener('kptu:session-changed', () => {
   if (next === scope) return;
   dropDocEditor();
   scope = next; epoch++; pages = null; box = null; boxOpen = false; listState = 'idle'; editing = null; layer = null; busy = false;
+  htmlIds = new Set(); linksByPage = new Map(); shareHtml.close();
   editorView.replaceChildren(); editorView.hidden = true; editorView.classList.remove('is-full'); listView.hidden = false;
   delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
   renderList();
@@ -878,6 +932,8 @@ window.addEventListener('kptu:session-changed', () => {
 // Restored (or permanently deleted) from the 휴지통 tab elsewhere: read the list again.
 window.addEventListener('kptu:share-pages-changed', () => { void loadList({force:true}); });
 
+// The old Web1 cards were drawn (web1-board.js): the 보관함 count includes them.
+window.addEventListener('kptu:web1-board-rendered', () => { if (!editing) renderList(); });
 window.KPTUSharePages = {reload:() => loadList({force:true})};
 renderList();
 void loadList();
