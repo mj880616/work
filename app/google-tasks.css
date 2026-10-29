@@ -162,8 +162,8 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-board{display:contents}
   #appView #tasksView #gtTaskSection.gt-pc>#gtUndoDeletes{grid-column:1;grid-row:3}
   #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;align-self:start;position:sticky;top:12px;max-height:calc(100vh - 130px - var(--kptu-topline-space,0px));max-height:calc(100dvh - 130px - var(--kptu-topline-space,0px));min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
-  #appView #tasksView #gtDetailPane .gt-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
-  #appView #tasksView #gtDetailPane.has-task .gt-pane-empty{display:none}
+  /* UI-전수디자인점검 F06: 할 일을 고르기 전에는 안내문 없이 빈 자리(상자 선·바탕 없음). 고르면 이 칸에 수정 창이 들어오며 상자가 된다. */
+  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane:not(.has-task){border-color:transparent;background:transparent}
   /* TASK-화면다듬기: [기한] 칸은 좁게, 오른쪽에 낮은 빠른 버튼 [내일][모레][다음주][기한 없음](PC 상세 칸에서만, 이미 있는 할 일을 고칠 때). */
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row{display:flex;align-items:flex-end;gap:var(--kptu-space-2);flex-wrap:wrap}
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row>label{flex:0 0 168px;min-width:0}
@@ -176,30 +176,33 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);margin:0;padding:0 4px;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--ds-section-ink)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-count{flex:none;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-col-body{flex:0 0 auto;min-height:0;overflow:visible;margin-top:var(--kptu-space-2);padding:0 2px 2px}
+  /* 아래 4px: 마지막 줄 동그라미·⋯의 누르는 범위(44px)가 줄(36px) 밖으로 4px 나오는 만큼(칸 안 넘김 없음). */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-body{flex:0 0 auto;min-height:0;overflow:visible;margin-top:var(--kptu-space-2);padding:0 2px 4px}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-empty{margin:0;padding:var(--kptu-space-2) 4px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-sub{margin:var(--kptu-space-3) 0 var(--kptu-space-1);padding:0 4px;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);color:var(--kptu-muted)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-cards+.gt-cards{margin-top:var(--kptu-space-2)}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-cards{display:grid;gap:var(--kptu-space-2);margin:0;padding:0;list-style:none}
-  /* 카드: [완료 동그라미] 제목·기한·태그 [⋯]. 옅은 바탕 칸, 고른 카드는 할 일 색 테두리. */
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card{position:relative;box-sizing:border-box;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:start;column-gap:2px;min-height:44px;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-cards{display:grid;gap:0;margin:0;padding:0;list-style:none}
+  /* UI-전수디자인점검 F06: 줄마다 바탕 상자 대신 가는 구분선 한 줄(높이 36px) — [완료 동그라미] 제목 … 기한·태그(작은 글자, 오른쪽) [⋯].
+     고른 줄은 할 일 색 옅은 바탕 + 테두리. */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card{position:relative;box-sizing:border-box;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;column-gap:2px;min-height:36px;margin:0;padding:0;border:0;border-top:var(--ds-line-width) solid var(--ds-line);border-radius:0;background:transparent}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-cards>.gt-card:first-child{border-top:0}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card:hover{background:var(--ds-kind-other-soft)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card.is-selected{background:var(--ds-kind-task-soft);outline:1.5px solid var(--ds-kind-task-ink);outline-offset:-1.5px}
-  /* 완료 동그라미: 보이는 원 20px, 누르는 범위 44×44(카드 왼쪽 여백까지). */
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-check{width:44px;height:44px;min-width:44px;min-height:44px}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-check::before{width:20px;height:20px;left:12px;top:12px}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main{display:grid;gap:3px;align-content:start;min-height:44px;padding:10px 0 9px;border-radius:var(--kptu-radius-sm)}
+  /* 완료 동그라미: 보이는 원 18px, 누르는 범위 44×44(위아래 4px는 이웃 줄에 겹쳐 줄 높이는 36px 그대로). */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-check{width:44px;height:44px;min-width:44px;min-height:44px;margin:-4px 0}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-check::before{width:18px;height:18px;left:13px;top:13px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main{display:flex;align-items:center;gap:8px;min-width:0;min-height:36px;padding:0;border-radius:var(--kptu-radius-sm)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main b{font-size:var(--ds-text-row);line-height:1.4}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-meta{display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;margin:0;font-size:var(--ds-text-meta);line-height:1.4}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main b{flex:1 1 auto;min-width:0;font-size:var(--ds-text-row);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:unset;display:block}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-meta{flex:0 1 auto;display:flex;flex-wrap:wrap;gap:2px 6px;align-items:center;justify-content:flex-end;min-width:0;max-width:55%;margin:0;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-due{flex:none}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag{display:inline-block;max-width:100%;box-sizing:border-box;padding:0 6px;border-radius:var(--kptu-radius-pill);font-size:11px;line-height:18px;white-space:normal;overflow-wrap:anywhere;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag{display:inline-block;min-width:0;max-width:100%;box-sizing:border-box;padding:0 6px;border-radius:var(--kptu-radius-pill);font-size:11px;line-height:18px;white-space:normal;overflow-wrap:anywhere;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag-project{color:var(--kptu-primary-ink);background:var(--kptu-primary-soft)}
-  /* ⋯: 누르는 범위 44×44(목록 줄과 같음), 보이는 바탕은 32px. */
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;font-size:18px;line-height:44px}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger::before{inset:6px}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-source{grid-column:2 / -1;margin:-6px 0 6px;min-height:24px}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-files{grid-column:2 / -1;margin:-6px 0 6px}
+  /* ⋯: 누르는 범위 44×44(동그라미와 같이 위아래 4px 겹침), 보이는 바탕은 28px. */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger{width:44px;height:44px;min-width:44px;min-height:44px;margin:-4px 0;padding:0;font-size:18px;line-height:44px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger::before{inset:8px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-source{grid-column:2 / -1;margin:-4px 0 4px;min-height:24px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-files{grid-column:2 / -1;margin:-4px 0 4px}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-file{min-height:24px}
   /* "나중 N ▸"·"완료 N ▸": "일주일 안" 열 맨 아래 접기 줄. 누르면 펼친다. */
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-fold{margin-top:var(--kptu-space-2);border-top:var(--ds-line-width) solid var(--ds-line)}

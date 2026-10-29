@@ -108,10 +108,10 @@ function paint() {
   if (!placed) window.KPTURouter?.setPlace?.('calls', {box:state.box === 'personal' ? 'personal' : null, call:state.selected || null});
   const wide = pc.matches, open = !!state.selected;
   paintList(); paintDetail();
-  $('#cfList').hidden = !wide && open; $('#cfDetail').hidden = !wide && !open;
+  $('#cfList').hidden = !wide && open; $('#cfDetail').hidden = !open;
   const row = rowOf(state.selected);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:wide && row ? topicOf(row) : null}}));
-  mountSplitResize({container:$('#cfSplit'), name:'calls', inherit:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !view()?.classList.contains('hidden')});
+  mountSplitResize({container:$('#cfSplit'), name:'calls', inherit:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !!state.selected && !view()?.classList.contains('hidden')});
   focusEdit();
 }
 // 줄 안 제목 입력칸·고치기 박스를 다시 그린 뒤에도 쓰던 칸에 초점을 돌려준다. 제목 입력칸은 처음 한 번만 전체 선택.
@@ -166,7 +166,8 @@ const statusHtml = () => esc(state.status) + (undo ? `${undo.type === 'edit' ? '
 function paintDetailNow() {
   const box = $('#cfDetail'), back = pc.matches ? '' : '<button type="button" class="back-text" data-cf-back>‹ 통화</button>';
   const r = rowOf(state.selected);
-  if (!r) { box.innerHTML = '<p class="feed-empty feed-pane-empty">왼쪽에서 통화를 고르면 핵심내용이 보여요.</p>'; return; }
+  // UI-전수디자인점검 F23: 고른 통화가 없으면 오른쪽 칸을 그리지 않는다(paint()가 칸을 숨겨 목록이 넓어짐). PC는 처음 열 때 맨 위 통화를 고른다(pickTop).
+  if (!r) { box.replaceChildren(); return; }
   const personal = isPersonal(r), unsure = r.kind === 'unsure';
   const who = whoOf(r);
   const points = readPoints(r.points);

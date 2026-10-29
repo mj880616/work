@@ -2,7 +2,9 @@
 @media (min-width:1024px){
   html,body{background:var(--kptu-bg)}
   body{overflow-y:scroll}
-  main{max-width:1600px;margin:0 auto;padding:12px 32px 76px}
+  /* UI-전수디자인점검 F21: 모든 PC 화면이 같은 본문 폭 규칙 하나(최대 1920px, 좌우 여백 24~42px)를 쓴다. 전에는 보통 화면 1600/1720px·넓은 화면
+     (달력·업무일지·일기·사진·아스날, 옛 view-wide.css) 1920px로 따로여서 화면을 옮길 때 사이드바·본문 자리가 흔들렸다. */
+  main{--kptu-wide-pad:clamp(24px,2.2vw,42px);max-width:1920px;margin:0 auto;padding:12px var(--kptu-wide-pad) 76px}
 
   #appView.app-view{display:grid;grid-template-columns:220px minmax(0,1fr);column-gap:28px;align-items:start}
   #appView>.app-nav{grid-column:1;grid-row:1 / span 40;position:sticky;top:12px;display:flex;flex-direction:column;align-items:stretch;gap:var(--kptu-space-1);height:calc(100vh - 24px);height:calc(100dvh - 24px);max-height:none;overflow:auto;padding:var(--kptu-space-2);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:none}
@@ -12,7 +14,9 @@
   #appView>.app-nav .sidebar-utility{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);width:100%;min-height:34px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);padding:7px 10px;text-align:left;font-size:12px;font-weight:700;line-height:1.25}
   #appView>.app-nav .sidebar-utility:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-text)}
   #appView>.app-nav .sidebar-utility+.sidebar-utility{margin-top:2px}
-  #appView>.app-nav .nav-btn{width:100%;min-height:40px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);padding:9px 10px;text-align:left;font-size:13px;font-weight:700;line-height:1.25;transition:background .14s ease,color .14s ease}
+  /* UI-전수디자인점검 F22: 메뉴 한 줄의 보이는 높이 28px(하위 메뉴 24px, ui-standard.css .nav-sub-btn). 800px 높이 노트북에서도 아래쪽 메뉴까지 보이고,
+     그래도 넘치면 사이드바 칸(.app-nav overflow:auto)만 스크롤한다. 손가락으로 누르는 PC는 아래 (pointer:coarse) 규칙이 누르는 범위를 지킨다. */
+  #appView>.app-nav .nav-btn{width:100%;min-height:var(--ds-compact-height-sm);border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);padding:4px 10px;text-align:left;font-size:13px;font-weight:700;line-height:1.25;transition:background .14s ease,color .14s ease}
   #appView>.app-nav .nav-btn:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-text)}
   #appView>.app-nav .nav-btn.active{background:var(--ds-select-bg);color:var(--ds-select-ink);box-shadow:var(--kptu-shadow-select)}
 
@@ -47,11 +51,14 @@
   body{padding-bottom:0!important}
 }
 
+@media (min-width:1024px) and (pointer:coarse){
+  #appView>.app-nav .nav-btn{min-height:40px;padding-top:9px;padding-bottom:9px}
+}
+
 @media (min-width:1440px){
-  main{max-width:1720px;padding-left:42px;padding-right:42px}
   #appView.app-view{grid-template-columns:240px minmax(0,1fr);column-gap:32px}
   #appView>.app-nav{padding:var(--kptu-space-3)}
-  #appView>.app-nav .nav-btn{min-height:40px;padding:9px 10px;font-size:13px}
+  #appView>.app-nav .nav-btn{font-size:13px}
   .project-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 
@@ -91,11 +98,12 @@
   .app-topline .topline-account{flex:0 0 auto}
   .app-topline .topline-account .account-trigger{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 8px;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);position:relative}
   .app-topline .topline-account .account-trigger::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-  .topline-add-menu{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
-  .topline-add-menu[hidden]{display:none!important}
-  .topline-add-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:6px 10px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);text-align:left}
-  .topline-add-menu button:hover,.topline-add-menu button:focus-visible{background:var(--kptu-primary-soft);outline:none}
 }
+/* BIZ-버튼줄정리: 이 글자 줄 메뉴는 PC [+ 추가]와 홈 ⋯(모든 폭)이 같이 쓴다. 그래서 PC 전용 묶음 밖에 둔다(홈 ⋯가 1023px 이하에서 기본 회색 버튼으로 보이던 것). */
+.topline-add-menu{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+.topline-add-menu[hidden]{display:none!important}
+.topline-add-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:6px 10px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);text-align:left}
+.topline-add-menu button:hover,.topline-add-menu button:focus-visible{background:var(--kptu-primary-soft);outline:none}
 
 /* UI-자주가는링크 (PC 1024px~): 사이드바 맨 아래(메뉴와 빈 공간을 두고, 창이 짧아 메뉴가 길면 메뉴 바로 아래) '자주 가는 링크 ›' 줄과 그 줄 오른쪽에서 위로 열리는 작은 창(quick-links.js).
    버튼은 UI-버튼기준의 작은 버튼(32px, 누르는 범위 44px)만 쓰고 채운 버튼은 편집의 [저장] 하나. 폰·761~1023px에는 줄이 없다. */

@@ -91,7 +91,7 @@ const newStandard=p=>p.evaluate(()=>{
   if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn,[data-sp-new],.lb-add'))){
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px. UI-버튼전수조사: 채운 버튼은 36px, 나머지 버튼도 32px.
-   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,#manageLibraryBtn')?32:e.matches('.primary')?36:32;/* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
+   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,#manageLibraryBtn')||e.matches('#newMeetingBtn')&&innerWidth>760?32:e.matches('.primary')?36:32;/* BIZ-버튼줄정리: [+ 사업 보고]는 작고 낮게 32px *//* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
    if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
   }
  }
@@ -410,6 +410,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
   await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
   // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
+  // UI-전수디자인점검 F08: 담당조직 창 이름 위 '담당조직' 작은 제목(.eyebrow)은 없앴다(창 이름과 중복). 비교 기준 쪽에서도 그 줄을 뺀다.
+  await original.evaluate(()=>document.querySelectorAll('#wdModal .modal-head .eyebrow').forEach(el=>el.remove()));
   if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
   // ORG-주요인물 2/2: 접힌 묶음 '기본 정보 · 소속 · 이전 요약'(머리 h3·설명 small)과 그 안의 h4 '기본 정보'·'이전 요약'은
   // 작은 탭 [주요 인물][기본 정보][소속][이전 요약]으로 바뀌어 화면에서 없어졌다(탭 이름이 제목 역할). 같은 모양으로 main 쪽에서도 뺀다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).

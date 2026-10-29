@@ -551,9 +551,9 @@ test('재료 일부를 못 읽어도 한 줄은 쓰고, 못 읽은 묶음만 안
  const f=await fixture(page,{fail:{events:true,tasks:true}});await openJournal(page,390);
  // 일정·할 일은 그 밖의 기록 밖의 칸이라, 접힌 그 밖의 기록은 못 읽은 묶음을 말하지 않는다.
  await expect(page.locator('#journalRoot [data-journal-others-failed]')).toHaveCount(0);
- await expect(schedule(page).locator('[data-journal-failed]')).toHaveText('일정을(를) 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.');
+ await expect(schedule(page).locator('[data-journal-failed]')).toHaveText('일정을 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요. 다시');
  // 할 일 / 한 일은 같은 Google 할 일 읽기라 한 안내.
- await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-failed]')).toHaveText('할 일을(를) 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.');
+ await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-failed]')).toHaveText('할 일을 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요. 다시');
  await expect(group(page,'orgs').locator('li')).toHaveCount(2);
  await expect(itemTexts(page,'activities')).toHaveText(['14:00 가상 기자회견']);
  const input=page.locator('#journalRoot [data-journal-input]');
@@ -682,7 +682,7 @@ test('[하루] 그날 일정 칸의 [달력 ›]은 그 날짜가 든 달력으�
  await expect(page.locator('#monthTitle')).toHaveAttribute('aria-label',/9월 28일|9월/);
 });
 
-// UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다(같은 바깥 폭 규칙 .view-wide). 폰은 그대로(가운데 760px 상한·1열).
+// UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다(모든 PC 화면과 같은 바깥 폭 규칙, desktop-ui.css main). 폰은 그대로(가운데 760px 상한·1열).
 // JOURNAL-일지카드정리(시안 확정): PC 하루 카드 아래 칸은 넓은 창에서도 2칸씩 줄. JOURNAL-주간보고허브: 8칸이면 2칸씩 네 줄.
 const journalBox=page=>page.evaluate(()=>{
  const r=e=>e.getBoundingClientRect(),view=document.querySelector('#journalView'),cs=getComputedStyle(view),main=getComputedStyle(document.querySelector('main'));
@@ -801,7 +801,7 @@ test('폰 업무일지: 폭·1열 그대로, 모양은 PC와 같게(제목 15px 
 });
 test('조직 소식 일부 읽기 실패: 읽은 업데이트는 보이고, 못 읽은 것만 안내·[다시 시도]하면 채워진다',async({page})=>{
  const f=await fixture(page,{width:390,fail:{orgUpdates:true}});await openJournal(page,390);
- await expect(group(page,'orgs').locator('[data-journal-failed]')).toHaveText('조직 소식 일부를 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.');
+ await expect(group(page,'orgs').locator('[data-journal-failed]')).toHaveText('조직 소식 일부를 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요. 다시');
  await expect(itemTexts(page,'orgs')).toHaveText(['안녕하세요 위원장님']);
  // 조직 기록 실패는 사업 소식에 번지지 않는다.
  await expect(itemTexts(page,'business')).toHaveText(['진행상황 업데이트']);await expect(group(page,'business').locator('[data-journal-failed]')).toHaveCount(0);
@@ -815,8 +815,8 @@ test('조직 소식 일부 읽기 실패: 읽은 업데이트는 보이고, 못 
 test('JOURNAL-주간보고허브: 자료실·공유 페이지·사업 기록은 묶음마다 따로 실패·[다시 시도], 실패한 빈 묶음은 그대로 보인다',async({page})=>{
  const f=await fixture(page,{width:1280,fail:{documents:true,sharePages:true,progress:true}});await openJournal(page,1280);
  await openOthers(page);
- for(const [key,label] of [['docs','자료실 새 자료'],['shares','공유 페이지'],['business','사업 소식']])
-  await expect(group(page,key).locator('[data-journal-failed]')).toHaveText(`${label}을(를) 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.`);
+ for(const [key,label] of [['docs','자료실 새 자료를'],['shares','공유 페이지를'],['business','사업 소식을']])
+  await expect(group(page,key).locator('[data-journal-failed]')).toHaveText(`${label} 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요. 다시`);
  // 다른 묶음은 그대로.
  await expect(group(page,'orgs').locator('li')).toHaveCount(2);await expect(itemTexts(page,'todo')).toHaveText(['오늘 마감 할 일']);
  // 빈 날(월)에도 실패한 묶음은 상자로 남는다.
@@ -1091,15 +1091,15 @@ test('[주간 정리] 일부 읽기 실패: 못 읽은 칸만 안내·[다시 �
  await page.locator('#calendarView .schedule-switch [data-view="journal"]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
  await openWeekly(page);
- await expect(weekly(page,'orgs').locator('[data-journal-failed]')).toHaveText('조직 소식 일부를 불러오지 못했어요.');
+ await expect(weekly(page,'orgs').locator('[data-journal-failed]')).toHaveText('조직 소식 일부를 불러오지 못했어요. 다시');
  // 바구니에서 온 조직 소식은 그대로 보인다.
  await expect(weekly(page,'orgs').locator('[data-journal-org] > .journal-org-name')).toHaveText(['가상 노동조합','미분류']);
- await expect(weekly(page,'meetings').locator('[data-journal-failed]')).toHaveText('회의·활동 결과을(를) 불러오지 못했어요.');
+ await expect(weekly(page,'meetings').locator('[data-journal-failed]')).toHaveText('회의·활동 결과를 불러오지 못했어요. 다시');
  await expect(weekly(page,'summary')).toContainText('사업영역 순서를 불러오지 못해 사업영역 이름별로 보여요.');
  await expect(weekly(page,'summary').locator('table')).toHaveCount(0);
  await expect(weekly(page,'summary').locator('[data-journal-weekly-others] [data-journal-org]')).toHaveCount(5);
  // 2주 달력 읽기도 제 칸만 실패. 다른 칸은 그대로.
- await expect(weekly(page,'calendar').locator('[data-journal-failed]')).toHaveText('달력 일정을(를) 불러오지 못했어요.');
+ await expect(weekly(page,'calendar').locator('[data-journal-failed]')).toHaveText('달력 일정을 불러오지 못했어요. 다시');
  await expect(weekly(page,'note-lines').locator('li')).toHaveCount(1);
  await expect(weekly(page,'note-lines').locator('[data-journal-failed]')).toHaveCount(0);
  f.heal('orgUpdates');f.catalog.fail=false;

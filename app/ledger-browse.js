@@ -463,7 +463,7 @@ function shellHtml() {
   return `<section class="lg-card lb-card" data-lb-shell aria-labelledby="lbTitle">
     <form id="lbForm" class="lb-form" role="search" novalidate>
       <div class="lb-bar">
-        <h3 id="lbTitle" class="lb-h">원장</h3>
+        <h3 id="lbTitle" class="lb-h screen-title">원장</h3>
         <label class="lb-search"><span class="lg-sr">찾을 말</span>${SEARCH_ICON}<input id="lbQuery" type="search" maxlength="${QUERY_MAX}" placeholder="${isPhone() ? '조직·주제·사람으로 찾기' : '조직·주제·사람·내용으로 찾기 (Enter)'}" autocomplete="off" enterkeyhint="search"></label>
         <button type="button" class="lb-cond-btn" id="lbCondBtn" data-lb-action="cond" aria-expanded="false" aria-controls="lbCond">조건 <span aria-hidden="true">▾</span></button>
         <button type="button" class="lb-add" data-lb-action="add">+ 기록하기</button>
@@ -530,7 +530,7 @@ function homeHtml() {
     .sort((a, b) => b.count - a.count || (a.type === b.type ? 0 : a.type === 'organization' ? -1 : 1) || a.name.localeCompare(b.name, 'ko'));
   const chips = chipItems.map(c => `<button type="button" class="lb-topic" data-lb-action="story" data-lb-type="${c.type}" data-lb-sid="${esc(c.id)}">${esc(c.name)} <span class="lb-topic-n">${c.count}</span></button>`).join('');
   const empty = !overdue.length && !tracking.length && !h.orgChips.length && !h.topicChips.length && !recent.length;
-  if (empty) return '<p class="lg-note" data-lb-empty>아직 원장 기록이 없어요. 업데이트·사업 보고를 저장하면 자동으로 기록되고, [+ 기록하기]로 직접 넣을 수 있어요.</p>';
+  if (empty) return '<p class="lg-note" data-lb-empty>기록 없음</p>';
   return [
     chipItems.length ? `<section class="lb-sec lb-chip-sec" data-lb-sec="chips" aria-label="조직·주제"><div class="lb-topics" data-lb-chips>${chips}<button type="button" class="lg-text-btn lb-chip-more" data-lb-action="chips-toggle" aria-expanded="false" hidden>더보기 ▾</button></div></section>` : '',
     overdue.length ? section('overdue', '상대가 안 지킨 약속', list('overdue', overdue, r => overdueLabel(r)), overdue.length) : '',

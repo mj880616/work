@@ -2,7 +2,7 @@
 
 #basketView { box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; }
 /* UI-PC다듬기묶음 ③(2026-10-20 요청함 16:33): PC(≥1024)는 [업데이트]·[노트] 본문을 가운데(900px) 대신 사이드바 바로 옆 왼쪽에서 시작한다.
-   다른 PC 화면은 본문 칸 왼쪽부터 쓴다. 다만 이 화면은 글 목록이라 아주 넓은 창에서 한 줄이 너무 길어지므로 최대 폭만 1100px로 두고 왼쪽 정렬(view-wide.css처럼 끝까지 넓히지 않음).
+   다른 PC 화면은 본문 칸 왼쪽부터 쓴다. 다만 이 화면은 글 목록이라 아주 넓은 창에서 한 줄이 너무 길어지므로 최대 폭만 1100px로 두고 왼쪽 정렬(다른 화면처럼 끝까지 넓히지 않음).
    폰·중간 폭(761~1023)은 그대로. */
 @media(min-width:1024px){ #basketView { max-width:1100px; margin:0; } }
 #basketView [hidden] { display:none; }
@@ -291,3 +291,47 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
   #appView #basketView #basketRows .basket-row > time { grid-column:3; font-variant-numeric:tabular-nums; }
   #appView #basketView #basketRows .basket-row > .basket-row-state { grid-column:4; white-space:nowrap; }
 }
+/* NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 검색 칸 오른쪽 작은 3칸 전환 [폴더|목록|포스트잇](옛 '노트 · n' 자리), 목록 보기 폴더 꼬리표,
+   포스트잇 보드(같은 크기 네모 칸·살짝 기울어짐·아래 모서리 접힘). 색은 폴더마다 연한 색 여덟 가지(노랑 없음 — 노랑은 '나한테 온 요청' 주목 표시), 폴더 없음은 회색. 작고 낮게, 톤다운. */
+.nv-switch { display:inline-flex; flex:none; height:var(--ds-compact-height,32px); box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); }
+#appView #basketView .nv-switch button { position:relative; min-width:0; min-height:0; height:auto; margin:0; padding:0 8px; border:0; border-left:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:var(--ds-compact-text,13px); line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#appView #basketView .nv-switch button:first-child { border-left:0; border-radius:var(--ds-radius-control,8px) 0 0 var(--ds-radius-control,8px); }
+#appView #basketView .nv-switch button:last-child { border-radius:0 var(--ds-radius-control,8px) var(--ds-radius-control,8px) 0; }
+#appView #basketView .nv-switch button::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+#appView #basketView .nv-switch button[aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink,var(--kptu-primary)); font-weight:var(--ds-weight-medium,500); }
+@media (max-width:420px) { #appView #basketView .nv-switch button { padding:0 6px; font-size:12px; } }
+/* 폴더 연한 색(꼬리표·포스트잇 바탕). 글자는 늘 진한 잉크라 어두운 화면에서도 읽힌다(보드는 종이처럼 밝은 채로 둠, 채도는 낮춤). */
+.nb-card, .nx-path[data-tone] { --nb-paper:var(--ds-note-paper-none); }
+:is(.nb-card,.nx-path)[data-tone="0"] { --nb-paper:var(--ds-note-paper-0); } /* 연두 */
+:is(.nb-card,.nx-path)[data-tone="1"] { --nb-paper:var(--ds-note-paper-1); } /* 하늘 */
+:is(.nb-card,.nx-path)[data-tone="2"] { --nb-paper:var(--ds-note-paper-2); } /* 연보라 */
+:is(.nb-card,.nx-path)[data-tone="3"] { --nb-paper:var(--ds-note-paper-3); } /* 살구 */
+:is(.nb-card,.nx-path)[data-tone="4"] { --nb-paper:var(--ds-note-paper-4); } /* 민트 */
+:is(.nb-card,.nx-path)[data-tone="5"] { --nb-paper:var(--ds-note-paper-5); } /* 연분홍 */
+:is(.nb-card,.nx-path)[data-tone="6"] { --nb-paper:var(--ds-note-paper-6); } /* 쑥 */
+:is(.nb-card,.nx-path)[data-tone="7"] { --nb-paper:var(--ds-note-paper-7); } /* 회청 */
+#appView #basketView [data-note-list][data-notes-view="list"] .nx-path[data-tone] { flex:0 1 auto; padding:1px 6px; border-radius:var(--ds-chip-radius,10px); background:var(--nb-paper); color:var(--ds-note-ink); font-size:11px; }
+/* 보드: 화면보다 넓은 판을 밀어서 이동(브라우저 스크롤), 핀치·[＋][－]는 note-board.js. 칸 위에서는 끌기(touch-action:none), 빈 곳에서는 밀기. */
+/* 목록·포스트잇 보기는 PC에서도 왼쪽 나무 칸 없이 한 칸. */
+[data-note-list].nx-wide:not([data-notes-view="folder"]) .nx-body { display:block; }
+.nb { position:relative; margin-top:4px; }
+.nb-tools { position:absolute; right:8px; top:8px; z-index:2; display:inline-flex; height:var(--ds-compact-height,32px); box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
+#appView #basketView .nb-tools button { position:relative; width:30px; min-width:0; min-height:0; height:auto; margin:0; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text,13px); line-height:1; cursor:pointer; }
+#appView #basketView .nb-tools button + button { border-left:var(--ds-line-width,1px) solid var(--kptu-border); }
+#appView #basketView .nb-tools button::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+#appView #basketView .nb-tools button:disabled { color:var(--kptu-faint,var(--kptu-muted)); cursor:default; }
+.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:auto; overscroll-behavior:contain; touch-action:pan-x pan-y; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface-subtle); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
+@media (min-width:1024px) { .nb-scroll { height:calc(100dvh - 150px); } }
+.nb-sizer { position:relative; }
+.nb-board { position:absolute; left:0; top:0; transform-origin:0 0; }
+.nb-card { position:absolute; width:148px; height:148px; box-sizing:border-box; transform:rotate(var(--nb-r,0deg)); background:var(--nb-paper); color:var(--ds-note-ink); border-radius:2px; box-shadow:var(--ds-note-shadow); touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; clip-path:polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%); }
+/* 아래 오른쪽 모서리 접힌 느낌 */
+.nb-card::after { content:""; position:absolute; right:0; bottom:0; width:16px; height:16px; background:linear-gradient(135deg, var(--ds-note-fold) 0 50%, transparent 50%); pointer-events:none; }
+.nb-card.nb-dragging { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); transform:rotate(var(--nb-r,0deg)) scale(1.03); }
+.nb-card.nb-picked { outline:2px solid var(--kptu-primary); outline-offset:2px; }
+#appView #basketView .nb-card .nb-open { display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%; height:100%; min-height:0; box-sizing:border-box; margin:0; padding:9px 10px 18px; overflow:hidden; text-align:left; border:0; border-radius:0; background:transparent; box-shadow:none; color:inherit; font:inherit; cursor:pointer; }
+#appView #basketView .nb-card .nb-open:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:-2px; }
+.nb-title { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:13px; font-weight:600; line-height:1.3; word-break:break-all; }
+.nb-text { flex:1 1 auto; min-height:0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line; font-size:12px; line-height:1.35; color:var(--ds-note-ink-soft); word-break:break-all; }
+.nb-folder { flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px; color:var(--ds-note-ink-faint); }
+#appView #basketView .nb-card .nb-more { position:absolute; right:2px; top:2px; width:24px; height:22px; min-width:0; min-height:0; margin:0; padding:0; border:0; background:transparent; box-shadow:none; color:var(--ds-note-ink-faint); font-size:14px; line-height:1; opacity:.7; }
