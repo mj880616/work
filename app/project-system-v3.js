@@ -8,7 +8,6 @@ import {bindDateTimeFields} from './time-input.js';
 import { dayKey, ranges } from './home-read-model.js';
 import {lastSeen} from './split-last.js';
 import {mountSplitResize} from './split-resize.js';
-import {followPane} from './follow-pane.js';
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import { createAnchoredMenu } from './anchored-menu.js';
 import {tapExpand} from './text-clamp.js';
@@ -164,10 +163,11 @@ const areaOpen=()=>{const w=$('#areaWindow');return !!w&&!w.classList.contains('
 const splitWanted=()=>{const pane=$('#ps3DetailPane');return !!PC?.matches&&areaOpen()&&!!pane&&getComputedStyle(pane).display!=='none'};
 const docked=()=>$('#ps3DetailModal')?.dataset.ps3Docked==='1';
 const detailTrigger=()=>$('#ps3DetailModal [data-ps3-close="ps3DetailModal"]');
-// UI-칸안스크롤하나로(시안 A): 창 안 스크롤은 창 몸통(.area-window-body) 하나. 목록은 몸통과 같이 내려가고, 상세 칸은 몸통에 붙어
-// 따라온다(follow-pane.js). 다른 사업영역을 열면 칸 머리부터 보인다.
+// UI-칸안스크롤하나로(시안 A): 창 안 스크롤은 창 몸통(.area-window-body) 하나이고 목록·상세 칸은 몸통과 같이 내려간다.
+// 창 안 상세 칸은 붙여 따라오게(sticky) 하지 않는다: 붙인 칸 안의 작은 알림([되돌리기], 화면 위 고정)이 창 몸통 경계에 잘려
+// 창 머리줄 밑에 깔렸다(CI task-inline-unify 1280). 다른 사업영역을 열면 몸통을 칸 머리로 올린다.
 let psFollowed=null;
-function followDetail(pane,open){if(!open||!pane)return;const body=$('#areaWindow .area-window-body');followPane(pane,{scroller:body||window,top:8,reset:psFollowed!==current?.id});psFollowed=current?.id??null}
+function followDetail(pane,open){if(!open||!pane)return;const body=$('#areaWindow .area-window-body'),id=current?.id??null;if(body&&psFollowed!==id){const top=pane.getBoundingClientRect().top-body.getBoundingClientRect().top;if(top<0)body.scrollTop+=top-8}psFollowed=id}
 function placeDetail(){
   const m=$('#ps3DetailModal'),pane=$('#ps3DetailPane');if(!m)return false;
   const dock=splitWanted(),open=!m.classList.contains('hidden');
