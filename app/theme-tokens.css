@@ -124,6 +124,10 @@
   /* 선 그림자는 Design System 1.0 규칙(box-shadow는 --kptu-shadow-* 토큰만)을 따라 --kptu-shadow-* 이름이다. */
   --kptu-shadow-select:inset 2px 0 0 var(--ds-select-line);
   --ds-today-ink:var(--kptu-primary-text);--kptu-shadow-today:inset 0 0 0 1.5px var(--kptu-primary-text);
+  /* UI-오늘표시통일(명진 2026-10-29 16:33, 일기 달력 방식): 앱의 모든 달력에서 '오늘'은 칸 둘레 전체 진한 선(--ds-today-line) + 날짜 숫자 동그라미(--kptu-shadow-today).
+     선 색은 테마의 진한 강조 글자색(일기 달력 고른 칸과 같은 색 --kptu-primary-ink)이다. 노랑(나한테 온 요청 전용)은 쓰지 않는다.
+     칸이 작은 달력(사진 달력)은 얇은 선(--ds-today-line-width-sm). 규칙은 ui-standard.css '오늘 표시' 한 곳. */
+  --ds-today-line:var(--kptu-primary-ink);--ds-today-line-width:2px;--ds-today-line-width-sm:1.5px;
   /* 3/3(8-9e) 자료실 파일 종류 색(원장 CC18 결정): PDF 빨강·HWP 파랑·엑셀 초록·워드 남색·PPT 주황, 나머지는 --ds-kind-other(회색). */
   --ds-file-pdf-soft:#fbe5e2;--ds-file-pdf-ink:#a3271b;
   --ds-file-hwp-soft:#e3eefb;--ds-file-hwp-ink:#1c5aa6;

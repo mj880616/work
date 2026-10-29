@@ -15,7 +15,7 @@
 #appView #journalView .journal-status{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #journalView .journal-status:empty{ display:none; }
 
-/* 날짜 숫자 줄: 7칸, 오늘은 숫자 초록 동그라미(채움), 고른 날은 칸 테두리, 한 줄 쓴 날은 아래 초록 점(J4 ①). */
+/* 날짜 숫자 줄: 7칸, 오늘은 앱 공용 '오늘' 표시(칸 둘레 선 + 숫자 동그라미, ui-standard.css .ds-today), 고른 날은 칸 테두리, 한 줄 쓴 날은 아래 초록 점(J4 ①). */
 #appView #journalView .journal-days{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
 #appView #journalView .journal-date{ position:relative; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; width:100%; height:auto;
   min-height:60px; margin:0; padding:6px 0 14px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line);
@@ -23,7 +23,6 @@
 #appView #journalView .journal-weekday{ color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #journalView .journal-date.sunday .journal-weekday{ color:var(--kptu-danger); }
 #appView #journalView .journal-num{ box-sizing:border-box; display:grid; place-items:center; min-width:24px; height:24px; padding:0 4px; font-size:var(--ds-text-row); line-height:1; border-radius:999px; }
-#appView #journalView .journal-date[aria-current="date"] .journal-num{ color:var(--kptu-surface); background:var(--ds-kind-journal-ink); font-weight:var(--ds-weight-medium); }
 #appView #journalView .journal-dot{ position:absolute; left:50%; bottom:6px; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-journal-ink); }
 #appView #journalView .journal-date[aria-pressed="true"]{ border-color:var(--ds-kind-journal-ink); box-shadow:0 0 0 2px var(--ds-kind-journal-ink); background:var(--ds-kind-journal-soft); }
 #appView #journalView .journal-date:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }

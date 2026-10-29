@@ -14,7 +14,7 @@ export function renderList(options,{start,days,tasks,busy,error,more}){
     const section=document.createElement('section');section.className='clv-day';section.dataset.date=calendarDateKey(date);
     const header=document.createElement('h3');header.className='clv-date';
     const today=section.dataset.date===dayKey();
-    if(today)header.classList.add('clv-today');
+    if(today){header.classList.add('clv-today');section.classList.add('ds-today');}
     header.textContent=(today?'오늘 · ':'')+`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 ${['일','월','화','수','목','금','토'][seoulParts(date).weekday]}`;
     section.append(header);
     const persistence=window.KPTUCalendarPersistence,known=!!persistence?.knows?.(new Date(section.dataset.date+'T00:00:00+09:00'),addSeoulDays(new Date(section.dataset.date+'T00:00:00+09:00'),1));

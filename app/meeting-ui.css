@@ -279,7 +279,6 @@
 #meetingList .rv-out{background:var(--kptu-surface-subtle)}
 #meetingList .rv-num{display:block;min-width:22px;height:22px;margin:0;padding:0 4px;border:0;border-radius:var(--kptu-radius-pill);background:none;color:var(--kptu-ink);font-size:var(--kptu-text-meta);line-height:22px;text-align:left}
 #meetingList .rv-num-out{color:var(--kptu-faint)}
-#meetingList .rv-now .rv-num{color:var(--kptu-primary-ink);font-weight:var(--ds-weight-medium,500)}
 #meetingList .rv-sel{background:var(--kptu-primary-soft)}
 #meetingList .rv-dots{display:flex;gap:2px;padding:0 4px}
 #meetingList .rv-titles{display:none;margin:0;padding:0;list-style:none}

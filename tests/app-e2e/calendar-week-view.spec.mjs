@@ -23,9 +23,11 @@ test('PC default week has Monday through Sunday and one KST seven-day request',a
   const current=page.locator('.cwv-day[data-date="2026-10-15"]');
   await expect(current).toHaveClass(/cwv-today/);
   await expect(current.locator('.cwv-create')).toBeVisible();
-  const colors=await page.evaluate(()=>{const el=document.querySelector('.cwv-day[data-date="2026-10-15"]');return {background:getComputedStyle(el).backgroundColor,weight:getComputedStyle(el.querySelector('.cwv-date')).fontWeight}});
-  expect(colors.weight).toBe('700');
-  expect(colors.background).not.toBe('rgba(0, 0, 0, 0)');
+  // UI-오늘표시통일: 오늘 열은 일기 달력과 같은 공용 표시(열 둘레 진한 선 + 날짜 동그라미), 바탕은 칠하지 않는다.
+  const colors=await page.evaluate(()=>{const el=document.querySelector('.cwv-day[data-date="2026-10-15"]'),d=el.querySelector('.cwv-date');return {background:getComputedStyle(el).backgroundColor,frame:getComputedStyle(el,'::before').borderTopWidth,ring:getComputedStyle(d).boxShadow,radius:getComputedStyle(d).borderRadius,other:getComputedStyle(document.querySelector('.cwv-day[data-date="2026-10-14"]'),'::before').borderTopWidth}});
+  expect(colors.frame).toBe('2px');expect(colors.other).not.toBe('2px');
+  expect(colors.ring).toContain('inset');expect(colors.radius).toBe('999px');
+  expect(colors.background).toBe('rgba(0, 0, 0, 0)');
   const columns=await page.locator('.cwv-day').evaluateAll(ds=>ds.map(d=>d.getBoundingClientRect().toJSON()));
   expect(new Set(columns.map(d=>d.top)).size).toBe(1);
   for(let i=1;i<7;i++)expect(columns[i].left).toBeGreaterThan(columns[i-1].left);
