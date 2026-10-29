@@ -243,7 +243,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  await view(page,'calendar');await page.locator('#newEventBtn').click();
  modal=page.locator('#eventModal');await expect(modal).toBeVisible();
  await titleOf(modal);await inputs(modal);await labels(modal);
- expect(await sameButtons(page,modal,'.icon-btn,.calendar-color-swatch,[role="radio"]')).toEqual(['저장']);
+ expect(await sameButtons(page,modal,'.icon-btn,.ui-swatch,[role="radio"]')).toEqual(['저장']);
  expect((await look(modal.locator('[data-event-mode="event"]'))).bg).toBe(await token(page,'--ds-select-bg'));
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
  // 자료 등록

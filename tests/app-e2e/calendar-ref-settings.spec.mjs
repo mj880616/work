@@ -81,3 +81,38 @@ test('서버(Edge)가 옛 판이라 다른 캘린더 일정이 오면 그것은 
   await expect(page.locator('[data-ps-calref-state]')).toContainText('서버 갱신 전');
   expect((await state(page)).refs).toEqual([]);
 });
+
+// UI-색고르기통일(요청 10/29 08:13): 색 칸은 그 색으로 채운 작은 네모. 고르면 그 위에 ✓와 얇은 테두리만 더하고 색은 그대로.
+// 실제 화면처럼 공용 CSS(ui-standard.css)를 함께 불러 11가지 색을 하나씩 골라 본다.
+const GOOGLE=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];
+const rgb=hex=>{const n=parseInt(hex.slice(1),16);return `rgb(${n>>16}, ${n>>8&255}, ${n&255})`};
+for(const width of [412,884,1440])test(`내 일정 색 11가지: 고르면 그 색 위에 ✓, 색은 바뀌지 않는다 (${width}px)`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await open(page);
+  await page.addStyleTag({url:new URL('../../app/base-ui.css',url).href});
+  await page.addStyleTag({url:new URL('../../app/ui-standard.css',url).href});
+  await page.selectOption('[data-ps-calref-calendar]','cal-a');
+  const swatches=page.locator('#psCalRefPanel .ui-swatch[data-ps-calref-color]');
+  await expect(swatches).toHaveCount(11);
+  const look=id=>page.locator(`[data-ps-calref-color="${id}"]`).evaluate(el=>{const fill=el.querySelector('.ui-swatch-fill'),s=getComputedStyle(fill),after=getComputedStyle(fill,'::after'),r=fill.getBoundingClientRect(),b=el.getBoundingClientRect();return {fill:s.backgroundColor,check:after.content,outline:s.outlineStyle,w:r.width,h:r.height,inside:r.left>=b.left-1&&r.right<=b.right+1}});
+  for(const [i,hex] of GOOGLE.entries()){
+    const id=String(i+1),button=page.locator(`[data-ps-calref-color="${id}"]`);
+    const before=await look(id);
+    expect(before.fill,`색 ${id} 처음`).toBe(rgb(hex));
+    expect(before.check).not.toBe('"✓"');expect(before.outline).toBe('none');
+    expect(Math.round(before.w)).toBe(22);expect(Math.round(before.h)).toBe(22);
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed','true');
+    const on=await look(id);
+    expect(on.fill,`색 ${id} 고른 뒤`).toBe(rgb(hex));
+    expect(on.check).toBe('"✓"');expect(on.outline).toBe('solid');expect(on.inside).toBe(true);
+    // 다른 색 칸은 그대로(✓ 없음)
+    for(const other of GOOGLE.keys())if(other!==i)expect((await look(String(other+1))).check).not.toBe('"✓"');
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed','false');
+    expect((await look(id)).fill).toBe(rgb(hex));
+  }
+  expect((await state(page)).profile[0].ledger_calendar.colors).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:`test-results/calref-colors-${width}.png`});
+});
