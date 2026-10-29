@@ -2,9 +2,11 @@
 // 지금 서버(Edge onedrive-photos)는 달 단위 사진 목록(action 'photos')만 준다. 그래서 최신순 격자는 이번 달부터 한 달씩 거슬러 받아 잇는다.
 // 사진이 없는 달이 EMPTY_STOP번 이어지면 끝으로 본다(일기 미리 받기의 PREFETCH.emptyStop과 같은 기준).
 
+import {folderIndent} from './folder-limits.mjs';
 export const EMPTY_STOP = 24;
 export const MAX_MONTHS = 240;
-export const TABS = Object.freeze(['all', 'calendar', 'trash']);
+// 사진 메뉴 ②(2026-10-29): [폴더]·[앨범] 칩을 [달력] 뒤에 더한다(지도는 ③단계에서).
+export const TABS = Object.freeze(['all', 'calendar', 'folders', 'albums', 'trash']);
 export const FILTERS = Object.freeze(['all', 'star', 'video', 'shot']);
 export const FILTER_TEXT = Object.freeze({all: '전체', star: '★', video: '동영상', shot: '스크린샷'});
 export const SELECT_MAX = 50;
@@ -201,4 +203,95 @@ export function putItems(list, taken) {
   const out = list.slice(), have = new Set(out.map(x => x.id));
   for (const t of taken.slice().sort((a, b) => a.index - b.index)) if (!have.has(t.item.id)) { out.splice(Math.min(out.length, t.index), 0, t.item); have.add(t.item.id); }
   return out;
+}
+
+// ---- 사진 메뉴 ②: 폴더 보기(원드라이브 폴더 그대로, 서버 folders-tree) ----
+// tree = {top:{id,name,count,total}, folders:[{id,name,parent_id,enabled,count,total}]}. 폴더 순서는 이름(가나다), 같으면 id.
+const byName = (a, b) => a.name.localeCompare(b.name, 'ko') || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+export function photoSubfolders(tree, id) {
+  return (tree?.folders || []).filter(f => f.parent_id === id).sort(byName);
+}
+export function photoFolderById(tree, id) {
+  if (!tree) return null;
+  if (tree.top?.id === id) return {...tree.top, parent_id: null, enabled: true};
+  return tree.folders.find(f => f.id === id) || null;
+}
+// PC 왼쪽 나무 줄: 맨 위 폴더(늘 열림) → 열린 폴더 안 폴더 들여쓰기(4단까지 밀고 그 아래는 그대로, folder-limits.mjs). 닫힌 폴더 안은 만들지 않는다.
+export function photoFolderRows(tree, isOpen = () => false) {
+  if (!tree?.top) return [];
+  const rows = [], seen = new Set();
+  const walk = (id, depth) => {
+    for (const f of photoSubfolders(tree, id)) {
+      if (seen.has(f.id) || depth > 200) continue;
+      seen.add(f.id);
+      const kids = photoSubfolders(tree, f.id).length > 0, open = kids && isOpen(f.id);
+      rows.push({id: f.id, name: f.name, depth, indent: folderIndent(depth), count: f.count, total: f.total, enabled: f.enabled !== false, kids, open, top: false});
+      if (open) walk(f.id, depth + 1);
+    }
+  };
+  rows.push({id: tree.top.id, name: tree.top.name, depth: 0, indent: 0, count: tree.top.count, total: tree.top.total, enabled: true, kids: photoSubfolders(tree, tree.top.id).length > 0, open: true, top: true});
+  walk(tree.top.id, 1);
+  return rows;
+}
+// 위치 줄: 맨 위 폴더부터 그 폴더까지(고리·끊긴 부모는 거기서 멈춤).
+export function photoFolderTrail(tree, id) {
+  const out = [], seen = new Set();
+  for (let f = photoFolderById(tree, id); f && !seen.has(f.id) && out.length < 200; f = f.parent_id ? photoFolderById(tree, f.parent_id) : null) { seen.add(f.id); out.unshift(f); }
+  return out;
+}
+// 그 폴더와 그 아래 모든 폴더 id.
+export function photoFolderSubtree(tree, id) {
+  const out = new Set([id]), stack = [id];
+  while (stack.length) for (const k of photoSubfolders(tree, stack.pop())) if (!out.has(k.id)) { out.add(k.id); stack.push(k.id); }
+  return out;
+}
+// 옮길 곳 목록(나무 순서, 모두 펼침). moving = 옮기는 폴더 id(자기·자기 아래는 빠짐), 사진이면 null. here = 지금 폴더(고를 수 없게 표시).
+export function photoMoveTargets(tree, {moving = null, here = null} = {}) {
+  const skip = moving ? photoFolderSubtree(tree, moving) : new Set();
+  const parentOfMoving = moving ? photoFolderById(tree, moving)?.parent_id : null;
+  return photoFolderRows(tree, () => true).filter(r => !skip.has(r.id)).map(r => ({...r, current: moving ? r.id === parentOfMoving : r.id === here}));
+}
+// 폴더 이름 규칙(서버 cleanFolderName과 같음): 원드라이브 금지 글자·제어 글자·끝 점·1~200자·Web2 휴지통 이름 거절. 맞으면 다듬은 이름, 아니면 null.
+export const TRASH_FOLDER_NAME = '.Web2 휴지통';
+export function cleanPhotoFolderName(v) {
+  if (typeof v !== 'string') return null;
+  const name = v.normalize('NFC').trim();
+  if (!name || [...name].length > 200 || /["*:<>?/\\|\u0000-\u001f\u007f]/.test(name) || name.endsWith('.')) return null;
+  if (name === TRASH_FOLDER_NAME || name === '.' || name === '..') return null;
+  return name;
+}
+// 옮긴 결과(서버 photos-move의 moved[{id, from}])를 되돌리기 묶음으로: 원래 폴더 id → 사진 id들(원래 폴더를 모르면 뺀다).
+export function moveUndoGroups(moved, target) {
+  const out = new Map();
+  for (const m of moved || []) {
+    if (!m || typeof m.id !== 'string' || typeof m.from !== 'string' || !m.from || m.from === target) continue;
+    (out.get(m.from) || out.set(m.from, []).get(m.from)).push(m.id);
+  }
+  return out;
+}
+// 서버 거절을 일상어로(폴더 동작).
+export function folderErrorText(code) {
+  return ({onedrive_name_taken: '같은 이름의 폴더가 이미 있어요.', onedrive_folder_not_empty: '폴더가 비어 있을 때만 지울 수 있어요. 사진·파일을 먼저 옮겨 주세요.',
+    onedrive_outside_folder: '고른 원드라이브 폴더 밖이라 할 수 없어요.', onedrive_folder_missing: '폴더를 찾지 못했어요. 새로 고친 뒤 다시 해 주세요.',
+    onedrive_reconnect_needed: '원드라이브를 다시 연결해 주세요.', onedrive_request_invalid: '이름이나 옮길 곳을 확인해 주세요.'})[code] || '';
+}
+
+// ---- 사진 메뉴 ②: 앨범(#태그, app_photo_tags·app_photo_tag_items) ----
+// 이름 규칙(DB 검사와 같음): 앞의 '#'은 떼고, 1~40자, '#'·공백 없음. 맞으면 이름, 아니면 null.
+export function cleanTagName(v) {
+  if (typeof v !== 'string') return null;
+  const name = v.normalize('NFC').trim().replace(/^#+/, '');
+  if (!name || [...name].length > 40 || /[#\s]/.test(name)) return null;
+  return name;
+}
+export const sameTag = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+// 앨범 카드: 이름순, 장수 = 그 앨범의 원드라이브 사진 수, 대표 = 정한 대표(그 앨범에 있을 때) → 없으면 가장 최근 찍은 날의 사진.
+export function albumCards(tags, links) {
+  const byTag = new Map();
+  for (const l of links || []) if (l && typeof l.tag_id === 'string' && typeof l.item_key === 'string') (byTag.get(l.tag_id) || byTag.set(l.tag_id, []).get(l.tag_id)).push(l);
+  return (tags || []).filter(t => t && typeof t.id === 'string' && typeof t.name === 'string').map(t => {
+    const list = (byTag.get(t.id) || []).slice().sort((a, b) => String(b.taken_day || '').localeCompare(String(a.taken_day || '')) || (a.item_key < b.item_key ? -1 : 1));
+    const cover = t.cover_key && list.some(l => l.item_key === t.cover_key) ? t.cover_key : list[0]?.item_key || null;
+    return {id: t.id, name: t.name, count: list.length, cover, keys: list.map(l => l.item_key)};
+  }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }
