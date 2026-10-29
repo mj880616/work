@@ -48,9 +48,10 @@ for (const width of [1280, 1440]) {
     const close = await detail.locator('[data-diary-detail-close]').boundingBox(), box = await detail.boundingBox();
     expect(close.x + close.width).toBeGreaterThan(box.x + box.width - 24);
     // 프로젝트: docked on the right - the top line names it; the head keeps the summary line with the colour dot, no title.
+    // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이라, 이름은 위쪽 줄 대신 창 머리줄 '사업영역 관리 › 이름'에 있다.
     await go(page, 'projects');
     await expectProjectDetail(page);
-    await expect(toplineItem(page)).toHaveText('테스트 프로젝트');
+    await expect(page.locator('#areaWindow [data-area-window-item]')).toHaveText('테스트 프로젝트');
     await expect(page.locator('#ps3Title')).toHaveCount(0);
     await expect(page.locator('#ps3DetailModal')).toHaveAttribute('aria-label', '테스트 프로젝트');
     await expect(page.locator('#ps3Summary')).toContainText('할 일');

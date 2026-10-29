@@ -173,7 +173,7 @@ test('feature navigation lazy-loads only the destination view and nonmembers sto
   expect(source).toContain('#newTaskBtn');
   expect(source).toContain("viewLoader.load(view).then");
   // BIZ-버튼줄정리: openView는 ⋯ 메뉴 판(#appView 밖)이 같은 기다림·실패 줄로 화면을 여는 길이다.
-  expect(source).toContain("window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load,openView}");
+  expect(source).toContain("window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load,openView,withView}");
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
 });
 

@@ -433,7 +433,7 @@
 #reportAreaTagSheet .area-tag-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #reportAreaTagSheet .area-tag-pick{display:inline-flex;align-items:center;gap:4px;min-width:0}
 #reportAreaTagSheet .area-tag-select{box-sizing:border-box;width:9.5em;max-width:42vw;height:var(--ds-field-height,28px);min-height:0;padding:0 4px;font-size:var(--ds-text-meta,12px)}
-#reportAreaTagSheet .area-tag-mark{flex:none;padding:0 4px;border-radius:4px;background:var(--ds-select-bg,var(--kptu-surface-muted));font-size:10px;line-height:16px;color:var(--kptu-muted)}
+#reportAreaTagSheet .area-tag-mark{flex:none;padding:0 4px;border-radius:var(--kptu-radius-sm);background:var(--ds-select-bg,var(--kptu-surface-muted));font-size:10px;line-height:16px;color:var(--kptu-muted)}
 #reportAreaTagSheet .area-tag-mark[hidden]{display:none}
 #reportAreaTagSheet .area-tag-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:6px 0 2px;background:var(--kptu-surface)}
 #reportAreaTagSheet .area-tag-status{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-danger)}

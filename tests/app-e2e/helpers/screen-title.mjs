@@ -32,7 +32,9 @@ export async function expectProjectTitle(page, text, { contains = false } = {}) 
   // The detail is placed (docked or dialog) when it is shown; before that the head is still the empty template.
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
   if (await projectDetailDocked(page)) {
-    await (contains ? expect(toplineItem(page)).toContainText(text) : expect(toplineItem(page)).toHaveText(text));
+    // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이라, 오른쪽 칸에 연 이름은 위쪽 줄 대신 창 머리줄 '사업영역 관리 › 이름'에 있다.
+    const item = page.locator('#areaWindow [data-area-window-item]');
+    await (contains ? expect(item).toContainText(text) : expect(item).toHaveText(text));
     await expect(page.locator('#ps3Title')).toHaveCount(0);
   } else {
     await (contains ? expect(page.locator('#ps3Title')).toContainText(text) : expect(page.locator('#ps3Title')).toHaveText(text));

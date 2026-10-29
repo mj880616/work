@@ -137,10 +137,10 @@ test('PC: where shows group › screen and the group word opens the group',async
  await where(page).getByRole('button',{name:'일정'}).click();
  await expect(page.locator('#calendarView')).toBeVisible();
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('달력');
- // MTG-프로젝트합치기 3단계: 사업영역 관리는 사업 보고 아래 화면(사업 보고 › 사업영역 관리), 앞 낱말은 사업 보고로 간다.
+ // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이다. 위쪽 줄은 밑의 화면(사업 보고)을 가리키고, 창의 ✕로 사업 보고에 돌아온다.
  await show(page,'projects');
- await expect(where(page).locator('li').nth(0)).toHaveText('사업 보고');await expect(where(page).locator('li').nth(1)).toHaveText('사업영역 관리');
- await where(page).getByRole('button',{name:'사업 보고',exact:true}).click();
+ await expect(page.locator('#areaWindow')).toBeVisible();await expect(where(page).locator('[aria-current="page"]')).toHaveText('사업 보고');
+ await page.locator('#areaWindow .area-window-close').click();await expect(page.locator('#areaWindow')).toBeHidden();
  await expect(page.locator('#meetingsView')).toBeVisible();
  await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').click();
  await expect(where(page).locator('li')).toHaveText(['노트']);

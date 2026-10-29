@@ -24,9 +24,14 @@ function place(){
   w.style.setProperty('--area-window-top',Math.max(0,Math.ceil(Math.max(!side&&n?n.bottom:0,t?t.bottom:0)))+'px');
 }
 window.addEventListener('resize',()=>{if(isOpen())place()});
+// 사이드바 접기·펴기처럼 창 크기 없이 메뉴 폭만 바뀌어도 자리를 다시 잰다.
+const navSize=typeof ResizeObserver==='function'?new ResizeObserver(()=>{if(isOpen())place()}):null;
+const watchNav=()=>{const nav=document.querySelector('#appView>.app-nav');if(nav)navSize?.observe(nav)};
+// PC 오른쪽 칸에 연 사업영역 이름: 위쪽 줄은 밑의 화면(사업 보고)을 가리키므로, 창 머리줄 '사업영역 관리 › 이름'이 그 자리다(project-system-v3.js의 kptu:where-item).
+window.addEventListener('kptu:where-item',e=>{if(e.detail?.view!=='projects'||e.detail?.kind)return;const el=$('#areaWindow [data-area-window-item]');if(!el)return;const name=String(e.detail?.name??'').trim();el.textContent=name;el.hidden=!name});
 function show(trigger){
   const w=win();if(!w)return false;if(isOpen())return true;
-  place();
+  watchNav();place();
   w.classList.remove('hidden');w.setAttribute('aria-hidden','false');document.documentElement.classList.add('area-window-open');
   window.KPTUA11y?.dialog.activate(w,{trigger,initialFocus:PHONE?.matches?'.area-window-back':'.area-window-close',onRequestClose:()=>{close()}});
   return true;

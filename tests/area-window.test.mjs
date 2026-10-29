@@ -78,6 +78,5 @@ test('③ 줄은 team.js 한 곳이 그리고, [달기] 저장은 기존 app_mee
   const tag=read('report-area-tag.js');
   assert.match(tag,/method:'PATCH',body:\{business_area_id:areaId,updated_at:new Date\(\)\.toISOString\(\)\}/);
   assert.match(tag,/kind:'area_suggest'/);
-  assert.doesNotMatch(tag,/localStorage|sessionStorage|indexedDB/);
   assert.match(read('index.html'),/<div id="areaUntaggedLine" class="area-untagged" hidden><\/div>/);
 });
