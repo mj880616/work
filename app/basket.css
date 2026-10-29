@@ -179,18 +179,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-select-bar .nx-sel-close { margin-left:auto; }
 .nx-body { display:block; }
 [data-note-list].nx-wide .nx-body { display:grid; grid-template-columns:minmax(180px, 30%) minmax(0, 1fr); gap:10px; align-items:start; }
-.nx-tree:not([hidden]) { position:sticky; top:8px; max-height:calc(100vh - 140px); overflow:auto; padding-right:4px; border-right:1px solid var(--kptu-border); }
-.nx-row { position:relative; display:flex; align-items:center; min-width:0; }
-.nx-row.nx-folder, .nx-row.nx-outside { padding-left:calc(var(--nx-indent, 0) * 14px); }
 #appView #basketView .nx-row.nx-note { padding-left:calc(var(--nx-indent, 0) * 14px); }
-.nx-main { flex:1 1 auto; display:flex; align-items:center; gap:6px; min-width:0; min-height:36px; padding:0 6px; border:0; background:none; color:var(--kptu-ink); font:inherit; font-size:14px; text-align:left; cursor:pointer; border-radius:var(--kptu-radius-sm); }
-.nx-main:hover { background:var(--kptu-surface-subtle); }
-.nx-ico { flex:none; font-size:15px; line-height:1; }
-.nx-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.nx-num { flex:none; font-size:12px; color:var(--kptu-muted); }
 .nx-outside .nx-name { color:var(--kptu-muted); }
-.nx-more { flex:none; }
-.nx-current > .nx-main { background:var(--kptu-primary-soft); font-weight:600; }
 #appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:36px; }
 #appView #basketView .nx-note .note-row .basket-title { flex:1 1 auto; min-width:0; font-weight:500; }
 .nx-path { flex:0 1 auto; min-width:0; max-width:40%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; color:var(--kptu-muted); }
@@ -203,8 +193,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 @keyframes nx-wiggle { 25% { transform:translateX(-1px); } 75% { transform:translateX(1px); } }
 @media (prefers-reduced-motion:reduce) { [data-note-list].nx-selecting .nx-row { animation:none; } }
 [data-note-list].nx-selecting { -webkit-user-select:none; user-select:none; }
-.nx-drop { background:var(--kptu-primary-soft); border-radius:var(--kptu-radius-sm); }
-.nx-dragging, .nx-grabbed { opacity:.55; }
 .nx-flash { animation:nx-flash 1.2s ease-out 1; }
 @keyframes nx-flash { from { background:var(--kptu-primary-soft); } to { background:transparent; } }
 .basket-to-note { margin:12px 0; }
