@@ -12,6 +12,11 @@ const ALLOWED=new Set([
  'docs/20261025030000_tg_personal_days.postcheck.sql','docs/20261025030000_tg_personal_days.rollback.sql','docs/20261025030000_tg_personal_days.summary.md',
  'docs/migration-history.md','docs/design/tg-personal.md',
  'docs/design/multi-user-audit.md', // 설계 문서(표 이름만 나열, 읽는 코드 아님) — #1451
+ // MULTI 단계 ① 운영자 전용 잠금: 이 표에 읽기 제한 정책·쓰기 막는 트리거만 더한다(읽는 길 아님)
+ 'supabase/migrations/20261029090000_operator_features.sql',
+ 'docs/20261029090000_operator_features.precheck.sql','docs/20261029090000_operator_features.snapshot.sql',
+ 'docs/20261029090000_operator_features.postcheck.sql','docs/20261029090000_operator_features.rollback.sql',
+ 'tests/auth-handoff/operator-features.test.mjs',
  // Web2에 물어보기(FEAT-1029묶음 ①): 이 표를 읽지 않음을 확인하는 확인 SQL·시험만(읽는 코드 아님).
  'docs/20261029061500_ask_web2.postcheck.sql','tests/auth-handoff/ask-web2-db.test.mjs','tests/auth-handoff/ask-web2-fixture.mjs',
  'tests/security/ai-assist-ask-web2.test.mjs',
