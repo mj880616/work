@@ -229,10 +229,15 @@
   import('./meeting-recorder.js').catch(err=>console.warn('meeting recorder load failed',err?.name||'Error'));
   const {startVersionNotice}=await import('./version-notice.js');
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
-  // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창 묶음을 먼저 받고, 첫 화면을 드러내는 바로 그 순간에 창을 띄운다(드러낸 뒤 늦게 덮지 않음).
-  if(areasAtStart&&result?.ok)await viewLoader.load('projects').catch(err=>console.warn('area window load failed',err?.name||'Error'));
+  // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창과 그 목록(·주소의 사업영역)까지 다 그린 뒤에 첫 화면을 드러낸다
+  // (드러낸 뒤에 창이 늦게 덮거나 목록이 다시 그려져 줄이 밀리지 않게 — 시작 순서: 필요한 자료 → 한 번 드러내기).
+  if(areasAtStart&&result?.ok){
+    // 폰 뒤로가기 기록(창 → 상세)을 창이 뜨기 전에 붙인다(상세가 따로 주소 기록을 쌓지 않게).
+    await import('./mobile-modal-history.js').catch(()=>{});
+    try{await viewLoader.load('projects');await window.KPTUAreaWindow?.open({id:params.get('project')||null})}
+    catch(err){console.warn('area window open failed',err?.name||'Error')}
+  }
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
-  if(areasAtStart&&result?.ok)void window.KPTUAreaWindow?.open({id:params.get('project')||null});
   import('./mobile-modal-history.js').catch(()=>{});
   // APP-폰앱새로 ②: 폰 앱(KPTUAndroid)의 [공유]로 받은 것을 정리함 확인 줄로 넣는다. 앱이 아니면 아무것도 하지 않는다. 첫 화면이 뜬 뒤 붙인다(시작 화면 이동과 겹치지 않게). 기다리지 않는다.
   import('./basket-share.js').catch(err=>console.warn('share intake load failed',err?.name||'Error'));

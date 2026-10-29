@@ -85,12 +85,15 @@ document.addEventListener('click',e=>{
   e.preventDefault();e.stopImmediatePropagation();close();
 },true);
 // 라우터: go('projects')·옛 주소는 detail.areas로 창을 연다. 그 밖의 화면 이동(아래 탭·메뉴)은 창을 닫는다.
-// 상세를 닫는 일(project-system-v3.js closeDetail)이 다 끝난 뒤에 창을 닫는다 — 그 안에서 바로 닫으면 창 닫기가 아직 열린 상세를 또 닫으려 해 끝없이 돈다.
-window.addEventListener('kptu:dialog-closed',e=>{
-  const m=e.detail?.modal;if(m?.id!=='ps3DetailModal'||!isOpen()||win().dataset.areaDirect!=='1'||m.dataset.ps3Docked==='1'||!m.classList.contains('hidden'))return;
-  if(history.state?.kptuOverlay!=='areaWindow')return; // 뒤로가기로 닫힌 때만(× 로 닫으면 목록이 남는다)
-  queueMicrotask(()=>{if(isOpen()&&win().dataset.areaDirect==='1'&&history.state?.kptuOverlay==='areaWindow')close()});
-});
+// 다른 화면의 연결로 그 사업영역을 바로 연 창(direct): 뒤로가기 한 번이면 원래 자리(업무일지 등)로 — 창 그릇 한 곳에서 맞춘다.
+// 폰에서 뒤로가기로 상세 칸을 떠나 이 창의 기록에 서면(상세는 그 뒤로가기의 다른 처리가 닫는다), 그 처리가 다 끝난 뒤 창도 닫아
+// 창의 기록까지 한 칸 더 돌아간다. × 로 상세를 닫은 때(뒤로가기 전에 이미 닫힘)는 목록이 남는다.
+// 뒤로가기의 다른 처리(project-system-v3.js·mobile-modal-history.js)보다 먼저 듣도록 capture로, 시작할 때 붙인다.
+window.addEventListener('popstate',e=>{
+  const w=win(),detail=$('#ps3DetailModal');
+  if(!isOpen()||w.dataset.areaDirect!=='1'||e.state?.kptuOverlay!=='areaWindow'||!detail||detail.classList.contains('hidden')||detail.dataset.ps3Docked==='1')return;
+  setTimeout(()=>{if(isOpen()&&w.dataset.areaDirect==='1'&&detail.classList.contains('hidden')&&history.state?.kptuOverlay==='areaWindow')close()});
+},true);
 window.addEventListener('kptu:view-changed',e=>{
   // 사업영역 상세에서 연 메모에서 돌아오면(← 돌아가기·뒤로가기) 창을 다시 열고, 그 사업영역·스크롤은 project-system-v3.js가 되살린다.
   // 뒤로가기(popstate)로 돌아온 때는 그 뒤로가기의 다른 처리(mobile-modal-history.js)가 다 끝난 뒤에 연다 — 그 사이에 뜬 창은 '떠난 기록의 창'으로 보고 닫힌다.
