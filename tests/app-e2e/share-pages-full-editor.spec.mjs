@@ -64,7 +64,7 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
   const box = editor.getByRole('textbox', {name:'본문', exact:true});
   await expect(box).toBeVisible();
   await expect(editor.locator(OLD_FRAME)).toHaveCount(0);
-  await expect(page.locator('#web1BoardLegacy')).toBeHidden();
+  await expect(page.locator('#sharePagesRoot details.sp-box')).toBeHidden();
   // Width: the editor takes (almost) all of the content area, and the text box nearly all of the editor.
   const m = await page.evaluate(() => {
     const r = s => document.querySelector(s).getBoundingClientRect();
@@ -173,7 +173,7 @@ test('저장: [저장], Ctrl+S and Cmd+S save in place; 저장 안 됨 shows onl
   page.once('dialog', d => d.accept());
   await editor.getByRole('button', {name:'공유 페이지 목록으로', exact:true}).click();
   await expect(editor).toBeHidden();
-  await expect(page.locator('#web1BoardLegacy')).toBeVisible();
+  await expect(page.locator('#sharePagesRoot details.sp-box')).toBeVisible();
   expect(state.writes).toHaveLength(3);
   expect(errors).toEqual([]);
 });

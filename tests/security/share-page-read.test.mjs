@@ -140,3 +140,71 @@ test('migration keeps owner RLS, no anon/PUBLIC grants, and does not touch retir
  assert.match(rollback,/SHARE_PAGES_ROLLBACK_BLOCKED: share pages or links exist/);
  assert.doesNotMatch(rollback.replace(/--.*$/gm,''),/delete from public|truncate|cascade/i);
 });
+
+// SHARE-보관함·HTML공유: short address {slug} (name + 8 DB letters), HTML file versions, and head:true (title only).
+const {slugOk,slugHash}=await import('../../supabase/functions/share-page-read/handler.ts');
+const S={valid:'minja-rail-k7q2m9xa',off:'off-page-abcdefgh',blocks:'block-page-22334455'};
+const sh=s=>createHash('sha256').update(s,'utf8').digest('hex');
+function htmlHarness({htmlFail=false}={}){
+ const links=new Map([
+  [h(T.valid),{page_id:'html',token_hash:h(T.valid),expires_at:null,disabled_at:null}],
+  [h(T.off),{page_id:'html',token_hash:h(T.off),expires_at:null,disabled_at:'2026-10-19T00:00:00Z'}],
+  [h(T.other),{page_id:PAGE,token_hash:h(T.other),expires_at:null,disabled_at:null}],
+ ]);
+ const slugs=new Map([[sh(S.valid),{token_hash:h(T.valid),slug_hash:sh(S.valid)}],[sh(S.off),{token_hash:h(T.off),slug_hash:sh(S.off)}],[sh(S.blocks),{token_hash:h(T.other),slug_hash:sh(S.blocks)}]]);
+ const pages=new Map([['html',{id:'html',title:'그래프 현황',blocks:[],status:'published'}],[PAGE,{id:PAGE,title:'민자철도 현황',blocks:[{type:'summary',text:'교섭 중'}],status:'published'}]]);
+ const versions=new Map([['html','<!doctype html><title>그래프</title><script>draw()</script>']]);
+ const calls={slug:[],html:[]};const logs=[];
+ const handler=createShareReadHandler({
+  async linkByHash(x){return links.get(x)??null;},
+  async pageById(id){return pages.get(id)??null;},
+  async slugByHash(x){calls.slug.push(x);return slugs.get(x)??null;},
+  async latestHtml(id){calls.html.push(id);if(htmlFail)throw new Error('relation missing');return versions.get(id)??null;},
+ },{now:()=>Date.parse('2026-10-20T00:00:00Z'),log:c=>logs.push(c)});
+ return {handler,calls,logs};
+}
+test('short address opens the same link; an HTML page returns only its latest version',async()=>{
+ const {handler,calls}=htmlHarness();
+ const r=await post(handler,{slug:S.valid});
+ assert.equal(r.status,200);
+ assert.deepEqual(await r.json(),{ok:true,page:{kind:'html',title:'그래프 현황',html:'<!doctype html><title>그래프</title><script>draw()</script>'}});
+ assert.match(r.headers.get('Cache-Control'),/no-store/);assert.match(r.headers.get('X-Robots-Tag'),/noindex/);
+ assert.deepEqual(calls.slug,[sh(S.valid)]);assert.deepEqual(calls.html,['html']);
+ // The long link of the same row gives the same page.
+ assert.equal((await (await post(handler,{token:T.valid})).json()).page.kind,'html');
+ // A blocks page by short address still returns blocks (no kind).
+ assert.deepEqual(await (await post(handler,{slug:S.blocks})).json(),{ok:true,page:{title:'민자철도 현황',blocks:[{type:'summary',text:'교섭 중'}]}});
+});
+test('turning the link off closes the short address too; unknown and malformed short addresses are the same 404',async()=>{
+ const {handler,calls}=htmlHarness();
+ await notFound(await post(handler,{slug:S.off}));
+ await notFound(await post(handler,{slug:'minja-rail-k7q2m9xb'}));
+ for(const slug of ['minja-rail','minja-rail-k7q2','MINJA-rail-k7q2m9xa','minja-rail-k7q2m9x0','minja-rail-k7q2m9xl','-x-abcdefgh','a-abcdefgh','x--y-abcdefgh','민자-abcdefgh','a'.repeat(41)+'-abcdefgh',12,null,['x']])await notFound(await post(handler,{slug}));
+ assert.equal(calls.slug.length,2,'malformed short addresses never reach the database');
+ assert.equal(slugOk('ab-abcdefgh'),true);assert.equal(slugOk('a'.repeat(40)+'-abcdefgh'),true);
+ assert.equal(await slugHash(S.valid),sh(S.valid));
+});
+test('head:true gives the title only; bad shapes are 400',async()=>{
+ const {handler,calls}=htmlHarness();
+ assert.deepEqual(await (await post(handler,{slug:S.valid,head:true})).json(),{ok:true,page:{title:'그래프 현황'}});
+ assert.deepEqual(await (await post(handler,{token:T.other,head:true})).json(),{ok:true,page:{title:'민자철도 현황'}});
+ assert.equal(calls.html.length,0,'head never reads the HTML');
+ for(const body of [{slug:S.valid,token:T.valid},{slug:S.valid,head:false},{slug:S.valid,head:'1'},{head:true},{slug:S.valid,head:true,x:1}])
+  assert.equal((await post(handler,body)).status,400,JSON.stringify(body));
+ // The old reader (no slug lookup) refuses {slug}.
+ const {handler:old}=harness();assert.equal((await post(old,{slug:S.valid})).status,400);
+});
+test('an HTML lookup failure keeps block pages open and is a generic 503 for an empty page',async()=>{
+ const {handler,logs}=htmlHarness({htmlFail:true});
+ assert.equal((await post(handler,{slug:S.blocks})).status,200);
+ const r=await post(handler,{slug:S.valid});assert.equal(r.status,503);assert.deepEqual(await r.json(),{error:'unavailable'});
+ assert.ok(logs.every(c=>c==='share_page_html_unavailable'));
+ const text=await (await htmlHarness().handler(new Request(URL_,{method:'POST',headers:{Origin:ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({slug:S.valid})}))).text();
+ for(const secret of [S.valid,sh(S.valid),h(T.valid),'workspace','page_id','status'])assert.equal(text.includes(secret),false,secret);
+});
+test('index reads short addresses by hash and only the latest HTML of the page',()=>{
+ const index=readFileSync('supabase/functions/share-page-read/index.ts','utf8');
+ assert.match(index,/from\("app_share_page_slugs"\)\s*\.select\("token_hash,slug_hash"\)\s*\.eq\("slug_hash", hash\)/);
+ assert.match(index,/from\("app_share_page_html"\)\s*\.select\("html"\)\s*\.eq\("page_id", pageId\)\s*\.order\("created_at", \{ ascending: false \}\)\s*\.limit\(1\)/);
+ assert.doesNotMatch(index,/slug_name|slug_code/);
+});
