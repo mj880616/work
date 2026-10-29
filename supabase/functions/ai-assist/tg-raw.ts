@@ -39,6 +39,24 @@ export function tgNameMaps(daySenders: unknown, senders: unknown): Map<string, M
   return out;
 }
 
+// 이름 표 읽기(입출력은 부르는 쪽의 read — 로그인 토큰 GET, owner RLS). 이번 소식들의 방·날짜 줄만, 내 작업공간 줄만 읽는다.
+// read가 던지면 그대로 던진다(부르는 쪽이 라벨 그대로로 물러난다). 표: app_tg_day_senders(방·날짜·라벨 → 사람), app_tg_senders(사람 → 이름·본인).
+const ROOM = /^[A-Za-z0-9_.:-]{1,100}$/;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export async function tgNamesFor(read: (path: string) => Promise<unknown>, workspaceId: string, rows: Record<string, unknown>[]): Promise<Map<string, Map<string, string>>> {
+  const rooms = [...new Set(rows.map((r) => r.room_key).filter((k): k is string => typeof k === "string" && ROOM.test(k)))];
+  const days = [...new Set(rows.map((r) => (typeof r.day === "string" ? r.day.slice(0, 10) : "")).filter((d) => DAY.test(d)))];
+  if (!rooms.length || !days.length) return new Map();
+  const ws = encodeURIComponent(workspaceId);
+  const list = encodeURIComponent(rooms.map((x) => `"${x}"`).join(","));
+  const links = await read(`app_tg_day_senders?workspace_id=eq.${ws}&room_key=in.(${list})&day=in.(${days.join(",")})&select=room_key,day,label,sender_id&limit=400`);
+  const ids = [...new Set((Array.isArray(links) ? links as Record<string, unknown>[] : []).map((r) => r?.sender_id).filter((v): v is string => typeof v === "string" && ID.test(v)))];
+  const people = ids.length ? await read(`app_tg_senders?workspace_id=eq.${ws}&id=in.(${ids.join(",")})&select=id,name,is_self&limit=${ids.length}`) : [];
+  return tgNameMaps(links, people);
+}
+export const tgNameKey = (r: Record<string, unknown>) => `${r.room_key}|${typeof r.day === "string" ? r.day.slice(0, 10) : ""}`;
+
 // 원문 → AI 재료 한 줄. 라벨을 표시 이름으로 바꾸고(같은 이름이 둘 이상이면 뒤에 (라벨)), 줄마다 mask(연락처 가림)를 거쳐 max자에서 자른다.
 export function tgRawForAi(raw: unknown, names: ReadonlyMap<string, string>, mask: (s: string) => string, max = TG_RAW_CHARS): string {
   if (typeof raw !== "string" || !raw.trim()) return "";

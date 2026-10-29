@@ -74,7 +74,7 @@ import {
   ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askTgRaw, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
   storedSources, type AskHit, type AskSource,
 } from "./web2-ask.ts";
-import { TG_RAW_MAX_ITEMS, tgNameMaps } from "./tg-raw.ts";
+import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -3813,25 +3813,17 @@ async function addTelegramRaw(ctx: Ctx, sources: AskSource[]) {
     ctx.log("ask_tg_raw_unavailable");
     return;
   }
-  const rooms = [...new Set(items.map((r) => r.room_key).filter((k): k is string => typeof k === "string" && /^[A-Za-z0-9_.:-]{1,100}$/.test(k)))];
-  const days = [...new Set(items.map((r) => r.day).filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)))];
   let names = new Map<string, Map<string, string>>();
-  if (rooms.length && days.length) {
-    try {
-      const q = (v: string[]) => v.map((x) => `"${x}"`).join(",");
-      const links = await rest(ctx, `app_tg_day_senders?workspace_id=eq.${ws}&room_key=in.(${encodeURIComponent(q(rooms))})&day=in.(${days.join(",")})&select=room_key,day,label,sender_id&limit=400`);
-      const ids = [...new Set((Array.isArray(links) ? links as Record<string, unknown>[] : []).map((r) => r.sender_id).filter((v): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v)))];
-      const people = ids.length ? await rest(ctx, `app_tg_senders?workspace_id=eq.${ws}&id=in.(${ids.join(",")})&select=id,name,is_self&limit=${ids.length}`) : [];
-      names = tgNameMaps(links, people);
-    } catch {
-      ctx.log("ask_tg_names_unavailable");
-    }
+  try {
+    names = await tgNamesFor((p) => rest(ctx, p), ctx.workspaceId, items);
+  } catch {
+    ctx.log("ask_tg_names_unavailable");
   }
   const byId = new Map(items.map((r) => [String(r.id).toLowerCase(), r]));
   for (const s of tg) {
     const r = byId.get(s.id);
     if (!r) continue;
-    const raw = askTgRaw(r.raw_text, names.get(`${r.room_key}|${String(r.day ?? "").slice(0, 10)}`));
+    const raw = askTgRaw(r.raw_text, names.get(tgNameKey(r)));
     if (raw) s.raw = raw;
   }
 }
