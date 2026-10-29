@@ -156,6 +156,9 @@
      1~8은 예전 8색과 같은 색 계열 순서(같은 이름은 예전과 비슷한 색), 9~16은 1~8 다음에 쓰는 추가 색. */
   --ds-meeting-1:#2880c9;--ds-meeting-2:#179920;--ds-meeting-3:#d941cf;--ds-meeting-4:#038283;--ds-meeting-5:#af7a0d;--ds-meeting-6:#8b4679;--ds-meeting-7:#324903;--ds-meeting-8:#3468fa;
   --ds-meeting-9:#29416f;--ds-meeting-10:#368c54;--ds-meeting-11:#7b0075;--ds-meeting-12:#758d14;--ds-meeting-13:#90844f;--ds-meeting-14:#5a14a6;--ds-meeting-15:#634303;--ds-meeting-16:#524ba5;
+  /* NOTE-보기3가지: 노트 폴더 연한 색(포스트잇 바탕·목록 꼬리표) 여덟 가지 + 폴더 없음. 노랑 없음(노랑은 '나한테 온 요청' 주목 표시). 글자는 종이 위 진한 잉크. */
+  --ds-note-paper-0:#dcebdc;--ds-note-paper-1:#d8e6f0;--ds-note-paper-2:#e6def0;--ds-note-paper-3:#f2ddd6;--ds-note-paper-4:#d4ebe6;--ds-note-paper-5:#f0dbe4;--ds-note-paper-6:#e3e6d6;--ds-note-paper-7:#dde0ec;--ds-note-paper-none:#eceae4;
+  --ds-note-ink:#2f2f2a;--ds-note-ink-soft:#4a4a44;--ds-note-ink-faint:#6b6b63;--ds-note-fold:rgba(0,0,0,.16);--ds-note-shadow:0 1px 2px rgba(0,0,0,.14),0 4px 10px -6px rgba(0,0,0,.25);--ds-note-shadow-lift:0 6px 18px -4px rgba(0,0,0,.35);
   /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·게시판 본문은 다크 모드에서도 밝게 둔다. */
   --ds-frame-paper:#ffffff;
   /* UI-눌림느낌(2026-10-27 명진 요청): 누르는 순간 살짝 작아지고(--ds-press-scale) 바탕이 조금 진해진다(--ds-press-tint, 바탕 위에 한 겹).
@@ -206,6 +209,7 @@
     /* MEET-결과정리 ② 어두운 값: 같은 칸의 같은 색 계열, 어두운 바탕과 대비 3:1 이상, 16칸 서로 색차 25 이상. */
     --ds-meeting-1:#68affc;--ds-meeting-2:#62d358;--ds-meeting-3:#fa63ee;--ds-meeting-4:#51b5b5;--ds-meeting-5:#efa91c;--ds-meeting-6:#c279ae;--ds-meeting-7:#6d843e;--ds-meeting-8:#4d70fb;
     --ds-meeting-9:#7877ab;--ds-meeting-10:#6dc286;--ds-meeting-11:#ff97f4;--ds-meeting-12:#a9c04b;--ds-meeting-13:#c4b67f;--ds-meeting-14:#9f57ea;--ds-meeting-15:#98772c;--ds-meeting-16:#9184e5;
+    --ds-note-paper-0:#b6c6b6;--ds-note-paper-1:#b3c1cb;--ds-note-paper-2:#c1b9cb;--ds-note-paper-3:#cbb8b1;--ds-note-paper-4:#b0c6c1;--ds-note-paper-5:#cab6bf;--ds-note-paper-6:#bec1b1;--ds-note-paper-7:#b8bbc7;--ds-note-paper-none:#c3c1bb;
     /* 떠 있는 창·동그란 [+]의 그림자와 창 뒤 어둡게 하는 막은 어두운 바탕에서 보이도록 더 진하게. */
     --kptu-shadow-float:0 8px 24px rgba(0,0,0,.45);--kptu-shadow-modal:0 18px 48px rgba(0,0,0,.55);
   }

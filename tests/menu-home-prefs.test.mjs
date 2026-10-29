@@ -5,11 +5,15 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
-test('허용 칸 열여섯 개가 DB 검사(마지막 migration, quiet_weeks 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261029103000_profile_view_prefs_quiet_weeks.sql');
+test('허용 칸 열일곱 개가 DB 검사(마지막 migration, note_view 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261029183000_profile_view_prefs_note_view.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS].sort(), listed.sort());
-  assert.equal(KEYS.length, 16);
+  assert.equal(KEYS.length, 17);
+});
+test('note_view는 폴더·목록·포스트잇 셋만(NOTE-보기3가지)', () => {
+  for (const v of ['folder', 'list', 'board']) assert.ok(validValue('note_view', v), v);
+  for (const v of ['grid', '', null, 1, true, ['list']]) assert.equal(validValue('note_view', v), false, String(v));
 });
 test('menu_layout·home_cards 모양 검사', () => {
   const ok = {bar: ['home', 'basket'], rest: ['note']};
