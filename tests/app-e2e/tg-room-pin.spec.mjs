@@ -22,7 +22,9 @@ async function fixture(page,{width=1440,roomPins=true,rooms=[{room_key:'room-b',
 }
 async function openTelegram(page,width){
  if(width>=1024){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'텔레그램 소식',exact:true});await expect(item).toBeVisible();await item.click();}
- else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'텔레그램 소식',exact:true}).click();}
+ else if(width<760){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'텔레그램 소식',exact:true}).click();}
+ // 884(폴드 펼침)는 아래 메뉴 탭이 없는 폭이라 라우터로 연다.
+ else{await page.waitForFunction(()=>!!window.KPTURouter?.go);await page.evaluate(()=>window.KPTURouter.go('telegram'));}
  await expect(page.locator('#telegramView')).toBeVisible();
  await expect(page.locator('#telegramView [data-tg-rd]').first()).toBeVisible();
 }
@@ -88,7 +90,7 @@ test('PC: 불러온 기간 밖의 고정 방은 그 방의 가장 최근 날 한
  await menu.getByRole('button',{name:'보관',exact:true}).click();
  await expect.poll(()=>rpc(f,'app_feed_room_pin')).toEqual([{p_room_key:'room-a',p_pinned:false}]);
  await expect.poll(()=>pinKeys(view)).toEqual([Z]);
- expect(await keys(view)).toEqual([Z,B6,B3]);
+ expect(await keys(view)).toEqual([Z,'-1001234567|2026-10-06',B6,B3]);
  // 고정 방 줄을 누르면 그 날 상세가 열린다.
  await rd(view,Z).locator('[data-tg-rdopen]').click();
  await expect(page.locator('#tgDetail [data-tg-detail]')).toHaveAttribute('data-tg-detail',Z);
