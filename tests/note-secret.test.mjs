@@ -1,4 +1,4 @@
-// NOTE-비밀메모(2026-10-28 17:23 결정): 화면 공용 판별(app/note-secret.mjs)이 서버(ai-assist note-title.ts looksSecret)와 같은 규칙인지,
+// NOTE-비밀메모(2026-10-28 17:23 결정): 화면 공용 판별(app/note-secret.mjs)이 서버(ai-assist note-secret.ts)와 같은 규칙인지,
 // 목록 제목 가리기·[AI에 보내지 않기]/[풀기] 표시. 예시 값은 모두 지어낸 가짜 글이다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,13 +11,16 @@ const rules = src => {
   assert.ok(a > 0 && b > a, '규칙 줄을 찾음');
   return src.slice(a, src.indexOf('\n', b)).split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
 };
-test('판별 규칙 줄이 서버 note-title.ts와 글자 그대로 같다', () => {
-  const server = readFileSync(new URL('../supabase/functions/ai-assist/note-title.ts', import.meta.url), 'utf8');
+test('판별 규칙 줄이 서버 note-secret.ts와 글자 그대로 같다', () => {
+  const server = readFileSync(new URL('../supabase/functions/ai-assist/note-secret.ts', import.meta.url), 'utf8');
   const app = readFileSync(new URL('../app/note-secret.mjs', import.meta.url), 'utf8');
   assert.equal(rules(app), rules(server));
   // 함수 몸통(덩어리 검사)도 같은 모양.
   const body = s => s.slice(s.indexOf('for (const m of s.match(LONG_RANDOM)'), s.indexOf('return false;', s.indexOf('for (const m of s.match(LONG_RANDOM)'))).replace(/\(re\) =>/g, 're =>').replace(/\s+/g, ' ');
   assert.equal(body(app), body(server));
+  // 노트 판별(제목+본문·[AI에 보내지 않기]/[풀기])도 같은 식(타입 표기·따옴표만 다름).
+  const fn = (src, name) => { const i = src.indexOf(`export const ${name} =`); assert.ok(i > 0, name); return src.slice(src.indexOf('=>', i), src.indexOf('\n', i)).replace(/note!?\./g, 'note.').replace(/"/g, "'").replace(/\s+/g, ' '); };
+  for (const name of ['noteLooksSecret', 'noteAiOff']) assert.equal(fn(app, name), fn(server, name), name);
 });
 
 const fake = 'Ab3' + 'x'.repeat(10) + 'Q9z' + 'y'.repeat(12);

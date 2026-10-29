@@ -639,3 +639,27 @@ test('MULTI 단계 ①: a workspace without the calls feature runs ledger_auto w
     assert.ok(h.calls.logs.some(l=>l.code==='ledger_auto_call_skipped'),'logged as skipped');
   }
 });
+
+// NOTE-비밀메모 서버 쪽: [AI에 보내지 않기] 노트·비밀 모양 노트는 원장 자동 기록 재료에서 빠지고(본 것으로도 적지 않음), [AI 제외 풀기] 노트는 들어간다.
+// 기록에는 건너뛴 개수만(제목·본문 없음). 예시 값은 지어낸 가짜 글.
+test('NOTE-비밀메모: AI 제외·비밀 모양 노트는 AI 요청 본문에 없고, 풀어 준 노트는 들어간다',async()=>{
+  const h=harness();
+  h.db.app_notes.push(
+    {id:id(15),workspace_id:WS,kind:'note',title:'가상 메모 OFF_TITLE',raw_text:'꺼 둔 노트 OFF_TEXT',occurred_at:null,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{ai_off:true}},
+    {id:id(16),workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'와이파이 비밀번호: SECRET_SHAPE_TEXT',occurred_at:null,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{}},
+    {id:id(17),workspace_id:WS,kind:'note',title:'가상 풀어 둔 노트',raw_text:'토큰 발급 회의 정리 UNLOCKED_TEXT',occurred_at:null,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{ai_off:false}},
+  );
+  const res=await post(h.handler,run);
+  assert.equal(res.status,200);
+  const material=h.calls.openai[0].input[1].content;
+  for(const hidden of ['OFF_TITLE','OFF_TEXT','SECRET_SHAPE_TEXT','가상 공유기'])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  assert.ok(material.includes('UNLOCKED_TEXT'),'[AI 제외 풀기] 노트는 보낸다');
+  assert.match(h.calls.rest.find(c=>c.table==='app_notes').query,/select=[^&]*\bmetadata\b/,'판별에 쓰는 metadata를 읽는다');
+  const b=batchOf(h);
+  assert.ok(!b.sources.some(s=>[id(15),id(16)].includes(s.id)),'건너뛴 노트는 본 것으로 적지 않는다');
+  assert.ok(b.sources.some(s=>s.id===id(17)));
+  const log=h.calls.logs.find(l=>l.code==='ledger_auto_note_ai_off_skipped');
+  assert.deepEqual(log?.detail,{count:2});
+  const logs=JSON.stringify(h.calls.logs);
+  for(const hidden of ['OFF_TITLE','OFF_TEXT','SECRET_SHAPE_TEXT','가상 공유기'])assert.ok(!logs.includes(hidden),hidden+' must not be logged');
+});

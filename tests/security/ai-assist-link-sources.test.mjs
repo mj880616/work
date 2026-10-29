@@ -191,3 +191,23 @@ test('screen message table covers the new codes (smoke)',()=>{
   const screen=readFileSync(new URL('../../app/basket-ai-summary.js',import.meta.url),'utf8');
   for(const code of ['text_pending','no_file_text'])assert.match(screen,new RegExp(`\\b${code}:'`));
 });
+
+// NOTE-비밀메모 서버 쪽: 노트(kind=note)를 재료로 고를 때도 [AI에 보내지 않기]·비밀 모양 노트는 AI 전에 막고, [AI 제외 풀기] 노트는 보낸다.
+test('NOTE-비밀메모: AI 제외·비밀 모양 노트는 note_excluded(AI 부르지 않음), 풀어 준 노트는 AI 요청 본문에 들어간다',async()=>{
+  const OFF=id('c',91),SECRETY=id('c',92),UNLOCKED=id('c',93);
+  const {handler,calls,tables}=harness();
+  tables.app_notes.push(
+    {id:OFF,workspace_id:WS,kind:'note',title:'가상 메모',raw_text:'꺼 둔 노트 OFF_TEXT',metadata:{ai_off:true},archived_at:null,ai_export_allowed:true,attachments:[]},
+    {id:SECRETY,workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'와이파이 비밀번호: SECRET_SHAPE_TEXT',metadata:{},archived_at:null,ai_export_allowed:true,attachments:[photo(1,ocr('사진 글자'))]},
+    {id:UNLOCKED,workspace_id:WS,kind:'note',title:'가상 풀어 둔 노트',raw_text:'토큰 발급 회의 정리 UNLOCKED_TEXT',metadata:{ai_off:false},archived_at:null,ai_export_allowed:true,attachments:[]},
+  );
+  await err(await post(handler,{kind:'link_summary',note_id:OFF,target_kind:'organization',target_id:ORG}),422,'note_excluded');
+  await err(await post(handler,{kind:'link_summary',note_id:SECRETY,target_kind:'organization',target_id:ORG}),422,'note_excluded');
+  await err(await post(handler,{kind:'link_summary',note_id:SECRETY,use:'files',target_kind:'organization',target_id:ORG}),422,'note_excluded');
+  assert.equal(calls.openai.length,0);
+  {const q=calls.rest.filter(c=>c.table==='app_notes');assert.ok(q.length>0&&q.every(c=>/select=[^&]*\bmetadata\b/.test(decodeURIComponent(c.query))),'판별에 쓰는 metadata를 읽는다');}
+  const res=await post(handler,{kind:'link_summary',note_id:UNLOCKED,target_kind:'organization',target_id:ORG});
+  assert.equal(res.status,200);
+  assert.equal(calls.openai.length,1);
+  assert.ok(calls.openai[0].input[1].content.includes('UNLOCKED_TEXT'),'[AI 제외 풀기] 노트는 보낸다');
+});

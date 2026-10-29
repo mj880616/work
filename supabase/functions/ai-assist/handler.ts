@@ -66,8 +66,9 @@ import {
   reportOf, reportsHash, suggestLooksSecret, suggestTooShort, withAreaSummaries, type AreaReport,
 } from "./business-area.ts";
 import {
-  hasOwnTitle, looksSecret, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
+  hasOwnTitle, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
 } from "./note-title.ts";
+import { noteAiOff, noteAiOffMark, noteRowAiBlocked } from "./note-secret.ts";
 import {
   JOURNAL_DRAFT_BODY_BYTES, JOURNAL_DRAFT_HOUR, JOURNAL_DRAFT_INSTRUCTIONS, JOURNAL_DRAFT_MAX_OUTPUT_TOKENS, JOURNAL_DRAFT_SCHEMA,
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
@@ -733,12 +734,14 @@ type LinkMaterial = { targetName: string; payload: Record<string, unknown> };
 async function readLinkNote(ctx: Ctx, noteId: string, withFiles: boolean) {
   const ws = encodeURIComponent(ctx.workspaceId);
   const note = await readOne(ctx,
-    `app_notes?id=eq.${noteId}&workspace_id=eq.${ws}&select=id,workspace_id,kind,raw_text,archived_at,ai_export_allowed${withFiles ? ",attachments" : ""}&limit=2`);
+    `app_notes?id=eq.${noteId}&workspace_id=eq.${ws}&select=id,workspace_id,kind,title,raw_text,metadata,archived_at,ai_export_allowed${withFiles ? ",attachments" : ""}&limit=2`);
   if (!note || String(note.id).toLowerCase() !== noteId || String(note.workspace_id).toLowerCase() !== ctx.workspaceId) {
     throw new Fail(404, "not_found");
   }
   // 일기·보관됨·AI 제외는 보내지 않는다(todo-radar 결정 7, app_basket_confirm_links와 같은 조건).
   if (note.kind === "diary" || note.archived_at != null || note.ai_export_allowed !== true) throw new Fail(422, "note_excluded");
+  // NOTE-비밀메모: [AI에 보내지 않기] 노트, 비밀 모양 글이 든 노트([풀기] 안 함)는 보내지 않는다(note-secret.ts).
+  if (noteRowAiBlocked(note)) throw new Fail(422, "note_excluded");
   return note;
 }
 
@@ -979,11 +982,14 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
   let partial = false;
   const full = (rows: unknown[]) => { if (rows.length >= RADAR_READ_LIMIT) partial = true; };
 
-  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${RADAR_READ_LIMIT}`);
+  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,metadata,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${RADAR_READ_LIMIT}`);
   full(notes);
+  let secretSkipped = 0;
   for (const n of notes) {
     if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     if (!["basket", "note", "work"].includes(String(n.kind)) || n.archived_at != null || n.ai_export_allowed !== true) continue;
+    // NOTE-비밀메모: AI 제외·비밀 모양 노트는 재료에서 뺀다. 기록에는 개수만.
+    if (noteRowAiBlocked(n)) { secretSkipped++; continue; }
     const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
     const at = timeOf(n.updated_at);
     const day = n.kind === "work" && typeof n.journal_day === "string" && DAY_RE.test(n.journal_day) ? n.journal_day
@@ -991,6 +997,7 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
     if (!text || !Number.isFinite(at)) continue;
     sources.push({ kind: n.kind as "basket" | "note" | "work", id: n.id.toLowerCase(), day, at, text });
   }
+  if (secretSkipped) ctx.log("radar_note_ai_off_skipped", { count: secretSkipped });
 
   const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,updated_at,project_id&order=updated_at.desc&limit=50`);
   if (meetings.length >= 50) partial = true;
@@ -1500,11 +1507,14 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
   let partial = false;
   const full = (rows: unknown[], limit = AUTO_READ_LIMIT) => { if (rows.length >= limit) partial = true; };
 
-  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`);
+  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,metadata,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`);
   full(notes);
+  let secretSkipped = 0;
   for (const n of notes) {
     if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     if (!["basket", "note", "work"].includes(String(n.kind)) || n.archived_at != null || n.ai_export_allowed !== true) continue;
+    // NOTE-비밀메모: AI 제외·비밀 모양 노트는 재료에서 뺀다(본 것으로도 적지 않음). 기록에는 개수만.
+    if (noteRowAiBlocked(n)) { secretSkipped++; continue; }
     const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
     const at = timeOf(n.updated_at);
     if (!text || !Number.isFinite(at)) continue;
@@ -1512,6 +1522,7 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
       : kstDay(n.kind === "basket" && Number.isFinite(timeOf(n.occurred_at)) ? timeOf(n.occurred_at) : at);
     sources.push({ kind: n.kind as "basket" | "note" | "work", id: n.id.toLowerCase(), stamp: n.updated_at as string, day, at, text });
   }
+  if (secretSkipped) log("ledger_auto_note_ai_off_skipped", { count: secretSkipped });
 
   const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,activity_kind,updated_at&order=updated_at.desc&limit=50`);
   full(meetings, 50);
@@ -3849,9 +3860,10 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
   const skip = (reason: string) => { deps.log("note_title_skipped", { reason }); return json({ ok: true, kind: "note_title", id: input.id, skipped: reason }); };
   if (note.archived_at != null || note.ai_export_allowed !== true) return skip("not_allowed");
   if (typeof meta.ai_title === "string" && meta.ai_title.trim()) return skip("done");
-  if (meta.ai_off === true) return skip("not_allowed");
+  if (noteAiOffMark(note) === true) return skip("not_allowed");
   if (hasOwnTitle(note.title, text)) return skip("own_title");
-  if (looksSecret(`${typeof note.title === "string" ? note.title : ""}\n${text}`)) return skip("secret");
+  // 비밀 모양 글이면 건너뛴다. [AI 제외 풀기](metadata.ai_off=false)로 푼 노트는 만든다(note-secret.ts noteAiOff).
+  if (noteAiOff(note)) return skip("secret");
   const material = noteTitleMaterial(text);
   if ([...material].length < 8) return skip("short");
   const updatedAt = typeof note.updated_at === "string" ? note.updated_at : "";
@@ -4179,10 +4191,13 @@ async function markNoteSendable(ctx: Ctx, sources: AskSource[]) {
   if (!notes.length) return;
   let allowed = new Set<string>();
   try {
-    const rows = await rest(ctx, `app_notes?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&id=in.(${notes.map((s) => s.id).join(",")})&select=id,kind,ai_export_allowed&limit=${notes.length}`);
+    const rows = await rest(ctx, `app_notes?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&id=in.(${notes.map((s) => s.id).join(",")})&select=id,kind,title,raw_text,metadata,ai_export_allowed&limit=${notes.length}`);
     if (Array.isArray(rows)) {
-      allowed = new Set((rows as Record<string, unknown>[])
-        .filter((r) => r?.ai_export_allowed === true && r.kind !== "diary").map((r) => String(r.id).toLowerCase()));
+      const ok = (rows as Record<string, unknown>[]).filter((r) => r?.ai_export_allowed === true && r.kind !== "diary");
+      // NOTE-비밀메모: AI 제외·비밀 모양 노트는 근거 목록에만 두고 AI에는 보내지 않는다. 기록에는 개수만.
+      const blocked = ok.filter((r) => noteRowAiBlocked(r)).length;
+      if (blocked) ctx.log("ask_note_ai_off_skipped", { count: blocked });
+      allowed = new Set(ok.filter((r) => !noteRowAiBlocked(r)).map((r) => String(r.id).toLowerCase()));
     }
   } catch {
     ctx.log("ask_note_flags_unavailable");

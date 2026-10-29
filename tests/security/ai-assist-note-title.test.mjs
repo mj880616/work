@@ -121,3 +121,18 @@ test('AI answers are checked: multi-line, HTML, too long, phone or secret-lookin
   assert.equal(nt.looksSecret('회의 메모 https://example.test/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),false);
   assert.equal(nt.looksSecret('일정 정리 3차 교섭'),false);
 });
+
+// NOTE-비밀메모 서버 쪽: [AI 제외 풀기](metadata.ai_off=false)로 푼 비밀 모양 노트는 AI 제목을 만든다(재료로 본문이 들어간다).
+test('NOTE-비밀메모: 풀어 준 비밀 모양 노트는 AI 요청 본문에 들어가고, 풀지 않은 노트는 건너뛴다(기록에 글 없음)',async()=>{
+  const text='와이파이 비밀번호 바꾼 날 메모 UNLOCKED_TEXT\n공유기 설정 순서 정리';
+  const unlocked=harness({notes:[note(1,{title:'',raw_text:text,metadata:{ai_off:false}})]});
+  const res=await post(unlocked.handler,{kind:'note_title',id:id(1)});
+  assert.equal(res.status,200);
+  assert.equal(unlocked.calls.openai.length,1);
+  assert.ok(JSON.stringify(unlocked.calls.openai[0].input).includes('UNLOCKED_TEXT'),'[AI 제외 풀기] 노트는 보낸다');
+  const locked=harness({notes:[note(1,{title:'',raw_text:text,metadata:{}})]});
+  const r2=await post(locked.handler,{kind:'note_title',id:id(1)});
+  assert.equal((await r2.json()).skipped,'secret');
+  assert.equal(locked.calls.openai.length,0);
+  assert.ok(!JSON.stringify(locked.calls.logs).includes('UNLOCKED_TEXT'),'기록에 글 없음');
+});

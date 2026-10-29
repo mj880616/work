@@ -234,3 +234,23 @@ test('telegram raw: length cap, names table down falls back to labels, S3 ledger
   const raw2=(await import('../../supabase/functions/ai-assist/tg-raw.ts')).tgRawForAi('10:00 A: 하나\n10:01 B: 둘',new Map([['A','홍길동'],['B','홍길동']]),t=>t);
   assert.equal(raw2,'10:00 홍길동(A): 하나 / 10:01 홍길동(B): 둘');
 });
+
+// NOTE-비밀메모 서버 쪽: 찾은 노트 중 [AI에 보내지 않기]·비밀 모양 노트는 근거 목록에만 두고 AI에는 보내지 않는다. [AI 제외 풀기] 노트는 보낸다. 기록에는 개수만.
+test('NOTE-비밀메모: AI 제외·비밀 모양 노트는 AI 요청 본문에 없고, 풀어 준 노트는 들어간다',async()=>{
+  const search={...SEARCH,[WS]:[...SEARCH[WS],item('note',91,{snippet:'OFF_SNIPPET 임금교섭'}),item('note',92,{snippet:'SECRET_SNIPPET 임금교섭'}),item('note',93,{snippet:'UNLOCKED_SNIPPET 임금교섭'})]};
+  const {handler,calls,db}=harness({search});
+  db.app_notes.push(
+    {id:id(91),workspace_id:WS,kind:'note',title:'가상 메모',raw_text:'꺼 둔 노트',metadata:{ai_off:true},ai_export_allowed:true},
+    {id:id(92),workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'와이파이 비밀번호: 가짜',metadata:{},ai_export_allowed:true},
+    {id:id(93),workspace_id:WS,kind:'note',title:'가상 풀어 둔 노트',raw_text:'와이파이 비밀번호: 가짜',metadata:{ai_off:false},ai_export_allowed:true},
+  );
+  const res=await post(handler,{kind:'ask_web2',question:Q});
+  assert.equal(res.status,200);const out=await res.json();
+  const sent=calls.openai[0].input[1].content;
+  assert.doesNotMatch(sent,/OFF_SNIPPET|SECRET_SNIPPET/);
+  assert.match(sent,/UNLOCKED_SNIPPET/,'[AI 제외 풀기] 노트는 보낸다');
+  assert.deepEqual([id(91),id(92),id(93)].map(n=>out.sources.find(s=>s.id===n)?.sent),[false,false,true]);
+  assert.match(calls.rest.find(c=>c.table==='app_notes').query,/select=[^&]*\bmetadata\b/);
+  assert.deepEqual(calls.logs.find(l=>l.code==='ask_note_ai_off_skipped')?.detail,{count:2});
+  assert.doesNotMatch(JSON.stringify(calls.logs),/가상 공유기|비밀번호|OFF_SNIPPET|SECRET_SNIPPET/);
+});
