@@ -9,23 +9,23 @@ const A6='room-a|2026-10-06',B6='room-b|2026-10-06',C6='-1001234567|2026-10-06',
 const cand=(n,item,day,summary,over={})=>({id:`c0000000-0000-4000-8000-${String(n).padStart(12,'0')}`,kind:'request',summary,due:null,source_kind:'telegram',source_id:item,source_day:day,evidence:'근거',project_id:null,organization_id:null,status:'open',task_id:null,task_due:null,created_at:'2026-10-06T01:00:00Z',decided_at:null,...over});
 const CANDS=()=>[cand(1,T.a2,'2026-10-06','자료집 초안 공유'),cand(2,T.b1,'2026-10-06','원고 금요일까지 회신',{status:'dismissed',decided_at:'2026-10-06T02:00:00Z'})];
 
-async function fixture(page,{width,cands=CANDS()}){
+async function fixture(page,{width,cands=CANDS(),seen=null}){
  await page.setViewportSize({width,height:860});
- const items=telegramRows(),errors=[],asked=[];
+ const items=telegramRows(),errors=[],asked=[],writes=[];let server;
  // 예시 간부방 10/06 소식은 내 담당조직(home-entry의 '테스트 조직')에 연결돼 있다.
  items.find(x=>x.id===T.b1).organization_id='o';
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!/Failed to load resource/.test(e.text()))errors.push(e.text());});
  // 폭마다 메뉴 모양이 달라(중간 폭은 위쪽 줄) 주소로 바로 연다.
  await openHome(page,{query:'?view=telegram',beforeLoad:async()=>{
   for(const path of ['app_tg_senders','app_tg_day_senders'])await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/'+path,r=>r.fulfill({json:[]}));
-  await installTgServer(page,{items});
+  server=await installTgServer(page,{items,writes,seen});
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',r=>{
    const q=new URL(r.request().url()).searchParams;asked.push(Object.fromEntries(q));
    let out=cands;if(q.get('status')==='eq.open')out=out.filter(c=>c.status==='open');if(q.get('source_kind')==='eq.telegram')out=out.filter(c=>c.source_kind==='telegram');
    return r.fulfill({json:out});
   });
  }});
- return {errors,asked};
+ return {errors,asked,writes,server};
 }
 async function openTelegram(page){
  await expect(page.locator('#telegramView')).toBeVisible();
@@ -79,6 +79,11 @@ test('요청이 없으면 [나한테 온 요청] 칸도 노란 줄도 없다, �
  await expect(view.locator('[data-tg-filter]')).toHaveCount(0);
  await expect(view.locator('.feed-rd.is-ask')).toHaveCount(0);
  await expect(view.locator('.feed-chiprow .feed-chip').first()).toHaveText('전체');
+ // '봤음' 칸이 아직 없을 때(DB 적용 전): 점·흐림·[안 본 것]도 없다.
+ await expect(view.locator('[data-tg-unseen]')).toHaveCount(0);
+ await expect(view.locator('.feed-rd.is-seen')).toHaveCount(0);
+ await view.locator(`[data-tg-rd="${A6}"] .feed-rdb`).click();
+ await expect(page.locator('#tgDetail [data-tg-daybox]')).toBeVisible();
  expect(f.errors).toEqual([]);
 });
 
@@ -90,3 +95,36 @@ test('폰 홈 한 줄 요약에 나한테 온 요청 수가 함께 보인다(정
  }});
  await expect(page.locator('[data-home-summary]')).toHaveText(/새 소식 12 · 나한테 온 요청 1$/);
 });
+
+// TG-안본것 3/3: 안 연 방·날은 이름 옆 작은 점, 연 것은 흐림, [안 본 것 n]. '봤음'은 서버 줄(seen_at)이라 다른 기기에서 연 것도 흐리게 보인다.
+const SEEN=()=>[
+ {room_key:'room-b',day:'2026-10-06',seen_at:'2026-10-07T00:00:00Z',updated_at:'2026-10-06T00:00:00Z'},
+ {room_key:'room-a',day:'2026-10-05',seen_at:'2026-10-05T00:00:00Z',updated_at:'2026-10-05T00:00:00Z'},
+];
+for(const width of [412,884,1440]){
+ test(`${width}: 안 본 것 점·본 것 흐림, [안 본 것 4]로 거르기, 열면 서버에 '봤음'이 남고 점이 사라진다`,async({page})=>{
+  const f=await fixture(page,{width,seen:SEEN()});
+  await openTelegram(page,width);
+  const view=page.locator('#telegramView'),row=k=>view.locator(`[data-tg-rd="${k}"]`);
+  // 다른 기기에서 연(서버에 봤음이 있는) 예시 간부방 10/06은 흐림·점 없음. 연 뒤 소식이 더 온 가상지부 10/05와 안 연 줄은 점.
+  await expect(row(B6)).toHaveClass(/is-seen/);await expect(row(B6).locator('[data-tg-unseen]')).toHaveCount(0);
+  for(const k of [A6,C6,A5,B3]){await expect(row(k).locator('[data-tg-unseen]')).toHaveCount(1);await expect(row(k)).not.toHaveClass(/is-seen/);}
+  expect(Number(await row(B6).locator('.feed-rn').evaluate(e=>getComputedStyle(e).opacity))).toBeLessThan(1);
+  const chip=view.locator('.feed-chiprow [data-tg-filter="unseen"]');await expect(chip).toHaveText('안 본 것 4');
+  await chip.click();
+  await expect(chip).toHaveAttribute('aria-pressed','true');
+  expect((await keys(view)).sort()).toEqual([A6,C6,A5,B3].sort());
+  await chip.click();
+  // 줄을 열면 그 방·날만 '봤음'(DB 함수 한 번), 점이 사라지고 칸 숫자가 준다.
+  await row(A6).locator('.feed-rdb').click();
+  await expect.poll(()=>f.writes.filter(w=>w.rpc==='app_feed_room_day_seen').map(w=>w.body)).toEqual([{p_room_key:'room-a',p_day:'2026-10-06'}]);
+  if(width<1024){await page.locator('#tgDetail [data-tg-back]').click();}
+  await expect(row(A6).locator('[data-tg-unseen]')).toHaveCount(0);
+  await expect(row(A6)).toHaveClass(/is-seen/);
+  await expect(chip).toHaveText('안 본 것 3');
+  // 서버 줄에 남았다(다른 기기도 같은 줄을 읽는다).
+  expect(f.server.seen.find(x=>x.room_key==='room-a'&&x.day==='2026-10-06')?.seen_at).toBeTruthy();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(f.errors).toEqual([]);
+ });
+}

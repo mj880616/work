@@ -95,3 +95,48 @@ test('readLineMarks: no raw text, only shown telegram rows in the day range, pag
     assert.doesNotMatch(p, /raw_text/);
   }
 });
+
+// TG-안본것 3/3: '봤음' 시각(app_feed_room_days.seen_at)으로 점·흐림·[안 본 것 n].
+test('seenIndex / isUnseen: never opened, opened, and new messages after opening (new summary batch or later message)', () => {
+  const seen = m.seenIndex([
+    {room_key: 'room-a', day: '2026-10-06', seen_at: '2026-10-06T05:00:00Z', updated_at: '2026-10-06T04:00:00Z'},
+    {room_key: 'room-b', day: '2026-10-06', seen_at: '2026-10-06T05:00:00Z', updated_at: '2026-10-06T06:00:00Z'},
+    {room_key: 'room-c', day: '2026-10-06', seen_at: 'bad'}, {room_key: '', day: '2026-10-06', seen_at: '2026-10-06T05:00:00Z'},
+  ]);
+  assert.deepEqual([...seen.keys()], ['room-a|2026-10-06', 'room-b|2026-10-06']);
+  const l = (room, last) => ({room_key: room, day: '2026-10-06', last_at: last});
+  assert.equal(m.isUnseen(l('room-a', '2026-10-06T04:30:00Z'), seen), false);
+  assert.equal(m.isUnseen(l('room-a', '2026-10-06T05:30:00Z'), seen), true, 'a later message');
+  assert.equal(m.isUnseen(l('room-b', '2026-10-06T04:30:00Z'), seen), true, 'a new summary batch after opening');
+  assert.equal(m.isUnseen(l('room-c', '2026-10-06T04:30:00Z'), seen), true, 'never opened');
+  assert.equal(m.isUnseen(l('room-c', '2026-10-06T04:30:00Z'), null), false, 'no seen data: nothing is marked');
+  assert.equal(m.unseenCount([l('room-a', '2026-10-06T04:30:00Z'), l('room-b', 'x'), l('room-c', 'x')], seen), 2);
+  assert.equal(m.unseenCount([l('room-c', 'x')], null), 0);
+});
+
+test('withSeen marks one room·day at once without touching the others; filterLines("unseen") keeps the open row', () => {
+  const seen = m.seenIndex([{room_key: 'room-a', day: '2026-10-06', seen_at: '2026-10-06T05:00:00Z', updated_at: '2026-10-06T04:00:00Z'}]);
+  const lines = [{room_key: 'room-a', day: '2026-10-06', last_at: '2026-10-06T04:00:00Z'}, {room_key: 'room-b', day: '2026-10-06', last_at: '2026-10-06T04:00:00Z'}];
+  assert.deepEqual(m.filterLines(lines, 'unseen', {seen}).map(x => x.room_key), ['room-b']);
+  const next = m.withSeen(seen, 'room-b', '2026-10-06', Date.parse('2026-10-06T06:00:00Z'));
+  assert.notEqual(next, seen);
+  assert.equal(seen.has('room-b|2026-10-06'), false);
+  assert.deepEqual(m.filterLines(lines, 'unseen', {seen: next}), []);
+  assert.deepEqual(m.filterLines(lines, 'unseen', {seen: next, keep: 'room-b|2026-10-06'}).map(x => x.room_key), ['room-b']);
+  assert.equal(m.filterLines(lines, 'unseen', {seen: null}).length, 2);
+});
+
+test('readSeenDays and markRoomDaySeen: owner reads with seen_at only; one DB function call to mark', async () => {
+  const paths = [];
+  const rt = rtWith(async (path, opts) => {
+    paths.push([path, opts?.body]);
+    if (path.includes('/rpc/')) return {ok: true, room_key: 'room-a', day: '2026-10-06', seen_at: '2026-10-06T05:00:00Z'};
+    return [{room_key: 'room-a', day: '2026-10-06', seen_at: '2026-10-06T05:00:00Z', updated_at: '2026-10-06T04:00:00Z'}];
+  });
+  assert.equal((await feed.readSeenDays('2026-09-23', '2026-10-06', rt)).length, 1);
+  assert.match(paths[0][0], /^\/rest\/v1\/app_feed_room_days\?workspace_id=eq\.w&day=gte\.2026-09-23&day=lte\.2026-10-06&seen_at=not\.is\.null&select=room_key,day,seen_at,updated_at&/);
+  assert.equal((await feed.markRoomDaySeen('room-a', '2026-10-06', rt)).ok, true);
+  assert.deepEqual(paths[1], ['/rest/v1/rpc/app_feed_room_day_seen', {p_room_key: 'room-a', p_day: '2026-10-06'}]);
+  const gone = rtWith(async () => { throw Object.assign(new Error('Could not find the function'), {status: 404}); });
+  assert.deepEqual(await feed.markRoomDaySeen('room-a', '2026-10-06', gone), {ok: false, error: 'UNAVAILABLE'});
+});
