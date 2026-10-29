@@ -9,14 +9,14 @@ begin;
 --   public.app_my_features()                                     화면·Edge용. 내가 owner인 작업공간의 기능 키 목록만 돌려준다(인자 없음). authenticated만.
 --   public.app_operator_feature_workspace(p_feature)             수집 서버(service_role)용. 그 기능이 허용된 작업공간이 정확히 하나면 그 id, 아니면 null. service_role만.
 --   private.app_operator_feature_guard()                          트리거 함수. 아무도 직접 못 부른다.
--- 통화·텔레그램 표 13개에:
+-- 통화·텔레그램 표 12개에:
 --   restrictive 읽기 정책 op_feature_read(authenticated): 기존 소유자 정책 위에 '그 작업공간에 기능이 허용됨'을 더 요구한다. 기존 정책은 그대로(권한을 넓히지 않고 좁히기만).
 --   BEFORE INSERT OR UPDATE 트리거 trg_op_feature_guard: 허용 행이 없는 작업공간에는 어떤 역할로도(화면 RPC·service_role 수집기 포함) 줄을 넣거나 고치지 못한다.
 --     DEFINER RPC는 RLS를 거치지 않으므로 함수 20개를 하나씩 고치는 대신 쓰기 길목인 표에서 막는다(함수 본문은 한 글자도 바꾸지 않음).
 --     허용 없는 작업공간에는 통화·텔레그램 줄이 생길 수 없으므로, 소유자 확인 뒤 줄을 읽는 DEFINER RPC들도 빈 결과만 얻는다.
 --   app_feed_items·app_feed_days는 source 칸('call'→calls, 'telegram'→telegram)으로, 나머지는 표마다 정해진 기능으로 판정.
 -- 허용 행 넣기(명진 화면이 끊기지 않게 같은 트랜잭션에서): 고정 id·이름·메일을 쓰지 않는다.
---   '지금 통화·텔레그램 자료가 들어 있는 작업공간'(소식·하루 숫자·통화 개인 상자·텔레그램 개인 하루 표 기준)이 정확히 하나이고 그 작업공간의 owner 행이 정확히 하나일 때만 그 작업공간에 2행을 넣는다.
+--   '지금 통화·텔레그램 자료가 들어 있는 작업공간'(소식·하루 숫자·통화 개인 상자 기준)이 정확히 하나이고 그 작업공간의 owner 행이 정확히 하나일 때만 그 작업공간에 2행을 넣는다.
 --   소유자 행만으로 고르지 않는 이유: 운영에 예전 작업공간의 owner 행이 남아 있을 수 있어서(설계 2.1). 조건이 어긋나면 멈추고 아무것도 바꾸지 않는다.
 -- 안 하는 것: 기존 표·칸·정책·권한·함수 본문 변경, 기존 줄 변경·삭제, anon·PUBLIC 권한, RLS 약화, rtw_* 객체, 가입 열기·작업공간 만들기(단계 ②).
 -- 앞 단계: 20261028030000(tg_room_day_context)까지 통화·텔레그램 migration이 모두 적용돼 있어야 한다.
@@ -36,7 +36,6 @@ begin
      or to_regclass('public.app_call_personal') is null
      or to_regclass('public.app_call_edits') is null
      or to_regclass('public.app_call_edit_history') is null
-     or to_regclass('public.app_tg_personal_days') is null
      or to_regclass('public.app_tg_senders') is null
      or to_regclass('public.app_tg_day_senders') is null
      or to_regclass('public.app_feed_folders') is null
@@ -55,8 +54,7 @@ begin
   if (select count(*) from (
         select workspace_id from public.app_feed_items
         union select workspace_id from public.app_feed_days
-        union select workspace_id from public.app_call_personal
-        union select workspace_id from public.app_tg_personal_days) s) <> 1 then
+        union select workspace_id from public.app_call_personal) s) <> 1 then
     raise exception 'OPERATOR_FEATURES_SEED_WORKSPACE_NOT_SINGLE; stop';
   end if;
   if (select count(*) from public.app_workspace_members m
@@ -64,8 +62,7 @@ begin
           and m.workspace_id = (select s.workspace_id from (
                 select workspace_id from public.app_feed_items
                 union select workspace_id from public.app_feed_days
-                union select workspace_id from public.app_call_personal
-                union select workspace_id from public.app_tg_personal_days) s)) <> 1 then
+                union select workspace_id from public.app_call_personal) s)) <> 1 then
     raise exception 'OPERATOR_FEATURES_SEED_OWNER_NOT_SINGLE; stop';
   end if;
 end
@@ -154,8 +151,7 @@ select w.workspace_id, f.feature
   from (select distinct s.workspace_id from (
           select workspace_id from public.app_feed_items
           union select workspace_id from public.app_feed_days
-          union select workspace_id from public.app_call_personal
-          union select workspace_id from public.app_tg_personal_days) s) w
+          union select workspace_id from public.app_call_personal) s) w
  cross join (values ('calls'), ('telegram')) as f(feature)
  where (select count(*) from public.app_workspace_members m
          where m.workspace_id = w.workspace_id and m.role = 'owner') = 1;
@@ -179,8 +175,6 @@ create policy op_feature_read on public.app_call_edits as restrictive for select
   using (private.app_workspace_has_feature(workspace_id, 'calls'));
 create policy op_feature_read on public.app_call_edit_history as restrictive for select to authenticated
   using (private.app_workspace_has_feature(workspace_id, 'calls'));
-create policy op_feature_read on public.app_tg_personal_days as restrictive for select to authenticated
-  using (private.app_workspace_has_feature(workspace_id, 'telegram'));
 create policy op_feature_read on public.app_tg_senders as restrictive for select to authenticated
   using (private.app_workspace_has_feature(workspace_id, 'telegram'));
 create policy op_feature_read on public.app_tg_day_senders as restrictive for select to authenticated
@@ -206,8 +200,6 @@ create trigger trg_op_feature_guard before insert or update on public.app_call_e
   for each row execute function private.app_operator_feature_guard('calls');
 create trigger trg_op_feature_guard before insert or update on public.app_call_edit_history
   for each row execute function private.app_operator_feature_guard('calls');
-create trigger trg_op_feature_guard before insert or update on public.app_tg_personal_days
-  for each row execute function private.app_operator_feature_guard('telegram');
 create trigger trg_op_feature_guard before insert or update on public.app_tg_senders
   for each row execute function private.app_operator_feature_guard('telegram');
 create trigger trg_op_feature_guard before insert or update on public.app_tg_day_senders
@@ -224,5 +216,5 @@ create trigger trg_op_feature_guard before insert or update on public.app_feed_s
   for each row execute function private.app_operator_feature_guard('telegram');
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261029090000', 'operator_features', array['MULTI-노조사용자 단계 ① DB: new table app_operator_features (RLS on, no policies, no anon/authenticated/service_role privileges; seeded with calls+telegram for the single workspace that already holds call/telegram data and has exactly one owner); SECURITY DEFINER functions with empty search_path: private.app_workspace_has_feature (authenticated), public.app_my_features (authenticated), public.app_operator_feature_workspace (service_role), private.app_operator_feature_guard (trigger only, nobody executes); restrictive select policy op_feature_read (authenticated) and BEFORE INSERT OR UPDATE trigger trg_op_feature_guard on 13 call/telegram tables; no change to existing policies, grants, columns, function bodies or rows']);
+values ('20261029090000', 'operator_features', array['MULTI-노조사용자 단계 ① DB: new table app_operator_features (RLS on, no policies, no anon/authenticated/service_role privileges; seeded with calls+telegram for the single workspace that already holds call/telegram data and has exactly one owner); SECURITY DEFINER functions with empty search_path: private.app_workspace_has_feature (authenticated), public.app_my_features (authenticated), public.app_operator_feature_workspace (service_role), private.app_operator_feature_guard (trigger only, nobody executes); restrictive select policy op_feature_read (authenticated) and BEFORE INSERT OR UPDATE trigger trg_op_feature_guard on 12 call/telegram tables; no change to existing policies, grants, columns, function bodies or rows']);
 commit;
