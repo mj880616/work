@@ -30,6 +30,7 @@ function harness({ai=()=>aiOk(),rpc=(fn)=>fn===ASK_CANDIDATE_FN?respond({result:
     if(url.origin==='https://api.openai.com'){calls.openai.push(JSON.parse(init.body));return ai();}
     assert.equal(url.origin,SB);
     const path=url.pathname.replace('/rest/v1/','');
+    if(path==='rpc/app_operator_feature_workspace')return respond(JSON.stringify(WS)); // MULTI 단계 ①: 작업공간은 허용 표 함수로
     if(path.startsWith('rpc/')){
       const fn=path.slice(4);assert.ok([ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN].includes(fn),'이 시험에서 부르는 DB 함수: '+fn);
       const args=JSON.parse(init.body);calls.rpc.push({fn,args,order:calls.items.length});return rpc(fn,args);
