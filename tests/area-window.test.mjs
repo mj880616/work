@@ -52,7 +52,11 @@ test('① 옛 주소·go(projects)는 사업 보고 + 창(detail.areas), 화면 
   const ps=read('project-system-v3.js');
   assert.doesNotMatch(ps,/KPTURouter[^;]{0,40}current==='projects'/);
   assert.doesNotMatch(ps,/KPTURouter\.on\('projects'/);
-  assert.match(ps,/window\.KPTUProjects=\{open:openProject,shown:onProjectsView,hide:hideProjects,place:placeDetail\}/);
+  assert.match(ps,/window\.KPTUProjects=\{open:openProject,shown:onProjectsView,hide:hideProjects,place:placeDetail,back:onBack\}/);
+  // 상세의 뒤로가기(저장 안 한 글 묻기)는 공용 폰 기록보다 먼저: 시작할 때 붙는 창 그릇의 popstate가 맨 앞에서 부르고, 상세 묶음은 따로 붙이지 않는다.
+  const aw=read('area-window.js');
+  assert.match(aw,/addEventListener\('popstate',e=>\{\n(?:.*\n){0,2}\s*window\.KPTUProjects\?\.back\?\.\(e\);if\(e\.cancelBubble/);
+  assert.doesNotMatch(ps,/addEventListener\('popstate',event=>\{\n\s*const id=new URLSearchParams/);
 });
 
 test('① 다른 곳의 사업영역 연결은 모두 KPTUAreaWindow.open 하나로 연다',()=>{

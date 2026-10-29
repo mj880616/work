@@ -89,9 +89,12 @@ document.addEventListener('click',e=>{
 // 폰에서 뒤로가기로 상세 칸을 떠나 이 창의 기록에 서면(상세는 그 뒤로가기의 다른 처리가 닫는다), 그 처리가 다 끝난 뒤 창도 닫아
 // 창의 기록까지 한 칸 더 돌아간다. × 로 상세를 닫은 때(뒤로가기 전에 이미 닫힘)는 목록이 남는다.
 // 뒤로가기의 다른 처리(project-system-v3.js·mobile-modal-history.js)보다 먼저 듣도록 capture로, 시작할 때 붙인다.
+// 사업영역 상세의 뒤로가기(저장 안 한 글 묻기·상세 닫기, project-system-v3.js onBack)도 여기서 맨 먼저 부른다: 그 묶음은 늦게 받아져
+// 직접 붙이면 공용 폰 기록(mobile-modal-history.js)보다 뒤에 돌아, 묻기 전에 상세가 숨겨진다(같은 popstate의 듣는 순서는 붙인 순서).
 window.addEventListener('popstate',e=>{
   const w=win(),detail=$('#ps3DetailModal');
-  if(!isOpen()||w.dataset.areaDirect!=='1'||e.state?.kptuOverlay!=='areaWindow'||!detail||detail.classList.contains('hidden')||detail.dataset.ps3Docked==='1')return;
+  const leftDetail=isOpen()&&w.dataset.areaDirect==='1'&&e.state?.kptuOverlay==='areaWindow'&&!!detail&&!detail.classList.contains('hidden')&&detail.dataset.ps3Docked!=='1';
+  window.KPTUProjects?.back?.(e);if(e.cancelBubble||!leftDetail)return; // 그대로 두기로 해 기록을 되돌렸으면 다른 처리 없이 끝
   setTimeout(()=>{if(isOpen()&&w.dataset.areaDirect==='1'&&detail.classList.contains('hidden')&&history.state?.kptuOverlay==='areaWindow')close()});
 },true);
 window.addEventListener('kptu:view-changed',e=>{
