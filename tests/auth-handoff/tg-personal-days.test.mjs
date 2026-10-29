@@ -68,6 +68,14 @@ test('tg personal days: migration, owner-only RLS, column grants, no raw text, g
    const dirs=['supabase/migrations','supabase/functions/ai-assist'];
    for(const d of dirs)for(const f of await readdir(new URL('../../'+d,import.meta.url))){
     if(f===stem+'.sql'||!/\.(sql|ts|js|mjs)$/.test(f))continue;
+    // MULTI 단계 ① 운영자 전용 잠금(20261029090000_operator_features): 이 표에 읽기를 좁히는 restrictive 정책·쓰기를 막는 트리거만 더하고,
+    // 허용 행을 고를 때 workspace_id 칸만 읽는다(요약 글은 읽지 않음). 그 밖의 쓰임은 없어야 한다.
+    if(d==='supabase/migrations'&&f==='20261029090000_operator_features.sql'){
+     const lines=(await read(d+'/'+f)).replace(/--.*$/gm,'').split('\n').filter(l=>/app_tg_personal/.test(l)).map(l=>l.trim());
+     for(const l of lines)assert.match(l,/^(or to_regclass\('public\.app_tg_personal_days'\) is null|union select workspace_id from public\.app_tg_personal_days\)[ s)<>1thenw]*|create policy op_feature_read on public\.app_tg_personal_days as restrictive for select to authenticated|create trigger trg_op_feature_guard before insert or update on public\.app_tg_personal_days)$/,l);
+     assert.equal(lines.length,6);
+     continue;
+    }
     assert.doesNotMatch(await read(d+'/'+f),/app_tg_personal/,d+'/'+f);
    }
   });
