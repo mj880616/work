@@ -1,4 +1,4 @@
-import {waitInlineHtml, waitEl} from './wait-state.js';
+import {waitInlineHtml, waitEl, emptyEl} from './wait-state.js';
 // SHARE-현장공유 PR 2(화면): the top of the "공유 페이지" menu (#sharePagesRoot). This module is the only renderer of that
 // region: my share pages list + [새 공유 페이지], and the editor (title, blocks, 초안/게시, project link, links).
 // SHARE-보관함·HTML공유: one folded '보관함 n' under the list holds the kept share pages (newest first) and, below them, the old
@@ -99,7 +99,7 @@ function renderList() {
   else if (listState === 'error') {
     status.textContent = '공유 페이지 목록을 불러오지 못했어요.';
     body.push(el('button', {type:'button', class:'secondary', dataset:{spReload:''}, text:'다시 불러오기'}));
-  } else if (pages && !pages.length) body.push(el('p', {class:'sp-empty', text:'공유 페이지 없음'}));
+  } else if (pages && !pages.length) body.push(emptyEl());
   if (pages?.length) body.push(el('ul', {class:'sp-list', 'aria-label':'내 공유 페이지'}, pages.map(page => el('li', {},
     el('button', {type:'button', class:'sp-row', dataset:isHtml(page.id) ? {spPreview:page.id} : {spOpen:page.id}},
       el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
@@ -452,7 +452,7 @@ function renderLinks() {
   if (editing.linksState === 'loading') items.push(waitEl({rows:2}));
   else if (editing.linksState === 'error') items.push(el('p', {class:'sp-hint', text:'링크 목록을 불러오지 못했어요.'}),
     el('button', {type:'button', class:'secondary', dataset:{spLinksReload:''}, text:'다시 불러오기'}));
-  else if (!editing.links.length) items.push(el('p', {class:'sp-hint', text:'아직 만든 링크가 없어요. 받는 곳마다 따로 만들면 하나만 끌 수 있어요.'}));
+  else if (!editing.links.length) items.push(emptyEl('링크 없음'));
   else items.push(el('ul', {class:'sp-link-list', 'aria-label':'만든 링크'}, editing.links.map(link => {
     const state = linkState(link), name = link.label || '이름표 없음';
     const stateText = state === 'off' ? '꺼짐' : state === 'expired' ? '기한 지남' : link.expires_at ? `${day(link.expires_at)}까지` : '기한 없음';

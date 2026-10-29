@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 // Shared native selection sheet, originally the home quick-input sheet (PR 428).
 import {WIDE_QUERY,isWide,placeAnchored,clearAnchored,followAnchor} from './anchored-popup.js';
 // UI-고르기창개선 B: one project per line. A child is indented by its depth (no "↳"); on a PC list (anchored) it is also lighter and
@@ -41,7 +42,7 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   const sheet=document.createElement('dialog');sheet.className='home-choice-sheet';sheet.id=id;sheet.setAttribute('aria-labelledby',titleId);
   // render() may return search (the box's label): the box sits above the list, outside its scroll, and filters the choices by name
   // (PC list only; phones keep the sheet as it was).
-  sheet.innerHTML=`<header><h2 id="${titleId}"></h2><button type="button" data-sheet-close aria-label="선택판 닫기">×</button></header><div class="home-choice-search-box" data-sheet-search-box hidden><input type="search" class="home-choice-search" data-sheet-search autocomplete="off" spellcheck="false"><p class="home-choice-empty" data-sheet-empty hidden>맞는 항목이 없어요.</p></div><div data-sheet-content></div><footer class="home-choice-foot" data-sheet-foot hidden><span class="home-choice-count" data-sheet-count role="status"></span><button type="button" class="home-choice-cancel" data-sheet-cancel>취소</button><button type="button" class="home-choice-save" data-sheet-save>저장</button></footer>`;
+  sheet.innerHTML=`<header><h2 id="${titleId}"></h2><button type="button" data-sheet-close aria-label="선택판 닫기">×</button></header><div class="home-choice-search-box" data-sheet-search-box hidden><input type="search" class="home-choice-search" data-sheet-search autocomplete="off" spellcheck="false">${emptyHtml('맞는 항목 없음', {attrs: 'data-sheet-empty hidden'})}</div><div data-sheet-content></div><footer class="home-choice-foot" data-sheet-foot hidden><span class="home-choice-count" data-sheet-count role="status"></span><button type="button" class="home-choice-cancel" data-sheet-cancel>취소</button><button type="button" class="home-choice-save" data-sheet-save>저장</button></footer>`;
   document.body.append(sheet);
   let active=null,closing=null,epoch=0,unfollow=null;
   const search=sheet.querySelector('[data-sheet-search]'),searchBox=sheet.querySelector('[data-sheet-search-box]'),empty=sheet.querySelector('[data-sheet-empty]');

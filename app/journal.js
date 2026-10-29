@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
@@ -317,10 +317,10 @@ function renderTasks(card) {
     box.innerHTML = `<h4 class="journal-heading">${label}</h4>`;
     if (part.loading) { box.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return box; }
     if (items.length) { const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...items.map(item => taskRow(item, {pending}))); box.append(ul); }
-    else if (!part.failed) { const note = dayRangeNote(key, selected, range); box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${esc(note || empty)}</p>`); }
+    else if (!part.failed) { const note = dayRangeNote(key, selected, range); box.insertAdjacentHTML('beforeend', emptyHtml(note || empty)); }
     return box;
   };
-  const todo = column('todo', '할 일', part.todo || [], true, '이 날 기한인 남은 할 일이 없어요.');
+  const todo = column('todo', '할 일', part.todo || [], true, '없음');
   // 기한 지난 것: one folded line under 할 일.
   if (!part.loading && part.overdue?.length) {
     const fold = document.createElement('details');
@@ -329,7 +329,7 @@ function renderTasks(card) {
     const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...part.overdue.map(item => taskRow(item, {pending:true})));
     fold.append(ul); todo.append(fold);
   }
-  const done = column('done', '한 일', part.done || [], false, '이 날 끝낸 할 일이 없어요.');
+  const done = column('done', '한 일', part.done || [], false, '없음');
   const cols = document.createElement('div'); cols.className = 'journal-task-cols'; cols.append(todo, done);
   const after = document.createElement('div');
   partNotes(after, {...part, key:'tasks', label:'할 일', items:[...(part.todo || []), ...(part.done || [])]});
@@ -358,7 +358,7 @@ function renderSchedule(card) {
   host.replaceChildren(head);
   if (part.loading) { host.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return; }
   if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); host.append(ul); }
-  else if (!part.failed) host.insertAdjacentHTML('beforeend', '<p class="journal-muted" data-journal-events-empty>일정 없음</p>');
+  else if (!part.failed) host.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-events-empty'}));
   partNotes(host, part);
   const refs = calRefFold();
   if (refs) host.append(refs);
@@ -402,7 +402,7 @@ function renderDay() {
   report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
   const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
   if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
-  else report.insertAdjacentHTML('beforeend', '<p class="journal-muted" data-journal-report-empty>이 날은 주간보고 재료가 없어요.</p>');
+  else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
   // ⑤ 그 밖의 기록: folded by default; the summary line counts what is inside.
   const shown = card.others.filter(part => part.loading || part.failed || part.items.length);
   const others = document.createElement('details');

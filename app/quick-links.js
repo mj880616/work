@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, emptyHtml} from './wait-state.js';
 // UI-자주가는링크 (2026-10-22 사용자 승인): PC 사이드바 [쓰기] 아래 '자주 가는 링크 ›' 한 줄이 여는 작은 창.
 // - 창은 그 줄 오른쪽에서 위쪽으로 열린다(창 아래끝 = 줄 아래끝, 화면 밖으로 나가지 않음; anchored-popup.js beside:'up').
 // - 바깥 누르기·Esc로 닫힌다. 링크는 새 탭(rel="noopener noreferrer").
@@ -295,7 +295,7 @@ function viewHtml() {
     const items = links.filter(link => link.group === id);
     const list = items.length
       ? `<ul class="ql-grid">${items.map(link => `<li><a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer" title="${esc(link.url)}">${esc(link.name)}</a></li>`).join('')}</ul>`
-      : '<p class="ql-empty">링크가 없습니다.</p>';
+      : emptyHtml();
     return `<section class="ql-group" aria-label="${esc(name)}"><h3>${esc(name)}</h3>${list}</section>`;
   }).join('');
   const loading = state.status === 'loading' && !state.links;
@@ -320,7 +320,7 @@ function editHtml() {
         + `<input class="ql-name" data-ql-field="name" data-ql-index="${index}" value="${esc(row.name)}" maxlength="${NAME_MAX}" placeholder="이름" aria-label="이름">`
         + `<input class="ql-url" data-ql-field="url" data-ql-index="${index}" value="${esc(row.url)}" placeholder="https://" aria-label="주소" inputmode="url" spellcheck="false" autocomplete="off">`
         + `<button type="button" class="ql-btn ql-remove" data-ql-remove="${index}" aria-label="${esc(row.name || '새 링크')} 삭제">삭제</button></li>`).join('')}</ol>`
-      : '<p class="ql-empty">링크가 없습니다. 다른 분류의 링크를 끌어다 놓을 수 있어요.</p>';
+      : emptyHtml();
     return `<section class="ql-group" data-ql-group="${esc(id)}" aria-label="${esc(name)} 편집"><div class="ql-group-head">`
       + `<h3 class="ql-gname" data-ql-gname="${esc(id)}">${esc(name)}</h3>`
       + `<button type="button" class="ql-handle" draggable="true" data-ql-ghandle="${esc(id)}" aria-label="분류 순서 바꾸기(끌거나 위·아래 화살표)">⠿</button>`

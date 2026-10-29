@@ -423,7 +423,7 @@ test('Google Tasks editor shows a short message when no organizations are assign
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   const organizations=page.locator('#gtEditLinkBody [role="group"][aria-label="조직"]');
-  await expect(organizations).toContainText('담당 조직이 없습니다.');
+  await expect(organizations.locator('[data-wait-empty]')).toHaveText('없음');
   await expect(organizations.locator('[data-gt-link]')).toHaveCount(0);
 });
 

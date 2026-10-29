@@ -112,3 +112,29 @@ test('the manual task form records on the note after creation and never re-creat
   assert.match(save,/할 일은 만들었지만 업데이트에 기록하지 못했어요\./);
   assert.doesNotMatch(source,/연결 기록은 남지 않아요/);
 });
+
+// UI-돌아가기머리줄(시안 B): 다른 화면에서 연 글은 머리 줄 뒤로 가기 자리가 '‹ (온 곳 이름)'이 되고, 따로 있던 돌아가기 줄은 없다.
+test('head back: the list keeps its own button; opened from another screen it is "‹ (name)", short on phones and for long names',()=>{
+  const rt={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})}};
+  const fallback='<button type="button" class="basket-back" data-basket-close>‹ 정리함</button>';
+  const id='10000000-0000-4000-8000-0000000000b1';
+  assert.equal(mod.basketBackHtml(id,fallback,rt,{narrow:false}),fallback);
+  mod.requestBasketNoteFrom(id,{view:'team',id:'o1',name:'전국철도노동조합'},rt);
+  const wide=mod.basketBackHtml(id,fallback,rt,{narrow:false});
+  assert.match(wide,/^<button type="button" class="basket-back basket-back-origin" data-basket-return aria-label="전국철도노동조합\(담당조직\)으로 돌아가기"><span aria-hidden="true">‹<\/span> <span class="basket-back-name">전국철도노동조합<\/span><\/button>$/);
+  assert.doesNotMatch(wide,/basket-return"|basket-return-btn|←|data-basket-close/);
+  assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:true}),/<span class="basket-back-name">담당조직<\/span>/);
+  // Another workspace never sees this origin.
+  assert.equal(mod.basketBackHtml(id,fallback,{context:{read:()=>({user:{id:'u1'},workspace:{id:'w2'}})}},{narrow:false}),fallback);
+  mod.requestBasketNoteFrom(id,{view:'projects',id:'p1',name:'가'.repeat(mod.BACK_NAME_MAX+1)},rt);
+  assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:false}),/<span class="basket-back-name">사업영역<\/span>/);
+  mod.requestBasketNoteFrom(id,{view:'journal',id:'2026-10-06',name:'업무일지'},rt);
+  assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:false}),/aria-label="업무일지로 돌아가기"><span aria-hidden="true">‹<\/span> <span class="basket-back-name">업무일지<\/span>/);
+  mod.requestBasketNoteFrom(id,{view:'team',id:'o2',name:'<b>"x"'},rt);
+  assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:false}),/&lt;b&gt;&quot;x&quot;/);
+});
+test('the note and update screens draw one back in the head; no separate return line is inserted',()=>{
+  const read=f=>readFileSync(new URL('../app/'+f,import.meta.url),'utf8');
+  for(const f of ['basket.js','basket-notes.js']){const s=read(f);assert.match(s,/<div class="basket-detail-head">\$\{basketBackHtml\(selected\??\.id, (BASKET|NOTE)_BACK, rt\)\}/);assert.doesNotMatch(s,/basketReturnHtml|insertAdjacentHTML\('afterend', basket/);}
+  assert.doesNotMatch(read('ui-standard.css'),/basket-return-btn/);
+});

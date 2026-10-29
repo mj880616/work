@@ -78,8 +78,8 @@ test('PC 담당조직: 검색칸이 이름으로 거르고 빈 묶음은 숨김,
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveText(['서울교통공사노동조합','서울교통공사9호선지부']);
  await box.fill('자식');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(0);await expect(sheet.locator('[data-sheet-projects] [data-sheet-value]:visible')).toHaveText(['자식 프로젝트']);
- await box.fill('없는 이름');await expect(sheet.getByText('맞는 항목이 없어요.')).toBeVisible();
- await box.fill('');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);await expect(sheet.getByText('맞는 항목이 없어요.')).toBeHidden();
+ await box.fill('없는 이름');await expect(sheet.locator('[data-sheet-empty][data-wait-empty]')).toBeVisible();await expect(sheet.locator('[data-sheet-empty]')).toHaveText('맞는 항목 없음');
+ await box.fill('');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);await expect(sheet.locator('[data-sheet-empty][data-wait-empty]')).toBeHidden();
  // ↓ goes from the box to the first choice shown; Enter marks it and [저장] closes the list.
  await box.fill('공항');await box.press('ArrowDown');const first=sheet.locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true});await expect(first).toBeFocused();
  await page.keyboard.press('Enter');await expect(first).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(quick(page).locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 공항철도지부');

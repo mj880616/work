@@ -149,7 +149,7 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   expect(reads.filter(id=>id==='labor-2').length).toBe(1);
   await showAllReportWeeks(page);await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   expect(reads.filter(id=>id==='labor-2').length).toBe(1);
-  await round(page,'labor-1').click();await expect(result(page).locator('#mrdTasks')).toContainText('후속 할 일이 없습니다.');
+  await round(page,'labor-1').click();await expect(result(page).locator('#mrdTasks [data-wait-empty]')).toHaveText('없음');
   await round(page,'labor-2').click();await expect(result(page).locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
   // 오른쪽 칸에서 ⋯ → 수정으로 원문을 고쳐 [저장]하면 같은 칸이 보는 화면으로 돌아가 새 원문을 보인다(창 없음).
   await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('고친 가상 원문');await page.locator('#mrdSaveEdit').click();

@@ -442,7 +442,11 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
   // UI-회의결과창정리: 묶음 설명(.mtg-note 12px)과 빈 상태(.mtg-empty 13px)도 자기 규칙이 있다(meeting-entry.spec에서 크기 확인).
   // ORG-주요인물: 담당조직 상세 [주요 인물] 탭의 글(.okp-*)은 자기 규칙(작은 흐린 글씨)을 가진 새 요소라 양쪽 비교에서 뺀다(org-key-people.test 확인).
-  const generic=el=>!(String(el.class||'').startsWith('okp-')||el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
+  // UI-기다림표시통일 3차: 빈 칸 글자(main의 .empty·.empty.compact)는 공용 '없음'(.wait-empty, 회색 12px — wait-state.test에서 확인)으로
+  // 모두 옮겼다(앱에 .empty 요소 0곳). 그 둘은 양쪽에서 빼고, main 줄이 빈 칸 글자만 덮던 경우는 아래 '덮음' 검사에서 뺀다.
+  const emptyText=el=>el.class==='empty'||el.class==='empty compact'||el.class==='wait-empty';
+  const emptyOnlyRows=new Set(before.map((row,i)=>row.elements.length&&row.elements.every(emptyText)?i:-1).filter(i=>i>=0));
+  const generic=el=>!(String(el.class||'').startsWith('okp-')||el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||emptyText(el)||el.id==='ps3Summary');
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
@@ -454,7 +458,7 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   for(const row of before)for(const el of row.elements)if(el.ps3Head)el.fontSize='13px';
   for(const row of before)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
   expect(before).toHaveLength(16);
-  for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i]))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
+  for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i])&&!emptyOnlyRows.has(i))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
   for(const [i,row] of after.entries())if(d6bRetired.includes(d6bSelectors[i]))expect(row.elements,'retired main line '+row.line).toEqual([]);
   expect(after).toEqual(before);
   await testInfo.attach('d6b-main-style-comparison',{body:JSON.stringify({main:d6bMain,width,before,after},null,2),contentType:'application/json'});

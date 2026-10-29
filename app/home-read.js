@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, emptyHtml} from './wait-state.js';
 import { readRecordPages } from './basket-link-records.js';
 import { mountQuick } from './home-quick.js';
 import { mountRadar } from './todo-radar.js';
@@ -263,8 +263,8 @@ function paint(key, html, count = null) {
           : `[data-home-toggle="${CSS.escape(focused.slice(7))}"]`,
     )?.focus({ preventScroll: true });
 }
-function empty(key, text, hide = false) {
-  paint(key, `<p class="home-status">${text}</p>`, 0);
+function empty(key, hide = false) {
+  paint(key, emptyHtml(), 0);
   const c = card(key);
   if (!c) return;
   c.hidden = hide;
@@ -398,7 +398,7 @@ function renderTasks({ includeMeetings = true } = {}) {
       "tasks",
       rows.length
         ? taskRows(cut.shown) + moreBtn
-        : '<p class="home-status">오늘 할 일 없음</p>',
+        : emptyHtml(),
       dueCount,
     );
   }
@@ -419,18 +419,18 @@ function renderTasks({ includeMeetings = true } = {}) {
       taskRows(follow, true),
       follow.length,
     );
-  else empty("meetings", "사업 보고 후속 없음", true);
+  else empty("meetings", true);
   saveCopy('meetings',{rows:follow.map(x=>({id:x.task.id,title:x.task.title,meetingName:links.filter(l=>l.google_task_id===x.task.id&&l.meeting_id&&l.status==='confirmed').map(l=>meetings.find(m=>m.id===l.meeting_id)?.series_name||meetings.find(m=>m.id===l.meeting_id)?.title||'사업 보고 연결').join(' · ')}))});
 }
 function renderDday(rows){
   const today=dayKey();
   rows=rows.filter(m=>m.date>=today).map(m=>({...m,days:Math.round((Date.parse(m.date)-Date.parse(today))/86400000)}));
-  if(!rows.length)return empty('dday','주요 일정 없음',true);
+  if(!rows.length)return empty('dday',true);
   // HOME-줄누르기 ④: 달력에 이어진 주요 일정은 그 일정 수정 창(꾹 누르기·우클릭은 일정 메뉴), 이어지지 않은 것은 지금처럼 그 프로젝트.
   paint('dday',`<div class="home-chips">${rows.map(m=>`<button type="button" class="home-chip ${m.days<=3?'urgent':''}" data-home-project="${esc(m.project_id)}" ${m.google_event_id?eventAttrs(m.google_event_id,m.google_calendar_id):''}>${m.days===0?'D-day':'D-'+m.days} ${esc(m.title)}</button>`).join('')}</div>`,rows.length);
 }
 function renderCalendar(rows){
-  if(!rows.length)return empty('calendar','오늘 일정 없음');
+  if(!rows.length)return empty('calendar');
   paint('calendar',rows.map(e=>{
     const time=e.allDay?'종일':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(e.start));
     const color=/^#[0-9a-f]{6}$/i.test(e.color)?e.color:'var(--kptu-primary-ink)';
@@ -445,7 +445,7 @@ function restoreCopies(){
   if(copies.meetings){
     const rows=copies.meetings.rows;
     if(rows.length)paint('meetings',rows.map(r=>taskRowHtml(r.id,r.title,false,esc(r.meetingName))).join(''),rows.length);
-    else empty('meetings','사업 보고 후속 없음',true);
+    else empty('meetings',true);
   }
 }
 const calendarAuthError=e=>Number(e?.status||0)===401||Number(e?.status||0)===403||/연결되지|재인증|권한|invalid_grant|unauthori[sz]ed|invalid.?credentials/i.test(String(e?.message||e));
@@ -458,7 +458,7 @@ const loaders = {
     const ps = await dependencies.projects();
     guard(run);
     const ids = ps.filter((p) => p.status === "active").map((p) => p.id);
-    if (!ids.length) { saveCopy("dday",{rows:[]}); return empty("dday", "주요 일정 없음", true); }
+    if (!ids.length) { saveCopy("dday",{rows:[]}); return empty("dday", true); }
     const ms = await share("milestones", () =>
         api(
           `/rest/v1/app_project_milestones?project_id=${list(ids)}&start_at=gte.${encodeURIComponent(new Date(ranges().start).toISOString())}&or=(status.is.null,status.not.in.(done,completed,cancelled,canceled))&select=id,project_id,title,status,start_at,google_calendar_id,google_event_id&order=start_at.asc&limit=3`,

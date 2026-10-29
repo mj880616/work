@@ -59,7 +59,7 @@ test('폰 390: 칸 칩 한 줄은 옆으로 밀리고 페이지는 넘치지 않
   await chip(page,'기타').click();await expect(page.locator('#meetingList .meeting-list-row h3')).toHaveText('합성 알 수 없는 칸');
   expect(await chip(page,'기타').evaluate(el=>{const r=el.getBoundingClientRect(),h=el.parentElement.getBoundingClientRect();return r.right<=h.right+1&&r.left>=h.left-1})).toBe(true);
   expect(await noSideScroll(page)).toBe(true);
-  await chip(page,'교육').click();await expect(page.locator('#meetingList .empty')).toHaveText('이 칸에 사업 보고가 없습니다.');
+  await chip(page,'교육').click();await expect(page.locator('#meetingList [data-wait-empty]')).toHaveText('없음');
   // [전체]: 전부, 줄에 칸 이름.
   await chip(page,'전체').click();await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(6);
   await expect(page.locator('#meetingList [data-mrd-meeting="p-1"] p')).toContainText('언론');

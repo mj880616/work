@@ -321,3 +321,5 @@
   #calendarView .calendar-toolbar #monthTitle,
   #calendarView.calendar-list-active .calendar-toolbar #monthTitle{box-sizing:border-box;flex:none;width:12.5em;min-width:12.5em;text-align:center;white-space:nowrap}
 }
+/* UI-기다림표시통일 3차: 일정 없는 날 줄 안의 공용 '없음'은 줄(.clv-empty) 높이를 그대로 따른다. */
+.clv-empty>.wait-empty{margin:0}

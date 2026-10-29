@@ -171,7 +171,7 @@ test('PC 1280 분류 편집: [+ 추가]는 오른쪽 위, 분류 더하기·이�
  await expect(nameInput).toBeFocused();
  await nameInput.fill('자주 쓰는 곳');await page.keyboard.press('Enter');
  const fresh=group(page,'자주 쓰는 곳 편집'),work=group(page,'업무 편집');
- await expect(fresh).toBeVisible();await expect(fresh.getByText('링크가 없습니다')).toBeVisible();
+ await expect(fresh).toBeVisible();await expect(fresh.locator('[data-wait-empty]')).toHaveText('없음');
  // 업무의 망고보드(6번째)를 새 분류 줄로 끌어 옮김.
  await work.locator('[data-ql-handle]').nth(5).dragTo(fresh.locator('.ql-group-head'));
  await expect(fresh.getByRole('textbox',{name:'이름'})).toHaveValue('망고보드');

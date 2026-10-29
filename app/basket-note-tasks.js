@@ -99,7 +99,7 @@ export const takeTaskOpenRequest=(rt=window.KPTURuntime)=>take('task',rt);
 export const basketNoteHref=id=>`./?view=basket&note=${encodeURIComponent(id)}`;
 
 // UI-PC프로젝트좌우: a note opened from a 🧺 record of a project (projects view) or an organization (team view) remembers
-// where it came from, so the note screen offers "← (name)으로 돌아가기" and the opener reopens that project or
+// where it came from, so the note screen's head back reads "‹ (name)" and the opener reopens that project or
 // organization at the same scroll when the person comes back (the button, browser or phone back, or the tab itself).
 // It lives in this tab's memory only, bound to the signed-in user and workspace, and ends when another screen is chosen.
 // JOURNAL-하루개편 ⑥: the work journal's lines open an update or a note the same way (one back returns to the journal's day).
@@ -119,12 +119,16 @@ export const hasBasketReturn=(view,rt=window.KPTURuntime)=>!!origin&&origin.view
 export function takeBasketReturn(view,rt=window.KPTURuntime){const o=origin;if(!o||o.view!==view)return null;origin=null;return o.scope===scopeOf(rt)?o:null;}
 // Korean particle after the name: 으로 after a final consonant other than ㄹ, 로 otherwise ("(으)로" when not Hangul).
 function toParticle(name){const c=String(name).trim().slice(-1).charCodeAt(0)-0xac00;if(!(c>=0&&c<11172))return '(으)로';const end=c%28;return end&&end!==8?'으로':'로';}
-// The line under the note screen's head. Phones keep the short label; wider screens name the project or organization.
-export function basketReturnHtml(noteId,rt=window.KPTURuntime,{narrow=globalThis.matchMedia?.('(max-width:760px)')?.matches}={}){
-  const o=basketNoteOrigin(noteId,rt);if(!o)return '';
+// UI-돌아가기머리줄(시안 B): opened from another screen, the head's back button itself names where it goes ("‹ (name)") in place
+// of "‹ 정리함"/"‹ 노트" — one back on the screen, no separate return line. Phones and long names keep the short kind
+// ("‹ 담당조직"·"‹ 사업영역"·"‹ 업무일지"). Opened from the list, the head keeps its own button (fallback).
+export const BACK_NAME_MAX=14;
+export function basketBackHtml(noteId,fallback,rt=window.KPTURuntime,{narrow=globalThis.matchMedia?.('(max-width:760px)')?.matches}={}){
+  const o=basketNoteOrigin(noteId,rt);if(!o)return fallback;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const kind=ORIGIN_VIEWS[o.view],label=narrow||!o.name?`${kind}${toParticle(kind)} 돌아가기`:`${o.name}${toParticle(o.name)} 돌아가기`;
-  return `<div class="basket-return"><button type="button" class="basket-return-btn" data-basket-return aria-label="${esc(o.name?`${o.name}(${kind})${toParticle(o.name)} 돌아가기`:label)}"><span aria-hidden="true">←</span> <span class="basket-return-text">${esc(label)}</span></button></div>`;
+  const kind=ORIGIN_VIEWS[o.view],name=o.name.trim(),label=narrow||!name||name.length>BACK_NAME_MAX?kind:name;
+  const aria=name&&name!==kind?`${name}(${kind})${toParticle(name)} 돌아가기`:`${kind}${toParticle(kind)} 돌아가기`;
+  return `<button type="button" class="basket-back basket-back-origin" data-basket-return aria-label="${esc(aria)}"><span aria-hidden="true">‹</span> <span class="basket-back-name">${esc(label)}</span></button>`;
 }
 // Goes back to the opener's history entry when it is still behind this one (the same as back), else opens that screen.
 export function returnFromBasketNote(){

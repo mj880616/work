@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, emptyHtml} from './wait-state.js';
 // ORG-주요인물 화면: 담당조직 상세 맨 아래 작은 탭 [주요 인물][기본 정보][소속][이전 요약] 중 [주요 인물] 칸의 유일한 renderer.
 // 칩 줄([모두][이름…][+ 인물]) → '요즘' 한 문장(조직 단위, 하루 한 번) → 열린 것(약속·챙길 것) → 지난 기록(통화·텔레그램·회의).
 // - 지정·찾을 이름은 서버 표 app_org_key_people(20261029014700). 표가 없으면(적용 전) 조용히 '준비 중' 한 줄.
@@ -124,7 +124,7 @@ function paint() {
     if (p) html += `<div class="okp-menu" role="group" aria-label="${esc(p.name)} 메뉴"><span>${esc(p.name)}</span><button type="button" class="okp-link" data-okp-edit="${esc(p.id)}">고치기</button><button type="button" class="okp-link danger" data-okp-del="${esc(p.id)}">빼기</button><button type="button" class="okp-link" data-okp-menu-close>닫기</button></div>`;
   }
   if (!people.length) {
-    host.innerHTML = html + `<p class="okp-faint">지정한 주요 인물이 없어요.${canEdit ? ' [+ 인물]로 이름과 통화·텔레그램에 찍히는 이름을 적어 두면 그 사람 기록이 여기 모여요.' : ''}</p>`;
+    host.innerHTML = html + emptyHtml('주요 인물 없음');
     return;
   }
   html += briefHtml();
@@ -135,10 +135,10 @@ function paint() {
   const many = people.length > 1 && !ui.pick;
   html += `<h4 class="okp-h">열린 것<small>${open.length || ''}</small></h4>`;
   html += open.length ? `<ul class="okp-list">${open.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-tag ${r.kind}">${KIND_LABEL[r.kind]}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}<span class="okp-due${dday(r.due, today).startsWith('D+') ? ' late' : ''}">${esc(dday(r.due, today))}</span></button></li>`).join('')}</ul>`
-    : '<p class="okp-faint">열린 약속·챙길 것이 없어요.</p>';
+    : emptyHtml('약속·챙길 것 없음');
   html += `<h4 class="okp-h">지난 기록<small>${recs.length || ''}</small></h4>`;
   html += recs.length ? `<ul class="okp-list">${recs.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-day">${esc(shortDay(r.day, today))}</span><span class="okp-tag ${r.kind}">${KIND_LABEL[r.kind]}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}</button></li>`).join('')}</ul>`
-    : '<p class="okp-faint">최근 120일 안에 모인 기록이 없어요.</p>';
+    : emptyHtml('최근 120일 기록 없음');
   if (data.partial) html += '<p class="okp-faint">일부 기록을 불러오지 못했어요.</p>';
   host.innerHTML = html;
   ui.rows = new Map([...open, ...recs].map(r => [r.key, r]));

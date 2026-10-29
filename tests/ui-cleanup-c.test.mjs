@@ -67,9 +67,10 @@ test('⑥ 화면 추가 버튼은 모두 폰 동그란 [+] 한 규칙에 들고,
 
 test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트 뒤로 가기, 폰 업무일지 날짜 한 번', () => {
   const basket = read('basket.css'), notes = read('basket-notes.js');
-  assert.match(notes, /class="basket-back note-back" data-note-back aria-label="노트 목록으로"><span aria-hidden="true">‹<\/span> 노트<\/button><div class="note-head-main"/);
+  assert.match(notes, /const NOTE_BACK = '<button type="button" class="basket-back note-back" data-note-back aria-label="노트 목록으로"><span aria-hidden="true">‹<\/span> 노트<\/button>';/);
+  assert.match(notes, /<div class="basket-detail-head">\$\{basketBackHtml\(selected\?\.id, NOTE_BACK, rt\)\}<div class="note-head-main"/);
   assert.match(notes, /hasAttribute\('data-note-back'\)\) close\(\);/);
-  assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] > \[data-note-detail\] > \.basket-detail-head:has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
+  assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] > \[data-note-detail\] > \.basket-detail-head:not\(:has\(> \[data-basket-return\]\)\):has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
   assert.match(read('feed.css'), /#appView \.feed-view \.feed-pane > \.feed-detail-head:first-child,\s*#appView \.feed-view \.feed-list > \.feed-head:first-child:has\(> \.back-text\)\{ margin:calc\(-1 \* \(var\(--kptu-touch-target,44px\) \+ 12px\)\) 0 12px;/);
   assert.match(read('journal.js'), /const noDayTitle = window\.matchMedia\?\.\('\(max-width:760px\),\(min-width:1024px\)'\);/);
 });

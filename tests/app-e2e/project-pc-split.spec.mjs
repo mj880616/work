@@ -6,7 +6,7 @@ import {expectProjectTitle} from './helpers/screen-title.mjs';
 const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(≥1024) 프로젝트 화면은 왼쪽 목록 + 오른쪽 상세(같은 상세 창을 칸에 옮겨 씀).
 // 처음 열면 이 기기에서 마지막으로 본 프로젝트(저장 실패 시 맨 위). 761~1023px·폰은 지금처럼 목록 + 상세 창.
-// 돌아오기: 상세의 🧺 기록 → 업데이트 화면의 "← (이름)으로 돌아가기"·뒤로 가기·탭 → 같은 프로젝트(담당조직)·같은 스크롤.
+// 돌아오기: 상세의 🧺 기록 → 업데이트 화면의 머리 줄 "‹ (이름)"·뒤로 가기·탭 → 같은 프로젝트(담당조직)·같은 스크롤.
 // 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z';
 const note={id:'10000000-0000-4000-8000-0000000000aa',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
@@ -117,7 +117,7 @@ test('PC 1280: the right pane keeps the detail actions — ⋯ (complete, edit, 
  await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();expect(errors).toEqual([]);
 });
 
-test('PC 1280: a 🧺 record opens the update with "← (project)으로 돌아가기"; the button and back return to the same project and scroll',async({page})=>{
+test('PC 1280: a 🧺 record opens the update with "‹ (project)" in the head; the button and back return to the same project and scroll',async({page})=>{
  const {errors}=await fixture(page);
  await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');
@@ -126,7 +126,7 @@ test('PC 1280: a 🧺 record opens the update with "← (project)으로 돌아�
  for(const how of ['button','back','browser']){
   await basketLine(page).click();await viaSheet(page);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
-  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 합성 정책 사업으로 돌아가기');
+  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 합성 정책 사업');
   if(how==='button')await back.click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();/* MTG-프로젝트합치기 ①: 사업 보고 위 창으로 돌아온다 */await expectProjectTitle(page,'합성 정책 사업');
   await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();await expect.poll(()=>top(basketLine(page))).toBe(before);
@@ -143,7 +143,7 @@ test('PC 1280: a 🧺 record opens the update with "← (project)으로 돌아�
  expect(errors).toEqual([]);
 });
 
-test('phone 390: list and detail dialog stay; the update shows "← 프로젝트로 돌아가기" and the button or back reopen the project at the same scroll',async({page})=>{
+test('phone 390: list and detail dialog stay; the update shows "‹ 사업영역" in the head and the button or back reopen the project at the same scroll',async({page})=>{
  const {errors}=await fixture(page,{width:390});
  await clickView(page,'projects');await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]')).toBeVisible();
  await expect(pane(page)).toBeHidden();await expect(page.locator('#ps3DetailModal')).toBeHidden();
@@ -154,7 +154,7 @@ test('phone 390: list and detail dialog stay; the update shows "← 프로젝트
  for(const how of ['button','back','browser']){
   await basketLine(page).click();await viaSheet(page);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
-  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 사업영역으로 돌아가기');
+  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 사업영역');
   const b=await back.boundingBox();expect(b.height).toBeGreaterThanOrEqual(44);
   if(how==='button')await back.click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();/* MTG-프로젝트합치기 ①: 사업 보고 위 창으로 돌아온다 */await expect(modal).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');
@@ -188,10 +188,47 @@ for(const width of [390,1280])test(`organization ${width}: a 🧺 record returns
  const before=await scrollToRecord(page,line);
  for(const how of ['button','back','browser']){
   await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
-  await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'← 담당조직으로 돌아가기':'← 테스트 조직으로 돌아가기');
+  await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'‹ 담당조직':'‹ 테스트 조직');
   if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
   await expect.poll(()=>top(line)).toBe(before);
  }
+ expect(errors).toEqual([]);
+});
+
+// UI-돌아가기머리줄(2026-10-29 사용자 결정, 시안 B): 사업영역·담당조직에서 연 업데이트는 머리 줄 '‹ (온 곳 이름)' 하나가 뒤로 가기다.
+// 따로 있던 '← …으로 돌아가기' 상자 버튼은 없고, 폰은 '‹ 사업영역'·'‹ 담당조직'으로 짧게. 누르면 그 화면·같은 스크롤로.
+const expectOneBack=async(page,text)=>{
+ const detail=page.locator('#basketView [data-basket-detail]');
+ await expect(detail.locator('.basket-detail-head > button.basket-back:visible')).toHaveCount(1);
+ await expect(detail.locator('.basket-detail-head > [data-basket-return]')).toHaveText(text);
+ await expect(detail.locator('[data-basket-close]')).toHaveCount(0);
+ await expect(page.locator('#basketView .basket-return')).toHaveCount(0);
+ await expect(detail.getByText(/돌아가기/)).toHaveCount(0);
+ const box=await detail.locator('[data-basket-return]').boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+};
+for(const width of [412,884,1440])test(`UI-돌아가기머리줄 ${width}: 사업영역·담당조직에서 연 업데이트는 머리 줄 뒤로 가기 하나, 누르면 원래 화면`,async({page})=>{
+ const {errors}=await fixture(page,{width});
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
+ const before=await scrollToRecord(page,basketLine(page));
+ await basketLine(page).click();await viaSheet(page);
+ await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
+ await expectOneBack(page,width<761?'‹ 사업영역':'‹ 합성 정책 사업');
+ await page.locator('#basketView [data-basket-return]').click();
+ await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expectProjectTitle(page,'합성 정책 사업');await expect.poll(()=>top(basketLine(page))).toBe(before);
+ if(width<1024){await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden()}
+ // 정리함 목록에서 열면 '‹ 정리함' 그대로.
+ await clickView(page,'basket');await page.locator('[data-basket-filter="classified"]').click();await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
+ await expect(page.locator('#basketView [data-basket-detail] [data-basket-return]')).toHaveCount(0);
+ await expect(page.locator('#basketView [data-basket-detail] [data-basket-close]')).toHaveText('‹ 정리함');
+ await page.locator('#basketView [data-basket-close]').click();await expect(page.locator(`[data-basket-row="${note.id}"]`)).toBeVisible();
+ // 담당조직.
+ await clickView(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();
+ const modal=page.locator('#wdModal'),line=modal.locator('[data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
+ await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');
+ await expectOneBack(page,width<761?'‹ 담당조직':'‹ 테스트 조직');
+ await page.locator('#basketView [data-basket-return]').click();
+ await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
  expect(errors).toEqual([]);
 });

@@ -256,10 +256,10 @@ for(const width of [390,1280])test(`빈 상태 ${width}: 표가 없으면 '준�
 test('빈 상태: 표는 있고 줄이 없으면 빈 한 줄',async({page})=>{
  const f=await fixture(page,{width:390,empty:true});
  await openMenu(page,390,'통화');
- await expect(page.locator('#callsView [data-cf-empty="none"]')).toHaveText('아직 받은 업무 통화가 없어요.');
+ await expect(page.locator('#callsView [data-cf-empty="none"][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#callsView [data-cf-box="personal"]')).toHaveText('개인 통화함 0 ›');
  await openMenu(page,390,'텔레그램 소식');
- await expect(page.locator('#telegramView [data-tg-empty="none"]')).toHaveText('아직 받은 텔레그램 소식이 없어요.');
+ await expect(page.locator('#telegramView [data-tg-empty="none"][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#telegramView [data-tg-today]')).toHaveText('오늘 받은 소식 없음');
  expect(f.errors).toEqual([]);
 });

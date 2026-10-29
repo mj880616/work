@@ -138,3 +138,83 @@ test('옮긴 화면은 공용 부품을 쓴다', () => {
   for (const rel of ['library-upload.js', 'workplace-report.js']) assert.match(read(rel), /globalThis\.KPTUWait\?\.waitInlineHtml/, rel);
   assert.match(read('index.html'), /id="web1BoardDetailStatus" class="w1b-detail-status hidden"><div class="wait" data-wait role="status" aria-label="불러오는 중">/);
 });
+
+// UI-기다림표시통일 3차(2026-10-29 명진 A안 '없음 = 회색 작은 없음'): 목록·칸이 비었을 때 따로 쓴 글자('사진이 없어요.',
+// '~이 없습니다' 등)는 공용 부품(emptyHtml·emptyEl, 기본 '없음')으로 옮겼다. 같은 화면에 빈 칸이 여럿이라 구분이 필요하거나
+// 고른 조건 때문에 빈 곳만 부품의 글자 인자로 짧게 남긴다(예 emptyHtml('일정 없음')). 따로 쓴 빈 화면 문구가 새로 생기면 실패한다.
+// 아래 기준표는 빈 화면 표시가 아닌 글자라 그대로 둔 곳(파일별 개수). 늘거나 새 파일에 생기면 실패한다(줄면 낮춘다).
+const EMPTY_BASELINE = {
+  // - 자료 값(빈 목록 아님): 아스날 경기 줄의 '득점 없음'·'공식 기록상 도움 배정 없음'.
+  'arsenal.js': 2,
+  // - 고르기 칸의 '없음' 값 이름(사업영역 없음·담당조직 없음으로 옮기기, library-bulk.js).
+  'library-bulk.js': 2,
+  // - 상태 이름: 사진 글자 인식 상태 '글자 없음'(basket.js).
+  'basket.js': 1,
+  // - 안내 글(빈 목록 아님): 이미 연결된 곳은 고를 수 없다는 안내(basket-manual-link.js).
+  'basket-manual-link.js': 1,
+  // - 접힌 머리 줄의 상태 글('챙길 것 없음 · 마지막 찾기 hh:mm', todo-radar.js): 제목 역할(aria-labelledby)이라 글자를 둔다.
+  'todo-radar.js': 1,
+};
+// 글이 '…없어요'로 끝나는 곳만 센다(따옴표·태그·${} 앞). 문장 가운데의 '지울 수 없어요' 같은 안내는 세지 않는다.
+const NONE_WORDS = '(?:없어요|없습니다|없음|없네요|비어 있어요|비어 있습니다)\\.?(?=[\'"`<$])';
+const EMPTY_PATTERNS = [
+  // HTML 글 안: 빈 칸 모양 class(empty·muted·faint·note·hint·quiet·none·status) 뒤 글이 '…없어요' 등으로 끝난다.
+  new RegExp(`class=\\\\?["'][^"']*(?:empty|muted|faint|note|hint|quiet|none|status)[^"']*\\\\?["'][^>]*>[^<]*?${NONE_WORDS}`, 'g'),
+  // 화면마다 만든 빈 칸 함수(empty('…없어요'), showNone('…') 등). 공용 부품 이름은 뺀다.
+  new RegExp(`\\b(?!emptyHtml|emptyEl|showEmpty)\\w*(?:empty|Empty)\\w*\\(\\s*['"\`][^'"\`]*${NONE_WORDS}`, 'g'),
+  new RegExp(`\\b\\w*(?:empty|Empty)\\w*\\(\\s*['"][\\w-]+['"]\\s*,\\s*['"\`][^'"\`]*${NONE_WORDS}`, 'g'),
+  // el('p', 'x-muted', '…없어요'), el('p', {class:'x-empty', text:'…없음'}).
+  new RegExp(`\\bel\\([^)]*?['"][\\w -]*(?:empty|muted|faint|note|hint)[\\w -]*['"]\\s*,\\s*['"\`][^'"\`]*${NONE_WORDS}`, 'g'),
+  new RegExp(`class\\s*:\\s*['"][\\w -]*(?:empty|muted|faint|note|hint)[\\w -]*['"]\\s*,\\s*text\\s*:\\s*['"\`][^'"\`]*${NONE_WORDS}`, 'g'),
+  // 설정 값으로 둔 빈 글자(empty:'…없음'). 부품 기본값과 같은 '없음' 하나는 센다지 않는다.
+  new RegExp(`\\b(?:empty|none|emptyText)\\s*:\\s*['"\`][^'"\`]+${NONE_WORDS}`, 'g'),
+];
+export function countEmpty(source) {
+  const code = source.split('\n').filter(line => !/^\s*(\/\/|\/\*|\*)/.test(line)).join('\n');
+  return EMPTY_PATTERNS.reduce((n, re) => n + (code.match(re)?.length || 0), 0);
+}
+
+test('없음: 그 화면이 찾는 표시(data-*·hidden·id)만 덧붙이고, 다른 속성은 받지 않는다', () => {
+  assert.equal(emptyHtml('일정 없음', {attrs: 'data-journal-events-empty'}), '<p class="wait-empty" data-wait-empty data-journal-events-empty>일정 없음</p>');
+  assert.equal(emptyHtml('없음', {attrs: 'data-cf-empty="none" hidden'}), '<p class="wait-empty" data-wait-empty data-cf-empty="none" hidden>없음</p>');
+  assert.equal(emptyHtml('', {attrs: 'onclick="x()"'}), '<p class="wait-empty" data-wait-empty>없음</p>');
+  assert.equal(emptyHtml('x', {attrs: 'data-a="1"><script>'}), '<p class="wait-empty" data-wait-empty>x</p>');
+});
+
+test('세는 규칙: 따로 쓴 빈 화면 문구는 세고, 공용 부품은 세지 않는다', () => {
+  assert.equal(countEmpty(`box.innerHTML = '<p class="x-muted">사진이 없어요.</p>';`), 1);
+  assert.equal(countEmpty(`box.innerHTML = '<div class="empty compact">일정 없음</div>';`), 1);
+  assert.equal(countEmpty(`list.append(el('p', 'journal-muted', '없어요.'));`), 1);
+  assert.equal(countEmpty(`body.push(el('p', {class:'sp-empty', text:'공유 페이지 없음'}));`), 1);
+  assert.equal(countEmpty(`box.innerHTML = emptyHtml('일정 없음'); x = emptyEl(); const n = {empty:'없음'};`), 0);
+  assert.equal(countEmpty(`// '<p class="x-muted">사진이 없어요.</p>'`), 0, '주석 줄은 세지 않음');
+});
+
+test('따로 쓴 빈 화면 문구가 새로 생기지 않는다(기준표보다 늘면 실패)', () => {
+  const over = [], counts = {};
+  for (const file of walk(APP)) {
+    const rel = relative(APP, file).split('\\').join('/');
+    if (!/\.(m?js|html)$/.test(rel) || SKIP.some(dir => rel.startsWith(dir)) || rel === 'wait-state.js') continue;
+    const n = countEmpty(readFileSync(file, 'utf8'));
+    if (!n) continue;
+    counts[rel] = n;
+    if (n > (EMPTY_BASELINE[rel] || 0)) over.push(`${rel}: ${n}곳(기준 ${EMPTY_BASELINE[rel] || 0}) — 빈 칸은 wait-state.js emptyHtml·emptyEl('없음')을 쓰세요.`);
+  }
+  assert.deepEqual(over, []);
+  for (const [rel, n] of Object.entries(EMPTY_BASELINE)) assert.equal(counts[rel] || 0, n, `${rel}: 기준표를 낮추세요`);
+});
+
+test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
+  for (const rel of ['journal.js', 'journal-weekly.js', 'prep-sheet-view.js', 'project-system-v3.js', 'home-read.js', 'home-extra.js', 'home-fill.js',
+    'telegram-feed.js', 'call-feed.js', 'ledger-browse.js', 'org-key-people.js', 'report-views.js', 'diary.js', 'diary-list.js', 'photos.js',
+    'workplace-detail.js', 'google-tasks.js', 'team.js', 'meeting-columns.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js',
+    'library-folders.js', 'library-move-picker.js', 'calendar-day-overflow.js', 'calendar-tasks.js', 'calendar-day-items.js', 'choice-sheet.js',
+    'pick-fold.mjs', 'home-edit.js', 'journal-hwpx.js', 'meeting-round-detail.js', 'od-settings.js', 'press-draft.js', 'record-sheet.js',
+    'report-summary-preview.js', 'task-files.js', 'task-workflow.js', 'todo-radar.js', 'basket-notes.js', 'global-search.js', 'inbox-todos.js', 'share-pages.js']) {
+    assert.match(read(rel), /import \{[^}]*\bempty(Html|El)\b[^}]*\} from '\.\/wait-state\.js';/, rel);
+  }
+  // 옛 모양 파일(즉시 실행 함수)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
+  for (const rel of ['home-dashboard-v2.js', 'library-upload.js', 'profile-settings.js', 'suborganizations.js', 'task-layout.js', 'web1-board.js', 'workplace-report.js']) {
+    assert.match(read(rel), /globalThis\.KPTUWait\?\.emptyHtml\?\.\(/, rel);
+  }
+});
