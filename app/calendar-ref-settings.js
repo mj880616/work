@@ -5,6 +5,7 @@ import {waitInlineHtml, failHtml} from './wait-state.js';
 // 캘린더를 비우거나 바꾸면 저장된 참고 일정을 모두 지운다(지우기 → 저장 순서: 저장이 실패해도 개인 일정이 남지 않는다).
 import {readChoice, saveChoice, readCalendars, clearRefs, syncRefs, defaultSyncRange} from './calendar-ref-data.js';
 import {toggleColor, COLORS_MAX} from './calendar-ref-model.mjs';
+import {swatchHtml} from './color-swatch.mjs'; // UI-색고르기통일: 색 칸은 공용 부품 하나
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const COLOR_IDS = Object.freeze(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']);
@@ -26,9 +27,9 @@ export function mountCalendarRefSettings(host, {rt, userId, confirm = message =>
     const options = ['<option value="">고르지 않음</option>',
       ...(choice.calendar && !known ? [`<option value="${esc(choice.calendar)}" selected>고른 캘린더(목록에 없음)</option>`] : []),
       ...calendars.map(c => `<option value="${esc(c.id)}"${c.id === choice.calendar ? ' selected' : ''}>${esc(c.summary || '이름 없는 캘린더')}</option>`)].join('');
-    const colors = choice.calendar ? `<div class="ps-calref-row" role="group" aria-label="내 일정 색"><span class="ps-calref-label">내 일정 색</span><span class="ps-calref-colors">${COLOR_IDS.map(id => {
-      const bg = eventColors?.[id]?.background, on = choice.colors.includes(id);
-      return `<button type="button" class="ps-calref-color" data-ps-calref-color="${id}" aria-pressed="${on}" aria-label="색 ${id}"${bg ? ` style="--ps-calref-swatch:${esc(bg)}"` : ''}${busy ? ' disabled' : ''}>${on ? '✓' : id}</button>`;
+    const colors = choice.calendar ? `<div class="ps-calref-row" role="group" aria-label="내 일정 색"><span class="ps-calref-label">내 일정 색</span><span class="ps-calref-colors ui-swatches">${COLOR_IDS.map(id => {
+      const row = eventColors?.[id] || {};
+      return swatchHtml({color: row.background, ink: row.foreground, label: `색 ${id}`, text: id, on: choice.colors.includes(id), attrs: {'data-ps-calref-color': id}, disabled: busy});
     }).join('')}</span></div>
       <label class="ps-calref-row ps-calref-check"><input type="checkbox" data-ps-calref-mine${choice.mine ? ' checked' : ''}${busy ? ' disabled' : ''}><span>내가 만든 일정도 포함</span></label>` : '';
     host.innerHTML = `${head}<div class="ps-calref"><label class="ps-calref-row"><span class="ps-calref-label">캘린더</span><select class="ps-calref-select" data-ps-calref-calendar aria-label="참고할 개인 공유 캘린더"${busy ? ' disabled' : ''}>${options}</select></label>${colors}</div>`;

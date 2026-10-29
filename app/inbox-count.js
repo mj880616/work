@@ -7,9 +7,11 @@ import {readOpenCandidates, notPlanned} from './todo-radar-data.js';
 export const unsortedUpdates = (notes, links, docs = []) => visibleNotes(notes || [], links || [], 'unclassified', docs || []).length;
 // 챙길 것 처리 전: open candidates, minus what is already a task by title (todo-radar decision 5).
 export const openTodos = (candidates, taskTitles = []) => notPlanned((candidates || []).filter(row => row?.status === 'open'), taskTitles).length;
+// TG-요청강조: 그중 텔레그램 '나한테 온 요청'(수집 서버가 ask_me로 올린 후보). 홈 한 줄 요약이 같은 읽기로 함께 센다(읽기 추가 없음).
+export const openAsks = (candidates, taskTitles = []) => openTodos((candidates || []).filter(row => row?.source_kind === 'telegram'), taskTitles);
 export function inboxCount({notes, links, docs, candidates, taskTitles} = {}) {
   const update = unsortedUpdates(notes, links, docs), todo = openTodos(candidates, taskTitles);
-  return {update, todo, total: update + todo};
+  return {update, todo, total: update + todo, asks: openAsks(candidates, taskTitles)};
 }
 // One read of both (a candidate table that is not deployed counts as 0). {ok:false} when either read fails.
 export async function readInboxCount(rt = window.KPTURuntime, {taskTitles = []} = {}) {

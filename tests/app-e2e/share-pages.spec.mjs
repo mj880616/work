@@ -96,9 +96,11 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   const root = page.locator('#sharePagesRoot');
   await expect(root.getByRole('heading', {name:'내 공유 페이지'})).toBeVisible();
   await expect(root).toContainText('아직 만든 공유 페이지가 없어요');
-  // S7: the old five cards stay, folded under "이전 페이지".
-  const legacy = page.locator('#web1BoardLegacy');
-  await expect(legacy.locator(':scope > summary')).toHaveText('이전 페이지 5');
+  // SHARE-보관함·HTML공유: the old five cards stay, in the one folded '보관함 n' (no '이전 페이지'·'지나간 업무 · 사업' folds).
+  const legacy = root.locator('details.sp-box');
+  await expect(legacy.locator(':scope > summary')).toHaveText('보관함 5');
+  await expect(page.locator('#pagesView')).not.toContainText('이전 페이지');
+  await expect(page.locator('#pagesView')).not.toContainText('지나간 업무');
   await expect(legacy.locator(':scope > summary')).toHaveCSS('list-style-type','none');
   expect(await legacy.locator(':scope > summary').evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"▸"');
   await legacy.locator(':scope > summary').focus();

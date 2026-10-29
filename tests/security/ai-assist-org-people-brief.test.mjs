@@ -16,7 +16,7 @@ const NOW=Date.parse('2026-10-29T03:00:00Z'),TODAY='2026-10-29';
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 const answer=o=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(o)}]}],usage:{input_tokens:3000,output_tokens:200}});
 
-function harness({openai=null,people=null,briefs=[],missing=false}={}){
+function harness({openai=null,people=null,briefs=[],missing=false,features=null}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -60,6 +60,7 @@ function harness({openai=null,people=null,briefs=[],missing=false}={}){
     const bearer=(headers.get('Authorization')||'').replace(/^Bearer /,'');
     if(url.pathname==='/auth/v1/user')return users[bearer]?respond({id:users[bearer]}):respond({msg:'bad'},401);
     const uid=users[bearer];assert.ok(uid,'REST only with the caller token');
+    if(url.pathname==='/rest/v1/rpc/app_my_features'){calls.features=(calls.features||0)+1;if(features==='missing')return respond({code:'PGRST202',message:'function not found'},404);return respond((features??{[OWNER]:['calls','telegram']})[uid]||[]);}
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:decodeURIComponent(url.search),body:init.body});
     assert.ok(!['app_call_personal','app_tg_senders','app_tg_day_senders'].includes(table),'personal calls and telegram names are never AI material');
     if(table==='app_feed_items')assert.match(url.search,/[?&]source=eq\.call&/,'only call items are read');
@@ -145,4 +146,12 @@ test('pure rules: name matching like the screen, answer cleanup, material shape'
   assert.equal(packed[0].text,'교섭 메일 (연락처)');
   const material=JSON.parse(pb.peopleBriefMaterial('가 지부',people,packed,TODAY));
   assert.deepEqual(Object.keys(material),['today','organization','people','records']);
+});
+
+test('MULTI 단계 ①: without the calls feature the brief is made without call material (calls are not read)',async()=>{
+  const {handler,calls}=harness({features:{}});
+  const res=await post(handler,{kind:'org_people_brief',organization_id:ORG_A});
+  assert.ok([200].includes(res.status));
+  assert.ok(!calls.rest.some(c=>c.table==='app_feed_items'),'calls are not read');
+  assert.equal(calls.features,1);
 });

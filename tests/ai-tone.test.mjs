@@ -18,6 +18,7 @@ const org = await import('../supabase/functions/ai-assist/org-summary.ts');
 const schedule = await import('../supabase/functions/ai-assist/schedule-titles.ts');
 const journal = await import('../supabase/functions/ai-assist/journal-draft.ts');
 const nextWeek = await import('../supabase/functions/ai-assist/next-week-sheet.ts');
+const preMeeting = await import('../supabase/functions/ai-assist/pre-meeting-sheet.ts');
 const read = file => readFileSync(new URL(file, FUNCTIONS), 'utf8');
 
 const RULE = model.AI_TONE_RULE;
@@ -30,7 +31,7 @@ test('the tone rule names the ending style, the forbidden endings and the three 
 });
 
 test('summary-writing instructions carry the one shared rule: telegram news, ledger auto/candidates/fix, meeting draft', () => {
-  for (const [name, text] of [['telegram', telegram.TELEGRAM_INSTRUCTIONS], ['ledger_auto', auto.LEDGER_AUTO_INSTRUCTIONS], ['ledger_candidates', candidates.LEDGER_CANDIDATES_INSTRUCTIONS], ['ledger_fix', fix.LEDGER_FIX_INSTRUCTIONS], ['journal_draft', journal.JOURNAL_DRAFT_INSTRUCTIONS], ['next_week_sheet', nextWeek.NEXT_WEEK_SHEET_INSTRUCTIONS]]) {
+  for (const [name, text] of [['telegram', telegram.TELEGRAM_INSTRUCTIONS], ['ledger_auto', auto.LEDGER_AUTO_INSTRUCTIONS], ['ledger_candidates', candidates.LEDGER_CANDIDATES_INSTRUCTIONS], ['ledger_fix', fix.LEDGER_FIX_INSTRUCTIONS], ['journal_draft', journal.JOURNAL_DRAFT_INSTRUCTIONS], ['next_week_sheet', nextWeek.NEXT_WEEK_SHEET_INSTRUCTIONS], ['pre_meeting_sheet', preMeeting.PRE_MEETING_INSTRUCTIONS]]) {
     assert.equal(text.split(RULE).length - 1, 1, `${name}: rule appears exactly once, as the shared text`);
   }
   assert.ok(read('meeting-ai-draft/index.ts').includes('${AI_TONE_RULE}'), 'meeting draft puts the shared rule into its developer text');
@@ -59,7 +60,7 @@ test('instructions that feed the outward weekly report keep their own style and 
 });
 
 // 새 AI 지시문이 생기면 아래 목록에 '적용' 또는 '제외(이유)'로 올려야 한다. 말투를 빠뜨린 채 새 요약이 생기는 일을 막는다.
-const APPLIED = new Set(['collector-feed/telegram.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts']);
+const APPLIED = new Set(['collector-feed/telegram.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/pre-meeting-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts']);
 const EXCLUDED = new Map([
   ['collector-feed/handler.ts', '부르기만 한다. 텔레그램 지시문은 telegram.ts(적용)에 있다'],
   ['ai-assist/handler.ts', '연결 요약(주간보고 업무보고형)·챙길 것·겹침 판정이 한 파일에 있다. 연결 요약은 주간보고 문체라 제외'],
@@ -77,6 +78,7 @@ const EXCLUDED = new Map([
   ['page-ai-draft/index.ts', '현장 공유 페이지 초안(바깥에 내보내는 글)'],
   ['ai-assist/hwp-convert.ts', '노조 서식 한글 문서(바깥에 내는 공식 문서, 명사형 문체 유지)'],
   ['team-ai/index.ts', '대화 답변(요약 아님). 공식 보고 문안은 요청 시 -함/-임을 이미 우선함'],
+  ['ai-assist/press-draft.ts', '성명·보도자료 초안(바깥에 내는 글, 성명 문체 \'~다\'·보도자료 \'~습니다\', FEAT-1029 공통 규칙 4)'],
 ]);
 
 function walk(dir, out = []) {

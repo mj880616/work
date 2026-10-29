@@ -29,7 +29,8 @@ test('달 계산과 칩 이름', () => {
   assert.deepEqual(parseMonth('2026-10'), {year: 2026, month: 9});
   assert.equal(parseMonth('2026-13'), null);
   assert.equal(validTab('calendar'), 'calendar');
-  for (const t of ['folders', 'map', '', null]) assert.equal(validTab(t), 'all', String(t));
+  for (const t of ['folders', 'albums']) assert.equal(validTab(t), t);
+  for (const t of ['map', '', null]) assert.equal(validTab(t), 'all', String(t));
   assert.equal(EMPTY_STOP, 24);
 });
 
@@ -163,4 +164,56 @@ test('설정 창은 공용 부품 하나(결정 4): 일기·사진 메뉴가 od-
   assert.match(screen, /viewPrefs\.set\('photo_view'/);
   const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'caches' + '\\.'].join('|'));
   for (const f of ['app/od-settings.js', 'app/onedrive-return.js']) assert.doesNotMatch(read(f), deviceStores, f);
+});
+
+import {photoFolderRows, photoFolderTrail, photoSubfolders, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, cleanTagName, albumCards, folderErrorText} from '../app/photos-model.mjs';
+const TREE = {top: {id: 'T', name: '카메라', count: 2, total: 9}, folders: [
+  {id: 'B', name: '여행', parent_id: 'T', enabled: true, count: 3, total: 5}, {id: 'A', name: '2026', parent_id: 'T', enabled: true, count: 1, total: 2},
+  {id: 'B1', name: '제주', parent_id: 'B', enabled: true, count: 2, total: 2}, {id: 'A1', name: '10월', parent_id: 'A', enabled: false, count: 1, total: 1},
+]};
+
+test('사진 메뉴 ② 폴더 나무: 맨 위 폴더 늘 열림, 열린 폴더만 펼침(이름순), 위치 줄, 옮길 곳(자기·자기 아래 빠짐)', () => {
+  assert.deepEqual(photoFolderRows(TREE).map(r => [r.id, r.depth, r.kids, r.open]), [['T', 0, true, true], ['A', 1, true, false], ['B', 1, true, false]]);
+  assert.deepEqual(photoFolderRows(TREE, id => id === 'B').map(r => r.id), ['T', 'A', 'B', 'B1']);
+  assert.deepEqual(photoFolderRows(TREE, () => true).map(r => [r.id, r.indent]), [['T', 0], ['A', 1], ['A1', 2], ['B', 1], ['B1', 2]]);
+  assert.deepEqual(photoFolderTrail(TREE, 'B1').map(f => f.name), ['카메라', '여행', '제주']);
+  assert.deepEqual(photoSubfolders(TREE, 'T').map(f => f.id), ['A', 'B']);
+  assert.deepEqual(photoMoveTargets(TREE, {moving: 'B'}).map(r => [r.id, r.current]), [['T', true], ['A', false], ['A1', false]]);
+  assert.deepEqual(photoMoveTargets(TREE, {here: 'A'}).filter(r => r.current).map(r => r.id), ['A']);
+  assert.deepEqual(photoFolderRows(null), []);
+});
+
+test('폴더·앨범 이름 규칙(서버와 같음)과 옮기기 되돌리기 묶음', () => {
+  assert.equal(cleanPhotoFolderName(' 여행 '), '여행');
+  for (const bad of ['', '  ', 'a/b', 'a:b', 'a|b', '끝.', '.Web2 휴지통', 'x'.repeat(201), 'a\u0001', 5]) assert.equal(cleanPhotoFolderName(bad), null, String(bad));
+  assert.equal(cleanTagName('#제주'), '제주');
+  assert.equal(cleanTagName('  가족  '), '가족');
+  for (const bad of ['', '#', '제주 여행', 'a#b', 'x'.repeat(41), null]) assert.equal(cleanTagName(bad), null, String(bad));
+  const g = moveUndoGroups([{id: 'p1', from: 'A'}, {id: 'p2', from: 'B'}, {id: 'p3', from: 'A'}, {id: 'p4', from: 'T'}, {id: 'p5', from: null}], 'T');
+  assert.deepEqual([...g], [['A', ['p1', 'p3']], ['B', ['p2']]]);
+  assert.equal(folderErrorText('onedrive_name_taken'), '같은 이름의 폴더가 이미 있어요.');
+  assert.equal(folderErrorText('other'), '');
+});
+
+test('앨범 카드: 이름순, 장수, 대표 = 정한 대표(앨범 안일 때) → 가장 최근 날', () => {
+  const tags = [{id: 't2', name: '여행', cover_key: 'gone'}, {id: 't1', name: '가족', cover_key: 'k1'}];
+  const links = [{tag_id: 't1', item_key: 'k1', taken_day: '2026-01-01'}, {tag_id: 't1', item_key: 'k2', taken_day: '2026-05-01'},
+    {tag_id: 't2', item_key: 'k3', taken_day: '2026-03-01'}, {tag_id: 't2', item_key: 'k4', taken_day: '2026-09-01'}];
+  assert.deepEqual(albumCards(tags, links).map(c => [c.name, c.count, c.cover]), [['가족', 2, 'k1'], ['여행', 2, 'k4']]);
+  assert.deepEqual(albumCards([{id: 'e', name: '빈', cover_key: null}], []), [{id: 'e', name: '빈', count: 0, cover: null, keys: []}]);
+});
+
+test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(folder-tree.css)·위치 줄(folder-path.mjs)·공용 메뉴(anchored-menu.js), 기기 저장 없음', () => {
+  const js = read('app/photos.js'), loader = read('app/view-loader.js');
+  assert.match(js, /data-photos-tab="folders"[^>]*>폴더</);
+  assert.match(js, /data-photos-tab="albums"[^>]*>앨범</);
+  assert.match(js, /from '\.\/folder-path\.mjs'/);
+  assert.match(js, /from '\.\/anchored-menu\.js'/);
+  assert.match(js, /class="nx-row nx-folder/);
+  assert.match(loader, /photos:\[[^\]]*'\.\/folder-tree\.css'/);
+  assert.match(loader, /basket:\[[^\]]*'\.\/folder-tree\.css'/);
+  assert.match(read('app/folder-tree.css'), /\.nx-row \{/);
+  assert.doesNotMatch(read('app/basket.css'), /^\.nx-main \{/m);
+  const stores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));
+  for (const f of ['app/photos.js', 'app/photo-tags.js']) assert.doesNotMatch(read(f), stores, f);
 });

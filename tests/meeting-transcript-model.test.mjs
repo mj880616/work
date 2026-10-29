@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,pickMeetingAt} from '../app/meeting-transcript-model.mjs';
+import {audioCheck,durationText,sizeText,transcribeFailText,MAX_AUDIO_FILE,TRANSCRIBE_EXT,isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,pickMeetingAt} from '../app/meeting-transcript-model.mjs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
@@ -95,7 +95,10 @@ test('일시: 파일 이름 > AI 날짜 > 글 첫 줄, 시각은 파일 시각 �
 test('화면 연결: [회의] 칸 입력 창에서 기존 meeting-ai-draft 새 회의 길만 쓰고, 자동 저장·기기 저장·[녹음] 버튼이 없다',()=>{
   const s=read('app/meeting-transcript-draft.js');
   assert.match(s,/\/functions\/v1\/meeting-ai-draft/);
-  assert.doesNotMatch(s,/meeting_id\s*:/);
+  // 요약(meeting-ai-draft)은 새 회의 길만: 그 호출 몸통에 meeting_id가 없다. meeting_id는 저장 뒤 녹음 붙이기(attach)에만.
+  const draftCall=s.slice(s.indexOf("'/functions/v1/meeting-ai-draft'"),s.indexOf('}});',s.indexOf("'/functions/v1/meeting-ai-draft'")));
+  assert.ok(draftCall.length>0);assert.doesNotMatch(draftCall,/meeting_id/);
+  assert.deepEqual([...s.matchAll(/meeting_id\s*:\s*id/g)].length,2);
   assert.doesNotMatch(s,/\/rest\/v1\//);
   // 기기 저장소 낱말은 저장소 검사(browser-storage-audit)가 글자로 막으므로 조각으로 만든다.
   assert.doesNotMatch(s,new RegExp(['local','session'].map(x=>x+'Storage').concat(['indexed'+'DB']).join('|')));
@@ -107,4 +110,34 @@ test('화면 연결: [회의] 칸 입력 창에서 기존 meeting-ai-draft 새 �
   const loader=read('app/view-loader.js');
   assert.match(loader,/module\('\.\/meeting-transcript-draft\.js'\)/);
   assert.doesNotMatch(loader,/meeting-transcript-draft\.js\?v=/);
+});
+
+test('2단계 녹음 전사: 상한·종류는 서버와 같고, 실패 문구는 서버가 준 아는 줄만 그대로',async()=>{
+  const server=await import('../supabase/functions/meeting-transcribe/model.mjs');
+  assert.equal(MAX_AUDIO_FILE,server.MAX_BYTES);
+  assert.deepEqual([...TRANSCRIBE_EXT].sort(),[...server.AUDIO_EXTS].sort());
+  assert.equal(audioCheck('음성 261029_101500.m4a',1000,1800),'');
+  assert.equal(audioCheck('a.m4a',1000,null),'');
+  assert.match(audioCheck('a.wma',1000),/녹음 파일/);
+  assert.match(audioCheck('a.m4a',MAX_AUDIO_FILE+1),/100MB/);
+  assert.match(audioCheck('a.m4a',1000,3601),/1시간/);
+  assert.equal(durationText(2592),'43분 12초');assert.equal(durationText(3720),'1시간 2분');assert.equal(durationText(null),'');
+  assert.equal(sizeText(5*1024*1024),'5.0MB');assert.equal(sizeText(10),'1KB');
+  for(const code of ['not_ready','monthly_limit','busy','too_large','too_long','bad_type','empty_transcript'])assert.equal(transcribeFailText(server.MESSAGES[code]),server.MESSAGES[code]);
+  assert.equal(transcribeFailText('not_ready'),server.MESSAGES.not_ready);
+  assert.match(transcribeFailText(server.MESSAGES.drive_failed),/녹음은 그대로/);
+  assert.match(transcribeFailText('Error: boom'),/녹음은 그대로/);
+});
+
+test('2단계 화면 연결: [전사] → config·upload·transcribe → 전사 칸 → 기존 초안 흐름, 붙이기는 저장 뒤, 기다림 부품',()=>{
+  const s=read('app/meeting-transcript-draft.js');
+  assert.match(s,/const FN='\/functions\/v1\/meeting-transcribe'/);
+  for(const a of ['config','upload','transcribe','attach'])assert.match(s,new RegExp("FN\\+'\\?action="+a+"'"));
+  assert.match(s,/import \{waitInlineHtml\} from '\.\/wait-state\.js'/);
+  assert.match(s,/\$\('#mtdText'\)\.value=text;[\s\S]{0,200}await run\(\);/);
+  assert.match(s,/window\.addEventListener\('kptu:record-saved'/);
+  assert.match(s,/body:file,singleFlight:false/);
+  assert.doesNotMatch(s,/다음 단계에서 열려요/);
+  const rt=read('app/runtime-client.js');
+  assert.match(rt,/body instanceof Blob\)\)?;?/);
 });

@@ -18,6 +18,7 @@ const USES_RULE = /\b(selectMyOrganizations|pickMyOrganizations|myOrganizationId
 // 규칙을 쓰지 않아도 되는 파일과 그 이유. 고르기 칸이 없는(이름 표시·자동 판정·편집·내보내기) 곳만 둔다.
 const ALLOWED = Object.freeze({
   'app/my-organizations.js': '규칙 자체',
+  'app/pre-meeting-sheet.js': '교섭 전 한 장: 일정에 연결된 조직 id를 이름으로 바꾸고 제목 속 조직 이름을 맞추는 대상 판정 전용(고르기 칸 없음, 연결은 일정 창의 기존 고르기 규칙)',
   'app/organization-order.js': '순서 규칙(주석에서 표 이름만 언급)',
   'app/org-name-match.mjs': '이름 비교 규칙(주석에서 표 이름만 언급)',
   'app/profile-settings.js': '예외: 내 프로필 › 담당 사업장은 담당을 정하는 칸이라 모든 조직을 보여 준다',

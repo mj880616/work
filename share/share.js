@@ -11,6 +11,11 @@ import {el, renderPage} from '../app/sr-render.mjs';
 
 const ENDPOINT = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/share-page-read';
 const TOKEN = /^[0-9a-f]{64}$/;
+// SHARE-보관함·HTML공유: short address (name + "-" + 8 letters the DB made), from bokdoong.com/s/<it> via the Worker (?s=).
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*-[a-km-np-z2-9]{8}$/;
+// An HTML file page runs only in this sandboxed frame (no allow-same-origin: an origin of its own) loaded from ./frame.html,
+// a page without this page's strict CSP (a srcdoc frame would inherit it and block the file's scripts and CDN libraries).
+export const HTML_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
 const main = document.getElementById('srMain');
 
 export function tokenFromHash(hash) {
@@ -24,10 +29,41 @@ export function tokenFromSearch(search) {
   const match = /^\?t=([0-9a-f]{64})$/.exec(String(search || ''));
   return match && TOKEN.test(match[1]) ? match[1] : null;
 }
+export function slugFrom(text, mark) {
+  const match = new RegExp('^\\' + mark + 's=([a-z0-9-]{11,49})$').exec(String(text || ''));
+  return match && SLUG.test(match[1]) ? match[1] : null;
+}
 function moveSearchTokenToHash() {
-  const token = tokenFromSearch(location.search);
-  if (!token || location.hash) return;
-  try { history.replaceState(null, '', location.pathname + '#t=' + token); } catch (e) { /* the read below still works */ }
+  const token = tokenFromSearch(location.search), slug = slugFrom(location.search, '?');
+  if (location.hash || (!token && !slug)) return;
+  try { history.replaceState(null, '', location.pathname + (token ? '#t=' + token : '#s=' + slug)); } catch (e) { /* the read below still works */ }
+}
+// What to ask share-page-read for: {token} or {slug}, or null when the address holds neither.
+export function askFor(hash, search) {
+  const token = tokenFromHash(hash) || (hash ? null : tokenFromSearch(search));
+  if (token) return {token};
+  const slug = slugFrom(hash, '#') || (hash ? null : slugFrom(search, '?'));
+  return slug ? {slug} : null;
+}
+function showHtml(html, title) {
+  while (main.firstChild) main.removeChild(main.firstChild);
+  const frame = document.createElement('iframe');
+  frame.className = 'sr-html-frame';
+  frame.setAttribute('sandbox', HTML_SANDBOX);
+  frame.setAttribute('referrerpolicy', 'no-referrer');
+  frame.title = title || '공유 페이지';
+  // The frame says when it is ready; only then (and only to that frame) the file is handed over.
+  const onMessage = event => {
+    if (event.source !== frame.contentWindow || !event.data || event.data.type !== 'kptu-share-frame-ready') return;
+    window.removeEventListener('message', onMessage);
+    frame.contentWindow.postMessage({type:'kptu-share-html', html}, '*');
+  };
+  window.addEventListener('message', onMessage);
+  frame.src = './frame.html';
+  main.appendChild(frame);
+  main.removeAttribute('aria-busy');
+  document.body.classList.add('is-html');
+  document.title = title ? `${title} · 공유 페이지` : '공유 페이지';
 }
 
 export function renderClosed() {
@@ -44,14 +80,21 @@ function show(nodes, title) {
 }
 
 async function start() {
-  const token = tokenFromHash(location.hash) || (location.hash ? null : tokenFromSearch(location.search));
-  if (!token) { show(renderClosed()); return; }
+  document.body.classList.remove('is-html');
+  const ask = askFor(location.hash, location.search);
+  if (!ask) { show(renderClosed()); return; }
   let page, media = null;
   try {
-    const response = await fetch(ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token}),
+    const response = await fetch(ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(ask),
       cache:'no-store', credentials:'omit', referrerPolicy:'no-referrer'});
     const data = response.ok ? await response.json() : null;
-    if (!data || !data.ok || !data.page || typeof data.page.title !== 'string' || !Array.isArray(data.page.blocks)) throw new Error('closed');
+    if (!data || !data.ok || !data.page || typeof data.page.title !== 'string') throw new Error('closed');
+    if (data.page.kind === 'html') {
+      if (typeof data.page.html !== 'string' || !data.page.html) throw new Error('closed');
+      showHtml(data.page.html, data.page.title);
+      return;
+    }
+    if (!Array.isArray(data.page.blocks)) throw new Error('closed');
     page = data.page;
     media = data.media && typeof data.media === 'object' ? data.media : null;
   } catch {

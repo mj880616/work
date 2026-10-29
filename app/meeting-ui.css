@@ -384,3 +384,26 @@
 #meetingModal .mtd-note{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint)}
 #meetingModal .mtd-panel textarea{width:100%;min-height:0}
 #meetingModal .mtd-actions{display:flex;justify-content:flex-end;gap:var(--kptu-space-2)}
+/* MTG-녹음초안 2단계: 녹음 파일을 고르면 [전사] 한 줄(작은 버튼 + 붙이기 선택 + 기다림 줄). */
+#meetingModal .mtd-audio{display:flex;align-items:center;flex-wrap:wrap;gap:var(--kptu-space-2);min-width:0}
+#meetingModal .mtd-audio[hidden]{display:none}
+#meetingModal .mtd-attach{display:inline-flex;align-items:center;gap:4px;margin:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#meetingModal .mtd-attach input{margin:0}
+#meetingModal .mtd-wait{flex:1 1 6em;min-width:0}
+/* MTG-한줄업데이트: [+] 메뉴 맨 위 [✎ 한 줄 업데이트] 줄과 작은 창(사업영역 · 날짜 · 한 줄 · + 다음 할 일 · 저장). 콤팩트·톤다운. */
+.home-choice-oneline{border-bottom:1px solid var(--kptu-border);margin-bottom:2px}
+.home-choice-oneline .home-choice-check{color:var(--kptu-muted)}
+.oneline-dialog{width:min(520px,calc(100vw - 16px));padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.oneline-dialog::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
+.oneline-head,.oneline-foot{display:flex;align-items:center;gap:var(--kptu-space-2);padding:6px var(--kptu-space-3)}
+.oneline-head h2{margin:0;font-size:15px;flex:1}
+.oneline-body{display:grid;gap:var(--kptu-space-2);padding:0 var(--kptu-space-3) var(--kptu-space-2)}
+.oneline-row{display:flex;gap:var(--kptu-space-2);min-width:0}
+.oneline-area{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.oneline-day{flex:0 0 auto;width:auto}
+.oneline-body textarea[data-ol-text]{width:100%;box-sizing:border-box;font-size:14px;resize:vertical}
+.oneline-foot{justify-content:space-between;border-top:1px solid var(--kptu-border)}
+.oneline-foot .status{margin:0;font-size:12px;flex:1;min-width:0}
+@media (max-width:760px){.oneline-dialog{margin:12px auto auto}}
+.meeting-list-row[data-report-kind="oneline"] h3{font-weight:400;font-size:14px}
+.oneline-orgs{justify-self:start}
