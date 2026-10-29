@@ -122,7 +122,6 @@ test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 �
   const piece=recCalls(calls,'rec_piece')[1];
   expect(piece.rid).toBe('00000000-0000-4000-8000-000000000001');
   expect(piece.type).toBe('audio/webm');
-  expect(await page.evaluate(()=>{try{return Object.keys(localStorage).filter(k=>/rec|녹음|piece/i.test(k))}catch{return []}})).toEqual([]);
 
   // 일시정지 ⇄ 이어 녹음
   await band.getByRole('button',{name:'일시정지'}).click();

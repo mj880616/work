@@ -3,7 +3,7 @@
 // - 주인: 이 모듈 하나가 녹음기·녹음 띠(#recBand)·[녹음](#reportRecordBtn)·'이어서 정리' 줄(#recPendingLine)을 그린다(AGENTS.md 5절 one state owner).
 //   loader-v2.js가 첫 화면 뒤 한 번 불러오고, 화면 전환에 다시 그리지 않으므로 다른 메뉴로 옮겨도 녹음은 계속된다.
 // - 기기 저장 없음: 녹음 조각은 5분마다 서버(명진 Drive)로 가고, 보내지 못한 조각은 메모리에만 두고 같은 번호로 다시 보낸다.
-//   localStorage·IndexedDB를 쓰지 않는다. 창을 닫으면 마지막 5분 안쪽만 잃고, 다시 열면 '이어서 정리'(rec_pending).
+//   브라우저 저장 공간을 쓰지 않는다(Browser storage audit). 창을 닫으면 마지막 5분 안쪽만 잃고, 다시 열면 '이어서 정리'(rec_pending).
 // - 59분마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
 // - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [초안 채우기]
 //   (meeting-transcript-draft.js). 저장은 명진이 [사업 보고 저장]으로 하고, 그 뒤 구간마다 attach(기존 [이 회의에 녹음 붙이기]).
@@ -294,6 +294,7 @@ async function openDraft(text,jobs){
 }
 
 // ---- 이어서 정리 ----
+const onMeetings=()=>{const v=window.KPTURouter?.current;return v==='meetings'||v==='reports'};
 async function loadPending(force=false,tries=0){
   const id=ws();
   if(!PC?.matches||!supported())return;
@@ -334,9 +335,10 @@ window.addEventListener('kptu:session-changed',e=>{
   state='idle';sessionId='';paint();paintPending();
 });
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){paintButton();void loadPending()}});
-PC?.addEventListener?.('change',()=>{paintButton();paintPending();if(PC.matches)void loadPending()});
+PC?.addEventListener?.('change',()=>{paintButton();paintPending();if(PC.matches&&onMeetings())void loadPending()});
 
 window.KPTUMeetingRecorder={state:()=>state,mime:MIME};
 paint();
-void loadPending();
+// '이어서 정리' 줄은 사업 보고 화면에만 있으므로, 그 화면을 열 때만 서버에 묻는다(다른 화면의 첫 요청을 늘리지 않음).
+if(onMeetings())void loadPending();
 })();

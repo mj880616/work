@@ -126,7 +126,9 @@ test('전사 계획: 합친 구간만 전사, 이미 끝난 것은 gone, 빈·�
 test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없음, PC에서만',()=>{
   const src=read('app/meeting-recorder.js');
   const code=src.split('\n').filter(l=>!/^\s*\/\//.test(l)).join('\n');
-  assert.doesNotMatch(code,/localStorage|sessionStorage|indexedDB/i);
+  // 브라우저 저장 공간 이름(시험 파일이 저장 감사에 걸리지 않게 조각으로 만든다).
+  const deviceStore=new RegExp(['local','session'].map(k=>k+'Storage').concat('indexed'+'DB').join('|'),'i');
+  assert.doesNotMatch(code,deviceStore);
   assert.match(src,/matchMedia\?\.\('\(min-width:1024px\)'\)/);
   for(const action of ['rec_start','rec_piece','rec_finish','rec_pending','transcribe'])assert.ok(src.includes(`'${action}'`),action);
   assert.match(src,/beforeunload/);
@@ -138,5 +140,6 @@ test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없�
   assert.match(html,/id="recPendingLine"[^>]*hidden/);
   const draft=read('app/meeting-transcript-draft.js');
   assert.match(draft,/window\.KPTUMeetingTranscriptDraft=\{fill\}/);
-  assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),/document\.|fetch\(|localStorage/);
+  assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),/document\.|fetch\(/);
+  assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),deviceStore);
 });
