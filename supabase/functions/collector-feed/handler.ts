@@ -28,6 +28,9 @@
 //   AI 부르기 전에 읽기 전용 DB 함수 app_feed_room_day_context(service_role 전용)로 그 방·그날 앞서 저장된 소식(시각·제목·요약)을 읽어 재료에 붙이고,
 //   AI가 그날 요약(day)을 앞서 모인 소식까지 합쳐 다시 쓰게 한다. 이렇게 쓴 요약은 묶음 이름 앞에 `c-`를 붙여 저장하고, 화면은 가장 나중의 `c-` 요약 하나를 그날 요약으로 쓴다.
 //   함수가 없거나 읽기에 실패하면 앞서 모인 소식 없이 지금처럼 묶음 몫 요약(이름 앞 `c-` 없음)으로 저장한다.
+//   FEAT-1029 ⑤(10/29): 같은 AI 호출의 소식마다 ask_me(나한테 온 질문·부탁, 단체방 전체 부탁 포함, 이미 답한 것 제외)를 함께 받는다.
+//   ask=true인 소식은 저장 뒤 서버 전용 DB 함수 app_todo_candidate_from_telegram으로 챙길 것 후보(open) 한 줄을 넣는다. 할 일은 만들지 않는다.
+//   AI 추가 호출 없음. 함수가 없으면(DB 적용 전) 로그만 남기고 소식 저장은 그대로. 옛 소식은 다시 판정하지 않는다(새로 수집되는 것부터).
 // - 하루 숫자는 app_feed_days에 더한다. 받은 요청 수(batch_count)·AI 사용량(ai_*)은 받은 날(한국 날짜) 줄, 나머지는 내용 날짜 줄.
 //   통화 숫자의 뜻(2단계 정리): total_count = 받은 전사 수(업무·개인함 저장·개수만 모두), kept_count = 업무 통화함에 저장한 줄,
 //   personal_count·unsure_count = 줄 없이 **개수만** 센 통화(요약 없는 옛 개인 기록 등. 개인 통화함에 저장한 통화는 세지 않는다: 그 수는 개인 표의 실제 줄 수),
@@ -42,7 +45,7 @@ import { organizationOptions, projectOptions } from "../ai-assist/library-fill.t
 import { CALL_LIMITS, cleanLine, kstDay, type OrgRow, parseCall } from "./call-analysis.ts";
 import { buildContext, CONTEXT_LIMITS, CONTEXT_PEOPLE_FN, CONTEXT_PEOPLE_ROWS } from "./context.ts";
 import {
-  parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgDay, type TgEarlier, type TgMessage,
+  askEvidence, parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgAsk, type TgDay, type TgEarlier, type TgMessage,
 } from "./telegram.ts";
 
 export type Env = (name: string) => string | undefined;
@@ -55,7 +58,9 @@ export type CollectorFeedDeps = {
   log?: Log;
 };
 
-export const WORKSPACE_SLUG = "kptu-work";
+// MULTI-노조사용자 단계 ①: 저장할 작업공간은 고정 이름이 아니라 서버 허용 표(public.app_operator_features)에서 정한다.
+// 그 기능(통화 calls·텔레그램 telegram)이 허용된 작업공간이 정확히 하나일 때만 그 id를 돌려주는 DB 함수(service_role 전용).
+export const FEATURE_WORKSPACE_FN = "app_operator_feature_workspace";
 export const SECRET_HEADER = "x-collector-feed-secret";
 export const SECRET_NAME = "COLLECTOR_FEED_SECRET";
 export const SECRET_MIN_CHARS = 32;
@@ -106,6 +111,8 @@ export const ROOM_TOUCH_FN = "app_feed_room_touch";
 export const ROOM_DAY_ADD_FN = "app_feed_room_day_add";
 // TG-1시간수집: 그 방·그날 앞서 저장된 소식 읽기(migration 20261028030000, service_role 전용, 읽기만).
 export const ROOM_DAY_CONTEXT_FN = "app_feed_room_day_context";
+// FEAT-1029 ⑤ 나한테 온 요청 → 챙길 것 후보 한 줄(migration 20261029120000, service_role 전용). 소식은 source_ref로 찾고 출처 날짜·조직은 DB가 소식 줄에서 읽는다.
+export const ASK_CANDIDATE_FN = "app_todo_candidate_from_telegram";
 // 그날 요약을 앞서 모인 소식까지 합쳐 다시 쓴 묶음 표시(화면 app/tg-day-model.mjs CUMULATIVE_PREFIX와 같음).
 export const CUMULATIVE_PREFIX = "c-";
 const CHAT_KINDS = ["user", "group", "channel"];
@@ -299,6 +306,8 @@ type Db = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ rows: Record<string, unknown>[] } | "missing">;
   // 쓰기 DB 함수 호출(결과가 jsonb 한 개). 던지지 않고 단계 코드만 돌려준다: 이름·키가 든 오류 본문은 코드 글자(TG_SENDER_*·TGDG_*)만 뽑고 버린다.
   rpcObject: (fn: string, args: Record<string, unknown>) => Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; code: string }>;
+  // 값 하나를 돌려주는 읽기 DB 함수. 함수가 없으면(404) "missing", 그 밖의 실패는 503.
+  rpcScalar: (fn: string, args: Record<string, unknown>) => Promise<unknown>;
 };
 function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
   const headers = { apikey: key, Authorization: `Bearer ${key}` };
@@ -345,6 +354,12 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
       if (!Array.isArray(rows)) throw new Fail(503, "DB_READ_FAILED");
       return { rows: rows as Record<string, unknown>[] };
     },
+    async rpcScalar(fn, args) {
+      const r = await send(`rpc/${fn}`, { method: "POST", headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(args) });
+      if (r.status === 404) { try { await r.body?.cancel(); } catch { /* ignore */ } return "missing"; }
+      if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Fail(503, "DB_READ_FAILED"); }
+      try { return await readBoundedJson(r, { maxBytes: 4096 }); } catch { throw new Fail(503, "DB_READ_FAILED"); }
+    },
     async rpcObject(fn, args) {
       let r: Response;
       try { r = await send(`rpc/${fn}`, { method: "POST", headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(args) }); }
@@ -353,7 +368,7 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
       try { value = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES }); } catch { value = null; }
       if (!r.ok) {
         if (r.status === 404) return { ok: false, code: "FN_MISSING" };
-        const code = /TG_SENDER_[A-Z_]+|TGDG_[A-Z_]+/.exec(JSON.stringify(value ?? ""))?.[0];
+        const code = /TG_SENDER_[A-Z_]+|TGDG_[A-Z_]+|TODO_TG_[A-Z_]+/.exec(JSON.stringify(value ?? ""))?.[0];
         return { ok: false, code: code ?? `DB_STATUS_${r.status}` };
       }
       if (!value || typeof value !== "object" || Array.isArray(value)) return { ok: false, code: "DB_BAD_RESPONSE" };
@@ -395,10 +410,11 @@ async function addDay(db: Db, ws: string, day: string, source: string, delta: De
   throw new Fail(503, "DB_WRITE_FAILED");
 }
 
-async function workspaceId(db: Db) {
-  const rows = await db.get(`app_workspaces?slug=eq.${WORKSPACE_SLUG}&select=id&limit=2`);
-  const id = rows.length === 1 && typeof rows[0].id === "string" ? rows[0].id.toLowerCase() : "";
-  if (!/^[0-9a-f-]{36}$/.test(id)) throw new Fail(503, "WORKSPACE_UNAVAILABLE");
+// 허용된 작업공간이 없거나 둘 이상이면(함수가 null), 함수가 없으면(DB 적용 전) 저장하지 않고 503. 몸통의 작업공간 값은 받지 않는다(400).
+async function workspaceId(db: Db, feature: "calls" | "telegram") {
+  const value = await db.rpcScalar(FEATURE_WORKSPACE_FN, { p_feature: feature });
+  const id = typeof value === "string" ? value.toLowerCase() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new Fail(503, "WORKSPACE_UNAVAILABLE");
   return id;
 }
 
@@ -534,8 +550,9 @@ async function saveRoomDay(db: Db, ws: string, input: TelegramInput, batch: stri
 // AI 재료용 표시 이름(읽기 전용 DB 함수 app_tg_sender_names_for_day로 조회): 손 이름(name) → "나"(is_self) → 이번 요청 senders의 name → 라벨 그대로(TG-발언자이름 결정 3, 10/27 변경).
 // 이름표 조회(그 방·그날 라벨만)가 실패하면 요청의 name으로 물러나고 소식 저장은 계속한다. 이름은 로그에 남기지 않는다(AI 입력에만).
 const cleanName = (v: unknown) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").trim().normalize("NFC") : "");
+// self: 기록 주인('나')의 라벨(이름표의 is_self 또는 이번 요청 senders의 self). 나한테 온 요청을 가릴 때 쓴다(FEAT-1029 ⑤).
 async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
-  const out = new Map<string, string>();
+  const out = new Map<string, string>(), self = new Set<string>();
   const labels = new Set(input.messages.map((m) => m.sender));
   const stored = new Map<string, { name: string; self: boolean }>();
   try {
@@ -553,8 +570,27 @@ async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
     const st = stored.get(label), rq = fromRequest.get(label);
     const name = (st?.name ? [...st.name].slice(0, 40).join("") : "") || (st?.self || rq?.self ? "나" : "") || rq?.name || "";
     if (name) out.set(label, name);
+    if (st?.self || rq?.self) self.add(label);
   }
-  return out;
+  return { names: out, self };
+}
+// 나한테 온 요청을 챙길 것 후보로(FEAT-1029 ⑤). 소식 저장 뒤에 부른다. 실패해도 던지지 않는다: 소식은 이미 저장됐다.
+// 함수가 아직 없으면(DB 적용 전, 404) 한 번만 로그를 남기고 그만 부른다. 요약·근거·이름은 로그에 넣지 않는다(개수와 단계 코드만).
+async function saveAsks(db: Db, ws: string, asks: { source_ref: string; ask: TgAsk; evidence: string }[], log: Log) {
+  let added = 0, exists = 0, failed = 0;
+  for (const a of asks) {
+    try {
+      const r = await db.rpcObject(ASK_CANDIDATE_FN, { p_workspace: ws, p_source_ref: a.source_ref, p_summary: a.ask.request, p_evidence: a.evidence, p_due: a.ask.due });
+      if (!r.ok) {
+        failed++;
+        log("telegram_ask_failed", { stage: r.code });
+        if (r.code === "FN_MISSING") break;
+        continue;
+      }
+      if (r.value.result === "added") added++; else exists++;
+    } catch { failed++; log("telegram_ask_failed", { stage: "INTERNAL" }); }
+  }
+  if (asks.length) log("telegram_ask_saved", { added, exists, failed });
 }
 // 그 방·그날 앞서 저장된 소식(TG-1시간수집). ok=false면 읽지 못한 것(함수 없음·실패): 그날 요약을 합쳐 쓰지 않는다. 제목·요약은 로그에 넣지 않는다.
 async function earlierItems(db: Db, ws: string, input: TelegramInput, log: Log): Promise<{ ok: boolean; items: TgEarlier[] }> {
@@ -603,10 +639,10 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const orgs = organizationOptions(await readOrgs(db, ws));
   const projects = projectOptions(await db.get(`app_spaces?workspace_id=eq.${ws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`));
   // 한 방·하루가 여러 묶음이면(둘째 묶음부터, 또는 보낸 메시지가 하루 전체보다 적을 때) 요약을 그 묶음 몫으로 쓰게 한다(설계 3.2절).
-  const names = await senderNames(db, ws, input, deps.log);
+  const { names, self } = await senderNames(db, ws, input, deps.log);
   const earlier = await earlierItems(db, ws, input, deps.log);
   const partial = input.part > 1 || input.cont || input.total > input.messages.length;
-  const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, partial, names, earlier.items);
+  const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, partial, names, earlier.items, self, input.chat_kind);
   // 부르기 전에 횟수를 먼저 센다(ai-assist와 같음).
   await addDay(db, ws, today, "telegram", { ai_requests: 1 }, nowMs);
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
@@ -625,7 +661,7 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
     catch { deps.log("usage_record_failed"); }
   }
   const text = result.ok ? outputText(result.raw) : null;
-  const parsedAi = result.ok ? parseTelegram(text, input.messages.length, orgs, projects) : null;
+  const parsedAi = result.ok ? parseTelegram(text, input.messages.length, orgs, projects, (i) => self.has(input.messages[i].sender)) : null;
   if (!parsedAi) {
     // 실패하면 아무것도 저장하지 않는다(설계 3.2절). 앱 스크립트가 다시 보낸다. 3번째 실패면 판정 실패로 센다.
     const code = result.ok ? "AI_INVALID_RESPONSE" : result.code.toUpperCase();
@@ -637,7 +673,9 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   }
   const items = parsedAi.items;
   if (parsedAi.dropped || parsedAi.unlinked) deps.log("telegram_items_adjusted", { dropped: parsedAi.dropped, unlinked: parsedAi.unlinked });
+  if (parsedAi.askDropped) deps.log("telegram_ask_dropped", { count: parsedAi.askDropped });
   let kept = 0;
+  const asks: { source_ref: string; ask: TgAsk; evidence: string }[] = [];
   const judged = new Date(nowMs).toISOString();
   for (const [n, item] of items.entries()) {
     const first = input.messages[item.refs[0]];
@@ -649,12 +687,16 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
       organization_id: item.organization_id, suggested_project_id: item.suggested_project_id,
       source_ref: `${prefix}${n + 1}`, drive_url: null, model: config.model, judged_at: judged,
     });
-    if (r === "ok") kept++;
+    if (r === "ok") {
+      kept++;
+      if (item.ask) asks.push({ source_ref: `${prefix}${n + 1}`, ask: item.ask, evidence: askEvidence(input.messages[item.ask.quote], names) });
+    }
   }
   await addDay(db, ws, input.day, "telegram", counts(kept), nowMs);
   // 소식이 실제로 저장된 방·날만 방 정보와 요약을 남긴다(DB 함수도 소식이 있어야 받는다).
   // 앞서 모인 소식을 읽었으면(없어서 빈 목록이어도) 그날 요약은 그때까지 모인 소식 전체로 쓴 것이다(c- 묶음).
   if (kept > 0) await saveRoomDay(db, ws, input, batch, parsedAi.day, deps.log, earlier.ok);
+  await saveAsks(db, ws, asks, deps.log);
   return callResult({ kept });
 }
 
@@ -691,7 +733,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
         if (contextUse.n >= CONTEXT_LIMITS.dailyCalls) throw new Fail(429, "DAILY_LIMIT");
         contextUse.n++;
         const cdb = makeDb(sb, key, doFetch);
-        const cws = await workspaceId(cdb);
+        const cws = await workspaceId(cdb, "calls"); // 맥락(조직·프로젝트·사람)은 통화 분석용
         const orgs = await readOrgs(cdb, cws);
         const spaces = await cdb.get(`app_spaces?workspace_id=eq.${cws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`);
         // CALL-맥락사람: 사람 목록은 읽기 전용 DB 함수에서만 받는다. 함수가 아직 없으면(DB 적용 전) 이름만 돌려준다.
@@ -703,7 +745,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
       // 몸통을 먼저 다 검사한 뒤에 DB에 간다.
       const input = action === "call" ? parseCallBody(b) : action === "call_skip" ? parseSkipBody(b, today) : parseTelegramBody(b, today);
       const db = makeDb(sb, key, doFetch);
-      const ws = await workspaceId(db);
+      const ws = await workspaceId(db, action === "telegram" ? "telegram" : "calls");
       const out = action === "call" ? await runCall(db, ws, input as CallInput, nowMs)
         : action === "call_skip" ? await runCallSkip(db, ws, input as SkipInput, nowMs)
         : await runTelegram(db, ws, input as TelegramInput, nowMs, { doFetch, sleep, log, env: deps.env });

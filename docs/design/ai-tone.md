@@ -25,6 +25,7 @@
 | 겹침 판정 이유 | `overlap.ts` | 제외 | 요약 아님 |
 | 통화 제목·조직·상대 채우기 | `call-refill.ts` | 제외 | 요약 아님 |
 | 자료 제목 찾기 | library-files | 제외 | 제목 |
+| 성명·보도자료 초안 | ai-assist `press-draft.ts`(문체 `press-style.ts`) | 제외 | 바깥에 내는 글. 성명 '~다'체·보도자료 '~습니다'체(FEAT-1029묶음 ④) |
 | 자료 색인 요약 | document-ai-index | 제외(지금) | 화면에 보이지 않고 AI 재료로만 쓰임. 화면에 보이게 되면 적용으로 옮김 |
 | 문서 사실 추출 | meeting-ai-ingest | 제외 | 요약이 아닌 재료 글 |
 | 현장 공유 페이지 초안 | page-ai-draft | 제외 | 바깥에 내보내는 글 |

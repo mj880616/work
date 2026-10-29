@@ -95,7 +95,7 @@ for (const width of [390, 1280]) {
   test(`사진 메뉴: 최신순 격자(서버 쪽 읽기)·동영상 표시·크게 보기 ☆·★ 거르기·달력 ${width}`, async ({ page }) => {
     const f = await fixture(page, { width });
     await openPhotos(page, width);
-    await expect(root(page).locator('[data-photos-tab]')).toHaveText(['사진', '달력', '휴지통']);
+    await expect(root(page).locator('[data-photos-tab]')).toHaveText(['사진', '달력', '폴더', '앨범', '휴지통']);
     await expect(root(page).locator('[data-od-link]')).toBeVisible();
     await expect(items(page)).toHaveCount(7);
     await expect(root(page).locator('.photos-day b')).toHaveText(['10월 5일 (월)', '10월 2일 (금)', '9월 20일 (일)', '8월 15일 (토)']);

@@ -56,8 +56,9 @@ async function showFolder(page, width, id) {
 }
 // '폴더 없음' 노트: PC는 처음부터 오른쪽에 보인다(나무의 '폴더 없음'이 고른 곳), 폰은 첫 화면 맨 아래 '폴더 없음'을 눌러 들어간다.
 async function showOutside(page, width) {
-  if (width >= 1024) { await expect(page.locator('[data-nx-tree] [data-nx-outside]')).toHaveClass(/nx-current/); return; }
-  await press(page, page.locator('#noteRows [data-nx-open="out"]'), width);
+  // NOTE-최근5개: PC는 처음 '최근'이 고른 곳이라 나무의 '폴더 없음'을 눌러 연다.
+  if (width >= 1024) { await press(page, page.locator('[data-nx-tree] [data-nx-open="out"]'), width); await expect(page.locator('[data-nx-tree] [data-nx-outside]')).toHaveClass(/nx-current/); }
+  else await press(page, page.locator('#noteRows [data-nx-open="out"]'), width);
   await expect(page.locator('[data-nx-here]')).toContainText('폴더 없음');
 }
 const here = page => page.locator('[data-nx-here]');
@@ -72,14 +73,22 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   // 17:45 ③: no copy icon on the rows.
   await expect(page.locator('[data-note-row-copy], .basket-row-copy')).toHaveCount(0);
   if (width >= 1024) {
-    // PC: folders only in the left tree (none on the right), the right shows 폴더 없음 notes with '폴더 없음 · 2' above.
+    // PC: folders only in the left tree (none on the right). NOTE-최근5개: the tree starts with '최근' (picked first), the right shows
+    // the latest changed notes of every folder with '최근 · 3' above and the folder name on the row.
     await expect(page.locator('#noteRows [data-nx-folder]')).toHaveCount(0);
-    await expect(here(page)).toHaveText('폴더 없음 · 2');
+    await expect(page.locator('[data-nx-tree] > *').first()).toHaveAttribute('data-nx-recent-item', '');
+    await expect(page.locator('[data-nx-tree] [data-nx-recent-item]')).toHaveClass(/nx-current/);
+    await expect(here(page)).toHaveText('최근 · 3');
     await expect(page.locator('[data-nx-tree] [data-nx-new-top]')).toHaveText('+ 새 폴더');
+    await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(3);
+    await expect(noteRow(page, 'n2').locator('[data-nx-recent-folder]')).toContainText('회의');
+    await press(page, page.locator('[data-nx-tree] [data-nx-open="out"]'), width);
+    await expect(here(page)).toHaveText('폴더 없음 · 2');
     await expect(noteRow(page, 'n1')).toBeVisible(); await expect(noteRow(page, 'n3')).toBeVisible();
     await expect(noteRow(page, 'n2')).toHaveCount(0);
   } else {
-    // Phone first screen: the folder list only (no note rows), 폴더 없음 last, then [+ 새 폴더].
+    // Phone first screen: '최근' (latest changed notes, every folder) above the folder list; the list itself has no note rows, 폴더 없음 last, then [+ 새 폴더].
+    await expect(page.locator('[data-nx-recent] [data-note-row]')).toHaveCount(3);
     await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(0);
     await expect(page.locator('#noteRows > *').last()).toHaveText('+ 새 폴더');
     await expect(here(page)).toBeHidden();

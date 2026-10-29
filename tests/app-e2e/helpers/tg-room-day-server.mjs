@@ -51,7 +51,8 @@ export function linesFor(items,roomDays,from,to,rooms=[]){
  }
  return out.sort((a,b)=>b.day.localeCompare(a.day)||b.last_at.localeCompare(a.last_at));
 }
-export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=[],missing=false,empty=false,calls=[],folders=[],rooms=[],noFolderFns=false}={}){
+// seen: TG-안본것 '봤음' 줄 [{room_key,day,seen_at,updated_at}]. 주지 않으면 DB 적용 전처럼 seen_at 칸이 없다(400 42703, 함수 404).
+export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=[],missing=false,empty=false,calls=[],folders=[],rooms=[],noFolderFns=false,seen=null}={}){
  const days=[
   {workspace_id:'w',day:'2026-10-06',source:'call',total_count:5,kept_count:2,room_count:0,personal_count:2,unsure_count:1,failed_count:0},
   {workspace_id:'w',day:'2026-10-06',source:'telegram',total_count:412,kept_count:5,room_count:3,personal_count:0,unsure_count:0,failed_count:0},
@@ -93,6 +94,10 @@ export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=
  });
  await route('/rest/v1/app_feed_room_days',r=>{
   const q=new URL(r.request().url()).searchParams;
+  if(q.get('seen_at')){
+   if(!seen)return r.fulfill({status:400,json:{code:'42703',message:'column app_feed_room_days.seen_at does not exist'}});
+   return r.fulfill({json:Number(q.get('offset')||0)?[]:seen.filter(x=>x.seen_at).map(x=>({room_key:x.room_key,day:x.day,seen_at:x.seen_at,updated_at:x.updated_at||x.seen_at}))});
+  }
   if(q.get('hidden_at')==='not.is.null')return r.fulfill({json:roomDays.filter(x=>x.hidden_at).map(x=>({room_key:x.room_key,day:x.day,hidden_at:x.hidden_at}))});
   const rd=roomDays.find(x=>x.room_key===eq(q,'room_key')&&x.day===eq(q,'day'));
   return r.fulfill({json:rd?[{parts:rd.parts,hidden_at:rd.hidden_at}]:[]});
@@ -115,6 +120,13 @@ export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=
   if(!rd){if(!items.some(x=>x.room_key===b.p_room_key&&x.day===b.p_day))return bad(r,'TGDG_NOT_FOUND');rd={room_key:b.p_room_key,day:b.p_day,hidden_at:null,parts:[]};roomDays.push(rd);}
   rd.hidden_at=b.p_state==='trashed'?'2026-10-06T01:00:00Z':null;
   return r.fulfill({json:{ok:true,room_key:b.p_room_key,day:b.p_day,state:b.p_state}});
+ });
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_feed_room_day_seen',r=>{
+  if(!seen)return r.fulfill({status:404,json:{code:'PGRST202',message:'Could not find the function public.app_feed_room_day_seen'}});
+  const b=r.request().postDataJSON();writes.push({rpc:'app_feed_room_day_seen',body:b});
+  if(!items.some(x=>x.room_key===b.p_room_key&&x.day===b.p_day&&!x.hidden_at))return r.fulfill({status:400,json:{code:'P0002',message:'TGDG_NOT_FOUND'}});
+  const at='2026-10-07T00:00:00Z';let row=seen.find(x=>x.room_key===b.p_room_key&&x.day===b.p_day);if(!row){row={room_key:b.p_room_key,day:b.p_day,updated_at:at};seen.push(row);}row.seen_at=at;
+  return r.fulfill({json:{ok:true,room_key:b.p_room_key,day:b.p_day,seen_at:at}});
  });
  await fn('app_feed_folder_create',(r,b)=>{
   const name=String(b.p_name||'').trim();
@@ -145,5 +157,5 @@ export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=
   if(r.request().method()==='POST'){writes.push({table:'org_update',body:r.request().postDataJSON()});return r.fulfill({status:201,json:[]});}
   return r.fulfill({json:[]});
  });
- return {items,roomDays,writes,calls,folders,rooms};
+ return {items,roomDays,writes,calls,folders,rooms,seen};
 }

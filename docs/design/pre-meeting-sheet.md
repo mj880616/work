@@ -80,10 +80,10 @@ A 사업장 임금교섭 4차                           내일 11/3(화) 14:00 �
 | --- | --- | --- | --- |
 | 일정(대상) | Google Calendar. 담당조직 연결은 일정의 `extendedProperties.private.kptu_suborg_ids`(사실: `supabase/functions/google-calendar/index.ts` `normEvent` → `organizationIds`) | 화면이 이미 읽은 내일 일정에서 고름(4절). 서버는 Google을 직접 못 읽음(#1431과 같은 판단) → 화면이 `{event_key, title, start, end, location, organization_id}`만 보냄 | 제목·때만 |
 | ① 지난 교섭·회의 결과 | `app_meetings`(`activity_kind in ('negotiation','meeting')`, `transcript_text`·`next_plan`·`series_name`·`round_no`) ↔ 조직 연결 `app_record_links`(`source_meeting_id`·`organization_id`, `status='confirmed'`) — `20261023023500_bizreport_meeting_links.sql` | 그 조직 연결 기록 중 최근 3건 | 결과 요약 앞부분(건당 1,500자까지) |
-| ② 남은 쟁점 | 원장 `app_ledger_records`(조직 연결 `app_ledger_links.target_organization_id` → `app_ledger_organizations.suborganization_id`) 중 `kind in ('event','decision','change')`, `validity='current'` + ①의 `next_plan` | 서버가 모아 AI가 쟁점 줄로 정리 | 제목·요약(S2는 결정 3) |
+| ② 남은 쟁점 | 원장 `app_ledger_records`(조직 연결 `app_ledger_links.target_organization_id` → `app_ledger_organizations.suborganization_id`) 중 `kind in ('event','decision','change')`, `validity='current'` + ①의 `next_plan` | 서버가 모아 AI가 쟁점 줄로 정리 | 제목·요약(S2도 보냄 — 결정 3 변경 10/29) |
 | ③ 상대 | 원장 `counterparty` 칸, 회의 기록의 상대 쪽 이름 | AI가 ①·②에서 상대 쪽 사람·직책만 뽑음(새 사람 표 없음) | ①·②와 같음 |
 | ④ 우리 약속 | 원장 `kind='commitment'`, `commitment_status='waiting'`, 조직 연결 | 다음 주 준비 ③과 같은 조건, 이 조직만 | 제목·기한 |
-| ⑤ 최근 통화·텔레그램 | `app_feed_items`(`organization_id`=이 조직, `hidden_at is null`, 최근 30일) | 업무 통화 `source='call'` + 텔레그램 `source='telegram'` | 통화: 제목·요약. 텔레그램: 결정 4. 원문·보낸 사람 이름 안 보냄 |
+| ⑤ 최근 통화·텔레그램 | `app_feed_items`(`organization_id`=이 조직, `hidden_at is null`, 최근 30일) | 업무 통화 `source='call'` + 텔레그램 `source='telegram'` | 통화: 제목·요약(원문·상대 이름 안 보냄). 텔레그램: 방 이름·요약 + 원문·보낸 사람 표시 이름(결정 4 변경 10/29, 최근 8개·소식마다 600자, 연락처 가림) |
 | ⑥ 주요 인물 | `app_org_key_people`·`app_org_key_people_briefs`(#1429) | 주요 인물 이름 칩 + '요즘' 한 문장을 **그대로 다시 씀**(새 AI 호출 없음, #1434 결과 재사용). 주요 인물의 최근 기록 3줄은 #1433 탭이 읽는 길을 같이 씀 | 이름만(요즘 문장은 이미 만든 것) |
 | ⑦ 관련 자료 | `app_documents`(`organization_id`=이 조직, 최근 순 5건, 분류 '교섭·합의' 먼저) | 자료 줄 그대로 | 제목만 |
 | (머리) 쟁의 단계 | `app_suborganization_dispute_stages`(ORG-쟁의단계) | 지금 단계 이름 | 단계 이름 |
@@ -179,6 +179,8 @@ A 사업장 임금교섭 4차                           내일 11/3(화) 14:00 �
 | ② 다가오는 것만 보임 | 화면이 더 단순. 지난 장은 서버에 남지만 화면에서 안 보임 |
 
 ### 결정 4. 텔레그램 소식을 AI 재료로 보낼까
+
+> 명진 결정 변경(10/29 07:29~07:30, 결정 모음 페이지 댓글): 텔레그램은 원문·보낸 사람 이름까지 보냄. 원장 교섭·전략(S2)도 보냄(결정 3). 개인 통화함·개인 텔레그램·일기는 계속 뺌.
 
 | 선택지 | 내용 |
 | --- | --- |

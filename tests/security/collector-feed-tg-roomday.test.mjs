@@ -31,6 +31,7 @@ function harness({ai=()=>aiOk(),rpc=()=>respond({ok:true}),dup=false,days=[]}={}
     if(url.origin==='https://api.openai.com'){calls.openai.push(JSON.parse(init.body));return ai();}
     assert.equal(url.origin,SB);
     const path=url.pathname.replace('/rest/v1/','');
+    if(path==='rpc/app_operator_feature_workspace')return respond(JSON.stringify(WS));
     if(path.startsWith('rpc/')){
       const fn=path.slice(4);assert.ok([ROOM_TOUCH_FN,ROOM_DAY_ADD_FN].includes(fn),'이 시험에서 부르는 DB 함수는 둘뿐: '+fn);
       const args=JSON.parse(init.body);calls.rpc.push({fn,args,order:calls.items.length});return rpc(fn,args);

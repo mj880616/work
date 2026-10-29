@@ -11,7 +11,7 @@ import {createGoogleTask} from './quick-save.js';
 import {recordNoteTask, noteTaskEntry} from './basket-note-tasks.js';
 
 export const RADAR_KIND_LABEL = Object.freeze({request:'요청', my_task:'내 할 일', deadline:'마감', prepare:'준비', attend:'참석'});
-export const RADAR_SOURCE_LABEL = Object.freeze({basket:'업데이트', note:'노트', work:'일지', meeting:'사업 보고', org_update:'조직 기록', project_update:'프로젝트 기록'});
+export const RADAR_SOURCE_LABEL = Object.freeze({basket:'업데이트', note:'노트', work:'일지', meeting:'사업 보고', org_update:'조직 기록', project_update:'프로젝트 기록', telegram:'텔레그램'});
 // JOURNAL-챙길것화면 ⑥: the first 4 open rows, the rest behind 'N건 더 ›' (home and journal alike).
 export const HOME_ROWS = 4;
 export const TASK_TITLE_MAX = 200;
@@ -49,10 +49,39 @@ export function validCandidate(row) {
 }
 const clean = rows => (Array.isArray(rows) ? rows : []).filter(validCandidate);
 
+// FEAT-1029 ⑤: a telegram candidate (server collector-feed, migration 20261029120000) points at one telegram news row (app_feed_items,
+// owner read). One read per list adds the room (key + name) so the row shows '텔레그램 · 방 이름' and opens that room·day. A failed
+// or missing read only leaves the room out ('텔레그램'); the candidate itself is still shown.
+const ROOM_KEY = /^[A-Za-z0-9_.:-]{1,100}$/;
+async function withTelegramPlaces(rows, rt) {
+  const ids = [...new Set(rows.filter(r => r.source_kind === 'telegram').map(r => String(r.source_id).toLowerCase()))].slice(0, 100);
+  if (!ids.length) return rows;
+  try {
+    const found = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(workspace(rt))}&source=eq.telegram&id=in.(${ids.map(encode).join(',')})&select=id,room_key,room_label&limit=100`, {singleFlight:false});
+    const byId = new Map((Array.isArray(found) ? found : []).filter(f => UUID.test(String(f?.id)) && ROOM_KEY.test(String(f?.room_key || '')))
+      .map(f => [String(f.id).toLowerCase(), {room_key:String(f.room_key), room_label:typeof f.room_label === 'string' ? f.room_label.trim().slice(0, 60) : ''}]));
+    for (const r of rows) if (r.source_kind === 'telegram') { const place = byId.get(String(r.source_id).toLowerCase()); if (place) r.tg = place; }
+  } catch { /* room names are extra; the rows stay */ }
+  return rows;
+}
+// The source words on a row: '텔레그램 · 가지부 간부방' for a telegram candidate whose room is known, else the plain label.
+export function sourceText(c) {
+  const label = RADAR_SOURCE_LABEL[c?.source_kind] || '기록';
+  return c?.source_kind === 'telegram' && c.tg?.room_label ? `${label} · ${c.tg.room_label}` : label;
+}
+
 export async function readOpenCandidates(rt = window.KPTURuntime) {
   try {
     const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false});
-    return {ok:true, rows:clean(rows)};
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+// TG-요청강조: the 텔레그램 소식 list marks the room·day rows that hold an open "나한테 온 요청" (the same ask_me result the collector
+// server saved as a candidate; no new AI judgement). One read of the open telegram candidates plus the room lookup above.
+export async function readTelegramAsks(rt = window.KPTURuntime) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&source_kind=eq.telegram&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false});
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 // BASKET-정리함이름: the 정리함's [챙길 것] side shows what is still open and, under its other chips, what was sent to a task or
@@ -64,7 +93,7 @@ export async function readInboxCandidates(rt = window.KPTURuntime) {
       rt.api(`${base}&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false}),
       rt.api(`${base}&status=in.(tasked,dismissed)&select=${FIELDS}&order=decided_at.desc.nullslast,id.asc&limit=100`, {singleFlight:false}),
     ]);
-    return {ok:true, rows:[...clean(open), ...clean(handled)]};
+    return {ok:true, rows:await withTelegramPlaces([...clean(open), ...clean(handled)], rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 // JOURNAL-챙길것화면 ⑤: home shows what is still open and, folded below, what was handled since `since` (today's start).
@@ -72,7 +101,7 @@ export async function readHomeCandidates(since, rt = window.KPTURuntime) {
   if (!Number.isFinite(Date.parse(since))) return {ok:false};
   try {
     const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&or=${encode(`(status.eq.open,decided_at.gte."${new Date(since).toISOString()}")`)}&select=${FIELDS}&order=created_at.desc,id.asc&limit=150`, {singleFlight:false});
-    return {ok:true, rows:clean(rows)};
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 // The journal shows, for each day of the week, the candidates found in that day's records and what became of them.
@@ -80,7 +109,7 @@ export async function readWeekCandidates(from, to, rt = window.KPTURuntime) {
   if (!DAY.test(from) || !DAY.test(to)) return {ok:false};
   try {
     const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&source_day=gte.${from}&source_day=lte.${to}&select=${FIELDS}&order=created_at.asc,id.asc&limit=300`, {singleFlight:false});
-    return {ok:true, rows:clean(rows)};
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 

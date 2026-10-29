@@ -241,3 +241,21 @@
 @media (max-width:760px){
   #appView #ledgerView .lb-bar{ flex-wrap:wrap; }
 }
+/* FEAT-1029묶음 ⑥ 결정 변경 이력(ledger-browse.js historyHtml): 상세 맨 아래 접힌 한 줄 → 세로 선 타임라인(오래된 것 → 지금). */
+#appView #ledgerView .lb-history{ margin:8px 0 0; border-top:1px solid var(--kptu-border); }
+#appView #ledgerView .lb-history > summary{ list-style:none; cursor:pointer; min-height:28px; display:flex; align-items:center; gap:4px; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); }
+#appView #ledgerView .lb-history > summary::-webkit-details-marker,#appView #ledgerView .lb-hist-row > summary::-webkit-details-marker{ display:none; }
+#appView #ledgerView .lb-hist-list{ position:relative; margin:2px 0 4px 6px; padding:0 0 0 12px; list-style:none; border-left:1.5px solid var(--kptu-border-strong,var(--kptu-border)); }
+#appView #ledgerView .lb-hist-line{ position:relative; font-size:var(--ds-text-meta,12px); }
+#appView #ledgerView .lb-hist-line::before{ content:""; position:absolute; left:-16.5px; top:10px; width:7px; height:7px; border-radius:50%; background:var(--kptu-border-strong,var(--kptu-border)); }
+#appView #ledgerView .lb-hist-line.is-now::before{ background:var(--kptu-primary); }
+#appView #ledgerView .lb-hist-line.is-now,#appView #ledgerView .lb-hist-row > summary{ display:flex; gap:8px; min-height:28px; padding:3px 0; }
+#appView #ledgerView .lb-hist-row > summary{ list-style:none; cursor:pointer; }
+#appView #ledgerView .lb-hist-day{ flex:none; width:42px; color:var(--kptu-faint); }
+#appView #ledgerView .lb-hist-title{ flex:1; min-width:0; color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #ledgerView .lb-hist-line.is-now .lb-hist-title{ color:var(--kptu-ink); }
+#appView #ledgerView .lb-hist-now{ font-size:11px; color:var(--kptu-primary-ink,var(--kptu-primary)); background:var(--kptu-primary-soft); border-radius:4px; padding:0 4px; }
+#appView #ledgerView .lb-hist-why{ display:block; font-size:11px; color:var(--kptu-faint); }
+#appView #ledgerView .lb-hist-body{ margin:0 0 6px 50px; }
+#appView #ledgerView .lb-hist-body h5{ margin:4px 0 2px; }
+#appView #ledgerView .lb-hist-topic{ min-height:28px; font-size:var(--ds-text-meta,12px); }

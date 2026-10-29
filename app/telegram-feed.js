@@ -12,7 +12,7 @@ import {createFeedHold} from './feed-hold.js';
 import {mountSplitResize} from './split-resize.js';
 import {hhmm, dayLabel, telegramLines, telegramToday, telegramHeadText, roomTone, roomInitial, pinnedOf, missingTable, kstDay} from './feed-model.mjs';
 import {readDays, readRaw, readOrganizations, setPinned, setFeedState, scopeOf, readRoomDayLines, readRoomDay, readTitleRows, readPinnedItems, readTrashedItems,
-  readFeedFolders, readFeedRooms, readTrashedDays, setRoom, setRoomDay, createFolder, renameFolder, deleteFolder, readSummaryEdits, editSummary} from './feed-data.js';
+  readFeedFolders, readFeedRooms, readTrashedDays, setRoom, setRoomDay, createFolder, renameFolder, deleteFolder, readSummaryEdits, editSummary, readLineMarks, readSeenDays, markRoomDaySeen} from './feed-data.js';
 import {summaryCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {copyText} from './copy-text.js';
@@ -23,6 +23,10 @@ import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeed
   firstWindow, olderWindow, reachedEnd, chunksOf, cleanFolderName, FOLDER_ERROR_TEXT, archivedRooms, withRoomState,
   swipeIntent, swipeEdge, swipeOffset, swipeSettle, swipeOpenOffset, allowOf, SWIPE_ACTIONS, ACTION_LABEL,
   SUMEDIT, SUMEDIT_TEXT, editMap, itemTarget, dayTarget, itemSummary, isItemEdited, applyLineEdit, dayEdit, cleanSummaryInput, cleanDayInput, dayPatch, sumEditErrorText, linesToText, rawFoldable, rawMoreKey} from './tg-day-model.mjs';
+// TG-요청강조: 나한테 온 요청(챙길 것 후보의 ask_me 결과 재사용) 노란 띠·꼬리표와 [나한테 온 요청 n] 칸, 담당조직·일정 회색 꼬리표(tg-mark-model.mjs).
+// TG-안본것: 안 연 방·날은 이름 옆 작은 점, 연 것은 흐림, [안 본 것 n] 칸. '봤음'은 서버(app_feed_room_days.seen_at, DB 함수 app_feed_room_day_seen)에만 둔다.
+import {askIndex, askTagText, markIndex, markTagText, askCount, filterLines, ASK_TAG, seenIndex, withSeen, isUnseen, unseenCount} from './tg-mark-model.mjs';
+import {readTelegramAsks} from './todo-radar-data.js';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -40,7 +44,7 @@ const ICON = {
 
 // state.mode: live (방·날 목록) | archive (보관함) | trash (휴지통) | senders (보낸 사람 이름). state.folder: 칸 줄에서 고른 폴더('' = 전체). state.swipe: 열려 있는 줄 {key, side}. state.sel: 열린 방 상세 {room, day}. state.open: 원문을 펼친 소식 ID.
 let state = fresh(), run = 0, layer = null, shelfLayer = null, editLayer = null, undo = null, undoTimer = 0;
-function fresh() { return {owner:'', loaded:false, missing:false, error:'', lines:[], from:'', end:false, titles:new Map(), pins:[], trashed:[], trashedDays:[], folders:[], rooms:new Map(), folder:'', swipe:null, fedit:null, mode:'live', days:[], orgs:[], mine:new Set(), sel:null, open:new Set(), more:new Set(), dcache:new Map(), raw:new Map(), link:null, senders:null, sidx:null, sedit:null, sman:null, edits:null, se:null, note:'', status:'', busy:false}; }
+function fresh() { return {owner:'', loaded:false, missing:false, error:'', lines:[], from:'', end:false, titles:new Map(), pins:[], trashed:[], trashedDays:[], folders:[], rooms:new Map(), folder:'', swipe:null, fedit:null, mode:'live', days:[], orgs:[], mine:new Set(), sel:null, open:new Set(), more:new Set(), dcache:new Map(), raw:new Map(), link:null, senders:null, sidx:null, sedit:null, sman:null, edits:null, se:null, note:'', status:'', busy:false, asks:null, markRows:[], marks:new Map(), filter:'', seen:null}; }
 
 function install() {
   if ($('#telegramView')) return;
@@ -64,11 +68,14 @@ async function readLines(from, to) { return (await readRoomDayLines(chunksOf(fro
 async function load() {
   const owner = scopeOf(rt), me = ++run; if (!state.loaded) paint();
   const today = kstDay(), first = firstWindow(today), from = state.from && state.from < first.from ? state.from : first.from;
+  // 요청·꼬리표 재료는 목록과 함께 읽는다(실패해도 목록은 그대로: 요청은 null, 꼬리표는 빈 목록).
+  const extra = Promise.all([readTelegramAsks(rt).catch(() => null), readLineMarks(from, today, rt).catch(() => []), readSeenDays(from, today, rt).catch(() => null)]);
   try {
     const [lines, days, orgs, senders, pins, trashed, folders, rooms, trashedDays, edits] = await Promise.all([readLines(from, today), readDays('telegram', rt).catch(() => []), readOrganizations(rt).catch(() => ({orgs:[], mine:new Set()})), readSenders(rt).catch(() => null), readPinnedItems(rt).catch(() => []), readTrashedItems(rt).catch(() => []),
       readFeedFolders(rt).catch(() => []), readFeedRooms(rt).catch(() => new Map()), readTrashedDays(rt).catch(() => []), readSummaryEdits(rt).then(editMap).catch(() => null)]);
+    const [asks, markRows, seenRows] = await extra;
     if (me !== run || owner !== scopeOf(rt)) return;
-    Object.assign(state, {owner, loaded:true, missing:false, error:'', lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null});
+    Object.assign(state, {owner, loaded:true, missing:false, error:'', lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null, asks:asks?.ok ? askIndex(asks.rows) : null, markRows, marks:markIndex(markRows, orgs.mine), seen:seenRows ? seenIndex(seenRows) : null});
     setSenders(senders);
     if (state.folder && !folders.some(f => f.id === state.folder)) state.folder = '';
     if (state.mode === 'trash' && !trashed.length && !trashedDays.length) leaveShelf();
@@ -88,9 +95,34 @@ async function fillTitles(me) {
 async function extend() {
   const today = kstDay(), win = olderWindow(state.from, today), me = run, owner = scopeOf(rt);
   if (!win) { state.end = true; return false; }
-  const lines = await readLines(win.from, win.to); if (me !== run || owner !== scopeOf(rt)) return false;
+  const [lines, marks, seenRows] = await Promise.all([readLines(win.from, win.to), readLineMarks(win.from, win.to, rt).catch(() => []), state.seen ? readSeenDays(win.from, win.to, rt).catch(() => []) : null]); if (me !== run || owner !== scopeOf(rt)) return false;
+  if (state.seen && seenRows) state.seen = new Map([...state.seen, ...seenIndex(seenRows)]);
   state.lines = [...state.lines, ...withRoomState(lines, state.rooms)]; state.from = win.from; state.end = reachedEnd(win.from, today);
+  state.markRows = [...state.markRows, ...marks]; state.marks = markIndex(state.markRows, state.mine);
   void fillTitles(me); return true;
+}
+// 다른 화면(챙길 것)에서 요청을 처리했거나 다른 기기에서 방을 열었을 수 있으므로, 이미 읽은 목록을 다시 열 때 요청과 '봤음'만 다시 읽는다.
+async function refreshAsks() {
+  const me = run, owner = scopeOf(rt), from = state.from || kstDay();
+  const [asks, seenRows] = await Promise.all([readTelegramAsks(rt).catch(() => null), state.seen ? readSeenDays(from, kstDay(), rt).catch(() => null) : null]);
+  if (me !== run || owner !== scopeOf(rt)) return;
+  if (asks?.ok) state.asks = askIndex(asks.rows);
+  if (state.seen && seenRows) state.seen = seenIndex(seenRows);
+  if (state.filter === 'ask' && !askCount(liveLines(state.lines), state.asks?.byLine)) state.filter = '';
+  paintList(); if (state.sel) paintDetail();
+}
+// 방·날을 열면 그 자리에서 '봤음'으로 바꾸고 서버에 남긴다. 저장하지 못하면 되돌린다(칸이 아직 없으면 안 본 것 표시를 끈다).
+function markSeen(room, day) {
+  const l = lineAt(room, day); if (!state.seen || !l || !isUnseen(l, state.seen)) return;
+  const prev = state.seen, me = run;
+  // 화면 시계보다 늦게 찍힌 소식이 있어도 지금 보이는 것까지는 본 것으로(서버는 저장 시각을 쓴다).
+  state.seen = withSeen(prev, room, day, Math.max(Date.now(), Date.parse(l.last_at) || 0));
+  void markRoomDaySeen(room, day, rt).then(r => {
+    if (me !== run || r.ok) return;
+    if (r.error === 'UNAVAILABLE') state.seen = null;
+    else if (state.seen) { const cur = new Map(state.seen), key = rdKey(room, day); if (prev.has(key)) cur.set(key, prev.get(key)); else cur.delete(key); state.seen = cur; }
+    paintList();
+  });
 }
 function setSenders(data) { state.senders = data; state.sidx = data ? buildIndex(data.senders, data.links) : null; }
 async function reloadSenders() {
@@ -128,9 +160,13 @@ const undoHtml = () => (undo ? `<div class="feed-undo" role="status" data-tg-und
 function chipsHtml() {
   const archived = archivedRooms(state.rooms, state.lines).length;
   const chip = (attr, on, text, cls = '') => `<button type="button" class="feed-chip${cls}" ${attr} aria-pressed="${on}">${esc(text)}</button>`;
-  const folders = state.folders.map(f => chip(`data-tg-folder="${esc(f.id)}"`, state.folder === f.id, f.name)).join('');
+  const folders = state.folders.map(f => chip(`data-tg-folder="${esc(f.id)}"`, !state.filter && state.folder === f.id, f.name)).join('');
+  const asks = state.asks ? askCount(liveLines(state.lines), state.asks.byLine) : 0;
+  const ask = asks || state.filter === 'ask' ? chip('data-tg-filter="ask"', state.filter === 'ask', `나한테 온 요청 ${asks}`, ' is-ask') : '';
+  const unseen = state.seen ? unseenCount(liveLines(state.lines), state.seen) : 0;
+  const news = state.seen && (unseen || state.filter === 'unseen') ? chip('data-tg-filter="unseen"', state.filter === 'unseen', `안 본 것 ${unseen}`) : '';
   const fm = state.folder ? `<button type="button" class="feed-more feed-folder-more" data-ctx="off" data-tg-folder-more aria-haspopup="true" aria-expanded="false" aria-label="폴더 메뉴">${MORE}</button>` : '';
-  return `<div class="feed-chiprow" role="group" aria-label="폴더">${chip('data-tg-folder=""', !state.folder, '전체')}${folders}${fm}<button type="button" class="feed-chip is-add" data-tg-folder-add>+ 폴더</button><button type="button" class="feed-chip is-box" data-tg-shelf="archive">보관함 ${archived}</button></div>`;
+  return `<div class="feed-chiprow" role="group" aria-label="폴더">${chip('data-tg-folder=""', !state.folder && !state.filter, '전체')}${ask}${news}${folders}${fm}<button type="button" class="feed-chip is-add" data-tg-folder-add>+ 폴더</button><button type="button" class="feed-chip is-box" data-tg-shelf="archive">보관함 ${archived}</button></div>`;
 }
 // 폴더 만들기·이름 바꾸기·지우기 상자(칸 줄 바로 아래). create 때 room이 있으면 만든 폴더에 그 방을 넣는다.
 function feditHtml() {
@@ -171,7 +207,10 @@ function swipeRow(key, mode, room, day, inner) {
 }
 function rowHtml(l) {
   const key = rdKey(l.room_key, l.day), on = key === selKey(), text = lineText(lineView(l), state.titles);
-  return swipeRow(key, 'live', l.room_key, l.day, `<div class="feed-rd feed-r${roomTone(l.room_key)}${on ? ' is-selected' : ''}" data-tg-rd="${esc(key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(l.room_label))}</span><button type="button" class="feed-rdb" data-tg-rdopen="${esc(key)}"${on ? ' aria-current="true"' : ''}><span class="feed-rn">${esc(l.room_label)}</span><span class="feed-rl">${esc(text)}</span><span class="feed-ft"><span>소식 ${l.item_count}</span><span>원문 ${l.raw_count}</span></span></button><button type="button" class="feed-hov" data-tg-rdmore="${esc(key)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc(l.room_label)} 메뉴">${MORE}</button></div>`);
+  const ask = askTagText(state.asks?.byLine.get(key)), mark = markTagText(state.marks.get(key));
+  const tags = `${ask ? `<span class="feed-ask" data-tg-ask>${esc(ask)}</span>` : ''}`;
+  const fresh = state.seen ? isUnseen(l, state.seen) : null, dot = fresh ? '<span class="feed-unseen" data-tg-unseen aria-hidden="true"></span><span class="a11y-only">안 본 것</span>' : '';
+  return swipeRow(key, 'live', l.room_key, l.day, `<div class="feed-rd feed-r${roomTone(l.room_key)}${on ? ' is-selected' : ''}${ask ? ' is-ask' : ''}${fresh === false ? ' is-seen' : ''}" data-tg-rd="${esc(key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(l.room_label))}</span><button type="button" class="feed-rdb" data-tg-rdopen="${esc(key)}"${on ? ' aria-current="true"' : ''}><span class="feed-rn">${esc(l.room_label)}${dot}</span><span class="feed-rl">${esc(text)}</span>${tags}<span class="feed-ft"><span>소식 ${l.item_count}</span><span>원문 ${l.raw_count}</span>${mark ? `<span class="feed-mark" data-tg-mark>${esc(mark)}</span>` : ''}</span></button><button type="button" class="feed-hov" data-tg-rdmore="${esc(key)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc(l.room_label)} 메뉴">${MORE}</button></div>`);
 }
 // 보관함의 방 한 줄: 방 이름 · 최근 날 · 한 줄 · [꺼내기]. 줄을 누르면 가장 최근 날의 방 상세가 열린다.
 function archiveRowHtml(r) {
@@ -198,10 +237,10 @@ function paintList() {
     const days = state.trashedDays.length ? `<div class="feed-grp">삭제한 날 ${state.trashedDays.length}</div>${state.trashedDays.map(trashDayRowHtml).join('')}` : '', items = state.trashed.length ? `<div class="feed-grp">삭제한 소식 ${state.trashed.length}</div>${state.trashed.map(trashRowHtml).join('')}` : '';
     box.innerHTML = headHtml() + `<div class="feed-feed">${days}${items}</div>` + tail; return;
   }
-  const lines = liveLines(state.lines, {folder:state.folder}), pins = pinnedOf(state.pins);
+  const lines = filterLines(liveLines(state.lines, {folder:state.filter ? '' : state.folder}), state.filter, {byLine:state.asks?.byLine, seen:state.seen, keep:selKey()}), pins = pinnedOf(state.pins);
   const pinbar = pins.length ? `<button type="button" class="feed-pinbar" data-tg-pin-open="${esc(pins[0].id)}" data-tg-pinbar><span class="feed-pt">${esc(pins[0].room_label)} · ${esc(sumOf(pins[0]) || pins[0].title || '')}</span><span class="feed-cnt">고정 ${pins.length}</span></button>` : '';
   const groups = groupLines(lines);
-  const none = state.folder ? '이 폴더에 넣은 방의 소식이 아직 없어요.' : '아직 받은 텔레그램 소식이 없어요.';
+  const none = state.filter === 'ask' ? '나한테 온 요청이 있는 소식이 없어요.' : state.filter === 'unseen' ? '안 본 소식이 없어요.' : state.folder ? '이 폴더에 넣은 방의 소식이 아직 없어요.' : '아직 받은 텔레그램 소식이 없어요.';
   const feed = groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(rowHtml).join('')}`).join('') : `<p class="feed-empty" data-tg-empty="none">${none}</p>`;
   const older = state.end ? '' : '<div class="feed-older"><button type="button" class="feed-text-btn" data-tg-older>이전 날 더 보기</button></div>';
   box.innerHTML = headHtml() + pinbar + `<div class="feed-feed">${feed}</div>${older}` + tail;
@@ -224,7 +263,8 @@ function itemHtml(r) {
   if (state.se?.kind === 'item' && state.se.id === r.id) return `<div class="feed-di is-open" data-tg-di="${esc(r.id)}"><div class="feed-di-row"><span class="feed-at">${esc(hhmm(r.occurred_at))}</span><div class="feed-se-wrap">${sumeditHtml(state.se)}</div></div></div>`;
   const on = state.open.has(r.id);
   const body = on ? `${state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'tg') : ''}${rawHtml(r)}` : '';
-  return `<div class="feed-di${on ? ' is-open' : ''}" data-tg-di="${esc(r.id)}"><div class="feed-di-row"><span class="feed-at">${esc(hhmm(r.occurred_at))}</span><button type="button" class="feed-dib" data-tg-open="${esc(r.id)}" aria-expanded="${on}"><span class="feed-tx">${esc(sumOf(r) || r.title || '')}</span><span class="feed-ft"><span>원문 ${Number(r.raw_count) || 0}</span>${isItemEdited(r, state.edits) ? '<span class="feed-edited">고침</span>' : ''}${r.pinned_at ? '<span class="feed-pin">고정</span>' : ''}${r.organization_id ? `<span>${esc(orgName(state.orgs, r.organization_id) || '')}</span>` : ''}</span></button><button type="button" class="feed-more" data-tg-more="${esc(r.id)}" aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button></div>${body}</div>`;
+  const ask = state.asks?.byItem.get(String(r.id).toLowerCase()) || '';
+  return `<div class="feed-di${on ? ' is-open' : ''}${ask ? ' is-ask' : ''}" data-tg-di="${esc(r.id)}"><div class="feed-di-row"><span class="feed-at">${esc(hhmm(r.occurred_at))}</span><button type="button" class="feed-dib" data-tg-open="${esc(r.id)}" aria-expanded="${on}"><span class="feed-tx">${esc(sumOf(r) || r.title || '')}</span>${ask ? `<span class="feed-ask" data-tg-ask>${esc(`${ASK_TAG} · ${ask}`)}</span>` : ''}<span class="feed-ft"><span>원문 ${Number(r.raw_count) || 0}</span>${isItemEdited(r, state.edits) ? '<span class="feed-edited">고침</span>' : ''}${r.pinned_at ? '<span class="feed-pin">고정</span>' : ''}${r.organization_id ? `<span>${esc(orgName(state.orgs, r.organization_id) || '')}</span>` : ''}</span></button><button type="button" class="feed-more" data-tg-more="${esc(r.id)}" aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button></div>${body}</div>`;
 }
 function rawHtml(r) {
   const raw = state.raw.get(r.id);
@@ -385,7 +425,7 @@ function saveMan() {
 function select(room, day, item = '') {
   if (state.link && !dropLink()) return;
   if (state.sedit?.kind === 'raw') endEdit();
-  state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); state.more = new Set(); undo = null;
+  state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); state.more = new Set(); undo = null; markSeen(room, day);
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-day', {close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
   paint(); void ensureDetail().then(() => { if (item) void loadRaw(item); });
   (pc.matches ? $(`#tgList [data-tg-rdopen="${CSS.escape(rdKey(room, day))}"]`) : $('#tgDetail [data-tg-back]'))?.focus({preventScroll:true});
@@ -411,7 +451,7 @@ async function navDay(dir) {
   }
   const day = dir === 'prev' ? nb.prev : nb.next; if (!day) return;
   if (state.sedit?.kind === 'raw') endEdit();
-  state.sel = {room:sel.room, day}; state.open = new Set(); state.more = new Set(); state.link = null; state.note = ''; state.status = '';
+  state.sel = {room:sel.room, day}; state.open = new Set(); state.more = new Set(); state.link = null; state.note = ''; state.status = ''; markSeen(sel.room, day);
   paint(); void ensureDetail();
 }
 function dropLink() { const r = itemOf(state.link?.rowId), changed = state.link && r && state.link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed && !window.confirm('쓰던 요약을 버릴까요?')) return false; state.link = null; return true; }
@@ -755,7 +795,8 @@ function bind() {
     else if (d.tgUnarchive) void moveRoom(d.tgUnarchive, roomRow(d.tgUnarchive).folder_id, false, '꺼냈어요');
     else if (d.tgRdmore) rmenu.open(b);
     else if (b.hasAttribute('data-tg-folder-more')) femenu.open(b);
-    else if (d.tgFolder !== undefined) { state.folder = d.tgFolder; state.fedit = null; paintList(); $(`#tgList [data-tg-folder="${CSS.escape(d.tgFolder)}"]`)?.focus({preventScroll:true}); }
+    else if (d.tgFilter) { const on = state.filter !== d.tgFilter; state.filter = on ? d.tgFilter : ''; if (on) state.folder = ''; state.fedit = null; paintList(); $(`#tgList [data-tg-filter="${CSS.escape(d.tgFilter)}"]`)?.focus({preventScroll:true}); }
+    else if (d.tgFolder !== undefined) { state.folder = d.tgFolder; state.filter = ''; state.fedit = null; paintList(); $(`#tgList [data-tg-folder="${CSS.escape(d.tgFolder)}"]`)?.focus({preventScroll:true}); }
     else if (b.hasAttribute('data-tg-folder-add')) startFolderEdit('create');
     else if (d.tgShelf) enterShelf(d.tgShelf);
     else if (b.hasAttribute('data-tg-fedit-cancel')) cancelFolderEdit();
@@ -806,7 +847,7 @@ function bind() {
 bind();
 
 window.addEventListener('kptu:view-changed', e => {
-  if (e.detail?.view === 'telegram') { if (!state.loaded || state.owner !== scopeOf(rt)) void load(); else paint(); return; }
+  if (e.detail?.view === 'telegram') { if (!state.loaded || state.owner !== scopeOf(rt)) void load(); else { paint(); void refreshAsks(); } return; }
   layer = null; shelfLayer = null; editLayer = null; state.link = null; state.sedit = null; state.sman = null; state.fedit = null; state.se = null; state.swipe = null; state.mode = 'live'; menu.close?.(null, true); pmenu.close?.(null, true); rmenu.close?.(null, true); fmenu.close?.(null, true); femenu.close?.(null, true);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'telegram', name:null}}));
 });
