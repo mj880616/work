@@ -8,6 +8,8 @@
 //   글은 전사 칸(#mtdText)에 넣고 바로 위 [초안 채우기]와 같은 흐름을 이어 부른다. 서버는 전사 글을 저장하지 않는다.
 //   [이 회의에 녹음 붙이기]를 켜 두면 [사업 보고 저장] 뒤(kptu:record-saved) 그 회의 자료로 녹음 링크를 붙인다.
 //   붙이지 않은 녹음은 서버가 30일 뒤 Drive 휴지통으로 옮긴다(기기에는 아무것도 남기지 않음).
+// - MTG-노트북녹음 2단계: 노트북 [녹음](meeting-recorder.js)이 [멈추고 정리] 뒤 window.KPTUMeetingTranscriptDraft.fill로 합친 전사 글과
+//   구간 전사 작업 id들을 넘긴다. 같은 [초안 채우기]가 돌고, [이 회의에 녹음 붙이기]는 켜진 채로 시작해 저장 뒤 구간마다 attach한다.
 // - 기기 저장 없음: 넣은 전사 글·고른 녹음은 창이 열려 있는 동안 화면에만 있다.
 import {bindDropTarget} from './meeting-compact.js';
 import {waitInlineHtml} from './wait-state.js';
@@ -22,8 +24,8 @@ window.__KPTU_MEETING_TRANSCRIPT_DRAFT__=true;
 const $=s=>document.querySelector(s);
 const FN='/functions/v1/meeting-transcribe';
 let epoch=0,busy=false,fileInfo={date:'',time:''},fileName='';
-// 고른 녹음(화면에만)과 끝난 전사 작업. attachJob: [사업 보고 저장] 뒤 그 회의에 붙일 작업 id.
-let audio=null,audioSeconds=null,audioJob='',attachJob='';
+// 고른 녹음(화면에만)과 끝난 전사 작업. recJobs: 노트북 녹음의 구간 전사 작업들. attachJobs: [사업 보고 저장] 뒤 그 회의에 붙일 작업 id들.
+let audio=null,audioSeconds=null,audioJob='',recJobs=[],attachJobs=[];
 
 function install(){
   if($('#mtdBar'))return true;
@@ -58,15 +60,15 @@ function status(text,kind=''){const el=$('#mtdStatus');if(!el)return;el.textCont
 function paintFile(){const el=$('#mtdFileName');if(el)el.textContent=fileName||'전사 글 txt·녹음 파일을 고르거나 끌어 놓기'}
 function paintAudio(){
   const box=$('#mtdAudio');if(!box)return;
-  box.hidden=!audio;
-  const btn=$('#mtdTranscribe');if(btn){btn.disabled=busy||!audio||!!audioJob;btn.textContent=audioJob?'전사 끝':'전사'}
+  box.hidden=!audio&&!recJobs.length;
+  const btn=$('#mtdTranscribe');if(btn){btn.hidden=!audio;btn.disabled=busy||!audio||!!audioJob;btn.textContent=audioJob?'전사 끝':'전사'}
   const wait=$('#mtdWait');if(wait)wait.innerHTML=busy&&audio&&!audioJob?waitInlineHtml():'';
 }
-function clearAudio(){audio=null;audioSeconds=null;audioJob='';const a=$('#mtdAttach');if(a)a.checked=false;paintAudio()}
+function clearAudio(){audio=null;audioSeconds=null;audioJob='';recJobs=[];const a=$('#mtdAttach');if(a)a.checked=false;paintAudio()}
 // 진행 중인 요약은 버린다(늦게 온 답이 다른 창·다른 칸을 채우지 않게).
 function stop(){epoch++;busy=false;const run=$('#mtdRun');if(run){run.disabled=false;run.textContent='초안 채우기'}paintAudio()}
 function reset(){
-  stop();fileName='';fileInfo={date:'',time:''};attachJob='';clearAudio();
+  stop();fileName='';fileInfo={date:'',time:''};attachJobs=[];clearAudio();
   const text=$('#mtdText');if(text)text.value='';
   paintFile();status('');toggle(false);
 }
@@ -133,7 +135,7 @@ async function transcribe(){
     const text=cleanTranscript(String(done?.text||''),file.name);
     if(!text)throw new Error(transcribeFailText('empty_transcript'));
     audioJob=up.job_id;
-    if($('#mtdAttach')?.checked)attachJob=audioJob;
+    syncAttach();
     $('#mtdText').value=text;fileName=file.name;fileInfo=dateFromName(file.name);
     busy=false;paintAudio();
     // 끝나면 기존 '전사 글 → 회의 기록 초안' 흐름을 그대로 잇는다.
@@ -147,15 +149,21 @@ async function transcribe(){
   }
 }
 // [이 회의에 녹음 붙이기]: 전사가 끝난 뒤 켜거나 끌 수도 있다.
-function syncAttach(){attachJob=audioJob&&$('#mtdAttach')?.checked?audioJob:''}
+function syncAttach(){const jobs=audioJob?[audioJob]:recJobs;attachJobs=$('#mtdAttach')?.checked?[...jobs]:[]}
 // [사업 보고 저장]이 회의를 만든 뒤(team.js saveMeeting). 실패해도 회의는 그대로이고 녹음은 Drive에 남는다(30일 뒤 정리).
 window.addEventListener('kptu:record-saved',e=>{
-  const id=e.detail?.kind==='meeting'?e.detail?.id:'',job=attachJob;
-  if(!id||!job)return;
-  attachJob='';
-  window.KPTURuntime?.api?.(FN+'?action=attach',{method:'POST',body:{job_id:job,meeting_id:id},singleFlight:false})
-    .then(()=>window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}})))
-    .catch(err=>console.warn('meeting recording attach failed',err?.status||''));
+  const id=e.detail?.kind==='meeting'?e.detail?.id:'',jobs=attachJobs;
+  if(!id||!jobs.length)return;
+  attachJobs=[];
+  // 노트북 녹음은 구간마다 한 파일이라 차례로 붙인다(하나가 실패해도 나머지는 붙인다).
+  void (async()=>{
+    let any=false;
+    for(const job of jobs){
+      try{await window.KPTURuntime?.api?.(FN+'?action=attach',{method:'POST',body:{job_id:job,meeting_id:id},singleFlight:false});any=true}
+      catch(err){console.warn('meeting recording attach failed',err?.status||'')}
+    }
+    if(any)window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));
+  })();
 });
 
 function addAction(row){
@@ -168,12 +176,13 @@ function addAction(row){
 }
 
 async function run(){
-  if(busy)return;
+  if(busy)return false;
+  let ok=false;
   const text=cleanTranscript($('#mtdText')?.value||'',fileName);
-  if(!text){status('전사 글을 붙여 넣거나 파일을 넣어 주세요.','error');$('#mtdText')?.focus();return}
+  if(!text){status('전사 글을 붙여 넣거나 파일을 넣어 주세요.','error');$('#mtdText')?.focus();return false}
   const rt=window.KPTURuntime,context=rt?.context?.read?.();
   const workspaceId=context?.workspace?.id;
-  if(!rt?.api||!workspaceId){status('로그인 상태를 확인하지 못했어요.','error');return}
+  if(!rt?.api||!workspaceId){status('로그인 상태를 확인하지 못했어요.','error');return false}
   const mine=++epoch,btn=$('#mtdRun');
   busy=true;if(btn){btn.disabled=true;btn.textContent='요약 중…'}
   status(text.length>MAX_TRANSCRIPT_CHARS?`글이 길어 앞 ${MAX_TRANSCRIPT_CHARS.toLocaleString('ko-KR')}자만 요약해요. 요약 중…`:'요약 중… 1분쯤 걸릴 수 있어요.');
@@ -186,7 +195,7 @@ async function run(){
       transcript_text:text.slice(0,MAX_TRANSCRIPT_CHARS)
     }});
     // 창을 닫았거나 다시 연 뒤에 온 답은 버린다.
-    if(mine!==epoch||$('#meetingModal')?.classList.contains('hidden'))return;
+    if(mine!==epoch||$('#meetingModal')?.classList.contains('hidden'))return false;
     const draft=normalizeDraft(data);
     if(!draft)throw new Error('invalid_meeting_draft');
     const next=pickMeetingAt({current:at,file:fileInfo,aiDate:draft.meetingDate,textDate:dateFromText(text)});
@@ -198,14 +207,32 @@ async function run(){
     const warn=(data?.warnings||[]).length;
     status(`초안을 채웠어요${added?` · 후속 할 일 ${added}개`:''}${warn?` · 확인할 것 ${warn}건`:''}. 고친 뒤 [사업 보고 저장]을 누르세요.`,'ok');
     toggle(false);
+    ok=true;
   }catch(e){
-    if(mine!==epoch)return;
+    if(mine!==epoch)return false;
     console.error('meeting transcript draft failed',e);
     status(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':'초안을 만들지 못했어요. 넣은 글은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.','error');
   }finally{
     if(mine===epoch){busy=false;if(btn){btn.disabled=false;btn.textContent='초안 채우기'}}
   }
+  return ok;
 }
+
+// MTG-노트북녹음: 노트북 녹음의 합친 전사 글을 넣고 [초안 채우기]를 부른다. 창은 부른 쪽이 먼저 연다(KPTUReportEntry.open, [회의] 칸).
+// jobs: 구간 전사 작업 id들([이 회의에 녹음 붙이기]는 켠 채로 시작, 끄면 붙이지 않음). 초안을 채웠으면 true.
+async function fill({text='',jobs=[],name=''}={}){
+  if(!install()||$('#meetingModal')?.classList.contains('hidden'))return false;
+  stop();
+  audio=null;audioSeconds=null;audioJob='';
+  recJobs=(Array.isArray(jobs)?jobs:[]).filter(Boolean);
+  const attach=$('#mtdAttach');if(attach)attach.checked=recJobs.length>0;
+  syncAttach();
+  fileName=name||'노트북 녹음';fileInfo={date:'',time:''};paintFile();paintAudio();
+  $('#mtdText').value=String(text||'');
+  toggle(true);
+  return run();
+}
+window.KPTUMeetingTranscriptDraft={fill};
 
 // 창이 열릴 때(team.js openMeetingModal이 칸 글자를 칠하며 알림)와 칸을 바꿀 때. [회의] 칸에서만 보인다.
 window.addEventListener('kptu:report-entry-kind',e=>{

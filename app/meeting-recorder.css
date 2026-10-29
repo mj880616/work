@@ -1,0 +1,38 @@
+/* MTG-노트북녹음 2단계: 노트북 녹음 띠(#recBand)·사업 보고 [녹음]·'이어서 정리' 한 줄. 그리는 곳은 meeting-recorder.js 하나.
+   띠는 화면 맨 위 얇은 줄(32px). 녹음 중에는 본문을 띠 높이만큼 내리고, 화면 높이에 맞춰 그리는 화면이 빼는 --kptu-topline-space에도 더한다.
+   버튼은 UI-버튼기준의 안내 줄 보조 버튼(28px·12px·테두리 없음, 누르는 범위 44px은 ::after). 색은 공용 값만. */
+.rec-band{position:fixed;z-index:70;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;box-sizing:border-box;height:var(--rec-band-height,32px);padding:0 12px;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border);color:var(--kptu-ink);font-size:var(--ds-text-meta,12px);line-height:1.2}
+.rec-band[hidden]{display:none}
+.rec-band .rec-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--kptu-danger)}
+.rec-band[data-state="paused"] .rec-dot,.rec-band[data-state="finishing"] .rec-dot,.rec-band[data-state="done"] .rec-dot,.rec-band[data-state="starting"] .rec-dot{background:var(--kptu-muted)}
+.rec-band[data-state="error"] .rec-dot{background:var(--kptu-danger)}
+.rec-band[data-state="recording"] .rec-dot{animation:rec-blink 1.6s ease-in-out infinite}
+@keyframes rec-blink{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.rec-band[data-state="recording"] .rec-dot{animation:none}}
+.rec-band .rec-label{flex:none;font-weight:var(--ds-weight-medium,600)}
+.rec-band[data-state="recording"] .rec-label{color:var(--kptu-danger)}
+.rec-band .rec-time{flex:none;font-variant-numeric:tabular-nums;color:var(--kptu-ink)}
+.rec-band .rec-note{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-muted)}
+.rec-band .rec-note strong{color:var(--kptu-ink);font-weight:var(--ds-weight-medium,600)}
+.rec-band .rec-step-done{color:var(--kptu-ink)}
+.rec-band .rec-sub{margin-left:6px}
+.rec-band[data-state="error"] .rec-note{color:var(--kptu-danger)}
+.rec-band .rec-actions{flex:none;display:flex;align-items:center;gap:2px}
+.rec-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:var(--ds-compact-height-sm,28px);min-height:var(--ds-compact-height-sm,28px);padding:0 8px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,600);line-height:1;white-space:nowrap;cursor:pointer}
+.rec-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.rec-band .rec-btn::after{top:calc(50% - var(--rec-band-height,32px) / 2);height:var(--rec-band-height,32px)}
+.rec-btn:hover{background:var(--kptu-surface-subtle)}
+.rec-btn:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.rec-band .rec-stop{color:var(--kptu-danger)}
+body.rec-on{padding-top:var(--rec-band-height,32px)}
+@media (min-width:1024px){
+  body.rec-on #appView{--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--rec-band-height,32px))}
+  body.rec-on #appView>.app-nav{top:calc(12px + var(--rec-band-height,32px));height:calc(100dvh - 24px - var(--rec-band-height,32px))}
+}
+/* 사업 보고 위쪽 줄 [녹음]: [+ 사업 보고] 왼쪽의 작은 낮은 버튼(32px). PC에서만 보이고(hidden은 화면이 정함) 녹음 중에는 '녹음 중'으로 꺼진다. */
+#appView #meetingsView .report-head-actions>#reportRecordBtn{height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,10px);font-size:var(--ds-compact-text,13px)}
+#appView #meetingsView .report-head-actions>#reportRecordBtn::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:var(--kptu-danger)}
+/* '이어서 정리' 한 줄: 사업 보고 목록 위 */
+.rec-pending{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:2px 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.rec-pending[hidden]{display:none}
+.rec-pending-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

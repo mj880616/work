@@ -385,7 +385,7 @@
 #meetingsView #reportWeekFilter .report-week-label small{color:var(--kptu-muted)}
 /* MTG-녹음초안: [회의] 입력 창의 [녹음·전사 넣기] 줄과 접힌 패널. 버튼은 공용 작은 버튼(button.secondary 32px), 글자는 메타 크기. */
 #meetingModal .mtd-bar{display:flex;align-items:center;flex-wrap:wrap;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2)}
-#meetingModal .mtd-bar[hidden],#meetingModal .mtd-panel[hidden]{display:none}
+#meetingModal .mtd-bar[hidden],#meetingModal .mtd-panel[hidden],#meetingModal .mtd-audio [hidden]{display:none}
 #meetingModal .mtd-status{flex:1 1 12em;min-width:0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
 #meetingModal .mtd-status.ok{color:var(--kptu-success)}
 #meetingModal .mtd-status.error{color:var(--kptu-danger)}
