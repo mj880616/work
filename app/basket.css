@@ -125,6 +125,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 /* BASKET-정리함한화면: 맨 위 한 줄 '챙길 것 n · 업데이트 n · 마지막 찾기 hh:mm' + 오른쪽 끝 작은 [다시 찾기].
    그 아래 '챙길 것' 칸(제목 줄 오른쪽 작은 칩 처리 전·보냄·무시), 그 아래 '업데이트' 칸(제목 줄 + 미분류·분류 완료·보류). 두 칸을 한 목록으로 합치지 않는다. */
 #appView #basketView > .basket-head:not([hidden]) { display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0 0 4px; }
+/* NOTE-최근5개 ③: 보일 것이 없는 머리줄(제목은 읽기 프로그램용, 요약·[다시 찾기]는 감춤 — PC 노트 쪽)은 높이 없이 둔다(위쪽 빈 띠 56px). 제목은 읽기 프로그램에 그대로 남는다. */
+#appView #basketView > .basket-head:not([hidden]):not(:has(> :not(.a11y-only,[hidden]))) { min-height:0; margin:0; }
 #appView #basketView > .basket-head .inbox-summary { flex:1 1 auto; min-width:0; margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); font-variant-numeric:tabular-nums; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #appView #basketView .inbox-find,#appView #basketView .inbox-chip { position:relative; flex:none; height:var(--ds-compact-height,32px); min-height:var(--ds-compact-height,32px); margin:0; padding:0 var(--ds-compact-pad-x,10px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:8px; box-shadow:none; background-image:none; font-size:13px; font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; }
 #appView #basketView :is(.inbox-find,.inbox-chip)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
@@ -247,6 +249,10 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-here-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-ink); font-weight:500; }
 .nx-here-num { flex:none; }
 #appView #basketView [data-note-list] .nx-here button.nx-back { min-width:32px; justify-content:center; font-size:15px; color:var(--kptu-ink); }
+/* NOTE-최근5개(10/29): 폰 첫 화면 폴더 목록 위 '최근' 5줄(노트 한 줄 모양 그대로, 오른쪽 작은 폴더 이름) + 그 아래 얇은 선. 작은 회색 이름표 하나. */
+.nx-recent:not([hidden]) { display:block; margin:0 0 4px; padding-bottom:4px; border-bottom:var(--ds-line-width, .5px) solid var(--ds-line, var(--kptu-border)); }
+.nx-recent .nx-sec { min-height:22px; display:flex; align-items:center; padding:0 6px; font-size:12px; color:var(--kptu-muted); }
+#appView #basketView [data-note-list] .nx-recent-item + .nx-folder { border-top:var(--ds-line-width, .5px) solid var(--ds-line, var(--kptu-border)); }
 .note-meta-ai-off { font-size:12px; color:var(--kptu-muted); }
 /* 17:45 ③: PC(마우스)는 노트·폴더 줄의 ⋯를 마우스를 올리거나 키보드로 갔을 때만 보인다(누르는 자리는 그대로). 손가락 기기는 그대로. */
 @media (hover:hover) and (pointer:fine) {

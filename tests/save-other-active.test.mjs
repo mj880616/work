@@ -11,7 +11,7 @@ const {originAfterEdit}=await import('../app/library-ai-fill.js');
 const {lastSeen}=await import('../app/split-last.js');
 const {reportKindOf}=await import('../app/report-kinds.mjs');
 const {createReportSummaries}=await import('../app/report-link-summaries.js');
-const pureModels={createReportSummaries,...await import('../app/meeting-when.js'),...await import('../app/report-kinds.mjs'),...await import('../app/report-words.mjs'),...await import('../app/report-links-model.mjs'),...await import('../app/record-doc.mjs'),...await import('../app/note-preview.mjs')};
+const pureModels={createReportSummaries,...await import('../app/meeting-when.js'),...await import('../app/report-kinds.mjs'),...await import('../app/report-words.mjs'),...await import('../app/report-links-model.mjs'),...await import('../app/record-doc.mjs'),...await import('../app/note-preview.mjs'),...await import('../app/pick-fold.mjs')};
 
 // Execute actual declarations unchanged; omit startup, imported presentation and events.
 // API/DOM here are synthetic. Active route/click behavior is covered by the browser spec.

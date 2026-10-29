@@ -5,9 +5,10 @@ export const TASK_LIMIT = 2;
 export const MISSED_LIMIT = 3;
 
 const count = v => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
-// 날짜 줄 옆 한 줄: '일정 3 · 할 일 4 · 새 소식 12'. 아직 모르는 값(null)과 새 소식이 없는 곳(null)은 뺀다.
-export function summaryText({events, tasks, news} = {}) {
-  const parts = [['일정', count(events)], ['할 일', count(tasks)], ['새 소식', count(news)]]
+// 날짜 줄 옆 한 줄: '일정 3 · 할 일 4 · 새 소식 12 · 나한테 온 요청 2'. 아직 모르는 값(null)과 새 소식이 없는 곳(null)은 뺀다.
+// 나한테 온 요청(TG-요청강조)은 1건 이상일 때만 붙인다.
+export function summaryText({events, tasks, news, asks} = {}) {
+  const parts = [['일정', count(events)], ['할 일', count(tasks)], ['새 소식', count(news)], ['나한테 온 요청', count(asks) || null]]
     .filter(([, n]) => n !== null).map(([name, n]) => `${name} ${n}`);
   return parts.join(' · ');
 }
