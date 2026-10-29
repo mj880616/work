@@ -101,8 +101,8 @@ test('reopening shows the last result first, marks the refresh, then replaces it
   await expect.poll(()=>holding).toBeTruthy();
   await expect(page.locator('#gtTaskSection')).toContainText('직전 결과');
   // CAL-저장본먼저: the shared freshness line (data-freshness.js) marks the refresh.
-  await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toHaveText('새로 불러오는 중');
-  await expect(page.locator('#gtTaskBody')).not.toContainText('불러오는 중');
+  await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toHaveAttribute('data-freshness','refresh');await expect(page.locator('#gtTaskSection [data-gt-fresh]').locator('[data-wait]')).toHaveCount(1);
+  await expect(page.locator('#gtTaskBody [data-wait]')).toHaveCount(0);
   release();
   await expect(page.locator('#gtTaskSection')).toContainText('새 결과');
   await expect(page.locator('#gtTaskSection')).not.toContainText('직전 결과');
@@ -175,7 +175,7 @@ test('a cached copy from before 묶음C-4 (v1) is never shown and is removed',as
   await page.addInitScript(([k,v])=>{if(!sessionStorage.getItem('qa-seeded')){localStorage.setItem(k,v);sessionStorage.setItem('qa-seeded','1')}},[OLD_CACHE_KEY,JSON.stringify({owner:'qa-user',savedAt:Date.now(),tasks:[task('v1','옛 사본 결과')]})]);
   await login(page);await openTasks(page);
   await expect.poll(()=>holding).toBeTruthy();
-  await expect(page.locator('#gtTaskBody')).toContainText('불러오는 중');
+  await expect(page.locator('#gtTaskBody [data-wait]')).toHaveCount(1);
   await expect(page.locator('#gtTaskSection')).not.toContainText('옛 사본 결과');
   await expect.poll(()=>page.evaluate(k=>localStorage.getItem(k),OLD_CACHE_KEY)).toBeNull();
   release();

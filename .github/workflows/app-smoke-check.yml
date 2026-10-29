@@ -18,10 +18,15 @@ on:
       - 'tests/security/helpers/postgrest-jsonb.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
+      - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
+      - 'tests/note-secret-server.test.mjs'
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
+      - 'tests/ui-cleanup-b.test.mjs'
+      - 'tests/ui-cleanup-c.test.mjs'
+      - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
       - 'tests/select-menu.test.mjs'
@@ -35,10 +40,10 @@ on:
       - 'tests/activity-photo.test.mjs'
       - 'tests/report-views.test.mjs'
       - 'tests/chip-no-ellipsis.test.mjs'
+      - 'tests/color-swatch.test.mjs'
       - 'tests/grid-fr-guard.test.mjs'
       - 'tests/drive-summary-refresh.test.mjs'
       - 'tests/basket-classification.test.mjs'
-      - 'tests/basket-ai-handoff.test.mjs'
       - 'tests/basket-upload.test.mjs'
       - 'tests/basket-ocr-text.test.mjs'
       - 'tests/basket-ocr.test.mjs'
@@ -50,6 +55,9 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-transcript-model.test.mjs'
+      - 'tests/meeting-recorder-model.test.mjs'
+      - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -74,6 +82,8 @@ on:
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
       - 'tests/global-search-model.test.mjs'
+      - 'tests/ask-web2-model.test.mjs'
+      - 'app/ask-web2-model.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
       - 'tests/ledger-export-model.test.mjs'
       - 'tests/ledger-auto-model.test.mjs'
@@ -112,10 +122,15 @@ on:
       - 'tests/security/helpers/postgrest-jsonb.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
+      - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
+      - 'tests/note-secret-server.test.mjs'
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
+      - 'tests/ui-cleanup-b.test.mjs'
+      - 'tests/ui-cleanup-c.test.mjs'
+      - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
       - 'tests/select-menu.test.mjs'
@@ -129,10 +144,10 @@ on:
       - 'tests/activity-photo.test.mjs'
       - 'tests/report-views.test.mjs'
       - 'tests/chip-no-ellipsis.test.mjs'
+      - 'tests/color-swatch.test.mjs'
       - 'tests/grid-fr-guard.test.mjs'
       - 'tests/drive-summary-refresh.test.mjs'
       - 'tests/basket-classification.test.mjs'
-      - 'tests/basket-ai-handoff.test.mjs'
       - 'tests/basket-upload.test.mjs'
       - 'tests/basket-ocr-text.test.mjs'
       - 'tests/basket-ocr.test.mjs'
@@ -144,6 +159,9 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-transcript-model.test.mjs'
+      - 'tests/meeting-recorder-model.test.mjs'
+      - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -168,6 +186,8 @@ on:
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
       - 'tests/global-search-model.test.mjs'
+      - 'tests/ask-web2-model.test.mjs'
+      - 'app/ask-web2-model.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
       - 'tests/ledger-export-model.test.mjs'
       - 'tests/ledger-auto-model.test.mjs'
@@ -208,6 +228,14 @@ jobs:
       - name: Check meeting Korea time conversions
         run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/select-menu.test.mjs tests/calendar-week-timeline.test.mjs tests/calendar-drag-model.test.mjs tests/calendar-create-slot.test.mjs
 
+      - name: Check shared UI parts stay unified (UI-화면정리 B)
+        run: node --test tests/ui-cleanup-b.test.mjs
+
+      - name: Check editor toolbar, add buttons and top bands stay unified (UI-화면정리 C)
+        run: node --test tests/ui-cleanup-c.test.mjs
+      - name: Check one shared loading/failed/empty part (UI-기다림표시통일)
+        run: node --test tests/wait-state.test.mjs
+
       - name: Check Web2 app icon files (UI-앱아이콘 메모+체크)
         run: node --test tests/app-icon.test.mjs
 
@@ -216,6 +244,17 @@ jobs:
 
       - name: Check Telegram raw lines phone layout (TG-원문폰배치)
         run: node --test tests/tg-raw-fold.test.mjs
+
+      - name: Check organization key people tab (ORG-주요인물)
+        run: node --test tests/org-key-people.test.mjs
+
+      - name: Check home quiet organizations line (FEAT-1029묶음 ③)
+        run: node --test tests/org-quiet.test.mjs
+      - name: Check note views and sticky board (NOTE-보기3가지)
+        run: node --test tests/note-board-model.test.mjs
+
+      - name: Check ledger decision history (FEAT-1029묶음 ⑥)
+        run: node --test tests/ledger-decision-history.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
@@ -232,11 +271,23 @@ jobs:
       - name: Check journal evening AI draft rules (today line draft, work calls only)
         run: node --test tests/journal-draft-model.test.mjs
 
+      - name: Check next-week sheet rules (work calendar only, read-only materials, auto after Friday 15:00)
+        run: node --test tests/next-week-sheet-model.test.mjs
+
+      - name: Check press draft screen rules (ids only to the server, refs inside sources, AI-draft note text)
+        run: node --test tests/press-draft-model.test.mjs
+
+      - name: Check pre-meeting sheet rules (linked organization and meeting words, after 18:00 tomorrow only, shared sheet renderer)
+        run: node --test tests/pre-meeting-sheet-model.test.mjs
+
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/home-cards-model.test.mjs tests/menu-home-prefs.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/basket-ref-bundle-ai.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/ai-tone.test.mjs tests/quick-links-groups.test.mjs tests/tg-summary-edit-model.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/color-swatch.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/tg-mark-model.test.mjs tests/ai-tone.test.mjs tests/quick-links-groups.test.mjs tests/tg-summary-edit-model.test.mjs
+
+      - name: UI-고른것접기 긴 체크 목록 공용 부품(고른 것 + 접힌 그 외, 맨 위 찾기·초성) 시험
+        run: node --test tests/pick-fold.test.mjs
 
       - name: Check folder depth limit and indent (LIB-폴더100단)
         run: node --test tests/folder-limits.test.mjs
@@ -244,8 +295,10 @@ jobs:
         run: node --test tests/note-tree.test.mjs
       - name: NOTE-탐색기 후속 선택 상태·위치 줄 공용 부품 시험
         run: node --test tests/select-mode-folder-path.test.mjs
-      - name: NOTE-비밀메모 판별(서버 note-title.ts와 같은 규칙)·목록 제목 가리기 시험
+      - name: NOTE-비밀메모 판별(서버 note-secret.ts와 같은 규칙)·목록 제목 가리기 시험
         run: node --test tests/note-secret.test.mjs
+      - name: NOTE-비밀메모 서버 쪽(AI 재료에서 비밀·AI 제외 노트 건너뛰기) 시험
+        run: node --test tests/note-secret-server.test.mjs
 
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
@@ -271,6 +324,12 @@ jobs:
       - name: Meeting files·text grouping and pinned PDF reader
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
+      - name: Meeting transcript → meeting record draft (MTG-녹음초안)
+        run: node --test tests/meeting-transcript-model.test.mjs
+
+      - name: Laptop recording rules (MTG-노트북녹음 2단계, segment roll·piece retry·text join·band words)
+        run: node --test tests/meeting-recorder-model.test.mjs
+
       - name: Meeting card time, kind colors and PC layout
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
 
@@ -283,11 +342,17 @@ jobs:
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
 
+      - name: Organization pickers offer only my organizations (ORG-고르기통일)
+        run: node --test tests/org-picker-mine.test.mjs
+
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
 
       - name: Global search model (SEARCH-전체검색 words, highlights, Google filters, groups, error codes)
         run: node --test tests/global-search-model.test.mjs
+
+      - name: Ask Web2 answer box rules (FEAT-1029묶음 ① question detection, evidence refs, open targets)
+        run: node --test tests/ask-web2-model.test.mjs
 
       - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
         run: node --test tests/ledger-import-model.test.mjs tests/ledger-browse-model.test.mjs tests/ledger-candidate-model.test.mjs tests/ledger-export-model.test.mjs tests/ledger-auto-model.test.mjs tests/calendar-ref-model.test.mjs tests/ledger-fix-model.test.mjs tests/overlap-model.test.mjs tests/overlap-paths.test.mjs tests/overlap-weekly.test.mjs tests/ledger-merge-model.test.mjs
@@ -303,6 +368,9 @@ jobs:
 
       - name: Check OneDrive small-picture copies on the phone (OD-폰보관, cache key·limits·cleanup·one audit allowance, synthetic)
         run: node --test tests/od-thumb-cache.test.mjs
+
+      - name: Check picture cells (PHOTO-못받은사진, gray while loading, small retry mark when failed, every image place uses it, synthetic)
+        run: node --test tests/img-slot.test.mjs
 
       - name: Check OneDrive warm-up after app start (OD-미리받기, status·this month·few small pictures in memory, synthetic)
         run: node --test tests/od-warm.test.mjs
@@ -325,8 +393,11 @@ jobs:
       - name: Check home AI usage line (AI-사용량줄, summary·warning·amount input·no device storage, synthetic)
         run: node --test tests/ai-usage-model.test.mjs
 
-      - name: Check shared date field and button rules (UI-날짜칸·UI-버튼통일, '10. 6. (화)'·no device storage, synthetic)
+      - name: Check shared date field and button rules (UI-날짜칸·UI-버튼통일, '10.6 (화)'·no device storage, synthetic)
         run: node --test tests/date-field.test.mjs
+
+      - name: Check task due groups (TASK-내일칸, 지남·오늘·내일·일주일 안·나중·기한 없음 one shared rule, synthetic)
+        run: node --test tests/task-due-group.test.mjs
 
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
@@ -348,6 +419,9 @@ jobs:
 
       - name: Check phone share intake model (APP-폰앱새로 ②)
         run: node --test tests/share-intake-model.test.mjs
+
+      - name: Check phone widget logout line (APP-폰앱새로 ③)
+        run: node --test tests/phone-widget-line.test.mjs
 
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs
@@ -375,6 +449,12 @@ jobs:
 
       - name: Check business area AI on the report screen (MTG-프로젝트합치기 사업영역 AI 화면)
         run: node --test tests/business-area-ai-screen.test.mjs
+
+      - name: Check business report one-line update (MTG-한줄업데이트)
+        run: node --test tests/report-oneline.test.mjs
+
+      - name: Check business area window and untagged report line (MTG-프로젝트합치기 ①③)
+        run: node --test tests/area-window.test.mjs
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs

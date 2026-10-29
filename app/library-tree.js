@@ -109,7 +109,9 @@ function byFolder(o){
   const list=[outside,...roots];
   list.forEach(n=>finish(n,o.kindOf,o.sortKey));
   if(filtering)return prune(list,()=>false);
-  return prune(list,n=>n.kind==='folder'||n.key===OUTSIDE_KEY);
+  // LIB-정리보충(10:34 '폴더 밖은 비우고 싶음'): '폴더 밖'이 비면(0개) 그 줄을 없앤다. 폴더가 하나도 없을 때만 첫 폴더를 만들 자리로 남긴다.
+  // 맨 위 새 폴더는 맨 위 폴더 메뉴의 [맨 위에 새 폴더], 폴더 밖으로 빼기는 [폴더로 옮기기 ›]의 [폴더 밖으로]·끄는 동안 왼쪽 팝업이 맡는다.
+  return prune(list,n=>n.kind==='folder'||(n.key===OUTSIDE_KEY&&(n.count>0||!roots.length)));
 }
 
 function flat(list,o){list.forEach(n=>finish(n,o.kindOf,o.sortKey));return list.filter(n=>n.count>0)}
@@ -161,7 +163,7 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,can
       :n.kind==='folder'?'<svg class="lu-folder-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25a1 1 0 0 1 1-1h3.1l1.4 1.5h5.999a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H2.75a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
       :n.color?`<span class="lu-pdot" data-color="${esc(n.color)}"${n.tone?` data-tone="${esc(n.tone)}"`:''} aria-hidden="true"></span>`:'';
     const more=menu?.(n);
-    return `<summary class="lu-node-head${face?' lu-node-emoji':''}${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${dots?`<span class="lu-kdots" aria-hidden="true">${dots}</span>`:''}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true">⋯</button>`:''}</summary>`;
+    return `<summary class="lu-node-head${face?' lu-node-emoji':''}${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${dots?`<span class="lu-kdots" aria-hidden="true">${dots}</span>`:''}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
   };
   const body=n=>{
     const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;

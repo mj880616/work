@@ -39,6 +39,22 @@
 // 업무일지 '오늘 한 줄' 저녁 초안(kind=journal_draft, JOURNAL-오늘한줄초안, journal-draft.ts): 업무일지 화면이 오늘 18시 뒤 한 줄이 없을 때 한 번 부른다.
 //   화면은 그날 재료 줄(일정·한 일·회의·소식·업무 통화 요약, 60줄까지)만 보낸다(이 쓰임만 몸통 32KB). 초안은 owner RLS 표 app_journal_drafts에만
 //   넣는다(하루 1행). 그날 초안이나 업무일지 줄이 이미 있으면 AI를 부르지 않는다. 업무일지 줄(app_notes kind=work)은 쓰지 않는다.
+// 다음 주 준비 한 장(kind=next_week_sheet, JOURNAL-다음주준비, next-week-sheet.ts): 업무일지 [주간 정리]가 금요일 15시 뒤(또는 토·일) 처음 열릴 때
+//   다음 주 장이 없으면 한 번(mode=auto), [지금 만들기]·[다시 만들기]를 누를 때(mode=user) 부른다. 화면은 다음 주 재료 ①~⑥ 줄(150줄까지)만 보낸다
+//   (이 쓰임만 몸통 48KB). AI는 '핵심 세 가지'만 만들고, 줄과 함께 owner RLS 표 app_journal_next_week_sheets(주마다 1행)에 저장한다.
+//   AI 한도·실패여도 줄은 저장한다(ai_status limit|failed). Google·원장·챙길 것·회의 표에는 쓰지 않는다.
+// 성명·보도자료 초안(kind=press_draft, FEAT-1029묶음 ④, press-draft.ts·press-style.ts): 화면은 종류(statement|release)·고른 사업 보고 ID(1~5)·한 줄 방향만 보낸다.
+//   서버가 호출한 사람의 로그인으로 그 사업 보고를 다시 읽어 s1… 근거로만 AI에 보내고(ID·연락처 안 감), 근거 번호가 없는 문단·요구는 버린다(evidence.ts 공용 검사).
+//   서버는 사용량 숫자 말고는 아무것도 저장하지 않는다. 미리보기를 돌려주고, 노트 저장·공개·발송은 명진이 화면에서 한다.
+// 교섭·회의 전 한 장(kind=pre_meeting_sheet, FEAT-1029묶음 ②, pre-meeting-sheet.ts): 업무일지·홈이 전날 18시 뒤 내일 교섭·회의 일정마다 한 번(mode=auto),
+//   일정 수정 창·담당조직 상세의 [지금 만들기]·[다시 만들기]에서(mode=user) 부른다. 화면은 일정 값과 담당조직 id만 보낸다(몸통 4KB).
+//   재료 ①~⑦은 서버가 내 로그인 토큰으로 읽는다(사업 보고·원장·업무 통화·텔레그램 소식·주요 인물·자료·쟁의 단계, 개인 통화함·개인 텔레그램은 안 읽음).
+//   명진 결정 변경(10/29): 원장 S2도 AI에 보내고, 텔레그램은 원문·보낸 사람 표시 이름까지 보낸다(tg-raw.ts, 상한). 저장은 owner RLS 표 app_pre_meeting_sheets(일정마다 1행) 하나뿐, 다른 표에는 쓰지 않는다.
+// Web2에 물어보기(kind=ask_web2, FEAT-1029묶음 ①, web2-ask.ts·evidence.ts): 검색칸 질문 한 줄을 받아 서버가 낱말을 뽑고 기존 검색 함수 두 개
+//   (app_search_records — 업무 통화·텔레그램 종류 포함, app_ledger_search)를 내 로그인으로 불러 근거 줄을 모은 뒤 AI 한 번으로 줄마다 근거 꼬리표가 붙은 답을 만든다.
+//   근거가 없으면 AI를 부르지 않는다. 근거에 없는 ref·근거 없는 줄은 공용 근거 검사가 버린다. AI 제외 노트는 근거 목록에만 보이고 AI에는 안 보낸다.
+//   명진 결정 변경(10/29): 원장 S2도 AI에 보내고, 찾은 텔레그램 소식은 그 id만 다시 읽어 원문·보낸 사람 표시 이름을 붙여 보낸다(tg-raw.ts, 길이 상한).
+//   통화·노트 본문은 직접 읽지 않는다(개인 통화함·개인 텔레그램 표는 어떤 경로로도 안 읽음). 답은 owner RLS 표 app_ask_answers에 30일 둔다(넣을 때 30일 지난 행을 지움).
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
@@ -50,18 +66,39 @@ import {
   reportOf, reportsHash, suggestLooksSecret, suggestTooShort, withAreaSummaries, type AreaReport,
 } from "./business-area.ts";
 import {
-  hasOwnTitle, looksSecret, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
+  hasOwnTitle, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
 } from "./note-title.ts";
+import { noteAiOff, noteAiOffMark, noteRowAiBlocked } from "./note-secret.ts";
 import {
   JOURNAL_DRAFT_BODY_BYTES, JOURNAL_DRAFT_HOUR, JOURNAL_DRAFT_INSTRUCTIONS, JOURNAL_DRAFT_MAX_OUTPUT_TOKENS, JOURNAL_DRAFT_SCHEMA,
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
 } from "./journal-draft.ts";
+import {
+  autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
+  nextWeekSheetMaterial, parseNextWeekSheet, parseNextWeekSheetRequest, addDays as addSheetDays, seoulClock, sentIndexes, type NextWeekItem, type NextWeekTopLine,
+} from "./next-week-sheet.ts";
+import {
+  autoReady as preMeetingAutoReady, isMeetingTitle, itemTitle, kstHour as preMeetingHour, parsePreMeetingSheet, parsePreMeetingSheetRequest,
+  PRE_MEETING_BODY_BYTES, PRE_MEETING_DAILY, PRE_MEETING_DOCS, PRE_MEETING_FEED, PRE_MEETING_FEED_DAYS, PRE_MEETING_INSTRUCTIONS, PRE_MEETING_LEDGER,
+  PRE_MEETING_MAX_OUTPUT_TOKENS, PRE_MEETING_MEETING_TEXT, PRE_MEETING_MEETINGS, PRE_MEETING_PEOPLE, PRE_MEETING_SCHEMA, preMeetingMaterial,
+  seoulMidnight as preMeetingMidnight, sheetTgRaw, storedGroups, withinWindow, type PreMeetingAi, type PreMeetingEvent, type PreMeetingItem,
+} from "./pre-meeting-sheet.ts";
+import {
+  ASK_BASE_KINDS, ASK_DAILY_LIMIT, ASK_KEEP_DAYS, ASK_LEDGER_LIMIT, ASK_INSTRUCTIONS, ASK_MAX_OUTPUT_TOKENS, ASK_PER_KIND, ASK_RETRY_BELOW, ASK_RETRY_MAX,
+  ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askTgRaw, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
+  storedSources, type AskHit, type AskSource,
+} from "./web2-ask.ts";
+import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
-  dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
+  dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, RADAR_NOT_MINE_MAX, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
   RADAR_ALREADY_MAX, RADAR_LINKS_MAX, type RadarLink, type RadarSource,
 } from "./todo-radar.ts";
+import {
+  buildRecheckInstructions, keepCandidate, packRecheck, parseRecheck, RECHECK_MAX, RECHECK_MAX_OUTPUT_TOKENS, RECHECK_SCHEMA, recheckMaterial,
+  type RecheckRoom, type RecheckRow,
+} from "./todo-recheck.ts";
 import {
   candidateRow, LEDGER_CANDIDATES_INSTRUCTIONS, LEDGER_CANDIDATES_SCHEMA, LEDGER_KNOWN_EVENTS, LEDGER_MAX_OUTPUT_TOKENS, ledgerMaterial,
   parseLedgerCandidates, type KnownEvent,
@@ -106,6 +143,9 @@ import {
   buildOverlapRecord, decidedFresh, decidedForever, OVERLAP_INSTRUCTIONS, OVERLAP_MAX_OUTPUT_TOKENS, OVERLAP_SCHEMA, OVERLAP_MAX_PAIRS,
   overlapMaterial, pairKey, parseOverlap, parseOverlapRequest, refId, refKind, type OverlapPair, type OverlapRecord, type OverlapRow,
 } from "./overlap.ts";
+import {
+  parsePressBody, parsePressDraft, pressInstructions, pressMaterial, pressSources, PRESS_DRAFT_SCHEMA, PRESS_LIMITS, type PressInput,
+} from "./press-draft.ts";
 
 export type Env = (name: string) => string | undefined;
 export type Log = (code: string, detail?: Record<string, unknown>) => void;
@@ -128,7 +168,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, area_week_summary: 30, area_suggest: 60, org_people_brief: 60 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -194,10 +234,18 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   note_title_unavailable: "노트 제목을 저장하지 못했어요.",
   journal_draft_not_ready: "오늘 한 줄 초안 기능이 아직 준비되지 않았어요.",
   journal_draft_unavailable: "오늘 한 줄 초안을 읽거나 저장하지 못했어요.",
+  next_week_sheet_not_ready: "다음 주 준비 기능이 아직 준비되지 않았어요.",
+  next_week_sheet_unavailable: "다음 주 준비 한 장을 읽거나 저장하지 못했어요.",
+  pre_meeting_sheet_not_ready: "교섭 전 한 장 기능이 아직 준비되지 않았어요.",
+  pre_meeting_sheet_unavailable: "교섭 전 한 장을 읽거나 저장하지 못했어요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_people_not_ready: "주요 인물 기능이 아직 준비되지 않았어요.",
   org_people_unavailable: "주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  press_no_source: "고른 기록에 초안에 쓸 글이 없어요.",
+  ask_not_ready: "Web2에 물어보기가 아직 준비되지 않았어요.",
+  ask_unavailable: "기록을 찾거나 답을 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  ask_secret: "비밀번호·키처럼 보이는 글은 물어볼 수 없어요.",
   text_pending: "글자를 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.",
   no_file_text: "요약할 글자가 없어요.",
   internal_error: "AI 요청을 처리하지 못했어요.",
@@ -347,7 +395,35 @@ async function rest(ctx: Ctx, path: string, init: { method?: string; body?: unkn
   return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
 }
 
-const BODY_CAP_BYTES = Math.max(SCHEDULE_BODY_BYTES, HWP_CONVERT_BODY_BYTES, JOURNAL_DRAFT_BODY_BYTES);
+// MULTI-노조사용자 단계 ①(docs/design/multi-user-audit.md 3절): 운영자 전용 기능(통화 calls·텔레그램 telegram)은 서버 허용 표로만 판정한다.
+// DB 함수 public.app_my_features()를 로그인 토큰으로 부른다(인자 없음: 화면이 보낸 작업공간·기능 값을 쓰지 않는다). 표 정책도 같은 판정으로 읽기를 막는다.
+// "missing" = DB 함수 없음(적용 전), "error" = 읽기 실패. 둘 다 '허용 아님'으로 다룬다(닫힌 쪽).
+async function myFeatures(ctx: Ctx): Promise<Set<string> | "missing" | "error"> {
+  let r: Response;
+  try {
+    r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/app_my_features`, {
+      method: "POST",
+      headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, Accept: "application/json", "Content-Type": "application/json" },
+      body: "{}",
+    });
+  } catch {
+    return "error";
+  }
+  if (!r.ok) {
+    try { await r.body?.cancel(); } catch { /* ignore */ }
+    return r.status === 404 ? "missing" : "error";
+  }
+  let value: unknown;
+  try { value = await readBoundedJson(r, { maxBytes: 4096 }); } catch { return "error"; }
+  if (!Array.isArray(value) || value.some((v) => typeof v !== "string")) return "error";
+  return new Set(value as string[]);
+}
+async function hasFeature(ctx: Ctx, feature: "calls" | "telegram"): Promise<boolean> {
+  const f = await myFeatures(ctx);
+  return f instanceof Set && f.has(feature);
+}
+
+const BODY_CAP_BYTES = Math.max(SCHEDULE_BODY_BYTES, HWP_CONVERT_BODY_BYTES, JOURNAL_DRAFT_BODY_BYTES, NEXT_WEEK_SHEET_BODY_BYTES, PRE_MEETING_BODY_BYTES);
 // 몸통은 2KB까지. 주요 일정 제목 다듬기(kind=schedule_titles)만 일정 줄을 실어 20KB까지 받는다(한글 제목 30줄): 20KB까지 읽은 뒤 그 쓰임이 아니면
 // 선언 길이·실제 길이가 2KB를 넘을 때 전처럼 413으로 거절한다.
 async function readBody(req: Request): Promise<unknown> {
@@ -386,7 +462,7 @@ async function readBody(req: Request): Promise<unknown> {
   if (declaredBig || actualBig) {
     // 일정 제목 다듬기(20KB)와 HWP 서식변환(100KB)만 자기 상한까지 받는다. 그 상한을 넘으면 413.
     const kind = (body as { kind?: unknown } | null)?.kind;
-    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : MAX_BODY_BYTES;
+    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : kind === "next_week_sheet" ? NEXT_WEEK_SHEET_BODY_BYTES : kind === "pre_meeting_sheet" ? PRE_MEETING_BODY_BYTES : MAX_BODY_BYTES;
     if (own === MAX_BODY_BYTES) throw new Fail(declaredBig ? 413 : 400, "invalid_request");
     if (raw.byteLength > own || (declared !== null && Number(declared) > own)) throw new Fail(413, "invalid_request");
   }
@@ -400,6 +476,8 @@ type LinkSource = { type: "note"; note_id: string } | { type: "files"; note_id: 
 type LinkSummaryInput = { kind: "link_summary"; source: LinkSource; target_kind: LinkTargetKind; target_id: string };
 type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" } | { kind: "todo_radar"; mode: "meeting"; meeting_id: string };
 type LedgerCandidatesInput = { kind: "ledger_candidates" };
+// TODO-내일만 5번: 쌓인 대기 후보를 새 기준으로 한 번 다시 거르기. 글·ID 없이 kind 하나만(후보는 서버가 로그인 토큰으로 읽음).
+type TodoRecheckInput = { kind: "todo_recheck" };
 type LedgerAutoInput = { kind: "ledger_auto" };
 type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
@@ -409,9 +487,14 @@ type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
+type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "auto" | "user"; items: NextWeekItem[] };
+type PreMeetingSheetInput = { kind: "pre_meeting_sheet"; mode: "auto" | "user"; event: PreMeetingEvent; organization_id: string };
 type HwpConvertInput = { kind: "hwp_convert"; doc_type: HwpConvertDocType; text: string };
 type AreaWeekSummaryInput = { kind: "area_week_summary"; week_start: string; area_ids: string[] };
 type AreaSuggestInput = { kind: "area_suggest"; title: string; text: string };
+// 성명·보도자료 초안(press-draft.ts): 종류·고른 사업 보고 ID(1~5)·한 줄 방향만. 근거 글은 서버가 다시 읽는다.
+type PressDraftRequest = PressInput;
+type AskWeb2Input = { kind: "ask_web2"; question: string };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
 function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
@@ -456,7 +539,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | AreaWeekSummaryInput | AreaSuggestInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -472,6 +555,10 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   if (b.kind === "ledger_candidates") {
     if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
     return { kind: "ledger_candidates" };
+  }
+  if (b.kind === "todo_recheck") {
+    if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
+    return { kind: "todo_recheck" };
   }
   // 원장 자동 기록도 글·ID 없이 kind 하나만 보낸다(재료·작업공간은 서버가 로그인 토큰으로 정함).
   if (b.kind === "ledger_auto") {
@@ -502,6 +589,25 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "journal_draft", ...parsed };
   }
+  // 다음 주 준비 한 장(next_week_sheet): 다음 주 월요일·만든 방식·재료 줄(150줄까지)만 받는다. 이미 있는 장은 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "next_week_sheet") {
+    const parsed = parseNextWeekSheetRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "next_week_sheet", ...parsed };
+  }
+  // 교섭·회의 전 한 장(pre_meeting_sheet): 만든 방식·일정 값·담당조직 id만 받는다. 재료는 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "pre_meeting_sheet") {
+    const parsed = parsePreMeetingSheetRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "pre_meeting_sheet", ...parsed };
+  }
+  // Web2에 물어보기(ask_web2): 질문 한 줄만 받는다. 재료는 서버가 로그인 토큰으로 검색 함수를 불러 모은다.
+  if (b.kind === "ask_web2") {
+    const parsed = parseAskRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    if (askLooksSecret(parsed.question)) throw new Fail(400, "ask_secret");
+    return { kind: "ask_web2", ...parsed };
+  }
   // HWP 서식변환(hwp_convert): 문서 종류와 붙여 넣은 글(20000자까지)만 받는다. 다른 기록은 읽지 않는다.
   if (b.kind === "hwp_convert") {
     const parsed = parseHwpConvertRequest(b);
@@ -510,6 +616,11 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
+  if (b.kind === "press_draft") {
+    const parsed = parsePressBody(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return parsed;
+  }
   // ORG-주요인물 '요즘': 조직 ID 하나만 받는다.
   if (b.kind === "org_people_brief") {
     if (Object.keys(b).sort().join(",") !== "kind,organization_id" || typeof b.organization_id !== "string" || !UUID.test(b.organization_id)) {
@@ -633,12 +744,14 @@ type LinkMaterial = { targetName: string; payload: Record<string, unknown> };
 async function readLinkNote(ctx: Ctx, noteId: string, withFiles: boolean) {
   const ws = encodeURIComponent(ctx.workspaceId);
   const note = await readOne(ctx,
-    `app_notes?id=eq.${noteId}&workspace_id=eq.${ws}&select=id,workspace_id,kind,raw_text,archived_at,ai_export_allowed${withFiles ? ",attachments" : ""}&limit=2`);
+    `app_notes?id=eq.${noteId}&workspace_id=eq.${ws}&select=id,workspace_id,kind,title,raw_text,metadata,archived_at,ai_export_allowed${withFiles ? ",attachments" : ""}&limit=2`);
   if (!note || String(note.id).toLowerCase() !== noteId || String(note.workspace_id).toLowerCase() !== ctx.workspaceId) {
     throw new Fail(404, "not_found");
   }
   // 일기·보관됨·AI 제외는 보내지 않는다(todo-radar 결정 7, app_basket_confirm_links와 같은 조건).
   if (note.kind === "diary" || note.archived_at != null || note.ai_export_allowed !== true) throw new Fail(422, "note_excluded");
+  // NOTE-비밀메모: [AI에 보내지 않기] 노트, 비밀 모양 글이 든 노트([풀기] 안 함)는 보내지 않는다(note-secret.ts).
+  if (noteRowAiBlocked(note)) throw new Fail(422, "note_excluded");
   return note;
 }
 
@@ -808,6 +921,124 @@ async function callOpenAi(
   return result;
 }
 
+// ---- TODO-내일만 5번: 쌓인 대기 후보 다시 거르기(todo_recheck) -------------------------------------------------------
+// 사용자가 설정에서 누른 한 번 실행. 대기(open) 후보를 최근 것부터 RECHECK_MAX개 읽어 AI에 한 번 보내고,
+// 본인 일(me·support_named)과 예외 방의 전체 부탁만 남기고 나머지는 '무시'(dismissed)로 바꾼다. 지우지 않는다.
+// 텔레그램 후보의 방 종류는 소식 줄(app_feed_items.room_key) → 방(app_feed_rooms.chat_kind) → 예외 방(app_todo_ask_rooms)으로 정한다.
+// 읽기에 실패하면 방 종류를 '알 수 없음'으로 두고(예외 방으로 보지 않음) 계속한다. 기록에는 숫자만 남긴다.
+async function recheckRooms(ctx: Ctx, rows: Record<string, unknown>[]): Promise<Map<string, RecheckRoom>> {
+  const out = new Map<string, RecheckRoom>();
+  const tg = rows.filter((r) => r.source_kind === "telegram" && typeof r.source_id === "string" && UUID.test(r.source_id as string));
+  if (!tg.length) return out;
+  for (const r of tg) out.set(String(r.id), "unknown");
+  try {
+    const ws = encodeURIComponent(ctx.workspaceId);
+    const ids = [...new Set(tg.map((r) => String(r.source_id).toLowerCase()))];
+    const items = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&id=in.(${ids.join(",")})&select=id,room_key&limit=${ids.length}`);
+    const roomOf = new Map<string, string>();
+    if (Array.isArray(items)) for (const it of items as Record<string, unknown>[]) if (typeof it?.room_key === "string") roomOf.set(String(it.id).toLowerCase(), it.room_key);
+    const rooms = await rest(ctx, `app_feed_rooms?workspace_id=eq.${ws}&select=room_key,chat_kind&limit=1000`);
+    const kindOf = new Map<string, string>();
+    if (Array.isArray(rooms)) for (const r of rooms as Record<string, unknown>[]) if (typeof r?.room_key === "string") kindOf.set(r.room_key, String(r.chat_kind ?? ""));
+    let listed = new Set<string>();
+    try {
+      const ask = await rest(ctx, `app_todo_ask_rooms?workspace_id=eq.${ws}&select=room_key&limit=500`);
+      if (Array.isArray(ask)) listed = new Set((ask as Record<string, unknown>[]).map((a) => String(a?.room_key ?? "")));
+    } catch { /* 예외 방 표가 아직 없으면 예외 방 없음 */ }
+    for (const r of tg) {
+      const key = roomOf.get(String(r.source_id).toLowerCase());
+      const kind = key ? kindOf.get(key) : undefined;
+      out.set(String(r.id), !key || !kind ? "unknown" : kind === "user" ? "personal" : listed.has(key) ? "group_listed" : "group");
+    }
+  } catch {
+    ctx.log("recheck_rooms_failed");
+  }
+  return out;
+}
+
+async function runTodoRecheck(ctx: Ctx, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  let raw: unknown;
+  try {
+    raw = await rest(ctx, `app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&select=id,source_kind,source_id,summary,evidence&order=created_at.desc&limit=${RECHECK_MAX + 1}`);
+  } catch {
+    throw new Fail(503, "radar_unavailable");
+  }
+  const all = Array.isArray(raw) ? (raw as Record<string, unknown>[]).filter((r) => typeof r?.id === "string" && UUID.test(r.id as string) && typeof r.summary === "string") : [];
+  const more = all.length > RECHECK_MAX;
+  const list = all.slice(0, RECHECK_MAX);
+  if (!list.length) return json({ ok: true, kind: "todo_recheck", checked: 0, dismissed: 0, kept: 0, more: false });
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "todo_recheck", started, config.price);
+  const rooms = await recheckRooms(ctx, list);
+  const rows: RecheckRow[] = list.map((r) => ({
+    id: String(r.id).toLowerCase(), source_kind: String(r.source_kind ?? ""), summary: String(r.summary),
+    evidence: typeof r.evidence === "string" ? r.evidence : "", room: rooms.get(String(r.id)) ?? null,
+  }));
+  const packed = packRecheck(rows);
+  const material = recheckMaterial(packed, await readNotMine(ctx));
+  const profile = await readRadarProfile(ctx);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: RECHECK_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: buildRecheckInstructions(profile) },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "todo_recheck", strict: true, schema: RECHECK_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RECHECK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseRecheck(outputText(result.raw, 128 * 1024), packed);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  const drop = rows.filter((r) => !keepCandidate(parsed.verdicts.get(r.id), r)).map((r) => r.id);
+  let dismissed = 0;
+  // 아직 대기인 줄만 바꾼다(그 사이 사용자가 처리한 줄은 그대로). 30개씩 나눠 보낸다.
+  for (let i = 0; i < drop.length; i += 30) {
+    const part = drop.slice(i, i + 30);
+    try {
+      const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&id=in.(${part.join(",")})&select=id`, {
+        method: "PATCH",
+        headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, Accept: "application/json", "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ status: "dismissed", decided_at: new Date(deps.now()).toISOString() }),
+      });
+      if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Error(`rest_${r.status}`); }
+      const done = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
+      dismissed += Array.isArray(done) ? done.length : 0;
+    } catch {
+      deps.log("recheck_update_failed");
+      throw new Fail(503, "radar_unavailable");
+    }
+  }
+  deps.log("todo_recheck_done", { checked: rows.length, dismissed, judged: parsed.verdicts.size, dropped: parsed.dropped, more });
+  return json({ ok: true, kind: "todo_recheck", checked: rows.length, dismissed, kept: rows.length - dismissed, more });
+}
+
 // ---- 쓰임 2: 챙길 것 찾기(todo_radar) ----------------------------------------------------------------------------
 
 const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
@@ -879,11 +1110,14 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
   let partial = false;
   const full = (rows: unknown[]) => { if (rows.length >= RADAR_READ_LIMIT) partial = true; };
 
-  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${RADAR_READ_LIMIT}`);
+  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,metadata,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${RADAR_READ_LIMIT}`);
   full(notes);
+  let secretSkipped = 0;
   for (const n of notes) {
     if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     if (!["basket", "note", "work"].includes(String(n.kind)) || n.archived_at != null || n.ai_export_allowed !== true) continue;
+    // NOTE-비밀메모: AI 제외·비밀 모양 노트는 재료에서 뺀다. 기록에는 개수만.
+    if (noteRowAiBlocked(n)) { secretSkipped++; continue; }
     const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
     const at = timeOf(n.updated_at);
     const day = n.kind === "work" && typeof n.journal_day === "string" && DAY_RE.test(n.journal_day) ? n.journal_day
@@ -891,6 +1125,7 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
     if (!text || !Number.isFinite(at)) continue;
     sources.push({ kind: n.kind as "basket" | "note" | "work", id: n.id.toLowerCase(), day, at, text });
   }
+  if (secretSkipped) ctx.log("radar_note_ai_off_skipped", { count: secretSkipped });
 
   const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,updated_at,project_id&order=updated_at.desc&limit=50`);
   if (meetings.length >= 50) partial = true;
@@ -1024,6 +1259,16 @@ async function readRadarProfile(ctx: Ctx) {
   }
 }
 
+// [내 일 아님] 예시(TODO-내일만, migration 20261029210000 app_todo_not_mine, 소유자 토큰으로 읽기). 표가 없거나 읽지 못하면 빈 목록(찾기는 계속).
+async function readNotMine(ctx: Ctx): Promise<string[]> {
+  try {
+    const rows = await rest(ctx, `app_todo_not_mine?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=summary&order=created_at.desc&limit=${RADAR_NOT_MINE_MAX}`);
+    return Array.isArray(rows) ? rows.map((r) => (r as Record<string, unknown>)?.summary).filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 type RadarDeps = { env: Env; now: () => number; sleep: (ms: number) => Promise<void>; log: Log; doFetch: typeof fetch };
 
 async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): Promise<Response> {
@@ -1086,7 +1331,7 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
     } catch {
       throw new Fail(503, "usage_unavailable");
     }
-    const material = radarMaterial(packed, today);
+    const material = radarMaterial(packed, today, await readNotMine(ctx));
     const profile = await readRadarProfile(ctx);
     const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
       model: config.model,
@@ -1400,11 +1645,14 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
   let partial = false;
   const full = (rows: unknown[], limit = AUTO_READ_LIMIT) => { if (rows.length >= limit) partial = true; };
 
-  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`);
+  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,metadata,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`);
   full(notes);
+  let secretSkipped = 0;
   for (const n of notes) {
     if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     if (!["basket", "note", "work"].includes(String(n.kind)) || n.archived_at != null || n.ai_export_allowed !== true) continue;
+    // NOTE-비밀메모: AI 제외·비밀 모양 노트는 재료에서 뺀다(본 것으로도 적지 않음). 기록에는 개수만.
+    if (noteRowAiBlocked(n)) { secretSkipped++; continue; }
     const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
     const at = timeOf(n.updated_at);
     if (!text || !Number.isFinite(at)) continue;
@@ -1412,6 +1660,7 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
       : kstDay(n.kind === "basket" && Number.isFinite(timeOf(n.occurred_at)) ? timeOf(n.occurred_at) : at);
     sources.push({ kind: n.kind as "basket" | "note" | "work", id: n.id.toLowerCase(), stamp: n.updated_at as string, day, at, text });
   }
+  if (secretSkipped) log("ledger_auto_note_ai_off_skipped", { count: secretSkipped });
 
   const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,activity_kind,updated_at&order=updated_at.desc&limit=50`);
   full(meetings, 50);
@@ -1457,7 +1706,9 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
 
   // 업무 통화(CALL-원장재료 L-2, 설계 6절): 통화 메뉴 표(app_feed_items)에 이미 저장된 업무 통화의 제목·핵심내용만. 전사 원문(raw_text)·상대 표기(counterpart)는 읽지 않는다.
   // 통화 때문에 원장 자동 기록 전체가 깨지면 안 된다: 읽기 실패나 DB 미적용이면 통화만 건너뛴다.
+  // 통화가 허용되지 않은 작업공간(운영자 외)은 통화를 읽지 않고 건너뛴다(MULTI 단계 ①, 원장 자동 기록 자체는 모두 씀 — 결정 D3).
   try {
+    if (!(await hasFeature(ctx, "calls"))) throw new Error("calls_not_allowed");
     const callSince = encodeURIComponent(new Date(Math.max(Date.parse(sinceIso), Date.parse(CALL_FROM_ISO))).toISOString());
     const calls = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&or=(created_at.gte.${callSince},moved_at.gte.${callSince})&select=id,workspace_id,title,points,day,occurred_at,organization_id,project_id,created_at,moved_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
     if (Array.isArray(calls) && calls.length && await callKindReady(ctx)) {
@@ -2678,7 +2929,11 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
     items.push({ day: typeof day === "string" && /^\d{4}-\d{2}-\d{2}/.test(day) ? day.slice(0, 10) : "", type, who, text });
   };
   // 업무 통화: 상대·제목에 이름 → 요약(없으면 제목).
-  for (const c of await softList(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&day=gte.${from}&select=id,workspace_id,day,title,summary,counterpart&order=day.desc&limit=${PEOPLE_BRIEF_READ_LIMIT}`, flags)) {
+  // 통화가 허용되지 않은 작업공간은 통화 재료 없이 만든다(MULTI 단계 ①).
+  const callRows = await hasFeature(ctx, "calls")
+    ? await softList(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&day=gte.${from}&select=id,workspace_id,day,title,summary,counterpart&order=day.desc&limit=${PEOPLE_BRIEF_READ_LIMIT}`, flags)
+    : [];
+  for (const c of callRows) {
     if (String(c.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     add(c.day, "call", briefWhoIn([c.counterpart, c.title], people), [c.counterpart, c.summary || c.title].filter((v) => typeof v === "string" && v).join(" — "));
   }
@@ -2738,6 +2993,77 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
   // 기록에는 숫자만 남긴다(재료·문장 없음).
   deps.log("org_people_brief_done", { people: people.length, records: packed.length, partial });
   return json({ ...base, brief: parsed.brief, detail: parsed.detail, partial });
+}
+
+// ---- 쓰임: 성명·보도자료 초안(press_draft, FEAT-1029묶음 ④, press-draft.ts) ----------------------------------------
+// 화면이 고른 사업 보고 ID(1~5)를 호출한 사람의 로그인으로 다시 읽어(owner RLS + 작업공간 확인) 근거로 쓴다. 근거는 사업 보고만(4-①).
+// 서버는 아무것도 저장하지 않는다(사용량 숫자만). 미리보기를 돌려주고, 저장은 화면에서 명진이 [노트로 저장]을 누를 때만.
+// 기록에는 숫자만 남긴다(근거 글·초안·방향 없음).
+async function runPressDraft(ctx: Ctx, input: PressInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now(), today = kstDay(started);
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const rows = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&id=in.(${input.meeting_ids.join(",")})&select=id,workspace_id,title,series_name,round_no,meeting_at,transcript_text,decisions&limit=${PRESS_LIMITS.refs}`);
+  const byId = new Map(rows.filter((m) => isUuid(m.id) && String(m.workspace_id).toLowerCase() === ctx.workspaceId).map((m) => [String(m.id).toLowerCase(), m]));
+  // 고른 것 중 하나라도 없으면(남의 것·지운 것) 404. 고른 순서대로 근거 번호를 매긴다.
+  if (input.meeting_ids.some((id) => !byId.has(id))) throw new Fail(404, "not_found");
+  const picked = input.meeting_ids.map((id) => {
+    const m = byId.get(id)!;
+    const text = typeof m.transcript_text === "string" && !ONLY_WHITESPACE.test(m.transcript_text) ? m.transcript_text
+      : typeof m.decisions === "string" && !ONLY_WHITESPACE.test(m.decisions) ? m.decisions : "";
+    const name = String((typeof m.series_name === "string" && m.series_name.trim()) ? m.series_name : m.title ?? "").trim();
+    const round = Number(m.round_no);
+    const when = timeOf(m.meeting_at);
+    return { id, label: name + (m.round_no != null && Number.isFinite(round) ? ` ${round}차` : ""), day: Number.isFinite(when) ? kstDay(when) : "", text };
+  });
+  const { sources, partial } = pressSources(picked);
+  if (!sources.length) throw new Fail(422, "press_no_source");
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "press_draft", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = pressMaterial(input, sources, today);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: PRESS_LIMITS.maxOutputTokens,
+    input: [
+      { role: "developer", content: pressInstructions(input.type) },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "press_draft", strict: true, schema: PRESS_DRAFT_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: PRESS_LIMITS.maxOutputTokens } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const text = outputText(result.raw);
+  const draft = text === null ? null : parsePressDraft(text, new Set(sources.map((s) => s.ref)));
+  if (!draft) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  deps.log("press_draft_done", { type: input.type, sources: sources.length, paragraphs: draft.paragraphs.length, demands: draft.demands.length, checks: draft.checks.length, partial });
+  return json({
+    ok: true, kind: "press_draft", type: input.type, ...draft, partial,
+    sources: sources.map((s, i) => ({ ref: i + 1, meeting_id: s.id, title: s.title, day: s.day })),
+  });
 }
 
 // ---- 쓰임 6: 주요 일정 제목 다듬기(schedule_titles, WEEKLY-일정다듬기) ---------------------------------------------
@@ -3103,6 +3429,11 @@ async function runOverlapCheck(ctx: Ctx, input: OverlapCheckInput, deps: RadarDe
 // 핵심내용·전문은 건드리지 않는다. 개인 통화는 AI에 보내지 않고, 업무로 옮긴 그 한 건만 예외다(명진 승인). 기록에는 숫자만 남긴다.
 async function runCallRefill(ctx: Ctx, input: CallRefillInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
+  // 통화는 운영자 작업공간만(MULTI 단계 ①). 판정 함수가 없으면(DB 적용 전) 준비 안 됨, 읽기 실패는 503, 허용 없음은 403.
+  const features = await myFeatures(ctx);
+  if (features === "missing") throw new Fail(503, "call_refill_not_ready");
+  if (features === "error") throw new Fail(503, "read_unavailable");
+  if (!features.has("calls")) throw new Fail(403, "forbidden");
   const ws = encodeURIComponent(ctx.workspaceId);
   let rows: unknown;
   try {
@@ -3285,6 +3616,375 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
   return json({ ok: true, kind: "journal_draft", day, draft: saved });
 }
 
+// ---- 쓰임 next_week_sheet: 다음 주 준비 한 장(JOURNAL-다음주준비, next-week-sheet.ts) ---------------------------------------
+// mode=auto: 금요일 15시(서울) 뒤나 토·일에, 다음 주 장이 아직 없을 때만 만든다(이미 있으면 그 장을 돌려줌 — 다른 기기·[지금 만들기]를 덮지 않음).
+// mode=user: [지금 만들기]·[다시 만들기]. 다음 주(또는 이번 주) 장을 새로 만들어 덮는다.
+// AI는 줄이 있을 때만 부르고, 월 상한·하루 횟수 안에서만 사용량 줄에 더한다. 한도·실패면 AI 줄 없이 ①~⑥만 저장한다.
+// 저장은 app_journal_next_week_sheets 한 표뿐(있으면 PATCH, 없으면 POST). 다른 표에는 쓰지 않는다.
+const NEXT_WEEK_TABLE = "app_journal_next_week_sheets";
+async function runNextWeekSheet(ctx: Ctx, input: NextWeekSheetInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const clock = seoulClock(started);
+  const week = input.week_start;
+  const thisMonday = addSheetDays(clock.nextMonday, -7);
+  if (input.mode === "auto" ? week !== clock.nextMonday : week !== clock.nextMonday && week !== thisMonday) throw new Fail(400, "invalid_request");
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const readSheet = async (): Promise<Record<string, unknown> | null> => {
+    let rows: unknown;
+    try {
+      rows = await rest(ctx, `${NEXT_WEEK_TABLE}?workspace_id=eq.${ws}&week_start=eq.${week}&select=workspace_id,week_start,top_lines,groups,ai_status,made_by,created_at,updated_at&limit=2`);
+    } catch (e) {
+      // 표가 없으면(DB 적용 전) PostgREST가 404를 준다.
+      throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "next_week_sheet_not_ready" : "next_week_sheet_unavailable");
+    }
+    if (!Array.isArray(rows) || rows.length > 1) throw new Fail(503, "next_week_sheet_unavailable");
+    const row = rows[0] as Record<string, unknown> | undefined;
+    if (!row) return null;
+    if (String(row.workspace_id).toLowerCase() !== ctx.workspaceId || row.week_start !== week) throw new Fail(503, "next_week_sheet_unavailable");
+    const { workspace_id: _ws, ...sheet } = row;
+    return sheet;
+  };
+  const existing = await readSheet();
+  if (input.mode === "auto") {
+    if (!autoTime(started)) {
+      deps.log("next_week_sheet_skipped", { reason: "not_yet" });
+      return json({ ok: true, kind: "next_week_sheet", week_start: week, sheet: existing, skipped: "not_yet" });
+    }
+    if (existing) {
+      deps.log("next_week_sheet_skipped", { reason: "done" });
+      return json({ ok: true, kind: "next_week_sheet", week_start: week, sheet: existing, skipped: "done" });
+    }
+  }
+
+  let top: NextWeekTopLine[] = [];
+  let aiStatus: "ok" | "limit" | "failed" | "skipped" = "skipped";
+  const material = nextWeekSheetMaterial(week, input.items);
+  if (material) {
+    const config = aiConfig(deps.env);
+    let budget: Awaited<ReturnType<typeof checkBudget>> | null = null;
+    if (!config) {
+      deps.log("ai_not_configured");
+      aiStatus = "failed";
+    } else {
+      try {
+        budget = await checkBudget(ctx, "next_week_sheet", started, config.price);
+      } catch (e) {
+        if (!(e instanceof Fail)) throw e;
+        aiStatus = e.status === 429 ? "limit" : "failed";
+      }
+    }
+    if (config && budget) {
+      let counted = true;
+      try {
+        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+      } catch {
+        counted = false;
+        aiStatus = "failed";
+      }
+      if (counted) {
+        const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+          model: config.model,
+          store: false,
+          max_output_tokens: NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS,
+          input: [
+            { role: "developer", content: NEXT_WEEK_SHEET_INSTRUCTIONS },
+            { role: "user", content: material },
+          ],
+          text: { format: { type: "json_schema", name: "next_week_sheet", strict: true, schema: NEXT_WEEK_SHEET_SCHEMA } },
+        });
+        const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+        if (used.input || used.output) {
+          try {
+            await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+          } catch {
+            deps.log("usage_record_failed");
+          }
+        }
+        if (!result.ok) {
+          deps.log(result.code);
+          aiStatus = "failed";
+        } else {
+          const parsed = parseNextWeekSheet(outputText(result.raw, 16 * 1024) ?? "", sentIndexes(input.items));
+          if (parsed) { top = parsed; aiStatus = "ok"; } else aiStatus = "failed";
+        }
+      }
+    }
+  }
+
+  const values = { top_lines: top, groups: input.items, ai_status: aiStatus, made_by: input.mode };
+  const patch = () => rest(ctx, `${NEXT_WEEK_TABLE}?workspace_id=eq.${ws}&week_start=eq.${week}`, {
+    method: "PATCH", prefer: "return=minimal", body: { ...values, updated_at: new Date(deps.now()).toISOString() },
+  });
+  try {
+    if (existing) await patch();
+    else {
+      try {
+        await rest(ctx, NEXT_WEEK_TABLE, { method: "POST", prefer: "return=minimal", body: { workspace_id: ctx.workspaceId, week_start: week, ...values } });
+      } catch (e) {
+        // 다른 기기가 먼저 넣었다: auto면 그 장을 그대로 두고, user면 덮는다.
+        if (!(e instanceof Error && e.message === "rest_409")) throw e;
+        if (input.mode === "user") await patch();
+      }
+    }
+  } catch {
+    throw new Fail(503, "next_week_sheet_unavailable");
+  }
+  const saved = await readSheet();
+  if (!saved) throw new Fail(503, "next_week_sheet_unavailable");
+  const sentSize = chars(material);
+  deps.log("next_week_sheet_done", { items: input.items.length, top: top.length, ai: aiStatus, size: sentSize });
+  return json({ ok: true, kind: "next_week_sheet", week_start: week, sheet: saved });
+}
+
+// ---- 쓰임 pre_meeting_sheet: 교섭·회의 전 한 장(FEAT-1029묶음 ②, pre-meeting-sheet.ts) -------------------------------------
+// 서버 확인: 담당조직이 내 작업공간 것(owner RLS로 읽어 1건), 일정 시작이 지금-6시간 ~ 지금+8일. 아니면 거절.
+// mode=auto: 서울 18시 뒤이고 일정이 내일이며 제목에 교섭·회의·간담회·협의·면담이 있을 때, 그 일정의 장이 아직 없을 때만 만든다.
+// mode=user: [지금 만들기]·[다시 만들기]. 그 일정의 장을 새로 만들어 덮는다.
+// 재료는 모두 내 로그인 토큰으로 읽는다(쓰기 없음). 읽지 못한 묶음은 비우고 나머지로 만든다(partial).
+// AI는 보낼 줄이 있을 때만, 월 상한·하루 합계·이 쓰임 하루 10장 안에서만 부른다. 한도·실패면 AI 줄 없이 재료 줄만 저장한다.
+// 저장은 app_pre_meeting_sheets 한 표뿐(있으면 PATCH, 없으면 POST).
+const PRE_MEETING_TABLE = "app_pre_meeting_sheets";
+const PRE_MEETING_COLS = "workspace_id,event_key,organization_id,event_title,event_start,event_end,event_location,top_lines,groups,ai_status,made_by,created_at,updated_at";
+async function runPreMeetingSheet(ctx: Ctx, input: PreMeetingSheetInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ev = input.event, startMs = Date.parse(ev.start);
+  if (!withinWindow(started, startMs)) throw new Fail(400, "invalid_request");
+  const ws = encodeURIComponent(ctx.workspaceId), org = input.organization_id, key = encodeURIComponent(ev.event_key);
+  const orgRow = (await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&id=eq.${org}&deleted_at=is.null&select=id,workspace_id,name&limit=2`))
+    .find((o) => String(o.id).toLowerCase() === org && String(o.workspace_id).toLowerCase() === ctx.workspaceId);
+  if (!orgRow) throw new Fail(404, "not_found");
+
+  const readSheet = async (): Promise<Record<string, unknown> | null> => {
+    let rows: unknown;
+    try {
+      rows = await rest(ctx, `${PRE_MEETING_TABLE}?workspace_id=eq.${ws}&event_key=eq.${key}&select=${PRE_MEETING_COLS}&limit=2`);
+    } catch (e) {
+      // 표가 없으면(DB 적용 전) PostgREST가 404를 준다.
+      throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "pre_meeting_sheet_not_ready" : "pre_meeting_sheet_unavailable");
+    }
+    if (!Array.isArray(rows) || rows.length > 1) throw new Fail(503, "pre_meeting_sheet_unavailable");
+    const row = rows[0] as Record<string, unknown> | undefined;
+    if (!row) return null;
+    if (String(row.workspace_id).toLowerCase() !== ctx.workspaceId || row.event_key !== ev.event_key) throw new Fail(503, "pre_meeting_sheet_unavailable");
+    const { workspace_id: _ws, ...sheet } = row;
+    return sheet;
+  };
+  const existing = await readSheet();
+  const base = { ok: true, kind: "pre_meeting_sheet", event_key: ev.event_key };
+  if (input.mode === "auto") {
+    if (!preMeetingAutoReady(started, startMs) || !isMeetingTitle(ev.title)) {
+      deps.log("pre_meeting_sheet_skipped", { reason: "not_yet" });
+      return json({ ...base, sheet: existing, skipped: "not_yet" });
+    }
+    if (existing) {
+      deps.log("pre_meeting_sheet_skipped", { reason: "done" });
+      return json({ ...base, sheet: existing, skipped: "done" });
+    }
+  }
+
+  // 재료 읽기(모두 GET, 내 토큰). 원본마다 작업공간·조직을 다시 확인한다.
+  const flags = { partial: false };
+  const soft = async (path: string) => {
+    try {
+      const rows = await rest(ctx, path);
+      if (Array.isArray(rows)) return rows as Record<string, unknown>[];
+    } catch { /* 아래 */ }
+    flags.partial = true;
+    return [] as Record<string, unknown>[];
+  };
+  const mine = (r: Record<string, unknown>) => String(r.workspace_id).toLowerCase() === ctx.workspaceId;
+  const dayOf = (v: unknown) => typeof v === "string" && DAY_RE.test(v.slice(0, 10)) ? (v.length > 10 ? kstDay(Date.parse(v)) : v) : null;
+  const text = (v: unknown) => typeof v === "string" && v.trim() ? v.trim() : "";
+  const items: PreMeetingItem[] = [];
+
+  // (머리) 지금 쟁의 단계.
+  const stageRow = (await soft(`app_suborganization_dispute_stages?organization_id=eq.${org}&select=organization_id,stage_name,stage_date&order=stage_date.desc,created_at.desc&limit=1`))
+    .find((r) => String(r.organization_id).toLowerCase() === org && text(r.stage_name));
+  const stage = stageRow ? text(stageRow.stage_name) : null;
+  if (stageRow) items.push({ group: "stage", title: itemTitle(stage!), day: dayOf(stageRow.stage_date), source_kind: "stage", source_id: org, send: false });
+
+  // ① 지난 교섭·회의 결과: 이 조직에 이어진(확정) 사업 보고 중 교섭·회의, 이 일정 전 최근 3건.
+  const links = await soft(`app_record_links?workspace_id=eq.${ws}&organization_id=eq.${org}&status=eq.confirmed&source_meeting_id=not.is.null&select=workspace_id,organization_id,source_meeting_id&limit=500`);
+  const meetingIds = [...new Set(links.filter((l) => mine(l) && String(l.organization_id).toLowerCase() === org && isUuid(l.source_meeting_id))
+    .map((l) => String(l.source_meeting_id).toLowerCase()))].slice(0, 200);
+  const meetings: Record<string, unknown>[] = [];
+  const before = encodeURIComponent(ev.start);
+  for (let i = 0; i < meetingIds.length; i += IN_CHUNK) {
+    const ids = meetingIds.slice(i, i + IN_CHUNK).join(",");
+    const path = (cols: string) => `app_meetings?workspace_id=eq.${ws}&id=in.(${ids})&deleted_at=is.null&activity_kind=in.(negotiation,meeting)&meeting_at=lt.${before}&select=${cols}&order=meeting_at.desc&limit=${PRE_MEETING_MEETINGS}`;
+    const cols = "id,workspace_id,title,series_name,round_no,meeting_at,transcript_text,activity_kind";
+    let rows: Record<string, unknown>[];
+    try { rows = await rest(ctx, path(`${cols},next_plan`)) as Record<string, unknown>[]; } catch { rows = await soft(path(cols)); }
+    if (Array.isArray(rows)) meetings.push(...rows.filter((m) => mine(m) && isUuid(m.id)));
+  }
+  meetings.sort((a, b) => timeOf(b.meeting_at) - timeOf(a.meeting_at));
+  for (const m of meetings.slice(0, PRE_MEETING_MEETINGS)) {
+    const round = Number.isInteger(m.round_no) ? ` ${m.round_no}차` : "";
+    const name = text(m.series_name) ? `${text(m.series_name)}${round}` : text(m.title) || "제목 없음";
+    const result = [text(m.transcript_text) && [...text(m.transcript_text)].slice(0, PRE_MEETING_MEETING_TEXT).join(""), text(m.next_plan) && `다음 할 일: ${[...text(m.next_plan)].slice(0, 300).join("")}`]
+      .filter(Boolean).join(" / ");
+    items.push({ group: "meetings", title: itemTitle(name), day: dayOf(m.meeting_at), source_kind: "meeting", source_id: String(m.id).toLowerCase(), ai: result || undefined });
+  }
+
+  // ②④ 원장: 이 조직(원장 조직표의 Web2 조직 연결)에 이어진 현재 기록. 업무 범위만. S2도 AI에 보낸다(결정 변경, 줄에 s2 표시).
+  const ledgerOrgs = (await soft(`app_ledger_organizations?workspace_id=eq.${ws}&suborganization_id=eq.${org}&select=id,workspace_id,suborganization_id&limit=5`))
+    .filter((o) => mine(o) && String(o.suborganization_id).toLowerCase() === org && isUuid(o.id)).map((o) => String(o.id).toLowerCase());
+  if (ledgerOrgs.length) {
+    const recLinks = await soft(`app_ledger_links?workspace_id=eq.${ws}&target_organization_id=in.(${ledgerOrgs.join(",")})&select=workspace_id,record_id,target_organization_id&limit=500`);
+    const recIds = [...new Set(recLinks.filter((l) => mine(l) && isUuid(l.record_id) && ledgerOrgs.includes(String(l.target_organization_id).toLowerCase()))
+      .map((l) => String(l.record_id).toLowerCase()))].slice(0, 200);
+    const records: Record<string, unknown>[] = [];
+    for (let i = 0; i < recIds.length; i += IN_CHUNK) {
+      const ids = recIds.slice(i, i + IN_CHUNK).join(",");
+      records.push(...(await soft(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${ids})&validity=eq.current&scope=eq.work&kind=in.(event,decision,change,commitment)&select=id,workspace_id,kind,title,summary,sensitivity,counterparty,commitment_status,follow_up_on,date_start,updated_at&order=updated_at.desc&limit=${PRE_MEETING_LEDGER}`))
+        .filter((r) => mine(r) && isUuid(r.id) && text(r.title)));
+    }
+    records.sort((a, b) => String(b.date_start ?? "").localeCompare(String(a.date_start ?? "")));
+    for (const r of records.slice(0, PRE_MEETING_LEDGER)) {
+      if (r.sensitivity !== "S0" && r.sensitivity !== "S1" && r.sensitivity !== "S2") continue; // 모르는 등급은 닫는다.
+      const s2 = r.sensitivity === "S2";
+      const extra = [text(r.summary), text(r.counterparty) && `상대 ${text(r.counterparty)}`].filter(Boolean).join(" / ");
+      if (r.kind === "commitment") {
+        if (r.commitment_status !== "waiting") continue;
+        items.push({ group: "commitments", title: itemTitle(text(r.title)), day: dayOf(r.follow_up_on), source_kind: "ledger", source_id: String(r.id).toLowerCase(), ai: extra || undefined, s2 });
+      } else {
+        items.push({ group: "issues", title: itemTitle(text(r.title)), day: dayOf(r.date_start), source_kind: "ledger", source_id: String(r.id).toLowerCase(), ai: extra || undefined, s2 });
+      }
+    }
+  }
+
+  // ⑤ 최근 30일 업무 통화·텔레그램(이 조직). 통화는 제목·요약만(원문·상대 이름은 읽지 않음).
+  // 텔레그램은 방 이름·요약 + 원문과 보낸 사람 표시 이름(결정 변경 10/29, 최근 8개·소식마다 600자). 이름 표를 못 읽으면 라벨 그대로.
+  const since = addDays(kstDay(started), -PRE_MEETING_FEED_DAYS);
+  const feed = [
+    ...await soft(`app_feed_items?source=eq.call&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,summary&order=day.desc&limit=${PRE_MEETING_FEED}`),
+    ...await soft(`app_feed_items?source=eq.telegram&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,room_key,summary,raw_text&order=day.desc&limit=${PRE_MEETING_FEED}`),
+  ].sort((x, y) => String(y.day ?? "").localeCompare(String(x.day ?? ""))).slice(0, PRE_MEETING_FEED);
+  const tgRows = feed.filter((f) => f.source === "telegram" && mine(f)).slice(0, TG_RAW_MAX_ITEMS);
+  let tgNames = new Map<string, Map<string, string>>();
+  try {
+    tgNames = await tgNamesFor((p) => rest(ctx, p), ctx.workspaceId, tgRows);
+  } catch {
+    deps.log("pre_meeting_tg_names_unavailable");
+  }
+  const tgRaw = new Set(tgRows.map((f) => f.id));
+  for (const f of feed) {
+    if (!mine(f) || String(f.organization_id).toLowerCase() !== org || !isUuid(f.id)) continue;
+    const isCall = f.source === "call";
+    const name = isCall ? text(f.title) : text(f.room_label);
+    if (!name) continue;
+    const raw = !isCall && tgRaw.has(f.id) ? sheetTgRaw(f.raw_text, tgNames.get(tgNameKey(f))) : "";
+    const ai = [text(f.summary), raw && `원문: ${raw}`].filter(Boolean).join(" / ");
+    items.push({ group: "feed", title: itemTitle(`${isCall ? "통화" : "텔레그램"} · ${name}`), day: dayOf(f.day), source_kind: isCall ? "call" : "telegram", source_id: String(f.id).toLowerCase(), ai: ai || undefined });
+  }
+
+  // ⑥ 주요 인물: 이름과 이미 만든 '요즘' 한 문장(새 AI 호출 없음, AI에는 보내지 않음).
+  for (const p of await soft(`app_org_key_people?workspace_id=eq.${ws}&organization_id=eq.${org}&select=id,workspace_id,organization_id,name&order=sort_order.asc,created_at.asc&limit=${PRE_MEETING_PEOPLE}`)) {
+    if (!mine(p) || String(p.organization_id).toLowerCase() !== org || !isUuid(p.id) || !text(p.name)) continue;
+    items.push({ group: "people", title: itemTitle(text(p.name)), day: null, source_kind: "person", source_id: String(p.id).toLowerCase(), send: false });
+  }
+  const brief = (await soft(`app_org_key_people_briefs?workspace_id=eq.${ws}&organization_id=eq.${org}&select=workspace_id,organization_id,day,brief&limit=1`))
+    .find((b) => mine(b) && String(b.organization_id).toLowerCase() === org && text(b.brief));
+  if (brief) items.push({ group: "people", title: itemTitle(`요즘: ${text(brief.brief)}`), day: dayOf(brief.day), source_kind: "people_brief", source_id: org, send: false });
+
+  // ⑦ 관련 자료: 이 조직 자료 최근 5건(제목만).
+  for (const d of await soft(`app_documents?workspace_id=eq.${ws}&organization_id=eq.${org}&select=id,workspace_id,organization_id,title,category,document_date,created_at&order=created_at.desc&limit=${PRE_MEETING_DOCS}`)) {
+    if (!mine(d) || String(d.organization_id).toLowerCase() !== org || !isUuid(d.id) || !text(d.title)) continue;
+    items.push({ group: "docs", title: itemTitle(text(d.title)), day: dayOf(d.document_date) ?? dayOf(d.created_at), source_kind: "document", source_id: String(d.id).toLowerCase() });
+  }
+
+  // AI: 보낼 줄이 있을 때만. 이 쓰임은 하루(서울) AI로 만든 장 10장까지(오늘 AI로 만든 다른 일정의 장을 센다).
+  let ai: PreMeetingAi | null = null;
+  let aiStatus: "ok" | "limit" | "failed" | "skipped" = "skipped";
+  const orgName = typeof orgRow.name === "string" ? [...orgRow.name.trim()].slice(0, MAX_TARGET_NAME_CHARS).join("") : "";
+  const material = preMeetingMaterial(ev, orgName, stage, items);
+  if (material.text) {
+    const config = aiConfig(deps.env);
+    let budget: Awaited<ReturnType<typeof checkBudget>> | null = null;
+    if (!config) {
+      deps.log("ai_not_configured");
+      aiStatus = "failed";
+    } else {
+      const todayStart = encodeURIComponent(preMeetingMidnight(kstDay(started)));
+      const made = await soft(`${PRE_MEETING_TABLE}?workspace_id=eq.${ws}&updated_at=gte.${todayStart}&ai_status=in.(ok,failed)&select=event_key&limit=${PRE_MEETING_DAILY + 1}`);
+      const others = made.filter((r) => r.event_key !== ev.event_key).length;
+      if (others >= PRE_MEETING_DAILY) aiStatus = "limit";
+      else {
+        try {
+          budget = await checkBudget(ctx, "pre_meeting_sheet", started, config.price);
+        } catch (e) {
+          if (!(e instanceof Fail)) throw e;
+          aiStatus = e.status === 429 ? "limit" : "failed";
+        }
+      }
+    }
+    if (config && budget) {
+      let counted = true;
+      try {
+        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+      } catch {
+        counted = false;
+        aiStatus = "failed";
+      }
+      if (counted) {
+        const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+          model: config.model,
+          store: false,
+          max_output_tokens: PRE_MEETING_MAX_OUTPUT_TOKENS,
+          input: [
+            { role: "developer", content: PRE_MEETING_INSTRUCTIONS },
+            { role: "user", content: material.text },
+          ],
+          text: { format: { type: "json_schema", name: "pre_meeting_sheet", strict: true, schema: PRE_MEETING_SCHEMA } },
+        });
+        const used = result.ok ? result.usage : result.charged ? { input: chars(material.text) * 2, output: PRE_MEETING_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+        if (used.input || used.output) {
+          try {
+            await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+          } catch {
+            deps.log("usage_record_failed");
+          }
+        }
+        if (!result.ok) {
+          deps.log(result.code);
+          aiStatus = "failed";
+        } else {
+          ai = parsePreMeetingSheet(outputText(result.raw, 16 * 1024) ?? "", material.sent);
+          aiStatus = ai ? "ok" : "failed";
+        }
+      }
+    }
+  }
+
+  const values = {
+    organization_id: org, event_title: ev.title, event_start: ev.start, event_end: ev.end, event_location: ev.location,
+    top_lines: ai ? ai.top : [], groups: storedGroups(items, ai), ai_status: aiStatus, made_by: input.mode,
+  };
+  const patch = () => rest(ctx, `${PRE_MEETING_TABLE}?workspace_id=eq.${ws}&event_key=eq.${key}`, {
+    method: "PATCH", prefer: "return=minimal", body: { ...values, updated_at: new Date(deps.now()).toISOString() },
+  });
+  try {
+    if (existing) await patch();
+    else {
+      try {
+        await rest(ctx, PRE_MEETING_TABLE, { method: "POST", prefer: "return=minimal", body: { workspace_id: ctx.workspaceId, event_key: ev.event_key, ...values } });
+      } catch (e) {
+        // 다른 기기가 먼저 넣었다: auto면 그 장을 그대로 두고, user면 덮는다.
+        if (!(e instanceof Error && e.message === "rest_409")) throw e;
+        if (input.mode === "user") await patch();
+      }
+    }
+  } catch {
+    throw new Fail(503, "pre_meeting_sheet_unavailable");
+  }
+  const saved = await readSheet();
+  if (!saved) throw new Fail(503, "pre_meeting_sheet_unavailable");
+  // 기록에는 숫자만 남긴다(재료·문장 없음).
+  const sentCount = material.sent.size, topCount = ai ? ai.top.length : 0, partial = flags.partial, hour = preMeetingHour(started);
+  deps.log("pre_meeting_sheet_done", { items: items.length, sent: sentCount, top: topCount, ai: aiStatus, partial, hour });
+  return json({ ...base, sheet: saved, partial: flags.partial });
+}
+
 // ---- 쓰임 note_title: 노트 AI 요약 제목(NOTE-탐색기 ③, note-title.ts) ------------------------------------------------------
 // 노트를 처음 저장한 뒤 한 번. AI를 부르지 않는 경우(skipped)는 사용량에 잡지 않는다. 부르면 월 AI 상한·하루 횟수 안에서만, 사용량 줄(app_ai_daily_usage)에 더한다.
 // 저장은 그 노트 행의 metadata.ai_title(+ai_title_at)만, 읽은 뒤 바뀌지 않았을 때만(updated_at 같음·ai_title 없음). 제목 칸은 건드리지 않는다.
@@ -3298,9 +3998,10 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
   const skip = (reason: string) => { deps.log("note_title_skipped", { reason }); return json({ ok: true, kind: "note_title", id: input.id, skipped: reason }); };
   if (note.archived_at != null || note.ai_export_allowed !== true) return skip("not_allowed");
   if (typeof meta.ai_title === "string" && meta.ai_title.trim()) return skip("done");
-  if (meta.ai_off === true) return skip("not_allowed");
+  if (noteAiOffMark(note) === true) return skip("not_allowed");
   if (hasOwnTitle(note.title, text)) return skip("own_title");
-  if (looksSecret(`${typeof note.title === "string" ? note.title : ""}\n${text}`)) return skip("secret");
+  // 비밀 모양 글이면 건너뛴다. [AI 제외 풀기](metadata.ai_off=false)로 푼 노트는 만든다(note-secret.ts noteAiOff).
+  if (noteAiOff(note)) return skip("secret");
   const material = noteTitleMaterial(text);
   if ([...material].length < 8) return skip("short");
   const updatedAt = typeof note.updated_at === "string" ? note.updated_at : "";
@@ -3582,6 +4283,207 @@ async function runAreaSuggest(ctx: Ctx, input: AreaSuggestInput, deps: RadarDeps
   return json({ ok: true, kind: "area_suggest", suggestions: picks.map((o) => ({ id: o.id, name: o.name })) });
 }
 
+// ---- 쓰임 ask_web2: Web2에 물어보기(FEAT-1029묶음 ①, web2-ask.ts·evidence.ts) ----------------------------------------------
+const ASK_TABLE = "app_ask_answers";
+
+// 검색 DB 함수 호출(로그인 토큰, owner RLS). 오류 원문은 남기지 않고 상태 숫자만 Error에 담는다.
+async function askRpc(ctx: Ctx, name: string, args: Record<string, unknown>): Promise<unknown> {
+  const r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(args),
+  });
+  if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Error(`rpc_${r.status}`); }
+  return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
+}
+
+// 찾기(AI 안 씀): 낱말 전체로 한 번, 적으면 낱말을 하나씩 빼며 최대 4번 더. 원장은 같은 낱말로 한 번(교섭·전략 S2까지, 결정 3 변경으로 AI에도 보냄).
+// DB 1단계 전이면(call·telegram 종류를 모름 → 400) 기본 8종류로 다시 부른다.
+async function askSearch(ctx: Ctx, words: string[]): Promise<AskHit[]> {
+  let kinds: readonly string[] = ASK_SEARCH_KINDS;
+  const search = async (ws: string[]) => {
+    const args = (k: readonly string[]) => ({ p_query: ws.join(" "), p_kinds: [...k], p_per_kind: ASK_PER_KIND, p_offset: 0, p_kind: null });
+    try {
+      return hitsFromSearch(await askRpc(ctx, "app_search_records", args(kinds)));
+    } catch (e) {
+      if (!(e instanceof Error && e.message === "rpc_400") || kinds === ASK_BASE_KINDS) throw e;
+      kinds = ASK_BASE_KINDS;
+      return hitsFromSearch(await askRpc(ctx, "app_search_records", args(kinds)));
+    }
+  };
+  const hits = await search(words);
+  for (let i = 0; i < words.length && i < ASK_RETRY_MAX && words.length > 1 && hits.length < ASK_RETRY_BELOW; i++) {
+    hits.push(...await search(words.filter((_, j) => j !== i)));
+  }
+  try {
+    hits.push(...hitsFromLedger(await askRpc(ctx, "app_ledger_search", { p_query: words.join(" "), p_max_sensitivity: "S2", p_limit: ASK_LEDGER_LIMIT })));
+  } catch {
+    ctx.log("ask_ledger_skipped");
+  }
+  return hits;
+}
+
+// AI 제외 노트(ai_export_allowed=false)·보관 업데이트는 근거 목록에만 두고 AI에는 보내지 않는다. 확인하지 못하면 노트 근거는 모두 안 보낸다.
+async function markNoteSendable(ctx: Ctx, sources: AskSource[]) {
+  const notes = sources.filter((s) => s.source === "note");
+  if (!notes.length) return;
+  let allowed = new Set<string>();
+  try {
+    const rows = await rest(ctx, `app_notes?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&id=in.(${notes.map((s) => s.id).join(",")})&select=id,kind,title,raw_text,metadata,ai_export_allowed&limit=${notes.length}`);
+    if (Array.isArray(rows)) {
+      const ok = (rows as Record<string, unknown>[]).filter((r) => r?.ai_export_allowed === true && r.kind !== "diary");
+      // NOTE-비밀메모: AI 제외·비밀 모양 노트는 근거 목록에만 두고 AI에는 보내지 않는다. 기록에는 개수만.
+      const blocked = ok.filter((r) => noteRowAiBlocked(r)).length;
+      if (blocked) ctx.log("ask_note_ai_off_skipped", { count: blocked });
+      allowed = new Set(ok.filter((r) => !noteRowAiBlocked(r)).map((r) => String(r.id).toLowerCase()));
+    }
+  } catch {
+    ctx.log("ask_note_flags_unavailable");
+  }
+  for (const s of notes) if (!allowed.has(s.id)) s.sent = false;
+}
+
+// 찾은 텔레그램 소식(업무 텔레그램 줄)에 원문과 보낸 사람 표시 이름을 붙인다(명진 결정 변경 10/29). 로그인 토큰(owner RLS)으로
+// 이번에 찾은 소식 id만, 그 방·그날 이름 표만 읽는다. 원문·이름은 AI 재료에만 쓰고 로그·저장·응답에 넣지 않는다.
+// 읽지 못하면 원문 없이(요약·핵심 줄만) 계속한다. 이름 표를 못 읽으면 라벨(A·B…) 그대로 둔다.
+async function addTelegramRaw(ctx: Ctx, sources: AskSource[]) {
+  const tg = sources.filter((s) => s.kind === "telegram" && s.sent).slice(0, TG_RAW_MAX_ITEMS);
+  if (!tg.length) return;
+  const ws = encodeURIComponent(ctx.workspaceId);
+  let items: Record<string, unknown>[];
+  try {
+    const rows = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&hidden_at=is.null&id=in.(${tg.map((s) => s.id).join(",")})&select=id,room_key,day,raw_text&limit=${tg.length}`);
+    items = Array.isArray(rows) ? rows as Record<string, unknown>[] : [];
+  } catch {
+    ctx.log("ask_tg_raw_unavailable");
+    return;
+  }
+  let names = new Map<string, Map<string, string>>();
+  try {
+    names = await tgNamesFor((p) => rest(ctx, p), ctx.workspaceId, items);
+  } catch {
+    ctx.log("ask_tg_names_unavailable");
+  }
+  const byId = new Map(items.map((r) => [String(r.id).toLowerCase(), r]));
+  for (const s of tg) {
+    const r = byId.get(s.id);
+    if (!r) continue;
+    const raw = askTgRaw(r.raw_text, names.get(tgNameKey(r)));
+    if (raw) s.raw = raw;
+  }
+}
+
+async function runAskWeb2(ctx: Ctx, input: AskWeb2Input, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const { day } = seoulDays(started);
+  const dayStart = new Date(Date.parse(day + "T00:00:00+09:00")).toISOString();
+  // 하루 30회: 오늘 AI를 부른 답(ok·failed) 수로 센다. 표가 없으면(DB 적용 전) 준비 중.
+  let todayRows: unknown;
+  try {
+    todayRows = await rest(ctx, `${ASK_TABLE}?workspace_id=eq.${ws}&created_at=gte.${encodeURIComponent(dayStart)}&ai_status=in.(ok,failed)&select=id&limit=${ASK_DAILY_LIMIT + 1}`);
+  } catch (e) {
+    throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "ask_not_ready" : "ask_unavailable");
+  }
+  if (!Array.isArray(todayRows)) throw new Fail(503, "ask_unavailable");
+
+  const words = askWords(input.question);
+  let sources: AskSource[] = [];
+  if (words.length) {
+    let orgs: { id: string; name: string; aliases?: string[] }[] = [];
+    try {
+      const rows = await rest(ctx, `app_suborganizations?workspace_id=eq.${ws}&select=id,name,aliases&limit=500`);
+      if (Array.isArray(rows)) orgs = (rows as Record<string, unknown>[]).filter((o) => typeof o?.id === "string" && typeof o.name === "string")
+        .map((o) => ({ id: String(o.id), name: String(o.name), aliases: Array.isArray(o.aliases) ? (o.aliases as unknown[]).filter((a) => typeof a === "string") as string[] : [] }));
+    } catch {
+      deps.log("ask_orgs_skipped");
+    }
+    const orgId = askOrg(input.question, orgs);
+    let hits: AskHit[];
+    try {
+      hits = await askSearch(ctx, words);
+    } catch {
+      throw new Fail(503, "ask_unavailable");
+    }
+    sources = rankHits(hits, words, orgId);
+    await markNoteSendable(ctx, sources);
+    await addTelegramRaw(ctx, sources);
+  }
+  const sendable = sources.filter((s) => s.sent);
+  const save = async (status: "ok" | "empty" | "failed", lines: { text: string; refs: string[] }[]) => {
+    try {
+      const cutoff = new Date(started - ASK_KEEP_DAYS * 86400000).toISOString();
+      await rest(ctx, `${ASK_TABLE}?workspace_id=eq.${ws}&created_at=lt.${encodeURIComponent(cutoff)}`, { method: "DELETE", prefer: "return=minimal" });
+      const r = await ctx.doFetch(`${ctx.sb}/rest/v1/${ASK_TABLE}?select=id,created_at`, {
+        method: "POST",
+        headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ workspace_id: ctx.workspaceId, question: input.question, lines, sources: storedSources(sources), ai_status: status }),
+      });
+      if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Error(`rest_${r.status}`); }
+      const rows = await readBoundedJson(r, { maxBytes: 64 * 1024 });
+      const row = Array.isArray(rows) ? rows[0] as Record<string, unknown> : null;
+      return row && typeof row.id === "string" ? { id: row.id, created_at: row.created_at } : null;
+    } catch {
+      deps.log("ask_save_failed");
+      return null;
+    }
+  };
+  const reply = (status: string, lines: { text: string; refs: string[] }[], saved: { id: string; created_at: unknown } | null) =>
+    json({ ok: true, kind: "ask_web2", status, question: input.question, words, lines, id: saved?.id ?? null, created_at: saved?.created_at ?? null,
+      sources: sources.map((s) => ({ ...storedSources([s])[0], snippet: s.snippet })) });
+
+  // 근거가 없으면(또는 보낼 수 있는 근거가 없으면) AI를 부르지 않는다(사용량 0).
+  if (!sendable.length) {
+    deps.log("ask_web2_done", { words: words.length, sources: sources.length, sent: 0, lines: 0 });
+    return reply("empty", [], await save("empty", []));
+  }
+  if (todayRows.length >= ASK_DAILY_LIMIT) return reply("daily_limit", [], null);
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  let budget: Awaited<ReturnType<typeof checkBudget>>;
+  try {
+    budget = await checkBudget(ctx, "ask_web2", started, config.price);
+  } catch (e) {
+    // 한도에 걸려도 찾은 근거는 보여 준다(답 줄 없이).
+    if (e instanceof Fail && (e.code === "monthly_limit" || e.code === "daily_limit")) return reply(e.code, [], null);
+    throw e;
+  }
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = askMaterial(input.question, sources);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: ASK_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: ASK_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "ask_web2", strict: true, schema: ASK_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: ASK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  const lines = result.ok ? parseAskAnswer(outputText(result.raw, 32 * 1024) ?? "", sources) : null;
+  if (!lines) {
+    deps.log(result.ok ? "ai_invalid_response" : result.code);
+    return reply("failed", [], await save("failed", []));
+  }
+  deps.log("ask_web2_done", { words: words.length, sources: sources.length, sent: sendable.length, lines: lines.length });
+  return reply("ok", lines, await save("ok", lines));
+}
+
 async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id`, {
     method: "POST",
@@ -3618,6 +4520,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
 
       const input = parseRequest(await readBody(req));
       if (input.kind === "todo_radar") return await runTodoRadar(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "todo_recheck") return await runTodoRecheck(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_candidates") return await runLedgerCandidates(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_auto") return await runLedgerAuto(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_fix") return await runLedgerFix(ctx, input, { env: deps.env, now, sleep, log, doFetch });
@@ -3629,9 +4532,13 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "next_week_sheet") return await runNextWeekSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "pre_meeting_sheet") return await runPreMeetingSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_week_summary") return await runAreaWeekSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_suggest") return await runAreaSuggest(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "press_draft") return await runPressDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "ask_web2") return await runAskWeb2(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 
       const config = aiConfig(deps.env);

@@ -113,11 +113,11 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   // LIB-거르기전체: 일부 켜짐에서 [전체] 한 번 = 모두 켬(거르기 풀림), 한 번 더 = 모두 끔(빈 목록 한 줄), 또 한 번 = 모두 켬.
   await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
-  await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList .empty')).toHaveText('고른 분류 없음');
+  await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('고른 분류 없음');
   await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   // 맞는 자료가 없으면 빈 안내.
-  await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('#documentList .empty')).toHaveText('자료가 없습니다.');await expect(page.locator('#libraryExpandAll')).toBeDisabled();
+  await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');await expect(page.locator('#libraryExpandAll')).toBeDisabled();
   expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
 });
 
@@ -162,7 +162,7 @@ for(const width of [390,1280])test(`폴더(읽기만): 프로젝트 안 3단 폴
   // 자료의 프로젝트(child-a1)와 폴더의 틀(top-a)이 어긋난 연결은 없는 것으로 보고, 자료의 프로젝트 토글 바로 아래에 둔다.
   await expect(page.locator('#documentList details[data-lu-node="p:child-a1"] > .lu-node-body > [data-lu-document="a1-1"]')).toBeVisible();
   await expect(page.locator('#documentList details[data-lu-node="p:none"] details[data-lu-node="f:f-n"] [data-lu-document="none-1"]')).toBeVisible();
-  // 프로젝트 토글의 ⋯는 '폴더 만들기'뿐이다(프로젝트 추가·이름·순서는 프로젝트 화면에서만, 요구 ②·결정 D8). 보관·옛 공간·확인 불가 토글에는 ⋯가 없다.
+  // 프로젝트 토글의 ⋯는 '폴더 만들기'뿐이다(사업영역 추가·이름·순서는 프로젝트 화면에서만, 요구 ②·결정 D8). 보관·옛 공간·확인 불가 토글에는 ⋯가 없다.
   await expect(libraryNodeHead(page,'p:top-a').locator('[data-lu-node-menu]')).toHaveAttribute('aria-label','폴더 만들기: 공공기관 기능개혁 대응');
   await expect(page.locator('#documentList details[data-lu-node="p:none"] > summary [data-lu-node-menu]')).toHaveCount(1);
   // 폴더 표는 읽기만: 쓰기 요청이 없다.

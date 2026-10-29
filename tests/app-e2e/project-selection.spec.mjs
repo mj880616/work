@@ -58,7 +58,7 @@ async function signIn(page,view,writes){
 
 async function expectCanonical(select){
   await expect(select.locator('option')).toHaveCount(3);
-  await expect(select.locator('option')).toHaveText(['프로젝트 없음','정상 상위','　↳ 정상 하위']);
+  await expect(select.locator('option')).toHaveText(['사업영역 없음','정상 상위','　↳ 정상 하위']);
   await expect(select.locator('option[value="root"]')).not.toHaveAttribute('disabled','');
   await expect(select.locator('option[value="child"]')).not.toHaveAttribute('disabled','');
   for(const id of ['legacy','archived','hidden-child','other-owner'])await expect(select.locator(`option[value="${id}"]`)).toHaveCount(0);

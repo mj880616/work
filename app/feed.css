@@ -103,7 +103,7 @@
 .feed-view .feed-r6 .feed-dot{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink)}.feed-view .feed-r6 .feed-rn{color:var(--ds-kind-other-ink)}
 .feed-view .feed-detail-name{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .feed-view .feed-detail-name .feed-rn{display:inline;margin:0;font-size:var(--ds-text-section)}
-.feed-view .feed-open{position:relative;flex:none;margin:0;padding:0 2px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-text-meta);text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer}
+.feed-view .feed-open{position:relative;flex:none;margin:0;padding:0 2px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-text-meta);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .feed-view .feed-open::after{content:"";position:absolute;inset:-10px -4px}
 .feed-view .feed-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .feed-view .feed-daynav{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px 0 6px}
@@ -146,7 +146,7 @@
 .feed-menu .feed-faint{font-size:11px;color:var(--kptu-muted)}
 
 /* CALL-개인통화함 3단계: 개인 통화함 칩·확인할 통화·줄 ⋯·확인 안내 (색은 토큰만) */
-.feed-view .feed-chip{position:relative;flex:none;height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);white-space:nowrap;cursor:pointer}
+.feed-view .feed-chip{position:relative;flex:none;height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);white-space:nowrap;cursor:pointer}
 .feed-view .feed-chip::after{content:"";position:absolute;inset:-8px -4px}
 .feed-view .feed-chip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .feed-view .feed-note{margin:0;padding:4px 8px;border-bottom:var(--ds-line-width) solid var(--kptu-border);font-size:11px;line-height:1.5;color:var(--kptu-muted)}
@@ -170,6 +170,8 @@
   #appView .feed-view .feed-split{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3)}
   /* UI-선택표시톤다운 ②: 목록 칸은 세로로만 움직인다. 긴 제목은 '…'로 줄고(.feed-title) 꼬리표는 약칭이라, 가로 스크롤 막대가 생기지 않게 가로 넘침은 자른다. */
   #appView .feed-view .feed-list{grid-column:1;grid-row:1;max-height:100%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
+  /* UI-전수디자인점검 F23: 고른 것이 없어 오른쪽 칸이 숨으면(call-feed.js·telegram-feed.js paint) 목록이 두 칸을 다 쓴다. 안내문 상자는 두지 않는다. */
+  #appView .feed-view .feed-split:has(> .feed-pane[hidden]) > .feed-list{grid-column:1 / -1}
   #appView .feed-view .feed-pane{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
 }
 
@@ -177,6 +179,10 @@
 @media(max-width:760px){
   html:has(#callsView:not(.hidden) :is([data-cf-back],[data-cf-box="work"])) .mobile-shell-header [data-mobile-view-name],
   html:has(#telegramView:not(.hidden) :is([data-tg-back],[data-tg-shelf-back])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
+  /* UI-화면정리 C(B① 위쪽 빈 띠): 이름을 감춘 머리줄이 빈 채로 남고 그 아래에 '‹ 통화'·'‹ 소식' 줄이 따로 있어 위쪽 70~80px이 비었다.
+     바구니 상세와 같은 방식으로 그 줄을 머리줄 자리로 올린다(머리줄 44px + 아래 간격 12px). */
+  #appView .feed-view .feed-pane > .feed-detail-head:first-child,
+  #appView .feed-view .feed-list > .feed-head:first-child:has(> .back-text){ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; min-height:var(--kptu-touch-target,44px); position:relative; z-index:2; }
 }
 
 /* CALL-손고치기: 줄 안 제목 입력, 조직·이름 박스, 핵심내용 고치기. 크기·색은 기존 토큰만(UI-버튼기준). */
@@ -185,7 +191,7 @@
 .feed-view .feed-edit-input{border-color:var(--ds-line)}
 .feed-view .feed-title-input:focus-visible,.feed-view .feed-edit-input:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .feed-view .feed-detail-title-input{font-size:15px;font-weight:var(--ds-weight-medium)}
-.feed-view .feed-whoname{position:relative;display:inline;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer}
+.feed-view .feed-whoname{position:relative;display:inline;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .feed-view .feed-whoname::after{content:"";position:absolute;inset:-12px -4px}
 .feed-view .feed-whoname:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .feed-view .feed-who-box .feed-link-row{flex-wrap:wrap;margin-bottom:4px}
@@ -206,7 +212,7 @@
 .feed-view .feed-who.is-self{color:var(--kptu-muted)}
 .feed-view .feed-who.is-same{visibility:hidden}
 @media(min-width:1024px){.feed-view .feed-raw-wide .feed-who{width:84px}}
-.feed-view .feed-whotag{position:relative;display:block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:11px;line-height:1.35;text-decoration:underline dotted;text-underline-offset:2px;white-space:nowrap;cursor:pointer}
+.feed-view .feed-whotag{position:relative;display:block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:11px;line-height:1.35;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;cursor:pointer}
 .feed-view .feed-whotag::after{content:"";position:absolute;inset:-8px -6px}
 .feed-view .feed-whotag:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .feed-view .feed-sbox{display:grid;gap:6px;margin:4px 0 8px;padding:8px 10px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface)}
@@ -216,7 +222,7 @@
 .feed-view .feed-scope{justify-self:start;padding:1px 6px;border-radius:4px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px}
 .feed-view .feed-scope.is-one{background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
 .feed-view .feed-chips{display:flex;flex-wrap:wrap;gap:4px}
-.feed-view .feed-chip{position:relative;margin:0;padding:1px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:10px;background:var(--kptu-surface-subtle);color:var(--kptu-ink);font:inherit;font-size:12px;cursor:pointer}
+.feed-view .feed-chip{position:relative;margin:0;padding:1px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:10px;background:transparent;color:var(--kptu-ink);font:inherit;font-size:12px;cursor:pointer}
 .feed-view .feed-chip::after{content:"";position:absolute;inset:-6px -2px}
 .feed-view .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--kptu-primary-ink)}
 .feed-view .feed-chip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
@@ -278,7 +284,7 @@
   .feed-view .feed-rm .feed-whotag{display:inline-block;margin-left:6px}
   .feed-view .feed-rm .feed-rt{flex:1 0 100%}
   .feed-view .feed-rt.is-fold:not(.is-more){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;line-clamp:6;overflow:hidden}
-  .feed-view .feed-rt-more{position:relative;display:inline-block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:11px;text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer}
+  .feed-view .feed-rt-more{position:relative;display:inline-block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:11px;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
   .feed-view .feed-rt-more[hidden]{display:none}
   .feed-view .feed-rt-more::after{content:"";position:absolute;inset:-10px -8px}
   .feed-view .feed-rt-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
@@ -288,3 +294,15 @@
   .feed-view .feed-script p{flex-direction:column;gap:0}
   .feed-view .feed-script b{max-width:none;font-size:11px}
 }
+/* TG-요청강조: 나한테 온 요청이 있는 줄만 노란 띠(왼쪽 3px)·아주 연한 노랑 바탕·노란 꼬리표. 노란 띠는 이 줄에만 쓴다. 담당조직·일정은 회색 작은 꼬리표. */
+.feed-view .feed-swipe>.feed-rd.is-ask,.feed-view .feed-rd.is-ask{background:color-mix(in srgb,var(--kptu-warning-soft) 45%,var(--kptu-surface));box-shadow:inset 3px 0 0 var(--kptu-warning)}
+.feed-view .feed-swipe>.feed-rd.is-ask.is-selected,.feed-view .feed-rd.is-ask.is-selected{background:var(--ds-select-bg);box-shadow:inset 3px 0 0 var(--kptu-warning),var(--kptu-shadow-select)}
+.feed-view .feed-di.is-ask{box-shadow:inset 3px 0 0 var(--kptu-warning)}
+.feed-view .feed-di.is-ask .feed-di-row{padding-left:6px}
+.feed-view .feed-ask{display:block;margin-top:1px;font-size:11px;line-height:1.4;color:var(--kptu-warning);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-view .feed-mark{padding:0 4px;border-radius:4px;background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
+.feed-view .feed-chiprow .feed-chip.is-ask{color:var(--kptu-warning);border-color:color-mix(in srgb,var(--kptu-warning) 45%,var(--ds-line))}
+.feed-view .feed-chiprow .feed-chip.is-ask[aria-pressed="true"]{background:var(--kptu-warning-soft);border-color:var(--kptu-warning);color:var(--kptu-warning)}
+/* TG-안본것: 안 연 방·날은 이름 옆 작은 점, 연 것은 글자만 살짝 흐림(띠·꼬리표 색은 그대로). */
+.feed-view .feed-unseen{display:inline-block;width:6px;height:6px;margin-left:5px;border-radius:50%;background:var(--kptu-info);vertical-align:2px}
+.feed-view .feed-rd.is-seen .feed-rn,.feed-view .feed-rd.is-seen .feed-rl{opacity:.62}

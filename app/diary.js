@@ -1,3 +1,4 @@
+import {waitInlineHtml, emptyHtml} from './wait-state.js';
 // JOURNAL-일기 1차: the [일기] side of the schedule tab (?view=diary). This module is the only renderer of #diaryRoot:
 // month photo calendar → the chosen day below it (photos large, swipe sideways, and the text) → write/edit panel.
 // Rows, photos and photo views go through diary-data.js (owner RLS + basket-files); deleting uses the basket's
@@ -90,11 +91,11 @@ function renderMonth() {
     const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), text = diaryText(row), odDay = odShown()?.days[day] || [];
     const cell = document.createElement('button');
     cell.type = 'button'; cell.className = 'diary-cell'; cell.dataset.diaryDay = day;
-    if (day === today) cell.setAttribute('aria-current', 'date');
+    if (day === today) { cell.setAttribute('aria-current', 'date'); cell.classList.add('ds-today'); }
     cell.setAttribute('aria-pressed', String(selected === day));
     cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}${odDay.length ? `, 원드라이브 사진 ${odDay.length}장` : ''}`);
-    if (photos[0]) { cell.classList.add('has-photo'); cell.append(photoElement(row, photos[0], 'small', {label:'', link:false})); }
-    const num = document.createElement('span'); num.className = 'diary-num'; num.textContent = String(n); cell.append(num);
+    if (photos[0]) { cell.classList.add('has-photo'); cell.append(photoElement(row, photos[0], 'small', {label:'', link:false, retry:false})); }
+    const num = document.createElement('span'); num.className = day === today ? 'diary-num ds-today-num' : 'diary-num'; num.textContent = String(n); cell.append(num);
     if (!photos.length && text) { const dot = document.createElement('span'); dot.className = 'diary-dot'; dot.dataset.diaryDot = ''; cell.append(dot); }
     if (odDay.length) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-od'; dot.dataset.diaryOdDot = ''; cell.append(dot); }
     cells.push(cell);
@@ -153,7 +154,7 @@ function renderList() {
 async function loadMonth({force = false} = {}) {
   if (!force && loadedMonth === monthKey()) return renderMonth();
   const run = ++epoch, key = monthKey();
-  status.textContent = '불러오는 중…'; $('[data-diary-retry]').hidden = true;
+  status.innerHTML = waitInlineHtml(); $('[data-diary-retry]').hidden = true;
   rows = new Map(); odMonth = null; starSet = new Set(); starsState = 'loading'; renderMonth();
   loadOd(run, key, force);
   try {
@@ -223,14 +224,16 @@ function renderDetail() {
   sendWhere(longDay(selected));
   const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odShown()).length > 0;
   detail.hidden = false; list.hidden = true; if (!allHost.hidden) listView.hide();
-  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
+  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : emptyHtml('일기 없음')}`;
   syncDetailTitle();
   const view = detail.querySelector('[data-diary-text-view]');
   if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
   renderPhotos();
 }
 // ☆를 아직 쓸 수 없을 때의 안내. 원드라이브 준비 전에는 예전 안내 그대로.
-const starNote = () => !od.configured ? '원드라이브 연결 뒤 쓸 수 있어요' : starsState === 'loading' ? '별표를 불러오는 중이에요' : '별표를 지금은 쓸 수 없어요';
+// UI-기다림표시통일 2차: 별표를 읽는 동안은 글자 대신 회색 칸(starNoteHtml).
+const starNote = () => !od.configured ? '원드라이브 연결 뒤 쓸 수 있어요' : starsState === 'loading' ? '' : '별표를 지금은 쓸 수 없어요';
+const starNoteHtml = () => od.configured && starsState === 'loading' ? waitInlineHtml() : esc(starNote());
 const itemElement = (item, size, opts) => item.kind === 'od' ? odPhotoElement(item, size, opts) : photoElement(item.row, item.file, size, opts);
 // The day's photos: the ones uploaded here, then the OneDrive ones of the day, as one small square grid. [별표] keeps the starred ones.
 function renderPhotos() {
@@ -238,15 +241,15 @@ function renderPhotos() {
   if (!host || !selected) return;
   const row = rows.get(selected), all = dayItems(selected, row, odShown());
   if (source === 'star') {
-    if (starsState !== 'ready') { shown = []; host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>${esc(starNote())}</p>`; return; }
+    if (starsState !== 'ready') { shown = []; host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>${starNoteHtml()}</p>`; return; }
     shown = all.filter(isStarred);
     if (!shown.length) {
-      host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>별표한 사진이 없어요.${od.configured && !od.connected ? ' <button type="button" class="secondary" data-od-connect>원드라이브 연결</button>' : ''}</p>`;
+      host.innerHTML = emptyHtml('별표 사진 없음', {attrs: 'data-diary-star-note'}).replace('</p>', `${od.configured && !od.connected ? ' <button type="button" class="secondary" data-od-connect>원드라이브 연결</button>' : ''}</p>`);
       return;
     }
   } else {
     shown = all;
-    if (!shown.length) { host.innerHTML = `<p class="diary-muted">${od.connected && od.folder ? '이 날 사진이 없어요.' : '직접 올린 사진이 없어요.'}</p>`; return; }
+    if (!shown.length) { host.innerHTML = emptyHtml('사진 없음'); return; }
   }
   // Small square grid (OD-사진크기: 한 줄 칸 수는 [－][＋]·두 손가락으로 고르고 서버에 기억, 기본 폰 4·넓은 화면 6); a photo opens full screen.
   const grid = document.createElement('div');
@@ -388,7 +391,7 @@ async function loadOd(run, key, force = false) {
 function renderOdPanel() {
   paintOdLink(odLinkBtn, od, odFault);
   const keepScroll = odPanel.querySelector('.diary-od-tree')?.scrollTop || 0;
-  const syncing = od.connected && od.folder && odSyncState.active ? `<p class="diary-od-sync" role="status" data-od-sync>사진 목록 받는 중…${odSyncState.count === null ? '' : ` ${odSyncState.count}장`}</p>` : '';
+  const syncing = od.connected && od.folder && odSyncState.active ? `<p class="diary-od-sync" role="status" data-od-sync aria-label="사진 목록 받기">${waitInlineHtml()}${odSyncState.count === null ? '' : ` ${odSyncState.count}장`}</p>` : '';
   const truncated = od.connected && od.folder && odMonth?.truncated && odShowOn() ? '<p class="diary-od-sync">이 달 사진은 일부만 읽었어요.</p>' : '';
   const modal = odSettings.html();
   // 연결 표시는 아이콘이 맡고, 이 칸은 받는 중·안내·설정 창이 있을 때만 보인다(일기 쓰기 중에는 숨김).
@@ -461,7 +464,7 @@ const cleanLive = () => { const out = {}; for (const [id, text] of Object.entrie
 // The text changed since the editor opened (or since the last save). Opening an old diary writes nothing: it is converted in memory.
 const textChanged = () => !!edit?.field && JSON.stringify(edit.field.getValue()) !== edit.baseJson;
 const dirty = () => !!edit && (edit.pending.length > 0 || textChanged() || commentsChanged());
-const EDITOR_LOADING = '편집기를 불러오는 중…';
+const EDITOR_LOADING = '\u0000wait'; // UI-기다림표시통일 2차: 편집기를 받는 동안 상태 줄은 글자 없는 회색 칸
 async function openEditor(day) {
   if (edit) return;
   let row = rows.get(day) || null;
@@ -495,7 +498,7 @@ async function mountField(session) {
     session.field = field; session.baseJson = JSON.stringify(field.getValue());
     if (session.pendingMerge) { field.setValue(session.pendingMerge); session.pendingMerge = null; }
     // Clear only our own loading line: a notice shown meanwhile (e.g. the 20-photo limit) stays.
-    if (!session.busy && editor.querySelector('[data-diary-editor-status]')?.textContent === EDITOR_LOADING) setEditorStatus('');
+    if (!session.busy && editor.querySelector('[data-diary-editor-status]')?.dataset.diaryEditorWait === '1') setEditorStatus('');
   } catch { if (edit === session) setEditorStatus('편집기를 불러오지 못했어요. 닫고 다시 열어 주세요.'); }
 }
 function dropField() {
@@ -507,7 +510,7 @@ function renderEditor(message = '') {
   editor.hidden = false;
   // UI-버튼통일(2026-10-28 19:16 시안 승인): 위 줄 제목 · [⋯](일기 지우기) · ✕(테두리 없음). 날짜는 달력이 열리는 공용 칸 하나(이름표 없음, app/date-field.js)이고
   // 그 옆에 작은 [📷 사진 0/20]. 글 칸도 이름표 없이 편집기만. 아래 줄은 오른쪽에 [취소](작은 버튼)·[저장](진한 버튼 하나).
-  editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><span class="diary-head-ends">${row ? '<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-editor-more aria-haspopup="true" aria-expanded="false" aria-controls="diaryEditorMenu" aria-label="일기 관리"><span aria-hidden="true">⋯</span></button><span id="diaryEditorMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="일기 관리" data-diary-editor-menu hidden><button type="button" class="diary-menu-danger" data-diary-delete>일기 지우기</button></span></span>' : ''}<button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></span></div>
+  editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><span class="diary-head-ends">${row ? '<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-editor-more aria-haspopup="true" aria-expanded="false" aria-controls="diaryEditorMenu" aria-label="일기 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryEditorMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="일기 관리" data-diary-editor-menu hidden><button type="button" class="diary-menu-danger" data-diary-delete>일기 지우기</button></span></span>' : ''}<button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></span></div>
 <div class="diary-edit-top"><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31" aria-label="일기 날짜"${row ? ' disabled' : ''}><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary diary-photo-pick" data-diary-pick aria-controls="diaryPhotoInput" aria-label="사진 고르기, ${count}장 / 최대 ${DIARY_MAX_PHOTOS}장"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}><span aria-hidden="true">📷</span> 사진 <span data-diary-count>${count}/${DIARY_MAX_PHOTOS}</span></button></div>
 <div class="diary-thumbs" data-diary-thumbs></div>
 <div class="diary-doc"><div data-diary-doc-slot></div></div>
@@ -543,7 +546,7 @@ function renderEditor(message = '') {
   editor.querySelectorAll('button,input,textarea').forEach(control => { if (edit.busy && !control.matches('[data-diary-editor-close]') && !edit.host.contains(control)) control.disabled = true; });
   edit.host.toggleAttribute('inert', !!edit.busy);
 }
-const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (line) line.textContent = message; };
+const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (!line) return; if (message === EDITOR_LOADING) line.innerHTML = waitInlineHtml(); else line.textContent = message; line.dataset.diaryEditorWait = message === EDITOR_LOADING ? '1' : ''; };
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
 function closeEditor({fromBack = false, force = false} = {}) {
   if (!edit) return true;

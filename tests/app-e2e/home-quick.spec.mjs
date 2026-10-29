@@ -24,7 +24,7 @@ test('quick task KST midnight, project, IME, partial success and request lock',a
  await expect(input).toBeDisabled();await expect(q.locator('[data-quick-mode="update"]')).toBeDisabled();
  await q.locator('[data-quick-save]').dispatchEvent('click');release();
  await expect(input).toHaveValue('QA');expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({due:'2026-10-08',links:[{project_id:'child'}]});
- await expect(q.locator('[data-quick-options]')).toBeVisible();await expect(page.locator('#toast')).toContainText('할 일은 저장했습니다. 프로젝트 연결');await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();
+ await expect(q.locator('[data-quick-options]')).toBeVisible();await expect(page.locator('#toast')).toContainText('할 일은 저장했습니다. 사업영역 연결');await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();
  await expect.poll(()=>requests.slice(before).filter(r=>r.action==='overview').length).toBe(0);
  expect(requests.slice(before).filter(r=>r.path.includes('google-calendar')||r.path.includes('app_project_milestones')||r.path.includes('app_suborganization_updates'))).toHaveLength(0);
 });
@@ -62,9 +62,10 @@ test('recent three unique organizations precede common organization order',async
  expect(await page.locator('[data-sheet-recent] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).toEqual(['c','a','d']);
  expect(await page.locator('[data-sheet-all] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).not.toContain('e');
 });
+// 고른 칸은 서버 저장(view_prefs)이 끝난 뒤에 새로고침한다. 저장 요청이 가기 전에 새로고침하면 옛 값이 읽힌다.
 test('mode memory is on the server; unreadable or unsaveable server value defaults to update (basket), reload guard detects hidden home draft',async({page})=>{
- const {prefs}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','task');
- const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
+ const {prefs}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await expect.poll(()=>prefs.value?.home_quick_mode).toBe('task');await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','task');
+ const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await expect.poll(()=>prefs.value?.home_quick_mode).toBe('update');await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
  prefs.failWrite=true;await quick(page).locator('[data-quick-mode="task"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','basket');
  await quick(page).locator('[data-quick-input]').fill('QA');expect(await page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);
  prefs.value={home_quick_mode:'task'};prefs.failRead=true;await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
@@ -81,7 +82,7 @@ for(const width of [390,1440])test(`quick visual measurements and snapshot ${wid
 test('catalog changes clear a retired selection and refresh labels during the same visit',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');await q.locator('[data-quick-project]').click();await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toBeFocused();
  await page.evaluate(()=>{const cat=window.KPTUProjectCatalog,s=cat.snapshot();cat.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:s.spaces.map(p=>({...p,name:'QA renamed',status:p.id==='child'?'archived':p.status}))});});
- await expect(q.locator('[data-quick-project]')).toHaveText('프로젝트 ▾');await q.locator('[data-quick-project]').click();
+ await expect(q.locator('[data-quick-project]')).toHaveText('사업영역 ▾');await q.locator('[data-quick-project]').click();
  await expect(page.locator('[data-sheet-value="child"]')).toHaveCount(0);await expect(page.locator('[data-sheet-value="p"]')).toHaveText('QA renamed');await page.keyboard.press('Escape');await expect(q.locator('[data-quick-project]')).toBeFocused();
  const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies[0].links).toEqual([]);

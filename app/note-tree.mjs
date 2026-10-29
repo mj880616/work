@@ -160,3 +160,16 @@ export function noteFolderErrorText(e) {
   if (/name_check|23514/.test(m)) return '폴더 이름은 1~40자로 써 주세요.';
   return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.';
 }
+// NOTE-최근5개(명진 10/29 08:57·09:01): 노트 첫 화면 맨 위 '최근' — 폴더와 상관없이 최근 고친 순(새로 만든 것 포함, 고정과 상관없음) n개.
+// 서버에서 읽은 updated_at(없으면 created_at)만 본다. 기기에 따로 적어 두지 않는다.
+export const RECENT = 'recent';
+export const RECENT_NAME = '최근';
+export const RECENT_COUNT = 5;
+const changedAt = n => { const t = Date.parse(n?.updated_at || n?.created_at || ''); return Number.isNaN(t) ? -Infinity : t; };
+export function recentNotes(notes, count = RECENT_COUNT) {
+  return [...(notes || [])].sort((a, b) => changedAt(b) - changedAt(a) || String(a?.id || '').localeCompare(String(b?.id || ''))).slice(0, Math.max(0, count));
+}
+// 줄로: 오른쪽에 작은 폴더 이름(폴더에 안 든 노트는 비움).
+export function recentRows({folders, notes, folderOf, count = RECENT_COUNT}) {
+  return recentNotes(notes, count).map(n => { const f = folders.find(x => x.id === folderOf(n)); return {type: 'note', id: n.id, note: n, depth: 0, indent: 0, path: f ? f.name : '', recent: true}; });
+}

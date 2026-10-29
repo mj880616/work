@@ -3,6 +3,11 @@
 #appView #photosView .photos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); background:var(--kptu-bg); }
 #appView #photosView .photos-chips{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; min-width:0; }
+/* UI-전수디자인점검 F02: 폰은 칩 줄이 한 줄을 다 쓰고, [전체 ▾]·[－][＋]는 그 아래 줄 오른쪽(칩이 잘리거나 고르기 칸 밑에 숨지 않게). */
+@media(max-width:760px){
+  #appView #photosView .photos-bar{ flex-wrap:wrap; row-gap:4px; }
+  #appView #photosView .photos-chips{ flex:1 0 100%; }
+}
 #appView #photosView .photos-chip{ position:relative; flex:none; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 12px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px);
   color:var(--kptu-muted); background:transparent; box-shadow:none; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-regular,400); }
 #appView #photosView .photos-chip[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
@@ -45,7 +50,6 @@
 #appView #photosView .photos-cal-cell.is-blank{ background:transparent; }
 #appView #photosView .photos-cal-cell .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #photosView .photos-cal-cell img{ width:100%; height:100%; object-fit:cover; display:block; }
-#appView #photosView .photos-cal-cell .diary-photo-mark{ display:none; }
 #appView #photosView .photos-cal-n{ position:absolute; left:3px; top:2px; z-index:1; line-height:1; }
 #appView #photosView button.photos-cal-cell .photos-cal-n,#appView #photosView .photos-cal-c{ color:var(--ds-photo-ink); text-shadow:0 0 3px var(--ds-photo-scrim); }
 #appView #photosView .photos-cal-c{ position:absolute; right:3px; bottom:2px; z-index:1; font-size:10px; line-height:1; font-variant-numeric:tabular-nums; }
@@ -68,3 +72,42 @@
 #appView #photosView .photos-od .diary-danger{ color:var(--kptu-danger); }
 #appView #photosView .photos-od:empty{ display:none; }
 #appView #photosView .photos-act button[hidden]{ display:none; }
+/* 사진 메뉴 ②: 아래 작업 줄에 [📁 옮기기]·[# 앨범]이 더해져 폰 412px에서는 한 줄 가로 넘김(줄바꿈 없음). */
+#appView #photosView .photos-act{ overflow-x:auto; scrollbar-width:none; }
+@media (max-width:760px){ #appView #photosView .photos-act{ justify-content:flex-start; } #appView #photosView .photos-act button{ flex:none; padding:0 7px; } }
+/* 이름 넣기 줄(새 폴더·이름 바꾸기·새 앨범). */
+#appView #photosView .photos-name{ display:flex; align-items:center; gap:6px; padding:4px 6px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface); font-size:var(--ds-compact-text,13px); }
+#appView #photosView .photos-name[hidden]{ display:none; }
+#appView #photosView .photos-name label{ display:flex; align-items:center; gap:6px; flex:1; min-width:0; color:var(--kptu-muted); }
+#appView #photosView .photos-name input{ flex:1; min-width:0; height:var(--ds-compact-height,32px); min-height:0; padding:0 8px; font:inherit; color:var(--kptu-ink); background:var(--kptu-bg); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); }
+/* [폴더]: 폴더 나무(공용 folder-tree.css 줄 모양) + 위치 줄(공용 .fp-path) + 그 폴더 사진 격자. PC(1024px~)는 왼쪽 나무·오른쪽 격자. */
+#appView #photosView .photos-fx{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+#appView #photosView .photos-fx.is-wide{ display:grid; grid-template-columns:minmax(180px,24%) minmax(0,1fr); gap:10px; align-items:start; }
+#appView #photosView .photos-fx-pane{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+#appView #photosView .photos-fx-tree{ top:calc(var(--kptu-touch-target,44px) + 8px); }
+#appView #photosView .photos-fx-here{ display:flex; align-items:center; gap:6px; margin:2px 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #photosView .photos-fx-here b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
+#appView #photosView .photos-fx-row .nx-main{ min-height:36px; height:auto; margin:0; box-shadow:none; font-weight:var(--ds-weight-regular,400); }
+#appView #photosView .photos-fx-row .photos-fx-tog{ flex:none; width:18px; min-width:0; height:36px; min-height:0; margin:0; padding:0; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:11px; }
+#appView #photosView .photos-fx-row .nx-more,#appView #photosView .photos-album-more{ position:relative; flex:none; width:32px; min-width:0; height:32px; min-height:0; margin:0; padding:0; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:16px; line-height:1; }
+@media (hover:hover){ #appView #photosView .photos-fx-row > .nx-more{ opacity:0; } #appView #photosView .photos-fx-row:is(:hover,:focus-within) > .nx-more,#appView #photosView .photos-fx-row > .nx-more[aria-expanded="true"]{ opacity:1; } }
+#appView #photosView button.photos-fx-new{ display:flex; min-height:28px; height:auto; margin:2px 0 0; padding:0 6px; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:13px; font-weight:400; justify-content:flex-start; }
+#appView #photosView button.photos-fx-new:hover{ color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
+#appView #photosView .photos-fx-list{ display:flex; flex-direction:column; }
+#appView #photosView .diary-grid-item.nx-dragging{ opacity:.55; }
+/* [앨범]: 카드 2칸(폰)·5칸(PC). 대표 사진 + #이름 + 장수, 마지막 + 새 앨범. */
+#appView #photosView .photos-albums{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+@media (min-width:761px){ #appView #photosView .photos-albums{ grid-template-columns:repeat(5,minmax(0,1fr)); } }
+#appView #photosView .photos-album{ position:relative; min-width:0; }
+#appView #photosView .photos-album-open{ position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:auto auto; gap:2px 4px; width:100%; min-width:0; height:auto; min-height:0; margin:0; padding:0 0 4px; border:0; background:none; box-shadow:none; text-align:left; color:var(--kptu-ink); font-size:var(--ds-compact-text,13px); font-weight:400; }
+#appView #photosView .photos-album-cover{ grid-column:1 / -1; position:relative; display:block; aspect-ratio:1/1; overflow:hidden; border-radius:6px; background:var(--kptu-surface-subtle); }
+#appView #photosView .photos-album-cover .diary-photo,#appView #photosView .photos-album-cover img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+#appView #photosView .photos-album-name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:2px; }
+#appView #photosView .photos-album-n{ color:var(--kptu-muted); font-size:12px; font-variant-numeric:tabular-nums; padding-right:28px; }
+#appView #photosView .photos-album .photos-album-more{ position:absolute; right:0; bottom:0; }
+#appView #photosView button.photos-album-new{ display:grid; place-items:center; aspect-ratio:1/1; height:auto; min-height:0; margin:0; padding:0; border:var(--ds-line-width,.5px) dashed var(--ds-line); border-radius:6px; background:none; box-shadow:none; color:var(--kptu-muted); font-size:13px; font-weight:400; }
+#appView #photosView .photos-al-head .photos-album-more{ position:relative; margin-left:auto; }
+/* 고르기 판(옮길 폴더·넣을 앨범): od-link-menu 모양, 긴 나무는 판 안에서 넘김. */
+.photos-pick-menu{ max-height:min(60vh,420px); }
+.photos-pick-menu button:disabled{ opacity:.45; cursor:default; }
+.photos-pick-menu .photos-pick-n{ margin-left:auto; font-size:11px; color:var(--kptu-muted); }

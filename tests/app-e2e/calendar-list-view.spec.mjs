@@ -21,7 +21,8 @@ test('phone defaults to 14 date groups with empty days and separate tasks',async
 test('bottom loads another 14 days and navigation resets the range',async({page})=>{
   await open(page);
   await expect(page.locator('.clv-day')).toHaveCount(14);
-  await page.locator('#calendarListMore').scrollIntoViewIfNeeded();
+  // 빈 날이 한 줄이라 14일이 한 화면에 들어올 수 있다: 열자마자 저절로 받지 않고, 한 번 내린(scroll) 뒤부터 끝에 닿으면 받는다.
+  await page.locator('#calendarListMore').scrollIntoViewIfNeeded();await page.evaluate(()=>document.dispatchEvent(new Event('scroll')));
   await expect(page.locator('.clv-day')).toHaveCount(28);
   await page.locator('#nextMonthBtn').click();
   await expect(page.locator('.clv-day')).toHaveCount(14);
@@ -54,7 +55,8 @@ test('failed next page keeps the shown days and retries the same 14 day interval
     if(failures-->0)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'QA read failure'})});
     return route.fallback();
   });
-  await page.locator('#calendarListMore').scrollIntoViewIfNeeded();
+  // 빈 날이 한 줄이라 14일이 한 화면에 들어올 수 있다: 열자마자 저절로 받지 않고, 한 번 내린(scroll) 뒤부터 끝에 닿으면 받는다.
+  await page.locator('#calendarListMore').scrollIntoViewIfNeeded();await page.evaluate(()=>document.dispatchEvent(new Event('scroll')));
   await expect(page.getByRole('button',{name:'다시 불러오기'})).toBeVisible();
   await expect(page.locator('.clv-day')).toHaveCount(14);
   await page.getByRole('button',{name:'다시 불러오기'}).click();

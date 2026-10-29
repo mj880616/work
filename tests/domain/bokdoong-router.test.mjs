@@ -536,7 +536,7 @@ test('a preview bot opening a valid ?t= share link gets the page title only, esc
   assert.equal(reads[0].url, SHARE_READ);
   assert.equal(reads[0].method, 'POST');
   assert.equal(reads[0].type, 'application/json');
-  assert.deepEqual(JSON.parse(reads[0].body), { token: SHARE_TOKEN });
+  assert.deepEqual(JSON.parse(reads[0].body), { token: SHARE_TOKEN, head: true });
   assert.deepEqual(reads[0].headers.sort(), ['content-type']);
   assert.equal(pages.length, 1);
   assert.equal(pages[0].url, 'https://mj880616.github.io/work/share/');
@@ -808,4 +808,38 @@ test('work /work/app/** goes to bokdoong.com; Web1, the share page and arsenal s
   assert.equal(arsenalRoot.response.headers.get('Location'), 'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/');
   const arsenalApp = await request('https://arsenal.bokdoong.com/work/app/');
   assert.equal(arsenalApp.response.status, 404);
+});
+
+// SHARE-보관함·HTML공유: bokdoong.com/s/<name>-<8 letters>.
+const SLUG = 'minja-rail-k7q2m9xa';
+test('a person opening bokdoong.com/s/<short address> is sent to the share page on work, nothing is looked up', async () => {
+  const { response, reads, pages } = await shareRequest(`https://bokdoong.com/s/${SLUG}`, { ua: 'Mozilla/5.0 (Linux; Android 14) SamsungBrowser/26.0' });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('Location'), `https://work.bokdoong.com/work/share/?s=${SLUG}`);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.match(response.headers.get('X-Robots-Tag'), /noindex/);
+  assert.equal(reads.length, 0); assert.equal(pages.length, 0);
+});
+test('a preview bot on bokdoong.com/s/ gets the shared card with the page title (title only, by short address)', async () => {
+  const { response, text, reads, pages } = await shareRequest(`https://bokdoong.com/s/${SLUG}`, {
+    read: () => Response.json({ ok: true, page: { title: '민자철도 <현황>' } }) });
+  assert.equal(response.status, 200);
+  assert.equal(ogTitle(text), '민자철도 &lt;현황&gt;');
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.deepEqual(JSON.parse(reads[0].body), { slug: SLUG, head: true });
+  assert.equal(pages[0].url, 'https://mj880616.github.io/work/share/');
+  assert.ok(!text.includes(SLUG));
+});
+test('a preview bot on work /work/share/?s= also gets the title; malformed short addresses are 404 or the plain card', async () => {
+  const work = await shareRequest(`https://work.bokdoong.com/work/share/?s=${SLUG}`, { read: () => Response.json({ ok: true, page: { title: '제목' } }) });
+  assert.equal(ogTitle(work.text), '제목');
+  assert.deepEqual(JSON.parse(work.reads[0].body), { slug: SLUG, head: true });
+  assert.equal(work.pages[0].url, 'https://mj880616.github.io/work/share/');
+  for (const bad of ['minja-rail', 'minja-rail-k7q2', 'MINJA-rail-k7q2m9xa', 'minja-rail-k7q2m9x0', 'a-k7q2m9xa', 'x--y-k7q2m9xa', `${SLUG}/x`]) {
+    const r = await shareRequest(`https://bokdoong.com/s/${bad}`);
+    assert.equal(r.response.status, 404, bad); assert.equal(r.reads.length, 0, bad);
+  }
+  assert.equal((await shareRequest(`https://bokdoong.com/s/${SLUG}?x=1`)).response.status, 404);
+  const plain = await shareRequest('https://work.bokdoong.com/work/share/?s=minja-rail-k7q2');
+  assert.equal(plain.reads.length, 0); assert.equal(ogTitle(plain.text), '공유 페이지');
 });

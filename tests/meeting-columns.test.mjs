@@ -88,7 +88,7 @@ test('PC 3단 배치: 왼쪽 종류 목록(건수) / 가운데 고른 종류의 
   // 고른 종류가 없어졌으면 맨 위 종류.
   const fallback=columnsHtml(columns,{selectedKey:'gone',colorOf:()=>'',whenOf:()=>''});
   assert.match(fallback,/data-meeting-column="__none__"/);assert.match(fallback,/data-meeting-result="n1"/);
-  assert.equal(columnsHtml([],{colorOf:()=>'',whenOf:()=>''}),'<div class="empty">사업 보고가 없습니다.</div>');
+  assert.equal(columnsHtml([],{colorOf:()=>'',whenOf:()=>''}),'<p class="wait-empty" data-wait-empty>없음</p>');
 });
 
 // MTG-고치기바로: 오른쪽(세 번째) 칸 안쪽은 이 파일이 그리지 않는다 - 자리(#mcolResult)만 만들고 결과 창 요소 하나를 team.js가 붙인다.
@@ -109,7 +109,7 @@ test('사업 보고 자료 줄 ⋯: 자료실 자료면 두 항목, 줄 누르�
   const doc={id:'d1',title:'가상 안건지',file_name:'가상 <안건지>.hwp',mime_type:'application/x-hwp',file_id:'drive-d1',drive_url:'https://drive.google.com/file/d/drive-d1/view'};
   assert.deepEqual(meetingFileFile(doc),{name:'가상 <안건지>.hwp',mime:'application/x-hwp',documentId:'d1',driveId:'drive-d1',driveUrl:'https://drive.google.com/file/d/drive-d1/view'});
   const html=fileMoreHtml(doc);
-  assert.match(html,/<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: 가상 &lt;안건지&gt;.hwp">⋯<\/summary>/);
+  assert.match(html,/<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: 가상 &lt;안건지&gt;.hwp"><span class="more-dots" aria-hidden="true">⋯<\/span><\/summary>/);
   assert.match(html,/data-fa-menu="open"[^>]*>Drive에서 열기<\/button><button[^>]*data-fa-menu="download"[^>]*>내려받기<\/button>/);
   assert.match(html,/data-fa-doc="d1"/);assert.match(html,/data-fa-id="drive-d1"/);
   // 파일 번호·주소가 없는 옛 행은 열 길도 내려받을 길도 없으니 ⋯를 그리지 않는다.

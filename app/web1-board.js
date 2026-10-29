@@ -13,7 +13,7 @@
   ];
   let state=new Map(),loaded=false,detailTrigger=null,detailEpoch=0,pendingReader=null;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const card=x=>`<button class="w1b-card" type="button" data-web1-board-href="${esc(x.href)}" data-web1-board-source="${esc(x.source)}" data-web1-board-title="${esc(x.title)}"><div class="w1b-card-top"><span class="badge">${esc(x.badge)}</span><span class="w1b-open">내용 보기</span></div><h3>${esc(x.title)}</h3><p>${esc(x.description)}</p></button>`;
+  const card=x=>`<button class="w1b-card" type="button" data-web1-board-href="${esc(x.href)}" data-web1-board-source="${esc(x.source)}" data-web1-board-title="${esc(x.title)}"><div class="w1b-card-top"><span class="badge">${esc(state.get(x.key)===true?'지난 사업':x.badge)}</span><span class="w1b-open">내용 보기</span></div><h3>${esc(x.title)}</h3><p>${esc(x.description)}</p></button>`;
   const rawUrl=path=>RAW+path.split('/').map(encodeURIComponent).join('/')+'?_='+Date.now();
   const errorDoc=canonical=>`<!doctype html><html lang="ko"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;color:#1f2933;padding:28px;margin:0}p{color:#66727f;line-height:1.6}a{display:inline-block;margin-top:12px;color:#355f86;font-weight:700}</style><body><h2>본문을 불러오지 못했습니다.</h2><p>원문을 불러오지 못했습니다. 잠시 후 다시 시도하거나 공개 원문을 열어 확인해 주세요.</p><a href="${esc(canonical)}" target="_blank" rel="noopener">공개 원문 열기</a></body></html>`;
   function injectReaderBridge(html,canonical){
@@ -41,12 +41,12 @@
     const archivedWrap=document.querySelector('#web1BoardArchivedWrap');
     if(!host||!active||!archived||!archivedWrap)return;
     const aa=items.filter(x=>state.get(x.key)!==true),zz=items.filter(x=>state.get(x.key)===true);
-    active.innerHTML=aa.length?aa.map(card).join(''):'<div class="empty">진행 중인 Web1 사업 페이지가 없습니다.</div>';
-    archived.innerHTML=zz.length?zz.map(card).join(''):'<div class="empty">지나간 업무·사업이 없습니다.</div>';
+    active.innerHTML=aa.length?aa.map(card).join(''):(globalThis.KPTUWait?.emptyHtml?.()||'');
+    archived.innerHTML=zz.length?zz.map(card).join(''):'';
     archivedWrap.classList.toggle('hidden',!zz.length);
-    const legacyLabel=document.querySelector('#web1BoardLegacy > summary');
-    if(legacyLabel)legacyLabel.innerHTML='이전 페이지 <span class="w1b-legacy-count">'+items.length+'</span>';
-    host.dataset.web1BoardReady='1'
+    host.dataset.web1BoardReady='1';
+    // SHARE-보관함·HTML공유: these cards sit in the one '보관함 n' of share-pages.js, which counts them.
+    window.dispatchEvent(new CustomEvent('kptu:web1-board-rendered'))
   }
   function discardPendingReader(){
     pendingReader?.remove();

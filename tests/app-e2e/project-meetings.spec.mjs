@@ -53,6 +53,10 @@ for(const width of [390,1280])test(`project detail lists its own meetings newest
  // MTG-사업보고 6단계: 줄은 [종류] 꼬리표 + 이름·차수, 아래 작은 글자는 날짜.
  await expect(rows(page).first().locator('[data-report-kind-tag]')).toHaveText('회의');await expect(rows(page).first().locator('b')).toContainText('합성 정례 회의 7차');await expect(rows(page).first().locator('small')).toHaveText('2026. 9. 28.');
  await expect(rows(page).nth(1).locator('[data-report-kind-tag]')).toHaveText('회의');await expect(rows(page).nth(1).locator('b')).toHaveText('회의합성 간담회');await expect(rows(page).nth(1).locator('small')).toHaveText('2026. 9. 25.');
+ // UI-전수디자인점검 F19: 종류 꼬리표는 이 화면에서도 테두리 있는 작은 칩이라 이름과 떨어져 보인다('회의합성 간담회'처럼 붙지 않음). 칸 제목은 13px, 칸 사이 16px.
+ expect(await rows(page).first().locator('[data-report-kind-tag]').evaluate(el=>{const s=getComputedStyle(el);return [s.display,s.borderTopStyle,parseFloat(s.marginRight)>0,s.fontSize]})).toEqual(['inline-block','solid',true,'11px']);
+ await expect(box.locator('.ps3-section-head h3')).toHaveCSS('font-size','13px');
+ expect(await box.evaluate(el=>{const s=getComputedStyle(el);return [s.marginTop,s.paddingTop,s.paddingBottom]})).toEqual(['0px','8px','8px']);
  const more=box.locator('.ps3-meetings-more');await expect(more).not.toHaveAttribute('open','');
  await expect(more.locator(':scope > summary')).toHaveText('나머지 2개 보기');await more.locator(':scope > summary').click();
  await expect(more.locator('[data-ps3-meeting]')).toHaveCount(2);await expect(more.locator('[data-ps3-meeting]').last()).toContainText('2차');
@@ -67,7 +71,8 @@ for(const width of [390,1280])test(`project detail lists its own meetings newest
  await expect(page.locator('#mrdTitle')).toContainText('합성 정례 회의');
  expect(reads.some(r=>r.id==='eq.mt-1')).toBe(true);
  await expect(page.locator('#projectsView')).toBeVisible();
- await closeMeetingResult(page);await expect(dialog).toBeHidden();
+ // MTG-프로젝트합치기 ①: PC에서는 창 밑의 사업 보고 세 칸이 같은 결과 요소를 다시 칸에 앉힌다(창에 가려 보임). 팝업으로서는 닫혔는지 본다.
+ await closeMeetingResult(page);await expect(page.locator('#meetingRoundDetailModal:not([data-mrd-docked="1"])')).toBeHidden();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();await expectProjectTitle(page,'테스트 프로젝트');
  await expect(first).toBeFocused();
  if(width<1024){

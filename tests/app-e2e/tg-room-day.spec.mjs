@@ -37,10 +37,12 @@ test('텔레그램 390: 날짜 아래 방 한 줄(방 이름·그날 한 줄·�
  await expect(view.locator('[data-tg-item]')).toHaveCount(0);
  const a=rd(view,A6);
  await expect(a.locator('.feed-rn')).toHaveText('가상지부 단톡');await expect(a.locator('.feed-rl')).toHaveText('교섭 일정 연기와 자료 요청');
- await expect(a.locator('.feed-ft span')).toHaveText(['소식 2','원문 5']);
+ await expect(a.locator('.feed-ft span:not([data-tg-mark])')).toHaveText(['소식 2','원문 5']);
+ // TG-요청강조: 일정 관련 소식이 있는 줄은 회색 꼬리표(다음 주 화요일로 미뤄짐).
+ await expect(a.locator('.feed-ft [data-tg-mark]')).toHaveText('일정');
  // 요약이 없는 옛 날: 그날 소식 제목을 모아 한 줄로(AI 호출 없음).
  await expect(rd(view,B3).locator('.feed-rl')).toHaveText('옛 안건 정리 · 옛 일정 확인');
- await expect(rd(view,B3).locator('.feed-ft span')).toHaveText(['소식 2','원문 3']);
+ await expect(rd(view,B3).locator('.feed-ft span:not([data-tg-mark])')).toHaveText(['소식 2','원문 3']);
  // 14일씩: 첫 읽기는 9/23~10/6을 7일씩 두 번.
  expect(f.calls.map(c=>[c.p_from,c.p_to]).sort()).toEqual([['2026-09-23','2026-09-29'],['2026-09-30','2026-10-06']]);
  await expect(view.locator('.feed-pinbar')).toContainText('고정 1');
@@ -160,7 +162,8 @@ test('텔레그램 1280: 목록 1/3 · 상세 2/3, 고른 줄 표시, 소식 ⋯
  const f=await fixture(page,{width:1280});
  await openMenu(page,1280,'텔레그램 소식');
  const view=page.locator('#telegramView'),list=view.locator('#tgList'),detail=view.locator('#tgDetail');
- await expect(detail).toContainText('왼쪽에서 방을 누르면');
+ // UI-전수디자인점검 F23: 고른 방이 없으면 안내문 상자 대신 오른쪽 칸이 없고 목록이 두 칸을 다 쓴다.
+ await expect(detail).toBeHidden();{const s=await view.locator('#tgSplit').boundingBox(),w=await list.boundingBox();expect(w.width).toBeGreaterThan(s.width-2);}
  await rd(view,A6).locator('.feed-rdb').click();
  await expect(list).toBeVisible();await expect(detail.locator('[data-tg-daybox]')).toBeVisible();
  await expect(rd(view,A6)).toHaveClass(/is-selected/);

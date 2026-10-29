@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { noteAction } from './helpers/basket-more.mjs';
+import {noteAction} from './helpers/basket-more.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
@@ -75,7 +75,7 @@ for(const width of [390,1280]){
   await page.locator('[data-note-search]').fill('기본급');
   await expect(noteList(page)).toHaveCount(1);await expect(noteList(page)).toContainText('임금협상 정리');
   await page.locator('[data-note-search]').fill('없는 말');
-  await expect(noteList(page)).toHaveCount(0);await expect(page.locator('[data-note-list-status]')).toHaveText('찾는 노트가 없어요');
+  await expect(noteList(page)).toHaveCount(0);await expect(page.locator('[data-note-list-status] [data-wait-empty]')).toHaveText('맞는 노트 없음');
   await chooseBasketKind(page,'memo');
   await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await expect(page.locator('[data-note-host]')).toBeHidden();
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
@@ -98,6 +98,8 @@ for(const width of [390,1280]){
   await expect(detail.locator('[data-note-read-actions]')).toHaveCount(0);
   await noteMenuAction(page,'data-note-edit');
   await expect(detail.locator('[data-note-title-input]')).toHaveValue('임금협상 정리');
+  // 편집기(본문 칸)가 붙은 뒤에 [저장]을 누른다. 붙기 전 [저장]은 '편집기를 여는 중' 안내를 보인다(제목 검사 전).
+  await expect(noteField(page)).toBeVisible();
   await detail.locator('[data-note-title-input]').fill('');
   await detail.locator('[data-note-save]').click();
   await expect(detail.locator('[data-basket-status]')).toHaveText('노트 제목을 입력해 주세요.');expect(f.writes).toEqual([]);

@@ -61,6 +61,8 @@ async function fixture(page,{width=1280,missing=false,empty=false}={}){
    return r.fulfill({json:Number(q.get('offset')||0)||empty?[]:days.filter(d=>d.source===src)});
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:[{id:ORG,workspace_id:'w',name:'예시지부',active:true},{id:'o',workspace_id:'w',name:'테스트 조직',active:true}]}));
+  // ORG-고르기통일: 예시지부만 내 담당조직(테스트 조직은 담당 밖이라 조직 고르기 창에 나오지 않는다).
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_assignees',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:[{organization_id:ORG}]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>{
    if(r.request().method()==='POST'){writes.push({table:'org_update',body:r.request().postDataJSON()});return r.fulfill({status:201,json:[]});}
    return r.fulfill({json:[]});
@@ -231,6 +233,7 @@ test('통화 1280: 조직 연결은 핵심내용을 요약 기본값으로, 저�
  await expect(text).toHaveValue('- 원고 금요일 마감');
  await page.locator('#cfDetail [data-cf-link-pick]').click();
  const sheet=page.locator('#feedOrgSheet');await expect(sheet).toBeVisible();
+ await expect(sheet.getByRole('button',{name:'테스트 조직',exact:true})).toHaveCount(0);
  await sheet.getByRole('button',{name:'예시지부',exact:true}).click();await expect(sheet).toBeHidden();
  await expect(page.locator('#cfDetail [data-cf-link-pick]')).toHaveText('예시지부 ▾');
  await page.locator('#cfDetail [data-cf-link-save]').click();
@@ -253,10 +256,10 @@ for(const width of [390,1280])test(`빈 상태 ${width}: 표가 없으면 '준�
 test('빈 상태: 표는 있고 줄이 없으면 빈 한 줄',async({page})=>{
  const f=await fixture(page,{width:390,empty:true});
  await openMenu(page,390,'통화');
- await expect(page.locator('#callsView [data-cf-empty="none"]')).toHaveText('아직 받은 업무 통화가 없어요.');
+ await expect(page.locator('#callsView [data-cf-empty="none"][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#callsView [data-cf-box="personal"]')).toHaveText('개인 통화함 0 ›');
  await openMenu(page,390,'텔레그램 소식');
- await expect(page.locator('#telegramView [data-tg-empty="none"]')).toHaveText('아직 받은 텔레그램 소식이 없어요.');
+ await expect(page.locator('#telegramView [data-tg-empty="none"][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#telegramView [data-tg-today]')).toHaveText('오늘 받은 소식 없음');
  expect(f.errors).toEqual([]);
 });

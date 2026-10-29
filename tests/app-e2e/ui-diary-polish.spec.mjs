@@ -103,30 +103,39 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
 for(const width of [390,1280])test(`② today is a theme-accent ring (not filled) on the number, the chosen day keeps the border (일기·달력) ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await page.evaluate(()=>window.KPTURouter.go('diary'));
- const today=page.locator('#diaryRoot [data-diary-day="2026-10-06"]'),other=page.locator('#diaryRoot [data-diary-day="2026-10-04"]');
+ const TODAY='#diaryRoot [data-diary-day="2026-10-06"]',OTHER='#diaryRoot [data-diary-day="2026-10-04"]',today=page.locator(TODAY),other=page.locator(OTHER);
  await expect(today).toHaveAttribute('aria-current','date');
  // UI-선택표시톤다운: 오늘 = 강조 글자색(--kptu-primary-text) 동그라미 테두리 + 같은 색 숫자, 바탕은 칠하지 않는다.
  const accent=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-primary-text)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).color;e.remove();return c;});
- const look=loc=>loc.evaluate(el=>{const n=el.querySelector('.diary-num'),c=getComputedStyle(n),cell=getComputedStyle(el);const r=n.getBoundingClientRect();return {bg:c.backgroundColor,fg:c.color,numRing:c.boxShadow,radius:c.borderRadius,w:Math.round(r.width),h:Math.round(r.height),ring:cell.boxShadow,photo:el.classList.contains('has-photo')};});
+ // 달력 칸은 읽기가 끝날 때마다(일기·별표·원드라이브) 새로 그려진다. 이 달 읽기가 끝난 뒤, 잴 때마다 그 순간의 칸을 한 번에 찾아 잰다
+ // (찾은 칸을 들고 있다가 재면 그 사이 새로 그려진 옛 칸을 재어 빈 값이 나온다).
+ await expect(page.locator('#diaryRoot [data-diary-status] [data-wait]')).toHaveCount(0);
+ const look=loc=>page.evaluate(sel=>{const el=document.querySelector(sel);const n=el.querySelector('.diary-num'),c=getComputedStyle(n),cell=getComputedStyle(el);const r=n.getBoundingClientRect();return {bg:c.backgroundColor,fg:c.color,numRing:c.boxShadow,radius:c.borderRadius,w:Math.round(r.width),h:Math.round(r.height),ring:cell.boxShadow,frame:getComputedStyle(el,'::before').borderTopWidth,frameColor:getComputedStyle(el,'::before').borderTopColor,photo:el.classList.contains('has-photo')};},loc);
  const ringed=t=>t.photo?t.numRing.includes('inset'):(t.numRing.startsWith(accent)&&t.numRing.includes('inset'));
- const t=await look(today),o=await look(other);
+ const t=await look(TODAY),o=await look(OTHER);
  if(!t.photo){expect(t.bg).toBe('rgba(0, 0, 0, 0)');expect(t.fg).toBe(accent);}
  expect(ringed(t)).toBe(true);expect(t.radius).toBe('999px');expect(t.h).toBe(20);expect(t.w).toBeGreaterThanOrEqual(20);
  if(!o.photo)expect(o.bg).toBe('rgba(0, 0, 0, 0)');expect(o.numRing).toBe('none');
- // Today is not "chosen": no cell ring until it is pressed. Pressing a day adds the ring and leaves today's circle as it was.
+ // UI-오늘표시통일: 오늘 칸은 고르지 않아도 칸 둘레 전체 진한 선(::before, --ds-today-line = --kptu-primary-ink 2px)이 있다. 다른 날은 선 없음.
+ const ink=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-primary-ink)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).color;e.remove();return c;});
+ expect(t.frame).toBe('2px');expect(t.frameColor).toBe(ink);expect(o.frame).not.toBe('2px');
+ // 고르지 않은 오늘은 고른 표시(칸 그림자)는 없다. Pressing a day adds the ring and leaves today's circle and frame as they were.
  expect(t.ring).toBe('none');
  await other.click();await expect(other).toHaveAttribute('aria-pressed','true');
- expect((await look(other)).ring).not.toBe('none');expect((await look(other)).numRing).toBe('none');
- expect(ringed(await look(today))).toBe(true);expect((await look(today)).ring).toBe('none');
+ expect((await look(OTHER)).ring).not.toBe('none');expect((await look(OTHER)).numRing).toBe('none');
+ expect(ringed(await look(TODAY))).toBe(true);expect((await look(TODAY)).ring).toBe('none');expect((await look(TODAY)).frame).toBe('2px');
  await page.locator('#diaryRoot [data-diary-detail-close]').click();
  await today.click();
- const both=await look(today);expect(ringed(both)).toBe(true);expect(both.ring).not.toBe('none');
+ const both=await look(TODAY);expect(ringed(both)).toBe(true);expect(both.ring).not.toBe('none');
  // [달력]: the same ring and colour on today's number.
  await openMonth(page);
  const day=page.locator('#calendarGrid .cal-cell.today .cal-day');
  await expect(day).toBeVisible();
- const c=await day.evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,ring:s.boxShadow,radius:s.borderRadius};});
+ const c=await page.evaluate(()=>{const el=document.querySelector('#calendarGrid .cal-cell.today .cal-day'),s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,ring:s.boxShadow,radius:s.borderRadius};});
  expect(c.bg).toBe('rgba(0, 0, 0, 0)');expect(c.fg).toBe(accent);expect(c.ring.startsWith(accent)&&c.ring.includes('inset')).toBe(true);expect(c.radius).toBe('999px');
+ // UI-오늘표시통일: [달력] 오늘 칸도 일기 달력과 같은 칸 둘레 선(같은 굵기·색).
+ const frame=await page.evaluate(()=>{const s=getComputedStyle(document.querySelector('#calendarGrid .cal-cell.today'),'::before');return {w:s.borderTopWidth,color:s.borderTopColor,z:s.zIndex};});
+ expect(frame).toEqual({w:'2px',color:ink,z:'2'});
  expect(f.errors).toEqual([]);
 });
 
@@ -136,7 +145,7 @@ test('③ no write button under the date; [+] writes the chosen day, an existing
  const editor=page.locator('#diaryRoot [data-diary-editor]'),plus=page.locator('#diaryRoot #newDiaryBtn');
  await page.locator('#diaryRoot [data-diary-day="2026-10-02"]').click();
  const detail=page.locator('#diaryRoot [data-diary-detail]');
- await expect(detail).toContainText('이 날 일기가 없어요.');
+ await expect(detail).toContainText('일기 없음');
  await expect(detail.locator('button')).toHaveCount(1);// only × (close)
  await expect(detail.getByText('이 날 일기 쓰기')).toHaveCount(0);
  await plus.click();
@@ -168,7 +177,7 @@ test('⑤ an empty note list shows no guide sentence',async({page})=>{
  await expect(page.locator('[data-note-host]')).not.toContainText('아직 노트가 없어요');
  // A search with no hit still says so.
  await page.locator('[data-note-search]').fill('없는 말');
- await expect(status).toHaveText('찾는 노트가 없어요');
+ await expect(status.locator('[data-wait-empty]')).toHaveText('맞는 노트 없음');
  expect(f.errors).toEqual([]);
 });
 

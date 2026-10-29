@@ -4,8 +4,8 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
-import {openClassification} from './helpers/basket-more.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {pickReportFilter} from './helpers/report-filter.mjs';
 // UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의를 새 기준(버튼 높이 하나·버튼 4종·모서리 8px·13px/500·0.5px 상자 안 줄 단위)으로,
 // 목록 줄 이름 13px·400(프로젝트 메인만 500)·보조 줄 12px 흐린 색, 담당조직 마지막 기록 점·보조 줄, 프로젝트 목록 오른쪽 D-day 하나,
 // 자료실 종류 색(확장자, 없으면 Drive 파일 종류), 바구니 [분류 결과 입력] 칸 제목.
@@ -79,7 +79,7 @@ async function sameButtons(page,region){
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('#manageLibraryBtn')?'compact':'button');
   // UI-PC버튼36: PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(36px), 누르는 범위 44px.
   // UI-버튼전수조사(2026-10-24): 채운 버튼(주 동작·목록 머리 추가)은 36px, 나머지 버튼은 작은 버튼 32px. 둘 다 누르는 범위 44px.
-  if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=1024&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));const want=await control.evaluate(el=>el.matches('.primary')?36:32);expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
+  if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=1024&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));const want=await control.evaluate(el=>el.matches('.primary')&&!(innerWidth>=761&&el.matches('#newMeetingBtn'))?36:32);/* BIZ-버튼줄정리: [+ 사업 보고]는 32px */expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
   else{expect(s.height,label).toBe(32);expect(s.radius,label).toBe(kind==='chip'?'999px':'8px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
   // UI-테마선택색: 고른 전환·필터 쪽은 일부러 주 버튼 색이라 채운 버튼 수에서 뺀다.
@@ -155,7 +155,7 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
  const selected=await look(page.locator('#libraryCategoryFilter [aria-pressed="true"]').first());
  expect(selected.bg).toBe(await token(page,'--ds-select-bg'));expect(selected.fg).toBe(await token(page,'--ds-select-ink'));
- const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
+ const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(36);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  await noOverflow(page);
  expect(errors).toEqual([]);
 });
@@ -176,7 +176,7 @@ for(const width of [390,1000])test(`회의: 줄 단위 목록·색 점 없음·�
  // UI-선택표시통일: 폰의 [+ 회의]는 동그란 [+](버튼 모양 검사 밖), PC는 채운 버튼 하나.
  expect(await sameButtons(page,page.locator('#meetingsView'))).toEqual(width<761?[]:['+ 사업 보고']);
  // 필터 고르기는 그대로 동작.
- await page.locator('#meetingTypeFilter [data-filter-value="정책위원회"]').click();
+ await pickReportFilter(page,'name','정책위원회');
  await expect(rows).toHaveCount(1);await expect(rows.first().locator('h3')).toHaveText('정책위원회');
  await noOverflow(page);
  expect(errors).toEqual([]);
@@ -201,11 +201,9 @@ for(const width of [390,1280])test(`프로젝트 목록 오른쪽은 D-day 하�
  const basket=page.locator('#basketView');await expect(basket.locator('[data-basket-row]')).toHaveCount(1);
  await rowText(page,basket.locator('.basket-row .basket-title'));
  for(const meta of await basket.locator('.basket-row time').all())expect((await look(meta)).fontSize).toBe('12px');
- // 8-9e-2(#577): [분류 결과 입력] 칸은 [⋯] → [분류 요청]이 요청문을 복사한 뒤 곧바로 연다.
- await openClassification(page);
- await expect(basket.getByRole('heading',{level:3,name:'분류 결과 입력',exact:true})).toBeVisible();
- await expect(basket.getByRole('heading',{name:'AI 정리 결과'})).toHaveCount(0);
- await expect(basket.locator('[data-classification-panel]')).toHaveAttribute('aria-labelledby','basketClassificationTitle');
+ // BASKET-AI메뉴삭제: [분류 결과 입력] 칸은 없다. BASKET-정리함한화면: 칸 제목은 '챙길 것'·'업데이트' 두 개.
+ await expect(basket.getByRole('heading',{level:3,name:'분류 결과 입력',exact:true})).toHaveCount(0);
+ await expect(basket.locator('#inboxTodoTitle')).toContainText('챙길 것');await expect(basket.locator('#inboxUpdateTitle')).toContainText('업데이트');
  expect(errors).toEqual([]);
 });
 

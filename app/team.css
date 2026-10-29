@@ -40,7 +40,6 @@ body.kptu-workspace-shell .topbar{display:none!important}
 .cal-head{text-align:center;padding:var(--kptu-space-2) 2px;background:var(--kptu-surface-subtle);font-size:11px;font-weight:700;color:var(--kptu-muted);border-right:1px solid var(--kptu-border)}
 .cal-cell{min-height:105px;padding:7px;border-right:1px solid var(--kptu-border);border-top:1px solid var(--kptu-border);overflow:hidden}
 .cal-cell.other{background:var(--kptu-surface-subtle);color:var(--kptu-faint)}
-.cal-cell.today{background:var(--kptu-info-soft)}
 .cal-day{display:block;font-size:11px;font-weight:700;margin-bottom:5px}
 .cal-event{font-size:10px;padding:3px 5px;background:var(--kptu-info-soft);border-radius:var(--kptu-radius-sm);margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--kptu-info)}
 .cal-event.google{background:var(--kptu-success-soft);color:var(--kptu-success)}

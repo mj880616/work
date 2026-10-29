@@ -7,11 +7,15 @@ const browse = await import('../app/ledger-browse-model.mjs');
 const NOW = new Date('2026-10-25T03:00:00Z'); // 서울 2026-10-25 12:00
 const row = (n, over = {}) => ({id: `r${n}`, ledger_id: `L-${String(n).padStart(3, '0')}`, kind: 'commitment', title: `약속 ${n}`, commitment_status: 'waiting', validity: 'current', follow_up_on: '2026-10-20', counterparty: '사측', ...over});
 
-test('summary: 일정 · 할 일 · 새 소식, unknown values are left out', () => {
-  assert.equal(m.summaryText({events: 3, tasks: 4, news: 12}), '일정 3 · 할 일 4 · 새 소식 12');
-  assert.equal(m.summaryText({events: 0, tasks: 0, news: 0}), '일정 0 · 할 일 0 · 새 소식 0');
-  assert.equal(m.summaryText({events: 3, tasks: 4, news: null}), '일정 3 · 할 일 4');
-  assert.equal(m.summaryText({events: null, tasks: 4, news: 2}), '할 일 4 · 새 소식 2');
+test('summary: 새 소식 · 나한테 온 요청, unknown values are left out (일정·할 일 수는 칸 제목이 보임, F15)', () => {
+  assert.equal(m.summaryText({news: 12}), '새 소식 12');
+  assert.equal(m.summaryText({news: 0}), '새 소식 0');
+  assert.equal(m.summaryText({news: null}), '');
+  assert.equal(m.summaryText({events: 3, tasks: 4, news: 2}), '새 소식 2');
+  // TG-요청강조: 나한테 온 요청은 1건 이상일 때만 붙는다.
+  assert.equal(m.summaryText({news: 12, asks: 2}), '새 소식 12 · 나한테 온 요청 2');
+  assert.equal(m.summaryText({news: 12, asks: 0}), '새 소식 12');
+  assert.equal(m.summaryText({news: 12, asks: null}), '새 소식 12');
   assert.equal(m.summaryText({}), '');
   assert.equal(m.summaryText(), '');
 });

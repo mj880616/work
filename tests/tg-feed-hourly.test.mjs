@@ -124,6 +124,7 @@ function harness({context='ok'}={}){
     const url=new URL(String(input)),method=init.method||'GET';
     if(url.origin==='https://api.openai.com'){calls.openai.push(JSON.parse(init.body));return aiOk();}
     const path=url.pathname.replace('/rest/v1/','');
+    if(path==='rpc/app_operator_feature_workspace')return respond(WS);
     if(path.startsWith('rpc/')){
       const fn=path.slice(4),args=JSON.parse(init.body);calls.rpc.push({fn,args});
       if(fn===H.ROOM_DAY_CONTEXT_FN){

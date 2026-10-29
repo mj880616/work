@@ -1,3 +1,4 @@
+import {waitInlineHtml} from './wait-state.js';
 // OD-공유고침(2026-10-28): 사진 크게 보기의 [공유]·[내려받기] 공용 부품. 일기 크게 보기(diary.js)와 사진 크게 보기(photo-view.js) 둘이 쓴다.
 // - [공유]는 화면에 이미 뜬 그림 바이트를 바로 넘긴다(누를 때 원드라이브·서버에서 다시 받지 않는다). 꾹 누르기 브라우저 메뉴와 같은 그림이다.
 // - 그림 바이트는 칸(요소)마다 이 화면 메모리(WeakMap)에만 둔다. 칸이 사라지면 함께 사라진다. 브라우저 저장소에 두지 않는다.
@@ -97,8 +98,14 @@ export async function shareBlob(blob, name, {nav = globalThis.navigator, doc = g
   }
   return saveBlobFile(blob, file.name, doc) ? 'saved' : 'none';
 }
+// UI-기다림표시통일 2차: 사진·동영상을 받는 동안 알림 줄은 글자 없는 회색 칸. note(PHOTO_WAIT)를 받으면 paintPhotoNote가 그린다.
+export const PHOTO_WAIT = '\u0000wait';
+export function paintPhotoNote(el, text) {
+  if (!el) return;
+  if (text === PHOTO_WAIT) el.innerHTML = waitInlineHtml(); else el.textContent = text || '';
+}
 export const SHARE_TEXT = Object.freeze({
-  waiting: '사진 받는 중…',
+  waiting: PHOTO_WAIT,
   again: '사진을 다 받았어요. [공유]를 한 번 더 눌러 주세요.',
   saved: '이 기기는 공유 창이 없어 사진 파일로 저장했어요.',
   none: '사진이 아직 뜨지 않았어요. 사진이 뜬 뒤 다시 눌러 주세요.',

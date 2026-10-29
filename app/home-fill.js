@@ -1,6 +1,7 @@
-// HOME-모바일홈채우기: 폰·중간 폭 홈(1023px 이하)의 한 줄 요약('일정 3 · 할 일 4 · 새 소식 12')과 새 칸 셋(놓친 약속 · 정리 안 된 것 · 내일)의
-// 유일한 renderer. PC 홈(1024px~)에서는 이 칸들을 만들지 않고 숨긴다. home-read.js는 일정·할 일·내일 일정 숫자만 넘기고
-// (setEvents·setTasks·setTomorrow), 원장·텔레그램 소식·정리함 숫자는 home-fill-data.js로 여기서 읽는다.
+import {waitHtml, emptyHtml} from './wait-state.js';
+// HOME-모바일홈채우기: 폰·중간 폭 홈(1023px 이하)의 한 줄 요약('새 소식 12 · 나한테 온 요청 1')과 새 칸 셋(놓친 약속 · 정리 안 된 것 · 내일)의
+// 유일한 renderer. PC 홈(1024px~)에서는 이 칸들을 만들지 않고 숨긴다. home-read.js는 내일 일정만 넘기고
+// (setTomorrow), 원장·텔레그램 소식·정리함 숫자는 home-fill-data.js로 여기서 읽는다.
 // 규칙: 놓친 약속·내일이 비면 '없음' 한 줄, 정리 안 된 것은 0건이면 줄 자체를 그리지 않음, 새 소식을 알 수 없으면 요약에서 뺀다.
 import {summaryText, pickMissed, missedTag, tomorrowLine} from './home-fill-model.mjs';
 import {readMissedPromises, readNewsCount, readInbox} from './home-fill-data.js';
@@ -15,7 +16,7 @@ const head = (key, title, goto, label) => `<header><h3 id="home-${key}-title">${
 export function mountHomeFill({main, rt = window.KPTURuntime}) {
   if (!main) return null;
   const mq = window.matchMedia('(min-width:1024px)');
-  const state = {events: null, tasks: null, news: null, tomorrow: 'loading', tomorrowOpen: false, missed: 'loading', missedRows: [], inbox: null};
+  const state = {news: null, tomorrow: 'loading', tomorrowOpen: false, missed: 'loading', missedRows: [], inbox: null, asks: null};
   let alive = true;
 
   const summary = document.createElement('p');
@@ -31,14 +32,14 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
 
   function paintMissed() {
     const rows = pickMissed(state.missedRows);
-    const body = state.missed === 'loading' ? '<p class="home-status">불러오는 중…</p>'
+    const body = state.missed === 'loading' ? waitHtml({rows:2})
       : state.missed === 'failed' ? '<p class="home-status">확인하지 못했어요</p>'
       : rows.length ? rows.map(r => {
         const who = typeof r.counterparty === 'string' && r.counterparty.trim() ? `<small>${esc(r.counterparty.trim())}</small>` : '';
         // HOME-줄누르기 ⑤: 누르면 원장의 그 약속(home-read.js가 연다).
         return `<button type="button" class="home-event home-event-open" data-home-missed="${esc(r.id)}" aria-label="${esc(r.title)} 원장에서 보기"><span class="home-title">${esc(r.title)}</span>${who}<span class="home-day-tag">${esc(missedTag(r))}</span></button>`;
       }).join('')
-      : '<p class="home-status">없음</p>';
+      : emptyHtml();
     missed.innerHTML = `${head('missed', '놓친 약속', 'ledger', '원장')}<div data-home-body>${body}</div>`;
   }
   function paintInbox() {
@@ -56,18 +57,18 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
   function paintTomorrow() {
     const t = state.tomorrow;
     let body;
-    if (t === 'loading') body = '<p class="home-status">불러오는 중…</p>';
+    if (t === 'loading') body = waitHtml({rows:2});
     else if (t === 'unavailable') body = '<p class="home-status">확인하지 못했어요</p>';
     else {
       const line = tomorrowLine(t, timeOf);
-      if (!line) body = '<p class="home-status">없음</p>';
+      if (!line) body = emptyHtml();
       else if (state.tomorrowOpen && line.more) body = t.map(row => eventLine(row)).join('') + '<button type="button" class="home-more" data-home-tomorrow-more="close" aria-expanded="true">접기</button>';
       else body = `<div class="home-tomorrow-line">${eventLine(t[0])}${line.more ? `<button type="button" class="home-tomorrow-more" data-home-tomorrow-more="open" aria-expanded="false">외 ${line.more}건</button>` : ''}</div>`;
     }
     tomorrow.innerHTML = `${head('tomorrow', '내일', 'calendar', '달력')}<div data-home-body>${body}</div>`;
   }
   function paintSummary() {
-    const text = summaryText({events: state.events, tasks: state.tasks, news: state.news});
+    const text = summaryText({news: state.news, asks: state.asks});
     summary.textContent = text; summary.hidden = mq.matches || !text;
   }
   function apply() {
@@ -87,7 +88,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     const titles = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
     const [m, news, inboxN] = await Promise.all([readMissedPromises(rt), readNewsCount(rt), readInbox(rt, titles)]);
     if (!alive) return;
-    state.missed = m.ok ? 'ok' : 'failed'; state.missedRows = m.rows; state.news = news; state.inbox = inboxN;
+    state.missed = m.ok ? 'ok' : 'failed'; state.missedRows = m.rows; state.news = news; state.inbox = inboxN.total; state.asks = inboxN.asks;
     paintMissed(); paintSummary(); paintInbox();
   }
   // PC 홈은 이 칸들을 그리지 않으므로 읽지도 않는다. 폭이 좁아질 때 처음 한 번 읽는다.
@@ -98,9 +99,6 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
 
   return {
     cards: {missed, inbox, tomorrow},
-    // home-read.js가 읽은 숫자. null = 아직 모르거나 읽을 수 없음(요약에서 뺀다).
-    setEvents(n) { state.events = n; paintSummary(); },
-    setTasks(n) { state.tasks = n; paintSummary(); },
     // rows: 내일 일정 목록, null: 달력을 읽지 못함(연결 전 등).
     setTomorrow(rows) { state.tomorrow = rows === null ? 'unavailable' : rows; paintTomorrow(); },
     refresh,

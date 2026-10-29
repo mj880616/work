@@ -5,7 +5,7 @@
 export const TRASH_KIND = 'project';
 export const TRASH_KINDS = Object.freeze(['project', 'organization', 'report', 'library_folder', 'note', 'share_page']);
 // 종류 이름(화면 글). 사업 보고는 화면 어디서나 '사업 보고'라고 부른다.
-export const TRASH_KIND_LABEL = Object.freeze({project: '프로젝트', organization: '담당조직', report: '사업 보고', library_folder: '자료실 폴더', note: '노트·업데이트', share_page: '공유 페이지'});
+export const TRASH_KIND_LABEL = Object.freeze({project: '사업영역', organization: '담당조직', report: '사업 보고', library_folder: '자료실 폴더', note: '노트·업데이트', share_page: '공유 페이지'});
 
 // 판정은 목록 호출 결과 하나로 한다. ready = 목록을 받음(함수가 있음), missing = 함수 없음(DB 미적용), failed = 그 밖의 실패.
 export const TRASH_STATE = Object.freeze({ UNKNOWN: 'unknown', READY: 'ready', MISSING: 'missing', FAILED: 'failed' });
@@ -78,12 +78,12 @@ export function mergeTrashStates(states) {
 
 // 삭제 창 글. 휴지통을 쓸 수 있을 때만 휴지통 문구를 쓰고, 아니면 지금 동작(바로 지움)에 맞는 기존 문구를 쓴다.
 export function deleteDialogText({ trash, name, isChild, childCount }) {
-  const label = isChild ? '하위 프로젝트' : '프로젝트';
+  const label = isChild ? '하위 사업영역' : '사업영역';
   if (trash === TRASH_STATE.READY) {
-    const kids = childCount ? ` 하위 프로젝트 ${childCount}개도 함께 옮겨지고,` : '';
+    const kids = childCount ? ` 하위 사업영역 ${childCount}개도 함께 옮겨지고,` : '';
     return {
       title: name,
-      message: `${label}를 휴지통으로 옮깁니다.${kids} 연결된 기록은 그대로 남습니다. 휴지통에서 되돌릴 수 있습니다.`,
+      message: `${label}을 휴지통으로 옮깁니다.${kids} 연결된 기록은 그대로 남습니다. 휴지통에서 되돌릴 수 있습니다.`,
       note: '',
       button: '휴지통으로 옮기기',
       busy: '옮기는 중…',
@@ -91,8 +91,8 @@ export function deleteDialogText({ trash, name, isChild, childCount }) {
   }
   return {
     title: name,
-    message: `${label}를 삭제합니다.${childCount ? ` 하위 프로젝트 ${childCount}개도 함께 삭제됩니다.` : ''}`,
-    note: '연결된 할 일·일정·사업 보고·자료·게시물은 삭제하지 않고 프로젝트 연결만 해제함. 프로젝트 전용 진행기록·주요 일정·의견은 함께 삭제됨.',
+    message: `${label}을 삭제합니다.${childCount ? ` 하위 사업영역 ${childCount}개도 함께 삭제됩니다.` : ''}`,
+    note: '연결된 할 일·일정·사업 보고·자료·게시물은 삭제하지 않고 사업영역 연결만 해제함. 사업영역 전용 진행기록·주요 일정·의견은 함께 삭제됨.',
     button: '삭제',
     busy: '삭제 중…',
   };
@@ -146,13 +146,12 @@ export function otherDeleteBlockedText(kind, state) {
 
 export const TRASH_TEXT = Object.freeze({
   MOVED: '휴지통으로 옮겼습니다.',
-  DELETED: '프로젝트를 삭제했습니다.',
-  RESTORED: '프로젝트를 되돌렸습니다.',
+  DELETED: '사업영역을 삭제했습니다.',
+  RESTORED: '사업영역을 되돌렸습니다.',
   PURGED: '영구 삭제했습니다.',
-  EMPTY: '휴지통이 비어 있습니다.',
   PREPARING: '휴지통은 준비 중입니다.',
   LOAD_FAILED: '휴지통을 불러오지 못했습니다.',
-  PARENT_FIRST: '상위 프로젝트를 먼저 되돌려 주세요.',
+  PARENT_FIRST: '상위 사업영역을 먼저 되돌려 주세요.',
   NOT_FOUND: '이미 휴지통에 없습니다. 목록을 다시 불러왔습니다.',
   UNDO_DONE: '되돌렸습니다.',
   UNDO_FAILED: '되돌리지 못했습니다.',
@@ -190,14 +189,14 @@ export function purgeConfirmText(row) {
     return `“${row.name}” 공유 페이지를 영구 삭제할까요?\n페이지·링크${row.file_count ? `·사진 ${row.file_count}장` : '·사진'}이 모두 지워지고 되돌릴 수 없습니다.`;
   }
   if (row.kind === 'note') {
-    return `“${row.name}” ${noteKindWord(row.note_kind)}를 영구 삭제할까요?\n${row.link_count ? `조직·프로젝트·사업 보고 연결 ${row.link_count}곳도 함께 지워지고 ` : ''}되돌릴 수 없습니다.${row.file_count ? ` 첨부 파일 ${row.file_count}개는 Drive에 그대로 남습니다.` : ''}`;
+    return `“${row.name}” ${noteKindWord(row.note_kind)}를 영구 삭제할까요?\n${row.link_count ? `조직·사업영역·사업 보고 연결 ${row.link_count}곳도 함께 지워지고 ` : ''}되돌릴 수 없습니다.${row.file_count ? ` 첨부 파일 ${row.file_count}개는 Drive에 그대로 남습니다.` : ''}`;
   }
   if (row.kind === 'library_folder') {
     const inside = [row.child_count ? `아래 폴더 ${row.child_count}개` : '', row.file_count ? `자료 ${row.file_count}개` : ''].filter(Boolean).join('·');
     return `“${row.name}” 폴더를 영구 삭제할까요?\n폴더만 지워지고${inside ? ` 안의 ${inside}는` : ' 안의 것은'} 한 단 위로 올라갑니다. 자료와 Drive 파일은 지우지 않으며 폴더는 되돌릴 수 없습니다.`;
   }
-  const kids = row.child_count ? `\n함께 든 하위 프로젝트 ${row.child_count}개도 지워집니다.` : '';
-  return `“${row.name}” 프로젝트를 영구 삭제할까요?${kids}\n연결된 할 일·일정·사업 보고·자료·게시물은 지우지 않고 프로젝트 연결만 풀립니다. 프로젝트 전용 진행기록·주요 일정·의견은 함께 지워지며 되돌릴 수 없습니다.`;
+  const kids = row.child_count ? `\n함께 든 하위 사업영역 ${row.child_count}개도 지워집니다.` : '';
+  return `“${row.name}” 사업영역을 영구 삭제할까요?${kids}\n연결된 할 일·일정·사업 보고·자료·게시물은 지우지 않고 사업영역 연결만 풀립니다. 사업영역 전용 진행기록·주요 일정·의견은 함께 지워지며 되돌릴 수 없습니다.`;
 }
 
 // 휴지통에 들어간 담당조직을 가리키는 연결의 이름자리. 조직 목록을 이미 읽었는데 이 조직만 없으면 휴지통에 있다.

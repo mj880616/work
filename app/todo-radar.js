@@ -1,3 +1,7 @@
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+// UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
+const RADAR_WAIT = '\u0000wait';
+const radarStatusHtml = text => text === RADAR_WAIT ? waitInlineHtml() : esc(text);
 // JOURNAL-챙길것 1단계 + AI-서버연동 S5: the "챙길 것" box (docs/design/todo-radar.md 4·5·10·11절).
 // One renderer per host element: the home card body (#homeView [data-home-card="radar"], below 주요 일정) and the journal box
 // above the day card (#journalView [data-journal-radar]). home-read.js and journal.js only make the empty host and tell it
@@ -8,8 +12,9 @@
 //   (5 s [되돌리기]); both stay in '처리함' struck through (JOURNAL-챙길것화면). A counterpart promise is shown once with [원장으로 복사] and never stored.
 // - Nothing is kept in browser storage. A table or function that is not deployed yet hides the box quietly (as PR 838 does for [AI 요약]).
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
-import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked,
-  candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, quickDue, dotDay, dueChoices,
+import {createAnchoredMenu} from './anchored-menu.js';
+import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked, markNotMine, undoNotMine,
+  candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, quickDue, dotDay, dueChoices, sourceText,
   RADAR_SOURCE_LABEL, HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
 import {formatSeoulTime, seoulDateKey, seoulDayStart, addSeoulDays} from './meeting-time.js';
 import {copyText} from './copy-text.js';
@@ -40,7 +45,7 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 async function find(mode) {
   const scope = sameScope();
   if (shared.finding) return shared.finding;
-  shared.status = '챙길 것을 찾는 중…'; notify(false);
+  shared.status = RADAR_WAIT; notify(false);
   shared.finding = findTodos(mode).then(result => {
     if (scope !== radarScope(rt)) return result;
     if (!result.ok && result.code === 'not_ready') shared.fnMissing = true;
@@ -56,6 +61,10 @@ async function find(mode) {
 // 정리함 [챙길 것] shows the same promises (INBOX-상대약속): read-only view of what the last finding in this tab returned.
 // Same scope guard as the radar itself; nothing is stored, so after a reload they are gone until the next finding.
 export function radarPromises() { sameScope(); return shared.promises; }
+// BASKET-정리함한화면: the 정리함 top line shows the same last-find time and has the same [다시 찾기] (one finder for every place).
+export function radarFindState() { sameScope(); return {checkedAt: shared.checkedAt, finding: !!shared.finding, status: shared.status, missing: shared.fnMissing}; }
+export const radarFindAgain = () => find('again');
+export const radarClock = value => clock(value);
 
 export function openSource(c) {
   const go = view => window.KPTURouter?.go?.(view, {source:'delegated'});
@@ -70,7 +79,11 @@ export function openSource(c) {
     } else if (c.source_kind === 'org_update' && c.organization_id) {
       await window.KPTUViewLoader.load('team'); await window.KPTUWorkplace.open(c.organization_id);
     } else if (c.source_kind === 'project_update' && c.project_id) {
-      await window.KPTUViewLoader.load('projects'); await window.KPTUProjects.open(c.project_id);
+      await window.KPTUAreaWindow.open({id: c.project_id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
+    } else if (c.source_kind === 'telegram') {
+      // FEAT-1029 ⑤: the telegram screen on that room·day with the news row open (the same opener the 조직 주요 인물 list uses).
+      await window.KPTUViewLoader.load('telegram'); go('telegram');
+      if (c.tg?.room_key) await window.KPTUTelegramFeed?.show?.(c.tg.room_key, c.source_day, c.source_id);
     }
   };
   open().catch(() => toast('출처를 열지 못했어요. 다시 시도해 주세요.'));
@@ -82,6 +95,17 @@ export function openSource(c) {
 // suggested due, else today), ✎ edit in place (title + 오늘/내일/제안 기한/기한 없음), ✕ dismiss. Handled rows are struck
 // through, keep '할 일로 넣음 · 10.23' or '무시함', and fold below the open ones in '처리함 N ▸'. The first 4 open rows show,
 // the rest behind 'N건 더 ›'. The count next to the title is the open count only.
+// TODO-내일만 6번: the row's ⋯ menu (shared anchored menu, one per place for the page's life — the home card remounts).
+// The live mount of that place handles the action. [내 일 아님] takes the row out like ✕ and keeps a "not mine" example on the
+// server so the next finding filters similar ones; [되돌리기] brings the row back and drops the example.
+const rowMenus = new Map(), menuActions = new Map();
+function rowMenuFor(place) {
+  if (!rowMenus.has(place)) rowMenus.set(place, createAnchoredMenu({id:`radarRowMenu-${place}`, className:'radar-row-menu', label:'챙길 것 줄 메뉴', historyKey:`kptuRadarRowMenu${place}`,
+    key:trigger => trigger.dataset.radarMore, canOpen:trigger => !trigger.disabled,
+    render:() => '<button type="button" data-radar-menu="not-mine">내 일 아님</button>',
+    onAction:(button, active) => menuActions.get(place)?.(active.id, button.dataset.radarMenu)}));
+  return rowMenus.get(place);
+}
 export function mountRadar(host, {place}) {
   if (!host) return null;
   let rows = [], state = 'loading', all = false, doneOpen = false, edit = null, run = 0, scope = sameScope();
@@ -141,8 +165,8 @@ export function mountRadar(host, {place}) {
   }
   function rowHtml(c) {
     const id = esc(c.id), isBusy = busy.has(c.id), open = c.status === 'open';
-    const source = RADAR_SOURCE_LABEL[c.source_kind];
-    const meta = open ? [source, c.due ? `제안 기한 ${dotDay(c.due)}` : ''].filter(Boolean).join(' · ') : `${doneLabel(c)} · ${source}`;
+    const source = sourceText(c), tg = c.source_kind === 'telegram';
+    const meta = open ? [source, tg ? dotDay(c.source_day) : '', c.due ? `제안 기한 ${dotDay(c.due)}` : ''].filter(Boolean).join(' · ') : `${doneLabel(c)} · ${source}`;
     const shownWhy = why.has(c.id);
     const more = c.evidence ? `<button type="button" class="radar-why" data-radar-why="${id}" aria-expanded="${shownWhy}" aria-label="근거 ${shownWhy ? '접기' : '보기'}">${shownWhy ? '▴' : '▾'}</button>` : '';
     let tools = '', below = '';
@@ -151,10 +175,10 @@ export function mountRadar(host, {place}) {
     else if (open && unmarked.has(c.id)) below = `<div class="radar-actions"><button type="button" data-radar-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button></div>`;
     else if (open) {
       const dis = isBusy || edit ? ' disabled' : '';
-      tools = `<span class="radar-tools"><button type="button" class="radar-tool" data-radar-quick="${id}" aria-label="바로 할 일로" title="바로 할 일로"${dis}>✓</button><button type="button" class="radar-tool" data-radar-task="${id}" aria-label="고쳐서 넣기" title="고쳐서 넣기"${dis}>✎</button><button type="button" class="radar-tool" data-radar-dismiss="${id}" aria-label="무시" title="무시"${dis}>✕</button></span>`;
+      tools = `<span class="radar-tools"><button type="button" class="radar-tool" data-radar-quick="${id}" aria-label="바로 할 일로" title="바로 할 일로"${dis}>✓</button><button type="button" class="radar-tool" data-radar-task="${id}" aria-label="고쳐서 넣기" title="고쳐서 넣기"${dis}>✎</button><button type="button" class="radar-tool" data-radar-dismiss="${id}" aria-label="무시" title="무시"${dis}>✕</button><button type="button" class="radar-tool" data-radar-more="${id}" aria-label="더 보기" title="더 보기" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button></span>`;
     }
     const note = rowStatus.get(c.id) ? `<p class="radar-row-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
-    return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><div class="radar-text"><span class="radar-summary">${esc(c.summary)}</span><span class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(meta)}</button>${more}</span></div>${tools}</div>${shownWhy ? `<p class="radar-evidence" data-radar-evidence>${esc(c.evidence)}</p>` : ''}${note}${below}</li>`;
+    return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><div class="radar-text"><span class="radar-summary">${esc(c.summary)}</span><span class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(meta)}</button>${more}</span></div>${tools}</div>${shownWhy ? `<p class="radar-evidence" data-radar-evidence>${esc(c.evidence)}${tg ? ` <button type="button" class="radar-link" data-radar-source="${id}">원문 보기 ›</button>` : ''}</p>` : ''}${note}${below}</li>`;
   }
   function promiseHtml(p, i) {
     const meta = ['상대 약속', RADAR_SOURCE_LABEL[p.source_kind], p.due ? `기한 ${dotDay(p.due)}` : ''].filter(Boolean).join(' · ');
@@ -185,7 +209,7 @@ export function mountRadar(host, {place}) {
       ? `<header class="radar-head"><h3 id="${titleId}">챙길 것 <small data-home-count data-radar-count>${list.length || ''}</small></h3>${findBtn}</header>`
       : `<header class="radar-head"><h4 id="${titleId}">그날 나온 챙길 것 <small data-radar-count>${list.length || ''}</small></h4>${findBtn}</header>`;
     const empty = state === 'failed' ? `<p class="radar-muted">챙길 것을 불러오지 못했어요. <button type="button" class="radar-link" data-radar-retry>다시 시도</button></p>`
-      : !list.length && !promises.length ? `<p class="radar-muted">${state === 'loading' ? '불러오는 중…' : place === 'home' ? '남은 챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>` : '';
+      : !list.length && !promises.length ? (state === 'loading' ? waitHtml({rows:2}) : emptyHtml(place === 'home' ? '없음' : '챙길 것 없음')) : '';
     const hiddenCount = list.length - listed.length;
     const more = all && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="true">접기</button>`
       : hiddenCount > 0 ? `<button type="button" class="radar-link" data-radar-all aria-expanded="false">${hiddenCount}건 더 ›</button>` : '';
@@ -193,7 +217,7 @@ export function mountRadar(host, {place}) {
     const doneToggle = done.length ? `<button type="button" class="radar-link" data-radar-done-toggle aria-expanded="${doneOpen}">처리함 ${done.length} ${doneOpen ? '▾' : '▸'}</button>` : '';
     const foot = more || doneToggle ? `<div class="radar-foot">${more}${doneToggle}</div>` : '';
     const doneHtml = done.length ? `<div class="radar-done" data-radar-done>${doneOpen ? `<ul class="radar-list">${done.map(rowHtml).join('')}</ul>` : ''}</div>` : '';
-    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list" data-radar-open>${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${foot}${doneHtml}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
+    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${radarStatusHtml(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list" data-radar-open>${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${foot}${doneHtml}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${radarStatusHtml(shared.status)}</p></div>`;
     host.setAttribute('aria-labelledby', titleId);
     host.dataset.state = state;
     // The same drawing is not redrawn, so a button is never replaced under a finger or the keyboard focus.
@@ -205,6 +229,24 @@ export function mountRadar(host, {place}) {
   }
 
   const byId = id => rows.find(r => r.id === id);
+  // TODO-내일만 6번: the row's ⋯ menu (shared anchored menu) holds [내 일 아님]. It takes the row out like ✕ and keeps a
+  // "not mine" example on the server so the next finding filters similar ones. [되돌리기] brings the row back and drops the example.
+  menuActions.set(place, (id, action) => { const c = byId(id); if (c && action === 'not-mine' && !busy.has(c.id) && !edit) void notMine(c); });
+  async function notMine(c) {
+    busy.add(c.id); paint();
+    let r = {ok:false};
+    try { r = await markNotMine(c, rt); } catch { r = {ok:false}; }
+    busy.delete(c.id);
+    if (!r.ok) { rowStatus.set(c.id, '빼지 못했어요. 다시 눌러 주세요.'); paint(); return; }
+    rowStatus.delete(c.id); c.status = 'dismissed'; c.decided_at = new Date().toISOString(); paint(); notify(true);
+    host.querySelector('[data-radar-find]')?.focus({preventScroll:true});
+    offerUndoNotice({text:r.saved ? '내 일 아님으로 뺐어요. 다음 찾기부터 비슷한 것을 걸러요.' : '챙길 것에서 뺐어요.', onUndo:async () => {
+      let back = false;
+      try { back = await undoNotMine(c.id, r.exampleId, rt); } catch { back = false; }
+      if (back) { c.status = 'open'; c.decided_at = null; paint(); notify(true); return {status:'done', message:'다시 보이게 했어요.'}; }
+      return {status:'failed', message:'되돌리지 못했어요. 다시 시도해 주세요.'};
+    }});
+  }
   async function dismiss(c) {
     busy.add(c.id); paint();
     let ok = false;
@@ -265,6 +307,7 @@ export function mountRadar(host, {place}) {
     if (d.radarTask) { const c = byId(d.radarTask); if (!c) return; const due = quickDue(c, seoulDateKey()); edit = {id:c.id, title:c.summary, due, pick:c.due ? 'suggested' : 'today'}; rowStatus.delete(c.id); paint(); host.querySelector('[data-radar-title]')?.focus(); return; }
     if (d.radarCancel) { const id = d.radarCancel; edit = null; rowStatus.delete(id); paint(); host.querySelector(`[data-radar-task="${CSS.escape(id)}"]`)?.focus(); return; }
     if (d.radarDismiss) { const c = byId(d.radarDismiss); if (c) await dismiss(c); return; }
+    if (d.radarMore) { if (!busy.has(d.radarMore) && !edit) rowMenuFor(place).open(b); return; }
     if (d.radarTasks) { window.KPTURouter?.go?.('tasks', {source:'delegated'}); return; }
     if (d.radarMark) {
       const c = byId(d.radarMark), taskId = unmarked.get(d.radarMark); if (!c || !taskId) return;

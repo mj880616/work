@@ -64,7 +64,7 @@ async function capture(page,info,name){
 }
 async function enter(page,width){
  await tap(page,page.locator('.mobile-tabs [data-view="basket"]:visible,.app-nav [data-view="basket"]:visible'),width);
- await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText(/개 업데이트/);
+ await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#basketView [data-basket-row]').first()).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText('');
  await tap(page,page.locator('#basketView [data-basket-filter="classified"]'),width);
 }
 
@@ -112,7 +112,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류
   await expect.poll(()=>shown(page),label).toEqual(want);
   if(label==='회의')await capture(page,info,`basket-sub-library-${width}-${scheme}`);
  }
- await expect(page.locator('[data-basket-list-status]')).toHaveText('아직 업데이트가 없어요');
+ await expect(page.locator('[data-basket-list-status]')).toHaveText('업데이트 없음');
 
  // ④ [할 일] has no second row; [전체] neither.
  await tap(page,place('할 일'),width);await expect(subs).toBeHidden();await expect.poll(()=>shown(page)).toEqual([TASK]);

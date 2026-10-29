@@ -72,9 +72,9 @@ async function pcCompact(locator,label){const m=await measure(locator);expect(m.
 test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력칸도 같은 높이·같은 줄, 누르는 범위 44px',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await boot(page,1280);
- await open(page,'meetings');const meeting=await pcButton(page.locator('#newMeetingBtn'),'회의');
+ await open(page,'meetings');await pcCompact(page.locator('#newMeetingBtn'),'사업 보고');/* BIZ-버튼줄정리(10/29): [+ 사업 보고]는 [+ 사업영역]처럼 작고 낮게 32px */
  await open(page,'library');await pcButton(page.locator('#newDocumentBtn'),'자료 등록');
- await open(page,'projects');await pcCompact(page.locator('#newProjectBtn'),'프로젝트');
+ await open(page,'projects');await pcCompact(page.locator('#newProjectBtn'),'사업영역');
  await open(page,'journal');await pcButton(page.locator('#journalView [data-journal-save]'),'업무일지 저장');
  // 홈: 입력칸·[크게]·[📎 첨부]·[추가]가 한 줄에서 같은 높이.
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
@@ -91,8 +91,8 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await chooseBasketKind(page,'note');
  const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가'),ns=await measure(page.locator('#basketView [data-note-search]'));
  expect(ns.height).toBe(36);
- // 모두 회의 버튼과 같은 높이. 창(모달) 버튼은 공용 기준(46px) 그대로.
- expect(meeting.height).toBe(nb.height);
+ // 입력 줄 버튼은 모두 36px. 창(모달) 버튼은 공용 기준(46px) 그대로.
+ expect(nb.height).toBe(36);
  await open(page,'projects');await page.locator('#newProjectBtn').click();
  expect((await measure(page.locator('#ps3CreateSave'))).height).toBe(36);/* UI-버튼줄이기: 창 주 동작 36px */
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
@@ -124,7 +124,9 @@ test('PC 1280: 공유 페이지 채운 버튼은 36px, 보조 버튼([다시 불
 
 test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
  await boot(page,390);
- for(const [view,selector] of [['projects','#newProjectBtn'],['library','#newDocumentBtn'],['meetings','#newMeetingBtn']]){
+ // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작은 [+](32px)라 둥근 [+] 묶음에서 뺀다.
+ await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(32);
+ for(const [view,selector] of [['library','#newDocumentBtn'],['meetings','#newMeetingBtn']]){
   await open(page,view);const b=await page.locator(selector).boundingBox();expect([b.width,b.height],selector).toEqual([36,36]);
   expect(await page.locator(selector).evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
  }
@@ -136,6 +138,6 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버
 
 test('중간 폭 900: 목록 머리 채운 버튼은 36px(UI-버튼전수조사), 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
  await boot(page,900);
- await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(36);
+ await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(32);/* MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작고 낮은 버튼(32px) */
  await open(page,'tasks');expect((await page.locator('#tasksView [data-home-quick] [data-quick-save]').boundingBox()).height).toBe(36);
 });

@@ -1,3 +1,4 @@
+import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 // JOURNAL-일기목록 (명진 요청 2026-10-28 08:04): 일기 [목록] 보기. diary.js가 [달력 / 목록]을 바꾸고 이 모듈이 목록 칸(#diaryRoot 안의
 // [data-diary-all]) 하나만 그린다(그 칸의 유일한 렌더러). 규칙은 diary-list-model.mjs, 읽기·저장은 diary-data.js(owner RLS, 내 일기만).
 // - 줄: 왼쪽 40px 작은 그림(직접 올린 사진 먼저, 없으면 원드라이브 사진 — 일기에서 원드라이브 사진을 보는 연결이 켜져 있을 때만),
@@ -30,7 +31,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     if (state.loaded && !force) return;
     if (state.loading && !force) return state.loading;
     const run = ++state.epoch, owner = scopeNow();
-    state.error = ''; if (!state.loaded) { note.textContent = '불러오는 중…'; }
+    state.error = ''; if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); }
     state.loading = readDiaryList(rt).then(({rows, truncated}) => {
       if (run !== state.epoch || owner !== scopeNow()) return;
       Object.assign(state, {owner, loaded:true, rows, truncated, error:''});
@@ -47,7 +48,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
 
   const markButtons = row => {
     const day = esc(row.journal_day), star = !!diaryStarredAt(row), busy = state.busy.has(row.journal_day) ? ' disabled' : '';
-    return `<button type="button" class="diary-lv-star" data-diary-lv-star="${day}" aria-pressed="${star}" aria-label="${star ? '별표 풀기' : '별표'}"${busy}>${star ? '★' : '☆'}</button><button type="button" class="diary-lv-more" data-diary-lv-more="${day}" aria-haspopup="true" aria-expanded="false" aria-controls="diaryListMenu" aria-label="${esc(dayLabel(row.journal_day))} 메뉴">⋯</button>`;
+    return `<button type="button" class="diary-lv-star" data-diary-lv-star="${day}" aria-pressed="${star}" aria-label="${star ? '별표 풀기' : '별표'}"${busy}>${star ? '★' : '☆'}</button><button type="button" class="diary-lv-more" data-diary-lv-more="${day}" aria-haspopup="true" aria-expanded="false" aria-controls="diaryListMenu" aria-label="${esc(dayLabel(row.journal_day))} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>`;
   };
   function rowHtml(row) {
     const day = row.journal_day, photos = diaryPhotos(row), {title, line} = rowText(row, photos.length), pinned = !!diaryPinnedAt(row), star = !!diaryStarredAt(row);
@@ -60,17 +61,17 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     if (host.hidden) return;
     observer?.disconnect();
     searchRow.hidden = !state.search;
-    if (state.error) { note.innerHTML = `${esc(state.error)} <button type="button" class="mini" data-diary-lv-retry>다시 시도</button>`; body.replaceChildren(); return; }
-    if (!state.loaded) { note.textContent = '불러오는 중…'; body.replaceChildren(); return; }
+    if (state.error) { note.textContent = ''; body.innerHTML = failHtml({retry: 'data-diary-lv-retry'}); return; }
+    if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); return; }
     const list = buildDiaryList(state.rows, {filter:state.filter, query:state.query, opened:state.opened});
-    const empty = !list.total ? (state.query ? '찾는 글이 든 일기가 없어요.' : state.filter === 'star' ? '별표한 일기가 없어요. 줄 오른쪽 ☆를 눌러 별표해 보세요.' : '아직 일기가 없어요. [+ 일기]로 남겨 보세요.') : '';
-    note.textContent = state.note || empty || (state.truncated ? '최근 일기 1,000편만 보여요.' : '');
+    const empty = !list.total ? (state.query ? '맞는 일기 없음' : state.filter === 'star' ? '별표 일기 없음' : '없음') : '';
+    note.textContent = state.note || (state.truncated ? '최근 일기 1,000편만 보여요.' : '');
     const parts = [];
     if (list.pinned.length) parts.push(`<section class="diary-lv-group" aria-label="고정한 일기"><h4 class="diary-lv-head is-pin">📌 고정 <span>· ${list.pinned.length}</span></h4><div class="diary-lv-rows">${list.pinned.map(rowHtml).join('')}</div></section>`);
     for (const month of list.months) {
       parts.push(`<section class="diary-lv-group"><button type="button" class="diary-lv-head" data-diary-lv-month="${esc(month.key)}" aria-expanded="${month.open}">${esc(month.label)} <span>· ${month.count}</span><i aria-hidden="true">${month.open ? '▾' : '▸'}</i></button>${month.open ? `<div class="diary-lv-rows">${month.rows.map(rowHtml).join('')}</div>` : ''}</section>`);
     }
-    body.innerHTML = parts.join('');
+    body.innerHTML = empty ? emptyHtml(empty, {attrs: 'data-diary-lv-empty'}) : parts.join('');
     watchThumbs();
   }
 
@@ -95,11 +96,11 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     const day = box.dataset.diaryLvThumb, row = rowOf(day), owner = state.owner;
     if (!row) return;
     const photo = diaryPhotos(row)[0];
-    if (photo) { box.append(photoElement(row, photo, 'small', {label:'', link:false, rt})); box.classList.add('has-photo'); return; }
+    if (photo) { box.append(photoElement(row, photo, 'small', {label:'', link:false, rt, retry:false})); box.classList.add('has-photo'); return; }
     const month = await odMonthOf(day.slice(0, 7));
     const first = month?.days?.[day]?.[0];
     if (!first || owner !== state.owner || !box.isConnected) return;
-    box.append(odPhotoElement({kind:'od', source:'onedrive', key:first.id, id:first.id, day, name:first.name, taken_at:first.taken_at, approx:first.approx}, 'small', {label:'', rt}));
+    box.append(odPhotoElement({kind:'od', source:'onedrive', key:first.id, id:first.id, day, name:first.name, taken_at:first.taken_at, approx:first.approx}, 'small', {label:'', rt, retry:false}));
     box.classList.add('has-photo');
   }
 

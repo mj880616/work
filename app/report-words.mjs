@@ -11,7 +11,6 @@ const MEETING=Object.freeze({
   textLabel:'회의 결과 원문',
   textPlaceholder:'회의 결과를 원문 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'회의자료',
-  materialsEmpty:'회의자료가 없습니다.',
   pickFiles:'회의자료 파일 고르기',
   materialsSaved:'회의자료'
 });
@@ -23,7 +22,6 @@ const OTHER=Object.freeze({
   textLabel:'원문',
   textPlaceholder:'내용을 원문 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'자료',
-  materialsEmpty:'자료가 없습니다.',
   pickFiles:'자료 파일 고르기',
   materialsSaved:'자료'
 });

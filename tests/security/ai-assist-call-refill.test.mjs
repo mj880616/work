@@ -21,7 +21,7 @@ const callRow=(n,over={})=>({id:id(n),workspace_id:WS,source:'call',day:'2026-10
   hidden_at:null,moved_at:MOVED,refilled_at:null,...over});
 const good={topic:'임금교섭 3차 일정 협의',organization_ref:'',person_name:'홍길동',person_title:'지부장'};
 
-function harness({openai=null,feed=[callRow(1)],usage=[],rpcFail=null,feedFail=0}={}){
+function harness({openai=null,feed=[callRow(1)],usage=[],rpcFail=null,feedFail=0,features=null}={}){
   const calls={openai:[],rest:[],rpc:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -41,6 +41,7 @@ function harness({openai=null,feed=[callRow(1)],usage=[],rpcFail=null,feedFail=0
     const bearer=(headers.get('Authorization')||'').replace(/^Bearer /,'');
     if(url.pathname==='/auth/v1/user')return users[bearer]?respond({id:users[bearer]}):respond({msg:'bad'},401);
     const uid=users[bearer];assert.ok(uid);
+    if(url.pathname==='/rest/v1/rpc/app_my_features'){calls.features=(calls.features||0)+1;if(features==='missing')return respond({code:'PGRST202',message:'function not found'},404);return respond((features??{[OWNER]:['calls','telegram']})[uid]||[]);}
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:decodeURIComponent(url.search)});
     if(table==='rpc/app_call_work_info'){
       const a=JSON.parse(init.body);calls.rpc.push(a);
@@ -120,8 +121,8 @@ test('only an unfilled, moved, visible work call of the owner is refilled; other
     assert.equal(h.calls.openai.length,0);assert.equal(h.db.app_ai_daily_usage.length,0);
   }
   {const h=harness();await expectError(await post(h.handler,req(7)),404,'not_found');assert.equal(h.calls.openai.length,0);}
-  // another user's token cannot read the row (RLS) → not found
-  {const h=harness();await expectError(await post(h.handler,req(1),'stranger-token'),404,'not_found');assert.equal(h.calls.openai.length,0);}
+  // another user's workspace has no calls feature (MULTI 단계 ①) → 403 before any read, no AI
+  {const h=harness();await expectError(await post(h.handler,req(1),'stranger-token'),403,'forbidden');assert.equal(h.calls.openai.length,0);assert.ok(!h.calls.rest.some(c=>c.table==='app_feed_items'));}
   // no text at all (전문 비움 + 요약 없음) → skipped, no AI
   {const h=harness({feed:[callRow(1,{raw_text:null,summary:'',points:[]})]});
    assert.deepEqual(await (await post(h.handler,req(1))).json(),{ok:true,kind:'call_refill',id:id(1),skipped:true});assert.equal(h.calls.openai.length,0);}
@@ -159,4 +160,15 @@ test('pure helpers: long text keeps head and tail, personal shapes are removed',
   assert.ok([...t].length<=cr.CALL_REFILL_TEXT_CHARS+20&&t.includes('중간 생략')&&t.endsWith('끝'));
   assert.equal(cr.cleanCallText('전화 02-123-4567 / 01012345678 / 900101-1234567 / a@b.co / 2026-10-24'),'전화  /  /  /  / 2026-10-24');
   assert.deepEqual(cr.parseCallRefillRequest({kind:'call_refill',id:id(1).toUpperCase()}),{id:id(1)});
+});
+
+test('MULTI 단계 ①: call_refill only for a workspace the server allow table marks for calls; missing check function means not ready',async()=>{
+  for(const features of [{},{[OWNER]:['telegram']}]){
+    const h=harness({features});
+    await expectError(await post(h.handler,req(1)),403,'forbidden');
+    assert.equal(h.calls.openai.length,0);assert.equal(h.calls.features,1);
+    assert.ok(!h.calls.rest.some(c=>c.table==='app_feed_items'||c.table==='rpc/app_call_work_info'),'no call read or write');
+  }
+  const m=harness({features:'missing'});await expectError(await post(m.handler,req(1)),503,'call_refill_not_ready');assert.equal(m.calls.openai.length,0);
+  const ok=harness();const res=await post(ok.handler,req(1));assert.equal(res.status,200);assert.equal(ok.calls.features,1);
 });

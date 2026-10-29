@@ -4,6 +4,7 @@
 // 사업영역 AI 추천(요청 10/28 19:07 ②, 설계 12.3·13절): [사업영역] 옆 작은 [AI 추천]을 누를 때만 ai-assist area_suggest(제목·결과·다음 할 일)
 //   → 후보 칩 최대 3개. 칩을 눌러야 그 꼬리표로(자동 확정 없음). 서버는 저장하지 않는다. 한도·실패면 칩 없이 작은 안내 한 줄.
 import {areaAvailable} from './report-links.js';
+import {waitInlineHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 import {shownArea,nextPlanLines,nextPlanValue,NEXT_PLAN_MAX} from './business-area-model.mjs';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -23,7 +24,7 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
   const button=host.querySelector('[data-biz-area-pick]'),box=host.querySelector('[data-biz-plan-box]'),plan=host.querySelector('[data-biz-plan]'),count=host.querySelector('[data-biz-plan-count]');
   let area='',legacy=false,touched=false,base='',ready=false,editing=false,run=0;
   const paintCount=()=>{const n=nextPlanLines(plan.value).length;count.textContent=n?`${n}줄`:''};
-  async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):'꼬리표 없음';button.title=legacy?'옛 보고라 첫 연결 프로젝트를 꼬리표처럼 보여 줘요. 고르면 꼬리표로 저장돼요.':''}
+  async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):'꼬리표 없음';button.title=legacy?'옛 보고라 첫 연결 사업영역을 꼬리표처럼 보여 줘요. 고르면 꼬리표로 저장돼요.':''}
   button.addEventListener('click',async()=>{try{const s=await sheetMod();await s.pickBusinessArea(button,{chosen:legacy?'':area,onMessage,onPick:id=>{area=id;legacy=false;touched=true;void paint()}})}catch(e){onMessage(e?.message||'사업영역을 불러오지 못했어요.')}});
   plan.addEventListener('input',paintCount);
   // ---- AI 추천 ----
@@ -34,7 +35,7 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
     const mine=++aiRun,m=material?.()||{},title=String(m.title||'').replace(/\s+/g,' ').trim().slice(0,200);
     const text=[String(m.text||'').trim(),plan.value.trim()&&`다음 할 일: ${plan.value.trim()}`].filter(Boolean).join('\n').slice(0,3000);
     if(!title&&!text){sugs.textContent=SUGGEST_NOTE.short;return}
-    aiBtn.disabled=true;aiBtn.setAttribute('aria-busy','true');sugs.textContent='추천 찾는 중…';
+    aiBtn.disabled=true;aiBtn.setAttribute('aria-busy','true');sugs.innerHTML=waitInlineHtml();
     let r;try{const {callAiAssist}=await import('./basket-ai-summary.js');r=await callAiAssist({kind:'area_suggest',title,text})}catch{r={ok:false,code:'internal_error'}}
     if(mine!==aiRun)return;
     aiBtn.disabled=false;aiBtn.removeAttribute('aria-busy');

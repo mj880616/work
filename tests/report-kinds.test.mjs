@@ -41,5 +41,5 @@ test('2단 목록: 고른 건(없으면 첫 건)이 오른쪽, 줄에 이름·�
   assert.ok(html.includes('&lt;가상&gt;'));assert.ok(!html.includes('<가상>'));
   assert.match(html,/<span class="mcol-count" aria-label="2건">2<\/span>/);
   assert.equal(listHtml(rows,{selectedId:'gone',label:'x',nameOf:m=>m.id,colorOf:()=>'',whenOf:()=>'',resultHtml:m=>`<i>${m.id}</i>`}).includes('data-meeting-result="a"'),true);
-  assert.equal(listHtml([],{label:'언론',nameOf:()=>'',colorOf:()=>'',whenOf:()=>''}),'<div class="empty">이 칸에 사업 보고가 없습니다.</div>');
+  assert.equal(listHtml([],{label:'언론',nameOf:()=>'',colorOf:()=>'',whenOf:()=>''}),'<p class="wait-empty" data-wait-empty>없음</p>');
 });

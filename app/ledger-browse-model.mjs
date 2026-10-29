@@ -132,7 +132,7 @@ export function linkLabel(link, names, dir) {
     const o = names.organizations.get(link.target_organization_id);
     return { relation: rel, kind: 'organization', ledgerId: o?.ledger_id || '', title: o?.name || '(읽을 수 없는 조직)', dir };
   }
-  if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || '(Web2 프로젝트)', dir };
+  if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || '(Web2 사업영역)', dir };
   if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || '(Web2 사업 보고)', dir };
   return { relation: rel, kind: 'other', ledgerId: '', title: '', dir };
 }
@@ -208,7 +208,7 @@ export const countLabel = (n, limit) => (n >= limit ? `최근 ${limit}건` : `${
 // ---------- LEDGER-자동기록 3단계(설계 docs/design/ledger-auto-record.md 3.3·8.1·9.2절) ----------
 // 출처 위치 web2:<종류>:<id> → {kind, id}. 종류는 자동 기록 재료 여섯 + 업무 통화(call, docs/design/ledger-sources.md 6.3). 개인본·캘린더는 해당 화면 PR에서 더한다.
 export const WEB2_SOURCE_KINDS = Object.freeze(['basket', 'note', 'work', 'meeting', 'org_update', 'project_update', 'call']);
-export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: '사업 보고', org_update: '담당조직 기록', project_update: '프로젝트 기록', call: '통화' });
+export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: '사업 보고', org_update: '담당조직 기록', project_update: '사업영역 기록', call: '통화' });
 export function web2Source(location) {
   const m = /^web2:([a-z_]+):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String(location ?? '').trim());
   if (!m || !WEB2_SOURCE_KINDS.includes(m[1])) return null;
@@ -286,6 +286,9 @@ export function isSearching(filters) {
 export const LEDGER_ROW_COLS = 'id,ledger_id,kind,title,summary,date_start,date_end,date_precision,validity,sensitivity,counterparty,commitment_status,follow_up_on';
 export const overdueRecordsPath = (workspaceId, today, limit = 30) =>
   `/rest/v1/app_ledger_records?workspace_id=eq.${encodeURIComponent(workspaceId)}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&follow_up_on=lt.${today}&select=${LEDGER_ROW_COLS}&order=follow_up_on.asc&limit=${limit}`;
+// ORG-주요인물: 아직 기다리는 약속 전부(놓친 약속과 같은 조건에서 확인일 조건만 뺌). 상대(counterparty)로 사람을 고른다.
+export const waitingCommitmentsPath = (workspaceId, limit = MAX_LIMIT) =>
+  `/rest/v1/app_ledger_records?workspace_id=eq.${encodeURIComponent(workspaceId)}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&select=${LEDGER_ROW_COLS}&order=follow_up_on.asc.nullslast&limit=${limit}`;
 // 확인일이 오늘(서울)보다 며칠 지났나. 지나지 않았거나 날짜가 아니면 0.
 export function overdueDays(day, now = new Date()) {
   if (!isDay(day)) return 0;
@@ -368,3 +371,39 @@ export function sourceRetireRequest(ledgerIds) {
   if (!ids.length || ids.length > SOURCE_RETIRE_MAX) return null;
   return { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: ids.map(target => ({ target, do: 'retire', reason: '원문(통화)을 지우면서 함께 틀린 기록으로 표시' })) };
 }
+
+// FEAT-1029묶음 ⑥ 결정 변경 이력(설계 docs/design/feature-bundle-1029.md 6절, 명진 결정 10/29): 상세 맨 아래 접힌 '이전 결정 n ▸'.
+// 원장 고치기(app_apply_ledger_fix replace)가 남긴 '대체됨' 기록(validity=superseded, superseded_by=새 기록)을 거꾸로 따라간다.
+// 6-① 결정이 아닌 기록(약속·일어난 일 등)도 같은 방식으로 '이전 기록 n'. 6-② 같은 주제의 다른 결정은 섞지 않고 따로 한 줄.
+export const HISTORY_COLS = 'id,ledger_id,kind,title,summary,date_start,created_at,supersede_reason,validity,superseded_by';
+export const HISTORY_STEPS = 10, HISTORY_MAX = 30;
+// 한 단계 읽기 경로: 이 기록들을 대체된 쪽에서 가리키는 옛 기록(대체됨만, 합치기 폐기는 넣지 않음).
+export const historyPath = (workspaceId, ids) => `/rest/v1/app_ledger_records?workspace_id=eq.${encodeURIComponent(workspaceId)}&validity=eq.superseded&superseded_by=in.(${ids.map(encodeURIComponent).join(',')})&select=${HISTORY_COLS}&order=created_at.asc,id.asc&limit=${HISTORY_MAX}`;
+const kstDayOf = value => {
+  if (isDay(value)) return String(value).slice(0, 10);
+  const t = Date.parse(String(value ?? ''));
+  return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(0, 10) : '';
+};
+// '9.03' 꼴(올해가 아니면 '25.9.03'). 시안과 같다.
+export function historyDay(value, now = new Date()) {
+  const d = kstDayOf(value); if (!d) return '';
+  const year = kstDayOf(now.toISOString()).slice(0, 4);
+  return `${d.slice(0, 4) === year ? '' : d.slice(2, 4) + '.'}${Number(d.slice(5, 7))}.${d.slice(8, 10)}`;
+}
+// 지금 기록 + 거꾸로 읽은 옛 기록 → 오래된 것부터 한 줄씩 [{id, day, title, reason, now}]. 옛 기록이 없으면 [].
+// 날짜는 기록의 날(date_start), 없으면 만든 날. 한 기록을 대체한 옛 기록이 둘 이상이면(갈래) 날짜순으로 한 줄에 편다.
+// reason = 이 줄이 바로 앞 기록(들)을 대체한 사유(옛 기록에 남은 supersede_reason).
+export function historyLines(current, olders, now = new Date()) {
+  const seen = new Set([current?.id]);
+  const old = (olders || []).filter(r => r?.id && !seen.has(r.id) && (seen.add(r.id), true)).slice(0, HISTORY_MAX);
+  if (!current?.id || !old.length) return [];
+  const all = [...old, current];
+  const at = r => kstDayOf(r.date_start) || kstDayOf(r.created_at);
+  const reasonOf = id => [...new Set(all.filter(r => r.superseded_by === id && typeof r.supersede_reason === 'string' && r.supersede_reason.trim()).map(r => r.supersede_reason.trim()))].join(' · ');
+  return all.map(r => ({id:r.id, day:historyDay(r.date_start || r.created_at, now), sort:at(r), created:String(r.created_at || ''), title:rowView(r, now).title || r.ledger_id || '(제목 없음)', reason:reasonOf(r.id), now:r.id === current.id}))
+    .sort((a, b) => (a.now ? 1 : 0) - (b.now ? 1 : 0) || a.sort.localeCompare(b.sort) || a.created.localeCompare(b.created) || String(a.id).localeCompare(String(b.id)))
+    .map(({sort, created, ...line}) => line);
+}
+export const historyLabel = (kind, n) => `${kind === 'decision' ? '이전 결정' : '이전 기록'} ${n}`;
+// 같은 주제 결정 수: 이야기 화면(openStory topic)과 같은 검색 조건이라 누르면 같은 수가 보인다.
+export const topicDecisionArgs = topicId => ({p_query: '', p_kinds: ['decision'], p_organization_id: null, p_topic_id: topicId, p_date_from: null, p_date_to: null, p_scope: null, p_include_inactive: false, p_limit: MAX_LIMIT});

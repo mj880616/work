@@ -92,7 +92,7 @@ for(const width of [1280,1440])test(`PC ${width}: 담당조직 상세 칸 정리
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more2).toBeFocused();
  // ⑤ 자료가 0개면 큰 점선 상자 대신 한 줄.
  const docs=modal.locator('#wdDocBody');
- await expect(docs.locator('.wd-doc-none,.empty,.wd-doc-row')).toHaveCount(0);
+ await expect(docs.locator('.wd-doc-none,[data-wait-empty],.wd-doc-row')).toHaveCount(0);
  expect((await box(docs.locator('[data-wd-doc-state]'))).h).toBeLessThanOrEqual(24);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  // Another screen: the top line no longer names the organization.
@@ -101,15 +101,18 @@ for(const width of [1280,1440])test(`PC ${width}: 담당조직 상세 칸 정리
  expect(errors).toEqual([]);
 });
 
-test('폰 390: 상세 창은 그대로(제목 줄, [크게]·[저장] 한 줄, 줄마다 ⋯ 안에 [연결 해제], 할 일 → 자료 → 기록, 자료 0 안내 상자)',async({page})=>{
+test('폰 390: 상세 창(제목 줄, 입력칸 안 ⤢·[저장] 32px, 줄마다 ⋯ 안에 [연결 해제], 할 일 → 자료 → 기록, 자료 0 안내 상자)',async({page})=>{
  const {errors}=await fixture(page,390);
  await clickView(page,'team');
  await page.locator('#soOrganizationList [data-so-org="oa"]').click();
  const modal=page.locator('#wdModal');await expect(modal).toBeVisible();await expect(modal).toHaveAttribute('role','dialog');
  await expect(modal.locator('.modal-head')).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('합성 가 지부');
+ // UI-전수디자인점검 F08: 창 이름 위 '담당조직' 작은 제목 없음, ⤢는 PC처럼 입력칸 안 오른쪽 아래, [저장]은 작은 버튼 32px.
+ await expect(modal.locator('.modal-head .eyebrow')).toHaveCount(0);
  const big=modal.locator('#wdInboxBig'),save=modal.locator('#wdInboxSave');
- await expect(big).toHaveText('크게');await expect(big.locator('.wd-inbox-big-label')).toBeVisible();
- const b=await box(big),s=await box(save);expect(b.h).toBe(32);expect(s.h).toBe(36);expect(Math.abs((b.top+b.h/2)-(s.top+s.h/2))).toBeLessThanOrEqual(1);/* UI-버튼전수조사: [크게]는 보조 32px, [저장] 36px, 같은 줄 가운데 */
+ await expect(big).toHaveAccessibleName('크게');await expect(big.locator('.wd-inbox-big-label')).toBeHidden();
+ const b=await box(big),s=await box(save),t=await box(modal.locator('#wdInboxText'));expect(b.h).toBe(32);expect(s.h).toBe(32);
+ expect(b.top+b.h).toBeLessThanOrEqual(t.top+t.h);expect(s.top).toBeGreaterThanOrEqual(t.top+t.h);
  await expect(modal.locator('#wdTaskBody [data-google-task]')).toHaveCount(2);
  // TASK-바로처리통일: 폰은 줄마다 ⋯가 늘 보이고 [연결 해제]는 그 안(창 안에서 열림).
  for(const m of await modal.locator('#wdTaskBody [data-gt-linked-more]').all())await expect(m).toBeVisible();
@@ -120,6 +123,6 @@ test('폰 390: 상세 창은 그대로(제목 줄, [크게]·[저장] 한 줄, �
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(modal).toBeVisible();
  const order=await modal.locator('.wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.id||sec.querySelector('h3')?.textContent?.trim()));
  expect(order.slice(0,4)).toEqual(['wdTasks','wdDocs','wdReports','wdLog']);
- await expect(modal.locator('#wdDocBody .empty')).toHaveCount(0);
+ await expect(modal.locator('#wdDocBody [data-wait-empty]')).toHaveCount(0);
  expect(errors).toEqual([]);
 });

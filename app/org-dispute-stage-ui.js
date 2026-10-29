@@ -1,3 +1,4 @@
+import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
 // ORG-쟁의단계 화면: ① 조직 상세의 '쟁의 단계' 한 줄(선택 + 달력 날짜 + 저장, 접힌 단계 이력) ② 쟁의 단계 관리 창.
 // 데이터는 org-dispute-stage.js, 판정은 org-dispute-stage-model.mjs 한 곳. 표가 없으면(DB 적용 전) '준비 중' 한 줄만 보인다.
 import {seoulDateKey} from './meeting-time.js';
@@ -31,7 +32,7 @@ const lineStages = state => state.stages.length ? sortStages(state.stages) : DEF
 function paintLine() {
   if (!line) return;
   const {host, orgId, canEdit} = line, state = peekDisputeState();
-  if (!state) { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note">불러오는 중…</span>'; return; }
+  if (!state) { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note">' + waitInlineHtml() + '</span>'; return; }
   if (state.status === 'preparing') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" data-stage-preparing>준비 중</span>'; return; }
   if (state.status === 'error') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" role="alert">불러오지 못했어요</span><button type="button" class="wd-stage-btn" data-stage-retry>다시 시도</button>'; return; }
   const stages = lineStages(state), cur = stageOfOrg(orgId, state.histories, stages);
@@ -43,7 +44,7 @@ function paintLine() {
     ? `<span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-end value="${esc(end)}" min="${esc(date)}" aria-label="끝 날짜(선택, 비우면 하루)">`
     : '<button type="button" class="wd-stage-end-btn" data-stage-end-open aria-label="끝 날짜 넣기(선택)">~ 끝 날짜</button>';
   const controls = canEdit
-    ? `<select class="wd-stage-select" data-stage-select aria-label="쟁의 단계">${options(stageId)}</select><input class="wd-stage-date" type="date" data-stage-date value="${esc(date)}" aria-label="단계 날짜">${endControl}<button type="button" class="wd-stage-btn" data-stage-save disabled>저장</button>`
+    ? `<select class="wd-stage-select" data-stage-select aria-label="쟁의 단계">${options(stageId)}</select><input class="wd-stage-date" type="date" data-stage-date value="${esc(date)}" aria-label="단계 날짜">${endControl}<button type="button" class="wd-stage-btn" data-stage-save disabled hidden>저장</button>`
     : `<span class="wd-stage-now">${esc(cur.name)}${cur.date ? ` · ${esc(cur.date)}${cur.end && cur.end !== cur.date ? ` ~ ${esc(cur.end)}` : ''}` : ''}</span>`;
   host.innerHTML = `<span class="wd-stage-k">쟁의 단계</span>${controls}<span class="wd-stage-msg${line.msg.error ? ' error' : ''}" data-stage-msg role="${line.msg.error ? 'alert' : 'status'}">${esc(line.msg.text)}</span>`
     + (hist.length ? `<details class="wd-stage-hist" data-stage-hist${line.histOpen ? ' open' : ''}><summary>단계 이력 ${hist.length}</summary>${hist.map(h => histRowHtml(h, stages, canEdit)).join('')}</details>` : '');
@@ -54,7 +55,7 @@ function paintLine() {
 function histRowHtml(h, stages, canEdit) {
   const ui = line.hist, mine = ui.id === h.id, busy = line.busy ? ' disabled' : '';
   const label = `${h.date} ${h.name}`;
-  const more = canEdit ? `<button type="button" class="wd-stage-hmore" data-stage-hmore aria-label="${esc(label)} 메뉴" aria-expanded="${mine && !!ui.mode}">⋯</button>` : '';
+  const more = canEdit ? `<button type="button" class="wd-stage-hmore" data-stage-hmore aria-label="${esc(label)} 메뉴" aria-expanded="${mine && !!ui.mode}"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '';
   let extra = '';
   if (mine && ui.mode === 'menu') {
     extra = `<div class="wd-stage-hsub"><button type="button" class="stg-link" data-stage-hedit${busy}>고치기</button><button type="button" class="stg-link danger" data-stage-hdel${busy}>지우기</button></div>`;
@@ -75,6 +76,8 @@ function updateSave() {
   const cur = stageOfOrg(line.orgId, state.histories, lineStages(state));
   const select = line.host.querySelector('[data-stage-select]'), date = line.host.querySelector('[data-stage-date]'), end = line.host.querySelector('[data-stage-end]');
   const changed = select.value !== (cur.stage?.id ?? '') || date.value !== cur.date || (end?.value ?? cur.end) !== cur.end;
+  // UI-화면정리 B ⑧: 담당조직 상세의 [저장]은 한 화면에 하나 — 단계 줄 [저장]은 바꾼 것이 있을 때만 그 줄에 나온다(꺼진 [저장]이 폰에서 혼자 둘째 줄을 차지하지 않게).
+  btn.hidden = !changed && !line.busy;
   btn.disabled = line.busy || !changed || !date.value;
 }
 
@@ -227,15 +230,15 @@ function rowHtml(s, state) {
     const lead = names.length ? `${esc(orgsAtStageText(names))} 지우면 ‘${esc(state.stages.find(x => x.is_default)?.name)}’ 단계로 옮겨요.` : `‘${name}’ 단계를 지울까요?`;
     extra = `<div class="stg-sub stg-confirm" role="group" aria-label="지우기 확인"><span>${lead}</span><button type="button" class="stg-link danger" data-stg-delete-yes${busy}>지우기</button><button type="button" class="stg-link" data-stg-cancel>취소</button></div>`;
   }
-  return `<li class="stg-row" data-stg-row="${esc(s.id)}"><div class="stg-line"><button type="button" class="stg-grip" data-stg-grip aria-label="${name} 순서 바꾸기(끌거나 위·아래 화살표)">⋮⋮</button><span class="stg-name">${name}</span>${flags}<button type="button" class="stg-more" data-stg-more aria-label="${name} 더보기" aria-expanded="${mine && !!ui.mode}">⋯</button></div>${extra}</li>`;
+  return `<li class="stg-row" data-stg-row="${esc(s.id)}"><div class="stg-line"><button type="button" class="stg-grip" data-stg-grip aria-label="${name} 순서 바꾸기(끌거나 위·아래 화살표)">⋮⋮</button><span class="stg-name">${name}</span>${flags}<button type="button" class="stg-more" data-stg-more aria-label="${name} 더보기" aria-expanded="${mine && !!ui.mode}"><span class="more-dots" aria-hidden="true">⋯</span></button></div>${extra}</li>`;
 }
 
 function paintManager() {
   const body = document.querySelector('#soStageBody'); if (!mgr || !body) return;
   const state = peekDisputeState();
-  if (!state) { body.innerHTML = '<p class="stg-note" role="status">불러오는 중…</p>'; return; }
+  if (!state) { body.innerHTML = waitHtml({rows:3}); return; }
   if (state.status === 'preparing') { body.innerHTML = '<p class="stg-note" data-stage-preparing>쟁의 단계는 준비 중이에요.</p>'; return; }
-  if (state.status === 'error') { body.innerHTML = '<p class="stg-note" role="alert">단계를 불러오지 못했어요.</p><button type="button" class="stg-link" data-stg-reload>다시 시도</button>'; return; }
+  if (state.status === 'error') { body.innerHTML = failHtml({retry: 'data-stg-reload'}); return; }
   const stages = sortStages(state.stages), busy = mgr.busy ? ' disabled' : '';
   const add = mgr.adding
     ? `<form class="stg-add" data-stg-add-form data-enter-save><input class="stg-input" data-stg-add-input maxlength="${STAGE_NAME_LIMIT}" value="${esc(mgr.addDraft)}" placeholder="새 단계 이름" aria-label="새 단계 이름" autocomplete="off"><button type="button" class="stg-link" data-stg-add-cancel>취소</button><button type="submit" class="stg-link" data-enter-save-submit${busy}>추가</button></form>`

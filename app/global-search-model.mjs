@@ -15,7 +15,7 @@ export const GROUPS = Object.freeze([
   {key: 'schedule', label: '일정', icon: 'schedule', chip: true},
   // 칩 없이 '전체'에만(결정 1: 업무일지 한 줄. 프로젝트·담당조직도 요청 칩에 없어 같은 규칙).
   {key: 'work', label: '업무일지', icon: 'work', chip: false},
-  {key: 'project', label: '프로젝트', icon: 'project', chip: false},
+  {key: 'project', label: '사업영역', icon: 'project', chip: false},
   {key: 'organization', label: '담당조직', icon: 'organization', chip: false}
 ]);
 export const GROUP_KEYS = Object.freeze(GROUPS.map(g => g.key));

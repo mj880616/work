@@ -154,7 +154,7 @@ export async function saveConvertedCopy(bytes,{fileName,title},{rt=window.KPTURu
   let response;
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
   const data=await readJson(response);
-  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:'자료실에 새 문서로 저장했어요. 분류·프로젝트는 자료실에서 정해 주세요.'};}
+  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:'자료실에 새 문서로 저장했어요. 분류·사업영역은 자료실에서 정해 주세요.'};}
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 

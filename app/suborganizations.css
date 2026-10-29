@@ -28,8 +28,11 @@
   #appView #teamView>#soTeamSection{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
   #appView #teamView #soTeamSection>#soOrganizationList{grid-column:1;grid-row:1;align-self:start;align-content:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;min-width:0}
   #appView #teamView #soTeamSection>#wdDetailPane{grid-column:2;grid-row:1;display:block;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
-  #wdDetailPane .so-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
-  #wdDetailPane.has-org .so-pane-empty{display:none}
+  /* UI-전수디자인점검 F23: 안내문('왼쪽에서 조직을 고르면…')은 두지 않는다. PC는 처음 열 때 마지막으로 본 조직(없으면 첫 조직)을 바로 보여 주고
+     (workplace-detail.js wdOpenFirst), 담당조직이 하나도 없을 때만(renderTeam이 .so-none) 오른쪽 칸을 빼고 목록이 두 칸을 다 쓴다. */
+  #appView #teamView #soTeamSection.so-none>#wdDetailPane{display:none}
+  #appView #teamView #soTeamSection.so-none>#soOrganizationList{grid-column:1 / -1}
+  #appView #teamView #soTeamSection.so-none>.so-team-head{grid-column:1 / -1}
   /* 고른 조직 줄: 연한 초록(프로젝트 목록의 고른 줄과 같음). */
   #appView #teamView #soOrganizationList .kptu-list-row.is-selected{background:var(--ds-select-bg);box-shadow:var(--kptu-shadow-select)}
   /* 상세 칸 안의 상세 창(같은 요소). */
@@ -76,18 +79,28 @@
 .stg-note,.stg-msg{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}.stg-msg:empty{display:none}.stg-msg.error{color:var(--kptu-danger)}
 /* ORG-쟁의단계 다듬기 ③: 화면 전체 ⋯는 화면 제목 '담당조직' 줄 오른쪽(#soTeamHead). 761px~: 본문 제목 줄(바구니 머리줄과 같은 글자 크기),
    폰: 위 머리줄 "담당조직" 오른쪽 자리로 올린다(바구니 .basket-head와 같은 방식, ☰가 빠진 자리). 크기 값은 기존 토큰만. */
-#appView #teamView>.so-team-head{position:static;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--ds-compact-height);margin:0 0 8px}
-#appView #teamView>.so-team-head .so-team-title{margin:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
-#appView #teamView>.so-team-head{flex:0 0 auto}
+#appView #soTeamSection>.so-team-head{position:static;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--ds-compact-height);margin:0 0 8px}
+#appView #soTeamSection>.so-team-head .so-team-title{margin:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
+#appView #soTeamSection>.so-team-head{flex:0 0 auto}
 /* 화면 오른쪽 끝에 붙으므로 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 6px 넘친다). */
-#appView #teamView>.so-team-head .so-team-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
+#appView #soTeamSection>.so-team-head .so-team-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
 @media(max-width:760px){
-  #appView #teamView>.so-team-head{justify-content:flex-end;min-height:var(--kptu-touch-target,44px);margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px;pointer-events:none}
-  #appView #teamView>.so-team-head .so-team-title{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  #appView #teamView>.so-team-head .so-team-more{pointer-events:auto;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}
-  #appView #teamView>.so-team-head .so-team-more::after{content:none}
+  #appView #soTeamSection>.so-team-head{justify-content:flex-end;min-height:var(--kptu-touch-target,44px);margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px;pointer-events:none}
+  #appView #soTeamSection>.so-team-head .so-team-more{pointer-events:auto;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}
+  #appView #soTeamSection>.so-team-head .so-team-more::after{content:none}
+}
+/* UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄('담당조직')이 화면 이름을 보인다. 큰 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 두고, ⋯는 같은 줄 오른쪽 끝.
+   UI-전수디자인점검 F07: PC에서는 ⋯ 하나만 담은 빈 줄(32px)을 두지 않는다. 머리줄은 좌우 격자(#soTeamSection)의 목록 칸·첫 줄에 목록과 겹쳐 놓여
+   ⋯가 목록 칸 맨 위 줄(첫 묶음 머리줄 '그 외 … 3곳') 오른쪽 끝에 온다. 오른쪽 상세 칸은 화면 맨 위부터 쓴다. 첫 묶음 머리줄은 ⋯ 자리만큼 오른쪽을 비운다. */
+@media(min-width:1024px){
+  #appView #soTeamSection>.so-team-head{grid-column:1;grid-row:1;align-self:start;justify-self:end;position:relative;z-index:1;justify-content:flex-end;box-sizing:border-box;min-height:0;height:calc(2 * var(--kptu-space-3) + 18px);margin:var(--ds-line-width) var(--kptu-space-2) 0 0}
+  #appView #soTeamSection>.so-team-head .so-team-more{background:var(--kptu-surface)}
+  #appView #soTeamSection>.so-team-head .so-team-more:is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle)}
+  #appView #teamView #soOrganizationList>.so-org-group:first-child .so-group-card>.so-group-heading{padding-right:calc(var(--kptu-space-2) + var(--ds-compact-height) + var(--kptu-space-2))}
 }
 /* REF-참고묶음 화면 2: 담당조직 목록 맨 아래 입구 한 줄 "참고 묶음 ›"(질문 1 추천안). 담당조직 줄처럼 낮은 줄, 흐린 글자. */
 #soOrganizationList .so-reference-entry{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px var(--kptu-space-4);border:0;border-top:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
 #soOrganizationList .so-reference-entry:hover{background:var(--kptu-surface-subtle)}
 #soOrganizationList .so-reference-entry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+/* UI-기다림표시통일 3차: 담당조직이 하나도 없을 때의 공용 '없음'(.wait-empty)은 목록 한 줄 높이 — 오른쪽 위 ⋯ 와 아래 [참고 묶음] 줄이 겹치지 않게. */
+#soOrganizationList>.wait-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target);margin:0;padding:0 calc(var(--kptu-space-2) + var(--ds-compact-height) + var(--kptu-space-2)) 0 var(--kptu-space-4)}

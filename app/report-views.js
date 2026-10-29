@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 // ACT-사진 6단계: 사업 보고 화면의 [달력]·[사진] 보기 그리기. 그리는 주인은 team.js renderMeetings 하나이고, 이 파일은 글(HTML)을 만들고
 // 사진 칸을 채우기만 한다(상태·저장 없음). 사업 보고 열기는 목록 줄과 같은 길(data-mrd-meeting, meeting-round-detail.js)이다.
 // 사진 격자·크게 보기는 사업 보고 상세 창과 같은 report-photo-row.js mountPhotoGrid(→ file-actions viewDocumentPhotos, photo-view.js nav) 하나를 쓴다.
@@ -20,16 +21,16 @@ export function calendarHtml(ctx) {
   const weekdays = `<thead><tr>${WEEKDAYS.map((w, i) => `<th scope="col"${i === 0 ? ' class="rv-sun"' : i === 6 ? ' class="rv-sat"' : ''}>${w}</th>`).join('')}</tr></thead>`;
   const body = monthWeeks(month).map(week => `<tr>${week.map(c => {
     const list = c.inMonth ? byDay.get(c.key) || [] : [], plan = cellPlan(list);
-    const cls = ['rv-cell', c.inMonth ? '' : 'rv-out', c.key === todayKey ? 'rv-now' : '', c.key === selected ? 'rv-sel' : ''].filter(Boolean).join(' ');
+    const cls = ['rv-cell', c.inMonth ? '' : 'rv-out', c.key === todayKey ? (c.inMonth ? 'rv-now ds-today' : 'rv-now') : '', c.key === selected ? 'rv-sel' : ''].filter(Boolean).join(' ');
     const label = `${dayHeading(c.key)}${list.length ? ` 사업 보고 ${list.length}건` : ''}`;
-    const num = c.inMonth ? `<button type="button" class="rv-num" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
+    const num = c.inMonth ? `<button type="button" class="rv-num${c.key === todayKey ? ' ds-today-num' : ''}" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
     const dots = plan.total ? `<span class="rv-dots" aria-hidden="true">${list.slice(0, 3).map(m => dot(colorOf(m))).join('')}</span>` : '';
     const titles = plan.shown.length ? `<ul class="rv-titles">${plan.shown.map(m => `<li><span class="rv-title" ${openAttrs(m.id)} title="${esc(nameOf(m))}">${dot(colorOf(m))}<span>${esc(nameOf(m))}</span></span></li>`).join('')}${plan.more ? `<li class="rv-more">+${plan.more}</li>` : ''}</ul>` : '';
     return `<td class="${cls}">${num}${dots}${titles}</td>`;
   }).join('')}</tr>`).join('');
   const dayRows = (byDay.get(selected) || []).map(m => `<article class="rv-row" ${openAttrs(m.id)}>${dot(colorOf(m))}<div class="rv-row-main"><h3>${esc(nameOf(m))}</h3><p>${esc(metaOf(m))}</p></div>${stripHtml(m, photos)}</article>`).join('');
-  const list = selected ? `<section class="rv-day-list" aria-label="${esc(dayHeading(selected))}"><h3 class="rv-day-title">${esc(dayHeading(selected))}</h3>${dayRows || '<p class="rv-empty">이 날 사업 보고가 없습니다.</p>'}</section>` : '';
-  const none = !rows.length ? '<p class="rv-empty">조건에 맞는 사업 보고가 없습니다.</p>' : '';
+  const list = selected ? `<section class="rv-day-list" aria-label="${esc(dayHeading(selected))}"><h3 class="rv-day-title">${esc(dayHeading(selected))}</h3>${dayRows || emptyHtml()}</section>` : '';
+  const none = !rows.length ? emptyHtml('맞는 사업 보고 없음') : '';
   return `<div class="rv-cal" data-rv-month="${monthKeyOf(month)}">${head}<table class="rv-table">${weekdays}<tbody>${body}</tbody></table>${list}${none}</div>`;
 }
 
@@ -37,7 +38,7 @@ export function calendarHtml(ctx) {
 export function photoViewHtml(ctx) {
   const {rows, photos, colorOf, nameOf, kindOf} = ctx;
   const groups = photoGroups(rows, photos);
-  if (!groups.length) return '<div class="rv-photos"><p class="rv-empty">사진이 있는 사업 보고가 없습니다.</p></div>';
+  if (!groups.length) return `<div class="rv-photos">${emptyHtml()}</div>`;
   return `<div class="rv-photos">${groups.map(g => `<section class="rv-photo-day" data-rv-photo-day="${esc(g.day)}"><h3 class="rv-day-title">${esc(g.day ? dayHeading(g.day) : '날짜 없음')}</h3>${g.items.map(({meeting: m, photos: list}) => `<div class="rv-set" data-rv-set="${esc(m.id)}"><div class="rv-set-head" ${openAttrs(m.id)} aria-label="사업 보고 열기: ${esc(nameOf(m))}">${dot(colorOf(m))}<span class="rv-set-title">${esc(nameOf(m))}</span><span class="rv-set-meta">${esc([kindOf(m), `사진 ${list.length}`].filter(Boolean).join(' · '))}</span></div><div class="act-photo-grid rv-grid" data-rv-grid="${esc(m.id)}"></div></div>`).join('')}</section>`).join('')}</div>`;
 }
 

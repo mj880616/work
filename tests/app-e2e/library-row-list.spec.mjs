@@ -155,7 +155,7 @@ for(const width of [390,1440]){
     else{await expect(title).toHaveCSS('white-space','nowrap');await expect(title).toHaveCSS('text-overflow','ellipsis');expect(await title.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true)}
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
-    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn']);// 분류 편집 버튼은 종류 칩 줄로 옮겼다(UI-자료실편집버튼).
+    expect(await page.locator('#libraryListCard .add-list-head button').count()).toBe(0);expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn']);// 분류 편집 버튼은 종류 칩 줄로 옮겼다(UI-자료실편집버튼). [+ 자료 등록]은 검색 칸 오른쪽(UI-전수디자인점검 F11).
     await expect(page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn')).toBeVisible();
     await page.locator('#manageLibraryBtn').click();await expect(page.locator('#libraryManageModal')).toBeVisible();
     await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
@@ -186,7 +186,7 @@ for(const width of [390,1440]){
     const panel=await page.locator('.lu-more-panel').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.x+panel.width).toBeLessThanOrEqual(width);expect(panel.y+panel.height).toBeLessThanOrEqual(900);
     await page.keyboard.press('Escape');await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
-    await menu(page);await page.locator('#libraryListCard h2').click();await expect(page.locator('.lu-more-panel')).toBeHidden();
+    await menu(page);/* UI-화면정리 B ①: 큰 제목 '자료실'은 폰 머리줄·PC 위쪽 줄이 맡아 본문에서는 읽기 프로그램용이므로 검색칸(메뉴 밖)을 누른다 */await page.locator('#documentSearch').click();await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
     await menu(page);await page.goBack();await expect(page.locator('.lu-more-panel')).toBeHidden();await expect(page).toHaveURL(url);
     // D-3c pseudo-element: click 4px outside the visible 32px icon.
@@ -350,7 +350,7 @@ for(const width of [390,1280]){
       expect(await meeting.locator('option').evaluateAll(opts=>opts.map(o=>o.value))).toEqual(['','recent','older']);
       const labels=await meeting.locator('option').allTextContents();
       expect(labels[0]).toBe('연결 안 함');
-      const expected=await page.evaluate(m=>['정책 회의','2차',new Date(m.meeting_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})].join(' · '),state.meetings[1]);
+      const expected=await page.evaluate(m=>['정책 회의','2차',new Date(m.meeting_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})].join(' · '),state.meetings[1]);
       expect(labels[1]).toBe(expected);
       await page.screenshot({path:`/tmp/library-meeting-edit-modal-${width}.png`,fullPage:true});
       await meeting.selectOption('recent');
@@ -371,7 +371,7 @@ for(const width of [390,1280]){
       expect(state.patches.at(-1).body.meeting_id).toBeNull();
       await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('meetings'));await openMeetingResult(page,'recent');
-      await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
+      await expect(page.locator('#mrdMaterials [data-wait-empty]')).toHaveText('없음');
       // Refresh the open material list through the same signal that the edit save emitted.
       // It must leave an in-progress meeting editor intact.
       await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('작성 중 원문');
@@ -392,7 +392,7 @@ for(const width of [390,1280]){
       state.docs[0].meeting_id=null;
       await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
       releaseFirst();
-      await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
+      await expect(page.locator('#mrdMaterials [data-wait-empty]')).toHaveText('없음');
       expect(materialReads).toBe(2);
       await expect(page.locator('#mrdEditTranscript')).toHaveValue('작성 중 원문');
       await closeMeetingResult(page);await page.evaluate(()=>window.KPTURouter.go('library'));

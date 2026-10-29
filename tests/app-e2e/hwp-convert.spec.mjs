@@ -127,7 +127,7 @@ for(const width of [390,1280])test(`paste a text, make it in the union form, che
   expect(text.indexOf('1)가상회의진행.')).toBeLessThan(text.indexOf('2)가상협의완료.'));
 
   await press(page,'hwpConvLibrary',width);
-  await expect(page.locator('#hwpLabStatus')).toHaveText('자료실에 새 문서로 저장했어요. 분류·프로젝트는 자료실에서 정해 주세요.',{timeout:30000});
+  await expect(page.locator('#hwpLabStatus')).toHaveText('자료실에 새 문서로 저장했어요. 분류·사업영역은 자료실에서 정해 주세요.',{timeout:30000});
   expect(f.sent.library).toHaveLength(1);
   expect(Object.keys(f.sent.library[0]).sort()).toEqual(['file','title']);
   expect(f.sent.library[0].file.file).toMatch(/^공문_\d{4}\.hwp$/);

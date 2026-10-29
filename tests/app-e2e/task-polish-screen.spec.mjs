@@ -57,9 +57,32 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·다음
   }
 });
 
-test('390: 빠른 기한 버튼은 폰에서 보이지 않는다',async({page})=>{
+// TASK-날짜칸겹침(2026-10-29): 폰 수정 창에도 빠른 기한 버튼 줄이 보이고, 기한 칸 글자는 앱이 그린 한 가지('10.8 (목)')뿐이다.
+for(const width of [390,412]){
+  test(`${width}: 폰 수정 창에도 빠른 기한 버튼 줄이 보이고, 기한 칸 글자는 한 번만`,async({page})=>{
+    const tasks=[task('a','2026-10-08')];
+    const calls=await open(page,width,tasks);
+    await page.locator('[data-gt-edit="a"]').click();
+    const modal=page.locator('#gtTaskModal');
+    await expect(modal).toBeVisible();
+    const quick=modal.locator('.gt-due-quick');
+    await expect(quick).toBeVisible();
+    await expect(quick.locator('button')).toHaveText(['오늘','내일','모레','다음주','기한 없음']);
+    for(const b of await quick.locator('button').all()){const box=await b.boundingBox();expect(box.height).toBeLessThanOrEqual(33);expect(box.x+box.width).toBeLessThanOrEqual(width);}
+    // 기한 칸: 보이는 글자는 칸(span.date-field)이 그린 '10.8 (목)' 하나, 기기 날짜 칸은 통째로 투명(기기 글자가 보이지 않음).
+    const field=modal.locator('.date-field:has(#gtEditDue)');
+    await expect(field).toHaveAttribute('data-date-text','10.8 (목)');
+    expect(await page.locator('#gtEditDue').evaluate(e=>getComputedStyle(e).opacity)).toBe('0');
+    expect(await field.evaluate(e=>getComputedStyle(e,'::after').content)).toBe('"10.8 (목)"');
+    await quick.getByRole('button',{name:'내일',exact:true}).click();
+    await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(1);
+    expect(calls.find(c=>c.action==='update').body.due).toBe('2026-10-09');
+  });
+}
+
+test('390: 새 할 일 추가 창에는 빠른 기한 버튼 줄이 없다',async({page})=>{
   await open(page,390,[task('a','2026-10-08')]);
-  await page.locator('[data-gt-edit="a"]').click();
+  await page.evaluate(()=>window.KPTUGoogleTasks.openEditor(null));
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtTaskModal .gt-due-quick')).toBeHidden();
 });

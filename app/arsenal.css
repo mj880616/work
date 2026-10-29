@@ -28,7 +28,6 @@
 #appView #arsenalView .ars-res-win{ color:var(--kptu-success); background:var(--kptu-success-soft); }
 #appView #arsenalView .ars-res-draw{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 #appView #arsenalView .ars-res-loss{ color:var(--kptu-danger); background:var(--kptu-danger-soft); }
-#appView #arsenalView .ars-note{ margin:8px 2px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #arsenalView :is(.ars-small,.ars-back){ position:relative; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 var(--ds-compact-pad-x,10px); font-size:var(--ds-compact-text,13px);
   font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); box-shadow:none; }
 #appView #arsenalView :is(.ars-small,.ars-back)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }

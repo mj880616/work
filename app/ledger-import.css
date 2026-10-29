@@ -1,6 +1,7 @@
 /* AI-서버연동 S7-b: [원장] 화면(#ledgerView). 값은 theme-tokens.css의 공용 토큰만 쓴다. 큰 버튼(.primary/.secondary)은
    ui-standard.css 규칙을 따르고, 이 파일은 칸 배치·표·작은 버튼(.lg-tool: 보이는 32px, 누르는 범위 44px)만 정한다. */
-#appView #ledgerView .lg-root{ display:flex; flex-direction:column; gap:16px; max-width:920px; }
+/* UI-전수디자인점검 F14: 칸 폭은 다른 화면처럼 본문을 꽉 채운다(전에는 920px로 좁았음). */
+#appView #ledgerView .lg-root{ display:flex; flex-direction:column; gap:16px; }
 #appView #ledgerView .lg-card{ display:flex; flex-direction:column; gap:10px; min-width:0; padding:16px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #ledgerView [data-lg-shell]{ display:flex; flex-direction:column; gap:16px; min-width:0; }
 #appView #ledgerView .lg-card h3{ margin:0; font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
@@ -54,6 +55,7 @@
    크기는 --ds-compact-*(32px, 누르는 범위 44px은 base-ui.css ::after)와 --ds-text-* 토큰만 쓴다. */
 #appView #ledgerView .lb-form{ display:flex; flex-direction:column; gap:6px; }
 #appView #ledgerView .lb-bar{ display:flex; align-items:center; gap:8px; min-width:0; }
+/* F14: 칸 안 '원장' 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 둔다(위 머리줄·경로 줄이 화면 이름을 보임). */
 #appView #ledgerView .lb-card h3.lb-h{ flex:none; margin:0; }
 #appView #ledgerView .lb-search{ position:relative; flex:1 1 auto; display:block; min-width:0; margin:0; }
 #appView #ledgerView .lb-search .lb-icon{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--kptu-muted); pointer-events:none; }
@@ -136,7 +138,6 @@
   #appView #ledgerView .lg-fields{ grid-template-columns:minmax(0,1fr); }
   #appView #ledgerView .lg-select{ max-width:160px; }
   /* 폰: 검색칸 한 줄, 결과는 종류·제목·날짜 한 줄(요지·ID는 줄을 눌러 펼친 상세에서). */
-  #appView #ledgerView .lb-card h3.lb-h{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
   #appView #ledgerView .lbr-2{ display:none; }
   #appView #ledgerView .lb-head{ min-height:40px; justify-content:center; }
   #appView #ledgerView .lb-f.lb-period{ flex-wrap:wrap; }
@@ -188,7 +189,8 @@
 #appView #ledgerView .lb-auto{ color:var(--kptu-primary-ink); }
 /* LEDGER-화면정리·LEDGER-수정요청(2026-10-24): 첫 화면 칸(안 지킨 약속·추적 중·칩·최근 자동), 이야기 타임라인, [+ 기록하기], 고치기 칸.
    값은 공용 토큰만. 보조 버튼은 작은 크기(UI-버튼기준), 누르는 범위 44px. 큰 채운 버튼은 고치기 칸의 [반영] 하나. */
-#appView #ledgerView .lb-add{ position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
+/* UI-화면정리 C(B⑥): [+ 기록하기]는 다른 화면의 [+ ○○]처럼 주 색으로 채운 작은 버튼(검색 줄 오른쪽 끝). 폰은 ui-standard.css의 동그란 [+]. */
+#appView #ledgerView .lb-add{ position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--kptu-primary); border-radius:var(--ds-radius-control); background:var(--kptu-primary); color:var(--kptu-on-primary); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
 #appView #ledgerView .lb-add::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #ledgerView .lb-add:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #ledgerView .lb-sec{ margin:12px 0 0; min-width:0; }
@@ -240,3 +242,21 @@
 @media (max-width:760px){
   #appView #ledgerView .lb-bar{ flex-wrap:wrap; }
 }
+/* FEAT-1029묶음 ⑥ 결정 변경 이력(ledger-browse.js historyHtml): 상세 맨 아래 접힌 한 줄 → 세로 선 타임라인(오래된 것 → 지금). */
+#appView #ledgerView .lb-history{ margin:8px 0 0; border-top:1px solid var(--kptu-border); }
+#appView #ledgerView .lb-history > summary{ list-style:none; cursor:pointer; min-height:28px; display:flex; align-items:center; gap:4px; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); }
+#appView #ledgerView .lb-history > summary::-webkit-details-marker,#appView #ledgerView .lb-hist-row > summary::-webkit-details-marker{ display:none; }
+#appView #ledgerView .lb-hist-list{ position:relative; margin:2px 0 4px 6px; padding:0 0 0 12px; list-style:none; border-left:1.5px solid var(--kptu-border-strong,var(--kptu-border)); }
+#appView #ledgerView .lb-hist-line{ position:relative; font-size:var(--ds-text-meta,12px); }
+#appView #ledgerView .lb-hist-line::before{ content:""; position:absolute; left:-16.5px; top:10px; width:7px; height:7px; border-radius:50%; background:var(--kptu-border-strong,var(--kptu-border)); }
+#appView #ledgerView .lb-hist-line.is-now::before{ background:var(--kptu-primary); }
+#appView #ledgerView .lb-hist-line.is-now,#appView #ledgerView .lb-hist-row > summary{ display:flex; gap:8px; min-height:28px; padding:3px 0; }
+#appView #ledgerView .lb-hist-row > summary{ list-style:none; cursor:pointer; }
+#appView #ledgerView .lb-hist-day{ flex:none; width:42px; color:var(--kptu-faint); }
+#appView #ledgerView .lb-hist-title{ flex:1; min-width:0; color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #ledgerView .lb-hist-line.is-now .lb-hist-title{ color:var(--kptu-ink); }
+#appView #ledgerView .lb-hist-now{ font-size:11px; color:var(--kptu-primary-ink,var(--kptu-primary)); background:var(--kptu-primary-soft); border-radius:4px; padding:0 4px; }
+#appView #ledgerView .lb-hist-why{ display:block; font-size:11px; color:var(--kptu-faint); }
+#appView #ledgerView .lb-hist-body{ margin:0 0 6px 50px; }
+#appView #ledgerView .lb-hist-body h5{ margin:4px 0 2px; }
+#appView #ledgerView .lb-hist-topic{ min-height:28px; font-size:var(--ds-text-meta,12px); }

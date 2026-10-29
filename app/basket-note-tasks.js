@@ -99,7 +99,7 @@ export const takeTaskOpenRequest=(rt=window.KPTURuntime)=>take('task',rt);
 export const basketNoteHref=id=>`./?view=basket&note=${encodeURIComponent(id)}`;
 
 // UI-PC프로젝트좌우: a note opened from a 🧺 record of a project (projects view) or an organization (team view) remembers
-// where it came from, so the note screen offers "← (name)으로 돌아가기" and the opener reopens that project or
+// where it came from, so the note screen's head back reads "‹ (name)" and the opener reopens that project or
 // organization at the same scroll when the person comes back (the button, browser or phone back, or the tab itself).
 // It lives in this tab's memory only, bound to the signed-in user and workspace, and ends when another screen is chosen.
 // JOURNAL-하루개편 ⑥: the work journal's lines open an update or a note the same way (one back returns to the journal's day).
@@ -113,16 +113,22 @@ export function requestBasketNoteFrom(id,from,rt=window.KPTURuntime){
 // [노트] side with the same return line and the same way back.
 export function requestNoteDocFrom(id,from,rt=window.KPTURuntime){requestBasketNoteFrom(id,from,rt);requests.note=null;put('notedoc',id,rt);}
 export const basketNoteOrigin=(noteId,rt=window.KPTURuntime)=>origin&&origin.note===noteId&&origin.scope===scopeOf(rt)?origin:null;
+// MTG-프로젝트합치기 ①: 사업영역 관리 창(area-window.js)이 사업 보고로 돌아올 때 이 메모의 돌아갈 곳이 사업영역인지 본다(가져가지는 않음).
+export const hasBasketReturn=(view,rt=window.KPTURuntime)=>!!origin&&origin.view===view&&origin.scope===scopeOf(rt);
 // The opener takes its origin once, when its own screen shows again.
 export function takeBasketReturn(view,rt=window.KPTURuntime){const o=origin;if(!o||o.view!==view)return null;origin=null;return o.scope===scopeOf(rt)?o:null;}
 // Korean particle after the name: 으로 after a final consonant other than ㄹ, 로 otherwise ("(으)로" when not Hangul).
 function toParticle(name){const c=String(name).trim().slice(-1).charCodeAt(0)-0xac00;if(!(c>=0&&c<11172))return '(으)로';const end=c%28;return end&&end!==8?'으로':'로';}
-// The line under the note screen's head. Phones keep the short label; wider screens name the project or organization.
-export function basketReturnHtml(noteId,rt=window.KPTURuntime,{narrow=globalThis.matchMedia?.('(max-width:760px)')?.matches}={}){
-  const o=basketNoteOrigin(noteId,rt);if(!o)return '';
+// UI-돌아가기머리줄(시안 B): opened from another screen, the head's back button itself names where it goes ("‹ (name)") in place
+// of "‹ 정리함"/"‹ 노트" — one back on the screen, no separate return line. Phones and long names keep the short kind
+// ("‹ 담당조직"·"‹ 사업영역"·"‹ 업무일지"). Opened from the list, the head keeps its own button (fallback).
+export const BACK_NAME_MAX=14;
+export function basketBackHtml(noteId,fallback,rt=window.KPTURuntime,{narrow=globalThis.matchMedia?.('(max-width:760px)')?.matches}={}){
+  const o=basketNoteOrigin(noteId,rt);if(!o)return fallback;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const kind=ORIGIN_VIEWS[o.view],label=narrow||!o.name?`${kind}${toParticle(kind)} 돌아가기`:`${o.name}${toParticle(o.name)} 돌아가기`;
-  return `<div class="basket-return"><button type="button" class="basket-return-btn" data-basket-return aria-label="${esc(o.name?`${o.name}(${kind})${toParticle(o.name)} 돌아가기`:label)}"><span aria-hidden="true">←</span> <span class="basket-return-text">${esc(label)}</span></button></div>`;
+  const kind=ORIGIN_VIEWS[o.view],name=o.name.trim(),label=narrow||!name||name.length>BACK_NAME_MAX?kind:name;
+  const aria=name&&name!==kind?`${name}(${kind})${toParticle(name)} 돌아가기`:`${kind}${toParticle(kind)} 돌아가기`;
+  return `<button type="button" class="basket-back basket-back-origin" data-basket-return aria-label="${esc(aria)}"><span aria-hidden="true">‹</span> <span class="basket-back-name">${esc(label)}</span></button>`;
 }
 // Goes back to the opener's history entry when it is still behind this one (the same as back), else opens that screen.
 export function returnFromBasketNote(){
@@ -131,5 +137,7 @@ export function returnFromBasketNote(){
   if(now&&at&&Number.isInteger(at.index)&&at.index<now.index){history.go(at.index-now.index);return true;}
   return !!window.KPTURouter?.go(o.view,{source:'delegated'});
 }
-globalThis.window?.addEventListener?.('kptu:view-changed',e=>{const view=e.detail?.view;if(origin&&view!=='basket'&&view!==origin.view)origin=null;});
+// MTG-프로젝트합치기 ①: 사업영역(projects)은 사업 보고(meetings) 위의 창이라, 돌아갈 화면은 사업 보고다(그 창이 origin을 받는다).
+const ORIGIN_SCREEN={projects:'meetings'};
+globalThis.window?.addEventListener?.('kptu:view-changed',e=>{const view=e.detail?.view;if(origin&&view!=='basket'&&view!==(ORIGIN_SCREEN[origin.view]||origin.view))origin=null;});
 globalThis.document?.addEventListener?.('click',e=>{const b=e.target.closest?.('[data-basket-return]');if(!b)return;e.preventDefault();returnFromBasketNote();});

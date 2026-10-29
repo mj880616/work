@@ -21,6 +21,9 @@ async function fixture(page, { width = 390, status = { configured: true, connect
   page.on('pageerror', e => state.errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) state.errors.push(m.text()); });
   await page.setViewportSize({ width, height: 900 });
+  // OD-미리받기(od-warm.js)는 앱을 켠 뒤 한가할 때 일기용 이번 달 목록(action 'photos')을 뒤에서 받는다. 이 시험은 사진 메뉴가 그 목록을
+  // 쓰지 않는지만 보므로, 시각에 따라 끼어드는 미리 받기를 끈다(installOdWarm은 이미 있으면 다시 설치하지 않는다).
+  await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
   await openHome(page);
   state.prefs = await installViewPrefsServer(page);
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', async r => {
@@ -95,7 +98,7 @@ for (const width of [390, 1280]) {
   test(`사진 메뉴: 최신순 격자(서버 쪽 읽기)·동영상 표시·크게 보기 ☆·★ 거르기·달력 ${width}`, async ({ page }) => {
     const f = await fixture(page, { width });
     await openPhotos(page, width);
-    await expect(root(page).locator('[data-photos-tab]')).toHaveText(['사진', '달력', '휴지통']);
+    await expect(root(page).locator('[data-photos-tab]')).toHaveText(['사진', '달력', '폴더', '앨범', '휴지통']);
     await expect(root(page).locator('[data-od-link]')).toBeVisible();
     await expect(items(page)).toHaveCount(7);
     await expect(root(page).locator('.photos-day b')).toHaveText(['10월 5일 (월)', '10월 2일 (금)', '9월 20일 (일)', '8월 15일 (토)']);

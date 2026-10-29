@@ -1,3 +1,4 @@
+import {waitHtml, emptyHtml} from './wait-state.js';
 import { readRecordPages } from './basket-link-records.js';
 import { mountQuick } from './home-quick.js';
 import { mountRadar } from './todo-radar.js';
@@ -63,6 +64,8 @@ let epoch = 0,
   calendarState = null,
   imports = null,
   radarMount = null,
+  quietMount = null,
+  quietEpoch = 0,
   fillMount = null,
   tasksOpen = false,
   collectMount = null,
@@ -168,7 +171,7 @@ function placeCards() {
   focused?.focus({ preventScroll: true });
 }
 window.addEventListener('kptu:home-cards-changed', placeCards);
-window.addEventListener('kptu:view-prefs-rejected', event => { if (event.detail?.paths?.includes('home_cards')) { placeCards(); editMount?.rejected(); } });
+window.addEventListener('kptu:view-prefs-rejected', event => { if (event.detail?.paths?.includes('home_cards')) { placeCards(); editMount?.rejected(); } if (event.detail?.paths?.includes('quiet_weeks')) editMount?.weeksRejected?.(); });
 // HOME-모바일정리②는 폰·중간 폭(한 칸 홈)에서만 겹친 회의 후속을 합친다. PC(오른쪽 칸 있는 홈)는 그대로.
 const mergeFollowUps = () => !desktopHome.matches;
 desktopHome.addEventListener('change', () => { placeCards(); renderTasks(); });
@@ -178,7 +181,7 @@ function shell() {
     focused = quick?.contains(document.activeElement) ? document.activeElement : null;
   const section = key => {
     const [title, view, label] = cards[key];
-    return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header>${key==='calendar'||key==='tasks'?'<p class="data-freshness" data-home-fresh role="status" aria-live="polite" hidden></p>':''}<div data-home-body role="status">불러오는 중…</div></section>`;
+    return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header>${key==='calendar'||key==='tasks'?'<div class="data-freshness" data-home-fresh role="status" aria-live="polite" hidden></div>':''}<div data-home-body>${waitHtml({rows:3})}</div></section>`;
   };
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).
@@ -186,7 +189,7 @@ function shell() {
   host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div><p class="home-text-done" data-home-text-done role="status" hidden></p></div><div data-home-column="aside"></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
   els = new Map(); extras.forEach(made => made.destroy()); extras = new Map();
   const made = document.createElement('template');
-  made.innerHTML = ['calendar','tasks','meetings','dday'].map(section).join('') + `<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section>`;
+  made.innerHTML = ['calendar','tasks','meetings','dday'].map(section).join('') + `<section class="home-card home-quiet" data-home-card="quiet" aria-labelledby="home-quiet-title" hidden></section><section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section>`;
   [...made.content.children].filter(el => el.dataset.homeCard).forEach(el => els.set(el.dataset.homeCard, el));
   collectLines = { alert: host.querySelector('[data-home-collect-alert]'), ok: host.querySelector('[data-home-collect-ok]') };
   host.querySelector('[data-home-column="main"]').prepend(quick);
@@ -198,6 +201,15 @@ function shell() {
   radarMount?.destroy();
   radarMount = mountRadar(card('radar'), { place: 'home' });
   radarMount?.refresh();
+  // FEAT-1029묶음 ③: 연락 없는 조직 한 줄. org-quiet.js가 유일한 renderer이고, 조용한 조직이 없거나 판단할 수 없으면 숨어 있다.
+  // 홈 첫 화면을 무겁게 하지 않도록 나중에 불러온다.
+  quietMount?.destroy(); quietMount = null;
+  const quietEl = card('quiet'), quietRun = ++quietEpoch;
+  void import('./org-quiet.js').then(({ mountOrgQuiet }) => {
+    if (quietRun !== quietEpoch) return;
+    quietMount = mountOrgQuiet(quietEl);
+    quietMount?.refresh();
+  }).catch(error => console.warn('org quiet load', error?.message || error));
   // OPS-수집점검: 마지막 수집 시각. collection-status.js is the only renderer; hidden until something can be checked.
   collectMount?.destroy();
   collectMount = mountCollectionStatus(card('collect'), { alert: host.querySelector('[data-home-collect-alert]'), okLine: host.querySelector('[data-home-collect-ok]') });
@@ -251,8 +263,8 @@ function paint(key, html, count = null) {
           : `[data-home-toggle="${CSS.escape(focused.slice(7))}"]`,
     )?.focus({ preventScroll: true });
 }
-function empty(key, text, hide = false) {
-  paint(key, `<p class="home-status">${text}</p>`, 0);
+function empty(key, hide = false) {
+  paint(key, emptyHtml(), 0);
   const c = card(key);
   if (!c) return;
   c.hidden = hide;
@@ -316,8 +328,7 @@ function fresh(key,state){
 }
 function disconnected(key) {
   fresh(key,'');
-  if (key === 'calendar') { fillMount?.setEvents(null); fillMount?.setTomorrow(null); }
-  if (key === 'tasks') fillMount?.setTasks(null);
+  if (key === 'calendar') fillMount?.setTomorrow(null);
   paint(
     key,
     `<p class="home-status"><button type="button" data-goto="${key === "calendar" ? "calendar" : "tasks"}">Google ${key === "calendar" ? "캘린더" : "할 일"} 연결 ›</button></p>`,
@@ -383,12 +394,11 @@ function renderTasks({ includeMeetings = true } = {}) {
     cut = mergeFollowUps() && !tasksOpen ? limitRows(rows) : { shown: rows, more: 0 },
     moreBtn = !mergeFollowUps() ? '' : cut.more ? `<button type="button" class="home-more" data-home-tasks-more="open">+ ${cut.more}건 더</button>` : tasksOpen && rows.length > limitRows(rows).shown.length ? '<button type="button" class="home-more" data-home-tasks-more="close">접기</button>' : '';
   if (tasksReady) {
-    fillMount?.setTasks(dueCount);
     paint(
       "tasks",
       rows.length
         ? taskRows(cut.shown) + moreBtn
-        : '<p class="home-status">오늘 할 일 없음</p>',
+        : emptyHtml(),
       dueCount,
     );
   }
@@ -409,19 +419,18 @@ function renderTasks({ includeMeetings = true } = {}) {
       taskRows(follow, true),
       follow.length,
     );
-  else empty("meetings", "사업 보고 후속 없음", true);
+  else empty("meetings", true);
   saveCopy('meetings',{rows:follow.map(x=>({id:x.task.id,title:x.task.title,meetingName:links.filter(l=>l.google_task_id===x.task.id&&l.meeting_id&&l.status==='confirmed').map(l=>meetings.find(m=>m.id===l.meeting_id)?.series_name||meetings.find(m=>m.id===l.meeting_id)?.title||'사업 보고 연결').join(' · ')}))});
 }
 function renderDday(rows){
   const today=dayKey();
   rows=rows.filter(m=>m.date>=today).map(m=>({...m,days:Math.round((Date.parse(m.date)-Date.parse(today))/86400000)}));
-  if(!rows.length)return empty('dday','주요 일정 없음',true);
+  if(!rows.length)return empty('dday',true);
   // HOME-줄누르기 ④: 달력에 이어진 주요 일정은 그 일정 수정 창(꾹 누르기·우클릭은 일정 메뉴), 이어지지 않은 것은 지금처럼 그 프로젝트.
   paint('dday',`<div class="home-chips">${rows.map(m=>`<button type="button" class="home-chip ${m.days<=3?'urgent':''}" data-home-project="${esc(m.project_id)}" ${m.google_event_id?eventAttrs(m.google_event_id,m.google_calendar_id):''}>${m.days===0?'D-day':'D-'+m.days} ${esc(m.title)}</button>`).join('')}</div>`,rows.length);
 }
 function renderCalendar(rows){
-  fillMount?.setEvents(rows.length);
-  if(!rows.length)return empty('calendar','오늘 일정 없음');
+  if(!rows.length)return empty('calendar');
   paint('calendar',rows.map(e=>{
     const time=e.allDay?'종일':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(e.start));
     const color=/^#[0-9a-f]{6}$/i.test(e.color)?e.color:'var(--kptu-primary-ink)';
@@ -436,7 +445,7 @@ function restoreCopies(){
   if(copies.meetings){
     const rows=copies.meetings.rows;
     if(rows.length)paint('meetings',rows.map(r=>taskRowHtml(r.id,r.title,false,esc(r.meetingName))).join(''),rows.length);
-    else empty('meetings','사업 보고 후속 없음',true);
+    else empty('meetings',true);
   }
 }
 const calendarAuthError=e=>Number(e?.status||0)===401||Number(e?.status||0)===403||/연결되지|재인증|권한|invalid_grant|unauthori[sz]ed|invalid.?credentials/i.test(String(e?.message||e));
@@ -449,7 +458,7 @@ const loaders = {
     const ps = await dependencies.projects();
     guard(run);
     const ids = ps.filter((p) => p.status === "active").map((p) => p.id);
-    if (!ids.length) { saveCopy("dday",{rows:[]}); return empty("dday", "주요 일정 없음", true); }
+    if (!ids.length) { saveCopy("dday",{rows:[]}); return empty("dday", true); }
     const ms = await share("milestones", () =>
         api(
           `/rest/v1/app_project_milestones?project_id=${list(ids)}&start_at=gte.${encodeURIComponent(new Date(ranges().start).toISOString())}&or=(status.is.null,status.not.in.(done,completed,cancelled,canceled))&select=id,project_id,title,status,start_at,google_calendar_id,google_event_id&order=start_at.asc&limit=3`,
@@ -694,8 +703,7 @@ root.addEventListener("click", async (event) => {
       return;
     }
     if (b.dataset.homeProject) {
-      await window.KPTUViewLoader.load("projects");
-      await window.KPTUProjects.open(b.dataset.homeProject);
+      await window.KPTUAreaWindow.open({ id: b.dataset.homeProject }); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     }
   } catch {
     const c = b.closest("[data-home-card]");

@@ -54,6 +54,7 @@ function harness({db=baseDb(),env={},dbFail=false,people=PEOPLE_ROWS}={}){
     const headers=new Headers(init.headers);
     assert.equal(headers.get('apikey'),SERVICE);
     // 읽기 전용 함수 하나만 POST로 부른다. 표 쓰기(insert/patch)는 없다.
+    if(url.pathname==='/rest/v1/rpc/app_operator_feature_workspace'){calls.features=[...(calls.features||[]),JSON.parse(init.body).p_feature];return respond(WS);}
     if(url.pathname.startsWith('/rest/v1/rpc/')){
       assert.equal(method,'POST');assert.equal(url.pathname,'/rest/v1/rpc/app_call_context_people','부르는 함수는 이것 하나');
       assert.deepEqual(JSON.parse(init.body),{p_workspace:WS,p_limit:300});
@@ -123,7 +124,7 @@ test('이름 목록만 돌려준다: 쓰지 않음·휴지통·다른 작업공�
   const text=JSON.stringify(body);
   assert.doesNotMatch(text,/02-000|비공개|메모|남의|쓰지않는|휴지통|보관된|옛 방식|d0000000|e0000000|workspace|user_edited|counterpart/);
   // 작업공간은 서버가 kptu-work로 정하고, 조직·프로젝트 읽기마다 그 작업공간·휴지통 제외 조건이 붙는다
-  const ws=h.calls.rest.find(c=>c.table==='app_workspaces');assert.ok(ws.url.includes('slug=eq.kptu-work'));
+  assert.deepEqual(h.calls.features,['calls'],'작업공간은 허용 표 함수(통화)로만 정한다');assert.ok(!h.calls.rest.some(c=>c.table==='app_workspaces'));
   for(const c of h.calls.rest.filter(c=>c.table!=='app_workspaces')){
     const u=new URL(c.url);assert.equal(u.searchParams.get('workspace_id'),`eq.${WS}`);assert.equal(u.searchParams.get('deleted_at'),'is.null');
   }

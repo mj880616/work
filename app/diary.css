@@ -3,7 +3,7 @@
    본문 폭을 다 쓰고, 같은 [일정] 탭의 [달력](calendar-ui.css)과 같은 본문 폭 규칙을 쓴다. 달력 칸은 정사각 대신 4:3으로 낮춰
    넓어진 폭에서도 한 달이 화면 높이 안에 들어오게 한다. 폰(≤760)·중간 폭은 그대로. */
 #appView #diaryView .diary{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
-/* 바깥 폭(본문 칸)은 view-wide.css의 공용 규칙(.view-wide)(UI-PC업무일지폭)이 정한다. */
+/* 바깥 폭(본문 칸)은 모든 PC 화면과 같은 desktop-ui.css의 main 규칙(UI-전수디자인점검 F21)이 정한다. */
 @media(min-width:1024px){
   #appView #diaryView .diary{ max-width:none; }
 }
@@ -24,24 +24,25 @@
 #appView #diaryView .diary-week-head .sunday{ color:var(--kptu-danger); }
 #appView #diaryView .diary-cell{ position:relative; box-sizing:border-box; display:block; aspect-ratio:1/1; min-width:0; min-height:0; width:100%; height:auto; margin:0; padding:0; overflow:hidden;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; cursor:pointer; }
-@media(min-width:1024px){ #appView #diaryView .diary-cell{ aspect-ratio:4/3; } }
 #appView #diaryView .diary-blank{ border-color:transparent; background:transparent; cursor:default; }
 #appView #diaryView .diary-cell .diary-num{ position:absolute; top:4px; left:5px; z-index:1; font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #diaryView .diary-cell .diary-dot{ position:absolute; left:50%; bottom:18%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--kptu-primary-ink); }
-#appView #diaryView .diary-cell.has-photo .diary-num{ padding:1px 5px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); border-radius:6px; }
-/* UI-일기손질 ② → UI-선택표시톤다운: 오늘은 날짜 숫자를 강조색 동그라미 테두리(채우지 않음)로, 고른 날은 칸 테두리(아래 aria-pressed)로 — 둘이 겹쳐도 구분된다.
-   [달력] 탭 오늘 칸(ui-standard.css)과 같은 모양. 사진 있는 날도 같은 동그라미. */
-#appView #diaryView .diary-cell[aria-current="date"] .diary-num{ box-sizing:border-box; display:grid; place-items:center; min-width:20px; height:20px; padding:0 5px;
-  font-weight:var(--ds-weight-medium); line-height:1; color:var(--ds-today-ink); background:transparent; box-shadow:var(--kptu-shadow-today); border-radius:999px; }
-/* 사진 있는 날의 오늘: 사진 위라 가림 막 바탕은 그대로 두고 동그라미 테두리만 사진 위 글자색으로. */
-#appView #diaryView .diary-cell.has-photo[aria-current="date"] .diary-num{ color:var(--ds-photo-ink); background:var(--ds-photo-scrim); box-shadow:inset 0 0 0 1.5px var(--ds-photo-ink); }
+#appView #diaryView .diary-cell.has-photo .diary-num:not(.ds-today-num){ padding:1px 5px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); border-radius:6px; }
+/* 오늘 칸: 앱 공용 '오늘' 표시(칸 둘레 진한 선 + 날짜 숫자 동그라미, ui-standard.css .ds-today·.ds-today-num, UI-오늘표시통일). 고른 날은 아래 aria-pressed 테두리. */
 #appView #diaryView .diary-cell .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #diaryView .diary-cell .diary-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
-#appView #diaryView .diary-cell .diary-photo{ background:var(--kptu-primary-soft); }
-#appView #diaryView .diary-cell .diary-photo-mark{ position:absolute; left:2px; right:2px; bottom:4px; color:var(--kptu-primary-ink); font-size:10px; line-height:1.1; text-align:center; }
 #appView #diaryView .diary-cell[aria-pressed="true"]{ border-color:var(--kptu-primary-ink); box-shadow:0 0 0 2px var(--kptu-primary-ink); }
 #appView #diaryView .diary-cell:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #diaryView .diary-cell:not(.diary-blank):hover{ background:var(--kptu-surface-subtle); } }
+/* UI-전수디자인점검 F10(PC): 날마다 둥근 상자 31개 대신 가는 격자선 한 겹(칸 사이 0, 선 0.5px). 빈 날은 높이 56px,
+   사진 있는 날만 4:3 칸(같은 줄 다른 칸은 그 높이로 늘어나 선이 이어진다). 폰은 위 정사각 칸 그대로. */
+@media(min-width:1024px){
+  #appView #diaryView .diary-days{ gap:0; border-top:var(--ds-line-width) solid var(--ds-line); border-left:var(--ds-line-width) solid var(--ds-line); }
+  #appView #diaryView .diary-cell{ aspect-ratio:auto; min-height:56px; border:0; border-right:var(--ds-line-width) solid var(--ds-line); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
+  #appView #diaryView .diary-cell.has-photo{ aspect-ratio:4/3; }
+  #appView #diaryView .diary-blank{ border-color:var(--ds-line); background:var(--kptu-surface-subtle); }
+  #appView #diaryView .diary-cell[aria-pressed="true"]{ border-color:var(--kptu-primary-ink); box-shadow:inset 0 0 0 2px var(--kptu-primary-ink); }
+}
 
 /* 이 달 일기 목록: 달력 아래, 최신 날짜 먼저. 날짜를 고르면 같은 자리에 그날 일기가 나온다. */
 #appView #diaryView .diary-list{ display:flex; flex-direction:column; gap:2px; }
@@ -60,7 +61,6 @@
 /* UI-중복제목삭제: PC 상단 줄이 날짜를 이미 보이므로 머리줄에 제목이 없고 [×]만 남아 오른쪽 끝에 둔다. */
 #appView #diaryView .diary-panel-head > :only-child{ margin-left:auto; }
 #appView #diaryView .diary-muted{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-row); }
-#appView #diaryView .diary-star-note{ padding:24px 8px; text-align:center; background:var(--kptu-surface-subtle); border-radius:var(--ds-radius-control); }
 #appView #diaryView .diary-source{ box-sizing:border-box; display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; align-self:flex-start; height:var(--ds-compact-height); background:var(--kptu-surface);
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
 #appView #diaryView .diary-source button{ position:relative; min-width:0; min-height:0; height:auto; margin:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; color:var(--kptu-ink); background:var(--kptu-surface); border:0; border-radius:0; box-shadow:none; -webkit-tap-highlight-color:transparent; }
@@ -84,7 +84,6 @@
   background:var(--kptu-surface-subtle); border:0; border-radius:6px; box-shadow:none; cursor:zoom-in; }
 #appView :is(#diaryView,#photosView) .diary-grid-item .diary-photo{ position:absolute; inset:0; display:block; }
 #appView :is(#diaryView,#photosView) .diary-grid-item img{ width:100%; height:100%; object-fit:cover; display:block; }
-#appView :is(#diaryView,#photosView) .diary-grid-item .diary-photo-mark{ display:grid; place-items:center; height:100%; color:var(--ds-kind-diary-ink); font-size:11px; }
 #appView :is(#diaryView,#photosView) .diary-grid-item:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 
 /* 크게 보기(OD-크게보기): 화면 가득, 옆으로 넘기기. 위 줄 [✕] "3 / 8" … 찍은 때, 아래 작은 버튼줄 [별표][공유][지우기][정보]. 사진 위라 색은 늘 어두운 바탕. */
@@ -161,9 +160,8 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #calendarDayList #calendarDayDiary{ margin:0 0 8px; }
 #calendarDayList .diary-day-preview{ box-sizing:border-box; display:flex; align-items:center; gap:10px; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:6px 8px; text-align:left;
   color:var(--kptu-ink); background:var(--ds-kind-diary-soft); border:0; border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; cursor:pointer; }
-#calendarDayList .diary-day-preview .diary-photo{ flex:0 0 48px; width:48px; height:48px; overflow:hidden; border-radius:6px; background:var(--kptu-surface-subtle); }
+#calendarDayList .diary-day-preview .diary-photo{ flex:0 0 48px; width:48px; height:48px; overflow:hidden; border-radius:6px; }
 #calendarDayList .diary-day-preview .diary-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
-#calendarDayList .diary-day-preview .diary-photo-mark{ display:grid; place-items:center; height:100%; color:var(--ds-kind-diary-ink); font-size:11px; }
 #calendarDayList .diary-day-preview-text{ display:flex; flex-direction:column; min-width:0; gap:2px; font-size:var(--ds-text-row); }
 #calendarDayList .diary-day-preview-text b{ color:var(--ds-kind-diary-ink); font-weight:var(--ds-weight-medium); }
 #calendarDayList .diary-day-preview-text span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -250,7 +248,6 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-lv-thumb:not(.has-photo){ visibility:hidden; }
 #appView #diaryView .diary-lv-thumb .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #diaryView .diary-lv-thumb .diary-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
-#appView #diaryView .diary-lv-thumb .diary-photo-mark{ position:absolute; inset:auto 0 2px; font-size:9px; text-align:center; color:var(--kptu-muted); }
 #appView #diaryView .diary-lv-text{ display:flex; flex-direction:column; gap:1px; min-width:0; }
 #appView #diaryView .diary-lv-top{ display:flex; align-items:baseline; gap:6px; min-width:0; font-size:var(--ds-text-row); }
 #appView #diaryView .diary-lv-top b{ flex:0 0 auto; color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }

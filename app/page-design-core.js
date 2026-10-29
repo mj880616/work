@@ -238,6 +238,8 @@
   }
 
   ensureStyles();
+  // PHOTO-못받은사진(2026-10-29): 공유(공개) 페이지 글의 그림이 받기에 실패하면 깨진 그림 표시·대체 글자 대신 그 그림을 뺀다.
+  document.addEventListener('error',e=>{const t=e.target;if(t&&t.tagName==='IMG')t.remove();},true);
   window.KPTUPageDesign={normalize,classNames,describe,renderMarkdown,ensureStyles,labels,parseForumFlow,serializeForumFlow,forumFlow};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(installFlowEditor,0),{once:true});else setTimeout(installFlowEditor,0);
 })();

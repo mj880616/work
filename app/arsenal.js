@@ -1,3 +1,4 @@
+import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절, 시안 docs/design/mockups/domain-move.html): '아스날' 화면(?view=arsenal). #arsenalView의 유일한 그리기 주인.
 // - 자료 app/arsenal/matches.js(window.ARSENAL_MATCHES)는 이 화면을 처음 열 때만 불러온다(view-loader가 이 모듈도 열 때만 부름 → 첫 화면 속도 영향 없음).
 // - 위 줄: 시즌·대회 고르기·상대 검색·경기 수. 아래: 경기 목록(최신순) + 고른 경기 리뷰.
@@ -15,7 +16,7 @@ const pc = window.matchMedia('(min-width:1024px)');
 
 function install() {
   if (document.getElementById('arsenalView')) return;
-  document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="arsenalView" class="view-panel view-wide hidden" aria-label="아스날">
+  document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="arsenalView" class="view-panel hidden" aria-label="아스날">
 <div id="arsenalRoot" class="ars">
 <div class="ars-bar" role="group" aria-label="경기 거르기">
 <label class="a11y-only" for="arsSeason">시즌</label><select id="arsSeason" class="ars-filter" data-ars-season><option value="${ALL}">전체 시즌</option></select>
@@ -99,7 +100,7 @@ function paint() {
   const list = $('[data-ars-list]'), detail = $('[data-ars-detail]'), count = $('[data-ars-count]');
   if (!matches) {
     count.textContent = '';
-    list.innerHTML = failed ? '<p class="ars-note">경기 기록을 불러오지 못했음. <button type="button" class="ars-small" data-ars-retry>다시</button></p>' : '<p class="ars-note">불러오는 중…</p>';
+    list.innerHTML = failed ? failHtml({retry: 'data-ars-retry'}) : waitHtml({rows:5});
     detail.replaceChildren();
     root.dataset.open = 'false';
     return;
@@ -108,7 +109,7 @@ function paint() {
   selected = current?.id || null;
   if (!current) closeLayer();
   count.textContent = `경기 ${shown.length}`;
-  list.innerHTML = shown.length ? shown.map(m => rowHtml(m, m === current)).join('') : '<p class="ars-note">조건에 맞는 경기가 없음.</p>';
+  list.innerHTML = shown.length ? shown.map(m => rowHtml(m, m === current)).join('') : emptyHtml('맞는 경기 없음');
   detail.innerHTML = current ? reviewHtml(current) : '';
   root.dataset.open = String(!!current && (pc.matches || detailOpen));
 }

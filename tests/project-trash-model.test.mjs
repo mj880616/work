@@ -43,19 +43,19 @@ test('휴지통 줄은 넣은 시각 최신순으로 정리하고 이상한 줄�
 test('삭제 창: 휴지통을 쓸 수 있을 때만 휴지통 문구, 아니면 지금 문구', () => {
   const ready = deleteDialogText({trash: TRASH_STATE.READY, name: '합성', isChild: false, childCount: 2});
   assert.match(ready.message, /휴지통으로 옮깁니다/);
-  assert.match(ready.message, /하위 프로젝트 2개도 함께 옮겨지고/);
+  assert.match(ready.message, /하위 사업영역 2개도 함께 옮겨지고/);
   assert.match(ready.message, /연결된 기록은 그대로 남습니다/);
   assert.match(ready.message, /휴지통에서 되돌릴 수 있습니다/);
   assert.equal(ready.note, '');
   for (const state of [TRASH_STATE.MISSING, TRASH_STATE.FAILED, TRASH_STATE.UNKNOWN]) {
     const old = deleteDialogText({trash: state, name: '합성', isChild: true, childCount: 1});
     assert.doesNotMatch(old.message + old.note + old.button, /휴지통/, state);
-    assert.match(old.message, /하위 프로젝트를 삭제합니다/);
-    assert.match(old.message, /하위 프로젝트 1개도 함께 삭제됩니다/);
+    assert.match(old.message, /하위 사업영역을 삭제합니다/);
+    assert.match(old.message, /하위 사업영역 1개도 함께 삭제됩니다/);
     assert.match(old.note, /연결만 해제/);
     assert.equal(old.button, '삭제');
   }
-  assert.doesNotMatch(deleteDialogText({trash: TRASH_STATE.READY, name: 'a', isChild: false, childCount: 0}).message, /하위 프로젝트 0개/);
+  assert.doesNotMatch(deleteDialogText({trash: TRASH_STATE.READY, name: 'a', isChild: false, childCount: 0}).message, /하위 사업영역 0개/);
 });
 
 test('서버 오류 코드를 화면 글로 바꾼다', () => {
@@ -63,16 +63,16 @@ test('서버 오류 코드를 화면 글로 바꾼다', () => {
   assert.equal(trashErrorText({message: 'TRASH_NOT_FOUND'}), TRASH_TEXT.NOT_FOUND);
   assert.equal(trashErrorText({message: 'TRASH_KIND_UNKNOWN'}, '기본'), '기본');
   assert.equal(trashErrorText({message: '이상한 오류'}, '기본'), '기본');
-  assert.equal(TRASH_TEXT.PARENT_FIRST, '상위 프로젝트를 먼저 되돌려 주세요.');
+  assert.equal(TRASH_TEXT.PARENT_FIRST, '상위 사업영역을 먼저 되돌려 주세요.');
 });
 
 test('영구 삭제 확인에 연결 풀림·진행기록 삭제 안내와 하위 수가 들어간다', () => {
   const text = purgeConfirmText({name: '합성 사업', child_count: 2});
-  assert.match(text, /“합성 사업” 프로젝트를 영구 삭제할까요\?/);
-  assert.match(text, /하위 프로젝트 2개도 지워집니다/);
-  assert.match(text, /프로젝트 연결만 풀립니다/);
+  assert.match(text, /“합성 사업” 사업영역을 영구 삭제할까요\?/);
+  assert.match(text, /하위 사업영역 2개도 지워집니다/);
+  assert.match(text, /사업영역 연결만 풀립니다/);
   assert.match(text, /되돌릴 수 없습니다/);
-  assert.doesNotMatch(purgeConfirmText({name: 'a', child_count: 0}), /하위 프로젝트 0개/);
+  assert.doesNotMatch(purgeConfirmText({name: 'a', child_count: 0}), /하위 사업영역 0개/);
 });
 
 test('보관 단추 이름과 처음 탭', () => {
@@ -178,7 +178,7 @@ test('자료실 폴더 삭제 글: 휴지통으로, 아래 폴더·자료 수를
 test('영구 삭제 확인·되돌림 글은 종류마다 맞고, 같은 이름 충돌은 일상어', () => {
   assert.match(purgeConfirmText({kind: 'organization', name: '합성 조직'}), /“합성 조직” 담당조직을 영구 삭제할까요.*되돌릴 수 없습니다/s);
   assert.match(purgeConfirmText({kind: 'report', name: '합성 보고'}), /“합성 보고” 사업 보고를 영구 삭제할까요.*Google 할 일/s);
-  assert.match(purgeConfirmText({kind: 'project', name: '합성', child_count: 1}), /프로젝트를 영구 삭제할까요/);
+  assert.match(purgeConfirmText({kind: 'project', name: '합성', child_count: 1}), /사업영역을 영구 삭제할까요/);
   assert.equal(restoredText('organization'), '담당조직을 되돌렸습니다.');
   assert.equal(restoredText('report'), '사업 보고를 되돌렸습니다.');
   assert.equal(restoredText('project'), TRASH_TEXT.RESTORED);

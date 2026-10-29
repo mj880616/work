@@ -19,10 +19,10 @@ const SECRET='SECRET_DIARY_TEXT';
 
 const answer=items=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:5000,output_tokens:400}});
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
-const item=(over={})=>({kind:'request',summary:'A 사업장 자료 회신.',due:'2026-10-24',source:'r1',evidence:'자료 회신 요청',counterpart:false,owner:'me',...over});
+const item=(over={})=>({kind:'request',summary:'A 사업장 자료 회신.',due:'2026-10-24',source:'r1',evidence:'자료 회신 요청',counterpart:false,owner:'me',mentions_me:false,...over});
 
 const PROFILE_NAME='가상이름',PROFILE_TITLE='가상직책';
-function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],candidates=[],fail={},profile=[{user_id:OWNER,display_name:PROFILE_NAME,job_title:PROFILE_TITLE}]}={}){
+function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],candidates=[],fail={},profile=[{user_id:OWNER,display_name:PROFILE_NAME,job_title:PROFILE_TITLE}],extra={}}={}){
   const calls={openai:[],rest:[],logs:[],sleeps:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -44,6 +44,7 @@ function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],can
     app_ai_daily_usage:structuredClone(usage),
     app_todo_radar_state:state?[{workspace_id:WS,last_success_at:null,last_partial:false,last_day:null,runs_on_day:0,running_since:null,...state}]:[],
     app_todo_candidates:structuredClone(candidates),
+    app_todo_not_mine:[],app_feed_items:[],app_feed_rooms:[],app_todo_ask_rooms:[],...structuredClone(extra),
     app_profiles:structuredClone(profile),
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
@@ -307,7 +308,8 @@ test('source: no service role, no tools, store:false, logs carry numbers only',(
 test('owner rule: only me/support candidates are stored; other/unclear are excluded and counted; counterpart promises still returned',async()=>{
   const {handler,db,calls}=harness({openai:[()=>respond(answer([
     item({summary:'A 사업장 자료 회신.',owner:'me'}),
-    item({summary:'연대 참가 조직 여부 확인.',owner:'support',evidence:'지부별 참가 예정'}),
+    item({summary:'연대 참가 조직 여부 확인.',owner:'support',mentions_me:true,evidence:'지부별 참가 예정'}),
+    item({summary:'다른 팀 행사 장소 확인.',owner:'support',mentions_me:false}),
     item({summary:'지부장 성명서 초안 작성.',owner:'other'}),
     item({summary:'현장 간부 면담 일정 조율.',owner:'unclear'}),
     item({counterpart:true,owner:'other',summary:'상대 측 자료 송부 약속.'}),
@@ -315,7 +317,7 @@ test('owner rule: only me/support candidates are stored; other/unclear are exclu
   const body=await (await post(handler,find())).json();
   assert.equal(body.added,2);assert.equal(body.found,2);assert.equal(body.promises.length,1);
   assert.deepEqual(db.app_todo_candidates.map(c=>c.summary).sort(),['A 사업장 자료 회신.','연대 참가 조직 여부 확인.']);
-  assert.ok(calls.logs.some(l=>l.code==='todo_radar_done'&&l.detail.excluded_owner===2&&l.detail.dropped===0));
+  assert.ok(calls.logs.some(l=>l.code==='todo_radar_done'&&l.detail.excluded_owner===3&&l.detail.dropped===0),'support는 이름·우리 팀이 직접 나올 때만(TODO-내일만)');
 });
 
 test('owner rule: a missing or unknown owner value drops the item (schema requires owner)',()=>{
@@ -369,7 +371,7 @@ const meetingBody=(meeting_id=MEETING)=>({kind:'todo_radar',mode:'meeting',meeti
 
 test('meeting mode: reads only that meeting, does not move the baseline or the daily count, links name the project and organization',async()=>{
   const state={last_day:TODAY,runs_on_day:DAILY_LIMITS.todo_radar,last_success_at:RECENT,last_partial:false};
-  const {handler,calls,db}=harness({state,openai:[()=>respond(answer([item({source:'r1',summary:'C 회의 참석.',kind:'attend',evidence:'참석 요청 받음',owner:'support'})]))]});
+  const {handler,calls,db}=harness({state,openai:[()=>respond(answer([item({source:'r1',summary:'C 회의 참석.',kind:'attend',evidence:'참석 요청 받음',owner:'support',mentions_me:true})]))]});
   linked(db);
   const res=await post(handler,meetingBody());
   assert.equal(res.status,200);
@@ -444,4 +446,91 @@ test('auto run: the meeting record also carries connected names; other records d
 test('instructions: meeting rules name connected, 내 담당 사업 and already_handled, and ask for the passage as evidence',()=>{
   const text=radar.buildTodoRadarInstructions();
   for(const word of ['connected','내 담당 사업','already_handled','evidence'])assert.ok(text.includes(word),word);
+});
+
+// NOTE-비밀메모 서버 쪽: [AI에 보내지 않기] 노트·비밀 모양 노트는 할 일 찾기 재료에서 빠지고, [AI 제외 풀기] 노트는 들어간다. 기록에는 개수만.
+test('NOTE-비밀메모: AI 제외·비밀 모양 노트는 AI 요청 본문에 없고, 풀어 준 노트는 들어간다',async()=>{
+  const {handler,calls,db}=harness();
+  db.app_notes.push(
+    {id:id(91),workspace_id:WS,kind:'note',title:'가상 메모 OFF_TITLE',raw_text:'꺼 둔 노트 OFF_TEXT',occurred_at:RECENT,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{ai_off:true}},
+    {id:id(92),workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'API_KEY = SECRET_SHAPE_TEXT',occurred_at:RECENT,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true},
+    {id:id(93),workspace_id:WS,kind:'note',title:'가상 풀어 둔 노트',raw_text:'토큰 발급 회의 정리 UNLOCKED_TEXT',occurred_at:RECENT,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{ai_off:false}},
+  );
+  const res=await post(handler,find());
+  assert.equal(res.status,200);
+  const material=calls.openai[0].input[1].content;
+  for(const hidden of ['OFF_TITLE','OFF_TEXT','SECRET_SHAPE_TEXT','가상 공유기'])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  assert.ok(material.includes('UNLOCKED_TEXT'),'[AI 제외 풀기] 노트는 보낸다');
+  assert.match(calls.rest.find(c=>c.table==='app_notes').query,/select=[^&]*\bmetadata\b/);
+  assert.deepEqual(calls.logs.find(l=>l.code==='radar_note_ai_off_skipped')?.detail,{count:2});
+  const logs=JSON.stringify(calls.logs);
+  for(const hidden of ['OFF_TITLE','OFF_TEXT','SECRET_SHAPE_TEXT','가상 공유기'])assert.ok(!logs.includes(hidden),hidden+' must not be logged');
+});
+
+// ---- TODO-내일만: [내 일 아님] 예시·남에게 부탁한 일·쌓인 후보 다시 거르기(가짜 문장만) ----------------------------------
+test('not-mine examples (own workspace, newest first) go into the material; instructions exclude what the owner asked others to do',async()=>{
+  const {handler,calls}=harness({extra:{app_todo_not_mine:[
+    {id:id(700),workspace_id:WS,source_kind:'meeting',summary:'가상 남의 일 예시.',created_at:RECENT},
+    {id:id(701),workspace_id:OTHER_WS,source_kind:'note',summary:'FOREIGN_NOT_MINE',created_at:RECENT}]}});
+  assert.equal((await post(handler,find())).status,200);
+  const material=JSON.parse(calls.openai[0].input[1].content);
+  assert.deepEqual(material.not_mine_examples,['가상 남의 일 예시.']);
+  const dev=calls.openai[0].input[0].content;
+  assert.match(dev,/기록 주인이 다른 사람·조직에게 부탁·요청·지시한 일은 그 사람이 할 일이다/);
+  assert.match(dev,/애매하면 owner=unclear/);assert.doesNotMatch(dev,/애매하면 owner=support/);
+  assert.ok(radar.TODO_RADAR_SCHEMA.properties.items.items.required.includes('mentions_me'));
+  assert.ok(calls.rest.some(r=>r.table==='app_todo_not_mine'&&r.method==='GET'));
+  const missing=harness({fail:{app_todo_not_mine:true}});
+  assert.equal((await post(missing.handler,find())).status,200,'table missing or unreadable does not stop the run');
+  assert.equal(JSON.parse(missing.calls.openai[0].input[1].content).not_mine_examples,undefined);
+});
+
+test('support without a direct mention of the owner or the team is excluded; a missing mentions_me drops the item',()=>{
+  const packed=[{kind:'basket',id:id(1),day:TODAY,at:1,text:'x',ref:'r1'}];
+  const run=e=>radar.parseTodoRadar({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items:[e]})}]}]},packed,TODAY);
+  assert.equal(run(item({owner:'support',mentions_me:false})).excluded_owner,1);
+  assert.equal(run(item({owner:'support',mentions_me:true})).items.length,1);
+  assert.equal(run(item({owner:'me',mentions_me:false})).items.length,1,'me is not gated');
+  const {mentions_me,...old}=item();
+  assert.equal(run(old).dropped,1);
+});
+
+const RC=n=>`e0000000-0000-4000-8000-${String(n).padStart(12,'0')}`,FEED=n=>`f0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const cand=(n,o={})=>({id:RC(n),workspace_id:WS,kind:'request',summary:`가상 후보 ${n}.`,due:null,source_kind:'note',source_id:id(5),source_day:TODAY,evidence:`가상 근거 ${n}`,dedupe_key:`k${n}`,project_id:null,organization_id:null,status:'open',task_id:null,decided_at:null,created_at:`2026-10-21T0${n}:00:00.000Z`,...o});
+const recheckAnswer=list=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items:list})}]}],usage:{input_tokens:3000,output_tokens:200}});
+test('todo_recheck: open candidates are judged once; not-mine ones become dismissed (never deleted); group-wide asks stay only for listed rooms',async()=>{
+  const candidates=[cand(1),cand(2),cand(3,{source_kind:'telegram',source_id:FEED(1)}),cand(4,{source_kind:'telegram',source_id:FEED(2)}),cand(5),
+    cand(6,{status:'tasked',task_id:'t1',decided_at:RECENT}),cand(7,{workspace_id:OTHER_WS}),cand(8,{source_kind:'telegram',source_id:FEED(3)})];
+  const extra={app_feed_items:[{id:FEED(1),workspace_id:WS,source:'telegram',room_key:'room-a'},{id:FEED(2),workspace_id:WS,source:'telegram',room_key:'room-b'},{id:FEED(3),workspace_id:WS,source:'telegram',room_key:'room-c'}],
+    app_feed_rooms:[{workspace_id:WS,room_key:'room-a',chat_kind:'group'},{workspace_id:WS,room_key:'room-b',chat_kind:'group'},{workspace_id:WS,room_key:'room-c',chat_kind:'user'}],
+    app_todo_ask_rooms:[{workspace_id:WS,room_key:'room-a'}],app_todo_not_mine:[{id:id(702),workspace_id:WS,source_kind:'note',summary:'가상 남의 일.',created_at:RECENT}]};
+  let material=null;
+  const {handler,calls,db}=harness({candidates,extra,openai:[()=>{material=JSON.parse(calls.openai[0].input[1].content);const ref=n=>material.candidates.find(c=>c.summary===`가상 후보 ${n}.`).ref;
+    return respond(recheckAnswer([{ref:ref(1),verdict:'me'},{ref:ref(2),verdict:'other'},{ref:ref(3),verdict:'group_all'},{ref:ref(4),verdict:'group_all'},{ref:'c99',verdict:'other'},{ref:ref(8),verdict:'requested_by_me'}]));}]});
+  const r=await post(handler,{kind:'todo_recheck'});
+  assert.equal(r.status,200);
+  const body=await r.json();
+  assert.deepEqual(body,{ok:true,kind:'todo_recheck',checked:6,dismissed:3,kept:3,more:false});
+  assert.equal(calls.openai.length,1);
+  assert.deepEqual(material.not_mine_examples,['가상 남의 일.']);
+  assert.deepEqual(material.candidates.filter(c=>c.room).map(c=>c.room).sort(),['개인 대화','단체방','단체방']);
+  assert.ok(!JSON.stringify(material).includes('room-a'),'room keys are not sent to the AI');
+  const status=Object.fromEntries(db.app_todo_candidates.map(c=>[c.summary,c.status]));
+  assert.deepEqual(status,{'가상 후보 1.':'open','가상 후보 2.':'dismissed','가상 후보 3.':'open','가상 후보 4.':'dismissed','가상 후보 5.':'open','가상 후보 6.':'tasked','가상 후보 7.':'open','가상 후보 8.':'dismissed'});
+  assert.equal(db.app_todo_candidates.length,8,'nothing deleted');
+  assert.ok(db.app_todo_candidates.filter(c=>c.status==='dismissed').every(c=>c.decided_at));
+  assert.ok(!calls.rest.some(r=>r.table==='app_todo_candidates'&&r.method==='DELETE'));
+  const log=calls.logs.find(l=>l.code==='todo_recheck_done');assert.deepEqual(log.detail,{checked:6,dismissed:3,judged:5,dropped:1,more:false});
+});
+test('todo_recheck: nothing open → no AI call; bad answer changes nothing; extra keys refused; stranger sees only own rows',async()=>{
+  const empty=harness();
+  assert.deepEqual(await (await post(empty.handler,{kind:'todo_recheck'})).json(),{ok:true,kind:'todo_recheck',checked:0,dismissed:0,kept:0,more:false});
+  assert.equal(empty.calls.openai.length,0);
+  const bad=harness({candidates:[cand(1)],openai:[()=>respond(recheckAnswer('x'))]});
+  assert.equal((await post(bad.handler,{kind:'todo_recheck'})).status,502);
+  assert.equal(bad.db.app_todo_candidates[0].status,'open');
+  assert.equal((await post(empty.handler,{kind:'todo_recheck',workspace_id:WS})).status,400);
+  const other=harness({candidates:[cand(1)]});
+  assert.deepEqual(await (await post(other.handler,{kind:'todo_recheck'},'stranger-token')).json(),{ok:true,kind:'todo_recheck',checked:0,dismissed:0,kept:0,more:false});
+  assert.equal(other.db.app_todo_candidates[0].status,'open');
 });

@@ -20,7 +20,7 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const item=(over={})=>({kind:'event',title:'가 지부 임금교섭 시작.',summary:'가 지부와 임금교섭 시작 합의.',date:'2026-10-20',sensitivity:'S1',source:'r1',event:'',same_as:'',counterparty:'',follow_up_on:'',decision_type:'',sure:true,reference:false,...over});
 const run={kind:'ledger_auto'};
 
-function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={},edits=[]}={}){
+function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={},edits=[],features=null}={}){
   const calls={openai:[],rest:[],rpc:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'},{workspace_id:WS,user_id:MEMBER,role:'member'}],
@@ -124,6 +124,7 @@ function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:i
     const bearer=(headers.get('Authorization')||'').replace(/^Bearer /,'');
     if(url.pathname==='/auth/v1/user')return users[bearer]?respond({id:users[bearer]}):respond({msg:'bad'},401);
     const uid=users[bearer];assert.ok(uid,'REST only with the caller token');
+    if(url.pathname==='/rest/v1/rpc/app_my_features'){calls.features=(calls.features||0)+1;if(features==='missing')return respond({code:'PGRST202',message:'function not found'},404);return respond((features??{[OWNER]:['calls','telegram']})[uid]||[]);}
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:decodeURIComponent(url.search),body:init.body,uid});
     if(table==='app_calendar_work_refs'&&!callsReady)return respond({code:'PGRST205',message:'schema cache'},404);
     if(table==='app_feed_items'&&feedFail)return respond({message:'synthetic db detail'},500);
@@ -627,4 +628,38 @@ test('calendar_ref: known_records include records dated within 7 days of the eve
   assert.ok(h.calls.rest.some(c=>c.table==='app_ledger_records'&&/date_start=gte\.2026-10-16/.test(c.query)));
   const logs=JSON.stringify(h.calls.logs);assert.ok(!logs.includes('폐기')&&!logs.includes('간담회'));
   assert.ok(!h.calls.rest.some(c=>c.method!=='GET'&&!['app_ai_daily_usage','app_ledger_auto_runs'].includes(c.table)&&!c.table.startsWith('rpc/')),'calendar material never drives todos, events, messages or Drive');
+});
+
+test('MULTI 단계 ①: a workspace without the calls feature runs ledger_auto without reading calls; the rest of the material still goes',async()=>{
+  const feed=[callRow(1,{points:['자료는 금요일까지']})];
+  for(const features of [{},'missing']){
+    const h=harness({...callOnly(feed),features});
+    const res=await post(h.handler,run);assert.equal(res.status,200);
+    assert.ok(!h.calls.rest.some(c=>c.table==='app_feed_items'),'calls are not read');
+    assert.ok(h.calls.logs.some(l=>l.code==='ledger_auto_call_skipped'),'logged as skipped');
+  }
+});
+
+// NOTE-비밀메모 서버 쪽: [AI에 보내지 않기] 노트·비밀 모양 노트는 원장 자동 기록 재료에서 빠지고(본 것으로도 적지 않음), [AI 제외 풀기] 노트는 들어간다.
+// 기록에는 건너뛴 개수만(제목·본문 없음). 예시 값은 지어낸 가짜 글.
+test('NOTE-비밀메모: AI 제외·비밀 모양 노트는 AI 요청 본문에 없고, 풀어 준 노트는 들어간다',async()=>{
+  const h=harness();
+  h.db.app_notes.push(
+    {id:id(15),workspace_id:WS,kind:'note',title:'가상 메모 OFF_TITLE',raw_text:'꺼 둔 노트 OFF_TEXT',occurred_at:null,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{ai_off:true}},
+    {id:id(16),workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'와이파이 비밀번호: SECRET_SHAPE_TEXT',occurred_at:null,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{}},
+    {id:id(17),workspace_id:WS,kind:'note',title:'가상 풀어 둔 노트',raw_text:'토큰 발급 회의 정리 UNLOCKED_TEXT',occurred_at:null,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{ai_off:false}},
+  );
+  const res=await post(h.handler,run);
+  assert.equal(res.status,200);
+  const material=h.calls.openai[0].input[1].content;
+  for(const hidden of ['OFF_TITLE','OFF_TEXT','SECRET_SHAPE_TEXT','가상 공유기'])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  assert.ok(material.includes('UNLOCKED_TEXT'),'[AI 제외 풀기] 노트는 보낸다');
+  assert.match(h.calls.rest.find(c=>c.table==='app_notes').query,/select=[^&]*\bmetadata\b/,'판별에 쓰는 metadata를 읽는다');
+  const b=batchOf(h);
+  assert.ok(!b.sources.some(s=>[id(15),id(16)].includes(s.id)),'건너뛴 노트는 본 것으로 적지 않는다');
+  assert.ok(b.sources.some(s=>s.id===id(17)));
+  const log=h.calls.logs.find(l=>l.code==='ledger_auto_note_ai_off_skipped');
+  assert.deepEqual(log?.detail,{count:2});
+  const logs=JSON.stringify(h.calls.logs);
+  for(const hidden of ['OFF_TITLE','OFF_TEXT','SECRET_SHAPE_TEXT','가상 공유기'])assert.ok(!logs.includes(hidden),hidden+' must not be logged');
 });

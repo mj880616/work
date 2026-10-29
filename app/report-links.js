@@ -99,7 +99,7 @@ export async function saveReportTargets(meeting,targets,rt=rtOf(),summaries=null
     return {ok:true,legacy:true,skippedOrgs:skipped,updated_at:rows?.[0]?.updated_at||null};
   }catch{return {ok:false,error:'RESULT_UNKNOWN',message:setLinksErrorText('RESULT_UNKNOWN')}}
 }
-export const LEGACY_NOTE='담당조직과 둘째 프로젝트 연결은 서버 준비가 끝난 뒤에 저장돼요. 첫 프로젝트만 저장했어요.';
+export const LEGACY_NOTE='담당조직과 둘째 사업영역 연결은 서버 준비가 끝난 뒤에 저장돼요. 첫 사업영역만 저장했어요.';
 
 // 한 곳을 더하거나 빼기(프로젝트·조직 화면용): 지금 연결을 읽어 한 곳만 바꿔 다시 저장한다. 버전은 방금 읽은 것.
 export async function changeOneTarget(meetingId,target,mode,rt=rtOf(),summaries=null){

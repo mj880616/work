@@ -1,10 +1,10 @@
 # 웹2 폰 앱 (안드로이드·갤럭시 전용)
 
-설계: [docs/design/phone-app-v2.md](../docs/design/phone-app-v2.md). 지금은 단계 ②(공유로 바구니 넣기)까지다.
+설계: [docs/design/phone-app-v2.md](../docs/design/phone-app-v2.md). 지금은 단계 ③(홈 화면 위젯)까지다.
 
 - 화면은 모두 `https://desk.bokdoong.com/work/app/` 웹이다. 웹을 배포하면 앱을 다시 열 때 바로 반영된다.
 - 앱이 맡는 것: 시스템 바 색(웹 theme-color를 따라감), 뒤로가기(`window.KPTUNativeBack`), 로그인 복귀(`kptuwork://auth?handoff=` → 웹 `auth-handoff-client.js`), 바깥 링크(앱 위 브라우저 탭), 파일 선택, 새 버전 알림 줄, 공유 받기(아래).
-- 앱은 토큰·업무 데이터를 따로 저장하지 않는다. 권한은 인터넷 하나. 백업·새 폰 옮기기에서 앱 저장 공간을 뺀다.
+- 앱은 웹 화면의 토큰·업무 데이터를 따로 저장하지 않는다(위젯 세션의 새로고침 토큰 하나만 아래처럼 암호화해 둔다). 요청 권한은 인터넷 하나(WorkManager가 일반 권한 몇 개를 자동으로 더함, 아래). 백업·새 폰 옮기기에서 앱 저장 공간을 뺀다.
 - 앱 ID `kr.or.kptu.work`, 이름 "웹2"는 옛 앱과 같다(설계 D2·D11). 옛 앱은 debug 키 서명이라 덮어 깔리지 않으므로 한 번 지우고 깐다.
 
 ## 공유로 바구니 넣기 (단계 ②)
@@ -15,6 +15,19 @@
 - 파일 내용은 웹이 `__share/<번호>/<순번>`을 fetch하면 앱이 `shouldInterceptRequest`(서비스 워커 요청 포함)로 가로채 흘려준다. 서버로 나가지 않는다. 항목마다 한 번만 열리고, 다 열리거나 `share:done`이면 번호를 버린다.
 - 저장은 웹 바구니 기존 길 그대로(`basket-upload.js` → `basket-files`, 글만은 `app_notes`). 앱은 토큰을 보지 않는다. 실패하면 웹 메모리의 파일로 [다시 보내기].
 
+## 홈 화면 위젯 (단계 ③)
+
+설계: [docs/design/phone-widget-auth.md](../docs/design/phone-widget-auth.md) 10절, 명진 결정 W-D1~W-D5(모두 추천안).
+
+- '웹2 오늘' 위젯(홈 화면 전용): 오늘 일정(서울 0시~24시)·할 일(기한 오늘·지난 것) 몇 줄, [＋바구니], [↻]. 줄을 누르면 앱의 달력·할 일 화면, 바구니는 `?view=basket`.
+- 위젯 로그인(W-D1): 위젯 [로그인] 줄 → 내보내지 않은 `WidgetLoginActivity`가 메모리 표시(10분·한 번)를 세움 → 단계 ①과 같은 로그인 주소 → 돌아온 handoff를 표시가 있을 때만 앱이 직접 `auth-handoff` `consume`(Origin `https://desk.bokdoong.com`). 표시가 없으면 지금처럼 웹 화면으로 넘긴다. 서버·허용 주소는 바꾸지 않았다.
+- HTTP 도구는 OkHttp. 자바 표준 `HttpURLConnection`은 Origin 머리글을 소리 없이 버린다(`WidgetHttpTest`가 둘 다 확인).
+- 토큰: 새로고침 토큰은 Android Keystore AES-GCM 키로 암호화해 `noBackupFilesDir/widget_session.bin` 하나에(`KeystoreVault.kt`), 접근 토큰은 메모리에만. 위젯 내용은 폰에 저장하지 않는다(W-D2, 마지막 그림은 프로세스 메모리에만). 자동으로 끊지 않는다(W-D3).
+- 갱신: WorkManager 고유 작업(30분 주기 + 지금 한 번, 같은 이름은 KEEP), 토큰 갱신은 `WidgetSession` 잠금 하나, 새 토큰을 먼저 저장한 뒤 사용. 400·401·403은 열쇠 삭제 → [로그인] 줄, 네트워크·5xx·429는 그대로 두고 다음 갱신.
+- 위젯이 부르는 주소는 다섯 개뿐(`WidgetRules.allowed`, 시험으로 고정): `auth-handoff`(POST), `auth/v1/token?grant_type=refresh_token`, `auth/v1/logout?scope=local`, `google-calendar?action=events`(GET), `google-tasks?action=overview`(GET).
+- 끊기(W-D5): 웹 내 프로필 '계정' 칸의 [위젯 로그아웃](앱에서만 보임, `app/phone-widget-line.js`) → 다리 `widget:logout` → `logout?scope=local` + 파일·키 삭제. 앱 지우기, PC 웹 로그아웃(모든 세션이면 위젯도 끊김, 실기기 확인 필요)도 끊는다.
+- WorkManager가 매니페스트에 일반 권한(`WAKE_LOCK`·`ACCESS_NETWORK_STATE`·`RECEIVE_BOOT_COMPLETED`·`FOREGROUND_SERVICE`)을 자동으로 더한다. 사용자에게 묻지 않는 권한이고 데이터 접근을 넓히지 않는다.
+
 ## 파일
 
 | 파일 | 하는 일 |
@@ -23,7 +36,14 @@
 | `app/src/main/java/kr/or/kptu/work/ShellRules.kt` | 주소 판정·로그인 복귀 값·바 색·버전 비교·공유 번호·목록 JSON 규칙(단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/ShareIntake.kt` | 공유 받기(메모리 보관·`__share` 가로채기) |
 | `app/src/main/java/kr/or/kptu/work/UpdateCheck.kt` | 공개 릴리스 `phone-app-v*` 최신 버전 확인 |
+| `app/src/main/java/kr/or/kptu/work/WidgetAuth.kt` | 위젯 세션(로그인 표시·consume·갱신·로그아웃)과 허용 주소 규칙 |
+| `app/src/main/java/kr/or/kptu/work/WidgetHttp.kt` | 위젯 HTTP(OkHttp) |
+| `app/src/main/java/kr/or/kptu/work/KeystoreVault.kt` | 위젯 새로고침 토큰 암호화 보관 |
+| `app/src/main/java/kr/or/kptu/work/WidgetToday.kt` | 위젯 줄 만들기(오늘 범위·정렬·안내) |
+| `app/src/main/java/kr/or/kptu/work/TodayWidget.kt` | 위젯 그리기·WorkManager 작업·`WidgetLoginActivity` |
+| `app/src/main/java/kr/or/kptu/work/MiniJson.kt` | 응답 JSON 읽기(JVM 시험용, org.json 대신) |
 | `app/src/test/…/ShellRulesTest.kt` | 규칙 단위 시험 |
+| `app/src/test/…/Widget*Test.kt`, `MiniJsonTest.kt` | 위젯 단위 시험(Origin 전송, 표시·저장 순서·실패 종류·주소 목록·로그 없음) |
 
 ## 빌드
 

@@ -94,11 +94,13 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   await signIn(page);
   await clickView(page, 'pages');
   const root = page.locator('#sharePagesRoot');
-  await expect(root.getByRole('heading', {name:'내 공유 페이지'})).toBeVisible();
-  await expect(root).toContainText('아직 만든 공유 페이지가 없어요');
-  // S7: the old five cards stay, folded under "이전 페이지".
-  const legacy = page.locator('#web1BoardLegacy');
-  await expect(legacy.locator(':scope > summary')).toHaveText('이전 페이지 5');
+  await expect(root.getByRole('heading', {name:'공유 페이지', exact:true})).toHaveCount(1);
+  await expect(root.locator('[data-wait-empty]')).toHaveText('없음');
+  // SHARE-보관함·HTML공유: the old five cards stay, in the one folded '보관함 n' (no '이전 페이지'·'지나간 업무 · 사업' folds).
+  const legacy = root.locator('details.sp-box');
+  await expect(legacy.locator(':scope > summary')).toHaveText('보관함 5');
+  await expect(page.locator('#pagesView')).not.toContainText('이전 페이지');
+  await expect(page.locator('#pagesView')).not.toContainText('지나간 업무');
   await expect(legacy.locator(':scope > summary')).toHaveCSS('list-style-type','none');
   expect(await legacy.locator(':scope > summary').evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"▸"');
   await legacy.locator(':scope > summary').focus();
@@ -122,11 +124,11 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   await expect(editor.getByRole('textbox', {name:'본문', exact:true})).toBeFocused();
   await page.keyboard.type('3차 교섭 결렬, 조정 신청 예정');
   // Project: on the top line on PC, under ⋯ on a phone.
-  if (width < 761) await editor.getByRole('button', {name:'프로젝트·링크', exact:true}).click();
+  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크', exact:true}).click();
   await editor.locator('[data-sp-project]').selectOption('proj-1');
   await editor.locator('[data-sp-set-status="published"]').click();
   await expect(editor.locator('[data-sp-set-status="published"]')).toHaveAttribute('aria-pressed', 'true');
-  if (width < 761) await editor.getByRole('button', {name:'프로젝트·링크', exact:true}).click();
+  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크', exact:true}).click();
   await editor.getByRole('button', {name:'링크', exact:true}).click();
   const linksPanel = editor.getByRole('dialog', {name:'링크'});
   await expect(linksPanel.locator('[data-sp-links]')).toContainText('한 번 저장한 뒤');
@@ -143,7 +145,7 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   ]);
   const post = state.requests.find(r => r.method === 'POST' && !r.link);
   expect(post.body.workspace_id).toBe(WS);
-  if (width < 761) await editor.getByRole('button', {name:'프로젝트·링크', exact:true}).click();
+  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크', exact:true}).click();
   await editor.getByRole('button', {name:'링크', exact:true}).click();
   await expect(linksPanel).toBeVisible();
 

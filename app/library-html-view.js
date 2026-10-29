@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // PRESS-자료실편입 2단계: 자료실에서 .html 자료를 누르면 Web2 안 칸막이로 본다(html-frame.js 재사용, 새 보기 코드 없음).
 // 내용은 document-actions `html-view`(document_id, 읽기 전용, 2MB까지)로 받는다. 자료실 .html을 아직 모르는 서버면
 // HTML_FRAME_TEXT.notReady 안내와 [Drive에서 열기]만 보인다. 요청은 자동으로 다시 보내지 않는다.
@@ -40,7 +41,7 @@ export async function openLibraryHtmlView(file, {title = '', rt = window.KPTURun
   box.classList.remove('hidden'); box.setAttribute('aria-hidden', 'false');
   if (window.KPTUA11y?.dialog?.activate) window.KPTUA11y.dialog.activate(box, {initialFocus: '#libraryHtmlClose', onRequestClose: closeLibraryHtml});
   if (Number(file?.size) > HTML_MAX_BYTES) { say(HTML_FRAME_TEXT.tooLarge, true); return 'tooLarge'; }
-  say('불러오는 중…');
+  say(''); body.innerHTML = waitHtml({rows:4});
   try {
     const {html} = await openLibraryHtml(file.documentId, {rt});
     if (mine !== sequence) return 'stale';
@@ -49,7 +50,7 @@ export async function openLibraryHtmlView(file, {title = '', rt = window.KPTURun
     return 'shown';
   } catch (err) {
     if (mine !== sequence) return 'stale';
-    say(err?.message || HTML_FRAME_TEXT.failed, err?.kind !== 'session');
+    body.replaceChildren(); say(err?.message || HTML_FRAME_TEXT.failed, err?.kind !== 'session');
     return err?.kind || 'failed';
   }
 }

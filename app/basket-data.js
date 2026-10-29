@@ -194,8 +194,9 @@ export function noteTitleFromText(text) {
 // [노트] [+] and menu [쓰기]: a new kind=note row through the same owner-RLS insert as createNote.
 // NOTE-마크다운선택: markdown (true/false) is the window's [마크다운] box, kept in the row's existing metadata jsonb (metadata.markdown).
 // ED③ 노트: doc (optional) is the new editor's saved form; raw_text is then the letters taken out of it (ed-text.mjs toPlain).
-export async function createNoteDoc({title, raw_text, markdown, doc}, rt = window.KPTURuntime) {
-  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(typeof markdown === 'boolean' ? {metadata:{markdown}} : {}), ...(doc ? {doc} : {})};
+// FEAT-1029 ④: ai_export_allowed:false (optional) keeps an AI-written draft (성명·보도자료 초안) out of AI material; any other value is not sent.
+export async function createNoteDoc({title, raw_text, markdown, doc, ai_export_allowed}, rt = window.KPTURuntime) {
+  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(typeof markdown === 'boolean' ? {metadata:{markdown}} : {}), ...(doc ? {doc} : {}), ...(ai_export_allowed === false ? {ai_export_allowed:false} : {})};
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
   return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, ...body}}));
@@ -292,6 +293,16 @@ export function setNotePinned(note, pinned, rt = window.KPTURuntime, now = new D
 // 다른 metadata 키는 그대로(같은 읽고-지키며-쓰기). 고치기가 아니므로 updated_at은 건드리지 않는다.
 export function setNoteAiOff(note, off, rt = window.KPTURuntime) {
   return patchNoteMetadata(note, metadata => { metadata.ai_off = !!off; return metadata; }, rt);
+}
+// NOTE-보기3가지: 포스트잇 보기의 자리·기울기·겹친 순서는 노트 행의 기존 metadata jsonb(metadata.board = {x, y, r, z}; 새 칸·DB 변경 없음,
+// 고정·폴더와 같은 읽고-지키며-쓰기). 옮기기는 고치기가 아니라 updated_at(고친 날·목록 순서)을 건드리지 않는다. 값의 모양은 note-board-model.mjs가 정한다.
+export function setNoteBoard(note, board, rt = window.KPTURuntime) {
+  return patchNoteMetadata(note, metadata => {
+    const old = plainObject(metadata.board) ? metadata.board : null;
+    if (old && old.x === board.x && old.y === board.y && old.r === board.r && old.z === board.z) return null;
+    metadata.board = {x:board.x, y:board.y, r:board.r, z:board.z};
+    return metadata;
+  }, rt);
 }
 // UI-노트폴더 1단계 (docs/design/note-folders.md 결정 1·3): a note's folder is one name in its existing metadata jsonb
 // (metadata.folder; no folder = "폴더 없음"). One level, 0 or 1 folder per note, names of 1~20 letters, at most 30 folders,

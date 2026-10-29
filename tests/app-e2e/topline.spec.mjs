@@ -104,23 +104,36 @@ test('PC: ← → walk the screens moved through, dim at the ends, and leave bro
  await expect(page.locator('#meetingsView')).toBeVisible();await expect(back(page)).toBeFocused();
 });
 
-test('PC: ← → bring back the project chosen on the left/right projects screen',async({page})=>{
+// MTG-프로젝트합치기 ①(커맨드센터 결정, 명진 승인 시안 범위): 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다.
+// 창 안에서 고른 사업영역은 위쪽 줄 ← → 기록에 남지 않고(기록은 화면 단위), 창을 닫으면 사업 보고가 넘겨 본 그 주 그대로 보인다.
+test('PC: 사업영역 관리 창 안 고르기는 ← → 기록에 남지 않고, 창을 닫으면 사업 보고 같은 주로 돌아온다',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
- await show(page,'projects');
- const row=id=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`),first=row('p');
- await expect(first).toHaveAttribute('aria-current','true');
+ await show(page,'meetings');
+ const label=page.locator('#reportWeekFilter .report-week-label');
+ await expect(label).toBeVisible();const thisWeek=await label.textContent();
+ await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
+ await expect(label).not.toHaveText(thisWeek);
+ await expect(back(page)).toBeEnabled();await expect(forward(page)).toBeDisabled();
+ await clickView(page,'projects');await expect(page.locator('#areaWindow')).toBeVisible();
+ // 창 밑의 사업 보고가 보이던 주(창을 연 순간).
+ const week=await label.textContent();
+ const row=id=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);
+ await expect(row('p')).toHaveAttribute('aria-current','true');
  await row('child').click();
  await expect(row('child')).toHaveAttribute('aria-current','true');
- await back(page).click();
- await expect(first).toHaveAttribute('aria-current','true');await expect(page.locator('#projectsView')).toBeVisible();
- await forward(page).click();
- await expect(row('child')).toHaveAttribute('aria-current','true');
- // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 사업 보고 ⋯ 안에서 열어(show → clickView) 그 앞에 사업 보고 화면이 한 칸 더 있다.
- await back(page).click();await back(page).click();
- await expect(page.locator('#meetingsView')).toBeVisible();
+ // 창 안 고르기는 기록이 아니다: → 는 그대로 꺼져 있고, 화면은 여전히 사업 보고다.
+ await expect(forward(page)).toBeDisabled();
+ expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('meetings');
+ // 창을 닫으면(✕) 사업 보고가 넘겨 본 그 주 그대로.
+ await page.locator('#areaWindow .area-window-close').click();
+ await expect(page.locator('#areaWindow')).toBeHidden();
+ await expect(page.locator('#meetingsView')).toBeVisible();await expect(label).toHaveText(week);
+ // ← 한 번이면 사업 보고 바로 앞 화면(홈) — 창 안에서 고른 두 사업영역은 그 사이에 끼지 않는다.
  await back(page).click();
  await expect(page.locator('#homeView')).toBeVisible();
+ await forward(page).click();
+ await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#areaWindow')).toBeHidden();
 });
 
 test('PC: where shows group › screen and the group word opens the group',async({page})=>{
@@ -137,10 +150,10 @@ test('PC: where shows group › screen and the group word opens the group',async
  await where(page).getByRole('button',{name:'일정'}).click();
  await expect(page.locator('#calendarView')).toBeVisible();
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('달력');
- // MTG-프로젝트합치기 3단계: 사업영역 관리는 사업 보고 아래 화면(사업 보고 › 사업영역 관리), 앞 낱말은 사업 보고로 간다.
+ // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이다. 위쪽 줄은 밑의 화면(사업 보고)을 가리키고, 창의 ✕로 사업 보고에 돌아온다.
  await show(page,'projects');
- await expect(where(page).locator('li').nth(0)).toHaveText('사업 보고');await expect(where(page).locator('li').nth(1)).toHaveText('사업영역 관리');
- await where(page).getByRole('button',{name:'사업 보고',exact:true}).click();
+ await expect(page.locator('#areaWindow')).toBeVisible();await expect(where(page).locator('li').nth(0)).toHaveText('사업 보고');
+ await page.locator('#areaWindow .area-window-close').click();await expect(page.locator('#areaWindow')).toBeHidden();
  await expect(page.locator('#meetingsView')).toBeVisible();
  await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').click();
  await expect(where(page).locator('li')).toHaveText(['노트']);

@@ -1,3 +1,4 @@
+import {waitHtml, emptyHtml} from './wait-state.js';
 // CALL-통화메뉴 4단계 (docs/design/call-telegram-feed.md 10절 시안 (가)(다), 12절 결정) + CALL-개인통화함 3단계 (docs/design/call-personal.md, B안):
 // the 통화 screen (?view=calls, sidebar bottom). This module is the only renderer of #callsView. It shows one of two boxes with the same
 // list and the same detail: the 업무 통화함 (default, app_feed_items) and the 개인 통화함 (the personal table, opened by the small
@@ -27,7 +28,7 @@ const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
 const pc = window.matchMedia('(min-width:1024px)');
 const phone = window.matchMedia('(max-width:760px)');
-const MORE = '<span aria-hidden="true">⋯</span>';
+const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 
 let state = fresh(), run = 0, layer = null, boxLayer = null, undo = null, ledgerAsk = null, loadP = null;
 function fresh() { return {edits:new Map(), editMissing:false, editFail:false, edit:null, who:null, sum:null, owner:'', loaded:false, loading:false, missing:false, error:'', rows:[], prows:[], pmissing:false, pfail:false, days:[], orgs:[], mine:new Set(), box:'work', selected:null, raw:new Map(), rawOpen:false, link:null, confirm:null, status:'', busy:false}; }
@@ -107,10 +108,10 @@ function paint() {
   if (!placed) window.KPTURouter?.setPlace?.('calls', {box:state.box === 'personal' ? 'personal' : null, call:state.selected || null});
   const wide = pc.matches, open = !!state.selected;
   paintList(); paintDetail();
-  $('#cfList').hidden = !wide && open; $('#cfDetail').hidden = !wide && !open;
+  $('#cfList').hidden = !wide && open; $('#cfDetail').hidden = !open;
   const row = rowOf(state.selected);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:wide && row ? topicOf(row) : null}}));
-  mountSplitResize({container:$('#cfSplit'), name:'calls', inherit:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !view()?.classList.contains('hidden')});
+  mountSplitResize({container:$('#cfSplit'), name:'calls', inherit:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !!state.selected && !view()?.classList.contains('hidden')});
   focusEdit();
 }
 // 줄 안 제목 입력칸·고치기 박스를 다시 그린 뒤에도 쓰던 칸에 초점을 돌려준다. 제목 입력칸은 처음 한 번만 전체 선택.
@@ -145,7 +146,7 @@ function paintListNow() {
   const head = personalBox
     ? `<div class="feed-head"><button type="button" class="back-text" data-cf-box="work">‹ 업무 통화</button><span class="feed-head-title">개인 통화함</span><span class="feed-head-sub" data-cf-pcount>${state.pfail ? '' : `${personalRows().length}건`}</span></div>`
     : `<div class="feed-head"><span class="feed-head-sub"></span>${state.loaded && !state.missing && !state.error ? boxChip() : ''}</div>`;
-  if (!state.loaded) { box.innerHTML = head + '<p class="feed-empty" role="status">불러오는 중…</p>'; return; }
+  if (!state.loaded) { box.innerHTML = head + waitHtml({rows:6, h:34}); return; }
   if (state.missing) { box.innerHTML = head + '<p class="feed-empty" data-cf-empty="ready">준비 중이에요. 통화 수집이 연결되면 여기에 보여요.</p>'; return; }
   if (state.error) { box.innerHTML = head + `<p class="feed-empty" role="status">${esc(state.error)} <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>`; return; }
   const status = `<p class="feed-status" data-cf-status role="status">${statusHtml()}</p>`;
@@ -153,29 +154,30 @@ function paintListNow() {
   if (personalBox) {
     if (state.pfail) { box.innerHTML = head + `<p class="feed-empty" role="status">개인 통화함을 불러오지 못했어요. <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>${status}`; return; }
     const legacy = legacyFilteredNote(state.days, kstDay());
-    box.innerHTML = head + editFail + `<p class="feed-note" data-cf-note>업무 기록(원장·주간보고·챙길 것·업무일지)에 쓰이지 않고, 전체 검색에도 나오지 않아요.</p>${legacy ? `<p class="feed-note" data-cf-legacy>${esc(legacy)}</p>` : ''}<div class="feed-rows">${listHtml(personalRows(), '<p class="feed-empty" data-cf-empty="personal">개인 통화함이 비어 있어요.</p>')}</div>${status}`;
+    box.innerHTML = head + editFail + `<p class="feed-note" data-cf-note>업무 기록(원장·주간보고·챙길 것·업무일지)에 쓰이지 않고, 전체 검색에도 나오지 않아요.</p>${legacy ? `<p class="feed-note" data-cf-legacy>${esc(legacy)}</p>` : ''}<div class="feed-rows">${listHtml(personalRows(), emptyHtml('없음', {attrs: 'data-cf-empty="personal"'}))}</div>${status}`;
     return;
   }
   const ask = unsureRows();
   const askHtml = ask.length ? `<div class="feed-ask-head" data-cf-ask-head>확인할 통화 ${ask.length} <span class="feed-faint">· 정하기 전에는 업무 기록에 쓰이지 않아요</span></div><div class="feed-rows feed-ask-rows">${ask.map(r => rowHtml(r, {ask:true})).join('')}</div>` : '';
-  box.innerHTML = head + editFail + askHtml + `<div class="feed-rows">${listHtml(state.rows, '<p class="feed-empty" data-cf-empty="none">아직 받은 업무 통화가 없어요.</p>')}</div>${status}`;
+  box.innerHTML = head + editFail + askHtml + `<div class="feed-rows">${listHtml(state.rows, emptyHtml('없음', {attrs: 'data-cf-empty="none"'}))}</div>${status}`;
 }
 const statusHtml = () => esc(state.status) + (undo ? `${undo.type === 'edit' ? ' ·' : ''} <button type="button" class="feed-text-btn" data-cf-undo>되돌리기</button>` : '')
   + (ledgerAsk?.total ? ` <span class="feed-faint">이 통화에서 원장에 들어간 기록 ${ledgerAsk.total}개는 남아요${ledgerAsk.ledgerIds.length ? ' ·' : ''}</span>${ledgerAsk.ledgerIds.length ? ' <button type="button" class="feed-text-btn" data-cf-ledger-retire>원장에서도 틀림으로</button>' : ''}` : '');
 function paintDetailNow() {
   const box = $('#cfDetail'), back = pc.matches ? '' : '<button type="button" class="back-text" data-cf-back>‹ 통화</button>';
   const r = rowOf(state.selected);
-  if (!r) { box.innerHTML = '<p class="feed-empty feed-pane-empty">왼쪽에서 통화를 고르면 핵심내용이 보여요.</p>'; return; }
+  // UI-전수디자인점검 F23: 고른 통화가 없으면 오른쪽 칸을 그리지 않는다(paint()가 칸을 숨겨 목록이 넓어짐). PC는 처음 열 때 맨 위 통화를 고른다(pickTop).
+  if (!r) { box.replaceChildren(); return; }
   const personal = isPersonal(r), unsure = r.kind === 'unsure';
   const who = whoOf(r);
   const points = readPoints(r.points);
   const pencil = state.editMissing ? '' : `<button type="button" class="feed-mini-edit" data-cf-sum-open aria-label="핵심내용 고치기" title="핵심내용 고치기"${state.busy ? ' disabled' : ''}><span aria-hidden="true">✎</span></button>`;
-  const pointsHtml = state.sum?.rowId === r.id ? sumBoxHtml(r) : points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용${r.edited?.points ? ' <span class="feed-faint">· 고친 값</span>' : ''}</p><span class="feed-k-tools">${pencil}${copyButtonHtml('data-cf-copy')}</span></div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="feed-faint">핵심내용이 없어요.${r.edited?.points || state.editMissing ? '' : ' <button type="button" class="feed-text-btn" data-cf-sum-open>직접 쓰기</button>'}</p>`;
+  const pointsHtml = state.sum?.rowId === r.id ? sumBoxHtml(r) : points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용${r.edited?.points ? ' <span class="feed-faint">· 고친 값</span>' : ''}</p><span class="feed-k-tools">${pencil}${copyButtonHtml('data-cf-copy')}</span></div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : emptyHtml('핵심내용 없음').replace('</p>', `${r.edited?.points || state.editMissing ? '' : ' <button type="button" class="feed-text-btn" data-cf-sum-open>직접 쓰기</button>'}</p>`);
   const raw = state.raw.get(r.id);
   let script;
-  if (!raw || raw.loading) script = '<p class="feed-faint" role="status">전문을 불러오는 중…</p>';
+  if (!raw || raw.loading) script = waitHtml({rows:3});
   else if (raw.error) script = '<p class="feed-faint">전문을 불러오지 못했어요.</p>';
-  else if (!raw.raw_text) script = '<p class="feed-faint" data-cf-raw-empty>Web2에 남은 전문이 없어요. 원본은 Drive에 있어요.</p>';
+  else if (!raw.raw_text) script = emptyHtml('전문 없음 · 원본은 Drive', {attrs: 'data-cf-raw-empty'});
   else if (raw.speaker_split) script = `<div class="feed-script" data-cf-script="lines">${speakerLines(raw.raw_text).map(l => `<p class="${l.me ? 'is-me' : ''}"><b>${esc(l.who)}</b><span>${esc(l.text)}</span></p>`).join('')}</div>`;
   else script = `<div class="feed-script feed-script-one" data-cf-script="one">${esc(raw.raw_text)}</div>`;
   const badge = raw && raw.raw_text && !raw.speaker_split ? '<span class="feed-badge">화자 구분은 전사 수정 뒤</span>' : '';
@@ -580,4 +582,13 @@ async function openCall(id) {
   const r = rowOf(id); if (!r || isPersonal(r)) return;
   state.box = 'work'; select(id);
 }
-window.KPTUCallFeed = {reload:() => load(), open:openCall};
+// ORG-주요인물: 담당조직 [주요 인물] 탭의 통화 줄이 부른다. 업무·개인 통화함 어느 쪽이든 그 통화함으로 바꿔 연다.
+async function showCall(id) {
+  if (!state.loaded || state.owner !== scopeOf(rt)) await load(); else if (state.loading && loadP) await loadP;
+  const r = rowOf(id); if (!r) return false;
+  const box = isPersonal(r) ? 'personal' : 'work';
+  if (state.box !== box) setBox(box);
+  if (state.box !== box) return false;
+  select(id); return true;
+}
+window.KPTUCallFeed = {reload:() => load(), open:openCall, show:showCall};

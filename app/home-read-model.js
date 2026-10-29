@@ -1,4 +1,5 @@
 import {seoulDateKey,seoulParts} from './meeting-time.js';
+import {dueGroup} from './task-due.mjs';
 const DAY = 86400000;
 export const dayKey = (now = Date.now()) => seoulDateKey(now);
 export function ranges(now = Date.now()) {
@@ -70,14 +71,14 @@ export function todayEvents(events, now = Date.now()) {
         dated(a.start) - dated(b.start),
     );
 }
+// 홈 [오늘 할 일]: 할 일 화면과 같은 기한 묶음(task-due.mjs dueGroup)의 '기한 지남'·'오늘'. 내일 것은 할 일 화면 '내일' 묶음에 있다.
 export function dueTasks(tasks, now = Date.now()) {
   const today = dayKey(now);
   return tasks
     .filter(
       (t) =>
         t.status !== "completed" &&
-        t.due &&
-        String(t.due).slice(0, 10) <= today,
+        ["overdue", "today"].includes(dueGroup(t.due, today)),
     )
     .sort((a, b) =>
       String(a.due).slice(0, 10).localeCompare(String(b.due).slice(0, 10)),

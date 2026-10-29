@@ -66,7 +66,7 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
  await openOrg(page,'oa',width);
  const line=page.locator('#wdStage');
  await expect(line).toContainText('쟁의 단계');await expect(stageSelect(page)).toHaveValue('stage-1');
- await expect(line.locator('[data-stage-save]')).toBeDisabled();
+ await expect(line.locator('[data-stage-save]')).toBeHidden();
  // 이름 줄 바로 아래, 기록 입력보다 위
  const y=await line.evaluate(el=>el.getBoundingClientRect().top),yi=await page.locator('#wdInbox').evaluate(el=>el.getBoundingClientRect().top);expect(y).toBeLessThan(yi);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
@@ -81,7 +81,7 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
  // 같은 단계를 다시 저장하면 날짜만 고친 것(줄이 늘지 않음)
  await line.locator('[data-stage-date]').fill('2026-10-03');await line.locator('[data-stage-save]').click();
  // 저장이 끝날 때까지(새 줄 넣기 → 옛 줄 지우기 → 다시 읽기) 기다린 뒤 다음 조작을 한다. 끝나기 전에 고르면 다시 그리기가 고른 값을 덮는다(기존 시험의 간헐 실패 원인).
- await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');await expect(line.locator('[data-stage-save]')).toBeDisabled();
+ await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');await expect(line.locator('[data-stage-save]')).toBeHidden();
  expect(db.history).toHaveLength(1);expect(db.history[0].stage_date).toBe('2026-10-03');
  // 끝남: 이번 주(10.5~10.11)에 끝나면 꼬리표, 지난 주에 끝난 건 없음
  await stageSelect(page).selectOption({label:'협약체결'});await line.locator('[data-stage-date]').fill('2026-10-05');await line.locator('[data-stage-save]').click();
@@ -285,22 +285,33 @@ for(const width of [390,1280])test(`끝 날짜 칸이 아직 없을 때(DB 적�
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)는 제목 '담당조직' 줄 오른쪽, 첫 묶음 머리줄에 붙지 않음 ${width}px`,async({page})=>{
+for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)는 제목 '담당조직' 줄 오른쪽(PC는 목록 칸 맨 위 줄 오른쪽 끝), 목록 HTML 안에 없음 ${width}px`,async({page})=>{
  const {errors}=await fixture(page,{width});
  await clickView(page,'team');
  const more=page.locator('#soTeamMore');await expect(more).toBeVisible();await expect(more).toHaveCount(1);
  await expect(page.locator('#soOrganizationList #soTeamMore, .so-group-card #soTeamMore')).toHaveCount(0);
  const m=await more.boundingBox(),group=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
- expect(m.y+m.height).toBeLessThanOrEqual(group.y); // 묶음 머리줄보다 위
+ if(width<1024)expect(m.y+m.height).toBeLessThanOrEqual(group.y); // 묶음 머리줄보다 위
  if(width<=760){
   // 폰: 위 머리줄의 화면 이름 "담당조직"과 같은 줄, 오른쪽 끝
   const name=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();
   expect(Math.abs((m.y+m.height/2)-(name.y+name.height/2))).toBeLessThanOrEqual(6);
   expect(m.x).toBeGreaterThan(name.x+name.width);
  }else{
-  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('담당조직');await expect(title).toBeVisible();
-  const t=await title.boundingBox();expect(Math.abs((m.y+m.height/2)-(t.y+t.height/2))).toBeLessThanOrEqual(6);
-  const list=await page.locator('#soOrganizationList').boundingBox();expect(m.x+m.width).toBeGreaterThan(list.x+list.width-1); // 목록 칸 밖(화면 오른쪽)
+  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('담당조직');
+  // UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄이 화면 이름을 맡아 본문 큰 제목은 읽기 프로그램용(잘라 숨김), 중간 폭은 제목 줄 그대로.
+  if(width>=1024){
+   await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
+   // UI-전수디자인점검 F07: PC는 ⋯ 하나만 담은 빈 줄이 없다. ⋯는 목록 칸 맨 위 줄(첫 묶음 머리줄) 오른쪽 끝, 'N곳'과 겹치지 않음, 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
+   const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox(),count=await page.locator('#soOrganizationList .so-group-count').first().boundingBox();
+   expect(Math.abs((m.y+m.height/2)-(group.y+group.height/2))).toBeLessThanOrEqual(3);
+   expect(m.x+m.width).toBeLessThanOrEqual(list.x+list.width+1);expect(m.x).toBeGreaterThan(list.x+list.width/2);
+   expect(count.x+count.width).toBeLessThanOrEqual(m.x);
+   expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
+  }else{
+   await expect(title).toBeVisible();const t=await title.boundingBox();expect(Math.abs((m.y+m.height/2)-(t.y+t.height/2))).toBeLessThanOrEqual(6);
+   const list=await page.locator('#soOrganizationList').boundingBox();expect(m.x+m.width).toBeGreaterThan(list.x+list.width-1); // 목록 칸 밖(화면 오른쪽)
+  }
  }
  await more.click();await expect(page.locator('#soTeamMenu [data-so-stage-manage]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

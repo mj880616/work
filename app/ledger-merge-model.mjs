@@ -14,7 +14,6 @@ export const RECENT_LIMIT = 10; // 취소할 수 있는 최근 합침 수
 export const MERGE_TEXT = Object.freeze({
   summary: n => `겹친 기록 ${n}건`,
   recent: n => `합친 기록 ${n}건`,
-  working: '확인하는 중…',
   merge: '합치기',
   apply: '반영',
   cancel: '취소',
@@ -26,7 +25,7 @@ export const MERGE_TEXT = Object.freeze({
   preview: (keep, drop) => `‘${keep}’에 ‘${drop}’의 근거를 더하고, ‘${drop}’은 합쳐서 폐기해요(지우지 않아요).`,
   previewSame: (keep, drop) => `‘${drop}’은 합쳐서 폐기해요(지우지 않아요). ‘${keep}’에 이미 같은 근거가 있어요.`,
 });
-export const SOURCE_LABEL = Object.freeze({meeting: '사업 보고', project_update: '프로젝트 기록', org_update: '담당조직 기록', basket: '업데이트'});
+export const SOURCE_LABEL = Object.freeze({meeting: '사업 보고', project_update: '사업영역 기록', org_update: '담당조직 기록', basket: '업데이트'});
 const LIVE = new Set(['current', 'needs_check', 'fulfilled']);
 const LEDGER_ID = /^[A-Z]{2,6}-[0-9]{4,6}$/;
 const LOCATION = /^web2:(meeting|project_update|org_update|basket):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;

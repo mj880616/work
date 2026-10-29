@@ -5,7 +5,7 @@
 // 🗑(원드라이브 사진만)은 묻지 않고 목록에서 바로 빼고 '휴지통으로 옮겼어요 · 되돌리기'를 몇 초 보여 준다. 그 시간이 지나거나 닫거나 화면을 떠나면
 // 원드라이브 휴지통으로 보낸다(영구 삭제 아님). 되돌리기는 보내기 전이라 같은 자리로 그대로 돌아온다. 기기 저장 없음.
 import {swipeKind, shareFileName, UNDO_MS} from './photo-viewer-model.mjs';
-import {preparePhotoBlob, sharePhotoElement} from './photo-share.js';
+import {preparePhotoBlob, sharePhotoElement, paintPhotoNote, PHOTO_WAIT} from './photo-share.js';
 
 let viewer = null, pending = null;
 
@@ -63,7 +63,7 @@ export function openPhotoStrip(opts) {
   const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]'), captionEl = box.querySelector('[data-diary-viewer-caption]');
   const whenEl = box.querySelector('[data-diary-viewer-when]'), infoEl = box.querySelector('[data-diary-viewer-info]'), infoBtn = box.querySelector('[data-diary-info]');
   const starBtn = box.querySelector('[data-diary-star]'), delBtn = box.querySelector('[data-od-delete]'), undoBtn = box.querySelector('[data-diary-undo]');
-  const noteText = text => { const el = box.querySelector('[data-diary-viewer-note-text]'); if (el) el.textContent = text; };
+  const noteText = text => paintPhotoNote(box.querySelector('[data-diary-viewer-note-text]'), text);
   const fill = i => {
     const slide = strip.children[i];
     if (!slide || slide.dataset.filled) return;
@@ -78,7 +78,7 @@ export function openPhotoStrip(opts) {
   async function playAt(i) {
     const item = items[i], slide = strip.children[i];
     if (!item || !slide || slide.querySelector('video')) return;
-    note('동영상 받는 중…');
+    note(PHOTO_WAIT);
     let url;
     try { url = await play(item); } catch (error) { note(errorText(error).replace(/^지우지 못했어요/, '재생하지 못했어요'), 4000); return; }
     if (viewer?.box !== box || items[i] !== item) return;

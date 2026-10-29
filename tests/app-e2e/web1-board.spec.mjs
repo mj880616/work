@@ -57,7 +57,6 @@ for(const width of [390,1440])test('compact board cards show only their title an
     await signIn(p);
     await clickView(p,'pages');await openLegacyBoard(p);
     await expect(p.locator('#pagesView')).toHaveAttribute('data-web1-board-ready','1');
-    await p.locator('#web1BoardArchivedWrap summary').click();
   }
   for(const item of cases){
     const selector='[data-web1-board-title="'+item.title+'"]';
@@ -279,7 +278,7 @@ test('a late first board response cannot replace the next detail',async({page})=
   await page.locator('[data-web1-board-title="'+cases[0].title+'"]').click();
   await expect.poll(()=>pending.has(cases[0].source)).toBe(true);
   // A pending source has a visible status in the detail, without navigating a reader document.
-  await expect(modal.getByRole('status')).toHaveText('본문을 불러오는 중입니다…');
+  await expect(modal.getByRole('status')).toHaveAttribute('aria-label','불러오는 중');await expect(modal.locator('#web1BoardDetailStatus [data-wait]')).toHaveCount(1);
   await expect(frame).not.toHaveAttribute('srcdoc',/.+/);
   await page.locator('[data-close-web1-board]').click();
   await expect(modal).toBeHidden();

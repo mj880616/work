@@ -64,7 +64,7 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
   const box = editor.getByRole('textbox', {name:'본문', exact:true});
   await expect(box).toBeVisible();
   await expect(editor.locator(OLD_FRAME)).toHaveCount(0);
-  await expect(page.locator('#web1BoardLegacy')).toBeHidden();
+  await expect(page.locator('#sharePagesRoot details.sp-box')).toBeHidden();
   // Width: the editor takes (almost) all of the content area, and the text box nearly all of the editor.
   const m = await page.evaluate(() => {
     const r = s => document.querySelector(s).getBoundingClientRect();
@@ -97,19 +97,19 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
     // The project and 링크 sit on the top line.
     await expect(editor.locator('[data-sp-project]')).toBeVisible();
     await expect(editor.getByRole('button', {name:'링크', exact:true})).toBeVisible();
-    await expect(editor.getByRole('button', {name:'프로젝트·링크', exact:true})).toBeHidden();
+    await expect(editor.getByRole('button', {name:'사업영역·링크', exact:true})).toBeHidden();
   } else {
     // Phone: ‹ · 상태 · ⋯ · 저장; the button row is the grouped one (ED-서식줄묶음): it fits one line, with no bar and no sideways swipe.
     expect(await tools.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
     expect(await tools.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
     await expect(tools.getByRole('button', {name:'글자 서식 고르기', exact:true})).toBeVisible();
     await expect(editor.locator('[data-sp-project]')).toBeHidden();
-    await editor.getByRole('button', {name:'프로젝트·링크', exact:true}).click();
+    await editor.getByRole('button', {name:'사업영역·링크', exact:true}).click();
     await expect(editor.locator('[data-sp-project]')).toBeVisible();
     await expect(editor.getByRole('button', {name:'링크', exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(editor.locator('[data-sp-project]')).toBeHidden();
-    await expect(editor.getByRole('button', {name:'프로젝트·링크', exact:true})).toBeFocused();
+    await expect(editor.getByRole('button', {name:'사업영역·링크', exact:true})).toBeFocused();
     await editor.locator('[data-sp-title]').click();
   }
   // Write a long text: the page grows and the button row stays stuck under the top line.
@@ -173,7 +173,7 @@ test('저장: [저장], Ctrl+S and Cmd+S save in place; 저장 안 됨 shows onl
   page.once('dialog', d => d.accept());
   await editor.getByRole('button', {name:'공유 페이지 목록으로', exact:true}).click();
   await expect(editor).toBeHidden();
-  await expect(page.locator('#web1BoardLegacy')).toBeVisible();
+  await expect(page.locator('#sharePagesRoot details.sp-box')).toBeVisible();
   expect(state.writes).toHaveLength(3);
   expect(errors).toEqual([]);
 });

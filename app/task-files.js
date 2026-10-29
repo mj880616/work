@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 // TASK-파일붙이기: files attached to a Google task (read: app_task_attachments; change: google-tasks Edge action=attach / detach).
 // The file lives in Google Drive ("자료실/할 일 첨부"); the Edge keeps the task-file link (owner RLS) and one link line per
 // file in the task's notes, so the Google Tasks app shows a link. Detaching or deleting the task never deletes the Drive file.
@@ -119,7 +120,7 @@ function paint() {
   const list = m.querySelector('[data-gt-files-list]');
   list.innerHTML = s.files.length
     ? s.files.map(f => `<li><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer" ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a><button type="button" class="mini" data-fa-menu="open"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} Drive에서 열기">Drive에서 열기</button><button type="button" class="mini" data-fa-menu="download"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} 내려받기">내려받기</button><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${s.busy ? ' disabled' : ''}>빼기</button></li>`).join('')
-    : '<li class="gt-files-empty">붙인 파일이 없습니다.</li>';
+    : `<li class="gt-files-empty">${emptyHtml()}</li>`;
   list.querySelectorAll('[data-gt-file-detach]').forEach(b => { b.onclick = () => void detach(b.dataset.gtFileDetach); });
   const pick = m.querySelector('[data-gt-files-pick]');
   pick.disabled = s.busy || s.files.length >= MAX_TASK_FILES;

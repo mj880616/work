@@ -207,9 +207,9 @@ import {eventColor} from './home-read-model.js';
         const date=addSeoulDays(week.start,i);
         const dkey=key(date),pending=pendingByDate.get(dkey)||[],split=mq760.matches||pending.length>0,cell=document.createElement(split?'div':'button');
         if(!split)cell.type='button';
-        cell.className='cal-cell'+(seoulParts(date).month===month?'':' other')+(dkey===key(new Date())?' today':'');
+        cell.className='cal-cell'+(seoulParts(date).month===month?'':' other')+(dkey===key(new Date())?' today ds-today':'');
         cell.dataset.date=dkey;cell.setAttribute('aria-label',formatSeoulTime(date,{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
-        const day=document.createElement('span');day.className='cal-day';day.textContent=String(seoulParts(date).day);
+        const day=document.createElement('span');day.className='cal-day'+(cell.classList.contains('ds-today')?' ds-today-num':'');day.textContent=String(seoulParts(date).day);
         if(split){
           const create=document.createElement('button');create.type='button';create.className='cmv-date-create';create.setAttribute('aria-label',cell.getAttribute('aria-label'));
           if(mq760.matches){

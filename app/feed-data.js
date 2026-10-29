@@ -8,6 +8,7 @@
 // and updated_at; there is no insert or delete. Rows come in through collector-feed only.
 // TG-방날짜묶기: a telegram item's 삭제/되살리기 goes through the DB function app_feed_set_state; 삭제 is hidden_at (the 휴지통), never emptied by itself.
 import {readRecordPages} from './basket-link-records.js';
+import {myOrganizationIds} from './my-organizations.js';
 import {addDays, kstDay} from './feed-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 
@@ -92,6 +93,17 @@ export async function readTitleRows(days, rt = window.KPTURuntime) {
   }
   return out;
 }
+// TG-요청강조: 방·날 줄의 회색 꼬리표(담당조직·일정) 재료. 지우지 않은 소식의 방·날·조직·제목·요약만(원문 없음), 600줄까지.
+export async function readLineMarks(from, to, rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt), out = [];
+  for (let offset = 0; offset < LIST_MAX; offset += 100) {
+    const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&hidden_at=is.null&day=gte.${encode(from)}&day=lte.${encode(to)}&select=room_key,day,organization_id,title,summary&order=day.desc,occurred_at.asc,id.asc&limit=100&offset=${offset}`);
+    if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+    out.push(...page);
+    if (page.length < 100) break;
+  }
+  return out;
+}
 export async function readPinnedItems(rt = window.KPTURuntime) {
   const ws = workspaceOf(rt);
   const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&pinned_at=not.is.null&hidden_at=is.null&select=${ITEM_FIELDS}&order=pinned_at.desc,id.desc&limit=50`);
@@ -156,6 +168,19 @@ async function tgdg(name, body, rt) {
 export const setRoom = (roomKey, folder, archived, rt = window.KPTURuntime) => tgdg('app_feed_room_set', {p_room_key:roomKey, p_folder:folder || null, p_archived:!!archived}, rt);
 // 그날 그 줄만 삭제('trashed')·되살리기('active').
 export const setRoomDay = (roomKey, day, state, rt = window.KPTURuntime) => tgdg('app_feed_room_day_set', {p_room_key:roomKey, p_day:day, p_state:state}, rt);
+// TG-안본것: 방·날을 열면 '봤음' 시각을 서버에 남긴다(DB 함수 app_feed_room_day_seen, 소유자·텔레그램 허용 작업공간만). 기기에는 남기지 않는다.
+export const markRoomDaySeen = (roomKey, day, rt = window.KPTURuntime) => tgdg('app_feed_room_day_seen', {p_room_key:roomKey, p_day:day}, rt);
+// 이 날 범위에서 '봤음' 시각이 있는 방·날(소유자 읽기). 칸이 아직 없거나(DB 적용 전) 읽지 못하면 던진다(부르는 쪽이 안 본 것 표시를 끈다).
+export async function readSeenDays(from, to, rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt), out = [];
+  for (let offset = 0; offset < LIST_MAX; offset += 100) {
+    const page = await rt.api(`/rest/v1/app_feed_room_days?workspace_id=eq.${encode(ws)}&day=gte.${encode(from)}&day=lte.${encode(to)}&seen_at=not.is.null&select=room_key,day,seen_at,updated_at&order=day.desc,room_key.asc&limit=100&offset=${offset}`);
+    if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+    out.push(...page);
+    if (page.length < 100) break;
+  }
+  return out;
+}
 export const createFolder = (name, rt = window.KPTURuntime) => tgdg('app_feed_folder_create', {p_name:name}, rt);
 export const renameFolder = (id, name, rt = window.KPTURuntime) => tgdg('app_feed_folder_rename', {p_id:id, p_name:name}, rt);
 export const deleteFolder = (id, rt = window.KPTURuntime) => tgdg('app_feed_folder_delete', {p_id:id}, rt);
@@ -173,14 +198,15 @@ export const editSummary = ({item = null, room = null, day = null, patch}, rt = 
   tgdg('app_feed_summary_edit', {p_item:item, p_room_key:room, p_day:day, p_patch:patch || {}}, rt);
 
 // Organizations for names and for the 조직 연결 box: every organization of the workspace (names of inactive ones are still shown on
-// old rows), plus which are mine (내 프로필 → 담당 사업장, the same rule as the 기록할 곳 sheet).
+// old rows), plus which are mine (my-organizations.js, ORG-고르기통일: the one rule every organization picker uses).
 export async function readOrganizations(rt = window.KPTURuntime) {
   const c = ctx(rt), ws = workspaceOf(rt);
   const [orgs, mine] = await Promise.all([
     readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encode(ws)}&select=id,name,aliases,active&order=id.asc`, rt),
     readRecordPages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encode(c.user?.id || '')}&select=organization_id&order=organization_id.asc`, rt).catch(() => []),
   ]);
-  return {orgs:orgs.filter(o => o?.id), mine:new Set(mine.map(a => a.organization_id))};
+  const rows = orgs.filter(o => o?.id);
+  return {orgs:rows, mine:myOrganizationIds(rows, mine)};
 }
 // 조직 연결 (요약 부품 통일 ②, minimal): the row's organization is set, and the summary (default: the core points) is added to that
 // organization's 기록 through the existing organization-record path (quick-save.js, app_suborganization_updates owner RLS).

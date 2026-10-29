@@ -54,7 +54,7 @@ test('아스날 폰 390: 메뉴 창 맨 아래에서 열고, 자료는 그때 �
   await expect(rows(page)).toHaveCount(3);
   await page.locator('#arsenalRoot [data-ars-search]').fill('없는팀');
   await expect(rows(page)).toHaveCount(0);
-  await expect(page.locator('#arsenalRoot .ars-note')).toHaveText('조건에 맞는 경기가 없음.');
+  await expect(page.locator('#arsenalRoot [data-wait-empty]')).toHaveText('맞는 경기 없음');
   await page.locator('#arsenalRoot [data-ars-search]').fill('');
   await page.locator('#arsenalRoot [data-ars-competition]').selectOption('Premier League');
   // 줄을 누르면 리뷰 한 칸(목록 숨김), 득점·도움, 판정, 첫 묶음만 펼침.

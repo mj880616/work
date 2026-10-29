@@ -99,8 +99,8 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
       await page.reload();await ready(page);
       await expect(listEvent(page,'gone')).toBeVisible();
       await expect(listEvent(page,'keep')).toBeVisible();
-      await expect(fresh(page)).toHaveText('새로 불러오는 중');
-      await expect(page.locator('#calendarList .clv-day').first()).not.toContainText('불러오는 중');
+      await expect(fresh(page)).toHaveAttribute('data-freshness','refresh');await expect(fresh(page).locator('[data-wait]')).toHaveCount(1);
+      await expect(page.locator('#calendarList .clv-day').first().locator('[data-wait]')).toHaveCount(0);
       release(state);
       await expect(listEvent(page,'gone')).toHaveCount(0);
       await expect(listEvent(page,'keep')).toBeVisible();
@@ -113,13 +113,13 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
     test('without a copy the list says 불러오는 중, never 일정 없음, until the first answer',async({page})=>{
       const state=newState();state.hold=true;await mock(page,state);
       await signIn(page,'calendar');
-      await expect(fresh(page)).toHaveText('불러오는 중…');
-      await expect(page.locator('#calendarList .clv-day').nth(3)).toContainText('불러오는 중…');
+      await expect(fresh(page)).toHaveAttribute('data-freshness','loading');await expect(fresh(page).locator('[data-wait]')).toHaveCount(1);
+      await expect(page.locator('#calendarList .clv-day').nth(3).locator('[data-wait]')).toHaveCount(1);await expect(page.locator('#calendarList .clv-day').nth(3)).not.toContainText('일정 없음');
       await expect(page.locator('#calendarList')).not.toContainText('일정 없음');
       release(state);
       await expect(listEvent(page,'keep')).toBeVisible();
       await expect(page.locator('#calendarList .clv-day').nth(3)).toContainText('일정 없음');
-      await expect(page.locator('#calendarList')).not.toContainText('불러오는 중…');
+      await expect(page.locator('#calendarList [data-wait]')).toHaveCount(0);
       await expect(fresh(page)).toBeHidden();
     });
 
@@ -178,7 +178,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await listEvent(page,'gone').click();
     await expect(page.locator('#ciGoogleDelete')).toBeEnabled();
     state.hold=true;
-    await page.locator('#ciGoogleDelete').click();
+    await page.locator('#ciGoogleMore').click();await page.locator('#ciGoogleDelete').click();
     await answerAsk(page,true);
     await expect.poll(()=>state.deleted).toEqual(['gone']);
     await expect.poll(()=>copiedIds(page)).toEqual(['keep']);
@@ -193,7 +193,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await expect(listEvent(page,'gone')).toBeVisible();
     state.events=state.events.filter(e=>e.id!=='gone');state.hold=true;
     await page.reload();await ready(page);
-    await expect(fresh(page)).toHaveText('새로 불러오는 중');
+    await expect(fresh(page)).toHaveAttribute('data-freshness','refresh');await expect(fresh(page).locator('[data-wait]')).toHaveCount(1);
     await listEvent(page,'gone').click();
     await expect(page.locator('#ciGoogleStatus')).toContainText('삭제된 항목');
     await expect(page.locator('#ciGoogleSave')).toBeDisabled();
@@ -214,9 +214,9 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     state.hold=true;
     await page.reload();await ready(page);
     await expect(calendarCard).toContainText('지울 일정');
-    await expect(calendarCard.locator('[data-home-fresh]')).toHaveText('새로 불러오는 중');
+    await expect(calendarCard.locator('[data-home-fresh]')).toHaveAttribute('data-freshness','refresh');await expect(calendarCard.locator('[data-home-fresh]').locator('[data-wait]')).toHaveCount(1);
     await expect(taskCard).toContainText('지울 할 일');
-    await expect(taskCard.locator('[data-home-fresh]')).toHaveText('새로 불러오는 중');
+    await expect(taskCard.locator('[data-home-fresh]')).toHaveAttribute('data-freshness','refresh');await expect(taskCard.locator('[data-home-fresh]').locator('[data-wait]')).toHaveCount(1);
     // The refresh fails: the copies stay with 최신 아님 and [다시 시도].
     state.failEvents=true;state.failTasks=true;release(state);
     await expect(calendarCard.locator('[data-home-fresh]')).toContainText('최신 아님 · 마지막 확인');
@@ -259,7 +259,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await expect(listEvent(page,'gone')).toBeVisible();
     state.trashed=state.events.filter(e=>e.id==='gone');state.events=state.events.filter(e=>e.id!=='gone');state.hold=true;
     await page.reload();await ready(page);
-    await expect(fresh(page)).toHaveText('새로 불러오는 중');
+    await expect(fresh(page)).toHaveAttribute('data-freshness','refresh');await expect(fresh(page).locator('[data-wait]')).toHaveCount(1);
     await listEvent(page,'gone').click();
     await expect(page.locator('#ciGoogleTitle')).toHaveValue('지울 일정');
     await expect(page.locator('#ciGoogleSave')).toBeDisabled();
@@ -295,7 +295,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     state.events=state.events.filter(e=>e.id!=='gone');state.hold=true;
     await page.reload();await ready(page);
     await expect(grid).toContainText('지울 일정');
-    await expect(fresh(page)).toHaveText('새로 불러오는 중');
+    await expect(fresh(page)).toHaveAttribute('data-freshness','refresh');await expect(fresh(page).locator('[data-wait]')).toHaveCount(1);
     release(state);
     await expect(grid).not.toContainText('지울 일정');
     await expect(grid).toContainText('남는 일정');
@@ -306,7 +306,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await installViewPrefsServer(page,{calendar_view:'month'});
     const state=newState();state.hold=true;await mock(page,state);
     await signIn(page,'calendar');
-    await expect(fresh(page)).toHaveText('불러오는 중…');
+    await expect(fresh(page)).toHaveAttribute('data-freshness','loading');await expect(fresh(page).locator('[data-wait]')).toHaveCount(1);
     release(state);
     await expect(page.locator('#calendarGrid')).toContainText('남는 일정');
     await expect(fresh(page)).toBeHidden();

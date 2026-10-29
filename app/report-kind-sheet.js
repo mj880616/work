@@ -12,14 +12,18 @@ let sheet=null,active=null;
 function ensureSheet(){
   sheet||=createChoiceSheet({id:'reportKindSheet',titleId:'reportKindSheetTitle',historyKey:'kptuReportKind',
     canOpen:()=>!!active,choices:async()=>{},
-    render:()=>({title:active?.title||'칸 고르기',html:REPORT_KINDS.map(k=>`<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:0" data-depth="0" data-sheet-value="${esc(k.value)}" aria-pressed="${k.value===active?.current}" title="${esc(k.label)}"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(k.label)}</span></button>`).join('')}),
+    render:()=>({title:active?.title||'칸 고르기',html:(active?.onOneline?ONELINE_ROW:'')+REPORT_KINDS.map(k=>`<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:0" data-depth="0" data-sheet-value="${esc(k.value)}" aria-pressed="${k.value===active?.current}" title="${esc(k.label)}"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(k.label)}</span></button>`).join('')}),
     // 고르면 창이 닫히는 중이다(choice-sheet가 onSelect 뒤 close). 닫기가 끝난 뒤(뒤로가기 기록 정리·초점 복귀) 다음 창을 연다.
     onSelect:(kind,value)=>{const pick=active?.onPick;if(isReportKind(value))queueMicrotask(()=>sheet.close().then(()=>pick?.(value)))}});
+  // MTG-한줄업데이트: 맨 위 [✎ 한 줄 업데이트] 줄은 칸 값(data-sheet-value)이 아니라 따로 누른다 — 칸 고르기와 섞이지 않게.
+  document.getElementById('reportKindSheet')?.addEventListener('click',e=>{if(!e.target.closest('[data-report-oneline]'))return;const go=active?.onOneline;if(go)void sheet.close().then(()=>go())});
   return sheet;
 }
+const ONELINE_ROW=`<button type="button" class="home-choice-row home-choice-oneline" style="--home-choice-depth:0" data-depth="0" data-report-oneline title="사업영역에 진행 상황 한 줄"><span class="home-choice-check" aria-hidden="true">✎</span><span class="home-choice-name">한 줄 업데이트</span></button>`;
 // trigger: 누른 버튼(닫힌 뒤 초점이 돌아감). onPick(value)는 고른 뒤 창이 닫히고 불린다. 닫기·Esc·뒤로가기는 아무것도 하지 않는다.
-export function pickReportKind(trigger,{title='칸 고르기',current='',onPick}={}){
-  active={title,current,onPick};
+// onOneline: 있으면 맨 위에 [한 줄 업데이트] 줄을 두고, 누르면 창이 닫힌 뒤 불린다(사업 보고 [+] 메뉴만).
+export function pickReportKind(trigger,{title='칸 고르기',current='',onPick,onOneline=null}={}){
+  active={title,current,onPick,onOneline};
   return ensureSheet().open('kind',trigger);
 }
 

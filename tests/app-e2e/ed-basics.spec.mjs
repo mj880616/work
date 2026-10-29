@@ -471,12 +471,12 @@ test.describe('PC 1280', () => {
 test.describe('폰 390', () => {
   test.use({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true});
 
-  // ED-서식줄묶음: the phone row is grouped: [본문 2 ▾][굵게][·][▾][글자 ▾][문단 ▾][넣기 ▾][기호 ▾][↶][↷]; no [⌄]; one line down to 344px.
+  // ED-서식줄묶음: the phone row is grouped: [본문 2 ▾][굵게][· ▾][글자 ▾][문단 ▾][넣기 ▾][기호 ▾][↶][↷]; no [⌄]; one line down to 344px.
   test('서식 줄은 묶음 한 줄(344px까지 한 줄), 묶음 안에 모든 버튼, 페이지는 옆으로 안 밀림', async ({page}) => {
     await open(page);
     const row = page.locator('.ed-tools');
     expect(await row.evaluate(el => getComputedStyle(el).flexWrap)).toBe('nowrap');
-    await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '·', '▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
+    await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '· ▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
     await expect(page.locator('.ed-more')).toBeHidden();
     for (const width of [390, 360, 344]) {
       await page.setViewportSize({width, height: 844});

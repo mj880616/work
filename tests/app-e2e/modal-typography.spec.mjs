@@ -89,9 +89,9 @@ const newStandard=p=>p.evaluate(()=>{
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
   // LIB-목록간격(2026-10-23 사용자 확정 11:02): 자료실 트리의 맨 위 단 이름(프로젝트·'프로젝트 없음')만 굵게(700) — 두 가지 굵기 기준의 유일한 예외.
   if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
-  if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
+  if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn,[data-sp-new],.lb-add'))){
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px. UI-버튼전수조사: 채운 버튼은 36px, 나머지 버튼도 32px.
-   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,#manageLibraryBtn')?32:e.matches('.primary')?36:32;/* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
+   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,#manageLibraryBtn')||e.matches('#newMeetingBtn')&&innerWidth>760?32:e.matches('.primary')?36:32;/* BIZ-버튼줄정리: [+ 사업 보고]는 작고 낮게 32px *//* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
    if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
   }
  }
@@ -152,7 +152,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     const oldZero=expected.findIndex((row,i)=>i>nameIndex&&row[0]==='SPAN'&&row[1]==='');expect(oldZero).toBeGreaterThan(nameIndex);
     expected[oldZero]=['SPAN','kptu-list-chevron','20px',muted,'400','20px'];
     await expect(page.locator('#projectGrid .add-list-head h2')).toHaveCount(0);
-    await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
+    await expect(page.locator('[data-ps3-total]')).toHaveText('사업영역 1개');
     await expect(page.locator('#projectGrid .ps3-prow-meta .ps3-dday')).toHaveCount(0);
   }
   if(name==='team'){
@@ -172,18 +172,17 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   else expect(await newStandard(page),name+' new standard').toEqual([]);
   // UI-PC회의 → MEET-결과정리 ⑤(시안 C): PC(≥1024) 회의는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록. 종류 줄은 목록 글자(13px)·누르는 높이 44px, 고른 종류 하나만 표시.
   if(name==='meetings'&&width>=1024){
-    await expect(page.locator('#meetingTypeFilter')).toBeHidden();await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();
+    await expect(page.locator('#meetingTypeFilter')).toHaveCount(0);
     await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
     const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
     await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
   }
   if(name==='library'||name==='meetings'&&width<1024){
-    // MTG-프로젝트합치기 2단계: 사업영역 칩 줄(#reportAreaFilter)은 보기 칩처럼 작은 칩이라 함께 뺀다.
-    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter):not(#reportAreaFilter)');
+    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter)');
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
-    // MTG-사업보고 4단계: 사업 보고(폰)는 위쪽 칸 칩 줄 + [회의] 칩일 때의 회의명 칩 줄, 두 줄이 같은 칩 모양이다.
-    await expect(groups).toHaveCount(2);
+    // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
+    await expect(groups).toHaveCount(name==='library'?2:1);
     // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
     // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),
@@ -343,7 +342,7 @@ async function d6bPrepare(page,source){
 const d6bKey=el=>[el.tag,el.id,el.class,el.fontSize,el.color].join('\u0001');
 async function d6bSnapshot(page,selectors=d6bSelectors){
  const rows=await page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].filter(el=>!el.closest('#mrdLeave,#mrdLoading,#mrdTodoCand,#mrdTodoLine')).map(el=>{
-  const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color};
+  const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color,ps3Head:(!!el.closest('#ps3DetailModal')&&el.matches('.ps3-section-head>h3,.ps3-fold>summary>h3'))||undefined};
  })})),selectors);
  for(const row of rows)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
  return rows;
@@ -378,6 +377,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
   // MTG-보고창정리: 입력·수정 창의 원문 칸 이름 줄에 작은 [선택] 표시가 생겼다(원문은 필수가 아님). 같은 모양을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   await original.evaluate(()=>{for(const id of ['meetingTranscript','mrdEditTranscript'])document.getElementById(id)?.closest('label')?.insertAdjacentHTML('afterbegin','<span class="optional">선택</span>')});
+  // MTG-녹음초안: [회의] 입력 창의 원문 칸 위에 [녹음·전사 넣기] 줄과 접힌 패널(파일 칸·전사 글 칸)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  {const html=await page.locator('#mtdBar').evaluate(el=>el.outerHTML+el.nextElementSibling.outerHTML);await original.locator('#meetingTranscript').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('beforebegin',html),html)}
   // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
   const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
   await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);
@@ -408,7 +409,13 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
   await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
   // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
+  // UI-전수디자인점검 F08: 담당조직 창 이름 위 '담당조직' 작은 제목(.eyebrow)은 없앴다(창 이름과 중복). 비교 기준 쪽에서도 그 줄을 뺀다.
+  await original.evaluate(()=>document.querySelectorAll('#wdModal .modal-head .eyebrow').forEach(el=>el.remove()));
   if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
+  // ORG-주요인물 2/2: 접힌 묶음 '기본 정보 · 소속 · 이전 요약'(머리 h3·설명 small)과 그 안의 h4 '기본 정보'·'이전 요약'은
+  // 작은 탭 [주요 인물][기본 정보][소속][이전 요약]으로 바뀌어 화면에서 없어졌다(탭 이름이 제목 역할). 같은 모양으로 main 쪽에서도 뺀다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
+  // 남은 h3·h4·small(할 일·자료·협의회·사업단 등)은 그대로 양쪽 스타일로 비교한다.
+  if(width<1024){const gone=await original.evaluate(()=>{const els=[...document.querySelectorAll('#wdModal #wdMoreSec summary h3,#wdModal #wdMoreSec summary small,#wdModal #wdBasic .wd-head h4,#wdModal #wdRecent .wd-head h4')];els.forEach(el=>el.remove());return els.length});expect(gone,'retired 담당조직 headings in main').toBe(4)}
   // 사업 보고 만들기·수정 창: '프로젝트' 고르기가 [연결할 곳 ▾](+ 숨은 프로젝트 칸)으로 바뀌고 장소 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   for(const [project,places,location] of [['meetingProject','meetingPlaces','meetingLocationRow'],['mrdEditProject','mrdEditPlaces','mrdEditLocationRow']]){
    const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);
@@ -434,13 +441,24 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // Two new elements carry their own PRJ-기록입력 rules that main never had: the header line (compared above on line 202)
   // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
   // UI-회의결과창정리: 묶음 설명(.mtg-note 12px)과 빈 상태(.mtg-empty 13px)도 자기 규칙이 있다(meeting-entry.spec에서 크기 확인).
-  const generic=el=>!(el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
+  // ORG-주요인물: 담당조직 상세 [주요 인물] 탭의 글(.okp-*)은 자기 규칙(작은 흐린 글씨)을 가진 새 요소라 양쪽 비교에서 뺀다(org-key-people.test 확인).
+  // UI-기다림표시통일 3차: 빈 칸 글자(main의 .empty·.empty.compact)는 공용 '없음'(.wait-empty, 회색 12px — wait-state.test에서 확인)으로
+  // 모두 옮겼다(앱에 .empty 요소 0곳). 그 둘은 양쪽에서 빼고, main 줄이 빈 칸 글자만 덮던 경우는 아래 '덮음' 검사에서 뺀다.
+  const emptyText=el=>el.class==='empty'||el.class==='empty compact'||el.class==='wait-empty';
+  const emptyOnlyRows=new Set(before.map((row,i)=>row.elements.length&&row.elements.every(emptyText)?i:-1).filter(i=>i>=0));
+  const generic=el=>!(String(el.class||'').startsWith('okp-')||el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||emptyText(el)||el.id==='ps3Summary');
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
+  // UI-기다림표시통일 2차: 민트 상자는 완료 알림에만 — 회의 AI 창 안내·프로젝트 지우기 창 안내(main의 .notice)는 회색 글자(.muted)로 바꿨다.
+  // 글자 크기는 main 200번째 줄 그대로, 색은 초록 대신 main의 같은 창 회색 안내 글자(#ps3DeleteModal p.muted)와 같아야 한다.
+  const mainMuted=await original.locator('#ps3DeleteModal p.muted').first().evaluate(el=>getComputedStyle(el).color);
+  for(const row of before)for(const el of row.elements)if(el.class==='notice'){el.class='muted';el.color=mainMuted}
+  // UI-전수디자인점검 F19(10/29): 사업영역 상세 창의 칸 제목(h3)만 다른 화면 칸 제목과 같은 13px(--ds-text-section). 색과 나머지 h3는 그대로 비교한다.
+  for(const row of before)for(const el of row.elements)if(el.ps3Head)el.fontSize='13px';
   for(const row of before)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
   expect(before).toHaveLength(16);
-  for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i]))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
+  for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i])&&!emptyOnlyRows.has(i))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
   for(const [i,row] of after.entries())if(d6bRetired.includes(d6bSelectors[i]))expect(row.elements,'retired main line '+row.line).toEqual([]);
   expect(after).toEqual(before);
   await testInfo.attach('d6b-main-style-comparison',{body:JSON.stringify({main:d6bMain,width,before,after},null,2),contentType:'application/json'});

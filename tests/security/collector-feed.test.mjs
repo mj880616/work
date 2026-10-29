@@ -53,7 +53,7 @@ function analysis({version='3.2',work='true',status='검토대기',title='가상
 const openaiOk=(items)=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:5000,output_tokens:600}});
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변경',summary:'가상지부 교섭이 다음 주 화요일로 미뤄졌다.',refs:['m1','m2'],organization:'o1',project:'p1'}]))],days=[],items=[],personal=[],dbFail=null}={}){
+function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변경',summary:'가상지부 교섭이 다음 주 화요일로 미뤄졌다.',refs:['m1','m2'],organization:'o1',project:'p1'}]))],days=[],items=[],personal=[],dbFail=null,featureWs=undefined}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={
     app_workspaces:[{id:WS,slug:'kptu-work'},{id:OTHER_WS,slug:'other-work'}],
@@ -75,6 +75,8 @@ function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변
     assert.equal(url.origin,SB,'unexpected outbound host');
     assert.equal(headers.get('apikey'),SERVICE);assert.equal(headers.get('Authorization'),`Bearer ${SERVICE}`);
     // TG-방날짜묶기 DB 함수(service_role 전용 rpc). 자세한 시험은 collector-feed-tg-roomday.test.mjs.
+    // MULTI 단계 ①: 작업공간은 허용 표 함수로 정한다(기능별). 부른 기능을 센다.
+    if(url.pathname==='/rest/v1/rpc/app_operator_feature_workspace'){calls.features=[...(calls.features||[]),JSON.parse(init.body).p_feature];return respond(JSON.stringify(featureWs===undefined?WS:featureWs),featureWs==='missing'?404:200);}
     if(url.pathname.startsWith('/rest/v1/rpc/'))return respond({ok:true});
     const table=url.pathname.replace('/rest/v1/','');const g=GRANTS[table];assert.ok(g,'table without grant: '+table);
     const body=init.body?JSON.parse(init.body):null;calls.rest.push({method,table,url:String(input),body});
@@ -182,14 +184,14 @@ test('OPTIONS는 204이고 CORS 허용 헤더를 주지 않는다. GET은 405, �
   assert.equal((await h.send('other',{})).status,400);
 });
 
-test('업무공간은 서버가 정한다: workspace·owner 칸을 보내면 400, 저장은 kptu-work로만',async()=>{
+test('업무공간은 서버가 정한다: workspace·owner 칸을 보내면 400, 저장은 허용 표의 작업공간으로만',async()=>{
   for(const extra of [{workspace_id:OTHER_WS},{owner_id:'x'},{workspace:'other-work'}]){
     const h=harness();const r=await h.send('call',{...callBody(),...extra});
     assert.equal(r.status,400);assert.equal(h.calls.rest.length,0);
   }
   const h=harness();const r=await h.send('call',callBody());assert.equal(r.status,200);
   assert.equal(h.db.app_feed_items.length,1);assert.equal(h.db.app_feed_items[0].workspace_id,WS);
-  assert.ok(h.calls.rest.find(c=>c.table==='app_workspaces').url.includes('slug=eq.kptu-work'));
+  assert.deepEqual(h.calls.features,['calls'],'작업공간은 허용 표 함수(통화)로만 정한다');assert.ok(!h.calls.rest.some(c=>c.table==='app_workspaces'),'고정 이름으로 찾지 않는다');
 });
 
 test('크기·형식 상한: 너무 큰 몸통·전사본, 깨진 JSON, 잘못된 ref·URL·날짜는 저장 전에 거절',async()=>{
@@ -546,7 +548,7 @@ test('AI 답 검사: 요약 제어 문자 제거·길이 자르기, 참조 중�
   assert.equal([...items[0].summary].length,400);assert.equal(items[0].title,'제목');assert.deepEqual(items[0].refs,[0,1]);assert.equal(r.dropped,0);
   assert.equal(parseTelegram(JSON.stringify({items:[{title:'',summary:'x',refs:['m9'],organization:'',project:''}]}),2,o,[]),null,'항목이 전부 틀리면 응답이 깨진 것');
   assert.equal(parseTelegram('{"x":1}',2,o,[]),null);assert.equal(parseTelegram('[]',2,o,[]),null);assert.equal(parseTelegram(null,2,o,[]),null);
-  assert.deepEqual(parseTelegram(JSON.stringify({items:[]}),2,o,[]),{items:[],dropped:0,unlinked:0,day:null});
+  assert.deepEqual(parseTelegram(JSON.stringify({items:[]}),2,o,[]),{items:[],dropped:0,unlinked:0,day:null,askDropped:0});
 });
 
 test('AI 답 검사(TG-소식멈춤3): 모르는 조직·프로젝트 참조는 연결만 비우고, 틀린 항목만 뺀다',()=>{
@@ -664,4 +666,18 @@ test('CALL-목록상세정리: 요약·제목 안의 "상대방(화자N)"·"화�
   assert.equal(parsed.kind,'business');
   assert.ok(parsed.points.some((x)=>x.includes('예시 김가상이 3차 교섭을 제안함')),JSON.stringify(parsed.points));
   assert.ok(!parsed.title.includes('화자')&&parsed.title.includes('예시 김가상'),parsed.title);
+});
+
+test('MULTI 단계 ①: 허용 표에 통화가 허용된 작업공간이 정확히 하나가 아니거나(null) 함수가 없으면 저장하지 않고 503',async()=>{
+  for(const featureWs of [null,'missing','not-a-uuid']){
+    const h=harness({featureWs});const r=await h.send('call',callBody());
+    assert.equal(r.status,503);assert.equal((await r.json()).error,'WORKSPACE_UNAVAILABLE');
+    assert.equal(h.db.app_feed_items.length,0);assert.equal(h.db.app_call_personal.length,0);
+    assert.ok(!h.calls.rest.some(c=>c.method!=='GET'),'nothing written');
+  }
+});
+
+test('MULTI 단계 ①: 텔레그램은 텔레그램 기능, 통화·통화 건너뜀은 통화 기능으로 작업공간을 찾는다',async()=>{
+  const t=harness();const r=await t.send('telegram',tgBody());assert.equal(r.status,200);assert.deepEqual(t.calls.features,['telegram']);
+  const c=harness();assert.equal((await c.send('call',callBody())).status,200);assert.deepEqual(c.calls.features,['calls']);
 });

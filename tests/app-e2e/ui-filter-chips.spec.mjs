@@ -6,24 +6,30 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {expandLibraryTree,focusLibraryProject,libraryNodeHead} from './helpers/library-tree.mjs';
+import {reportFilterButton,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 export function chipState(){const s=baseState();s.meetingWrites=[];s.meetings=['궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의',''].map((name,i)=>({id:`meeting-${i}`,workspace_id:s.workspace.id,title:name,series_name:name,round_no:i+1,meeting_at:'2026-10-11T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});return s}
 // UI-PC회의: PC(≥1024) 회의는 유형별 열이고 위쪽 칩은 "보일 열 고르기"(meeting-columns.spec.mjs). 회의명 필터는 1024 미만에서 본다.
 for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키보드·터치 ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
   const s=chipState();await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=meetings`);await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-  const group=page.locator('#meetingTypeFilter');await expect(group).toHaveAttribute('role','radiogroup');
-  await expect(group.getByRole('radio')).toHaveText(['전체','궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의','회의명 미지정']);
-  await group.getByRole('radio',{name:'회의명 미지정',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(1);
-  await group.getByRole('radio',{name:'궤도협의회',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(1);
-  // UI-화면폭넘침: 줄 앞 색 점은 없다(색은 필터 칩 점만).
-  expect(await page.locator('.meeting-list-row').evaluate(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').content)).toBe('none');
-  await page.keyboard.press('ArrowRight');await expect(group.getByRole('radio',{name:'노사협의회',exact:true})).toBeFocused();await page.keyboard.press('Space');
-  await expect(page.locator('.meeting-list-row h3')).toHaveText('노사협의회');
-  await page.keyboard.press('ArrowLeft');await page.keyboard.press('Enter');await expect(page.locator('.meeting-list-row h3')).toHaveText('궤도협의회');
-  await group.getByRole('radio',{name:'전체',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(s.meetings.length);
+  // UI-전수디자인점검 F01: 회의명 거르기는 칸 칩 줄 끝 [거르기 ▾] 창(공용 고르기 창)의 한 묶음. 공용 알약 칩(키보드·터치·옆 밀기)은 칸 칩 줄로 본다.
+  const rows=page.locator('.meeting-list-row');
+  expect(await reportFilterLabels(page,'name')).toEqual(['전체','궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의','회의명 미지정']);
+  await pickReportFilter(page,'name',{label:'회의명 미지정'});await expect(rows).toHaveCount(1);
+  await pickReportFilter(page,'name',{label:'궤도협의회'});await expect(rows).toHaveCount(1);
+  await expect(reportFilterButton(page)).toHaveText(/궤도협의회/);await expect(reportFilterButton(page)).toHaveClass(/is-on/);
+  // UI-화면폭넘침: 줄 앞 색 점은 없다(색은 거르기 창 줄의 점만).
+  expect(await rows.evaluate(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').content)).toBe('none');
+  await pickReportFilter(page,'name','all');await expect(rows).toHaveCount(s.meetings.length);
+  await expect(reportFilterButton(page)).toHaveText(/거르기/);await expect(reportFilterButton(page)).not.toHaveClass(/is-on/);
+  const group=page.locator('#reportKindFilter');await expect(group).toHaveAttribute('role','radiogroup');
+  await group.getByRole('radio',{name:'회의',exact:true}).focus();
+  await page.keyboard.press('ArrowRight');await expect(group.getByRole('radio',{name:'정책',exact:true})).toBeFocused();await expect(group.getByRole('radio',{name:'정책',exact:true})).toHaveAttribute('aria-checked','true');
+  await expect(rows).toHaveCount(0);
+  await page.keyboard.press('ArrowLeft');await expect(group.getByRole('radio',{name:'회의',exact:true})).toHaveAttribute('aria-checked','true');await expect(rows).toHaveCount(s.meetings.length);
   if(width===390){
-    await group.getByRole('radio',{name:'후속회의',exact:true}).tap();expect(await group.evaluate(e=>e.scrollLeft)).toBeGreaterThan(0);
-    await page.evaluate(async()=>{document.querySelector('#meetingTypeFilter').value='회의명 미지정';await window.__KPTU_RELOAD_MEETINGS__()});
+    await group.getByRole('radio',{name:'기타',exact:true}).tap();expect(await group.evaluate(e=>e.scrollLeft)).toBeGreaterThan(0);
+    await page.evaluate(async()=>{await window.__KPTU_RELOAD_MEETINGS__()});
     const geometry=await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),r=b.getBoundingClientRect(),lane=e.getBoundingClientRect();return {height:r.height,touch:getComputedStyle(b,'::after').content,wrap:getComputedStyle(e).flexWrap,inside:r.left>=lane.left-1&&r.right<=lane.right+1}});
     // UI-버튼크기: filters are 32px pill chips; a 44px touch extender (::after) stays inside the scroll lane.
     expect(geometry).toEqual({height:32,touch:'""',wrap:'nowrap',inside:true});

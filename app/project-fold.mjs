@@ -45,7 +45,7 @@ export function foldedMetadata(metadata, on) {
 
 // '▸ 접어 둔 것 n · 이름, 이름…' 한 줄의 글(머리 이름만; 길면 CSS가 말줄임으로 줄인다).
 export function foldSummary(headNames) {
-  const names = (Array.isArray(headNames) ? headNames : []).map(n => String(n || '').trim() || '이름 없는 프로젝트');
+  const names = (Array.isArray(headNames) ? headNames : []).map(n => String(n || '').trim() || '이름 없는 사업영역');
   return { count: names.length, names: names.join(', ') };
 }
 

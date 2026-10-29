@@ -1,3 +1,4 @@
+import {waitHtml, emptyHtml} from './wait-state.js';
 import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
 (()=>{
   if(window.__KPTU_CALENDAR_DAY_OVERFLOW__)return;
@@ -27,7 +28,7 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
   function taskLine(ev,row){
     const wrap=document.createElement('div');wrap.className='gt-day-row';wrap.dataset.calendarTaskLine=ev.id;wrap.dataset.taskInlineRow='';
     const menu=document.createElement('button');menu.type='button';menu.className='gt-day-menu task-inline-more';menu.dataset.calendarTaskMenu=ev.id;
-    menu.textContent='⋯';menu.setAttribute('aria-label',(ev.title||'제목 없음')+' 메뉴');menu.setAttribute('aria-haspopup','true');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-controls','calendarTaskMenu');
+    menu.innerHTML='<span class="more-dots" aria-hidden="true">⋯</span>';menu.setAttribute('aria-label',(ev.title||'제목 없음')+' 메뉴');menu.setAttribute('aria-haspopup','true');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-controls','calendarTaskMenu');
     wrap.append(row,menu);return wrap;
   }
   let openSeq=0;
@@ -41,7 +42,7 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
     if(schedules.length){const section=document.createElement('section');section.id='calendarDayEvents';schedules.forEach(e=>section.append(eventRow(e)));list.append(section)}
     if(tasks.length){const section=document.createElement('section');section.id='calendarDayTasks';const heading=document.createElement('h3');heading.textContent='할 일';section.append(heading);tasks.forEach(e=>section.append(taskLine(e,eventRow(e))));list.append(section)}
     if(tasks.length)window.KPTUGoogleTasks?.describeTasks?.(tasks.map(e=>({id:e.id,due:taskDate(e)}))).then(rows=>{if(seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;rows.forEach(t=>{const main=list.querySelector(`[data-calendar-task="${CSS.escape(t.id)}"] .gt-day-main`);if(!main)return;main.querySelector('.gt-meta')?.remove();main.insertAdjacentHTML('beforeend',window.KPTUGoogleTasks.taskMeta(t));})}).catch(()=>{});
-    if(!events.length){const known=window.KPTUCalendarPersistence?.knows?.(new Date(seoulDateKey(date)+'T00:00:00+09:00'),new Date(Date.parse(seoulDateKey(date)+'T00:00:00+09:00')+86400000))??false;list.innerHTML=`<div class="empty compact">${known?'일정 없음':'불러오는 중…'}</div>`}
+    if(!events.length){const known=window.KPTUCalendarPersistence?.knows?.(new Date(seoulDateKey(date)+'T00:00:00+09:00'),new Date(Date.parse(seoulDateKey(date)+'T00:00:00+09:00')+86400000))??false;list.innerHTML=known?emptyHtml('일정 없음'):waitHtml({rows:2})}
     // JOURNAL-일기: that day's diary first photo, small, on top of the list (opens [일기] on that day).
     Promise.all([import('./diary-data.js'),window.KPTUViewLoader?.prepare?.('diary')]).then(([diary])=>diary.diaryDayPreview(seoulDateKey(date))).then(preview=>{
       if(!preview||seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;

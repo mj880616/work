@@ -9,7 +9,7 @@ import {expectProjectTitle} from './helpers/screen-title.mjs';
 // UI-우클릭메뉴 (2026-10-22 사용자 확정): on a PC (761px~) a right-click on a card or record opens that card's own ⋯ menu at the
 // pointer (context-menu.js; same items, same handlers). The browser's own menu stays inside inputs, with a text selection, and on
 // a card without a ⋯. A phone-width window (390) is unchanged. Esc / outside press close it, and it stays inside the window.
-// Card types checked at 1280: basket update row, Google task card, project detail (<details> ⋯) and a project progress record.
+// Card types checked at 1280: basket update row, Google task card, project detail (<details> ⋯) and a project linked record line.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const APP_ORIGIN = appOrigin;
 const NOW = '2026-09-28T03:00:00.000Z';
@@ -246,7 +246,7 @@ test('390 task card: a later render with the same markup keeps the rows on scree
   await context.close();
 });
 
-// ---- project detail: <details> ⋯ and a progress record's ⋯ ----
+// ---- project detail: <details> ⋯ and a linked record line's ⋯ ----
 test('1280 project detail: right-click on the detail head opens the ⋯ panel at the pointer; Esc and outside press close it', async ({ page }) => {
   const { errors } = await projectFixture(page); await watch(page);
   await clickView(page, 'projects'); await expectProjectTitle(page,'합성 정책 사업');
@@ -264,17 +264,18 @@ test('1280 project detail: right-click on the detail head opens the ⋯ panel at
   await rightClickAt(page, head, 0.2, 0.5); await panel.locator('[data-ps3-edit-project]').click(); await expect(page.locator('#ps3CreateModal')).toBeVisible();
   expect(errors).toEqual([]);
 });
-test('1280 project detail: a record line opens the record ⋯ menu; browser menu stays inside a record edit input', async ({ page }) => {
+test('1280 project detail: a record line opens the record ⋯ menu; browser menu stays inside the summary edit input', async ({ page }) => {
   await projectFixture(page); await watch(page);
   await clickView(page, 'projects'); await expectProjectTitle(page,'합성 정책 사업');
   const rec = page.locator('#ps3Body [data-basket-link="l-p"]'), menu = page.locator('#ps3RecordMenu');
   await rec.locator('[data-ps3-record-menu]').click(); await expect(menu).toBeVisible(); const viaButton = await labels(menu); await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
   const at = await rightClickAt(page, rec, 0.5, 0.5); await expectAtPointer(page, menu, at); expect(await labels(menu)).toEqual(viaButton);
   await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
-  // MTG-프로젝트합치기 3단계: 맨 위 기록 입력칸이 없어져, 저장된 기록의 ⋯ 수정 칸(글 입력칸)에서 브라우저 메뉴가 그대로인지 본다.
-  await expect(page.locator('#ps3Body [data-ps3-record-input]')).toHaveCount(0);
-  await page.locator('#ps3Body [data-ps3-record="pr-0"] [data-ps3-record-menu]').click(); await menu.getByRole('button', { name: '수정', exact: true }).click();
-  const input = page.locator('#ps3Body form[data-ps3-edit-record="pr-0"] input');
+  // MTG-프로젝트합치기 3단계: 맨 위 기록 입력칸이 없다. 결정 ⑥: 옛 진행 기록 줄(state.progress)도 목록에 그려지지 않아, 남은 글 입력칸인
+  // 연결 줄의 ⋯ → [요약 수정] 칸에서 브라우저 메뉴가 그대로인지 본다.
+  await expect(page.locator('#ps3Body [data-ps3-record-input],#ps3Body [data-ps3-record]')).toHaveCount(0);
+  await rec.locator('[data-ps3-record-menu]').click(); await menu.getByRole('button', { name: '요약 수정', exact: true }).click();
+  const input = rec.locator('[data-link-summary-input]');
   await expect(input).toBeVisible(); await input.scrollIntoViewIfNeeded(); await rightClickAt(page, input, 0.5, 0.5); await expect(menu).toBeHidden(); expect(await kept(page)).toEqual([false, true]);
 });
 test('390 project detail: right-click changes nothing', async ({ page }) => {

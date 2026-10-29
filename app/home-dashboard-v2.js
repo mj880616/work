@@ -38,15 +38,15 @@
     home.dataset.hdvOwned='1';
     home.innerHTML=`
       <div class="dashboard-grid home-dashboard-current hdv-home-grid">
-        <article class="panel hdv-panel" id="hdvProjectPanel"><div class="panel-head"><div><h2>프로젝트</h2><p>최근 갱신된 주요 사업</p></div><button class="mini" type="button" data-hdv-goto="projects">전체</button></div><div id="hdvProjects" class="hdv-list"></div></article>
+        <article class="panel hdv-panel" id="hdvProjectPanel"><div class="panel-head"><div><h2>사업영역</h2><p>최근 갱신된 주요 사업</p></div><button class="mini" type="button" data-hdv-goto="projects">전체</button></div><div id="hdvProjects" class="hdv-list"></div></article>
         <article class="panel hdv-panel" id="hdvTaskPanel"><div class="panel-head"><div><h2>할 일</h2><p>내 미완료 업무</p></div><button class="mini" type="button" data-hdv-goto="tasks">전체</button></div><div id="hdvTasks" class="hdv-list"></div></article>
-        <article class="panel hdv-panel" id="hdvMilestonePanel"><div class="panel-head"><div><h2>다가오는 주요 일정</h2><p>현재는 프로젝트 마일스톤 기준</p></div><button class="mini" type="button" data-hdv-goto="calendar">일정</button></div><div id="hdvMilestones" class="hdv-list"></div></article>
+        <article class="panel hdv-panel" id="hdvMilestonePanel"><div class="panel-head"><div><h2>다가오는 주요 일정</h2><p>현재는 사업영역 마일스톤 기준</p></div><button class="mini" type="button" data-hdv-goto="calendar">일정</button></div><div id="hdvMilestones" class="hdv-list"></div></article>
         <article class="panel hdv-panel" id="hdvLibraryPanel"><div class="panel-head"><div><h2>자료실</h2><p>최근 등록·갱신된 자료</p></div><button class="mini" type="button" data-hdv-goto="library">전체</button></div><div id="hdvLibrary" class="hdv-list"></div></article>
       </div>`;
     return true;
   }
 
-  function empty(text){return `<div class="hdv-empty">${esc(text)}</div>`}
+  function empty(text){return globalThis.KPTUWait?.emptyHtml?.(text)||''}
   function revealHomeShell(){
     const requested=new URLSearchParams(location.search).get('view');
     if(requested&&requested!=='home')return;
@@ -58,7 +58,7 @@
   function projectRow(p){
     const phase=p.current_phase||p.metadata?.current_phase||'in_progress';
     const meta=[phaseLabel(phase),p.end_on?'종료 '+dateLabel(p.end_on):null].filter(Boolean).join(' · ');
-    return `<button class="hdv-row hdv-project" type="button" data-hdv-project="${esc(p.id)}"><div class="hdv-main"><b>${esc(p.name||'이름 없는 프로젝트')}</b><small>${esc(meta)}</small></div></button>`;
+    return `<button class="hdv-row hdv-project" type="button" data-hdv-project="${esc(p.id)}"><div class="hdv-main"><b>${esc(p.name||'이름 없는 사업영역')}</b><small>${esc(meta)}</small></div></button>`;
   }
   function taskRow(t,names){
     const project=names.get(t.project_id)||'일반 업무';
@@ -66,7 +66,7 @@
     return `<button class="hdv-row hdv-task" type="button" data-hdv-goto="tasks"><div class="hdv-main"><b>${esc(t.title||'할 일')}</b><small>${esc(project)}</small></div><span class="hdv-meta">${esc(due)}</span></button>`;
   }
   function milestoneRow(m,names){
-    return `<button class="hdv-row hdv-milestone" type="button" data-hdv-project="${esc(m.project_id)}"><span class="hdv-date">${esc(dateLabel(m.start_at))}</span><div class="hdv-main"><b>${esc(m.title||'주요 일정')}</b><small>${esc(names.get(m.project_id)||'프로젝트')}</small></div></button>`;
+    return `<button class="hdv-row hdv-milestone" type="button" data-hdv-project="${esc(m.project_id)}"><span class="hdv-date">${esc(dateLabel(m.start_at))}</span><div class="hdv-main"><b>${esc(m.title||'주요 일정')}</b><small>${esc(names.get(m.project_id)||'사업영역')}</small></div></button>`;
   }
   function documentRow(d,names){
     const meta=[d.category,names.get(d.project_id),d.source].filter(Boolean).join(' · ')||'자료';
@@ -112,10 +112,10 @@
       // A session change can happen while the requests above are in flight. Never
       // commit a previous user's dashboard into the next session's shell.
       if(epoch!==renderEpoch)return;
-      document.querySelector('#hdvProjects').innerHTML=projects.length?projects.slice(0,5).map(projectRow).join(''):empty('진행 중인 프로젝트가 없습니다.');
-      document.querySelector('#hdvTasks').innerHTML=tasks.length?tasks.slice(0,6).map(t=>taskRow(t,names)).join(''):empty('미완료 업무가 없습니다.');
-      document.querySelector('#hdvMilestones').innerHTML=future.length?future.slice(0,5).map(m=>milestoneRow(m,names)).join(''):empty('등록된 다음 주요 일정이 없습니다.');
-      document.querySelector('#hdvLibrary').innerHTML=docs.length?docs.slice(0,5).map(d=>documentRow(d,names)).join(''):empty('최근 자료가 없습니다.');
+      document.querySelector('#hdvProjects').innerHTML=projects.length?projects.slice(0,5).map(projectRow).join(''):empty();
+      document.querySelector('#hdvTasks').innerHTML=tasks.length?tasks.slice(0,6).map(t=>taskRow(t,names)).join(''):empty();
+      document.querySelector('#hdvMilestones').innerHTML=future.length?future.slice(0,5).map(m=>milestoneRow(m,names)).join(''):empty();
+      document.querySelector('#hdvLibrary').innerHTML=docs.length?docs.slice(0,5).map(d=>documentRow(d,names)).join(''):empty();
       window.__KPTU_STARTUP__?.mark('homeDataComplete');
       resolveReady?.({ok:true});resolveReady=null;
     }catch(e){
@@ -135,6 +135,8 @@
     target?.click?.();
   }
 
+  // FEAT-1029묶음 ②: 18시(서울) 뒤 홈을 열면 내일 교섭·회의 전 한 장을 한 번 만든다(규칙·만들기는 pre-meeting-sheet.js 하나).
+  function preMeetingAuto(){if(new Date(Date.now()+9*36e5).getUTCHours()<18)return;void import('./pre-meeting-sheet.js').then(m=>m.autoMakeTomorrow()).catch(()=>{})}
   function install(){
     prepareStructure();
     revealHomeShell();
@@ -144,10 +146,10 @@
       const goto=e.target.closest?.('[data-hdv-goto]');
       if(goto)window.KPTURouter?.go?.(goto.dataset.hdvGoto,{source:'home-dashboard'});
     });
-    window.KPTURouter?.on?.('home',()=>schedule(40));
+    window.KPTURouter?.on?.('home',()=>{schedule(40);preMeetingAuto()});
     window.addEventListener('kptu:session-changed',()=>{renderEpoch+=1;userId='';workspaceId='';schedule(120)});
     ['kptu:tasks-changed','kptu:projects-changed','kptu:calendar-changed','kptu:documents-changed'].forEach(name=>window.addEventListener(name,()=>schedule(80)));
-    schedule(80);
+    schedule(80);preMeetingAuto();
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();

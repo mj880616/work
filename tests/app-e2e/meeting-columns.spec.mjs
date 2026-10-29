@@ -7,6 +7,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {selectMeetingRound,openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {toplineItem} from './helpers/screen-title.mjs';
 import {showAllReportWeeks,reportWeekButton} from './helpers/report-week.mjs';
+import {reportFilterButton,reportFilterKeys,pickReportFilter} from './helpers/report-filter.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -46,7 +47,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await open(page,s,width);
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(0);
   // 위쪽 회의 종류 칩 줄은 PC에서 없다(왼쪽 목록과 겹침).
-  await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();await expect(page.locator('#meetingTypeFilter')).toBeHidden();
+  expect(await reportFilterKeys(page)).not.toContain('name');
   await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
   // 왼쪽: 가장 최근 결과가 있는 순, 색 점·이름·건수. 처음엔 맨 위(가장 최근 결과가 있는) 종류를 고른 상태.
   await expect(kindNames(page)).toHaveText(['노사협의회','궤도협의회','회의명 미지정','안전위원회']);
@@ -58,13 +59,13 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await expect(detail(page).locator('.mcol-head')).toHaveCount(0);await expect(detail(page)).toHaveAttribute('aria-label','노사협의회 2건');
   await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['2차','1차']);
   // ③: 가운데 줄은 '2차' + 오른쪽 작은 날짜 '10.12'(시간 뺌, 전체 일시는 마우스를 올리면).
-  await expect(round(page,'labor-2').locator('.mcol-date')).toHaveText('10.12');await expect(round(page,'labor-2').locator('.mcol-date')).toHaveAttribute('title',/오후 02:30/);
+  await expect(round(page,'labor-2').locator('.mcol-date')).toHaveText('10.12');await expect(round(page,'labor-2').locator('.mcol-date')).toHaveAttribute('title',/14:30/);
   // 처음 열면 가장 최근 차수(노사협의회 2차)가 오른쪽 칸에 바로 붙는다. 팝업은 없다(그 칸에 사업 보고 창 요소 하나를 그대로 붙인 것).
   await expect(round(page,'labor-2')).toHaveAttribute('aria-current','true');
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   await expect(toplineItem(page)).toHaveText('노사협의회 2차');
   await expect(result(page).locator('#meetingRoundDetailModal.mrd-docked')).toBeVisible();await expect(page.locator('body>#meetingRoundDetailModal')).toHaveCount(0);
-  await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 12. 오후 02:30');
+  await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 12. 14:30');
   await expect(result(page).locator('#mrdResult')).toHaveText('가상 노사협의회 2차 결과 원문\n둘째 줄');
   // 보는 화면: 입력칸·저장 버튼은 없고, 고치는 곳은 머리의 ⋯ 하나(×는 칸에서 없다).
   await expect(result(page).locator('#mrdEditor')).toBeHidden();await expect(result(page).locator('#mrdClose')).toBeHidden();
@@ -101,12 +102,13 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   const more=result(page).locator('#mrdMore');await more.click();
   const menu=page.locator('#mrdMoreMenu');await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
   // 메뉴는 [수정] [칸 바꾸기] [삭제], 열면 [수정]에 초점.
-  await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기','삭제']);await expect(menu.locator('button').first()).toBeFocused();
+  await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기','성명 초안 만들기','삭제']);await expect(menu.locator('button').first()).toBeFocused();
   const pos=await page.evaluate(()=>{const a=document.querySelector('#mrdMore').getBoundingClientRect(),b=document.querySelector('#mrdMoreMenu').getBoundingClientRect();return {gap:b.top-a.bottom,right:b.right<=innerWidth,left:b.left>=0}});
   expect(pos.gap).toBeGreaterThanOrEqual(0);expect(pos.gap).toBeLessThanOrEqual(12);expect(pos.right&&pos.left).toBe(true);
   // Esc는 메뉴만 닫고 ⋯로 돌아간다. 바깥을 눌러도 닫힌다.
   await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(more).toHaveAttribute('aria-expanded','false');
-  await more.click();await expect(menu).toBeVisible();await result(page).locator('#mrdResult').click({position:{x:4,y:4}});await expect(menu).toBeHidden();
+  // UI-화면정리 C: ⋯ 점이 공용 .more-dots가 되어 머리줄이 낮아지면 메뉴가 결과 글 첫 줄을 덮을 수 있으므로, 바깥 누르기는 메뉴 밖인 머리 날짜 줄에서 잰다.
+  await more.click();await expect(menu).toBeVisible();await result(page).locator('#mrdMeta').click({position:{x:4,y:4}});await expect(menu).toBeHidden();
   await more.click();await menu.locator('[data-mrd-more="edit"]').click();
   await expect(result(page).locator('#mrdEditor')).toBeVisible();await expect(result(page).locator('#mrdEditRound')).toHaveValue('5');
   await expect(page.locator('body>#meetingRoundDetailModal')).toHaveCount(0);
@@ -125,7 +127,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   // 오른쪽 위 [+ 회의 결과] 하나, 높이는 입력칸과 같은 공용 기준(36px), 누르는 범위 44px.
   const add=page.locator('#newMeetingBtn');await expect(add).toBeVisible();
   const h=await add.evaluate(e=>({box:e.getBoundingClientRect().height,touch:parseFloat(getComputedStyle(e,'::after').height)||parseFloat(getComputedStyle(e,'::after').minHeight)}));
-  expect(h.box).toBe(36);expect(h.touch).toBeGreaterThanOrEqual(44);
+  expect(h.box).toBe(32);expect(h.touch).toBeGreaterThanOrEqual(44);/* BIZ-버튼줄정리: 작고 낮게 32px */
   expect(errors).toEqual([]);
 });
 
@@ -147,7 +149,7 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   expect(reads.filter(id=>id==='labor-2').length).toBe(1);
   await showAllReportWeeks(page);await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   expect(reads.filter(id=>id==='labor-2').length).toBe(1);
-  await round(page,'labor-1').click();await expect(result(page).locator('#mrdTasks')).toContainText('후속 할 일이 없습니다.');
+  await round(page,'labor-1').click();await expect(result(page).locator('#mrdTasks [data-wait-empty]')).toHaveText('없음');
   await round(page,'labor-2').click();await expect(result(page).locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
   // 오른쪽 칸에서 ⋯ → 수정으로 원문을 고쳐 [저장]하면 같은 칸이 보는 화면으로 돌아가 새 원문을 보인다(창 없음).
   await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('고친 가상 원문');await page.locator('#mrdSaveEdit').click();
@@ -235,13 +237,13 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   // ⑤: 차수·짧은 이름이 둘 다 없으면 왼쪽 자리에 날짜만 보인다.
   await expect(detail(page).locator('.mcol-card .mcol-round').first()).toHaveText('10.20');
   const derived=round(page,'rail-derived'),upload=round(page,'rail-upload');
-  await expect(derived.locator('.mcol-round')).toHaveText('파생 간담회');await expect(derived.locator('.mcol-date')).toHaveText('10.19');await expect(derived.locator('.mcol-date')).toHaveAttribute('title','10. 19. 오후 02:00');
+  await expect(derived.locator('.mcol-round')).toHaveText('파생 간담회');await expect(derived.locator('.mcol-date')).toHaveText('10.19');await expect(derived.locator('.mcol-date')).toHaveAttribute('title','10. 19. 14:00');
   await expect(upload.locator('.mcol-round')).toHaveText('10.20');await expect(upload.locator('.mcol-date')).toHaveCount(0);
   // 직접 지정한 시각은 그대로.
-  await expect(round(page,'rail-6').locator('.mcol-date')).toHaveText('9.6');await expect(round(page,'rail-6').locator('.mcol-date')).toHaveAttribute('title','9. 6. 오전 10:00');
+  await expect(round(page,'rail-6').locator('.mcol-date')).toHaveText('9.6');await expect(round(page,'rail-6').locator('.mcol-date')).toHaveAttribute('title','9. 6. 10:00');
   // 오른쪽 결과 머리와 결과 창 머리 글자도 같은 규칙(연도 포함), 짧은 이름을 앞에.
-  await derived.click();await expect(toplineItem(page)).toContainText('파생 간담회');await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
-  await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
+  await derived.click();await expect(toplineItem(page)).toContainText('파생 간담회');await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 19. 14:00');
+  await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 14:00');
   await expect(page.locator('#mrdMeta')).not.toContainText('기존 제목');
   // 수정 창의 짧은 이름 칸: 지금 짧은 이름이 들어 있고, 바꾸면 제목(title)만 바뀐다(종류 이름·저장된 시각은 그대로).
   await mrdMenu(page,'edit');await expect(page.locator('#mrdEditShortName')).toHaveValue('파생 간담회');
@@ -273,15 +275,16 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   s.meetings.push({id:'rail-derived',workspace_id:s.workspace.id,title:'파생 간담회',series_name:'궤도협의회',round_no:null,meeting_at:'2026-10-18T15:00:00Z',transcript_text:'일시: 2026. 10. 19.(월) 14:00',created_by:s.user.id});
   await open(page,s,390);
   await expect(page.locator('#meetingList :is(.mcol-layout,.mcol-kinds,.mcol-detail)')).toHaveCount(0);
-  await expect(page.locator('#meetingsView .meeting-toolbar')).toBeVisible();await expect(page.locator('#meetingTypeFilter')).toBeVisible();
+  // UI-전수디자인점검 F01: 회의명 칩 줄 대신 칸 칩 줄 끝 [거르기 ▾] 하나.
+  await expect(reportFilterButton(page)).toBeVisible();expect(await reportFilterKeys(page)).toContain('name');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(s.meetings.length);
   // 폰도 PC처럼 최신이 위: 시각 내림차순(받은 순서에 기대지 않음).
   expect(await page.locator('#meetingList [data-mrd-meeting]').evaluateAll(els=>els.map(e=>e.dataset.mrdMeeting))).toEqual(['rail-derived','labor-2','labor-1','rail-6','rail-5','rail-4','rail-3','rail-2','rail-1','blank-1','safety-1']);
   await expect(page.locator('[data-mrd-meeting="rail-6"] p')).toContainText('회의자료 있음');
   await expect(page.locator('[data-mrd-meeting="rail-6"] p')).not.toContainText('2개');
   await expect(page.locator('[data-mrd-meeting="rail-5"] p')).not.toContainText('회의자료');
-  await expect(page.locator('[data-mrd-meeting="rail-derived"] p')).toHaveText('파생 간담회 · 10. 19. 오후 02:00');
-  await expect(page.locator('[data-mrd-meeting="blank-1"] p')).toHaveText('8. 20. 오전 10:00');
+  await expect(page.locator('[data-mrd-meeting="rail-derived"] p')).toHaveText('파생 간담회 · 10. 19. 14:00');
+  await expect(page.locator('[data-mrd-meeting="blank-1"] p')).toHaveText('8. 20. 10:00');
   // 폰의 [+ 회의 결과]는 지금처럼 회의명 없이 연다.
   await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingNameSelect')).toHaveValue('__other__');await expect(page.locator('#meetingTitle')).toHaveValue('');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
@@ -323,7 +326,7 @@ test('폰 390: 회의 목록은 최신 차수가 위(6차→1차), 시각이 같
   expect(await order()).toEqual(['labor-1','tie-6','tie-5','tie-4','tie-3','tie-2','tie-1']);
   await expect(page.locator('#meetingList .meeting-list-row').nth(1).locator('h3')).toHaveText('궤도협의회');
   // 회의 종류 칩으로 거른 뒤에도 최신이 위.
-  await page.locator('#meetingTypeFilter').getByRole('radio',{name:'궤도협의회',exact:true}).click();
+  await pickReportFilter(page,'name',{label:'궤도협의회'});
   expect(await order()).toEqual(['tie-6','tie-5','tie-4','tie-3','tie-2','tie-1']);
   // PC 3단: 가운데 차수 목록은 지금처럼 6차→1차, 왼쪽 종류 순서도 그대로.
   await page.setViewportSize({width:1280,height:900});await page.waitForFunction(()=>document.querySelector('#meetingList .mcol-kinds'));
@@ -430,6 +433,27 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   await page.evaluate(()=>window.KPTUMeetingColumns.select({id:'week-new'}));
   await expect(label).toHaveText('10.19(월)~10.25(일) 1건');await expect.poll(shown).toEqual(['week-new']);
   if(pc)await expect(result(page)).toHaveAttribute('data-meeting-result','week-new');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  expect(errors).toEqual([]);
+});
+
+// MTG-프로젝트합치기 ⑤: 일시가 없는 보고는 주 단위 목록에서 빠지지 않고 어느 주에서나 맨 아래 '일시 없음'으로 보인다(주 줄에 따로 센다).
+for(const width of [390,1280])test(`${width}: 사업 보고 [목록] 주 단위 — 일시 없는 보고도 맨 아래 '일시 없음'으로 보인다`,async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=baseState();s.meetingWrites=[];
+  const row=(id,round,at)=>({id,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:round,meeting_at:at,transcript_text:'원문 '+id,created_by:s.user.id});
+  s.meetings=[row('week-old',1,'2026-10-13T01:00:00Z'),row('week-new',2,'2026-10-20T01:00:00Z'),row('no-when',3,null)];
+  await open(page,s,width,900,{allWeeks:false});
+  const pc=width>=1024;
+  const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
+  const label=page.locator('#reportWeekFilter .report-week-label');
+  await expect(label).toHaveText('10.19(월)~10.25(일) 1건 · 일시 없음 1');
+  await expect.poll(shown).toEqual(['week-new','no-when']);
+  if(pc)await expect(page.locator('#meetingList [data-meeting-round="no-when"]')).toHaveAttribute('aria-label',/일시 없음/);
+  else await expect(page.locator('#meetingList [data-mrd-meeting="no-when"]')).toContainText('일시 없음');
+  await reportWeekButton(page,'prev').click();
+  await expect(label).toHaveText('10.12(월)~10.18(일) 1건 · 일시 없음 1');
+  await expect.poll(shown).toEqual(['week-old','no-when']);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
 });

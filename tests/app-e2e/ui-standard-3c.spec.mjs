@@ -72,7 +72,7 @@ async function sameButtons(page,region,skip='.icon-btn'){
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('[data-event-mode]')?'segment':'button');
   // UI-버튼줄이기: 창 주 동작·HWP [내 기기에 저장]은 36px, 창 보조·HWP 보조는 32px.
   // UI-버튼전수조사(2026-10-24): 남은 46px 버튼도 기준으로 — 채운 버튼(주 동작)은 36px, 나머지는 작은 버튼 32px.
-  const want=await control.evaluate(el=>el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,#gtDeleteBtn,#gtToggleBtn,.gt-pick-btn,.gt-pane-save,#wdInboxBig')?32:el.matches('.primary,#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate,#wdInboxSave')?36:32);
+  const want=await control.evaluate(el=>el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,#gtDeleteBtn,#gtToggleBtn,.gt-pick-btn,.gt-pane-save,#wdInboxBig,#wdInboxSave')?32:el.matches('.primary,#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate')?36:32);
   if(kind==='button'){expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');}
   else{expect(s.height,label).toBeGreaterThanOrEqual(kind==='chip'?32:30);expect(s.height,label).toBeLessThanOrEqual(32);if(kind==='chip')expect(s.radius,label).toBe('999px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
@@ -243,7 +243,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  await view(page,'calendar');await page.locator('#newEventBtn').click();
  modal=page.locator('#eventModal');await expect(modal).toBeVisible();
  await titleOf(modal);await inputs(modal);await labels(modal);
- expect(await sameButtons(page,modal,'.icon-btn,.calendar-color-swatch,[role="radio"]')).toEqual(['저장']);
+ expect(await sameButtons(page,modal,'.icon-btn,.ui-swatch,[role="radio"]')).toEqual(['저장']);
  expect((await look(modal.locator('[data-event-mode="event"]'))).bg).toBe(await token(page,'--ds-select-bg'));
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
  // 자료 등록
@@ -254,7 +254,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  // 회의 상세: 제목 줄 ⋯ 하나에 [수정]·[칸 바꾸기]·[삭제]가 있고 큰 버튼 줄은 없다(MTG-보고창정리).
  await view(page,'meetings');await openFirstMeetingResult(page);
  modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
- await expect(modal.locator('#mrdEdit,#mrdKind,#mrdDelete')).toHaveCount(0);await modal.locator('#mrdMore').click();const del=modal.locator('#mrdMoreMenu [data-mrd-more="delete"]');await expect(del).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);await page.keyboard.press('Escape');await expect(del).toBeHidden();
+ await expect(modal.locator('#mrdEdit,#mrdKind,#mrdDelete')).toHaveCount(0);await modal.locator('#mrdMore').click();const del=modal.locator('#mrdMoreMenu [data-mrd-more="delete"]');await expect(del).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','성명 초안 만들기','삭제']);await page.keyboard.press('Escape');await expect(del).toBeHidden();
  // PC는 세 번째 칸에 붙은 화면이라 닫을 창이 없다(Esc는 메뉴만 닫는다). 폰·중간 폭만 창이 닫힌다.
  if(!(await modal.evaluate(m=>m.dataset.mrdDocked==='1'))){await page.keyboard.press('Escape');await expect(modal).toBeHidden()}
  // 프로젝트 상세: 제목 18px, 위계(상위 링크는 제목 위)·⋯ 메뉴·접기(<details>)는 그대로.
@@ -281,7 +281,7 @@ test('일정 [Google Calendar] 설정 칸 버튼도 같은 기준(옛 !important
 
 test('동그란 [+]: 선으로 그린 + 가 원의 가로·세로 정가운데(한국어 로케일, 밝은·어두운 화면, 네 화면)',async({page})=>{
  const {errors}=await boot(page,390);
- for(const [name,id] of [['calendar','#newEventBtn'],['projects','#newProjectBtn'],['library','#newDocumentBtn']]){
+ for(const [name,id] of [['calendar','#newEventBtn'],['library','#newDocumentBtn']]){ // MTG-프로젝트합치기 ①: [+ 사업영역]은 창 머리줄 버튼(둥근 [+] 아님)
   await view(page,name);const button=page.locator(id);await expect(button).toBeVisible();
   for(const scheme of ['light','dark']){
    await page.emulateMedia({colorScheme:scheme});await page.waitForTimeout(100);

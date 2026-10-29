@@ -5,9 +5,12 @@
 // - 결과 창·전용 화면·전체 화면은 같은 그리기 함수(paint)로 그린다. 형광은 textContent 조각 + <mark>(HTML 삽입 없음).
 // - 결과를 누르면 source 칸 기준으로 원본 화면의 기존 여는 함수를 부른다. 상단 줄 ←→(앱 안 이동 기록)로 돌아온다.
 // 저장하는 것 없음(최근 검색어 기억 안 함, 결정 7). 로그인이 바뀌면 메모리를 비운다.
+// FEAT-1029묶음 ① Web2에 물어보기(docs/design/ask-web2.md 1절): 질문처럼 보이면 결과 맨 위 [Web2에 물어보기 ↵] 줄, 누르거나 Enter면 답 상자.
+//   답 상자·최근 물어본 것도 이 모듈의 paint가 그린다(규칙은 ask-web2-model.mjs, 서버 호출은 global-search-data.js). AI는 누를 때만 부른다.
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
   groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
 import * as data from './global-search-data.js';
+import {waitEl, waitInlineEl, emptyEl} from './wait-state.js';
 import {renderFilterChips} from './filter-chips.js';
 import {placeAnchored, clearAnchored, followAnchor} from './anchored-popup.js';
 import {requestBasketNote, requestNoteDocOpen, requestTaskOpen} from './basket-note-tasks.js';
@@ -15,6 +18,7 @@ import {requestLibraryDocument, requestLibrarySelection} from './basket-library-
 import {createAnchoredMenu} from './anchored-menu.js';
 import {notify} from './small-notice.js';
 import {looksSecret, SECRET_TITLE} from './note-secret.mjs';
+import {canAsk, looksLikeQuestion, ASK_TEXT, askFailText, cleanAnswer, answerNote, tagLabel, sourcesSummary, sourceTarget, recentLabel} from './ask-web2-model.mjs';
 
 (() => {
 'use strict';
@@ -27,8 +31,10 @@ let state = fresh();
 let seq = 0, timer = 0;
 function fresh() {
   return {text: '', words: [], hint: '', phase: 'idle', error: '', groups: null, server: null, kind: 'all',
-    kindRows: null, kindTotal: 0, kindCapped: false, kindOffset: 0, kindMore: false, kindBusy: false, local: null};
+    kindRows: null, kindTotal: 0, kindCapped: false, kindOffset: 0, kindMore: false, kindBusy: false, local: null,
+    ask: idleAsk(), recent: null};
 }
+function idleAsk() { return {phase: 'idle', q: '', answer: null, msg: ''}; }
 
 // ---------- 아이콘 ----------
 const ICON = {
@@ -36,7 +42,8 @@ const ICON = {
   document: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4', meeting: 'M4 5h16v11H9l-5 4zM8 9h8M8 12h5', schedule: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14',
   work: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5', project: 'M3 7h7l2 2h9v12H3zM3 7V4h7l2 3',
   organization: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2',
-  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4'
+  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
+  ask: 'M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z'
 };
 function icon(name, cls = 'gs-icon') {
   const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'), path = document.createElementNS(ns, 'path');
@@ -53,6 +60,7 @@ function marked(text, words, cls) {
 // ---------- 찾기 ----------
 function setText(text) {
   state.text = String(text ?? '');
+  if (state.ask.phase !== 'idle' && state.ask.q !== state.text.trim()) { askSeq++; state.ask = idleAsk(); }
   syncInputs(); syncAddress();
   clearTimeout(timer);
   const parsed = parseQuery(state.text);
@@ -136,12 +144,16 @@ function paint(host, where) {
   host.replaceChildren();
   const box = el('div', 'gs-results');
   box.dataset.gsWhere = where;
-  const statusLine = el('p', 'gs-status'); statusLine.setAttribute('role', 'status'); statusLine.setAttribute('aria-live', 'polite');
+  const statusLine = el('div', 'gs-status'); statusLine.setAttribute('role', 'status'); statusLine.setAttribute('aria-live', 'polite');
   if (state.phase === 'idle') {
     statusLine.textContent = '두 글자 이상 입력하면 업데이트·노트·할 일·자료실·사업 보고·일정을 함께 찾아요.';
-    box.append(statusLine); host.append(box); return;
+    box.append(statusLine);
+    const recent = recentNode(where); if (recent) box.append(recent);
+    host.append(box); return;
   }
-  if (state.phase === 'hint') { statusLine.textContent = state.hint; box.append(statusLine); host.append(box); return; }
+  const asking = askNodes(where);
+  box.append(...asking);
+  if (state.phase === 'hint') { statusLine.textContent = state.hint; box.append(statusLine); appendAskMore(box); host.append(box); return; }
   if (state.groups) {
     const chips = el('div', 'gs-chips');
     const options = chipOptions(state.groups);
@@ -152,9 +164,10 @@ function paint(host, where) {
     renderFilterChips(chips, {options, value: state.kind, label: '찾을 종류', small: true, onChange: v => chooseKind(v)});
     box.append(chips);
   }
-  if (state.phase === 'loading' && !state.groups) statusLine.textContent = '찾는 중…';
+  // UI-기다림표시통일 2차: 찾는 동안은 글자 없이 가는 줄 + 회색 빈 줄(wait-state.js).
+  const searching = () => statusLine.replaceChildren(waitEl({rows: state.groups ? 1 : 3}));
+  if (state.phase === 'loading') searching();
   else if (state.phase === 'error') statusLine.textContent = state.error;
-  else if (state.phase === 'loading') statusLine.textContent = '찾는 중…';
   box.append(statusLine);
   const list = el('div', 'gs-list'); list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', '검색 결과');
   list.id = `gsList-${where}`;
@@ -162,10 +175,10 @@ function paint(host, where) {
     const groups = state.kind === 'all' ? state.groups.filter(g => g.total > 0)
       : [{...state.groups.find(g => g.key === state.kind), items: state.kindRows || [], kindMode: true}];
     if (!groups.length || (state.kind !== 'all' && !groups[0]?.items?.length && !state.kindBusy && state.kindRows)) {
-      if (state.phase === 'ready') statusLine.textContent = '찾은 기록이 없어요.';
+      if (state.phase === 'ready') statusLine.replaceChildren(emptyEl());
     }
     for (const g of groups) if (g?.key) list.append(groupNode(g, where));
-    if (state.kind !== 'all' && state.kindBusy && !state.kindRows?.length) statusLine.textContent = '찾는 중…';
+    if (state.kind !== 'all' && state.kindBusy && !state.kindRows?.length) searching();
   }
   box.append(list);
   const notes = [];
@@ -173,6 +186,7 @@ function paint(host, where) {
   if (state.local?.tasksFailed) notes.push('할 일은 이번에 찾지 못했어요.');
   if (state.groups) notes.push('할 일은 미완료와 최근 완료만, Google 일정은 지난 3개월~앞 6개월의 제목·장소만 찾아요. 더 오래된 일정은 달력에서 찾아 주세요.');
   for (const n of notes) box.append(el('p', 'gs-foot', n));
+  appendAskMore(box);
   host.append(box);
   const again = prevActive && host.querySelector(`[role="option"][data-gs-key="${CSS.escape(prevActive)}"]`);
   if (again) setActive(host, again, {scroll: false});
@@ -190,12 +204,125 @@ function groupNode(g, where) {
     sec.append(more);
   }
   if (g.kindMode && state.kindMore) {
-    const more = el('div', 'gs-more', state.kindBusy ? '불러오는 중…' : '더 보기');
+    const more = el('div', 'gs-more', '더 보기');
+    if (state.kindBusy) { more.setAttribute('aria-busy', 'true'); more.append(' ', waitInlineEl()); }
     more.setAttribute('role', 'option'); more.id = `gsOpt-${where}-${++optionSeq}`; more.dataset.gsKey = `next:${g.key}`; more.dataset.gsNext = g.key;
     sec.append(more);
   }
   return sec;
 }
+// ---------- Web2에 물어보기(답 상자·물어보기 줄·최근 물어본 것) ----------
+let askSeq = 0, recentSeq = 0;
+const askSources = new Map(); // 'ref:답id' → 근거(누르면 연다)
+// 질문처럼 보이면 결과 맨 위 한 줄(↑↓·Enter로도 고름). 물었으면 그 아래 답 상자.
+function askNodes(where) {
+  const out = [];
+  const q = state.text.trim();
+  if (state.ask.phase === 'idle' && looksLikeQuestion(q)) {
+    const line = el('div', 'gs-ask-line'); line.setAttribute('role', 'option'); line.id = `gsOpt-${where}-${++optionSeq}`; line.dataset.gsKey = 'ask'; line.dataset.gsAsk = '1';
+    line.append(icon('ask'), el('b', 'gs-ask-name', 'Web2에 물어보기 ↵'), el('span', 'gs-ask-hint', 'AI · 근거 기록과 함께'));
+    out.push(line);
+  }
+  if (state.ask.phase !== 'idle') out.push(answerBox(where));
+  return out;
+}
+// 질문처럼 보이지 않아도 결과 맨 아래 작은 글자 단추로 물을 수 있다.
+function appendAskMore(box) {
+  const q = state.text.trim();
+  if (state.ask.phase !== 'idle' || !canAsk(q) || looksLikeQuestion(q)) return;
+  const b = el('button', 'gs-ask-more', '이 내용으로 Web2에 물어보기'); b.type = 'button'; b.dataset.gsAskMore = '1';
+  box.append(b);
+}
+function answerBox(where) {
+  const a = state.ask, answer = a.answer;
+  const box = el('section', 'gs-ask-box'); box.setAttribute('aria-label', 'Web2에 물어보기 답');
+  const head = el('div', 'gs-ask-head');
+  head.append(icon('ask'), el('b', 'gs-ask-name', 'Web2에 물어보기'));
+  if (answer?.at) { const t = new Date(Date.parse(answer.at) + 9 * 3600 * 1000); if (Number.isFinite(t.getTime())) head.append(el('span', 'gs-ask-time', `${t.getUTCMonth() + 1}/${t.getUTCDate()} ${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`)); }
+  if (a.phase !== 'busy') { const again = el('button', 'gs-ask-again', '다시 묻기'); again.type = 'button'; again.dataset.gsAskAgain = '1'; head.append(again); }
+  box.append(head, el('p', 'gs-ask-q', a.q));
+  const status = el('p', 'gs-ask-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+  if (a.phase === 'busy') { box.append(waitEl({rows: 3})); return box; }
+  if (a.phase === 'fail') { status.textContent = a.msg; box.append(status); return box; }
+  const note = answerNote(answer);
+  if (answer?.lines?.length) {
+    const list = el('ul', 'gs-ask-lines');
+    for (const line of answer.lines) {
+      const li = el('li', 'gs-ask-text', line.text);
+      for (const ref of line.refs) { const src = answer.sources.find(s => s.ref === ref); if (src) li.append(' ', srcButton(src, answer, 'gs-ask-tag', tagLabel(src))); }
+      list.append(li);
+    }
+    box.append(list);
+  }
+  if (note) { status.textContent = note; box.append(status); }
+  if (answer?.sources?.length) {
+    // QA-E2E간헐1029-2: 결과 창은 늦게 온 검색·할 일·일정 응답마다 통째로 다시 그린다. 펼침 여부는 이 답(state.ask)이 들고,
+    // 다시 그릴 때 그대로 편다(누른 순간 요약 줄 click에서 바로 적어 두어, toggle 이벤트 전에 다시 그려져도 잃지 않음).
+    const det = el('details', 'gs-ask-src'); det.open = !!a.srcOpen;
+    det.addEventListener('toggle', () => { if (det.isConnected && state.ask === a) a.srcOpen = det.open; });
+    const sum = el('summary', null, sourcesSummary(answer.sources));
+    sum.addEventListener('click', () => { if (state.ask === a) a.srcOpen = !det.open; });
+    det.append(sum);
+    for (const src of answer.sources) {
+      const row = srcButton(src, answer, 'gs-ask-src-row');
+      row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', src.title));
+      if (src.tag) row.append(el('span', 'gs-state', src.tag));
+      if (src.snippet) row.append(el('span', 'gs-ask-src-snip', src.snippet));
+      det.append(row);
+    }
+    box.append(det);
+  }
+  if (answer?.lines?.length) box.append(el('p', 'gs-ask-foot', ASK_TEXT.foot));
+  return box;
+}
+function srcButton(src, answer, cls, text = '') {
+  const b = el('button', cls, text || null); b.type = 'button';
+  const key = `${src.ref}:${answer.id || 'new'}`; askSources.set(key, src); b.dataset.gsSrc = key;
+  if (!sourceTarget(src)) b.disabled = true;
+  return b;
+}
+async function ask() {
+  const q = state.text.trim();
+  if (!canAsk(q)) return;
+  const mine = ++askSeq;
+  state.ask = {phase: 'busy', q, answer: null, msg: ''}; paintAll();
+  const r = await data.askWeb2(q).catch(() => ({ok: false, code: 'failed'}));
+  if (mine !== askSeq) return;
+  const answer = r.ok ? cleanAnswer(r.data) : null;
+  state.ask = answer ? {phase: 'done', q, answer, msg: ''} : {phase: 'fail', q, answer: null, msg: askFailText(r.code)};
+  state.recent = null;
+  paintAll();
+}
+// 최근 물어본 것(검색칸을 비운 채): 저장된 답을 다시 띄운다(AI 다시 안 부름).
+function recentNode(where) {
+  if (state.recent == null) { void loadRecent(); return null; }
+  if (!state.recent.length) return null;
+  const sec = el('section', 'gs-group gs-recent'); sec.setAttribute('role', 'group');
+  const band = el('div', 'gs-band'); band.id = `gsBand-${where}-recent`;
+  band.append(icon('ask'), el('b', 'gs-band-name', '최근 물어본 것'));
+  sec.setAttribute('aria-labelledby', band.id); sec.append(band);
+  state.recent.forEach((answer, i) => {
+    const row = el('div', 'gs-row'); row.setAttribute('role', 'option'); row.id = `gsOpt-${where}-${++optionSeq}`;
+    row.dataset.gsKey = `recent:${answer.id || i}`; row.dataset.gsRecent = String(i);
+    row.append(icon('ask'), el('span', 'gs-row-main', recentLabel(answer)));
+    sec.append(row);
+  });
+  return sec;
+}
+async function loadRecent() {
+  const mine = ++recentSeq; state.recent = [];
+  const rows = await data.recentAsks();
+  if (mine !== recentSeq) return;
+  state.recent = rows.map(cleanAnswer).filter(a => a && a.question);
+  if (state.recent.length && state.phase === 'idle') paintAll();
+}
+function showRecent(i) {
+  const answer = state.recent?.[i]; if (!answer) return;
+  setText(answer.question);
+  askSeq++; state.ask = {phase: 'done', q: answer.question, answer, msg: ''};
+  paintAll();
+}
+
 const rowsByKey = new Map();
 // SEARCH-선택옮기기 ③(2026-10-28 10:44): 자료실 결과 줄마다 지금 들어 있는 폴더를 작게 '📁 회의자료'. 화면에 그린 자료의 폴더만 한 번에 읽는다
 // (자료실과 같은 소유자 표 app_library_folder_items·app_library_folders, 읽기만). 검색할 때마다·자료가 바뀌면(옮긴 뒤) 다시 읽어 바로 바뀐다. 메모리만.
@@ -258,6 +385,8 @@ function moveActive(host, step) {
 }
 function activate(option) {
   if (!option) return;
+  if (option.dataset.gsAsk) { void ask(); return; }
+  if (option.dataset.gsRecent != null) { showRecent(Number(option.dataset.gsRecent)); return; }
   if (option.dataset.gsMore) { showAll(option.dataset.gsMore); return; }
   if (option.dataset.gsNext) { if (!state.kindBusy) void loadKind(option.dataset.gsNext); return; }
   const item = rowsByKey.get(option.dataset.gsKey);
@@ -266,8 +395,8 @@ function activate(option) {
 
 // ---------- 원본 열기(source 기준, 각 화면의 기존 여는 함수) ----------
 let opening = 0;
-async function openItem(item) {
-  const target = openTarget(item);
+function openItem(item) { return openView(openTarget(item)); }
+async function openView(target) {
   if (!target) return;
   const mine = ++opening;
   await closePanel();
@@ -282,13 +411,16 @@ async function openItem(item) {
     } else if (target.view === 'library') { requestLibraryDocument(target.id); r.go('library', {source: 'delegated'}); }
     else if (target.view === 'tasks') { requestTaskOpen(target.id); r.go('tasks', {source: 'delegated'}); }
     else if (target.view === 'journal') { r.go('journal', {source: 'delegated'}); if (target.day) window.KPTUJournal?.show?.(target.day); }
-    else if (target.view === 'projects') { r.go('projects', {source: 'delegated'}); await window.KPTUProjects?.open?.(target.id); }
+    else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({id: target.id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     else if (target.view === 'team') { r.go('team', {source: 'delegated'}); await window.KPTUWorkplace?.open?.(target.id); }
     else if (target.view === 'meetings') {
       r.go('meetings', {source: 'delegated'});
       await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
       await window.KPTUMeetingRoundDetail?.open?.(target.id);
-    } else if (target.view === 'calendar') {
+    } else if (target.view === 'calls') { r.go('calls', {source: 'delegated'}); await window.KPTUCallFeed?.open?.(target.id); }
+    else if (target.view === 'telegram') { r.go('telegram', {source: 'delegated'}); await window.KPTUTelegramFeed?.show?.(target.room, target.day, target.item); }
+    else if (target.view === 'ledger') { window.KPTULedgerBrowse?.show?.({openId: target.id}); r.go('ledger', {source: 'delegated'}); }
+    else if (target.view === 'calendar') {
       r.go('calendar', {source: 'delegated'});
       await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
       window.KPTUCalendarEvents?.open?.(target.id, target.calendarId);
@@ -378,6 +510,7 @@ function onKey(e, input) {
     const active = host?.querySelector('[role="option"].is-active');
     e.preventDefault();
     if (active) activate(active);
+    else if (state.ask.phase === 'idle' && looksLikeQuestion(state.text)) void ask();
     return;
   }
   if (e.key === 'Escape') {
@@ -516,6 +649,14 @@ document.addEventListener('contextmenu', e => {
   window.KPTUContextMenu?.pinAt?.(option, e.clientX, e.clientY);
   gsRowMenu().open(option);
 }, true);
+// 답 상자 단추(근거 꼬리표·근거 줄·다시 묻기·작은 물어보기 단추).
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('.gs-panel button[data-gs-src], #searchView button[data-gs-src], .gs-panel [data-gs-ask-again], #searchView [data-gs-ask-again], .gs-panel [data-gs-ask-more], #searchView [data-gs-ask-more]');
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  if (b.dataset.gsSrc) { const src = askSources.get(b.dataset.gsSrc); if (src) void openView(sourceTarget(src)); return; }
+  void ask();
+}, true);
 // 결과 줄 누르기(결과 창·전용 화면 공용).
 document.addEventListener('click', e => {
   const option = e.target.closest?.('.gs-panel [role="option"], #searchView [role="option"]');
@@ -538,7 +679,7 @@ function mountMenuEntry() {
   host.append(button);
 }
 
-window.addEventListener('kptu:session-changed', () => { seq++; clearTimeout(timer); state = fresh(); kindServer = []; rowsByKey.clear(); for (const {input} of inputs) input.value = ''; void closePanel(); paintAll(); });
+window.addEventListener('kptu:session-changed', () => { seq++; askSeq++; recentSeq++; askSources.clear(); clearTimeout(timer); state = fresh(); kindServer = []; rowsByKey.clear(); for (const {input} of inputs) input.value = ''; void closePanel(); paintAll(); });
 
 mountSlot();
 mountMenuEntry();

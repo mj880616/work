@@ -11,7 +11,7 @@ import {createGoogleTask} from './quick-save.js';
 import {recordNoteTask, noteTaskEntry} from './basket-note-tasks.js';
 
 export const RADAR_KIND_LABEL = Object.freeze({request:'요청', my_task:'내 할 일', deadline:'마감', prepare:'준비', attend:'참석'});
-export const RADAR_SOURCE_LABEL = Object.freeze({basket:'업데이트', note:'노트', work:'일지', meeting:'사업 보고', org_update:'조직 기록', project_update:'프로젝트 기록'});
+export const RADAR_SOURCE_LABEL = Object.freeze({basket:'업데이트', note:'노트', work:'일지', meeting:'사업 보고', org_update:'조직 기록', project_update:'사업영역 기록', telegram:'텔레그램'});
 // JOURNAL-챙길것화면 ⑥: the first 4 open rows, the rest behind 'N건 더 ›' (home and journal alike).
 export const HOME_ROWS = 4;
 export const TASK_TITLE_MAX = 200;
@@ -49,10 +49,39 @@ export function validCandidate(row) {
 }
 const clean = rows => (Array.isArray(rows) ? rows : []).filter(validCandidate);
 
+// FEAT-1029 ⑤: a telegram candidate (server collector-feed, migration 20261029120000) points at one telegram news row (app_feed_items,
+// owner read). One read per list adds the room (key + name) so the row shows '텔레그램 · 방 이름' and opens that room·day. A failed
+// or missing read only leaves the room out ('텔레그램'); the candidate itself is still shown.
+export const ROOM_KEY = /^[A-Za-z0-9_.:-]{1,100}$/;
+async function withTelegramPlaces(rows, rt) {
+  const ids = [...new Set(rows.filter(r => r.source_kind === 'telegram').map(r => String(r.source_id).toLowerCase()))].slice(0, 100);
+  if (!ids.length) return rows;
+  try {
+    const found = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(workspace(rt))}&source=eq.telegram&id=in.(${ids.map(encode).join(',')})&select=id,room_key,room_label&limit=100`, {singleFlight:false});
+    const byId = new Map((Array.isArray(found) ? found : []).filter(f => UUID.test(String(f?.id)) && ROOM_KEY.test(String(f?.room_key || '')))
+      .map(f => [String(f.id).toLowerCase(), {room_key:String(f.room_key), room_label:typeof f.room_label === 'string' ? f.room_label.trim().slice(0, 60) : ''}]));
+    for (const r of rows) if (r.source_kind === 'telegram') { const place = byId.get(String(r.source_id).toLowerCase()); if (place) r.tg = place; }
+  } catch { /* room names are extra; the rows stay */ }
+  return rows;
+}
+// The source words on a row: '텔레그램 · 가지부 간부방' for a telegram candidate whose room is known, else the plain label.
+export function sourceText(c) {
+  const label = RADAR_SOURCE_LABEL[c?.source_kind] || '기록';
+  return c?.source_kind === 'telegram' && c.tg?.room_label ? `${label} · ${c.tg.room_label}` : label;
+}
+
 export async function readOpenCandidates(rt = window.KPTURuntime) {
   try {
     const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false});
-    return {ok:true, rows:clean(rows)};
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+// TG-요청강조: the 텔레그램 소식 list marks the room·day rows that hold an open "나한테 온 요청" (the same ask_me result the collector
+// server saved as a candidate; no new AI judgement). One read of the open telegram candidates plus the room lookup above.
+export async function readTelegramAsks(rt = window.KPTURuntime) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&source_kind=eq.telegram&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false});
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 // BASKET-정리함이름: the 정리함's [챙길 것] side shows what is still open and, under its other chips, what was sent to a task or
@@ -64,7 +93,7 @@ export async function readInboxCandidates(rt = window.KPTURuntime) {
       rt.api(`${base}&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false}),
       rt.api(`${base}&status=in.(tasked,dismissed)&select=${FIELDS}&order=decided_at.desc.nullslast,id.asc&limit=100`, {singleFlight:false}),
     ]);
-    return {ok:true, rows:[...clean(open), ...clean(handled)]};
+    return {ok:true, rows:await withTelegramPlaces([...clean(open), ...clean(handled)], rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 // JOURNAL-챙길것화면 ⑤: home shows what is still open and, folded below, what was handled since `since` (today's start).
@@ -72,7 +101,7 @@ export async function readHomeCandidates(since, rt = window.KPTURuntime) {
   if (!Number.isFinite(Date.parse(since))) return {ok:false};
   try {
     const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&or=${encode(`(status.eq.open,decided_at.gte."${new Date(since).toISOString()}")`)}&select=${FIELDS}&order=created_at.desc,id.asc&limit=150`, {singleFlight:false});
-    return {ok:true, rows:clean(rows)};
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 // The journal shows, for each day of the week, the candidates found in that day's records and what became of them.
@@ -80,7 +109,7 @@ export async function readWeekCandidates(from, to, rt = window.KPTURuntime) {
   if (!DAY.test(from) || !DAY.test(to)) return {ok:false};
   try {
     const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&source_day=gte.${from}&source_day=lte.${to}&select=${FIELDS}&order=created_at.asc,id.asc&limit=300`, {singleFlight:false});
-    return {ok:true, rows:clean(rows)};
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 
@@ -195,4 +224,57 @@ export function notPlanned(rows, taskTitles = []) {
 export function ledgerRequestText(p) {
   return ['쓰기요청', '- 종류: 약속(상대·제3자)', `- 내용: ${p.summary}`, `- 기한: ${p.due || '없음'}`,
     `- 근거: ${p.evidence || '없음'}`, `- 출처: Web2 ${RADAR_SOURCE_LABEL[p.source_kind] || '기록'} ${p.source_day}`].join('\n');
+}
+
+// ---- TODO-내일만: [내 일 아님]·예외 방·쌓인 후보 다시 거르기 (migration 20261029210000, 소유자 RLS) ----------------------
+// [내 일 아님]: the candidate is dismissed (same guarded change as [무시]) and its source kind + one-line summary are kept in
+// app_todo_not_mine, which the server shows the AI as "not mine" examples next time. Nothing is kept in browser storage.
+// Returns {ok:false} when the candidate could not be dismissed, else {ok:true, saved} (saved=false: the example was not kept).
+export async function markNotMine(candidate, rt = window.KPTURuntime, now = new Date()) {
+  if (!candidate || !UUID.test(String(candidate.id))) return {ok:false};
+  if (!(await dismissCandidate(candidate.id, rt, now))) return {ok:false};
+  const summary = String(candidate.summary || '').trim();
+  if (!summary || [...summary].length > 100 || !Object.hasOwn(RADAR_SOURCE_LABEL, candidate.source_kind)) return {ok:true, saved:false};
+  try {
+    const rows = await rt.api('/rest/v1/app_todo_not_mine?select=id', {method:'POST', prefer:'return=representation', body:{workspace_id:workspace(rt), source_kind:candidate.source_kind, summary}});
+    const id = Array.isArray(rows) && UUID.test(String(rows[0]?.id)) ? rows[0].id : null;
+    return {ok:true, saved:true, exampleId:id};
+  } catch { return {ok:true, saved:false}; }
+}
+// [되돌리기] after [내 일 아님]: the candidate comes back (reopenCandidate) and the example is removed again.
+export async function undoNotMine(candidateId, exampleId, rt = window.KPTURuntime) {
+  if (!(await reopenCandidate(candidateId, rt))) return false;
+  if (UUID.test(String(exampleId || ''))) {
+    try { await rt.api(`/rest/v1/app_todo_not_mine?id=eq.${encode(exampleId)}&workspace_id=eq.${encode(workspace(rt))}`, {method:'DELETE', prefer:'return=minimal'}); } catch { /* the candidate is back; the example stays */ }
+  }
+  return true;
+}
+
+// The rooms whose group-wide asks ('다들 ~해 주세요') still become candidates. Stored by room key; the name comes from the room list.
+export async function readAskRooms(rt = window.KPTURuntime) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_ask_rooms?workspace_id=eq.${encode(workspace(rt))}&select=room_key&order=created_at.asc&limit=500`, {singleFlight:false});
+    return {ok:true, keys:(Array.isArray(rows) ? rows : []).map(r => r?.room_key).filter(k => typeof k === 'string' && ROOM_KEY.test(k))};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+export async function addAskRoom(roomKey, rt = window.KPTURuntime) {
+  if (!ROOM_KEY.test(String(roomKey || ''))) return false;
+  try { await rt.api('/rest/v1/app_todo_ask_rooms?on_conflict=workspace_id,room_key', {method:'POST', prefer:'resolution=ignore-duplicates,return=minimal', body:{workspace_id:workspace(rt), room_key:roomKey}}); return true; }
+  catch { return false; }
+}
+export async function removeAskRoom(roomKey, rt = window.KPTURuntime) {
+  if (!ROOM_KEY.test(String(roomKey || ''))) return false;
+  try { await rt.api(`/rest/v1/app_todo_ask_rooms?workspace_id=eq.${encode(workspace(rt))}&room_key=eq.${encode(roomKey)}`, {method:'DELETE', prefer:'return=minimal'}); return true; }
+  catch { return false; }
+}
+
+// One run of "filter the waiting candidates again with the new rule" (ai-assist kind=todo_recheck). Only {kind} is sent.
+// Returns {ok:true, checked, dismissed, more} or {ok:false, code, message}.
+export async function recheckTodos(options = {}) {
+  const r = await callAiAssist({kind:'todo_recheck'}, {timeoutMs:RADAR_TIMEOUT_MS, ...options}, RADAR_TEXT);
+  if (!r.ok) return {ok:false, code:r.code, message:RADAR_TEXT[r.code] || RADAR_TEXT.internal_error};
+  const d = r.data;
+  if (!Number.isSafeInteger(d.checked) || !Number.isSafeInteger(d.dismissed) || d.checked < 0 || d.dismissed < 0 || d.dismissed > d.checked)
+    return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
+  return {ok:true, checked:d.checked, dismissed:d.dismissed, more:d.more === true};
 }

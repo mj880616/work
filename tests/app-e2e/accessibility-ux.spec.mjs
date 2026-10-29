@@ -160,7 +160,7 @@ test('PC task detail pane is a labelled region, closes on Escape, and restores r
   await page.keyboard.press('Escape');
   // Closing puts the same editor back as the phone popup (hidden) and empties the pane.
   await expect(page.locator('#gtTaskModal')).toHaveClass(/hidden/);
-  await expect(pane.locator('.gt-pane-empty')).toBeVisible();
+  await expect(pane).not.toHaveClass(/has-task/);
   await expect(trigger).toBeFocused();
 });
 

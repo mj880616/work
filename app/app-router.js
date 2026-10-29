@@ -5,7 +5,9 @@
   // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
   const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library'};
+  // MTG-프로젝트합치기 ①: 사업영역 관리(옛 ?view=projects)는 화면이 아니라 사업 보고 위의 창이다. go('projects')·옛 주소는 사업 보고를 열고
+  // kptu:view-changed의 detail.areas로 창(area-window.js)을 띄운다.
+  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
   const ALIAS_ENTRY={media:{view:'library',category:'성명·보도자료'}};
@@ -15,8 +17,9 @@
   // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.
   const URL_NAME={meetings:'reports'};
   const urlName=view=>URL_NAME[view]||view;
-  // BASKET-PC메뉴: a screen's own sides that the menu lists as sub items but that are not screens (정리함의 [챙길 것]) are written to the address as
-  // one more parameter (?view=basket&pane=todo), like the 일정 sub screens are written as their own ?view=. The default side has no parameter.
+  // A screen's own sides that are not screens are written to the address as one more parameter (?view=basket&pane=note), like the 일정
+  // sub screens are written as their own ?view=. The default side has no parameter. BASKET-정리함한화면: the old ?pane=todo still arrives
+  // (old bookmarks) and the 정리함 opens at its '챙길 것' box, then drops it from the address.
   // The router owns the address and the history entries of it; the screen (basket.js) owns what is drawn and is told through the view hook
   // (detail.sub) and, for a back/forward step inside the same screen, kptu:sub-changed.
   // NAV-새로고침제자리: [노트] is a side of the same screen too (?view=basket&pane=note), so a reload on the note side stays there.
@@ -26,7 +29,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={basket:['note','doc','folder'],library:['folder'],diary:['day'],journal:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab']};
+  const PLACE_PARAMS={meetings:['areas'],basket:['note','doc','folder'],library:['folder'],diary:['day'],journal:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -74,7 +77,7 @@
     const requested=params.get(VIEW_PARAM)&&viewName(params.get(VIEW_PARAM));
     if(viewExists(requested))return requested;
     if(requested)return viewExists('home')?'home':null;
-    if(params.get('project')&&viewExists('projects'))return 'projects';
+    if(params.get('project')&&viewExists('meetings'))return 'meetings';
     return viewExists('home')?'home':null;
   }
 
@@ -256,14 +259,8 @@
     // BASKET-정리함이름: [노트] is its own menu item but lives on the basket panel (basket.js writes the side it shows to
     // #basketView[data-kind]). On that side [정리함] is not the current page and [노트] is; on every other screen [노트] is not marked.
     const noteMode=target==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
-    // BASKET-PC메뉴: [정리함] heads the sub items [업데이트]·[챙길 것] (data-basket-pane-nav, the side kept in #basketView[data-pane]). The sub item of the
-    // side shown is the current page; the head only carries the group look (data-nav-open) like [일정], so one page is current, not two.
-    const paneNow=document.getElementById('basketView')?.dataset.pane==='todo'?'todo':'update';
-    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto],[data-basket-pane-nav]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
-      if(btn.hasAttribute('data-basket-head')){
-        btn.toggleAttribute('data-nav-open',target==='basket'&&!noteMode);btn.classList.remove('active');btn.removeAttribute('aria-current');return;
-      }
-      const own=btn.dataset.basketPaneNav?target==='basket'&&!noteMode&&btn.dataset.basketPaneNav===paneNow:btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
+    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
+      const own=btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
       btn.classList.toggle('active',own||!!btn.dataset.navGroup?.split(' ').includes(target));
       if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');
@@ -279,7 +276,8 @@
     });
   }
 
-  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null}={}){
+  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null,areas=false}={}){
+    if(view==='projects')areas=true;
     view=viewName(view);sub=subName(view,sub);
     if(!view||!authenticatedShellReady()||returningTo)return false;
     const lazy=window.KPTUViewLoader;
@@ -291,7 +289,7 @@
       lazy.load(view).then(()=>{
         if(request!==goSeq)return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
-        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub});
+        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub,areas});
       }).catch(err=>console.error('view lazy load',view,err));
       return false;
     }
@@ -311,7 +309,7 @@
     if(updateUrl&&(appReady()||authenticatedShellReady()))syncUrl(view,{replace:replaceUrl||source==='api',sub});
     rememberRoute();
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
-    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{})};
+    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{}),...(areas?{areas:true}:{})};
     window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));
     for(const fn of hooks.get(view)||[]){
       try{fn(detail)}catch(err){console.error('view hook',view,err)}
@@ -336,7 +334,8 @@
       return true;
     }
     noteAlias(written);
-    return go(view,{scroll:false,source,updateUrl:false,sub});
+    const areas=written==='projects'||!!new URLSearchParams(location.search).get('project')||(view==='meetings'&&new URLSearchParams(location.search).get('areas')==='1');
+    return go(view,{scroll:false,source,updateUrl:false,sub,areas});
   }
 
   function on(view,fn){

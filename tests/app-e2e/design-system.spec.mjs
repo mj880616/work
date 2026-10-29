@@ -84,12 +84,12 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   expect(projectAction.height).toBeCloseTo(32,0);expect(projectAction.height).toBeCloseTo(calendarAction.height,0);expect(projectAction.radius).toBe(metrics[0].radius);
   // UI-PC회의(2026-10-20): PC 회의 [+ 회의 결과]만 공용 입력칸 높이(--kptu-control-height 36px)로 줄였다. 다른 화면 버튼은 이번 범위 밖.
   const meetingAction=await actionMetrics(page,'meetings','#newMeetingBtn');
-  expect(meetingAction.height).toBeCloseTo(36,0);expect(meetingAction.radius).toBe(metrics[0].radius);
+  // BIZ-버튼줄정리(10/29 시안 B): [+ 사업 보고]는 [+ 사업영역]과 같은 작고 낮은 32px(줄 끝 ⋯ 왼쪽).
+  expect(meetingAction.height).toBeCloseTo(32,0);expect(meetingAction.height).toBeCloseTo(projectAction.height,0);expect(meetingAction.radius).toBe(metrics[0].radius);
   // UI-PC버튼36(2026-10-20): PC(≥1024) 자료실 추가 버튼도 회의와 같은 입력칸 높이(--kptu-control-height 36px).
   // 일정 [+ 일정 등록]은 머리줄 작업과 겹쳐 이번 범위 밖(위 46px 그대로).
   expect(new Set(metrics.map(x=>Math.round(x.height))).size).toBe(1);
   for(const metric of metrics)expect(metric.height).toBeCloseTo(36,0);
-  expect(metrics[0].height).toBeCloseTo(meetingAction.height,0);
   expect(new Set(metrics.map(x=>x.radius)).size).toBe(1);
 
   await clickView(page,'tasks');

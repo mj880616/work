@@ -1,4 +1,3 @@
-import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {noticeText} from './helpers/small-notice.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
@@ -9,6 +8,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
+import {reportFilterButton,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -77,10 +77,10 @@ test('meeting create modal exposes the task 9 fields only',async({page})=>{
   await expect(page.locator('#meetingActionLine > :is(input,.due-chip,button)')).toHaveCount(3);
   await expect(page.locator('#meetingActionLine .due-chip')).toHaveText('기한 ▾');
   await expect(page.locator('.meeting-action-row')).toHaveCount(0);
-  await expect(page.locator('#meetingActionList .mtg-empty')).toHaveText('후속 할 일이 없습니다.');
+  await expect(page.locator('#meetingActionList [data-wait-empty]')).toHaveText('없음');
   await expect(page.locator('#meetingMaterialsBlock .mtg-note')).toHaveText('자료실에도 자동 등록');
   await expect(page.locator('#meetingMaterialsBlock .mtg-note')).toHaveCSS('font-size','12px');
-  await expect(page.locator('#meetingActionList .mtg-empty')).toHaveCSS('font-size','13px');
+  await expect(page.locator('#meetingActionList [data-wait-empty]')).toHaveCSS('font-size','12px');
   for(const el of [page.locator('#addMeetingAction'),page.locator('#meetingPickFiles')]){const b=await el.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44)}
   expect((await page.locator('#meetingActionAdd').boundingBox()).height).toBe(32);
   expect((await page.locator('#meetingActionLine .due-chip').boundingBox()).height).toBe(32);
@@ -288,9 +288,11 @@ test.describe('meeting list rows below PC width',()=>{
 test.use({viewport:{width:900,height:900}});
 test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
-  await expect(page.locator('#meetingTypeFilter')).toBeVisible();
-  await expect(page.locator('#meetingTypeFilter [role=radio]')).toContainText(['전체','궤도협의회','회의명 미지정']);
-  await selectFilter(page,'#meetingTypeFilter',{label:'궤도협의회'});
+  // UI-전수디자인점검 F01: 회의명 거르기는 칸 칩 줄 끝 [거르기 ▾] 창의 한 묶음.
+  await expect(reportFilterButton(page)).toBeVisible();
+  expect(await reportFilterLabels(page,'name')).toEqual(expect.arrayContaining(['전체','궤도협의회','회의명 미지정']));
+  await pickReportFilter(page,'name',{label:'궤도협의회'});
+  await expect(reportFilterButton(page)).toHaveText(/궤도협의회/);
   const row=page.locator('#meetingList .meeting-list-row');
   await expect(row).toHaveCount(1);
   await expect(row.locator('h3')).toHaveText('궤도협의회');
@@ -346,13 +348,13 @@ test('meeting names keep colors after reload and after older meetings are added'
   await expect(byId('a3').locator('p')).toHaveText(/^3차 · .+ · 회의자료 있음$/);
   await expect(byId('a3').locator('p')).not.toContainText('메인');
   // Filtering does not reassign colors.
-  await selectFilter(page,'#meetingTypeFilter',{label:'안전위원회'});
+  await pickReportFilter(page,'name',{label:'안전위원회'});
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
   expect(await stripe(byId('c1'))).toBe(original.c1);
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await showAllReportWeeks(page);// 새로 불러오면 다시 주 단위
-  await selectFilter(page,'#meetingTypeFilter','all');
+  await pickReportFilter(page,'name','all');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
   for(const [id,color] of Object.entries(original))expect(await stripe(byId(id)),id).toBe(color);
   await showMeetings(page,[...rows,{...meeting,id:'older',title:'새 과거 회의',series_name:'새 과거 회의',meeting_at:'2020-01-01T01:00:00Z'}]);
@@ -511,23 +513,31 @@ for(const width of [320,360,390,768,1000]){
   test(`meeting filter stays usable and add button sits in the list card at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:800});
     await signIn(page);
-    const bar=page.locator('#meetingsView .meeting-toolbar');
-    const select=page.locator('#meetingTypeFilter'),button=page.locator('#newMeetingBtn');
-    await expect(button).toBeVisible();
+    // UI-전수디자인점검 F01: 회의명·사업영역 칩 줄은 없고, 칸 칩 줄 끝 작은 [거르기 ▾](32px) 하나. 칩 줄은 44px(누르는 범위), 버튼은 줄 안 오른쪽 끝.
+    const bar=page.locator('#meetingsView .report-kind-bar');
+    const select=page.locator('#reportKindFilter'),filter=reportFilterButton(page),button=page.locator('#newMeetingBtn');
+    await expect(page.locator('#meetingTypeFilter,#reportAreaFilter,#meetingsView .meeting-toolbar')).toHaveCount(0);
+    await expect(button).toBeVisible();await expect(filter).toBeVisible();
     const head=page.locator('#meetingsListCard .add-list-head');
-    const [b,s,h,btn]=await Promise.all([bar.boundingBox(),select.boundingBox(),head.boundingBox(),button.boundingBox()]);
-    // UI-버튼크기: the filter lane is 44px (32px pill chips + touch room); the add button keeps the 46px main-action height.
+    const [b,s,h,btn,f]=await Promise.all([bar.boundingBox(),select.boundingBox(),head.boundingBox(),button.boundingBox(),filter.boundingBox()]);
     expect(s.height).toBeCloseTo(44,0);
     expect(s.x).toBeCloseTo(b.x,0);
-    expect(s.width).toBeLessThanOrEqual(b.width);
+    expect(s.x+s.width).toBeLessThanOrEqual(f.x);
+    expect(f.x+f.width).toBeCloseTo(b.x+b.width,0);
+    expect(f.height).toBeCloseTo(32,0);expect(f.y+f.height/2).toBeCloseTo(s.y+s.height/2,0);
     expect(b.height).toBeCloseTo(44,0);
     expect(await select.locator('[role=radio]').first().evaluate(el=>el.getBoundingClientRect().height)).toBe(32);
+    // ⋯은 [목록|달력|사진]과 같은 머리 줄의 오른쪽 끝(혼자 둘째 줄을 차지하지 않음).
+    const [views,more]=await Promise.all([page.locator('#reportViewFilter').boundingBox(),page.locator('#reportMore').boundingBox()]);
+    expect(more.y+more.height/2).toBeCloseTo(views.y+views.height/2,0);expect(more.x+more.width).toBeCloseTo(h.x+h.width,0);
     if(width<=760){
       expect(await button.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');expect(btn.width).toBe(36);expect(btn.height).toBe(36);
       await expect(button).toHaveAttribute('aria-label','사업 보고 등록');
     }else{
-      expect(btn.height).toBeCloseTo(36,0);/* UI-버튼전수조사: 채운 [+ 사업 보고]는 36px */
-      expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0);
+      expect(btn.height).toBeCloseTo(32,0);/* BIZ-버튼줄정리: 채운 [+ 사업 보고]는 작고 낮게 32px, 그 오른쪽 줄 끝이 ⋯ */
+      const more=await page.locator('#reportMore').boundingBox();
+      expect(more.x+more.width).toBeCloseTo(h.x+h.width,0);
+      expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);
       expect(btn.y).toBeGreaterThanOrEqual(h.y);
       expect(btn.y+btn.height).toBeLessThanOrEqual(h.y+h.height);
       expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
@@ -554,7 +564,7 @@ test('meeting list filters title-only and series-only legacy rows by the display
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#meetingList h3')).toHaveText(['기존 회의 계열','계열명만 회의','제목만 회의']);// 시각이 같으면 차수 큰 쪽이 위(MEET-폰순서, PC와 같은 기준)
-  await selectFilter(page,'#meetingTypeFilter',{label:'제목만 회의'});
+  await pickReportFilter(page,'name',{label:'제목만 회의'});
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
   await expect(page.locator('#meetingList .meeting-list-row p')).not.toContainText('차');
 });
@@ -1009,7 +1019,7 @@ test('meeting integration keeps project auto-selection and one direct render pat
   const project=read('app/project-system-v3.js');
   const files=read('supabase/functions/meeting-files/index.ts');
 
-  for(const id of ['meetingRoundNo','meetingTranscript','meetingNotes','meetingFiles','meetingActionList','addMeetingAction','meetingTypeFilter'])expect(html).toContain(`id="${id}"`);
+  for(const id of ['meetingRoundNo','meetingTranscript','meetingNotes','meetingFiles','meetingActionList','addMeetingAction','reportFilterBtn'])expect(html).toContain(`id="${id}"`);
   for(const id of ['meetingSeriesName','meetingAutoClassify','meetingDecisions','wfMeetingLocation','wfMeetingAttendees'])expect(html).not.toContain(`id="${id}"`);
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');

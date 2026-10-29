@@ -55,8 +55,8 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible:not(#wdStage input)')).toHaveCount(1);
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
-  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.querySelector('h3')?.firstChild?.textContent?.trim()));
-  expect(order).toEqual(['할 일','자료','사업 보고','기록','연도별 타임라인','기본 정보 · 소속 · 이전 요약']);
+  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>(sec.querySelector('h3')||sec.querySelector('[role="tab"]'))?.firstChild?.textContent?.trim()));
+  expect(order).toEqual(['할 일','자료','사업 보고','기록','연도별 타임라인','주요 인물']);
   const pos=await page.locator('#wdModal .wd-card').evaluate(card=>({
     title:card.querySelector('#wdTitle').getBoundingClientRect().top,
     input:card.querySelector('#wdInboxText').getBoundingClientRect().top,
@@ -66,7 +66,10 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   expect(pos.title).toBeLessThan(pos.input);
   expect(pos.input).toBeLessThan(pos.tasks);
   expect(pos.tasks).toBeLessThan(pos.log);
-  await expect(page.locator('#wdMore')).not.toHaveAttribute('open','');
+  // ORG-주요인물: 맨 아래는 작은 탭 [주요 인물][기본 정보][소속][이전 요약], 주요 인물이 첫 탭.
+  await expect(page.locator('#wdMore [role="tab"]')).toHaveText(['주요 인물','기본 정보','소속','이전 요약']);
+  await expect(page.locator('#wdMore [data-wd-tab="people"]')).toHaveAttribute('aria-selected','true');
+  await expect(page.locator('#wdMore [data-wd-panel="basic"]')).toBeHidden();
 });
 
 test('저장하면 날짜·시간과 함께 기록 맨 위에 쌓이고 입력칸이 비워진다',async({page})=>{
@@ -112,7 +115,7 @@ test('빈칸·공백만 있으면 저장하지 않고, 저장 실패 시 입력 
 test('이미 저장된 요약·메모는 유지하고 팀 AI 초안 버튼은 없다',async({page})=>{
   await openRail(page);
   await expect(page.locator('#wdMonthSummary')).toBeHidden();
-  await page.locator('#wdMore > summary').click();
+  await page.locator('#wdMore [data-wd-tab="recent"]').click();
   await expect(page.locator('#wdMonthSummary')).toHaveText('9월 정책교섭과 인력대응 진행 중');
   await expect(page.locator('#wdYearSummary')).toHaveText('산별전환과 안전인력 사업 추진');
   await expect(page.locator('#wdItems')).toContainText('최근 교섭');
@@ -124,13 +127,16 @@ test('이미 저장된 요약·메모는 유지하고 팀 AI 초안 버튼은 �
   await expect(page.locator('#wdMore #warReports')).toBeVisible();
   await expect(page.locator('#wdMore #warReports .war-report')).toHaveCount(1);
   expect(await page.evaluate(()=>window.__teamAiCalls)).toBe(0);
+  await page.locator('#wdMore [data-wd-tab="basic"]').click();
   await expect(page.locator('#wdMore #wdBasicView')).toBeVisible();
+  await expect(page.locator('#wdMonthSummary')).toBeHidden();
+  await page.locator('#wdMore [data-wd-tab="aff"]').click();
   await expect(page.locator('#wdMore #wdAffChips')).toContainText('궤도협의회');
 });
 
 test('기존 주간보고는 AI 없이 열고 수정하며 타임라인 수동 입력을 유지한다',async({page})=>{
   await openRail(page);
-  await page.locator('#wdMore > summary').click();
+  await page.locator('#wdMore [data-wd-tab="recent"]').click();
   await page.locator('#warReports [data-war-detail="report-1"]').click();
   await expect(page.locator('#warDraftModal')).toBeVisible();
   await expect(page.locator('#warSummary')).toHaveValue('E2E 주간보고');
@@ -184,7 +190,7 @@ test('기록 삭제는 확인 후 해당 항목만 지우고, 취소하면 요�
 
 test('예전 메모는 읽기 전용이고 확인 후 삭제만 할 수 있다',async({page})=>{
   await openRail(page);
-  await page.locator('#wdMore > summary').click();
+  await page.locator('#wdMore [data-wd-tab="recent"]').click();
   const memo=page.locator('#wdItems .wd-row');
   await expect(memo).toHaveCount(1);
   page.once('dialog',d=>d.dismiss());
@@ -195,7 +201,7 @@ test('예전 메모는 읽기 전용이고 확인 후 삭제만 할 수 있다',
   page.once('dialog',d=>{asked=d.message();d.accept()});
   await memo.getByRole('button',{name:'메모 삭제'}).click();
   expect(asked).toBe('이 메모를 삭제할까요?');
-  await expect(page.locator('#wdItems')).toHaveText('이전 메모 없음');
+  await expect(page.locator('#wdItems [data-wait-empty]')).toHaveText('없음');
   await expect(page.locator('#toast')).toHaveText('메모를 삭제했습니다.');
   const deletes=await page.evaluate(()=>window.__deletes);
   expect(deletes).toEqual([{path:'/rest/v1/app_suborganization_status_items?id=eq.memo-1&organization_id=eq.org-rail&select=id',prefer:'return=representation'}]);
@@ -219,7 +225,7 @@ test('삭제 요청이 실패하거나 지워진 행이 없으면 항목을 그�
   await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 권한이 없거나 이미 없는 항목입니다.');
   await expect(row).toHaveCount(1);
   await expect(row.locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
-  await page.locator('#wdMore > summary').click();
+  await page.locator('#wdMore [data-wd-tab="recent"]').click();
   await page.locator('#wdItems').getByRole('button',{name:'메모 삭제'}).click();
   await expect(page.locator('#toast')).toHaveText('메모를 삭제하지 못했습니다. 권한이 없거나 이미 없는 항목입니다.');
   await expect(page.locator('#wdItems .wd-row')).toHaveCount(1);
@@ -231,7 +237,7 @@ test('편집 권한이 없으면 기록·메모 삭제 버튼이 없고 삭제 �
   await page.evaluate(()=>{const b=document.createElement('button');b.id='openRailE2E';b.dataset.psWorkplaceOrg='org-rail';document.body.appendChild(b)});
   await page.locator('#openRailE2E').click();
   await expect(page.locator('#wdUpdates')).toContainText('지난주 지부장 통화');
-  await page.locator('#wdMore > summary').click();
+  await page.locator('#wdMore [data-wd-tab="recent"]').click();
   await expect(page.locator('#wdItems')).toContainText('최근 교섭');
   await expect(page.locator('#wdUpdates button,#wdItems button')).toHaveCount(0);
   await expect(page.locator('[data-wd-up-del],[data-wd-up-menu],[data-wd-memo-del]')).toHaveCount(0);
@@ -255,7 +261,7 @@ test('편집 권한이 없으면 기록·메모 삭제 버튼이 없고 삭제 �
 test('기본정보는 읽기전용으로 시작하고 수정 버튼을 눌러야 입력 폼이 열린다',async({page})=>{
   await openAssigned(page);
   await page.locator('[data-so-org="org-rail"]').click();
-  await page.locator('#wdMore > summary').click();
+  await page.locator('#wdMore [data-wd-tab="basic"]').click();
   await expect(page.locator('#wdBasicView')).toBeVisible();
   await expect(page.locator('#wdBasicForm')).toBeHidden();
   await expect(page.locator('#wdBasicView')).toContainText('김철도');

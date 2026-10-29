@@ -8,7 +8,7 @@ import { KIND_LABEL, KIND_DISPLAY, KIND_HINT, dateLabel } from './ledger-browse-
 export const ACTIONS = Object.freeze(['new', 'add_source', 'update', 'supersede']);
 export const ACTION_LABEL = Object.freeze({ new: '새 기록', add_source: '기존 기록에 출처 추가', update: '기존 기록 고침', supersede: '기존 기록 대체' });
 export const ORIGIN_LABEL = Object.freeze({ web2_ai: 'Web2 AI', claude_import: 'Claude 파일', user: '직접' });
-export const ORIGIN_SOURCE_LABEL = Object.freeze({ basket: '업데이트', note: '노트', work: '일지', meeting: '사업 보고', org_update: '조직 기록', project_update: '프로젝트 기록' });
+export const ORIGIN_SOURCE_LABEL = Object.freeze({ basket: '업데이트', note: '노트', work: '일지', meeting: '사업 보고', org_update: '조직 기록', project_update: '사업영역 기록' });
 export const MAX_CANDIDATES = 500;
 const KINDS = Object.keys(KIND_LABEL);
 const ENTRY_KEYS = ['action', 'kind', 'title', 'sensitivity', 'target', 'dedup_key', 'payload'];

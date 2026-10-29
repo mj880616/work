@@ -500,6 +500,8 @@ test('mobile month density remains unchanged at 360, 390, 412 and 430 pixels',as
 test('event color presets use Google event colorIds and remain keyboard-focusable',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
+  // UI-색고르기통일: 색 칸 모양은 공용 CSS(ui-standard.css)에 있다(실제 일정 화면도 함께 불러옴).
+  await page.addStyleTag({url:'/app/ui-standard.css'});
   await page.evaluate(()=>{
     window.__KPTU_GOOGLE_STATE__={eventColors:{
       '1':{background:'#a4bdfc',foreground:'#1d1d1d'},
@@ -509,9 +511,13 @@ test('event color presets use Google event colorIds and remain keyboard-focusabl
     const box=document.createElement('div');box.id='presetFixture';document.body.appendChild(box);
     window.KPTUCalendarColors.render(box,{value:'#dc2127',colorId:'11',touched:false,label:'테스트 일정 색상'});
   });
-  const swatches=page.locator('#presetFixture .calendar-color-swatch');
+  const swatches=page.locator('#presetFixture .ui-swatch');
   await expect(swatches).toHaveCount(3);
   await expect(swatches.nth(2)).toHaveAttribute('aria-checked','true');
+  // 고른 칸도 그 색 그대로, 위에 ✓만
+  const fill=i=>swatches.nth(i).evaluate(el=>{const f=el.querySelector('.ui-swatch-fill');return [getComputedStyle(f).backgroundColor,getComputedStyle(f,'::after').content]});
+  expect(await fill(2)).toEqual(['rgb(220, 33, 39)','"✓"']);
+  expect((await fill(0))[0]).toBe('rgb(164, 189, 252)');
   await expect(swatches.nth(2)).toHaveAttribute('data-color-id','11');
   await swatches.first().focus();
   await swatches.first().press('ArrowRight');
@@ -519,6 +525,7 @@ test('event color presets use Google event colorIds and remain keyboard-focusabl
   expect(selected.touched).toBe(true);
   expect(selected.id).toBe('2');
   expect(selected.hex).toBe('#7ae7bf');
+  expect(await fill(1)).toEqual(['rgb(122, 231, 191)','"✓"']);
   const touchSize=await swatches.first().evaluate(el=>({w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height}));
   expect(touchSize.w).toBeGreaterThanOrEqual(40);
   expect(touchSize.h).toBeGreaterThanOrEqual(40);

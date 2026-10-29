@@ -1,0 +1,26 @@
+name: Conflict marker check
+
+# OPS-스모크복구: merge 충돌 표시(<<<<<<< / ======= / >>>>>>>)가 남은 채 main에 들어가면
+# workflow YAML이 깨져 그 검사가 아예 돌지 않는다(2026-10-29 App smoke check가 #1477부터 멈춤).
+# 경로 조건 없이 모든 PR·main push에서 저장소 전체를 본다. 이 파일은 다른 workflow 파일이 깨져도 따로 돈다.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: No merge conflict markers left in tracked files
+        run: |
+          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)( |$)'; then
+            echo 'merge 충돌 표시가 남아 있습니다. 두 쪽 내용을 정리한 뒤 다시 올려 주세요.'
+            exit 1
+          fi

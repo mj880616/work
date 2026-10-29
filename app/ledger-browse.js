@@ -1,3 +1,4 @@
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // AI-서버연동 S7-c: [원장] 화면의 원장 목록·검색 칸(#ledgerBrowseRoot). 이 모듈이 그 칸의 유일한 renderer다.
 // 검색은 S7-a 검색 RPC(app_ledger_search, SECURITY INVOKER라 owner RLS 그대로)만 쓴다. 기본은 업무만(L1), 관심 정보는 따로 고른다.
 // 화면(S7-c 정리): 검색칸 하나만 늘 보이고 나머지 조건은 [조건 ▾] 안(처음엔 접힘, 펼침 상태는 저장하지 않음). 걸린 조건은 칩, ✕로 하나씩 해제.
@@ -27,7 +28,8 @@ import {
   KIND_DISPLAY, KIND_HINT, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
   freshFilters, searchArgs, validResult, detailFields, sourceHref, linkLabel, rowView, activeConditions, clearCondition, countLabel,
   web2Source, web2OpenTarget, web2SourceLabel, changeInfo, AUTO_TAG, MANUAL_TAG, RETIRE_REASONS, retireRequest, undoErrorText,
-  isSearching, overdueLabel, seoulDay, storySort, chipList, overdueRecordsPath, LEDGER_ROW_COLS, capList, chipFit
+  isSearching, overdueLabel, seoulDay, storySort, chipList, overdueRecordsPath, LEDGER_ROW_COLS, capList, chipFit,
+  historyPath, historyLines, historyLabel, topicDecisionArgs, HISTORY_STEPS, HISTORY_MAX
 } from './ledger-browse-model.mjs';
 import { QUICK_ACTIONS, QUICK_NOTE_MAX, menuPlan, quickRequest, quickDoneText, reopenPlan, fixErrorText } from './ledger-fix-model.mjs';
 import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
@@ -46,7 +48,8 @@ let seq = 0;
 function fresh() {
   return { phase: 'loading', organizations: [], topics: [], filters: freshFilters(), limit: PAGE, rows: [], busy: false, error: '',
     openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false, changes: new Map(), acting: '', actError: '', notice: '',
-    home: null, homeBusy: false, story: null, quick: null, more: new Set(), chipsOpen: false };
+    home: null, homeBusy: false, story: null, quick: null, more: new Set(), chipsOpen: false,
+    histOpen: false, histRows: new Set(), histDetails: new Map() };
 }
 const LIVE = 'validity=in.(current,needs_check,fulfilled)';
 const ROW_COLS = LEDGER_ROW_COLS;
@@ -209,11 +212,13 @@ async function refreshDetail(id) {
 }
 
 // ---------- 상세 ----------
-async function readDetail(id) {
+async function readDetail(id, { history = true } = {}) {
   const ws = q(workspaceId());
   const one = async path => { const rows = await rt.api(path, { singleFlight: false }); return Array.isArray(rows) ? rows : []; };
   const [record] = await one(`/rest/v1/app_ledger_records?id=eq.${q(id)}&workspace_id=eq.${ws}&select=*&limit=1`);
   if (!record) return null;
+  // ⑥ 이전 기록 사슬·같은 주제 결정 수. 못 읽으면 그 줄만 없고 상세는 그대로 보인다.
+  const extra = history ? Promise.all([readHistory(record).catch(() => []), topicDecisions(record).catch(() => 0)]) : Promise.resolve([[], 0]);
   const [recordSources, outLinks, inLinks] = await Promise.all([
     one(`/rest/v1/app_ledger_record_sources?record_id=eq.${q(id)}&select=id,source_id,locator,note&order=created_at.asc&limit=200`),
     one(`/rest/v1/app_ledger_links?record_id=eq.${q(id)}&select=id,record_id,target_record_id,target_organization_id,target_project_id,target_meeting_id,relation,note&order=created_at.asc&limit=200`),
@@ -243,12 +248,35 @@ async function readDetail(id) {
   const originals = await readOriginals(sources);
   const topicName = state.topics.find(t => t.id === record.topic_id)?.name || '';
   const sup = names.records.get(record.superseded_by);
+  const [olders, topicCount] = await extra;
   return {
     record,
+    history: historyLines(record, olders),
+    topicCount,
     fields: detailFields(record, { topicName, supersededBy: sup ? `${sup.ledger_id} ${sup.title}` : '' }),
     sources: recordSources.map(rs => ({ ...rs, source: sourceById.get(rs.source_id) || null, original: originalOf(sourceById.get(rs.source_id), originals) })),
     links: [...outLinks.map(l => linkLabel(l, names, 'out')), ...inLinks.map(l => linkLabel(l, names, 'in'))]
   };
+}
+// ⑥ 이 기록이 대체한 옛 기록을 거꾸로 따라간다(한 번에 한 단계, 최대 10단계·30건). 소유자 RLS REST 읽기만.
+async function readHistory(record) {
+  const ws = workspaceId(); if (!ws) return [];
+  const seen = new Set([record.id]), out = [];
+  let front = [record.id];
+  for (let step = 0; step < HISTORY_STEPS && front.length && out.length < HISTORY_MAX; step++) {
+    const rows = await rt.api(historyPath(ws, front), { singleFlight: false });
+    const next = (Array.isArray(rows) ? rows : []).filter(r => UUID.test(String(r?.id || '')) && !seen.has(r.id) && front.includes(r.superseded_by));
+    next.forEach(r => seen.add(r.id));
+    out.push(...next);
+    front = next.map(r => r.id);
+  }
+  return out.slice(0, HISTORY_MAX);
+}
+// ⑥ 같은 주제의 다른 결정 수(지금 기록 빼고). 주제가 없으면 0(줄 없음).
+async function topicDecisions(record) {
+  if (!record.topic_id || !state.topics.some(t => String(t.id) === String(record.topic_id))) return 0;
+  const rows = await rt.api('/rest/v1/rpc/app_ledger_search', { method: 'POST', singleFlight: false, body: topicDecisionArgs(record.topic_id) });
+  return (Array.isArray(rows) ? rows : []).filter(validResult).filter(r => r.id !== record.id).length;
 }
 // 근거가 Web2 기록이면 그 원문이 아직 있는지 종류별로 한 번씩 읽는다(owner RLS). 못 읽으면 '모름'(링크 없이 글자만).
 const ORIGINAL_READ = {
@@ -285,7 +313,7 @@ async function openOriginal(target) {
     await window.KPTUViewLoader?.load?.(target.view);
     if (target.view === 'basket') { if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id); r.go('basket', { source: 'delegated' }); }
     else if (target.view === 'journal') { r.go('journal', { source: 'delegated' }); window.KPTUJournal?.show?.(target.day); }
-    else if (target.view === 'projects') { r.go('projects', { source: 'delegated' }); await window.KPTUProjects?.open?.(target.id); }
+    else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({ id: target.id }); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     else if (target.view === 'calls') { r.go('calls', { source: 'delegated' }); await window.KPTUCallFeed?.open?.(target.id); }
     else if (target.view === 'team') { r.go('team', { source: 'delegated' }); await window.KPTUWorkplace?.open?.(target.id); }
     else if (target.view === 'meetings') { r.go('meetings', { source: 'delegated' }); await window.__KPTU_MEETING_ROUND_DETAIL_READY__; await window.KPTUMeetingRoundDetail?.open?.(target.id); }
@@ -345,7 +373,23 @@ function undoRun(runId) {
   });
 }
 
+async function toggleHistoryRow(id, open) {
+  if (!UUID.test(String(id || ''))) return;
+  if (!open) { state.histRows.delete(id); return; }
+  if (state.histRows.has(id) && state.histDetails.has(id)) return;
+  state.histRows.add(id);
+  if (state.histDetails.get(id) && state.histDetails.get(id) !== 'error') return;
+  const at = state.openId;
+  state.histDetails.set(id, 'busy'); render();
+  let got = 'error';
+  try { got = (await readDetail(id, { history: false })) || 'error'; } catch { got = 'error'; }
+  if (state.openId !== at) return;
+  state.histDetails.set(id, got); render();
+}
+// 결정 변경 이력(⑥)의 펼침은 저장하지 않는다: 다른 기록을 열거나 닫으면 접힌 채로 돌아간다.
+const resetHistory = () => { state.histOpen = false; state.histRows = new Set(); state.histDetails = new Map(); };
 async function toggleDetail(id) {
+  resetHistory();
   if (state.openId === id) { state.openId = null; state.quick = null; render(); return; }
   state.openId = id; state.detailError = ''; if (state.quick?.id !== id) state.quick = null;
   if (!state.details.has(id)) {
@@ -370,10 +414,13 @@ function render() {
   if (!root.querySelector('[data-lb-shell]')) root.innerHTML = shellHtml();
   syncForm(root);
   const box = root.querySelector('#lbResults');
-  if (state.phase === 'loading') box.innerHTML = '<p class="lg-note" role="status">원장을 읽는 중…</p>';
+  if (state.phase === 'loading') box.innerHTML = waitHtml({rows:6});
   else if (state.phase === 'error') box.innerHTML = '<p class="lg-error" role="alert">원장을 읽지 못했습니다.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
   else box.innerHTML = state.story ? storyHtml() : isSearching(state.filters) ? resultsHtml() : homeHtml();
-  root.querySelector('#lbStatus').textContent = state.busy ? '찾는 중…' : state.phase === 'ready' && !state.story && isSearching(state.filters) ? countLabel(state.rows.length, state.limit) : '';
+  // UI-기다림표시통일 2차: 찾는 동안 건수 자리는 글자 없는 회색 칸(wait-state.js).
+  const lbStatus = root.querySelector('#lbStatus');
+  if (state.busy) lbStatus.innerHTML = waitInlineHtml();
+  else lbStatus.textContent = state.phase === 'ready' && !state.story && isSearching(state.filters) ? countLabel(state.rows.length, state.limit) : '';
   root.querySelector('#lbChips').innerHTML = chipsHtml();
   root.querySelector('#lbError').innerHTML = (state.error ? `<p class="lg-error" role="alert">${esc(state.error)}</p>` : '')
     + (state.notice ? `<p class="lg-note" role="status" data-lb-notice>${esc(state.notice)}</p>` : '');
@@ -416,7 +463,7 @@ function shellHtml() {
   return `<section class="lg-card lb-card" data-lb-shell aria-labelledby="lbTitle">
     <form id="lbForm" class="lb-form" role="search" novalidate>
       <div class="lb-bar">
-        <h3 id="lbTitle" class="lb-h">원장</h3>
+        <h3 id="lbTitle" class="lb-h screen-title">원장</h3>
         <label class="lb-search"><span class="lg-sr">찾을 말</span>${SEARCH_ICON}<input id="lbQuery" type="search" maxlength="${QUERY_MAX}" placeholder="${isPhone() ? '조직·주제·사람으로 찾기' : '조직·주제·사람·내용으로 찾기 (Enter)'}" autocomplete="off" enterkeyhint="search"></label>
         <button type="button" class="lb-cond-btn" id="lbCondBtn" data-lb-action="cond" aria-expanded="false" aria-controls="lbCond">조건 <span aria-hidden="true">▾</span></button>
         <button type="button" class="lb-add" data-lb-action="add">+ 기록하기</button>
@@ -460,7 +507,7 @@ function syncForm(root) {
   options('#lbOrg', state.organizations, '전체'); options('#lbTopic', state.topics, '전체');
 }
 function resultsHtml() {
-  if (!state.rows.length) return '<p class="lg-note" data-lb-empty>조건에 맞는 기록이 없어요.</p>';
+  if (!state.rows.length) return emptyHtml('맞는 기록 없음', {attrs: 'data-lb-empty'});
   const { shown, hidden } = capped('results', state.rows);
   return `<ul class="lb-list" data-lb-list>${shown.map(r => rowHtml(r)).join('')}</ul>
     ${moreBtn('results', hidden)}
@@ -471,7 +518,7 @@ function section(key, title, body, count) {
 }
 function homeHtml() {
   const h = state.home;
-  if (!h) return '<p class="lg-note" role="status">원장을 읽는 중…</p>';
+  if (!h) return waitHtml({rows:4});
   if (h.error) return '<p class="lg-error" role="alert">원장을 읽지 못했어요.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
   // 한 기록은 한 칸에만(앞 칸에 나온 기록은 뒤 칸에서 뺀다: 줄·상세 id가 겹치지 않게).
   const shown = new Set();
@@ -483,7 +530,7 @@ function homeHtml() {
     .sort((a, b) => b.count - a.count || (a.type === b.type ? 0 : a.type === 'organization' ? -1 : 1) || a.name.localeCompare(b.name, 'ko'));
   const chips = chipItems.map(c => `<button type="button" class="lb-topic" data-lb-action="story" data-lb-type="${c.type}" data-lb-sid="${esc(c.id)}">${esc(c.name)} <span class="lb-topic-n">${c.count}</span></button>`).join('');
   const empty = !overdue.length && !tracking.length && !h.orgChips.length && !h.topicChips.length && !recent.length;
-  if (empty) return '<p class="lg-note" data-lb-empty>아직 원장 기록이 없어요. 업데이트·사업 보고를 저장하면 자동으로 기록되고, [+ 기록하기]로 직접 넣을 수 있어요.</p>';
+  if (empty) return emptyHtml('없음', {attrs: 'data-lb-empty'});
   return [
     chipItems.length ? `<section class="lb-sec lb-chip-sec" data-lb-sec="chips" aria-label="조직·주제"><div class="lb-topics" data-lb-chips>${chips}<button type="button" class="lg-text-btn lb-chip-more" data-lb-action="chips-toggle" aria-expanded="false" hidden>더보기 ▾</button></div></section>` : '',
     overdue.length ? section('overdue', '상대가 안 지킨 약속', list('overdue', overdue, r => overdueLabel(r)), overdue.length) : '',
@@ -495,8 +542,8 @@ function storyHtml() {
   const s = state.story;
   const head = `<div class="lb-story-head"><button type="button" class="lg-text-btn" data-lb-action="home">‹ 원장</button><h4 id="lbStoryTitle" class="lb-sec-h" tabindex="-1">${esc(s.name)}</h4>${s.rows ? `<span class="lb-sec-n">${s.rows.length}</span>` : ''}</div>`;
   if (s.error) return head + `<p class="lg-error" role="alert">${esc(s.error)}</p>`;
-  if (!s.rows) return head + '<p class="lg-note" role="status">이야기를 읽는 중…</p>';
-  if (!s.rows.length) return head + '<p class="lg-note" data-lb-empty>이 이야기에 남은 기록이 없어요.</p>';
+  if (!s.rows) return head + waitHtml({rows:4});
+  if (!s.rows.length) return head + emptyHtml('없음', {attrs: 'data-lb-empty'});
   // 시간순(오래된 것 먼저) 그대로 두고, 처음엔 가장 최근 쪽 6건만. 접힌 앞쪽(오래된 기록)은 위의 [더보기 n ▾].
   const { shown, hidden } = capped('story', s.rows, { fromEnd: true });
   return head + moreBtn('story', hidden) + `<ol class="lb-timeline" data-lb-story="${esc(s.type)}">${shown.map(r => rowHtml(r)).join('')}</ol>`;
@@ -519,30 +566,51 @@ function rowHtml(r, extra = '') {
   </li>`;
 }
 function detailHtml(id) {
-  if (state.detailBusy === id) return '<p class="lg-note" role="status">상세를 읽는 중…</p>';
+  if (state.detailBusy === id) return waitHtml({rows:3});
   const d = state.details.get(id);
   if (!d) return `<p class="lg-error" role="alert">${esc(state.detailError || '상세를 읽지 못했습니다.')}</p>`;
   const summary = d.record.summary ? `<p class="lb-text">${esc(d.record.summary)}</p>` : '';
   const orgs = (allRows().find(r => r.id === id)?.organizations || []).filter(Boolean);
-  const fields = `<dl class="lb-fields">${(orgs.length ? [...d.fields, ['조직', orgs.join(', ')]] : d.fields).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
-  const sources = d.sources.length ? `<ul class="lg-list" data-lb-sources>${d.sources.map(s => {
+  const fields = fieldsHtml(orgs.length ? [...d.fields, ['조직', orgs.join(', ')]] : d.fields);
+  const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? ' <span class="lg-muted">(Web2 사업영역)</span>' : l.kind === 'meeting' ? ' <span class="lg-muted">(Web2 사업 보고)</span>' : ''}</li>`).join('')}</ul>` : emptyHtml('연결 없음');
+  const info = state.changes.get(id);
+  const notes = info?.notes?.length ? `<p class="lg-note" data-lb-change>${info.notes.map(esc).join(' · ')}</p>` : '';
+  const err = state.actError ? `<p class="lg-error" role="alert" data-lb-act-error>${esc(state.actError)}</p>` : '';
+  return `${notes}${quickHtml(id)}${err}${summary}${fields}<h5>근거·출처</h5>${sourcesHtml(d, state.openId)}<h5>연결</h5>${links}${historyHtml(d)}`;
+}
+const fieldsHtml = list => `<dl class="lb-fields">${list.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+// 근거·출처 목록. at = ‹원문› 버튼이 가리킬 펼친 기록(null이면 버튼 없이 이름만 — 이전 기록 안).
+function sourcesHtml(d, at) {
+  return d.sources.length ? `<ul class="lg-list" data-lb-sources>${d.sources.map(s => {
     const src = s.source;
     if (!src) return '<li>(읽을 수 없는 출처)</li>';
     if (s.original) {
-      const o = s.original, at = state.openId;
-      const open = o.target ? ` <button type="button" class="lg-text-btn" data-lb-action="original" data-lb-id="${esc(at)}" data-lb-src="${esc(s.id)}">‹원문›</button>` : o.gone ? ' <span class="lg-muted" data-lb-gone>원문이 지워졌어요</span>' : '';
+      const o = s.original;
+      const open = o.target && at ? ` <button type="button" class="lg-text-btn" data-lb-action="original" data-lb-id="${esc(at)}" data-lb-src="${esc(s.id)}">‹원문›</button>` : o.gone ? ' <span class="lg-muted" data-lb-gone>원문이 지워졌어요</span>' : '';
       return `<li data-lb-web2="${esc(o.src.kind)}">${esc(o.label)}${open}</li>`;
     }
     const href = sourceHref(src);
     const title = href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(src.title)}</a>` : esc(src.title);
     const meta = [DOC_TYPE_LABEL[src.doc_type] || '', src.source_date || '', s.locator ? `근거위치 ${s.locator}` : '', !href && src.location ? src.location : '', src.status === 'retired' ? '폐기' : ''].filter(Boolean).map(esc).join(' · ');
     return `<li><b>${esc(src.ledger_id)}</b> ${title}${meta ? `<span class="lg-samples">${meta}</span>` : ''}</li>`;
-  }).join('')}</ul>` : '<p class="lg-note">연결된 출처가 없습니다.</p>';
-  const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? ' <span class="lg-muted">(Web2 프로젝트)</span>' : l.kind === 'meeting' ? ' <span class="lg-muted">(Web2 사업 보고)</span>' : ''}</li>`).join('')}</ul>` : '<p class="lg-note">연결이 없습니다.</p>';
-  const info = state.changes.get(id);
-  const notes = info?.notes?.length ? `<p class="lg-note" data-lb-change>${info.notes.map(esc).join(' · ')}</p>` : '';
-  const err = state.actError ? `<p class="lg-error" role="alert" data-lb-act-error>${esc(state.actError)}</p>` : '';
-  return `${notes}${quickHtml(id)}${err}${summary}${fields}<h5>근거·출처</h5>${sources}<h5>연결</h5>${links}`;
+  }).join('')}</ul>` : emptyHtml('출처 없음');
+}
+// ⑥ 결정 변경 이력: 상세 맨 아래 접힌 '이전 결정 n ▸'(결정이 아니면 '이전 기록 n'). 펼치면 오래된 것 → 지금, 옛 줄을 누르면 그 기록의 근거·출처가
+// 그 자리에서 펼쳐진다(기존 상세 읽기, 읽기만). 같은 주제의 다른 결정은 섞지 않고 '같은 주제 결정 N건 ›' 한 줄(이야기 화면으로).
+function historyHtml(d) {
+  const lines = d.history || [], n = lines.filter(l => !l.now).length;
+  if (!n) return '';
+  const row = l => {
+    const why = l.reason ? `<span class="lb-hist-why">사유: ${esc(l.reason)}</span>` : '';
+    const head = `<span class="lb-hist-day">${esc(l.day)}</span><span class="lb-hist-title">${esc(l.title)}${l.now ? ' <span class="lb-hist-now">지금</span>' : ''}${why}</span>`;
+    if (l.now) return `<li class="lb-hist-line is-now" data-lb-hist-now>${head}</li>`;
+    const open = state.histRows.has(l.id), got = state.histDetails.get(l.id);
+    const body = !open ? '' : !got || got === 'busy' ? waitHtml({rows:2}) : got === 'error' ? '<p class="lg-error" role="alert">이 기록을 읽지 못했습니다.</p>'
+      : `<div class="lb-hist-body">${got.record.summary ? `<p class="lb-text">${esc(got.record.summary)}</p>` : ''}${fieldsHtml(got.fields)}<h5>근거·출처</h5>${sourcesHtml(got, null)}</div>`;
+    return `<li class="lb-hist-line"><details class="lb-hist-row" data-lb-hist="${esc(l.id)}"${open ? ' open' : ''}><summary>${head}</summary>${body}</details></li>`;
+  };
+  const topic = d.topicCount > 0 ? `<button type="button" class="lg-text-btn lb-hist-topic" data-lb-action="story" data-lb-type="topic" data-lb-sid="${esc(d.record.topic_id)}">같은 주제 결정 ${d.topicCount}건 ›</button>` : '';
+  return `<details class="lb-history" data-lb-history${state.histOpen ? ' open' : ''}><summary>${esc(historyLabel(d.record.kind, n))} <span class="lb-hist-caret" aria-hidden="true">${state.histOpen ? '⌄' : '▸'}</span></summary><ol class="lb-hist-list">${lines.map(row).join('')}</ol>${topic}</details>`;
 }
 // 상세 ⋯ 메뉴(작은 글자 목록, 누른 자리에서 열림). 제목 첫 줄 오른쪽 끝에 놓는다(CSS: 행 오른쪽 위 고정, 제목은 그 옆으로 비켜 줄바꿈).
 function detailMenu(id) {
@@ -560,7 +628,7 @@ function menuHtml(id, row, info) {
   const runCancel = plan.undoRun ? `<button type="button" class="lb-menu-item" role="menuitem" data-lb-action="undo-run" data-lb-run="${esc(info.runId)}"${off}>${state.acting === 'run' ? '취소하는 중…' : '이번 자동 기록 취소'}</button>` : '';
   const bottom = marks + runCancel;
   if (!top && !bottom) return '';
-  return `<details class="lb-kebab"><summary class="lb-more-btn" aria-label="기록 관리: ${esc(row.ledger_id)}">⋯</summary><div class="lb-menu" role="group" aria-label="기록 관리">${top}${top && bottom ? '<hr class="lb-menu-sep">' : ''}${bottom}</div></details>`;
+  return `<details class="lb-kebab"><summary class="lb-more-btn" aria-label="기록 관리: ${esc(row.ledger_id)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="lb-menu" role="group" aria-label="기록 관리">${top}${top && bottom ? '<hr class="lb-menu-sep">' : ''}${bottom}</div></details>`;
 }
 // 바로가기를 누르면 바뀌는 것 한 줄 + 결과·이유 한 줄(비워도 됨) + [반영]. 반영 전에는 아무것도 바뀌지 않는다.
 function quickHtml(id) {
@@ -620,6 +688,15 @@ function bind() {
     if (e.key !== 'Escape') return;
     for (const d of root()?.querySelectorAll?.('details.lb-kebab[open]') || []) { d.removeAttribute('open'); d.querySelector('summary')?.focus?.({ preventScroll: true }); }
   });
+  // ⑥ 이전 기록 접기·옛 줄 펼치기: 펼침은 화면 상태에만 둔다(다시 그려도 유지, 저장하지 않음).
+  document.addEventListener('toggle', e => {
+    const d = e.target;
+    if (!(d instanceof HTMLDetailsElement) || !root()?.contains(d)) return;
+    if (d.matches('details[data-lb-history]')) {
+      state.histOpen = d.open;
+      const caret = d.querySelector(':scope > summary .lb-hist-caret'); if (caret) caret.textContent = d.open ? '⌄' : '▸';
+    } else if (d.matches('details[data-lb-hist]')) void toggleHistoryRow(d.dataset.lbHist, d.open);
+  }, true);
   document.addEventListener('toggle', e => {
     const d = e.target;
     if (!(d instanceof HTMLDetailsElement) || !d.matches('details.lb-kebab') || !d.open) return;

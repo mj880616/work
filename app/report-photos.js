@@ -4,6 +4,7 @@
 // 그림: 이미 운영에 있는 library-files 의 `GET ?action=photo&document_id=<uuid>&size=small`(소유자 확인 뒤 Drive 섬네일). 새 서버 경로 없음.
 import {reportRuntime} from './report-links.js';
 import {libraryPhotoUrl,clearLibraryPhotoCache} from './library-photo.js';
+import {slotBox,slotImg,slotFailed} from './img-slot.js';
 import {reportIdChunks,groupReportPhotos,stripPlan,moreLabel} from './report-photos-model.mjs';
 
 const enc=encodeURIComponent;
@@ -29,18 +30,20 @@ export function reportPhotosHtml(meetingId,photos,{more:showMore=true}={}){
 export const clearReportPhotoCache=clearLibraryPhotoCache;
 export const reportPhotoUrl=(documentId,{rt=reportRuntime(),fetcher=globalThis.fetch}={})=>libraryPhotoUrl(documentId,'small',{rt,fetcher});
 
-// root 안의 그림 칸에 그림을 채운다. 화면에 보이는 칸만 받는다(접힌 줄은 펼친 뒤에 받음). 못 받으면 빈 칸 그대로(줄·누르기는 그대로 동작).
+// root 안의 그림 칸에 그림을 채운다. 화면에 보이는 칸만 받는다(접힌 줄은 펼친 뒤에 받음).
+// 표시는 공용 img-slot.js(PHOTO-못받은사진): 받는 중 연한 회색 칸, 못 받으면 작은 ↻(누르면 그 사진만 다시). 줄·누르기는 그대로 동작.
 export function mountReportPhotos(root,{rt=reportRuntime(),isCurrent=()=>true}={}){
   const cells=[...(root?.querySelectorAll?.('[data-report-photo]:not([data-state])')||[])];
   const fill=cell=>{
-    if(cell.dataset.state)return;cell.dataset.state='loading';
+    if(cell.dataset.state)return;cell.dataset.state='loading';slotBox(cell);
+    const again=()=>{delete cell.dataset.state;fill(cell)};
+    // 칸이 더 큰 누르기 줄(보고 열기 버튼) 안의 바탕이면 ↻는 표시만(누르면 줄이 열림). 칸 자체가 버튼(사진 줄)이면 ↻를 누르면 다시 받기.
+    const passive=!!cell.parentElement?.closest?.('button,a,[role="button"]');
     reportPhotoUrl(cell.dataset.reportPhoto,{rt}).then(url=>{
       if(!isCurrent()||!cell.isConnected)return;
       const img=document.createElement('img');img.alt='';img.decoding='async';
-      img.onload=()=>{cell.dataset.state='shown'};
-      img.onerror=()=>{img.remove();cell.dataset.state='empty'};
-      img.src=url;cell.append(img);
-    },()=>{cell.dataset.state='empty'});
+      slotImg(cell,img,url,{passive,retry:()=>{img.remove();again()},onShown:()=>{cell.dataset.state='shown'},onFailed:()=>{cell.dataset.state='empty'}});
+    },()=>{cell.dataset.state='empty';slotFailed(cell,again,'photo',{passive})});
   };
   if(typeof IntersectionObserver!=='function'){cells.forEach(fill);return}
   const watch=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){watch.unobserve(e.target);fill(e.target)}},{rootMargin:'120px'});

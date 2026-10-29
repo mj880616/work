@@ -60,8 +60,8 @@ test('PC 왼쪽 메뉴는 하단바 메뉴가 위, 나머지가 그 아래 같�
   const moved = moveItem(defaultLayout(), 'calls', 'rest', 0).layout;
   assert.deepEqual(pcSplit(moved).tail, ['telegram', 'arsenal']);
   assert.ok(pcSplit(moved).main.includes('calls'));
-  assert.deepEqual(midKeys(defaultLayout()).slice(0, 8), ['home', 'basket', 'pane:update', 'pane:todo', 'calendar', 'tasks', 'journal', 'diary']);
-  assert.equal(midKeys(defaultLayout()).length, 19);
+  assert.deepEqual(midKeys(defaultLayout()).slice(0, 8), ['home', 'basket', 'calendar', 'tasks', 'journal', 'diary', 'note', 'meetings']);
+  assert.equal(midKeys(defaultLayout()).length, 17);
 });
 
 test('하단바에서 지금 화면이 어느 칸인지', () => {

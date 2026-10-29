@@ -29,7 +29,7 @@ for(const width of [360,900]){
  });
  test(`empty state and scope information ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});const tasks=[];await open(page,tasks);
-  await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');
+  await expect(page.locator('#gtTaskBody [data-wait-empty]')).toHaveText('없음');
   if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-empty-360.png'});await expect(page.locator('#gtTaskBody .gt-group')).toHaveCount(0);await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
   await expect(page.locator('#gtTaskSection .gt-head-left')).toBeHidden();
   await expect(page.locator('#gtTaskSection .gt-scope-note')).toHaveCount(0);await expect(page.locator('#gtTaskSection')).not.toContainText('Google 할 일');
@@ -41,7 +41,7 @@ for(const width of [360,900]){
  test(`overdue color and completed-only empty state ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page,[task('late','2026-10-07T00:00:00Z'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})]);
   await expect(page.locator('[data-gt-overdue]')).toBeVisible();expect(await page.locator('.gt-row.overdue .gt-due').evaluate(el=>getComputedStyle(el).color)).toBe(await page.locator('#gt-overdue-head').evaluate(el=>getComputedStyle(el).color));await expect(page.locator('#gtCompleted')).not.toHaveAttribute('open','');
-  await page.locator('[data-gt-toggle="late"]').click();await expect(page.locator('#gtTaskBody')).toContainText('할 일이 없습니다',{timeout:5000});await expect(page.locator('[data-gt-overdue]')).toHaveCount(0);await expect(page.locator('#gtCompleted')).toBeVisible();
+  await page.locator('[data-gt-toggle="late"]').click();await expect(page.locator('#gtTaskBody [data-wait-empty]')).toHaveText('없음',{timeout:5000});await expect(page.locator('[data-gt-overdue]')).toHaveCount(0);await expect(page.locator('#gtCompleted')).toBeVisible();
  });
 }
 
@@ -66,7 +66,7 @@ test('a task removed during menu use closes without opening a blank editor',asyn
  await expect.poll(()=>page.evaluate(()=>window.KPTUGoogleTasks.peekTasks().tasks.length)).toBe(0);
  await page.locator('#gtTaskMenu').getByRole('button',{name:'편집',exact:true}).click();
  await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(page.locator('#gtTaskModal')).toBeHidden();
- await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeFocused();expect(errors).toEqual([]);
+ await expect(page.locator('#gtTaskBody [data-wait-empty]')).toHaveText('없음');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeFocused();expect(errors).toEqual([]);
 });
 
 for(const width of [360,390])test(`long calendar task stays inside dialog and metadata has visual spacing ${width}`,async({page})=>{

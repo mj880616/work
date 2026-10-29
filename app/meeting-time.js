@@ -18,8 +18,16 @@ export const seoulDate=(year,month,day=1,hour=0,minute=0)=>new Date(Date.UTC(yea
 export const seoulDayStart=value=>instant(seoulDateKey(value));
 export const addSeoulDays=(value,days)=>new Date(instant(value).getTime()+days*DAY);
 export const seoulClock=value=>seoulInputValue(value).slice(11);
+// UI-화면정리 B(시각 표기): 화면의 시각은 모두 24시간 'HH:MM'('17:00')이다. 시·분을 달라는 호출은 초를 빼고
+// 두 자리 24시간으로 맞춘다(옛 '오후 05:00'·'오전 10:00:00' 섞임). 날짜 부분(년·월·일·요일) 옵션은 그대로다.
+const clockOptions=options=>{
+  if(!options||(options.hour===undefined&&options.minute===undefined&&options.timeStyle===undefined))return options;
+  const {second,timeStyle,dateStyle,hour12,hourCycle,...rest}=options;
+  const date=dateStyle?{year:'numeric',month:'numeric',day:'numeric'}:{};
+  return {...date,...rest,hour:'2-digit',minute:'2-digit',hourCycle:'h23'};
+};
 export function formatSeoulTime(value,options={}){
-  return value?new Intl.DateTimeFormat('ko-KR',{...options,timeZone:TIME_ZONE}).format(instant(value)):'';
+  return value?new Intl.DateTimeFormat('ko-KR',{...clockOptions(options),timeZone:TIME_ZONE}).format(instant(value)):'';
 }
 export function formatMeetingTime(value,options={}){
   return formatSeoulTime(value,{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',...options});

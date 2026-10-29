@@ -4,7 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // ORG-PC좌우(2026-10-21 요청): PC(≥1024) 담당조직 화면은 왼쪽 목록 1/3 + 오른쪽 상세 2/3(같은 상세 창을 칸에 옮겨 씀,
 // 프로젝트 화면 UI-PC프로젝트좌우와 같은 짜임). 처음 열면 이 기기에서 마지막으로 본 조직(없거나 저장소가 막히면 맨 위).
-// 상세의 기록 → 업데이트 화면에서 "← (조직)으로 돌아가기"·뒤로 가기 → 같은 조직·같은 스크롤. 761~1023px·폰은 목록 + 상세 창.
+// 상세의 기록 → 업데이트 화면에서 머리 줄 "‹ (조직)"·뒤로 가기 → 같은 조직·같은 스크롤. 761~1023px·폰은 목록 + 상세 창.
 // 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
 const note={id:'10000000-0000-4000-8000-0000000000bb',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 조직 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
@@ -93,7 +93,11 @@ test('PC 1280: sign-out and another user on this device drop the remembered orga
  await row(page,'oc').click();await expect(title(page)).toHaveText('합성 다 지부');
  await expect.poll(()=>lastKeys(page)).toEqual([[`kptu_owner_cache:organization-last-v1:${owner}`,'oc']]);
  // Another user on the same device never sees it: the key goes with the owner change.
+ // The runtime drops the key at once and the loader then reloads the page for the new owner (loader-v2.js handleIdentityChange),
+ // so wait for that reload to finish before touching the page again.
+ const reloaded=page.waitForEvent('load');
  await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-b',refresh_token:'token-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'other-user'}}));
+ await reloaded;
  await expect.poll(()=>lastKeys(page)).toEqual([]);
  await page.evaluate(owner=>localStorage.setItem('kptu_owner_cache:organization-last-v1:other-user','ob'),owner);
  await page.evaluate(()=>window.KPTURuntime.session.write(null));
@@ -108,7 +112,7 @@ test('PC 1280: a blocked browser storage still opens the first organization',asy
  await clickView(page,'home');await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');expect(errors).toEqual([]);
 });
 
-test('PC 1280: a record opens the update with "← (organization)으로 돌아가기"; the button and back return to the same organization and scroll',async({page})=>{
+test('PC 1280: a record opens the update with "‹ (organization)" in the head; the button and back return to the same organization and scroll',async({page})=>{
  const {errors}=await fixture(page);
  await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');
  await row(page,'ob').click();await expect(title(page)).toHaveText('합성 나 지부');
@@ -118,7 +122,7 @@ test('PC 1280: a record opens the update with "← (organization)으로 돌아�
  for(const how of ['button','back','browser']){
   await line.click();
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
-  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 합성 가 지부로 돌아가기');
+  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 합성 가 지부');
   if(how==='button')await back.click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(title(page)).toHaveText('합성 가 지부');
   await expect(pane(page).locator('#wdModal')).toBeVisible();await expect(row(page,'oa')).toHaveAttribute('aria-current','true');

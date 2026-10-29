@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {laidOutBox} from './helpers/laid-out.mjs';
 // TASK-바로처리통일 (2026-10-23 사용자 결정 00:06): 업무일지 할 일 / 한 일의 바로 처리(동그라미 완료 + 5초 [되돌리기], 줄 ⋯ = 내일로 · 기한 바꾸기 ·
 // 고치기 · 지우기 / 끝낸 줄 다시 할 일로 · 고치기, PC hover·초점 줄에만 ⋯, 폰은 늘)를 홈 오늘 할 일·담당조직·프로젝트 상세 연결 할 일에도 같은
 // 공용 부품(task-inline.js)으로. 담당조직·프로젝트의 [연결 해제]는 ⋯ 안에 그대로 남는다. 달력 날짜 목록은 task-ops-unify.spec.mjs, 업무일지는 journal.spec.mjs.
@@ -29,7 +30,8 @@ for(const width of [390,1280]){
   await expect(row).toBeVisible();await expect(more).toBeEnabled();
   await expect(more).toHaveAccessibleName('오늘 항목 더 보기');
   // 작은 칸: 보이는 ⋯는 28px 안, 누르는 폭은 ::after 로 44px.
-  const b=await more.boundingBox();expect(b.height).toBeLessThanOrEqual(32);expect(b.width).toBeLessThanOrEqual(32);
+  // 홈 칸은 이름·연결·회의 자료가 올 때마다 다시 그려진다(home-read.js paint). 붙어 있는 ⋯를 잰다.
+  const b=await laidOutBox(more);expect(b.height).toBeLessThanOrEqual(32);expect(b.width).toBeLessThanOrEqual(32);
   if(width>=1024){
    await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');
    await row.hover();await expect.poll(()=>opacity(more)).toBe('1');
@@ -160,7 +162,7 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  page.once('dialog',d=>d.accept());
  await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'지우기'}).click();
  await expect.poll(()=>state.calls.delete.length).toBe(1);
- await expect(body).toContainText('연결된 Google 할 일이 없습니다.');
+ await expect(body.locator('[data-wait-empty]')).toHaveText('없음');
  expect(errors).toEqual([]);
 });
 for(const width of [390,1280])test(`프로젝트 상세 연결 할 일: 같은 공용 줄(⋯ 항목, 연결 해제 유지, 동그라미 되돌리기) ${width}`,async({page})=>{

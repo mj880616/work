@@ -80,7 +80,7 @@ for (const width of [390, 1280]) test('a new page is one 글 block on the full s
   } else {
     expect(await tools.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
     expect(await tools.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
-    await expect(tools.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '·', '▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
+    await expect(tools.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '· ▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
   }
   await page.keyboard.type('회의 결과');
   await editor.locator('.ed-style').click();

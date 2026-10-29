@@ -74,11 +74,10 @@ async function closeEditAndDetail(page){
   await page.locator('[data-ps3-close="ps3CreateModal"]').click();await closeProjectDetail(page);
 }
 async function fold(page,id){const box=page.locator('#'+id);if(await box.getAttribute('open')===null)await box.locator(':scope > summary').click();}
-async function editRecord(page){
-  const row=page.locator('[data-ps3-record="record-a"]');await row.locator('[data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();return row;
-}
-// PRJ-기록입력: an old progress item without records is a record line; its menu 수정 opens the workstream editor.
-async function editItem(page,id){await page.locator(`[data-ps3-record="${id}"] [data-ps3-record-menu]`).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();}
+// MTG-프로젝트합치기 결정 ⑥: 옛 진행 기록·진행 항목 줄이 기록 목록에서 없어져(고치기 칸·진행 항목 창으로 가는 길이 없다) 그 줄을 열던
+// editRecord·editItem 도우미와, 그것으로 진행 항목 창 저장 요청 소유('a previous WS finally cannot release the next editor request'·
+// 'same-ID WS close-reopen keeps the first request locked…')와 기록 고치기 실패 초안('failed inline record PATCH keeps the exact draft')을
+// 보던 시험을 지웠다. 그 줄이 그려지지 않고 두 표에 쓰지 않는 것은 project-system-v3·project-record-input 시험이 본다.
 async function trackClickedSave(page,selector){
   // Test-only completion barrier: the actual click still invokes the original
   // production handler/body. Await it rather than sampling the UI before its
@@ -104,7 +103,7 @@ test('normal fixture: exact author/project filters return only the requested exi
   const query=state.calls('app_project_comments','GET').at(-1).query;expect(query).toMatchObject({id:'eq.memo-a',project_id:'eq.p',author_id:'eq.home-test'});
 });
 // MTG-프로젝트합치기 3단계: 'normal adjacent draft: saving a top record preserves a different dirty progress record'는 상세 맨 위 입력칸 저장으로
-// 다른 기록 초안이 지켜지는지 보던 시험이라, 입력칸(saveRecordInput)이 없어지며 함께 없앴다. 기록 고치기 초안은 아래 PATCH 시험들이 계속 본다.
+// 다른 기록 초안이 지켜지는지 보던 시험이라, 입력칸(saveRecordInput)이 없어지며 함께 없앴다. (옛 기록 고치기 칸도 결정 ⑥으로 목록에서 없어졌다.)
 
 for(const width of [390,1280])test(`Project PATCH failure keeps its current draft ${width}`,async({page})=>{
   const state=await fixture(page,width);await editProject(page);state.next('app_spaces','PATCH',{status:403,apply:false,response:{message:'synthetic permission denied'}});
@@ -149,16 +148,6 @@ test('Project zero-row PATCH keeps the draft and offers result confirmation',asy
   const state=await fixture(page);await editProject(page);await trackClickedSave(page,'#ps3CreateSave');state.next('app_spaces','PATCH',{apply:false,response:[]});await page.locator('#ps3CreateName').fill('행 확인 없는 초안');await page.locator('#ps3CreateSave').click();await savedHandlerFinished(page);
   await expect(page.locator('#ps3CreateModal')).toBeVisible();await expect(page.locator('#ps3CreateName')).toHaveValue('행 확인 없는 초안');await expect(page.getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible();
 });
-test('a previous WS finally cannot release the next editor request',async({page})=>{
-  const state=await fixture(page);state.tables.app_project_progress_updates.length=0;await openProject(page);await editItem(page,'ws-a');const first=state.next('app_project_workstreams','PATCH',{hold:true});
-  await page.locator('#ps3WsTitle').fill('A 제출');await page.locator('#ps3WsSave').click();await expect.poll(()=>first.claimed).toBe(true);await page.locator('[data-ps3-close="ps3WorkstreamModal"]').click();await editItem(page,'ws-b');const second=state.next('app_project_workstreams','PATCH',{hold:true});
-  try{await page.locator('#ps3WsTitle').fill('B 제출');await expect(page.locator('#ps3WsSave')).toBeEnabled();await page.locator('#ps3WsSave').click();await expect.poll(()=>second.claimed).toBe(true);first.release();await expect.poll(()=>first.done).toBe(true);await expect(page.locator('#ps3WsSave')).toBeDisabled();await expect(page.locator('#ps3WsTitle')).toHaveValue('B 제출');
-  }finally{first.release();second.release();observation('WS A/B request ownership',state);}
-});
-for(const width of [390,1280])test(`failed inline record PATCH keeps the exact draft ${width}`,async({page})=>{
-  const state=await fixture(page,width);await openProject(page);const row=await editRecord(page);state.next('app_project_progress_updates','PATCH',{status:403,apply:false,response:{message:'record forbidden'}});await row.locator('input').fill('未保存 수정 글');await row.getByRole('button',{name:'저장',exact:true}).click();
-  await expect(page.locator('#toast')).toContainText('수정 실패');await expect(row.locator('input')).toHaveValue('未保存 수정 글');expect(state.tables.app_project_progress_updates[0].summary).toBe('서버 진행 기록');
-});
 
 test('unknown Project create uses an explicitly selected exact existing row without a second POST',async({page})=>{
   const state=await fixture(page);await page.locator('#newProjectBtn').click();await page.locator('#ps3CreateName').fill('응답만 유실');state.next('app_spaces','POST',{status:503,apply:true,response:{message:'lost reply'}});await page.locator('#ps3CreateSave').click();await expect(page.locator('#ps3CreateStatus')).toContainText('lost reply');
@@ -174,11 +163,8 @@ test('positive module GET confirms a known project without reposting confirmed s
   const state=await fixture(page);await page.locator('#newProjectBtn').click();await page.locator('#ps3CreateName').fill('모듈 응답 유실');state.next('app_project_modules','POST',{status:503,apply:true,response:{message:'module reply lost'}});await page.locator('#ps3CreateSave').click();await expect(page.locator('#ps3CreateStatus')).toContainText('module reply lost');await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await expect(page.locator('#ps3CreateStatus')).toContainText('입력을 확인');await page.locator('#ps3CreateSave').click();await expect(page.locator('#ps3CreateModal')).toBeHidden();
   expect(state.calls('app_spaces','POST')).toHaveLength(1);expect(state.calls('app_spaces','PATCH')).toHaveLength(0);expect(state.calls('app_project_modules','POST')).toHaveLength(1);
 });
-test('same-ID WS close-reopen keeps the first request locked until result confirmation',async({page})=>{
-  const state=await fixture(page);state.tables.app_project_progress_updates.length=0;await openProject(page);await editItem(page,'ws-a');const first=state.next('app_project_workstreams','PATCH',{hold:true});try{await page.locator('#ps3WsSave').click();await expect.poll(()=>first.claimed).toBe(true);await page.locator('[data-ps3-close="ps3WorkstreamModal"]').click();await editItem(page,'ws-a');await expect(page.locator('#ps3WsSave')).toBeDisabled();first.release();await expect(page.locator('#ps3WsSave')).toBeEnabled();await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();await expect(page.getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible();expect(state.calls('app_project_workstreams','PATCH')).toHaveLength(1)}finally{first.release()}
-});
 // MTG-프로젝트합치기 3단계: 'unknown top record blocks a changed title after a negative GET'는 맨 위 입력칸 저장의 결과 확인 흐름을 보던 시험이라
-// 입력칸과 함께 없앴다(결과 확인 흐름 자체는 옛 항목·주요 일정 저장 시험이 계속 본다).
+// 입력칸과 함께 없앴다(결과 확인 흐름 자체는 프로젝트·주요 일정 저장 시험이 계속 본다).
 for(const width of [390,1280])test(`Project footer stays reachable by touch and keyboard ${width}`,async({page})=>{
   await fixture(page,width);await editProject(page);const footer=page.locator('#ps3CreateModal .modal-action-footer'),button=page.locator('#ps3CreateSave');await expect(footer).toBeVisible();const box=await button.boundingBox();expect(await button.evaluate(b=>parseFloat(getComputedStyle(b,'::after').minHeight))).toBeGreaterThanOrEqual(44);// UI-디자인기준 3/3 3부(8-9e-3): 창 버튼은 보이는 높이 자체가 46px(≥44px)이라 누르는 범위가 버튼 안에 있다. 위·아래 끝 2px 안을 눌러도 이 버튼.
 expect(box.height).toBe(36);/* UI-버튼줄이기: 창 주 동작 36px, 누르는 범위 ::after 44px */for(const y of [box.y+2,box.y+box.height-2])expect(await button.evaluate((b,{x,y})=>document.elementFromPoint(x,y)?.closest('button')===b,{x:box.x+box.width/2,y})).toBe(true);expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);await page.locator('[data-ps3-close="ps3CreateModal"]').focus();await page.keyboard.press('Shift+Tab');await expect(button).toBeFocused();await page.keyboard.press('Escape');await expect(page.locator('#ps3CreateModal')).toBeHidden();
