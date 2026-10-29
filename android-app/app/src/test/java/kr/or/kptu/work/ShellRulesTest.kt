@@ -8,10 +8,30 @@ import org.junit.Test
 
 class ShellRulesTest {
     @Test
+    fun homeIsTheNewWeb2Address() {
+        // 주소 이전 ①-D1 뒤 정식 주소. desk는 이 주소로 넘기므로(302) 앱도 처음부터 여기를 연다.
+        assertEquals("https://bokdoong.com/work/app/", ShellRules.HOME)
+        assertEquals("https://bokdoong.com", WidgetRules.ORIGIN)
+        assertTrue(ShellRules.isInternalApp(ShellRules.HOME))
+        assertTrue("https://bokdoong.com" in ShellRules.ALLOWED_ORIGINS)
+        assertEquals(
+            setOf("https://bokdoong.com", "https://desk.bokdoong.com", "https://work.bokdoong.com", "https://mj880616.github.io"),
+            ShellRules.ALLOWED_ORIGINS,
+        )
+    }
+
+    @Test
     fun internalAppAddresses() {
+        assertTrue(ShellRules.isInternalApp("https://bokdoong.com/work/app/"))
+        assertTrue(ShellRules.isInternalApp("https://bokdoong.com/work/app/?view=basket"))
+        assertTrue(ShellRules.isInternalApp("https://bokdoong.com/work/app/native-callback.html?native=android"))
+        assertTrue(ShellRules.isInternalApp("https://bokdoong.com/work/app"))
+        assertTrue(ShellRules.isInternalApp("https://bokdoong.com/"))
+        assertTrue(ShellRules.isInternalApp("https://bokdoong.com"))
+        assertTrue(ShellRules.isInternalApp("https://BOKDOONG.com/work/app/"))
+        // 넘김(302) 기간: 옛 주소도 앱 안에 둔다(넘어간 bokdoong.com도 안쪽이라 브라우저 탭이 뜨지 않는다).
         assertTrue(ShellRules.isInternalApp("https://desk.bokdoong.com/work/app/"))
         assertTrue(ShellRules.isInternalApp("https://desk.bokdoong.com/work/app/?view=basket"))
-        assertTrue(ShellRules.isInternalApp("https://desk.bokdoong.com/work/app/native-callback.html?native=android"))
         assertTrue(ShellRules.isInternalApp("https://desk.bokdoong.com/"))
         assertTrue(ShellRules.isInternalApp("https://work.bokdoong.com/work/app/"))
         assertTrue(ShellRules.isInternalApp("https://mj880616.github.io/work/app/"))
@@ -20,6 +40,26 @@ class ShellRulesTest {
 
     @Test
     fun outsideAddresses() {
+        // bokdoong.com의 Web2 밖 경로: Web1 공개 페이지(/p/ 등), 공유 짧은 주소(/s/), /work/ 아래 Web1·공유 페이지.
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com/p/"))
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com/s/abc123"))
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com/work/"))
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com/work/press/"))
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com/work/share/?t=x"))
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com/work/apps/"))
+        assertFalse(ShellRules.isInternalApp("http://bokdoong.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com:8443/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com@evil.example/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://evil.bokdoong.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://read.bokdoong.com/"))
+        assertFalse(ShellRules.isInternalApp("https://arsenal.bokdoong.com/"))
+        assertFalse(ShellRules.isInternalApp("https://notbokdoong.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://bokdoong.com.evil.example/work/app/"))
+        // 공유 페이지는 Web2와 다른 주소에 둔다(설계 4.3절) → 바깥.
+        assertFalse(ShellRules.isInternalApp("https://work.bokdoong.com/work/share/"))
+        assertFalse(ShellRules.isInternalApp("https://work.bokdoong.com/work/share/?s=abc"))
+        assertTrue(ShellRules.opensOutside("https://work.bokdoong.com/work/share/?t=x"))
+        assertTrue(ShellRules.opensOutside("https://bokdoong.com/s/abc123"))
         assertFalse(ShellRules.isInternalApp("http://desk.bokdoong.com/work/app/"))
         assertFalse(ShellRules.isInternalApp("https://desk.bokdoong.com/work/apps/"))
         assertFalse(ShellRules.isInternalApp("https://desk.bokdoong.com/p/"))
@@ -33,6 +73,9 @@ class ShellRulesTest {
         assertFalse(ShellRules.isInternalApp(null))
         assertFalse(ShellRules.isInternalApp("not a url"))
         assertTrue(ShellRules.opensOutside("https://accounts.google.com/"))
+        assertTrue(ShellRules.opensOutside("https://bokdoong.com/work/app/file?external=1"))
+        assertFalse(ShellRules.opensOutside("https://bokdoong.com/work/app/?external=0"))
+        assertFalse(ShellRules.opensOutside("https://bokdoong.com/work/app/?view=calendar"))
         assertTrue(ShellRules.opensOutside("https://desk.bokdoong.com/work/app/file?external=1"))
         assertFalse(ShellRules.opensOutside("https://desk.bokdoong.com/work/app/?external=0"))
     }
@@ -40,15 +83,15 @@ class ShellRulesTest {
     @Test
     fun loginReturnPassesOnlyKnownValues() {
         assertEquals(
-            "https://desk.bokdoong.com/work/app/?handoff=abc.DEF_12-3",
+            "https://bokdoong.com/work/app/?handoff=abc.DEF_12-3",
             ShellRules.homeForReturn("kptuwork://auth?handoff=abc.DEF_12-3"),
         )
         assertEquals(
-            "https://desk.bokdoong.com/work/app/?google=connected",
+            "https://bokdoong.com/work/app/?google=connected",
             ShellRules.homeForReturn("kptuwork://auth?google=connected&access_token=x&refresh_token=y"),
         )
         assertEquals(
-            "https://desk.bokdoong.com/work/app/?google=error&reason=a+b",
+            "https://bokdoong.com/work/app/?google=error&reason=a+b",
             ShellRules.homeForReturn("kptuwork://auth?google=error&reason=a%20b"),
         )
         assertEquals(ShellRules.HOME, ShellRules.homeForReturn("kptuwork://auth?payload=secret"))
@@ -103,11 +146,15 @@ class ShellRulesTest {
 
     @Test
     fun shareRequestAddresses() {
+        assertEquals(shareId to 0, ShellRules.shareRequest("https://bokdoong.com/work/app/__share/$shareId/0"))
+        assertEquals(shareId to 2, ShellRules.shareRequest("https://bokdoong.com/__share/$shareId/2"))
         assertEquals(shareId to 0, ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/$shareId/0"))
         assertEquals(shareId to 19, ShellRules.shareRequest("https://desk.bokdoong.com/__share/$shareId/19"))
         assertEquals(shareId to 3, ShellRules.shareRequest("https://work.bokdoong.com/work/app/__share/$shareId/3"))
         assertNull(ShellRules.shareRequest("http://desk.bokdoong.com/work/app/__share/$shareId/0"))
         assertNull(ShellRules.shareRequest("https://evil.example/work/app/__share/$shareId/0"))
+        assertNull(ShellRules.shareRequest("https://evil.bokdoong.com/work/app/__share/$shareId/0"))
+        assertNull(ShellRules.shareRequest("http://bokdoong.com/work/app/__share/$shareId/0"))
         assertNull(ShellRules.shareRequest("https://desk.bokdoong.com:8443/work/app/__share/$shareId/0"))
         assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/short/0"))
         assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/$shareId/0?x=1"))
@@ -115,7 +162,7 @@ class ShellRulesTest {
         assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/$shareId/../0"))
         assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/x/__share/$shareId/0"))
         assertNull(ShellRules.shareRequest(null))
-        assertEquals("https://desk.bokdoong.com/work/app/?view=basket&share=$shareId", ShellRules.shareHome(shareId))
+        assertEquals("https://bokdoong.com/work/app/?view=basket&share=$shareId", ShellRules.shareHome(shareId))
     }
 
     @Test

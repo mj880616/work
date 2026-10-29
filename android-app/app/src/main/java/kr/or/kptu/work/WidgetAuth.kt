@@ -20,8 +20,8 @@ object WidgetRules {
     const val SUPABASE = "https://xmlkxfjeagycwttklxjw.supabase.co"
     /** 공개용(publishable) 키. 웹 runtime-client.js와 같은 값이고 비밀이 아니다. 권한은 로그인 토큰과 서버 규칙이 정한다. */
     const val PUBLIC_KEY = "sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA"
-    /** auth-handoff 허용 Origin 중 하나. 앱은 desk 화면의 일부로서 이 값을 밝힌다(설계 4절 A안, 서버 변경 없음). */
-    const val ORIGIN = "https://desk.bokdoong.com"
+    /** auth-handoff 허용 Origin 중 하나. 앱은 웹2 화면(bokdoong.com)의 일부로서 이 값을 밝힌다(설계 4절 A안, 서버 변경 없음). */
+    const val ORIGIN = "https://" + ShellRules.WEB2_HOST
     /** WidgetLoginActivity(내보내지 않음)가 MainActivity를 열 때 쓰는 동작. 표시가 살아 있을 때만 로그인 탭을 연다. */
     const val ACTION_WIDGET_LOGIN = "kr.or.kptu.work.action.WIDGET_LOGIN"
 
