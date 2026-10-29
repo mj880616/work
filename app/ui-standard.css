@@ -382,11 +382,11 @@
   #appView #homeView.view-panel,#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 
-  /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로. */
-  #appView #basketView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px 44px; font-size:14px; line-height:21px; resize:none; overflow-y:auto; }
+  /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로(글자 시작은 UI-입력칸첨부간격 규칙). */
+  #appView #basketView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px; font-size:14px; line-height:21px; resize:none; overflow-y:auto; }
   #appView #basketView .home-quick [data-quick-file-picker]{ top:1px; left:1px; }
   #appView #basketView .home-quick .home-quick-entry{ align-items:stretch; }
-  /* NOTE-파일붙이기: 노트 입력칸도 업데이트 입력칸처럼 왼쪽에 클립 자리(44px)를 둔다(위 규칙 그대로). */
+  /* NOTE-파일붙이기: 노트 입력칸도 업데이트 입력칸처럼 왼쪽에 클립 자리를 둔다(글자 시작은 아래 UI-입력칸첨부간격 한 규칙). */
 
   /* BASKET-정리함한화면: 폰 화면 제목은 위 머리줄이 맡고, 화면 맨 위에는 '챙길 것 n · 업데이트 n · 마지막 찾기' 한 줄과 작은 [다시 찾기]만. 노트 쪽은 이 줄이 없다. */
   #appView #basketView[data-kind="note"] > .basket-head{ display:none; }
@@ -1216,9 +1216,10 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 #appView #tasksView .home-quick-input-wrap [data-quick-file-picker]{ position:absolute; top:1px; left:1px; z-index:1; }
 #appView #tasksView .home-quick-input-wrap .basket-clip .basket-clip-label{ display:none; }
 #appView #tasksView .home-quick-input-wrap .basket-clip .basket-clip-count{ top:2px; right:0; }
-#appView :is(#tasksView,#homeView) .home-quick[data-mode="task"] .home-quick-input-wrap:has(> [data-quick-file-picker]:not([hidden])) [data-quick-input]{ padding-left:44px; }
-/* BUG-업데이트첨부연결: 조직·프로젝트를 고른 [업데이트]도 바구니와 같은 클립(폰: 입력칸 안 왼쪽, 글자는 바구니와 같은 46px부터). */
-#appView #homeView .home-quick[data-mode="update"] .home-quick-input-wrap:has(> [data-quick-file-picker]:not([hidden])) [data-quick-input]{ padding-left:46px; }
+/* UI-입력칸첨부간격(2026-10-30): 폰(~760px)에서 클립이 입력칸 안 왼쪽에 있을 때 글자 시작 자리는 이 한 규칙이 정한다(홈 업데이트·할 일,
+   정리함 업데이트, 노트, [할 일] 화면 모두). 클립 칸(왼쪽 1px + 44px) 오른쪽 끝에서 8px 띄운다. 전에는 화면·모드마다 44px·46px이라 글자가 클립 칸에 붙었다.
+   PC(761px~)는 클립이 입력칸 밖([추가] 왼쪽)이라 이 규칙이 닿지 않는다(home-quick.js가 자리를 옮김). */
+#appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-input-wrap:has(> [data-quick-file-picker]:not([hidden])) [data-quick-input]{ padding-left:calc(1px + var(--kptu-touch-target,44px) + 8px); }
 #appView #tasksView .home-quick [data-quick-basket-options]{ min-width:0; }
 @media(min-width:1024px){
   #appView #tasksView .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip{ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
