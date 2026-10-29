@@ -217,17 +217,15 @@ test('project list loads and its heading uses available width at desktop, tablet
   for(const width of [1440,768,390,360]){
     await page.setViewportSize({width,height:900});
     const layout=await page.evaluate(()=>{
-      const head=document.querySelector('#projectsView .section-head');
-      const title=head.firstElementChild;
+      // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이고, 제목 '사업영역 관리'는 창 머리줄 하나에만 있다.
+      const title=document.querySelector('#areaWindow .area-window-head #areaWindowTitle');
       const grid=document.querySelector('#projectGrid');
       const card=grid.querySelector('.ps3-prow');
       const rect=element=>element.getBoundingClientRect();
       return {title:rect(title).width,card:rect(card).width,overflow:document.documentElement.scrollWidth-window.innerWidth,ready:grid.dataset.ps3Ready};
     });
     expect(layout.ready).toBe('1');
-    // UI-PC프로젝트좌우: PC(≥1024) has no empty head bar above the split (its buttons live in the list head); the list column fills the screen.
-    if(width>=1024)expect(layout.title,`no empty project head at ${width}px`).toBe(0);
-    else expect(layout.title,`project heading at ${width}px`).toBeGreaterThan(100);
+    expect(layout.title,`window heading at ${width}px`).toBeGreaterThan(80);
     expect(layout.card,`project card at ${width}px`).toBeGreaterThan(200);
     expect(layout.overflow,`horizontal overflow at ${width}px`).toBeLessThanOrEqual(1);
   }

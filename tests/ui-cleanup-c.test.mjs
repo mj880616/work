@@ -43,7 +43,7 @@ test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [
 // 화면의 새 항목 추가 버튼: PC는 화면 머리 오른쪽의 작은 [+ ○○], 폰은 하단 탭 위 동그란 [+] 하나(ui-standard.css 한 규칙).
 const ADD = [
   ['#calendarView .calendar-toolbar #newEventBtn', 'index.html', /id="newEventBtn"/],
-  ['#projectsView #newProjectBtn', 'index.html', /id="newProjectBtn"/],
+  // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄 버튼이라 이 묶음에서 빠졌다.
   ['#libraryView #newDocumentBtn', 'index.html', /id="newDocumentBtn"[^>]*>\+ /],
   ['#meetingsView #newMeetingBtn', 'index.html', /id="newMeetingBtn"[^>]*>\+ /],
   ['#diaryView #newDiaryBtn', 'diary.js', /id="newDiaryBtn"/],

@@ -79,7 +79,7 @@ export function openSource(c) {
     } else if (c.source_kind === 'org_update' && c.organization_id) {
       await window.KPTUViewLoader.load('team'); await window.KPTUWorkplace.open(c.organization_id);
     } else if (c.source_kind === 'project_update' && c.project_id) {
-      await window.KPTUViewLoader.load('projects'); await window.KPTUProjects.open(c.project_id);
+      await window.KPTUAreaWindow.open({id: c.project_id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     } else if (c.source_kind === 'telegram') {
       // FEAT-1029 ⑤: the telegram screen on that room·day with the news row open (the same opener the 조직 주요 인물 list uses).
       await window.KPTUViewLoader.load('telegram'); go('telegram');

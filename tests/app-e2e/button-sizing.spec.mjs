@@ -80,7 +80,9 @@ async function pcCompactAdd(page,selector){const el=page.locator(selector);await
 const dsViews=new Set(['projects','meetings','team','calendar']);
 // UI-디자인기준 3/3 2부(8-9e-2): 폰의 일정·할 일·프로젝트·자료실 추가 버튼은 하단 탭 위 동그란 [+](누르는 범위 44px, 보이는 원 36px).
 async function phoneFab(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const b=await el.boundingBox();expect(b.width,selector).toBe(36);expect(b.height,selector).toBe(36);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).toBe('fixed');const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w,selector).toBe(44);expect(t.h,selector).toBe(44);}
-const fabs=new Set(['#newEventBtn','#newProjectBtn','#newDocumentBtn','#newMeetingBtn']);
+// MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄 버튼이다(폰 '‹ 사업 보고 · 사업영역 관리 · +', 떠 있는 둥근 [+] 아님).
+const fabs=new Set(['#newEventBtn','#newDocumentBtn','#newMeetingBtn']);
+async function phoneHeadAdd(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const b=await el.boundingBox(),head=await page.locator('#areaWindow .area-window-head').boundingBox();expect(b.height,selector).toBe(32);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).not.toBe('fixed');expect(b.y).toBeGreaterThanOrEqual(head.y-1);expect(b.y+b.height).toBeLessThanOrEqual(head.y+head.height+1);expect(await el.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBeGreaterThanOrEqual(44)}
 for(const width of [390,1440])test('D-button list sizes and compact exclusions '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
@@ -91,7 +93,8 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
    if(selector==='#ps3ArchiveBtn'){
     const el=page.locator(selector);await expect(el).toHaveText('보관 1');const after=await size(el);
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
-   }else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
+   }else if(width<=760&&selector==='#newProjectBtn')await phoneHeadAdd(page,selector);
+   else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
    // UI-PC회의(2026-10-20)·UI-PC버튼36: PC 회의 [+ 회의 결과]·[+ 프로젝트]는 공용 입력칸 높이(36px)·누르는 범위 44px.
    // BIZ-버튼줄정리(10/29): 사업 보고 [+ 사업 보고]도 [+ 사업영역]처럼 작고 낮은 채운 버튼(32px, 누르는 범위 44px).
    else if(['#newMeetingBtn','#newProjectBtn'].includes(selector)&&width>=1024)await pcCompactAdd(page,selector);

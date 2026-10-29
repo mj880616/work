@@ -136,6 +136,6 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버
 
 test('중간 폭 900: 목록 머리 채운 버튼은 36px(UI-버튼전수조사), 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
  await boot(page,900);
- await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(36);
+ await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(32);/* MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작고 낮은 버튼(32px) */
  await open(page,'tasks');expect((await page.locator('#tasksView [data-home-quick] [data-quick-save]').boundingBox()).height).toBe(36);
 });

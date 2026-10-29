@@ -703,8 +703,7 @@ root.addEventListener("click", async (event) => {
       return;
     }
     if (b.dataset.homeProject) {
-      await window.KPTUViewLoader.load("projects");
-      await window.KPTUProjects.open(b.dataset.homeProject);
+      await window.KPTUAreaWindow.open({ id: b.dataset.homeProject }); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     }
   } catch {
     const c = b.closest("[data-home-card]");

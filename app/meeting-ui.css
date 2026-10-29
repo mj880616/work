@@ -418,3 +418,24 @@
 @media (max-width:760px){.oneline-dialog{margin:12px auto auto}}
 .meeting-list-row[data-report-kind="oneline"] h3{font-weight:400;font-size:14px}
 .oneline-orgs{justify-self:start}
+
+/* MTG-프로젝트합치기 ③(10/29 시안 승인): 목록 맨 위 얇은 줄 '사업영역 안 단 보고 n건 [달기]'(team.js paintUntagged)와
+   [달기] 작은 창(report-area-tag.js, 공용 고르기 창 안). 글자 12px 흐린 색, 버튼은 작고 낮게(보이는 24px, 누르는 범위 44px). */
+.area-untagged{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:3px 8px;border-radius:var(--kptu-radius-sm,6px);background:var(--ds-select-bg,var(--kptu-surface-muted));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.area-untagged[hidden]{display:none}
+.area-untagged-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.area-untagged-text b{font-weight:600;color:var(--kptu-ink)}
+#appView #meetingsView .area-untagged .area-untagged-btn{position:relative;flex:none;box-sizing:border-box;height:24px;min-height:24px;min-width:0;margin-left:auto;padding:0 10px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:999px;background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-text-meta,12px);font-weight:400;box-shadow:none}
+#appView #meetingsView .area-untagged .area-untagged-btn::after{content:"";position:absolute;left:-4px;right:-4px;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#reportAreaTagSheet .area-tag-list{display:flex;flex-direction:column}
+#reportAreaTagSheet .area-tag-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px;min-height:36px;padding:2px 0;border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,13px)}
+#reportAreaTagSheet .area-tag-day{color:var(--kptu-muted);font-variant-numeric:tabular-nums;min-width:34px}
+#reportAreaTagSheet .area-tag-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#reportAreaTagSheet .area-tag-pick{display:inline-flex;align-items:center;gap:4px;min-width:0}
+#reportAreaTagSheet .area-tag-select{box-sizing:border-box;width:9.5em;max-width:42vw;height:var(--ds-field-height,28px);min-height:0;padding:0 4px;font-size:var(--ds-text-meta,12px)}
+#reportAreaTagSheet .area-tag-mark{flex:none;padding:0 4px;border-radius:4px;background:var(--ds-select-bg,var(--kptu-surface-muted));font-size:10px;line-height:16px;color:var(--kptu-muted)}
+#reportAreaTagSheet .area-tag-mark[hidden]{display:none}
+#reportAreaTagSheet .area-tag-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:6px 0 2px;background:var(--kptu-surface)}
+#reportAreaTagSheet .area-tag-status{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-danger)}
+#reportAreaTagSheet .area-tag-save{height:var(--ds-compact-height,32px);min-height:0;padding:0 14px;font-size:var(--ds-text-meta,13px)}
+#reportAreaTagSheet.home-choice-anchored{min-width:min(420px,calc(100vw - 24px))}

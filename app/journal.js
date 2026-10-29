@@ -917,8 +917,9 @@ async function openOriginal(target, trigger) {
     if (target.type === 'org' || target.type === 'project') {
       const org = target.type === 'org';
       await loader.load(org ? 'team' : 'projects');
-      if (wide) { rememberReturn(trigger); if (!goView(org ? 'team' : 'projects')) { pendingReturn = null; return; } }
-      await (org ? window.KPTUWorkplace.open(target.org) : window.KPTUProjects.open(target.project));
+      // MTG-프로젝트합치기 ①: 사업영역은 화면이 아니라 창(area-window.js)이라 업무일지 위에 연다(닫으면 이 날 그대로).
+      if (org && wide) { rememberReturn(trigger); if (!goView('team')) { pendingReturn = null; return; } }
+      await (org ? window.KPTUWorkplace.open(target.org) : window.KPTUAreaWindow.open({ id: target.project, trigger }));
       if (!wide) refocusAfter(org ? '#wdModal' : '#ps3DetailModal', trigger);
       const selector = RECORD[target.type](target.record);
       if (selector) await flashRecord(selector);

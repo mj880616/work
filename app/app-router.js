@@ -5,7 +5,9 @@
   // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
   const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library'};
+  // MTG-프로젝트합치기 ①: 사업영역 관리(옛 ?view=projects)는 화면이 아니라 사업 보고 위의 창이다. go('projects')·옛 주소는 사업 보고를 열고
+  // kptu:view-changed의 detail.areas로 창(area-window.js)을 띄운다.
+  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
   const ALIAS_ENTRY={media:{view:'library',category:'성명·보도자료'}};
@@ -75,7 +77,7 @@
     const requested=params.get(VIEW_PARAM)&&viewName(params.get(VIEW_PARAM));
     if(viewExists(requested))return requested;
     if(requested)return viewExists('home')?'home':null;
-    if(params.get('project')&&viewExists('projects'))return 'projects';
+    if(params.get('project')&&viewExists('meetings'))return 'meetings';
     return viewExists('home')?'home':null;
   }
 
@@ -274,7 +276,8 @@
     });
   }
 
-  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null}={}){
+  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null,areas=false}={}){
+    if(view==='projects')areas=true;
     view=viewName(view);sub=subName(view,sub);
     if(!view||!authenticatedShellReady()||returningTo)return false;
     const lazy=window.KPTUViewLoader;
@@ -286,7 +289,7 @@
       lazy.load(view).then(()=>{
         if(request!==goSeq)return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
-        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub});
+        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub,areas});
       }).catch(err=>console.error('view lazy load',view,err));
       return false;
     }
@@ -306,7 +309,7 @@
     if(updateUrl&&(appReady()||authenticatedShellReady()))syncUrl(view,{replace:replaceUrl||source==='api',sub});
     rememberRoute();
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
-    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{})};
+    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{}),...(areas?{areas:true}:{})};
     window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));
     for(const fn of hooks.get(view)||[]){
       try{fn(detail)}catch(err){console.error('view hook',view,err)}
@@ -331,7 +334,8 @@
       return true;
     }
     noteAlias(written);
-    return go(view,{scroll:false,source,updateUrl:false,sub});
+    const areas=written==='projects'||!!new URLSearchParams(location.search).get('project');
+    return go(view,{scroll:false,source,updateUrl:false,sub,areas});
   }
 
   function on(view,fn){
