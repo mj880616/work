@@ -45,8 +45,8 @@
 //   AI 한도·실패여도 줄은 저장한다(ai_status limit|failed). Google·원장·챙길 것·회의 표에는 쓰지 않는다.
 // 교섭·회의 전 한 장(kind=pre_meeting_sheet, FEAT-1029묶음 ②, pre-meeting-sheet.ts): 업무일지·홈이 전날 18시 뒤 내일 교섭·회의 일정마다 한 번(mode=auto),
 //   일정 수정 창·담당조직 상세의 [지금 만들기]·[다시 만들기]에서(mode=user) 부른다. 화면은 일정 값과 담당조직 id만 보낸다(몸통 4KB).
-//   재료 ①~⑦은 서버가 내 로그인 토큰으로 읽는다(사업 보고·원장·업무 통화·텔레그램 요약·주요 인물·자료·쟁의 단계, 개인 통화함은 안 읽음).
-//   원장 S2는 줄로만 남기고 AI엔 안 보낸다. 저장은 owner RLS 표 app_pre_meeting_sheets(일정마다 1행) 하나뿐, 다른 표에는 쓰지 않는다.
+//   재료 ①~⑦은 서버가 내 로그인 토큰으로 읽는다(사업 보고·원장·업무 통화·텔레그램 소식·주요 인물·자료·쟁의 단계, 개인 통화함·개인 텔레그램은 안 읽음).
+//   명진 결정 변경(10/29): 원장 S2도 AI에 보내고, 텔레그램은 원문·보낸 사람 표시 이름까지 보낸다(tg-raw.ts, 상한). 저장은 owner RLS 표 app_pre_meeting_sheets(일정마다 1행) 하나뿐, 다른 표에는 쓰지 않는다.
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
@@ -72,8 +72,9 @@ import {
   autoReady as preMeetingAutoReady, isMeetingTitle, itemTitle, kstHour as preMeetingHour, parsePreMeetingSheet, parsePreMeetingSheetRequest,
   PRE_MEETING_BODY_BYTES, PRE_MEETING_DAILY, PRE_MEETING_DOCS, PRE_MEETING_FEED, PRE_MEETING_FEED_DAYS, PRE_MEETING_INSTRUCTIONS, PRE_MEETING_LEDGER,
   PRE_MEETING_MAX_OUTPUT_TOKENS, PRE_MEETING_MEETING_TEXT, PRE_MEETING_MEETINGS, PRE_MEETING_PEOPLE, PRE_MEETING_SCHEMA, preMeetingMaterial,
-  seoulMidnight as preMeetingMidnight, storedGroups, withinWindow, type PreMeetingAi, type PreMeetingEvent, type PreMeetingItem,
+  seoulMidnight as preMeetingMidnight, sheetTgRaw, storedGroups, withinWindow, type PreMeetingAi, type PreMeetingEvent, type PreMeetingItem,
 } from "./pre-meeting-sheet.ts";
+import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -3531,7 +3532,7 @@ async function runPreMeetingSheet(ctx: Ctx, input: PreMeetingSheetInput, deps: R
     items.push({ group: "meetings", title: itemTitle(name), day: dayOf(m.meeting_at), source_kind: "meeting", source_id: String(m.id).toLowerCase(), ai: result || undefined });
   }
 
-  // ②④ 원장: 이 조직(원장 조직표의 Web2 조직 연결)에 이어진 현재 기록. 업무 범위만. S2는 줄로만(AI 안 보냄).
+  // ②④ 원장: 이 조직(원장 조직표의 Web2 조직 연결)에 이어진 현재 기록. 업무 범위만. S2도 AI에 보낸다(결정 변경, 줄에 s2 표시).
   const ledgerOrgs = (await soft(`app_ledger_organizations?workspace_id=eq.${ws}&suborganization_id=eq.${org}&select=id,workspace_id,suborganization_id&limit=5`))
     .filter((o) => mine(o) && String(o.suborganization_id).toLowerCase() === org && isUuid(o.id)).map((o) => String(o.id).toLowerCase());
   if (ledgerOrgs.length) {
@@ -3546,7 +3547,8 @@ async function runPreMeetingSheet(ctx: Ctx, input: PreMeetingSheetInput, deps: R
     }
     records.sort((a, b) => String(b.date_start ?? "").localeCompare(String(a.date_start ?? "")));
     for (const r of records.slice(0, PRE_MEETING_LEDGER)) {
-      const s2 = r.sensitivity !== "S0" && r.sensitivity !== "S1"; // 모르는 등급은 닫는다.
+      if (r.sensitivity !== "S0" && r.sensitivity !== "S1" && r.sensitivity !== "S2") continue; // 모르는 등급은 닫는다.
+      const s2 = r.sensitivity === "S2";
       const extra = [text(r.summary), text(r.counterparty) && `상대 ${text(r.counterparty)}`].filter(Boolean).join(" / ");
       if (r.kind === "commitment") {
         if (r.commitment_status !== "waiting") continue;
@@ -3557,18 +3559,29 @@ async function runPreMeetingSheet(ctx: Ctx, input: PreMeetingSheetInput, deps: R
     }
   }
 
-  // ⑤ 최근 30일 업무 통화·텔레그램(이 조직). 통화는 제목·요약, 텔레그램은 방 이름·요약만(보낸 사람·원문은 읽지 않음).
+  // ⑤ 최근 30일 업무 통화·텔레그램(이 조직). 통화는 제목·요약만(원문·상대 이름은 읽지 않음).
+  // 텔레그램은 방 이름·요약 + 원문과 보낸 사람 표시 이름(결정 변경 10/29, 최근 8개·소식마다 600자). 이름 표를 못 읽으면 라벨 그대로.
   const since = addDays(kstDay(started), -PRE_MEETING_FEED_DAYS);
   const feed = [
     ...await soft(`app_feed_items?source=eq.call&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,summary&order=day.desc&limit=${PRE_MEETING_FEED}`),
-    ...await soft(`app_feed_items?source=eq.telegram&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,summary&order=day.desc&limit=${PRE_MEETING_FEED}`),
+    ...await soft(`app_feed_items?source=eq.telegram&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,room_key,summary,raw_text&order=day.desc&limit=${PRE_MEETING_FEED}`),
   ].sort((x, y) => String(y.day ?? "").localeCompare(String(x.day ?? ""))).slice(0, PRE_MEETING_FEED);
+  const tgRows = feed.filter((f) => f.source === "telegram" && mine(f)).slice(0, TG_RAW_MAX_ITEMS);
+  let tgNames = new Map<string, Map<string, string>>();
+  try {
+    tgNames = await tgNamesFor((p) => rest(ctx, p), ctx.workspaceId, tgRows);
+  } catch {
+    deps.log("pre_meeting_tg_names_unavailable");
+  }
+  const tgRaw = new Set(tgRows.map((f) => f.id));
   for (const f of feed) {
     if (!mine(f) || String(f.organization_id).toLowerCase() !== org || !isUuid(f.id)) continue;
     const isCall = f.source === "call";
     const name = isCall ? text(f.title) : text(f.room_label);
     if (!name) continue;
-    items.push({ group: "feed", title: itemTitle(`${isCall ? "통화" : "텔레그램"} · ${name}`), day: dayOf(f.day), source_kind: isCall ? "call" : "telegram", source_id: String(f.id).toLowerCase(), ai: text(f.summary) || undefined });
+    const raw = !isCall && tgRaw.has(f.id) ? sheetTgRaw(f.raw_text, tgNames.get(tgNameKey(f))) : "";
+    const ai = [text(f.summary), raw && `원문: ${raw}`].filter(Boolean).join(" / ");
+    items.push({ group: "feed", title: itemTitle(`${isCall ? "통화" : "텔레그램"} · ${name}`), day: dayOf(f.day), source_kind: isCall ? "call" : "telegram", source_id: String(f.id).toLowerCase(), ai: ai || undefined });
   }
 
   // ⑥ 주요 인물: 이름과 이미 만든 '요즘' 한 문장(새 AI 호출 없음, AI에는 보내지 않음).

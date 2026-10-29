@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 // FEAT-1029묶음 ② 교섭·회의 전 한 장: the real ai-assist handler, kind=pre_meeting_sheet, with a synthetic Supabase (Auth + PostgREST with
 // owner RLS) and a mocked OpenAI. No network, no real key, synthetic text only. The screen sends the event values and the organization id; the
 // server reads the material with the caller token only (meetings, ledger, work calls, telegram summaries, key people, documents, dispute stage),
-// never the personal call box, never sends S2 ledger records or telegram senders/raw text to AI, writes only app_pre_meeting_sheets (+ AI usage),
+// never the personal call box, sends S2 ledger records and telegram raw text with sender display names to AI (명진 결정 변경 10/29),
+// never call raw text or counterpart names, writes only app_pre_meeting_sheets (+ AI usage),
 // refuses events outside the 8-day window and another workspace's organization, and keeps the record lines when AI is limited or fails.
 const {createAiAssistHandler,DAILY_LIMITS}=await import('../../supabase/functions/ai-assist/handler.ts');
 const pm=await import('../../supabase/functions/ai-assist/pre-meeting-sheet.ts');
@@ -18,6 +19,7 @@ const LORG='d0000000-0000-4000-8000-000000000001';
 const M1='e0000000-0000-4000-8000-000000000001',M2='e0000000-0000-4000-8000-000000000002',M3='e0000000-0000-4000-8000-000000000003',M_POLICY='e0000000-0000-4000-8000-000000000004';
 const R_ISSUE='f0000000-0000-4000-8000-000000000001',R_S2='f0000000-0000-4000-8000-000000000002',R_PROMISE='f0000000-0000-4000-8000-000000000003',R_DONE='f0000000-0000-4000-8000-000000000004';
 const CALL='a1000000-0000-4000-8000-000000000001',TG='a1000000-0000-4000-8000-000000000002',PERSON='a2000000-0000-4000-8000-000000000001',DOC='a3000000-0000-4000-8000-000000000001';
+const SA='a4000000-0000-4000-8000-000000000001',SB_SELF='a4000000-0000-4000-8000-000000000002',SX='a4000000-0000-4000-8000-000000000009';
 // Thursday 10/29 18:30 KST; event Friday 10/30 14:00 KST.
 const EVENING=Date.parse('2026-10-29T09:30:00Z'),AFTERNOON=Date.parse('2026-10-29T06:00:00Z');
 const EVENT={event_key:'work@group.calendar.test:evt4th',title:'A 사업장 임금교섭 4차',start:'2026-10-30T14:00:00+09:00',end:'2026-10-30T16:00:00+09:00',location:'본사 회의실'};
@@ -49,8 +51,12 @@ function seed(){
     ],
     app_feed_items:[
       {id:CALL,workspace_id:WS,organization_id:ORG,source:'call',day:'2026-10-28',title:'사측 실무자 통화',room_label:null,summary:'성과급 안 바꿀 수 있다고 함',hidden_at:null,counterpart:'홍길동',raw_text:'통화 원문'},
-      {id:TG,workspace_id:WS,organization_id:ORG,source:'telegram',day:'2026-10-28',title:null,room_label:'A 사업장 간부방',summary:'4차 교섭 준비 공유',hidden_at:null,counterpart:null,raw_text:'보낸사람김철수: 원문 비밀'},
+      {id:TG,workspace_id:WS,organization_id:ORG,source:'telegram',day:'2026-10-28',title:null,room_label:'A 사업장 간부방',room_key:'room-a',summary:'4차 교섭 준비 공유',hidden_at:null,counterpart:null,
+        raw_text:'09:10 A: 4차 교섭 자료 다시 확인 010-2222-3333\n09:12 B (전달): 사측 답 기다림\n09:15 C: 라벨만 남는 줄'},
     ],
+    app_tg_day_senders:[{workspace_id:WS,room_key:'room-a',day:'2026-10-28',label:'A',sender_id:SA},{workspace_id:WS,room_key:'room-a',day:'2026-10-28',label:'B',sender_id:SB_SELF},
+      {workspace_id:OTHER_WS,room_key:'room-a',day:'2026-10-28',label:'C',sender_id:SX}],
+    app_tg_senders:[{id:SA,workspace_id:WS,name:'김철수',is_self:false},{id:SB_SELF,workspace_id:WS,name:null,is_self:true},{id:SX,workspace_id:OTHER_WS,name:'남의이름',is_self:false}],
     app_org_key_people:[{id:PERSON,workspace_id:WS,organization_id:ORG,name:'김지부장',sort_order:0,created_at:'2026-10-01T00:00:00Z'}],
     app_org_key_people_briefs:[{workspace_id:WS,organization_id:ORG,day:'2026-10-29',brief:'요즘 성과급 안에 반대함.'}],
     app_documents:[{id:DOC,workspace_id:WS,organization_id:ORG,title:'2026 임금 요구안',category:'교섭·합의',document_date:'2026-10-15',created_at:'2026-10-15T00:00:00Z'}],
@@ -59,14 +65,14 @@ function seed(){
   };
 }
 
-function harness({openai=null,usage=[],sheets=[],now=EVENING,missing=false}={}){
+function harness({openai=null,usage=[],sheets=[],now=EVENING,missing=false,namesDown=false}={}){
   const calls={openai:[],rest:[],logs:[],hosts:new Set()};
   const db=seed();db.app_pre_meeting_sheets=structuredClone(sheets);db.app_ai_daily_usage=structuredClone(usage);
   const users={'owner-token':OWNER,'stranger-token':STRANGER},wsOwner={[WS]:OWNER,[OTHER_WS]:STRANGER};
   const orgWs=Object.fromEntries(db.app_suborganizations.map(o=>[o.id,o.workspace_id]));
   const visible=(table,row,uid)=>table==='app_workspace_members'?row.user_id===uid:wsOwner[row.workspace_id??orgWs[row.organization_id]]===uid;
   const cmp=(v,op,val)=>op==='eq'?String(v)===val:op==='gte'?v!=null&&String(v)>=val:op==='lt'?v!=null&&String(v)<val
-    :op==='is'?(val==='null'?v==null:String(v)===val):op==='in'?val.replace(/^\(|\)$/g,'').split(',').includes(String(v))
+    :op==='is'?(val==='null'?v==null:String(v)===val):op==='in'?val.replace(/^\(|\)$/g,'').split(',').map(x=>x.replace(/^"|"$/g,'')).includes(String(v))
     :op==='not'?(val==='is.null'?v!=null:(()=>{throw new Error('not '+val)})()):(()=>{throw new Error('op '+op)})();
   const matches=(row,url)=>{for(const [k,v] of url.searchParams){if(['select','limit','order','on_conflict'].includes(k))continue;const i=v.indexOf('.');if(!cmp(row[k],v.slice(0,i),v.slice(i+1)))return false;}return true;};
   const pick=(row,url)=>{const cols=(url.searchParams.get('select')||'*').split(',');return cols[0]==='*'?row:Object.fromEntries(cols.map(c=>[c,row[c]]));};
@@ -80,6 +86,7 @@ function harness({openai=null,usage=[],sheets=[],now=EVENING,missing=false}={}){
     assert.ok(uid,'REST only with the caller token');
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:decodeURIComponent(url.search),body:init.body?JSON.parse(init.body):null});
     if(missing&&table==='app_pre_meeting_sheets')return respond({code:'PGRST205'},404);
+    if(namesDown&&table==='app_tg_day_senders')return respond({code:'XX'},500);
     const rows=db[table];assert.ok(rows,'unexpected table '+table);
     if(method==='GET'){
       let out=rows.filter(r=>visible(table,r,uid)&&matches(r,url));
@@ -125,16 +132,24 @@ test('evening before, no sheet yet: one AI call, material read with the caller t
   // Material: meetings (negotiation/meeting only, newest 3), ledger issue/promise, call summary, telegram room+summary, document title.
   assert.match(material,/A 사업장 임금교섭 3차/);assert.match(material,/기본급 인상률 이견/);assert.match(material,/인상률 근거 자료 회신/);
   assert.match(material,/성과급 안 바꿀 수 있다고 함/);assert.match(material,/A 사업장 간부방 — 4차 교섭 준비 공유/);assert.match(material,/2026 임금 요구안/);
+  // 결정 변경: telegram raw lines with display names (hand name → "나" for self → label as is), phones scrubbed, another workspace's names unused.
+  assert.ok(material.includes('4차 교섭 준비 공유 / 원문: 09:10 김철수: 4차 교섭 자료 다시 확인 [전화] / 09:12 나 (전달): 사측 답 기다림 / 09:15 C: 라벨만 남는 줄'),material);
+  assert.ok(!material.includes('남의이름')&&!material.includes('010-2222-3333'));
   assert.match(material,/쟁의 단계: 조정 신청/);
   assert.ok(!material.includes('정책 토론'),'policy reports are not negotiation material');
   assert.ok(!material.includes('끝난 약속'),'fulfilled promises are not material');
-  // S2: shown as a line, never sent to AI.
-  assert.ok(!/전략 비공개/.test(material),'S2 ledger records are not sent to AI');
+  // 결정 변경: S2 is sent to AI with its tag, and still marked on the stored line.
+  assert.match(material,/② 남은 쟁점\(교섭·전략\) · 2026-10-25 · 전략 비공개 결정 — 비공개 전략 내용/);
   const s2=out.sheet.groups.find(g=>g.source_id===R_S2);assert.equal(s2.s2,true);assert.equal(s2.title,'전략 비공개 결정');
-  // Telegram: no sender or raw text; calls: no counterpart name or raw text. Phone numbers are scrubbed.
-  assert.ok(!/김철수|원문|홍길동/.test(material),'no sender names, counterpart names or raw text');
+  // Calls: no counterpart name or raw text. Phone numbers are scrubbed.
+  assert.ok(!/통화 원문|홍길동/.test(material),'no call counterpart names or call raw text');
   assert.ok(!material.includes('010-1234-5678'),'phone numbers are not sent');
-  const feedRead=calls.rest.find(c=>c.table==='app_feed_items');assert.ok(!/raw_text|counterpart/.test(feedRead.query),'feed read never selects raw text or names');
+  const feedReads=calls.rest.filter(c=>c.table==='app_feed_items');
+  assert.ok(feedReads.every(c=>!/counterpart/.test(c.query)),'feed reads never select counterpart names');
+  assert.ok(feedReads.filter(c=>/source=eq\.call/.test(c.query)).every(c=>!/raw_text/.test(c.query)),'call reads never select raw text');
+  assert.ok(calls.rest.filter(c=>/^app_tg_/.test(c.table)).every(c=>c.method==='GET'&&c.query.includes(`workspace_id=eq.${WS}`)),'name tables: GET, my workspace only');
+  // Telegram raw and names are AI material only: not stored, not in logs.
+  assert.ok(!/김철수|사측 답 기다림/.test(JSON.stringify(out.sheet)+JSON.stringify(calls.logs)));
   // Key people: names and the existing brief are lines, not AI material.
   assert.ok(!material.includes('김지부장')&&!material.includes('성과급 안에 반대'),'key people are not re-sent to AI');
   assert.ok(out.sheet.groups.some(g=>g.group==='people'&&g.title==='요즘: 요즘 성과급 안에 반대함.'));
@@ -142,7 +157,7 @@ test('evening before, no sheet yet: one AI call, material read with the caller t
   const idx=i=>out.sheet.groups[i];
   assert.equal(out.sheet.top_lines.length,2);
   assert.deepEqual(out.sheet.top_lines[0],{text:AI.top[0].text,refs:[1]});
-  for(const l of out.sheet.top_lines)for(const r of l.refs)assert.ok(idx(r)&&idx(r).source_kind!=='ai'&&!idx(r).s2,'every top line points at a sent record line');
+  for(const l of out.sheet.top_lines)for(const r of l.refs)assert.ok(idx(r)&&idx(r).source_kind!=='ai'&&idx(r).group!=='people'&&idx(r).group!=='stage','every top line points at a sent record line');
   assert.ok(out.sheet.groups.some(g=>g.group==='issues'&&g.source_kind==='ai'&&g.title==='기본급 인상률 이견 남음.'));
   assert.ok(out.sheet.groups.some(g=>g.group==='counterpart'&&g.source_kind==='ai'));
   assert.ok(!JSON.stringify(out.sheet.groups).includes('인상률 이견. 사측'),'meeting text is AI material only, not stored');
@@ -215,10 +230,12 @@ test('AI limits and failures still store the record lines without AI lines; the 
   const broken=harness({openai:()=>respond({error:{message:'synthetic'}},500)});
   out=await (await post(broken.handler,req())).json();
   assert.equal(out.sheet.ai_status,'failed');assert.ok(out.sheet.groups.length>=8);
-  const junk=harness({openai:()=>respond(answer({top:[{text:'<b>x</b>',refs:[1]},{text:'S2 줄을 근거로 함.',refs:[6]}],issues:[],counterpart:[]}))});
+  const junk=harness({openai:()=>respond(answer({top:[{text:'<b>x</b>',refs:[1]},{text:'S2 줄을 근거로 함.',refs:[6]},{text:'쟁의 단계 줄만 근거로 함.',refs:[0]}],issues:[],counterpart:[]}))});
   out=await (await post(junk.handler,req())).json();
   const s2Index=out.sheet.groups.findIndex(g=>g.s2);assert.equal(s2Index,6,'fixture: index 6 is the S2 line');
-  assert.equal(out.sheet.ai_status,'ok');assert.deepEqual(out.sheet.top_lines,[],'lines pointing only at unsent (S2) lines are dropped');
+  assert.equal(out.sheet.groups[0].group,'stage','fixture: index 0 is the (unsent) dispute stage line');
+  assert.equal(out.sheet.ai_status,'ok');
+  assert.deepEqual(out.sheet.top_lines,[{text:'S2 줄을 근거로 함.',refs:[6]}],'S2 lines are sent now (결정 변경); lines pointing only at unsent lines are dropped');
 });
 
 test('before the DB step the server answers pre_meeting_sheet_not_ready without calling AI; bad requests are refused',async()=>{
@@ -248,4 +265,14 @@ test('pure helpers: titles, clock, window, evidence check shared with next week 
   assert.equal(ev.groundedLines('x',sent,{max:3,maxChars:80}),null);
   const mat=pm.preMeetingMaterial({...EVENT,start:'2026-10-30T05:00:00.000Z'},'A 사업장',null,[{group:'feed',title:'와이파이 비밀번호: 가상값',day:null,source_kind:'call',source_id:'x'}]);
   assert.equal(mat.text,'','secret-looking lines are not sent');
+});
+
+test('telegram raw (결정 변경): name table down falls back to labels, the sheet is still made; length cap 600',async()=>{
+  const down=harness({namesDown:true});
+  const out=await (await post(down.handler,req())).json();
+  assert.equal(out.sheet.ai_status,'ok');
+  const material=down.calls.openai[0].input[1].content;
+  assert.ok(material.includes('원문: 09:10 A: 4차 교섭 자료 다시 확인 [전화]'),material);assert.ok(!material.includes('김철수'));
+  const long=pm.sheetTgRaw('10:00 A: '+'가'.repeat(2000),new Map([['A','김철수']]));
+  assert.ok([...long].length<=601);assert.ok(long.startsWith('10:00 김철수: '));
 });
