@@ -161,8 +161,30 @@ export function safeDownloadUrl(v: string | null): URL | null {
   }
 }
 
+// 찍은 시각(photo.takenDateTime)은 카메라 EXIF의 '그 자리 벽시계' 시각이다. EXIF에는 시간대가 없는데 Graph는 끝에 'Z'(UTC)를
+// 붙여 준다(폰이 한국 시각 10:00에 찍으면 "…T10:00:00Z"). 그대로 UTC로 읽으면 서울 시각이 9시간 늦게(19:00) 보이고, 15시 이후
+// 사진은 다음 날로 묶인다. 그래서 'Z'나 시간대 없는 값은 서울 벽시계(UTC+9, 서머타임 없음)로 보고 진짜 UTC로 바꾼다.
+// 시간대(±hh:mm)를 밝혀 준 값만 그대로 믿는다. 해외에서 찍은 사진은 그 나라 벽시계라 이 규칙으로는 알 수 없다(추정 한계).
+// 파일 생성 시각(fileSystemInfo.createdDateTime)은 진짜 UTC라 바꾸지 않는다(approx 줄).
+export const CAMERA_CLOCK_OFFSET_MS = 9 * 3600 * 1000;
+// 이 시각보다 먼저 다 받은 색인은 옛 규칙(찍은 시각을 UTC로 읽음)으로 적혀 있다. 이 고침이 배포된 뒤 한 번 처음부터 다시 받는다(handler syncStep).
+// 배포보다 앞서기만 하면 된다(배포 뒤 새로 다 받은 색인은 이보다 늦으므로 다시 받지 않는다).
+export const TAKEN_FIX_AT = "2026-10-28T23:00:00Z";
+export function cameraClockToUtc(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?)(Z|[+-]\d{2}:\d{2})?$/.exec(v.trim());
+  if (!m) return null;
+  const zone = m[2];
+  if (zone && zone !== "Z") {
+    const ms = Date.parse(m[1] + zone);
+    return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+  }
+  const wall = Date.parse(m[1] + "Z");
+  return Number.isFinite(wall) ? new Date(wall - CAMERA_CLOCK_OFFSET_MS).toISOString() : null;
+}
+
 export function takenOf(item: OneDriveItem): { at: string; approx: boolean } | null {
-  const taken = item.photo?.takenDateTime;
+  const taken = cameraClockToUtc(item.photo?.takenDateTime);
   if (taken && seoulDay(taken)) return { at: taken, approx: false };
   const made = item.fileSystemInfo?.createdDateTime;
   if (made && seoulDay(made)) return { at: made, approx: true };

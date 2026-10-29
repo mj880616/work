@@ -5,11 +5,11 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
-test('허용 칸 열다섯 개가 DB 검사(마지막 migration, photo_view 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261028220000_photo_menu_index.sql');
+test('허용 칸 열여섯 개가 DB 검사(마지막 migration, quiet_weeks 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261029103000_profile_view_prefs_quiet_weeks.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS].sort(), listed.sort());
-  assert.equal(KEYS.length, 15);
+  assert.equal(KEYS.length, 16);
 });
 test('menu_layout·home_cards 모양 검사', () => {
   const ok = {bar: ['home', 'basket'], rest: ['note']};
