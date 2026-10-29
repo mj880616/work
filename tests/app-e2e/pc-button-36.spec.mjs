@@ -124,7 +124,9 @@ test('PC 1280: 공유 페이지 채운 버튼은 36px, 보조 버튼([다시 불
 
 test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
  await boot(page,390);
- for(const [view,selector] of [['projects','#newProjectBtn'],['library','#newDocumentBtn'],['meetings','#newMeetingBtn']]){
+ // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작은 [+](32px)라 둥근 [+] 묶음에서 뺀다.
+ await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(32);
+ for(const [view,selector] of [['library','#newDocumentBtn'],['meetings','#newMeetingBtn']]){
   await open(page,view);const b=await page.locator(selector).boundingBox();expect([b.width,b.height],selector).toEqual([36,36]);
   expect(await page.locator(selector).evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
  }
