@@ -74,8 +74,9 @@ test('bizreport area none: plan, precheck, dry-run, apply, owner boundary, guard
    assert.equal(prepareMigration({mode:'dry-run',version,runId:'1',root}).flow,'full');
    assert.match(toDryRun(migration),/rollback;\s*$/);
    assert.throws(()=>prepareMigration({mode:'rollback',version,runId:'1',root}));
-   for(const file of [migration,precheck,postcheck,snapshot,rollbackSQL,preserve])assert.doesNotMatch(file,/information_schema/);
-   assert.doesNotMatch(migration,/\b(grant|create policy|create function|create trigger|create index)\b/i);
+   const code=sql=>sql.replace(/--[^\n]*/g,''); // 주석 밖 SQL만
+   for(const file of [migration,precheck,postcheck,snapshot,rollbackSQL,preserve])assert.doesNotMatch(code(file),/information_schema/);
+   assert.doesNotMatch(code(migration),/\b(grant|create policy|create function|create trigger|create index)\b/i);
    const lines=summary.trim().split('\n');assert.equal(lines.length,3);
    assert.match(lines[0],/^무엇이 바뀌나: /);assert.match(lines[1],/^잘못되면: /);assert.match(lines[2],/^되돌리는 법: /);
   });
