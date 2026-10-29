@@ -201,11 +201,11 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .basket-to-note { margin:12px 0; }
 .basket-to-note .basket-text-label { margin:0 0 6px; }
 .basket-to-note-help { margin:0; color:var(--kptu-muted); font-size:12px; }
-/* UI-화면정리 C(B①): '‹ 노트'는 폰에서만(PC·중간 폭은 왼쪽 목록·위쪽 경로 줄이 돌아갈 곳). 수정 중 PC·중간 폭은 머리줄에 보일 것이 없으므로
+/* UI-화면정리 C(B①): '‹ 노트'는 폰에서만(PC·중간 폭은 왼쪽 목록·위쪽 경로 줄이 돌아갈 곳). 다른 화면에서 연 노트의 '‹ (온 곳 이름)'은 모든 폭에서 보인다(UI-돌아가기머리줄). 수정 중 PC·중간 폭은 머리줄에 보일 것이 없으므로
    빈 머리줄(44px + 간격)을 두지 않는다(노트 수정 위쪽 빈 띠). 수정 칸 첫 줄(노트 제목)도 위 여백 없이 시작한다. */
 @media(min-width:761px){
   #appView #basketView button.note-back{ display:none; }
-  #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head:has(> .note-head-main[hidden]){ display:none; }
+  #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head:not(:has(> [data-basket-return])):has(> .note-head-main[hidden]){ display:none; }
 }
 #appView #basketView .note-editor > .basket-text-label:first-child{ margin-top:0; }
 @media(max-width:760px){
