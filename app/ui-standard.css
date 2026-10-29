@@ -267,7 +267,7 @@
 #appView :is(#libraryView,#meetingsView) .filter-chips button::after{ content:none; }
 
 /* 입력: 높이 하나·0.5px 선·모서리 8px. */
-#appView #libraryView #documentSearch{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; }
+#appView #libraryView #documentSearch{ box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; }
 
 /* 상자: 0.5px 선·모서리 12px·그림자 없음. 상자 안 제목(자료실·회의 결과)은 섹션 이름 13px·테마 색. */
 #appView :is(#libraryView #libraryListCard,#meetingsView #meetingsListCard,#teamView .so-group-card){ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none; }
@@ -1475,8 +1475,7 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 @media (max-width:760px),(min-width:1024px){
   .screen-title{ position:absolute; width:1px; height:1px; margin:0; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 }
-/* 자료실 머리 줄: 큰 제목이 줄에서 빠져도 [+ 자료 등록]은 오른쪽 끝 그대로(제목이 밀어 주던 자리). */
-#appView #libraryView #libraryListCard .add-list-head>.lu-head-actions{ margin-left:auto; }
+/* 자료실 [+ 자료 등록]은 검색 칸 오른쪽(UI-전수디자인점검 F11, library-upload.css .lu-search-row). */
 /* ③ ⋯(더 보기): 모든 ⋯ 버튼의 점은 같은 글자 하나(<span class="more-dots" aria-hidden="true">⋯</span>)가 그린다. 버튼 칸 크기·자리는 화면 규칙 그대로이고,
       점의 크기·굵기·색만 여기서 정한다(연한 작은 점·굵은 점 섞임 정리). 화면 CSS는 .more-dots의 글자 모양을 따로 정하지 않는다. */
 .more-dots{ display:inline-block; font-size:var(--ds-text-read); font-weight:var(--ds-weight-medium); line-height:1; letter-spacing:0; color:var(--kptu-muted); pointer-events:none; }

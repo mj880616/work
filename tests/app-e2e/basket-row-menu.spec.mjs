@@ -113,7 +113,7 @@ for (const width of [390, 1280]) {
     await page.keyboard.press('Enter'); await expect(menu(page)).toBeVisible(); await expect(rowMore(page, B)).toHaveAttribute('aria-expanded', 'true');
     await expect(menu(page).locator('[aria-expanded]')).toHaveCount(0);
     // An outside press closes it without opening anything.
-    await press(page, page.locator('[data-basket-list-status]'), width);
+    await press(page, page.locator('#inboxUpdateTitle'), width);
     await expect(menu(page)).toBeHidden(); await expect(detail(page)).toBeHidden();
     // [복사] copies without opening the update or the menu (a phone: the menu's first item, which closes the menu).
     if (width >= 761) await press(page, copy, width);

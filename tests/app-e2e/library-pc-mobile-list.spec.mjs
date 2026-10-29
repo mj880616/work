@@ -229,8 +229,9 @@ for(const width of [1280,390])test(`종류 칩 줄 맨 끝 [편집] ${width}: �
   const {errors}=await boot(page,width);
   const edit=page.getByRole('button',{name:'분류 편집',exact:true}),category=page.locator('#libraryCategoryFilter');
   await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('편집');await expect(edit).toHaveAttribute('id','manageLibraryBtn');
-  // 머리에는 [+ 자료 등록]만.
-  expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn']);
+  // UI-전수디자인점검 F11: 목록 칸 머리에는 버튼이 없고, [+ 자료 등록]은 검색 칸 오른쪽 하나.
+  expect(await page.locator('#libraryListCard .add-list-head button').count()).toBe(0);
+  expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn']);
   // 종류 칩 줄 안, 칩 묶음 바로 다음(맨 끝). 칩 묶음의 버튼에는 섞이지 않는다(칩 개수·이름 그대로).
   expect(await edit.evaluate(el=>el.previousElementSibling?.id==='libraryCategoryFilter'&&!el.nextElementSibling&&el.parentElement.dataset.luFilterRow==='category')).toBe(true);
   await expect(category.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);

@@ -88,7 +88,9 @@ root.replaceChildren(listView, editorView);
 function renderList() {
   const status = el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spListStatus:''}});
   const head = el('div', {class:'sp-head'},
-    el('h2', {}, '내 공유 페이지', pages?.length ? el('span', {class:'sp-count', text:` ${pages.length}`}) : null),
+    // UI-전수디자인점검 F12: the phone head line and the PC top line already name the screen; the body title is the shared
+    // .screen-title (screen readers only there, shown at 761~1023px). No count beside it (the list itself shows the rows).
+    el('h2', {class:'screen-title'}, '공유 페이지'),
     el('div', {class:'sp-head-actions'},
       el('button', {type:'button', class:'secondary', 'aria-label':'새 HTML 공유 페이지', dataset:{spNewHtml:''}, text:'+ HTML'}),
       el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'})));
@@ -97,7 +99,7 @@ function renderList() {
   else if (listState === 'error') {
     status.textContent = '공유 페이지 목록을 불러오지 못했어요.';
     body.push(el('button', {type:'button', class:'secondary', dataset:{spReload:''}, text:'다시 불러오기'}));
-  } else if (pages && !pages.length) body.push(el('p', {class:'sp-empty', text:'아직 만든 공유 페이지가 없어요. [새 공유 페이지]로 시작해 보세요.'}));
+  } else if (pages && !pages.length) body.push(el('p', {class:'sp-empty', text:'공유 페이지 없음'}));
   if (pages?.length) body.push(el('ul', {class:'sp-list', 'aria-label':'내 공유 페이지'}, pages.map(page => el('li', {},
     el('button', {type:'button', class:'sp-row', dataset:isHtml(page.id) ? {spPreview:page.id} : {spOpen:page.id}},
       el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
