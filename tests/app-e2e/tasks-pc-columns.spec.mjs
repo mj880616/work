@@ -104,13 +104,21 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: 아무것도 안 골랐을 때 오른쪽 칸 안내 문구, 고르면 사라지고 닫으면 돌아옴`,async({page})=>{
+  test(`PC ${width}: 아무것도 안 골랐을 때 오른쪽 칸은 안내문 없이 빈 자리(상자 선 없음), 고르면 상자, 닫으면 다시 빈 자리`,async({page})=>{
     await open(page,width,[task('a','2026-10-08')]);
     const pane=page.locator('#gtDetailPane');
-    await expect(pane.locator('.gt-pane-empty')).toHaveText('왼쪽에서 할 일을 고르면 여기서 고칠 수 있어요.');
-    await expect(pane.locator('.gt-pane-empty')).toBeVisible();
-    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane.locator('.gt-pane-empty')).toBeHidden();
-    await pane.locator('[data-gt-close]').click();await expect(pane.locator('.gt-pane-empty')).toBeVisible();
+    const look=()=>pane.evaluate(el=>({text:el.textContent.trim(),line:getComputedStyle(el).borderTopColor,bg:getComputedStyle(el).backgroundColor}));
+    // UI-전수디자인점검 F06: 안내문 삭제.
+    await expect(pane.locator('.gt-pane-empty')).toHaveCount(0);
+    expect(await look()).toEqual({text:'',line:'rgba(0, 0, 0, 0)',bg:'rgba(0, 0, 0, 0)'});
+    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane).toHaveClass(/has-task/);
+    expect((await look()).line).not.toBe('rgba(0, 0, 0, 0)');
+    await pane.locator('[data-gt-close]').click();await expect(pane).not.toHaveClass(/has-task/);
+  });
+  test(`PC ${width}: 할 일 줄은 바탕 상자 없이 가는 선 한 줄(높이 36px), 제목 왼쪽·기한 오른쪽`,async({page})=>{
+    await open(page,width,[task('a','2026-10-08'),task('b','2026-10-08')]);
+    const m=await page.locator('[data-google-task="b"]').evaluate(el=>{const r=el.getBoundingClientRect(),t=el.querySelector('.gt-main b').getBoundingClientRect(),d=el.querySelector('.gt-due').getBoundingClientRect(),cs=getComputedStyle(el);return {h:Math.round(r.height),bg:cs.backgroundColor,top:cs.borderTopStyle,sameLine:Math.abs((t.top+t.bottom)/2-(d.top+d.bottom)/2)<4,dueRight:d.left>t.left}});
+    expect(m).toEqual({h:36,bg:'rgba(0, 0, 0, 0)',top:'solid',sameLine:true,dueRight:true});
   });
 
   test(`PC ${width}: 왼쪽 칸이 많으면 칸이 내용만큼 커지고 화면이 세로로 넘어감(안쪽 스크롤바 없음)`,async({page})=>{
@@ -161,7 +169,7 @@ for(const width of [1280,1440]){
     const tasks=[task('a','2026-10-08',{notes:'첫 메모'}),task('b','2026-10-12')];
     const calls=await open(page,width,tasks,{links:[{google_task_id:'a',project_id:'p1',status:'confirmed'}]});
     const pane=page.locator('#gtDetailPane');
-    await expect(pane).toBeVisible();await expect(pane.locator('.gt-pane-empty')).toBeVisible();await expect(page.locator('#gtTaskModal')).toBeHidden();
+    await expect(pane).toBeVisible();await expect(pane).not.toHaveClass(/has-task/);await expect(page.locator('#gtTaskModal')).toBeHidden();
     // 키보드로 카드 고르기(제목 버튼 Enter).
     await page.locator('[data-gt-edit="a"]').focus();await page.keyboard.press('Enter');
     const editor=pane.locator('#gtTaskModal');
@@ -190,7 +198,7 @@ for(const width of [1280,1440]){
     await expect(page.locator('[data-google-task="b"]')).toHaveClass(/is-selected/);await expect(page.locator('[data-google-task="a"]')).not.toHaveClass(/is-selected/);
     // Esc로 칸을 닫으면 그 카드로 초점이 돌아간다.
     await page.locator('#gtEditTitle').focus();await page.keyboard.press('Escape');
-    await expect(editor).toBeHidden();await expect(pane.locator('.gt-pane-empty')).toBeVisible();
+    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);
     await expect(page.locator('[data-gt-edit="b"]')).toBeFocused();await expect(page.locator('.gt-card.is-selected')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
@@ -298,7 +306,7 @@ test('중간 폭 900: 열·상세 칸 없이 묶음 목록, 수정 창 [저장]�
 test('PC에서 열었다 닫은 뒤 폭을 좁혀도 [저장]은 팝업 맨 아래 줄에 그대로 있다',async({page})=>{
   await open(page,1280,[task('a','2026-10-08')]);
   await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane .modal-action-footer #gtSaveBtn')).toHaveCount(1);
-  await page.locator('#gtDetailPane [data-gt-close]').click();await expect(page.locator('#gtDetailPane .gt-pane-empty')).toBeVisible();
+  await page.locator('#gtDetailPane [data-gt-close]').click();await expect(page.locator('#gtDetailPane')).not.toHaveClass(/has-task/);
   await page.setViewportSize({width:390,height:844});
   await page.locator('[data-gt-edit="a"]').click();
   const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();

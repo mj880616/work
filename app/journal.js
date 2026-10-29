@@ -37,7 +37,7 @@ import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, chan
 import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs';
 import {loadWeekRefs, setIncluded} from './calendar-ref-data.js';
 import {refsOnDay, daySummary, needsCheck} from './calendar-ref-model.mjs';
-import {createTaskInline} from './task-inline.js';
+import {createTaskInline, objectParticle} from './task-inline.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts, seoulClock} from './meeting-time.js';
 import {copyText} from './copy-text.js';
@@ -290,7 +290,8 @@ function partNotes(box, part) {
   if (part.capped) box.insertAdjacentHTML('beforeend', `<p class="journal-muted" data-journal-capped>이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.</p>`);
   if (part.failed) {
     box.dataset.failed = '';
-    box.insertAdjacentHTML('beforeend', `<p class="journal-muted journal-failed" data-journal-failed>${part.items.length ? `${esc(part.label)} 일부를` : `${esc(part.label)}을(를)`} 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.</p><button type="button" class="mini" data-journal-retry="${part.key}">다시 시도</button>`);
+    // UI-전수디자인점검 F24: 공용 실패 한 줄(wait-state.js .wait-fail 모양 — 작은 빨간 글자 + 작은 [다시]), 조사는 이름 끝 받침으로.
+    box.insertAdjacentHTML('beforeend', `<p class="wait-fail journal-failed" data-journal-failed role="alert">${esc(part.label)}${part.items.length ? ' 일부를' : objectParticle(part.label)} 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요. <button type="button" class="wait-retry" data-journal-retry="${part.key}">다시</button></p>`);
   }
 }
 function partBox(part, {heading = 'h4'} = {}) {

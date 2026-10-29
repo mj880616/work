@@ -178,7 +178,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await listEvent(page,'gone').click();
     await expect(page.locator('#ciGoogleDelete')).toBeEnabled();
     state.hold=true;
-    await page.locator('#ciGoogleDelete').click();
+    await page.locator('#ciGoogleMore').click();await page.locator('#ciGoogleDelete').click();
     await answerAsk(page,true);
     await expect.poll(()=>state.deleted).toEqual(['gone']);
     await expect.poll(()=>copiedIds(page)).toEqual(['keep']);

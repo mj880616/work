@@ -80,7 +80,17 @@
 .ci-card{width:min(100%,500px);border-top:4px solid var(--kptu-info)}
 .ci-actions{margin-top:0}
 .ci-actions .primary{width:auto}
-.ci-delete{font-size:var(--kptu-text-meta);min-height:var(--kptu-control-height);border:1px solid var(--kptu-danger);background:var(--kptu-surface);color:var(--kptu-danger);border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);font-weight:700}
+/* UI-전수디자인점검 F18: 일정 수정 창 머리줄 = 제목 · [⋯](작은 목록: [일정 삭제]) · ✕. 아래 줄은 작은 글자 버튼 [결과 남기기]와 채운 [변경사항 저장] 하나. */
+#ciGoogleModal .ci-head-ends{display:inline-flex;align-items:center;gap:2px;flex:none}
+#ciGoogleModal .ci-head-menu-wrap{position:relative;display:inline-flex}
+#ciGoogleModal .ci-head-menu{position:absolute;top:calc(100% + 4px);right:0;z-index:30;box-sizing:border-box;min-width:8.5em;padding:4px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
+#ciGoogleModal .ci-head-menu[hidden]{display:none}
+#ciGoogleModal .ci-head-menu button{display:block;width:100%;height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:0;padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control);background:transparent;font:inherit;font-size:var(--ds-compact-text);color:var(--kptu-danger);box-shadow:none;cursor:pointer}
+#ciGoogleModal .ci-head-menu button:hover{background:var(--kptu-surface-subtle)}
+#ciGoogleModal .ci-head-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+#ciGoogleModal .ci-head-menu button:disabled{opacity:.5;cursor:default}
+#ciGoogleModal .ci-actions .ci-report{border-color:transparent;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta);padding:0 6px}
+#ciGoogleModal .ci-actions .ci-report:hover{color:var(--kptu-ink)}
 .ci-date-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--kptu-space-2)}
 .ci-all{display:flex;flex-direction:row;gap:var(--kptu-space-2);align-items:center}
 .ci-all input{width:auto;min-height:0}
@@ -179,6 +189,10 @@
 .clv-title{font-size:14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
 .clv-empty,.clv-tasks,.clv-more{font-size:14px;color:var(--kptu-muted)}
 .clv-empty{padding:12px 0;min-height:44px;border-bottom:1px solid var(--kptu-border)}
+/* UI-전수디자인점검 F05: 빈 날은 "11월 2일 월  일정 없음" 한 줄(약 28px). 일정 있는 날은 위 모양 그대로. */
+.clv-day.clv-day-empty{display:flex;align-items:baseline;gap:8px;margin:0;padding:6px 0;border-bottom:1px solid var(--kptu-border)}
+.clv-day-empty .clv-date{margin:0}
+.clv-day-empty .clv-empty{min-height:0;padding:0;border-bottom:0}
 #calendarDayTasks h3{font-size:16px;font-weight:700;margin:16px 0 8px}
 #calendarDayEvents,#calendarDayTasks{display:grid;gap:8px}
 
@@ -261,6 +275,15 @@
 
 /* Registration modes share title, date and notes; event-only fields retain their layout. */
 #eventModal [hidden] { display:none; }
+/* UI-전수디자인점검 F17·F18(폰): 일정 등록·수정 창은 칸 묶음 사이 여백을 줄인다(공용 label 위아래 12px → 6px, 날짜 칸 격자·Google 옵션 안 여백 0).
+   격자 안 label 여백은 겹쳐 줄지 않아 두 배가 되던 것. 칸 모양·이름표·색 칸 부품은 그대로. */
+@media(max-width:760px){
+  :is(#eventModal,#ciGoogleModal) label{gap:4px;margin:6px 0}
+  :is(#eventModal,#ciGoogleModal) .cm-google-options{gap:0;padding:0}
+  :is(#eventModal,#ciGoogleModal) .ci-date-grid{row-gap:6px;margin:6px 0}
+  :is(#eventModal,#ciGoogleModal) .ci-date-grid label{margin:0}
+  :is(#eventModal,#ciGoogleModal) .calendar-color-field{gap:2px;margin:6px 0}
+}
 #eventModal[data-mode="task"] .ci-date-grid { grid-template-columns:minmax(0,1fr); }
 .event-create-modes { display:flex; gap:8px; margin-bottom:12px; }
 .event-create-modes button { position:relative; box-sizing:border-box; min-width:64px; height:36px; padding:0 12px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-pill); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:12px; cursor:pointer; }

@@ -19,6 +19,8 @@ export function renderList(options,{start,days,tasks,busy,error,more}){
     section.append(header);
     const persistence=window.KPTUCalendarPersistence,known=!!persistence?.knows?.(new Date(section.dataset.date+'T00:00:00+09:00'),addSeoulDays(new Date(section.dataset.date+'T00:00:00+09:00'),1));
     appendDayRows(section,date,dayItems(options,date,tasks),known);
+    // UI-전수디자인점검 F05: 일정·할 일이 없는 날(받은 뒤)은 날짜와 '일정 없음'을 한 줄로 접는다.
+    if(section.children.length===2&&section.lastElementChild.matches('.clv-empty:not([data-calendar-pending])'))section.classList.add('clv-day-empty');
     box.append(section);
   }
   const button=document.createElement('button');button.type='button';button.id='calendarListMore';button.className='clv-more';button.textContent=error?'다시 불러오기':'다음 14일 불러오기';button.disabled=busy;button.addEventListener('click',more);

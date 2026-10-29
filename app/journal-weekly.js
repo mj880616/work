@@ -452,6 +452,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
   const muted = text => el('p', 'journal-muted', text);
+  // 을/를: 이름 끝 받침으로(task-inline.js objectParticle과 같은 규칙. 이 파일은 node 시험에서도 읽혀 화면 모듈을 부르지 않는다).
+  const objectParticle = name => { const code = String(name).charCodeAt(String(name).length - 1); return code >= 0xAC00 && code <= 0xD7A3 ? ((code - 0xAC00) % 28 ? '을' : '를') : '을(를)'; };
   const dayTag = day => el('span', 'journal-weekly-day', shortDay(day));
   const itemList = (items, inTable = false, line = item => item.text) => {
     const list = el('ul', 'journal-weekly-list');
@@ -550,10 +552,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const status = (box, part, label) => {
     if (part.loading) { box.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return true; }
     if (part.failed?.length) {
-      const note = muted(`${label}${part.failed.length < WEEKLY_SOURCES[part.key].length ? ' 일부를' : '을(를)'} 불러오지 못했어요.`);
-      note.classList.add('journal-failed'); note.dataset.journalFailed = '';
-      const retry = el('button', 'mini', '다시 시도'); retry.type = 'button'; retry.dataset.journalWeeklyRetry = part.failed.join(' ');
-      box.dataset.failed = ''; box.append(note, retry);
+      // UI-전수디자인점검 F24: 하루 칸과 같은 공용 실패 한 줄(.wait-fail, 안에 작은 [다시]), 조사는 이름 끝 받침으로.
+      const note = el('p', 'wait-fail journal-failed', `${label}${part.failed.length < WEEKLY_SOURCES[part.key].length ? ' 일부를' : objectParticle(label)} 불러오지 못했어요. `);
+      note.dataset.journalFailed = ''; note.setAttribute('role', 'alert');
+      const retry = el('button', 'wait-retry', '다시'); retry.type = 'button'; retry.dataset.journalWeeklyRetry = part.failed.join(' ');
+      note.append(retry); box.dataset.failed = ''; box.append(note);
     }
     if (part.capped) box.append(muted(`이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.`));
     return false;

@@ -187,6 +187,6 @@ for(const width of [390,1440])test('D-button Google event editor delete and save
  await page.clock.setFixedTime(new Date('2026-10-05T03:00:00Z'));await page.setViewportSize({width,height:900});
  await boot(page,[],[{id:'size-event',calendarId:'primary',title:'Fixture event',start:'2026-10-05',end:'2026-10-06',allDay:true,color:'#7986cb'}]);
  await view(page,'calendar');const chip=page.locator('.cp-event[data-google-event="size-event"]').first();await expect(chip).toBeVisible();await chip.click();
- await expect(page.locator('#ciGoogleDelete')).toBeEnabled();await dsStandard(page,'#ciGoogleDelete',32);await dsStandard(page,'#ciGoogleSave',36);
+ await expect(page.locator('#ciGoogleDelete')).toBeEnabled();await page.locator('#ciGoogleMore').click();await expect(page.locator('#ciGoogleDelete')).toBeVisible();expect((await page.locator('#ciGoogleDelete').boundingBox()).height).toBe(44);await page.keyboard.press('Escape');await expect(page.locator('#ciGoogleDelete')).toBeHidden();await expect(page.locator('#ciGoogleModal')).toBeVisible();await dsStandard(page,'#ciGoogleSave',36);
  expect(await page.locator('#ciGoogleModal .modal-card').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
 });
