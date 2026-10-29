@@ -36,6 +36,10 @@ const active=()=>state==='starting'||state==='recording'||state==='paused';
 const call=(action,body,extra={})=>rt().api(`${FN}?action=${action}`,{method:'POST',body,singleFlight:false,...extra});
 
 // ---- 그리기(이 모듈만) ----
+// 1초마다 다시 그리므로 글이 같으면 건드리지 않는다(누르는 중인 버튼이 바뀌지 않게).
+const drawn=new WeakMap();
+const setHtml=(el,html)=>{if(drawn.get(el)!==html){el.innerHTML=html;drawn.set(el,html)}};
+const setText=(el,text)=>{if(el.textContent!==text)el.textContent=text};
 function band(){
   let el=$('#recBand');
   if(el)return el;
@@ -53,23 +57,25 @@ function paint(){
   el.dataset.state=state;
   const label=el.querySelector('.rec-label'),time=el.querySelector('.rec-time'),msg=el.querySelector('.rec-note'),act=el.querySelector('.rec-actions');
   const sec=elapsed()/1000;
-  if(state==='starting'){label.textContent='녹음 준비 중';time.textContent='';msg.textContent='마이크를 허락해 주세요.';act.innerHTML=''}
+  let l='',t='',m='',a='';
+  if(state==='starting'){l='녹음 준비 중';m=escapeText('마이크를 허락해 주세요.')}
   else if(state==='recording'||state==='paused'){
-    label.textContent=state==='paused'?'일시정지':'녹음 중';
-    time.textContent=clockText(sec);
+    l=state==='paused'?'일시정지':'녹음 중';
+    t=clockText(sec);
     const q=queuedPieces(segments);
-    msg.textContent=fails&&q?`조각 ${q}개 올리기 다시 시도 중`:'';
-    act.innerHTML=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button>`;
+    m=fails&&q?escapeText(`조각 ${q}개 올리기 다시 시도 중`):'';
+    a=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button>`;
   }else if(state==='finishing'||state==='done'){
-    label.textContent=state==='done'?'정리 끝':'정리 중';
-    time.textContent=sec?clockText(sec):'';
-    msg.innerHTML=stepParts(step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(note?` <span class="rec-sub">${escapeText(note)}</span>`:'');
-    act.innerHTML=state==='done'?'<button type="button" class="rec-btn" data-rec="close">닫기</button>':'';
+    l=state==='done'?'정리 끝':'정리 중';
+    t=sec?clockText(sec):'';
+    m=stepParts(step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(note?` <span class="rec-sub">${escapeText(note)}</span>`:'');
+    a=state==='done'?'<button type="button" class="rec-btn" data-rec="close">닫기</button>':'';
   }else if(state==='error'){
-    label.textContent='녹음 정리 멈춤';time.textContent='';
-    msg.textContent=errorText;
-    act.innerHTML=`${canRetry?'<button type="button" class="rec-btn" data-rec="retry">다시</button>':''}<button type="button" class="rec-btn" data-rec="close">닫기</button>`;
+    l='녹음 정리 멈춤';
+    m=escapeText(errorText);
+    a=`${canRetry?'<button type="button" class="rec-btn" data-rec="retry">다시</button>':''}<button type="button" class="rec-btn" data-rec="close">닫기</button>`;
   }
+  setText(label,l);setText(time,t);setHtml(msg,m);setHtml(act,a);
   paintButton();
   paintPending();
 }
@@ -85,9 +91,9 @@ function paintPending(){
   const line=$('#recPendingLine');if(!line)return;
   const list=PC?.matches&&state==='idle'?pendingOthers(pending,sessionId):[];
   line.hidden=!list.length;
-  if(!list.length){line.innerHTML='';return}
+  if(!list.length){setHtml(line,'');return}
   const first=list[0];
-  line.innerHTML=`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button>`;
+  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button>`);
 }
 function onBandClick(e){
   const b=e.target.closest('[data-rec]');if(!b)return;
