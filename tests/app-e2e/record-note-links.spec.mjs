@@ -16,15 +16,19 @@ const spaces=[
  {id:'pb',workspace_id:'w',owner_id:'home-test',name:'합성 조직 사업',status:'active',sort_order:30,metadata:{project_system:'v2',color:'blue'}}
 ];
 const day=i=>`2026-09-${String(30-i).padStart(2,'0')}`;
-async function fixture(page,{width=1280}={}){
+// MTG-프로젝트합치기 결정 ⑥: 프로젝트 기록 목록에는 정리함 연결 줄만 그려진다(state.progress는 읽어 와도 그리지 않는다).
+// fill>0이면 날짜가 다른 합성 업데이트 연결을 그만큼 더해, 목록이 길어 스크롤 위치를 볼 수 있게 한다.
+async function fixture(page,{width=1280,fill=0}={}){
  await page.setViewportSize({width,height:800});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
- const notes=[update,note],state={writes:[],queries:[],progress:Array.from({length:24},(_,i)=>({id:'pr-'+i,project_id:'pa',workstream_id:null,summary:'합성 기록 '+i,effective_on:day(i),created_at:day(i)+'T00:00:00Z'})),
+ const fillers=Array.from({length:fill},(_,i)=>({...update,id:`10000000-0000-4000-8000-1000000000${String(i).padStart(2,'0')}`,occurred_at:day(i)+'T00:00:00Z',raw_text:'합성 채움 원문 '+i}));
+ const notes=[update,note,...fillers],state={writes:[],queries:[],progress:Array.from({length:24},(_,i)=>({id:'pr-'+i,project_id:'pa',workstream_id:null,summary:'합성 기록 '+i,effective_on:day(i),created_at:day(i)+'T00:00:00Z'})),
   links:[
    {id:'l-up',workspace_id:'w',note_id:update.id,project_id:'pa',organization_id:null,status:'confirmed',summary:'합성 업데이트 연결 요약'},
    {id:'l-note',workspace_id:'w',note_id:note.id,project_id:'pa',organization_id:null,status:'confirmed',summary:null},
-   {id:'l-note-o',workspace_id:'w',note_id:note.id,project_id:null,organization_id:'o',status:'confirmed',summary:null}
+   {id:'l-note-o',workspace_id:'w',note_id:note.id,project_id:null,organization_id:'o',status:'confirmed',summary:null},
+   ...fillers.map((n,i)=>({id:'l-fill-'+i,workspace_id:'w',note_id:n.id,project_id:'pa',organization_id:null,status:'confirmed',summary:'합성 채움 연결 '+i}))
   ]};
  const list=(route,rows)=>{const q=new URL(route.request().url()).searchParams;return route.fulfill({json:rows.slice(Number(q.get('offset')||0),Number(q.get('offset')||0)+Number(q.get('limit')||rows.length||1))})};
  await page.route(SB+'/rest/v1/app_spaces**',route=>{const q=new URL(route.request().url()).searchParams;if(route.request().method()!=='GET'){state.writes.push(route.request().url());return route.fulfill({json:[]})}if(q.get('select')?.includes('milestones:'))return route.fulfill({json:spaces.map(x=>({id:x.id,milestones:[]}))});return route.fulfill({json:spaces})});
@@ -63,9 +67,10 @@ for(const width of [1280,390])test(`project ${width}: a linked note joins the re
  // A note without a link summary shows its title.
  await expect(nt.locator('.ps3-rec-text')).toHaveText('합성 회의 준비 노트');await expect(up.locator('.ps3-rec-text')).toHaveText('합성 업데이트 연결 요약');
  await expect(page.locator('#ps3Body')).not.toContainText('🧺');
- // Newest first: the note (9.16) above the update (9.15), both counted.
+ // Newest first: the note (9.16) above the update (9.15), both counted. The 24 old progress records are not drawn (결정 ⑥).
  const order=await records.locator(':scope > [data-basket-link]').evaluateAll(xs=>xs.map(x=>x.dataset.basketLink));expect(order).toEqual(['l-note','l-up']);
- await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('26');
+ await expect(records.locator(':scope > *')).toHaveCount(2);await expect(records.locator('[data-ps3-record]')).toHaveCount(0);
+ await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('2');
  // Its ⋯: [노트 열기]·[연결 해제]·[요약 수정]; the update's ⋯ is [업데이트 열기]·[연결 해제]·[요약 수정] (UI-연결요약수정).
  await nt.getByRole('button',{name:'정리함 기록 메뉴'}).click();const menu=page.locator('#ps3RecordMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  await up.getByRole('button',{name:'정리함 기록 메뉴'}).click();await expect(menu.getByRole('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');
@@ -74,7 +79,7 @@ for(const width of [1280,390])test(`project ${width}: a linked note joins the re
 });
 
 for(const width of [1280,390])test(`project ${width}: a note line opens the note's read view with the return line; the button and back return to the same project and scroll`,async({page})=>{
- const {errors}=await fixture(page,{width});
+ const {errors}=await fixture(page,{width,fill:24});
  await clickView(page,'projects');if(width<761)await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
  await expectProjectTitle(page,'합성 정책 사업');
  const line=page.locator('#ps3Body [data-basket-link="l-note"] a[data-ps3-basket-note]');
@@ -117,7 +122,8 @@ for(const width of [390,1280])test(`organization ${width}: the linked note shows
  expect(state.writes).toEqual([]);expect(errors).toEqual([]);
 });
 
-// BUG-미리보기기호: project record lines (a linked update's summary, a progress record) show plain letters, no ###·|·**·entity leftovers.
+// BUG-미리보기기호: project record lines (a linked update's summary) show plain letters, no ###·|·**·entity leftovers.
+// MTG-프로젝트합치기 결정 ⑥: 옛 진행 기록 줄은 그리지 않으므로 그 글은 화면에 없다.
 for(const width of [1280,390])test(`project ${width}: record lines show plain letters without markdown marks`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
  state.links[0].summary='### 합성 결과 | 일시 | 장소 |\n|---|---|\n| 2026\\.&#x20;10\\.&#x20;21\\. | **합성 본사** |';
@@ -127,7 +133,7 @@ for(const width of [1280,390])test(`project ${width}: record lines show plain le
  const up=page.locator('#ps3-progress [data-ps3-records] [data-basket-link="l-up"] .ps3-rec-text');
  await expect(up).toContainText('합성 결과 · 일시 · 장소 2026. 10. 21. · 합성 본사');
  expect((await up.textContent())||'').not.toMatch(/###|\||\*\*|&#x20;|\\\./);
- const progress=page.locator('#ps3-progress .ps3-rec-summary').first();
- await expect(progress).toHaveText('합성 진행 · 항목 · 굵게');
+ await expect(page.locator('#ps3-progress .ps3-rec-summary,#ps3-progress [data-ps3-record]')).toHaveCount(0);
+ await expect(page.locator('#ps3-progress')).not.toContainText('합성 진행');
  expect(errors).toEqual([]);
 });

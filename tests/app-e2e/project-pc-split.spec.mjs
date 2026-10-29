@@ -22,7 +22,10 @@ async function fixture(page,{width=1280,blockStorage=false}={}){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const f=await openHome(page);
  const state={spaces:structuredClone(spaces),patches:[],progress:Array.from({length:28},(_,i)=>({id:'pr-'+i,project_id:'pa',workstream_id:null,summary:'합성 기록 '+i,effective_on:day(i),created_at:day(i)+'T00:00:00Z'})),
-  links:[{id:'l-p',workspace_id:'w',note_id:note.id,project_id:'pa',organization_id:null,status:'confirmed',summary:'합성 연결 요약'},{id:'l-o',workspace_id:'w',note_id:note.id,project_id:null,organization_id:'o',status:'confirmed',summary:'합성 조직 연결 요약'}]};
+  // MTG-프로젝트합치기 결정 ⑥: 상세 기록 목록은 옛 진행 기록(state.progress)을 그리지 않는다. 같은 스크롤 되돌리기를 보려면 목록이 길어야 해서
+  // 날짜가 다른 합성 연결 28개(fillAt = 그 연결 노트의 날짜)를 더한다. l-p(9.15)는 그 가운데에 놓인다.
+  links:[{id:'l-p',workspace_id:'w',note_id:note.id,project_id:'pa',organization_id:null,status:'confirmed',summary:'합성 연결 요약'},{id:'l-o',workspace_id:'w',note_id:note.id,project_id:null,organization_id:'o',status:'confirmed',summary:'합성 조직 연결 요약'},
+   ...Array.from({length:28},(_,i)=>({id:'l-fill-'+i,workspace_id:'w',note_id:`10000000-0000-4000-8000-2000000000${String(i).padStart(2,'0')}`,project_id:'pa',organization_id:null,status:'confirmed',summary:'합성 채움 연결 '+i,fillAt:day(i)+'T00:00:00Z'}))]};
  const list=(route,rows)=>{const q=new URL(route.request().url()).searchParams;return route.fulfill({json:rows.slice(Number(q.get('offset')||0),Number(q.get('offset')||0)+Number(q.get('limit')||rows.length||1))})};
  await page.route(SB+'/rest/v1/app_spaces?**',route=>{
   const req=route.request(),q=new URL(req.url()).searchParams;
@@ -36,7 +39,7 @@ async function fixture(page,{width=1280,blockStorage=false}={}){
   const q=new URL(route.request().url()).searchParams;if(q.has('google_task_id'))return route.fulfill({json:[]});
   let rows=state.links;for(const key of ['project_id','organization_id']){const v=q.get(key);if(v?.startsWith('in.('))rows=rows.filter(x=>v.slice(4,-1).split(',').includes(x[key]));}
   const v=q.get('note_id');if(v?.startsWith('eq.'))rows=rows.filter(x=>x.note_id===v.slice(3));
-  return list(route,rows.map(row=>({...row,note,organization:{name:'테스트 조직'},project:{name:'합성 정책 사업'}})));
+  return list(route,rows.map(({fillAt,...row})=>({...row,note:fillAt?{...note,id:row.note_id,occurred_at:fillAt,raw_text:row.summary+' 원문'}:note,organization:{name:'테스트 조직'},project:{name:'합성 정책 사업'}})));
  });
  return {f,state,errors};
 }
@@ -72,9 +75,9 @@ test('PC 1280: list on the left, the first project on the right without a dialog
  const pad=el=>el.evaluate(n=>parseFloat(getComputedStyle(n).paddingLeft));expect(await pad(child)).toBeGreaterThan(await pad(main));
  await expect(child.locator('.ps3-color-dot')).toHaveAttribute('data-tone','soft');await expect(main.locator('.ps3-color-dot')).toHaveAttribute('data-color','green');
  await expect(main).toHaveAttribute('aria-current','true');
- // Detail parts: progress records, child projects, tasks, documents. MTG-프로젝트합치기 3단계: 진행 기록 입력칸은 없다.
+ // Detail parts: record list, child projects, tasks, documents. MTG-프로젝트합치기 3단계: 진행 기록 입력칸은 없다(결정 ⑥: 옛 진행 기록 줄도 없다).
  for(const id of ['#ps3-progress','#ps3-children','#ps3-tasks','#ps3-documents'])await expect(page.locator('#ps3Body '+id)).toBeVisible();
- await expect(page.locator('#ps3Body [data-ps3-record-input]')).toHaveCount(0);
+ await expect(page.locator('#ps3Body [data-ps3-record-input],#ps3Body [data-ps3-record]')).toHaveCount(0);
  // Another row: the pane changes, the URL is replaced (no history entry), the row shows the selection.
  const length=await page.evaluate(()=>history.length);
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');

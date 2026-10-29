@@ -406,14 +406,12 @@ function itemRecord(w){return recordButton(w.id,keyOf(w.created_at),esc(w.title|
 // front is the update or note icon (basket-link-records.js), and a note line opens the note's read view ([노트 열기]·[연결 해제]).
 const LINK_NOTE_KINDS=['basket','note'];
 function basketRecord(b){const text=recordText(b),note=isNoteRecord(b);return `<div class="ps3-rec ps3-rec-basket${note?' ps3-rec-note':''}" data-basket-link="${esc(b.id)}"><a class="ps3-rec-line" href="${esc(note?'./?view=basket':basketNoteHref(b.note_id))}" data-ps3-basket-note="${esc(b.note_id)}" data-ps3-note-kind="${note?'note':'basket'}"><time>${esc(day(keyOf(b.occurred_at)))}</time><span class="ps3-rec-text kptu-clamp">${recordMark(b,'ps3-rec-mark')} ${esc(text||'요약 없음')}</span></a><button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="정리함 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`}
-function recordItems(d){const used=new Set(d.progress.map(u=>u.workstream_id));return [
-  ...d.progress.map(u=>({key:u.effective_on||'',at:Date.parse(u.created_at)||0,html:`<div class="ps3-rec" data-ps3-record="${esc(u.id)}">${progressRecord(u)}</div>`})),
-  ...d.workstreams.filter(w=>!used.has(w.id)).map(w=>({key:keyOf(w.created_at),at:Date.parse(w.created_at)||0,html:`<div class="ps3-rec" data-ps3-record="${esc(w.id)}" data-ps3-record-kind="item">${itemRecord(w)}</div>`})),
-  ...(d.basketLinks||[]).map(b=>({key:keyOf(b.occurred_at),at:Date.parse(b.occurred_at)||0,html:basketRecord(b)}))
- ].sort((a,b)=>b.key.localeCompare(a.key)||b.at-a.at)}
+// MTG-프로젝트합치기 결정 ⑥(10/28 19:38 '지난 진행 기록 화면 없음'): 옛 진행 기록(app_project_progress_updates)·기록 없는 진행 항목
+// 줄은 이 목록에 그리지 않는다(기록은 사업 보고 한 곳, 표·데이터는 보존). 정리함 업데이트·노트 연결 줄(결정 ⑦)만 날짜순으로 남는다.
+function recordItems(d){return (d.basketLinks||[]).map(b=>({key:keyOf(b.occurred_at),at:Date.parse(b.occurred_at)||0,html:basketRecord(b)})).sort((a,b)=>b.key.localeCompare(a.key)||b.at-a.at)}
 function recordRows(d){const rows=recordItems(d);return `${rows.length?rows.map(x=>x.html).join(''):(!d.basketError?'<p class="ps3-rec-empty">아직 기록이 없어요</p>':'')}${d.basketError?'<div class="status error" role="status">정리함 연결 기록을 불러오지 못했습니다. <button type="button" data-ps3-basket-retry>다시 불러오기</button></div>':''}`}
-function recordCount(d){return d.progress.length+d.workstreams.filter(w=>!d.progress.some(u=>u.workstream_id===w.id)).length+(d.basketLinks?.length||0)}
-// MTG-프로젝트합치기 3단계: 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳). 지난 기록·정리함 연결은 아래 목록에 그대로 보인다(표·데이터 보존).
+function recordCount(d){return d.basketLinks?.length||0}
+// MTG-프로젝트합치기 3단계: 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳). 목록에는 정리함 연결 줄만 보인다(표·데이터 보존).
 function progress(d){return `<section class="ps3-section ps3-records" id="ps3-progress"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'progress','진행상황'))} <span class="ps3-count" data-ps3-record-count>${recordCount(d)}</span></h3></div><div class="ps3-rec-list" data-ps3-records>${recordRows(d)}</div></section>`}
 // Library/account pattern, kept local to avoid changing other screens.
 let recordMenu=null;

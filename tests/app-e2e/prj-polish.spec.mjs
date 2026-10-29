@@ -8,6 +8,10 @@ import {expectProjectDetail} from './helpers/project-detail.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LONG=Array.from({length:12},(_,i)=>`긴 기록 ${i+1}번째 줄`).join('\n');
+// MTG-프로젝트합치기 결정 ⑥: 프로젝트 상세 기록 목록에는 정리함 연결 줄만 그려진다. 연결 줄 요약은 한 줄로 이어 보이므로(줄바꿈 → 띄어쓰기)
+// 1280px에서도 10줄을 넘도록 긴 요약을 따로 둔다.
+const LINK_LONG=Array.from({length:120},(_,i)=>`긴 연결 요약 ${i+1}번째 문장`).join(' ');
+const linkRow=(id,summary,at)=>({id,workspace_id:'w',summary,note_id:'n-'+id,organization_id:null,project_id:'p',status:'confirmed',note:{id:'n-'+id,workspace_id:'w',occurred_at:at,raw_text:'합성 원문',kind:'basket',title:null}});
 async function fixture(page,width,beforeLoad=null){
  await page.setViewportSize({width,height:844});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
@@ -15,6 +19,8 @@ async function fixture(page,width,beforeLoad=null){
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_project_progress_updates',r=>r.request().method()!=='GET'?r.fallback():r.fulfill({json:[
   {id:'r-long',project_id:'p',workstream_id:null,effective_on:'2026-10-21',created_at:'2026-10-21T01:00:00Z',summary:LONG,next_step:null},
   {id:'r-mid',project_id:'p',workstream_id:null,effective_on:'2026-10-20',created_at:'2026-10-20T01:00:00Z',summary:'한 줄 기록',next_step:null}]}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_record_links'&&(u.searchParams.get('select')||'').includes('note:app_notes')&&u.searchParams.get('project_id')==='in.(p)',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:[
+  linkRow('l-long',LINK_LONG,'2026-10-21T01:00:00Z'),linkRow('l-mid','한 줄 연결','2026-10-20T01:00:00Z')]}));
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>r.request().method()!=='GET'?r.fallback():r.fulfill({json:[
   {id:'u-long',organization_id:'o',raw_text:LONG,occurred_at:'2026-10-05T16:00:00Z'},
   {id:'u-short',organization_id:'o',raw_text:'짧은 기록',occurred_at:'2026-10-04T16:00:00Z'}]}));
@@ -50,19 +56,24 @@ for(const width of [390,1280]){
   await expectProjectDetail(page,'p');
   // MTG-프로젝트합치기 3단계: 진행 기록 입력칸과 그 안의 ⤢는 없어졌다(기록은 사업 보고 한 곳).
   await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big]')).toHaveCount(0);
-  await expect(page.locator('[data-ps3-record="r-long"]')).toBeVisible();
-  // 4 lines, then the first tap opens that record only; the second tap is the old behaviour (menu).
-  const long=page.locator('[data-ps3-record="r-long"] .ps3-rec-text'),mid=page.locator('[data-ps3-record="r-mid"] .ps3-rec-text');
+  // MTG-프로젝트합치기 결정 ⑥: 옛 진행 기록(r-long·r-mid)은 읽어 와도 그리지 않는다. 4줄 자르기는 연결 줄에서 본다.
+  await expect(page.locator('#ps3-progress [data-ps3-record]')).toHaveCount(0);
+  await expect(page.locator('[data-basket-link="l-long"]')).toBeVisible();
+  // 4 lines, then the first tap opens that record only (the line does not open); the second tap is the old behaviour (opens the line).
+  const long=page.locator('[data-basket-link="l-long"] .ps3-rec-text'),mid=page.locator('[data-basket-link="l-mid"] .ps3-rec-text');
   const lh=await long.evaluate(e=>parseFloat(getComputedStyle(e).lineHeight));
   const h1=(await long.boundingBox()).height;expect(h1).toBeLessThanOrEqual(lh*4+2);expect(h1).toBeGreaterThanOrEqual(lh*4-2);
   const hm=(await mid.boundingBox()).height;
   await long.click();await expect(long).toHaveClass(/is-open/);expect((await long.boundingBox()).height).toBeGreaterThan(lh*10);
-  await expect(page.locator('#ps3RecordMenu')).toBeHidden();expect((await mid.boundingBox()).height).toBeCloseTo(hm,0);await expect(mid).not.toHaveClass(/is-open/);
-  await mid.click();await expect(page.locator('#ps3RecordMenu')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expect(page.locator('#ps3RecordMenu')).toBeHidden();await expect(page.locator('#kptuRecordSheet')).toBeHidden();await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  expect((await mid.boundingBox()).height).toBeCloseTo(hm,0);await expect(mid).not.toHaveClass(/is-open/);
   // No box inside the dialog box.
   expect(await page.locator('#ps3-progress').evaluate(e=>{const s=getComputedStyle(e);return [s.borderTopWidth,s.borderLeftWidth,s.paddingLeft]})).toEqual(['0px','0px','0px']);
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
+  // A tap on a text that is not cut opens the line as before: a card over the detail on a phone, the basket on a PC.
+  await mid.click();
+  if(width<761)await expect(page.locator('#kptuRecordSheet')).toBeVisible();
+  else await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
  });
 
  test(`조직 상세 기록: 4줄 + [더보기]가 그 기록만 펼치고 [접기]로 접힘 ${width}`,async({page})=>{

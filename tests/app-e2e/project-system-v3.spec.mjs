@@ -180,6 +180,9 @@ async function openMenu(page){
   if(await menu.getAttribute('open')===null)await menu.locator(':scope > summary').click();
   await expect(menu).toHaveAttribute('open','');
 }
+// MTG-프로젝트합치기 결정 ⑥: 기록 목록에는 정리함 연결 줄([data-basket-link])만 그려진다. 연결 줄이 필요한 시험은 state.links에
+// 이 모양의 확정 연결을 더한다(google_task_id·task_completed가 없어 할 일 수에는 들지 않는다).
+function basketLink(id,summary,occurred_at,project_id='main-1'){return{id,workspace_id:'workspace-1',summary,note_id:'note-'+id,organization_id:null,project_id,status:'confirmed',note:{id:'note-'+id,workspace_id:'workspace-1',occurred_at,raw_text:summary+' 원문',kind:'basket',title:null}}}
 function baseState(){return{
   user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'프로젝트 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},
   projectTypes:[
@@ -232,7 +235,8 @@ test('project list loads and its heading uses available width at desktop, tablet
 
 
 test('project owner UI stays inside 360 390 412 and 430px viewports',async({page})=>{
-  const state=baseState();state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20});await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
+  // MTG-프로젝트합치기 결정 ⑥: 진행 항목 줄이 목록에 없어 진행 항목 창(#ps3WorkstreamModal)으로 가는 길도 없다. 그 창 너비 검사는 뺐다.
+  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:844});
     await page.locator('#newProjectBtn').click();
@@ -250,11 +254,6 @@ test('project owner UI stays inside 360 390 412 and 430px viewports',async({page
     expect(overflow,`milestone modal at ${width}px`).toBeLessThanOrEqual(1);
     await expect(page.locator('#ps3MilestoneGoogle')).toBeVisible();
     await page.locator('[data-ps3-close="ps3MilestoneModal"]').click();
-    await page.locator('[data-ps3-record="ws-2"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();
-    await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
-    overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
-    expect(overflow,`progress modal at ${width}px`).toBeLessThanOrEqual(1);
-    await page.locator('[data-ps3-close="ps3WorkstreamModal"]').click();
     await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   }
 });
@@ -562,97 +561,45 @@ test.describe('project milestone Korea timezone',()=>{
   });
 });
 
-test('PRJ-기록입력 old progress items stay in the one record list and item creation is gone',async({page})=>{
+// MTG-프로젝트합치기 결정 ⑥(지난 진행 기록 화면 없음): 옛 진행 기록(app_project_progress_updates)·기록 없는 진행 항목(app_project_workstreams)은
+// 기록 목록에 그리지 않는다. 표·데이터는 상세가 그대로 읽어 오고 남기며, 상세에서 그 표에 쓰는 일도 없다. 목록에는 정리함 연결 줄만 남는다.
+// 예전 'old progress items stay in the one record list…'·'an old item without records is a line of its own…'·'an old item edits its
+// title once…'·'record list shows every record newest first…'·'detail has no record input and writes no new progress record' 시험은
+// 그 줄을 보이고 고치고 지우던 것이라(진행 항목 창도 화면에서 닿는 길이 없다) 이 시험 하나로 합쳤다.
+test('PRJ-기록입력 old progress records and items are not drawn, stay in the data, and nothing writes them',async({page})=>{
   const state=baseState();
-  await mockApp(page,state);
-  await page.goto(testOrigin+'/app/?project=main-1');
-  await signIn(page);
-  const record=page.locator('#ps3-progress [data-ps3-record="pr-1"]');
-  await expect(record.locator('.ps3-rec-from')).toHaveText('정책·제도 대응');
-  await expect(record.locator('.ps3-rec-summary')).toHaveText('국토부 후속협의 준비');
-  await expect(record.locator('.ps3-rec-next')).toHaveText('다음: 9.29 토론회');
-  // Stored status labels and phases stay in the data but are not shown; there is no way to add an item.
-  await expect(page.locator('#ps3-progress')).not.toContainText('진행 ·');
-  await expect(page.locator('#ps3Body [data-ps3-add-ws],#ps3Body [data-ps3-edit-ws],#ps3Body [data-ps3-progress-ws],#ps3Body .ps3-phase,#ps3ProgressModal')).toHaveCount(0);
-  expect(state.workstreams).toHaveLength(1);expect(state.progress[0]).toMatchObject({status_label:'진행',workstream_id:'ws-1'});
-});
-
-test('PRJ-기록입력 an old item without records is a line of its own and can be deleted',async({page})=>{
-  const state=baseState();state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20,created_at:'2026-09-01T01:00:00Z'});await mockApp(page,state);
-  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
-  const row=page.locator('#ps3-progress [data-ps3-record="ws-2"]');
-  await expect(row).toHaveAttribute('data-ps3-record-kind','item');await expect(row.locator('.ps3-rec-text')).toHaveText('현장 조직 대응');await expect(row.locator('time')).toHaveText('9.1');
-  await expect(page.locator('#ps3-progress [data-ps3-records] > *')).toHaveCount(2);await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('2');
-  page.once('dialog',d=>d.dismiss());await recordAction(page,row,'삭제');await expect(row).toBeVisible();
-  expect(state.restCalls.filter(x=>x.name==='app_project_workstreams'&&x.method==='DELETE')).toHaveLength(0);
-  page.once('dialog',d=>d.accept());await recordAction(page,row,'삭제');
-  await expect(row).toHaveCount(0);await expect.poll(()=>state.workstreams.map(x=>x.id)).toEqual(['ws-1']);
-  await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');
-});
-
-test('PRJ-기록입력 an old item edits its title once and keeps its stored phase',async({page})=>{
-  const state=baseState();state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20});await mockApp(page,state);
-  const probe=await saveProbe(page,'app_project_workstreams','PATCH');
-  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
-  const row=page.locator('[data-ps3-record="ws-2"]');
-  await recordAction(page,row,'수정');
-  await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
-  await expect(page.locator('#ps3WorkstreamHeading')).toHaveText('진행상황 수정');
-  await expect(page.locator('#ps3WsPhase')).toBeHidden();await expect(page.locator('#ps3WsPhase')).toHaveValue('preparation');
-  await page.locator('#ps3WsTitle').fill('수정한 진행상황');
-  const button=page.locator('#ps3WsSave');
-  await button.click();await expect.poll(()=>probe.count).toBe(1);
-  await expect(button).toBeDisabled();await button.dispatchEvent('click');
-  await page.waitForTimeout(150);expect(probe.count).toBe(1);
-  probe.release();
-  await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
-  await expect(row.locator('.ps3-rec-text')).toHaveText('수정한 진행상황');
-  expect(state.restCalls.filter(x=>x.name==='app_project_workstreams'&&x.method==='PATCH')).toEqual([
-    expect.objectContaining({body:{title:'수정한 진행상황',phase:'preparation'}})
-  ]);
-});
-
-test('PRJ-기록입력 record list shows every record newest first with its date and no top input',async({page})=>{
-  const state=baseState();
-  state.progress.unshift({
-    id:'pr-2',project_id:'main-1',workstream_id:null,
-    summary:'국토부 회신을 반영해 토론회 쟁점을 다시 정리함',
-    next_step:null,status_label:null,effective_on:'2026-09-20',created_at:now()
-  });
+  state.progress.unshift({id:'pr-2',project_id:'main-1',workstream_id:null,summary:'국토부 회신을 반영해 토론회 쟁점을 다시 정리함',next_step:null,status_label:null,effective_on:'2026-09-20',created_at:now()});
   state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20,created_at:'2026-09-01T01:00:00Z'});
+  const before={progress:structuredClone(state.progress),workstreams:structuredClone(state.workstreams)};
   await mockApp(page,state);
-  await page.goto(testOrigin+'/app/?project=main-1');
-  await signIn(page);
-  const list=page.locator('#ps3-progress [data-ps3-records]');
-  await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('3');
-  await expect(list.locator(':scope > [data-ps3-record]')).toHaveCount(3);
-  expect(await list.locator(':scope > [data-ps3-record]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Record))).toEqual(['pr-2','pr-1','ws-2']);
-  await expect(list.locator('[data-ps3-record="pr-2"] time')).toHaveText('9.20');
-  await expect(list.locator('[data-ps3-record="pr-2"] .ps3-rec-summary')).toHaveText('국토부 회신을 반영해 토론회 쟁점을 다시 정리함');
-  await expect(list.locator('details')).toHaveCount(0);
-  await expect(page.locator('#ps3-progress .ps3-rec-empty,#ps3Body .ps3-empty')).toHaveCount(0);
-  // MTG-프로젝트합치기 3단계: 맨 위 입력칸·⤢는 없어졌다(기록은 사업 보고 한 곳). 목록만 보인다.
-  await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big]')).toHaveCount(0);
-});
-
-// MTG-프로젝트합치기 3단계: 상세 맨 위 입력칸이 없어져, 상세에서는 진행 기록을 새로 만들지 않는다(지난 기록·옛 항목은 그대로 보인다).
-test('PRJ-기록입력 detail has no record input and writes no new progress record',async({page})=>{
-  const state=baseState();
-  await mockApp(page,state);
-  await page.goto(testOrigin+'/app/?project=main-1');
-  await signIn(page);
-  await expect(page.locator('#ps3-progress [data-ps3-record="pr-1"] .ps3-rec-summary')).toHaveText('국토부 후속협의 준비');
-  await expect(page.locator('#ps3Body [data-ps3-record-input],#ps3Body [data-ps3-record-big],#ps3Body .ps3-record-input')).toHaveCount(0);
-  await expect(page.locator('#ps3-progress').getByRole('button',{name:'기록',exact:true})).toHaveCount(0);
-  expect(state.restCalls.filter(x=>x.name==='app_project_progress_updates'&&x.method!=='GET')).toHaveLength(0);
-  expect(state.progress).toHaveLength(1);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
+  const box=page.locator('#ps3-progress');
+  // 옛 기록·항목만 있는 프로젝트는 빈 목록으로 보인다.
+  await expect(box.locator('.ps3-rec-empty')).toHaveText('아직 기록이 없어요');
+  await expect(box.locator('[data-ps3-record-count]')).toHaveText('0');
+  await expect(box.locator('[data-ps3-record],[data-ps3-record-kind],.ps3-rec-from,.ps3-rec-summary,.ps3-rec-next')).toHaveCount(0);
+  for(const text of ['국토부 후속협의 준비','국토부 회신을 반영해','다음: 9.29 토론회','정책·제도 대응','현장 조직 대응','진행 ·'])await expect(box).not.toContainText(text);
+  // 입력칸·[기록]·⤢·진행 항목 만들기·고치기 자리도 없다.
+  await expect(page.locator('#ps3Body [data-ps3-record-input],#ps3Body [data-ps3-record-big],#ps3Body .ps3-record-input,#ps3Body [data-ps3-add-ws],#ps3Body [data-ps3-edit-ws],#ps3Body [data-ps3-progress-ws],#ps3Body .ps3-phase,#ps3ProgressModal')).toHaveCount(0);
+  await expect(box.getByRole('button',{name:'기록',exact:true})).toHaveCount(0);
+  await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
+  // 정리함 연결이 생기면 그 줄만 목록에 들어온다(옛 기록·항목은 여전히 없다).
+  state.links.push(basketLink('l-new','현장 간담회 결과 연결','2026-09-25T05:00:00Z'));
+  await page.evaluate(()=>window.dispatchEvent(new Event('kptu:basket-links-changed')));
+  await expect(box.locator('[data-ps3-records] > *')).toHaveCount(1);
+  await expect(box.locator('[data-ps3-records] > [data-basket-link="l-new"]')).toContainText('현장 간담회 결과 연결');
+  await expect(box.locator('[data-ps3-record-count]')).toHaveText('1');
+  await expect(box.locator('[data-ps3-record]')).toHaveCount(0);
+  // 데이터는 그대로 읽어 오고, 두 표에 쓰는 요청은 없다.
+  for(const name of ['app_project_progress_updates','app_project_workstreams'])expect(state.restCalls.some(x=>x.name===name&&x.method==='GET'),name).toBe(true);
+  expect(state.restCalls.filter(x=>['app_project_progress_updates','app_project_workstreams'].includes(x.name)&&x.method!=='GET')).toEqual([]);
+  expect(state.progress).toEqual(before.progress);expect(state.workstreams).toEqual(before.workstreams);
 });
 
 test('project detail keeps one summary-first column at desktop and phone widths',async({page})=>{
   const state=baseState();
-  state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응과 매우 긴 진행상황 제목이 한 줄을 넘는 경우',description:null,phase:'consultation',sort_order:20});
-  state.progress.push({...state.progress[0],id:'layout-second'});
-  state.progress[0].summary='국토부 후속협의 준비와 운영기준 쟁점 정리를 동시에 진행하고 있으며 현장 의견을 반영 중인 매우 긴 기록';
+  // MTG-프로젝트합치기 결정 ⑥: 기록 목록에는 정리함 연결 줄만 그려지므로 긴 줄·짧은 줄 본보기를 연결 줄로 둔다.
+  state.links.push(basketLink('layout-long','국토부 후속협의 준비와 운영기준 쟁점 정리를 동시에 진행하고 있으며 현장 의견을 반영 중인 매우 긴 기록','2026-09-20T05:00:00Z'),basketLink('layout-second','국토부 후속협의 준비','2026-09-15T05:00:00Z'));
   state.spaces[0].metadata.objective='민자철도 안전·인력 제도개선을 위한 정책·조직사업의 목표 설명이 길어져도 머리줄에는 보이지 않는다';
   await mockApp(page,state);
   await page.setViewportSize({width:1280,height:900});
@@ -677,7 +624,7 @@ test('project detail keeps one summary-first column at desktop and phone widths'
       const r=el=>el.getBoundingClientRect();
       const list=document.querySelector('#ps3-progress [data-ps3-records]');
       const objective=document.querySelector('#ps3Summary');
-      const summary=document.querySelector('[data-ps3-record="layout-second"] .ps3-rec-summary');
+      const summary=document.querySelector('[data-basket-link="layout-second"] .ps3-rec-text');
       return {
         overflow:document.documentElement.scrollWidth-window.innerWidth,
         list:r(list).width,
@@ -694,6 +641,7 @@ test('project detail keeps one summary-first column at desktop and phone widths'
       expect(item.width,`progress item width at ${width}px`).toBeGreaterThan(layout.list*.95);
       expect(item.overflow,`progress item overflow at ${width}px`).toBeLessThanOrEqual(1);
     }
+    expect(layout.items,`record lines at ${width}px`).toHaveLength(2);
     expect(new Set(layout.sections).size,`single column at ${width}px`).toBe(1);
   }
 });
@@ -962,8 +910,9 @@ for(const width of [390,1280])test(`V3 detail and edit dialogs manage focus, Esc
   await expect(milestoneTrigger).toBeFocused();
 });
 
-test('V3 more menu and progress items use native keyboard disclosure behavior',async({page})=>{
-  const state=baseState();state.progress.push({...state.progress[0],id:'keyboard-second'});await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
+test('V3 more menu and record lines use native keyboard disclosure behavior',async({page})=>{
+  // MTG-프로젝트합치기 결정 ⑥: 옛 진행 기록 줄은 그려지지 않아, 키보드 순서는 정리함 연결 줄(줄 링크 → ⋯ 메뉴 단추)로 본다.
+  const state=baseState();state.links.push(basketLink('kb-first','키보드 첫 연결','2026-09-20T05:00:00Z'),basketLink('kb-second','키보드 둘째 연결','2026-09-18T05:00:00Z'));await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await page.locator('[data-ps3-project="main-1"]').first().click();
   const menu=page.locator('#ps3Menu .ps3-more'),summary=menu.locator(':scope > summary');
   await expect(summary).toHaveAttribute('aria-label','프로젝트 관리 메뉴');
@@ -982,14 +931,18 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
   await expect(menu).toHaveAttribute('open','');
   await page.locator('#ps3Title,#ps3Summary').first().click();
   await expect(menu).not.toHaveAttribute('open','');
-  // PRJ-기록입력: each record line is one keyboard button that opens 수정·삭제.
+  // Each linked record line is a keyboard link (opens the update) followed by its ⋯ button (opens the record menu).
   // MTG-프로젝트합치기 3단계: 맨 위 입력칸·⤢가 없어져 첫 기록 줄에서 시작한다(입력칸 → ⤢ → [기록] 순서 검사는 기능과 함께 없앴다).
-  await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big]')).toHaveCount(0);
-  await page.locator('[data-ps3-record-menu="pr-1"]').focus();
-  await expect(page.locator('[data-ps3-record-menu="pr-1"]')).toBeFocused();
-  await page.keyboard.press('Tab');await expect(page.locator('[data-ps3-record-menu="keyboard-second"]')).toBeFocused();
+  await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big],#ps3-progress [data-ps3-record]')).toHaveCount(0);
+  const first=page.locator('[data-ps3-record-menu="basket:kb-first"]'),second=page.locator('[data-ps3-record-menu="basket:kb-second"]');
+  await first.focus();
+  await expect(first).toBeFocused();
+  await page.keyboard.press('Tab');await expect(page.locator('[data-basket-link="kb-second"] a.ps3-rec-line')).toBeFocused();
+  await page.keyboard.press('Tab');await expect(second).toBeFocused();
   await page.keyboard.press('Enter');await expect(page.locator('#ps3RecordMenu button').first()).toBeFocused();
-  await page.keyboard.press('Tab');await expect(page.locator('#ps3RecordMenu button').last()).toBeFocused();
+  // Tab stays inside the menu and wraps: Shift+Tab from the first item reaches the last.
+  await page.keyboard.press('Tab');await expect(page.locator('#ps3RecordMenu button').nth(1)).toBeFocused();
+  await page.keyboard.press('Shift+Tab');await page.keyboard.press('Shift+Tab');await expect(page.locator('#ps3RecordMenu button').last()).toBeFocused();
 
 });
 
@@ -1426,42 +1379,9 @@ test('V3 project links an existing unlinked Google task',async({page})=>{
   }
 });
 
-async function saveProbe(page,table,method='POST'){
-  const probe={count:0,hold:true,fail:false,waiters:[]};
-  probe.release=()=>{probe.hold=false;probe.waiters.splice(0).forEach(resolve=>resolve())};
-  await page.route(`${SB}/rest/v1/${table}**`,async route=>{
-    if(method==='write'?!['POST','PATCH'].includes(route.request().method()):route.request().method()!==method)return route.fallback();
-    probe.count++;
-    if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
-    if(probe.fail){probe.fail=false;return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'임시 저장 실패'})})}
-    return route.fallback();
-  });
-  return probe;
-}
-
-test('saveWs edits an old item once during repeated clicks and retries after failure',async({page})=>{
-  const state=baseState();state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20});await mockApp(page,state);
-  const probe=await saveProbe(page,'app_project_workstreams','write');
-  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
-  const row=page.locator('[data-ps3-record="ws-2"]');
-  await recordAction(page,row,'수정');
-  await page.locator('#ps3WsTitle').fill('저장 잠금 영역');
-  const button=page.locator('#ps3WsSave');
-  await button.click();await expect.poll(()=>probe.count).toBe(1);
-  await expect(button).toBeDisabled();await button.dispatchEvent('click');
-  await page.waitForTimeout(150);expect(probe.count).toBe(1);
-  probe.release();await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
-  await recordAction(page,row,'수정');
-  await page.locator('#ps3WsTitle').fill('다시 시도 영역');
-  probe.fail=true;await button.click();
-  await expect(page.locator('#ps3WsState')).toContainText('임시 저장 실패');
-  await expect(button).toBeEnabled();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await expect(page.locator('#ps3WsState')).toContainText('입력을 확인');await button.click();
-  await expect.poll(()=>probe.count).toBe(3);await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
-  expect(state.workstreams.map(x=>x.title)).toEqual(['정책·제도 대응','다시 시도 영역']);
-});
-
 // MTG-프로젝트합치기 3단계: 'saveRecordInput creates once…' 시험은 상세 맨 위 입력칸(saveRecordInput)이 없어져 함께 없앴다.
-// 입력칸이 없다는 것은 'PRJ-기록입력 detail has no record input and writes no new progress record'가 본다.
+// 입력칸이 없다는 것은 'PRJ-기록입력 old progress records and items are not drawn, stay in the data, and nothing writes them'가 본다.
+// 'saveWs edits an old item once…' 시험은 진행 항목 창으로 가는 줄이 목록에서 없어져(결정 ⑥) 지웠다(아래 PRJ-progress 주석 참고).
 
 test('saveMilestone creates one Google request during repeated clicks and retries after failure',async({page})=>{
   const state=baseState();
@@ -1498,6 +1418,15 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
 });
 
 // PRJ-progress: real UI with REST mocked at the network boundary.
+// MTG-프로젝트합치기 결정 ⑥: 기록 목록에는 정리함 연결 줄만 그려진다. 아래 시험들은 연결 줄 두 개(최근 l-a, 이전 l-b)를 본보기로 쓴다.
+// 옛 진행 기록 줄을 고치고 지우던 시험('PRJ record edit cancels or saves only summary…'·'PRJ record deletion confirms once…'·
+// 'PRJ PATCH/DELETE … preserves the draft or restores a deleted record'·'PRJ last record deletion leaves the old item line…'·
+// 'PRJ pending delete cannot be displaced by a task refresh'·'PRJ nested modal back preserves a pending delete result'·
+// 'PRJ-기록입력 long old item title wraps…'·'D-4c single progress record has no duplicate summary')과 진행 항목 창 저장 잠금 시험
+// ('saveWs edits an old item once…')은 그 줄·창이 화면에서 없어져 지웠다. 줄이 그려지지 않고 두 표에 쓰지 않는 것은
+// 'PRJ-기록입력 old progress records and items are not drawn…'가 본다. 연결 줄의 요약 수정·연결 해제는 link-summary-edit·
+// basket-link-disconnect 시험이, 상세를 닫을 때 요약 초안을 묻는 것은 link-summary-edit의 'project: an open summary draft asks…'가 본다.
+function linkedState(){const state=baseState();state.links.push(basketLink('l-a','최근 연결 요약','2026-09-20T05:00:00Z'),basketLink('l-b','이전 연결 요약','2026-09-10T05:00:00Z'));return state}
 async function openRecords(page,state){
   await mockApp(page,state);
   await page.setViewportSize({width:390,height:844});
@@ -1508,154 +1437,61 @@ async function openRecords(page,state){
   await expect(item.locator('[data-ps3-record-input]')).toHaveCount(0);
   return item;
 }
-test('PRJ records stay editable and touch targets fit 390px',async({page})=>{
-  const state=baseState(),item=await openRecords(page,state);
-  const record=item.locator('[data-ps3-record="pr-1"]');
+async function editSummary(page,row){await row.locator('[data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'요약 수정',exact:true}).click();const input=row.locator('[data-link-summary-input]');await expect(input).toBeFocused();return input}
+test('PRJ linked record lines fit 390px and 1280px with 44px targets',async({page})=>{
+  const state=linkedState(),item=await openRecords(page,state);
+  const record=item.locator('[data-basket-link="l-a"]');
   await expect(record.locator('[data-ps3-record-menu]')).toBeVisible();
-  await expect(item.locator('[data-ps3-progress-ws]')).toHaveCount(0);
+  await expect(item.locator('[data-ps3-progress-ws],[data-ps3-record]')).toHaveCount(0);
   for(const width of [390,1280]){
     await page.setViewportSize({width,height:844});
-    const layout=await record.evaluate(el=>({buttons:[...el.querySelectorAll('button')].map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height})),overflow:document.documentElement.scrollWidth-innerWidth}));
+    const layout=await record.evaluate(el=>{const r=x=>x.getBoundingClientRect(),list=el.closest('[data-ps3-records]');return {row:r(el).width,list:r(list).width,line:{w:r(el.querySelector('a.ps3-rec-line')).width,h:r(el.querySelector('a.ps3-rec-line')).height},buttons:[...el.querySelectorAll('button')].map(b=>({w:r(b).width,h:r(b).height})),overflow:document.documentElement.scrollWidth-innerWidth}});
     expect(layout.overflow).toBeLessThanOrEqual(1);
-    expect(layout.buttons).toHaveLength(1);for(const b of layout.buttons){expect(b.h).toBeGreaterThanOrEqual(44);expect(b.w).toBeGreaterThan(width>500?300:250)}
+    expect(Math.round(layout.row)).toBe(Math.round(layout.list));
+    expect(layout.line.h).toBeGreaterThanOrEqual(44);expect(layout.line.w).toBeGreaterThan(width>500?300:250);
+    expect(layout.buttons).toHaveLength(1);for(const b of layout.buttons){expect(b.h).toBeGreaterThanOrEqual(44);expect(b.w).toBeGreaterThanOrEqual(44)}
   }
-  await expect(item.locator('[data-ps3-record-count]')).toHaveText('1');
-  await expect(item.locator('[data-ps3-record]')).toHaveCount(1);
+  await expect(item.locator('[data-ps3-record-count]')).toHaveText('2');
+  await expect(item.locator('[data-ps3-records] > [data-basket-link]')).toHaveCount(2);
 });
 // STAB-project-system-v3-1287: a late background refresh (tasks/meetings changed) must not rebuild the body and erase text being typed.
-// MTG-프로젝트합치기 3단계: 맨 위 입력칸이 없어져, 남은 글쓰기 자리인 기록 고치기 칸에서 같은 것을 본다.
-test('PRJ background refresh keeps text typed in a record edit',async({page})=>{
-  const state=baseState(),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
-  await recordAction(page,record,'수정');
-  const input=record.locator('form[data-ps3-edit-record] input');await input.fill('쓰던 기록');
+// MTG-프로젝트합치기 결정 ⑥: 옛 기록 고치기 칸이 목록에서 없어져, 남은 글쓰기 자리인 연결 줄의 [요약 수정] 칸에서 같은 것을 본다.
+test('PRJ background refresh keeps text typed in a linked summary edit',async({page})=>{
+  const state=linkedState(),item=await openRecords(page,state),record=item.locator('[data-basket-link="l-a"]');
+  const input=await editSummary(page,record);await input.fill('쓰던 요약');
   await page.evaluate(()=>{window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))});
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-  await expect(input).toHaveValue('쓰던 기록');
-  await record.getByRole('button',{name:'저장',exact:true}).click();
-  await expect(record.locator('.ps3-rec-summary')).toHaveText('쓰던 기록');
-  expect(state.progress[0].summary).toBe('쓰던 기록');
+  await expect(input).toHaveValue('쓰던 요약');
+  await record.locator('[data-link-summary-cancel]').click();await expect(record.locator('[data-link-summary-form]')).toHaveCount(0);
+  await expect(record).toContainText('최근 연결 요약');
+  expect(state.links.find(x=>x.id==='l-a').summary).toBe('최근 연결 요약');
 });
-test('PRJ record edit cancels or saves only summary and preserves date and other fields',async({page})=>{
-  const state=baseState(),before=structuredClone(state.progress[0]),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
-  await recordAction(page,record,'수정');
-  const form=record.locator('form[data-ps3-edit-record]');await expect(form.locator('input')).toHaveValue(before.summary);
-  await form.locator('input').fill('취소할 글');await form.getByRole('button',{name:'취소',exact:true}).click();
-  await expect(record.locator('.ps3-rec-summary')).toHaveText(before.summary);
-  await recordAction(page,record,'수정');await form.locator('input').fill('수정한 기록');
-  const request=page.waitForRequest(r=>r.method()==='PATCH'&&r.url().includes('app_project_progress_updates'));
-  await form.getByRole('button',{name:'저장',exact:true}).click();const req=await request;
-  expect(new URL(req.url()).searchParams.get('id')).toBe('eq.pr-1');expect(req.postDataJSON()).toEqual({summary:'수정한 기록'});expect(req.headers().prefer).toBe('return=representation');
-  await expect(record.locator('.ps3-rec-summary')).toHaveText('수정한 기록');await expect(item.locator('[data-ps3-record]')).toBeVisible();
-  expect(state.progress[0]).toEqual({...before,summary:'수정한 기록'});
-});
-test('PRJ record deletion confirms once, cancel sends nothing, success removes row and count',async({page})=>{
-  const state=baseState();state.progress.unshift({...state.progress[0],id:'pr-2',summary:'최근 기록',effective_on:'2026-10-01'});
-  const item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-2"]');
-  page.once('dialog',d=>d.dismiss());await recordAction(page,record,'삭제');
-  await expect(record).toBeVisible();expect(state.restCalls.filter(x=>x.name==='app_project_progress_updates'&&x.method==='DELETE')).toHaveLength(0);
-  page.once('dialog',d=>d.accept());const request=page.waitForRequest(r=>r.method()==='DELETE'&&r.url().includes('app_project_progress_updates'));
-  await recordAction(page,record,'삭제');const req=await request;
-  expect(new URL(req.url()).searchParams.get('id')).toBe('eq.pr-2');expect(req.headers().prefer).toBe('return=representation');
-  await expect(record).toHaveCount(0);await expect(item.locator('[data-ps3-record]')).toHaveCount(1);
-  await expect(item.locator('[data-ps3-record] .ps3-rec-summary').first()).toHaveText('국토부 후속협의 준비');
-});
-for(const method of ['PATCH','DELETE'])for(const status of [403,200])test(`PRJ ${method} ${status===403?'permission denied':'zero rows'} preserves the draft or restores a deleted record`,async({page})=>{
-  const state=baseState(),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
-  await page.route(`${SB}/rest/v1/app_project_progress_updates?**`,async route=>{
-    if(route.request().method()!==method)return route.fallback();
-    return route.fulfill({status,contentType:'application/json',body:JSON.stringify(status===403?{message:'forbidden'}:[])});
-  });
-  if(method==='PATCH'){
-    await recordAction(page,record,'수정');await record.locator('input').fill('저장 실패 글');await record.getByRole('button',{name:'저장',exact:true}).click();
-  }else{page.once('dialog',d=>d.accept());await recordAction(page,record,'삭제')}
-  await expect(page.locator('#toast')).toHaveText(method==='PATCH'?'수정 실패':'삭제 실패');
-  if(method==='PATCH'){await expect(record.locator('input')).toHaveValue('저장 실패 글');await expect(record.getByRole('button',{name:'저장',exact:true})).toBeEnabled();if(status===200)await expect(record.getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible()}else{await expect(record.locator('form[data-ps3-edit-record]')).toHaveCount(0);await expect(record.locator('.ps3-rec-summary')).toHaveText('국토부 후속협의 준비');await expect(record.locator('[data-ps3-record-menu]')).toBeEnabled()};await expect(item.locator('[data-ps3-record]')).toHaveCount(1);
-});
-test('PRJ dirty record asks before closing project and keeps draft when discard is cancelled',async({page})=>{
-  const item=await openRecords(page,baseState()),record=item.locator('[data-ps3-record="pr-1"]');
-  await recordAction(page,record,'수정');await record.locator('input').fill('未保存');
-  let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});await page.locator('[data-ps3-close="ps3DetailModal"]').click();
-  expect(message).toContain('저장하지 않은 프로젝트 내용');await expect(record.locator('input')).toHaveValue('未保存');
-  page.once('dialog',d=>d.accept());await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden();
-});
-
-// MTG-프로젝트합치기 3단계: 'PRJ quick save unlocks while another record draft is dirty…' 시험은 맨 위 입력칸 저장 자체를 보던 것이라
-// 입력칸과 함께 없앴다. 고치던 기록 초안을 지키는 것은 'PRJ dirty record …' 시험들이 계속 본다.
-test('PRJ last record deletion leaves the old item line and no input',async({page})=>{
-  const state=baseState(),item=await openRecords(page,state);page.once('dialog',d=>d.accept());
-  await recordAction(page,item,'삭제');await expect(item.locator('[data-ps3-record="ws-1"]')).toHaveAttribute('data-ps3-record-kind','item');await expect(item.locator('[data-ps3-record]:not([data-ps3-record-kind="item"])')).toHaveCount(0);
-  await expect(item.locator('details')).toHaveCount(0);await expect(item.locator('[data-ps3-record-input]')).toHaveCount(0);await expect(item.locator('[data-ps3-records]')).toBeVisible();
-});
-
-test('PRJ pending delete cannot be displaced by a task refresh',async({page})=>{
-  const state=baseState(),item=await openRecords(page,state),probe=await saveProbe(page,'app_project_progress_updates','DELETE');
-  page.once('dialog',d=>d.accept());await recordAction(page,item,'삭제');await expect.poll(()=>probe.count).toBe(1);
-  // MTG-프로젝트합치기 3단계: 입력칸 저장 대신 화면 새로 읽기 알림(할 일·사업 보고 바뀜)으로 상세 다시 그리기를 부른다.
-  // refreshDetail은 지우는 중인 기록이 있으면 처음 검사에서 바로 멈추므로, 알림을 보낸 직후 줄이 그대로인지 본다.
-  await page.evaluate(()=>{window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))});
-  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-  await expect(item.locator('[data-ps3-record="pr-1"] [data-ps3-record-menu]')).toBeDisabled();
-  probe.release();await expect(item.locator('[data-ps3-record="pr-1"]')).toHaveCount(0);await expect(item.locator('[data-ps3-record]:not([data-ps3-record-kind="item"])')).toHaveCount(0);await expect(item.locator('[data-ps3-record="ws-1"]')).toHaveAttribute('data-ps3-record-kind','item');await expect(item.locator('[data-ps3-record-input]')).toHaveCount(0);
-});
-for(const destination of ['library','back'])test(`PRJ dirty record confirms before ${destination} navigation`,async({page})=>{
-  const item=await openRecords(page,baseState()),record=item.locator('[data-ps3-record="pr-1"]');
-  await recordAction(page,record,'수정');await record.locator('input').fill('이동 전 초안');
+for(const destination of ['library','back'])test(`PRJ dirty linked summary confirms before ${destination} navigation`,async({page})=>{
+  const item=await openRecords(page,linkedState()),record=item.locator('[data-basket-link="l-a"]');
+  const input=await editSummary(page,record);await input.fill('이동 전 초안');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   if(destination==='library'){await page.locator('[data-ps3-library]').click()}
   else{await page.evaluate(()=>{history.replaceState({},'', '/app/');history.pushState({project:'main-1'},'', '/app/?project=main-1')});await page.goBack()}
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(message).toContain('저장하지 않은 프로젝트 내용');await expect(record.locator('input')).toHaveValue('이동 전 초안');
-});
-
-test('PRJ nested modal back preserves a pending delete result',async({page})=>{
-  const state=baseState(),item=await openRecords(page,state),probe=await saveProbe(page,'app_project_progress_updates','DELETE');
-  page.once('dialog',d=>d.accept());await recordAction(page,item,'삭제');await expect.poll(()=>probe.count).toBe(1);
-  await page.locator('#ps3-children [data-ps3-child]').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();
-  await page.goBack();await expect(page.locator('#ps3CreateModal')).toBeHidden();
-  // MTG-프로젝트합치기 3단계: 입력칸 저장 대신 새로 읽기 알림으로 다시 그리기를 부른다(지우는 중이면 바로 멈춘다).
-  await page.evaluate(()=>{window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))});
-  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-  await expect(item.locator('[data-ps3-record="pr-1"] [data-ps3-record-menu]')).toBeDisabled();probe.release();
-  await expect(item.locator('[data-ps3-record="pr-1"]')).toHaveCount(0);await expect(item.locator('[data-ps3-record]:not([data-ps3-record-kind="item"])')).toHaveCount(0);await expect(item.locator('[data-ps3-record="ws-1"]')).toHaveAttribute('data-ps3-record-kind','item');
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(message).toContain('저장하지 않은 프로젝트 내용');await expect(input).toHaveValue('이동 전 초안');
 });
 
 for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e record menu dismissal and targets ${width} fallback=${fallback}`,async({page})=>{
   if(fallback)await page.addInitScript(()=>{HTMLElement.prototype.showPopover=undefined;HTMLElement.prototype.hidePopover=undefined});
-  await page.setViewportSize({width,height:900});const state=baseState();state.progress.push({...state.progress[0],id:'pr-2'});
-  const item=await openRecords(page,state);await page.setViewportSize({width,height:900});const trigger=item.locator('[data-ps3-record-menu="pr-1"]'),panel=page.locator('#ps3RecordMenu');
+  await page.setViewportSize({width,height:900});const state=linkedState();
+  const item=await openRecords(page,state);await page.setViewportSize({width,height:900});const trigger=item.locator('[data-ps3-record-menu="basket:l-b"]'),panel=page.locator('#ps3RecordMenu');
   await expect(trigger).toBeVisible();
-  // PRJ-기록입력: the whole record line is the menu button (full list width, at least 44px tall).
-  const geometry=await trigger.evaluate(b=>{const r=b.getBoundingClientRect(),list=b.closest('[data-ps3-records]').getBoundingClientRect();return {w:Math.round(r.width),list:Math.round(list.width),h:r.height}});
-  expect(page.viewportSize().width).toBe(width);expect(geometry.w).toBe(geometry.list);expect(geometry.h).toBeGreaterThanOrEqual(44);
+  // MTG-프로젝트합치기 결정 ⑥: 남은 기록 줄(정리함 연결)은 줄 오른쪽 끝의 ⋯ 단추(44×44)가 메뉴를 연다. 줄은 목록 너비를 다 쓴다.
+  // 메뉴는 ⋯ 아래에 붙어 열리므로, 아래 줄(l-b)의 메뉴를 열어 둔 채 위 줄(l-a)의 ⋯로 옮겨 가는지 본다(메뉴가 그 단추를 가리지 않는다).
+  const geometry=await trigger.evaluate(b=>{const r=b.getBoundingClientRect(),row=b.closest('[data-basket-link]').getBoundingClientRect(),list=b.closest('[data-ps3-records]').getBoundingClientRect();return {w:r.width,h:r.height,right:Math.round(r.right),rowRight:Math.round(row.right),row:Math.round(row.width),list:Math.round(list.width)}});
+  expect(page.viewportSize().width).toBe(width);expect(geometry.row).toBe(geometry.list);expect(geometry.right).toBe(geometry.rowRight);expect(geometry.w).toBeGreaterThanOrEqual(44);expect(geometry.h).toBeGreaterThanOrEqual(44);
   const r=await trigger.boundingBox();await page.mouse.click(r.x+r.width-4,r.y+4);await expect(panel).toBeVisible();
-  await expect(panel.locator('button')).toHaveText(['수정','삭제']);
+  await expect(panel.locator('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정']);
   for(const button of await panel.locator('button').all())expect((await button.boundingBox()).height).toBe(44);
   const rect=await panel.boundingBox();expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.x+rect.width).toBeLessThanOrEqual(width);
   await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(page.locator('#ps3DetailModal')).toBeVisible();
   await trigger.click();await page.locator('#ps3Title,#ps3Summary').first().click();await expect(panel).toBeHidden();
-  await trigger.click();await item.locator('[data-ps3-record-menu="pr-2"]').click({position:{x:8,y:8}});await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(panel).toBeVisible();
+  await trigger.click();await item.locator('[data-ps3-record-menu="basket:l-a"]').click({position:{x:8,y:8}});await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(panel).toBeVisible();
   await page.goBack();await expect(panel).toBeHidden();await expect(page.locator('#ps3DetailModal')).toBeVisible();
-});
-
-async function recordAction(page,row,name){await row.locator('[data-ps3-record-menu]').first().click();await page.locator('#ps3RecordMenu').getByRole('button',{name,exact:true}).click();}
-
-for(const width of [390,1440])for(const [phase,label] of [['done','종료'],['follow_up','후속조치']])test(`PRJ-기록입력 long old item title wraps inside the line without a kind label ${width} ${phase}`,async({page})=>{
-  const state=baseState();state.progress.push({...state.progress[0],id:'phase-second'});state.workstreams[0].phase=phase;state.workstreams[0].title='긴 제목 확인용 항목 '.repeat(12);
-  expect(state.workstreams[0].title.length).toBeGreaterThanOrEqual(40);
-  const item=await openRecords(page,state);await page.setViewportSize({width,height:900});
-  await expect(item.locator('.ps3-phase')).toHaveCount(0);await expect(item).not.toContainText(label);
-  const metrics=await item.locator('[data-ps3-record="pr-1"]').evaluate(row=>{const r=row.getBoundingClientRect(),from=row.querySelector('.ps3-rec-from');return {row:Math.round(r.width),scroll:row.scrollWidth-row.clientWidth,from:from.getBoundingClientRect().height,line:parseFloat(getComputedStyle(from).lineHeight),page:document.documentElement.scrollWidth-innerWidth}});
-  expect(metrics.scroll).toBeLessThanOrEqual(1);expect(metrics.page).toBeLessThanOrEqual(1);expect(metrics.from).toBeGreaterThan(metrics.line);
-});
-
-for(const width of [390,1280])test(`D-4c single progress record has no duplicate summary at ${width}`,async({page})=>{
-  // MTG-프로젝트합치기 3단계: 두 번째 기록은 입력칸 대신 이미 저장된 기록(mock 데이터)으로 둔다.
-  const state=baseState();state.progress.unshift({id:'pr-2',project_id:'main-1',workstream_id:null,summary:'두 번째 기록',next_step:null,status_label:null,effective_on:'2026-09-20',created_at:now()});
-  await mockApp(page,state);await page.setViewportSize({width,height:844});
-  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
-  const item=page.locator('#ps3-progress');
-  await expect(item.locator('[data-ps3-record-count]')).toHaveText('2');
-  await expect(item.locator('[data-ps3-record] .ps3-rec-summary')).toHaveText(['두 번째 기록','국토부 후속협의 준비']);
-  page.once('dialog',d=>d.accept());await recordAction(page,item.locator('[data-ps3-record]').first(),'삭제');
-  await expect(item.locator('[data-ps3-record]')).toHaveCount(1);await expect(item.locator('[data-ps3-record] .ps3-rec-summary')).toHaveText('국토부 후속협의 준비');
-  await expect(item.locator('[data-ps3-record-menu]')).toBeVisible();
+  // 메뉴만 열고 닫았으므로 연결 표에 쓰는 요청은 없다.
+  expect(state.restCalls.filter(x=>x.name==='app_record_links'&&x.method!=='GET')).toEqual([]);
 });

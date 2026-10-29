@@ -13,7 +13,6 @@ async function boot(page,{connected=false}={}){
   await page.addInitScript(()=>Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true}));
   await serveBuiltShell(page,origin);
   const user={id:'version-user',email:'version@example.org'},workspace={id:'version-workspace',name:'QA',slug:'qa'};
-  let streamTitle='QA stream';
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**',route=>{
     const url=new URL(route.request().url()),path=url.pathname;
     let data=[];
@@ -24,12 +23,9 @@ async function boot(page,{connected=false}={}){
     else if(path==='/rest/v1/app_profiles')data=[{user_id:user.id,display_name:'QA'}];
     else if(path==='/rest/v1/app_spaces')data=[{id:'version-project',workspace_id:workspace.id,name:'QA project',status:'active',owner_id:user.id,metadata:{project_system:'v2',management_version:2}}];
     else if(path==='/rest/v1/app_project_modules')data=[{project_id:'version-project',module_key:'progress',enabled:true,sort_order:10}];
-    // MTG-프로젝트합치기 3단계: 상세에 진행 기록 입력칸이 없어, 고치기 초안을 만들 이미 저장된 기록 하나를 둔다(GET만).
-    else if(path==='/rest/v1/app_project_progress_updates'&&route.request().method()==='GET')data=[{id:'version-record',project_id:'version-project',workstream_id:null,author_id:user.id,status_label:null,summary:'QA saved record',next_step:null,effective_on:'2026-10-01',created_at:'2026-10-01T01:00:00Z',metadata:{}}];
-    else if(path==='/rest/v1/app_project_workstreams'){
-      if(route.request().method()==='PATCH')streamTitle=route.request().postDataJSON().title||streamTitle;
-      data=[{id:'version-stream',project_id:'version-project',title:streamTitle,phase:'in_progress',sort_order:10}];
-    }
+    // MTG-프로젝트합치기 결정 ⑥: 상세 기록 목록에는 정리함 연결 줄만 그려지고 옛 진행 기록 고치기 칸도 없다. 초안은 이 연결 줄의
+    // ⋯ → [요약 수정] 칸으로 만든다(연결 읽기 GET만 흉내 낸다).
+    else if(path==='/rest/v1/app_record_links'&&url.searchParams.get('select')?.includes('note:app_notes')&&url.searchParams.get('project_id')==='in.(version-project)')data=Number(url.searchParams.get('offset')||0)?[]:[{id:'version-link',workspace_id:workspace.id,summary:'QA linked summary',note_id:'version-note',organization_id:null,project_id:'version-project',status:'confirmed',note:{id:'version-note',workspace_id:workspace.id,occurred_at:'2026-10-01T01:00:00Z',raw_text:'QA note',kind:'basket',title:null}}];
     else if(path==='/functions/v1/google-calendar')data={connected,enabled:connected,selected:connected?['primary']:[],calendars:connected?[{id:'primary',summary:'QA',primary:true}]:[],events:[],colors:{event:{'1':{background:'#a4bdfc'},'2':{background:'#7ae7bf'}}}};
     else if(path.startsWith('/functions/'))data={connected:false,enabled:false,tasks:[],events:[],calendars:[]};
     return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
@@ -45,6 +41,11 @@ async function response(page,version){
   await page.route(origin+'/app/index.html',route=>route.fulfill({contentType:'text/html',body:version===null?'bad html':`<script src="./app.js?v=${version}" defer></script>`}));
 }
 const notice=page=>page.locator('#versionNotice');
+async function editLinkSummary(page){
+  const row=page.locator('#ps3-progress [data-basket-link="version-link"]');
+  await row.getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
+  const input=row.locator('[data-link-summary-input]');await expect(input).toBeVisible();return input;
+}
 test('equal version has no notice; newer version appears after visibility change',async({page})=>{
   await boot(page);await response(page,current);const checked=page.waitForResponse(origin+'/app/index.html');await visible(page);await checked;
   await expect(notice(page)).toHaveCount(0);
@@ -137,9 +138,8 @@ test('project draft uses existing confirmDiscard; accepting reloads',async({page
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await clickView(page,'projects');
   await page.locator('[data-ps3-project="version-project"]').first().click();
-  // MTG-프로젝트합치기 3단계: 입력칸 대신 저장된 기록의 ⋯ 수정 칸에 쓴 초안으로 본다.
-  await page.locator('[data-ps3-record="version-record"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();
-  const field=page.locator('form[data-ps3-edit-record="version-record"] input');await expect(field).toBeVisible();await field.fill('QA draft');
+  // MTG-프로젝트합치기 결정 ⑥: 옛 기록 고치기 칸 대신 정리함 연결 줄의 [요약 수정] 칸에 쓴 초안으로 본다.
+  const field=await editLinkSummary(page);await field.fill('QA draft');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
   expect(message).toBe('저장하지 않은 프로젝트 내용이 있습니다. 이동하면서 버릴까요?');await expect(field).toHaveValue('QA draft');
@@ -182,22 +182,22 @@ async function openProject(page){
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
 }
 // UI-프로젝트화면정리: the folded memo box is gone; an unsaved project record draft still confirms before reload.
-test('unsaved project record draft still confirms before reload',async({page})=>{
+// MTG-프로젝트합치기 결정 ⑥: 남은 기록 글쓰기 자리는 정리함 연결 줄의 [요약 수정] 칸이다.
+test('unsaved linked summary draft still confirms before reload',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
-  // MTG-프로젝트합치기 3단계: 입력칸 대신 저장된 기록의 ⋯ 수정 칸에 쓴 초안으로 본다.
-  await page.locator('[data-ps3-record="version-record"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();
-  const input=page.locator('#ps3-progress form[data-ps3-edit-record="version-record"] input');await input.fill('QA record');
+  const input=await editLinkSummary(page);await input.fill('QA record');
   const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
   const d=await dialog;expect(d.message()).toContain('저장하지 않은 프로젝트 내용');await d.dismiss();await click;
   expect(await input.inputValue()).toBe('QA record');
 });
-test('saved workstream reopened without edits reloads without confirmation',async({page})=>{
+// MTG-프로젝트합치기 결정 ⑥: 예전 'saved workstream reopened without edits reloads without confirmation'은 진행 항목 줄 → 진행 항목 창을
+// 열던 시험이다. 그 줄이 목록에서 없어져, 남은 기록 편집 칸(연결 요약 수정)을 닫으면 초안이 남지 않아 묻지 않고 새로고침하는지 본다.
+test('cancelled linked summary edit reloads without confirmation',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
-  // PRJ-기록입력: an old progress item without records is a record line; its menu 수정 opens the same workstream editor.
-  const editStream=async()=>{await page.locator('[data-ps3-record="version-stream"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정'}).click();await expect(page.locator('#ps3WorkstreamModal')).toBeVisible()};
-  await editStream();await page.locator('#ps3WsTitle').fill('Saved stream');await page.locator('#ps3WsSave').click();
-  await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();await expect(page.locator('[data-ps3-record="version-stream"]')).toContainText('Saved stream');
-  await editStream();await expect(page.locator('#ps3WsTitle')).toHaveValue('Saved stream');
+  await expect(page.locator('#ps3-progress [data-ps3-record]')).toHaveCount(0);
+  const input=await editLinkSummary(page);await input.fill('QA cancelled');
+  const row=page.locator('#ps3-progress [data-basket-link="version-link"]');await row.locator('[data-link-summary-cancel]').click();
+  await expect(row.locator('[data-link-summary-form]')).toHaveCount(0);await expect(row).toContainText('QA linked summary');
   const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());return d.dismiss()});const reload=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reload;expect(dialogs).toEqual([]);
 });
