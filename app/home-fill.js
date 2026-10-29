@@ -16,7 +16,7 @@ const head = (key, title, goto, label) => `<header><h3 id="home-${key}-title">${
 export function mountHomeFill({main, rt = window.KPTURuntime}) {
   if (!main) return null;
   const mq = window.matchMedia('(min-width:1024px)');
-  const state = {events: null, tasks: null, news: null, tomorrow: 'loading', tomorrowOpen: false, missed: 'loading', missedRows: [], inbox: null};
+  const state = {events: null, tasks: null, news: null, tomorrow: 'loading', tomorrowOpen: false, missed: 'loading', missedRows: [], inbox: null, asks: null};
   let alive = true;
 
   const summary = document.createElement('p');
@@ -68,7 +68,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     tomorrow.innerHTML = `${head('tomorrow', '내일', 'calendar', '달력')}<div data-home-body>${body}</div>`;
   }
   function paintSummary() {
-    const text = summaryText({events: state.events, tasks: state.tasks, news: state.news});
+    const text = summaryText({events: state.events, tasks: state.tasks, news: state.news, asks: state.asks});
     summary.textContent = text; summary.hidden = mq.matches || !text;
   }
   function apply() {
@@ -88,7 +88,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     const titles = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
     const [m, news, inboxN] = await Promise.all([readMissedPromises(rt), readNewsCount(rt), readInbox(rt, titles)]);
     if (!alive) return;
-    state.missed = m.ok ? 'ok' : 'failed'; state.missedRows = m.rows; state.news = news; state.inbox = inboxN;
+    state.missed = m.ok ? 'ok' : 'failed'; state.missedRows = m.rows; state.news = news; state.inbox = inboxN.total; state.asks = inboxN.asks;
     paintMissed(); paintSummary(); paintInbox();
   }
   // PC 홈은 이 칸들을 그리지 않으므로 읽지도 않는다. 폭이 좁아질 때 처음 한 번 읽는다.

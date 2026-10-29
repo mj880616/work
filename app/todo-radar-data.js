@@ -76,6 +76,14 @@ export async function readOpenCandidates(rt = window.KPTURuntime) {
     return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
+// TG-요청강조: the 텔레그램 소식 list marks the room·day rows that hold an open "나한테 온 요청" (the same ask_me result the collector
+// server saved as a candidate; no new AI judgement). One read of the open telegram candidates plus the room lookup above.
+export async function readTelegramAsks(rt = window.KPTURuntime) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&source_kind=eq.telegram&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false});
+    return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
 // BASKET-정리함이름: the 정리함's [챙길 것] side shows what is still open and, under its other chips, what was sent to a task or
 // ignored (newest decision first). Two reads so a long history of handled rows never pushes an open row out of the list.
 export async function readInboxCandidates(rt = window.KPTURuntime) {
