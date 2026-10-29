@@ -33,7 +33,7 @@ function install(){
 function render(){
   const box=document.querySelector('#warReports');
   if(!box)return;
-  box.innerHTML=reports.length?reports.map(report=>`<div class="war-report"><small>${esc(report.week_of)} · ${report.status==='final'?'확정':'초안'}</small><p><b>${esc(report.summary||'요약 없음')}</b></p><button class="mini" type="button" data-war-detail="${esc(report.id)}">열기</button></div>`).join(''):'<div class="empty compact">주간보고 기록이 없습니다.</div>';
+  box.innerHTML=reports.length?reports.map(report=>`<div class="war-report"><small>${esc(report.week_of)} · ${report.status==='final'?'확정':'초안'}</small><p><b>${esc(report.summary||'요약 없음')}</b></p><button class="mini" type="button" data-war-detail="${esc(report.id)}">열기</button></div>`).join(''):(globalThis.KPTUWait?.emptyHtml?.()||'');
 }
 
 function reportScope(){const epoch=rt.session?.epoch?.(),context=rt.context?.read?.(),owner=rt.session?.read?.()?.user?.id;return Number.isInteger(epoch)&&epoch>=0&&owner&&context?.user?.id===owner&&context?.workspace?.id?{owner,workspace:context.workspace.id,epoch}:null}

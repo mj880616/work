@@ -95,7 +95,7 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   await clickView(page, 'pages');
   const root = page.locator('#sharePagesRoot');
   await expect(root.getByRole('heading', {name:'공유 페이지', exact:true})).toHaveCount(1);
-  await expect(root.locator('.sp-empty')).toHaveText('공유 페이지 없음');
+  await expect(root.locator('[data-wait-empty]')).toHaveText('없음');
   // SHARE-보관함·HTML공유: the old five cards stay, in the one folded '보관함 n' (no '이전 페이지'·'지나간 업무 · 사업' folds).
   const legacy = root.locator('details.sp-box');
   await expect(legacy.locator(':scope > summary')).toHaveText('보관함 5');

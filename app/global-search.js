@@ -10,7 +10,7 @@
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
   groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
 import * as data from './global-search-data.js';
-import {waitEl, waitInlineEl} from './wait-state.js';
+import {waitEl, waitInlineEl, emptyEl} from './wait-state.js';
 import {renderFilterChips} from './filter-chips.js';
 import {placeAnchored, clearAnchored, followAnchor} from './anchored-popup.js';
 import {requestBasketNote, requestNoteDocOpen, requestTaskOpen} from './basket-note-tasks.js';
@@ -175,7 +175,7 @@ function paint(host, where) {
     const groups = state.kind === 'all' ? state.groups.filter(g => g.total > 0)
       : [{...state.groups.find(g => g.key === state.kind), items: state.kindRows || [], kindMode: true}];
     if (!groups.length || (state.kind !== 'all' && !groups[0]?.items?.length && !state.kindBusy && state.kindRows)) {
-      if (state.phase === 'ready') statusLine.textContent = '찾은 기록이 없어요.';
+      if (state.phase === 'ready') statusLine.replaceChildren(emptyEl());
     }
     for (const g of groups) if (g?.key) list.append(groupNode(g, where));
     if (state.kind !== 'all' && state.kindBusy && !state.kindRows?.length) searching();

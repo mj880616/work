@@ -155,9 +155,9 @@ for(const width of [1280,1440]){
   test(`PC ${width}: 빈 열은 "없음", 많으면 열이 내용만큼 커짐(안쪽 스크롤바 없음)`,async({page})=>{
     const tasks=Array.from({length:24},(_,i)=>task('w'+i,'2026-10-1'+(i%5)));
     await open(page,width,tasks);
-    await expect(col(page,'now').locator('.gt-col-empty')).toHaveText('없음');
+    await expect(col(page,'now').locator('[data-wait-empty]')).toHaveText('없음');
     await expect(col(page,'week').locator('.gt-col-count')).toHaveText('24');
-    await expect(col(page,'week').locator('.gt-col-empty')).toHaveCount(0);
+    await expect(col(page,'week').locator('[data-wait-empty]')).toHaveCount(0);
     const scroll=await col(page,'week').locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));
     expect(scroll.oy).toBe('visible');expect(scroll.sh).toBeLessThanOrEqual(scroll.ch+1);
     const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));
@@ -206,7 +206,7 @@ for(const width of [1280,1440]){
   test(`PC ${width}: "일주일 안"이 비어도 나중·완료 접기 줄은 남고, 펼친 항목은 다시 그려도 유지`,async({page})=>{
     const tasks=[task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
     await open(page,width,tasks);
-    await expect(col(page,'week').locator('.gt-col-empty')).toHaveText('없음');await expect(col(page,'week').locator('.gt-col-count')).toHaveText('0');
+    await expect(col(page,'week').locator('[data-wait-empty]')).toHaveText('없음');await expect(col(page,'week').locator('.gt-col-count')).toHaveText('0');
     const later=col(page,'week').locator('#gtLater');
     await expect(later.locator('summary')).toContainText('나중 2');await expect(col(page,'week').locator('#gtCompleted summary')).toContainText('완료 1');
     await later.locator('summary').click();
@@ -277,7 +277,7 @@ for(const width of [1280,1440]){
     await expect.poll(()=>calls.filter(c=>c.action==='toggle').map(c=>c.body.completed)).toEqual([true]);
     const done=col(page,'week').locator('#gtCompleted');
     await expect(done.locator('summary')).toContainText('완료 1',{timeout:6000});
-    await expect(col(page,'now').locator('.gt-col-empty')).toHaveText('없음');
+    await expect(col(page,'now').locator('[data-wait-empty]')).toHaveText('없음');
   });
 }
 

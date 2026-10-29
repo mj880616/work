@@ -97,7 +97,7 @@ for(const width of [1280,390])test(`LIB-거르기전체: [전체] 칩 세 상태
   // 모두 켜짐 → 누르면 모두 끔 → 목록 자리에 한 줄만.
   await all.click();await expect(all).toHaveAttribute('aria-pressed','false');
   await expect(group.locator('[aria-pressed="true"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(0);
-  await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');await expect(page.locator('#documentList .empty')).toHaveCount(1);
+  await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');await expect(page.locator('#documentList [data-wait-empty]')).toHaveCount(1);
   // 모두 꺼짐 → 누르면 모두 켬.
   await all.click();await expect(all).toHaveAttribute('aria-pressed','true');await expect(rows(page)).toHaveCount(8);
   // 개별 칩과 섞기: 하나 끄면 일부, 하나만 남기고 끄면 일부, 마지막까지 끄면 없음, 하나 켜면 일부.
@@ -107,10 +107,10 @@ for(const width of [1280,390])test(`LIB-거르기전체: [전체] 칩 세 상태
   await chip(page,'정책').click();await expect(all).toHaveAttribute('aria-pressed','mixed');expect(await ids(page)).toEqual(['d3','d4','d6','d7']);
   // 검색어가 있어도 모두 끄면 같은 한 줄, 안내('꺼져 있어요')는 그대로 따로 나온다.
   await all.click();await all.click();await page.locator('#documentSearch').fill('보도');
-  await expect(page.locator('#documentList .empty')).toHaveText('고른 분류 없음');await expect(page.locator('.lu-off-hint')).toContainText('선전 분류 1건은 꺼져 있어요');
+  await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('고른 분류 없음');await expect(page.locator('.lu-off-hint')).toContainText('선전 분류 1건은 꺼져 있어요');
   await page.locator('#documentSearch').fill('');
   // 없는 자료를 찾는 평소 빈 목록은 예전 문구 그대로.
-  await all.click();await page.locator('#documentSearch').fill('없는검색어zzz');await expect(page.locator('#documentList .empty')).toHaveText('자료가 없습니다.');
+  await all.click();await page.locator('#documentSearch').fill('없는검색어zzz');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');
   // 키보드: 칩은 버튼이라 Enter·Space로 눌린다.
   await page.locator('#documentSearch').fill('');await all.focus();await page.keyboard.press('Enter');await expect(all).toHaveAttribute('aria-pressed','false');await page.keyboard.press('Space');await expect(all).toHaveAttribute('aria-pressed','true');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);

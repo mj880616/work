@@ -75,7 +75,7 @@ for(const width of [390,1280]){
   await page.locator('[data-note-search]').fill('기본급');
   await expect(noteList(page)).toHaveCount(1);await expect(noteList(page)).toContainText('임금협상 정리');
   await page.locator('[data-note-search]').fill('없는 말');
-  await expect(noteList(page)).toHaveCount(0);await expect(page.locator('[data-note-list-status]')).toHaveText('찾는 노트가 없어요');
+  await expect(noteList(page)).toHaveCount(0);await expect(page.locator('[data-note-list-status] [data-wait-empty]')).toHaveText('맞는 노트 없음');
   await chooseBasketKind(page,'memo');
   await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await expect(page.locator('[data-note-host]')).toBeHidden();
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);

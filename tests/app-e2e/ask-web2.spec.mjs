@@ -68,7 +68,7 @@ test('PC 1440: before the Edge step the ask shows one "준비 중" line; results
   await panel.locator('.gs-ask-line').click();
   await expect(panel.locator('.gs-ask-status')).toHaveText('물어보기는 준비 중임.');
   await expect(panel.locator('.gs-ask-again')).toBeVisible();
-  await expect(panel.locator('.gs-status')).toHaveText('찾은 기록이 없어요.');
+  await expect(panel.locator('.gs-status [data-wait-empty]')).toHaveText('없음');
 });
 
 for(const width of [412,884]){
@@ -118,7 +118,7 @@ test('Phone 884: a late search repaint keeps the opened evidence list open and i
   await view.locator('.gs-ask-src summary').click();
   await expect(view.locator('.gs-ask-src')).toHaveAttribute('open','');
   release();
-  await expect(view.locator('.gs-status')).toHaveText('찾은 기록이 없어요.'); // 늦은 응답으로 다시 그림
+  await expect(view.locator('.gs-status [data-wait-empty]')).toHaveText('없음'); // 늦은 응답으로 다시 그림
   await expect(view.locator('.gs-ask-src')).toHaveAttribute('open','');
   await view.locator('.gs-ask-src-row').nth(1).click();
   await expect(page.locator('#callsView')).toBeVisible();

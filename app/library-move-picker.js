@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 // LIB-폴더로옮기기 (2026-10-27 17:01 사용자 요청): [폴더로 옮기기 ›]를 누르면 뜨는 작은 폴더 목록(PC·폰 공통, 그리는 곳은 여기 하나).
 // 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기]·[폴더 밖으로].
 // 목록 줄은 library-move.mjs의 pickerRows()가 만든 것을 그대로 그리고, 옮기는 일은 부른 쪽(library-folders.js)이 한다(서버 길은 LIB-폴더탐색기와 같은 하나).
@@ -55,7 +56,7 @@ export function createMovePicker({esc}){
     const parts=[];
     if(data.recent.length)parts.push('<p class="lu-move-sec">최근 넣은 폴더</p>'+data.recent.map(r=>item(r,true)).join(''));
     if(data.all.length)parts.push((data.recent.length||searching?`<p class="lu-move-sec">${searching?'찾은 폴더':'전체 폴더'}</p>`:'')+data.all.map(r=>item(r,searching)).join(''));
-    if(!parts.length)parts.push(`<p class="lu-move-empty">${data.total?'찾는 폴더가 없어요':'아직 폴더가 없어요'}</p>`);
+    if(!parts.length)parts.push(emptyHtml());
     list.innerHTML=parts.join('');
     const reason=[...data.recent,...data.all].find(r=>r.reason)?.reason;
     note.hidden=!reason;note.textContent=reason?`흐린 폴더는 ${reason}. 묶기를 ‘폴더’로 바꾸면 고를 수 있어요.`:'';

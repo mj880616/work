@@ -34,7 +34,6 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-search-box { flex-shrink:0; margin:0 0 8px; }
 .home-choice-sheet:not(.home-choice-anchored) .home-choice-search-box { display:none; }
 .home-choice-search { box-sizing:border-box; width:100%; height:32px; padding:0 10px; border:1px solid var(--kptu-border-strong); border-radius:var(--ds-radius-control,8px); font:inherit; font-size:13px; color:var(--kptu-ink); background:var(--kptu-surface); }
-.home-choice-empty { margin:8px 0 0; font-size:12px; color:var(--kptu-muted); }
 .home-choice-check { display:none; }
 /* UPD-여러곳고르기 ①: 담당조직도 프로젝트처럼 — 묶음 이름은 작은 소제목, 그 아래 조직은 한 줄에 하나(폰·PC 공통). */
 .home-choice-group-name { display:block; margin:10px 0 2px; font-size:12px; line-height:18px; color:var(--kptu-muted); }
@@ -69,7 +68,6 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-sheet.home-choice-split h2 { flex:none; }
 .home-choice-sheet.home-choice-split header .home-choice-search { flex:1 1 auto; width:auto; min-width:0; max-width:360px; margin-left:auto; }
 .home-choice-sheet.home-choice-split .home-choice-search-box { margin:0; }
-.home-choice-sheet.home-choice-split .home-choice-empty { margin:0 0 8px; }
 .home-choice-sheet.home-choice-split [data-sheet-content] { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); column-gap:20px; overflow:hidden; }
 .home-choice-sheet.home-choice-split [data-sheet-recent-block] { grid-row:1; grid-column:1 / -1; padding-bottom:4px; margin-bottom:8px; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
 .home-choice-sheet.home-choice-split [data-sheet-recent-block] .home-choice-group { margin:6px 0; }

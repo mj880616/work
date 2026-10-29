@@ -96,7 +96,7 @@ for (const width of [390, 1280]) {
     expect(f.edge.some(b => b.action === 'photos' && b.month === '2026-10')).toBe(true);
     await day.click();
     const detail = page.locator('#diaryRoot [data-diary-detail]'), grid = detail.locator('[data-diary-grid] .diary-grid-item');
-    await expect(detail).toContainText('이 날 일기가 없어요.');
+    await expect(detail).toContainText('일기 없음');
     await expect(grid).toHaveCount(6);
     await expect(grid.first().locator('img')).toBeVisible();
     // OD-사진크기: [－]는 칸을 늘리고 [＋]는 줄인다(폰 4→6, 넓은 화면 6→8). 끝 단계 버튼은 누를 수 없다. 격자를 다시 그리지 않는다.
@@ -243,7 +243,7 @@ test('원드라이브 준비가 안 된 서버에서는 연결 줄이 없고 일
   await expect(page.locator('#diaryRoot [data-diary-od]')).toBeHidden();
   await expect(odIcon(page)).toBeHidden();
   await cell(page, '2026-10-12').click();
-  await expect(page.locator('#diaryRoot [data-diary-detail]')).toContainText('이 날 일기가 없어요.');
+  await expect(page.locator('#diaryRoot [data-diary-detail]')).toContainText('일기 없음');
   await expect(page.locator('#diaryRoot [data-diary-detail] [data-diary-source]')).toHaveCount(0);
   // 원드라이브에는 연결 확인만 묻는다(OD-미리받기: 앱을 켤 때 한 번 + 일기를 열 때 한 번까지. '연결 안 됨'은 다시 쓰지 않는다).
   const actions = f.edge.map(b => b.action);

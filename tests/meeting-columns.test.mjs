@@ -88,7 +88,7 @@ test('PC 3단 배치: 왼쪽 종류 목록(건수) / 가운데 고른 종류의 
   // 고른 종류가 없어졌으면 맨 위 종류.
   const fallback=columnsHtml(columns,{selectedKey:'gone',colorOf:()=>'',whenOf:()=>''});
   assert.match(fallback,/data-meeting-column="__none__"/);assert.match(fallback,/data-meeting-result="n1"/);
-  assert.equal(columnsHtml([],{colorOf:()=>'',whenOf:()=>''}),'<div class="empty">사업 보고가 없습니다.</div>');
+  assert.equal(columnsHtml([],{colorOf:()=>'',whenOf:()=>''}),'<p class="wait-empty" data-wait-empty>없음</p>');
 });
 
 // MTG-고치기바로: 오른쪽(세 번째) 칸 안쪽은 이 파일이 그리지 않는다 - 자리(#mcolResult)만 만들고 결과 창 요소 하나를 team.js가 붙인다.

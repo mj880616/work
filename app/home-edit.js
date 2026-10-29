@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 // MENU-HOME-편집: 홈 편집(홈 ⋯ → [홈 편집]). 칸마다 점선 테두리 + ⠿(옮기기) + ✕(빼기), 아래 [+ 칸 더하기]에서 고르고, 오른쪽 위 [처음대로][완료].
 // 순서·빼기는 서버(view_prefs.home_cards)에만 둔다. 뺀 칸은 화면에서만 빠지고 데이터·기능은 그대로다.
 // 편집 중에는 진짜 칸 대신 칸 이름 줄(작고 낮은)을 보여 주므로, 비어서 안 보이는 칸도 여기서 고를 수 있다.
@@ -39,8 +40,8 @@ export function mountHomeEdit({root}) {
     if (!editing) return;
     const now = list(), shown = visibleCards(now, phone()), more = addable(now, phone());
     const rows = shown.map(id => `<li class="he-row" data-reorder-id="${esc(id)}"><button type="button" class="he-handle" data-reorder-handle aria-label="${esc(titleOf(id))} 옮기기 (끌거나 위·아래 화살표)">⠿</button><span class="he-name">${esc(titleOf(id))}</span>${id === 'quiet' ? weeksSeg() : ''}<button type="button" class="he-x" data-he-remove="${esc(id)}" aria-label="${esc(titleOf(id))} 홈에서 빼기">✕</button></li>`).join('');
-    page.innerHTML = `<ol class="he-list" data-reorder-list="cards">${rows}</ol>${shown.length ? '' : '<p class="he-note">홈에 칸이 없어요. 아래에서 더해 보세요.</p>'}`
-      + `<div class="he-add"><span class="he-add-title">+ 칸 더하기</span>${more.length ? more.map(card => `<button type="button" class="he-chip" data-he-add="${esc(card.id)}">${esc(card.title)}</button>`).join('') : '<span class="he-note">더할 칸이 없어요.</span>'}</div>`
+    page.innerHTML = `<ol class="he-list" data-reorder-list="cards">${rows}</ol>${shown.length ? '' : emptyHtml('칸 없음')}`
+      + `<div class="he-add"><span class="he-add-title">+ 칸 더하기</span>${more.length ? more.map(card => `<button type="button" class="he-chip" data-he-add="${esc(card.id)}">${esc(card.title)}</button>`).join('') : emptyHtml('더할 칸 없음')}</div>`
       + `<p class="he-note" role="status" aria-live="polite">${esc(note)}</p>`;
     if (focusId) page.querySelector(`[data-reorder-id="${CSS.escape(focusId)}"] [data-reorder-handle]`)?.focus({preventScroll: true});
   }

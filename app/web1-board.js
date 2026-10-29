@@ -41,7 +41,7 @@
     const archivedWrap=document.querySelector('#web1BoardArchivedWrap');
     if(!host||!active||!archived||!archivedWrap)return;
     const aa=items.filter(x=>state.get(x.key)!==true),zz=items.filter(x=>state.get(x.key)===true);
-    active.innerHTML=aa.length?aa.map(card).join(''):'<div class="empty">진행 중인 Web1 사업 페이지가 없습니다.</div>';
+    active.innerHTML=aa.length?aa.map(card).join(''):(globalThis.KPTUWait?.emptyHtml?.()||'');
     archived.innerHTML=zz.length?zz.map(card).join(''):'';
     archivedWrap.classList.toggle('hidden',!zz.length);
     host.dataset.web1BoardReady='1';

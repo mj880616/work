@@ -381,7 +381,6 @@
 .lu-move-find{flex:none;box-sizing:border-box;width:100%;height:var(--ds-compact-height,32px);margin:0 0 4px;padding:0 8px;font:inherit;font-size:var(--ds-compact-text,13px)}
 .lu-move-list{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
 .lu-move-sec{margin:6px 8px 2px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-.lu-move-empty{margin:8px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-move-picker button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:32px;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
 .lu-move-item{padding:0 8px 0 calc(8px + var(--lu-depth,0) * 14px)}
 .lu-move-picker button:is(:hover,:focus-visible):not([aria-disabled="true"]){background:var(--kptu-primary-soft)}

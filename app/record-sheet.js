@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 // UI-모바일업데이트겹쳐보기: on a phone (760px or less) tapping a linked record (basket update or note) in project or organization
 // detail does not leave the screen. The record comes up as a card (sheet) over the detail; ✕, a tap outside the card, swiping
 // the card's top down, Esc and the phone's back button close it, and the detail stays where it was (nothing under it changes).
@@ -43,7 +44,7 @@ export function openRecordSheet({row,place='',trigger=null,onOpenFull=null}={}){
   sheet.querySelector('[data-record-sheet-title]').innerHTML=`${recordMark(row,'record-sheet-mark')} <span>${escape(title)}</span>`;
   sheet.querySelector('[data-record-sheet-meta]').textContent=[note?'노트 연결':'정리함 연결',date,place].filter(Boolean).join(' · ');
   const showSummary=row.summary!=null&&String(row.summary).trim()&&String(row.summary).trim()!==raw.trim();
-  sheet.querySelector('[data-record-sheet-body]').innerHTML=`${showSummary?`<p class="record-sheet-summary"><b>기록 요약</b> ${escape(summary)}</p>`:''}<div class="record-sheet-text" data-record-sheet-text>${raw.trim()?escape(raw):'<span class="record-sheet-empty">내용 없음</span>'}</div>`;
+  sheet.querySelector('[data-record-sheet-body]').innerHTML=`${showSummary?`<p class="record-sheet-summary"><b>기록 요약</b> ${escape(summary)}</p>`:''}<div class="record-sheet-text" data-record-sheet-text>${raw.trim()?escape(raw):emptyHtml()}</div>`;
   // BUG-미리보기기호: the opened sheet shows the written text as headings and tables (the plain text stays until the view is ready).
   const textBox=sheet.querySelector('[data-record-sheet-text]');
   if(textBox&&raw.trim()&&markdownSource(raw))import('./markdown-view.js').then(view=>view.renderMarkdownInto(textBox,raw,{isCurrent:()=>state?.row===row})).catch(()=>{});

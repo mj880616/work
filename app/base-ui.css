@@ -319,5 +319,6 @@ html .img-slot:not([data-img-state="shown"]){background:color-mix(in srgb,var(--
 .wait-fail .wait-retry:hover{background:var(--kptu-surface-subtle)}
 .wait-fail .wait-retry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .wait-empty{margin:4px 0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-muted)}
+.wait-empty[hidden]{display:none}
 #deferredFeatureStatus.wait-only-bar{position:sticky;top:0;z-index:5;margin:0}
 @media (prefers-reduced-motion:reduce){.wait-bar::after{animation:none;width:100%;opacity:.25}}

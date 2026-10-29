@@ -35,7 +35,7 @@
 //   [처음부터]도 docs는 남긴다.
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
-import {waitHtml, waitInlineHtml} from './wait-state.js'; // UI-기다림표시통일 2차
+import {waitHtml, waitInlineHtml, emptyEl} from './wait-state.js'; // UI-기다림표시통일 2차
 import {flashDone} from './press-feedback.js';
 import {loadDisputeState} from './org-dispute-stage.js';
 import {shortDay, reportDay, todayKey} from './journal-data.js';
@@ -485,7 +485,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     }
     const orgs = el('section', 'journal-hwpx-part'); orgs.dataset.hwpxPart = 'orgs';
     orgs.append(el('h5', 'journal-weekly-sub', '4. 1) 산하조직 현황 — 내 담당 조직'));
-    if (!s.orgs.length) orgs.append(el('p', 'journal-muted', '내 담당 조직이 없어요.'));
+    if (!s.orgs.length) orgs.append(emptyEl());
     else orgs.append(el('p', 'journal-muted', '내 담당 조직 전부(가나다순). 확정본에 없던 조직은 현황 칸이 비어요.'));
     for (const row of s.orgs) orgs.append(lineBox('orgs', row, row.org));
     parts.push(orgs);

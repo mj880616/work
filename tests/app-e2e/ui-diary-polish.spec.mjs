@@ -145,7 +145,7 @@ test('③ no write button under the date; [+] writes the chosen day, an existing
  const editor=page.locator('#diaryRoot [data-diary-editor]'),plus=page.locator('#diaryRoot #newDiaryBtn');
  await page.locator('#diaryRoot [data-diary-day="2026-10-02"]').click();
  const detail=page.locator('#diaryRoot [data-diary-detail]');
- await expect(detail).toContainText('이 날 일기가 없어요.');
+ await expect(detail).toContainText('일기 없음');
  await expect(detail.locator('button')).toHaveCount(1);// only × (close)
  await expect(detail.getByText('이 날 일기 쓰기')).toHaveCount(0);
  await plus.click();

@@ -134,7 +134,7 @@ test('통화 1280: 개인 통화를 업무 통화로 옮기기(⋯ 메뉴) — a
  await view.locator('#cfDetail [data-cf-more]').click();
  await page.locator('#cfMenu').getByRole('button',{name:'업무 통화로 옮기기'}).click();
  await expect.poll(()=>f.moves).toEqual([{p_id:P1,p_to:'work'}]);
- await expect(view.locator('[data-cf-empty="personal"]')).toHaveText('개인 통화함이 비어 있어요.');
+ await expect(view.locator('[data-cf-empty="personal"][data-wait-empty]')).toHaveText('없음');
  await expect(view.locator('[data-cf-status]')).toContainText('업무 통화로 옮겼어요.');
  await view.locator('[data-cf-undo]').click();
  await expect.poll(()=>f.moves.length).toBe(2);

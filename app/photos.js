@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 // PHOTO-사진메뉴(docs/design/photo-menu.md, 시안 photo-menu-mock.html): '사진' 메뉴(?view=photos). #photosView의 유일한 그리기 주인.
 // 원드라이브 사진·동영상 색인(Edge onedrive-photos, PR 1410: library·months·days·media-url·photo-delete·trash-*)을 읽어 갤러리처럼 보여 준다.
 // - 위 칩 줄: [사진] [달력] [휴지통] · 오른쪽 끝 거르기(전체·★·동영상·스크린샷)·[－][＋]·원드라이브 아이콘(od-link.js).
@@ -296,7 +296,7 @@ async function renderTrash({reload = false} = {}) {
     if (!current(r) || tab !== 'trash') return;
   }
   if (!trash) { body.innerHTML = `<p class="photos-muted">휴지통을 읽지 못했어요: ${esc(trashFailed)} <button type="button" class="mini" data-photos-trash-retry>다시</button></p>`; return; }
-  body.innerHTML = `<p class="photos-muted photos-top">30일 뒤 원드라이브 휴지통으로 가요${trash.length ? ' · <button type="button" class="mini" data-photos-purge-all>모두 비우기</button>' : ''}</p>${trash.length ? '' : '<p class="photos-muted">휴지통이 비어 있어요.</p>'}`;
+  body.innerHTML = `<p class="photos-muted photos-top">30일 뒤 원드라이브 휴지통으로 가요${trash.length ? ' · <button type="button" class="mini" data-photos-purge-all>모두 비우기</button>' : ''}</p>${trash.length ? '' : emptyHtml()}`;
   if (trash.length) { const grid = newGrid(); trash.forEach((item, i) => { const b = cell(item, i); b.dataset.photosTrash = ''; grid.append(b); }); body.append(grid); }
   sizer.paintButtons(root); paintSelect();
 }
@@ -891,7 +891,7 @@ function renderAlbums() {
   body.innerHTML = `<p class="photos-fx-here photos-al-head"><button type="button" class="mini" data-photos-al-back aria-label="앨범 목록으로">‹ 앨범</button><b>#${esc(c.name)}</b> · ${aLoading ? c.count : aItems.length}장<button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></p>`;
   if (aLoading) { body.insertAdjacentHTML('beforeend', waitHtml({rows:2, h:72})); return; }
   if (aFailed) { body.insertAdjacentHTML('beforeend', `<p class="photos-muted">사진을 읽지 못했어요: ${esc(aFailed)}</p>`); return; }
-  if (!aItems.length) { body.insertAdjacentHTML('beforeend', '<p class="photos-muted">이 앨범에 사진이 없어요.</p>'); paintSelect(); return; }
+  if (!aItems.length) { body.insertAdjacentHTML('beforeend', emptyHtml()); paintSelect(); return; }
   const grid = newGrid(); aItems.forEach((item, i) => grid.append(cell(item, i))); body.append(grid);
   sizer.paintButtons(root); paintSelect();
 }
