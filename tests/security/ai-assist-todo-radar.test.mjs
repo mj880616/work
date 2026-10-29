@@ -501,7 +501,7 @@ const recheckAnswer=list=>({status:'completed',output:[{type:'message',content:[
 test('todo_recheck: open candidates are judged once; not-mine ones become dismissed (never deleted); group-wide asks stay only for listed rooms',async()=>{
   const candidates=[cand(1),cand(2),cand(3,{source_kind:'telegram',source_id:FEED(1)}),cand(4,{source_kind:'telegram',source_id:FEED(2)}),cand(5),
     cand(6,{status:'tasked',task_id:'t1',decided_at:RECENT}),cand(7,{workspace_id:OTHER_WS}),cand(8,{source_kind:'telegram',source_id:FEED(3)})];
-  const extra={app_feed_items:[{id:FEED(1),workspace_id:WS,room_key:'room-a'},{id:FEED(2),workspace_id:WS,room_key:'room-b'},{id:FEED(3),workspace_id:WS,room_key:'room-c'}],
+  const extra={app_feed_items:[{id:FEED(1),workspace_id:WS,source:'telegram',room_key:'room-a'},{id:FEED(2),workspace_id:WS,source:'telegram',room_key:'room-b'},{id:FEED(3),workspace_id:WS,source:'telegram',room_key:'room-c'}],
     app_feed_rooms:[{workspace_id:WS,room_key:'room-a',chat_kind:'group'},{workspace_id:WS,room_key:'room-b',chat_kind:'group'},{workspace_id:WS,room_key:'room-c',chat_kind:'user'}],
     app_todo_ask_rooms:[{workspace_id:WS,room_key:'room-a'}],app_todo_not_mine:[{id:id(702),workspace_id:WS,source_kind:'note',summary:'가상 남의 일.',created_at:RECENT}]};
   let material=null;

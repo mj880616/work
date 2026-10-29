@@ -934,7 +934,7 @@ async function recheckRooms(ctx: Ctx, rows: Record<string, unknown>[]): Promise<
   try {
     const ws = encodeURIComponent(ctx.workspaceId);
     const ids = [...new Set(tg.map((r) => String(r.source_id).toLowerCase()))];
-    const items = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&id=in.(${ids.join(",")})&select=id,room_key&limit=${ids.length}`);
+    const items = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&id=in.(${ids.join(",")})&select=id,room_key&limit=${ids.length}`);
     const roomOf = new Map<string, string>();
     if (Array.isArray(items)) for (const it of items as Record<string, unknown>[]) if (typeof it?.room_key === "string") roomOf.set(String(it.id).toLowerCase(), it.room_key);
     const rooms = await rest(ctx, `app_feed_rooms?workspace_id=eq.${ws}&select=room_key,chat_kind&limit=1000`);

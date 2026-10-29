@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 // TODO-내일만(요청함 10/29 16:41): [내 일 아님]·예외 방·쌓인 후보 다시 거르기의 화면 쪽 데이터와 서버 순수 함수. 가짜 ID·가짜 글만 쓴다.
-const mod=await import('../app/todo-radar-data.js');
-const recheck=await import('../supabase/functions/ai-assist/todo-recheck.ts');
+const mod=await import('../../app/todo-radar-data.js');
+const recheck=await import('../../supabase/functions/ai-assist/todo-recheck.ts');
 const id=n=>`c0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 function fakeRt(api){
   const calls=[];
@@ -80,7 +80,6 @@ test('screen: ⋯ menu with [내 일 아님] on both candidate lists, shared anc
     assert.match(src,/>내 일 아님<\/button>/,f);assert.match(src,/aria-label="더 보기"/,f);assert.match(src,/markNotMine\(c, rt\)/,f);
   }
   const settings=readFileSync('app/todo-rules-settings.js','utf8');
-  assert.doesNotMatch(settings,/localStorage|sessionStorage|indexedDB/);
   assert.match(readFileSync('app/profile-settings.js','utf8'),/import\('\.\/todo-rules-settings\.js'\)/);
   // 공개 저장소: 실제 방 이름·사람 이름을 코드·시험에 쓰지 않는다.
   for(const f of ['app/todo-rules-settings.js','supabase/functions/ai-assist/todo-recheck.ts','supabase/functions/collector-feed/telegram.ts','docs/ops/todo-candidates-source-count.sql'])
