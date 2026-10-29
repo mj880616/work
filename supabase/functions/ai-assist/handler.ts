@@ -43,6 +43,10 @@
 //   다음 주 장이 없으면 한 번(mode=auto), [지금 만들기]·[다시 만들기]를 누를 때(mode=user) 부른다. 화면은 다음 주 재료 ①~⑥ 줄(150줄까지)만 보낸다
 //   (이 쓰임만 몸통 48KB). AI는 '핵심 세 가지'만 만들고, 줄과 함께 owner RLS 표 app_journal_next_week_sheets(주마다 1행)에 저장한다.
 //   AI 한도·실패여도 줄은 저장한다(ai_status limit|failed). Google·원장·챙길 것·회의 표에는 쓰지 않는다.
+// 교섭·회의 전 한 장(kind=pre_meeting_sheet, FEAT-1029묶음 ②, pre-meeting-sheet.ts): 업무일지·홈이 전날 18시 뒤 내일 교섭·회의 일정마다 한 번(mode=auto),
+//   일정 수정 창·담당조직 상세의 [지금 만들기]·[다시 만들기]에서(mode=user) 부른다. 화면은 일정 값과 담당조직 id만 보낸다(몸통 4KB).
+//   재료 ①~⑦은 서버가 내 로그인 토큰으로 읽는다(사업 보고·원장·업무 통화·텔레그램 소식·주요 인물·자료·쟁의 단계, 개인 통화함·개인 텔레그램은 안 읽음).
+//   명진 결정 변경(10/29): 원장 S2도 AI에 보내고, 텔레그램은 원문·보낸 사람 표시 이름까지 보낸다(tg-raw.ts, 상한). 저장은 owner RLS 표 app_pre_meeting_sheets(일정마다 1행) 하나뿐, 다른 표에는 쓰지 않는다.
 // Web2에 물어보기(kind=ask_web2, FEAT-1029묶음 ①, web2-ask.ts·evidence.ts): 검색칸 질문 한 줄을 받아 서버가 낱말을 뽑고 기존 검색 함수 두 개
 //   (app_search_records — 업무 통화·텔레그램 종류 포함, app_ledger_search)를 내 로그인으로 불러 근거 줄을 모은 뒤 AI 한 번으로 줄마다 근거 꼬리표가 붙은 답을 만든다.
 //   근거가 없으면 AI를 부르지 않는다. 근거에 없는 ref·근거 없는 줄은 공용 근거 검사가 버린다. AI 제외 노트는 근거 목록에만 보이고 AI에는 안 보낸다.
@@ -69,6 +73,12 @@ import {
   autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
   nextWeekSheetMaterial, parseNextWeekSheet, parseNextWeekSheetRequest, addDays as addSheetDays, seoulClock, sentIndexes, type NextWeekItem, type NextWeekTopLine,
 } from "./next-week-sheet.ts";
+import {
+  autoReady as preMeetingAutoReady, isMeetingTitle, itemTitle, kstHour as preMeetingHour, parsePreMeetingSheet, parsePreMeetingSheetRequest,
+  PRE_MEETING_BODY_BYTES, PRE_MEETING_DAILY, PRE_MEETING_DOCS, PRE_MEETING_FEED, PRE_MEETING_FEED_DAYS, PRE_MEETING_INSTRUCTIONS, PRE_MEETING_LEDGER,
+  PRE_MEETING_MAX_OUTPUT_TOKENS, PRE_MEETING_MEETING_TEXT, PRE_MEETING_MEETINGS, PRE_MEETING_PEOPLE, PRE_MEETING_SCHEMA, preMeetingMaterial,
+  seoulMidnight as preMeetingMidnight, sheetTgRaw, storedGroups, withinWindow, type PreMeetingAi, type PreMeetingEvent, type PreMeetingItem,
+} from "./pre-meeting-sheet.ts";
 import {
   ASK_BASE_KINDS, ASK_DAILY_LIMIT, ASK_KEEP_DAYS, ASK_LEDGER_LIMIT, ASK_INSTRUCTIONS, ASK_MAX_OUTPUT_TOKENS, ASK_PER_KIND, ASK_RETRY_BELOW, ASK_RETRY_MAX,
   ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askTgRaw, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
@@ -147,7 +157,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -215,6 +225,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   journal_draft_unavailable: "오늘 한 줄 초안을 읽거나 저장하지 못했어요.",
   next_week_sheet_not_ready: "다음 주 준비 기능이 아직 준비되지 않았어요.",
   next_week_sheet_unavailable: "다음 주 준비 한 장을 읽거나 저장하지 못했어요.",
+  pre_meeting_sheet_not_ready: "교섭 전 한 장 기능이 아직 준비되지 않았어요.",
+  pre_meeting_sheet_unavailable: "교섭 전 한 장을 읽거나 저장하지 못했어요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_people_not_ready: "주요 인물 기능이 아직 준비되지 않았어요.",
@@ -371,7 +383,7 @@ async function rest(ctx: Ctx, path: string, init: { method?: string; body?: unkn
   return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
 }
 
-const BODY_CAP_BYTES = Math.max(SCHEDULE_BODY_BYTES, HWP_CONVERT_BODY_BYTES, JOURNAL_DRAFT_BODY_BYTES, NEXT_WEEK_SHEET_BODY_BYTES);
+const BODY_CAP_BYTES = Math.max(SCHEDULE_BODY_BYTES, HWP_CONVERT_BODY_BYTES, JOURNAL_DRAFT_BODY_BYTES, NEXT_WEEK_SHEET_BODY_BYTES, PRE_MEETING_BODY_BYTES);
 // 몸통은 2KB까지. 주요 일정 제목 다듬기(kind=schedule_titles)만 일정 줄을 실어 20KB까지 받는다(한글 제목 30줄): 20KB까지 읽은 뒤 그 쓰임이 아니면
 // 선언 길이·실제 길이가 2KB를 넘을 때 전처럼 413으로 거절한다.
 async function readBody(req: Request): Promise<unknown> {
@@ -410,7 +422,7 @@ async function readBody(req: Request): Promise<unknown> {
   if (declaredBig || actualBig) {
     // 일정 제목 다듬기(20KB)와 HWP 서식변환(100KB)만 자기 상한까지 받는다. 그 상한을 넘으면 413.
     const kind = (body as { kind?: unknown } | null)?.kind;
-    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : kind === "next_week_sheet" ? NEXT_WEEK_SHEET_BODY_BYTES : MAX_BODY_BYTES;
+    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : kind === "next_week_sheet" ? NEXT_WEEK_SHEET_BODY_BYTES : kind === "pre_meeting_sheet" ? PRE_MEETING_BODY_BYTES : MAX_BODY_BYTES;
     if (own === MAX_BODY_BYTES) throw new Fail(declaredBig ? 413 : 400, "invalid_request");
     if (raw.byteLength > own || (declared !== null && Number(declared) > own)) throw new Fail(413, "invalid_request");
   }
@@ -434,6 +446,7 @@ type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
 type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "auto" | "user"; items: NextWeekItem[] };
+type PreMeetingSheetInput = { kind: "pre_meeting_sheet"; mode: "auto" | "user"; event: PreMeetingEvent; organization_id: string };
 type HwpConvertInput = { kind: "hwp_convert"; doc_type: HwpConvertDocType; text: string };
 type AreaWeekSummaryInput = { kind: "area_week_summary"; week_start: string; area_ids: string[] };
 type AreaSuggestInput = { kind: "area_suggest"; title: string; text: string };
@@ -482,7 +495,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | AskWeb2Input {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | PreMeetingSheetInput | AreaWeekSummaryInput | AreaSuggestInput | AskWeb2Input {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -534,7 +547,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "next_week_sheet", ...parsed };
   }
-  // HWP 서식변환(hwp_convert): 문서 종류와 붙여 넣은 글(20000자까지)만 받는다. 다른 기록은 읽지 않는다.
+  // 교섭·회의 전 한 장(pre_meeting_sheet): 만든 방식·일정 값·담당조직 id만 받는다. 재료는 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "pre_meeting_sheet") {
+    const parsed = parsePreMeetingSheetRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "pre_meeting_sheet", ...parsed };
+  }
   // Web2에 물어보기(ask_web2): 질문 한 줄만 받는다. 재료는 서버가 로그인 토큰으로 검색 함수를 불러 모은다.
   if (b.kind === "ask_web2") {
     const parsed = parseAskRequest(b);
@@ -542,6 +560,7 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     if (askLooksSecret(parsed.question)) throw new Fail(400, "ask_secret");
     return { kind: "ask_web2", ...parsed };
   }
+  // HWP 서식변환(hwp_convert): 문서 종류와 붙여 넣은 글(20000자까지)만 받는다. 다른 기록은 읽지 않는다.
   if (b.kind === "hwp_convert") {
     const parsed = parseHwpConvertRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
@@ -3444,6 +3463,255 @@ async function runNextWeekSheet(ctx: Ctx, input: NextWeekSheetInput, deps: Radar
   return json({ ok: true, kind: "next_week_sheet", week_start: week, sheet: saved });
 }
 
+// ---- 쓰임 pre_meeting_sheet: 교섭·회의 전 한 장(FEAT-1029묶음 ②, pre-meeting-sheet.ts) -------------------------------------
+// 서버 확인: 담당조직이 내 작업공간 것(owner RLS로 읽어 1건), 일정 시작이 지금-6시간 ~ 지금+8일. 아니면 거절.
+// mode=auto: 서울 18시 뒤이고 일정이 내일이며 제목에 교섭·회의·간담회·협의·면담이 있을 때, 그 일정의 장이 아직 없을 때만 만든다.
+// mode=user: [지금 만들기]·[다시 만들기]. 그 일정의 장을 새로 만들어 덮는다.
+// 재료는 모두 내 로그인 토큰으로 읽는다(쓰기 없음). 읽지 못한 묶음은 비우고 나머지로 만든다(partial).
+// AI는 보낼 줄이 있을 때만, 월 상한·하루 합계·이 쓰임 하루 10장 안에서만 부른다. 한도·실패면 AI 줄 없이 재료 줄만 저장한다.
+// 저장은 app_pre_meeting_sheets 한 표뿐(있으면 PATCH, 없으면 POST).
+const PRE_MEETING_TABLE = "app_pre_meeting_sheets";
+const PRE_MEETING_COLS = "workspace_id,event_key,organization_id,event_title,event_start,event_end,event_location,top_lines,groups,ai_status,made_by,created_at,updated_at";
+async function runPreMeetingSheet(ctx: Ctx, input: PreMeetingSheetInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ev = input.event, startMs = Date.parse(ev.start);
+  if (!withinWindow(started, startMs)) throw new Fail(400, "invalid_request");
+  const ws = encodeURIComponent(ctx.workspaceId), org = input.organization_id, key = encodeURIComponent(ev.event_key);
+  const orgRow = (await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&id=eq.${org}&deleted_at=is.null&select=id,workspace_id,name&limit=2`))
+    .find((o) => String(o.id).toLowerCase() === org && String(o.workspace_id).toLowerCase() === ctx.workspaceId);
+  if (!orgRow) throw new Fail(404, "not_found");
+
+  const readSheet = async (): Promise<Record<string, unknown> | null> => {
+    let rows: unknown;
+    try {
+      rows = await rest(ctx, `${PRE_MEETING_TABLE}?workspace_id=eq.${ws}&event_key=eq.${key}&select=${PRE_MEETING_COLS}&limit=2`);
+    } catch (e) {
+      // 표가 없으면(DB 적용 전) PostgREST가 404를 준다.
+      throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "pre_meeting_sheet_not_ready" : "pre_meeting_sheet_unavailable");
+    }
+    if (!Array.isArray(rows) || rows.length > 1) throw new Fail(503, "pre_meeting_sheet_unavailable");
+    const row = rows[0] as Record<string, unknown> | undefined;
+    if (!row) return null;
+    if (String(row.workspace_id).toLowerCase() !== ctx.workspaceId || row.event_key !== ev.event_key) throw new Fail(503, "pre_meeting_sheet_unavailable");
+    const { workspace_id: _ws, ...sheet } = row;
+    return sheet;
+  };
+  const existing = await readSheet();
+  const base = { ok: true, kind: "pre_meeting_sheet", event_key: ev.event_key };
+  if (input.mode === "auto") {
+    if (!preMeetingAutoReady(started, startMs) || !isMeetingTitle(ev.title)) {
+      deps.log("pre_meeting_sheet_skipped", { reason: "not_yet" });
+      return json({ ...base, sheet: existing, skipped: "not_yet" });
+    }
+    if (existing) {
+      deps.log("pre_meeting_sheet_skipped", { reason: "done" });
+      return json({ ...base, sheet: existing, skipped: "done" });
+    }
+  }
+
+  // 재료 읽기(모두 GET, 내 토큰). 원본마다 작업공간·조직을 다시 확인한다.
+  const flags = { partial: false };
+  const soft = async (path: string) => {
+    try {
+      const rows = await rest(ctx, path);
+      if (Array.isArray(rows)) return rows as Record<string, unknown>[];
+    } catch { /* 아래 */ }
+    flags.partial = true;
+    return [] as Record<string, unknown>[];
+  };
+  const mine = (r: Record<string, unknown>) => String(r.workspace_id).toLowerCase() === ctx.workspaceId;
+  const dayOf = (v: unknown) => typeof v === "string" && DAY_RE.test(v.slice(0, 10)) ? (v.length > 10 ? kstDay(Date.parse(v)) : v) : null;
+  const text = (v: unknown) => typeof v === "string" && v.trim() ? v.trim() : "";
+  const items: PreMeetingItem[] = [];
+
+  // (머리) 지금 쟁의 단계.
+  const stageRow = (await soft(`app_suborganization_dispute_stages?organization_id=eq.${org}&select=organization_id,stage_name,stage_date&order=stage_date.desc,created_at.desc&limit=1`))
+    .find((r) => String(r.organization_id).toLowerCase() === org && text(r.stage_name));
+  const stage = stageRow ? text(stageRow.stage_name) : null;
+  if (stageRow) items.push({ group: "stage", title: itemTitle(stage!), day: dayOf(stageRow.stage_date), source_kind: "stage", source_id: org, send: false });
+
+  // ① 지난 교섭·회의 결과: 이 조직에 이어진(확정) 사업 보고 중 교섭·회의, 이 일정 전 최근 3건.
+  const links = await soft(`app_record_links?workspace_id=eq.${ws}&organization_id=eq.${org}&status=eq.confirmed&source_meeting_id=not.is.null&select=workspace_id,organization_id,source_meeting_id&limit=500`);
+  const meetingIds = [...new Set(links.filter((l) => mine(l) && String(l.organization_id).toLowerCase() === org && isUuid(l.source_meeting_id))
+    .map((l) => String(l.source_meeting_id).toLowerCase()))].slice(0, 200);
+  const meetings: Record<string, unknown>[] = [];
+  const before = encodeURIComponent(ev.start);
+  for (let i = 0; i < meetingIds.length; i += IN_CHUNK) {
+    const ids = meetingIds.slice(i, i + IN_CHUNK).join(",");
+    const path = (cols: string) => `app_meetings?workspace_id=eq.${ws}&id=in.(${ids})&deleted_at=is.null&activity_kind=in.(negotiation,meeting)&meeting_at=lt.${before}&select=${cols}&order=meeting_at.desc&limit=${PRE_MEETING_MEETINGS}`;
+    const cols = "id,workspace_id,title,series_name,round_no,meeting_at,transcript_text,activity_kind";
+    let rows: Record<string, unknown>[];
+    try { rows = await rest(ctx, path(`${cols},next_plan`)) as Record<string, unknown>[]; } catch { rows = await soft(path(cols)); }
+    if (Array.isArray(rows)) meetings.push(...rows.filter((m) => mine(m) && isUuid(m.id)));
+  }
+  meetings.sort((a, b) => timeOf(b.meeting_at) - timeOf(a.meeting_at));
+  for (const m of meetings.slice(0, PRE_MEETING_MEETINGS)) {
+    const round = Number.isInteger(m.round_no) ? ` ${m.round_no}차` : "";
+    const name = text(m.series_name) ? `${text(m.series_name)}${round}` : text(m.title) || "제목 없음";
+    const result = [text(m.transcript_text) && [...text(m.transcript_text)].slice(0, PRE_MEETING_MEETING_TEXT).join(""), text(m.next_plan) && `다음 할 일: ${[...text(m.next_plan)].slice(0, 300).join("")}`]
+      .filter(Boolean).join(" / ");
+    items.push({ group: "meetings", title: itemTitle(name), day: dayOf(m.meeting_at), source_kind: "meeting", source_id: String(m.id).toLowerCase(), ai: result || undefined });
+  }
+
+  // ②④ 원장: 이 조직(원장 조직표의 Web2 조직 연결)에 이어진 현재 기록. 업무 범위만. S2도 AI에 보낸다(결정 변경, 줄에 s2 표시).
+  const ledgerOrgs = (await soft(`app_ledger_organizations?workspace_id=eq.${ws}&suborganization_id=eq.${org}&select=id,workspace_id,suborganization_id&limit=5`))
+    .filter((o) => mine(o) && String(o.suborganization_id).toLowerCase() === org && isUuid(o.id)).map((o) => String(o.id).toLowerCase());
+  if (ledgerOrgs.length) {
+    const recLinks = await soft(`app_ledger_links?workspace_id=eq.${ws}&target_organization_id=in.(${ledgerOrgs.join(",")})&select=workspace_id,record_id,target_organization_id&limit=500`);
+    const recIds = [...new Set(recLinks.filter((l) => mine(l) && isUuid(l.record_id) && ledgerOrgs.includes(String(l.target_organization_id).toLowerCase()))
+      .map((l) => String(l.record_id).toLowerCase()))].slice(0, 200);
+    const records: Record<string, unknown>[] = [];
+    for (let i = 0; i < recIds.length; i += IN_CHUNK) {
+      const ids = recIds.slice(i, i + IN_CHUNK).join(",");
+      records.push(...(await soft(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${ids})&validity=eq.current&scope=eq.work&kind=in.(event,decision,change,commitment)&select=id,workspace_id,kind,title,summary,sensitivity,counterparty,commitment_status,follow_up_on,date_start,updated_at&order=updated_at.desc&limit=${PRE_MEETING_LEDGER}`))
+        .filter((r) => mine(r) && isUuid(r.id) && text(r.title)));
+    }
+    records.sort((a, b) => String(b.date_start ?? "").localeCompare(String(a.date_start ?? "")));
+    for (const r of records.slice(0, PRE_MEETING_LEDGER)) {
+      if (r.sensitivity !== "S0" && r.sensitivity !== "S1" && r.sensitivity !== "S2") continue; // 모르는 등급은 닫는다.
+      const s2 = r.sensitivity === "S2";
+      const extra = [text(r.summary), text(r.counterparty) && `상대 ${text(r.counterparty)}`].filter(Boolean).join(" / ");
+      if (r.kind === "commitment") {
+        if (r.commitment_status !== "waiting") continue;
+        items.push({ group: "commitments", title: itemTitle(text(r.title)), day: dayOf(r.follow_up_on), source_kind: "ledger", source_id: String(r.id).toLowerCase(), ai: extra || undefined, s2 });
+      } else {
+        items.push({ group: "issues", title: itemTitle(text(r.title)), day: dayOf(r.date_start), source_kind: "ledger", source_id: String(r.id).toLowerCase(), ai: extra || undefined, s2 });
+      }
+    }
+  }
+
+  // ⑤ 최근 30일 업무 통화·텔레그램(이 조직). 통화는 제목·요약만(원문·상대 이름은 읽지 않음).
+  // 텔레그램은 방 이름·요약 + 원문과 보낸 사람 표시 이름(결정 변경 10/29, 최근 8개·소식마다 600자). 이름 표를 못 읽으면 라벨 그대로.
+  const since = addDays(kstDay(started), -PRE_MEETING_FEED_DAYS);
+  const feed = [
+    ...await soft(`app_feed_items?source=eq.call&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,summary&order=day.desc&limit=${PRE_MEETING_FEED}`),
+    ...await soft(`app_feed_items?source=eq.telegram&workspace_id=eq.${ws}&organization_id=eq.${org}&hidden_at=is.null&day=gte.${since}&select=id,workspace_id,organization_id,source,day,title,room_label,room_key,summary,raw_text&order=day.desc&limit=${PRE_MEETING_FEED}`),
+  ].sort((x, y) => String(y.day ?? "").localeCompare(String(x.day ?? ""))).slice(0, PRE_MEETING_FEED);
+  const tgRows = feed.filter((f) => f.source === "telegram" && mine(f)).slice(0, TG_RAW_MAX_ITEMS);
+  let tgNames = new Map<string, Map<string, string>>();
+  try {
+    tgNames = await tgNamesFor((p) => rest(ctx, p), ctx.workspaceId, tgRows);
+  } catch {
+    deps.log("pre_meeting_tg_names_unavailable");
+  }
+  const tgRaw = new Set(tgRows.map((f) => f.id));
+  for (const f of feed) {
+    if (!mine(f) || String(f.organization_id).toLowerCase() !== org || !isUuid(f.id)) continue;
+    const isCall = f.source === "call";
+    const name = isCall ? text(f.title) : text(f.room_label);
+    if (!name) continue;
+    const raw = !isCall && tgRaw.has(f.id) ? sheetTgRaw(f.raw_text, tgNames.get(tgNameKey(f))) : "";
+    const ai = [text(f.summary), raw && `원문: ${raw}`].filter(Boolean).join(" / ");
+    items.push({ group: "feed", title: itemTitle(`${isCall ? "통화" : "텔레그램"} · ${name}`), day: dayOf(f.day), source_kind: isCall ? "call" : "telegram", source_id: String(f.id).toLowerCase(), ai: ai || undefined });
+  }
+
+  // ⑥ 주요 인물: 이름과 이미 만든 '요즘' 한 문장(새 AI 호출 없음, AI에는 보내지 않음).
+  for (const p of await soft(`app_org_key_people?workspace_id=eq.${ws}&organization_id=eq.${org}&select=id,workspace_id,organization_id,name&order=sort_order.asc,created_at.asc&limit=${PRE_MEETING_PEOPLE}`)) {
+    if (!mine(p) || String(p.organization_id).toLowerCase() !== org || !isUuid(p.id) || !text(p.name)) continue;
+    items.push({ group: "people", title: itemTitle(text(p.name)), day: null, source_kind: "person", source_id: String(p.id).toLowerCase(), send: false });
+  }
+  const brief = (await soft(`app_org_key_people_briefs?workspace_id=eq.${ws}&organization_id=eq.${org}&select=workspace_id,organization_id,day,brief&limit=1`))
+    .find((b) => mine(b) && String(b.organization_id).toLowerCase() === org && text(b.brief));
+  if (brief) items.push({ group: "people", title: itemTitle(`요즘: ${text(brief.brief)}`), day: dayOf(brief.day), source_kind: "people_brief", source_id: org, send: false });
+
+  // ⑦ 관련 자료: 이 조직 자료 최근 5건(제목만).
+  for (const d of await soft(`app_documents?workspace_id=eq.${ws}&organization_id=eq.${org}&select=id,workspace_id,organization_id,title,category,document_date,created_at&order=created_at.desc&limit=${PRE_MEETING_DOCS}`)) {
+    if (!mine(d) || String(d.organization_id).toLowerCase() !== org || !isUuid(d.id) || !text(d.title)) continue;
+    items.push({ group: "docs", title: itemTitle(text(d.title)), day: dayOf(d.document_date) ?? dayOf(d.created_at), source_kind: "document", source_id: String(d.id).toLowerCase() });
+  }
+
+  // AI: 보낼 줄이 있을 때만. 이 쓰임은 하루(서울) AI로 만든 장 10장까지(오늘 AI로 만든 다른 일정의 장을 센다).
+  let ai: PreMeetingAi | null = null;
+  let aiStatus: "ok" | "limit" | "failed" | "skipped" = "skipped";
+  const orgName = typeof orgRow.name === "string" ? [...orgRow.name.trim()].slice(0, MAX_TARGET_NAME_CHARS).join("") : "";
+  const material = preMeetingMaterial(ev, orgName, stage, items);
+  if (material.text) {
+    const config = aiConfig(deps.env);
+    let budget: Awaited<ReturnType<typeof checkBudget>> | null = null;
+    if (!config) {
+      deps.log("ai_not_configured");
+      aiStatus = "failed";
+    } else {
+      const todayStart = encodeURIComponent(preMeetingMidnight(kstDay(started)));
+      const made = await soft(`${PRE_MEETING_TABLE}?workspace_id=eq.${ws}&updated_at=gte.${todayStart}&ai_status=in.(ok,failed)&select=event_key&limit=${PRE_MEETING_DAILY + 1}`);
+      const others = made.filter((r) => r.event_key !== ev.event_key).length;
+      if (others >= PRE_MEETING_DAILY) aiStatus = "limit";
+      else {
+        try {
+          budget = await checkBudget(ctx, "pre_meeting_sheet", started, config.price);
+        } catch (e) {
+          if (!(e instanceof Fail)) throw e;
+          aiStatus = e.status === 429 ? "limit" : "failed";
+        }
+      }
+    }
+    if (config && budget) {
+      let counted = true;
+      try {
+        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+      } catch {
+        counted = false;
+        aiStatus = "failed";
+      }
+      if (counted) {
+        const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+          model: config.model,
+          store: false,
+          max_output_tokens: PRE_MEETING_MAX_OUTPUT_TOKENS,
+          input: [
+            { role: "developer", content: PRE_MEETING_INSTRUCTIONS },
+            { role: "user", content: material.text },
+          ],
+          text: { format: { type: "json_schema", name: "pre_meeting_sheet", strict: true, schema: PRE_MEETING_SCHEMA } },
+        });
+        const used = result.ok ? result.usage : result.charged ? { input: chars(material.text) * 2, output: PRE_MEETING_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+        if (used.input || used.output) {
+          try {
+            await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+          } catch {
+            deps.log("usage_record_failed");
+          }
+        }
+        if (!result.ok) {
+          deps.log(result.code);
+          aiStatus = "failed";
+        } else {
+          ai = parsePreMeetingSheet(outputText(result.raw, 16 * 1024) ?? "", material.sent);
+          aiStatus = ai ? "ok" : "failed";
+        }
+      }
+    }
+  }
+
+  const values = {
+    organization_id: org, event_title: ev.title, event_start: ev.start, event_end: ev.end, event_location: ev.location,
+    top_lines: ai ? ai.top : [], groups: storedGroups(items, ai), ai_status: aiStatus, made_by: input.mode,
+  };
+  const patch = () => rest(ctx, `${PRE_MEETING_TABLE}?workspace_id=eq.${ws}&event_key=eq.${key}`, {
+    method: "PATCH", prefer: "return=minimal", body: { ...values, updated_at: new Date(deps.now()).toISOString() },
+  });
+  try {
+    if (existing) await patch();
+    else {
+      try {
+        await rest(ctx, PRE_MEETING_TABLE, { method: "POST", prefer: "return=minimal", body: { workspace_id: ctx.workspaceId, event_key: ev.event_key, ...values } });
+      } catch (e) {
+        // 다른 기기가 먼저 넣었다: auto면 그 장을 그대로 두고, user면 덮는다.
+        if (!(e instanceof Error && e.message === "rest_409")) throw e;
+        if (input.mode === "user") await patch();
+      }
+    }
+  } catch {
+    throw new Fail(503, "pre_meeting_sheet_unavailable");
+  }
+  const saved = await readSheet();
+  if (!saved) throw new Fail(503, "pre_meeting_sheet_unavailable");
+  // 기록에는 숫자만 남긴다(재료·문장 없음).
+  const sentCount = material.sent.size, topCount = ai ? ai.top.length : 0, partial = flags.partial, hour = preMeetingHour(started);
+  deps.log("pre_meeting_sheet_done", { items: items.length, sent: sentCount, top: topCount, ai: aiStatus, partial, hour });
+  return json({ ...base, sheet: saved, partial: flags.partial });
+}
+
 // ---- 쓰임 note_title: 노트 AI 요약 제목(NOTE-탐색기 ③, note-title.ts) ------------------------------------------------------
 // 노트를 처음 저장한 뒤 한 번. AI를 부르지 않는 경우(skipped)는 사용량에 잡지 않는다. 부르면 월 AI 상한·하루 횟수 안에서만, 사용량 줄(app_ai_daily_usage)에 더한다.
 // 저장은 그 노트 행의 metadata.ai_title(+ai_title_at)만, 읽은 뒤 바뀌지 않았을 때만(updated_at 같음·ai_title 없음). 제목 칸은 건드리지 않는다.
@@ -3987,6 +4255,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "next_week_sheet") return await runNextWeekSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "pre_meeting_sheet") return await runPreMeetingSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_week_summary") return await runAreaWeekSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_suggest") return await runAreaSuggest(ctx, input, { env: deps.env, now, sleep, log, doFetch });

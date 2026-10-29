@@ -3,7 +3,7 @@
 // - 원문(app_feed_items.raw_text, 업무 텔레그램만)은 collector-feed가 "HH:MM 라벨[ (전달)]: 말" 줄로 남긴다(라벨 A·B…).
 // - 라벨 → 표시 이름은 collector-feed(TG-발언자이름 결정 3)와 같은 순서: 명진이 붙인 이름 → 본인 표시면 "나" → 라벨 그대로.
 //   자동 이름·열쇠·사람 id는 쓰지 않는다. 개인 텔레그램 표는 이 모듈과 무관하다(읽지 않음).
-// - 연락처 가리기는 부르는 쪽이 넘긴다(물어보기는 evidence.ts, 한 장은 sheet-evidence.ts). 줄마다 가린 뒤 " / "로 이어 상한에서 자른다.
+// - 연락처 가리기는 부르는 쪽이 넘긴다(evidence.ts maskEvidenceText·scrub). 줄마다 가린 뒤 " / "로 이어 상한에서 자른다.
 //   (자른 뒤에 가리면 잘린 번호가 남을 수 있어서 먼저 가린다.) 이 파일은 두 쓰임이 같은 내용으로 둔다(import 없음).
 
 export const TG_RAW_CHARS = 600;
