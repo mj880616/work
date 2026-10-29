@@ -292,3 +292,12 @@
   .feed-view .feed-script p{flex-direction:column;gap:0}
   .feed-view .feed-script b{max-width:none;font-size:11px}
 }
+/* TG-요청강조: 나한테 온 요청이 있는 줄만 노란 띠(왼쪽 3px)·아주 연한 노랑 바탕·노란 꼬리표. 노란 띠는 이 줄에만 쓴다. 담당조직·일정은 회색 작은 꼬리표. */
+.feed-view .feed-swipe>.feed-rd.is-ask,.feed-view .feed-rd.is-ask{background:color-mix(in srgb,var(--kptu-warning-soft) 45%,var(--kptu-surface));box-shadow:inset 3px 0 0 var(--kptu-warning)}
+.feed-view .feed-swipe>.feed-rd.is-ask.is-selected,.feed-view .feed-rd.is-ask.is-selected{background:var(--ds-select-bg);box-shadow:inset 3px 0 0 var(--kptu-warning),var(--kptu-shadow-select)}
+.feed-view .feed-di.is-ask{box-shadow:inset 3px 0 0 var(--kptu-warning)}
+.feed-view .feed-di.is-ask .feed-di-row{padding-left:6px}
+.feed-view .feed-ask{display:block;margin-top:1px;font-size:11px;line-height:1.4;color:var(--kptu-warning);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-view .feed-mark{padding:0 4px;border-radius:4px;background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
+.feed-view .feed-chiprow .feed-chip.is-ask{color:var(--kptu-warning);border-color:color-mix(in srgb,var(--kptu-warning) 45%,var(--ds-line))}
+.feed-view .feed-chiprow .feed-chip.is-ask[aria-pressed="true"]{background:var(--kptu-warning-soft);border-color:var(--kptu-warning);color:var(--kptu-warning)}
