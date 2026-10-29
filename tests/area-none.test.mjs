@@ -77,6 +77,5 @@ test('화면 연결(전수): [달기] 창·쓰기/고치기 창은 [없음]을 �
   const team=read('team.js');
   assert.match(team,/noteAreaNoneFromMeetings\(meetings\)/);
   assert.match(team,/areaChip!==NO_AREA&&areaChip!==AREA_NONE\?areaChip:''/);
-  // 기기 저장 없음.
-  for(const f of ['report-area-tag.js','business-area-fields.js','report-places-sheet.js'])assert.doesNotMatch(read(f),/localStorage|sessionStorage|indexedDB/,f);
+  // 기기 저장 없음은 저장소 전체 검사(Browser storage audit)가 본다.
 });
