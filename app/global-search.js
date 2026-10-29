@@ -256,8 +256,13 @@ function answerBox(where) {
   }
   if (note) { status.textContent = note; box.append(status); }
   if (answer?.sources?.length) {
-    const det = el('details', 'gs-ask-src');
-    det.append(el('summary', null, sourcesSummary(answer.sources)));
+    // QA-E2E간헐1029-2: 결과 창은 늦게 온 검색·할 일·일정 응답마다 통째로 다시 그린다. 펼침 여부는 이 답(state.ask)이 들고,
+    // 다시 그릴 때 그대로 편다(누른 순간 요약 줄 click에서 바로 적어 두어, toggle 이벤트 전에 다시 그려져도 잃지 않음).
+    const det = el('details', 'gs-ask-src'); det.open = !!a.srcOpen;
+    det.addEventListener('toggle', () => { if (det.isConnected && state.ask === a) a.srcOpen = det.open; });
+    const sum = el('summary', null, sourcesSummary(answer.sources));
+    sum.addEventListener('click', () => { if (state.ask === a) a.srcOpen = !det.open; });
+    det.append(sum);
     for (const src of answer.sources) {
       const row = srcButton(src, answer, 'gs-ask-src-row');
       row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', src.title));
