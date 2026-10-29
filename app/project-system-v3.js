@@ -8,6 +8,7 @@ import {bindDateTimeFields} from './time-input.js';
 import { dayKey, ranges } from './home-read-model.js';
 import {lastSeen} from './split-last.js';
 import {mountSplitResize} from './split-resize.js';
+import {followPane} from './follow-pane.js';
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import { createAnchoredMenu } from './anchored-menu.js';
 import {tapExpand} from './text-clamp.js';
@@ -163,14 +164,18 @@ const areaOpen=()=>{const w=$('#areaWindow');return !!w&&!w.classList.contains('
 const splitWanted=()=>{const pane=$('#ps3DetailPane');return !!PC?.matches&&areaOpen()&&!!pane&&getComputedStyle(pane).display!=='none'};
 const docked=()=>$('#ps3DetailModal')?.dataset.ps3Docked==='1';
 const detailTrigger=()=>$('#ps3DetailModal [data-ps3-close="ps3DetailModal"]');
+// UI-칸안스크롤하나로(시안 A): 창 안 스크롤은 창 몸통(.area-window-body) 하나. 목록은 몸통과 같이 내려가고, 상세 칸은 몸통에 붙어
+// 따라온다(follow-pane.js). 다른 사업영역을 열면 칸 머리부터 보인다.
+let psFollowed=null;
+function followDetail(pane,open){if(!open||!pane)return;const body=$('#areaWindow .area-window-body');followPane(pane,{scroller:body||window,top:8,reset:psFollowed!==current?.id});psFollowed=current?.id??null}
 function placeDetail(){
   const m=$('#ps3DetailModal'),pane=$('#ps3DetailPane');if(!m)return false;
   const dock=splitWanted(),open=!m.classList.contains('hidden');
-  if(dock&&docked()&&m.parentElement===pane){pane.classList.toggle('has-project',open);return true}
+  if(dock&&docked()&&m.parentElement===pane){pane.classList.toggle('has-project',open);followDetail(pane,open);return true}
   if(!dock&&!docked())return false;
   if(dock){
     if(open)window.KPTUA11y?.dialog.deactivate(m,{restoreFocus:false});
-    pane.append(m);m.classList.add('ps3-docked');m.setAttribute('role','region');m.removeAttribute('aria-modal');m.dataset.ps3Docked='1';pane.classList.toggle('has-project',open);
+    pane.append(m);m.classList.add('ps3-docked');m.setAttribute('role','region');m.removeAttribute('aria-modal');m.dataset.ps3Docked='1';pane.classList.toggle('has-project',open);followDetail(pane,open);
   }else{
     document.body.append(m);m.classList.remove('ps3-docked');m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');delete m.dataset.ps3Docked;pane?.classList.remove('has-project');
     if(open)window.KPTUA11y?.dialog.activate(m,{trigger:null,initialFocus:MODAL_FOCUS.ps3DetailModal,onRequestClose:()=>detailTrigger()?.click()});
@@ -200,8 +205,8 @@ const lastProject=lastSeen('project');
 function rememberLast(id){lastProject.write(user?.id,id)}
 function readLast(){return lastProject.read(user?.id)}
 // Scroll of the detail and the list, kept when a 🧺 record opens its note and restored on return.
-function detailScroll(){const m=$('#ps3DetailModal');return {pane:$('#ps3DetailPane')?.scrollTop||0,card:m?.querySelector('.modal-card')?.scrollTop||0,modal:m?.scrollTop||0,list:$('#projectGrid .ps3-plist')?.scrollTop||0,page:window.scrollY||0}}
-function restoreScroll(s){if(!s)return;const set=()=>{const m=$('#ps3DetailModal'),pane=$('#ps3DetailPane'),list=$('#projectGrid .ps3-plist'),card=m?.querySelector('.modal-card');if(pane)pane.scrollTop=s.pane||0;if(list)list.scrollTop=s.list||0;if(card)card.scrollTop=s.card||0;if(m)m.scrollTop=s.modal||0;window.scrollTo({top:s.page||0,behavior:'instant'})};set();requestAnimationFrame(set)}
+function detailScroll(){const m=$('#ps3DetailModal');return {win:$('#areaWindow .area-window-body')?.scrollTop||0,pane:$('#ps3DetailPane')?.scrollTop||0,card:m?.querySelector('.modal-card')?.scrollTop||0,modal:m?.scrollTop||0,list:$('#projectGrid .ps3-plist')?.scrollTop||0,page:window.scrollY||0}}
+function restoreScroll(s){if(!s)return;const set=()=>{const m=$('#ps3DetailModal'),pane=$('#ps3DetailPane'),list=$('#projectGrid .ps3-plist'),card=m?.querySelector('.modal-card'),win=$('#areaWindow .area-window-body');if(win)win.scrollTop=s.win||0;if(pane)pane.scrollTop=s.pane||0;if(list)list.scrollTop=s.list||0;if(card)card.scrollTop=s.card||0;if(m)m.scrollTop=s.modal||0;window.scrollTo({top:s.page||0,behavior:'instant'})};set();requestAnimationFrame(set)}
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 async function googleCalendarCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await api(u.toString(),{method,body,...(expectedSessionEpoch==null?{}:{expectedSessionEpoch})});if(d?.error&&!d?.partial_failure)throw new Error(d.error||'Google Calendar 요청 실패');return d}
 async function googleCalendarStatus(){const cached=window.__KPTU_GOOGLE_STATE__;if(cached&&typeof cached.connected==='boolean'&&Array.isArray(cached.calendars)){googleCalendarState=cached;return cached}try{googleCalendarState=await googleCalendarCall('status');window.__KPTU_GOOGLE_STATE__={...(window.__KPTU_GOOGLE_STATE__||{}),...(googleCalendarState||{})};return googleCalendarState}catch(e){googleCalendarState={connected:false,calendars:[],warning:e?.message||String(e)};return googleCalendarState}}

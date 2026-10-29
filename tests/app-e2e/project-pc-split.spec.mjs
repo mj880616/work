@@ -122,7 +122,7 @@ test('PC 1280: a 🧺 record opens the update with "‹ (project)" in the head; 
  await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
- const before=await scrollToRecord(page,basketLine(page));expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
+ const before=await scrollToRecord(page,basketLine(page));/* UI-칸안스크롤하나로: 창 안 스크롤은 창 몸통 하나(상세 칸은 따로 스크롤 없음) */expect(await page.locator('#areaWindow .area-window-body').evaluate(el=>el.scrollTop)).toBeGreaterThan(100);expect(await pane(page).evaluate(el=>el.scrollTop)).toBe(0);
  for(const how of ['button','back','browser']){
   await basketLine(page).click();await viaSheet(page);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);

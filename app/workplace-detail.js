@@ -7,6 +7,8 @@ import {recordLines,markdownSource} from './note-preview.mjs';
 import {formatSeoulTime,seoulParts} from './meeting-time.js';
 import {readLinkRecords,readRecordPages,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {followPane} from './follow-pane.js';
+let wdFollowed=null; // UI-칸안스크롤하나로: 상세 칸이 마지막으로 머리부터 보여 준 조직
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn} from './basket-note-tasks.js';
 import {categoryTag,categoryOf,documentCategories,loadDocumentCategories} from './document-categories.js';
@@ -387,6 +389,8 @@ const wdDocked=()=>document.querySelector('#wdModal')?.dataset.wdDocked==='1';
 function wdSplit(){const sec=document.querySelector('#soTeamSection');if(sec)mountSplitResize({container:sec,name:'team',label:'담당조직 목록과 상세 칸 폭 조절',list:()=>document.querySelector('#soOrganizationList'),pane:()=>document.querySelector('#wdDetailPane'),active:wdSplitWanted})}
 function wdPlace(){
   const m=document.querySelector('#wdModal'),pane=document.querySelector('#wdDetailPane');if(!m)return false;wdSplit();
+  // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 상세 칸은 화면에 붙어 따라오고, 다른 조직을 열면 머리부터 보인다.
+  if(pane&&wdSplitWanted()){followPane(pane,{reset:wdFollowed!==wdTargetId});wdFollowed=wdTargetId}
   const dock=wdSplitWanted(),open=!m.classList.contains('hidden');
   if(dock&&wdDocked()&&m.parentElement===pane){pane.classList.toggle('has-org',open);return true}
   if(!dock&&!wdDocked())return false;

@@ -227,21 +227,23 @@ for(const width of [1280,1440]){
     await page.locator('[data-gt-edit="a"]').click();
     await expect(pane.locator('[data-gt-link]')).toHaveCount(70);
     await expect(save).toBeEnabled();
-    // 연결 목록이 길어 칸은 실제로 세로로 넘친다.
-    const over=await pane.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight}));expect(over.sh).toBeGreaterThan(over.ch*2);
+    // 연결 목록이 길어 칸은 화면보다 길다. UI-칸안스크롤하나로: 칸 안에는 따로 스크롤이 없고(넘침 없음) 화면 스크롤 하나로 읽는다.
+    const over=await pane.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY,h:e.getBoundingClientRect().height,ih:innerHeight}));
+    expect(over.h).toBeGreaterThan(over.ih);expect(over.oy).toBe('visible');expect(over.sh).toBeLessThanOrEqual(over.ch+1);
     // UI-저장자리: 저장은 칸 맨 아래 줄 오른쪽 끝에 있고 처음부터 화면 안에 있다. 제목 줄에는 없다.
     await expect(save).toBeInViewport();
     expect(await save.evaluate(e=>e.closest('.modal-action-footer')!==null)).toBe(true);
     await expect(pane.locator('.modal-head #gtSaveBtn')).toHaveCount(0);
     const spot=async()=>({pane:await pane.boundingBox(),save:await save.boundingBox(),close:await close.boundingBox(),head:await pane.locator('.modal-head').boundingBox()});
-    const first=await spot();
-    expect(first.pane.y+first.pane.height-(first.save.y+first.save.height)).toBeLessThan(40);
+    const first=await spot(),vh=await page.evaluate(()=>innerHeight);
+    // 처음에는 칸 끝이 화면 아래로 넘어가 있고, [저장] 줄은 화면 맨 아래에 붙어 보인다(칸 오른쪽 끝).
+    expect(vh-(first.save.y+first.save.height)).toBeLessThan(40);
     expect(first.pane.x+first.pane.width-(first.save.x+first.save.width)).toBeLessThan(40);
-    // 맨 아래까지 스크롤해도 [저장]과 제목 줄(닫기)은 그 자리에 그대로.
-    await pane.evaluate(e=>{e.scrollTop=e.scrollHeight});
-    expect(await pane.evaluate(e=>e.scrollTop)).toBeGreaterThan(200);
+    // 화면을 맨 아래까지 넘겨도 [저장]과 제목 줄(닫기)은 화면 안에 보인다(제목 줄은 화면 위에 붙음).
+    await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+    expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(200);
     const last=await spot();
-    expect(Math.abs(last.head.y-last.pane.y)).toBeLessThanOrEqual(2);expect(Math.abs(last.save.y-first.save.y)).toBeLessThanOrEqual(2);
+    expect(last.head.y).toBeGreaterThanOrEqual(-1);expect(last.head.y).toBeLessThanOrEqual(2);
     await expect(save).toBeInViewport();await expect(close).toBeInViewport();
     // 스크롤한 채로 저장 → 같은 update 경로, 안내("저장했습니다.")도 아래 줄 안에서 보인다.
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='고친 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
@@ -262,7 +264,7 @@ for(const width of [1280,1440]){
     });
     const pane=page.locator('#gtDetailPane');
     await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('[data-gt-link]')).toHaveCount(41);await expect(pane.locator('#gtSaveBtn')).toBeEnabled();
-    await pane.evaluate(e=>{e.scrollTop=e.scrollHeight});
+    await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='바꾼 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
     await pane.locator('#gtSaveBtn').click();
     const status=pane.locator('#gtEditStatus');

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { openHome } from './helpers/home-entry.mjs';
+import { innerScrollers, docScroll } from './helpers/one-scroll.mjs';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절): Web2 '아스날' 메뉴(?view=arsenal).
 // 메뉴 창 맨 아래(폰)·사이드바 맨 아래 묶음 끝(PC), 경기 자료 app/arsenal/matches.js는 이 화면을 처음 열 때만 한 번 불러온다.
 // 시즌·대회·상대 검색 거르기, 목록 → 리뷰(폰은 한 칸 + 뒤로가기 = 목록, PC는 두 칸), 바깥 링크는 https·새 탭.
@@ -119,5 +120,35 @@ test('아스날 PC 1280: 사이드바 맨 아래에서 열고, 목록·리뷰 �
   expect(detail.width).toBeGreaterThan(list.width);
   expect(await noWideScroll(page)).toBe(true);
   expect(f.data).toHaveLength(1);
+  expect(f.errors).toEqual([]);
+});
+
+// UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A + 접힘 표시)
+test('아스날 PC 1440: 스크롤 막대는 화면 하나, 아래쪽 옛 경기를 눌러도 리뷰가 바로 보이고, 접힌 칸에 펼침 표시', async ({ page }) => {
+  const f = await start(page, 1440);
+  await openArsenal(page, 1440);
+  await expect(rows(page)).toHaveCount(ALL.length);
+  await expect(review(page)).toBeVisible();
+  // 목록 칸·리뷰 칸 어디에도 따로 스크롤이 없고, 문서만 세로로 넘어간다(경기가 많아 화면보다 김).
+  expect(await innerScrollers(page, '#arsenalView')).toEqual([]);
+  const d = await docScroll(page);
+  expect(d.over).toBeGreaterThan(1000); expect(d.wide).toBeLessThanOrEqual(0);
+  await expect(page.locator('#arsenalRoot [data-ars-list]')).toHaveCSS('overflow-y', 'visible');
+  // 맨 아래 옛 경기를 누르면 리뷰가 화면 안에(머리부터) 보인다.
+  const last = rows(page).last();
+  await last.scrollIntoViewIfNeeded(); await last.click();
+  await expect(review(page)).toHaveAttribute('data-ars-review', await last.getAttribute('data-ars-row'));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
+  await expect(review(page)).toBeInViewport();
+  const head = await review(page).boundingBox();
+  expect(head.y).toBeGreaterThanOrEqual(0); expect(head.y).toBeLessThan(200);
+  // 접힌 칸 제목 앞 펼침 표시: 접힘 ▸, 펼침 ▾(기본 표시는 숨김).
+  const marks = await review(page).locator('.ars-sec').evaluateAll(list => list.map(d => ({ open: d.open, mark: getComputedStyle(d.querySelector('summary'), '::before').content })));
+  expect(marks.length).toBeGreaterThan(1);
+  for (const m of marks) expect(m.mark).toBe(m.open ? '"▾"' : '"▸"');
+  const key = await review(page).locator('.ars-sec:not([open])').first().getAttribute('data-ars-sec');
+  const closed = review(page).locator(`.ars-sec[data-ars-sec="${key}"] summary`);
+  await closed.click(); await expect(review(page).locator(`.ars-sec[data-ars-sec="${key}"]`)).toHaveAttribute('open', '');
+  expect(await closed.evaluate(s => getComputedStyle(s, '::before').content)).toBe('"▾"');
   expect(f.errors).toEqual([]);
 });

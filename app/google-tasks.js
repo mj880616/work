@@ -11,6 +11,7 @@ import { readTaskSourceNotes, requestBasketNote, takeTaskOpenRequest, basketNote
 import { readTaskFiles, fileLinksHtml, attachmentRowsHtml, splitTaskNotes, joinTaskNotes, taskAttachments, openTaskFilesDialog, taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
 import { paintFreshness } from './data-freshness.js';
 import { mountSplitResize } from './split-resize.js';
+import { followPane } from './follow-pane.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
 (()=>{
 'use strict';
@@ -82,7 +83,8 @@ const pcColumns=()=>!!PC?.matches;
 function syncSplit(){const sec=document.querySelector('#gtTaskSection');if(sec)mountSplitResize({container:sec,name:'tasks',label:'할 일 목록과 상세 칸 폭 조절',list:()=>sec.querySelector('.gt-cols'),pane:()=>sec.querySelector('#gtDetailPane'),active:()=>sec.classList.contains('gt-pc')&&pcColumns()&&tasksViewShown()})}
 const isDocked=()=>document.querySelector('#gtTaskModal')?.dataset.gtDocked==='1';
 // UI-저장자리(2026-10-27): [저장]과 상태 글은 팝업이든 PC 상세 칸이든 아래 줄(.modal-action-footer) 오른쪽 아래에 둔다. 예전에는 PC 상세 칸에서 제목 줄로 옮겨 있었다(2026-10-20).
-function placeEditor(docked){const m=ensureModal(),pane=document.querySelector('#gtDetailPane');if(docked&&pane){if(m.parentElement!==pane)pane.append(m);m.classList.add('gt-docked');m.setAttribute('role','region');m.removeAttribute('aria-modal');m.dataset.gtDocked='1';pane.classList.add('has-task');return}if(m.parentElement!==document.body)document.body.append(m);m.classList.remove('gt-docked');m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');delete m.dataset.gtDocked;pane?.classList.remove('has-task')}
+// UI-칸안스크롤하나로(시안 A): PC 상세 칸은 따로 스크롤 없이 화면에 붙어 따라오고(follow-pane.js), 할 일을 열 때마다 칸 머리부터 보인다.
+function placeEditor(docked){const m=ensureModal(),pane=document.querySelector('#gtDetailPane');if(docked&&pane){if(m.parentElement!==pane)pane.append(m);m.classList.add('gt-docked');m.setAttribute('role','region');m.removeAttribute('aria-modal');m.dataset.gtDocked='1';pane.classList.add('has-task');followPane(pane);return}if(m.parentElement!==document.body)document.body.append(m);m.classList.remove('gt-docked');m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');delete m.dataset.gtDocked;pane?.classList.remove('has-task')}
 // The card whose task is open in the pane is marked (one place, after every render and every open or close).
 function paintSelection(){const id=isDocked()&&!document.querySelector('#gtTaskModal').classList.contains('hidden')?editing?.id:'';document.querySelectorAll('#gtTaskBody [data-gt-edit]').forEach(b=>{const on=!!id&&b.dataset.gtEdit===id;b.closest('.gt-row')?.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
 const linkKey=l=>l?.project_id?'p:'+l.project_id:l?.meeting_id?'m:'+l.meeting_id:'o:'+(l?.organization_id||'');

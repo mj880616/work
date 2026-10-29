@@ -1529,3 +1529,14 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
    상세 사업 보고 줄에서 쓰는데, 모양이 사업 보고 화면 전용 CSS(meeting-ui.css)에만 있어 다른 화면에서는 '교육가상 회의 6'처럼 이름에 붙어 보였다.
    모든 화면이 읽는 이 파일 한 곳으로 옮겼다(값은 그대로). */
 .report-kind-tag{display:inline-block;margin-right:4px;padding:0 5px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);font-size:11px;line-height:16px;color:var(--kptu-muted);vertical-align:1px}
+
+/* UI-칸안스크롤하나로 ②(2026-10-30 사용자 결정 '접힘 표시'): 제목 줄을 flex로 그려 기본 펼침 표시가 사라진 접힌 칸에 앱의 다른 접힌 칸과
+   같은 ▸(접힘)/▾(펼침)를 제목 앞에 붙인다. ⋯ 메뉴·'+ 블록'·'더 보기'처럼 글자가 이미 동작을 말하는 칸, 표 한 줄(.mff-row)은 넣지 않는다. */
+:is(#appView #journalView details.journal-calref,#appView #journalView details.journal-others,#appView #journalView details.journal-overdue,
+    #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,#profileView details.ps-release)>summary{list-style:none}
+:is(#appView #journalView details.journal-calref,#appView #journalView details.journal-others,#appView #journalView details.journal-overdue,
+    #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,#profileView details.ps-release)>summary::-webkit-details-marker{display:none}
+:is(#appView #journalView details.journal-calref,#appView #journalView details.journal-others,#appView #journalView details.journal-overdue,
+    #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,#profileView details.ps-release)>summary::before{content:"\25B8";flex:none;margin-right:4px;font-size:10px;color:var(--kptu-muted)}
+:is(#appView #journalView details.journal-calref,#appView #journalView details.journal-others,#appView #journalView details.journal-overdue,
+    #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,#profileView details.ps-release)[open]>summary::before{content:"\25BE"}

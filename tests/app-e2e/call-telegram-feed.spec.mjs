@@ -2,6 +2,7 @@
 // 서버는 흉내(app_feed_items·app_feed_days·조직 기록)이고 고정·지우기·조직 연결을 기억한다. 이름·방·내용은 모두 지어낸 것이다.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {innerScrollers,docScroll} from './helpers/one-scroll.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const ORG='30000000-0000-4000-8000-0000000000c1';
@@ -24,9 +25,11 @@ const days=[
  {workspace_id:'w',day:'2026-10-06',source:'telegram',total_count:412,kept_count:2,room_count:2,personal_count:0,unsure_count:0,failed_count:0},
 ];
 
-async function fixture(page,{width=1280,missing=false,empty=false}={}){
+async function fixture(page,{width=1280,missing=false,empty=false,many=0}={}){
  await page.setViewportSize({width,height:860});
  const items=empty?[]:rows(),writes=[],errors=[];
+ // UI-칸안스크롤하나로 시험: 목록이 화면보다 길도록 지어낸 통화 줄을 더한다(10. 4. 하루, 시각만 다름).
+ for(let i=0;i<many;i++)items.push({...base,id:`61000000-0000-4000-8000-${String(i).padStart(12,'0')}`,source:'call',day:'2026-10-04',occurred_at:`2026-10-04T0${Math.floor(i/60)%4}:${String(i%60).padStart(2,'0')}:00Z`,room_key:null,room_label:null,title:`가상 통화 ${i+1}`,summary:null,points:[],counterpart:null,speaker_split:false,raw_count:0,organization_id:null,raw_text:null});
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!/Failed to load resource/.test(e.text()))errors.push(e.text());});
  await openHome(page,{beforeLoad:async()=>{
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_items',r=>{
@@ -261,5 +264,24 @@ test('빈 상태: 표는 있고 줄이 없으면 빈 한 줄',async({page})=>{
  await openMenu(page,390,'텔레그램 소식');
  await expect(page.locator('#telegramView [data-tg-empty="none"][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#telegramView [data-tg-today]')).toHaveText('오늘 받은 소식 없음');
+ expect(f.errors).toEqual([]);
+});
+
+// UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): PC 통화 화면은 스크롤 막대 하나(목록·상세 칸에 따로 스크롤 없음), 상세는 화면에 붙어 따라온다.
+test('통화 PC 1440: 목록이 길어도 칸 안 스크롤 없이 화면 스크롤 하나, 아래쪽 통화를 눌러도 상세가 바로 보임',async({page})=>{
+ const f=await fixture(page,{width:1440,many:40});
+ await openMenu(page,1440,'통화');
+ const view=page.locator('#callsView');await expect(view).toBeVisible();
+ await expect(view.locator('[data-cf-row]')).toHaveCount(43);
+ await view.locator(`[data-cf-row="${C1}"]`).click();
+ await expect(view.locator('#cfDetail [data-cf-meta]')).toBeVisible();
+ expect(await innerScrollers(page,'#callsView')).toEqual([]);
+ const d=await docScroll(page);expect(d.over).toBeGreaterThan(300);expect(d.wide).toBeLessThanOrEqual(0);
+ await expect(view.locator('#cfList')).toHaveCSS('overflow-y','visible');await expect(view.locator('#cfDetail')).toHaveCSS('position','sticky');
+ const last=view.locator('[data-cf-row]').last();await last.scrollIntoViewIfNeeded();await last.click();
+ await expect(view.locator('#cfDetail [data-cf-meta]')).toContainText('10. 4. (일)');
+ expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(200);
+ await expect(view.locator('#cfDetail [data-cf-meta]')).toBeInViewport();
+ expect(await innerScrollers(page,'#callsView')).toEqual([]);
  expect(f.errors).toEqual([]);
 });
