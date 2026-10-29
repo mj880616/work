@@ -1,5 +1,5 @@
 import {
-  AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_MAX, GRAPH_BATCH_PHOTOS, graphNextLink, insideFolder,
+  AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, cleanFolderName, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_MAX, GRAPH_BATCH_PHOTOS, graphNextLink, insideFolder,
   isMediaMime, LIBRARY_DEFAULT, LIBRARY_MAX, LIBRARY_SCAN_PAGES, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, MEDIA_URL_TTL_S, mediaFields,
   MOVE_MAX, PHOTO_URLS_MAX, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed, seoulDay, SIZES, STAR_IDS_MAX,
   SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, TRASH_PURGE_STEP, validItemId,
@@ -11,6 +11,8 @@ import type { OneDriveItem } from "./graph.ts";
 // 사진 메뉴 ①(PHOTO-사진메뉴): 최신순 쪽 읽기(library)·달별(months)·날별(days) 장수, 재생·받기 주소(media-url), 여러 장 지우기,
 //   지운 사진은 고른 폴더 안 'Web2 휴지통' 폴더로 옮기고(되살리기 trash-restore, 30일 뒤 원드라이브 휴지통), 동영상·크기·위치·sha1 색인.
 //   권한 범위·소유자 확인·폴더 밖 거절은 그대로다(DB 20261028220000 적용 뒤 배포).
+// 사진 메뉴 ②(폴더 보기): 새 폴더(folder-create)·이름 바꾸기(folder-rename)·폴더 옮기기(folder-move)·빈 폴더 지우기(folder-delete)·
+//   여러 장 폴더로 옮기기(photos-move). 모두 고른 맨 위 폴더 안에서만(색인 폴더 나무 + Graph 경로 이중 확인), 권한 범위는 그대로(Files.ReadWrite).
 // 로그인한 작업공간 소유자만 쓴다. 갱신 토큰은 service role로만 읽고 쓰며 응답·로그에 싣지 않는다.
 // 비밀값이 없으면 status가 configured:false로 답하고 나머지 동작은 424 onedrive_not_configured 로 멈춘다.
 const cors = {
@@ -886,6 +888,114 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       return json({ purged, failed: Object.fromEntries(failed) });
     },
 
+    // ── 사진 메뉴 ②: 폴더 보기 ─────────────────────────────────────────────────────────────
+    // 새 폴더: 맨 위 폴더 또는 그 아래 폴더(휴지통 제외) 안에. 같은 이름이 있으면 409 onedrive_name_taken(덮어쓰지 않음).
+    async "folder-create"({ workspaceId, body }) {
+      const w = await folderWrite(workspaceId);
+      const name = cleanFolderName(body.name);
+      if (!validItemId(body.parent_id) || !name) throw new Fail(400, "onedrive_request_invalid");
+      const parent = body.parent_id;
+      inTree(w, parent);
+      await folderInTop(w.token, parent, w.folder);
+      const r = await call("onedrive_folder_create", `${GRAPH}/me/drive/items/${encodeURIComponent(parent)}/children`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${w.token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name, folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
+      });
+      if (r.status === 409) throw new Fail(409, "onedrive_name_taken");
+      graphCheck("onedrive_folder_create", r, "onedrive_folder_missing");
+      const item = (await bodyJson(r)) as OneDriveItem;
+      if (!item.folder || !validItemId(item.id) || item.parentReference?.id !== parent) {
+        log("onedrive_folder_create_invalid");
+        throw new Fail(502, "onedrive_unavailable");
+      }
+      const made = typeof item.name === "string" && item.name ? item.name.slice(0, 400) : name;
+      await upsertRows("onedrive_folder_save_failed:create", FOLDERS, [{
+        workspace_id: workspaceId, item_id: item.id, parent_id: parent, name: made, enabled: true, updated_at: new Date(now()).toISOString(),
+      }]);
+      return json({ folder: { id: item.id, name: made, parent_id: parent } });
+    },
+
+    // 폴더 이름 바꾸기. 맨 위 폴더 자체는 거절(연결 기준이 바뀜). 같은 이름이 있으면 409.
+    async "folder-rename"({ workspaceId, body }) {
+      const w = await folderWrite(workspaceId);
+      const name = cleanFolderName(body.name);
+      if (!validItemId(body.folder_id) || !name || body.folder_id === w.folder.id) throw new Fail(400, "onedrive_request_invalid");
+      const id = body.folder_id;
+      inTree(w, id);
+      await folderInTop(w.token, id, w.folder);
+      const r = await patchItem("onedrive_folder_rename", w.token, id, { name });
+      const made = typeof r.name === "string" && r.name ? r.name.slice(0, 400) : name;
+      const { error } = await admin.from(FOLDERS).update({ name: made, updated_at: new Date(now()).toISOString() }).eq("workspace_id", workspaceId).eq("item_id", id);
+      if (error) dbFail("onedrive_folder_save_failed:rename", error);
+      return json({ folder: { id, name: made } });
+    },
+
+    // 폴더를 다른 폴더 아래로. 맨 위 폴더·자기 자신·자기 아래로는 거절. 같은 이름이 옮길 곳에 있으면 409.
+    async "folder-move"({ workspaceId, body }) {
+      const w = await folderWrite(workspaceId);
+      if (!validItemId(body.folder_id) || !validItemId(body.parent_id) || body.folder_id === w.folder.id || body.folder_id === body.parent_id) {
+        throw new Fail(400, "onedrive_request_invalid");
+      }
+      const id = body.folder_id, parent = body.parent_id;
+      inTree(w, id);
+      inTree(w, parent);
+      if (below(w, id).has(parent)) throw new Fail(400, "onedrive_request_invalid");
+      if (w.tree.byId.get(id)?.parent_id === parent) return json({ folder: { id, parent_id: parent }, moved: false });
+      await folderInTop(w.token, id, w.folder);
+      await folderInTop(w.token, parent, w.folder);
+      await patchItem("onedrive_folder_move", w.token, id, { parentReference: { id: parent } });
+      const { error } = await admin.from(FOLDERS).update({ parent_id: parent, updated_at: new Date(now()).toISOString() }).eq("workspace_id", workspaceId).eq("item_id", id);
+      if (error) dbFail("onedrive_folder_save_failed:move", error);
+      return json({ folder: { id, parent_id: parent }, moved: true });
+    },
+
+    // 빈 폴더 지우기(원드라이브 휴지통으로, 원드라이브에서 30일 보관). 색인에 하위 폴더·사진이 있거나 원드라이브에 다른 파일이라도 있으면
+    // 409 onedrive_folder_not_empty(사진이 아닌 파일이 함께 지워지지 않게). 사진 든 폴더째 휴지통은 ③단계. confirm:true 필수.
+    async "folder-delete"({ workspaceId, body }) {
+      const w = await folderWrite(workspaceId);
+      if (!validItemId(body.folder_id) || body.confirm !== true || body.folder_id === w.folder.id) throw new Fail(400, "onedrive_request_invalid");
+      const id = body.folder_id;
+      inTree(w, id);
+      if ((w.tree.kids.get(id) || []).length) throw new Fail(409, "onedrive_folder_not_empty");
+      const { data, error } = await admin.from(PHOTOS).select("item_id").eq("workspace_id", workspaceId).eq("parent_id", id).range(0, 0);
+      if (error) dbFail("onedrive_index_read_failed:folder_delete", error);
+      if (Array.isArray(data) && data.length) throw new Fail(409, "onedrive_folder_not_empty");
+      await folderInTop(w.token, id, w.folder);
+      const kids = await graph("onedrive_folder_children", w.token, `/me/drive/items/${encodeURIComponent(id)}/children?$select=id&$top=1`);
+      graphCheck("onedrive_folder_children", kids, "onedrive_folder_missing");
+      const d = await bodyJson(kids);
+      if (!Array.isArray(d.value) || d.value.length) throw new Fail(409, "onedrive_folder_not_empty");
+      const r = await call("onedrive_folder_delete", `${GRAPH}/me/drive/items/${encodeURIComponent(id)}`, {
+        method: "DELETE", headers: { Authorization: `Bearer ${w.token}` },
+      });
+      if (r.status !== 404) graphCheck("onedrive_folder_delete", r, "onedrive_folder_missing");
+      await deleteIn("onedrive_index_delete_failed:folder", FOLDERS, workspaceId, "item_id", [id]);
+      return json({ deleted: true });
+    },
+
+    // 여러 장(ids ≤ 50)을 한 폴더로 옮기기(원드라이브에서도 실제 이동, 같은 이름이면 원드라이브가 이름을 바꿔 넣음 = 덮어쓰지 않음).
+    // 옮길 곳은 맨 위 폴더 또는 그 아래 폴더(휴지통 제외). 하나라도 고른 폴더 밖이면 하나도 옮기지 않는다(403). 휴지통 안 사진은 trash-restore로.
+    // 답의 moved[].from(원래 폴더 id)으로 화면이 되돌리기(같은 동작으로 원래 폴더에)를 한다.
+    async "photos-move"({ workspaceId, body }) {
+      const { conn, folder, ids } = await writeRequest(workspaceId, body, false);
+      if (!validItemId(body.parent_id)) throw new Fail(400, "onedrive_request_invalid");
+      const target = body.parent_id;
+      const tree = folderTree(await readFolders(workspaceId), folder.id);
+      if (!tree.reach.has(target)) throw new Fail(404, "onedrive_folder_missing");
+      const token = await accessToken(workspaceId, conn);
+      await folderInTop(token, target, folder);
+      const trashId = await readTrashId(workspaceId);
+      const { ok, failed, retryAfter } = await checkMedia(token, ids, folder, (it) => trashId && it.parentReference?.id === trashId ? "in_trash" : null);
+      if ([...failed.values()].includes("outside")) throw new Fail(403, "onedrive_outside_folder");
+      const here = [...ok.values()].filter((it) => it.parentReference?.id === target);
+      const moved = await moveItems(token, [...ok.values()].filter((it) => it.parentReference?.id !== target), target, failed);
+      await indexMoved(workspaceId, moved.done, { parent_id: target });
+      const wait = Math.max(retryAfter, moved.retryAfter);
+      const out = [...[...moved.done].map(([id, m]) => ({ id, from: m.from, name: m.name })), ...here.map((it) => ({ id: it.id, from: target, name: null }))];
+      return json({ moved: out, failed: Object.fromEntries(failed), ...(wait ? { retry_after: wait } : {}) });
+    },
+
     async disconnect({ workspaceId }) {
       cached.delete(workspaceId);
       await clearIndexRows(workspaceId);
@@ -894,6 +1004,44 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       return json({ connected: false });
     },
   };
+
+  // 폴더 쓰기 공통(사진 메뉴 ②): 연결·맨 위 폴더·쓰기 권한 범위·접근 토큰·색인 폴더 나무.
+  async function folderWrite(workspaceId: string) {
+    const conn = await readConnection(workspaceId);
+    const folder = folderOf(conn);
+    if (!scopeAllowed(normalizeScopes(conn!.scope))) throw new Fail(424, "onedrive_reconnect_needed");
+    const tree = folderTree(await readFolders(workspaceId), folder.id);
+    const token = await accessToken(workspaceId, conn!);
+    return { conn: conn!, folder, tree, token };
+  }
+  // 색인 폴더 나무(맨 위 폴더에서 이어지는 폴더, 휴지통과 그 아래 제외)에 있어야 한다. 없으면 404.
+  const inTree = (w: { tree: ReturnType<typeof folderTree> }, id: string) => {
+    if (!w.tree.reach.has(id)) throw new Fail(404, "onedrive_folder_missing");
+  };
+  // 그 폴더 아래 모든 폴더 id(자기 포함).
+  function below(w: { tree: ReturnType<typeof folderTree> }, id: string) {
+    const out = new Set<string>([id]), stack = [id];
+    while (stack.length) for (const k of w.tree.kids.get(stack.pop()!) || []) if (!out.has(k.item_id)) { out.add(k.item_id); stack.push(k.item_id); }
+    return out;
+  }
+  // 원드라이브에서도 맨 위 폴더(자기) 또는 그 아래 폴더인지(경로) 확인한다. 아니면 403(폴더 밖)·404(폴더 아님·없음).
+  async function folderInTop(token: string, id: string, folder: { id: string; path: string }) {
+    const item = await getItem(token, id, "id,name,folder,parentReference");
+    if (item.id !== id || !item.folder) throw new Fail(404, "onedrive_folder_missing");
+    if (id !== folder.id && !insideFolder(item.parentReference?.path, folder.path)) throw new Fail(403, "onedrive_outside_folder");
+    return item;
+  }
+  // 항목 하나 고치기(이름·부모). 같은 이름이 있으면 덮어쓰지 않고 409 onedrive_name_taken.
+  async function patchItem(stage: string, token: string, id: string, patch: Record<string, unknown>) {
+    const r = await call(stage, `${GRAPH}/me/drive/items/${encodeURIComponent(id)}?@microsoft.graph.conflictBehavior=fail`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (r.status === 409) throw new Fail(409, "onedrive_name_taken");
+    graphCheck(stage, r, "onedrive_folder_missing");
+    return (await bodyJson(r)) as OneDriveItem;
+  }
 
   // 사진·동영상이 맞고 고른 폴더 안에 있는지 확인한다(읽기·지우기가 함께 쓴다). 아니면 404(사진·동영상 아님·없음) 또는 403(폴더 밖).
   async function photoInFolder(token: string, id: string, folder: { path: string }) {

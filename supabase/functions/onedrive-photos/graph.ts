@@ -38,6 +38,17 @@ export const TRASH_LIST_MAX = 2000;
 // 동영상 재생·원본 받기 주소(media-url): Microsoft가 주는 사전 인증 주소는 약 1시간 산다. 화면은 이 초만큼만 쓰고 다시 받는다.
 export const MEDIA_URL_TTL_S = 3000;
 
+// 사진 메뉴 ②(폴더 보기, 2026-10-29): 폴더 만들기·이름 바꾸기의 이름 규칙. 원드라이브가 거절하는 글자(" * : < > ? / \ |)·제어 글자,
+// 앞뒤 공백·끝의 점, 1~200자 밖은 받지 않는다. Web2 휴지통 이름은 만들 수 없다(휴지통 폴더와 헷갈림). 맞으면 다듬은 이름, 아니면 null.
+export const FOLDER_NAME_MAX = 200;
+export function cleanFolderName(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const name = v.normalize("NFC").trim();
+  if (!name || [...name].length > FOLDER_NAME_MAX || /["*:<>?/\\|\u0000-\u001f\u007f]/.test(name) || name.endsWith(".")) return null;
+  if (name === TRASH_NAME || name === "." || name === "..") return null;
+  return name;
+}
+
 // Retry-After(초 또는 날짜)를 1~3600초로 읽는다. 없거나 이상하면 30초.
 export function retryAfterSeconds(v: string | null, nowMs: number): number {
   if (v && /^\d{1,6}$/.test(v.trim())) return Math.min(3600, Math.max(1, Number(v.trim())));
