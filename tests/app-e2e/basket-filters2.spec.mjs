@@ -64,7 +64,7 @@ async function capture(page,info,name){
 }
 async function enter(page,width){
  await tap(page,page.locator('.mobile-tabs [data-view="basket"]:visible,.app-nav [data-view="basket"]:visible'),width);
- await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText(/개 업데이트/);
+ await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#basketView [data-basket-row]').first()).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText('');
  await tap(page,page.locator('#basketView [data-basket-filter="classified"]'),width);
 }
 

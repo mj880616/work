@@ -213,7 +213,7 @@
 
 /* SHARE-보관함·HTML공유: 목록 머리 숫자·[+ HTML], 줄 종류 꼬리표, 보관함 안 옛 Web1 카드, HTML 창(격리 칸 미리 보기). */
 #appView #pagesView .sp-count{ font-variant-numeric:tabular-nums; color:var(--kptu-muted); font-weight:var(--ds-weight-regular); }
-#appView #pagesView .sp-head-actions{ display:flex; align-items:center; gap:6px; flex:none; }
+#appView #pagesView .sp-head-actions{ display:flex; align-items:center; gap:6px; flex:none; margin-left:auto; }
 #appView #pagesView .sp-kind{ flex:none; padding:1px 6px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #pagesView .sp-box > .w1b-legacy{ margin-top:6px; }
 #appView #pagesView .sp-box > .w1b-legacy .w1b-archive{ margin-top:0; }
@@ -238,4 +238,10 @@
   #appView #pagesView .sh-modal{ padding:0; place-items:stretch; }
   #appView #pagesView .sh-card{ width:100vw; height:100dvh; max-width:none; max-height:100dvh; border:0; border-radius:0; box-shadow:none; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); }
   #appView #pagesView .sh-fields{ grid-template-columns:minmax(0,1fr); }
+}
+
+/* UI-전수디자인점검 F13(UI-화면정리 C 추가 버튼 자리): 폰 위가 아닌 폭(761px~)의 머리 오른쪽 [+ 새 공유 페이지]는 다른 화면의 [+ ○○]처럼 주 색 채움.
+   [+ HTML]은 테두리 작은 버튼 그대로. 폰은 ui-standard.css의 동그란 [+] 규칙 그대로. */
+@media (min-width:761px){
+  #appView #pagesView .sp-root .sp-head button.primary[data-sp-new]{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
 }

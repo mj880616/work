@@ -86,7 +86,8 @@ for(const width of [390,1440]){
     test.use({viewport:{width,height:width===390?844:900},timezoneId:'Asia/Seoul'});
     test('library list card keeps add action and opens the same form',async({page})=>{
       await openApp(page,'library');
-      await assertPlaced(page,width,{card:'#libraryListCard',head:'.add-list-head',button:'#newDocumentBtn',title:'h2'});
+      // UI-전수디자인점검 F11: PC는 목록 칸 머리가 아니라 검색 칸 오른쪽(화면 머리 오른쪽 자리).
+      await assertPlaced(page,width,{card:'#libraryView .library-filter-toolbar',head:'.lu-search-row',button:'#newDocumentBtn',title:'#documentSearch'});
       // UI-자료실편집버튼(2026-10-21): 분류 편집은 목록 머리가 아니라 [종류] 칩 줄 맨 끝의 작은 [편집]. 머리에는 [+ 자료 등록]만.
       await expect(page.locator('#libraryListCard .add-list-head #manageLibraryBtn')).toHaveCount(0);
       const edit=page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn');

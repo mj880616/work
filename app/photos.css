@@ -3,6 +3,11 @@
 #appView #photosView .photos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); background:var(--kptu-bg); }
 #appView #photosView .photos-chips{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; min-width:0; }
+/* UI-전수디자인점검 F02: 폰은 칩 줄이 한 줄을 다 쓰고, [전체 ▾]·[－][＋]는 그 아래 줄 오른쪽(칩이 잘리거나 고르기 칸 밑에 숨지 않게). */
+@media(max-width:760px){
+  #appView #photosView .photos-bar{ flex-wrap:wrap; row-gap:4px; }
+  #appView #photosView .photos-chips{ flex:1 0 100%; }
+}
 #appView #photosView .photos-chip{ position:relative; flex:none; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 12px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px);
   color:var(--kptu-muted); background:transparent; box-shadow:none; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-regular,400); }
 #appView #photosView .photos-chip[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }

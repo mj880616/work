@@ -61,7 +61,7 @@ async function capture(page,info,name){
 }
 async function enter(page,width){
  await tap(page,page.locator('.mobile-tabs [data-view="basket"]:visible,.app-nav [data-view="basket"]:visible'),width);
- await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText(/개 업데이트/);
+ await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#basketView [data-basket-row]').first()).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText('');
 }
 
 for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분류][분류][보류] segment and [분류] place chips ${width} ${scheme}`,async({page},info)=>{
@@ -168,6 +168,6 @@ test('a segment tap during the first basket read keeps the loading line and then
  }
  release();
  await expect(page.locator(`[data-basket-row="${PLAIN}"]`)).toBeVisible();
- await expect(status).toHaveText('2개 업데이트');
+ await expect(page.locator('#basketView [data-basket-row]')).toHaveCount(2);await expect(status).toHaveText('');
  expect(f.errors).toEqual([]);
 });

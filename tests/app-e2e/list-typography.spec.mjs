@@ -85,12 +85,12 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
  }
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
  // UI-디자인기준 2/3(8-9d): 일정 제목 18px·일정/할 일 버튼 13px(새 기준). 3/3(8-9e-1): 자료실 상자 제목·버튼 13px.
- const selectors={calendar:['#monthTitle','#newEventBtn','#prevMonthBtn'],tasks:['#gtTaskBody'],library:['#libraryListCard h2','#libraryListCard button','#libraryView #manageLibraryBtn'],menu:['.app-nav [data-view="meetings"]','#appView [data-account-open]']};
+ const selectors={calendar:['#monthTitle','#newEventBtn','#prevMonthBtn'],tasks:['#gtTaskBody'],library:['#libraryListCard h2','#libraryView #newDocumentBtn','#libraryView #manageLibraryBtn'],menu:['.app-nav [data-view="meetings"]','#appView [data-account-open]']};
  for(const [name,selectorsForView]of Object.entries(selectors)){
   if(name!=='menu'){await view(page,name);await view(original,name);}
   // 8-9e-2: phone add buttons of calendar·tasks are the round [+] (no label text); covered by ui-standard-3b.
-  for(const selector of selectorsForView){if(width<=760&&['#newEventBtn','#newTaskBtn','#libraryListCard button'].includes(selector))continue;// 폰의 자료실 머리 버튼은 글자 없는 동그란 [+](분류 편집은 종류 칩 줄로 옮김, 아래 #manageLibraryBtn으로 검사)
-  await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#prevMonthBtn'?'24px':['#newEventBtn','#newTaskBtn','#libraryListCard h2','#libraryListCard button','#libraryView #manageLibraryBtn'].includes(selector)?'13px':selector==='#monthTitle'?'18px':await fonts(original));}
+  for(const selector of selectorsForView){if(width<=760&&['#newEventBtn','#newTaskBtn','#libraryView #newDocumentBtn'].includes(selector))continue;// 폰의 자료실 머리 버튼은 글자 없는 동그란 [+](분류 편집은 종류 칩 줄로 옮김, 아래 #manageLibraryBtn으로 검사)
+  await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#prevMonthBtn'?'24px':['#newEventBtn','#newTaskBtn','#libraryListCard h2','#libraryView #newDocumentBtn','#libraryView #manageLibraryBtn'].includes(selector)?'13px':selector==='#monthTitle'?'18px':await fonts(original));}
  }
  for(const p of [page,original])await p.goto(`${appOrigin}/press/`);
  for(const selector of ['h1','.item h3','.date','.tag','.filter']){

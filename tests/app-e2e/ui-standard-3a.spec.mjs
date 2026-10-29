@@ -154,7 +154,7 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
  const selected=await look(page.locator('#libraryCategoryFilter [aria-pressed="true"]').first());
  expect(selected.bg).toBe(await token(page,'--ds-select-bg'));expect(selected.fg).toBe(await token(page,'--ds-select-ink'));
- const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
+ const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(36);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  await noOverflow(page);
  expect(errors).toEqual([]);
 });

@@ -23,6 +23,8 @@
 .basket-compact-actions { margin:7px 0; row-gap:14px; }
 #basketView .basket-filters { margin:7px 0; }
 [data-basket-status],[data-basket-list-status] { overflow-wrap:anywhere; }
+/* UI-전수디자인점검 F03: 목록이 있으면 상태 줄은 비어 있다(개수는 '업데이트' 칸 제목 옆) — 빈 줄은 자리를 차지하지 않는다. */
+#basketView [data-basket-list-status]:empty { margin:0; }
 #basketView :disabled { opacity:.65; cursor:wait; }
 #basketView :focus-visible { outline:2px solid var(--kptu-primary); outline-offset:3px; }
 
@@ -122,12 +124,11 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .basket-html-views:empty { display:none; }
 .basket-html-message { margin:0 0 12px; color:var(--kptu-muted); }
 
-/* BASKET-정리함한화면: 맨 위 한 줄 '챙길 것 n · 업데이트 n · 마지막 찾기 hh:mm' + 오른쪽 끝 작은 [다시 찾기].
-   그 아래 '챙길 것' 칸(제목 줄 오른쪽 작은 칩 처리 전·보냄·무시), 그 아래 '업데이트' 칸(제목 줄 + 미분류·분류 완료·보류). 두 칸을 한 목록으로 합치지 않는다. */
+/* BASKET-정리함한화면 + UI-전수디자인점검 F03: 맨 위 요약 줄은 없다(개수는 칸 제목 옆에 한 번만).
+   '챙길 것' 칸(제목 줄 오른쪽 작은 [다시 찾기] + 칩 처리 전·보냄·무시), 그 아래 '업데이트' 칸(제목 줄 + 미분류·분류 완료·보류). 두 칸을 한 목록으로 합치지 않는다. */
 #appView #basketView > .basket-head:not([hidden]) { display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0 0 4px; }
 /* NOTE-최근5개 ③: 보일 것이 없는 머리줄(제목은 읽기 프로그램용, 요약·[다시 찾기]는 감춤 — PC 노트 쪽)은 높이 없이 둔다(위쪽 빈 띠 56px). 제목은 읽기 프로그램에 그대로 남는다. */
 #appView #basketView > .basket-head:not([hidden]):not(:has(> :not(.a11y-only,[hidden]))) { min-height:0; margin:0; }
-#appView #basketView > .basket-head .inbox-summary { flex:1 1 auto; min-width:0; margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); font-variant-numeric:tabular-nums; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #appView #basketView .inbox-find,#appView #basketView .inbox-chip { position:relative; flex:none; height:var(--ds-compact-height,32px); min-height:var(--ds-compact-height,32px); margin:0; padding:0 var(--ds-compact-pad-x,10px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:8px; box-shadow:none; background-image:none; font-size:13px; font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; }
 #appView #basketView :is(.inbox-find,.inbox-chip)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #basketView .inbox-chip[aria-pressed="true"] { color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-line); }
@@ -274,6 +275,22 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .share-intake-status { margin:0; font-size:var(--ds-text-meta, 12px); color:var(--kptu-muted); }
 #appView #basketView .share-intake-status:empty { display:none; }
 #appView #basketView button.share-intake-btn::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+
+/* UI-전수디자인점검 F04: 업데이트 목록 한 줄 높이를 줄인다(이 목록만, 노트 목록은 그대로).
+   폰·좁은 화면: 글 / 날짜 · 분류 두 줄. PC(1024px~): 한 줄 — 글(말줄임) · 둘째 줄 미리보기(말줄임) · 오른쪽 작은 날짜 · 분류.
+   칸은 자리를 정해 두어 미리보기가 없는 줄도 날짜·분류가 같은 세로줄에 선다. 요청 꼬리표·연결 칩은 그 아래 줄 그대로. */
+#appView #basketView #basketRows .basket-row-item > .basket-row { grid-template-columns:auto minmax(0,1fr); column-gap:8px; align-items:baseline; }
+#appView #basketView #basketRows .basket-row > :is(.basket-title,.basket-preview,.update-request-tags) { grid-column:1 / -1; }
+#appView #basketView #basketRows .basket-row > time { grid-column:1; white-space:nowrap; }
+#appView #basketView #basketRows .basket-row > .basket-row-state { grid-column:2; min-width:0; color:var(--kptu-muted); }
+@media (min-width:1024px) {
+  #appView #basketView #basketRows .basket-row-item > .basket-row { grid-template-columns:fit-content(60%) minmax(0,1fr) auto auto; column-gap:12px; align-items:center; }
+  #appView #basketView #basketRows .basket-row > :is(.basket-title,.basket-preview) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #appView #basketView #basketRows .basket-row > .basket-title { grid-column:1; }
+  #appView #basketView #basketRows .basket-row > .basket-preview { grid-column:2; }
+  #appView #basketView #basketRows .basket-row > time { grid-column:3; font-variant-numeric:tabular-nums; }
+  #appView #basketView #basketRows .basket-row > .basket-row-state { grid-column:4; white-space:nowrap; }
+}
 /* NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 검색 칸 오른쪽 작은 3칸 전환 [폴더|목록|포스트잇](옛 '노트 · n' 자리), 목록 보기 폴더 꼬리표,
    포스트잇 보드(같은 크기 네모 칸·살짝 기울어짐·아래 모서리 접힘). 색은 폴더마다 연한 색 여덟 가지(노랑 없음 — 노랑은 '나한테 온 요청' 주목 표시), 폴더 없음은 회색. 작고 낮게, 톤다운. */
 .nv-switch { display:inline-flex; flex:none; height:var(--ds-compact-height,32px); box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); }
