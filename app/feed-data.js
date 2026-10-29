@@ -138,10 +138,23 @@ export async function readFeedFolders(rt = window.KPTURuntime) {
   const rows = await readRecordPages(`/rest/v1/app_feed_folders?workspace_id=eq.${encode(ws)}&select=id,name,sort_order&order=sort_order.asc,name.asc`, rt);
   return rows.filter(f => f?.id && typeof f.name === 'string');
 }
+// TG-방고정: pinned_at = 고정한 시각(고정 순서). 칸이 아직 없으면(DB 20261030060000 적용 전) 고정 없이 읽고 pinReady=false(화면이 [고정]을 감춘다).
+// 돌려주는 값 {rooms: Map(room_key → {room_label, folder_id, archived_at, pinned_at}), pinReady}.
 export async function readFeedRooms(rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt), path = cols => `/rest/v1/app_feed_rooms?workspace_id=eq.${encode(ws)}&select=${cols}&order=room_key.asc`;
+  let rows, pinReady = true;
+  try { rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at,pinned_at'), rt); }
+  catch { pinReady = false; rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at'), rt); }
+  const rooms = new Map(rows.filter(r => r?.room_key).map(r => [r.room_key, {room_label:r.room_label || '', folder_id:r.folder_id || null, archived_at:r.archived_at || null, pinned_at:(pinReady && r.pinned_at) || null}]));
+  return {rooms, pinReady};
+}
+// TG-방고정: 고정한 방이 불러온 기간에 줄이 없을 때, 그 방의 가장 최근 날(지우지 않은 소식) 한 줄을 따로 읽는다. 없으면 null.
+export async function readRoomLatestLine(roomKey, rt = window.KPTURuntime) {
   const ws = workspaceOf(rt);
-  const rows = await readRecordPages(`/rest/v1/app_feed_rooms?workspace_id=eq.${encode(ws)}&select=room_key,room_label,folder_id,archived_at&order=room_key.asc`, rt);
-  return new Map(rows.filter(r => r?.room_key).map(r => [r.room_key, {room_label:r.room_label || '', folder_id:r.folder_id || null, archived_at:r.archived_at || null}]));
+  const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&room_key=eq.${encode(roomKey)}&hidden_at=is.null&select=day&order=day.desc&limit=1`);
+  if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+  const day = page[0]?.day; if (!day) return null;
+  return (await readRoomDayLines([[day, day]], rt)).find(r => r?.room_key === roomKey && r.day === day) || null;
 }
 // 지운 날(휴지통): {room_key, day, hidden_at}, 날짜 제한 없이 최근 200줄.
 export async function readTrashedDays(rt = window.KPTURuntime) {
@@ -151,7 +164,7 @@ export async function readTrashedDays(rt = window.KPTURuntime) {
   return page.filter(r => r?.room_key && r.day);
 }
 const TGDG = [[/TGDG_FOLDER_NAME_TAKEN/, 'TAKEN'], [/TGDG_FOLDER_LIMIT/, 'LIMIT'], [/TGDG_FOLDER_NAME|TGDG_ARGS/, 'INVALID'], [/TGDG_NOT_FOUND|TGDG_NO_ROOM/, 'GONE'],
-  [/TGSE_NOT_FOUND/, 'GONE'], [/TGSE_(SUMMARY|HEADLINE|LINES|ARGS|FIELD|PATCH|RESET)/, 'INVALID']];
+  [/TGPIN_ARCHIVED/, 'ARCHIVED'], [/TGPIN_LIMIT/, 'PIN_LIMIT'], [/TGSE_NOT_FOUND/, 'GONE'], [/TGSE_(SUMMARY|HEADLINE|LINES|ARGS|FIELD|PATCH|RESET)/, 'INVALID']];
 function tgdgError(error) {
   const status = Number(error?.status) || 0, text = String(error?.message || '') + ' ' + String(error?.code || '');
   for (const [re, code] of TGDG) if (re.test(text)) return code;
@@ -166,6 +179,8 @@ async function tgdg(name, body, rt) {
 }
 // 방의 폴더와 보관을 통째로 정한다(folder: 폴더 ID 또는 null, archived: true/false). 돌려주는 값 {ok, folder_id, archived} 또는 {ok:false, error}.
 export const setRoom = (roomKey, folder, archived, rt = window.KPTURuntime) => tgdg('app_feed_room_set', {p_room_key:roomKey, p_folder:folder || null, p_archived:!!archived}, rt);
+// TG-방고정: 방 고정(true)·풀기(false). DB 함수 app_feed_room_pin(소유자·텔레그램 허용 작업공간만, 보관한 방 거절, 20곳까지). 돌려주는 값 {ok, changed, pinned_at} 또는 {ok:false, error}.
+export const setRoomPin = (roomKey, pinned, rt = window.KPTURuntime) => tgdg('app_feed_room_pin', {p_room_key:roomKey, p_pinned:!!pinned}, rt);
 // 그날 그 줄만 삭제('trashed')·되살리기('active').
 export const setRoomDay = (roomKey, day, state, rt = window.KPTURuntime) => tgdg('app_feed_room_day_set', {p_room_key:roomKey, p_day:day, p_state:state}, rt);
 // TG-안본것: 방·날을 열면 '봤음' 시각을 서버에 남긴다(DB 함수 app_feed_room_day_seen, 소유자·텔레그램 허용 작업공간만). 기기에는 남기지 않는다.
