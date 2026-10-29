@@ -34,7 +34,7 @@ async function fixture(page, width) {
   await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3');
   return { rows, writes, errors };
 }
-const view = (page, name) => page.locator(`[data-note-view="${name}"]`);
+const view = (page, name) => page.locator(`.nv-switch [data-note-view="${name}"]`);
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
 
 for (const width of [412, 884, 1440]) {

@@ -171,7 +171,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   function paintViewSwitch() {
     host.querySelectorAll('[data-note-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.noteView === view)));
-    list.dataset.noteView = view;
+    list.dataset.notesView = view;
     host.querySelector('[data-note-board]').hidden = view !== 'board';
     host.querySelector('[data-nx-body]').hidden = view === 'board';
   }

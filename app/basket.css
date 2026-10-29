@@ -293,10 +293,10 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 :is(.nb-card,.nx-path)[data-tone="5"] { --nb-paper:var(--ds-note-paper-5); } /* 연분홍 */
 :is(.nb-card,.nx-path)[data-tone="6"] { --nb-paper:var(--ds-note-paper-6); } /* 쑥 */
 :is(.nb-card,.nx-path)[data-tone="7"] { --nb-paper:var(--ds-note-paper-7); } /* 회청 */
-#appView #basketView [data-note-list][data-note-view="list"] .nx-path[data-tone] { flex:0 1 auto; padding:1px 6px; border-radius:var(--ds-chip-radius,10px); background:var(--nb-paper); color:var(--ds-note-ink); font-size:11px; }
+#appView #basketView [data-note-list][data-notes-view="list"] .nx-path[data-tone] { flex:0 1 auto; padding:1px 6px; border-radius:var(--ds-chip-radius,10px); background:var(--nb-paper); color:var(--ds-note-ink); font-size:11px; }
 /* 보드: 화면보다 넓은 판을 밀어서 이동(브라우저 스크롤), 핀치·[＋][－]는 note-board.js. 칸 위에서는 끌기(touch-action:none), 빈 곳에서는 밀기. */
 /* 목록·포스트잇 보기는 PC에서도 왼쪽 나무 칸 없이 한 칸. */
-[data-note-list].nx-wide:not([data-note-view="folder"]) .nx-body { display:block; }
+[data-note-list].nx-wide:not([data-notes-view="folder"]) .nx-body { display:block; }
 .nb { position:relative; margin-top:4px; }
 .nb-tools { position:absolute; right:8px; top:8px; z-index:2; display:inline-flex; height:var(--ds-compact-height,32px); box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
 #appView #basketView .nb-tools button { position:relative; width:30px; min-width:0; min-height:0; height:auto; margin:0; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text,13px); line-height:1; cursor:pointer; }
