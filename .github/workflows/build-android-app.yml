@@ -10,6 +10,7 @@ on:
       - 'android-app/**'
       - 'app/app-icon.svg'
       - '.github/workflows/build-android-app.yml'
+      - '.github/workflows/phone-app-release.yml'
   pull_request:
     branches:
       - main
@@ -17,6 +18,7 @@ on:
       - 'android-app/**'
       - 'app/app-icon.svg'
       - '.github/workflows/build-android-app.yml'
+      - '.github/workflows/phone-app-release.yml'
 
 permissions:
   contents: read
@@ -59,7 +61,21 @@ jobs:
 
       # 껍데기 규칙(내부 주소 판정, 로그인 복귀 값, 바 색, 새 버전 비교) 단위 시험을 먼저 돌린다.
       - name: Unit tests
+        id: debug_tests
         run: gradle -p android-app :app:testDebugUnitTest --stacktrace
+
+      - name: Report debug unit test failures
+        if: failure() && steps.debug_tests.outcome == 'failure'
+        run: python3 android-app/scripts/report-unit-test-failures.py Debug
+
+      # 릴리스 workflow(phone-app-release.yml)가 서명 전에 돌리는 시험과 같다. release에서만 깨지는 문제를 PR에서 미리 잡는다.
+      - name: Unit tests (release)
+        id: release_tests
+        run: gradle -p android-app :app:testReleaseUnitTest --stacktrace
+
+      - name: Report release unit test failures
+        if: failure() && steps.release_tests.outcome == 'failure'
+        run: python3 android-app/scripts/report-unit-test-failures.py Release
 
       - name: Build debug APK
         run: gradle -p android-app :app:assembleDebug --stacktrace
