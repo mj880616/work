@@ -10,6 +10,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
+import {diagInit,withDiag} from './helpers/diag-tmp.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -234,7 +235,7 @@ test('project list loads and its heading uses available width at desktop, tablet
 
 test('project owner UI stays inside 360 390 412 and 430px viewports',async({page})=>{
   // MTG-프로젝트합치기 결정 ⑥: 진행 항목 줄이 목록에 없어 진행 항목 창(#ps3WorkstreamModal)으로 가는 길도 없다. 그 창 너비 검사는 뺐다.
-  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
+  const state=baseState();await page.addInitScript(diagInit);await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:844});
     await page.locator('#newProjectBtn').click();
@@ -242,7 +243,7 @@ test('project owner UI stays inside 360 390 412 and 430px viewports',async({page
     let overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
     expect(overflow,`create modal at ${width}px`).toBeLessThanOrEqual(1);
     await page.locator('[data-ps3-close="ps3CreateModal"]').click();
-    await page.locator('[data-ps3-project="main-1"]').first().click();
+    await withDiag(page,'[data-ps3-project="main-1"]',()=>page.locator('[data-ps3-project="main-1"]').first().click({timeout:8000}));
     await expect(page.locator('#ps3DetailModal')).toBeVisible();
     overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
     expect(overflow,`detail at ${width}px`).toBeLessThanOrEqual(1);
@@ -1474,12 +1475,13 @@ test('PRJ background refresh keeps text typed in a linked summary edit',async({p
   expect(state.links.find(x=>x.id==='l-a').summary).toBe('최근 연결 요약');
 });
 for(const destination of ['library','back'])test(`PRJ dirty linked summary confirms before ${destination} navigation`,async({page})=>{
+  await page.addInitScript(diagInit);
   const item=await openRecords(page,linkedState()),record=item.locator('[data-basket-link="l-a"]');
   const input=await editSummary(page,record);await input.fill('이동 전 초안');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   if(destination==='library'){await page.locator('[data-ps3-library]').click()}
   else{await page.evaluate(()=>{history.replaceState({},'', '/app/');history.pushState({project:'main-1'},'', '/app/?project=main-1')});await page.goBack()}
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(message).toContain('저장하지 않은 사업영역 내용');await expect(input).toHaveValue('이동 전 초안');
+  await withDiag(page,null,()=>expect(page.locator('#ps3DetailModal')).toBeVisible());expect(message).toContain('저장하지 않은 사업영역 내용');await expect(input).toHaveValue('이동 전 초안');
 });
 
 for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e record menu dismissal and targets ${width} fallback=${fallback}`,async({page})=>{
