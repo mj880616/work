@@ -57,6 +57,7 @@ test('① 옛 주소·go(projects)는 사업 보고 + 창(detail.areas), 화면 
   const aw=read('area-window.js');
   assert.match(aw,/addEventListener\('popstate',e=>\{\n(?:.*\n){0,2}\s*window\.KPTUProjects\?\.back\?\.\(e\);if\(e\.cancelBubble/);
   assert.doesNotMatch(ps,/addEventListener\('popstate',event=>\{\n\s*const id=new URLSearchParams/);
+  assert.match(ps,/addEventListener\('popstate',onBack,true\);\nfunction onBack\(event\)\{\n\s*if\(backHandled\.has\(event\)\)return;backHandled\.add\(event\);/); // 창 그릇 없는 화면에서도 한 번만
 });
 
 test('① 다른 곳의 사업영역 연결은 모두 KPTUAreaWindow.open 하나로 연다',()=>{
