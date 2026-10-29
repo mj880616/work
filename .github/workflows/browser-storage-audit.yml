@@ -151,6 +151,13 @@ jobs:
                   'parentStore:reach(()=>parent.localStorage.length),',
                   'visible:keys.filter(key=>localStorage.getItem(key)!==null),',
               )],
+              # SHARE-보관함·HTML공유: read-only probes that the sandboxed HTML share-page frame cannot reach any storage,
+              # and a read-only check that the Web2 sign-in is in storage before the probe runs. No storage write.
+              'tests/app-e2e/share-html-pages.spec.mjs':[re.compile(r'^\s*'+re.escape(line)+r'\s*$') for line in (
+                  'storage:probe(function(){return localStorage.length+JSON.stringify(Object.keys(localStorage));}),',
+                  'parentStorage:probe(function(){return parent.localStorage.length;}),',
+                  "expect(await page.evaluate(() => JSON.stringify(localStorage))).toContain('html-secret-access');",
+              )],
               # MD-표시보완: read-only probes that the sandboxed ChatGPT HTML frame cannot reach any storage.
               'tests/app-e2e/chatgpt-view.spec.mjs':[re.compile(r'^\s*'+re.escape(line)+r'\s*$') for line in (
                   "t('storage',function(){return localStorage.length});",

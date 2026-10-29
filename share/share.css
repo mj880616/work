@@ -7,3 +7,8 @@ body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font-family:-apple
 .sr-closed{margin:40px 0;padding:20px 16px;text-align:center;background:var(--kptu-surface);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box)}
 .sr-closed p{margin:10px 0 0;color:var(--kptu-muted)}
 .sr-foot{max-width:640px;margin:0 auto;padding:12px 16px 32px;text-align:center;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+/* SHARE-보관함·HTML공유: an HTML file page fills the screen inside its sandboxed frame; the short footer line is left out. */
+body.is-html{margin:0;padding:0}
+body.is-html .sr-wrap{max-width:none;margin:0;padding:0}
+body.is-html .sr-foot{display:none}
+.sr-html-frame{display:block;width:100%;height:100vh;height:100dvh;border:0;background:var(--ds-frame-paper);color-scheme:light}

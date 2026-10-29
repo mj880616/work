@@ -93,6 +93,17 @@ export async function readTitleRows(days, rt = window.KPTURuntime) {
   }
   return out;
 }
+// TG-요청강조: 방·날 줄의 회색 꼬리표(담당조직·일정) 재료. 지우지 않은 소식의 방·날·조직·제목·요약만(원문 없음), 600줄까지.
+export async function readLineMarks(from, to, rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt), out = [];
+  for (let offset = 0; offset < LIST_MAX; offset += 100) {
+    const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&hidden_at=is.null&day=gte.${encode(from)}&day=lte.${encode(to)}&select=room_key,day,organization_id,title,summary&order=day.desc,occurred_at.asc,id.asc&limit=100&offset=${offset}`);
+    if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+    out.push(...page);
+    if (page.length < 100) break;
+  }
+  return out;
+}
 export async function readPinnedItems(rt = window.KPTURuntime) {
   const ws = workspaceOf(rt);
   const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&pinned_at=not.is.null&hidden_at=is.null&select=${ITEM_FIELDS}&order=pinned_at.desc,id.desc&limit=50`);

@@ -12,6 +12,10 @@ test('summary: 일정 · 할 일 · 새 소식, unknown values are left out', ()
   assert.equal(m.summaryText({events: 0, tasks: 0, news: 0}), '일정 0 · 할 일 0 · 새 소식 0');
   assert.equal(m.summaryText({events: 3, tasks: 4, news: null}), '일정 3 · 할 일 4');
   assert.equal(m.summaryText({events: null, tasks: 4, news: 2}), '할 일 4 · 새 소식 2');
+  // TG-요청강조: 나한테 온 요청은 1건 이상일 때만 붙는다.
+  assert.equal(m.summaryText({events: 3, tasks: 4, news: 12, asks: 2}), '일정 3 · 할 일 4 · 새 소식 12 · 나한테 온 요청 2');
+  assert.equal(m.summaryText({events: 3, tasks: 4, news: 12, asks: 0}), '일정 3 · 할 일 4 · 새 소식 12');
+  assert.equal(m.summaryText({events: 3, tasks: 4, news: 12, asks: null}), '일정 3 · 할 일 4 · 새 소식 12');
   assert.equal(m.summaryText({}), '');
   assert.equal(m.summaryText(), '');
 });

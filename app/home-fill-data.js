@@ -25,7 +25,8 @@ export async function readNewsCount(rt = window.KPTURuntime) {
     return today ? today.kept : null;
   } catch { return null; }
 }
+// 정리 안 된 것 숫자와, 같은 읽기에서 센 텔레그램 '나한테 온 요청' 수. 읽지 못하면 둘 다 null.
 export async function readInbox(rt = window.KPTURuntime, taskTitles = []) {
   const out = await readInboxCount(rt, {taskTitles});
-  return out?.ok ? out.total : null;
+  return out?.ok ? {total: out.total, asks: out.asks} : {total: null, asks: null};
 }
