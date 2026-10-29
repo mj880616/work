@@ -217,17 +217,15 @@ test('project list loads and its heading uses available width at desktop, tablet
   for(const width of [1440,768,390,360]){
     await page.setViewportSize({width,height:900});
     const layout=await page.evaluate(()=>{
-      const head=document.querySelector('#projectsView .section-head');
-      const title=head.firstElementChild;
+      // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이고, 제목 '사업영역 관리'는 창 머리줄 하나에만 있다.
+      const title=document.querySelector('#areaWindow .area-window-head #areaWindowTitle');
       const grid=document.querySelector('#projectGrid');
       const card=grid.querySelector('.ps3-prow');
       const rect=element=>element.getBoundingClientRect();
       return {title:rect(title).width,card:rect(card).width,overflow:document.documentElement.scrollWidth-window.innerWidth,ready:grid.dataset.ps3Ready};
     });
     expect(layout.ready).toBe('1');
-    // UI-PC프로젝트좌우: PC(≥1024) has no empty head bar above the split (its buttons live in the list head); the list column fills the screen.
-    if(width>=1024)expect(layout.title,`no empty project head at ${width}px`).toBe(0);
-    else expect(layout.title,`project heading at ${width}px`).toBeGreaterThan(100);
+    expect(layout.title,`window heading at ${width}px`).toBeGreaterThan(80);
     expect(layout.card,`project card at ${width}px`).toBeGreaterThan(200);
     expect(layout.overflow,`horizontal overflow at ${width}px`).toBeLessThanOrEqual(1);
   }
@@ -820,6 +818,8 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
 
 for(const extra of [0,200])test(`D-project requests stay constant with ${extra} extra projects`,async({page})=>{
  const state=baseState();state.sessionUser=true;state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
+ // MTG-프로젝트합치기 ①: PC 창은 첫 사업영역 상세를 오른쪽 칸에 바로 연다(상세 읽기). 목록 읽기만 보려고 폰 폭에서 본다.
+ await page.setViewportSize({width:390,height:844});
  state.spaces.push(...Array.from({length:extra},(_,i)=>({...state.spaces[0],id:'extra-'+i,name:'추가 '+i})));
  await mockApp(page,state);await page.goto(testOrigin+'/app/?view=projects');await signIn(page);await expect(page.locator('#projectsView')).toBeVisible();
  // UI-디자인기준 3/3(8-9e-1): the list reads only the D-day (one batched read); it no longer reads Google tasks for counts.
@@ -827,8 +827,11 @@ for(const extra of [0,200])test(`D-project requests stay constant with ${extra} 
  await expect.poll(()=>state.summaryQueries?.length).toBe(1);
  await expect(page.locator('#projectGrid .kptu-list-task-count')).toHaveCount(0);
  expect(state.gtCalls.filter(x=>x.action==='overview').length).toBeLessThanOrEqual(1);
- expect(state.restCalls.filter(x=>x.name==='app_record_links')).toHaveLength(0);
- expect(state.restCalls.filter(x=>x.name==='app_documents'||x.name==='app_project_progress_updates'||x.name==='app_project_milestones')).toHaveLength(0);
+ // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이라, 밑의 사업 보고 화면이 자기 보고 연결을 읽는다(사업영역 수와 무관한 고정 몫). 목록은 연결을 읽지 않는다.
+ expect(state.restCalls.filter(x=>x.name==='app_record_links').length).toBeLessThanOrEqual(8);
+ // (app_documents는 밑의 사업 보고 화면이 자기 자료 수를 한 번 읽는다 — 사업영역 수와 무관.)
+ expect(state.restCalls.filter(x=>x.name==='app_project_progress_updates'||x.name==='app_project_milestones')).toHaveLength(0);
+ expect(state.restCalls.filter(x=>x.name==='app_documents').length).toBeLessThanOrEqual(1);
  await expect(page.locator('#ps3ArchiveBtn')).toBeHidden();
  await expect(page.locator('[data-ps3-total]')).toHaveText(`사업영역 ${extra+1}개`);
 });
@@ -880,10 +883,13 @@ for(const width of [390,1280])test(`V3 detail and edit dialogs manage focus, Esc
   const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   const card=page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]');
   if(width>=1024){
-    // UI-PC프로젝트좌우: the PC pane is not a dialog — choosing a row keeps focus on that row and Escape leaves the pane shown.
+    // UI-PC프로젝트좌우: the PC pane is not a dialog of its own — choosing a row keeps focus on that row.
     await expectProjectDetail(page,'main-1');
     await card.focus();await card.click();await expect(card).toBeFocused();await expect(card).toHaveAttribute('aria-current','true');
-    await page.keyboard.press('Escape');await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect(card).toBeFocused();
+    // MTG-프로젝트합치기 ①: 목록·상세 칸은 사업 보고 위 창(#areaWindow) 안이다. Esc는 칸만 닫지 않고 창 하나를 닫아 사업 보고로 돌아가고,
+    // 다시 열면 같은 사업영역이 오른쪽 칸에 있다.
+    await page.keyboard.press('Escape');await expect(page.locator('#areaWindow')).toBeHidden();await expect(page.locator('#meetingsView')).toBeVisible();
+    await clickView(page,'projects');await expectProjectDetail(page,'main-1');await expect(card).toHaveAttribute('aria-current','true');
   }else{
   await card.focus();await card.click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
@@ -1321,7 +1327,8 @@ test('V3 project task section completes, edits and unlinks linked Google tasks',
   const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
   await expect(panel.locator('[data-google-task="g1"]')).toContainText('자료 정리');
   await expect(page.locator('#ps3-tasks [data-ps3-task-count]')).toHaveText('1');
-  expect(state.gtCalls.filter(x=>x.action==='linked').map(x=>x.query.project_id)).toEqual(['child-1']);
+  // MTG-프로젝트합치기 ①: PC 창은 첫 사업영역(main-1)을 오른쪽 칸에 먼저 열 수 있다. 하위로 옮긴 뒤 하위의 할 일을 읽었는지 본다.
+  expect(state.gtCalls.filter(x=>x.action==='linked').map(x=>x.query.project_id).at(-1)).toBe('child-1');
   await panel.locator('[data-gt-linked-toggle="g1"]').click();
   await expect(panel.locator('[data-google-task="g1"]')).toHaveClass(/completed/);
   await expect.poll(()=>state.gtCalls.find(x=>x.action==='toggle')?.body?.completed).toBe(true);

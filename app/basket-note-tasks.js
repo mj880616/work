@@ -113,6 +113,8 @@ export function requestBasketNoteFrom(id,from,rt=window.KPTURuntime){
 // [노트] side with the same return line and the same way back.
 export function requestNoteDocFrom(id,from,rt=window.KPTURuntime){requestBasketNoteFrom(id,from,rt);requests.note=null;put('notedoc',id,rt);}
 export const basketNoteOrigin=(noteId,rt=window.KPTURuntime)=>origin&&origin.note===noteId&&origin.scope===scopeOf(rt)?origin:null;
+// MTG-프로젝트합치기 ①: 사업영역 관리 창(area-window.js)이 사업 보고로 돌아올 때 이 메모의 돌아갈 곳이 사업영역인지 본다(가져가지는 않음).
+export const hasBasketReturn=(view,rt=window.KPTURuntime)=>!!origin&&origin.view===view&&origin.scope===scopeOf(rt);
 // The opener takes its origin once, when its own screen shows again.
 export function takeBasketReturn(view,rt=window.KPTURuntime){const o=origin;if(!o||o.view!==view)return null;origin=null;return o.scope===scopeOf(rt)?o:null;}
 // Korean particle after the name: 으로 after a final consonant other than ㄹ, 로 otherwise ("(으)로" when not Hangul).
@@ -135,5 +137,7 @@ export function returnFromBasketNote(){
   if(now&&at&&Number.isInteger(at.index)&&at.index<now.index){history.go(at.index-now.index);return true;}
   return !!window.KPTURouter?.go(o.view,{source:'delegated'});
 }
-globalThis.window?.addEventListener?.('kptu:view-changed',e=>{const view=e.detail?.view;if(origin&&view!=='basket'&&view!==origin.view)origin=null;});
+// MTG-프로젝트합치기 ①: 사업영역(projects)은 사업 보고(meetings) 위의 창이라, 돌아갈 화면은 사업 보고다(그 창이 origin을 받는다).
+const ORIGIN_SCREEN={projects:'meetings'};
+globalThis.window?.addEventListener?.('kptu:view-changed',e=>{const view=e.detail?.view;if(origin&&view!=='basket'&&view!==(ORIGIN_SCREEN[origin.view]||origin.view))origin=null;});
 globalThis.document?.addEventListener?.('click',e=>{const b=e.target.closest?.('[data-basket-return]');if(!b)return;e.preventDefault();returnFromBasketNote();});

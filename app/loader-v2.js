@@ -160,10 +160,13 @@
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
-  const requested=viewLoader.normalize(rawRequested);
+  // MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다. 옛 주소(?view=projects, ?project=)는 사업 보고를 열고 창을 띄운다.
+  await import('./area-window.js');
+  const areasAtStart=viewLoader.normalize(rawRequested)==='projects'||(viewLoader.normalize(rawRequested)==='meetings'&&params.get('areas')==='1');
+  const requested=areasAtStart?'meetings':viewLoader.normalize(rawRequested);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
-  const staticShellViews=new Set(['home','basket','calendar','tasks','journal','diary','projects','library','meetings','pages','team']);
+  const staticShellViews=new Set(['home','basket','calendar','tasks','journal','diary','library','meetings','pages','team']);
   await viewLoader.prepare(requested);
   window.KPTURouter?.noteAlias?.(rawRequested);
   const app=document.querySelector('#appView');
@@ -204,7 +207,9 @@
   // BIZ-버튼줄정리: 공용 메뉴 판(anchored-menu, body에 붙음)의 항목이 화면을 열 때 쓰는 길 — 위 [data-view] 위임 클릭과 같은 기다림·실패 표시.
   const openView=name=>{const view=viewLoader.normalize(name);const go=()=>window.KPTURouter?.go?.(view,{source:'delegated'});if(viewLoader.isLoaded(view)){go();return Promise.resolve()}return loadThen(view,go,()=>openView(view))};
 
-  window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load,openView};
+  // withView: 화면이 아닌 묶음(사업영역 관리 창의 'projects')을 같은 기다림 줄·실패 줄 [다시]로 불러온 뒤 then을 부른다.
+  const withView=(name,then)=>viewLoader.isLoaded(name)?Promise.resolve().then(then):loadThen(name,then,()=>withView(name,then));
+  window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load,openView,withView};
   startup?.mark('requestedViewLoadStart',{view:requested});
   let result={ok:false,view:requested};
   try{
@@ -224,6 +229,14 @@
   import('./meeting-recorder.js').catch(err=>console.warn('meeting recorder load failed',err?.name||'Error'));
   const {startVersionNotice}=await import('./version-notice.js');
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
+  // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창과 그 목록(·주소의 사업영역)까지 다 그린 뒤에 첫 화면을 드러낸다
+  // (드러낸 뒤에 창이 늦게 덮거나 목록이 다시 그려져 줄이 밀리지 않게 — 시작 순서: 필요한 자료 → 한 번 드러내기).
+  if(areasAtStart&&result?.ok){
+    // 폰 뒤로가기 기록(창 → 상세)을 창이 뜨기 전에 붙인다(상세가 따로 주소 기록을 쌓지 않게).
+    await import('./mobile-modal-history.js').catch(()=>{});
+    try{await viewLoader.load('projects');await window.KPTUAreaWindow?.open({id:params.get('project')||null})}
+    catch(err){console.warn('area window open failed',err?.name||'Error')}
+  }
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js').catch(()=>{});
   // APP-폰앱새로 ②: 폰 앱(KPTUAndroid)의 [공유]로 받은 것을 정리함 확인 줄로 넣는다. 앱이 아니면 아무것도 하지 않는다. 첫 화면이 뜬 뒤 붙인다(시작 화면 이동과 겹치지 않게). 기다리지 않는다.

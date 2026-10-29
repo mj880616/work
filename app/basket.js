@@ -1027,8 +1027,9 @@ async function openChipPlace(linkId) {
   }
   const project = !!link.project_id;
   try {
-    await window.KPTUViewLoader.load(project ? 'projects' : 'team');
-    await (project ? window.KPTUProjects.open(link.project_id) : window.KPTUWorkplace.open(link.organization_id));
+    // MTG-프로젝트합치기 ①: 사업영역은 사업영역 관리 창(area-window.js)으로 정리함 위에 연다.
+    if (project) await window.KPTUAreaWindow.open({ id: link.project_id });
+    else { await window.KPTUViewLoader.load('team'); await window.KPTUWorkplace.open(link.organization_id); }
   } catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = project ? '사업영역을 열지 못했어요. 다시 시도해 주세요.' : '담당조직을 열지 못했어요. 다시 시도해 주세요.'; }
 }
 // Another screen (or this one) changed links or documents: re-read them only, keeping any open note and its drafts.

@@ -111,7 +111,8 @@ for(const width of [360,390,412,430,1280,1440,1920]){
 
 test('dedicated login returns to the authenticated deep link',async({page})=>{
   await mockSignedIn(page);
-  const target=APP+'?view=projects';
+  // MTG-프로젝트합치기 ①: 사업영역 관리 창의 주소는 사업 보고 + 창 자리(?view=reports&areas=1). 옛 ?view=projects도 같은 곳으로 온다.
+  const target=APP+'?view=reports&areas=1';
   await signIn(page,target);
   await expect(page).toHaveURL(target,{timeout:20000});
   await expect(page.locator('#projectsView')).toBeVisible();

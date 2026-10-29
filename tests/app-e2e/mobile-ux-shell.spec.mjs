@@ -81,9 +81,10 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await page.waitForTimeout(300);
   expect(await page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
   expect(await page.locator('#calendarView').evaluate(el=>el.style.left||'')).toBe('');
+  // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이다(화면은 사업 보고 그대로).
   await clickView(page,'projects');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('projects');
-  await expect(page.locator('#projectsView')).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('meetings');
+  await expect(page.locator('#areaWindow')).toBeVisible();await expect(page.locator('#projectsView')).toBeVisible();
 
   await clickView(page,'calendar');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');

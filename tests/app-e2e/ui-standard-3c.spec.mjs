@@ -281,7 +281,7 @@ test('일정 [Google Calendar] 설정 칸 버튼도 같은 기준(옛 !important
 
 test('동그란 [+]: 선으로 그린 + 가 원의 가로·세로 정가운데(한국어 로케일, 밝은·어두운 화면, 네 화면)',async({page})=>{
  const {errors}=await boot(page,390);
- for(const [name,id] of [['calendar','#newEventBtn'],['projects','#newProjectBtn'],['library','#newDocumentBtn']]){
+ for(const [name,id] of [['calendar','#newEventBtn'],['library','#newDocumentBtn']]){ // MTG-프로젝트합치기 ①: [+ 사업영역]은 창 머리줄 버튼(둥근 [+] 아님)
   await view(page,name);const button=page.locator(id);await expect(button).toBeVisible();
   for(const scheme of ['light','dark']){
    await page.emulateMedia({colorScheme:scheme});await page.waitForTimeout(100);

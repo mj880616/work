@@ -453,6 +453,9 @@ jobs:
       - name: Check business report one-line update (MTG-한줄업데이트)
         run: node --test tests/report-oneline.test.mjs
 
+      - name: Check business area window and untagged report line (MTG-프로젝트합치기 ①③)
+        run: node --test tests/area-window.test.mjs
+
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
 

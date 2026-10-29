@@ -128,7 +128,7 @@ test('PC 1280: a 🧺 record opens the update with "‹ (project)" in the head; 
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 합성 정책 사업');
   if(how==='button')await back.click();else await goBack(page,how);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expectProjectTitle(page,'합성 정책 사업');
+  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();/* MTG-프로젝트합치기 ①: 사업 보고 위 창으로 돌아온다 */await expectProjectTitle(page,'합성 정책 사업');
   await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();await expect.poll(()=>top(basketLine(page))).toBe(before);
  }
  // A note opened from the basket list itself has no return line.
@@ -157,7 +157,7 @@ test('phone 390: list and detail dialog stay; the update shows "‹ 사업영역
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 사업영역');
   const b=await back.boundingBox();expect(b.height).toBeGreaterThanOrEqual(44);
   if(how==='button')await back.click();else await goBack(page,how);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expect(modal).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');
+  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();/* MTG-프로젝트합치기 ①: 사업 보고 위 창으로 돌아온다 */await expect(modal).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');
   await expect(modal).toHaveAttribute('aria-modal','true');await expect.poll(()=>top(basketLine(page))).toBe(before);
  }
  // The dialog still closes with × and back, back to the list.
@@ -216,7 +216,7 @@ for(const width of [412,884,1440])test(`UI-돌아가기머리줄 ${width}: 사�
  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
  await expectOneBack(page,width<761?'‹ 사업영역':'‹ 합성 정책 사업');
  await page.locator('#basketView [data-basket-return]').click();
- await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expectProjectTitle(page,'합성 정책 사업');await expect.poll(()=>top(basketLine(page))).toBe(before);
+ await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');await expect.poll(()=>top(basketLine(page))).toBe(before);
  if(width<1024){await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden()}
  // 정리함 목록에서 열면 '‹ 정리함' 그대로.
  await clickView(page,'basket');await page.locator('[data-basket-filter="classified"]').click();await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);

@@ -411,7 +411,7 @@ async function openView(target) {
     } else if (target.view === 'library') { requestLibraryDocument(target.id); r.go('library', {source: 'delegated'}); }
     else if (target.view === 'tasks') { requestTaskOpen(target.id); r.go('tasks', {source: 'delegated'}); }
     else if (target.view === 'journal') { r.go('journal', {source: 'delegated'}); if (target.day) window.KPTUJournal?.show?.(target.day); }
-    else if (target.view === 'projects') { r.go('projects', {source: 'delegated'}); await window.KPTUProjects?.open?.(target.id); }
+    else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({id: target.id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     else if (target.view === 'team') { r.go('team', {source: 'delegated'}); await window.KPTUWorkplace?.open?.(target.id); }
     else if (target.view === 'meetings') {
       r.go('meetings', {source: 'delegated'});

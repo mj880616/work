@@ -131,3 +131,18 @@ export const inReportWeek = (list, from) => !from ? (list || []) : (list || []).
 export const undatedCount = list => (list || []).filter(m => !reportDay(m)).length;
 const shortDay = day => `${Number(day.slice(5, 7))}.${Number(day.slice(8, 10))}`;
 export const reportWeekLabel = from => `${shortDay(from)}(월)~${shortDay(shiftDays(from, 6))}(일)`;
+
+// MTG-프로젝트합치기 ③(10/29 시안 승인): 사업 보고 목록의 '사업영역 안 단 보고 n건 [달기]' 줄 재료.
+// 보고 있는 주(from = 월요일 'YYYY-MM-DD') 안의 일시가 있는 보고 중 사업영역(business_area_id)을 직접 달지 않은 것. 한 줄 업데이트는 늘 사업영역이 있어 뺀다.
+// 칸이 없는 옛 서버의 줄(business_area_id 키가 없음)은 세지 않는다(그때는 줄 자체가 없다). 날짜 오래된 것부터.
+export const untaggedInWeek = (meetings, from) => !from ? [] : (meetings || [])
+  .filter(m => m && Object.hasOwn(m, 'business_area_id') && !areaIdOf(m) && !isOneline(m) && reportDay(m) && inPeriod(m, from, shiftDays(from, 6)))
+  .sort((a, b) => (Date.parse(a.meeting_at) || 0) - (Date.parse(b.meeting_at) || 0));
+// [달기] 창에서 미리 골라 둘 사업영역: 옛 보고는 첫 연결 사업영역(화면에서 빌려 보이던 것, 'link'), 없으면 AI 추천 첫째('ai'), 없으면 고르기('').
+export function presetArea(meeting, aiId = '', known = () => true) {
+  const old = String(meeting?.project_id || '');
+  if (old && known(old)) return {id:old, from:'link'};
+  const ai = String(aiId || '');
+  if (ai && known(ai)) return {id:ai, from:'ai'};
+  return {id:'', from:''};
+}
