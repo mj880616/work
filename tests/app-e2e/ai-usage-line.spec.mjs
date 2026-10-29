@@ -74,3 +74,27 @@ test('월 상한 80%는 노란 줄, 펼치면 기간·요약이 맨 위',async({
   await expect(line.locator('input,form')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+// UI-점검1030손질 C6(UI-더보기제목줄): 폰·중간 폭에서 홈 ⋯는 홈 끝에 혼자 한 줄로 뜨지 않고 'AI 사용량' 제목 줄 오른쪽 끝에 같은 줄로 놓인다.
+// PC(1024px~)는 지금 자리 그대로. 홈 편집을 열었다 닫아도 같은 자리로 돌아온다.
+for(const width of [412,884,1440])test(`홈 ⋯는 AI 사용량 제목 줄 오른쪽 끝 (${width})`,async({page})=>{
+  const {line}=await fixture(page,{width});
+  await expect(line).toBeVisible();
+  const more=page.locator('[data-he-more]');await expect(more).toBeVisible();
+  const docked=line.locator('[data-aiu-top] [data-he-more]');
+  if(width>=1024){await expect(docked).toHaveCount(0);return;}
+  await expect(docked).toHaveCount(1);
+  const place=async()=>{const m=await more.boundingBox(),t=await line.locator('[data-aiu-toggle]').boundingBox(),title=await line.locator('.aiu-title').boundingBox(),l=await line.boundingBox();return {m,t,title,l};};
+  let {m,t,title,l}=await place();
+  // 같은 줄: ⋯의 가운데가 제목 글자 줄 안, 오른쪽 끝(줄 오른쪽 안), 펼치기 버튼과 겹치지 않음.
+  expect(m.y+m.height/2).toBeGreaterThanOrEqual(title.y-2);expect(m.y+m.height/2).toBeLessThanOrEqual(title.y+title.height+2);
+  expect(m.x+m.width).toBeLessThanOrEqual(l.x+l.width+1);expect(m.x).toBeGreaterThanOrEqual(t.x+t.width-1);
+  expect(m.height).toBeLessThanOrEqual(28.5);
+  // 홈 편집을 열고 닫으면 ⋯는 다시 같은 자리.
+  await more.click();await page.locator('[data-he-start]').click();
+  await expect(page.locator('[data-he-done]')).toBeVisible();
+  await page.locator('[data-he-done]').click();
+  await expect(line.locator('[data-aiu-top] [data-he-more]')).toHaveCount(1);
+  await expect(page.locator('[data-he-more]')).toBeFocused();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

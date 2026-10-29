@@ -68,7 +68,10 @@ import {eventColor} from './home-read-model.js';
     if(!view||!view.classList.contains('hidden')){
       // Pinch zoom changes the visual viewport, not the layout space available to the grid.
       const viewportHeight=document.documentElement.clientHeight||window.innerHeight||window.visualViewport?.height||0;
-      const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0;
+      // UI-점검1030손질 C3: on phones the view's end space (::after, ui-standard.css) is the bottom tab, the switch row and the [+] lane;
+      // the grid stops above it so the [+] never covers the last row's cells (it covered the 31st).
+      const endSpace=view&&mq760.matches?(parseFloat(getComputedStyle(view,'::after').height)||0):0;
+      const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0)+endSpace:0;
       // Page scrolling must not create extra slots when tasks or events trigger a rerender.
       const gridTop=grid.getBoundingClientRect().top+(mq760.matches?window.scrollY:0);
       const available=Math.floor(viewportHeight-gridTop-safeBottom);
@@ -163,7 +166,9 @@ import {eventColor} from './home-read-model.js';
     b.style.background=ev.color;b.style.color=ev.text;
     if(ev.source==='google')b.style.setProperty('--cmv-google-source',ev.color||'#4285f4');
     const tm=timeLabel(ev),label=(tm?tm+' ':'')+ev.title;
-    b.innerHTML=(tm?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
+    // UI-점검1030손질 C3: a phone month cell is about 50px wide, so the time pushed the title out ('10:00 피부…').
+    // Phones draw the title only; the time stays in the name/tooltip and in the day list (calendar-day-overflow.js).
+    b.innerHTML=(tm&&!mq760.matches?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
     b.title=label;
     b.setAttribute('aria-label',label);
     return b;

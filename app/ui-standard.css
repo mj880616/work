@@ -1529,3 +1529,18 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
    상세 사업 보고 줄에서 쓰는데, 모양이 사업 보고 화면 전용 CSS(meeting-ui.css)에만 있어 다른 화면에서는 '교육가상 회의 6'처럼 이름에 붙어 보였다.
    모든 화면이 읽는 이 파일 한 곳으로 옮겼다(값은 그대로). */
 .report-kind-tag{display:inline-block;margin-right:4px;padding:0 5px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);font-size:11px;line-height:16px;color:var(--kptu-muted);vertical-align:1px}
+/* ===== UI-점검1030손질(2026-10-30 사이트 점검 실측 C2·C4·C7): 공용 칩 줄 끝·PC 종류 칩 줄바꿈·체크칸 줄 누르는 범위 =====
+   기록: docs/design-decisions.md "UI-점검1030손질". 재발 방지: tests/ui-audit-1030.test.mjs(App smoke check), tests/app-e2e/ui-audit-1030.spec.mjs(412·1440 실측).
+   ① 옆으로 미는 칩 줄(공용 filter-chips·category-chips)이 넘치면 가려진 쪽 끝 24px을 흐리게 한다. 넘치는지는 scroll-edge.js가 data-scroll-more로만 알린다
+      (사업 보고 칸 칩 줄이 [거르기 ▾] 앞에서 '국…'처럼 뚝 잘려 보이던 것). 칩 모양·누르는 범위는 그대로다. */
+.filter-chips[data-scroll-more="end"]{ -webkit-mask-image:linear-gradient(to right,currentColor calc(100% - 24px),transparent); mask-image:linear-gradient(to right,currentColor calc(100% - 24px),transparent); }
+.filter-chips[data-scroll-more="start"]{ -webkit-mask-image:linear-gradient(to left,currentColor calc(100% - 24px),transparent); mask-image:linear-gradient(to left,currentColor calc(100% - 24px),transparent); }
+.filter-chips[data-scroll-more="start end"]{ -webkit-mask-image:linear-gradient(to right,transparent,currentColor 24px,currentColor calc(100% - 24px),transparent); mask-image:linear-gradient(to right,transparent,currentColor 24px,currentColor calc(100% - 24px),transparent); }
+/* ② 담당조직·프로젝트 상세 [자료] 종류 칩(.doc-kind-chips): PC(1024px~)는 마우스로 옆으로 밀 수 없으므로 한 줄 가로 스크롤 대신 줄바꿈. 폰·중간 폭은 지금처럼 한 줄. */
+@media(min-width:1024px){
+  html .doc-kind-chips:not([hidden]){ flex-wrap:wrap; row-gap:4px; overflow:visible; }
+}
+/* ③ 체크칸 줄 누르는 범위: 보이는 체크칸(14~16px)·줄 높이(32px)는 그대로, 줄(label) 전체가 누르는 곳이고 위아래 44px까지 넓힌다(UI-버튼기준, 옆 ›의 ::after와 같은 식).
+      내 프로필 담당 사업장·참고 일정 '내가 만든 일정도 포함', 원장 '지난 기록도 보기'. 그 밖의 체크칸 줄은 이미 40~44px이다(PR 본문 표). */
+#profileView :is(.ps-org-pick,.ps-calref-check),#appView #ledgerView .lb-check{ position:relative; }
+#profileView :is(.ps-org-pick,.ps-calref-check)::after,#appView #ledgerView .lb-check::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
