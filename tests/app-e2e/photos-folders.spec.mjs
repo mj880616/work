@@ -146,17 +146,22 @@ for (const width of [412, 884, 1440]) {
     // 폴더 메뉴: PC는 우클릭(공용 context-menu.js), 폰은 ⋯. 새 하위 폴더·이름 바꾸기·옮기기·지우기.
     const fm = page.locator('#photosFolderMenu');
     if (wide) await root(page).locator('[data-photos-fx-tree] [data-photos-folder="S2"] .nx-name').click({ button: 'right' });
-    else await root(page).locator('[data-photos-fx-more="S2"]').click();
+    else {
+      // 폰: 위치 줄로 맨 위 폴더에 올라가 그 하위 폴더 줄의 ⋯.
+      await path(page).getByRole('button', { name: '카메라' }).click();
+      await expect(path(page)).toHaveText('사진›카메라');
+      await root(page).locator('[data-photos-fx-more="S2"]').click();
+    }
     await expect(fm).toBeVisible();
     await expect(fm.locator('button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '지우기']);
     await page.keyboard.press('Escape');
     await expect(fm).toBeHidden();
-    // + 새 폴더: 지금 폴더(2026) 안에. 이름 줄에 쓰고 Enter.
+    // + 새 폴더: 지금 폴더(PC 2026, 폰 맨 위 카메라) 안에. 이름 줄에 쓰고 Enter.
     await root(page).locator('[data-photos-fx-new]').click();
     await expect(root(page).locator('[data-photos-name]')).toBeVisible();
     await root(page).locator('[data-photos-name-input]').fill('가을');
     await root(page).locator('[data-photos-name-input]').press('Enter');
-    await expect.poll(() => f.edge.find(b => b.action === 'folder-create')).toMatchObject({ parent_id: 'S1', name: '가을' });
+    await expect.poll(() => f.edge.find(b => b.action === 'folder-create')).toMatchObject({ parent_id: wide ? 'S1' : 'T', name: '가을' });
     await expect(root(page).locator('[data-photos-folder="N3"] .nx-name')).toHaveText('가을');
     expect(f.errors).toEqual([]);
   });
