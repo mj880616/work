@@ -214,5 +214,6 @@ test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(
   assert.match(loader, /basket:\[[^\]]*'\.\/folder-tree\.css'/);
   assert.match(read('app/folder-tree.css'), /\.nx-row \{/);
   assert.doesNotMatch(read('app/basket.css'), /^\.nx-main \{/m);
-  for (const f of ['app/photos.js', 'app/photo-tags.js']) assert.doesNotMatch(read(f), /localStorage|sessionStorage|indexedDB/);
+  const stores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));
+  for (const f of ['app/photos.js', 'app/photo-tags.js']) assert.doesNotMatch(read(f), stores, f);
 });

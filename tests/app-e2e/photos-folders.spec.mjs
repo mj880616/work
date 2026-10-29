@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { clickView } from './helpers/shell-navigation.mjs';
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더](원드라이브 폴더 나무·폴더 안 사진·여러 장 옮기기·끌어 놓기·되돌리기·우클릭/⋯ 메뉴·새 폴더)와
 // [앨범](#태그: 새 앨범에 넣기·앨범 카드·앨범 사진·앨범에서 빼기). 지어낸 Supabase: onedrive-photos(Edge)·app_photo_tags·app_photo_tag_items·app_diary_stars.
 // 폭: 폰 412(한 화면씩)·폴드 펼침 884(한 화면씩)·PC 1440(왼쪽 나무 + 오른쪽 격자).
@@ -69,11 +70,9 @@ async function fixture(page, width) {
   });
   return state;
 }
-async function openPhotos(page, width) {
-  if (width <= 760) {
-    await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '사진', exact: true }).click();
+// 폭마다 보이는 메뉴(왼쪽 메뉴·☰·아래 [메뉴] 탭)로 연다(공용 도우미).
+async function openPhotos(page) {
+  await clickView(page, 'photos');
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const root = page => page.locator('#photosRoot');
@@ -85,7 +84,7 @@ const path = page => root(page).locator('.photos-fx-path');
 for (const width of [412, 884, 1440]) {
   test(`사진 메뉴 ② 폴더: 폴더 나무·폴더 안 사진·여러 장 옮기기·되돌리기·메뉴·새 폴더 ${width}`, async ({ page }) => {
     const f = await fixture(page, width), wide = width >= 1024;
-    await openPhotos(page, width);
+    await openPhotos(page);
     await root(page).locator('[data-photos-tab="folders"]').click();
     await expect(root(page).locator('[data-photos-tab="folders"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(path(page)).toHaveText('사진›카메라');
@@ -165,7 +164,7 @@ for (const width of [412, 884, 1440]) {
 
 test('사진 메뉴 ② 폴더 PC 1440: 고른 사진을 왼쪽 폴더로 끌어 놓기 → 옮김·되돌리기, 사진 우클릭 메뉴 맨 위 [선택]', async ({ page }) => {
   const f = await fixture(page, 1440);
-  await openPhotos(page, 1440);
+  await openPhotos(page);
   await root(page).locator('[data-photos-tab="folders"]').click();
   const tree = root(page).locator('[data-photos-fx-tree]');
   await tree.locator('[data-photos-fx-open="S1"]').click();
@@ -196,7 +195,7 @@ test('사진 메뉴 ② 폴더 PC 1440: 고른 사진을 왼쪽 폴더로 끌어
 for (const width of [412, 1440]) {
   test(`사진 메뉴 ② 앨범: 고른 사진을 새 앨범에 넣기 → 앨범 카드 → 앨범 사진 → 앨범에서 빼기 ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
-    await openPhotos(page, width);
+    await openPhotos(page);
     await root(page).locator('[data-photos-tab="albums"]').click();
     await expect(root(page).locator('[data-photos-al-new]')).toHaveText('+ 새 앨범');
     await expect(root(page).locator('[data-photos-album]')).toHaveCount(0);

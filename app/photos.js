@@ -664,19 +664,21 @@ function loadTree(force = false) {
     error => { if (current(r)) treeFailed = odErrorText(error); return null; }).finally(() => { treeLoading = null; });
   return treeLoading;
 }
-// 그 폴더 바로 안 사진(서버 library folder_id, 120장씩).
+// 그 폴더 바로 안 사진(서버 library folder_id, 120장씩). 다른 폴더로 가면 받던 쪽은 버린다(token).
+let fToken = null;
 function loadFolder(id) {
-  if (fLoading || (fFor === id && fEnded)) return fLoading;
-  const r = run;
+  if (fFor === id && (fLoading || fEnded)) return fLoading;
   if (fFor !== id) { fFor = id; fItems = []; fNext = null; fEnded = false; fFailed = ''; }
+  const r = run, token = {};
+  fToken = token;
   fLoading = (async () => {
     try {
       const page = await odLibrary(rt, {folderId:id, cursor:fNext, limit:PAGE_SIZE});
-      if (!current(r) || fFor !== id) return;
+      if (!current(r) || fToken !== token) return;
       fItems = appendItems(fItems, page.items.map(toItem)); fNext = page.next; fEnded = !page.next; fFailed = '';
-    } catch (error) { if (current(r) && fFor === id) fFailed = odErrorText(error); }
-    finally { if (fFor === id) fLoading = null; }
-    if (current(r) && tab === 'folders' && at === id) paintFolderGrid();
+    } catch (error) { if (current(r) && fToken === token) fFailed = odErrorText(error); }
+    finally { if (fToken === token) fLoading = null; }
+    if (current(r) && fToken === token && tab === 'folders' && at === id) paintFolderGrid();
   })();
   return fLoading;
 }
