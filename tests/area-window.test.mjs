@@ -76,12 +76,12 @@ test('① 다른 곳의 사업영역 연결은 모두 KPTUAreaWindow.open 하나
   assert.match(bnt,/ORIGIN_SCREEN=\{projects:'meetings'\}/);
 });
 
-test('③ 줄은 team.js 한 곳이 그리고, [달기] 저장은 기존 app_meetings PATCH로 business_area_id·updated_at만',()=>{
+test('③ 줄은 team.js 한 곳이 그리고, [달기] 저장은 기존 app_meetings PATCH로 business_area_id(·business_area_none)·updated_at만',()=>{
   const team=read('team.js');
   assert.match(team,/function paintUntagged\(\)\{const line=\$\('#areaUntaggedLine'\)/);
   assert.match(team,/renderReportWeek\(\);paintUntagged\(\);/);
   const tag=read('report-area-tag.js');
-  assert.match(tag,/method:'PATCH',body:\{business_area_id:areaId,updated_at:new Date\(\)\.toISOString\(\)\}/);
+  assert.match(tag,/method:'PATCH',body:\{\.\.\.area,updated_at:new Date\(\)\.toISOString\(\)\}/); // area = areaBody(): business_area_id(+ business_area_none)
   assert.match(tag,/kind:'area_suggest'/);
   assert.match(read('index.html'),/<div id="areaUntaggedLine" class="area-untagged" hidden><\/div>/);
 });
