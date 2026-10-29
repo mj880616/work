@@ -98,7 +98,7 @@ async function mockApp(page,state){
     }
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:state.workspace.id,user_id:state.user.id,role:'owner',created_at:now()}]);
-    if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'프로젝트 관리자'}]);
+    if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'사업영역 관리자'}]);
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
 
     if(path==='/rest/v1/app_spaces'){
@@ -184,7 +184,7 @@ async function openMenu(page){
 // 이 모양의 확정 연결을 더한다(google_task_id·task_completed가 없어 할 일 수에는 들지 않는다).
 function basketLink(id,summary,occurred_at,project_id='main-1'){return{id,workspace_id:'workspace-1',summary,note_id:'note-'+id,organization_id:null,project_id,status:'confirmed',note:{id:'note-'+id,workspace_id:'workspace-1',occurred_at,raw_text:summary+' 원문',kind:'basket',title:null}}}
 function baseState(){return{
-  user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'프로젝트 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},
+  user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'사업영역 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},
   projectTypes:[
     {id:'type-ongoing',workspace_id:null,template_key:'ongoing',name:'상시사업·산업관리형',description:null,config:{suggested_workstreams:['정책·제도','조직·현장','교섭·투쟁','대외대응']},is_system:true,created_by:null,created_at:now()},
     {id:'type-campaign',workspace_id:null,template_key:'campaign',name:'쟁점·캠페인형',description:null,config:{suggested_workstreams:['정부대응','국회대응','현장조직화','공동행동','성과·후속']},is_system:true,created_by:null,created_at:now()},
@@ -756,7 +756,7 @@ test('V3 lists child projects with counts in the body and child returns to paren
   await expect(page.locator('#ps3DetailModal .ps3-modal-head')).not.toContainText('PROJECT');
   await expect(page.locator('#ps3Hierarchy')).toBeEmpty();
   const children=page.locator('#ps3-children');
-  await expect(children.locator('.ps3-section-head')).toContainText('하위 프로젝트 1');
+  await expect(children.locator('.ps3-section-head')).toContainText('하위 사업영역 1');
   const row=children.locator('[data-ps3-project="child-1"]');
   await expect(row).toContainText('9.29 민자철도 국회토론회');
   await expect(row).toContainText('할 일 1 · 자료 1');
@@ -784,11 +784,11 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   const list=page.locator('#projectGrid .ps3-plist'),main=list.locator('[data-ps3-project="main-1"]'),child=list.locator('[data-ps3-project="child-1"]');
   await expect(list.locator('.add-list-head h2')).toHaveCount(0);
-  await expect(list.locator('[data-ps3-total]')).toHaveText('프로젝트 2개');
+  await expect(list.locator('[data-ps3-total]')).toHaveText('사업영역 2개');
   await expect(list.locator('[data-ps3-total]')).toHaveCSS('font-size','12px');
   await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관 1');
   await expect(page.locator('#ps3ArchiveBtn')).toHaveCSS('font-size','12px');
-  await expect(page.locator('#newProjectBtn')).toHaveText('+ 프로젝트');
+  await expect(page.locator('#newProjectBtn')).toHaveText('+ 사업영역');
   await expect(list.locator('[data-ps3-kids-toggle]')).toHaveCount(0);
   await expect(child).toBeVisible();await expect(list.locator('[data-ps3-child]')).toHaveCount(0);
   // UI-디자인기준 2/3(8-9d): 오른쪽 끝 알약은 다음 주요 일정 D-day(3일 이내 빨강), 읽은 뒤 없으면 흐린 "최근 기록 날짜"(PRJ-화면다듬기), 기록도 없으면 빈칸.
@@ -830,12 +830,12 @@ for(const extra of [0,200])test(`D-project requests stay constant with ${extra} 
  expect(state.restCalls.filter(x=>x.name==='app_record_links')).toHaveLength(0);
  expect(state.restCalls.filter(x=>x.name==='app_documents'||x.name==='app_project_progress_updates'||x.name==='app_project_milestones')).toHaveLength(0);
  await expect(page.locator('#ps3ArchiveBtn')).toBeHidden();
- await expect(page.locator('[data-ps3-total]')).toHaveText(`프로젝트 ${extra+1}개`);
+ await expect(page.locator('[data-ps3-total]')).toHaveText(`사업영역 ${extra+1}개`);
 });
 test('D-project names appear before optional reads and survive failed metadata',async({page})=>{
  const state=baseState();state.summaryFail=true;let release;state.summaryDelay=new Promise(r=>release=r);
  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
- await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(2);await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
+ await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(2);await expect(page.locator('[data-ps3-total]')).toHaveText('사업영역 1개');
  release();await expect.poll(()=>state.summaryQueries?.length).toBe(1);
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]').click();await expectProjectTitle(page,'민자철도 정책·조직사업');
 });
@@ -860,7 +860,7 @@ for(const width of [390,1280])test(`V3 generated dialogs expose consistent acces
   if(width>=1024)await expectProjectDetail(page,'main-1');
   for(const id of ['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3MilestoneModal','ps3DeleteModal','ps3ArchiveModal']){
     const modal=page.locator('#'+id);
-    if(id==='ps3DetailModal'&&width>=1024){await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal',/.*/);await expect(page.locator('#ps3DetailPane')).toHaveAttribute('aria-label','프로젝트 상세')}
+    if(id==='ps3DetailModal'&&width>=1024){await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal',/.*/);await expect(page.locator('#ps3DetailPane')).toHaveAttribute('aria-label','사업영역 상세')}
     else{await expect(modal).toHaveAttribute('role','dialog');
     await expect(modal).toHaveAttribute('aria-modal','true');}
     if(id==='ps3DetailModal'&&width>=1024){
@@ -915,7 +915,7 @@ test('V3 more menu and record lines use native keyboard disclosure behavior',asy
   const state=baseState();state.links.push(basketLink('kb-first','키보드 첫 연결','2026-09-20T05:00:00Z'),basketLink('kb-second','키보드 둘째 연결','2026-09-18T05:00:00Z'));await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await page.locator('[data-ps3-project="main-1"]').first().click();
   const menu=page.locator('#ps3Menu .ps3-more'),summary=menu.locator(':scope > summary');
-  await expect(summary).toHaveAttribute('aria-label','프로젝트 관리 메뉴');
+  await expect(summary).toHaveAttribute('aria-label','사업영역 관리 메뉴');
   await expect(menu.locator('[data-ps3-toggle-done]')).toBeHidden();
   await summary.focus();
   await page.keyboard.press('Enter');
@@ -960,7 +960,7 @@ test('V3 creates and edits a project with the same final renderer',async({page})
   await expectProjectDetail(page,made.id);
   await openMenu(page);
   await page.locator('[data-ps3-edit-project]').click();
-  await expect(page.locator('#ps3CreateHeading')).toHaveText('프로젝트 수정');
+  await expect(page.locator('#ps3CreateHeading')).toHaveText('사업영역 수정');
   await page.locator('#ps3CreateName').fill('인력확충 공동투쟁');
   const end=addCalendarDays(today,23);
   await page.locator('#ps3CreateEnd').fill(end);
@@ -1040,7 +1040,7 @@ test('TRASH 2단계: 휴지통을 쓸 수 있으면 삭제는 휴지통 이동�
   await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
   await deleteMain(page);
   const message=page.locator('#ps3DeleteMessage');
-  await expect(message).toContainText('휴지통으로 옮깁니다');await expect(message).toContainText('하위 프로젝트 1개도 함께 옮겨지고');
+  await expect(message).toContainText('휴지통으로 옮깁니다');await expect(message).toContainText('하위 사업영역 1개도 함께 옮겨지고');
   await expect(message).toContainText('연결된 기록은 그대로 남습니다');await expect(message).toContainText('휴지통에서 되돌릴 수 있습니다');
   await expect(page.locator('[data-ps3-delete-note]')).toBeHidden();
   await page.locator('#ps3DeleteConfirm').click();
@@ -1074,7 +1074,7 @@ test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 
   await expect(rows).toHaveCount(3);
   await expect(rows.first()).toContainText('민자철도 정책·조직사업');await expect(rows.first()).toContainText('하위 1개');
   const orphan=page.locator('[data-ps3-trash-row="child-1"]');
-  await expect(orphan).toContainText('상위 프로젝트를 먼저 되돌려 주세요');
+  await expect(orphan).toContainText('상위 사업영역을 먼저 되돌려 주세요');
   await expect(orphan.locator('[data-ps3-trash-restore]')).toBeDisabled();
   // 영구 삭제: 확인창을 거치고, 취소하면 그대로다.
   const solo=page.locator('[data-ps3-trash-row="solo-1"]');
@@ -1146,7 +1146,7 @@ test('TRASH-다른삭제 3단계: 휴지통 탭에 자료실 폴더가 프로젝
   await expect(page.locator('[data-ps3-archive-hint]')).toContainText('자료실 폴더');
   const first=page.locator('[data-ps3-trash-row="lf-t1"]'),second=page.locator('[data-ps3-trash-row="lf-t2"]');
   await expect(first).toContainText('합성 폴더');await expect(first).toContainText('자료실 폴더');await expect(first).toContainText('합성 사업');await expect(first).toContainText('하위 2개');await expect(first).toContainText('자료 5개');
-  await expect(second).toContainText('프로젝트 없음');
+  await expect(second).toContainText('사업영역 없음');
   // 위 폴더가 아직 휴지통이면 먼저 되돌리라고 안내하고 [되돌리기]는 막힌다.
   await expect(second).toContainText('상위 폴더를 먼저 되돌려 주세요');await expect(second.locator('[data-ps3-trash-restore]')).toBeDisabled();
   // 영구 삭제: 폴더만 지워지고 안의 것은 한 단 위로 올라간다고 알리는 확인창. 취소하면 그대로.
@@ -1215,13 +1215,13 @@ test('TRASH 2단계: 휴지통 함수가 아직 없으면 삭제는 지금 문�
   await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
   await deleteMain(page);
   const message=page.locator('#ps3DeleteMessage');
-  await expect(message).toContainText('삭제합니다');await expect(message).toContainText('하위 프로젝트 1개도 함께 삭제됩니다');
+  await expect(message).toContainText('삭제합니다');await expect(message).toContainText('하위 사업영역 1개도 함께 삭제됩니다');
   await expect(page.locator('#ps3DeleteModal')).not.toContainText('휴지통');
   await expect(page.locator('[data-ps3-delete-note]')).toContainText('프로젝트 연결만 해제함');
   await expect(page.locator('#ps3DeleteConfirm')).toHaveText('삭제');
   await page.locator('#ps3DeleteConfirm').click();
   await expect.poll(()=>state.spaces.some(x=>x.id==='main-1')).toBeFalsy();
-  await expect(page.locator('#toast')).toHaveText('프로젝트를 삭제했습니다.');
+  await expect(page.locator('#toast')).toHaveText('사업영역을 삭제했습니다.');
   await expect(page.locator('[data-undo-notice]')).toHaveCount(0);
   await clickView(page,'projects');
   const button=page.locator('#ps3ArchiveBtn');

@@ -71,7 +71,7 @@ function userFromSession(){
   }catch{return null}
 }
 function projectName(id){return spaces.find(x=>x.id===id)?.name||''}
-function projectOptions(includeBlank=true,selected=''){return window.KPTUProjectCatalog?.options(selected,includeBlank)||(includeBlank?'<option value="">프로젝트 없음</option>':'')}
+function projectOptions(includeBlank=true,selected=''){return window.KPTUProjectCatalog?.options(selected,includeBlank)||(includeBlank?'<option value="">사업영역 없음</option>':'')}
 function publishProjects(){if(window.KPTUProjectCatalog&&workspace?.id&&user?.id)window.KPTUProjectCatalog.publish({workspaceId:workspace.id,userId:user.id,spaces:spaces.filter(x=>x.owner_id===user.id)})}
 function showOnly(id){document.body.classList.toggle('kptu-workspace-shell',id==='appView');['accessDeniedView','appView','bootView'].forEach(x=>{const el=$('#'+x);if(!el)return;const active=x===id;el.classList.toggle('hidden',!active);el.inert=!active;el.setAttribute('aria-hidden',active?'false':'true')})}
 function showWorkspaceError(){const view=$('#bootView');if(!view)return;view.querySelector('h2').textContent='업무 공간을 열 수 없습니다.';view.querySelector('p').textContent='연결 상태를 확인한 뒤 다시 시도하거나 로그아웃해 주세요.';$('#bootErrorActions')?.classList.remove('hidden');showOnly('bootView')}
@@ -275,7 +275,7 @@ function openDocumentModal(){['docTitle','docCategory','docSource','docDate','do
 // MTG-사업보고 6단계: 연결(프로젝트·담당조직)은 한 곳 — 연결 표의 '출처 회의' 줄(report-links.js). 입력 창 [연결할 곳]·결과 창·목록·프로젝트/조직 화면이 같은 줄을 읽고 쓴다.
 let meetingEntryTargets=[],entryNames=new Map(),reportTargetMap=new Map(),orgNames=new Map();
 const tkey=t=>t.kind+':'+t.id;
-function targetNameOf(t){return (t.kind==='project'?projectName(t.id):orgNames.get(t.id))||entryNames.get(tkey(t))||(t.kind==='project'?'프로젝트':missingOrganizationLabel(orgNames.size>0))}
+function targetNameOf(t){return (t.kind==='project'?projectName(t.id):orgNames.get(t.id))||entryNames.get(tkey(t))||(t.kind==='project'?'사업영역':missingOrganizationLabel(orgNames.size>0))}
 function reportTargetsOf(m){return reportTargetMap.get(m?.id)||(m?.project_id?[{kind:'project',id:m.project_id}]:[])}
 function reportLinkLabel(m){return targetsLabel(reportTargetsOf(m),targetNameOf)}
 async function loadReportLinks(){
@@ -288,7 +288,7 @@ async function loadReportLinks(){
 function paintEntryPlaces(){
   const button=$('#meetingPlaces');if(button)button.textContent=targetsLabel(meetingEntryTargets,targetNameOf,'연결 안 함');
   const select=$('#meetingProject'),pid=firstProjectId(meetingEntryTargets)||'';
-  if(select){if(pid&&![...select.options].some(o=>o.value===pid))select.add(new Option(projectName(pid)||'프로젝트',pid));select.value=pid}
+  if(select){if(pid&&![...select.options].some(o=>o.value===pid))select.add(new Option(projectName(pid)||'사업영역',pid));select.value=pid}
 }
 async function choosePlaces(trigger){
   try{

@@ -111,7 +111,7 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
  const {errors}=await boot(page,1280);
  await expect(page.locator('.mobile-tabs')).toBeHidden();
  expect(await page.locator('#homeView .home-quick').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');await expect(page.locator('#homeView .home-basket-link')).toBeVisible();
- for(const [view,id,text] of [['calendar','#newEventBtn',null],['projects','#newProjectBtn','+ 프로젝트'],['library','#newDocumentBtn','+ 자료 등록']]){
+ for(const [view,id,text] of [['calendar','#newEventBtn',null],['projects','#newProjectBtn','+ 사업영역'],['library','#newDocumentBtn','+ 자료 등록']]){
   // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 왼쪽 메뉴 줄이 없어 사업 보고 ⋯ 안에서 연다(clickView가 그 길로 간다).
   await clickView(page,view);await loaded(page,view);
   await expect(page.locator(`#${view}View .schedule-switch`)).toHaveCount(view==='calendar'||view==='tasks'?1:0);
@@ -126,7 +126,7 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
 test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르는 범위 44px, 이름, 같은 창, 마지막 줄이 가리지 않음',async({page})=>{
  const {errors}=await boot(page,390);
  const tabsTop=(await box(page.locator('.mobile-tabs'))).top;
- for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['projects','#newProjectBtn','프로젝트 추가','#ps3CreateModal'],['library','#newDocumentBtn','자료 등록','#documentModal'],['meetings','#newMeetingBtn','사업 보고 등록','#meetingModal']]){
+ for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['projects','#newProjectBtn','사업영역 추가','#ps3CreateModal'],['library','#newDocumentBtn','자료 등록','#documentModal'],['meetings','#newMeetingBtn','사업 보고 등록','#meetingModal']]){
   await page.evaluate(v=>KPTURouter.go(v),view);await loaded(page,view);
   const button=page.locator(id);await expect(button).toBeVisible();await expect(button).toHaveAttribute('aria-label',label);
   // 보이는 원은 버튼 자체 36px, 누르는 범위는 ::after 44px(앱의 다른 버튼과 같은 방식). 누르는 범위가 탭 위 12px·오른쪽 16px.

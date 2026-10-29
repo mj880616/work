@@ -142,7 +142,7 @@ test('project draft uses existing confirmDiscard; accepting reloads',async({page
   const field=await editLinkSummary(page);await field.fill('QA draft');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
-  expect(message).toBe('저장하지 않은 프로젝트 내용이 있습니다. 이동하면서 버릴까요?');await expect(field).toHaveValue('QA draft');
+  expect(message).toBe('저장하지 않은 사업영역 내용이 있습니다. 이동하면서 버릴까요?');await expect(field).toHaveValue('QA draft');
   page.once('dialog',d=>d.accept());const reloaded=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reloaded;
 });

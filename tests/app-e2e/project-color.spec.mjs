@@ -115,7 +115,7 @@ test('PRJ-색 create: 8 labelled 44px choices, saved as a color key; child creat
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await page.locator('[data-ps3-project="green"]').first().click();
   await page.locator('[data-ps3-child]').click();
-  await expect(page.locator('#ps3CreateHeading')).toHaveText('하위 프로젝트 만들기');
+  await expect(page.locator('#ps3CreateHeading')).toHaveText('하위 사업영역 만들기');
   await expect(field).toBeHidden();
   await page.locator('#ps3CreateName').fill('새 하위');await page.locator('#ps3CreateSave').click();
   await expectProjectTitle(page,'새 하위');

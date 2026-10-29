@@ -36,7 +36,7 @@ async function mrdReadTasks(meetingId){
 }
 function mrdCanEdit(m){return !!m&&(m.created_by===mrdUser?.id||['owner','admin','editor'].includes(mrdRole))}
 function mrdCanDelete(m){return !!m&&(m.created_by===mrdUser?.id||['owner','admin'].includes(mrdRole))}
-function mrdProjectOptions(selected=''){return window.KPTUProjectCatalog?.options(selected)||'<option value="">프로젝트 없음</option>'}
+function mrdProjectOptions(selected=''){return window.KPTUProjectCatalog?.options(selected)||'<option value="">사업영역 없음</option>'}
 function mrdMeetingName(m){return String(m?.series_name||m?.title||'').trim()}
 // 수정 창 짧은 이름 칸의 처음 값: 차수가 없는 회의만 종류 이름과 다른 제목을 짧은 이름으로 본다(차수가 있으면 예전 제목은 "기존 제목"으로만 보인다).
 function mrdShortNameStart(m){const r=m?.round_no;return r!=null&&r!==''&&Number.isFinite(Number(r))?'':mrdLegacyTitle(m)}
@@ -195,7 +195,7 @@ window.addEventListener('kptu:documents-changed',mrdRefreshMaterials);
 const mrdLinkRefreshed=new Set();
 let mrdEditTargets=[],mrdEditTargetsStart=[],mrdEditTargetsTouched=false;const mrdNames=new Map();
 const mrdTkey=t=>t.kind+':'+t.id;
-function mrdTargetName(t){return window.KPTUTeamData?.targetName?.(t)||mrdNames.get(mrdTkey(t))||(t.kind==='project'?mrdProjects.find(x=>x.id===t.id)?.name:'')||(t.kind==='project'?'프로젝트':'담당조직')}
+function mrdTargetName(t){return window.KPTUTeamData?.targetName?.(t)||mrdNames.get(mrdTkey(t))||(t.kind==='project'?mrdProjects.find(x=>x.id===t.id)?.name:'')||(t.kind==='project'?'사업영역':'담당조직')}
 function mrdLinkText(m){const label=window.KPTUTeamData?.reportLabel?.(m)||(m.project_id?mrdProjects.find(x=>x.id===m.project_id)?.name:'');return label?`연결 ${label}`:null}
 let mrdSummaries=null,mrdAreaFields=null;
 function mrdArea(){const host=document.querySelector('#mrdEditArea');if(!host)return null;if(!mrdAreaFields||!host.isConnected||!host.childElementCount)mrdAreaFields=mountAreaFields(host,{onMessage:msg=>{const st=document.querySelector('#mrdEditStatus');if(st){st.textContent=msg;st.className='status error'}},material:()=>({title:document.querySelector('#mrdEditTitle')?.value||'',text:document.querySelector('#mrdEditTranscript')?.value||''})});return mrdAreaFields}

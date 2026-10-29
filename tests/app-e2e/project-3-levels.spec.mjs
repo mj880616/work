@@ -100,17 +100,17 @@ test('PC 1280: moves that would make a fourth level or a cycle are not offered a
  await openEdit(page,'pa');expect(await parentValues(page)).toEqual(['']);
  // Under its own grandchild (a cycle): refused, nothing written.
  await forceParent(page,'pd');await page.locator('#ps3CreateSave').click();
- await expect(page.locator('#ps3CreateStatus')).toHaveText('자기 자신이나 그 아래 프로젝트 밑으로는 옮길 수 없어요.');
+ await expect(page.locator('#ps3CreateStatus')).toHaveText('자기 자신이나 그 아래 사업영역 밑으로는 옮길 수 없어요.');
  await page.locator('[data-ps3-close="ps3CreateModal"]').click();await expect(page.locator('#ps3CreateModal')).toBeHidden();
  // A main project with one level under it: only under another main project (it becomes 2단 + 3단).
  await openEdit(page,'pe');expect(await parentValues(page)).toEqual(['','pa','pb']);
  await forceParent(page,'pc');await page.locator('#ps3CreateSave').click();
- await expect(page.locator('#ps3CreateStatus')).toHaveText('프로젝트는 3단까지만 둘 수 있어요.');
+ await expect(page.locator('#ps3CreateStatus')).toHaveText('사업영역은 3단까지만 둘 수 있어요.');
  await page.locator('[data-ps3-close="ps3CreateModal"]').click();
  // A third level keeps its parent; it may move up to the top or under another first or second level.
  await openEdit(page,'pd');await expect(page.locator('#ps3CreateParent')).toHaveValue('pc');expect(await parentValues(page)).toEqual(['','pa','pc','pb','pe','pf']);
  await forceParent(page,'pd');await page.locator('#ps3CreateSave').click();
- await expect(page.locator('#ps3CreateStatus')).toHaveText('자기 자신이나 그 아래 프로젝트 밑으로는 옮길 수 없어요.');
+ await expect(page.locator('#ps3CreateStatus')).toHaveText('자기 자신이나 그 아래 사업영역 밑으로는 옮길 수 없어요.');
  expect(state.writes).toEqual([]);
  // An allowed move: a project with no children goes under a second level and becomes the third level.
  await page.locator('[data-ps3-close="ps3CreateModal"]').click();
@@ -139,7 +139,7 @@ for(const width of [1280,390])test(`${width}: the record-place sheet shows "1단
  await expect(deep.locator('.home-choice-path')).toHaveCount(0);await expect(deep).toHaveText('합성 세부 사안');
  await expect(sheet.locator('[data-sheet-projects] [data-sheet-value="project:pc"] .home-choice-path')).toHaveCount(0);
  if(width<761){await expect(sheet.getByRole('searchbox')).toBeHidden();expect(errors).toEqual([]);return}
- const search=sheet.getByRole('searchbox',{name:'조직·프로젝트 이름 검색'});await search.fill('사안');
+ const search=sheet.getByRole('searchbox',{name:'조직·사업영역 이름 검색'});await search.fill('사안');
  await expect(deep).toBeVisible();await expect(deep.locator('.home-choice-path')).toBeVisible();await expect(deep.locator('.home-choice-path')).toHaveText('합성 정책 사업 › 합성 하위 토론회');
  await expect(sheet.locator('[data-sheet-projects] [data-sheet-value="project:pc"]')).toBeHidden();
  // The search matches names only: a parent's name does not bring up its third level.

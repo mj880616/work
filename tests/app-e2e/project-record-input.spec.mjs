@@ -156,13 +156,13 @@ test('PRJ-기록입력 old records and items have no line to edit or delete, and
 
 test('PRJ-기록입력 groups: same line lists, small + beside the title, documents open on tap',async({page})=>{
   await fixture(page);
-  for(const [section,label] of [['#ps3-children','하위 프로젝트 추가'],['#ps3-tasks','할 일 추가'],['#ps3-documents','자료 올리기']]){
+  for(const [section,label] of [['#ps3-children','하위 사업영역 추가'],['#ps3-tasks','할 일 추가'],['#ps3-documents','자료 올리기']]){
     const plus=page.locator(`${section} .ps3-section-head`).getByRole('button',{name:label});
     await expect(plus).toHaveText('+');const box=await plus.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
   }
   // Child creation stays inside the child list (AGENTS.md §5).
-  await page.locator('#ps3-children').getByRole('button',{name:'하위 프로젝트 추가'}).click();
-  await expect(page.locator('#ps3CreateHeading')).toHaveText('하위 프로젝트 만들기');await page.locator('[data-ps3-close="ps3CreateModal"]').click();
+  await page.locator('#ps3-children').getByRole('button',{name:'하위 사업영역 추가'}).click();
+  await expect(page.locator('#ps3CreateHeading')).toHaveText('하위 사업영역 만들기');await page.locator('[data-ps3-close="ps3CreateModal"]').click();
   const doc=page.locator('#ps3-documents .ps3-doc-row');
   await expect(doc.locator('a.ps3-line-main')).toHaveAttribute('href','https://example.org/doc-1');
   await expect(doc.locator('a.ps3-line-main')).toHaveAttribute('target','_blank');

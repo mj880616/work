@@ -9,7 +9,7 @@ import {makeRef, targetsOf, windowOf, rankCandidates, buildRequest, sameCandidat
 
 const enc = encodeURIComponent;
 const PER_KIND = 80;
-const TYPE = {project_update: '프로젝트 기록', org_update: '담당조직 기록', basket: '업데이트'};
+const TYPE = {project_update: '사업영역 기록', org_update: '담당조직 기록', basket: '업데이트'};
 const range = day => { const w = windowOf(day); return w && {from: enc(`${w.from}T00:00:00+09:00`), to: enc(`${w.to}T23:59:59+09:00`)}; };
 const list = async (rt, path) => { try { const rows = await rt.api(path); return Array.isArray(rows) ? rows : []; } catch { return []; } };
 const workspaceOf = rt => rt.context?.read?.()?.workspace?.id || '';

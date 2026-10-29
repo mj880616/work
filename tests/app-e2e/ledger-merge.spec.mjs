@@ -98,7 +98,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await expect(item).toContainText('가상 철도 파업 출정 기자회견');
   await expect(item).toContainText('철도 파업 출정 기자회견 진행');
   await expect(item).toContainText('사업 보고');
-  await expect(item).toContainText('프로젝트 기록');
+  await expect(item).toContainText('사업영역 기록');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   // 눌러도 아직 바뀌지 않는다: 해 보기만 가고, 미리보기를 보고 [반영]해야 바뀐다.
   await item.getByRole('button',{name:'합치기'}).click();

@@ -24,7 +24,7 @@ test('접기·다시 위로는 다른 metadata를 건드리지 않는다',()=>{
  assert.deepEqual(foldedMetadata(null,true),{folded:true});
 });
 test('한 줄 요약과 순서 바꾸기 칸',()=>{
- assert.deepEqual(foldSummary(['가','','나']),{count:3,names:'가, 이름 없는 프로젝트, 나'});
+ assert.deepEqual(foldSummary(['가','','나']),{count:3,names:'가, 이름 없는 사업영역, 나'});
  const f=foldedSet(rows);
  assert.equal(sameGroup(f,rows[0],rows[5]),true);
  assert.equal(sameGroup(f,rows[0],rows[4]),false);

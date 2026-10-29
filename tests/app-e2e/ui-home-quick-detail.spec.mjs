@@ -63,7 +63,7 @@ for(const width of [390,1440]){
   expect(creates[0]).toMatchObject({title:'분기 보고서 작성',due:'2026-10-09',links:[{project_id:'child'}]});
   // 저장 뒤 입력 칸은 비고, 프로젝트 칩은 풀린다(날짜 칩은 [추가]와 같이 그대로).
   await expect(input).toHaveValue('');
-  await expect(q.locator('[data-quick-project]')).toHaveText('프로젝트 ▾');
+  await expect(q.locator('[data-quick-project]')).toHaveText('사업영역 ▾');
   await expect(q.getByRole('button',{name:'내일',exact:true})).toHaveAttribute('aria-pressed','true');
   // 날짜 칩만 고른 채로 [+]: 프로젝트는 비어 있다.
   if(await modal.isVisible())await page.locator('[data-close="eventModal"]').click();

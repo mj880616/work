@@ -7,7 +7,7 @@ import {aiSummaryMarkup,appliedText,newAiState,placeAiSummary,requestLinkSummary
 import {targetKey,targetList,SUMMARY_LIMIT} from './report-links-model.mjs';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const KIND_NAME={project:'프로젝트',organization:'담당조직'};
+const KIND_NAME={project:'사업영역',organization:'담당조직'};
 
 // host: 그릴 상자. nameOf(target): 곳 이름. meetingId(): 지금 고치는 사업 보고 id. rt: 로그인 실행기.
 export function createReportSummaries({host,nameOf,meetingId,rt}){
