@@ -91,7 +91,7 @@ for(const width of [412,884,1440])test(`내 일정 색 11가지: 고르면 그 �
   await page.setViewportSize({width,height:900});
   await open(page);
   // 이 시험 화면은 ui-standard.css 전체를 부르면 숨김 규칙에 걸리므로 색 칸 공용 규칙 줄만 더한다.
-  const common=await page.evaluate(async href=>(await (await fetch(href)).text()).split('\n').filter(line=>line.includes('.ui-swatch')).join('\n'),new URL('../../app/ui-standard.css',url).href);
+  const common=await page.evaluate(async href=>(await (await fetch(href)).text()).replace(/\/\*[\s\S]*?\*\//g,'').split('\n').filter(line=>line.includes('.ui-swatch')).join('\n'),new URL('../../app/ui-standard.css',url).href);
   expect(common).toContain(':root .ui-swatch .ui-swatch-fill');
   await page.addStyleTag({content:common});
   await page.selectOption('[data-ps-calref-calendar]','cal-a');
