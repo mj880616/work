@@ -2,9 +2,11 @@
 // 순수 함수만 둔다(입출력은 handler.ts).
 // - 화면은 질문 한 줄만 보낸다. 서버가 낱말을 뽑아(AI 안 씀) 기존 DB 검색 함수 두 개(app_search_records·app_ledger_search)를
 //   명진 로그인 토큰으로 부르고(owner RLS 그대로), 찾은 근거 줄만 AI에 한 번 보낸다.
-// - 재료 표를 직접 읽지 않는다: 업무 통화·텔레그램 소식은 검색 함수의 call·telegram 종류(요약·핵심 줄)로만 들어온다.
-//   개인 통화함·개인 텔레그램·일기·원문은 검색 함수가 읽지 않는다(DB 시험 고정). 보낸 사람 이름 표도 읽지 않는다.
-// - 원장 교섭·전략(S2)은 근거 목록에 제목·날짜만 보이고 AI에 보내지 않는다(결정 3). AI 제외 노트(ai_export_allowed=false)도 보내지 않는다.
+// - 찾기는 검색 함수로만 한다: 업무 통화·텔레그램 소식은 검색 함수의 call·telegram 종류(요약·핵심 줄)로 들어온다.
+//   개인 통화함·개인 텔레그램·일기는 검색 함수가 읽지 않는다(DB 시험 고정). 통화 원문은 보내지 않는다.
+// - 명진 결정 변경(10/29 07:29~07:30): 찾은 텔레그램 소식은 원문(raw_text, 업무 텔레그램 줄만)과 보낸 사람 표시 이름까지 AI 재료로 보낸다.
+//   handler가 찾은 소식 id만 로그인 토큰으로 다시 읽고(owner RLS), 이름은 이름 표를 collector-feed와 같은 순서로 붙인다(tg-raw.ts). 길이 상한을 둔다.
+// - 원장 교섭·전략(S2)도 AI 재료로 보내 답 문장에 쓴다(결정 3 변경). 근거 목록의 '교섭·전략' 꼬리표는 그대로. AI 제외 노트(ai_export_allowed=false)는 보내지 않는다.
 // - AI 답은 공용 근거 검사(evidence.ts)를 거친다: 이번에 보낸 근거에 없는 ref·근거 없는 줄은 버린다.
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { orgAllNames, orgKey, orgKeys } from "../_shared/org-name-match.mjs";
@@ -77,6 +79,8 @@ export function askOrg(question: string, orgs: { id: string; name: string; alias
 export type AskHit = {
   kind: string; source: string; id: string; date: string | null; day: string | null; title: string; snippet: string;
   org_id: string | null; project_id: string | null; room: string | null; sent: boolean; tag: string | null;
+  // 텔레그램 원문(보낸 사람 이름 붙임, AI 재료에만). 저장·응답에는 넣지 않는다.
+  raw?: string;
 };
 export type AskSource = AskHit & { ref: string };
 
@@ -109,7 +113,7 @@ export function hitsFromSearch(result: unknown): AskHit[] {
   return out;
 }
 
-// 원장 검색 결과. 교섭·전략(S2)은 제목·날짜만(AI에 안 보냄, 결정 3). 대체·폐기는 검색 함수가 이미 뺀다(p_include_inactive=false).
+// 원장 검색 결과. 교섭·전략(S2)도 요약까지 AI에 보낸다(결정 3 변경). S0~S2 밖 등급은 버린다. 대체·폐기는 검색 함수가 이미 뺀다(p_include_inactive=false).
 export function hitsFromLedger(rows: unknown): AskHit[] {
   if (!Array.isArray(rows)) return [];
   const out: AskHit[] = [];
@@ -117,11 +121,12 @@ export function hitsFromLedger(rows: unknown): AskHit[] {
     const id = String(r?.id ?? "");
     if (!UUID.test(id) || typeof r.title !== "string") continue;
     if (r.validity === "superseded" || r.validity === "retired") continue;
-    const s2 = r.sensitivity !== "S0" && r.sensitivity !== "S1";
+    if (r.sensitivity !== "S0" && r.sensitivity !== "S1" && r.sensitivity !== "S2") continue;
+    const s2 = r.sensitivity === "S2";
     out.push({
       kind: "ledger", source: "ledger", id: id.toLowerCase(), date: isoDay(r.date_start), day: null,
-      title: cleanTitle(r.title), snippet: s2 ? "" : maskEvidenceText(r.summary, ASK_SNIPPET_CHARS),
-      org_id: null, project_id: null, room: null, sent: !s2, tag: s2 ? "교섭·전략" : null,
+      title: cleanTitle(r.title), snippet: maskEvidenceText(r.summary, ASK_SNIPPET_CHARS),
+      org_id: null, project_id: null, room: null, sent: true, tag: s2 ? "교섭·전략" : null,
     });
   }
   return out;
@@ -151,17 +156,21 @@ const KIND_LABEL: Readonly<Record<string, string>> = Object.freeze({
 });
 export const askKindLabel = (k: string) => KIND_LABEL[k] ?? k;
 
-// AI에 보내는 재료: 질문 + 보낼 수 있는 근거 줄(ref·종류·날짜·제목·앞뒤 한 줄)만. id·조직 id·S2·AI 제외 노트는 보내지 않는다.
+// AI에 보내는 재료: 질문 + 보낼 수 있는 근거 줄(ref·종류·날짜·제목·앞뒤 한 줄, 텔레그램은 원문 raw)만. id·조직 id·AI 제외 노트는 보내지 않는다.
 export function askMaterial(question: string, sources: AskSource[]): string {
   return JSON.stringify({
     question: maskEvidenceText(question, ASK_QUESTION_MAX),
-    sources: sources.filter((s) => s.sent).map((s) => ({ ref: s.ref, kind: askKindLabel(s.kind), date: s.date, title: s.title, text: s.snippet })),
+    sources: sources.filter((s) => s.sent).map((s) => ({
+      ref: s.ref, kind: s.tag ? `${askKindLabel(s.kind)}(${s.tag})` : askKindLabel(s.kind), date: s.date, title: s.title, text: s.snippet,
+      ...(s.kind === "telegram" && s.raw ? { raw: s.raw } : {}),
+    })),
   });
 }
 
 export const ASK_INSTRUCTIONS = [
   "너는 노동조합 상근자 개인 업무 시스템(Web2)의 '물어보기' 도우미다. 사용자의 질문에 근거 목록으로만 답한다.",
-  "사용자 메시지는 JSON 하나다: question(질문)과 sources(찾은 기록 줄 목록, 각 ref·kind·date·title·text).",
+  "사용자 메시지는 JSON 하나다: question(질문)과 sources(찾은 기록 줄 목록, 각 ref·kind·date·title·text, 텔레그램 소식은 원문 줄 raw가 붙을 수 있음).",
+  "raw는 '시각 보낸 사람: 말' 줄을 ' / '로 이은 텔레그램 원문 일부다. 누가 무슨 말을 했는지 답에 쓸 수 있다.",
   EVIDENCE_RULE,
   `답은 ${ASK_MAX_LINES}줄 이하, 한 줄 ${ASK_LINE_CHARS}자 이하. 질문에 바로 답하는 줄부터 쓴다. 날짜는 근거의 date를 그대로 쓴다.`,
   "근거로 답할 수 없으면 lines를 빈 배열로 둔다. 추측하지 않는다.",
@@ -176,5 +185,6 @@ export function parseAskAnswer(raw: string, sources: AskSource[]): EvidenceLine[
 }
 
 // 저장용 근거(앞뒤 한 줄 없음 — 원본이 바뀌면 원본을 보도록). 프로젝트·조직 id는 화면이 그 기록을 여는 데만 쓴다(AI에는 안 보냄).
+// 텔레그램 원문(raw)은 AI 재료에만 쓰고 저장·응답에 넣지 않는다.
 export const storedSources = (sources: AskSource[]) =>
   sources.map((s) => ({ ref: s.ref, kind: s.kind, source: s.source, id: s.id, date: s.date, day: s.day, room: s.room, project_id: s.project_id, organization_id: s.org_id, title: s.title, sent: s.sent, tag: s.tag }));

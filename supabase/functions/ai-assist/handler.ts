@@ -45,8 +45,9 @@
 //   AI 한도·실패여도 줄은 저장한다(ai_status limit|failed). Google·원장·챙길 것·회의 표에는 쓰지 않는다.
 // Web2에 물어보기(kind=ask_web2, FEAT-1029묶음 ①, web2-ask.ts·evidence.ts): 검색칸 질문 한 줄을 받아 서버가 낱말을 뽑고 기존 검색 함수 두 개
 //   (app_search_records — 업무 통화·텔레그램 종류 포함, app_ledger_search)를 내 로그인으로 불러 근거 줄을 모은 뒤 AI 한 번으로 줄마다 근거 꼬리표가 붙은 답을 만든다.
-//   근거가 없으면 AI를 부르지 않는다. 근거에 없는 ref·근거 없는 줄은 공용 근거 검사가 버린다. 원장 S2·AI 제외 노트는 근거 목록에만 보이고 AI에는 안 보낸다.
-//   재료 표(통화·텔레그램·노트 본문)를 직접 읽지 않는다(개인 통화함 표는 어떤 경로로도 안 읽음). 답은 owner RLS 표 app_ask_answers에 30일 둔다(넣을 때 30일 지난 행을 지움).
+//   근거가 없으면 AI를 부르지 않는다. 근거에 없는 ref·근거 없는 줄은 공용 근거 검사가 버린다. AI 제외 노트는 근거 목록에만 보이고 AI에는 안 보낸다.
+//   명진 결정 변경(10/29): 원장 S2도 AI에 보내고, 찾은 텔레그램 소식은 그 id만 다시 읽어 원문·보낸 사람 표시 이름을 붙여 보낸다(tg-raw.ts, 길이 상한).
+//   통화·노트 본문은 직접 읽지 않는다(개인 통화함·개인 텔레그램 표는 어떤 경로로도 안 읽음). 답은 owner RLS 표 app_ask_answers에 30일 둔다(넣을 때 30일 지난 행을 지움).
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
@@ -73,6 +74,7 @@ import {
   ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
   storedSources, type AskHit, type AskSource,
 } from "./web2-ask.ts";
+import { TG_RAW_MAX_ITEMS, tgNameMaps, tgRawForAi } from "./tg-raw.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -3753,7 +3755,7 @@ async function askRpc(ctx: Ctx, name: string, args: Record<string, unknown>): Pr
   return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
 }
 
-// 찾기(AI 안 씀): 낱말 전체로 한 번, 적으면 낱말을 하나씩 빼며 최대 4번 더. 원장은 같은 낱말로 한 번(교섭·전략 포함해 읽되 S2는 AI에 안 보냄).
+// 찾기(AI 안 씀): 낱말 전체로 한 번, 적으면 낱말을 하나씩 빼며 최대 4번 더. 원장은 같은 낱말로 한 번(교섭·전략 S2까지, 결정 3 변경으로 AI에도 보냄).
 // DB 1단계 전이면(call·telegram 종류를 모름 → 400) 기본 8종류로 다시 부른다.
 async function askSearch(ctx: Ctx, words: string[]): Promise<AskHit[]> {
   let kinds: readonly string[] = ASK_SEARCH_KINDS;
@@ -3796,6 +3798,44 @@ async function markNoteSendable(ctx: Ctx, sources: AskSource[]) {
   for (const s of notes) if (!allowed.has(s.id)) s.sent = false;
 }
 
+// 찾은 텔레그램 소식(업무 텔레그램 줄)에 원문과 보낸 사람 표시 이름을 붙인다(명진 결정 변경 10/29). 로그인 토큰(owner RLS)으로
+// 이번에 찾은 소식 id만, 그 방·그날 이름 표만 읽는다. 원문·이름은 AI 재료에만 쓰고 로그·저장·응답에 넣지 않는다.
+// 읽지 못하면 원문 없이(요약·핵심 줄만) 계속한다. 이름 표를 못 읽으면 라벨(A·B…) 그대로 둔다.
+async function addTelegramRaw(ctx: Ctx, sources: AskSource[]) {
+  const tg = sources.filter((s) => s.kind === "telegram" && s.sent).slice(0, TG_RAW_MAX_ITEMS);
+  if (!tg.length) return;
+  const ws = encodeURIComponent(ctx.workspaceId);
+  let items: Record<string, unknown>[];
+  try {
+    const rows = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&hidden_at=is.null&id=in.(${tg.map((s) => s.id).join(",")})&select=id,room_key,day,raw_text&limit=${tg.length}`);
+    items = Array.isArray(rows) ? rows as Record<string, unknown>[] : [];
+  } catch {
+    ctx.log("ask_tg_raw_unavailable");
+    return;
+  }
+  const rooms = [...new Set(items.map((r) => r.room_key).filter((k): k is string => typeof k === "string" && /^[A-Za-z0-9_.:-]{1,100}$/.test(k)))];
+  const days = [...new Set(items.map((r) => r.day).filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)))];
+  let names = new Map<string, Map<string, string>>();
+  if (rooms.length && days.length) {
+    try {
+      const q = (v: string[]) => v.map((x) => `"${x}"`).join(",");
+      const links = await rest(ctx, `app_tg_day_senders?workspace_id=eq.${ws}&room_key=in.(${encodeURIComponent(q(rooms))})&day=in.(${days.join(",")})&select=room_key,day,label,sender_id&limit=400`);
+      const ids = [...new Set((Array.isArray(links) ? links as Record<string, unknown>[] : []).map((r) => r.sender_id).filter((v): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v)))];
+      const people = ids.length ? await rest(ctx, `app_tg_senders?workspace_id=eq.${ws}&id=in.(${ids.join(",")})&select=id,name,is_self&limit=${ids.length}`) : [];
+      names = tgNameMaps(links, people);
+    } catch {
+      ctx.log("ask_tg_names_unavailable");
+    }
+  }
+  const byId = new Map(items.map((r) => [String(r.id).toLowerCase(), r]));
+  for (const s of tg) {
+    const r = byId.get(s.id);
+    if (!r) continue;
+    const raw = tgRawForAi(r.raw_text, names.get(`${r.room_key}|${String(r.day ?? "").slice(0, 10)}`));
+    if (raw) s.raw = raw;
+  }
+}
+
 async function runAskWeb2(ctx: Ctx, input: AskWeb2Input, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
   const ws = encodeURIComponent(ctx.workspaceId);
@@ -3830,6 +3870,7 @@ async function runAskWeb2(ctx: Ctx, input: AskWeb2Input, deps: RadarDeps): Promi
     }
     sources = rankHits(hits, words, orgId);
     await markNoteSendable(ctx, sources);
+    await addTelegramRaw(ctx, sources);
   }
   const sendable = sources.filter((s) => s.sent);
   const save = async (status: "ok" | "empty" | "failed", lines: { text: string; refs: string[] }[]) => {
