@@ -231,6 +231,6 @@ test('telegram raw: length cap, names table down falls back to labels, S3 ledger
   const raw=JSON.parse(down.calls.openai[0].input[1].content).sources.find(s=>s.kind==='텔레그램 소식').raw;
   assert.match(raw,/^09:10 A: /);assert.doesNotMatch(raw,/가상위원장/);
   assert.deepEqual(ask.hitsFromLedger([{id:id(12),title:'x',summary:'y',sensitivity:'S3',validity:'active'}]),[]);
-  const raw2=(await import('../../supabase/functions/ai-assist/tg-raw.ts')).tgRawForAi('10:00 A: 하나\n10:01 B: 둘',new Map([['A','홍길동'],['B','홍길동']]));
+  const raw2=(await import('../../supabase/functions/ai-assist/tg-raw.ts')).tgRawForAi('10:00 A: 하나\n10:01 B: 둘',new Map([['A','홍길동'],['B','홍길동']]),t=>t);
   assert.equal(raw2,'10:00 홍길동(A): 하나 / 10:01 홍길동(B): 둘');
 });

@@ -71,10 +71,10 @@ import {
 } from "./next-week-sheet.ts";
 import {
   ASK_BASE_KINDS, ASK_DAILY_LIMIT, ASK_KEEP_DAYS, ASK_LEDGER_LIMIT, ASK_INSTRUCTIONS, ASK_MAX_OUTPUT_TOKENS, ASK_PER_KIND, ASK_RETRY_BELOW, ASK_RETRY_MAX,
-  ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
+  ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askTgRaw, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
   storedSources, type AskHit, type AskSource,
 } from "./web2-ask.ts";
-import { TG_RAW_MAX_ITEMS, tgNameMaps, tgRawForAi } from "./tg-raw.ts";
+import { TG_RAW_MAX_ITEMS, tgNameMaps } from "./tg-raw.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -3831,7 +3831,7 @@ async function addTelegramRaw(ctx: Ctx, sources: AskSource[]) {
   for (const s of tg) {
     const r = byId.get(s.id);
     if (!r) continue;
-    const raw = tgRawForAi(r.raw_text, names.get(`${r.room_key}|${String(r.day ?? "").slice(0, 10)}`));
+    const raw = askTgRaw(r.raw_text, names.get(`${r.room_key}|${String(r.day ?? "").slice(0, 10)}`));
     if (raw) s.raw = raw;
   }
 }

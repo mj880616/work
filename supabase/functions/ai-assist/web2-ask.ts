@@ -12,6 +12,7 @@ import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { orgAllNames, orgKey, orgKeys } from "../_shared/org-name-match.mjs";
 import { EVIDENCE_RULE, evidenceLines, evidenceSchema, maskEvidenceText, type EvidenceLine } from "./evidence.ts";
 import { looksSecret } from "./note-title.ts";
+import { TG_RAW_CHARS, tgRawForAi } from "./tg-raw.ts";
 
 export const ASK_DAILY_LIMIT = 30;
 export const ASK_QUESTION_MIN = 4;
@@ -185,6 +186,10 @@ export function parseAskAnswer(raw: string, sources: AskSource[]): EvidenceLine[
 }
 
 // 저장용 근거(앞뒤 한 줄 없음 — 원본이 바뀌면 원본을 보도록). 프로젝트·조직 id는 화면이 그 기록을 여는 데만 쓴다(AI에는 안 보냄).
+// 텔레그램 원문 → AI 재료(보낸 사람 표시 이름, 연락처 가림, 600자). 이름 표를 못 읽었으면 라벨 그대로.
+export const askTgRaw = (raw: unknown, names?: ReadonlyMap<string, string>) =>
+  tgRawForAi(raw, names ?? new Map(), (t) => maskEvidenceText(t, TG_RAW_CHARS), TG_RAW_CHARS);
+
 // 텔레그램 원문(raw)은 AI 재료에만 쓰고 저장·응답에 넣지 않는다.
 export const storedSources = (sources: AskSource[]) =>
   sources.map((s) => ({ ref: s.ref, kind: s.kind, source: s.source, id: s.id, date: s.date, day: s.day, room: s.room, project_id: s.project_id, organization_id: s.org_id, title: s.title, sent: s.sent, tag: s.tag }));

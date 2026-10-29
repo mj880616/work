@@ -3,8 +3,8 @@
 // - 원문(app_feed_items.raw_text, 업무 텔레그램만)은 collector-feed가 "HH:MM 라벨[ (전달)]: 말" 줄로 남긴다(라벨 A·B…).
 // - 라벨 → 표시 이름은 collector-feed(TG-발언자이름 결정 3)와 같은 순서: 명진이 붙인 이름 → 본인 표시면 "나" → 라벨 그대로.
 //   자동 이름·열쇠·사람 id는 쓰지 않는다. 개인 텔레그램 표는 이 모듈과 무관하다(읽지 않음).
-// - 연락처를 가리고, 줄을 " / "로 이어 글자 수 상한에서 자른다.
-import { maskEvidenceText } from "./evidence.ts";
+// - 연락처 가리기는 부르는 쪽이 넘긴다(물어보기는 evidence.ts, 한 장은 sheet-evidence.ts). 줄마다 가린 뒤 " / "로 이어 상한에서 자른다.
+//   (자른 뒤에 가리면 잘린 번호가 남을 수 있어서 먼저 가린다.) 이 파일은 두 쓰임이 같은 내용으로 둔다(import 없음).
 
 export const TG_RAW_CHARS = 600;
 export const TG_RAW_MAX_ITEMS = 8;
@@ -39,8 +39,8 @@ export function tgNameMaps(daySenders: unknown, senders: unknown): Map<string, M
   return out;
 }
 
-// 원문 → AI 재료 한 줄. 라벨을 표시 이름으로 바꾸고(같은 이름이 둘 이상이면 뒤에 (라벨)), 연락처를 가리고, max자에서 자른다.
-export function tgRawForAi(raw: unknown, names: ReadonlyMap<string, string> = new Map(), max = TG_RAW_CHARS): string {
+// 원문 → AI 재료 한 줄. 라벨을 표시 이름으로 바꾸고(같은 이름이 둘 이상이면 뒤에 (라벨)), 줄마다 mask(연락처 가림)를 거쳐 max자에서 자른다.
+export function tgRawForAi(raw: unknown, names: ReadonlyMap<string, string>, mask: (s: string) => string, max = TG_RAW_CHARS): string {
   if (typeof raw !== "string" || !raw.trim()) return "";
   const count = new Map<string, number>();
   for (const n of names.values()) count.set(n, (count.get(n) ?? 0) + 1);
@@ -52,8 +52,9 @@ export function tgRawForAi(raw: unknown, names: ReadonlyMap<string, string> = ne
   for (const line of raw.split(/\r?\n/)) {
     const m = LINE.exec(line);
     const text = m ? `${m[1]} ${who(m[2])}${m[3] ?? ""}: ${m[4]}` : line;
-    const s = maskEvidenceText(text, max);
+    const s = mask(text).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").replace(/\s+/g, " ").trim();
     if (s) parts.push(s);
   }
-  return maskEvidenceText(parts.join(" / "), max);
+  const all = [...parts.join(" / ")];
+  return all.length > max ? all.slice(0, max).join("") + "…" : all.join("");
 }
