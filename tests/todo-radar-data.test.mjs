@@ -204,3 +204,30 @@ test('task_due: both lists read the saved due first and keep it when marking aga
   assert.match(inbox,/markTasked\(c\.id, taskId, rt, new Date\(\), dues\.get\(c\.id\) \|\| null\)/);
   assert.match(radar,/c\.task_due = draft\.due \|\| null/);assert.match(inbox,/c\.task_due = draft\.due \|\| null/);
 });
+
+test('FEAT-1029 ⑤ telegram candidates: one feed read adds the room; a failed read keeps the rows; source words',async()=>{
+  const tgRow=row({id:id(20),source_kind:'telegram',source_id:id(21),summary:'가상 자료 보내기'});
+  const {rt,calls}=fakeRt({api:async path=>path.includes('app_feed_items')
+    ?[{id:id(21),room_key:'-100123',room_label:' 가상 간부방 '},{id:id(99),room_key:'bad key!',room_label:'x'}]
+    :[row(),tgRow]});
+  const r=await mod.readOpenCandidates(rt);
+  assert.equal(r.ok,true);assert.equal(r.rows.length,2);
+  assert.deepEqual(r.rows[1].tg,{room_key:'-100123',room_label:'가상 간부방'});
+  assert.equal(r.rows[0].tg,undefined);
+  const feed=calls.find(c=>c.path.includes('app_feed_items')).path;
+  assert.match(feed,/workspace_id=eq\.w&source=eq\.telegram&id=in\.\(c0000000-0000-4000-8000-000000000021\)&select=id,room_key,room_label/);
+  assert.equal(mod.sourceText(r.rows[1]),'텔레그램 · 가상 간부방');
+  assert.equal(mod.sourceText(r.rows[0]),'업데이트');
+  assert.equal(mod.sourceText({source_kind:'telegram'}),'텔레그램');
+  assert.equal(mod.validCandidate(tgRow),true);
+  // no telegram row → no feed read
+  const plain=fakeRt({api:async()=>[row()]});await mod.readHomeCandidates('2026-10-21T00:00:00Z',plain.rt);
+  assert.ok(!plain.calls.some(c=>c.path.includes('app_feed_items')));
+  // the feed read failing leaves the candidates as they are
+  const failing=fakeRt({api:async path=>{if(path.includes('app_feed_items'))throw Object.assign(new Error('x'),{status:500});return [{...tgRow,tg:undefined}];}});
+  const w=await mod.readWeekCandidates('2026-10-19','2026-10-25',failing.rt);
+  assert.equal(w.ok,true);assert.equal(w.rows.length,1);assert.equal(mod.sourceText(w.rows[0]),'텔레그램');
+  const inbox=fakeRt({api:async path=>path.includes('app_feed_items')?[{id:id(21),room_key:'r1',room_label:'방'}]:[tgRow]});
+  const ib=await mod.readInboxCandidates(inbox.rt);
+  assert.ok(ib.rows.every(x=>x.tg?.room_key==='r1'));
+});
