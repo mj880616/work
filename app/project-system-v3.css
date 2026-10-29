@@ -309,8 +309,11 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #appView #projectsView .ps3-prow-kids .ps3-order-line:last-child>.ps3-kid-row::before{bottom:50%}
 
 /* PRJ-화면다듬기: detail sections are no longer boxes inside the dialog box; the text gets the full width, sections are told apart by a hairline. */
-#ps3DetailModal .ps3-section{border:0;border-radius:var(--kptu-radius-none);padding-left:0;padding-right:0;background:transparent}
-#ps3DetailModal .ps3-section+.ps3-section{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));padding-top:var(--kptu-space-3)}
+/* UI-전수디자인점검 F19(10/29): 칸 사이는 16px(위아래 8px씩, 바깥 여백 없음)이고, 칸 제목은 다른 화면 칸 제목과 같은 13px(--ds-text-section).
+   창 안 h3 기본 크기(공용 대화상자 규칙 D-6b, workspace-ui.css의 16px)를 이 창의 칸 제목만 따로 정한다. */
+#ps3DetailModal .ps3-section{margin-top:0;border:0;border-radius:var(--kptu-radius-none);padding:var(--kptu-space-2) 0;background:transparent}
+#ps3DetailModal .ps3-section+.ps3-section{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#ps3DetailModal :is(.ps3-section-head,.ps3-fold>summary) h3{font-size:var(--ds-text-section);line-height:1.5}
 /* The section no longer has side padding, so the small + keeps its 44px touch area inside the section's right edge. */
 #ps3DetailModal .ps3-section .ps3-add-plus{margin-right:0}
 /* UPD-요약부품통일 ①: 연결 줄에 쓴 요약을 사업 보고 줄 아래 한 줄로 먼저 보인다. */

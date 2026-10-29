@@ -149,8 +149,7 @@
   </section>
 
   <section id="meetingsView" class="view-panel hidden">
-    <div class="toolbar report-kind-bar"><div id="reportKindFilter" aria-label="칸" aria-controls="meetingList"></div></div><div class="toolbar report-area-bar" hidden><div id="reportAreaFilter" aria-label="사업영역" aria-controls="meetingList"></div></div><div class="toolbar report-week-bar" hidden><div id="reportWeekFilter" role="group" aria-label="주" aria-controls="meetingList"></div></div>
-    <div class="toolbar meeting-toolbar"><div id="meetingTypeFilter" aria-label="회의명" aria-controls="meetingList"></div></div>
+    <div class="toolbar report-kind-bar"><div id="reportKindFilter" aria-label="칸" aria-controls="meetingList"></div><button id="reportFilterBtn" class="mini secondary report-filter-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="meetingList" hidden><span class="report-filter-label">거르기</span><span class="report-filter-caret" aria-hidden="true">▾</span></button></div><div class="toolbar report-week-bar" hidden><div id="reportWeekFilter" role="group" aria-label="주" aria-controls="meetingList"></div></div>
     <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2 class="a11y-only">사업 보고</h2><div id="reportViewFilter" aria-label="보기"></div><div class="report-head-actions"><button id="newMeetingBtn" class="primary" type="button" aria-label="사업 보고 등록">+ 사업 보고</button><button id="reportMore" class="icon-btn report-more" type="button" data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="사업 보고 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div><div id="meetingList" class="card-list meeting-list"></div></section>
   </section>
 

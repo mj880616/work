@@ -10,4 +10,3 @@
 #libraryView .library-filter-toolbar .search { flex:1 1 100%; }
 #documentProject { display:grid;grid-template-columns:minmax(0,1fr);gap:4px;max-width:100%;min-width:0;flex:1 1 100%; }
 #documentProject [hidden] { display:none; }
-#meetingsView #meetingTypeFilter { width:max-content;max-width:100%; }

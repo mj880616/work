@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
+import {reportFilterButton,reportFilterKeys,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -100,8 +101,9 @@ for(const width of [390,1440]){
       // UI-선택표시통일: 폰은 다른 탭과 같은 동그란 [+](하단 탭 위), PC는 카드 머리줄 그대로.
       await assertPlaced(page,width,{card:'#meetingsListCard',head:'.add-list-head',button:'#newMeetingBtn',title:'h2'});
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
-      if(width>=1024){await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
-      else await expect(page.locator('#meetingsView .meeting-toolbar #meetingTypeFilter')).toBeVisible();
+      // UI-전수디자인점검 F01: 폰의 회의명 거르기는 칸 칩 줄 끝 [거르기 ▾] 창 안의 한 묶음이다.
+      if(width>=1024){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
+      else{await expect(reportFilterButton(page)).toBeVisible();expect(await reportFilterKeys(page)).toContain('name')}
       await page.locator('#newMeetingBtn').click();
       await expect(page.locator('#meetingModal')).toBeVisible();
     });

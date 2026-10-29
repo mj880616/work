@@ -1,4 +1,4 @@
-// MTG-사업보고 4단계(docs/design/business-report.md 5·8.1절): 칸 칩 줄·칩별 거르기·[회의]만 회의명 칩·[+] 칸 고르기·저장 본문 activity_kind·
+// MTG-사업보고 4단계(docs/design/business-report.md 5·8.1절): 칸 칩 줄·칩별 거르기·[회의]만 회의명 거르기·[+] 칸 고르기·저장 본문 activity_kind·
 // [칸 바꾸기] PATCH·PC [회의] 3단 / 다른 칸·[전체] 2단. 모든 이름·글은 합성 값.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
@@ -6,6 +6,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {mrdMenu,openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
+import {reportFilterButton,reportFilterKeys,reportFilterLabels} from './helpers/report-filter.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const CHIPS=['전체','회의','정책','교섭','언론','국회','투쟁','교육','기타'];
@@ -35,7 +36,7 @@ const chips=page=>page.locator('#reportKindFilter');
 const chip=(page,name)=>chips(page).getByRole('radio',{name,exact:true});
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-test('폰 390: 칸 칩 한 줄은 옆으로 밀리고 페이지는 넘치지 않는다 / 칩별 거르기 / [회의]만 회의명 칩',async({page})=>{
+test('폰 390: 칸 칩 한 줄은 옆으로 밀리고 페이지는 넘치지 않는다 / 칩별 거르기 / [회의]만 회의명 거르기',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,390);
   await expect(chips(page)).toHaveAttribute('role','radiogroup');await expect(chips(page)).toHaveAttribute('aria-label','칸');
@@ -43,8 +44,9 @@ test('폰 390: 칸 칩 한 줄은 옆으로 밀리고 페이지는 넘치지 않
   // 처음은 [회의]: 지금 기록은 모두 회의라 첫 화면이 그대로다. 칸이 없는 옛 행도 회의다.
   await expect(chip(page,'회의')).toHaveAttribute('aria-checked','true');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(3);
-  await expect(page.locator('#meetingTypeFilter')).toBeVisible();
-  await expect(page.locator('#meetingTypeFilter').getByRole('radio')).toHaveText(['전체','합성 운영 회의','합성 정기 회의','회의명 미지정']);
+  // UI-전수디자인점검 F01: 회의명 거르기는 칸 칩 줄 끝 [거르기 ▾] 창의 한 묶음.
+  await expect(reportFilterButton(page)).toBeVisible();
+  expect(await reportFilterLabels(page,'name')).toEqual(['전체','합성 운영 회의','합성 정기 회의','회의명 미지정']);
   // 칩 줄은 한 줄(높이 그대로)이고 칸 안에서만 옆으로 넘어간다.
   const lane=await chips(page).evaluate(el=>{const b=[...el.children].map(c=>c.getBoundingClientRect());return {oneLine:new Set(b.map(r=>Math.round(r.top))).size===1,scrolls:el.scrollWidth>el.clientWidth,right:el.getBoundingClientRect().right}});
   expect(lane.oneLine).toBe(true);expect(lane.scrolls).toBe(true);expect(lane.right).toBeLessThanOrEqual(390);
@@ -52,7 +54,7 @@ test('폰 390: 칸 칩 한 줄은 옆으로 밀리고 페이지는 넘치지 않
   // [언론]: 그 칸만, 회의명 칩 줄은 숨는다.
   await chip(page,'언론').click();
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);await expect(page.locator('#meetingList .meeting-list-row h3')).toHaveText('합성 출정 기자회견');
-  await expect(page.locator('#meetingTypeFilter')).toBeHidden();
+  expect(await reportFilterKeys(page)).not.toContain('name');
   // 끝 쪽 칩으로 가도 페이지는 넘치지 않는다(칩 줄만 밀림).
   await chip(page,'기타').click();await expect(page.locator('#meetingList .meeting-list-row h3')).toHaveText('합성 알 수 없는 칸');
   expect(await chip(page,'기타').evaluate(el=>{const r=el.getBoundingClientRect(),h=el.parentElement.getBoundingClientRect();return r.right<=h.right+1&&r.left>=h.left-1})).toBe(true);
@@ -61,10 +63,10 @@ test('폰 390: 칸 칩 한 줄은 옆으로 밀리고 페이지는 넘치지 않
   // [전체]: 전부, 줄에 칸 이름.
   await chip(page,'전체').click();await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(6);
   await expect(page.locator('#meetingList [data-mrd-meeting="p-1"] p')).toContainText('언론');
-  await expect(page.locator('#meetingTypeFilter')).toBeHidden();
+  expect(await reportFilterKeys(page)).not.toContain('name');
   // 키보드: 칩 줄 안 화살표로 옮겨 고른다.
   await chip(page,'전체').focus();await page.keyboard.press('ArrowRight');await expect(chip(page,'회의')).toBeFocused();await expect(chip(page,'회의')).toHaveAttribute('aria-checked','true');
-  await expect(page.locator('#meetingTypeFilter')).toBeVisible();
+  expect(await reportFilterKeys(page)).toContain('name');
   expect(errors).toEqual([]);
 });
 
@@ -130,7 +132,7 @@ test('PC 1280: 칸 칩 한 줄 / [회의] 3단, 다른 칸·[전체] 2단(목록
   // [회의]: 지금 3단 그대로(회의 칸 행만).
   await expect(page.locator('#meetingList .mcol-kinds')).toBeVisible();
   await expect(page.locator('#meetingList .mcol-kinds .mcol-name')).toHaveText(['합성 운영 회의','합성 정기 회의']);
-  await expect(page.locator('#meetingTypeFilter')).toBeHidden();
+  expect(await reportFilterKeys(page)).not.toContain('name');
   await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('회의 칸');
   // [언론]: 종류 단이 접히고 2단.
   await chip(page,'언론').click();

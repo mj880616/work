@@ -172,18 +172,17 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   else expect(await newStandard(page),name+' new standard').toEqual([]);
   // UI-PC회의 → MEET-결과정리 ⑤(시안 C): PC(≥1024) 회의는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록. 종류 줄은 목록 글자(13px)·누르는 높이 44px, 고른 종류 하나만 표시.
   if(name==='meetings'&&width>=1024){
-    await expect(page.locator('#meetingTypeFilter')).toBeHidden();await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();
+    await expect(page.locator('#meetingTypeFilter')).toHaveCount(0);
     await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
     const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
     await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
   }
   if(name==='library'||name==='meetings'&&width<1024){
-    // MTG-프로젝트합치기 2단계: 사업영역 칩 줄(#reportAreaFilter)은 보기 칩처럼 작은 칩이라 함께 뺀다.
-    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter):not(#reportAreaFilter)');
+    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter)');
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
-    // MTG-사업보고 4단계: 사업 보고(폰)는 위쪽 칸 칩 줄 + [회의] 칩일 때의 회의명 칩 줄, 두 줄이 같은 칩 모양이다.
-    await expect(groups).toHaveCount(2);
+    // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
+    await expect(groups).toHaveCount(name==='library'?2:1);
     // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
     // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),
