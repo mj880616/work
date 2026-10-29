@@ -18,6 +18,7 @@ import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceResponse
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,7 +39,9 @@ import org.json.JSONArray
  * 웹2 폰 앱 껍데기(설계 docs/design/phone-app-v2.md 단계 ①).
  * 화면은 모두 desk.bokdoong.com 웹이다. 앱은 시스템 바 색, 뒤로가기, 로그인 복귀, 바깥 링크, 파일 선택만 맡는다.
  * 단계 ②: 다른 앱의 [공유]로 받은 것을 메모리에 들고 웹 바구니 확인 줄로 넘긴다(ShareIntake, 폰에 저장하지 않음).
- * 앱은 토큰·업무 데이터를 따로 저장하지 않는다. 로그인은 브라우저 탭에서 하고 기존 handoff로 돌아온다.
+ * 앱은 웹 화면의 토큰·업무 데이터를 따로 저장하지 않는다. 로그인은 브라우저 탭에서 하고 기존 handoff로 돌아온다.
+ * 단계 ③: 홈 화면 위젯은 따로 로그인한 위젯 세션(WidgetSession)을 쓴다. 위젯 로그인 표시가 있을 때만 앱이 handoff를 직접 받고,
+ * 없으면 지금처럼 웹 화면으로 넘긴다(설계 docs/design/phone-widget-auth.md 3절). 위젯 토큰은 WebView에 넘기지 않는다.
  */
 class MainActivity : ComponentActivity() {
     private lateinit var root: LinearLayout
@@ -52,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var backPending = false
     private var updateUrl: String? = null
+    private var widgetReply: JavaScriptReplyProxy? = null
     @Volatile private var alive = true
 
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -123,6 +127,7 @@ class MainActivity : ComponentActivity() {
                 val data = message.data ?: return@addWebMessageListener
                 if (data.startsWith("bar:")) ShellRules.parseColor(data.substring(4))?.let(::applyBarColor)
                 else if (data.startsWith("share:")) onShareMessage(data, reply)
+                else if (data.startsWith("widget:")) onWidgetMessage(data, reply)
             }
         }
 
@@ -188,7 +193,20 @@ class MainActivity : ComponentActivity() {
             deliverShare(intent!!)
             return
         }
+        if (intent?.action == WidgetRules.ACTION_WIDGET_LOGIN) {
+            startWidgetLogin()
+            return
+        }
         val data = intent?.data?.toString()
+        if (ShellRules.isAppReturn(data)) {
+            // 위젯 로그인 표시(메모리, 10분·한 번)가 살아 있을 때만 앱이 직접 받는다. 캘린더 연결 복귀(google=)는 건드리지 않는다.
+            val handoff = ShellRules.queryValue(data, "handoff")
+            if (handoff != null && WidgetHub.session(this).takeLogin()) {
+                finishWidgetLogin(handoff)
+                if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
+                return
+            }
+        }
         when {
             ShellRules.isAppReturn(data) -> webView.loadUrl(ShellRules.homeForReturn(data))
             ShellRules.isInternalApp(data) -> webView.loadUrl(data!!)
@@ -205,7 +223,52 @@ class MainActivity : ComponentActivity() {
         }
         val data = intent.data?.toString()
         // 로그인·캘린더 복귀 또는 웹2 주소일 때만 화면을 바꾼다. 아이콘으로 다시 열면 보던 화면을 그대로 둔다.
-        if (ShellRules.isAppReturn(data) || ShellRules.isInternalApp(data)) loadFromIntent(intent)
+        if (ShellRules.isAppReturn(data) || ShellRules.isInternalApp(data) || intent.action == WidgetRules.ACTION_WIDGET_LOGIN) loadFromIntent(intent)
+    }
+
+    /** 위젯 [로그인] 줄 → WidgetLoginActivity가 표시를 세운 뒤 여기로 온다. 표시가 없으면(밖에서 보낸 동작) 아무것도 열지 않는다. */
+    private fun startWidgetLogin() {
+        if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
+        if (WidgetHub.session(this).loginPending()) openTab(Uri.parse(WidgetRules.LOGIN_URL))
+    }
+
+    /** 위젯용 handoff를 앱이 직접 consume한다(Origin: desk). 결과만 짧게 알리고 토큰은 보이지 않는다. */
+    private fun finishWidgetLogin(handoff: String) {
+        val app = applicationContext
+        Thread {
+            val ok = WidgetHub.session(app).consume(handoff) is WidgetSession.Outcome.Ok
+            TodayWidget.signedInChanged(app, WidgetHub.session(app).signedIn())
+            runOnUiThread {
+                if (!alive) return@runOnUiThread
+                Toast.makeText(this, if (ok) "위젯 로그인 완료" else "위젯 로그인을 마치지 못했어요. 위젯에서 다시 눌러 주세요.", Toast.LENGTH_SHORT).show()
+                notifyWidgetStatus()
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
+    /** 웹 프로필의 [위젯 로그아웃] 줄(phone-widget-line.js)과 주고받는다. 허용 Origin 최상위 화면만 이 다리를 본다. */
+    private fun onWidgetMessage(data: String, reply: JavaScriptReplyProxy) {
+        widgetReply = reply
+        when (data) {
+            "widget:status" -> notifyWidgetStatus()
+            "widget:logout" -> {
+                val app = applicationContext
+                Thread {
+                    WidgetHub.session(app).logout()
+                    TodayWidget.signedInChanged(app, false)
+                    runOnUiThread { if (alive) notifyWidgetStatus() }
+                }.apply { isDaemon = true }.start()
+            }
+        }
+    }
+
+    private fun notifyWidgetStatus() {
+        val reply = widgetReply ?: return
+        val on = WidgetHub.session(this).signedIn()
+        try {
+            reply.postMessage(if (on) "widget:status:on" else "widget:status:off")
+        } catch (_: Exception) {
+        }
     }
 
     /**
@@ -243,6 +306,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (ShellRules.isInternalApp(webView.url)) syncBarColor()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // 앱을 닫거나 뒤로 보낼 때 위젯을 한 번 새로 그린다(같은 이름 작업은 KEEP).
+        if (WidgetHub.session(this).signedIn() && TodayWidget.hasWidgets(this)) WidgetJobs.refreshNow(this)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -405,6 +474,7 @@ class MainActivity : ComponentActivity() {
         if (isFinishing) ShareIntake.clear()
         fileCallback?.onReceiveValue(null)
         fileCallback = null
+        widgetReply = null
         webView.stopLoading()
         (webView.parent as? LinearLayout)?.removeView(webView)
         webView.destroy()

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 // refuses events outside the 8-day window and another workspace's organization, and keeps the record lines when AI is limited or fails.
 const {createAiAssistHandler,DAILY_LIMITS}=await import('../../supabase/functions/ai-assist/handler.ts');
 const pm=await import('../../supabase/functions/ai-assist/pre-meeting-sheet.ts');
-const ev=await import('../../supabase/functions/ai-assist/sheet-evidence.ts');
+const ev=await import('../../supabase/functions/ai-assist/evidence.ts');
 
 const SB='https://synthetic.supabase.test',FN=`${SB}/functions/v1/ai-assist`;
 const WS='a0000000-0000-4000-8000-000000000001',OTHER_WS='a0000000-0000-4000-8000-000000000002';

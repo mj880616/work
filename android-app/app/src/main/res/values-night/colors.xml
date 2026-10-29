@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="web_bg">#161613</color>
+    <!-- 홈 화면 위젯(톤다운). -->
+    <color name="widget_bg">#1F1E1A</color>
+    <color name="widget_ink">#E8E6DF</color>
+    <color name="widget_muted">#9C998F</color>
+    <color name="widget_accent">#8DB7A6</color>
 </resources>

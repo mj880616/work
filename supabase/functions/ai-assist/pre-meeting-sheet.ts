@@ -5,10 +5,10 @@
 // - 명진 결정 변경(10/29 07:29~07:30): 원장 교섭·전략(S2) 기록도 AI 재료로 보내 답 문장에 쓴다(줄의 '교섭·전략' 표시는 그대로).
 //   텔레그램은 방 이름·요약에 원문(업무 텔레그램 줄)과 보낸 사람 표시 이름까지 보낸다(tg-raw.ts, 소식마다 600자·8개 상한, 연락처 가림).
 //   개인 통화함·개인 텔레그램·일기는 계속 읽지 않는다. 통화는 제목·요약만(원문·상대 이름 없음).
-// - AI 답은 믿지 않는 입력: 공용 근거 검사(sheet-evidence.ts groundedLines)로 근거 번호가 보낸 줄에 없는 줄은 버린다.
+// - AI 답은 믿지 않는 입력: 공용 근거 검사(evidence.ts groundedLines)로 근거 번호가 보낸 줄에 없는 줄은 버린다.
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { looksSecret } from "./note-title.ts";
-import { CONTROL, chars, groundedLines, scrub } from "./sheet-evidence.ts";
+import { CONTROL, chars, groundedLines, scrub } from "./evidence.ts";
 import { TG_RAW_CHARS, tgRawForAi } from "./tg-raw.ts";
 
 export const PRE_MEETING_HOUR = 18; // 전날 18시(서울) 뒤 자동(결정 2).
