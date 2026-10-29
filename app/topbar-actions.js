@@ -379,7 +379,7 @@ document.addEventListener('keydown',event=>{if(activeAccount&&event.key==='Escap
 window.addEventListener('resize',positionAccount);
 window.addEventListener('popstate',event=>{if(activeAccount&&event.state?.kptuAccount!==activeAccount.panel.id)closeAccount(null,true)});
 // UI-상단줄 (PC ≥1024 only; phone and 761~1023px keep their own shell). One thin row above every screen, owned and drawn here:
-// [sidebar] [←][→] [where] [search slot] [+ 추가] [계정 ▾]. Nothing else draws into it; the search slot is mounted later by SEARCH.
+// [sidebar] [‹][›] [where] [search slot] [+ 추가] [계정 ▾]. Nothing else draws into it; the search slot is mounted later by SEARCH.
 const topline=document.querySelector('[data-app-topline]'),appView=document.querySelector('#appView');
 const sidebarAccount=accounts.find(account=>account.panel.id==='sidebarAccountPanel');
 // The PC account trigger lives at the right end of the top line (it was the last row of the sidebar). Same node and handlers.
@@ -402,76 +402,30 @@ setNavCollapsed(false,{save:false});
 window.addEventListener('kptu:view-prefs-ready',()=>setNavCollapsed(viewPrefs.get('nav_collapsed')===true,{save:false}),{once:true});
 if(viewPrefs.status()==='ok')setNavCollapsed(viewPrefs.get('nav_collapsed')===true,{save:false});
 navToggle?.addEventListener('click',()=>setNavCollapsed(!appView?.classList.contains('nav-collapsed')));
-// ② ← →: the app's own record of screens moved through (and the item chosen on a left-list / right-detail screen). It never
-// reads or moves browser history: a step is an ordinary KPTURouter.go (the same as a menu click), so the router stays the one
-// owner of screens and history, and back/forward of the browser, PWA and Android keep their own rules (BUG-뒤로가기).
-const SPLIT_OPEN={
-  projects:item=>window.KPTUProjects?.open?.(item.id,false),
-  team:item=>window.KPTUWorkplace?.open?.(item.id),
-  tasks:item=>window.KPTUGoogleTasks?.openById?.(item.id),
-  meetings:item=>window.KPTUMeetingColumns?.select?.(item)
-};
-const trail={entries:[],index:-1,pending:null,restoring:null};
-const sameItem=(a,b)=>(a?.id??null)===(b?.id??null)&&(a?.kind??null)===(b?.kind??null);
-const backBtn=topline?.querySelector('[data-trail="back"]'),forwardBtn=topline?.querySelector('[data-trail="forward"]');
-function paintTrail(){
-  const focused=document.activeElement;
-  if(backBtn)backBtn.disabled=trail.index<=0;
-  if(forwardBtn)forwardBtn.disabled=trail.index>=trail.entries.length-1;
+// ② ‹ ›(NAV-PC앞뒤통일): the router's own back and forward — the same path as the browser, PWA and Android back (BUG-뒤로가기):
+// ‹ closes the top open thing (a note, a detail, a window) first and only then goes to the previous screen, › is the reverse.
+// There is no record of its own here: the router owns history, and canBack/canForward say whether a press would do anything.
+const backBtn=topline?.querySelector('[data-history-step="back"]'),forwardBtn=topline?.querySelector('[data-history-step="forward"]');
+function paintSteps(){
+  const router=window.KPTURouter,focused=document.activeElement;
+  if(backBtn)backBtn.disabled=!router?.canBack?.();
+  if(forwardBtn)forwardBtn.disabled=!router?.canForward?.();
   // A button that just went dim drops the keyboard focus; hand it to the other arrow (or the sidebar toggle).
   if(focused&&focused.disabled&&(focused===backBtn||focused===forwardBtn)){
     const other=focused===backBtn?forwardBtn:backBtn;
     (other&&!other.disabled?other:navToggle)?.focus({preventScroll:true});
   }
 }
-function pushTrail(entry){
-  trail.entries.splice(trail.index+1);trail.entries.push(entry);
-  if(trail.entries.length>50)trail.entries.shift();
-  trail.index=trail.entries.length-1;paintTrail();
-}
-function stepTrail(delta){
-  const index=trail.index+delta,entry=trail.entries[index];
-  if(trail.pending&&performance.now()-trail.pending.at<10000)return;
-  trail.pending=null;if(!entry)return;
-  const router=window.KPTURouter;if(!router)return;
-  if(router.current===entry.view){trail.index=index;paintTrail();restoreItem(entry);return}
-  trail.pending={index,at:performance.now()};
-  const moved=router.go(entry.view,{source:'trail'});
-  // A refused move (unsaved text kept) leaves the record as it was. A view still loading moves on its own later.
-  if(!moved&&window.KPTUViewLoader?.isLoaded?.(entry.view)!==false)trail.pending=null;
-}
-function restoreItem(entry){
-  if(!entry.item||!SPLIT_OPEN[entry.view])return;
-  trail.restoring={view:entry.view,id:entry.item.id,until:performance.now()+3000};
-  try{SPLIT_OPEN[entry.view](entry.item)}catch(error){console.error('trail item',error)}
-}
-backBtn?.addEventListener('click',()=>stepTrail(-1));
-forwardBtn?.addEventListener('click',()=>stepTrail(1));
+backBtn?.addEventListener('click',()=>{window.KPTURouter?.back?.()});
+forwardBtn?.addEventListener('click',()=>{window.KPTURouter?.forward?.()});
+window.addEventListener('kptu:history-moved',paintSteps);
+window.addEventListener('kptu:session-changed',paintSteps);
+window.addEventListener('kptu:app-ui-ready',paintSteps);
 window.addEventListener('kptu:view-changed',event=>{
   const view=event.detail?.view;if(!view)return;
-  if(trail.pending){
-    const {index}=trail.pending;trail.pending=null;
-    if(trail.entries[index]?.view===view){trail.index=index;paintTrail();restoreItem(trail.entries[index]);paintWhere(view);return}
-  }
-  if(trail.entries[trail.index]?.view!==view)pushTrail({view,item:null});
   paintWhere(view);
 });
-// A left-list / right-detail screen names the item shown on the right (its own module paints the selection and sends this).
-function recordItem(view,item){
-  if(!view||view!==window.KPTURouter?.current||!item?.id)return;
-  const current=trail.entries[trail.index];if(!current||current.view!==view)return;
-  if(sameItem(current.item,item))return;
-  const restoring=trail.restoring&&trail.restoring.view===view&&performance.now()<trail.restoring.until;
-  if(restoring&&trail.restoring.id===item.id)trail.restoring=null;
-  // The first item a screen opens by itself (last seen / first in list) belongs to the step that opened the screen;
-  // while a ← → step is putting its item back, what the screen shows belongs to that step too.
-  if(!current.item||restoring){current.item={...item};return}
-  pushTrail({view,item:{...item}});
-}
-window.addEventListener('kptu:split-selection',event=>recordItem(event.detail?.view,event.detail?.item));
-window.addEventListener('kptu:workplace-selection',event=>{if(event.detail?.id)recordItem('team',{id:event.detail.id})});
-window.addEventListener('kptu:session-changed',()=>{trail.entries=[];trail.index=-1;trail.pending=null;trail.restoring=null;paintTrail()});
-paintTrail();
+paintSteps();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule',reference:'team',projects:'reports'};

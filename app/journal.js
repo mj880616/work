@@ -1342,7 +1342,7 @@ window.addEventListener('kptu:session-changed', () => {
 function enter(detail) {
   const back = pendingReturn; pendingReturn = null;
   takeBasketReturn('journal', rt); // an update/note opened from here has done its job once this screen shows again
-  if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'trail', 'back'].includes(detail?.source)) {
+  if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'back'].includes(detail?.source)) {
     renderMode();
     window.scrollTo({top:back.scroll, behavior:'instant'});
     if (back.focus?.isConnected) back.focus.focus({preventScroll:true});

@@ -134,8 +134,8 @@ test('PC: chips switch the kind, ↑↓ skip chips and bands, Enter opens the or
  await page.keyboard.press('Enter');
  await expect(page.locator('#libraryView')).toBeVisible();
  await expect(panel(page)).toBeHidden();
- // 상단 줄 ← 로 홈으로 돌아온다.
- await page.locator('[data-trail="back"]').click();
+ // 상단 줄 ‹ 로 홈으로 돌아온다(브라우저 뒤로와 같은 길: 닫힌 검색 창 칸은 지나간다).
+ await page.locator('[data-history-step="back"]').click();
  await expect(page.locator('#homeView')).toBeVisible();
 });
 
@@ -153,10 +153,13 @@ test('PC: "N건 모두 보기" opens the result screen with the address, and rel
  await expect(body.locator('.gs-chips [data-filter-value="update"]')).toHaveAttribute('aria-checked','true');
  expect(calls.at(-1)).toMatchObject({p_kind:'update',p_per_kind:20,p_offset:0});
  await expect(page.locator('#searchView .gs-view-title')).toHaveText('‘교섭’ 검색 결과');
- // 결과 화면의 줄을 누르면 원본 화면(바구니 메모), ← 로 결과 화면으로 돌아온다.
+ // 결과 화면의 줄을 누르면 원본 화면(바구니 메모). NAV-PC앞뒤통일: ‹ 는 폰 뒤로가기와 같은 길 — 먼저 열린 메모를 닫고, 한 번 더 누르면 결과 화면.
  await body.locator('.gs-row').filter({hasText:'넷째 메모'}).click();
  await expect(page.locator('#basketView')).toBeVisible();
- await page.locator('[data-trail="back"]').click();
+ await expect(page.locator('#basketView [data-basket-detail]')).toBeVisible();
+ await page.locator('[data-history-step="back"]').click();
+ await expect(page.locator('#basketView [data-basket-detail]')).toBeHidden();await expect(page.locator('#basketView')).toBeVisible();
+ await page.locator('[data-history-step="back"]').click();
  await expect(page.locator('#searchView')).toBeVisible();
  await expect(page.locator('#searchView .gs-view-body [data-gs-group="update"] .gs-row')).toHaveCount(5);
  await page.reload();

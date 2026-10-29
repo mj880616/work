@@ -395,7 +395,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // UI-기록아이콘: openSet from a project's or organization's record line, the note has no history entry of its own (one back
     // returns to that project or organization, like an update openSet from there) and its head back reads "‹ (name)" (UI-돌아가기머리줄).
     const from = !!selected && !!basketNoteOrigin(selected.id, rt);
-    if (!from) layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
+    // NAV-PC앞뒤통일: › (or the browser's forward) over this note's entry opens the same note again (reopen).
+    const reopenId = selected?.id;
+    if (!from) layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true}), reopen: () => open(reopenId)}) || null;
     // NAV-새로고침제자리: the open note is written on its own entry (?doc=), so a reload reopens it; close drops it first.
     if (layer && selected) window.KPTURouter?.setPlace?.('basket', {doc:selected.id});
     ++epoch; dropField(); editing = false; linkOpen = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
@@ -1020,7 +1022,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function up() { enter(at && at !== OUTSIDE ? folderById(at)?.parent_id || null : null); }
   // 폰 폴더 화면은 라우터 한 겹: 갤럭시 뒤로가기 = 첫 화면 폴더 목록(선택 모드·열린 노트 겹이 있으면 그것부터 닫힘).
   function syncFolderLayer() {
-    if (at !== null && !folderLayer) folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); at = null; renderList(); return true; }}) || null;
+    if (at !== null && !folderLayer) { const folderId = at; folderLayer = window.KPTURouter?.layer?.open('basket-note-folder', {close: () => { folderLayer = null; endSelect(); at = null; renderList(); return true; }, reopen: () => enter(folderId)}) || null; }
     else if (at === null && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
   }
   host.addEventListener('keydown', e => {

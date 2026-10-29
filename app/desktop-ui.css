@@ -76,6 +76,10 @@
   .app-topline .topline-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
   .app-topline .topline-btn:not(:disabled):hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
   .app-topline .topline-btn:disabled{opacity:.35}
+  /* NAV-PC앞뒤통일: ‹ › 꺾쇠는 바탕 없이, 마우스를 올리면 옅은 칸(색 없는 회색), 갈 곳이 없으면 연한 색. 선 굵기·크기는 [사이드바 숨김]과 같다. */
+  .app-topline .topline-step{padding:0}
+  .app-topline .topline-step:not(:disabled):hover{background:color-mix(in srgb,currentColor 10%,transparent);color:var(--kptu-ink)}
+  .app-topline .topline-step svg{stroke-linecap:round}
   .app-topline :is(.topline-btn,.topline-where-link,.account-trigger):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
   .app-topline .topline-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
   .app-topline .topline-nav-toggle[aria-expanded="false"]{color:var(--kptu-primary-ink)}

@@ -191,8 +191,7 @@ function paintHead(p){
 function repaintHead(){const d=detail;if(d&&current&&d.p.id===current.id&&!$('#ps3DetailModal')?.classList.contains('hidden'))paintHead(d.p)}
 // The list row of the project shown on the right carries the selection (PC only); choosing it again, or while it is
 // still opening, leaves the pane as it is (bind).
-// UI-상단줄: the project shown on the right is told to the top line's ← → record (kptu:split-selection).
-function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;if(id)window.dispatchEvent(new CustomEvent('kptu:split-selection',{detail:{view:'projects',item:{id}}}));
+function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;
 // UI-상단줄제목: the same project's name goes to the top line's place (kptu:where-item); null when nothing is open on the right.
 window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'projects',name:id?(current?.name||'이름 없음'):null}}));document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
 // The last project seen on this device opens first next time (PC): split-last.js, shared with the 담당조직 screen

@@ -136,22 +136,32 @@
   // NAV-새로고침제자리: a side step (setSub) or a place (setPlace) asked while a layer is closing waits for that back to arrive,
   // so the step's own entry is added after it instead of being the one the late back leaves (one owner of the history stack).
   let pendingSub=null,pendingPlace=null;
+  // NAV-PC앞뒤통일: a layer's entry remembers how to open that layer again (reopen), so forward over an entry left by back
+  // (‹ then › on the PC top line, or the browser's forward) shows the same note or detail again. Keyed by the entry, kept in memory only.
+  const reopeners=new Map();
   const chainOf=state=>Array.isArray(state?.[LAYERS])?state[LAYERS]:[];
   const topOf=state=>chainOf(state).at(-1);
   function pushLayer(layer){
     history.pushState({...(history.state||{}),[LAYERS]:[...chainOf(history.state),layer.name]},'',location.href);
     layer.index=window.navigation?.currentEntry?.index;
+    keepReopen(layer);
   }
-  function openLayer(name,{close,adoptOnly=false}){
+  function keepReopen(layer){
+    const key=window.navigation?.currentEntry?.key;
+    if(!key||typeof layer.reopen!=='function')return;
+    reopeners.delete(key);reopeners.set(key,{name:layer.name,view:api.current,reopen:layer.reopen});
+    while(reopeners.size>100)reopeners.delete(reopeners.keys().next().value);
+  }
+  function openLayer(name,{close,reopen=null,adoptOnly=false}){
     const known=layers.find(layer=>layer.name===name);
     if(known)return {close:()=>releaseLayer(known)};
     // NAV-새로고침제자리: after a reload the entry still lists the layers that were open (a phone note folder, then a note in it); they are
     // reopened in the same order, so each one takes its place in that list instead of adding an entry.
     const adopt=!releasing&&(topOf(history.state)===name||chainOf(history.state)[layers.length]===name);
     if(adoptOnly&&!adopt)return null;
-    const layer={name,close,index:adopt?window.navigation?.currentEntry?.index:undefined};
+    const layer={name,close,reopen,index:adopt?window.navigation?.currentEntry?.index:undefined};
     layers.push(layer);
-    if(adopt);else if(releasing)deferred.push(layer);else pushLayer(layer);
+    if(adopt)keepReopen(layer);else if(releasing)deferred.push(layer);else pushLayer(layer);
     return {close:()=>releaseLayer(layer)};
   }
   function releaseLayer(layer){
@@ -199,10 +209,29 @@
   }
   // An entry for a layer that is no longer open (left by a tab change) is passed over in
   // the direction of travel, so one press always changes the screen.
+  // NAV-PC앞뒤통일: going forward onto an entry whose layer was closed by back opens that layer again (its owner's reopen), the
+  // reverse of back. Back over such an entry (left by a tab change) still passes it over. A window entry (.modal, kptuOverlay of
+  // mobile-modal-history.js) whose window is closed is passed over going forward too: the window is not reopened by forward.
   function skipStaleLayer(){
+    if(!traverseDelta)return;
     const top=topOf(history.state);
-    if(!top||layers.some(layer=>layer.name===top)||!traverseDelta)return;
-    if(traverseDelta<0)history.back();else history.forward();
+    if(top&&!layers.some(layer=>layer.name===top)){
+      if(traverseDelta>0&&reopenHere(top))return;
+      if(traverseDelta<0)history.back();else history.forward();
+      return;
+    }
+    const overlay=history.state?.kptuOverlay;
+    if(overlay&&traverseDelta>0&&!overlayOpen(overlay)&&canForward())history.forward();
+  }
+  function reopenHere(name){
+    const kept=reopeners.get(window.navigation?.currentEntry?.key);
+    if(!kept||kept.name!==name||kept.view!==api.current)return false;
+    try{kept.reopen()}catch(err){console.error('layer reopen',name,err)}
+    return layers.some(layer=>layer.name===name);
+  }
+  function overlayOpen(id){
+    const el=document.getElementById(id);
+    return !!el&&!el.classList.contains('hidden');
   }
   function onTraversal(){
     if(layerReturn){layerReturn=false;return}
@@ -226,6 +255,30 @@
     }else if(layers.length){history.back();return true}
     if(api.current&&api.current!=='home'&&viewExists('home'))return go('home',{source:'back',replaceUrl:true});
     return false;
+  }
+  // NAV-PC앞뒤통일: the PC top line ‹ › are this router's back and forward (the same path as the browser, PWA and Android back),
+  // never a record of their own. canBack/canForward tell whether a press would do anything: back stops at Web2's first entry (whose
+  // last return is home, as back() above), forward only goes over Web2's own entries of this page.
+  function canBack(){
+    if(!api.current||!authenticatedShellReady())return false;
+    const entry=window.navigation?.currentEntry;
+    if(entry&&Number.isInteger(entry.index)&&Number.isInteger(baseIndex)){
+      if(entry.index>baseIndex)return true;
+    }else if(layers.length||history.length>1)return true;
+    return api.current!=='home'&&viewExists('home');
+  }
+  function canForward(){
+    if(!api.current||!authenticatedShellReady())return false;
+    const nav=window.navigation,entry=nav?.currentEntry;
+    if(!nav||!entry||!Number.isInteger(entry.index))return true;
+    if(!nav.canGoForward)return false;
+    const next=nav.entries()[entry.index+1];
+    try{return !!next?.url&&new URL(next.url).pathname===location.pathname}catch{return false}
+  }
+  function forward(){
+    if(!canForward())return false;
+    history.forward();
+    return true;
   }
 
   function scrollControlIntoView(container,control,behavior='smooth'){
@@ -398,8 +451,15 @@
 
   // syncNavigation: repaint the menu marks for the current view (topbar-actions.js calls it when the 761~1023px row hands
   // its buttons back to the PC sidebar, whose [일정] head marks its whole group).
-  const api={current:null,sub:null,go,setSub,place,setPlace,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,sub:null,go,setSub,place,setPlace,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
+  // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
+  let moveQueued=false;
+  function movedSoon(){
+    if(moveQueued)return;moveQueued=true;
+    queueMicrotask(()=>{moveQueued=false;window.dispatchEvent(new CustomEvent('kptu:history-moved'))});
+  }
+  window.addEventListener('kptu:view-changed',movedSoon);
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
   // currententrychange comes before popstate and names the entry left, so a traversal's
   // direction is known without a navigate listener (which would change traversal timing).
@@ -408,14 +468,16 @@
     const from=e.from?.index,to=nav.currentEntry?.index;
     traverseDelta=e.navigationType==='traverse'&&Number.isInteger(from)&&Number.isInteger(to)?to-from:0;
     rememberRoute();
+    movedSoon();
   });
   window.addEventListener('popstate',()=>{
     if(returningTo&&window.navigation?.currentEntry?.key===returningTo){returningTo=null;traverseDelta=0;rememberRoute();return;}
     onTraversal();
     traverseDelta=0;
+    movedSoon();
   });
   window.addEventListener('kptu:session-changed',e=>{
-    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();return}
+    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();reopeners.clear();movedSoon();return}
     if(appReady())restoreFromUrl('session');
   });
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});
