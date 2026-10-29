@@ -209,9 +209,9 @@ ${s.saved ? '<div class="pd-bar"><button type="button" data-pd-open-note>노트 
 function paint() {
   if (!dialog || !state) return;
   const s = state, two = wide();
+  const fold = s.painted ? readPickState(dialog).pd : null; if (fold) s.pick = fold; s.painted = true; // 다시 그려도 '최근 사업 보고' 펼침·찾기 글은 이어 간다(고르기 칸이 없던 때는 그대로)
   const focusKey = dialog.contains(document.activeElement) ? [...(document.activeElement?.attributes || [])].find(a => a.name.startsWith('data-pd-')) : null;
   const panes = two ? pickHtml() + previewHtml() : s.step === 'preview' ? previewHtml() : pickHtml();
-  const fold = s.painted ? readPickState(dialog).pd : null; if (fold) s.pick = fold; s.painted = true; // 다시 그려도 '최근 사업 보고' 펼침·찾기 글은 이어 간다(고르기 칸이 없던 때는 그대로)
   dialog.classList.toggle('pd-two', two);
   dialog.innerHTML = `<header class="pd-head"><h2 id="pressDraftTitle">성명·보도자료 초안</h2><button type="button" class="pd-icon" data-pd-close aria-label="닫기">×</button></header>
 <div class="pd-body">${panes}</div>
