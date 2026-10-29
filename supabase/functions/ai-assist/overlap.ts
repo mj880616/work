@@ -6,6 +6,8 @@
 //   검사에 걸린 항목은 저장하지 않고(=판정 안 함) 두 줄은 그대로 보인다. 애매하면 unsure(빼지 않음).
 import { cleanLine, cleanMaterial } from "./todo-radar.ts";
 import { looksPersonal } from "./ledger-candidates.ts";
+// SEC-요약비밀가리기: 저장하는 AI 글에서 비밀 모양 값(비밀번호·현관·인증번호·토큰 등)을 [비밀]로 가린다(_shared/secret-redact.mjs).
+import { redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const OVERLAP_KINDS = Object.freeze(["meeting", "project_update", "org_update", "basket"] as const);
 export type OverlapKind = typeof OVERLAP_KINDS[number];
@@ -123,7 +125,7 @@ export function parseOverlap(text: string | null, known: ReadonlySet<string>): {
     const e = entry as Record<string, unknown>;
     if (Object.keys(e).sort().join(",") !== "id,reason,verdict" || typeof e.id !== "string" || !known.has(e.id) || done.has(e.id)) { dropped++; continue; }
     if (!(OVERLAP_VERDICTS as readonly unknown[]).includes(e.verdict)) { dropped++; continue; }
-    const reason = cleanLine(e.reason, OVERLAP_REASON_CHARS, { allowEmpty: true });
+    const reason = redactSecrets(cleanLine(e.reason, OVERLAP_REASON_CHARS, { allowEmpty: true }));
     if (reason === null || PHONE.test(reason) || EMAIL.test(reason) || looksPersonal(reason) || chars(reason) > OVERLAP_REASON_CHARS) { dropped++; continue; }
     done.add(e.id);
     items.push({ id: e.id, verdict: e.verdict as OverlapVerdict, reason });

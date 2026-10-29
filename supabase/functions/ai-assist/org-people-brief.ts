@@ -11,6 +11,8 @@
 import { cleanOrgText } from "./org-summary.ts";
 import { outputText } from "../_shared/openai-responses.ts";
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
+// SEC-요약비밀가리기: 저장하는 AI 글에서 비밀 모양 값(비밀번호·현관·인증번호·토큰 등)을 [비밀]로 가린다(_shared/secret-redact.mjs).
+import { AI_SECRET_RULE, redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const PEOPLE_BRIEF_DAYS = 30;
 export const PEOPLE_BRIEF_MAX_PEOPLE = 40;
@@ -79,6 +81,7 @@ export const PEOPLE_BRIEF_INSTRUCTIONS = [
   "detail: 사람별 최근 흐름을 '- 이름: 내용' 줄로 3~6줄(600자 이내). 기록에 없는 일은 쓰지 않는다. 기록이 거의 없으면 detail은 빈 글자.",
   "전화번호·이메일·주민번호 같은 개인 연락처·식별 정보는 쓰지 않는다. 추측·평가·감정 표현을 하지 않는다. 날짜는 '10.24' 꼴.",
   AI_TONE_RULE,
+  AI_SECRET_RULE,
 ].join("\n");
 
 export const PEOPLE_BRIEF_SCHEMA = {
@@ -103,10 +106,10 @@ export function parsePeopleBrief(raw: unknown): { brief: string; detail: string 
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   if (typeof o.brief !== "string" || typeof o.detail !== "string") return null;
-  const brief = o.brief.replace(TAGS, "").replace(CTRL, "").replace(/\s+/g, " ").trim();
+  const brief = redactSecrets(o.brief.replace(TAGS, "").replace(CTRL, "").replace(/\s+/g, " ").trim());
   if (!brief || PHONE.test(brief) || EMAIL.test(brief)) return null;
   const lines = o.detail.replace(TAGS, "").replace(/\r\n?/g, "\n").replace(CTRL, "").split("\n")
-    .map((l) => l.replace(/[ \t]+/g, " ").trim()).filter((l) => l && !PHONE.test(l) && !EMAIL.test(l)).slice(0, 8);
+    .map((l) => redactSecrets(l.replace(/[ \t]+/g, " ").trim())).filter((l) => l && !PHONE.test(l) && !EMAIL.test(l)).slice(0, 8);
   const detail = cut(lines.join("\n"), PEOPLE_BRIEF_DETAIL_CHARS).trim();
   return { brief: cut(brief, PEOPLE_BRIEF_CHARS), detail: detail || null };
 }

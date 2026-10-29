@@ -13,6 +13,8 @@
 //   요약이 없는 옛 개인 기록(3.2~3.4)·status '애매'가 아닌 구분 없음(옛 3.1·비어 있음)은 box가 null이라 개수만 센다. 모양이 다르면 failed.
 // 순수 함수만 둔다(네트워크·로그 없음). 바깥에서 온 글이므로 제어 문자를 지우고 길이를 자른다.
 import { matchOrg } from "../_shared/org-name-match.mjs";
+// SEC-요약비밀가리기: 저장하는 제목·요약 줄(points)에서만 비밀 모양 값을 가린다. 전사 원문(raw_text)은 그대로 둔다.
+import { redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const CALL_LIMITS = Object.freeze({
   analysisBytes: 64 * 1024,
@@ -372,8 +374,8 @@ function boxCallOf(kind: "personal" | "unsure", meta: Record<string, string>, bo
   return {
     day: kstDay(at),
     occurred_at: new Date(at).toISOString(),
-    title,
-    points: pointsOf(s).map((p) => applySpeakerLabelsInText(p, labels)),
+    title: redactSecrets(title),
+    points: pointsOf(s).map((p) => redactSecrets(applySpeakerLabelsInText(p, labels))),
     counterpart,
     speaker_split: transcript ? speakerSplit(transcript) : false,
     raw_text: transcript ? applySpeakerLabels(transcript, labels) : null,
@@ -439,8 +441,8 @@ export function parseCall(input: { ref: string; analysis_md: string; transcript:
     kind: "business",
     day: day!,
     occurred_at: new Date(at).toISOString(),
-    title,
-    points,
+    title: redactSecrets(title),
+    points: points.map((p) => redactSecrets(p)),
     counterpart,
     organization_id,
     speaker_split: transcript ? speakerSplit(transcript) : false,

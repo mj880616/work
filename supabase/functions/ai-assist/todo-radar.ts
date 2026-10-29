@@ -4,6 +4,8 @@
 // - 재료마다 이번 실행에서만 쓰는 짧은 참조(r1, r2 …)를 붙여 보낸다. AI가 돌려준 참조가 목록에 없으면 그 항목은 버린다.
 // - AI 답은 믿지 않는 입력: 키·종류·개수·글자 수·날짜를 다시 검사하고, HTML·제어 문자는 지운다.
 // - 후보에는 한 줄 요약(100자)·출처·짧은 근거(200자)만 남기고 원문은 옮기지 않는다.
+// SEC-요약비밀가리기: 저장하는 AI 글에서 비밀 모양 값(비밀번호·현관·인증번호·토큰 등)을 [비밀]로 가린다(_shared/secret-redact.mjs).
+import { AI_SECRET_RULE, redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const RADAR_KINDS = Object.freeze(["request", "my_task", "deadline", "prepare", "attend"] as const);
 export type RadarKind = typeof RADAR_KINDS[number];
@@ -136,6 +138,7 @@ export function buildTodoRadarInstructions(profile: RadarProfile = { name: null,
     "due는 재료에 날짜가 분명할 때만 YYYY-MM-DD(today 기준으로 계산), 아니면 빈 문자열.",
     "source는 그 근거가 있는 record의 ref 값을 그대로 쓴다. 목록에 없는 ref를 만들지 않는다.",
     "재료에 없는 사실·숫자·날짜·이름을 만들지 않는다. HTML·링크·마크다운을 쓰지 않는다.",
+    AI_SECRET_RULE,
     "답은 정해진 JSON 형식 {\"items\": [...]} 하나뿐이다.",
   ].join("\n");
 }
@@ -256,8 +259,8 @@ export function parseTodoRadar(raw: unknown, packed: PackedSource[], today: stri
     // support(확인·연락 지원)는 근거에 기록 주인 이름·우리 팀이 직접 나올 때만 남긴다(TODO-내일만 결정 2).
     if (e.counterpart === false && e.owner === "support" && e.mentions_me !== true) { excludedOwner++; continue; }
     const source = byRef.get(e.source);
-    const summary = cleanLine(e.summary, RADAR_SUMMARY_CHARS);
-    const evidence = cleanLine(e.evidence, RADAR_EVIDENCE_CHARS, { allowEmpty: true });
+    const summary = redactSecrets(cleanLine(e.summary, RADAR_SUMMARY_CHARS));
+    const evidence = redactSecrets(cleanLine(e.evidence, RADAR_EVIDENCE_CHARS, { allowEmpty: true }));
     const due = validDue(e.due, today);
     if (!source || summary === null || evidence === null || due === false) { dropped++; continue; }
     const key = dedupeKey(source.kind, source.id, summary);

@@ -1,4 +1,16 @@
+// SEC-요약비밀가리기: 저장하는 초안 글(결정·정보공유·할 일)에서 비밀 모양 값을 [비밀]로 가린다. 회의 원문(전사)은 건드리지 않는다.
+import { redactSecrets } from '../_shared/secret-redact.mjs';
+
 export function parseMeetingDraft(value) {
+  const out = parseMeetingDraftRaw(value);
+  const d = out.draft;
+  d.decisions = redactSecrets(d.decisions);
+  d.information = redactSecrets(d.information);
+  d.actions = d.actions.map((x) => ({ ...x, task: redactSecrets(x.task) }));
+  return out;
+}
+
+function parseMeetingDraftRaw(value) {
   const raw = typeof value === 'string' ? value.trim() : '';
   if (!raw) throw new Error('AI 응답이 비어 있습니다. 입력한 회의록은 유지됩니다.');
 

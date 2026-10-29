@@ -4,6 +4,8 @@
 // 모두 아래 checkedLines 하나로 줄을 검사한다. 꼬리표 모양만 부르는 쪽이 고른다(evidenceLines / groundedLines).
 // 순수 함수만 둔다(입출력은 handler.ts). AI 답은 믿지 않는 입력이다.
 import { looksSecret } from "./note-title.ts";
+// SEC-요약비밀가리기: 저장하는 AI 글에서 비밀 모양 값(비밀번호·현관·인증번호·토큰 등)을 [비밀]로 가린다(_shared/secret-redact.mjs).
+import { redactSecrets } from "../_shared/secret-redact.mjs";
 
 export type EvidenceLine = { text: string; refs: string[] };
 
@@ -69,7 +71,7 @@ export function checkedLines<R>(list: unknown, isRef: (r: unknown) => r is R, op
     const { text, refs } = item as Record<string, unknown>;
     if (typeof text !== "string" || !Array.isArray(refs)) continue;
     if (CONTROL.test(text.replace(/[\t ]/g, " ")) || text.includes("<") || text.includes(">")) continue;
-    const s = text.replace(/\s+/g, " ").replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, "").trim();
+    const s = redactSecrets(text.replace(/\s+/g, " ").replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, "").trim());
     if (!s || chars(s) > opt.maxChars || PHONE.test(s) || EMAIL.test(s) || looksSecret(s)) continue;
     const kept: R[] = [];
     for (const r of refs) {

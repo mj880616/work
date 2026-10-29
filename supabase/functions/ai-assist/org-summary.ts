@@ -8,6 +8,8 @@
 // - AI 답은 믿지 않는 입력: 키·개수·글자 수를 다시 검사하고, HTML·제어 문자·앞 기호를 지우고 같은 줄은 한 번만 남긴다.
 //   전화번호·이메일 같은 개인 연락처가 든 줄은 버린다.
 // - 저장하는 것은 요약 글뿐이다(원문은 옮기지 않음). 고친 요약(edited)은 handler가 덮어쓰지 않는다.
+// SEC-요약비밀가리기: 저장하는 AI 글에서 비밀 모양 값(비밀번호·현관·인증번호·토큰 등)을 [비밀]로 가린다(_shared/secret-redact.mjs).
+import { AI_SECRET_RULE, redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const ORG_SUMMARY_MAX_ORGS = 20;
 export const ORG_SUMMARY_MAX_LINES = 5;
@@ -115,6 +117,7 @@ export const ORG_SUMMARY_INSTRUCTIONS = [
   "앞에 기호(-, •, ○, 1.)를 붙이지 않는다. HTML·링크·마크다운을 쓰지 않는다. 재료에 없는 사실·숫자·날짜·이름을 만들지 않는다.",
   "org는 organizations의 ref 값을 그대로 쓴다. 조직마다 한 항목이다.",
   "답은 정해진 JSON 형식 {\"items\": [{\"org\": 참조, \"lines\": [문자열]}]} 하나뿐이다.",
+  AI_SECRET_RULE,
 ].join("\n");
 
 export const ORG_SUMMARY_SCHEMA = {
@@ -147,7 +150,7 @@ export function cleanSummaryLine(value: unknown): string | null {
     .trim();
   if (!text || chars(text) > ORG_SUMMARY_LINE_CHARS) return null;
   if (new RegExp(PHONE.source).test(text) || new RegExp(EMAIL.source).test(text)) return null;
-  return text;
+  return redactSecrets(text);
 }
 
 export type OrgSummary = { org: PackedOrg; summary: string };

@@ -11,6 +11,8 @@
 // - 한두 줄 요약(brief, WEEKLY-자료요약 2단계, docs/design/weekly-file-summary.md 2·3절): 같은 호출의 답 칸 하나.
 //   글자가 있는 자료에만 요청(brief:true)하고, 서버가 줄 수·글자 수·제어 문자·꺾쇠를 다시 검사한다(넘으면 버림, 자르지 않음).
 //   저장은 handler가 이미 있는 "자료별 AI 요약 표"(app_document_ai_index)에 'b1:' 지문 행으로만 한다(옛 행은 건드리지 않음).
+// SEC-요약비밀가리기: 저장하는 AI 글에서 비밀 모양 값(비밀번호·현관·인증번호·토큰 등)을 [비밀]로 가린다(_shared/secret-redact.mjs).
+import { AI_SECRET_RULE, redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const LIBRARY_FIELDS = Object.freeze(["title", "document_date", "source", "category"] as const);
 export type LibraryField = typeof LIBRARY_FIELDS[number];
@@ -198,7 +200,7 @@ export function cleanBrief(value: unknown): string | null {
   // 줄바꿈 밖 제어 문자·보이지 않는 방향/폭 문자·꺾쇠가 있으면 버린다(지우지 않음 — 지운 글이 뜻을 바꿀 수 있음).
   if (/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069<>]/.test(text)) return null;
   const lines = text.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean)
-    .map((l) => l.replace(BRIEF_PHONE, "(연락처)").replace(BRIEF_EMAIL, "(연락처)"));
+    .map((l) => redactSecrets(l.replace(BRIEF_PHONE, "(연락처)").replace(BRIEF_EMAIL, "(연락처)")));
   if (!lines.length) return "";
   if (lines.length > BRIEF_MAX_LINES || lines.some((l) => chars(l) > BRIEF_LINE_CHARS)) return null;
   const out = lines.join("\n");
@@ -228,6 +230,7 @@ export const LIBRARY_FILL_INSTRUCTIONS = [
   "brief 규칙: 문장 끝은 명사형으로 맺는다(예: \"A 지부 임금교섭 요구안. 기본급 5% 인상·인력 충원 요구, 10.28.(화) 1차 교섭 예정.\"). \"~했다\", \"~합니다\", \"~함\", \"~임\"으로 끝내지 않는다. 사람 이름·연락처는 쓰지 않고 직책이나 조직으로 쓴다(예: \"지부장\", \"사측\").",
   "재료에 없는 사실을 만들지 않는다. 모르는 칸은 빈 글로 둔다. HTML·링크·마크다운을 쓰지 않는다.",
   "files의 항목마다 같은 ref로 답 하나씩, 정해진 JSON 형식 {\"items\":[{\"ref\",\"title\",\"document_date\",\"source\",\"category\",\"project\",\"organization\",\"brief\"}]}으로만 답한다.",
+  AI_SECRET_RULE,
 ].join("\n");
 
 export const LIBRARY_FILL_SCHEMA = {

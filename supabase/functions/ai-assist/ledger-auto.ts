@@ -10,6 +10,8 @@
 import { cleanLine, cleanMaterial, normalizeTitle, type SourceKind } from "./todo-radar.ts";
 import { ledgerDedupKey, looksPersonal } from "./ledger-candidates.ts";
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
+// SEC-요약비밀가리기: 저장하는 AI 글에서 비밀 모양 값(비밀번호·현관·인증번호·토큰 등)을 [비밀]로 가린다(_shared/secret-redact.mjs).
+import { AI_SECRET_RULE, redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const AUTO_KINDS = Object.freeze(["event", "change", "decision", "commitment"] as const);
 export type AutoKind = typeof AUTO_KINDS[number];
@@ -142,6 +144,7 @@ export const LEDGER_AUTO_INSTRUCTIONS = [
   "title은 한국어 한 줄 40자 안팎(120자 이하), 명사형으로 맺는다(예: \"가 지부 임금교섭 3차 결렬.\").",
   "summary는 무슨 일이 언제 누구 사이에 있었는지 2~3문장(600자 이하)으로 쓴다. 원문 전체를 옮기지 않는다.",
   AI_TONE_RULE,
+  AI_SECRET_RULE,
   "date는 그 일이 일어난 날이 재료에 분명할 때만 YYYY-MM-DD(today 기준으로 계산), 아니면 빈 문자열.",
   "commitment는 counterparty(약속한 상대, 100자 이하)를 꼭 쓰고, 기한이 분명하면 follow_up_on에 YYYY-MM-DD. 다른 kind는 둘 다 빈 문자열.",
   "decision이면 decision_type을 adopted(채택)·rejected(기각)·on_hold(보류)·changed(변경) 중 하나로, 아니면 빈 문자열.",
@@ -250,9 +253,9 @@ export function parseLedgerAuto(text: string | null, packed: PackedAuto[], prior
     if (e.reference === true) { reference++; continue; }
     // 근거 필수: 보낸 원문 ref가 아니면 버린다.
     const source = byRef.get(e.source as string);
-    const title = cleanLine(e.title, AUTO_TITLE_CHARS);
-    const summary = cleanLine(e.summary, AUTO_SUMMARY_CHARS, { allowEmpty: true });
-    const counterparty = cleanLine(e.counterparty, AUTO_COUNTERPARTY_CHARS, { allowEmpty: true });
+    const title = redactSecrets(cleanLine(e.title, AUTO_TITLE_CHARS));
+    const summary = redactSecrets(cleanLine(e.summary, AUTO_SUMMARY_CHARS, { allowEmpty: true }));
+    const counterparty = redactSecrets(cleanLine(e.counterparty, AUTO_COUNTERPARTY_CHARS, { allowEmpty: true }));
     const date = validDay(e.date as string, today);
     const follow = validDay(e.follow_up_on as string, today);
     const decisionType = e.decision_type === "" ? null : DECISION_TYPES.includes(e.decision_type as string) ? e.decision_type as string : false;

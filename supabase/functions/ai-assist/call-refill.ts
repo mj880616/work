@@ -6,6 +6,8 @@
 // - 조직은 이 작업공간 조직 목록(이번 요청에서만 쓰는 짧은 참조 o1, o2 …) 안에서만 고른다. 목록 밖 참조는 버린다.
 // - 저장 칸은 #1218 규칙과 같다: 제목 = 주제만(앞의 조직·사람은 오른쪽 상대 표가 보여 준다), 상대 = '조직 이름 직함', 연결 조직 = organization_id.
 import { stripPhones } from "./ledger-auto.ts";
+// SEC-요약비밀가리기: 저장하는 AI 글에서 비밀 모양 값(비밀번호·현관·인증번호·토큰 등)을 [비밀]로 가린다(_shared/secret-redact.mjs).
+import { redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const CALL_REFILL_MAX_OUTPUT_TOKENS = 400;
 export const CALL_REFILL_TEXT_CHARS = 30000;
@@ -127,7 +129,7 @@ export function parseCallRefill(text: string | null, orgs: RefillOrg[]): RefillP
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
   const p = parsed as Record<string, unknown>;
   if (Object.keys(p).sort().join(",") !== "organization_ref,person_name,person_title,topic") return null;
-  const title = cleanLine(p.topic, CALL_REFILL_TITLE_CHARS);
+  const title = redactSecrets(cleanLine(p.topic, CALL_REFILL_TITLE_CHARS));
   if (!title) return null;
   const ref = typeof p.organization_ref === "string" ? p.organization_ref.trim() : "";
   const organization = ref ? orgs.find((o) => o.ref === ref) ?? null : null;

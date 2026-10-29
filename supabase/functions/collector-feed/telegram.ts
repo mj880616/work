@@ -5,6 +5,8 @@
 // - AI 답은 믿지 않는 입력: 글자 수·참조를 다시 검사한다. 응답이 깨졌으면 전체를 버리고(아무것도 저장하지 않음), 항목 하나가 틀리면 그 항목만 뺀다.
 import { cleanLine } from "./call-analysis.ts";
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
+// SEC-요약비밀가리기: 저장하는 요약 글(제목·요약·하루 요약·요청 한 줄)에서만 비밀 모양 값을 가린다. 원문 줄(raw_text)은 handler가 그대로 남긴다.
+import { AI_SECRET_RULE, redactSecrets } from "../_shared/secret-redact.mjs";
 
 export const TG_LIMITS = Object.freeze({
   messages: 300,
@@ -60,6 +62,7 @@ export const TELEGRAM_INSTRUCTIONS = [
   "같은 일에 대한 메시지 여러 개(질문과 답, 이어지는 글)는 소식 하나로 묶는다. 소식 하나는 1~2문장, 400자 안쪽 summary로 쓴다.",
   "title은 소식 제목 한 줄(40자 안쪽). 날짜·숫자·이름·조직 이름은 메시지에 나온 그대로 쓰고 지어내지 않는다. 메시지에 없는 사실을 더하지 않는다.",
   AI_TONE_RULE,
+  AI_SECRET_RULE,
   "위 말투는 summary와 day의 lines에 쓴다. title과 headline은 문장이 아니라 제목 한 줄이므로 명사구로 써도 된다(문장으로 쓰면 같은 말투).",
   "refs에는 그 소식의 근거 메시지 참조(m1 같은 것)를 모두 넣는다. 입력에 없는 참조는 쓰지 않는다.",
   "organization에는 소식과 확실히 관련된 담당조직 목록의 참조(o1 같은 것) 하나, 없거나 애매하면 빈 글을 쓴다. project도 같은 방식으로 프로젝트 목록의 참조(p1 같은 것) 하나 또는 빈 글.",
@@ -176,7 +179,8 @@ export function rawLines(messages: TgMessage[], refs: number[]) {
 // 나한테 온 요청의 근거 한 줄(후보 표 evidence, 200자 이하·제어문자 없음): `HH:MM 보낸 이: 글`. 보낸 이는 화면과 같은 표시 이름(없으면 라벨).
 export function askEvidence(m: TgMessage, senderNames: ReadonlyMap<string, string> = new Map()) {
   const who = oneLine(senderNames.get(m.sender) ?? "") || m.sender;
-  return [...`${hhmm(m.at)} ${who}: ${oneLine(m.text)}`].slice(0, TG_LIMITS.askEvidence).join("").trim();
+  // 근거 줄은 챙길 것 후보 표에 따로 남는 인용이라 원문 칸이 아니다: 자르기 전에 비밀 모양 값을 가린다(잘린 값이 남지 않게).
+  return [...`${hhmm(m.at)} ${who}: ${redactSecrets(oneLine(m.text))}`].slice(0, TG_LIMITS.askEvidence).join("").trim();
 }
 
 // ask_me 검사(FEAT-1029 ⑤). 칸이 없거나 ask가 true가 아니면 null. 틀린 요청은 그 요청만 버리고 소식은 살린다(dropped로 센다).
@@ -186,7 +190,7 @@ function parseAsk(raw: unknown, messageCount: number, selfAt: (i: number) => boo
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ask: null, dropped: false };
   const a = raw as Record<string, unknown>;
   if (a.ask !== true) return { ask: null, dropped: false };
-  const request = cleanLine(a.request, TG_LIMITS.askRequest);
+  const request = redactSecrets(cleanLine(a.request, TG_LIMITS.askRequest));
   const m = typeof a.quote === "string" ? /^m([1-9]\d{0,3})$/.exec(a.quote.trim()) : null;
   const quote = m ? Number(m[1]) - 1 : -1;
   if (!request || quote < 0 || quote >= messageCount || selfAt(quote)) return { ask: null, dropped: true };
@@ -209,11 +213,11 @@ function parseDay(raw: unknown): TgDay | null {
   if (!Array.isArray(d.lines)) return null;
   const lines: string[] = [];
   for (const l of d.lines) {
-    const line = cleanLine(l, TG_LIMITS.dayLine);
+    const line = redactSecrets(cleanLine(l, TG_LIMITS.dayLine));
     if (line) lines.push(line);
   }
   if (lines.length < TG_LIMITS.dayLinesMin) return null;
-  return { headline: cleanLine(d.headline, TG_LIMITS.dayHeadline), lines: lines.slice(0, TG_LIMITS.dayLinesMax) };
+  return { headline: redactSecrets(cleanLine(d.headline, TG_LIMITS.dayHeadline)), lines: lines.slice(0, TG_LIMITS.dayLinesMax) };
 }
 // selfAt(i): i번째 메시지를 '나'가 보냈는지(ask_me 근거 검사용). 모르면 모두 false.
 export function parseTelegram(text: string | null, messageCount: number, orgs: LinkOption[], projects: LinkOption[], selfAt: (i: number) => boolean = () => false): TgParsed | null {
@@ -237,14 +241,14 @@ export function parseTelegram(text: string | null, messageCount: number, orgs: L
       if (i >= 0 && i < messageCount && !refs.includes(i)) refs.push(i); // 없는 참조·중복 참조는 그 참조만 버린다
     }
     refs.sort((a, b) => a - b);
-    const summary = cleanLine(it.summary, TG_LIMITS.summary);
+    const summary = redactSecrets(cleanLine(it.summary, TG_LIMITS.summary));
     if (!refs.length || !summary) { dropped++; continue; }
     const org = typeof it.organization === "string" ? it.organization.trim() : "", proj = typeof it.project === "string" ? it.project.trim() : "";
     if ((org && !orgRef.has(org)) || (proj && !projRef.has(proj))) unlinked++;
     const asked = parseAsk(it.ask_me, messageCount, selfAt);
     if (asked.dropped) askDropped++;
     out.push({
-      title: typeof it.title === "string" ? cleanLine(it.title, TG_LIMITS.title) : null,
+      title: typeof it.title === "string" ? redactSecrets(cleanLine(it.title, TG_LIMITS.title)) : null,
       summary,
       refs,
       organization_id: org ? orgRef.get(org) ?? null : null,

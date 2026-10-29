@@ -9,6 +9,8 @@
 // - 원장 교섭·전략(S2)도 AI 재료로 보내 답 문장에 쓴다(결정 3 변경). 근거 목록의 '교섭·전략' 꼬리표는 그대로. AI 제외 노트(ai_export_allowed=false)는 보내지 않는다.
 // - AI 답은 공용 근거 검사(evidence.ts)를 거친다: 이번에 보낸 근거에 없는 ref·근거 없는 줄은 버린다.
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
+// SEC-요약비밀가리기: 지시문 한 줄(저장 전 가리기는 evidence.ts checkedLines가 한다).
+import { AI_SECRET_RULE } from "../_shared/secret-redact.mjs";
 import { orgAllNames, orgKey, orgKeys } from "../_shared/org-name-match.mjs";
 import { EVIDENCE_RULE, evidenceLines, evidenceSchema, maskEvidenceText, type EvidenceLine } from "./evidence.ts";
 import { looksSecret } from "./note-title.ts";
@@ -176,6 +178,7 @@ export const ASK_INSTRUCTIONS = [
   `답은 ${ASK_MAX_LINES}줄 이하, 한 줄 ${ASK_LINE_CHARS}자 이하. 질문에 바로 답하는 줄부터 쓴다. 날짜는 근거의 date를 그대로 쓴다.`,
   "근거로 답할 수 없으면 lines를 빈 배열로 둔다. 추측하지 않는다.",
   AI_TONE_RULE,
+  AI_SECRET_RULE,
   "답은 정해진 JSON 형식 {\"lines\":[{\"text\":문자열,\"refs\":[문자열]}]} 하나뿐이다.",
 ].join("\n");
 export const ASK_SCHEMA = evidenceSchema(ASK_MAX_LINES);
