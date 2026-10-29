@@ -27,6 +27,8 @@ export async function clickView(page,view){
   }
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴가 없다. 사업영역 관리(라우터 이름 projects)는 사람처럼 사업 보고 ⋯ → [사업영역 관리]로 연다.
   if(view==='projects'){
+    // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창. 이미 떠 있으면(새로고침으로 다시 뜬 창 등) 그대로 둔다.
+    if(await page.locator('#areaWindow:not(.hidden)').count())return;
     await clickView(page,'meetings');
     // ⋯ 안 [사업영역 관리]의 처리기는 사업 보고 화면 모듈(team.js)이 붙이므로, 그 화면이 다 뜬 뒤에 누른다.
     await page.waitForFunction(()=>!document.querySelector('#meetingsView')?.classList.contains('hidden')&&window.KPTUViewLoader?.isLoaded?.('meetings')!==false);
