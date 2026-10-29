@@ -438,19 +438,21 @@
 .home-extra-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%;min-height:26px;padding:2px 0;border:0;background:transparent;color:var(--kptu-ink);text-align:left;font-size:var(--ds-text-row,13px)}
 .home-extra-row small{color:var(--kptu-muted);flex:none}
 
-/* AI-사용량줄(ai-usage-line.js): 수집 칸 바로 아래 가는 선 + 한 줄(누르면 펼침). 경고 있을 때만 노란 줄. 작고 낮은 단추. */
+/* AI-사용량줄(ai-usage-line.js): 수집 칸 바로 아래 가는 선 + 한 줄(누르면 펼침). 기간 제목 + 요약, 좁으면 요약이 다음 줄. 경고 있을 때만 노란 줄. */
 .home-ai-usage[hidden],.home-ai-usage .aiu-panel[hidden] { display:none; }
 .home-ai-usage { margin:6px 0 0; padding:6px 2px 0; border-top:1px solid var(--kptu-border); font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-ink); min-width:0; }
-.home-ai-usage .aiu-open { display:flex; align-items:center; gap:6px; width:100%; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:0 4px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
-.home-ai-usage .aiu-open[data-warn] { background:var(--kptu-warning-soft,var(--kptu-surface)); }
-.home-ai-usage .aiu-open[data-warn] .aiu-sum { color:var(--kptu-warning); font-weight:700; }
+.home-ai-usage .aiu-open { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:0 6px; width:100%; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:2px 4px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.home-ai-usage .aiu-open[data-warn] { display:flex; background:var(--kptu-warning-soft,var(--kptu-surface)); }
+.home-ai-usage .aiu-open[data-warn] .aiu-sum { flex:1 1 auto; color:var(--kptu-warning); font-weight:700; }
 .home-ai-usage .aiu-open:focus-visible,.home-ai-usage button:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
-.home-ai-usage .aiu-title { flex:0 0 auto; color:var(--kptu-muted); }
-.home-ai-usage .aiu-sum { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums; }
-.home-ai-usage .aiu-chevron { flex:0 0 auto; color:var(--kptu-muted); font-size:11px; }
+.home-ai-usage .aiu-open .aiu-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-muted); }
+.home-ai-usage .aiu-sum { grid-column:1 / -1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.home-ai-usage .aiu-chevron { grid-row:1; grid-column:2; flex:0 0 auto; color:var(--kptu-muted); font-size:11px; }
 .home-ai-usage .aiu-icon { flex:0 0 auto; width:14px; height:14px; fill:none; stroke:var(--kptu-warning); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .home-ai-usage .aiu-panel { padding:4px 4px 2px; }
-.home-ai-usage .aiu-list,.home-ai-usage .aiu-entries ul { display:flex; flex-direction:column; gap:2px; margin:0; padding:0; list-style:none; }
+.home-ai-usage .aiu-head-line { margin:0 0 2px; font-variant-numeric:tabular-nums; }
+.home-ai-usage .aiu-head-line .aiu-title { color:var(--kptu-muted); }
+.home-ai-usage .aiu-list { display:flex; flex-direction:column; gap:2px; margin:0; padding:0; list-style:none; }
 .home-ai-usage .aiu-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:0 8px; align-items:baseline; }
 .home-ai-usage .aiu-name { min-width:0; overflow-wrap:anywhere; }
 .home-ai-usage .aiu-note { color:var(--kptu-muted); font-size:11px; }
@@ -458,19 +460,6 @@
 .home-ai-usage .aiu-bar { grid-column:1 / -1; display:block; height:3px; margin:1px 0 3px; border-radius:2px; background:var(--kptu-surface-subtle,var(--kptu-border)); overflow:hidden; }
 .home-ai-usage .aiu-bar > span { display:block; height:100%; background:var(--kptu-primary); }
 .home-ai-usage .aiu-bar > span[data-warn] { background:var(--kptu-warning); }
-.home-ai-usage .aiu-actions { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 0; }
-.home-ai-usage .aiu-btn { height:var(--ds-compact-height-sm,28px); padding:0 8px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:12px; cursor:pointer; }
-.home-ai-usage .aiu-primary { border-color:var(--kptu-primary); background:var(--kptu-primary); color:var(--kptu-on-primary); }
-.home-ai-usage .aiu-btn:disabled { opacity:.6; cursor:default; }
-.home-ai-usage .aiu-form { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 0 0; }
-.home-ai-usage .aiu-form select,.home-ai-usage .aiu-form input { height:var(--ds-compact-height-sm,28px); min-width:0; padding:0 6px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:12px; }
-.home-ai-usage .aiu-form input[name="amount"] { flex:1 1 8em; }
-.home-ai-usage .aiu-save { margin:0 0 0 auto; }
-.home-ai-usage .aiu-msg,.home-ai-usage .aiu-foot { margin:4px 0 0; color:var(--kptu-muted); font-size:11px; }
-.home-ai-usage .aiu-entries { margin:4px 0 0; }
-.home-ai-usage .aiu-entries summary { cursor:pointer; color:var(--kptu-muted); font-size:11px; }
-.home-ai-usage .aiu-entry { display:flex; align-items:center; justify-content:space-between; gap:6px; }
-.home-ai-usage .aiu-entry-del { width:24px; height:24px; padding:0; border:0; background:transparent; color:var(--kptu-muted); cursor:pointer; }
 /* FEAT-1029묶음 ③ 연락 없는 조직(org-quiet.js): 카드가 아니라 톤다운 경고색 한 줄. 펼치면 바로 아래 얇은 목록. */
 .home-card.home-quiet { padding:0; border:0; background:transparent; border-radius:0; }
 .home-quiet .oq-line { display:flex; align-items:center; gap:6px; min-height:30px; padding:2px 4px 2px 10px; border-radius:var(--ds-radius-control,8px); background:var(--kptu-warning-soft,var(--kptu-surface)); color:var(--kptu-warning); font-size:var(--ds-text-meta,12px); line-height:1.4; }
