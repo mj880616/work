@@ -14,8 +14,12 @@ const SOURCES=[
 const ANSWER={ok:true,kind:'ask_web2',status:'ok',question:Q,words:['가상','사업장','교섭','쟁점'],id:ID(90),created_at:'2026-10-06T00:12:00Z',
   lines:[{text:'3차 교섭에서 성과급 기준이 쟁점임.',refs:['s1']},{text:'회사 안(개인 평가 연동)은 거부함.',refs:['s1','s2']}],sources:SOURCES};
 const emptyGroups=body=>({words:String(body.p_query).split(/\s+/),groups:['update','note','work','document','meeting','project','organization','milestone'].map(kind=>({kind,total:0,capped:false,offset:0,items:[]}))});
-async function routes(page,{asks,recent=[],aiStatus=200,aiBody=ANSWER}){
-  await page.route(SB+'/rest/v1/rpc/app_search_records',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(emptyGroups(route.request().postDataJSON()))}));
+async function routes(page,{asks,recent=[],aiStatus=200,aiBody=ANSWER,searchHold=null}){
+  await page.route(SB+'/rest/v1/rpc/app_search_records',async route=>{
+    const body=route.request().postDataJSON();
+    if(searchHold)await searchHold(body);
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(emptyGroups(body))});
+  });
   await page.route(SB+'/rest/v1/app_ask_answers**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(recent)}));
   await page.route(SB+'/functions/v1/ai-assist',route=>{
     if(route.request().method()!=='POST')return route.fallback();
@@ -46,6 +50,7 @@ test('PC 1440: a question shows the ask line first; Enter asks once; lines carry
   await expect(box.locator('.gs-ask-src summary')).toHaveText('근거 3건 — 업데이트 1 · 통화 1 · 원장 1');
   await expect(box.locator('.gs-ask-foot')).toHaveText('AI가 찾은 기록을 요약한 것임. 원본을 눌러 확인할 것.');
   await box.locator('.gs-ask-src summary').click();
+  await expect(box.locator('.gs-ask-src')).toHaveAttribute('open','');
   await expect(box.locator('.gs-ask-src-row').nth(2)).toContainText('교섭·전략');
   await expect(box.locator('.gs-ask-src-row').nth(2)).toContainText('양보선 검토');
   // 답 상자는 결과 창 안. 창 높이를 넘으면 창 안에서 스크롤.
@@ -89,6 +94,7 @@ for(const width of [412,884]){
     expect(await noSideScroll(page)).toBe(true);
     // 근거 줄(통화) 누르기 → 통화 화면, 뒤로 가기 → 검색 화면.
     await view.locator('.gs-ask-src summary').click();
+    await expect(view.locator('.gs-ask-src')).toHaveAttribute('open','');
     await view.locator('.gs-ask-src-row').nth(1).click();
     await expect(page.locator('#callsView')).toBeVisible();
     await page.goBack();
@@ -97,3 +103,24 @@ for(const width of [412,884]){
     await expect(page.locator('#homeView')).toBeVisible();
   });
 }
+
+// QA-E2E간헐1029-2: 검색 결과(또는 할 일·일정)가 늦게 와서 화면을 다시 그려도, 펼친 '근거 n건'은 펼친 채로 남고 근거 줄을 누를 수 있다.
+// 결과 창 전체를 다시 그리는 구조라 펼침 여부를 화면 상태(state.ask)가 들고 있어야 한다. 늦은 응답을 일부러 붙잡았다가 근거를 편 뒤에 놓아 준다.
+test('Phone 884: a late search repaint keeps the opened evidence list open and its rows clickable',async({page})=>{
+  await page.setViewportSize({width:884,height:900});
+  const asks=[];let release;const held=new Promise(r=>{release=r;});let heldCount=0;
+  await openHome(page,{beforeLoad:()=>routes(page,{asks,recent:[{...ANSWER,ai_status:'ok',status:undefined}],searchHold:async body=>{if(body.p_query===Q){heldCount++;await held;}}})});
+  await page.evaluate(async()=>{await window.KPTUViewLoader.load('search');window.KPTURouter.go('search',{source:'delegated'});});
+  const view=page.locator('#searchView');
+  await view.locator('.gs-recent .gs-row').click();
+  await expect(view.locator('.gs-ask-box .gs-ask-text')).toHaveCount(2);
+  await expect.poll(()=>heldCount).toBe(1); // 검색 요청은 나갔고 답은 아직 안 옴
+  await view.locator('.gs-ask-src summary').click();
+  await expect(view.locator('.gs-ask-src')).toHaveAttribute('open','');
+  release();
+  await expect(view.locator('.gs-status')).toHaveText('찾은 기록이 없어요.'); // 늦은 응답으로 다시 그림
+  await expect(view.locator('.gs-ask-src')).toHaveAttribute('open','');
+  await view.locator('.gs-ask-src-row').nth(1).click();
+  await expect(page.locator('#callsView')).toBeVisible();
+  expect(asks.length).toBe(0);
+});
