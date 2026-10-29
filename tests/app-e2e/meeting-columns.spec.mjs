@@ -126,7 +126,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   // 오른쪽 위 [+ 회의 결과] 하나, 높이는 입력칸과 같은 공용 기준(36px), 누르는 범위 44px.
   const add=page.locator('#newMeetingBtn');await expect(add).toBeVisible();
   const h=await add.evaluate(e=>({box:e.getBoundingClientRect().height,touch:parseFloat(getComputedStyle(e,'::after').height)||parseFloat(getComputedStyle(e,'::after').minHeight)}));
-  expect(h.box).toBe(36);expect(h.touch).toBeGreaterThanOrEqual(44);
+  expect(h.box).toBe(32);expect(h.touch).toBeGreaterThanOrEqual(44);/* BIZ-버튼줄정리: 작고 낮게 32px */
   expect(errors).toEqual([]);
 });
 

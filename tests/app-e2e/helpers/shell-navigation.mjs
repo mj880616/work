@@ -30,8 +30,8 @@ export async function clickView(page,view){
     await clickView(page,'meetings');
     // ⋯ 안 [사업영역 관리]의 처리기는 사업 보고 화면 모듈(team.js)이 붙이므로, 그 화면이 다 뜬 뒤에 누른다.
     await page.waitForFunction(()=>!document.querySelector('#meetingsView')?.classList.contains('hidden')&&window.KPTUViewLoader?.isLoaded?.('meetings')!==false);
-    await page.locator('#meetingsView #reportMore summary:visible').click();
-    await page.locator('#meetingsView #reportMore [data-report-areas]:visible').click();
+    await page.locator('#meetingsView #reportMore:visible').click();
+    await page.locator('#reportMoreMenu [data-report-areas]:visible').click();
     return;
   }
   // Phone (8-9e-2): the [일정] tab opens the side seen last; [달력 | 할 일] on top switches.

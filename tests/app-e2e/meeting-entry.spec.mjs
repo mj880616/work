@@ -526,8 +526,10 @@ for(const width of [320,360,390,768,1000]){
       expect(await button.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');expect(btn.width).toBe(36);expect(btn.height).toBe(36);
       await expect(button).toHaveAttribute('aria-label','사업 보고 등록');
     }else{
-      expect(btn.height).toBeCloseTo(36,0);/* UI-버튼전수조사: 채운 [+ 사업 보고]는 36px */
-      expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0);
+      expect(btn.height).toBeCloseTo(32,0);/* BIZ-버튼줄정리: 채운 [+ 사업 보고]는 작고 낮게 32px, 그 오른쪽 줄 끝이 ⋯ */
+      const more=await page.locator('#reportMore').boundingBox();
+      expect(more.x+more.width).toBeCloseTo(h.x+h.width,0);
+      expect(btn.x+btn.width).toBeLessThanOrEqual(more.x);
       expect(btn.y).toBeGreaterThanOrEqual(h.y);
       expect(btn.y+btn.height).toBeLessThanOrEqual(h.y+h.height);
       expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
