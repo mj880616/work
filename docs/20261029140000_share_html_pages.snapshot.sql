@@ -9,7 +9,7 @@ union all select 'index',tablename||'.'||indexname,indexdef from pg_indexes wher
 union all select 'policy',polrelid::regclass::text||'.'||polname,polcmd::text||polroles::text||polpermissive::text||coalesce(pg_get_expr(polqual,polrelid),'')||coalesce(pg_get_expr(polwithcheck,polrelid),'') from pg_policy where polrelid in (to_regclass('public.app_share_pages'),to_regclass('public.app_share_page_links'))
 union all select 'trigger',tgrelid::regclass::text||'.'||tgname,tgenabled::text||':'||pg_get_triggerdef(oid) from pg_trigger where tgrelid in (to_regclass('public.app_share_pages'),to_regclass('public.app_share_page_links')) and not tgisinternal
 union all select 'owner RLS grants',relname,relowner::text||':'||relrowsecurity::text||':'||relforcerowsecurity::text||':'||coalesce(relacl::text,'none') from pg_class where oid in (to_regclass('public.app_share_pages'),to_regclass('public.app_share_page_links'))
-union all select 'new table',n,case when to_regclass('public.'||n) is null then 'absent' else 'present' end from (values ('app_share_page_html'),('app_share_page_slugs')) v(n)
+union all select 'new table',n,case when to_regclass('public.'||n) is null then 'absent' else 'present' end from unnest(array['app_share_page_html','app_share_page_slugs']) n
 union all select 'owner check function',p.oid::regprocedure::text,p.prosecdef::text||':'||coalesce(p.proconfig::text,'none')||':'||coalesce(p.proacl::text,'none')||':'||md5(p.prosrc)
   from pg_proc p where p.pronamespace='private'::regnamespace and p.proname='app_is_workspace_owner'
 union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261020005000','20261029140000')

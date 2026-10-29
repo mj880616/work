@@ -229,7 +229,8 @@ test('call personal box: separate table, atomic owner-checked moves, duplicate g
    const handler=await read('supabase/functions/ai-assist/handler.ts');
    const reads=[...handler.matchAll(/app_feed_items\?[^`"']*/g)].map(m=>m[0]);
    assert.ok(reads.length>=2);
-   for(const r of reads)assert.match(r,/[?&]source=eq\.call&/,r);
+   // FEAT-1029①② 물어보기·교섭 전 한 장: 같은 표의 업무 텔레그램 줄(source=telegram, 명진 결정 변경 10/29: 원문·보낸 사람 이름까지)도 읽는다. 개인 통화함은 여전히 읽지 않는다.
+   for(const r of reads)assert.match(r,/[?&]source=eq\.(call|telegram)&/,r);
    const named=(await pool.query("select proname from pg_proc where prosrc like '%app_call_personal%' and pronamespace in ('public'::regnamespace,'private'::regnamespace) order by 1")).rows.map(r=>r.proname);
    assert.deepEqual(named,['app_call_move','app_call_ref_guard']);
    assert.equal((await pool.query("select count(*)::int n from pg_views where schemaname in('public','private') and definition like '%app_call_personal%'")).rows[0].n,0);
