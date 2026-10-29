@@ -56,6 +56,7 @@
 /* 창 글자 역할(D-6b 본문 14px)보다 작게: 설명 12px, 빈 상태 13px 흐린 글자. */
 :is(#meetingModal,#meetingRoundDetailModal) .mtg-group .mtg-note{margin:-6px 0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-faint)}
 :is(#meetingModal,#meetingRoundDetailModal) .mtg-group .mtg-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target,44px);margin:0;font-size:var(--ds-text-row,13px);color:var(--kptu-faint)}
+:is(#meetingModal,#meetingRoundDetailModal) .mtg-group .wait-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target,44px);margin:0;font-size:var(--ds-text-meta,12px)}
 .mtg-task-list{display:grid;min-width:0}
 .mtg-task-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:6px;margin:0 0 4px}
 .mtg-task-line.hidden{display:none}
