@@ -46,7 +46,9 @@ async function open({id=null,trigger=document.activeElement}={}){
     if(run!==seq)return;
     const was=isOpen();if(!show(trigger))return;
     // 다른 화면의 연결로 그 사업영역을 바로 연 창(direct): 폰에서 뒤로가기로 상세를 닫으면 창도 닫혀 한 번에 원래 자리로 돌아간다.
-    if(!was)win().dataset.areaDirect=id&&window.KPTURouter?.current!=='meetings'?'1':'';
+    if(!was){const direct=!!id&&window.KPTURouter?.current!=='meetings';win().dataset.areaDirect=direct?'1':'';
+      // 연결로 바로 연 창은 PC에서도 뒤로가기 기록을 둔다(뒤로가기 한 번에 원래 자리). 사업 보고 ⋯로 연 창은 PC에서 기록 없이(폰만).
+      if(direct)win().dataset.kptuHistoryAll='1';else delete win().dataset.kptuHistoryAll}
     if(!was)window.dispatchEvent(new CustomEvent('kptu:area-window',{detail:{open:true}}));
     const p=window.KPTUProjects;
     if(!was)await p?.shown?.();

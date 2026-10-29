@@ -818,6 +818,8 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
 
 for(const extra of [0,200])test(`D-project requests stay constant with ${extra} extra projects`,async({page})=>{
  const state=baseState();state.sessionUser=true;state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
+ // MTG-프로젝트합치기 ①: PC 창은 첫 사업영역 상세를 오른쪽 칸에 바로 연다(상세 읽기). 목록 읽기만 보려고 폰 폭에서 본다.
+ await page.setViewportSize({width:390,height:844});
  state.spaces.push(...Array.from({length:extra},(_,i)=>({...state.spaces[0],id:'extra-'+i,name:'추가 '+i})));
  await mockApp(page,state);await page.goto(testOrigin+'/app/?view=projects');await signIn(page);await expect(page.locator('#projectsView')).toBeVisible();
  // UI-디자인기준 3/3(8-9e-1): the list reads only the D-day (one batched read); it no longer reads Google tasks for counts.
