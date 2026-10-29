@@ -121,6 +121,15 @@ function withoutFreshness(url) {
 const SHARE_PAGE = '/work/share/';
 const SHARE_READ_URL = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/share-page-read';
 const SHARE_TOKEN = /^[0-9a-f]{64}$/;
+// SHARE-보관함·HTML공유: short address = name (a-z 0-9, single hyphens, 2-40) + "-" + 8 letters the DB made (no l·o·0·1).
+// Sent as bokdoong.com/s/<it>; people are sent (302) to the share page on work (not the Web2 host), preview bots get the card here.
+const SHARE_SLUG = /^(?=[a-z0-9-]{11,49}$)[a-z0-9]+(?:-[a-z0-9]+)*-[a-km-np-z2-9]{8}$/;
+const SHORT_PREFIX = '/s/';
+export function shortSlugOf(path) {
+  if (!path.startsWith(SHORT_PREFIX)) return null;
+  const slug = path.slice(SHORT_PREFIX.length).replace(/\/$/, '');
+  return SHARE_SLUG.test(slug) && slug.slice(0, -9).length >= 2 ? slug : null;
+}
 export const SHARE_TITLE_TIMEOUT_MS = 1500;
 const SHARE_READ_MAX_CHARS = 600000;
 const SHARE_TITLE_MAX = 200;
@@ -130,6 +139,14 @@ const PREVIEW_BOT = /TelegramBot|kakaotalk-scrap|facebookexternalhit|Facebot|Twi
 function shareTokenOf(url) {
   const values = url.searchParams.getAll('t');
   return values.length === 1 && SHARE_TOKEN.test(values[0]) ? values[0] : null;
+}
+// What the preview lookup asks for: {token} from ?t= or {slug} from ?s= (exactly one, well formed), else null.
+function shareAskOf(url) {
+  const token = shareTokenOf(url);
+  if (token) return { token };
+  const values = url.searchParams.getAll('s');
+  if (url.searchParams.has('t') || values.length !== 1) return null;
+  return shortSlugOf(SHORT_PREFIX + values[0]) ? { slug: values[0] } : null;
 }
 
 function previewBot(request) {
@@ -141,7 +158,8 @@ function escapeHtml(text) {
 }
 
 // Resolves to the page title or null; never rejects and never waits longer than SHARE_TITLE_TIMEOUT_MS.
-function shareTitle(token, timeoutMs = SHARE_TITLE_TIMEOUT_MS) {
+// ask is {token} or {slug}; head:true asks for the title only (an HTML page can be 5MB).
+function shareTitle(ask, timeoutMs = SHARE_TITLE_TIMEOUT_MS) {
   const controller = new AbortController();
   let timer;
   const timeout = new Promise(resolve => {
@@ -151,7 +169,7 @@ function shareTitle(token, timeoutMs = SHARE_TITLE_TIMEOUT_MS) {
     const response = await fetch(new Request(SHARE_READ_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ ...ask, head: true }),
       redirect: 'manual',
       signal: controller.signal
     }));
@@ -177,8 +195,8 @@ export function withShareTitle(html, title) {
     .replace(/<meta property="og:url" content="[^"]*">\n?/, '');
 }
 
-async function sharePreview(upstreamRequest, token) {
-  const [upstream, title] = await Promise.all([fetch(upstreamRequest), shareTitle(token)]);
+async function sharePreview(upstreamRequest, ask) {
+  const [upstream, title] = await Promise.all([fetch(upstreamRequest), shareTitle(ask)]);
   const headers = new Headers(upstream.headers);
   headers.set('Cache-Control', 'no-store');
   headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
@@ -222,8 +240,19 @@ export default {
       incoming.hostname = 'work.bokdoong.com';
       return Response.redirect(incoming.href, 302);
     }
+    // SHARE-보관함·HTML공유: bokdoong.com/s/<short address>. A malformed one is 404 (nothing is looked up).
+    if (host === WEB2_HOST && incoming.pathname.startsWith(SHORT_PREFIX)) {
+      const slug = shortSlugOf(incoming.pathname);
+      if (!slug || incoming.search) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow, noarchive' } });
+      if (request.method === 'GET' && previewBot(request)) {
+        return sharePreview(new Request(new URL(SHARE_PAGE, PAGES_ORIGIN), { method: 'GET', headers: { Accept: 'text/html' }, redirect: 'manual', cache: 'no-store' }), { slug });
+      }
+      return new Response(null, { status: 302, headers: {
+        Location: `https://work.bokdoong.com${SHARE_PAGE}?s=${slug}`,
+        'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex, nofollow, noarchive' } });
+    }
     const sharePage = host === 'work.bokdoong.com' && incoming.pathname === SHARE_PAGE;
-    if (host === 'work.bokdoong.com' && incoming.pathname === '/work/share' && incoming.searchParams.has('t')) {
+    if (host === 'work.bokdoong.com' && incoming.pathname === '/work/share' && (incoming.searchParams.has('t') || incoming.searchParams.has('s'))) {
       // GitHub Pages would add the slash but drop the link value (it is never sent there).
       incoming.pathname = SHARE_PAGE;
       return Response.redirect(incoming.href, 301);
@@ -233,7 +262,7 @@ export default {
     const originUrl = new URL(upstreamPath(host, incoming.pathname), PAGES_ORIGIN);
     const freshDocument = web2Document(host, incoming);
     originUrl.search = freshDocument ? withFreshness(incoming.search) : incoming.search;
-    const shareToken = sharePage ? shareTokenOf(incoming) : null;
+    const shareAsk = sharePage ? shareAskOf(incoming) : null;
     // The share page is one static file: nothing after ? is needed by Pages, and it may hold a link value.
     if (sharePage) originUrl.search = '';
     const headers = new Headers();
@@ -260,10 +289,10 @@ export default {
       const cached = await edgeCache.match(cacheKey);
       if (cached) return cached;
     }
-    if (shareToken && request.method === 'GET' && previewBot(request)) {
+    if (shareAsk && request.method === 'GET' && previewBot(request)) {
       // The bot gets the full page every time: no conditional or partial answers to rewrite.
       for (const name of ['If-None-Match', 'If-Modified-Since', 'Range']) headers.delete(name);
-      return sharePreview(new Request(originUrl, { method: 'GET', headers, redirect: 'manual', cache: 'no-store' }), shareToken);
+      return sharePreview(new Request(originUrl, { method: 'GET', headers, redirect: 'manual', cache: 'no-store' }), shareAsk);
     }
     const upstream = await fetch(new Request(originUrl, {
       method: request.method,
