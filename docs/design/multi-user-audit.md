@@ -76,7 +76,8 @@ AGENTS.md 5절 첫 문단 교체안(영문 유지):
 | app_org_key_people, app_org_key_people_briefs | WS | OWN | 없음 | |
 | app_ai_external_usage, app_ai_cost_entries | WS | OWN 읽기(+넣기) | 없음 | 상한 계산 재료(단계 ③) |
 | **app_feed_items, app_feed_days** | WS | OWN 읽기·일부 고치기, service_role 넣기 | 수집기가 고정 작업공간에 씀(`20261024140000_call_tg_feed.sql:9`) | **통화·텔레그램** |
-| **app_tg_personal_days, app_call_personal** | WS | OWN, service_role 넣기 | 위와 같음 | **텔레그램 / 통화** |
+| **app_call_personal** | WS | OWN, service_role 넣기 | 위와 같음 | **통화** |
+| app_tg_personal_days | — | — | **운영에 없음**: 만드는 `20261025030000` 미적용, 명진 10/28 결정(텔레그램은 1:1 포함 모두 업무방)으로 적용 계획 없음. 단계 ① 잠금 대상에서 뺌 | (없음) |
 | **app_call_edits, app_call_edit_history** | WS | OWN 읽기(쓰기는 RPC) | 없음 | **통화** |
 | **app_tg_senders, app_tg_day_senders** | WS | OWN 읽기(쓰기는 RPC) | 'owner 작업공간이 정확히 1개' 가정(`20261026190000_tg_sender_names.sql:205-210`) | **텔레그램** |
 | **app_feed_folders, app_feed_rooms, app_feed_room_days, app_feed_summary_edits, app_feed_summary_edit_history** | WS | OWN 읽기 | 같은 가정(`20261027010000_tg_room_day_group.sql:121-126`) | **텔레그램** |
@@ -181,7 +182,7 @@ Google 토큰 저장 요약:
 | 대상 | 방식 |
 | --- | --- |
 | 통화 표 `app_feed_items`(source=call), `app_call_personal`, `app_call_edits`, `app_call_edit_history` | 기존 OWN 정책 위에 **restrictive 정책** `using (private.app_workspace_has_feature(workspace_id, 'calls'))` 추가. `app_feed_items`는 source별로 calls/telegram 판정 |
-| 텔레그램 표 `app_feed_items`(source=telegram), `app_feed_days`, `app_tg_personal_days`, `app_tg_senders`, `app_tg_day_senders`, `app_feed_folders`, `app_feed_rooms`, `app_feed_room_days`, `app_feed_summary_edits`, `app_feed_summary_edit_history` | 같은 restrictive 정책('telegram') |
+| 텔레그램 표 `app_feed_items`(source=telegram), `app_feed_days`, `app_tg_senders`, `app_tg_day_senders`, `app_feed_folders`, `app_feed_rooms`, `app_feed_room_days`, `app_feed_summary_edits`, `app_feed_summary_edit_history` | 같은 restrictive 정책('telegram'). 통화·텔레그램 합쳐 **표 12개**(`20261029090000_operator_features.sql`). `app_tg_personal_days`는 운영에 없어 넣지 않음 |
 | authenticated RPC 14개(2.1 (다)) | 함수 첫 줄에서 판정 함수로 거절(DEFINER라 RLS를 거치지 않는 것이 있으므로 정책만으로는 부족) |
 | service_role RPC 6개 | 인자로 받은 작업공간에 허용 행이 있는지 확인(수집기 비밀값이 새도 다른 작업공간에 쓰지 못하게) |
 | 통화를 재료로 쓰는 원장 자동 기록 `app_ledger_auto_sources` | 통화 출처 행은 'calls' 허용 작업공간만(정책 또는 ai-assist 쪽 판정) |
