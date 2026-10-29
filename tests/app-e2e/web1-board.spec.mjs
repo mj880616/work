@@ -57,7 +57,6 @@ for(const width of [390,1440])test('compact board cards show only their title an
     await signIn(p);
     await clickView(p,'pages');await openLegacyBoard(p);
     await expect(p.locator('#pagesView')).toHaveAttribute('data-web1-board-ready','1');
-    await p.locator('#web1BoardArchivedWrap summary').click();
   }
   for(const item of cases){
     const selector='[data-web1-board-title="'+item.title+'"]';

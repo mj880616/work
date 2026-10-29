@@ -11,6 +11,14 @@ import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
 //   지우기는 묻지 않고 바로 빠지고 [되돌리기] 5초(명진 결정 7), 그 뒤 한 번에(ids ≤ 50) Web2 휴지통으로.
 // - 원드라이브 설정 창(폴더 바꾸기·하위 폴더·연결 끊기)은 일기와 같은 공용 부품 od-settings.js로 이 화면 안에서 연다(결정 4). 연결 뒤에는 이 화면으로 돌아온다(결정 5).
 // 별표는 app_diary_stars(일기 ★와 같은 것). 저장은 모두 서버(기기 저장 없음, 썸네일 사본은 기존 od-thumb-cache.js만).
+// 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더]·[앨범] 칩.
+// - [폴더]: 원드라이브 폴더 그대로(서버 folders-tree·library folder_id). PC(1024px~)는 왼쪽 폴더 나무(노트·자료실과 같은 모양: 노란 폴더·들여쓰기·▸/▾·
+//   폴더마다 장수·맨 아래 + 새 폴더) + 오른쪽 위치 줄(folder-path.mjs 공용 부품)·고른 폴더 사진 격자. 폰은 노트처럼 한 화면씩 들어가고(위 하위 폴더 줄,
+//   아래 그 폴더 사진) 위치 줄·뒤로가기로 올라간다. 폴더 ⋯(PC 우클릭 = 폰 꾹 누르기, context-menu.js 공용 부품) = 새 하위 폴더·이름 바꾸기·옮기기·지우기(빈 폴더만).
+// - 여러 장 고른 뒤 [📁 옮기기] → 폴더 나무에서 고름(PC는 고른 사진을 왼쪽 폴더로 끌어 놓기도). 원드라이브에서도 실제 이동, 위쪽 '옮겼어요 · 되돌리기'.
+// - 사진 우클릭(PC) = [선택] [폴더로 옮기기] [앨범에 넣기] [지우기]. 폰 꾹 누르기는 ①처럼 바로 여러 장 고르기.
+// - [앨범]: #태그(app_photo_tags·app_photo_tag_items, owner RLS, 원드라이브 파일은 그대로). 카드(대표 사진·#이름·장수)·+ 새 앨범, 카드 ⋯ = 이름 바꾸기·지우기.
+//   고른 사진 [# 앨범]으로 넣고, 앨범 안에서는 [앨범에서 빼기]. 앨범 사진 목록은 그 앨범 사진 id를 서버 library에 보내 색인에 있는 것만 그린다.
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
   odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, addStar, removeStar, starKey, takenLabel, takeOdReturn} from './diary-onedrive.js';
 import {ownerScope} from './diary-data.js';
@@ -22,6 +30,12 @@ import {photoFile} from './photo-share.js';
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {createOdSettings} from './od-settings.js';
 import {createSelectMode} from './select-mode.js';
+import {createAnchoredMenu} from './anchored-menu.js';
+import {folderPathHtml} from './folder-path.mjs';
+import {odFolderTree, odFolderCreate, odFolderRename, odFolderMove, odFolderDelete, odPhotosMove} from './diary-onedrive.js';
+import {readPhotoTags, createPhotoTag, renamePhotoTag, deletePhotoTag, addPhotoTagItems, removePhotoTagItems} from './photo-tags.js';
+import {photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, folderErrorText,
+  cleanTagName, sameTag, albumCards} from './photos-model.mjs';
 import {notify, askConfirm} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
@@ -42,7 +56,7 @@ install();
 const root = document.getElementById('photosRoot');
 if (!root) return;
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><span class="photos-sp"></span><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select>${SIZE_BUTTONS}${odLinkButtonHtml()}</div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
+root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><span class="photos-sp"></span><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select>${SIZE_BUTTONS}${odLinkButtonHtml()}</div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><label><span data-photos-name-label></span><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"></label><button type="submit" class="mini">저장</button><button type="button" class="mini" data-photos-name-cancel>취소</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
 const $ = sel => root.querySelector(sel);
 const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), linkBtn = $('[data-od-link]'), odHost = $('[data-photos-od]');
 const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
@@ -55,6 +69,13 @@ let tab = 'all', filter = 'all', colsSaved = null, prefsRead = false;
 let items = [], next = null, ended = false, loading = null, failed = '', from = null, rendered = 0;
 let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, syncing = false, syncDone = false;
 let trash = null, trashFailed = '', trashBusy = false;
+// [폴더]: tree(서버 folders-tree), at(보는 폴더 id), openSet(PC 나무에서 펼친 폴더, 화면 기억만), 그 폴더 사진 fItems(fFor = 어느 폴더 것인지).
+let tree = null, treeFailed = '', treeLoading = null, at = null, fFor = null, fItems = [], fNext = null, fEnded = false, fLoading = null, fFailed = '', folderLayer = null, busy = false;
+const openSet = new Set();
+// [앨범]: tags·links(서버), album(들어간 앨범 id 또는 null = 카드 목록), aItems(그 앨범 사진).
+let tags = null, links = [], tagsFailed = '', tagsLoading = null, album = null, aFor = null, aItems = [], aLoading = null, aFailed = '', albumLayer = null;
+const TREE_WIDE = globalThis.matchMedia?.('(min-width:1024px)');
+const treeWide = () => !!TREE_WIDE?.matches;
 const starSet = new Set(), starDay = new Map(), starBusy = new Set();
 let starsReady = null;
 const isStarred = item => starSet.has(starKey(item.source, item.key));
@@ -281,16 +302,22 @@ async function renderTrash({reload = false} = {}) {
 }
 function render() {
   root.querySelectorAll('[data-photos-tab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.photosTab === tab)));
-  $('[data-photos-filter]').hidden = tab === 'trash'; root.querySelector('.photo-size').hidden = tab === 'calendar';
+  $('[data-photos-filter]').hidden = tab !== 'all' && tab !== 'calendar'; root.querySelector('.photo-size').hidden = tab === 'calendar';
   paintOd();
   if (tab === 'calendar') { select.stop(); paintSelect(); paintRail(); renderCalendar(); return; }
   if (tab === 'trash') { paintRail(); renderTrash(); return; }
+  if (tab === 'folders') { paintRail(); renderFolders(); return; }
+  if (tab === 'albums') { paintRail(); renderAlbums(); return; }
   paintList({full:true});
   if (!gate() && !items.length && !ended) loadMore();
 }
 function sizeChanged() { root.querySelectorAll('[data-diary-grid]').forEach(sizer.paintGrid); sizer.paintButtons(root); }
 globalThis.matchMedia?.(WIDE_QUERY)?.addEventListener?.('change', () => sizer.paintButtons(root));
-const shownList = () => (tab === 'trash' ? trash || [] : items);
+const listFor = t => (t === 'trash' ? trash || [] : t === 'folders' ? fItems : t === 'albums' ? aItems : items);
+const shownList = () => listFor(tab);
+function setListFor(t, next) { if (t === 'folders') fItems = next; else if (t === 'albums') aItems = next; else if (t === 'trash') trash = next; else items = next; }
+// 지금 보기의 사진 격자를 다시 그린다(지우기·옮기기·되돌리기 뒤).
+function repaintShown() { if (tab === 'folders') paintFolderGrid(); else if (tab === 'albums') renderAlbums(); else if (tab === 'trash') renderTrash(); else paintList({full:true}); }
 function paintStars() {
   root.querySelectorAll('[data-photos-open]').forEach(b => {
     const item = shownList()[Number(b.dataset.photosOpen)]; if (!item) return;
@@ -371,8 +398,8 @@ const starsChanged = () => { if (filter === 'star') monthsFor = ''; calData.clea
 
 // ---- 크게 보기 ----
 const whenText = item => `${dayHead(item.day)}${takenLabel(item) ? ' ' + takenLabel(item) : ''}`;
-const takeOne = item => { const t = takeItems(items, [item.id]); if (!t.taken.length) return null; items = t.rest; paintList({full:true}); return t.taken; };
-const restoreTaken = taken => { items = putItems(items, taken); if (current(run)) paintList({full:true}); };
+const takeOne = item => { const t0 = tab, t = takeItems(listFor(t0), [item.id]); if (!t.taken.length) return null; setListFor(t0, t.rest); repaintShown(); t.taken.tab = t0; return t.taken; };
+const restoreTaken = taken => { const t0 = taken.tab || 'all'; setListFor(t0, putItems(listFor(t0), taken)); if (current(run) && tab === t0) repaintShown(); };
 async function commitOne(taken, {keepalive = false} = {}) {
   const id = taken[0].item.id;
   try { await odDelete(rt, id, {keepalive}); forgetOdPhoto(id); trash = null; }
@@ -393,7 +420,8 @@ async function downloadOne(item) {
 }
 function openViewer(index) {
   if (photoStripOpen()) return;
-  openPhotoStrip({host:root, list:() => items, index, title:'사진', layerName:'photos-photo',
+  const shown = tab;
+  openPhotoStrip({host:root, list:() => listFor(shown), index, title:'사진', layerName:'photos-photo',
     element:(item, size, opts) => odPhotoElement(item, size, {...opts, rt}), label:(item, i) => `${item.video ? '동영상' : '사진'} ${i + 1}`, when:whenText,
     info:item => [['찍은 때', whenText(item)], ['파일', item.name], ['크기', item.width && item.height ? `${item.width} × ${item.height}` : ''], ['길이', durationLabel(item.duration_ms)], ['출처', '원드라이브']],
     original:() => ({download:true}), download:downloadOne,
@@ -402,7 +430,7 @@ function openViewer(index) {
     deletable:() => ({ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요'}),
     take:takeOne, restore:restoreTaken, commit:commitOne,
     errorText:error => `지우지 못했어요: ${odErrorText(error)}`, onError:note,
-    onClose:({starChanged, restore}) => { if (starChanged && filter === 'star' && restore) { items = items.filter(isStarred); paintList({full:true}); } }});
+    onClose:({starChanged, restore}) => { if (starChanged && filter === 'star' && restore && shown === 'all') { items = items.filter(isStarred); paintList({full:true}); } }});
 }
 
 // ---- 여러 장 고르기 ----
@@ -428,6 +456,8 @@ function paintSelect() {
   $('[data-photos-act-delete]').disabled = !od.canDelete || none;
   $('[data-photos-act-star]').disabled = none; $('[data-photos-act-down]').disabled = none;
   const share = $('[data-photos-act-share]'); share.hidden = !canShare(); share.disabled = none;
+  $('[data-photos-act-move]').disabled = none || !od.canDelete || busy; $('[data-photos-act-tag]').disabled = none || busy;
+  const untag = $('[data-photos-act-untag]'); untag.hidden = !(tab === 'albums' && album); untag.disabled = none || busy;
   $('[data-photos-restore]').disabled = none || !od.canDelete; $('[data-photos-purge]').disabled = none || !od.canDelete;
   if (rail) paintRail();
 }
@@ -485,23 +515,24 @@ async function commitBatch({keepalive = false} = {}) {
     for (const t of b.taken) { if (bad.has(t.item.id)) back.push(t); else forgetOdPhoto(t.item.id); }
   } catch { back.push(...b.taken); }
   trash = null;
-  if (back.length) { items = putItems(items, back); if (current(b.run)) paintList({full:true}); notify(`${back.length}장을 지우지 못했어요.`, {error:true}); }
+  if (back.length) { setListFor(b.tab, putItems(listFor(b.tab), back)); if (current(b.run) && tab === b.tab) repaintShown(); notify(`${back.length}장을 지우지 못했어요.`, {error:true}); }
+  else if (b.tab !== 'all') { resetList(); calData.clear(); tree = null; }
 }
 function deletePicked() {
   if (!od.canDelete) return;
   const picked = pickedItems(), ids = picked.slice(0, SELECT_MAX).map(x => x.id);
   if (!ids.length) return;
   if (batch) commitBatch();
-  const t = takeItems(items, ids);
-  items = t.rest;
+  const t0 = tab, t = takeItems(listFor(t0), ids);
+  setListFor(t0, t.rest);
   select.stop();
-  paintList({full:true});
-  const b = {taken:t.taken, run, timer:setTimeout(() => commitBatch(), UNDO_MS)};
+  repaintShown();
+  const b = {taken:t.taken, run, tab:t0, timer:setTimeout(() => commitBatch(), UNDO_MS)};
   batch = b;
   const more = picked.length > ids.length ? ` (한 번에 ${SELECT_MAX}장까지)` : '';
   notify(`${t.taken.length}장을 휴지통으로 옮겼어요${more}`, {ms:UNDO_MS, record:false, undo:() => {
     if (batch !== b) return;
-    batch = null; clearTimeout(b.timer); items = putItems(items, b.taken); if (current(b.run)) paintList({full:true});
+    batch = null; clearTimeout(b.timer); setListFor(b.tab, putItems(listFor(b.tab), b.taken)); if (current(b.run) && tab === b.tab) repaintShown();
   }});
 }
 window.addEventListener('pagehide', () => { if (batch) commitBatch({keepalive:true}); });
@@ -542,6 +573,8 @@ body.addEventListener('pointerdown', e => {
   ateClick = false;
   const b = e.target.closest('[data-photos-open]'); if (!b || e.button > 0) return;
   const item = itemOf(b); if (!item) return;
+  // [폴더] PC: 고른 사진을 잡으면 끌어 놓기(옮기기)이고 여러 칸 고르기 끌기가 아니다(dragstart가 맡음).
+  if (select.active && tab === 'folders' && treeWide() && b.draggable && select.has(item.id)) return;
   if (select.active) { drag = {anchor:item.id, x:e.clientX, y:e.clientY, base:new Set(select.items), add:!select.has(item.id), on:false, id:e.pointerId}; return; }
   hold = {b, x:e.clientX, y:e.clientY, timer:setTimeout(() => { hold = null; ateClick = true; navigator.vibrate?.(15); startSelect(item); }, HOLD_MS)};
 });
@@ -574,7 +607,14 @@ body.addEventListener('pointermove', e => {
 const endDrag = () => { drag = null; stopAuto(); cancelHold(); };
 for (const t of ['pointerup', 'pointercancel']) body.addEventListener(t, endDrag);
 body.addEventListener('pointerleave', cancelHold);
-body.addEventListener('contextmenu', e => { if (e.target.closest('[data-photos-open]')) e.preventDefault(); });
+body.addEventListener('contextmenu', e => {
+  const b = e.target.closest('[data-photos-open]'); if (!b) return;
+  e.preventDefault();
+  // PC 우클릭 = 사진 메뉴(맨 위 [선택]). 폰 꾹 누르기는 위의 길게 누르기(여러 장 고르기)가 맡는다. 휴지통 사진은 메뉴 없음.
+  if (e.pointerType === 'touch' || hold || tab === 'trash' || !globalThis.matchMedia?.(WIDE_QUERY)?.matches) return;
+  window.KPTUContextMenu?.pinAt?.(b, e.clientX, e.clientY);
+  photoMenu.open(b);
+});
 
 // ---- 원드라이브 아이콘·설정 창(공용 부품, 이 화면 안에서) ----
 function paintOd() {
@@ -583,7 +623,7 @@ function paintOd() {
   const modalNote = odHost.querySelector('[data-od-modal-note]');
   if (modalNote) modalNote.textContent = odMessage; else if (odMessage) note(odMessage);
 }
-function afterOdChange() { resetList(); trash = null; calData.clear(); syncDone = false; ensureOd(true).then(() => { render(); startSync(run); }); }
+function afterOdChange() { resetList(); trash = null; calData.clear(); syncDone = false; tree = null; at = null; fFor = null; fItems = []; aFor = null; ensureOd(true).then(() => { render(); startSync(run); }); }
 const settings = createOdSettings({rt, layerName:'photos-od', back:'photos', od:() => od, refresh:force => ensureOd(force), paint:paintOd,
   message:text => { odMessage = text; }, fault:() => { odFault = true; paintOdLink(linkBtn, od, odFault); }, reload:afterOdChange});
 const linkMenu = createOdLinkMenu({id:'photosOdMenu', historyKey:'kptuPhotosOdMenu', label:'원드라이브',
@@ -597,10 +637,447 @@ function linkAct(act) {
   if (act === 'disconnect') return settings.disconnect();
 }
 
+// ---- 이름 넣기 줄(새 폴더·이름 바꾸기·새 앨범): 칩 줄 아래 한 줄. Enter = 저장, Esc·[취소] = 그만. ----
+const nameForm = $('[data-photos-name]'), nameInput = $('[data-photos-name-input]');
+let nameWait = null;
+function askName(label, value = '') {
+  nameDone(null);
+  $('[data-photos-name-label]').textContent = label;
+  nameInput.value = value; nameForm.hidden = false;
+  requestAnimationFrame(() => { nameInput.focus(); nameInput.select(); });
+  return new Promise(ok => { nameWait = ok; });
+}
+function nameDone(value) {
+  const w = nameWait; nameWait = null; nameForm.hidden = true;
+  if (w) w(value);
+}
+nameForm.addEventListener('submit', e => { e.preventDefault(); nameDone(nameInput.value); });
+nameInput.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); nameDone(null); } });
+const folderFail = (error, fallback) => notify(folderErrorText(error?.message) || `${fallback}: ${odErrorText(error)}`, {error:true});
+
+// ---- [폴더] ----
+function loadTree(force = false) {
+  if (treeLoading) return treeLoading;
+  if (tree && !force) return Promise.resolve(tree);
+  const r = run;
+  treeLoading = odFolderTree(rt).then(t => { if (current(r)) { tree = t; treeFailed = ''; } return t; },
+    error => { if (current(r)) treeFailed = odErrorText(error); return null; }).finally(() => { treeLoading = null; });
+  return treeLoading;
+}
+// 그 폴더 바로 안 사진(서버 library folder_id, 120장씩). 다른 폴더로 가면 받던 쪽은 버린다(token).
+let fToken = null;
+function loadFolder(id) {
+  if (fFor === id && (fLoading || fEnded)) return fLoading;
+  if (fFor !== id) { fFor = id; fItems = []; fNext = null; fEnded = false; fFailed = ''; }
+  const r = run, token = {};
+  fToken = token;
+  fLoading = (async () => {
+    try {
+      const page = await odLibrary(rt, {folderId:id, cursor:fNext, limit:PAGE_SIZE});
+      if (!current(r) || fToken !== token) return;
+      fItems = appendItems(fItems, page.items.map(toItem)); fNext = page.next; fEnded = !page.next; fFailed = '';
+    } catch (error) { if (current(r) && fToken === token) fFailed = odErrorText(error); }
+    finally { if (fToken === token) fLoading = null; }
+    if (current(r) && fToken === token && tab === 'folders' && at === id) paintFolderGrid();
+  })();
+  return fLoading;
+}
+function folderRowHtml(r, {wide}) {
+  const cur = r.id === at, tog = wide && r.kids && !r.top;
+  return `<div class="nx-row nx-folder photos-fx-row${cur && wide ? ' nx-current' : ''}" data-photos-folder="${esc(r.id)}" style="--nx-indent:${r.indent}"${wide ? ' role="treeitem"' : ''}${wide && r.kids ? ` aria-expanded="${r.open}"` : ''}>`
+    + (wide ? (tog ? `<button type="button" class="photos-fx-tog" data-photos-fx-tog="${esc(r.id)}" aria-label="${esc(r.name)} ${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="photos-fx-tog" aria-hidden="true"></span>') : '')
+    + `<button type="button" class="nx-main" data-photos-fx-open="${esc(r.id)}"${cur && wide ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">${(r.open && r.kids) || (cur && wide) ? '\u{1F4C2}' : '\u{1F4C1}'}</span><span class="nx-name">${esc(r.name)}</span><span class="nx-num" aria-label="사진 ${r.total}장">${r.total}</span></button>`
+    + `<button type="button" class="nx-more photos-fx-more" data-photos-fx-more="${esc(r.id)}" aria-label="${esc(r.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`;
+}
+const newFolderHtml = () => (od.canDelete ? '<button type="button" class="nx-new-folder photos-fx-new" data-photos-fx-new>+ 새 폴더</button>' : '');
+function renderFolders() {
+  io?.disconnect();
+  const g = gate();
+  if (g) { body.innerHTML = g; return; }
+  if (!tree) {
+    if (treeFailed && !treeLoading) { body.innerHTML = `<p class="photos-muted">폴더를 읽지 못했어요: ${esc(treeFailed)} <button type="button" class="mini" data-photos-fx-retry>다시</button></p>`; return; }
+    body.innerHTML = waitHtml({rows:4, h:40});
+    const r = run; loadTree().then(() => { if (current(r) && tab === 'folders') renderFolders(); });
+    return;
+  }
+  if (!at || !photoFolderById(tree, at)) at = tree.top.id;
+  const wide = treeWide(), here = photoFolderById(tree, at);
+  const path = `<nav class="fp-path photos-fx-path" aria-label="지금 위치">${folderPathHtml({rootLabel:'사진', trail:photoFolderTrail(tree, at), attr:'data-photos-fx-at', esc})}</nav>`;
+  const head = `<p class="photos-fx-here"><b>${esc(here.name)}</b> · ${here.count}장${here.enabled === false ? ' · 일기·사진에서 숨김' : ''}</p>`;
+  if (wide) {
+    const rows = photoFolderRows(tree, id => openSet.has(id));
+    body.innerHTML = `<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="원드라이브 폴더">${rows.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}</div><div class="photos-fx-pane">${path}${head}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p></div></div>`;
+  } else {
+    const kids = photoSubfolders(tree, at).map(f => ({id:f.id, name:f.name, indent:0, count:f.count, total:f.total, kids:false, open:false, top:false}));
+    body.innerHTML = `<div class="photos-fx">${path}<div class="photos-fx-list">${kids.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}</div>${head}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p></div>`;
+  }
+  syncFolderLayer();
+  paintFolderGrid();
+  if (fFor !== at || (!fEnded && !fItems.length && !fFailed)) loadFolder(at);
+}
+function paintFolderGrid() {
+  const box = body.querySelector('[data-photos-fx-grid]'), foot = body.querySelector('[data-photos-fx-foot]');
+  if (!box) return;
+  box.replaceChildren();
+  const list = fFor === at ? fItems : [];
+  if (list.length) { const grid = newGrid(); list.forEach((item, i) => { const c = cell(item, i); c.draggable = treeWide(); grid.append(c); }); box.append(grid); }
+  foot.innerHTML = fFor === at && fFailed ? failHtml({retry:'data-photos-fx-again'}) : fFor === at && fEnded ? (list.length ? '' : '이 폴더에 바로 든 사진이 없어요.') : waitHtml({rows:2, h:72});
+  sizer.paintButtons(root); paintSelect();
+  io?.disconnect();
+  if (fFor === at && !fEnded && !fFailed && 'IntersectionObserver' in window) {
+    io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) loadFolder(at); }, {rootMargin:'600px 0px'});
+    io.observe(foot);
+  }
+}
+// 폰: 폴더 안으로 들어가면 겹 하나(뒤로가기 = 한 단계 위, 맨 위 폴더에 닿으면 겹을 닫음). PC는 나무가 있으므로 겹 없음.
+function syncFolderLayer() {
+  const deep = tab === 'folders' && !treeWide() && tree && at && at !== tree.top.id;
+  if (deep && !folderLayer) folderLayer = window.KPTURouter?.layer?.open('photos-folder', {close:() => {
+    const up = photoFolderById(tree, at)?.parent_id || tree?.top?.id || null;
+    select.stop(); at = up;
+    if (up && tree && up !== tree.top.id) { renderFolders(); return false; }
+    folderLayer = null; renderFolders(); return true;
+  }}) || null;
+  if (!deep && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
+}
+function goFolder(id) {
+  if (!tree || !photoFolderById(tree, id)) return;
+  select.stop(); at = id;
+  for (const f of photoFolderTrail(tree, id)) openSet.add(f.id);
+  renderFolders();
+  window.scrollTo?.(0, 0);
+}
+async function newFolder(parentId) {
+  if (busy || !tree) return;
+  const name = cleanPhotoFolderName(await askName('새 폴더 이름') || '');
+  if (!name) return;
+  busy = true;
+  try { const f = await odFolderCreate(rt, parentId, name); openSet.add(parentId); await loadTree(true); notify(`'${f.name}' 폴더를 만들었어요`); }
+  catch (error) { folderFail(error, '폴더를 만들지 못했어요'); }
+  finally { busy = false; if (tab === 'folders') renderFolders(); }
+}
+async function renameFolder(id) {
+  const f = photoFolderById(tree, id); if (busy || !f || id === tree.top.id) return;
+  const raw = await askName('폴더 이름', f.name); if (raw === null) return;
+  const name = cleanPhotoFolderName(raw);
+  if (!name) return notify('폴더 이름을 확인해 주세요(1~200자, " * : < > ? / \\ | 없이).', {error:true});
+  if (name === f.name) return;
+  busy = true;
+  try { await odFolderRename(rt, id, name); await loadTree(true); notify('이름을 바꿨어요'); }
+  catch (error) { folderFail(error, '이름을 바꾸지 못했어요'); }
+  finally { busy = false; if (tab === 'folders') renderFolders(); }
+}
+async function moveFolder(id, parentId) {
+  const f = photoFolderById(tree, id); if (busy || !f || f.parent_id === parentId) return;
+  const from = f.parent_id;
+  busy = true;
+  try {
+    await odFolderMove(rt, id, parentId); await loadTree(true); openSet.add(parentId);
+    notify(`'${f.name}' 폴더를 옮겼어요`, {ms:UNDO_MS, record:false, undo:async () => {
+      try { await odFolderMove(rt, id, from); await loadTree(true); if (tab === 'folders') renderFolders(); } catch (error) { folderFail(error, '되돌리지 못했어요'); }
+    }});
+  } catch (error) { folderFail(error, '폴더를 옮기지 못했어요'); }
+  finally { busy = false; if (tab === 'folders') renderFolders(); }
+}
+async function deleteFolder(anchor, id) {
+  const f = photoFolderById(tree, id); if (busy || !f || id === tree.top.id) return;
+  if (f.total > 0 || photoSubfolders(tree, id).length) return notify('폴더가 비어 있을 때만 지울 수 있어요. 사진·하위 폴더를 먼저 옮겨 주세요.', {error:true});
+  if (!await askConfirm(anchor, {text:`'${f.name}' 폴더를 지울까요?`, note:'원드라이브 휴지통으로 가요(30일 보관).', ok:'지우기', danger:true})) return;
+  busy = true;
+  try { await odFolderDelete(rt, id); if (at === id) at = f.parent_id; await loadTree(true); notify('폴더를 지웠어요'); }
+  catch (error) { folderFail(error, '폴더를 지우지 못했어요'); }
+  finally { busy = false; if (tab === 'folders') renderFolders(); }
+}
+// 여러 장 폴더로 옮기기(원드라이브에서도 실제 이동). 50장씩. 끝나면 위쪽 '옮겼어요 · 되돌리기'(원래 폴더로 같은 동작).
+async function movePhotos(ids, target) {
+  if (busy || !ids.length || !tree) return;
+  const name = photoFolderById(tree, target)?.name || '';
+  busy = true; paintSelect();
+  const moved = [], bad = [];
+  try {
+    for (const part of chunks(ids, SELECT_MAX)) {
+      try { const res = await odPhotosMove(rt, part, target); moved.push(...res.moved); bad.push(...Object.keys(res.failed)); }
+      catch (error) { if (!moved.length && !bad.length) { busy = false; folderFail(error, '옮기지 못했어요'); return; } bad.push(...part); }
+    }
+  } finally { busy = false; }
+  select.stop();
+  afterMove(moved.map(m => m.id), target);
+  const groups = moveUndoGroups(moved, target), done = moved.filter(m => m.from !== target).length;
+  const text = bad.length ? `${done}장을 '${name}'(으)로 옮겼어요 · ${bad.length}장은 못 옮겼어요` : `${done}장을 '${name}'(으)로 옮겼어요`;
+  notify(text, {error:!!bad.length, ms:UNDO_MS, record:false, undo:groups.size ? async () => {
+    let fail = 0;
+    for (const [from, list] of groups) { try { const r = await odPhotosMove(rt, list, from); fail += Object.keys(r.failed).length; } catch { fail += list.length; } }
+    afterMove(null, null);
+    notify(fail ? `${fail}장은 되돌리지 못했어요.` : '되돌렸어요', {error:!!fail});
+  } : null});
+}
+// 옮긴 뒤: 지금 폴더 목록에서 뺀다(옮긴 곳이 지금 폴더가 아니면). 나무 장수·[사진]·달력·앨범은 다시 받는다.
+function afterMove(ids, target) {
+  if (ids && target !== at) { const gone = new Set(ids); fItems = fItems.filter(x => !gone.has(x.id)); }
+  else { fFor = null; fItems = []; }
+  resetList(); calData.clear(); aFor = null;
+  loadTree(true).then(() => { if (tab === 'folders') renderFolders(); });
+  if (tab === 'folders') renderFolders(); else if (tab === 'albums') renderAlbums(); else render();
+}
+function folderClick(b) {
+  if (b.matches('[data-photos-fx-open]')) { const id = b.dataset.photosFxOpen; if (treeWide() && id === at && id !== tree?.top?.id && photoSubfolders(tree, id).length) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderFolders(); return true; } goFolder(id); return true; }
+  if (b.matches('[data-photos-fx-tog]')) { const id = b.dataset.photosFxTog; if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderFolders(); return true; }
+  if (b.matches('[data-photos-fx-at]')) { const id = b.dataset.photosFxAt || tree?.top?.id; if (id) goFolder(id); return true; }
+  if (b.matches('[data-photos-fx-more]')) { folderMenu.open(b); return true; }
+  if (b.matches('[data-photos-fx-new]')) { newFolder(treeWide() ? at || tree?.top?.id : at || tree?.top?.id); return true; }
+  if (b.matches('[data-photos-fx-retry]')) { treeFailed = ''; renderFolders(); return true; }
+  if (b.matches('[data-photos-fx-again]')) { fFailed = ''; paintFolderGrid(); loadFolder(at); return true; }
+  return false;
+}
+
+// ---- [앨범](#태그) ----
+function loadTags(force = false) {
+  if (tagsLoading) return tagsLoading;
+  if (tags && !force) return Promise.resolve(tags);
+  const r = run;
+  tagsLoading = readPhotoTags(rt).then(d => { if (current(r)) { tags = d.tags; links = d.links; tagsFailed = ''; } return tags; },
+    () => { if (current(r)) tagsFailed = '앨범을 읽지 못했어요.'; return null; }).finally(() => { tagsLoading = null; });
+  return tagsLoading;
+}
+const cards = () => albumCards(tags || [], links);
+const cardOf = id => cards().find(c => c.id === id) || null;
+// 앨범 사진: 그 앨범 사진 id를 서버 library(고른 id만, 500개씩)에 보내 색인에 있는 것만 최신순으로.
+async function loadAlbum(id) {
+  const c = cardOf(id); if (!c) return;
+  const r = run; aFor = id; aItems = []; aFailed = '';
+  aLoading = (async () => {
+    try {
+      const all = [];
+      for (const ids of chunks(c.keys, STAR_CHUNK)) {
+        let cursor = null;
+        for (let guard = 0; guard < 50; guard++) {
+          const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200});
+          if (!current(r) || aFor !== id) return;
+          all.push(...page.items); cursor = page.next;
+          if (!cursor) break;
+        }
+      }
+      aItems = all.map(toItem).sort(newestFirst);
+    } catch (error) { if (current(r) && aFor === id) aFailed = odErrorText(error); }
+    finally { if (aFor === id) aLoading = null; }
+    if (current(r) && tab === 'albums' && album === id) renderAlbums();
+  })();
+  return aLoading;
+}
+function renderAlbums() {
+  io?.disconnect();
+  const g = gate();
+  if (g) { body.innerHTML = g; return; }
+  if (!tags) {
+    if (tagsFailed && !tagsLoading) { body.innerHTML = `<p class="photos-muted">${esc(tagsFailed)} <button type="button" class="mini" data-photos-al-retry>다시</button></p>`; return; }
+    body.innerHTML = waitHtml({rows:3, h:72});
+    const r = run; loadTags().then(() => { if (current(r) && tab === 'albums') renderAlbums(); });
+    return;
+  }
+  if (album && !cardOf(album)) album = null;
+  syncAlbumLayer();
+  if (!album) {
+    const list = cards();
+    body.innerHTML = `<div class="photos-albums" data-photos-albums>${list.map(c => `<div class="photos-album" data-photos-album="${esc(c.id)}"><button type="button" class="photos-album-open" data-photos-al-open="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범, 사진 ${c.count}장"><span class="photos-album-cover" data-photos-al-cover></span><span class="photos-album-name">#${esc(c.name)}</span><span class="photos-album-n">${c.count}</span></button><button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`).join('')}<button type="button" class="photos-album photos-album-new" data-photos-al-new>+ 새 앨범</button></div>${list.length ? '' : '<p class="photos-muted">사진을 길게 눌러 고른 뒤 [# 앨범]으로 넣어요.</p>'}`;
+    for (const c of list) {
+      const slot = body.querySelector(`[data-photos-album="${CSS.escape(c.id)}"] [data-photos-al-cover]`);
+      if (slot && c.cover) slot.append(odPhotoElement({kind:'od', source:'onedrive', key:c.cover, id:c.cover, day:''}, 'small', {label:'', rt, retry:false}));
+    }
+    paintSelect();
+    return;
+  }
+  const c = cardOf(album);
+  if (aFor !== album) { body.innerHTML = waitHtml({rows:3, h:72}); loadAlbum(album); return; }
+  body.innerHTML = `<p class="photos-fx-here photos-al-head"><button type="button" class="mini" data-photos-al-back aria-label="앨범 목록으로">‹ 앨범</button><b>#${esc(c.name)}</b> · ${aLoading ? c.count : aItems.length}장<button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></p>`;
+  if (aLoading) { body.insertAdjacentHTML('beforeend', waitHtml({rows:2, h:72})); return; }
+  if (aFailed) { body.insertAdjacentHTML('beforeend', `<p class="photos-muted">사진을 읽지 못했어요: ${esc(aFailed)}</p>`); return; }
+  if (!aItems.length) { body.insertAdjacentHTML('beforeend', '<p class="photos-muted">이 앨범에 사진이 없어요.</p>'); paintSelect(); return; }
+  const grid = newGrid(); aItems.forEach((item, i) => grid.append(cell(item, i))); body.append(grid);
+  sizer.paintButtons(root); paintSelect();
+}
+function syncAlbumLayer() {
+  const inside = tab === 'albums' && !!album;
+  if (inside && !albumLayer) albumLayer = window.KPTURouter?.layer?.open('photos-album', {close:() => { albumLayer = null; select.stop(); album = null; renderAlbums(); return true; }}) || null;
+  if (!inside && albumLayer) { const l = albumLayer; albumLayer = null; l.close(); }
+}
+function openAlbum(id) { select.stop(); album = id; aFor = null; renderAlbums(); window.scrollTo?.(0, 0); }
+async function newAlbum(items = null) {
+  if (busy) return null;
+  const raw = await askName('새 앨범 이름(#태그)'); if (raw === null) return null;
+  const name = cleanTagName(raw);
+  if (!name) { notify('앨범 이름은 1~40자, 띄어쓰기·# 없이 써 주세요.', {error:true}); return null; }
+  await loadTags();
+  const same = (tags || []).find(t => sameTag(t.name, name));
+  busy = true;
+  try {
+    const tag = same || await createPhotoTag(name, rt);
+    if (!same) tags = [...(tags || []), tag];
+    if (items?.length) await tagItems(tag, items, {quiet:true});
+    if (!items) notify(`#${tag.name} 앨범을 만들었어요`);
+    return tag;
+  } catch { notify('앨범을 만들지 못했어요.', {error:true}); return null; }
+  finally { busy = false; if (tab === 'albums') renderAlbums(); else paintSelect(); }
+}
+async function tagItems(tag, list, {quiet = false} = {}) {
+  const fresh = list.filter(it => !links.some(l => l.tag_id === tag.id && l.item_key === it.key)).slice(0, 200);
+  try {
+    if (fresh.length) await addPhotoTagItems(tag.id, fresh, rt);
+    links = [...links, ...fresh.map(it => ({tag_id:tag.id, item_key:it.key, taken_day:it.day || null}))];
+    select.stop(); paintSelect(); aFor = null;
+    notify(`${list.length}장을 #${tag.name} 앨범에 넣었어요${list.length > 200 ? ' (한 번에 200장까지)' : ''}`);
+  } catch { notify('앨범에 넣지 못했어요.', {error:true}); }
+  if (!quiet && tab === 'albums') renderAlbums();
+}
+async function untagPicked() {
+  const c = cardOf(album), list = pickedItems(); if (!c || !list.length || busy) return;
+  busy = true;
+  try {
+    const keys = list.map(x => x.key);
+    await removePhotoTagItems(c.id, keys, rt);
+    const gone = new Set(keys);
+    links = links.filter(l => !(l.tag_id === c.id && gone.has(l.item_key))); aItems = aItems.filter(x => !gone.has(x.key));
+    select.stop();
+    notify(`${keys.length}장을 #${c.name} 앨범에서 뺐어요`, {ms:UNDO_MS, record:false, undo:() => tagItems({id:c.id, name:c.name}, list)});
+  } catch { notify('앨범에서 빼지 못했어요.', {error:true}); }
+  finally { busy = false; renderAlbums(); }
+}
+async function renameAlbum(id) {
+  const c = cardOf(id); if (!c || busy) return;
+  const raw = await askName('앨범 이름', c.name); if (raw === null) return;
+  const name = cleanTagName(raw);
+  if (!name) return notify('앨범 이름은 1~40자, 띄어쓰기·# 없이 써 주세요.', {error:true});
+  if ((tags || []).some(t => t.id !== id && sameTag(t.name, name))) return notify('같은 이름의 앨범이 이미 있어요.', {error:true});
+  busy = true;
+  try { await renamePhotoTag(id, name, rt); tags = tags.map(t => (t.id === id ? {...t, name} : t)); notify('이름을 바꿨어요'); }
+  catch { notify('이름을 바꾸지 못했어요.', {error:true}); }
+  finally { busy = false; renderAlbums(); }
+}
+async function deleteAlbum(anchor, id) {
+  const c = cardOf(id); if (!c || busy) return;
+  if (!await askConfirm(anchor, {text:`#${c.name} 앨범을 지울까요?`, note:'사진은 원드라이브에 그대로 남아요.', ok:'지우기', danger:true})) return;
+  busy = true;
+  try { await deletePhotoTag(id, rt); tags = tags.filter(t => t.id !== id); links = links.filter(l => l.tag_id !== id); if (album === id) album = null; notify('앨범을 지웠어요'); }
+  catch { notify('앨범을 지우지 못했어요.', {error:true}); }
+  finally { busy = false; renderAlbums(); }
+}
+function albumClick(b) {
+  if (b.matches('[data-photos-al-open]')) { openAlbum(b.dataset.photosAlOpen); return true; }
+  if (b.matches('[data-photos-al-more]')) { albumMenu.open(b); return true; }
+  if (b.matches('[data-photos-al-new]')) { newAlbum(); return true; }
+  if (b.matches('[data-photos-al-back]')) { if (albumLayer) { const l = albumLayer; albumLayer = null; l.close(); } select.stop(); album = null; renderAlbums(); return true; }
+  if (b.matches('[data-photos-al-retry]')) { tagsFailed = ''; renderAlbums(); return true; }
+  return false;
+}
+
+// ---- 메뉴(공용 anchored-menu.js, 모양은 원드라이브 아이콘 메뉴와 같은 od-link-menu). PC 우클릭은 context-menu.js가 ⋯를 눌러 누른 자리에 연다. ----
+const menuBtn = (attr, label, cls = '') => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`;
+const folderMenu = createAnchoredMenu({id:'photosFolderMenu', className:'od-link-menu', label:'폴더 메뉴', historyKey:'kptuPhotosFolderMenu',
+  key:t => t.dataset.photosFxMore || '',
+  render:id => {
+    const top = id === tree?.top?.id, can = od.canDelete;
+    return [can ? menuBtn('data-fm-new', '새 하위 폴더') : '', !top && can ? menuBtn('data-fm-rename', '이름 바꾸기') : '', !top && can ? menuBtn('data-fm-move', '옮기기…') : '',
+      !top && can ? menuBtn('data-fm-delete', '지우기', 'od-link-danger') : '', can ? '' : '<p class="od-link-status">바꾸려면 원드라이브를 다시 연결해 주세요</p>'].join('');
+  },
+  onAction:(b, {id, trigger}) => {
+    if (b.matches('[data-fm-new]')) return newFolder(id);
+    if (b.matches('[data-fm-rename]')) return renameFolder(id);
+    if (b.matches('[data-fm-move]')) return openPick(trigger, {kind:'folder', id});
+    if (b.matches('[data-fm-delete]')) return deleteFolder(trigger, id);
+  }});
+const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
+  key:t => t.dataset.photosId || '',
+  render:() => [menuBtn('data-pm-select', '선택'), od.canDelete && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'),
+    od.canDelete ? menuBtn('data-pm-delete', '지우기', 'od-link-danger') : ''].join(''),
+  onAction:(b, {trigger}) => {
+    const it = itemOf(trigger); if (!it) return;
+    // 고른 사진 위에서 연 메뉴는 고른 것 모두, 아니면 그 사진 하나.
+    const group = select.active && select.has(it.id) ? pickedItems() : [it];
+    if (b.matches('[data-pm-select]')) { if (!select.active) startSelect(it); else { select.add(it.id); paintSelect(); } return; }
+    if (b.matches('[data-pm-move]')) return openPick(trigger, {kind:'photos', ids:group.map(x => x.id)});
+    if (b.matches('[data-pm-tag]')) return openPick(trigger, {kind:'tag', items:group});
+    if (b.matches('[data-pm-delete]')) { if (!select.active || !select.has(it.id)) { select.stop(); select.start([it.id], it.id); } return deletePicked(); }
+  }});
+const albumMenu = createAnchoredMenu({id:'photosAlbumMenu', className:'od-link-menu', label:'앨범 메뉴', historyKey:'kptuPhotosAlbumMenu',
+  key:t => t.dataset.photosAlMore || '',
+  render:() => [menuBtn('data-am-rename', '이름 바꾸기'), menuBtn('data-am-delete', '지우기(사진은 그대로)', 'od-link-danger')].join(''),
+  onAction:(b, {id, trigger}) => { if (b.matches('[data-am-rename]')) return renameAlbum(id); if (b.matches('[data-am-delete]')) return deleteAlbum(trigger, id); }});
+// 고르기 판: 옮길 폴더(나무 순서, 들여쓰기) 또는 넣을 앨범. 무엇을 할지는 pickFor에 둔다.
+let pickFor = null;
+const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-menu photos-pick-menu', label:'고르기', historyKey:'kptuPhotosPickMenu',
+  key:() => pickFor?.kind || '',
+  render:kind => {
+    if (kind === 'tag') return cards().map(c => menuBtn(`data-pick-tag="${esc(c.id)}"`, `#${esc(c.name)} <span class="photos-pick-n">${c.count}</span>`)).join('') + menuBtn('data-pick-newtag', '+ 새 앨범…');
+    if (!tree) return '<p class="od-link-status">폴더를 읽지 못했어요</p>';
+    const rows = photoMoveTargets(tree, kind === 'folder' ? {moving:pickFor.id} : {here:tab === 'folders' ? at : null});
+    return '<p class="od-link-status">어느 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-folder="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}><span aria-hidden="true">\u{1F4C1}</span> ${esc(r.name)}</button>`).join('');
+  },
+  onAction:b => {
+    const p = pickFor; pickFor = null; if (!p) return;
+    if (b.dataset.pickFolder) return p.kind === 'folder' ? moveFolder(p.id, b.dataset.pickFolder) : movePhotos(p.ids, b.dataset.pickFolder);
+    if (b.dataset.pickTag) { const t = (tags || []).find(x => x.id === b.dataset.pickTag); if (t) tagItems(t, p.items); return; }
+    if (b.matches('[data-pick-newtag]')) return newAlbum(p.items);
+  }});
+async function openPick(trigger, what) {
+  if (busy) return;
+  if (what.kind === 'photos' && !what.ids.length) return;
+  if (what.kind === 'tag' && !what.items.length) return;
+  if (what.kind === 'tag') await loadTags(); else await loadTree();
+  if (what.kind === 'tag' && !tags) return notify('앨범을 읽지 못했어요.', {error:true});
+  if (what.kind !== 'tag' && !tree) return notify(`폴더를 읽지 못했어요: ${treeFailed}`, {error:true});
+  if (!trigger.isConnected) return;
+  pickFor = what; pickMenu.open(trigger);
+}
+
+// ---- 끌어 놓기(PC): 고른 사진(또는 잡은 한 장)을 왼쪽 폴더 나무의 폴더 위에 놓으면 그 폴더로 옮긴다. ----
+const DRAG_TYPE = 'application/x-kptu-photos';
+body.addEventListener('dragstart', e => {
+  const b = e.target.closest?.('[data-photos-open]');
+  if (!b || tab !== 'folders' || !treeWide() || !od.canDelete) { if (b) e.preventDefault(); return; }
+  const it = itemOf(b); if (!it) return;
+  const ids = select.active && select.has(it.id) ? pickedItems().map(x => x.id) : [it.id];
+  drag = null; cancelHold();
+  e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(ids)); e.dataTransfer.setData('text/plain', `사진 ${ids.length}장`); e.dataTransfer.effectAllowed = 'move';
+  b.classList.add('nx-dragging');
+});
+body.addEventListener('dragend', e => { e.target.closest?.('[data-photos-open]')?.classList.remove('nx-dragging'); body.querySelectorAll('.nx-drop').forEach(x => x.classList.remove('nx-drop')); });
+const dropRow = e => (e.dataTransfer?.types || []).includes(DRAG_TYPE) ? e.target.closest?.('[data-photos-fx-tree] [data-photos-folder]') : null;
+body.addEventListener('dragover', e => { const row = dropRow(e); if (!row) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; body.querySelectorAll('.nx-drop').forEach(x => { if (x !== row) x.classList.remove('nx-drop'); }); row.classList.add('nx-drop'); });
+body.addEventListener('dragleave', e => { const row = dropRow(e); if (row && !row.contains(e.relatedTarget)) row.classList.remove('nx-drop'); });
+body.addEventListener('drop', e => {
+  const row = dropRow(e); if (!row) return;
+  e.preventDefault(); row.classList.remove('nx-drop');
+  let ids = [];
+  try { ids = JSON.parse(e.dataTransfer.getData(DRAG_TYPE) || '[]').filter(x => typeof x === 'string'); } catch { /* 모양이 다르면 놓지 않음 */ }
+  if (ids.length) movePhotos(ids, row.dataset.photosFolder);
+});
+// 폰: 폴더 줄·앨범 카드를 꾹 누르면 그 ⋯ 메뉴(PC 우클릭과 같은 메뉴).
+let rowHold = null;
+body.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch' || !e.isPrimary) return;
+  const row = e.target.closest?.('[data-photos-folder],[data-photos-album]'); if (!row || e.target.closest('.nx-more,.photos-album-more')) return;
+  clearTimeout(rowHold?.timer);
+  rowHold = {x:e.clientX, y:e.clientY, timer:setTimeout(() => {
+    rowHold = null; ateClick = true; navigator.vibrate?.(12);
+    const more = row.querySelector('.nx-more,.photos-album-more'); if (!more) return;
+    const r = row.getBoundingClientRect(); window.KPTUContextMenu?.pinAt?.(more, r.left + Math.min(r.width / 2, 48), r.top + r.height / 2);
+    (row.dataset.photosFolder ? folderMenu : albumMenu).open(more);
+  }, HOLD_MS)};
+});
+body.addEventListener('pointermove', e => { if (rowHold && Math.hypot(e.clientX - rowHold.x, e.clientY - rowHold.y) > HOLD_MOVE) { clearTimeout(rowHold.timer); rowHold = null; } });
+for (const t of ['pointerup', 'pointercancel']) body.addEventListener(t, () => { if (rowHold) { clearTimeout(rowHold.timer); rowHold = null; } });
+body.addEventListener('click', e => { if (ateClick && e.target.closest?.('[data-photos-folder],[data-photos-album]')) { ateClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
+TREE_WIDE?.addEventListener?.('change', () => { if (tab === 'folders') renderFolders(); });
+
+// [폴더]·[앨범] 안의 겹(폰 뒤로가기 = 한 단계 위)을 닫는다(다른 칩으로 갈 때).
+function closeSubLayers() {
+  for (const l of [folderLayer, albumLayer]) l?.close();
+  folderLayer = null; albumLayer = null;
+}
 function setTab(nextTab, {fromBack = false} = {}) {
   nextTab = validTab(nextTab);
   if (nextTab === tab) return;
-  select.stop();
+  select.stop(); nameDone(null);
+  if (!fromBack) closeSubLayers(); else { folderLayer = null; albumLayer = null; }
   tab = nextTab;
   window.KPTURouter?.setPlace?.('photos', tab === 'all' ? {} : {tab});
   // 뒤로가기 = 이전 칩: [달력]·[휴지통]은 라우터 겹 하나라 뒤로가면 [사진]으로 돌아온다.
@@ -638,12 +1115,18 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-act-share]')) return sharePicked();
   if (b.matches('[data-photos-act-down]')) return downloadPicked();
   if (b.matches('[data-photos-act-delete]')) return deletePicked();
+  if (b.matches('[data-photos-act-move]')) return openPick(b, {kind:'photos', ids:pickedItems().map(x => x.id)});
+  if (b.matches('[data-photos-act-tag]')) return openPick(b, {kind:'tag', items:pickedItems()});
+  if (b.matches('[data-photos-act-untag]')) return untagPicked();
+  if (folderClick(b)) return;
+  if (albumClick(b)) return;
   if (b.matches('[data-photos-restore]')) return trashRun(pickedItems().map(x => x.id), 'restore');
   if (b.matches('[data-photos-purge]')) return purgeAsk(b, pickedItems().map(x => x.id));
   if (b.matches('[data-photos-purge-all]')) return purgeAsk(b, (trash || []).map(x => x.id));
   if (b.matches('[data-photos-trash-retry]')) return renderTrash({reload:true});
   if (b.matches('[data-photos-cal]')) { calCursor = Number(b.dataset.photosCal) < 0 ? prevMonth(calCursor) : nextMonth(calCursor); return renderCalendar(); }
   if (b.matches('[data-photos-cal-day]')) return goDay(b.dataset.photosCalDay);
+  if (b.matches('[data-photos-name-cancel]')) return nameDone(null);
   if (b.matches('[data-photos-newest]')) { resetList(); render(); return window.scrollTo?.(0, 0); }
   if (b.matches('[data-photos-more]')) { failed = ''; paintList(); return loadMore(); }
   if (b.matches('[data-photos-connect]')) return settings.connect();
@@ -676,7 +1159,7 @@ async function enter() {
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'photos') return;
   closePhotoStrip({fromBack:true, restore:false});
-  tabLayer = null; select.stop({fromBack:true}); settings.drop(); odHost.replaceChildren(); io?.disconnect();
+  tabLayer = null; folderLayer = null; albumLayer = null; select.stop({fromBack:true}); settings.drop(); odHost.replaceChildren(); io?.disconnect(); nameDone(null);
   if (batch) commitBatch();
 });
 window.addEventListener('kptu:session-changed', () => {
@@ -685,9 +1168,10 @@ window.addEventListener('kptu:session-changed', () => {
   closePhotoStrip({fromBack:true, restore:false});
   batch = null; resetList(); syncDone = false; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop();
+  tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; folderLayer = null; albumLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();
 });
 window.KPTURouter?.on?.('photos', enter);
-window.KPTUPhotos = {refresh:() => { resetList(); trash = null; calData.clear(); return ensureOd(true).then(render); }};
+window.KPTUPhotos = {refresh:() => { resetList(); trash = null; calData.clear(); tree = null; fFor = null; tags = null; aFor = null; return ensureOd(true).then(render); }};
 if (window.KPTURouter?.current === 'photos') enter();
 })();

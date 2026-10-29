@@ -137,8 +137,9 @@ const mediaOf = p => ({id: p.id, name: String(p.name || ''), taken_at: String(p.
   duration_ms: Number.isFinite(p.duration_ms) ? p.duration_ms : null, screenshot: p.screenshot === true});
 const filterBody = (filter, starIds) => ({filter: OD_FILTERS.includes(filter) ? filter : 'all', ...(starIds ? {star_ids: starIds} : {})});
 // 최신순 한 쪽: {items, next(다음 쪽 cursor 또는 null), indexing}.
-export async function odLibrary(rt, {filter = 'all', cursor = null, limit = 120, starIds = null} = {}) {
-  const d = await odCall(rt, {action: 'library', ...filterBody(filter, starIds), limit, ...(cursor ? {cursor} : {})});
+// folderId(사진 메뉴 ② 폴더 보기): 그 폴더 바로 안 사진만(꺼진 폴더도).
+export async function odLibrary(rt, {filter = 'all', cursor = null, limit = 120, starIds = null, folderId = null} = {}) {
+  const d = await odCall(rt, {action: 'library', ...filterBody(filter, starIds), limit, ...(cursor ? {cursor} : {}), ...(folderId ? {folder_id: folderId} : {})});
   const items = (Array.isArray(d?.items) ? d.items : []).filter(p => p && typeof p.id === 'string' && p.id && dayRe.test(p.day || '')).map(mediaOf);
   const n = d?.next_cursor;
   return {items, next: n && typeof n.t === 'string' && typeof n.id === 'string' ? {t: n.t, id: n.id} : null, indexing: d?.indexing === true};
@@ -170,6 +171,22 @@ export async function odMediaUrl(rt, id, purpose = 'download') {
 export async function odDeleteMany(rt, ids, {keepalive = false} = {}) {
   const d = await rt.api(OD_FN, {method: 'POST', body: {action: 'photo-delete', ids, confirm: true}, singleFlight: false, timeoutMs: OD_TIMEOUT_MS, ...(keepalive ? {keepalive: true, refreshSession: false} : {})});
   return {moved: Array.isArray(d?.moved) ? d.moved.filter(x => typeof x === 'string') : [], failed: d?.failed && typeof d.failed === 'object' ? d.failed : {}};
+}
+// 사진 메뉴 ②(폴더 보기): 원드라이브 폴더 만들기·이름 바꾸기·옮기기·빈 폴더 지우기, 여러 장 폴더로 옮기기(원드라이브에서도 실제 이동).
+// 모두 고른 맨 위 폴더 안에서만(서버가 확인). 실패는 오류 코드(error.message)로 돌아온다(photos-model.mjs folderErrorText가 일상어로).
+export async function odFolderCreate(rt, parentId, name) {
+  const d = await odCall(rt, {action: 'folder-create', parent_id: parentId, name});
+  if (typeof d?.folder?.id !== 'string') throw new Error('onedrive_unavailable');
+  return {id: d.folder.id, name: String(d.folder.name || name), parent_id: parentId};
+}
+export const odFolderRename = (rt, folderId, name) => odCall(rt, {action: 'folder-rename', folder_id: folderId, name});
+export const odFolderMove = (rt, folderId, parentId) => odCall(rt, {action: 'folder-move', folder_id: folderId, parent_id: parentId});
+export const odFolderDelete = (rt, folderId) => odCall(rt, {action: 'folder-delete', folder_id: folderId, confirm: true});
+// {moved:[{id, from}], failed:{id:이유}}. from = 원래 폴더 id(되돌리기에 씀).
+export async function odPhotosMove(rt, ids, parentId) {
+  const d = await odCall(rt, {action: 'photos-move', ids, parent_id: parentId});
+  const moved = (Array.isArray(d?.moved) ? d.moved : []).filter(m => m && typeof m.id === 'string').map(m => ({id: m.id, from: typeof m.from === 'string' ? m.from : null}));
+  return {moved, failed: d?.failed && typeof d.failed === 'object' ? d.failed : {}};
 }
 // Web2 휴지통: 목록(열 때 서버가 30일 지난 것을 조금씩 원드라이브 휴지통으로 보냄)·되살리기·바로 지우기.
 export async function odTrashList(rt) {
