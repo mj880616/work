@@ -17,3 +17,14 @@ export async function moveTaskToDay(task, day, rt = globalThis.window?.KPTURunti
   if (data?.ok !== true || data.task?.id !== task.id || dueDay(data.task) !== day) throw new Error('기한을 바꾸지 못했어요. 다시 시도해 주세요.');
   return data.task;
 }
+// TASK-내일칸(2026-10-29): 할 일 기한 묶음 하나. 할 일을 기한으로 묶어 보여 주는 곳(할 일 화면 폰 목록·PC 두 칸, 홈 [오늘 할 일])은
+// 모두 이 함수로 고른다. 순서: 기한 지남 → 오늘 → 내일 → 일주일 안(모레~7일) → 나중 → 기한 없음. 날짜는 한국 날짜('YYYY-MM-DD')로 비교한다.
+export const DUE_GROUPS = Object.freeze([['overdue', '기한 지남'], ['today', '오늘'], ['tomorrow', '내일'], ['week', '일주일 안'], ['later', '나중'], ['undated', '기한 없음']]);
+export function dueGroup(day, today = seoulDateKey(new Date())) {
+  const key = String(day || '').slice(0, 10);
+  if (!DAY.test(key)) return 'undated';
+  if (key < today) return 'overdue';
+  if (key === today) return 'today';
+  if (key === tomorrowKey(today)) return 'tomorrow';
+  return key <= seoulDateKey(addSeoulDays(today, 7)) ? 'week' : 'later';
+}
