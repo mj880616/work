@@ -205,3 +205,5 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 .okp-suggest>small{color:var(--kptu-muted)}
 .okp-sg{position:relative;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-pill);background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta)}
 .okp-sg::after{content:"";position:absolute;inset:-8px -2px}
+/* UI-고른것접기: 소속 고르기의 고른 것·그 외 목록도 같은 줄 간격 */
+.wd-aff-checks .pick-picked,.wd-aff-checks .pick-group{display:grid;gap:6px}.wd-aff-checks .pick-others>summary{margin-top:2px}

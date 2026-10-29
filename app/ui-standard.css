@@ -1496,3 +1496,18 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 :root .ui-swatch:focus-visible{ outline:2px solid var(--kptu-link); outline-offset:-2px; }
 :root .ui-swatch[disabled]{ opacity:.5; cursor:default; }
 @media (max-width:700px),(pointer:coarse){ :root .ui-swatch{ --ui-swatch-hit:var(--kptu-touch-target,44px); } }
+/* UI-고른것접기(PROFILE-담당사업장접기, pick-fold.mjs): 긴 체크 목록 = 고른 것 + 접힌 '그 외 n'(맨 위 찾기 칸). 새 색·카드 없음, 토큰만. */
+:root .pick-fold>summary,:root .pick-others>summary{ display:flex; align-items:center; gap:6px; min-height:var(--ds-compact-height); cursor:pointer; list-style:none; }
+:root .pick-fold>summary::-webkit-details-marker,:root .pick-others>summary::-webkit-details-marker{ display:none; }
+:root .pick-fold>summary::before,:root .pick-others>summary::before{ content:"›"; flex:none; width:12px; color:var(--kptu-faint); transition:transform .12s; }
+:root .pick-fold[open]>summary::before,:root .pick-others[open]>summary::before{ transform:rotate(90deg); }
+:root .pick-fold-title{ font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium,600); color:var(--kptu-ink); }
+:root .pick-n{ color:var(--kptu-muted); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular,400); font-variant-numeric:tabular-nums; }
+:root .pick-others{ margin-top:4px; border-top:.5px solid var(--kptu-border); }
+:root .pick-others>summary{ font-size:var(--ds-text-row); color:var(--kptu-muted); }
+:root .pick-search{ display:block; width:100%; max-width:420px; box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:2px 0 4px; padding:0 8px; font-size:var(--ds-compact-text); }
+:root .pick-item[hidden],:root .pick-group[hidden],:root .pick-empty[hidden]{ display:none; }
+:root .pick-group+.pick-group{ margin-top:4px; padding-top:4px; border-top:.5px solid var(--kptu-border); }
+:root .pick-group-name{ margin:0; color:var(--kptu-muted); font-size:11px; line-height:1.4; break-after:avoid; }
+:root .pick-none,:root .pick-empty{ margin:2px 0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+:root .pick-off{ opacity:.5; }
