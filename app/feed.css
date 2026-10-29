@@ -81,6 +81,11 @@
 .feed-view .feed-pt{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .feed-view .feed-cnt{flex:none;font-size:11px}
 .feed-view .feed-day-center{text-align:center;padding:10px 0 4px}
+/* TG-방고정(시안 A): 날짜 줄 위 맨 위 '고정한 방' 칸. 바탕 없이 아래 선 하나로 구분, 핀은 작게. */
+.feed-view .feed-pinrooms{margin:0 0 2px;border-bottom:var(--ds-line-width) solid var(--kptu-border)}
+.feed-view .feed-pinrooms .feed-rd:last-child{border-bottom:0}
+.feed-view .feed-pinmark{margin-right:3px;font-size:10px;vertical-align:1px}
+.feed-view .feed-pday{margin-left:6px;font-size:11px;font-weight:normal;color:var(--kptu-muted)}
 .feed-view .feed-rd{position:relative;display:flex;align-items:flex-start;gap:8px;padding:5px 4px;border-bottom:var(--ds-line-width) solid var(--kptu-border)}
 .feed-view .feed-rd.is-selected{background:var(--ds-select-bg);box-shadow:var(--kptu-shadow-select)}
 .feed-view .feed-dot{flex:none;display:flex;align-items:center;justify-content:center;width:22px;height:22px;margin-top:2px;border-radius:50%;font-size:11px;font-weight:var(--ds-weight-medium)}

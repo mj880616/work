@@ -259,7 +259,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const report = text => { if (selected) say(text); else status.textContent = text; };
   const say = text => { const p = detail.querySelector('[data-basket-status]'); if (p) p.textContent = text; };
   const lock = value => { busy = value; detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => { el.disabled = value; }); if (!value) manual.controls(); };
-  // UI-노트메뉴정리: one ⋯ menu for the list rows and the open note. 고정/고정 해제 · 수정 · (연결하기 · 바구니로 돌리기) · 삭제,
+  // UI-노트메뉴정리: one ⋯ menu for the list rows and the open note. 고정/고정 풀기 · 수정 · (연결하기 · 바구니로 돌리기) · 삭제,
   // in this order; the list rows leave out the two that need the open note. It opens where it was pressed (anchored-popup.js,
   // PC and phone alike: a small list under the ⋯, kept inside the window) and closes on Esc, outside press, or choosing.
   let menu = null;
@@ -279,7 +279,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'list' ? [['data-nx-select', '선택']] : []),
       // 17:45 ③: 줄의 복사 아이콘은 없앴다 — 복사는 PC·폰 모두 이 메뉴(⋯·우클릭·꾹 누르기) 안.
       ...(from === 'list' && noteCopyPayload(note) ? [['data-note-copy', '복사']] : []),
-      ['data-note-pin', notePinnedAt(note) ? '고정 해제' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
+      ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '정리함으로 돌리기']] : []),
       ['data-note-ai-off', noteAiOff(note) ? 'AI 제외 풀기' : 'AI에 보내지 않기'],
       ['data-note-delete', '삭제', 'basket-menu-danger']];
@@ -611,7 +611,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (ok && button) flashDone(button); // UI-눌림느낌 (an element, or a getter for a button that is looked up after the menu closed)
     showToast(ok ? payload.done : '복사하지 못했어요. 다시 눌러 주세요.');
   }
-  // UI-노트고정: [고정]/[고정 해제] in the note's ⋯. The list puts pinned notes on top.
+  // UI-노트고정: [고정]/[고정 풀기] in the note's ⋯. The list puts pinned notes on top.
   async function pin(target = selected) {
     if (!target || editing || busy) return;
     const note = target, pinned = !notePinnedAt(note), run = ++epoch, owner = scope(); lock(true); report('');

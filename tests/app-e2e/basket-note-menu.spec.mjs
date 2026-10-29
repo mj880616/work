@@ -6,7 +6,7 @@ import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 
-// UI-노트메뉴정리: every note row has [복사] and [⋯] on its right; the ⋯ (list row and open note alike) holds 고정/고정 해제 · 수정 ·
+// UI-노트메뉴정리: every note row has [복사] and [⋯] on its right; the ⋯ (list row and open note alike) holds 고정/고정 풀기 · 수정 ·
 // (연결하기 · 바구니로 돌리기, open note only) · 삭제, and opens right under the pressed ⋯ (anchored-popup.js). The open note's head
 // is one line "‹ 노트 … 제목 … [복사] [⋯]"; [수정]·[연결하기] are no longer buttons under the body. Rows show plain-letter previews
 // without a repeated title, and a note with only attachments copies their file names.
@@ -105,7 +105,7 @@ for (const width of [390, 1280]) {
 
   test(`list row ⋯: pin and unpin, edit opens the edit view, delete asks first and removes the row ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
-    // 고정 → on top; the menu then says 고정 해제.
+    // 고정 → on top; the menu then says 고정 풀기.
     await press(page, rowMore(page, 'n-plain'), width); await press(page, menu(page).getByRole('button', { name: '고정', exact: true }), width);
     await expect(page.locator('#toast')).toHaveText('노트를 맨 위에 고정했어요.');
     expect(f.writes).toHaveLength(1); expect(Object.keys(f.writes[0].body)).toEqual(['metadata']);
@@ -113,8 +113,8 @@ for (const width of [390, 1280]) {
     await expect(page.locator('[data-note-row="n-plain"] [data-note-pinned]')).toBeVisible();
     await expect(page.locator('[data-note-detail]')).toBeHidden();
     await press(page, rowMore(page, 'n-plain'), width);
-    await expect(menu(page).locator('button').nth(2)).toHaveText('고정 해제');
-    await press(page, menu(page).getByRole('button', { name: '고정 해제', exact: true }), width);
+    await expect(menu(page).locator('button').nth(2)).toHaveText('고정 풀기');
+    await press(page, menu(page).getByRole('button', { name: '고정 풀기', exact: true }), width);
     await expect(page.locator('#toast')).toHaveText('고정을 풀었어요.');
     expect(f.writes[1].body.metadata).toEqual({});
     // 수정 → that note's edit view.
