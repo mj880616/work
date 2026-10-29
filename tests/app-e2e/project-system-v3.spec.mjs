@@ -1322,7 +1322,8 @@ test('V3 project task section completes, edits and unlinks linked Google tasks',
   const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
   await expect(panel.locator('[data-google-task="g1"]')).toContainText('자료 정리');
   await expect(page.locator('#ps3-tasks [data-ps3-task-count]')).toHaveText('1');
-  expect(state.gtCalls.filter(x=>x.action==='linked').map(x=>x.query.project_id)).toEqual(['child-1']);
+  // MTG-프로젝트합치기 ①: PC 창은 첫 사업영역(main-1)을 오른쪽 칸에 먼저 열 수 있다. 하위로 옮긴 뒤 하위의 할 일을 읽었는지 본다.
+  expect(state.gtCalls.filter(x=>x.action==='linked').map(x=>x.query.project_id).at(-1)).toBe('child-1');
   await panel.locator('[data-gt-linked-toggle="g1"]').click();
   await expect(panel.locator('[data-google-task="g1"]')).toHaveClass(/completed/);
   await expect.poll(()=>state.gtCalls.find(x=>x.action==='toggle')?.body?.completed).toBe(true);

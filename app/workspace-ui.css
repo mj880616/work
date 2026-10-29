@@ -44,8 +44,8 @@ html,body{min-height:100%;scroll-padding-bottom:24px}
   #appView .view-panel{padding-bottom:calc(22px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(22px + env(safe-area-inset-bottom))!important}
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
   /* MTG-프로젝트합치기 ①: 사업영역 관리 창(#areaWindow)은 하단바 위 전체 높이 그릇이라 이 아래 붙임·창 전체 스크롤에서 뺀다(project-system-v3.css). */
-  .modal:not([id^="pm2"],#areaWindow){padding:max(8px,env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom))!important;align-items:end!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch}
-  .modal:not([id^="pm2"],#areaWindow)>.modal-card{width:100%!important;max-height:calc(100dvh - 16px - env(safe-area-inset-bottom))!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;scroll-padding-bottom:24px!important;padding-bottom:24px!important}
+  .modal:not([id^="pm2"]):where(:not(#areaWindow)){padding:max(8px,env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom))!important;align-items:end!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch}
+  .modal:not([id^="pm2"]):where(:not(#areaWindow))>.modal-card{width:100%!important;max-height:calc(100dvh - 16px - env(safe-area-inset-bottom))!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;scroll-padding-bottom:24px!important;padding-bottom:24px!important}
   [id^="pm2"][id$="Modal"].modal{padding-bottom:calc(10px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(10px + env(safe-area-inset-bottom))!important}
   [id^="pm2"][id$="Modal"].modal .modal-card{padding-bottom:28px!important}
   #pm2DetailModal .pm2-detail-card{min-height:calc(100dvh - 12px - env(safe-area-inset-bottom))!important}
