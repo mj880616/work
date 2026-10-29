@@ -63,6 +63,8 @@ const body=(o={})=>({day:TODAY,room_key:'room-fake-1',room_label:'가상 업무�
   {ref:'1002',at:'2026-10-24T00:12:00Z',sender:'B',text:'장소는 그대로인가요?',reply_to:'1001'},
   {ref:'1003',at:'2026-10-24T00:20:00Z',sender:'A',text:'네 그대로입니다'}],...o});
 const senders2=()=>[{label:'A',key:KEY_A,name:NAME_A,self:true},{label:'B',key:KEY_B,name:NAME_B,self:false}];
+// 서버는 self:true만 DB에 넘긴다(TODO-내일만 3: false가 화면에서 붙인 '나' 표시를 지우지 않게).
+const sent2=()=>[{label:'A',key:KEY_A,name:NAME_A,self:true},{label:'B',key:KEY_B,name:NAME_B}];
 
 test('senders가 없으면 지금과 똑같다: DB 함수를 부르지 않고 소식은 저장된다',async()=>{
   const h=harness();const r=await h.send(body());
@@ -74,7 +76,7 @@ test('senders가 있으면 형식 검사 뒤 app_tg_senders_upsert를 한 번 �
   const h=harness();const r=await h.send(body({senders:senders2()}));
   assert.equal(r.status,200);assert.equal(h.calls.items.length,1);
   assert.equal(h.calls.rpc.length,1);
-  assert.deepEqual(h.calls.rpc[0],{p_workspace:WS,p_room_key:'room-fake-1',p_day:TODAY,p_senders:senders2()});
+  assert.deepEqual(h.calls.rpc[0],{p_workspace:WS,p_room_key:'room-fake-1',p_day:TODAY,p_senders:sent2()});
   assert.match(h.calls.logs.join('\n'),/telegram_senders_saved/);
   assert.match(h.calls.logs.find(l=>/telegram_senders_saved/.test(l)),/"people":2,"linked":2,"conflicts":0/);
 });
@@ -212,7 +214,8 @@ test('안전한 입구 규칙은 그대로: senders 칸이 있어도 알 수 없
 
 test('parseTelegramBody: senders 결과 모양',()=>{
   const ok=parseTelegramBody(body({senders:senders2()}),TODAY);
-  assert.equal(ok.sendersInvalid,false);assert.deepEqual(ok.senders,senders2());
+  assert.equal(ok.sendersInvalid,false);assert.deepEqual(ok.senders,sent2());
+  assert.equal(parseTelegramBody(body({senders:[{label:'A',self:'no'}]}),TODAY).sendersInvalid,true,'self는 true/false만');
   const none=parseTelegramBody(body(),TODAY);
   assert.deepEqual(none.senders,[]);assert.equal(none.sendersInvalid,false);
   assert.equal(parseTelegramBody(body({senders:[{label:'A',key:'zz'}]}),TODAY).sendersInvalid,true);

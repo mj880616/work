@@ -199,3 +199,18 @@ test('소스: 방 정보·요약 DB 함수는 이름 상수로만 부르고 표�
   assert.ok(!/app_feed_rooms|app_feed_room_days|app_feed_folders/.test(src),'새 표를 직접 읽거나 쓰지 않는다');
   assert.equal(ROOM_TOUCH_FN,'app_feed_room_touch');assert.equal(ROOM_DAY_ADD_FN,'app_feed_room_day_add');
 });
+
+// TODO-내일만 3: 앱 스크립트가 방 종류를 보내지 않으면 방 번호 모양으로 정한다. 보낸 값이 있으면 그 값이 이긴다.
+test('방 종류 없음: 방 번호 모양으로 정해 방 표·AI 재료에 쓴다(양수=1:1, 짧은 음수=단체방, -100…=모름)',async()=>{
+  const {roomKindFromKey}=await import('../../supabase/functions/collector-feed/handler.ts');
+  assert.equal(roomKindFromKey('123456789'),'user');
+  assert.equal(roomKindFromKey('-4567'),'group');
+  assert.equal(roomKindFromKey('-1001234567890'),null);
+  for(const k of ['room-fake-1','0','-0','007','12a',''])assert.equal(roomKindFromKey(k),null,k);
+  const user=harness();await user.send(body({room_key:'123456789'}));
+  assert.equal(user.calls.rpc[0].args.p_chat_kind,'user');
+  const group=harness();await group.send(body({room_key:'-4567'}));
+  assert.equal(group.calls.rpc[0].args.p_chat_kind,'group');
+  const sent=harness();await sent.send(body({room_key:'-4567',chat_kind:'channel'}));
+  assert.equal(sent.calls.rpc[0].args.p_chat_kind,'channel','보낸 값이 이긴다');
+});

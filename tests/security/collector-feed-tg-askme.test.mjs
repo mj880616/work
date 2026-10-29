@@ -208,3 +208,13 @@ test('[내 일 아님] 예시는 재료에만 들어가고 로그에는 없다; 
   assert.equal(askCalls(h).length,1);
   assert.equal(parseTelegram(JSON.stringify({items:[item({ask:true,request:'가상',quote:'m2',due:''})]}),3,[],[]).items[0].ask.to,'me');
 });
+
+// TODO-내일만 3: 앱 스크립트가 방 종류를 안 보내도 방 번호 모양으로 개인 대화방·단체방을 가려 전체 부탁 거르기에 쓴다.
+test('방 종류를 안 보내면 방 번호로 정한다: 양수(1:1)면 전체 부탁도 올리고, 짧은 음수(단체방)면 뺀다',async()=>{
+  const run=async room_key=>{const h=harness({rpc:filterRpc(()=>respond({group_room:false,not_mine:[]})),ai:()=>aiOk(DAY(),[item(ask({to:'all'}))])});await h.send(body({room_key}));return h;};
+  const personal=await run('123456789');assert.equal(askCalls(personal).length,1);
+  assert.match(personal.calls.openai[0].input[1].content,/대화방 종류: /);
+  const group=await run('-4567');assert.equal(askCalls(group).length,0);
+  assert.match(group.calls.logs.join('\n'),/telegram_ask_group_skipped/);
+  const unknown=await run('-1001234');assert.equal(askCalls(unknown).length,0,'채널·슈퍼그룹(모름)은 단체방처럼 닫힌 쪽');
+});
