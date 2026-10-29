@@ -176,3 +176,22 @@ for (const fail of [false, true]) test(`photo set row drags into a folder as one
     await expect(page.locator(`#documentList details[data-lu-node="x:out"] [data-lu-photoset="${M1}"]`)).toHaveCount(1);
   }
 });
+
+// LIB-정리보충(10/28 남은 일): 폴더 보기에서 사진 묶음 줄 ⋯(PC 우클릭·폰 꾹 눌렀다 떼기와 같은 메뉴)에 [폴더로 옮기기 ›] — 끌어 놓기와 같은 길(묶음 안 사진 모두 함께).
+test('photo set row menu moves the whole set into a folder', async ({page}) => {
+  const state = makeState();
+  state.folders = [{id: ID(700), workspace_id: 'workspace-1', project_id: null, parent_id: null, name: '결의대회 사진', sort_order: 1024, created_at: now()}];
+  await open(page, state, 1440);
+  await page.locator('#libraryGroupBy').getByRole('radio', {name: '폴더'}).click();
+  await expandLibraryTree(page);
+  await page.locator(`[data-lu-photoset="${M1}"] [data-lu-menu]`).click();
+  await expect(page.locator('#luMorePanel button')).toHaveText(['폴더로 옮기기›']);
+  await page.locator(`#luMorePanel [data-lu-move-open="photoset:${M1}"]`).click();
+  await page.locator(`#luMovePicker [data-lu-move-folder="${ID(700)}"]`).last().click();
+  const photos = [11, 12, 13, 14, 15].map(ID);
+  await expect.poll(() => photos.every(id => state.items.some(x => x.document_id === id && x.folder_id === ID(700)))).toBe(true);
+  expect(state.items.map(x => x.document_id).sort()).toEqual([...photos].sort());
+  // ⋯를 눌러도 사업 보고는 열리지 않는다.
+  expect(state.meetingOpens).toEqual([]);
+  await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 5개');
+});

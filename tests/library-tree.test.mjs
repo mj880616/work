@@ -155,6 +155,10 @@ test('폴더 묶기: 맨 위 폴더 밖, 프로젝트가 달라도 parent_id를 
   assert.deepEqual(shape(filtered),[['f:f1',1,[],[['f:f2',1,['d1'],[]]]]]);
   // 폴더가 하나도 없어도 '폴더 밖'은 남아 첫 폴더를 만들 자리가 된다.
   assert.deepEqual(m.buildTree({...base({docs:[]}),groupBy:'folder'}).map(n=>n.key),['x:out']);
+  // LIB-정리보충: 폴더가 있고 '폴더 밖'이 비면(0개) 그 줄은 없다. 하나라도 남으면 다시 보인다.
+  const allIn=m.buildTree({...base({docs:[doc('d1','a'),doc('d3',null)],folders,items}),groupBy:'folder'});
+  assert.deepEqual(allIn.map(n=>n.key),['f:f0','f:orphan','f:f1']);
+  assert.deepEqual(m.buildTree({...base({docs:[doc('d1','a'),doc('d2','b')],folders,items}),groupBy:'folder'}).map(n=>n.key),['x:out','f:f0','f:orphan','f:f1']);
 });
 
 test('폴더 보기 편집 규칙(free): 형제·옮길 곳·위로/아래로가 프로젝트 틀을 보지 않는다',()=>{

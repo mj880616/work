@@ -225,6 +225,39 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     // 프로젝트 묶기의 폴더 메뉴에는 [이 폴더로 들어가기]가 없다(폴더 보기 전용).
     expect(s.writes).toEqual([]);expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
+
+  // LIB-폴더100단(10:34): 들어간 폴더에서 뒤로가기(폰 갤럭시 뒤로·브라우저 뒤로) = 한 단계 위. 맨 위에 닿으면 처음 목록, 자료실에 남는다.
+  test(`폴더 안에서 뒤로가기는 한 단계 위 ${width}`,async({page})=>{
+    const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
+    await radio(page,'폴더').click();
+    const path=page.locator('#libraryPath');
+    await press(page,menuButton(page,'f:fa'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
+    await expect(path).toHaveText('자료실›가상 A');
+    await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width);
+    await expect(path).toHaveText('자료실›가상 A›가상 C');
+    await page.goBack();
+    await expect(path).toHaveText('자료실›가상 A');expect(await tops(page)).toEqual(['f:fa']);
+    await expect(page).toHaveURL(/[?&]folder=fa(?:&|$)/);
+    await page.goBack();
+    await expect(path).toBeHidden();await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    await expect(page).not.toHaveURL(/[?&]folder=/);await expect(page.locator('#libraryView')).toBeVisible();
+    expect(s.writes).toEqual([]);expect(errors).toEqual([]);
+  });
+
+  // LIB-정리보충(10:34): '폴더 밖'이 비면 그 줄은 없고, 맨 위 새 폴더는 맨 위 폴더 메뉴 첫 줄 [맨 위에 새 폴더].
+  test(`폴더 밖이 비면 그 줄 없음·맨 위에 새 폴더 ${width}`,async({page})=>{
+    const items=[...ITEMS,{document_id:'a-2',folder_id:'fn'},{document_id:'a1-1',folder_id:'fa'}];
+    const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items,group:'폴더'});
+    expect(await tops(page)).toEqual(['f:fa','f:fn']);
+    await press(page,menuButton(page,'f:fa'),width);
+    await expect(page.locator('#luFolderMenu button')).toHaveText(['맨 위에 새 폴더','이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','아래로','옮기기…','폴더 지우기']);
+    await press(page,folderMenuItem(page,'맨 위에 새 폴더'),width);
+    await expect(page.locator('#libraryFolderHint')).toContainText('폴더 밖(맨 위)에 만들어요');
+    await page.locator('#libraryFolderName').fill('가상 새것');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
+    expect(s.writes.at(-1)).toMatchObject({table:'folders',method:'POST',body:{project_id:null,parent_id:null,name:'가상 새것'}});
+    const made=s.folders.at(-1).id;await expect.poll(()=>tops(page)).toEqual(['f:fa','f:fn','f:'+made]);
+    expect(errors).toEqual([]);
+  });
 });
 
 // LIB-정리보충 ③(10:41): '폴더 밖' 비우기 — ⋯ [전체 고르기]로 폴더 밖 자료 모두 고르기, 자료마다 작은 폴더 추천 '📁 ○○?'(AI 없음, 제목 첫 낱말이 같은 자료가 든 폴더).
