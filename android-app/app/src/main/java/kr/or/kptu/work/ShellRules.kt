@@ -11,10 +11,18 @@ import java.net.URLEncoder
  * - 시스템 바 색, 새 버전 비교
  */
 object ShellRules {
-    const val HOME = "https://desk.bokdoong.com/work/app/"
+    /** 웹2 주소(주소 이전 ①-D1 뒤 정식 주소, 설계 docs/design/domain-move.md 1.1절). */
+    const val WEB2_HOST = "bokdoong.com"
+    const val HOME = "https://$WEB2_HOST/work/app/"
 
-    /** 웹2를 앱 안에 띄우는 주소. auth-handoff 허용 Origin과 같다. */
-    val INTERNAL_HOSTS: Set<String> = setOf("desk.bokdoong.com", "work.bokdoong.com", "mj880616.github.io")
+    /**
+     * 웹2를 앱 안에 띄우는 호스트. auth-handoff 허용 Origin과 같다.
+     * desk·work는 넘김(302) 기간 동안 안쪽으로 둔다(옛 링크가 bokdoong.com으로 넘어올 때 앱 안에 머물게).
+     */
+    val INTERNAL_HOSTS: Set<String> = setOf(WEB2_HOST, "desk.bokdoong.com", "work.bokdoong.com", "mj880616.github.io")
+
+    /** 맨 앞(/)이 웹2로 넘어가는 호스트(Worker movesToWeb2). work의 / 는 Web1이라 넣지 않는다. */
+    private val ROOT_TO_WEB2_HOSTS: Set<String> = setOf(WEB2_HOST, "desk.bokdoong.com")
     val ALLOWED_ORIGINS: Set<String> = INTERNAL_HOSTS.map { "https://$it" }.toSet()
     private const val APP_PATH = "/work/app/"
 
@@ -35,7 +43,10 @@ object ShellRules {
             null
         }
 
-    /** https + 허용 호스트 + /work/app/ 아래(desk는 맨 앞 / 도, Worker가 /work/app/으로 보냄). */
+    /**
+     * https + 허용 호스트 + /work/app/ 아래. bokdoong.com·desk는 맨 앞 / 도(Worker가 bokdoong.com/work/app/으로 보냄).
+     * 그 밖(bokdoong.com/p/·/s/ 짧은 주소, /work/share/ 공유 페이지, work의 Web1)은 바깥(설계 4.3절).
+     */
     fun isInternalApp(url: String?): Boolean {
         val u = parse(url) ?: return false
         if (!"https".equals(u.scheme, ignoreCase = true)) return false
@@ -45,7 +56,7 @@ object ShellRules {
         if (host !in INTERNAL_HOSTS) return false
         val path = u.rawPath ?: ""
         if (path == "/work/app" || path.startsWith(APP_PATH)) return true
-        return host == "desk.bokdoong.com" && (path.isEmpty() || path == "/")
+        return host in ROOT_TO_WEB2_HOSTS && (path.isEmpty() || path == "/")
     }
 
     /** 앱 안 웹 화면이 이동하려는 주소를 바깥(브라우저 탭·다른 앱)으로 보낼지. */
