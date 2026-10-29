@@ -1855,6 +1855,27 @@ const backToJournal=async(page,{pressed,scroll})=>{
  await expect(pressed).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>Math.round(scrollY))).toBe(scroll);
 };
+// UI-돌아가기머리줄(시안 B): 일지에서 연 업데이트는 머리 줄 뒤로 가기 하나('‹ 업무일지'), 따로 있던 '← …으로 돌아가기' 상자 버튼은 없다.
+const expectOneBack=async(page,text)=>{
+ const detail=page.locator('#basketView [data-basket-detail]');
+ await expect(detail.locator('.basket-detail-head > button.basket-back:visible')).toHaveCount(1);
+ await expect(detail.locator('.basket-detail-head > [data-basket-return]')).toHaveText(text);
+ await expect(detail.locator('[data-basket-close]')).toHaveCount(0);
+ await expect(page.locator('#basketView .basket-return')).toHaveCount(0);
+ await expect(detail.getByText(/돌아가기/)).toHaveCount(0);
+};
+for(const width of [412,884,1440])test(`[업무일지] 원래 업데이트 → 머리 줄 '‹ 업무일지' 하나, 누르면 일지 그 날 ${width}`,async({page})=>{
+ const f=await fixture(page,{width,height:700});await originals(page,f);await openJournal(page,width);await settled(page);
+ const more=group(page,'orgs').locator('li',{hasText:'안녕하세요 위원장님'}).locator('.journal-item-more');
+ await more.locator('summary').click();
+ await more.getByRole('button',{name:'원래 업데이트 보기'}).click();
+ await expect(page.locator('[data-basket-text]')).toHaveValue(GREETING);
+ await expectOneBack(page,'‹ 업무일지');
+ const back=page.locator('#basketView [data-basket-return]'),box=await back.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);
+ await back.click();
+ await expect(page.locator('#journalView')).toBeVisible();await expectJournalDay(page,'10월 6일 화요일');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
 for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조직 기록·조직으로 보낸 업데이트는 그 자리에서 강조, 사업 기록은 사업영역 화면, ⋯ 원래 업데이트, 뒤로가기 한 번이면 일지 그 자리 ${width}`,async({page},info)=>{
  const f=await fixture(page,{width,height:700});await originals(page,f);await openJournal(page,width);await settled(page);
  // ① 담당조직 화면에서 쓴 기록 → 그 조직 화면, 그 기록이 화면 안에 강조.
@@ -1893,6 +1914,7 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  await more.getByRole('button',{name:'원래 업데이트 보기'}).click();
  await expect(page.locator('#basketView')).toBeVisible();
  await expect(page.locator('[data-basket-text]')).toHaveValue(GREETING);
+ await expectOneBack(page,'‹ 업무일지');
 
  await page.goBack();
  await expect(page.locator('#journalView')).toBeVisible();await expectJournalDay(page,'10월 6일 화요일');

@@ -45,7 +45,7 @@ import { mountNoteBoard } from './note-board.js';
 import { folderTone } from './note-board-model.mjs';
 import { noteMasked } from './note-secret.mjs';
 import { noteMarkdown } from './note-markdown.mjs';
-import { basketNoteOrigin, basketReturnHtml } from './basket-note-tasks.js';
+import { basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
 
 const chipKinds = [['project','사업영역'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); };
@@ -389,9 +389,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const linking = manual.isOpen(); if (linkOpen && !linking && !editing) detail.querySelector('[data-note-more]')?.focus({preventScroll:true}); linkOpen = linking;
     detail.querySelector('[data-note-editor]').hidden = !editing; detail.querySelector('[data-note-edit-actions]').hidden = !editing;
   }
+  // UI-돌아가기머리줄: '‹ 노트' (phones only) from the list, '‹ (name)' (every width) when opened from another screen.
+  const NOTE_BACK = '<button type="button" class="basket-back note-back" data-note-back aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button>';
   function showDetail() {
     // UI-기록아이콘: openSet from a project's or organization's record line, the note has no history entry of its own (one back
-    // returns to that project or organization, like an update openSet from there) and shows "← (name)으로 돌아가기".
+    // returns to that project or organization, like an update openSet from there) and its head back reads "‹ (name)" (UI-돌아가기머리줄).
     const from = !!selected && !!basketNoteOrigin(selected.id, rt);
     if (!from) layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
     // NAV-새로고침제자리: the open note is written on its own entry (?doc=), so a reload reopens it; close drops it first.
@@ -399,8 +401,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     ++epoch; dropField(); editing = false; linkOpen = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
     // UI-엔터저장: title Enter / body Ctrl+Enter (PC) save through the shared rule (enter-save.js).
     detail.dataset.enterSave = '[data-note-save]';
-    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back note-back" data-note-back aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more data-ctx="area" aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="done"></label><div class="note-body-field" data-note-body-field role="group" aria-label="본문"></div></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions save-row save-row-sticky" data-note-edit-actions hidden><button type="button" class="secondary save-row-start" data-note-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-note-cancel>취소</button><button type="button" class="primary" data-note-save>저장</button></div><p data-basket-status role="status"></p>`;
-    if (from) detail.querySelector('.basket-detail-head')?.insertAdjacentHTML('afterend', basketReturnHtml(selected.id, rt));
+    detail.innerHTML = `<div class="basket-detail-head">${basketBackHtml(selected?.id, NOTE_BACK, rt)}<div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more data-ctx="area" aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="done"></label><div class="note-body-field" data-note-body-field role="group" aria-label="본문"></div></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions save-row save-row-sticky" data-note-edit-actions hidden><button type="button" class="secondary save-row-start" data-note-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-note-cancel>취소</button><button type="button" class="primary" data-note-save>저장</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
   }
   function open(id, {focus = true} = {}) {
