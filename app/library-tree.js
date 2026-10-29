@@ -109,7 +109,9 @@ function byFolder(o){
   const list=[outside,...roots];
   list.forEach(n=>finish(n,o.kindOf,o.sortKey));
   if(filtering)return prune(list,()=>false);
-  return prune(list,n=>n.kind==='folder'||n.key===OUTSIDE_KEY);
+  // LIB-정리보충(10:34 '폴더 밖은 비우고 싶음'): '폴더 밖'이 비면(0개) 그 줄을 없앤다. 폴더가 하나도 없을 때만 첫 폴더를 만들 자리로 남긴다.
+  // 맨 위 새 폴더는 맨 위 폴더 메뉴의 [맨 위에 새 폴더], 폴더 밖으로 빼기는 [폴더로 옮기기 ›]의 [폴더 밖으로]·끄는 동안 왼쪽 팝업이 맡는다.
+  return prune(list,n=>n.kind==='folder'||(n.key===OUTSIDE_KEY&&(n.count>0||!roots.length)));
 }
 
 function flat(list,o){list.forEach(n=>finish(n,o.kindOf,o.sortKey));return list.filter(n=>n.count>0)}
