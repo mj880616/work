@@ -9,6 +9,13 @@
 //              작업 행은 진행 중 → 끝/실패. 전사 글은 어디에도 저장하지 않는다(화면이 회의 기록 초안 흐름으로 넣는다).
 //              사용량은 기존 app_ai_external_usage에 ref 'mtg-…'로 넣는다(홈 AI 사용량 줄·월 상한이 같은 기록을 셈).
 //   attach     {job_id, meeting_id}      → 끝난 녹음을 그 회의 자료로 링크(app_documents 한 행, 원본은 Drive 그대로).
+// MTG-노트북녹음 1단계(노트북 Web2 [녹음], 설계 docs/design/laptop-recording.md, 표 app_meeting_recordings):
+//   rec_start   {workspace_id, mime, session_id?} → 녹음 구간 한 행(열린 구간이 있으면 먼저 닫음). 같은 session_id = 한 회의의 다음 구간.
+//   rec_piece   몸통 = 5분 조각 그대로     → Drive '회의 녹음/녹음 조각'에 올리고 구간 행에 순서대로 더함. 머리글 x-recording-id,
+//               x-piece-seq(1부터), x-duration-sec(구간 시작부터 잰 초, 없을 수 있음), Content-Length 필수.
+//   rec_finish  {session_id}              → 열린 구간 닫기 → 닫힌 구간마다 조각을 이어 한 파일(회의 녹음 폴더)로 → 전사 작업 한 행(uploaded)
+//               → 조각 휴지통. 전사·붙이기는 위 transcribe·attach를 구간마다 그대로 부른다. 시간이 모자라면 more=true.
+//   rec_pending {workspace_id}            → 끝나지 않은 녹음 목록('이어서 정리').
 // 열쇠(비밀값 GEMINI_API_KEY)가 없으면 config는 ready=false, 나머지는 503 not_ready('준비 중').
 // 실패하면 작업만 failed로 두고, Gemini에 올린 임시 파일은 지운다. 녹음 원본·회의 기록은 그대로다.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -18,6 +25,11 @@ import {
   attachDocument, canStart, failBody, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
   seoulDay, transcriptionRequest, trashBefore, usageRef, wantsDiarize,
 } from './model.mjs';
+import {
+  PIECE_FOLDER, REC_FINISH_BUDGET_MS, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
+  appendPatch, closePatch, nextSegment, parsePiece, pendingSessions, pendingSince, pieceDecision, pieceFileName, recFailBody, recMime,
+  segmentFileName, toCombine,
+} from './recording.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -29,11 +41,13 @@ const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 const FOLDER = 'application/vnd.google-apps.folder';
 const RECORDING_FOLDER = '회의 녹음';
 const TABLE = 'app_meeting_transcribe_jobs';
+const REC_TABLE = 'app_meeting_recordings';
+const REC_COLUMNS = 'id,workspace_id,created_by,session_id,segment_no,status,error_code,mime_type,piece_ids,size_bytes,duration_sec,job_id,pieces_trashed_at,closed_at,created_at,updated_at';
 const JOB_COLUMNS = 'id,workspace_id,created_by,status,error_code,drive_file_id,file_name,mime_type,size_bytes,duration_sec,model,meeting_id,started_at,finished_at,trashed_at,created_at,updated_at';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-workspace-id, x-file-name, x-duration-sec',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-workspace-id, x-file-name, x-duration-sec, x-recording-id, x-piece-seq',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const json = (d: unknown, s = 200) =>
@@ -111,13 +125,22 @@ async function recordingFolder(workspaceId: string, token: string, create: boole
     meetings = await createFolder(token, '회의자료', root);
     await admin.from('app_drive_settings').upsert({ workspace_id: workspaceId, meetings_folder_id: meetings, updated_at: new Date().toISOString() });
   }
-  const q = `'${meetings}' in parents and name = '${RECORDING_FOLDER}' and mimeType = '${FOLDER}' and trashed = false`;
+  return await childFolder(token, meetings, RECORDING_FOLDER, create);
+}
+// 폴더 바로 아래 같은 이름 폴더(가장 먼저 만든 것). 없으면 create일 때만 만든다. name은 코드의 고정 이름만.
+async function childFolder(token: string, parent: string, name: string, create: boolean): Promise<string | null> {
+  const q = `'${parent}' in parents and name = '${name}' and mimeType = '${FOLDER}' and trashed = false`;
   const r = await fetch(`${DRIVE}?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1&orderBy=createdTime`, { headers: { Authorization: `Bearer ${token}` } });
   const d = await r.json().catch(() => null);
   if (!r.ok) throw new Fail('drive_failed');
   const found = d?.files?.[0]?.id as string | undefined;
   if (found) return found;
-  return create ? await createFolder(token, RECORDING_FOLDER, meetings) : null;
+  return create ? await createFolder(token, name, parent) : null;
+}
+// '회의 녹음/녹음 조각': 노트북 녹음의 5분 조각(합친 뒤 휴지통).
+async function pieceFolder(workspaceId: string, token: string, create: boolean): Promise<string | null> {
+  const recordings = await recordingFolder(workspaceId, token, create);
+  return recordings ? await childFolder(token, recordings, PIECE_FOLDER, create) : null;
 }
 // 녹음을 Drive에 그대로 흘려 올린다(몸통을 메모리에 다 담지 않음).
 async function driveUpload(token: string, folder: string, body: ReadableStream<Uint8Array>, name: string, mime: string, size: number) {
@@ -218,6 +241,7 @@ async function config(user: { id: string }, userDb: ReturnType<typeof userClient
   const workspaceId = String(body.workspace_id || '');
   await requireOwner(user.id, workspaceId);
   await sweep(workspaceId);
+  await sweepRecordings(workspaceId);
   const ready = !!GEMINI();
   let used: number | null = null;
   try { used = await monthUsed(userDb, workspaceId); } catch { used = null; }
@@ -310,6 +334,231 @@ async function attach(user: { id: string }, userDb: ReturnType<typeof userClient
   return json({ ok: true });
 }
 
+// ---- MTG-노트북녹음: 녹음 구간(app_meeting_recordings) ----
+// 구간 행 고치기. guard가 있으면 그 칸이 같을 때만(동시에 두 번 와도 한 번만 반영). 고친 행 수를 돌려준다.
+async function setRec(id: string, patch: Record<string, unknown>, guard: Record<string, string> = {}) {
+  let q = admin.from(REC_TABLE).update({ updated_at: new Date().toISOString(), ...patch }).eq('id', id);
+  for (const [k, v] of Object.entries(guard)) q = q.eq(k, v);
+  const { data, error } = await q.select('id');
+  if (error) throw new Fail('failed');
+  return data?.length ?? 0;
+}
+async function ownRecording(userId: string, id: unknown): Promise<Job> {
+  if (!isUuid(id)) throw new Fail('bad_request');
+  const { data, error } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('id', id as string).maybeSingle();
+  if (error) throw new Fail('failed');
+  if (!data) throw new Fail('not_found');
+  await requireOwner(userId, data.workspace_id);
+  if (data.created_by !== userId) throw new Fail('not_found');
+  return data as Job;
+}
+// 한 녹음(session)의 구간들. 모두 이 사람·같은 작업공간이어야 한다.
+async function ownSession(userId: string, sessionId: unknown): Promise<Job[]> {
+  if (!isUuid(sessionId)) throw new Fail('bad_request');
+  const { data, error } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('session_id', sessionId as string)
+    .order('segment_no', { ascending: true }).limit(REC_MAX_SEGMENTS + 1);
+  if (error) throw new Fail('failed');
+  if (!data?.length) throw new Fail('not_found');
+  const ws = data[0].workspace_id;
+  if (data.some(r => r.workspace_id !== ws || r.created_by !== userId)) throw new Fail('not_found');
+  await requireOwner(userId, ws);
+  return data as Job[];
+}
+const segmentView = (r: Job) => ({ segment_no: r.segment_no, status: r.status, error_code: r.error_code ?? null, job_id: r.job_id ?? null, duration_sec: r.duration_sec ?? null });
+
+// 조각들을 순서대로 이어 한 흐름으로(메모리에 다 담지 않음).
+function joinPieces(token: string, ids: string[]): ReadableStream<Uint8Array> {
+  let i = 0;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  return new ReadableStream<Uint8Array>({
+    async pull(ctrl) {
+      for (;;) {
+        if (!reader) {
+          if (i >= ids.length) { ctrl.close(); return; }
+          const r = await fetch(`${DRIVE}/${encodeURIComponent(ids[i++])}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+          if (!r.ok || !r.body) { await r.body?.cancel(); ctrl.error(new Fail('drive_failed')); return; }
+          reader = r.body.getReader();
+        }
+        const { value, done } = await reader.read();
+        if (done) { reader = null; continue; }
+        if (value?.byteLength) { ctrl.enqueue(value); return; }
+      }
+    },
+    async cancel() { await reader?.cancel(); },
+  });
+}
+// 조각 파일 크기(조각 폴더 바로 아래, 휴지통 아님)의 합.
+async function piecesSize(token: string, ids: string[], folder: string) {
+  let size = 0;
+  for (const id of ids) {
+    const r = await fetch(`${DRIVE}/${encodeURIComponent(id)}?fields=size,trashed,parents`, { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json().catch(() => null);
+    if (!r.ok || d?.trashed !== false || !Array.isArray(d?.parents) || !d.parents.includes(folder) || !/^\d{1,12}$/.test(String(d?.size))) throw new Fail('drive_failed');
+    size += Number(d.size);
+  }
+  return size;
+}
+// 조각을 Drive 휴지통으로(조각 폴더 바로 아래 것만). 모두 끝나면 표시.
+async function trashPieces(seg: Job, token: string, folder: string | null, extra: Record<string, unknown> = {}) {
+  let all = true;
+  if (folder) {
+    for (const id of seg.piece_ids || []) {
+      const result = await moveDriveFileToTrash(fetch, id, folder, token);
+      if (!(result === 'trashed' || result === 'already_trashed' || result === 'not_ours')) all = false;
+    }
+  } else if ((seg.piece_ids || []).length) all = false;
+  if (all) await setRec(seg.id, { ...extra, pieces_trashed_at: new Date().toISOString() });
+}
+// 닫힌 구간 하나 → 한 파일(회의 녹음 폴더) + 전사 작업 한 행 → 조각 휴지통.
+async function combineSegment(userId: string, seg: Job, token: string, pieces: string | null, target: string) {
+  try {
+    if (!pieces) throw new Fail('drive_failed');
+    const size = await piecesSize(token, seg.piece_ids, pieces);
+    if (size <= 0) throw new Fail('drive_failed');
+    if (size > MAX_BYTES) throw new Fail('too_large');
+    const name = segmentFileName(seg.created_at, seg.segment_no, seg.mime_type);
+    const driveId = await driveUpload(token, target, joinPieces(token, seg.piece_ids), name, seg.mime_type, size);
+    const { data: job, error } = await admin.from(TABLE).insert({
+      workspace_id: seg.workspace_id, created_by: userId, status: 'uploaded', drive_file_id: driveId,
+      file_name: name, mime_type: seg.mime_type, size_bytes: size, duration_sec: seg.duration_sec ?? null,
+    }).select('id').single();
+    if (error || !job?.id) {
+      await moveDriveFileToTrash(fetch, driveId, target, token).catch(() => 'unknown');
+      throw new Fail('failed');
+    }
+    if (!(await setRec(seg.id, { status: 'combined', error_code: null, job_id: job.id }, { status: 'closed' }))) {
+      // 다른 호출이 먼저 합쳤다: 이 사본은 버린다(휴지통 + 작업에 휴지통 표시).
+      await moveDriveFileToTrash(fetch, driveId, target, token).catch(() => 'unknown');
+      await setJob(job.id, { trashed_at: new Date().toISOString() }).catch(() => undefined);
+      return;
+    }
+    await trashPieces(seg, token, pieces).catch(() => undefined);
+  } catch (e) {
+    const code = e instanceof Fail ? e.code : 'drive_failed';
+    // 조각은 그대로 두고 닫힌 상태로 남긴다(다시 부르면 다시 합침). 너무 크면 실패로 둔다.
+    await setRec(seg.id, code === 'too_large' ? { status: 'failed', error_code: code } : { error_code: code }, { status: 'closed' }).catch(() => 0);
+    throw e instanceof Fail ? e : new Fail(code);
+  }
+}
+
+// 서버 쪽 정리(이 작업공간만): 합친 구간의 남은 조각 휴지통 다시 시도, 30일 넘게 합치지 못한 구간은 조각 휴지통 + 실패(expired).
+async function sweepRecordings(workspaceId: string) {
+  try {
+    const since = pendingSince(new Date());
+    const { data: done } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('workspace_id', workspaceId).eq('status', 'combined')
+      .is('pieces_trashed_at', null).order('created_at', { ascending: true }).limit(SWEEP_LIMIT);
+    const { data: old } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('workspace_id', workspaceId).in('status', ['recording', 'closed', 'failed'])
+      .is('pieces_trashed_at', null).lt('created_at', since).order('created_at', { ascending: true }).limit(SWEEP_LIMIT);
+    if (!done?.length && !old?.length) return;
+    const token = await driveToken();
+    const folder = await pieceFolder(workspaceId, token, false);
+    for (const seg of done || []) await trashPieces(seg, token, folder);
+    for (const seg of old || []) {
+      await trashPieces(seg, token, folder, seg.status === 'failed' ? {} : { status: 'failed', error_code: 'expired', closed_at: seg.closed_at ?? new Date().toISOString() });
+    }
+  } catch (e) {
+    console.warn('meeting-transcribe: recording sweep skipped', e instanceof Error ? e.message : 'error');
+  }
+}
+
+async function recStart(user: { id: string }, body: Record<string, unknown>) {
+  const workspaceId = String(body.workspace_id || '');
+  await requireOwner(user.id, workspaceId);
+  const mime = recMime(body.mime);
+  let sessionId: string;
+  let segmentNo = 1;
+  if (body.session_id !== undefined && body.session_id !== null && body.session_id !== '') {
+    const rows = await ownSession(user.id, body.session_id);
+    if (rows[0].workspace_id !== workspaceId) throw new Fail('not_found');
+    sessionId = body.session_id as string;
+    segmentNo = nextSegment(rows);
+  } else {
+    sessionId = crypto.randomUUID();
+  }
+  // 작업공간마다 열린 구간은 하나(부분 유일 색인). 남은 것은 먼저 닫는다(조각이 없으면 empty).
+  const now = new Date();
+  const { data: open, error: openError } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('workspace_id', workspaceId).eq('status', 'recording').limit(2);
+  if (openError) throw new Fail('failed');
+  for (const r of open || []) await setRec(r.id, closePatch(r, now), { status: 'recording' });
+  const { data, error } = await admin.from(REC_TABLE).insert({
+    workspace_id: workspaceId, created_by: user.id, session_id: sessionId, segment_no: segmentNo, mime_type: mime,
+  }).select('id').single();
+  if (error || !data?.id) throw new Fail(error?.code === '23505' ? 'busy' : 'failed');
+  return json({ ok: true, recording_id: data.id, session_id: sessionId, segment_no: segmentNo, piece_seconds: REC_PIECE_SECONDS, segment_seconds: REC_SEGMENT_SECONDS });
+}
+
+async function recPiece(req: Request, user: { id: string }) {
+  const piece = parsePiece({
+    recordingId: req.headers.get('x-recording-id'), seq: req.headers.get('x-piece-seq'),
+    length: req.headers.get('content-length'), seconds: req.headers.get('x-duration-sec'),
+  });
+  if (!req.body) throw new Fail('bad_request');
+  const rec = await ownRecording(user.id, piece.recordingId);
+  const decision = pieceDecision(rec, piece.seq, piece.size);
+  if (decision.action === 'already') {
+    await req.body.cancel().catch(() => undefined);
+    return json({ ok: true, already: true, pieces: (rec.piece_ids || []).length });
+  }
+  const token = await driveToken();
+  const folder = await pieceFolder(rec.workspace_id, token, true);
+  if (!folder) throw new Fail('drive_failed');
+  const driveId = await driveUpload(token, folder, req.body, pieceFileName(rec.id, piece.seq, rec.mime_type), rec.mime_type, piece.size);
+  const patch = appendPatch(rec, driveId, piece.size, piece.duration, new Date());
+  // 읽은 뒤 아무도 고치지 않았을 때만 더한다(같은 조각이 동시에 두 번 와도 하나만 남김).
+  const { data, error } = await admin.from(REC_TABLE).update(patch).eq('id', rec.id).eq('status', 'recording').eq('updated_at', rec.updated_at).select('id');
+  if (error || !data?.length) {
+    await moveDriveFileToTrash(fetch, driveId, folder, token).catch(() => 'unknown');
+    if (error) throw new Fail('failed');
+    const now = await ownRecording(user.id, rec.id);
+    if (piece.seq <= (now.piece_ids || []).length) return json({ ok: true, already: true, pieces: now.piece_ids.length });
+    pieceDecision(now, piece.seq, piece.size); // 닫혔으면 rec_closed, 순서가 바뀌었으면 piece_gap
+    throw new Fail('busy');
+  }
+  return json({ ok: true, pieces: patch.piece_ids.length, size_bytes: patch.size_bytes });
+}
+
+async function recFinish(user: { id: string }, body: Record<string, unknown>) {
+  const started = Date.now();
+  let rows = await ownSession(user.id, body.session_id);
+  const ws = rows[0].workspace_id as string;
+  const now = new Date();
+  for (const r of rows) if (r.status === 'recording') await setRec(r.id, closePatch(r, now), { status: 'recording' });
+  rows = await ownSession(user.id, body.session_id);
+  let more = false;
+  const pending = toCombine(rows);
+  if (pending.length) {
+    const token = await driveToken();
+    const pieces = await pieceFolder(ws, token, false);
+    const target = await recordingFolder(ws, token, true);
+    if (!target) throw new Fail('drive_failed');
+    for (const seg of pending) {
+      if (Date.now() - started > REC_FINISH_BUDGET_MS) { more = true; break; }
+      await combineSegment(user.id, seg, token, pieces, target);
+    }
+    rows = await ownSession(user.id, body.session_id);
+  }
+  return json({ ok: true, session_id: body.session_id, more, segments: rows.filter(r => r.status !== 'empty').map(segmentView) });
+}
+
+async function recPending(user: { id: string }, body: Record<string, unknown>) {
+  const workspaceId = String(body.workspace_id || '');
+  await requireOwner(user.id, workspaceId);
+  await sweep(workspaceId);
+  await sweepRecordings(workspaceId);
+  const now = new Date();
+  const { data: rows, error } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('workspace_id', workspaceId).eq('created_by', user.id)
+    .gte('created_at', pendingSince(now)).order('created_at', { ascending: false }).limit(200);
+  if (error) throw new Fail('failed');
+  const ids = [...new Set((rows || []).map(r => r.job_id).filter(Boolean))] as string[];
+  let jobs: Job[] = [];
+  if (ids.length) {
+    const { data, error: jobError } = await admin.from(TABLE).select('id,status').in('id', ids);
+    if (jobError) throw new Fail('failed');
+    jobs = data || [];
+  }
+  return json({ ok: true, sessions: pendingSessions(rows || [], jobs, now) });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ ok: false, error: 'POST only' }, 405);
@@ -318,6 +567,7 @@ Deno.serve(async (req: Request) => {
     const userDb = userClient(req);
     const action = new URL(req.url).searchParams.get('action') || '';
     if (action === 'upload') return await upload(req, user, userDb);
+    if (action === 'rec_piece') return await recPiece(req, user);
     const raw = await req.text();
     if (raw.length > 4096) throw new Fail('bad_request');
     let body: Record<string, unknown> = {};
@@ -326,10 +576,14 @@ Deno.serve(async (req: Request) => {
     if (action === 'config') return await config(user, userDb, body);
     if (action === 'transcribe') return await transcribe(user, userDb, body);
     if (action === 'attach') return await attach(user, userDb, body);
+    if (action === 'rec_start') return await recStart(user, body);
+    if (action === 'rec_finish') return await recFinish(user, body);
+    if (action === 'rec_pending') return await recPending(user, body);
     throw new Fail('bad_request');
   } catch (e) {
     if (e instanceof AuthError) return json({ ok: false, code: e.message, error: e.status === 401 ? '로그인이 필요합니다.' : '접근 권한이 없습니다.' }, e.status);
     if (e instanceof Fail) return fail(e.code);
+    if (e instanceof RecFail) return json(recFailBody(e.code, e.extra), (REC_STATUS as Record<string, number>)[e.code] ?? 409);
     console.error('meeting-transcribe: failed', e instanceof Error ? e.message : 'error');
     return fail('failed');
   }
