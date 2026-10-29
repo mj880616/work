@@ -190,7 +190,7 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc .gt-cards{display:grid;gap:0;margin:0;padding:0;list-style:none}
   /* UI-전수디자인점검 F06: 줄마다 바탕 상자 대신 가는 구분선 한 줄(높이 36px) — [완료 동그라미] 제목 … 기한·태그(작은 글자, 오른쪽) [⋯].
      고른 줄은 할 일 색 옅은 바탕 + 테두리. */
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card{position:relative;box-sizing:border-box;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;column-gap:2px;min-height:36px;margin:0;padding:0;border:0;border-top:var(--ds-line-width) solid var(--ds-line);border-radius:0;background:transparent}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card{position:relative;box-sizing:border-box;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;column-gap:2px;min-height:36px;margin:0;padding:0;border:0;border-top:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-none,0);background:transparent}
   #appView #tasksView #gtTaskSection.gt-pc .gt-cards>.gt-card:first-child{border-top:0}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card:hover{background:var(--ds-kind-other-soft)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card.is-selected{background:var(--ds-kind-task-soft);outline:1.5px solid var(--ds-kind-task-ink);outline-offset:-1.5px}

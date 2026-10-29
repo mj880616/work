@@ -80,9 +80,9 @@
 /* UI-전수디자인점검 F18: 일정 수정 창 머리줄 = 제목 · [⋯](작은 목록: [일정 삭제]) · ✕. 아래 줄은 작은 글자 버튼 [결과 남기기]와 채운 [변경사항 저장] 하나. */
 #ciGoogleModal .ci-head-ends{display:inline-flex;align-items:center;gap:2px;flex:none}
 #ciGoogleModal .ci-head-menu-wrap{position:relative;display:inline-flex}
-#ciGoogleModal .ci-head-menu{position:absolute;top:calc(100% + 4px);right:0;z-index:30;box-sizing:border-box;min-width:8.5em;padding:4px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
+#ciGoogleModal .ci-head-menu{position:absolute;top:calc(100% + 4px);right:0;z-index:30;box-sizing:border-box;min-width:8.5em;padding:4px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
 #ciGoogleModal .ci-head-menu[hidden]{display:none}
-#ciGoogleModal .ci-head-menu button{display:block;width:100%;height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:0;padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control);background:transparent;font:inherit;font-size:var(--ds-compact-text);color:var(--kptu-danger);box-shadow:none;cursor:pointer}
+#ciGoogleModal .ci-head-menu button{display:block;width:100%;height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:0;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;font:inherit;font-size:var(--ds-compact-text);color:var(--kptu-danger);box-shadow:none;cursor:pointer}
 #ciGoogleModal .ci-head-menu button:hover{background:var(--kptu-surface-subtle)}
 #ciGoogleModal .ci-head-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 #ciGoogleModal .ci-head-menu button:disabled{opacity:.5;cursor:default}
