@@ -1,6 +1,7 @@
 // MTG-프로젝트합치기 2단계: 사업 보고 화면 위 [사업요약표 미리보기] (docs/design/project-into-report.md 5절).
 // 기간(기본 이번 주, 서울 월~일)의 사업 보고로 한글 문서 모양 미리보기: 위 '1) 요약' 표(사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당),
 // 아래 '2) 세부 내용 — 회의·활동 결과'(날짜순). 줄 세우기는 주간보고 ②와 같은 placeRecords, 보고 한 줄은 주간보고 meetingLine.
+// 한 줄 업데이트(칸 oneline)는 쓴 문장 그대로 칸 맨 위, 2) 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
 // 진행 = 그 사업영역(꼬리표)의 AI 한 줄 요약(설계 12·13절) — 한 줄이 없거나 AI를 못 쓰면 보고 한 줄들. 이후 계획 = '다음 할 일'. 담당 칸은 비움(결정 ③).
 // AI 한 줄: 기간이 월~일 한 주일 때만, 표를 그린 뒤 ai-assist area_week_summary 한 번(표에 나온 꼬리표 id, 20개까지). 서버가 그 주 임시저장 칸에 남긴다.
 //   한 줄 옆 작은 [고치기] → 그 주 임시저장 칸에 고친 줄(edited)로 저장(결정 ⑤, weekly-draft-store.js changeWeekAreaSummary). 보고 줄은 접어 둔다.
@@ -126,10 +127,11 @@ function cellHtml(items,records){
   const progress=items.map(item=>{const rec=records.find(r=>r.day===item.day&&r.text===item.text&&!r.used);if(rec)rec.used=true;return {item,rec}});
   const plans=[...new Set(progress.flatMap(p=>p.rec?.requests||[]))];
   const lineHtml=({item,rec})=>`<button type="button" class="biz-cell-line" ${rec?`data-bp-open="${esc(rec.meeting)}"`:''}>- ${esc(item.label&&item.issue?item.label.split(' › ').at(-1)+': ':'')}${esc(item.text)}</button>`;
-  const groups=new Map(),loose=[];
-  for(const p of progress){const id=String(p.rec?.id||'').toLowerCase();if(!id){loose.push(p);continue}if(!groups.has(id))groups.set(id,[]);groups.get(id).push(p)}
+  // MTG-한줄업데이트: 한 줄 업데이트는 쓴 문장 그대로 칸 맨 위에(AI 한 줄 묶음에 넣지 않음). 누르면 그 보고로.
+  const groups=new Map(),loose=[],ones=[];
+  for(const p of progress){if(p.rec?.oneline){ones.push(p);continue}const id=String(p.rec?.id||'').toLowerCase();if(!id){loose.push(p);continue}if(!groups.has(id))groups.set(id,[]);groups.get(id).push(p)}
   for(const [id,list] of groups){const first=list[0].item;state.areas.set(id,{lines:list.map(lineHtml).join(''),count:list.length,prefix:first.label&&first.issue?first.label.split(' › ').at(-1):''})}
-  return `${[...groups.keys()].map(id=>`<div class="biz-cell-area" data-bp-area="${esc(id)}"></div>`).join('')}${loose.map(lineHtml).join('')}${plans.length?`<p class="biz-cell-plan">→ 이후: ${plans.map(esc).join(' / ')}</p>`:''}`;
+  return `${ones.map(lineHtml).join('')}${[...groups.keys()].map(id=>`<div class="biz-cell-area" data-bp-area="${esc(id)}"></div>`).join('')}${loose.map(lineHtml).join('')}${plans.length?`<p class="biz-cell-plan">→ 이후: ${plans.map(esc).join(' / ')}</p>`:''}`;
 }
 function paperHtml(placed,records,untagged,all,lineOf){
   const rows=[];

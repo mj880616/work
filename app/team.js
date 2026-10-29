@@ -13,7 +13,7 @@ import {REPORT_VIEW_OPTIONS,reportViewOf,shiftMonth,photosByMeeting} from './rep
 import {calendarHtml,photoViewHtml,mountPhotoView,mountStrips} from './report-views.js';
 import {PC_QUERY,NONE_KEY,sortRecentFirst,MEETING_DOCS_LABEL,meetingColumns,columnsHtml,listHtml,pickMeeting,assignMeetingColors,meetingPaletteColor,nameHash,MEETING_HUES,roundLabel,hasRound,meetingShortName} from './meeting-columns.js';
 import {formatMeetingWhen} from './meeting-when.js';
-import {ALL_KINDS,DEFAULT_KIND,REPORT_KINDS,isReportKind,reportKindOf,reportKindLabel,reportKindChips,filterByReportKind} from './report-kinds.mjs';
+import {ALL_KINDS,DEFAULT_KIND,REPORT_KINDS,ONELINE_KIND,isReportKind,isReportChip,reportKindOf,reportKindLabel,reportKindChips,filterByReportKind} from './report-kinds.mjs';
 import {pickReportKind} from './report-kind-sheet.js';
 import {reportWords,isMeetingKind} from './report-words.mjs'; // 칸에 따라 입력 창 글자가 바뀐다
 import {createFieldRows} from './report-entry-rows.js'; // MTG-보고창정리: 칸에 따라 [차수]·[짧은 이름] 줄을 창에 두거나 뺀다
@@ -22,7 +22,7 @@ import {mountSplitResize} from './split-resize.js';
 import {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
 import {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,noteAreaFromMeetings,LEGACY_NOTE} from './report-links.js';
 import {mountAreaFields} from './business-area-fields.js';
-import {areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,reportWeekLabel,reportDay as reportDayOf,weekOf,shiftDays} from './business-area-model.mjs'; // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 + 다음 할 일 칸
+import {NO_AREA,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,reportWeekLabel,reportDay as reportDayOf,weekOf,shiftDays} from './business-area-model.mjs'; // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 + 다음 할 일 칸
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const SESSION_KEY='kptu_collab_session_v1';
@@ -199,8 +199,8 @@ function weekFor(m){const day=reportDayOf(m);if(!weekOn()||!day)return false;con
 // 새로 저장한(고친) 보고는 그 보고의 주로 옮겨 바로 보이게 한다. meetingAt은 쓰기 창의 서울 날짜·시각 'YYYY-MM-DDTHH:MM'.
 function weekOfSaved(at){const day=String(at||'').slice(0,10);if(/^\d{4}-\d{2}-\d{2}$/.test(day))reportWeek=weekOf(day).from}
 function reportRows(){return weekMatch(areaMatch(filterByReportKind(meetings,reportChip)))}
-function renderReportChips(){const host=$('#reportKindFilter');if(!host)return;renderFilterChips(host,{label:'칸',controls:'meetingList',value:reportChip,options:reportKindChips(),onChange:value=>selectReportChip(value)})}
-function selectReportChip(value){const next=value===ALL_KINDS||isReportKind(value)?value:DEFAULT_KIND;if(next===reportChip)return;if(!leaveReport(()=>{reportChip=next;meetingSelectedId=null;renderMeetings({resetList:true})}))renderReportChips()}
+function renderReportChips(){const host=$('#reportKindFilter');if(!host)return;renderFilterChips(host,{label:'칸',controls:'meetingList',value:reportChip,options:reportKindChips(meetings),onChange:value=>selectReportChip(value)})}
+function selectReportChip(value){const next=isReportChip(value)?value:DEFAULT_KIND;if(next===reportChip)return;if(!leaveReport(()=>{reportChip=next;meetingSelectedId=null;renderMeetings({resetList:true})}))renderReportChips()}
 function meetingColumnList(){return meetingColumns(weekMatch(areaMatch(filterByReportKind(meetings,DEFAULT_KIND))),{nameOf:meetingName,keyOf:meetingNameKey})}
 function selectedMeetingColumn(columns=meetingColumnList()){return columns.find(c=>c.key===meetingSelectedKind)||columns[0]||null}
 function renderMeetingRows(box){renderMeetingTypeOptions();const chip=reportChip,filter=chip===DEFAULT_KIND?$('#meetingTypeFilter')?.value||'all':'all';const rows=sortRecentFirst(reportRows().filter(m=>filter==='all'||(filter==='__none__'?!meetingName(m):meetingName(m)===filter)));box.innerHTML=rows.map(m=>{const related=documents.filter(d=>d.meeting_id===m.id),color=meetingColor(meetingName(m)),name=meetingName(m)||'회의명 미지정',meta=[chip===ALL_KINDS?reportKindLabel(reportKindOf(m)):null,...meetingRowMeta(m),areaNameOf(m),related.length?MEETING_DOCS_LABEL:null].filter(Boolean).join(' · ');return `<article class="item-card meeting-list-row" data-mrd-meeting="${esc(m.id)}" data-report-kind="${esc(reportKindOf(m))}"${color?` style="--meeting-color:${color}"`:''} role="button" tabindex="0"><div class="meeting-list-main"><div class="meeting-list-title"><h3>${esc(name)}</h3></div><p>${esc(meta)}</p></div></article>`}).join('')||`<div class="empty">${chip===DEFAULT_KIND||chip===ALL_KINDS?'조건에 맞는 사업 보고가 없습니다.':'이 칸에 사업 보고가 없습니다.'}</div>`}
@@ -335,7 +335,9 @@ function paintEntryWords(){
 }
 function paintEntryKind(){const host=$('#meetingKindPick');if(!host)return;renderFilterChips(host,{label:'칸',value:entryKind(),options:REPORT_KINDS.map(k=>({value:k.value,label:k.label})),onChange:value=>{meetingEntryKind=value;paintEntryKind()}});paintEntryWords()}
 // [+]: [전체] 칩이면 칸 고르기 창을 먼저 열고, 다른 칩이면 그 칸이 채워진 입력 창을 바로 연다.
-function newReport(trigger){if(reportChip!==ALL_KINDS){openMeetingModal({name:newMeetingName(),kind:reportChip});return}pickReportKind(trigger,{title:'어느 칸에 남길까요?',onPick:kind=>openMeetingModal({kind,trigger})})}
+// MTG-한줄업데이트: [전체]의 [+] 메뉴 맨 위 [한 줄 업데이트], [한 줄] 칩에서 [+]는 바로 한 줄 창. 사업영역 칩을 고른 채면 그 사업영역을 미리 고른다.
+function openOnelineEntry(trigger){const area=areaChip!=='all'&&areaChip!==NO_AREA?areaChip:'';import('./report-oneline.js').then(m=>m.openOneline(trigger,{areaId:area,onSaved:row=>{const day=seoulDateKey(row.meeting_at);if(day)reportWeek=weekOf(day).from;renderMeetings({resetList:true})}}),err=>toast(err?.message||'한 줄 업데이트 창을 열지 못했습니다.'))}
+function newReport(trigger){if(reportChip===ONELINE_KIND){openOnelineEntry(trigger);return}if(reportChip!==ALL_KINDS){openMeetingModal({name:newMeetingName(),kind:reportChip});return}pickReportKind(trigger,{title:'어느 칸에 남길까요?',onPick:kind=>openMeetingModal({kind,trigger}),onOneline:()=>openOnelineEntry(trigger)})}
 function openMeetingModal({name='',kind=DEFAULT_KIND,trigger=document.activeElement,targets=[],at='',date='',location='',text='',onSaved=null}={}){meetingEntryOnSaved=onSaved;meetingEntryKind=isReportKind(kind)?kind:DEFAULT_KIND;entryRoundRows.paint(true);['meetingTitle','meetingAt','meetingNotes','meetingRoundNo','meetingShortName','meetingTranscript'].forEach(id=>{if($('#'+id))$('#'+id).value=''});meetingRoundEdited=false;meetingUploadEntries=[];renderMeetingSelectedFiles();if($('#meetingFiles'))$('#meetingFiles').value='';$('#meetingProject').innerHTML=projectOptions(true);meetingEntryTargets=targetList(targets);entryNames=new Map();$('#meetingAt').value=defaultReportAt({at,date});if($('#meetingLocation'))$('#meetingLocation').value=location||'';if(text)$('#meetingTranscript').value=text;paintEntryPlaces();areaFields()?.start({areaId:firstProjectId(meetingEntryTargets)||''});void locationAvailable().then(ok=>{const row=$('#meetingLocationRow');if(row)row.hidden=!ok},()=>{});installMeetingNamePicker($('#meetingTitle'),'meeting');setupMeetingNamePicker($('#meetingNameSelect'),$('#meetingTitle'),$('#meetingNameMatch'),$('#meetingNameUseMatch'),{current:name,names:meetingNameChoices(DEFAULT_KIND),onChoose:suggestMeetingRound,onCustom:()=>{const round=$('#meetingRoundNo');if(round&&!meetingRoundEdited)round.value=''}});paintEntryKind();openModal('meetingModal',{trigger,initialFocus:isMeetingKind(meetingEntryKind)&&meetingNameChoices(DEFAULT_KIND).length?'#meetingNameSelect':'#meetingTitle'})}
 function bind(){
  $('#bootRetryBtn').onclick=()=>location.reload();$('#bootLogoutBtn').onclick=logout;$('#accessDeniedLogoutBtn').onclick=logout;

@@ -11,13 +11,19 @@ export const REPORT_KINDS=Object.freeze([
   {value:'other',label:'기타'}
 ].map(Object.freeze));
 export const ALL_KINDS='all';
+// MTG-한줄업데이트(요청 10/29 08:59): '한 줄 업데이트' = 사업영역 꼬리표를 단 가벼운 사업 보고 한 건(DB 값 'oneline', 20261029160000).
+// 여덟 칸과 따로 둔다: 쓰기 창의 칸 고르기·[칸 바꾸기]에는 나오지 않고, [+] 메뉴 맨 위 [한 줄 업데이트]로만 만든다(report-oneline.js).
+export const ONELINE_KIND='oneline';
+export const isOnelineReport=row=>row?.activity_kind===ONELINE_KIND;
 export const DEFAULT_KIND='meeting';
 const KNOWN=new Set(REPORT_KINDS.map(k=>k.value));
 export const isReportKind=value=>KNOWN.has(value);
 // 행의 칸. 열이 없거나 비어 있으면(옛 응답) '회의', 모르는 값이면 '기타'로 보이게 한다(화면이 깨지지 않게). 저장에는 쓰지 않는다.
-export function reportKindOf(row){const v=row?.activity_kind;if(v==null||v==='')return DEFAULT_KIND;return KNOWN.has(v)?v:'other'}
-export function reportKindLabel(value){return REPORT_KINDS.find(k=>k.value===value)?.label||'기타'}
-// 위쪽 칩 줄: [전체] 다음 여덟 칸.
-export const reportKindChips=()=>[{value:ALL_KINDS,label:'전체'},...REPORT_KINDS.map(k=>({value:k.value,label:k.label}))];
+export function reportKindOf(row){const v=row?.activity_kind;if(v==null||v==='')return DEFAULT_KIND;if(v===ONELINE_KIND)return ONELINE_KIND;return KNOWN.has(v)?v:'other'}
+export function reportKindLabel(value){if(value===ONELINE_KIND)return '한 줄';return REPORT_KINDS.find(k=>k.value===value)?.label||'기타'}
+// 위쪽 칩 줄: [전체] 다음 여덟 칸. 한 줄 업데이트가 하나라도 있으면(rows) 맨 끝에 [한 줄].
+export const reportKindChips=(rows=[])=>[{value:ALL_KINDS,label:'전체'},...REPORT_KINDS.map(k=>({value:k.value,label:k.label})),...((rows||[]).some(isOnelineReport)?[{value:ONELINE_KIND,label:'한 줄'}]:[])];
+// 칩으로 고를 수 있는 값: [전체]·여덟 칸·[한 줄].
+export const isReportChip=value=>value===ALL_KINDS||value===ONELINE_KIND||KNOWN.has(value);
 // 칩 값으로 거르기: [전체]는 전부, 다른 칩은 그 칸만.
 export function filterByReportKind(rows,chip){return (rows||[]).filter(r=>chip===ALL_KINDS||reportKindOf(r)===chip)}

@@ -21,7 +21,7 @@ import {waitHtml} from './wait-state.js';
 // (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping) — except the request rows, which journal.js saves through
 // weekly-exec-requests.js. journal.js stays the only renderer of #journalRoot and calls
 // renderWeekly() into the box it owns.
-import {weeklyAreaRecords, summarizeAreaRecords} from './business-area-model.mjs';
+import {weeklyAreaRecords, summarizeAreaRecords, isOneline} from './business-area-model.mjs';
 import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
   compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, OTHERS, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
@@ -67,7 +67,7 @@ export function placeRecords(records, tree) {
   }
   const others = new Map();
   const ordered = records.map((record, index) => ({record, index, node:nodes.get(record.id)}))
-    .sort((a, b) => (a.node?.order ?? 0) - (b.node?.order ?? 0) || String(a.record.day).localeCompare(String(b.record.day)) || Date.parse(a.record.at) - Date.parse(b.record.at) || a.index - b.index);
+    .sort((a, b) => (a.node?.order ?? 0) - (b.node?.order ?? 0) || (b.record.first ? 1 : 0) - (a.record.first ? 1 : 0) || String(a.record.day).localeCompare(String(b.record.day)) || Date.parse(a.record.at) - Date.parse(b.record.at) || a.index - b.index);
   for (const {record, node} of ordered) {
     const item = {day:record.day, text:record.text, requests:record.requests || [], ...(record.file ? {file:record.file} : {})};
     if (!node) {
@@ -210,6 +210,8 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const rawMeetings = kinds?.status === 'loading' ? [] : (() => {
     const list = kinds?.status === 'ok' ? kinds.list : null, read = ok(m, 'meetings'), items = [], off = new Map();
     for (const day of days) for (const meeting of read ? meetingsOn(read, day) : []) {
+      // MTG-한줄업데이트: 한 줄 업데이트는 ② 사업 요약 표에만(③ 회의·활동 결과에는 넣지 않음 — 겹침 방지).
+      if (isOneline(meeting)) continue;
       const name = meetingKindName(meeting), key = meetingKindKey(name);
       if (!reportsMeeting(meeting, list)) { const entry = off.get(key) || off.set(key, {key, name, count:0}).get(key); entry.count++; continue; }
       items.push({day, text:meetingLine(meeting), kind:key, kindName:name, ref:meetingRef(meeting.id), targets:meeting.link_targets || []});
