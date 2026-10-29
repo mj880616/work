@@ -251,6 +251,6 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
   return {
     paint, boardView, attach, detach, move,
     current:() => current, isNamed:named, name:boardName,
-    reset() { closeMenu(); picker?.close(); openSet = new Set(); },
+    reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); },
   };
 }
