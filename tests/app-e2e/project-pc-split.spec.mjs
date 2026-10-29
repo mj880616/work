@@ -216,7 +216,7 @@ for(const width of [412,884,1440])test(`UI-돌아가기머리줄 ${width}: 사�
  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
  await expectOneBack(page,width<761?'‹ 사업영역':'‹ 합성 정책 사업');
  await page.locator('#basketView [data-basket-return]').click();
- await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expectProjectTitle(page,'합성 정책 사업');await expect.poll(()=>top(basketLine(page))).toBe(before);
+ await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');await expect.poll(()=>top(basketLine(page))).toBe(before);
  if(width<1024){await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden()}
  // 정리함 목록에서 열면 '‹ 정리함' 그대로.
  await clickView(page,'basket');await page.locator('[data-basket-filter="classified"]').click();await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
