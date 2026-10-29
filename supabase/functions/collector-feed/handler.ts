@@ -37,6 +37,12 @@
 //   통화 숫자의 뜻(2단계 정리): total_count = 받은 전사 수(업무·개인함 저장·개수만 모두), kept_count = 업무 통화함에 저장한 줄,
 //   personal_count·unsure_count = 줄 없이 **개수만** 센 통화(요약 없는 옛 개인 기록 등. 개인 통화함에 저장한 통화는 세지 않는다: 그 수는 개인 표의 실제 줄 수),
 //   failed_count = 판정 실패.
+// - POST ?action=telegram_senders(TG-발언자이름 소급, 설계 telegram-sender-names.md 3.3절 방법 나): 앱 스크립트 1회용 tgFeed_backfillSenders가
+//   Drive에 남은 지난 메시지로 다시 만든 방·하루치 이름표만 보낸다. 몸통은 {day, room_key, senders:[{label, key, name?, self?}]}만(key 필수, 1~40명).
+//   형식 검사는 telegram의 senders와 같은 parseSenders를 쓰되, 어디가 틀리면 400(소식이 없으니 버리고 계속할 것이 없다).
+//   DB 함수 app_tg_senders_upsert만 부른다. 메시지·소식(app_feed_items)·AI·방 표·하루 숫자(app_feed_days)는 건드리지 않는다.
+//   이미 있는 방/날짜 연결은 DB 함수가 바꾸지 않는다(충돌 수만 셈). auto_name·is_self는 DB 함수 규칙대로(coalesce) 채운다.
+//   하루 상한은 telegram 묶음 상한과 따로, 인스턴스 메모리로 SENDERS_BACKFILL_DAILY(500)회. 응답·로그에는 건수와 단계 코드만(이름·키 없음).
 // - POST ?action=context(CALL-맥락문서·CALL-맥락사람): 읽기 전용. 몸통은 `{}`만. 담당조직(쓰지 않음 제외)·진행 중 프로젝트의 **이름 문자열**과
 //   "조직 — 이름 직함" 목록을 돌려준다(context.ts). 사람 목록은 읽기 전용 DB 함수 app_call_context_people(service_role 실행)만 부르고(표는 직접 읽지 않음),
 //   함수가 없으면(404) 지금처럼 이름만 돌려준다. DB에 쓰지 않는다. 하루 20회 상한은 인스턴스 메모리로만 센다. 번호·메모·통화 내용·ID는 응답에 없다.
@@ -107,6 +113,8 @@ const SENDERS_MAX = 40;
 // 이름 칸에 전화번호·@아이디가 들어오면 이름만 버린다(수집기 계약상 오면 안 되는 값, 설계 4절).
 const SENDER_NAME_REJECT = /^@|^\+?[\d\s().-]{7,}$/;
 export const SENDERS_FN = "app_tg_senders_upsert";
+// 소급 보내기(action=telegram_senders) 하루 상한. telegram 묶음 상한(DAILY_LIMITS.telegram)과 따로 센다(인스턴스 메모리, context와 같은 방식).
+export const SENDERS_BACKFILL_DAILY = 500;
 export const NAMES_FN = "app_tg_sender_names_for_day";
 // TG-방날짜묶기: 방 정보·하루 요약 DB 함수(migration 20261027010000, service_role 전용).
 export const ROOM_TOUCH_FN = "app_feed_room_touch";
@@ -225,7 +233,8 @@ function parseRoomInfo(b: Record<string, unknown>) {
   return { chat_kind, chat_username, open_ref, dropped };
 }
 // 선택 칸 senders 검사. 어디가 틀렸든 요청 전체를 막지 않고 senders만 버린다(소식 저장 우선). 이름·키 값은 어디에도 남기지 않는다.
-function parseSenders(raw: unknown, labelsInMessages: Set<string>) {
+// labelsInMessages가 null이면(소급 보내기) 메시지와 맞춰 보지 않고 모든 라벨을 받는다.
+function parseSenders(raw: unknown, labelsInMessages: Set<string> | null) {
   const empty = { senders: [] as TgSender[], invalid: false, skipped: 0, oddDropped: 0 };
   if (raw === undefined) return empty;
   const bad = { ...empty, invalid: true };
@@ -256,7 +265,7 @@ function parseSenders(raw: unknown, labelsInMessages: Set<string>) {
       entry.self = e.self;
     }
     // 이 묶음의 메시지에 없는 라벨은 건너뛴다(묶음이 나뉘면 같은 목록이 모든 묶음에 오므로 오류가 아니다).
-    if (!labelsInMessages.has(entry.label)) { skipped++; continue; }
+    if (labelsInMessages && !labelsInMessages.has(entry.label)) { skipped++; continue; }
     out.push(entry);
   }
   return { senders: out, invalid: false, skipped, oddDropped };
@@ -299,6 +308,18 @@ export function parseTelegramBody(b: Record<string, unknown>, today: string): Te
     senders: sp.senders, sendersInvalid: sp.invalid, sendersSkipped: sp.skipped, oddDropped: sp.oddDropped,
     chat_kind: room.chat_kind, chat_username: room.chat_username, open_ref: room.open_ref, roomInfoDropped: room.dropped,
   };
+}
+
+// 소급 보내기 몸통(action=telegram_senders). 정해진 세 칸만, key 없는 사람은 받지 않는다(키 없이 새 사람을 만들지 않게).
+type SendersInput = { day: string; room_key: string; senders: TgSender[]; oddDropped: number };
+export function parseSendersBody(b: Record<string, unknown>, today: string): SendersInput {
+  if (!exactKeys(b, ["day", "room_key", "senders"])) throw new Fail(400, "INVALID_BODY");
+  if (!validDay(b.day, today)) throw new Fail(400, "INVALID_BODY");
+  if (typeof b.room_key !== "string" || !ROOM_KEY.test(b.room_key)) throw new Fail(400, "INVALID_BODY");
+  if (!Array.isArray(b.senders) || !b.senders.length) throw new Fail(400, "INVALID_BODY");
+  const sp = parseSenders(b.senders, null);
+  if (sp.invalid || !sp.senders.length || sp.senders.some((s) => !s.key)) throw new Fail(400, "INVALID_BODY");
+  return { day: b.day, room_key: b.room_key, senders: sp.senders, oddDropped: sp.oddDropped };
 }
 
 // ---- DB(service role, 칸별 grant 안) ---------------------------------------------------------------------------------
@@ -532,6 +553,19 @@ async function saveSenders(db: Db, ws: string, input: TelegramInput, log: Log) {
   } catch { log("telegram_senders_failed", { stage: "INTERNAL" }); }
 }
 
+// 소급 보내기: 이름표 함수 하나만 부른다. 실패하면 503으로 알려 앱 스크립트가 그 자리에서 멈추고 다음 실행에서 이어 하게 한다.
+async function runTelegramSenders(db: Db, ws: string, input: SendersInput, log: Log) {
+  if (input.oddDropped) log("telegram_senders_name_dropped", { count: input.oddDropped });
+  const r = await db.rpcObject(SENDERS_FN, { p_workspace: ws, p_room_key: input.room_key, p_day: input.day, p_senders: input.senders });
+  if (!r.ok) {
+    log("telegram_senders_backfill_failed", { stage: r.code });
+    throw new Fail(503, r.code === "FN_MISSING" || r.code === "DB_UNAVAILABLE" ? "DB_UNAVAILABLE" : "SENDERS_FAILED");
+  }
+  const out = { people: num(r.value.people), linked: num(r.value.linked), conflicts: num(r.value.conflicts) };
+  log("telegram_senders_backfill_saved", { sent: input.senders.length, ...out });
+  return { ok: true, ...out, name_dropped: input.oddDropped };
+}
+
 // 방 정보·하루 요약 저장(TG-방날짜묶기 2단계). 소식 저장 뒤에 부른다. 실패해도 던지지 않는다: 소식은 이미 저장됐고, 로그에는 단계 코드만 남긴다.
 // touch가 실패해도 day_add는 따로 시도한다(서로 다른 표). 방 이름·아이디·요약·열기 값은 로그에 넣지 않는다.
 async function saveRoomDay(db: Db, ws: string, input: TelegramInput, batch: string, day: TgDay | null, log: Log, cumulative = false) {
@@ -730,6 +764,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const log: Log = deps.log ?? ((code, detail) => console.error(JSON.stringify({ fn: "collector-feed", code, ...(detail ?? {}) })));
   const contextUse = { day: "", n: 0 };
+  const sendersUse = { day: "", n: 0 };
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response(null, { status: 204 });
     if (req.method !== "POST") return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
@@ -741,7 +776,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      if (action !== "call" && action !== "call_skip" && action !== "telegram" && action !== "context") throw new Fail(400, "UNKNOWN_ACTION");
+      if (action !== "call" && action !== "call_skip" && action !== "telegram" && action !== "telegram_senders" && action !== "context") throw new Fail(400, "UNKNOWN_ACTION");
       const length = Number(req.headers.get("content-length") || 0);
       if (length > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
@@ -763,6 +798,14 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
         const ctx = buildContext(orgs, spaces, found === "missing" ? [] : found.rows);
         log("context_served", { organizations: ctx.organizations.length, projects: ctx.projects.length, people: ctx.people.length, people_fn: found === "missing" ? "missing" : "ok" });
         return json({ ok: true, ...ctx });
+      }
+      if (action === "telegram_senders") {
+        const sin = parseSendersBody(b, today);   // 몸통을 먼저 다 검사한 뒤에 센다·DB에 간다
+        if (sendersUse.day !== today) { sendersUse.day = today; sendersUse.n = 0; }
+        if (sendersUse.n >= SENDERS_BACKFILL_DAILY) throw new Fail(429, "DAILY_LIMIT");
+        sendersUse.n++;
+        const sdb = makeDb(sb, key, doFetch);
+        return json(await runTelegramSenders(sdb, await workspaceId(sdb, "telegram"), sin, log));
       }
       // 몸통을 먼저 다 검사한 뒤에 DB에 간다.
       const input = action === "call" ? parseCallBody(b) : action === "call_skip" ? parseSkipBody(b, today) : parseTelegramBody(b, today);
