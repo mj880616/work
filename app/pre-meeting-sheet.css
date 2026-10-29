@@ -1,0 +1,35 @@
+/* FEAT-1029묶음 ② 교섭·회의 전 한 장. 공용 그리기(prep-sheet-view.js)의 'pms' 모양 — 다음 주 준비 한 장([주간 정리] .journal-next-*)과 같은 크기·간격.
+   콤팩트: 제목 한 줄(만든 시각·[다시 만들기] 오른쪽), 보조 줄, 핵심 세 가지, 접힌 묶음 한 줄씩. 폰은 하단 탭 바로 위에서 올라오는 시트. */
+.pms{ display:flex; flex-direction:column; gap:4px; font-size:var(--kptu-text-body); line-height:1.5; color:var(--kptu-ink); overflow-wrap:anywhere; outline:none; }
+.pms-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 8px; }
+.pms-head > .pms-title{ margin:0; font-size:var(--kptu-text-body); font-weight:700; color:var(--kptu-ink); }
+.pms-meta{ display:inline-flex; align-items:center; gap:6px; }
+.pms-muted{ color:var(--kptu-muted); font-size:var(--kptu-text-small, 12px); }
+.pms-subline, .pms-note, .pms-foot{ margin:0; }
+.pms-note.is-error{ color:var(--kptu-danger, var(--kptu-ink)); }
+.pms-sub{ margin:2px 0 0; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-muted); }
+.pms-top{ margin:0; padding-left:20px; }
+.pms-group > summary{ cursor:pointer; line-height:1.6; }
+.pms-label{ font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); }
+.pms-list{ list-style:none; margin:2px 0 4px; padding:0 0 0 4px; display:flex; flex-direction:column; gap:2px; }
+.pms-day{ display:inline-block; min-width:5.5em; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+.pms-ai{ color:var(--kptu-ink); }
+button.pms-open, button.pms-tag, button.pms-line{ position:relative; border:0; background:none; padding:0; margin:0; font:inherit; color:var(--kptu-primary-ink, var(--kptu-ink)); text-align:left; cursor:pointer; }
+button.pms-open::after, button.pms-tag::after, button.pms-line::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - 16px); height:32px; }
+button.pms-tag{ font-size:var(--kptu-text-small, 12px); color:var(--kptu-muted); text-decoration:underline; text-underline-offset:2px; }
+button.pms-btn{ height:var(--ds-compact-height, 32px); padding:0 10px; border:var(--ds-line-width, 1px) solid var(--ds-line); border-radius:var(--ds-radius-box, 6px); background:var(--kptu-surface, transparent); color:var(--kptu-ink); font:inherit; font-size:var(--kptu-text-small, 12px); cursor:pointer; }
+button.pms-open:focus-visible, button.pms-tag:focus-visible, button.pms-line:focus-visible, button.pms-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink, currentColor); outline-offset:2px; }
+@media(hover:hover){ button.pms-open:hover, button.pms-line:hover{ text-decoration:underline; text-underline-offset:2px; } }
+/* 여는 줄(일정 수정 창·담당조직 상세). */
+.pms-line-host{ display:flex; flex-direction:column; gap:2px; margin:2px 0 6px; font-size:var(--kptu-text-body); }
+.pms-line-host[hidden]{ display:none; }
+.pms-past > summary{ cursor:pointer; color:var(--kptu-muted); }
+/* 창: 폰은 하단 탭 바로 위에서 올라오는 시트(탭을 덮지 않음). PC는 보통 작은 창. */
+#pmsModal .pms-card{ max-width:560px; }
+@media (max-width:760px){
+  #pmsModal{ align-items:flex-end; }
+  #pmsModal .pms-card{ width:100%; max-width:none; margin:0; border-radius:12px 12px 0 0;
+    margin-bottom:calc(var(--kptu-mobile-tab-height, 0px) + env(safe-area-inset-bottom));
+    max-height:calc(100dvh - 24px - var(--kptu-mobile-tab-height, 0px) - env(safe-area-inset-bottom)); overflow:auto; }
+  html:has(body.kptu-mobile-keyboard) #pmsModal .pms-card{ margin-bottom:0; }
+}
