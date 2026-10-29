@@ -188,19 +188,23 @@
     const view=controlView(control);
     if(!control||!view||viewLoader.isLoaded(view))return;
     event.preventDefault();event.stopImmediatePropagation();
-    // UI-기다림표시통일: 메뉴 화면 프로그램을 처음 받는 동안 글자 없이 위쪽 가는 줄 하나(0.4초 안에 끝나면 안 보임). 민트 상자 쓰지 않음.
+    loadThen(view,()=>{
+      if(control.dataset?.view||control.dataset?.goto||control.dataset?.hdvGoto)window.KPTURouter?.go?.(view,{source:'delegated'});
+      else control.click();
+    },()=>control.click());
+  },true);
+  // UI-기다림표시통일: 메뉴 화면 프로그램을 처음 받는 동안 글자 없이 위쪽 가는 줄 하나(0.4초 안에 끝나면 안 보임). 민트 상자 쓰지 않음.
+  // 실패하면 공용 실패 줄(showFeatureError)과 [다시]. 위 위임 클릭과 openView(⋯ 메뉴처럼 #appView 밖에서 화면을 여는 곳)가 같은 길을 쓴다.
+  function loadThen(view,then,retry){
     let status=document.querySelector('#deferredFeatureStatus');
     if(!status){const t=document.createElement('template');t.innerHTML=wait.barHtml();status=t.content.firstElementChild;status.id='deferredFeatureStatus';document.querySelector('#appView .app-nav')?.after(status)}
     document.querySelector('#deferredFeatureError')?.remove();
-    const open=()=>viewLoader.load(view).then(()=>{
-      status.remove();
-      if(control.dataset?.view||control.dataset?.goto||control.dataset?.hdvGoto)window.KPTURouter?.go?.(view,{source:'delegated'});
-      else control.click();
-    }).catch(err=>{status.remove();showFeatureError(err,()=>control.click())});
-    open();
-  },true);
+    return viewLoader.load(view).then(()=>{status.remove();then()}).catch(err=>{status.remove();showFeatureError(err,retry)});
+  }
+  // BIZ-버튼줄정리: 공용 메뉴 판(anchored-menu, body에 붙음)의 항목이 화면을 열 때 쓰는 길 — 위 [data-view] 위임 클릭과 같은 기다림·실패 표시.
+  const openView=name=>{const view=viewLoader.normalize(name);const go=()=>window.KPTURouter?.go?.(view,{source:'delegated'});if(viewLoader.isLoaded(view)){go();return Promise.resolve()}return loadThen(view,go,()=>openView(view))};
 
-  window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load};
+  window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load,openView};
   startup?.mark('requestedViewLoadStart',{view:requested});
   let result={ok:false,view:requested};
   try{

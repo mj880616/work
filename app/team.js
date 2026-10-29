@@ -362,7 +362,7 @@ window.__KPTU_TEAM_READY__=init().then(result=>{const state=result==='error'?'er
 window.addEventListener('kptu:documents-changed',()=>{if(workspace?.id&&teamViewLoaded.has('meetings'))reload(['documents'],renderMeetings).catch(err=>console.error('meeting document count refresh failed',err))});
 /* BIZ-버튼줄정리(10/29 시안 B): 사업 보고 위쪽 줄 ⋯ 메뉴 두 줄 — 사업요약표 미리보기 · 사업영역 관리. 공용 메뉴 부품(anchored-menu.js: ⋯ 바로 아래 오른쪽 맞춤,
    바깥 누르기·Esc·뒤로가기로 닫힘)과 공용 글자 줄 모양(.topline-add-menu). 미리보기는 ⋯를 기준 자리로 연다(전에는 줄의 [사업요약표 미리보기] 버튼).
-   [사업영역 관리]는 메뉴가 닫힌 뒤 지연 불러오기(KPTUViewLoader) → 라우터로 연다(MTG-프로젝트합치기 3단계와 같은 화면). */
+   [사업영역 관리]는 메뉴가 닫힌 뒤 loader-v2의 openView(메뉴 [data-view] 위임 클릭과 같은 기다림 줄·실패 줄 [다시])로 연다. */
 function bindReportMore(){
   const more=$('#reportMore');if(!more||more.dataset.reportMoreBound)return;more.dataset.reportMoreBound='1';
   let menu=null;
@@ -372,7 +372,7 @@ function bindReportMore(){
         render:()=>'<button type="button" data-report-preview>사업요약표 미리보기</button><button type="button" data-report-areas>사업영역 관리</button>',
         onAction:(b,{trigger})=>{
           if(b.matches('[data-report-preview]'))return void import('./report-summary-preview.js').then(m=>m.openReportPreview(trigger,{meetings:()=>meetings}),err=>toast(err?.message||'미리보기를 열지 못했습니다.'));
-          if(b.matches('[data-report-areas]'))return void Promise.resolve(window.KPTUViewLoader?.load?.('projects')).then(()=>window.KPTURouter?.go?.('projects',{source:'delegated'}),err=>toast(err?.message||'사업영역 관리를 열지 못했습니다.'));
+          if(b.matches('[data-report-areas]'))return void window.KPTUDeferredFeatures?.openView?.('projects');
         }});
       window.KPTURouter?.on?.('projects',()=>{if(menu?.active)menu.close()});}
     menu.open(more);
