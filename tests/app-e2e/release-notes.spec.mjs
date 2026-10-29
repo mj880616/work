@@ -106,3 +106,28 @@ test('기록이 없으면 업데이트 기록 칸은 숨긴 채',async({page})=>
   await expect(page.locator('#profileView')).toBeVisible({timeout:15000});
   await expect(page.locator('#psReleaseNotes')).toBeHidden();
 });
+
+// UI-업데이트기록줄바꿈(요청 10/29 08:13): 긴 줄도 자르지 않고 접는다. 폰은 버전·날짜 한 줄, 바뀐 것은 그 아래.
+for(const width of [412,884,1440])test(`업데이트 기록 긴 줄이 폰 폭을 넘지 않고 다음 줄로 접힌다 (${width}px)`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const long='일정 창에서 색을 고르면 고른 색 그대로 보이고 그 위에 체크 표시만 더해져요. 다른 색으로 바뀌어 보이지 않아요.';
+  const notes=[note('10/29-12',[long,long],['내 프로필 열어 참고 일정 색 하나 골라 보기']),note('10/29-11',['띄어쓰기없이아주길게이어진한줄도폰폭에서잘리지않고다음줄로접혀야해요'.repeat(2)+' '+long.slice(0,30)]),note('10/29-10',['짧은 줄'])];
+  await boot(page,{view:'profile',notes:()=>list(notes)});
+  await expect(page.locator('#profileView')).toBeVisible({timeout:15000});
+  const panel=page.locator('#psReleaseNotes');
+  await panel.locator('summary.rn-title').click();
+  const rows=panel.locator('.rn-note');await expect(rows).toHaveCount(3);
+  const head=rows.nth(1).locator('.rn-head');
+  const geo=await head.evaluate(el=>{const box=el.getBoundingClientRect(),r=sel=>{const b=el.querySelector(sel).getBoundingClientRect();return {top:b.top,bottom:b.bottom,right:b.right}};const one=el.querySelector('.rn-one');return {box:{l:box.left,r:box.right},ver:r('.rn-ver'),date:r('.rn-date'),one:r('.rn-one'),oneScroll:one.scrollWidth<=one.clientWidth+1}});
+  // 버전·날짜는 같은 한 줄
+  expect(Math.abs(geo.ver.top-geo.date.top)).toBeLessThanOrEqual(4);
+  // 바뀐 것은 잘리지 않고(가로 넘침 없음) 줄 안에 머문다
+  expect(geo.oneScroll).toBe(true);
+  expect(geo.one.right).toBeLessThanOrEqual(geo.box.r+1);
+  if(width<=700)expect(geo.one.top).toBeGreaterThanOrEqual(geo.ver.bottom-1); // 폰: 그 아래 줄
+  await expect(rows.nth(1).locator('.rn-one')).toHaveCSS('white-space','normal');
+  // 지금 기록 펼친 본문도 넘치지 않는다
+  for(const sel of ['.rn-changes li','.rn-check'])for(const el of await rows.first().locator(sel).all())expect(await el.evaluate(n=>n.scrollWidth<=n.clientWidth+1&&n.getBoundingClientRect().right<=innerWidth)).toBe(true);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:`test-results/release-notes-wrap-${width}.png`,fullPage:true});
+});

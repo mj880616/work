@@ -1,3 +1,4 @@
+import {createSwatch as cmCreateSwatch,setSwatchOn as cmSetSwatchOn} from './color-swatch.mjs';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {toSeoulISO} from './meeting-time.js';
 import {waitInlineHtml as cmWaitHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 창 상태 줄의 기다림은 글자 없는 회색 칸
@@ -21,8 +22,9 @@ function cmRenderColorPresets(target,{value=CM_GOOGLE_DEFAULT,colorId=null,touch
   const box=typeof target==='string'?document.querySelector(target):target;if(!box)return null;
   const presets=cmColorPalette(),exact=colorId?presets.find(row=>row.id===String(colorId)):null,selected=exact||cmNearestColor(value,presets)||presets[0];
   box.classList.add('calendar-color-presets');box.setAttribute('role','radiogroup');box.setAttribute('aria-label',label);box.dataset.colorTouched=touched?'1':'0';box.dataset.originalColor=value||'';box.dataset.originalColorId=colorId||'';
-  const buttons=presets.map((row,index)=>{const b=document.createElement('button');b.type='button';b.className='calendar-color-swatch';b.setAttribute('role','radio');b.dataset.colorHex=row.hex;if(row.id)b.dataset.colorId=row.id;b.style.backgroundColor=row.hex;b.title=row.id?'Google Calendar 색상 '+row.id:'일정 색상 '+(index+1);b.setAttribute('aria-label',b.title);return b});
-  const choose=(button,emit)=>{buttons.forEach(b=>{const on=b===button;b.classList.toggle('selected',on);b.setAttribute('aria-checked',on?'true':'false');b.tabIndex=on?0:-1});box.dataset.selectedColor=button?.dataset.colorHex||selected?.hex||CM_GOOGLE_DEFAULT;box.dataset.selectedColorId=button?.dataset.colorId||'';if(emit)box.dataset.colorTouched='1'};
+  // UI-색고르기통일: 색 칸은 공용 부품(color-swatch.mjs). 고르면 ✓와 얇은 테두리만 더하고 색은 그대로.
+  const buttons=presets.map((row,index)=>{const label=row.id?'Google Calendar 색상 '+row.id:'일정 색상 '+(index+1);return cmCreateSwatch({color:row.hex,ink:row.foreground,label,role:'radio',attrs:{'data-color-hex':row.hex,'data-color-id':row.id||null,title:label}})});
+  const choose=(button,emit)=>{buttons.forEach(b=>{const on=b===button;cmSetSwatchOn(b,on);b.tabIndex=on?0:-1});box.dataset.selectedColor=button?.dataset.colorHex||selected?.hex||CM_GOOGLE_DEFAULT;box.dataset.selectedColorId=button?.dataset.colorId||'';if(emit)box.dataset.colorTouched='1'};
   buttons.forEach((b,index)=>{b.addEventListener('click',()=>choose(b,true));b.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const delta=['ArrowRight','ArrowDown'].includes(e.key)?1:-1,next=buttons[(index+delta+buttons.length)%buttons.length];next.focus();choose(next,true)})});
   box.replaceChildren(...buttons);choose(buttons.find(b=>selected?.id&&b.dataset.colorId===selected.id)||buttons.find(b=>b.dataset.colorHex===selected?.hex)||buttons[0],false);return selected
 }

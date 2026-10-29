@@ -99,6 +99,10 @@ test('PRJ-색 create: 8 labelled 44px choices, saved as a color key; child creat
   await page.locator('#ps3CreateName').fill('파랑 프로젝트');
   await field.locator('[aria-label="파랑"]').click();
   await expect(field.locator('[aria-label="파랑"]')).toHaveAttribute('aria-checked','true');
+  // UI-색고르기통일: the chosen square keeps its own color; only a ✓ and a thin outline are added.
+  const blue=field.locator('[aria-label="파랑"] .ui-swatch-fill');
+  expect(await blue.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await tokenColor(page,'--ds-project-blue'));
+  expect(await blue.evaluate(el=>getComputedStyle(el,'::after').content)).toBe('"✓"');
   // Choosing a parent turns this into a child project: the picker hides.
   await page.locator('#ps3CreateParent').selectOption('green');await expect(field).toBeHidden();
   await page.locator('#ps3CreateParent').selectOption('');await expect(field).toBeVisible();

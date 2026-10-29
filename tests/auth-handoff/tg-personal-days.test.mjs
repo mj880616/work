@@ -68,6 +68,7 @@ test('tg personal days: migration, owner-only RLS, column grants, no raw text, g
    const dirs=['supabase/migrations','supabase/functions/ai-assist'];
    for(const d of dirs)for(const f of await readdir(new URL('../../'+d,import.meta.url))){
     if(f===stem+'.sql'||!/\.(sql|ts|js|mjs)$/.test(f))continue;
+    // MULTI 단계 ① 운영자 전용 잠금(20261029090000_operator_features)도 이 표를 부르지 않는다(운영에 이 표가 없어 12개 표만 잠금).
     assert.doesNotMatch(await read(d+'/'+f),/app_tg_personal/,d+'/'+f);
    }
   });

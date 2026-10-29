@@ -88,8 +88,9 @@ async function load(){
 async function loadCalRef(){
   try{
     const host=$('#psCalRefPanel');if(!host)return;
-    if(!calRef||calRef.host!==host){const m=await import('./calendar-ref-settings.js');calRef={host,api:m.mountCalendarRefSettings(host,{rt,userId:()=>user?.id})}}
-    await calRef.api.load();
+    // 한 칸에 한 번만 붙인다: 프로필을 거의 동시에 두 번 읽으면(화면 열기·프로필 갱신) 모듈을 받는 사이 두 번 붙어 바꿀 때마다 두 번 저장·확인하던 경쟁을 막는다.
+    if(!calRef||calRef.host!==host){const ready=import('./calendar-ref-settings.js').then(m=>m.mountCalendarRefSettings(host,{rt,userId:()=>user?.id}));calRef={host,ready};ready.catch(()=>{if(calRef?.ready===ready)calRef=null})}
+    await (await calRef.ready).load();
   }catch(e){console.error('calendar ref settings',e?.name||'Error')}
 }
 function discardEdits(){want.clear();const name=$('#psName'),title=$('#psTitle');if(name)name.value=saved.name;if(title)title.value=saved.title;if($('#psWorkplaceList'))renderWorkplaces()}
@@ -149,8 +150,10 @@ window.addEventListener('beforeunload',e=>{if($('#profileView')&&!$('#profileVie
 function syncMySpaceEntry(allowed=window.__KPTU_MYSPACE_ALLOWED__){$('#psMySpaceEntry')?.classList.toggle('hidden',!allowed)}
 window.addEventListener('kptu:myspace-access',event=>syncMySpaceEntry(event.detail?.allowed));
 // UI-업데이트안내: 맨 아래 접힌 [업데이트 기록] 칸 자리. 안은 release-notes-ui.js가 그린다(기록을 못 읽으면 숨긴 채).
+// APP-폰앱새로 ③: 폰 앱에서만 '계정' 칸에 [위젯 로그아웃] 작은 줄(phone-widget-line.js). 웹 브라우저에서는 아무것도 붙지 않는다.
+function installWidgetLine(){if(!/KPTUAndroid/i.test(navigator.userAgent||''))return;import('./phone-widget-line.js').then(m=>m.mountWidgetLine($('#profileView .ps-account-actions'))).catch(()=>{})}
 function installReleaseNotes(){const grid=$('#profileView .ps-profile-grid');if(!grid||$('#psReleaseNotes'))return;grid.insertAdjacentHTML('beforeend','<details class="panel ps-panel ps-release" id="psReleaseNotes" hidden></details>');import('./release-notes-ui.js').then(m=>m.mountReleaseNotes($('#psReleaseNotes'))).catch(()=>{})}
-async function boot(){installView();installReleaseNotes();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
+async function boot(){installView();installReleaseNotes();installWidgetLine();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
 window.addEventListener('kptu:suborganization-updated',()=>{if(user&&!saving)load().catch(console.error)});
 window.addEventListener('kptu:session-changed',async()=>{user=null;workspaceId=null;workplaces=[];legacyWorkplaces=[];organizations=[];assignments=[];profileWorkplaces=[];baseline=new Set();want.clear();saved={name:'',title:''};const name=$('#psName'),title=$('#psTitle');if(name)name.value='';if(title)title.value='';if(await context()){bind();await load()}});
 window.__KPTU_PROFILE_SETTINGS_READY__=boot().catch(err=>{console.error('profile settings init',err);return false});
