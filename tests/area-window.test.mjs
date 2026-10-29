@@ -52,7 +52,7 @@ test('① 옛 주소·go(projects)는 사업 보고 + 창(detail.areas), 화면 
   const ps=read('project-system-v3.js');
   assert.doesNotMatch(ps,/KPTURouter[^;]{0,40}current==='projects'/);
   assert.doesNotMatch(ps,/KPTURouter\.on\('projects'/);
-  assert.match(ps,/window\.KPTUProjects=\{open:openProject,shown:onProjectsView,hide:hideProjects\}/);
+  assert.match(ps,/window\.KPTUProjects=\{open:openProject,shown:onProjectsView,hide:hideProjects,place:placeDetail\}/);
 });
 
 test('① 다른 곳의 사업영역 연결은 모두 KPTUAreaWindow.open 하나로 연다',()=>{
