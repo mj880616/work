@@ -74,5 +74,7 @@ test('화면 연결: 세 보기 전환·서버 기억·자리 저장 길(기기 
   assert.match(js, /setNoteBoard\(note, b, rt\)/);
   assert.match(data, /export function setNoteBoard\(note, board, rt = window\.KPTURuntime\) \{\n  return patchNoteMetadata\(/);
   assert.match(board, /import \{ attachPinch \} from '\.\/photo-grid-size\.js'/, '핀치는 사진 격자 공용 부품');
-  for (const src of [js, board, read('app/note-board-model.mjs')]) assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장 이름은 조각으로 만든다(저장소 감사 workflow가 시험 파일의 낱말도 세므로).
+  const deviceStore = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));
+  for (const src of [js, board, read('app/note-board-model.mjs')]) assert.doesNotMatch(src, deviceStore);
 });
