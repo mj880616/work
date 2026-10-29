@@ -1060,7 +1060,7 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 12일 월요일 ~ 10월 18일 일요일');
  // 탭은 주간 정리 그대로.
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
- await expect(weekly(page,'summary').locator('[data-journal-weekly-empty]')).toHaveText('이 주 프로젝트 기록이 없어요.');
+ await expect(weekly(page,'summary').locator('[data-journal-weekly-empty]')).toHaveText('이 주 사업영역 기록이 없어요.');
  await expect(weekly(page,'summary').locator('table')).toHaveCount(0);
  await expect(weekly(page,'meetings').locator('[data-journal-weekly-empty]')).toHaveText('이 주 회의·활동이 없어요.');
  await expect(weekly(page,'orgs').locator('[data-journal-weekly-empty]')).toHaveText('이 주 조직 소식이 없어요.');
@@ -1095,7 +1095,7 @@ test('[주간 정리] 일부 읽기 실패: 못 읽은 칸만 안내·[다시 �
  // 바구니에서 온 조직 소식은 그대로 보인다.
  await expect(weekly(page,'orgs').locator('[data-journal-org] > .journal-org-name')).toHaveText(['가상 노동조합','미분류']);
  await expect(weekly(page,'meetings').locator('[data-journal-failed]')).toHaveText('회의·활동 결과을(를) 불러오지 못했어요.');
- await expect(weekly(page,'summary')).toContainText('프로젝트 순서를 불러오지 못해 프로젝트 이름별로 보여요.');
+ await expect(weekly(page,'summary')).toContainText('사업영역 순서를 불러오지 못해 사업영역 이름별로 보여요.');
  await expect(weekly(page,'summary').locator('table')).toHaveCount(0);
  await expect(weekly(page,'summary').locator('[data-journal-weekly-others] [data-journal-org]')).toHaveCount(5);
  // 2주 달력 읽기도 제 칸만 실패. 다른 칸은 그대로.
@@ -1855,7 +1855,7 @@ const backToJournal=async(page,{pressed,scroll})=>{
  await expect(pressed).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>Math.round(scrollY))).toBe(scroll);
 };
-for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조직 기록·조직으로 보낸 업데이트·사업 기록은 그 자리에서 강조, ⋯ 원래 업데이트, 뒤로가기 한 번이면 일지 그 자리 ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조직 기록·조직으로 보낸 업데이트는 그 자리에서 강조, 사업 기록은 사업영역 화면, ⋯ 원래 업데이트, 뒤로가기 한 번이면 일지 그 자리 ${width}`,async({page},info)=>{
  const f=await fixture(page,{width,height:700});await originals(page,f);await openJournal(page,width);await settled(page);
  // ① 담당조직 화면에서 쓴 기록 → 그 조직 화면, 그 기록이 화면 안에 강조.
  const orgRecord=group(page,'orgs').locator('.journal-item-open',{hasText:'조직 화면에서 쓴 업데이트'});
@@ -1876,12 +1876,14 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  await expect(page.locator('#wdTitle')).toContainText('가상 노동조합');
  await flashed(page,'#wdUpdates [data-basket-link="l1"]');
  await page.goBack();await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#wdModal:not(.hidden)')).toHaveCount(0);
- // ③ 사업 기록 → 그 프로젝트 화면의 그 기록.
+ // ③ 사업 기록 → 그 프로젝트(사업영역) 화면. MTG-프로젝트합치기 결정 ⑥: 상세 기록 목록은 옛 진행 기록 줄을 그리지 않아
+ // 그 기록 줄도, 강조할 줄도 없다(화면만 열린다).
  const progress=group(page,'business').locator('.journal-item-open',{hasText:'진행상황 업데이트'});
  await progress.click();
  if(width>=1024)await expect(page.locator('#projectsView')).toBeVisible();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();
- await flashed(page,'#ps3Body [data-ps3-record="p1"]');
+ await expect(page.locator('#ps3Body')).toHaveAttribute('data-project','p');await expect(page.locator('#ps3Body [data-ps3-records]')).toBeVisible();
+ await expect(page.locator('#ps3Body [data-ps3-record]')).toHaveCount(0);await expect(page.locator('#ps3Body [data-journal-flash]')).toHaveCount(0);
  await page.goBack();
  await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#ps3DetailModal:not(.hidden)')).toHaveCount(0);await expect(progress).toBeFocused();
 

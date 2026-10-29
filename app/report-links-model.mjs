@@ -66,7 +66,7 @@ export const SET_LINKS_ERROR=Object.freeze({
   MEETING_CHANGED:'다른 곳에서 사업 보고가 바뀌었어요. 다시 열어 확인한 뒤 연결해 주세요.',
   TARGET_MISSING:'연결할 곳을 찾을 수 없어요. 지워졌거나 고를 수 없는 곳이에요.',
   TARGET_WORKSPACE:'연결할 곳이 이 업무 공간에 없어요.',
-  TARGET_UNSELECTABLE:'고를 수 없는 곳이 들어 있어요(보관된 프로젝트 등).',
+  TARGET_UNSELECTABLE:'고를 수 없는 곳이 들어 있어요(보관된 사업영역 등).',
   PERMISSION_DENIED:'연결을 바꿀 권한이 없어요.',
   FUNCTION_UNAVAILABLE:'연결 기능이 아직 서버에 준비되지 않았어요.',
   RESULT_UNKNOWN:'연결 결과를 확인하지 못했어요. 목록을 다시 불러와 확인해 주세요.',

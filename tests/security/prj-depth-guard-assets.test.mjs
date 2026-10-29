@@ -27,8 +27,8 @@ test('the project screen shows the database refusal in plain words and does not 
   assert.match(js, /\/\^PRJ_\(DEPTH_LIMIT\|PARENT_CYCLE\):\/\.exec/);
   const text = js.match(/const PRJ_GUARD_TEXT=\{DEPTH_LIMIT:'([^']+)',PARENT_CYCLE:'([^']+)'\};/);
   assert.ok(text);
-  assert.match(text[1], /^프로젝트는 3단까지만 둘 수 있어요\./);
-  assert.match(text[2], /^자기 자신이나 그 아래 프로젝트 밑으로는 옮길 수 없어요\./);
+  assert.match(text[1], /^사업영역은 3단까지만 둘 수 있어요\./);
+  assert.match(text[2], /^자기 자신이나 그 아래 사업영역 밑으로는 옮길 수 없어요\./);
   // A refusal is a known "not saved" result, like 401/403: no "could not confirm" review prompt.
   assert.match(js, /rejected=\[401,403\]\.includes\(error\?\.status\)\|\|!!guard/);
 });

@@ -24,7 +24,7 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
   const button=host.querySelector('[data-biz-area-pick]'),box=host.querySelector('[data-biz-plan-box]'),plan=host.querySelector('[data-biz-plan]'),count=host.querySelector('[data-biz-plan-count]');
   let area='',legacy=false,touched=false,base='',ready=false,editing=false,run=0;
   const paintCount=()=>{const n=nextPlanLines(plan.value).length;count.textContent=n?`${n}줄`:''};
-  async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):'꼬리표 없음';button.title=legacy?'옛 보고라 첫 연결 프로젝트를 꼬리표처럼 보여 줘요. 고르면 꼬리표로 저장돼요.':''}
+  async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):'꼬리표 없음';button.title=legacy?'옛 보고라 첫 연결 사업영역을 꼬리표처럼 보여 줘요. 고르면 꼬리표로 저장돼요.':''}
   button.addEventListener('click',async()=>{try{const s=await sheetMod();await s.pickBusinessArea(button,{chosen:legacy?'':area,onMessage,onPick:id=>{area=id;legacy=false;touched=true;void paint()}})}catch(e){onMessage(e?.message||'사업영역을 불러오지 못했어요.')}});
   plan.addEventListener('input',paintCount);
   // ---- AI 추천 ----

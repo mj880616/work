@@ -843,7 +843,8 @@ function refocusAfter(modalSelector, trigger, onClosed = null) {
 }
 const RECORD = {
   org:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id ? '' : kind === 'up' ? `#wdUpdates [data-wd-up="${CSS.escape(id)}"]` : `#wdUpdates [data-basket-link="${CSS.escape(id)}"]`; },
-  project:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id ? '' : kind === 'progress' ? `#ps3Body [data-ps3-record="${CSS.escape(id)}"]` : `#ps3Body [data-basket-link="${CSS.escape(id)}"]`; },
+  // MTG-프로젝트합치기 결정 ⑥: 사업영역 화면은 옛 진행 기록 줄을 그리지 않는다 → 그 기록은 사업영역 화면만 열고 강조할 줄은 없다.
+  project:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id || kind === 'progress' ? '' : `#ps3Body [data-basket-link="${CSS.escape(id)}"]`; },
 };
 // JOURNAL-다음주준비: 장의 한 줄(저장된 줄 번호) → 원래 기록. 약속은 원장 화면에서 그 약속을 펼친 채로, 챙길 것은 정리함.
 async function openNextWeekLine(index, trigger) {

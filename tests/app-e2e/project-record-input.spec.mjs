@@ -92,7 +92,8 @@ test('PRJ-기록입력 header: color dot + name, one summary line, no child-name
   await expect(page.locator('#ps3Hierarchy .ps3-parent-link')).toContainText('민자철도 대응');
 });
 
-// MTG-프로젝트합치기 3단계: 맨 위 진행 기록 입력칸·[기록]·⤢ 큰 창은 없어졌다(기록은 사업 보고 한 곳, 명진 결정). 지난 기록 목록은 그대로 보이고 아무것도 쓰지 않는다.
+// MTG-프로젝트합치기 3단계: 맨 위 진행 기록 입력칸·[기록]·⤢ 큰 창은 없어졌다(기록은 사업 보고 한 곳, 명진 결정). 기록 목록은 맨 앞에 남고 아무것도 쓰지 않는다.
+// 결정 ⑥: 목록에는 정리함 연결 줄(여기서는 bl-1 하나)만 그려진다.
 test('PRJ-기록입력 detail has no record input or ⤢, and the record list stays first',async({page})=>{
   const state=await fixture(page);
   await expect(page.locator('#ps3Body [data-ps3-record-input],#ps3Body [data-ps3-record-big],#ps3Body .ps3-record-input')).toHaveCount(0);
@@ -102,23 +103,26 @@ test('PRJ-기록입력 detail has no record input or ⤢, and the record list st
   expect(await page.locator('#ps3Body > :first-child').getAttribute('id')).toBe('ps3-progress');
   await expect(page.locator('#ps3Body [data-ps3-quick-progress],#ps3Body [data-ps3-add-ws],#ps3Body .ps3-phase')).toHaveCount(0);
   await expect(page.locator('#ps3-progress')).not.toContainText('후속조치');
-  await expect(lines(page)).toHaveCount(4);
-  await expect(lines(page).first()).toContainText('토론회 발제자 확정');
+  await expect(lines(page)).toHaveCount(1);
+  await expect(lines(page).first()).toContainText('현장 간부 면담 결과 정리');
   expect(state.calls('app_project_progress_updates','POST')).toHaveLength(0);
 });
 
-test('PRJ-기록입력 one list: new, old item records, items and 🧺 basket links by date, newest first',async({page})=>{
+// MTG-프로젝트합치기 결정 ⑥: 옛 진행 기록(pu-new·pu-old)과 기록 없는 진행 항목(ws-empty)은 데이터에 있어도 목록에 없다.
+test('PRJ-기록입력 one list holds only basket links; old records and items are not drawn',async({page})=>{
   const state=await fixture(page);
-  await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('4');
-  await expect(lines(page)).toHaveCount(4);
+  await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');
+  await expect(lines(page)).toHaveCount(1);
   const texts=await lines(page).evaluateAll(xs=>xs.map(x=>x.innerText.replace(/\s+/g,' ').trim()));
-  expect(texts).toEqual(['10.3 토론회 발제자 확정','9.20 현장 간부 면담 결과 정리 ⋯','9.10 정책 대응 국토부 협의 시작 다음: 자료 요청','9.5 빈 옛 항목']);
+  expect(texts).toEqual(['9.20 현장 간부 면담 결과 정리 ⋯']);
+  await expect(page.locator('#ps3-progress [data-ps3-record]')).toHaveCount(0);
+  for(const text of ['토론회 발제자 확정','국토부 협의 시작','정책 대응','빈 옛 항목'])await expect(page.locator('#ps3-progress')).not.toContainText(text);
   // 🧺 line: opens the original basket memo; its ⋯ holds only [메모 열기]·[연결 해제] (BUG-바구니연결해제), nothing to edit or delete.
-  const basket=lines(page).nth(1).locator('a');
+  const basket=lines(page).first().locator('a');
   await expect(basket).toHaveAttribute('href','./?view=basket&note=note-1');
   // UI-기록아이콘: the mark is the update icon (an outline drawing), no longer 🧺.
-  await expect(basket.getByRole('img',{name:'정리함 업데이트'})).toBeVisible();await expect(basket.locator('[data-record-mark="update"] svg')).toHaveCount(1);await expect(lines(page).nth(1)).not.toContainText('🧺');
-  await expect(lines(page).nth(1).locator('button')).toHaveCount(1);await expect(lines(page).nth(1).getByRole('button',{name:'정리함 기록 메뉴'})).toBeVisible();
+  await expect(basket.getByRole('img',{name:'정리함 업데이트'})).toBeVisible();await expect(basket.locator('[data-record-mark="update"] svg')).toHaveCount(1);await expect(lines(page).first()).not.toContainText('🧺');
+  await expect(lines(page).first().locator('button')).toHaveCount(1);await expect(lines(page).first().getByRole('button',{name:'정리함 기록 메뉴'})).toBeVisible();
   await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-disconnect],#ps3Body [data-link-note-delete],#ps3BasketLinks')).toHaveCount(0);
   await basket.click();
   // UI-모바일업데이트겹쳐보기: on a phone the line first comes up as a card over the detail; [바구니에서 열기] is the full open.
@@ -129,40 +133,36 @@ test('PRJ-기록입력 one list: new, old item records, items and 🧺 basket li
   expect(state.calls('app_record_links','PATCH').length+state.calls('app_record_links','DELETE').length).toBe(0);
 });
 
-test('PRJ-기록입력 tapping a record line edits or deletes it; old items edit without a kind',async({page})=>{
+// MTG-프로젝트합치기 결정 ⑥: 예전 'tapping a record line edits or deletes it; old items edit without a kind' 시험은 옛 기록 줄의
+// 수정·삭제와 진행 항목 창을 보던 것이다. 그 줄이 없어져, 고칠 길이 없고 데이터는 그대로 남는지를 본다.
+test('PRJ-기록입력 old records and items have no line to edit or delete, and their rows are kept',async({page})=>{
   const state=await fixture(page);
-  page.on('dialog',d=>d.accept());
-  const newest=lines(page).first();
-  await newest.getByRole('button').click();
+  const before={progress:structuredClone(state.tables.app_project_progress_updates),workstreams:structuredClone(state.tables.app_project_workstreams)};
+  await expect(lines(page)).toHaveCount(1);
+  await expect(page.locator('#ps3-progress [data-ps3-record],#ps3-progress [data-ps3-record-kind="item"],[data-ps3-edit-record]')).toHaveCount(0);
+  // 남은 줄의 ⋯ 메뉴는 정리함 연결 메뉴라 진행 기록 [수정]·[삭제]가 없다.
+  await lines(page).first().getByRole('button',{name:'정리함 기록 메뉴'}).click();
   const menu=page.locator('#ps3RecordMenu');await expect(menu).toBeVisible();
-  await menu.getByRole('button',{name:'수정'}).click();
-  const editor=page.locator('[data-ps3-edit-record="pu-new"]');await editor.locator('input').fill('발제자 3명 확정');
-  await editor.getByRole('button',{name:'저장'}).click();
-  await expect(lines(page).first()).toContainText('발제자 3명 확정');
-  expect(state.calls('app_project_progress_updates','PATCH').at(-1).body).toEqual({summary:'발제자 3명 확정'});
-  // Old record with an item: delete through the same menu.
-  await page.locator('[data-ps3-record="pu-old"] button').click();await menu.getByRole('button',{name:'삭제'}).click();
-  await expect(page.locator('[data-ps3-record="pu-old"]')).toHaveCount(0);
-  expect(state.calls('app_project_progress_updates','DELETE')).toHaveLength(1);
-  // The item that lost its last record now shows as a line of its own; editing it keeps its stored phase.
-  await page.locator('[data-ps3-record="ws-old"] button').click();await menu.getByRole('button',{name:'수정'}).click();
-  await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
-  await expect(page.locator('#ps3WsPhase')).toBeHidden();
-  await page.locator('#ps3WsTitle').fill('정책 대응(정리)');await page.locator('#ps3WsSave').click();
+  await expect(menu.getByRole('button',{name:'수정',exact:true})).toHaveCount(0);await expect(menu.getByRole('button',{name:'삭제',exact:true})).toHaveCount(0);
+  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
   await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
-  expect(state.calls('app_project_workstreams','PATCH').at(-1).body).toEqual({title:'정책 대응(정리)',phase:'follow_up'});
-  await expect(page.locator('[data-ps3-record="ws-old"]')).toContainText('정책 대응(정리)');
+  // 상세는 두 표를 그대로 읽어 오고, 쓰지 않는다.
+  for(const table of ['app_project_progress_updates','app_project_workstreams']){
+    expect(state.calls(table,'GET').length,table).toBeGreaterThan(0);
+    for(const method of ['POST','PATCH','DELETE'])expect(state.calls(table,method),table+' '+method).toHaveLength(0);
+  }
+  expect(state.tables.app_project_progress_updates).toEqual(before.progress);expect(state.tables.app_project_workstreams).toEqual(before.workstreams);
 });
 
 test('PRJ-기록입력 groups: same line lists, small + beside the title, documents open on tap',async({page})=>{
   await fixture(page);
-  for(const [section,label] of [['#ps3-children','하위 프로젝트 추가'],['#ps3-tasks','할 일 추가'],['#ps3-documents','자료 올리기']]){
+  for(const [section,label] of [['#ps3-children','하위 사업영역 추가'],['#ps3-tasks','할 일 추가'],['#ps3-documents','자료 올리기']]){
     const plus=page.locator(`${section} .ps3-section-head`).getByRole('button',{name:label});
     await expect(plus).toHaveText('+');const box=await plus.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
   }
   // Child creation stays inside the child list (AGENTS.md §5).
-  await page.locator('#ps3-children').getByRole('button',{name:'하위 프로젝트 추가'}).click();
-  await expect(page.locator('#ps3CreateHeading')).toHaveText('하위 프로젝트 만들기');await page.locator('[data-ps3-close="ps3CreateModal"]').click();
+  await page.locator('#ps3-children').getByRole('button',{name:'하위 사업영역 추가'}).click();
+  await expect(page.locator('#ps3CreateHeading')).toHaveText('하위 사업영역 만들기');await page.locator('[data-ps3-close="ps3CreateModal"]').click();
   const doc=page.locator('#ps3-documents .ps3-doc-row');
   await expect(doc.locator('a.ps3-line-main')).toHaveAttribute('href','https://example.org/doc-1');
   await expect(doc.locator('a.ps3-line-main')).toHaveAttribute('target','_blank');
@@ -182,7 +182,7 @@ test('PRJ-기록입력 groups: same line lists, small + beside the title, docume
 for(const scheme of ['light','dark'])for(const records of [false,true])test(`PRJ-기록입력 390 ${scheme} ${records?'mixed records':'no records'} fits the phone`,async({page})=>{
   await fixture(page,{scheme,records});
   if(!records){await expect(page.locator('#ps3-progress .ps3-rec-empty')).toHaveText('아직 기록이 없어요');await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('0')}
-  else await expect(lines(page)).toHaveCount(4);
+  else{await expect(lines(page)).toHaveCount(1);await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1')}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   // MTG-프로젝트합치기 3단계: 입력칸·[기록]·⤢가 없다(입력칸 높이 검사는 기능과 함께 없앴다).
   await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big]')).toHaveCount(0);

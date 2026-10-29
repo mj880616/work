@@ -268,7 +268,7 @@ async function uploadToLibrary(){
     if(!requestLibraryUpload(file,rt)){status('로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.','error');return}
     // The file now sits in the library dialog; the editor keeps this copy until another file is opened.
     if(current===shown)shown.savedSeq=seq;
-    status(`${file.name}을 자료실 등록 창으로 넘겼습니다. 프로젝트·분류를 고른 뒤 [등록]을 누르세요.`,'ok');
+    status(`${file.name}을 자료실 등록 창으로 넘겼습니다. 사업영역·분류를 고른 뒤 [등록]을 누르세요.`,'ok');
     handed=true;
   }catch(err){
     console.error('hwp-lab upload',err?.kind||err);

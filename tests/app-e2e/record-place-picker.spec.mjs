@@ -33,7 +33,7 @@ test('PC 1280×800: 넓은 창 — 제목 옆 검색칸, 최근 한 줄, 왼쪽 
  expect(d.y-(t.y+t.height)).toBeGreaterThanOrEqual(-1);expect(d.y-(t.y+t.height)).toBeLessThanOrEqual(12);
  expect(d.width).toBeGreaterThan(700);expect(d.x).toBeGreaterThanOrEqual(0);expect(d.x+d.width).toBeLessThanOrEqual(1280);expect(d.y+d.height).toBeLessThanOrEqual(800);
  // The search box is on the title line, right of the title, before ×.
- const title=await box(sheet.locator('h2')),search=sheet.getByRole('searchbox',{name:'조직·프로젝트 이름 검색'}),s=await box(search),close=await box(sheet.getByRole('button',{name:'선택판 닫기'}));
+ const title=await box(sheet.locator('h2')),search=sheet.getByRole('searchbox',{name:'조직·사업영역 이름 검색'}),s=await box(search),close=await box(sheet.getByRole('button',{name:'선택판 닫기'}));
  expect(s.x).toBeGreaterThan(title.x+title.width);expect(s.x+s.width).toBeLessThanOrEqual(close.x);expect(Math.abs((s.y+s.height/2)-(title.y+title.height/2))).toBeLessThanOrEqual(4);
  // 최근 on top (full width), then the two columns side by side under it.
  const recent=await box(sheet.locator('[data-sheet-recent-block]')),orgs=await box(sheet.locator('[data-sheet-col="orgs"]')),projects=await box(sheet.locator('[data-sheet-col="projects"]'));
@@ -60,7 +60,7 @@ test('PC 1280×800: 넓은 창 — 제목 옆 검색칸, 최근 한 줄, 왼쪽 
 test('PC 검색칸 하나가 조직·프로젝트를 함께 거르고 최근 줄은 비켜 줌; 아주 많으면 각 열 안에서만 스크롤',async({page})=>{
  const q=await setup(page,{width:1280,height:800,projects:60});
  await q.locator('[data-quick-org]').click();const sheet=dialog(page);await expect(sheet).toHaveClass(/home-choice-split/);
- const search=sheet.getByRole('searchbox',{name:'조직·프로젝트 이름 검색'});
+ const search=sheet.getByRole('searchbox',{name:'조직·사업영역 이름 검색'});
  // Many projects: the sheet stays inside the window and only the project column scrolls.
  const d=await box(sheet);expect(d.y+d.height).toBeLessThanOrEqual(800);
  const info=await sheet.evaluate(el=>{const extra=sel=>{const x=el.querySelector(sel);return x.scrollHeight-x.clientHeight;};return {content:extra('[data-sheet-content]'),orgs:extra('[data-sheet-all]'),projects:extra('[data-sheet-projects]'),overflow:getComputedStyle(el.querySelector('[data-sheet-projects]')).overflowY};});
@@ -188,7 +188,7 @@ test('할 일 [프로젝트 ▾]도 추가 뒤 "프로젝트 없음"으로 돌�
  await q.locator('[data-quick-mode="task"]').click();await q.locator('[data-quick-input]').fill('합성 할 일');
  const pick=async()=>{await q.locator('[data-quick-project]').click();await dialog(page).getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toHaveText('자식 프로젝트 ▾');};
  await pick();await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
- expect(bodies[0].links).toEqual([{project_id:'child'}]);await expect(q.locator('[data-quick-project]')).toHaveText('프로젝트 ▾');
+ expect(bodies[0].links).toEqual([{project_id:'child'}]);await expect(q.locator('[data-quick-project]')).toHaveText('사업영역 ▾');
  // The next task has no project unless one is picked again.
  await q.locator('[data-quick-input]').fill('합성 둘째');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies[1].links).toEqual([]);
  // A failed add keeps the project (and the text) for another try.

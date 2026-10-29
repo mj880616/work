@@ -4,7 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
-const labels={library:['newDocumentBtn','+ 자료','+ 자료 등록'],meetings:['newMeetingBtn','+ 사업 보고','+ 사업 보고'],projects:['newProjectBtn','+ 프로젝트','+ 프로젝트']};
+const labels={library:['newDocumentBtn','+ 자료','+ 자료 등록'],meetings:['newMeetingBtn','+ 사업 보고','+ 사업 보고'],projects:['newProjectBtn','+ 사업영역','+ 사업영역']};
 async function boot(page,view){
   await page.route('**/*',route=>{
     const u=new URL(route.request().url()),p=u.pathname;
@@ -55,8 +55,8 @@ for(const width of [390,1280])test(`active modal titles survive eyebrow removal 
   for(const [id,title] of [
     ['documentModal','자료 등록'],['meetingModal','사업 보고'],
     ['libraryManageModal','자료 분류 수정'],['libraryEditModal','자료 수정'],
-    ['meetingRoundDetailModal','사업 보고'],['ps3CreateModal','프로젝트 만들기'],
-    ['ps3DeleteModal','프로젝트 삭제'],['ps3ArchiveModal','보관한 프로젝트'],
+    ['meetingRoundDetailModal','사업 보고'],['ps3CreateModal','사업영역 만들기'],
+    ['ps3DeleteModal','사업영역 삭제'],['ps3ArchiveModal','보관한 사업영역'],
     ['soEditModal','담당조직 추가'],['soAssignModal','담당자 지정'],['wdAffModal','협의회·사업단 소속']
   ]){
     const modal=page.locator('#'+id);

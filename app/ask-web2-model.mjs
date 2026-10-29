@@ -10,7 +10,7 @@ const ROOM = /^[A-Za-z0-9_.:-]{1,100}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const chars = s => [...String(s ?? '')].length;
 const KINDS = ['update', 'note', 'work', 'document', 'meeting', 'project', 'organization', 'milestone', 'call', 'telegram', 'ledger'];
-export const KIND_LABEL = Object.freeze({update: '업데이트', note: '노트', work: '업무일지', document: '자료', meeting: '회의', project: '프로젝트',
+export const KIND_LABEL = Object.freeze({update: '업데이트', note: '노트', work: '업무일지', document: '자료', meeting: '회의', project: '사업영역',
   organization: '조직', milestone: '주요 일정', call: '통화', telegram: '텔레그램', ledger: '원장'});
 
 // 물을 수 있는 글(한 줄 4~200자).

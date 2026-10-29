@@ -125,7 +125,9 @@ export function defaultReportWeek(meetings, today) {
   const pick = past.at(-1) || days.at(-1);
   return pick ? weekOf(pick).from : now.from;
 }
-// from(월요일) 주에 든 보고만. from이 비면(전체) 그대로.
-export const inReportWeek = (list, from) => !from ? (list || []) : (list || []).filter(m => inPeriod(m, from, shiftDays(from, 6)));
+// from(월요일) 주에 든 보고 + 일시가 없는 보고(어느 주에도 들지 않아 빠지지 않게 모든 주 맨 아래에 함께 보인다). from이 비면(전체) 그대로.
+export const inReportWeek = (list, from) => !from ? (list || []) : (list || []).filter(m => !reportDay(m) || inPeriod(m, from, shiftDays(from, 6)));
+// 일시가 없는 보고 수(주 줄의 '일시 없음 n').
+export const undatedCount = list => (list || []).filter(m => !reportDay(m)).length;
 const shortDay = day => `${Number(day.slice(5, 7))}.${Number(day.slice(8, 10))}`;
 export const reportWeekLabel = from => `${shortDay(from)}(월)~${shortDay(shiftDays(from, 6))}(일)`;

@@ -142,7 +142,9 @@ for(const width of [390,1280])test(`프로젝트 상세 ${width}: 사업 보고 
  await openProject(page);
  expect(log.bulk.length).toBeGreaterThan(0);
  for(const m of log.bulk)for(let n=1;n<=6;n++)expect(m).toContain(rid(n));
- expect(log.perRow).toEqual([]);
+ // MTG-프로젝트합치기 ⑤: 공용 홈 모의의 일시 없는 보고 'm'은 이제 사업 보고 주 목록에도 보여, PC에서 사업영역 화면을 열기 전 그 결과 칸이 'm' 한 건을 읽을 수 있다.
+ // 이 시험이 보는 것은 사업영역 상세의 보고 줄(rid 1~6)을 한 번에 읽는지다.
+ expect(log.perRow.filter(m=>m!=='eq.m')).toEqual([]);
  await expect(prjRow(page,1).locator('.report-photo-thumb')).toHaveCount(3);
  await expect(prjRow(page,1).locator('[data-report-photo-more]')).toHaveText('외 2장');
  await expect(prjRow(page,3).locator('.report-photo-thumb')).toHaveCount(1);

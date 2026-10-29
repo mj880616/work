@@ -181,9 +181,9 @@ for(const width of [390,1440]){
       };
       await checkActions();
       await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관 1');
-      await expect(page.locator('#newProjectBtn')).toHaveText('+ 프로젝트');
+      await expect(page.locator('#newProjectBtn')).toHaveText('+ 사업영역');
       await expect(page.locator(`${card} ${head} h2`)).toHaveCount(0);
-      await expect(page.locator(`${card} ${head} [data-ps3-total]`)).toHaveText('프로젝트 1개');
+      await expect(page.locator(`${card} ${head} [data-ps3-total]`)).toHaveText('사업영역 1개');
       await checkActions();
       await page.locator('#ps3ArchiveBtn').click();
       await expect(page.locator('#ps3ArchiveModal')).toBeVisible();

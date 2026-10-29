@@ -60,7 +60,7 @@ function options(selected='',includeBlank=true){
   const rows=treeOrdered(state.projects);
   const current=selected?describe(selected):null;
   const retained=current&&current.kind!=='active'?`<option value="${escape(selected)}" selected disabled>[현재 연결·선택 불가] ${escape(current.name||selected)}</option>`:'';
-  return (includeBlank?'<option value="">프로젝트 없음</option>':'')+retained+rows.map(({project,depth,folded})=>`<option value="${escape(project.id)}"${folded?' class="kptu-folded-option" data-folded="1"':''}${project.id===selected?' selected':''}>${escape(label(project.name||'이름 없는 프로젝트',depth))}</option>`).join('')
+  return (includeBlank?'<option value="">사업영역 없음</option>':'')+retained+rows.map(({project,depth,folded})=>`<option value="${escape(project.id)}"${folded?' class="kptu-folded-option" data-folded="1"':''}${project.id===selected?' selected':''}>${escape(label(project.name||'이름 없는 사업영역',depth))}</option>`).join('')
 }
 function reset(){epoch+=1;flight=null;key='';state={workspaceId:null,userId:null,spaces:[],projects:[],loaded:false}}
 // A token refresh writes the session again for the same owner: keep the catalog and a read in flight for that owner (before

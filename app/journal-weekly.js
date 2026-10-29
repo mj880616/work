@@ -58,7 +58,7 @@ export function placeRecords(records, tree) {
   if (Array.isArray(tree)) {
     let area = null, task = null, order = 0;
     for (const {project, depth} of tree) {
-      const name = String(project?.name || '').trim() || '이름 없는 프로젝트';
+      const name = String(project?.name || '').trim() || '이름 없는 사업영역';
       if (depth === 0) { area = {id:project.id, name, rows:[]}; areas.push(area); byArea.set(project.id, area); task = null; }
       else if (depth === 1) task = {id:project.id, name};
       if (!area) continue;
@@ -352,7 +352,7 @@ const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDat
 function weekFiles(m, days) {
   const docs = ok(m, 'documents') || [], updates = ok(m, 'orgUpdates'), tree = ok(m, 'catalog'), basket = ok(m, 'basket');
   const names = new Map((updates?.orgs || []).map(org => [String(org.id).toLowerCase(), String(org.name || '').trim() || '조직']));
-  const projects = new Map((Array.isArray(tree) ? tree : []).map(({project}) => [String(project?.id), String(project?.name || '').trim() || '이름 없는 프로젝트']));
+  const projects = new Map((Array.isArray(tree) ? tree : []).map(({project}) => [String(project?.id), String(project?.name || '').trim() || '이름 없는 사업영역']));
   const week = docs.filter(doc => days.includes(seoulDay(doc?.created_at)));
   const placed = placeFiles(week, {orgs:{names, mine:updates?.mine instanceof Set ? new Set([...updates.mine].map(id => String(id).toLowerCase())) : null}, projects});
   const attachedOrgs = new Map(), attachedProjects = new Map();
@@ -379,7 +379,7 @@ export const orgSummaryLines = text => String(text ?? '').split('\n').map(line =
 // ---- [주간보고 초안 복사] (2026-10-21 사용자 승인: 날짜순이 아니라 양식 순서) ----
 // The same grouping as the tab, as text in the form's order: 1. 요청사항 → 2. 사업 → 4. 산하 조직 → 5. 주요 일정 → 참고. A part
 // that is still loading or failed says so in its place, and the end names what could not be read.
-const LABELS = Object.freeze({requests:'임원 일정 배정·논의 요청', summary:'프로젝트 기록', meetings:'회의·활동 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
+const LABELS = Object.freeze({requests:'임원 일정 배정·논의 요청', summary:'사업영역 기록', meetings:'회의·활동 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
 export function weeklyReportText(model) {
   const {days} = model, out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, `■ 일시 : ${reportDateText(model.start)}`, ''];
   const item = (i, text = i.text) => `- ${shortDay(i.day)} ${requestPrefix(i.requests)}${text}`;
@@ -396,7 +396,7 @@ export function weeklyReportText(model) {
   if (!note('summary', s)) {
     for (const area of s.areas) { out.push(`◦ ${area.name}`); for (const row of area.rows) for (const i of row.items) out.push(item(i, summaryLine(i))); }
     for (const other of s.others) { out.push(`◦ ${s.ordered ? '사업영역 밖 · ' : ''}${other.name}`); for (const i of other.items) out.push(item(i)); }
-    if (!s.count && !s.failed.some(k => k !== 'catalog')) out.push('(이 주 프로젝트 기록 없음)');
+    if (!s.count && !s.failed.some(k => k !== 'catalog')) out.push('(이 주 사업영역 기록 없음)');
   }
   out.push('2) 세부 내용 — 회의·활동 결과');
   if (!note('meetings', model.meetings)) { for (const i of model.meetings.items) out.push(item(i)); if (!model.meetings.items.length) out.push('(이 주 회의·활동 없음)'); }
@@ -582,10 +582,10 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const two = chapter('business', '2. 기본·영역·의제 사업');
   const summary = block('summary', '1) 요약');
   const s = model.summary;
-  if (!status(summary, s, '프로젝트 기록')) {
+  if (!status(summary, s, '사업영역 기록')) {
     // UI-기다림표시통일 2차: 겹친 기록을 확인하는 동안은 글자 없이 가는 줄(wait-state.js).
     if (model.overlap?.checking) { const p = el('div'); p.innerHTML = waitHtml({rows: 1}); p.dataset.journalOverlapChecking = ''; summary.append(p); }
-    if (s.failed.includes('catalog')) summary.append(muted('프로젝트 순서를 불러오지 못해 프로젝트 이름별로 보여요.'));
+    if (s.failed.includes('catalog')) summary.append(muted('사업영역 순서를 불러오지 못해 사업영역 이름별로 보여요.'));
     if (s.areas.length) {
       const table = el('table', 'journal-weekly-table');
       table.className += ' journal-weekly-summary';
@@ -605,7 +605,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     }
     if (s.others.length) {
       const rest = el('div', 'journal-weekly-others'); rest.dataset.journalWeeklyOthers = '';
-      if (s.ordered) rest.append(el('p', 'journal-org-name', '사업영역 밖 프로젝트(보관·삭제된 프로젝트 등)'));
+      if (s.ordered) rest.append(el('p', 'journal-org-name', '사업영역 밖 기록(보관·삭제된 사업영역 등)'));
       for (const section of s.others) {
         const part = el('div', 'journal-org'); part.dataset.journalOrg = section.name;
         part.append(el('p', 'journal-org-name', section.name), itemList(section.items));
@@ -615,7 +615,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       }
       summary.append(rest);
     }
-    if (!s.count && !s.failed.some(k => k !== 'catalog')) summary.append(empty('이 주 프로젝트 기록이 없어요.'));
+    if (!s.count && !s.failed.some(k => k !== 'catalog')) summary.append(empty('이 주 사업영역 기록이 없어요.'));
     if (s.ordered && s.quiet.length && s.count) { const q = muted(`이 주 기록 없는 사업영역: ${s.quiet.join(', ')}`); q.dataset.journalWeeklyQuiet = ''; summary.append(q); }
     const sGone = overlapFold(s.overlapped, 'summary'); if (sGone) summary.append(sGone);
   }

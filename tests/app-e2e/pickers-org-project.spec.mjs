@@ -67,7 +67,7 @@ test('PC 담당조직: 묶음 소제목 아래 한 줄에 하나(체크칸), 그
 
 test('PC 담당조직: 검색칸이 이름으로 거르고 빈 묶음은 숨김, 맞는 게 없으면 안내, 지우면 다시 전체',async({page})=>{
  const {sheet}=await homeOrgSheet(page,1280,NAMES);
- const box=sheet.getByRole('searchbox',{name:'조직·프로젝트 이름 검색'});await expect(box).toBeVisible();
+ const box=sheet.getByRole('searchbox',{name:'조직·사업영역 이름 검색'});await expect(box).toBeVisible();
  // The box stays above the list (outside its scroll).
  expect(await box.evaluate(el=>!el.closest('[data-sheet-content]'))).toBe(true);
  await box.fill('9호선');
@@ -116,7 +116,7 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
  const look=await chosen.evaluate(el=>{const p=document.createElement('span');p.style.background='var(--kptu-success-soft)';p.style.color='var(--kptu-success)';document.body.append(p);const s=getComputedStyle(p),out={soft:s.backgroundColor,green:s.color};p.remove();const c=getComputedStyle(el.querySelector('.home-choice-check'));return {...out,bg:getComputedStyle(el).backgroundColor,check:c.backgroundColor,mark:getComputedStyle(el.querySelector('.home-choice-check'),'::after').content};});
  expect(look.bg).toBe(look.soft);expect(look.check).toBe(look.green);expect(look.mark).toContain('✓');
  await sheet.locator('[data-sheet-value="p"]').click();await trigger.click();await expect(sheet.locator('[aria-pressed="true"]')).toHaveText(['테스트 프로젝트']);
- const box=sheet.getByRole('searchbox',{name:'프로젝트 이름 검색'});await box.fill('손자');
+ const box=sheet.getByRole('searchbox',{name:'사업영역 이름 검색'});await box.fill('손자');
  await expect(sheet.locator('[data-sheet-value]:visible .home-choice-name')).toHaveText(['손자 프로젝트']);
  // PRJ-3단: while searching, a third-level row also shows where it sits ("1단 › 2단").
  await expect(sheet.locator('[data-sheet-value]:visible .home-choice-path')).toHaveText(['테스트 프로젝트 › 자식 프로젝트']);

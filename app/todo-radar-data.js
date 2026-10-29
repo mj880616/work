@@ -11,7 +11,7 @@ import {createGoogleTask} from './quick-save.js';
 import {recordNoteTask, noteTaskEntry} from './basket-note-tasks.js';
 
 export const RADAR_KIND_LABEL = Object.freeze({request:'요청', my_task:'내 할 일', deadline:'마감', prepare:'준비', attend:'참석'});
-export const RADAR_SOURCE_LABEL = Object.freeze({basket:'업데이트', note:'노트', work:'일지', meeting:'사업 보고', org_update:'조직 기록', project_update:'프로젝트 기록', telegram:'텔레그램'});
+export const RADAR_SOURCE_LABEL = Object.freeze({basket:'업데이트', note:'노트', work:'일지', meeting:'사업 보고', org_update:'조직 기록', project_update:'사업영역 기록', telegram:'텔레그램'});
 // JOURNAL-챙길것화면 ⑥: the first 4 open rows, the rest behind 'N건 더 ›' (home and journal alike).
 export const HOME_ROWS = 4;
 export const TASK_TITLE_MAX = 200;

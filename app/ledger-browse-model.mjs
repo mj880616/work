@@ -132,7 +132,7 @@ export function linkLabel(link, names, dir) {
     const o = names.organizations.get(link.target_organization_id);
     return { relation: rel, kind: 'organization', ledgerId: o?.ledger_id || '', title: o?.name || '(읽을 수 없는 조직)', dir };
   }
-  if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || '(Web2 프로젝트)', dir };
+  if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || '(Web2 사업영역)', dir };
   if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || '(Web2 사업 보고)', dir };
   return { relation: rel, kind: 'other', ledgerId: '', title: '', dir };
 }
@@ -208,7 +208,7 @@ export const countLabel = (n, limit) => (n >= limit ? `최근 ${limit}건` : `${
 // ---------- LEDGER-자동기록 3단계(설계 docs/design/ledger-auto-record.md 3.3·8.1·9.2절) ----------
 // 출처 위치 web2:<종류>:<id> → {kind, id}. 종류는 자동 기록 재료 여섯 + 업무 통화(call, docs/design/ledger-sources.md 6.3). 개인본·캘린더는 해당 화면 PR에서 더한다.
 export const WEB2_SOURCE_KINDS = Object.freeze(['basket', 'note', 'work', 'meeting', 'org_update', 'project_update', 'call']);
-export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: '사업 보고', org_update: '담당조직 기록', project_update: '프로젝트 기록', call: '통화' });
+export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: '사업 보고', org_update: '담당조직 기록', project_update: '사업영역 기록', call: '통화' });
 export function web2Source(location) {
   const m = /^web2:([a-z_]+):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String(location ?? '').trim());
   if (!m || !WEB2_SOURCE_KINDS.includes(m[1])) return null;

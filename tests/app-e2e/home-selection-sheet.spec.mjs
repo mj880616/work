@@ -54,14 +54,14 @@ test('close paths consume one history entry, focus is contained and project none
  const trigger=q(page).locator('[data-quick-project]');
  const before=await page.evaluate(()=>history.state);
  await trigger.click();await expect(sheet(page)).toBeVisible();await expect(sheet(page).getByRole('button',{name:'사업영역 없음',exact:true})).toBeFocused();
- await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('searchbox',{name:'프로젝트 이름 검색'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'선택판 닫기'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true})).toBeFocused();
+ await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('searchbox',{name:'사업영역 이름 검색'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'선택판 닫기'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true})).toBeFocused();
  await sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(sheet(page)).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');await expect(trigger).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>history.state)).toEqual(before);
  await trigger.click();await expect(sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true})).toBeFocused();
  await page.goBack();await expect(sheet(page)).toBeHidden();await expect(trigger).toBeFocused();await expect(page).toHaveURL(/\/app\//);
  await trigger.click();await sheet(page).getByRole('button',{name:'선택판 닫기'}).click();await expect(trigger).toBeFocused();
  await trigger.click();await page.mouse.click(10,10);await expect(trigger).toBeFocused();
- await trigger.click();await sheet(page).getByRole('button',{name:'사업영역 없음',exact:true}).click();await expect(trigger).toHaveText('프로젝트 ▾');
+ await trigger.click();await sheet(page).getByRole('button',{name:'사업영역 없음',exact:true}).click();await expect(trigger).toHaveText('사업영역 ▾');
  const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
  await q(page).locator('[data-quick-save]').click();await expect(q(page).locator('[data-quick-input]')).toHaveValue('');expect(bodies[0].links).toEqual([]);
 });
