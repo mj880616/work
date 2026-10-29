@@ -21,7 +21,7 @@ test('real meeting-transcribe graph checks/bundles with functions-only sources',
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['_shared/ai-prices.mjs','_shared/drive-trash.ts','meeting-transcribe/index.ts','meeting-transcribe/model.mjs']);
+  assert.deepEqual(local.sort(),['_shared/ai-prices.mjs','_shared/drive-trash.ts','meeting-transcribe/index.ts','meeting-transcribe/model.mjs','meeting-transcribe/recording.mjs']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'meeting-transcribe.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });
