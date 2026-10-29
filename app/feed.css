@@ -170,6 +170,8 @@
   #appView .feed-view .feed-split{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3)}
   /* UI-선택표시톤다운 ②: 목록 칸은 세로로만 움직인다. 긴 제목은 '…'로 줄고(.feed-title) 꼬리표는 약칭이라, 가로 스크롤 막대가 생기지 않게 가로 넘침은 자른다. */
   #appView .feed-view .feed-list{grid-column:1;grid-row:1;max-height:100%;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
+  /* UI-전수디자인점검 F23: 고른 것이 없어 오른쪽 칸이 숨으면(call-feed.js·telegram-feed.js paint) 목록이 두 칸을 다 쓴다. 안내문 상자는 두지 않는다. */
+  #appView .feed-view .feed-split:has(> .feed-pane[hidden]) > .feed-list{grid-column:1 / -1}
   #appView .feed-view .feed-pane{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
 }
 

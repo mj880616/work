@@ -2,7 +2,7 @@
 
 #basketView { box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; }
 /* UI-PC다듬기묶음 ③(2026-10-20 요청함 16:33): PC(≥1024)는 [업데이트]·[노트] 본문을 가운데(900px) 대신 사이드바 바로 옆 왼쪽에서 시작한다.
-   다른 PC 화면은 본문 칸 왼쪽부터 쓴다. 다만 이 화면은 글 목록이라 아주 넓은 창에서 한 줄이 너무 길어지므로 최대 폭만 1100px로 두고 왼쪽 정렬(view-wide.css처럼 끝까지 넓히지 않음).
+   다른 PC 화면은 본문 칸 왼쪽부터 쓴다. 다만 이 화면은 글 목록이라 아주 넓은 창에서 한 줄이 너무 길어지므로 최대 폭만 1100px로 두고 왼쪽 정렬(다른 화면처럼 끝까지 넓히지 않음).
    폰·중간 폭(761~1023)은 그대로. */
 @media(min-width:1024px){ #basketView { max-width:1100px; margin:0; } }
 #basketView [hidden] { display:none; }

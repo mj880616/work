@@ -167,7 +167,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
  // ⋯ 메뉴 안 항목은 버튼 모양이 아닌 메뉴(옛 크기 그대로). 창 안 [저장]·[삭제]는 새 기준.
  for(const selector of ['[data-ps3-toggle-done]','[data-ps3-edit-project]','[data-ps3-archive-project]','[data-ps3-delete-project]'])await standard(page,selector);
  await closeProjectDetail(page);
- await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave',width>=1024?32:36);/* UI-버튼줄이기: 담당조직 상세 [저장] 36px. ORG-PC상세정리: PC 상세 칸은 작은 버튼 32px */
+ await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave',32);/* ORG-PC상세정리 → UI-전수디자인점검 F08: 담당조직 상세 [저장]은 PC 칸·폰 창 모두 작은 버튼 32px */
  await closeOrganizationDetail(page);
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
 });

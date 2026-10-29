@@ -1,7 +1,7 @@
 import {waitHtml} from './wait-state.js';
-// HOME-모바일홈채우기: 폰·중간 폭 홈(1023px 이하)의 한 줄 요약('일정 3 · 할 일 4 · 새 소식 12')과 새 칸 셋(놓친 약속 · 정리 안 된 것 · 내일)의
-// 유일한 renderer. PC 홈(1024px~)에서는 이 칸들을 만들지 않고 숨긴다. home-read.js는 일정·할 일·내일 일정 숫자만 넘기고
-// (setEvents·setTasks·setTomorrow), 원장·텔레그램 소식·정리함 숫자는 home-fill-data.js로 여기서 읽는다.
+// HOME-모바일홈채우기: 폰·중간 폭 홈(1023px 이하)의 한 줄 요약('새 소식 12 · 나한테 온 요청 1')과 새 칸 셋(놓친 약속 · 정리 안 된 것 · 내일)의
+// 유일한 renderer. PC 홈(1024px~)에서는 이 칸들을 만들지 않고 숨긴다. home-read.js는 내일 일정만 넘기고
+// (setTomorrow), 원장·텔레그램 소식·정리함 숫자는 home-fill-data.js로 여기서 읽는다.
 // 규칙: 놓친 약속·내일이 비면 '없음' 한 줄, 정리 안 된 것은 0건이면 줄 자체를 그리지 않음, 새 소식을 알 수 없으면 요약에서 뺀다.
 import {summaryText, pickMissed, missedTag, tomorrowLine} from './home-fill-model.mjs';
 import {readMissedPromises, readNewsCount, readInbox} from './home-fill-data.js';
@@ -16,7 +16,7 @@ const head = (key, title, goto, label) => `<header><h3 id="home-${key}-title">${
 export function mountHomeFill({main, rt = window.KPTURuntime}) {
   if (!main) return null;
   const mq = window.matchMedia('(min-width:1024px)');
-  const state = {events: null, tasks: null, news: null, tomorrow: 'loading', tomorrowOpen: false, missed: 'loading', missedRows: [], inbox: null, asks: null};
+  const state = {news: null, tomorrow: 'loading', tomorrowOpen: false, missed: 'loading', missedRows: [], inbox: null, asks: null};
   let alive = true;
 
   const summary = document.createElement('p');
@@ -68,7 +68,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     tomorrow.innerHTML = `${head('tomorrow', '내일', 'calendar', '달력')}<div data-home-body>${body}</div>`;
   }
   function paintSummary() {
-    const text = summaryText({events: state.events, tasks: state.tasks, news: state.news, asks: state.asks});
+    const text = summaryText({news: state.news, asks: state.asks});
     summary.textContent = text; summary.hidden = mq.matches || !text;
   }
   function apply() {
@@ -99,9 +99,6 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
 
   return {
     cards: {missed, inbox, tomorrow},
-    // home-read.js가 읽은 숫자. null = 아직 모르거나 읽을 수 없음(요약에서 뺀다).
-    setEvents(n) { state.events = n; paintSummary(); },
-    setTasks(n) { state.tasks = n; paintSummary(); },
     // rows: 내일 일정 목록, null: 달력을 읽지 못함(연결 전 등).
     setTomorrow(rows) { state.tomorrow = rows === null ? 'unavailable' : rows; paintTomorrow(); },
     refresh,

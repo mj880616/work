@@ -162,7 +162,8 @@ test('텔레그램 1280: 목록 1/3 · 상세 2/3, 고른 줄 표시, 소식 ⋯
  const f=await fixture(page,{width:1280});
  await openMenu(page,1280,'텔레그램 소식');
  const view=page.locator('#telegramView'),list=view.locator('#tgList'),detail=view.locator('#tgDetail');
- await expect(detail).toContainText('왼쪽에서 방을 누르면');
+ // UI-전수디자인점검 F23: 고른 방이 없으면 안내문 상자 대신 오른쪽 칸이 없고 목록이 두 칸을 다 쓴다.
+ await expect(detail).toBeHidden();{const s=await view.locator('#tgSplit').boundingBox(),w=await list.boundingBox();expect(w.width).toBeGreaterThan(s.width-2);}
  await rd(view,A6).locator('.feed-rdb').click();
  await expect(list).toBeVisible();await expect(detail.locator('[data-tg-daybox]')).toBeVisible();
  await expect(rd(view,A6)).toHaveClass(/is-selected/);

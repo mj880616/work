@@ -38,15 +38,10 @@ for(const width of [390,1280]){
   const modal=page.locator('#wdModal');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
   const big=page.locator('#wdInboxBig');await expect(big).toBeVisible();await expect(big).toHaveText('크게');
   const [b,s]=await Promise.all([big.boundingBox(),page.locator('#wdInboxSave').boundingBox()]);
-  if(width>=1024){
-   // ORG-PC상세정리: on the PC pane ⤢ sits inside the input at its bottom right; [저장] is below, on its own line.
-   const t=await page.locator('#wdInboxText').boundingBox();
-   expect(b.x+b.width).toBeLessThanOrEqual(t.x+t.width);expect(b.y+b.height).toBeLessThanOrEqual(t.y+t.height);expect(s.y).toBeGreaterThanOrEqual(t.y+t.height);
-  }else{
-   // The small input row: [크게] beside [저장], one line, nothing cut off. UI-버튼전수조사: [크게]는 보조 32px·[저장] 36px, 세로 가운데가 같다.
-   expect(Math.abs((b.y+b.height/2)-(s.y+s.height/2))).toBeLessThanOrEqual(1);expect(b.height).toBe(32);expect(s.height).toBe(36);expect(b.x+b.width).toBeLessThanOrEqual(s.x);
-   expect(await big.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
-  }
+  // ORG-PC상세정리 → UI-전수디자인점검 F08: PC 칸·폰 창 모두 ⤢는 입력칸 안 오른쪽 아래, [저장](32px)은 그 아래 오른쪽.
+  const t=await page.locator('#wdInboxText').boundingBox();
+  expect(b.x+b.width).toBeLessThanOrEqual(t.x+t.width);expect(b.y+b.height).toBeLessThanOrEqual(t.y+t.height);expect(s.y).toBeGreaterThanOrEqual(t.y+t.height);
+  expect(b.height).toBe(32);expect(s.height).toBe(32);
   await page.locator('#wdInboxText').fill('통화 내용 첫 줄\n둘째 줄');
   await big.click();
   const e=edWin(page);await expect(e).toBeVisible();

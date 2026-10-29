@@ -682,7 +682,7 @@ test('[하루] 그날 일정 칸의 [달력 ›]은 그 날짜가 든 달력으�
  await expect(page.locator('#monthTitle')).toHaveAttribute('aria-label',/9월 28일|9월/);
 });
 
-// UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다(같은 바깥 폭 규칙 .view-wide). 폰은 그대로(가운데 760px 상한·1열).
+// UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다(모든 PC 화면과 같은 바깥 폭 규칙, desktop-ui.css main). 폰은 그대로(가운데 760px 상한·1열).
 // JOURNAL-일지카드정리(시안 확정): PC 하루 카드 아래 칸은 넓은 창에서도 2칸씩 줄. JOURNAL-주간보고허브: 8칸이면 2칸씩 네 줄.
 const journalBox=page=>page.evaluate(()=>{
  const r=e=>e.getBoundingClientRect(),view=document.querySelector('#journalView'),cs=getComputedStyle(view),main=getComputedStyle(document.querySelector('main'));

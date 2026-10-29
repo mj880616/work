@@ -328,8 +328,7 @@ function fresh(key,state){
 }
 function disconnected(key) {
   fresh(key,'');
-  if (key === 'calendar') { fillMount?.setEvents(null); fillMount?.setTomorrow(null); }
-  if (key === 'tasks') fillMount?.setTasks(null);
+  if (key === 'calendar') fillMount?.setTomorrow(null);
   paint(
     key,
     `<p class="home-status"><button type="button" data-goto="${key === "calendar" ? "calendar" : "tasks"}">Google ${key === "calendar" ? "캘린더" : "할 일"} 연결 ›</button></p>`,
@@ -395,7 +394,6 @@ function renderTasks({ includeMeetings = true } = {}) {
     cut = mergeFollowUps() && !tasksOpen ? limitRows(rows) : { shown: rows, more: 0 },
     moreBtn = !mergeFollowUps() ? '' : cut.more ? `<button type="button" class="home-more" data-home-tasks-more="open">+ ${cut.more}건 더</button>` : tasksOpen && rows.length > limitRows(rows).shown.length ? '<button type="button" class="home-more" data-home-tasks-more="close">접기</button>' : '';
   if (tasksReady) {
-    fillMount?.setTasks(dueCount);
     paint(
       "tasks",
       rows.length
@@ -432,7 +430,6 @@ function renderDday(rows){
   paint('dday',`<div class="home-chips">${rows.map(m=>`<button type="button" class="home-chip ${m.days<=3?'urgent':''}" data-home-project="${esc(m.project_id)}" ${m.google_event_id?eventAttrs(m.google_event_id,m.google_calendar_id):''}>${m.days===0?'D-day':'D-'+m.days} ${esc(m.title)}</button>`).join('')}</div>`,rows.length);
 }
 function renderCalendar(rows){
-  fillMount?.setEvents(rows.length);
   if(!rows.length)return empty('calendar','오늘 일정 없음');
   paint('calendar',rows.map(e=>{
     const time=e.allDay?'종일':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(e.start));

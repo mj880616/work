@@ -17,8 +17,8 @@ for (const [name, width] of [["390", 390], ["폴드 접힘 344", 344]]) {
         await page.route("**/rest/v1/app_feed_days**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ day: "2026-10-06", source: "telegram", total_count: 30, kept_count: 12, room_count: 4, failed_count: 0 }]) }));
       },
     });
-    // 한 줄 요약: 일정 2(오늘) · 할 일 2(기한 지난/오늘) · 새 소식 12(텔레그램 소식 메뉴의 중요한 소식 수)
-    await expect(page.locator("[data-home-summary]")).toHaveText("일정 2 · 할 일 2 · 새 소식 12");
+    // 한 줄 요약: 새 소식 12(텔레그램 소식 메뉴의 중요한 소식 수). 일정·할 일 수는 칸 제목이 보이므로 요약에 없다(UI-전수디자인점검 F15).
+    await expect(page.locator("[data-home-summary]")).toHaveText("새 소식 12");
     // 칸 순서: 오늘 일정 → 오늘 할 일 → 놓친 약속 → (정리 안 된 것: 0건이라 없음) → 내일
     const order = await page.locator('#homeView [data-home-column="main"] > [data-home-card]:not([hidden])').evaluateAll((els) => els.map((e) => e.dataset.homeCard));
     expect(order.slice(0, 4)).toEqual(["calendar", "tasks", "missed", "tomorrow"]);
@@ -53,7 +53,7 @@ test("phone: 놓친 약속과 내일이 비면 '없음' 한 줄, 새 소식을 �
   await openHome(page);
   await expect(card(page, "missed")).toContainText("없음");
   await expect(card(page, "missed").locator("[data-home-missed]")).toHaveCount(0);
-  await expect(page.locator("[data-home-summary]")).toHaveText("일정 2 · 할 일 2");
+  await expect(page.locator("[data-home-summary]")).toBeHidden();
   await expect(card(page, "inbox")).toBeHidden();
   await expect(page.locator(".home-fill-inbox-line")).toHaveCount(0);
 });
@@ -82,7 +82,6 @@ test("phone: 할 일은 2건만 보이고 '+ n건 더'로 펼친다", async ({ p
   const rows = card(page, "tasks").locator("[data-home-task]");
   await expect(rows).toHaveCount(2);
   await expect(card(page, "tasks").locator("[data-home-tasks-more]")).toHaveText("+ 2건 더");
-  await expect(page.locator("[data-home-summary]")).toContainText("할 일 4");
   await card(page, "tasks").locator("[data-home-tasks-more]").click();
   await expect(rows).toHaveCount(4);
   await card(page, "tasks").locator("[data-home-tasks-more]").click();
