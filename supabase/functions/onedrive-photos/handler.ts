@@ -2,7 +2,7 @@ import {
   AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_MAX, GRAPH_BATCH_PHOTOS, graphNextLink, insideFolder,
   isMediaMime, LIBRARY_DEFAULT, LIBRARY_MAX, LIBRARY_SCAN_PAGES, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, MEDIA_URL_TTL_S, mediaFields,
   MOVE_MAX, PHOTO_URLS_MAX, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed, seoulDay, SIZES, STAR_IDS_MAX,
-  SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, TRASH_PURGE_STEP, validItemId,
+  SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, TAKEN_FIX_AT, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, TRASH_PURGE_STEP, validItemId,
   VIDEO_MIME,
 } from "./graph.ts";
 import type { OneDriveItem } from "./graph.ts";
@@ -62,6 +62,7 @@ export type OneDriveOptions = {
   fetch?: typeof fetch;
   now?: () => number;
   log?: (code: string) => void;
+  takenFixAt?: string;
 };
 
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -81,6 +82,9 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   const request = options.fetch ?? globalThis.fetch;
   const now = options.now ?? Date.now;
   const log = options.log ?? ((code: string) => console.error(code));
+  const takenFixAt = Date.parse(options.takenFixAt ?? TAKEN_FIX_AT);
+  // 찍은 시각 규칙(graph.ts cameraClockToUtc)을 고치기 전에 다 받은 색인인가. 그렇다면 한 번 처음부터 다시 받는다.
+  const needsTakenRefix = (done: string | null | undefined) => !!done && Date.parse(done) < takenFixAt;
 
   function config() {
     const clientId = env("ONEDRIVE_CLIENT_ID") || "", secret = env("ONEDRIVE_CLIENT_SECRET") || "",
@@ -364,6 +368,14 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     return trashId;
   }
 
+  // 처음부터 다 받은 뒤: 고친 기준 시각 전에 마지막으로 적힌 줄(이번에 다시 받지 않은 줄)을 지운다.
+  async function sweepBefore(workspaceId: string, topId: string, before: string) {
+    const { error } = await admin.from(PHOTOS).delete().eq("workspace_id", workspaceId).lt("updated_at", before);
+    if (error) dbFail("onedrive_index_delete_failed:sweep_photos", error);
+    const { error: e2 } = await admin.from(FOLDERS).delete().eq("workspace_id", workspaceId).lt("updated_at", before).neq("item_id", topId);
+    if (e2) dbFail("onedrive_index_delete_failed:sweep_folders", e2);
+  }
+
   // 이 작업공간의 'Web2 휴지통' 폴더 id(색인에 있으면). 없으면 null.
   async function readTrashId(workspaceId: string): Promise<string | null> {
     const { data, error } = await admin.from(FOLDERS).select("item_id").eq("workspace_id", workspaceId).eq("role", "trash").maybeSingle();
@@ -385,6 +397,14 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     if (!Array.isArray(locked) || locked.length !== 1) throw new Fail(409, "onedrive_index_busy");
     const first = `${GRAPH}/me/drive/items/${encodeURIComponent(folder.id)}/delta?$select=${DELTA_SELECT}`;
     let next = graphNextLink(conn.next_link), delta = graphNextLink(conn.delta_link), done = conn.index_done_at || null;
+    // 옛 시각 규칙으로 다 받은 색인: 이어 받기 주소를 버리고 처음부터 다시 받는다(줄은 지우지 않으므로 그동안에도 사진이 보이고,
+    // 다시 받는 줄마다 새 규칙의 시각·날짜로 덮인다). 진행 칸이 '처음 받는 중'이 되므로 다음 요청들은 이어서 받는다.
+    if (needsTakenRefix(done)) {
+      log("onedrive_taken_refix");
+      next = null;
+      delta = null;
+      done = null;
+    }
     let synced = conn.synced_at || null, url = next || delta || first, more = true, pages = 0;
     try {
       let trashId = await readTrashId(workspaceId);
@@ -418,6 +438,9 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         }
         delta = dl;
         next = null;
+        // 처음부터 다 받았다: 이번에 한 번도 안 보인 줄(고치기 전 시각 그대로)은 원드라이브에 없는 항목이므로 지운다.
+        // 이어 받기 주소를 버리고 다시 받은 경우(위) 그 사이 지운 사진은 delta로 오지 않기 때문이다. 맨 위 폴더 줄은 남긴다.
+        if (!done) await sweepBefore(workspaceId, folder.id, new Date(takenFixAt).toISOString());
         done = done || stamp;
         synced = stamp;
         more = false;
@@ -460,7 +483,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
 
   // 색인이 덜 됐거나 10분 넘게 안 받았으면 짧게 한 걸음 받는다. 바쁨·요청 많음·일시 장애면 기록만 하고 지금까지의 색인으로 답한다.
   async function autoSync(workspaceId: string, conn: Conn, folder: { id: string }) {
-    let indexing = !conn.index_done_at;
+    let indexing = !conn.index_done_at || needsTakenRefix(conn.index_done_at);
     const synced = conn.synced_at ? Date.parse(conn.synced_at) : NaN;
     if (indexing || !Number.isFinite(synced) || now() - synced > SYNC_STALE_MS) {
       try {
