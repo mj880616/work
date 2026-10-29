@@ -64,6 +64,8 @@ let epoch = 0,
   calendarState = null,
   imports = null,
   radarMount = null,
+  quietMount = null,
+  quietEpoch = 0,
   fillMount = null,
   tasksOpen = false,
   collectMount = null,
@@ -169,7 +171,7 @@ function placeCards() {
   focused?.focus({ preventScroll: true });
 }
 window.addEventListener('kptu:home-cards-changed', placeCards);
-window.addEventListener('kptu:view-prefs-rejected', event => { if (event.detail?.paths?.includes('home_cards')) { placeCards(); editMount?.rejected(); } });
+window.addEventListener('kptu:view-prefs-rejected', event => { if (event.detail?.paths?.includes('home_cards')) { placeCards(); editMount?.rejected(); } if (event.detail?.paths?.includes('quiet_weeks')) editMount?.weeksRejected?.(); });
 // HOME-모바일정리②는 폰·중간 폭(한 칸 홈)에서만 겹친 회의 후속을 합친다. PC(오른쪽 칸 있는 홈)는 그대로.
 const mergeFollowUps = () => !desktopHome.matches;
 desktopHome.addEventListener('change', () => { placeCards(); renderTasks(); });
@@ -187,7 +189,7 @@ function shell() {
   host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div><p class="home-text-done" data-home-text-done role="status" hidden></p></div><div data-home-column="aside"></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
   els = new Map(); extras.forEach(made => made.destroy()); extras = new Map();
   const made = document.createElement('template');
-  made.innerHTML = ['calendar','tasks','meetings','dday'].map(section).join('') + `<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section>`;
+  made.innerHTML = ['calendar','tasks','meetings','dday'].map(section).join('') + `<section class="home-card home-quiet" data-home-card="quiet" aria-labelledby="home-quiet-title" hidden></section><section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section>`;
   [...made.content.children].filter(el => el.dataset.homeCard).forEach(el => els.set(el.dataset.homeCard, el));
   collectLines = { alert: host.querySelector('[data-home-collect-alert]'), ok: host.querySelector('[data-home-collect-ok]') };
   host.querySelector('[data-home-column="main"]').prepend(quick);
@@ -199,6 +201,15 @@ function shell() {
   radarMount?.destroy();
   radarMount = mountRadar(card('radar'), { place: 'home' });
   radarMount?.refresh();
+  // FEAT-1029묶음 ③: 연락 없는 조직 한 줄. org-quiet.js가 유일한 renderer이고, 조용한 조직이 없거나 판단할 수 없으면 숨어 있다.
+  // 홈 첫 화면을 무겁게 하지 않도록 나중에 불러온다.
+  quietMount?.destroy(); quietMount = null;
+  const quietEl = card('quiet'), quietRun = ++quietEpoch;
+  void import('./org-quiet.js').then(({ mountOrgQuiet }) => {
+    if (quietRun !== quietEpoch) return;
+    quietMount = mountOrgQuiet(quietEl);
+    quietMount?.refresh();
+  }).catch(error => console.warn('org quiet load', error?.message || error));
   // OPS-수집점검: 마지막 수집 시각. collection-status.js is the only renderer; hidden until something can be checked.
   collectMount?.destroy();
   collectMount = mountCollectionStatus(card('collect'), { alert: host.querySelector('[data-home-collect-alert]'), okLine: host.querySelector('[data-home-collect-ok]') });

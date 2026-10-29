@@ -4,6 +4,7 @@
 //
 // 현재 홈 칸 표(기본 순서 = 폰 한 칸 홈의 위에서 아래; PC는 column 별로 나눠 같은 순서로 그린다)
 //   id        이름               PC 칸   폰·중간 폭만   그리는 곳
+//   quiet     연락 없는 조직     aside                org-quiet.js (FEAT-1029묶음 ③: 폰은 한 줄 요약 바로 아래, PC는 오른쪽 칸 맨 위)
 //   calendar  오늘 일정           main                 home-read.js
 //   tasks     오늘 할 일          main                 home-read.js
 //   missed    놓친 약속           main    예            home-fill.js
@@ -15,6 +16,7 @@
 //   collect   마지막 수집 시각    aside   (폰은 위·아래 한 줄)  collection-status.js
 // 새로 더할 수 있는 칸(extra): links 자주 가는 링크 · notes 노트 최근 · docs 최근 자료  → home-extra.js
 export const CARDS = Object.freeze([
+  {id: 'quiet', title: '연락 없는 조직', column: 'aside'},
   {id: 'calendar', title: '오늘 일정', column: 'main'},
   {id: 'tasks', title: '오늘 할 일', column: 'main'},
   {id: 'missed', title: '놓친 약속', column: 'main', phoneOnly: true},

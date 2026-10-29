@@ -44,8 +44,11 @@ for (const width of [390, 1440])
     const fillRequest = (r) => width < 1024 && fillPaths.some((x) => r.path.endsWith(x)) && (!r.path.endsWith("app_record_links") || r.query.includes("note_id"));
     expect(requests.filter((r) => r.path.endsWith("app_ledger_records")).length).toBeLessThanOrEqual(1);
     expect(requests.filter((r) => r.path.endsWith("app_feed_days")).length).toBeLessThanOrEqual(1);
+    // FEAT-1029묶음 ③: '연락 없는 조직' 줄은 자기 예산을 가진다: 주요 인물 1회(없으면 거기서 멈춤).
+    const quietRequest = (r) => r.path === "/rest/v1/app_org_key_people";
+    expect(requests.filter(quietRequest).length).toBeLessThanOrEqual(1);
     const dataRequests = requests.filter(
-      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r) && !collectRequest(r) && !fillRequest(r),
+      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r) && !collectRequest(r) && !fillRequest(r) && !quietRequest(r),
     );
     const basketRequests=requests.filter(r=>r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'));
     expect(basketRequests).toHaveLength(0);

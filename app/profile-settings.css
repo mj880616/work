@@ -33,6 +33,8 @@
 #profileView .ps-account-panel:not(:has(button:not(.hidden))){display:none}
 #profileView .ps-account-panel h3{margin:0}
 .ps-account-actions{display:flex;gap:6px;align-items:center}
+/* APP-폰앱새로 ③: 폰 앱에서만 보이는 위젯 로그아웃 작은 줄 */
+.ps-widget-line{display:inline-flex;gap:6px;align-items:center;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
 @media(min-width:1024px){.ps-org-list{column-count:2;column-gap:20px}}
 @media(max-width:700px){#profileView .ps-fields{max-width:none}}
 
