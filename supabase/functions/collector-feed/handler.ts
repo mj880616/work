@@ -31,6 +31,8 @@
 //   FEAT-1029 ⑤(10/29): 같은 AI 호출의 소식마다 ask_me(나한테 온 질문·부탁, 단체방 전체 부탁 포함, 이미 답한 것 제외)를 함께 받는다.
 //   ask=true인 소식은 저장 뒤 서버 전용 DB 함수 app_todo_candidate_from_telegram으로 챙길 것 후보(open) 한 줄을 넣는다. 할 일은 만들지 않는다.
 //   AI 추가 호출 없음. 함수가 없으면(DB 적용 전) 로그만 남기고 소식 저장은 그대로. 옛 소식은 다시 판정하지 않는다(새로 수집되는 것부터).
+//   TODO-내일만(10/29 결정): ask_me.to(me|all)를 함께 받는다. 단체방 전체 부탁(all)은 기본으로 빼고, 개인 대화방이거나 사람별 예외 방
+//   (app_todo_ask_rooms, 서버 전용 읽기 함수 app_todo_ask_filter)일 때만 후보로 올린다. 같은 함수가 주는 [내 일 아님] 예시를 재료에 붙인다.
 // - 하루 숫자는 app_feed_days에 더한다. 받은 요청 수(batch_count)·AI 사용량(ai_*)은 받은 날(한국 날짜) 줄, 나머지는 내용 날짜 줄.
 //   통화 숫자의 뜻(2단계 정리): total_count = 받은 전사 수(업무·개인함 저장·개수만 모두), kept_count = 업무 통화함에 저장한 줄,
 //   personal_count·unsure_count = 줄 없이 **개수만** 센 통화(요약 없는 옛 개인 기록 등. 개인 통화함에 저장한 통화는 세지 않는다: 그 수는 개인 표의 실제 줄 수),
@@ -113,6 +115,9 @@ export const ROOM_DAY_ADD_FN = "app_feed_room_day_add";
 export const ROOM_DAY_CONTEXT_FN = "app_feed_room_day_context";
 // FEAT-1029 ⑤ 나한테 온 요청 → 챙길 것 후보 한 줄(migration 20261029120000, service_role 전용). 소식은 source_ref로 찾고 출처 날짜·조직은 DB가 소식 줄에서 읽는다.
 export const ASK_CANDIDATE_FN = "app_todo_candidate_from_telegram";
+// TODO-내일만(migration 20261029210000, service_role 전용, 읽기만): 이 방이 '전체 부탁도 올릴' 예외 방인지 + [내 일 아님] 예시.
+// 함수가 없거나 읽기에 실패하면 예외 방 없음·예시 없음으로 본다(단체방 전체 부탁은 기본으로 빼므로 닫힌 쪽).
+export const ASK_FILTER_FN = "app_todo_ask_filter";
 // 그날 요약을 앞서 모인 소식까지 합쳐 다시 쓴 묶음 표시(화면 app/tg-day-model.mjs CUMULATIVE_PREFIX와 같음).
 export const CUMULATIVE_PREFIX = "c-";
 const CHAT_KINDS = ["user", "group", "channel"];
@@ -368,7 +373,7 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
       try { value = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES }); } catch { value = null; }
       if (!r.ok) {
         if (r.status === 404) return { ok: false, code: "FN_MISSING" };
-        const code = /TG_SENDER_[A-Z_]+|TGDG_[A-Z_]+|TODO_TG_[A-Z_]+/.exec(JSON.stringify(value ?? ""))?.[0];
+        const code = /TG_SENDER_[A-Z_]+|TGDG_[A-Z_]+|TODO_TG_[A-Z_]+|TODO_MINE_[A-Z_]+/.exec(JSON.stringify(value ?? ""))?.[0];
         return { ok: false, code: code ?? `DB_STATUS_${r.status}` };
       }
       if (!value || typeof value !== "object" || Array.isArray(value)) return { ok: false, code: "DB_BAD_RESPONSE" };
@@ -592,6 +597,18 @@ async function saveAsks(db: Db, ws: string, asks: { source_ref: string; ask: TgA
   }
   if (asks.length) log("telegram_ask_saved", { added, exists, failed });
 }
+// 예외 방 여부·[내 일 아님] 예시 읽기(TODO-내일만). 실패해도 던지지 않는다. 예시 글은 로그에 넣지 않는다.
+async function askFilter(db: Db, ws: string, input: TelegramInput, log: Log): Promise<{ groupRoom: boolean; notMine: string[] }> {
+  try {
+    const r = await db.rpcObject(ASK_FILTER_FN, { p_workspace: ws, p_room_key: input.room_key });
+    if (!r.ok) { log("telegram_ask_filter_failed", { stage: r.code }); return { groupRoom: false, notMine: [] }; }
+    const list = Array.isArray(r.value.not_mine) ? r.value.not_mine.filter((v: unknown): v is string => typeof v === "string" && v.trim() !== "") : [];
+    return { groupRoom: r.value.group_room === true, notMine: list.slice(0, TG_LIMITS.notMine) };
+  } catch {
+    log("telegram_ask_filter_failed", { stage: "INTERNAL" });
+    return { groupRoom: false, notMine: [] };
+  }
+}
 // 그 방·그날 앞서 저장된 소식(TG-1시간수집). ok=false면 읽지 못한 것(함수 없음·실패): 그날 요약을 합쳐 쓰지 않는다. 제목·요약은 로그에 넣지 않는다.
 async function earlierItems(db: Db, ws: string, input: TelegramInput, log: Log): Promise<{ ok: boolean; items: TgEarlier[] }> {
   try {
@@ -641,8 +658,9 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   // 한 방·하루가 여러 묶음이면(둘째 묶음부터, 또는 보낸 메시지가 하루 전체보다 적을 때) 요약을 그 묶음 몫으로 쓰게 한다(설계 3.2절).
   const { names, self } = await senderNames(db, ws, input, deps.log);
   const earlier = await earlierItems(db, ws, input, deps.log);
+  const filter = await askFilter(db, ws, input, deps.log);
   const partial = input.part > 1 || input.cont || input.total > input.messages.length;
-  const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, partial, names, earlier.items, self, input.chat_kind);
+  const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, partial, names, earlier.items, self, input.chat_kind, filter.notMine);
   // 부르기 전에 횟수를 먼저 센다(ai-assist와 같음).
   await addDay(db, ws, today, "telegram", { ai_requests: 1 }, nowMs);
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
@@ -674,8 +692,10 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const items = parsedAi.items;
   if (parsedAi.dropped || parsedAi.unlinked) deps.log("telegram_items_adjusted", { dropped: parsedAi.dropped, unlinked: parsedAi.unlinked });
   if (parsedAi.askDropped) deps.log("telegram_ask_dropped", { count: parsedAi.askDropped });
-  let kept = 0;
+  let kept = 0, groupAsksSkipped = 0;
   const asks: { source_ref: string; ask: TgAsk; evidence: string }[] = [];
+  // 단체방 전체에게 한 부탁(to=all)은 기본으로 뺀다. 개인 대화방이거나 사용자가 설정한 예외 방이면 남긴다(TODO-내일만 결정 4).
+  const allowAll = input.chat_kind === "user" || filter.groupRoom;
   const judged = new Date(nowMs).toISOString();
   for (const [n, item] of items.entries()) {
     const first = input.messages[item.refs[0]];
@@ -689,13 +709,15 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
     });
     if (r === "ok") {
       kept++;
-      if (item.ask) asks.push({ source_ref: `${prefix}${n + 1}`, ask: item.ask, evidence: askEvidence(input.messages[item.ask.quote], names) });
+      if (item.ask && item.ask.to === "all" && !allowAll) groupAsksSkipped++;
+      else if (item.ask) asks.push({ source_ref: `${prefix}${n + 1}`, ask: item.ask, evidence: askEvidence(input.messages[item.ask.quote], names) });
     }
   }
   await addDay(db, ws, input.day, "telegram", counts(kept), nowMs);
   // 소식이 실제로 저장된 방·날만 방 정보와 요약을 남긴다(DB 함수도 소식이 있어야 받는다).
   // 앞서 모인 소식을 읽었으면(없어서 빈 목록이어도) 그날 요약은 그때까지 모인 소식 전체로 쓴 것이다(c- 묶음).
   if (kept > 0) await saveRoomDay(db, ws, input, batch, parsedAi.day, deps.log, earlier.ok);
+  if (groupAsksSkipped) deps.log("telegram_ask_group_skipped", { count: groupAsksSkipped });
   await saveAsks(db, ws, asks, deps.log);
   return callResult({ kept });
 }

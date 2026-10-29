@@ -66,3 +66,10 @@
 #profileView .rn-check-label{color:var(--kptu-ink);font-weight:var(--ds-weight-medium,600)}
 #profileView .rn-more{margin-top:6px}
 #profileView .rn-more[hidden]{display:none}
+/* TODO-내일만: '챙길 것 기준' 칸. 작고 낮은 글자 버튼, 방 한 줄에 이름 + [빼기]. */
+#profileView .ps-todo-btn{position:relative;flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);font-weight:var(--ds-weight-regular,400);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);cursor:pointer}
+#profileView .ps-todo-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px)/2);height:var(--kptu-touch-target,44px)}
+#profileView .ps-todo-btn:disabled{opacity:.5;cursor:default}
+#profileView .ps-todo-rooms{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+#profileView .ps-todo-room{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);font-size:var(--ds-text-row)}
+#profileView .ps-todo-room-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

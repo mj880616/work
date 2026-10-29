@@ -92,9 +92,13 @@ import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
-  dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
+  dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, RADAR_NOT_MINE_MAX, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
   RADAR_ALREADY_MAX, RADAR_LINKS_MAX, type RadarLink, type RadarSource,
 } from "./todo-radar.ts";
+import {
+  buildRecheckInstructions, keepCandidate, packRecheck, parseRecheck, RECHECK_MAX, RECHECK_MAX_OUTPUT_TOKENS, RECHECK_SCHEMA, recheckMaterial,
+  type RecheckRoom, type RecheckRow,
+} from "./todo-recheck.ts";
 import {
   candidateRow, LEDGER_CANDIDATES_INSTRUCTIONS, LEDGER_CANDIDATES_SCHEMA, LEDGER_KNOWN_EVENTS, LEDGER_MAX_OUTPUT_TOKENS, ledgerMaterial,
   parseLedgerCandidates, type KnownEvent,
@@ -164,7 +168,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -472,6 +476,8 @@ type LinkSource = { type: "note"; note_id: string } | { type: "files"; note_id: 
 type LinkSummaryInput = { kind: "link_summary"; source: LinkSource; target_kind: LinkTargetKind; target_id: string };
 type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" } | { kind: "todo_radar"; mode: "meeting"; meeting_id: string };
 type LedgerCandidatesInput = { kind: "ledger_candidates" };
+// TODO-내일만 5번: 쌓인 대기 후보를 새 기준으로 한 번 다시 거르기. 글·ID 없이 kind 하나만(후보는 서버가 로그인 토큰으로 읽음).
+type TodoRecheckInput = { kind: "todo_recheck" };
 type LedgerAutoInput = { kind: "ledger_auto" };
 type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
@@ -533,7 +539,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -549,6 +555,10 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   if (b.kind === "ledger_candidates") {
     if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
     return { kind: "ledger_candidates" };
+  }
+  if (b.kind === "todo_recheck") {
+    if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
+    return { kind: "todo_recheck" };
   }
   // 원장 자동 기록도 글·ID 없이 kind 하나만 보낸다(재료·작업공간은 서버가 로그인 토큰으로 정함).
   if (b.kind === "ledger_auto") {
@@ -911,6 +921,124 @@ async function callOpenAi(
   return result;
 }
 
+// ---- TODO-내일만 5번: 쌓인 대기 후보 다시 거르기(todo_recheck) -------------------------------------------------------
+// 사용자가 설정에서 누른 한 번 실행. 대기(open) 후보를 최근 것부터 RECHECK_MAX개 읽어 AI에 한 번 보내고,
+// 본인 일(me·support_named)과 예외 방의 전체 부탁만 남기고 나머지는 '무시'(dismissed)로 바꾼다. 지우지 않는다.
+// 텔레그램 후보의 방 종류는 소식 줄(app_feed_items.room_key) → 방(app_feed_rooms.chat_kind) → 예외 방(app_todo_ask_rooms)으로 정한다.
+// 읽기에 실패하면 방 종류를 '알 수 없음'으로 두고(예외 방으로 보지 않음) 계속한다. 기록에는 숫자만 남긴다.
+async function recheckRooms(ctx: Ctx, rows: Record<string, unknown>[]): Promise<Map<string, RecheckRoom>> {
+  const out = new Map<string, RecheckRoom>();
+  const tg = rows.filter((r) => r.source_kind === "telegram" && typeof r.source_id === "string" && UUID.test(r.source_id as string));
+  if (!tg.length) return out;
+  for (const r of tg) out.set(String(r.id), "unknown");
+  try {
+    const ws = encodeURIComponent(ctx.workspaceId);
+    const ids = [...new Set(tg.map((r) => String(r.source_id).toLowerCase()))];
+    const items = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&id=in.(${ids.join(",")})&select=id,room_key&limit=${ids.length}`);
+    const roomOf = new Map<string, string>();
+    if (Array.isArray(items)) for (const it of items as Record<string, unknown>[]) if (typeof it?.room_key === "string") roomOf.set(String(it.id).toLowerCase(), it.room_key);
+    const rooms = await rest(ctx, `app_feed_rooms?workspace_id=eq.${ws}&select=room_key,chat_kind&limit=1000`);
+    const kindOf = new Map<string, string>();
+    if (Array.isArray(rooms)) for (const r of rooms as Record<string, unknown>[]) if (typeof r?.room_key === "string") kindOf.set(r.room_key, String(r.chat_kind ?? ""));
+    let listed = new Set<string>();
+    try {
+      const ask = await rest(ctx, `app_todo_ask_rooms?workspace_id=eq.${ws}&select=room_key&limit=500`);
+      if (Array.isArray(ask)) listed = new Set((ask as Record<string, unknown>[]).map((a) => String(a?.room_key ?? "")));
+    } catch { /* 예외 방 표가 아직 없으면 예외 방 없음 */ }
+    for (const r of tg) {
+      const key = roomOf.get(String(r.source_id).toLowerCase());
+      const kind = key ? kindOf.get(key) : undefined;
+      out.set(String(r.id), !key || !kind ? "unknown" : kind === "user" ? "personal" : listed.has(key) ? "group_listed" : "group");
+    }
+  } catch {
+    ctx.log("recheck_rooms_failed");
+  }
+  return out;
+}
+
+async function runTodoRecheck(ctx: Ctx, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  let raw: unknown;
+  try {
+    raw = await rest(ctx, `app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&select=id,source_kind,source_id,summary,evidence&order=created_at.desc&limit=${RECHECK_MAX + 1}`);
+  } catch {
+    throw new Fail(503, "radar_unavailable");
+  }
+  const all = Array.isArray(raw) ? (raw as Record<string, unknown>[]).filter((r) => typeof r?.id === "string" && UUID.test(r.id as string) && typeof r.summary === "string") : [];
+  const more = all.length > RECHECK_MAX;
+  const list = all.slice(0, RECHECK_MAX);
+  if (!list.length) return json({ ok: true, kind: "todo_recheck", checked: 0, dismissed: 0, kept: 0, more: false });
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "todo_recheck", started, config.price);
+  const rooms = await recheckRooms(ctx, list);
+  const rows: RecheckRow[] = list.map((r) => ({
+    id: String(r.id).toLowerCase(), source_kind: String(r.source_kind ?? ""), summary: String(r.summary),
+    evidence: typeof r.evidence === "string" ? r.evidence : "", room: rooms.get(String(r.id)) ?? null,
+  }));
+  const packed = packRecheck(rows);
+  const material = recheckMaterial(packed, await readNotMine(ctx));
+  const profile = await readRadarProfile(ctx);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: RECHECK_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: buildRecheckInstructions(profile) },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "todo_recheck", strict: true, schema: RECHECK_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RECHECK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseRecheck(outputText(result.raw, 128 * 1024), packed);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  const drop = rows.filter((r) => !keepCandidate(parsed.verdicts.get(r.id), r)).map((r) => r.id);
+  let dismissed = 0;
+  // 아직 대기인 줄만 바꾼다(그 사이 사용자가 처리한 줄은 그대로). 30개씩 나눠 보낸다.
+  for (let i = 0; i < drop.length; i += 30) {
+    const part = drop.slice(i, i + 30);
+    try {
+      const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&id=in.(${part.join(",")})&select=id`, {
+        method: "PATCH",
+        headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, Accept: "application/json", "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ status: "dismissed", decided_at: new Date(deps.now()).toISOString() }),
+      });
+      if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Error(`rest_${r.status}`); }
+      const done = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
+      dismissed += Array.isArray(done) ? done.length : 0;
+    } catch {
+      deps.log("recheck_update_failed");
+      throw new Fail(503, "radar_unavailable");
+    }
+  }
+  deps.log("todo_recheck_done", { checked: rows.length, dismissed, judged: parsed.verdicts.size, dropped: parsed.dropped, more });
+  return json({ ok: true, kind: "todo_recheck", checked: rows.length, dismissed, kept: rows.length - dismissed, more });
+}
+
 // ---- 쓰임 2: 챙길 것 찾기(todo_radar) ----------------------------------------------------------------------------
 
 const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
@@ -1131,6 +1259,16 @@ async function readRadarProfile(ctx: Ctx) {
   }
 }
 
+// [내 일 아님] 예시(TODO-내일만, migration 20261029210000 app_todo_not_mine, 소유자 토큰으로 읽기). 표가 없거나 읽지 못하면 빈 목록(찾기는 계속).
+async function readNotMine(ctx: Ctx): Promise<string[]> {
+  try {
+    const rows = await rest(ctx, `app_todo_not_mine?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=summary&order=created_at.desc&limit=${RADAR_NOT_MINE_MAX}`);
+    return Array.isArray(rows) ? rows.map((r) => (r as Record<string, unknown>)?.summary).filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 type RadarDeps = { env: Env; now: () => number; sleep: (ms: number) => Promise<void>; log: Log; doFetch: typeof fetch };
 
 async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): Promise<Response> {
@@ -1193,7 +1331,7 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
     } catch {
       throw new Fail(503, "usage_unavailable");
     }
-    const material = radarMaterial(packed, today);
+    const material = radarMaterial(packed, today, await readNotMine(ctx));
     const profile = await readRadarProfile(ctx);
     const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
       model: config.model,
@@ -4382,6 +4520,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
 
       const input = parseRequest(await readBody(req));
       if (input.kind === "todo_radar") return await runTodoRadar(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "todo_recheck") return await runTodoRecheck(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_candidates") return await runLedgerCandidates(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_auto") return await runLedgerAuto(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_fix") return await runLedgerFix(ctx, input, { env: deps.env, now, sleep, log, doFetch });

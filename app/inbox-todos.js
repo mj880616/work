@@ -8,7 +8,8 @@ import {waitHtml} from './wait-state.js';
 // as the PC home card). Each has [원장으로] (copies the same 쓰기요청 text as the card's [원장으로 복사]). They are never stored and never counted.
 // The home card and the work journal box (todo-radar.js) stay as they are; both sides tell each other through the same change
 // event ('kptu:todo-radar-changed'). Nothing is kept in browser storage.
-import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, markTasked, candidateToTask, validateTaskDraft, notPlanned,
+import {createAnchoredMenu} from './anchored-menu.js';
+import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, markNotMine, undoNotMine, markTasked, candidateToTask, validateTaskDraft, notPlanned,
   quickDue, dotDay, radarScope, ledgerRequestText, sourceText, RADAR_SOURCE_LABEL} from './todo-radar-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {offerUndoNotice} from './basket-record-delete.js';
@@ -25,6 +26,19 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 // counterpart promises out (they belong to the home/정리함 lists).
 // openSource / radarPromises come from todo-radar.js and are handed in by the 정리함 screen (basket.js): this module must not import todo-radar.js,
 // whose source button opens the 사업 보고 window, because that window (meeting-round-detail.js) now uses this list (import cycle).
+// TODO-내일만 6번: one ⋯ menu (shared anchored menu) for every mounted list; the list that holds the trigger handles the action.
+// A list inside an open dialog (사업 보고 상세) keeps the menu inside that dialog.
+const menuLists = new Map();
+let rowMenu = null;
+const listOf = trigger => [...menuLists.keys()].find(h => h.isConnected && h.contains(trigger));
+function inboxRowMenu() {
+  rowMenu ||= createAnchoredMenu({id:'inboxTodoRowMenu', className:'radar-row-menu', label:'챙길 것 줄 메뉴', historyKey:'kptuInboxTodoRowMenu',
+    parent:trigger => trigger.closest('dialog,.modal') || document.body,
+    key:trigger => trigger.dataset.inboxTodoMore, canOpen:trigger => !trigger.disabled && !!listOf(trigger),
+    render:() => '<button type="button" data-inbox-todo-menu="not-mine">내 일 아님</button>',
+    onAction:(button, active) => { const list = listOf(active.trigger); if (list) menuLists.get(list)?.(active.id, button.dataset.inboxTodoMenu); }});
+  return rowMenu;
+}
 export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read, quietEmpty = false, hideSource = false, withPromises = true, openSource = () => {}, radarPromises = () => []}) {
   const readInboxCandidates = read || readAllInbox;
   let rows = [], state = 'loading', chip = 'open', run = 0, scope = radarScope(rt), status = '';
@@ -59,7 +73,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     else if (unmarked.has(c.id)) below = `<button type="button" class="inbox-todo-btn" data-inbox-todo-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button>`;
     else {
       const dis = isBusy ? ' disabled' : '';
-      right = `<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-task="${id}"${dis}>할 일로</button><button type="button" class="inbox-todo-btn" data-inbox-todo-dismiss="${id}"${dis}>무시</button></span>`;
+      right = `<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-task="${id}"${dis}>할 일로</button><button type="button" class="inbox-todo-btn" data-inbox-todo-dismiss="${id}"${dis}>무시</button><button type="button" class="inbox-todo-btn inbox-todo-more" data-inbox-todo-more="${id}" aria-label="더 보기" title="더 보기" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button></span>`;
     }
     const note = rowStatus.get(c.id) ? `<p class="inbox-todo-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
     return `<li class="inbox-todo-row" data-inbox-todo-row="${id}" data-inbox-todo-status="${esc(c.status)}"><div class="inbox-todo-line">${hideSource ? '' : `<button type="button" class="inbox-todo-source" data-inbox-todo-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(source)}</button>`}<div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(c.summary)}</span><span class="inbox-todo-meta">${esc(meta)}</span></div>${right}</div>${note}${below ? `<div class="inbox-todo-below">${below}</div>` : ''}</li>`;
@@ -113,6 +127,22 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
       return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
     }});
   }
+  // [내 일 아님]: out like [무시], plus a "not mine" example the server uses next time; [되돌리기] undoes both.
+  async function notMine(c) {
+    busy.add(c.id); paint();
+    let r = {ok: false};
+    try { r = await markNotMine(c, rt); } catch { r = {ok: false}; }
+    busy.delete(c.id);
+    if (!r.ok) { rowStatus.set(c.id, '빼지 못했어요. 다시 눌러 주세요.'); paint(); return; }
+    rowStatus.delete(c.id); c.status = 'dismissed'; c.decided_at = new Date().toISOString(); paint(); changed();
+    offerUndoNotice({text: r.saved ? '내 일 아님으로 뺐어요. 다음 찾기부터 비슷한 것을 걸러요.' : '챙길 것에서 뺐어요.', onUndo: async () => {
+      let back = false;
+      try { back = await undoNotMine(c.id, r.exampleId, rt); } catch { back = false; }
+      if (back) { c.status = 'open'; c.decided_at = null; paint(); changed(); return {status: 'done', message: '다시 보이게 했어요.'}; }
+      return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
+    }});
+  }
+  menuLists.set(host, (id, action) => { const c = byId(id); if (c && action === 'not-mine' && !busy.has(c.id)) { status = ''; void notMine(c); } });
   // [할 일로]: the suggested due when there is one, else today (the same as the home card's ✓).
   async function toTask(c) {
     const draft = {title: c.summary, due: quickDue(c, seoulDateKey())};
@@ -146,6 +176,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if ('inboxTodoTasks' in d) { window.KPTURouter?.go?.('tasks', {source: 'delegated'}); return; }
     if (d.inboxTodoSource) { const c = byId(d.inboxTodoSource); if (c) openSource(c); return; }
     if (d.inboxTodoDismiss) { const c = byId(d.inboxTodoDismiss); if (c && !busy.has(c.id)) { status = ''; await dismiss(c); } return; }
+    if (d.inboxTodoMore) { if (!busy.has(d.inboxTodoMore)) inboxRowMenu().open(b); return; }
     if (d.inboxTodoTask) { const c = byId(d.inboxTodoTask); if (c && !busy.has(c.id)) { status = ''; rowStatus.delete(c.id); await toTask(c); } return; }
     if (d.inboxTodoMark) {
       const c = byId(d.inboxTodoMark), taskId = unmarked.get(d.inboxTodoMark); if (!c || !taskId) return;

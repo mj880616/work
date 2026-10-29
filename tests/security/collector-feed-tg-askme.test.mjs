@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // FEAT-1029 ⑤ 텔레그램에서 나한테 온 요청(docs/design/feature-bundle-1029.md 5.2절, 명진 결정 10/29 5-①~③).
 // 소식 고르는 같은 AI 호출의 ask_me 칸 → 소식 저장 뒤 서버 전용 DB 함수로 챙길 것 후보 한 줄. 지어낸 Supabase·OpenAI로 실제 handler를 돌린다. 네트워크 없음. 이름·글은 지어낸 것이다.
-const {createCollectorFeedHandler,ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
+const {createCollectorFeedHandler,ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,ASK_FILTER_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
 const {parseTelegram,telegramMaterial,askEvidence,TELEGRAM_INSTRUCTIONS,TELEGRAM_SCHEMA}=await import('../../supabase/functions/collector-feed/telegram.ts');
 
 const SB='https://synthetic.supabase.test';
@@ -32,7 +32,7 @@ function harness({ai=()=>aiOk(),rpc=(fn)=>fn===ASK_CANDIDATE_FN?respond({result:
     const path=url.pathname.replace('/rest/v1/','');
     if(path==='rpc/app_operator_feature_workspace')return respond(JSON.stringify(WS)); // MULTI 단계 ①: 작업공간은 허용 표 함수로
     if(path.startsWith('rpc/')){
-      const fn=path.slice(4);assert.ok([ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN].includes(fn),'이 시험에서 부르는 DB 함수: '+fn);
+      const fn=path.slice(4);assert.ok([ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,ASK_FILTER_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN].includes(fn),'이 시험에서 부르는 DB 함수: '+fn);
       const args=JSON.parse(init.body);calls.rpc.push({fn,args,order:calls.items.length});return rpc(fn,args);
     }
     if(path==='app_workspaces')return respond([{id:WS}]);
@@ -65,10 +65,14 @@ const item=(ask_me,o={})=>({title:'가상 자료 요청',summary:'가상 자료�
 const ask=(o={})=>({ask:true,request:'가상 자료 금요일까지 보내기',quote:'m1',due:'2026-10-30',...o});
 const askCalls=h=>h.calls.rpc.filter(c=>c.fn===ASK_CANDIDATE_FN);
 
-test('답 형식: 소식마다 ask_me(ask·request·quote·due) 필수, 지시문에 결정 5-①·5-② 규칙', ()=>{
+test('답 형식: 소식마다 ask_me(ask·to·request·quote·due) 필수, 지시문에 결정 5-①·5-② 규칙과 TODO-내일만 규칙', ()=>{
   const it=TELEGRAM_SCHEMA.properties.items.items;
   assert.ok(it.required.includes('ask_me'));
-  assert.deepEqual(it.properties.ask_me.required,['ask','request','quote','due']);
+  assert.deepEqual(it.properties.ask_me.required,['ask','to','request','quote','due']);
+  assert.deepEqual(it.properties.ask_me.properties.to.enum,['me','all']);
+  assert.match(TELEGRAM_INSTRUCTIONS,/'나'가 다른 사람에게 부탁·요청한 말/,'내가 남에게 한 부탁은 뺌');
+  assert.match(TELEGRAM_INSTRUCTIONS,/단체방 전체·여러 사람에게 한 부탁이면 all/);
+  assert.match(TELEGRAM_INSTRUCTIONS,/내 일 아님 예시/);
   assert.equal(it.properties.ask_me.additionalProperties,false);
   assert.match(TELEGRAM_INSTRUCTIONS,/단체방 전체에게 하는 부탁\('다들 ~해 주세요'/,'5-② 단체방 전체 부탁도 올림');
   assert.match(TELEGRAM_INSTRUCTIONS,/내가 이미 답했거나 '했습니다'/,'5-① 이미 답한 것은 뺌');
@@ -167,4 +171,40 @@ test('같은 묶음이 다시 오면(이미 저장) AI도 후보 함수도 부�
   const h=harness({dup:true,ai:()=>aiOk(DAY(),[item(ask())])});
   const r=await h.send(body());
   assert.equal(r.status,200);assert.equal(h.calls.openai.length,0);assert.equal(askCalls(h).length,0);
+});
+
+// ---- TODO-내일만(10/29 결정): 단체방 전체 부탁(to=all)은 기본으로 빼고, 개인 대화방·예외 방만 올린다 ------------------
+const filterRpc=(filter)=>(fn)=>fn===ASK_FILTER_FN?filter():fn===ASK_CANDIDATE_FN?respond({result:'added'}):fn===NAMES_FN||fn===ROOM_DAY_CONTEXT_FN?respond([]):respond({ok:true});
+test('단체방 전체 부탁(to=all)은 예외 방이 아니면 후보로 올리지 않는다(나에게 온 것은 올림)',async()=>{
+  const h=harness({rpc:filterRpc(()=>respond({group_room:false,not_mine:[]})),ai:()=>aiOk(DAY(),[item(ask({to:'all'})),item(ask({quote:'m2',to:'me'}),{refs:['m2']})])});
+  const r=await h.send(body({chat_kind:'group'}));
+  assert.equal(r.status,200);assert.equal((await r.json()).kept,2);
+  const calls=askCalls(h);assert.equal(calls.length,1);assert.equal(calls[0].args.p_source_ref,h.calls.items[1].source_ref);
+  assert.match(h.calls.logs.join('\n'),/telegram_ask_group_skipped.*"count":1/);
+  const f=h.calls.rpc.find(c=>c.fn===ASK_FILTER_FN);assert.deepEqual(f.args,{p_workspace:WS,p_room_key:'-1001234'});
+  assert.equal(f.order,0,'AI 부르기 전(소식 저장 전)에 읽는다');
+});
+test('예외 방(group_room=true)이거나 개인 대화방이면 전체 부탁도 올린다',async()=>{
+  const listed=harness({rpc:filterRpc(()=>respond({group_room:true,not_mine:[]})),ai:()=>aiOk(DAY(),[item(ask({to:'all'}))])});
+  await listed.send(body({chat_kind:'group'}));assert.equal(askCalls(listed).length,1);
+  const personal=harness({rpc:filterRpc(()=>respond({group_room:false,not_mine:[]})),ai:()=>aiOk(DAY(),[item(ask({to:'all'}))])});
+  await personal.send(body({chat_kind:'user'}));assert.equal(askCalls(personal).length,1);
+});
+test('예외 방 함수가 없거나 실패하면 전체 부탁은 빼고(닫힌 쪽) 소식 저장·나에게 온 요청은 그대로',async()=>{
+  for(const fail of [()=>respond({message:'not found'},404),()=>respond({message:'x'},500),()=>respond([1,2])]){
+    const h=harness({rpc:filterRpc(fail),ai:()=>aiOk(DAY(),[item(ask({to:'all'})),item(ask({quote:'m2'}),{refs:['m2']})])});
+    const r=await h.send(body({chat_kind:'group'}));
+    assert.equal(r.status,200);assert.equal((await r.json()).kept,2);assert.equal(askCalls(h).length,1);
+    assert.match(h.calls.logs.join('\n'),/telegram_ask_filter_failed/);
+  }
+});
+test('[내 일 아님] 예시는 재료에만 들어가고 로그에는 없다; 옛 답(to 없음)은 나에게 온 요청으로 본다',async()=>{
+  const EX='가상 남의 일 예시 하나';
+  const h=harness({rpc:filterRpc(()=>respond({group_room:false,not_mine:[EX,7,'']})),ai:()=>aiOk(DAY(),[item({ask:true,request:'가상 자료 보내기',quote:'m2',due:''})])});
+  await h.send(body({chat_kind:'group'}));
+  const material=h.calls.openai[0].input[1].content;
+  assert.match(material,/내 일 아님 예시:\n- 가상 남의 일 예시 하나\n메시지:/);
+  assert.ok(!h.calls.logs.join('\n').includes(EX));
+  assert.equal(askCalls(h).length,1);
+  assert.equal(parseTelegram(JSON.stringify({items:[item({ask:true,request:'가상',quote:'m2',due:''})]}),3,[],[]).items[0].ask.to,'me');
 });
