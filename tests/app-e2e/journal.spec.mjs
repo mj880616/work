@@ -9,6 +9,7 @@ import { openHwpx, packHwpx, validateHwpx, readXml } from '../../app/weekly-hwpx
 import { extractBlankTemplate } from '../../app/weekly-hwpx/template.mjs';
 import { buildReport, readReport, CHANGED_COLOR } from '../../app/weekly-hwpx/report.mjs';
 import {expectJournalDay} from './helpers/screen-title.mjs';
+import {laidOutBox,pseudoContent} from './helpers/laid-out.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. 초안 복사는 [주간 정리]의
 // [주간보고 한글 파일 만들기] 옆 [복사] 하나다. 이 도우미는 [주간 정리]로 가서 [복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
@@ -1944,8 +1945,9 @@ for(const width of [390,1280])test(`[업무일지] 할 일 동그라미: 누르�
  const circle=taskRowOf(page,'todo','t-today').locator('.journal-check');
  await expect(circle).toHaveAttribute('aria-label','오늘 마감 할 일 완료');
  // 점(•)이 아니라 동그라미: 줄 앞 글자 없음, 28px 칸 안에 18px 동그라미.
- expect(await taskRowOf(page,'todo','t-today').evaluate(e=>getComputedStyle(e,'::before').content)).toBe('none');
- const box=await circle.boundingBox();expect(box.width).toBeLessThanOrEqual(32);expect(box.height).toBeLessThanOrEqual(32);
+ // 업무일지는 자료가 올 때마다 할 일 칸을 다시 그린다. 붙어 있는 줄에서 읽고 잰다.
+ await expect.poll(()=>pseudoContent(taskRowOf(page,'todo','t-today'))).toBe('none');
+ const box=await laidOutBox(circle);expect(box.width).toBeLessThanOrEqual(32);expect(box.height).toBeLessThanOrEqual(32);
  await circle.click();
  await expect(itemTexts(page,'todo')).toHaveCount(0);
  await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포','오늘 마감 할 일']);
