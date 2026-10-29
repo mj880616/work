@@ -1487,8 +1487,8 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
    고르면 그 네모 위에 ✓와 얇은 테두리만 더한다. 바탕·테두리 색으로 고름을 표시하지 않는다(고른 색이 다른 색으로 보이지 않게).
    단추는 투명한 누름 자리(PC 32px, 폰 터치 기준)이고 화면별 CSS는 이 모양을 바꾸지 않는다(tests/color-swatch.test.mjs). */
 :root .ui-swatches{ display:flex; flex-wrap:wrap; gap:0; }
-:root .ui-swatch{ --ui-swatch-hit:32px; box-sizing:border-box; position:relative; display:inline-grid; place-items:center; flex:none; width:var(--ui-swatch-hit); height:var(--ui-swatch-hit); min-width:var(--ui-swatch-hit); min-height:var(--ui-swatch-hit); margin:0; padding:0; border:0; border-radius:var(--kptu-radius-sm,4px); background:transparent; box-shadow:none; color:var(--kptu-muted); font-weight:var(--ds-weight-regular,400); line-height:1; cursor:pointer; transform:none; }
-:root .ui-swatch:is([aria-pressed="true"],[aria-checked="true"],:hover,:active){ background:transparent; border-color:transparent; box-shadow:none; }
+:root .ui-swatch{ --ui-swatch-hit:32px; box-sizing:border-box; position:relative; display:inline-grid; place-items:center; flex:none; width:var(--ui-swatch-hit); height:var(--ui-swatch-hit); min-width:var(--ui-swatch-hit); min-height:var(--ui-swatch-hit); margin:0; padding:0; border:0; border-radius:var(--kptu-radius-sm,4px); background:transparent; color:var(--kptu-muted); font-weight:var(--ds-weight-regular,400); line-height:1; cursor:pointer; transform:none; }
+:root .ui-swatch:is([aria-pressed="true"],[aria-checked="true"],:hover){ background:transparent; border-color:transparent; }
 :root .ui-swatch .ui-swatch-fill{ box-sizing:border-box; display:grid; place-items:center; width:22px; height:22px; border:.5px solid color-mix(in srgb,var(--kptu-ink) 20%,transparent); border-radius:4px; font-size:var(--ds-text-meta,12px); line-height:1; pointer-events:none; }
 :root .ui-swatch .ui-swatch-fill[data-text]::after{ content:attr(data-text); }
 :root .ui-swatch:is([aria-pressed="true"],[aria-checked="true"]) .ui-swatch-fill{ outline:1.5px solid var(--kptu-ink); outline-offset:1.5px; }

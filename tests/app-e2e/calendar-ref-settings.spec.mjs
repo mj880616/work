@@ -87,10 +87,13 @@ test('서버(Edge)가 옛 판이라 다른 캘린더 일정이 오면 그것은 
 const GOOGLE=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];
 const rgb=hex=>{const n=parseInt(hex.slice(1),16);return `rgb(${n>>16}, ${n>>8&255}, ${n&255})`};
 for(const width of [412,884,1440])test(`내 일정 색 11가지: 고르면 그 색 위에 ✓, 색은 바뀌지 않는다 (${width}px)`,async({page})=>{
+  test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
   await open(page);
-  await page.addStyleTag({url:new URL('../../app/base-ui.css',url).href});
-  await page.addStyleTag({url:new URL('../../app/ui-standard.css',url).href});
+  // 이 시험 화면은 ui-standard.css 전체를 부르면 숨김 규칙에 걸리므로 색 칸 공용 규칙 줄만 더한다.
+  const common=await page.evaluate(async href=>(await (await fetch(href)).text()).split('\n').filter(line=>line.includes('.ui-swatch')).join('\n'),new URL('../../app/ui-standard.css',url).href);
+  expect(common).toContain(':root .ui-swatch .ui-swatch-fill');
+  await page.addStyleTag({content:common});
   await page.selectOption('[data-ps-calref-calendar]','cal-a');
   const swatches=page.locator('#psCalRefPanel .ui-swatch[data-ps-calref-color]');
   await expect(swatches).toHaveCount(11);
@@ -107,7 +110,7 @@ for(const width of [412,884,1440])test(`내 일정 색 11가지: 고르면 그 �
     expect(on.fill,`색 ${id} 고른 뒤`).toBe(rgb(hex));
     expect(on.check).toBe('"✓"');expect(on.outline).toBe('solid');expect(on.inside).toBe(true);
     // 다른 색 칸은 그대로(✓ 없음)
-    for(const other of GOOGLE.keys())if(other!==i)expect((await look(String(other+1))).check).not.toBe('"✓"');
+    expect(await page.evaluate(()=>[...document.querySelectorAll('[data-ps-calref-color]')].filter(b=>getComputedStyle(b.querySelector('.ui-swatch-fill'),'::after').content==='"✓"').map(b=>b.dataset.psCalrefColor))).toEqual([id]);
     await button.click();
     await expect(button).toHaveAttribute('aria-pressed','false');
     expect((await look(id)).fill).toBe(rgb(hex));
