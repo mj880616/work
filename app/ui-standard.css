@@ -1434,7 +1434,9 @@ body.kptu-mobile-keyboard .save-row-sticky{ display:none !important; }
    ② 꾸밈 빠진 버튼: 클래스가 없는 <button>이 브라우저 기본 회색 상자로 보이지 않도록, 강도 0(:where)의 바탕 모양만 준다. 화면이 제 모양을
       정한 버튼(세그먼트·칩·글자 버튼 등)은 그 규칙이 그대로 이긴다.
    ③ 고르기 상자(select): 브라우저 기본 화살표·회색 대신 공용 칸 모양 + 작은 ▾. 열리는 목록은 select-menu.js(UI-모바일고르기칸) 그대로.
-   ④ 날짜 칸(.date-field, app/date-field.js): input 칸 모양(높이·테두리·폭)은 화면 규칙 그대로 두고, 기기 글자만 감춰 '10. 6. (화)'를 그 위에 그린다. 달력 단추·여는 방식은 기기 그대로. */
+   ④ 날짜 칸(.date-field, app/date-field.js): 칸 크기는 input(화면 규칙) 그대로. 보이는 틀(선·모서리·바탕·작은 ▾)과 글자 '10.6 (화)'는 칸이 한 번만 그리고,
+      기기 날짜 칸은 그 위에 통째로 투명하게 겹쳐 누르기·키보드·달력 열기만 맡는다(TASK-날짜칸겹침: 기기 글자 마디만 감추던 방식은 폰에서 두 글자가 겹쳤다).
+      칸 어디를 눌러도 기기 달력이 열린다(일시 칸 .dt-date와 같은 방식). */
 button:is(.secondary,.ghost,.danger):not(.icon-btn){
   box-sizing:border-box; min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x);
   font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3;
@@ -1453,11 +1455,14 @@ button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
 }
 .date-field{ position:relative; display:inline-flex; max-width:100%; min-width:0; vertical-align:middle; }
 .date-field.is-block{ display:flex; width:100%; }
-.date-field>input[type="date"]{ flex:1 1 auto; min-width:0; }
-.date-field>input[type="date"]::-webkit-datetime-edit{ opacity:0; }
-.date-field::after{ content:attr(data-date-text); position:absolute; left:var(--date-field-pad,10px); right:28px; top:50%; transform:translateY(-50%); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.2; font-size:var(--date-field-size,1em); color:var(--kptu-ink); font-weight:var(--ds-weight-regular); pointer-events:none; }
+.date-field::before{ content:""; position:absolute; inset:0; box-sizing:border-box; border:var(--date-field-line,var(--ds-line-width) solid var(--ds-line)); border-radius:var(--date-field-radius,var(--ds-radius-control)); background-color:var(--date-field-bg,var(--kptu-surface)); background-image:linear-gradient(45deg,transparent 50%,var(--kptu-muted) 50%),linear-gradient(135deg,var(--kptu-muted) 50%,transparent 50%); background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%; background-size:4px 4px,4px 4px; background-repeat:no-repeat; pointer-events:none; }
+.date-field>input[type="date"]{ position:relative; z-index:1; flex:1 1 auto; min-width:0; opacity:0; cursor:pointer; }
+.date-field>input[type="date"]::-webkit-calendar-picker-indicator{ position:absolute; inset:0; width:auto; height:auto; margin:0; padding:0; opacity:0; cursor:pointer; }
+.date-field::after{ content:attr(data-date-text); position:absolute; z-index:2; left:var(--date-field-pad,10px); right:22px; top:50%; transform:translateY(-50%); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.2; font-size:var(--date-field-size,1em); color:var(--kptu-ink); font-weight:var(--ds-weight-regular); pointer-events:none; }
+.date-field:focus-within::before{ border-color:var(--kptu-primary-ink); box-shadow:0 0 0 3px var(--kptu-primary-soft); }
 .date-field.is-empty::after{ color:var(--kptu-faint); }
 .date-field:has(>input:disabled)::after{ color:var(--kptu-muted); }
+.date-field:has(>input:disabled)>input[type="date"]{ cursor:default; }
 /* ⑤ 체크칸·라디오 줄(A1 내 프로필 담당 사업장에서 발견, 전수): 공용 label 기본(base-ui.css label{flex-direction:column})이 체크칸을 글자 위 가운데로
    올려놓지 않도록, 바로 안에 체크칸·라디오가 있는 label은 한 줄 '☐ 이름'이다. 강도는 label 기본과 같고(뒤에 와서 이김) 화면 규칙은 그대로 이긴다. */
 label:where(:has(> input:is([type="checkbox"],[type="radio"]))){ flex-direction:row; align-items:center; }

@@ -22,7 +22,7 @@ async function renderedRows(browser,{timezoneId,now,tasks}){
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskBody.gt-list')).toBeVisible({timeout:10000});
   const ids=sel=>page.locator(sel).evaluateAll(els=>els.map(el=>el.dataset.googleTask));
-  const result={overdue:await ids('#gtTaskBody [data-gt-overdue] .gt-row'),today:await ids('#gtTaskBody [data-gt-today] .gt-row'),week:await ids('#gtTaskBody [data-gt-week] .gt-row'),later:await ids('#gtTaskBody [data-gt-later] .gt-row'),undated:await ids('#gtTaskBody [data-gt-undated] .gt-row'),completed:await ids('#gtCompleted .gt-row'),head:await page.locator('#gt-overdue-head').allTextContents(),overdueClass:await ids('#gtTaskBody .gt-row.overdue')};
+  const result={overdue:await ids('#gtTaskBody [data-gt-overdue] .gt-row'),today:await ids('#gtTaskBody [data-gt-today] .gt-row'),tomorrow:await ids('#gtTaskBody [data-gt-tomorrow] .gt-row'),week:await ids('#gtTaskBody [data-gt-week] .gt-row'),later:await ids('#gtTaskBody [data-gt-later] .gt-row'),undated:await ids('#gtTaskBody [data-gt-undated] .gt-row'),completed:await ids('#gtCompleted .gt-row'),head:await page.locator('#gt-overdue-head').allTextContents(),overdueClass:await ids('#gtTaskBody .gt-row.overdue')};
   await context.close();
   return result;
 }
@@ -100,7 +100,7 @@ test('Google Tasks shows pending first and only completions from the recent wind
   for(const bad of ['0','9','-1','1.5','abc','3d','100']) expect(()=>completedWindow(bad)).toThrow('completed_days');
 });
 
-test('Google Tasks shows overdue first, then Korean today, tomorrow through +7 days, then recent completions whatever their due date, across a year boundary',async({browser})=>{
+test('Google Tasks shows overdue first, then Korean today, tomorrow, the day after through +7 days, then recent completions whatever their due date, across a year boundary',async({browser})=>{
   // 2026-12-31 23:30 in Korea.
   const r=await renderedRows(browser,{timezoneId:'Asia/Seoul',now:'2026-12-31T14:30:00.000Z',tasks:[
     gt('yesterday','2026-12-30T00:00:00.000Z'),
@@ -123,7 +123,8 @@ test('Google Tasks shows overdue first, then Korean today, tomorrow through +7 d
   expect(r.overdue).toEqual(['minus30','yesterday']);
   expect(r.overdueClass).toEqual(['minus30','yesterday']);
   expect(r.today).toEqual(['today']);
-  expect(r.week).toEqual(['tomorrow','plus6','plus7']);
+  expect(r.tomorrow).toEqual(['tomorrow']);
+  expect(r.week).toEqual(['plus6','plus7']);
   expect(r.later).toEqual([]);
   expect(r.undated).toEqual(['no-due']);
   expect(r.completed).toEqual(['recent-done-in','recent-done-out','recent-done-overdue','recent-done-undated']);

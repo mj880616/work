@@ -302,7 +302,7 @@ test('consecutive completions keep independent three second timers',async({brows
   expect(calls.toggles.map(x=>x.task_id)).toEqual(['a','b']);
   await expect.poll(()=>order(page),{timeout:2500}).toEqual(['b','a']);
   await expect(row(page,'b')).toHaveClass(/completed/);
-  await expect(page.locator('#gtTaskBody [data-gt-week] [data-google-task="b"]')).toBeVisible();
+  await expect(page.locator('#gtTaskBody [data-gt-tomorrow] [data-google-task="b"]')).toBeVisible();
   await expect.poll(()=>page.locator('#gtCompleted [data-google-task]').count(),{timeout:2500}).toBe(2);
   await context.close();
 });

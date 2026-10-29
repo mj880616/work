@@ -388,8 +388,11 @@ jobs:
       - name: Check home AI usage line (AI-사용량줄, summary·warning·amount input·no device storage, synthetic)
         run: node --test tests/ai-usage-model.test.mjs
 
-      - name: Check shared date field and button rules (UI-날짜칸·UI-버튼통일, '10. 6. (화)'·no device storage, synthetic)
+      - name: Check shared date field and button rules (UI-날짜칸·UI-버튼통일, '10.6 (화)'·no device storage, synthetic)
         run: node --test tests/date-field.test.mjs
+
+      - name: Check task due groups (TASK-내일칸, 지남·오늘·내일·일주일 안·나중·기한 없음 one shared rule, synthetic)
+        run: node --test tests/task-due-group.test.mjs
 
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
