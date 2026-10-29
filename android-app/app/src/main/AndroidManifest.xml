@@ -40,5 +40,24 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+        <!-- 단계 ③: 위젯 [로그인] 줄만 여는 화면. 내보내지 않아 다른 앱은 열 수 없다. 그리지 않고 바로 닫는다. -->
+        <activity
+            android:name=".WidgetLoginActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+        <!-- 단계 ③: 홈 화면 '웹2 오늘' 위젯(홈 화면 전용). 권한은 그대로 인터넷 하나. -->
+        <receiver
+            android:name=".TodayWidget"
+            android:exported="false"
+            android:label="웹2 오늘">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_widget_info" />
+        </receiver>
     </application>
 </manifest>
