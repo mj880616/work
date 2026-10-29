@@ -59,8 +59,16 @@ for(const width of [412,884,1440])test(`press draft: pick 근거, preview only, 
  await expect(d.locator(`[data-pd-pick="${M1}"]`)).toBeChecked();
  await expect(d.locator('.pd-pick').first()).toContainText('가상지부 임단협 3차');
  await expect(d.locator('[data-pd-count]')).toHaveText('1');
+ // UI-고른것접기: 미리 고른 보고는 위에 늘 보이고, 나머지는 접힌 '최근 사업 보고 2' 안(맨 위 찾기 칸)
+ const others=d.locator('[data-pick-others]');
+ await expect(others).not.toHaveAttribute('open','');
+ await expect(others.locator('summary')).toHaveText('최근 사업 보고 2');
+ await press(page,others.locator('summary'),width);
+ await expect(others.locator('[data-pick-search]')).toBeVisible();
  await press(page,d.locator(`[data-pd-pick="${M2}"]`),width);
  await expect(d.locator('[data-pd-count]')).toHaveText('2');
+ await expect(d.locator('[data-pick-others]')).toHaveAttribute('open','');
+ await expect(d.locator('.pick-picked [data-pd-pick]')).toHaveCount(2);
  await press(page,d.getByRole('button',{name:'보도자료'}),width);
  await expect(d.getByRole('button',{name:'보도자료'})).toHaveAttribute('aria-pressed','true');
  await press(page,d.getByRole('button',{name:'성명',exact:true}),width);

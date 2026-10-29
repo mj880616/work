@@ -7,6 +7,7 @@
 // 닫으면 아무것도 남지 않는다. 공개·발송·사실 확인은 명진이 직접. 기기 저장 없음(이 창 메모리만).
 // PC(1024px~)는 근거(왼쪽)·미리보기(오른쪽) 한 창, 폰은 고르기 → 미리보기 한 칸씩(뒤로 한 번 = 고르기, 한 번 더 = 닫기).
 import {waitHtml} from './wait-state.js';
+import {pickFoldHtml, readPickState, bindPickFold} from './pick-fold.mjs'; // UI-고른것접기: 근거 고르기 = 고른 것 + 접힌 '최근 사업 보고'(맨 위 찾기·초성)
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
 import {PRESS_TYPES, PRESS_MAX_PICK, PRESS_DIRECTION_MAX, PRESS_FOLDER_NAME, typeLabel, shortDay, pressRequest, parsePressAnswer, pressNote, meetingPickLine} from './press-draft-model.mjs';
 
@@ -61,7 +62,7 @@ async function loadMeetings(preselect) {
 export async function openPressDraft({trigger = null, preselect = ''} = {}) {
   ensureStyles(); ensureDialog();
   const pre = String(preselect || '').toLowerCase();
-  state = {trigger, type:'statement', direction:'', picked:pre ? [pre] : [], meetings:null, failed:false, busy:false, draft:null, message:'', saving:false, saved:null, step:'pick', run:0, layer:null, stepLayer:null};
+  state = {trigger, type:'statement', direction:'', picked:pre ? [pre] : [], pick:{open:true, othersOpen:!pre, query:''}, meetings:null, failed:false, busy:false, draft:null, message:'', saving:false, saved:null, step:'pick', run:0, layer:null, stepLayer:null};
   paint();
   if (!dialog.open) dialog.showModal();
   state.layer = window.KPTURouter?.layer?.open?.('press-draft', {close:() => { if (state) { state.layer = null; close({fromBack:true}); } return true; }}) || null;
@@ -167,13 +168,20 @@ async function openSaved() {
   window.KPTURouter?.go?.('basket', {source:'delegated'});
 }
 
+// 근거 한 줄(체크 칸 + 제목 + 종류·날짜). 고른 것은 위에 늘 보이고, 나머지는 공용 부품 pick-fold의 접힌 '최근 사업 보고' 안(시각 순 그대로).
+function pickRow(m) {
+  const s = state;
+  return `<label class="pd-pick"><input type="checkbox" data-pd-pick="${esc(m.id)}"${s.picked.includes(m.id) ? ' checked' : ''}${s.busy ? ' disabled' : ''}><span class="pd-pick-text"><span class="pd-pick-name">${esc(m.name)}</span><span class="pd-muted">${esc(['사업 보고', m.meta].filter(Boolean).join(' · '))}</span></span></label>`;
+}
 function pickHtml() {
   const s = state;
   const chips = PRESS_TYPES.map(t => `<button type="button" class="pd-chip" data-pd-type="${t.value}" aria-pressed="${s.type === t.value}">${t.label}</button>`).join('');
   const list = s.meetings === null ? waitHtml({rows:4, h:36})
     : s.failed ? `<p class="pd-muted">사업 보고를 불러오지 못했어요. <button type="button" class="pd-link" data-pd-retry>다시</button></p>`
     : !s.meetings.length ? '<p class="pd-muted">사업 보고 없음</p>'
-    : `<ul class="pd-picks">${s.meetings.map(m => `<li><label class="pd-pick"><input type="checkbox" data-pd-pick="${esc(m.id)}"${s.picked.includes(m.id) ? ' checked' : ''}${s.busy ? ' disabled' : ''}><span class="pd-pick-text"><span class="pd-pick-name">${esc(m.name)}</span><span class="pd-muted">${esc(['사업 보고', m.meta].filter(Boolean).join(' · '))}</span></span></label></li>`).join('')}</ul>`;
+    : pickFoldHtml({key:'pd', picked:s.meetings.filter(m => s.picked.includes(m.id)).map(pickRow).join(''),
+      others:[{label:'', items:s.meetings.filter(m => !s.picked.includes(m.id)).map(m => ({name:[m.name, m.meta].filter(Boolean).join(' '), html:pickRow(m)}))}],
+      state:s.pick, othersLabel:'최근 사업 보고', noneText:'고른 근거 없음'});
   return `<section class="pd-pane pd-pick-pane" aria-label="근거 고르기">
 <div class="pd-types" role="group" aria-label="종류">${chips}</div>
 <label class="pd-direction"><span class="a11y-only">한 줄 방향(선택)</span><input type="text" data-pd-direction maxlength="${PRESS_DIRECTION_MAX}" placeholder="한 줄 방향(선택)" value="${esc(s.direction)}"></label>
@@ -203,10 +211,12 @@ function paint() {
   const s = state, two = wide();
   const focusKey = dialog.contains(document.activeElement) ? [...(document.activeElement?.attributes || [])].find(a => a.name.startsWith('data-pd-')) : null;
   const panes = two ? pickHtml() + previewHtml() : s.step === 'preview' ? previewHtml() : pickHtml();
+  const fold = s.painted ? readPickState(dialog).pd : null; if (fold) s.pick = fold; s.painted = true; // 다시 그려도 '최근 사업 보고' 펼침·찾기 글은 이어 간다(고르기 칸이 없던 때는 그대로)
   dialog.classList.toggle('pd-two', two);
   dialog.innerHTML = `<header class="pd-head"><h2 id="pressDraftTitle">성명·보도자료 초안</h2><button type="button" class="pd-icon" data-pd-close aria-label="닫기">×</button></header>
 <div class="pd-body">${panes}</div>
 <p class="pd-status" data-pd-status role="status" aria-live="polite" tabindex="-1">${esc(s.message)}</p>`;
+  bindPickFold(dialog);
   if (focusKey) dialog.querySelector(`[${focusKey.name}${focusKey.value ? `="${CSS.escape(focusKey.value)}"` : ''}]`)?.focus?.({preventScroll:true});
 }
 

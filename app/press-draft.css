@@ -20,7 +20,6 @@
 .pd-muted{color:var(--kptu-muted);font-size:12px}
 p.pd-muted{margin:4px 0}
 .pd-count{margin:6px 0 2px}
-.pd-picks{list-style:none;margin:0;padding:0;border-top:1px solid var(--kptu-border)}
 .pd-pick{display:flex;align-items:flex-start;gap:8px;min-height:40px;padding:6px 2px;border-bottom:1px solid var(--kptu-border);cursor:pointer}
 .pd-pick input{flex:none;width:18px;height:18px;margin:2px 0 0}
 .pd-pick-text{display:flex;flex-direction:column;min-width:0}
