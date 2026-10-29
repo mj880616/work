@@ -71,7 +71,7 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   const html = read('index.html'), team = read('team.js'), mrd = read('meeting-round-detail.js'), fields = read('business-area-fields.js');
   assert.match(html, /id="meetingAreaFields"/);
   // BIZ-버튼줄정리: 미리보기·사업영역 관리는 줄 끝 ⋯(공용 메뉴 부품) 안 두 줄이다.
-  assert.match(html, /<div class="report-head-actions"><button id="newMeetingBtn"[^>]*>\+ 사업 보고<\/button><button id="reportMore"[^>]*aria-haspopup="true"/);
+  assert.match(html, /<div class="report-head-actions"><button id="reportRecordBtn"[^>]*hidden>녹음<\/button><button id="newMeetingBtn"[^>]*>\+ 사업 보고<\/button><button id="reportMore"[^>]*aria-haspopup="true"/);
   assert.doesNotMatch(html, /id="reportPreviewBtn"/);
   assert.match(team, /data-report-preview>사업요약표 미리보기<\/button><button type="button" data-report-areas>사업영역 관리</);
   assert.match(team, /createAnchoredMenu\(\{id:'reportMoreMenu',className:'topline-add-menu report-more-menu'/);
