@@ -60,3 +60,8 @@
 
 #appView #journalView .journal-radar.radar-collapsed{ padding:6px 12px; gap:0; }
 #appView #journalView .journal-radar .radar-quiet{ margin:0; }
+/* TODO-내일만 6번: 후보 줄 ⋯ 메뉴(공용 anchored menu). 다른 줄 메뉴(.basket-link-menu)와 같은 모양, 보통 굵기 글자 줄. */
+.radar-row-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
+.radar-row-menu[hidden]{display:none}
+.radar-row-menu button{display:block;width:100%;height:44px;min-height:44px;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:400;cursor:pointer}
+.radar-row-menu button:hover{background:var(--kptu-surface-subtle)}

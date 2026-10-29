@@ -12,7 +12,8 @@ const radarStatusHtml = text => text === RADAR_WAIT ? waitInlineHtml() : esc(tex
 //   (5 s [되돌리기]); both stay in '처리함' struck through (JOURNAL-챙길것화면). A counterpart promise is shown once with [원장으로 복사] and never stored.
 // - Nothing is kept in browser storage. A table or function that is not deployed yet hides the box quietly (as PR 838 does for [AI 요약]).
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
-import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked,
+import {createAnchoredMenu} from './anchored-menu.js';
+import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked, markNotMine, undoNotMine,
   candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, quickDue, dotDay, dueChoices, sourceText,
   RADAR_SOURCE_LABEL, HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
 import {formatSeoulTime, seoulDateKey, seoulDayStart, addSeoulDays} from './meeting-time.js';
@@ -94,6 +95,17 @@ export function openSource(c) {
 // suggested due, else today), ✎ edit in place (title + 오늘/내일/제안 기한/기한 없음), ✕ dismiss. Handled rows are struck
 // through, keep '할 일로 넣음 · 10.23' or '무시함', and fold below the open ones in '처리함 N ▸'. The first 4 open rows show,
 // the rest behind 'N건 더 ›'. The count next to the title is the open count only.
+// TODO-내일만 6번: the row's ⋯ menu (shared anchored menu, one per place for the page's life — the home card remounts).
+// The live mount of that place handles the action. [내 일 아님] takes the row out like ✕ and keeps a "not mine" example on the
+// server so the next finding filters similar ones; [되돌리기] brings the row back and drops the example.
+const rowMenus = new Map(), menuActions = new Map();
+function rowMenuFor(place) {
+  if (!rowMenus.has(place)) rowMenus.set(place, createAnchoredMenu({id:`radarRowMenu-${place}`, className:'radar-row-menu', label:'챙길 것 줄 메뉴', historyKey:`kptuRadarRowMenu${place}`,
+    key:trigger => trigger.dataset.radarMore, canOpen:trigger => !trigger.disabled,
+    render:() => '<button type="button" data-radar-menu="not-mine">내 일 아님</button>',
+    onAction:(button, active) => menuActions.get(place)?.(active.id, button.dataset.radarMenu)}));
+  return rowMenus.get(place);
+}
 export function mountRadar(host, {place}) {
   if (!host) return null;
   let rows = [], state = 'loading', all = false, doneOpen = false, edit = null, run = 0, scope = sameScope();
@@ -163,7 +175,7 @@ export function mountRadar(host, {place}) {
     else if (open && unmarked.has(c.id)) below = `<div class="radar-actions"><button type="button" data-radar-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button></div>`;
     else if (open) {
       const dis = isBusy || edit ? ' disabled' : '';
-      tools = `<span class="radar-tools"><button type="button" class="radar-tool" data-radar-quick="${id}" aria-label="바로 할 일로" title="바로 할 일로"${dis}>✓</button><button type="button" class="radar-tool" data-radar-task="${id}" aria-label="고쳐서 넣기" title="고쳐서 넣기"${dis}>✎</button><button type="button" class="radar-tool" data-radar-dismiss="${id}" aria-label="무시" title="무시"${dis}>✕</button></span>`;
+      tools = `<span class="radar-tools"><button type="button" class="radar-tool" data-radar-quick="${id}" aria-label="바로 할 일로" title="바로 할 일로"${dis}>✓</button><button type="button" class="radar-tool" data-radar-task="${id}" aria-label="고쳐서 넣기" title="고쳐서 넣기"${dis}>✎</button><button type="button" class="radar-tool" data-radar-dismiss="${id}" aria-label="무시" title="무시"${dis}>✕</button><button type="button" class="radar-tool" data-radar-more="${id}" aria-label="더 보기" title="더 보기" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button></span>`;
     }
     const note = rowStatus.get(c.id) ? `<p class="radar-row-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
     return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><div class="radar-text"><span class="radar-summary">${esc(c.summary)}</span><span class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(meta)}</button>${more}</span></div>${tools}</div>${shownWhy ? `<p class="radar-evidence" data-radar-evidence>${esc(c.evidence)}${tg ? ` <button type="button" class="radar-link" data-radar-source="${id}">원문 보기 ›</button>` : ''}</p>` : ''}${note}${below}</li>`;
@@ -217,6 +229,24 @@ export function mountRadar(host, {place}) {
   }
 
   const byId = id => rows.find(r => r.id === id);
+  // TODO-내일만 6번: the row's ⋯ menu (shared anchored menu) holds [내 일 아님]. It takes the row out like ✕ and keeps a
+  // "not mine" example on the server so the next finding filters similar ones. [되돌리기] brings the row back and drops the example.
+  menuActions.set(place, (id, action) => { const c = byId(id); if (c && action === 'not-mine' && !busy.has(c.id) && !edit) void notMine(c); });
+  async function notMine(c) {
+    busy.add(c.id); paint();
+    let r = {ok:false};
+    try { r = await markNotMine(c, rt); } catch { r = {ok:false}; }
+    busy.delete(c.id);
+    if (!r.ok) { rowStatus.set(c.id, '빼지 못했어요. 다시 눌러 주세요.'); paint(); return; }
+    rowStatus.delete(c.id); c.status = 'dismissed'; c.decided_at = new Date().toISOString(); paint(); notify(true);
+    host.querySelector('[data-radar-find]')?.focus({preventScroll:true});
+    offerUndoNotice({text:r.saved ? '내 일 아님으로 뺐어요. 다음 찾기부터 비슷한 것을 걸러요.' : '챙길 것에서 뺐어요.', onUndo:async () => {
+      let back = false;
+      try { back = await undoNotMine(c.id, r.exampleId, rt); } catch { back = false; }
+      if (back) { c.status = 'open'; c.decided_at = null; paint(); notify(true); return {status:'done', message:'다시 보이게 했어요.'}; }
+      return {status:'failed', message:'되돌리지 못했어요. 다시 시도해 주세요.'};
+    }});
+  }
   async function dismiss(c) {
     busy.add(c.id); paint();
     let ok = false;
@@ -277,6 +307,7 @@ export function mountRadar(host, {place}) {
     if (d.radarTask) { const c = byId(d.radarTask); if (!c) return; const due = quickDue(c, seoulDateKey()); edit = {id:c.id, title:c.summary, due, pick:c.due ? 'suggested' : 'today'}; rowStatus.delete(c.id); paint(); host.querySelector('[data-radar-title]')?.focus(); return; }
     if (d.radarCancel) { const id = d.radarCancel; edit = null; rowStatus.delete(id); paint(); host.querySelector(`[data-radar-task="${CSS.escape(id)}"]`)?.focus(); return; }
     if (d.radarDismiss) { const c = byId(d.radarDismiss); if (c) await dismiss(c); return; }
+    if (d.radarMore) { if (!busy.has(d.radarMore) && !edit) rowMenuFor(place).open(b); return; }
     if (d.radarTasks) { window.KPTURouter?.go?.('tasks', {source:'delegated'}); return; }
     if (d.radarMark) {
       const c = byId(d.radarMark), taskId = unmarked.get(d.radarMark); if (!c || !taskId) return;

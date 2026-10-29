@@ -90,9 +90,20 @@ async function load(){
   saved=next;
   renderWorkplaces();
   void loadCalRef();
+  void loadTodoRules();
   return true;
 }
 // 원장 재료 C-4: '참고 일정' 칸은 따로 바로 저장한다(calendar-ref-settings.js). 못 불러와도 프로필 화면은 그대로다.
+// TODO-내일만: '챙길 것 기준' 칸(전체 부탁도 올릴 방·쌓인 후보 다시 거르기)은 따로 바로 저장한다(todo-rules-settings.js). 칸 자리는 참고 일정 칸 다음, 한 번만 붙인다.
+let todoRules=null;
+async function loadTodoRules(){
+  try{
+    let host=$('#psTodoRulesPanel');
+    if(!host){const after=$('#psCalRefPanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psTodoRulesPanel" aria-label="챙길 것 기준"></article>');host=$('#psTodoRulesPanel')}
+    if(!todoRules||todoRules.host!==host){const ready=import('./todo-rules-settings.js').then(m=>m.mountTodoRulesSettings(host,{rt}));todoRules={host,ready};ready.catch(()=>{if(todoRules?.ready===ready)todoRules=null})}
+    await (await todoRules.ready).load();
+  }catch(e){console.error('todo rules settings',e?.name||'Error')}
+}
 async function loadCalRef(){
   try{
     const host=$('#psCalRefPanel');if(!host)return;

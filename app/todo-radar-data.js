@@ -52,7 +52,7 @@ const clean = rows => (Array.isArray(rows) ? rows : []).filter(validCandidate);
 // FEAT-1029 ⑤: a telegram candidate (server collector-feed, migration 20261029120000) points at one telegram news row (app_feed_items,
 // owner read). One read per list adds the room (key + name) so the row shows '텔레그램 · 방 이름' and opens that room·day. A failed
 // or missing read only leaves the room out ('텔레그램'); the candidate itself is still shown.
-const ROOM_KEY = /^[A-Za-z0-9_.:-]{1,100}$/;
+export const ROOM_KEY = /^[A-Za-z0-9_.:-]{1,100}$/;
 async function withTelegramPlaces(rows, rt) {
   const ids = [...new Set(rows.filter(r => r.source_kind === 'telegram').map(r => String(r.source_id).toLowerCase()))].slice(0, 100);
   if (!ids.length) return rows;
@@ -224,4 +224,57 @@ export function notPlanned(rows, taskTitles = []) {
 export function ledgerRequestText(p) {
   return ['쓰기요청', '- 종류: 약속(상대·제3자)', `- 내용: ${p.summary}`, `- 기한: ${p.due || '없음'}`,
     `- 근거: ${p.evidence || '없음'}`, `- 출처: Web2 ${RADAR_SOURCE_LABEL[p.source_kind] || '기록'} ${p.source_day}`].join('\n');
+}
+
+// ---- TODO-내일만: [내 일 아님]·예외 방·쌓인 후보 다시 거르기 (migration 20261029210000, 소유자 RLS) ----------------------
+// [내 일 아님]: the candidate is dismissed (same guarded change as [무시]) and its source kind + one-line summary are kept in
+// app_todo_not_mine, which the server shows the AI as "not mine" examples next time. Nothing is kept in browser storage.
+// Returns {ok:false} when the candidate could not be dismissed, else {ok:true, saved} (saved=false: the example was not kept).
+export async function markNotMine(candidate, rt = window.KPTURuntime, now = new Date()) {
+  if (!candidate || !UUID.test(String(candidate.id))) return {ok:false};
+  if (!(await dismissCandidate(candidate.id, rt, now))) return {ok:false};
+  const summary = String(candidate.summary || '').trim();
+  if (!summary || [...summary].length > 100 || !Object.hasOwn(RADAR_SOURCE_LABEL, candidate.source_kind)) return {ok:true, saved:false};
+  try {
+    const rows = await rt.api('/rest/v1/app_todo_not_mine?select=id', {method:'POST', prefer:'return=representation', body:{workspace_id:workspace(rt), source_kind:candidate.source_kind, summary}});
+    const id = Array.isArray(rows) && UUID.test(String(rows[0]?.id)) ? rows[0].id : null;
+    return {ok:true, saved:true, exampleId:id};
+  } catch { return {ok:true, saved:false}; }
+}
+// [되돌리기] after [내 일 아님]: the candidate comes back (reopenCandidate) and the example is removed again.
+export async function undoNotMine(candidateId, exampleId, rt = window.KPTURuntime) {
+  if (!(await reopenCandidate(candidateId, rt))) return false;
+  if (UUID.test(String(exampleId || ''))) {
+    try { await rt.api(`/rest/v1/app_todo_not_mine?id=eq.${encode(exampleId)}&workspace_id=eq.${encode(workspace(rt))}`, {method:'DELETE', prefer:'return=minimal'}); } catch { /* the candidate is back; the example stays */ }
+  }
+  return true;
+}
+
+// The rooms whose group-wide asks ('다들 ~해 주세요') still become candidates. Stored by room key; the name comes from the room list.
+export async function readAskRooms(rt = window.KPTURuntime) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_ask_rooms?workspace_id=eq.${encode(workspace(rt))}&select=room_key&order=created_at.asc&limit=500`, {singleFlight:false});
+    return {ok:true, keys:(Array.isArray(rows) ? rows : []).map(r => r?.room_key).filter(k => typeof k === 'string' && ROOM_KEY.test(k))};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+export async function addAskRoom(roomKey, rt = window.KPTURuntime) {
+  if (!ROOM_KEY.test(String(roomKey || ''))) return false;
+  try { await rt.api('/rest/v1/app_todo_ask_rooms?on_conflict=workspace_id,room_key', {method:'POST', prefer:'resolution=ignore-duplicates,return=minimal', body:{workspace_id:workspace(rt), room_key:roomKey}}); return true; }
+  catch { return false; }
+}
+export async function removeAskRoom(roomKey, rt = window.KPTURuntime) {
+  if (!ROOM_KEY.test(String(roomKey || ''))) return false;
+  try { await rt.api(`/rest/v1/app_todo_ask_rooms?workspace_id=eq.${encode(workspace(rt))}&room_key=eq.${encode(roomKey)}`, {method:'DELETE', prefer:'return=minimal'}); return true; }
+  catch { return false; }
+}
+
+// One run of "filter the waiting candidates again with the new rule" (ai-assist kind=todo_recheck). Only {kind} is sent.
+// Returns {ok:true, checked, dismissed, more} or {ok:false, code, message}.
+export async function recheckTodos(options = {}) {
+  const r = await callAiAssist({kind:'todo_recheck'}, {timeoutMs:RADAR_TIMEOUT_MS, ...options}, RADAR_TEXT);
+  if (!r.ok) return {ok:false, code:r.code, message:RADAR_TEXT[r.code] || RADAR_TEXT.internal_error};
+  const d = r.data;
+  if (!Number.isSafeInteger(d.checked) || !Number.isSafeInteger(d.dismissed) || d.checked < 0 || d.dismissed < 0 || d.dismissed > d.checked)
+    return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
+  return {ok:true, checked:d.checked, dismissed:d.dismissed, more:d.more === true};
 }

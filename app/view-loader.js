@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./ui-standard.css'],
+  basket:['./basket.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./ui-standard.css'],
   home:['./library-upload.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./calendar-ui.css','./ui-standard.css'],
   tasks:['./task-layout.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
@@ -28,7 +28,7 @@ const routeStyles={
   diary:['./diary.css','./od-link.css','./ed-doc.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./markdown-view.css','./ui-standard.css'],
-  meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./google-tasks.css','./ui-standard.css'],
+  meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   pages:['./web1-board.css','./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
