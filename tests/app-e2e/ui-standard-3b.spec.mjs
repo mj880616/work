@@ -160,16 +160,16 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
   await button.click();await expect(page.locator(modal)).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.locator(modal)).toBeHidden();
  }
- // UI-선택표시통일: 회의 화면의 위쪽 [+ 회의]는 동그란 [+]로만 보이고(카드 머리줄 안에 글자 버튼 없음), 고른 필터 칩은 회색, 안 고른 칩은 흰 바탕.
+ // UI-선택표시통일: 회의 화면의 위쪽 [+ 회의]는 동그란 [+]로만 보이고(카드 머리줄 안에 글자 버튼 없음), 고른 필터 칩은 회색, 안 고른 칩은 흰 바탕(UI-전수디자인점검 F01 뒤로는 칸 칩 줄로 본다).
  await page.evaluate(()=>KPTURouter.go('meetings'));await loaded(page,'meetings');
  expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
- const chips=page.locator('#meetingTypeFilter button');await expect.poll(()=>chips.count()).toBeGreaterThanOrEqual(2);
+ const chips=page.locator('#reportKindFilter button');await expect.poll(()=>chips.count()).toBeGreaterThanOrEqual(2);
  {
   const color=(el,prop)=>el.evaluate((el,prop)=>getComputedStyle(el)[prop],prop);
   const paint=prop=>page.evaluate(([prop,name])=>{const e=document.createElement('span');e.style[prop]=`var(${name})`;document.querySelector('#appView').append(e);const c=getComputedStyle(e)[prop];e.remove();return c;},[prop,prop==='color'?'--ds-select-ink':'--ds-select-bg']);
-  const picked=page.locator('#meetingTypeFilter [aria-checked="true"]');
+  const picked=page.locator('#reportKindFilter [aria-checked="true"]');
   await expect(picked).toHaveCount(1);expect(await color(picked,'backgroundColor')).toBe(await paint('backgroundColor'));expect(await color(picked,'color')).toBe(await paint('color'));
-  for(const other of await page.locator('#meetingTypeFilter [aria-checked="false"]').all())expect(await color(other,'backgroundColor')).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--kptu-surface)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
+  for(const other of await page.locator('#reportKindFilter [aria-checked="false"]').all())expect(await color(other,'backgroundColor')).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--kptu-surface)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);

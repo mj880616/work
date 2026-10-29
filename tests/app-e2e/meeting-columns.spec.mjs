@@ -7,6 +7,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {selectMeetingRound,openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {toplineItem} from './helpers/screen-title.mjs';
 import {showAllReportWeeks,reportWeekButton} from './helpers/report-week.mjs';
+import {reportFilterButton,reportFilterKeys,pickReportFilter} from './helpers/report-filter.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -46,7 +47,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await open(page,s,width);
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(0);
   // 위쪽 회의 종류 칩 줄은 PC에서 없다(왼쪽 목록과 겹침).
-  await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();await expect(page.locator('#meetingTypeFilter')).toBeHidden();
+  expect(await reportFilterKeys(page)).not.toContain('name');
   await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
   // 왼쪽: 가장 최근 결과가 있는 순, 색 점·이름·건수. 처음엔 맨 위(가장 최근 결과가 있는) 종류를 고른 상태.
   await expect(kindNames(page)).toHaveText(['노사협의회','궤도협의회','회의명 미지정','안전위원회']);
@@ -274,7 +275,8 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   s.meetings.push({id:'rail-derived',workspace_id:s.workspace.id,title:'파생 간담회',series_name:'궤도협의회',round_no:null,meeting_at:'2026-10-18T15:00:00Z',transcript_text:'일시: 2026. 10. 19.(월) 14:00',created_by:s.user.id});
   await open(page,s,390);
   await expect(page.locator('#meetingList :is(.mcol-layout,.mcol-kinds,.mcol-detail)')).toHaveCount(0);
-  await expect(page.locator('#meetingsView .meeting-toolbar')).toBeVisible();await expect(page.locator('#meetingTypeFilter')).toBeVisible();
+  // UI-전수디자인점검 F01: 회의명 칩 줄 대신 칸 칩 줄 끝 [거르기 ▾] 하나.
+  await expect(reportFilterButton(page)).toBeVisible();expect(await reportFilterKeys(page)).toContain('name');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(s.meetings.length);
   // 폰도 PC처럼 최신이 위: 시각 내림차순(받은 순서에 기대지 않음).
   expect(await page.locator('#meetingList [data-mrd-meeting]').evaluateAll(els=>els.map(e=>e.dataset.mrdMeeting))).toEqual(['rail-derived','labor-2','labor-1','rail-6','rail-5','rail-4','rail-3','rail-2','rail-1','blank-1','safety-1']);
@@ -324,7 +326,7 @@ test('폰 390: 회의 목록은 최신 차수가 위(6차→1차), 시각이 같
   expect(await order()).toEqual(['labor-1','tie-6','tie-5','tie-4','tie-3','tie-2','tie-1']);
   await expect(page.locator('#meetingList .meeting-list-row').nth(1).locator('h3')).toHaveText('궤도협의회');
   // 회의 종류 칩으로 거른 뒤에도 최신이 위.
-  await page.locator('#meetingTypeFilter').getByRole('radio',{name:'궤도협의회',exact:true}).click();
+  await pickReportFilter(page,'name',{label:'궤도협의회'});
   expect(await order()).toEqual(['tie-6','tie-5','tie-4','tie-3','tie-2','tie-1']);
   // PC 3단: 가운데 차수 목록은 지금처럼 6차→1차, 왼쪽 종류 순서도 그대로.
   await page.setViewportSize({width:1280,height:900});await page.waitForFunction(()=>document.querySelector('#meetingList .mcol-kinds'));

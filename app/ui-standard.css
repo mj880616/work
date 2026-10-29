@@ -1520,3 +1520,8 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 :root .pick-group-name{ margin:0; color:var(--kptu-muted); font-size:11px; line-height:1.4; break-after:avoid; }
 :root .pick-none,:root .pick-empty{ margin:2px 0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 :root .pick-off{ opacity:.5; }
+
+/* UI-전수디자인점검 F19(10/29): 사업 보고 줄 앞 종류 꼬리표('교육'·'국회')는 사업 보고 화면 말고도 사업영역 상세(#ps3DetailModal)·담당조직
+   상세 사업 보고 줄에서 쓰는데, 모양이 사업 보고 화면 전용 CSS(meeting-ui.css)에만 있어 다른 화면에서는 '교육가상 회의 6'처럼 이름에 붙어 보였다.
+   모든 화면이 읽는 이 파일 한 곳으로 옮겼다(값은 그대로). */
+.report-kind-tag{display:inline-block;margin-right:4px;padding:0 5px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);font-size:11px;line-height:16px;color:var(--kptu-muted);vertical-align:1px}
