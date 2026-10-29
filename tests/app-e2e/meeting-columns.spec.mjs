@@ -434,3 +434,24 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
 });
+
+// MTG-프로젝트합치기 ⑤: 일시가 없는 보고는 주 단위 목록에서 빠지지 않고 어느 주에서나 맨 아래 '일시 없음'으로 보인다(주 줄에 따로 센다).
+for(const width of [390,1280])test(`${width}: 사업 보고 [목록] 주 단위 — 일시 없는 보고도 맨 아래 '일시 없음'으로 보인다`,async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=baseState();s.meetingWrites=[];
+  const row=(id,round,at)=>({id,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:round,meeting_at:at,transcript_text:'원문 '+id,created_by:s.user.id});
+  s.meetings=[row('week-old',1,'2026-10-13T01:00:00Z'),row('week-new',2,'2026-10-20T01:00:00Z'),row('no-when',3,null)];
+  await open(page,s,width,900,{allWeeks:false});
+  const pc=width>=1024;
+  const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
+  const label=page.locator('#reportWeekFilter .report-week-label');
+  await expect(label).toHaveText('10.19(월)~10.25(일) 1건 · 일시 없음 1');
+  await expect.poll(shown).toEqual(['week-new','no-when']);
+  if(pc)await expect(page.locator('#meetingList [data-meeting-round="no-when"]')).toHaveAttribute('aria-label',/일시 없음/);
+  else await expect(page.locator('#meetingList [data-mrd-meeting="no-when"]')).toContainText('일시 없음');
+  await reportWeekButton(page,'prev').click();
+  await expect(label).toHaveText('10.12(월)~10.18(일) 1건 · 일시 없음 1');
+  await expect.poll(shown).toEqual(['week-old','no-when']);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  expect(errors).toEqual([]);
+});
