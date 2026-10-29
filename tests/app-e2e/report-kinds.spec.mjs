@@ -226,7 +226,7 @@ for(const width of [390,1280])test(`${width}: 상세 창 - 정리함 담기·안
     await expect(close).toBeHidden();await expect(page.locator('#mcolResult #mrdMore')).toBeVisible();
   }
   await more.click();
-  await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);
+  await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','성명 초안 만들기','삭제']);
   await page.keyboard.press('Escape');await expect(modal.locator('#mrdMoreMenu')).toBeHidden();
   // [수정]: 차수 줄은 회의 칸이라 있고, 원문이 비어도 저장된다.
   await mrdMenu(page,'edit');
@@ -246,7 +246,7 @@ test('1280: 상세 창 우클릭도 같은 ⋯ 메뉴',async({page})=>{
   await openMeetingResult(page,'m-2');
   const modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
   await modal.locator('#mrdMeta').click({button:'right'});
-  await expect(modal.locator('#mrdMoreMenu')).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);
+  await expect(modal.locator('#mrdMoreMenu')).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','성명 초안 만들기','삭제']);
   expect(errors).toEqual([]);
 });
 

@@ -53,10 +53,23 @@ for(const width of [412,870,1280])test(`no basket button or guide text, one ⋯ 
   const inside=await page.evaluate(()=>{const b=document.querySelector('#mrdMore').getBoundingClientRect(),c=document.querySelector('#meetingRoundDetailModal .modal-card').getBoundingClientRect();return b.left>=c.left&&b.right<=c.right&&b.top>=c.top});
   expect(inside).toBe(true);
   await more.click();
-  const menu=modal.locator('#mrdMoreMenu');await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기','삭제']);
+  const menu=modal.locator('#mrdMoreMenu');await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기','성명 초안 만들기','삭제']);
   const box=await menu.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
   await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
+});
+
+// FEAT-1029 ④: ⋯ [성명 초안 만들기] opens the 성명·보도자료 초안 window over the report; opening it saves nothing.
+for(const width of [412,1280])test(`⋯ [성명 초안 만들기] opens the draft window ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const f=await setup(page);
+  await page.locator('#mrdMore').click();
+  await page.locator('#mrdMoreMenu [data-mrd-more="press"]').click();
+  const d=page.locator('#pressDraftDialog');await expect(d).toBeVisible();
+  await expect(d.locator('h2')).toHaveText('성명·보도자료 초안');
+  await expect(d.getByRole('button',{name:'성명',exact:true})).toHaveAttribute('aria-pressed','true');
+  await d.locator('[data-pd-close]').click();await expect(d).toBeHidden();
   expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
 });
 
