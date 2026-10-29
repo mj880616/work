@@ -59,18 +59,19 @@
 
 /* UI-바구니첨부메모 PR 3 ⑨: 조직 상세 [자료] 묶음. 프로젝트 상세의 [자료]와 같은 모양(줄 + ⋯, 최근 5개, "전체 N개 보기 ›"). */
 /* UI-전수디자인점검 F08: 위 ②(입력칸 안 ⤢·작은 [저장] 32px)를 PC 상세 칸만이 아니라 폰·761~1023px 상세 창에도 같은 모양으로 쓴다(ORG-입력칸⤢ 규칙 하나).
-   전에는 창에서 [⤢ 크게]가 입력칸 아래 테두리 버튼 한 줄을 따로 만들고 [저장]은 36px였다. 모양의 주인은 이 묶음 하나다(ui-standard.css의 옛 #wdInbox* 크기 줄은 지움). */
+   전에는 창에서 [⤢ 크게]가 입력칸 아래 테두리 버튼 한 줄을 따로 만들고 [저장]은 36px였다. 모양의 주인은 이 묶음 하나다(ui-standard.css의 옛 #wdInbox* 크기 줄은 지움).
+   #wdInbox를 넣어 id 셋으로 쓰는 것은 화면 공용 채운 버튼 규칙(ui-standard.css '#appView :is(#teamView,…) button.primary')보다 앞서기 위해서다. */
 #wdModal .wd-inbox:not(.hidden){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:var(--kptu-space-2)}
 #wdModal .wd-inbox-actions{display:contents}
-#wdModal #wdInboxText{grid-column:1 / -1;grid-row:1;box-sizing:border-box;padding-right:calc(var(--ds-compact-height) + var(--kptu-space-4))}
-#wdModal #wdInboxBig{grid-column:1 / -1;grid-row:1;justify-self:end;align-self:end;position:relative;z-index:1;display:grid;place-items:center;box-sizing:border-box;width:var(--ds-compact-height);min-width:0;height:var(--ds-compact-height);min-height:0;margin:0 var(--kptu-space-4) var(--kptu-space-1) 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);cursor:pointer}
-#wdModal #wdInboxBig::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);width:auto;min-width:0;height:var(--kptu-touch-target,44px)}
-#wdModal #wdInboxBig:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
-#wdModal #wdInboxBig:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+#wdModal #wdInbox #wdInboxText{grid-column:1 / -1;grid-row:1;box-sizing:border-box;padding-right:calc(var(--ds-compact-height) + var(--kptu-space-4))}
+#wdModal #wdInbox #wdInboxBig{grid-column:1 / -1;grid-row:1;justify-self:end;align-self:end;position:relative;z-index:1;display:grid;place-items:center;box-sizing:border-box;width:var(--ds-compact-height);min-width:0;height:var(--ds-compact-height);min-height:0;margin:0 var(--kptu-space-4) var(--kptu-space-1) 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);cursor:pointer}
+#wdModal #wdInbox #wdInboxBig::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);width:auto;min-width:0;height:var(--kptu-touch-target,44px)}
+#wdModal #wdInbox #wdInboxBig:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+#wdModal #wdInbox #wdInboxBig:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 #wdModal .wd-inbox-big-label{display:none}
-#wdModal #wdInboxState{grid-column:1;grid-row:2;margin:var(--kptu-space-2) 0 0}
-#wdModal #wdInboxSave{grid-column:2;grid-row:2;position:relative;min-width:0;height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:var(--kptu-space-2) 0 0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);line-height:1}
-#wdModal #wdInboxSave::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);width:auto;min-width:0;height:var(--kptu-touch-target,44px)}
+#wdModal #wdInbox #wdInboxState{grid-column:1;grid-row:2;margin:var(--kptu-space-2) 0 0}
+#wdModal #wdInbox #wdInboxSave{grid-column:2;grid-row:2;position:relative;min-width:0;height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:var(--kptu-space-2) 0 0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);line-height:1}
+#wdModal #wdInbox #wdInboxSave::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);width:auto;min-width:0;height:var(--kptu-touch-target,44px)}
 #wdDocs .wd-head{align-items:center}
 .wd-doc-lines{display:grid}
 .wd-doc-row{display:flex;align-items:center;gap:4px;min-width:0;border-top:1px solid var(--kptu-border)}

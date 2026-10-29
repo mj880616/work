@@ -108,7 +108,8 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
    // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.
    // UI-상단줄: the PC [계정 ▾] moved to the top line as a small button (32px visible, UI-버튼기준); its letters stay the menu's.
    if(selector.includes('account-open'))expect(await size(page.locator(selector).first()),selector).toEqual({...before,height:32,paddingLeft:'8px',paddingRight:'8px',font:'13px',weight:'400'});
-   else expect(await size(page.locator(selector).first()),selector).toEqual({...before,font:'13px',weight:'400'});}
+   // UI-전수디자인점검 F22: PC(1024px~) 사이드바 메뉴 줄의 보이는 높이는 28px(--ds-compact-height-sm).
+   else expect(await size(page.locator(selector).first()),selector).toEqual({...before,...(width>=1024?{height:28}:{}),font:'13px',weight:'400'});}
  }
  await original.close();
 });

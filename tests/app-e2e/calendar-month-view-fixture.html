@@ -10,6 +10,8 @@
 <style>
   .fixture-top{height:170px}
   @media(min-width:761px){.fixture-top{height:150px}}
+  /* 앱 틀(desktop-ui.css main, UI-전수디자인점검 F21)의 PC 본문 폭 규칙만 옮겨 둔다(틀 전체를 불러오면 사이드바 격자까지 따라옴). */
+  @media(min-width:1024px){main{max-width:1920px;padding-left:clamp(24px,2.2vw,42px);padding-right:clamp(24px,2.2vw,42px)}}
 </style>
 </head>
 <body class="kptu-workspace-shell">

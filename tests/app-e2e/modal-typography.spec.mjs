@@ -410,6 +410,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
   await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
   // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
+  // UI-전수디자인점검 F08: 담당조직 창 이름 위 '담당조직' 작은 제목(.eyebrow)은 없앴다(창 이름과 중복). 비교 기준 쪽에서도 그 줄을 뺀다.
+  await original.evaluate(()=>document.querySelectorAll('#wdModal .modal-head .eyebrow').forEach(el=>el.remove()));
   if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
   // ORG-주요인물 2/2: 접힌 묶음 '기본 정보 · 소속 · 이전 요약'(머리 h3·설명 small)과 그 안의 h4 '기본 정보'·'이전 요약'은
   // 작은 탭 [주요 인물][기본 정보][소속][이전 요약]으로 바뀌어 화면에서 없어졌다(탭 이름이 제목 역할). 같은 모양으로 main 쪽에서도 뺀다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
