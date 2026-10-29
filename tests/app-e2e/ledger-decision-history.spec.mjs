@@ -110,7 +110,7 @@ for(const width of [412,884,1440]){
   // 옛 줄을 누르면 그 기록의 근거·출처가 그 자리에서(읽기만)
   await lines.nth(1).locator('summary').click();
   await expect(lines.nth(1).locator('.lb-hist-body')).toContainText('가상 둘째 기준.');
-  await expect(lines.nth(1).locator('.lb-hist-body')).toContainText('연결된 출처가 없습니다.');
+  await expect(lines.nth(1).locator('.lb-hist-body [data-wait-empty]')).toHaveText('출처 없음');
   await expect(fold).toHaveAttribute('open','');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   // 같은 주제 → 이야기 화면

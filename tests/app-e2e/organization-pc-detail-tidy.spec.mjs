@@ -92,7 +92,7 @@ for(const width of [1280,1440])test(`PC ${width}: 담당조직 상세 칸 정리
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more2).toBeFocused();
  // ⑤ 자료가 0개면 큰 점선 상자 대신 한 줄.
  const docs=modal.locator('#wdDocBody');
- await expect(docs.locator('.wd-doc-none,.empty,.wd-doc-row')).toHaveCount(0);
+ await expect(docs.locator('.wd-doc-none,[data-wait-empty],.wd-doc-row')).toHaveCount(0);
  expect((await box(docs.locator('[data-wd-doc-state]'))).h).toBeLessThanOrEqual(24);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  // Another screen: the top line no longer names the organization.
@@ -123,6 +123,6 @@ test('폰 390: 상세 창(제목 줄, 입력칸 안 ⤢·[저장] 32px, 줄마�
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(modal).toBeVisible();
  const order=await modal.locator('.wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.id||sec.querySelector('h3')?.textContent?.trim()));
  expect(order.slice(0,4)).toEqual(['wdTasks','wdDocs','wdReports','wdLog']);
- await expect(modal.locator('#wdDocBody .empty')).toHaveCount(0);
+ await expect(modal.locator('#wdDocBody [data-wait-empty]')).toHaveCount(0);
  expect(errors).toEqual([]);
 });

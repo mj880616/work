@@ -145,7 +145,7 @@ test('③ no write button under the date; [+] writes the chosen day, an existing
  const editor=page.locator('#diaryRoot [data-diary-editor]'),plus=page.locator('#diaryRoot #newDiaryBtn');
  await page.locator('#diaryRoot [data-diary-day="2026-10-02"]').click();
  const detail=page.locator('#diaryRoot [data-diary-detail]');
- await expect(detail).toContainText('이 날 일기가 없어요.');
+ await expect(detail).toContainText('일기 없음');
  await expect(detail.locator('button')).toHaveCount(1);// only × (close)
  await expect(detail.getByText('이 날 일기 쓰기')).toHaveCount(0);
  await plus.click();
@@ -177,7 +177,7 @@ test('⑤ an empty note list shows no guide sentence',async({page})=>{
  await expect(page.locator('[data-note-host]')).not.toContainText('아직 노트가 없어요');
  // A search with no hit still says so.
  await page.locator('[data-note-search]').fill('없는 말');
- await expect(status).toHaveText('찾는 노트가 없어요');
+ await expect(status.locator('[data-wait-empty]')).toHaveText('맞는 노트 없음');
  expect(f.errors).toEqual([]);
 });
 

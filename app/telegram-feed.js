@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // TG-방날짜묶기 4-가 (docs/design/tg-room-day-group.md 2절, 시안 mockups/tg-room-day-group.html): 텔레그램 소식 화면(?view=telegram, 사이드바 맨 아래).
 // 이 모듈이 #telegramView의 유일한 renderer다. 머리줄 '텔레그램 소식' + "오늘 n개 중 중요한 m개 · 방 k곳" + 방 거르기, 고정 띠, 작은 가운데 날짜,
 // 그 아래 "방 한 줄"(방 머리글자·방 이름·그날 내용 한 줄·소식 n·원문 n). 줄을 누르면 방 상세가 열린다(PC 오른쪽 2/3, 폰 router layer 한 칸):
@@ -241,8 +241,7 @@ function paintList() {
   const lines = filterLines(liveLines(state.lines, {folder:state.filter ? '' : state.folder}), state.filter, {byLine:state.asks?.byLine, seen:state.seen, keep:selKey()}), pins = pinnedOf(state.pins);
   const pinbar = pins.length ? `<button type="button" class="feed-pinbar" data-tg-pin-open="${esc(pins[0].id)}" data-tg-pinbar><span class="feed-pt">${esc(pins[0].room_label)} · ${esc(sumOf(pins[0]) || pins[0].title || '')}</span><span class="feed-cnt">고정 ${pins.length}</span></button>` : '';
   const groups = groupLines(lines);
-  const none = state.filter === 'ask' ? '나한테 온 요청이 있는 소식이 없어요.' : state.filter === 'unseen' ? '안 본 소식이 없어요.' : state.folder ? '이 폴더에 넣은 방의 소식이 아직 없어요.' : '아직 받은 텔레그램 소식이 없어요.';
-  const feed = groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(rowHtml).join('')}`).join('') : `<p class="feed-empty" data-tg-empty="none">${none}</p>`;
+  const feed = groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(rowHtml).join('')}`).join('') : emptyHtml('없음', {attrs: 'data-tg-empty="none"'});
   const older = state.end ? '' : '<div class="feed-older"><button type="button" class="feed-text-btn" data-tg-older>이전 날 더 보기</button></div>';
   box.innerHTML = headHtml() + pinbar + `<div class="feed-feed">${feed}</div>${older}` + tail;
 }
@@ -271,7 +270,7 @@ function rawHtml(r) {
   const raw = state.raw.get(r.id);
   if (!raw || raw.loading) return waitHtml({rows:3});
   if (raw.error) return '<p class="feed-faint">원문을 불러오지 못했어요.</p>';
-  if (!raw.raw_text) return '<p class="feed-faint">Web2에 남은 원문이 없어요. 원본은 Drive에 있어요.</p>';
+  if (!raw.raw_text) return emptyHtml('원문 없음 · 원본은 Drive');
   const canName = !!state.senders && !!r.room_key && !!r.day, rows = rawRows(telegramLines(raw.raw_text), state.sidx, r.room_key, r.day, {canName});
   const editing = state.sedit?.kind === 'raw' && state.sedit.rowId === r.id ? state.sedit.label : '';
   return `<div class="feed-raw${canName ? ' feed-raw-wide' : ''}" data-tg-raw>${rows.map((l, i) => rawLineHtml(l, editing, rawMoreKey(r.id, i))).join('')}</div>`;
@@ -293,12 +292,12 @@ function paintDetail() {
   else {
     const title = sel.day === kstDay() ? '오늘 요약' : '그날 요약';
     const editing = state.se?.kind === 'day' && state.se.room === sel.room && state.se.day === sel.day;
-    const lines = editing ? sumeditHtml(state.se) : sum.lines.length ? `${sum.shown.map(t => `<p class="feed-dl">${esc(t)}</p>`).join('')}${sum.rest.length ? `<details class="feed-sumrest"><summary>더 보기</summary>${sum.rest.map(t => `<p class="feed-dl">${esc(t)}</p>`).join('')}</details>` : ''}` : '<p class="feed-faint">요약이 없어요.</p>';
+    const lines = editing ? sumeditHtml(state.se) : sum.lines.length ? `${sum.shown.map(t => `<p class="feed-dl">${esc(t)}</p>`).join('')}${sum.rest.length ? `<details class="feed-sumrest"><summary>더 보기</summary>${sum.rest.map(t => `<p class="feed-dl">${esc(t)}</p>`).join('')}</details>` : ''}` : emptyHtml('요약 없음');
     const kind = sum.kind === 'titles' ? `${sum.old ? ' <span class="feed-badge" data-tg-old>AI 요약 이전 날</span>' : ''}` : '';
     const mark = dedit ? ' <span class="feed-edited">고침</span>' : '';
     const pen = editsOn() && !editing && sum.kind !== 'none' ? '<button type="button" class="copy-mini" data-tg-sumedit-day aria-label="요약 고치기" title="요약 고치기"><span aria-hidden="true">✎</span></button>' : '';
     const sumBox = `<div class="feed-daybox" data-tg-daybox data-kind="${sum.kind}"><div class="feed-k-row"><p class="feed-k">${title}${kind}${mark}</p><span class="feed-k-btns">${pen}${sum.lines.length && !editing ? copyButtonHtml('data-tg-daycopy') : ''}</span></div>${lines}</div>`;
-    body = sumBox + (items.length ? `<div class="feed-ditems">${items.map(itemHtml).join('')}</div>` : '<p class="feed-faint">이 날 남은 소식이 없어요.</p>');
+    body = sumBox + (items.length ? `<div class="feed-ditems">${items.map(itemHtml).join('')}</div>` : emptyHtml('소식 없음'));
   }
   box.innerHTML = `${head}${nav}${note}<div class="feed-detail" data-tg-detail="${esc(selKey())}">${body}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
   fitRawFolds(box);
@@ -362,7 +361,7 @@ function personHtml(p, people) {
 function sendersBodyHtml() {
   if (!state.senders) return '<p class="feed-empty" data-tg-empty="senders" role="status">이름표를 아직 불러오지 못했어요. 소식은 A·B로 보여요. <button type="button" class="feed-text-btn" data-tg-retry>다시 시도</button></p>';
   const people = peopleList();
-  if (!people.length) return '<p class="feed-empty" data-tg-empty="senders">아직 붙인 이름이 없어요. 소식 원문에서 A 옆 [이름 붙이기]를 누르면 여기에 모여요.</p>';
+  if (!people.length) return emptyHtml('없음', {attrs: 'data-tg-empty="senders"'});
   const un = people.filter(p => p.unnamed), named = people.filter(p => !p.unnamed);
   const group = (title, list) => (list.length ? `<div class="feed-grp">${title}</div>${list.map(p => personHtml(p, people)).join('')}` : '');
   return `<div class="feed-people" data-tg-people>${group(`이름 없음 ${un.length}명 <span class="feed-faint">(A·B로 보임)</span>`, un)}${group(`이름 있음 ${named.length}명`, named)}</div>`;

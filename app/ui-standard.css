@@ -781,8 +781,9 @@
 #appView #homeView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); max-height:none; padding-top:12px; padding-bottom:11px; line-height:21px; resize:none; overflow-y:auto; }
 #appView #homeView .home-quick .home-quick-entry{ align-items:flex-start; }
 
-/* ⑤ 빈 상태: 프로젝트 상세 "아직 기록이 없어요"는 가운데 큰 칸 대신 흐린 글자 한 줄. */
-#ps3DetailModal .ps3-rec-empty{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); padding:0; text-align:left; }
+/* ⑤ 빈 상태: 프로젝트 상세 기록 칸의 공용 '없음'(.wait-empty)은 다른 기록 줄과 같은 줄 높이 한 줄. */
+#ps3DetailModal [data-ps3-rec-empty]{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); margin:0; }
+#ps3DetailModal [data-ps3-rec-empty][hidden]{ display:none; }
 
 @media(max-width:760px){
   /* 홈 빠른 입력: 전환은 왼쪽 작은 세그먼트(폭 가득 아님). */
@@ -1515,10 +1516,9 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 :root .pick-others{ margin-top:4px; border-top:.5px solid var(--kptu-border); }
 :root .pick-others>summary{ font-size:var(--ds-text-row); color:var(--kptu-muted); }
 :root .pick-search{ display:block; width:100%; max-width:420px; box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:2px 0 4px; padding:0 8px; font-size:var(--ds-compact-text); }
-:root .pick-item[hidden],:root .pick-group[hidden],:root .pick-empty[hidden]{ display:none; }
+:root .pick-item[hidden],:root .pick-group[hidden],:root [data-pick-empty][hidden]{ display:none; }
 :root .pick-group+.pick-group{ margin-top:4px; padding-top:4px; border-top:.5px solid var(--kptu-border); }
 :root .pick-group-name{ margin:0; color:var(--kptu-muted); font-size:11px; line-height:1.4; break-after:avoid; }
-:root .pick-none,:root .pick-empty{ margin:2px 0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 :root .pick-off{ opacity:.5; }
 
 /* UI-전수디자인점검 F19(10/29): 사업 보고 줄 앞 종류 꼬리표('교육'·'국회')는 사업 보고 화면 말고도 사업영역 상세(#ps3DetailModal)·담당조직

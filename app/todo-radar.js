@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 const RADAR_WAIT = '\u0000wait';
 const radarStatusHtml = text => text === RADAR_WAIT ? waitInlineHtml() : esc(text);
@@ -209,7 +209,7 @@ export function mountRadar(host, {place}) {
       ? `<header class="radar-head"><h3 id="${titleId}">챙길 것 <small data-home-count data-radar-count>${list.length || ''}</small></h3>${findBtn}</header>`
       : `<header class="radar-head"><h4 id="${titleId}">그날 나온 챙길 것 <small data-radar-count>${list.length || ''}</small></h4>${findBtn}</header>`;
     const empty = state === 'failed' ? `<p class="radar-muted">챙길 것을 불러오지 못했어요. <button type="button" class="radar-link" data-radar-retry>다시 시도</button></p>`
-      : !list.length && !promises.length ? (state === 'loading' ? waitHtml({rows:2}) : `<p class="radar-muted">${place === 'home' ? '남은 챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>`) : '';
+      : !list.length && !promises.length ? (state === 'loading' ? waitHtml({rows:2}) : emptyHtml(place === 'home' ? '없음' : '챙길 것 없음')) : '';
     const hiddenCount = list.length - listed.length;
     const more = all && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="true">접기</button>`
       : hiddenCount > 0 ? `<button type="button" class="radar-link" data-radar-all aria-expanded="false">${hiddenCount}건 더 ›</button>` : '';

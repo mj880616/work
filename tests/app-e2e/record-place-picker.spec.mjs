@@ -71,7 +71,7 @@ test('PC 검색칸 하나가 조직·프로젝트를 함께 거르고 최근 줄
  await search.fill('합성 과제 4');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(0);
  await expect(sheet.locator('[data-sheet-projects] [data-sheet-value]:visible')).toHaveText(['합성 과제 4','합성 과제 40','합성 과제 41','합성 과제 42','합성 과제 43','합성 과제 44','합성 과제 45','합성 과제 46','합성 과제 47','합성 과제 48','합성 과제 49']);
- await search.fill('없는 이름');await expect(sheet.getByText('맞는 항목이 없어요.')).toBeVisible();
+ await search.fill('없는 이름');await expect(sheet.locator('[data-sheet-empty][data-wait-empty]')).toBeVisible();await expect(sheet.locator('[data-sheet-empty]')).toHaveText('맞는 항목 없음');
  await search.fill('');await expect(sheet.locator('[data-sheet-recent-block]')).toBeVisible();await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
  // ↓ from the box goes to the first choice shown.
  await search.fill('공항');await search.press('ArrowDown');await expect(sheet.locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true})).toBeFocused();

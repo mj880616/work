@@ -132,7 +132,7 @@
   .quick-links-panel .ql-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 8px;margin:0;padding:0;list-style:none}
   .quick-links-panel .ql-grid a{display:flex;align-items:center;min-height:36px;padding:0 8px;border-radius:var(--kptu-radius-sm);color:var(--kptu-ink);font-size:var(--ds-text-row,13px);text-decoration:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .quick-links-panel .ql-grid a:hover,.quick-links-panel .ql-grid a:focus-visible{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);outline:none}
-  .quick-links-panel .ql-empty,.quick-links-panel .ql-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+  .quick-links-panel .ql-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
   .quick-links-panel .ql-note:empty{display:none}
   .quick-links-panel .ql-btn{position:relative;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,10px);border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-compact-text,13px);cursor:pointer;white-space:nowrap}
   .quick-links-panel .ql-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}

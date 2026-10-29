@@ -1,4 +1,4 @@
-import {waitHtml, failHtml} from './wait-state.js';
+import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 확인창 대신 공용 작은 확인창
 // REF-참고묶음 화면 2 (docs/design/ref-bundle.md 6절, 질문 1~7 추천안): the 참고 묶음 screen (?view=reference). This module is the
 // only renderer of #referenceView: the bundle list (name · linked count · last date, head ⋯ [묶음 더하기]·[순서 바꾸기]) and one
@@ -78,7 +78,7 @@ function paintList(){
   }).join('');
   const order=state.order?`<div class="rb-actions"><button type="button" class="rb-small" data-rb-order-cancel>취소</button><button type="button" class="rb-small primary" data-rb-order-save data-enter-save-submit>저장</button></div>`:'';
   const add=state.mode==='add'?`<div class="rb-inline" data-rb-add-form data-enter-save><input type="text" class="rb-input" data-rb-add-input maxlength="${BUNDLE_NAME_MAX}" aria-label="새 묶음 이름" placeholder="새 묶음 이름" value="${esc(state.draft)}"><button type="button" class="rb-small" data-rb-add-cancel>취소</button><button type="button" class="rb-small primary" data-rb-add-save data-enter-save-submit>저장</button></div>`:'';
-  box.innerHTML=head+`<div class="rb-rows"${state.order?' data-enter-save':''}>${rows||'<p class="rb-empty">묶음이 없어요.</p>'}${order}</div>${add}<p class="rb-status" data-rb-status role="status">${esc(state.status)}</p>`;
+  box.innerHTML=head+`<div class="rb-rows"${state.order?' data-enter-save':''}>${rows||emptyHtml()}${order}</div>${add}<p class="rb-status" data-rb-status role="status">${esc(state.status)}</p>`;
 }
 function paintDetail(){
   const box=$('#rbDetail'),b=bundleOf(state.selected);
@@ -87,7 +87,7 @@ function paintDetail(){
   const title=state.mode==='rename'?`<div class="rb-inline" data-rb-rename-form data-enter-save><input type="text" class="rb-input" data-rb-rename-input maxlength="${BUNDLE_NAME_MAX}" aria-label="묶음 이름" value="${esc(state.draft)}"><button type="button" class="rb-small" data-rb-rename-cancel>취소</button><button type="button" class="rb-small primary" data-rb-rename-save data-enter-save-submit>저장</button></div>`
     :`<h3 class="rb-detail-name" id="rbDetailName">${esc(b.name)}</h3><span class="rb-meta">${count}개</span><button type="button" class="rb-more" data-rb-detail-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-label="${esc(b.name)} 메뉴"${state.busy?' disabled':''}>${MORE}</button>`;
   const back=pc.matches?'':'<button type="button" class="back-text rb-back" data-rb-back>‹ 참고 묶음</button>';
-  const list=count?`<ul class="rb-items">${rows.map(l=>{const kind=l.note_kind==='note'?'노트':'업데이트',line=lineOf(l);return `<li class="rb-item" data-rb-link="${esc(l.id)}"><button type="button" class="rb-item-open" data-rb-open="${esc(l.id)}"><span class="rb-date">${esc(md(l.occurred_at))}</span><span class="rb-line">${esc(line)}</span><span class="rb-kind">${kind}</span></button><button type="button" class="rb-more" data-rb-item-more="${esc(l.id)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc([...line].slice(0,30).join(''))} 메뉴">${MORE}</button></li>`;}).join('')}</ul>`:'<p class="rb-empty">붙인 소식이 없어요. 정리함 [연결하기] › [참고 ▾]로 붙일 수 있어요.</p>';
+  const list=count?`<ul class="rb-items">${rows.map(l=>{const kind=l.note_kind==='note'?'노트':'업데이트',line=lineOf(l);return `<li class="rb-item" data-rb-link="${esc(l.id)}"><button type="button" class="rb-item-open" data-rb-open="${esc(l.id)}"><span class="rb-date">${esc(md(l.occurred_at))}</span><span class="rb-line">${esc(line)}</span><span class="rb-kind">${kind}</span></button><button type="button" class="rb-more" data-rb-item-more="${esc(l.id)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc([...line].slice(0,30).join(''))} 메뉴">${MORE}</button></li>`;}).join('')}</ul>`:emptyHtml();
   box.innerHTML=`${back}<div class="rb-detail-head">${title}</div><p class="rb-status" data-rb-detail-status role="status">${esc(state.detailStatus)}</p>${list}`;
 }
 

@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 // UI-고른것접기(PROFILE-담당사업장접기, 2026-10-29 명진 결정): 긴 체크 목록의 한 가지 모양.
 // '고른 것'은 늘 보이고, 나머지는 접힌 '그 외 n' 안에 둔다. '그 외'를 펼치면 맨 위에 찾기 칸(초성 찾기 포함)이 있다.
 // 제목(title)을 주면 전체가 '제목 n' 한 줄로 접힌 채 시작한다. 접힘·펼침·찾기 글은 기억하지 않는다(다시 그릴 때만 이어 간다).
@@ -58,8 +59,8 @@ export function pickFoldHtml({key, title = '', count = 0, picked = '', others = 
     const any = g.items.some(it => pickMatch(it.name, st.query));
     return `<div class="pick-group" data-pick-group${any ? '' : ' hidden'}>${g.label ? `<p class="pick-group-name">${esc(g.label)}</p>` : ''}${rows}</div>`;
   }).join('');
-  const othersHtml = total ? `<details class="pick-others" data-pick-others${st.othersOpen ? ' open' : ''}><summary class="pick-others-head">${esc(othersLabel)} <span class="pick-n">${total}</span></summary><input type="search" class="pick-search" data-pick-search value="${esc(st.query)}" placeholder="찾기 (초성도 됨)" aria-label="${esc(othersLabel)}에서 찾기" autocomplete="off" spellcheck="false"><div class="pick-others-list">${list}</div><p class="pick-empty" data-pick-empty${shown ? ' hidden' : ''}>맞는 항목이 없어요.</p></details>` : '';
-  const body = `<div class="pick-picked">${picked || `<p class="pick-none">${esc(noneText)}</p>`}</div>${othersHtml}${extra}`;
+  const othersHtml = total ? `<details class="pick-others" data-pick-others${st.othersOpen ? ' open' : ''}><summary class="pick-others-head">${esc(othersLabel)} <span class="pick-n">${total}</span></summary><input type="search" class="pick-search" data-pick-search value="${esc(st.query)}" placeholder="찾기 (초성도 됨)" aria-label="${esc(othersLabel)}에서 찾기" autocomplete="off" spellcheck="false"><div class="pick-others-list">${list}</div>${emptyHtml('맞는 항목 없음', {attrs: `data-pick-empty${shown ? ' hidden' : ''}`})}</details>` : '';
+  const body = `<div class="pick-picked">${picked || emptyHtml(noneText, {attrs: 'data-pick-none'})}</div>${othersHtml}${extra}`;
   if (!title) return `<div class="pick-fold-plain" data-pick-key="${esc(key)}">${body}</div>`;
   return `<details class="pick-fold" data-pick-fold data-pick-key="${esc(key)}"${st.open ? ' open' : ''}><summary class="pick-fold-head"><span class="pick-fold-title">${esc(title)}</span> <span class="pick-n" data-pick-count>${count}</span></summary><div class="pick-fold-body">${body}</div></details>`;
 }
