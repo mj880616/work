@@ -162,7 +162,7 @@
   const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
   // MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다. 옛 주소(?view=projects, ?project=)는 사업 보고를 열고 창을 띄운다.
   await import('./area-window.js');
-  const areasAtStart=viewLoader.normalize(rawRequested)==='projects';
+  const areasAtStart=viewLoader.normalize(rawRequested)==='projects'||(viewLoader.normalize(rawRequested)==='meetings'&&params.get('areas')==='1');
   const requested=areasAtStart?'meetings':viewLoader.normalize(rawRequested);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 

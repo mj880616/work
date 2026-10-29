@@ -339,7 +339,7 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 /* MTG-프로젝트합치기 ①(10/29 시안 승인): 사업영역 관리 창 — 사업 보고 위에 뜨는 공용 .modal 그릇(area-window.js가 여닫음).
    PC: 넓은 창, 머리줄 '사업영역 관리 [+ 사업영역] ✕', 몸통은 지금 목록·상세 칸 그대로. 폰: 하단바 위까지 전체 높이, 머리 '‹ 사업 보고 · 사업영역 관리 · +'.
    버튼은 작은 높이(--ds-compact-*), 누르는 범위는 ::after로 44px. */
-#appView #areaWindow.modal{z-index:50}
+#appView #areaWindow.modal{z-index:40} /* 다른 창(50)·폰 메뉴 판(45)은 이 창 위, 하단바(30)는 아래 */
 #appView #areaWindow.hidden{display:none}
 #appView #areaWindow.modal{inset:var(--area-window-top,0px) 0 0 var(--area-window-left,0px);padding:var(--kptu-space-3);display:flex;align-items:stretch;justify-content:center}
 #appView #areaWindow .area-window-card{display:flex;flex-direction:column;box-sizing:border-box;width:100%;max-width:none;height:auto;min-height:0;max-height:none;margin:0;padding:0;overflow:hidden;border-radius:var(--kptu-radius-lg)}
@@ -358,10 +358,10 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #appView #areaWindow .area-window-back{display:none;align-items:center;gap:2px;padding:0 4px;border:0;background:transparent;color:var(--kptu-ink)}
 #appView #areaWindow .area-window-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0;padding:var(--kptu-space-2) var(--kptu-space-3) var(--kptu-space-3)}
 @media(max-width:760px){
-  /* 폰 공용 창 규칙(workspace-ui.css의 .modal !important: 아래 붙임·창 전체 스크롤)은 이 창에 맞지 않아, 쓰기 창(ed-window.css)처럼 이 창만 같은 힘으로 되돌린다. */
-  #appView #areaWindow.modal{inset:0 0 calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px)) 0;padding:env(safe-area-inset-top,0px) 0 0!important;align-items:stretch!important;overflow:hidden!important;background:var(--kptu-bg)}
-  #appView #areaWindow .area-window-card{width:100%!important;max-width:none;max-height:none!important;overflow:hidden!important;padding-bottom:0!important;border-radius:var(--kptu-radius-none);border:0}
-  #appView #areaWindow .area-window-head{padding:4px var(--kptu-space-2)}
+  /* 폰 공용 창 규칙(workspace-ui.css의 아래 붙임·창 전체 스크롤)은 이 창을 뺀다. */
+  #appView #areaWindow.modal{inset:0 0 calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px)) 0;padding:env(safe-area-inset-top,0px) 0 0;align-items:stretch;overflow:hidden;background:var(--kptu-bg)}
+  #appView #areaWindow .area-window-card{width:100%;max-width:none;max-height:none;overflow:hidden;padding:0;border-radius:var(--kptu-radius-none);border:0}
+  #appView #areaWindow .area-window-head{padding:6px var(--kptu-space-2)}
   #appView #areaWindow .area-window-back{display:inline-flex}
   #appView #areaWindow .area-window-close{display:none}
   #appView #areaWindow .area-window-add-word{display:none}

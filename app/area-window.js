@@ -32,6 +32,8 @@ window.addEventListener('kptu:where-item',e=>{if(e.detail?.view!=='projects'||e.
 function show(trigger){
   const w=win();if(!w)return false;if(isOpen())return true;
   watchNav();place();
+  // 새로고침해도 창이 다시 뜨게 사업 보고 주소에 자리 하나(?view=reports&areas=1, app-router PLACE_PARAMS). 기기 저장 없음.
+  if(window.KPTURouter?.current==='meetings')window.KPTURouter.setPlace?.('meetings',{areas:'1'});
   w.classList.remove('hidden');w.setAttribute('aria-hidden','false');document.documentElement.classList.add('area-window-open');
   window.KPTUA11y?.dialog.activate(w,{trigger,initialFocus:PHONE?.matches?'.area-window-back':'.area-window-close',onRequestClose:()=>{close()}});
   return true;
@@ -43,6 +45,8 @@ async function open({id=null,trigger=document.activeElement}={}){
   const after=async()=>{
     if(run!==seq)return;
     const was=isOpen();if(!show(trigger))return;
+    // 다른 화면의 연결로 그 사업영역을 바로 연 창(direct): 폰에서 뒤로가기로 상세를 닫으면 창도 닫혀 한 번에 원래 자리로 돌아간다.
+    if(!was)win().dataset.areaDirect=id&&window.KPTURouter?.current!=='meetings'?'1':'';
     if(!was)window.dispatchEvent(new CustomEvent('kptu:area-window',{detail:{open:true}}));
     const p=window.KPTUProjects;
     if(!was)await p?.shown?.();
@@ -60,8 +64,13 @@ function close({silent=false}={}){
   seq++;
   if(window.KPTUProjects?.hide?.(silent)===false)return false;
   if(silent&&w.dataset.kptuHistoryOpen==='1')w.dataset.kptuHistoryClosing='pop';
+  const dropPlace=()=>{if(!isOpen()&&window.KPTURouter?.current==='meetings')window.KPTURouter.setPlace?.('meetings',{areas:null})};
+  // ✕·‹로 닫으면 공용 기록이 한 칸 되돌아간다(mobile-modal-history.js) — 돌아간 칸의 자리도 지운다.
+  if(!silent&&w.dataset.kptuHistoryOpen==='1'&&history.state?.kptuOverlay==='areaWindow')window.addEventListener('popstate',()=>queueMicrotask(dropPlace),{once:true});
+  if(!silent)queueMicrotask(dropPlace);
   w.classList.add('hidden');w.setAttribute('aria-hidden','true');document.documentElement.classList.remove('area-window-open');
   window.KPTUA11y?.dialog.deactivate(w,{restoreFocus:!silent,fallbackFocus:'#reportMore'});
+  window.KPTUProjects?.place?.(); // 창이 닫힌 뒤에 상세를 칸에서 내린다(칸은 창이 떠 있을 때만)
   window.dispatchEvent(new CustomEvent('kptu:area-window',{detail:{open:false}}));
   return true;
 }
@@ -72,11 +81,14 @@ document.addEventListener('click',e=>{
   e.preventDefault();e.stopImmediatePropagation();close();
 },true);
 // 라우터: go('projects')·옛 주소는 detail.areas로 창을 연다. 그 밖의 화면 이동(아래 탭·메뉴)은 창을 닫는다.
+window.addEventListener('kptu:dialog-closed',e=>{
+  const m=e.detail?.modal;if(m?.id!=='ps3DetailModal'||!isOpen()||win().dataset.areaDirect!=='1'||m.dataset.ps3Docked==='1'||!m.classList.contains('hidden'))return;
+  if(history.state?.kptuOverlay==='areaWindow')close(); // 뒤로가기로 닫힌 때만(× 로 닫으면 목록이 남는다)
+});
 window.addEventListener('kptu:view-changed',e=>{
   // 사업영역 상세에서 연 메모에서 돌아오면(← 돌아가기·뒤로가기) 창을 다시 열고, 그 사업영역·스크롤은 project-system-v3.js가 되살린다.
   if(e.detail?.areas||(e.detail?.view==='meetings'&&hasBasketReturn('projects'))){void open();return}
   if(isOpen())close({silent:true});
 });
-window.addEventListener('kptu:session-changed',()=>{if(isOpen())close({silent:true})});
 
 window.KPTUAreaWindow=Object.freeze({open,close,isOpen});

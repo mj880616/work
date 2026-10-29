@@ -29,7 +29,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={basket:['note','doc','folder'],library:['folder'],diary:['day'],journal:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab']};
+  const PLACE_PARAMS={meetings:['areas'],basket:['note','doc','folder'],library:['folder'],diary:['day'],journal:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -334,7 +334,7 @@
       return true;
     }
     noteAlias(written);
-    const areas=written==='projects'||!!new URLSearchParams(location.search).get('project');
+    const areas=written==='projects'||!!new URLSearchParams(location.search).get('project')||(view==='meetings'&&new URLSearchParams(location.search).get('areas')==='1');
     return go(view,{scroll:false,source,updateUrl:false,sub,areas});
   }
 

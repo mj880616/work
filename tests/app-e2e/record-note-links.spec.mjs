@@ -90,7 +90,7 @@ for(const width of [1280,390])test(`project ${width}: a note line opens the note
   await expect(page.locator('#basketView [data-basket-text]').first()).toBeHidden();
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText(width<761?'← 사업영역으로 돌아가기':'← 합성 정책 사업으로 돌아가기');
   if(how==='button')await back.click();else await goBack(page,how);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expectProjectTitle(page,'합성 정책 사업');
+  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('meetings');await expect(page.locator('#areaWindow')).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');
   await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect.poll(()=>top(line)).toBe(before);
  }
  // The ⋯ [노트 열기] opens the same note.

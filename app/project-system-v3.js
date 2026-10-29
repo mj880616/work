@@ -1017,5 +1017,7 @@ async function resumeProjects(){
 }
 async function boot(){ensureUi();bind();window.addEventListener('kptu:session-changed',handleProjectSessionChange);if(!(await context(projectEpoch)))return false;await loadProjects();installProjectToolbar();const b=$('#newProjectBtn');if(b){b.classList.add('ps3-toolbar-btn');b.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();openCreate()}}await renderGrid();document.documentElement.classList.add('kptu-project-v3-ready');return true}
 window.__KPTU_PROJECT_V3_READY__=boot().catch(err=>{console.error(err);return false});
-window.KPTUProjects={open:openProject,shown:onProjectsView,hide:hideProjects};
+// 창 밖 화면 이동: 창 없이 다른 화면 위에 연 상세 창(옛 길)은 화면을 옮기면 닫는다(창이 떠 있으면 area-window.js가 창과 함께 닫음).
+window.addEventListener('kptu:view-changed',e=>{if(e.detail?.areas||areaOpen())return;orderMode=false;if(current)closeDetail();else{detailEpoch++;basketTargetId=null;disposeBasketEditor()}placeDetail()});
+window.KPTUProjects={open:openProject,shown:onProjectsView,hide:hideProjects,place:placeDetail};
 })();

@@ -139,7 +139,7 @@
   </section>
 
   <!-- MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위에 뜨는 창(공용 .modal). 여닫기는 area-window.js 하나, 안의 목록·상세는 project-system-v3.js 그대로. -->
-  <div id="areaWindow" class="modal hidden area-window" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="areaWindowTitle">
+  <div id="areaWindow" class="modal hidden area-window" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="areaWindowTitle" data-kptu-history-all="1">
     <div class="modal-card area-window-card">
       <div class="modal-head area-window-head"><button type="button" class="area-window-back" data-close="areaWindow" aria-label="사업 보고로 돌아가기"><span aria-hidden="true">‹</span> 사업 보고</button><h2 id="areaWindowTitle">사업영역 관리</h2><span class="area-window-item" data-area-window-item hidden></span><div class="section-head actions-only area-window-actions"><button id="newProjectBtn" class="primary" type="button" aria-label="사업영역 추가">+<span class="area-window-add-word"> 사업영역</span></button></div><button type="button" class="icon-btn area-window-close" data-close="areaWindow" aria-label="사업영역 관리 닫기"><span aria-hidden="true">✕</span></button></div>
       <section id="projectsView" class="area-window-body" aria-label="사업영역 목록">

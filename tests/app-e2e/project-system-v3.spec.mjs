@@ -825,7 +825,8 @@ for(const extra of [0,200])test(`D-project requests stay constant with ${extra} 
  await expect.poll(()=>state.summaryQueries?.length).toBe(1);
  await expect(page.locator('#projectGrid .kptu-list-task-count')).toHaveCount(0);
  expect(state.gtCalls.filter(x=>x.action==='overview').length).toBeLessThanOrEqual(1);
- expect(state.restCalls.filter(x=>x.name==='app_record_links')).toHaveLength(0);
+ // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이라, 밑의 사업 보고 화면이 자기 보고 연결을 읽는다(사업영역 수와 무관한 고정 몫). 목록은 연결을 읽지 않는다.
+ expect(state.restCalls.filter(x=>x.name==='app_record_links').length).toBeLessThanOrEqual(8);
  expect(state.restCalls.filter(x=>x.name==='app_documents'||x.name==='app_project_progress_updates'||x.name==='app_project_milestones')).toHaveLength(0);
  await expect(page.locator('#ps3ArchiveBtn')).toBeHidden();
  await expect(page.locator('[data-ps3-total]')).toHaveText(`사업영역 ${extra+1}개`);
