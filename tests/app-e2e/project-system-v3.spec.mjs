@@ -883,10 +883,13 @@ for(const width of [390,1280])test(`V3 detail and edit dialogs manage focus, Esc
   const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   const card=page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]');
   if(width>=1024){
-    // UI-PC프로젝트좌우: the PC pane is not a dialog — choosing a row keeps focus on that row and Escape leaves the pane shown.
+    // UI-PC프로젝트좌우: the PC pane is not a dialog of its own — choosing a row keeps focus on that row.
     await expectProjectDetail(page,'main-1');
     await card.focus();await card.click();await expect(card).toBeFocused();await expect(card).toHaveAttribute('aria-current','true');
-    await page.keyboard.press('Escape');await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect(card).toBeFocused();
+    // MTG-프로젝트합치기 ①: 목록·상세 칸은 사업 보고 위 창(#areaWindow) 안이다. Esc는 칸만 닫지 않고 창 하나를 닫아 사업 보고로 돌아가고,
+    // 다시 열면 같은 사업영역이 오른쪽 칸에 있다.
+    await page.keyboard.press('Escape');await expect(page.locator('#areaWindow')).toBeHidden();await expect(page.locator('#meetingsView')).toBeVisible();
+    await clickView(page,'projects');await expectProjectDetail(page,'main-1');await expect(card).toHaveAttribute('aria-current','true');
   }else{
   await card.focus();await card.click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();

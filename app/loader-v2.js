@@ -229,6 +229,8 @@
   import('./meeting-recorder.js').catch(err=>console.warn('meeting recorder load failed',err?.name||'Error'));
   const {startVersionNotice}=await import('./version-notice.js');
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
+  // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창 묶음을 먼저 받고, 첫 화면을 드러내는 바로 그 순간에 창을 띄운다(드러낸 뒤 늦게 덮지 않음).
+  if(areasAtStart&&result?.ok)await viewLoader.load('projects').catch(err=>console.warn('area window load failed',err?.name||'Error'));
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   if(areasAtStart&&result?.ok)void window.KPTUAreaWindow?.open({id:params.get('project')||null});
   import('./mobile-modal-history.js').catch(()=>{});
