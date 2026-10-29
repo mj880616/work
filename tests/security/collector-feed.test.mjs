@@ -546,7 +546,7 @@ test('AI 답 검사: 요약 제어 문자 제거·길이 자르기, 참조 중�
   assert.equal([...items[0].summary].length,400);assert.equal(items[0].title,'제목');assert.deepEqual(items[0].refs,[0,1]);assert.equal(r.dropped,0);
   assert.equal(parseTelegram(JSON.stringify({items:[{title:'',summary:'x',refs:['m9'],organization:'',project:''}]}),2,o,[]),null,'항목이 전부 틀리면 응답이 깨진 것');
   assert.equal(parseTelegram('{"x":1}',2,o,[]),null);assert.equal(parseTelegram('[]',2,o,[]),null);assert.equal(parseTelegram(null,2,o,[]),null);
-  assert.deepEqual(parseTelegram(JSON.stringify({items:[]}),2,o,[]),{items:[],dropped:0,unlinked:0,day:null});
+  assert.deepEqual(parseTelegram(JSON.stringify({items:[]}),2,o,[]),{items:[],dropped:0,unlinked:0,day:null,askDropped:0});
 });
 
 test('AI 답 검사(TG-소식멈춤3): 모르는 조직·프로젝트 참조는 연결만 비우고, 틀린 항목만 뺀다',()=>{
