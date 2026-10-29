@@ -202,14 +202,7 @@
 .ps3-color-field[hidden]{display:none}
 .ps3-color-label{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .ps3-color-options{display:flex;flex-wrap:wrap;gap:0}
-.ps3-color-option{display:grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0;border:0;border-radius:999px;background:transparent;cursor:pointer}
-.ps3-color-option:focus-visible{outline:2px solid var(--kptu-info,var(--kptu-primary));outline-offset:-2px}
-.ps3-color-swatch{width:24px;height:24px;border-radius:999px;background:var(--ds-project-gray)}
-.ps3-color-swatch[data-color="green"]{background:var(--ds-project-green)}.ps3-color-swatch[data-color="blue"]{background:var(--ds-project-blue)}
-.ps3-color-swatch[data-color="orange"]{background:var(--ds-project-orange)}.ps3-color-swatch[data-color="purple"]{background:var(--ds-project-purple)}
-.ps3-color-swatch[data-color="pink"]{background:var(--ds-project-pink)}.ps3-color-swatch[data-color="yellow"]{background:var(--ds-project-yellow)}
-.ps3-color-swatch[data-color="red"]{background:var(--ds-project-red)}
-.ps3-color-option[aria-checked="true"] .ps3-color-swatch{outline:2px solid var(--kptu-ink);outline-offset:2px}
+/* 색 칸 모양·고름 표시는 공용 부품(color-swatch.mjs, ui-standard.css UI-색고르기통일)만 맡는다. */
 /* PRJ-기록입력: 머리줄 아래 요약 한 줄, 맨 위 입력칸 + [기록], 기록 목록 하나(최신 위·🧺 포함), 묶음 제목 옆 작은 +, 자료는 줄 누르기 + ⋯. */
 .ps3-head-summary{margin:2px 0 0;line-height:1.45;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps3-head-summary:empty{display:none}

@@ -37,7 +37,7 @@ window.KPTURuntime={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})},se
  const method=opts.method||'GET';state.calls.push({path,method,body:clone(opts.body??null)});
  const hit=state.fail.find(x=>x.method===method&&path.startsWith(x.path)&&(!x.org||path.includes(x.org)||JSON.stringify(opts.body??null).includes(x.org)));if(hit)throw new Error('mock failure');
  if(path==='/auth/v1/user')return clone(state.user);
- if(path.startsWith('/functions/v1/google-calendar?action=status'))return {connected:true,calendars:[{id:'cal-a',summary:'가상 공유 캘린더'},{id:'cal-b',summary:'다른 캘린더'}],eventColors:{'1':{background:'gray'},'3':{background:'green'},'7':{background:'teal'}}};
+ if(path.startsWith('/functions/v1/google-calendar?action=status'))return {connected:true,calendars:[{id:'cal-a',summary:'가상 공유 캘린더'},{id:'cal-b',summary:'다른 캘린더'}],eventColors:{'1':{background:'#a4bdfc',foreground:'#1d1d1d'},'2':{background:'#7ae7bf',foreground:'#1d1d1d'},'3':{background:'#dbadff',foreground:'#1d1d1d'},'4':{background:'#ff887c',foreground:'#1d1d1d'},'5':{background:'#fbd75b',foreground:'#1d1d1d'},'6':{background:'#ffb878',foreground:'#1d1d1d'},'7':{background:'#46d6db',foreground:'#1d1d1d'},'8':{background:'#e1e1e1',foreground:'#1d1d1d'},'9':{background:'#5484ed',foreground:'#1d1d1d'},'10':{background:'#51b749',foreground:'#1d1d1d'},'11':{background:'#dc2127',foreground:'#1d1d1d'}}};
  if(path.startsWith('/functions/v1/google-calendar?action=events'))return {events:clone(state.calendarEvents||defaultEvents())};
  if(path.includes('/app_calendar_work_refs')){
   if(method==='POST'){for(const r of opts.body)state.refs.push({...clone(r),id:'ref-'+state.refs.length});return null}
