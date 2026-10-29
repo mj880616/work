@@ -1,6 +1,10 @@
 // share-page-read: 로그인 없이 링크 값 하나로 공유 페이지 하나만 읽는다(SHARE-현장공유, verify_jwt=false).
 // 링크 값 → sha256 → 링크 행(꺼짐 아님·기한 안 지남) → 게시된 페이지의 제목·블록만 반환.
 // 그 밖의 모든 경우는 같은 모양의 404. owner·workspace·내부 id·링크 원문은 응답에 넣지 않는다.
+// SHARE-보관함·HTML공유(docs/design/share-html-pages.md): 링크 값 대신 짧은 주소 {slug}(이름-무작위 8글자)도 받는다.
+// 짧은 주소 → sha256 → 짧은 주소 행의 링크 지문 → 위와 같은 링크 확인(같은 링크라 끄기·기한이 같이 걸림).
+// HTML 파일 판이 있는 페이지는 가장 최근 판 하나를 {kind:'html', title, html}로 돌려준다(블록 대신).
+// head:true면 제목만 돌려준다(Worker의 링크 미리보기 제목용, 5MB HTML을 보내지 않음).
 
 export type ShareLinkRow = {
   page_id: string;
@@ -21,6 +25,9 @@ export type ShareReader = {
   // ED-통합편집기 ②: 이 페이지 소속으로 기록된 사진만(page_id로 거른다). 주소는 짧게(SIGN_SECONDS) 발급한다.
   mediaForPage?(pageId: string, ids: string[]): Promise<{ id: string; storage_path: string }[]>;
   signMedia?(path: string, seconds: number): Promise<string | null>;
+  // SHARE-보관함·HTML공유: 짧은 주소 지문 → 그 짧은 주소가 붙은 링크의 지문. 페이지의 가장 최근 HTML 판(없으면 null).
+  slugByHash?(hash: string): Promise<{ token_hash: string; slug_hash: string } | null>;
+  latestHtml?(pageId: string): Promise<string | null>;
 };
 export const SIGN_SECONDS = 300;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -48,6 +55,19 @@ export const ALLOWED_ORIGINS = new Set(["https://work.bokdoong.com"]);
 export const MAX_BODY_BYTES = 1024;
 const TOKEN = /^[0-9a-f]{64}$/;
 const HASH = /^[0-9a-f]{64}$/;
+// 이름(소문자·숫자·하이픈 2~40자) + "-" + DB가 만든 8글자(l·o·0·1 뺀 32글자). DB 검사(app_share_page_slugs)와 같은 모양.
+const SLUG_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SLUG_CODE = /^-[a-km-np-z2-9]{8}$/;
+export function slugOk(value: string): boolean {
+  if (value.length < 11 || value.length > 49) return false;
+  const name = value.slice(0, -9);
+  return name.length >= 2 && SLUG_NAME.test(name) && SLUG_CODE.test(value.slice(-9));
+}
+export const MAX_HTML_BYTES = 5242880;
+
+export async function slugHash(slug: string): Promise<string> {
+  return hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(slug)));
+}
 
 const baseHeaders: Record<string, string> = {
   "Content-Type": "application/json; charset=utf-8",
@@ -137,15 +157,28 @@ export function createShareReadHandler(
     if (text === null) return reply({ error: "bad_request" }, 400);
     let body: unknown;
     try { body = JSON.parse(text); } catch { return reply({ error: "bad_request" }, 400); }
-    if (!body || typeof body !== "object" || Array.isArray(body)
-        || Object.keys(body).length !== 1 || !Object.hasOwn(body, "token")) {
-      return reply({ error: "bad_request" }, 400);
-    }
-    const token = (body as { token: unknown }).token;
-    if (typeof token !== "string" || !TOKEN.test(token)) return notFound();
+    // 받는 모양: {token} 또는 {slug}, 그리고 선택으로 head:true. 그 밖의 키·값은 모두 400.
+    if (!body || typeof body !== "object" || Array.isArray(body)) return reply({ error: "bad_request" }, 400);
+    const keys = Object.keys(body);
+    const o = body as Record<string, unknown>;
+    const head = Object.hasOwn(o, "head");
+    if (head && o.head !== true) return reply({ error: "bad_request" }, 400);
+    const byToken = Object.hasOwn(o, "token"), bySlug = Object.hasOwn(o, "slug");
+    if (byToken === bySlug || keys.length !== (head ? 2 : 1)) return reply({ error: "bad_request" }, 400);
+    if (bySlug && !reader.slugByHash) return reply({ error: "bad_request" }, 400);
+    const value = byToken ? o.token : o.slug;
+    if (typeof value !== "string" || !(byToken ? TOKEN.test(value) : slugOk(value))) return notFound();
 
     try {
-      const hash = await tokenHash(token);
+      let hash: string;
+      if (byToken) hash = await tokenHash(value);
+      else {
+        const wanted = await slugHash(value);
+        const short = await reader.slugByHash!(wanted);
+        if (!short || !HASH.test(String(short.slug_hash)) || !sameHash(short.slug_hash, wanted)
+            || !HASH.test(String(short.token_hash))) return notFound();
+        hash = short.token_hash;
+      }
       const link = await reader.linkByHash(hash);
       if (!link || !HASH.test(String(link.token_hash)) || !sameHash(link.token_hash, hash)) return notFound();
       if (link.disabled_at !== null) return notFound();
@@ -156,6 +189,21 @@ export function createShareReadHandler(
       const page = await reader.pageById(link.page_id);
       if (!page || page.id !== link.page_id || page.status !== "published") return notFound();
       if (typeof page.title !== "string" || !Array.isArray(page.blocks)) return notFound();
+      if (head) return reply({ ok: true, page: { title: page.title } }, 200);
+      // HTML 판: 있으면 그 판만(블록·사진 없음). 판 질의가 실패하면 블록이 있는 페이지는 블록을 그대로 보여 준다
+      // (새 표 적용 전 배포·일시 오류에도 기존 링크가 열리게). 블록도 없으면 503.
+      if (reader.latestHtml) {
+        let html: string | null = null;
+        try { html = await reader.latestHtml(link.page_id); }
+        catch {
+          log("share_page_html_unavailable");
+          if (!page.blocks.length) return reply({ error: "unavailable" }, 503);
+        }
+        if (html !== null) {
+          if (typeof html !== "string" || !html.length || html.length > MAX_HTML_BYTES) return notFound();
+          return reply({ ok: true, page: { kind: "html", title: page.title, html } }, 200);
+        }
+      }
       // 사진 주소: 링크가 살아 있고 게시된 페이지일 때만, 그 페이지 소속으로 기록된 사진에만 만든다. 사진 쪽 문제는 글 읽기를 막지 않는다.
       const media: Record<string, string> = {};
       const ids = reader.mediaForPage && reader.signMedia ? sharePhotoIds(page.blocks) : [];
