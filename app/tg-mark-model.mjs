@@ -6,8 +6,8 @@ import {rdKey} from './tg-day-model.mjs';
 export const ASK_TAG = '나한테 요청';
 export const ORG_TAG = '담당조직';
 export const SCHEDULE_TAG = '일정';
-// 칸 거르기: '' = 전체(폴더 칸이 거름), 'ask' = 나한테 온 요청이 있는 줄만.
-export const FILTERS = Object.freeze(['', 'ask']);
+// 칸 거르기: '' = 전체(폴더 칸이 거름), 'ask' = 나한테 온 요청이 있는 줄만, 'unseen' = 안 본 줄만.
+export const FILTERS = Object.freeze(['', 'ask', 'unseen']);
 
 const text = v => (typeof v === 'string' ? v.trim() : '');
 
@@ -58,8 +58,38 @@ export function askCount(lines, byLine) {
   for (const l of Array.isArray(lines) ? lines : []) n += byLine?.get(rdKey(l.room_key, l.day))?.length || 0;
   return n;
 }
-export function filterLines(lines, filter, {byLine} = {}) {
+// keep: 지금 열려 있는 줄(열자마자 '봤음'이 되어도 [안 본 것] 목록에서 바로 빠지지 않게).
+export function filterLines(lines, filter, {byLine, seen, keep = ''} = {}) {
   const list = Array.isArray(lines) ? lines : [];
   if (filter === 'ask') return list.filter(l => (byLine?.get(rdKey(l.room_key, l.day))?.length || 0) > 0);
+  if (filter === 'unseen') return seen instanceof Map ? list.filter(l => rdKey(l.room_key, l.day) === keep || isUnseen(l, seen)) : list;
   return list;
+}
+
+// TG-안본것: '봤음' 시각(app_feed_room_days.seen_at)과 그 줄의 고친 시각(updated_at: 수집 서버가 새 묶음 요약을 더할 때 바뀜) → 줄 열쇠마다.
+// 모양이 틀린 줄은 버린다.
+export function seenIndex(rows) {
+  const out = new Map();
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const room = text(r?.room_key), day = text(r?.day), at = Date.parse(r?.seen_at), up = Date.parse(r?.updated_at);
+    if (room && day && Number.isFinite(at)) out.set(rdKey(room, day), {at, up:Number.isFinite(up) ? up : 0});
+  }
+  return out;
+}
+// 연 줄을 화면에서 바로 '봤음'으로(서버 저장이 끝나기 전). 돌려준 Map은 새 것.
+export function withSeen(seen, room, day, at = Date.now()) {
+  const out = new Map(seen instanceof Map ? seen : []), key = rdKey(room, day), cur = out.get(key);
+  out.set(key, {at, up:cur?.up || 0});
+  return out;
+}
+// 안 본 것: 열어 본 적이 없거나, 연 뒤에 새 소식이 왔다(새 묶음 요약이 더해졌거나 그 방·날 마지막 소식 시각이 봤음 시각보다 늦음).
+export function isUnseen(line, seen) {
+  if (!(seen instanceof Map) || !line) return false;
+  const s = seen.get(rdKey(line.room_key, line.day));
+  if (!s) return true;
+  const last = Date.parse(line.last_at);
+  return s.up > s.at || (Number.isFinite(last) && last > s.at);
+}
+export function unseenCount(lines, seen) {
+  return seen instanceof Map ? (Array.isArray(lines) ? lines : []).filter(l => isUnseen(l, seen)).length : 0;
 }

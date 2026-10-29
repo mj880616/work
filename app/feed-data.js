@@ -168,6 +168,19 @@ async function tgdg(name, body, rt) {
 export const setRoom = (roomKey, folder, archived, rt = window.KPTURuntime) => tgdg('app_feed_room_set', {p_room_key:roomKey, p_folder:folder || null, p_archived:!!archived}, rt);
 // 그날 그 줄만 삭제('trashed')·되살리기('active').
 export const setRoomDay = (roomKey, day, state, rt = window.KPTURuntime) => tgdg('app_feed_room_day_set', {p_room_key:roomKey, p_day:day, p_state:state}, rt);
+// TG-안본것: 방·날을 열면 '봤음' 시각을 서버에 남긴다(DB 함수 app_feed_room_day_seen, 소유자·텔레그램 허용 작업공간만). 기기에는 남기지 않는다.
+export const markRoomDaySeen = (roomKey, day, rt = window.KPTURuntime) => tgdg('app_feed_room_day_seen', {p_room_key:roomKey, p_day:day}, rt);
+// 이 날 범위에서 '봤음' 시각이 있는 방·날(소유자 읽기). 칸이 아직 없거나(DB 적용 전) 읽지 못하면 던진다(부르는 쪽이 안 본 것 표시를 끈다).
+export async function readSeenDays(from, to, rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt), out = [];
+  for (let offset = 0; offset < LIST_MAX; offset += 100) {
+    const page = await rt.api(`/rest/v1/app_feed_room_days?workspace_id=eq.${encode(ws)}&day=gte.${encode(from)}&day=lte.${encode(to)}&seen_at=not.is.null&select=room_key,day,seen_at,updated_at&order=day.desc,room_key.asc&limit=100&offset=${offset}`);
+    if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+    out.push(...page);
+    if (page.length < 100) break;
+  }
+  return out;
+}
 export const createFolder = (name, rt = window.KPTURuntime) => tgdg('app_feed_folder_create', {p_name:name}, rt);
 export const renameFolder = (id, name, rt = window.KPTURuntime) => tgdg('app_feed_folder_rename', {p_id:id, p_name:name}, rt);
 export const deleteFolder = (id, rt = window.KPTURuntime) => tgdg('app_feed_folder_delete', {p_id:id}, rt);

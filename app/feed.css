@@ -301,3 +301,6 @@
 .feed-view .feed-mark{padding:0 4px;border-radius:4px;background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
 .feed-view .feed-chiprow .feed-chip.is-ask{color:var(--kptu-warning);border-color:color-mix(in srgb,var(--kptu-warning) 45%,var(--ds-line))}
 .feed-view .feed-chiprow .feed-chip.is-ask[aria-pressed="true"]{background:var(--kptu-warning-soft);border-color:var(--kptu-warning);color:var(--kptu-warning)}
+/* TG-안본것: 안 연 방·날은 이름 옆 작은 점, 연 것은 글자만 살짝 흐림(띠·꼬리표 색은 그대로). */
+.feed-view .feed-unseen{display:inline-block;width:6px;height:6px;margin-left:5px;border-radius:50%;background:var(--kptu-info);vertical-align:2px}
+.feed-view .feed-rd.is-seen .feed-rn,.feed-view .feed-rd.is-seen .feed-rl{opacity:.62}
