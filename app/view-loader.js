@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./ui-standard.css'],
+  basket:['./basket.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./ui-standard.css'],
   home:['./library-upload.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./calendar-ui.css','./view-wide.css','./ui-standard.css'],
   tasks:['./task-layout.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
@@ -38,7 +38,7 @@ const routeStyles={
   reference:['./reference-bundles.css','./ui-standard.css'],
   calls:['./choice-sheet.css','./feed.css','./ui-standard.css'],
   telegram:['./choice-sheet.css','./feed.css','./ui-standard.css'],
-  photos:['./diary.css','./od-link.css','./photos.css','./view-wide.css','./ui-standard.css'],
+  photos:['./diary.css','./od-link.css','./photos.css','./folder-tree.css','./view-wide.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./view-wide.css','./ui-standard.css']
 };
 async function prepare(view){
