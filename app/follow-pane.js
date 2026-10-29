@@ -56,11 +56,12 @@ export function followPane(el, { top = GAP, scroller = window, reset = true } = 
     if (!ro && typeof ResizeObserver === 'function') ro = new ResizeObserver(entries => { for (const e of entries) { const s = panes.get(e.target); if (s) apply(e.target, s); } });
     ro?.observe(el);
     if (!listening.size) window.addEventListener('resize', refreshAll);
-    listen(scroller);
+    listen(scroller); lastPos.set(scroller, pos(scroller));
   } else {
     st.top = top;
     if (st.scroller !== scroller) { st.scroller = scroller; listen(scroller); }
-    if (reset) st.t = top;
+    // 다시 머리부터: 아직 처리되지 않은 스크롤 이동(누르기 직전의 스크롤)이 머리 자리를 다시 밀어내지 않게 지금 위치를 기준으로 삼는다.
+    if (reset) { st.t = top; lastPos.set(scroller, pos(scroller)); }
   }
   apply(el, st);
 }
