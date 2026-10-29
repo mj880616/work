@@ -8,7 +8,8 @@ const Q='가상 사업장 교섭 쟁점 뭐였지?';
 const SOURCES=[
   {ref:'s1',kind:'update',source:'note',id:ID(1),date:'2026-10-05',day:null,title:'교섭 결과 정리',sent:true,tag:null,snippet:'3차 교섭 성과급 기준 쟁점'},
   {ref:'s2',kind:'call',source:'call',id:ID(2),date:'2026-10-04',day:'2026-10-04',title:'가상 사업장 통화',sent:true,tag:null,snippet:'성과급 개인 평가 연동 거부'},
-  {ref:'s3',kind:'ledger',source:'ledger',id:ID(3),date:'2026-10-03',day:null,title:'교섭 전략 회의',sent:false,tag:'교섭·전략',snippet:''},
+  // 명진 결정 변경(10/29): 원장 교섭·전략(S2)도 AI에 보낸다(sent:true). 근거 목록의 '교섭·전략' 꼬리표는 그대로.
+  {ref:'s3',kind:'ledger',source:'ledger',id:ID(3),date:'2026-10-03',day:null,title:'교섭 전략 회의',sent:true,tag:'교섭·전략',snippet:'양보선 검토'},
 ];
 const ANSWER={ok:true,kind:'ask_web2',status:'ok',question:Q,words:['가상','사업장','교섭','쟁점'],id:ID(90),created_at:'2026-10-06T00:12:00Z',
   lines:[{text:'3차 교섭에서 성과급 기준이 쟁점임.',refs:['s1']},{text:'회사 안(개인 평가 연동)은 거부함.',refs:['s1','s2']}],sources:SOURCES};
@@ -25,7 +26,7 @@ async function routes(page,{asks,recent=[],aiStatus=200,aiBody=ANSWER}){
 }
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1);
 
-test('PC 1440: a question shows the ask line first; Enter asks once; lines carry evidence tags; tag opens the original; S2 only listed',async({page})=>{
+test('PC 1440: a question shows the ask line first; Enter asks once; lines carry evidence tags; tag opens the original; S2 keeps its tag',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const asks=[];
@@ -46,6 +47,7 @@ test('PC 1440: a question shows the ask line first; Enter asks once; lines carry
   await expect(box.locator('.gs-ask-foot')).toHaveText('AI가 찾은 기록을 요약한 것임. 원본을 눌러 확인할 것.');
   await box.locator('.gs-ask-src summary').click();
   await expect(box.locator('.gs-ask-src-row').nth(2)).toContainText('교섭·전략');
+  await expect(box.locator('.gs-ask-src-row').nth(2)).toContainText('양보선 검토');
   // 답 상자는 결과 창 안. 창 높이를 넘으면 창 안에서 스크롤.
   await box.locator('.gs-ask-tag').first().click();
   await expect(page.locator('#basketView')).toBeVisible();
