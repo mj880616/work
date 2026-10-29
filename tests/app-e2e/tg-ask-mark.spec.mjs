@@ -15,7 +15,8 @@ async function fixture(page,{width,cands=CANDS(),seen=null}){
  // 예시 간부방 10/06 소식은 내 담당조직(home-entry의 '테스트 조직')에 연결돼 있다.
  items.find(x=>x.id===T.b1).organization_id='o';
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!/Failed to load resource/.test(e.text()))errors.push(e.text());});
- await openHome(page,{beforeLoad:async()=>{
+ // 폭마다 메뉴 모양이 달라(중간 폭은 위쪽 줄) 주소로 바로 연다.
+ await openHome(page,{query:'?view=telegram',beforeLoad:async()=>{
   for(const path of ['app_tg_senders','app_tg_day_senders'])await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/'+path,r=>r.fulfill({json:[]}));
   server=await installTgServer(page,{items,writes,seen});
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',r=>{
@@ -26,9 +27,8 @@ async function fixture(page,{width,cands=CANDS(),seen=null}){
  }});
  return {errors,asked,writes,server};
 }
-async function openTelegram(page,width){
- if(width>=1024)await page.locator('#appView>.app-nav').getByRole('button',{name:'텔레그램 소식',exact:true}).click();
- else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'텔레그램 소식',exact:true}).click();}
+async function openTelegram(page){
+ await expect(page.locator('#telegramView')).toBeVisible();
  await expect(page.locator('#telegramView [data-tg-rd]').first()).toBeVisible();
 }
 const keys=view=>view.locator('[data-tg-rd]').evaluateAll(els=>els.map(e=>e.dataset.tgRd));
