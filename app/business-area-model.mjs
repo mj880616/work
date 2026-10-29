@@ -5,6 +5,12 @@
 
 export const NEXT_PLAN_MAX = 1000; // DB 검사 app_meetings_next_plan_check 와 같은 한도
 
+// MTG-한줄업데이트(요청 10/29 08:59): 칸 'oneline' 사업 보고 = 사업영역 한 줄 업데이트. 표의 '진행' 칸에 명진이 쓴 문장 그대로(AI 요약으로 바꾸지 않음),
+// 같은 칸에 다른 줄(보고 줄·AI 한 줄)이 있으면 한 줄 업데이트가 먼저(first). 세부 내용(회의·활동 결과) 목록에는 넣지 않는다.
+const ONELINE = 'oneline';
+export const isOneline = meeting => meeting?.activity_kind === ONELINE;
+export const onelineLine = meeting => String(meeting?.title || meeting?.series_name || '').trim();
+
 // 직접 단 꼬리표(없으면 '').
 export const areaIdOf = meeting => String(meeting?.business_area_id || '');
 // 화면에 보이는 꼬리표: 직접 단 것, 없으면 첫 연결 프로젝트. legacy=true 면 화면에서만 빌려 보인 것.
@@ -54,15 +60,18 @@ export function previewRecords(meetings, {from, to, lineOf = m => String(m?.seri
   const list = (meetings || []).filter(m => inPeriod(m, from, to));
   const tagged = [], untagged = [];
   for (const m of list) (areaIdOf(m) ? tagged : untagged).push(m);
-  const records = tagged.map(m => ({id:areaIdOf(m), name:'', day:seoulKey(m.meeting_at), at:m.meeting_at, text:lineOf(m), requests:nextPlanLines(m.next_plan), meeting:String(m.id)}));
-  return {records, untagged, all:list.slice().sort((a, b) => Date.parse(a.meeting_at) - Date.parse(b.meeting_at))};
+  const records = tagged.map(m => ({id:areaIdOf(m), name:'', day:seoulKey(m.meeting_at), at:m.meeting_at, text:isOneline(m) ? onelineLine(m) : lineOf(m), requests:nextPlanLines(m.next_plan), meeting:String(m.id), ...(isOneline(m) ? {oneline:true, first:true} : {})}));
+  return {records, untagged, all:list.filter(m => !isOneline(m)).sort((a, b) => Date.parse(a.meeting_at) - Date.parse(b.meeting_at))};
 }
 
 // 주간보고 ② 한 줄 글: "보고 한 줄 → 이후: 다음 할 일 / 다음 할 일"(진행 상황 및 이후 계획 한 칸에 들어가는 글).
 export const weeklyReportText = (line, meeting) => { const plan = nextPlanLines(meeting?.next_plan); return plan.length ? `${line} → 이후: ${plan.join(' / ')}` : line; };
 // 주간보고 ② 재료: 그 날의 꼬리표 단 사업 보고 → projectRecordsOn 과 같은 모양 [{id, name, at, text, requests}].
+// 한 줄 업데이트는 문장 그대로(칸 글자·시각 없이) + 다음 할 일, 같은 칸 맨 앞(first).
 export const weeklyAreaRecords = (meetings, day, lineOf) => (meetings || []).filter(m => areaIdOf(m) && seoulKey(m.meeting_at) === day)
-  .map(m => ({id:areaIdOf(m), name:'', at:m.meeting_at, text:weeklyReportText(lineOf(m), m), requests:[]}));
+  .map(m => isOneline(m)
+    ? {id:areaIdOf(m), name:'', at:m.meeting_at, text:weeklyReportText(onelineLine(m), m), requests:[], oneline:true, first:true}
+    : {id:areaIdOf(m), name:'', at:m.meeting_at, text:weeklyReportText(lineOf(m), m), requests:[]});
 
 // MTG-프로젝트합치기 사업영역 AI(설계 12·13절): 그 주 임시저장의 사업영역 한 줄(summaries = {id: {text, edited}})이 있으면
 // 그 사업영역(꼬리표)의 보고 줄들 대신 한 줄 하나로 — '진행' = 한 줄, '이후 계획' = 그 보고들의 다음 할 일(겹치지 않게).
@@ -72,12 +81,14 @@ export function summarizeAreaRecords(records, meetings, summaries) {
   if (!Object.keys(lines).length) return records;
   const out = [], done = new Set();
   for (const r of records) {
+    // 한 줄 업데이트는 AI 한 줄로 바꾸지 않고 그대로 둔다(같은 칸에서 먼저 — placeRecords 의 first).
+    if (r.oneline) { out.push(r); continue; }
     const line = lines[String(r.id).toLowerCase()];
     if (!line?.text) { out.push(r); continue; }
     if (done.has(r.id)) continue;
     done.add(r.id);
-    const days = new Set(records.filter(x => x.id === r.id).map(x => x.day));
-    const plans = [...new Set((meetings || []).filter(m => areaIdOf(m) === r.id && days.has(seoulKey(m.meeting_at))).flatMap(m => nextPlanLines(m.next_plan)))];
+    const days = new Set(records.filter(x => x.id === r.id && !x.oneline).map(x => x.day));
+    const plans = [...new Set((meetings || []).filter(m => !isOneline(m) && areaIdOf(m) === r.id && days.has(seoulKey(m.meeting_at))).flatMap(m => nextPlanLines(m.next_plan)))];
     out.push({...r, text:plans.length ? `${line.text} → 이후: ${plans.join(' / ')}` : line.text, requests:[], summarized:true});
   }
   return out;
