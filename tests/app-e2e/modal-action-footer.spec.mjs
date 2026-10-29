@@ -119,12 +119,12 @@ test('pending save and wrapped server error remain above the save button',async(
 
 test('pinned calendar delete keeps confirmation and the existing request',async({page})=>{
   await page.setViewportSize({width:360,height:640});const c=cases[1],writes=await open(page,c);await top(page,c);
-  await page.locator('#ciGoogleDelete').click();await answerAsk(page,false);
+  await page.locator('#ciGoogleMore').click();await page.locator('#ciGoogleDelete').click();await answerAsk(page,false);
   expect(writes).toHaveLength(0);await expect(page.locator('#ciGoogleModal')).toBeVisible();
   const deleted=[];await page.route(SB+'/functions/v1/google-calendar',route=>{
     deleted.push(route.request().postDataJSON());return route.fulfill({json:{ok:true}});
   });
-  await page.locator('#ciGoogleDelete').click();await answerAsk(page,true);
+  await page.locator('#ciGoogleMore').click();await page.locator('#ciGoogleDelete').click();await answerAsk(page,true);
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
   expect(deleted).toEqual([{action:'delete-event',calendar_id:'c',event_id:'event'}]);
 });

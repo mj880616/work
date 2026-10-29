@@ -24,7 +24,6 @@
 #appView #diaryView .diary-week-head .sunday{ color:var(--kptu-danger); }
 #appView #diaryView .diary-cell{ position:relative; box-sizing:border-box; display:block; aspect-ratio:1/1; min-width:0; min-height:0; width:100%; height:auto; margin:0; padding:0; overflow:hidden;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; cursor:pointer; }
-@media(min-width:1024px){ #appView #diaryView .diary-cell{ aspect-ratio:4/3; } }
 #appView #diaryView .diary-blank{ border-color:transparent; background:transparent; cursor:default; }
 #appView #diaryView .diary-cell .diary-num{ position:absolute; top:4px; left:5px; z-index:1; font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #diaryView .diary-cell .diary-dot{ position:absolute; left:50%; bottom:18%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--kptu-primary-ink); }
@@ -40,6 +39,15 @@
 #appView #diaryView .diary-cell[aria-pressed="true"]{ border-color:var(--kptu-primary-ink); box-shadow:0 0 0 2px var(--kptu-primary-ink); }
 #appView #diaryView .diary-cell:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #diaryView .diary-cell:not(.diary-blank):hover{ background:var(--kptu-surface-subtle); } }
+/* UI-전수디자인점검 F10(PC): 날마다 둥근 상자 31개 대신 가는 격자선 한 겹(칸 사이 0, 선 0.5px). 빈 날은 높이 56px,
+   사진 있는 날만 4:3 칸(같은 줄 다른 칸은 그 높이로 늘어나 선이 이어진다). 폰은 위 정사각 칸 그대로. */
+@media(min-width:1024px){
+  #appView #diaryView .diary-days{ gap:0; border-top:var(--ds-line-width) solid var(--ds-line); border-left:var(--ds-line-width) solid var(--ds-line); }
+  #appView #diaryView .diary-cell{ aspect-ratio:auto; min-height:56px; border:0; border-right:var(--ds-line-width) solid var(--ds-line); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
+  #appView #diaryView .diary-cell.has-photo{ aspect-ratio:4/3; }
+  #appView #diaryView .diary-blank{ border-color:var(--ds-line); background:var(--kptu-surface-subtle); }
+  #appView #diaryView .diary-cell[aria-pressed="true"]{ border-color:var(--kptu-primary-ink); box-shadow:inset 0 0 0 2px var(--kptu-primary-ink); }
+}
 
 /* 이 달 일기 목록: 달력 아래, 최신 날짜 먼저. 날짜를 고르면 같은 자리에 그날 일기가 나온다. */
 #appView #diaryView .diary-list{ display:flex; flex-direction:column; gap:2px; }
