@@ -341,8 +341,8 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
    버튼은 작은 높이(--ds-compact-*), 누르는 범위는 ::after로 44px. */
 #appView #areaWindow.modal{z-index:50}
 #appView #areaWindow.hidden{display:none}
-#appView #areaWindow.modal{inset:var(--area-window-top,0px) 0 0 var(--area-window-left,0px);padding:var(--kptu-space-3)}
-#appView #areaWindow .area-window-card{display:flex;flex-direction:column;box-sizing:border-box;width:100%;max-width:1320px;height:100%;max-height:none;padding:0;overflow:hidden;border-radius:var(--kptu-radius-lg)}
+#appView #areaWindow.modal{inset:var(--area-window-top,0px) 0 0 var(--area-window-left,0px);padding:var(--kptu-space-3);display:flex;align-items:stretch;justify-content:center}
+#appView #areaWindow .area-window-card{display:flex;flex-direction:column;box-sizing:border-box;width:100%;max-width:1320px;height:auto;min-height:0;max-height:none;margin:0;padding:0;overflow:hidden;border-radius:var(--kptu-radius-lg)}
 #appView #areaWindow .area-window-head{position:static;display:flex;align-items:center;gap:var(--kptu-space-2);flex:none;margin:0;padding:6px var(--kptu-space-3);border-bottom:var(--ds-line-width) solid var(--ds-line);background:var(--kptu-surface)}
 #appView #areaWindow .area-window-head h2{flex:1 1 auto;min-width:0;margin:0;font-size:var(--ds-text-row,14px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #appView #areaWindow .area-window-actions{display:flex;align-items:center;gap:var(--kptu-space-2);flex:none;margin:0;padding:0;border:0}
@@ -355,8 +355,9 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #appView #areaWindow .area-window-back{display:none;align-items:center;gap:2px;padding:0 4px;border:0;background:transparent;color:var(--kptu-ink)}
 #appView #areaWindow .area-window-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0;padding:var(--kptu-space-2) var(--kptu-space-3) var(--kptu-space-3)}
 @media(max-width:760px){
-  #appView #areaWindow.modal{inset:0 0 calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px)) 0;padding:0;align-items:stretch;justify-items:stretch;background:var(--kptu-bg)}
-  #appView #areaWindow .area-window-card{width:100%;height:100%;max-height:none;border-radius:0;border:0}
+  /* 폰 공용 창 규칙(workspace-ui.css의 .modal !important: 아래 붙임·창 전체 스크롤)은 이 창에 맞지 않아, 쓰기 창(ed-window.css)처럼 이 창만 같은 힘으로 되돌린다. */
+  #appView #areaWindow.modal{inset:0 0 calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px)) 0;padding:env(safe-area-inset-top,0px) 0 0!important;align-items:stretch!important;overflow:hidden!important;background:var(--kptu-bg)}
+  #appView #areaWindow .area-window-card{width:100%!important;max-width:none;max-height:none!important;overflow:hidden!important;padding-bottom:0!important;border-radius:0;border:0}
   #appView #areaWindow .area-window-head{padding:4px var(--kptu-space-2)}
   #appView #areaWindow .area-window-back{display:inline-flex}
   #appView #areaWindow .area-window-close{display:none}
