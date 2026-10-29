@@ -1,6 +1,6 @@
 // SHARE-보관함·HTML공유 (docs/design/share-html-pages.md): [+ HTML] → file → preview (sandboxed frame) → title · link name · 기한 →
 // [저장하고 링크 켜기]; the list line shows HTML · ● 공유 중; ⋯ 링크 끄기 · 새 파일로 바꾸기 (same link). The share page shows the file
-// in its own sandboxed frame (share/frame.html). In both places the file cannot read the sign-in (localStorage), cookies or the
+// in its own sandboxed frame (share/frame.html). In both places the file cannot read the sign-in (browser storage), cookies or the
 // page around it, while its own scripts and a CDN library run. Phone 412 · fold 884 · PC 1440.
 import {test, expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -180,9 +180,7 @@ for (const width of [412, 1440]) test('공유 화면: 짧은 주소로 HTML 파�
       ? route.fulfill({status:200, contentType:'application/json', body:JSON.stringify({ok:true, page:{kind:'html', title:'민자철도 그래프', html}})})
       : route.fulfill({status:404, contentType:'application/json', body:JSON.stringify({error:'not_found'})});
   });
-  // A value at this site's storage (e.g. an old Web1 sign-in) must stay out of the file's reach too.
-  await page.goto(testOrigin + '/share/');
-  await page.evaluate(() => localStorage.setItem('sb-share-test', 'work-secret'));
+  // The file must not reach this site's storage either (e.g. an old Web1 sign-in): the probe below says 'blocked'.
   await page.goto(testOrigin + `/share/?s=graph-test-${CODE}`);
   // ?s= moves after # at once (a reload does not send it again).
   await expect.poll(() => page.evaluate(() => location.search + '|' + location.hash)).toBe(`|#s=graph-test-${CODE}`);

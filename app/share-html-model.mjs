@@ -1,7 +1,7 @@
 // SHARE-보관함·HTML공유 (docs/design/share-html-pages.md): the rules of an HTML file share page that do not need the screen.
 // share-html.js draws the window; share/share.js and share/frame.js show the file to the people with the link.
 // The file runs only inside a sandboxed frame without allow-same-origin (an origin of its own, "null"): it cannot read
-// this app's sign-in (localStorage), cookies or the page around it, and cannot move that page elsewhere.
+// this app's sign-in (browser storage), cookies or the page around it, and cannot move that page elsewhere.
 export const MAX_HTML_BYTES = 5 * 1024 * 1024; // the DB check app_share_page_html_size_check uses the same number
 export const HTML_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
 export const SHORT_BASE = 'https://bokdoong.com/s/';
