@@ -138,7 +138,8 @@ for (const width of [412, 884, 1440]) test(`노트 첫 화면 ${width}: 맨 위 
   await page.locator('[data-note-detail] [data-note-save]').click();
   await expect.poll(() => writes.length).toBeGreaterThan(0);
   await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');
-  if (wide) { await page.locator('[data-nx-tree] [data-nx-open="recent"]').click(); }
+  // PC: 열린 노트를 닫으면(Esc) 목록 — 왼쪽 나무 맨 위 [최근]을 누르면 오른쪽에 최근 5개.
+  if (wide) { await page.keyboard.press('Escape'); await expect(page.locator('[data-note-detail]')).toBeHidden(); await page.locator('[data-nx-tree] [data-nx-open="recent"]').click(); }
   else { await page.goBack(); await expect(page.locator('[data-note-detail]')).toBeHidden(); await page.goBack(); }
   await expect(recent.first()).toHaveAttribute('data-nx-note', 'n1');
   await expect(recent.first()).toContainText('가 노트 고침');
