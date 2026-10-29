@@ -5,16 +5,20 @@
 // - 끌어 놓으면 onMove(id, board, places)로 알린다(저장은 부르는 쪽, metadata.board). 끄는 칸은 바로 맨 위로 올라온다.
 // 보드는 밀어서 이동(브라우저 스크롤), 두 손가락 벌리기·오므리기와 [＋][－]로 크게·작게(사진 격자와 같은 공용 핀치 부품 photo-grid-size.js attachPinch).
 // 확대 단계는 이번 접속 화면 메모리만(저장할 값 아님). 기기 저장 없음.
+// NOTE-보드여러개: 같은 그리는 곳이 [전체]와 이름 붙은 보드를 다 그린다. paint의 placeOf가 어느 자리 값을 읽을지(기본 [전체] metadata.board),
+// removable이면 칸에 작은 ×(보드에서 빼기, data-nb-remove — 누르기는 basket-notes.js), empty는 빈 판의 한 줄.
+// PC 왼쪽 노트 목록에서 끌어 온 노트(드래그 자료 형식 NOTE_DRAG)를 판에 놓으면 onDrop(id, 보드 좌표)로 알린다.
 import { attachPinch } from './photo-grid-size.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
 import { layoutBoard, boardExtent, topZ, movedTo, stepZoom, folderTone, CARD } from './note-board-model.mjs';
 
 const EDGE = 40, KEY_STEP = 10;
+export const NOTE_DRAG = 'application/x-kptu-note';
 
 // moreIcon: 노트 줄과 같은 ⋯ 그림(basket-notes.js의 것을 받아 같은 메뉴 단추 모양을 쓴다).
-export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onMove = () => {}}) {
-  box.innerHTML = `<div class="nb-tools" role="group" aria-label="보드 크기"><button type="button" data-nb-zoom="-1" aria-label="작게">－</button><button type="button" data-nb-zoom="1" aria-label="크게">＋</button></div><div class="nb-scroll" data-nb-scroll><div class="nb-sizer" data-nb-sizer><div class="nb-board" data-nb-board role="group" aria-label="포스트잇 보드"></div></div></div>`;
-  const scroll = box.querySelector('[data-nb-scroll]'), sizer = box.querySelector('[data-nb-sizer]'), board = box.querySelector('[data-nb-board]');
+export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onMove = () => {}, onDrop = null}) {
+  box.innerHTML = `<div class="nb-tools" role="group" aria-label="보드 크기"><button type="button" data-nb-zoom="-1" aria-label="작게">－</button><button type="button" data-nb-zoom="1" aria-label="크게">＋</button></div><div class="nb-scroll" data-nb-scroll><div class="nb-sizer" data-nb-sizer><div class="nb-board" data-nb-board role="group" aria-label="포스트잇 보드"></div></div><p class="nb-empty" data-nb-empty hidden></p></div>`;
+  const empty = box.querySelector('[data-nb-empty]'), scroll = box.querySelector('[data-nb-scroll]'), sizer = box.querySelector('[data-nb-sizer]'), board = box.querySelector('[data-nb-board]');
   let zoom = globalThis.matchMedia?.('(min-width:761px)')?.matches ? 1 : 0.8;
   let places = new Map(), extent = {w:0, h:0}, drag = null, suppressUntil = 0, keyTimer = null;
 
@@ -30,13 +34,14 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     scroll.scrollLeft = cx * zoom - scroll.clientWidth / 2; scroll.scrollTop = cy * zoom - scroll.clientHeight / 2;
     return true;
   }
-  const cardHtml = (note, p, info) => `<div class="nb-card${info.picked ? ' nb-picked' : ''}" data-nb-card="${esc(note.id)}" data-tone="${folderTone(info.folderId)}" style="left:${p.x}px;top:${p.y}px;z-index:${p.z + 1};--nb-r:${p.r}deg"><button type="button" class="nb-open" data-note-row="${esc(note.id)}"${info.pickActive ? ` aria-pressed="${!!info.picked}"` : ''} aria-roledescription="포스트잇"><b class="nb-title">${esc(info.title)}</b>${info.text ? `<span class="nb-text">${esc(info.text)}</span>` : ''}${info.folder ? `<span class="nb-folder">${esc(info.folder)}</span>` : ''}</button><button type="button" class="basket-row-more nb-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(info.title)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${moreIcon}</button></div>`;
+  const cardHtml = (note, p, info) => `<div class="nb-card${info.picked ? ' nb-picked' : ''}" data-nb-card="${esc(note.id)}" data-tone="${folderTone(info.folderId)}" style="left:${p.x}px;top:${p.y}px;z-index:${p.z + 1};--nb-r:${p.r}deg"><button type="button" class="nb-open" data-note-row="${esc(note.id)}"${info.pickActive ? ` aria-pressed="${!!info.picked}"` : ''} aria-roledescription="포스트잇"><b class="nb-title">${esc(info.title)}</b>${info.text ? `<span class="nb-text">${esc(info.text)}</span>` : ''}${info.folder ? `<span class="nb-folder">${esc(info.folder)}</span>` : ''}</button>${info.removable ? `<button type="button" class="nb-x" data-nb-remove="${esc(note.id)}" aria-label="${esc(info.title)} 보드에서 빼기" title="보드에서 빼기">×</button>` : ''}<button type="button" class="basket-row-more nb-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(info.title)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${moreIcon}</button></div>`;
   // notes: 모든 노트(자리 계산은 전체로), visible: 그릴 노트 id(찾는 중이면 맞는 것만). folderOf(note) → 폴더 id 또는 null.
-  function paint({notes, folderOf, visible = null, pickActive = false, isPicked = () => false}) {
+  function paint({notes, folderOf, visible = null, pickActive = false, isPicked = () => false, placeOf = undefined, removable = false, emptyText = ''}) {
     if (drag) cancelDrag();
-    places = layoutBoard(notes, folderOf); extent = boardExtent(places);
+    places = layoutBoard(notes, folderOf, placeOf); extent = boardExtent(places);
+    empty.textContent = emptyText; empty.hidden = !emptyText || notes.length > 0;
     const focused = document.activeElement?.closest?.('[data-nb-card]')?.dataset.nbCard;
-    board.innerHTML = notes.filter(n => !visible || visible.has(n.id)).map(n => { const fid = folderOf(n); return cardHtml(n, places.get(n.id), {...cardText(n, fid), folderId:fid, pickActive, picked:isPicked(n.id)}); }).join('');
+    board.innerHTML = notes.filter(n => !visible || visible.has(n.id)).map(n => { const fid = folderOf(n); return cardHtml(n, places.get(n.id), {...cardText(n, fid), folderId:fid, pickActive, picked:isPicked(n.id), removable}); }).join('');
     paintZoom();
     if (focused) board.querySelector(`[data-nb-card="${CSS.escape(focused)}"] .nb-open`)?.focus({preventScroll:true});
   }
@@ -67,7 +72,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   box.addEventListener('pointerdown', e => {
     if (!e.isPrimary) { cancelDrag(); return; } // 두 번째 손가락이면 끌기 대신 핀치
     const card = e.target.closest?.('[data-nb-card]');
-    if (!card || !box.contains(card) || e.target.closest('.nb-more') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (!card || !box.contains(card) || e.target.closest('.nb-more,.nb-x') || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const id = card.dataset.nbCard, place = places.get(id); if (!place) return;
     drag = {id, card, place, start:pointOf(e), x:e.clientX, y:e.clientY, moving:false, touch:e.pointerType !== 'mouse', pointerId:e.pointerId, timer:null};
     if (drag.touch) {
@@ -112,10 +117,21 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     const pending = keyTimer?.before || before; clearTimeout(keyTimer?.id);
     keyTimer = {before:pending, id:setTimeout(() => { const b = keyTimer.before; keyTimer = null; places.set(id, {...places.get(id), saved:true}); onMove(id, places.get(id), b); }, 500)};
   });
+  // PC: 왼쪽 목록의 노트를 끌어 판에 놓기(브라우저 끌어 놓기). 다른 끌기(파일 등)는 받지 않는다.
+  const noteDrag = e => !!onDrop && [...(e.dataTransfer?.types || [])].includes(NOTE_DRAG);
+  scroll.addEventListener('dragover', e => { if (!noteDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; edgeScroll(e); box.classList.add('nb-drop'); });
+  scroll.addEventListener('dragleave', e => { if (!scroll.contains(e.relatedTarget)) box.classList.remove('nb-drop'); });
+  scroll.addEventListener('drop', e => {
+    box.classList.remove('nb-drop');
+    if (!noteDrag(e)) return;
+    e.preventDefault();
+    const id = e.dataTransfer.getData(NOTE_DRAG); if (id) onDrop(id, pointOf(e), new Map(places));
+  });
   attachPinch(scroll, null, dir => setZoom(stepZoom(zoom, dir)));
   return {
     paint,
     isDragging: () => !!drag?.moving,
+    places: () => new Map(places),
     cardSize: CARD,
   };
 }

@@ -38,7 +38,12 @@ export const PHOTO_VIEW_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 이 칸만 되돌리고 알린다(기본 3주 그대로).
 // NOTE-보기3가지: note_view = 노트 화면 [폴더|목록|포스트잇] 중 마지막에 고른 보기(없으면 폴더). migration 20261029183000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억
 export const NOTE_VIEWS = Object.freeze(['folder', 'list', 'board']);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view']);
+// NOTE-보드여러개: note_boards = 포스트잇 보드 목록 [{id, name}](12개까지, id 'b'+소문자 영문·숫자 6~12자, 이름 1~20자), note_board = 마지막에 연 보드('all' 또는 보드 id).
+// migration 20261030090000. 뜻(만들기·이름·순서)은 note-boards-model.mjs, 모양은 DB 검사와 같다. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.
+export const NOTE_BOARDS_MAX = 12;
+const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
+const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -63,6 +68,9 @@ export function validValue(key, value) {
     case 'photo_cols_wide': return PHOTO_COLS_WIDE.includes(value);
     case 'diary_view': return DIARY_VIEWS.includes(value);
     case 'note_view': return NOTE_VIEWS.includes(value);
+    case 'note_boards': return Array.isArray(value) && value.length <= NOTE_BOARDS_MAX && value.every(b => !!b && typeof b === 'object' && !Array.isArray(b)
+      && Object.keys(b).every(name => name === 'id' || name === 'name') && typeof b.id === 'string' && NOTE_BOARD_ID_RE.test(b.id) && noteBoardName(b.name));
+    case 'note_board': return typeof value === 'string' && (value === 'all' || NOTE_BOARD_ID_RE.test(value));
     case 'diary_onedrive': return typeof value === 'boolean';
     case 'quiet_weeks': return Number.isInteger(value) && value >= 0 && value <= 12;
     case 'photo_view': return !!value && typeof value === 'object' && !Array.isArray(value)

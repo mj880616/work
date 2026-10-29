@@ -335,3 +335,39 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nb-text { flex:1 1 auto; min-height:0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line; font-size:12px; line-height:1.35; color:var(--ds-note-ink-soft); word-break:break-all; }
 .nb-folder { flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px; color:var(--ds-note-ink-faint); }
 #appView #basketView .nb-card .nb-more { position:absolute; right:2px; top:2px; width:24px; height:22px; min-width:0; min-height:0; margin:0; padding:0; border:0; background:transparent; box-shadow:none; color:var(--ds-note-ink-faint); font-size:14px; line-height:1; opacity:.7; }
+/* NOTE-보드여러개: 포스트잇 보기 위 보드 칸 줄 [전체] [보드…] [+ 새 보드](작고 낮은 칸), PC 왼쪽 170px 폴더·노트 목록, 폰 노트 고르기 창. */
+.nbb { display:flex; flex-wrap:nowrap; gap:4px; align-items:center; margin:4px 0; overflow-x:auto; scrollbar-width:none; }
+.nbb::-webkit-scrollbar { display:none; }
+#appView #basketView .nbb button { flex:none; position:relative; min-width:0; min-height:0; height:26px; margin:0; padding:0 9px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:12.5px; line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
+#appView #basketView .nbb button::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+#appView #basketView .nbb .nbb-chip { max-width:12em; overflow:hidden; text-overflow:ellipsis; }
+#appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--kptu-primary-soft); border-color:transparent; color:var(--kptu-primary-ink,var(--kptu-primary)); font-weight:var(--ds-weight-medium,500); }
+#appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }
+.nbw-body { display:block; }
+.nbw-body.nbw-split { display:grid; grid-template-columns:170px minmax(0, 1fr); gap:8px; align-items:start; }
+.nbb-side { height:calc(100dvh - 186px); min-height:320px; overflow:auto; box-sizing:border-box; padding:4px 2px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); font-size:12.5px; }
+.nbb-side-head { padding:2px 6px 4px; font-size:11px; color:var(--kptu-faint,var(--kptu-muted)); }
+:is(#appView #basketView .nbb-side, .nbb-pick) :is(.nbb-folder,.nbb-note) { display:flex; align-items:center; gap:4px; width:100%; min-width:0; min-height:0; height:26px; box-sizing:border-box; margin:0; padding:0 6px 0 calc(6px + var(--nx-indent, 0) * 12px); border:0; border-radius:6px; background:transparent; box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:12.5px; line-height:1; text-align:left; cursor:pointer; }
+:is(#appView #basketView .nbb-side, .nbb-pick) :is(.nbb-folder,.nbb-note):hover { background:var(--kptu-surface-subtle); }
+:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-folder { color:var(--kptu-muted); }
+#appView #basketView .nbb-side .nbb-note[draggable="true"] { cursor:grab; }
+:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-note.nbb-on { opacity:.45; cursor:default; }
+.nbb-name { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nbb-num { flex:none; font-size:11px; color:var(--kptu-faint,var(--kptu-muted)); }
+.nbb-caret { flex:none; width:10px; font-size:10px; color:var(--kptu-faint,var(--kptu-muted)); }
+.nbb-check { flex:none; width:14px; color:var(--kptu-primary-text); font-size:12px; }
+.nb-empty { position:absolute; left:0; right:0; top:38%; margin:0; text-align:center; font-size:13px; color:var(--kptu-muted); pointer-events:none; }
+.nb.nb-drop .nb-scroll { outline:2px dashed var(--kptu-primary); outline-offset:-2px; }
+#appView #basketView .nb-card .nb-x { position:absolute; right:24px; top:2px; width:20px; height:22px; min-width:0; min-height:0; margin:0; padding:0; border:0; background:transparent; box-shadow:none; color:var(--ds-note-ink-faint); font-size:14px; line-height:1; opacity:.7; cursor:pointer; }
+#appView #basketView .nb-card .nb-x:hover, #appView #basketView .nb-card .nb-x:focus-visible { opacity:1; }
+.nbb-pick { width:min(420px, calc(100vw - 24px)); max-height:min(76dvh, 640px); box-sizing:border-box; margin:auto auto calc(12px + env(safe-area-inset-bottom, 0px)); padding:8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float,none); }
+.nbb-pick[open] { display:flex; flex-direction:column; gap:6px; }
+.nbb-pick::backdrop { background:color-mix(in srgb,var(--kptu-ink) 46%,transparent); }
+.nbb-pick-head { display:flex; align-items:center; gap:6px; font-size:13px; }
+.nbb-pick-head b { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.nbb-pick .nbb-pick-x { width:28px; height:28px; min-height:0; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:18px; line-height:1; }
+.nbb-pick-find { height:30px; box-sizing:border-box; padding:0 8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); color:inherit; font:inherit; font-size:14px; }
+.nbb-pick-list { flex:1 1 auto; min-height:120px; overflow:auto; }
+.nbb-pick-foot { display:flex; justify-content:flex-end; }
+.nbb-pick .nbb-pick-ok { height:30px; min-height:0; margin:0; padding:0 14px; border:0; border-radius:var(--ds-radius-control,8px); background:var(--kptu-primary-soft); color:var(--kptu-primary-ink,var(--kptu-primary)); font:inherit; font-size:13px; }
+.nbb-pick .nbb-pick-ok:disabled { opacity:.5; }

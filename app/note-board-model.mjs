@@ -22,13 +22,14 @@ export const folderTone = folderId => (folderId == null ? 'none' : String(hash(f
 export function tiltFor(id) { const t = (hash('t' + id) % 9) - 4; return t === 0 ? (hash(id) % 2 ? 1.5 : -1.5) : t; }
 const jitter = (id, salt, span) => (hash(salt + id) % (span * 2 + 1)) - span;
 
-// 저장된 자리(모양이 틀리면 null = 자리 없음으로 보고 다시 놓는다).
-export function boardOf(note) {
-  const b = plain(note?.metadata) ? note.metadata.board : null;
+// 자리 값 하나의 모양 검사(맞으면 {x, y, r, z}, 틀리면 null). [전체]의 metadata.board와 보드별 metadata.boards[id]가 같은 모양이다.
+export function placeShape(b) {
   if (!plain(b) || !num(b.x) || !num(b.y) || !num(b.r) || !Number.isInteger(b.z)) return null;
   if (b.x < 0 || b.y < 0 || b.x > BOARD_MAX || b.y > BOARD_MAX || Math.abs(b.r) > TILT_MAX || b.z < 0 || b.z > Z_MAX) return null;
   return {x:b.x, y:b.y, r:b.r, z:b.z};
 }
+// 저장된 자리(모양이 틀리면 null = 자리 없음으로 보고 다시 놓는다). [전체] 보드.
+export const boardOf = note => placeShape(plain(note?.metadata) ? note.metadata.board : null);
 export const clampPos = v => Math.round(Math.max(0, Math.min(BOARD_MAX - CARD, v)));
 const overlaps = (a, b) => a.x < b.x + CARD && b.x < a.x + CARD && a.y < b.y + CARD && b.y < a.y + CARD;
 const time = v => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : 0; };
@@ -70,9 +71,10 @@ function freePlace(list, taken, startZ) {
 }
 
 // 모든 노트의 자리. 돌려주는 Map: id → {x, y, r, z, saved}. saved=false는 아직 서버에 없는 계산 자리.
-export function layoutBoard(notes, folderOf = () => null) {
+// placeOf(note) → 저장된 자리 또는 null(기본 [전체] = boardOf; 이름 붙은 보드는 note-boards-model.mjs boardPlaceOf).
+export function layoutBoard(notes, folderOf = () => null, placeOf = boardOf) {
   const out = new Map(), unsaved = [];
-  for (const note of notes) { const b = boardOf(note); if (b) out.set(note.id, {...b, saved:true}); else unsaved.push(note); }
+  for (const note of notes) { const b = placeOf(note); if (b) out.set(note.id, {...b, saved:true}); else unsaved.push(note); }
   if (!unsaved.length) return out;
   const placed = out.size ? freePlace(unsaved, [...out.values()], topZ(out) + 1) : clusterPlace(unsaved, folderOf);
   for (const [id, p] of placed) out.set(id, {...p, saved:false});

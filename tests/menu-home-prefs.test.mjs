@@ -5,11 +5,19 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
-test('허용 칸 열일곱 개가 DB 검사(마지막 migration, note_view 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261029183000_profile_view_prefs_note_view.sql');
+test('허용 칸 열아홉 개가 DB 검사(마지막 migration, note_boards·note_board 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261030090000_profile_view_prefs_note_boards.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS].sort(), listed.sort());
-  assert.equal(KEYS.length, 17);
+  assert.equal(KEYS.length, 19);
+});
+test('note_boards·note_board 모양은 DB 검사와 같다(NOTE-보드여러개)', () => {
+  const twelve = Array.from({length:12}, (_, i) => ({id:'b' + String(i).padStart(6, '0'), name:'보드' + i}));
+  for (const v of [[], [{id:'b1a2b3c4', name:'국회 대응'}], twelve, [{id:'bzz9900aa11', name:'가'.repeat(20)}]]) assert.ok(validValue('note_boards', v), JSON.stringify(v));
+  for (const v of [[...twelve, {id:'b999999', name:'x'}], {}, 'b1a2b3c4', [null], ['b1a2b3c4'], [{id:'b1a2b3c4'}], [{name:'x'}], [{id:'b1a2b3c4', name:''}], [{id:'b1a2b3c4', name:'가'.repeat(21)}],
+    [{id:'b1a2b3c4', name:'줄\n바꿈'}], [{id:'B1A2B3C4', name:'x'}], [{id:'b12', name:'x'}], [{id:'b1a2b3c4', name:'x', z:1}], [{id:'b1a2b3c4', name:1}]]) assert.equal(validValue('note_boards', v), false, JSON.stringify(v));
+  for (const v of ['all', 'b1a2b3c4']) assert.ok(validValue('note_board', v), v);
+  for (const v of ['All', 'b12', '', 1, null, ['all']]) assert.equal(validValue('note_board', v), false, String(v));
 });
 test('note_view는 폴더·목록·포스트잇 셋만(NOTE-보기3가지)', () => {
   for (const v of ['folder', 'list', 'board']) assert.ok(validValue('note_view', v), v);
