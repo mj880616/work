@@ -342,7 +342,7 @@ async function d6bPrepare(page,source){
 const d6bKey=el=>[el.tag,el.id,el.class,el.fontSize,el.color].join('\u0001');
 async function d6bSnapshot(page,selectors=d6bSelectors){
  const rows=await page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].filter(el=>!el.closest('#mrdLeave,#mrdLoading,#mrdTodoCand,#mrdTodoLine')).map(el=>{
-  const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color};
+  const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color,ps3Head:(!!el.closest('#ps3DetailModal')&&el.matches('.ps3-section-head>h3,.ps3-fold>summary>h3'))||undefined};
  })})),selectors);
  for(const row of rows)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
  return rows;
@@ -450,6 +450,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // 글자 크기는 main 200번째 줄 그대로, 색은 초록 대신 main의 같은 창 회색 안내 글자(#ps3DeleteModal p.muted)와 같아야 한다.
   const mainMuted=await original.locator('#ps3DeleteModal p.muted').first().evaluate(el=>getComputedStyle(el).color);
   for(const row of before)for(const el of row.elements)if(el.class==='notice'){el.class='muted';el.color=mainMuted}
+  // UI-전수디자인점검 F19(10/29): 사업영역 상세 창의 칸 제목(h3)만 다른 화면 칸 제목과 같은 13px(--ds-text-section). 색과 나머지 h3는 그대로 비교한다.
+  for(const row of before)for(const el of row.elements)if(el.ps3Head)el.fontSize='13px';
   for(const row of before)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
   expect(before).toHaveLength(16);
   for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i]))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
