@@ -62,9 +62,10 @@ test('recent three unique organizations precede common organization order',async
  expect(await page.locator('[data-sheet-recent] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).toEqual(['c','a','d']);
  expect(await page.locator('[data-sheet-all] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).not.toContain('e');
 });
+// 고른 칸은 서버 저장(view_prefs)이 끝난 뒤에 새로고침한다. 저장 요청이 가기 전에 새로고침하면 옛 값이 읽힌다.
 test('mode memory is on the server; unreadable or unsaveable server value defaults to update (basket), reload guard detects hidden home draft',async({page})=>{
- const {prefs}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','task');
- const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
+ const {prefs}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await expect.poll(()=>prefs.value?.home_quick_mode).toBe('task');await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','task');
+ const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await expect.poll(()=>prefs.value?.home_quick_mode).toBe('update');await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
  prefs.failWrite=true;await quick(page).locator('[data-quick-mode="task"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','basket');
  await quick(page).locator('[data-quick-input]').fill('QA');expect(await page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);
  prefs.value={home_quick_mode:'task'};prefs.failRead=true;await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
