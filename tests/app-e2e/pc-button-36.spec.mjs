@@ -72,7 +72,7 @@ async function pcCompact(locator,label){const m=await measure(locator);expect(m.
 test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력칸도 같은 높이·같은 줄, 누르는 범위 44px',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await boot(page,1280);
- await open(page,'meetings');const meeting=await pcButton(page.locator('#newMeetingBtn'),'회의');
+ await open(page,'meetings');await pcCompact(page.locator('#newMeetingBtn'),'사업 보고');/* BIZ-버튼줄정리(10/29): [+ 사업 보고]는 [+ 사업영역]처럼 작고 낮게 32px */
  await open(page,'library');await pcButton(page.locator('#newDocumentBtn'),'자료 등록');
  await open(page,'projects');await pcCompact(page.locator('#newProjectBtn'),'사업영역');
  await open(page,'journal');await pcButton(page.locator('#journalView [data-journal-save]'),'업무일지 저장');
@@ -91,8 +91,8 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await chooseBasketKind(page,'note');
  const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가'),ns=await measure(page.locator('#basketView [data-note-search]'));
  expect(ns.height).toBe(36);
- // 모두 회의 버튼과 같은 높이. 창(모달) 버튼은 공용 기준(46px) 그대로.
- expect(meeting.height).toBe(nb.height);
+ // 입력 줄 버튼은 모두 36px. 창(모달) 버튼은 공용 기준(46px) 그대로.
+ expect(nb.height).toBe(36);
  await open(page,'projects');await page.locator('#newProjectBtn').click();
  expect((await measure(page.locator('#ps3CreateSave'))).height).toBe(36);/* UI-버튼줄이기: 창 주 동작 36px */
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

@@ -347,7 +347,7 @@ function bind(){
  $('#bootRetryBtn').onclick=()=>location.reload();$('#bootLogoutBtn').onclick=logout;$('#accessDeniedLogoutBtn').onclick=logout;
  document.addEventListener('click',async e=>{const b=e.target.closest('button,a');if(!b)return;if(b.dataset.close){closeModal(b.dataset.close);return}});
  if(window.KPTURouter?.on)window.KPTURouter.on('calendar',()=>{renderCalendar();if(googleState.connected)window.KPTUCalendarPersistence?.refresh?.()});
- if($('#homeAddEvent'))$('#homeAddEvent').onclick=openEventModal;$('#newEventBtn').onclick=openEventModal;$('#newDocumentBtn').onclick=openDocumentModal;$('#newMeetingBtn').onclick=e=>newReport(e.currentTarget);if($('#reportPreviewBtn'))$('#reportPreviewBtn').onclick=e=>{const t=e.currentTarget;import('./report-summary-preview.js').then(m=>m.openReportPreview(t,{meetings:()=>meetings}),err=>toast(err?.message||'미리보기를 열지 못했습니다.'))};$('#reportMore')?.addEventListener('click',e=>{if(!e.target.closest('[data-report-areas]'))return;$('#reportMore').open=false});window.KPTURouter?.on?.('projects',()=>{const more=$('#reportMore');if(more)more.open=false});/* MTG-프로젝트합치기 3단계: [사업영역 관리]는 data-view="projects"라 라우터·지연 불러오기(loader-v2)가 메뉴 버튼과 같은 길로 연다 */$('#meetingPlaces').onclick=e=>void choosePlaces(e.currentTarget);$('#meetingList')?.addEventListener('click',meetingListClick);$('#reportWeekFilter')?.addEventListener('click',reportWeekClick);$('#meetingList')?.addEventListener('keydown',meetingKindKeys);meetingPc?.addEventListener?.('change',()=>{if(workspace?.id)renderMeetings()});
+ if($('#homeAddEvent'))$('#homeAddEvent').onclick=openEventModal;$('#newEventBtn').onclick=openEventModal;$('#newDocumentBtn').onclick=openDocumentModal;$('#newMeetingBtn').onclick=e=>newReport(e.currentTarget);bindReportMore();$('#meetingPlaces').onclick=e=>void choosePlaces(e.currentTarget);$('#meetingList')?.addEventListener('click',meetingListClick);$('#reportWeekFilter')?.addEventListener('click',reportWeekClick);$('#meetingList')?.addEventListener('keydown',meetingKindKeys);meetingPc?.addEventListener?.('change',()=>{if(workspace?.id)renderMeetings()});
  $('#meetingRoundNo').oninput=()=>{meetingRoundEdited=true};$('#meetingRoundNo').addEventListener('change',paintEntryKind);
  $('#saveDocumentBtn').onclick=saveDocument;$('#saveMeetingBtn').onclick=saveMeeting;$('#meetingFiles').onchange=selectMeetingFiles;$('#meetingPickFiles').onclick=()=>$('#meetingFiles').click();bindDropTarget($('#meetingModal .modal-card'),addMeetingFiles,()=>!meetingSavePending);$('#meetingSelectedFiles').addEventListener('click',removeMeetingFile);$('#meetingPhotoFiles').onchange=selectMeetingPhotos;$('#meetingPickPhotos').onclick=()=>$('#meetingPhotoFiles').click();$('#meetingSelectedPhotos').addEventListener('click',removeMeetingFile);
  if($('#pageSearch'))$('#pageSearch').oninput=renderPages;if($('#pageFilter'))$('#pageFilter').onchange=renderPages;$('#documentSearch').oninput=renderDocuments;
@@ -360,3 +360,21 @@ window.__KPTU_TEAM_READY__=init().then(result=>{const state=result==='error'?'er
 
 // MEET-결과3단: 오른쪽 후속 할 일은 할 일·회의가 바뀌거나 회의 결과 창을 닫으면 다시 읽는다(창 안에서 고친 할 일 반영).
 window.addEventListener('kptu:documents-changed',()=>{if(workspace?.id&&teamViewLoaded.has('meetings'))reload(['documents'],renderMeetings).catch(err=>console.error('meeting document count refresh failed',err))});
+/* BIZ-버튼줄정리(10/29 시안 B): 사업 보고 위쪽 줄 ⋯ 메뉴 두 줄 — 사업요약표 미리보기 · 사업영역 관리. 공용 메뉴 부품(anchored-menu.js: ⋯ 바로 아래 오른쪽 맞춤,
+   바깥 누르기·Esc·뒤로가기로 닫힘)과 공용 글자 줄 모양(.topline-add-menu). 미리보기는 ⋯를 기준 자리로 연다(전에는 줄의 [사업요약표 미리보기] 버튼).
+   [사업영역 관리]는 메뉴가 닫힌 뒤 지연 불러오기(KPTUViewLoader) → 라우터로 연다(MTG-프로젝트합치기 3단계와 같은 화면). */
+function bindReportMore(){
+  const more=$('#reportMore');if(!more||more.dataset.reportMoreBound)return;more.dataset.reportMoreBound='1';
+  let menu=null;
+  more.addEventListener('click',async()=>{
+    if(!menu){const {createAnchoredMenu}=await import('./anchored-menu.js');
+      menu=createAnchoredMenu({id:'reportMoreMenu',className:'topline-add-menu report-more-menu',label:'사업 보고 더 보기',historyKey:'kptuReportMore',key:()=>'report',
+        render:()=>'<button type="button" data-report-preview>사업요약표 미리보기</button><button type="button" data-report-areas>사업영역 관리</button>',
+        onAction:(b,{trigger})=>{
+          if(b.matches('[data-report-preview]'))return void import('./report-summary-preview.js').then(m=>m.openReportPreview(trigger,{meetings:()=>meetings}),err=>toast(err?.message||'미리보기를 열지 못했습니다.'));
+          if(b.matches('[data-report-areas]'))return void Promise.resolve(window.KPTUViewLoader?.load?.('projects')).then(()=>window.KPTURouter?.go?.('projects',{source:'delegated'}),err=>toast(err?.message||'사업영역 관리를 열지 못했습니다.'));
+        }});
+      window.KPTURouter?.on?.('projects',()=>{if(menu?.active)menu.close()});}
+    menu.open(more);
+  });
+}

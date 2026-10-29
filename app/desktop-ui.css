@@ -91,11 +91,12 @@
   .app-topline .topline-account{flex:0 0 auto}
   .app-topline .topline-account .account-trigger{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 8px;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);position:relative}
   .app-topline .topline-account .account-trigger::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-  .topline-add-menu{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
-  .topline-add-menu[hidden]{display:none!important}
-  .topline-add-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:6px 10px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);text-align:left}
-  .topline-add-menu button:hover,.topline-add-menu button:focus-visible{background:var(--kptu-primary-soft);outline:none}
 }
+/* BIZ-버튼줄정리: 이 글자 줄 메뉴는 PC [+ 추가]와 홈 ⋯(모든 폭)이 같이 쓴다. 그래서 PC 전용 묶음 밖에 둔다(홈 ⋯가 1023px 이하에서 기본 회색 버튼으로 보이던 것). */
+.topline-add-menu{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+.topline-add-menu[hidden]{display:none!important}
+.topline-add-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:6px 10px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);text-align:left}
+.topline-add-menu button:hover,.topline-add-menu button:focus-visible{background:var(--kptu-primary-soft);outline:none}
 
 /* UI-자주가는링크 (PC 1024px~): 사이드바 맨 아래(메뉴와 빈 공간을 두고, 창이 짧아 메뉴가 길면 메뉴 바로 아래) '자주 가는 링크 ›' 줄과 그 줄 오른쪽에서 위로 열리는 작은 창(quick-links.js).
    버튼은 UI-버튼기준의 작은 버튼(32px, 누르는 범위 44px)만 쓰고 채운 버튼은 편집의 [저장] 하나. 폰·761~1023px에는 줄이 없다. */

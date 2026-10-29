@@ -33,7 +33,7 @@
 #wdUpdates .basket-link-more:hover{background:var(--kptu-surface)}
 .basket-link-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
 .basket-link-menu[hidden]{display:none}
-.basket-link-menu button{display:block;width:100%;height:44px;min-height:44px;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
+.basket-link-menu button{display:block;width:100%;height:44px;min-height:44px;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:400;cursor:pointer}/* BIZ-버튼줄정리 4번: 메뉴 항목은 다른 화면 메뉴와 같은 보통 굵기 글자 줄 */
 .basket-link-menu button:hover{background:var(--kptu-surface-subtle)}
 .basket-link-menu .basket-link-danger{color:var(--kptu-danger)}
 .basket-link-menu button:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}

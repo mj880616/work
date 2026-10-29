@@ -324,11 +324,17 @@
 .biz-plan-list{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:2px}
 .biz-plan-list li{display:flex;align-items:center;gap:var(--kptu-space-2);justify-content:space-between;font-size:13px}
 .biz-plan-list li>span:first-child{min-width:0;overflow-wrap:anywhere}
-.report-preview-btn{margin-left:auto}
-.report-more{position:relative}
-.report-more>summary{list-style:none;cursor:pointer;padding:2px 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);font-size:13px;line-height:1.6}
-.report-more>summary::-webkit-details-marker{display:none}
-.report-more-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;display:grid;gap:2px;padding:4px;min-width:120px;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
+/* BIZ-버튼줄정리(10/29 시안 B): 위쪽 줄은 [목록|달력|사진] ……… [+ 사업 보고][⋯]. 오른쪽 묶음(.report-head-actions)에 버튼을 더 넣어도 ⋯가 늘 맨 끝이다.
+   ⋯ 메뉴(사업요약표 미리보기·사업영역 관리)는 공용 메뉴 부품(anchored-menu.js)과 공용 글자 줄 모양(.topline-add-menu)이고, ⋯ 바로 아래 오른쪽 맞춤으로 열린다.
+   [+ 사업 보고]는 작고 낮은 채운 버튼(32px, 누르는 범위 44px은 ::after). 폰(~760px)에서는 이 버튼이 하단 동그란 [+]로 가므로 줄 끝은 ⋯다. */
+#meetingsView .report-head-actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex:none}
+#appView #meetingsView .report-head-actions>button{margin:0}
+#appView #meetingsView .report-head-actions>[hidden]{display:none}
+#appView #meetingsView button.report-more{width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:var(--ds-compact-height);border:0;background:transparent}
+#appView #meetingsView button.report-more:hover,#appView #meetingsView button.report-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
+@media(min-width:761px){
+  #appView #meetingsView .report-head-actions>#newMeetingBtn{height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text)}
+}
 .biz-preview{width:min(860px,calc(100vw - 16px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink);display:none;flex-direction:column}
 .biz-preview[open]{display:flex}
 .biz-preview-head,.biz-preview-bar,.biz-preview-foot{display:flex;align-items:center;gap:var(--kptu-space-2);padding:6px var(--kptu-space-3)}
