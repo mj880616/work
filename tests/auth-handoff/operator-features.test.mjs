@@ -23,10 +23,10 @@ const prerequisites=`
   create role supabase_read_only_user login bypassrls;
   grant pg_read_all_data to supabase_read_only_user;
   grant authenticated to postgres;`;
-const BEFORE=['20261024140000_call_tg_feed','20261024210000_feed_item_guard_public','20261025030000_tg_personal_days','20261025200000_call_personal_box',
+const BEFORE=['20261024140000_call_tg_feed','20261024210000_feed_item_guard_public','20261025200000_call_personal_box',
  '20261025210000_feed_item_archive','20261026120000_call_user_edit','20261026190000_tg_sender_names','20261027010000_tg_room_day_group',
  '20261027030000_tg_sender_names_read','20261027200000_tg_summary_edit','20261028030000_tg_room_day_context'];
-const TABLES=['app_feed_items','app_feed_days','app_call_personal','app_call_edits','app_call_edit_history','app_tg_personal_days','app_tg_senders',
+const TABLES=['app_feed_items','app_feed_days','app_call_personal','app_call_edits','app_call_edit_history','app_tg_senders',
  'app_tg_day_senders','app_feed_folders','app_feed_rooms','app_feed_room_days','app_feed_summary_edits','app_feed_summary_edit_history'];
 
 test('operator features: server allow table, seeded for the one data workspace; other owners read nothing and cannot write calls/telegram; rollback restores',{timeout:300000},async t=>{
@@ -55,11 +55,11 @@ test('operator features: server allow table, seeded for the one data workspace; 
   await pool.query("insert into public.app_feed_items(workspace_id,source,day,occurred_at,title,summary,source_ref) values($1,'call','2026-10-24','2026-10-24T03:00:00Z','가상 통화','가상 요약','call:op1')",[WS_A]);
   await pool.query("insert into public.app_feed_items(workspace_id,source,day,occurred_at,room_key,room_label,title,summary,raw_count,source_ref) values($1,'telegram','2026-10-24','2026-10-24T03:00:00Z','room_op_1','가상 방','가상 소식','가상 요약',2,'tg:op1')",[WS_A]);
   await pool.query("insert into public.app_feed_days(workspace_id,day,source,total_count,kept_count,personal_count,unsure_count) values($1,'2026-10-24','call',5,1,2,2)",[WS_A]);
-  await pool.query("insert into public.app_tg_personal_days(workspace_id,day,room_key,room_label,one_line,source_ref) values($1,'2026-10-23','room-p1','가상','가상 요약','tgp:op1')",[WS_A]);
+  await pool.query("insert into public.app_tg_senders(workspace_id,name) values($1,'가상')",[WS_A]);
   const before=(await pool.query(snapshot)).rows;
   const beforeCheck=await readOnly(precheck);
 
-  await t.test('files: expanded rules pass; one new table, four definer functions, 13 restrictive policies and 13 triggers; grants only as designed; summary 3 lines',async()=>{
+  await t.test('files: expanded rules pass; one new table, four definer functions, 12 restrictive policies and 12 triggers; grants only as designed; summary 3 lines',async()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
    for(const sql of [precheck,postcheck,snapshot,rollbackSQL,migration])assert.doesNotMatch(sql.replace(/--.*$/gm,''),/information_schema/i);
    for(const mode of ['apply','dry-run']){
@@ -67,7 +67,7 @@ test('operator features: server allow table, seeded for the one data workspace; 
     assert.equal(plan.rules,'expanded');assert.equal(plan.flow,'full');
     assert.deepEqual(plan.createdTables,['app_operator_features']);
     assert.deepEqual([...plan.review.definer].sort(),['private.app_operator_feature_guard','private.app_workspace_has_feature','public.app_my_features','public.app_operator_feature_workspace']);
-    assert.equal(plan.review.policies,13);assert.equal(plan.review.restrictive,13);assert.equal(plan.review.triggers,13);
+    assert.equal(plan.review.policies,12);assert.equal(plan.review.restrictive,12);assert.equal(plan.review.triggers,12);
    }
    assert.match(toDryRun(migration),/rollback;\s*$/);
    const lines=summary.trim().split('\n');
@@ -84,6 +84,9 @@ test('operator features: server allow table, seeded for the one data workspace; 
    }
    assert.doesNotMatch(code,/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,'no fixed id in the migration');
    assert.match(rollbackSQL,/SQL Editor 경로 전용/);
+   // 운영에 없는 텔레그램 개인 하루 표(20261025030000 미적용·적용 계획 없음)는 이 migration과 짝 파일 어디에도 전제하지 않는다.
+   for(const sql of [migration,precheck,postcheck,snapshot,rollbackSQL,summary])assert.doesNotMatch(sql,/app_tg_personal/);
+   assert.equal(TABLES.length,12);
   });
   await t.test('precheck as the read-only role; dry-run changes nothing; apply passes postcheck; second apply refused',async()=>{
    const v=values(beforeCheck);
@@ -113,7 +116,7 @@ test('operator features: server allow table, seeded for the one data workspace; 
    assert.equal((await owner(c=>c.query("select private.app_workspace_has_feature($1,'calls') v",[WS_B]))).rows[0].v,false);
    assert.equal((await stranger(c=>c.query("select private.app_workspace_has_feature($1,'calls') v",[WS_A]))).rows[0].v,false,'not the owner of the allowed workspace');
    assert.equal(await count(owner,'app_feed_items'),2);
-   assert.equal(await count(owner,'app_tg_personal_days'),1);
+   assert.equal(await count(owner,'app_tg_senders'),1);
    const made=(await owner(c=>c.query("select public.app_feed_folder_create('가상 폴더') r"))).rows[0].r;assert.equal(made.ok,true);
    assert.equal((await server(c=>c.query("select public.app_operator_feature_workspace('telegram') w"))).rows[0].w,WS_A);
    await server(c=>c.query("insert into public.app_feed_items(workspace_id,source,day,occurred_at,title,summary,source_ref) values($1,'call','2026-10-25','2026-10-25T03:00:00Z','가상 통화 2','가상 요약','call:op2')",[WS_A]));
@@ -122,15 +125,15 @@ test('operator features: server allow table, seeded for the one data workspace; 
    const c=await pool.connect();
    try{await c.query('begin');await c.query('set local session_replication_role = replica');
     await c.query("insert into public.app_feed_items(workspace_id,source,day,occurred_at,title,summary,source_ref) values($1,'call','2026-10-24','2026-10-24T03:00:00Z','남의 통화','요약','call:opb1')",[WS_B]);
-    await c.query("insert into public.app_tg_personal_days(workspace_id,day,room_key,room_label,one_line,source_ref) values($1,'2026-10-23','room-pb','가상','요약','tgp:opb1')",[WS_B]);
+    await c.query("insert into public.app_tg_senders(workspace_id,name) values($1,'남의 이름')",[WS_B]);
     await c.query('commit');}finally{c.release();}
    assert.equal(await count(stranger,'app_feed_items'),0);
-   assert.equal(await count(stranger,'app_tg_personal_days'),0);
+   assert.equal(await count(stranger,'app_tg_senders'),0);
    assert.equal((await stranger(c=>c.query("select count(*)::int n from public.app_feed_room_day_lines('2026-10-01','2026-10-31')"))).rows[0].n,0);
    await assert.rejects(stranger(c=>c.query("select public.app_feed_folder_create('남의 폴더')")),/OPERATOR_FEATURE_REQUIRED/);
    await assert.rejects(server(c=>c.query("insert into public.app_feed_items(workspace_id,source,day,occurred_at,title,summary,source_ref) values($1,'call','2026-10-25','2026-10-25T03:00:00Z','t','s','call:opb2')",[WS_B])),/OPERATOR_FEATURE_REQUIRED/);
-   await assert.rejects(server(c=>c.query("insert into public.app_tg_personal_days(workspace_id,day,room_key,room_label,one_line,source_ref) values($1,'2026-10-24','room-pb','가상','요약','tgp:opb2')",[WS_B])),/OPERATOR_FEATURE_REQUIRED/);
-   await pool.query("delete from public.app_feed_items where source_ref='call:opb1'");await pool.query("delete from public.app_tg_personal_days where source_ref='tgp:opb1'");
+   await assert.rejects(server(c=>c.query("insert into public.app_feed_items(workspace_id,source,day,occurred_at,room_key,room_label,title,summary,raw_count,source_ref) values($1,'telegram','2026-10-25','2026-10-25T03:00:00Z','room_op_b','가상 방','t','s',1,'tg:opb2')",[WS_B])),/OPERATOR_FEATURE_REQUIRED/);
+   await pool.query("delete from public.app_feed_items where source_ref='call:opb1'");await pool.query('delete from public.app_tg_senders where workspace_id=$1',[WS_B]);
   });
   await t.test('rollback drops only what this file made; the data stays; re-apply works',async()=>{
    const rowsBefore=(await pool.query('select count(*)::int n from public.app_feed_items')).rows[0].n;

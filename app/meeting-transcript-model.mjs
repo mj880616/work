@@ -111,3 +111,34 @@ export function pickMeetingAt({current='',file={},aiDate='',textDate=''}={}){
   const next=`${date}T${time}`;
   return next===String(current||'').slice(0,16)?'':next;
 }
+
+// MTG-녹음초안 2단계: 녹음 파일 → 전사(Edge meeting-transcribe, Gemini). 서버(supabase/functions/meeting-transcribe/model.mjs)와 같은 상한·종류.
+export const MAX_AUDIO_FILE=100*1024*1024;
+export const MAX_AUDIO_SECONDS=60*60;
+export const TRANSCRIBE_EXT=Object.freeze(['m4a','mp4','aac','mp3','wav','ogg','oga','opus','flac','webm','3gp','amr']);
+// 올리기 전에 화면이 먼저 거른다. 통과면 ''. seconds는 기기가 읽은 길이(모르면 null — 서버·Gemini가 다시 막는다).
+export function audioCheck(name,size,seconds=null){
+  if(!TRANSCRIBE_EXT.includes(extOf(name)))return '녹음 파일(m4a·mp3·wav 등)만 전사할 수 있어요.';
+  if(!(Number(size)>0))return '빈 파일이에요.';
+  if(Number(size)>MAX_AUDIO_FILE)return '녹음 파일은 100MB까지 전사할 수 있어요.';
+  if(Number.isFinite(seconds)&&seconds>MAX_AUDIO_SECONDS)return '녹음은 1시간까지 전사할 수 있어요.';
+  return '';
+}
+// '43분 12초', '1시간 2분'. 모르면 ''.
+export function durationText(seconds){
+  if(!Number.isFinite(seconds)||seconds<=0)return '';
+  const s=Math.round(seconds),h=Math.floor(s/3600),m=Math.floor(s%3600/60),r=s%60;
+  if(h)return `${h}시간${m?` ${m}분`:''}`;
+  if(m)return `${m}분${r?` ${r}초`:''}`;
+  return `${r}초`;
+}
+export function sizeText(bytes){const n=Number(bytes)||0;return n>=1024*1024?`${(n/1024/1024).toFixed(1)}MB`:`${Math.max(1,Math.round(n/1024))}KB`}
+// 서버 실패 코드 → 화면 한 줄(짧게). 모르는 코드는 일반 문구.
+const TRANSCRIBE_FAIL=Object.freeze({
+  not_ready:'녹음 전사는 준비 중이에요.',monthly_limit:'이번 달 녹음 전사 한도에 닿았어요.',busy:'다른 녹음을 전사하는 중이에요. 끝난 뒤 다시 눌러 주세요.',
+  too_large:'녹음 파일은 100MB까지 전사할 수 있어요.',too_long:'녹음은 1시간까지 전사할 수 있어요.',bad_type:'녹음 파일(m4a·mp3·wav 등)만 전사할 수 있어요.',
+  empty_transcript:'녹음에서 글을 찾지 못했어요.',
+});
+const KNOWN_FAIL=new Set(Object.values(TRANSCRIBE_FAIL));
+// 서버는 실패마다 정해진 한국어 한 줄(error)을 준다. 아는 줄이면 그대로, 아니면(Drive·Gemini 실패 등) 일반 문구.
+export function transcribeFailText(message){const m=String(message||'');return TRANSCRIBE_FAIL[m]||(KNOWN_FAIL.has(m)?m:'전사하지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.')}

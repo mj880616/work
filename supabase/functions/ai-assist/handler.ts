@@ -43,6 +43,11 @@
 //   다음 주 장이 없으면 한 번(mode=auto), [지금 만들기]·[다시 만들기]를 누를 때(mode=user) 부른다. 화면은 다음 주 재료 ①~⑥ 줄(150줄까지)만 보낸다
 //   (이 쓰임만 몸통 48KB). AI는 '핵심 세 가지'만 만들고, 줄과 함께 owner RLS 표 app_journal_next_week_sheets(주마다 1행)에 저장한다.
 //   AI 한도·실패여도 줄은 저장한다(ai_status limit|failed). Google·원장·챙길 것·회의 표에는 쓰지 않는다.
+// Web2에 물어보기(kind=ask_web2, FEAT-1029묶음 ①, web2-ask.ts·evidence.ts): 검색칸 질문 한 줄을 받아 서버가 낱말을 뽑고 기존 검색 함수 두 개
+//   (app_search_records — 업무 통화·텔레그램 종류 포함, app_ledger_search)를 내 로그인으로 불러 근거 줄을 모은 뒤 AI 한 번으로 줄마다 근거 꼬리표가 붙은 답을 만든다.
+//   근거가 없으면 AI를 부르지 않는다. 근거에 없는 ref·근거 없는 줄은 공용 근거 검사가 버린다. AI 제외 노트는 근거 목록에만 보이고 AI에는 안 보낸다.
+//   명진 결정 변경(10/29): 원장 S2도 AI에 보내고, 찾은 텔레그램 소식은 그 id만 다시 읽어 원문·보낸 사람 표시 이름을 붙여 보낸다(tg-raw.ts, 길이 상한).
+//   통화·노트 본문은 직접 읽지 않는다(개인 통화함·개인 텔레그램 표는 어떤 경로로도 안 읽음). 답은 owner RLS 표 app_ask_answers에 30일 둔다(넣을 때 30일 지난 행을 지움).
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
@@ -64,6 +69,12 @@ import {
   autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
   nextWeekSheetMaterial, parseNextWeekSheet, parseNextWeekSheetRequest, addDays as addSheetDays, seoulClock, sentIndexes, type NextWeekItem, type NextWeekTopLine,
 } from "./next-week-sheet.ts";
+import {
+  ASK_BASE_KINDS, ASK_DAILY_LIMIT, ASK_KEEP_DAYS, ASK_LEDGER_LIMIT, ASK_INSTRUCTIONS, ASK_MAX_OUTPUT_TOKENS, ASK_PER_KIND, ASK_RETRY_BELOW, ASK_RETRY_MAX,
+  ASK_SCHEMA, ASK_SEARCH_KINDS, askLooksSecret, askMaterial, askTgRaw, askOrg, askWords, hitsFromLedger, hitsFromSearch, parseAskAnswer, parseAskRequest, rankHits,
+  storedSources, type AskHit, type AskSource,
+} from "./web2-ask.ts";
+import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -136,7 +147,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, area_week_summary: 30, area_suggest: 60, org_people_brief: 60 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -208,6 +219,9 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_people_not_ready: "주요 인물 기능이 아직 준비되지 않았어요.",
   org_people_unavailable: "주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  ask_not_ready: "Web2에 물어보기가 아직 준비되지 않았어요.",
+  ask_unavailable: "기록을 찾거나 답을 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  ask_secret: "비밀번호·키처럼 보이는 글은 물어볼 수 없어요.",
   text_pending: "글자를 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.",
   no_file_text: "요약할 글자가 없어요.",
   internal_error: "AI 요청을 처리하지 못했어요.",
@@ -451,6 +465,7 @@ type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "
 type HwpConvertInput = { kind: "hwp_convert"; doc_type: HwpConvertDocType; text: string };
 type AreaWeekSummaryInput = { kind: "area_week_summary"; week_start: string; area_ids: string[] };
 type AreaSuggestInput = { kind: "area_suggest"; title: string; text: string };
+type AskWeb2Input = { kind: "ask_web2"; question: string };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
 function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
@@ -495,7 +510,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | AskWeb2Input {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -548,6 +563,13 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     return { kind: "next_week_sheet", ...parsed };
   }
   // HWP 서식변환(hwp_convert): 문서 종류와 붙여 넣은 글(20000자까지)만 받는다. 다른 기록은 읽지 않는다.
+  // Web2에 물어보기(ask_web2): 질문 한 줄만 받는다. 재료는 서버가 로그인 토큰으로 검색 함수를 불러 모은다.
+  if (b.kind === "ask_web2") {
+    const parsed = parseAskRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    if (askLooksSecret(parsed.question)) throw new Fail(400, "ask_secret");
+    return { kind: "ask_web2", ...parsed };
+  }
   if (b.kind === "hwp_convert") {
     const parsed = parseHwpConvertRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
@@ -3758,6 +3780,204 @@ async function runAreaSuggest(ctx: Ctx, input: AreaSuggestInput, deps: RadarDeps
   return json({ ok: true, kind: "area_suggest", suggestions: picks.map((o) => ({ id: o.id, name: o.name })) });
 }
 
+// ---- 쓰임 ask_web2: Web2에 물어보기(FEAT-1029묶음 ①, web2-ask.ts·evidence.ts) ----------------------------------------------
+const ASK_TABLE = "app_ask_answers";
+
+// 검색 DB 함수 호출(로그인 토큰, owner RLS). 오류 원문은 남기지 않고 상태 숫자만 Error에 담는다.
+async function askRpc(ctx: Ctx, name: string, args: Record<string, unknown>): Promise<unknown> {
+  const r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(args),
+  });
+  if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Error(`rpc_${r.status}`); }
+  return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
+}
+
+// 찾기(AI 안 씀): 낱말 전체로 한 번, 적으면 낱말을 하나씩 빼며 최대 4번 더. 원장은 같은 낱말로 한 번(교섭·전략 S2까지, 결정 3 변경으로 AI에도 보냄).
+// DB 1단계 전이면(call·telegram 종류를 모름 → 400) 기본 8종류로 다시 부른다.
+async function askSearch(ctx: Ctx, words: string[]): Promise<AskHit[]> {
+  let kinds: readonly string[] = ASK_SEARCH_KINDS;
+  const search = async (ws: string[]) => {
+    const args = (k: readonly string[]) => ({ p_query: ws.join(" "), p_kinds: [...k], p_per_kind: ASK_PER_KIND, p_offset: 0, p_kind: null });
+    try {
+      return hitsFromSearch(await askRpc(ctx, "app_search_records", args(kinds)));
+    } catch (e) {
+      if (!(e instanceof Error && e.message === "rpc_400") || kinds === ASK_BASE_KINDS) throw e;
+      kinds = ASK_BASE_KINDS;
+      return hitsFromSearch(await askRpc(ctx, "app_search_records", args(kinds)));
+    }
+  };
+  const hits = await search(words);
+  for (let i = 0; i < words.length && i < ASK_RETRY_MAX && words.length > 1 && hits.length < ASK_RETRY_BELOW; i++) {
+    hits.push(...await search(words.filter((_, j) => j !== i)));
+  }
+  try {
+    hits.push(...hitsFromLedger(await askRpc(ctx, "app_ledger_search", { p_query: words.join(" "), p_max_sensitivity: "S2", p_limit: ASK_LEDGER_LIMIT })));
+  } catch {
+    ctx.log("ask_ledger_skipped");
+  }
+  return hits;
+}
+
+// AI 제외 노트(ai_export_allowed=false)·보관 업데이트는 근거 목록에만 두고 AI에는 보내지 않는다. 확인하지 못하면 노트 근거는 모두 안 보낸다.
+async function markNoteSendable(ctx: Ctx, sources: AskSource[]) {
+  const notes = sources.filter((s) => s.source === "note");
+  if (!notes.length) return;
+  let allowed = new Set<string>();
+  try {
+    const rows = await rest(ctx, `app_notes?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&id=in.(${notes.map((s) => s.id).join(",")})&select=id,kind,ai_export_allowed&limit=${notes.length}`);
+    if (Array.isArray(rows)) {
+      allowed = new Set((rows as Record<string, unknown>[])
+        .filter((r) => r?.ai_export_allowed === true && r.kind !== "diary").map((r) => String(r.id).toLowerCase()));
+    }
+  } catch {
+    ctx.log("ask_note_flags_unavailable");
+  }
+  for (const s of notes) if (!allowed.has(s.id)) s.sent = false;
+}
+
+// 찾은 텔레그램 소식(업무 텔레그램 줄)에 원문과 보낸 사람 표시 이름을 붙인다(명진 결정 변경 10/29). 로그인 토큰(owner RLS)으로
+// 이번에 찾은 소식 id만, 그 방·그날 이름 표만 읽는다. 원문·이름은 AI 재료에만 쓰고 로그·저장·응답에 넣지 않는다.
+// 읽지 못하면 원문 없이(요약·핵심 줄만) 계속한다. 이름 표를 못 읽으면 라벨(A·B…) 그대로 둔다.
+async function addTelegramRaw(ctx: Ctx, sources: AskSource[]) {
+  const tg = sources.filter((s) => s.kind === "telegram" && s.sent).slice(0, TG_RAW_MAX_ITEMS);
+  if (!tg.length) return;
+  const ws = encodeURIComponent(ctx.workspaceId);
+  let items: Record<string, unknown>[];
+  try {
+    const rows = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&hidden_at=is.null&id=in.(${tg.map((s) => s.id).join(",")})&select=id,room_key,day,raw_text&limit=${tg.length}`);
+    items = Array.isArray(rows) ? rows as Record<string, unknown>[] : [];
+  } catch {
+    ctx.log("ask_tg_raw_unavailable");
+    return;
+  }
+  let names = new Map<string, Map<string, string>>();
+  try {
+    names = await tgNamesFor((p) => rest(ctx, p), ctx.workspaceId, items);
+  } catch {
+    ctx.log("ask_tg_names_unavailable");
+  }
+  const byId = new Map(items.map((r) => [String(r.id).toLowerCase(), r]));
+  for (const s of tg) {
+    const r = byId.get(s.id);
+    if (!r) continue;
+    const raw = askTgRaw(r.raw_text, names.get(tgNameKey(r)));
+    if (raw) s.raw = raw;
+  }
+}
+
+async function runAskWeb2(ctx: Ctx, input: AskWeb2Input, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const { day } = seoulDays(started);
+  const dayStart = new Date(Date.parse(day + "T00:00:00+09:00")).toISOString();
+  // 하루 30회: 오늘 AI를 부른 답(ok·failed) 수로 센다. 표가 없으면(DB 적용 전) 준비 중.
+  let todayRows: unknown;
+  try {
+    todayRows = await rest(ctx, `${ASK_TABLE}?workspace_id=eq.${ws}&created_at=gte.${encodeURIComponent(dayStart)}&ai_status=in.(ok,failed)&select=id&limit=${ASK_DAILY_LIMIT + 1}`);
+  } catch (e) {
+    throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "ask_not_ready" : "ask_unavailable");
+  }
+  if (!Array.isArray(todayRows)) throw new Fail(503, "ask_unavailable");
+
+  const words = askWords(input.question);
+  let sources: AskSource[] = [];
+  if (words.length) {
+    let orgs: { id: string; name: string; aliases?: string[] }[] = [];
+    try {
+      const rows = await rest(ctx, `app_suborganizations?workspace_id=eq.${ws}&select=id,name,aliases&limit=500`);
+      if (Array.isArray(rows)) orgs = (rows as Record<string, unknown>[]).filter((o) => typeof o?.id === "string" && typeof o.name === "string")
+        .map((o) => ({ id: String(o.id), name: String(o.name), aliases: Array.isArray(o.aliases) ? (o.aliases as unknown[]).filter((a) => typeof a === "string") as string[] : [] }));
+    } catch {
+      deps.log("ask_orgs_skipped");
+    }
+    const orgId = askOrg(input.question, orgs);
+    let hits: AskHit[];
+    try {
+      hits = await askSearch(ctx, words);
+    } catch {
+      throw new Fail(503, "ask_unavailable");
+    }
+    sources = rankHits(hits, words, orgId);
+    await markNoteSendable(ctx, sources);
+    await addTelegramRaw(ctx, sources);
+  }
+  const sendable = sources.filter((s) => s.sent);
+  const save = async (status: "ok" | "empty" | "failed", lines: { text: string; refs: string[] }[]) => {
+    try {
+      const cutoff = new Date(started - ASK_KEEP_DAYS * 86400000).toISOString();
+      await rest(ctx, `${ASK_TABLE}?workspace_id=eq.${ws}&created_at=lt.${encodeURIComponent(cutoff)}`, { method: "DELETE", prefer: "return=minimal" });
+      const r = await ctx.doFetch(`${ctx.sb}/rest/v1/${ASK_TABLE}?select=id,created_at`, {
+        method: "POST",
+        headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ workspace_id: ctx.workspaceId, question: input.question, lines, sources: storedSources(sources), ai_status: status }),
+      });
+      if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Error(`rest_${r.status}`); }
+      const rows = await readBoundedJson(r, { maxBytes: 64 * 1024 });
+      const row = Array.isArray(rows) ? rows[0] as Record<string, unknown> : null;
+      return row && typeof row.id === "string" ? { id: row.id, created_at: row.created_at } : null;
+    } catch {
+      deps.log("ask_save_failed");
+      return null;
+    }
+  };
+  const reply = (status: string, lines: { text: string; refs: string[] }[], saved: { id: string; created_at: unknown } | null) =>
+    json({ ok: true, kind: "ask_web2", status, question: input.question, words, lines, id: saved?.id ?? null, created_at: saved?.created_at ?? null,
+      sources: sources.map((s) => ({ ...storedSources([s])[0], snippet: s.snippet })) });
+
+  // 근거가 없으면(또는 보낼 수 있는 근거가 없으면) AI를 부르지 않는다(사용량 0).
+  if (!sendable.length) {
+    deps.log("ask_web2_done", { words: words.length, sources: sources.length, sent: 0, lines: 0 });
+    return reply("empty", [], await save("empty", []));
+  }
+  if (todayRows.length >= ASK_DAILY_LIMIT) return reply("daily_limit", [], null);
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  let budget: Awaited<ReturnType<typeof checkBudget>>;
+  try {
+    budget = await checkBudget(ctx, "ask_web2", started, config.price);
+  } catch (e) {
+    // 한도에 걸려도 찾은 근거는 보여 준다(답 줄 없이).
+    if (e instanceof Fail && (e.code === "monthly_limit" || e.code === "daily_limit")) return reply(e.code, [], null);
+    throw e;
+  }
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = askMaterial(input.question, sources);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: ASK_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: ASK_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "ask_web2", strict: true, schema: ASK_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: ASK_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  const lines = result.ok ? parseAskAnswer(outputText(result.raw, 32 * 1024) ?? "", sources) : null;
+  if (!lines) {
+    deps.log(result.ok ? "ai_invalid_response" : result.code);
+    return reply("failed", [], await save("failed", []));
+  }
+  deps.log("ask_web2_done", { words: words.length, sources: sources.length, sent: sendable.length, lines: lines.length });
+  return reply("ok", lines, await save("ok", lines));
+}
+
 async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id`, {
     method: "POST",
@@ -3809,6 +4029,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_week_summary") return await runAreaWeekSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_suggest") return await runAreaSuggest(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "ask_web2") return await runAskWeb2(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 
       const config = aiConfig(deps.env);
