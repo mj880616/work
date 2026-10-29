@@ -88,7 +88,7 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
   // Chromium 140 cannot set safe-area insets through CDP; substitute only the
   // environment value in the served CSS while exercising the actual declarations.
   // 쉬는 틈 미리 받기(UI-기다림표시통일)가 시험이 끝날 때 아직 받는 중일 수 있다: 닫힌 화면의 요청은 조용히 끊는다.
-  await page.route(/\.css(?:\?|$)/,async route=>{let r;try{r=await route.fetch()}catch{await route.abort().catch(()=>{});return}await route.fulfill({response:r,body:(await r.text()).replaceAll('env(safe-area-inset-bottom)','20px')}).catch(()=>{})});
+  await page.route(/\.css(?:\?|$)/,async route=>{let r,body;try{r=await route.fetch();body=await r.text()}catch{await route.abort().catch(()=>{});return}await route.fulfill({response:r,body:body.replaceAll('env(safe-area-inset-bottom)','20px')}).catch(()=>{})});
   await serveBuiltShell(page,testOrigin);
   await open(page,app);
   await expect(page.locator('.mobile-tabs')).toHaveCSS('height','76px');

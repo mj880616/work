@@ -22,6 +22,9 @@ async function openTelegram(page,width){
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'텔레그램 소식',exact:true}).click();}
  await expect(page.locator('#telegramView')).toBeVisible();
  await expect(page.locator('#telegramView [data-tg-rd]').first()).toBeVisible();
+ // 요약 한 줄이 없는 날(10/3)은 목록을 그린 뒤 소식 제목을 따로 읽어 목록을 한 번 더 그린다(telegram-feed.js fillTitles).
+ // 줄을 재거나 밀기 전에 그 마지막 그리기까지 기다린다.
+ await expect(page.locator(`#telegramView [data-tg-rd="${B3}"] .feed-rl`)).toHaveText('옛 안건 정리 · 옛 일정 확인');
 }
 const rd=(view,key)=>view.locator(`[data-tg-rd="${key}"]`);
 const wrapOf=(view,key)=>view.locator(`[data-tg-swipe="${key}"]`);
@@ -76,7 +79,7 @@ test('폰 오른쪽 밀기: [폴더로](파랑)·[보관](연노랑) 두 버튼,
  await bar.locator('[data-tg-undo]').tap();
  await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(2);
  expect(rpc(f,'app_feed_room_set')[1].body).toEqual({p_room_key:'room-a',p_folder:null,p_archived:false});
- expect(await keys(view)).toEqual([A6,B6,A5,B3]);
+ await expect.poll(()=>keys(view)).toEqual([A6,B6,A5,B3]);
  expect(f.errors).toEqual([]);
 });
 
@@ -96,7 +99,7 @@ test('폰 왼쪽 밀기: [삭제] 한 버튼, 그 날 한 줄만 빠지고(같�
  await view.locator('[data-tg-undo]').tap();
  await expect.poll(()=>rpc(f,'app_feed_room_day_set').length).toBe(2);
  expect(rpc(f,'app_feed_room_day_set')[1].body.p_state).toBe('active');
- expect(await keys(view)).toEqual([A6,B6,A5,B3]);
+ await expect.poll(()=>keys(view)).toEqual([A6,B6,A5,B3]);
  expect(f.errors).toEqual([]);
 });
 
@@ -139,7 +142,7 @@ test('[폴더로]: 폴더 목록·새 폴더, 고르면 그 방이 폴더로 들
  await pick.getByRole('button',{name:'폴더에서 빼기'}).tap();
  await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(2);
  expect(rpc(f,'app_feed_room_set')[1].body.p_folder).toBe(null);
- expect(await keys(view)).toEqual([B6,B3]);
+ await expect.poll(()=>keys(view)).toEqual([B6,B3]);
  // + 새 폴더: 이름 상자 → 폴더를 만들고 그 방을 넣는다.
  await view.locator('.feed-chiprow [data-tg-folder=""]').tap();
  await drag(page,rd(view,A5),60,110);
@@ -183,7 +186,7 @@ test('폴더 만들기·이름 바꾸기·지우기: 이름 규칙 안내, 같�
  await box.getByRole('button',{name:'지우기'}).tap();
  await expect.poll(()=>rpc(f,'app_feed_folder_delete').length).toBe(1);
  await expect(row.locator('.feed-chip')).toHaveText(['전체','가상 모임2','+ 폴더','보관함 1']);
- expect(await keys(view)).toEqual([A6,B6,A5,B3]);
+ await expect.poll(()=>keys(view)).toEqual([A6,B6,A5,B3]);
  expect(f.errors).toEqual([]);
 });
 
@@ -202,7 +205,7 @@ test('보관함: 방 단위로 모아 보여 주고 [꺼내기]로 되돌리며,
  await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(1);
  expect(rpc(f,'app_feed_room_set')[0].body).toEqual({p_room_key:'-1001234567',p_folder:null,p_archived:false});
  await expect(view.locator('.feed-chiprow')).toBeVisible();
- expect(await keys(view)).toEqual([A6,C6,B6,A5,B3]);
+ await expect.poll(()=>keys(view)).toEqual([A6,C6,B6,A5,B3]);
  expect(f.errors).toEqual([]);
 });
 
@@ -221,7 +224,7 @@ test('휴지통: 삭제한 날은 "삭제한 날"에 모이고 [되살리기]로
  await expect.poll(()=>rpc(f,'app_feed_room_day_set').length).toBe(2);
  expect(rpc(f,'app_feed_room_day_set')[1].body.p_state).toBe('active');
  await expect(view.locator('[data-tg-rd]').first()).toBeVisible();
- expect(await keys(view)).toEqual([A6,B6,A5,B3]);
+ await expect.poll(()=>keys(view)).toEqual([A6,B6,A5,B3]);
  expect(f.errors).toEqual([]);
 });
 

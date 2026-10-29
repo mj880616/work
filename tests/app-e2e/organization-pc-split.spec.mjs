@@ -93,7 +93,11 @@ test('PC 1280: sign-out and another user on this device drop the remembered orga
  await row(page,'oc').click();await expect(title(page)).toHaveText('합성 다 지부');
  await expect.poll(()=>lastKeys(page)).toEqual([[`kptu_owner_cache:organization-last-v1:${owner}`,'oc']]);
  // Another user on the same device never sees it: the key goes with the owner change.
+ // The runtime drops the key at once and the loader then reloads the page for the new owner (loader-v2.js handleIdentityChange),
+ // so wait for that reload to finish before touching the page again.
+ const reloaded=page.waitForEvent('load');
  await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-b',refresh_token:'token-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'other-user'}}));
+ await reloaded;
  await expect.poll(()=>lastKeys(page)).toEqual([]);
  await page.evaluate(owner=>localStorage.setItem('kptu_owner_cache:organization-last-v1:other-user','ob'),owner);
  await page.evaluate(()=>window.KPTURuntime.session.write(null));
