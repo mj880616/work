@@ -21,6 +21,7 @@ on:
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-secret-server.test.mjs'
+      - 'tests/origin-redirect.test.mjs'
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
@@ -125,6 +126,7 @@ on:
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-secret-server.test.mjs'
+      - 'tests/origin-redirect.test.mjs'
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
@@ -302,6 +304,8 @@ jobs:
         run: node --test tests/note-secret.test.mjs
       - name: NOTE-비밀메모 서버 쪽(AI 재료에서 비밀·AI 제외 노트 건너뛰기) 시험
         run: node --test tests/note-secret-server.test.mjs
+      - name: SEC-github.io넘기기 github.io에서 열면 bokdoong.com으로 넘김 시험
+        run: node --test tests/origin-redirect.test.mjs
 
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
