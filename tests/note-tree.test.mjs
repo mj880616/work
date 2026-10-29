@@ -98,3 +98,16 @@ test('PC 오른쪽은 고른 폴더 노트만(폴더 줄 없음), 폰은 첫 화
   assert.deepEqual(paneHead({folders:F, notes:N, folderOf:of, at:U(1)}), {name:'가', count:1});
   assert.deepEqual(paneHead({folders:F, notes:N, folderOf:of, at:OUTSIDE}), {name:'폴더 없음', count:2});
 });
+
+// NOTE-최근5개: 폴더와 상관없이 최근 고친 순 5개(고정과 상관없음), 줄 오른쪽에 그 폴더 이름.
+import {recentNotes, recentRows, RECENT_COUNT} from '../app/note-tree.mjs';
+test('최근: 고친 시각 순 5개, 고정·폴더와 상관없이, 새로 만든 것(고친 시각 없음)은 만든 시각', () => {
+  const n = (id, updated_at, extra = {}) => ({id, updated_at, metadata: {}, ...extra});
+  const notes = [n('a', '2026-10-01T00:00:00Z', {metadata: {pinned_at: '2026-10-20T00:00:00Z'}}), n('b', '2026-10-05T00:00:00Z'), n('c', null, {created_at: '2026-10-09T00:00:00Z'}), n('d', '2026-10-03T00:00:00Z'), n('e', '2026-10-07T00:00:00Z'), n('f', '2026-10-02T00:00:00Z'), n('g', 'bad')];
+  assert.equal(RECENT_COUNT, 5);
+  assert.deepEqual(recentNotes(notes).map(x => x.id), ['c', 'e', 'b', 'd', 'f']);
+  assert.deepEqual(recentNotes([]), []);
+  const folders = [{id: 'F1', parent_id: null, name: '회의'}];
+  const rows = recentRows({folders, notes: [n('x', '2026-10-02T00:00:00Z'), n('y', '2026-10-03T00:00:00Z')], folderOf: note => note.id === 'y' ? 'F1' : null});
+  assert.deepEqual(rows.map(r => [r.id, r.path, r.recent]), [['y', '회의', true], ['x', '', true]]);
+});
