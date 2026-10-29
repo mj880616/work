@@ -12,6 +12,10 @@
     if(open&&!tracked){
       modal.dataset.kptuHistoryOpen='1';
       history.pushState({...(history.state||{}),kptuOverlay:modal.id},'',location.href);
+      // NAV-PC앞뒤통일: the entry position of this window. Entries added on top of it (a menu, a detail inside the window) do not
+      // carry its name, so going back to one of them must not close it: only a step below its own entry does.
+      const index=window.navigation?.currentEntry?.index;
+      if(Number.isInteger(index))modal.dataset.kptuHistoryIndex=String(index);else delete modal.dataset.kptuHistoryIndex;
       return;
     }
     if(!open&&tracked){
@@ -51,6 +55,8 @@
   window.addEventListener('popstate',event=>{
     const open=[...document.querySelectorAll('.modal')].filter(m=>tracks(m)&&isVisible(m)&&m.dataset.kptuHistoryOpen==='1').pop();
     if(!open||event.state?.kptuOverlay===open.id)return;
+    const at=Number(open.dataset.kptuHistoryIndex),index=window.navigation?.currentEntry?.index;
+    if(open.dataset.kptuHistoryIndex&&Number.isInteger(at)&&Number.isInteger(index)&&index>=at)return;
     open.dataset.kptuHistoryClosing='pop';
     const button=open.querySelector(`[data-close="${open.id}"],[data-pm2-close="${open.id}"]`);
     if(button)button.click();

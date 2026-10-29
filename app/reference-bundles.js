@@ -95,7 +95,7 @@ function paintDetail(){
 function select(id,{focus=true}={}){
   if(state.mode||state.order){if(!confirmDrop())return;}
   state.selected=id;state.detailStatus='';
-  if(!pc.matches&&id)layer||=window.KPTURouter?.layer?.open('reference-bundle',{close:()=>{layer=null;closeDetail({fromBack:true});return true;}})||null;
+  if(!pc.matches&&id)layer||=window.KPTURouter?.layer?.open('reference-bundle',{reopen:()=>select(id),close:()=>{layer=null;closeDetail({fromBack:true});return true;}})||null;
   paint();
   if(focus)(pc.matches?$(`#rbList [data-rb-bundle="${CSS.escape(id)}"]`):$('#rbDetail [data-rb-back]')||$('#rbDetail .rb-detail-name'))?.focus({preventScroll:true});
 }

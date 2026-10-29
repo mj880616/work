@@ -227,13 +227,13 @@ function sumBoxHtml(r) {
 }
 
 // ---------- actions
-function openLayer() {
-  if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('call-detail', {close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
+function openLayer(id) {
+  if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('call-detail', {reopen:() => select(id), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
 }
 function select(id) {
   if (!dropBoxes()) return;
   state.selected = id; state.rawOpen = false; state.status = ''; undo = null; state.confirm = null; ledgerAsk = null;
-  openLayer(); paint(); void loadRaw(id);
+  openLayer(id); paint(); void loadRaw(id);
   (pc.matches ? $(`#cfList [data-cf-row="${CSS.escape(id)}"]`) : $('#cfDetail [data-cf-back]'))?.focus({preventScroll:true});
 }
 // 지금 통화함 목록의 맨 위 통화(날짜별 목록의 첫 줄, 없으면 확인할 통화의 첫 줄)를 고른 상태로 둔다. 그리기는 부르는 쪽 paint() 한 번.

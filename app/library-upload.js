@@ -449,7 +449,9 @@ function luFolderScope(tree){
 let luFolderLayer=null,luFolderStepping=false;
 function luSyncFolderLayer(){
   if(luFolderStepping)return;
-  if(luInFolder&&!luFolderLayer&&window.KPTURouter?.current==='library')luFolderLayer=window.KPTURouter?.layer?.open('library-folder',{close:()=>{
+  // NAV-PC앞뒤통일: › (or the browser's forward) over the folder's entry enters the same folder again (reopen).
+  const reopenId=luInFolder;
+  if(luInFolder&&!luFolderLayer&&window.KPTURouter?.current==='library')luFolderLayer=window.KPTURouter?.layer?.open('library-folder',{reopen:()=>luEnterFolder(reopenId),close:()=>{
     const up=luFolders_.find(f=>f.id===luInFolder)?.parent_id||null;
     luInFolder=up&&luFolders_.some(f=>f.id===up)?up:null;luFolderLayer=null;
     if(luInFolder)luOpened.add('f:'+luInFolder);

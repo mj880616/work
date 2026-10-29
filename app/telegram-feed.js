@@ -427,7 +427,7 @@ function select(room, day, item = '') {
   if (state.link && !dropLink()) return;
   if (state.sedit?.kind === 'raw') endEdit();
   state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); state.more = new Set(); undo = null; markSeen(room, day);
-  if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-day', {close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
+  if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-day', {reopen:() => select(room, day), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
   paint(); void ensureDetail().then(() => { if (item) void loadRaw(item); });
   (pc.matches ? $(`#tgList [data-tg-rdopen="${CSS.escape(rdKey(room, day))}"]`) : $('#tgDetail [data-tg-back]'))?.focus({preventScroll:true});
 }

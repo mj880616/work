@@ -897,7 +897,9 @@ function renderAlbums() {
 }
 function syncAlbumLayer() {
   const inside = tab === 'albums' && !!album;
-  if (inside && !albumLayer) albumLayer = window.KPTURouter?.layer?.open('photos-album', {close:() => { albumLayer = null; select.stop(); album = null; renderAlbums(); return true; }}) || null;
+  // NAV-PC앞뒤통일: › (or the browser's forward) over an entry left by back opens the same album / chip again (reopen).
+  const reopenId = album;
+  if (inside && !albumLayer) albumLayer = window.KPTURouter?.layer?.open('photos-album', {reopen:() => openAlbum(reopenId), close:() => { albumLayer = null; select.stop(); album = null; renderAlbums(); return true; }}) || null;
   if (!inside && albumLayer) { const l = albumLayer; albumLayer = null; l.close(); }
 }
 function openAlbum(id) { select.stop(); album = id; aFor = null; renderAlbums(); window.scrollTo?.(0, 0); }
@@ -1081,7 +1083,7 @@ function setTab(nextTab, {fromBack = false} = {}) {
   tab = nextTab;
   window.KPTURouter?.setPlace?.('photos', tab === 'all' ? {} : {tab});
   // 뒤로가기 = 이전 칩: [달력]·[휴지통]은 라우터 겹 하나라 뒤로가면 [사진]으로 돌아온다.
-  if (tab !== 'all' && !tabLayer) tabLayer = window.KPTURouter?.layer?.open('photos-tab', {close:() => { tabLayer = null; setTab('all', {fromBack:true}); return true; }}) || null;
+  if (tab !== 'all' && !tabLayer) tabLayer = window.KPTURouter?.layer?.open('photos-tab', {reopen:() => setTab(nextTab), close:() => { tabLayer = null; setTab('all', {fromBack:true}); return true; }}) || null;
   if (tab === 'all' && tabLayer && !fromBack) { const l = tabLayer; tabLayer = null; l.close(); }
   render();
 }

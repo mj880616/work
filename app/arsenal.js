@@ -122,7 +122,7 @@ function openMatch(id) {
   selected = id;
   if (!pc.matches) {
     detailOpen = true;
-    layer ||= window.KPTURouter?.layer?.open('arsenal-review', {close:() => { layer = null; detailOpen = false; paint(); $(`[data-ars-row="${CSS.escape(selected || '')}"]`)?.focus({preventScroll:true}); return true; }}) || null;
+    layer ||= window.KPTURouter?.layer?.open('arsenal-review', {reopen:() => openMatch(id), close:() => { layer = null; detailOpen = false; paint(); $(`[data-ars-row="${CSS.escape(selected || '')}"]`)?.focus({preventScroll:true}); return true; }}) || null;
   }
   paint();
   if (pc.matches) $(`[data-ars-row="${CSS.escape(id)}"]`)?.focus({preventScroll:true});

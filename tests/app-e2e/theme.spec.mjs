@@ -164,7 +164,8 @@ test('theme returns focus after project history listeners run',async({page})=>{
   else if(close==='outside')await page.locator('#themeModal').click({position:{x:4,y:4}});
   else if(close==='back')await page.goBack();
   else await page.getByRole('button',{name:'화면 색 선택 창 닫기'}).click();
-  await expect(page.locator('#themeModal')).toBeHidden();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe(null);
+  // NAV-PC앞뒤통일: 밑의 사업영역 창도 '열린 것'이라 PC에서 자기 기록 칸을 가진다 — 화면 색 창을 닫으면 그 칸으로 돌아온다.
+  await expect(page.locator('#themeModal')).toBeHidden();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe('areaWindow');
   await expect(account).toBeFocused();
  }
 });

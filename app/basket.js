@@ -573,7 +573,9 @@ function closeDetail({focus = true, force = false, cleanAddress = true, fromBack
 }
 function openNoteLayer({adoptOnly = false} = {}) {
   if (noteLayer || !selected) return;
-  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: () => !busy && closeDetail({fromBack:true})}) || null;
+  // NAV-PC앞뒤통일: › (or the browser's forward) over this update's entry opens the same update again (reopen).
+  const reopenId = selected.id;
+  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: () => !busy && closeDetail({fromBack:true}), reopen: () => openDetail(reopenId)}) || null;
 }
 function paintStateLine() {
   const state = noteState(selected, links, docs), box = detail.querySelector('[data-basket-state]');

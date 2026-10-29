@@ -185,7 +185,8 @@ function selectDay(day, {focus = false} = {}) {
   selected = day; source = 'all';
   days.querySelectorAll('[data-diary-day]').forEach(cell => cell.setAttribute('aria-pressed', String(cell.dataset.diaryDay === day)));
   renderDetail();
-  dayLayer ||= window.KPTURouter?.layer?.open('diary-day', {close:() => { closeDetail({fromBack:true}); return true; }}) || null;
+  // NAV-PC앞뒤통일: › (or the browser's forward) over the day's entry opens the same day again (reopen).
+  dayLayer ||= window.KPTURouter?.layer?.open('diary-day', {close:() => { closeDetail({fromBack:true}); return true; }, reopen:() => selectDay(day)}) || null;
   writePlace();
   requestAnimationFrame(() => { detail.scrollIntoView({block:'nearest', behavior:'smooth'}); if (focus) (detail.querySelector('h3') || detail.querySelector('[data-diary-detail-close]'))?.focus(); });
 }
