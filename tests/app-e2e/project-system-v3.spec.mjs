@@ -613,7 +613,7 @@ test('project detail keeps one summary-first column at desktop and phone widths'
   await expect(page.locator('#ps3Summary')).toHaveText('하위 1 · 할 일 0');await expect(page.locator('.ps3-modal-head')).not.toContainText('목표 설명');
   await expect(page.locator('#ps3-milestones')).not.toHaveAttribute('open','');
   await expect(page.locator('#ps3-memos')).toHaveCount(0);
-  await expect(page.locator('#ps3Body .ps3-section-head p,#ps3Body [data-wait-empty]:not([data-ps3-rec-empty]),#ps3Body .ps3-detail-head')).toHaveCount(0);
+  await expect(page.locator('#ps3Body .ps3-section-head p,#ps3Body :not(.gt-linked)>[data-wait-empty]:not([data-ps3-rec-empty]),#ps3Body .ps3-detail-head')).toHaveCount(0);
   await expect(page.locator('#ps3-tasks .ps3-section-actions [data-ps3-global="task"]')).toHaveAccessibleName('할 일 추가');
   await expect(page.locator('#ps3-documents .ps3-section-actions [data-ps3-global="document"]')).toHaveAccessibleName('자료 올리기');
   for(const width of [1280,360,390,412,430]){
@@ -1338,7 +1338,7 @@ test('V3 project task section completes, edits and unlinks linked Google tasks',
   await expect(page.locator('#gtLinkedMenu').getByRole('button')).toHaveText(['다시 할 일로','고치기','연결 해제']);
   await page.locator('#gtLinkedMenu').getByRole('button',{name:'연결 해제'}).click();
   await expect.poll(()=>state.gtCalls.find(x=>x.action==='unlink')?.body).toEqual(expect.objectContaining({task_id:'g1',links:[{project_id:'child-1'}]}));
-  await expect(panel.locator('.gt-linked [data-wait-empty]')).toHaveText('없음');
+  await expect(panel.locator('[data-wait-empty]')).toHaveText('없음');
   expect(state.tasks).toEqual([]);
 });
 
@@ -1362,7 +1362,7 @@ test('V3 project links an existing unlinked Google task',async({page})=>{
   state.links.push({google_task_id:'g-other',project_id:'main-1',status:'confirmed',task_completed:false});
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=child-1');await signIn(page);
   const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
-  await expect(panel.locator('.gt-linked [data-wait-empty]')).toHaveText('없음');
+  await expect(panel.locator('[data-wait-empty]')).toHaveText('없음');
   await page.locator('[data-ps3-gtask-link]').click();
   const picker=page.locator('#gtPickModal');
   await expect(picker).toBeVisible();

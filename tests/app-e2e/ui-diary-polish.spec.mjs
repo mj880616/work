@@ -177,7 +177,7 @@ test('⑤ an empty note list shows no guide sentence',async({page})=>{
  await expect(page.locator('[data-note-host]')).not.toContainText('아직 노트가 없어요');
  // A search with no hit still says so.
  await page.locator('[data-note-search]').fill('없는 말');
- await expect(status).toHaveText('찾는 노트가 없어요');
+ await expect(status.locator('[data-wait-empty]')).toHaveText('맞는 노트 없음');
  expect(f.errors).toEqual([]);
 });
 

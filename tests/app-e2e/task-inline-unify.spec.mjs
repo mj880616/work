@@ -162,7 +162,7 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  page.once('dialog',d=>d.accept());
  await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'지우기'}).click();
  await expect.poll(()=>state.calls.delete.length).toBe(1);
- await expect(body.locator('.gt-linked [data-wait-empty]')).toHaveText('없음');
+ await expect(body.locator('[data-wait-empty]')).toHaveText('없음');
  expect(errors).toEqual([]);
 });
 for(const width of [390,1280])test(`프로젝트 상세 연결 할 일: 같은 공용 줄(⋯ 항목, 연결 해제 유지, 동그라미 되돌리기) ${width}`,async({page})=>{

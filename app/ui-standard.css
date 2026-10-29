@@ -781,7 +781,9 @@
 #appView #homeView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); max-height:none; padding-top:12px; padding-bottom:11px; line-height:21px; resize:none; overflow-y:auto; }
 #appView #homeView .home-quick .home-quick-entry{ align-items:flex-start; }
 
-/* ⑤ 빈 상태: 공용 '없음'(wait-state.js .wait-empty)으로 옮겼다(UI-기다림표시통일 3차). */
+/* ⑤ 빈 상태: 프로젝트 상세 기록 칸의 공용 '없음'(.wait-empty)은 다른 기록 줄과 같은 줄 높이 한 줄. */
+#ps3DetailModal [data-ps3-rec-empty]{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); margin:0; }
+#ps3DetailModal [data-ps3-rec-empty][hidden]{ display:none; }
 
 @media(max-width:760px){
   /* 홈 빠른 입력: 전환은 왼쪽 작은 세그먼트(폭 가득 아님). */
