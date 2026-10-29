@@ -46,7 +46,7 @@
   #appView #diaryView .diary-cell{ aspect-ratio:auto; min-height:56px; border:0; border-right:var(--ds-line-width) solid var(--ds-line); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
   #appView #diaryView .diary-cell.has-photo{ aspect-ratio:4/3; }
   #appView #diaryView .diary-blank{ border-color:var(--ds-line); background:var(--kptu-surface-subtle); }
-  #appView #diaryView .diary-cell[aria-pressed="true"]{ border-color:var(--ds-line); box-shadow:inset 0 0 0 2px var(--kptu-primary-ink); }
+  #appView #diaryView .diary-cell[aria-pressed="true"]{ border-color:var(--kptu-primary-ink); box-shadow:inset 0 0 0 2px var(--kptu-primary-ink); }
 }
 
 /* 이 달 일기 목록: 달력 아래, 최신 날짜 먼저. 날짜를 고르면 같은 자리에 그날 일기가 나온다. */

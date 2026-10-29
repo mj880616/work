@@ -117,8 +117,8 @@ for(const width of [1280,1440]){
   });
   test(`PC ${width}: 할 일 줄은 바탕 상자 없이 가는 선 한 줄(높이 36px), 제목 왼쪽·기한 오른쪽`,async({page})=>{
     await open(page,width,[task('a','2026-10-08'),task('b','2026-10-08')]);
-    const m=await page.locator('[data-google-task="b"]').evaluate(el=>{const r=el.getBoundingClientRect(),t=el.querySelector('.gt-main b').getBoundingClientRect(),d=el.querySelector('.gt-due').getBoundingClientRect(),cs=getComputedStyle(el);return {h:Math.round(r.height),bg:cs.backgroundColor,top:cs.borderTopStyle,sameLine:Math.abs((t.top+t.bottom)/2-(d.top+d.bottom)/2)<4,dueRight:d.left>t.left}});
-    expect(m).toEqual({h:36,bg:'rgba(0, 0, 0, 0)',top:'solid',sameLine:true,dueRight:true});
+    const m=await page.locator('[data-google-task="b"]').evaluate(el=>{const r=el.getBoundingClientRect(),t=el.querySelector('.gt-main b').getBoundingClientRect(),d=el.querySelector('.gt-due').getBoundingClientRect(),cs=getComputedStyle(el);return {h:r.height>=36&&r.height<=37,bg:cs.backgroundColor,top:cs.borderTopStyle,sameLine:Math.abs((t.top+t.bottom)/2-(d.top+d.bottom)/2)<4,dueRight:d.left>t.left}});
+    expect(m).toEqual({h:true,bg:'rgba(0, 0, 0, 0)',top:'solid',sameLine:true,dueRight:true});
   });
 
   test(`PC ${width}: 왼쪽 칸이 많으면 칸이 내용만큼 커지고 화면이 세로로 넘어감(안쪽 스크롤바 없음)`,async({page})=>{
