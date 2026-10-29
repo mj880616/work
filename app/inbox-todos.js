@@ -9,7 +9,7 @@ import {waitHtml} from './wait-state.js';
 // The home card and the work journal box (todo-radar.js) stay as they are; both sides tell each other through the same change
 // event ('kptu:todo-radar-changed'). Nothing is kept in browser storage.
 import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, markTasked, candidateToTask, validateTaskDraft, notPlanned,
-  quickDue, dotDay, radarScope, ledgerRequestText, RADAR_SOURCE_LABEL} from './todo-radar-data.js';
+  quickDue, dotDay, radarScope, ledgerRequestText, sourceText, RADAR_SOURCE_LABEL} from './todo-radar-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {copyText} from './copy-text.js';
@@ -51,7 +51,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     return due ? `할 일로 보냄 · ${due}` : '할 일로 보냄';
   }
   function rowHtml(c) {
-    const id = esc(c.id), isBusy = busy.has(c.id), open = c.status === 'open', source = RADAR_SOURCE_LABEL[c.source_kind];
+    const id = esc(c.id), isBusy = busy.has(c.id), open = c.status === 'open', source = sourceText(c);
     const meta = [dotDay(c.source_day) + ' 기록', open && c.due ? `제안 기한 ${dotDay(c.due)}` : ''].filter(Boolean).join(' · ');
     let right = '', below = '';
     if (!open) right = `<span class="inbox-todo-done">${esc(doneLabel(c))}</span>`;
