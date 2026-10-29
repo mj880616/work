@@ -35,29 +35,9 @@ export function hasOwnTitle(title: unknown, text: unknown): boolean {
   return t !== autoTitle(typeof text === "string" ? text : "");
 }
 
-// 비밀번호·토큰·키 모양 글(10/28 17:23 결정): 걸리면 자동으로 AI에 보내지 않는다. 값은 어디에도 남기지 않는다.
-const SECRET_WORD = /(비밀\s*번호|비번|패스워드|password|passwd|pwd|api[\s_-]?key|secret|token|토큰|인증\s*키|액세스\s*키|access[\s_-]?key|private[\s_-]?key|otp|pin\s*번호|계좌\s*비번)\s*[:=：]?/i;
-const SECRET_SHAPE = [
-  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-  /\b(?:sk|pk|rk)[-_](?:live|test|proj)?[-_]?[A-Za-z0-9]{16,}/,
-  /\bgh[pousr]_[A-Za-z0-9]{20,}/,
-  /\bAKIA[0-9A-Z]{16}\b/,
-  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./,
-  /\bxox[abpr]-[A-Za-z0-9-]{10,}/,
-];
-// 숫자·대소문자·기호가 섞인 24자 이상 덩어리(키 모양).
-const LONG_RANDOM = /[A-Za-z0-9+\/_=-]{24,}/g;
-export function looksSecret(text: string): boolean {
-  const s = String(text ?? "");
-  if (SECRET_WORD.test(s)) return true;
-  if (SECRET_SHAPE.some((re) => re.test(s))) return true;
-  for (const m of s.match(LONG_RANDOM) || []) {
-    if (/^https?/i.test(m)) continue;
-    const kinds = [/[a-z]/, /[A-Z]/, /\d/].filter((re) => re.test(m)).length;
-    if (kinds >= 3) return true;
-  }
-  return false;
-}
+// 비밀번호·토큰·키 모양 글(10/28 17:23 결정): 판별은 note-secret.ts 한 곳(화면 app/note-secret.mjs와 같은 규칙). 여기서는 다시 내보내기만 한다.
+import { looksSecret } from "./note-secret.ts";
+export { looksSecret };
 
 // 보낼 재료: 본문 앞 4000자(연락처는 지움). 제목은 본문 첫 줄이라 따로 보내지 않는다.
 export function noteTitleMaterial(text: string): string {

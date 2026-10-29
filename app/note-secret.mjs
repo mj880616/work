@@ -1,5 +1,5 @@
 // NOTE-비밀메모(2026-10-28 17:23 명진 결정): 비밀번호·토큰·키 모양 글이 든 노트는 목록·검색 제목을 '비밀 메모'로 가리고, 자동으로 AI에 보내지 않는다.
-// 판별 규칙은 서버 supabase/functions/ai-assist/note-title.ts looksSecret과 같은 규칙이다(서버가 AI에 보내기 전에 한 번 더 본다).
+// 판별 규칙은 서버 supabase/functions/ai-assist/note-secret.ts와 같은 규칙이다(서버가 AI에 보내기 전에 한 번 더 본다).
 // 두 곳이 어긋나지 않게 tests/note-secret.test.mjs가 서버 파일의 규칙 줄과 이 파일의 규칙 줄을 글자 그대로 비교한다.
 // 화면 공용 순수 모듈(화면·저장소·네트워크 없음). 값은 어디에도 남기지 않는다(기기 저장 없음).
 const plain = v => v !== null && typeof v === 'object' && !Array.isArray(v);

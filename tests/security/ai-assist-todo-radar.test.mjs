@@ -445,3 +445,22 @@ test('instructions: meeting rules name connected, 내 담당 사업 and already_
   const text=radar.buildTodoRadarInstructions();
   for(const word of ['connected','내 담당 사업','already_handled','evidence'])assert.ok(text.includes(word),word);
 });
+
+// NOTE-비밀메모 서버 쪽: [AI에 보내지 않기] 노트·비밀 모양 노트는 할 일 찾기 재료에서 빠지고, [AI 제외 풀기] 노트는 들어간다. 기록에는 개수만.
+test('NOTE-비밀메모: AI 제외·비밀 모양 노트는 AI 요청 본문에 없고, 풀어 준 노트는 들어간다',async()=>{
+  const {handler,calls,db}=harness();
+  db.app_notes.push(
+    {id:id(91),workspace_id:WS,kind:'note',title:'가상 메모 OFF_TITLE',raw_text:'꺼 둔 노트 OFF_TEXT',occurred_at:RECENT,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{ai_off:true}},
+    {id:id(92),workspace_id:WS,kind:'note',title:'가상 공유기',raw_text:'API_KEY = SECRET_SHAPE_TEXT',occurred_at:RECENT,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true},
+    {id:id(93),workspace_id:WS,kind:'note',title:'가상 풀어 둔 노트',raw_text:'토큰 발급 회의 정리 UNLOCKED_TEXT',occurred_at:RECENT,updated_at:RECENT,journal_day:null,archived_at:null,ai_export_allowed:true,metadata:{ai_off:false}},
+  );
+  const res=await post(handler,find());
+  assert.equal(res.status,200);
+  const material=calls.openai[0].input[1].content;
+  for(const hidden of ['OFF_TITLE','OFF_TEXT','SECRET_SHAPE_TEXT','가상 공유기'])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  assert.ok(material.includes('UNLOCKED_TEXT'),'[AI 제외 풀기] 노트는 보낸다');
+  assert.match(calls.rest.find(c=>c.table==='app_notes').query,/select=[^&]*\bmetadata\b/);
+  assert.deepEqual(calls.logs.find(l=>l.code==='radar_note_ai_off_skipped')?.detail,{count:2});
+  const logs=JSON.stringify(calls.logs);
+  for(const hidden of ['OFF_TITLE','OFF_TEXT','SECRET_SHAPE_TEXT','가상 공유기'])assert.ok(!logs.includes(hidden),hidden+' must not be logged');
+});
