@@ -114,6 +114,8 @@
   }
   function mutationBodyKey(body){
     if(body===null||body===undefined)return '';
+    // 파일 그대로 보내는 몸통(녹음 전사 올리기): 이름·크기·종류·시각으로만 구분한다.
+    if(typeof Blob!=='undefined'&&body instanceof Blob)return JSON.stringify(['blob',body.name||'',Number(body.size)||0,body.type||'',Number(body.lastModified)||0]);
     if(body instanceof FormData){
       const parts=[];
       for(const [key,value] of body.entries()){
@@ -197,14 +199,15 @@
     }
     const requestEpoch=sessionEpoch;
     const url=path.startsWith('http')?path:config.url+path;
-    const requestBody=body===null?null:(body instanceof FormData?body:JSON.stringify(body));
+    const rawBody=body instanceof FormData||(typeof Blob!=='undefined'&&body instanceof Blob);
+    const requestBody=body===null?null:(rawBody?body:JSON.stringify(body));
 
     async function request(){
       checkRequestSession(expectedSessionEpoch);
       const current=read();
       if(auth&&!current?.access_token)throw sessionRequired();
       const h={apikey:config.key,...headers};
-      if(!(body instanceof FormData)&&!h['Content-Type'])h['Content-Type']='application/json';
+      if(!(body instanceof FormData)&&!h['Content-Type'])h['Content-Type']=rawBody?(body.type||'application/octet-stream'):'application/json';
       h.Authorization='Bearer '+(auth?current.access_token:config.key);
       if(prefer)h.Prefer=prefer;
       const started=performance.now();
