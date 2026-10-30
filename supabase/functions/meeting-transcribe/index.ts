@@ -29,8 +29,8 @@ import {
   seoulDay, transcriptionRequest, trashBefore, usageRef, wantsDiarize,
 } from './model.mjs';
 import {
-  PIECE_FOLDER, REC_FINISH_BUDGET_MS, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
-  appendPatch, closePatch, discardPatch, discardPlan, nextSegment, ownRows, parsePiece, pendingSessions, pendingSince, pieceDecision,
+  PIECE_FOLDER, REC_DRIVE_PARALLEL, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_ROLL_PIECES, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
+  appendPatch, closePatch, combineWithin, discardPatch, discardPlan, joinPieces, mapLimit, nextSegment, ownRows, parsePiece, pendingSessions, pendingSince, pieceDecision,
   pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
 } from './recording.mjs';
 
@@ -367,46 +367,26 @@ async function ownSession(userId: string, sessionId: unknown): Promise<Job[]> {
 }
 const segmentView = (r: Job) => ({ segment_no: r.segment_no, status: r.status, error_code: r.error_code ?? null, job_id: r.job_id ?? null, duration_sec: r.duration_sec ?? null });
 
-// 조각들을 순서대로 이어 한 흐름으로(메모리에 다 담지 않음).
-function joinPieces(token: string, ids: string[]): ReadableStream<Uint8Array> {
-  let i = 0;
-  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
-  return new ReadableStream<Uint8Array>({
-    async pull(ctrl) {
-      for (;;) {
-        if (!reader) {
-          if (i >= ids.length) { ctrl.close(); return; }
-          const r = await fetch(`${DRIVE}/${encodeURIComponent(ids[i++])}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
-          if (!r.ok || !r.body) { await r.body?.cancel(); ctrl.error(new Fail('drive_failed')); return; }
-          reader = r.body.getReader();
-        }
-        const { value, done } = await reader.read();
-        if (done) { reader = null; continue; }
-        if (value?.byteLength) { ctrl.enqueue(value); return; }
-      }
-    },
-    async cancel() { await reader?.cancel(); },
-  });
-}
+// 조각 하나 내려받기 요청(이어 붙이기는 recording.mjs joinPieces가 순서대로, 다음 조각은 미리).
+const pieceMedia = (token: string) => (id: string) =>
+  fetch(`${DRIVE}/${encodeURIComponent(id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
 // 조각 파일 크기(조각 폴더 바로 아래, 휴지통 아님)의 합.
+// 1분 조각이면 한 구간이 60개라 REC_DRIVE_PARALLEL개씩 동시에 묻는다(하나라도 이상하면 drive_failed).
 async function piecesSize(token: string, ids: string[], folder: string) {
-  let size = 0;
-  for (const id of ids) {
+  const sizes = await mapLimit(ids, REC_DRIVE_PARALLEL, async (id: string) => {
     const r = await fetch(`${DRIVE}/${encodeURIComponent(id)}?fields=size,trashed,parents`, { headers: { Authorization: `Bearer ${token}` } });
     const d = await r.json().catch(() => null);
     if (!r.ok || d?.trashed !== false || !Array.isArray(d?.parents) || !d.parents.includes(folder) || !/^\d{1,12}$/.test(String(d?.size))) throw new Fail('drive_failed');
-    size += Number(d.size);
-  }
-  return size;
+    return Number(d.size);
+  });
+  return sizes.reduce((a: number, b: number) => a + b, 0);
 }
 // 조각을 Drive 휴지통으로(조각 폴더 바로 아래 것만). 모두 끝나면 표시.
 async function trashPieces(seg: Job, token: string, folder: string | null, extra: Record<string, unknown> = {}) {
   let all = true;
   if (folder) {
-    for (const id of seg.piece_ids || []) {
-      const result = await moveDriveFileToTrash(fetch, id, folder, token);
-      if (!(result === 'trashed' || result === 'already_trashed' || result === 'not_ours')) all = false;
-    }
+    const results = await mapLimit(seg.piece_ids || [], REC_DRIVE_PARALLEL, (id: string) => moveDriveFileToTrash(fetch, id, folder, token).catch(() => 'unknown'));
+    if (results.some((result: string) => !(result === 'trashed' || result === 'already_trashed' || result === 'not_ours'))) all = false;
   } else if ((seg.piece_ids || []).length) all = false;
   if (all) await setRec(seg.id, { ...extra, pieces_trashed_at: new Date().toISOString() });
   return all;
@@ -419,7 +399,7 @@ async function combineSegment(userId: string, seg: Job, token: string, pieces: s
     if (size <= 0) throw new Fail('drive_failed');
     if (size > MAX_BYTES) throw new Fail('too_large');
     const name = segmentFileName(seg.created_at, seg.segment_no, seg.mime_type);
-    const driveId = await driveUpload(token, target, joinPieces(token, seg.piece_ids), name, seg.mime_type, size);
+    const driveId = await driveUpload(token, target, joinPieces(pieceMedia(token), seg.piece_ids), name, seg.mime_type, size);
     const { data: job, error } = await admin.from(TABLE).insert({
       workspace_id: seg.workspace_id, created_by: userId, status: 'uploaded', drive_file_id: driveId,
       file_name: name, mime_type: seg.mime_type, size_bytes: size, duration_sec: seg.duration_sec ?? null,
@@ -491,7 +471,7 @@ async function recStart(user: { id: string }, body: Record<string, unknown>) {
     workspace_id: workspaceId, created_by: user.id, session_id: sessionId, segment_no: segmentNo, mime_type: mime,
   }).select('id').single();
   if (error || !data?.id) throw new Fail(error?.code === '23505' ? 'busy' : 'failed');
-  return json({ ok: true, recording_id: data.id, session_id: sessionId, segment_no: segmentNo, piece_seconds: REC_PIECE_SECONDS, segment_seconds: REC_SEGMENT_SECONDS });
+  return json({ ok: true, recording_id: data.id, session_id: sessionId, segment_no: segmentNo, piece_seconds: REC_PIECE_SECONDS, segment_seconds: REC_SEGMENT_SECONDS, max_pieces: REC_ROLL_PIECES });
 }
 
 async function recPiece(req: Request, user: { id: string }) {
@@ -538,10 +518,7 @@ async function recFinish(user: { id: string }, body: Record<string, unknown>) {
     const pieces = await pieceFolder(ws, token, false);
     const target = await recordingFolder(ws, token, true);
     if (!target) throw new Fail('drive_failed');
-    for (const seg of pending) {
-      if (Date.now() - started > REC_FINISH_BUDGET_MS) { more = true; break; }
-      await combineSegment(user.id, seg, token, pieces, target);
-    }
+    ({ more } = await combineWithin(pending, (seg: Job) => combineSegment(user.id, seg, token, pieces, target), { started }));
     rows = await ownSession(user.id, body.session_id);
   }
   return json({ ok: true, session_id: body.session_id, more, segments: rows.filter(r => r.status !== 'empty').map(segmentView) });
@@ -661,7 +638,8 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
       if (await setRec(p.row.id, { status: 'combined', error_code: null }, { status: 'failed', error_code: p.row.error_code })) restored++;
     } else {
       if (!folder) throw new Fail('drive_failed');
-      for (const id of p.row.piece_ids || []) if (!ok(await untrashDriveFile(id, folder, token))) throw new Fail('drive_failed');
+      const back = await mapLimit(p.row.piece_ids || [], REC_DRIVE_PARALLEL, (id: string) => untrashDriveFile(id, folder, token));
+      if (!back.every(ok)) throw new Fail('drive_failed');
       if (await setRec(p.row.id, { status: 'closed', error_code: null, pieces_trashed_at: null }, { status: 'failed', error_code: p.row.error_code })) restored++;
     }
   }

@@ -2,15 +2,15 @@
 // 설계: docs/design/laptop-recording.md 8절. 서버: Edge meeting-transcribe의 rec_start·rec_piece·rec_finish·rec_pending(PR 1511)과 기존 transcribe·attach.
 // - 주인: 이 모듈 하나가 녹음기·녹음 띠(#recBand)·[녹음](#reportRecordBtn)·'이어서 정리' 줄(#recPendingLine)을 그린다(AGENTS.md 5절 one state owner).
 //   loader-v2.js가 첫 화면 뒤 한 번 불러오고, 화면 전환에 다시 그리지 않으므로 다른 메뉴로 옮겨도 녹음은 계속된다.
-// - 기기 저장 없음: 녹음 조각은 5분마다 서버(명진 Drive)로 가고, 보내지 못한 조각은 메모리에만 두고 같은 번호로 다시 보낸다.
-//   브라우저 저장 공간을 쓰지 않는다(Browser storage audit). 창을 닫으면 마지막 5분 안쪽만 잃고, 다시 열면 '이어서 정리'(rec_pending).
+// - 기기 저장 없음: 녹음 조각은 1분마다(서버가 rec_start로 알려 준 간격) 서버(명진 Drive)로 가고, 보내지 못한 조각은 메모리에만 두고 같은 번호로 다시 보낸다.
+//   브라우저 저장 공간을 쓰지 않는다(Browser storage audit). 창을 닫으면 마지막 1분 안쪽만 잃고, 다시 열면 '이어서 정리'(rec_pending).
 // - [버리기](요청함 10/30 10:01): 녹음을 바로 멈추고 마이크를 끈 뒤, 이미 녹음된 것만 마저 올리고(최대 DISCARD_DRAIN_MS) rec_discard로
 //   올린 조각을 모두 Drive 휴지통으로 옮긴다(전사·요약·초안 없음). 올리지 못한 조각은 메모리에서 버린다. 위쪽 작은 알림 [되돌리기](10초)는
 //   rec_restore로 휴지통에서 꺼내 '이어서 정리' 줄로 돌린다(마이크는 꺼졌으므로 녹음을 이어 하지는 않음). '이어서 정리' 줄에도 같은 [버리기].
 // - 59분마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
 // - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [초안 채우기]
 //   (meeting-transcript-draft.js). 저장은 명진이 [사업 보고 저장]으로 하고, 그 뒤 구간마다 attach(기존 [이 회의에 녹음 붙이기]).
-import {PIECE_SECONDS,AUDIO_BITS,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan} from './meeting-recorder-model.mjs';
+import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
 import {notify} from './small-notice.js';
 
@@ -31,6 +31,7 @@ let state='idle',step='',note='',errorText='',canRetry=false;
 let stream=null,current=null,segments=[],sessionId='',workspaceId='',startedAt='';
 let rollingStops=[],accum=0,runSince=0,ticker=0,pumping=false,fails=0,retryTimer=0,drainWaiters=[],stopReason='';
 let pending=[],pendingFor='',pendingFlight=null,discarding=false;
+let pieceMs=PIECE_SECONDS*1000,rollPieces=rollPiecesOf(null); // 이 녹음의 조각 간격·구간 조각 한도(rec_start 답, 녹음 내내 같음)
 const DISCARD_DRAIN_MS=20000,DISCARD_NOTICE_MS=10000;
 const doneTexts=new Map(); // 이 창에서 전사가 끝난 구간 글(job id → 글). 서버는 전사 글을 저장하지 않으므로 다시 시도할 때 쓴다(메모리에만).
 
@@ -114,7 +115,7 @@ function startTicker(){clearInterval(ticker);ticker=setInterval(tick,1000)}
 function tick(){
   if(state==='recording'&&current&&!current.rolling){
     const segSec=(elapsed()-current.seg.base)/1000;
-    if(shouldRoll(segSec))roll();
+    if(shouldRoll(segSec,SEGMENT_SECONDS,current.seg.seq,rollPieces))roll();
   }
   if(active())paint();
 }
@@ -141,7 +142,7 @@ function roll(){
   old.rolling=true;
   const seg={no:old.seg.no+1,id:null,ended:false,stopped:false,seq:0,pieces:[],base:elapsed()};
   segments.push(seg);
-  try{current=makeRecorder(seg);current.rec.start(PIECE_SECONDS*1000)}
+  try{current=makeRecorder(seg);current.rec.start(pieceMs)}
   catch(e){console.warn('recorder roll failed',e?.name||'');segments.pop();current=old;old.rolling=false;return}
   rollingStops.push(old.stopped);
   try{old.rec.stop()}catch{old.end()}
@@ -162,10 +163,11 @@ async function start(){
     const r=await call('rec_start',{workspace_id:workspaceId,mime:baseMime(MIME)});
     if(!r?.recording_id||!r?.session_id)throw new Error('');
     sessionId=r.session_id;
+    pieceMs=pieceSecondsOf(r)*1000;rollPieces=rollPiecesOf(r);
     const seg={no:r.segment_no||1,id:r.recording_id,ended:false,stopped:false,seq:0,pieces:[],base:0};
     segments=[seg];
     current=makeRecorder(seg);
-    current.rec.start(PIECE_SECONDS*1000);
+    current.rec.start(pieceMs);
     startedAt=new Date().toISOString();
     state='recording';runSince=performance.now();startTicker();paint();paintPending();
   }catch(e){
