@@ -130,6 +130,10 @@ import {
   PEOPLE_BRIEF_MAX_PEOPLE, PEOPLE_BRIEF_READ_LIMIT, PEOPLE_BRIEF_SCHEMA, peopleBriefMaterial, whoIn as briefWhoIn,
 } from "./org-people-brief.ts";
 import {
+  packStatusRecords, parseStatusRows, type StatusRecord, STATUS_ROWS_DAYS, STATUS_ROWS_INSTRUCTIONS, STATUS_ROWS_MAX_OUTPUT_TOKENS, STATUS_ROWS_SCHEMA,
+  statusRowsMaterial,
+} from "./org-status-rows.ts";
+import {
   addDays as addDayKeys, packScheduleRecords, parseScheduleRequest, parseScheduleTitles, SCHEDULE_BODY_BYTES, SCHEDULE_MAX_OUTPUT_TOKENS,
   SCHEDULE_MAX_NAMES, SCHEDULE_TITLES_INSTRUCTIONS, SCHEDULE_TITLES_SCHEMA, scheduleMaterial, type ScheduleEvent, type ScheduleRecord,
 } from "./schedule-titles.ts";
@@ -175,7 +179,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -249,6 +253,7 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_people_not_ready: "주요 인물 기능이 아직 준비되지 않았어요.",
   org_people_unavailable: "주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  org_status_unavailable: "조직 기록을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   press_no_source: "고른 기록에 초안에 쓸 글이 없어요.",
   ask_not_ready: "Web2에 물어보기가 아직 준비되지 않았어요.",
   ask_unavailable: "기록을 찾거나 답을 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
@@ -489,6 +494,8 @@ type LedgerAutoInput = { kind: "ledger_auto" };
 type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
 type OrgPeopleBriefInput = { kind: "org_people_brief"; organization_id: string };
+// DESK-현황표: 조직 ID 하나만. 서버는 저장하지 않고 줄 후보만 돌려준다(화면이 표에 넣음).
+type OrgStatusRowsInput = { kind: "org_status_rows"; organization_id: string };
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 // WEEKLY-환류학습(weekly-learn.ts): AI 초안(칸 글 + 이번 주 기록)과 [확정] 뒤 환류 보고(주만).
 type WeeklyDraftInput = { kind: "weekly_draft" } & WeeklyDraftRequest;
@@ -551,7 +558,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -639,6 +646,13 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
       throw new Fail(400, "invalid_request");
     }
     return { kind: "org_people_brief", organization_id: b.organization_id.toLowerCase() };
+  }
+  // DESK-현황표 '기록에서 다시 채우기': 조직 ID 하나만 받는다.
+  if (b.kind === "org_status_rows") {
+    if (Object.keys(b).sort().join(",") !== "kind,organization_id" || typeof b.organization_id !== "string" || !UUID.test(b.organization_id)) {
+      throw new Fail(400, "invalid_request");
+    }
+    return { kind: "org_status_rows", organization_id: b.organization_id.toLowerCase() };
   }
   // 사업영역 AI(business-area.ts): 한 줄 요약은 주·사업영역 ID만, 추천은 쓰기 창의 제목·글만.
   if (b.kind === "area_week_summary") {
@@ -2657,10 +2671,11 @@ async function readSummaries(ctx: Ctx, weeks: string[], orgIds: string[]): Promi
 
 // 그 주 재료: 조직 기록(조직 화면), 그 조직에 연결한 업데이트(연결 기록 요약 포함), 첨부를 그 조직 자료로 넣은 업데이트.
 // 업데이트는 일기·보관·AI 내보내기 비허용을 읽는 조건에서 빼고 받은 행도 다시 확인한다. 첨부는 파일 이름만.
-async function loadOrgMaterial(ctx: Ctx, week: string, orgs: Map<string, string>) {
+// DESK-현황표(org_status_rows)도 같은 재료를 days일 창으로 읽는다(week = 창 첫날). 기록마다 원래 번호(ref)를 붙인다(근거용, 조직 요약은 쓰지 않음).
+async function loadOrgMaterial(ctx: Ctx, week: string, orgs: Map<string, string>, days = 7) {
   const ws = encodeURIComponent(ctx.workspaceId), ids = [...orgs.keys()].join(",");
-  const from = encodeURIComponent(seoulMidnight(week)), to = encodeURIComponent(seoulMidnight(addDays(week, 7)));
-  const records = new Map<string, OrgMaterial["records"]>([...orgs.keys()].map((id) => [id, []]));
+  const from = encodeURIComponent(seoulMidnight(week)), to = encodeURIComponent(seoulMidnight(addDays(week, days)));
+  const records = new Map<string, StatusRecord[]>([...orgs.keys()].map((id) => [id, []]));
   let partial = false;
   const full = (rows: unknown[], limit: number) => { if (rows.length >= limit) partial = true; };
 
@@ -2670,7 +2685,7 @@ async function loadOrgMaterial(ctx: Ctx, week: string, orgs: Map<string, string>
     const org = String(u.organization_id).toLowerCase(), at = timeOf(u.occurred_at);
     if (!isUuid(u.id) || !records.has(org) || !Number.isFinite(at)) continue;
     const text = [u.raw_text, u.detail_text].filter((v) => typeof v === "string" && v.trim()).join("\n");
-    if (text) records.get(org)!.push({ day: kstDay(at), at, type: "org_update", text });
+    if (text) records.get(org)!.push({ day: kstDay(at), at, type: "org_update", text, ref: String(u.id).toLowerCase() });
   }
 
   const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=eq.basket&archived_at=is.null&ai_export_allowed=is.true&occurred_at=gte.${from}&occurred_at=lt.${to}&select=id,workspace_id,kind,raw_text,occurred_at,archived_at,ai_export_allowed,attachments&order=occurred_at.desc&limit=${RADAR_READ_LIMIT}`);
@@ -2693,8 +2708,8 @@ async function loadOrgMaterial(ctx: Ctx, week: string, orgs: Map<string, string>
     const note = byNote.get(noteId);
     if (!note || !records.has(org) || added.has(`${org}:${noteId}`)) return;
     added.add(`${org}:${noteId}`);
-    if (note.text.trim() || note.files.length) records.get(org)!.push({ day: kstDay(note.at), at: note.at, type: "update", text: note.text, files: note.files });
-    if (linkSummary.trim()) records.get(org)!.push({ day: kstDay(note.at), at: note.at, type: "link_summary", text: linkSummary });
+    if (note.text.trim() || note.files.length) records.get(org)!.push({ day: kstDay(note.at), at: note.at, type: "update", text: note.text, files: note.files, ref: noteId });
+    if (linkSummary.trim()) records.get(org)!.push({ day: kstDay(note.at), at: note.at, type: "link_summary", text: linkSummary, ref: noteId });
   };
   for (let i = 0; i < noteIds.length; i += IN_CHUNK) {
     const chunk = noteIds.slice(i, i + IN_CHUNK).join(",");
@@ -2995,6 +3010,70 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
   // 기록에는 숫자만 남긴다(재료·문장 없음).
   deps.log("org_people_brief_done", { people: people.length, records: packed.length, partial });
   return json({ ...base, brief: parsed.brief, detail: parsed.detail, partial });
+}
+
+// ---- 쓰임: 담당조직 현황 표 줄 뽑기(org_status_rows, DESK-현황표) ---------------------------------------------------
+// 최근 STATUS_ROWS_DAYS일 그 조직 재료(조직 요약과 같은 읽기)에서 주요 일정·현황 4줄 이하. 저장하지 않는다(화면이 표에 넣음).
+async function runOrgStatusRows(ctx: Ctx, input: OrgStatusRowsInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now(), today = kstDay(started), from = addDays(today, -(STATUS_ROWS_DAYS - 1));
+  const ws = encodeURIComponent(ctx.workspaceId), org = input.organization_id;
+  const orgRows = await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&id=eq.${org}&select=id,workspace_id,name&limit=2`);
+  const orgRow = orgRows.find((o) => String(o.id).toLowerCase() === org && String(o.workspace_id).toLowerCase() === ctx.workspaceId);
+  if (!orgRow) throw new Fail(404, "not_found");
+  const base = { ok: true, kind: "org_status_rows", organization_id: org };
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  let loaded: { records: Map<string, StatusRecord[]>; partial: boolean };
+  try {
+    loaded = await loadOrgMaterial(ctx, from, new Map([[org, String(orgRow.name ?? "")]]), STATUS_ROWS_DAYS);
+  } catch {
+    throw new Fail(503, "org_status_unavailable");
+  }
+  const { packed, partial: cutShort } = packStatusRecords(loaded.records.get(org) ?? []);
+  const partial = loaded.partial || cutShort;
+  if (!packed.length) return json({ ...base, empty: true, rows: [], partial });
+  const budget = await checkBudget(ctx, "org_status_rows", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const orgName = typeof orgRow.name === "string" ? [...orgRow.name.trim()].slice(0, MAX_TARGET_NAME_CHARS).join("") : "";
+  const material = statusRowsMaterial(orgName, packed, today);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: STATUS_ROWS_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: STATUS_ROWS_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "org_status_rows", strict: true, schema: STATUS_ROWS_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: STATUS_ROWS_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const rows = parseStatusRows(result.raw, packed, today);
+  if (!rows) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  // 기록에는 숫자만 남긴다(재료·줄 없음).
+  deps.log("org_status_rows_done", { records: packed.length, rows: rows.length, partial });
+  return json({ ...base, rows, partial });
 }
 
 // ---- 쓰임: 성명·보도자료 초안(press_draft, FEAT-1029묶음 ④, press-draft.ts) ----------------------------------------
@@ -4625,6 +4704,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_people_brief") return await runOrgPeopleBrief(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "org_status_rows") return await runOrgStatusRows(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "weekly_draft") return await runWeeklyDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "weekly_review") return await runWeeklyReview(ctx, input, { env: deps.env, now, sleep, log, doFetch });

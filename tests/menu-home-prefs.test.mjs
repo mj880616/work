@@ -5,11 +5,15 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
-test('허용 칸 스물한 개가 DB 검사(마지막 migration, photo_sources 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261030230000_photo_sources.sql');
+test('허용 칸 스물두 개가 DB 검사(마지막 migration, org_tab 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261030233000_profile_view_prefs_org_tab.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS].sort(), listed.sort());
-  assert.equal(KEYS.length, 21);
+  assert.equal(KEYS.length, 22);
+});
+test('org_tab은 log·table 글자만(DESK-현황표, DB 검사와 같음)', () => {
+  for (const v of ['log', 'table']) assert.equal(validValue('org_tab', v), true, v);
+  for (const v of ['', 'tbl', 1, true, null, ['table'], {v: 'table'}]) assert.equal(validValue('org_tab', v), false, JSON.stringify(v));
 });
 test('photo_sources는 onedrive·gdrive·phone 참·거짓만(PHOTO-출처, DB 검사와 같음)', () => {
   for (const v of [{}, {onedrive:true}, {onedrive:false, gdrive:false, phone:true}]) assert.ok(validValue('photo_sources', v), JSON.stringify(v));
@@ -78,4 +82,15 @@ test('메뉴 목록은 한 곳(menu-model.mjs)에서 정의하고 폰 하단바�
   assert.match(read('app/mobile-tab-selection.mjs'), /from '\.\/menu-model\.mjs'/);
   assert.match(read('app/menu-edit.js'), /from '\.\/menu-model\.mjs'/);
   assert.match(read('app/index.html'), /id="menuEditModal"/);
+});
+test('MENU-세칸: 편집 창은 세 칸 + PC 왼쪽 메뉴 미리보기, 맨 아래 묶음은 저장된 아래 칸(숨은 feed 규칙 아님)', () => {
+  const edit = read('app/menu-edit.js');
+  for (const name of ['bar', 'rest', 'tail']) assert.match(edit, new RegExp(`group\\('${name}'`), name);
+  assert.match(edit, /pcSplit\(layout\)/); assert.match(edit, /data-menu-edit-preview/);
+  const top = read('app/topbar-actions.js');
+  assert.doesNotMatch(top, /\['calls','telegram','arsenal'\]\.forEach/, 'PC 맨 아래 묶음 표시를 세 메뉴 이름에 묶어 두지 않는다');
+  assert.doesNotMatch(read('app/menu-model.mjs').split('export function pcSplit')[1].split('\n}')[0], /\.feed/, 'pcSplit은 저장값(아래 칸)만 본다');
+  const html = read('app/index.html'), nav = html.slice(html.indexOf('<nav aria-label="더 보기">'), html.indexOf('</nav>', html.indexOf('<nav aria-label="더 보기">')));
+  assert.ok(nav.indexOf('data-menu-tail-line') > 0 && nav.indexOf('data-menu-tail-line') < nav.indexOf('data-view="calls"'), '처음 모양의 [메뉴] 창도 아래 칸 앞에 선');
+  assert.match(read('app/menu-layout.js'), /layout\.tail/);
 });

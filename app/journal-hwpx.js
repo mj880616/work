@@ -61,6 +61,9 @@ import {caretLine, askTargets, lineRequest, readAnswer, replaceLine, suggestKey,
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 import {matchOrg} from './org-name-match.mjs';
 import {weeklyCategoryFilter} from './document-categories.js'; // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾기
+import {readStatusRows} from './org-status-table.js'; // DESK-현황표: 담당조직 [현황 표] 줄 → 3. 2) 투쟁 사업장 그 조직 칸
+import {siteLinesFromTable} from './org-status-model.mjs';
+import {isStageLine} from './org-dispute-stage-model.mjs';
 import {reportLine as orgRefLine, materialLine as orgRefMaterial, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
@@ -156,7 +159,9 @@ async function readContext(rt) {
   const mine = orgs ? selectMyOrganizations(orgs, assignees || []) : {organizations:[], fallback:true, failed:true};
   // ORG-쟁의단계 ②: 쟁의 단계(투쟁 사업장 표 자동 채움). 읽지 못해도 보고서는 기존처럼 만든다(stages.status로 한 줄 알림).
   const stages = await loadDisputeState({rt, workspaceId:workspace, force:true}).catch(() => ({status:'error', stages:[], histories:new Map()}));
-  return {stages, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
+  // DESK-현황표: 내 담당 조직의 현황 표 줄. 표가 없거나(DB 적용 전) 읽지 못하면 빈 Map — 투쟁 사업장 칸은 예전처럼 직전 확정본 줄.
+  const statusRows = await readStatusRows({rt, workspaceId:workspace, orgIds:mine.organizations.map(o => o.id)}).then(r => r.missing ? new Map() : r.rows).catch(() => new Map());
+  return {stages, statusRows, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
 }
 // 바탕 고르기(weekly-feedback.mjs pickBase): 보고일 앞의 최신 개인본 → {doc, from:'personal', team(최신 팀 확정본 — '확정본에서 바뀜' 참고용)},
 // 없으면 최신 팀 확정본 → {doc, from:'confirmed'}, 둘 다 없으면 null. 개인본을 읽지 못하면 지금처럼 확정본만 본다.
@@ -410,6 +415,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const add = missingSites(draft.editableOrgs(state.base, 'sites'), state.layout, state.context.organizations.map(o => o.name));
     if (add.length) state.base = {...state.base, sites:[...(state.base.sites ?? []), ...add.map(name => ({org:[name], status:[], paras:[]}))]};
     state.sites = draft.editableOrgs(state.base, 'sites').map(r => stage.starts.has(r.index) ? {...r, lines:stage.starts.get(r.index)} : r);
+    // DESK-현황표: 그 조직의 현황 표에 줄이 있으면 칸은 [쟁의 단계 줄] + 표 줄(표에 보이는 그대로)로 시작한다. 이 칸을 여기서 글로 고치면 그 주 보고에만
+    // 남고(임시저장 칸), 표는 바뀌지 않는다. 다음 주 칸은 다시 표에서 시작한다.
+    const table = state.context.statusRows, orgs = state.context.orgFailed || state.context.orgFallback ? [] : state.context.organizations;
+    if (table?.size && orgs.length) state.sites = state.sites.map(r => { const org = matchOrg(r.org, orgs), lines = org ? siteLinesFromTable(r.lines, table.get(org.id), t => isStageLine(t, st?.status === 'ready' ? st.stages : [])) : null; return lines ? {...r, lines} : r; });
     // WEEKLY-한글파일다듬기 ⑤: 바탕 줄 가운데 보고일 기준 지난 날짜의 '…예정'은 '예정'만 뺀 채로 시작한다(바탕과 달라 파란 글씨가 됨).
     // 바뀐 줄은 화면 위쪽 접힌 목록(renderEdit)에서 확인한다. 칸에서 다시 고칠 수 있다.
     const day = reportDay(state.start), plans = [];

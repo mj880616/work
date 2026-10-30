@@ -485,6 +485,8 @@
 #appView .mobile-menu-panel :is(nav,#mobileAccountGroup) button{ min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
 #appView .mobile-menu-panel nav button:not([hidden]) ~ button:not([hidden]){ border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
 #appView .mobile-menu-panel > nav{ margin-top:12px; }
+/* MENU-세칸: [메뉴] 창 맨 아래 '아래 붙는 메뉴' 앞 가는 선 하나(PC 왼쪽 맨 아래 묶음과 같은 규칙). */
+#appView .mobile-menu-panel nav .mobile-menu-tail-line{ display:block; grid-column:1 / -1; height:0; margin:4px 0; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView .mobile-menu-panel h2{ margin:4px 0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--ds-section-ink); }
 
 /* PC 사이드바: 0.5px 상자·모서리 12px·그림자 없음, 메뉴 줄 13px(고른 화면만 500, 연한 계정 색 바탕). */

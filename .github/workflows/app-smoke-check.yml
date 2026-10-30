@@ -274,6 +274,9 @@ jobs:
       - name: Check organization key people tab (ORG-주요인물)
         run: node --test tests/org-key-people.test.mjs
 
+      - name: Check organization status table sub-tab (DESK-현황표)
+        run: node --test tests/org-status-model.test.mjs
+
       - name: Check home quiet organizations line (FEAT-1029묶음 ③)
         run: node --test tests/org-quiet.test.mjs
       - name: Check note views and sticky board (NOTE-보기3가지)
@@ -442,7 +445,7 @@ jobs:
 
       - name: Check photo menu (PHOTO-사진메뉴 1차, newest-first list·day heads·calendar cover·multi star·delete undo·shared viewer, synthetic)
         run: node --test tests/photos-model.test.mjs
-      - name: Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)
+      - name: "Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)"
         run: node --test tests/photo-sources.test.mjs
 
       - name: Check arsenal menu (주소 개편 ② E1, newest-first list·season/competition/search filters·goal lines·https links only, real archive data)
@@ -543,6 +546,9 @@ jobs:
 
       - name: UI-목록밀기 폰 목록 줄 밀기 셈·연결, UI-메뉴잘림
         run: node --test tests/row-swipe-model.test.mjs
+
+      - name: MTG-결과마크다운 사업 보고 결과 원문 마크다운 보기·쓰기 창 글자 보존
+        run: node --test tests/report-result-markdown.test.mjs
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
