@@ -98,9 +98,9 @@ for (const width of [412, 884, 1440]) test('HTML 공유 페이지: 올리기·�
   // The sign-in is in this app's storage; the file must not reach it.
   expect(await page.evaluate(() => JSON.stringify(localStorage))).toContain('html-secret-access');
 
-  // One 보관함 only (the old five Web1 pages inside), no '이전 페이지' fold.
-  await expect(root.locator('details.sp-box > summary')).toHaveText('보관함 5');
-  await expect(page.locator('#pagesView details#web1BoardLegacy')).toHaveCount(0);
+  // DOMAIN-④ E2: no old Web1 cards; with nothing kept there is no 보관함 line and no '이전 페이지' fold.
+  await expect(root.locator('details.sp-box')).toHaveCount(0);
+  await expect(page.locator('#pagesView details#web1BoardLegacy,#pagesView .w1b-card')).toHaveCount(0);
 
   await root.getByRole('button', {name:'새 HTML 공유 페이지'}).click();
   const modal = page.locator('#shareHtmlModal');

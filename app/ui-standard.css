@@ -439,7 +439,7 @@
 
 /* 창 제목 18px. 창 제목 크기는 공용 대화상자 규칙(D-6b, workspace-ui.css)이 --kptu-text-title로 정하므로 창 안에서만 그 값을 바꾼다. */
 .modal{ --kptu-text-title:var(--ds-text-title); }
-.modal :is(.modal-head h2,.w1b-detail-head h2),.home-choice-sheet h2,.theme-panel h2{ font-size:var(--ds-text-title); line-height:1.4; }
+.modal .modal-head h2,.home-choice-sheet h2,.theme-panel h2{ font-size:var(--ds-text-title); line-height:1.4; }
 
 /* 입력: 높이 하나·0.5px 선·모서리 8px. 여러 줄 칸은 높이만 그대로. */
 
@@ -450,13 +450,12 @@
 .modal textarea{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; }
 
 /* 상자: 0.5px 선·모서리 12px·그림자 없음. */
-#appView #hwpView .hwp-lab,#appView #pagesView .w1b-grid:has(.w1b-card),
+#appView #hwpView .hwp-lab,
 .modal .modal-card,.modal fieldset.meeting-entry-section,.theme-panel .theme-choices,.account-panel{
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none;
 }
 /* 구분선 0.5px. */
-.modal :is(.modal-action-footer,.w1b-detail-head){ border-color:var(--ds-line); border-top-width:var(--ds-line-width); }
-.modal :is(.w1b-detail-head){ border-top-width:0; border-bottom-width:var(--ds-line-width); }
+.modal .modal-action-footer{ border-color:var(--ds-line); border-top-width:var(--ds-line-width); }
 .modal hr,.mobile-menu-panel hr{ border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
 
 /* HWP 편집: 안내 12px 흐린 색, 편집기 칸막이 바깥 틀은 0.5px 선·모서리 8px, 바탕은 밝게(칸막이 안은 그대로). */
@@ -465,17 +464,6 @@
 #appView #calendarView .calendar-google-panel .updated{ font-weight:var(--ds-weight-regular); }
 #appView #hwpView .hwp-drive-bar a{ font-size:var(--ds-text-button); color:var(--kptu-link); }
 
-/* 게시판: 카드 묶음 대신 0.5px 상자 안 줄(44px), 이름 13px·400, 오른쪽 ›. 지나간 업무는 접기(<details>) 그대로, 이름은 섹션 이름. */
-#appView #pagesView .w1b-grid:has(.w1b-card){ display:block; overflow:hidden; background:var(--kptu-surface); }
-#appView #pagesView .w1b-card{ box-sizing:border-box; display:flex; align-items:center; gap:10px; min-height:var(--kptu-touch-target,44px); padding:var(--ds-row-pad-y) var(--ds-row-pad-x); border:0; border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; transform:none; }
-#appView #pagesView .w1b-card:first-child{ border-top:0; }
-#appView #pagesView .w1b-card:hover{ box-shadow:none; transform:none; background:var(--kptu-surface-subtle); }
-#appView #pagesView .w1b-card:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
-#appView #pagesView .w1b-card h3{ flex:1 1 auto; min-width:0; font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.4; }
-#appView #pagesView .w1b-card::after{ content:"›" / ""; flex:0 0 auto; color:var(--kptu-muted); font-size:16px; line-height:1; }
-#appView #pagesView .w1b-archive > summary{ font-size:var(--ds-text-section); color:var(--ds-section-ink); min-height:var(--kptu-touch-target,44px); display:flex; align-items:center; margin-bottom:0; }
-/* 성명·게시판 본문 칸막이는 사용자가 붙여 넣은 HTML: 다크 모드에서도 밝게. */
-.modal :is(.w1b-detail-frame){ color-scheme:light; background:var(--ds-frame-paper); }
 
 /* 공용 창: 닫기 ×는 테두리 없는 아이콘(크기·누르는 범위는 그대로). */
 .modal .modal-head .icon-btn{ border-color:transparent; background:transparent; color:var(--kptu-muted); }
@@ -532,8 +520,6 @@
 
 /* 폰 머리줄·하단 탭: 화면 이름 18px·500, 탭 위 0.5px 선, 고른 탭은 500. */
 @media(max-width:760px){
-  /* 게시판 본문 전체 화면 창: [닫기]가 46px 버튼이 되어도 본문 칸막이가 줄지 않게 머리 위아래 여백만 줄인다. */
-  #appView #web1BoardDetailModal .w1b-detail-head{ min-height:0; padding-top:calc(4px + env(safe-area-inset-top)); padding-bottom:4px; }
   #appView > .mobile-shell-header :is(time,[data-mobile-view-name]){ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; }
   #appView > .mobile-tabs{ border-top:var(--ds-line-width) solid var(--ds-line); }
   #appView > .mobile-tabs button[aria-current="page"]{ font-weight:var(--ds-weight-medium); }

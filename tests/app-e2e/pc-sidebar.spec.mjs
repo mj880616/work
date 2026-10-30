@@ -74,7 +74,7 @@ test('"게시판" 이름은 "공유 페이지"(사이드바·폰 메뉴·화면 
  const errors=await open(page,1280);
  await expect(nav(page).locator('.nav-btn[data-view="pages"]')).toHaveText('공유 페이지');
  await nav(page).locator('.nav-btn[data-view="pages"]').click();await expect(page.locator('#pagesView')).toBeVisible();await expect(page).toHaveURL(/view=pages/);
- await expect(page.locator('#web1BoardDetailTitle')).toHaveText('공유 페이지');
+ await expect(page.locator('#sharePagesRoot').getByRole('heading', {name:'공유 페이지', exact:true})).toHaveCount(1);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-view="pages"]')).toHaveText('공유 페이지');
  await page.locator('#mobileMenu [data-view="pages"]').click();await expect(page.locator('[data-mobile-view-name]')).toHaveText('공유 페이지');

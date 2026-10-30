@@ -1,5 +1,4 @@
 import { appOrigin } from './helpers/test-origin.mjs';
-import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -206,9 +205,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['tasks','#tasksView .home-quick [data-quick-save]','backgroundColor',color],
    ['projects','#newProjectBtn','backgroundColor',color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
-   ['meetings','#newMeetingBtn','backgroundColor',color],
-   // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕).
-   ['pages','#web1BoardActive','backgroundColor',surface[theme]]
+   ['meetings','#newMeetingBtn','backgroundColor',color]
   ]){
    await clickView(page,view);
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
@@ -227,7 +224,6 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
      expect(await navBtn.evaluate(el=>getComputedStyle(el).boxShadow)).toContain('inset');
     }
    }
-   if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);
    if(view==='projects'){
     await page.locator('#projectGrid .ps3-plist [data-ps3-project="theme-project"]').click();await expectProjectDetail(page,'theme-project');

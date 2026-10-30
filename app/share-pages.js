@@ -1,8 +1,8 @@
 import {waitInlineHtml, waitEl, emptyEl} from './wait-state.js';
 // SHARE-현장공유 PR 2(화면): the top of the "공유 페이지" menu (#sharePagesRoot). This module is the only renderer of that
 // region: my share pages list + [새 공유 페이지], and the editor (title, blocks, 초안/게시, project link, links).
-// SHARE-보관함·HTML공유: one folded '보관함 n' under the list holds the kept share pages (newest first) and, below them, the old
-// Web1 cards (web1-board.js draws those into #web1BoardLegacy; this module only places that holder inside the 보관함 line).
+// SHARE-보관함·HTML공유: one folded '보관함 n' under the list holds the kept share pages (newest first). DOMAIN-④ E2: the old
+// Web1 cards that sat below them are removed with Web1.
 // The old '이전 페이지' and '지나간 업무 · 사업' folds are gone; no record is removed. HTML file pages (share-html.js) are lines
 // with an 'HTML' tag and their own ⋯ (링크 복사 · 새 파일로 바꾸기 · 링크 끄기/켜기 · 보관함으로 · 삭제); pressing one shows its preview.
 // SHARE-전체편집: a page that is one 글(doc) block — every new page — opens as a full writing screen (renderFull): one thin
@@ -109,20 +109,17 @@ function renderList() {
         : el('span', {class:`sp-pill ${page.status === 'published' ? 'is-on' : ''}`, text:page.status === 'published' ? '게시' : '초안'})),
     el('button', {type:'button', class:'sp-row-more', dataset:{spRowMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
       'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'}))))));
-  // 보관함: kept share pages (newest first), then the old Web1 pages (fixed cards without a date, drawn by web1-board.js).
-  const legacy = document.querySelector('#web1BoardLegacy');
-  const legacyCount = legacy ? legacy.querySelectorAll('.w1b-card').length : 0;
+  // 보관함: kept share pages (newest first).
   const kept = box || [];
-  if (kept.length || legacy) {
+  if (kept.length) {
     const details = el('details', {class:'sp-box', open:boxOpen, dataset:{spBox:''}},
-      el('summary', {class:'sp-box-summary', text:`보관함 ${kept.length + legacyCount}`}),
-      kept.length ? el('ul', {class:'sp-list sp-box-list', 'aria-label':'보관함'}, kept.map(page => el('li', {},
+      el('summary', {class:'sp-box-summary', text:`보관함 ${kept.length}`}),
+      el('ul', {class:'sp-list sp-box-list', 'aria-label':'보관함'}, kept.map(page => el('li', {},
         el('div', {class:'sp-row sp-box-row'},
           el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
           el('span', {class:'sp-row-meta', text:day(page.updated_at)})),
         el('button', {type:'button', class:'sp-row-more', dataset:{spBoxMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
-          'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'}))))) : null);
-    if (legacy) { legacy.hidden = false; details.append(legacy); }
+          'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'}))))));
     body.push(details);
   }
   listView.replaceChildren(head, status, ...body);
@@ -934,8 +931,6 @@ window.addEventListener('kptu:session-changed', () => {
 // Restored (or permanently deleted) from the 휴지통 tab elsewhere: read the list again.
 window.addEventListener('kptu:share-pages-changed', () => { void loadList({force:true}); });
 
-// The old Web1 cards were drawn (web1-board.js): the 보관함 count includes them.
-window.addEventListener('kptu:web1-board-rendered', () => { if (!editing) renderList(); });
 window.KPTUSharePages = {reload:() => loadList({force:true})};
 renderList();
 void loadList();

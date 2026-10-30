@@ -32,19 +32,15 @@ test('Web1·Web2 브라우저 코드에 이메일 로그인·가입·비밀번�
   assert.deepEqual(hits,[]);
 });
 
-test('Supabase 로그인 화면으로 보내는 Web1 편집 코드는 Google 제공자만 쓴다',()=>{
-  const auth=readFileSync(join(root,'app/web1-admin-auth.js'),'utf8');
-  assert.match(auth,/provider:'google'/);
-  assert.match(auth,/\/auth\/v1\/authorize\?provider=google/);
+test('Supabase 로그인 화면으로 보내는 브라우저 코드는 Google 제공자만 쓴다',()=>{
   for(const file of browserFiles()){
     const text=readFileSync(file,'utf8');
     for(const m of text.matchAll(/\/auth\/v1\/authorize\?provider=([a-z_]+)/g))assert.equal(m[1],'google',relative(root,file));
   }
 });
 
-test('Web1 공용 편집기는 Google 관리자 인증 모듈만 불러온다',()=>{
-  const editor=readFileSync(join(root,'app/public-page-editor.js'),'utf8');
-  assert.match(editor,/web1-admin-auth\.js/);
-  assert.match(editor,/signInWithGoogle\(\)/);
-  assert.doesNotMatch(editor,/public-page-auth\.js|KPTUPublicAuth|ppeAuth|ppe-auth/);
+// DOMAIN-④ E2(2026-10-30): Web1 삭제를 앞당기며 Web2 쪽 Web1 편집기·관리자 로그인 파일을 지웠다. 되살아나지 않게 본다.
+test('Web1 편집기·관리자 로그인 파일은 저장소에 없다',()=>{
+  for(const p of ['app/public-page-editor.js','app/web1-admin-auth.js','app/web1-page-capabilities.js','app/web1-board.js'])
+    assert.equal(existsSync(join(root,p)),false,p);
 });
