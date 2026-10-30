@@ -2,7 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const ANON = Deno.env.get('SUPABASE_ANON_KEY') || SERVICE;
+// No fallback to the service key: a missing public key is a setup error, and the service key never goes to Auth calls made for a user.
+const ANON = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const ORIGINS = new Set([
   'https://desk.bokdoong.com',
   'https://work.bokdoong.com',
@@ -76,6 +77,7 @@ Deno.serve(async req=>{
   if (!allowed) return fail('origin_not_allowed', 403);
   if(req.method==='OPTIONS') return new Response('ok',{headers});
   if(req.method!=='POST') return fail('method_not_allowed', 405);
+  if(!SB||!SERVICE||!ANON) return reply({ error: 'server_misconfigured', message: '로그인 전달 설정을 확인해 주세요.' }, 500);
   try{
     const body=await req.json().catch(()=>({}));
     if(body?.action==='seal'){

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
+import { withOwner } from './helpers/owner-member.mjs';
 
 const source=stripTypeScriptTypes(readFileSync(new URL('../../supabase/functions/google-calendar/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''),{mode:'strip'});
 const event={id:'ev',summary:'Synthetic event',start:{date:'2026-10-15'},end:{date:'2026-10-16'},extendedProperties:{private:{kptu_suborg_ids:'["org-a"]',other:'keep'}}};
@@ -36,7 +37,7 @@ function harness(options={}){
     }
     throw new Error('Unexpected request '+raw);
   };
-  const move=new Function('Deno','createClient','fetch',source+'\nreturn moveAndUpdateEvent;')({env:{get:key=>({SUPABASE_URL:'https://sb.example',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service',SUPABASE_ANON_KEY:'synthetic-public'}[key])},serve:fn=>handler=fn},createClient,fetchMock);
+  const move=new Function('Deno','createClient','fetch',source+'\nreturn moveAndUpdateEvent;')({env:{get:key=>({SUPABASE_URL:'https://sb.example',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service',SUPABASE_ANON_KEY:'synthetic-public'}[key])},serve:fn=>handler=fn},withOwner(createClient),fetchMock);
   return {calls,clients,connections,moveWithoutAuthorization:()=>move(new Request('https://sb.example/functions/v1/google-calendar'),'google-a','source','ev','target',{}),post:async(extra={},authorization='Bearer user-token')=>{const response=await handler(new Request('https://sb.example/functions/v1/google-calendar',{method:'POST',headers:authorization?{Authorization:authorization}:{},body:JSON.stringify({...request,...extra})}));return {status:response.status,body:await response.json()}}};
 }
 
