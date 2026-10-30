@@ -11,6 +11,10 @@ const MISSING = new Set(['missing', 'outside']);
 // 묶음 요청이 이 오류로 실패하면 그 사진들도 실패로 끝낸다(다시 받아도 안 되는 로그인·연결 문제).
 const STOP = /^(session|onedrive_(auth_expired|not_connected|not_configured|folder_not_set|reconnect_needed)|forbidden|session_required)$/;
 export const BATCH_REST_S = 2;
+// PHOTO-속도(2026-10-30): 묶음 길에서 첫 요청을 보내기 전 잠깐(밀리초) 모은다. 칸마다 폰 보관본(Cache Storage)을 먼저 찾아보고 없을 때 대기열에 오는데,
+// 그 답이 칸마다 따로 와서 모으지 않으면 첫 화면의 첫 4묶음이 1~2장짜리가 되고 나머지 칸은 한 번 더 기다렸다(첫 화면 왕복 2번).
+// 화면(diary-onedrive.js)은 이 값을 쓰고, 시험은 0(바로 보냄)으로 둔다.
+export const GATHER_MS = 16;
 
 export class ThumbError extends Error {
   constructor(code, {retryAfter = 0} = {}) { super(code); this.code = code; this.retryAfter = retryAfter; }
@@ -19,7 +23,7 @@ export class ThumbError extends Error {
 // fetchUrls(ids, size) → {urls:Map|object, failed:Map|object, retryAfter} (요청 실패는 throw, 서버가 이 동작을 모르면 ThumbError('unsupported'))
 // fetchBytes(id, size) → object URL(문자열) (실패는 throw, 429는 ThumbError('throttled', {retryAfter}))
 // revoke(url): bytes로 만든 object URL을 놓을 때 부른다.
-export function createThumbLoader({fetchUrls, fetchBytes, revoke = () => {}, now = Date.now, setTimer = setTimeout, ...options} = {}) {
+export function createThumbLoader({fetchUrls, fetchBytes, revoke = () => {}, now = Date.now, setTimer = setTimeout, gatherMs = 0, ...options} = {}) {
   const {limit, batchMax, memMax, ttlMs} = {...LOADER_DEFAULTS, ...options};
   const memo = new Map();      // key → {url, kind:'remote'|'blob', at}  (넣은 순서 = 오래된 순)
   const flights = new Map();   // key → {promise, resolve, reject, id, size, prio, queued}
@@ -119,8 +123,14 @@ export function createThumbLoader({fetchUrls, fetchBytes, revoke = () => {}, now
   }
 
   // 같은 순간에 들어온 요청을 한 묶음으로 보내려고, 대기열 돌리기는 지금 하던 일이 끝난 직후(microtask)로 미룬다.
+  // 묶음 길에서 빈 자리가 있으면 gatherMs만큼 더 모은다(따로따로 온 칸들을 한 묶음으로). 자리가 없으면 어차피 끝난 요청이 대기열을 돌린다.
   let scheduled = false;
-  const schedule = () => { if (scheduled) return; scheduled = true; queueMicrotask(() => { scheduled = false; pump(); }); };
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    const go = () => { scheduled = false; pump(); };
+    if (gatherMs > 0 && mode === 'urls' && active < limit) setTimer(go, gatherMs); else queueMicrotask(go);
+  };
   let seq = 0;
   // 사진 하나의 그림 주소. 이미 받았으면 바로, 받는 중이면 같은 약속을 돌려준다(중복 요청 합치기). prio가 더 급하면 앞으로 당긴다.
   function get(id, size = 'small', prio = VISIBLE) {

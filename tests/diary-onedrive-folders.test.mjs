@@ -31,8 +31,10 @@ test('save sends only the folders whose switch differs from the server', async (
 });
 test('sync: reads more/indexing; waits retry_after seconds on 429 (1..120), 5 seconds on busy, stops otherwise', async () => {
   const m = await mod;
-  assert.deepEqual(await m.odSync(runtime(() => ({more:true, indexing:true, junk:1}))), {more:true, indexing:true});
-  assert.deepEqual(await m.odSync(runtime(() => ({}))), {more:false, indexing:false});
+  assert.deepEqual(await m.odSync(runtime(() => ({more:true, indexing:true, junk:1}))), {more:true, indexing:true, changed:0});
+  assert.deepEqual(await m.odSync(runtime(() => ({more:false, indexing:false, changed:3}))), {more:false, indexing:false, changed:3});
+  assert.deepEqual(await m.odSync(runtime(() => ({changed:-1}))), {more:false, indexing:false, changed:0});
+  assert.deepEqual(await m.odSync(runtime(() => ({}))), {more:false, indexing:false, changed:0});
   assert.equal(m.odSyncDelay(Object.assign(new Error('onedrive_throttled'), {status:429, retryAfter:7})), 7000);
   assert.equal(m.odSyncDelay(Object.assign(new Error('onedrive_throttled'), {status:429, retryAfter:9999})), 120000);
   assert.equal(m.odSyncDelay(Object.assign(new Error('onedrive_throttled'), {status:429})), 10000);

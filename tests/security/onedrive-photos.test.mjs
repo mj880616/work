@@ -545,11 +545,11 @@ test('sync: pages are cut per request (more:true), the next-page link is saved a
   const pages=Array.from({length:20},(_,i)=>[pic('Q'+i,'F1!100')]);pages[0].unshift(topItem);
   const ms=fakeMicrosoft({deltaPages:pages});const ctx=make({ms});
   const first=await read(await post(ctx.handler,{action:'sync'}));
-  assert.deepEqual(first,{more:true,indexing:true});
+  assert.deepEqual(first,{more:true,indexing:true,changed:15},'changed = 이번 요청에서 새로 들어온 사진 수');
   assert.match(ctx.admin.state.row.next_link,/^https:\/\/graph\.microsoft\.com\/.*token=15$/);assert.equal(ctx.admin.state.row.index_lock_until,null);
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,15);
   const second=await read(await post(ctx.handler,{action:'sync'}));
-  assert.deepEqual(second,{more:false,indexing:false});
+  assert.deepEqual(second,{more:false,indexing:false,changed:5});
   assert.equal(ctx.admin.state.row.next_link,null);assert.match(ctx.admin.state.row.delta_link,/token=latest$/);
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,20);
   // 저장된 주소가 Graph 주소가 아니면 따라가지 않고 처음부터 받는다
@@ -588,12 +588,12 @@ test('sync: 410 from Graph clears the index and starts over; deleted items and n
   ctx.ms.calls.length=0;
   const changes=[{id:'P1',deleted:{}},{id:'S21',deleted:{}},{id:'P2',name:'now.mp4',file:{mimeType:'video/mp4'},parentReference:{id:'S2'}}];
   const later=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],takenFixAt:FIX0,fetch:fakeMicrosoft({deltaPages:tree(),deltaChanges:changes}).fetch,now:()=>NOW,log:()=>{}});
-  assert.deepEqual(await read(await post(later,{action:'sync'})),{more:false,indexing:false});
+  assert.deepEqual(await read(await post(later,{action:'sync'})),{more:false,indexing:false,changed:2},'지운 사진·지운 폴더만 셈(사진 아닌 파일은 세지 않음)');
   assert.deepEqual(ctx.admin.state.mem.tables.app_onedrive_photos.map(p=>p.item_id).sort(),['P0']);
   assert.ok(!ctx.admin.state.mem.tables.app_onedrive_folders.some(f=>f.item_id==='S21'));
   let gone=0;
   const resync=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],takenFixAt:FIX0,fetch:fakeMicrosoft({deltaPages:tree(),deltaReply:tok=>tok==='latest'&&!gone++?new Response('{}',{status:410}):null}).fetch,now:()=>NOW,log:()=>{}});
-  assert.deepEqual(await read(await post(resync,{action:'sync'})),{more:false,indexing:false});
+  assert.deepEqual(await read(await post(resync,{action:'sync'})),{more:false,indexing:false,changed:5});
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,5,'rebuilt from the first page');
 });
 
@@ -668,6 +668,30 @@ test('measure: Microsoft round trips per diary entry step on a cold server; phot
   assert.deepEqual(await steps(11*60000),{status:[],photos:['token','delta'],'photo-urls':['batch']});
   // 2분 전에 받았음(미리 받기가 먼저 돈 뒤): photos는 Microsoft를 부르지 않고 서버 표만 읽는다. 토큰은 photo-urls에서 처음 받는다.
   assert.deepEqual(await steps(2*60000),{status:[],photos:[],'photo-urls':['token','batch']});
+});
+
+// PHOTO-속도(2026-10-30): 사진 메뉴 첫 열기의 차례는 status → library(첫 쪽) → photo-urls. 사진 메뉴는 'sync'를 따로 부르므로
+// library·months에 sync:false를 보내면 마지막 받기가 오래됐어도 Microsoft를 부르지 않고 서버 표로 바로 답한다(첫 쪽이 delta를 기다리지 않음).
+test('measure: photo menu first page with sync:false never waits for Microsoft, even when the last sync is over 10 minutes old',async()=>{
+  const kinds=calls=>calls.map(c=>c.url.startsWith('https://login.microsoftonline.com/')?'token':c.url.includes('/$batch')?'batch':c.url.includes('/delta')?'delta':'other');
+  const iso=ms=>new Date(NOW-ms).toISOString();
+  const stale={...connected,index_done_at:iso(86400000),synced_at:iso(11*60000),delta_link:'https://graph.microsoft.com/v1.0/me/drive/items/F1!100/delta?token=latest'};
+  const steps=async extra=>{
+    const ms=fakeMicrosoft({deltaPages:tree()});
+    const ctx=make({admin:fakeAdmin({row:{...stale}}),ms});
+    const out={};
+    for(const [name,body] of [['library',{action:'library',limit:120,...extra}],['library-sorted',{action:'library',sort:'name_asc',...extra}],['months',{action:'months',...extra}]]){
+      const before=ms.calls.length;const r=await post(ctx.handler,body);assert.equal(r.status,200,name);out[name]=kinds(ms.calls.slice(before));
+    }
+    return out;
+  };
+  // 예전(보내지 않음): 첫 쪽이 토큰 새로 받기 + delta 한 쪽을 기다린 뒤 답한다(일기 등 다른 화면은 그대로).
+  assert.deepEqual(await steps({}),{library:['token','delta'],'library-sorted':[],months:[]});
+  // sync:false: 세 요청 모두 Microsoft 0번.
+  assert.deepEqual(await steps({sync:false}),{library:[],'library-sorted':[],months:[]});
+  // 모양 검사: true/false만 받는다.
+  const ctx=make({admin:fakeAdmin({row:{...stale}}),ms:fakeMicrosoft({deltaPages:tree()})});
+  for(const sync of ['no',0,null,{}]) assert.equal((await post(ctx.handler,{action:'library',sync})).status,400,JSON.stringify(sync));
 });
 
 // ── 사진 메뉴 ①(PHOTO-사진메뉴): library·months·days·media-url·여러 장 지우기·Web2 휴지통 ─────────────────────────
@@ -1067,7 +1091,7 @@ test('taken time: an index finished before the fix is walked again from the star
   assert.equal(ctx.admin.state.row.index_done_at,new Date(NOW).toISOString());assert.match(ctx.admin.state.row.delta_link,/token=latest$/);
   // 한 번만: 다음 받기는 저장한 변경 주소로 이어 간다
   ms.calls.length=0;
-  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:false,indexing:false});
+  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:false,indexing:false,changed:0},'바뀐 것 없음');
   assert.ok(ms.calls.filter(c=>c.url.includes('/delta')).every(c=>new URL(c.url).searchParams.get('token')==='latest'));
   assert.deepEqual(ctx.admin.state.mem.tables.app_onedrive_photos.map(r=>r.item_id).sort(),['P0','P1']);
 });
@@ -1079,10 +1103,10 @@ test('taken time: the re-walk spreads over requests like a first index (indexing
   const pages=Array.from({length:20},(_,i)=>[pic('Q'+i,'F1!100')]);pages[0].unshift(topItem);
   const row={...connected,index_done_at:OLD,synced_at:OLD,delta_link:'https://graph.microsoft.com/v1.0/me/drive/items/F1!100/delta?token=latest'};
   const ctx=make({admin:fakeAdmin({row,index}),ms:fakeMicrosoft({deltaPages:pages}),takenFixAt:FIX});
-  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:true,indexing:true});
+  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:true,indexing:true,changed:15});
   assert.equal(ctx.admin.state.row.index_done_at,null);assert.equal(ctx.admin.state.row.delta_link,null);
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,20,'nothing removed mid-walk');
-  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:false,indexing:false});
+  assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:false,indexing:false,changed:5});
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,20);
   assert.ok(ctx.admin.state.mem.tables.app_onedrive_photos.every(r=>r.taken_at==='2026-10-12T16:00:00.000Z'&&r.taken_day==='2026-10-13'));
 });
