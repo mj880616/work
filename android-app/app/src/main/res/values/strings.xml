@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">오늘 일정과 할 일 몇 줄, 바구니에 넣기</string>
+    <string name="widget_description">오늘 일정과 할 일 몇 줄, 챙길 것·나한테 온 요청 건수</string>
     <string name="quick_widget_description">업데이트·할 일·노트 쓰기 창, 사진 올리기를 한 번에</string>
     <string name="one_widget_description">노트·업데이트·할 일·사진·녹음 중 하나를 골라 한 칸에</string>
+    <string name="week_widget_description">이번 주 남은 일정, 누르면 달력의 그 날</string>
 </resources>

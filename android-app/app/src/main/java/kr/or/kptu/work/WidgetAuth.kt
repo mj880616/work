@@ -30,6 +30,11 @@ object WidgetRules {
     const val LOGOUT = "$SUPABASE/auth/v1/logout?scope=local"
     const val CALENDAR_PREFIX = "$SUPABASE/functions/v1/google-calendar?action=events&timeMin="
     const val TASKS = "$SUPABASE/functions/v1/google-tasks?action=overview"
+    /**
+     * WIDGET-여러개 ②: 오늘 위젯 맨 아래 '챙길 것 n · 나한테 온 요청 n'(건수만). 웹 inbox-count.js와 같은 처리 전 후보 읽기.
+     * 기존 소유자 RLS(app_todo_candidates)가 이 사람 작업공간 줄만 준다. 두 칸(종류·한 줄)만 읽고 위젯은 건수만 그린다.
+     */
+    const val CANDIDATES = "$SUPABASE/rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&order=created_at.desc&limit=100"
 
     /** 단계 ①과 같은 로그인 주소(돌아올 주소가 같아 Supabase 허용 주소를 늘리지 않는다). */
     val LOGIN_URL: String =
@@ -52,7 +57,7 @@ object WidgetRules {
     /** 위젯이 보내도 되는 요청인지. 이 밖의 주소·방식은 보내지 않는다. */
     fun allowed(method: String, url: String): Boolean = when (method) {
         "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT
-        "GET" -> url == TASKS || isCalendarUrl(url)
+        "GET" -> url == TASKS || url == CANDIDATES || isCalendarUrl(url)
         else -> false
     }
 
@@ -109,7 +114,18 @@ class WidgetSession(
         data class Failed(val reason: String) : Outcome<Nothing>()
     }
 
-    data class Raw(val calendarStatus: Int, val calendar: Any?, val tasksStatus: Int, val tasks: Any?)
+    data class Raw(
+        val calendarStatus: Int,
+        val calendar: Any?,
+        val tasksStatus: Int,
+        val tasks: Any?,
+        /** WIDGET-여러개 ②: 처리 전 후보(건수용). 읽지 않았으면 0. */
+        val candidatesStatus: Int = 0,
+        val candidates: Any? = null,
+    )
+
+    /** 읽기 한 건의 답(상태·JSON). */
+    data class Reply(val status: Int, val body: Any?)
 
     private val lock = Any()
     private var access: String? = null
@@ -252,34 +268,47 @@ class WidgetSession(
 
     // ── 위젯 읽기(설계 6절) ──
 
-    fun readToday(timeMin: String, timeMax: String): Outcome<Raw> = synchronized(lock) {
-        val calendarUrl = WidgetRules.calendarUrl(timeMin, timeMax)
-        // 접근 토큰이 서버에서 먼저 끝났으면(401) 버리고 한 번만 새로 받아 다시 읽는다.
-        readOnce(calendarUrl) ?: run {
-            access = null
-            accessUntil = 0L
-            readOnce(calendarUrl) ?: Outcome.Failed("unauthorized")
+    /** 오늘 일정·할 일(+ counts면 처리 전 후보). 같은 위젯 세션 읽기(readList) 한 번. */
+    fun readToday(timeMin: String, timeMax: String, counts: Boolean = false): Outcome<Raw> {
+        val urls = listOf(WidgetRules.calendarUrl(timeMin, timeMax), WidgetRules.TASKS) + (if (counts) listOf(WidgetRules.CANDIDATES) else emptyList())
+        return when (val r = readList(urls)) {
+            is Outcome.Ok -> {
+                val c = r.value.getOrNull(2)
+                Outcome.Ok(Raw(r.value[0].status, r.value[0].body, r.value[1].status, r.value[1].body, c?.status ?: 0, c?.body))
+            }
+            is Outcome.SignedOut -> Outcome.SignedOut
+            is Outcome.Failed -> r
         }
     }
 
-    /** 한 번 읽기. 401이면 null. */
-    private fun readOnce(calendarUrl: String): Outcome<Raw>? {
+    /**
+     * 허용 주소(WidgetRules.allowed)만 차례로 GET. 접근 토큰이 서버에서 먼저 끝났으면(401) 버리고 한 번만 새로 받아 다시 읽는다.
+     * WIDGET-여러개 ②: 오늘·이번 주 위젯이 같은 갱신 작업 한 번에 같이 읽는다.
+     */
+    fun readList(urls: List<String>): Outcome<List<Reply>> = synchronized(lock) {
+        readOnce(urls) ?: run {
+            access = null
+            accessUntil = 0L
+            readOnce(urls) ?: Outcome.Failed("unauthorized")
+        }
+    }
+
+    /** 한 번 읽기. 401이 하나라도 있으면 null. */
+    private fun readOnce(urls: List<String>): Outcome<List<Reply>>? {
         val token = when (val t = tokenLocked()) {
             is Outcome.Ok -> t.value
             is Outcome.SignedOut -> return Outcome.SignedOut
             is Outcome.Failed -> return t
         }
         val headers = mapOf("Authorization" to "Bearer $token", "apikey" to WidgetRules.PUBLIC_KEY)
-        val cal: WidgetResponse
-        val tasks: WidgetResponse
+        val got = ArrayList<WidgetResponse>()
         try {
-            cal = send(WidgetRequest("GET", calendarUrl, headers))
-            tasks = send(WidgetRequest("GET", WidgetRules.TASKS, headers))
+            for (url in urls) got.add(send(WidgetRequest("GET", url, headers)))
         } catch (_: IOException) {
             return Outcome.Failed("network")
         }
-        if (cal.status == 401 || tasks.status == 401) return null
-        return Outcome.Ok(Raw(cal.status, MiniJson.parse(cal.body), tasks.status, MiniJson.parse(tasks.body)))
+        if (got.any { it.status == 401 }) return null
+        return Outcome.Ok(got.map { Reply(it.status, MiniJson.parse(it.body)) })
     }
 
     // ── 위젯 로그아웃(설계 5절 폐기 1) ──
