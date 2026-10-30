@@ -17,7 +17,8 @@ export const formWhat = ({time, title, place}) => [one(time) || ALL_DAY, one(tit
 export function itemWhat(item, overrides) {
   if (!item || item.time === undefined) return String(item?.what ?? '');
   const o = overrides?.get?.(item.key);
-  return formWhat({time: item.time, title: o && one(o.title) ? o.title : item.title, place: o && o.place !== undefined ? o.place : item.place});
+  // WEEKLY-주요일정칸: 칸별 고침의 시간(o.time)도 칸 글에 넣는다(날짜·참석은 scheduleForm이 줄·참석자 칸에).
+  return formWhat({time: o && one(o.time) ? o.time : item.time, title: o && one(o.title) ? o.title : item.title, place: o && o.place !== undefined ? o.place : item.place});
 }
 
 // 확인 목록에 보일 일정(휴가 빼고, 표 순서 그대로). [{key, day, label, time, title, place, multi, memo?}] — memo = 주간보고 기억(weekly-schedule-memory.js)
@@ -95,7 +96,7 @@ export function scheduleMismatches({sections, calendar, overrides, orgs = []}) {
       const events = byDay.get(day) ?? [];
       const what = events.map(e => itemWhat(e, overrides));
       if (!events.length) { out.push({day, where, line, body: times, events: [], kind: 'missing', sure: false}); continue; }
-      const at = new Set(events.map(e => e.time ?? String(e.what ?? '').split(' / ')[0]).filter(t => /^\d{2}:\d{2}$/.test(t)));
+      const at = new Set(events.map(e => overrides?.get?.(e.key)?.time || (e.time ?? String(e.what ?? '').split(' / ')[0])).filter(t => /^\d{2}:\d{2}$/.test(t)));
       if (times.every(t => at.has(t))) continue;
       const sure = events.some(e => [...orgsIn(itemWhat(e, overrides), orgs)].some(n => lineOrgs.has(n)));
       out.push({day, where, line, body: times, events: what, kind: 'time', sure});

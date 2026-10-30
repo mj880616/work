@@ -514,3 +514,31 @@
 #appView #homeView .journal-hwpx-learn{ display:flex; flex-direction:column; gap:4px; }
 #appView #homeView .journal-learn-head{ margin:2px 0; font-size:13px; }
 #appView #homeView .journal-learn-input{ min-width:0; width:min(100%, 36em); }
+
+/* WEEKLY-주요일정칸(요청함 10/30 13:17·13:38): 상자 5. 주요 일정 줄의 칸 — 날짜·시간·제목·장소·참석·[빼기]가 한 줄(좁으면 줄바꿈).
+   [주간 정리] 1. 2) 주요 일정 수기 표는 1) 요청 표와 같은 부품(.journal-exec-*), 고치기 칸은 표 끝 좁은 칸. 투쟁 사업장 칸은 ⠿·⋯ 를 이름 줄 오른쪽에.
+   새 크기 값 없음(토큰만), 버튼은 공용 작은 버튼. */
+#appView #homeView .journal-hwpx-title-fields > .date-field{ flex:0 1 136px; min-width:0; }
+#appView #homeView .journal-hwpx-title-fields .journal-hwpx-day-input{ box-sizing:border-box; width:100%; min-width:0; height:var(--ds-compact-height); font:inherit; font-size:var(--kptu-text-body); }
+#appView #homeView .journal-hwpx-time-input{ flex:0 1 72px; }
+#appView #homeView .journal-hwpx-who-input{ flex:1 1 96px; }
+#appView #homeView .journal-hwpx-title-fields > input[aria-invalid="true"]{ border-color:var(--kptu-danger); }
+#appView #homeView .journal-hq-table thead th:nth-child(1){ width:24%; }
+#appView #homeView .journal-hq-table thead th:nth-child(2){ width:auto; }
+#appView #homeView .journal-hq-table thead th:nth-child(3){ width:112px; }
+#appView #homeView .journal-hq-table .journal-exec-tools{ white-space:nowrap; }
+#appView #homeView .journal-hwpx-grip{ cursor:grab; touch-action:none; color:var(--kptu-muted); }
+#appView #homeView .journal-hq-table tr.re-dragging,
+#appView #homeView .journal-hwpx-sites > .re-dragging{ opacity:.55; }
+#appView #homeView .journal-hq-picker{ display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+#appView #homeView .journal-hq-picker .journal-edit-actions{ display:flex; justify-content:flex-end; gap:6px; }
+#appView #homeView .journal-hwpx-sites{ display:flex; flex-direction:column; gap:8px; }
+#appView #homeView .journal-hwpx-sites > .journal-hwpx-row{ position:relative; }
+#appView #homeView .journal-hwpx-site-tools{ position:absolute; top:0; right:0; display:flex; align-items:center; gap:4px; }
+#appView #homeView .journal-hwpx-site-tools .journal-kind-more{ margin-left:0; }
+#appView #homeView .journal-hwpx-site-tools .journal-kind-more[open]{ position:relative; }
+#appView #homeView .journal-hwpx-site-add{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
+#appView #homeView .journal-hwpx-undo{ margin:0 0 6px; font-size:var(--kptu-text-body); color:var(--kptu-ink); }
+@media(max-width:760px){
+  #appView #homeView .journal-hq-table .journal-exec-tools{ text-align:left; }
+}
