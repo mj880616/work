@@ -131,7 +131,7 @@ test('PC: 서버에 기억한 마지막 보드로 열리고, 보드 칸 우클�
   expect(errors).toEqual([]);
 });
 
-for (const width of [412, 884]) {
+for (const width of [412, 760]) {
   test(`폰: [+ 노트 붙이기] 고르기 창으로 붙이기, 꾹 누르기 메뉴 (${width})`, async ({ page }) => {
     const id = 'b1a2b3c4';
     const { rows, errors } = await fixture(page, width, { note_view: 'board', note_boards: [{ id, name: '국회 대응' }], note_board: id });

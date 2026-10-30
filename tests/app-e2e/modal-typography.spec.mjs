@@ -105,14 +105,14 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   // Empty headings disappear; retained headings keep the established style.
   // The changed task region gets explicit D-할일화면정리 roles below.
   // UI-PC할일: PC(≥1024)는 기한별 열(tasks-pc-columns.spec.mjs). 열 머리·카드 글자 역할을 여기서 같은 값으로 보고, 묶음 목록 역할은 폰(390)에서 본다.
-  if(name==='tasks'&&width>=1024){
+  if(name==='tasks'&&width>=761){
     const style=el=>{const s=getComputedStyle(el);return [el.tagName,s.fontSize,s.color,s.fontWeight]};
     await expect.poll(()=>page.locator('[data-gt-col="now"] .gt-col-head').evaluate(style)).toEqual(['H3','13px','rgb(15, 110, 86)','500']);
     await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
     await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','13px');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
-    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height',width>=1024?'36px':'46px'); // UI-PC버튼36
+    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height',width>=761?'36px':'46px'); // UI-PC버튼36
     for(const selector of ['[data-gt-info]','[data-gt-menu]','[data-gt-toggle]']){
       const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
     }
@@ -171,14 +171,14 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
   else expect(await newStandard(page),name+' new standard').toEqual([]);
   // UI-PC회의 → MEET-결과정리 ⑤(시안 C): PC(≥1024) 회의는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록. 종류 줄은 목록 글자(13px)·누르는 높이 44px, 고른 종류 하나만 표시.
-  if(name==='meetings'&&width>=1024){
+  if(name==='meetings'&&width>=761){
     await expect(page.locator('#meetingTypeFilter')).toHaveCount(0);
     await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
     const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
     await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
   }
-  if(name==='library'||name==='meetings'&&width<1024){
+  if(name==='library'||name==='meetings'&&width<761){
     const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter)');
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
@@ -406,17 +406,17 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // ORG-PC좌우: on a PC (≥1024) the 담당조직 screen opens the first organization in its right pane, so the current detail
   // carries that organization's drawn content (basic info rows etc.) that main never drew without a click. Like the project
   // detail above, the current detail markup goes to main's side too and is compared under both style sets.
-  if(width>=1024){const html=await page.locator('#wdModal').evaluate(el=>el.outerHTML);await original.locator('#wdModal').evaluate((el,html)=>{el.outerHTML=html},html)}
+  if(width>=761){const html=await page.locator('#wdModal').evaluate(el=>el.outerHTML);await original.locator('#wdModal').evaluate((el,html)=>{el.outerHTML=html},html)}
   else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
   await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
   // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
   // UI-전수디자인점검 F08: 담당조직 창 이름 위 '담당조직' 작은 제목(.eyebrow)은 없앴다(창 이름과 중복). 비교 기준 쪽에서도 그 줄을 뺀다.
   await original.evaluate(()=>document.querySelectorAll('#wdModal .modal-head .eyebrow').forEach(el=>el.remove()));
-  if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
+  if(width<761){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
   // ORG-주요인물 2/2: 접힌 묶음 '기본 정보 · 소속 · 이전 요약'(머리 h3·설명 small)과 그 안의 h4 '기본 정보'·'이전 요약'은
   // 작은 탭 [주요 인물][기본 정보][소속][이전 요약]으로 바뀌어 화면에서 없어졌다(탭 이름이 제목 역할). 같은 모양으로 main 쪽에서도 뺀다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
   // 남은 h3·h4·small(할 일·자료·협의회·사업단 등)은 그대로 양쪽 스타일로 비교한다.
-  if(width<1024){const gone=await original.evaluate(()=>{const els=[...document.querySelectorAll('#wdModal #wdMoreSec summary h3,#wdModal #wdMoreSec summary small,#wdModal #wdBasic .wd-head h4,#wdModal #wdRecent .wd-head h4')];els.forEach(el=>el.remove());return els.length});expect(gone,'retired 담당조직 headings in main').toBe(4)}
+  if(width<761){const gone=await original.evaluate(()=>{const els=[...document.querySelectorAll('#wdModal #wdMoreSec summary h3,#wdModal #wdMoreSec summary small,#wdModal #wdBasic .wd-head h4,#wdModal #wdRecent .wd-head h4')];els.forEach(el=>el.remove());return els.length});expect(gone,'retired 담당조직 headings in main').toBe(4)}
   // 사업 보고 만들기·수정 창: '프로젝트' 고르기가 [연결할 곳 ▾](+ 숨은 프로젝트 칸)으로 바뀌고 장소 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   for(const [project,places,location] of [['meetingProject','meetingPlaces','meetingLocationRow'],['mrdEditProject','mrdEditPlaces','mrdEditLocationRow']]){
    const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);

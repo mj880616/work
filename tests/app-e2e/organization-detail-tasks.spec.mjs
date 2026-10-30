@@ -127,7 +127,7 @@ test('담당조직 목록·상세·편집창은 412px와 1280px에서 가로로 
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),`editor at ${width}px`).toBeLessThanOrEqual(1);
     await page.locator('#gtTaskModal [data-gt-close]').click();
     // ORG-PC좌우: on a PC the detail is the right pane and has no ×.
-    if(width<1024)await page.locator('[data-wd-close="wdModal"]').click();
+    if(width<761)await page.locator('[data-wd-close="wdModal"]').click();
   }
 });
 

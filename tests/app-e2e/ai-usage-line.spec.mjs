@@ -83,7 +83,7 @@ for(const width of [412,884,1440])test(`홈 ⋯는 AI 사용량 제목 줄 오�
   await expect(line).toBeVisible();
   const more=page.locator('[data-he-more]');await expect(more).toBeVisible();
   const docked=line.locator('[data-aiu-top] [data-he-more]');
-  if(width>=1024){await expect(docked).toHaveCount(0);return;}
+  if(width>=761){await expect(docked).toHaveCount(0);return;}
   await expect(docked).toHaveCount(1);
   const place=async()=>{const m=await more.boundingBox(),t=await line.locator('[data-aiu-toggle]').boundingBox(),title=await line.locator('.aiu-title').boundingBox(),l=await line.boundingBox();return {m,t,title,l};};
   let {m,t,title,l}=await place();

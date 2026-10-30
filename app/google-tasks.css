@@ -88,7 +88,7 @@
 div.gt-main{cursor:default}
 .gt-linked-msg{padding:4px 3px;font-size:11px}.gt-linked-msg:empty{display:none}
 /* TASK-바로처리통일: 담당조직·프로젝트 상세 할 일 줄 오른쪽 ⋯(공용 task-inline.js, [연결 해제]도 이 안). 할 일 화면 줄의 ⋯와 같은 44px 투명 칸(ORG-PC상세정리 ③의
-   모양을 모든 폭에 그대로). PC(1024px~) hover/focus 때만 보이는 규칙은 ui-standard.css [data-task-inline-row]. */
+   모양을 모든 폭에 그대로). PC(761px~) hover/focus 때만 보이는 규칙은 ui-standard.css [data-task-inline-row]. */
 .gt-linked .gt-linked-more{display:grid;place-items:center;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:0;margin:-6px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 .gt-linked .gt-linked-more:hover{background:var(--kptu-surface-subtle)}
 .gt-linked .gt-linked-more:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}
@@ -142,20 +142,20 @@ div.gt-main{cursor:default}
 .gt-files-status{min-height:1.4em;margin-top:var(--kptu-space-2);font-size:var(--kptu-text-meta);overflow-wrap:anywhere}
 .gt-files-status.error{color:var(--kptu-danger)}
 
-/* ───────── UI-PC할일(2026-10-20 사용자 요청): PC(≥1024) 할 일 화면 = 좌우 절반 ─────────
-   그리는 주인은 google-tasks.js renderTasks 하나(열 HTML은 같은 파일 columnsHtml). 폰·중간 폭은 위 묶음 목록 그대로.
+/* ───────── UI-PC할일(2026-10-20 사용자 요청): PC(≥761) 할 일 화면 = 좌우 절반 ─────────
+   그리는 주인은 google-tasks.js renderTasks 하나(열 HTML은 같은 파일 columnsHtml). 폰은 위 묶음 목록 그대로.
    UI-PC할일배치(2026-10-20) → UI-좌우비율(2026-10-21): 화면을 좌 1/3 : 우 2/3으로 나눈다(theme-tokens.css --ds-split-*). 왼쪽 1/3 = 위 칸 "지남·오늘" + 아래 칸 "일주일 안"(그 끝에 접기 줄 "나중 N ▸"·"완료 N ▸"), 높이는 항목 수만큼(넘치면 칸 안에서만 세로 넘김).
    오른쪽 2/3 = 상세 칸 하나, 윗줄은 왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지. 빈 칸은 "없음".
    상세 칸은 지금 수정 창(#gtTaskModal)을 그 자리에 옮겨 그대로 쓴다(같은 항목·같은 저장). 스크롤은 화면 전체 하나이고 상세 칸은 화면에 붙어 따라온다(UI-칸안스크롤하나로).
    시각 언어는 PC 회의 열(meeting-ui.css .mcol)과 같다: 열은 따로 상자(0.5px 선·모서리 12px), 카드는 옅은 바탕 칸, 머리는 이름 + 흐린 건수. */
 #gtDetailPane{display:none}
 .gt-due-quick{display:none}
-/* TASK-날짜칸겹침(2026-10-29): 이미 있는 할 일을 고칠 때는 폰·중간 폭 수정 창에도 기한 칸 아래 낮은 빠른 버튼 줄 [오늘][내일][모레][다음주][기한 없음].
+/* TASK-날짜칸겹침(2026-10-29): 이미 있는 할 일을 고칠 때는 폰 수정 창에도 기한 칸 아래 낮은 빠른 버튼 줄 [오늘][내일][모레][다음주][기한 없음].
    새 할 일 추가 창에는 없다(누르면 바로 저장하는 버튼이라). PC 상세 칸 배치는 아래 규칙 그대로. */
 #gtTaskModal.gt-has-task .gt-due-quick{display:flex;flex-wrap:wrap;gap:var(--kptu-space-1);align-items:center;min-width:0}
 #gtTaskModal.gt-has-task:not(.gt-docked) .gt-due-quick{margin:calc(-1 * var(--kptu-space-1)) 0 var(--kptu-space-2)}
 #gtTaskModal.gt-has-task .gt-due-quick>button{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 10px;margin:0;font-size:var(--ds-text-meta);white-space:nowrap}
-@media(min-width:1024px){
+@media(min-width:761px){
   html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) main{padding-bottom:12px}
   html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) #appView>.app-nav{margin-bottom:0}
   #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 24px - var(--kptu-topline-space,0px));min-height:calc(100dvh - 24px - var(--kptu-topline-space,0px))}

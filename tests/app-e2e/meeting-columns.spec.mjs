@@ -417,7 +417,7 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   // 두 주(10.12~10.18 / 10.19~10.25)에 하나씩. 둘 다 오늘보다 앞이라 처음 주는 더 최근 보고(10.20)의 주다.
   s.meetings=[row('week-old',1,'2026-10-13T01:00:00Z'),row('week-new',2,'2026-10-20T01:00:00Z')];
   await open(page,s,width,900,{allWeeks:false});
-  const pc=width>=1024;
+  const pc=width>=761;
   const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
   const bar=page.locator('#meetingsView .report-week-bar'),label=page.locator('#reportWeekFilter .report-week-label');
   const prev=reportWeekButton(page,'prev'),next=reportWeekButton(page,'next'),all=reportWeekButton(page,'all');
@@ -468,7 +468,7 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록] 주 단위 
   const row=(id,round,at)=>({id,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:round,meeting_at:at,transcript_text:'원문 '+id,created_by:s.user.id});
   s.meetings=[row('week-old',1,'2026-10-13T01:00:00Z'),row('week-new',2,'2026-10-20T01:00:00Z'),row('no-when',3,null)];
   await open(page,s,width,900,{allWeeks:false});
-  const pc=width>=1024;
+  const pc=width>=761;
   const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
   const label=page.locator('#reportWeekFilter .report-week-label');
   await expect(label).toHaveText('10.19(월)~10.25(일) 1건 · 일시 없음 1');

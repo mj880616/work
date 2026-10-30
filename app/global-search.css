@@ -5,7 +5,7 @@
 .gs-input::placeholder{color:var(--kptu-muted)}
 .gs-input:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-1px}
 .gs-input::-webkit-search-cancel-button{cursor:pointer}
-/* 상단 줄 칸 자리(1024px~): 가운데 칸 하나, 너무 넓어지지 않게. */
+/* 상단 줄 칸 자리(761px~): 가운데 칸 하나, 너무 넓어지지 않게. */
 .app-topline .gs-top-field{flex:1 1 auto;width:100%;max-width:440px}
 
 /* 결과 창(PC): 검색칸 아래 펼침. 위치는 anchored-popup.js. */
@@ -43,7 +43,7 @@
 .gs-more::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .gs-foot{margin:0;padding:8px 12px;border-top:var(--ds-line-width,.5px) solid var(--ds-line);font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 
-/* 검색 결과 화면(?view=search). 폰·761~1023px는 화면 전체 검색(왼쪽 위 ←). */
+/* 검색 결과 화면(?view=search). 폰은 화면 전체 검색(왼쪽 위 ←). */
 #appView #searchView{min-width:0}
 .gs-view-bar{display:flex;align-items:center;gap:6px;margin:0 0 8px}
 .gs-back{position:relative;flex:none;display:inline-grid;place-items:center;width:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:18px;line-height:1}
@@ -52,7 +52,7 @@
 .gs-view-input{flex:1 1 auto}
 .gs-view-title{margin:0;font-size:var(--ds-text-title,18px);font-weight:var(--ds-weight-medium,600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:none}
 .gs-view-body{border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-box,10px);background:var(--kptu-surface);overflow:hidden}
-@media (min-width:1024px){
+@media (min-width:761px){
   /* PC는 상단 줄 검색칸 하나로 고치고, 이 화면에는 제목만. */
   .gs-view-input{display:none}
   .gs-view-title{display:block;flex:1 1 auto}
@@ -72,8 +72,8 @@
 .mobile-menu-panel .gs-menu-entry{position:relative;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;height:40px;padding:0 12px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left}
 .mobile-menu-panel .gs-menu-entry .gs-field-icon{left:10px}
 .mobile-menu-panel .gs-menu-entry:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-/* 761~1023px의 ☰ 메뉴 창에도 같은 입구(그 폭에는 상단 줄 검색칸이 없음). PC(1024px~)는 상단 줄 검색칸. */
-@media (min-width:1024px){.mobile-menu-search{display:none}}
+/* 폰 메뉴 창 맨 위 입구. PC(761px~)는 상단 줄 검색칸. */
+@media (min-width:761px){.mobile-menu-search{display:none}}
 
 /* LIB-후속1 ② / SEARCH-선택옮기기(1차): 자료실 결과 줄 우클릭·꾹 누르기 메뉴. 자료실 줄 메뉴(.lu-more-panel)와 같은 모양(이 화면에서는 그 CSS가 없을 수 있어 같은 값을 둔다). */
 .gs-row-menu{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}

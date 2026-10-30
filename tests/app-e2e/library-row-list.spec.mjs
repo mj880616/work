@@ -168,7 +168,7 @@ for(const width of [390,1440]){
     const style=el=>el.evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['paddingTop','paddingBottom','minHeight','borderRadius','boxShadow','backgroundColor'].map(k=>[k,s[k]]))});
     const libraryRow=await style(rows.nth(1));
     // UI-PC회의: PC(≥1024)의 회의는 유형별 열이라 줄 비교는 폰·중간 폭에서만 한다.
-    if(width<1024){
+    if(width<761){
       await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
       const meetingRows=page.locator('#meetingList .meeting-list-row');
       // LIB-목록간격(2026-10-23): 자료 줄은 위아래 여백이 절반이라 회의 줄과 여백·최소 높이는 일부러 다르다. 나머지 모양(모서리·그림자·바탕)은 같다.

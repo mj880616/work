@@ -126,8 +126,8 @@ const cards = {
   tasks: ["오늘 할 일", "tasks", "할 일"],
   meetings: ["사업 보고 후속", "meetings", "사업 보고"],
 };
-const desktopHome = window.matchMedia('(min-width:1024px)');
-// MENU-HOME-편집: 홈에 보이는 칸과 순서는 서버(view_prefs.home_cards, 없으면 기본 순서)가 정한다. 폰·중간 폭은 한 칸에 위에서 아래로,
+const desktopHome = window.matchMedia('(min-width:761px)');
+// MENU-HOME-편집: 홈에 보이는 칸과 순서는 서버(view_prefs.home_cards, 없으면 기본 순서)가 정한다. 폰은 한 칸에 위에서 아래로,
 // PC는 왼쪽(main)·오른쪽(aside) 칸별로 같은 순서(home-cards-model.mjs placement). 이 함수가 홈 칸 자리의 유일한 주인이다.
 const homeCards = () => normalizeCards(viewPrefs.get('home_cards'));
 function extraCard(id) {
@@ -173,7 +173,7 @@ function placeCards() {
 }
 window.addEventListener('kptu:home-cards-changed', placeCards);
 window.addEventListener('kptu:view-prefs-rejected', event => { if (event.detail?.paths?.includes('home_cards')) { placeCards(); editMount?.rejected(); } if (event.detail?.paths?.includes('quiet_weeks')) editMount?.weeksRejected?.(); });
-// HOME-모바일정리②는 폰·중간 폭(한 칸 홈)에서만 겹친 회의 후속을 합친다. PC(오른쪽 칸 있는 홈)는 그대로.
+// HOME-모바일정리②는 폰(한 칸 홈)에서만 겹친 회의 후속을 합친다. PC(오른쪽 칸 있는 홈)는 그대로.
 const mergeFollowUps = () => !desktopHome.matches;
 desktopHome.addEventListener('change', () => { placeCards(); renderTasks(); });
 function shell() {
@@ -186,7 +186,7 @@ function shell() {
   };
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).
-  // HOME-수집경보: 폰·중간 폭의 경고 한 줄(본문 맨 위)과 '수집 정상 ✓' 한 줄(맨 아래)도 collection-status.js가 그린다.
+  // HOME-수집경보: 폰의 경고 한 줄(본문 맨 위)과 '수집 정상 ✓' 한 줄(맨 아래)도 collection-status.js가 그린다.
   host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div><p class="home-text-done" data-home-text-done role="status" hidden></p></div><div data-home-column="aside"></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
   els = new Map(); extras.forEach(made => made.destroy()); extras = new Map();
   const made = document.createElement('template');
@@ -194,7 +194,7 @@ function shell() {
   [...made.content.children].filter(el => el.dataset.homeCard).forEach(el => els.set(el.dataset.homeCard, el));
   collectLines = { alert: host.querySelector('[data-home-collect-alert]'), ok: host.querySelector('[data-home-collect-ok]') };
   host.querySelector('[data-home-column="main"]').prepend(quick);
-  // HOME-모바일홈채우기: 한 줄 요약과 놓친 약속·정리 안 된 것·내일 칸(폰·중간 폭만). home-fill.js가 유일한 renderer.
+  // HOME-모바일홈채우기: 한 줄 요약과 놓친 약속·정리 안 된 것·내일 칸(폰만). home-fill.js가 유일한 renderer.
   fillMount?.destroy();
   fillMount = mountHomeFill({ main: host.querySelector('[data-home-column="main"]') });
   for (const [id, el] of Object.entries(fillMount?.cards || {})) els.set(id, el);
@@ -390,7 +390,7 @@ function renderTasks({ includeMeetings = true } = {}) {
   const rows = shown
     .filter((x) => dueIds.has(x.place.id))
     .sort((a, b) => String(a.place.due).localeCompare(String(b.place.due)));
-  // HOME-모바일홈채우기: 폰·중간 폭은 2건만 보이고 나머지는 '+ n건 더'(누르면 펼침, 다시 누르면 접음). PC는 전부.
+  // HOME-모바일홈채우기: 폰은 2건만 보이고 나머지는 '+ n건 더'(누르면 펼침, 다시 누르면 접음). PC는 전부.
   const dueCount = dueTasks(shown.map((x) => x.task)).length,
     cut = mergeFollowUps() && !tasksOpen ? limitRows(rows) : { shown: rows, more: 0 },
     moreBtn = !mergeFollowUps() ? '' : cut.more ? `<button type="button" class="home-more" data-home-tasks-more="open">+ ${cut.more}건 더</button>` : tasksOpen && rows.length > limitRows(rows).shown.length ? '<button type="button" class="home-more" data-home-tasks-more="close">접기</button>' : '';
@@ -406,7 +406,7 @@ function renderTasks({ includeMeetings = true } = {}) {
   if(tasksReady)card('meetings')?.querySelectorAll('[data-home-toggle],[data-home-task-menu]').forEach(b=>{b.disabled=!google?.taskState(b.dataset.homeToggle||b.dataset.homeTaskMenu)?.task;});
   if(tasksReady&&linksReady)saveCopy('tasks',{names:tasks.map(t=>({id:t.id,meeting:isFollowUp(t.id),names:links.filter(l=>l.google_task_id===t.id&&l.status==='confirmed').flatMap(l=>[projects.find(p=>p.id===l.project_id)?.name,orgs.find(o=>o.id===l.organization_id)?.name].filter(Boolean))}))});
   if (!meetingsReady || !includeMeetings) return;
-  // HOME-모바일정리②(폰·중간 폭): 오늘 할 일에 이미 나온 항목은 빼고(그쪽에 꼬리표), 남는 것이 없으면 칸을 숨긴다.
+  // HOME-모바일정리②(폰): 오늘 할 일에 이미 나온 항목은 빼고(그쪽에 꼬리표), 남는 것이 없으면 칸을 숨긴다.
   const ids = new Set(
       meetingTasks(
         shown.map((x) => x.place),

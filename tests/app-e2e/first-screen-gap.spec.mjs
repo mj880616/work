@@ -109,7 +109,7 @@ for (const width of [412, 884, 1440]) test(`노트 첫 화면 ${width}: 맨 위 
   console.log(`note gap ${width}`, JSON.stringify(m));
   expect(m.gap, JSON.stringify(m)).not.toBeNull();
   expect(m.gap, JSON.stringify(m)).toBeLessThanOrEqual(LIMIT);
-  const wide = width >= 1024;
+  const wide = width>=761;
   const recent = wide ? page.locator('#noteRows [data-nx-recent-row]') : page.locator('[data-nx-recent] [data-nx-recent-row]');
   // 최근 고친 순 5개, 폴더가 섞여 있고, 줄 오른쪽에 작은 폴더 이름(폴더 없음 노트는 비움).
   await expect(recent).toHaveCount(5);

@@ -1,8 +1,9 @@
 // MTG-노트북녹음 2단계: 노트북 [녹음]의 순수 규칙(형식 고르기·구간 넘김·조각 대기열·글 합치기·띠 글자).
 // 화면·마이크·네트워크는 meeting-recorder.js가 맡는다. 여기서는 DOM·네트워크를 쓰지 않는다(단위 시험 대상, app-smoke-check).
-// 설계: docs/design/laptop-recording.md 8절. 서버 규칙(조각 5분·구간 59분)은 supabase/functions/meeting-transcribe/recording.mjs와 같다.
+// 설계: docs/design/laptop-recording.md 8절. 서버 규칙(조각 1분·구간 59분)은 supabase/functions/meeting-transcribe/recording.mjs와 같다.
 
-export const PIECE_SECONDS=5*60;        // 조각 간격(서버 REC_PIECE_SECONDS)
+export const PIECE_SECONDS=60;          // 조각 간격(서버 REC_PIECE_SECONDS). 실제 간격은 rec_start 답의 piece_seconds를 따른다(pieceSecondsOf).
+export const ROLL_PIECES=60;            // 조각이 이만큼 쌓이면 새 구간(서버 REC_ROLL_PIECES, rec_start 답 max_pieces)
 export const SEGMENT_SECONDS=59*60;     // 새 구간으로 넘어가는 길이(서버 REC_SEGMENT_SECONDS, 전사 1시간 상한 안)
 export const AUDIO_BITS=32000;          // 32kbps 안팎: 59분 ≈ 14MB(전사 100MB 상한 안)
 // Gemini 오디오 지원 목록에 webm이 없어 mp4(AAC)를 먼저, webm은 마지막(설계 6절 위험).
@@ -18,8 +19,15 @@ export function pickMime(isTypeSupported){
 // 'audio/webm;codecs=opus' → 'audio/webm'(서버 recMime과 같은 세 가지).
 export function baseMime(type){const b=String(type||'').toLowerCase().split(';')[0].trim();return ['audio/mp4','audio/ogg','audio/webm'].includes(b)?b:''}
 
+// 서버가 알려 준 조각 간격(초). 30초~5분만 받고, 없거나 이상하면 PIECE_SECONDS.
+// 옛 서버(5분 조각·한 구간 16조각)는 piece_seconds 300을 주므로 화면이 먼저 배포돼도 그 서버에 맞춰 5분으로 보낸다.
+export function pieceSecondsOf(res){const n=Number(res?.piece_seconds);return Number.isInteger(n)&&n>=30&&n<=300?n:PIECE_SECONDS}
+// 서버가 알려 준 한 구간 조각 수 한도. 없으면(옛 서버) 옛 상한 16에서 여유 4를 뺀 12.
+export function rollPiecesOf(res){const n=Number(res?.max_pieces);return Number.isInteger(n)&&n>=4&&n<=1000?n:12}
+
 // 지금 구간이 새 구간으로 넘어갈 때인지(녹음한 초 기준, 일시정지는 세지 않음).
-export const shouldRoll=(segmentSeconds,limit=SEGMENT_SECONDS)=>Number(segmentSeconds)>=limit;
+// pieces·maxPieces를 주면 조각 수로도 넘어간다(일시정지 중에도 조각이 나오는 브라우저에서 구간 조각 한도를 넘지 않게).
+export const shouldRoll=(segmentSeconds,limit=SEGMENT_SECONDS,pieces=0,maxPieces=Infinity)=>Number(segmentSeconds)>=limit||Number(pieces)>=maxPieces;
 
 // 다음 재시도까지 기다릴 시간(실패 횟수 1부터).
 export const retryDelay=fails=>RETRY_MS[Math.min(Math.max(1,fails)-1,RETRY_MS.length-1)];

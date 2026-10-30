@@ -14,7 +14,7 @@ export async function servePagesCors(page){
   });
 }
 
-// HWP-화면가득: 폰·폴드 폭(1023px 이하)과 PC [전체 화면]에서는 파일·저장 버튼이 위 얇은 줄의 [파일 ▾]·[저장 ▾] 메뉴 안에 있다.
+// HWP-화면가득: 폰 폭(760px 이하)과 PC [전체 화면]에서는 파일·저장 버튼이 위 얇은 줄의 [파일 ▾]·[저장 ▾] 메뉴 안에 있다.
 // 버튼이 보이면(PC 기본 화면) 그 버튼을, 아니면 그 메뉴를 열어 같은 이름의 항목을 누른다. 버튼의 켜짐·꺼짐은 같은 버튼이 정한다.
 const MENU_OF={hwpLabPick:'file',hwpLabTemplate:'file',hwpLabConvert:'file',hwpLabSave:'save',hwpLabUpload:'save',hwpDriveNew:'save',hwpDriveOverwrite:'save',hwpDriveView:'save',hwpConvDownload:'save',hwpConvLibrary:'save'};
 export const hwpMenuItem=(page,id)=>page.locator(`#hwpBarMenu [data-hwp-act="${id}"]`);

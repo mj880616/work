@@ -93,7 +93,7 @@
 .ci-all input{width:auto;min-height:0}
 
 
-@media(min-width:1024px){
+@media(min-width:761px){
   #calendarView .calendar-toolbar{max-width:none;min-height:44px;gap:10px;margin:0 0 10px}
   #calendarView .calendar-toolbar #monthTitle{font-size:clamp(20px,1.3vw,24px);min-width:150px}
   #calendarView #prevMonthBtn,#calendarView #nextMonthBtn{width:38px;height:38px;min-width:38px;padding:0;font-size:24px;line-height:1}
@@ -163,7 +163,7 @@
 }
 .kptu-day-list .google.cp-event .cmv-day-title,
 .kptu-day-list .google.cp-event .cmv-day-time{font-weight:400}
-@media(min-width:1024px){
+@media(min-width:761px){
   /* BUG-일정색표시: PC week timed rows share the band's left stripe and tint. */
   #calendarView .google.cp-event,
   #calendarWeek .cwv-items .cp-event{
@@ -240,7 +240,7 @@
 #calendarWeek .cmv-event-time{font-size:12px}
 /* CAL-끌어옮기기(PC 마우스): 끌 수 있는 일정은 잡기 커서, 아래·오른쪽 끝 6px는 길이 손잡이. 끄는 동안 원래 카드는 흐리게, 옮겨 갈 자리에
    점선 상자 + 바뀔 시간(calendar-week-view.js·calendar-month-view.js가 그림). 막힌 자리(시간↔종일)는 빨간 점선. */
-@media (min-width:1024px) and (pointer:fine){
+@media (min-width:761px) and (pointer:fine){
   #calendarWeek [data-drag],#calendarGrid [data-drag]{cursor:grab;touch-action:none;user-select:none}
   .cwv-resize{position:absolute;left:0;right:0;bottom:0;height:6px;cursor:ns-resize}
   .cwv-band-resize{position:absolute;top:0;bottom:0;right:0;width:6px;cursor:ew-resize}

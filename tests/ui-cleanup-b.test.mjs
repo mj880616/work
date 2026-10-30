@@ -71,11 +71,11 @@ test('③ ⋯ 버튼의 점은 공용 <span class="more-dots">⋯</span> 하나�
 
 test('① 화면 큰 제목은 공용 .screen-title(폰 머리줄·PC 위쪽 줄이 이름을 보이는 폭에서는 읽기 프로그램용)', () => {
   const css = read('ui-standard.css');
-  assert.match(css, /@media \(max-width:760px\),\(min-width:1024px\)\{\s*\.screen-title\{[^}]*clip:rect\(0 0 0 0\)/);
+  assert.match(css, /\n\.screen-title\{[^}]*clip:rect\(0 0 0 0\)/);
   assert.match(read('index.html'), /<h2 class="screen-title">자료실<\/h2>/);
   assert.match(read('suborganizations.js'), /class="so-team-title screen-title">담당조직</);
   assert.match(read('telegram-feed.js'), /feed-head-title screen-title" aria-hidden="true">텔레그램 소식</);
-  assert.match(read('basket.js'), /matchMedia\('\(max-width:760px\),\(min-width:1024px\)'\)/);
+  assert.match(read('basket.js'), /const basketTitle=root\.querySelector\('\.basket-head > h2'\);basketTitle\.classList\.add\('a11y-only'\);/);
   assert.match(read('topbar-actions.js'), /tasks:'할 일',journal:'업무일지',diary:'일기'/);
 });
 

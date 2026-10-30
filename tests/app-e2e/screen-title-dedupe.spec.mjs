@@ -3,11 +3,11 @@ import { openHome } from './helpers/home-entry.mjs';
 import { toplineItem, expectProjectTitle } from './helpers/screen-title.mjs';
 import { expectProjectDetail } from './helpers/project-detail.mjs';
 import { showAllReportWeeks } from './helpers/report-week.mjs';
-// UI-중복제목삭제: with the PC top line (1024px~) already naming the open item ("일정 › 업무일지 › 10월 6일 화요일", "프로젝트 › 이름",
+// UI-중복제목삭제: with the PC top line (761px~, UI-폴드PC틀) already naming the open item ("일정 › 업무일지 › 10월 6일 화요일", "프로젝트 › 이름",
 // "사업 보고 › 이름 차수", "일정 › 일기 › 10월 3일 토요일"), the screen body has no title line of its own for it - the element is not made
 // (same way as the note, topline-note-title.spec.mjs). What carries other information stays: the week range, the project's summary line
-// (with its colour dot), the meeting result's meta line (칸·시각), the ×/⋯ buttons. Below 1024px there is no top line, so the body keeps its
-// title line (390 phone, 900 middle width), and crossing 1024px with the screen open switches it without a reload. Synthetic data only.
+// (with its colour dot), the meeting result's meta line (칸·시각), the ×/⋯ buttons. Below 761px (phone) there is no top line, so the body keeps its
+// title line (390 phone), and crossing 760/761px with the screen open switches it without a reload. Synthetic data only.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const at = '2026-10-05T01:00:00Z';
 const diaryRow = { id: 'd3', workspace_id: 'w', kind: 'diary', title: null, journal_day: '2026-10-03', raw_text: '합성 일기 본문', occurred_at: at, created_at: at, updated_at: at, archived_at: null, ai_export_allowed: false, attachments: [], metadata: {} };
@@ -72,7 +72,8 @@ for (const width of [1280, 1440]) {
   });
 }
 
-for (const width of [390, 900]) {
+// UI-폴드PC틀: 상단 줄이 없는 폭은 폰(≤760)뿐이다(761px~는 PC 틀).
+for (const width of [390]) {
   test(`${width}: 상단 줄이 없는 폭에서는 본문에 제목 줄이 그대로 있다`, async ({ page }) => {
     const errors = await fixture(page, width);
     await expect(page.locator('.app-topline')).toBeHidden();
@@ -100,34 +101,36 @@ for (const width of [390, 900]) {
   });
 }
 
-test('1024px를 넘나들면 열려 있는 화면의 제목 줄이 새로고침 없이 바뀐다 (업무일지·일기)', async ({ page }) => {
+test('760/761px를 넘나들면 열려 있는 화면의 제목 줄이 새로고침 없이 바뀐다 (업무일지·일기)', async ({ page }) => {
   const errors = await fixture(page, 1280);
   await go(page, 'journal');
   await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveCount(0);
+  // 업무일지는 폰도 주 줄의 눌린 날이 이름이라 어느 폭에서도 본문 날짜 제목이 없다.
+  await page.setViewportSize({ width: 760, height: 900 });
+  await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveCount(0);
   await page.setViewportSize({ width: 900, height: 900 });
-  await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveText('10월 6일 화요일');
-  await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveCount(0);
   await expect(page.locator('#journalRoot [data-journal-day]')).toHaveAttribute('aria-label', '10월 6일 화요일');
+  await page.setViewportSize({ width: 1280, height: 900 });
   await openDiaryDay(page);
   await expect(page.locator('[data-diary-detail] h3')).toHaveCount(0);
-  await page.setViewportSize({ width: 900, height: 900 });
+  await page.setViewportSize({ width: 760, height: 900 });
   await expect(page.locator('[data-diary-detail] h3')).toHaveText('10월 3일 토요일');
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 900, height: 900 });
   await expect(page.locator('[data-diary-detail] h3')).toHaveCount(0);
   await expect(page.locator('[data-diary-detail] [data-diary-text-view]')).toHaveText('합성 일기 본문');
   expect(errors).toEqual([]);
 });
 
-test('프로젝트: 1024px를 넘나들면 붙인 상세(제목 줄 없음)와 창(제목 줄 있음)이 바뀐다', async ({ page }) => {
-  const errors = await fixture(page, 1280);
+test('프로젝트: 760/761px를 넘나들면 붙인 상세(제목 줄 없음)와 창(제목 줄 있음)이 바뀐다', async ({ page }) => {
+  const errors = await fixture(page, 900);
   await go(page, 'projects');
   await expectProjectDetail(page);
   await expect(page.locator('#ps3Title')).toHaveCount(0);
-  await page.setViewportSize({ width: 900, height: 900 });
+  await page.setViewportSize({ width: 760, height: 900 });
   await expect(page.locator('#ps3Title')).toHaveText('테스트 프로젝트');
   await expect(page.locator('#ps3Summary > .ps3-color-dot')).toHaveCount(0);
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 900, height: 900 });
   await expect(page.locator('#ps3Title')).toHaveCount(0);
   await expect(page.locator('#ps3Summary > .ps3-color-dot')).toHaveCount(1);
   expect(errors).toEqual([]);

@@ -55,7 +55,7 @@ for(const width of [390,1280]){
       const rgb=color.slice(1).match(/../g).map(x=>parseInt(x,16));
       const chip=page.locator(`#calendarGrid [data-google-event="blue-${i}"]`);
       expect(await chip.evaluate(el=>el.style.backgroundColor)).toBe(`rgb(${rgb.join(', ')})`);
-      await expectGoogleDisplay(chip,{stripe:width>=1024?4:0,tint:width>=1024?.08:.15});
+      await expectGoogleDisplay(chip,{stripe:width>=761?4:0,tint:width>=761?.08:.15});
     }
     await openTaskDay(page);
     await taskChip(page,'pending').click();

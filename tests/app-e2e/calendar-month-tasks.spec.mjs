@@ -31,7 +31,7 @@ for(const width of [360,1280]){
     const week=page.locator('.cmv-week').filter({has:page.locator('.cal-cell[data-date="2026-10-20"]')});
     await expect(week).toHaveAttribute('data-lane-count','24');
     const cap=Number(await week.getAttribute('data-lane-cap'));
-    if(width<1024){await expect(week.locator('.kptu-day-more')).toHaveText('+'+(24-cap));}
+    if(width<761){await expect(week.locator('.kptu-day-more')).toHaveText('+'+(24-cap));}
     else await expect(week.locator('.kptu-day-more')).toHaveCount(0);
     // Mobile has one date-row target; desktop has an independent 44px task target.
     const marker=page.locator('.cal-cell[data-date="2026-10-10"] .cmv-task-count');
@@ -47,7 +47,7 @@ for(const width of [360,1280]){
     expect(geometry.height).toBe(44);expect(geometry.width).toBeGreaterThanOrEqual(44);
     expect(geometry.within).toBe(true);expect(geometry.overlaps.filter(x=>x.overlap)).toEqual([]);expect(geometry.hit).toBe(true);
     console.log('task target',width,JSON.stringify(geometry));
-    if(width<1024){
+    if(width<761){
       await week.locator('.kptu-day-more').click();
       await expect(page.locator('#calendarDayEvents .cal-event')).toHaveCount(24);
       await expect(page.locator('#calendarDayTasks .cal-event')).toHaveCount(2);

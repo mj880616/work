@@ -85,7 +85,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const quick = mountQuick({root:host.querySelector('[data-note-list]'), esc, noteOnly:true, view:'basket', idPrefix:'basketNote',
     onSaved:saved => noteAdded(saved, {open:false}), onBig:(text, upload) => openNew(text, upload), onFolder:trigger => openAddPicker(trigger)});
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
-  const boards = createNoteBoards({esc, rt, wide:window.matchMedia('(min-width:1024px)'), bar:host.querySelector('[data-nbb]'), side:host.querySelector('[data-nbb-side]'),
+  const boards = createNoteBoards({esc, rt, wide:window.matchMedia('(min-width:761px)'), bar:host.querySelector('[data-nbb]'), side:host.querySelector('[data-nbb-side]'),
     notes:{get:() => notes, set:fn => { notes = fn(notes); }}, folderOf:note => folderOf(note), folders:() => folders, matches:() => (query ? matches : null),
     rerender:() => { if (loaded && !selected && view === 'board') renderList(); }, toast:showToast, refresh:() => refresh(), scope:() => scope()});
   // UI-노트고정: pinned notes first, then by last change.
@@ -103,7 +103,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // 폴더가 없으면 노트가 이미 한 목록이라 따로 두지 않는다. 들어간 폴더 id는 at이 폴더일 때만(folderAt).
   const showRecent = () => folders.length > 0;
   const folderAt = () => at && at !== OUTSIDE && folderById(at) ? at : null;
-  const wideList = window.matchMedia('(min-width:1024px)');
+  const wideList = window.matchMedia('(min-width:761px)');
   const sortList = list => sortNotes(list);
   const isPicked = key => !!pick.has(key);
   const pickBox = key => `<span class="nx-pick" aria-hidden="true">${isPicked(key) ? '✓' : ''}</span>`;
@@ -364,9 +364,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }).join('');
     attBox.querySelectorAll('.file-line-main').forEach(el => { el.setAttribute('role', 'button'); el.tabIndex = 0; });
   }
-  // UI-상단줄제목: with the PC top line (1024px~) the open note's title is already in the place, so the head has no title line of its
+  // UI-상단줄제목: with the PC top line (761px~) the open note's title is already in the place, so the head has no title line of its
   // own there (the element is not made); below that width it is made, as before.
-  const toplineWide = window.matchMedia('(min-width:1024px)');
+  const toplineWide = window.matchMedia('(min-width:761px)');
   function syncHeadTitle() {
     const main = detail.querySelector('[data-note-head-main]'); if (!main || !selected) return;
     const has = main.querySelector('[data-note-read-title]');

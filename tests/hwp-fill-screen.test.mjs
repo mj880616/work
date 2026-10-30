@@ -30,7 +30,7 @@ test('the two menus reuse the shared anchored menu and press the existing button
 });
 
 test('phone width and PC fullscreen share one fill-the-screen layout',()=>{
-  assert.match(lab,/window\.matchMedia\('\(max-width: 1023px\)'\)/);
+  assert.match(lab,/window\.matchMedia\('\(max-width:760px\)'\)/);
   assert.match(lab,/const focus=NARROW\.matches\|\|card\.hasAttribute\('data-full'\);/);
   assert.match(lab,/NARROW\.addEventListener\?\.\('change',layout\)/);
   assert.match(css,/#appView #hwpView \.hwp-lab\[data-focus\]\{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;/);

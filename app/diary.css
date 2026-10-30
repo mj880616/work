@@ -1,10 +1,10 @@
 /* JOURNAL-일기 1차: 일정 탭 [일기]와 [달력] 날짜 목록의 일기 미리보기. 색은 theme-tokens.css의 값만 쓴다(일기 달력 표시는 테마 대표색 --kptu-primary-*, 나머지 일기 보라 --ds-kind-diary-*). */
-/* UI-PC일기 ②: max-width:760px는 PC에서 사이드바 옆 본문의 일부만 쓰게 했다. PC(≥1024, 사이드바 화면)에서만 폭 제한을 풀어
+/* UI-PC일기 ②: max-width:760px는 PC에서 사이드바 옆 본문의 일부만 쓰게 했다. PC(≥761, 사이드바 화면)에서만 폭 제한을 풀어
    본문 폭을 다 쓰고, 같은 [일정] 탭의 [달력](calendar-ui.css)과 같은 본문 폭 규칙을 쓴다. 달력 칸은 정사각 대신 4:3으로 낮춰
-   넓어진 폭에서도 한 달이 화면 높이 안에 들어오게 한다. 폰(≤760)·중간 폭은 그대로. */
+   넓어진 폭에서도 한 달이 화면 높이 안에 들어오게 한다. 폰(≤760)은 그대로. */
 #appView #diaryView .diary{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
 /* 바깥 폭(본문 칸)은 모든 PC 화면과 같은 desktop-ui.css의 main 규칙(UI-전수디자인점검 F21)이 정한다. */
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #diaryView .diary{ max-width:none; }
 }
 #appView #diaryView .diary-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:var(--kptu-touch-target,44px); }
@@ -36,7 +36,7 @@
 @media(hover:hover){ #appView #diaryView .diary-cell:not(.diary-blank):hover{ background:var(--kptu-surface-subtle); } }
 /* UI-전수디자인점검 F10(PC): 날마다 둥근 상자 31개 대신 가는 격자선 한 겹(칸 사이 0, 선 0.5px). 빈 날은 높이 56px,
    사진 있는 날만 4:3 칸(같은 줄 다른 칸은 그 높이로 늘어나 선이 이어진다). 폰은 위 정사각 칸 그대로. */
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #diaryView .diary-days{ gap:0; border-top:var(--ds-line-width) solid var(--ds-line); border-left:var(--ds-line-width) solid var(--ds-line); }
   #appView #diaryView .diary-cell{ aspect-ratio:auto; min-height:56px; border:0; border-right:var(--ds-line-width) solid var(--ds-line); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
   #appView #diaryView .diary-cell.has-photo{ aspect-ratio:4/3; }

@@ -18,7 +18,7 @@ async function fixture(page,width){
  return errors;
 }
 // PC는 위쪽 줄 ‹ ›, 폰·중간 폭은 브라우저 뒤로/앞으로(폰 뒤로가기와 같은 기록).
-const stepper=(page,width)=>width>=1024
+const stepper=(page,width)=>width>=761
  ?{back:()=>page.locator('[data-history-step="back"]').click(),forward:()=>page.locator('[data-history-step="forward"]').click()}
  :{back:()=>page.evaluate(()=>history.back()),forward:()=>page.evaluate(()=>history.forward())};
 const noteDetail=page=>page.locator('#basketView [data-note-detail]');
@@ -39,7 +39,7 @@ for(const width of [1440,412,884]){
   await expect(page).toHaveURL(/doc=d5/);
   await step.back();await expect(noteDetail(page)).toBeHidden();
   await step.back();await expect(page.locator('#homeView')).toBeVisible();
-  if(width>=1024)await expect(page.locator('[data-history-step="back"]')).toBeDisabled();
+  if(width>=761)await expect(page.locator('[data-history-step="back"]')).toBeDisabled();
   expect(errors).toEqual([]);
  });
 

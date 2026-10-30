@@ -108,7 +108,7 @@ function usedPlaces(places) {
 // UI-고르기창개선: the projects are one per line with a small check box; the search box above filters both (the recent line steps
 // aside while searching, its chips are also below). UPD-여러곳고르기 ①: the organizations look the same: each group's name is a small
 // heading and its organizations follow one per line with a check box. Many may be chosen; the sheet marks them (choice-sheet.js multi).
-// UI-기록할곳창PC: the organizations and the projects are each one column block (data-sheet-col); on a wide PC (1024px~) the sheet
+// UI-기록할곳창PC: the organizations and the projects are each one column block (data-sheet-col); on a wide PC (761px~) the sheet
 // sets them side by side under the 최근 line (choice-sheet.js wide, choice-sheet.css). Phones and middle widths keep them stacked.
 // REF-참고묶음 (docs/design/ref-bundle.md 6절): the reference bundles are one more block at the very bottom (references:false leaves it
 // out, as the 사업 보고 [연결할 곳] does). On a wide PC it sits under the projects in the projects column.

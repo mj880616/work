@@ -97,7 +97,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
    else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
    // UI-PC회의(2026-10-20)·UI-PC버튼36: PC 회의 [+ 회의 결과]·[+ 프로젝트]는 공용 입력칸 높이(36px)·누르는 범위 44px.
    // BIZ-버튼줄정리(10/29): 사업 보고 [+ 사업 보고]도 [+ 사업영역]처럼 작고 낮은 채운 버튼(32px, 누르는 범위 44px).
-   else if(['#newMeetingBtn','#newProjectBtn'].includes(selector)&&width>=1024)await pcCompactAdd(page,selector);
+   else if(['#newMeetingBtn','#newProjectBtn'].includes(selector)&&width>=761)await pcCompactAdd(page,selector);
    else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }
@@ -105,14 +105,14 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  }
  for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="meetings"]','#appView [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
-  if(name==='library'){if(width<=760)await phoneFab(page,'#newDocumentBtn');else if(width>=1024)await pcAdd(page,'#newDocumentBtn');else await dsStandard(page,'#newDocumentBtn');continue}
+  if(name==='library'){if(width<=760)await phoneFab(page,'#newDocumentBtn');else if(width>=761)await pcAdd(page,'#newDocumentBtn');else await dsStandard(page,'#newDocumentBtn');continue}
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
   if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());
    // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.
    // UI-상단줄: the PC [계정 ▾] moved to the top line as a small button (32px visible, UI-버튼기준); its letters stay the menu's.
    if(selector.includes('account-open'))expect(await size(page.locator(selector).first()),selector).toEqual({...before,height:32,paddingLeft:'8px',paddingRight:'8px',font:'13px',weight:'400'});
    // UI-전수디자인점검 F22: PC(1024px~) 사이드바 메뉴 줄의 보이는 높이는 28px(--ds-compact-height-sm).
-   else expect(await size(page.locator(selector).first()),selector).toEqual({...before,...(width>=1024?{height:28}:{}),font:'13px',weight:'400'});}
+   else expect(await size(page.locator(selector).first()),selector).toEqual({...before,...(width>=761?{height:28}:{}),font:'13px',weight:'400'});}
  }
  await original.close();
 });
@@ -179,7 +179,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
 for(const width of [390,1440])test('D-button undo painted size and real 44px target '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await boot(page,[{id:'size-task',title:'Fixture task',taskListId:'l1',taskListTitle:'QA',status:'needsAction',due:null}]);await view(page,'tasks');
  // UI-PC할일후속: PC(1440)에서 기한 없는 할 일은 "나중 N ▸" 접기 줄 안에 있어 먼저 펼친다.
- if(width>=1024)await page.locator('#gtLater summary').click();
+ if(width>=761)await page.locator('#gtLater summary').click();
  await page.locator('#gtTaskBody [data-google-task="size-task"] [data-gt-menu]').click();await page.locator('#gtTaskMenu [data-gt-menu-action="delete"]').click();
  await standard(page,'[data-gt-undo="size-task"]');
  const el=page.locator('[data-gt-undo="size-task"]');await el.scrollIntoViewIfNeeded();

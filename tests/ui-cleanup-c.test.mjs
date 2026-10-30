@@ -75,7 +75,7 @@ test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트
   // UI-머리줄겹침: 음수 여백으로 위 머리줄 자리에 끌어올리지 않고, 빈 위 머리줄을 접는다(위에 다른 칸이 있어도 포개지지 않음).
   for (const f of ['feed.css', 'basket.css', 'ui-standard.css', 'reference-bundles.css']) assert.doesNotMatch(read(f), /margin:calc\(-1 \* \(var\(--kptu-touch-target/, f);
   assert.match(read('ui-standard.css'), /html:has\(#basketView:not\(\.hidden\) > \[data-basket-detail\]:not\(\[hidden\]\)\) #appView > \.mobile-shell-header\{ display:none; \}/);
-  assert.match(read('journal.js'), /const noDayTitle = window\.matchMedia\?\.\('\(max-width:760px\),\(min-width:1024px\)'\);/);
+  assert.match(read('journal.js'), /function syncDayTitle\(\) \{\s*const box = \$\('\[data-journal-day\]'\); if \(!box\) return;\s*box\.querySelector\('\[data-journal-day-title\]'\)\?\.remove\(\);/);
 });
 
 test('③ 사업 보고 후속 할 일: 머리의 추가 단추는 [+] 하나, AI 후보 찾기는 그 입력 줄 안', () => {

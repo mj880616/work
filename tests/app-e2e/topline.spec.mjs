@@ -204,16 +204,17 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  }
 });
 
-test('phone and mid width keep their own shell: no top line, the sidebar toggle does nothing there',async({page})=>{
+test('phone keeps its own shell; 761~1023px has the PC top line and a narrow menu that a saved hidden sidebar does not hide (UI-폴드PC틀)',async({page})=>{
  await page.setViewportSize({width:390,height:800});
  await installViewPrefsServer(page,{nav_collapsed:true});
  await openHome(page);
  await expect(line(page)).toBeHidden();
  await expect(page.locator('.mobile-tabs')).toBeVisible();
  await page.setViewportSize({width:900,height:800});
- await expect(line(page)).toBeHidden();
+ await expect(line(page)).toBeVisible();
  await expect(page.locator('#appView>.app-nav')).toBeVisible();
- await expect(page.locator('#mobileMenuOpen')).toBeVisible();
+ expect((await page.locator('#appView>.app-nav').boundingBox()).width).toBeLessThanOrEqual(56);
+ await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
 });
 
 // Representative widths: with the sidebar hidden each PC layout widens and keeps its own shape.

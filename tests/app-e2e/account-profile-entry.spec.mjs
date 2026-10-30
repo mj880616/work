@@ -49,7 +49,7 @@ for(const [name,width] of [['PC',1440],['mid',900],['phone',390]]){
     await expect(page.locator('#calendarView')).toBeVisible();
     await expect(page.locator('#profileView')).toHaveCount(0);
 
-    const phoneLike=width<=1023;
+    const phoneLike=width<=760;
     const panel=page.locator(phoneLike?'#mobileMenu':'#sidebarAccountPanel');
     const entries=panel.locator(phoneLike?'#mobileAccountGroup button':'button');
     await accountButton(page).click();
@@ -114,7 +114,7 @@ for(const [name,width] of [['PC',1440],['mid',900],['phone',390]]){
     await page.goto(testOrigin+'/app/?view=calendar');
     await signIn(page);
     await expect(page.locator('#calendarView')).toBeVisible();
-    const phoneLike=width<=1023;
+    const phoneLike=width<=760;
     const panel=page.locator(phoneLike?'#mobileMenu':'#sidebarAccountPanel');
     await accountButton(page).click();
     await expect(panel).toBeVisible();

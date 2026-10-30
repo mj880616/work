@@ -8,7 +8,7 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 // List: small day labels, then rows [시각 · 제목 한 줄 · 조직 작게]. Detail: title, a small line (date · time · 조직/상대),
 // the core points box (`[확정]`·`[예정]`·`[확인]` heads read as small tags, feed-model.mjs), the transcript folded under
 // "전문 펼치기 ▾" (speaker lines when speaker_split, else one paragraph + "화자 구분은 전사 수정 뒤"), ⋯ top right;
-// 핵심내용 제목 줄 오른쪽에 작은 [복사]. PC (1024px~): list 1/3 · detail 2/3 (split-resize.js);
+// 핵심내용 제목 줄 오른쪽에 작은 [복사]. PC (761px~): list 1/3 · detail 2/3 (split-resize.js);
 // phone: list, then the detail over it as one router layer (Back = one step; the personal box is a layer too). Data: feed-data.js (owner RLS REST only).
 // CALL-손고치기 (docs/design/call-user-edit.md): 제목(줄 안 바로 고치기, F2)·조직/이름(상세 박스)·핵심내용(상세 줄 고치기)을 손으로 고친다.
 // 고친 값은 서버의 app_call_edits에 사용자 값으로 저장되고(DB 함수 app_call_edit) AI가 채운 칸은 그대로다. 줄은 feed-model.mjs applyCallEdit으로 사용자 값을 덧씌워 그린다.
@@ -27,7 +27,7 @@ import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from 
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
-const pc = window.matchMedia('(min-width:1024px)');
+const pc = window.matchMedia('(min-width:761px)');
 const phone = window.matchMedia('(max-width:760px)');
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 

@@ -10,10 +10,17 @@ const code=f=>{try{f();return 'ok'}catch(e){return e.code}};
 const ID='11111111-2222-4333-8444-555555555555';
 
 test('segment fits one transcription request; DB limits match',()=>{
- assert.ok(r.REC_SEGMENT_SECONDS<MAX_SECONDS);assert.equal(r.REC_PIECE_SECONDS,300);
- assert.ok(Math.ceil(r.REC_SEGMENT_SECONDS/r.REC_PIECE_SECONDS)+1<=r.REC_MAX_PIECES);
+ assert.ok(r.REC_SEGMENT_SECONDS<MAX_SECONDS);assert.equal(r.REC_PIECE_SECONDS,60);
+ // 59분 구간 = 1분 조각 59개 + 멈출 때 1개. 화면은 REC_ROLL_PIECES에서 넘어가고, 넘길 때 마지막 조각 1개가 더 붙어도 상한 안.
+ assert.ok(Math.ceil(r.REC_SEGMENT_SECONDS/r.REC_PIECE_SECONDS)+1<=r.REC_ROLL_PIECES);
+ assert.ok(r.REC_ROLL_PIECES+1<r.REC_MAX_PIECES);
+ // 끊김 판정은 조각 간격의 여러 배(재시도 기다림 60초를 넘겨도 녹음 중을 끊긴 것으로 보지 않음), 옛 5분 화면도 넘김.
+ assert.ok(r.REC_QUIET_MS>=5*r.REC_PIECE_SECONDS*1000&&r.REC_QUIET_MS>300*1000);
  const sql=readFileSync('supabase/migrations/20261029200000_meeting_recordings.sql','utf8');
- assert.match(sql,new RegExp(`cardinality\\(piece_ids\\) <= ${r.REC_MAX_PIECES}\\b`));
+ assert.match(sql,/cardinality\(piece_ids\) <= 16\b/);
+ // 조각 수 상한은 migration 20261030120000에서 64로(같은 이름 검사를 다시 만듦).
+ const wide=readFileSync('supabase/migrations/20261030120000_meeting_recording_pieces_64.sql','utf8');
+ assert.match(wide,new RegExp(`add constraint app_meeting_recordings_pieces_check check \\(\\s*cardinality\\(piece_ids\\) <= ${r.REC_MAX_PIECES}\\b`));
  assert.match(sql,new RegExp(`segment_no between 1 and ${r.REC_MAX_SEGMENTS}\\b`));
  assert.match(sql,new RegExp(`size_bytes between 0 and ${MAX_BYTES}\\b`));
  assert.deepEqual(Object.keys(r.REC_MIME).sort(),['audio/mp4','audio/ogg','audio/webm']);
@@ -58,8 +65,8 @@ test('close, next segment, quiet open segment, file names',()=>{
  assert.equal(r.closePatch({piece_ids:[]},now).status,'empty');assert.equal(r.closePatch({piece_ids:['aaaaaaaaaa1']},now).status,'closed');
  assert.equal(r.nextSegment([{segment_no:1},{segment_no:3}]),4);assert.equal(r.nextSegment([]),1);
  assert.equal(code(()=>r.nextSegment([{segment_no:r.REC_MAX_SEGMENTS}])),'rec_too_many');
- assert.equal(r.isQuiet({status:'recording',updated_at:'2026-10-29T04:50:00Z'},now),false);
- assert.equal(r.isQuiet({status:'recording',updated_at:'2026-10-29T04:40:00Z'},now),true);
+ assert.equal(r.isQuiet({status:'recording',updated_at:'2026-10-29T04:54:00Z'},now),false);
+ assert.equal(r.isQuiet({status:'recording',updated_at:'2026-10-29T04:52:00Z'},now),true);
  assert.equal(r.isQuiet({status:'closed',updated_at:'2026-10-29T00:00:00Z'},now),false);
  const name=r.segmentFileName('2026-10-29T05:30:00Z',2,'audio/mp4');
  assert.equal(name,'녹음 2026-10-29 1430 구간2.m4a');

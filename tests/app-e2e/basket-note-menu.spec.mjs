@@ -141,7 +141,7 @@ for (const width of [390, 1280]) {
     const detail = page.locator('[data-note-detail]');
     await expectNoteTitle(page,'정리 노트');
     await expect(detail.locator('[data-note-close]')).toHaveCount(0);
-    const title = width < 1024 ? await detail.locator('[data-note-read-title]').boundingBox() : null;
+    const title = width<761 ? await detail.locator('[data-note-read-title]').boundingBox() : null;
     const copy = await detail.locator('[data-note-telegram]').boundingBox(), more = await detail.locator('[data-note-more]').boundingBox();
     // One line: the same top band, left to right title · copy · ⋯.
     if (title) { expect(Math.abs((title.y + title.height / 2) - (copy.y + copy.height / 2))).toBeLessThanOrEqual(12); expect(title.x + title.width).toBeLessThanOrEqual(copy.x + 1); }

@@ -1,6 +1,6 @@
 // SEARCH-전체검색 S-3·S-4: 전체 검색 화면의 유일한 renderer(설계 docs/design/global-search.md 4절).
-// - PC(1024px~): 상단 줄 칸 자리([data-search-slot], topbar-actions.js 소유)에 검색칸만 붙이고, 칸 아래 결과 창을 연다.
-// - 검색 결과 전용 화면(?view=search&q=…&kind=…): 이 모듈이 #searchView를 만들고 그린다. 폰·761~1023px에서는 같은 화면이
+// - PC(761px~): 상단 줄 칸 자리([data-search-slot], topbar-actions.js 소유)에 검색칸만 붙이고, 칸 아래 결과 창을 연다.
+// - 검색 결과 전용 화면(?view=search&q=…&kind=…): 이 모듈이 #searchView를 만들고 그린다. 폰에서는 같은 화면이
 //   전체 화면 검색이다(왼쪽 위 ←, 메뉴 창 맨 위 검색칸이 입구). 홈에는 검색칸이 없다.
 // - 결과 창·전용 화면·전체 화면은 같은 그리기 함수(paint)로 그린다. 형광은 textContent 조각 + <mark>(HTML 삽입 없음).
 // - 결과를 누르면 source 칸 기준으로 원본 화면의 기존 여는 함수를 부른다. 상단 줄 ←→(앱 안 이동 기록)로 돌아온다.
@@ -23,7 +23,7 @@ import {canAsk, looksLikeQuestion, ASK_TEXT, askFailText, cleanAnswer, answerNot
 (() => {
 'use strict';
 if (window.KPTUGlobalSearch) return;
-const DEBOUNCE = 250, PC = window.matchMedia('(min-width:1024px)');
+const DEBOUNCE = 250, PC = window.matchMedia('(min-width:761px)');
 const router = () => window.KPTURouter;
 
 // ---------- 상태(이 탭 메모리만) ----------

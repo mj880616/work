@@ -47,8 +47,8 @@
 /* UI-회의결과창정리(2026-10-17 사용자 결정): 자료 등록 창은 큰 점선 상자 대신 [📎 파일 고르기] 작은 버튼 한 줄 + 짧은 안내.
    고른 파일은 파일 한 줄(ui-standard.css .file-line), PC는 창 전체가 끌어다 놓는 자리. 바구니 첨부의 .library-selected-file 모양은 그대로. */
 #documentModal .library-file-block{padding:0;background:transparent}
-/* UI-전수디자인점검 F20: PC(1024px~) 자료 등록 창은 폭 640px, 칸은 두 줄씩(분류·사업영역 / 출처·문서 날짜 / 태그·링크 — index.html의 .two-col). 폰·중간 폭은 그대로. */
-@media(min-width:1024px){#documentModal .modal-card.small-card{width:min(100%,640px)}}
+/* UI-전수디자인점검 F20: PC(761px~) 자료 등록 창은 폭 640px, 칸은 두 줄씩(분류·사업영역 / 출처·문서 날짜 / 태그·링크 — index.html의 .two-col). 폰은 그대로. */
+@media(min-width:761px){#documentModal .modal-card.small-card{width:min(100%,640px)}}
 #documentModal .library-selected-files{gap:0;margin-top:4px}
 .library-pick-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-height:var(--kptu-touch-target,44px)}
 .library-pick-button{position:relative;box-sizing:border-box;display:inline-flex;flex-direction:row;align-items:center;gap:4px;height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -114,7 +114,7 @@
 .lu-head-actions{display:flex;align-items:center;gap:8px}
 #libraryView .lu-head-actions button{margin:0}
 /* UI-전수디자인점검 F11: [+ 자료 등록]은 목록 칸 안 한 줄이 아니라 검색 칸 오른쪽(화면 머리 오른쪽 자리, UI-화면정리 C). 폰은 ui-standard.css의 동그란 [+] 그대로.
-   [선택]은 목록 칸 첫 줄 오른쪽 작은 글자 버튼. 자료실 큰 제목(.screen-title)은 761~1023px에서만 목록 칸 위에 보인다. */
+   [선택]은 목록 칸 첫 줄 오른쪽 작은 글자 버튼. 자료실 큰 제목(.screen-title)은 읽기 프로그램용. */
 #appView #libraryView .library-filter-toolbar .lu-search-row{display:flex;align-items:center;gap:8px;flex:1 1 100%;min-width:0}
 #appView #libraryView .library-filter-toolbar .lu-search-row > .search{flex:1 1 0;min-width:0}
 #appView #libraryView .library-filter-toolbar .lu-search-row > .lu-head-actions{flex:none}

@@ -58,7 +58,7 @@ async function fixture(page,{width=1280,senderTables='empty'}={}){
  return {items,writes,errors,names,calls};
 }
 async function openMenu(page,width,label){
- if(width>=1024){
+ if(width>=761){
   const item=page.locator('#appView>.app-nav').getByRole('button',{name:label,exact:true});
   await expect(item).toBeVisible();await item.click();
  }else{

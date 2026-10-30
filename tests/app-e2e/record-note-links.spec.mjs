@@ -54,7 +54,7 @@ async function scrollToRecord(page,locator){
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>r())));return top(locator);
 }
 // UI-상단줄제목: on a PC (1024px~) the open note's title is in the top line's place; below that, in the note's head.
-const noteRead=page=>(page.viewportSize()?.width||0)>=1024?page.locator('[data-topline-where] [aria-current="page"]'):page.locator('#basketView [data-note-read-title]');
+const noteRead=page=>(page.viewportSize()?.width||0)>=761?page.locator('[data-topline-where] [aria-current="page"]'):page.locator('#basketView [data-note-read-title]');
 
 for(const width of [1280,390])test(`project ${width}: a linked note joins the record list with the note icon; the update has the update icon and no 🧺 is left`,async({page})=>{
  const {state,errors}=await fixture(page,{width});

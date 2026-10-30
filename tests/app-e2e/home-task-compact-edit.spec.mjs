@@ -3,7 +3,7 @@ import { openHome } from "./helpers/home-entry.mjs";
 
 // UI-홈할일간격(B안) + UI-할일조작통일 (+ HOME-모바일정리③ 줄 높이): one line per task, no "오늘" helper text, a small date only for overdue ones,
 // and a tap on the title opens the task view's existing editor.
-for (const width of [412, 870]) {
+for (const width of [412, 760]) {
   test(`home task rows are one compact line and open the existing editor (${width}px)`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await openHome(page);

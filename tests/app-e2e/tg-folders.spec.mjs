@@ -18,7 +18,7 @@ async function fixture(page,{width=390,folders=[{id:F.work,name:'가상 업무'}
  return {items,errors,writes,calls,server};
 }
 async function openTelegram(page,width){
- if(width>=1024){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'텔레그램 소식',exact:true});await expect(item).toBeVisible();await item.click();}
+ if(width>=761){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'텔레그램 소식',exact:true});await expect(item).toBeVisible();await item.click();}
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'텔레그램 소식',exact:true}).click();}
  await expect(page.locator('#telegramView')).toBeVisible();
  await expect(page.locator('#telegramView [data-tg-rd]').first()).toBeVisible();
