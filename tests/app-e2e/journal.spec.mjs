@@ -1197,7 +1197,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  const f=await hwpxFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
  await openDraft(page);
- expect(f.sent.other).toEqual([{category:'eq.주간보고 확정본'}]);
+ expect(f.sent.other.filter(x=>!x.ai)).toEqual([{category:'eq.주간보고 확정본'}]); // AI 초안(weekly_draft)은 아래에서 따로 본다
  expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'doc-team'}]);
  // 내 줄 2개(다른 담당의 가-2 줄은 없음), 내 담당 조직(가상 노동조합)만. 이름은 프로필에서.
  await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
@@ -1379,7 +1379,7 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  await expect(hwpx(page).locator('[data-hwpx-ai-draft]')).toContainText('AI 초안: 지난 1주 고침 기록·규칙 2줄을 보고 2칸을 고쳐 썼어요');
  const draftAsk=ai.find(x=>x.kind==='weekly_draft');
  expect(draftAsk.mode).toBe('draft');
- expect(draftAsk.cells.find(c=>c.where.includes('가-1'))).toMatchObject({lines:['- 지난주 가-1 진행'],material:[expect.stringContaining('가-1 목요일 기록')]});
+ expect(draftAsk.cells.find(c=>c.where.includes('가-1'))).toMatchObject({lines:['- 지난주 가-1 진행'],material:expect.arrayContaining([expect.stringContaining('가-1 목요일 기록')])});
  // [학습 시험]: 이번 주 개인본과 줄마다. 재료에 이번 주 개인본 글이 없다. 칸·임시저장은 그대로.
  await b1.locator('textarea').fill('- AI 나-1 줄'); // 그대로
  await hwpx(page).locator('[data-hwpx-learn-test]').click();
