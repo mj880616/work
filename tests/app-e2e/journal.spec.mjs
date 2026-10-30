@@ -2089,7 +2089,7 @@ for(const width of [390,1280])test(`[업무일지] 줄 ⋯ 내일로·기한 바
  await date(page,'2026-10-06').click();
  const overdue=group(page,'todo').locator('[data-journal-overdue]');
  await expect(overdue.locator(':scope > summary')).toHaveText('기한 지난 것 1');await expect(overdue.locator('li').first()).toBeHidden();
- await overdue.locator(':scope > summary').click();await expect(overdue.locator('.journal-item-open')).toHaveText(['기한 지난 일 지남 10.5']);
+ await overdue.locator(':scope > summary').click();await expect(overdue.locator('.journal-item-open')).toHaveText(['기한 지난 일']);
  await expect(overdue.locator('[data-journal-task-due]')).toHaveText(['지남 10.5']);
  await overdue.locator('li').first().locator('.journal-check').click();
  await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포','기한 지난 일']);
