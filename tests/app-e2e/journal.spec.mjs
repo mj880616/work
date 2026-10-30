@@ -1614,7 +1614,7 @@ for(const width of [412,884,1440])test(`[주간보고 한글 파일] 임시저�
  await expect(hwpx(page).locator('[data-hwpx-draft-status]')).toHaveCount(1);
  const measure=()=>head.evaluate(h=>{
   const t=h.querySelector('#journalHwpxTitle').getBoundingClientRect(),d=h.querySelector('[data-hwpx-draft-status]').getBoundingClientRect(),b=h.getBoundingClientRect();
-  return {overlap:t.right>d.left+0.5,sameRow:Math.abs((t.top+t.bottom)/2-(d.top+d.bottom)/2)<=4,atEnd:Math.abs(b.right-d.right)<=1,inside:d.left>=b.left&&d.right<=b.right+0.5,single:h.getBoundingClientRect().height<=Math.max(t.height,d.height)+1,small:parseFloat(getComputedStyle(d).fontSize)<parseFloat(getComputedStyle(h.querySelector('#journalHwpxTitle')).fontSize)};
+  return {overlap:t.right>d.left+0.5,sameRow:Math.abs((t.top+t.bottom)/2-(d.top+d.bottom)/2)<=4,atEnd:Math.abs(b.right-d.right)<=1,inside:d.left>=b.left&&d.right<=b.right+0.5,single:h.getBoundingClientRect().height<=Math.max(t.height,d.height)+1,small:parseFloat(getComputedStyle(h.querySelector('[data-hwpx-draft-status]')).fontSize)<parseFloat(getComputedStyle(h.querySelector('#journalHwpxTitle')).fontSize)};
  });
  expect(await measure()).toEqual({overlap:false,sameRow:true,atEnd:true,inside:true,single:true,small:true});
  // 제목이 아주 길어도 제목만 말줄임: 임시저장 글은 그대로 보이고 겹침 0, 가로 넘침 없음.
