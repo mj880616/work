@@ -7,7 +7,7 @@ test.use({timezoneId:'Asia/Seoul'});
 for(const width of [390,1023,1024,1280]){
   test('month events use A below the PC boundary and C on PC ('+width+'px)',async({page})=>{
     await page.setViewportSize({width,height:844});await page.goto(fixture);
-    const desktop=width>=1024;
+    const desktop=width>=761;
     for(const id of ['app-1','recurring'])await expectGoogleDisplay(page.locator('[data-google-event="'+id+'"]'),{stripe:desktop?4:0,tint:desktop?.08:.15});
     await expect(page.locator('[data-google-event="app-1"]')).toHaveCSS('height',desktop?'18px':'13px');
     const multi=page.locator('[data-google-event="multi"]');await expect(multi).toHaveCount(2);

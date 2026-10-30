@@ -74,7 +74,7 @@ async function fixture(page,{width=1280,missing=false,empty=false,many=0}={}){
  return {items,writes,errors};
 }
 async function openMenu(page,width,label){
- if(width>=1024){
+ if(width>=761){
   const item=page.locator('#appView>.app-nav').getByRole('button',{name:label,exact:true});
   await expect(item).toBeVisible();await item.click();
  }else{
@@ -120,12 +120,12 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect(detail.locator('[data-cf-meta]')).toHaveText('10. 6. (화) · 09:42 · 예시지부 · 홍길동 위원장');
  await expect(detail.locator('[data-cf-points] li')).toHaveText(['가상 교섭 다음 주 화요일로 변경','요구안 12명 유지확정','회신 10. 12.(월)까지예정','장소 다시 확인확인']);
  await expect(detail.locator('[data-cf-points] .feed-tag')).toHaveText(['확정','예정','확인']);
- if(width>=1024){await expect(page.locator('[data-topline-where] [aria-current="page"]')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(detail.locator('[data-cf-title]')).toHaveCount(0);}
+ if(width>=761){await expect(page.locator('[data-topline-where] [aria-current="page"]')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(detail.locator('[data-cf-title]')).toHaveCount(0);}
  else await expect(detail.locator('[data-cf-title]')).toHaveText('가상 교섭 일정 다음 주로 조정');
  // 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 위치를 재기 전에 그 다시 그리기를 기다린다.
  await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  // UI-더보기제목줄: ⋯는 빈 줄을 따로 차지하지 않고 첫 줄(폰은 제목, PC는 날짜·시간 줄) 오른쪽 끝에 같은 줄로 놓인다.
- {const first=await detail.locator(width>=1024?'[data-cf-meta]':'[data-cf-title]').boundingBox(),more=await detail.locator('[data-cf-more]').boundingBox();
+ {const first=await detail.locator(width>=761?'[data-cf-meta]':'[data-cf-title]').boundingBox(),more=await detail.locator('[data-cf-more]').boundingBox();
   expect(first&&more).toBeTruthy();expect(Math.abs(more.y+more.height/2-(first.y+Math.min(first.height,more.height)/2))).toBeLessThan(more.height);
   expect(more.x).toBeGreaterThan(first.x+first.width-1);expect(more.y).toBeLessThan(first.y+first.height);
   expect(await detail.locator('.feed-detail-head').evaluateAll(a=>a.filter(h=>h.querySelector('[data-cf-more]')).length)).toBe(0);}
@@ -143,7 +143,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect(detail.locator('[data-cf-detail-status]')).toHaveText('복사했어요');
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('예시지부 · 홍길동 위원장 · 가상 교섭 일정 다음 주로 조정\n10. 6. (화) 09:42\n\n- 가상 교섭 다음 주 화요일로 변경\n- 요구안 12명 유지 [확정]\n- 회신 10. 12.(월)까지 [예정]\n- 장소 다시 확인 [확인]');
  // 폰의 '‹ 통화'는 본문 글자 크기(14px 이상)이고 누르는 자리가 글자보다 넓다.
- if(width<1024){const back=detail.locator('[data-cf-back]');await expect(back).toHaveText('‹ 통화');await expect(page.locator('.mobile-shell-header [data-mobile-view-name]')).toBeHidden();expect(await back.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);}
+ if(width<761){const back=detail.locator('[data-cf-back]');await expect(back).toHaveText('‹ 통화');await expect(page.locator('.mobile-shell-header [data-mobile-view-name]')).toBeHidden();expect(await back.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);}
  // 고정: ⋯ → 고정 → 서버에 pinned_at.
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
@@ -152,7 +152,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect.poll(()=>f.writes.filter(w=>w.id===C1&&w.body.pinned_at).length).toBe(1);
  await expect(detail.locator('[data-cf-meta]')).toContainText('· 고정');
 
- if(width<1024){
+ if(width<761){
   // 폰 뒤로가기 한 칸 = 목록.
   await page.goBack();await expect(view.locator('#cfList')).toBeVisible();await expect(detail).toBeHidden();
   await expect(view.locator('#callsView, #cfList')).toHaveCount(1);await expect(view).toBeVisible();

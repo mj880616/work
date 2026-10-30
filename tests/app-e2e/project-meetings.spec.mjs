@@ -75,7 +75,7 @@ for(const width of [390,1280])test(`project detail lists its own meetings newest
  await closeMeetingResult(page);await expect(page.locator('#meetingRoundDetailModal:not([data-mrd-docked="1"])')).toBeHidden();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();await expectProjectTitle(page,'테스트 프로젝트');
  await expect(first).toBeFocused();
- if(width<1024){
+ if(width<761){
   // Phone: back closes the meeting result and leaves the project detail open.
   await first.click();await expect(dialog).toBeVisible();
   await page.goBack();await expect(dialog).toBeHidden();

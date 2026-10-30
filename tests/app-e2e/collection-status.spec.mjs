@@ -31,8 +31,8 @@ async function fixture(page,{copy=status({last_success_at:'2026-10-05T21:17:00.0
 
 // HOME-수집경보: 폰·중간 폭(1023px 이하)은 홈 칸 대신 위쪽 경고 줄·맨 아래 '수집 정상 ✓'이고, 같은 전체 칸이 폰 메뉴 창 안에 있다.
 for(const width of [1280,390])test(`shows each source, 확인 불가 for outside programs, and reads without rebuilding (${width})`,async({page})=>{
-  const f=await fixture(page,{width}),{calls}=f,card=width<1024?page.locator('[data-menu-collect]'):f.card;
-  if(width<1024){
+  const f=await fixture(page,{width}),{calls}=f,card=width<761?page.locator('[data-menu-collect]'):f.card;
+  if(width<761){
     await expect(f.card).toBeHidden();
     await expect(page.locator('[data-home-collect-ok]')).toBeVisible();
     await expect(page.locator('[data-home-collect-ok]')).toHaveText('수집 정상 ✓');
@@ -85,8 +85,8 @@ for(const width of [1280,390])test(`telegram and call lines show the heartbeat t
   const f=await fixture(page,{width,copy:withCollectors({
     telegram:{last_at:'2026-10-04T22:30:00.000Z',count:7,reported_at:'2026-10-06T00:40:00.000Z'},
     transcript:{last_at:'2026-10-05T23:05:00.000Z',count:3,reported_at:'2026-10-06T00:40:00.000Z'},
-  })}),{calls}=f,card=width<1024?page.locator('[data-menu-collect]'):f.card;
-  if(width<1024){
+  })}),{calls}=f,card=width<761?page.locator('[data-menu-collect]'):f.card;
+  if(width<761){
     await expect(f.card).toBeHidden();
     await expect(page.locator('[data-home-collect-alert]')).toBeHidden();
     await expect(page.locator('[data-home-collect-ok]')).toBeVisible();
@@ -206,7 +206,7 @@ const alignCases={
 for(const width of [1280,390])for(const [name,copy] of Object.entries(alignCases))test(`four times share one right edge, count cell apart from time (${name}, ${width})`,async({page})=>{
   const f=await fixture(page,{width,copy});
   let card=f.card;
-  if(width<1024){
+  if(width<761){
     await page.locator('#mobileMenuTab').click();
     card=page.locator('[data-menu-collect]');
   }

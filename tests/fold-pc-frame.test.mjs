@@ -49,7 +49,8 @@ test('좁은 메뉴: 그림은 메뉴 목록 한 곳(menu-model.mjs)에서, 펼�
   assert.match(top, /const d=itemOf\(key\)\?\.icon;/);
   assert.match(top, /function setNavOpen\(open\)\{[^}]*appView\.classList\.toggle\('nav-open',open\);paintNavToggle\(\);/);
   const open = top.slice(top.indexOf('function setNavOpen'), top.indexOf('railQuery.addEventListener'));
-  assert.doesNotMatch(open, /viewPrefs|localStorage|sessionStorage/);
+  // 펼침 줄에는 서버 저장(viewPrefs)도, 기기 저장소 이름(Storage)도 없다.
+  assert.doesNotMatch(open, /viewPrefs|Storage\b/);
   const css = read('app/desktop-tight-nav.css');
   assert.match(css, /#appView>\.app-nav \.nav-ico\{display:none\}/);
   assert.match(css, /html body #appView\.nav-open>\.app-nav\{width:208px;/);

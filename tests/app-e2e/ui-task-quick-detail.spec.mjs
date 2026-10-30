@@ -19,9 +19,9 @@ for(const width of [412,870,1280]){
   await expect(plus).toHaveAttribute('aria-label','상세 설정으로 추가');
   // Inside the input box at its right edge; touch area at least 44px; input and [추가] share one height
   // (46px; UI-PC버튼36: PC ≥1024 is the input height 36px and the touch area is the 44px ::after).
-  const ib=await input.boundingBox(),pb=await plus.boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox(),h=width>=1024?36:46;
+  const ib=await input.boundingBox(),pb=await plus.boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox(),h=width>=761?36:46;
   // UI-버튼줄이기: [추가]는 폭과 상관없이 36px, 폰·중간 폭 [+]는 보이는 32px. 누르는 범위는 ::after 44px.
-  expect(ib.height).toBe(h);expect(ab.height).toBe(36);expect(pb.height).toBe(width>=1024?36:32);
+  expect(ib.height).toBe(h);expect(ab.height).toBe(36);expect(pb.height).toBe(width>=761?36:32);
   expect(pb.width).toBeGreaterThanOrEqual(44);
   expect(await plus.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
   expect(pb.x).toBeGreaterThanOrEqual(ib.x);

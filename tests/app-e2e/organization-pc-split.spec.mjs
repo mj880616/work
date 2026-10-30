@@ -171,7 +171,7 @@ test('PC 1280: an organization opened over another screen stays a dialog and goe
 for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes have no resize handle; ⤢ opens the big window and hands the text back`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
  await clickView(page,'team');
- if(width<1024)await row(page,'oa').click();
+ if(width<761)await row(page,'oa').click();
  await expect(title(page)).toHaveText('합성 가 지부');
  const modal=page.locator('#wdModal'),editor=page.locator('#edWindow'),editorText=editor.locator('.ed-window-body .ProseMirror');
  await expect(modal.locator('#wdInboxText')).toHaveCSS('resize','none');await expect(modal.locator('#wdInboxBig')).toBeVisible();

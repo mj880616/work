@@ -31,7 +31,7 @@ async function open(page,width,tasks,{links=[],projects=[PROJECT],orgs=[ORG],hei
   await page.evaluate(()=>window.KPTURouter.go('tasks'));
   await expect(page.locator('[data-gt-count]')).toHaveText(`할 일 ${tasks.filter(t=>t.status!=='completed').length}개`);
   // 입력창이 늦게 나타나면 아래 칸이 밀리므로, 배치를 재기 전에 입력창부터 기다린다.
-  if(width>=1024)await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
+  if(width>=761)await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
   return calls;
 }
 const col=(page,id)=>page.locator(`#gtTaskBody [data-gt-col="${id}"]`);

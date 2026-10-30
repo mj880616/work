@@ -97,7 +97,7 @@ for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 고르기 →
  await expect(detailPane.locator('.rb-item')).toHaveCount(1);
  await expect(detailPane.locator('.rb-item .rb-line')).toHaveText(RAW);
  await expect(detailPane.locator('.rb-item .rb-date')).toHaveText('10.6');
- if(width>=1024){
+ if(width>=761){
   // PC: 목록과 상세가 같이 보이고, 목록 줄에는 이름 · 소식 수 · 마지막 날짜.
   await expect(page.locator('#rbList')).toBeVisible();
   await expect(page.locator(`#rbList [data-rb-bundle="${b2}"] .rb-meta`)).toHaveText('1 · 10.6');
@@ -241,7 +241,7 @@ for(const width of [390,1280])test(`홈 [업데이트 ▾] 기록할 곳 시트:
  const labels=await sheet.locator('.home-choice-label').allTextContents();
  expect(labels.at(-1)).toBe('참고');
  await expect(sheet.locator('[data-sheet-refs] [data-sheet-value]')).toHaveText(['합성 노조 전체','합성 본부 사업','합성 기타 조직']);
- if(width>=1024){
+ if(width>=761){
   // PC 두 열 창: 참고는 프로젝트 열 아래(프로젝트가 없으면 따로 한 열).
   await expect(sheet.locator('[data-sheet-col] [data-sheet-refs]')).toHaveCount(1);
  }

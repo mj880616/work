@@ -103,7 +103,7 @@ for(const width of [390,1440]){
       await assertPlaced(page,width,{card:'#meetingsListCard',head:'.add-list-head',button:'#newMeetingBtn',title:'h2'});
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
       // UI-전수디자인점검 F01: 폰의 회의명 거르기는 칸 칩 줄 끝 [거르기 ▾] 창 안의 한 묶음이다.
-      if(width>=1024){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
+      if(width>=761){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
       else{await expect(reportFilterButton(page)).toBeVisible();expect(await reportFilterKeys(page)).toContain('name')}
       await page.locator('#newMeetingBtn').click();
       await expect(page.locator('#meetingModal')).toBeVisible();

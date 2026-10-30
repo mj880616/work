@@ -35,7 +35,7 @@ for(const zone of ['Asia/Seoul','America/Los_Angeles'])for(const now of ['2026-1
 for(const width of [360,1280])for(const view of ['list','week'])test(`pending counts and retained done day rows ${width} ${view}`,async({page})=>{
   await page.setViewportSize({width,height:844});
   await openEmphasisFixture(page,{view,events:[],now:Date.parse('2026-10-08T03:00:00Z'),tasks:[task('late','2026-10-07'),task('late-done','2026-10-07','completed'),task('pending','2026-10-08'),task('done','2026-10-08','completed'),task('only-done','2026-10-09','completed')]});
-  const week=view==='week'&&width>=1024,control=week?'.cmv-task-count':'.clv-tasks';
+  const week=view==='week'&&width>=761,control=week?'.cmv-task-count':'.clv-tasks';
   const day=date=>page.locator(`${week?'#calendarWeek .cwv-day':'#calendarList .clv-day'}[data-date="${date}"]`);
   const pending=day('2026-10-08').locator(control);await expect(pending).toHaveText(week?'1':'일정 없음 · 할 일 1개 ›');
   await expect(day('2026-10-09').locator(control)).toHaveCount(0);

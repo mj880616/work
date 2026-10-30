@@ -98,7 +98,7 @@ for(const width of [390,1280])test(`paste a text, make it in the union form, che
   expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'tpl-letter'}]);
   await expect(page.locator('#hwpLabStatus')).toHaveText(/^공문_\d{4}\.hwp · \d+쪽 · 5문단을 넣었어요\. 확인하고 고친 뒤 \[내려받기\] 또는 \[자료실에 저장\]을 누르세요\./,{timeout:60000});
   // Top line: the file name and, on the right, [내려받기] [자료실에 저장].
-  if(width<1024){
+  if(width<761){
     // 폰: 만든 문서 이름은 위 얇은 줄에, [내려받기]·[자료실에 저장]은 [저장 ▾] 안에.
     await expect(page.locator('#hwpConvBar')).toBeHidden();
     await expect(page.locator('#hwpLabName')).toHaveText(/^공문_\d{4}\.hwp$/);
