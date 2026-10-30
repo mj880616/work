@@ -69,7 +69,7 @@ async function fixture(page,{width=1280,ledgerSeen=[],editsMissing=false}={}){
  return {db,edits,calls,errors};
 }
 async function openCalls(page,width){
- if(width>=1024){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'통화',exact:true});await expect(item).toBeVisible();await item.click();}
+ if(width>=761){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'통화',exact:true});await expect(item).toBeVisible();await item.click();}
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'통화',exact:true}).click();}
  await expect(page.locator('#callsView')).toBeVisible();
 }
@@ -81,12 +81,12 @@ async function openDetail(page,view,id,width){
 }
 // 메뉴 열기: PC는 줄 오른쪽 클릭, 폰은 상세의 ⋯ (상세를 먼저 연다).
 async function openMenu(page,view,id,width){
- if(width>=1024){await view.locator(`[data-cf-row="${id}"]`).click({button:'right'});}
+ if(width>=761){await view.locator(`[data-cf-row="${id}"]`).click({button:'right'});}
  else{await openDetail(page,view,id,width);await tap(page,view.locator('#cfDetail [data-cf-more]'),width);}
  await expect(page.locator('#cfMenu')).toBeVisible();
 }
-const statusOf=(view,width)=>width>=1024?view.locator('#cfList [data-cf-status]'):view.locator('#cfDetail [data-cf-detail-status]');
-const titleField=(view,width)=>width>=1024?view.locator('#cfList [data-cf-title-input]'):view.locator('#cfDetail [data-cf-title-input]');
+const statusOf=(view,width)=>width>=761?view.locator('#cfList [data-cf-status]'):view.locator('#cfDetail [data-cf-detail-status]');
+const titleField=(view,width)=>width>=761?view.locator('#cfList [data-cf-title-input]'):view.locator('#cfDetail [data-cf-title-input]');
 
 for(const width of [390,1280])test(`통화 ${width}: 제목 바꾸기 — 줄 안 입력칸이 전체 선택으로 열리고 Enter로 저장, 서버에는 사용자 값으로, 되돌리기`,async({page})=>{
  const f=await fixture(page,{width});

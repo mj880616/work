@@ -153,7 +153,7 @@ window.KPTUMeetingNames={installPicker:installMeetingNamePicker,choices:meetingN
 // MEET-결과정리 ②: 종류마다 서로 다른 색 칸(meeting-columns.js assignMeetingColors). 회의 목록이 바뀔 때만 다시 나눈다.
 let meetingColorCache={source:null,slots:new Map()};
 function meetingColor(name){const key=meetingNameKey(name);if(!key)return '#808080';if(meetingColorCache.source!==meetings)meetingColorCache={source:meetings,slots:assignMeetingColors(meetings,{nameOf:meetingName,keyOf:meetingNameKey})};const slot=meetingColorCache.slots.get(key);return meetingPaletteColor(slot??nameHash(key)%MEETING_HUES)}
-// 회의 화면 목록 줄(폰·중간 폭)의 작은 글자: 차수(없으면 짧은 이름) · 회의 시각(①: 직접 지정 → 결과 글의 일시 → 날짜만).
+// 회의 화면 목록 줄(폰)의 작은 글자: 차수(없으면 짧은 이름) · 회의 시각(①: 직접 지정 → 결과 글의 일시 → 날짜만).
 // MTG-프로젝트합치기 ⑤: 일시가 없는 보고는 목록에서 빠지지 않고 '일시 없음'으로 보인다.
 const NO_WHEN='일시 없음',whenText=m=>formatMeetingWhen(m)||NO_WHEN;
 function meetingRowMeta(m){return [hasRound(m)||meetingShortName(m)?roundLabel(m):null,whenText(m)].filter(Boolean)}
@@ -164,8 +164,8 @@ function renderMeetingTypeOptions(){if(!meetingTypeOptions().some(o=>o.value===m
 // 회의명 묶음은 [회의] 칩에서만, PC 목록(왼쪽 회의 종류 칸이 같은 일을 함)에서는 없다.
 function nameFilterOn(){return reportChip===DEFAULT_KIND&&!(meetingPc?.matches&&reportView==='list')}
 function typeFilter(){return reportChip===DEFAULT_KIND?meetingType:'all'}
-// UI-PC회의 → MEET-결과정리 ⑤ → MEET-결과3단: 회의 화면을 그리는 곳은 여기 하나다. PC(≥1024)는 왼쪽 회의 종류 / 가운데 차수·날짜·시간 /
-// 오른쪽 고른 차수의 회의 결과(읽기용) 3단(meeting-columns.js), 폰·중간 폭은 지금 한 줄 목록. 고른 종류·차수는 이 화면이 열려 있는 동안만
+// UI-PC회의 → MEET-결과정리 ⑤ → MEET-결과3단: 회의 화면을 그리는 곳은 여기 하나다. PC(≥761)는 왼쪽 회의 종류 / 가운데 차수·날짜·시간 /
+// 오른쪽 고른 차수의 회의 결과(읽기용) 3단(meeting-columns.js), 폰은 지금 한 줄 목록. 고른 종류·차수는 이 화면이 열려 있는 동안만
 // 기억한다(처음엔 가장 최근 결과가 있는 종류의 가장 최근 차수). 오른쪽 후속 할 일은 결과 창과 같은 읽기(google-tasks linked)로 따로 불러온다.
 const meetingPc=window.matchMedia?.(PC_QUERY);
 let meetingSelectedKind=null,meetingSelectedId=null;

@@ -83,7 +83,7 @@ const path = page => root(page).locator('.photos-fx-path');
 
 for (const width of [412, 884, 1440]) {
   test(`사진 메뉴 ② 폴더: 폴더 나무·폴더 안 사진·여러 장 옮기기·되돌리기·메뉴·새 폴더 ${width}`, async ({ page }) => {
-    const f = await fixture(page, width), wide = width >= 1024;
+    const f = await fixture(page, width), wide = width>=761;
     await openPhotos(page);
     await root(page).locator('[data-photos-tab="folders"]').click();
     await expect(root(page).locator('[data-photos-tab="folders"]')).toHaveAttribute('aria-pressed', 'true');

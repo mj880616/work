@@ -8,7 +8,7 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // (2026-10-22 사용자 결정): the top row has no copy button on either side any more.
 // JOURNAL-오늘한줄목록: [저장] adds the typed line under the input (saving order, oldest first) and empties the input.
 // Pressing a line turns it into an edit box in place with [저장][취소][삭제]; a removed line can be put back for 5 seconds
-// ([되돌리기], the app's existing undo notice). No ⋯ menu or popup. On a PC (≥1024) each line also has [수정][삭제], shown while
+// ([되돌리기], the app's existing undo notice). No ⋯ menu or popup. On a PC (≥761) each line also has [수정][삭제], shown while
 // the pointer is over the line or focus is inside it (journal.css); the phone keeps pressing the line.
 // Only the lines are saved (journal-data.js, kind=work). A material group that cannot be read shows its own notice and
 // [다시 시도]; the lines still work. A typed, unsaved line stays in memory per day until the owner changes.
@@ -20,12 +20,12 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): the [하루] card from top to bottom is ① 오늘 한 줄 → ② 할 일 / 한 일 (PC side by
 // side from 761px, phone one above the other; 기한 지난 것 one folded line; JOURNAL-할일바로처리: each 할 일 line starts with a circle —
 // pressing it completes the task (the task screen's own toggleTask) and the line moves to 한 일 with a 5-second [되돌리기]; each line's
-// ⋯ holds [내일로 · 기한 바꾸기 · 고치기 · 지우기] (한 일: [다시 할 일로 · 고치기]) — on a PC (≥1024) the ⋯ shows only on the line the
+// ⋯ holds [내일로 · 기한 바꾸기 · 고치기 · 지우기] (한 일: [다시 할 일로 · 고치기]) — on a PC (≥761) the ⋯ shows only on the line the
 // pointer is over or focus is in, on the phone it is always shown; results are a short toast, not a line under the list) → ③ 그날 나온 챙길 것 (todo-radar.js draws it; this module only gives it its place) →
 // ④ 주간보고 재료 in the report's order (회의·활동 결과 → 사업 소식 → 조직 소식) → ⑤ 그 밖의 기록, folded, with a count line.
 // journal-data.js dayCard() builds the model; renderDay() below is the one renderer of ② and ④⑤ (the parts above are unchanged).
 // ⑥ Every line opens its original (openOriginal): an organization or project record opens that screen at that record and
-// highlights it for a moment; an update's ⋯ has [원래 업데이트 보기]. On a PC (≥1024) the organization/project opens on its own
+// highlights it for a moment; an update's ⋯ has [원래 업데이트 보기]. On a PC (≥761) the organization/project opens on its own
 // screen (one history entry, so one back or the top line's ← returns here); on the phone it opens over this screen as the app's
 // usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
 // and the same scroll and focus.
@@ -137,20 +137,12 @@ function renderWeek() {
     return button;
   }));
 }
-// UI-중복제목삭제: with the PC top line (1024px~) the chosen day is already named there ("일정 › 업무일지 › 10월 6일 화요일"), so the day card has no
-// title line of its own there (the element is not made; the card is named by aria-label instead). Below that width the line is made, as before.
-// UI-화면정리 C(2026-10-28 명진 요청 20:03 B①): a phone (~760px) shows the chosen day already as the pressed day in the week row under the
-// week range, so the day card's own title line is not made there either (the date was shown twice). Only 761~1023px keeps the line.
-const noDayTitle = window.matchMedia?.('(max-width:760px),(min-width:1024px)');
+// UI-중복제목삭제·UI-화면정리 C·UI-폴드PC틀: the PC top line (761px~) names the chosen day ("일정 › 업무일지 › 10월 6일 화요일") and a phone
+// (~760px) shows it as the pressed day in the week row, so the day card has no title line of its own at any width (the card is named by aria-label).
 function syncDayTitle() {
   const box = $('[data-journal-day]'); if (!box) return;
-  let title = box.querySelector('[data-journal-day-title]');
-  if (noDayTitle?.matches) { title?.remove(); box.removeAttribute('aria-labelledby'); box.setAttribute('aria-label', longDay(selected)); return; }
-  if (!title) { title = document.createElement('h3'); title.id = 'journalDayTitle'; title.tabIndex = -1; title.dataset.journalDayTitle = ''; box.prepend(title); }
-  box.removeAttribute('aria-label'); box.setAttribute('aria-labelledby', 'journalDayTitle');
-  title.textContent = longDay(selected);
+  box.querySelector('[data-journal-day-title]')?.remove(); box.removeAttribute('aria-labelledby'); box.setAttribute('aria-label', longDay(selected));
 }
-noDayTitle?.addEventListener?.('change', syncDayTitle);
 function renderLine({keepStatus = false} = {}) {
   syncDayTitle();
   // UI-상단줄제목: the chosen day goes to the PC top line's place (kptu:where-item, topbar-actions.js).
@@ -222,7 +214,7 @@ let opens = new Map(), openSeq = 0, othersOpen = false, calRefOpen = false, week
 // event it causes does not trigger a second read.
 let selfBusy = 0;
 const keyFor = target => { if (!target) return ''; const key = `j${++openSeq}`; opens.set(key, target); return key; };
-const WIDE = window.matchMedia?.('(min-width:1024px)');
+const WIDE = window.matchMedia?.('(min-width:761px)');
 // ⋯ of one line: a native disclosure (as the meeting-kind ⋯ of [주간 정리]) holding small buttons.
 function moreMenu(label, buttons) {
   const more = document.createElement('details');
@@ -784,7 +776,7 @@ async function deleteLine(index) {
 
 // ── JOURNAL-하루개편 ⑥: open a line's original ──
 // The org/project/meeting screens open through their own modules' open functions (the same ones the top line's ← → and
-// todo-radar.js use); this module only asks and then marks the record. On a PC (≥1024) they open on their own screen — a
+// todo-radar.js use); this module only asks and then marks the record. On a PC (≥761) they open on their own screen — a
 // history entry, so back or ← returns here. On the phone they open over this screen as the app's usual window, whose own
 // history entry back closes. A basket update, a note and a task open on their screens as from the other screens.
 let pendingReturn = null;

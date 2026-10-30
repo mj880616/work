@@ -136,14 +136,14 @@
   .mff-fields label:last-child{grid-column:1/-1}
 }
 
-/* ───────── UI-PC회의(2026-10-20) → MEET-결과정리 ⑤(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥1024) 회의 결과 ─────────
-   그리는 곳은 team.js renderMeetings 하나(배치 HTML은 meeting-columns.js). 폰·중간 폭은 위 한 줄 목록 그대로.
+/* ───────── UI-PC회의(2026-10-20) → MEET-결과정리 ⑤(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥761) 회의 결과 ─────────
+   그리는 곳은 team.js renderMeetings 하나(배치 HTML은 meeting-columns.js). 폰은 위 한 줄 목록 그대로.
    할 일 화면(google-tasks.css UI-PC할일배치)처럼 화면 높이를 다 쓰는 3단: 왼쪽 회의 종류 / 가운데 고른 종류의 차수·날짜·시간 / 오른쪽 고른 차수의 결과(읽기용).
    비율(UI-좌우비율, theme-tokens.css --ds-split-*): 종류 + 차수 두 칸을 합쳐 1/3(안에서 반씩), 결과 2/3. 세 칸은 각자 세로로 넘어간다.
    MTG-3칸폭끌기(2026-10-26): 세 칸은 한 줄 격자의 직접 자식이고(--ds-split-col-a·b·c, 공용 split-resize.js가 fr 값을 넣음), 칸 사이 두 경계를 끌어 폭을 바꾼다.
    위쪽 종류 칩 줄은 PC에서 없다(왼쪽 목록과 겹침). [+ 회의 결과]는 위 하나(④). 높이는 공용 버튼 기준(--kptu-control-height 36px), 누르는 범위 44px은 base-ui.css ::after. */
 #mcolMenu[hidden]{display:none}
-@media(min-width:1024px){
+@media(min-width:761px){
   /* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): 스크롤은 화면 전체 하나. 화면 높이에 맞춘 한 페이지·칸마다 스크롤은 없앴다.
      종류·차수 칸은 화면과 같이 내려가고, 오른쪽 결과 칸(.mcol-result)은 follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 화면에 붙여 따라오게 한다(team.js). */
   #appView #meetingsView:has(#meetingList.meeting-columns)>#meetingsListCard{display:flex;flex-direction:column;margin:0}
@@ -222,7 +222,7 @@
 #meetingModal .report-kind-pick-label{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #meetingModal .report-kind-pick>#meetingKindPick{flex:0 1 auto;min-width:0;max-width:100%}
 #meetingModal label[hidden]{display:none}
-@media(min-width:1024px){
+@media(min-width:761px){
   /* [전체]·다른 칸: 왼쪽 날짜·이름 목록 / 오른쪽 결과 2단(1/3 : 2/3, 경계선은 split-resize.js). 칸 모양은 3단의 차수·결과 칸과 같다. */
   #meetingList .mcol-two>.mcol-rounds{min-width:0}
   #meetingList .mcol-two .mcol-meta{gap:0}

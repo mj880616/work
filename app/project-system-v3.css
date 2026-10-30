@@ -247,12 +247,12 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 .ps3-line-main small{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #ps3DetailModal .ps3-line-more>summary{display:grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0;border-color:transparent;background:transparent;box-shadow:none;color:var(--kptu-muted)}
 
-/* UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(1024px~) 프로젝트 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#ps3DetailPane).
+/* UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(761px~) 프로젝트 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#ps3DetailPane).
    할 일 화면(google-tasks.css #gtDetailPane)과 같은 짜임: 창 몸통 스크롤 하나, 목록·상세 칸은 몸통과 같이 내려간다(UI-칸안스크롤하나로).
    상세 칸은 지금 상세 창(#ps3DetailModal)을 그 자리에 옮겨 그대로 쓴다(project-system-v3.js placeDetail). 창 겉모양만 칸에 맞추고
-   닫기 ×는 숨긴다(다른 프로젝트를 고르면 바뀜). 761~1023px·폰은 지금처럼 목록 + 상세 창. */
+   닫기 ×는 숨긴다(다른 프로젝트를 고르면 바뀜). 폰은 지금처럼 목록 + 상세 창. */
 #ps3DetailPane{display:none}
-@media(min-width:1024px){
+@media(min-width:761px){
   /* MTG-프로젝트합치기 ①·UI-칸안스크롤하나로(시안 A): 창 안 스크롤은 창 몸통 하나(칸마다 스크롤 없음). 목록은 몸통과 같이 내려가고,
      상세 칸도 몸통과 같이 내려간다(창 안에서는 붙여 따라오지 않음, project-system-v3.js followDetail). */
   #appView #areaWindow .area-window-body{display:flex;flex-direction:column;overflow-y:auto}

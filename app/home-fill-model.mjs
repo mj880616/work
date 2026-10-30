@@ -1,4 +1,4 @@
-// HOME-모바일홈채우기: 폰·중간 폭 홈(한 칸 홈)에 더해지는 칸들의 순수 계산. DOM·네트워크 없음. 그리는 곳은 home-fill.js 하나.
+// HOME-모바일홈채우기: 폰 홈(한 칸 홈)에 더해지는 칸들의 순수 계산. DOM·네트워크 없음. 그리는 곳은 home-fill.js 하나.
 import {overdue, overdueDays} from './ledger-browse-model.mjs';
 
 export const TASK_LIMIT = 2;

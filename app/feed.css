@@ -1,7 +1,7 @@
 /* CALL-통화메뉴·TG-소식메뉴 4단계: 통화(#callsView, call-feed.js)·텔레그램 소식(#telegramView, telegram-feed.js) 화면.
    시안 docs/design/mockups/call-telegram-feed.html. 콤팩트한 줄, 작은 버튼(UI-버튼기준: 보조 --ds-compact-height, 채운 버튼은 [저장] 하나,
    누르는 범위는 ::after로 --kptu-touch-target). 색은 --kptu-*·--ds-* 토큰만 쓴다(방 색 6개는 기존 --ds-kind-*·--ds-file-* 톤다운 짝).
-   PC(1024px~)는 왼쪽 목록 1/3 · 오른쪽 상세 2/3(--ds-split-*, split-resize.js), 폰·중간 폭은 목록 → 상세 한 칸. */
+   PC(761px~)는 왼쪽 목록 1/3 · 오른쪽 상세 2/3(--ds-split-*, split-resize.js), 폰은 목록 → 상세 한 칸. */
 .feed-view .feed-split{display:block;min-width:0}
 .feed-view .feed-list,.feed-view .feed-pane{min-width:0;box-sizing:border-box}
 .feed-view .feed-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);margin:0 0 4px;flex-wrap:wrap}
@@ -169,7 +169,7 @@
 @media(min-width:761px) and (hover:hover){.feed-view .feed-callrow:hover .feed-hov{display:block}.feed-view .feed-callrow:hover .feed-org{visibility:hidden}}
 @media(min-width:761px){.feed-view .feed-callrow:focus-within .feed-hov,.feed-view .feed-callrow .feed-hov[aria-expanded="true"]{display:block}}
 
-@media(min-width:1024px){
+@media(min-width:761px){
   /* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): 스크롤은 화면 전체 하나. 화면 높이에 맞춘 한 페이지·칸 안 스크롤은 없앴다.
      목록은 화면과 같이 내려가고, 상세 칸(.feed-pane)은 follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 화면에 붙여 따라오게 한다. */
   #appView .feed-view .feed-split{display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto;align-items:start;column-gap:var(--kptu-space-3)}
@@ -216,7 +216,7 @@
 .feed-view .feed-who.is-named{color:var(--kptu-primary-ink)}
 .feed-view .feed-who.is-self{color:var(--kptu-muted)}
 .feed-view .feed-who.is-same{visibility:hidden}
-@media(min-width:1024px){.feed-view .feed-raw-wide .feed-who{width:84px}}
+@media(min-width:761px){.feed-view .feed-raw-wide .feed-who{width:84px}}
 .feed-view .feed-whotag{position:relative;display:block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:11px;line-height:1.35;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;cursor:pointer}
 .feed-view .feed-whotag::after{content:"";position:absolute;inset:-8px -6px}
 .feed-view .feed-whotag:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}

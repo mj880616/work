@@ -285,7 +285,7 @@ test('meeting material upload attempts every selected file and reports partial f
 
 // UI-PC회의: 아래 줄 목록 시험은 폰·중간 폭(1024 미만)의 그리는 방식이다. PC(≥1024)의 열 배치는 meeting-columns.spec.mjs.
 test.describe('meeting list rows below PC width',()=>{
-test.use({viewport:{width:900,height:900}});
+test.use({viewport:{width:760,height:900}});
 test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
   // UI-전수디자인점검 F01: 회의명 거르기는 칸 칩 줄 끝 [거르기 ▾] 창의 한 묶음.
@@ -323,7 +323,7 @@ async function showMeetings(page,rows,docs=[]){
 }
 
 test.describe('meeting list rows below PC width (colors and names)',()=>{
-test.use({viewport:{width:900,height:900}});
+test.use({viewport:{width:760,height:900}});
 test('meeting names keep colors after reload and after older meetings are added',async({page})=>{
   await signIn(page);
   const P=palette();
@@ -508,7 +508,7 @@ for(const dark of [false,true])test(`meeting palette has 16 distinct non-red col
 });
 
 // UI-PC회의: PC(≥1024)의 [+ 회의 결과]·열은 meeting-columns.spec.mjs와 add-button-placement.spec.mjs 1440이 본다.
-for(const width of [320,360,390,768,1000]){
+for(const width of [320,360,390,760]){
   // UI-선택표시통일: 폰(760px 이하)의 [+ 회의]는 다른 탭과 같은 동그란 [+](하단 탭 위)이고 카드 안에는 없다.
   test(`meeting filter stays usable and add button sits in the list card at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:800});
@@ -552,7 +552,7 @@ for(const width of [320,360,390,768,1000]){
 }
 
 test.describe('meeting list legacy rows below PC width',()=>{
-test.use({viewport:{width:900,height:900}});
+test.use({viewport:{width:760,height:900}});
 test('meeting list filters title-only and series-only legacy rows by the displayed meeting name',async({page})=>{
   await signIn(page);
   const rows=[
@@ -572,7 +572,7 @@ test('meeting list filters title-only and series-only legacy rows by the display
 
 // MTG-고치기바로: 아래는 사업 보고 상세 창(폰·중간 폭)의 시험이다. PC(≥1024)는 상세가 세 번째 칸에 붙어 창이 없다(meeting-columns·meeting-inline-edit).
 test.describe('meeting detail window below PC width',()=>{
-test.use({viewport:{width:900,height:900}});
+test.use({viewport:{width:760,height:900}});
 test('meeting detail shows one canonical heading while retaining a distinct legacy title in metadata',async({page})=>{
   await signIn(page);
   await openMeetingResult(page,'meeting-1');

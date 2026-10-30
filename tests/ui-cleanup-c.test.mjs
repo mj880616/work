@@ -72,7 +72,7 @@ test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트
   assert.match(notes, /hasAttribute\('data-note-back'\)\) close\(\);/);
   assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] > \[data-note-detail\] > \.basket-detail-head:not\(:has\(> \[data-basket-return\]\)\):has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
   assert.match(read('feed.css'), /#appView \.feed-view \.feed-pane > \.feed-detail-head:first-child,\s*#appView \.feed-view \.feed-list > \.feed-head:first-child:has\(> \.back-text\)\{ margin:calc\(-1 \* \(var\(--kptu-touch-target,44px\) \+ 12px\)\) 0 12px;/);
-  assert.match(read('journal.js'), /const noDayTitle = window\.matchMedia\?\.\('\(max-width:760px\),\(min-width:1024px\)'\);/);
+  assert.match(read('journal.js'), /function syncDayTitle\(\) \{\s*const box = \$\('\[data-journal-day\]'\); if \(!box\) return;\s*box\.querySelector\('\[data-journal-day-title\]'\)\?\.remove\(\);/);
 });
 
 test('③ 사업 보고 후속 할 일: 머리의 추가 단추는 [+] 하나, AI 후보 찾기는 그 입력 줄 안', () => {

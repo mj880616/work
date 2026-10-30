@@ -9,7 +9,7 @@ import {WEEK_CHOICES, weeksOf} from './org-quiet-model.mjs';
 import {normalizeCards, cardsToPrefs, removeCard, addCard, moveCard, stepCard, visibleCards, addable, titleOf, DEFAULT_ORDER} from './home-cards-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const desktop = window.matchMedia('(min-width:1024px)');
+const desktop = window.matchMedia('(min-width:761px)');
 const phone = () => !desktop.matches;
 
 export function mountHomeEdit({root}) {
@@ -50,9 +50,9 @@ export function mountHomeEdit({root}) {
     const now = weeksOf(viewPrefs.get('quiet_weeks'));
     return `<span class="he-seg" role="group" aria-label="연락 없음 기준">${WEEK_CHOICES.map(w => `<button type="button" data-he-weeks="${w}" aria-pressed="${now === w}">${w ? `${w}주` : '끄기'}</button>`).join('')}</span>`;
   }
-  // UI-점검1030손질 C6(UI-더보기제목줄): 폰·중간 폭(1023px 이하)에서 홈 ⋯는 홈 끝에 혼자 한 줄로 뜨지 않고, 홈 맨 끝 줄인
+  // UI-점검1030손질 C6(UI-더보기제목줄): 폰(760px 이하)에서 홈 ⋯는 홈 끝에 혼자 한 줄로 뜨지 않고, 홈 맨 끝 줄인
   // 'AI 사용량' 줄의 제목 줄 오른쪽 끝([data-aiu-top], ai-usage-line.js가 그 자리만 둔다)에 든다. 그 줄이 없으면(수집 칸을 뺐거나 소유자 아님)
-  // 예전처럼 칸 묶음 바로 뒤. PC(1024px~)는 지금 자리 그대로. 편집 중에는 [처음대로][완료] 줄이라 칸 묶음 바로 뒤로 돌아온다.
+  // 예전처럼 칸 묶음 바로 뒤. PC(761px~)는 지금 자리 그대로. 편집 중에는 [처음대로][완료] 줄이라 칸 묶음 바로 뒤로 돌아온다.
   let alive = true;
   function dock() {
     if (!alive) return;

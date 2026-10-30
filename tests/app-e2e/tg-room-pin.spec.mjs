@@ -21,7 +21,7 @@ async function fixture(page,{width=1440,roomPins=true,rooms=[{room_key:'room-b',
  return {items,errors,writes,server,shared};
 }
 async function openTelegram(page,width){
- if(width>=1024){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'텔레그램 소식',exact:true});await expect(item).toBeVisible();await item.click();}
+ if(width>=761){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'텔레그램 소식',exact:true});await expect(item).toBeVisible();await item.click();}
  else if(width<760){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'텔레그램 소식',exact:true}).click();}
  // 884(폴드 펼침)는 아래 메뉴 탭이 없는 폭이라 라우터로 연다.
  else{await page.waitForFunction(()=>!!window.KPTURouter?.go);await page.evaluate(()=>window.KPTURouter.go('telegram'));}

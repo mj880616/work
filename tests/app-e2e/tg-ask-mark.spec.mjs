@@ -118,7 +118,7 @@ for(const width of [412,884,1440]){
   // 줄을 열면 그 방·날만 '봤음'(DB 함수 한 번), 점이 사라지고 칸 숫자가 준다.
   await row(A6).locator('.feed-rdb').click();
   await expect.poll(()=>f.writes.filter(w=>w.rpc==='app_feed_room_day_seen').map(w=>w.body)).toEqual([{p_room_key:'room-a',p_day:'2026-10-06'}]);
-  if(width<1024){await page.locator('#tgDetail [data-tg-back]').click();}
+  if(width<761){await page.locator('#tgDetail [data-tg-back]').click();}
   await expect(row(A6).locator('[data-tg-unseen]')).toHaveCount(0);
   await expect(row(A6)).toHaveClass(/is-seen/);
   await expect(chip).toHaveText('안 본 것 3');

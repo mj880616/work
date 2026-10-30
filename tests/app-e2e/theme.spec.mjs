@@ -288,7 +288,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
  await page.mouse.click(r.x+r.width/2,r.y-4);await expect(page.locator('#eventModal')).toBeHidden();
  await clickView(page,'tasks');
  // UI-PC할일후속: PC(1440)에서 기한 없는 할 일은 "일주일 안" 열 아래 "나중 N ▸" 접기 줄 안에 있다. 펼친 뒤 같은 검사를 한다.
- if(width>=1024){await expect(page.locator('#gtLater summary')).toBeVisible();await page.locator('#gtLater summary').click();}
+ if(width>=761){await expect(page.locator('#gtLater summary')).toBeVisible();await page.locator('#gtLater summary').click();}
  await expect(page.locator('#gtTaskBody .gt-menu-trigger')).toBeVisible();await check('#gtTaskBody .gt-menu-trigger',44);
 });
 
@@ -342,7 +342,7 @@ for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account mat
  if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','13px');/* 8-9e-3: 메뉴 줄 13px */await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
   /* BASKET-PC메뉴: 좁은 한 줄 메뉴(761px)는 [업데이트]·[챙길 것]이 늘어 [사업 보고]가 [메뉴] 창으로 넘어갈 수 있으므로, 줄에 남은 고르지 않은 항목([홈])으로 비교한다(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다). */
-  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="meetings"]')||document.querySelector('.app-nav [data-view="home"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
+  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="meetings"]')||document.querySelector('.app-nav [data-view="home"]')),account=getComputedStyle(document.querySelector('.app-topline [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
  });expect(styles.account).toEqual(styles.nav);
 });

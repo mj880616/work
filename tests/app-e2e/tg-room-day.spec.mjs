@@ -20,7 +20,7 @@ async function fixture(page,{width=1280,missing=false,empty=false}={}){
  return {items,errors,writes,calls,server};
 }
 async function openMenu(page,width,label){
- if(width>=1024){const item=page.locator('#appView>.app-nav').getByRole('button',{name:label,exact:true});await expect(item).toBeVisible();await item.click();}
+ if(width>=761){const item=page.locator('#appView>.app-nav').getByRole('button',{name:label,exact:true});await expect(item).toBeVisible();await item.click();}
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true}).click();}
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}

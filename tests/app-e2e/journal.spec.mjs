@@ -386,7 +386,7 @@ for(const width of [390,1280]){
   // 줄 끝 ⋯ 메뉴·팝업 없이 줄 자체가 버튼(PC는 줄마다 [수정][삭제]가 더 있다 — 아래 PC 모양 시험).
   await expect(page.locator('#journalRoot [data-journal-lines] [data-journal-edit]')).toHaveCount(3);
   await expect(page.locator('#journalRoot [data-journal-lines] [aria-haspopup]')).toHaveCount(0);
-  await expect(page.locator('#journalRoot [data-journal-lines] button:visible')).toHaveCount(width<1024?3:9);
+  await expect(page.locator('#journalRoot [data-journal-lines] button:visible')).toHaveCount(width<761?3:9);
   await page.locator('#journalRoot [data-journal-edit="1"]').click();
   const box=page.locator('#journalRoot [data-journal-edit-input]');
   await expect(box).toBeFocused();await expect(box).toHaveValue('둘째 줄');
@@ -1883,7 +1883,7 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  await orgRecord.scrollIntoViewIfNeeded();const scroll=await page.evaluate(()=>Math.round(scrollY));
  const reads=f.reads.length;
  await orgRecord.click();
- if(width>=1024)await expect(page.locator('#teamView')).toBeVisible();else await expect(page.locator('#journalView')).toBeVisible();
+ if(width>=761)await expect(page.locator('#teamView')).toBeVisible();else await expect(page.locator('#journalView')).toBeVisible();
  await expect(page.locator('#wdModal')).toBeVisible();await expect(page.locator('#wdTitle')).toContainText('나 지역 모임');
  await flashed(page,'#wdUpdates [data-wd-up="u1"]');
  await page.screenshot({path:info.outputPath(`journal-open-org-${width}.png`)});
@@ -1901,7 +1901,7 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  // 그 기록 줄도, 강조할 줄도 없다(화면만 열린다).
  const progress=group(page,'business').locator('.journal-item-open',{hasText:'진행상황 업데이트'});
  await progress.click();
- if(width>=1024)await expect(page.locator('#projectsView')).toBeVisible();
+ if(width>=761)await expect(page.locator('#projectsView')).toBeVisible();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();
  await expect(page.locator('#ps3Body')).toHaveAttribute('data-project','p');await expect(page.locator('#ps3Body [data-ps3-records]')).toBeVisible();
  await expect(page.locator('#ps3Body [data-ps3-record]')).toHaveCount(0);await expect(page.locator('#ps3Body [data-journal-flash]')).toHaveCount(0);
@@ -1920,7 +1920,7 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  await expect(page.locator('#journalView')).toBeVisible();await expectJournalDay(page,'10월 6일 화요일');
  // ⑤ 회의·활동 결과 → 그 회의 결과(PC 회의 화면 오른쪽 칸, 폰 회의 결과 창).
  await itemTexts(page,'activities').first().click();
- if(width>=1024){await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m1');}
+ if(width>=761){await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m1');}
  else await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
  await page.goBack();
  await expect(page.locator('#journalView')).toBeVisible();
@@ -2005,7 +2005,7 @@ for(const width of [390,1280])test(`[업무일지] 줄 ⋯: 메뉴 항목, PC는
  const opacity=loc=>loc.evaluate(e=>getComputedStyle(e).opacity);
  await expect(more).toHaveAccessibleName('오늘 마감 할 일 더 보기');
  const doneMore=taskRowOf(page,'done','t-done').locator('.journal-more-btn');
- if(width>=1024){
+ if(width>=761){
   await page.mouse.move(5,5);
   await expect.poll(()=>opacity(more)).toBe('0');await expect.poll(()=>opacity(doneMore)).toBe('0');
   await rowA.hover();await expect.poll(()=>opacity(more)).toBe('1');await expect.poll(()=>opacity(doneMore)).toBe('0');

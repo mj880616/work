@@ -6,7 +6,7 @@
 // - 노조 서식으로 만들기(HWP-서식변환): 붙여 넣은 글을 AI(ai-assist hwp_convert)가 노조 문서 규칙 문단으로 나누고, 자료실 "양식"의 빈 양식에 칸막이 안
 //   보조 스크립트(studio-convert.js)가 채워 편집기에 연다. 위 줄의 [내려받기]·[자료실에 저장]으로 마친다(기기 저장소는 쓰지 않는다).
 // 편집기는 hwp-frame.js의 sandbox iframe(allow-same-origin 없음)에서 돈다. Web2 창·저장소·API에 닿지 못한다.
-// HWP-화면가득: 폰·폴드(1023px 이하)와 PC [전체 화면]에서는 카드가 화면을 가득 채우고(data-focus), 위 얇은 한 줄(#hwpLabBar:
+// HWP-화면가득: 폰·폴드(760px 이하)와 PC [전체 화면]에서는 카드가 화면을 가득 채우고(data-focus), 위 얇은 한 줄(#hwpLabBar:
 // [✕]·파일 이름·[파일 ▾]·[저장 ▾])과 편집기만 보인다. 두 메뉴는 공용 anchored-menu로 열고, 항목은 아래 기존 버튼을 그대로 누른다
 // (버튼의 켜짐·꺼짐·숨김은 sync()가 정하고 메뉴는 열 때 그 상태를 읽어 그린다).
 import {createSandboxedEditor} from './hwp-frame.js';
@@ -120,7 +120,7 @@ function mountBarMenu(card){
   }
 }
 // 폰·폴드 폭이거나 PC [전체 화면]이면 화면 가득(data-focus). 폭이 바뀌면(돌리기·펼침) 바로 다시 정한다.
-const NARROW=window.matchMedia('(max-width: 1023px)');
+const NARROW=window.matchMedia('(max-width:760px)');
 function layout(){
   const card=document.querySelector('#hwpView .hwp-lab');
   if(!card)return;

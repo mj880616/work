@@ -1,5 +1,5 @@
 /* 주소 개편 ② E1: '아스날' 화면(#arsenalView). Web2 기준 콤팩트·톤다운(색은 theme-tokens.css 토큰만), 작은 버튼 32px(누르는 범위 44px).
-   PC(1024px~)는 목록 1/3 · 리뷰 2/3, 폰은 목록 → 리뷰 한 칸(#arsenalRoot[data-open]). */
+   PC(761px~)는 목록 1/3 · 리뷰 2/3, 폰은 목록 → 리뷰 한 칸(#arsenalRoot[data-open]). */
 #appView #arsenalView .ars{ display:flex; flex-direction:column; gap:6px; min-width:0; font-size:var(--ds-text-row,14px); color:var(--kptu-ink); }
 #appView #arsenalView .ars-bar{ position:sticky; top:0; z-index:2; display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:4px 0; background:var(--kptu-bg); }
 #appView #arsenalView :is(.ars-filter,.ars-search){ min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 8px; font-size:var(--ds-compact-text,13px); color:var(--kptu-ink); background:var(--kptu-surface);
@@ -9,7 +9,7 @@
 #appView #arsenalView .ars-count{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); white-space:nowrap; }
 #appView #arsenalView .ars-body{ display:grid; grid-template-columns:minmax(0,1fr); gap:10px; min-width:0; }
 #appView #arsenalView .ars[data-open="true"] .ars-list,#appView #arsenalView .ars:not([data-open="true"]) .ars-detail{ display:none; }
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #arsenalView .ars-body{ grid-template-columns:minmax(0,1fr) minmax(0,2fr); align-items:start; }
   #appView #arsenalView .ars[data-open="true"] .ars-list{ display:block; }
   /* UI-칸안스크롤하나로(시안 A): 목록 칸에 따로 스크롤을 두지 않는다. 목록은 화면과 같이 내려가고, 리뷰 칸(.ars-detail)은

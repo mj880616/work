@@ -50,7 +50,7 @@ function mrdClose(){mrdRequestEpoch++;const m=document.querySelector('#meetingRo
 // MTG-보고창정리: 제목 줄 오른쪽 ⋯ 하나가 [수정]·[칸 바꾸기]·[삭제]를 가진다. 우클릭은 공용 context-menu.js가 이 ⋯(data-ctx="area")를 눌러 같은 메뉴를 연다.
 // 메뉴 부품은 후속 할 일 ⋯와 같은 공용 앵커 메뉴(anchored-menu.js). 삭제는 기존 휴지통 흐름(mrdDeleteMeeting)을 그대로 쓴다.
 let mrdRoundRows=null,mrdMoreMenu=null;
-// MTG-고치기바로: 이 창(#meetingRoundDetailModal) 요소 하나가 두 곳에 앉는다. ① 팝업(폰·중간 폭·다른 화면 위) ② PC 사업 보고 화면의 세 번째 칸(붙임, dock).
+// MTG-고치기바로: 이 창(#meetingRoundDetailModal) 요소 하나가 두 곳에 앉는다. ① 팝업(폰·다른 화면 위) ② PC 사업 보고 화면의 세 번째 칸(붙임, dock).
 // 프로젝트(project-system-v3.js)·할 일(google-tasks.js) 화면의 붙임과 같은 방식이다: 요소를 옮기고 겉모양만 칸에 맞춘다. 두 벌을 그리지 않는다.
 // 옮기는 곳은 mrdDock·mrdUndock 둘뿐이고, 칸을 그리는 team.js가 다시 그릴 때마다 내렸다가 다시 앉힌다.
 let mrdDocked=false,mrdActionsTop=false,mrdEditBase='',mrdLeaveNext=null,mrdEditHistory=false,mrdSkipPop=0,mrdMemo=null;
@@ -244,7 +244,7 @@ async function mrdLoadMeeting(id,epoch){
   return true;
 }
 async function mrdOpenMeeting(id){
-  // PC 사업 보고 화면(세 칸·두 칸)이 떠 있으면 팝업을 열지 않고 그 칸에서 고른다(team.js reveal). 다른 화면 위·폰·중간 폭은 지금처럼 팝업.
+  // PC 사업 보고 화면(세 칸·두 칸)이 떠 있으면 팝업을 열지 않고 그 칸에서 고른다(team.js reveal). 다른 화면 위·폰은 지금처럼 팝업.
   if(window.KPTUMeetingColumns?.reveal?.(id))return;
   const epoch=++mrdRequestEpoch;
   mrdUndock();mrdEditSequence++;mrdEditor=null;

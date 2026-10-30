@@ -200,9 +200,9 @@ function goToday() {
 }
 // UI-상단줄제목: the open day goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it.
 const sendWhere = name => window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'diary', name}}));
-// UI-중복제목삭제: with the PC top line (1024px~) the open day is already named there, so the day panel's head has no title line of its own
+// UI-중복제목삭제: with the PC top line (761px~) the open day is already named there, so the day panel's head has no title line of its own
 // there (the element is not made; the panel is named by aria-label instead). Below that width the head keeps its title, as before.
-const toplineWide = window.matchMedia?.('(min-width:1024px)');
+const toplineWide = window.matchMedia?.('(min-width:761px)');
 function syncDetailTitle() {
   const head = selected && detail.querySelector('.diary-panel-head'); if (!head) return;
   let title = head.querySelector('#diaryDetailTitle');

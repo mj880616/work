@@ -7,7 +7,7 @@ import {offerUndoNotice} from './basket-record-delete.js';
 // (setWeekDrag·KPTUCalendarMonthView.setDrag), 저장은 일정 수정 창과 같은 update-event 경로(KPTUCalendarEvents.saveMove)다.
 // 짧게 누르기는 지금처럼 일정 열기(클릭)이고, 4px 넘게 움직여야 끌기가 된다. 끌기 뒤에 따라오는 클릭 한 번은 막는다.
 // 시간 일정 ↔ 종일 줄 사이로 끌면 막는다(놓으면 원래 자리). 키보드는 그대로 Enter·Space로 수정 창을 연다.
-const PC=matchMedia('(min-width:1024px)'),SLOP=4,EDGE=28;
+const PC=matchMedia('(min-width:761px)'),SLOP=4,EDGE=28;
 let g=null,swallowClick=false;
 const findRaw=(id,calendarId)=>(window.__KPTU_GOOGLE_EVENTS__||[]).find(e=>e.id===id&&(e.calendarId||'primary')===calendarId);
 const show=(state,view=g?.view)=>{if(view==='month')window.KPTUCalendarMonthView?.setDrag?.(state);else setWeekDrag(state)};

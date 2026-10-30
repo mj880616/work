@@ -183,8 +183,9 @@ test('PC: 다시 열면 사업 보고 위 \'이어서 정리\' 한 줄 → 전�
   expect(recCalls(calls,'rec_start').length).toBe(0);
 });
 
-for(const width of [412,884]){
-  test(`폰·폴드 ${width}px: [녹음]과 '이어서 정리'가 없고 녹음 서버를 부르지 않는다`,async({page})=>{
+// UI-폴드PC틀: 폴드 펼침(884)은 PC 틀이라 [녹음]이 있다. 없는 쪽은 폰(≤760)뿐.
+for(const width of [412,760]){
+  test(`폰 ${width}px: [녹음]과 '이어서 정리'가 없고 녹음 서버를 부르지 않는다`,async({page})=>{
     await page.setViewportSize({width,height:900});
     const calls=await signIn(page,{pending:[{session_id:'s',started_at:'2026-10-29T05:30:00Z',duration_sec:60,segments:[]}]});
     await expect(page.locator('#reportRecordBtn')).toBeHidden();

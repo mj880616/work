@@ -859,13 +859,13 @@ for(const width of [390,1280])test(`V3 generated dialogs expose consistent acces
   await page.setViewportSize({width,height:900});
   const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   // UI-PC프로젝트좌우: on a PC the detail is the right pane — a labelled region, not a modal dialog.
-  if(width>=1024)await expectProjectDetail(page,'main-1');
+  if(width>=761)await expectProjectDetail(page,'main-1');
   for(const id of ['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3MilestoneModal','ps3DeleteModal','ps3ArchiveModal']){
     const modal=page.locator('#'+id);
-    if(id==='ps3DetailModal'&&width>=1024){await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal',/.*/);await expect(page.locator('#ps3DetailPane')).toHaveAttribute('aria-label','사업영역 상세')}
+    if(id==='ps3DetailModal'&&width>=761){await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal',/.*/);await expect(page.locator('#ps3DetailPane')).toHaveAttribute('aria-label','사업영역 상세')}
     else{await expect(modal).toHaveAttribute('role','dialog');
     await expect(modal).toHaveAttribute('aria-modal','true');}
-    if(id==='ps3DetailModal'&&width>=1024){
+    if(id==='ps3DetailModal'&&width>=761){
       // UI-중복제목삭제: 붙은 상세는 제목 줄(#ps3Title)이 없고 상단 줄이 이름을 보이므로 이름은 aria-label로 둔다.
       await expect(modal).toHaveAttribute('aria-label',/.+/);await expect(modal).not.toHaveAttribute('aria-labelledby',/.*/);await expect(page.locator('#ps3Title')).toHaveCount(0);
     }else{
@@ -881,7 +881,7 @@ for(const width of [390,1280])test(`V3 detail and edit dialogs manage focus, Esc
   await page.setViewportSize({width,height:900});
   const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   const card=page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]');
-  if(width>=1024){
+  if(width>=761){
     // UI-PC프로젝트좌우: the PC pane is not a dialog of its own — choosing a row keeps focus on that row.
     await expectProjectDetail(page,'main-1');
     await card.focus();await card.click();await expect(card).toBeFocused();await expect(card).toHaveAttribute('aria-current','true');

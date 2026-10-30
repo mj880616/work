@@ -78,7 +78,7 @@ async function fixture(page,{width=1280,ledgerSeen=[],personalMissing=false,refi
  return {db,moves,errors,refills};
 }
 async function openCalls(page,width){
- if(width>=1024){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'통화',exact:true});await expect(item).toBeVisible();await item.click();}
+ if(width>=761){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'통화',exact:true});await expect(item).toBeVisible();await item.click();}
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'통화',exact:true}).click();}
  await expect(page.locator('#callsView')).toBeVisible();
 }
@@ -116,7 +116,7 @@ for(const width of [390,1280])test(`통화 ${width}: 업무 통화함 기본 + �
  await expect(menu.locator('button')).toHaveText([/^제목 바꾸기/,'이름 고치기','요약 고치기','업무 통화로 옮기기','요약 복사','지우기 목록에서만']);
  await page.keyboard.press('Escape');
  // 폰: 뒤로가기 한 칸 = 개인 통화함 목록, 한 칸 더 = 업무 통화함.
- if(width<1024){
+ if(width<761){
   await page.goBack();await expect(view.locator('#cfList')).toBeVisible();await expect(view.locator('[data-cf-pcount]')).toBeVisible();
   await page.goBack();await expect(view.locator('[data-cf-box="personal"]')).toBeVisible();
  }else{await tap(page,view.locator('[data-cf-box="work"]'),width);await expect(view.locator('[data-cf-box="personal"]')).toBeVisible();}

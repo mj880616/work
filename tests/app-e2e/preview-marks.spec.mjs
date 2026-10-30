@@ -32,7 +32,7 @@ for(const width of [390,1280])test(`organization record lines show plain letters
  await page.addStyleTag({content:'#wdUpdates .kptu-clamp{-webkit-line-clamp:1!important;line-clamp:1!important}'});
  await page.evaluate(async()=>{await KPTUViewLoader.load('team');KPTURouter.go('team');});
  await expect(page.locator('[data-so-org]')).toHaveCount(1);
- if(width<1024)await page.locator('[data-so-org]').click();
+ if(width<761)await page.locator('[data-so-org]').click();
  const link=page.locator('#wdUpdates [data-link-summary-text]'),own=page.locator('#wdUpdates .wd-log-main p');
  await expect(link).toHaveCount(1);await expect(own).toHaveCount(1);
  const line=(await link.textContent())||'';

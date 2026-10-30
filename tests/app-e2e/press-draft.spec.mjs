@@ -82,7 +82,7 @@ for(const width of [412,884,1440])test(`press draft: pick 근거, preview only, 
  await expect(d.locator('.pd-sources')).toContainText('가상지부 임단협 3차 · 10.2');
  await expect(d.locator('.pd-preview-head')).toContainText('AI 초안 · 근거 2건 · 사실 확인 전');
  expect(f.calls.notes).toEqual([]);expect(f.calls.links).toEqual([]);
- if(width>=1024)await expect(d.locator('.pd-pick-pane')).toBeVisible();
+ if(width>=761)await expect(d.locator('.pd-pick-pane')).toBeVisible();
  else await expect(d.locator('.pd-pick-pane')).toHaveCount(0);
  expect(await noWideScroll(page)).toBe(true);
  await press(page,d.getByRole('button',{name:'노트로 저장'}),width);

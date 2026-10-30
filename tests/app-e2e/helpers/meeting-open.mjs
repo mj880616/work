@@ -1,5 +1,5 @@
 import {expect} from '@playwright/test';
-// MEET-결과3단(2026-10-21): PC(≥1024) 회의 결과는 3단(왼쪽 회의 종류 / 가운데 차수 / 오른쪽 읽기용 결과)이고, 회의 결과 창(#meetingRoundDetailModal)은
+// MEET-결과3단(2026-10-21): PC(≥761) 회의 결과는 3단(왼쪽 회의 종류 / 가운데 차수 / 오른쪽 읽기용 결과)이고, 회의 결과 창(#meetingRoundDetailModal)은
 // 오른쪽 머리 ⋯ → [수정]으로 연다. 폰·중간 폭은 지금처럼 목록 줄([data-mrd-meeting])을 누르면 창이 열린다.
 // 사람이 하듯 연다: 폰 줄이 있으면 그 줄을 누르고, PC면 그 회의가 든 종류를 고른 뒤 가운데 차수 줄을 누르고 ⋯ → [수정].
 export async function selectMeetingRound(page,id){

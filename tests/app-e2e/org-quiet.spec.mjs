@@ -45,7 +45,7 @@ async function routes(page, weeks) {
 }
 const line = page => page.locator('[data-home-card="quiet"]');
 
-for (const [width, phone] of [[412, true], [884, true], [1440, false]]) {
+for (const [width, phone] of [[412, true], [884, false], [1440, false]]) {
   test(`연락 없는 조직 한 줄 ${width}`, async ({page}) => {
     await page.setViewportSize({width, height: 900});
     await openHome(page, {beforeLoad: () => routes(page)});

@@ -3,7 +3,7 @@ import {followPane} from './follow-pane.js';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절, 시안 docs/design/mockups/domain-move.html): '아스날' 화면(?view=arsenal). #arsenalView의 유일한 그리기 주인.
 // - 자료 app/arsenal/matches.js(window.ARSENAL_MATCHES)는 이 화면을 처음 열 때만 불러온다(view-loader가 이 모듈도 열 때만 부름 → 첫 화면 속도 영향 없음).
 // - 위 줄: 시즌·대회 고르기·상대 검색·경기 수. 아래: 경기 목록(최신순) + 고른 경기 리뷰.
-//   PC(1024px~)는 목록 1/3 · 리뷰 2/3 두 칸, 폰은 목록 → 리뷰 한 칸(KPTURouter.layer, 뒤로 한 번 = 목록).
+//   PC(761px~)는 목록 1/3 · 리뷰 2/3 두 칸, 폰은 목록 → 리뷰 한 칸(KPTURouter.layer, 뒤로 한 번 = 목록).
 // - 리뷰: 날짜·대회·경기장 줄, 점수, 득점·도움, 판정(한 문장 요약, 늘 보임), 묶음 넷(첫 묶음만 펼침), 주요 통계, 영상·참고 링크(https만, 새 탭).
 // 저장하는 것 없음(읽기 전용 화면, 기기 저장 없음). 거르기 값은 이 탭 메모리에만.
 import {ALL, normalizeMatches, seasonsOf, competitionsOf, competitionText, filterMatches, pickMatch, dateText, scoreText,
@@ -13,7 +13,7 @@ import {ALL, normalizeMatches, seasonsOf, competitionsOf, competitionText, filte
 if (window.KPTUArsenal) return;
 const DATA_SRC = './arsenal/matches.js';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const pc = window.matchMedia('(min-width:1024px)');
+const pc = window.matchMedia('(min-width:761px)');
 
 function install() {
   if (document.getElementById('arsenalView')) return;

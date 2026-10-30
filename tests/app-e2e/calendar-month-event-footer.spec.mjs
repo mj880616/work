@@ -114,8 +114,8 @@ for(const [width,height] of sizes){
     await expect(page.locator('#calendarGrid')).not.toHaveClass(/cmv-has-tasks/);
     await expect(page.locator('.cmv-task-count,.cmv-footer-more')).toHaveCount(0);
     const cap=Number(await week.getAttribute('data-lane-cap'));
-    expect(cap).toBe(width>=1024?24:width<=760?Number(await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots'))-1:Math.max(1,Math.floor((await week.evaluate(el=>el.getBoundingClientRect().height)-44-44-2)/14)));
-    if(width<1024)await expect(week.locator('.cmv-week-events > .kptu-day-more')).not.toHaveCount(0);
+    expect(cap).toBe(width>=761?24:width<=760?Number(await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots'))-1:Math.max(1,Math.floor((await week.evaluate(el=>el.getBoundingClientRect().height)-44-44-2)/14)));
+    if(width<761)await expect(week.locator('.cmv-week-events > .kptu-day-more')).not.toHaveCount(0);
     expect(external).toEqual([]);
   });
 }

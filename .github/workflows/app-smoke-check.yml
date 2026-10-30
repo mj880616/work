@@ -249,6 +249,8 @@ jobs:
         run: node --test tests/ui-cleanup-c.test.mjs
       - name: Check site audit fixes stay in the shared parts (UI-점검1030손질)
         run: node --test tests/ui-audit-1030.test.mjs
+      - name: Check two screen widths only, phone and PC frame (UI-폴드PC틀)
+        run: node --test tests/fold-pc-frame.test.mjs
       - name: Check one shared loading/failed/empty part (UI-기다림표시통일)
         run: node --test tests/wait-state.test.mjs
 

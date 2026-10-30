@@ -92,10 +92,10 @@ for(const width of [1280])test(`home: two lines per row, ✓ ✎ ✕ on the righ
  const order=await page.evaluate(()=>{const dday=document.querySelector('[data-home-card="dday"]'),radar=document.querySelector('[data-home-card="radar"]'),tasks=document.querySelector('[data-home-card="tasks"]'),meet=document.querySelector('[data-home-card="meetings"]');
   return {sameColumn:dday.parentElement===radar.parentElement,next:dday.nextElementSibling===radar,column:radar.parentElement.dataset.homeColumn,afterTasks:!!(radar.compareDocumentPosition(tasks)&Node.DOCUMENT_POSITION_PRECEDING),beforeMeetings:!!(radar.compareDocumentPosition(meet)&Node.DOCUMENT_POSITION_FOLLOWING)};});
  expect(order.sameColumn&&order.next).toBe(true);
- expect(order.column).toBe(width>=1024?'aside':'main');
- if(width<1024)expect(order.afterTasks&&order.beforeMeetings).toBe(true);
+ expect(order.column).toBe(width>=761?'aside':'main');
+ if(width<761)expect(order.afterTasks&&order.beforeMeetings).toBe(true);
  expect(await noWideScroll(page)).toBe(true);
- await page.screenshot({path:info.outputPath(`todo-radar-home-${width}.png`),fullPage:width<1024});
+ await page.screenshot({path:info.outputPath(`todo-radar-home-${width}.png`),fullPage:width<761});
  expect(f.errors).toEqual([]);
 });
 

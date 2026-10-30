@@ -35,7 +35,7 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   expect(requests.some(u=>/app_tasks/.test(u))).toBe(false);
   const mobile=width<=760;
   await expect(page.locator('.mobile-tabs')).toBeVisible({visible:mobile});
-  await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:width>760&&width<1024});
+  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
   await expect(page.locator('#mobileMenuTab')).toBeVisible({visible:mobile});
   await expect(page.locator('#appView>.app-nav')).toBeVisible({visible:!mobile});
   if(mobile){
@@ -45,7 +45,7 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
       const tab=page.locator(`.mobile-tabs [data-view="${view}"]`),r=await tab.boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
       await tab.click();await expect(page.locator('#'+view+'View')).toBeVisible();await expect(tab).toHaveAttribute('aria-current','page');
     }
-  }else if(width<1024)expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-view')).toBe('home');
+  }else if(width<761)expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-view')).toBe('home');
   else{
     // UI-PC사이드바: the top line (icon + 홈) is the home menu and carries its selection; the separate [홈] row is gone.
     const brand=page.locator('#appView>.app-nav .sidebar-brand');

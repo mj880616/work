@@ -152,11 +152,11 @@ const nameOf=id=>profiles.find(x=>x.user_id===id)?.display_name||id?.slice(0,8)|
 const canManage=p=>p?.owner_id===user?.id;
 const canEdit=p=>canManage(p);
 const MODAL_FOCUS={ps3DetailModal:'[data-ps3-close="ps3DetailModal"]',ps3CreateModal:'#ps3CreateName',ps3WorkstreamModal:'#ps3WsTitle',ps3MilestoneModal:'#ps3MilestoneTitle'};
-// UI-PC프로젝트좌우: on a PC (1024px~) the projects screen is the list on the left and the chosen project's detail on the right.
+// UI-PC프로젝트좌우: on a PC (761px~) the projects screen is the list on the left and the chosen project's detail on the right.
 // The right pane shows the same detail element (#ps3DetailModal, drawn only by renderDetail) moved into #ps3DetailPane as a
-// region instead of a dialog, the way google-tasks.js docks its editor in #gtDetailPane. Phones, middle widths (761~1023px)
+// region instead of a dialog, the way google-tasks.js docks its editor in #gtDetailPane. Phones
 // and a detail opened over another screen (home, basket) keep the dialog. placeDetail() is the only place that moves it.
-const PC=window.matchMedia?.('(min-width:1024px)');
+const PC=window.matchMedia?.('(min-width:761px)');
 // The pane is laid out only by the PC rule of project-system-v3.css; where that rule does not show it, the dialog stays.
 // MTG-프로젝트합치기 ①: 사업영역 목록·상세는 사업 보고 위의 창(#areaWindow, area-window.js가 여닫음) 안에 있다. 창이 떠 있을 때만 '이 화면'이다.
 const areaOpen=()=>{const w=$('#areaWindow');return !!w&&!w.classList.contains('hidden')};
@@ -184,7 +184,7 @@ function placeDetail(){
 }
 // UI-중복제목삭제: docked on the PC right pane the top line already names the project ("프로젝트 › 이름"), so the head has no title line of its
 // own there (the h2 is not made; the pane is named by aria-label) and the project's colour dot moves to the head's summary line. As a dialog
-// (phone, 761~1023px, or opened over another screen) the h2 with the dot and name stays, as before.
+// (phone, or opened over another screen) the h2 with the dot and name stays, as before.
 function paintHead(p){
   const m=$('#ps3DetailModal'),summary=$('#ps3Summary');if(!m||!summary)return;
   let h=$('#ps3Title');summary.querySelector(':scope>.ps3-color-dot')?.remove();

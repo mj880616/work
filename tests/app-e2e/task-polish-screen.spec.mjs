@@ -49,6 +49,8 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·다음
   expect(field.width).toBeLessThan(200);expect(first.x).toBeGreaterThan(field.x+field.width-1);
   expect(first.height).toBeLessThanOrEqual(34);
   for(const [label,due] of [['내일','2026-10-09'],['모레','2026-10-10'],['다음주','2026-10-15'],['오늘','2026-10-08'],['기한 없음',null],['오늘','2026-10-08']]){
+    // 빠른 버튼은 수정 창이 준비되고(연결 정보 읽기 끝) 앞 저장이 끝난 뒤에만 받는다. 그때 [저장]이 풀리므로 그것을 보고 누른다.
+    await expect(page.locator('#gtSaveBtn')).toBeEnabled();
     const before=calls.filter(c=>c.action==='update').length;
     await quick.getByRole('button',{name:label,exact:true}).click();
     await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(before+1);
@@ -74,6 +76,7 @@ for(const width of [390,412]){
     await expect(field).toHaveAttribute('data-date-text','10.8 (목)');
     expect(await page.locator('#gtEditDue').evaluate(e=>getComputedStyle(e).opacity)).toBe('0');
     expect(await field.evaluate(e=>getComputedStyle(e,'::after').content)).toBe('"10.8 (목)"');
+    await expect(modal.locator('#gtSaveBtn')).toBeEnabled();
     await quick.getByRole('button',{name:'내일',exact:true}).click();
     await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(1);
     expect(calls.find(c=>c.action==='update').body.due).toBe('2026-10-09');

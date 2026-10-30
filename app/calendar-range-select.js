@@ -3,7 +3,7 @@ import {minuteAtY,rangeSlot,slotStart,slotEnd} from './calendar-create-slot.js';
 // 이 모듈은 끌기 입력과 미리보기 표시(메모리만)만 갖는다. 창 채우기는 calendar-interactions-v2.js(KPTUCalendarEvents.createSlot) 하나가 한다.
 // 짧게 누르기는 calendar-interactions-v2.js의 한 번 누름(누른 15분 칸부터 1시간)이고, 4px 넘게 움직여야 범위 고르기가 된다.
 // 일정을 끄는 것(calendar-drag.js)과는 시작하는 곳이 달라 겹치지 않는다: 여기는 빈 칸(.cwv-create)에서 시작할 때만 한다.
-const PC=matchMedia('(min-width:1024px)'),SLOP=4;
+const PC=matchMedia('(min-width:761px)'),SLOP=4;
 let s=null,swallowClick=false;
 const pad=n=>String(n).padStart(2,'0');
 const clock=m=>m>=1440?'24:00':`${pad(Math.floor(m/60))}:${pad(m%60)}`;

@@ -1,10 +1,10 @@
 import { expect } from '@playwright/test';
 import { projectDetailDocked } from './project-detail.mjs';
-// UI-중복제목삭제: with the PC top line (1024px~) the open item's name is in the top line's place ("일정 › 업무일지 › 10월 6일 화요일") and the
+// UI-중복제목삭제: with the PC top line (761px~) the open item's name is in the top line's place ("일정 › 업무일지 › 10월 6일 화요일") and the
 // screen's body has no title line of its own for it; below that width the body keeps its title line. Each helper checks whichever applies to
 // the page's width (프로젝트: to whether the detail is docked on the right, which is exactly when the top line names it).
 // Same shape as note-title.mjs (UI-상단줄제목 1차, the note).
-export const toplineShown = page => (page.viewportSize()?.width || 0) >= 1024;
+export const toplineShown = page => (page.viewportSize()?.width || 0) >= 761;
 export const toplineItem = page => page.locator('[data-topline-where] [aria-current="page"]');
 
 async function expectTitle(page, text, { wide, bodyTitle, wideCount = 0 }) {

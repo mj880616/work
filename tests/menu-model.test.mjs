@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {ITEMS, BAR_MAX, DEFAULT_BAR, DEFAULT_REST, defaultLayout, normalizeLayout, isDefaultLayout, layoutToPrefs, moveItem, stepItem, pcOrder, pcSplit, midKeys, barItemForView, menuSheetViews} from '../app/menu-model.mjs';
+import {ITEMS, BAR_MAX, DEFAULT_BAR, DEFAULT_REST, defaultLayout, normalizeLayout, isDefaultLayout, layoutToPrefs, moveItem, stepItem, pcOrder, pcSplit, barItemForView, menuSheetViews} from '../app/menu-model.mjs';
 import {dropIndex} from '../app/reorder-drag.js';
 
 // MENU-HOME-편집: 메뉴 순서의 결정 규칙을 한 곳에서 시험한다(PC 왼쪽 메뉴·폰 하단바·폰 [메뉴] 창이 모두 이 규칙을 읽는다).
@@ -60,8 +60,6 @@ test('PC 왼쪽 메뉴는 하단바 메뉴가 위, 나머지가 그 아래 같�
   const moved = moveItem(defaultLayout(), 'calls', 'rest', 0).layout;
   assert.deepEqual(pcSplit(moved).tail, ['telegram', 'arsenal']);
   assert.ok(pcSplit(moved).main.includes('calls'));
-  assert.deepEqual(midKeys(defaultLayout()).slice(0, 8), ['home', 'basket', 'calendar', 'tasks', 'journal', 'diary', 'note', 'meetings']);
-  assert.equal(midKeys(defaultLayout()).length, 17);
 });
 
 test('하단바에서 지금 화면이 어느 칸인지', () => {

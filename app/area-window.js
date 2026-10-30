@@ -39,7 +39,7 @@ function show(trigger){
   return true;
 }
 
-// 여는 길 하나. id가 있으면 창을 연 뒤 그 사업영역 상세를 연다(PC는 오른쪽 칸, 폰·중간 폭은 창 위의 상세 창).
+// 여는 길 하나. id가 있으면 창을 연 뒤 그 사업영역 상세를 연다(PC는 오른쪽 칸, 폰은 창 위의 상세 창).
 async function open({id=null,trigger=document.activeElement}={}){
   const run=++seq;
   const after=async()=>{

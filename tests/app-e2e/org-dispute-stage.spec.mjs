@@ -55,7 +55,7 @@ async function fixture(page,{width,tables=true,seeded=true,period=true}){
 const row=(page,id)=>page.locator(`#soOrganizationList [data-so-org="${id}"]`);
 async function openOrg(page,id,width){
  await clickView(page,'team');
- if(width<1024)await row(page,id).click();
+ if(width<761)await row(page,id).click();
  else await row(page,id).click();
  await expect(page.locator('#wdModal')).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText(orgs.find(o=>o.id===id).name);
 }
@@ -291,7 +291,7 @@ for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)�
  const more=page.locator('#soTeamMore');await expect(more).toBeVisible();await expect(more).toHaveCount(1);
  await expect(page.locator('#soOrganizationList #soTeamMore, .so-group-card #soTeamMore')).toHaveCount(0);
  const m=await more.boundingBox(),group=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
- if(width<1024)expect(m.y+m.height).toBeLessThanOrEqual(group.y); // 묶음 머리줄보다 위
+ if(width<761)expect(m.y+m.height).toBeLessThanOrEqual(group.y); // 묶음 머리줄보다 위
  if(width<=760){
   // 폰: 위 머리줄의 화면 이름 "담당조직"과 같은 줄, 오른쪽 끝
   const name=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();
@@ -300,7 +300,7 @@ for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)�
  }else{
   const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('담당조직');
   // UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄이 화면 이름을 맡아 본문 큰 제목은 읽기 프로그램용(잘라 숨김), 중간 폭은 제목 줄 그대로.
-  if(width>=1024){
+  if(width>=761){
    await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
    // UI-전수디자인점검 F07: PC는 ⋯ 하나만 담은 빈 줄이 없다. ⋯는 목록 칸 맨 위 줄(첫 묶음 머리줄) 오른쪽 끝, 'N곳'과 겹치지 않음, 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
    const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox(),count=await page.locator('#soOrganizationList .so-group-count').first().boundingBox();
