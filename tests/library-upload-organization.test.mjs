@@ -40,7 +40,7 @@ test('library-upload.js: project upload path unchanged (link only when an organi
   assert.match(s,/newDocument\.addEventListener\('click',\(\)=>\{luResetUploadSelection\(\);luRenderUploadProject\(''\);luSetUploadOrg\(null\);luSetUploadMeeting\(null\)\},true\)/);
   assert.match(s,/startUploadForOrganization:luStartUploadForOrganization/);
   // The same upload request and AI fill as the project path.
-  assert.match(s,/luAiFill\(d\.document\.id,fd\)/);
+  assert.match(s,/luAiFill\(d\.document\.id,fd,file\.name\)/);
   assert.match(s,/project_id:'#docProject'/);
   assert.doesNotMatch(s,/fd\.append\('organization_id'/);
 });

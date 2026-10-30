@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { fileNameTitle, isMeaninglessName } from '../../supabase/functions/_shared/library-file-name.mjs';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 const { readMultipartForm } = await import('../../supabase/functions/_shared/multipart.ts');
@@ -77,8 +78,8 @@ function harness({
   };
   const quietConsole = { ...console, error: (...a) => calls.errors.push(a), warn: () => {}, log: () => {} };
   const fastSignal = { timeout: () => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('timed out', 'TimeoutError')), 30); return c.signal; } };
-  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', 'AbortSignal', SOURCE)(
-    Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole, fastSignal
+  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', 'AbortSignal', 'fileNameTitle', 'isMeaninglessName', SOURCE)(
+    Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole, fastSignal, fileNameTitle, isMeaninglessName
   );
   return { handler, calls };
 }
@@ -232,4 +233,25 @@ test('unexpected exceptions return a generic 500 without leaking internal messag
   assert.equal(status, 500);
   assertStructured(body, 'internal_error', 'unknown', true);
   assert.doesNotMatch(JSON.stringify(body), /raw internal detail/);
+});
+
+// LIB-파일이름그대로(2026-10-30 사용자 결정 A): 뜻 있는 파일 이름이면 그 이름 그대로(밑줄·확장자만 정리)가 제목이고, 이름의 날짜가 자료 날짜다.
+// 본문에서 제목을 뽑으러 AI를 부르지 않는다. 뜻 없는 이름(공용 isMeaninglessName)일 때만 AI 제목을 시도한다.
+test('meaningful file names keep their own title and date; only meaningless names ask the AI for a title', async () => {
+  const ai = () => json({ output: [{ type: 'message', content: [{ type: 'output_text', text: '주간보고 2026.10.26. 본문 제목' }] }] });
+  {
+    const h = harness({ openai: 'test-key', openaiFetch: ai });
+    const { status } = await send(h, { file: new File(['■ 일시: 2026.10.26.'], '주간보고_20261102_홍길동.hwpx', { type: 'application/hwp+zip' }) });
+    assert.equal(status, 200);
+    const row = h.calls.inserts[0];
+    assert.equal(row.title, '주간보고 20261102 홍길동');
+    assert.equal(row.document_date, '2026-11-02');
+    assert.equal(h.calls.fetch.some(c => c.includes('api.openai.com')), false, 'no title inference for a meaningful name');
+  }
+  for (const name of ['KakaoTalk_20261030_1.txt', 'scan001.txt', '문서.txt', '최종.txt']) {
+    const h = harness({ openai: 'test-key', openaiFetch: ai });
+    const { status } = await send(h, { file: new File(['첫 줄 제목\n본문'], name, { type: 'text/plain' }) });
+    assert.equal(status, 200, name);
+    assert.equal(h.calls.fetch.filter(c => c.includes('api.openai.com')).length, 1, `${name}: AI title is allowed`);
+  }
 });

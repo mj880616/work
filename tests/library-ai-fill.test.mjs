@@ -268,3 +268,48 @@ test('untidyFields: a meaningful file-name title is not untidy; a meaningless on
   assert.equal(m.untidyFields(row(1,{title:'공문_협조요청',file_name:'공문_협조요청.pdf',...base}),CATS).includes('title'),false);
   assert.equal(m.untidyFields(row(1,{title:'scan0001',file_name:'scan0001.pdf',...base}),CATS).includes('title'),true);
 });
+
+// LIB-파일이름그대로(2026-10-30 사용자 결정 A): 파일 이름 판정은 app/library-file-name.mjs 한 곳(Edge 사본은 바이트까지 같음).
+test('file name rule: meaningful names keep their title and date; meaningless names leave the title to the AI',async()=>{
+  const n=await import('../app/library-file-name.mjs');
+  assert.equal(n.fileNameTitle('주간보고_20261102_홍길동.hwpx'),'주간보고 20261102 홍길동');
+  assert.equal(n.fileNameDate('주간보고_20261102_홍길동.hwpx'),'2026-11-02');
+  assert.equal(n.isMeaninglessName('주간보고_20261102_홍길동.hwpx'),false);
+  assert.deepEqual(n.nameKeptFields('주간보고_20261102_홍길동.hwpx'),['title','document_date']);
+  // 뜻 없는 이름: AI 제목 허용(날짜는 이름에 있으면 그대로).
+  for(const name of ['KakaoTalk_20261030_1.jpg','scan001.pdf','image.png','문서.hwp','최종.hwp','최종본_v2.hwpx','회의자료.pdf','제목 없음.hwp'])assert.equal(n.isMeaninglessName(name),true,name);
+  assert.deepEqual(n.nameKeptFields('KakaoTalk_20261030_1.jpg'),['document_date']);
+  assert.deepEqual(n.nameKeptFields('image.png'),[]);
+  assert.deepEqual(n.nameKeptFields('공문_협조요청.pdf'),['title']);
+  assert.equal(n.fileNameDate('보도자료_251020.hwp'),'2025-10-20');
+  assert.equal(n.fileNameDate('교섭 요구안.pdf'),null);
+  // 화면 판정 = 공용 모듈(따로 사본을 두지 않음).
+  assert.equal(m.isMeaninglessName,n.isMeaninglessName);
+  assert.equal(m.GENERIC_NAME_WORDS,n.GENERIC_NAME_WORDS);
+});
+
+test('Edge file name rule is a byte-for-byte deployment copy of the screen module, and library-files / ai-assist use it',async()=>{
+  const read=p=>readFileSync(new URL(p,import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  const banner='// Source of truth: app/library-file-name.mjs.\n// Deployment-local copy; the regression compares everything below this banner byte for byte.\n';
+  const copy=read('../supabase/functions/_shared/library-file-name.mjs');
+  assert.ok(copy.startsWith(banner));
+  assert.equal(copy.slice(banner.length),read('../app/library-file-name.mjs'));
+  assert.match(read('../supabase/functions/library-files/index.ts'),/import \{ fileNameTitle, isMeaninglessName \} from '\.\.\/_shared\/library-file-name\.mjs';/);
+  assert.match(read('../supabase/functions/ai-assist/library-fill.ts'),/import \{ GENERIC_NAME_WORDS, isMeaninglessName \} from "\.\.\/_shared\/library-file-name\.mjs";/);
+  // 자료실에서 올리는 길([+ 자료 등록]·끌어놓기·폴더·사업영역·담당조직·사업 보고 첨부)은 모두 luAiFill에 올린 파일 이름을 넘긴다.
+  const upload=read('../app/library-upload.js');
+  const calls=upload.match(/luAiFill\([^)]*\)/g);
+  assert.ok(calls.length>=4);
+  for(const c of calls)assert.ok(c==='luAiFill(id,fd,fileName)'||/,file\.name\)$/.test(c),c);
+  // 주간보고 [확정]도 자료명을 파일 이름으로 정한다(본문 ■ 일시 글자가 아님).
+  assert.match(read('../app/journal-hwpx.js'),/saveWeeklyReport\(b\.bytes, \{fileName:b\.name, title:fileNameTitle\(b\.name\)/);
+});
+
+test('fillLibraryDocument: with the uploaded file name, a meaningful name keeps title and its date keeps document_date',async()=>{
+  const sent=[];const rt={api:async()=>({ok:true})};const call=async body=>{sent.push(body);return {ok:true,data:{updated:0}}};
+  await m.fillLibraryDocument(ID,{keep:['source'],fileName:'주간보고_20261102_홍길동.hwpx',rt,call,notify:false});
+  await m.fillLibraryDocument(ID,{keep:[],fileName:'KakaoTalk_20261030_1.jpg',rt,call,notify:false});
+  await m.fillLibraryDocument(ID,{keep:[],fileName:'image.png',rt,call,notify:false});
+  await m.fillLibraryDocument(ID,{keep:['category'],rt,call,notify:false});
+  assert.deepEqual(sent.map(b=>b.keep),[['title','document_date','source'],['document_date'],[],['category']]);
+});

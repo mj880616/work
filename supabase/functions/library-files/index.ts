@@ -5,6 +5,7 @@ import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 import { readMultipartForm } from '../_shared/multipart.ts';
 import { createLibraryPhotoHandler } from './photo.ts';
 import { setKeep } from '../_shared/library-prev-model.mjs';
+import { fileNameTitle, isMeaninglessName } from '../_shared/library-file-name.mjs';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -195,16 +196,20 @@ Deno.serve(async(req:Request)=>{
 
     const val=(k:string)=>String(form.get(k)||'').trim();
     const userTitle=val('title');
-    let title=userTitle||tidyFileTitle(file.name);
+    // LIB-파일이름그대로(2026-10-30 사용자 결정 A): 뜻 있는 파일 이름이면 그 이름 그대로(밑줄·확장자만 정리, 날짜·이름 글자는 남김).
+    // 뜻 없는 이름(공용 isMeaninglessName — ai-assist·화면과 같은 판정)일 때만 본문에서 제목을 뽑고, 못 뽑으면 정돈한 파일 이름.
+    const meaningfulName=!isMeaninglessName(file.name);
+    const nameTitle=()=>meaningfulName?(fileNameTitle(file.name)||tidyFileTitle(file.name)):tidyFileTitle(file.name);
+    let title=userTitle||nameTitle();
     let titleSource=userTitle?'user':'filename';
-    if(!userTitle&&weakTitle(title)){
+    if(!userTitle&&!meaningfulName){
       try{
         const model=await workspaceModel(wm.workspace_id);
         const inferred=await inferTitleFromFile(file,model);
         if(inferred){title=tidyFileTitle(inferred);titleSource='content'}
       }catch(e){console.warn('content title inference skipped',e)}
     }
-    if(!title||weakTitle(title))title=tidyFileTitle(file.name);
+    if(!title||(!(meaningfulName&&titleSource==='filename')&&weakTitle(title)))title=nameTitle();
 
     const auto=classify(title+' '+file.name);
     if(!projectId&&!meetingId){

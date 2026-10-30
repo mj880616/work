@@ -12,6 +12,8 @@
 //   글자가 있는 자료에만 요청(brief:true)하고, 서버가 줄 수·글자 수·제어 문자·꺾쇠를 다시 검사한다(넘으면 버림, 자르지 않음).
 //   저장은 handler가 이미 있는 "자료별 AI 요약 표"(app_document_ai_index)에 'b1:' 지문 행으로만 한다(옛 행은 건드리지 않음).
 
+import { GENERIC_NAME_WORDS, isMeaninglessName } from "../_shared/library-file-name.mjs";
+
 export const LIBRARY_FIELDS = Object.freeze(["title", "document_date", "source", "category"] as const);
 export type LibraryField = typeof LIBRARY_FIELDS[number];
 export const LINK_FIELDS = Object.freeze(["project_id", "organization_id"] as const);
@@ -107,23 +109,10 @@ export function validCategories(list: unknown): string[] {
 const baseName = (name: string | null) => String(name ?? "").replace(/\.[^.]{1,8}$/, "").trim();
 const squash = (s: string | null) => String(s ?? "").normalize("NFKC").toLowerCase().replace(/[\s_\-.()[\]]+/g, "");
 
-// LIB-파일이름제목(2026-10-26): 파일 이름에 뜻이 있으면 그 이름이 제목이다(AI가 제목 칸을 건드리지 않음). 본문에서 제목을 뽑는 것은
-// 파일 이름이 뜻 없는 자료뿐이다. 뜻 없는 이름 = 이름에서 숫자·기호를 뺀 낱말이 모두 아래 흔한 낱말이거나 짧은 영문 조각(1~2자)이고,
-// 한글·한자·긴 영문 낱말이 하나도 남지 않는 이름. 예: 숫자만(251020)·scan0001·IMG_20251020_123456·KakaoTalk_20251020_123456789·
-// 제목 없음·새 문서 1·스크린샷 2025-10-20·PXL_…·DSC_0001·화면 캡처. 화면 app/library-ai-fill.js isMeaninglessName과 같은 규칙(시험이 비교).
-export const GENERIC_NAME_WORDS: readonly string[] = Object.freeze([
-  "img", "image", "images", "imgs", "dsc", "dscn", "dscf", "pxl", "mvimg", "vid", "video", "photo", "photos", "pict", "picture", "pic",
-  "scan", "scanned", "scanner", "document", "doc", "docx", "file", "files", "untitled", "new", "screenshot", "screen", "shot", "capture",
-  "download", "downloads", "attachment", "temp", "tmp", "kakaotalk", "kakao", "talk", "copy", "wa", "am", "pm",
-  "스캔", "제목", "없음", "제목없음", "새문서", "무제", "새", "문서", "사진", "이미지", "첨부", "첨부파일", "붙여넣은", "화면", "캡처", "스크린샷",
-  "카카오톡", "복사본", "사본", "오전", "오후", "파일", "이름", "한글",
-]);
-const GENERIC_SET = new Set(GENERIC_NAME_WORDS);
-export function isMeaninglessName(fileName: string | null): boolean {
-  const base = baseName(fileName).normalize("NFKC").toLowerCase();
-  const words = base.split(/[^\p{L}]+/u).filter(Boolean);
-  return !words.some((w) => !GENERIC_SET.has(w) && !(/^[a-z]{1,2}$/.test(w)));
-}
+// LIB-파일이름제목(2026-10-26)·LIB-파일이름그대로(2026-10-30): 파일 이름에 뜻이 있으면 그 이름이 제목이다(AI가 제목 칸을 건드리지 않음).
+// 본문에서 제목을 뽑는 것은 파일 이름이 뜻 없는 자료뿐이다. 판정 규칙은 공용 모듈 한 곳(_shared/library-file-name.mjs, 화면
+// app/library-file-name.mjs와 바이트까지 같은 사본)이고, library-files(올릴 때 제목)도 같은 함수를 쓴다.
+export { GENERIC_NAME_WORDS, isMeaninglessName };
 
 // 목록 만들기(propose)에서 "아직 정리 안 된 칸"으로 보는 조건. 사용자 칸('user')은 늘 뺀다.
 export function needsTidy(doc: DocRow, field: LibraryField, categories: string[]): boolean {

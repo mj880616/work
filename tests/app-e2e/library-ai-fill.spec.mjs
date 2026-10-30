@@ -7,6 +7,8 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 // LIB-토글트리: 자료실 줄은 토글 안에 있어, 누르기 전에 그 자료가 든 토글을 연다.
 import {revealLibraryRow} from './helpers/library-tree.mjs';
+// LIB-파일이름그대로: 가짜 library-files도 서버와 같은 공용 규칙으로 제목·날짜를 정한다(뜻 있는 이름 = 그 이름, 이름의 날짜 = 자료 날짜).
+import {fileNameTitle,fileNameDate,isMeaninglessName} from '../../app/library-file-name.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -38,8 +40,8 @@ async function mockApp(page,state){
       const raw=(req.postDataBuffer()||Buffer.from('')).toString('utf8');
       const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;
       const fileName=raw.match(/filename="([^"]*)"/)?.[1]||'file';
-      const row={id:DOC_ID(state.uploads.length+1),workspace_id:'workspace-1',project_id:null,title:field('title')||fileName.replace(/\.[^.]+$/,''),
-        category:field('category')||'기타',source:field('source'),document_date:field('document_date'),file_name:fileName,tags:[],created_at:now(),updated_at:now(),field_origin:{}};
+      const row={id:DOC_ID(state.uploads.length+1),workspace_id:'workspace-1',project_id:null,title:field('title')||(isMeaninglessName(fileName)?fileName.replace(/\.[^.]+$/,''):fileNameTitle(fileName)),
+        category:field('category')||'기타',source:field('source'),document_date:field('document_date')||fileNameDate(fileName),file_name:fileName,tags:[],created_at:now(),updated_at:now(),field_origin:{}};
       state.uploads.push(row);state.docs.push(row);
       return ok({ok:true,document:row});
     }
@@ -107,14 +109,15 @@ for(const width of [390,1440]){
   test(`upload fills empty fields with no button and no AI marker, keeping typed fields (${width})`,async({page})=>{
     const state=await boot(page,{width});
     await upload(page,{source:'내가 쓴 출처'});
-    // Text is read first, then one fill request: the typed source is sent as keep.
+    // Text is read first, then one fill request: the typed source is sent as keep, and so is the date in the file name
+    // (scan_251020 → 2025-10-20, LIB-파일이름그대로). The name itself means nothing, so the title is left to the AI.
     await expect.poll(()=>state.fills.length).toBe(1);
     expect(state.texts).toEqual([{action:'document-text',document_id:DOC_ID(1)}]);
-    expect(state.fills[0]).toEqual({kind:'library_fill',mode:'fill',document_ids:[DOC_ID(1)],keep:['source']});
+    expect(state.fills[0]).toEqual({kind:'library_fill',mode:'fill',document_ids:[DOC_ID(1)],keep:['document_date','source']});
     // The list refreshes by itself and shows the filled title; nothing marks it as AI.
     await expect(page.locator('.lu-row-title',{hasText:AI.title})).toHaveCount(1);
     const doc=state.docs.find(d=>d.id===DOC_ID(1));
-    expect([doc.source,doc.category,doc.document_date]).toEqual(['내가 쓴 출처','교섭','2026-10-20']);
+    expect([doc.source,doc.category,doc.document_date]).toEqual(['내가 쓴 출처','교섭','2025-10-20']);
     await expectNoAiMarker(page);
     // The edit dialog shows plain values only.
     await revealLibraryRow(page,DOC_ID(1));await page.locator(`[data-lu-document="${DOC_ID(1)}"] .lu-more-trigger`).click();await page.locator('[data-lu-edit]').click();
@@ -134,13 +137,38 @@ test('a field the person corrects is recorded as user and never overwritten by a
   const patch=state.patches.at(-1).body;
   expect(patch.title).toBe('내가 고친 제목');
   // Only the corrected field moves to user; the other AI records stay (hidden, never rendered).
-  expect(patch.field_origin).toEqual({title:'user',source:'ai',category:'ai',document_date:'ai'});
+  expect(patch.field_origin).toEqual({title:'user',source:'ai',category:'ai',document_date:'user'});
   // A later fill of the same document (e.g. a repeated request) keeps the corrected title.
   await page.evaluate(async id=>{const m=await import('/app/library-ai-fill.js');await m.fillLibraryDocument(id)},DOC_ID(1));
   await expect.poll(()=>state.fills.length).toBe(2);
   expect(state.docs.find(d=>d.id===DOC_ID(1)).title).toBe('내가 고친 제목');
   await expect(page.locator('.lu-row-title',{hasText:'내가 고친 제목'})).toHaveCount(1);
   await expectNoAiMarker(page);
+});
+
+// LIB-파일이름그대로(2026-10-30 사용자 결정 A): 뜻 있는 파일 이름이면 올린 뒤 AI 자동 정리가 제목·날짜를 덮지 않는다(분류·작성 주체만 채움).
+// 뜻 없는 이름(KakaoTalk_…)은 AI 제목을 그대로 받는다.
+for(const width of [390,1440]){
+  test(`a meaningful file name stays the title and its date stays the date after the AI fill (${width})`,async({page})=>{
+    const state=await boot(page,{width});
+    await upload(page,{name:'주간보고_20261102_홍길동.hwpx'});
+    await expect.poll(()=>state.fills.length).toBe(1);
+    expect(state.fills[0].keep).toEqual(['title','document_date']);
+    const doc=state.docs.find(d=>d.id===DOC_ID(1));
+    await expect.poll(()=>doc.category).toBe('교섭');
+    expect([doc.title,doc.document_date,doc.source]).toEqual(['주간보고 20261102 홍길동','2026-11-02','공공운수노조']);
+    await expect(page.locator('.lu-row-title',{hasText:'주간보고 20261102 홍길동'})).toHaveCount(1);
+    await expect(page.locator('.lu-row-title',{hasText:AI.title})).toHaveCount(0);
+  });
+}
+
+test('a meaningless file name (KakaoTalk_…) still takes the AI title, but keeps the date in its name',async({page})=>{
+  const state=await boot(page);
+  await upload(page,{name:'KakaoTalk_20261030_1.jpg'});
+  await expect.poll(()=>state.fills.length).toBe(1);
+  expect(state.fills[0].keep).toEqual(['document_date']);
+  await expect(page.locator('.lu-row-title',{hasText:AI.title})).toHaveCount(1);
+  expect(state.docs.find(d=>d.id===DOC_ID(1)).document_date).toBe('2026-10-30');
 });
 
 test('AI failure leaves the upload as it was: success message, row present, no error shown',async({page})=>{

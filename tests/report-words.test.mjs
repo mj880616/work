@@ -30,7 +30,7 @@ test('library-upload.js: 사업 보고 올리기는 library-files + meeting_id +
   const s=read('app/library-upload.js');
   assert.match(s,/startUploadForMeeting:luStartUploadForMeeting/);
   assert.match(s,/fd\.append\('meeting_id',luUploadMeeting\.id\)/);
-  assert.match(s,/luAiFill\(d\.document\.id,fd\)/);
+  assert.match(s,/luAiFill\(d\.document\.id,fd,file\.name\)/);
   assert.match(s,/luSetUploadOrg\(null\);luSetUploadMeeting\(null\)\},true\)/);
   assert.doesNotMatch(s,/meeting-files/);
 });
