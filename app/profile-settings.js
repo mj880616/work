@@ -62,7 +62,7 @@ function renderWorkplaces(){
   const items=listItems(),picked=items.filter(inPicked),rest=items.filter(o=>!inPicked(o));
   const state=freshFold?null:fold.readPickState(box).ws;freshFold=false;
   const legacy=legacyWorkplaces.length?`<div class="ps-legacy-wrap"><span class="ps-legacy-title">기존 담당사업장 정보</span>${legacyWorkplaces.map(x=>`<span class="ps-legacy-chip">${esc(x.full_name||'이름 없는 사업장')}<small>산하조직 연결 전</small></span>`).join('')}</div>`:'';
-  box.innerHTML=items.length?fold.pickFoldHtml({key:'ws',title:'담당조직 현황',count:picked.filter(o=>isChecked(o.id)).length,picked:picked.map(orgRow).join(''),others:othersGroups(rest),state,noneText:'담당 조직 없음',extra:legacy}):`<div class="empty compact">담당 사업장으로 고를 수 있는 조직이 없습니다.</div>${legacy}`;
+  box.innerHTML=items.length?fold.pickFoldHtml({key:'ws',title:'담당조직 현황',count:picked.filter(o=>isChecked(o.id)).length,picked:picked.map(orgRow).join(''),others:othersGroups(rest),state,noneText:'담당 조직 없음',extra:legacy}):`${globalThis.KPTUWait?.emptyHtml?.()||''}${legacy}`;
   fold.bindPickFold(box);
   renderStatus();
 }

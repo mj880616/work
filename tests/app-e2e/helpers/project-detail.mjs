@@ -1,9 +1,9 @@
 import {expect} from '@playwright/test';
 
-// UI-PC프로젝트좌우: on a PC (≥1024px) the projects screen shows the chosen project's detail in the right pane
+// UI-PC프로젝트좌우: on a PC (≥761px) the projects screen shows the chosen project's detail in the right pane
 // (#ps3DetailPane) instead of a dialog. The same element (#ps3DetailModal) is moved there with data-ps3-docked="1";
 // its × is hidden (another row switches the pane) and the first or last-seen project is shown without a click.
-// Phones and middle widths keep the dialog with its ×.
+// Phones keep the dialog with its ×.
 export const projectDetailDocked=page=>page.locator('#ps3DetailModal').evaluate(m=>m.dataset.ps3Docked==='1');
 
 // Waits until the detail shows the project (pane or dialog) and is drawn: the body belongs to it and is visible.

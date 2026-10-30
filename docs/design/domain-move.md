@@ -30,7 +30,7 @@
 | `work.bokdoong.com/work/share/` | 공유 페이지 | **그대로**(4.3절: 공유 페이지는 Web2와 다른 주소에 두는 편이 안전) |
 | `arsenal.bokdoong.com/**` | 아스날 기록 | ② 단계에서 `bokdoong.com/work/app/?view=arsenal`로 넘김 |
 | `read.bokdoong.com` | 읽생기(다른 Worker) | 이 건에서 건드리지 않음(③-0) |
-| `mj880616.github.io/work/app/` | Web2 | 그대로(안드로이드·윈도우 앱이 씀, 1.3절) |
+| `mj880616.github.io/work/app/**` | Web2 | 브라우저로 열면 `bokdoong.com` **같은 경로·같은 ?뒤·같은 #뒤**로 넘김(SEC-github.io넘기기, 2026-10-30). Worker가 아니라 Pages 화면 맨 앞 `app/origin-redirect.js`가 넘긴다(github.io는 Cloudflare 밖). 설치 앱(윈도우 `KPTUWindows/`·안드로이드 `KPTUAndroid/`)은 넘기지 않음 — 윈도우 앱이 github.io만 안쪽 주소로 보기 때문(1.3절). 윈도우 앱을 새 주소로 옮긴 뒤 예외와 `auth-handoff`의 github.io 허용을 지운다 |
 
 - 경로 `/work/app/`를 그대로 두는 이유: 서비스워커 범위, 상대경로, 원드라이브 돌아올 주소 경로(`/work/app/onedrive-return.html`), 시험·빌드 스크립트를 한꺼번에 바꾸지 않아도 된다. 주소창이 `bokdoong.com/work/app/`로 보이는 것이 싫으면 뒤에 따로(질문 Q1).
 - 넘김은 **302(임시)** 로 한다. 301은 브라우저가 영구 기억해 되돌리기가 어렵다. Contract 뒤에도 302 유지를 추천(질문 Q2).

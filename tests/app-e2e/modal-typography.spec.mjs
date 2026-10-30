@@ -105,14 +105,14 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   // Empty headings disappear; retained headings keep the established style.
   // The changed task region gets explicit D-할일화면정리 roles below.
   // UI-PC할일: PC(≥1024)는 기한별 열(tasks-pc-columns.spec.mjs). 열 머리·카드 글자 역할을 여기서 같은 값으로 보고, 묶음 목록 역할은 폰(390)에서 본다.
-  if(name==='tasks'&&width>=1024){
+  if(name==='tasks'&&width>=761){
     const style=el=>{const s=getComputedStyle(el);return [el.tagName,s.fontSize,s.color,s.fontWeight]};
     await expect.poll(()=>page.locator('[data-gt-col="now"] .gt-col-head').evaluate(style)).toEqual(['H3','13px','rgb(15, 110, 86)','500']);
     await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
     await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','13px');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
-    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height',width>=1024?'36px':'46px'); // UI-PC버튼36
+    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height',width>=761?'36px':'46px'); // UI-PC버튼36
     for(const selector of ['[data-gt-info]','[data-gt-menu]','[data-gt-toggle]']){
       const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
     }
@@ -171,14 +171,14 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
   else expect(await newStandard(page),name+' new standard').toEqual([]);
   // UI-PC회의 → MEET-결과정리 ⑤(시안 C): PC(≥1024) 회의는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록. 종류 줄은 목록 글자(13px)·누르는 높이 44px, 고른 종류 하나만 표시.
-  if(name==='meetings'&&width>=1024){
+  if(name==='meetings'&&width>=761){
     await expect(page.locator('#meetingTypeFilter')).toHaveCount(0);
     await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
     const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
     await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
   }
-  if(name==='library'||name==='meetings'&&width<1024){
+  if(name==='library'||name==='meetings'&&width<761){
     const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter)');
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     // UI-전수디자인점검 F01: 사업 보고(폰)는 위쪽 칸 칩 줄 하나(사업영역·회의명은 줄 끝 [거르기 ▾] 창으로 접었다).
@@ -239,10 +239,10 @@ async function audit(page,id){
  // UI-회의결과창정리: 자료 등록 창 [📎 파일 고르기]는 label이지만 보조 버튼(13px)이다.
  for(const label of await modal.locator('label:not(.secondary):not(.primary):not(.library-pick-button)').all())await expect(label).toHaveCSS('font-size','12px');
  // UI-디자인기준 3/3 3부(8-9e-3): 창 제목은 새 기준 18px(--ds-text-title).
- for(const h2 of await modal.locator('.modal-head h2,.w1b-detail-head h2').all())await expect(h2).toHaveCSS('font-size','18px');
+ for(const h2 of await modal.locator('.modal-head h2').all())await expect(h2).toHaveCSS('font-size','18px');
 }
 
-const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','web1BoardDetailModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
+const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
 for(const width of [390,1440])test('D-3e installed dialog templates use role sizes '+width,async({page},testInfo)=>{
  await page.setViewportSize({width,height:900});await boot(page);
  for(const name of ['projects','meetings','team','library','tasks','calendar','pages'])await view(page,name);
@@ -257,7 +257,7 @@ for(const width of [390,1440])test('D-3e installed dialog templates use role siz
    for(const e of text){const size=parseFloat(getComputedStyle(e).fontSize);if(size<12)result.violations.push({id,element:e.id||e.className||e.tagName,size})}
    for(const e of root.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select'))if(getComputedStyle(e).fontSize!=='14px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:14});
    for(const e of root.querySelectorAll('label:not(.secondary):not(.primary):not(.library-pick-button)'))if(getComputedStyle(e).fontSize!=='12px')result.violations.push({id,element:e.id||e.className,size:getComputedStyle(e).fontSize,want:12});
-   for(const e of root.querySelectorAll('.modal-head h2,.w1b-detail-head h2'))if(getComputedStyle(e).fontSize!=='18px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:18});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
+   for(const e of root.querySelectorAll('.modal-head h2'))if(getComputedStyle(e).fontSize!=='18px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:18});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
   }return result;
  },modalIds);
  expect(inventory.violations).toEqual([]);
@@ -305,10 +305,11 @@ const d6bSelectors=d6bSource('base-ui.css').split('\n').slice(194,210).map(line=
 // The progress line is gone; the header line is now #ps3Summary with the same role, so the current page is read through that selector.
 const d6bProgressLine='#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective)',d6bHeaderLine='#ps3DetailModal #ps3Summary';
 // PRESS-자료실편입 Contract: 삭제된 성명·보도자료 창(#pressDetailModal)은 현재 CSS 묶음 선택자에서 빠졌다.
-const d6bDropPress=selector=>selector.replace(',#pressDetailModal','');
+// DOMAIN-④ E2: the Web1 board reader (#web1BoardDetailModal) is removed with Web1, like the press dialog before it.
+const d6bDropPress=selector=>selector.replace(',#pressDetailModal','').replace(',#web1BoardDetailModal','');
 const d6bCurrentSelectors=d6bSelectors.map(selector=>d6bDropPress(selector===d6bProgressLine?d6bHeaderLine:selector));
 // UI-회의결과창정리: 업로드 상자 글자(#documentModal .library-dropzone strong)와 회의자료 라벨 설명은 화면에서 없어졌다.
-const d6bRetired=['#documentModal .library-dropzone strong','#meetingModal .meeting-materials-block label span'];
+const d6bRetired=['#documentModal .library-dropzone strong','#meetingModal .meeting-materials-block label span','#web1BoardDetailModal .w1b-detail-head h2'];
 
 async function d6bPrepare(page,source){
  await boot(page);
@@ -405,17 +406,17 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // ORG-PC좌우: on a PC (≥1024) the 담당조직 screen opens the first organization in its right pane, so the current detail
   // carries that organization's drawn content (basic info rows etc.) that main never drew without a click. Like the project
   // detail above, the current detail markup goes to main's side too and is compared under both style sets.
-  if(width>=1024){const html=await page.locator('#wdModal').evaluate(el=>el.outerHTML);await original.locator('#wdModal').evaluate((el,html)=>{el.outerHTML=html},html)}
+  if(width>=761){const html=await page.locator('#wdModal').evaluate(el=>el.outerHTML);await original.locator('#wdModal').evaluate((el,html)=>{el.outerHTML=html},html)}
   else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
   await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
   // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
   // UI-전수디자인점검 F08: 담당조직 창 이름 위 '담당조직' 작은 제목(.eyebrow)은 없앴다(창 이름과 중복). 비교 기준 쪽에서도 그 줄을 뺀다.
   await original.evaluate(()=>document.querySelectorAll('#wdModal .modal-head .eyebrow').forEach(el=>el.remove()));
-  if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
+  if(width<761){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
   // ORG-주요인물 2/2: 접힌 묶음 '기본 정보 · 소속 · 이전 요약'(머리 h3·설명 small)과 그 안의 h4 '기본 정보'·'이전 요약'은
   // 작은 탭 [주요 인물][기본 정보][소속][이전 요약]으로 바뀌어 화면에서 없어졌다(탭 이름이 제목 역할). 같은 모양으로 main 쪽에서도 뺀다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
   // 남은 h3·h4·small(할 일·자료·협의회·사업단 등)은 그대로 양쪽 스타일로 비교한다.
-  if(width<1024){const gone=await original.evaluate(()=>{const els=[...document.querySelectorAll('#wdModal #wdMoreSec summary h3,#wdModal #wdMoreSec summary small,#wdModal #wdBasic .wd-head h4,#wdModal #wdRecent .wd-head h4')];els.forEach(el=>el.remove());return els.length});expect(gone,'retired 담당조직 headings in main').toBe(4)}
+  if(width<761){const gone=await original.evaluate(()=>{const els=[...document.querySelectorAll('#wdModal #wdMoreSec summary h3,#wdModal #wdMoreSec summary small,#wdModal #wdBasic .wd-head h4,#wdModal #wdRecent .wd-head h4')];els.forEach(el=>el.remove());return els.length});expect(gone,'retired 담당조직 headings in main').toBe(4)}
   // 사업 보고 만들기·수정 창: '프로젝트' 고르기가 [연결할 곳 ▾](+ 숨은 프로젝트 칸)으로 바뀌고 장소 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   for(const [project,places,location] of [['meetingProject','meetingPlaces','meetingLocationRow'],['mrdEditProject','mrdEditPlaces','mrdEditLocationRow']]){
    const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);
@@ -434,6 +435,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // MTG-고치기바로: 사업 보고 창 요소는 PC에서 세 번째 칸에 붙고(불러오는 중 줄·떠나기 확인 줄이 더해졌다) 창으로도 쓰인다. 창으로 떼어 놓은 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   await page.evaluate(()=>window.KPTUMeetingRoundDetail?.undock?.());
   {const html=await page.locator('#meetingRoundDetailModal').evaluate(el=>el.outerHTML);await original.locator('#meetingRoundDetailModal').evaluate((el,html)=>{el.outerHTML=html},html)}
+  // DOMAIN-④ E2: main's Web1 board reader dialog is gone from the current page; take it out of main's page too.
+  await original.locator('#web1BoardDetailModal').evaluate(el=>el.remove());
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
   // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
   const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];
@@ -442,7 +445,11 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
   // UI-회의결과창정리: 묶음 설명(.mtg-note 12px)과 빈 상태(.mtg-empty 13px)도 자기 규칙이 있다(meeting-entry.spec에서 크기 확인).
   // ORG-주요인물: 담당조직 상세 [주요 인물] 탭의 글(.okp-*)은 자기 규칙(작은 흐린 글씨)을 가진 새 요소라 양쪽 비교에서 뺀다(org-key-people.test 확인).
-  const generic=el=>!(String(el.class||'').startsWith('okp-')||el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
+  // UI-기다림표시통일 3차: 빈 칸 글자(main의 .empty·.empty.compact)는 공용 '없음'(.wait-empty, 회색 12px — wait-state.test에서 확인)으로
+  // 모두 옮겼다(앱에 .empty 요소 0곳). 그 둘은 양쪽에서 빼고, main 줄이 빈 칸 글자만 덮던 경우는 아래 '덮음' 검사에서 뺀다.
+  const emptyText=el=>el.class==='empty'||el.class==='empty compact'||el.class==='wait-empty';
+  const emptyOnlyRows=new Set(before.map((row,i)=>row.elements.length&&row.elements.every(emptyText)?i:-1).filter(i=>i>=0));
+  const generic=el=>!(String(el.class||'').startsWith('okp-')||el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||emptyText(el)||el.id==='ps3Summary');
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
@@ -454,7 +461,7 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   for(const row of before)for(const el of row.elements)if(el.ps3Head)el.fontSize='13px';
   for(const row of before)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
   expect(before).toHaveLength(16);
-  for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i]))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
+  for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i])&&!emptyOnlyRows.has(i))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
   for(const [i,row] of after.entries())if(d6bRetired.includes(d6bSelectors[i]))expect(row.elements,'retired main line '+row.line).toEqual([]);
   expect(after).toEqual(before);
   await testInfo.attach('d6b-main-style-comparison',{body:JSON.stringify({main:d6bMain,width,before,after},null,2),contentType:'application/json'});
@@ -465,7 +472,7 @@ test('D-6b keeps hide priorities and removes only dialog priorities',async()=>{
  const fs=await import('node:fs'),css=fs.readFileSync('app/base-ui.css','utf8');
  expect(css.match(/!important/g)).toHaveLength(4);
  expect(css.split('\n').slice(54,57)).toEqual(d6bSource('base-ui.css').split('\n').slice(54,57));
- const owners=['workspace-ui.css','project-system-v3.css','workplace-detail.css','library-upload.css','meeting-ui.css','google-tasks.css','web1-board.css'];
+ const owners=['workspace-ui.css','project-system-v3.css','workplace-detail.css','library-upload.css','meeting-ui.css','google-tasks.css'];
  const owned=owners.map(path=>{
   const current=fs.readFileSync('app/'+path,'utf8');
   expect((current.match(/!important/g)||[]).length,path+' adds no priorities').toBeLessThanOrEqual((d6bSource(path).match(/!important/g)||[]).length);

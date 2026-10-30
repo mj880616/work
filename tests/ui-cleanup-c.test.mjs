@@ -43,7 +43,7 @@ test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [
 // 화면의 새 항목 추가 버튼: PC는 화면 머리 오른쪽의 작은 [+ ○○], 폰은 하단 탭 위 동그란 [+] 하나(ui-standard.css 한 규칙).
 const ADD = [
   ['#calendarView .calendar-toolbar #newEventBtn', 'index.html', /id="newEventBtn"/],
-  ['#projectsView #newProjectBtn', 'index.html', /id="newProjectBtn"/],
+  // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄 버튼이라 이 묶음에서 빠졌다.
   ['#libraryView #newDocumentBtn', 'index.html', /id="newDocumentBtn"[^>]*>\+ /],
   ['#meetingsView #newMeetingBtn', 'index.html', /id="newMeetingBtn"[^>]*>\+ /],
   ['#diaryView #newDiaryBtn', 'diary.js', /id="newDiaryBtn"/],
@@ -67,11 +67,12 @@ test('⑥ 화면 추가 버튼은 모두 폰 동그란 [+] 한 규칙에 들고,
 
 test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트 뒤로 가기, 폰 업무일지 날짜 한 번', () => {
   const basket = read('basket.css'), notes = read('basket-notes.js');
-  assert.match(notes, /class="basket-back note-back" data-note-back aria-label="노트 목록으로"><span aria-hidden="true">‹<\/span> 노트<\/button><div class="note-head-main"/);
+  assert.match(notes, /const NOTE_BACK = '<button type="button" class="basket-back note-back" data-note-back aria-label="노트 목록으로"><span aria-hidden="true">‹<\/span> 노트<\/button>';/);
+  assert.match(notes, /<div class="basket-detail-head">\$\{basketBackHtml\(selected\?\.id, NOTE_BACK, rt\)\}<div class="note-head-main"/);
   assert.match(notes, /hasAttribute\('data-note-back'\)\) close\(\);/);
-  assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] > \[data-note-detail\] > \.basket-detail-head:has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
+  assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] > \[data-note-detail\] > \.basket-detail-head:not\(:has\(> \[data-basket-return\]\)\):has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
   assert.match(read('feed.css'), /#appView \.feed-view \.feed-pane > \.feed-detail-head:first-child,\s*#appView \.feed-view \.feed-list > \.feed-head:first-child:has\(> \.back-text\)\{ margin:calc\(-1 \* \(var\(--kptu-touch-target,44px\) \+ 12px\)\) 0 12px;/);
-  assert.match(read('journal.js'), /const noDayTitle = window\.matchMedia\?\.\('\(max-width:760px\),\(min-width:1024px\)'\);/);
+  assert.match(read('journal.js'), /function syncDayTitle\(\) \{\s*const box = \$\('\[data-journal-day\]'\); if \(!box\) return;\s*box\.querySelector\('\[data-journal-day-title\]'\)\?\.remove\(\);/);
 });
 
 test('③ 사업 보고 후속 할 일: 머리의 추가 단추는 [+] 하나, AI 후보 찾기는 그 입력 줄 안', () => {

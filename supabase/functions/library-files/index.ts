@@ -12,6 +12,8 @@ const OPENAI=Deno.env.get('OPENAI_API_KEY')||'';
 const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};
 const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
+// SEC-정리묶음: Google·AI 쪽 오류 원문은 서버 로그에만 남기고, 응답에는 우리 글(단계)만 싣는다.
+const upstreamFail=(stage:string,message:string,status:number,detail:unknown)=>{console.error('library-files '+stage+' failed',{status,detail});return Object.assign(new Error(message),{stage})};
 // 실패 응답은 기존 caller 호환을 위해 error를 유지하고 code/stage/retryable을 함께 싣는다.
 // 이 함수는 502/504를 직접 쓰지 않는다. 그 상태는 gateway 중단(결과 불명)으로 남겨 둔다.
 class UploadError extends Error{status:number;code:string;stage:string;retryable:boolean;constructor(message:string,{status=400,code='invalid_request',stage='request',retryable=false}:{status?:number,code?:string,stage?:string,retryable?:boolean}={}){super(message);this.status=status;this.code=code;this.stage=stage;this.retryable=retryable}}
@@ -63,7 +65,7 @@ function norm(s:string){return s.toLowerCase().replace(/\s+/g,'').replace(/[^0-9
 function bytesToDataUrl(bytes:Uint8Array,mime:string){let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+0x8000,bytes.length)));return `data:${mime||'application/octet-stream'};base64,${btoa(bin)}`}
 // 본문 기반 제목은 best-effort다. 응답이 늦으면 파일명 제목으로 계속 진행한다.
 const TITLE_AI_TIMEOUT_MS=20000;
-async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body)),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'AI 요청에 실패했습니다.');return d}
+async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body)),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw upstreamFail('ai_request','AI 요청에 실패했습니다.',r.status,d?.error?.message||null);return d}
 async function workspaceModel(workspaceId:string){const {data}=await admin.from('app_ai_workspace_settings').select('default_model').eq('workspace_id',workspaceId).maybeSingle();return data?.default_model||DEFAULT_AI_MODEL}
 async function extractHwpText(bytes:Uint8Array,name:string){if(ext(name)==='hwp')return String(await hwpToText(bytes)).slice(0,18000);const reader=new HwpxReader();const ab=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);await reader.loadFromArrayBuffer(ab as ArrayBuffer);return String(await reader.extractText()).slice(0,18000)}
 function firstLikelyTitle(text:string){const lines=String(text||'').replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(x=>x.length>=4&&x.length<=120);return lines.find(x=>/[가-힣A-Za-z]/.test(x)&&!/^[-–—•·※*\d\s.()]+$/.test(x))||null}

@@ -71,7 +71,11 @@ async function driveAccessToken() {
     }),
   });
   const d = await r.json();
-  if (!r.ok || !d.access_token) throw new Error(d.error_description || d.error || 'Google Drive 토큰 갱신에 실패했습니다.');
+  if (!r.ok || !d.access_token) {
+    // SEC-정리묶음: Google 원문은 서버 로그에만. 화면은 이 글(토큰 갱신 실패 판정 글)만 받는다.
+    console.error('document-actions drive_token failed', { status: r.status, error: d.error || null, detail: d.error_description || null });
+    throw new Error('Google Drive 토큰 갱신에 실패했습니다.');
+  }
   return d.access_token as string;
 }
 

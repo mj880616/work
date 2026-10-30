@@ -21,7 +21,7 @@ const pending=new Map();let pcQuery=null;
 function waitForPc(o){
   pending.set(o.container,o);
   if(pcQuery||!window.matchMedia)return;
-  pcQuery=window.matchMedia('(min-width:1024px)');
+  pcQuery=window.matchMedia('(min-width:761px)');
   pcQuery.addEventListener?.('change',()=>{if(!pcQuery.matches)return;requestAnimationFrame(()=>{for(const [c,cfg] of [...pending]){if(!c.isConnected){pending.delete(c);continue}mountSplitResize(cfg)}})});
 }
 let sheet=false;
@@ -90,7 +90,7 @@ function ensureStyle(){
   const style=document.createElement('style');style.dataset.kptuSplitResize='';
   style.textContent=`.split-resize-handle{position:absolute;z-index:3;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;cursor:col-resize;touch-action:none;outline:none}
 .split-resize-handle[hidden]{display:none}
-@media(max-width:1023px){.split-resize-handle{display:none!important}}
+@media(max-width:760px){.split-resize-handle{display:none!important}}
 .split-resize-handle::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;border-radius:2px;background:transparent;transition:background-color .12s}
 .split-resize-handle:hover::before,.split-resize-handle.is-dragging::before{background:var(--kptu-border-strong)}
 .split-resize-handle:focus-visible::before{background:var(--kptu-info);width:3px;margin-left:-1.5px}

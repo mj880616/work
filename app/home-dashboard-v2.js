@@ -46,7 +46,7 @@
     return true;
   }
 
-  function empty(text){return `<div class="hdv-empty">${esc(text)}</div>`}
+  function empty(text){return globalThis.KPTUWait?.emptyHtml?.(text)||''}
   function revealHomeShell(){
     const requested=new URLSearchParams(location.search).get('view');
     if(requested&&requested!=='home')return;
@@ -112,10 +112,10 @@
       // A session change can happen while the requests above are in flight. Never
       // commit a previous user's dashboard into the next session's shell.
       if(epoch!==renderEpoch)return;
-      document.querySelector('#hdvProjects').innerHTML=projects.length?projects.slice(0,5).map(projectRow).join(''):empty('진행 중인 사업영역이 없습니다.');
-      document.querySelector('#hdvTasks').innerHTML=tasks.length?tasks.slice(0,6).map(t=>taskRow(t,names)).join(''):empty('미완료 업무가 없습니다.');
-      document.querySelector('#hdvMilestones').innerHTML=future.length?future.slice(0,5).map(m=>milestoneRow(m,names)).join(''):empty('등록된 다음 주요 일정이 없습니다.');
-      document.querySelector('#hdvLibrary').innerHTML=docs.length?docs.slice(0,5).map(d=>documentRow(d,names)).join(''):empty('최근 자료가 없습니다.');
+      document.querySelector('#hdvProjects').innerHTML=projects.length?projects.slice(0,5).map(projectRow).join(''):empty();
+      document.querySelector('#hdvTasks').innerHTML=tasks.length?tasks.slice(0,6).map(t=>taskRow(t,names)).join(''):empty();
+      document.querySelector('#hdvMilestones').innerHTML=future.length?future.slice(0,5).map(m=>milestoneRow(m,names)).join(''):empty();
+      document.querySelector('#hdvLibrary').innerHTML=docs.length?docs.slice(0,5).map(d=>documentRow(d,names)).join(''):empty();
       window.__KPTU_STARTUP__?.mark('homeDataComplete');
       resolveReady?.({ok:true});resolveReady=null;
     }catch(e){

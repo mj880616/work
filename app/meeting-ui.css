@@ -56,6 +56,7 @@
 /* 창 글자 역할(D-6b 본문 14px)보다 작게: 설명 12px, 빈 상태 13px 흐린 글자. */
 :is(#meetingModal,#meetingRoundDetailModal) .mtg-group .mtg-note{margin:-6px 0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-faint)}
 :is(#meetingModal,#meetingRoundDetailModal) .mtg-group .mtg-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target,44px);margin:0;font-size:var(--ds-text-row,13px);color:var(--kptu-faint)}
+:is(#meetingModal,#meetingRoundDetailModal) .mtg-group .wait-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target,44px);margin:0;font-size:var(--ds-text-meta,12px)}
 .mtg-task-list{display:grid;min-width:0}
 .mtg-task-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:6px;margin:0 0 4px}
 .mtg-task-line.hidden{display:none}
@@ -135,24 +136,23 @@
   .mff-fields label:last-child{grid-column:1/-1}
 }
 
-/* ───────── UI-PC회의(2026-10-20) → MEET-결과정리 ⑤(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥1024) 회의 결과 ─────────
-   그리는 곳은 team.js renderMeetings 하나(배치 HTML은 meeting-columns.js). 폰·중간 폭은 위 한 줄 목록 그대로.
+/* ───────── UI-PC회의(2026-10-20) → MEET-결과정리 ⑤(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥761) 회의 결과 ─────────
+   그리는 곳은 team.js renderMeetings 하나(배치 HTML은 meeting-columns.js). 폰은 위 한 줄 목록 그대로.
    할 일 화면(google-tasks.css UI-PC할일배치)처럼 화면 높이를 다 쓰는 3단: 왼쪽 회의 종류 / 가운데 고른 종류의 차수·날짜·시간 / 오른쪽 고른 차수의 결과(읽기용).
    비율(UI-좌우비율, theme-tokens.css --ds-split-*): 종류 + 차수 두 칸을 합쳐 1/3(안에서 반씩), 결과 2/3. 세 칸은 각자 세로로 넘어간다.
    MTG-3칸폭끌기(2026-10-26): 세 칸은 한 줄 격자의 직접 자식이고(--ds-split-col-a·b·c, 공용 split-resize.js가 fr 값을 넣음), 칸 사이 두 경계를 끌어 폭을 바꾼다.
    위쪽 종류 칩 줄은 PC에서 없다(왼쪽 목록과 겹침). [+ 회의 결과]는 위 하나(④). 높이는 공용 버튼 기준(--kptu-control-height 36px), 누르는 범위 44px은 base-ui.css ::after. */
 #mcolMenu[hidden]{display:none}
-@media(min-width:1024px){
-  html:has(#appView #meetingsView:not(.hidden) #meetingList.meeting-columns) main{padding-bottom:12px}
-  html:has(#appView #meetingsView:not(.hidden) #meetingList.meeting-columns) #appView>.app-nav{margin-bottom:0}
-  #appView #meetingsView:not(.hidden):has(#meetingList.meeting-columns){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
-  #appView #meetingsView:has(#meetingList.meeting-columns)>#meetingsListCard{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin:0}
+@media(min-width:761px){
+  /* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): 스크롤은 화면 전체 하나. 화면 높이에 맞춘 한 페이지·칸마다 스크롤은 없앴다.
+     종류·차수 칸은 화면과 같이 내려가고, 오른쪽 결과 칸(.mcol-result)은 follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 화면에 붙여 따라오게 한다(team.js). */
+  #appView #meetingsView:has(#meetingList.meeting-columns)>#meetingsListCard{display:flex;flex-direction:column;margin:0}
   #appView #meetingsView #newMeetingBtn{height:var(--kptu-control-height);min-height:var(--kptu-control-height)}
-  #meetingList.meeting-columns{display:flex;flex:1 1 auto;min-height:0}
-  #meetingList .mcol-layout{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);gap:var(--kptu-space-3)}
+  #meetingList.meeting-columns{display:flex}
+  #meetingList .mcol-layout{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto;align-items:start;gap:var(--kptu-space-3)}
   #meetingList .mcol-three{grid-template-columns:minmax(var(--ds-split-col-min),var(--ds-split-col-a)) minmax(var(--ds-split-col-b-min),var(--ds-split-col-b)) minmax(0,var(--ds-split-col-c))}
   #meetingList :is(.mcol-kinds,.mcol-rounds,.mcol-result){box-sizing:border-box;min-width:0;min-height:0;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
-  #meetingList .mcol-kinds{overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-2)}
+  #meetingList .mcol-kinds{padding:var(--kptu-space-2)}
   #meetingList .mcol-kinds ul{display:grid;gap:2px;margin:0;padding:0;list-style:none}
   #meetingList .mcol-kind{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:0 var(--kptu-space-3);border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);font-family:inherit;font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular);line-height:1.4;text-align:left;cursor:pointer}
   #meetingList .mcol-kind:hover{background:var(--kptu-surface-subtle)}
@@ -163,7 +163,7 @@
   #meetingList .mcol-dot{flex:0 0 8px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
   #meetingList .mcol-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #meetingList .mcol-count{flex:none;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
-  #meetingList .mcol-cards{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:grid;align-content:start;gap:2px;margin:0;padding:2px;list-style:none}
+  #meetingList .mcol-cards{flex:1 1 auto;display:grid;align-content:start;gap:2px;margin:0;padding:2px;list-style:none}
   /* 가운데 차수 줄: 차수(짧은 이름) 한 줄 + 날짜·시간 한 줄. 고른 줄은 종류 목록과 같은 옅은 바탕 + 왼쪽 색 띠. */
   #meetingList .mcol-card{box-sizing:border-box;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:6px var(--kptu-space-3) 6px calc(var(--kptu-space-3) - 3px);border:0;border-left:3px solid transparent;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);font-family:inherit;text-align:left;cursor:pointer}
   #meetingList .mcol-card:hover{background:var(--kptu-surface-subtle)}
@@ -184,11 +184,11 @@
     #meetingList .mcol-card{padding-right:var(--kptu-space-2)}
   }
   /* MTG-고치기바로: 오른쪽(세 번째) 칸은 사업 보고 창 요소 하나를 그대로 붙인 자리다(meeting-round-detail.js mrdDock). 프로젝트(.ps3-docked)·할 일(.gt-docked) 붙임과 같은 방식.
-     칸 자체가 세로 스크롤 틀이고, 제목 줄(칸·시각·연결 + ⋯ 또는 고치는 중의 [취소][저장] + 안내)은 위에 고정된다. */
+     칸은 화면에 붙어 따라오고(따로 스크롤 없음), 제목 줄(칸·시각·연결 + ⋯ 또는 고치는 중의 [취소][저장] + 안내)은 화면 위에 고정된다. */
   #meetingList .mcol-result{display:flex;flex-direction:column}
   #meetingList .mcol-result>.mcol-empty{padding:var(--kptu-space-3) var(--kptu-space-4)}
   #meetingList .mcol-empty{margin:0;font-size:var(--ds-text-row);color:var(--kptu-faint)}
-  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked{position:static;inset:auto;display:block;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0;background:transparent;z-index:auto}
+  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked{position:static;inset:auto;display:block;flex:1 1 auto;padding:0;background:transparent;z-index:auto}
   #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked>.modal-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0 var(--kptu-space-4) var(--kptu-space-4);border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
   #meetingList .mrd-docked .modal-head{position:sticky;top:0;z-index:3;flex-wrap:wrap;align-items:center;gap:var(--kptu-space-2);margin:0 calc(var(--kptu-space-4) * -1) var(--kptu-space-3);padding:var(--kptu-space-3) var(--kptu-space-4) var(--kptu-space-2);background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);box-shadow:none}
   #meetingList .mrd-docked .modal-head>div:first-child{flex:1 1 0;min-width:0}
@@ -207,9 +207,10 @@
    입력 창 맨 위 칸 칩(#meetingKindPick)도 같은 칩.
    UI-전수디자인점검 F01(10/29): 사업영역·회의명 칩 줄 두 줄을 없애고 칸 칩 줄 끝 작은 [거르기 ▾] 하나(공용 고르기 창 choice-sheet.js, team.js
    openReportFilter)로 접었다. 칩은 줄 안에서 옆으로 밀리고 [거르기]는 늘 줄 오른쪽 끝. 고른 것이 있으면 버튼 글자가 고른 이름이 되고 고른 칩과 같은
-   연한 바탕. 칩 줄의 44px 높이는 누르는 범위(UI-버튼기준)라 그대로 두고 줄 사이 여백만 4px로 줄였다. */
+   연한 바탕. 칩 줄의 44px 높이는 누르는 범위(UI-버튼기준)라 그대로 두고 줄 사이 여백만 4px로 줄였다.
+   UI-점검1030손질 C2: 칩 줄은 남은 폭만(flex-basis 0) 차지해 [거르기] 앞에서 끝나고, 넘치면 끝을 흐리게(공용 scroll-edge.js + ui-standard.css). */
 #meetingsView .report-kind-bar{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:var(--kptu-space-2);min-width:0;margin-bottom:var(--kptu-space-1)}
-#meetingsView .report-kind-bar>#reportKindFilter{flex:1 1 auto;min-width:0;max-width:100%}
+#meetingsView .report-kind-bar>#reportKindFilter{flex:1 1 0;min-width:0;max-width:100%}
 #appView #meetingsView .report-kind-bar>button.report-filter-btn{display:inline-flex;align-items:center;gap:4px;flex:none;width:auto;max-width:150px;white-space:nowrap}
 #appView #meetingsView .report-kind-bar>button.report-filter-btn[hidden]{display:none}
 #appView #meetingsView .report-kind-bar>button.report-filter-btn.is-on{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
@@ -221,7 +222,7 @@
 #meetingModal .report-kind-pick-label{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #meetingModal .report-kind-pick>#meetingKindPick{flex:0 1 auto;min-width:0;max-width:100%}
 #meetingModal label[hidden]{display:none}
-@media(min-width:1024px){
+@media(min-width:761px){
   /* [전체]·다른 칸: 왼쪽 날짜·이름 목록 / 오른쪽 결과 2단(1/3 : 2/3, 경계선은 split-resize.js). 칸 모양은 3단의 차수·결과 칸과 같다. */
   #meetingList .mcol-two>.mcol-rounds{min-width:0}
   #meetingList .mcol-two .mcol-meta{gap:0}
@@ -271,7 +272,6 @@
 /* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js). 콤팩트·톤다운, 색은 토큰만. 보기 전환은 머리줄의 작은 알약 칩(공용 filter-chips). */
 #meetingsView #reportViewFilter{flex:none;max-width:100%}
 #meetingList .rv-dot{flex:none;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
-#meetingList .rv-empty{margin:0;padding:var(--kptu-space-3);color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
 #meetingList .rv-day-title{margin:0;padding:6px 2px 4px;font-size:var(--ds-text-section,13px);font-weight:var(--ds-weight-medium,500);color:var(--ds-section-ink,var(--kptu-ink))}
 #meetingList .rv-cal-head{display:flex;align-items:center;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2)}
 #meetingList .rv-cal-title{flex:1 1 auto;min-width:0;font-size:var(--ds-text-row,13px)}
@@ -418,3 +418,25 @@
 @media (max-width:760px){.oneline-dialog{margin:12px auto auto}}
 .meeting-list-row[data-report-kind="oneline"] h3{font-weight:400;font-size:14px}
 .oneline-orgs{justify-self:start}
+
+/* MTG-프로젝트합치기 ③(10/29 시안 승인): 목록 맨 위 얇은 줄 '사업영역 안 단 보고 n건 [달기]'(team.js paintUntagged)와
+   [달기] 작은 창(report-area-tag.js, 공용 고르기 창 안). 글자 12px 흐린 색, 버튼은 작고 낮게(보이는 24px, 누르는 범위 44px). */
+.area-untagged{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:3px 8px;border-radius:var(--kptu-radius-sm,6px);background:var(--ds-select-bg,var(--kptu-surface-muted));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.area-untagged[hidden]{display:none}
+.area-untagged-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.area-untagged-text b{font-weight:600;color:var(--kptu-ink)}
+#appView #meetingsView .area-untagged .area-untagged-btn{position:relative;flex:none;box-sizing:border-box;height:24px;min-height:24px;min-width:0;margin-left:auto;padding:0 10px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:999px;background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-text-meta,12px);font-weight:400;box-shadow:none}
+#appView #meetingsView .area-untagged .area-untagged-btn::after{content:"";position:absolute;left:-4px;right:-4px;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#reportAreaTagSheet .area-tag-list{display:flex;flex-direction:column}
+#reportAreaTagSheet .area-tag-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px;min-height:36px;padding:2px 0;border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,13px)}
+#reportAreaTagSheet .area-tag-day{color:var(--kptu-muted);font-variant-numeric:tabular-nums;min-width:34px}
+#reportAreaTagSheet .area-tag-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#reportAreaTagSheet .area-tag-pick{display:inline-flex;align-items:center;gap:4px;min-width:0}
+#reportAreaTagSheet .area-tag-select{box-sizing:border-box;width:9.5em;max-width:42vw;height:var(--ds-field-height,28px);min-height:0;padding:0 4px;font-size:var(--ds-text-meta,12px)}
+#reportAreaTagSheet .area-tag-mark{flex:none;padding:0 4px;border-radius:var(--kptu-radius-sm);background:var(--ds-select-bg,var(--kptu-surface-muted));font-size:10px;line-height:16px;color:var(--kptu-muted)}
+#reportAreaTagSheet .area-tag-mark[hidden]{display:none}
+/* MTG-사업영역없음: [없음]은 다른 줄과 같은 글자, 회색 */
+#reportAreaTagSheet .area-tag-none,#reportAreaTagSheet .area-tag-select.is-none,#reportAreaSheet [data-area-none] .home-choice-name,.biz-area-fields [data-biz-area-pick].is-none,.biz-area-line.is-none{color:var(--kptu-muted)}
+#reportAreaTagSheet .area-tag-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:6px 0 2px;background:var(--kptu-surface)}
+#reportAreaTagSheet .area-tag-status{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-danger)}
+#reportAreaTagSheet .area-tag-save{height:var(--ds-compact-height,32px);min-height:0;padding:0 14px;font-size:var(--ds-text-meta,13px)}

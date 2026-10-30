@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 // LIB-토글트리 ③(docs/design/library-tree.md 6절): 자료실 전용 폴더 편집 — ⋯ 메뉴·작은 창·저장.
 // 목록 그리기는 library-upload.js의 luRenderLibrary 하나다. 이 모듈은 폴더 메뉴(⋯), 이름·옮길 곳을 고르는 작은 창,
 // 저장(기존 소유자 RLS REST: app_library_folders·app_library_folder_items)만 맡고, 저장 뒤 reload()로 다시 그리게 한다.
@@ -386,7 +387,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     dropPanelDocs=docs;
     el.querySelector('.lu-drop-title').textContent=`${docs.length>1?docs.length+'개를 ':''}놓을 폴더`;
     const list=data.all.map(r=>`<div class="lu-drop-item" data-lu-drop-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'} style="--lu-depth:${r.depth}" title="${esc(r.reason||r.label)}">${esc(r.name)}</div>`).join('');
-    el.querySelector('.lu-drop-list').innerHTML=(list||'<p class="lu-drop-note">아직 폴더가 없어요</p>')+(docs.some(x=>rawItem(x))?'<div class="lu-drop-item" data-lu-drop-out>폴더 밖으로</div>':'');
+    el.querySelector('.lu-drop-list').innerHTML=(list||emptyHtml())+(docs.some(x=>rawItem(x))?'<div class="lu-drop-item" data-lu-drop-out>폴더 밖으로</div>':'');
     const reason=data.all.find(r=>r.reason)?.reason;
     const foot=el.lastElementChild;foot.hidden=!reason;foot.textContent=reason?`흐린 폴더는 ${reason}. 묶기를 ‘폴더’로 바꾸면 고를 수 있어요.`:'';
     el.hidden=false;

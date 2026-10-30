@@ -1,5 +1,6 @@
+import {emptyHtml} from './wait-state.js';
 // Shared native selection sheet, originally the home quick-input sheet (PR 428).
-import {WIDE_QUERY,isWide,placeAnchored,clearAnchored,followAnchor} from './anchored-popup.js';
+import {WIDE_QUERY,isWide,placeAnchored,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
 // UI-고르기창개선 B: one project per line. A child is indented by its depth (no "↳"); on a PC list (anchored) it is also lighter and
 // every row has a small check box, green when chosen. Phones keep the plain rows. extra: more attributes for the button.
 // PRJ-3단: a third-level row given x.path (its parents, "1단 › 2단") shows that path in small gray text only while the search box
@@ -27,7 +28,7 @@ export function orgGroupRows(groups,row){
     return `<div class="home-choice-org-group${name?'':' home-choice-group-plain'}" data-sheet-section${name?` data-sheet-group="${name}"`:''}>${name?`<p class="home-choice-group-name">${name}</p>`:''}<div class="home-choice-org-items">${g.map(row).join('')}</div></div>`;
   }).join('');
 }
-const SPLIT_QUERY='(min-width:1024px)';
+const SPLIT_QUERY='(min-width:761px)';
 const searchText=value=>String(value||'').toLowerCase().replace(/\s+/g,'');
 // UI-PC팝업위치: on a wide screen (761px~, anchored-popup.js) every choice sheet opens as a small list right below the button that
 // was pressed (above or beside it when there is no room), with no dimming; phones keep the bottom sheet. anchored(kind) is
@@ -37,12 +38,15 @@ const searchText=value=>String(value||'').toLowerCase().replace(/\s+/g,'');
 // toggles (onSelect, then the marks and the count are synced in place), the sheet stays open, and the footer shows the count
 // (label) left and [취소] [저장] right. Only [저장] (onCommit) keeps the choice; [취소], ×, Esc, Back or a press outside drop it
 // (the caller starts its pending choice again on the next open).
-export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,onSelect,onError,anchored,multi=()=>null,onCommit=()=>{}}){
+// UI-창잘림·끌어옮기기: width (px) is the PC list's width for a sheet that needs more room than the usual 360px (its CSS never
+// widens it on its own, or the box would be drawn wider than placed and cut at the window's edge). On a wide screen the sheet
+// can be dragged by its title row (anchored-popup.js dragByTitle); the spot is forgotten when it closes.
+export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,onSelect,onError,anchored,multi=()=>null,onCommit=()=>{},width=0}){
   const sheet=document.createElement('dialog');sheet.className='home-choice-sheet';sheet.id=id;sheet.setAttribute('aria-labelledby',titleId);
   // render() may return search (the box's label): the box sits above the list, outside its scroll, and filters the choices by name
   // (PC list only; phones keep the sheet as it was).
-  sheet.innerHTML=`<header><h2 id="${titleId}"></h2><button type="button" data-sheet-close aria-label="선택판 닫기">×</button></header><div class="home-choice-search-box" data-sheet-search-box hidden><input type="search" class="home-choice-search" data-sheet-search autocomplete="off" spellcheck="false"><p class="home-choice-empty" data-sheet-empty hidden>맞는 항목이 없어요.</p></div><div data-sheet-content></div><footer class="home-choice-foot" data-sheet-foot hidden><span class="home-choice-count" data-sheet-count role="status"></span><button type="button" class="home-choice-cancel" data-sheet-cancel>취소</button><button type="button" class="home-choice-save" data-sheet-save>저장</button></footer>`;
-  document.body.append(sheet);
+  sheet.innerHTML=`<header class="anchored-drag-title"><h2 id="${titleId}"></h2><button type="button" data-sheet-close aria-label="선택판 닫기">×</button></header><div class="home-choice-search-box" data-sheet-search-box hidden><input type="search" class="home-choice-search" data-sheet-search autocomplete="off" spellcheck="false">${emptyHtml('맞는 항목 없음', {attrs: 'data-sheet-empty hidden'})}</div><div data-sheet-content></div><footer class="home-choice-foot" data-sheet-foot hidden><span class="home-choice-count" data-sheet-count role="status"></span><button type="button" class="home-choice-cancel" data-sheet-cancel>취소</button><button type="button" class="home-choice-save" data-sheet-save>저장</button></footer>`;
+  document.body.append(sheet);dragByTitle(sheet,'header');
   let active=null,closing=null,epoch=0,unfollow=null;
   const search=sheet.querySelector('[data-sheet-search]'),searchBox=sheet.querySelector('[data-sheet-search-box]'),empty=sheet.querySelector('[data-sheet-empty]');
   // Hides the choices whose name does not hold the typed text, then any group or section left without a choice. The box is shown
@@ -66,11 +70,14 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
     const anchor=active.anchor||active.trigger;
     // Chip lists (organizations, many per line) get a wider list than one-per-line rows so fewer lines need scrolling.
     const chips=!!sheet.querySelector('[data-sheet-content] .home-choice-chip');
-    // UI-기록할곳창PC: a sheet whose render() asks for split, on a wide PC (1024px~), is one wide list with its columns
+    // UI-기록할곳창PC: a sheet whose render() asks for split, on a wide PC (761px~), is one wide list with its columns
     // (data-sheet-col) side by side, as tall as the window allows below the button; each column scrolls on its own.
     const split=!!active.split&&window.matchMedia(SPLIT_QUERY).matches;
-    if(!wantAnchor(active.kind)||!placeAnchored(sheet,anchor,split?{maxWidth:880,maxHeight:760,minHeight:320}:{maxWidth:chips?480:360,maxHeight:chips?560:480})){unplace();filter();return;}
+    // UI-창잘림·끌어옮기기: the PC look (no rise animation, its padding, the split columns) is put on before placing, so the box
+    // placeAnchored measures to keep the sheet inside the window is the one that stays on screen.
+    if(!wantAnchor(active.kind)){unplace();filter();return;}
     sheet.classList.add('home-choice-anchored');sheet.classList.toggle('home-choice-split',split);moveSearch(split);filter();
+    if(!placeAnchored(sheet,anchor,split?{maxWidth:880,maxHeight:760,minHeight:320}:{maxWidth:width||(chips?480:360),maxHeight:chips?560:480})){unplace();filter();return;}
     unfollow||=followAnchor(sheet,anchor,{place,lost:()=>{if(active)void close();}});
   }
   // In a split sheet the search box sits in the header, right of the title (before ×, so Tab order follows what is seen).

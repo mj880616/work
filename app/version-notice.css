@@ -11,7 +11,7 @@
 #versionNotice>button:hover{background:var(--kptu-surface)}
 #versionNotice>button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 body.kptu-version-notice-open{padding-top:var(--kptu-version-notice-height,33px)}
-@media (min-width:1024px){
+@media (min-width:761px){
   /* PC 칸 높이 계산(상단 줄 자리)과 붙어 있는 사이드바가 알림 줄 높이만큼 비켜선다. */
   body.kptu-version-notice-open #appView{--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--kptu-version-notice-height,33px))}
   body.kptu-version-notice-open #appView>.app-nav{top:calc(12px + var(--kptu-version-notice-height,33px));height:calc(100dvh - 24px - var(--kptu-version-notice-height,33px))}

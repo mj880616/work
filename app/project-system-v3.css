@@ -56,7 +56,6 @@
 .ps3-row small{font-size:9px;color:var(--kptu-faint)}
 .ps3-page-actions{display:flex;gap:var(--kptu-space-1);align-items:flex-start;flex-wrap:wrap;justify-content:flex-end}
 .ps3-page-child{padding-left:var(--kptu-space-4)}
-.ps3-empty{font-size:10.5px;color:var(--kptu-muted);padding:9px 0}
 .ps3-comment-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-top:var(--kptu-space-2)}
 .ps3-comment-form input{margin:0}
 .ps3-content-section{border-top:1px solid var(--kptu-border);padding:10px 0}
@@ -220,7 +219,6 @@
 .ps3-rec-more{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 .ps3-rec-more:hover{background:var(--kptu-surface-subtle)}
 .ps3-rec-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
-.ps3-rec-empty{margin:0;padding:18px 0;text-align:center;color:var(--kptu-faint);font-size:var(--ds-text-row,13px)}
 .ps3-rec .ps3-pg-editor{padding:6px 0}
 /* UI-연결요약수정: the shared link summary editor (basket-link-records.js) opens under a linked line, across both columns. */
 .ps3-rec-basket [data-link-summary-form]{grid-column:1/-1;min-width:0;margin:0 0 10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
@@ -249,21 +247,21 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 .ps3-line-main small{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #ps3DetailModal .ps3-line-more>summary{display:grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0;border-color:transparent;background:transparent;box-shadow:none;color:var(--kptu-muted)}
 
-/* UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(1024px~) 프로젝트 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#ps3DetailPane).
-   할 일 화면(google-tasks.css #gtDetailPane)과 같은 짜임: 화면 높이에 맞춘 한 페이지, 목록·상세 칸 안에서만 세로로 넘긴다.
+/* UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(761px~) 프로젝트 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#ps3DetailPane).
+   할 일 화면(google-tasks.css #gtDetailPane)과 같은 짜임: 창 몸통 스크롤 하나, 목록·상세 칸은 몸통과 같이 내려간다(UI-칸안스크롤하나로).
    상세 칸은 지금 상세 창(#ps3DetailModal)을 그 자리에 옮겨 그대로 쓴다(project-system-v3.js placeDetail). 창 겉모양만 칸에 맞추고
-   닫기 ×는 숨긴다(다른 프로젝트를 고르면 바뀜). 761~1023px·폰은 지금처럼 목록 + 상세 창. */
+   닫기 ×는 숨긴다(다른 프로젝트를 고르면 바뀜). 폰은 지금처럼 목록 + 상세 창. */
 #ps3DetailPane{display:none}
-@media(min-width:1024px){
-  html:has(#appView #projectsView:not(.hidden)) main{padding-bottom:12px}
-  html:has(#appView #projectsView:not(.hidden)) #appView>.app-nav{margin-bottom:0}
-  #appView #projectsView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
+@media(min-width:761px){
+  /* MTG-프로젝트합치기 ①·UI-칸안스크롤하나로(시안 A): 창 안 스크롤은 창 몸통 하나(칸마다 스크롤 없음). 목록은 몸통과 같이 내려가고,
+     상세 칸도 몸통과 같이 내려간다(창 안에서는 붙여 따라오지 않음, project-system-v3.js followDetail). */
+  #appView #areaWindow .area-window-body{display:flex;flex-direction:column;overflow-y:auto}
   #appView #projectsView>.section-head{flex:none}
   #appView #projectsView>.section-head.actions-only:not(:has(button)){display:none}
-  #appView #projectsView>#projectGrid[data-ps3-ready="1"]{flex:1 1 auto;min-height:0;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
-  #appView #projectsView #projectGrid>.ps3-plist{grid-column:1;grid-row:1;align-self:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}
+  #appView #projectsView>#projectGrid[data-ps3-ready="1"]{grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto;align-items:start;column-gap:var(--kptu-space-3);margin:0}
+  #appView #projectsView #projectGrid>.ps3-plist{grid-column:1;grid-row:1;align-self:start;box-sizing:border-box}
   #appView #projectsView #projectGrid>.ps3-plist>.add-list-head{position:sticky;top:0;z-index:1;background:var(--kptu-surface)}
-  #appView #projectsView #projectGrid>#ps3DetailPane{grid-column:2;grid-row:1;display:block;min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #appView #projectsView #projectGrid>#ps3DetailPane{grid-column:2;grid-row:1;display:block;min-width:0;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   #ps3DetailPane .ps3-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
   #ps3DetailPane.has-project .ps3-pane-empty{display:none}
   /* 고른 프로젝트 줄: 연한 초록(고르기 창의 고른 줄과 같음). */
@@ -274,7 +272,7 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
   #ps3DetailPane>#ps3DetailModal.ps3-docked{position:static;inset:auto;display:block;justify-items:normal;align-items:normal;padding:0;background:transparent;z-index:auto}
   #ps3DetailPane>#ps3DetailModal.ps3-docked.hidden{display:none}
   #ps3DetailPane>#ps3DetailModal.ps3-docked>.ps3-detail-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
-  #ps3DetailPane>#ps3DetailModal.ps3-docked .ps3-modal-head{top:calc(var(--kptu-space-3) * -1);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3) var(--kptu-space-3) var(--kptu-space-3)}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked .ps3-modal-head{top:0;margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3) var(--kptu-space-3) var(--kptu-space-3)}
   #ps3DetailPane>#ps3DetailModal.ps3-docked [data-ps3-close="ps3DetailModal"]{display:none}
 }
 
@@ -336,3 +334,36 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 .ps3-line-main.has-report-photos{grid-template-columns:minmax(0,1fr) auto;column-gap:8px}
 .ps3-line-main.has-report-photos>:not(.report-photo-strip){grid-column:1}
 .ps3-line-main.has-report-photos>.report-photo-strip{grid-column:2;grid-row:1/span 3;align-self:center;justify-self:end}
+
+/* MTG-프로젝트합치기 ①(10/29 시안 승인): 사업영역 관리 창 — 사업 보고 위에 뜨는 공용 .modal 그릇(area-window.js가 여닫음).
+   PC: 넓은 창, 머리줄 '사업영역 관리 [+ 사업영역] ✕', 몸통은 지금 목록·상세 칸 그대로. 폰: 하단바 위까지 전체 높이, 머리 '‹ 사업 보고 · 사업영역 관리 · +'.
+   버튼은 작은 높이(--ds-compact-*), 누르는 범위는 ::after로 44px. */
+#appView #areaWindow.modal{z-index:40} /* 다른 창(50)·폰 메뉴 판(45)은 이 창 위, 하단바(30)는 아래 */
+#appView #areaWindow.hidden{display:none}
+#appView #areaWindow.modal{inset:var(--area-window-top,0px) 0 0 var(--area-window-left,0px);padding:var(--kptu-space-3);display:flex;align-items:stretch;justify-content:center}
+#appView #areaWindow .area-window-card{display:flex;flex-direction:column;box-sizing:border-box;width:100%;max-width:none;height:auto;min-height:0;max-height:none;margin:0;padding:0;overflow:hidden;border-radius:var(--kptu-radius-lg)}
+#appView #areaWindow .area-window-head{position:static;display:flex;align-items:center;gap:var(--kptu-space-2);flex:none;margin:0;padding:6px var(--kptu-space-3);border-bottom:var(--ds-line-width) solid var(--ds-line);background:var(--kptu-surface)}
+#appView #areaWindow .area-window-head h2{flex:0 1 auto;min-width:0;margin:0;font-size:var(--ds-text-row,14px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#appView #areaWindow .area-window-item{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row,13px);color:var(--kptu-muted)}
+#appView #areaWindow .area-window-item::before{content:'› ';color:var(--kptu-faint,var(--kptu-muted))}
+#appView #areaWindow .area-window-item[hidden]{display:block;visibility:hidden}
+#appView #areaWindow .area-window-actions{display:flex;align-items:center;gap:var(--kptu-space-2);flex:none;margin:0;padding:0;border:0}
+#appView #areaWindow .area-window-actions .ps3-project-toolbar{display:flex;align-items:center;gap:var(--kptu-space-2)}
+#appView #areaWindow .area-window-head :is(#newProjectBtn,.area-window-close,.area-window-back){position:relative;box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);min-width:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);border-radius:var(--kptu-radius-md);box-shadow:none}
+/* [+ 사업영역]: 사업 보고 [+ 사업 보고]와 같은 작고 낮은 채운 버튼(32px·13px·500·모서리 8px). */
+#appView #areaWindow .area-window-head #newProjectBtn{font-weight:var(--ds-weight-medium,500);color:var(--kptu-on-primary);background:var(--kptu-primary);border:var(--ds-line-width,1px) solid var(--kptu-primary)}
+#appView #areaWindow .area-window-head :is(#newProjectBtn,.area-window-close,.area-window-back)::after{content:"";position:absolute;left:min(0px,calc(50% - var(--kptu-touch-target,44px) / 2));right:min(0px,calc(50% - var(--kptu-touch-target,44px) / 2));top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #areaWindow .area-window-close{width:var(--ds-compact-height,32px);padding:0;border:0;background:transparent;color:var(--kptu-muted)}
+#appView #areaWindow .area-window-back{display:none;align-items:center;gap:2px;padding:0 4px;border:0;background:transparent;color:var(--kptu-ink)}
+#appView #areaWindow .area-window-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0;padding:var(--kptu-space-2) var(--kptu-space-3) var(--kptu-space-3)}
+@media(max-width:760px){
+  /* 폰 공용 창 규칙(workspace-ui.css의 아래 붙임·창 전체 스크롤)은 이 창을 뺀다. */
+  #appView #areaWindow.modal{inset:0 0 calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px)) 0;padding:env(safe-area-inset-top,0px) 0 0;align-items:stretch;overflow:hidden;background:var(--kptu-bg)}
+  #appView #areaWindow .area-window-card{width:100%;max-width:none;max-height:none;overflow:hidden;padding:0;border-radius:var(--kptu-radius-none);border:0}
+  #appView #areaWindow .area-window-head{padding:6px var(--kptu-space-2)}
+  #appView #areaWindow .area-window-back{display:inline-flex}
+  #appView #areaWindow .area-window-close{display:none}
+  #appView #areaWindow .area-window-add-word{display:none}
+  #appView #areaWindow .area-window-head #newProjectBtn{width:var(--ds-compact-height,32px);padding:0;font-size:18px}
+  #appView #areaWindow .area-window-body{padding:var(--kptu-space-2)}
+}

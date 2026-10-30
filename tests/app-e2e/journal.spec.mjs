@@ -312,7 +312,7 @@ for(const width of [390,1280]){
   // 펼친 그 밖의 기록은 날을 바꿔도 펼친 채(이 화면 메모리).
   await expect(others).toHaveJSProperty('open',true);
   await expect(eventTexts(page)).toHaveText(['종일 여러 날 일정']);
-  await expect(page.locator('#journalRoot [data-journal-report-empty]')).toHaveText('이 날은 주간보고 재료가 없어요.');
+  await expect(page.locator('#journalRoot [data-journal-report-empty][data-wait-empty]')).toHaveText('없음');
   await expect(group(page,'orgs')).toHaveCount(0);await expect(group(page,'activities')).toHaveCount(0);
   // 목요일: 회의 결과(차수까지), 그날 올린 회의자료. 마감이 목요일 전(수)인 남은 할 일은 '기한 지난 것' 한 줄로 접힌다.
   await date(page,'2026-10-08').click();await expect(itemTexts(page,'activities')).toHaveText(['10:00 운영위원회 3차']);
@@ -386,7 +386,7 @@ for(const width of [390,1280]){
   // 줄 끝 ⋯ 메뉴·팝업 없이 줄 자체가 버튼(PC는 줄마다 [수정][삭제]가 더 있다 — 아래 PC 모양 시험).
   await expect(page.locator('#journalRoot [data-journal-lines] [data-journal-edit]')).toHaveCount(3);
   await expect(page.locator('#journalRoot [data-journal-lines] [aria-haspopup]')).toHaveCount(0);
-  await expect(page.locator('#journalRoot [data-journal-lines] button:visible')).toHaveCount(width<1024?3:9);
+  await expect(page.locator('#journalRoot [data-journal-lines] button:visible')).toHaveCount(width<761?3:9);
   await page.locator('#journalRoot [data-journal-edit="1"]').click();
   const box=page.locator('#journalRoot [data-journal-edit-input]');
   await expect(box).toBeFocused();await expect(box).toHaveValue('둘째 줄');
@@ -671,7 +671,7 @@ test('[하루] 그날 일정: 오늘 한 줄 위에 시각+제목, 없으면 일
  await expect(page.locator('#ciGoogleModal')).toBeHidden();
  // 일정 없는 날(토요일 10/10).
  await date(page,'2026-10-10').click();
- await expect(box.locator('[data-journal-events-empty]')).toHaveText('일정 없음');
+ await expect(box.locator('[data-journal-events-empty][data-wait-empty]')).toHaveText('없음');
 });
 test('[하루] 그날 일정 칸의 [달력 ›]은 그 날짜가 든 달력으로',async({page})=>{
  await fixture(page,{width:1280});await openJournal(page,1280);
@@ -984,7 +984,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(weekly(page,'hq-schedule').locator('li,table')).toHaveCount(0);
  await expect(weekly(page,'ask').locator('thead th')).toHaveText(['일','시간/내용/장소','참석 요청','']);
  await expect(weekly(page,'ask').locator('tbody tr')).toHaveCount(0);
- await expect(weekly(page,'ask').locator('[data-journal-exec-empty]')).toHaveText('요청 줄이 없어요.');
+ await expect(weekly(page,'ask').locator('[data-journal-exec-empty][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="requests"]').locator('input,textarea,select')).toHaveCount(0);
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="requests"] button')).toHaveText(['+ 줄 추가']);
  // 2. 요약: 사업영역 → 세부 과제 순서는 프로젝트 트리 그대로. 사업영역 칸은 세로로 합친다.
@@ -1060,11 +1060,11 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 12일 월요일 ~ 10월 18일 일요일');
  // 탭은 주간 정리 그대로.
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
- await expect(weekly(page,'summary').locator('[data-journal-weekly-empty]')).toHaveText('이 주 사업영역 기록이 없어요.');
+ await expect(weekly(page,'summary').locator('[data-journal-weekly-empty]')).toHaveText('없음');
  await expect(weekly(page,'summary').locator('table')).toHaveCount(0);
- await expect(weekly(page,'meetings').locator('[data-journal-weekly-empty]')).toHaveText('이 주 회의·활동이 없어요.');
- await expect(weekly(page,'orgs').locator('[data-journal-weekly-empty]')).toHaveText('이 주 조직 소식이 없어요.');
- await expect(weekly(page,'ask').locator('[data-journal-exec-empty]')).toHaveText('요청 줄이 없어요.');
+ await expect(weekly(page,'meetings').locator('[data-journal-weekly-empty]')).toHaveText('없음');
+ await expect(weekly(page,'orgs').locator('[data-journal-weekly-empty]')).toHaveText('없음');
+ await expect(weekly(page,'ask').locator('[data-journal-exec-empty][data-wait-empty]')).toHaveText('없음');
  // 참고: 다음 주 자료(10/12 0시 KST)만 상자, 나머지는 '기록 없는 묶음' 한 줄.
  await expect(weekly(page,'note-docs').locator('li')).toHaveText(['10월 12일(월)[교육] 다음 주 자료']);
  await expect(page.locator('#journalRoot [data-journal-weekly-quiet-notes]')).toHaveText('기록 없는 묶음: 한 줄, 끝낸 할 일, 공유 페이지');
@@ -1366,7 +1366,7 @@ for(const width of [390,1280])test(`[주간 정리] 임원 참석 요청 표: �
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,width);await openWeekly(page);
  const ask=weekly(page,'ask'),field=name=>ask.locator(`[data-journal-exec-field="${name}"]`);
- await expect(ask.locator('[data-journal-exec-empty]')).toHaveText('요청 줄이 없어요.');
+ await expect(ask.locator('[data-journal-exec-empty][data-wait-empty]')).toHaveText('없음');
  // 줄 추가: 일은 달력 칸(type=date), 내용 없이 [저장]하면 이유를 보이고 저장하지 않는다.
  await ask.locator('[data-journal-exec-add]').click();
  await expect(field('day')).toBeFocused();
@@ -1855,6 +1855,27 @@ const backToJournal=async(page,{pressed,scroll})=>{
  await expect(pressed).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>Math.round(scrollY))).toBe(scroll);
 };
+// UI-돌아가기머리줄(시안 B): 일지에서 연 업데이트는 머리 줄 뒤로 가기 하나('‹ 업무일지'), 따로 있던 '← …으로 돌아가기' 상자 버튼은 없다.
+const expectOneBack=async(page,text)=>{
+ const detail=page.locator('#basketView [data-basket-detail]');
+ await expect(detail.locator('.basket-detail-head > button.basket-back:visible')).toHaveCount(1);
+ await expect(detail.locator('.basket-detail-head > [data-basket-return]')).toHaveText(text);
+ await expect(detail.locator('[data-basket-close]')).toHaveCount(0);
+ await expect(page.locator('#basketView .basket-return')).toHaveCount(0);
+ await expect(detail.getByText(/돌아가기/)).toHaveCount(0);
+};
+for(const width of [412,884,1440])test(`[업무일지] 원래 업데이트 → 머리 줄 '‹ 업무일지' 하나, 누르면 일지 그 날 ${width}`,async({page})=>{
+ const f=await fixture(page,{width,height:700});await originals(page,f);await openJournal(page,width);await settled(page);
+ const more=group(page,'orgs').locator('li',{hasText:'안녕하세요 위원장님'}).locator('.journal-item-more');
+ await more.locator('summary').click();
+ await more.getByRole('button',{name:'원래 업데이트 보기'}).click();
+ await expect(page.locator('[data-basket-text]')).toHaveValue(GREETING);
+ await expectOneBack(page,'‹ 업무일지');
+ const back=page.locator('#basketView [data-basket-return]'),box=await back.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);
+ await back.click();
+ await expect(page.locator('#journalView')).toBeVisible();await expectJournalDay(page,'10월 6일 화요일');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
 for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조직 기록·조직으로 보낸 업데이트는 그 자리에서 강조, 사업 기록은 사업영역 화면, ⋯ 원래 업데이트, 뒤로가기 한 번이면 일지 그 자리 ${width}`,async({page},info)=>{
  const f=await fixture(page,{width,height:700});await originals(page,f);await openJournal(page,width);await settled(page);
  // ① 담당조직 화면에서 쓴 기록 → 그 조직 화면, 그 기록이 화면 안에 강조.
@@ -1862,7 +1883,7 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  await orgRecord.scrollIntoViewIfNeeded();const scroll=await page.evaluate(()=>Math.round(scrollY));
  const reads=f.reads.length;
  await orgRecord.click();
- if(width>=1024)await expect(page.locator('#teamView')).toBeVisible();else await expect(page.locator('#journalView')).toBeVisible();
+ if(width>=761)await expect(page.locator('#teamView')).toBeVisible();else await expect(page.locator('#journalView')).toBeVisible();
  await expect(page.locator('#wdModal')).toBeVisible();await expect(page.locator('#wdTitle')).toContainText('나 지역 모임');
  await flashed(page,'#wdUpdates [data-wd-up="u1"]');
  await page.screenshot({path:info.outputPath(`journal-open-org-${width}.png`)});
@@ -1880,7 +1901,7 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  // 그 기록 줄도, 강조할 줄도 없다(화면만 열린다).
  const progress=group(page,'business').locator('.journal-item-open',{hasText:'진행상황 업데이트'});
  await progress.click();
- if(width>=1024)await expect(page.locator('#projectsView')).toBeVisible();
+ if(width>=761)await expect(page.locator('#projectsView')).toBeVisible();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();
  await expect(page.locator('#ps3Body')).toHaveAttribute('data-project','p');await expect(page.locator('#ps3Body [data-ps3-records]')).toBeVisible();
  await expect(page.locator('#ps3Body [data-ps3-record]')).toHaveCount(0);await expect(page.locator('#ps3Body [data-journal-flash]')).toHaveCount(0);
@@ -1893,12 +1914,13 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  await more.getByRole('button',{name:'원래 업데이트 보기'}).click();
  await expect(page.locator('#basketView')).toBeVisible();
  await expect(page.locator('[data-basket-text]')).toHaveValue(GREETING);
+ await expectOneBack(page,'‹ 업무일지');
 
  await page.goBack();
  await expect(page.locator('#journalView')).toBeVisible();await expectJournalDay(page,'10월 6일 화요일');
  // ⑤ 회의·활동 결과 → 그 회의 결과(PC 회의 화면 오른쪽 칸, 폰 회의 결과 창).
  await itemTexts(page,'activities').first().click();
- if(width>=1024){await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m1');}
+ if(width>=761){await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m1');}
  else await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
  await page.goBack();
  await expect(page.locator('#journalView')).toBeVisible();
@@ -1983,7 +2005,7 @@ for(const width of [390,1280])test(`[업무일지] 줄 ⋯: 메뉴 항목, PC는
  const opacity=loc=>loc.evaluate(e=>getComputedStyle(e).opacity);
  await expect(more).toHaveAccessibleName('오늘 마감 할 일 더 보기');
  const doneMore=taskRowOf(page,'done','t-done').locator('.journal-more-btn');
- if(width>=1024){
+ if(width>=761){
   await page.mouse.move(5,5);
   await expect.poll(()=>opacity(more)).toBe('0');await expect.poll(()=>opacity(doneMore)).toBe('0');
   await rowA.hover();await expect.poll(()=>opacity(more)).toBe('1');await expect.poll(()=>opacity(doneMore)).toBe('0');
@@ -2024,7 +2046,7 @@ for(const width of [390,1280])test(`[업무일지] 줄 ⋯ 내일로·기한 바
  await expect(toastText(page)).toHaveText("'오늘 마감 할 일' 기한을 내일로 옮겼어요.");
  expect(m.calls.update).toEqual([{action:'update',task_id:'t-today',task_list_id:'@default',title:'오늘 마감 할 일',notes:'',due:'2026-10-07'}]);
  await expect(itemTexts(page,'todo')).toHaveCount(0);
- await expect(group(page,'todo')).toContainText('이 날 기한인 남은 할 일이 없어요.');
+ await expect(group(page,'todo').locator('[data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#journalRoot [data-journal-task-status]')).toHaveCount(0);
  await expect(toastText(page)).toBeHidden({timeout:6000});
  // 수요일: 원래 수요일 마감 + 옮긴 것. 그 줄의 기한을 달력 칸으로 금요일로.

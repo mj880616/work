@@ -3,7 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // UI-PC사이드바 + UI-PC메모노트(BASKET-업데이트통합 PR 3): PC 사이드바 맨 위 아이콘+"홈" 줄이 홈 메뉴(고른 표시도 그 줄),
 // 아래 따로 있던 [홈]은 PC 사이드바에서 없음. [바구니] 아래 하위 메뉴 [업데이트]·[노트](항상 펼침). "게시판" → "공유 페이지"(주소 그대로).
-// 폰 하단 탭 [홈]·761~1023px 위쪽 한 줄 메뉴의 [홈]은 그대로.
+// 폰 하단 탭 [홈]은 그대로. 761~1023px(UI-폴드PC틀)는 좁은 그림 메뉴이고 맨 위 줄이 홈.
 const nav=page=>page.locator('#appView>.app-nav');
 async function open(page,width){
  await page.setViewportSize({width,height:900});
@@ -74,7 +74,7 @@ test('"게시판" 이름은 "공유 페이지"(사이드바·폰 메뉴·화면 
  const errors=await open(page,1280);
  await expect(nav(page).locator('.nav-btn[data-view="pages"]')).toHaveText('공유 페이지');
  await nav(page).locator('.nav-btn[data-view="pages"]').click();await expect(page.locator('#pagesView')).toBeVisible();await expect(page).toHaveURL(/view=pages/);
- await expect(page.locator('#web1BoardDetailTitle')).toHaveText('공유 페이지');
+ await expect(page.locator('#sharePagesRoot').getByRole('heading', {name:'공유 페이지', exact:true})).toHaveCount(1);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-view="pages"]')).toHaveText('공유 페이지');
  await page.locator('#mobileMenu [data-view="pages"]').click();await expect(page.locator('[data-mobile-view-name]')).toHaveText('공유 페이지');
@@ -82,13 +82,14 @@ test('"게시판" 이름은 "공유 페이지"(사이드바·폰 메뉴·화면 
  expect(errors).toEqual([]);
 });
 
-test('폰 390: 하단 탭 [홈] 그대로, 하위 메뉴는 없다; 870: 위쪽 한 줄 메뉴 [홈] 그대로',async({page})=>{
+test('폰 390: 하단 탭 [홈] 그대로, 하위 메뉴는 없다; 870(UI-폴드PC틀): 좁은 그림 메뉴의 맨 위 줄이 홈',async({page})=>{
  const errors=await open(page,390);
  await expect(page.locator('.mobile-tabs [data-view="home"]')).toBeVisible();await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current','page');
  await expect(nav(page)).toBeHidden();
  await page.setViewportSize({width:870,height:900});
- await expect(nav(page).locator('.nav-btn[data-view="home"]')).toBeVisible();await expect(nav(page).locator('.nav-btn[data-view="home"]')).toHaveAttribute('aria-current','page');
- for(const sub of await nav(page).locator('.nav-sub').all())await expect(sub).toBeHidden();
+ await expect(nav(page).locator('.nav-btn[data-view="home"]')).toBeHidden();
+ await expect(nav(page).locator('.sidebar-brand')).toBeVisible();await expect(nav(page).locator('.sidebar-brand')).toHaveAttribute('aria-current','page');
+ await expect(nav(page).locator('.nav-sub-btn[data-goto="calendar"]')).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(errors).toEqual([]);
 });

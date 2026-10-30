@@ -2,9 +2,10 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
+import {innerScrollers,docScroll} from './helpers/one-scroll.mjs';
 // ORG-PC좌우(2026-10-21 요청): PC(≥1024) 담당조직 화면은 왼쪽 목록 1/3 + 오른쪽 상세 2/3(같은 상세 창을 칸에 옮겨 씀,
 // 프로젝트 화면 UI-PC프로젝트좌우와 같은 짜임). 처음 열면 이 기기에서 마지막으로 본 조직(없거나 저장소가 막히면 맨 위).
-// 상세의 기록 → 업데이트 화면에서 "← (조직)으로 돌아가기"·뒤로 가기 → 같은 조직·같은 스크롤. 761~1023px·폰은 목록 + 상세 창.
+// 상세의 기록 → 업데이트 화면에서 머리 줄 "‹ (조직)"·뒤로 가기 → 같은 조직·같은 스크롤. 761~1023px·폰은 목록 + 상세 창.
 // 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
 const note={id:'10000000-0000-4000-8000-0000000000bb',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 조직 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
@@ -112,17 +113,17 @@ test('PC 1280: a blocked browser storage still opens the first organization',asy
  await clickView(page,'home');await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');expect(errors).toEqual([]);
 });
 
-test('PC 1280: a record opens the update with "← (organization)으로 돌아가기"; the button and back return to the same organization and scroll',async({page})=>{
+test('PC 1280: a record opens the update with "‹ (organization)" in the head; the button and back return to the same organization and scroll',async({page})=>{
  const {errors}=await fixture(page);
  await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');
  await row(page,'ob').click();await expect(title(page)).toHaveText('합성 나 지부');
  await row(page,'oa').click();await expect(title(page)).toHaveText('합성 가 지부');
  const line=page.locator('#wdModal [data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
- const before=await scrollToRecord(page,line);expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
+ const before=await scrollToRecord(page,line);/* UI-칸안스크롤하나로: 화면 스크롤 하나(상세 칸은 따로 스크롤 없음) */expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(100);expect(await pane(page).evaluate(el=>el.scrollTop)).toBe(0);
  for(const how of ['button','back','browser']){
   await line.click();
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
-  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 합성 가 지부로 돌아가기');
+  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 합성 가 지부');
   if(how==='button')await back.click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(title(page)).toHaveText('합성 가 지부');
   await expect(pane(page).locator('#wdModal')).toBeVisible();await expect(row(page,'oa')).toHaveAttribute('aria-current','true');
@@ -139,7 +140,8 @@ test('PC 1024: the list keeps its minimum width, the pane takes the rest, nothin
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
 
-for(const width of [390,900])test(`${width}: list with the detail dialog as before (no pane, no auto-open)`,async({page})=>{
+// UI-폴드PC틀: 761px~는 PC 틀(왼쪽 목록 + 오른쪽 상세 칸). 목록 + 상세 창은 폰뿐.
+for(const width of [390,760])test(`${width}: list with the detail dialog as before (no pane, no auto-open)`,async({page})=>{
  const {errors}=await fixture(page,{width});
  await clickView(page,'team');await expect(row(page,'oa')).toBeVisible();
  await expect(pane(page)).toBeHidden();await expect(page.locator('#wdModal')).toBeHidden();
@@ -170,7 +172,7 @@ test('PC 1280: an organization opened over another screen stays a dialog and goe
 for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes have no resize handle; ⤢ opens the big window and hands the text back`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
  await clickView(page,'team');
- if(width<1024)await row(page,'oa').click();
+ if(width<761)await row(page,'oa').click();
  await expect(title(page)).toHaveText('합성 가 지부');
  const modal=page.locator('#wdModal'),editor=page.locator('#edWindow'),editorText=editor.locator('.ed-window-body .ProseMirror');
  await expect(modal.locator('#wdInboxText')).toHaveCSS('resize','none');await expect(modal.locator('#wdInboxBig')).toBeVisible();
@@ -199,4 +201,18 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  await expect(sum).toHaveValue('합성 요약 큰 창에서 고침');await expect(sum).toBeFocused();
  expect(state.writes).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
+});
+
+// UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): PC 담당조직 화면은 스크롤 막대 하나(목록·상세 칸에 따로 스크롤 없음), 상세 칸은 화면에 붙어 따라온다.
+test('PC 1440: 담당조직 목록·상세 칸 안에 따로 스크롤이 없고 문서 스크롤 하나, 상세 칸은 화면에 붙어 따라온다',async({page})=>{
+ const {errors}=await fixture(page,{width:1440});
+ await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');
+ await expect(pane(page).locator('#wdModal')).toBeVisible();
+ expect(await innerScrollers(page,'#teamView')).toEqual([]);
+ await expect(page.locator('#soOrganizationList')).toHaveCSS('overflow-y','visible');
+ await expect(pane(page)).toHaveCSS('overflow-y','visible');await expect(pane(page)).toHaveCSS('position','sticky');
+ const d=await docScroll(page);expect(d.over).toBeGreaterThan(100);expect(d.wide).toBeLessThanOrEqual(0);
+ await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+ expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(100);await expect(pane(page)).toBeInViewport();
+ expect(errors).toEqual([]);
 });

@@ -161,6 +161,21 @@ export function archivedRooms(rooms, lines) {
   }
   return out.sort((a, b) => (b.last?.day || '').localeCompare(a.last?.day || '') || a.room_label.localeCompare(b.room_label));
 }
+// TG-방고정(시안 A): 목록 맨 위 '고정한 방' 칸. 보관하지 않은 고정 방만, 고정한 순서(pinned_at 오름차순). folder: 그 폴더의 방만.
+// 각 방에 가장 최근 날 줄(지운 날 제외)을 붙인다(last, 없으면 null).
+export function pinnedRooms(rooms, lines, {folder = ''} = {}) {
+  const out = [];
+  for (const [key, r] of rooms || []) {
+    if (!r?.pinned_at || r.archived_at || (folder && r.folder_id !== folder)) continue;
+    const last = sortLines((lines || []).filter(l => l.room_key === key && !l.day_hidden_at))[0] || null;
+    out.push({room_key:key, room_label:last?.room_label || r.room_label || key, pinned_at:r.pinned_at, last});
+  }
+  return out.sort((a, b) => String(a.pinned_at).localeCompare(String(b.pinned_at)) || a.room_key.localeCompare(b.room_key));
+}
+// 고정한 방의 줄은 아래 날짜 묶음에 다시 넣지 않는다.
+export const withoutPinned = (lines, pins) => { const keys = new Set((pins || []).map(p => p.room_key)); return keys.size ? (lines || []).filter(l => !keys.has(l.room_key)) : (lines || []); };
+// 줄이 하나도 없는(불러온 기간 밖) 고정 방 열쇠. 화면이 그 방의 가장 최근 날 줄을 따로 읽는다.
+export const pinsWithoutLine = (rooms, lines) => pinnedRooms(rooms, lines).filter(p => !p.last).map(p => p.room_key);
 // 방 표의 상태를 줄에 입힌다(줄이 가진 값보다 방 표가 기준).
 export const withRoomState = (lines, rooms) => (lines || []).map(l => { const r = rooms?.get(l.room_key); return r ? {...l, folder_id:r.folder_id || null, archived_at:r.archived_at || null} : l; });
 

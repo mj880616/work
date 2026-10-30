@@ -108,12 +108,12 @@ test('서버 값을 읽거나 저장하지 못해도 기본 1/3으로 그리고 
  expect(errors).toEqual([]);
 });
 
-test('중간 폭·폰에는 경계선이 없고, PC로 넓히면 나타난다',async({page})=>{
- await page.setViewportSize({width:900,height:800});
+test('폰에는 경계선이 없고, PC 틀(761px~, 폴드 펼침 포함)로 넓히면 나타난다',async({page})=>{
+ await page.setViewportSize({width:760,height:800});
  await openHome(page);await clickView(page,'projects');
  await expect(page.locator('#projectGrid .kptu-list-row').first()).toBeVisible();
  await expect(page.locator('.split-resize-handle:visible')).toHaveCount(0);
- await page.setViewportSize({width:1280,height:800});
+ await page.setViewportSize({width:884,height:800});
  await expect(page.locator('#projectGrid>.split-resize-handle')).toBeVisible();
  await page.setViewportSize({width:390,height:800});
  await expect(page.locator('.split-resize-handle:visible')).toHaveCount(0);

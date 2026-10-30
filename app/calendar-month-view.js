@@ -5,7 +5,7 @@ import {eventColor} from './home-read-model.js';
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
   const mq760=window.matchMedia('(max-width:760px)');
-  const mq1024=window.matchMedia('(min-width:1024px)');
+  const mqPc=window.matchMedia('(min-width:761px)');
   // Up to 12px per axis is still a tap; a larger move suppresses the release click.
   const tapSlop=()=>12;
   let last=null,touchStart=null,suppressUntil=0,resizeFrame=0;
@@ -56,7 +56,7 @@ import {eventColor} from './home-read-model.js';
     const header=cssPx(grid,'--cmv-date-header-height',44),step=cssPx(grid,'--cmv-lane-step',14);
     // Phones reserve three unchanged rows plus one thin overflow row, then fill the viewport.
     const moreHeight=cssPx(grid,'--cmv-more-height',44);
-    const required=mq760.matches?header+3*step+moreHeight+2:mq1024.matches?0:header+Math.min(1,maxLanes)*step+(maxLanes>1?44:0)+2;
+    const required=mq760.matches?header+3*step+moreHeight+2:mqPc.matches?0:header+Math.min(1,maxLanes)*step+(maxLanes>1?44:0)+2;
     grid.style.setProperty('--cmv-content-week-height',required+'px');
     const headHeight=cssPx(grid,'--cmv-head-height',23),minWeek=Math.max(required,cssPx(grid,'--cmv-min-week-height',58));
     const dateHeaderHeight=cssPx(grid,'--cmv-date-header-height',23),laneStep=cssPx(grid,'--cmv-lane-step',14);
@@ -200,7 +200,7 @@ import {eventColor} from './home-read-model.js';
 
     const weeksBox=document.createElement('div');weeksBox.className='cmv-weeks';
     weeks.forEach(week=>{
-      const lanes=mq1024.matches?week.laneCount:laneCap(week.laneCount,layout);
+      const lanes=mqPc.matches?week.laneCount:laneCap(week.laneCount,layout);
       const wrap=document.createElement('div');wrap.className='cmv-week';wrap.dataset.weekStart=key(week.start);wrap.dataset.laneCap=String(lanes);wrap.dataset.laneCount=String(week.laneCount);
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
@@ -244,7 +244,7 @@ import {eventColor} from './home-read-model.js';
       const dayCaps=mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
       week.segments.forEach(seg=>{
         if(!mq760.matches){
-          if(seg.lane<lanes){const button=eventButton(seg);if(mq1024.matches&&canDrag(seg.ev.calendarId,options.googleState))button.dataset.drag='day';layer.appendChild(button)}
+          if(seg.lane<lanes){const button=eventButton(seg);if(mqPc.matches&&canDrag(seg.ev.calendarId,options.googleState))button.dataset.drag='day';layer.appendChild(button)}
           else for(let col=seg.startCol;col<=seg.endCol;col++)hidden[col]++;
           return;
         }

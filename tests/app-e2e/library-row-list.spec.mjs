@@ -168,7 +168,7 @@ for(const width of [390,1440]){
     const style=el=>el.evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['paddingTop','paddingBottom','minHeight','borderRadius','boxShadow','backgroundColor'].map(k=>[k,s[k]]))});
     const libraryRow=await style(rows.nth(1));
     // UI-PC회의: PC(≥1024)의 회의는 유형별 열이라 줄 비교는 폰·중간 폭에서만 한다.
-    if(width<1024){
+    if(width<761){
       await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
       const meetingRows=page.locator('#meetingList .meeting-list-row');
       // LIB-목록간격(2026-10-23): 자료 줄은 위아래 여백이 절반이라 회의 줄과 여백·최소 높이는 일부러 다르다. 나머지 모양(모서리·그림자·바탕)은 같다.
@@ -371,7 +371,7 @@ for(const width of [390,1280]){
       expect(state.patches.at(-1).body.meeting_id).toBeNull();
       await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('meetings'));await openMeetingResult(page,'recent');
-      await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
+      await expect(page.locator('#mrdMaterials [data-wait-empty]')).toHaveText('없음');
       // Refresh the open material list through the same signal that the edit save emitted.
       // It must leave an in-progress meeting editor intact.
       await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('작성 중 원문');
@@ -392,7 +392,7 @@ for(const width of [390,1280]){
       state.docs[0].meeting_id=null;
       await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
       releaseFirst();
-      await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
+      await expect(page.locator('#mrdMaterials [data-wait-empty]')).toHaveText('없음');
       expect(materialReads).toBe(2);
       await expect(page.locator('#mrdEditTranscript')).toHaveValue('작성 중 원문');
       await closeMeetingResult(page);await page.evaluate(()=>window.KPTURouter.go('library'));

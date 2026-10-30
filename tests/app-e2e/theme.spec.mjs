@@ -1,5 +1,4 @@
 import { appOrigin } from './helpers/test-origin.mjs';
-import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -164,7 +163,8 @@ test('theme returns focus after project history listeners run',async({page})=>{
   else if(close==='outside')await page.locator('#themeModal').click({position:{x:4,y:4}});
   else if(close==='back')await page.goBack();
   else await page.getByRole('button',{name:'화면 색 선택 창 닫기'}).click();
-  await expect(page.locator('#themeModal')).toBeHidden();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe(null);
+  // NAV-PC앞뒤통일: 밑의 사업영역 창도 '열린 것'이라 PC에서 자기 기록 칸을 가진다 — 화면 색 창을 닫으면 그 칸으로 돌아온다.
+  await expect(page.locator('#themeModal')).toBeHidden();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe('areaWindow');
   await expect(account).toBeFocused();
  }
 });
@@ -205,9 +205,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['tasks','#tasksView .home-quick [data-quick-save]','backgroundColor',color],
    ['projects','#newProjectBtn','backgroundColor',color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
-   ['meetings','#newMeetingBtn','backgroundColor',color],
-   // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕).
-   ['pages','#web1BoardActive','backgroundColor',surface[theme]]
+   ['meetings','#newMeetingBtn','backgroundColor',color]
   ]){
    await clickView(page,view);
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
@@ -226,7 +224,6 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
      expect(await navBtn.evaluate(el=>getComputedStyle(el).boxShadow)).toContain('inset');
     }
    }
-   if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);
    if(view==='projects'){
     await page.locator('#projectGrid .ps3-plist [data-ps3-project="theme-project"]').click();await expectProjectDetail(page,'theme-project');
@@ -291,7 +288,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
  await page.mouse.click(r.x+r.width/2,r.y-4);await expect(page.locator('#eventModal')).toBeHidden();
  await clickView(page,'tasks');
  // UI-PC할일후속: PC(1440)에서 기한 없는 할 일은 "일주일 안" 열 아래 "나중 N ▸" 접기 줄 안에 있다. 펼친 뒤 같은 검사를 한다.
- if(width>=1024){await expect(page.locator('#gtLater summary')).toBeVisible();await page.locator('#gtLater summary').click();}
+ if(width>=761){await expect(page.locator('#gtLater summary')).toBeVisible();await page.locator('#gtLater summary').click();}
  await expect(page.locator('#gtTaskBody .gt-menu-trigger')).toBeVisible();await check('#gtTaskBody .gt-menu-trigger',44);
 });
 
@@ -345,7 +342,7 @@ for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account mat
  if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','13px');/* 8-9e-3: 메뉴 줄 13px */await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
   /* BASKET-PC메뉴: 좁은 한 줄 메뉴(761px)는 [업데이트]·[챙길 것]이 늘어 [사업 보고]가 [메뉴] 창으로 넘어갈 수 있으므로, 줄에 남은 고르지 않은 항목([홈])으로 비교한다(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다). */
-  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="meetings"]')||document.querySelector('.app-nav [data-view="home"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
+  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="meetings"]')||document.querySelector('.app-nav [data-view="home"]')),account=getComputedStyle(document.querySelector('.app-topline [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
  });expect(styles.account).toEqual(styles.nav);
 });

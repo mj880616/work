@@ -201,7 +201,7 @@ test('예전 메모는 읽기 전용이고 확인 후 삭제만 할 수 있다',
   page.once('dialog',d=>{asked=d.message();d.accept()});
   await memo.getByRole('button',{name:'메모 삭제'}).click();
   expect(asked).toBe('이 메모를 삭제할까요?');
-  await expect(page.locator('#wdItems')).toHaveText('이전 메모 없음');
+  await expect(page.locator('#wdItems [data-wait-empty]')).toHaveText('없음');
   await expect(page.locator('#toast')).toHaveText('메모를 삭제했습니다.');
   const deletes=await page.evaluate(()=>window.__deletes);
   expect(deletes).toEqual([{path:'/rest/v1/app_suborganization_status_items?id=eq.memo-1&organization_id=eq.org-rail&select=id',prefer:'return=representation'}]);

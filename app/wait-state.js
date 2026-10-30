@@ -31,9 +31,12 @@ export function failHtml({retry = '', text = FAIL_TEXT} = {}) {
   const button = attr ? ` <button type="button" class="wait-retry"${attr}>다시</button>` : '';
   return `<p class="wait-fail" data-wait-fail role="alert">${esc(text)}${button}</p>`;
 }
-// 없음.
-export function emptyHtml(text = EMPTY_TEXT) {
-  return `<p class="wait-empty" data-wait-empty>${esc(text || EMPTY_TEXT)}</p>`;
+// 없음. text: 기본 '없음'(같은 화면에 빈 칸이 여럿이라 구분이 필요하면 '일정 없음'처럼 짧게).
+// attrs: 그 화면이 찾는 표시(예 'data-journal-events-empty', 'data-cf-empty="none" hidden'). data-*·hidden·id 만 받는다.
+const EMPTY_ATTRS = /^(?:\s*(?:data-[a-z0-9-]+(?:="[\w\- ]*")?|hidden|id="[\w-]+"))*\s*$/;
+export function emptyHtml(text = EMPTY_TEXT, {attrs = ''} = {}) {
+  const extra = attrs && EMPTY_ATTRS.test(attrs) ? ` ${attrs.trim()}` : '';
+  return `<p class="wait-empty" data-wait-empty${extra}>${esc(text || EMPTY_TEXT)}</p>`;
 }
 
 const fromHtml = html => { const t = document.createElement('template'); t.innerHTML = html; return t.content.firstElementChild; };
@@ -45,12 +48,12 @@ export function failEl({onRetry = null, text = FAIL_TEXT} = {}) {
   if (onRetry) node.querySelector('button').addEventListener('click', event => { event.preventDefault(); onRetry(); });
   return node;
 }
-export const emptyEl = text => fromHtml(emptyHtml(text));
+export const emptyEl = (text, opts) => fromHtml(emptyHtml(text, opts));
 
 // 칸 안을 통째로 바꾼다.
 export function showWait(host, opts) { host?.replaceChildren(waitEl(opts)); }
 export function showFail(host, opts) { host?.replaceChildren(failEl(opts)); }
-export function showEmpty(host, text) { host?.replaceChildren(emptyEl(text)); }
+export function showEmpty(host, text, opts) { host?.replaceChildren(emptyEl(text, opts)); }
 
 // 위쪽 가는 줄 하나만(글자·빈 줄 없이). 메뉴 화면 프로그램을 처음 받을 때(loader-v2.js) 쓴다.
 export function barHtml() {

@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {notify} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js';
@@ -50,7 +50,7 @@ function mrdClose(){mrdRequestEpoch++;const m=document.querySelector('#meetingRo
 // MTG-보고창정리: 제목 줄 오른쪽 ⋯ 하나가 [수정]·[칸 바꾸기]·[삭제]를 가진다. 우클릭은 공용 context-menu.js가 이 ⋯(data-ctx="area")를 눌러 같은 메뉴를 연다.
 // 메뉴 부품은 후속 할 일 ⋯와 같은 공용 앵커 메뉴(anchored-menu.js). 삭제는 기존 휴지통 흐름(mrdDeleteMeeting)을 그대로 쓴다.
 let mrdRoundRows=null,mrdMoreMenu=null;
-// MTG-고치기바로: 이 창(#meetingRoundDetailModal) 요소 하나가 두 곳에 앉는다. ① 팝업(폰·중간 폭·다른 화면 위) ② PC 사업 보고 화면의 세 번째 칸(붙임, dock).
+// MTG-고치기바로: 이 창(#meetingRoundDetailModal) 요소 하나가 두 곳에 앉는다. ① 팝업(폰·다른 화면 위) ② PC 사업 보고 화면의 세 번째 칸(붙임, dock).
 // 프로젝트(project-system-v3.js)·할 일(google-tasks.js) 화면의 붙임과 같은 방식이다: 요소를 옮기고 겉모양만 칸에 맞춘다. 두 벌을 그리지 않는다.
 // 옮기는 곳은 mrdDock·mrdUndock 둘뿐이고, 칸을 그리는 team.js가 다시 그릴 때마다 내렸다가 다시 앉힌다.
 let mrdDocked=false,mrdActionsTop=false,mrdEditBase='',mrdLeaveNext=null,mrdEditHistory=false,mrdSkipPop=0,mrdMemo=null;
@@ -73,7 +73,7 @@ function mrdOpenTaskForm(task=null){if(!mrdCurrent||!mrdCanEdit(mrdCurrent))retu
 function mrdToggleTaskForm(){const open=!document.querySelector('#mrdTaskForm')?.classList.contains('hidden');if(open&&!mrdEditingTask){mrdResetTaskForm();document.querySelector('#mrdAddTask')?.focus();return}mrdOpenTaskForm()}
 // 같은 목록을 다시 그리지 않는다: 완료 동그라미는 먼저 그리고 저장 뒤 다시 읽는데, 결과가 같으면 그 사이 연 ⋯ 메뉴를 닫지 않는다(한 구역 한 번 그리기).
 let mrdTasksDrawn=null;
-function mrdRenderTasks(){const box=document.querySelector('#mrdTasks');if(!box)return;const editable=mrdCanEdit(mrdCurrent);const html=mrdTasks.length?mrdTasks.map(t=>`<div class="gt-row gt-side-row ${t.status==='completed'?'completed':'pending'}" data-mrd-task="${mrdEsc(t.id)}"><button class="gt-check" type="button" data-mrd-task-toggle="${mrdEsc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button>${editable?`<button class="gt-main mrd-task-main" type="button" data-mrd-task-edit="${mrdEsc(t.id)}">`:'<div class="gt-main mrd-task-main">'}<b>${mrdEsc(t.title||'제목 없음')}</b>${t.due?`<div class="gt-meta"><span class="gt-due">${mrdEsc(dueText(mrdDueDateValue(t.due)))}</span></div>`:''}${editable?'</button>':'</div>'}${editable?`<button class="icon-btn gt-menu-trigger" type="button" data-mrd-task-menu="${mrdEsc(t.id)}" aria-label="할 일 관리: ${mrdEsc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="mrdTaskMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</div>`).join(''):'<p class="mtg-empty">후속 할 일이 없습니다.</p>';document.querySelector('#mrdAddTask')?.classList.toggle('hidden',!editable);document.querySelector('#mrdMakeTodos')?.classList.toggle('hidden',!editable);if(mrdTasksDrawn?.box===box&&mrdTasksDrawn.html===html&&!box.querySelector('[disabled]'))return;mrdTaskMenu?.close();box.innerHTML=html;mrdTasksDrawn={box,html}}
+function mrdRenderTasks(){const box=document.querySelector('#mrdTasks');if(!box)return;const editable=mrdCanEdit(mrdCurrent);const html=mrdTasks.length?mrdTasks.map(t=>`<div class="gt-row gt-side-row ${t.status==='completed'?'completed':'pending'}" data-mrd-task="${mrdEsc(t.id)}"><button class="gt-check" type="button" data-mrd-task-toggle="${mrdEsc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button>${editable?`<button class="gt-main mrd-task-main" type="button" data-mrd-task-edit="${mrdEsc(t.id)}">`:'<div class="gt-main mrd-task-main">'}<b>${mrdEsc(t.title||'제목 없음')}</b>${t.due?`<div class="gt-meta"><span class="gt-due">${mrdEsc(dueText(mrdDueDateValue(t.due)))}</span></div>`:''}${editable?'</button>':'</div>'}${editable?`<button class="icon-btn gt-menu-trigger" type="button" data-mrd-task-menu="${mrdEsc(t.id)}" aria-label="할 일 관리: ${mrdEsc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="mrdTaskMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</div>`).join(''):emptyHtml();document.querySelector('#mrdAddTask')?.classList.toggle('hidden',!editable);document.querySelector('#mrdMakeTodos')?.classList.toggle('hidden',!editable);if(mrdTasksDrawn?.box===box&&mrdTasksDrawn.html===html&&!box.querySelector('[disabled]'))return;mrdTaskMenu?.close();box.innerHTML=html;mrdTasksDrawn={box,html}}
 // [할 일로]로 Google 할 일이 생기면 이 창의 후속 할 일 목록만 다시 읽는다(창을 다시 열지 않음).
 async function mrdRefreshTasks(){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!meeting)return;try{const r=await mrdReadTasks(meeting.id);if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==meeting.id)return;mrdTasks=r?.tasks||[];mrdRenderTasks()}catch(e){console.warn('meeting task refresh failed',e)}}
 // 할 일 화면과 같은 ⋯ 메뉴(수정·삭제). 창 안에 붙여 포커스가 창을 벗어나지 않게 한다.
@@ -111,7 +111,7 @@ function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
     // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯), ×는 기존 삭제 확인을 거친다.
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name)}<button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):`<p class="mtg-empty">${mrdEsc(reportWords(reportKindOf(mrdCurrent)).materialsEmpty)}</p>`;
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name)}<button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):emptyHtml();
     document.querySelectorAll('[data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();return mrdDeleteMaterial(b,allDocs)});
     document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload,docs)});
 }
@@ -244,7 +244,7 @@ async function mrdLoadMeeting(id,epoch){
   return true;
 }
 async function mrdOpenMeeting(id){
-  // PC 사업 보고 화면(세 칸·두 칸)이 떠 있으면 팝업을 열지 않고 그 칸에서 고른다(team.js reveal). 다른 화면 위·폰·중간 폭은 지금처럼 팝업.
+  // PC 사업 보고 화면(세 칸·두 칸)이 떠 있으면 팝업을 열지 않고 그 칸에서 고른다(team.js reveal). 다른 화면 위·폰은 지금처럼 팝업.
   if(window.KPTUMeetingColumns?.reveal?.(id))return;
   const epoch=++mrdRequestEpoch;
   mrdUndock();mrdEditSequence++;mrdEditor=null;
@@ -388,7 +388,7 @@ async function mrdDock(slot,id){
 function mrdUndock(){
   if(!mrdDocked)return;
   const m=mrdModalEl(),a=document.activeElement;
-  mrdMemo={id:String(mrdCurrent?.id??''),top:m.scrollTop,focus:a&&a.id&&m.contains(a)?{id:a.id,start:a.selectionStart??null,end:a.selectionEnd??null}:null};
+  mrdMemo={id:String(mrdCurrent?.id??''),top:m.scrollTop,page:window.scrollY||0,focus:a&&a.id&&m.contains(a)?{id:a.id,start:a.selectionStart??null,end:a.selectionEnd??null}:null};
   mrdMoreMenu?.close();mrdTaskMenu?.close();
   document.body.append(m);
   mrdDocked=false;mrdPaintDocked();mrdPlaceActions(false);
@@ -396,7 +396,8 @@ function mrdUndock(){
 }
 function mrdRestoreView(key){
   const memo=mrdMemo;mrdMemo=null;if(!memo||memo.id!==key)return;
-  const m=mrdModalEl(),set=()=>{if(m)m.scrollTop=memo.top};set();requestAnimationFrame(set);
+  // UI-칸안스크롤하나로: PC 칸은 화면 스크롤 하나라 화면 자리(page)도 돌려준다(칸이 잠깐 비어 화면이 짧아졌다가 다시 길어짐).
+  const m=mrdModalEl(),set=()=>{if(m)m.scrollTop=memo.top;if(mrdDocked&&Math.abs((window.scrollY||0)-memo.page)>1)window.scrollTo({top:memo.page,behavior:'instant'})};set();requestAnimationFrame(set);
   if(memo.focus){const el=document.getElementById(memo.focus.id);if(el&&!el.disabled){el.focus({preventScroll:true});try{if(memo.focus.start!=null)el.setSelectionRange(memo.focus.start,memo.focus.end)}catch{}}}
 }
 // 목록이 더 새로운 기록을 갖고 있으면(다른 곳에서 연결·칸이 바뀜) 칸에 붙은 창도 맞춘다. 고치는 중에는 입력을 건드리지 않는다.

@@ -1,6 +1,6 @@
 // MENU-HOME-편집: 사용자가 정한 메뉴 순서(view_prefs.menu_layout)를 화면에 입히는 유일한 곳.
 // 목록의 뜻은 menu-model.mjs 한 곳이고, 여기서는 폰 하단바 칸과 폰 [메뉴] 창 안 목록을 그 순서대로 다시 만든다.
-// PC 왼쪽 메뉴·761~1023px 한 줄 메뉴의 자리 바꾸기는 그 버튼들의 주인인 topbar-actions.js가 kptu:menu-layout-applied를 받아 한다.
+// PC 왼쪽 메뉴(761px~)의 자리 바꾸기는 그 버튼들의 주인인 topbar-actions.js가 kptu:menu-layout-applied를 받아 한다.
 // 기본 구성이고 한 번도 바꾼 적이 없으면 index.html의 처음 모양을 그대로 둔다(다시 그리지 않음).
 // 저장은 view-prefs.js(서버)뿐이다. 서버가 새 칸을 아직 모르면(DB 적용 전) 거절 알림으로 원래 순서로 돌아가고 안내한다.
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
@@ -32,8 +32,7 @@ function paintPhone() {
   }
   const nav = document.querySelector('#mobileMenu .mobile-menu-panel nav[aria-label="더 보기"]');
   if (nav) {
-    // 761~1023px 한 줄 메뉴는 PC 왼쪽 메뉴 버튼을 이 목록에 옮겨 담는다(.nav-btn·.nav-sub-btn). 그것들은 그대로 두고 폰용 줄만 다시 만든다.
-    [...nav.children].filter(el => !el.matches('.nav-btn,.nav-sub-btn')).forEach(el => el.remove());
+    [...nav.children].forEach(el => el.remove());
     const nodes = toNodes(layout.rest.map(id => itemButtonHtml(itemOf(id), 'sheet')).join(''));
     nav.prepend(...nodes);
   }

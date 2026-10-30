@@ -3,8 +3,8 @@ import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 const NOW=Date.parse('2026-10-08T03:00:00Z');
 const task=(id,due=null,extra={})=>({id,title:id,taskListId:'@default',taskListTitle:'내 할 일',due,status:'needsAction',...extra});
 async function open(page,tasks,options={}){await openEmphasisFixture(page,{view:'list',now:NOW,events:[],tasks,...options});await page.evaluate(()=>window.KPTURouter.go('tasks'));await expect(page.locator('[data-gt-count]')).toHaveText(`할 일 ${tasks.filter(t=>t.status!=='completed').length}개`);}
-// UI-PC할일: 1024px 이상은 기한별 열(tasks-pc-columns.spec.mjs). 이 묶음 목록 시험은 폰(360)과 목록이 그대로인 중간 폭(900)에서 본다.
-for(const width of [360,900]){
+// UI-PC할일: PC 틀(761px~, UI-폴드PC틀)은 기한별 열(tasks-pc-columns.spec.mjs). 이 묶음 목록 시험은 폰(360·760)에서 본다.
+for(const width of [360,760]){
  test(`nonempty groups, compact linked metadata and controls ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});
   const title='아주 긴 할 일 제목을 두 줄까지 보여 주고 나머지는 말줄임으로 처리하는 제목입니다 '.repeat(3);
@@ -29,7 +29,7 @@ for(const width of [360,900]){
  });
  test(`empty state and scope information ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});const tasks=[];await open(page,tasks);
-  await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');
+  await expect(page.locator('#gtTaskBody [data-wait-empty]')).toHaveText('없음');
   if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-empty-360.png'});await expect(page.locator('#gtTaskBody .gt-group')).toHaveCount(0);await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
   await expect(page.locator('#gtTaskSection .gt-head-left')).toBeHidden();
   await expect(page.locator('#gtTaskSection .gt-scope-note')).toHaveCount(0);await expect(page.locator('#gtTaskSection')).not.toContainText('Google 할 일');
@@ -41,7 +41,7 @@ for(const width of [360,900]){
  test(`overdue color and completed-only empty state ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page,[task('late','2026-10-07T00:00:00Z'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})]);
   await expect(page.locator('[data-gt-overdue]')).toBeVisible();expect(await page.locator('.gt-row.overdue .gt-due').evaluate(el=>getComputedStyle(el).color)).toBe(await page.locator('#gt-overdue-head').evaluate(el=>getComputedStyle(el).color));await expect(page.locator('#gtCompleted')).not.toHaveAttribute('open','');
-  await page.locator('[data-gt-toggle="late"]').click();await expect(page.locator('#gtTaskBody')).toContainText('할 일이 없습니다',{timeout:5000});await expect(page.locator('[data-gt-overdue]')).toHaveCount(0);await expect(page.locator('#gtCompleted')).toBeVisible();
+  await page.locator('[data-gt-toggle="late"]').click();await expect(page.locator('#gtTaskBody [data-wait-empty]')).toHaveText('없음',{timeout:5000});await expect(page.locator('[data-gt-overdue]')).toHaveCount(0);await expect(page.locator('#gtCompleted')).toBeVisible();
  });
 }
 
@@ -58,7 +58,7 @@ for(const dismiss of ['Escape','edit'])test(`late link lookup keeps open menu an
 });
 
 test('a task removed during menu use closes without opening a blank editor',async({page})=>{
- await page.setViewportSize({width:900,height:844});
+ await page.setViewportSize({width:760,height:844});
  const tasks=[task('removed','2026-10-08')];await open(page,tasks);
  await page.locator('[data-gt-menu="removed"]').click();tasks.splice(0);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -66,7 +66,7 @@ test('a task removed during menu use closes without opening a blank editor',asyn
  await expect.poll(()=>page.evaluate(()=>window.KPTUGoogleTasks.peekTasks().tasks.length)).toBe(0);
  await page.locator('#gtTaskMenu').getByRole('button',{name:'편집',exact:true}).click();
  await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(page.locator('#gtTaskModal')).toBeHidden();
- await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeFocused();expect(errors).toEqual([]);
+ await expect(page.locator('#gtTaskBody [data-wait-empty]')).toHaveText('없음');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeFocused();expect(errors).toEqual([]);
 });
 
 for(const width of [360,390])test(`long calendar task stays inside dialog and metadata has visual spacing ${width}`,async({page})=>{

@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, emptyHtml} from './wait-state.js';
 // BASKET-정리함이름: the 정리함's [챙길 것] side (basket.js owns the screen, this module owns what is inside the side).
 // One list of the "챙길 것" candidates the server found in the Web2 records (todo-radar-data.js, table app_todo_candidates, the
 // owner's own rows only). Chips narrow it: 처리 전 / 할 일로 보냄 / 무시함. Each open row has the source on the left (a small button that
@@ -18,7 +18,6 @@ import {flashDone} from './press-feedback.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '할 일로 보냄'], ['dismissed', '무시함']]);
-const EMPTY = Object.freeze({open: '챙길 것 없음', tasked: '보낸 것 없음', dismissed: '무시한 것 없음'});
 const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
 
 // MTG-후속할일후보: the same list can sit inside one 사업 보고 window. `read` swaps in the reader for that meeting's rows, `quietEmpty` draws nothing
@@ -94,7 +93,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     else if (state === 'missing') body = `<p class="inbox-todo-empty">챙길 것 기능이 아직 준비 중이에요.</p>`;
     else if (state === 'failed') body = `<p class="inbox-todo-empty">챙길 것을 불러오지 못했어요. <button type="button" class="inbox-todo-link" data-inbox-todo-retry>다시 시도</button></p>`;
     else if (state === 'loading') body = waitHtml({rows:2});
-    else if (!list.length && !promises().length) body = quietEmpty ? '' : `<p class="inbox-todo-empty" data-inbox-todo-empty>${EMPTY[chip]}</p>`;
+    else if (!list.length && !promises().length) body = quietEmpty ? '' : emptyHtml('없음', {attrs: 'data-inbox-todo-empty'});
     else body = `<ul class="inbox-todo-list" aria-label="챙길 것">${list.map(rowHtml).join('')}${promises().map(promiseHtml).join('')}</ul>`;
     host.innerHTML = `${body}<p class="inbox-todo-status" role="status" aria-live="polite" data-inbox-todo-line>${esc(status)}</p>`;
     if (focusAttr) host.querySelector(`[${focusAttr.name}="${CSS.escape(focusAttr.value)}"]`)?.focus({preventScroll: true});

@@ -1,3 +1,4 @@
+import {watchScrollEdges} from './scroll-edge.js';
 // One renderer for list filters. Keep nodes during selection so focus and touch survive refreshes.
 export function renderFilterChips(host,{options,value='all',label,onChange,small=false,controls}={}){
   if(!host)return;
@@ -32,4 +33,5 @@ export function renderFilterChips(host,{options,value='all',label,onChange,small
     host._filterBound=true;
   }
   update();
+  watchScrollEdges(host);
 }

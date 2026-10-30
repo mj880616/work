@@ -16,18 +16,17 @@
 #soOrganizationList>.so-org-group{border:0;border-radius:var(--kptu-radius-md);background:transparent}
 .so-group-heading{margin:0 0 6px;font-size:12px;line-height:18px;color:var(--kptu-muted)}
 .so-group-card{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
-/* ORG-PC좌우(2026-10-21): PC(1024px~) 담당조직 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#wdDetailPane). 프로젝트 화면(UI-PC프로젝트좌우,
-   project-system-v3.css #ps3DetailPane)과 같은 짜임·비율(--ds-split-*): 화면 높이에 맞춘 한 페이지, 목록·상세 칸 안에서만 세로로 넘긴다.
+/* ORG-PC좌우(2026-10-21): PC(761px~) 담당조직 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#wdDetailPane). 프로젝트 화면(UI-PC프로젝트좌우,
+   project-system-v3.css #ps3DetailPane)과 같은 짜임·비율(--ds-split-*): 화면 스크롤 하나, 상세 칸은 화면에 붙어 따라온다(UI-칸안스크롤하나로).
    상세 칸은 지금 상세 창(#wdModal)을 그 자리에 옮겨 그대로 쓴다(workplace-detail.js wdPlace). 창 겉모양만 칸에 맞추고
-   닫기 ×는 숨긴다(다른 조직을 고르면 바뀜). 761~1023px·폰은 지금처럼 목록 + 상세 창. */
+   닫기 ×는 숨긴다(다른 조직을 고르면 바뀜). 폰은 지금처럼 목록 + 상세 창. */
 #wdDetailPane{display:none}
-@media(min-width:1024px){
-  html:has(#appView #teamView:not(.hidden)) main{padding-bottom:12px}
-  html:has(#appView #teamView:not(.hidden)) #appView>.app-nav{margin-bottom:0}
-  #appView #teamView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
-  #appView #teamView>#soTeamSection{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
-  #appView #teamView #soTeamSection>#soOrganizationList{grid-column:1;grid-row:1;align-self:start;align-content:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;min-width:0}
-  #appView #teamView #soTeamSection>#wdDetailPane{grid-column:2;grid-row:1;display:block;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+@media(min-width:761px){
+  /* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): 스크롤은 화면 전체 하나. 목록은 화면과 같이 내려가고, 상세 칸은
+     follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 화면에 붙여 따라오게 한다(workplace-detail.js wdSplit). */
+  #appView #teamView>#soTeamSection{display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto;align-items:start;column-gap:var(--kptu-space-3);margin:0}
+  #appView #teamView #soTeamSection>#soOrganizationList{grid-column:1;grid-row:1;align-self:start;align-content:start;box-sizing:border-box;min-width:0}
+  #appView #teamView #soTeamSection>#wdDetailPane{grid-column:2;grid-row:1;display:block;min-width:0;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   /* UI-전수디자인점검 F23: 안내문('왼쪽에서 조직을 고르면…')은 두지 않는다. PC는 처음 열 때 마지막으로 본 조직(없으면 첫 조직)을 바로 보여 주고
      (workplace-detail.js wdOpenFirst), 담당조직이 하나도 없을 때만(renderTeam이 .so-none) 오른쪽 칸을 빼고 목록이 두 칸을 다 쓴다. */
   #appView #teamView #soTeamSection.so-none>#wdDetailPane{display:none}
@@ -89,10 +88,10 @@
   #appView #soTeamSection>.so-team-head .so-team-more{pointer-events:auto;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}
   #appView #soTeamSection>.so-team-head .so-team-more::after{content:none}
 }
-/* UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄('담당조직')이 화면 이름을 보인다. 큰 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 두고, ⋯는 같은 줄 오른쪽 끝.
+/* UI-화면정리 B ①: PC(761px~)는 위쪽 경로 줄('담당조직')이 화면 이름을 보인다. 큰 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 두고, ⋯는 같은 줄 오른쪽 끝.
    UI-전수디자인점검 F07: PC에서는 ⋯ 하나만 담은 빈 줄(32px)을 두지 않는다. 머리줄은 좌우 격자(#soTeamSection)의 목록 칸·첫 줄에 목록과 겹쳐 놓여
    ⋯가 목록 칸 맨 위 줄(첫 묶음 머리줄 '그 외 … 3곳') 오른쪽 끝에 온다. 오른쪽 상세 칸은 화면 맨 위부터 쓴다. 첫 묶음 머리줄은 ⋯ 자리만큼 오른쪽을 비운다. */
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #soTeamSection>.so-team-head{grid-column:1;grid-row:1;align-self:start;justify-self:end;position:relative;z-index:1;justify-content:flex-end;box-sizing:border-box;min-height:0;height:calc(2 * var(--kptu-space-3) + 18px);margin:var(--ds-line-width) var(--kptu-space-2) 0 0}
   #appView #soTeamSection>.so-team-head .so-team-more{background:var(--kptu-surface)}
   #appView #soTeamSection>.so-team-head .so-team-more:is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle)}
@@ -102,3 +101,5 @@
 #soOrganizationList .so-reference-entry{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px var(--kptu-space-4);border:0;border-top:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
 #soOrganizationList .so-reference-entry:hover{background:var(--kptu-surface-subtle)}
 #soOrganizationList .so-reference-entry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+/* UI-기다림표시통일 3차: 담당조직이 하나도 없을 때의 공용 '없음'(.wait-empty)은 목록 한 줄 높이 — 오른쪽 위 ⋯ 와 아래 [참고 묶음] 줄이 겹치지 않게. */
+#soOrganizationList>.wait-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target);margin:0;padding:0 calc(var(--kptu-space-2) + var(--ds-compact-height) + var(--kptu-space-2)) 0 var(--kptu-space-4)}

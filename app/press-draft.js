@@ -5,14 +5,14 @@
 // ③ [노트로 저장] → 노트 한 건(app_notes kind=note, ai_export_allowed=false: AI 재료에서 뺌, 결정 4-④). '성명 초안' 폴더가 있으면 그 폴더에
 //    (자동으로 만들지 않음), 근거 사업 보고와는 기존 연결(app_record_links note_id + meeting_id)로 잇는다. 그 뒤 노트 편집기로 연다.
 // 닫으면 아무것도 남지 않는다. 공개·발송·사실 확인은 명진이 직접. 기기 저장 없음(이 창 메모리만).
-// PC(1024px~)는 근거(왼쪽)·미리보기(오른쪽) 한 창, 폰은 고르기 → 미리보기 한 칸씩(뒤로 한 번 = 고르기, 한 번 더 = 닫기).
-import {waitHtml} from './wait-state.js';
+// PC(761px~)는 근거(왼쪽)·미리보기(오른쪽) 한 창, 폰은 고르기 → 미리보기 한 칸씩(뒤로 한 번 = 고르기, 한 번 더 = 닫기).
+import {waitHtml, emptyHtml} from './wait-state.js';
 import {pickFoldHtml, readPickState, bindPickFold} from './pick-fold.mjs'; // UI-고른것접기: 근거 고르기 = 고른 것 + 접힌 '최근 사업 보고'(맨 위 찾기·초성)
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
 import {PRESS_TYPES, PRESS_MAX_PICK, PRESS_DIRECTION_MAX, PRESS_FOLDER_NAME, typeLabel, shortDay, pressRequest, parsePressAnswer, pressNote, meetingPickLine} from './press-draft-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
-const wide = () => typeof matchMedia === 'function' && matchMedia('(min-width:1024px)').matches;
+const wide = () => typeof matchMedia === 'function' && matchMedia('(min-width:761px)').matches;
 const PICK_ROWS = 40;
 const TIMEOUT_MS = 90000;
 export const PRESS_TEXT = Object.freeze({
@@ -178,7 +178,7 @@ function pickHtml() {
   const chips = PRESS_TYPES.map(t => `<button type="button" class="pd-chip" data-pd-type="${t.value}" aria-pressed="${s.type === t.value}">${t.label}</button>`).join('');
   const list = s.meetings === null ? waitHtml({rows:4, h:36})
     : s.failed ? `<p class="pd-muted">사업 보고를 불러오지 못했어요. <button type="button" class="pd-link" data-pd-retry>다시</button></p>`
-    : !s.meetings.length ? '<p class="pd-muted">사업 보고 없음</p>'
+    : !s.meetings.length ? emptyHtml('사업 보고 없음')
     : pickFoldHtml({key:'pd', picked:s.meetings.filter(m => s.picked.includes(m.id)).map(pickRow).join(''),
       others:[{label:'', items:s.meetings.filter(m => !s.picked.includes(m.id)).map(m => ({name:[m.name, m.meta].filter(Boolean).join(' '), html:pickRow(m)}))}],
       state:s.pick, othersLabel:'최근 사업 보고', noneText:'고른 근거 없음'});

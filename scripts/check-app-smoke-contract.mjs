@@ -21,17 +21,17 @@ const routeModules = {
   },
   projects: { 'project-system-v3.js': '__KPTU_PROJECT_V3_READY__' },
   library: { 'library-upload.js': '__KPTU_LIBRARY_UPLOAD_READY__' },
-  pages: { 'web1-board.js': null },
+  pages: { 'share-pages.js': null },
   tasks: { 'google-tasks.js': null },
   projectCatalog: { 'project-catalog.js': null },
 };
 const routeStyles = {
   calendar: 'calendar-ui.css', tasks: 'task-layout.css', projects: 'project-system-v3.css',
   library: 'library-upload.css', meetings: 'meeting-ui.css',
-  pages: 'web1-board.css', team: 'suborganizations.css',
+  pages: 'share-pages.css', team: 'suborganizations.css',
 };
 const requiredCss = ['topbar-actions.css', 'team.css', 'task-layout.css', 'google-tasks.css',
-  'library-upload.css', 'meeting-ui.css', 'calendar-ui.css', 'project-system-v3.css', 'web1-board.css'];
+  'library-upload.css', 'meeting-ui.css', 'calendar-ui.css', 'project-system-v3.css'];
 const literal = node => node?.type === 'Literal' && typeof node.value === 'string' ? node.value : null;
 const resourceName = raw => typeof raw === 'string' ? raw.split(/[?#]/)[0].split('/').at(-1) : null;
 

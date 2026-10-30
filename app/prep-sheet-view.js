@@ -6,7 +6,7 @@
 // 기다림(state 'loading')은 공용 wait-state.js 부품(글자 없는 회색 줄).
 // view(모델이 만든 모양): {made, top:[{text, refs}], aiNote, empty, changed, groups:[{key,label,summary,items:[{index,day,title,org,ai,refs}]}]}
 // 기기 저장 없음.
-import {waitEl} from './wait-state.js';
+import {waitEl, emptyEl} from './wait-state.js';
 
 const ds = (prefix, name) => prefix + name.charAt(0).toUpperCase() + name.slice(1);
 
@@ -46,7 +46,7 @@ export function renderPrepSheet(host, ui, skin) {
     host.append(ol);
   }
   if (v.aiNote) note(v.aiNote);
-  if (v.empty) { note(notes.empty); return; }
+  if (v.empty) { host.append(emptyEl(notes.empty)); return; }
   for (const g of v.groups) {
     const box = el('details', `${S.cls}-group`); box.dataset[ds(S.data, 'group')] = g.key;
     if (ui.open?.has(g.key)) box.open = true;

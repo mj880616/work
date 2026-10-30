@@ -40,29 +40,29 @@ test('correct READY elsewhere does not excuse the missing call argument', () => 
   assert.match(run(change('app/view-loader.js', `module('${url}','__KPTU_CALENDAR_MONTH_VIEW_READY__')`, `module('${url}'); const text='__KPTU_CALENDAR_MONTH_VIEW_READY__'`)).errors.join('\n'), /calendar-month-view.*READY/);
 });
 test('module moved into another route does not satisfy its owner', () => {
-  const url = versioned('app/view-loader.js', 'web1-board.js');
+  const url = versioned('app/view-loader.js', 'share-pages.js');
   const source = baseline['app/view-loader.js'].replace(`await module('${url}');`, '').replace('async function home(){', `async function home(){ await module('${url}');`);
-  assert.match(run({ 'app/view-loader.js': source }).errors.join('\n'), /pages.*web1-board/);
+  assert.match(run({ 'app/view-loader.js': source }).errors.join('\n'), /pages.*share-pages/);
 });
 test('duplicate startup and route registration fail', () => {
   const url = versioned('app/app.js', 'loader-v2.js');
   assert.match(run({ 'app/app.js': baseline['app/app.js'] + `\nimport('${url}');` }).errors.join('\n'), /loader-v2.*1/);
-  const board = versioned('app/view-loader.js', 'web1-board.js');
-  assert.match(run(change('app/view-loader.js', `await module('${board}');`, `await module('${board}'); await module('${board}');`)).errors.join('\n'), /web1-board.*1/);
+  const board = versioned('app/view-loader.js', 'share-pages.js');
+  assert.match(run(change('app/view-loader.js', `await module('${board}');`, `await module('${board}'); await module('${board}');`)).errors.join('\n'), /share-pages.*1/);
 });
 for (const invalid of ['?v=', '?v=1', '?v=2&v=3', '?v=2#fragment', '?other=2', '#fragment', '?v=0123abcdef']) {
   test(`module cache URL rejects ${JSON.stringify(invalid)}`, () => {
-    const url = versioned('app/view-loader.js', 'web1-board.js');
-    assert.match(run(change('app/view-loader.js', url, `./web1-board.js${invalid}`)).errors.join('\n'), /web1-board/);
+    const url = versioned('app/view-loader.js', 'share-pages.js');
+    assert.match(run(change('app/view-loader.js', url, `./share-pages.js${invalid}`)).errors.join('\n'), /share-pages/);
   });
 }
 test('external URL cannot satisfy a local module requirement', () => {
-  const url = versioned('app/view-loader.js', 'web1-board.js');
-  assert.match(run(change('app/view-loader.js', url, `https://example.invalid/${url}`)).errors.join('\n'), /web1-board/);
+  const url = versioned('app/view-loader.js', 'share-pages.js');
+  assert.match(run(change('app/view-loader.js', url, `https://example.invalid/${url}`)).errors.join('\n'), /share-pages/);
 });
 test('missing module target fails even if its import remains', () => {
-  const files = { ...baseline }; delete files['app/web1-board.js'];
-  assert.match(checkAppSmokeContract(files).errors.join('\n'), /web1-board.*missing/);
+  const files = { ...baseline }; delete files['app/share-pages.js'];
+  assert.match(checkAppSmokeContract(files).errors.join('\n'), /share-pages.*missing/);
 });
 test('loader preload must use the same exact path as the actual import', () => {
   const url = versioned('app/index.html', 'loader-v2.js');

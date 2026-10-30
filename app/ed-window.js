@@ -36,7 +36,7 @@ import {startDoc, isChanged, prepareSave} from './ed-window-model.mjs';
 
 export {bigWindowOpen};
 const ID = 'edWindow';
-const WIDE = window.matchMedia('(min-width:1024px)');
+const WIDE = window.matchMedia('(min-width:761px)');
 const PHONE = window.matchMedia('(max-width:760px)');
 // The app's tabs: the phone bottom tabs, and on wider screens the shell's own menu (side column or top row).
 const NAV = '#appView>.app-nav';
@@ -143,15 +143,15 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   const changed = () => (!!editor && isChanged(baseValue(), now())) || own();
   const say = message => { if (!closed) status.textContent = message || ''; };
 
-  // 761px~: the app's own menu stays beside (side) or above (top) the window; the window takes only the rest.
+  // 761px~: the app's own menu stays beside the window (side); the window takes only the rest.
   function placeBesideNav() {
     const nav = PHONE.matches ? null : document.querySelector(NAV);
     const box = nav?.getClientRects().length ? nav.getBoundingClientRect() : null;
-    const side = box ? (WIDE.matches ? 'side' : 'top') : null;
+    const side = box ? 'side' : null;
     if (side) {
       shell.dataset.edNav = side;
       shell.style.setProperty('--ed-window-left', side === 'side' ? Math.ceil(box.right) + NAV_GAP + 'px' : '0px');
-      shell.style.setProperty('--ed-window-top', side === 'top' ? Math.ceil(box.bottom) + 'px' : '0px');
+      shell.style.setProperty('--ed-window-top', '0px');
     } else {
       delete shell.dataset.edNav;
       shell.style.removeProperty('--ed-window-left'); shell.style.removeProperty('--ed-window-top');

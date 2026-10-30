@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
@@ -8,7 +8,7 @@ import {waitHtml, waitInlineHtml} from './wait-state.js';
 // (2026-10-22 사용자 결정): the top row has no copy button on either side any more.
 // JOURNAL-오늘한줄목록: [저장] adds the typed line under the input (saving order, oldest first) and empties the input.
 // Pressing a line turns it into an edit box in place with [저장][취소][삭제]; a removed line can be put back for 5 seconds
-// ([되돌리기], the app's existing undo notice). No ⋯ menu or popup. On a PC (≥1024) each line also has [수정][삭제], shown while
+// ([되돌리기], the app's existing undo notice). No ⋯ menu or popup. On a PC (≥761) each line also has [수정][삭제], shown while
 // the pointer is over the line or focus is inside it (journal.css); the phone keeps pressing the line.
 // Only the lines are saved (journal-data.js, kind=work). A material group that cannot be read shows its own notice and
 // [다시 시도]; the lines still work. A typed, unsaved line stays in memory per day until the owner changes.
@@ -20,12 +20,12 @@ import {waitHtml, waitInlineHtml} from './wait-state.js';
 // JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): the [하루] card from top to bottom is ① 오늘 한 줄 → ② 할 일 / 한 일 (PC side by
 // side from 761px, phone one above the other; 기한 지난 것 one folded line; JOURNAL-할일바로처리: each 할 일 line starts with a circle —
 // pressing it completes the task (the task screen's own toggleTask) and the line moves to 한 일 with a 5-second [되돌리기]; each line's
-// ⋯ holds [내일로 · 기한 바꾸기 · 고치기 · 지우기] (한 일: [다시 할 일로 · 고치기]) — on a PC (≥1024) the ⋯ shows only on the line the
+// ⋯ holds [내일로 · 기한 바꾸기 · 고치기 · 지우기] (한 일: [다시 할 일로 · 고치기]) — on a PC (≥761) the ⋯ shows only on the line the
 // pointer is over or focus is in, on the phone it is always shown; results are a short toast, not a line under the list) → ③ 그날 나온 챙길 것 (todo-radar.js draws it; this module only gives it its place) →
 // ④ 주간보고 재료 in the report's order (회의·활동 결과 → 사업 소식 → 조직 소식) → ⑤ 그 밖의 기록, folded, with a count line.
 // journal-data.js dayCard() builds the model; renderDay() below is the one renderer of ② and ④⑤ (the parts above are unchanged).
 // ⑥ Every line opens its original (openOriginal): an organization or project record opens that screen at that record and
-// highlights it for a moment; an update's ⋯ has [원래 업데이트 보기]. On a PC (≥1024) the organization/project opens on its own
+// highlights it for a moment; an update's ⋯ has [원래 업데이트 보기]. On a PC (≥761) the organization/project opens on its own
 // screen (one history entry, so one back or the top line's ← returns here); on the phone it opens over this screen as the app's
 // usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
 // and the same scroll and focus.
@@ -137,20 +137,12 @@ function renderWeek() {
     return button;
   }));
 }
-// UI-중복제목삭제: with the PC top line (1024px~) the chosen day is already named there ("일정 › 업무일지 › 10월 6일 화요일"), so the day card has no
-// title line of its own there (the element is not made; the card is named by aria-label instead). Below that width the line is made, as before.
-// UI-화면정리 C(2026-10-28 명진 요청 20:03 B①): a phone (~760px) shows the chosen day already as the pressed day in the week row under the
-// week range, so the day card's own title line is not made there either (the date was shown twice). Only 761~1023px keeps the line.
-const noDayTitle = window.matchMedia?.('(max-width:760px),(min-width:1024px)');
+// UI-중복제목삭제·UI-화면정리 C·UI-폴드PC틀: the PC top line (761px~) names the chosen day ("일정 › 업무일지 › 10월 6일 화요일") and a phone
+// (~760px) shows it as the pressed day in the week row, so the day card has no title line of its own at any width (the card is named by aria-label).
 function syncDayTitle() {
   const box = $('[data-journal-day]'); if (!box) return;
-  let title = box.querySelector('[data-journal-day-title]');
-  if (noDayTitle?.matches) { title?.remove(); box.removeAttribute('aria-labelledby'); box.setAttribute('aria-label', longDay(selected)); return; }
-  if (!title) { title = document.createElement('h3'); title.id = 'journalDayTitle'; title.tabIndex = -1; title.dataset.journalDayTitle = ''; box.prepend(title); }
-  box.removeAttribute('aria-label'); box.setAttribute('aria-labelledby', 'journalDayTitle');
-  title.textContent = longDay(selected);
+  box.querySelector('[data-journal-day-title]')?.remove(); box.removeAttribute('aria-labelledby'); box.setAttribute('aria-label', longDay(selected));
 }
-noDayTitle?.addEventListener?.('change', syncDayTitle);
 function renderLine({keepStatus = false} = {}) {
   syncDayTitle();
   // UI-상단줄제목: the chosen day goes to the PC top line's place (kptu:where-item, topbar-actions.js).
@@ -222,7 +214,7 @@ let opens = new Map(), openSeq = 0, othersOpen = false, calRefOpen = false, week
 // event it causes does not trigger a second read.
 let selfBusy = 0;
 const keyFor = target => { if (!target) return ''; const key = `j${++openSeq}`; opens.set(key, target); return key; };
-const WIDE = window.matchMedia?.('(min-width:1024px)');
+const WIDE = window.matchMedia?.('(min-width:761px)');
 // ⋯ of one line: a native disclosure (as the meeting-kind ⋯ of [주간 정리]) holding small buttons.
 function moreMenu(label, buttons) {
   const more = document.createElement('details');
@@ -317,10 +309,10 @@ function renderTasks(card) {
     box.innerHTML = `<h4 class="journal-heading">${label}</h4>`;
     if (part.loading) { box.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return box; }
     if (items.length) { const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...items.map(item => taskRow(item, {pending}))); box.append(ul); }
-    else if (!part.failed) { const note = dayRangeNote(key, selected, range); box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${esc(note || empty)}</p>`); }
+    else if (!part.failed) { const note = dayRangeNote(key, selected, range); box.insertAdjacentHTML('beforeend', emptyHtml(note || empty)); }
     return box;
   };
-  const todo = column('todo', '할 일', part.todo || [], true, '이 날 기한인 남은 할 일이 없어요.');
+  const todo = column('todo', '할 일', part.todo || [], true, '없음');
   // 기한 지난 것: one folded line under 할 일.
   if (!part.loading && part.overdue?.length) {
     const fold = document.createElement('details');
@@ -329,7 +321,7 @@ function renderTasks(card) {
     const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...part.overdue.map(item => taskRow(item, {pending:true})));
     fold.append(ul); todo.append(fold);
   }
-  const done = column('done', '한 일', part.done || [], false, '이 날 끝낸 할 일이 없어요.');
+  const done = column('done', '한 일', part.done || [], false, '없음');
   const cols = document.createElement('div'); cols.className = 'journal-task-cols'; cols.append(todo, done);
   const after = document.createElement('div');
   partNotes(after, {...part, key:'tasks', label:'할 일', items:[...(part.todo || []), ...(part.done || [])]});
@@ -358,7 +350,7 @@ function renderSchedule(card) {
   host.replaceChildren(head);
   if (part.loading) { host.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return; }
   if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); host.append(ul); }
-  else if (!part.failed) host.insertAdjacentHTML('beforeend', '<p class="journal-muted" data-journal-events-empty>일정 없음</p>');
+  else if (!part.failed) host.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-events-empty'}));
   partNotes(host, part);
   const refs = calRefFold();
   if (refs) host.append(refs);
@@ -402,7 +394,7 @@ function renderDay() {
   report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
   const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
   if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
-  else report.insertAdjacentHTML('beforeend', '<p class="journal-muted" data-journal-report-empty>이 날은 주간보고 재료가 없어요.</p>');
+  else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
   // ⑤ 그 밖의 기록: folded by default; the summary line counts what is inside.
   const shown = card.others.filter(part => part.loading || part.failed || part.items.length);
   const others = document.createElement('details');
@@ -784,7 +776,7 @@ async function deleteLine(index) {
 
 // ── JOURNAL-하루개편 ⑥: open a line's original ──
 // The org/project/meeting screens open through their own modules' open functions (the same ones the top line's ← → and
-// todo-radar.js use); this module only asks and then marks the record. On a PC (≥1024) they open on their own screen — a
+// todo-radar.js use); this module only asks and then marks the record. On a PC (≥761) they open on their own screen — a
 // history entry, so back or ← returns here. On the phone they open over this screen as the app's usual window, whose own
 // history entry back closes. A basket update, a note and a task open on their screens as from the other screens.
 let pendingReturn = null;
@@ -917,8 +909,9 @@ async function openOriginal(target, trigger) {
     if (target.type === 'org' || target.type === 'project') {
       const org = target.type === 'org';
       await loader.load(org ? 'team' : 'projects');
-      if (wide) { rememberReturn(trigger); if (!goView(org ? 'team' : 'projects')) { pendingReturn = null; return; } }
-      await (org ? window.KPTUWorkplace.open(target.org) : window.KPTUProjects.open(target.project));
+      // MTG-프로젝트합치기 ①: 사업영역은 화면이 아니라 창(area-window.js)이라 업무일지 위에 연다(닫으면 이 날 그대로).
+      if (org && wide) { rememberReturn(trigger); if (!goView('team')) { pendingReturn = null; return; } }
+      await (org ? window.KPTUWorkplace.open(target.org) : window.KPTUAreaWindow.open({ id: target.project, trigger }));
       if (!wide) refocusAfter(org ? '#wdModal' : '#ps3DetailModal', trigger);
       const selector = RECORD[target.type](target.record);
       if (selector) await flashRecord(selector);
@@ -1341,7 +1334,7 @@ window.addEventListener('kptu:session-changed', () => {
 function enter(detail) {
   const back = pendingReturn; pendingReturn = null;
   takeBasketReturn('journal', rt); // an update/note opened from here has done its job once this screen shows again
-  if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'trail', 'back'].includes(detail?.source)) {
+  if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'back'].includes(detail?.source)) {
     renderMode();
     window.scrollTo({top:back.scroll, behavior:'instant'});
     if (back.focus?.isConnected) back.focus.focus({preventScroll:true});

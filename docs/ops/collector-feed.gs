@@ -863,6 +863,11 @@ var TG_FEED_ASSUMED_RATE = 40;                  // 속도를 재기 전에 가�
 var TG_FEED_FETCH_BUDGET_KEY = 'TG_FEED_FETCH_BUDGET';   // 하루 URL 호출 상한을 바꿀 때 쓰는 스크립트 속성(숫자)
 var TG_FEED_FETCH_BUDGET_DEFAULT = 15000;       // 개인 계정 하루 URL 호출 한도 20,000보다 낮게(다른 스크립트·묶음 보내기 몫을 남김). 업무용(Workspace) 계정이면 속성으로 올린다
 var TG_FEED_DIRS_CACHE_KEY = 'TG_FEED_DIRS';    // 방·월 폴더 ID 기억(CacheService)
+var TG_FEED_SENDERS_BACK_DAYS_KEY = 'TG_FEED_SENDERS_BACK_DAYS';     // 이름표 소급 보내기(tgFeed_backfillSenders)가 볼 지난 날 수(숫자, 기본 14)
+var TG_FEED_SENDERS_BACK_DAYS_DEFAULT = 14;
+var TG_FEED_SENDERS_BACK_STATE_KEY = 'TG_FEED_SENDERS_BACK_STATE';   // 소급 보내기 진행 위치(JSON). TG_FEED_STATE와 따로 둔다
+var TG_FEED_SENDERS_BACK_BUDGET_KEY = 'TG_FEED_SENDERS_BACK_BUDGET'; // 소급 보내기 하루 URL 호출 상한(숫자). 매시 보내기 몫(TG_FEED_FETCH_BUDGET)과 따로 센다
+var TG_FEED_SENDERS_BACK_BUDGET_DEFAULT = 4000;
 var TG_FEED_MAX_PARTS_PER_RUN = 30;             // 한 번 실행에 보낼 묶음 수 상한(묶음마다 서버가 AI 요약을 부른다). 넘으면 10분 뒤 이어 하기로 나눈다
 
 // ── 손으로 [실행]하는 함수 ───────────────────────────────────────────────
@@ -950,6 +955,106 @@ function tgFeed_rewind() {
   props.deleteProperty(TG_FEED_REWIND_KEY);
   Logger.log('끝낸 날을 ' + tgFeedAddDays(day, -1) + '로 되돌린 방: ' + res.changed + '개. 이제 tgFeed_run을 실행하면 ' + day + '부터 다시 보냅니다.' +
     (tgFeed_testMode_() ? ' (시험 모드가 켜져 있어 보내지는 않고 개수만 셉니다)' : ''));
+}
+
+/**
+ * 이름표 소급 보내기(1회용, TG-발언자이름 설계 3.3절 방법 나): 지난 N일(스크립트 속성 TG_FEED_SENDERS_BACK_DAYS, 기본 14일, 오늘은 뺌)의
+ * 방·날마다 Drive 메시지를 다시 읽어, 평소와 같은 규칙(그날 전체 순서로 A, B, C …)으로 이름표 {label, key, name, self}만 만들어
+ * 서버 ?action=telegram_senders로 보낸다. 메시지·글은 보내지 않으므로 소식이 새로 생기지 않고 AI 비용도 들지 않는다(tgFeed_rewind와 다름).
+ * - 시험 모드(TG_FEED_TEST_MODE)가 켜져 있으면 보내지 않고 건수만 센다. 진행 위치도 적지 않는다(시간이 모자라면 앞쪽 방만 센다).
+ * - 6분 제한 전에 멈추고 진행 위치를 저장한다. 다시 [실행]하면 이어서 한다. 다 끝나면 "끝"이라고 적는다(처음부터 다시: tgFeed_backfillSendersReset).
+ * - 매시 보내기(tgFeed_run)와 같은 잠금을 쓰므로 동시에 돌지 않는다. 진행 기록(TG_FEED_STATE)은 건드리지 않는다.
+ * - 로그에는 건수만 적는다(방 이름·사람 이름·번호·key 없음).
+ */
+function tgFeed_backfillSenders() {
+  var started = Date.now();
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) { Logger.log('다른 텔레그램 보내기가 돌고 있어 이번에는 건너뜁니다. 잠시 뒤 다시 실행하세요.'); return; }
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var test = tgFeed_testMode_();
+    var secret = props.getProperty(CALL_FEED_SECRET_KEY) || '';
+    if (!test && secret.length < 32) throw new Error('스크립트 속성에 ' + CALL_FEED_SECRET_KEY + '가 없습니다.');
+    if (!props.getProperty(TG_FEED_SENDER_KEY)) throw new Error('보낸 사람 열쇠가 없습니다(tgFeed_initSenderKey로 만든 값). 이름표를 만들 수 없습니다.');
+    var today = callFeedKstDay(Date.now());
+    var bs = tgFeedSendersBackClean(test ? '' : props.getProperty(TG_FEED_SENDERS_BACK_STATE_KEY));
+    if (bs.end) { Logger.log('이름표 소급 보내기는 이미 끝났습니다(' + bs.from + '~' + bs.to + '). 처음부터 다시 하려면 tgFeed_backfillSendersReset을 먼저 실행하세요.'); return; }
+    if (!bs.from) {
+      var range = tgFeedSendersBackRange(today, props.getProperty(TG_FEED_SENDERS_BACK_DAYS_KEY));
+      bs.from = range.from; bs.to = range.to;
+    }
+    if (bs.fetch.d !== today) bs.fetch = { d: today, n: 0 };
+    var wanted = tgFeedParseRooms(props.getProperty(TG_FEED_ROOMS_KEY) || '');
+    if (!wanted.length) throw new Error('허용 방 목록(' + TG_FEED_ROOMS_KEY + ')이 비어 있습니다.');
+    var found = tgFeed_rooms_(wanted);
+    var budgetN = Number(props.getProperty(TG_FEED_SENDERS_BACK_BUDGET_KEY));
+    var run = {
+      state: { fetch: bs.fetch }, test: test, started: started, today: today,
+      tally: { listed: 0, files: 0, unread: 0 },
+      readLimit: started + TG_FEED_TIME_LIMIT_MS, budget: isFinite(budgetN) && budgetN >= 500 ? Math.floor(budgetN) : TG_FEED_SENDERS_BACK_BUDGET_DEFAULT,
+      statFiles: 0, statMs: 0, token: '', dirs: null, dirsDirty: false,
+    };
+    var t = { roomDays: 0, people: 0, failed: 0, linked: 0, conflicts: 0 };
+    var stop = '', visits = 0;
+    var untilMs = Date.now();   // 수집기가 지난 파일에 이름 칸을 채우며 고친 시각이 바뀌었으므로, 고친 시각 범위는 첫 날 0시 ~ 지금으로 본다
+    for (var i = 0; i < found.rooms.length && !stop; i++) {
+      var room = found.rooms[i];
+      var days = tgFeedSendersBackDays(bs, room.key);
+      if (!days.length) continue;
+      if (Date.now() - started > TG_FEED_TIME_LIMIT_MS) { stop = '시간 제한'; break; }
+      var entry = { room: room, n: i + 1 };
+      var rd = tgFeed_readDays_(run, entry, days, visits === 0, false, false, untilMs);
+      if (rd.status === 'time' || rd.status === 'defer') { stop = '시간 제한(읽는 중)'; break; }
+      if (rd.status === 'quota') { stop = 'URL 호출 하루 한도(' + rd.note + ') — 내일 다시 실행'; break; }
+      visits++;
+      if (rd.status === 'fail') {
+        t.failed += days.length;
+        Logger.log('읽지 못해 넘김: ' + (i + 1) + '번째 방 (' + rd.note + ')');
+        if (!test) { bs.room = room.key; bs.day = bs.to; props.setProperty(TG_FEED_SENDERS_BACK_STATE_KEY, JSON.stringify(bs)); }
+        continue;
+      }
+      var byDay = tgFeedByDay(rd.parsed);
+      for (var d = 0; d < days.length && !stop; d++) {
+        var grouped = tgFeedGroupDay(byDay[days[d]] || [], days[d]);
+        var senders = tgFeedSendersBackList(tgFeed_buildSenders_(grouped.messages));
+        if (senders.length) {
+          if (test) { t.roomDays++; t.people += senders.length; }
+          else {
+            var res = tgFeed_postAction_('telegram_senders', tgFeedSendersBackBody(days[d], room.key, senders), secret);
+            var v = tgFeedVerdict(res.code, res.json && res.json.error);
+            if (v === 'auth') throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
+            if (v === 'ok') {
+              t.roomDays++; t.people += senders.length;
+              t.linked += (res.json && res.json.linked) || 0; t.conflicts += (res.json && res.json.conflicts) || 0;
+            } else if (v === 'drop') {
+              t.failed++;
+            } else {
+              stop = v === 'limit' ? '서버 하루 상한 — 내일 다시 실행' : '서버·연결 실패(HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ') — 잠시 뒤 다시 실행';
+              break;
+            }
+          }
+        }
+        if (!test) { bs.room = room.key; bs.day = days[d]; props.setProperty(TG_FEED_SENDERS_BACK_STATE_KEY, JSON.stringify(bs)); }
+      }
+    }
+    tgFeed_saveDirs_(run);
+    if (!stop && !test) bs.end = true;
+    if (!test) props.setProperty(TG_FEED_SENDERS_BACK_STATE_KEY, JSON.stringify(bs));
+    Logger.log([
+      (test ? '[시험 모드 — 보내지 않음] ' : '') + '이름표 소급 ' + bs.from + '~' + bs.to + ': 방·날 ' + t.roomDays + ', 보낸 사람 ' + t.people + ', 실패 ' + t.failed +
+        (test ? '' : ' (새 연결 ' + t.linked + ' · 이미 다른 연결 ' + t.conflicts + ')'),
+      '읽은 파일 ' + run.tally.files + '개 · 오늘 소급 URL 호출 ' + bs.fetch.n + ' / ' + run.budget + ' · 소요 ' + Math.round((Date.now() - started) / 1000) + '초',
+      stop ? '멈춘 이유: ' + stop + (test ? '' : ' — 다시 실행하면 이어서 합니다') : (test ? '끝까지 셈. 시험 모드를 끄고 다시 실행하면 보냅니다' : '끝'),
+    ].join('\n'));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 이름표 소급 보내기 진행 위치를 지운다(처음부터 다시 하고 싶을 때만). 이미 서버에 보낸 이름표는 그대로 남는다. */
+function tgFeed_backfillSendersReset() {
+  PropertiesService.getScriptProperties().deleteProperty(TG_FEED_SENDERS_BACK_STATE_KEY);
+  Logger.log('이름표 소급 보내기 진행 위치를 지웠습니다. 다음 실행은 처음부터 합니다.');
 }
 
 /** 시험 모드 끄기: 다음 실행부터 실제로 보낸다. */
@@ -1364,7 +1469,7 @@ function tgFeed_fetchFiles_(run, ids, onText) {   // 읽기 끝나는 때는 run
  *   time(읽다가 시간 한도) / quota(하루 URL 호출 한도).
  * 읽기 전에 목록으로 파일 수를 알아 시간·하루 호출 수가 모자라면 읽지 않고 미룬다(읽다가 버리는 일을 막는다).
  */
-function tgFeed_readDays_(run, entry, days, firstVisit, allowShrink, narrow) {
+function tgFeed_readDays_(run, entry, days, firstVisit, allowShrink, narrow, untilMs) {
   var out = { parsed: [], status: 'ok', note: '' };
   var ids = [];
   try {
@@ -1372,6 +1477,7 @@ function tgFeed_readDays_(run, entry, days, firstVisit, allowShrink, narrow) {
     if (!dirIds.length) return out;   // messages·월 폴더가 없으면 그 날들은 파일 없음
     var win = tgFeedWindowRange(days);
     if (narrow) win.toMs = win.fromMs + TG_FEED_NARROW_DAYS * 86400000;   // 첫 방이 한 번 실행에 안 들어갈 때만: 그 날 0시부터 2일까지만 본다
+    if (untilMs) win.toMs = untilMs;   // 이름표 소급 보내기만: 고친 시각 범위 끝을 지금으로(지난 파일이 최근에 다시 고쳐졌기 때문)
     for (var i = 0; i < dirIds.length; i++) {
       var lst = tgFeed_listFiles_(run, dirIds[i], win.fromMs, win.toMs);
       if (lst.error === 'quota') { out.status = 'quota'; out.note = '목록'; return out; }
@@ -1414,11 +1520,13 @@ function tgFeed_buildSenders_(messages) {
   });
 }
 
-function tgFeed_post_(body, secret) {
+function tgFeed_post_(body, secret) { return tgFeed_postAction_('telegram', body, secret); }
+
+function tgFeed_postAction_(action, body, secret) {
   var headers = {};
   headers[CALL_FEED_SECRET_HEADER] = secret;
   try {
-    var res = UrlFetchApp.fetch(CALL_FEED_URL + '?action=telegram', {
+    var res = UrlFetchApp.fetch(CALL_FEED_URL + '?action=' + action, {
       method: 'post', contentType: 'application/json', headers: headers,
       payload: JSON.stringify(body), muteHttpExceptions: true,
     });
@@ -1634,6 +1742,45 @@ function tgFeedBuildSenders(messages, keyFn) {
     if (item.key || item.name || item.self !== undefined) out.push(item);
   });
   return out.slice(0, TG_FEED_SENDERS_MAX);
+}
+
+/** 소급 보내기 날짜 범위: 오늘(한국)에서 backDays일 전 ~ 어제. backDays는 1~60 정수(아니면 14). 오늘(아직 안 끝난 날)은 매시 보내기가 맡는다. */
+function tgFeedSendersBackRange(today, backDays) {
+  var n = Number(backDays);
+  if (!(isFinite(n) && Math.floor(n) === n && n >= 1 && n <= 60)) n = TG_FEED_SENDERS_BACK_DAYS_DEFAULT;
+  return { from: tgFeedAddDays(today, -n), to: tgFeedAddDays(today, -1) };
+}
+
+/** 소급 보내기 진행 위치(JSON 글) 정리: {from, to, room(마지막으로 다룬 방 key), day(그 방에서 마지막으로 다룬 날), end, fetch:{d,n}}. 틀린 칸은 빈 값. */
+function tgFeedSendersBackClean(raw) {
+  var s = {};
+  try { s = raw ? JSON.parse(raw) : {}; } catch (e) { s = {}; }
+  if (!s || typeof s !== 'object') s = {};
+  var day = function (v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''; };
+  var out = { from: day(s.from), to: day(s.to), room: typeof s.room === 'string' && /^[A-Za-z0-9_.:-]{1,100}$/.test(s.room) ? s.room : '', day: day(s.day), end: s.end === true,
+    fetch: s.fetch && day(s.fetch.d) && typeof s.fetch.n === 'number' && s.fetch.n >= 0 ? { d: s.fetch.d, n: Math.floor(s.fetch.n) } : { d: '', n: 0 } };
+  if (!out.from || !out.to || out.from > out.to) { out.from = ''; out.to = ''; out.room = ''; out.day = ''; out.end = false; }
+  return out;
+}
+
+/** 이 방에서 아직 안 다룬 날들(오름차순). 방은 key 순서로 다루므로 마지막 방보다 앞선 방은 끝난 것, 같은 방이면 마지막 날 다음부터. */
+function tgFeedSendersBackDays(bs, roomKey) {
+  if (!bs.from || bs.end) return [];
+  if (bs.room && roomKey < bs.room) return [];
+  var start = bs.room === roomKey && bs.day ? tgFeedAddDays(bs.day, 1) : bs.from;
+  var out = [];
+  for (var d = start; d <= bs.to && out.length < 62; d = tgFeedAddDays(d, 1)) out.push(d);
+  return out;
+}
+
+/** 소급으로 보낼 이름표: key 있는 사람만(서버가 key 없는 사람은 받지 않는다 — 키 없이 새 사람을 만들지 않게). 40명까지. */
+function tgFeedSendersBackList(senders) {
+  return (senders || []).filter(function (s) { return s && /^[0-9a-f]{16,32}$/.test(s.key || ''); }).slice(0, TG_FEED_SENDERS_MAX);
+}
+
+/** 서버 POST ?action=telegram_senders 몸통(handler.ts parseSendersBody와 같은 칸). */
+function tgFeedSendersBackBody(day, roomKey, senders) {
+  return { day: day, room_key: roomKey, senders: senders };
 }
 
 /** 서버 몸통 상한(메시지 300개, 약 200 KB)에 맞춰 순서를 지키며 쪼갠다. 같은 입력이면 항상 같은 모양으로 쪼개진다(이어 하기 때문). */
@@ -2034,6 +2181,8 @@ if (typeof module !== 'undefined' && module.exports) {
     tgFeedMonths: tgFeedMonths, tgFeedBackfillDays: tgFeedBackfillDays, tgFeedLimitReason: tgFeedLimitReason, tgFeedLastRun: tgFeedLastRun, tgFeedLastRunClean: tgFeedLastRunClean, tgFeedLastRunText: tgFeedLastRunText, tgFeedProgress: tgFeedProgress, tgFeedProgressText: tgFeedProgressText, tgFeedRewind: tgFeedRewind, tgFeedPlanDays: tgFeedPlanDays, tgFeedVerdict: tgFeedVerdict,
     tgFeedWindowRange: tgFeedWindowRange, tgFeedMonthsOf: tgFeedMonthsOf, tgFeedByDay: tgFeedByDay, tgFeedNextRoom: tgFeedNextRoom, tgFeedIsQuotaError: tgFeedIsQuotaError,
     feedKindPick: feedKindPick, feedLimitKind: feedLimitKind, feedStallClean: feedStallClean, feedStallNext: feedStallNext, feedReportBody: feedReportBody,
+    tgFeedSendersBackRange: tgFeedSendersBackRange, tgFeedSendersBackClean: tgFeedSendersBackClean, tgFeedSendersBackDays: tgFeedSendersBackDays,
+    tgFeedSendersBackList: tgFeedSendersBackList, tgFeedSendersBackBody: tgFeedSendersBackBody,
     tgFeedCompactRoom: tgFeedCompactRoom, tgFeedCompactState: tgFeedCompactState, tgFeedRemaining: tgFeedRemaining, tgFeedRemainingText: tgFeedRemainingText,
   };
 }

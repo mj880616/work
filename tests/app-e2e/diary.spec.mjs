@@ -430,13 +430,13 @@ for(const width of [390,1280]){
  });
 }
 
-test('[일기] [오늘]: 오늘 일기가 없으면 "이 날 일기가 없어요", [+]는 오늘을 쓴다',async({page})=>{
+test('[일기] [오늘]: 오늘 일기가 없으면 "일기 없음", [+]는 오늘을 쓴다',async({page})=>{
  const f=await fixture(page);await openDiary(page,390);
  await page.locator('#diaryRoot [data-diary-next]').click();await expect(page.locator('#diaryRoot [data-diary-title]')).toHaveText('2026년 11월');
  await page.locator('#diaryRoot [data-diary-today]').click();
  const detail=page.locator('#diaryRoot [data-diary-detail]');
  await expect(page.locator('#diaryRoot [data-diary-title]')).toHaveText('2026년 10월');
- await expectDiaryDay(page,'10월 6일 화요일');await expect(detail).toContainText('이 날 일기가 없어요');
+ await expectDiaryDay(page,'10월 6일 화요일');await expect(detail.locator('[data-wait-empty]',{hasText:'일기 없음'})).toBeVisible();
  await page.locator('#diaryRoot [data-diary-new]').click();
  await expect(page.locator('#diaryRoot [data-diary-date]')).toHaveValue('2026-10-06');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);

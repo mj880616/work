@@ -92,10 +92,10 @@ for(const width of [1280])test(`home: two lines per row, ✓ ✎ ✕ on the righ
  const order=await page.evaluate(()=>{const dday=document.querySelector('[data-home-card="dday"]'),radar=document.querySelector('[data-home-card="radar"]'),tasks=document.querySelector('[data-home-card="tasks"]'),meet=document.querySelector('[data-home-card="meetings"]');
   return {sameColumn:dday.parentElement===radar.parentElement,next:dday.nextElementSibling===radar,column:radar.parentElement.dataset.homeColumn,afterTasks:!!(radar.compareDocumentPosition(tasks)&Node.DOCUMENT_POSITION_PRECEDING),beforeMeetings:!!(radar.compareDocumentPosition(meet)&Node.DOCUMENT_POSITION_FOLLOWING)};});
  expect(order.sameColumn&&order.next).toBe(true);
- expect(order.column).toBe(width>=1024?'aside':'main');
- if(width<1024)expect(order.afterTasks&&order.beforeMeetings).toBe(true);
+ expect(order.column).toBe(width>=761?'aside':'main');
+ if(width<761)expect(order.afterTasks&&order.beforeMeetings).toBe(true);
  expect(await noWideScroll(page)).toBe(true);
- await page.screenshot({path:info.outputPath(`todo-radar-home-${width}.png`),fullPage:width<1024});
+ await page.screenshot({path:info.outputPath(`todo-radar-home-${width}.png`),fullPage:width<761});
  expect(f.errors).toEqual([]);
 });
 
@@ -155,6 +155,26 @@ for(const width of [1280])test(`✎ opens in place: fix the title, pick 오늘/�
  await expect(box.locator(`[data-radar-done] [data-radar-row="${id(1)}"] [data-radar-source]`)).toHaveText('할 일로 넣음 · 10.7 · 업데이트');
  await expect(box.locator(`[data-radar-done] [data-radar-row="${id(2)}"] [data-radar-source]`)).toHaveText('할 일로 넣음 · 기한 없음 · 조직 기록');
  expect(f.calls.patch).toHaveLength(2);expect(f.errors).toEqual([]);
+});
+
+// UI-점검1030손질 C9: the ✎ box also has the app's shared date field (date-field.js) after the four chips; a picked day is the due.
+for(const width of [1440])test(`✎ box has the shared date field and a picked day becomes the due ${width}`,async({page})=>{
+ const f=await fixture(page,{width});const box=radar(page),creates=createsOf(page);
+ const row=box.locator(`[data-radar-row="${id(1)}"]`);
+ await tap(page,btn(row,'고쳐서 넣기'),width);
+ const date=row.locator('.radar-due .date-field > input[type="date"][data-radar-date]');
+ await expect(date).toHaveCount(1);await expect(date).toHaveValue('2026-10-09');
+ await expect(row.locator('.radar-due .date-field')).toHaveAttribute('data-date-text','10.9 (금)');
+ // Small like the chips (UI-버튼기준), on the chips' line or the next, never wider than the box.
+ const db=await row.locator('.radar-due .date-field').boundingBox(),cb=await row.locator('[data-radar-due-pick="today"]').boundingBox();
+ expect(Math.abs(db.height-cb.height)).toBeLessThanOrEqual(1);expect(db.width).toBeLessThan(160);
+ await date.fill('2026-10-20');await date.dispatchEvent('change');
+ await expect(row.locator('.radar-due .date-field')).toHaveAttribute('data-date-text','10.20 (화)');
+ for(const key of ['today','tomorrow','suggested','none'])await expect(row.locator(`[data-radar-due-pick="${key}"]`)).toHaveAttribute('aria-pressed','false');
+ await tap(page,btn(row,'넣기'),width);
+ await expect(box.locator(`[data-radar-open] [data-radar-row="${id(1)}"]`)).toHaveCount(0);
+ expect(creates.map(c=>[c.title,c.due])).toEqual([['가상 의견 제출','2026-10-20']]);
+ expect(await noWideScroll(page)).toBe(true);expect(f.errors).toEqual([]);
 });
 
 test('✎ with an empty title asks for one and creates nothing; [취소] returns to the row',async({page})=>{

@@ -6,12 +6,12 @@ import {fileURLToPath} from 'node:url';
 // AI-모델6luna 나머지: 설정 표(app_ai_workspace_settings)의 모델을 따르는 Edge 6개가 새 모델(gpt-6-luna)에서도
 // 빈 답 없이 동작하도록 요청 몸통에 생각 수준을 붙이고, 생각 토큰만큼 출력 상한에 여유를 두며, incomplete 답을 실패로 다룬다.
 const ROOT=fileURLToPath(new URL('../../supabase/functions/',import.meta.url));
-const FUNCTIONS=['library-files','meeting-ai-ingest','document-ai-index','meeting-ai-draft','page-ai-draft','team-ai'];
+const FUNCTIONS=['library-files','meeting-ai-ingest','document-ai-index','meeting-ai-draft','page-ai-draft'];  // team-ai는 SEC-정리묶음(2026-10-30)에서 원본 삭제
 const src=fn=>readFileSync(ROOT+fn+'/index.ts','utf8');
 const {outputText}=await import('../../supabase/functions/_shared/openai-responses.ts');
 const {withReasoning,AI_REASONING_TOKEN_HEADROOM}=await import('../../supabase/functions/_shared/ai-model.ts');
 
-test('여섯 함수 모두 OpenAI 요청 몸통을 withReasoning으로 보낸다(직접 JSON.stringify(body) 없음)',()=>{
+test('다섯 함수 모두 OpenAI 요청 몸통을 withReasoning으로 보낸다(직접 JSON.stringify(body) 없음)',()=>{
   for(const fn of FUNCTIONS){
     const t=src(fn);
     assert.match(t,/JSON\.stringify\(withReasoning\(/,fn);
@@ -19,7 +19,7 @@ test('여섯 함수 모두 OpenAI 요청 몸통을 withReasoning으로 보낸다
   }
 });
 
-test('여섯 함수 모두 공용 outputText를 쓰고 자체 outputText를 두지 않는다',()=>{
+test('다섯 함수 모두 공용 outputText를 쓰고 자체 outputText를 두지 않는다',()=>{
   for(const fn of FUNCTIONS){
     const t=src(fn);
     assert.match(t,/import \{ outputText \} from '\.\.\/_shared\/openai-responses\.ts'/,fn);
@@ -58,8 +58,6 @@ test('incomplete(null) 답을 성공으로 저장하지 않는다: 호출부가 
   assert.match(src('library-files'),/JSON\.parse\(outputText\(r\)\?\?''\)/);
   assert.match(src('document-ai-index'),/JSON\.parse\(outputText\(r\)\?\?''\)/);
   assert.match(src('page-ai-draft'),/JSON\.parse\(outputText\(r\)\?\?''\)/);
-  assert.match(src('team-ai'),/plan=JSON\.parse\(text\?\?''\)/);
-  assert.match(src('team-ai'),/const answer=outputText\(r\);if\(!answer\)throw/);
   assert.match(src('meeting-ai-draft'),/const text=outputText\(r,256\*1024\);if\(!text\)throw new Error\('AI 응답이 중단되었습니다/);
   assert.throws(()=>JSON.parse(outputText({status:'incomplete',output:[]})??''));
 });

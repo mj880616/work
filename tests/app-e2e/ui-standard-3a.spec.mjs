@@ -79,7 +79,7 @@ async function sameButtons(page,region){
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('#manageLibraryBtn')?'compact':'button');
   // UI-PC버튼36: PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(36px), 누르는 범위 44px.
   // UI-버튼전수조사(2026-10-24): 채운 버튼(주 동작·목록 머리 추가)은 36px, 나머지 버튼은 작은 버튼 32px. 둘 다 누르는 범위 44px.
-  if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=1024&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));const want=await control.evaluate(el=>el.matches('.primary')&&!(innerWidth>=761&&el.matches('#newMeetingBtn'))?36:32);/* BIZ-버튼줄정리: [+ 사업 보고]는 32px */expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
+  if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=761&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));const want=await control.evaluate(el=>el.matches('.primary')&&!(innerWidth>=761&&el.matches('#newMeetingBtn'))?36:32);/* BIZ-버튼줄정리: [+ 사업 보고]는 32px */expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
   else{expect(s.height,label).toBe(32);expect(s.radius,label).toBe(kind==='chip'?'999px':'8px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
   // UI-테마선택색: 고른 전환·필터 쪽은 일부러 주 버튼 색이라 채운 버튼 수에서 뺀다.
@@ -160,8 +160,8 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  expect(errors).toEqual([]);
 });
 
-// UI-PC회의: 줄 단위 목록은 1024 미만. PC 열 배치는 meeting-columns.spec.mjs.
-for(const width of [390,1000])test(`회의: 줄 단위 목록·색 점 없음·필터·버튼 ${width}`,async({page})=>{
+// UI-PC회의: 줄 단위 목록은 폰(≤760, UI-폴드PC틀). PC 열 배치는 meeting-columns.spec.mjs.
+for(const width of [390,760])test(`회의: 줄 단위 목록·색 점 없음·필터·버튼 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  await view(page,'meetings');
  // MTG-프로젝트합치기 3단계: 두 보고가 다른 주(10.14·10.10, 시계 10.16)라 [전체]로 모든 주를 본다. 주 줄의 작은 버튼도 아래 버튼 기준 검사에 든다.

@@ -120,10 +120,10 @@ for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 });
 
-test('UI-PC다듬기묶음 ③ 폰 390·중간 폭 900: 정리함 본문 폭 규칙은 그대로(가운데 정렬 값 유지)',async({page})=>{
+test('UI-PC다듬기묶음 ③ 폰 390: 정리함 본문 폭 규칙은 그대로(가운데 정렬 값 유지), 900은 PC 틀(UI-폴드PC틀)',async({page})=>{
  await boot(page,390);await open(page,'basket');
  const phone=await page.locator('#basketView').evaluate(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {max:s.maxWidth,left:r.left,right:innerWidth-r.right}});
  expect(phone.max).toBe('900px');expect(Math.abs(phone.left-phone.right)).toBeLessThanOrEqual(1);
  await page.setViewportSize({width:900,height:900});
- expect(await page.locator('#basketView').evaluate(el=>getComputedStyle(el).maxWidth)).toBe('900px');
+ expect(await page.locator('#basketView').evaluate(el=>getComputedStyle(el).maxWidth)).not.toBe('900px');
 });

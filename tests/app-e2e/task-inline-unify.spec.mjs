@@ -32,7 +32,7 @@ for(const width of [390,1280]){
   // 작은 칸: 보이는 ⋯는 28px 안, 누르는 폭은 ::after 로 44px.
   // 홈 칸은 이름·연결·회의 자료가 올 때마다 다시 그려진다(home-read.js paint). 붙어 있는 ⋯를 잰다.
   const b=await laidOutBox(more);expect(b.height).toBeLessThanOrEqual(32);expect(b.width).toBeLessThanOrEqual(32);
-  if(width>=1024){
+  if(width>=761){
    await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');
    await row.hover();await expect.poll(()=>opacity(more)).toBe('1');
    await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');
@@ -120,17 +120,17 @@ async function linkedFixture(page,width){
 for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그라미 완료·되돌리기, ⋯(PC hover / 폰 늘) 항목, 연결 해제 유지, 기한 바꾸기·지우기 ${width}`,async({page},info)=>{
  const {state,errors}=await linkedFixture(page,width);
  await clickView(page,'team');
- if(width<1024)await page.locator('#soOrganizationList [data-so-org="oa"]').click();
+ if(width<761)await page.locator('#soOrganizationList [data-so-org="oa"]').click();
  const body=page.locator('#wdTaskBody'),row=body.locator('[data-google-task="l-1"]'),more=row.locator('[data-gt-linked-more]');
  await expect(row).toBeVisible();
- if(width>=1024){
+ if(width>=761){
   await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');
   await row.hover();await expect.poll(()=>opacity(more)).toBe('1');
  }else await expect.poll(()=>opacity(more)).toBe('1');
  await more.click();
  const menu=page.locator('#gtLinkedMenu');
  await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','고치기','연결 해제','지우기']);
- if(width<1024)expect(await menu.evaluate(m=>!!m.closest('#wdModal'))).toBe(true);
+ if(width<761)expect(await menu.evaluate(m=>!!m.closest('#wdModal'))).toBe(true);
  await page.screenshot({path:info.outputPath(`org-menu-${width}.png`)});
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  // 끝낸 줄
@@ -162,7 +162,7 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  page.once('dialog',d=>d.accept());
  await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'지우기'}).click();
  await expect.poll(()=>state.calls.delete.length).toBe(1);
- await expect(body).toContainText('연결된 Google 할 일이 없습니다.');
+ await expect(body.locator('[data-wait-empty]')).toHaveText('없음');
  expect(errors).toEqual([]);
 });
 for(const width of [390,1280])test(`프로젝트 상세 연결 할 일: 같은 공용 줄(⋯ 항목, 연결 해제 유지, 동그라미 되돌리기) ${width}`,async({page})=>{
@@ -171,7 +171,7 @@ for(const width of [390,1280])test(`프로젝트 상세 연결 할 일: 같은 �
  await page.locator('#projectGrid [data-ps3-project="p"]').first().click();
  const panel=page.locator('#ps3-tasks [data-ps3-gtasks]'),row=panel.locator('[data-google-task="l-1"]'),more=row.locator('[data-gt-linked-more]');
  await expect(row).toBeVisible();
- if(width>=1024){await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');}
+ if(width>=761){await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');}
  else await expect.poll(()=>opacity(more)).toBe('1');
  await row.hover();await more.click();
  const menu=page.locator('#gtLinkedMenu');

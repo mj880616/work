@@ -64,7 +64,7 @@ test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창�
  const tabColor=view=>page.locator(`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
  expect(await tabColor('basket')).toBe(await tabColor('meetings'));expect(await tabColor('basket')).toBe(await token(page,'--kptu-muted'));
  expect(await tabColor('basket')).not.toBe(await token(page,'--ds-kind-basket-ink'));
- await expect(page.locator('#mobileMenuOpen')).toBeHidden();
+ await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
  // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·게시판.
@@ -126,7 +126,7 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
 test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르는 범위 44px, 이름, 같은 창, 마지막 줄이 가리지 않음',async({page})=>{
  const {errors}=await boot(page,390);
  const tabsTop=(await box(page.locator('.mobile-tabs'))).top;
- for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['projects','#newProjectBtn','사업영역 추가','#ps3CreateModal'],['library','#newDocumentBtn','자료 등록','#documentModal'],['meetings','#newMeetingBtn','사업 보고 등록','#meetingModal']]){
+ for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['library','#newDocumentBtn','자료 등록','#documentModal'],['meetings','#newMeetingBtn','사업 보고 등록','#meetingModal']]){
   await page.evaluate(v=>KPTURouter.go(v),view);await loaded(page,view);
   const button=page.locator(id);await expect(button).toBeVisible();await expect(button).toHaveAttribute('aria-label',label);
   // 보이는 원은 버튼 자체 36px, 누르는 범위는 ::after 44px(앱의 다른 버튼과 같은 방식). 누르는 범위가 탭 위 12px·오른쪽 16px.

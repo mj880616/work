@@ -11,14 +11,15 @@ export function readAiUsage(rt) {
   return readDriveStatus(rt).then(data => readSummary(data?.ai_usage), () => null);
 }
 
-export function mountAiUsageLine(host, {rt = window.KPTURuntime, now = () => Date.now()} = {}) {
+// onPaint: 그린 뒤마다 부른다(빈 줄이면 숨긴 뒤). 홈 ⋯(home-edit.js)이 제목 줄 끝 자리([data-aiu-top])로 들어오는 데 쓴다(UI-점검1030손질 C6).
+export function mountAiUsageLine(host, {rt = window.KPTURuntime, now = () => Date.now(), onPaint = () => {}} = {}) {
   if (!host) return null;
   host.hidden = true;
   let alive = true, run = 0, shown = null, open = false;
   const panelId = 'homeAiUsagePanel';
   function paint(s) {
     shown = s;
-    if (!s) { host.hidden = true; host.innerHTML = ''; return; }
+    if (!s) { host.hidden = true; host.innerHTML = ''; onPaint(); return; }
     const at = now(), warn = warnText(s);
     const head = `<button type="button" class="aiu-open" data-aiu-toggle aria-expanded="${open}" aria-controls="${panelId}"${warn ? ' data-warn' : ''}>`
       + (warn ? `<svg class="aiu-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 2.5 16.5h15zM10 8.5v3.5M10 14.2v.3"/></svg><span class="aiu-sum">${esc(warn)}</span>`
@@ -27,8 +28,10 @@ export function mountAiUsageLine(host, {rt = window.KPTURuntime, now = () => Dat
     // 경고 줄일 때는 펼친 칸 맨 위에 기간·요약을 한 번 보인다.
     const top = warn ? `<p class="aiu-head-line"><span class="aiu-title">${esc(titleText(s, at))}</span> <span>${esc(summaryLine(s, at))}</span></p>` : '';
     const panel = `<div class="aiu-panel" id="${panelId}" role="region" aria-label="AI 사용량 자세히"${open ? '' : ' hidden'}>${top}<ul class="aiu-list">${detailRows(s)}</ul></div>`;
-    host.innerHTML = head + panel;
+    // 제목 줄([data-aiu-top]) = 펼치기 버튼 + 줄 끝 자리(홈 ⋯). 버튼 안에 다른 버튼을 넣지 않으려고 둘을 나란히 둔다.
+    host.innerHTML = `<div class="aiu-top" data-aiu-top>${head}</div>` + panel;
     host.hidden = false;
+    onPaint();
   }
   async function refresh() {
     if (!isOwner(rt)) { paint(null); return; }

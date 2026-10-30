@@ -1,4 +1,4 @@
-import {waitHtml, failHtml} from './wait-state.js';
+import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 // JOURNAL-일기목록 (명진 요청 2026-10-28 08:04): 일기 [목록] 보기. diary.js가 [달력 / 목록]을 바꾸고 이 모듈이 목록 칸(#diaryRoot 안의
 // [data-diary-all]) 하나만 그린다(그 칸의 유일한 렌더러). 규칙은 diary-list-model.mjs, 읽기·저장은 diary-data.js(owner RLS, 내 일기만).
 // - 줄: 왼쪽 40px 작은 그림(직접 올린 사진 먼저, 없으면 원드라이브 사진 — 일기에서 원드라이브 사진을 보는 연결이 켜져 있을 때만),
@@ -64,14 +64,14 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     if (state.error) { note.textContent = ''; body.innerHTML = failHtml({retry: 'data-diary-lv-retry'}); return; }
     if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); return; }
     const list = buildDiaryList(state.rows, {filter:state.filter, query:state.query, opened:state.opened});
-    const empty = !list.total ? (state.query ? '찾는 글이 든 일기가 없어요.' : state.filter === 'star' ? '별표한 일기가 없어요. 줄 오른쪽 ☆를 눌러 별표해 보세요.' : '아직 일기가 없어요. [+ 일기]로 남겨 보세요.') : '';
-    note.textContent = state.note || empty || (state.truncated ? '최근 일기 1,000편만 보여요.' : '');
+    const empty = !list.total ? (state.query ? '맞는 일기 없음' : state.filter === 'star' ? '별표 일기 없음' : '없음') : '';
+    note.textContent = state.note || (state.truncated ? '최근 일기 1,000편만 보여요.' : '');
     const parts = [];
     if (list.pinned.length) parts.push(`<section class="diary-lv-group" aria-label="고정한 일기"><h4 class="diary-lv-head is-pin">📌 고정 <span>· ${list.pinned.length}</span></h4><div class="diary-lv-rows">${list.pinned.map(rowHtml).join('')}</div></section>`);
     for (const month of list.months) {
       parts.push(`<section class="diary-lv-group"><button type="button" class="diary-lv-head" data-diary-lv-month="${esc(month.key)}" aria-expanded="${month.open}">${esc(month.label)} <span>· ${month.count}</span><i aria-hidden="true">${month.open ? '▾' : '▸'}</i></button>${month.open ? `<div class="diary-lv-rows">${month.rows.map(rowHtml).join('')}</div>` : ''}</section>`);
     }
-    body.innerHTML = parts.join('');
+    body.innerHTML = empty ? emptyHtml(empty, {attrs: 'data-diary-lv-empty'}) : parts.join('');
     watchThumbs();
   }
 

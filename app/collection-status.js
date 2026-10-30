@@ -199,10 +199,10 @@ export function renderRows(raw, now = Date.now()) {
 }
 
 let cache = null; // {scope, at, raw} — memory only, this tab.
-// HOME-수집경보(폰·중간 폭, 1023px 이하): 칸 대신 홈 위쪽 경고 한 줄(누르면 전체 칸이 펼쳐짐, ✕는 오늘 하루 숨김) 또는
-// 맨 아래 '수집 정상 ✓' 한 줄. 전체 칸은 폰 메뉴 창 안에도 둔다. PC(1024px 이상)는 오른쪽 칸 그대로.
+// HOME-수집경보(폰, 760px 이하): 칸 대신 홈 위쪽 경고 한 줄(누르면 전체 칸이 펼쳐짐, ✕는 오늘 하루 숨김) 또는
+// 맨 아래 '수집 정상 ✓' 한 줄. 전체 칸은 폰 메뉴 창 안에도 둔다. PC(761px 이상)는 오른쪽 칸 그대로.
 // 이 파일이 네 자리(카드·경고 줄·정상 줄·메뉴 창 칸)의 유일한 상태 소유자이자 렌더러다.
-const phoneQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(max-width:1023px)') : null;
+const phoneQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(max-width:760px)') : null;
 // ✕ "오늘 하루 숨김"은 화면 설정(날짜 하나)으로 서버 프로필에 기억한다(view-prefs.js). 읽지 못했으면 숨기지 않는다.
 let expanded = false;
 function hiddenToday(rt, now) {

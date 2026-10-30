@@ -130,8 +130,8 @@ test('서버 값을 읽거나 저장하지 못해도 기본으로 그리고 끌�
  expect(errors).toEqual([]);
 });
 
-test('중간 폭·폰에는 3단 경계선이 없고, PC로 넓히면 나타난다',async({page})=>{
- await page.setViewportSize({width:900,height:800});
+test('폰에는 3단 경계선이 없고, PC 틀(761px~)로 넓히면 나타난다',async({page})=>{
+ await page.setViewportSize({width:760,height:800});
  await mockApp(page,columnState());await signIn(page,testOrigin+'/app/?view=meetings');
  await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
  await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();

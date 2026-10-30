@@ -51,7 +51,6 @@ const samples={
  projects:[['.add-list-head [data-ps3-total]',12],['.ps3-prow-name',13],['.ps3-prow-meta',12],['button.primary',13]],
  // UI-디자인기준 3/3(8-9e-1): 회의·담당조직 목록 이름 13px, 상자 제목(섹션 이름) 13px, 버튼 13px(새 기준).
  meetings:[['.add-list-head h2',13],['.meeting-list-title h3',13],['.meeting-list-row p',12],['button.primary',13]],
- pages:[['.w1b-card h3',13],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
  // UI-디자인손질 3: the "N개 담당조직" line (.muted) is gone; the group heading carries the 12px meta text.
  // UI-조직추가숨김: the team menu's only button.secondary was the [+ 담당조직] add button, which is no longer drawn (team-list.spec asserts it is absent).
  team:[['.so-card h4',13],['.so-group-heading',12]]
@@ -78,8 +77,8 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
   // 8-9e-2: the phone projects add button is the round [+] (no label text); covered by ui-standard-3b. UI-선택표시통일: meetings too.
   // UI-화면정리 C: 공유 페이지 [+ 새 공유 페이지]·원장 [+ 기록하기]도 폰은 동그란 [+](글자 없음, tests/ui-cleanup-c.test.mjs).
   // UI-PC회의: PC(≥1024) 회의는 유형별 열 — 열 제목(.mcol-name)·차수(.mcol-round) 13px, 날짜·자료(.mcol-meta) 12px.
-  const list=name==='meetings'&&width>=1024?rows.map(([sel,size])=>[sel==='.meeting-list-title h3'?'.mcol-name':sel==='.meeting-list-row p'?'.mcol-meta':sel,size]).concat([['.mcol-round',13]]):rows;
-  for(const [selector,size]of list){if(width<=760&&(name==='projects'||name==='meetings')&&selector==='button.primary')continue;const el=page.locator('#'+name+'View '+selector).first();await expect(el).toHaveCount(1);await expect(el).toHaveCSS('font-size',size+'px');}
+  const list=name==='meetings'&&width>=761?rows.map(([sel,size])=>[sel==='.meeting-list-title h3'?'.mcol-name':sel==='.meeting-list-row p'?'.mcol-meta':sel,size]).concat([['.mcol-round',13]]):rows;
+  for(const [selector,size]of list){if((name==='projects'||width<=760&&name==='meetings')&&selector==='button.primary')continue;/* MTG-프로젝트합치기 ①: [+ 사업영역]은 창 머리줄(#projectsView 밖) */const el=page.locator('#'+name+'View '+selector).first();await expect(el).toHaveCount(1);await expect(el).toHaveCSS('font-size',size+'px');}
   const clip=await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,buttons:[...el.querySelectorAll('button.primary,button.secondary,button.mini')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&(['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id)||b.matches('[data-sp-new],.lb-add')))).filter(b=>b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}));
   expect(clip).toEqual({overflow:false,buttons:[]});
  }

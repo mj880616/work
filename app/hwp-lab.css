@@ -16,11 +16,11 @@
   .hwp-lab .hwp-file-actions button{width:auto;margin:0}
 }
 /* PC: 버튼 한 줄(오른쪽 끝 [전체 화면]) 아래 상태 한 줄, 나머지 창 높이는 편집기가 가득 채운다(HWP-화면가득: 겹친 제목·안내문 없음). */
-@media(min-width:1024px){
+@media(min-width:761px){
   .hwp-lab .hwp-lab-full{margin-left:auto}
   .hwp-lab .hwp-lab-editor{height:max(560px,calc(100dvh - 150px - var(--kptu-topline-space,0px)))}
 }
-/* HWP-화면가득: 폰·폴드(1023px 이하)와 PC [전체 화면](data-full)에서는 카드가 화면 전체(data-focus).
+/* HWP-화면가득: 폰·폴드(760px 이하)와 PC [전체 화면](data-full)에서는 카드가 화면 전체(data-focus).
    위 얇은 한 줄([✕]·파일 이름·[파일 ▾]·[저장 ▾]) + 편집기만. 버튼 줄·만든 문서 줄·[전체 화면]은 위 줄 메뉴가 대신한다. */
 .hwp-lab .hwp-lab-bar{display:none}
 #appView #hwpView .hwp-lab[data-focus]{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;box-sizing:border-box;width:auto;max-width:none;height:auto;margin:0;padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);border:0;border-radius:0;box-shadow:none;background:var(--kptu-surface)}

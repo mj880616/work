@@ -50,7 +50,7 @@ class WidgetHttpTest {
         )
         assertEquals(200, res.status)
         assertEquals("{\"ok\":true}", res.body)
-        assertEquals("https://desk.bokdoong.com", origin.get())
+        assertEquals("https://bokdoong.com", origin.get())
         assertEquals("POST", method.get())
         assertEquals("{\"action\":\"consume\"}", body.get())
     }

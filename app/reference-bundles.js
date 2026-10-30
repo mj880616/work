@@ -1,9 +1,9 @@
-import {waitHtml, failHtml} from './wait-state.js';
+import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 확인창 대신 공용 작은 확인창
 // REF-참고묶음 화면 2 (docs/design/ref-bundle.md 6절, 질문 1~7 추천안): the 참고 묶음 screen (?view=reference). This module is the
 // only renderer of #referenceView: the bundle list (name · linked count · last date, head ⋯ [묶음 더하기]·[순서 바꾸기]) and one
 // bundle's detail (its linked updates and notes, newest first; a row opens the original, its ⋯ [업데이트 열기]·[연결 해제];
-// head ⋯ [이름 바꾸기]·[묶음 지우기] — the latter only for an empty bundle). PC (1024px~) shows list and detail side by side
+// head ⋯ [이름 바꾸기]·[묶음 지우기] — the latter only for an empty bundle). PC (761px~) shows list and detail side by side
 // (split-resize.js); a phone shows the list, then the detail over it (one router layer, so Back returns to the list).
 // Reads and writes are the owner's own: app_reference_bundles REST (reference-bundles-data.js) and the confirmed links to bundles
 // (basket-link-records.js readLinkRecords({kind:'bundle'})). Disconnect is the shared disconnectWithUndo (5 seconds to undo).
@@ -13,6 +13,7 @@ import {readLinkRecords,noteExcerpt} from './basket-link-records.js';
 import {disconnectWithUndo} from './basket-record-delete.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
+import {followPane} from './follow-pane.js';
 import {requestBasketNote,requestNoteDocOpen} from './basket-note-tasks.js';
 import {readReferenceBundles,createReferenceBundle,renameReferenceBundle,deleteReferenceBundle,saveBundleOrder,bundleStats,bundleErrorText,BUNDLE_NAME_MAX,sortBundles} from './reference-bundles-data.js';
 
@@ -20,11 +21,11 @@ const rt=window.KPTURuntime;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=sel=>document.querySelector(sel);
 const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
-const pc=window.matchMedia('(min-width:1024px)');
+const pc=window.matchMedia('(min-width:761px)');
 const md=value=>{const t=Date.parse(value);if(Number.isNaN(t))return '';const p=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric'}).formatToParts(new Date(t));const get=k=>p.find(x=>x.type===k)?.value||'';return `${get('month')}.${get('day')}`;};
 const MORE='<span class="more-dots" aria-hidden="true">⋯</span>';
 
-let state=freshState(),run=0,layer=null,pendingOpen=null;
+let state=freshState(),run=0,layer=null,pendingOpen=null,rbFollowed=null;
 function freshState(){return {owner:'',loaded:false,loading:false,error:'',bundles:[],links:[],selected:null,mode:'',draft:'',order:null,status:'',detailStatus:'',busy:false};}
 
 function install(){
@@ -65,6 +66,8 @@ function paint(){
   // The ratio is the 담당조직 screen's (view_prefs split_ratio.team): the DB check accepts only tasks·projects·team·reports, and this
   // screen is entered from the organization list.
   mountSplitResize({container:$('#rbSplit'),name:'refs',inherit:'team',label:'참고 묶음 목록과 상세 칸 폭 조절',list:()=>$('#rbList'),pane:()=>$('#rbDetail'),active:()=>pc.matches&&!view()?.classList.contains('hidden')});
+  // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 상세 칸은 화면에 붙어 따라오고, 다른 묶음을 고르면 머리부터 보인다.
+  if(wide){followPane($('#rbDetail'),{reset:rbFollowed!==state.selected});rbFollowed=state.selected;}
 }
 function paintList(){
   const box=$('#rbList'),stats=bundleStats(state.links);
@@ -78,7 +81,7 @@ function paintList(){
   }).join('');
   const order=state.order?`<div class="rb-actions"><button type="button" class="rb-small" data-rb-order-cancel>취소</button><button type="button" class="rb-small primary" data-rb-order-save data-enter-save-submit>저장</button></div>`:'';
   const add=state.mode==='add'?`<div class="rb-inline" data-rb-add-form data-enter-save><input type="text" class="rb-input" data-rb-add-input maxlength="${BUNDLE_NAME_MAX}" aria-label="새 묶음 이름" placeholder="새 묶음 이름" value="${esc(state.draft)}"><button type="button" class="rb-small" data-rb-add-cancel>취소</button><button type="button" class="rb-small primary" data-rb-add-save data-enter-save-submit>저장</button></div>`:'';
-  box.innerHTML=head+`<div class="rb-rows"${state.order?' data-enter-save':''}>${rows||'<p class="rb-empty">묶음이 없어요.</p>'}${order}</div>${add}<p class="rb-status" data-rb-status role="status">${esc(state.status)}</p>`;
+  box.innerHTML=head+`<div class="rb-rows"${state.order?' data-enter-save':''}>${rows||emptyHtml()}${order}</div>${add}<p class="rb-status" data-rb-status role="status">${esc(state.status)}</p>`;
 }
 function paintDetail(){
   const box=$('#rbDetail'),b=bundleOf(state.selected);
@@ -87,7 +90,7 @@ function paintDetail(){
   const title=state.mode==='rename'?`<div class="rb-inline" data-rb-rename-form data-enter-save><input type="text" class="rb-input" data-rb-rename-input maxlength="${BUNDLE_NAME_MAX}" aria-label="묶음 이름" value="${esc(state.draft)}"><button type="button" class="rb-small" data-rb-rename-cancel>취소</button><button type="button" class="rb-small primary" data-rb-rename-save data-enter-save-submit>저장</button></div>`
     :`<h3 class="rb-detail-name" id="rbDetailName">${esc(b.name)}</h3><span class="rb-meta">${count}개</span><button type="button" class="rb-more" data-rb-detail-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-label="${esc(b.name)} 메뉴"${state.busy?' disabled':''}>${MORE}</button>`;
   const back=pc.matches?'':'<button type="button" class="back-text rb-back" data-rb-back>‹ 참고 묶음</button>';
-  const list=count?`<ul class="rb-items">${rows.map(l=>{const kind=l.note_kind==='note'?'노트':'업데이트',line=lineOf(l);return `<li class="rb-item" data-rb-link="${esc(l.id)}"><button type="button" class="rb-item-open" data-rb-open="${esc(l.id)}"><span class="rb-date">${esc(md(l.occurred_at))}</span><span class="rb-line">${esc(line)}</span><span class="rb-kind">${kind}</span></button><button type="button" class="rb-more" data-rb-item-more="${esc(l.id)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc([...line].slice(0,30).join(''))} 메뉴">${MORE}</button></li>`;}).join('')}</ul>`:'<p class="rb-empty">붙인 소식이 없어요. 정리함 [연결하기] › [참고 ▾]로 붙일 수 있어요.</p>';
+  const list=count?`<ul class="rb-items">${rows.map(l=>{const kind=l.note_kind==='note'?'노트':'업데이트',line=lineOf(l);return `<li class="rb-item" data-rb-link="${esc(l.id)}"><button type="button" class="rb-item-open" data-rb-open="${esc(l.id)}"><span class="rb-date">${esc(md(l.occurred_at))}</span><span class="rb-line">${esc(line)}</span><span class="rb-kind">${kind}</span></button><button type="button" class="rb-more" data-rb-item-more="${esc(l.id)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc([...line].slice(0,30).join(''))} 메뉴">${MORE}</button></li>`;}).join('')}</ul>`:emptyHtml();
   box.innerHTML=`${back}<div class="rb-detail-head">${title}</div><p class="rb-status" data-rb-detail-status role="status">${esc(state.detailStatus)}</p>${list}`;
 }
 
@@ -95,7 +98,7 @@ function paintDetail(){
 function select(id,{focus=true}={}){
   if(state.mode||state.order){if(!confirmDrop())return;}
   state.selected=id;state.detailStatus='';
-  if(!pc.matches&&id)layer||=window.KPTURouter?.layer?.open('reference-bundle',{close:()=>{layer=null;closeDetail({fromBack:true});return true;}})||null;
+  if(!pc.matches&&id)layer||=window.KPTURouter?.layer?.open('reference-bundle',{reopen:()=>select(id),close:()=>{layer=null;closeDetail({fromBack:true});return true;}})||null;
   paint();
   if(focus)(pc.matches?$(`#rbList [data-rb-bundle="${CSS.escape(id)}"]`):$('#rbDetail [data-rb-back]')||$('#rbDetail .rb-detail-name'))?.focus({preventScroll:true});
 }

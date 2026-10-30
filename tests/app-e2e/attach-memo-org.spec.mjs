@@ -286,7 +286,7 @@ test('an organization without documents says how to add them, and a failed read 
  await page.locator('[data-wd-close="wdModal"]').click();
  f.tables.app_documents.forEach(d=>{if(d.organization_id===O2)d.organization_id=null;});
  await openOrg(page,O2);
- await expect(page.locator('#wdDocBody .empty,#wdDocBody .wd-doc-none,#wdDocBody .wd-doc-row')).toHaveCount(0);await expect(page.locator('#wdDocAdd')).toBeVisible();
+ await expect(page.locator('#wdDocBody [data-wait-empty],#wdDocBody .wd-doc-none,#wdDocBody .wd-doc-row')).toHaveCount(0);await expect(page.locator('#wdDocAdd')).toBeVisible();
  await expect(page.locator('#wdDocs [data-wd-library]')).toHaveCount(0);
  await page.locator('[data-wd-close="wdModal"]').click();
  let fail=true;

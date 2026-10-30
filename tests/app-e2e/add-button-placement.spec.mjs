@@ -103,7 +103,7 @@ for(const width of [390,1440]){
       await assertPlaced(page,width,{card:'#meetingsListCard',head:'.add-list-head',button:'#newMeetingBtn',title:'h2'});
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
       // UI-전수디자인점검 F01: 폰의 회의명 거르기는 칸 칩 줄 끝 [거르기 ▾] 창 안의 한 묶음이다.
-      if(width>=1024){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
+      if(width>=761){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
       else{await expect(reportFilterButton(page)).toBeVisible();expect(await reportFilterKeys(page)).toContain('name')}
       await page.locator('#newMeetingBtn').click();
       await expect(page.locator('#meetingModal')).toBeVisible();
@@ -161,26 +161,28 @@ for(const width of [390,1440]){
       await expect(page.locator('#gtTaskModal')).toBeVisible();
     });
     test('project list card keeps archive and add action after redraw',async({page})=>{
+      // MTG-프로젝트합치기 ①(10/29 시안): 사업영역 관리는 사업 보고 위 창이다. [+ 사업영역]은 창 머리줄(제목 오른쪽, ✕ 왼쪽)에 작고 낮게(32px, 누르는 범위 44px),
+      // 폰은 머리 '‹ 사업 보고 · 사업영역 관리 · +'(둥근 [+] 떠 있는 버튼이 아님). [보관 n]은 지금처럼 목록 머리줄.
       await openApp(page,'projects');
       const card='#projectGrid .ps3-plist',head='.add-list-head',title='[data-ps3-total]';
       const checkActions=async()=>{
         await assertInHeader(page,{card,head,button:'#ps3ArchiveBtn',title});
-        await assertPlaced(page,width,{card,head,button:'#newProjectBtn',title});
         const actions=page.locator(`${card} ${head} .ps3-project-toolbar`);
-        await expect(actions.locator('button')).toHaveCount(2);
-        expect(await actions.locator('button').evaluateAll(buttons=>buttons.map(button=>button.id))).toEqual(['ps3ArchiveBtn','newProjectBtn']);
+        expect(await actions.locator('button').evaluateAll(buttons=>buttons.map(button=>button.id))).toEqual(['ps3ArchiveBtn']);
+        const winHead=page.locator('#areaWindow .area-window-head');
+        await expect(winHead.locator('#newProjectBtn')).toBeVisible();
+        expect(await page.locator('#newProjectBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
         const archive=await page.locator('#ps3ArchiveBtn').boundingBox();
-        const add=await page.locator('#newProjectBtn').boundingBox();
+        const add=await page.locator('#newProjectBtn').boundingBox(),headBox=await winHead.boundingBox(),titleBox=await page.locator('#areaWindowTitle').boundingBox();
         expect(archive.width).toBeGreaterThanOrEqual(44);
         expect(archive.height).toBe(44);
-        if(width!==390){
-          expect(add.width).toBeGreaterThanOrEqual(44);
-          // UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC(≥1024) [+ 프로젝트]는 낮은 버튼(--ds-compact-height 32px), 누르는 범위 44px.
-          expect(add.height).toBe(32);
-          expect(await page.locator('#newProjectBtn').evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBeGreaterThanOrEqual(44);
-          expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
-          expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
-        }
+        expect(add.height).toBe(32);
+        expect(await page.locator('#newProjectBtn').evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBeGreaterThanOrEqual(44);
+        expect(add.y).toBeGreaterThanOrEqual(headBox.y-1);expect(add.y+add.height).toBeLessThanOrEqual(headBox.y+headBox.height+1);
+        expect(add.x).toBeGreaterThanOrEqual(titleBox.x+titleBox.width-1);
+        const end=page.locator(width===390?'#areaWindow .area-window-back':'#areaWindow .area-window-close');await expect(end).toBeVisible();
+        if(width!==390)expect((await end.boundingBox()).x).toBeGreaterThanOrEqual(add.x+add.width-1);
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
       };
       await checkActions();
       await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관 1');
