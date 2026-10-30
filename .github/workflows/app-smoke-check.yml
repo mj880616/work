@@ -60,6 +60,7 @@ on:
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-recorder-model.test.mjs'
+      - 'tests/phone-recorder.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
@@ -170,6 +171,7 @@ on:
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-recorder-model.test.mjs'
+      - 'tests/phone-recorder.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
@@ -460,6 +462,9 @@ jobs:
 
       - name: Check phone widget auto login bridge (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-auth.test.mjs
+
+      - name: Check phone app recorder web bridge (MTG-폰녹음)
+        run: node --test tests/phone-recorder.test.mjs
 
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs
