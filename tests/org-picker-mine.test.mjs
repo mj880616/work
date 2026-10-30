@@ -28,7 +28,6 @@ const ALLOWED = Object.freeze({
   'app/basket-classification.js': '정리함 AI 분류의 조직 이름 대조(다른 작업이 정리함 쪽을 고침)',
   'app/drive-summary.js': 'Drive 요약 내보내기 표 목록(고르기 칸 아님)',
   'app/home-summary.js': '홈 빠른 입력 고르기 시트의 공용 읽기(조직·담당 행)만 한다. 기록할 곳 고르기는 update-places.js가 규칙을 적용한다',
-  'app/calendar-ref-data.js': '캘린더 참고 일정의 조직 자동 판정(제목 이름 대조, 사람이 고르는 칸 아님)',
 });
 
 // 사람이 조직을 고르는 칸이 있는 파일: 반드시 규칙을 쓴다.
@@ -39,6 +38,7 @@ const PICKERS = Object.freeze({
   'app/suborganizations.js': '일정 등록·Google 일정 수정의 관련 담당조직 체크',
   'app/library-upload.js': '자료실 일괄 바꾸기 담당조직',
   'app/basket-manual-link.js': '정리함 [연결하기]',
+  'app/calendar-ref-settings.js': '내 프로필 조직 참고 캘린더의 담당조직 고르기',
 });
 
 function appFiles(dir = APP) {

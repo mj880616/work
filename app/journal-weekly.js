@@ -34,7 +34,7 @@ import {scheduleItems} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
 import {docEdits, draftAreaSummaries, draftHq} from './weekly-draft-store.js';
-import {weeklyPart as calRefWeekly} from './calendar-ref-model.mjs';
+import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
 import {slashDay as nextSlashDay} from './next-week-sheet-model.mjs';
 import {renderPrepSheet} from './prep-sheet-view.js';
@@ -43,7 +43,7 @@ import {renderPrepSheet} from './prep-sheet-view.js';
 // 'upcoming' is the two-week calendar read of 5. 주요 일정 (journal-data.js readScheduleEvents).
 export const WEEKLY_SOURCES = Object.freeze({
   requests:['execRequests'], summary:['basket', 'projectUpdates', 'catalog'], meetings:['meetings'], orgs:['basket', 'orgUpdates'], calendar:['upcoming'],
-  lines:['lines'], calRefs:['calendarRefs'], tasks:['tasks'], due:['tasks'], docs:['documents'], shares:['sharePages'], memos:['basket'],
+  lines:['lines'], tasks:['tasks'], due:['tasks'], docs:['documents'], shares:['sharePages'], memos:['basket'],
 });
 const state = (materials, sources) => {
   const states = sources.map(source => materials?.[source]);
@@ -358,9 +358,6 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
 
   const notes = {
     lines:part('lines', () => ({items:perDay('lines', (read, day) => workLines(read?.get?.(day)))})),
-    // 원장 재료 C-4(설계 5.3): 개인 공유 캘린더 참고 일정. 고르지 않았거나 읽는 중이면 보이지 않고, items는 체크된 줄만(복사 재료), all은 화면용 전부.
-    // 주간보고 '5. 주요 일정'(calendar)과 한글 파일에는 들어가지 않는다 — 이 값은 notes 밖 어디에도 쓰이지 않는다.
-    calRefs:calRefsPart(m.calendarRefs, days),
     // HOME-줄누르기 ⑦: 끝낸 할 일·할 일 예정 줄은 누르면 그 할 일 수정 창(업무일지 하루 할 일 줄과 같은 열기). 글은 그대로.
     tasks:part('tasks', () => ({items:perDayTasks((read, day) => tasksOn(read, day)),
       ...(days[0] < doneCoverFrom(doneDays, today) ? {note:`Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.`} : {})})),
@@ -379,15 +376,11 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const overlapSource = {refs:[...shownRefs], meetings:(rawMeetings.items || []).filter(i => i.ref).map(i => ({ref:i.ref, day:i.day, title:i.text, targets:i.targets})),
     records:[...rawRecords.map(r => ({ref:r.ref, day:r.day, text:r.text, title:'', target:target('project', r.id)})),
       ...rawOrg.map(r => ({ref:r.ref, day:r.day, text:r.text, title:'', target:target('organization', r.open?.org)}))].filter(r => r.ref)};
-  return {start, days, requests, summary, meetings, orgs, calendar, calendarView, hq, notes, remembered, fileEdits, overlap, overlapSource};
-}
-function calRefsPart(read, days) {
-  const base = {key:'calRefs', loading:false, failed:[], items:[], all:[], hidden:true};
-  if (!read) return base;
-  if (read.status === 'loading') return {...base, loading:true};
-  if (read.status !== 'ok') return {...base, hidden:false, failed:['calendarRefs']};
-  if (!read.items?.configured) return base;
-  return {...base, hidden:false, ...calRefWeekly(read.items.rows, days), syncFailed:!!read.items.syncFailed};
+  // CAL-조직참고캘린더: 내 프로필에서 고른 조직 참고 캘린더의 주요 일정(그 주·앞으로 2주). 그 조직 칸 추천 줄로만 쓰고(4. 산하 조직 현황 화면,
+  // 한글 파일 상자 그 조직 칸), 5. 주요 일정·참고·복사 글에는 넣지 않는다. 고르지 않았거나 못 읽으면 빈 값(추천 줄이 안 보일 뿐).
+  const refRead = ok(m, 'orgRefs');
+  const orgRefs = refRead?.configured ? {org:refRead.org, items:refRead.items || []} : {org:'', items:[]};
+  return {start, days, requests, summary, meetings, orgs, calendar, calendarView, hq, notes, remembered, fileEdits, overlap, overlapSource, orgRefs};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
 
@@ -468,7 +461,6 @@ export function weeklyReportText(model) {
   out.push('', '참고');
   for (const [key, label] of NOTE_PARTS) {
     const part = model.notes[key];
-    if (key === 'calRefs' && (part.hidden || part.loading)) continue;
     if (part.loading || part.failed?.length) { out.push(`◦ ${label}`); out.push(gap(part, key)); if (!part.loading) missing.push(label); continue; }
     if (!part.items.length && !part.note) continue;
     out.push(`◦ ${label}`);
@@ -485,7 +477,7 @@ export function weeklyReportText(model) {
 
 // ---- screen (called by journal.js only) ----
 export const FILE_TAG = '자료';
-export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['calRefs', '개인 공유 캘린더(참고)'], ['tasks', '끝낸 할 일'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모']]);
+export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸 할 일'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모']]);
 // 1. 2) 주요 일정: what goes there (its rule is not settled; nothing is filled in yet).
 // WEEKLY-주요일정칸(요청함 10/30 13:17): '자동 채우기는 나중에'는 지우고 안내 한 줄만 남긴다. 적는 칸은 그 아래 수기 표(weekly-hq-schedule.js).
 export const HQ_SCHEDULE_GUIDE = '본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외.';
@@ -756,6 +748,22 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       } else part.append(itemList(section.items));
       const fold = foldedFiles(section.folded); if (fold) part.append(fold);
       const gone = droppedFiles(section.dropped); if (gone) part.append(gone);
+      // CAL-조직참고캘린더: 그 조직 칸에만 조직 참고 캘린더 추천 줄. [+]를 누르면 요약 고치기 칸 끝에 그 줄이 들어가고, [저장]하면 보고에 들어간다.
+      // 이미 요약(또는 고치는 칸)에 든 일정은 다시 보이지 않는다.
+      const recs = can && section.id && section.id === model.orgRefs?.org
+        ? model.orgRefs.items.filter(item => !orgRefIn(editing ? editing.value : section.summary?.text ?? '', item)) : [];
+      if (recs.length) {
+        const ul = el('ul', 'journal-weekly-list journal-org-refs'); ul.dataset.journalOrgRefs = section.id;
+        for (const item of recs) {
+          const li = el('li', 'journal-org-ref'); li.dataset.journalOrgRef = item.key;
+          li.append(el('span', 'journal-org-ref-mark', '캘린더 추천'), doc.createTextNode(` · ${item.label} `));
+          const add = el('button', 'mini', '+'); add.type = 'button'; add.dataset.journalOrgRefAdd = section.id; add.dataset.journalOrgRefText = item.label; // 요약 줄은 글머리 없이(복사·한글 파일이 '- '를 붙임)
+          if (editing?.saving) add.disabled = true;
+          add.setAttribute('aria-label', `${section.name} 요약에 넣기: ${item.label}`);
+          li.append(add); ul.append(li);
+        }
+        part.append(ul);
+      }
       if (can && section.id && !editing) {
         const tools = el('div', 'journal-org-tools');
         if (section.summary?.edited) { const tag = el('span', 'journal-org-edited', '고친 요약'); tag.dataset.journalOrgEdited = ''; tools.append(tag); }
@@ -808,25 +816,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const quiet = [];
   for (const [key, label] of NOTE_PARTS) {
     const part = model.notes[key];
-    if (key === 'calRefs') {
-      if (part.hidden || part.loading) continue;
-      const box = el('details', 'journal-weekly-part journal-calref'); box.dataset.journalWeekly = 'note-calRefs';
-      if (part.failed.length) {
-        box.removeAttribute('data-journal-weekly'); const plain = block('note-calRefs', label); status(plain, part, label); ref.append(plain); continue;
-      }
-      const checked = part.all.filter(i => i.included).length;
-      box.append(el('summary', null, `${label} ${part.all.length}${part.all.length ? ` · 체크 ${checked}` : ''}`));
-      if (part.all.length) {
-        const ul = el('ul', 'journal-calref-list');
-        for (const i of part.all) {
-          const li = el('li'); li.dataset.journalCalrefRow = i.id;
-          const lab = el('label', 'journal-calref-item'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = i.included; cb.dataset.journalCalrefCheck = i.id;
-          lab.append(cb, dayTag(i.day), doc.createTextNode(`${i.text}${i.unsure ? ' (애매)' : ''}`)); li.append(lab); ul.append(li);
-        }
-        box.append(ul);
-      }
-      ref.append(box); continue;
-    }
     if (!part.loading && !part.failed.length && !part.items.length && !part.note) { if (key !== 'memos') quiet.push(label); continue; }
     const box = block(`note-${key}`, label);
     if (!status(box, part, label) && !part.failed.length) { if (part.items.length) box.append(itemList(part.items)); if (part.note) box.append(muted(part.note)); }
