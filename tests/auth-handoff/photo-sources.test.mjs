@@ -72,7 +72,7 @@ test('photo sources: plan, dry-run, apply, own-row writes, CHECKs and guarded ro
   for(const f of EARLIER)await pool.query(await read('supabase/migrations/'+f+'.sql'));
   const rollbackSQL=await read('docs/'+stem+'.rollback.sql'),snapshot=await read('docs/'+stem+'.snapshot.sql');
   const precheck=await read('docs/'+stem+'.precheck.sql'),postcheck=await read('docs/'+stem+'.postcheck.sql');
-  for(const f of [precheck,postcheck,snapshot])assert.doesNotMatch(f,/information_schema/i);
+  for(const f of [precheck,postcheck,snapshot])assert.doesNotMatch(f.replace(/--.*$/gm,''),/information_schema/i,'pair check SQL reads pg_constraint only');
   const query=async(sql,options={})=>{const c=await pool.connect();try{if(options.readOnly)await c.query('begin read only');const r=await c.query(sql);if(options.readOnly)await c.query('commit');return Array.isArray(r)?[]:r.rows;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
   const plan=(mode,run)=>prepareMigration({mode,version,runId:run,root});
   const saveSnapshot=async()=>{};
