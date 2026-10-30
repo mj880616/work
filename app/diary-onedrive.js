@@ -7,7 +7,7 @@
 import './od-thumb-cache.js';
 import {ownerScope, diaryPhotos, todayKey} from './diary-data.js';
 import {seoulDateKey} from './meeting-time.js';
-import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE} from './od-thumb-loader.js';
+import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE, GATHER_MS} from './od-thumb-loader.js';
 import {holdPhotoBlob, holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
 import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
 
@@ -81,9 +81,10 @@ export async function odFolders(rt, parentId = null) {
 }
 // ---- 사진 목록(서버 색인) 받기와 하위 폴더 스위치 ----
 // 한 번 부르면 서버가 한 걸음 받고 {more, indexing}을 준다. more:false가 될 때까지 화면이 반복한다(진행 상태는 서버에 있다).
+// changed(PHOTO-속도): 이번 걸음에 바뀐 사진·동영상 수(서버가 아직 모르면 0). 사진 메뉴는 이것으로 목록을 다시 그릴지 정한다.
 export async function odSync(rt) {
   const d = await odCall(rt, {action: 'sync'});
-  return {more: d?.more === true, indexing: d?.indexing === true};
+  return {more: d?.more === true, indexing: d?.indexing === true, changed: Number.isInteger(d?.changed) && d.changed > 0 ? d.changed : 0};
 }
 // 다시 부르기 전에 기다릴 밀리초: 429는 서버가 준 retry_after초(1~120초로 제한), 409(다른 곳에서 받는 중)는 5초, 나머지는 null(멈춤).
 export function odSyncDelay(error) {
@@ -140,9 +141,11 @@ const filterBody = (filter, starIds) => ({filter: OD_FILTERS.includes(filter) ? 
 // 최신순 한 쪽: {items, next(다음 쪽 cursor 또는 null), indexing}.
 // folderId(사진 메뉴 ② 폴더 보기): 그 폴더 바로 안 사진만(꺼진 폴더도).
 // sort(PHOTO-정렬): 'taken_desc'(기본, 보내지 않음)가 아니면 서버가 그 기준으로 줄 세워 쪽을 준다. 그때 cursor는 {v, id}(그 기준 값).
-export async function odLibrary(rt, {filter = 'all', cursor = null, limit = 120, starIds = null, folderId = null, sort = 'taken_desc'} = {}) {
+// sync(PHOTO-속도): 기본 false = 서버가 원드라이브 delta를 기다리지 않고 지금 색인으로 바로 답한다. 이 함수를 쓰는 사진 메뉴는
+// 들어올 때 'sync'를 따로 불러 바뀐 것이 있으면 다시 그린다(photos.js startSync). true면 예전처럼 서버가 오래된 색인을 먼저 한 걸음 받는다.
+export async function odLibrary(rt, {filter = 'all', cursor = null, limit = 120, starIds = null, folderId = null, sort = 'taken_desc', sync = false} = {}) {
   const d = await odCall(rt, {action: 'library', ...filterBody(filter, starIds), limit, ...(cursor ? {cursor} : {}), ...(folderId ? {folder_id: folderId} : {}),
-    ...(sort && sort !== 'taken_desc' ? {sort} : {})});
+    ...(sort && sort !== 'taken_desc' ? {sort} : {}), ...(sync ? {} : {sync: false})});
   const items = (Array.isArray(d?.items) ? d.items : []).filter(p => p && typeof p.id === 'string' && p.id && dayRe.test(p.day || '')).map(mediaOf);
   const n = d?.next_cursor;
   const next = !n || typeof n.id !== 'string' ? null : typeof n.t === 'string' ? {t: n.t, id: n.id}
@@ -150,8 +153,8 @@ export async function odLibrary(rt, {filter = 'all', cursor = null, limit = 120,
   return {items, next, indexing: d?.indexing === true};
 }
 // 달별 장수 {months:{'2026-10':n}, total}.
-export async function odMonths(rt, {filter = 'all', starIds = null} = {}) {
-  const d = await odCall(rt, {action: 'months', ...filterBody(filter, starIds)});
+export async function odMonths(rt, {filter = 'all', starIds = null, sync = false} = {}) {
+  const d = await odCall(rt, {action: 'months', ...filterBody(filter, starIds), ...(sync ? {} : {sync: false})});
   const months = {};
   for (const [k, n] of Object.entries(d?.months && typeof d.months === 'object' ? d.months : {})) if (/^\d{4}-\d{2}$/.test(k) && Number.isInteger(n) && n > 0) months[k] = n;
   return {months, total: Number.isInteger(d?.total) ? d.total : 0};
@@ -372,8 +375,8 @@ export async function odPhotoBytes(rt, id, size = 'small', fetcher = globalThis.
 }
 
 let loader = null, cacheScope = '';
-// 이 화면의 사진 대기열(로그인한 사람마다 하나). 시험은 fetchUrls·fetchBytes를 바꿔 넣는다.
-export function odThumbLoader(rt = window.KPTURuntime, {fetchUrls, fetchBytes} = {}) {
+// 이 화면의 사진 대기열(로그인한 사람마다 하나). 시험은 fetchUrls·fetchBytes를 바꿔 넣는다(모으는 시간 gatherMs도).
+export function odThumbLoader(rt = window.KPTURuntime, {fetchUrls, fetchBytes, gatherMs = GATHER_MS} = {}) {
   const scope = ownerScope(rt);
   if (loader && scope === cacheScope && !fetchUrls && !fetchBytes) return loader;
   loader?.clear();
@@ -382,6 +385,7 @@ export function odThumbLoader(rt = window.KPTURuntime, {fetchUrls, fetchBytes} =
     fetchUrls: fetchUrls || ((ids, size) => odPhotoUrls(rt, ids, size)),
     fetchBytes: fetchBytes || ((id, size) => odPhotoBytes(rt, id, size)),
     revoke: url => URL.revokeObjectURL(url),
+    gatherMs,
   });
   return loader;
 }
@@ -598,7 +602,8 @@ const RETRY_GAP_MS = 3000;
 // (↻는 기억해 둔 주소·'한 장씩' 표시를 지우고 새 주소부터 받는다). 못 받은 까닭은 data-img-why에만 남긴다(진단용, 화면에 안 보임).
 // eager: 화면 관찰 없이 바로 받는다(크게 보기의 앞뒤 칸). prio: eager일 때의 순서.
 // retry:false: 더 큰 누르기 칸의 바탕(달력 날짜 칸·목록 줄)이라 ↻는 표시만(누르면 바깥 칸이 열림, img-slot.js passive).
-export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime, eager = false, prio = VISIBLE, retry = true} = {}) {
+export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime, eager = false, prio: firstPrio = VISIBLE, retry = true} = {}) {
+  let prio = firstPrio;
   const box = document.createElement('span');
   box.className = 'diary-photo'; box.dataset.diaryPhoto = 'od:' + item.id;
   const img = document.createElement('img');
@@ -683,6 +688,8 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
     if (busy && holding) { holding = false; l.drop(item.id, size); }
     if (!box.isConnected && views) { views.view.unobserve(box); views.near.unobserve(box); }
   };
+  // 크게 보기에서 넘기면(photo-strip.js) 그 장의 순서가 바뀐다: 받는 중이면 대기열에서 당긴다.
+  if (eager) box.addEventListener('photo-prio', e => { const p = Number(e.detail); if (!Number.isFinite(p)) return; prio = p; if (busy && holding) l.bump(item.id, size, p); });
   const io = eager ? null : observers();
   if (!io) { request(); return box; }
   watchers.set(box, {

@@ -64,7 +64,6 @@ test('① 다른 곳의 사업영역 연결은 모두 KPTUAreaWindow.open 하나
   const opens={
     'team.js':/\[data-report-areas\]'\)\)return void window\.KPTUAreaWindow\?\.open\?\.\(/,
     'basket.js':/if \(project\) await window\.KPTUAreaWindow\.open\(\{ id: link\.project_id \}\)/,
-    'home-read.js':/KPTUAreaWindow\.open\(\{ id: b\.dataset\.homeProject \}\)/,
     'todo-radar.js':/KPTUAreaWindow\.open\(\{id: c\.project_id\}\)/,
     'global-search.js':/target\.view === 'projects'\) await window\.KPTUAreaWindow\?\.open\?\.\(\{id: target\.id\}\)/,
     'ledger-browse.js':/target\.view === 'projects'\) await window\.KPTUAreaWindow\?\.open\?\.\(\{ id: target\.id \}\)/,

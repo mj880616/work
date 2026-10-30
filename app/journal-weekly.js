@@ -782,7 +782,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   }
   if (quiet.length) { const q = muted(`기록 없는 묶음: ${quiet.join(', ')}`); q.classList.add('journal-empty'); q.dataset.journalWeeklyQuietNotes = ''; ref.append(q); }
 
-  host.replaceChildren(when, one, two, four, five, ref, ...memoryBox(doc, el, model.remembered, memoryUi));
+  // WEEKLY-환류학습: '주간보고 규칙·환류' 자리 — 그림은 weekly-learn-panel.js 가 채운다(journal.js 가 그린 뒤 부름).
+  const learn = el('div', 'journal-weekly-learn'); learn.dataset.journalWeeklyLearnSlot = '';
+  host.replaceChildren(when, one, two, four, five, ref, ...memoryBox(doc, el, model.remembered, memoryUi), learn);
 }
 
 // WEEKLY-환류 (설계 3.7, Q6 ①): [주간 정리] 맨 아래 접힌 '주간보고 기억' — 일정 이름·일정 빼기(지우기)·회의 종류 빼기 전체(다시 올리기).

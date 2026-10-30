@@ -1,5 +1,4 @@
 import {seoulDateKey,seoulParts} from './meeting-time.js';
-import {dueGroup} from './task-due.mjs';
 const DAY = 86400000;
 export const dayKey = (now = Date.now()) => seoulDateKey(now);
 export function ranges(now = Date.now()) {
@@ -19,8 +18,6 @@ const dated = (v) =>
   /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""))
     ? Date.parse(v + "T00:00:00+09:00")
     : Date.parse(v);
-const confirmed = (links) =>
-  (links || []).filter((l) => l.status === "confirmed");
 export function milestoneChips(projects, milestones, now = Date.now()) {
   const ids = new Set(
       projects.filter((p) => p.status === "active").map((p) => p.id),
@@ -46,16 +43,8 @@ export function milestoneChips(projects, milestones, now = Date.now()) {
       days: Math.round((Date.parse(m.date) - Date.parse(today)) / DAY),
     }));
 }
-// Home 오늘 일정 rows (display copy shape). Shared by the home card and the calendar, which refreshes the home copy when it
-// reads today's events (CAL-저장본먼저), so both judge colors and today's events alike.
-// 일정 한 건의 색: 그 일정 자신의 색 → 내가 정한 캘린더 색 → 캘린더 기본 색. 홈·달력·업무일지 [하루]가 같은 규칙을 쓴다(없으면 '').
+// 일정 한 건의 색: 그 일정 자신의 색 → 내가 정한 캘린더 색 → 캘린더 기본 색. 달력·홈(업무일지) [하루]가 같은 규칙을 쓴다(없으면 '').
 export const eventColor = (e, status) => e?.color || status?.colors?.[e?.calendarId] || status?.calendars?.find((c) => c.id === e?.calendarId)?.backgroundColor || '';
-export function homeEventRows(events, status = {}, now = Date.now()) {
-  return todayEvents(events || [], now).map((e) => {
-    const raw = eventColor(e, status);
-    return { id: e.id || "", calendarId: e.calendarId || "", start: e.start, end: e.end, allDay: !!e.allDay, title: e.title, color: /^#[0-9a-f]{6}$/i.test(raw) ? raw : "var(--kptu-primary-ink)" };
-  });
-}
 export function todayEvents(events, now = Date.now()) {
   const { start, end } = ranges(now);
   return events
@@ -70,35 +59,6 @@ export function todayEvents(events, now = Date.now()) {
         Number(!!b.allDay) - Number(!!a.allDay) ||
         dated(a.start) - dated(b.start),
     );
-}
-// 홈 [오늘 할 일]: 할 일 화면과 같은 기한 묶음(task-due.mjs dueGroup)의 '기한 지남'·'오늘'. 내일 것은 할 일 화면 '내일' 묶음에 있다.
-export function dueTasks(tasks, now = Date.now()) {
-  const today = dayKey(now);
-  return tasks
-    .filter(
-      (t) =>
-        t.status !== "completed" &&
-        ["overdue", "today"].includes(dueGroup(t.due, today)),
-    )
-    .sort((a, b) =>
-      String(a.due).slice(0, 10).localeCompare(String(b.due).slice(0, 10)),
-    );
-}
-export function unlinkedTasks(tasks, links) {
-  const ids = new Set(
-    confirmed(links)
-      .filter((l) => l.project_id || l.organization_id)
-      .map((l) => l.google_task_id),
-  );
-  return tasks.filter((t) => t.status !== "completed" && !ids.has(t.id));
-}
-export function meetingTasks(tasks, links) {
-  const ids = new Set(
-    confirmed(links)
-      .filter((l) => l.meeting_id)
-      .map((l) => l.google_task_id),
-  );
-  return tasks.filter((t) => t.status !== "completed" && ids.has(t.id));
 }
 // Date.parse keeps milliseconds; preserve PostgreSQL's additional microseconds for top-five ordering.
 const recordTime = value => {

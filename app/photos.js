@@ -69,7 +69,7 @@ let od = {...OD_NONE}, odFault = false, odReady = false, odMessage = '';
 let tab = 'all', filter = 'all', colsSaved = null, prefsRead = false, sort = DEFAULT_SORT;
 // [사진] 목록: items(최신순), next(다음 쪽 cursor), from(막대·달력으로 건너뛴 시작 {cursor, label} 또는 null = 최신부터).
 let items = [], next = null, ended = false, loading = null, failed = '', from = null, rendered = 0;
-let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, syncing = false, syncDone = false;
+let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, syncing = false, syncAt = 0;
 let trash = null, trashFailed = '', trashBusy = false;
 // [폴더]: tree(서버 folders-tree), at(보는 폴더 id), openSet(PC 나무에서 펼친 폴더, 화면 기억만), 그 폴더 사진 fItems(fFor = 어느 폴더 것인지).
 let tree = null, treeFailed = '', treeLoading = null, at = null, fFor = null, fItems = [], fNext = null, fEnded = false, fLoading = null, fFailed = '', folderLayer = null, busy = false;
@@ -122,20 +122,24 @@ function ensureStars(r) {
   return starsReady;
 }
 const starIds = () => [...starSet].map(k => k.slice('onedrive:'.length));
-// 원드라이브에서 바뀐 것을 서버 색인에 이어 받는다(일기와 같은 서버 동작 'sync', 이 접속에서 한 번). 새로 받은 것이 있으면 처음부터 다시 그린다.
+// 원드라이브에서 바뀐 것을 서버 색인에 이어 받는다(일기와 같은 서버 동작 'sync'). 새로 받은 것이 있으면 처음부터 다시 그린다.
+// PHOTO-속도(2026-10-30): 목록 읽기(library·months)는 sync:false로 delta를 기다리지 않으므로, 새 사진을 들이는 길은 이것 하나다.
+// 들어올 때마다 부르되 마지막으로 다 받은 지 10분(서버 SYNC_STALE_MS와 같은 값) 안이면 건너뛴다. 서버가 바뀐 수(changed)를 주면 그것으로 다시 그릴지 정한다.
+const SYNC_AGAIN_MS = 10 * 60 * 1000;
 async function startSync(r) {
-  if (syncing || syncDone || !ready()) return;
+  if (syncing || !ready() || (syncAt && Date.now() - syncAt < SYNC_AGAIN_MS)) return;
   syncing = true;
-  let saw = false;
+  let saw = false, changed = 0;
   try {
     for (let i = 0; i < 500 && current(r); i++) {
       let step;
       try { step = await odSync(rt); }
       catch (error) { const wait = odSyncDelay(error); if (wait === null) throw error; saw = true; await new Promise(ok => setTimeout(ok, wait)); continue; }
       if (step.more || step.indexing) { if (!saw && current(r)) noteEl.innerHTML = waitInlineHtml(); saw = true; }
-      if (!step.more) { syncDone = true; break; }
+      changed += step.changed || 0;
+      if (!step.more) { syncAt = Date.now(); break; }
     }
-    if (current(r) && saw) { note(''); resetList(); render(); }
+    if (current(r) && (saw || changed)) { note(''); resetList(); calData.clear(); render(); }
   } catch (error) { if (current(r)) note(`사진 목록을 다 받지 못했어요: ${odErrorText(error)}`); }
   finally { syncing = false; }
 }
@@ -651,7 +655,7 @@ function paintOd() {
   const modalNote = odHost.querySelector('[data-od-modal-note]');
   if (modalNote) modalNote.textContent = odMessage; else if (odMessage) note(odMessage);
 }
-function afterOdChange() { resetList(); trash = null; calData.clear(); syncDone = false; tree = null; at = null; fFor = null; fItems = []; aFor = null; ensureOd(true).then(() => { render(); startSync(run); }); }
+function afterOdChange() { resetList(); trash = null; calData.clear(); syncAt = 0; tree = null; at = null; fFor = null; fItems = []; aFor = null; ensureOd(true).then(() => { render(); startSync(run); }); }
 const settings = createOdSettings({rt, layerName:'photos-od', back:'photos', od:() => od, refresh:force => ensureOd(force), paint:paintOd,
   message:text => { odMessage = text; }, fault:() => { odFault = true; paintOdLink(linkBtn, od, odFault); }, reload:afterOdChange});
 const linkMenu = createOdLinkMenu({id:'photosOdMenu', historyKey:'kptuPhotosOdMenu', label:'원드라이브',
@@ -1212,7 +1216,7 @@ window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt);
   closePhotoStrip({fromBack:true, restore:false});
-  batch = null; resetList(); syncDone = false; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
+  batch = null; resetList(); syncAt = 0; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop();
   tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; folderLayer = null; albumLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();

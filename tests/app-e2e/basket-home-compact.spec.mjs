@@ -49,7 +49,7 @@ for (const width of [390, 1280]) {
     }
     await saveShot('home');
     await verifySelection(q, 'home');
-    await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
+    await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click(); // HOME-업무일지홈: 홈 요약 줄도 정리함으로 가므로 빠른 입력 안의 링크로 좁힌다
     await page.locator('[data-basket-row="n"]').click();
     await noteAction(page,'[data-basket-edit]');
     const detail = page.locator('[data-basket-detail]');

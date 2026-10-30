@@ -7,7 +7,8 @@
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   // MTG-프로젝트합치기 ①: 사업영역 관리(옛 ?view=projects)는 화면이 아니라 사업 보고 위의 창이다. go('projects')·옛 주소는 사업 보고를 열고
   // kptu:view-changed의 detail.areas로 창(area-window.js)을 띄운다.
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings'};
+  // HOME-업무일지홈: 업무일지 화면이 홈이다(#homeView, 라우터 이름 home). 옛 ?view=journal·go('journal')은 홈을 연다(날짜 주소 day는 그대로).
+  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',journal:'home'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
   const ALIAS_ENTRY={media:{view:'library',category:'성명·보도자료'}};
@@ -29,7 +30,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={meetings:['areas'],basket:['note','doc','folder'],library:['folder'],diary:['day'],journal:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab']};
+  const PLACE_PARAMS={meetings:['areas'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -301,11 +302,11 @@
   }
 
   function syncNavigationState(view){
-    // Phone [일정] tab holds 달력(calendar), 할 일(tasks), 업무일지(journal) and 일기(diary): it opens the side seen last
-    // in this tab, so the tab and current mark follow one attribute.
+    // Phone [일정] tab holds 달력(calendar), 할 일(tasks) and 일기(diary): it opens the side seen last
+    // in this tab, so the tab and current mark follow one attribute. (HOME-업무일지홈: 업무일지는 홈이라 이 묶음에 없다.)
     const schedule=document.querySelector('.mobile-tabs [data-mobile-schedule-tab]');
-    if(schedule&&['calendar','tasks','journal','diary'].includes(view))schedule.dataset.view=view;
-    // UI-PC일정묶음: the PC sidebar [일정] heads a sub menu (달력·할 일·업무일지·일기). The head (data-nav-group) keeps the
+    if(schedule&&['calendar','tasks','diary'].includes(view))schedule.dataset.view=view;
+    // UI-PC일정묶음: the PC sidebar [일정] heads a sub menu (달력·할 일·일기). The head (data-nav-group) keeps the
     // selected look for every screen of its group but is the current page only on its own screen (달력), like [바구니]
     // over its sub rows. [달력] repeats the head's screen (data-goto), so it is marked as the current item, not a second page.
     const target=NAV_ALIAS[view]||view;

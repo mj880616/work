@@ -73,8 +73,10 @@ test('server recheck rules: keep me/support_named; group-wide only for listed te
   assert.deepEqual(m.not_mine_examples,['가상 예시','x']);assert.equal(m.candidates[0].room,'단체방');assert.ok(!('id' in m.candidates[0]));
   assert.match(recheck.buildRecheckInstructions(),/requested_by_me: 기록 주인이 다른 사람에게 부탁·요청한 일/);
 });
-test('screen: ⋯ menu with [내 일 아님] on both candidate lists, shared anchored menu; settings panel saves on the server only',()=>{
-  for(const f of ['app/todo-radar.js','app/inbox-todos.js']){
+// HOME-업무일지홈: 홈·업무일지 챙길 것 상자(todo-radar.js mountRadar)는 없앴다 — 후보 목록은 정리함(inbox-todos.js) 하나.
+test('screen: ⋯ menu with [내 일 아님] on the candidate list, shared anchored menu; settings panel saves on the server only',()=>{
+  assert.doesNotMatch(readFileSync('app/todo-radar.js','utf8'),/export function mountRadar/);
+  for(const f of ['app/inbox-todos.js']){
     const src=readFileSync(f,'utf8');
     assert.match(src,/import \{createAnchoredMenu\} from '\.\/anchored-menu\.js'/,f);
     assert.match(src,/>내 일 아님<\/button>/,f);assert.match(src,/aria-label="더 보기"/,f);assert.match(src,/markNotMine\(c, rt\)/,f);

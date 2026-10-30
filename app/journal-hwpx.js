@@ -45,7 +45,9 @@ import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} 
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
 import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras} from './weekly-draft-store.js';
 import {sameIssuedLines} from './weekly-lines.mjs';
-import {pickBase, teamIsNewer, teamChanges, cellList, feedbackRecord} from './weekly-feedback.mjs';
+import {pickBase, teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback} from './weekly-feedback.mjs';
+import {reviewCard, answerSuggestion, readLearnRows} from './weekly-learn-panel.js';
+import {caretLine, askTargets, lineRequest, readAnswer, replaceLine, suggestKey, PICK_MS, PAUSE_MS, PER_OPEN} from './weekly-line-suggest.mjs';
 import {isDropped, defaultTitle, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
@@ -76,6 +78,16 @@ const TITLE_TEXT = Object.freeze({
   daily_limit: '오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 제목은 칸에서 직접 고쳐 주세요.',
   monthly_limit: '이번 달 AI 한도에 닿았어요. 제목은 칸에서 직접 고쳐 주세요.',
 });
+// WEEKLY-환류학습 3·4·6: ai-assist weekly_draft(AI 초안·학습 시험)·weekly_review(환류 보고) 답의 일상어. 배포 전이면 바탕 그대로.
+const LEARN_TEXT = Object.freeze({
+  ...AI_SUMMARY_TEXT,
+  not_ready: 'AI 초안은 아직 준비 중이에요. 바탕 그대로 시작해요.',
+  unsupported_kind: 'AI 초안은 아직 준비 중이에요. 바탕 그대로 시작해요.',
+  not_found: '이 주 고침 기록을 서버에서 찾지 못했어요.',
+  daily_limit: '오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 바탕 그대로 시작해요.',
+  monthly_limit: '이번 달 AI 한도에 닿았어요. 바탕 그대로 시작해요.',
+});
+const LEARN_BODY_BYTES = 60 * 1024; // 서버 상한(64KB)보다 조금 작게
 const MAX_BYTES = 30 * 1024 * 1024;
 const DRAFT_DELAY = 2000;
 const SECTION_NAME = Object.freeze({summary:'요약', orgs:'산하조직', sites:'투쟁 사업장'});
@@ -244,10 +256,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       const {bytes, info} = await drive.openHwpFromDrive({kind:'library', document:{id:found.id}}, {rt});
       if (mine !== run) return;
       const personal = chosen.from === 'personal';
-      await load(bytes, found.file_name, info.format, `자료실${personal ? ' 개인본' : ''} · ${found.title || found.file_name}`, mine, {from:'library', document_id:String(found.id), file_name:String(found.file_name || ''), title:String(found.title || '')});
+      await load(bytes, found.file_name, info.format, `자료실${personal ? ' 개인본' : ''} · ${found.title || found.file_name}`, mine, {from:'library', document_id:String(found.id), file_name:String(found.file_name || ''), title:String(found.title || '')}, personal ? 'personal' : 'confirmed');
       if (mine !== run || !state) return;
-      state.baseKind = personal ? 'personal' : 'confirmed';
-      if (state.store?.extras && !state.store.extras.proposed) state.store.extras.proposed = proposedNow(state);
       if (personal && teamIsNewer(found, chosen.team)) void loadTeamChanges(state, chosen.team);
     } catch (error) {
       if (mine === run) say(error?.kind ? error.message : TEXT.readFailed, 'error');
@@ -262,7 +272,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     await load(new Uint8Array(await file.arrayBuffer()), file.name, /\.hwpx$/i.test(file.name) ? 'hwpx' : 'hwp', `기기 파일 · ${file.name}`, mine, {from:'file', file_name:String(file.name)});
   }
   // Confirmed report bytes → team report + blank template → my base. Nothing is shown from the file but my own rows.
-  async function load(bytes, name, format, source, mine, baseInfo) {
+  async function load(bytes, name, format, source, mine, baseInfo, baseKind = baseInfo?.from === 'file' ? 'file' : 'confirmed') {
     const {draft} = await lazy();
     try {
       let hwpx = bytes;
@@ -294,11 +304,15 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       state = {draft, team, template, source, start:week.start, me:who.me, meFrom:who.from, meResolved:who.me, meResolvedFrom:who.from, date:draft.reportDate(reportDay(week.start)), context,
         myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null, titles:new Map(), drops:new Map(), titleKeys:'', titleRun:0};
       state.defaultDate = state.date;
+      state.baseKind = baseKind;
       rebase();
       await attachDraft(state, baseInfo, saved);
       if (mine !== run) return;
       carry(week);
       say('');
+      // 환류학습 3: 그 주 처음 초안이 아직 없으면(처음 연 주) AI 초안을 한 번 쓴다(기록을 다 읽은 뒤 — renderMaterial). 있으면 그대로.
+      state.ai = {status:state.store?.extras?.proposed ? (state.store.extras.proposed.ai ? 'done' : 'base') : 'wait', note:''};
+      if (state.store?.status === 'missing' || state.store?.status === 'readFailed') state.ai.status = 'base';
       renderEdit();
     } catch (error) {
       if (mine === run) say(error?.code ? error.message : '확정본을 읽지 못했어요. 아무것도 만들지 않았어요.', 'error');
@@ -426,12 +440,93 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const name = el('label', 'journal-hwpx-label', label); name.htmlFor = id;
     const area = el('textarea', 'journal-hwpx-lines'); area.id = id; area.rows = Math.min(12, Math.max(3, row.lines.length + 1));
     area.value = state.edits[section].get(row.index).join('\n'); area.dataset.hwpxLines = '';
-    area.addEventListener('input', () => { state.edits[section].set(row.index, area.value.split('\n')); state.built = null; renderMismatches(); typed(`row:${state.cellOf[section].get(row.index)}`); });
-    areas[`${section}:${row.index}`] = area;
-    const material = el('ul', 'journal-hwpx-material'); material.dataset.hwpxMaterial = `${section}:${row.index}`;
-    const team = el('div', 'journal-hwpx-team'); team.dataset.hwpxTeam = `${section}:${row.index}`; team.hidden = true;
-    box.append(name, team, area, material);
+    const key = `${section}:${row.index}`;
+    area.addEventListener('input', () => { state.edits[section].set(row.index, area.value.split('\n')); state.built = null; renderMismatches(); typed(`row:${state.cellOf[section].get(row.index)}`); suggestSoon(key, PAUSE_MS); });
+    // WEEKLY-환류입력창 ②: 줄을 고르면(초점·누름·화살표) 잠시 뒤 그 줄 옆 제안. 타자마다 묻지 않는다.
+    for (const type of ['focus', 'click']) area.addEventListener(type, () => suggestSoon(key, PICK_MS));
+    area.addEventListener('keyup', event => { if (/^(Arrow|Home|End|Page)/.test(event.key)) suggestSoon(key, PICK_MS); });
+    areas[key] = area;
+    const material = el('ul', 'journal-hwpx-material'); material.dataset.hwpxMaterial = key;
+    const team = el('div', 'journal-hwpx-team'); team.dataset.hwpxTeam = key; team.hidden = true;
+    const hint = el('p', 'journal-hwpx-suggest'); hint.dataset.hwpxSuggest = key; hint.hidden = true;
+    box.append(name, team, area, hint, material);
     return box;
+  }
+  // ---- 환류입력창 ②: 줄 옆 '이렇게 바꾸면?'(ai-assist weekly_line) ----
+  // 고르는 칸 한 개의 줄만, 이미 받은 줄은 다시 묻지 않는다(상자를 열 때마다 PER_OPEN 번까지). 서버가 없거나(배포 전) 한 번 실패하면 이 상자에선 조용히 끈다.
+  // 누르면 그 줄만 바뀌고(칸 input 그대로 → 자동저장 2초 길), [되돌리기]로 원래 줄. 무시하면 아무 일 없다. 줄 글은 기록에 남기지 않는다.
+  const suggestOf = s => (s.suggest ??= {cache:new Map(), asked:0, off:false, flight:false, timer:0, focus:'', undo:null});
+  function suggestSoon(key, ms) {
+    const s = state;
+    if (!s) return;
+    const g = suggestOf(s);
+    g.focus = key;
+    clearTimeout(g.timer);
+    if (g.undo?.key !== key || (ms === PAUSE_MS && !g.applying)) g.undo = null; // 다른 칸으로 가거나 이어서 고치면 [되돌리기]는 거둔다
+    for (const [k, node] of Object.entries(hints())) if (k !== key) node.hidden = true;
+    g.timer = setTimeout(() => { if (state === s) void suggestNow(s, key); }, ms);
+  }
+  const hints = () => Object.fromEntries([...body.querySelectorAll('[data-hwpx-suggest]')].map(n => [n.dataset.hwpxSuggest, n]));
+  function cellMaterial(s, key) {
+    const [section, index] = key.split(':');
+    if (section === 'sites') return [];
+    const m = s.draft.weekMaterial(getWeek().model, s.rows, s.orgs, {aliases:s.aliases});
+    const list = (section === 'summary' ? m.byRow : m.byOrg).get(Number(index)) ?? [];
+    return list.map(x => `${x.day ? `${shortDay(x.day)} ` : ''}${x.text}`);
+  }
+  async function suggestNow(s, key) {
+    const g = suggestOf(s), area = areas[key];
+    if (!area || !area.isConnected || g.focus !== key) return;
+    const [section, index] = key.split(':'), id = s.cellOf?.[section]?.get(Number(index));
+    if (!id) return;
+    const caret = caretLine(area.value, area.selectionStart), lines = area.value.split('\n');
+    const ck = suggestKey(id, caret.text);
+    if (g.cache.has(ck) || g.off || g.flight || g.asked >= PER_OPEN) { paintSuggest(s, key); return; }
+    const targets = askTargets(lines, caret.index, g.cache, id);
+    if (!targets.length) { paintSuggest(s, key); return; }
+    const {request, refs} = lineRequest({week:s.start, where:whereOf(id), lines, targets, material:cellMaterial(s, key)});
+    g.asked++; g.flight = true;
+    let r;
+    try { r = await callAiAssist(request, {rt}, LEARN_TEXT); } catch { r = {ok:false}; }
+    g.flight = false;
+    if (state !== s) return;
+    if (!r.ok || r.data?.kind !== 'weekly_line' || r.data.week_start !== s.start) { g.off = true; return; }
+    for (const [k, v] of readAnswer(r.data, refs, lines, id)) g.cache.set(k, v);
+    if (g.focus === key) paintSuggest(s, key);
+  }
+  function paintSuggest(s, key) {
+    const g = suggestOf(s), area = areas[key], hint = hints()[key];
+    if (!area || !hint) return;
+    const [section, index] = key.split(':'), id = s.cellOf?.[section]?.get(Number(index));
+    if (g.undo?.key === key) {
+      const u = g.undo;
+      const back = button('되돌리기', 'hwpxSuggestUndo'); back.setAttribute('aria-label', `${u.index + 1}번째 줄 되돌리기`);
+      back.addEventListener('click', () => {
+        const next = replaceLine(area.value, u.index, u.text, u.before);
+        g.undo = null; hint.hidden = true;
+        if (next == null) return;
+        area.value = next; area.focus(); area.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+      hint.replaceChildren(el('span', 'journal-muted', `${u.index + 1}번째 줄을 바꿨어요.`), ' ', back);
+      hint.hidden = false; return;
+    }
+    const caret = caretLine(area.value, area.selectionStart), text = id ? g.cache.get(suggestKey(id, caret.text)) : null;
+    if (!text) { hint.hidden = true; hint.replaceChildren(); return; }
+    const apply = el('button', 'mini journal-hwpx-suggest-apply'); apply.type = 'button'; apply.dataset.hwpxSuggestApply = '';
+    apply.setAttribute('aria-label', `${caret.index + 1}번째 줄을 이렇게 바꾸기: ${text}`);
+    apply.append(el('span', 'journal-hwpx-suggest-mark', '이렇게 바꾸면?'), ' ', el('span', null, text));
+    apply.addEventListener('click', () => {
+      const next = replaceLine(area.value, caret.index, caret.text, text);
+      if (next == null) { hint.hidden = true; return; }
+      g.cache.set(suggestKey(id, text), null); // 바꾼 줄은 다시 묻지 않는다
+      g.undo = {key, index:caret.index, before:caret.text, text};
+      g.applying = true;
+      try { area.value = next; area.dispatchEvent(new Event('input', {bubbles:true})); } finally { g.applying = false; }
+      clearTimeout(g.timer); // input 이 건 다음 제안 대기는 거둔다(되돌리기 줄을 남긴다)
+      paintSuggest(s, key);
+    });
+    hint.replaceChildren(apply);
+    hint.hidden = false;
   }
   function append(key, text) {
     const area = areas[key];
@@ -500,6 +595,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const loading = model && ['summary', 'orgs'].some(k => model[k]?.loading);
     const note = body.querySelector('[data-hwpx-loading]');
     if (note) note.hidden = !loading;
+    if (model && !loading && state.ai?.status === 'wait') void aiDraft(state, false);
   }
   function renderEdit() {
     for (const key of Object.keys(areas)) delete areas[key];
@@ -550,6 +646,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       fix.append(list); parts.push(fix);
     }
     parts.push(el('p', 'journal-muted', '1. 2) 주요 일정과 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.'));
+    const ai = el('p', 'journal-muted'); ai.dataset.hwpxAiDraft = ''; ai.setAttribute('role', 'status'); ai.setAttribute('aria-live', 'polite'); parts.push(ai);
     const cal = el('p', 'journal-muted', ''); cal.dataset.hwpxCalendar = ''; parts.push(cal);
     const loading = el('div', 'journal-muted'); loading.innerHTML = waitHtml({rows: 1}); loading.dataset.hwpxLoading = ''; loading.hidden = true; parts.push(loading);
 
@@ -586,8 +683,11 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     rest.append(el('h5', 'journal-weekly-sub', '줄을 찾지 못한 이번 주 기록'), el('p', 'journal-muted', '이름이 확정본 줄과 달라요. 붙일 줄을 골라 주세요.'), el('ul', 'journal-hwpx-material'));
     parts.push(rest);
     const actions = el('div', 'journal-hwpx-actions');
-    actions.append(button('한글 파일 만들기(.hwpx)', 'hwpxBuild', 'primary'), button('HWP로 받기', 'hwpxHwp'), button('확정 — 자료실(Drive)에 저장', 'hwpxConfirm'), button('처음부터', 'hwpxRestart'), button('닫기', 'hwpxClose'));
+    actions.append(button('한글 파일 만들기(.hwpx)', 'hwpxBuild', 'primary'), button('HWP로 받기', 'hwpxHwp'), button('확정 — 자료실(Drive)에 저장', 'hwpxConfirm'), button('학습 시험', 'hwpxLearnTest'), button('처음부터', 'hwpxRestart'), button('닫기', 'hwpxClose'));
     parts.push(actions);
+    // 환류학습 6·4: [학습 시험] 결과(저장하지 않음)와 [확정] 뒤 이번 주 환류 보고 한 장.
+    const learn = el('div', 'journal-hwpx-learn'); learn.dataset.hwpxLearn = ''; learn.hidden = true; parts.push(learn);
+    const review = el('div', 'journal-hwpx-learn'); review.dataset.hwpxReview = ''; review.hidden = true; parts.push(review);
     const remember = el('div', 'journal-hwpx-remember'); remember.dataset.hwpxRemember = ''; remember.hidden = true;
     parts.push(remember);
     body.replaceChildren(...parts);
@@ -595,6 +695,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     renderMaterial();
     renderRequestNote();
     paintTeam();
+    paintAi();
+    paintLearn();
+    paintReview();
   }
 
   // 일정 줄마다: 날짜·시각 · 원래 제목(늘 보임) · 고칠 제목 칸 · 장소 칸(비우면 '미정') · [빼기]. 칸 값은 state.titles(일정 키 → {title, place}),
@@ -774,7 +877,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       if (mine !== run) return;
       state.saved = result;
       say(result.message, result.kind === 'created' ? 'ok' : 'error');
-      if (result.kind === 'created' && state.store) { state.store.confirmed = {document_id:String(result.document?.id ?? ''), at:new Date().toISOString()}; state.store.dirty = true; await recordIssued(state, b.bytes, false); recordFeedback(state); void saveDraft(state); }
+      if (result.kind === 'created' && state.store) { state.store.confirmed = {document_id:String(result.document?.id ?? ''), at:new Date().toISOString()}; state.store.dirty = true; await recordIssued(state, b.bytes, false); recordFeedback(state); void saveDraft(state).then(() => askReview(state)); }
       if (result.kind === 'created') offerMemory(state);
       // An unknown outcome may have saved: the button stays off until the owner checks the library.
       if (result.kind !== 'unknown') trigger.disabled = result.kind === 'created';
@@ -835,6 +938,178 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const proposed = st.extras?.proposed ?? proposedNow(s);
     st.extras = {...(st.extras ?? {}), proposed, feedback:feedbackRecord({week:s.start, at:nowIso(), proposed:proposed.cells, final:cellsNow(s)})};
     return st.extras.feedback;
+  }
+
+  // ---- 환류학습 3: AI 초안(ai-assist weekly_draft) ----
+  // 칸마다 바탕 줄(처음 바탕 initial — 고친 칸 글이 아님)과 그 칸 옆 이번 주 기록 줄을 보낸다. 서버는 그 주 '앞' 주들의 고침 기록·규칙만 읽는다.
+  const sendLine = (v, max) => [...String(v ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]+/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim()].slice(0, max).join('');
+  function aiRequest(s, mode) {
+    const m = s.draft.weekMaterial(getWeek().model, s.rows, s.orgs, {aliases:s.aliases});
+    const refs = new Map(), cells = [];
+    for (const [id, at] of s.cellAt) {
+      if (cells.length >= 80) break;
+      const ref = `c${cells.length + 1}`; refs.set(ref, id);
+      const material = at.section === 'summary' ? m.byRow.get(at.index) : at.section === 'orgs' ? m.byOrg.get(at.index) : [];
+      cells.push({ref, where:sendLine(whereOf(id), 120) || '칸', lines:(s.initial.get(id) ?? []).map(l => sendLine(l, 300)).filter(Boolean).slice(0, 20),
+        material:(material ?? []).map(x => sendLine(`${x.day ? `${shortDay(x.day)} ` : ''}${x.text}`, 400)).filter(Boolean).slice(0, 20)});
+    }
+    const unmatched = [...(m.unmatched ?? []), ...(m.orgUnmatched ?? [])].map(x => sendLine(`${x.from ? `${x.from}: ` : ''}${x.text}`, 400)).filter(Boolean).slice(0, 40);
+    const request = {kind:'weekly_draft', week_start:s.start, mode, cells, unmatched};
+    // 몸통이 크면 기록 줄을 뒤에서부터 덜어 낸다(칸 글은 그대로).
+    const size = () => new TextEncoder().encode(JSON.stringify(request)).length;
+    while (size() > LEARN_BODY_BYTES && request.unmatched.length) request.unmatched.pop();
+    for (let k = cells.length - 1; size() > LEARN_BODY_BYTES && k >= 0; k--) while (size() > LEARN_BODY_BYTES && cells[k].material.length) cells[k].material.pop();
+    return {request, refs, cells:cells.length};
+  }
+  async function callLearn(s, mode) {
+    const {request, refs, cells} = aiRequest(s, mode);
+    if (!cells) return {ok:false, code:'empty'};
+    const r = await callAiAssist(request, {rt}, LEARN_TEXT);
+    if (!r.ok) return r;
+    if (r.data.week_start !== s.start || !Array.isArray(r.data.cells)) return {ok:false, code:'ai_invalid_response'};
+    const out = new Map();
+    for (const c of r.data.cells) { const id = refs.get(c?.ref); if (id && Array.isArray(c.lines)) out.set(id, c.lines.map(l => String(l ?? '')).filter(l => l.trim())); }
+    return {ok:true, cells:out, learned:r.data.learned ?? {weeks:0, rules:0}};
+  }
+  // again=true: [AI 초안 다시 쓰기]. 사람이 손대지 않은 칸(지금 글 = 바탕)만 바꾼다. 처음 초안은 AI 칸으로 다시 정한다.
+  async function aiDraft(s, again) {
+    if (!s?.ai || s.ai.status === 'running') return;
+    s.ai.status = 'running'; s.ai.note = 'AI가 지난 고침 기록과 규칙을 보고 이번 주 초안을 쓰는 중…'; paintAi();
+    const r = await callLearn(s, 'draft');
+    if (state !== s) return;
+    const st = s.store;
+    if (!r.ok) {
+      s.ai.status = 'base'; s.ai.note = r.code === 'empty' ? '' : (LEARN_TEXT[r.code] || LEARN_TEXT.internal_error);
+      if (st?.extras && !st.extras.proposed) st.extras.proposed = proposedNow(s);
+      paintAi(); return;
+    }
+    let changed = 0;
+    const proposed = cellsNow(s, 'initial');
+    for (const [id, lines] of r.cells) {
+      proposed.set(id, lines);
+      const at = s.cellAt.get(id); if (!at) continue;
+      const now = s.edits[at.section].get(at.index) ?? [];
+      const same = (a, b) => JSON.stringify(a.filter(x => x.trim())) === JSON.stringify(b.filter(x => x.trim()));
+      if (!same(now, s.initial.get(id) ?? []) || same(lines, now)) continue;
+      s.edits[at.section].set(at.index, [...lines]); changed++;
+      const area = areas[`${at.section}:${at.index}`];
+      if (area) { area.value = lines.join('\n'); area.rows = Math.min(12, Math.max(3, lines.length + 1)); }
+    }
+    if (st?.extras) st.extras.proposed = {...proposedNow(s), ai:true, cells:cellList(proposed)};
+    s.built = null;
+    s.ai.status = 'done';
+    s.ai.note = `AI 초안: 지난 ${r.learned.weeks}주 고침 기록·규칙 ${r.learned.rules}줄을 보고 ${changed}칸을 고쳐 썼어요(바탕과 다른 줄은 파란 글씨). 칸에서 고쳐 주세요.`;
+    if (changed || again) touchDraft(); else if (st) st.dirty = true; // 처음 초안도 다음 저장에 실리게
+    paintAi(); renderMismatches();
+  }
+  function paintAi() {
+    const p = body.querySelector('[data-hwpx-ai-draft]'), a = state?.ai;
+    if (!p) return;
+    p.hidden = !a?.note && a?.status !== 'done';
+    p.replaceChildren(a?.note ?? '');
+    if (a && a.status !== 'running' && a.status !== 'wait') { const again = button('AI 초안 다시 쓰기', 'hwpxAiAgain'); again.setAttribute('aria-label', 'AI 초안 다시 쓰기(손대지 않은 칸만)'); p.append(' ', again); p.hidden = false; }
+  }
+
+  // ---- 환류학습 6: [학습 시험] — 저장하지 않고 이번 주 개인본과 나란히 ----
+  // 이번 주(보고일이 같은) 개인본을 찾아 연다. 재료는 지금 바탕(이번 주 개인본을 뺀 것)과 이번 주 기록, 서버가 읽는 앞 주들 기록뿐이다.
+  async function thisWeekPersonal(s) {
+    const workspace = rt.context.read()?.workspace?.id, day = reportDay(s.start);
+    const rows = await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=eq.${encode(PERSONAL_CATEGORY)}&document_date=eq.${day}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=1`);
+    return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  }
+  async function learnTest(s, trigger) {
+    const t = s.learn = {status:'running', note:'이번 주 개인본과 견줄 준비를 해요.'}; paintLearn();
+    trigger.disabled = true;
+    try {
+      const doc_ = await thisWeekPersonal(s).catch(() => undefined);
+      if (state !== s || s.learn !== t) return;
+      if (doc_ === undefined) { t.status = 'failed'; t.note = '자료실을 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.'; return; }
+      if (!doc_) { t.status = 'failed'; t.note = `이번 주 "${PERSONAL_CATEGORY}"가 자료실에 없어요. 개인본을 올린 뒤 눌러 주세요.`; return; }
+      t.note = 'AI가 이번 주 재료로 초안을 새로 쓰는 중…(이번 주 개인본은 보지 않아요)'; paintLearn();
+      const [ai, mine] = await Promise.all([callLearn(s, 'test'), (async () => {
+        const {drive} = await lazy();
+        const {bytes} = await drive.openHwpFromDrive({kind:'library', document:{id:doc_.id}}, {rt});
+        const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, doc_.file_name)));
+        return rawCells(s, team);
+      })().catch(() => null)]);
+      if (state !== s || s.learn !== t) return;
+      if (!ai.ok) { t.status = 'failed'; t.note = ai.code === 'empty' ? '시험할 칸이 없어요.' : (LEARN_TEXT[ai.code] || LEARN_TEXT.internal_error); return; }
+      if (!mine) { t.status = 'failed'; t.note = '이번 주 개인본을 열지 못했어요.'; return; }
+      const aiCells = cellsNow(s, 'initial');
+      for (const [id, lines] of ai.cells) aiCells.set(id, lines);
+      t.status = 'done'; t.result = compareTest(aiCells, mine); t.learned = ai.learned; t.title = String(doc_.title || doc_.file_name || ''); t.note = '';
+    } finally { if (trigger.isConnected) trigger.disabled = false; paintLearn(); }
+  }
+  function paintLearn() {
+    const box = body.querySelector('[data-hwpx-learn]'), t = state?.learn;
+    if (!box) return;
+    box.hidden = !t;
+    if (!t) { box.replaceChildren(); return; }
+    if (t.status !== 'done') {
+      const p = el('p', t.status === 'failed' ? 'journal-muted journal-failed' : 'journal-muted'); p.dataset.hwpxLearnNote = t.status;
+      if (t.status === 'running') p.innerHTML = waitInlineHtml(); // UI-기다림표시통일: 회색 칸 + 한 줄
+      p.append(doc.createTextNode(` ${t.note}`)); box.replaceChildren(p); return;
+    }
+    const r = t.result, counts = Object.fromEntries(Object.keys(TEST_STATUS).map(k => [k, r.rows.filter(x => x.status === k).length]));
+    const fold = el('details', 'journal-hwpx-plans'); fold.open = true; fold.dataset.hwpxLearnResult = '';
+    const head = el('summary', '', `학습 시험 — 그대로 쓸 수 있는 줄 ${r.usable}/${r.total}(${r.pct}%)`); head.dataset.hwpxLearnScore = ''; fold.append(head);
+    if ((t.learned?.weeks ?? 0) < 3) { const few = el('p', 'journal-muted', `학습 기록이 아직 ${t.learned?.weeks ?? 0}주뿐이에요(지난 개인본·규칙 ${t.learned?.rules ?? 0}줄로만 만들었어요).`); few.dataset.hwpxLearnFew = ''; fold.append(few); }
+    const sum = el('p', 'journal-muted', `${Object.entries(TEST_STATUS).map(([k, label]) => `${label} ${counts[k]}`).join(' · ')} · 비교: 이번 주 개인본 "${t.title}" (저장하지 않음)`); sum.dataset.hwpxLearnCounts = ''; fold.append(sum);
+    const ul = el('ul', 'journal-hwpx-material'); let where = '';
+    for (const row of r.rows) {
+      if (row.where !== where) { where = row.where; const h = el('li', 'journal-weekly-label', where); h.dataset.hwpxLearnWhere = ''; ul.append(h); }
+      const li = el('li'); li.dataset.hwpxLearnRow = row.status;
+      const tag = el('span', 'journal-weekly-day', TEST_STATUS[row.status]);
+      const text = row.status === 'same' ? row.mine : row.status === 'missing' ? `내 개인본: ${row.mine}` : row.status === 'ai_only' ? `AI: ${row.ai}` : `AI: ${row.ai}  /  내 개인본: ${row.mine}`;
+      li.append(tag, ' ', doc.createTextNode(text)); ul.append(li);
+    }
+    fold.append(ul);
+    box.replaceChildren(fold);
+  }
+
+  // ---- 환류학습 4: [확정] 뒤 이번 주 환류 보고(ai-assist weekly_review) ----
+  // 고침 기록이 서버에 저장된 뒤 한 번 부른다. 서버가 같은 행에 규칙·보고를 쓰면 이 상자는 다시 읽어 합친다(syncDraft).
+  async function askReview(s) {
+    // 고침 기록이 서버에 실린 뒤에만(다른 저장이 돌고 있었으면 끝나기를 기다려 한 번 더).
+    for (let i = 0; i < 3 && state === s && s.store && (s.store.flight || s.store.dirty); i++) await (s.store.flight ?? saveDraft(s));
+    if (state !== s || s.store?.status !== 'saved' || !s.store.extras?.feedback) return;
+    s.review = {status:'running', feedback:s.store.extras.feedback, previous:[]}; paintReview();
+    const [r, rows] = await Promise.all([callAiAssist({kind:'weekly_review', week_start:s.start}, {rt}, LEARN_TEXT), readLearnRows(s.start, rt).catch(() => null)]);
+    if (state !== s) return;
+    s.review.previous = (rows ?? []).filter(x => x.week_start < s.start).map(x => x.feedback).filter(Boolean);
+    if (r.ok && r.data.week_start === s.start) {
+      s.review.feedback = readFeedback({...s.review.feedback, review:r.data.review}) ?? s.review.feedback;
+      s.review.status = 'done';
+      if (r.data.saved) { void syncDraft(s); try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:s.start}})); } catch { /* 다시 그리기만 못 함 */ } }
+    } else { s.review.status = 'failed'; s.review.note = r.ok ? LEARN_TEXT.ai_invalid_response : (LEARN_TEXT[r.code] || LEARN_TEXT.internal_error); }
+    paintReview();
+  }
+  function paintReview() {
+    const box = body.querySelector('[data-hwpx-review]'), v = state?.review;
+    if (!box) return;
+    box.hidden = !v;
+    if (!v) { box.replaceChildren(); return; }
+    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy});
+    const parts = card ? [card] : [];
+    if (v.status === 'running') { const p = el('p', 'journal-muted', '규칙 후보·개선 제안을 정리하는 중…'); p.dataset.hwpxReviewNote = 'running'; parts.push(p); }
+    if (v.status === 'failed') { const p = el('p', 'journal-muted', `규칙 후보·개선 제안은 만들지 못했어요(${v.note}). 고침 기록은 저장했어요.`); p.dataset.hwpxReviewNote = 'failed'; parts.push(p); }
+    if (v.msg) { const p = el('p', 'journal-line-status', v.msg); p.setAttribute('role', 'status'); parts.push(p); }
+    box.replaceChildren(...parts);
+    if (card) card.querySelector('[data-learn-review-pending]')?.remove();
+  }
+  async function answerReview(s, b) {
+    const [week, id, answer] = b.dataset.learnAnswer.split(':');
+    if (!s.review || week !== s.start) return;
+    s.review.busy = true; s.review.msg = '저장하는 중…'; paintReview();
+    try {
+      const r = await answerSuggestion(week, id, answer, rt);
+      if (r.missing) throw new Error('missing');
+      s.review.feedback = readFeedback(r.row?.draft?.feedback) ?? s.review.feedback;
+      s.review.msg = answer === 'yes' ? '승인했어요. 다음 개발 후보로 올라가요.' : '아니로 답했어요.';
+      void syncDraft(s);
+      try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:week}})); } catch { /* 다시 그리기만 못 함 */ }
+    } catch { s.review.msg = '답을 저장하지 못했어요. 다시 눌러 주세요.'; }
+    finally { s.review.busy = false; paintReview(); }
   }
 
   // ---- 받은 초안 기록 (WEEKLY-개인본대조 W-2, draft.issued) ----
@@ -1094,6 +1369,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     else if (b.matches('[data-hwpx-close]')) { close(); start.focus(); }
     else if (b.matches('[data-hwpx-library]')) fromLibrary();
     else if (b.matches('[data-hwpx-team-use]') && state) useTeam(b.dataset.hwpxTeamCell);
+    else if (b.matches('[data-hwpx-ai-again]') && state) void aiDraft(state, true);
+    else if (b.matches('[data-hwpx-learn-test]') && state) void learnTest(state, b);
+    else if (b.matches('[data-learn-answer]') && state) void answerReview(state, b);
     else if (b.matches('[data-hwpx-stage-clear]') && state) { const index = Number(b.dataset.hwpxIndex); state.edits.sites.set(index, []); state.stageFixes = state.stageFixes.filter(f => f.index !== index); state.built = null; renderEdit(); say('줄을 비웠어요.'); typed(`row:${state.cellOf.sites.get(index)}`); }
     else if (b.matches('[data-hwpx-restart]')) void restart();
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }

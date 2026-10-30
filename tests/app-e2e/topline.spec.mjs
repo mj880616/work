@@ -38,7 +38,8 @@ test('PC: the top line sits above every screen in order, the account moved there
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(account).toBeFocused();
  // Small buttons (UI-버튼기준): 32px visible height.
  for(const sel of ['[data-nav-toggle]','[data-history-step="back"]','[data-quick-add]'])expect(Math.round((await page.locator(sel).boundingBox()).height)).toBe(32);
- for(const view of ['basket','calendar','tasks','journal','diary','projects','library','meetings','pages','team','hwp']){
+ // HOME-업무일지홈: 업무일지는 홈(#homeView)이다.
+ for(const view of ['basket','calendar','tasks','home','diary','projects','library','meetings','pages','team','hwp']){
   await show(page,view);await expect(line(page)).toBeVisible();
   const [l,v]=await Promise.all([line(page).boundingBox(),page.locator(`#${view}View`).boundingBox()]);
   expect(l.y+l.height).toBeLessThanOrEqual(v.y+1);
@@ -50,14 +51,14 @@ test('PC: hiding the sidebar widens the body and is remembered on the server',as
  await page.setViewportSize({width:1280,height:800});
  const prefs=await installViewPrefsServer(page);
  await openHome(page);
- await show(page,'journal');
- const before=await width(page,'#journalView');
+ await show(page,'home');
+ const before=await width(page,'#homeView');
  await expect(toggle(page)).toHaveAttribute('aria-expanded','true');
  await toggle(page).focus();await page.keyboard.press('Enter');
  await expect(page.locator('#appView>.app-nav')).toBeHidden();
  await expect(toggle(page)).toHaveAttribute('aria-expanded','false');await expect(toggle(page)).toHaveAttribute('aria-label','메뉴 보이기');
  await expect(toggle(page)).toBeFocused();
- const after=await width(page,'#journalView');
+ const after=await width(page,'#homeView');
  expect(after).toBeGreaterThan(before+140);
  await expect.poll(()=>prefs.value?.nav_collapsed).toBe(true);
  await page.reload();
@@ -151,12 +152,11 @@ test('PC: where shows group › screen and the group word opens the group',async
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
  await expect(where(page)).toHaveText('홈');
- // 홈 날짜는 PC에서 상단 줄 위치 옆(본문 맨 위 날짜 제목은 숨김). 다른 화면에서는 날짜를 보이지 않는다.
- const date=line(page).locator('[data-topline-date]');
- await expect(date).toBeVisible();await expect(date).toHaveText(/\d+월 \d+일 [일월화수목금토]요일/);
- await expect(page.locator('#homeView>h2[data-home-date]')).toBeHidden();
+ // HOME-업무일지홈: 홈 날짜는 본문 머리줄 제목([data-journal-title])이고 상단 줄에는 날짜를 두지 않는다(같은 이름 두 번 없음).
+ await expect(line(page).locator('[data-topline-date]')).toHaveCount(0);
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText(/\d+월 \d+일 [일월화수목금토]요일/);
  await show(page,'diary');
- await expect(date).toBeHidden();
+ await expect(line(page).locator('[data-topline-date]')).toHaveCount(0);
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('일기');
  await where(page).getByRole('button',{name:'일정'}).click();
  await expect(page.locator('#calendarView')).toBeVisible();
@@ -223,7 +223,7 @@ for(const vw of [1280,1440,1920]){
   await page.setViewportSize({width:vw,height:900});
   await openHome(page);
   const measure=async(view,sel)=>{await go(page,view);await expect(page.locator(sel).first()).toBeVisible();return width(page,sel)};
-  const cases=[['projects','#projectGrid'],['team','#soTeamSection'],['tasks','#gtTaskSection'],['meetings','#meetingList'],['calendar','#calendarCard'],['journal','#journalRoot'],['basket','#basketView']];
+  const cases=[['projects','#projectGrid'],['team','#soTeamSection'],['tasks','#gtTaskSection'],['meetings','#meetingList'],['calendar','#calendarCard'],['home','#journalRoot'],['basket','#basketView']];
   const shown={};for(const [v,s] of cases)shown[v]=await measure(v,s);
   await toggle(page).click();
   for(const [v,s] of cases){

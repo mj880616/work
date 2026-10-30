@@ -129,7 +129,7 @@ test('연달아 두 번 눌러도 처음 모습이 유지되고 시간만 새로
 });
 
 test('복사 버튼을 가진 화면은 모두 이 부품을 쓴다(알림만 있는 복사 없음)', () => {
-  const users = ['summary-copy.js', 'basket.js', 'basket-notes.js', 'share-pages.js', 'journal-hwpx.js', 'todo-radar.js', 'inbox-todos.js', 'ed-window.js'];
+  const users = ['summary-copy.js', 'basket.js', 'basket-notes.js', 'share-pages.js', 'journal-hwpx.js', 'inbox-todos.js', 'ed-window.js'];
   for (const file of users) assert.match(css(file), /import \{ ?flashDone ?\} from '\.\/press-feedback\.js'/, file);
   assert.match(css('loader-v2.js'), /import\('\.\/press-feedback\.js'\)/);
   assert.match(css('summary-copy.js'), /if \(ok && button\) flashDone\(button\)/);

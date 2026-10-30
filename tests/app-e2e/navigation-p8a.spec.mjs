@@ -7,7 +7,8 @@ import { signInWithSession } from './helpers/session-login.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app=`${appOrigin}/app/`;
 // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴 줄은 없다(사업영역 관리는 사업 보고 ⋯ 안에서 연다).
-const views=['home','basket','calendar','tasks','journal','diary','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
+// HOME-업무일지홈: 업무일지는 홈이라 [일정] 아래에 없다.
+const views=['home','basket','calendar','tasks','diary','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 
@@ -57,10 +58,11 @@ test('top-level V3 navigation opens the library and keeps removed controls absen
   await mockApp(page);
   await signIn(page);
   // UI-디자인손질 8: the sidebar has no [쓰기] any more (UI-쓰기메뉴삭제).
-  // UI-PC일정묶음: 할 일·업무일지·일기 are sub rows under [일정]; the order of the views is unchanged.
+  // UI-PC일정묶음: 할 일·일기 are sub rows under [일정]; the order of the views is unchanged.
   const nav=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn)[data-view]');
   await expect(nav).toHaveCount(views.length);await expect(page.locator('.app-nav [data-menu-write]')).toHaveCount(0);
   expect(await nav.evaluateAll(nodes=>nodes.map(node=>node.dataset.view))).toEqual(views);
+  await expect(page.locator('.app-nav [data-view="journal"]')).toHaveCount(0);
   await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop,#pagesMediaEntry')).toHaveCount(0);
   await page.locator('#appView>.app-topline [data-account-open]').click();
   await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();

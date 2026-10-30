@@ -10,6 +10,8 @@ export function accountButton(page){
   return page.locator('#appView>.app-topline [data-account-open]:visible,#mobileMenuOpen:visible,#mobileMenuTab:visible');
 }
 export async function clickView(page,view){
+  // HOME-업무일지홈: 업무일지는 홈이다(메뉴 [홈]).
+  if(view==='journal')view='home';
   // HWP-화면가득: 폰·폴드 폭의 HWP 편집은 화면 가득이라 아래 탭·메뉴가 그려지지 않는다. 사람처럼 [✕]로 먼저 이전 화면에 나온다.
   const hwpClose=page.locator('#hwpView:not(.hidden) #hwpLabClose:visible');
   if(view!=='hwp'&&await hwpClose.count()){
@@ -21,7 +23,7 @@ export async function clickView(page,view){
     const tabs=document.querySelector('.mobile-tabs');
     return !tabs||getComputedStyle(tabs).display===(innerWidth<=760?'grid':'none');
   });
-  // UI-폴드PC틀: at 761~1023px the left menu is a narrow picture column; the [일정] sub rows (할 일·업무일지·일기) show after the
+  // UI-폴드PC틀: at 761~1023px the left menu is a narrow picture column; the [일정] sub rows (할 일·일기) show after the
   // top line's menu button spreads the names out, as a person would do.
   if(await page.locator(`#appView>.app-nav .nav-sub [data-view="${view}"]`).count()&&!await navigationButton(page,view).count()
     &&await page.evaluate(()=>matchMedia('(min-width:761px) and (max-width:1023px)').matches)){

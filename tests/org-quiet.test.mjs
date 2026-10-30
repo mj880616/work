@@ -106,6 +106,10 @@ test('화면: org-quiet.js가 줄의 유일한 renderer, 기기 저장·AI 없�
   assert.match(src, /selectMyOrganizations/);
   assert.match(src, /if \(mine\.fallback\) throw new Hide\(\)/);
   assert.doesNotMatch(src, /method:\s*'(POST|PATCH|DELETE)'/);
-  const home = readFileSync(new URL('../app/home-read.js', import.meta.url), 'utf8');
-  assert.equal((home.match(/data-home-card="quiet"/g) || []).length, 1);
+  // HOME-업무일지홈: 줄 자리는 홈(journal.js) 맨 아래 하나, 기준 단추는 내 프로필(profile-status.js) 하나.
+  const home = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
+  assert.equal((home.match(/data-home-quiet/g) || []).length, 2);
+  assert.match(home, /mountOrgQuiet\(root\.querySelector\('\[data-home-quiet\]'\)\)/);
+  const prof = readFileSync(new URL('../app/profile-status.js', import.meta.url), 'utf8');
+  assert.match(prof, /viewPrefs\.set\('quiet_weeks', w, \{rejectable: true\}\)/);
 });

@@ -18,7 +18,7 @@
 import { attachmentName } from './attachment-name.mjs';
 import { plainLines } from './note-preview.mjs';
 import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} from './meeting-time.js';
-import {eventColor} from './home-read-model.js';
+import {eventColor, milestoneChips, ranges} from './home-read-model.js';
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
@@ -622,4 +622,33 @@ export function dayRangeNote(key, day, {doneDays = DONE_TASK_DAYS, today = today
   if (key === 'done' && day < doneCoverFrom(doneDays, today)) return `Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.`;
   if (key === 'todo' && day > pendingCoverTo(today)) return `할 일은 오늘부터 ${PENDING_DAYS}일 안 마감만 모여요.`;
   return '';
+}
+
+// HOME-업무일지홈 B: 할 일 줄 끝에 붙는 연결된 사업 보고 이름(옛 홈 '사업 보고 후속' 칸·파란 꼬리표 대신). 확인된 연결(app_record_links,
+// meeting_id)과 그 사업 보고 제목만 읽는다(소유자 RLS REST 읽기 둘, 새 표·함수 없음). 못 읽으면 빈 지도(이름 없이 줄은 그대로).
+export async function readTaskMeetingNames(taskIds, rt = window.KPTURuntime) {
+  const ids = [...new Set((taskIds || []).filter(Boolean))], links = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const query = ids.slice(i, i + 50).map(encodeURIComponent).join(',');
+    links.push(...await rt.api(`/rest/v1/app_record_links?google_task_id=in.(${query})&status=eq.confirmed&meeting_id=not.is.null&select=google_task_id,meeting_id`));
+  }
+  const meetingIds = [...new Set(links.map(l => l.meeting_id).filter(Boolean))], meetings = new Map();
+  for (let i = 0; i < meetingIds.length; i += 50) {
+    const query = meetingIds.slice(i, i + 50).map(encodeURIComponent).join(',');
+    for (const m of await rt.api(`/rest/v1/app_meetings?id=in.(${query})&select=id,title,series_name`)) meetings.set(m.id, String(m.series_name || m.title || '').trim() || '사업 보고');
+  }
+  const out = new Map();
+  for (const l of links) { const name = meetings.get(l.meeting_id); if (!name) continue; const list = out.get(l.google_task_id) || []; if (!list.includes(name)) list.push(name); out.set(l.google_task_id, list); }
+  return out;
+}
+// HOME-업무일지홈: 옛 홈 '주요 일정'(D-day) 칩 — 오늘부터 다가오는 사업영역 주요 일정 3개(옛 홈과 같은 조건·같은 읽기, home-read-model.js milestoneChips).
+// 홈 '그날 일정' 칸 안에 오늘을 볼 때만 그린다. 프로젝트 목록은 공용 project-catalog.js.
+export async function readUpcomingMilestones(rt = window.KPTURuntime) {
+  const ctx = rt.context.read(), catalog = window.KPTUProjectCatalog;
+  if (!catalog?.load || !ctx?.workspace?.id) return [];
+  const projects = (await catalog.load({workspaceId:ctx.workspace.id, userId:ctx.user?.id}))?.projects || [];
+  const ids = projects.filter(p => p.status === 'active').map(p => p.id);
+  if (!ids.length) return [];
+  const rows = await rt.api(`/rest/v1/app_project_milestones?project_id=in.(${ids.map(encodeURIComponent).join(',')})&start_at=gte.${encodeURIComponent(new Date(ranges().start).toISOString())}&or=(status.is.null,status.not.in.(done,completed,cancelled,canceled))&select=id,project_id,title,status,start_at,google_calendar_id,google_event_id&order=start_at.asc&limit=3`);
+  return milestoneChips(projects, Array.isArray(rows) ? rows : []);
 }

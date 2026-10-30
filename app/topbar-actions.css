@@ -47,9 +47,7 @@
   html:has(body.kptu-mobile-keyboard){--kptu-mobile-tab-height:0px}
   #appView>.app-nav{display:none}
   .mobile-shell-header{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin-bottom:12px;gap:12px}
-  .mobile-shell-header time{font-size:20px;font-weight:700}
   [data-mobile-view-name]{font-size:16px;font-weight:700}
-  #homeView h2[data-home-date]{display:none}
   .mobile-tabs{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(var(--kptu-tab-count,6),minmax(0,1fr));height:calc(56px + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:border-box;background:var(--kptu-surface);border-top:1px solid var(--kptu-border)}
   .mobile-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:44px;min-width:44px;border:0;padding:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;font-weight:400;line-height:1.2;cursor:pointer}
   .mobile-tabs button[aria-current="page"]{color:var(--kptu-primary-ink);font-weight:700}

@@ -96,8 +96,8 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await schedule.click();await loaded(page,'tasks');
  // 홈 "할 일 ›"도 [일정]의 [할 일] 쪽.
  await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>el.click());await loaded(page,'calendar');
- await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('#homeView [data-home-card="tasks"] [data-goto="tasks"]').click();await loaded(page,'tasks');await expect(schedule).toHaveAttribute('aria-current','page');
- // UI-버튼작게 ③: [달력 | 할 일 | 일지 | 일기]는 아래 탭 바로 위 한 줄(가운데, 줄 높이 44px 안 32px 알약).
+ await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('#homeView [data-journal-tasks-open]').click();await loaded(page,'tasks');await expect(schedule).toHaveAttribute('aria-current','page');
+ // UI-버튼작게 ③: [달력 | 할 일 | 일기](HOME-업무일지홈: 업무일지는 홈)는 아래 탭 바로 위 한 줄(가운데, 줄 높이 44px 안 32px 알약).
  const switchBox=await box(page.locator('#tasksView .schedule-switch')),tabsBox=await box(page.locator('.mobile-tabs'));
  expect(Math.round(tabsBox.top-switchBox.bottom)).toBe(6);expect(Math.round(switchBox.height)).toBe(32);
  expect(Math.abs((switchBox.left+switchBox.right)/2-195)).toBeLessThanOrEqual(1);
@@ -196,7 +196,7 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
  // 카드는 그 위에서 스크롤: 끝까지 내리면 마지막 카드가 입력칸 위.
  await page.locator('body').click({position:{x:5,y:5}});
  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
- const cards=await box(page.locator('#homeView [data-home-cards] > :last-child'));expect(cards.bottom).toBeLessThanOrEqual((await box(quick)).top+1);
+ const cards=await box(page.locator('#homeView [data-journal-day]'));/* HOME-업무일지홈: 홈 본문(업무일지 하루 칸) */expect(cards.bottom).toBeLessThanOrEqual((await box(quick)).top+1);
  // 자판(레이아웃 뷰포트가 줄지 않는 브라우저): 탭이 사라지고 입력칸이 자판 바로 위로.
  await quick.locator('[data-quick-input]').focus();
  await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'))});

@@ -12,6 +12,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const APP=`${appOrigin}/app/`;
 const USER={id:'cache-user',email:'cache@example.org',user_metadata:{display_name:'캐시'}};
+// HOME-업무일지홈: 옛 홈 표시 사본(home-read-v1)은 홈 칸 화면과 함께 없앴다 — 달력은 더 이상 그 사본을 쓰지 않는다(HOME_KEY는 비어 있어야 한다).
 const COPY_KEY='kptu_owner_cache:calendar-events-v1:cache-user',HOME_KEY='kptu_owner_cache:home-read-v1:cache-user',TASK_KEY='kptu_owner_cache:google-tasks-v2:cache-user';
 const DAY=86400000;
 const kstKey=(offset=0)=>new Date(Date.now()+9*3600000+offset*DAY).toISOString().slice(0,10);
@@ -106,8 +107,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
       await expect(listEvent(page,'keep')).toBeVisible();
       await expect(fresh(page)).toBeHidden();
       await expect.poll(()=>copiedIds(page)).toEqual(['keep']);
-      const home=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)||'null'),HOME_KEY);
-      expect(home.cards.calendar.rows.map(r=>r.id)).toEqual(['keep']);
+      expect(await page.evaluate(k=>localStorage.getItem(k),HOME_KEY)).toBeNull();
     });
 
     test('without a copy the list says 불러오는 중, never 일정 없음, until the first answer',async({page})=>{
@@ -156,7 +156,8 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
   test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'list'})});
 
   // UI-버튼기준 (2026-10-22): the [다시 시도] of the 최신 아님 line is a small text button next to the notice, not a full-size button.
-  for(const [view,line] of [['calendar','#calendarFreshness'],['home','[data-home-fresh]'],['tasks','#gtTaskSection [data-gt-fresh]']])test(`the retry of the 최신 아님 line is a small text button in ${view}`,async({page})=>{
+  // HOME-업무일지홈: 홈에는 사본·'최신 아님' 줄이 없다(위 홈 그날 일정 시험의 실패 줄 + [다시]).
+  for(const [view,line] of [['calendar','#calendarFreshness'],['tasks','#gtTaskSection [data-gt-fresh]']])test(`the retry of the 최신 아님 line is a small text button in ${view}`,async({page})=>{
     const state=newState();await mock(page,state);
     await signIn(page,view);
     await page.waitForTimeout(500);
@@ -182,8 +183,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     await answerAsk(page,true);
     await expect.poll(()=>state.deleted).toEqual(['gone']);
     await expect.poll(()=>copiedIds(page)).toEqual(['keep']);
-    const home=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)||'null'),HOME_KEY);
-    expect(home.cards.calendar.rows.map(r=>r.id)).toEqual(['keep']);
+    expect(await page.evaluate(k=>localStorage.getItem(k),HOME_KEY)).toBeNull();
     release(state);
   });
 
@@ -202,36 +202,26 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     release(state);
   });
 
-  test('home 오늘 일정 and 오늘 할 일 show the copy first and keep it when the refresh fails',async({page})=>{
+  // HOME-업무일지홈: 홈은 업무일지 화면이고 표시 사본이 없다. 그날 일정은 매번 새로 읽고, 기다리는 동안 옛 일정 대신 기다림 칸,
+  // 읽지 못하면 그 칸의 실패 줄 + [다시], 다시 읽으면 Google에서 지운 일정은 빠진다.
+  test('home 그날 일정 reads fresh every time, waits without a stale copy, and [다시] after a failure replaces it',async({page})=>{
     const state=newState();await mock(page,state);
     await signIn(page,'home');
-    const calendarCard=page.locator('[data-home-card="calendar"]'),taskCard=page.locator('[data-home-card="tasks"]');
-    await expect(calendarCard).toContainText('지울 일정');
-    await expect(taskCard).toContainText('지울 할 일');
-    await expect(calendarCard.locator('[data-home-fresh]')).toBeHidden();
-    await expect.poll(()=>page.evaluate(k=>!!localStorage.getItem(k),TASK_KEY)).toBe(true);
-    // Next visit: reads held → copies with the refresh line.
+    const schedule=page.locator('#homeView [data-journal-schedule]');
+    await expect(schedule).toContainText('지울 일정');await expect(schedule).toContainText('남는 일정');
+    expect(await page.evaluate(k=>localStorage.getItem(k),HOME_KEY)).toBeNull();
     state.hold=true;
     await page.reload();await ready(page);
-    await expect(calendarCard).toContainText('지울 일정');
-    await expect(calendarCard.locator('[data-home-fresh]')).toHaveAttribute('data-freshness','refresh');await expect(calendarCard.locator('[data-home-fresh]').locator('[data-wait]')).toHaveCount(1);
-    await expect(taskCard).toContainText('지울 할 일');
-    await expect(taskCard.locator('[data-home-fresh]')).toHaveAttribute('data-freshness','refresh');await expect(taskCard.locator('[data-home-fresh]').locator('[data-wait]')).toHaveCount(1);
-    // The refresh fails: the copies stay with 최신 아님 and [다시 시도].
-    state.failEvents=true;state.failTasks=true;release(state);
-    await expect(calendarCard.locator('[data-home-fresh]')).toContainText('최신 아님 · 마지막 확인');
-    await expect(calendarCard).toContainText('지울 일정');
-    await expect(taskCard.locator('[data-home-fresh]')).toContainText('최신 아님 · 마지막 확인');
-    await expect(taskCard).toContainText('지울 할 일');
-    // Retry after the deletions elsewhere: replaced wholesale.
-    state.failEvents=false;state.failTasks=false;state.events=state.events.filter(e=>e.id!=='gone');state.tasks=state.tasks.filter(t=>t.id!=='t-gone');
-    await calendarCard.getByRole('button',{name:'다시 시도'}).click();
-    await taskCard.getByRole('button',{name:'다시 시도'}).click();
-    await expect(calendarCard).not.toContainText('지울 일정');
-    await expect(calendarCard).toContainText('남는 일정');
-    await expect(taskCard).not.toContainText('지울 할 일');
-    await expect(calendarCard.locator('[data-home-fresh]')).toBeHidden();
-    await expect(taskCard.locator('[data-home-fresh]')).toBeHidden();
+    await expect(schedule.locator('[data-wait]').first()).toBeVisible();
+    await expect(schedule).not.toContainText('지울 일정');
+    state.failEvents=true;release(state);
+    await expect(schedule.locator('[data-journal-failed]')).toBeVisible();
+    await expect(schedule).not.toContainText('지울 일정');
+    state.failEvents=false;state.events=state.events.filter(e=>e.id!=='gone');
+    await schedule.locator('[data-journal-retry]').click();
+    await expect(schedule).toContainText('남는 일정');
+    await expect(schedule).not.toContainText('지울 일정');
+    await expect(schedule.locator('[data-journal-failed]')).toHaveCount(0);
   });
 
   test('task list shows the copy first, says when it is not the latest, and drops a task opened from the copy that is gone',async({page})=>{
@@ -279,8 +269,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     state.hold=true;
     await page.locator('#ciGoogleSave').click();
     await expect.poll(async()=>{const v=await copy(page);return v&&v!=='navigating'?Object.values(v.ranges).flatMap(r=>r.events).find(e=>e.id==='keep')?.title:v}).toBe('고친 일정');
-    const home=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)||'null'),HOME_KEY);
-    expect(home.cards.calendar.rows.find(r=>r.id==='keep')?.title).toBe('고친 일정');
+    expect(await page.evaluate(k=>localStorage.getItem(k),HOME_KEY)).toBeNull();
     await expect(listEvent(page,'keep')).toContainText('고친 일정');
     release(state);
   });

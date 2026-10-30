@@ -17,7 +17,7 @@ async function open(page,width,dark){
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:names.map((name,i)=>({id:String(i),name,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:names.map((_,i)=>({organization_id:String(i)}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[]}));
- await page.reload();await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt>0);
+ await page.reload();await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView .home-quick[data-home-quick]'));
  return errors;
 }
 async function press(page){return {bg:await token(page,'--ds-kind-other-soft','backgroundColor'),fg:await token(page,'--ds-kind-other-ink')};}
