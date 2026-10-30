@@ -103,6 +103,6 @@ test('고친 요약이 쓰이는 자리: 소식 줄·고정 띠·복사 글·그
   assert.match(screen, /esc\(sumOf\(pins\[0\]\)/);
   assert.match(screen, /esc\(sumOf\(r\) \|\| r\.title/);
   assert.match(screen, /daySummary\(d\.parts, d\.items, \{partsKnown:d\.parts !== null, edit:dayEdit\(/);
-  assert.equal((screen.match(/lineText\(lineView\(l\)/g) || []).length, 2, '평소 목록과 보관함');
+  assert.equal((screen.match(/lineText\(lineView\(l\)/g) || []).length, 3, '평소 목록·보관함·방별 목록(TG-방별보기)');
   assert.doesNotMatch(screen, /lineText\(l, state\.titles\)/);
 });

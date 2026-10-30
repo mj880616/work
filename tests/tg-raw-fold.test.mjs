@@ -33,7 +33,8 @@ test('화면: 접기 단추·펼친 상태는 메모리(state.more)에만, 방·
   assert.match(js, /data-tg-rt-more=/);
   assert.match(js, /aria-expanded="\$\{more\}"/);
   assert.match(js, /more:new Set\(\)/);
-  assert.equal((js.match(/state\.more = new Set\(\)/g) || []).length, 3);
+  // 방·날 열기·앞뒤 날·닫기, TG-방별보기의 방 열기(openRoom) 네 곳.
+  assert.equal((js.match(/state\.more = new Set\(\)/g) || []).length, 4);
   assert.match(js, /fitRawFolds\(box\)/);
 });
 
