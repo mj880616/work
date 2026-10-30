@@ -155,6 +155,16 @@ select to_regclass('private.ops_tx_probe_<run_id>') is null as rolled_back;
 - 응답은 64 KiB, HTTP 요청은 30초, 각 job은 5분 제한. 고정 concurrency 그룹 1개·`cancel-in-progress: false`, GitHub 권한은 `contents: read`만.
 - HTTP 공용 함수는 `scripts/ops/db-query.mjs`, 진입점은 `scripts/ops/db-workflow.mjs`, 2단계 파일 검사는 `db-migration-plan.mjs`, 실행·백업은 `db-migration-run.mjs`다. 외부 패키지 없이 Node fetch를 사용한다. 가짜 HTTP 서버와 로컬 임시 Postgres로 검증하며 개발 세션에서 운영 호출을 하지 않는다.
 
+## 커맨드센터가 결과 읽는 법 (OPS-DB결과API, 2026-10-30)
+
+run 화면 요약(`$GITHUB_STEP_SUMMARY`)은 REST API로 못 읽고 job 로그 다운로드는 클라우드 세션에서 막힐 수 있다. 그래서 `db-workflow.mjs`는 끝날 때(성공·멈춤·오류, plan 거절 포함) 판정 핵심을 job 주석 1개로도 낸다. 성공은 `notice`, 그 밖은 `error`.
+
+1. `GET /repos/mj880616/work/actions/runs/{run_id}/jobs` → 이름이 `run`(plan 거절이면 `plan`)인 job의 `id`. job id가 곧 check-run id다.
+2. `GET /repos/mj880616/work/check-runs/{id}/annotations` → `title`이 `DB <모드> <version> ok|stopped`인 항목의 `message`.
+3. `message` 줄: 모드·version·결과(성공/멈춤/오류) · 단계 · 이유 · 오류(비밀값 없는 요약, 실행기 자체 검사 실패면 "원인 분류") · `아니오(사전|사후): 항목 · 값 · 기대` · 쓰기·적용 요청 전송 여부. 4000바이트를 넘으면 뒤 줄은 잘리고 요약에서 본다.
+
+주석은 요약과 같은 거르기(safeLabel·display·escapeSummary·queryErrorSummary)를 거친 글만 담고, 마지막에 토큰·프로젝트 값이 들어 있으면 글 전체를 고정 문구로 바꾼다. 요약과 같이 공개 저장소 범위로 공개된다고 본다. SQL·행 값·자료 제목·프로필 글은 없다.
+
 ## 다음 DB 변경의 사용자 순서 (폰)
 
 1. PR의 규칙 변경·SQL·테스트를 커맨드센터에서 검토하고 사용자 승인 후 merge한다. Codex는 merge하지 않는다.

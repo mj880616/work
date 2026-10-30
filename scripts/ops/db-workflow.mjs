@@ -83,10 +83,10 @@ export async function runPlan(plan, query, { secretValues = [], saveSnapshot = n
           || secretValues.some(secret => secret && `${row.version} ${row.name}`.includes(secret)))) {
         throw new Error('Invalid migration metadata');
       }
-      return { ok: true, summary: '## 연결 확인: 성공\n\n| version | name |\n| --- | --- |\n'
+      return { ok: true, report: { phase: '끝', reason: `최근 migration ${rows.length}행 확인` }, summary: '## 연결 확인: 성공\n\n| version | name |\n| --- | --- |\n'
         + rows.map(row => `| ${row.version} | ${row.name} |`).join('\n') + '\n' };
     } catch (error) {
-      return { ok: false, summary: `## 연결 확인: 실패\n\n${queryErrorSummary(error)}\n\n쓰기 요청 전송: 아니오. environment 설정·토큰 권한 또는 응답 형식을 확인하세요.\n` };
+      return { ok: false, report: { phase: '연결 확인', error: queryErrorSummary(error), writes: '쓰기 요청 전송: 아니오' }, summary: `## 연결 확인: 실패\n\n${queryErrorSummary(error)}\n\n쓰기 요청 전송: 아니오. environment 설정·토큰 권한 또는 응답 형식을 확인하세요.\n` };
     }
   }
   let cancelled = false;
@@ -113,7 +113,10 @@ export async function runPlan(plan, query, { secretValues = [], saveSnapshot = n
     if (rows.length !== 1 || typeof rows[0]?.rolled_back !== 'boolean') throw new Error('Invalid verification');
     return rows[0].rolled_back;
   };
-  const result = note => ({ ok: cancelled && errorCancelled, summary:
+  const result = note => ({ ok: cancelled && errorCancelled,
+    report: { phase: cancelled && errorCancelled ? '끝' : phase, reason: `취소 보장 ${cancelled ? '예' : '아니오'} · 오류 시 전체 취소 ${errorCancelled ? '예' : '아니오'} · ${note}`,
+      error: failures.length ? failures.join(' / ') : null, writes: '시험 쓰기 요청 전송: 예' },
+    summary:
     `## 트랜잭션 시험\n\n취소 보장: ${cancelled ? '예' : '아니오'}\n\n오류 시 전체 취소: ${errorCancelled ? '예' : '아니오'}\n\n${note}\n\n시험 쓰기 요청 전송: 예. 요청을 자동 재시도하지 않습니다. 결과 불명 시 커맨드센터에서 시험 표와 정리 결과를 확인하세요.\n\n${failures.join('\n\n')}\n\n${cleanup}` });
   try {
     await ddl(plan.sql.cancel);
@@ -148,9 +151,58 @@ export async function runPlan(plan, query, { secretValues = [], saveSnapshot = n
     : '오류 시 전체 취소 미보장 또는 의도한 SQL 오류 미확인. 2단계 진행 불가.');
 }
 
+// --- Job annotations (OPS-DB결과API) ------------------------------------------
+// The run summary ($GITHUB_STEP_SUMMARY) cannot be read through the REST API; check-run
+// annotations can (GET /repos/{owner}/{repo}/check-runs/{id}/annotations). Annotations are
+// public like the summary, so they carry only text the summary already shows after the
+// same filters (safeLabel·display·escapeSummary·queryErrorSummary). No SQL, row values,
+// titles or profile text. A final secret check replaces the whole message if it fails.
+export const ANNOTATION_MAX_BYTES = 4000;
+const escapeData = value => value.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+const escapeProperty = value => escapeData(value).replaceAll(':', '%3A').replaceAll(',', '%2C');
+const oneLine = value => String(value ?? '').replace(/[\r\n]+/g, ' ').replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+function clipLines(lines, maxBytes) {
+  const kept = [];
+  let bytes = 0;
+  for (const line of lines) {
+    const size = Buffer.byteLength(line, 'utf8') + 1;
+    if (bytes + size > maxBytes - 40) {
+      kept.push(`…(${lines.length - kept.length}줄 잘림, 나머지는 run 요약)`);
+      break;
+    }
+    kept.push(line); bytes += size;
+  }
+  return kept;
+}
+export function annotationText({ mode, version = '', ok, exitCode, report = {} }) {
+  const verdict = exitCode === 0 ? '성공' : report.error ? '오류' : '멈춤';
+  const lines = [`모드: ${mode}${version ? ` · version: ${version}` : ''} · 결과: ${verdict}`];
+  if (report.phase) lines.push(`단계: ${oneLine(report.phase)}`);
+  if (report.reason) lines.push(`이유: ${oneLine(report.reason)}`);
+  if (report.error) lines.push(`오류: ${oneLine(report.error)}`);
+  for (const f of report.failed ?? []) lines.push(`아니오(${f.stage}): ${oneLine(f.item)} · 값 ${oneLine(f.value)} · 기대 ${oneLine(f.expected)}`);
+  if (report.missing) lines.push(`기대 주석에 있으나 결과에 없는 항목: ${report.missing}개`);
+  if (report.writes) lines.push(oneLine(report.writes));
+  if (ok && exitCode !== 0 && !report.reason) lines.push('검증 미완료: run 요약 확인');
+  return clipLines(lines, ANNOTATION_MAX_BYTES).join('\n');
+}
+export function annotationCommand(input, secretValues = []) {
+  const { mode, version = '', exitCode } = input;
+  const safeMode = /^[a-z-]{1,10}$/.test(mode ?? '') ? mode : 'unknown';
+  const safeVersion = /^[0-9]{14}$/.test(version) ? version : '';
+  let text = annotationText({ ...input, mode: safeMode, version: safeVersion });
+  if (secretValues.some(secret => secret && text.includes(secret))) text = `모드: ${safeMode} · 결과 글에 가릴 값이 있어 생략했습니다. run 요약을 확인하세요.`;
+  const level = exitCode === 0 ? 'notice' : 'error';
+  const title = `DB ${safeMode}${safeVersion ? ` ${safeVersion}` : ''} ${exitCode === 0 ? 'ok' : 'stopped'}`;
+  return `::${level} title=${escapeProperty(title)}::${escapeData(text)}\n`;
+}
+
 export function maskValue(value) {
   return `::add-mask::${value.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')}`;
 }
+
+let annotated = false;
+const annotate = (input, secretValues) => { annotated = true; process.stdout.write(annotationCommand(input, secretValues)); };
 
 async function main() {
   const phase = process.argv[2];
@@ -163,6 +215,9 @@ async function main() {
     // Fixed reason text only; never the SQL or file content.
     const reason = error instanceof ExpandedRejection ? REJECT_REASONS[error.reason] : '입력·파일 구조·짝 파일 또는 기존 엄격 규칙 위반';
     appendFileSync(summaryFile, `## DB plan 거절\n\n사유: ${reason}\n\n아무 DB 요청도 보내지 않았습니다.\n`);
+    const mode = process.env.DB_MODE ?? '';
+    const version = (process.env.DB_VERSION ?? '').match(/^[0-9]{14}/)?.[0] ?? '';
+    annotate({ mode, version, exitCode: 1, report: { phase: `plan 거절(${phase === 'run' ? 'run' : 'plan'})`, reason, writes: 'DB 요청 전송: 아니오' } });
     throw error;
   }
   if (phase === 'plan') {
@@ -182,6 +237,8 @@ async function main() {
     const result = await runPlan(plan, query, { secretValues: [token, projectRef], saveSnapshot });
     appendFileSync(summaryFile, result.summary);
     process.exitCode = result.ok && result.verification !== 'incomplete' ? 0 : 1;
+    annotate({ mode: plan.mode, version: plan.version ?? '', ok: result.ok,
+      exitCode: process.exitCode, report: result.report ?? {} }, [token, projectRef]);
   } else {
     throw new Error('Invalid phase');
   }
@@ -191,6 +248,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   main().catch(() => {
     // No stack, SQL, credentials or response data in stdout/stderr.
     process.stderr.write('DB workflow failed; see the bounded job summary.\n');
+    // Fixed text only (the error may hold anything).
+    if (!annotated) process.stdout.write('::error title=DB workflow failed::내부 오류로 멈췄습니다(설정·입력·응답 처리). 오류 원문은 출력하지 않습니다. run 요약을 확인하세요.\n');
     process.exitCode = 1;
   });
 }

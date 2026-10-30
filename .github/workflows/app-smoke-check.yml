@@ -17,6 +17,8 @@ on:
       - 'tests/security/basket-note-delete.test.mjs'
       - 'tests/security/basket-jsonb-contains.test.mjs'
       - 'tests/security/helpers/postgrest-jsonb.mjs'
+      - 'scripts/ops/db-*.mjs'
+      - 'tests/security/db-workflow-annotations.test.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'supabase/functions/ai-assist/note-secret.ts'
@@ -132,6 +134,8 @@ on:
       - 'tests/security/basket-note-delete.test.mjs'
       - 'tests/security/basket-jsonb-contains.test.mjs'
       - 'tests/security/helpers/postgrest-jsonb.mjs'
+      - 'scripts/ops/db-*.mjs'
+      - 'tests/security/db-workflow-annotations.test.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'supabase/functions/ai-assist/note-secret.ts'
@@ -465,6 +469,9 @@ jobs:
 
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
+
+      - name: Check DB workflow result annotations (OPS-DB결과API, synthetic)
+        run: node --test tests/security/db-workflow-annotations.test.mjs
 
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs
