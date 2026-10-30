@@ -13,10 +13,21 @@ export const onelineLine = meeting => String(meeting?.title || meeting?.series_n
 
 // 직접 단 꼬리표(없으면 '').
 export const areaIdOf = meeting => String(meeting?.business_area_id || '');
-// 화면에 보이는 꼬리표: 직접 단 것, 없으면 첫 연결 프로젝트. legacy=true 면 화면에서만 빌려 보인 것.
+// MTG-사업영역없음(요청 10/30 07:51): 사용자가 [없음]을 직접 고른 보고 = 칸 business_area_none(20261030090000)이 true이고 꼬리표가 빈 것.
+// 꼬리표가 있으면 꼬리표가 이긴다. 칸이 없는 서버의 줄(키 없음)에서는 [없음]을 보이지 않는다(hasAreaNone).
+export const AREA_NONE = '__area_none__';
+export const hasAreaNone = meeting => !!meeting && typeof meeting === 'object' && Object.hasOwn(meeting, 'business_area_none');
+export const isAreaNone = meeting => !areaIdOf(meeting) && meeting?.business_area_none === true;
+// 고른 값(사업영역 id | AREA_NONE | '') → 저장 몸통. withNone=false(칸 없는 서버)면 business_area_none을 보내지 않는다.
+export function areaBody(value, withNone = true) {
+  const v = String(value || ''), none = v === AREA_NONE;
+  return {business_area_id:none || !v ? null : v, ...(withNone ? {business_area_none:none} : {})};
+}
+// 화면에 보이는 꼬리표: 직접 단 것, 없으면 첫 연결 프로젝트. legacy=true 면 화면에서만 빌려 보인 것. none=true 면 [없음]을 고른 보고(빌려 보이지 않음).
 export function shownArea(meeting) {
   const own = areaIdOf(meeting);
   if (own) return {id:own, legacy:false};
+  if (isAreaNone(meeting)) return {id:'', legacy:false, none:true};
   const old = String(meeting?.project_id || '');
   return old ? {id:old, legacy:true} : {id:'', legacy:false};
 }
@@ -59,7 +70,7 @@ export const shiftDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n
 export function previewRecords(meetings, {from, to, lineOf = m => String(m?.series_name || m?.title || '')}) {
   const list = (meetings || []).filter(m => inPeriod(m, from, to));
   const tagged = [], untagged = [];
-  for (const m of list) (areaIdOf(m) ? tagged : untagged).push(m);
+  for (const m of list) if (areaIdOf(m)) tagged.push(m); else if (!isAreaNone(m)) untagged.push(m);
   const records = tagged.map(m => ({id:areaIdOf(m), name:'', day:seoulKey(m.meeting_at), at:m.meeting_at, text:isOneline(m) ? onelineLine(m) : lineOf(m), requests:nextPlanLines(m.next_plan), meeting:String(m.id), ...(isOneline(m) ? {oneline:true, first:true} : {})}));
   return {records, untagged, all:list.filter(m => !isOneline(m)).sort((a, b) => Date.parse(a.meeting_at) - Date.parse(b.meeting_at))};
 }
@@ -101,17 +112,18 @@ export function areaRoots(tree) {
   return roots;
 }
 export const NO_AREA = '__none__';
-// 칩 목록: [전체] + 보고가 있는 1단 사업영역(트리 순서) + [꼬리표 없음 n]. 보고는 화면 꼬리표(shownArea) 기준.
+// 칩 목록: [전체] + 보고가 있는 1단 사업영역(트리 순서) + [사업영역 없음 n]([없음]을 고른 보고 한 묶음) + [안 단 보고 n]. 보고는 화면 꼬리표(shownArea) 기준.
 export function areaChipOptions(meetings, tree) {
-  const roots = areaRoots(tree), count = new Map(); let none = 0;
-  for (const m of meetings || []) { const id = shownArea(m).id; if (!id) { none++; continue; } const root = roots.get(id); if (root) count.set(root, (count.get(root) || 0) + 1); }
+  const roots = areaRoots(tree), count = new Map(); let none = 0, chosenNone = 0;
+  for (const m of meetings || []) { const shown = shownArea(m), id = shown.id; if (!id) { if (shown.none) chosenNone++; else none++; continue; } const root = roots.get(id); if (root) count.set(root, (count.get(root) || 0) + 1); }
   const areas = (tree || []).filter(x => x.depth === 0 && count.has(String(x.project.id))).map(x => ({value:String(x.project.id), label:String(x.project.name || '이름 없는 사업영역')}));
-  return [{value:'all', label:'전체'}, ...areas, ...(none ? [{value:NO_AREA, label:`꼬리표 없음 ${none}`}] : [])];
+  return [{value:'all', label:'전체'}, ...areas, ...(chosenNone ? [{value:AREA_NONE, label:`사업영역 없음 ${chosenNone}`}] : []), ...(none ? [{value:NO_AREA, label:`안 단 보고 ${none}`}] : [])];
 }
 export function matchesAreaChip(meeting, chip, roots) {
   if (!chip || chip === 'all') return true;
-  const id = shownArea(meeting).id;
-  return chip === NO_AREA ? !id : !!id && roots.get(id) === chip;
+  const shown = shownArea(meeting), id = shown.id;
+  if (chip === AREA_NONE) return !!shown.none;
+  return chip === NO_AREA ? !id && !shown.none : !!id && roots.get(id) === chip;
 }
 
 // MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): 사업 보고 목록은 주 단위(‹ › 로 주 넘기기). 서울 월~일.
@@ -134,9 +146,10 @@ export const reportWeekLabel = from => `${shortDay(from)}(월)~${shortDay(shiftD
 
 // MTG-프로젝트합치기 ③(10/29 시안 승인): 사업 보고 목록의 '사업영역 안 단 보고 n건 [달기]' 줄 재료.
 // 보고 있는 주(from = 월요일 'YYYY-MM-DD') 안의 일시가 있는 보고 중 사업영역(business_area_id)을 직접 달지 않은 것. 한 줄 업데이트는 늘 사업영역이 있어 뺀다.
+// [없음]을 직접 고른 보고(isAreaNone)도 정리된 것이라 뺀다(MTG-사업영역없음).
 // 칸이 없는 옛 서버의 줄(business_area_id 키가 없음)은 세지 않는다(그때는 줄 자체가 없다). 날짜 오래된 것부터.
 export const untaggedInWeek = (meetings, from) => !from ? [] : (meetings || [])
-  .filter(m => m && Object.hasOwn(m, 'business_area_id') && !areaIdOf(m) && !isOneline(m) && reportDay(m) && inPeriod(m, from, shiftDays(from, 6)))
+  .filter(m => m && Object.hasOwn(m, 'business_area_id') && !areaIdOf(m) && !isAreaNone(m) && !isOneline(m) && reportDay(m) && inPeriod(m, from, shiftDays(from, 6)))
   .sort((a, b) => (Date.parse(a.meeting_at) || 0) - (Date.parse(b.meeting_at) || 0));
 // [달기] 창에서 미리 골라 둘 사업영역: 옛 보고는 첫 연결 사업영역(화면에서 빌려 보이던 것, 'link'), 없으면 AI 추천 첫째('ai'), 없으면 고르기('').
 export function presetArea(meeting, aiId = '', known = () => true) {

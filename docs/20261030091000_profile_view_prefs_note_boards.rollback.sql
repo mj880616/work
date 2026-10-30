@@ -1,5 +1,5 @@
 begin;
--- 20261030090000_profile_view_prefs_note_boards의 짝 되돌리기. 화면 기억 검사를 note_boards·note_board 없이 열일곱 칸만 받는
+-- 20261030091000_profile_view_prefs_note_boards의 짝 되돌리기. 화면 기억 검사를 note_boards·note_board 없이 열일곱 칸만 받는
 -- 20261029183000 profile_view_prefs_note_view 모양으로 되돌리고 이번 기록 1행만 지운다.
 -- 어떤 프로필이라도 note_boards나 note_board가 저장돼 있으면 멈춘다. 값을 지우거나 바꿔서 통과시키지 않는다.
 -- 그런 경우 먼저 화면 PR(2/2)을 이전 판으로 되돌리고, 남은 보드 목록을 어떻게 할지 명진이 정한 뒤 다시 계획한다
@@ -12,7 +12,7 @@ lock table public.app_profiles in access exclusive mode;
 do $$
 begin
   if (select count(*) from supabase_migrations.schema_migrations
-      where version = '20261030090000' and name = 'profile_view_prefs_note_boards') <> 1 then
+      where version = '20261030091000' and name = 'profile_view_prefs_note_boards') <> 1 then
     raise exception 'PROFILE_VIEW_PREFS_NOTE_BOARDS_ROLLBACK_BLOCKED: migration record differs';
   end if;
   if exists (select 1 from public.app_profiles where view_prefs ? 'note_boards' or view_prefs ? 'note_board') then
@@ -101,5 +101,5 @@ alter table public.app_profiles
     end
   );
 
-delete from supabase_migrations.schema_migrations where version = '20261030090000' and name = 'profile_view_prefs_note_boards';
+delete from supabase_migrations.schema_migrations where version = '20261030091000' and name = 'profile_view_prefs_note_boards';
 commit;

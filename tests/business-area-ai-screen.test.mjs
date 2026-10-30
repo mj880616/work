@@ -121,7 +121,7 @@ test('화면 연결: 미리보기 AI 한 줄·[고치기]·조용한 실패, 쓰
   // 쓰기 창: 누를 때만 area_suggest, 칩을 눌러야 꼬리표(자동 확정 없음).
   assert.match(fields, /aiBtn\?\.addEventListener\('click',async\(\)=>\{/);
   assert.match(fields, /callAiAssist\(\{kind:'area_suggest',title,text\}\)/);
-  assert.match(fields, /onclick:\(\)=>\{area=x\.id;legacy=false;touched=true;clearSugs\(\);void paint\(\)\}/);
+  assert.match(fields, /onclick:\(\)=>\{clearSugs\(\);pickArea\(x\.id\)\}/);
   assert.match(read('team.js'), /material:\(\)=>\(\{title:\$\('#meetingTitle'\)\?\.value\|\|'',text:\$\('#meetingTranscript'\)\?\.value\|\|''\}\)/);
   assert.match(read('meeting-round-detail.js'), /material:\(\)=>\(\{title:document\.querySelector\('#mrdEditTitle'\)/);
   // 한글 파일 상자: 읽은 area_summaries를 저장 때 다시 싣는다.

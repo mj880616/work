@@ -21,7 +21,7 @@ lock table public.app_profiles in access exclusive mode;
 -- 검사 1개(검증됨, note_view 있음, 아직 note_boards 없음), RLS 켜짐, anon·PUBLIC 표 권한 없음, 정책은 task12a 두 개 그대로.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261030090000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261030091000')
      or (select count(*) from supabase_migrations.schema_migrations
          where version = '20261029183000' and name = 'profile_view_prefs_note_view') <> 1
      or (select count(*) from pg_attribute
@@ -155,5 +155,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261030090000', 'profile_view_prefs_note_boards', array['NOTE-보드여러개: app_profiles_view_prefs_check also accepts note_boards ([{id,name}] up to 12) and note_board (all|board id); no new column, grants, policies or functions']);
+values ('20261030091000', 'profile_view_prefs_note_boards', array['NOTE-보드여러개: app_profiles_view_prefs_check also accepts note_boards ([{id,name}] up to 12) and note_board (all|board id); no new column, grants, policies or functions']);
 commit;

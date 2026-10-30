@@ -10,5 +10,5 @@ union all select 'trigger',tgname,tgenabled::text||':'||pg_get_triggerdef(oid) f
 union all select 'owner RLS grants',relname,relowner::text||':'||relrowsecurity::text||':'||relforcerowsecurity::text||':'||coalesce(relacl::text,'none') from pg_class where oid=to_regclass('public.app_profiles')
 union all select 'owner check function',p.oid::regprocedure::text,p.prosecdef::text||':'||coalesce(p.proconfig::text,'none')||':'||coalesce(p.proacl::text,'none')||':'||md5(p.prosrc)
   from pg_proc p where p.pronamespace='private'::regnamespace and p.proname='app_is_owner_profile'
-union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261029183000','20261030090000')
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261029183000','20261030091000')
 order by 1,2;

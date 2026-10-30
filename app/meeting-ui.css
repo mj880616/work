@@ -435,6 +435,8 @@
 #reportAreaTagSheet .area-tag-select{box-sizing:border-box;width:9.5em;max-width:42vw;height:var(--ds-field-height,28px);min-height:0;padding:0 4px;font-size:var(--ds-text-meta,12px)}
 #reportAreaTagSheet .area-tag-mark{flex:none;padding:0 4px;border-radius:var(--kptu-radius-sm);background:var(--ds-select-bg,var(--kptu-surface-muted));font-size:10px;line-height:16px;color:var(--kptu-muted)}
 #reportAreaTagSheet .area-tag-mark[hidden]{display:none}
+/* MTG-사업영역없음: [없음]은 다른 줄과 같은 글자, 회색 */
+#reportAreaTagSheet .area-tag-none,#reportAreaTagSheet .area-tag-select.is-none,#reportAreaSheet [data-area-none] .home-choice-name,.biz-area-fields [data-biz-area-pick].is-none,.biz-area-line.is-none{color:var(--kptu-muted)}
 #reportAreaTagSheet .area-tag-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:6px 0 2px;background:var(--kptu-surface)}
 #reportAreaTagSheet .area-tag-status{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-danger)}
 #reportAreaTagSheet .area-tag-save{height:var(--ds-compact-height,32px);min-height:0;padding:0 14px;font-size:var(--ds-text-meta,13px)}
