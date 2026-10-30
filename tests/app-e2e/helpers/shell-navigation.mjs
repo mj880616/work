@@ -1,10 +1,11 @@
 // Click the actual navigation at this width; also supports historical baseline pages.
-// UI-PC사이드바: on the PC sidebar (1024px~) the home menu is the top line (icon + 홈), not a [data-view="home"] row.
+// UI-PC사이드바: on the PC sidebar (761px~) the home menu is the top line (icon + 홈), not a [data-view="home"] row.
 export function navigationButton(page,view){
   const home=view==='home'?',#appView>.app-nav .sidebar-brand:visible':'';
   return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible${home}`);
 }
-// The menu opener at this width: the account trigger (PC, top line right end since UI-상단줄), ☰ (761~1023px) or the [메뉴] tab (phone, 8-9e-2).
+// The menu opener at this width: the account trigger (PC frame 761px~, top line right end since UI-상단줄) or the [메뉴] tab (phone, 8-9e-2).
+// #mobileMenuOpen (☰) no longer exists in the app (UI-폴드PC틀); it stays here only for the historical baseline pages some specs compare with.
 export function accountButton(page){
   return page.locator('#appView>.app-topline [data-account-open]:visible,#mobileMenuOpen:visible,#mobileMenuTab:visible');
 }
@@ -20,6 +21,13 @@ export async function clickView(page,view){
     const tabs=document.querySelector('.mobile-tabs');
     return !tabs||getComputedStyle(tabs).display===(innerWidth<=760?'grid':'none');
   });
+  // UI-폴드PC틀: at 761~1023px the left menu is a narrow picture column; the [일정] sub rows (할 일·업무일지·일기) show after the
+  // top line's menu button spreads the names out, as a person would do.
+  if(await page.locator(`#appView>.app-nav .nav-sub [data-view="${view}"]`).count()&&!await navigationButton(page,view).count()
+    &&await page.evaluate(()=>matchMedia('(min-width:761px) and (max-width:1023px)').matches)){
+    await page.locator('#appView>.app-topline [data-nav-toggle]').click();
+    await page.locator(`#appView.nav-open>.app-nav .nav-sub [data-view="${view}"]`).waitFor();
+  }
   const direct=navigationButton(page,view);
   if(await direct.count()){
     await direct.click();
@@ -27,6 +35,8 @@ export async function clickView(page,view){
   }
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴가 없다. 사업영역 관리(라우터 이름 projects)는 사람처럼 사업 보고 ⋯ → [사업영역 관리]로 연다.
   if(view==='projects'){
+    // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창. 이미 떠 있으면(새로고침으로 다시 뜬 창 등) 그대로 둔다.
+    if(await page.locator('#areaWindow:not(.hidden)').count())return;
     await clickView(page,'meetings');
     // ⋯ 안 [사업영역 관리]의 처리기는 사업 보고 화면 모듈(team.js)이 붙이므로, 그 화면이 다 뜬 뒤에 누른다.
     await page.waitForFunction(()=>!document.querySelector('#meetingsView')?.classList.contains('hidden')&&window.KPTUViewLoader?.isLoaded?.('meetings')!==false);

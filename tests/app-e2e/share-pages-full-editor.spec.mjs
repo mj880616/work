@@ -73,7 +73,7 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
   });
   expect(m.editor.width / m.view.width).toBeGreaterThanOrEqual(0.98);
   expect(m.text.width / m.editor.width).toBeGreaterThanOrEqual(0.98);
-  if (width >= 1024) {
+  if (width>=761) {
     // Right of the sidebar, to the content area's right edge.
     expect(m.editor.left).toBeGreaterThanOrEqual(m.nav.right);
     expect(m.vw - m.editor.right).toBeLessThanOrEqual(48);
@@ -173,7 +173,7 @@ test('저장: [저장], Ctrl+S and Cmd+S save in place; 저장 안 됨 shows onl
   page.once('dialog', d => d.accept());
   await editor.getByRole('button', {name:'공유 페이지 목록으로', exact:true}).click();
   await expect(editor).toBeHidden();
-  await expect(page.locator('#sharePagesRoot details.sp-box')).toBeVisible();
+  await expect(page.locator('#sharePagesRoot .sp-list-view')).toBeVisible();
   expect(state.writes).toHaveLength(3);
   expect(errors).toEqual([]);
 });

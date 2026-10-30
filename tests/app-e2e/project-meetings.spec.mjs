@@ -71,10 +71,11 @@ for(const width of [390,1280])test(`project detail lists its own meetings newest
  await expect(page.locator('#mrdTitle')).toContainText('합성 정례 회의');
  expect(reads.some(r=>r.id==='eq.mt-1')).toBe(true);
  await expect(page.locator('#projectsView')).toBeVisible();
- await closeMeetingResult(page);await expect(dialog).toBeHidden();
+ // MTG-프로젝트합치기 ①: PC에서는 창 밑의 사업 보고 세 칸이 같은 결과 요소를 다시 칸에 앉힌다(창에 가려 보임). 팝업으로서는 닫혔는지 본다.
+ await closeMeetingResult(page);await expect(page.locator('#meetingRoundDetailModal:not([data-mrd-docked="1"])')).toBeHidden();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();await expectProjectTitle(page,'테스트 프로젝트');
  await expect(first).toBeFocused();
- if(width<1024){
+ if(width<761){
   // Phone: back closes the meeting result and leaves the project detail open.
   await first.click();await expect(dialog).toBeVisible();
   await page.goBack();await expect(dialog).toBeHidden();

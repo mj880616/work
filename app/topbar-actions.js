@@ -1,7 +1,7 @@
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
-import {midKeys,pcSplit,itemOf,isDefaultLayout} from './menu-model.mjs';
+import {pcSplit,itemOf,isDefaultLayout} from './menu-model.mjs';
 import './menu-layout.js';
 (()=>{
 'use strict';
@@ -30,12 +30,12 @@ const accounts=logoutButtons.map(logout=>{
 });
 let activeAccount=null;
 const mobileQuery=window.matchMedia('(max-width:760px)');
-const mobileMenu=document.querySelector('#mobileMenu'),mobileTrigger=document.querySelector('#mobileMenuOpen');
+const mobileMenu=document.querySelector('#mobileMenu');
 const mobilePanel=mobileMenu?.querySelector('.mobile-menu-panel'),mobileGroup=document.querySelector('#mobileAccountGroup');
 const mobileAccount=accounts[0];
-// Phone: the [메뉴] tab at the end of the bottom tabs opens the same dialog; the top ☰ is hidden there.
+// Phone: the [메뉴] tab at the end of the bottom tabs opens the menu sheet.
 const mobileTab=document.querySelector('#mobileMenuTab');
-const menuButton=()=>mobileTab?.getClientRects().length?mobileTab:mobileTrigger;
+const menuButton=()=>mobileTab;
 let mobileOpen=false,mobileClosing=false,mobileOpener=null;
 // UI-모바일메뉴순서 (phone): the sheet opens scrolled to its bottom so the 메뉴 칸 next to the tab bar are seen without scrolling; a taller
 // sheet loses its upper part instead. It stays pinned while content above grows (수집 시각 arrives late) until the person scrolls up.
@@ -47,58 +47,38 @@ function watchSheet(){
   sheetWatch=new ResizeObserver(pinSheet);sheetWatch.observe(mobilePanel);[...mobilePanel.children].forEach(child=>sheetWatch.observe(child));
 }
 
-// One close control: the × in the drawer head (761~1023px), drawn as the sheet's grip on a phone.
+// One close control: the × in the sheet head, drawn as the sheet's grip on a phone.
 const closeControl=()=>mobilePanel?.querySelector('[data-mobile-menu-close]')||mobilePanel;
-// Mid-width navigation reuses the original controls and the mobile dialog.
-const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
-const menuQuery=window.matchMedia('(max-width:1023px)');
-const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
-// MENU-HOME-편집: 폰 [메뉴] 창 안 줄은 menu-layout.js가 순서대로 다시 만들 수 있으므로 그때그때 읽는다(한 줄 메뉴 때 옮겨 담은 PC 버튼은 뺀다).
-const phoneButtons=()=>[...drawerNav?.children||[]].filter(el=>!el.matches('.nav-btn,.nav-sub-btn'));
-// BASKET-정리함이름: [노트] (data-basket-kind-nav) is not a screen of its own; it sits in the 761~1023px row too.
+// UI-폴드PC틀: the phone (≤760px) has the bottom tabs and the [메뉴] sheet; every wider screen (761px~) has the PC frame —
+// left menu + top line. The old 761~1023px row menu with ☰ is gone (code removed, not hidden).
+const menuQuery=mobileQuery;
+const appNav=document.querySelector('#appView>.app-nav');
 // BASKET-정리함한화면: the order is the sidebar's: 홈 / 정리함 / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','calendar','tasks','journal','diary','note','projects','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
-const keyButton=key=>appNav?.querySelector(key==='note'?'[data-basket-kind-nav="note"]':`[data-view="${key}"]`);
+const ALL_KEYS=['home','basket','calendar','note','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
+const keyButton=key=>appNav?.querySelector(key==='note'?'.nav-btn[data-basket-kind-nav="note"]':`.nav-btn[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
-const orderedButtons=()=>{const layout=window.KPTUMenuLayout?.current?.();return midKeys(layout).map(key=>buttonByKey.get(key)).filter(Boolean)};
-let midItems=orderedButtons();
-const homes=new Map([...buttonByKey.values(),mobileTrigger].filter(Boolean).map(button=>{
-  const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
-}));
-const isNavigationControl=el=>homes.has(el)||phoneButtons().includes(el);
-let midActive=false,navigationFocus=null;
-// display:none may clear activeElement before resize/media-query callbacks.
-// Retain only a menu focus lost through hiding; explicit blur or another
-// focused control clears this reference.
-document.addEventListener('focusin',event=>{
-  if(event.target!==document.body)navigationFocus=isNavigationControl(event.target)?event.target:null;
+// UI-폴드PC틀: each left-menu row carries the same line picture as the phone tabs (menu-model.mjs icon). At 761~1023px the menu is a
+// narrow column of pictures only (names stay as the buttons' text for screen readers); the top line's menu button spreads it out with
+// names over the page for one choice (#appView.nav-open, this tab's memory only). From 1024px the pictures are not shown (PC as before).
+// The [일정] sub rows (할 일·업무일지·일기) stay one tap away there too: they are small pictures under the [일정] picture.
+const NS='http://www.w3.org/2000/svg';
+const SUB_ICONS={tasks:'M4 6.5 5.5 8 8 5M11 7h9M4 12.5 5.5 14 8 11M11 13h9M11 19h9M4.5 19h3',journal:'M6 3h12v18H6zM9 7h6M9 11h6M9 15h4',diary:'M5 5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 1h11v-3M9 7h5'};
+const iconRows=[...buttonByKey].map(([key,button])=>[button,itemOf(key)?.icon]);
+appNav?.querySelectorAll('.nav-sub-btn[data-view]').forEach(button=>iconRows.push([button,SUB_ICONS[button.dataset.view]]));
+iconRows.forEach(([button,d])=>{
+  if(!d||button.querySelector('.nav-ico'))return;
+  const svg=document.createElementNS(NS,'svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('class','nav-ico');
+  const path=document.createElementNS(NS,'path');path.setAttribute('d',d);svg.append(path);
+  const label=document.createElement('span');label.className='nav-label';
+  [...button.childNodes].forEach(node=>label.append(node));
+  button.append(svg,label);button.title=label.textContent.replace(/\s*›\s*$/,'').trim();
 });
-document.addEventListener('focusout',event=>{
-  if(event.target===navigationFocus&&event.target.getClientRects().length)navigationFocus=null;
-});
-function syncMenuLocation(){
-  if(!midActive)return;
-  const view=window.KPTURouter?.current||window.KPTURouter?.detect?.();
-  let overflowCurrent=false;
-  const noteMode=view==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
-  midItems.forEach(button=>{
-    const current=button.dataset.basketKindNav?noteMode:button.dataset.view===view&&!(noteMode&&view==='basket');
-    button.classList.toggle('active',current);
-    if(current)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
-    if(current&&button.parentElement===drawerNav)overflowCurrent=true;
-  });
-  mobileTrigger.classList.toggle('active',overflowCurrent);
-  if(overflowCurrent)mobileTrigger.setAttribute('aria-current','page');else mobileTrigger.removeAttribute('aria-current');
-}
-// UI-PC사이드바: on the PC sidebar the [홈] row is hidden and the top line (icon + 홈) is the home menu, so focus that crosses
-// into the PC width lands on the first visible of: the current menu row, that top line when home is current, the top line.
-const pcFocusTarget=()=>[appNav.querySelector('.nav-btn.active'),appNav.querySelector('.sidebar-brand.active'),...midItems,appNav.querySelector('.sidebar-brand')].find(el=>el?.getClientRects().length);
 // PC 왼쪽 메뉴: 하단바 칸 메뉴가 위, 나머지가 그 아래 같은 순서. 정리함·일정은 아래 작은 메뉴(.nav-sub)와 한 덩어리로 옮긴다.
-// 맨 끝에 이어진 통화·텔레그램은 처음처럼 빈 공간 아래에 붙고, 그 위로 옮기면 보통 줄이 된다. 한 줄 메뉴 중에는 건드리지 않는다(나올 때 다시 맞춘다).
+// 맨 끝에 이어진 통화·텔레그램은 처음처럼 빈 공간 아래에 붙고, 그 위로 옮기면 보통 줄이 된다.
 let sidebarMoved=false;
 function placeSidebar(){
-  if(midActive||!appNav)return;
+  if(!appNav)return;
   const layout=window.KPTUMenuLayout?.current?.();
   // 한 번도 바꾸지 않았으면 index.html의 처음 모양을 그대로 둔다(다시 끼우지 않음).
   if(!sidebarMoved&&(!layout||isDefaultLayout(layout)))return;
@@ -107,9 +87,7 @@ function placeSidebar(){
   const spacer=appNav.querySelector('.sidebar-spacer'),links=appNav.querySelector('.nav-quick-links');
   const unit=id=>{
     const head=buttonByKey.get(id);if(!head)return [];
-    const out=[],anchor=homes.get(head);
-    if(anchor?.parentNode===appNav)out.push(anchor);
-    out.push(head);
+    const out=[head];
     const sub=head.nextElementSibling;if(sub?.classList.contains('nav-sub'))out.push(sub);
     return out;
   };
@@ -121,72 +99,12 @@ function placeSidebar(){
     button.classList.toggle('nav-feed-first',tail[0]===id);
   });
 }
-// 메뉴 순서가 바뀌면(menu-layout.js) 한 줄 메뉴의 순서와 PC 왼쪽 메뉴 자리를 새로 맞춘다.
-window.addEventListener('kptu:menu-layout-applied',()=>{
-  midItems=orderedButtons();
-  if(midActive)syncMidNavigation();
-  else placeSidebar();
-  phoneButtons().forEach(button=>{button.hidden=midActive});
-  syncMenuLocation();
-});
-function syncMidNavigation(){
-  if(!appNav||!drawerNav||!mobileTrigger)return;
-  const active=document.activeElement;
-  const focus=active===document.body&&navigationFocus&&!navigationFocus.getClientRects().length?navigationFocus:active;
-  if(!midQuery.matches){
-    if(!midActive){
-      if(mobileQuery.matches&&homes.has(focus)&&!focus.getClientRects().length)menuButton().focus({preventScroll:true});
-      return;
-    }
-    midActive=false;
-    // UI-PC일정묶음: 할 일·업무일지·일기 live in the PC sidebar's [일정] sub menu; back home they are sub rows again.
-    homes.forEach((anchor,button)=>{anchor.after(button);if(button.classList.contains('nav-sub-btn'))button.classList.remove('nav-btn')});
-    placeSidebar();
-    phoneButtons().forEach(button=>button.hidden=false);
-    mobileTrigger.classList.remove('nav-btn','mid-menu-trigger','active');mobileTrigger.removeAttribute('aria-current');
-    window.KPTURouter?.syncNavigation?.();
-    if(homes.has(focus)){
-      const target=mobileOpen&&menuQuery.matches?closeControl()
-        :focus.getClientRects().length?focus:mobileQuery.matches?menuButton():pcFocusTarget();
-      target?.focus({preventScroll:true});
-    }
-    return;
-  }
-  midActive=true;phoneButtons().forEach(button=>button.hidden=true);
-  mobileTrigger.classList.add('nav-btn','mid-menu-trigger');appNav.append(mobileTrigger);
-  // Measure intrinsic widths in the real row before distributing its suffix.
-  // All moves finish synchronously, before paint; no duplicate menu or storage.
-  midItems.forEach(button=>{button.classList.add('nav-btn');appNav.insertBefore(button,mobileTrigger)});
-  const style=getComputedStyle(appNav),gap=parseFloat(style.columnGap)||0;
-  const available=appNav.clientWidth-(parseFloat(style.paddingLeft)||0)-(parseFloat(style.paddingRight)||0);
-  let used=mobileTrigger.getBoundingClientRect().width,count=0;
-  for(const button of midItems){
-    const width=button.getBoundingClientRect().width;
-    if(used+gap+width>available)break;
-    used+=gap+width;count++;
-  }
-  midItems.slice(count).forEach(button=>drawerNav.append(button));
-  if(midItems.includes(focus)){
-    if(focus.parentElement===drawerNav&&!mobileOpen)mobileTrigger.focus({preventScroll:true});
-    else if(focus.parentElement===appNav&&mobileOpen)closeControl()?.focus({preventScroll:true});
-    else focus.focus({preventScroll:true});
-  }else if(phoneButtons().includes(focus)&&!focus.getClientRects().length){
-    (mobileOpen?closeControl():mobileTrigger)?.focus({preventScroll:true});
-  }else if(focus===mobileTrigger)mobileTrigger.focus({preventScroll:true});
-  syncMenuLocation();
-}
-const navResize=new ResizeObserver(syncMidNavigation);
-if(appNav)navResize.observe(appNav);
-buttonByKey.forEach(button=>navResize.observe(button));
-if(mobileTrigger)navResize.observe(mobileTrigger);
-midQuery.addEventListener('change',syncMidNavigation);
-window.addEventListener('resize',syncMidNavigation);
-document.fonts?.ready.then(syncMidNavigation);
-document.fonts?.addEventListener('loadingdone',syncMidNavigation);
+// 메뉴 순서가 바뀌면(menu-layout.js) PC 왼쪽 메뉴 자리를 새로 맞춘다.
+window.addEventListener('kptu:menu-layout-applied',()=>placeSidebar());
 
 function closeMobile(then,fromBack=false){
   if(!mobileOpen){then?.();return}
-  mobileOpen=false;mobileClosing=true;sheetWatch?.disconnect();sheetWatch=null;sheetPinned=false;resetDrag();mobileMenu.hidden=true;[mobileTrigger,mobileTab].forEach(button=>button?.setAttribute('aria-expanded','false'));repaintMobileTabs();
+  mobileOpen=false;mobileClosing=true;sheetWatch?.disconnect();sheetWatch=null;sheetPinned=false;resetDrag();mobileMenu.hidden=true;mobileTab?.setAttribute('aria-expanded','false');repaintMobileTabs();
   window.KPTUA11y?.dialog.deactivate(mobilePanel,{restoreFocus:false});
   const opener=mobileOpener?.getClientRects().length?mobileOpener:menuButton();mobileOpener=null;
   const finish=()=>queueMicrotask(()=>{mobileClosing=false;if(opener.getClientRects().length)opener.focus({preventScroll:true});then?.()});
@@ -212,12 +130,11 @@ function openMobile(trigger){
   window.KPTUA11y?.dialog.activate(mobilePanel,{trigger,initialFocus:closeControl(),onRequestClose:closeMobile});
   pinSheet();
 }
-mobileTrigger?.addEventListener('click',()=>openMobile(mobileTrigger));
 mobileTab?.addEventListener('click',()=>openMobile(mobileTab));
 // History is consumed before the existing router/feature/account handler sees the click.
 document.addEventListener('click',event=>{
   if(!mobileOpen)return;
-  if(mobileTrigger.contains(event.target)||mobileTab?.contains(event.target))return;
+  if(mobileTab?.contains(event.target))return;
   // The click that ends a pull on the sheet is not a press.
   if(dragEndedAt&&performance.now()-dragEndedAt<500&&mobilePanel.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();return}
   if(!mobilePanel.contains(event.target)||event.target.closest('[data-mobile-menu-close]')){
@@ -258,9 +175,7 @@ window.addEventListener('popstate',event=>{if(mobileOpen&&!event.state?.kptuMobi
 // Phone keyboard state (body.kptu-mobile-keyboard, --kptu-keyboard-inset) is owned by accessibility-dialog.js (UI-키보드하단바).
 const syncKeyboard=()=>window.KPTUA11y?.keyboard?.sync?.();
 menuQuery.addEventListener('change',syncMobile);
-document.addEventListener('click',()=>syncMenuLocation());
 window.addEventListener('kptu:view-changed',event=>{
-  syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
   const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'})[event.detail?.view]||''}
@@ -324,7 +239,6 @@ document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener
 window.addEventListener('kptu:session-changed',()=>{writeDraft='';writeDraftDoc=null});
 syncMobile();
 placeSidebar();
-syncMidNavigation();
 function closeAccount(then,fromBack=false){
   if(mobileOpen){closeMobile(then,fromBack);return}
   const account=activeAccount;if(!account){then?.();return}
@@ -336,7 +250,7 @@ function closeAccount(then,fromBack=false){
 function positionAccount(){
   if(!activeAccount)return;
   const {trigger,panel}=activeAccount,rect=trigger.getBoundingClientRect();
-  const nav=trigger.closest('.app-nav'),desktop=innerWidth>=1024&&nav;
+  const nav=trigger.closest('.app-nav'),desktop=innerWidth>=761&&nav;
   const margin=12,gap=8;
   let width=Math.min(300,innerWidth-margin*2),left;
   if(desktop){
@@ -378,20 +292,38 @@ document.addEventListener('click',event=>{
 document.addEventListener('keydown',event=>{if(activeAccount&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeAccount()}});
 window.addEventListener('resize',positionAccount);
 window.addEventListener('popstate',event=>{if(activeAccount&&event.state?.kptuAccount!==activeAccount.panel.id)closeAccount(null,true)});
-// UI-상단줄 (PC ≥1024 only; phone and 761~1023px keep their own shell). One thin row above every screen, owned and drawn here:
-// [sidebar] [←][→] [where] [search slot] [+ 추가] [계정 ▾]. Nothing else draws into it; the search slot is mounted later by SEARCH.
+// UI-상단줄 (PC frame 761px~; the phone has its own header and tabs). One thin row above every screen, owned and drawn here:
+// [sidebar] [‹][›] [where] [search slot] [+ 추가] [계정 ▾]. Nothing else draws into it; the search slot is mounted later by SEARCH.
 const topline=document.querySelector('[data-app-topline]'),appView=document.querySelector('#appView');
 const sidebarAccount=accounts.find(account=>account.panel.id==='sidebarAccountPanel');
 // The PC account trigger lives at the right end of the top line (it was the last row of the sidebar). Same node and handlers.
 topline?.querySelector('[data-topline-account]')?.append(sidebarAccount?.host||document.createComment('no account'));
 // ① Sidebar hide. Remembered on the server with the other view choices (view-prefs.js, profile view_prefs); unread or missing means "shown".
+// UI-폴드PC틀: at 761~1023px the same button spreads the narrow picture menu out with names for one choice (#appView.nav-open, memory only,
+// never saved); the saved hide value is not used at that width (desktop-tight-nav.css). A choice, a press outside or Esc folds it again.
 const navToggle=topline?.querySelector('[data-nav-toggle]');
+const railQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 function paintNavToggle(){
-  const hidden=!!appView?.classList.contains('nav-collapsed');
-  navToggle?.setAttribute('aria-expanded',String(!hidden));
-  navToggle?.setAttribute('aria-label',hidden?'메뉴 보이기':'메뉴 숨기기');
-  if(navToggle)navToggle.title=hidden?'메뉴 보이기':'메뉴 숨기기';
+  const rail=railQuery.matches,open=rail?!!appView?.classList.contains('nav-open'):!appView?.classList.contains('nav-collapsed');
+  const label=rail?(open?'메뉴 이름 접기':'메뉴 이름 펼치기'):(open?'메뉴 숨기기':'메뉴 보이기');
+  navToggle?.setAttribute('aria-expanded',String(open));
+  navToggle?.setAttribute('aria-label',label);
+  if(navToggle)navToggle.title=label;
 }
+function setNavOpen(open){
+  if(!appView||appView.classList.contains('nav-open')===open)return;
+  appView.classList.toggle('nav-open',open);paintNavToggle();
+}
+railQuery.addEventListener?.('change',()=>{setNavOpen(false);paintNavToggle()});
+// A menu choice goes through (the router's own click handler), then the names fold away; a press outside only folds them.
+document.addEventListener('click',event=>{
+  if(!appView?.classList.contains('nav-open')||navToggle?.contains(event.target))return;
+  if(!appNav?.contains(event.target)||event.target.closest('button,a[href]'))setNavOpen(false);
+});
+document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||!appView?.classList.contains('nav-open'))return;
+  event.preventDefault();event.stopPropagation();setNavOpen(false);navToggle?.focus({preventScroll:true});
+});
 function setNavCollapsed(hidden,{save=true}={}){
   appView?.classList.toggle('nav-collapsed',hidden);paintNavToggle();
   if(save)viewPrefs.set('nav_collapsed',hidden?true:null);
@@ -401,77 +333,34 @@ setNavCollapsed(false,{save:false});
 // 서버 값은 앱 화면 공개 전에 한 번 도착한다(loader-v2.js가 기다림): 그때 한 번만 맞춘다.
 window.addEventListener('kptu:view-prefs-ready',()=>setNavCollapsed(viewPrefs.get('nav_collapsed')===true,{save:false}),{once:true});
 if(viewPrefs.status()==='ok')setNavCollapsed(viewPrefs.get('nav_collapsed')===true,{save:false});
-navToggle?.addEventListener('click',()=>setNavCollapsed(!appView?.classList.contains('nav-collapsed')));
-// ② ← →: the app's own record of screens moved through (and the item chosen on a left-list / right-detail screen). It never
-// reads or moves browser history: a step is an ordinary KPTURouter.go (the same as a menu click), so the router stays the one
-// owner of screens and history, and back/forward of the browser, PWA and Android keep their own rules (BUG-뒤로가기).
-const SPLIT_OPEN={
-  projects:item=>window.KPTUProjects?.open?.(item.id,false),
-  team:item=>window.KPTUWorkplace?.open?.(item.id),
-  tasks:item=>window.KPTUGoogleTasks?.openById?.(item.id),
-  meetings:item=>window.KPTUMeetingColumns?.select?.(item)
-};
-const trail={entries:[],index:-1,pending:null,restoring:null};
-const sameItem=(a,b)=>(a?.id??null)===(b?.id??null)&&(a?.kind??null)===(b?.kind??null);
-const backBtn=topline?.querySelector('[data-trail="back"]'),forwardBtn=topline?.querySelector('[data-trail="forward"]');
-function paintTrail(){
-  const focused=document.activeElement;
-  if(backBtn)backBtn.disabled=trail.index<=0;
-  if(forwardBtn)forwardBtn.disabled=trail.index>=trail.entries.length-1;
+navToggle?.addEventListener('click',()=>{
+  if(railQuery.matches)setNavOpen(!appView?.classList.contains('nav-open'));
+  else setNavCollapsed(!appView?.classList.contains('nav-collapsed'));
+});
+// ② ‹ ›(NAV-PC앞뒤통일): the router's own back and forward — the same path as the browser, PWA and Android back (BUG-뒤로가기):
+// ‹ closes the top open thing (a note, a detail, a window) first and only then goes to the previous screen, › is the reverse.
+// There is no record of its own here: the router owns history, and canBack/canForward say whether a press would do anything.
+const backBtn=topline?.querySelector('[data-history-step="back"]'),forwardBtn=topline?.querySelector('[data-history-step="forward"]');
+function paintSteps(){
+  const router=window.KPTURouter,focused=document.activeElement;
+  if(backBtn)backBtn.disabled=!router?.canBack?.();
+  if(forwardBtn)forwardBtn.disabled=!router?.canForward?.();
   // A button that just went dim drops the keyboard focus; hand it to the other arrow (or the sidebar toggle).
   if(focused&&focused.disabled&&(focused===backBtn||focused===forwardBtn)){
     const other=focused===backBtn?forwardBtn:backBtn;
     (other&&!other.disabled?other:navToggle)?.focus({preventScroll:true});
   }
 }
-function pushTrail(entry){
-  trail.entries.splice(trail.index+1);trail.entries.push(entry);
-  if(trail.entries.length>50)trail.entries.shift();
-  trail.index=trail.entries.length-1;paintTrail();
-}
-function stepTrail(delta){
-  const index=trail.index+delta,entry=trail.entries[index];
-  if(trail.pending&&performance.now()-trail.pending.at<10000)return;
-  trail.pending=null;if(!entry)return;
-  const router=window.KPTURouter;if(!router)return;
-  if(router.current===entry.view){trail.index=index;paintTrail();restoreItem(entry);return}
-  trail.pending={index,at:performance.now()};
-  const moved=router.go(entry.view,{source:'trail'});
-  // A refused move (unsaved text kept) leaves the record as it was. A view still loading moves on its own later.
-  if(!moved&&window.KPTUViewLoader?.isLoaded?.(entry.view)!==false)trail.pending=null;
-}
-function restoreItem(entry){
-  if(!entry.item||!SPLIT_OPEN[entry.view])return;
-  trail.restoring={view:entry.view,id:entry.item.id,until:performance.now()+3000};
-  try{SPLIT_OPEN[entry.view](entry.item)}catch(error){console.error('trail item',error)}
-}
-backBtn?.addEventListener('click',()=>stepTrail(-1));
-forwardBtn?.addEventListener('click',()=>stepTrail(1));
+backBtn?.addEventListener('click',()=>{window.KPTURouter?.back?.()});
+forwardBtn?.addEventListener('click',()=>{window.KPTURouter?.forward?.()});
+window.addEventListener('kptu:history-moved',paintSteps);
+window.addEventListener('kptu:session-changed',paintSteps);
+window.addEventListener('kptu:app-ui-ready',paintSteps);
 window.addEventListener('kptu:view-changed',event=>{
   const view=event.detail?.view;if(!view)return;
-  if(trail.pending){
-    const {index}=trail.pending;trail.pending=null;
-    if(trail.entries[index]?.view===view){trail.index=index;paintTrail();restoreItem(trail.entries[index]);paintWhere(view);return}
-  }
-  if(trail.entries[trail.index]?.view!==view)pushTrail({view,item:null});
   paintWhere(view);
 });
-// A left-list / right-detail screen names the item shown on the right (its own module paints the selection and sends this).
-function recordItem(view,item){
-  if(!view||view!==window.KPTURouter?.current||!item?.id)return;
-  const current=trail.entries[trail.index];if(!current||current.view!==view)return;
-  if(sameItem(current.item,item))return;
-  const restoring=trail.restoring&&trail.restoring.view===view&&performance.now()<trail.restoring.until;
-  if(restoring&&trail.restoring.id===item.id)trail.restoring=null;
-  // The first item a screen opens by itself (last seen / first in list) belongs to the step that opened the screen;
-  // while a ← → step is putting its item back, what the screen shows belongs to that step too.
-  if(!current.item||restoring){current.item={...item};return}
-  pushTrail({view,item:{...item}});
-}
-window.addEventListener('kptu:split-selection',event=>recordItem(event.detail?.view,event.detail?.item));
-window.addEventListener('kptu:workplace-selection',event=>{if(event.detail?.id)recordItem('team',{id:event.detail.id})});
-window.addEventListener('kptu:session-changed',()=>{trail.entries=[];trail.index=-1;trail.pending=null;trail.restoring=null;paintTrail()});
-paintTrail();
+paintSteps();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule',reference:'team',projects:'reports'};

@@ -1,6 +1,6 @@
 // SEARCH-전체검색 S-3·S-4: 전체 검색 화면의 유일한 renderer(설계 docs/design/global-search.md 4절).
-// - PC(1024px~): 상단 줄 칸 자리([data-search-slot], topbar-actions.js 소유)에 검색칸만 붙이고, 칸 아래 결과 창을 연다.
-// - 검색 결과 전용 화면(?view=search&q=…&kind=…): 이 모듈이 #searchView를 만들고 그린다. 폰·761~1023px에서는 같은 화면이
+// - PC(761px~): 상단 줄 칸 자리([data-search-slot], topbar-actions.js 소유)에 검색칸만 붙이고, 칸 아래 결과 창을 연다.
+// - 검색 결과 전용 화면(?view=search&q=…&kind=…): 이 모듈이 #searchView를 만들고 그린다. 폰에서는 같은 화면이
 //   전체 화면 검색이다(왼쪽 위 ←, 메뉴 창 맨 위 검색칸이 입구). 홈에는 검색칸이 없다.
 // - 결과 창·전용 화면·전체 화면은 같은 그리기 함수(paint)로 그린다. 형광은 textContent 조각 + <mark>(HTML 삽입 없음).
 // - 결과를 누르면 source 칸 기준으로 원본 화면의 기존 여는 함수를 부른다. 상단 줄 ←→(앱 안 이동 기록)로 돌아온다.
@@ -10,7 +10,7 @@
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
   groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
 import * as data from './global-search-data.js';
-import {waitEl, waitInlineEl} from './wait-state.js';
+import {waitEl, waitInlineEl, emptyEl} from './wait-state.js';
 import {renderFilterChips} from './filter-chips.js';
 import {placeAnchored, clearAnchored, followAnchor} from './anchored-popup.js';
 import {requestBasketNote, requestNoteDocOpen, requestTaskOpen} from './basket-note-tasks.js';
@@ -23,7 +23,7 @@ import {canAsk, looksLikeQuestion, ASK_TEXT, askFailText, cleanAnswer, answerNot
 (() => {
 'use strict';
 if (window.KPTUGlobalSearch) return;
-const DEBOUNCE = 250, PC = window.matchMedia('(min-width:1024px)');
+const DEBOUNCE = 250, PC = window.matchMedia('(min-width:761px)');
 const router = () => window.KPTURouter;
 
 // ---------- 상태(이 탭 메모리만) ----------
@@ -175,7 +175,7 @@ function paint(host, where) {
     const groups = state.kind === 'all' ? state.groups.filter(g => g.total > 0)
       : [{...state.groups.find(g => g.key === state.kind), items: state.kindRows || [], kindMode: true}];
     if (!groups.length || (state.kind !== 'all' && !groups[0]?.items?.length && !state.kindBusy && state.kindRows)) {
-      if (state.phase === 'ready') statusLine.textContent = '찾은 기록이 없어요.';
+      if (state.phase === 'ready') statusLine.replaceChildren(emptyEl());
     }
     for (const g of groups) if (g?.key) list.append(groupNode(g, where));
     if (state.kind !== 'all' && state.kindBusy && !state.kindRows?.length) searching();
@@ -411,7 +411,7 @@ async function openView(target) {
     } else if (target.view === 'library') { requestLibraryDocument(target.id); r.go('library', {source: 'delegated'}); }
     else if (target.view === 'tasks') { requestTaskOpen(target.id); r.go('tasks', {source: 'delegated'}); }
     else if (target.view === 'journal') { r.go('journal', {source: 'delegated'}); if (target.day) window.KPTUJournal?.show?.(target.day); }
-    else if (target.view === 'projects') { r.go('projects', {source: 'delegated'}); await window.KPTUProjects?.open?.(target.id); }
+    else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({id: target.id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     else if (target.view === 'team') { r.go('team', {source: 'delegated'}); await window.KPTUWorkplace?.open?.(target.id); }
     else if (target.view === 'meetings') {
       r.go('meetings', {source: 'delegated'});

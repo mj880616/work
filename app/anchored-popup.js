@@ -11,10 +11,19 @@ const anchorable=anchor=>typeof anchor?.getBoundingClientRect==='function';
 // and never grows past maxHeight; its own content scrolls inside.
 // beside:'up' (UI-자주가는링크, a sidebar row): open to the right of the anchor and grow upward, the panel's bottom edge on the
 // anchor's bottom edge ('beside-up'); when the window above is too short, the panel slides down only as far as the window allows.
+// UI-창잘림·끌어옮기기: after placing, the box the panel was really drawn at (its CSS may make it wider or taller than asked) is
+// measured and pushed back inside the window, so no popup is cut at the right or bottom edge. A wider popup asks for it here
+// (maxWidth), never with its own CSS min-width. A panel the user dragged by its title (dragByTitle) keeps its spot: it is only
+// kept inside the window (a resize, a new width or height), never moved back to the anchor until it closes (clearAnchored).
 export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edge=8,minHeight=160,beside=''}={}){
   if(!anchorable(anchor))return '';
-  const t=anchor.getBoundingClientRect(),vw=document.documentElement.clientWidth,vh=window.innerHeight;
-  const width=Math.min(maxWidth,vw-edge*2),below=vh-t.bottom-gap-edge,above=t.top-gap-edge;
+  const vw=document.documentElement.clientWidth,vh=window.innerHeight,width=Math.min(maxWidth,vw-edge*2);
+  if(panel.dataset.anchorMoved&&panel.dataset.anchorSide){
+    Object.assign(panel.style,{width:width+'px',maxHeight:Math.max(0,Math.min(maxHeight,vh-edge*2))+'px'});
+    keepInside(panel,edge);
+    return panel.dataset.anchorSide;
+  }
+  const t=anchor.getBoundingClientRect(),below=vh-t.bottom-gap-edge,above=t.top-gap-edge;
   let side,left,top='auto',bottom='auto',height;
   if(beside==='up'){
     side='beside-up';
@@ -38,27 +47,70 @@ export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edg
   }
   Object.assign(panel.style,{inset:'auto',margin:'0',width:width+'px',left:left+'px',top,bottom,maxHeight:Math.max(0,height)+'px'});
   panel.dataset.anchorSide=side;
+  keepInside(panel,edge);
   return side;
+}
+const clamp=(value,min,max)=>Math.max(min,Math.min(value,max));
+// Moves a fixed panel back inside the window by the box it was really drawn at (a hidden panel, 0×0, is left alone).
+export function keepInside(panel,edge=8){
+  const r=panel.getBoundingClientRect();if(!r.width&&!r.height)return;
+  const vw=document.documentElement.clientWidth,vh=window.innerHeight;
+  if(r.left<edge||r.right>vw-edge)panel.style.left=clamp(r.left,edge,vw-edge-r.width)+'px';
+  if(r.top<edge||r.bottom>vh-edge)Object.assign(panel.style,{top:clamp(r.top,edge,vh-edge-r.height)+'px',bottom:'auto'});
 }
 export function clearAnchored(panel){
   for(const key of ['inset','margin','width','left','top','bottom','maxHeight'])panel.style[key]='';
   if(!panel.getAttribute('style'))panel.removeAttribute('style');
-  delete panel.dataset.anchorSide;
+  delete panel.dataset.anchorSide;delete panel.dataset.anchorMoved;panel.classList.remove('anchored-dragging');
+}
+
+// UI-창잘림·끌어옮기기: on a wide screen an anchored popup with a title row (selector, inside the panel) can be dragged by that
+// row; buttons, links and boxes in the row still work as before. The panel never leaves the window. Once moved it stays where
+// it was put while the page scrolls (followAnchor no longer follows the button) and is forgotten on close (clearAnchored); the
+// spot is not kept anywhere. Phones (bottom sheets, no data-anchor-side) are left alone. Popups with no title row (⋯ menus) are
+// not dragged, so a press on a menu line never turns into a drag. Call once per panel; the row may be redrawn.
+export function dragByTitle(panel,selector,{edge=8}={}){
+  let drag=null;
+  panel.addEventListener('pointerdown',e=>{
+    if(e.button!==0||!isWide()||!panel.dataset.anchorSide)return;
+    const handle=e.target instanceof Element?e.target.closest(selector):null;
+    if(!handle||!panel.contains(handle)||e.target.closest('button,a,input,select,textarea,label,[contenteditable]'))return;
+    const r=panel.getBoundingClientRect();
+    drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:r.left,top:r.top,moved:false,handle};
+    try{handle.setPointerCapture(e.pointerId);}catch{}
+  });
+  panel.addEventListener('pointermove',e=>{
+    if(!drag||e.pointerId!==drag.id)return;
+    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+    if(!drag.moved&&Math.abs(dx)+Math.abs(dy)<4)return;
+    if(!drag.moved){drag.moved=true;panel.dataset.anchorMoved='1';panel.classList.add('anchored-dragging');}
+    e.preventDefault();
+    const r=panel.getBoundingClientRect(),vw=document.documentElement.clientWidth,vh=window.innerHeight;
+    Object.assign(panel.style,{left:clamp(drag.left+dx,edge,vw-edge-r.width)+'px',top:clamp(drag.top+dy,edge,vh-edge-r.height)+'px',bottom:'auto'});
+  });
+  const end=e=>{
+    if(!drag||e.pointerId!==drag.id)return;
+    try{drag.handle.releasePointerCapture(e.pointerId);}catch{}
+    panel.classList.remove('anchored-dragging');drag=null;
+  };
+  panel.addEventListener('pointerup',end);panel.addEventListener('pointercancel',end);
 }
 
 // Keeps an open anchored popup with its anchor: a window resize or any scroll outside the popup calls place() again on the
 // next frame; when the anchor is gone (removed, hidden, or scrolled fully out of the window) lost() is called instead, and
-// the caller closes the popup. Returns stop(), to call when the popup closes.
+// the caller closes the popup. A popup the user dragged (data-anchor-moved) no longer follows the anchor: a scroll leaves it
+// where it is and a resize only keeps it inside the window. Returns stop(), to call when the popup closes.
 export function followAnchor(panel,anchor,{place,lost}){
   let frame=0;
   const check=()=>{
     frame=0;
+    if(panel.dataset.anchorMoved){place();return;}
     if(!anchorable(anchor)||('isConnected' in anchor&&!anchor.isConnected)){lost();return;}
     const r=anchor.getBoundingClientRect();
     if(!r.width&&!r.height||r.bottom<0||r.top>window.innerHeight||r.right<0||r.left>document.documentElement.clientWidth){lost();return;}
     place();
   };
-  const queue=e=>{if(e?.type==='scroll'&&e.target instanceof Node&&panel.contains(e.target))return;if(!frame)frame=requestAnimationFrame(check);};
+  const queue=e=>{if(e?.type==='scroll'&&(panel.dataset.anchorMoved||e.target instanceof Node&&panel.contains(e.target)))return;if(!frame)frame=requestAnimationFrame(check);};
   window.addEventListener('resize',queue);window.addEventListener('scroll',queue,{capture:true,passive:true});
   return ()=>{if(frame)cancelAnimationFrame(frame);frame=0;window.removeEventListener('resize',queue);window.removeEventListener('scroll',queue,{capture:true});};
 }

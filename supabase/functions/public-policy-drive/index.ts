@@ -34,11 +34,17 @@ async function sha256(s: string) {
   return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
+// SEC-정리묶음: DB 오류 원문은 서버 로그에만 남기고, 응답에는 상태 번호가 든 우리 글만 싣는다.
+async function serviceFail(r: Response) {
+  console.error('public-policy-drive db request failed', { status: r.status, detail: (await r.text().catch(() => '')).slice(0, 500) });
+  return new Error(`DB 요청 실패 (${r.status})`);
+}
+
 async function serviceGet(path: string) {
   const r = await fetch(`${SB}/rest/v1/${path}`, {
     headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` }
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw await serviceFail(r);
   return await r.json();
 }
 
@@ -53,7 +59,7 @@ async function servicePost(path: string, payload: unknown, prefer = 'return=mini
     },
     body: JSON.stringify(payload)
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw await serviceFail(r);
   const t = await r.text();
   return t ? JSON.parse(t) : null;
 }
@@ -69,7 +75,7 @@ async function servicePatch(path: string, payload: unknown, prefer = 'return=min
     },
     body: JSON.stringify(payload)
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw await serviceFail(r);
   const t = await r.text();
   return t ? JSON.parse(t) : null;
 }
@@ -79,7 +85,7 @@ async function serviceDelete(path: string) {
     method: 'DELETE',
     headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` }
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw await serviceFail(r);
 }
 
 async function getOAuthConfig() {

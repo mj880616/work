@@ -1,8 +1,9 @@
-// UI-PC회의(2026-10-20 사용자 확정) → MEET-결과정리 ⑤(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥1024) 회의 결과는
+import {emptyHtml} from './wait-state.js';
+// UI-PC회의(2026-10-20 사용자 확정) → MEET-결과정리 ⑤(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥761) 회의 결과는
 // 왼쪽 회의 종류 목록(색 점·이름·건수) / 가운데 고른 종류의 차수·날짜·시간 / 오른쪽 고른 차수의 회의 결과(읽기용) 3단.
 // 그리는 주인은 team.js의 renderMeetings 하나다. 이 파일은 묶기·정렬·색 배정·차수 글자(순수 함수)와 배치 HTML만 맡는다.
-// 폰·중간 폭은 이 파일의 배치를 쓰지 않고 지금 한 줄 목록 그대로 그린다(색·차수 글자는 함께 쓴다).
-export const PC_QUERY='(min-width:1024px)';
+// 폰은 이 파일의 배치를 쓰지 않고 지금 한 줄 목록 그대로 그린다(색·차수 글자는 함께 쓴다).
+export const PC_QUERY='(min-width:761px)';
 export const NONE_KEY='__none__';
 // UI-회의자료표시(2026-10-20): 회의에 붙은 자료가 있으면 개수 없이 이 문구만 보인다(폰 목록). 없으면 표시 없음. PC 3단 가운데 줄에는 보이지 않는다(MEET-결과3단).
 import {seoulParts} from './meeting-time.js';
@@ -12,7 +13,7 @@ export const MEETING_DOCS_LABEL='회의자료 있음';
 const time=m=>{const t=new Date(m?.meeting_at).getTime();return Number.isFinite(t)?t:-Infinity};
 const round=m=>{const n=Number(m?.round_no);return Number.isFinite(n)?n:-Infinity};
 const byRecent=(a,b)=>time(b)-time(a)||round(b)-round(a);
-// 폰·중간 폭 한 줄 목록도 PC와 같은 기준으로 최신이 위(날짜·시간이 같거나 없으면 차수 큰 쪽이 위). 받은 순서에 기대지 않는다.
+// 폰 한 줄 목록도 PC와 같은 기준으로 최신이 위(날짜·시간이 같거나 없으면 차수 큰 쪽이 위). 받은 순서에 기대지 않는다.
 export const sortRecentFirst=list=>[...(list||[])].sort(byRecent);
 
 // 회의 유형별로 묶는다. 종류 순서 = 가장 최근 결과가 있는 순, 종류 안 = 최신 위. 결과가 없는 유형은 생기지 않는다.
@@ -75,7 +76,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 export function pickMeeting(column,selectedId){return column?.meetings.find(m=>String(m.id)===String(selectedId))||column?.meetings[0]||null}
 
 export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resultHtml=()=>''}){
-  if(!columns.length)return '<div class="empty">사업 보고가 없습니다.</div>';
+  if(!columns.length)return emptyHtml();
   const selected=columns.find(c=>c.key===selectedKey)||columns[0],current=pickMeeting(selected,selectedId);
   const kinds=columns.map(c=>{
     const label=c.name||'회의명 미지정',on=c===selected;
@@ -99,7 +100,7 @@ export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resul
 // MTG-사업보고 4단계: [회의] 칩이 아닐 때(PC) 2단 = 왼쪽 '날짜·이름 목록'(최신 위) / 오른쪽 고른 건의 결과(3단의 오른쪽과 같은 resultHtml).
 // 왼쪽 줄은 3단 가운데 줄과 같은 단추(data-meeting-round)라 고르기·화살표·⋯ 메뉴를 그대로 쓴다. [전체]에서는 줄에 칸 글자(kindOf)도 보인다.
 export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whenOf,resultHtml=()=>''}){
-  if(!rows.length)return `<div class="empty">이 칸에 사업 보고가 없습니다.</div>`;
+  if(!rows.length)return emptyHtml();
   const current=rows.find(m=>String(m.id)===String(selectedId))||rows[0];
   const items=rows.map(m=>{
     const name=nameOf(m),when=whenOf(m),kind=kindOf(m),round=hasRound(m)||meetingShortName(m)?roundLabel(m):'',on=m===current;

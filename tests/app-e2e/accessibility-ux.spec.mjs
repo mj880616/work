@@ -1,5 +1,4 @@
 import { appOrigin } from './helpers/test-origin.mjs';
-import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -91,14 +90,15 @@ test('task grouping, month controls, and destructive task actions expose clear n
   await expect(page.locator('.calendar-toolbar')).toHaveAttribute('aria-labelledby','monthTitle');
 });
 
-test('library toolbar and Web1 board expose accessible navigation',async({page})=>{
+test('library toolbar and share pages expose accessible navigation',async({page})=>{
   await boot(page,{width:1024,height:768});
   await clickView(page,'library');
   await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
   await expect(page.locator('#documentProject')).toHaveAttribute('aria-label','사업영역 필터');
-  await clickView(page,'pages');await openLegacyBoard(page);
-  await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
-  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);
+  await clickView(page,'pages');
+  await expect(page.locator('#sharePagesRoot')).toBeVisible();
+  // DOMAIN-④ E2: 옛 Web1 카드는 화면째 지웠다.
+  await expect(page.locator('#pagesView .w1b-card,#web1BoardLegacy,#web1BoardDetailModal')).toHaveCount(0);
 });
 
 test('project creation dialog exposes semantics, keyboard close, and trigger restore',async({page})=>{
@@ -121,8 +121,8 @@ test('project creation dialog exposes semantics, keyboard close, and trigger res
 });
 
 test('task dialog exposes semantics, closes on Escape, and restores trigger focus',async({page})=>{
-  // UI-PC할일: 1024px 이상에서 줄을 누르면 같은 수정 창이 오른쪽 상세 칸에 열린다(아래 시험). 팝업 창 시험은 팝업이 그대로인 중간 폭(900px).
-  await boot(page,{width:900,height:768});
+  // UI-PC할일: PC 틀(761px~)에서 줄을 누르면 같은 수정 창이 오른쪽 상세 칸에 열린다(아래 시험). 팝업 창 시험은 팝업이 그대로인 폰 폭(760px).
+  await boot(page,{width:760,height:768});
   await clickView(page,'tasks');
   // UI-할일입력: [할 일] has no [+]; the editor opens from a task row and returns focus to it.
   const trigger=page.locator('#gtTaskBody [data-gt-edit]').first();

@@ -449,7 +449,9 @@ function luFolderScope(tree){
 let luFolderLayer=null,luFolderStepping=false;
 function luSyncFolderLayer(){
   if(luFolderStepping)return;
-  if(luInFolder&&!luFolderLayer&&window.KPTURouter?.current==='library')luFolderLayer=window.KPTURouter?.layer?.open('library-folder',{close:()=>{
+  // NAV-PC앞뒤통일: › (or the browser's forward) over the folder's entry enters the same folder again (reopen).
+  const reopenId=luInFolder;
+  if(luInFolder&&!luFolderLayer&&window.KPTURouter?.current==='library')luFolderLayer=window.KPTURouter?.layer?.open('library-folder',{reopen:()=>luEnterFolder(reopenId),close:()=>{
     const up=luFolders_.find(f=>f.id===luInFolder)?.parent_id||null;
     luInFolder=up&&luFolders_.some(f=>f.id===up)?up:null;luFolderLayer=null;
     if(luInFolder)luOpened.add('f:'+luInFolder);
@@ -490,7 +492,7 @@ luLastTree=shown;const matched=filtering?matchedKeys(shown):new Set();
 // LIB-정리보충 ③: 폴더 묶기의 '폴더 밖' 자료마다 작게 '📁 ○○?' 추천(AI 없음, 고르는 중에는 숨김). 누르면 그 폴더로 옮기고 '옮겼어요 · 되돌리기'.
 luSuggest=luGroupBy==='folder'&&!luPick.items?folderSuggestions(tree.find(n=>n.key==='x:out')?.files||[],{docs:luDocuments,items:luFolderItems,folders:luFolders_,categoryOf}):new Map();
 const html=(inKey?shown.length>0:(matches.length||tree.some(n=>n.children.length)||(luGroupBy==='folder'&&!filtering)))?treeHtml(shown,{isOpen:k=>k===inKey||luIsOpen(k,filtering,matched),showAll:k=>luShowAll.has(k),fileHtml:luDragRowHtml,esc:luEsc,kindKey:luKindKey,menu:luNodeMenuLabel,canDrag:n=>luCanDrag()&&n.kind==='folder',pick:luNodePick,emoji:luGroupBy==='folder'}):'';
-luRenderPath(box);box.innerHTML=(html||`<div class="empty">${inKey?'이 폴더에 맞는 자료가 없어요.':documentCategories().every(n=>luCategoryOff.has(n))?'고른 분류 없음':'자료가 없습니다.'}</div>`)+(q?luOffHint(found.filter(d=>!luCategoryShown(categoryOf(d.category)))):'');// 다시 그려도 초점이 있던 자료 줄에 초점을 돌려준다(다른 화면이 짚어 연 줄이 늦게 끝난 읽기의 다시 그리기로 초점을 잃지 않게).
+luRenderPath(box);box.innerHTML=(html||(globalThis.KPTUWait?.emptyHtml?.(!inKey&&documentCategories().every(n=>luCategoryOff.has(n))?'고른 분류 없음':'없음')||''))+(q?luOffHint(found.filter(d=>!luCategoryShown(categoryOf(d.category)))):'');// 다시 그려도 초점이 있던 자료 줄에 초점을 돌려준다(다른 화면이 짚어 연 줄이 늦게 끝난 읽기의 다시 그리기로 초점을 잃지 않게).
 if(focusId)box.querySelector(`[data-lu-document="${CSS.escape(focusId)}"]`)?.focus({preventScroll:true});luRenderExpandAll(filtering,matched);luMarkLongNames(box);hydrateLibraryThumbs(box);mountReportPhotos(box,{isCurrent:()=>box.isConnected});luRenderRecent(matches);luAfterRender()}
 // LIB-최근올린파일 (2026-10-27 17:01 요청): 묶기 칩 바로 아래 작은 칸. 서버에 있는 올린 시각(created_at) 기준 최근 5개(더보기 15개)를 줄마다
 // 종류·제목·들어간 묶음·올린 시각으로 보이고, 줄을 누르면 아래 목록에서 그 파일이 든 묶음을 펴고 그 줄로 가서 잠깐 강조한다.

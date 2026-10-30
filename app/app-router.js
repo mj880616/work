@@ -5,7 +5,9 @@
   // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
   const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library'};
+  // MTG-프로젝트합치기 ①: 사업영역 관리(옛 ?view=projects)는 화면이 아니라 사업 보고 위의 창이다. go('projects')·옛 주소는 사업 보고를 열고
+  // kptu:view-changed의 detail.areas로 창(area-window.js)을 띄운다.
+  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
   const ALIAS_ENTRY={media:{view:'library',category:'성명·보도자료'}};
@@ -27,7 +29,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={basket:['note','doc','folder'],library:['folder'],diary:['day'],journal:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab']};
+  const PLACE_PARAMS={meetings:['areas'],basket:['note','doc','folder'],library:['folder'],diary:['day'],journal:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -75,7 +77,7 @@
     const requested=params.get(VIEW_PARAM)&&viewName(params.get(VIEW_PARAM));
     if(viewExists(requested))return requested;
     if(requested)return viewExists('home')?'home':null;
-    if(params.get('project')&&viewExists('projects'))return 'projects';
+    if(params.get('project')&&viewExists('meetings'))return 'meetings';
     return viewExists('home')?'home':null;
   }
 
@@ -134,22 +136,32 @@
   // NAV-새로고침제자리: a side step (setSub) or a place (setPlace) asked while a layer is closing waits for that back to arrive,
   // so the step's own entry is added after it instead of being the one the late back leaves (one owner of the history stack).
   let pendingSub=null,pendingPlace=null;
+  // NAV-PC앞뒤통일: a layer's entry remembers how to open that layer again (reopen), so forward over an entry left by back
+  // (‹ then › on the PC top line, or the browser's forward) shows the same note or detail again. Keyed by the entry, kept in memory only.
+  const reopeners=new Map();
   const chainOf=state=>Array.isArray(state?.[LAYERS])?state[LAYERS]:[];
   const topOf=state=>chainOf(state).at(-1);
   function pushLayer(layer){
     history.pushState({...(history.state||{}),[LAYERS]:[...chainOf(history.state),layer.name]},'',location.href);
     layer.index=window.navigation?.currentEntry?.index;
+    keepReopen(layer);
   }
-  function openLayer(name,{close,adoptOnly=false}){
+  function keepReopen(layer){
+    const key=window.navigation?.currentEntry?.key;
+    if(!key||typeof layer.reopen!=='function')return;
+    reopeners.delete(key);reopeners.set(key,{name:layer.name,view:api.current,reopen:layer.reopen});
+    while(reopeners.size>100)reopeners.delete(reopeners.keys().next().value);
+  }
+  function openLayer(name,{close,reopen=null,adoptOnly=false}){
     const known=layers.find(layer=>layer.name===name);
     if(known)return {close:()=>releaseLayer(known)};
     // NAV-새로고침제자리: after a reload the entry still lists the layers that were open (a phone note folder, then a note in it); they are
     // reopened in the same order, so each one takes its place in that list instead of adding an entry.
     const adopt=!releasing&&(topOf(history.state)===name||chainOf(history.state)[layers.length]===name);
     if(adoptOnly&&!adopt)return null;
-    const layer={name,close,index:adopt?window.navigation?.currentEntry?.index:undefined};
+    const layer={name,close,reopen,index:adopt?window.navigation?.currentEntry?.index:undefined};
     layers.push(layer);
-    if(adopt);else if(releasing)deferred.push(layer);else pushLayer(layer);
+    if(adopt)keepReopen(layer);else if(releasing)deferred.push(layer);else pushLayer(layer);
     return {close:()=>releaseLayer(layer)};
   }
   function releaseLayer(layer){
@@ -197,10 +209,29 @@
   }
   // An entry for a layer that is no longer open (left by a tab change) is passed over in
   // the direction of travel, so one press always changes the screen.
+  // NAV-PC앞뒤통일: going forward onto an entry whose layer was closed by back opens that layer again (its owner's reopen), the
+  // reverse of back. Back over such an entry (left by a tab change) still passes it over. A window entry (.modal, kptuOverlay of
+  // mobile-modal-history.js) whose window is closed is passed over going forward too: the window is not reopened by forward.
   function skipStaleLayer(){
+    if(!traverseDelta)return;
     const top=topOf(history.state);
-    if(!top||layers.some(layer=>layer.name===top)||!traverseDelta)return;
-    if(traverseDelta<0)history.back();else history.forward();
+    if(top&&!layers.some(layer=>layer.name===top)){
+      if(traverseDelta>0&&reopenHere(top))return;
+      if(traverseDelta<0)history.back();else history.forward();
+      return;
+    }
+    const overlay=history.state?.kptuOverlay;
+    if(overlay&&traverseDelta>0&&!overlayOpen(overlay)&&canForward())history.forward();
+  }
+  function reopenHere(name){
+    const kept=reopeners.get(window.navigation?.currentEntry?.key);
+    if(!kept||kept.name!==name||kept.view!==api.current)return false;
+    try{kept.reopen()}catch(err){console.error('layer reopen',name,err)}
+    return layers.some(layer=>layer.name===name);
+  }
+  function overlayOpen(id){
+    const el=document.getElementById(id);
+    return !!el&&!el.classList.contains('hidden');
   }
   function onTraversal(){
     if(layerReturn){layerReturn=false;return}
@@ -224,6 +255,30 @@
     }else if(layers.length){history.back();return true}
     if(api.current&&api.current!=='home'&&viewExists('home'))return go('home',{source:'back',replaceUrl:true});
     return false;
+  }
+  // NAV-PC앞뒤통일: the PC top line ‹ › are this router's back and forward (the same path as the browser, PWA and Android back),
+  // never a record of their own. canBack/canForward tell whether a press would do anything: back stops at Web2's first entry (whose
+  // last return is home, as back() above), forward only goes over Web2's own entries of this page.
+  function canBack(){
+    if(!api.current||!authenticatedShellReady())return false;
+    const entry=window.navigation?.currentEntry;
+    if(entry&&Number.isInteger(entry.index)&&Number.isInteger(baseIndex)){
+      if(entry.index>baseIndex)return true;
+    }else if(layers.length||history.length>1)return true;
+    return api.current!=='home'&&viewExists('home');
+  }
+  function canForward(){
+    if(!api.current||!authenticatedShellReady())return false;
+    const nav=window.navigation,entry=nav?.currentEntry;
+    if(!nav||!entry||!Number.isInteger(entry.index))return true;
+    if(!nav.canGoForward)return false;
+    const next=nav.entries()[entry.index+1];
+    try{return !!next?.url&&new URL(next.url).pathname===location.pathname}catch{return false}
+  }
+  function forward(){
+    if(!canForward())return false;
+    history.forward();
+    return true;
   }
 
   function scrollControlIntoView(container,control,behavior='smooth'){
@@ -274,7 +329,8 @@
     });
   }
 
-  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null}={}){
+  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null,areas=false}={}){
+    if(view==='projects')areas=true;
     view=viewName(view);sub=subName(view,sub);
     if(!view||!authenticatedShellReady()||returningTo)return false;
     const lazy=window.KPTUViewLoader;
@@ -286,7 +342,7 @@
       lazy.load(view).then(()=>{
         if(request!==goSeq)return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
-        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub});
+        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub,areas});
       }).catch(err=>console.error('view lazy load',view,err));
       return false;
     }
@@ -306,7 +362,7 @@
     if(updateUrl&&(appReady()||authenticatedShellReady()))syncUrl(view,{replace:replaceUrl||source==='api',sub});
     rememberRoute();
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
-    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{})};
+    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{}),...(areas?{areas:true}:{})};
     window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));
     for(const fn of hooks.get(view)||[]){
       try{fn(detail)}catch(err){console.error('view hook',view,err)}
@@ -331,7 +387,8 @@
       return true;
     }
     noteAlias(written);
-    return go(view,{scroll:false,source,updateUrl:false,sub});
+    const areas=written==='projects'||!!new URLSearchParams(location.search).get('project')||(view==='meetings'&&new URLSearchParams(location.search).get('areas')==='1');
+    return go(view,{scroll:false,source,updateUrl:false,sub,areas});
   }
 
   function on(view,fn){
@@ -392,10 +449,16 @@
     return true;
   }
 
-  // syncNavigation: repaint the menu marks for the current view (topbar-actions.js calls it when the 761~1023px row hands
-  // its buttons back to the PC sidebar, whose [일정] head marks its whole group).
-  const api={current:null,sub:null,go,setSub,place,setPlace,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  // syncNavigation: repaint the menu marks for the current view (menu-layout.js calls it after the menu order changes).
+  const api={current:null,sub:null,go,setSub,place,setPlace,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
+  // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
+  let moveQueued=false;
+  function movedSoon(){
+    if(moveQueued)return;moveQueued=true;
+    queueMicrotask(()=>{moveQueued=false;window.dispatchEvent(new CustomEvent('kptu:history-moved'))});
+  }
+  window.addEventListener('kptu:view-changed',movedSoon);
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
   // currententrychange comes before popstate and names the entry left, so a traversal's
   // direction is known without a navigate listener (which would change traversal timing).
@@ -404,14 +467,16 @@
     const from=e.from?.index,to=nav.currentEntry?.index;
     traverseDelta=e.navigationType==='traverse'&&Number.isInteger(from)&&Number.isInteger(to)?to-from:0;
     rememberRoute();
+    movedSoon();
   });
   window.addEventListener('popstate',()=>{
     if(returningTo&&window.navigation?.currentEntry?.key===returningTo){returningTo=null;traverseDelta=0;rememberRoute();return;}
     onTraversal();
     traverseDelta=0;
+    movedSoon();
   });
   window.addEventListener('kptu:session-changed',e=>{
-    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();return}
+    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();reopeners.clear();movedSoon();return}
     if(appReady())restoreFromUrl('session');
   });
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});

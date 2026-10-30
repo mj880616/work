@@ -3,11 +3,11 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // UI-상단줄(2026-10-22 요청함 07:53·07:54): PC(≥1024) 모든 화면 위 얇은 줄
-// [사이드바 숨김] [←][→] [지금 위치] [검색칸 자리] [+ 추가] [계정 ▾]. 사이드바를 숨기면 본문이 넓어지고 이 기기에 기억한다.
-// ←→는 앱 안 이동 기록(좌우 화면에서 고른 항목 포함)이며 브라우저 기록을 움직이지 않는다. 폰·중간 폭은 그대로. 이름은 모두 합성 값.
+// [사이드바 숨김] [‹][›] [지금 위치] [검색칸 자리] [+ 추가] [계정 ▾]. 사이드바를 숨기면 본문이 넓어지고 이 기기에 기억한다.
+// NAV-PC앞뒤통일: ‹ ›는 라우터의 뒤로/앞으로(브라우저·폰 뒤로가기와 같은 길)이다. 폰·중간 폭은 그대로. 이름은 모두 합성 값.
 const line=page=>page.locator('[data-app-topline]');
 const toggle=page=>page.locator('[data-nav-toggle]');
-const back=page=>page.locator('[data-trail="back"]'),forward=page=>page.locator('[data-trail="forward"]');
+const back=page=>page.locator('[data-history-step="back"]'),forward=page=>page.locator('[data-history-step="forward"]');
 const where=page=>page.locator('[data-topline-where]');
 // Move with the menu and wait for the screen (views load on first use).
 async function show(page,view){await clickView(page,view);await expect(page.locator(`#${view}View`)).toBeVisible()}
@@ -20,7 +20,7 @@ test('PC: the top line sits above every screen in order, the account moved there
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
  await expect(line(page)).toBeVisible();
- const order=await line(page).evaluate(el=>[...el.children].map(c=>c.dataset.navToggle!==undefined?'nav':c.dataset.trail||(c.matches('.topline-where')?'where':c.dataset.searchSlot!==undefined?'search':c.dataset.quickAdd!==undefined?'add':c.dataset.toplineAccount!==undefined?'account':'?')));
+ const order=await line(page).evaluate(el=>[...el.children].map(c=>c.dataset.navToggle!==undefined?'nav':c.dataset.historyStep||(c.matches('.topline-where')?'where':c.dataset.searchSlot!==undefined?'search':c.dataset.quickAdd!==undefined?'add':c.dataset.toplineAccount!==undefined?'account':'?')));
  expect(order).toEqual(['nav','back','forward','where','search','add','account']);
  // SEARCH-전체검색: the slot (owned here) now holds only the search field mounted by global-search.js.
  await expect(page.locator('[data-search-slot] input[type="search"]')).toBeVisible();
@@ -37,7 +37,7 @@ test('PC: the top line sits above every screen in order, the account moved there
  await expect(panel.locator('[data-kptu-logout]')).toBeVisible();
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(account).toBeFocused();
  // Small buttons (UI-버튼기준): 32px visible height.
- for(const sel of ['[data-nav-toggle]','[data-trail="back"]','[data-quick-add]'])expect(Math.round((await page.locator(sel).boundingBox()).height)).toBe(32);
+ for(const sel of ['[data-nav-toggle]','[data-history-step="back"]','[data-quick-add]'])expect(Math.round((await page.locator(sel).boundingBox()).height)).toBe(32);
  for(const view of ['basket','calendar','tasks','journal','diary','projects','library','meetings','pages','team','hwp']){
   await show(page,view);await expect(line(page)).toBeVisible();
   const [l,v]=await Promise.all([line(page).boundingBox(),page.locator(`#${view}View`).boundingBox()]);
@@ -79,46 +79,70 @@ test('PC: an unreadable or unsaveable server value keeps the sidebar shown and t
  expect(errors).toEqual([]);
 });
 
-test('PC: ← → walk the screens moved through, dim at the ends, and leave browser history alone',async({page})=>{
+test('PC: ‹ › are the router back and forward — the same path as the browser, dim when there is nowhere to go',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
  await expect(back(page)).toBeDisabled();await expect(forward(page)).toBeDisabled();
+ // 얇은 꺾쇠 그림(글자 화살표 아님).
+ await expect(back(page).locator('svg path')).toHaveCount(1);await expect(back(page)).not.toContainText('←');
  await show(page,'library');await show(page,'tasks');
  await expect(where(page)).toHaveText(/일정\s*›?\s*할 일/);
- const historyLength=await page.evaluate(()=>history.length);
  await back(page).click();
  await expect(page).toHaveURL(/view=library/);await expect(page.locator('#libraryView')).toBeVisible();
  await expect(forward(page)).toBeEnabled();
  await back(page).click();
+ // Web2의 첫 기록(홈)보다 더 뒤로는 가지 않는다.
  await expect(page.locator('#homeView')).toBeVisible();await expect(back(page)).toBeDisabled();
  await forward(page).click();await expect(page.locator('#libraryView')).toBeVisible();
  await forward(page).click();await expect(page.locator('#tasksView')).toBeVisible();await expect(forward(page)).toBeDisabled();
  // A move made by a menu after stepping back drops the forward part, as a browser would.
  await back(page).click();await expect(page.locator('#libraryView')).toBeVisible();
  await show(page,'meetings');await expect(forward(page)).toBeDisabled();
- // The router still owns history: the browser's back goes through its own entries (the trail steps added router entries like menu clicks).
- expect(await page.evaluate(()=>history.length)).toBeGreaterThanOrEqual(historyLength);
- await page.goBack();await expect(page.locator('#libraryView')).toBeVisible();
- // The browser's back is a move like any other: the record now ends 자료실 → 회의 → 자료실, so ← (Enter on it) goes to 회의.
+ // The browser's back is the same path: one browser back and one ‹ land where two ‹ would.
+ await page.goBack();await expect(page.locator('#libraryView')).toBeVisible();await expect(forward(page)).toBeEnabled();
  await back(page).focus();await page.keyboard.press('Enter');
- await expect(page.locator('#meetingsView')).toBeVisible();await expect(back(page)).toBeFocused();
+ await expect(page.locator('#homeView')).toBeVisible();
+ // The button that went dim hands the keyboard focus to the other arrow.
+ await expect(back(page)).toBeDisabled();await expect(forward(page)).toBeFocused();
+ await page.keyboard.press('Enter');await expect(page.locator('#libraryView')).toBeVisible();
 });
 
-test('PC: ← → bring back the project chosen on the left/right projects screen',async({page})=>{
+// MTG-프로젝트합치기 ①(#1523): 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다. 창 안에서 고른 사업영역은 기록이 아니다.
+// NAV-PC앞뒤통일: 창은 '열린 것'이라 ‹ 한 번에 닫히고(폰 뒤로가기와 같은 길), 그다음 ‹ 가 이전 화면. 창을 닫으면 사업 보고 같은 주.
+test('PC: 사업영역 창 안 고르기는 기록이 아니고, ‹ 는 창부터 닫고 그다음 이전 화면, 사업 보고는 같은 주',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
- await show(page,'projects');
- const row=id=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`),first=row('p');
- await expect(first).toHaveAttribute('aria-current','true');
+ await show(page,'meetings');
+ const label=page.locator('#reportWeekFilter .report-week-label');
+ await expect(label).toBeVisible();const thisWeek=await label.textContent();
+ await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
+ await expect(label).not.toHaveText(thisWeek);
+ await expect(back(page)).toBeEnabled();await expect(forward(page)).toBeDisabled();
+ await clickView(page,'projects');await expect(page.locator('#areaWindow')).toBeVisible();
+ // 창 밑의 사업 보고가 보이던 주(창을 연 순간).
+ const week=await label.textContent();
+ const row=id=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);
+ await expect(row('p')).toHaveAttribute('aria-current','true');
+ const length=await page.evaluate(()=>history.length);
  await row('child').click();
  await expect(row('child')).toHaveAttribute('aria-current','true');
+ // 창 안 고르기는 기록이 아니다: 기록 수가 그대로이고, → 는 꺼져 있고, 화면은 여전히 사업 보고다.
+ expect(await page.evaluate(()=>history.length)).toBe(length);
+ await expect(forward(page)).toBeDisabled();
+ expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('meetings');
+ // ‹ 한 번이면 창이 닫히고 사업 보고가 넘겨 본 그 주 그대로.
  await back(page).click();
- await expect(first).toHaveAttribute('aria-current','true');await expect(page.locator('#projectsView')).toBeVisible();
+ await expect(page.locator('#areaWindow')).toBeHidden();
+ await expect(page.locator('#meetingsView')).toBeVisible();await expect(label).toHaveText(week);
+ // 그다음 ‹ 는 사업 보고 바로 앞 화면(홈) — 창 안에서 고른 두 사업영역은 그 사이에 끼지 않는다.
+ await back(page).click();
+ await expect(page.locator('#homeView')).toBeVisible();
  await forward(page).click();
- await expect(row('child')).toHaveAttribute('aria-current','true');
- // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 사업 보고 ⋯ 안에서 열어(show → clickView) 그 앞에 사업 보고 화면이 한 칸 더 있다.
- await back(page).click();await back(page).click();
- await expect(page.locator('#meetingsView')).toBeVisible();
+ await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#areaWindow')).toBeHidden();
+ // ✕ 로 닫아도 같다: 다시 열고 ✕ → 사업 보고, ‹ → 홈.
+ await clickView(page,'projects');await expect(page.locator('#areaWindow')).toBeVisible();
+ await page.locator('#areaWindow .area-window-close').click();
+ await expect(page.locator('#areaWindow')).toBeHidden();await expect(page.locator('#meetingsView')).toBeVisible();
  await back(page).click();
  await expect(page.locator('#homeView')).toBeVisible();
 });
@@ -137,10 +161,10 @@ test('PC: where shows group › screen and the group word opens the group',async
  await where(page).getByRole('button',{name:'일정'}).click();
  await expect(page.locator('#calendarView')).toBeVisible();
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('달력');
- // MTG-프로젝트합치기 3단계: 사업영역 관리는 사업 보고 아래 화면(사업 보고 › 사업영역 관리), 앞 낱말은 사업 보고로 간다.
+ // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이다. 위쪽 줄은 밑의 화면(사업 보고)을 가리키고, 창의 ✕로 사업 보고에 돌아온다.
  await show(page,'projects');
- await expect(where(page).locator('li').nth(0)).toHaveText('사업 보고');await expect(where(page).locator('li').nth(1)).toHaveText('사업영역 관리');
- await where(page).getByRole('button',{name:'사업 보고',exact:true}).click();
+ await expect(page.locator('#areaWindow')).toBeVisible();await expect(where(page).locator('li').nth(0)).toHaveText('사업 보고');
+ await page.locator('#areaWindow .area-window-close').click();await expect(page.locator('#areaWindow')).toBeHidden();
  await expect(page.locator('#meetingsView')).toBeVisible();
  await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').click();
  await expect(where(page).locator('li')).toHaveText(['노트']);
@@ -180,16 +204,17 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  }
 });
 
-test('phone and mid width keep their own shell: no top line, the sidebar toggle does nothing there',async({page})=>{
+test('phone keeps its own shell; 761~1023px has the PC top line and a narrow menu that a saved hidden sidebar does not hide (UI-폴드PC틀)',async({page})=>{
  await page.setViewportSize({width:390,height:800});
  await installViewPrefsServer(page,{nav_collapsed:true});
  await openHome(page);
  await expect(line(page)).toBeHidden();
  await expect(page.locator('.mobile-tabs')).toBeVisible();
  await page.setViewportSize({width:900,height:800});
- await expect(line(page)).toBeHidden();
+ await expect(line(page)).toBeVisible();
  await expect(page.locator('#appView>.app-nav')).toBeVisible();
- await expect(page.locator('#mobileMenuOpen')).toBeVisible();
+ expect((await page.locator('#appView>.app-nav').boundingBox()).width).toBeLessThanOrEqual(56);
+ await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
 });
 
 // Representative widths: with the sidebar hidden each PC layout widens and keeps its own shape.

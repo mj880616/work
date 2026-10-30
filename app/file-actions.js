@@ -33,9 +33,13 @@ export function clickKind({name = '', mime = ''} = {}) {
 }
 
 // Drive에서 열 주소: 자료실 자료는 저장된 drive_url(http·https만), 없으면 Drive 파일 번호로 만든 보기 주소.
+// 링크로 걸어도 되는 주소: http·https만(그 밖의 주소는 '' — 링크 대신 글자만 보인다).
+export function httpUrl(value) {
+  try { const u = new URL(String(value || '')); if (u.protocol === 'https:' || u.protocol === 'http:') return u.href; } catch { /* 링크 아님 */ }
+  return '';
+}
 export function driveOpenUrl({driveUrl = '', driveId = ''} = {}) {
-  try { const u = new URL(String(driveUrl || '')); if (u.protocol === 'https:' || u.protocol === 'http:') return u.href; } catch { /* 번호로 */ }
-  return driveFileUrl(String(driveId || ''));
+  return httpUrl(driveUrl) || driveFileUrl(String(driveId || ''));
 }
 export function driveDownloadUrl(driveId) {
   return DRIVE_ID.test(String(driveId || '')) ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(driveId)}` : '';

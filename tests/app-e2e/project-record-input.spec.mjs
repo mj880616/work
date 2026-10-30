@@ -181,7 +181,7 @@ test('PRJ-기록입력 groups: same line lists, small + beside the title, docume
 
 for(const scheme of ['light','dark'])for(const records of [false,true])test(`PRJ-기록입력 390 ${scheme} ${records?'mixed records':'no records'} fits the phone`,async({page})=>{
   await fixture(page,{scheme,records});
-  if(!records){await expect(page.locator('#ps3-progress .ps3-rec-empty')).toHaveText('아직 기록이 없어요');await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('0')}
+  if(!records){await expect(page.locator('#ps3-progress [data-ps3-rec-empty][data-wait-empty]')).toHaveText('없음');await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('0')}
   else{await expect(lines(page)).toHaveCount(1);await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1')}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   // MTG-프로젝트합치기 3단계: 입력칸·[기록]·⤢가 없다(입력칸 높이 검사는 기능과 함께 없앴다).

@@ -25,7 +25,7 @@
 .rec-btn:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .rec-band .rec-stop{color:var(--kptu-danger)}
 body.rec-on{padding-top:var(--rec-band-height,32px)}
-@media (min-width:1024px){
+@media (min-width:761px){
   body.rec-on #appView{--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--rec-band-height,32px))}
   body.rec-on #appView>.app-nav{top:calc(12px + var(--rec-band-height,32px));height:calc(100dvh - 24px - var(--rec-band-height,32px))}
 }
@@ -36,3 +36,5 @@ body.rec-on{padding-top:var(--rec-band-height,32px)}
 .rec-pending{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:2px 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .rec-pending[hidden]{display:none}
 .rec-pending-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* [버리기](녹음 띠·'이어서 정리' 줄): 위험 동작이라 빨강 글자. 크기는 다른 .rec-btn과 같다. */
+.rec-btn.rec-discard{color:var(--kptu-danger)}

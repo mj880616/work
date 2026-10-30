@@ -33,10 +33,10 @@ for(const width of [390,1280]){
  test(`빠른 입력 [추가] 36px·할 일 추가 창 ${width}`,async({page})=>{
   const errors=await boot(page,width);
   await check(page.locator('#homeView .home-quick [data-quick-save]'),36,'홈 [추가]');
-  if(width<1024)await check(page.locator('#homeView .home-quick .home-quick-big'),32,'홈 [큰 창에서 쓰기]');
+  if(width<761)await check(page.locator('#homeView .home-quick .home-quick-big'),32,'홈 [큰 창에서 쓰기]');
   await go(page,'basket');await check(page.locator('#basketView [data-basket-list] .home-quick [data-quick-save]').first(),36,'정리함 [추가]');
   await go(page,'tasks');await check(page.locator('#tasksView .home-quick [data-quick-save]'),36,'할 일 [추가]');
-  if(width<1024)await check(page.locator('#tasksView .home-quick .home-quick-detail'),32,'할 일 [상세 설정으로 추가]');
+  if(width<761)await check(page.locator('#tasksView .home-quick .home-quick-detail'),32,'할 일 [상세 설정으로 추가]');
   await page.locator('#tasksView .home-quick-detail').click();await expect(page.locator('#eventModal')).toBeVisible();
   await modalSave(page,'#eventModal','#saveEventBtn','할 일 창 [저장]');
   await check(page.locator('#eventTaskProject'),32,'[프로젝트 선택 ▾]');
@@ -47,7 +47,7 @@ for(const width of [390,1280]){
  test(`할 일 수정: 기한 줄 한 줄·같은 높이, [저장] 작게 ${width}`,async({page})=>{
   const errors=await boot(page,width);await go(page,'tasks');
   await page.locator('#gtTaskBody [data-gt-edit]').first().click();await expect(page.locator('#gtTaskModal')).toBeVisible();
-  if(width>=1024){
+  if(width>=761){
    const due=await measure(page.locator('#gtEditDue'));expect(due.h).toBe(36);
    for(const b of await page.locator('#gtTaskModal .gt-due-quick>button').all()){const m=await check(b,36,'기한 빠른 버튼');expect(m.top).toBe(due.top);expect(m.bottom).toBe(due.bottom);}
    // UI-저장자리(2026-10-27): PC에서도 [저장]은 창 아래 줄 오른쪽(36px). 제목 줄로 올린 10/20 배치는 되돌렸다.
@@ -89,7 +89,7 @@ for(const width of [390,1280]){
   // ORG-PC상세정리(요청 14:10) → UI-전수디자인점검 F08: PC 상세 칸·폰 창 모두 ⤢가 입력칸 안 오른쪽 아래(보조 32px), [저장]은 작은 버튼(32px), 누르는 범위 44px.
   const input=await measure(page.locator('#wdInboxText')),big=await check(page.locator('#wdInboxBig'),32,'조직 ⤢');await check(page.locator('#wdInboxSave'),32,'조직 [저장]');
   expect(big.bottom).toBeLessThanOrEqual(input.bottom);expect(big.right).toBeLessThanOrEqual(input.right);expect(big.top).toBeGreaterThan(input.top);
-  if(width<1024)await expect(page.locator('#wdModal .gt-linked').getByRole('button',{name:/연결 해제/})).toHaveCount(0);
+  if(width<761)await expect(page.locator('#wdModal .gt-linked').getByRole('button',{name:/연결 해제/})).toHaveCount(0);
   await noWideScroll(page);expect(errors).toEqual([]);
  });
 
@@ -98,7 +98,7 @@ for(const width of [390,1280]){
   await go(page,'journal');await check(page.locator('#journalView [data-journal-save]'),36,'업무일지 [저장]');
   await go(page,'pages');await check(page.locator('#pagesView [data-sp-new]'),36,'[새 공유 페이지]');
   await go(page,'hwp');
-  if(width<1024){
+  if(width<761){
    // HWP-화면가득: 폰은 위 얇은 줄의 [파일 ▾]·[저장 ▾]만 작은 버튼(32px)으로 보인다.
    await check(page.locator('#hwpMenuFile'),32,'[파일 ▾]');await check(page.locator('#hwpMenuSave'),32,'[저장 ▾]');
   }else{

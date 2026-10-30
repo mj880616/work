@@ -7,6 +7,7 @@ test('Web2 app has no team-ai caller or generation controls', () => {
   const callers=files.filter(name=>readFileSync(`app/${name}`,'utf8').includes('/functions/v1/team-ai'));
   assert.deepEqual(callers,[]);
   assert.equal(existsSync('app/workplace-ai-report.js'),false);
+  assert.equal(existsSync('supabase/functions/team-ai'),false,'은퇴한 team-ai 원본은 저장소에서 지웠다(SEC-정리묶음)');
   assert.equal(existsSync('app/workplace-report.js'),true);
   const detail=readFileSync('app/workplace-detail.js','utf8');
   assert.doesNotMatch(detail,/wdAiSlot|AI 초안/);

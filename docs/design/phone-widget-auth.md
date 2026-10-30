@@ -147,3 +147,34 @@
 ## 부록. 읽은 파일
 
 `docs/design/phone-app-v2.md`, `android-app/README.md`, `android-app/app/build.gradle`, `android-app/app/src/main/java/kr/or/kptu/work/{UpdateCheck,ShellRules}.kt`, `supabase/functions/auth-handoff/index.ts`, `app/native-auth-bridge.js`, `app/auth-handoff-client.js`, `app/auth-service.js`, `app/login/{login.js,native-google-return.js}`, `app/team.js`(logout), `supabase/functions/google-tasks/index.ts`·`google-calendar/index.ts`(action·CORS), `docs/web2-env6b-edge-source.md`, PR #1414 본문.
+
+## 12. 앱 로그인으로 위젯 로그인 자동 마침 (2026-10-30, 요청함 [10/30 09:15])
+
+명진 결정: 앱(웹 화면)이 로그인돼 있으면 위젯 줄을 누르는 순간 앱이 위젯 세션을 대신 만든다(구글 화면 없음). 앱도 로그아웃이면 지금의 구글 로그인 길(3절)로 간다. 위젯 세션이 따로 사는 구조(2절)·암호화 저장(5절)·consume·읽는 범위(6절)는 그대로다.
+
+### 12.1 흐름
+
+1. 위젯 [로그인] 줄 → `WidgetLoginActivity`가 메모리 표시(10분·한 번)를 세움 → `MainActivity` `ACTION_WIDGET_LOGIN`(지금과 같음).
+2. 로그인된 웹2 화면은 뜰 때마다 앱 다리(`KPTUAppShell`, 허용 Origin 최상위 화면만)로 `widget:ready`를 보낸다(`app/phone-widget-auth.js`, `loader-v2.js`가 로그인 확인 뒤 폰 앱에서만 불러옴). 로그아웃이면 웹이 로그인 화면(`/work/app/login/`)으로 보내므로 이 글은 오지 않는다.
+3. 앱은 표시가 살아 있고 `widget:ready`를 받았으면 그 화면에 `widget:mint`를 보낸다. 웹은 **자기 접근 토큰으로** `auth-handoff` `widget_seal`을 부른다(새로고침 토큰은 보내지 않음).
+4. 서버(`widget_seal`): ① `/auth/v1/user`로 접근 토큰의 사용자를 확인(익명·메일 없음 거절) ② 서비스 키로 `/auth/v1/admin/generate_link`(`magiclink`, 메일을 보내지 않음) ③ `/auth/v1/verify`(`token_hash`)로 **같은 사용자의 새 세션**을 받음 ④ 링크·세션 사용자 id가 ①과 같은지 확인 ⑤ 새 세션의 새로고침 토큰을 seal과 **같은 봉인**(version 2, nonce, 5분)으로만 돌려줌. 원문 토큰·링크·메일 주소는 응답에 없다.
+5. 웹은 봉인을 `widget:handoff:<봉인>`으로 앱에 넘긴다. 앱은 `widget:mint`를 보낸 단계(MINTING)이고 표시가 살아 있을 때만 받아(`takeLogin`) 지금의 `consume`(Origin `https://bokdoong.com`)으로 위젯 세션을 만든다 → "위젯 로그인 완료".
+6. 대체 길(구글 탭): 웹 화면이 로그인 화면이거나, `widget:ready`가 12초·봉인이 10초 안에 안 오거나, 웹·서버가 `widget:mint:fail`을 보내거나, 자동 봉인의 consume이 실패하면 표시를 살린 채 구글 로그인 탭을 연다. 탭은 **화면이 앞에 나온 뒤(onResume)** 연다. 단계 판단은 `WidgetLoginFlow`(단위 시험 `WidgetLoginFlowTest`).
+7. 앱 화면이 로그인 탭 뒤에서 다시 만들어지면(메모리 부족) 표시 시각(비밀 아님)을 화면 상태 저장(`savedInstanceState`)으로 잇는다(3절 3의 "구현 때 판단"). 폰 저장소에는 쓰지 않는다.
+
+### 12.2 왜 웹 세션을 넘기지 않나
+
+웹 화면의 새로고침 토큰을 그대로 봉인하면 위젯과 웹이 같은 토큰 줄기를 쓰게 되어 2절의 "번갈아 로그아웃"이 난다. 그래서 서버가 같은 사용자의 **새 세션**을 만든다. Supabase Auth에는 "새 세션 만들기" 관리자 API가 없어, 메일을 보내지 않는 관리자 링크 만들기 + 확인을 쓴다(일반적인 방법, 추정 — 배포 뒤 실기기 확인 항목).
+
+### 12.3 권한을 넓히지 않는 근거와 한계
+
+- 새 표·RLS·grant·비밀값·Supabase 허용 주소·Cloudflare 변경 없음. `auth-handoff` verify_jwt·허용 Origin 4곳·consume 규칙 그대로. 서비스 키는 서버 안에서만 쓴다.
+- 위젯 세션은 같은 사용자(단독 소유자)의 두 번째 로그인이다(7절과 같음). 사용자 id는 Auth가 확인한 값만 쓰고 요청 본문의 id·메일은 무시한다(시험 고정).
+- 한계(솔직히): `widget_seal`은 "유효한 접근 토큰(약 1시간)"을 "새 장기 세션"으로 바꿀 수 있다. 다만 같은 화면의 저장소에는 이미 새로고침 토큰이 있어, 화면을 장악한 공격자가 새로 얻는 힘은 없다. 브라우저 밖에서 훔친 접근 토큰만으로 부르는 경우가 새로 생기는 길이며, 막는 것은 Origin 검사(브라우저 한정)와 접근 토큰 수명뿐이다. 더 줄이려면 호출 횟수 제한이나 위젯 전용 읽기 토큰(W3)이 필요하다(추천하지 않음, 필요 시 별도 결정).
+- 확인 필요(배포 뒤): Supabase 메일 로그인이 꺼져 있으면 `verify`가 거절될 수 있다. 그러면 웹이 `widget:mint:fail`을 받고 앱이 구글 탭(대체 길)으로 가므로 위젯 로그인은 여전히 된다.
+
+### 12.4 대체 길이 끊긴 곳 (조사)
+
+- 저장소 코드만으로는 끊긴 곳을 확정하지 못했다(실기기 로그 없음). 0.3.1(#1533)의 주소 변경은 로그인 주소(`…/work/app/native-callback.html?native=android`)·consume Origin(`https://bokdoong.com`, 서버 허용 4곳에 있음)·복귀 intent를 바꾸지 않아 **직접 원인은 아닌 것으로 본다**(추정).
+- 가장 유력한 추정: 위젯 줄 → 보이지 않는 화면 → 앱 화면이 아직 앞에 나오기 전(`onNewIntent`/`onCreate`)에 구글 탭을 열었다. 안드로이드 14·15(앱 targetSdk 35)는 화면이 보이지 않는 앱의 화면 열기를 막을 수 있어, 앱만 앞에 나오고 탭은 열리지 않는다. 0.3.2는 탭을 `onResume` 뒤에 연다.
+- 그 밖에: 구글이 계정 하나·이전 동의로 창 없이 바로 돌아오는 경우(그때는 "위젯 로그인 완료/못했어요" 알림이 떠야 함), 탭 뒤에서 앱이 다시 만들어져 표시가 사라지는 경우(12.1의 7로 막음).

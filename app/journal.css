@@ -1,11 +1,11 @@
 /* JOURNAL-일지 2단계(업무일지): 일정 탭 [업무일지]. 색은 theme-tokens.css의 값만 쓴다(업무일지 초록 --ds-kind-journal-*).
    이번 주 날짜 숫자 줄(월~일, 한 줄 쓴 날 초록 점) → 고른 날의 "오늘 한 줄" 입력칸과 그 아래 저장한 줄 목록 → 그날 재료 목록. 폰·PC 같은 배치.
-   UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다. 바깥 폭은 모든 PC 화면과 같은 desktop-ui.css의 main 규칙(F21), 안쪽 제한(960px)은 없앴다.
+   UI-PC업무일지폭: PC(≥761)는 [일기]처럼 본문 폭을 다 쓴다. 바깥 폭은 모든 PC 화면과 같은 desktop-ui.css의 main 규칙(F21), 안쪽 제한(960px)은 없앴다.
    JOURNAL-일지카드정리: 아래 칸은 일정·끝낸 할 일·조직 소식(조직 이름별 묶음)·회의·행사 결과. PC 모양(제목·글자 크기, 상자 없는 점 목록,
    [수정][삭제])은 맨 아래 PC 묶음에만 있고, 폰 모양은 그대로다.
    JOURNAL-주간보고허브 1단계: 그 뒤에 프로젝트 소식(프로젝트 이름별)·할 일 예정·자료실 새 자료·공유 페이지. PC는 2칸씩 줄. */
 #appView #journalView .journal{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #journalView .journal{ max-width:none; }
 }
 #appView #journalView .journal [hidden]{ display:none!important; }
@@ -28,7 +28,7 @@
 #appView #journalView .journal-date:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #journalView .journal-date:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
 /* UI-전수디자인점검 F09(PC): 요일 칸은 테두리 상자 대신 높이 40px 한 줄(요일·날짜), 고른 날만 옅은 초록 바탕. 폰은 위 두 줄 칸 그대로. */
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #journalView .journal-days{ gap:2px; }
   #appView #journalView .journal-date{ flex-direction:row; justify-content:center; align-items:center; gap:6px; min-height:40px; padding:0 0 4px; border-color:transparent; }
   #appView #journalView .journal-dot{ bottom:3px; width:5px; height:5px; margin-left:-2.5px; }
@@ -87,7 +87,7 @@
 #appView #journalView .journal-line-actions{ display:none; }
 /* JOURNAL-일지카드정리(시안 확정, UI-일지폰정리로 폰도 같게): 제목 5개('오늘 한 줄'·일정·끝낸 할 일·조직 소식·회의·행사 결과 등)는
    같은 크기(15px) 굵게, 내용은 모두 14px. 저장한 한 줄은 초록 바탕·왼쪽 막대 없는 점 목록. 폰은 줄을 눌러 고치고,
-   [수정][삭제]는 PC(≥1024)에서만 그 줄에 마우스를 올리거나 키보드 초점이 들어오면 보인다. 아래 4칸 2열은 761px부터(위). */
+   [수정][삭제]는 PC(≥761)에서만 그 줄에 마우스를 올리거나 키보드 초점이 들어오면 보인다. 아래 4칸 2열은 761px부터(위). */
 #appView #journalView .journal-line label.journal-heading,
 #appView #journalView .journal-group h4.journal-heading{ margin:0; font-size:var(--ds-text-read); font-weight:700; line-height:1.4; color:var(--kptu-ink); }
 #appView #journalView .journal-line textarea,
@@ -102,15 +102,15 @@
 #appView #journalView .journal-line-text{ flex:1 1 auto; width:auto; min-height:0; padding:4px 0; font-size:var(--kptu-text-body);
   background:transparent; border:0; border-radius:0; }
 @media(hover:hover){ #appView #journalView .journal-line-text:not(:disabled):hover{ text-decoration:underline; } }
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #journalView .journal-line-text{ flex:0 1 auto; padding:2px 0; }
   #appView #journalView .journal-line-actions{ display:inline-flex; flex:0 0 auto; gap:4px; opacity:0; }
   #appView #journalView .journal-line-item:hover .journal-line-actions,
   #appView #journalView .journal-line-item:focus-within .journal-line-actions{ opacity:1; }
   #appView #journalView .journal-line-actions .journal-delete{ color:var(--kptu-danger); border-color:var(--kptu-danger); background:var(--kptu-surface); }
 }
-@media(min-width:1024px) and (hover:hover){ #appView #journalView .journal-line-text:not(:disabled):hover{ border-color:transparent; text-decoration:underline; } }
-@media(min-width:1024px) and (hover:none){ #appView #journalView .journal-line-actions{ opacity:1; } }
+@media(min-width:761px) and (hover:hover){ #appView #journalView .journal-line-text:not(:disabled):hover{ border-color:transparent; text-decoration:underline; } }
+@media(min-width:761px) and (hover:none){ #appView #journalView .journal-line-actions{ opacity:1; } }
 /* 폰: 전환 줄(아래 탭 위 한 줄)에 마지막 재료가 가리지 않게 아래 여백. [+]는 없다. */
 @media(max-width:760px){
   #appView #journalView.view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 22px + env(safe-area-inset-bottom))!important; }
@@ -284,7 +284,7 @@
   #appView #journalView .journal-exec-who:empty{ display:none; }
 }
 /* PC: 1. 요청사항·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #journalView .journal-weekly-body{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; align-items:start; }
   #appView #journalView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
   #appView #journalView .journal-weekly-date{ grid-column:1/-1; }
@@ -324,7 +324,7 @@
 #appView #journalView .journal-item-more[open]{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px; }
 #appView #journalView .journal-item-more[open] > .mini{ white-space:nowrap; }
 /* JOURNAL-할일바로처리: 할 일 줄 = 동그라미(완료) + 글 + ⋯(내일로·기한 바꾸기·고치기·지우기). 새 크기 값 없음: 28px 칸(⋯ 과 같은 칸, 줄이
-   촘촘해 위아래 확장 없이 좌우만 ::after 로 44px), 색은 할 일 화면의 동그라미와 같은 --kptu-success. PC(1024px~, 마우스)는 줄에 마우스를
+   촘촘해 위아래 확장 없이 좌우만 ::after 로 44px), 색은 할 일 화면의 동그라미와 같은 --kptu-success. PC(761px~, 마우스)는 줄에 마우스를
    올렸거나 초점이 있을 때(메뉴가 열려 있을 때도)만 ⋯ 가 보이고, 폰·터치는 늘 보인다(ui-standard.css). */
 #appView #journalView .journal-task-item::before{ content:none; }
 #appView #journalView .journal-check{ position:relative; flex:0 0 auto; box-sizing:border-box; width:var(--ds-compact-height-sm); min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm);

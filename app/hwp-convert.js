@@ -48,7 +48,7 @@ export function requestEngineBuild(frameWindow,base,plan,{timeoutMs=CONVERT_ENGI
 // ---- 작은 창 ----
 const ID='hwpConvertModal';
 let modal=null,run=0;
-const esc=text=>String(text).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const esc=text=>String(text).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 function markup(){
   return `<div id="${ID}" data-kptu-history-all="1" class="modal hidden hwp-convert" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="hwpConvertTitle"><div class="modal-card small-card hwp-convert-card">
 <div class="modal-head"><h2 id="hwpConvertTitle">노조 서식으로 만들기</h2><button type="button" class="icon-btn" data-close="${ID}" aria-label="닫기">×</button></div>

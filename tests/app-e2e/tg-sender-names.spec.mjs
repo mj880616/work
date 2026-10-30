@@ -66,7 +66,7 @@ async function fixture(page,{width=1280,senderTables='empty'}={}){
  return {items,writes,errors,names,calls};
 }
 async function openMenu(page,width,label){
- if(width>=1024){
+ if(width>=761){
   const item=page.locator('#appView>.app-nav').getByRole('button',{name:label,exact:true});
   await expect(item).toBeVisible();await item.click();
  }else{
@@ -234,7 +234,7 @@ test('텔레그램 390: 이름표가 비어 있으면 지금처럼 A·B(+이름 
  await page.goBack();await expect(view.locator('#tgList')).toBeVisible();
  await tap(page,view.locator('[data-tg-head-more]'),390);
  await tap(page,page.locator('#tgMenu').getByRole('button',{name:'보낸 사람 이름',exact:true}),390);
- await expect(view.locator('[data-tg-empty="senders"]')).toContainText('아직 붙인 이름이 없어요');
+ await expect(view.locator('[data-tg-empty="senders"][data-wait-empty]')).toHaveText('없음');
  await tap(page,view.locator('[data-tg-shelf-back]'),390);
  await expect(view.locator('[data-tg-rd]').first()).toBeVisible();
  expect(await noWideScroll(page)).toBe(true);expect(f.errors).toEqual([]);

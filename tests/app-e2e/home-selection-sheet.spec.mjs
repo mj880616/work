@@ -23,7 +23,7 @@ for(const width of [390,1440])test(`organization rows fit, preserve order and no
  await expect(foot).toBeVisible();
  const d=await sheet(page).boundingBox(),f=await foot.boundingBox();
  expect(d.y).toBeGreaterThanOrEqual(0);expect(d.y+d.height).toBeLessThanOrEqual(844);expect(f.y+f.height).toBeLessThanOrEqual(d.y+d.height+.5);
- if(width>=1024){await expect(sheet(page)).toHaveClass(/home-choice-split/);expect(await sheet(page).locator('[data-sheet-all]').evaluate(el=>getComputedStyle(el).overflowY)).toBe('auto');expect(await content.evaluate(el=>el.scrollHeight-el.clientHeight)).toBeLessThanOrEqual(1);}
+ if(width>=761){await expect(sheet(page)).toHaveClass(/home-choice-split/);expect(await sheet(page).locator('[data-sheet-all]').evaluate(el=>getComputedStyle(el).overflowY)).toBe('auto');expect(await content.evaluate(el=>el.scrollHeight-el.clientHeight)).toBeLessThanOrEqual(1);}
  else expect(await content.evaluate(el=>getComputedStyle(el).overflowY)).toBe('auto');
  expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight||getComputedStyle(document.body).overflow==='hidden')).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

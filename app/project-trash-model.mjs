@@ -149,7 +149,6 @@ export const TRASH_TEXT = Object.freeze({
   DELETED: '사업영역을 삭제했습니다.',
   RESTORED: '사업영역을 되돌렸습니다.',
   PURGED: '영구 삭제했습니다.',
-  EMPTY: '휴지통이 비어 있습니다.',
   PREPARING: '휴지통은 준비 중입니다.',
   LOAD_FAILED: '휴지통을 불러오지 못했습니다.',
   PARENT_FIRST: '상위 사업영역을 먼저 되돌려 주세요.',

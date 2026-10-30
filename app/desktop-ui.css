@@ -1,5 +1,5 @@
 /* Desktop shell only. Shared controls and surfaces are owned by base-ui.css. */
-@media (min-width:1024px){
+@media (min-width:761px){
   html,body{background:var(--kptu-bg)}
   body{overflow-y:scroll}
   /* UI-전수디자인점검 F21: 모든 PC 화면이 같은 본문 폭 규칙 하나(최대 1920px, 좌우 여백 24~42px)를 쓴다. 전에는 보통 화면 1600/1720px·넓은 화면
@@ -51,7 +51,7 @@
   body{padding-bottom:0!important}
 }
 
-@media (min-width:1024px) and (pointer:coarse){
+@media (min-width:761px) and (pointer:coarse){
   #appView>.app-nav .nav-btn{min-height:40px;padding-top:9px;padding-bottom:9px}
 }
 
@@ -62,11 +62,11 @@
   .project-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 
-/* UI-상단줄: PC(≥1024)만. 본문 칸 맨 위 얇은 줄(topbar-actions.js가 그림)과 사이드바 숨기기.
+/* UI-상단줄: PC(≥761)만. 본문 칸 맨 위 얇은 줄(topbar-actions.js가 그림)과 사이드바 숨기기.
    칸 자리: 사이드바는 첫 칸, 상단 줄·화면은 마지막 칸(grid-column:-2)이라 사이드바를 숨겨 한 칸이 되어도 같은 규칙으로 본문 전체 폭을 쓴다.
    --kptu-topline-space(줄 높이 + 아래 간격)는 화면 높이에 맞춰 그리는 좌우·3단 화면(할 일·회의·프로젝트·담당조직)이 뺀다. */
 .app-topline{display:none}
-@media (min-width:1024px){
+@media (min-width:761px){
   #appView{--kptu-topline-height:40px;--kptu-topline-gap:8px;--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap))}
   #appView>.app-topline{grid-column:-2 / -1;grid-row:1;display:flex;align-items:center;gap:4px;box-sizing:border-box;height:var(--kptu-topline-height);margin:0 0 var(--kptu-topline-gap);min-width:0}
   #appView>.view-panel{grid-column:-2 / -1;grid-row:2}
@@ -76,6 +76,10 @@
   .app-topline .topline-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
   .app-topline .topline-btn:not(:disabled):hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
   .app-topline .topline-btn:disabled{opacity:.35}
+  /* NAV-PC앞뒤통일: ‹ › 꺾쇠는 바탕 없이, 마우스를 올리면 옅은 칸(색 없는 회색), 갈 곳이 없으면 연한 색. 선 굵기·크기는 [사이드바 숨김]과 같다. */
+  .app-topline .topline-step{padding:0}
+  .app-topline .topline-step:not(:disabled):hover{background:color-mix(in srgb,currentColor 10%,transparent);color:var(--kptu-ink)}
+  .app-topline .topline-step svg{stroke-linecap:round}
   .app-topline :is(.topline-btn,.topline-where-link,.account-trigger):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
   .app-topline .topline-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
   .app-topline .topline-nav-toggle[aria-expanded="false"]{color:var(--kptu-primary-ink)}
@@ -99,14 +103,14 @@
   .app-topline .topline-account .account-trigger{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 8px;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);position:relative}
   .app-topline .topline-account .account-trigger::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 }
-/* BIZ-버튼줄정리: 이 글자 줄 메뉴는 PC [+ 추가]와 홈 ⋯(모든 폭)이 같이 쓴다. 그래서 PC 전용 묶음 밖에 둔다(홈 ⋯가 1023px 이하에서 기본 회색 버튼으로 보이던 것). */
+/* BIZ-버튼줄정리: 이 글자 줄 메뉴는 PC [+ 추가]와 홈 ⋯(모든 폭)이 같이 쓴다. 그래서 PC 전용 묶음 밖에 둔다(홈 ⋯가 760px 이하에서 기본 회색 버튼으로 보이던 것). */
 .topline-add-menu{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
 .topline-add-menu[hidden]{display:none!important}
 .topline-add-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:6px 10px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);text-align:left}
 .topline-add-menu button:hover,.topline-add-menu button:focus-visible{background:var(--kptu-primary-soft);outline:none}
 
-/* UI-자주가는링크 (PC 1024px~): 사이드바 맨 아래(메뉴와 빈 공간을 두고, 창이 짧아 메뉴가 길면 메뉴 바로 아래) '자주 가는 링크 ›' 줄과 그 줄 오른쪽에서 위로 열리는 작은 창(quick-links.js).
-   버튼은 UI-버튼기준의 작은 버튼(32px, 누르는 범위 44px)만 쓰고 채운 버튼은 편집의 [저장] 하나. 폰·761~1023px에는 줄이 없다. */
+/* UI-자주가는링크 (PC 761px~): 사이드바 맨 아래(메뉴와 빈 공간을 두고, 창이 짧아 메뉴가 길면 메뉴 바로 아래) '자주 가는 링크 ›' 줄과 그 줄 오른쪽에서 위로 열리는 작은 창(quick-links.js).
+   버튼은 UI-버튼기준의 작은 버튼(32px, 누르는 범위 44px)만 쓰고 채운 버튼은 편집의 [저장] 하나. 폰에는 줄이 없다. */
 #appView>.app-nav .nav-quick-links{display:none}
 .quick-links-panel[hidden]{display:none!important}
 .ql-menu{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
@@ -116,7 +120,7 @@
 .ql-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .ql-menu .ql-menu-danger{color:var(--kptu-danger)}
 .ql-menu .ql-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--kptu-border)}
-@media (min-width:1024px){
+@media (min-width:761px){
   /* UI-상단줄제목: 열린 노트 머리줄은 제목 줄이 없어 [복사]·[⋯]를 오른쪽 끝에 둔다. */
   #appView #basketView .note-head-main{justify-content:flex-end}
   #appView>.app-nav .nav-quick-links{display:flex;align-items:center;justify-content:space-between;gap:6px;flex:0 0 auto;border-top:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:0 0 var(--kptu-radius-md) var(--kptu-radius-md)}
@@ -132,7 +136,7 @@
   .quick-links-panel .ql-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 8px;margin:0;padding:0;list-style:none}
   .quick-links-panel .ql-grid a{display:flex;align-items:center;min-height:36px;padding:0 8px;border-radius:var(--kptu-radius-sm);color:var(--kptu-ink);font-size:var(--ds-text-row,13px);text-decoration:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .quick-links-panel .ql-grid a:hover,.quick-links-panel .ql-grid a:focus-visible{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);outline:none}
-  .quick-links-panel .ql-empty,.quick-links-panel .ql-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+  .quick-links-panel .ql-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
   .quick-links-panel .ql-note:empty{display:none}
   .quick-links-panel .ql-btn{position:relative;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,10px);border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-compact-text,13px);cursor:pointer;white-space:nowrap}
   .quick-links-panel .ql-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
@@ -167,4 +171,12 @@
   .quick-links-panel .ql-group-head.ql-drop-into::after{content:'여기에 놓기';margin-left:auto;padding-right:8px;font-size:var(--ds-text-meta,12px);font-weight:700;color:var(--kptu-primary-ink);white-space:nowrap}
   .quick-links-panel .ql-dragging{opacity:.5}
   .quick-links-panel .ql-foot{position:sticky;bottom:-8px;display:flex;justify-content:flex-end;gap:6px;margin:6px -12px -8px;padding:8px 12px;background:var(--kptu-surface);border-top:var(--ds-line-width,1px) solid var(--kptu-border)}
+}
+
+/* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): PC 좌우 화면의 스크롤은 화면 전체 하나다. 옆 칸(오른쪽 상세·왼쪽 폴더 나무)은
+   follow-pane.js가 이 이름을 붙이고 --follow-top 값만 바꾼다: 짧은 칸은 위쪽에 붙고, 긴 칸은 끝까지 같이 내려간 뒤 아래쪽에 붙는다.
+   칸 안에는 따로 스크롤을 두지 않는다(overflow 없음). 칸 안 고정 머리줄·[저장] 줄은 화면 끝(0)에 붙는다. */
+@media (min-width:761px){
+  .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:none;overflow:visible}
+  .kptu-follow-pane .modal-action-footer{bottom:0}
 }

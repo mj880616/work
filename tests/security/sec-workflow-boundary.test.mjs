@@ -10,7 +10,7 @@ test('workflow files contain no direct repository push path', () => {
   for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name))) {
     const source = workflow(name);
     assert.doesNotMatch(source, /\bgit\s+push\b|\bgit\s+commit\b|createCommit|createOrUpdateFileContents/, name);
-    if (!['publication-auto-merge.yml', 'basket-pc-release.yml'].includes(name)) assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
+    if (!['publication-auto-merge.yml', 'basket-pc-release.yml', 'phone-app-release.yml'].includes(name)) assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
   }
 });
 
@@ -214,6 +214,49 @@ test('browser-e2e reports on every main PR and decides from the change scope', (
   }
 });
 
+test('Phone app release workflow only runs for phone-app-v tags or a manual run on main, signs only after approval and never prints the key', () => {
+  const source = workflow('phone-app-release.yml');
+  assert.match(source, /^on:\n  push:\n    tags:\n      - 'phone-app-v\*'\n  workflow_dispatch:\n    inputs:\n      version:\n(?:        .+\n)+\npermissions:/m);
+  assert.doesNotMatch(source, /pull_request|schedule:|branches:|workflow_run/);
+  const inputs = source.slice(source.indexOf('    inputs:\n'), source.indexOf('\npermissions:'));
+  assert.equal([...inputs.matchAll(/^      (\w+):$/gm)].map(m => m[1]).join(','), 'version');
+  assert.match(source, /^permissions:\n  contents: read\n/m);
+  assert.equal((source.match(/^\s+contents:\s*write\s*$/gm) ?? []).length, 1);
+  assert.match(source, /^  verify:\n(?:(?!^  release:)[\s\S])*?^  release:\n    needs: verify\n/m);
+  const verifyJob = source.slice(source.indexOf('\n  verify:\n'), source.indexOf('\n  release:\n'));
+  const releaseJob = source.slice(source.indexOf('\n  release:\n'));
+  assert.doesNotMatch(verifyJob, /environment:|permissions:|write|secrets\./);
+  assert.match(releaseJob, /^    environment: phone-app-release\n    permissions:\n      contents: write\n      id-token: write\n      attestations: write\n/m);
+  // tag shape, main, versionName = tag version, all before approval
+  assert.match(verifyJob, /\^phone-app-v\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\$/);
+  assert.match(verifyJob, /git merge-base --is-ancestor "\$GITHUB_SHA" origin\/main/);
+  assert.match(verifyJob, /\[ "\$GITHUB_REF" != "refs\/heads\/main" \]/);
+  assert.match(verifyJob, /git ls-remote --tags origin "refs\/tags\/\$TAG"/);
+  assert.match(verifyJob, /versionName/);
+  assert.match(verifyJob, /\[ "\$NAME" != "\$VERSION" \]/);
+  // the tag is made only after approval, only for a manual run, on the checked commit
+  assert.match(releaseJob, /name: Create the tag[^\n]*\n\s+if: github\.event_name == 'workflow_dispatch'/);
+  assert.match(releaseJob, /gh api -X POST "repos\/\$GITHUB_REPOSITORY\/git\/refs" -f "ref=refs\/tags\/\$TAG" -f "sha=\$RELEASE_SHA"/);
+  assert.match(releaseJob, /ref: \$\{\{ needs\.verify\.outputs\.sha \}\}/);
+  assert.equal([...source.matchAll(/inputs\.version/g)].length, 1);
+  // only the four signing secrets, only in the signing step, passed by variable name; no production access
+  const secrets = [...source.matchAll(/secrets\.(\w+)/g)].map(m => m[1]);
+  assert.deepEqual(secrets, ['PHONE_APP_KEYSTORE_B64', 'PHONE_APP_KEYSTORE_PASSWORD', 'PHONE_APP_KEY_ALIAS', 'PHONE_APP_KEY_PASSWORD']);
+  const signStep = releaseJob.slice(releaseJob.indexOf('- name: Sign the APK'), releaseJob.indexOf('- name: Record where'));
+  assert.equal([...signStep.matchAll(/secrets\./g)].length, 4);
+  assert.match(signStep, /--ks-pass env:PHONE_APP_KEYSTORE_PASSWORD --key-pass env:PHONE_APP_KEY_PASSWORD/);
+  assert.match(signStep, /trap 'rm -f "\$ks"' EXIT/);
+  assert.match(signStep, /\$RUNNER_TEMP\/phone-app\.keystore/);
+  assert.doesNotMatch(source, /(?:echo|printf)[^\n]*\$(?:PHONE_APP_KEYSTORE_PASSWORD|PHONE_APP_KEY_PASSWORD|PHONE_APP_KEY_ALIAS)/);
+  assert.doesNotMatch(source, /set -x|SUPABASE|CLOUDFLARE|production-edge/i);
+  // the release build never reuses another run's Gradle cache
+  assert.match(releaseJob, /cache-disabled: true/);
+  // the published file name is what the app's update check expects
+  assert.match(signStep, /--out "out\/web2-phone-\$VERSION\.apk"/);
+  assert.match(releaseJob, /gh release create "\$TAG" out\/web2-phone-\*\.apk --verify-tag --draft --latest=false/);
+  for (const use of source.matchAll(/uses:\s*(\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/, use[1]);
+});
+
 // A tag push (for example basket-pc-v1.2.3) must start only the workflows meant for tags.
 // `on.push` without branches, tags or tags-ignore also fires for every tag, so it is not allowed.
 const pushBlock = source => {
@@ -224,7 +267,7 @@ const pushBlock = source => {
 };
 
 test('only the intended workflows start on a tag push', () => {
-  const TAG_WORKFLOWS = ['basket-pc-release.yml'];
+  const TAG_WORKFLOWS = ['basket-pc-release.yml', 'phone-app-release.yml'];
   const startsOnTag = [];
   for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name)).sort()) {
     const source = workflow(name);

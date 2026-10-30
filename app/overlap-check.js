@@ -4,6 +4,7 @@
 // - 알림은 기존 되돌리기 알림(.kptu-undo-notice, base-ui.css)과 같은 모양이고 한 번에 하나만 뜬다. 상태는 이 탭 메모리에만 있다(브라우저 저장소 없음).
 import {findSame, saveUserVerdict, linkAndMark} from './overlap-data.js';
 import {makeRef, candidateLine, linkPlan, NOTICE_TEXT as T} from './overlap-model.mjs';
+import {noticeHost} from './small-notice.js';
 
 let box = null, timer = 0, epoch = 0;
 export function closeNotice() { clearTimeout(timer); timer = 0; box?.remove(); box = null; }
@@ -11,7 +12,7 @@ window.addEventListener('kptu:session-changed', () => { epoch++; closeNotice(); 
 
 function show(record, candidate, rt) {
   closeNotice();
-  const host = [...document.querySelectorAll('.modal:not(.hidden)')].at(-1) || document.body;
+  const host = noticeHost(document); // 되돌리기 알림과 같은 자리 규칙(small-notice.js)
   const el = document.createElement('div');
   el.className = 'kptu-undo-notice'; el.dataset.overlapNotice = '';
   const canLink = !!linkPlan(record, candidate);

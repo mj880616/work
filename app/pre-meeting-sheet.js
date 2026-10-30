@@ -139,7 +139,7 @@ function paint() {
   const sub = [when, view?.stage ? `쟁의 단계: ${view.stage}` : ''].filter(Boolean).join(' · ');
   const after = new Date(Date.now() + 9 * 3600 * 1000).getUTCHours() >= AUTO_HOUR;
   renderPrepSheet(body, {state:ui.state, title:ui.orgName || '담당조직', sub, view, canMake:!!ui.event && !!ui.orgId, busy:ui.busy, message:ui.message, error:ui.error, open:ui.open,
-    notes:{missing:'교섭 전 한 장은 아직 준비 중이에요.', failed:'불러오지 못했습니다.', none:after ? '아직 만들지 않음.' : '전날 18시 뒤 만듦.', empty:'이 조직에 모인 기록이 없음.'}}, SKIN);
+    notes:{missing:'교섭 전 한 장은 아직 준비 중이에요.', failed:'불러오지 못했습니다.', none:after ? '아직 만들지 않음.' : '전날 18시 뒤 만듦.', empty:'없음'}}, SKIN);
 }
 export async function openPreMeetingSheet({key = '', event = null, orgId = '', orgName = '', row = null, trigger = document.activeElement} = {}) {
   const rt = runtime();

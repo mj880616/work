@@ -2,7 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const ANON = Deno.env.get('SUPABASE_ANON_KEY') || SERVICE;
+// No fallback to the service key: a missing public key is a setup error, and the service key never goes to Auth calls made for a user.
+const ANON = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const ORIGINS = new Set([
   'https://desk.bokdoong.com',
   'https://work.bokdoong.com',
@@ -76,6 +77,7 @@ Deno.serve(async req=>{
   if (!allowed) return fail('origin_not_allowed', 403);
   if(req.method==='OPTIONS') return new Response('ok',{headers});
   if(req.method!=='POST') return fail('method_not_allowed', 405);
+  if(!SB||!SERVICE||!ANON) return reply({ error: 'server_misconfigured', message: '로그인 전달 설정을 확인해 주세요.' }, 500);
   try{
     const body=await req.json().catch(()=>({}));
     if(body?.action==='seal'){
@@ -88,6 +90,31 @@ Deno.serve(async req=>{
       if(typeof user?.id!=='string'||!UUID.test(user.id)) return fail('authentication_failed',401);
       const now=Date.now();
       const token=await seal({version:2,nonce:crypto.randomUUID(),sub:user.id,rt:body.refresh_token,iat:now,exp:now+TTL});
+      return reply({token});
+    }
+    // 폰 앱 위젯 자동 로그인(docs/design/phone-widget-auth.md 12절). 로그인된 웹 화면(앱 안)이 자기 접근 토큰으로
+    // 같은 사용자의 '새 세션'(위젯 전용, 웹 세션과 다른 새로고침 토큰 줄기)을 만들어 seal과 같은 봉인으로만 돌려받는다.
+    // 원문 토큰은 응답에 없다. 봉인은 consume(1회용 nonce·5분)으로만 열린다. 사용자 id는 Auth가 확인한 값만 쓴다.
+    if(body?.action==='widget_seal'){
+      const auth=req.headers.get('authorization')||'';
+      const access=/^Bearer\s+(\S+)$/i.exec(auth)?.[1];
+      if(!access) return fail('invalid_request',400);
+      const ur=await fetch(SB+'/auth/v1/user',{headers:{Authorization:'Bearer '+access,apikey:ANON}});
+      if(!ur.ok) return fail('authentication_failed',401);
+      const user=await ur.json();
+      if(typeof user?.id!=='string'||!UUID.test(user.id)||user?.is_anonymous===true||
+         typeof user?.email!=='string'||!user.email||user.email.length>320) return fail('authentication_failed',401);
+      const gl=await fetch(SB+'/auth/v1/admin/generate_link',{method:'POST',headers:{Authorization:'Bearer '+SERVICE,apikey:SERVICE,'Content-Type':'application/json'},body:JSON.stringify({type:'magiclink',email:user.email})});
+      const g=await gl.json().catch(()=>({}));
+      const hashed=typeof g?.hashed_token==='string'?g.hashed_token:g?.properties?.hashed_token;
+      const linkUser=typeof g?.id==='string'?g.id:g?.user?.id;
+      if(!gl.ok||typeof hashed!=='string'||!hashed||hashed.length>1024||linkUser!==user.id) return fail('widget_session_failed',502);
+      const vr=await fetch(SB+'/auth/v1/verify',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({type:'magiclink',token_hash:hashed})});
+      const v=await vr.json().catch(()=>({}));
+      if(!vr.ok||v?.user?.id!==user.id||typeof v?.refresh_token!=='string'||!v.refresh_token||v.refresh_token.length>16384)
+        return fail('widget_session_failed',502);
+      const now=Date.now();
+      const token=await seal({version:2,nonce:crypto.randomUUID(),sub:user.id,rt:v.refresh_token,iat:now,exp:now+TTL});
       return reply({token});
     }
     if(body?.action==='consume'){

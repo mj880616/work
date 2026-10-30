@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { createTaskFiles, notesWithFiles, fileLine, MAX_TASK_FILES, NOTES_MAX } from '../../supabase/functions/google-tasks/task-files.ts';
+import { withOwner } from './helpers/owner-member.mjs';
 
 // TASK-파일붙이기: runs the real google-tasks handler (index.ts + task-files.ts + _shared/drive-upload.ts) for the file actions
 // against a mocked Google Tasks API, a mocked Drive API and a mocked Supabase. The caller-JWT client follows the
@@ -123,7 +124,7 @@ function harness({ tasks = [{ id: 'task-1', title: '자료 준비', notes: '먼�
   class FakeDate extends Date { constructor(...a) { super(...(a.length ? a : [NOW])); } static now() { return NOW; } }
   const consoleMock = { log: (...a) => logs.push(a.join(' ')), error: () => {}, warn: () => {} };
   const createClient = (_url, key, opts) => key === 'service' ? admin : userDb(opts?.global?.headers?.Authorization || '');
-  new Function('Deno', 'createClient', 'createTaskFiles', 'fetch', 'Date', 'console', SOURCE)(Deno, createClient, createTaskFiles, fetchMock, FakeDate, consoleMock);
+  new Function('Deno', 'createClient', 'createTaskFiles', 'fetch', 'Date', 'console', SOURCE)(Deno, withOwner(createClient), createTaskFiles, fetchMock, FakeDate, consoleMock);
   const send = async (req) => { const r = await handler(req); return { status: r.status, body: await r.json() }; };
   const post = (action, body = {}, token = 'token-a') => send(new Request('https://sb.example/functions/v1/google-tasks?action=' + action, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify({ action, ...body }) }));
   const get = (action, params = {}, token = 'token-a') => send(new Request('https://sb.example/functions/v1/google-tasks?' + new URLSearchParams({ action, ...params }), { headers: token ? { Authorization: 'Bearer ' + token } : {} }));

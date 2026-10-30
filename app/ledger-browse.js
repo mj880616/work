@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // AI-서버연동 S7-c: [원장] 화면의 원장 목록·검색 칸(#ledgerBrowseRoot). 이 모듈이 그 칸의 유일한 renderer다.
 // 검색은 S7-a 검색 RPC(app_ledger_search, SECURITY INVOKER라 owner RLS 그대로)만 쓴다. 기본은 업무만(L1), 관심 정보는 따로 고른다.
 // 화면(S7-c 정리): 검색칸 하나만 늘 보이고 나머지 조건은 [조건 ▾] 안(처음엔 접힘, 펼침 상태는 저장하지 않음). 걸린 조건은 칩, ✕로 하나씩 해제.
@@ -313,7 +313,7 @@ async function openOriginal(target) {
     await window.KPTUViewLoader?.load?.(target.view);
     if (target.view === 'basket') { if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id); r.go('basket', { source: 'delegated' }); }
     else if (target.view === 'journal') { r.go('journal', { source: 'delegated' }); window.KPTUJournal?.show?.(target.day); }
-    else if (target.view === 'projects') { r.go('projects', { source: 'delegated' }); await window.KPTUProjects?.open?.(target.id); }
+    else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({ id: target.id }); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     else if (target.view === 'calls') { r.go('calls', { source: 'delegated' }); await window.KPTUCallFeed?.open?.(target.id); }
     else if (target.view === 'team') { r.go('team', { source: 'delegated' }); await window.KPTUWorkplace?.open?.(target.id); }
     else if (target.view === 'meetings') { r.go('meetings', { source: 'delegated' }); await window.__KPTU_MEETING_ROUND_DETAIL_READY__; await window.KPTUMeetingRoundDetail?.open?.(target.id); }
@@ -507,7 +507,7 @@ function syncForm(root) {
   options('#lbOrg', state.organizations, '전체'); options('#lbTopic', state.topics, '전체');
 }
 function resultsHtml() {
-  if (!state.rows.length) return '<p class="lg-note" data-lb-empty>조건에 맞는 기록이 없어요.</p>';
+  if (!state.rows.length) return emptyHtml('맞는 기록 없음', {attrs: 'data-lb-empty'});
   const { shown, hidden } = capped('results', state.rows);
   return `<ul class="lb-list" data-lb-list>${shown.map(r => rowHtml(r)).join('')}</ul>
     ${moreBtn('results', hidden)}
@@ -530,7 +530,7 @@ function homeHtml() {
     .sort((a, b) => b.count - a.count || (a.type === b.type ? 0 : a.type === 'organization' ? -1 : 1) || a.name.localeCompare(b.name, 'ko'));
   const chips = chipItems.map(c => `<button type="button" class="lb-topic" data-lb-action="story" data-lb-type="${c.type}" data-lb-sid="${esc(c.id)}">${esc(c.name)} <span class="lb-topic-n">${c.count}</span></button>`).join('');
   const empty = !overdue.length && !tracking.length && !h.orgChips.length && !h.topicChips.length && !recent.length;
-  if (empty) return '<p class="lg-note" data-lb-empty>기록 없음</p>';
+  if (empty) return emptyHtml('없음', {attrs: 'data-lb-empty'});
   return [
     chipItems.length ? `<section class="lb-sec lb-chip-sec" data-lb-sec="chips" aria-label="조직·주제"><div class="lb-topics" data-lb-chips>${chips}<button type="button" class="lg-text-btn lb-chip-more" data-lb-action="chips-toggle" aria-expanded="false" hidden>더보기 ▾</button></div></section>` : '',
     overdue.length ? section('overdue', '상대가 안 지킨 약속', list('overdue', overdue, r => overdueLabel(r)), overdue.length) : '',
@@ -543,7 +543,7 @@ function storyHtml() {
   const head = `<div class="lb-story-head"><button type="button" class="lg-text-btn" data-lb-action="home">‹ 원장</button><h4 id="lbStoryTitle" class="lb-sec-h" tabindex="-1">${esc(s.name)}</h4>${s.rows ? `<span class="lb-sec-n">${s.rows.length}</span>` : ''}</div>`;
   if (s.error) return head + `<p class="lg-error" role="alert">${esc(s.error)}</p>`;
   if (!s.rows) return head + waitHtml({rows:4});
-  if (!s.rows.length) return head + '<p class="lg-note" data-lb-empty>이 이야기에 남은 기록이 없어요.</p>';
+  if (!s.rows.length) return head + emptyHtml('없음', {attrs: 'data-lb-empty'});
   // 시간순(오래된 것 먼저) 그대로 두고, 처음엔 가장 최근 쪽 6건만. 접힌 앞쪽(오래된 기록)은 위의 [더보기 n ▾].
   const { shown, hidden } = capped('story', s.rows, { fromEnd: true });
   return head + moreBtn('story', hidden) + `<ol class="lb-timeline" data-lb-story="${esc(s.type)}">${shown.map(r => rowHtml(r)).join('')}</ol>`;
@@ -572,7 +572,7 @@ function detailHtml(id) {
   const summary = d.record.summary ? `<p class="lb-text">${esc(d.record.summary)}</p>` : '';
   const orgs = (allRows().find(r => r.id === id)?.organizations || []).filter(Boolean);
   const fields = fieldsHtml(orgs.length ? [...d.fields, ['조직', orgs.join(', ')]] : d.fields);
-  const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? ' <span class="lg-muted">(Web2 사업영역)</span>' : l.kind === 'meeting' ? ' <span class="lg-muted">(Web2 사업 보고)</span>' : ''}</li>`).join('')}</ul>` : '<p class="lg-note">연결이 없습니다.</p>';
+  const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? ' <span class="lg-muted">(Web2 사업영역)</span>' : l.kind === 'meeting' ? ' <span class="lg-muted">(Web2 사업 보고)</span>' : ''}</li>`).join('')}</ul>` : emptyHtml('연결 없음');
   const info = state.changes.get(id);
   const notes = info?.notes?.length ? `<p class="lg-note" data-lb-change>${info.notes.map(esc).join(' · ')}</p>` : '';
   const err = state.actError ? `<p class="lg-error" role="alert" data-lb-act-error>${esc(state.actError)}</p>` : '';
@@ -593,7 +593,7 @@ function sourcesHtml(d, at) {
     const title = href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(src.title)}</a>` : esc(src.title);
     const meta = [DOC_TYPE_LABEL[src.doc_type] || '', src.source_date || '', s.locator ? `근거위치 ${s.locator}` : '', !href && src.location ? src.location : '', src.status === 'retired' ? '폐기' : ''].filter(Boolean).map(esc).join(' · ');
     return `<li><b>${esc(src.ledger_id)}</b> ${title}${meta ? `<span class="lg-samples">${meta}</span>` : ''}</li>`;
-  }).join('')}</ul>` : '<p class="lg-note">연결된 출처가 없습니다.</p>';
+  }).join('')}</ul>` : emptyHtml('출처 없음');
 }
 // ⑥ 결정 변경 이력: 상세 맨 아래 접힌 '이전 결정 n ▸'(결정이 아니면 '이전 기록 n'). 펼치면 오래된 것 → 지금, 옛 줄을 누르면 그 기록의 근거·출처가
 // 그 자리에서 펼쳐진다(기존 상세 읽기, 읽기만). 같은 주제의 다른 결정은 섞지 않고 '같은 주제 결정 N건 ›' 한 줄(이야기 화면으로).

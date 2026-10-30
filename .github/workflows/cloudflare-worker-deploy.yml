@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Run router regression tests
-        run: node --test tests/domain/bokdoong-router.test.mjs
+        run: node --test tests/domain/bokdoong-router.test.mjs tests/web2-csp.test.mjs
 
       - name: Wait for portal icons on GitHub Pages
         shell: bash

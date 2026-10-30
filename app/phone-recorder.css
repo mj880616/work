@@ -1,0 +1,5 @@
+/* MTG-폰녹음: 폰 앱 녹음 띠(#phoneRecBand)·사업 보고 [녹음](#phoneRecordBtn). 그리는 곳은 phone-recorder.js 하나.
+   띠 모양은 노트북 녹음과 같은 .rec-band·.rec-btn(meeting-recorder.css)을 그대로 쓰고, 여기서는 본문 내림과 버튼 크기만 둔다. */
+body.phone-rec-on{padding-top:var(--rec-band-height,32px)}
+#appView #meetingsView .report-head-actions>#phoneRecordBtn{height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,10px);font-size:var(--ds-compact-text,13px)}
+#appView #meetingsView .report-head-actions>#phoneRecordBtn::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:var(--kptu-danger)}

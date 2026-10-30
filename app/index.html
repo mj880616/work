@@ -3,6 +3,8 @@
 <head>
 <script data-kptu-theme-bootstrap>document.documentElement.setAttribute('data-theme','olive');</script><!-- SET-보기선택서버저장: 테마는 서버 프로필에서 읽어 loader가 첫 화면 공개 전에 바꾼다(기기 저장소 없음). -->
 <meta charset="utf-8">
+<script src="./origin-redirect.js"></script><!-- SEC-github.io넘기기: github.io로 열리면 bokdoong.com으로 넘김(가장 먼저) -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#f3f1ea" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#161613" media="(prefers-color-scheme: dark)">
@@ -44,7 +46,7 @@
   <button id="accessDeniedLogoutBtn" class="ghost" type="button">로그아웃</button>
 </section>
 <section id="appView" class="app-view hidden">
-  <header class="mobile-shell-header"><time data-home-date></time><span data-mobile-view-name hidden></span><button id="mobileMenuOpen" type="button" aria-label="메뉴 열기" aria-controls="mobileMenu" aria-expanded="false">☰</button></header>
+  <header class="mobile-shell-header"><time data-home-date></time><span data-mobile-view-name hidden></span></header>
   <nav id="appNav" class="app-nav">
     <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="홈"><img src="./app-icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>홈</span></a>
     <button class="nav-btn nav-home-mid" data-view="home" type="button">홈</button>
@@ -68,8 +70,8 @@
   </nav>
   <div class="app-topline" data-app-topline>
     <button class="topline-btn topline-nav-toggle" type="button" data-nav-toggle aria-controls="appNav" aria-expanded="true" aria-label="메뉴 숨기기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM9 5v14"/></svg></button>
-    <button class="topline-btn" type="button" data-trail="back" aria-label="이전 화면" disabled><span aria-hidden="true">←</span></button>
-    <button class="topline-btn" type="button" data-trail="forward" aria-label="다음 화면" disabled><span aria-hidden="true">→</span></button>
+    <button class="topline-btn topline-step" type="button" data-history-step="back" aria-label="뒤로" title="뒤로" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></button>
+    <button class="topline-btn topline-step" type="button" data-history-step="forward" aria-label="앞으로" title="앞으로" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></button>
     <nav class="topline-where" aria-label="지금 위치"><ol data-topline-where></ol><time class="topline-date" data-home-date data-topline-date hidden></time></nav>
     <div class="topline-search" data-search-slot></div>
     <button class="topline-btn topline-add" type="button" data-quick-add aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">+</span> 추가</button>
@@ -138,10 +140,15 @@
     <div id="diaryRoot" class="diary"></div>
   </section>
 
-  <section id="projectsView" class="view-panel hidden">
-    <div class="section-head actions-only"><button id="newProjectBtn" class="primary" type="button" aria-label="사업영역 추가">+ 사업영역</button></div>
-    <div id="projectGrid" class="project-grid"></div>
-  </section>
+  <!-- MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위에 뜨는 창(공용 .modal). 여닫기는 area-window.js 하나, 안의 목록·상세는 project-system-v3.js 그대로. -->
+  <div id="areaWindow" class="modal hidden area-window" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="areaWindowTitle">
+    <div class="modal-card area-window-card">
+      <div class="modal-head area-window-head"><button type="button" class="area-window-back" data-close="areaWindow" aria-label="사업 보고로 돌아가기"><span aria-hidden="true">‹</span> 사업 보고</button><h2 id="areaWindowTitle">사업영역 관리</h2><span class="area-window-item" data-area-window-item hidden></span><div class="section-head actions-only area-window-actions"><button id="newProjectBtn" class="primary" type="button" aria-label="사업영역 추가">+<span class="area-window-add-word"> 사업영역</span></button></div><button type="button" class="icon-btn area-window-close" data-close="areaWindow" aria-label="사업영역 관리 닫기"><span aria-hidden="true">✕</span></button></div>
+      <section id="projectsView" class="area-window-body" aria-label="사업영역 목록">
+        <div id="projectGrid" class="project-grid"></div>
+      </section>
+    </div>
+  </div>
 
   <section id="libraryView" class="view-panel hidden">
     <div class="toolbar library-filter-toolbar"><label class="a11y-only" for="documentSearch">자료 검색</label><div class="lu-search-row"><input id="documentSearch" class="search" type="search" placeholder="제목·출처·태그 검색"><div class="lu-head-actions"><button id="newDocumentBtn" class="primary" type="button" aria-label="자료 등록">+ 자료 등록</button></div></div><div class="lu-filter-row" data-lu-filter-row="group"><span class="lu-filter-label" aria-hidden="true">묶기</span><div id="libraryGroupBy" aria-label="묶기" aria-controls="documentList"></div><button id="libraryExpandAll" class="lu-expand-all" type="button" aria-controls="documentList">모두 펴기</button></div><section id="libraryRecent" class="lu-recent" aria-label="최근 올린 파일" hidden></section><div id="documentProject" class="lu-filter-row" data-lu-filter-row="project" role="group" aria-label="사업영역 필터" aria-controls="documentList" hidden></div><div class="lu-filter-row" data-lu-filter-row="organization"><span class="lu-filter-label" aria-hidden="true">담당조직</span><div id="libraryOrganizationFilter" aria-label="담당조직 필터" aria-controls="documentList" hidden></div></div><div class="lu-filter-row" data-lu-filter-row="category"><span class="lu-filter-label" aria-hidden="true">분류</span><div id="libraryCategoryFilter" aria-label="자료 분류" aria-controls="documentList"></div><button id="manageLibraryBtn" class="secondary lu-category-edit" type="button" aria-label="분류 편집">편집</button></div></div>
@@ -150,29 +157,12 @@
 
   <section id="meetingsView" class="view-panel hidden">
     <div class="toolbar report-kind-bar"><div id="reportKindFilter" aria-label="칸" aria-controls="meetingList"></div><button id="reportFilterBtn" class="mini secondary report-filter-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="meetingList" hidden><span class="report-filter-label">거르기</span><span class="report-filter-caret" aria-hidden="true">▾</span></button></div><div class="toolbar report-week-bar" hidden><div id="reportWeekFilter" role="group" aria-label="주" aria-controls="meetingList"></div></div>
-    <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2 class="a11y-only">사업 보고</h2><div id="reportViewFilter" aria-label="보기"></div><div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음</button><button id="newMeetingBtn" class="primary" type="button" aria-label="사업 보고 등록">+ 사업 보고</button><button id="reportMore" class="icon-btn report-more" type="button" data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="사업 보고 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div><div id="recPendingLine" class="rec-pending" hidden></div><div id="meetingList" class="card-list meeting-list"></div></section>
+    <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2 class="a11y-only">사업 보고</h2><div id="reportViewFilter" aria-label="보기"></div><div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음</button><button id="newMeetingBtn" class="primary" type="button" aria-label="사업 보고 등록">+ 사업 보고</button><button id="reportMore" class="icon-btn report-more" type="button" data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="사업 보고 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div><div id="recPendingLine" class="rec-pending" hidden></div><div id="areaUntaggedLine" class="area-untagged" hidden></div><div id="meetingList" class="card-list meeting-list"></div></section>
   </section>
 
   <section id="pagesView" class="view-panel hidden">
     <div id="sharePagesRoot" class="sp-root"></div>
-    <div id="web1BoardLegacy" class="w1b-legacy" hidden>
-      <div id="web1BoardActive" class="w1b-grid" aria-label="이전 페이지"></div>
-      <div id="web1BoardArchivedWrap" class="w1b-archive hidden"><div id="web1BoardArchived" class="w1b-grid" aria-label="지난 사업"></div></div>
-    </div>
   </section>
-
-  <div id="web1BoardDetailModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="web1BoardDetailTitle">
-    <div class="modal-card w1b-detail-card">
-      <div class="w1b-detail-head">
-        <h2 id="web1BoardDetailTitle">공유 페이지</h2>
-        <button class="mini" type="button" data-close-web1-board aria-label="공유 페이지 상세 닫기">닫기</button>
-      </div>
-      <div class="w1b-detail-body">
-        <div id="web1BoardDetailStatus" class="w1b-detail-status hidden"><div class="wait" data-wait role="status" aria-label="불러오는 중"><span class="wait-bar" aria-hidden="true"></span><span class="wait-row" aria-hidden="true"></span><span class="wait-row" aria-hidden="true"></span><span class="wait-row" aria-hidden="true"></span></div></div>
-        <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="공유 페이지 상세" loading="eager" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>
-      </div>
-    </div>
-  </div>
 
   <section id="teamView" class="view-panel hidden"></section>
 </section>

@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, emptyHtml} from './wait-state.js';
 import { readRecordPages } from './basket-link-records.js';
 import { mountQuick } from './home-quick.js';
 import { mountRadar } from './todo-radar.js';
@@ -126,8 +126,8 @@ const cards = {
   tasks: ["오늘 할 일", "tasks", "할 일"],
   meetings: ["사업 보고 후속", "meetings", "사업 보고"],
 };
-const desktopHome = window.matchMedia('(min-width:1024px)');
-// MENU-HOME-편집: 홈에 보이는 칸과 순서는 서버(view_prefs.home_cards, 없으면 기본 순서)가 정한다. 폰·중간 폭은 한 칸에 위에서 아래로,
+const desktopHome = window.matchMedia('(min-width:761px)');
+// MENU-HOME-편집: 홈에 보이는 칸과 순서는 서버(view_prefs.home_cards, 없으면 기본 순서)가 정한다. 폰은 한 칸에 위에서 아래로,
 // PC는 왼쪽(main)·오른쪽(aside) 칸별로 같은 순서(home-cards-model.mjs placement). 이 함수가 홈 칸 자리의 유일한 주인이다.
 const homeCards = () => normalizeCards(viewPrefs.get('home_cards'));
 function extraCard(id) {
@@ -158,7 +158,7 @@ function placeCards() {
   // AI-사용량줄: 'AI 사용량' 줄은 수집 칸 바로 아래(PC: 마지막 수집 시각 칸 아래, 폰: '수집 정상 ✓' 줄 자리 아래). 수집 칸을 빼면 같이 빠진다.
   const aiAnchor = !aiLine || !collectOn ? null : phone ? collectLines?.ok : els.get('collect');
   const aiPlaced = !aiLine || (aiAnchor ? aiAnchor.nextElementSibling === aiLine : !aiLine.isConnected);
-  if (same(left, want.main) && same(right, want.aside) && (lines ?? true) && aiPlaced) return;
+  if (same(left, want.main) && same(right, want.aside) && (lines ?? true) && aiPlaced) { editMount?.dock?.(); return; }
   const focused = [...mine].find(el => el.contains(document.activeElement)) ? document.activeElement : null;
   for (const el of mine) if (!want.main.includes(el) && !want.aside.includes(el)) el.remove();
   want.main.forEach(el => left.append(el));
@@ -168,11 +168,12 @@ function placeCards() {
     else { collectLines.alert.remove(); collectLines.ok.remove(); }
   }
   if (aiLine) { const anchor = !collectOn ? null : phone ? collectLines?.ok : els.get('collect'); if (!anchor) aiLine.remove(); else if (anchor.nextElementSibling !== aiLine) anchor.after(aiLine); }
+  editMount?.dock?.();
   focused?.focus({ preventScroll: true });
 }
 window.addEventListener('kptu:home-cards-changed', placeCards);
 window.addEventListener('kptu:view-prefs-rejected', event => { if (event.detail?.paths?.includes('home_cards')) { placeCards(); editMount?.rejected(); } if (event.detail?.paths?.includes('quiet_weeks')) editMount?.weeksRejected?.(); });
-// HOME-모바일정리②는 폰·중간 폭(한 칸 홈)에서만 겹친 회의 후속을 합친다. PC(오른쪽 칸 있는 홈)는 그대로.
+// HOME-모바일정리②는 폰(한 칸 홈)에서만 겹친 회의 후속을 합친다. PC(오른쪽 칸 있는 홈)는 그대로.
 const mergeFollowUps = () => !desktopHome.matches;
 desktopHome.addEventListener('change', () => { placeCards(); renderTasks(); });
 function shell() {
@@ -185,7 +186,7 @@ function shell() {
   };
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).
-  // HOME-수집경보: 폰·중간 폭의 경고 한 줄(본문 맨 위)과 '수집 정상 ✓' 한 줄(맨 아래)도 collection-status.js가 그린다.
+  // HOME-수집경보: 폰의 경고 한 줄(본문 맨 위)과 '수집 정상 ✓' 한 줄(맨 아래)도 collection-status.js가 그린다.
   host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div><p class="home-text-done" data-home-text-done role="status" hidden></p></div><div data-home-column="aside"></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
   els = new Map(); extras.forEach(made => made.destroy()); extras = new Map();
   const made = document.createElement('template');
@@ -193,7 +194,7 @@ function shell() {
   [...made.content.children].filter(el => el.dataset.homeCard).forEach(el => els.set(el.dataset.homeCard, el));
   collectLines = { alert: host.querySelector('[data-home-collect-alert]'), ok: host.querySelector('[data-home-collect-ok]') };
   host.querySelector('[data-home-column="main"]').prepend(quick);
-  // HOME-모바일홈채우기: 한 줄 요약과 놓친 약속·정리 안 된 것·내일 칸(폰·중간 폭만). home-fill.js가 유일한 renderer.
+  // HOME-모바일홈채우기: 한 줄 요약과 놓친 약속·정리 안 된 것·내일 칸(폰만). home-fill.js가 유일한 renderer.
   fillMount?.destroy();
   fillMount = mountHomeFill({ main: host.querySelector('[data-home-column="main"]') });
   for (const [id, el] of Object.entries(fillMount?.cards || {})) els.set(id, el);
@@ -221,7 +222,7 @@ function shell() {
   aiLine.className = 'home-ai-usage';
   aiLine.dataset.homeAiUsage = '';
   aiLine.setAttribute('aria-label', 'AI 사용량');
-  aiMount = mountAiUsageLine(aiLine);
+  aiMount = mountAiUsageLine(aiLine, { onPaint: () => editMount?.dock?.() });
   aiMount?.refresh();
   textDoneMount?.destroy();
   textDoneMount = mountTextBackfillNotice(host.querySelector('[data-home-text-done]'));
@@ -263,8 +264,8 @@ function paint(key, html, count = null) {
           : `[data-home-toggle="${CSS.escape(focused.slice(7))}"]`,
     )?.focus({ preventScroll: true });
 }
-function empty(key, text, hide = false) {
-  paint(key, `<p class="home-status">${text}</p>`, 0);
+function empty(key, hide = false) {
+  paint(key, emptyHtml(), 0);
   const c = card(key);
   if (!c) return;
   c.hidden = hide;
@@ -389,7 +390,7 @@ function renderTasks({ includeMeetings = true } = {}) {
   const rows = shown
     .filter((x) => dueIds.has(x.place.id))
     .sort((a, b) => String(a.place.due).localeCompare(String(b.place.due)));
-  // HOME-모바일홈채우기: 폰·중간 폭은 2건만 보이고 나머지는 '+ n건 더'(누르면 펼침, 다시 누르면 접음). PC는 전부.
+  // HOME-모바일홈채우기: 폰은 2건만 보이고 나머지는 '+ n건 더'(누르면 펼침, 다시 누르면 접음). PC는 전부.
   const dueCount = dueTasks(shown.map((x) => x.task)).length,
     cut = mergeFollowUps() && !tasksOpen ? limitRows(rows) : { shown: rows, more: 0 },
     moreBtn = !mergeFollowUps() ? '' : cut.more ? `<button type="button" class="home-more" data-home-tasks-more="open">+ ${cut.more}건 더</button>` : tasksOpen && rows.length > limitRows(rows).shown.length ? '<button type="button" class="home-more" data-home-tasks-more="close">접기</button>' : '';
@@ -398,14 +399,14 @@ function renderTasks({ includeMeetings = true } = {}) {
       "tasks",
       rows.length
         ? taskRows(cut.shown) + moreBtn
-        : '<p class="home-status">오늘 할 일 없음</p>',
+        : emptyHtml(),
       dueCount,
     );
   }
   if(tasksReady)card('meetings')?.querySelectorAll('[data-home-toggle],[data-home-task-menu]').forEach(b=>{b.disabled=!google?.taskState(b.dataset.homeToggle||b.dataset.homeTaskMenu)?.task;});
   if(tasksReady&&linksReady)saveCopy('tasks',{names:tasks.map(t=>({id:t.id,meeting:isFollowUp(t.id),names:links.filter(l=>l.google_task_id===t.id&&l.status==='confirmed').flatMap(l=>[projects.find(p=>p.id===l.project_id)?.name,orgs.find(o=>o.id===l.organization_id)?.name].filter(Boolean))}))});
   if (!meetingsReady || !includeMeetings) return;
-  // HOME-모바일정리②(폰·중간 폭): 오늘 할 일에 이미 나온 항목은 빼고(그쪽에 꼬리표), 남는 것이 없으면 칸을 숨긴다.
+  // HOME-모바일정리②(폰): 오늘 할 일에 이미 나온 항목은 빼고(그쪽에 꼬리표), 남는 것이 없으면 칸을 숨긴다.
   const ids = new Set(
       meetingTasks(
         shown.map((x) => x.place),
@@ -419,18 +420,18 @@ function renderTasks({ includeMeetings = true } = {}) {
       taskRows(follow, true),
       follow.length,
     );
-  else empty("meetings", "사업 보고 후속 없음", true);
+  else empty("meetings", true);
   saveCopy('meetings',{rows:follow.map(x=>({id:x.task.id,title:x.task.title,meetingName:links.filter(l=>l.google_task_id===x.task.id&&l.meeting_id&&l.status==='confirmed').map(l=>meetings.find(m=>m.id===l.meeting_id)?.series_name||meetings.find(m=>m.id===l.meeting_id)?.title||'사업 보고 연결').join(' · ')}))});
 }
 function renderDday(rows){
   const today=dayKey();
   rows=rows.filter(m=>m.date>=today).map(m=>({...m,days:Math.round((Date.parse(m.date)-Date.parse(today))/86400000)}));
-  if(!rows.length)return empty('dday','주요 일정 없음',true);
+  if(!rows.length)return empty('dday',true);
   // HOME-줄누르기 ④: 달력에 이어진 주요 일정은 그 일정 수정 창(꾹 누르기·우클릭은 일정 메뉴), 이어지지 않은 것은 지금처럼 그 프로젝트.
   paint('dday',`<div class="home-chips">${rows.map(m=>`<button type="button" class="home-chip ${m.days<=3?'urgent':''}" data-home-project="${esc(m.project_id)}" ${m.google_event_id?eventAttrs(m.google_event_id,m.google_calendar_id):''}>${m.days===0?'D-day':'D-'+m.days} ${esc(m.title)}</button>`).join('')}</div>`,rows.length);
 }
 function renderCalendar(rows){
-  if(!rows.length)return empty('calendar','오늘 일정 없음');
+  if(!rows.length)return empty('calendar');
   paint('calendar',rows.map(e=>{
     const time=e.allDay?'종일':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(e.start));
     const color=/^#[0-9a-f]{6}$/i.test(e.color)?e.color:'var(--kptu-primary-ink)';
@@ -445,7 +446,7 @@ function restoreCopies(){
   if(copies.meetings){
     const rows=copies.meetings.rows;
     if(rows.length)paint('meetings',rows.map(r=>taskRowHtml(r.id,r.title,false,esc(r.meetingName))).join(''),rows.length);
-    else empty('meetings','사업 보고 후속 없음',true);
+    else empty('meetings',true);
   }
 }
 const calendarAuthError=e=>Number(e?.status||0)===401||Number(e?.status||0)===403||/연결되지|재인증|권한|invalid_grant|unauthori[sz]ed|invalid.?credentials/i.test(String(e?.message||e));
@@ -458,7 +459,7 @@ const loaders = {
     const ps = await dependencies.projects();
     guard(run);
     const ids = ps.filter((p) => p.status === "active").map((p) => p.id);
-    if (!ids.length) { saveCopy("dday",{rows:[]}); return empty("dday", "주요 일정 없음", true); }
+    if (!ids.length) { saveCopy("dday",{rows:[]}); return empty("dday", true); }
     const ms = await share("milestones", () =>
         api(
           `/rest/v1/app_project_milestones?project_id=${list(ids)}&start_at=gte.${encodeURIComponent(new Date(ranges().start).toISOString())}&or=(status.is.null,status.not.in.(done,completed,cancelled,canceled))&select=id,project_id,title,status,start_at,google_calendar_id,google_event_id&order=start_at.asc&limit=3`,
@@ -703,8 +704,7 @@ root.addEventListener("click", async (event) => {
       return;
     }
     if (b.dataset.homeProject) {
-      await window.KPTUViewLoader.load("projects");
-      await window.KPTUProjects.open(b.dataset.homeProject);
+      await window.KPTUAreaWindow.open({ id: b.dataset.homeProject }); // MTG-프로젝트합치기 ①: 사업영역 관리 창
     }
   } catch {
     const c = b.closest("[data-home-card]");

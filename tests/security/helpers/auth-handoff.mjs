@@ -10,14 +10,15 @@ export const ORIGIN = 'https://desk.bokdoong.com';
 export const json = (data, status = 200) => new Response(JSON.stringify(data), { status });
 const raw = readFileSync(new URL('../../../supabase/functions/auth-handoff/index.ts', import.meta.url), 'utf8');
 const source = stripTypeScriptTypes(raw.replace(/^import .*\r?\n/gm, ''), { mode: 'strip' });
-export function harness({ consume = async () => true, refreshUser = SUBJECT, refreshError = false, invalidAccess = false, refreshThrows = false } = {}) {
+export function harness({ consume = async () => true, refreshUser = SUBJECT, refreshError = false, invalidAccess = false, refreshThrows = false, env = {} } = {}) {
   let handler, offset = 0, refreshes = 0, claims = 0;
   class Clock extends Date { static now() { return Date.now() + offset; } }
   const Deno = {
-    env: { get: key => ({ SUPABASE_URL: 'https://auth.example.invalid', SUPABASE_SERVICE_ROLE_KEY: 'synthetic-test-only', SUPABASE_ANON_KEY: 'synthetic-public' })[key] },
+    env: { get: key => ({ SUPABASE_URL: 'https://auth.example.invalid', SUPABASE_SERVICE_ROLE_KEY: 'synthetic-test-only', SUPABASE_ANON_KEY: 'synthetic-public', ...env })[key] },
     serve: fn => { handler = fn; }
   };
   const fetch = async (url, init) => {
+    if (url.startsWith('https://auth.example.invalid/auth/v1/')) assert.equal(init.headers.apikey, 'synthetic-public', 'Auth calls use the public key, never the service key');
     if (url === 'https://auth.example.invalid/auth/v1/user') return json({ id: SUBJECT }, invalidAccess ? 401 : 200);
     if (url === 'https://auth.example.invalid/rest/v1/rpc/app_consume_auth_handoff') {
       claims++;

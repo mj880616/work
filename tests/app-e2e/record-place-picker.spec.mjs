@@ -71,13 +71,14 @@ test('PC 검색칸 하나가 조직·프로젝트를 함께 거르고 최근 줄
  await search.fill('합성 과제 4');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(0);
  await expect(sheet.locator('[data-sheet-projects] [data-sheet-value]:visible')).toHaveText(['합성 과제 4','합성 과제 40','합성 과제 41','합성 과제 42','합성 과제 43','합성 과제 44','합성 과제 45','합성 과제 46','합성 과제 47','합성 과제 48','합성 과제 49']);
- await search.fill('없는 이름');await expect(sheet.getByText('맞는 항목이 없어요.')).toBeVisible();
+ await search.fill('없는 이름');await expect(sheet.locator('[data-sheet-empty][data-wait-empty]')).toBeVisible();await expect(sheet.locator('[data-sheet-empty]')).toHaveText('맞는 항목 없음');
  await search.fill('');await expect(sheet.locator('[data-sheet-recent-block]')).toBeVisible();await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
  // ↓ from the box goes to the first choice shown.
  await search.fill('공항');await search.press('ArrowDown');await expect(sheet.locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true})).toBeFocused();
 });
 
-for(const [width,height] of [[390,844],[900,800]])test(`폭 ${width}: 위아래 순서 그대로(최근 → 담당조직 → 프로젝트), 넓은 배치 없음`,async({page})=>{
+// UI-폴드PC틀: 761px~는 PC 틀이라 넓은 나란한 배치다. 위아래 배치는 폰뿐.
+for(const [width,height] of [[390,844]])test(`폭 ${width}: 위아래 순서 그대로(최근 → 담당조직 → 프로젝트), 넓은 배치 없음`,async({page})=>{
  const q=await setup(page,{width,height,projects:2});
  await q.locator('[data-quick-org]').click();const sheet=dialog(page);await expect(sheet).toBeVisible();
  await expect(sheet).not.toHaveClass(/home-choice-split/);
@@ -97,8 +98,9 @@ for(const [width,height] of [[390,844],[900,800]])test(`폭 ${width}: 위아래 
 test('창이 열린 채 폭을 바꾸면 넓은 배치와 위아래 배치가 그 자리에서 바뀜(검색칸도 제자리로)',async({page})=>{
  const q=await setup(page,{width:1280,height:800,projects:2});
  await q.locator('[data-quick-org]').click();const sheet=dialog(page);await expect(sheet).toHaveClass(/home-choice-split/);
- await page.setViewportSize({width:900,height:800});await expect(sheet).not.toHaveClass(/home-choice-split/);
- expect(await sheet.getByRole('searchbox').evaluate(el=>!!el.closest('[data-sheet-search-box]'))).toBe(true);
+ await page.setViewportSize({width:760,height:800});await expect(sheet).not.toHaveClass(/home-choice-split/);
+ // 폰 폭에서는 검색칸이 숨지만(위 폰 시험) 자리는 목록 위 칸으로 돌아간다.
+ expect(await sheet.locator('input[type="search"]').evaluate(el=>!!el.closest('[data-sheet-search-box]'))).toBe(true);
  await page.setViewportSize({width:1280,height:800});await expect(sheet).toHaveClass(/home-choice-split/);
  expect(await sheet.getByRole('searchbox').evaluate(el=>!!el.closest('header'))).toBe(true);
 });

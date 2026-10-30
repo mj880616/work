@@ -4,6 +4,7 @@
 // 폰·중간 폭은 지금 묶음 목록 그대로. 상세 칸은 지금 수정 창과 같은 요소·같은 저장 경로(google-tasks update/link/unlink)를 쓴다.
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
+import {innerScrollers} from './helpers/one-scroll.mjs';
 
 const NOW=Date.parse('2026-10-08T03:00:00Z'); // 한국 시각 10월 8일 정오
 const task=(id,due=null,extra={})=>({id,title:'할 일 '+id,taskListId:'@default',taskListTitle:'내 할 일',due,status:'needsAction',notes:'',...extra});
@@ -30,7 +31,7 @@ async function open(page,width,tasks,{links=[],projects=[PROJECT],orgs=[ORG],hei
   await page.evaluate(()=>window.KPTURouter.go('tasks'));
   await expect(page.locator('[data-gt-count]')).toHaveText(`할 일 ${tasks.filter(t=>t.status!=='completed').length}개`);
   // 입력창이 늦게 나타나면 아래 칸이 밀리므로, 배치를 재기 전에 입력창부터 기다린다.
-  if(width>=1024)await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
+  if(width>=761)await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
   return calls;
 }
 const col=(page,id)=>page.locator(`#gtTaskBody [data-gt-col="${id}"]`);
@@ -155,9 +156,9 @@ for(const width of [1280,1440]){
   test(`PC ${width}: 빈 열은 "없음", 많으면 열이 내용만큼 커짐(안쪽 스크롤바 없음)`,async({page})=>{
     const tasks=Array.from({length:24},(_,i)=>task('w'+i,'2026-10-1'+(i%5)));
     await open(page,width,tasks);
-    await expect(col(page,'now').locator('.gt-col-empty')).toHaveText('없음');
+    await expect(col(page,'now').locator('[data-wait-empty]')).toHaveText('없음');
     await expect(col(page,'week').locator('.gt-col-count')).toHaveText('24');
-    await expect(col(page,'week').locator('.gt-col-empty')).toHaveCount(0);
+    await expect(col(page,'week').locator('[data-wait-empty]')).toHaveCount(0);
     const scroll=await col(page,'week').locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));
     expect(scroll.oy).toBe('visible');expect(scroll.sh).toBeLessThanOrEqual(scroll.ch+1);
     const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));
@@ -206,7 +207,7 @@ for(const width of [1280,1440]){
   test(`PC ${width}: "일주일 안"이 비어도 나중·완료 접기 줄은 남고, 펼친 항목은 다시 그려도 유지`,async({page})=>{
     const tasks=[task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
     await open(page,width,tasks);
-    await expect(col(page,'week').locator('.gt-col-empty')).toHaveText('없음');await expect(col(page,'week').locator('.gt-col-count')).toHaveText('0');
+    await expect(col(page,'week').locator('[data-wait-empty]')).toHaveText('없음');await expect(col(page,'week').locator('.gt-col-count')).toHaveText('0');
     const later=col(page,'week').locator('#gtLater');
     await expect(later.locator('summary')).toContainText('나중 2');await expect(col(page,'week').locator('#gtCompleted summary')).toContainText('완료 1');
     await later.locator('summary').click();
@@ -227,21 +228,23 @@ for(const width of [1280,1440]){
     await page.locator('[data-gt-edit="a"]').click();
     await expect(pane.locator('[data-gt-link]')).toHaveCount(70);
     await expect(save).toBeEnabled();
-    // 연결 목록이 길어 칸은 실제로 세로로 넘친다.
-    const over=await pane.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight}));expect(over.sh).toBeGreaterThan(over.ch*2);
+    // 연결 목록이 길어 칸은 화면보다 길다. UI-칸안스크롤하나로: 칸 안에는 따로 스크롤이 없고(넘침 없음) 화면 스크롤 하나로 읽는다.
+    const over=await pane.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY,h:e.getBoundingClientRect().height,ih:innerHeight}));
+    expect(over.h).toBeGreaterThan(over.ih);expect(over.oy).toBe('visible');expect(over.sh).toBeLessThanOrEqual(over.ch+1);
     // UI-저장자리: 저장은 칸 맨 아래 줄 오른쪽 끝에 있고 처음부터 화면 안에 있다. 제목 줄에는 없다.
     await expect(save).toBeInViewport();
     expect(await save.evaluate(e=>e.closest('.modal-action-footer')!==null)).toBe(true);
     await expect(pane.locator('.modal-head #gtSaveBtn')).toHaveCount(0);
     const spot=async()=>({pane:await pane.boundingBox(),save:await save.boundingBox(),close:await close.boundingBox(),head:await pane.locator('.modal-head').boundingBox()});
-    const first=await spot();
-    expect(first.pane.y+first.pane.height-(first.save.y+first.save.height)).toBeLessThan(40);
+    const first=await spot(),vh=await page.evaluate(()=>innerHeight);
+    // 처음에는 칸 끝이 화면 아래로 넘어가 있고, [저장] 줄은 화면 맨 아래에 붙어 보인다(칸 오른쪽 끝).
+    expect(vh-(first.save.y+first.save.height)).toBeLessThan(40);
     expect(first.pane.x+first.pane.width-(first.save.x+first.save.width)).toBeLessThan(40);
-    // 맨 아래까지 스크롤해도 [저장]과 제목 줄(닫기)은 그 자리에 그대로.
-    await pane.evaluate(e=>{e.scrollTop=e.scrollHeight});
-    expect(await pane.evaluate(e=>e.scrollTop)).toBeGreaterThan(200);
+    // 화면을 맨 아래까지 넘겨도 [저장]과 제목 줄(닫기)은 화면 안에 보인다(제목 줄은 화면 위에 붙음).
+    await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+    expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(200);
     const last=await spot();
-    expect(Math.abs(last.head.y-last.pane.y)).toBeLessThanOrEqual(2);expect(Math.abs(last.save.y-first.save.y)).toBeLessThanOrEqual(2);
+    expect(last.head.y).toBeGreaterThanOrEqual(-1);expect(last.head.y).toBeLessThanOrEqual(2);
     await expect(save).toBeInViewport();await expect(close).toBeInViewport();
     // 스크롤한 채로 저장 → 같은 update 경로, 안내("저장했습니다.")도 아래 줄 안에서 보인다.
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='고친 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
@@ -262,7 +265,7 @@ for(const width of [1280,1440]){
     });
     const pane=page.locator('#gtDetailPane');
     await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('[data-gt-link]')).toHaveCount(41);await expect(pane.locator('#gtSaveBtn')).toBeEnabled();
-    await pane.evaluate(e=>{e.scrollTop=e.scrollHeight});
+    await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='바꾼 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
     await pane.locator('#gtSaveBtn').click();
     const status=pane.locator('#gtEditStatus');
@@ -277,7 +280,7 @@ for(const width of [1280,1440]){
     await expect.poll(()=>calls.filter(c=>c.action==='toggle').map(c=>c.body.completed)).toEqual([true]);
     const done=col(page,'week').locator('#gtCompleted');
     await expect(done.locator('summary')).toContainText('완료 1',{timeout:6000});
-    await expect(col(page,'now').locator('.gt-col-empty')).toHaveText('없음');
+    await expect(col(page,'now').locator('[data-wait-empty]')).toHaveText('없음');
   });
 }
 
@@ -295,8 +298,8 @@ test('폰 390: 지금 묶음 목록·수정 창 그대로(열·상세 칸 없음
   await page.locator('[data-gt-close]').click();await expect(modal).toBeHidden();
 });
 
-test('중간 폭 900: 열·상세 칸 없이 묶음 목록, 수정 창 [저장]은 맨 아래 줄 그대로',async({page})=>{
-  await open(page,900,[task('today','2026-10-08')]);
+test('폰 폭 760(UI-폴드PC틀: 761px~는 PC 열): 열·상세 칸 없이 묶음 목록, 수정 창 [저장]은 맨 아래 줄 그대로',async({page})=>{
+  await open(page,760,[task('today','2026-10-08')]);
   await expect(page.locator('#gtTaskBody .gt-cols')).toHaveCount(0);await expect(page.locator('#gtDetailPane')).toBeHidden();
   await page.locator('[data-gt-edit="today"]').click();
   const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
@@ -334,6 +337,7 @@ test('PC 1024(좁은 PC): 좌 1/3 : 우 2/3(왼쪽 최소 폭 안), 체크 목�
   const xs=await page.locator('#gtDetailPane .gt-link-group[aria-label="사업영역"] .gt-link-opt').evaluateAll(es=>es.map(e=>Math.round(e.getBoundingClientRect().left)));
   expect(new Set(xs).size).toBe(1);
   const m=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,sh:document.documentElement.scrollHeight,ih:innerHeight}));
-  expect(m.sw).toBeLessThanOrEqual(m.cw+1);expect(m.sh).toBeLessThanOrEqual(m.ih+1);
+  // UI-칸안스크롤하나로(시안 A): 화면보다 길면 화면(문서)이 세로로 넘어가고, 칸 안에는 따로 세로 스크롤이 없다(예전: 화면 높이 한 페이지 + 칸 안 스크롤).
+  expect(m.sw).toBeLessThanOrEqual(m.cw+1);expect(await innerScrollers(page,'#tasksView')).toEqual([]);
   const pw=await page.locator('#gtDetailPane').evaluate(e=>e.scrollWidth-e.clientWidth);expect(pw).toBeLessThanOrEqual(1);
 });

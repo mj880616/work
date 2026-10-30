@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, emptyHtml} from './wait-state.js';
 // CALL-통화메뉴 4단계 (docs/design/call-telegram-feed.md 10절 시안 (가)(다), 12절 결정) + CALL-개인통화함 3단계 (docs/design/call-personal.md, B안):
 // the 통화 screen (?view=calls, sidebar bottom). This module is the only renderer of #callsView. It shows one of two boxes with the same
 // list and the same detail: the 업무 통화함 (default, app_feed_items) and the 개인 통화함 (the personal table, opened by the small
@@ -8,13 +8,14 @@ import {waitHtml} from './wait-state.js';
 // List: small day labels, then rows [시각 · 제목 한 줄 · 조직 작게]. Detail: title, a small line (date · time · 조직/상대),
 // the core points box (`[확정]`·`[예정]`·`[확인]` heads read as small tags, feed-model.mjs), the transcript folded under
 // "전문 펼치기 ▾" (speaker lines when speaker_split, else one paragraph + "화자 구분은 전사 수정 뒤"), ⋯ top right;
-// 핵심내용 제목 줄 오른쪽에 작은 [복사]. PC (1024px~): list 1/3 · detail 2/3 (split-resize.js);
+// 핵심내용 제목 줄 오른쪽에 작은 [복사]. PC (761px~): list 1/3 · detail 2/3 (split-resize.js);
 // phone: list, then the detail over it as one router layer (Back = one step; the personal box is a layer too). Data: feed-data.js (owner RLS REST only).
 // CALL-손고치기 (docs/design/call-user-edit.md): 제목(줄 안 바로 고치기, F2)·조직/이름(상세 박스)·핵심내용(상세 줄 고치기)을 손으로 고친다.
 // 고친 값은 서버의 app_call_edits에 사용자 값으로 저장되고(DB 함수 app_call_edit) AI가 채운 칸은 그대로다. 줄은 feed-model.mjs applyCallEdit으로 사용자 값을 덧씌워 그린다.
 import './enter-save.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
+import {followPane} from './follow-pane.js';
 import {createFeedHold} from './feed-hold.js';
 import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText,
   applyCallEdit, cleanEditVals, isEdited, splitPerson, joinPerson, cleanTitleInput, cleanPointLines, samePoints, undoPatch, patchKeys, editErrorText, EDIT_DONE, EDIT_NOOP, EDIT_LEDGER_NOTE, EDIT_NAME_MAX, EDIT_ROLE_MAX, EDIT_TITLE_MAX, EDIT_POINT_MAX, EDIT_POINTS_MAX} from './feed-model.mjs';
@@ -26,11 +27,11 @@ import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from 
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
-const pc = window.matchMedia('(min-width:1024px)');
+const pc = window.matchMedia('(min-width:761px)');
 const phone = window.matchMedia('(max-width:760px)');
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 
-let state = fresh(), run = 0, layer = null, boxLayer = null, undo = null, ledgerAsk = null, loadP = null;
+let state = fresh(), run = 0, layer = null, boxLayer = null, undo = null, ledgerAsk = null, loadP = null, followed = null;
 function fresh() { return {edits:new Map(), editMissing:false, editFail:false, edit:null, who:null, sum:null, owner:'', loaded:false, loading:false, missing:false, error:'', rows:[], prows:[], pmissing:false, pfail:false, days:[], orgs:[], mine:new Set(), box:'work', selected:null, raw:new Map(), rawOpen:false, link:null, confirm:null, status:'', busy:false}; }
 
 function install() {
@@ -112,6 +113,8 @@ function paint() {
   const row = rowOf(state.selected);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:wide && row ? topicOf(row) : null}}));
   mountSplitResize({container:$('#cfSplit'), name:'calls', inherit:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !!state.selected && !view()?.classList.contains('hidden')});
+  // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 상세 칸은 화면에 붙어 따라오고, 다른 통화를 고르면 머리부터 보인다.
+  if (wide && open) { followPane($('#cfDetail'), {reset: followed !== state.selected}); followed = state.selected; }
   focusEdit();
 }
 // 줄 안 제목 입력칸·고치기 박스를 다시 그린 뒤에도 쓰던 칸에 초점을 돌려준다. 제목 입력칸은 처음 한 번만 전체 선택.
@@ -154,12 +157,12 @@ function paintListNow() {
   if (personalBox) {
     if (state.pfail) { box.innerHTML = head + `<p class="feed-empty" role="status">개인 통화함을 불러오지 못했어요. <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>${status}`; return; }
     const legacy = legacyFilteredNote(state.days, kstDay());
-    box.innerHTML = head + editFail + `<p class="feed-note" data-cf-note>업무 기록(원장·주간보고·챙길 것·업무일지)에 쓰이지 않고, 전체 검색에도 나오지 않아요.</p>${legacy ? `<p class="feed-note" data-cf-legacy>${esc(legacy)}</p>` : ''}<div class="feed-rows">${listHtml(personalRows(), '<p class="feed-empty" data-cf-empty="personal">개인 통화함이 비어 있어요.</p>')}</div>${status}`;
+    box.innerHTML = head + editFail + `<p class="feed-note" data-cf-note>업무 기록(원장·주간보고·챙길 것·업무일지)에 쓰이지 않고, 전체 검색에도 나오지 않아요.</p>${legacy ? `<p class="feed-note" data-cf-legacy>${esc(legacy)}</p>` : ''}<div class="feed-rows">${listHtml(personalRows(), emptyHtml('없음', {attrs: 'data-cf-empty="personal"'}))}</div>${status}`;
     return;
   }
   const ask = unsureRows();
   const askHtml = ask.length ? `<div class="feed-ask-head" data-cf-ask-head>확인할 통화 ${ask.length} <span class="feed-faint">· 정하기 전에는 업무 기록에 쓰이지 않아요</span></div><div class="feed-rows feed-ask-rows">${ask.map(r => rowHtml(r, {ask:true})).join('')}</div>` : '';
-  box.innerHTML = head + editFail + askHtml + `<div class="feed-rows">${listHtml(state.rows, '<p class="feed-empty" data-cf-empty="none">아직 받은 업무 통화가 없어요.</p>')}</div>${status}`;
+  box.innerHTML = head + editFail + askHtml + `<div class="feed-rows">${listHtml(state.rows, emptyHtml('없음', {attrs: 'data-cf-empty="none"'}))}</div>${status}`;
 }
 const statusHtml = () => esc(state.status) + (undo ? `${undo.type === 'edit' ? ' ·' : ''} <button type="button" class="feed-text-btn" data-cf-undo>되돌리기</button>` : '')
   + (ledgerAsk?.total ? ` <span class="feed-faint">이 통화에서 원장에 들어간 기록 ${ledgerAsk.total}개는 남아요${ledgerAsk.ledgerIds.length ? ' ·' : ''}</span>${ledgerAsk.ledgerIds.length ? ' <button type="button" class="feed-text-btn" data-cf-ledger-retire>원장에서도 틀림으로</button>' : ''}` : '');
@@ -172,12 +175,12 @@ function paintDetailNow() {
   const who = whoOf(r);
   const points = readPoints(r.points);
   const pencil = state.editMissing ? '' : `<button type="button" class="feed-mini-edit" data-cf-sum-open aria-label="핵심내용 고치기" title="핵심내용 고치기"${state.busy ? ' disabled' : ''}><span aria-hidden="true">✎</span></button>`;
-  const pointsHtml = state.sum?.rowId === r.id ? sumBoxHtml(r) : points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용${r.edited?.points ? ' <span class="feed-faint">· 고친 값</span>' : ''}</p><span class="feed-k-tools">${pencil}${copyButtonHtml('data-cf-copy')}</span></div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="feed-faint">핵심내용이 없어요.${r.edited?.points || state.editMissing ? '' : ' <button type="button" class="feed-text-btn" data-cf-sum-open>직접 쓰기</button>'}</p>`;
+  const pointsHtml = state.sum?.rowId === r.id ? sumBoxHtml(r) : points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용${r.edited?.points ? ' <span class="feed-faint">· 고친 값</span>' : ''}</p><span class="feed-k-tools">${pencil}${copyButtonHtml('data-cf-copy')}</span></div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : emptyHtml('핵심내용 없음').replace('</p>', `${r.edited?.points || state.editMissing ? '' : ' <button type="button" class="feed-text-btn" data-cf-sum-open>직접 쓰기</button>'}</p>`);
   const raw = state.raw.get(r.id);
   let script;
   if (!raw || raw.loading) script = waitHtml({rows:3});
   else if (raw.error) script = '<p class="feed-faint">전문을 불러오지 못했어요.</p>';
-  else if (!raw.raw_text) script = '<p class="feed-faint" data-cf-raw-empty>Web2에 남은 전문이 없어요. 원본은 Drive에 있어요.</p>';
+  else if (!raw.raw_text) script = emptyHtml('전문 없음 · 원본은 Drive', {attrs: 'data-cf-raw-empty'});
   else if (raw.speaker_split) script = `<div class="feed-script" data-cf-script="lines">${speakerLines(raw.raw_text).map(l => `<p class="${l.me ? 'is-me' : ''}"><b>${esc(l.who)}</b><span>${esc(l.text)}</span></p>`).join('')}</div>`;
   else script = `<div class="feed-script feed-script-one" data-cf-script="one">${esc(raw.raw_text)}</div>`;
   const badge = raw && raw.raw_text && !raw.speaker_split ? '<span class="feed-badge">화자 구분은 전사 수정 뒤</span>' : '';
@@ -227,13 +230,13 @@ function sumBoxHtml(r) {
 }
 
 // ---------- actions
-function openLayer() {
-  if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('call-detail', {close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
+function openLayer(id) {
+  if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('call-detail', {reopen:() => select(id), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
 }
 function select(id) {
   if (!dropBoxes()) return;
   state.selected = id; state.rawOpen = false; state.status = ''; undo = null; state.confirm = null; ledgerAsk = null;
-  openLayer(); paint(); void loadRaw(id);
+  openLayer(id); paint(); void loadRaw(id);
   (pc.matches ? $(`#cfList [data-cf-row="${CSS.escape(id)}"]`) : $('#cfDetail [data-cf-back]'))?.focus({preventScroll:true});
 }
 // 지금 통화함 목록의 맨 위 통화(날짜별 목록의 첫 줄, 없으면 확인할 통화의 첫 줄)를 고른 상태로 둔다. 그리기는 부르는 쪽 paint() 한 번.

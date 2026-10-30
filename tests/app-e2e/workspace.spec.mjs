@@ -1,5 +1,4 @@
 import { appOrigin } from './helpers/test-origin.mjs';
-import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
@@ -217,11 +216,10 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#teamView')).toBeVisible();
   await expect(page.locator('#soOrganizationList')).toBeVisible();
 
-  await clickView(page,'pages');await openLegacyBoard(page);
+  await clickView(page,'pages');
   await expect(page.locator('#pagesView')).toBeVisible();
-  await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
-  await expect(page.locator('#web1BoardActive')).toContainText('공공기관 인력확충');
-  await expect(page.locator('#web1BoardActive')).not.toContainText('E2E 게시글');
+  await expect(page.locator('#sharePagesRoot')).toBeVisible();
+  await expect(page.locator('#pagesView .w1b-card,#web1BoardLegacy')).toHaveCount(0);
 
   await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();

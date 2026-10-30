@@ -62,7 +62,9 @@ async function fixture(page,{width=390,scheme='light',docs=null}={}){
  });
  return state;
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+// 폰 폭은 손가락 누르기. locator.tap()은 목록이 다시 그려져 줄이 바뀌어도 새 줄을 다시 찾아 그 가운데를 누른다
+// (좌표를 먼저 재고 누르면, 재는 사이 목록이 다시 그려질 때 'Element is not attached'로 깨졌다).
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 async function openNote(page,id,width){
  await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,id);
  await tap(page,page.locator(`[data-basket-row="${id}"]`),width);
@@ -162,8 +164,8 @@ for(const [width,painted] of [[1280,32],[1024,32],[900,32],[390,32]])test(`[자�
  const measure=async locator=>{await locator.scrollIntoViewIfNeeded();return locator.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),x=r.left+r.width/2;return {h:r.height,touch:p.content!=='none'?parseFloat(p.height):r.height,above:document.elementFromPoint(x,r.top-4)?.closest('button')===el,below:document.elementFromPoint(x,r.bottom+4)?.closest('button')===el}})};
  const buttons={'담당조직 고르기':panel.locator('[data-manual-pick="organization"]'),'프로젝트 고르기':panel.locator('[data-manual-pick="project"]'),'빼기':target.locator('[data-manual-remove]'),'기록도 남기기':target.locator('[data-manual-record]'),'자료로 넣기':panel.locator('[data-manual-confirm]'),'취소':panel.locator('[data-manual-cancel]')};
  for(const [name,locator] of Object.entries(buttons)){
-  const m=await measure(locator);expect(m.h,name).toBe(name==='자료로 넣기'&&width<1024?36:painted);expect(m.touch,name).toBeGreaterThanOrEqual(44);
-  if(width>=1024){expect(m.above,name+' 위 3px 누름').toBe(true);expect(m.below,name+' 아래 3px 누름').toBe(true)}
+  const m=await measure(locator);expect(m.h,name).toBe(name==='자료로 넣기'&&width<761?36:painted);expect(m.touch,name).toBeGreaterThanOrEqual(44);
+  if(width>=761){expect(m.above,name+' 위 3px 누름').toBe(true);expect(m.below,name+' 아래 3px 누름').toBe(true)}
  }
  await expect(buttons['자료로 넣기']).toHaveText('자료로 넣기');
  // 같은 화면 위쪽 파일 줄 링크는 그대로(12px 글자 링크).

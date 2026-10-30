@@ -1,6 +1,6 @@
-import {waitHtml} from './wait-state.js';
-// HOME-모바일홈채우기: 폰·중간 폭 홈(1023px 이하)의 한 줄 요약('새 소식 12 · 나한테 온 요청 1')과 새 칸 셋(놓친 약속 · 정리 안 된 것 · 내일)의
-// 유일한 renderer. PC 홈(1024px~)에서는 이 칸들을 만들지 않고 숨긴다. home-read.js는 내일 일정만 넘기고
+import {waitHtml, emptyHtml} from './wait-state.js';
+// HOME-모바일홈채우기: 폰 홈(760px 이하)의 한 줄 요약('새 소식 12 · 나한테 온 요청 1')과 새 칸 셋(놓친 약속 · 정리 안 된 것 · 내일)의
+// 유일한 renderer. PC 홈(761px~)에서는 이 칸들을 만들지 않고 숨긴다. home-read.js는 내일 일정만 넘기고
 // (setTomorrow), 원장·텔레그램 소식·정리함 숫자는 home-fill-data.js로 여기서 읽는다.
 // 규칙: 놓친 약속·내일이 비면 '없음' 한 줄, 정리 안 된 것은 0건이면 줄 자체를 그리지 않음, 새 소식을 알 수 없으면 요약에서 뺀다.
 import {summaryText, pickMissed, missedTag, tomorrowLine} from './home-fill-model.mjs';
@@ -15,7 +15,7 @@ const head = (key, title, goto, label) => `<header><h3 id="home-${key}-title">${
 
 export function mountHomeFill({main, rt = window.KPTURuntime}) {
   if (!main) return null;
-  const mq = window.matchMedia('(min-width:1024px)');
+  const mq = window.matchMedia('(min-width:761px)');
   const state = {news: null, tomorrow: 'loading', tomorrowOpen: false, missed: 'loading', missedRows: [], inbox: null, asks: null};
   let alive = true;
 
@@ -39,7 +39,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
         // HOME-줄누르기 ⑤: 누르면 원장의 그 약속(home-read.js가 연다).
         return `<button type="button" class="home-event home-event-open" data-home-missed="${esc(r.id)}" aria-label="${esc(r.title)} 원장에서 보기"><span class="home-title">${esc(r.title)}</span>${who}<span class="home-day-tag">${esc(missedTag(r))}</span></button>`;
       }).join('')
-      : '<p class="home-status">없음</p>';
+      : emptyHtml();
     missed.innerHTML = `${head('missed', '놓친 약속', 'ledger', '원장')}<div data-home-body>${body}</div>`;
   }
   function paintInbox() {
@@ -61,7 +61,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     else if (t === 'unavailable') body = '<p class="home-status">확인하지 못했어요</p>';
     else {
       const line = tomorrowLine(t, timeOf);
-      if (!line) body = '<p class="home-status">없음</p>';
+      if (!line) body = emptyHtml();
       else if (state.tomorrowOpen && line.more) body = t.map(row => eventLine(row)).join('') + '<button type="button" class="home-more" data-home-tomorrow-more="close" aria-expanded="true">접기</button>';
       else body = `<div class="home-tomorrow-line">${eventLine(t[0])}${line.more ? `<button type="button" class="home-tomorrow-more" data-home-tomorrow-more="open" aria-expanded="false">외 ${line.more}건</button>` : ''}</div>`;
     }

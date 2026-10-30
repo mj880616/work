@@ -2,6 +2,7 @@
 // 서버는 흉내(app_feed_items·app_feed_days·조직 기록)이고 고정·지우기·조직 연결을 기억한다. 이름·방·내용은 모두 지어낸 것이다.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {innerScrollers,docScroll} from './helpers/one-scroll.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const ORG='30000000-0000-4000-8000-0000000000c1';
@@ -24,9 +25,11 @@ const days=[
  {workspace_id:'w',day:'2026-10-06',source:'telegram',total_count:412,kept_count:2,room_count:2,personal_count:0,unsure_count:0,failed_count:0},
 ];
 
-async function fixture(page,{width=1280,missing=false,empty=false}={}){
+async function fixture(page,{width=1280,missing=false,empty=false,many=0}={}){
  await page.setViewportSize({width,height:860});
  const items=empty?[]:rows(),writes=[],errors=[];
+ // UI-칸안스크롤하나로 시험: 목록이 화면보다 길도록 지어낸 통화 줄을 더한다(10. 4. 하루, 시각만 다름).
+ for(let i=0;i<many;i++)items.push({...base,id:`61000000-0000-4000-8000-${String(i).padStart(12,'0')}`,source:'call',day:'2026-10-04',occurred_at:`2026-10-04T0${Math.floor(i/60)%4}:${String(i%60).padStart(2,'0')}:00Z`,room_key:null,room_label:null,title:`가상 통화 ${i+1}`,summary:null,points:[],counterpart:null,speaker_split:false,raw_count:0,organization_id:null,raw_text:null});
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!/Failed to load resource/.test(e.text()))errors.push(e.text());});
  await openHome(page,{beforeLoad:async()=>{
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_items',r=>{
@@ -71,7 +74,7 @@ async function fixture(page,{width=1280,missing=false,empty=false}={}){
  return {items,writes,errors};
 }
 async function openMenu(page,width,label){
- if(width>=1024){
+ if(width>=761){
   const item=page.locator('#appView>.app-nav').getByRole('button',{name:label,exact:true});
   await expect(item).toBeVisible();await item.click();
  }else{
@@ -117,12 +120,12 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect(detail.locator('[data-cf-meta]')).toHaveText('10. 6. (화) · 09:42 · 예시지부 · 홍길동 위원장');
  await expect(detail.locator('[data-cf-points] li')).toHaveText(['가상 교섭 다음 주 화요일로 변경','요구안 12명 유지확정','회신 10. 12.(월)까지예정','장소 다시 확인확인']);
  await expect(detail.locator('[data-cf-points] .feed-tag')).toHaveText(['확정','예정','확인']);
- if(width>=1024){await expect(page.locator('[data-topline-where] [aria-current="page"]')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(detail.locator('[data-cf-title]')).toHaveCount(0);}
+ if(width>=761){await expect(page.locator('[data-topline-where] [aria-current="page"]')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(detail.locator('[data-cf-title]')).toHaveCount(0);}
  else await expect(detail.locator('[data-cf-title]')).toHaveText('가상 교섭 일정 다음 주로 조정');
  // 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 위치를 재기 전에 그 다시 그리기를 기다린다.
  await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  // UI-더보기제목줄: ⋯는 빈 줄을 따로 차지하지 않고 첫 줄(폰은 제목, PC는 날짜·시간 줄) 오른쪽 끝에 같은 줄로 놓인다.
- {const first=await detail.locator(width>=1024?'[data-cf-meta]':'[data-cf-title]').boundingBox(),more=await detail.locator('[data-cf-more]').boundingBox();
+ {const first=await detail.locator(width>=761?'[data-cf-meta]':'[data-cf-title]').boundingBox(),more=await detail.locator('[data-cf-more]').boundingBox();
   expect(first&&more).toBeTruthy();expect(Math.abs(more.y+more.height/2-(first.y+Math.min(first.height,more.height)/2))).toBeLessThan(more.height);
   expect(more.x).toBeGreaterThan(first.x+first.width-1);expect(more.y).toBeLessThan(first.y+first.height);
   expect(await detail.locator('.feed-detail-head').evaluateAll(a=>a.filter(h=>h.querySelector('[data-cf-more]')).length)).toBe(0);}
@@ -140,7 +143,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect(detail.locator('[data-cf-detail-status]')).toHaveText('복사했어요');
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('예시지부 · 홍길동 위원장 · 가상 교섭 일정 다음 주로 조정\n10. 6. (화) 09:42\n\n- 가상 교섭 다음 주 화요일로 변경\n- 요구안 12명 유지 [확정]\n- 회신 10. 12.(월)까지 [예정]\n- 장소 다시 확인 [확인]');
  // 폰의 '‹ 통화'는 본문 글자 크기(14px 이상)이고 누르는 자리가 글자보다 넓다.
- if(width<1024){const back=detail.locator('[data-cf-back]');await expect(back).toHaveText('‹ 통화');await expect(page.locator('.mobile-shell-header [data-mobile-view-name]')).toBeHidden();expect(await back.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);}
+ if(width<761){const back=detail.locator('[data-cf-back]');await expect(back).toHaveText('‹ 통화');await expect(page.locator('.mobile-shell-header [data-mobile-view-name]')).toBeHidden();expect(await back.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);}
  // 고정: ⋯ → 고정 → 서버에 pinned_at.
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
@@ -149,7 +152,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect.poll(()=>f.writes.filter(w=>w.id===C1&&w.body.pinned_at).length).toBe(1);
  await expect(detail.locator('[data-cf-meta]')).toContainText('· 고정');
 
- if(width<1024){
+ if(width<761){
   // 폰 뒤로가기 한 칸 = 목록.
   await page.goBack();await expect(view.locator('#cfList')).toBeVisible();await expect(detail).toBeHidden();
   await expect(view.locator('#callsView, #cfList')).toHaveCount(1);await expect(view).toBeVisible();
@@ -256,10 +259,29 @@ for(const width of [390,1280])test(`빈 상태 ${width}: 표가 없으면 '준�
 test('빈 상태: 표는 있고 줄이 없으면 빈 한 줄',async({page})=>{
  const f=await fixture(page,{width:390,empty:true});
  await openMenu(page,390,'통화');
- await expect(page.locator('#callsView [data-cf-empty="none"]')).toHaveText('아직 받은 업무 통화가 없어요.');
+ await expect(page.locator('#callsView [data-cf-empty="none"][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#callsView [data-cf-box="personal"]')).toHaveText('개인 통화함 0 ›');
  await openMenu(page,390,'텔레그램 소식');
- await expect(page.locator('#telegramView [data-tg-empty="none"]')).toHaveText('아직 받은 텔레그램 소식이 없어요.');
+ await expect(page.locator('#telegramView [data-tg-empty="none"][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#telegramView [data-tg-today]')).toHaveText('오늘 받은 소식 없음');
+ expect(f.errors).toEqual([]);
+});
+
+// UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): PC 통화 화면은 스크롤 막대 하나(목록·상세 칸에 따로 스크롤 없음), 상세는 화면에 붙어 따라온다.
+test('통화 PC 1440: 목록이 길어도 칸 안 스크롤 없이 화면 스크롤 하나, 아래쪽 통화를 눌러도 상세가 바로 보임',async({page})=>{
+ const f=await fixture(page,{width:1440,many:40});
+ await openMenu(page,1440,'통화');
+ const view=page.locator('#callsView');await expect(view).toBeVisible();
+ await expect(view.locator('[data-cf-row]')).toHaveCount(43);
+ await view.locator(`[data-cf-row="${C1}"]`).click();
+ await expect(view.locator('#cfDetail [data-cf-meta]')).toBeVisible();
+ expect(await innerScrollers(page,'#callsView')).toEqual([]);
+ const d=await docScroll(page);expect(d.over).toBeGreaterThan(300);expect(d.wide).toBeLessThanOrEqual(0);
+ await expect(view.locator('#cfList')).toHaveCSS('overflow-y','visible');await expect(view.locator('#cfDetail')).toHaveCSS('position','sticky');
+ const last=view.locator('[data-cf-row]').last();await last.scrollIntoViewIfNeeded();await last.click();
+ await expect(view.locator('#cfDetail [data-cf-meta]')).toContainText('10. 4. (일)');
+ expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(200);
+ await expect(view.locator('#cfDetail [data-cf-meta]')).toBeInViewport();
+ expect(await innerScrollers(page,'#callsView')).toEqual([]);
  expect(f.errors).toEqual([]);
 });

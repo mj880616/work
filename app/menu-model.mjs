@@ -106,10 +106,6 @@ export function pcSplit(layout) {
   while (end > 0 && KNOWN.get(order[end - 1])?.feed) end--;
   return {main: order.slice(0, end), tail: order.slice(end)};
 }
-// 761~1023px 한 줄 메뉴가 쓰는 키 순서(정리함 아래 [업데이트]·[챙길 것], 일정 아래 [할 일]·[업무일지]·[일기]가 따라온다).
-export function midKeys(layout) {
-  return pcOrder(layout).flatMap(id => { const item = KNOWN.get(id); return [id, ...(item?.pc || [])]; });
-}
 // 폰 하단바에서 이 화면이 어느 칸의 것인가. 칸 이름은 항목 id. 하단바에 없는 화면은 null([메뉴] 칸이 지금 화면).
 export function barItemForView(layout, view, noteMode = false) {
   const bar = normalizeLayout(layout).bar;

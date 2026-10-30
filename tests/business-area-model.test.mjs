@@ -86,9 +86,9 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   assert.match(read('report-links.js'), /select=business_area_id,next_plan&limit=1/);
 });
 
-test('사업영역 칩: 보고가 있는 1단만(트리 순서), 옛 보고는 빌린 꼬리표로, 꼬리표 없음 n', () => {
+test('사업영역 칩: 보고가 있는 1단만(트리 순서), 옛 보고는 빌린 꼬리표로, 안 단 보고 n', () => {
   const list = [...meetings, {id:'r5', series_name:'아무 데도', meeting_at:'2026-10-09T01:00:00Z'}];
-  assert.deepEqual(m.areaChipOptions(list, tree), [{value:'all', label:'전체'}, {value:'A', label:'사업영역 A'}, {value:'B', label:'사업영역 B'}, {value:m.NO_AREA, label:'꼬리표 없음 1'}]);
+  assert.deepEqual(m.areaChipOptions(list, tree), [{value:'all', label:'전체'}, {value:'A', label:'사업영역 A'}, {value:'B', label:'사업영역 B'}, {value:m.NO_AREA, label:'안 단 보고 1'}]);
   const roots = m.areaRoots(tree);
   assert.equal(roots.get('A1x'), 'A');
   assert.deepEqual(list.filter(x => m.matchesAreaChip(x, 'A', roots)).map(x => x.id), ['r1', 'r3', 'r4']);

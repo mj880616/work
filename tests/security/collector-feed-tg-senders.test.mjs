@@ -223,8 +223,8 @@ test('parseTelegramBody: senders 결과 모양',()=>{
 
 test('소스: 번호 원문 칸·로그에 이름을 쓰는 코드·DB 표 직접 쓰기가 없다(함수 한 개만 부른다)',()=>{
   const src=readFileSync('supabase/functions/collector-feed/handler.ts','utf8');
-  assert.equal([...src.matchAll(/rpcObject\(/g)].length,6,'정의 1 + 사용 5(이름표·방 정보·하루 요약·나한테 온 요청 후보·예외 방 확인)');
-  assert.equal([...src.matchAll(/rpcObject\((\w+),/g)].map(m=>m[1]).filter(n=>n!=='fn').sort().join(),'ASK_CANDIDATE_FN,ASK_FILTER_FN,ROOM_DAY_ADD_FN,ROOM_TOUCH_FN,SENDERS_FN','쓰는 DB 함수는 이 다섯뿐(이름 읽기는 rpc로 별도, 후보는 FEAT-1029 ⑤, 예외 방 읽기는 TODO-내일만)');
+  assert.equal([...src.matchAll(/rpcObject\(/g)].length,7,'정의 1 + 사용 6(이름표·소급 이름표·방 정보·하루 요약·나한테 온 요청 후보·예외 방 확인)');
+  assert.equal([...src.matchAll(/rpcObject\((\w+),/g)].map(m=>m[1]).filter(n=>n!=='fn').sort().join(),'ASK_CANDIDATE_FN,ASK_FILTER_FN,ROOM_DAY_ADD_FN,ROOM_TOUCH_FN,SENDERS_FN,SENDERS_FN','쓰는 DB 함수는 이 다섯뿐(이름표는 telegram·telegram_senders 두 곳)(이름 읽기는 rpc로 별도, 후보는 FEAT-1029 ⑤, 예외 방 읽기는 TODO-내일만)');
   const code=src.replace(/\/\/.*$/gm,'');
   assert.ok(!/app_tg_senders['"`?]|app_tg_day_senders/.test(code),'표를 직접 읽거나 쓰지 않는다');
   assert.equal([...code.matchAll(/db\.rpc\(NAMES_FN/g)].length,1,'읽기 전용 함수 호출 한 곳(AI 표시 이름)');

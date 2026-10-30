@@ -1,0 +1,2 @@
+/* SEC-Web2CSP 1단계: 로그인 화면 전용 모양(전에는 index.html 안 <style>). */
+.login-shell{min-height:100vh;display:grid;grid-template-rows:1fr}.oauth-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 8px}.hidden{display:none!important}

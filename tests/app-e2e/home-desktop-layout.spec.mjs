@@ -16,7 +16,7 @@ async function readingOrder(page) {
 async function noOverflow(page) {
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 }
-for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false]) {
+for(const width of [884,1024,1280,1440,760,390])for(const milestones of [true,false]) {
   test(`home columns and reading order ${width} D-day ${milestones}`,async({page})=>{
     await page.setViewportSize({width,height:1000});
     await openHome(page,{milestones});
@@ -24,9 +24,9 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
     const b=await boxes(page);
     const left=['quick','calendar','tasks','meetings'];
     const right=milestones?['dday']:[];
-    const order=width>=1024?[...left,...right]:['quick','calendar','tasks','missed','tomorrow',...(milestones?['dday']:[]),'meetings'];
+    const order=width>=761?[...left,...right]:['quick','calendar','tasks','missed','tomorrow',...(milestones?['dday']:[]),'meetings'];
     expect(await readingOrder(page)).toEqual(order);
-    if(width>=1024&&milestones){
+    if(width>=761&&milestones){
       const sidebar=b[right[0]];
       expect(sidebar.width).toBeGreaterThanOrEqual(320);
       expect(sidebar.width).toBeLessThanOrEqual(380);
@@ -53,7 +53,7 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
         expect(b[order[i]].y).toBeGreaterThanOrEqual(b[order[i-1]].bottom);
       }
     }
-    if(width>=1024&&!milestones){
+    if(width>=761&&!milestones){
       await expect(page.locator('[data-home-column="aside"]')).toBeHidden();
       const host=await page.locator('[data-home-cards]').boundingBox();
       expect(b.quick.width).toBeCloseTo(host.width,0);
@@ -64,19 +64,19 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
   });
 }
 test('home breakpoint moves the same D-day control and preserves input and focus',async({page})=>{
-  await page.setViewportSize({width:1023,height:1000});await openHome(page);
+  await page.setViewportSize({width:760,height:1000});await openHome(page);
   await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt);
   await page.locator('[data-quick-input]').fill('유지할 입력');
   const chip=page.locator('[data-home-project]').first();await chip.focus();
   await chip.evaluate(el=>window.layoutChip=el);
-  for(const width of [1024,390,1440,1023]){
+  for(const width of [761,390,1440,760]){
     await page.setViewportSize({width,height:1000});
     await expect(chip).toBeFocused();
     expect(await chip.evaluate(el=>el===window.layoutChip)).toBe(true);
     await expect(page.locator('[data-quick-input]')).toHaveValue('유지할 입력');
     await noOverflow(page);
     // The D-day card moves on the media query's change event, which fires after the resize.
-    await expect.poll(()=>readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday']:['quick','calendar','tasks','missed','tomorrow','dday','meetings']);
+    await expect.poll(()=>readingOrder(page)).toEqual(width>=761?['quick','calendar','tasks','meetings','dday']:['quick','calendar','tasks','missed','tomorrow','dday','meetings']);
   }
 });
 for(const [card,view] of [['calendar','calendar'],['tasks','tasks'],['meetings','meetings']]){

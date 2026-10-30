@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 
-// UI-노트고정: [고정] in a note's ⋯ puts it on top of the note list (most recently pinned first); [고정 해제] returns it to
+// UI-노트고정: [고정] in a note's ⋯ puts it on top of the note list (most recently pinned first); [고정 풀기] returns it to
 // last-change order. Stored in the existing metadata jsonb (metadata.pinned_at) by an owner-RLS PATCH of metadata only;
 // the note's "고친 날" (updated_at) and its text are not changed. Phone 390 and PC 1280, touch and keyboard.
 test.use({ hasTouch: true });
@@ -68,7 +68,7 @@ for (const width of [390, 1280]) test(`pin a note to the top of the list and unp
   // Unpin: back to last-change order, the pin key removed.
   await press(page, page.locator('[data-note-row="n-old"]'), width);
   await press(page, page.locator('[data-note-more]'), width);
-  await expect(page.locator('#noteDocMenu [data-note-pin]')).toHaveText('고정 해제');
+  await expect(page.locator('#noteDocMenu [data-note-pin]')).toHaveText('고정 풀기');
   await press(page, page.locator('#noteDocMenu [data-note-pin]'), width);
   await expect(page.locator('#toast')).toHaveText('고정을 풀었어요.');
   expect(f.writes[2].body.metadata).toEqual({});

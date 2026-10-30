@@ -84,7 +84,7 @@ async function signIn(page) {
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout:20000});
 }
 
-for (const width of [390, 1280]) test('make a share page on the full screen: save, link make/copy/off, legacy cards folded ' + width, async ({page, context}) => {
+for (const width of [390, 1280]) test('make a share page on the full screen: save, link make/copy/off, no old Web1 cards ' + width, async ({page, context}) => {
   await page.setViewportSize({width, height:900});
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], {origin:ORIGIN});
   const state = {pages:[], links:[]};
@@ -95,22 +95,12 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   await clickView(page, 'pages');
   const root = page.locator('#sharePagesRoot');
   await expect(root.getByRole('heading', {name:'공유 페이지', exact:true})).toHaveCount(1);
-  await expect(root.locator('.sp-empty')).toHaveText('공유 페이지 없음');
-  // SHARE-보관함·HTML공유: the old five cards stay, in the one folded '보관함 n' (no '이전 페이지'·'지나간 업무 · 사업' folds).
-  const legacy = root.locator('details.sp-box');
-  await expect(legacy.locator(':scope > summary')).toHaveText('보관함 5');
+  await expect(root.locator('[data-wait-empty]')).toHaveText('없음');
+  // DOMAIN-④ E2: 옛 Web1 카드 5개는 화면째 지웠다. 보관한 페이지가 없으면 보관함 줄도 없다('이전 페이지'·'지나간 업무' 접기 없음).
+  await expect(root.locator('details.sp-box')).toHaveCount(0);
   await expect(page.locator('#pagesView')).not.toContainText('이전 페이지');
   await expect(page.locator('#pagesView')).not.toContainText('지나간 업무');
-  await expect(legacy.locator(':scope > summary')).toHaveCSS('list-style-type','none');
-  expect(await legacy.locator(':scope > summary').evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"▸"');
-  await legacy.locator(':scope > summary').focus();
-  await page.keyboard.press('Enter');
-  await expect(legacy).toHaveAttribute('open','');
-  expect(await legacy.locator(':scope > summary').evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"▾"');
-  await page.keyboard.press('Enter');
-  await expect(legacy).not.toHaveAttribute('open', '');
-  await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
-  await expect(page.locator('#web1BoardActive .w1b-card').first()).toBeHidden();
+  await expect(page.locator('#pagesView .w1b-card,#web1BoardLegacy,#web1BoardDetailModal')).toHaveCount(0);
 
   await root.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
   const editor = page.locator('[data-sp-editor]');

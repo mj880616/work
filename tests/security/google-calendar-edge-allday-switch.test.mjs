@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
+import { withOwner } from './helpers/owner-member.mjs';
 
 // BUG-일정시간전환: Google Calendar PATCH merges nested objects (start/end) field by field and
 // clears a field only when it is sent as null. A start holding both date and dateTime is rejected
@@ -35,7 +36,7 @@ function harness(initial){
     }
     throw new Error('Unexpected request '+raw);
   };
-  new Function('Deno','createClient','fetch',source)({env:{get:key=>({SUPABASE_URL:'https://sb.example',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service',SUPABASE_ANON_KEY:'synthetic-public'}[key])},serve:fn=>handler=fn},createClient,fetchMock);
+  new Function('Deno','createClient','fetch',source)({env:{get:key=>({SUPABASE_URL:'https://sb.example',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service',SUPABASE_ANON_KEY:'synthetic-public'}[key])},serve:fn=>handler=fn},withOwner(createClient),fetchMock);
   return {calls,get event(){return current},post:async body=>{const r=await handler(new Request('https://sb.example/functions/v1/google-calendar',{method:'POST',headers:{Authorization:'Bearer user-token'},body:JSON.stringify({action:'update-event',calendar_id:'source',event_id:'ev',title:'합성 일정',memo:'',...body})}));return {status:r.status,body:await r.json()}}};
 }
 const allDay={id:'ev',summary:'합성 일정',start:{date:'2026-10-23'},end:{date:'2026-10-24'}};

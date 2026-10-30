@@ -88,7 +88,7 @@ for(const width of [870,1280])test(`wide screen opens the sheet beside the butto
  expect(d.x).toBeLessThanOrEqual(t.x+t.width);expect(d.x+d.width).toBeGreaterThanOrEqual(t.x);
  // Organization chips get the wider list (480px, UI-PC팝업위치) so fewer lines need scrolling; on a wide PC (1024px~) the
  // 기록할 곳 sheet is the split list (UI-기록할곳창PC, up to 880px) with organizations and projects side by side.
- if(width>=1024){await expect(dialog(page)).toHaveClass(/home-choice-split/);expect(d.width).toBeLessThanOrEqual(880);}
+ if(width>=761){await expect(dialog(page)).toHaveClass(/home-choice-split/);expect(d.width).toBeLessThanOrEqual(880);}
  else{await expect(dialog(page)).not.toHaveClass(/home-choice-split/);expect(d.width).toBeLessThanOrEqual(480);}expect(d.x).toBeGreaterThanOrEqual(0);expect(d.x+d.width).toBeLessThanOrEqual(width);
  await page.keyboard.press('Escape');await expect(dialog(page)).toBeHidden();await expect(trigger).toBeFocused();
  await trigger.click();await expect(dialog(page)).toBeVisible();

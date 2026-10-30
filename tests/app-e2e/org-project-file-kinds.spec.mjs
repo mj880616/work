@@ -156,8 +156,9 @@ for(const width of [390,1280])test(`organization documents show each kind and fi
  await expect(host.getByRole('button')).toHaveText(['전체',...DEFAULT]);
  await expect(host).toHaveAttribute('role','group');
  for(const name of DEFAULT)await expect(chip(host,name)).toHaveAttribute('aria-pressed','true');
- // One line that scrolls sideways, small and not wide; touch area stays 44px.
- expect(await oneLine(host)).toBe(true);
+ // Phone: one line that scrolls sideways. PC(1024px~, UI-점검1030손질 C7): wraps instead (no sideways scroll a mouse cannot reach). Small; touch area 44px.
+ if(width<761)expect(await oneLine(host)).toBe(true);
+ else{expect(await host.evaluate(h=>getComputedStyle(h).flexWrap)).toBe('wrap');expect(await host.evaluate(h=>h.scrollWidth<=h.clientWidth)).toBe(true);}
  const box=await chip(host,'투쟁').boundingBox();expect(box.height).toBeLessThanOrEqual(32.5);
  expect(await noWideScroll(page)).toBe(true);
  if(width<761)expect(await host.evaluate(h=>h.scrollWidth>h.clientWidth)).toBe(true);
@@ -173,7 +174,7 @@ for(const width of [390,1280])test(`organization documents show each kind and fi
  await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');
  await expect(chip(host,'투쟁')).toHaveAttribute('aria-pressed','true');
  await tap(page,chip(host,'전체'),width);
- await expect(section.locator('[data-wd-doc-nokind]')).toHaveText('고른 종류 자료 없음');
+ await expect(section.locator('[data-wd-doc-nokind]')).toHaveText('고른 종류 없음');
  await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','false');
  await tap(page,chip(host,'전체'),width);
  await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');
@@ -193,14 +194,15 @@ for(const width of [390,1280])test(`project documents show each kind and filter 
  await expect(section.locator('.ps3-doc-row')).toHaveCount(5);
  await expect(kinds(section)).toHaveText(['교섭·합의','투쟁','공문','성명·보도자료','교육']);
  await expect(host.getByRole('button')).toHaveText(['전체',...DEFAULT]);
- expect(await oneLine(host)).toBe(true);
+ // UI-점검1030손질 C7: phone one sideways line; PC wraps (no hidden sideways part).
+ if(width<761)expect(await oneLine(host)).toBe(true);else expect(await host.evaluate(h=>h.scrollWidth<=h.clientWidth)).toBe(true);
  expect((await chip(host,'공문').boundingBox()).height).toBeLessThanOrEqual(32.5);
  await tap(page,chip(host,'공문'),width);
  await expect(section.locator('.ps3-doc-row b')).toHaveText(['합성 교섭 일정','합성 집회 계획','합성 성명서','합성 교육 안내','합성 국토부 지침']);
  await expect(chip(host,'공문')).toHaveAttribute('aria-pressed','false');
  // [전체] while only some are on turns all on; pressed again (all on) it turns all off.
  await tap(page,chip(host,'전체'),width);await expect(chip(host,'공문')).toHaveAttribute('aria-pressed','true');
- await tap(page,chip(host,'전체'),width);await expect(section.locator('[data-ps3-doc-nokind]')).toHaveText('고른 종류 자료 없음');
+ await tap(page,chip(host,'전체'),width);await expect(section.locator('[data-ps3-doc-nokind]')).toHaveText('고른 종류 없음');
  await tap(page,chip(host,'성명·보도자료'),width);
  await expect(section.locator('.ps3-doc-row b')).toHaveText(['합성 성명서']);
  await expect(section.getByRole('button',{name:'전체 7개 보기'})).toBeVisible();

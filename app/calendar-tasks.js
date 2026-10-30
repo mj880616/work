@@ -1,3 +1,4 @@
+import {emptyHtml} from './wait-state.js';
 import {createTaskInline} from './task-inline.js';
 (()=>{
 'use strict';
@@ -77,7 +78,7 @@ function dropRow(id){
   const line=lineOf(id),section=line?.parentElement;line?.remove();
   if(section?.id==='calendarDayTasks'&&!section.querySelector('[data-calendar-task]'))section.remove();
   const list=document.querySelector('#calendarDayList');
-  if(list&&!list.querySelector('#calendarDayEvents,#calendarDayTasks,#calendarDayDiary'))list.innerHTML='<div class="empty compact">일정 없음</div>';
+  if(list&&!list.querySelector('#calendarDayEvents,#calendarDayTasks,#calendarDayDiary'))list.innerHTML=emptyHtml('일정 없음');
 }
 const findTask=id=>{const raw=tasks.find(x=>x.id===id);if(!raw)return null;const row=rowOf(id);return {...(api()?.taskState?.(id)?.task||raw),...(row?{status:row.classList.contains('cmv-task-done')?'completed':'needsAction'}:{})}};
 const line=createTaskInline({menuId:'calendarTaskMenu',historyKey:'kptuCalendarTaskMenu',menuAttr:'calendarTaskMenu',find:findTask,

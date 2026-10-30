@@ -5,7 +5,7 @@ import {dayItems,calendarDateKey} from './calendar-day-items.js';
 import {dayKey,ranges} from './home-read-model.js';
 import {viewPrefs} from './view-prefs.js';
 // Owns view choice, list/week ranges and list pagination. The choice is remembered on the server (view-prefs.js, profile view_prefs).
-const desktop=matchMedia('(min-width:1024px)');
+const desktop=matchMedia('(min-width:761px)');
 const today=()=>seoulDayStart(new Date());
 const defaultView=()=>desktop.matches?'week':'list';
 let preference=null;

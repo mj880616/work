@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 // PHOTO-사진메뉴(docs/design/photo-menu.md, 시안 photo-menu-mock.html): '사진' 메뉴(?view=photos). #photosView의 유일한 그리기 주인.
 // 원드라이브 사진·동영상 색인(Edge onedrive-photos, PR 1410: library·months·days·media-url·photo-delete·trash-*)을 읽어 갤러리처럼 보여 준다.
 // - 위 칩 줄: [사진] [달력] [휴지통] · 오른쪽 끝 거르기(전체·★·동영상·스크린샷)·[－][＋]·원드라이브 아이콘(od-link.js).
@@ -12,7 +12,7 @@ import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
 // - 원드라이브 설정 창(폴더 바꾸기·하위 폴더·연결 끊기)은 일기와 같은 공용 부품 od-settings.js로 이 화면 안에서 연다(결정 4). 연결 뒤에는 이 화면으로 돌아온다(결정 5).
 // 별표는 app_diary_stars(일기 ★와 같은 것). 저장은 모두 서버(기기 저장 없음, 썸네일 사본은 기존 od-thumb-cache.js만).
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더]·[앨범] 칩.
-// - [폴더]: 원드라이브 폴더 그대로(서버 folders-tree·library folder_id). PC(1024px~)는 왼쪽 폴더 나무(노트·자료실과 같은 모양: 노란 폴더·들여쓰기·▸/▾·
+// - [폴더]: 원드라이브 폴더 그대로(서버 folders-tree·library folder_id). PC(761px~)는 왼쪽 폴더 나무(노트·자료실과 같은 모양: 노란 폴더·들여쓰기·▸/▾·
 //   폴더마다 장수·맨 아래 + 새 폴더) + 오른쪽 위치 줄(folder-path.mjs 공용 부품)·고른 폴더 사진 격자. 폰은 노트처럼 한 화면씩 들어가고(위 하위 폴더 줄,
 //   아래 그 폴더 사진) 위치 줄·뒤로가기로 올라간다. 폴더 ⋯(PC 우클릭 = 폰 꾹 누르기, context-menu.js 공용 부품) = 새 하위 폴더·이름 바꾸기·옮기기·지우기(빈 폴더만).
 // - 여러 장 고른 뒤 [📁 옮기기] → 폴더 나무에서 고름(PC는 고른 사진을 왼쪽 폴더로 끌어 놓기도). 원드라이브에서도 실제 이동, 위쪽 '옮겼어요 · 되돌리기'.
@@ -38,6 +38,7 @@ import {photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, pho
   cleanTagName, sameTag, albumCards} from './photos-model.mjs';
 import {notify, askConfirm} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
+import {followPane} from './follow-pane.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, newestFirst, durationLabel, monthBar, monthAt, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems} from './photos-model.mjs';
@@ -74,7 +75,7 @@ let tree = null, treeFailed = '', treeLoading = null, at = null, fFor = null, fI
 const openSet = new Set();
 // [앨범]: tags·links(서버), album(들어간 앨범 id 또는 null = 카드 목록), aItems(그 앨범 사진).
 let tags = null, links = [], tagsFailed = '', tagsLoading = null, album = null, aFor = null, aItems = [], aLoading = null, aFailed = '', albumLayer = null;
-const TREE_WIDE = globalThis.matchMedia?.('(min-width:1024px)');
+const TREE_WIDE = globalThis.matchMedia?.('(min-width:761px)');
 const treeWide = () => !!TREE_WIDE?.matches;
 const starSet = new Set(), starDay = new Map(), starBusy = new Set();
 let starsReady = null;
@@ -296,7 +297,7 @@ async function renderTrash({reload = false} = {}) {
     if (!current(r) || tab !== 'trash') return;
   }
   if (!trash) { body.innerHTML = `<p class="photos-muted">휴지통을 읽지 못했어요: ${esc(trashFailed)} <button type="button" class="mini" data-photos-trash-retry>다시</button></p>`; return; }
-  body.innerHTML = `<p class="photos-muted photos-top">30일 뒤 원드라이브 휴지통으로 가요${trash.length ? ' · <button type="button" class="mini" data-photos-purge-all>모두 비우기</button>' : ''}</p>${trash.length ? '' : '<p class="photos-muted">휴지통이 비어 있어요.</p>'}`;
+  body.innerHTML = `<p class="photos-muted photos-top">30일 뒤 원드라이브 휴지통으로 가요${trash.length ? ' · <button type="button" class="mini" data-photos-purge-all>모두 비우기</button>' : ''}</p>${trash.length ? '' : emptyHtml()}`;
   if (trash.length) { const grid = newGrid(); trash.forEach((item, i) => { const b = cell(item, i); b.dataset.photosTrash = ''; grid.append(b); }); body.append(grid); }
   sizer.paintButtons(root); paintSelect();
 }
@@ -711,6 +712,7 @@ function renderFolders() {
     const kids = photoSubfolders(tree, at).map(f => ({id:f.id, name:f.name, indent:0, count:f.count, total:f.total, kids:false, open:false, top:false}));
     body.innerHTML = `<div class="photos-fx">${path}<div class="photos-fx-list">${kids.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}</div>${head}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p></div>`;
   }
+  if (wide) followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다.
   syncFolderLayer();
   paintFolderGrid();
   if (fFor !== at || (!fEnded && !fItems.length && !fFailed)) loadFolder(at);
@@ -891,13 +893,15 @@ function renderAlbums() {
   body.innerHTML = `<p class="photos-fx-here photos-al-head"><button type="button" class="mini" data-photos-al-back aria-label="앨범 목록으로">‹ 앨범</button><b>#${esc(c.name)}</b> · ${aLoading ? c.count : aItems.length}장<button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></p>`;
   if (aLoading) { body.insertAdjacentHTML('beforeend', waitHtml({rows:2, h:72})); return; }
   if (aFailed) { body.insertAdjacentHTML('beforeend', `<p class="photos-muted">사진을 읽지 못했어요: ${esc(aFailed)}</p>`); return; }
-  if (!aItems.length) { body.insertAdjacentHTML('beforeend', '<p class="photos-muted">이 앨범에 사진이 없어요.</p>'); paintSelect(); return; }
+  if (!aItems.length) { body.insertAdjacentHTML('beforeend', emptyHtml()); paintSelect(); return; }
   const grid = newGrid(); aItems.forEach((item, i) => grid.append(cell(item, i))); body.append(grid);
   sizer.paintButtons(root); paintSelect();
 }
 function syncAlbumLayer() {
   const inside = tab === 'albums' && !!album;
-  if (inside && !albumLayer) albumLayer = window.KPTURouter?.layer?.open('photos-album', {close:() => { albumLayer = null; select.stop(); album = null; renderAlbums(); return true; }}) || null;
+  // NAV-PC앞뒤통일: › (or the browser's forward) over an entry left by back opens the same album / chip again (reopen).
+  const reopenId = album;
+  if (inside && !albumLayer) albumLayer = window.KPTURouter?.layer?.open('photos-album', {reopen:() => openAlbum(reopenId), close:() => { albumLayer = null; select.stop(); album = null; renderAlbums(); return true; }}) || null;
   if (!inside && albumLayer) { const l = albumLayer; albumLayer = null; l.close(); }
 }
 function openAlbum(id) { select.stop(); album = id; aFor = null; renderAlbums(); window.scrollTo?.(0, 0); }
@@ -1081,7 +1085,7 @@ function setTab(nextTab, {fromBack = false} = {}) {
   tab = nextTab;
   window.KPTURouter?.setPlace?.('photos', tab === 'all' ? {} : {tab});
   // 뒤로가기 = 이전 칩: [달력]·[휴지통]은 라우터 겹 하나라 뒤로가면 [사진]으로 돌아온다.
-  if (tab !== 'all' && !tabLayer) tabLayer = window.KPTURouter?.layer?.open('photos-tab', {close:() => { tabLayer = null; setTab('all', {fromBack:true}); return true; }}) || null;
+  if (tab !== 'all' && !tabLayer) tabLayer = window.KPTURouter?.layer?.open('photos-tab', {reopen:() => setTab(nextTab), close:() => { tabLayer = null; setTab('all', {fromBack:true}); return true; }}) || null;
   if (tab === 'all' && tabLayer && !fromBack) { const l = tabLayer; tabLayer = null; l.close(); }
   render();
 }

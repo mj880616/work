@@ -75,7 +75,7 @@ class WidgetAuthTest {
         val req = http.sent.single()
         assertEquals("POST", req.method)
         assertEquals("https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/auth-handoff", req.url)
-        assertEquals("https://desk.bokdoong.com", req.headers["Origin"])
+        assertEquals("https://bokdoong.com", req.headers["Origin"])
         assertEquals("{\"action\":\"consume\",\"token\":\"$handoff\"}", req.body)
         assertEquals("v1\n$user\nr1", vault.value)
         assertFalse(vault.value!!.contains("a1"))
@@ -265,7 +265,7 @@ class WidgetAuthTest {
     fun loginUrlIsTheSameAsStepOne() {
         assertEquals(
             "https://xmlkxfjeagycwttklxjw.supabase.co/auth/v1/authorize?provider=google&redirect_to=" +
-                "https%3A%2F%2Fdesk.bokdoong.com%2Fwork%2Fapp%2Fnative-callback.html%3Fnative%3Dandroid",
+                "https%3A%2F%2Fbokdoong.com%2Fwork%2Fapp%2Fnative-callback.html%3Fnative%3Dandroid",
             WidgetRules.LOGIN_URL,
         )
     }
