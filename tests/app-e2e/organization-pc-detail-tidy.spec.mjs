@@ -121,7 +121,7 @@ test('폰 390: 상세 창(제목 줄, 입력칸 안 ⤢·[저장] 32px, 줄마�
  const menu=page.locator('#gtLinkedMenu');await expect(menu).toBeVisible();await expect(menu.getByRole('button',{name:'연결 해제'})).toBeVisible();
  expect(await menu.evaluate(m=>!!m.closest('#wdModal'))).toBe(true);
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(modal).toBeVisible();
- const order=await modal.locator('.wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.id||sec.querySelector('h3')?.textContent?.trim()));
+ const order=await modal.locator('.wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-subpanel[data-wd-subpanel="log"] > .wd-sec')].map(sec=>sec.id||sec.querySelector('h3')?.textContent?.trim()));
  expect(order.slice(0,4)).toEqual(['wdTasks','wdDocs','wdReports','wdLog']);
  await expect(modal.locator('#wdDocBody [data-wait-empty]')).toHaveCount(0);
  expect(errors).toEqual([]);
