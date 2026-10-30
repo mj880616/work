@@ -18,6 +18,11 @@ test('text: progress and result lines are one short Korean line',()=>{
   assert.equal(m.resultText({done:3}),'3개 올렸어요');
   assert.equal(m.resultText({done:2,failed:[{name:'b',message:'빈 파일은 업로드할 수 없습니다.'}]}),'2개 올렸어요 · 1개 못 올렸어요. 빈 파일은 업로드할 수 없습니다.');
   assert.equal(m.resultText({done:0,failed:[],rest:2}),'2개 못 올렸어요');
+  // LIB-폴더로올리기: 폴더에 놓으면 폴더 이름이 앞에, 폴더에 못 넣은 것은 따로 한 마디.
+  assert.equal(m.folderHint('주간보고'),'놓으면 ‘주간보고’ 폴더로 올려요');
+  assert.equal(m.resultText({done:2,folder:'주간보고'}),'주간보고에 2개 올렸어요');
+  assert.equal(m.resultText({done:2,folder:'주간보고',unfiled:1}),'주간보고에 2개 올렸어요 · 1개는 폴더에 넣지 못해 폴더 밖에 있어요');
+  assert.equal(m.resultText({done:1,folder:'주간보고',failed:[{name:'b',message:'실패'}]}),'주간보고에 1개 올렸어요 · 1개 못 올렸어요. 실패');
 });
 
 test('runDropUpload: one at a time in order; a bad file is skipped; a stop failure leaves the rest untried',async()=>{
@@ -55,9 +60,23 @@ test('bindLibraryDrop: overlay only while a file is dragged and active; drop han
   assert.equal(drop.prevented,true);assert.equal(overlay.hidden,true);assert.deepEqual(got,[[file('a'),file('b')]]);
 });
 
+test('bindLibraryDrop: over a folder the hint names it and the folder line is marked; the drop hands the folder over; elsewhere nothing changes',()=>{
+  const doc=fakeDoc(),span={textContent:''},overlay={hidden:true,firstChild:span},got=[],marks=[];let under=null;
+  m.bindLibraryDrop({doc,overlay,active:()=>true,onFiles:(f,t)=>got.push([f.map(x=>x.name),t]),pick:()=>under,mark:t=>marks.push(t?.name||null)});
+  doc.fire(dragEvent('dragenter'));doc.fire(dragEvent('dragover'));assert.equal(span.textContent,'놓으면 바로 올려요');
+  under={name:'주간보고',target:'f1'};doc.fire(dragEvent('dragover'));assert.equal(span.textContent,'놓으면 ‘주간보고’ 폴더로 올려요');
+  doc.fire(dragEvent('drop',{list:[file('a'),file('b')]}));
+  assert.deepEqual(got,[[['a','b'],{name:'주간보고',target:'f1'}]]);assert.equal(overlay.hidden,true);assert.equal(span.textContent,'놓으면 바로 올려요');
+  assert.equal(marks.at(-1),null);
+  under=null;doc.fire(dragEvent('dragenter'));doc.fire(dragEvent('drop',{list:[file('c')]}));assert.deepEqual(got[1],[['c'],null]);
+});
+
 test('library-upload.js wires the drop: no storage of its own, no hard-coded colors, same upload request as the register dialog',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   assert.match(src,/luEnhanceDrop\(\)/);
+  // 폴더 묶기에서만 폴더를 고르고, 폴더에 넣기는 폴더 부품(putUploaded = 옮기기와 같은 자료 연결 표)이 한다.
+  assert.match(src,/pick:e=>luGroupBy==='folder'&&luFoldersReady\?luFolders\(\)\.fileTarget\(e\):null/);
+  assert.match(src,/luFolders\(\)\.putUploaded\(doc\?\.id,f\.id\)/);
   assert.match(src,/async function luUploadDropped[\s\S]*?luUploadRequest\(fd,file\)[\s\S]*?luAiFill\(d\.document\.id,fd,file\.name\)/);
   const drop=readFileSync(new URL('../app/library-drop.js',import.meta.url),'utf8');
   for(const word of ['local','session'])assert.ok(!drop.includes(word+'Storage'));

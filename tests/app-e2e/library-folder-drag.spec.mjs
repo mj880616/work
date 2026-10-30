@@ -81,8 +81,10 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     expect(errors).toEqual([]);
   });
 
-  test('안에서 시작한 끌기만 본다: 바깥 파일을 끌어 올 때(Files)는 폴더 표시가 생기지 않는다',async({page})=>{
-    const {errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
+  // LIB-폴더로올리기(2026-10-30 명진 결정): 폴더 묶기에서는 바깥 파일을 폴더 줄에 놓아 그 폴더로 올린다(library-folder-upload-drop.spec.mjs).
+  // 그 밖의 묶기(사업영역)에서는 지금처럼 폴더 줄에 표시가 생기지 않는다(화면 끌어놓기 그대로).
+  test('안에서 시작한 끌기만 본다: 폴더 묶기가 아니면 바깥 파일을 끌어 올 때(Files) 폴더 표시가 생기지 않는다',async({page})=>{
+    const {errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'사업영역'});
     await expandLibraryTree(page);
     const marked=await page.evaluate(sel=>{const dst=document.querySelector(sel),dt=new DataTransfer();dt.items.add(new File(['x'],'x.pdf'));const r=dst.getBoundingClientRect();
       dst.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:r.left+5,clientY:r.top+r.height/2}));return dst.className},head('f:fa'));
