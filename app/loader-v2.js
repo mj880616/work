@@ -166,7 +166,7 @@
   const requested=areasAtStart?'meetings':viewLoader.normalize(rawRequested);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
-  const staticShellViews=new Set(['home','basket','calendar','tasks','journal','diary','library','meetings','pages','team']);
+  const staticShellViews=new Set(['home','basket','calendar','tasks','diary','library','meetings','pages','team']);
   await viewLoader.prepare(requested);
   window.KPTURouter?.noteAlias?.(rawRequested);
   const app=document.querySelector('#appView');
@@ -177,7 +177,7 @@
   }
 
   const controlView=control=>{
-    const explicit=control?.dataset?.view||control?.dataset?.goto||control?.dataset?.hdvGoto;
+    const explicit=control?.dataset?.view||control?.dataset?.goto;
     if(explicit)return viewLoader.normalize(explicit);
     if(control?.id==='quickTaskBtn'||control?.id==='newTaskBtn')return 'tasks';
     if(control?.id==='newEventBtn')return 'calendar';
@@ -187,12 +187,12 @@
     return null;
   };
   document.addEventListener('click',event=>{
-    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn');
+    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn');
     const view=controlView(control);
     if(!control||!view||viewLoader.isLoaded(view))return;
     event.preventDefault();event.stopImmediatePropagation();
     loadThen(view,()=>{
-      if(control.dataset?.view||control.dataset?.goto||control.dataset?.hdvGoto)window.KPTURouter?.go?.(view,{source:'delegated'});
+      if(control.dataset?.view||control.dataset?.goto)window.KPTURouter?.go?.(view,{source:'delegated'});
       else control.click();
     },()=>control.click());
   },true);

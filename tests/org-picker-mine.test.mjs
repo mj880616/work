@@ -27,7 +27,7 @@ const ALLOWED = Object.freeze({
   'app/basket-data.js': '정리함 기록에 이미 연결된 조직 이름 표시',
   'app/basket-classification.js': '정리함 AI 분류의 조직 이름 대조(다른 작업이 정리함 쪽을 고침)',
   'app/drive-summary.js': 'Drive 요약 내보내기 표 목록(고르기 칸 아님)',
-  'app/home-read.js': '홈 공용 읽기(조직·담당 행)만 한다. 기록할 곳 고르기는 update-places.js가 규칙을 적용한다',
+  'app/home-summary.js': '홈 빠른 입력 고르기 시트의 공용 읽기(조직·담당 행)만 한다. 기록할 곳 고르기는 update-places.js가 규칙을 적용한다',
   'app/calendar-ref-data.js': '캘린더 참고 일정의 조직 자동 판정(제목 이름 대조, 사람이 고르는 칸 아님)',
 });
 

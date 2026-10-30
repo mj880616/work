@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
-// UI-할일조작통일: (1) a home [오늘 할 일] row opens the task screen's editor and saves through the same Edge call,
+// UI-할일조작통일: (1) a home task row (HOME-업무일지홈: the home is the work journal; its 할 일 칸) opens the task screen's editor and saves through the same Edge call,
 // (2) the calendar date list has a ⋯ menu per task — TASK-바로처리통일: the shared task line (내일로 · 기한 바꾸기 · 고치기 · 지우기,
 // 지우기 asks first). Only remote APIs are synthetic.
 const ORIGIN = process.env.APP_E2E_ORIGIN || 'http://127.0.0.1:8123';
@@ -21,11 +21,12 @@ for (const width of [412, 1280]) {
       updates.push(body);
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, task: { id: body.task_id, taskListId: 'default', title: body.title, notes: body.notes || '', due: body.due || null, status: 'needsAction' } }) });
     });
-    const card = page.locator('[data-home-card="tasks"]');
-    const row = card.locator('[data-home-task="today"]');
+    const card = page.locator('#homeView [data-journal-group="todo"]');
+    const row = card.locator('li[data-journal-task="today"]');
     await expect(row).toBeVisible();
-    // The whole title area is the button; nothing is toggled by it.
-    await row.locator('[data-home-edit]').click();
+    // The whole title area is the button; nothing is toggled by it. It opens the task on the task screen in its editor.
+    await row.locator('.journal-item-open').click();
+    await expect(page.locator('#tasksView')).toBeVisible();
     await expect(page.locator('#gtTaskModal')).toBeVisible();
     await expect(page.locator('#gtEditTitle')).toHaveValue('오늘 항목');
     await expect(page.locator('#gtSaveBtn')).toBeEnabled();

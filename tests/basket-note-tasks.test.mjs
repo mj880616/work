@@ -128,8 +128,11 @@ test('head back: the list keeps its own button; opened from another screen it is
   assert.equal(mod.basketBackHtml(id,fallback,{context:{read:()=>({user:{id:'u1'},workspace:{id:'w2'}})}},{narrow:false}),fallback);
   mod.requestBasketNoteFrom(id,{view:'projects',id:'p1',name:'가'.repeat(mod.BACK_NAME_MAX+1)},rt);
   assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:false}),/<span class="basket-back-name">사업영역<\/span>/);
+  // HOME-업무일지홈: 업무일지는 홈이다(돌아가기 이름 '홈').
+  mod.requestBasketNoteFrom(id,{view:'home',id:'2026-10-06',name:'홈'},rt);
+  assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:false}),/aria-label="홈으로 돌아가기"><span aria-hidden="true">‹<\/span> <span class="basket-back-name">홈<\/span>/);
   mod.requestBasketNoteFrom(id,{view:'journal',id:'2026-10-06',name:'업무일지'},rt);
-  assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:false}),/aria-label="업무일지로 돌아가기"><span aria-hidden="true">‹<\/span> <span class="basket-back-name">업무일지<\/span>/);
+  assert.equal(mod.basketBackHtml(id,fallback,rt,{narrow:false}),fallback,'옛 화면 이름(journal)은 돌아갈 곳이 아니다');
   mod.requestBasketNoteFrom(id,{view:'team',id:'o2',name:'<b>"x"'},rt);
   assert.match(mod.basketBackHtml(id,fallback,rt,{narrow:false}),/&lt;b&gt;&quot;x&quot;/);
 });

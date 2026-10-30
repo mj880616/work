@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { projectDetailDocked } from './project-detail.mjs';
-// UI-중복제목삭제: with the PC top line (761px~) the open item's name is in the top line's place ("일정 › 업무일지 › 10월 6일 화요일") and the
+// UI-중복제목삭제: with the PC top line (761px~) the open item's name is in the top line's place ("담당조직 › 조직 이름") and the
 // screen's body has no title line of its own for it; below that width the body keeps its title line. Each helper checks whichever applies to
 // the page's width (프로젝트: to whether the detail is docked on the right, which is exactly when the top line names it).
 // Same shape as note-title.mjs (UI-상단줄제목 1차, the note).
@@ -16,13 +16,13 @@ async function expectTitle(page, text, { wide, bodyTitle, wideCount = 0 }) {
   }
 }
 
-// 업무일지: the chosen day. UI-화면정리 C: a phone (~760px) has no body title line either (the pressed day in the week row shows it);
-// the day card is named by aria-label there.
+// 업무일지 = 홈(HOME-업무일지홈): the chosen day is the head's title ([data-journal-title]) at every width; the day card has no title line of
+// its own (named by aria-label) and the PC top line stays '홈' (no item name).
 export async function expectJournalDay(page, text) {
-  const width = page.viewportSize()?.width || 0;
-  if (width > 760 || toplineShown(page)) return expectTitle(page, text, { wide: toplineShown(page), bodyTitle: '#journalRoot [data-journal-day-title]' });
+  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText(text);
   await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveCount(0);
   await expect(page.locator('#journalRoot [data-journal-day]')).toHaveAttribute('aria-label', text);
+  if (toplineShown(page)) await expect(toplineItem(page)).toHaveText('홈');
 }
 // 일기: the open day.
 export const expectDiaryDay = (page, text) => expectTitle(page, text, { wide: toplineShown(page), bodyTitle: '#diaryRoot [data-diary-detail] h3' });

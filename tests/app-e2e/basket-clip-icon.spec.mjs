@@ -77,7 +77,7 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   await q.locator('[data-quick-mode="update"]').click();
   await expect(q.locator('[data-basket-file]')).toHaveCount(0);
   await expect(page.locator('#toast')).toHaveClass(/hidden/);
-  await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
+  await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
   await page.locator('[data-basket-row="n"]').click();
   await noteAction(page,'[data-basket-edit]');
   const detail = page.locator('[data-basket-detail]'), editor = detail.locator('[data-basket-text]');

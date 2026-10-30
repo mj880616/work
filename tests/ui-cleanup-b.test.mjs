@@ -76,18 +76,20 @@ test('① 화면 큰 제목은 공용 .screen-title(폰 머리줄·PC 위쪽 줄
   assert.match(read('suborganizations.js'), /class="so-team-title screen-title">담당조직</);
   assert.match(read('telegram-feed.js'), /feed-head-title screen-title" aria-hidden="true">텔레그램 소식</);
   assert.match(read('basket.js'), /const basketTitle=root\.querySelector\('\.basket-head > h2'\);basketTitle\.classList\.add\('a11y-only'\);/);
-  assert.match(read('topbar-actions.js'), /tasks:'할 일',journal:'업무일지',diary:'일기'/);
+  assert.match(read('topbar-actions.js'), /tasks:'할 일',diary:'일기'/);
 });
 
 test('② 고르지 않은 칩은 칠하지 않고, 글자 링크는 점선 밑줄을 쓰지 않는다', () => {
   for (const f of files.filter(x => x.endsWith('.css'))) assert.doesNotMatch(read(f), /underline dotted/, `${f}: 글자 링크는 실선 밑줄(공용 모양)`);
-  const home = read('home-read.css').replace(/\/\*[\s\S]*?\*\//g, '');
-  for (const m of home.matchAll(/\.home-chip(?:\.urgent)?(?:::before)?\s*\{([^}]*)\}/g)) assert.doesNotMatch(m[1], /background:\s*var\(--kptu-(?:primary|danger)-soft\)/);
+  // HOME-업무일지홈: 옛 홈 D-day 칩은 홈 그날 일정 칸의 .journal-dday-chip(테두리만).
+  const home = read('journal.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const m of home.matchAll(/\.journal-dday-chip(?:\.is-soon)?\{([^}]*)\}/g)) assert.doesNotMatch(m[1], /background:\s*var\(--kptu-(?:primary|danger)-soft\)/);
   assert.doesNotMatch(read('feed.css'), /\.feed-chip\{[^}]*background:var\(--kptu-surface-subtle\)/);
 });
 
 test('⑦ 폰 홈 할 일 동그라미도 할 일 색(회색 테두리 규칙 없음)', () => {
-  assert.doesNotMatch(read('home-read.css'), /\.home-task \.gt-check::before \{[^}]*border-color:\s*var\(--kptu-border\)/);
+  // HOME-업무일지홈: 홈 할 일 줄은 업무일지 줄(journal.css .journal-check)이다.
+  assert.doesNotMatch(read('journal.css'), /\.journal-check::before\s*\{[^}]*border-color:\s*var\(--kptu-border\)/);
 });
 
 test('⑧ 담당조직 단계 줄 [저장]은 바꾼 것이 있을 때만(한 화면 [저장] 하나)', () => {

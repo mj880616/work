@@ -5,7 +5,8 @@ import {mkdirSync} from 'node:fs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 
 const WIDTHS=[[412,915],[884,1000],[1440,900]];
-const VIEWS=['home','calendar','tasks','journal','diary','basket','library','team','projects','profile','telegram','calls','ledger','hwp'];
+// HOME-업무일지홈: 업무일지는 홈(home)이라 따로 열지 않는다.
+const VIEWS=['home','calendar','tasks','diary','basket','library','team','projects','profile','telegram','calls','ledger','hwp'];
 const DIR='test-results/ui-audit';
 
 // 사진과 함께 잰 값(잘림·가림)을 한 줄로 남긴다: 스크롤 칸 왼쪽 밖으로 밀려 닿을 수 없는 것, 글자가 칸보다 긴 버튼, 화면 아래 고정 줄·둥근 [+]에 가린 누를 것.

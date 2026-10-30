@@ -55,22 +55,11 @@ async function ready(page){
 }
 const openTasks=page=>page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
 const cached=page=>page.evaluate(k=>localStorage.getItem(k),CACHE_KEY);
-const HOME_CACHE_KEY='kptu_owner_cache:home-read-v1:home-test';
-for(const nextOwner of ['other-home-owner',''])test(`home display copy is cleared on ${nextOwner?'owner change':'logout'}`,async({page})=>{
-  const control=await openHome(page);await page.waitForFunction(()=>KPTUHome.metrics.readyAt);
-  const copy=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),HOME_CACHE_KEY);
-  expect(copy.owner).toBe('home-test');expect(copy.workspaceId).toBe('w');expect(copy.version).toBe(1);
-  // CAL-저장본먼저: event and calendar ids let a deleted event leave the home copy at once.
-  expect(Object.keys(copy.cards.calendar.rows[0]).sort()).toEqual(['allDay','calendarId','color','end','id','start','title']);
-  expect(copy.cards.tasks.tasks).toBeUndefined();
-  if(nextOwner)control.setUserId(nextOwner);
-  await page.evaluate(nextOwner=>{
-    const before=KPTURuntime.session.read();
-    KPTURuntime.session.write(nextOwner?{...before,user:{...before.user,id:nextOwner}}:null);
-  },nextOwner);
-  await expect.poll(()=>page.evaluate(k=>localStorage.getItem(k),HOME_CACHE_KEY).catch(()=>'navigating')).toBeNull();
-  if(nextOwner)await expect.poll(()=>page.evaluate(id=>JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:'+id)||'null')?.owner,nextOwner).catch(()=>'navigating')).toBe(nextOwner);
-  else await expect(page.locator('[data-home-card]')).toHaveCount(0);
+// HOME-업무일지홈: 옛 홈 칸 화면의 표시 사본(home-read-v1)은 화면과 함께 없앴다. 새 홈(업무일지)은 그런 사본을 만들지 않는다.
+test('the home keeps no display copy of its own',async({page})=>{
+  await openHome(page);
+  await expect(page.locator('#homeView [data-journal-group="todo"] li[data-journal-task="today"]')).toBeVisible();
+  expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.includes('home-read-v1:')))).toEqual([]);
 });
 // Owner change and sign-out can navigate the page, so storage checks after them retry.
 const storageKeys=page=>page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('kptu_owner_cache:')).sort()).catch(()=>['navigating']);

@@ -50,7 +50,6 @@ jobs:
           # or a truly device-local UI preference. User-created/shared content must
           # always be persisted to the server.
           allowed={
-              'app/home-read.js':[r"'home-read-v1:'"],
               # SET-보기선택서버저장: 화면 선택은 서버(프로필 view_prefs)에 저장한다. 이 파일은 옛 기기 값을 서버로 한 번 옮긴 뒤 지우기 위해
               # 읽고(getItem)·지우기(removeItem)만 한다. 새로 쓰기(setItem)는 없다. 옮기기가 끝나면 이 줄과 LEGACY 목록을 지운다.
               'app/view-prefs.js':[r'globalThis\.localStorage'],
@@ -77,9 +76,9 @@ jobs:
               # dropped by KPTURuntime on sign-out or owner change.
               'app/google-tasks.js':[r'gtCacheKey\('],
               # CAL-저장본먼저(2026-10-22 사용자 승인): per-owner read copy of Google Calendar status and events per shown range (Google stays
-              # the source of truth, every visit reads again and replaces it), plus the existing home 오늘 일정 display copy, which the calendar
-              # refreshes. Both live under KPTURuntime.ownerCache, which sign-out and owner change clear.
-              'app/calendar-persistence.js':[r'cpCacheKey\(',r"'home-read-v1:'"],
+              # the source of truth, every visit reads again and replaces it), under KPTURuntime.ownerCache, which sign-out and owner change clear.
+              # (HOME-업무일지홈: 옛 홈 오늘 일정 사본 'home-read-v1:'은 홈 칸 화면과 함께 지웠다.)
+              'app/calendar-persistence.js':[r'cpCacheKey\('],
               'tests/app-e2e/calendar-cache-first.spec.mjs':[r'\blocalStorage\b'],
               'tests/app-e2e/public-workspace-auth.spec.mjs':[r'\blocalStorage\b'],
               # SEC-1 synthetic session adapter and a read-only assertion that
@@ -92,15 +91,6 @@ jobs:
                   r'^\s*'+re.escape(line)+r'\s*$' for line in (
                       'const localStorage={getItem:k=>rows.get(k)??null,setItem:(k,v)=>rows.set(k,v),removeItem:k=>rows.delete(k),get length(){return rows.size},key:i=>[...rows.keys()][i]};',
                       "vm.runInNewContext(readFileSync(new URL('../app/runtime-client.js',import.meta.url),'utf8'),{window,localStorage,fetch,performance,URL,URLSearchParams,AbortController,FormData,CustomEvent:class{},setTimeout,clearTimeout,console});",
-                  )
-              ],
-              # Synthetic stale-copy fixture only, scoped to the existing home-test display-cache key.
-              # This adds no application storage permission and permits no other key in this test file.
-              'tests/app-e2e/basket-link-home.spec.mjs':[
-                  r'^\s*'+re.escape(line)+r'\s*$' for line in (
-                      "const copy=JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:home-test'));",
-                      "localStorage.setItem('kptu_owner_cache:home-read-v1:home-test',JSON.stringify(copy));",
-                      "const cache=await page.evaluate(()=>JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:home-test')));",
                   )
               ],
               # ED-② 공유 사진: 사진 id·공유 사진 주소가 기기 저장소에 하나도 남지 않음을 확인하는 읽기 전용 단언(저장 사용 없음).

@@ -90,13 +90,14 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await day.click(); await expect(day).toHaveAttribute('aria-pressed', 'true'); await expect(page).toHaveURL(/[?&]day=2026-10-03(?:&|$)/);
     await reload(page);
     expect(await view(page)).toBe('diary'); await expect(day).toHaveAttribute('aria-pressed', 'true');
-    // 업무일지: 고른 날(?day=), [주간 정리](?mode=week)
-    await page.evaluate(() => window.KPTURouter.go('journal'));
+    // 업무일지 = 홈(HOME-업무일지홈): 고른 날(?day=), [주간 정리](?mode=week). 주소에 view는 없다.
+    await page.evaluate(() => window.KPTURouter.go('home'));
     await expect(page).not.toHaveURL(/[?&]day=/);
     const date = page.locator('#journalRoot [data-journal-date="2026-10-08"]');
     await date.click(); await expect(date).toHaveAttribute('aria-pressed', 'true'); await expect(page).toHaveURL(/[?&]day=2026-10-08(?:&|$)/);
+    await expect(page).not.toHaveURL(/[?&]view=/);
     await reload(page);
-    expect(await view(page)).toBe('journal'); await expect(date).toHaveAttribute('aria-pressed', 'true');
+    expect(await view(page)).toBe('home'); await expect(date).toHaveAttribute('aria-pressed', 'true');
     await page.locator('#journalRoot [data-journal-mode="week"]').click();
     await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible(); await expect(page).toHaveURL(/[?&]mode=week(?:&|$)/);
     await reload(page);

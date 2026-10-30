@@ -139,7 +139,7 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   await expect(rail.locator('.so-task-count')).toHaveCount(0);
   await expect(rail.locator('[data-so-dot]')).toHaveAttribute('data-so-at',/./);
   expect(await rail.locator('[data-so-dot]').evaluate(t=>{const d=new Date(Date.parse(t.dataset.soAt)+9*3600000).toISOString();return Number(d.slice(5,7))+'.'+Number(d.slice(8,10))})).toBe('1.9');
-  await page.waitForFunction(()=>window.KPTUHome?.metrics?.readyAt>0);
+  await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView .home-quick[data-home-quick]'));
   // The list itself asks Google for no organization; on a PC (ORG-PC좌우) only the detail opened on the right (the first
   // organization in the list, 전국철도노동조합) asks for its own tasks.
   await expect.poll(()=>calls.filter(c=>c.action==='linked').map(c=>c.query.organization_id)).toEqual([RAIL]);

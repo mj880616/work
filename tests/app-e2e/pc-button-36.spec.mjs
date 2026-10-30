@@ -75,7 +75,7 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await open(page,'meetings');await pcCompact(page.locator('#newMeetingBtn'),'사업 보고');/* BIZ-버튼줄정리(10/29): [+ 사업 보고]는 [+ 사업영역]처럼 작고 낮게 32px */
  await open(page,'library');await pcButton(page.locator('#newDocumentBtn'),'자료 등록');
  await open(page,'projects');await pcCompact(page.locator('#newProjectBtn'),'사업영역');
- await open(page,'journal');await pcButton(page.locator('#journalView [data-journal-save]'),'업무일지 저장');
+ await open(page,'home');await pcButton(page.locator('#homeView [data-journal-save]'),'업무일지 저장');
  // 홈: 입력칸·[크게]·[📎 첨부]·[추가]가 한 줄에서 같은 높이.
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
  const hi=await measure(home.locator('[data-quick-input]')),hs=await pcButton(home.locator('[data-quick-save]'),'홈 추가'),hc=await pcButton(home.getByRole('button',{name:'파일 첨부',exact:true}),'홈 첨부');

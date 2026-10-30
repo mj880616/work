@@ -95,7 +95,7 @@ for(const width of [390,1280]){
 
  test(`업무일지·공유 페이지·HWP 버튼 ${width}`,async({page})=>{
   const errors=await boot(page,width);
-  await go(page,'journal');await check(page.locator('#journalView [data-journal-save]'),36,'업무일지 [저장]');
+  await go(page,'home');await check(page.locator('#homeView [data-journal-save]'),36,'업무일지 [저장]');
   await go(page,'pages');await check(page.locator('#pagesView [data-sp-new]'),36,'[새 공유 페이지]');
   await go(page,'hwp');
   if(width<761){

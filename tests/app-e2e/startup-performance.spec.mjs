@@ -99,7 +99,10 @@ test('requested route is resolved before view-specific feature loading', async (
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
-  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal}");
+  // HOME-업무일지홈: 홈 = 업무일지(home 불러오기가 journal.js), 옛 journal 이름은 별칭.
+  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal}");
+  expect(viewLoader).toContain("async function home(){ await module('./journal.js'); return {ok:true} }");
+  expect(viewLoader).not.toContain("home-read.js");
 });
 
 test('direct feature URLs load one requested view and keep failures visible', async () => {

@@ -127,8 +127,8 @@ for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 고르기 →
  await expect(page.locator(`[data-basket-row-item="${n}"]`)).toContainText('합성 본부 사업(바뀐 이름)');
 
  // 주간 정리: 참고에만 붙인 소식은 조직 소식('미분류')·[복사] 글 어디에도 없다.
- await page.evaluate(()=>window.KPTURouter.go('journal'));
- await expect(page.locator('#journalView')).toBeVisible();
+ await page.evaluate(()=>window.KPTURouter.go('home'));
+ await expect(page.locator('#homeView')).toBeVisible();
  await page.locator('#journalRoot [data-journal-mode="week"]').click();
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible();
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('합성 본부 토론회');

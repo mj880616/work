@@ -63,7 +63,7 @@ const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,butt
 // names over the page for one choice (#appView.nav-open, this tab's memory only). From 1024px the pictures are not shown (PC as before).
 // The [일정] sub rows (할 일·업무일지·일기) stay one tap away there too: they are small pictures under the [일정] picture.
 const NS='http://www.w3.org/2000/svg';
-const SUB_ICONS={tasks:'M4 6.5 5.5 8 8 5M11 7h9M4 12.5 5.5 14 8 11M11 13h9M11 19h9M4.5 19h3',journal:'M6 3h12v18H6zM9 7h6M9 11h6M9 15h4',diary:'M5 5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 1h11v-3M9 7h5'};
+const SUB_ICONS={tasks:'M4 6.5 5.5 8 8 5M11 7h9M4 12.5 5.5 14 8 11M11 13h9M11 19h9M4.5 19h3',diary:'M5 5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 1h11v-3M9 7h5'};
 const iconRows=[...buttonByKey].map(([key,button])=>[button,itemOf(key)?.icon]);
 appNav?.querySelectorAll('.nav-sub-btn[data-view]').forEach(button=>iconRows.push([button,SUB_ICONS[button.dataset.view]]));
 iconRows.forEach(([button,d])=>{
@@ -177,8 +177,7 @@ const syncKeyboard=()=>window.KPTUA11y?.keyboard?.sync?.();
 menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
-  document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'})[event.detail?.view]||''}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -363,16 +362,15 @@ window.addEventListener('kptu:view-changed',event=>{
 paintSteps();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
-const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule',reference:'team',projects:'reports'};
+const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'team',projects:'reports'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'담당조직',view:'team'},reports:{name:'사업 보고',view:'meetings'}};
-const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'사업영역 관리',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'};
+const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 const whereItems=new Map();
 function paintWhere(view=window.KPTURouter?.current){
   if(!whereList)return;
-  // Home only: the date sits beside the location (the PC counterpart of the phone header date); view-loader fills its text.
-  topline.querySelector('[data-topline-date]')?.toggleAttribute('hidden',view!=='home');
+  // HOME-업무일지홈: 홈 본문 맨 위가 고른 날짜 제목이라(journal.js) 상단 줄에는 날짜를 두지 않는다.
   const parts=[];
   const groupKey=GROUPS[view]||null;
   if(groupKey)parts.push({name:GROUP_HEAD[groupKey].name,go:GROUP_HEAD[groupKey].view});

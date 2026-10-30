@@ -118,7 +118,7 @@ async function basket(page){
   return r.fulfill({json:{ok:true,created:1,existing:0}});});
  return {errors,deleted,confirmed,links};
 }
-async function openList(page,width){await tap(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row="n"]')).toBeVisible();return page.locator('[data-basket-row-item="n"]');}
+async function openList(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row="n"]')).toBeVisible();return page.locator('[data-basket-row-item="n"]');}
 // The × paints 24px but answers anywhere in a 44px square around its center.
 async function hitArea(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;return [[-21,0],[21,0],[0,-21],[0,21]].every(([dx,dy])=>el.contains(document.elementFromPoint(cx+dx,cy+dy)));});}
 

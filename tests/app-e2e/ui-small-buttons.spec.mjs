@@ -123,15 +123,15 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  }
  const fabOf={calendar:'#calendarView .calendar-toolbar #newEventBtn',diary:'#diaryRoot #newDiaryBtn'};
  const fabAbove=async(sel,row)=>{const b=await page.locator(sel).boundingBox();expect(Math.round(row.y-(b.y+b.height))).toBe(6+12+4);};
- // 일정: [달력] → [할 일] → [업무일지] → [일기], each choice changes the screen; the [+] stays at one spot above the row.
+ // 일정: [달력] → [할 일] → [일기] (HOME-업무일지홈: 업무일지는 홈), each choice changes the screen; the [+] stays at one spot above the row.
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  await expect(page.locator('#calendarView')).toBeVisible();
- let row=await dock('#calendarView .schedule-switch',['달력','할 일','업무일지','일기'],'달력');
+ let row=await dock('#calendarView .schedule-switch',['달력','할 일','일기'],'달력');
  await fabAbove(fabOf.calendar,row);const spot=await page.locator(fabOf.calendar).boundingBox();
- for(const [view,label] of [['tasks','할 일'],['journal','업무일지'],['diary','일기'],['calendar','달력']]){
+ for(const [view,label] of [['tasks','할 일'],['diary','일기'],['calendar','달력']]){
   await page.locator(`#appView .view-panel:not(.hidden) > .schedule-switch [data-view="${view}"]`).tap();
   await expect(page.locator(`#${view}View`)).toBeVisible();await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe(view);
-  row=await dock(`#${view}View .schedule-switch`,['달력','할 일','업무일지','일기'],label);
+  row=await dock(`#${view}View .schedule-switch`,['달력','할 일','일기'],label);
   if(fabOf[view]){const b=await page.locator(fabOf[view]).boundingBox();expect({x:Math.round(b.x),y:Math.round(b.y)}).toEqual({x:Math.round(spot.x),y:Math.round(spot.y)});}
  }
  // 달력 끝 여백(::after)이 탭 + 전환 줄 + [+] 만큼(56 + 44 + 12 + 44 + 8): 끝까지 내려도 마지막 줄이 가리지 않는다.
@@ -164,8 +164,8 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  await expect(page.locator('#basketView [data-inbox-todo-section]')).toBeHidden();
  await page.locator('[data-basket-close]').tap();await expect(page.locator('#basketView [data-inbox-todo-section]')).toBeVisible();
  // One painter per screen: each switch is the screen's own element, there is no second copy anywhere.
- expect(await page.locator('.schedule-switch').count()).toBe(4);expect(await page.locator('.basket-kind-switch').count()).toBe(0);expect(await page.locator('.inbox-pane-switch').count()).toBe(0);
- for(const v of ['calendar','tasks','journal','diary'])expect(await page.locator(`#${v}View > .schedule-switch`).count()).toBe(1);
+ expect(await page.locator('.schedule-switch').count()).toBe(3);await expect(page.locator('#homeView > .schedule-switch')).toHaveCount(0);expect(await page.locator('.basket-kind-switch').count()).toBe(0);expect(await page.locator('.inbox-pane-switch').count()).toBe(0);
+ for(const v of ['calendar','tasks','diary'])expect(await page.locator(`#${v}View > .schedule-switch`).count()).toBe(1);
  expect(await noWideScroll(page)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

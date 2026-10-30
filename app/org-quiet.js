@@ -5,7 +5,7 @@
 // - 읽기는 모두 로그인 토큰 REST(소유자 RLS 그대로): 담당조직·담당 행, 주요 인물(app_org_key_people), 업무 통화(손 고침 반영. 개인 통화함은 설계 3.2대로 읽지 않음),
 //   텔레그램 보낸 사람 이름표(tg-sender-data.js), 그리고 '나'와 주요 인물이 함께 있는 방·날의 원문만. 새 표·새 함수·AI 없음(비용 0원).
 // - 한 곳이라도 읽지 못하면 줄을 숨긴다(틀린 '연락 없음'을 보이지 않기 위해). 조용한 조직이 없거나 기준이 '끄기'면 줄을 그리지 않는다.
-// - 기준 주 수는 서버 화면 기억(view_prefs.quiet_weeks, 홈 편집에서 고름). 화면 사본은 두지 않는다(기기 저장 없음).
+// - 기준 주 수는 서버 화면 기억(view_prefs.quiet_weeks, 내 프로필 '수집·사용량' 칸에서 고름 — HOME-업무일지홈). 화면 사본은 두지 않는다(기기 저장 없음).
 import {viewPrefs} from './view-prefs.js';
 import {selectMyOrganizations} from './my-organizations.js';
 import {readRecordPages} from './basket-link-records.js';
