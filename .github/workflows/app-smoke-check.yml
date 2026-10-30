@@ -835,6 +835,9 @@ jobs:
           if test -e app/mobile-dock.js || test -e app/mobile-dock.css; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q 'app_workspace_members' app/team.js
 
+      - name: Check weekly feedback loop model (WEEKLY-환류학습)
+        run: node --test tests/weekly-feedback.test.mjs
+
       - name: Check notification removal
         run: |
           set -e
