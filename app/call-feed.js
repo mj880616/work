@@ -84,7 +84,7 @@ async function loadRaw(id) {
   state.raw.set(id, {loading:true});
   try { const r = await (personal ? readPersonalRaw(id, rt) : readRaw(id, rt)); state.raw.set(id, r ? {raw_text:r.raw_text, speaker_split:!!r.speaker_split} : {raw_text:null}); }
   catch { state.raw.set(id, {error:true}); }
-  if (state.selected === id) paintDetail();
+  if (state.selected === id) paintRaw(id);
 }
 
 // 다시 그리는 동안 일어나는 초점 잃음(blur)은 '바깥을 눌렀다'가 아니다: 제목 입력의 자동 저장이 이때는 일하지 않게 표시해 둔다.
@@ -166,6 +166,27 @@ function paintListNow() {
 }
 const statusHtml = () => esc(state.status) + (undo ? `${undo.type === 'edit' ? ' ·' : ''} <button type="button" class="feed-text-btn" data-cf-undo>되돌리기</button>` : '')
   + (ledgerAsk?.total ? ` <span class="feed-faint">이 통화에서 원장에 들어간 기록 ${ledgerAsk.total}개는 남아요${ledgerAsk.ledgerIds.length ? ' ·' : ''}</span>${ledgerAsk.ledgerIds.length ? ' <button type="button" class="feed-text-btn" data-cf-ledger-retire>원장에서도 틀림으로</button>' : ''}` : '');
+// 전문 칸(펼치기). 전문이 늦게 도착하면 이 칸만 새로 그린다(loadRaw → paintRaw): 상세 전체를 다시 그리면 열린 ⋯ 메뉴의 버튼이
+// 바뀌어 메뉴에서 고른 항목(조직 연결 등)이 버려진다(anchored-menu.js는 사라진 버튼의 메뉴 항목을 실행하지 않는다).
+function fullHtml(r) {
+  const raw = state.raw.get(r.id);
+  let script;
+  if (!raw || raw.loading) script = waitHtml({rows:3});
+  else if (raw.error) script = '<p class="feed-faint">전문을 불러오지 못했어요.</p>';
+  else if (!raw.raw_text) script = emptyHtml('전문 없음 · 원본은 Drive', {attrs: 'data-cf-raw-empty'});
+  else if (raw.speaker_split) script = `<div class="feed-script" data-cf-script="lines">${speakerLines(raw.raw_text).map(l => `<p class="${l.me ? 'is-me' : ''}"><b>${esc(l.who)}</b><span>${esc(l.text)}</span></p>`).join('')}</div>`;
+  else script = `<div class="feed-script feed-script-one" data-cf-script="one">${esc(raw.raw_text)}</div>`;
+  const badge = raw && raw.raw_text && !raw.speaker_split ? '<span class="feed-badge">화자 구분은 전사 수정 뒤</span>' : '';
+  return `<details class="feed-full" data-cf-full${state.rawOpen ? ' open' : ''}><summary>${state.rawOpen ? '전문 접기' : '전문 펼치기'} <span class="feed-ar" aria-hidden="true">▾</span>${badge}</summary>${script}</details>`;
+}
+function paintRaw(id) {
+  const old = $(`#cfDetail [data-cf-detail="${CSS.escape(id)}"] [data-cf-full]`), r = rowOf(id);
+  if (!old || !r) { paintDetail(); return; }
+  const t = document.createElement('template'), focused = old.contains(document.activeElement);
+  t.innerHTML = fullHtml(r); const next = t.content.firstElementChild;
+  guardRender(() => old.replaceWith(next))();
+  if (focused) next.querySelector('summary')?.focus({preventScroll:true});
+}
 function paintDetailNow() {
   const box = $('#cfDetail'), back = pc.matches ? '' : '<button type="button" class="back-text" data-cf-back>‹ 통화</button>';
   const r = rowOf(state.selected);
@@ -176,15 +197,7 @@ function paintDetailNow() {
   const points = readPoints(r.points);
   const pencil = state.editMissing ? '' : `<button type="button" class="feed-mini-edit" data-cf-sum-open aria-label="핵심내용 고치기" title="핵심내용 고치기"${state.busy ? ' disabled' : ''}><span aria-hidden="true">✎</span></button>`;
   const pointsHtml = state.sum?.rowId === r.id ? sumBoxHtml(r) : points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용${r.edited?.points ? ' <span class="feed-faint">· 고친 값</span>' : ''}</p><span class="feed-k-tools">${pencil}${copyButtonHtml('data-cf-copy')}</span></div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : emptyHtml('핵심내용 없음').replace('</p>', `${r.edited?.points || state.editMissing ? '' : ' <button type="button" class="feed-text-btn" data-cf-sum-open>직접 쓰기</button>'}</p>`);
-  const raw = state.raw.get(r.id);
-  let script;
-  if (!raw || raw.loading) script = waitHtml({rows:3});
-  else if (raw.error) script = '<p class="feed-faint">전문을 불러오지 못했어요.</p>';
-  else if (!raw.raw_text) script = emptyHtml('전문 없음 · 원본은 Drive', {attrs: 'data-cf-raw-empty'});
-  else if (raw.speaker_split) script = `<div class="feed-script" data-cf-script="lines">${speakerLines(raw.raw_text).map(l => `<p class="${l.me ? 'is-me' : ''}"><b>${esc(l.who)}</b><span>${esc(l.text)}</span></p>`).join('')}</div>`;
-  else script = `<div class="feed-script feed-script-one" data-cf-script="one">${esc(raw.raw_text)}</div>`;
-  const badge = raw && raw.raw_text && !raw.speaker_split ? '<span class="feed-badge">화자 구분은 전사 수정 뒤</span>' : '';
-  const full = `<details class="feed-full" data-cf-full${state.rawOpen ? ' open' : ''}><summary>${state.rawOpen ? '전문 접기' : '전문 펼치기'} <span class="feed-ar" aria-hidden="true">▾</span>${badge}</summary>${script}</details>`;
+  const full = fullHtml(r);
   const link = !personal && state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'cf') : '';
   const confirm = state.confirm?.id === r.id ? `<div class="feed-warn" data-cf-confirm role="alert"><p>${esc(state.confirm.text)}</p><div class="feed-link-actions"><button type="button" class="feed-small" data-cf-confirm-go>개인 통화로 옮기기</button><button type="button" class="feed-small" data-cf-confirm-cancel>취소</button></div></div>` : '';
   const decide = unsure ? `<div class="feed-decide" data-cf-decide-bar><span class="feed-faint">업무 통화인지 개인 통화인지 정해 주세요</span>${decideHtml(r.id)}</div>` : '';
