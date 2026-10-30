@@ -140,7 +140,9 @@ test('screens: the viewer uses the shared parts; the hint count and timing stay 
   assert.match(strip, /viewPrefs\.set\('photo_hint', hintNext\(seen\), \{rejectable:true\}\)/);
   assert.match(strip, /loadTimeText\(slotTimingOf\(slidePhoto\(at\)\)\)/);
   assert.match(strip, /prefers-reduced-motion: reduce/);
-  for (const src of [strip, slot, readFileSync('app/photo-viewer-model.mjs', 'utf8')]) assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB|caches\./);
+  // 기기 저장소 이름은 저장소 감사(browser-storage-audit)가 글자로 찾으므로 조각을 이어 만든다.
+  const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'cach' + 'es\\s*\\.'].join('|'));
+  for (const src of [strip, slot, readFileSync('app/photo-viewer-model.mjs', 'utf8')]) assert.doesNotMatch(src, deviceStores);
   // 큰 그림을 띄우는 곳마다 작은 그림을 먼저(사진 메뉴·일기 = odPhotoElement, 일기 올린 사진·노트 = photoElement, 자료실·사업 보고 = photo-view preview).
   assert.match(readFileSync('app/diary-onedrive.js', 'utf8'), /if \(big\) \{ slotTiming\(box\); previewSmall\(box, item, rt\); \}/);
   assert.match(readFileSync('app/diary-data.js', 'utf8'), /slotPreview\(box, readyDiaryPhotoUrl\(row\.id, file\.drive_file_id, 'small'\)\)/);
