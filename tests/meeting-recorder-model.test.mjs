@@ -7,7 +7,7 @@ import {REC_PIECE_SECONDS,REC_SEGMENT_SECONDS,REC_MESSAGES} from '../supabase/fu
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
-test('간격은 서버 규칙과 같다(조각 5분·구간 59분), 32kbps',()=>{
+test('간격은 서버 규칙과 같다(조각 1분·구간 59분), 32kbps',()=>{
   assert.equal(PIECE_SECONDS,REC_PIECE_SECONDS);
   assert.equal(SEGMENT_SECONDS,REC_SEGMENT_SECONDS);
   assert.equal(AUDIO_BITS,32000);

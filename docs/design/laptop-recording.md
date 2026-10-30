@@ -10,7 +10,7 @@
 
 ```
 [녹음] 누름 ─ 마이크 허락 ─ MediaRecorder(한 구간 = 최대 59분)
-   │  5분마다 조각 ──► Edge meeting-transcribe ?action=rec_piece ──► 명진 Drive '웹2/회의자료/회의 녹음/녹음 조각'
+   │  1분마다 조각 ──► Edge meeting-transcribe ?action=rec_piece ──► 명진 Drive '웹2/회의자료/회의 녹음/녹음 조각'
    │                                                └► DB app_meeting_recordings(구간 1행: 조각 id 순서·크기·길이)
    │  59분이 되면 새 구간(rec_start, 같은 session_id) — 녹음은 끊김 없이 이어짐(띠 시간도 계속)
 [멈추고 정리] ─ rec_finish ─ 구간마다 조각을 차례로 이어 붙여 한 파일(회의 녹음 폴더)로 저장
@@ -37,7 +37,7 @@
 ## 3. DB: `app_meeting_recordings` (migration `20261029200000_meeting_recordings`)
 
 - 한 행 = 녹음 한 구간. `session_id`가 같으면 한 회의 녹음. `segment_no` 1~24(59분 × 24 ≈ 하루).
-- 칸: 작업공간·만든 사람·session_id·segment_no·status(`recording`→`closed`→`combined`, 또는 `empty`·`failed`)·error_code·mime_type(`audio/webm|ogg|mp4`)·piece_ids(Drive 조각 id 순서, 16개까지)·size_bytes(100MB까지 = 전사 작업 표와 같은 상한)·duration_sec(1시간까지)·job_id(합친 뒤 전사 작업)·pieces_trashed_at·closed_at·시각.
+- 칸: 작업공간·만든 사람·session_id·segment_no·status(`recording`→`closed`→`combined`, 또는 `empty`·`failed`)·error_code·mime_type(`audio/webm|ogg|mp4`)·piece_ids(Drive 조각 id 순서, 64개까지, 20261030120000에서 16 → 64: 1분 조각)·size_bytes(100MB까지 = 전사 작업 표와 같은 상한)·duration_sec(1시간까지)·job_id(합친 뒤 전사 작업)·pieces_trashed_at·closed_at·시각.
 - 소리·전사 글·요약 칸은 없다. 소리는 Drive, 글은 회의 기록에만.
 - 권한: authenticated는 소유자(`private.app_is_workspace_owner`) 읽기만. service_role(Edge)은 넣기 5칸·고치기 9칸·읽기, 지우기 없음. anon·PUBLIC 없음.
 - 작업공간마다 `recording` 상태는 한 행만(부분 유일 색인), 한 녹음 안 구간 번호는 겹치지 않음.
@@ -55,7 +55,7 @@
 
 - 조각을 이어 붙이는 이유: 브라우저 MediaRecorder가 `timeslice`로 내주는 조각은 첫 조각에만 머리가 있고 나머지는 이어지는 바이트라, 순서대로 이으면 그대로 한 파일이다(webm·ogg·mp4 조각 모두). 서버는 소리를 풀거나 다시 만들지 않는다(Edge에 ffmpeg 없음). 이어 붙이기는 Drive → Drive 흘려 보내기라 Edge 메모리에 다 담지 않는다.
 - 조각이 하나라도 빠지면 그 뒤 소리가 깨지므로 서버는 순서를 강제하고(`piece_gap`), 화면은 실패한 조각을 **메모리에 두고** 같은 번호로 다시 보낸다(기기 저장 없음).
-- 창을 닫거나 노트북이 꺼지면 마지막 5분 안쪽만 잃는다. 다시 열면 `rec_pending` → '이어서 정리' → `rec_finish`.
+- 창을 닫거나 노트북이 꺼지면 마지막 1분 안쪽만 잃는다. 다시 열면 `rec_pending` → '이어서 정리' → `rec_finish`.
 - 정리(`sweep`, config·rec_pending이 부를 때마다): 합친 구간 중 조각 휴지통이 안 끝난 것 다시 시도, 30일 넘게 합치지 못한 구간은 조각을 휴지통으로 옮기고 `failed`(`expired`). 휴지통은 '녹음 조각' 폴더 바로 아래 파일만(`_shared/drive-trash.ts`).
 - 로그에는 조각 내용·전사 글·파일 이름을 찍지 않는다(오류 코드만).
 
@@ -76,7 +76,7 @@
 
 ## 7. 보안·저장 원칙
 
-- 기기 저장 없음: 녹음 중 조각은 올릴 때까지 메모리에만 있고, 5분마다 서버로 간다(`localStorage`·IndexedDB 안 씀).
+- 기기 저장 없음: 녹음 중 조각은 올릴 때까지 메모리에만 있고, 1분마다 서버로 간다(`localStorage`·IndexedDB 안 씀).
 - 로그인 + 소유자 + 본인 행만. Drive 휴지통은 앱이 만든 폴더 바로 아래 파일만. 표에 지우기 권한 없음.
 - 비밀값(Gemini 키·Drive 열쇠)은 Edge 환경·기존 설정 표에만. 화면·로그·PR에 없음.
 - 같은 Gemini 키(`GEMINI_API_KEY`)는 프로젝트 하나다. MULTI(노조 사용자) 2단계에서 사람별 키·상한을 나눌 때 이 길도 함께 본다(지금은 소유자 한 명).
@@ -102,3 +102,11 @@
 3. 2단계 화면 PR.
 
 되돌리기: 화면 → Edge(이전 운영 소스 SHA로 재배포) → DB rollback(SQL Editor, 새 표 1개·기록 1행만). 소리 파일은 Drive에 남는다.
+
+## 조각 1분 (MTG-녹음1분조각, 요청함 10/30 11:15)
+
+- 조각 간격 5분 → 1분: 창이 닫혀도 잃는 소리는 최대 1분. 간격은 서버가 정하고(`REC_PIECE_SECONDS`), `rec_start` 답 `piece_seconds`·`max_pieces`(구간 조각 한도 60)로 노트북 화면·폰 앱이 함께 따른다. 옛 서버는 300을 주므로 화면이 먼저 배포돼도 5분으로 보낸다.
+- 한 구간(59분)에 조각이 약 60개라 DB 조각 수 상한을 16 → 64로 넓힌다(migration `20261030120000_meeting_recording_pieces_64`). **적용 순서: DB → Edge `meeting-transcribe`.** 반대로 하면 17번째 조각부터 막힌다.
+- 서버는 조각 길이를 고정으로 보지 않는다(크기는 Drive 실제 크기 합, 길이는 `x-duration-sec`). 옛 5분 조각 구간·1분 조각 구간이 한 녹음에 섞여도 같은 길로 잇는다.
+- [멈추고 정리](`rec_finish`): 조각 크기 확인·휴지통 넣기·되돌리기의 Drive 호출은 6개씩 동시에, 이어 붙이기는 다음 조각을 미리 요청한다. 새 구간 합치기는 한 번에 120초까지 시작하고 넘으면 `more`(화면이 다시 부름).
+- 끊긴 녹음으로 보는 조용한 시간 12분 → 7분('이어서 정리'가 더 빨리 보임).

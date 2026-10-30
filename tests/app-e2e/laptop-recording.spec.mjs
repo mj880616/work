@@ -9,14 +9,14 @@ test.use({timezoneId:'Asia/Seoul'});
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
-// 가짜 녹음기: timeslice는 무시하고 시험이 __fakeRec.emit()으로 조각을 낸다. stop()은 마지막 조각 → stop.
+// 가짜 녹음기: timeslice는 기록만 하고(조각 간격 확인) 시험이 __fakeRec.emit()으로 조각을 낸다. stop()은 마지막 조각 → stop.
 async function fakeRecorder(page){
   await page.addInitScript(()=>{
     const recs=[];
     class FakeRecorder extends EventTarget{
       constructor(stream,opts={}){super();this.stream=stream;this.mimeType=opts.mimeType||'';this.state='inactive';this.n=0;recs.push(this)}
       static isTypeSupported(t){return String(t).startsWith('audio/webm')}
-      start(){this.state='recording'}
+      start(timeslice){this.state='recording';this.timeslice=timeslice}
       pause(){this.state='paused'}
       resume(){this.state='recording'}
       requestData(){this.chunk()}
@@ -25,12 +25,12 @@ async function fakeRecorder(page){
     }
     window.MediaRecorder=FakeRecorder;
     const track={stopped:false,stop(){this.stopped=true}};
-    window.__fakeRec={recs,track,emit(){recs.at(-1)?.chunk()},state(){return recs.at(-1)?.state||''}};
+    window.__fakeRec={recs,track,emit(){recs.at(-1)?.chunk()},state(){return recs.at(-1)?.state||''},slices(){return recs.map(r=>r.timeslice)}};
     Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>({getTracks:()=>[track]})}});
   });
 }
 
-async function mock(page,{pending=[],pieceFails=1}={}){
+async function mock(page,{pending=[],pieceFails=1,rec=null}={}){
   const calls=[];
   let pendingServed=false;
   await page.route(`${SB}/**`,async route=>{
@@ -51,7 +51,10 @@ async function mock(page,{pending=[],pieceFails=1}={}){
       if(action==='rec_pending'){const sessions=typeof pending==='function'?pending(calls):pendingServed?[]:pending;pendingServed=true;return ok({ok:true,sessions})}
       if(action==='rec_discard')return ok({ok:true,session_id:body.session_id,discarded:1,trashed:true});
       if(action==='rec_restore')return ok({ok:true,session_id:body.session_id,restored:1});
-      if(action==='rec_start')return ok({ok:true,recording_id:'00000000-0000-4000-8000-000000000001',session_id:'00000000-0000-4000-8000-0000000000aa',segment_no:1,piece_seconds:300,segment_seconds:3540});
+      if(action==='rec_start'){
+        if(rec){const n=recCalls(calls,'rec_start').length;return ok({ok:true,recording_id:`00000000-0000-4000-8000-00000000000${n}`,session_id:'00000000-0000-4000-8000-0000000000aa',segment_no:n,...rec})}
+        return ok({ok:true,recording_id:'00000000-0000-4000-8000-000000000001',session_id:'00000000-0000-4000-8000-0000000000aa',segment_no:1,piece_seconds:300,segment_seconds:3540});
+      }
       if(action==='rec_piece'){
         if(pieceFails>0){pieceFails--;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({ok:false,error:'잠시 뒤 다시'})})}
         return ok({ok:true,pieces:Number(headers['x-piece-seq'])});
@@ -107,6 +110,8 @@ test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 �
   await expect(rec).toHaveText('녹음 중');
   await expect(rec).toBeDisabled();
   expect(recCalls(calls,'rec_start')[0].body).toEqual({workspace_id:'rec-ws',mime:'audio/webm'});
+  // 옛 서버(piece_seconds 300)면 화면도 5분 조각으로 보낸다(화면이 먼저 배포돼도 옛 서버 조각 상한 16을 넘지 않음).
+  expect(await page.evaluate(()=>window.__fakeRec.slices())).toEqual([300000]);
   const b=await band.boundingBox();
   expect(b.y).toBe(0);expect(b.height).toBeLessThanOrEqual(32);expect(b.width).toBeGreaterThan(1300);
   // 띠가 본문을 가리지 않는다(본문이 띠 높이만큼 내려감).
@@ -189,6 +194,36 @@ for(const width of [412,884]){
     expect(calls.filter(c=>c.action.startsWith('rec_')).length).toBe(0);
   });
 }
+
+// 요청함 10/30 11:15: 녹음 조각 1분(서버가 rec_start로 간격·구간 조각 한도를 알려 줌).
+test('PC: 서버가 1분 조각을 알려 주면 1분 간격으로 보내고, 조각 한도에 닿으면 같은 녹음의 새 구간으로 넘어가 이어 보낸다',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1440,height:900});
+  const calls=await signIn(page,{pieceFails:0,rec:{piece_seconds:60,segment_seconds:3540,max_pieces:4}});
+  await page.locator('#reportRecordBtn').click();
+  const band=page.locator('#recBand');
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  expect(await page.evaluate(()=>window.__fakeRec.slices())).toEqual([60000]);
+  const pieces=()=>recCalls(calls,'rec_piece').map(c=>`${c.rid.slice(-1)}:${c.seq}`);
+  // 1분마다 한 조각씩 바로 서버로(순서대로 1·2·3).
+  for(let i=1;i<=3;i++){
+    await page.evaluate(()=>window.__fakeRec.emit());
+    await expect.poll(pieces,{timeout:10000}).toEqual(Array.from({length:i},(_,k)=>`1:${k+1}`));
+  }
+  // 4번째 조각 = 구간 조각 한도: 새 녹음기(같은 1분 간격)를 켜고 앞 녹음기를 멈춘다(마지막 조각 5).
+  await page.evaluate(()=>window.__fakeRec.emit());
+  await expect.poll(()=>page.evaluate(()=>window.__fakeRec.slices()),{timeout:10000}).toEqual([60000,60000]);
+  await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','1:3','1:4','1:5']);
+  await expect.poll(()=>recCalls(calls,'rec_start').map(c=>c.body.session_id??null),{timeout:10000}).toEqual([null,'00000000-0000-4000-8000-0000000000aa']);
+  await page.evaluate(()=>window.__fakeRec.emit());
+  await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','1:3','1:4','1:5','2:1']);
+  expect(await page.evaluate(()=>window.__fakeRec.recs[0].state)).toBe('inactive');
+  // 멈추고 정리: 새 구간 마지막 조각 → rec_finish
+  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','1:3','1:4','1:5','2:1','2:2']);
+  await expect.poll(()=>recCalls(calls,'rec_finish').length,{timeout:10000}).toBe(1);
+  await expect(page.locator('#meetingModal')).toBeVisible({timeout:10000});
+});
 
 // 요청함 10/30 10:01: [버리기] — 멈추고 정리 말고 취소하고 버리기, 위쪽 작은 알림 [되돌리기] 10초.
 const LIVE='00000000-0000-4000-8000-0000000000aa';
