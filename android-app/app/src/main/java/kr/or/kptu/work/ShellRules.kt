@@ -258,4 +258,7 @@ object ShellRules {
         }
         return sb.append('"').toString()
     }
+
+    /** APP-당겨서새로고침: 당기기를 받아도 되는지. 웹이 이 손가락에 pull:on을 보냈고, 웹 화면 자체가 맨 위이고, 웹2 화면일 때만. */
+    fun pullReady(webSaidOn: Boolean, scrollY: Int, internal: Boolean): Boolean = webSaidOn && scrollY <= 0 && internal
 }

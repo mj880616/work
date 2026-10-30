@@ -25,3 +25,45 @@ export function putBack(list, photo, index) {
   out.splice(Math.max(0, Math.min(out.length, index)), 0, photo);
   return out;
 }
+
+// PHOTO-스와이프안내(2026-10-30 명진 결정 "스와이프 모션 좋아"): 손가락을 따라 사진이 움직이는 세로 밀기.
+// - 손가락이 DRAG_START px 넘게 움직이면 방향을 정한다: 세로가 가로의 SWIPE_RATIO배 이상이면 세로(사진이 따라 움직임), 아니면 가로(넘기기는 브라우저).
+//   두 손가락·확대 중이면 none(움직이지 않음).
+// - 놓을 때: 위로 STAR_DIST 넘게 = 별표 토글, 아래로 CLOSE_DIST 넘게 = 닫기, 그 밖 = 제자리(별표 안 됨).
+export const DRAG_START = 10, STAR_DIST = 96, CLOSE_DIST = 120;
+export function dragAxis({dx = 0, dy = 0, fingers = 1, zoomed = false} = {}) {
+  if (fingers !== 1 || zoomed) return 'none';
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (Math.max(ax, ay) < DRAG_START) return null;
+  return ay >= ax * SWIPE_RATIO ? 'y' : 'x';
+}
+export function dragEnd(dy = 0) {
+  if (!Number.isFinite(dy)) return 'back';
+  if (-dy >= STAR_DIST) return 'star';
+  if (dy >= CLOSE_DIST) return 'close';
+  return 'back';
+}
+// 위로 민 거리만큼 별이 차오르는 정도(0~1).
+export const starFill = dy => (Number.isFinite(dy) ? Math.max(0, Math.min(1, -dy / STAR_DIST)) : 0);
+// 사진이 손가락을 따라가는 거리: 위로는 별표 거리를 조금 넘어서부터 무겁게(고무줄), 아래로는 그대로.
+export function dragOffset(dy = 0) {
+  if (!Number.isFinite(dy)) return 0;
+  if (dy >= 0) return dy;
+  const lim = STAR_DIST * 1.25;
+  return -dy <= lim ? dy : -(lim + (-dy - lim) * 0.35);
+}
+// 손동작 안내: 처음 HINT_TIMES번 크게 보기를 열 때만. 본 횟수는 서버(view_prefs.photo_hint, 0~9 정수)에 둔다(기기 저장 없음).
+export const HINT_TIMES = 3, HINT_MAX = 9;
+export const hintSeen = v => (Number.isInteger(v) && v >= 0 ? Math.min(HINT_MAX, v) : 0);
+export const hintDue = (v, times = HINT_TIMES) => hintSeen(v) < times;
+export const hintNext = v => Math.min(HINT_MAX, hintSeen(v) + 1);
+export const HINT_TEXT = '↑ 위로 밀면 별표 · 아래로 밀면 닫기';
+// [ⓘ 정보] '불러오기' 한 줄(PHOTO-크게보기빨리): t = {start, url, shown}(밀리초, 같은 시계). 다 뜨기 전이면 빈 값(줄 없음, 뜨면 다시 그린다).
+const sec = ms => (Math.max(0, ms) / 1000).toFixed(1);
+export function loadTimeText(t) {
+  if (!t || !Number.isFinite(t.start)) return '';
+  if (!Number.isFinite(t.shown)) return '';
+  const total = sec(t.shown - t.start);
+  if (!Number.isFinite(t.url)) return `${total}초`;
+  return `${total}초 (주소 ${sec(t.url - t.start)} · 사진 ${sec(t.shown - t.url)})`;
+}

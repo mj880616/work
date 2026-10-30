@@ -99,7 +99,7 @@ for (const width of [390, 1280]) {
     // Press the preview: the large photo, closed by × (and focus returns to the preview).
     await press(page, thumb, width);
     const view = page.locator('[data-basket-photo-view]');
-    await expect(view).toBeVisible(); await expect(view.locator('img')).toBeVisible();
+    await expect(view).toBeVisible(); await expect(view.locator('img:not(.img-slot-preview)')).toBeVisible();
     expect(f.photos).toContainEqual({ action: 'photo', note_id: U, file_id: 'drive-photo', size: 'large' });
     await press(page, view.getByRole('button', { name: '크게 보기 닫기' }), width);
     await expect(view).toHaveCount(0); await expect(thumb).toBeFocused();

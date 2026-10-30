@@ -141,7 +141,7 @@
   /* 3/3 2부(8-9e-2) 폰 배치: 하단 탭 바로 위에 떠 있는 동그란 [+](보이는 크기 36px, 누르는 범위 --kptu-touch-target 44px)와 탭 사이 간격. */
   --ds-fab-size:36px;--ds-fab-gap:12px;
   /* JOURNAL-일기: 사진 위 글자·가림 막과 크게 보기 바탕. 사진 위라 밝은·어두운 화면에서 같은 값. --ds-photo-paper는 투명 사진을 JPEG로 줄일 때 바탕. */
-  --ds-photo-ink:#fff;--ds-photo-scrim:rgba(0,0,0,.5);--ds-photo-stage:#000;--ds-photo-paper:#fff;
+  --ds-photo-ink:#fff;--ds-photo-scrim:rgba(0,0,0,.5);--ds-photo-stage:#000;--ds-photo-paper:#fff;--ds-photo-star:#e3b341;
   /* UI-화면색재정리: 빨강 테마에서 경고 버튼·삭제 메뉴 앞에 붙는 삼각 느낌표 모양(선 모양만, 색은 글자 색). */
   --ds-warn-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 2.5 18.5 17.5H1.5Z M10 8v4.5 M10 14.4v.1' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E");
   /* 동그란 [+]의 + 아이콘(선 두 개, 가운데 정렬). 모양만 쓰고 색은 버튼 글자 색(--kptu-on-primary). */

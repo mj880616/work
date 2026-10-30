@@ -42,10 +42,12 @@ export const PHOTO_VIEW_SORTS = Object.freeze(['taken_desc', 'taken_asc', 'uploa
 export const NOTE_VIEWS = Object.freeze(['folder', 'list', 'board']);
 // NOTE-보드여러개: note_boards = 포스트잇 보드 목록 [{id, name}](12개까지, id 'b'+소문자 영문·숫자 6~12자, 이름 1~20자), note_board = 마지막에 연 보드('all' 또는 보드 id).
 // migration 20261030091000. 뜻(만들기·이름·순서)은 note-boards-model.mjs, 모양은 DB 검사와 같다. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.
+// PHOTO-스와이프안내: photo_hint = 사진 크게 보기 손동작 안내를 본 횟수(정수 0~9, 처음 3번만 보임 — 뜻은 photo-viewer-model.mjs). migration 20261030190000.
+// 적용 전에는 쓰기가 400이라 rejectable로 보내 이 칸만 되돌린다(안내가 매번 보일 뿐, 알림 없음).
 export const NOTE_BOARDS_MAX = 12;
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -75,6 +77,7 @@ export function validValue(key, value) {
     case 'note_board': return typeof value === 'string' && (value === 'all' || NOTE_BOARD_ID_RE.test(value));
     case 'diary_onedrive': return typeof value === 'boolean';
     case 'quiet_weeks': return Number.isInteger(value) && value >= 0 && value <= 12;
+    case 'photo_hint': return Number.isInteger(value) && value >= 0 && value <= 9;
     case 'photo_view': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => name === 'filter' || name === 'cols' || name === 'sort')
       && (!('filter' in value) || PHOTO_VIEW_FILTERS.includes(value.filter))
