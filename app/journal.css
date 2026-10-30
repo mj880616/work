@@ -450,3 +450,7 @@
 #appView #journalView .journal-next-group > summary{ cursor:pointer; font-size:var(--kptu-text-body); line-height:1.6; overflow-wrap:anywhere; }
 #appView #journalView .journal-next-label{ font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
 #appView #journalView .journal-next-group > .journal-weekly-list{ margin:2px 0 4px; }
+/* WEEKLY-환류학습 3·4·6: AI 초안 한 줄·학습 시험 결과·환류 보고·규칙 고치기 칸. */
+#appView #journalView .journal-hwpx-learn{ display:flex; flex-direction:column; gap:4px; }
+#appView #journalView .journal-learn-head{ margin:2px 0; font-size:13px; }
+#appView #journalView .journal-learn-input{ min-width:0; width:min(100%, 36em); }

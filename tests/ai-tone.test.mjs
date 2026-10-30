@@ -76,6 +76,7 @@ const EXCLUDED = new Map([
   ['document-ai-index/index.ts', '검색용 색인 요약: 화면에 보이지 않고 AI 재료로만 쓰임. 화면에 보이게 되면 적용으로 옮길 것'],
   ['meeting-ai-ingest/index.ts', '문서에서 사실을 추출해 두는 재료 글(회의 요약 아님)'],
   ['page-ai-draft/index.ts', '현장 공유 페이지 초안(바깥에 내보내는 글)'],
+  ['ai-assist/weekly-learn.ts', '주간보고 본문 칸 초안(바깥에 내는 주간보고 문체, 명사형 끝맺음)과 환류 보고 규칙·개선 제안(규칙 목록, 문장 요약 아님)'],
   ['ai-assist/hwp-convert.ts', '노조 서식 한글 문서(바깥에 내는 공식 문서, 명사형 문체 유지)'],
   ['ai-assist/press-draft.ts', '성명·보도자료 초안(바깥에 내는 글, 성명 문체 \'~다\'·보도자료 \'~습니다\', FEAT-1029 공통 규칙 4)'],
 ]);
