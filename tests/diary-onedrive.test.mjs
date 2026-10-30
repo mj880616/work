@@ -132,7 +132,7 @@ const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(r => s
 test('photo cell: asks only when on screen or about to be; a cell that leaves before its turn is taken back', async () => {
   const m = await mod, dom = dom1(), asked = [];
   const rt = runtime();
-  m.odThumbLoader(rt, {fetchUrls:async ids => { asked.push(ids); return {urls:Object.fromEntries(ids.map(id => [id, 'https://t.example.test/' + id]))}; }, fetchBytes:async () => 'blob:x'});
+  m.odThumbLoader(rt, {fetchUrls:async ids => { asked.push(ids); return {urls:Object.fromEntries(ids.map(id => [id, 'https://t.example.test/' + id]))}; }, fetchBytes:async () => 'blob:x', gatherMs:0});
   const boxes = ['A', 'B', 'C'].map(id => m.odPhotoElement({id}, 'small', {rt}));
   await flush();
   assert.deepEqual(asked, [], 'nothing until a cell is near the screen');
@@ -150,7 +150,7 @@ test('photo cell: a failed picture waits and tries again by itself, then rests w
   const m = await mod, dom = dom1(), rt = runtime();
   const timers = []; const realTimeout = globalThis.setTimeout;
   let calls = 0;
-  m.odThumbLoader(rt, {fetchUrls:async () => { calls++; throw new Error('session'); }, fetchBytes:async () => 'blob:x'});
+  m.odThumbLoader(rt, {fetchUrls:async () => { calls++; throw new Error('session'); }, fetchBytes:async () => 'blob:x', gatherMs:0});
   globalThis.setTimeout = (f, ms) => { if (ms >= 1000) { timers.push({f, ms}); return 0; } return realTimeout(f, ms); };
   try {
     const box = m.odPhotoElement({id:'A'}, 'small', {rt});

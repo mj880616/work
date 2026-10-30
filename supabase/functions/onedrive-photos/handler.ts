@@ -309,7 +309,9 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   //  ① 맨 위 폴더 바로 아래 'Web2 휴지통' 폴더 = 꺼짐·role trash로 ② 그 밖 폴더 = 켜짐·role 칸은 건드리지 않음
   //  ③ 휴지통 안 사진 = 휴지통 칸(trashed_at·orig_parent_id)을 건드리지 않음 ④ 그 밖 사진 = 휴지통 칸을 비움(원드라이브에서 꺼냈으면 휴지통에서 빠짐).
   // 반환: 이 쪽에서 찾은 휴지통 폴더 id(없으면 받은 값 그대로).
+  // 돌려주는 값: 휴지통 폴더 id와 이 쪽에서 바뀐 사진·동영상 수(새로·고침·휴지통으로·지움. 폴더·사진 아닌 파일은 세지 않는다).
   async function applyDelta(workspaceId: string, topId: string, items: OneDriveItem[], stamp: string, trashId: string | null = null) {
+    let removed = 0;
     const folders = new Map<string, Record<string, unknown>>(), photos = new Map<string, Record<string, unknown>>(), gone = new Set<string>();
     const trashFolders = new Map<string, Record<string, unknown>>(), trashed = new Map<string, Record<string, unknown>>();
     for (const it of items) {
@@ -317,6 +319,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const parent = it.parentReference?.id;
       if (it.deleted) {
         gone.add(it.id);
+        removed++;
         continue;
       }
       if (it.folder) {
@@ -367,7 +370,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       await deleteIn("onedrive_index_delete_failed:in_folder", PHOTOS, workspaceId, "parent_id", ids);
       await deleteIn("onedrive_index_delete_failed:folders", FOLDERS, workspaceId, "item_id", ids);
     }
-    return trashId;
+    return { trashId, changed: photos.size + trashed.size + removed };
   }
 
   // 처음부터 다 받은 뒤: 고친 기준 시각 전에 마지막으로 적힌 줄(이번에 다시 받지 않은 줄)을 지운다.
@@ -407,7 +410,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       delta = null;
       done = null;
     }
-    let synced = conn.synced_at || null, url = next || delta || first, more = true, pages = 0;
+    let synced = conn.synced_at || null, url = next || delta || first, more = true, pages = 0, changed = 0;
     try {
       let trashId = await readTrashId(workspaceId);
       const token = await accessToken(workspaceId, conn);
@@ -427,7 +430,9 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         }
         graphCheck("onedrive_delta", r, "onedrive_folder_missing");
         const d = await bodyJson(r);
-        trashId = await applyDelta(workspaceId, folder.id, Array.isArray(d.value) ? d.value as OneDriveItem[] : [], stamp, trashId);
+        const applied = await applyDelta(workspaceId, folder.id, Array.isArray(d.value) ? d.value as OneDriveItem[] : [], stamp, trashId);
+        trashId = applied.trashId;
+        changed += applied.changed;
         const nl = graphNextLink(d["@odata.nextLink"]), dl = graphNextLink(d["@odata.deltaLink"]);
         if (nl) {
           next = nl;
@@ -455,7 +460,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       // 진행 저장이 실패해도 이미 반영한 쪽은 다음에 다시 받아도 같은 결과다(잠금은 1분 뒤 풀림). 원래 오류를 덮지 않게 기록만 한다.
       if (saveError) log("onedrive_index_progress_failed" + (/^[0-9A-Z]{5}$/.test(String(saveError.code)) ? ":" + saveError.code : ""));
     }
-    return { more, indexing: !done };
+    return { more, indexing: !done, changed };
   }
 
   async function sign(payload: Record<string, unknown>, secret: string) {
@@ -484,8 +489,12 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   };
 
   // 색인이 덜 됐거나 10분 넘게 안 받았으면 짧게 한 걸음 받는다. 바쁨·요청 많음·일시 장애면 기록만 하고 지금까지의 색인으로 답한다.
-  async function autoSync(workspaceId: string, conn: Conn, folder: { id: string }) {
+  // PHOTO-속도(2026-10-30): 화면이 sync:false를 보내면(사진 메뉴는 스스로 'sync'를 따로 부른다) Microsoft를 부르지 않고 지금 색인으로 바로 답한다.
+  // 첫 쪽이 원드라이브 delta 받기(토큰 새로 받기 + delta 한 쪽, 최대 3초)를 기다리지 않게 한다. 보내지 않으면 예전처럼 받는다(일기 등).
+  async function autoSync(workspaceId: string, conn: Conn, folder: { id: string }, body: Record<string, unknown> = {}) {
     let indexing = !conn.index_done_at || needsTakenRefix(conn.index_done_at);
+    if (body.sync !== undefined && typeof body.sync !== "boolean") throw new Fail(400, "onedrive_request_invalid");
+    if (body.sync === false) return indexing;
     const synced = conn.synced_at ? Date.parse(conn.synced_at) : NaN;
     if (indexing || !Number.isFinite(synced) || now() - synced > SYNC_STALE_MS) {
       try {
@@ -573,7 +582,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (!validItemId(body.folder_id)) throw new Fail(400, "onedrive_request_invalid");
       folderId = body.folder_id;
     }
-    const indexing = await autoSync(workspaceId, conn, folder);
+    const indexing = await autoSync(workspaceId, conn, folder, body);
     const { reach } = folderTree(await readFolders(workspaceId), folder.id);
     if (folderId && !reach.has(folderId)) throw new Fail(404, "onedrive_folder_missing");
     const shows = (r: MediaRow) => folderId ? r.parent_id === folderId : !!reach.get(r.parent_id)?.visible;
@@ -774,7 +783,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         if (!validItemId(body.folder_id)) throw new Fail(400, "onedrive_request_invalid");
         folderId = body.folder_id;
       }
-      const indexing = await autoSync(workspaceId, conn!, folder);
+      const indexing = await autoSync(workspaceId, conn!, folder, body);
       const { reach } = folderTree(await readFolders(workspaceId), folder.id);
       if (folderId && !reach.has(folderId)) throw new Fail(404, "onedrive_folder_missing");
       const shows = (r: MediaRow) => folderId ? r.parent_id === folderId : !!reach.get(r.parent_id)?.visible;
@@ -841,7 +850,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const conn = await readConnection(workspaceId);
       const folder = folderOf(conn);
       const { filter, stars } = readFilter(body);
-      const indexing = await autoSync(workspaceId, conn!, folder);
+      const indexing = await autoSync(workspaceId, conn!, folder, body);
       const { reach } = folderTree(await readFolders(workspaceId), folder.id);
       const rows = await readVisible(workspaceId, "item_id,parent_id,taken_day,kind,screenshot", filter, stars);
       const months: Record<string, number> = {};

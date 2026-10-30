@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // OD-속도: 원드라이브 사진 받기 대기열(app/od-thumb-loader.js). 지어낸 받기 함수와 지어낸 시계만 쓴다(네트워크 없음).
-const {createThumbLoader, retryDelay, VISIBLE, NEAR, IDLE, ThumbError, LOADER_DEFAULTS, BATCH_REST_S} = await import('../app/od-thumb-loader.js');
+const {createThumbLoader, retryDelay, VISIBLE, NEAR, IDLE, ThumbError, LOADER_DEFAULTS, BATCH_REST_S, GATHER_MS} = await import('../app/od-thumb-loader.js');
 
 const tick = () => new Promise(r => setTimeout(r, 0));
 async function settle(n = 6) { for (let i = 0; i < n; i++) await tick(); }
@@ -177,4 +177,33 @@ test('a batch that fails as a whole (server timeout etc.) does not fail its phot
 
 test('retry waits: 3s doubling to 60s, then stops after four failures in a row', () => {
   assert.deepEqual([1, 2, 3, 4, 5, 9].map(retryDelay), [3000, 6000, 12000, 24000, null, null]);
+});
+
+// PHOTO-속도(2026-10-30): 첫 화면 칸들은 폰 보관본을 먼저 찾아본 뒤 하나씩 따로 대기열에 온다. 모으지 않으면 빈 자리 4개가
+// 1장짜리 묶음 4개로 나가고 나머지는 그 답을 기다렸다. gatherMs 동안 모으면 첫 화면이 꽉 찬 묶음으로 한 번에 나간다.
+test('gather: cells that arrive one by one within gatherMs leave as full batches, not one-photo requests', async () => {
+  const run = async gatherMs => {
+    const m = manual(), c = clock();
+    const l = createThumbLoader({fetchUrls: m.fn, fetchBytes: async () => 'blob:x', now: c.now, setTimer: c.setTimer, gatherMs});
+    // 40칸이 서로 다른 순간(따로 끝난 보관본 찾기)에 온다.
+    for (let i = 0; i < 40; i++) { l.get('p' + i, 'small', i < 24 ? VISIBLE : NEAR).catch(() => {}); await tick(); }
+    c.advance(gatherMs); await settle();
+    return m.calls.map(x => x.args[0].length);
+  };
+  assert.deepEqual(await run(0), [1, 1, 1, 1], 'without gathering: four one-photo requests, 36 cells wait for a second round trip');
+  assert.deepEqual(await run(GATHER_MS), [20, 20], 'with gathering: two full batches at once, nobody waits behind them');
+});
+
+test('gather: visible cells still go before nearby ones, and the bytes path is not delayed', async () => {
+  const m = manual(), c = clock();
+  const l = createThumbLoader({fetchUrls: m.fn, fetchBytes: async () => 'blob:x', now: c.now, setTimer: c.setTimer, gatherMs: GATHER_MS, batchMax: 3});
+  for (const id of ['n1', 'n2']) { l.get(id, 'small', NEAR).catch(() => {}); await tick(); }
+  for (const id of ['v1', 'v2']) { l.get(id, 'small', VISIBLE).catch(() => {}); await tick(); }
+  assert.equal(m.calls.length, 0, 'waits for the gather window');
+  c.advance(GATHER_MS); await settle();
+  assert.deepEqual(m.calls[0].args[0], ['v1', 'v2', 'n1']);
+  const b = manual();
+  const bytes = createThumbLoader({fetchBytes: b.fn, now: c.now, setTimer: c.setTimer, gatherMs: GATHER_MS});
+  bytes.get('x', 'small', VISIBLE).catch(() => {}); await settle();
+  assert.equal(b.calls.length, 1, 'one-by-one path asks at once');
 });

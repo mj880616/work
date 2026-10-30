@@ -51,6 +51,8 @@ export const photoStripCommit = () => commitPending();
 //  errorText(error), onError(text): 닫힌 뒤 실패 알림, onClose({starChanged, restore})
 //  (PHOTO-사진메뉴 2차, 선택) play(item) → Promise<주소>: item.video면 칸 위 ▶를 누를 때 받아 <video>로 재생(주소는 메모리에만, 닫으면 버림).
 //   original(item)이 {download:true}를 돌려주면 [ⓘ] 판 맨 아래가 [⤓ 원본 받기] 단추가 되고 download(item)을 부른다. badge(item): 칸 위 작은 글('▶ 0:42').
+// 크게 보기 받는 순서(작을수록 먼저): 보는 장 -2, 바로 앞뒤 -1, 두 장 건너 0. 격자 칸은 보이는 것 0·곧 보일 것 1(od-thumb-loader.js)이라 크게 보기가 앞선다.
+export const stripPrio = d => (d === 0 ? -2 : Math.abs(d) === 1 ? -1 : 0);
 export function openPhotoStrip(opts) {
   const {host, list, index, title, layerName = 'diary-photo', element, label, when, caption = () => '', info, original, isStarred, toggleStar,
     deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose, play = null, download = null, badge = () => ''} = opts;
@@ -68,8 +70,8 @@ export function openPhotoStrip(opts) {
   const fill = i => {
     const slide = strip.children[i];
     if (!slide || slide.dataset.filled) return;
-    // 크게 보기는 화면 관찰 없이 바로 받는다: 보는 장이 먼저(VISIBLE), 앞뒤 2장은 그다음(NEAR).
-    slide.dataset.filled = '1'; slide.append(element(items[i], 'large', {label:label(items[i], i), eager:true, prio:i === at ? 0 : 1}));
+    // 크게 보기는 화면 관찰 없이 바로 받는다: 보는 장이 먼저, 바로 앞뒤 장, 그다음 두 장 건너(stripPrio). 뒤에 가려진 격자 칸보다 먼저다.
+    slide.dataset.filled = '1'; slide.append(element(items[i], 'large', {label:label(items[i], i), eager:true, prio:stripPrio(i - at)}));
     if (items[i].video && play) {
       const b = Object.assign(document.createElement('button'), {type:'button', className:'diary-viewer-play', textContent:`▶${badge(items[i]) ? ' ' + badge(items[i]) : ''}`});
       b.dataset.stripPlay = String(i); b.setAttribute('aria-label', '동영상 재생'); slide.append(b);
@@ -121,7 +123,11 @@ export function openPhotoStrip(opts) {
     captionEl.textContent = caption(item) || '';
     const d = deletable(item);
     delBtn.disabled = !d.ok; delBtn.title = d.title;
-    for (const step of [0, 1, -1, 2, -2]) fill(at + step);
+    for (const step of [0, 1, -1, 2, -2]) {
+      // 이미 받기 시작한 장(앞서 앞뒤 장으로 미리 받던 것)은 지금 자리에 맞게 순서만 당긴다(PHOTO-속도). 그림 칸이 'photo-prio'를 듣는다.
+      if (strip.children[at + step]?.dataset.filled) slidePhoto(at + step)?.dispatchEvent(new CustomEvent('photo-prio', {detail:stripPrio(step)}));
+      fill(at + step);
+    }
     strip.querySelectorAll('video').forEach(v => { if (v.parentElement !== strip.children[at]) v.pause?.(); });
     refresh(); paintInfo(); prepareShown();
   };
