@@ -208,8 +208,12 @@ export function withTitleEdits(calendar, titles) {
     const moved = [], out = rows.map(row => ({...row, items:row.items.flatMap(item => {
       const t = titles.get(item.key);
       if (!t || item.time === undefined) return [item];
-      const next = {...item, edited:true, what:[t.time || item.time, t.title || item.title, t.place].filter(Boolean).join(' / ')};
-      if (t.day && t.day !== row.day && days.has(t.day)) { moved.push(next); return []; }
+      const what = [t.time || item.time, t.title || item.title, t.place].filter(Boolean).join(' / ');
+      const move = t.day && t.day !== row.day && days.has(t.day);
+      // 고친 값이 지금 보이는 값(기억 포함)과 같으면 그대로 둔다(기억 표시가 남게).
+      if (what === item.what && !move) return [item];
+      const next = {...item, edited:true, what};
+      if (move) { moved.push(next); return []; }
       return [next];
     })}));
     for (const item of moved) {
