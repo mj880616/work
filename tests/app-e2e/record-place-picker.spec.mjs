@@ -99,7 +99,8 @@ test('창이 열린 채 폭을 바꾸면 넓은 배치와 위아래 배치가 �
  const q=await setup(page,{width:1280,height:800,projects:2});
  await q.locator('[data-quick-org]').click();const sheet=dialog(page);await expect(sheet).toHaveClass(/home-choice-split/);
  await page.setViewportSize({width:760,height:800});await expect(sheet).not.toHaveClass(/home-choice-split/);
- expect(await sheet.getByRole('searchbox').evaluate(el=>!!el.closest('[data-sheet-search-box]'))).toBe(true);
+ // 폰 폭에서는 검색칸이 숨지만(위 폰 시험) 자리는 목록 위 칸으로 돌아간다.
+ expect(await sheet.locator('input[type="search"]').evaluate(el=>!!el.closest('[data-sheet-search-box]'))).toBe(true);
  await page.setViewportSize({width:1280,height:800});await expect(sheet).toHaveClass(/home-choice-split/);
  expect(await sheet.getByRole('searchbox').evaluate(el=>!!el.closest('header'))).toBe(true);
 });

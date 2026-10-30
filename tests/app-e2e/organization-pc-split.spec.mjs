@@ -140,7 +140,8 @@ test('PC 1024: the list keeps its minimum width, the pane takes the rest, nothin
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
 
-for(const width of [390,900])test(`${width}: list with the detail dialog as before (no pane, no auto-open)`,async({page})=>{
+// UI-폴드PC틀: 761px~는 PC 틀(왼쪽 목록 + 오른쪽 상세 칸). 목록 + 상세 창은 폰뿐.
+for(const width of [390,760])test(`${width}: list with the detail dialog as before (no pane, no auto-open)`,async({page})=>{
  const {errors}=await fixture(page,{width});
  await clickView(page,'team');await expect(row(page,'oa')).toBeVisible();
  await expect(pane(page)).toBeHidden();await expect(page.locator('#wdModal')).toBeHidden();
