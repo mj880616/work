@@ -117,6 +117,6 @@ test('PC: a popup dragged by its title stays where it was put while the page scr
  expect(Math.round(after.x)).toBe(Math.round(moved.x));expect(Math.round(after.y)).toBe(Math.round(moved.y));
  expect(await page.evaluate(()=>!!window.__qaLost)).toBe(false);
  // Closed (clearAnchored) and opened again: by the button again.
- const back=await page.evaluate(()=>{const q=window.__qa;q.stop();q.clearAnchored(q.panel);q.place();const b=q.panel.getBoundingClientRect(),a=q.anchor.getBoundingClientRect();return {moved:'anchorMoved' in q.panel.dataset,dx:b.left-a.left,dy:b.top-a.bottom};});
+ const back=await page.evaluate(()=>{const q=window.__qa;q.stop();q.clearAnchored(q.panel);q.anchor.style.top='200px';q.place();const b=q.panel.getBoundingClientRect(),a=q.anchor.getBoundingClientRect();return {moved:'anchorMoved' in q.panel.dataset,dx:b.left-a.left,dy:b.top-a.bottom};});
  expect(back.moved).toBe(false);expect(Math.round(back.dx)).toBe(0);expect(back.dy).toBeGreaterThanOrEqual(0);expect(back.dy).toBeLessThanOrEqual(12);
 });

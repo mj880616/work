@@ -25,7 +25,8 @@ test('the shared parts measure the drawn box and drag by the title row only',()=
   assert.match(popup,/export function keepInside\(/);assert.match(popup,/export function dragByTitle\(/);
   assert.match(popup,/keepInside\(panel,edge\);\n  return side;/);
   assert.match(popup,/delete panel\.dataset\.anchorMoved/);
-  assert.doesNotMatch(popup,/localStorage|sessionStorage|indexedDB/);
+  // 기기 저장 없음: 옮긴 자리는 패널의 data-anchor-moved 표시뿐(공용 browser-storage-audit가 저장 API 사용을 따로 막는다).
+  assert.doesNotMatch(popup,/Storage\b|DB\b/);
   assert.match(sheet,/<header class="anchored-drag-title">/);assert.match(sheet,/dragByTitle\(sheet,'header'\)/);
   assert.match(sheet,/maxWidth:width\|\|/);
   assert.match(read('report-area-tag.js'),/width:420\}/);

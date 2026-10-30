@@ -73,8 +73,11 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
     // UI-기록할곳창PC: a sheet whose render() asks for split, on a wide PC (1024px~), is one wide list with its columns
     // (data-sheet-col) side by side, as tall as the window allows below the button; each column scrolls on its own.
     const split=!!active.split&&window.matchMedia(SPLIT_QUERY).matches;
-    if(!wantAnchor(active.kind)||!placeAnchored(sheet,anchor,split?{maxWidth:880,maxHeight:760,minHeight:320}:{maxWidth:width||(chips?480:360),maxHeight:chips?560:480})){unplace();filter();return;}
+    // UI-창잘림·끌어옮기기: the PC look (no rise animation, its padding, the split columns) is put on before placing, so the box
+    // placeAnchored measures to keep the sheet inside the window is the one that stays on screen.
+    if(!wantAnchor(active.kind)){unplace();filter();return;}
     sheet.classList.add('home-choice-anchored');sheet.classList.toggle('home-choice-split',split);moveSearch(split);filter();
+    if(!placeAnchored(sheet,anchor,split?{maxWidth:880,maxHeight:760,minHeight:320}:{maxWidth:width||(chips?480:360),maxHeight:chips?560:480})){unplace();filter();return;}
     unfollow||=followAnchor(sheet,anchor,{place,lost:()=>{if(active)void close();}});
   }
   // In a split sheet the search box sits in the header, right of the title (before ×, so Tab order follows what is seen).
