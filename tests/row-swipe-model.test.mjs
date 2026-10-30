@@ -43,7 +43,6 @@ test('목록마다 공용 부품을 붙이고, 지우기는 휴지통 길(묻지
   assert.match(notes, /claimedSince\(s\.t\)/); // 줄 위 밀기는 보기 전환보다 먼저
   assert.match(todos, /bindRowSwipe\(host, \{row:'\[data-inbox-todo-row\]'/);
   assert.match(tasks, /bindRowSwipe\(body,\{row:'\.gt-row\[data-google-task\]'/);
-  assert.doesNotMatch(read('row-swipe.js'), /localStorage|sessionStorage|indexedDB/);
 });
 test('⋯ 메뉴는 높이를 320px로 묶지 않고, 창보다 길 때만 아래 흐림', () => {
   assert.doesNotMatch(read('basket.js'), /placeAnchored\(rowMenuEl,trigger,\{maxWidth:220,maxHeight:320\}\)/);

@@ -121,7 +121,7 @@ for (const width of [412, 884]) {
       expect(fit.inner).toBeLessThanOrEqual(1); expect(fit.more).toBe('');
       const m = await boxOf(page, '#basketRowMenu'), d = await del.boundingBox(), vh = page.viewportSize().height;
       expect(d.y).toBeGreaterThanOrEqual(m.top - 0.5); expect(d.y + d.height).toBeLessThanOrEqual(m.bottom + 0.5); expect(m.bottom).toBeLessThanOrEqual(vh);
-      expect(await del.evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth))).toBeGreaterThan(0);
+      expect(await del.evaluate(el => getComputedStyle(el).boxShadow)).toContain('inset');
       await page.keyboard.press('Escape');
       await expect(menu).toBeHidden();
     }
