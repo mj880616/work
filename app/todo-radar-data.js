@@ -76,6 +76,15 @@ export async function readOpenCandidates(rt = window.KPTURuntime) {
     return {ok:true, rows:await withTelegramPlaces(clean(rows), rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
+// TODO-쌓인후보건수: 내 프로필 '챙길 것 기준'의 '쌓인 후보 n건' 줄. 대기 중(open) 후보의 id만 읽어 센다(1000건까지, 넘으면 more).
+export const OPEN_COUNT_LIMIT = 1000;
+export async function countOpenCandidates(rt = window.KPTURuntime) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&status=eq.open&select=id&limit=${OPEN_COUNT_LIMIT + 1}`, {singleFlight:false});
+    const n = Array.isArray(rows) ? rows.length : 0;
+    return {ok:true, count:Math.min(n, OPEN_COUNT_LIMIT), more:n > OPEN_COUNT_LIMIT};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
 // TG-요청강조: the 텔레그램 소식 list marks the room·day rows that hold an open "나한테 온 요청" (the same ask_me result the collector
 // server saved as a candidate; no new AI judgement). One read of the open telegram candidates plus the room lookup above.
 export async function readTelegramAsks(rt = window.KPTURuntime) {

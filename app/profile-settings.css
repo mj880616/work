@@ -43,27 +43,7 @@
 #profileView .ps-calref-line{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #profileView .ps-calref-select{flex:1;min-width:0;max-width:320px;height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-compact-text)}
 #profileView .ps-calref-org{flex:0 1 12em}
-/* UI-업데이트안내(설계 9.4): 맨 아래 접힌 [업데이트 기록] — 한 줄 요약(버전명·날짜·첫 줄) + 누르면 펼침. 새 색·카드 없음. */
-#profileView .ps-release[hidden]{display:none}
-#profileView .ps-release{min-width:0}
-#profileView .ps-release>summary.rn-title{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px;min-height:var(--ds-compact-height);cursor:pointer;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium,600)}
-#profileView .ps-release .rn-title-text{flex:1;min-width:0}
-#profileView .ps-release .rn-title-ver{color:var(--kptu-muted);font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular,400)}
-#profileView .rn-list{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin-top:4px;border-top:.5px solid var(--kptu-border)}
-#profileView .rn-note{min-width:0;border-bottom:.5px solid var(--kptu-border)}
-#profileView .rn-head{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px;min-width:0;padding:2px 0;min-height:var(--ds-compact-height);cursor:pointer;font-size:var(--ds-text-row)}
-#profileView .rn-ver{flex:none;font-variant-numeric:tabular-nums;font-weight:var(--ds-weight-medium,600)}
-#profileView .rn-date{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-/* UI-업데이트기록줄바꿈(2026-10-29): 줄은 자르지 않고 접는다. 폰은 버전·날짜 한 줄, 바뀐 것은 그 아래 줄. */
-#profileView .rn-one{flex:1 1 0;min-width:0;white-space:normal;overflow-wrap:anywhere}
-@media(max-width:700px){#profileView .rn-one{flex-basis:100%}}
-#profileView .rn-now{flex:none;padding:0 6px;border-radius:var(--kptu-radius-sm);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta)}
-#profileView .rn-body{padding:0 0 6px 4px;font-size:var(--ds-text-row);overflow-wrap:anywhere}
-#profileView .rn-changes{margin:0;padding-left:18px}
-#profileView .rn-check{margin:4px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#profileView .rn-check-label{color:var(--kptu-ink);font-weight:var(--ds-weight-medium,600)}
-#profileView .rn-more{margin-top:6px}
-#profileView .rn-more[hidden]{display:none}
+#profileView .ps-todo-result{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 /* TODO-내일만: '챙길 것 기준' 칸. 작고 낮은 글자 버튼, 방 한 줄에 이름 + [빼기]. */
 #profileView .ps-todo-btn{position:relative;flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);font-weight:var(--ds-weight-regular,400);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);cursor:pointer}
 #profileView .ps-todo-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px)/2);height:var(--kptu-touch-target,44px)}

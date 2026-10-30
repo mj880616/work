@@ -21,12 +21,15 @@ const accounts=logoutButtons.map(logout=>{
   let nativePopover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;
   if(nativePopover)panel.setAttribute('popover','manual');
   const profile=document.createElement('button');profile.type='button';profile.className='account-action';profile.dataset.profileOpen='';profile.textContent='내 프로필';
+  // UI-업데이트기록입구: [내 프로필] 바로 아래 [업데이트 기록] 줄, 오른쪽에 지금 판 이름을 작게(메뉴를 처음 열 때 기록 파일에서 채움).
+  const updates=document.createElement('button');updates.type='button';updates.className='account-action account-updates';updates.dataset.updatesOpen='';
+  updates.innerHTML='<span class="account-action-name">업데이트 기록</span><span class="account-ver" data-account-ver></span>';
   const menuEdit=document.createElement('button');menuEdit.type='button';menuEdit.className='account-action';menuEdit.dataset.menuEditOpen='';menuEdit.textContent='메뉴 편집';menuEdit.setAttribute('aria-haspopup','dialog');menuEdit.setAttribute('aria-controls','menuEditModal');
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  logout.before(host);host.append(trigger);panel.append(profile,menuEdit,theme,logout);document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(profile,updates,menuEdit,theme,logout);document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,profile,menuEdit,theme,nativePopover};
+  return {host,trigger,panel,profile,updates,menuEdit,theme,nativePopover};
 });
 let activeAccount=null;
 const mobileQuery=window.matchMedia('(max-width:760px)');
@@ -117,14 +120,26 @@ function syncMobile(){
   const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==target){
     if(activeAccount)closeAccount();
-    target.append(mobileAccount.profile,mobileAccount.menuEdit,mobileAccount.theme,logoutButtons[0]);
+    target.append(mobileAccount.profile,mobileAccount.updates,mobileAccount.menuEdit,mobileAccount.theme,logoutButtons[0]);
   }
   syncKeyboard();
+}
+// UI-업데이트기록입구: 판 이름은 계정 메뉴(폰은 메뉴 판)를 처음 열 때 한 번 읽어 채운다. 못 읽으면 비운 채(다음 열 때 다시).
+// 기록 파일은 배포 빌드가 만들므로, 빌드한 화면(app.js에 ?v=가 붙은 화면, version-notice.js와 같은 기준)에서만 읽는다(개발·시험 화면에서 헛된 404 없음).
+let versionFilled=false;
+const builtShell=()=>[...document.scripts].some(script=>{try{const url=new URL(script.src,location.href);return /\/app\.js$/.test(url.pathname)&&url.searchParams.has('v')}catch{return false}});
+function fillVersion(){
+  if(versionFilled||!builtShell())return;versionFilled=true;
+  import('./release-notes-read.js').then(m=>m.readReleaseNotes()).then(list=>{
+    if(!list?.current){versionFilled=false;return}
+    accounts.forEach(account=>{const ver=account.updates.querySelector('[data-account-ver]');if(ver)ver.textContent=`현재 ${list.current}`});
+  }).catch(()=>{versionFilled=false});
 }
 function openMobile(trigger){
   if(mobileClosing)return;
   if(mobileOpen){closeMobile();return}
   if(!menuQuery.matches||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
+  fillVersion();
   mobileOpen=true;mobileOpener=trigger;dragEndedAt=0;mobileMenu.hidden=false;trigger.setAttribute('aria-expanded','true');repaintMobileTabs();
   history.pushState({...history.state,kptuMobileMenu:true},'',location.href);watchSheet();
   window.KPTUA11y?.dialog.activate(mobilePanel,{trigger,initialFocus:closeControl(),onRequestClose:closeMobile});
@@ -177,7 +192,7 @@ const syncKeyboard=()=>window.KPTUA11y?.keyboard?.sync?.();
 menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'})[event.detail?.view]||''}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -271,7 +286,7 @@ accounts.forEach(account=>{
   account.trigger.closest('.app-nav')?.addEventListener('scroll',positionAccount);
   account.trigger.addEventListener('click',()=>{
     if(activeAccount){closeAccount();return}
-    activeAccount=account;account.panel.hidden=false;
+    activeAccount=account;account.panel.hidden=false;fillVersion();
     if(account.nativePopover){
       try{account.panel.showPopover()}catch{account.nativePopover=false;account.panel.removeAttribute('popover')}
     }
@@ -364,7 +379,7 @@ paintSteps();
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'team',projects:'reports'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'담당조직',view:'team'},reports:{name:'사업 보고',view:'meetings'}};
-const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'};
+const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 const whereItems=new Map();
@@ -457,6 +472,8 @@ if(addButton){
 }
 // [내 프로필]: close the account menu, then the router (the one owner of screen changes) opens the screen; its module loads on first use.
 accounts.forEach(account=>account.profile.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('profile',{source:'delegated'}))));
+// [업데이트 기록]: 같은 길(메뉴 닫기 → 라우터가 화면을 연다, 폰 뒤로가기 = 이전 화면). 화면 모듈은 처음 열 때 불러온다.
+accounts.forEach(account=>account.updates.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('updates',{source:'delegated'}))));
 // [메뉴 편집]: 계정 메뉴를 닫은 뒤 편집 창(menu-edit.js)을 처음 쓸 때 불러 연다.
 accounts.forEach(account=>account.menuEdit.addEventListener('click',()=>closeAccount(()=>{
   const focusTrigger=menuQuery.matches?menuButton():account.trigger;

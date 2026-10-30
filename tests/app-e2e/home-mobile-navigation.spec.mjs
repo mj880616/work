@@ -129,10 +129,10 @@ test('drawer library item opens once and the account box has no copy-refresh row
   let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:'{}'})});
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-drive-summary-refresh]')).toHaveCount(0);
   await expect(page.locator('#mobileMenu [data-account-drive-slot]')).toHaveCount(0);
-  await expect(page.locator('#mobileAccountGroup button')).toHaveText(['내 프로필','메뉴 편집','화면 색','로그아웃']);
+  await expect(page.locator('#mobileAccountGroup button')).toHaveText(['내 프로필','업데이트 기록','메뉴 편집','화면 색','로그아웃']);
   await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();
   await page.setViewportSize({width:1440,height:844});await page.setViewportSize({width:390,height:844});
-  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileAccountGroup button')).toHaveText(['내 프로필','메뉴 편집','화면 색','로그아웃']);
+  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileAccountGroup button')).toHaveText(['내 프로필','업데이트 기록','메뉴 편집','화면 색','로그아웃']);
   expect(posts).toBe(0);
 });
 test('native final return and browser default both open home',async({page})=>{
