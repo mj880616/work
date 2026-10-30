@@ -60,6 +60,7 @@ import {reviewCard, answerSuggestion, readLearnRows} from './weekly-learn-panel.
 import {caretLine, askTargets, lineRequest, readAnswer, replaceLine, suggestKey, PICK_MS, PAUSE_MS, PER_OPEN} from './weekly-line-suggest.mjs';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 import {matchOrg} from './org-name-match.mjs';
+import {weeklyCategoryFilter} from './document-categories.js'; // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾기
 import {reportLine as orgRefLine, materialLine as orgRefMaterial, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
@@ -161,8 +162,8 @@ async function readContext(rt) {
 // 없으면 최신 팀 확정본 → {doc, from:'confirmed'}, 둘 다 없으면 null. 개인본을 읽지 못하면 지금처럼 확정본만 본다.
 async function latestBase(rt, day) {
   const workspace = rt.context.read()?.workspace?.id;
-  const q = (category, limit) => `/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=eq.${encode(category)}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=${limit}`;
-  const [personal, confirmed] = await Promise.all([rt.api(q(PERSONAL_CATEGORY, 5)).catch(() => []), rt.api(q(CONFIRMED_CATEGORY, 1))]);
+  const q = (kind, limit) => `/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=${weeklyCategoryFilter(kind)}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=${limit}`;
+  const [personal, confirmed] = await Promise.all([rt.api(q('personal', 5)).catch(() => []), rt.api(q('confirmed', 1))]);
   return pickBase({personal:Array.isArray(personal) ? personal : [], confirmed:Array.isArray(confirmed) ? confirmed : []}, day);
 }
 
@@ -1127,7 +1128,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 이번 주(보고일이 같은) 개인본을 찾아 연다. 재료는 지금 바탕(이번 주 개인본을 뺀 것)과 이번 주 기록, 서버가 읽는 앞 주들 기록뿐이다.
   async function thisWeekPersonal(s) {
     const workspace = rt.context.read()?.workspace?.id, day = reportDay(s.start);
-    const rows = await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=eq.${encode(PERSONAL_CATEGORY)}&document_date=eq.${day}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=1`);
+    const rows = await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=${weeklyCategoryFilter('personal')}&document_date=eq.${day}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=1`);
     return Array.isArray(rows) && rows[0] ? rows[0] : null;
   }
   async function learnTest(s, trigger) {

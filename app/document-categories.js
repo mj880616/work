@@ -18,7 +18,16 @@ const LEGACY=Object.freeze({
   보도자료:['성명·보도자료','선전'],취재요청:['성명·보도자료','선전'],'성명·논평':['성명·보도자료','선전'],'선전·언론자료':['선전'],
   국회자료:['정책'],정부자료:['정책'],'토론회·발제자료':['정책'],
   회의자료:['회의'],회의결과:['회의'],
+  // LIB-소분류: '주간보고 확정본·개인본'은 '주간보고›확정본·개인본'(소분류)으로 합친다(DB 20261031000000). 합치기 전후 같은 꼬리표.
+  '주간보고 확정본':['주간보고›확정본'],'주간보고›확정본':['주간보고 확정본'],
+  '주간보고 개인본':['주간보고›개인본'],'주간보고›개인본':['주간보고 개인본'],
 });
+// LIB-소분류: 주간보고 상자가 찾고 저장하는 분류 값. 합치기(DB) 전에는 옛 이름, 뒤에는 새 이름이 자료에 있으므로 두 이름을 모두 찾는다.
+export const WEEKLY_CATEGORY_NAMES=Object.freeze({confirmed:Object.freeze(['주간보고 확정본','주간보고›확정본']),personal:Object.freeze(['주간보고 개인본','주간보고›개인본'])});
+// PostgREST 조건(category=…): 두 이름 중 하나.
+export const weeklyCategoryFilter=kind=>'in.('+encodeURIComponent(WEEKLY_CATEGORY_NAMES[kind].map(name=>`"${name}"`).join(','))+')';
+// 저장할 값: 내 목록에 새 이름이 있으면 새 이름, 아니면 옛 이름(지금 목록의 꼬리표와 맞게).
+export const weeklySaveCategory=kind=>{const [old,next]=WEEKLY_CATEGORY_NAMES[kind];return current.includes(next)?next:old;};
 let current=DEFAULT_DOCUMENT_CATEGORIES,currentOwner='';
 let flight=null,loadedOwner='';
 const eventTarget=()=>typeof window!=='undefined'?window:null;

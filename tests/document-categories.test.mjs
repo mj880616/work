@@ -159,3 +159,17 @@ test('2026-10-23 list change: 교섭 and 교섭·합의 read as the same categor
   assert.deepEqual(storedValuesOf('교섭·합의', [{ category: '교섭' }, { category: '교섭자료' }, { category: '공문' }]), ['교섭', '교섭자료']);
   resetDocumentCategories();
 });
+
+// LIB-소분류: 주간보고 상자는 옛 이름('주간보고 확정본')과 합친 소분류 이름('주간보고›확정본')을 모두 찾고, 저장은 내 목록에 있는 이름으로 한다.
+test('weekly report categories read both names and save the listed one', async () => {
+  const {weeklyCategoryFilter, weeklySaveCategory} = await import('../app/document-categories.js');
+  assert.equal(decodeURIComponent(weeklyCategoryFilter('confirmed')), 'in.("주간보고 확정본","주간보고›확정본")');
+  assert.equal(decodeURIComponent(weeklyCategoryFilter('personal')), 'in.("주간보고 개인본","주간보고›개인본")');
+  setDocumentCategories(['교섭', '기타', '주간보고 확정본', '주간보고 개인본']);
+  assert.equal(weeklySaveCategory('personal'), '주간보고 개인본');
+  assert.equal(categoryOf('주간보고›개인본'), '주간보고 개인본');
+  setDocumentCategories(['교섭', '기타', '주간보고', '주간보고›확정본', '주간보고›개인본']);
+  assert.equal(weeklySaveCategory('personal'), '주간보고›개인본');
+  assert.equal(categoryOf('주간보고 확정본'), '주간보고›확정본');
+  resetDocumentCategories();
+});

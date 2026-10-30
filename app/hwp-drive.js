@@ -3,6 +3,7 @@
 // - 새 파일로 저장(기본): 자료실은 library-files로 새 자료 등록, 바구니는 basket-files로 같은 메모에 첨부 추가.
 // 어떤 요청도 자동으로 다시 보내지 않는다. 400대 거절은 "바뀐 것 없음", 시간 초과·5xx·응답 이상은 "결과 불명"이다.
 // 서버가 아직 배포되지 않았으면 열기가 거절되어 편집기에 Drive 파일이 들어오지 않으므로 아무것도 바뀌지 않는다.
+import {weeklySaveCategory} from './document-categories.js'; // LIB-소분류: 목록에 '주간보고›개인본'이 있으면 그 이름으로 저장
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 자료실에 새로 등록된 파일 안 글자를 서버가 한 번 읽어 둠
 export const HWP_EDIT_MAX_BYTES=30*1024*1024;
 const OLD_SERVER=new Set(['document_id가 필요합니다.','Unknown action']);
@@ -166,7 +167,7 @@ export async function saveWeeklyReport(bytes,{fileName,title,documentDate},{rt=w
   const form=new FormData();
   form.append('file',new File([bytes],fileName,{type:/\.hwpx$/i.test(fileName)?'application/hwp+zip':'application/x-hwp'}));
   form.append('title',title);
-  form.append('category',WEEKLY_CONFIRMED_CATEGORY);
+  form.append('category',weeklySaveCategory('personal'));
   if(documentDate)form.append('document_date',documentDate);
   let response;
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
