@@ -101,8 +101,8 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
   box.addEventListener('lostpointercapture', e => { if (drag && drag.moving && e.pointerId === drag.pointerId) finish(e); });
   // 끈 뒤·꾹 누른 뒤의 클릭은 열기가 아니다.
-  // 칸의 ×(보드에서 빼기)는 끈 바로 뒤에도 누를 수 있다(열기가 아니므로).
-  box.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nb-card]') && !e.target.closest('.nb-x')) { e.preventDefault(); e.stopPropagation(); } }, true);
+  // 막는 것은 칸 열기(.nb-open)뿐: 칸의 ×(보드에서 빼기)·⋯(메뉴)는 끈 바로 뒤에도 누를 수 있다.
+  box.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nb-card] .nb-open')) { e.preventDefault(); e.stopPropagation(); } }, true);
   box.addEventListener('contextmenu', e => { if (drag?.touch || Date.now() < suppressUntil) e.preventDefault(); }, true);
   box.addEventListener('click', e => { const b = e.target.closest?.('[data-nb-zoom]'); if (b && !b.disabled) setZoom(stepZoom(zoom, Number(b.dataset.nbZoom))); });
   // 키보드: 칸에 초점을 두고 화살표로 옮긴다(Shift = 4배). 0.5초 멈추면 저장.
