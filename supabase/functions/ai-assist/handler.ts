@@ -89,6 +89,11 @@ import {
   storedSources, type AskHit, type AskSource,
 } from "./web2-ask.ts";
 import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
+import {
+  learnFromRows, parseWeeklyDraft, parseWeeklyDraftRequest, parseWeeklyReview, parseWeeklyReviewRequest, readFeedbackCell, readRulesCell, weeklyDraftMaterial, weeklyReviewMaterial, withReview,
+  WEEKLY_DRAFT_INSTRUCTIONS, WEEKLY_DRAFT_SCHEMA, WEEKLY_LEARN_BODY_BYTES, WEEKLY_REVIEW_INSTRUCTIONS, WEEKLY_REVIEW_SCHEMA, WL_DRAFT_OUTPUT_TOKENS, WL_LEARN_WEEKS, WL_REVIEW_OUTPUT_TOKENS,
+  type WeeklyDraftRequest,
+} from "./weekly-learn.ts";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
@@ -168,7 +173,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -462,7 +467,7 @@ async function readBody(req: Request): Promise<unknown> {
   if (declaredBig || actualBig) {
     // 일정 제목 다듬기(20KB)와 HWP 서식변환(100KB)만 자기 상한까지 받는다. 그 상한을 넘으면 413.
     const kind = (body as { kind?: unknown } | null)?.kind;
-    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : kind === "next_week_sheet" ? NEXT_WEEK_SHEET_BODY_BYTES : kind === "pre_meeting_sheet" ? PRE_MEETING_BODY_BYTES : MAX_BODY_BYTES;
+    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : kind === "area_suggest" ? AREA_SUGGEST_BODY_BYTES : kind === "journal_draft" ? JOURNAL_DRAFT_BODY_BYTES : kind === "next_week_sheet" ? NEXT_WEEK_SHEET_BODY_BYTES : kind === "pre_meeting_sheet" ? PRE_MEETING_BODY_BYTES : kind === "weekly_draft" ? WEEKLY_LEARN_BODY_BYTES : MAX_BODY_BYTES;
     if (own === MAX_BODY_BYTES) throw new Fail(declaredBig ? 413 : 400, "invalid_request");
     if (raw.byteLength > own || (declared !== null && Number(declared) > own)) throw new Fail(413, "invalid_request");
   }
@@ -483,6 +488,9 @@ type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null 
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
 type OrgPeopleBriefInput = { kind: "org_people_brief"; organization_id: string };
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
+// WEEKLY-환류학습(weekly-learn.ts): AI 초안(칸 글 + 이번 주 기록)과 [확정] 뒤 환류 보고(주만).
+type WeeklyDraftInput = { kind: "weekly_draft" } & WeeklyDraftRequest;
+type WeeklyReviewInput = { kind: "weekly_review"; week_start: string };
 type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
@@ -539,7 +547,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -649,6 +657,16 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     const parsed = parseOverlapRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "overlap_check", ...parsed };
+  }
+  if (b.kind === "weekly_draft") {
+    const parsed = parseWeeklyDraftRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "weekly_draft", ...parsed };
+  }
+  if (b.kind === "weekly_review") {
+    const parsed = parseWeeklyReviewRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "weekly_review", ...parsed };
   }
   if (b.kind !== "link_summary") throw new Fail(400, "unsupported_kind");
   return parseLinkSummaryRequest(b);
@@ -4132,6 +4150,88 @@ async function writeWeekDraftRow(ctx: Ctx, week: string, row: WeekDraftRow, draf
   }
 }
 
+// ---- 주간보고 환류학습(WEEKLY-환류학습, weekly-learn.ts) ------------------------------------------------------------------
+// 학습 재료: 그 주 '앞' 주들의 요청 표 행에서 고침 기록·규칙 칸만(draft 통째가 아니라 두 칸만 읽음). 이번 주 행은 읽지 않는다.
+// 표·칸이 아직 없으면(404·400) 학습 재료 없이 돈다.
+async function readLearnRows(ctx: Ctx, week: string): Promise<unknown[]> {
+  const from = addDays(week, -7 * (WL_LEARN_WEEKS * 3));
+  try {
+    const rows = await rest(ctx, `${WEEKLY_REQUESTS_TABLE}?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&week_start=lt.${week}&week_start=gte.${from}&select=workspace_id,week_start,feedback:draft->feedback,rules:draft->rules&order=week_start.desc&limit=${WL_LEARN_WEEKS * 3}`);
+    if (!Array.isArray(rows)) throw new Fail(503, "read_unavailable");
+    return (rows as Record<string, unknown>[]).filter((r) => String(r.workspace_id).toLowerCase() === ctx.workspaceId && typeof r.week_start === "string" && r.week_start < week);
+  } catch (e) {
+    if (e instanceof Fail) throw e;
+    const m = (e as Error)?.message;
+    if (m === "rest_404" || m === "rest_400") return [];
+    throw new Fail(503, "read_unavailable");
+  }
+}
+
+// 사용량을 먼저 한 번 세고(실패하면 부르지 않음) AI를 부른 뒤 쓴 만큼 더한다. 실패 코드는 다른 쓰임과 같다.
+async function callWeeklyAi(ctx: Ctx, kind: "weekly_draft" | "weekly_review", deps: RadarDeps, started: number, instructions: string, material: string, schema: Record<string, unknown>, maxTokens: number) {
+  const config = aiConfig(deps.env);
+  if (!config) { deps.log("ai_not_configured"); throw new Fail(503, "ai_not_configured"); }
+  const budget = await checkBudget(ctx, kind, started, config.price);
+  try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now()); } catch { throw new Fail(503, "usage_unavailable"); }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model, store: false, max_output_tokens: maxTokens,
+    input: [{ role: "developer", content: instructions }, { role: "user", content: material }],
+    text: { format: { type: "json_schema", name: kind, strict: true, schema } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: maxTokens } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now()); } catch { deps.log("usage_record_failed"); }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    throw new Fail(result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" || result.code === "ai_busy" ? 503 : 502, result.code);
+  }
+  return result.raw;
+}
+
+// weekly_draft: 칸마다 새 줄을 돌려준다(저장하지 않음). mode=test 도 같은 길 — 화면이 저장하지 않고 이번 주 개인본과 견준다.
+async function runWeeklyDraft(ctx: Ctx, input: WeeklyDraftInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now(), today = kstDay(started);
+  if (input.week_start < addDays(today, -400) || input.week_start > addDays(today, 14)) throw new Fail(400, "invalid_request");
+  const learn = learnFromRows(await readLearnRows(ctx, input.week_start), input.week_start);
+  const material = weeklyDraftMaterial(input, learn);
+  const raw = await callWeeklyAi(ctx, "weekly_draft", deps, started, WEEKLY_DRAFT_INSTRUCTIONS, material, WEEKLY_DRAFT_SCHEMA, WL_DRAFT_OUTPUT_TOKENS);
+  const parsed = parseWeeklyDraft(raw, input.cells);
+  if (!parsed) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
+  // 기록에는 숫자만 남긴다(칸 글·기록 글 없음).
+  deps.log("weekly_draft_done", { mode: input.mode, cells: input.cells.length, answered: parsed.cells.length, dropped: parsed.dropped, weeks: learn.weeks, rules: learn.rules.length });
+  return json({ ok: true, kind: "weekly_draft", week_start: input.week_start, mode: input.mode, cells: parsed.cells, learned: { weeks: learn.weeks, rules: learn.rules.length } });
+}
+
+// weekly_review: 그 주 행의 고침 기록(사람이 [확정]한 값)을 읽어 규칙 목록·후보·개선 제안을 만들고 같은 행에 조건부로 쓴다.
+// 고침 기록이 없으면 404 not_found(AI를 부르지 않음). 그사이 다른 기기가 저장했으면 다시 읽고 한 번 더(세 번까지), 끝내 못 쓰면 답만 돌려준다(saved:false).
+async function runWeeklyReview(ctx: Ctx, input: WeeklyReviewInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now(), today = kstDay(started), week = input.week_start;
+  if (week < addDays(today, -400) || week > addDays(today, 14)) throw new Fail(400, "invalid_request");
+  let row = await readWeekDraftRow(ctx, week);
+  const draft = row?.draft as Record<string, unknown> | null | undefined;
+  const current = row?.exists ? readFeedbackCell(draft?.feedback, week) : null;
+  if (!row || !current) throw new Fail(404, "not_found");
+  const learn = learnFromRows(await readLearnRows(ctx, week), week);
+  const oldRules = draft?.rules ?? null;
+  const own = readRulesCell(oldRules), rules = own?.length ? own : learn.rules; // 이 행 규칙(사람이 고친 것 포함)이 먼저, 없으면 앞 주 규칙
+  const material = weeklyReviewMaterial(current, learn.feedback, rules);
+  const raw = await callWeeklyAi(ctx, "weekly_review", deps, started, WEEKLY_REVIEW_INSTRUCTIONS, material, WEEKLY_REVIEW_SCHEMA, WL_REVIEW_OUTPUT_TOKENS);
+  const review = parseWeeklyReview(raw);
+  if (!review) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
+  const at = new Date(deps.now()).toISOString();
+  // 규칙 칸이 이 행에 없으면 앞 주 규칙을 바탕으로(사람이 고친 줄은 남김).
+  const baseRules = oldRules ?? { at: "", lines: rules.map((t) => ({ text: t, from: "auto" })) };
+  let saved = false;
+  for (let attempt = 0; attempt < 3 && row?.exists; attempt++) {
+    const next = withReview(row.draft, review, (row.draft as Record<string, unknown> | null)?.rules ?? baseRules, week, at);
+    if (await writeWeekDraftRow(ctx, week, row, next, deps.now())) { saved = true; break; }
+    row = await readWeekDraftRow(ctx, week);
+  }
+  deps.log("weekly_review_done", { rules: review.rules.length, candidates: review.candidates.length, suggestions: review.suggestions.length, saved, weeks: learn.weeks });
+  return json({ ok: true, kind: "weekly_review", week_start: week, saved, review: { at, candidates: review.candidates, suggestions: review.suggestions.map((t, i) => ({ id: `s${i + 1}`, text: t })) }, rules: review.rules });
+}
+
 async function runAreaWeekSummary(ctx: Ctx, input: AreaWeekSummaryInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
   const today = kstDay(started);
@@ -4528,6 +4628,8 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_people_brief") return await runOrgPeopleBrief(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "weekly_draft") return await runWeeklyDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "weekly_review") return await runWeeklyReview(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "hwp_convert") return await runHwpConvert(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
