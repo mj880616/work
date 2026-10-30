@@ -90,6 +90,20 @@ class MainActivity : ComponentActivity() {
         postRec(if (micGranted()) "rec:ready" else "rec:denied")
     }
 
+    /** PHOTO-출처 ①: 사진 메뉴(app/phone-photos.js)가 'photos:hello'로 연 다리. 접근 상태가 바뀌면 여기로 알린다. */
+    private var photoReply: JavaScriptReplyProxy? = null
+    private val photoPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+        PhoneMedia.forget()
+        postPhotos(PhoneMedia.stateMessage(this))
+    }
+    /** 폰 휴지통으로 보내기: 시스템 확인 창 결과. */
+    private var trashCount = 0
+    private val photoTrash = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        PhoneMedia.forget()
+        postPhotos(PhoneMediaRules.trashedMessage(result.resultCode == android.app.Activity.RESULT_OK, if (result.resultCode == android.app.Activity.RESULT_OK) trashCount else 0))
+        trashCount = 0
+    }
+
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileCallback ?: return@registerForActivityResult
         fileCallback = null
@@ -170,6 +184,7 @@ class MainActivity : ComponentActivity() {
                 else if (data.startsWith("share:")) onShareMessage(data, reply)
                 else if (data.startsWith("widget:")) onWidgetMessage(data, reply)
                 else if (data.startsWith("rec:")) onRecordMessage(data, reply)
+                else if (data.startsWith("photos:")) onPhotoMessage(data, reply)
                 else if (data == "write:hello") writeReply = reply
                 else if (data == "pull:on" || data == "pull:off") pullOn = data == "pull:on"
             }
@@ -183,6 +198,7 @@ class MainActivity : ComponentActivity() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? =
                     RecordHub.serve(request.url.toString(), request.method)
                         ?: ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
+                        ?: PhoneMedia.serve(request.url.toString(), request.method, applicationContext)
             })
         }
 
@@ -208,6 +224,7 @@ class MainActivity : ComponentActivity() {
                 // 새 화면을 열기 시작하면 앞 화면의 '로그인됨'·쓰기 창 다리는 더 쓰지 않는다.
                 readyReply = null
                 writeReply = null
+                photoReply = null
                 // 당겨서 새로고침으로 다시 여는 중이면 동그란 표시를 거둔다. 새 화면의 손가락 판정은 처음부터.
                 if (::refresher.isInitialized) refresher.isRefreshing = false
                 pullOn = false
@@ -225,6 +242,7 @@ class MainActivity : ComponentActivity() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 RecordHub.serve(request.url.toString(), request.method)
                     ?: ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
+                    ?: PhoneMedia.serve(request.url.toString(), request.method, applicationContext)
 
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
@@ -614,6 +632,51 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * PHOTO-출처 ①: 사진 메뉴 '폰 사진' 다리. hello = 지금 접근 상태(+열쇠), ask = 처음 한 번 '사진 접근 허용'(14+는 부분 허용 포함),
+     * trash:<번호들> = 폰 휴지통으로(안드로이드 11+, 시스템 확인 창). 목록·그림은 __phone 가로채기(PhoneMedia.serve)로만 준다.
+     */
+    private fun onPhotoMessage(data: String, reply: JavaScriptReplyProxy) {
+        val m = PhoneMediaRules.message(data) ?: return
+        photoReply = reply
+        when (m) {
+            PhoneMediaRules.Message.Hello -> postPhotos(PhoneMedia.stateMessage(this))
+            PhoneMediaRules.Message.Ask -> try {
+                photoPermissions.launch(PhoneMediaRules.permissionsToAsk(Build.VERSION.SDK_INT).toTypedArray())
+            } catch (_: Exception) {
+                postPhotos(PhoneMedia.stateMessage(this))
+            }
+            is PhoneMediaRules.Message.Trash -> {
+                if (Build.VERSION.SDK_INT < 30) {
+                    postPhotos(PhoneMediaRules.trashedMessage(false, 0))
+                    return
+                }
+                try {
+                    val uris = PhoneMedia.trashUris(this, m.ids)
+                    if (uris.isEmpty()) {
+                        postPhotos(PhoneMediaRules.trashedMessage(false, 0))
+                        return
+                    }
+                    trashCount = uris.size
+                    val sender = android.provider.MediaStore.createTrashRequest(contentResolver, uris, true).intentSender
+                    photoTrash.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
+                } catch (_: Exception) {
+                    trashCount = 0
+                    postPhotos(PhoneMediaRules.trashedMessage(false, 0))
+                }
+            }
+        }
+    }
+
+    private fun postPhotos(message: String) {
+        val reply = photoReply ?: return
+        try {
+            reply.postMessage(message)
+        } catch (_: Exception) {
+            photoReply = null
+        }
+    }
+
     private fun onShareMessage(data: String, reply: JavaScriptReplyProxy) {
         when (val m = ShellRules.shareMessage(data)) {
             is ShellRules.ShareMessage.Get -> {
@@ -631,6 +694,11 @@ class MainActivity : ComponentActivity() {
         resumed = true
         if (ShellRules.isInternalApp(webView.url)) syncBarColor()
         if (widgetTabWanted) openWidgetTab()
+        // PHOTO-출처 ①: 설정에서 사진 접근을 바꾸고 돌아왔을 수 있다. 목록을 새로 읽게 하고 상태를 다시 알린다.
+        if (photoReply != null) {
+            PhoneMedia.forget()
+            postPhotos(PhoneMedia.stateMessage(this))
+        }
         // FIX-위젯: 앱을 열면 위젯도 바로 새로(마지막 갱신에서 5분이 지났을 때만, 같은 이름 작업은 KEEP).
         WidgetGuard.run { WidgetJobs.refreshOnOpen(applicationContext) }
     }
@@ -850,6 +918,7 @@ class MainActivity : ComponentActivity() {
         widgetReply = null
         recReply = null
         writeReply = null
+        photoReply = null
         if (RecordHub.listener === recListener) RecordHub.listener = null
         if (AppUpdater.listener === updateListener) AppUpdater.listener = null
         webView.stopLoading()

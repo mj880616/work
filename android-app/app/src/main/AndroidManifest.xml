@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 기본 권한은 인터넷. 사진·저장소 전체 읽기는 요청하지 않는다(설계 5.2·6.3). -->
+    <!-- 기본 권한은 인터넷. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- PHOTO-출처 ①(0.3.9, 명진 결정 10/30): 사진 메뉴 '폰 사진'만 쓰는 사진·동영상 읽기. 처음 사진 메뉴에서 [사진 접근 허용]을 누를 때만 묻는다.
+         안드로이드 14+는 '고른 사진만'(부분 허용)도 받는다. 12 이하는 저장소 읽기. 목록·그림은 폰 안에서만 쓰고 서버로 올리지 않는다(PhoneMedia). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- APP-스스로업데이트(0.3.8): 이 앱 자신의 새 판(같은 서명, 공개 릴리스)만 설치한다. 처음 한 번 '이 앱에서 설치 허용'을 사용자가 켠다.
          UPDATE_PACKAGES_WITHOUT_USER_ACTION(안드로이드 14+, 일반 권한)은 이 앱이 설치한 이 앱을 확인 없이 업데이트할 때 쓴다. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />

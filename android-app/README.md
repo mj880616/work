@@ -1,11 +1,11 @@
 # 웹2 폰 앱 (안드로이드·갤럭시 전용)
 
-설계: [docs/design/phone-app-v2.md](../docs/design/phone-app-v2.md). 지금은 단계 ③(홈 화면 위젯)과 [녹음](0.3.3), 위젯 여러 개 ①(0.3.4)·②(0.3.5)·③(0.3.6), 당겨서 새로고침(0.3.7), 앱 스스로 업데이트(0.3.8)까지다.
+설계: [docs/design/phone-app-v2.md](../docs/design/phone-app-v2.md). 지금은 단계 ③(홈 화면 위젯)과 [녹음](0.3.3), 위젯 여러 개 ①(0.3.4)·②(0.3.5)·③(0.3.6), 당겨서 새로고침(0.3.7), 앱 스스로 업데이트(0.3.8), 사진 메뉴 폰 사진(0.3.9)까지다.
 
 - 화면은 모두 `https://bokdoong.com/work/app/` 웹이다(0.3.1부터, 주소 이전 ①-D1). 웹을 배포하면 앱을 다시 열 때 바로 반영된다.
 - 앱 안 주소(`ShellRules.isInternalApp`, 시험으로 고정): `https` + 호스트 `bokdoong.com`·`desk.bokdoong.com`·`work.bokdoong.com`·`mj880616.github.io`의 `/work/app/` 아래, 그리고 `bokdoong.com`·`desk`의 맨 앞 `/`(Worker가 Web2로 보냄). desk·work는 넘김(302) 기간 동안 안쪽으로 둔다. 그 밖(`bokdoong.com/p/` 같은 Web1 공개 페이지, 공유 짧은 주소 `bokdoong.com/s/…`, 공유 페이지 `work.bokdoong.com/work/share/`, `work`의 Web1)은 바깥 브라우저 탭으로 연다(설계 `docs/design/domain-move.md` 4.3절).
 - 앱이 맡는 것: 시스템 바 색(웹 theme-color를 따라감), 뒤로가기(`window.KPTUNativeBack`), 로그인 복귀(`kptuwork://auth?handoff=` → 웹 `auth-handoff-client.js`), 바깥 링크(앱 위 브라우저 탭), 파일 선택, 새 버전 줄과 앱 스스로 업데이트(아래), 공유 받기(아래).
-- 앱은 웹 화면의 토큰·업무 데이터를 따로 저장하지 않는다(위젯 세션의 새로고침 토큰 하나만 아래처럼 암호화해 둔다). 요청 권한은 인터넷과 [녹음]용 마이크·앞쪽 서비스(마이크)·알림, 앱 스스로 업데이트용 '이 앱에서 설치 허용'(`REQUEST_INSTALL_PACKAGES`)·`UPDATE_PACKAGES_WITHOUT_USER_ACTION`(아래, WorkManager가 일반 권한 몇 개를 자동으로 더함). 백업·새 폰 옮기기에서 앱 저장 공간을 뺀다.
+- 앱은 웹 화면의 토큰·업무 데이터를 따로 저장하지 않는다(위젯 세션의 새로고침 토큰 하나만 아래처럼 암호화해 둔다). 요청 권한은 인터넷과 사진 메뉴 '폰 사진'용 사진·동영상 읽기(아래, 0.3.9), [녹음]용 마이크·앞쪽 서비스(마이크)·알림, 앱 스스로 업데이트용 '이 앱에서 설치 허용'(`REQUEST_INSTALL_PACKAGES`)·`UPDATE_PACKAGES_WITHOUT_USER_ACTION`(아래, WorkManager가 일반 권한 몇 개를 자동으로 더함). 백업·새 폰 옮기기에서 앱 저장 공간을 뺀다.
 - 앱 ID `kr.or.kptu.work`, 이름 "웹2"는 옛 앱과 같다(설계 D2·D11). 옛 앱은 debug 키 서명이라 덮어 깔리지 않으므로 한 번 지우고 깐다.
 
 ## 공유로 바구니 넣기 (단계 ②)
@@ -73,6 +73,14 @@
 - 상태: 받는 중·설치 중은 알림줄 한 줄('웹2 0.3.9 받는 중'·'설치 중', 알림 권한이 없으면 위쪽 줄만). 새 판으로 바뀌면 받은 파일을 지우고 '웹2 <버전>로 업데이트했어요'(`MY_PACKAGE_REPLACED`).
 - 실패: 주소·넘김·크기·sha256·앱 ID·버전·서명 중 하나라도 어긋나거나, 설치가 실패·취소되면 예전처럼 위쪽 줄 [받기](브라우저로 APK 주소).
 
+## 사진 메뉴 폰 사진 (0.3.9, PHOTO-출처 ①)
+
+- 사진 메뉴 위 줄 오른쪽 출처 아이콘 중 [폰 사진](폴더 모양)은 이 앱에서만 보인다. 웹(`app/phone-photos.js`)이 다리로 `photos:hello`를 보내 앱이 `photos:state:{"access":"full|partial|none","key":…,"trash":…}`로 답해야 보인다(웹 브라우저·0.3.8 이하 앱은 아이콘 없음).
+- 처음 한 번 [사진 접근 허용](`photos:ask`): 안드로이드 13+는 `READ_MEDIA_IMAGES`·`READ_MEDIA_VIDEO`, 14+는 '고른 사진만'(`READ_MEDIA_VISUAL_USER_SELECTED`, 부분 허용)도 함께 묻는다. 12 이하는 `READ_EXTERNAL_STORAGE`(32까지만 선언). 부분 허용이면 화면에 '고른 것만 보여요 [더 고르기]'. 설정에서 바꾸고 돌아오면 앱이 상태를 다시 알린다.
+- 목록·그림: 웹이 `./__phone/<열쇠>/page|ids|months|days|thumb/<번호>|media/<번호>`를 fetch·`<img>`로 부르면 앱이 가로채(`PhoneMedia.serve`, 서비스 워커 요청 포함) MediaStore에서 답한다. 서버로 나가지 않고, 사진·목록을 저장하지 않는다(목록은 메모리 30초, 작은 그림 320·큰 그림 1600은 그때그때 `loadThumbnail`). 열쇠는 앱 프로세스마다 새 무작위 값이고 허용 Origin 최상위 화면 다리에만 준다. 주소·열쇠·값 규칙은 `PhoneMediaRules`(JVM 시험).
+- 지우기: `photos:trash:<번호들>` → 안드로이드 11+ `MediaStore.createTrashRequest`(시스템 확인 창, 폰 휴지통 30일) → `photos:trashed:{"ok":…,"count":…}`. 10은 지우기 없음.
+- 별표·앨범은 웹2 서버에 출처 'phone'·열쇠 `ms:<MediaStore 번호>`로만 둔다(사진 파일은 올리지 않음, DB 20261030230000). 사진 이름·내용은 로그에 쓰지 않는다.
+
 ## 녹음 (0.3.3, MTG-폰녹음)
 
 - 자리: 앱 안 사업 보고 위쪽 줄 [녹음](노트북 [녹음]과 같은 자리, `app/phone-recorder.js`가 붙임). 웹 화면이 `rec:hello`를 보내 앱이 답해야 보인다(웹 브라우저·0.3.2 이하 앱에서는 안 보임).
@@ -105,6 +113,7 @@
 | `app/src/main/java/kr/or/kptu/work/WidgetActions.kt` | 빠른 쓰기·한 칸 위젯 규칙(칸 순서·고르기 목록·여는 곳·쓰기 주소, 단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/ActionWidgets.kt` | 빠른 쓰기·한 칸 위젯 그리기, 한 칸 기능 고르기 창, [사진] 고르기·카메라 |
 | `app/src/main/java/kr/or/kptu/work/MiniJson.kt` | 응답 JSON 읽기(JVM 시험용, org.json 대신) |
+| `app/src/main/java/kr/or/kptu/work/PhoneMediaRules.kt`, `PhoneMedia.kt` | 사진 메뉴 폰 사진(주소·열쇠·권한·정렬·쪽·JSON 규칙은 JVM 시험 대상, MediaStore 읽기·그림·폰 휴지통) |
 | `app/src/main/java/kr/or/kptu/work/RecordRules.kt` | 녹음 규칙(조각 자르기·구간 넘김·대기열·재시도·지울 파일·권한·다리 글, 단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/RecordStore.kt` | 녹음 임시 보관(앱 전용 공간, 상태 파일, 조각 읽기, 지우기) |
 | `app/src/main/java/kr/or/kptu/work/RecordHub.kt` | 녹음 한 곳 상태·`__rec` 가로채기·`RecordActionActivity` |
@@ -118,7 +127,7 @@
 
 `.github/workflows/build-android-app.yml`이 단위 시험, debug APK(`web2-phone-<버전>-debug` artifact), 서명 없는 release 빌드 확인을 한다.
 
-새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36, 0.3.7=37, 0.3.8=38). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
+새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36, 0.3.7=37, 0.3.8=38, 0.3.9=39). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
 
 ## 위젯 빈칸 고침 (FIX-위젯, 2026-10-30)
 
