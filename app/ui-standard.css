@@ -1544,3 +1544,5 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
       내 프로필 담당 사업장·참고 일정 '내가 만든 일정도 포함', 원장 '지난 기록도 보기'. 그 밖의 체크칸 줄은 이미 40~44px이다(PR 본문 표). */
 #profileView :is(.ps-org-pick,.ps-calref-check),#appView #ledgerView .lb-check{ position:relative; }
 #profileView :is(.ps-org-pick,.ps-calref-check)::after,#appView #ledgerView .lb-check::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+/* 넓힌 범위(::after)가 체크칸 자체를 덮지 않게 체크칸을 그 위에 둔다(체크칸을 바로 눌러도 체크칸이 받는다). */
+#profileView :is(.ps-org-pick,.ps-calref-check)>input,#appView #ledgerView .lb-check>input{ position:relative; z-index:1; }
