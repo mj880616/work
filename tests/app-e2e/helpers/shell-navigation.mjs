@@ -5,8 +5,9 @@ export function navigationButton(page,view){
   return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible${home}`);
 }
 // The menu opener at this width: the account trigger (PC frame 761px~, top line right end since UI-상단줄) or the [메뉴] tab (phone, 8-9e-2).
+// #mobileMenuOpen (☰) no longer exists in the app (UI-폴드PC틀); it stays here only for the historical baseline pages some specs compare with.
 export function accountButton(page){
-  return page.locator('#appView>.app-topline [data-account-open]:visible,#mobileMenuTab:visible');
+  return page.locator('#appView>.app-topline [data-account-open]:visible,#mobileMenuOpen:visible,#mobileMenuTab:visible');
 }
 export async function clickView(page,view){
   // HWP-화면가득: 폰·폴드 폭의 HWP 편집은 화면 가득이라 아래 탭·메뉴가 그려지지 않는다. 사람처럼 [✕]로 먼저 이전 화면에 나온다.
