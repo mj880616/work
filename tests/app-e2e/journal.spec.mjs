@@ -732,7 +732,7 @@ for(const width of [1024,1279,1280,1920]){
 // 주간보고 재료와 그 밖의 기록 안의 칸 이름은 작은 제목(14px).
 const journalLook=page=>page.evaluate(()=>{
  const cs=sel=>getComputedStyle(document.querySelector(sel));
- const heads=[...document.querySelectorAll('#journalRoot .journal-schedule-head > h4, #journalRoot [data-journal-done-day] > h4, #journalRoot .journal-report-title, #journalRoot [data-journal-others] > summary .journal-heading')].map(e=>{const c=getComputedStyle(e);return {text:(e.firstChild?.textContent||'').trim(),size:c.fontSize,weight:Number(c.fontWeight)};});
+ const heads=[...document.querySelectorAll('#journalRoot .journal-schedule-head h4, #journalRoot [data-journal-done-day] > h4, #journalRoot .journal-report-title, #journalRoot [data-journal-others] > summary .journal-heading')].map(e=>{const c=getComputedStyle(e);return {text:(e.firstChild?.textContent||'').trim(),size:c.fontSize,weight:Number(c.fontWeight)};});
  const subs=[...document.querySelectorAll('#journalRoot [data-journal-report] [data-journal-group] > h5')].map(e=>getComputedStyle(e).fontSize);
  const line=cs('#journalRoot [data-journal-lines] .journal-line-text'),item=cs('#journalRoot [data-journal-group] .journal-item-open');
  const soft=(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-journal-soft)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})();

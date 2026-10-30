@@ -61,7 +61,9 @@ export function mountHomeSummary({root, line, rt = window.KPTURuntime, onTasksCh
   window.addEventListener('kptu:todo-radar-changed', event => { if (event.detail?.reload && window.KPTURouter?.current === 'home') void refresh(); });
   return {
     // 홈에 들어올 때마다: 숫자 다시 읽기 + 그날 첫 찾기.
-    enter() { void refresh(); void autoFindToday(); },
+    // 옛 홈처럼 들어올 때 Google 할 일 목록을 한 번 읽어 공용 사본(달력 하루 목록·정리함 '이미 할 일' 거르기·요약 숫자)이 최신이 되게 한다.
+    //   숫자는 그 뒤 한 번 센다('이미 할 일로 만든 것'을 빼려고). 할 일을 못 읽어도 센다.
+    enter() { void autoFindToday(); void dependencies.google().then(g => g?.listTasks?.({publish: true})).catch(() => {}).finally(() => refresh()); },
     refresh,
   };
 }

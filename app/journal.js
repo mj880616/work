@@ -337,7 +337,7 @@ function renderTasks(card) {
   else {
     const items = part.todo || [];
     if (items.length) { const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...items.map(item => taskRow(item, {pending:true}))); box.append(ul); }
-    else if (!part.failed && !part.overdue?.length) { const note = dayRangeNote('todo', selected, range); box.insertAdjacentHTML('beforeend', emptyHtml(note || '없음')); }
+    else if (!part.failed) { const note = dayRangeNote('todo', selected, range); box.insertAdjacentHTML('beforeend', emptyHtml(note || '없음')); }
     // 기한 지난 것: one folded line under 할 일.
     if (part.overdue?.length) {
       const fold = document.createElement('details');
