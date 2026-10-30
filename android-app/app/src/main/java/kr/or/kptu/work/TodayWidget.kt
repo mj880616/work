@@ -56,45 +56,71 @@ object WidgetJobs {
 }
 
 /**
- * 오늘·이번 주 위젯을 같은 갱신 작업 하나로(WIDGET-여러개 ②, 배터리). 위젯 세션 읽기(readList)도 한 번에 묶는다:
- * 오늘 위젯이 있으면 오늘 일정·할 일·처리 전 후보, 이번 주 위젯이 있으면 이번 주 일정.
+ * 오늘·이번 주·텔레그램·아스날 위젯을 같은 갱신 작업 하나로(WIDGET-여러개 ②·③, 배터리). 위젯 세션 읽기(readList)도 한 번에 묶는다:
+ * 오늘 위젯이 있으면 오늘 일정·할 일·처리 전 후보, 이번 주 위젯이 있으면 이번 주 일정, 텔레그램 위젯이 있으면 내 기능 목록·오늘 건수·최근 소식(+ 후보).
+ * 아스날은 공개 정적 파일이라 로그인 없이, 6시간에 한 번만 받는다(그 사이에는 메모리의 마지막 자료로 다시 그림).
  */
 class TodayWidgetWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         val ctx = applicationContext
         val today = TodayWidget.hasWidgets(ctx)
         val week = WeekWidget.hasWidgets(ctx)
-        if (!today && !week) {
+        val tg = TelegramWidget.hasWidgets(ctx)
+        val arsenal = ArsenalWidget.hasWidgets(ctx)
+        if (!today && !week && !tg && !arsenal) {
             WidgetJobs.cancel(ctx)
             return Result.success()
         }
+        val now = System.currentTimeMillis()
+        if (arsenal) ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), now)
+        if (!today && !week && !tg) return Result.success()
         val session = WidgetHub.session(ctx)
         if (!session.signedIn()) {
             HomeWidgets.showSignedOut(ctx)
             return Result.success()
         }
-        val now = System.currentTimeMillis()
         val (from, to) = WidgetToday.range(now)
         val (weekFrom, weekTo) = WidgetWeek.range(now)
-        val urls = ArrayList<String>()
-        if (today) urls.addAll(listOf(WidgetRules.calendarUrl(from, to), WidgetRules.TASKS, WidgetRules.CANDIDATES))
-        if (week) urls.add(WidgetRules.calendarUrl(weekFrom, weekTo))
-        when (val r = session.readList(urls)) {
+        val day = WidgetTelegram.today(now)
+        val todayCal = WidgetRules.calendarUrl(from, to)
+        val weekCal = WidgetRules.calendarUrl(weekFrom, weekTo)
+        val feedDays = WidgetRules.feedDaysUrl(day.toString())
+        val feedItems = WidgetRules.feedItemsUrl(day.minusDays(1).toString())
+        val urls = LinkedHashSet<String>()
+        if (today) urls.addAll(listOf(todayCal, WidgetRules.TASKS, WidgetRules.CANDIDATES))
+        if (week) urls.add(weekCal)
+        if (tg) urls.addAll(listOf(WidgetRules.FEATURES, feedDays, feedItems, WidgetRules.TASKS, WidgetRules.CANDIDATES))
+        val list = urls.toList()
+        when (val r = session.readList(list)) {
             is WidgetSession.Outcome.Ok -> {
-                val got = r.value
+                val got = list.zip(r.value).toMap()
                 if (today) {
-                    val raw = WidgetSession.Raw(got[0].status, got[0].body, got[1].status, got[1].body, got[2].status, got[2].body)
-                    TodayWidget.show(ctx, TodayWidget.State.Shown(WidgetToday.content(raw, now)))
+                    val c = got.getValue(todayCal)
+                    val t = got.getValue(WidgetRules.TASKS)
+                    val k = got.getValue(WidgetRules.CANDIDATES)
+                    TodayWidget.show(ctx, TodayWidget.State.Shown(WidgetToday.content(WidgetSession.Raw(c.status, c.body, t.status, t.body, k.status, k.body), now)))
                 }
                 if (week) {
-                    val w = got.last()
+                    val w = got.getValue(weekCal)
                     WeekWidget.show(ctx, WeekWidget.State.Shown(WidgetWeek.content(w.status, w.body, now)))
+                }
+                if (tg) {
+                    val k = got.getValue(WidgetRules.CANDIDATES)
+                    val t = got.getValue(WidgetRules.TASKS)
+                    val asks = when (k.status) {
+                        200 -> WidgetToday.counts(k.body, if (t.status == 200) t.body else null)?.asks
+                        404 -> 0
+                        else -> null
+                    }
+                    val content = WidgetTelegram.content(got.getValue(WidgetRules.FEATURES), got[feedDays], got[feedItems], asks)
+                    TelegramWidget.show(ctx, if (content == null) TelegramWidget.State.Failed else TelegramWidget.State.Shown(content))
                 }
             }
             is WidgetSession.Outcome.SignedOut -> HomeWidgets.showSignedOut(ctx)
             is WidgetSession.Outcome.Failed -> {
                 if (today) TodayWidget.show(ctx, TodayWidget.State.Failed)
                 if (week) WeekWidget.show(ctx, WeekWidget.State.Failed)
+                if (tg) TelegramWidget.show(ctx, TelegramWidget.State.Failed)
             }
         }
         return Result.success()
@@ -103,11 +129,16 @@ class TodayWidgetWorker(context: Context, params: WorkerParameters) : Worker(con
 
 /** 위젯 세션을 쓰는 위젯들(오늘·이번 주)을 함께 다루는 곳. 로그인·로그아웃 뒤 앱이 부른다. */
 object HomeWidgets {
-    fun any(context: Context): Boolean = TodayWidget.hasWidgets(context) || WeekWidget.hasWidgets(context)
+    /** 위젯 세션을 쓰는 위젯이 하나라도 있는지(로그인 줄·갱신 대상). */
+    fun any(context: Context): Boolean = TodayWidget.hasWidgets(context) || WeekWidget.hasWidgets(context) || TelegramWidget.hasWidgets(context)
+
+    /** 갱신 작업이 필요한 위젯이 하나라도 있는지(아스날 포함). */
+    fun anyRefreshed(context: Context): Boolean = any(context) || ArsenalWidget.hasWidgets(context)
 
     fun showSignedOut(context: Context) {
         TodayWidget.show(context, TodayWidget.State.SignedOut)
         WeekWidget.show(context, WeekWidget.State.SignedOut)
+        TelegramWidget.show(context, TelegramWidget.State.SignedOut)
     }
 
     fun signedInChanged(context: Context, signedIn: Boolean) {
@@ -115,10 +146,12 @@ object HomeWidgets {
         if (signedIn) {
             TodayWidget.show(context, TodayWidget.State.Loading)
             WeekWidget.show(context, WeekWidget.State.Loading)
+            TelegramWidget.show(context, TelegramWidget.State.Loading)
             WidgetJobs.schedule(context)
             WidgetJobs.refreshNow(context)
         } else {
-            WidgetJobs.cancel(context)
+            // 아스날(로그인 없음)이 남아 있으면 작업은 그대로 둔다.
+            if (!ArsenalWidget.hasWidgets(context)) WidgetJobs.cancel(context)
             showSignedOut(context)
         }
     }
@@ -157,7 +190,7 @@ class TodayWidget : AppWidgetProvider() {
     }
 
     override fun onDisabled(context: Context) {
-        if (!HomeWidgets.any(context)) WidgetJobs.cancel(context)
+        if (!HomeWidgets.anyRefreshed(context)) WidgetJobs.cancel(context)
         last = null
     }
 

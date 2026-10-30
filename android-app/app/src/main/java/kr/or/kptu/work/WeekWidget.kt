@@ -37,7 +37,7 @@ class WeekWidget : AppWidgetProvider() {
     }
 
     override fun onDisabled(context: Context) {
-        if (!HomeWidgets.any(context)) WidgetJobs.cancel(context)
+        if (!HomeWidgets.anyRefreshed(context)) WidgetJobs.cancel(context)
         last = null
     }
 

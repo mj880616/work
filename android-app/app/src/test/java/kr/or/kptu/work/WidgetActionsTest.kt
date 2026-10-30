@@ -99,8 +99,8 @@ class WidgetActionsTest {
     fun manifestListsTheWidgets() {
         val app = children(xml("src/main/AndroidManifest.xml"), "application").single()
         val receivers = children(app, "receiver").associateBy { attr(it, "name") }
-        assertEquals(setOf(".TodayWidget", ".QuickWidget", ".OneWidget", ".WeekWidget"), receivers.keys)
-        val infos = mapOf(".TodayWidget" to "@xml/today_widget_info", ".QuickWidget" to "@xml/quick_widget_info", ".OneWidget" to "@xml/one_widget_info", ".WeekWidget" to "@xml/week_widget_info")
+        assertEquals(setOf(".TodayWidget", ".QuickWidget", ".OneWidget", ".WeekWidget", ".TelegramWidget", ".ArsenalWidget"), receivers.keys)
+        val infos = mapOf(".TodayWidget" to "@xml/today_widget_info", ".QuickWidget" to "@xml/quick_widget_info", ".OneWidget" to "@xml/one_widget_info", ".WeekWidget" to "@xml/week_widget_info", ".TelegramWidget" to "@xml/telegram_widget_info", ".ArsenalWidget" to "@xml/arsenal_widget_info")
         for ((name, r) in receivers) {
             assertEquals("$name exported", "false", attr(r, "exported"))
             assertEquals(infos[name], attr(children(r, "meta-data").single(), "resource"))
