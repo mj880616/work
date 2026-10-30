@@ -1,8 +1,11 @@
 package kr.or.kptu.work
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -68,6 +71,12 @@ class MainActivity : ComponentActivity() {
     private val ui = Handler(Looper.getMainLooper())
     private val widgetTimeout = Runnable { onWidgetAutoTimeout() }
     @Volatile private var alive = true
+    /** MTG-폰녹음: 웹2 화면(phone-recorder.js)이 'rec:hello'로 연 다리. 녹음 상태가 바뀌면 여기로 알린다. */
+    private var recReply: JavaScriptReplyProxy? = null
+    private val recListener: (String) -> Unit = { message -> postRec(message) }
+    private val recPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+        postRec(if (micGranted()) "rec:ready" else "rec:denied")
+    }
 
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileCallback ?: return@registerForActivityResult
@@ -78,6 +87,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         barColor = ContextCompat.getColor(this, R.color.web_bg)
+        RecordHub.init(this)
+        RecordHub.listener = recListener
 
         // targetSdk 35부터 화면 끝까지 그린다. 바 자리는 앱이 비우고 웹 바탕색으로 칠한다.
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -141,6 +152,7 @@ class MainActivity : ComponentActivity() {
                 if (data.startsWith("bar:")) ShellRules.parseColor(data.substring(4))?.let(::applyBarColor)
                 else if (data.startsWith("share:")) onShareMessage(data, reply)
                 else if (data.startsWith("widget:")) onWidgetMessage(data, reply)
+                else if (data.startsWith("rec:")) onRecordMessage(data, reply)
             }
         }
 
@@ -150,7 +162,8 @@ class MainActivity : ComponentActivity() {
         ) {
             ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? =
-                    ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
+                    RecordHub.serve(request.url.toString(), request.method)
+                        ?: ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
             })
         }
 
@@ -187,7 +200,8 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
+                RecordHub.serve(request.url.toString(), request.method)
+                    ?: ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
 
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
@@ -240,6 +254,11 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (ShareIntake.isShare(intent)) {
             deliverShare(intent)
+            return
+        }
+        if (intent.action == RecordHub.ACTION_OPEN) {
+            // 알림줄 [멈추고 정리]·녹음 시작: 웹2 화면이 떠 있으면 상태만 알린다(웹이 정리·시작을 이어 함). 아니면 웹2를 연다.
+            if (ShellRules.isInternalApp(webView.url)) RecordHub.pushState() else webView.loadUrl(ShellRules.HOME)
             return
         }
         val data = intent.data?.toString()
@@ -398,6 +417,85 @@ class MainActivity : ComponentActivity() {
         }
         webView.evaluateJavascript(ARRIVE_SCRIPT.replace("%ID%", share.id)) { value ->
             if (value != "true") webView.loadUrl(target)
+        }
+    }
+
+    /**
+     * MTG-폰녹음 다리(app/phone-recorder.js). 허용 Origin 최상위 화면만 이 다리를 본다.
+     * 웹이 rec_start·rec_piece 같은 서버 호출을 웹2 로그인 세션으로 하고, 앱은 녹음기·조각 대기열·임시 파일만 맡는다.
+     */
+    private fun onRecordMessage(data: String, reply: JavaScriptReplyProxy) {
+        val m = RecordRules.message(data) ?: return
+        recReply = reply
+        when (m) {
+            RecordRules.Message.Hello -> postRec(RecordHub.stateMessage())
+            RecordRules.Message.Prepare -> {
+                RecordHub.wantStart(false)
+                val prefs = getSharedPreferences(REC_PREFS, MODE_PRIVATE)
+                val notifyGranted = Build.VERSION.SDK_INT < 33 ||
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                val ask = RecordRules.permissionsToAsk(Build.VERSION.SDK_INT, micGranted(), notifyGranted, prefs.getBoolean(REC_NOTIFY_ASKED, false))
+                if (ask.isEmpty()) {
+                    postRec("rec:ready")
+                    return
+                }
+                if (RecordRules.Perm.NOTIFY in ask) prefs.edit().putBoolean(REC_NOTIFY_ASKED, true).apply()
+                val names = ask.map { if (it == RecordRules.Perm.MIC) Manifest.permission.RECORD_AUDIO else Manifest.permission.POST_NOTIFICATIONS }
+                try {
+                    recPermissions.launch(names.toTypedArray())
+                } catch (_: Exception) {
+                    postRec(if (micGranted()) "rec:ready" else "rec:denied")
+                }
+            }
+            is RecordRules.Message.Begin -> when {
+                !micGranted() -> postRec("rec:denied")
+                !RecordHub.begin(m) -> postRec("rec:busy")
+                else -> try {
+                    ContextCompat.startForegroundService(this, RecorderService.intent(this, RecorderService.ACTION_START))
+                } catch (_: Exception) {
+                    RecordHub.failStart()
+                }
+            }
+            RecordRules.Message.Pause -> recService(RecorderService.ACTION_PAUSE)
+            RecordRules.Message.Resume -> recService(RecorderService.ACTION_RESUME)
+            RecordRules.Message.Stop -> if (RecordHub.active()) recService(RecorderService.ACTION_STOP) else RecordHub.pushState()
+            RecordRules.Message.Discard ->
+                if (RecordHub.active()) startService(RecorderService.intent(this, RecorderService.ACTION_STOP).putExtra(RecorderService.EXTRA_DISCARD, true))
+                else RecordHub.update { it.copy(discard = true, autoFinish = false) }
+            RecordRules.Message.Next -> postRec(RecordHub.next())
+            is RecordRules.Message.Sent -> RecordHub.update(push = false) { RecordRules.sent(it, m.no, m.seq) }
+            is RecordRules.Message.Opened -> RecordHub.update(push = false) { RecordRules.opened(it, m.no, m.recordingId) }
+            is RecordRules.Message.Failed -> {
+                val wait = RecordHub.failed(m)
+                // 구간이 가득 참(옛 서버 상한): 녹음 중이면 새 구간으로 넘긴다.
+                if (m.outcome == RecordRules.Outcome.FULL && RecordHub.active()) recService(RecorderService.ACTION_ROLL)
+                postRec("rec:wait:$wait")
+            }
+            RecordRules.Message.Finishing -> RecordHub.update(push = false) { it.copy(autoFinish = false) }
+            RecordRules.Message.Clear -> if (!RecordHub.active()) RecordHub.clear() else RecordHub.pushState()
+        }
+    }
+
+    private fun recService(action: String) {
+        if (!RecordHub.active()) {
+            RecordHub.pushState()
+            return
+        }
+        try {
+            startService(RecorderService.intent(this, action))
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun micGranted(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+    private fun postRec(message: String) {
+        val reply = recReply ?: return
+        try {
+            reply.postMessage(message)
+        } catch (_: Exception) {
+            recReply = null
         }
     }
 
@@ -595,6 +693,8 @@ class MainActivity : ComponentActivity() {
         fileCallback?.onReceiveValue(null)
         fileCallback = null
         widgetReply = null
+        recReply = null
+        if (RecordHub.listener === recListener) RecordHub.listener = null
         webView.stopLoading()
         (webView.parent as? LinearLayout)?.removeView(webView)
         webView.destroy()
@@ -604,6 +704,9 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val BAR_BRIDGE = "KPTUAppShell"
         const val STATE_WIDGET_LOGIN = "widget_login_since"
+        /** 앱 설정(소리·토큰 아님): 알림 권한을 이미 한 번 물었는지. */
+        const val REC_PREFS = "recording"
+        const val REC_NOTIFY_ASKED = "notify_asked"
         /** 웹2 화면이 뜨고 로그인을 확인해 widget:ready를 보낼 때까지(앱이 꺼져 있었으면 화면을 처음 여는 시간 포함). */
         const val READY_WAIT_MS = 12_000L
         /** widget:mint 뒤 봉인이 올 때까지. */
