@@ -70,17 +70,17 @@ for(const size of SIZES)test(`${size.width}×${size.height}: PC 틀 — 모든 �
   const n=await nav(page).boundingBox(),t=await topline.boundingBox();
   expect(n.height).toBeGreaterThan(n.width);
   expect(t.x).toBeGreaterThanOrEqual(n.x+n.width);
-  if(size.rail)expect(n.width).toBeLessThanOrEqual(56);else expect(n.width).toBeGreaterThan(120);
+  if(size.rail)expect(n.width,'좁은 메뉴 폭').toBeLessThanOrEqual(56);else expect(n.width).toBeGreaterThan(120);
   const bad=[];
   for(const [name,sel,view,note,sub] of MENU){
     const button=nav(page).locator(sel).first();
     await expect(button,name).toBeVisible();
     await button.click();
     await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current),{message:name}).toBe(view);
-    if(view==='basket')await expect(page.locator('#basketView')).toHaveAttribute('data-kind',note?'note':'memo');
-    await expect(page.locator(`#${view}View`)).toBeVisible();
+    if(view==='basket')await expect(page.locator('#basketView'),name).toHaveAttribute('data-kind',note?'note':'memo');
+    await expect(page.locator(`#${view}View`),name).toBeVisible();
     // 고르면 펼친 이름은 접힌다.
-    await expect(page.locator('#appView')).not.toHaveClass(/nav-open/);
+    await expect(page.locator('#appView'),name).not.toHaveClass(/nav-open/);
     await page.waitForTimeout(150);
     const o=await overflow(page);if(o)bad.push(`${name}: ${o}`);
   }
@@ -90,7 +90,7 @@ for(const size of SIZES)test(`${size.width}×${size.height}: PC 틀 — 모든 �
   await expect(page.locator('#profileView')).toBeVisible();
   const o=await overflow(page);if(o)bad.push(`내 프로필: ${o}`);
   expect(bad,bad.join('\n')).toEqual([]);
-  expect(errors).toEqual([]);
+  expect(errors,errors.join('\n')).toEqual([]);
 });
 
 for(const size of SIZES.filter(s=>s.rail))test(`${size.width}×${size.height}: 좁은 메뉴 펼치기·접기, 펼친 상태에서 [+ 추가] 창이 가려지지 않는다`,async({page})=>{
