@@ -234,7 +234,7 @@ export function createPhoneRecorder(deps){
       serverPending=serverPending.filter(s=>s.session_id!==sessionId);
       void loadPending(true);
     }catch(e){
-      const text=e?.recText||(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':view.step==='전사'?transcribeFailText(e?.message):view.step==='요약'?'초안 창을 열지 못했어요. [다시]를 누르세요.':'녹음을 합치지 못했어요. 올린 소리는 Drive에 남아 있어요.');
+      const text=e?.recText||(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':view.step==='전사'?transcribeFailText(e):view.step==='요약'?'초안 창을 열지 못했어요. [다시]를 누르세요.':'녹음을 합치지 못했어요. 올린 소리는 Drive에 남아 있어요.');
       fail(text,e?.recRetry!==false);
     }
   }

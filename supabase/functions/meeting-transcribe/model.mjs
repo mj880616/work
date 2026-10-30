@@ -40,15 +40,34 @@ export const MESSAGES = Object.freeze({
   not_found: '전사 작업을 찾지 못했어요.',
   not_done: '전사가 끝난 녹음만 붙일 수 있어요.',
   drive_failed: '녹음 파일을 Drive에서 읽거나 저장하지 못했어요.',
-  gemini_failed: '전사하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
+  // 전사 실패는 원인별로 나눈다(MTG-폰녹음전사, 요청함 10/30 15:29). 화면은 GEMINI_KIND로 세 갈래(전사 서비스·파일 형식) + 연결 끊김(화면 쪽).
+  gemini_failed: '전사 서비스(Gemini)가 실패했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_upload: '전사 서비스(Gemini)에 녹음을 올리지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_timeout: '전사 서비스(Gemini) 응답이 늦어 멈췄어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_file_failed: '전사 서비스가 녹음 파일 형식을 읽지 못했어요. 녹음은 Drive에 그대로 있어요.',
+  gemini_rejected: '전사 서비스가 녹음 파일을 받지 않았어요(파일 형식). 녹음은 Drive에 그대로 있어요.',
+  bad_format: '녹음 파일이 깨져 읽지 못했어요(파일 형식). 녹음은 Drive에 그대로 있어요.',
   empty_transcript: '녹음에서 글을 찾지 못했어요.',
   usage_unavailable: '이번 달 사용량을 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   failed: '처리하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
 });
 export const STATUS = Object.freeze({
   not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
-  not_found: 404, not_done: 409, drive_failed: 502, gemini_failed: 502, empty_transcript: 422, usage_unavailable: 503, failed: 500,
+  not_found: 404, not_done: 409, drive_failed: 502, gemini_failed: 502,
+  gemini_upload: 502, gemini_timeout: 504, gemini_file_failed: 422, gemini_rejected: 422, bad_format: 422, empty_transcript: 422, usage_unavailable: 503, failed: 500,
 });
+// 실패 코드 → 화면 갈래. 'gemini'(전사 서비스) · 'format'(파일 형식). 연결 끊김은 화면이 받은 오류(시간 초과·네트워크)로 가른다.
+export const FAIL_KIND = Object.freeze({
+  gemini_failed: 'gemini', gemini_upload: 'gemini', gemini_timeout: 'gemini',
+  gemini_file_failed: 'format', gemini_rejected: 'format', bad_format: 'format', bad_type: 'format',
+});
+// Gemini 답(HTTP 상태) → 실패 코드. 400·422(요청은 닿았지만 받지 않음)는 파일 형식, 408·504는 늦음, 나머지는 전사 서비스 실패.
+export function geminiCode(status) {
+  const n = Number(status) || 0;
+  if (n === 400 || n === 422) return 'gemini_rejected';
+  if (n === 408 || n === 504) return 'gemini_timeout';
+  return 'gemini_failed';
+}
 export class Fail extends Error {
   constructor(code) { super(MESSAGES[code] ? code : 'failed'); this.code = MESSAGES[code] ? code : 'failed'; }
 }

@@ -54,20 +54,37 @@ class ArsenalWidget : AppWidgetProvider() {
                     failed = matches == null
                 }
             }
+            redraw(context)
+        }
+
+        /** 갱신 작업이 실패로 끝났을 때(FIX-위젯). 받은 자료가 있으면 그것을, 없으면 '불러오지 못했어요'. */
+        fun showFailed(context: Context) {
+            if (matches == null) failed = true
+            redraw(context)
+        }
+
+        private fun redraw(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, ArsenalWidget::class.java))
             if (ids.isNotEmpty()) draw(context, manager, ids)
         }
 
+        /** 지금 그릴 두 줄(메모리의 마지막 자료). 내용 만들기가 실패해도 빈칸 대신 '불러오지 못했어요'. */
+        private fun lines(): WidgetArsenal.Content {
+            val list = matches
+            return WidgetGuard.get {
+                val today = WidgetTelegram.today(System.currentTimeMillis())
+                when {
+                    list != null -> WidgetArsenal.content(list, today)
+                    failed -> WidgetArsenal.content(null, today)
+                    else -> WidgetArsenal.Content(WidgetArsenal.ARSENAL, "불러오는 중")
+                }
+            } ?: WidgetArsenal.Content(WidgetArsenal.ARSENAL, "불러오지 못했어요")
+        }
+
         private fun draw(context: Context, manager: AppWidgetManager, ids: IntArray) {
             val views = RemoteViews(context.packageName, R.layout.arsenal_widget)
-            val today = WidgetTelegram.today(System.currentTimeMillis())
-            val list = matches
-            val c = when {
-                list != null -> WidgetArsenal.content(list, today)
-                failed -> WidgetArsenal.content(null, today)
-                else -> WidgetArsenal.Content("아스날", "불러오는 중")
-            }
+            val c = lines()
             views.setTextViewText(R.id.ars_top, c.top)
             views.setTextViewText(R.id.ars_bottom, c.bottom)
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ShellRules.HOME + "?view=arsenal"), context, MainActivity::class.java)

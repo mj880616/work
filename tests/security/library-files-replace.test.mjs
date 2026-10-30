@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { fileNameTitle, isMeaninglessName } from '../../supabase/functions/_shared/library-file-name.mjs';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 const { readMultipartForm } = await import('../../supabase/functions/_shared/multipart.ts');
@@ -68,7 +69,7 @@ function harness({ rows = [baseDoc(), baseDoc({ id: OTHER, workspace_id: 'worksp
   let handler = null;
   const Deno = { env: { get: key => ({ SUPABASE_URL: 'https://sb.example', SUPABASE_SERVICE_ROLE_KEY: 'service', OPENAI_API_KEY: '' }[key]) }, serve: fn => { handler = fn; } };
   const quietConsole = { ...console, error: (...a) => calls.errors.push(a), warn: () => {}, log: () => {} };
-  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', SOURCE)(Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole);
+  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', 'fileNameTitle', 'isMeaninglessName', SOURCE)(Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole, fileNameTitle, isMeaninglessName);
   return { handler, calls, rows };
 }
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });

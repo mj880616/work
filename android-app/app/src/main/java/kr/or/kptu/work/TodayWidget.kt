@@ -8,6 +8,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
@@ -16,6 +17,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import androidx.work.Worker
@@ -44,9 +46,24 @@ object WidgetJobs {
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP, req)
     }
 
-    fun refreshNow(context: Context) {
-        val req = OneTimeWorkRequest.Builder(TodayWidgetWorker::class.java).setConstraints(constraints()).build()
-        WorkManager.getInstance(context).enqueueUniqueWork(NOW, ExistingWorkPolicy.KEEP, req)
+    /** 마지막으로 갱신 작업이 돈 시각(이 프로세스 메모리에만). 앱을 열 때 너무 자주 받지 않게. */
+    @Volatile var lastRunAt = 0L
+
+    /**
+     * 지금 한 번(FIX-위젯): 일반 작업은 폰이 미뤄 위젯이 1분 넘게 '불러오는 중'이었다. 안드로이드 12+는 급한 작업(expedited)으로 바로 돌리고,
+     * 급한 작업 몫이 없으면 일반 작업으로 돈다(RUN_AS_NON_EXPEDITED_WORK_REQUEST). 같은 이름이 이미 기다리면 KEEP(배터리).
+     * replace: 위젯 로그인·로그아웃 직후처럼 이미 도는 작업이 옛 로그인 상태로 그릴 수 있을 때만 새로 바꾼다.
+     */
+    fun refreshNow(context: Context, replace: Boolean = false) {
+        val builder = OneTimeWorkRequest.Builder(TodayWidgetWorker::class.java).setConstraints(constraints())
+        if (WidgetRefresh.expedite(Build.VERSION.SDK_INT)) builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        WorkManager.getInstance(context).enqueueUniqueWork(NOW, if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, builder.build())
+    }
+
+    /** 앱을 열 때: 위젯이 있고 마지막 갱신에서 5분이 지났으면 한 번. */
+    fun refreshOnOpen(context: Context) {
+        if (!HomeWidgets.anyRefreshed(context)) return
+        if (WidgetRefresh.dueOnOpen(System.currentTimeMillis(), lastRunAt)) refreshNow(context)
     }
 
     fun cancel(context: Context) {
@@ -63,67 +80,42 @@ object WidgetJobs {
 class TodayWidgetWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         val ctx = applicationContext
-        val today = TodayWidget.hasWidgets(ctx)
-        val week = WeekWidget.hasWidgets(ctx)
-        val tg = TelegramWidget.hasWidgets(ctx)
-        val arsenal = ArsenalWidget.hasWidgets(ctx)
+        val today = WidgetGuard.get { TodayWidget.hasWidgets(ctx) } == true
+        val week = WidgetGuard.get { WeekWidget.hasWidgets(ctx) } == true
+        val tg = WidgetGuard.get { TelegramWidget.hasWidgets(ctx) } == true
+        val arsenal = WidgetGuard.get { ArsenalWidget.hasWidgets(ctx) } == true
         if (!today && !week && !tg && !arsenal) {
-            WidgetJobs.cancel(ctx)
+            WidgetGuard.run { WidgetJobs.cancel(ctx) }
             return Result.success()
         }
         val now = System.currentTimeMillis()
-        if (arsenal) ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), now)
-        if (!today && !week && !tg) return Result.success()
+        WidgetJobs.lastRunAt = now
+        // FIX-위젯: 위젯마다 울타리를 따로 둔다. 한 위젯(또는 아스날 파일 받기)이 실패해도 나머지는 그린다.
+        if (today || week || tg) {
+            if (!WidgetGuard.run { refreshSigned(ctx, today, week, tg, now) }) {
+                if (today) WidgetGuard.run { TodayWidget.show(ctx, TodayWidget.State.Failed) }
+                if (week) WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) }
+                if (tg) WidgetGuard.run { TelegramWidget.show(ctx, TelegramWidget.State.Failed) }
+            }
+        }
+        // 아스날(공개 정적 파일, 로그인 없음)은 로그인 위젯 다음에. 6시간 안에 받은 자료가 있으면 다시 그리기만.
+        if (arsenal && !WidgetGuard.run { ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), now) }) {
+            WidgetGuard.run { ArsenalWidget.showFailed(ctx) }
+        }
+        return Result.success()
+    }
+
+    private fun refreshSigned(ctx: Context, today: Boolean, week: Boolean, tg: Boolean, now: Long) {
         val session = WidgetHub.session(ctx)
         if (!session.signedIn()) {
             HomeWidgets.showSignedOut(ctx)
-            return Result.success()
+            return
         }
-        val (from, to) = WidgetToday.range(now)
-        val (weekFrom, weekTo) = WidgetWeek.range(now)
-        val day = WidgetTelegram.today(now)
-        val todayCal = WidgetRules.calendarUrl(from, to)
-        val weekCal = WidgetRules.calendarUrl(weekFrom, weekTo)
-        val feedDays = WidgetRules.feedDaysUrl(day.toString())
-        val feedItems = WidgetRules.feedItemsUrl(day.minusDays(1).toString())
-        val urls = LinkedHashSet<String>()
-        if (today) urls.addAll(listOf(todayCal, WidgetRules.TASKS, WidgetRules.CANDIDATES))
-        if (week) urls.add(weekCal)
-        if (tg) urls.addAll(listOf(WidgetRules.FEATURES, feedDays, feedItems, WidgetRules.TASKS, WidgetRules.CANDIDATES))
-        val list = urls.toList()
-        when (val r = session.readList(list)) {
-            is WidgetSession.Outcome.Ok -> {
-                val got = list.zip(r.value).toMap()
-                if (today) {
-                    val c = got.getValue(todayCal)
-                    val t = got.getValue(WidgetRules.TASKS)
-                    val k = got.getValue(WidgetRules.CANDIDATES)
-                    TodayWidget.show(ctx, TodayWidget.State.Shown(WidgetToday.content(WidgetSession.Raw(c.status, c.body, t.status, t.body, k.status, k.body), now)))
-                }
-                if (week) {
-                    val w = got.getValue(weekCal)
-                    WeekWidget.show(ctx, WeekWidget.State.Shown(WidgetWeek.content(w.status, w.body, now)))
-                }
-                if (tg) {
-                    val k = got.getValue(WidgetRules.CANDIDATES)
-                    val t = got.getValue(WidgetRules.TASKS)
-                    val asks = when (k.status) {
-                        200 -> WidgetToday.counts(k.body, if (t.status == 200) t.body else null)?.asks
-                        404 -> 0
-                        else -> null
-                    }
-                    val content = WidgetTelegram.content(got.getValue(WidgetRules.FEATURES), got[feedDays], got[feedItems], asks)
-                    TelegramWidget.show(ctx, if (content == null) TelegramWidget.State.Failed else TelegramWidget.State.Shown(content))
-                }
-            }
-            is WidgetSession.Outcome.SignedOut -> HomeWidgets.showSignedOut(ctx)
-            is WidgetSession.Outcome.Failed -> {
-                if (today) TodayWidget.show(ctx, TodayWidget.State.Failed)
-                if (week) WeekWidget.show(ctx, WeekWidget.State.Failed)
-                if (tg) TelegramWidget.show(ctx, TelegramWidget.State.Failed)
-            }
-        }
-        return Result.success()
+        val plan = WidgetRefresh(today, week, tg, now)
+        val r = plan.result(session.readList(plan.urls))
+        r.today?.let { p -> WidgetGuard.run { TodayWidget.show(ctx, TodayWidget.state(p)) } || WidgetGuard.run { TodayWidget.show(ctx, TodayWidget.State.Failed) } }
+        r.week?.let { p -> WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(p)) } || WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) } }
+        r.tg?.let { p -> WidgetGuard.run { TelegramWidget.show(ctx, TelegramWidget.state(p)) } || WidgetGuard.run { TelegramWidget.show(ctx, TelegramWidget.State.Failed) } }
     }
 }
 
@@ -135,20 +127,24 @@ object HomeWidgets {
     /** 갱신 작업이 필요한 위젯이 하나라도 있는지(아스날 포함). */
     fun anyRefreshed(context: Context): Boolean = any(context) || ArsenalWidget.hasWidgets(context)
 
+    /** 위젯 로그인이 없을 때 세 위젯 모두 같은 한 줄. */
+    const val SIGNED_OUT_LINE = "위젯 로그인 필요 · 누르면 로그인"
+
     fun showSignedOut(context: Context) {
-        TodayWidget.show(context, TodayWidget.State.SignedOut)
-        WeekWidget.show(context, WeekWidget.State.SignedOut)
-        TelegramWidget.show(context, TelegramWidget.State.SignedOut)
+        WidgetGuard.run { TodayWidget.show(context, TodayWidget.State.SignedOut) }
+        WidgetGuard.run { WeekWidget.show(context, WeekWidget.State.SignedOut) }
+        WidgetGuard.run { TelegramWidget.show(context, TelegramWidget.State.SignedOut) }
     }
 
     fun signedInChanged(context: Context, signedIn: Boolean) {
         if (!any(context)) return
         if (signedIn) {
-            TodayWidget.show(context, TodayWidget.State.Loading)
-            WeekWidget.show(context, WeekWidget.State.Loading)
-            TelegramWidget.show(context, TelegramWidget.State.Loading)
+            WidgetGuard.run { TodayWidget.show(context, TodayWidget.State.Loading) }
+            WidgetGuard.run { WeekWidget.show(context, WeekWidget.State.Loading) }
+            WidgetGuard.run { TelegramWidget.show(context, TelegramWidget.State.Loading) }
             WidgetJobs.schedule(context)
-            WidgetJobs.refreshNow(context)
+            // 위젯 로그인 직후: 이미 도는 작업이 있으면(옛 '로그인 필요' 상태로 읽는 중) 새로 바꿔 바로 다시 읽는다.
+            WidgetJobs.refreshNow(context, replace = true)
         } else {
             // 아스날(로그인 없음)이 남아 있으면 작업은 그대로 둔다.
             if (!ArsenalWidget.hasWidgets(context)) WidgetJobs.cancel(context)
@@ -177,9 +173,9 @@ class TodayWidget : AppWidgetProvider() {
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val session = WidgetHub.session(context)
-        show(context, if (!session.signedIn()) State.SignedOut else last?.let { State.Shown(it) } ?: State.Loading, manager, ids)
-        if (session.signedIn()) {
+        val signedIn = WidgetGuard.get { WidgetHub.session(context).signedIn() } == true
+        show(context, if (!signedIn) State.SignedOut else last?.let { State.Shown(it) } ?: State.Loading, manager, ids)
+        if (signedIn) {
             WidgetJobs.schedule(context)
             WidgetJobs.refreshNow(context)
         }
@@ -222,13 +218,31 @@ class TodayWidget : AppWidgetProvider() {
             HomeWidgets.signedInChanged(context, signedIn)
         }
 
+        fun state(p: WidgetRefresh.Paint<WidgetToday.Content>): State = when (p) {
+            is WidgetRefresh.Paint.Shown -> State.Shown(p.content)
+            WidgetRefresh.Paint.SignedOut -> State.SignedOut
+            WidgetRefresh.Paint.Failed -> State.Failed
+        }
+
         fun show(context: Context, state: State) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, TodayWidget::class.java))
             if (ids.isNotEmpty()) show(context, state, manager, ids)
         }
 
+        /** 그리다 실패하면(예외·초기화 실패) 빈칸 대신 '불러오지 못했어요' 한 줄만 그린다(FIX-위젯). */
         private fun show(context: Context, state: State, manager: AppWidgetManager, ids: IntArray) {
+            if (WidgetGuard.run { paint(context, state, manager, ids) }) return
+            WidgetGuard.run {
+                val views = RemoteViews(context.packageName, R.layout.today_widget)
+                views.setTextViewText(R.id.widget_title, "오늘")
+                note(views, "불러오지 못했어요 · ↻로 다시")
+                views.setOnClickPendingIntent(R.id.widget_refresh, refresh(context))
+                manager.updateAppWidget(ids, views)
+            }
+        }
+
+        private fun paint(context: Context, state: State, manager: AppWidgetManager, ids: IntArray) {
             when (state) {
                 is State.Shown -> last = state.content
                 State.SignedOut -> last = null
@@ -247,7 +261,7 @@ class TodayWidget : AppWidgetProvider() {
                     views.setTextViewText(R.id.widget_title, WidgetToday.header(now))
                     views.setViewVisibility(R.id.widget_refresh, View.GONE)
                     views.setViewVisibility(ROWS[0], View.VISIBLE)
-                    views.setTextViewText(ROWS[0], "위젯 로그인 — 누르면 구글 로그인")
+                    views.setTextViewText(ROWS[0], HomeWidgets.SIGNED_OUT_LINE)
                     views.setOnClickPendingIntent(ROWS[0], HomeWidgets.login(context))
                 }
                 State.Loading -> {

@@ -4,6 +4,7 @@
 // 화면에는 AI 표시를 하지 않는다(사용자 결정 ③). 칸별 안쪽 기록(field_origin)은 서버만 쓰고 화면은 그리지 않는다.
 // 어떤 실패도 올리기 결과를 바꾸지 않는다: 자료는 이미 등록됐고, 여기서는 조용히 끝낸다(다시 보내지 않음).
 import {callAiAssist} from './basket-ai-summary.js';
+import {GENERIC_NAME_WORDS,isMeaninglessName,nameKeptFields} from './library-file-name.mjs';
 
 export const LIBRARY_AI_FIELDS=Object.freeze(['title','document_date','source','category']);
 // LIB-AI분류보완: AI는 비어 있는 프로젝트·담당조직 연결도 채운다(서버가 내 목록에서 고름). 화면에는 표시하지 않는다.
@@ -47,9 +48,12 @@ async function readText(id,rt){
 }
 
 // 한 자료 채우기. 결과: {ok,updated} 또는 {ok:false,code}. 던지지 않는다.
-export async function fillLibraryDocument(id,{keep=[],rt=globalThis.window?.KPTURuntime,call=callAiAssist,notify=true}={}){
+// LIB-파일이름그대로(2026-10-30 사용자 결정 A): fileName(올린 파일 이름)을 주면 뜻 있는 이름의 제목과 이름에 든 날짜도 keep에 넣는다.
+// 서버(library-files)가 올릴 때 이미 그 이름·날짜로 정했으므로, AI는 분류·작성 주체(와 뜻 없는 이름의 제목·날짜 없는 이름의 날짜)만 채운다.
+export async function fillLibraryDocument(id,{keep=[],fileName=null,rt=globalThis.window?.KPTURuntime,call=callAiAssist,notify=true}={}){
   if(typeof id!=='string'||!UUID.test(id)||!rt?.api)return {ok:false,code:'invalid_request'};
-  const fields=LIBRARY_AI_FIELDS.filter(f=>keep.includes(f));
+  const named=typeof fileName==='string'?nameKeptFields(fileName):[];
+  const fields=LIBRARY_AI_FIELDS.filter(f=>keep.includes(f)||named.includes(f));
   await readText(id,rt);
   const r=await call({kind:'library_fill',mode:'fill',document_ids:[id],keep:fields},{rt},CODES);
   if(!r.ok)return {ok:false,code:r.code};
@@ -84,18 +88,8 @@ export const TIDY_FRESH_MS=60*60*1000;
 const LOCKED='기타';
 const squash=s=>String(s??'').normalize('NFKC').toLowerCase().replace(/[\s_\-.()[\]]+/g,'');
 const baseName=name=>String(name??'').replace(/\.[^.]{1,8}$/,'').trim();
-// LIB-파일이름제목: 파일 이름에 뜻이 있으면 그 이름이 제목이다. 서버 isMeaninglessName과 같은 규칙(시험이 두 곳을 같은 목록으로 비교).
-export const GENERIC_NAME_WORDS=Object.freeze([
-  'img','image','images','imgs','dsc','dscn','dscf','pxl','mvimg','vid','video','photo','photos','pict','picture','pic',
-  'scan','scanned','scanner','document','doc','docx','file','files','untitled','new','screenshot','screen','shot','capture',
-  'download','downloads','attachment','temp','tmp','kakaotalk','kakao','talk','copy','wa','am','pm',
-  '스캔','제목','없음','제목없음','새문서','무제','새','문서','사진','이미지','첨부','첨부파일','붙여넣은','화면','캡처','스크린샷',
-  '카카오톡','복사본','사본','오전','오후','파일','이름','한글']);
-const GENERIC_SET=new Set(GENERIC_NAME_WORDS);
-export function isMeaninglessName(fileName){
-  const words=baseName(fileName).normalize('NFKC').toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
-  return !words.some(w=>!GENERIC_SET.has(w)&&!/^[a-z]{1,2}$/.test(w));
-}
+// LIB-파일이름제목·LIB-파일이름그대로: 파일 이름에 뜻이 있으면 그 이름이 제목이다. 판정은 공용 library-file-name.mjs 한 곳(서버 library-files·ai-assist와 같은 함수).
+export {GENERIC_NAME_WORDS,isMeaninglessName};
 // 서버 legacyUserFields와 같은 규칙: 칸별 기록이 생기기 전에 사람이 손댄 칸.
 export function legacyUserFields(note){
   const text=typeof note==='string'?note.trim():'';

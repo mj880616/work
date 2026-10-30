@@ -58,7 +58,7 @@ test('bindLibraryDrop: overlay only while a file is dragged and active; drop han
 test('library-upload.js wires the drop: no storage of its own, no hard-coded colors, same upload request as the register dialog',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   assert.match(src,/luEnhanceDrop\(\)/);
-  assert.match(src,/async function luUploadDropped[\s\S]*?luUploadRequest\(fd,file\)[\s\S]*?luAiFill\(d\.document\.id,fd\)/);
+  assert.match(src,/async function luUploadDropped[\s\S]*?luUploadRequest\(fd,file\)[\s\S]*?luAiFill\(d\.document\.id,fd,file\.name\)/);
   const drop=readFileSync(new URL('../app/library-drop.js',import.meta.url),'utf8');
   for(const word of ['local','session'])assert.ok(!drop.includes(word+'Storage'));
   assert.ok(!drop.includes('indexed'+'DB'));

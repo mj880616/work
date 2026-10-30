@@ -119,3 +119,11 @@
 `.github/workflows/build-android-app.yml`이 단위 시험, debug APK(`web2-phone-<버전>-debug` artifact), 서명 없는 release 빌드 확인을 한다.
 
 새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36, 0.3.7=37, 0.3.8=38). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
+
+## 위젯 빈칸 고침 (FIX-위젯, 2026-10-30)
+
+- 원인: `WidgetToday`의 정규식에 자바 전용 줄 안 표시 U가 있었다. 안드로이드 정규식(ICU)은 이 표시를 받지 않아 `WidgetToday`가 만들어지지 못했고(초기화 실패), 이 객체를 쓰는 오늘·이번 주·아스날 그리기와 갱신 작업 전체가 예외로 끝나 위젯이 빈칸(놓은 그대로)·'불러오는 중'에 멈췄다(0.3.5~0.3.7). JVM 단위 시험에서는 표시가 되어 잡히지 않았다.
+- 정규식은 표시 없이 유니코드 공백(`\p{Z}`·FEFF)을 직접 적는다(웹 `/[\s\p{P}\p{S}]+/gu`와 같은 글자). CI는 앱 코드의 `Regex("…")`를 시스템 ICU로 하나씩 만들어 본다(`scripts/check-icu-regex.py`).
+- 울타리(`WidgetGuard`, `WidgetRefresh.kt`): 위젯마다 그리기·내용 만들기를 따로 감싸 한 위젯 실패가 다른 위젯·갱신 작업을 막지 않는다. 그리다 실패하면 빈칸 대신 '불러오지 못했어요 · ↻로 다시'.
+- 놓자마자 빈칸이 없게: 레이아웃 기본 글자(머리 '오늘'·'이번 주'·'텔레그램'·'아스날' + '불러오는 중'). 위젯 로그인이 없으면 '위젯 로그인 필요 · 누르면 로그인'.
+- 바로 갱신: '지금 한 번'은 안드로이드 12+에서 급한 작업(expedited, 몫이 없으면 일반 작업). 놓을 때·앱을 열 때(마지막 갱신에서 5분이 지났을 때만)·위젯 로그인 직후(도는 작업을 새로 바꿈). 30분 주기·같은 이름 KEEP 규칙은 그대로. 로그인 위젯을 먼저 읽고 아스날 파일은 그다음.

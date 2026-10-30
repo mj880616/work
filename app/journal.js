@@ -51,6 +51,7 @@ import {weeklySummary, renderWeekly, weeklyReportText, renderNextWeekSheet} from
 import {readNextWeekSheet, makeNextWeekSheet} from './next-week-sheet-data.js';
 import {sheetView, shouldAutoMake, isAutoTime, seoulNow, openTarget as nextOpenTarget} from './next-week-sheet-model.mjs';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
+import {paintHqSchedule} from './weekly-hq-schedule.js';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
@@ -462,7 +463,7 @@ function renderDay() {
   host.replaceChildren(...blocks);
 }
 // [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
-function renderWeekly_() {
+function renderWeekly_({refreshBox = true} = {}) {
   if (mode !== 'week') return;
   const list = weekDays(start);
   $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
@@ -481,14 +482,20 @@ function renderWeekly_() {
   for (const d of host.querySelectorAll('[data-journal-overlap-fold]')) { if (d.open) overlapUi.open.add(d.dataset.journalOverlapFold); else overlapUi.open.delete(d.dataset.journalOverlapFold); }
   const fileInput = host.querySelector('[data-journal-file-edit-input]'), fileFocus = fileInput && fileInput === document.activeElement;
   if (fileInput && fileUi.editing === fileInput.dataset.journalFileEditInput) fileUi.value = fileInput.value;
-  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}), esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
+  const weekModel = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory});
+  renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
+  // WEEKLY-주요일정칸 B: 1. 2) 주요 일정 수기 표(weekly-hq-schedule.js가 그 자리만 그림). 쓰면 그 주 임시저장 행을 바꾸고 열린 한글 파일 상자도 맞춘다.
+  const hqWeek = start;
+  paintHqSchedule(host.querySelector('[data-journal-weekly-hq-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(),
+    onSaved:row => { if (hqWeek !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx.sync(hqWeek); }});
   paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js)
   if (weeklyCalRefOpen) { const f = host.querySelector('details[data-journal-weekly="note-calRefs"]'); if (f) f.open = true; }
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
   renderNextWeek_();
   if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
   if (execFocus) host.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
-  hwpx?.refresh();
+  // 상자가 임시저장한 뒤 다시 그릴 때(onDraft)는 상자를 건드리지 않는다(칸 옆 재료 버튼이 고치는 중에 바뀌지 않게).
+  if (refreshBox) hwpx?.refresh();
 }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
 // WEEKLY-임원요청정리: it also gets the active project names (carry-over matching) and hands back last week's filtered request rows.
@@ -506,6 +513,8 @@ function execRecordTexts() {
 const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), onCarry: (week, items) => carryRequests(week, items),
   // [확정] 뒤 [기억하기]: the box wrote my profile's memory; the screen follows the saved list.
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
+  // WEEKLY-주요일정칸: 상자가 임시저장을 쓴 뒤(일정 칸별 고침 등) [주간 정리] 2) 주요 일정·5. 주요 일정 화면도 같은 판으로.
+  onDraft: (week, row) => { if (week !== start || !row) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_({refreshBox:false}); },
   getWeek: () => ({start, projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory})})});
 function renderMode() {
   root.dataset.journalMode = mode;

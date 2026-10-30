@@ -143,7 +143,7 @@ async function transcribe(){
   }catch(e){
     if(mine!==epoch)return;
     console.warn('meeting transcribe failed',e?.status||'',e?.code||'');
-    status(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':transcribeFailText(e?.message),'error');
+    status(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':transcribeFailText(e),'error');
   }finally{
     if(mine===epoch||!busy){busy=false;paintAudio();const r=$('#mtdRun');if(r&&r.textContent!=='요약 중…')r.disabled=false}
   }
