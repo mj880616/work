@@ -6,6 +6,8 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.webkit.ValueCallback
@@ -56,6 +58,15 @@ class MainActivity : ComponentActivity() {
     private var backPending = false
     private var updateUrl: String? = null
     private var widgetReply: JavaScriptReplyProxy? = null
+    /** 지금 뜬 웹2 화면이 'widget:ready'(로그인됨)를 알렸을 때의 다리. 화면을 새로 열기 시작하면 버린다. */
+    private var readyReply: JavaScriptReplyProxy? = null
+    /** 위젯 로그인: 웹 화면의 자동 로그인(widget:mint)을 기다리는 중. */
+    private var widgetAuto = WidgetLoginFlow.Step.IDLE
+    /** 위젯 로그인 대체 길: 화면이 앞에 나온 뒤(onResume) 구글 로그인 탭을 연다. */
+    private var widgetTabWanted = false
+    private var resumed = false
+    private val ui = Handler(Looper.getMainLooper())
+    private val widgetTimeout = Runnable { onWidgetAutoTimeout() }
     @Volatile private var alive = true
 
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -98,6 +109,8 @@ class MainActivity : ComponentActivity() {
             override fun handleOnBackPressed() = handleBack()
         })
 
+        // 앱이 로그인 탭 뒤에서 메모리 부족으로 다시 만들어져도 위젯 로그인 표시(시각만, 비밀 아님)를 잇는다.
+        savedInstanceState?.getLong(STATE_WIDGET_LOGIN, 0L)?.takeIf { it > 0L }?.let { WidgetHub.session(this).resumeLogin(it) }
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) loadFromIntent(intent)
         if (savedInstanceState == null) checkForUpdate()
     }
@@ -158,6 +171,12 @@ class MainActivity : ComponentActivity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                // 새 화면을 열기 시작하면 앞 화면의 '로그인됨' 다리는 더 쓰지 않는다.
+                readyReply = null
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 // 화면 안 작은 창(iframe)은 그 자리에서 연다. 최상위 이동만 판정한다.
                 if (!request.isForMainFrame) return false
@@ -173,6 +192,8 @@ class MainActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
                 if (ShellRules.isInternalApp(url)) syncBarColor()
+                // 웹2가 로그인 화면으로 보냈다 = 앱(웹 화면)도 로그아웃 상태. 기다리지 않고 구글 로그인 탭으로 간다.
+                if (ShellRules.isLoginPage(url)) onWidgetAuto(WidgetLoginFlow.Event.WEB_SIGNED_OUT)
             }
 
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
@@ -226,20 +247,89 @@ class MainActivity : ComponentActivity() {
         if (ShellRules.isAppReturn(data) || ShellRules.isInternalApp(data) || intent.action == WidgetRules.ACTION_WIDGET_LOGIN) loadFromIntent(intent)
     }
 
-    /** 위젯 [로그인] 줄 → WidgetLoginActivity가 표시를 세운 뒤 여기로 온다. 표시가 없으면(밖에서 보낸 동작) 아무것도 열지 않는다. */
+    /**
+     * 위젯 [로그인] 줄 → WidgetLoginActivity가 표시를 세운 뒤 여기로 온다. 표시가 없으면(밖에서 보낸 동작) 아무것도 열지 않는다.
+     * 1) 웹2 화면이 로그인돼 있으면(widget:ready) 그 화면에 widget:mint를 보내 위젯 전용 새 세션의 봉인을 받는다(구글 화면 없음).
+     * 2) 웹 화면이 로그아웃이거나(로그인 화면으로 감) 정해진 시간 안에 봉인이 안 오면 구글 로그인 탭을 연다(대체 길).
+     */
     private fun startWidgetLogin() {
+        if (!WidgetHub.session(this).loginPending()) {
+            if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
+            return
+        }
+        ui.removeCallbacks(widgetTimeout)
+        widgetTabWanted = false
+        widgetAuto = WidgetLoginFlow.Step.WAITING
+        if (ShellRules.isLoginPage(webView.url)) {
+            onWidgetAuto(WidgetLoginFlow.Event.WEB_SIGNED_OUT)
+            return
+        }
         if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
-        if (WidgetHub.session(this).loginPending()) openTab(Uri.parse(WidgetRules.LOGIN_URL))
+        val ready = readyReply
+        if (ready != null) askMint(ready)
+        if (widgetAuto == WidgetLoginFlow.Step.WAITING) ui.postDelayed(widgetTimeout, READY_WAIT_MS)
     }
 
-    /** 위젯용 handoff를 앱이 직접 consume한다(Origin: bokdoong.com). 결과만 짧게 알리고 토큰은 보이지 않는다. */
-    private fun finishWidgetLogin(handoff: String) {
+    private fun askMint(reply: JavaScriptReplyProxy) {
+        if (!onWidgetAuto(WidgetLoginFlow.Event.WEB_READY)) return
+        try {
+            reply.postMessage("widget:mint")
+            ui.removeCallbacks(widgetTimeout)
+            ui.postDelayed(widgetTimeout, MINT_WAIT_MS)
+        } catch (_: Exception) {
+            onWidgetAuto(WidgetLoginFlow.Event.MINT_FAILED)
+        }
+    }
+
+    private fun onWidgetAutoTimeout() {
+        onWidgetAuto(WidgetLoginFlow.Event.TIMEOUT)
+    }
+
+    /** 자동 로그인 단계를 넘긴다(WidgetLoginFlow, 시험으로 고정). 대체 길이 정해지면 구글 탭을 연다. true면 이 사건을 받아들였다. */
+    private fun onWidgetAuto(event: WidgetLoginFlow.Event): Boolean {
+        val next = WidgetLoginFlow.next(widgetAuto, event)
+        if (next == widgetAuto) return false
+        widgetAuto = next
+        when (next) {
+            WidgetLoginFlow.Step.FALLBACK -> {
+                ui.removeCallbacks(widgetTimeout)
+                widgetAuto = WidgetLoginFlow.Step.IDLE
+                openWidgetTab()
+            }
+            WidgetLoginFlow.Step.IDLE -> ui.removeCallbacks(widgetTimeout)
+            else -> Unit
+        }
+        return true
+    }
+
+    /** 대체 길: 표시가 살아 있을 때만, 화면이 앞에 나온 뒤 구글 로그인 탭을 연다(뒤에 있는 화면에서 탭을 열면 막히는 기기 대비). */
+    private fun openWidgetTab() {
+        if (!WidgetHub.session(this).loginPending()) return
+        if (resumed) {
+            widgetTabWanted = false
+            Toast.makeText(this, "위젯 로그인: 구글 로그인 창을 엽니다", Toast.LENGTH_SHORT).show()
+            openTab(Uri.parse(WidgetRules.LOGIN_URL))
+        } else {
+            widgetTabWanted = true
+        }
+    }
+
+    /**
+     * 위젯용 handoff를 앱이 직접 consume한다(Origin: bokdoong.com). 결과만 짧게 알리고 토큰은 보이지 않는다.
+     * fallbackOnFail: 자동 로그인(웹 화면이 만든 봉인)이 실패하면 표시를 다시 세우고 구글 로그인 탭(대체 길)으로 간다.
+     */
+    private fun finishWidgetLogin(handoff: String, fallbackOnFail: Boolean = false) {
         val app = applicationContext
         Thread {
             val ok = WidgetHub.session(app).consume(handoff) is WidgetSession.Outcome.Ok
             TodayWidget.signedInChanged(app, WidgetHub.session(app).signedIn())
             runOnUiThread {
                 if (!alive) return@runOnUiThread
+                if (!ok && fallbackOnFail) {
+                    WidgetHub.session(app).beginLogin()
+                    openWidgetTab()
+                    return@runOnUiThread
+                }
                 Toast.makeText(this, if (ok) "위젯 로그인 완료" else "위젯 로그인을 마치지 못했어요. 위젯에서 다시 눌러 주세요.", Toast.LENGTH_SHORT).show()
                 notifyWidgetStatus()
             }
@@ -248,6 +338,26 @@ class MainActivity : ComponentActivity() {
 
     /** 웹 프로필의 [위젯 로그아웃] 줄(phone-widget-line.js)과 주고받는다. 허용 Origin 최상위 화면만 이 다리를 본다. */
     private fun onWidgetMessage(data: String, reply: JavaScriptReplyProxy) {
+        if (data.startsWith("widget:handoff:")) {
+            // 로그인된 웹2 화면이 위젯 전용 새 세션의 봉인을 보냈다. 표시(10분·한 번)가 살아 있을 때만 앱이 consume한다.
+            val handoff = data.substring("widget:handoff:".length)
+            if (widgetAuto == WidgetLoginFlow.Step.MINTING && WidgetRules.isHandoff(handoff) && WidgetHub.session(this).takeLogin()) {
+                onWidgetAuto(WidgetLoginFlow.Event.HANDOFF)
+                finishWidgetLogin(handoff, fallbackOnFail = true)
+            }
+            return
+        }
+        when (data) {
+            "widget:ready" -> {
+                readyReply = reply
+                if (widgetAuto == WidgetLoginFlow.Step.WAITING && WidgetHub.session(this).loginPending()) askMint(reply)
+                return
+            }
+            "widget:mint:fail" -> {
+                onWidgetAuto(WidgetLoginFlow.Event.MINT_FAILED)
+                return
+            }
+        }
         widgetReply = reply
         when (data) {
             "widget:status" -> notifyWidgetStatus()
@@ -305,7 +415,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        resumed = true
         if (ShellRules.isInternalApp(webView.url)) syncBarColor()
+        if (widgetTabWanted) openWidgetTab()
+    }
+
+    override fun onPause() {
+        resumed = false
+        super.onPause()
     }
 
     override fun onStop() {
@@ -317,6 +434,7 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         webView.saveState(outState)
+        WidgetHub.session(this).loginStartedAt().takeIf { it > 0L }?.let { outState.putLong(STATE_WIDGET_LOGIN, it) }
     }
 
     /** 바깥 주소: 웹 주소는 앱 위 브라우저 탭(Custom Tab), 전화·메일 등은 그 앱, 그 밖은 열지 않는다. */
@@ -470,6 +588,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         alive = false
+        ui.removeCallbacks(widgetTimeout)
+        readyReply = null
         // 앱을 닫으면 공유로 받은 것도 버린다(폰에 보관하지 않음, D6). 화면 다시 만들기(다크 전환 등)에는 유지한다.
         if (isFinishing) ShareIntake.clear()
         fileCallback?.onReceiveValue(null)
@@ -483,6 +603,11 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val BAR_BRIDGE = "KPTUAppShell"
+        const val STATE_WIDGET_LOGIN = "widget_login_since"
+        /** 웹2 화면이 뜨고 로그인을 확인해 widget:ready를 보낼 때까지(앱이 꺼져 있었으면 화면을 처음 여는 시간 포함). */
+        const val READY_WAIT_MS = 12_000L
+        /** widget:mint 뒤 봉인이 올 때까지. */
+        const val MINT_WAIT_MS = 10_000L
         val INK_ON_LIGHT = Color.rgb(0x2b, 0x2a, 0x26)
         val INK_ON_DARK = Color.rgb(0xe8, 0xe6, 0xdf)
 

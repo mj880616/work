@@ -241,6 +241,8 @@
   import('./mobile-modal-history.js').catch(()=>{});
   // APP-폰앱새로 ②: 폰 앱(KPTUAndroid)의 [공유]로 받은 것을 정리함 확인 줄로 넣는다. 앱이 아니면 아무것도 하지 않는다. 첫 화면이 뜬 뒤 붙인다(시작 화면 이동과 겹치지 않게). 기다리지 않는다.
   import('./basket-share.js').catch(err=>console.warn('share intake load failed',err?.name||'Error'));
+  // APP-폰앱새로 ③: 폰 앱이면 위젯 자동 로그인 다리(phone-widget-auth.js)를 붙인다. 로그인된 화면에서만 여기까지 온다. 앱이 아니면 아무것도 하지 않는다.
+  if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-widget-auth.js').catch(err=>console.warn('widget auth load failed',err?.name||'Error'));
   const defer=window.requestIdleCallback?((fn,opts)=>window.requestIdleCallback(fn,opts)):((fn)=>setTimeout(fn,200));
   // OD-미리받기: 첫 화면이 다 뜬 뒤 한가할 때 원드라이브 연결 확인·이번 달 목록·작은 그림 몇 장을 뒤에서 받아 둔다(기다리지 않음, 화면 없음).
   // UI-기다림표시통일 ⑤: 첫 화면이 다 뜬 뒤 쉬는 틈에 메뉴 화면 프로그램을 미리 받아 둔다(받기만, 실행 안 함 — 처음 눌러도 '불러오는 중'이 거의 안 보이게).

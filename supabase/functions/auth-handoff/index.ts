@@ -90,6 +90,31 @@ Deno.serve(async req=>{
       const token=await seal({version:2,nonce:crypto.randomUUID(),sub:user.id,rt:body.refresh_token,iat:now,exp:now+TTL});
       return reply({token});
     }
+    // 폰 앱 위젯 자동 로그인(docs/design/phone-widget-auth.md 12절). 로그인된 웹 화면(앱 안)이 자기 접근 토큰으로
+    // 같은 사용자의 '새 세션'(위젯 전용, 웹 세션과 다른 새로고침 토큰 줄기)을 만들어 seal과 같은 봉인으로만 돌려받는다.
+    // 원문 토큰은 응답에 없다. 봉인은 consume(1회용 nonce·5분)으로만 열린다. 사용자 id는 Auth가 확인한 값만 쓴다.
+    if(body?.action==='widget_seal'){
+      const auth=req.headers.get('authorization')||'';
+      const access=/^Bearer\s+(\S+)$/i.exec(auth)?.[1];
+      if(!access) return fail('invalid_request',400);
+      const ur=await fetch(SB+'/auth/v1/user',{headers:{Authorization:'Bearer '+access,apikey:ANON}});
+      if(!ur.ok) return fail('authentication_failed',401);
+      const user=await ur.json();
+      if(typeof user?.id!=='string'||!UUID.test(user.id)||user?.is_anonymous===true||
+         typeof user?.email!=='string'||!user.email||user.email.length>320) return fail('authentication_failed',401);
+      const gl=await fetch(SB+'/auth/v1/admin/generate_link',{method:'POST',headers:{Authorization:'Bearer '+SERVICE,apikey:SERVICE,'Content-Type':'application/json'},body:JSON.stringify({type:'magiclink',email:user.email})});
+      const g=await gl.json().catch(()=>({}));
+      const hashed=typeof g?.hashed_token==='string'?g.hashed_token:g?.properties?.hashed_token;
+      const linkUser=typeof g?.id==='string'?g.id:g?.user?.id;
+      if(!gl.ok||typeof hashed!=='string'||!hashed||hashed.length>1024||linkUser!==user.id) return fail('widget_session_failed',502);
+      const vr=await fetch(SB+'/auth/v1/verify',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({type:'magiclink',token_hash:hashed})});
+      const v=await vr.json().catch(()=>({}));
+      if(!vr.ok||v?.user?.id!==user.id||typeof v?.refresh_token!=='string'||!v.refresh_token||v.refresh_token.length>16384)
+        return fail('widget_session_failed',502);
+      const now=Date.now();
+      const token=await seal({version:2,nonce:crypto.randomUUID(),sub:user.id,rt:v.refresh_token,iat:now,exp:now+TTL});
+      return reply({token});
+    }
     if(body?.action==='consume'){
       if(typeof body.token!=='string'||!body.token||body.token.length>32768) return fail('invalid_handoff',400);
       const p=await open(body.token);
