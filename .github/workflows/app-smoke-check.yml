@@ -22,6 +22,7 @@ on:
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-secret-server.test.mjs'
+      - 'tests/origin-redirect.test.mjs'
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
@@ -128,6 +129,7 @@ on:
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-secret-server.test.mjs'
+      - 'tests/origin-redirect.test.mjs'
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
@@ -262,6 +264,8 @@ jobs:
         run: node --test tests/note-board-model.test.mjs
       - name: Check note boards (NOTE-보드여러개)
         run: node --test tests/note-boards-model.test.mjs
+      - name: Check small popup width and title drag (UI-창잘림·끌어옮기기)
+        run: node --test tests/popup-fit-drag.test.mjs
 
       - name: Check ledger decision history (FEAT-1029묶음 ⑥)
         run: node --test tests/ledger-decision-history.test.mjs
@@ -312,6 +316,8 @@ jobs:
         run: node --test tests/note-secret.test.mjs
       - name: NOTE-비밀메모 서버 쪽(AI 재료에서 비밀·AI 제외 노트 건너뛰기) 시험
         run: node --test tests/note-secret-server.test.mjs
+      - name: SEC-github.io넘기기 github.io에서 열면 bokdoong.com으로 넘김 시험
+        run: node --test tests/origin-redirect.test.mjs
 
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
@@ -441,6 +447,9 @@ jobs:
 
       - name: Check phone widget logout line (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-line.test.mjs
+
+      - name: Check phone widget auto login bridge (APP-폰앱새로 ③)
+        run: node --test tests/phone-widget-auth.test.mjs
 
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs
@@ -629,22 +638,8 @@ jobs:
           grep -q "id=\"mrdSpecialSection\"" app/meeting-round-detail.js
           if grep -Eq 'meetingAutoClassify|meetingDecisions|wfMeetingLocation|wfMeetingAttendees' app/index.html app/team.js; then echo 'retired meeting fields returned'; exit 1; fi
           if grep -q "mrdAiDraft" app/meeting-round-detail.js; then echo 'retired meeting AI draft action returned'; exit 1; fi
-          grep -q "function renderPages(){window.KPTUWeb1Board?.render?.()}" app/team.js
-          grep -q "main_project_archive_state" app/web1-board.js
-          grep -q "replaceReader(injectReaderBridge" app/web1-board.js
-          grep -q "repoPathFromCanonical" app/web1-board.js
-          grep -q "kptu:web1-board:navigate" app/web1-board.js
-          if grep -q "mj880616.github.io/work/" app/web1-board.js; then echo 'Web1 board returned to Pages document iframe'; exit 1; fi
-          grep -q "#web1BoardDetailModal .w1b-detail-card" app/web1-board.css
-          grep -q "height:100dvh" app/web1-board.css
-          grep -q "#web1BoardDetailModal .w1b-detail-frame" app/web1-board.css
           grep -q "if(!forced||document.querySelector('#startupDiagCopy'))return;" app/app.js
           if grep -q "(!forced&&!slow)" app/app.js; then echo 'startup diagnostics returned to automatic slow-load UI'; exit 1; fi
-          grep -q "const WORK_ORIGIN='https://work.bokdoong.com'" app/web1-board.js
-          grep -q "/work/2in1/" app/web1-board.js
-          grep -q "https://raw.githubusercontent.com/mj880616/work/main/" app/web1-board.js
-          grep -q 'sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads"' app/index.html
-          if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
 
           test ! -e app/public-workspace.js
           test ! -e app/public-workspace-extras.js
@@ -821,23 +816,23 @@ jobs:
           if grep -Eq 'ccNotif|data-kptu-notifications|notificationsView|notification-center-ui|push-notifications-ui|app_notifications' app/index.html app/team.js app/loader-v2.js app/view-loader.js app/styles.css; then echo 'notification UI or client data path returned'; exit 1; fi
           if grep -Eq "addEventListener\('push'|addEventListener\('notificationclick'" app/sw.js; then echo 'service worker push handler returned'; exit 1; fi
 
-      - name: Check Web1-backed board invariants
+      - name: Check Web1 borrowing removal (DOMAIN-④ E2)
         run: |
           set -e
-          grep -q "위험업무 2인1조 법제화" app/web1-board.js
-          grep -q "공공기관 인력확충" app/web1-board.js
-          grep -q "민자철도 사업 현황" app/web1-board.js
-          grep -q "궤도협의회" app/web1-board.js
-          grep -q "산별전환 업무 현황" app/web1-board.js
-          grep -q "main_project_archive_state" app/web1-board.js
-          if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
-          if grep -Eq "MutationObserver|location.reload|setTimeout\\(" app/web1-board.js; then echo 'Web1 board returned to correction or polling code'; exit 1; fi
+          test ! -e app/web1-board.js
+          test ! -e app/web1-board.css
+          test ! -e app/web1-page-capabilities.js
+          test ! -e app/web1-admin-auth.js
+          test ! -e app/public-page-editor.js
+          test ! -e app/forum-flow-polish.js
+          test ! -e app/forum-flow-polish.css
+          test ! -e app/legacy/editable-page.js
+          if grep -REq "web1-board|web1BoardLegacy|web1BoardDetailModal|KPTUWeb1Board|public-page-editor|web1-admin-auth|web1-page-capabilities|forum-flow-polish" app/index.html app/loader-v2.js app/view-loader.js app/styles.css app/team.js app/share-pages.js; then echo 'Web2 returned to a Web1 borrowing path'; exit 1; fi
           if grep -Eq "page-list-controller.js|page-save-controller.js|page-builder.js|page-shortcut.js|page-management.js|page-inline-viewer-v2.js" app/loader-v2.js app/view-loader.js; then echo 'retired page management returned to authenticated loader'; exit 1; fi
       - name: Check security-sensitive client boundaries
         run: |
           set -e
           if grep -Eq "service_role|SUPABASE_SERVICE_ROLE|Authorization:.*service" app/*.js; then echo 'service-role material must never ship to client'; exit 1; fi
-          if grep -Eq "localStorage|kptu_collab_session_v1" app/web1-board.js; then echo 'feature module bypassed shared runtime session'; exit 1; fi
       - name: Check retained non-project feature invariants
         run: |
           set -e
@@ -845,8 +840,6 @@ jobs:
           if grep -q "workflow-ai-v3.js" app/loader-v2.js app/view-loader.js; then echo 'retired meeting AI workflow returned to active loader'; exit 1; fi
           if grep -q 'mobile-dock.js' app/loader-v2.js app/view-loader.js; then echo 'obsolete personal dock returned'; exit 1; fi
           if grep -q "notification-center-ui" app/view-loader.js; then echo 'notification loader returned'; exit 1; fi
-          grep -q "위험업무 2인1조 법제화" app/web1-board.js
-          grep -q "산별전환 업무 현황" app/web1-board.js
           grep -q "완료된 할 일" app/task-layout.js
           if grep -q "project-create-submit.js\|legacy/" app/loader-v2.js app/view-loader.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
@@ -858,7 +851,7 @@ jobs:
           sleep 1
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js \
-            app/web1-board.js app/web1-board.css app/compact-list.css \
+            app/compact-list.css \
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/library-upload.js app/library-upload.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \

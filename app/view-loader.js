@@ -26,10 +26,10 @@ const routeStyles={
   tasks:['./task-layout.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
   journal:['./journal.css','./todo-radar.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./ui-standard.css'],
-  projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
+  projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./markdown-view.css','./ui-standard.css'],
   meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
-  pages:['./web1-board.css','./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
+  pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./ui-standard.css'],
@@ -108,10 +108,7 @@ async function tasks(){
   return {ok:true}
 }
 async function projects(){
-  await Promise.all([
-    module('./forum-flow-polish.js'),
-    module('./due-date-calendar.js')
-  ]);
+  await module('./due-date-calendar.js');
   await module('./project-catalog.js');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
@@ -138,10 +135,9 @@ async function meetings(){
   return {ok:true}
 }
 async function pages(){
-  // SHARE-현장공유 PR 2: my share pages (editor) on top, the old Web1 cards folded under "이전 페이지" below.
+  // SHARE-현장공유 PR 2: my share pages (editor). DOMAIN-④ E2: the old Web1 cards below it are removed.
   await projectCatalog();
   await module('./share-pages.js');
-  await module('./web1-board.js');
   return {ok:true}
 }
 async function organizations(){
@@ -219,7 +215,7 @@ const warmModules={
   projects:['./project-system-v3.js'],
   library:['./library-upload.js'],
   meetings:['./task-workflow.js','./meeting-round-detail.js'],
-  pages:['./share-pages.js','./web1-board.js'],
+  pages:['./share-pages.js'],
   team:['./suborganizations.js','./workplace-detail.js'],
   ledger:['./ledger-browse.js'],
   reference:['./reference-bundles.js'],

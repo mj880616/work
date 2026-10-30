@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { withOwner } from './helpers/owner-member.mjs';
 
 // Runs the real google-calendar handler with mocked Supabase and Google Calendar so the events/status
 // loading path can be checked for call count, bounded parallelism, partial failure, and owner scoping.
@@ -57,7 +58,7 @@ function harness({ connections = {}, delay = 0, calendarFail = {}, colorsFail = 
       const m = u.pathname.match(/^\/calendar\/v3\/calendars\/([^/]+)\/events$/);
       if (m) {
         const id = decodeURIComponent(m[1]);
-        if (calendarFail[id]) return json({ error: { message: calendarFail[id] } }, 404);
+        if (calendarFail[id]) { const f = typeof calendarFail[id] === 'string' ? { message: calendarFail[id], status: 404 } : calendarFail[id]; return json({ error: { message: f.message } }, f.status); }
         return json({ items: [{ id: `${id}-ev`, summary: `${id} event`, start: { dateTime: '2026-09-26T09:00:00+09:00' }, end: { dateTime: '2026-09-26T10:00:00+09:00' }, colorId: '11' }] });
       }
       throw new Error('unexpected fetch ' + href);
@@ -70,7 +71,7 @@ function harness({ connections = {}, delay = 0, calendarFail = {}, colorsFail = 
   };
   const clock = { now: now ?? Date.now() };
   class FakeDate extends Date { static now() { return clock.now; } }
-  new Function('Deno', 'createClient', 'fetch', 'Date', SOURCE)(Deno, () => admin, fetchMock, FakeDate);
+  new Function('Deno', 'createClient', 'fetch', 'Date', SOURCE)(Deno, withOwner(() => admin), fetchMock, FakeDate);
   return { handler, calls, clock, get maxInFlight() { return maxInFlight; } };
 }
 
@@ -107,16 +108,21 @@ test('events: a failing calendar returns the other calendars and a warning namin
   const { status, body } = await get(h, 'events');
   assert.equal(status, 200);
   assert.deepEqual(body.events.map(e => e.calendarId), ['primary', 'work', 'club', 'holiday', 'team']);
-  assert.deepEqual(body.failedCalendars, [{ calendarId: 'family', error: 'Not Found' }]);
-  assert.match(body.warning, /일부 캘린더를 불러오지 못했습니다\(1\/6\): Not Found/);
+  // SEC-정리묶음: Google 원문(Not Found)은 응답에 싣지 않고 상태 번호가 든 우리 글만 싣는다(원문은 서버 로그).
+  assert.deepEqual(body.failedCalendars, [{ calendarId: 'family', error: 'Google Calendar 요청 실패 (404)' }]);
+  assert.match(body.warning, /일부 캘린더를 불러오지 못했습니다\(1\/6\): Google Calendar 요청 실패 \(404\)/);
+  assert.doesNotMatch(JSON.stringify(body), /Not Found/);
   assert.ok(body.eventColors, 'palette still returned');
 });
 
 test('events: when every calendar fails the warning is the Google error (client auth detection keeps working)', async () => {
-  const h = harness({ calendarFail: { primary: 'Invalid Credentials' } });
+  const h = harness({ calendarFail: { primary: { message: 'Invalid Credentials', status: 401 } } });
   const { body } = await get(h, 'events', { token: 'token-b' });
   assert.deepEqual(body.events, []);
-  assert.equal(body.warning, 'Invalid Credentials');
+  // Google 원문 대신 '재인증' 글: 화면의 연결 끊김 판정(home-read·calendar-persistence·calendar-plus·google-tasks 정규식)이 그대로 잡는다.
+  assert.equal(body.warning, 'Google 재인증이 필요합니다. (401)');
+  assert.match(body.warning, /연결되지|재인증|권한|invalid_grant|unauthori[sz]ed|invalid.?credentials/i);
+  assert.doesNotMatch(JSON.stringify(body), /Invalid Credentials/);
 });
 
 test('events: colors failure keeps events and omits eventColors so the client keeps its last palette', async () => {

@@ -86,7 +86,6 @@ test('startup loads only requested route CSS before showing the shell', async ()
     './project-system-v3.css',
     './library-upload.css',
     './meeting-ui.css',
-    './web1-board.css',
     './suborganizations.css',
     './workplace-detail.css'
   ]) expect(views).toContain(asset);
@@ -127,7 +126,7 @@ test('route manifest keeps retired modules out and Web1 views isolated', async (
   for(const retired of ['./page-list-controller.js','./page-save-controller.js','./page-builder.js','./page-shortcut.js','./page-management.js','./page-inline-viewer-v2.js']){
     expect(source).not.toContain(retired);
   }
-  expect(source).toContain("module('./web1-board.js')");
+  expect(source).not.toContain('web1-board');
   expect(source).not.toContain('./web1-press.js');
   expect(source).not.toContain('./press-import');
   expect(source).not.toContain('./workflow-ai-v3.js');
@@ -154,7 +153,8 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   const pagesStart=views.indexOf('async function pages()');
   const organizationsStart=views.indexOf('async function organizations()');
   const pagesBlock=views.slice(pagesStart,organizationsStart);
-  expect(pagesBlock).toContain("module('./web1-board.js')");
+  expect(pagesBlock).toContain("module('./share-pages.js')");
+  expect(pagesBlock).not.toContain('web1-board');
   expect(pagesBlock).not.toContain("team('pages')");
   expect(pagesBlock).not.toContain('page-design-core');
 

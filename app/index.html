@@ -3,6 +3,7 @@
 <head>
 <script data-kptu-theme-bootstrap>document.documentElement.setAttribute('data-theme','olive');</script><!-- SET-보기선택서버저장: 테마는 서버 프로필에서 읽어 loader가 첫 화면 공개 전에 바꾼다(기기 저장소 없음). -->
 <meta charset="utf-8">
+<script src="./origin-redirect.js"></script><!-- SEC-github.io넘기기: github.io로 열리면 bokdoong.com으로 넘김(가장 먼저) -->
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#f3f1ea" media="(prefers-color-scheme: light)">
@@ -161,24 +162,7 @@
 
   <section id="pagesView" class="view-panel hidden">
     <div id="sharePagesRoot" class="sp-root"></div>
-    <div id="web1BoardLegacy" class="w1b-legacy" hidden>
-      <div id="web1BoardActive" class="w1b-grid" aria-label="이전 페이지"></div>
-      <div id="web1BoardArchivedWrap" class="w1b-archive hidden"><div id="web1BoardArchived" class="w1b-grid" aria-label="지난 사업"></div></div>
-    </div>
   </section>
-
-  <div id="web1BoardDetailModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="web1BoardDetailTitle">
-    <div class="modal-card w1b-detail-card">
-      <div class="w1b-detail-head">
-        <h2 id="web1BoardDetailTitle">공유 페이지</h2>
-        <button class="mini" type="button" data-close-web1-board aria-label="공유 페이지 상세 닫기">닫기</button>
-      </div>
-      <div class="w1b-detail-body">
-        <div id="web1BoardDetailStatus" class="w1b-detail-status hidden"><div class="wait" data-wait role="status" aria-label="불러오는 중"><span class="wait-bar" aria-hidden="true"></span><span class="wait-row" aria-hidden="true"></span><span class="wait-row" aria-hidden="true"></span><span class="wait-row" aria-hidden="true"></span></div></div>
-        <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="공유 페이지 상세" loading="eager" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>
-      </div>
-    </div>
-  </div>
 
   <section id="teamView" class="view-panel hidden"></section>
 </section>

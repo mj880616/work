@@ -93,3 +93,19 @@ test('valid DB claim returns session; invalid access and expired handoff never c
   assert.equal(h.claims(), 1);
   assert.equal((await harness({ invalidAccess: true }).send({ action: 'seal', refresh_token: 'synthetic-refresh' }, { auth: true })).status, 401);
 });
+
+test('missing public key stops with a setup error and never falls back to the service key', async () => {
+  for (const env of [{ SUPABASE_ANON_KEY: undefined }, { SUPABASE_ANON_KEY: '' }]) {
+    const h = harness({ env });
+    assert.equal((await h.send({}, { method: 'OPTIONS' })).status, 200);
+    for (const body of [{ action: 'seal', refresh_token: 'synthetic-refresh' }, { action: 'consume', token: 'x' }]) {
+      const r = await h.send(body, { auth: true });
+      assert.equal(r.status, 500);
+      const text = await r.text();
+      assert.match(text, /server_misconfigured/);
+      assert.doesNotMatch(text, /synthetic-/);
+    }
+    assert.equal(h.claims(), 0);
+    assert.equal(h.refreshes(), 0);
+  }
+});

@@ -1,4 +1,3 @@
-import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
@@ -1281,27 +1280,25 @@ test('V3 project detail stays separate from the Web1-backed board',async({page})
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('독립 현장 공지');
   await closeProjectDetail(page);
-  await clickView(page,'pages');await openLegacyBoard(page);
-  await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
-  await expect(page.locator('#web1BoardActive')).not.toContainText('독립 현장 공지');
+  await clickView(page,'pages');
+  await expect(page.locator('#sharePagesRoot')).toBeVisible();
+  await expect(page.locator('#pagesView')).not.toContainText('독립 현장 공지');
 });
 
-test('Web1-backed board stays compact and excludes dedicated library and press sections',async({page})=>{
+test('share pages menu has no old Web1 cards and fits every width',async({page})=>{
   const state=baseState();
   await mockApp(page,state);
   await page.setViewportSize({width:1440,height:900});
   await page.goto(testOrigin+'/app/');await signIn(page);
-  await clickView(page,'pages');await openLegacyBoard(page);
-  await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
-  await expect(page.locator('#web1BoardActive')).toContainText('민자철도 사업 현황');
-  await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');
-  await expect(page.locator('#web1BoardActive')).not.toContainText('자료실');
+  await clickView(page,'pages');
+  await expect(page.locator('#sharePagesRoot')).toBeVisible();
+  // DOMAIN-④ E2: 옛 Web1 카드 5개(사업 게시판)는 화면째 지웠다.
+  await expect(page.locator('#pagesView .w1b-card,#web1BoardLegacy,#web1BoardDetailModal')).toHaveCount(0);
   for(const width of [1440,768,390,360]){
     await page.setViewportSize({width,height:900});
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   }
-  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);
 });
 
 test('V3 completion changes status without deleting the project',async({page})=>{

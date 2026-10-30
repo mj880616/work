@@ -10,7 +10,7 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 //   (app_profiles, migration 20261022163000·20261027170000, 기존 owner RLS로 내 행만 PATCH). 분류 칸이 비어 있으면 '업무'·'담당조직 홈페이지' 두 분류,
 //   링크 칸이 비어 있으면 아래 초기 링크를 보여 준다. 분류 칸이 아직 없으면(적용 전) 기존 링크 칸만 읽어 보여 주고 편집은 '저장 준비 중' 안내만 한다.
 // 브라우저 기기 저장소는 쓰지 않는다 — 목록은 기기마다 같아야 한다.
-import {placeAnchored,clearAnchored,followAnchor} from './anchored-popup.js';
+import {placeAnchored,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 
 // 분류 id는 영문 소문자·숫자 1~12자(표의 CHECK와 같은 규칙). 처음 두 분류는 옛 저장 모양 그대로 work·org.
@@ -266,6 +266,8 @@ function ensurePanel() {
   panel.setAttribute('aria-label', '자주 가는 링크');
   panel.hidden = true;
   document.body.append(panel);
+  // UI-창잘림·끌어옮기기: PC에서는 제목 줄을 잡고 끌어 옮길 수 있다(닫으면 잊음).
+  dragByTitle(panel, '.ql-head');
   menu = createAnchoredMenu({id: 'quickLinksMenu', className: 'ql-menu', label: '자주 가는 링크 메뉴', historyKey: 'kptuQuickLinksMenu', key: trigger => trigger.dataset.qlMenu, render: menuHtml,
     onAction: (button, active) => menuAction(active.id, button.dataset.qlAct)});
   panel.addEventListener('click', onClick);
@@ -299,7 +301,7 @@ function viewHtml() {
     return `<section class="ql-group" aria-label="${esc(name)}"><h3>${esc(name)}</h3>${list}</section>`;
   }).join('');
   const loading = state.status === 'loading' && !state.links;
-  return `<div class="ql-head"><h2>자주 가는 링크</h2><button type="button" class="ql-btn" data-ql-edit ${loading ? 'disabled' : ''}>편집</button></div>`
+  return `<div class="ql-head anchored-drag-title"><h2>자주 가는 링크</h2><button type="button" class="ql-btn" data-ql-edit ${loading ? 'disabled' : ''}>편집</button></div>`
     + (loading ? waitHtml({rows:3}) : sections)
     + `<p class="ql-note" role="status" aria-live="polite">${esc(state.note)}</p>`;
 }
@@ -329,7 +331,7 @@ function editHtml() {
       + `<button type="button" class="ql-icon" data-ql-menu="g:${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="분류 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`
       + (state.confirm === id ? confirmHtml(id) : '') + list + '</section>';
   }).join('');
-  return '<div class="ql-head"><h2>자주 가는 링크 편집</h2><button type="button" class="ql-btn ql-add" data-ql-menu="add" aria-haspopup="menu" aria-expanded="false">+ 추가</button></div>'
+  return '<div class="ql-head anchored-drag-title"><h2>자주 가는 링크 편집</h2><button type="button" class="ql-btn ql-add" data-ql-menu="add" aria-haspopup="menu" aria-expanded="false">+ 추가</button></div>'
     + sections
     + `<p class="ql-note" role="status" aria-live="polite">${esc(state.note)}</p>`
     + `<div class="ql-foot"><button type="button" class="ql-btn" data-ql-cancel>취소</button><button type="button" class="ql-btn ql-primary" data-ql-save ${state.saving ? 'disabled aria-busy="true"' : ''}>${state.saving ? '저장 중…' : '저장'}</button></div>`;

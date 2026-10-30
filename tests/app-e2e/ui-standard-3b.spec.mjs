@@ -64,7 +64,7 @@ test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창�
  const tabColor=view=>page.locator(`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
  expect(await tabColor('basket')).toBe(await tabColor('meetings'));expect(await tabColor('basket')).toBe(await token(page,'--kptu-muted'));
  expect(await tabColor('basket')).not.toBe(await token(page,'--ds-kind-basket-ink'));
- await expect(page.locator('#mobileMenuOpen')).toBeHidden();
+ await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
  // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·게시판.

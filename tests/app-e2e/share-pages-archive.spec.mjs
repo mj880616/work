@@ -95,7 +95,7 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   const list = page.locator('#sharePagesRoot .sp-list-view > .sp-list');
   const boxLine = page.locator('#sharePagesRoot details.sp-box');
   await expect(list.locator('li')).toHaveCount(2);
-  await expect(boxLine.locator('summary')).toHaveText('보관함 5');
+  await expect(boxLine).toHaveCount(0); // DOMAIN-④ E2: 옛 Web1 카드 5개가 없어 빈 보관함 줄은 그리지 않는다.
   const gets = state.requests.filter(r => r.method === 'GET').map(r => r.search);
   expect(gets.some(s => s.includes('status=neq.archived'))).toBe(true);
   expect(gets.some(s => s.includes('status=eq.archived'))).toBe(true);
@@ -116,7 +116,7 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   await list.locator('[data-sp-row-menu="page-1"]').click();
   await menu.getByRole('button', {name:'보관', exact:true}).click();
   await expect(list.locator('li')).toHaveCount(1);
-  await expect(boxLine.locator('summary')).toHaveText('보관함 6');
+  await expect(boxLine.locator('summary')).toHaveText('보관함 1');
   expect(await boxLine.evaluate(n => n.open)).toBe(false);
   const archived = state.requests.filter(r => r.method === 'PATCH');
   expect(archived).toHaveLength(1);
@@ -128,7 +128,7 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   await notice.getByRole('button', {name:'되돌리기'}).click();
   await expect(notice).toContainText('되돌렸어요');
   await expect(list.locator('li')).toHaveCount(2);
-  await expect(boxLine.locator('summary')).toHaveText('보관함 5');
+  await expect(boxLine).toHaveCount(0);
   expect(state.pages.find(p => p.id === 'page-1')).toMatchObject({status:'published', updated_at:'2026-10-22T03:00:00.000Z'});
 
   // Keep it again (PC: right-click on the line opens the same menu), then 보관함 ⋯ → 되살리기 = draft, back in the list.
@@ -136,7 +136,7 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   if (width >= 761) await list.locator('[data-sp-open="page-1"]').click({button:'right'});
   else await list.locator('[data-sp-row-menu="page-1"]').click();
   await menu.getByRole('button', {name:'보관', exact:true}).click();
-  await expect(boxLine.locator('summary')).toHaveText('보관함 6');
+  await expect(boxLine.locator('summary')).toHaveText('보관함 1');
   await boxLine.locator('summary').click();
   const kept = boxLine.locator('li');
   await expect(kept).toHaveCount(1);
@@ -145,7 +145,7 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   await expect(menu.getByRole('button')).toHaveText(['되살리기', '삭제']);
   await menu.getByRole('button', {name:'되살리기', exact:true}).click();
   await expect(list.locator('li')).toHaveCount(2);
-  await expect(boxLine.locator('summary')).toHaveText('보관함 5');
+  await expect(boxLine).toHaveCount(0);
   await expect(page.locator('#sharePagesRoot [data-sp-list-status]')).toContainText('초안으로 되살렸어요');
   expect(state.pages.find(p => p.id === 'page-1').status).toBe('draft');
   await expect(list.locator('[data-sp-open="page-1"] .sp-pill')).toHaveText('초안');
@@ -162,7 +162,7 @@ for (const width of [390, 1280]) test('삭제: one confirmation, the page goes t
   const status = page.locator('#sharePagesRoot [data-sp-list-status]');
   const deletes = () => state.requests.filter(r => r.method === 'DELETE');
   await expect(list.locator('li')).toHaveCount(2);
-  await expect(boxLine.locator('summary')).toHaveText('보관함 6');
+  await expect(boxLine.locator('summary')).toHaveText('보관함 1');
 
   // Cancel: nothing sent.
   let message = '';
@@ -201,7 +201,7 @@ for (const width of [390, 1280]) test('삭제: one confirmation, the page goes t
   page.once('dialog', d => void d.accept());
   await boxLine.locator('[data-sp-box-menu="page-3"]').click();
   await menu.getByRole('button', {name:'삭제', exact:true}).click();
-  await expect(boxLine.locator('summary')).toHaveText('보관함 5');
+  await expect(boxLine).toHaveCount(0);
   expect((state.trash || []).map(p => p.id).sort()).toEqual(['page-1', 'page-3']);
   expect(state.trash.find(p => p.id === 'page-3').deleted_status).toBe('archived');
   expect(state.purges || []).toHaveLength(0);

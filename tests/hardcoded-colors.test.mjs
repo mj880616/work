@@ -15,7 +15,7 @@ test('decreases pass and request baseline refresh',()=>{
 });
 test('only approved exclusions skip colors',()=>{
  assert.equal(countColors('base-ui.css',':root{--kptu-bg:#fff} #abc{color:#123}'),1);
- for(const name of ['theme-tokens.css','page-design-core.js','public-page-editor.js'])assert.equal(countColors(name,'color:#fff'),0);
+ for(const name of ['theme-tokens.css','page-design-core.js'])assert.equal(countColors(name,'color:#fff'),0);
  assert.equal(countColors('other.js','const color="#fff"'),1);
 });
 
@@ -24,10 +24,9 @@ test('only approved exclusions skip colors',()=>{
 // calendar-month-view.js의 일정 대비 글자, calendar-day-overflow.js의 일정 색은 유지한다.
 // MEET-결과정리 ②: 회의 종류 색은 theme-tokens.css --ds-meeting-1~16으로 옮겼다(team.js에는 회의명 미지정 회색 하나만 남음).
 // base-ui.css의 rgba(18,26,35,.46)는 창 뒤 반투명 바탕이다.
-// page-design-core.js/public-page-editor.js는 사용자 콘텐츠 색이므로 검사 제외를 유지한다.
+// page-design-core.js는 사용자 콘텐츠 색이므로 검사 제외를 유지한다.
 // base-ui.css의 #f3f0f7 보라 바탕은 지시서의 유지 대상이다.
 // D-3b 사용자 결정: 아래 색은 의도된 예외이며 검사 개수에는 계속 포함한다.
 // native-auth-bridge.js/calendar-return-bridge.js: 테마 파일이 닿지 않는 독립 문서.
-// web1-board.js:18·19: 별도 srcdoc iframe 문서 안 글자.
 // app.js:56 진단 버튼 그림자, base-ui.css:76 작은 버튼 그림자: 기존 모양 유지.
 // D-6a: 미로딩 모듈 5개를 삭제하여 해당 색 예외도 제거했다.

@@ -35,7 +35,7 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   expect(requests.some(u=>/app_tasks/.test(u))).toBe(false);
   const mobile=width<=760;
   await expect(page.locator('.mobile-tabs')).toBeVisible({visible:mobile});
-  await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:width>760&&width<1024});
+  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
   await expect(page.locator('#mobileMenuTab')).toBeVisible({visible:mobile});
   await expect(page.locator('#appView>.app-nav')).toBeVisible({visible:!mobile});
   if(mobile){

@@ -2,7 +2,7 @@
 // 화면 비밀번호는 브라우저에서만 맞춰 보는 것이라 접근 통제가 아니다. 쓰기는 DB 권한에서 막는다(짝 migration).
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync,existsSync} from 'node:fs';
+import {readFileSync,existsSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -20,7 +20,9 @@ test('Web1 첫 페이지는 보관 상태를 읽기만 하고 쓰지 않는다',
 });
 
 test('Web1·Web2 브라우저 코드 어디에서도 보관 상태 표에 쓰지 않는다',()=>{
-  for(const p of ['index.html','app/web1-board.js']){
+  // DOMAIN-④ E2: Web2 사업 게시판(app/web1-board.js)은 지워졌다. Web2 app/ 파일 전체를 함께 본다.
+  const appFiles=readdirSync(join(root,'app')).filter(n=>/\.(?:js|mjs|html)$/.test(n)).map(n=>'app/'+n);
+  for(const p of ['index.html',...appFiles]){
     const text=read(p);
     for(const m of text.matchAll(/main_project_archive_state[^'"`]*/g))assert.match(m[0],/^main_project_archive_state\?select=/,p);
   }

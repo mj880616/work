@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { createTaskFiles } from '../../supabase/functions/google-tasks/task-files.ts';
+import { withOwner } from './helpers/owner-member.mjs';
 
 // Runs the real google-tasks handler for the task link actions (TASK-구현 PR 3, docs/web2-task-impl-plan.md 4.2·4.3)
 // against a mocked Google Tasks API and a mocked Supabase. The caller-JWT client follows the app_record_links RLS policy
@@ -140,7 +141,7 @@ function harness({ tasks = [], links = [], connection = 'ok', failLinkUpdate = f
   }
   const consoleMock = { log: (...a) => logs.push(a.join(' ')), error: () => {}, warn: () => {} };
   const createClient = (_url, key, opts) => key === 'service' ? admin : userDb(opts?.global?.headers?.Authorization || '');
-  new Function('Deno', 'createClient', 'createTaskFiles', 'fetch', 'Date', 'console', SOURCE)(Deno, createClient, createTaskFiles, fetchMock, FakeDate, consoleMock);
+  new Function('Deno', 'createClient', 'createTaskFiles', 'fetch', 'Date', 'console', SOURCE)(Deno, withOwner(createClient), createTaskFiles, fetchMock, FakeDate, consoleMock);
 
   const post = async (action, body = {}, token = 'token-a') => {
     const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) };

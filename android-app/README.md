@@ -22,6 +22,7 @@
 
 - '웹2 오늘' 위젯(홈 화면 전용): 오늘 일정(서울 0시~24시)·할 일(기한 오늘·지난 것) 몇 줄, [＋바구니], [↻]. 줄을 누르면 앱의 달력·할 일 화면, 바구니는 `?view=basket`.
 - 위젯 로그인(W-D1): 위젯 [로그인] 줄 → 내보내지 않은 `WidgetLoginActivity`가 메모리 표시(10분·한 번)를 세움 → 단계 ①과 같은 로그인 주소 → 돌아온 handoff를 표시가 있을 때만 앱이 직접 `auth-handoff` `consume`(Origin `https://bokdoong.com`, 0.3.0까지는 desk). 표시가 없으면 지금처럼 웹 화면으로 넘긴다. 서버·허용 주소는 바꾸지 않았다.
+- 위젯 자동 로그인(0.3.2, 설계 12절): 앱 웹 화면이 로그인돼 있으면 그 화면(`app/phone-widget-auth.js`)이 `auth-handoff` `widget_seal`로 같은 사용자의 새 세션 봉인만 받아 다리(`widget:ready`→`widget:mint`→`widget:handoff:`)로 넘기고, 앱이 지금의 consume으로 위젯 세션을 만든다(구글 화면 없음). 웹이 로그아웃·실패·시간 초과면 구글 로그인 탭(대체 길)을 화면이 앞에 나온 뒤 연다(`WidgetLoginFlow`).
 - HTTP 도구는 OkHttp. 자바 표준 `HttpURLConnection`은 Origin 머리글을 소리 없이 버린다(`WidgetHttpTest`가 둘 다 확인).
 - 토큰: 새로고침 토큰은 Android Keystore AES-GCM 키로 암호화해 `noBackupFilesDir/widget_session.bin` 하나에(`KeystoreVault.kt`), 접근 토큰은 메모리에만. 위젯 내용은 폰에 저장하지 않는다(W-D2, 마지막 그림은 프로세스 메모리에만). 자동으로 끊지 않는다(W-D3).
 - 갱신: WorkManager 고유 작업(30분 주기 + 지금 한 번, 같은 이름은 KEEP), 토큰 갱신은 `WidgetSession` 잠금 하나, 새 토큰을 먼저 저장한 뒤 사용. 400·401·403은 열쇠 삭제 → [로그인] 줄, 네트워크·5xx·429는 그대로 두고 다음 갱신.
@@ -50,4 +51,4 @@
 
 `.github/workflows/build-android-app.yml`이 단위 시험, debug APK(`web2-phone-<버전>-debug` artifact), 서명 없는 release 빌드 확인을 한다.
 
-새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
+새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
