@@ -199,6 +199,19 @@ export function renderRows(raw, now = Date.now()) {
 }
 
 let cache = null; // {scope, at, raw} — memory only, this tab.
+// STAB-E2E(10/30): a second refresh() while the first read is still on its way (the profile view hook firing right after the
+// card mounted and started its own read) used to send a second radar read. Calls in the same scope share the one read in flight.
+let pending = null; // {scope, promise}
+function readShared(rt, scope, now) {
+  if (pending && pending.scope === scope) return pending.promise;
+  const entry = {scope, promise:null};
+  entry.promise = readStatus(rt).then(raw => {
+    if (pending === entry) { pending = null; if (scope === scopeOf(rt)) cache = {scope, at:now(), raw}; }
+    return raw;
+  }, error => { if (pending === entry) pending = null; throw error; });
+  pending = entry;
+  return entry.promise;
+}
 // HOME-수집경보(폰, 760px 이하): 칸 대신 홈 위쪽 경고 한 줄(누르면 전체 칸이 펼쳐짐, ✕는 오늘 하루 숨김) 또는
 // 맨 아래 '수집 정상 ✓' 한 줄. 전체 칸은 폰 메뉴 창 안에도 둔다. PC(761px 이상)는 오른쪽 칸 그대로.
 // 이 파일이 네 자리(카드·경고 줄·정상 줄·메뉴 창 칸)의 유일한 상태 소유자이자 렌더러다.
@@ -272,11 +285,10 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
     if (!isOwner(rt)) { clear(); return; }
     const scope = scopeOf(rt), mine = ++run;
     if (cache && cache.scope === scope && now() - cache.at < CACHE_MS) { paint(cache.raw); return; }
-    const raw = await readStatus(rt);
+    const raw = await readShared(rt, scope, now);
     if (!alive || mine !== run || scope !== scopeOf(rt)) return;
-    cache = {scope, at:now(), raw};
     paint(raw);
   }
   return {refresh, destroy() { alive = false; run++; alert?.removeEventListener('click', onClick); phoneQuery?.removeEventListener?.('change', onMedia); }};
 }
-export function resetCollectionCache() { cache = null; driveStatus = null; }
+export function resetCollectionCache() { cache = null; driveStatus = null; pending = null; }

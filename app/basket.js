@@ -120,14 +120,31 @@ function openRowMenu(trigger){
   const note=notes.find(n=>n.id===trigger.dataset.basketRowMore);
   if(rowMenu?.trigger===trigger){closeRowMenu({focus:true});return;}
   closeRowMenu();if(!note||busy||selected)return;
-  rowMenuEl.innerHTML=rowMenuItems(note).map(([act,label,cls])=>`<button type="button" data-basket-row-act="${act}"${cls?` class="${cls}"`:''}>${label}</button>`).join('');
+  attachRowMenu(note,trigger);
+  rowMenuEl.querySelector('button')?.focus({preventScroll:true});
+}
+const rowMenuHtml=note=>rowMenuItems(note).map(([act,label,cls])=>`<button type="button" data-basket-row-act="${act}"${cls?` class="${cls}"`:''}>${label}</button>`).join('');
+// Shows the menu under this ⋯ and follows it. The items are rewritten only when they differ, so a press already on an item is not lost.
+function attachRowMenu(note,trigger){
+  const html=rowMenuHtml(note);
+  if(rowMenuEl.innerHTML!==html)rowMenuEl.innerHTML=html;
   rowMenuEl.hidden=false;
   // UI-메뉴잘림: 높이를 320px로 묶으면 [보류로]·[삭제]가 표시 없는 안쪽 스크롤에 숨었다. 창 높이까지 다 보이고, 정말 길 때만 스크롤 + 아래 흐림.
   const place=()=>placeAnchored(rowMenuEl,trigger,{maxWidth:220,maxHeight:window.innerHeight});
   place();
   rowMenu={noteId:note.id,trigger,stop:followAnchor(rowMenuEl,trigger,{place,lost:()=>closeRowMenu()})};
   trigger.setAttribute('aria-expanded','true');
-  rowMenuEl.querySelector('button')?.focus({preventScroll:true});
+}
+// STAB-E2E(10/30): a list redraw that arrives while a row's ⋯ menu is open (the screen's own re-read finishing late, links or
+// categories arriving) used to close the menu, so the item the person was about to press vanished under the finger. The redraw
+// now keeps the menu open on the same update's new ⋯ (same items unless they changed, focus kept on the same item); it closes
+// only when that update is no longer in the list, or the list is not shown (a detail opened, work in progress).
+function keepRowMenu(kept){
+  if(!kept||busy||selected||list.hidden)return;
+  const note=notes.find(n=>n.id===kept.noteId),trigger=root.querySelector(`[data-basket-row-more="${CSS.escape(kept.noteId)}"]`);
+  if(!note||!trigger)return;
+  attachRowMenu(note,trigger);
+  if(kept.focusAct)(rowMenuEl.querySelector(`[data-basket-row-act="${CSS.escape(kept.focusAct)}"]`)||rowMenuEl.querySelector('button'))?.focus({preventScroll:true});
 }
 // UI-목록밀기: 폰 업데이트 줄 — 왼쪽으로 밀기 [삭제](휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음: 되돌릴 수 있으므로), 오른쪽으로 밀기 [보류로]/[보류 해제].
 // 분류 완료는 갈 곳을 골라야 해서 한 번에 끝나는 처리가 아니므로, 목록에서 한 번에 끝나는 대표 처리인 보류를 둔다. 기존 목록 ⋯의 길 그대로.
@@ -536,6 +553,7 @@ function taskPlaceLine(note) {
   return count ? `<span class="basket-chip" data-chip-kind="task"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span>할 일 ${count}개</span></span>` : '';
 }
 function renderList() {
+  const active=document.activeElement,kept=rowMenu&&{noteId:rowMenu.noteId,focusAct:rowMenuEl.contains(active)?active.dataset.basketRowAct||'':null};
   closeRowMenu();
   
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
@@ -554,6 +572,7 @@ function renderList() {
   root.querySelector('[data-basket-filter-count]').textContent = ' ' + unclassifiedCount;
   // BASKET-정리함한화면: the '업데이트' box title and the top line count what is not handled yet (미분류, not 보류). Unknown while the first read is pending.
   paintPaneCount('update', loadingRun && !notes.length ? null : unclassifiedCount);
+  keepRowMenu(kept);
 }
 const textDirty = () => selected && detail.querySelector('[data-basket-text]')?.value !== selected.raw_text.replace(/\r\n?/g, '\n');
 const dirty = () => textDirty() || upload.entries.some(e=>e.kind!=='success');

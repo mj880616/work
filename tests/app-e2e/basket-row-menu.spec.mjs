@@ -193,6 +193,39 @@ for (const width of [390, 1280]) {
   });
 }
 
+// STAB-E2E(10/30): the list's own re-read finishing while a row's ⋯ menu is open used to redraw the list and close the menu, so the
+// item under the finger vanished (main 74705ccf, 390). The redraw keeps the menu open on the same update's new ⋯, items still work.
+for (const width of [390, 1280]) test(`a list re-read that lands while the ⋯ menu is open keeps the menu and its items ${width}`, async ({ page }) => {
+  const f = await fixture(page, width);
+  const held = []; let holding = true;
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => {
+    const q = new URL(r.request().url()).searchParams;
+    if (holding && r.request().method() === 'GET' && q.get('kind') === 'eq.basket' && !q.get('id')) { held.push(r); return; }
+    return r.fallback();
+  });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('kptu:basket-note-created')));
+  await expect.poll(() => held.length).toBeGreaterThan(0);
+  await press(page, rowMore(page, A), width);
+  await expect(menu(page)).toBeVisible();
+  const first = menu(page).locator('button').first();
+  await expect(first).toBeFocused();
+  const oldMore = await rowMore(page, A).elementHandle();
+  holding = false;
+  for (const r of held.splice(0)) await r.fallback();
+  // The list was drawn again (the pressed ⋯ is replaced by a new one), yet the menu stays open under it with focus on the same item.
+  await expect.poll(() => oldMore.evaluate(el => el.isConnected)).toBe(false);
+  await expect(page.locator(`[data-basket-row="${B}"]`)).toBeVisible();
+  await expect(menu(page)).toBeVisible();
+  await expect(rowMore(page, A)).toHaveAttribute('aria-expanded', 'true');
+  await expect(first).toBeFocused();
+  const asked = [];
+  page.on('dialog', d => { asked.push(d.message()); return d.dismiss(); });
+  await press(page, menu(page).getByRole('button', { name: '삭제', exact: true }), width);
+  await expect.poll(() => asked.length).toBe(1);
+  await expect(menu(page)).toBeHidden(); await expect(rowMore(page, A)).toBeFocused();
+  expect(f.writes).toEqual([]); expect(f.posts).toEqual([]); expect(f.errors).toEqual([]);
+});
+
 test('an archived update leaves 연결하기 out of its row menu, as the detail refuses it', async ({ page }) => {
   const f = await fixture(page, 1280, { archived: '2026-10-06T05:00:00Z' });
   await page.locator('[data-basket-filter="archived"]').click();
