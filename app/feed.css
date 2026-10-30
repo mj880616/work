@@ -311,3 +311,12 @@
 /* TG-안본것: 안 연 방·날은 이름 옆 작은 점, 연 것은 글자만 살짝 흐림(띠·꼬리표 색은 그대로). */
 .feed-view .feed-unseen{display:inline-block;width:6px;height:6px;margin-left:5px;border-radius:50%;background:var(--kptu-info);vertical-align:2px}
 .feed-view .feed-rd.is-seen .feed-rn,.feed-view .feed-rd.is-seen .feed-rl{opacity:.62}
+/* TG-방별보기: 칸 줄 맨 앞 [날짜별 | 방별] 작은 두 칸 단추, 방별 상세의 날짜 묶음(날짜 머리 · 그날 요약 · 소식 줄). */
+#telegramView .feed-vsw{display:inline-flex;flex:none;height:var(--ds-compact-height-sm,24px);box-sizing:border-box;margin-right:4px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control)}
+#telegramView .feed-vsw button{position:relative;min-width:0;min-height:0;height:auto;margin:0;padding:0 8px;border:0;border-left:var(--ds-line-width) solid var(--ds-line);border-radius:0;background:transparent;box-shadow:none;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);line-height:1;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#telegramView .feed-vsw button:first-child{border-left:0}
+#telegramView .feed-vsw button::after{content:"";position:absolute;inset:-8px 0}
+#telegramView .feed-vsw button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+#telegramView .feed-vsw button[aria-pressed="true"]{background:var(--ds-select-bg);color:var(--kptu-primary-ink);font-weight:var(--ds-weight-medium,500)}
+#telegramView .feed-rday + .feed-rday{margin-top:6px;border-top:var(--ds-line-width) solid var(--kptu-border)}
+#telegramView .feed-rday-head{margin:0;font-weight:var(--ds-weight-medium,500)}
