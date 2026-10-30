@@ -131,6 +131,7 @@ for (const width of [412, 884]) {
 
 test('[3] 폰 업데이트 줄: 왼쪽으로 끝까지 밀면 바로 휴지통 + [되돌리기], 오른쪽으로 조금 밀면 [보류로]만 보이고 멈춤', async ({ page }) => {
   const f = await updates(page, 412);
+  f.trash.onRestore = row => { const { link_count, deleted_at, ...back } = row; f.rows.push(back); };
   page.on('dialog', d => { throw new Error('묻지 않아야 함: ' + d.message()); });
   await swipe(page.locator(`[data-basket-row="${B}"]`), -320);
   await expect(page.locator(`[data-basket-row="${B}"]`)).toHaveCount(0);
@@ -139,6 +140,8 @@ test('[3] 폰 업데이트 줄: 왼쪽으로 끝까지 밀면 바로 휴지통 +
   await expect(undo).toBeVisible();
   await undo.click();
   await expect.poll(() => f.trash.restored).toEqual([B]);
+  // 되돌린 뒤 목록을 다시 읽어 그 줄이 돌아온다(다시 그리기가 끝난 뒤 다음 밀기).
+  await expect(page.locator(`[data-basket-row="${B}"]`)).toBeVisible();
   // 오른쪽으로 조금(40px 남짓 밀어 버튼 폭의 절반 넘게): 줄은 그대로, 왼쪽 끝 [보류로]가 보이고 멈춘다. 누르면 보류.
   await swipe(page.locator(`[data-basket-row="${A}"]`), 50);
   const hold = page.locator('#basketRows [data-row-swipe-act="start"]');
