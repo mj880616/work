@@ -93,7 +93,7 @@ async function load(){
   void loadTodoRules();
   return true;
 }
-// 원장 재료 C-4: '참고 일정' 칸은 따로 바로 저장한다(calendar-ref-settings.js). 못 불러와도 프로필 화면은 그대로다.
+// CAL-조직참고캘린더: '조직 참고 캘린더' 칸은 따로 바로 저장한다(calendar-ref-settings.js). 못 불러와도 프로필 화면은 그대로다.
 // TODO-내일만: '챙길 것 기준' 칸(전체 부탁도 올릴 방·쌓인 후보 다시 거르기)은 따로 바로 저장한다(todo-rules-settings.js). 칸 자리는 참고 일정 칸 다음, 한 번만 붙인다.
 let todoRules=null;
 async function loadTodoRules(){

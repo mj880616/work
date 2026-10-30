@@ -441,7 +441,10 @@
 #appView #homeView .journal-event-bar{ flex:0 0 4px; width:4px; height:18px; border-radius:var(--ds-radius-box); background:var(--journal-event-color, var(--kptu-primary-ink)); }
 #appView #homeView .journal-event-title{ min-width:0; overflow-wrap:anywhere; }
 
-/* 원장 재료 C-4: 참고 일정(개인 공유 캘린더) 접힌 줄 — 하루 카드와 주간 정리 같은 모양 */
+/* CAL-조직참고캘린더: [주간 정리] 4. 산하 조직 현황 그 조직 칸의 '캘린더 추천 · 날짜 제목 [+]' 줄 — 흐린 작은 글씨, 새 색·카드 없음 */
+#appView #homeView ul.journal-org-refs > li.journal-org-ref{ display:flex; flex-wrap:wrap; align-items:center; gap:0 4px; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-org-ref-mark{ flex:none; }
+/* 접힌 체크 목록 모양(옛 참고 일정 줄에서 시작, 지금은 1. 2) 주요 일정 고르기 목록이 같이 씀) */
 #appView #homeView .journal-calref > summary{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-calref > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #homeView ul.journal-calref-list{ list-style:none; margin:0; padding:0 0 4px; display:flex; flex-direction:column; }
