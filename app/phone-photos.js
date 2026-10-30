@@ -78,9 +78,11 @@ export function createPhonePhotos(win = globalThis.window) {
     // 처음 한 번 '사진 접근 허용'(이미 허용했으면 시스템이 바로 돌려준다, 부분 허용이면 고른 사진을 다시 고르는 창).
     ask: () => (usable ? send('photos:ask') : false),
     // 한 쪽: {items, next(다음 offset 또는 null)}. before = 그 시각보다 앞에 찍은 것부터(찍은 날 최근 먼저만).
-    async page({sort = 'taken_desc', filter = 'all', offset = 0, limit = 120, before = null} = {}) {
+    // folder(PHOTO-출처모든칩) = 그 폰 폴더(relative_path) 바로 안 것만.
+    async page({sort = 'taken_desc', filter = 'all', offset = 0, limit = 120, before = null, folder = null} = {}) {
       const q = new URLSearchParams({sort, filter, offset:String(offset), limit:String(limit)});
       if (Number.isFinite(before) && before > 0) q.set('before', String(Math.floor(before)));
+      if (typeof folder === 'string' && folder.length <= 255) q.set('folder', folder);
       const d = await getJson(`page?${q}`);
       return {items:items(d?.items), next:Number.isInteger(d?.next) ? d.next : null};
     },
@@ -90,6 +92,17 @@ export function createPhonePhotos(win = globalThis.window) {
       const want = [...new Set((ids || []).map(String).filter(id => /^\d{1,18}$/.test(id)))];
       for (let i = 0; i < want.length; i += 500) out.push(...items((await getJson(`ids?ids=${want.slice(i, i + 500).join(',')}`))?.items));
       return out;
+    },
+    // PHOTO-출처모든칩: 폰 폴더 목록 [{id(relative_path), name, count, cover(칸)}]. 옛 앱(0.3.9)은 이 읽기가 없어 null(폰 폴더 묶음만 안 보임).
+    async folders() {
+      let d;
+      try { d = await getJson('folders'); }
+      catch (err) { if (err?.phone && ((err.phone.status === 404 && !err.phone.error) || err.phone.error === 'bad_request')) return null; throw err; }
+      return (Array.isArray(d?.folders) ? d.folders : []).map(f => {
+        const cover = phoneToItem(f?.cover);
+        return typeof f?.id === 'string' && f.id.length <= 255 && Number.isInteger(f?.count) && f.count > 0 && cover
+          ? {id:f.id, name:String(f.name || '폰').slice(0, 255), count:f.count, cover} : null;
+      }).filter(Boolean);
     },
     async months(filter = 'all') { const d = await getJson(`months?filter=${encodeURIComponent(filter)}`); return d?.months && typeof d.months === 'object' ? d.months : {}; },
     async days(month, {filter = 'all', prefer = []} = {}) {

@@ -26,7 +26,7 @@ const PHONE = [
 ].map(m => ({ ...m, approx: false, kind: 'photo', width: 10, height: 10, duration_ms: null, screenshot: false, uploaded_at: m.taken_at }));
 
 async function fixture(page, { app = false } = {}) {
-  const state = { errors: [], phoneReads: [], sent: [] };
+  const state = { errors: [], phoneReads: [], sent: [], edge: [] };
   page.on('pageerror', e => state.errors.push(e.message));
   await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
   if (app) {
@@ -52,11 +52,14 @@ async function fixture(page, { app = false } = {}) {
     await page.route(u => u.origin === CDN, r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: PNG }));
     await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', async r => {
       const body = r.request().postDataJSON();
+      state.edge.push(body.action);
       if (body.action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true } });
       if (body.action === 'sync') return r.fulfill({ json: { more: false, indexing: false, changed: 0 } });
       if (body.action === 'photo-urls') return r.fulfill({ json: { urls: Object.fromEntries(body.ids.map(id => [id, `${CDN}/${body.size}/${id}.png`])), failed: {} } });
       if (body.action === 'library') return r.fulfill({ json: { items: OD, next_cursor: null, indexing: false } });
       if (body.action === 'months') return r.fulfill({ json: { months: { '2026-10': OD.length }, total: OD.length } });
+      if (body.action === 'folders-tree') return r.fulfill({ json: { top: { id: 'T', name: '카메라', count: OD.length, total: OD.length + 0 }, folders: [{ id: 'S1', name: 'OneSyncFiles', parent_id: 'T', enabled: true, count: 0, total: 0 }], indexing: false } });
+      if (body.action === 'trash-list') return r.fulfill({ json: { items: [], purged: 0, truncated: false } });
       return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
     });
     // 앱이 WebView 안에서 답하는 폰 사진(서버로 나가지 않음).
@@ -64,7 +67,16 @@ async function fixture(page, { app = false } = {}) {
       const u = new URL(r.request().url());
       state.phoneReads.push(u.pathname.replace(/^.*__phone\//, '') + u.search);
       if (!u.pathname.includes(`/__phone/${KEY}/`)) return r.fulfill({ status: 404, body: '' });
-      if (u.pathname.endsWith('/page')) return r.fulfill({ json: { items: PHONE, next: null, total: PHONE.length } });
+      if (u.pathname.endsWith('/page')) {
+        // PHOTO-출처모든칩: folder= 면 그 폰 폴더 사진만(Camera = 1·2, Screenshots = 9·4).
+        const folder = u.searchParams.get('folder');
+        const list = folder === null ? PHONE : PHONE.filter(m => (folder === 'DCIM/Camera/') === ['1', '2'].includes(m.id));
+        return r.fulfill({ json: { items: list, next: null, total: list.length } });
+      }
+      if (u.pathname.endsWith('/folders')) return r.fulfill({ json: { folders: [
+        { id: 'DCIM/Camera/', name: 'Camera', count: 2, cover: PHONE[0] },
+        { id: 'Pictures/Screenshots/', name: 'Screenshots', count: 2, cover: PHONE[2] },
+      ] } });
       if (u.pathname.endsWith('/months')) return r.fulfill({ json: { months: { '2026-10': PHONE.length } } });
       if (u.pathname.endsWith('/days')) return r.fulfill({ json: { days: {} } });
       if (u.pathname.includes('/thumb/')) return r.fulfill({ status: 200, contentType: 'image/jpeg', body: PNG });
@@ -128,6 +140,56 @@ test.describe('폰 앱 412', () => {
     await expect(viewer).toBeVisible();
     await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('1 / 6');
     expect(state.phoneReads.some(p => /thumb\/1\?s=large/.test(p))).toBe(true);
+    expect(state.errors).toEqual([]);
+  });
+});
+
+// PHOTO-출처모든칩(요청함 10/31 00:01): 출처 켜기/끄기가 [폴더]·[휴지통]·[앨범]에도, 폰 폴더 보기.
+test.describe('폰 앱 412 · 모든 칩', () => {
+  test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
+  test('원드라이브를 끄면 [폴더]는 폰 폴더만·[휴지통]은 안내 한 줄, 다시 켜면 두 묶음, 모두 끄면 한 줄', async ({ page }) => {
+    const { state } = await fixture(page, { app: true });
+    await openPhotos(page, 412);
+    await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);
+    const od = page.locator('#photosRoot [data-photos-src="onedrive"]'), phoneBtn = page.locator('#photosRoot [data-photos-src="phone"]');
+    const tab = name => page.locator(`#photosRoot [data-photos-tab="${name}"]`);
+    const bodyEl = page.locator('#photosRoot [data-photos-body]');
+    // 둘 다 켜짐: [폴더]에 '원드라이브'·'폰' 두 묶음.
+    await tab('folders').click();
+    await expect(bodyEl.locator('[data-photos-fx-group="onedrive"]')).toHaveText('원드라이브');
+    await expect(bodyEl.locator('[data-photos-fx-group="phone"]')).toHaveText('폰');
+    await expect(bodyEl.locator('[data-photos-fx-open="S1"]')).toBeVisible();
+    await expect(bodyEl.locator('[data-photos-pf-open]')).toHaveCount(2);
+    // 원드라이브 끄기: 폰 폴더만(원드라이브 폴더·⋯·새 폴더 없음).
+    await od.click();
+    await expect(od).toHaveAttribute('aria-pressed', 'false');
+    await expect(bodyEl.locator('[data-photos-fx-open]')).toHaveCount(0);
+    await expect(bodyEl.locator('[data-photos-fx-more], [data-photos-fx-new]')).toHaveCount(0);
+    await expect(bodyEl.locator('[data-photos-pf-open]')).toHaveText(['📁Camera2', '📁Screenshots2']);
+    // 폰 폴더 열기 → 그 폴더 사진 격자, 뒤로가기로 목록.
+    await bodyEl.locator('[data-photos-pf-open="DCIM/Camera/"]').click();
+    await expect(bodyEl.locator('.photos-fx-here')).toContainText('Camera');
+    await expect.poll(() => bodyEl.locator('[data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId))).toEqual(['ph:1', 'ph:2']);
+    expect(state.phoneReads.some(p => /page\?.*folder=DCIM%2FCamera%2F/.test(p))).toBe(true);
+    await page.goBack();
+    await expect(bodyEl.locator('[data-photos-pf-open]')).toHaveCount(2);
+    // [휴지통]: 원드라이브 휴지통을 읽지 않고 안내 한 줄.
+    const trashReads = state.edge.filter(a => a === 'trash-list').length;
+    await tab('trash').click();
+    await expect(bodyEl.locator('[data-photos-phone-trash]')).toHaveText('폰 휴지통은 갤러리 앱에서');
+    await expect(bodyEl.locator('[data-photos-open]')).toHaveCount(0);
+    expect(state.edge.filter(a => a === 'trash-list').length).toBe(trashReads);
+    // 모두 끄기: 모든 칩에서 한 줄.
+    await phoneBtn.click();
+    for (const name of ['trash', 'folders', 'albums', 'all']) {
+      await tab(name).click();
+      await expect(bodyEl.locator('[data-photos-no-source]')).toHaveText('위 출처 아이콘을 켜 주세요.');
+    }
+    // 원드라이브만 다시 켜기: [폴더]는 원드라이브 폴더만, 묶음 이름 없음.
+    await od.click();
+    await tab('folders').click();
+    await expect(bodyEl.locator('[data-photos-fx-open="S1"]')).toBeVisible();
+    await expect(bodyEl.locator('[data-photos-pf-open], [data-photos-fx-group]')).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
 });
