@@ -1,7 +1,7 @@
 // The shared runtime supplies JWTs; the existing owner RLS decides access.
 // No note content or drafts are persisted in browser storage.
 import { noteTasks } from './basket-note-tasks.js';
-import { documentCategories, categoryOf } from './document-categories.js';
+import { orderedDocumentCategories, categoryLabel, categoryOf } from './document-categories.js';
 import { requestsGuard } from './update-requests.js';
 import { noteJournalAt, journalGuard, othersGuard, MOVED_KEY } from './update-journal.js';
 import { bodyWithoutTitleLine } from './note-markdown.mjs';
@@ -487,7 +487,8 @@ export function placeSubOptions(notes, links, docs, place) {
     if (name && !names.get(key)) names.set(key, name);
   }
   const head = {value:'all', label:`${allLabel} ${inPlace.length}`};
-  if (place === 'library') return [head, ...documentCategories().map(name => ({value:name, label:name}))];
+  // LIB-소분류: 소분류는 큰 분류 바로 뒤에 '선전 › 투쟁속보' 이름으로.
+  if (place === 'library') return [head, ...orderedDocumentCategories().map(name => ({value:name, label:categoryLabel(name)}))];
   const fallback = place === 'organization' ? '조직' : place === 'reference' ? '참고 묶음' : '사업영역';
   const rows = [...counts].map(([value, count]) => ({value, label:names.get(value) || fallback, count}));
   rows.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko'));

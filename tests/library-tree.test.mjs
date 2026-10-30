@@ -200,3 +200,10 @@ test('폴더 묶기: 사진 묶음 줄은 사진이 모두 같은 폴더일 때�
   assert.deepEqual(out.find(n=>n.key==='f:f1').files.map(d=>d.id),['photoset:m1']);
   assert.deepEqual(out.find(n=>n.key==='x:out').files.map(d=>d.id).sort(),['photoset:m2','photoset:m3']);
 });
+
+// LIB-소분류 ②: 종류 묶기에서 소분류는 큰 분류 바로 뒤 '선전 › 투쟁속보' 이름의 묶음이고, 묶음 값(끌어 분류 바꾸기 대상)은 전체 이름이다.
+test('종류 묶기: 소분류 묶음 이름과 값',()=>{
+  const docs=[doc('s1',null,{category:'선전›투쟁속보'}),doc('s2',null,{category:'선전'})];
+  const cat=m.buildTree(base({groupBy:'category',docs,categoryOf:c=>c,categories:['선전','선전›투쟁속보','기타'],categoryLabel:n=>n.split('›').join(' › ')}));
+  assert.deepEqual(cat.map(n=>[n.label,n.category,n.count]),[['선전','선전',1],['선전 › 투쟁속보','선전›투쟁속보',1]]);
+});

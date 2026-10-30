@@ -158,6 +158,9 @@
 .dce-meta{flex:0 1 auto;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 .dce-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
 .dce-row-edit{display:block}
+/* LIB-소분류: 소분류 줄은 큰 분류 줄 바로 아래에 한 칸 들여, 작고 흐린 글자로. */
+.dce-row-sub{padding-left:16px;border-top-style:dashed}
+.dce-row-sub .dce-name{font-size:var(--kptu-text-meta,13px);color:var(--kptu-muted)}
 .dce-label{display:block;margin:0 0 4px;font-size:var(--kptu-text-meta)}
 .dce-input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}
 .dce-add{margin:0 0 6px}
@@ -190,6 +193,9 @@
 /* UI-자료실편집버튼(2026-10-21): [분류 수정]을 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮긴다. 칩 바로 오른쪽에 붙고, 칩이 많으면 칩만 줄어 옆으로 민다. */
 #appView #libraryView .lu-filter-row[data-lu-filter-row="category"]{grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,max-content) auto;justify-content:start}
 #appView #libraryView .lu-filter-row > .lu-category-edit{margin:0;white-space:nowrap}
+/* LIB-소분류: 소분류 줄은 [분류] 줄 바로 아래 한 줄(칩 시작 자리에 맞춤). 폰은 이름표가 없으므로 왼쪽 끝에서. */
+#appView #libraryView .library-filter-toolbar > .cc-sub-row{flex:1 1 100%;margin-left:calc(var(--lu-filter-label-width,4.5em) + 8px)}
+@media(max-width:760px){#appView #libraryView .library-filter-toolbar > .cc-sub-row{margin-left:4px}}
 @media(max-width:760px){
   #appView #libraryView .library-filter-toolbar #documentProject,
   #appView #libraryView .library-filter-toolbar .lu-filter-row{grid-template-columns:minmax(0,1fr)}

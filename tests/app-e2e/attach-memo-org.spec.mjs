@@ -84,6 +84,13 @@ async function fixture(page,{width=390,scheme='light',docs=seedDocs(),categories
   const hit=docsOf([...body.p_stored,body.p_name]);hit.forEach(d=>{d.category='기타';});
   return reply(route,{ok:true,categories:server.categories,documents:hit.length});
  });
+ // LIB-소분류(20261031000000): 소분류 지우기는 목록에서 빼고 그 자료는 큰 분류로.
+ await rpc('app_document_subcategory_delete',(route,body,list,docsOf)=>{
+  if(!list.includes(body.p_name)||!body.p_name.includes('›'))return reply(route,{ok:false,error:'CATEGORY_NOT_FOUND'});
+  server.categories=list.filter(n=>n!==body.p_name);
+  const hit=docsOf([body.p_name]);hit.forEach(d=>{d.category=body.p_name.split('›')[0];});
+  return reply(route,{ok:true,categories:server.categories,documents:hit.length});
+ });
  await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',route=>{
   const body=route.request().postDataJSON();state.rpc.push(body);
   for(const t of body.p_targets)tables.app_record_links.push({id:'40000000-0000-4000-8000-'+String(tables.app_record_links.length+1).padStart(12,'0'),workspace_id:'w',note_id:body.p_note_id,status:'confirmed',summary:t.summary,[t.kind==='project'?'project_id':'organization_id']:t.target_id});
@@ -430,5 +437,49 @@ test('a changed list is the list every screen uses: upload form, edit form, proj
  await clickView(page,'projects');await page.evaluate(()=>window.__KPTU_PROJECT_V3_READY__);
  await page.locator(`[data-ps3-project="${P}"]`).first().click();
  await expect(page.locator('#ps3-documents .doc-category-tag')).toHaveText(['정책']);
+ expect(f.errors).toEqual([]);
+});
+
+// LIB-소분류 ②: 큰 분류 하나만 켜면 칩 아래 소분류 줄, 소분류 고르기, [+ 소분류]로 만들기, 지워도 자료는 큰 분류에 남음.
+for(const width of [412,1440])test(`subcategories: row under a sole category, pick, add and delete keep documents ${width}`,async({page},info)=>{
+ const docs=[doc('s1','합성 투쟁속보 1호','선전›투쟁속보','2026-10-05'),doc('s2','합성 선전물','선전','2026-10-04'),doc('s3','합성 교섭 요구안','교섭','2026-10-03')];
+ const f=await fixture(page,{width,docs,categories:[...DEFAULT,'선전›투쟁속보']});
+ await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
+ // 큰 분류 칩에는 소분류가 없다.
+ await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT]);
+ const sub=page.locator('#libraryView .cc-sub-row');
+ await expect(sub).toHaveCount(0);
+ await onlyLibraryCategories(page,['선전'],{tap:width<761});
+ await expect(sub).toBeVisible();
+ await expect(sub.getByRole('button')).toHaveText(['선전 전체','투쟁속보','+ 소분류']);
+ await expect(sub.locator('[data-cc-sub=""]')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('.lu-row')).toHaveCount(2);
+ await tap(page,sub.getByRole('button',{name:'투쟁속보',exact:true}),width);
+ await expect(sub.locator('[data-cc-sub="선전›투쟁속보"]')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('.lu-row')).toHaveCount(1);
+ await expect(page.locator('.lu-row-title')).toHaveText(['합성 투쟁속보 1호']);
+ await expect(page.locator('#docCategory option')).toContainText(['선전','선전 › 투쟁속보']);
+ expect(await noWideScroll(page)).toBe(true);
+ await capture(page,info,`subcategory-row-${width}`,page.locator('#libraryView'));
+ // [+ 소분류]: [편집] 창이 그 큰 분류의 소분류 만들기 칸으로 열린다. 기존 추가 함수에 전체 이름을 보낸다.
+ await tap(page,sub.getByRole('button',{name:'선전에 소분류 만들기'}),width);
+ const modal=page.locator('#libraryManageModal'),editor=modal.locator('.dce');
+ await expect(editor.locator('[data-dce-sub-input]')).toBeVisible();
+ await editor.locator('[data-dce-sub-input]').fill('소식지');
+ await editor.locator('[data-dce-sub-form]').getByRole('button',{name:'추가',exact:true}).click();
+ await expect(editor.locator('.dce-status')).toHaveText('‘선전 › 소식지’ 소분류를 추가했어요.');
+ expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'선전›소식지'}});
+ await expect(editor.locator('.dce-row-sub .dce-name')).toHaveText(['투쟁속보','소식지']);
+ // 소분류 지우기: 자료는 큰 분류(선전)에 그대로.
+ let message='';page.once('dialog',dialog=>{message=dialog.message();return dialog.accept();});
+ await editor.getByRole('button',{name:'선전 › 투쟁속보 지우기'}).click();
+ await expect(editor.locator('.dce-status')).toHaveText('‘선전 › 투쟁속보’ 소분류를 지웠어요. 자료 1개는 ‘선전’에 그대로 있어요.');
+ expect(message).toContain('‘선전’에 그대로 남아요');
+ expect(f.server.rpc.at(-1)).toEqual({name:'app_document_subcategory_delete',body:{p_name:'선전›투쟁속보'}});
+ expect(f.tables.app_documents.find(d=>d.id==='s1').category).toBe('선전');
+ await tap(page,modal.locator('#libraryManageClose'),width);
+ await expect(sub.getByRole('button')).toHaveText(['선전 전체','소식지','+ 소분류']);
+ await expect(page.locator('.lu-row')).toHaveCount(2);
+ expect(f.calls('app_documents','PATCH')).toEqual([]);
  expect(f.errors).toEqual([]);
 });

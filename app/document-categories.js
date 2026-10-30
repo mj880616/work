@@ -28,7 +28,34 @@ export const WEEKLY_CATEGORY_NAMES=Object.freeze({confirmed:Object.freeze(['주�
 export const weeklyCategoryFilter=kind=>'in.('+encodeURIComponent(WEEKLY_CATEGORY_NAMES[kind].map(name=>`"${name}"`).join(','))+')';
 // 저장할 값: 내 목록에 새 이름이 있으면 새 이름, 아니면 옛 이름(지금 목록의 꼬리표와 맞게).
 export const weeklySaveCategory=kind=>{const [old,next]=WEEKLY_CATEGORY_NAMES[kind];return current.includes(next)?next:old;};
+// LIB-소분류: 소분류는 내 목록에 '큰분류›소분류' 한 칸으로 둔다(구분 글자 '›' U+203A, DB 20261031000000). 자료 값도 같은 모양.
+// 한 단계까지만 쓴다. 칸 하나의 20자 한도는 '큰분류›소분류' 전체에 걸린다(DB 검사 그대로).
+export const SUB_SEPARATOR='›';
+export const isSubcategory=name=>String(name??'').includes(SUB_SEPARATOR);
+export const categoryParent=name=>{const s=String(name??''),i=s.indexOf(SUB_SEPARATOR);return i<0?s:s.slice(0,i);};
+export const categoryLeaf=name=>{const s=String(name??''),i=s.indexOf(SUB_SEPARATOR);return i<0?s:s.slice(i+1);};
+export const subcategoryName=(parent,leaf)=>`${parent}${SUB_SEPARATOR}${leaf}`;
+// 화면에 보일 이름: '선전›투쟁속보' → '선전 › 투쟁속보'.
+export const categoryLabel=name=>String(name??'').split(SUB_SEPARATOR).join(' › ');
 let current=DEFAULT_DOCUMENT_CATEGORIES,currentOwner='';
+const derived=new WeakMap();
+function shapeOf(list){
+  let shape=derived.get(list);if(shape)return shape;
+  const tops=list.filter(name=>!isSubcategory(name)),topSet=new Set(tops),subs=new Map(tops.map(name=>[name,[]])),orphans=[];
+  for(const name of list)if(isSubcategory(name)){const parent=categoryParent(name);if(subs.has(parent))subs.get(parent).push(name);else orphans.push(name);}
+  const ordered=[...tops.flatMap(name=>[name,...subs.get(name)]),...orphans];
+  shape={tops:Object.freeze(tops),topSet,subs,ordered:Object.freeze(ordered)};
+  for(const value of subs.values())Object.freeze(value);
+  derived.set(list,shape);return shape;
+}
+// 큰 분류만(칩 줄). 목록 순서 그대로.
+export function topDocumentCategories(){return shapeOf(current).tops;}
+// 그 큰 분류의 소분류들(전체 이름 '선전›투쟁속보'). 없으면 빈 목록.
+export function subcategoriesOf(parent){return shapeOf(current).subs.get(parent)||Object.freeze([]);}
+// 고르기 목록 순서: 큰 분류마다 그 소분류가 바로 뒤에(추가한 소분류는 목록 끝에 붙으므로 여기서 묶는다).
+export function orderedDocumentCategories(){return shapeOf(current).ordered;}
+// 이 값이 보일 큰 분류.
+export function topCategoryOf(value){return categoryParent(categoryOf(value));}
 let flight=null,loadedOwner='';
 const eventTarget=()=>typeof window!=='undefined'?window:null;
 const notify=name=>{const target=eventTarget();if(target&&typeof CustomEvent==='function')target.dispatchEvent(new CustomEvent(name));};
@@ -84,43 +111,50 @@ export function categoryOf(value){
   const legacy=(Object.hasOwn(LEGACY,name)?LEGACY[name]:[]).find(category=>current.includes(category));
   if(legacy)return legacy;
   // 직접 적은 값(예: 정책자료)은 목록의 이름으로 시작하면 그 분류로 본다(여러 개면 가장 긴 이름).
+  // 소분류 값이 목록에 없으면(지워진 소분류 등) 큰 분류로 본다. 앞부분 비교는 큰 분류 이름끼리만 한다.
   let best='';
-  for(const category of current)if(category!==LOCKED_CATEGORY&&name.startsWith(category)&&category.length>best.length)best=category;
+  for(const category of shapeOf(current).tops)if(category!==LOCKED_CATEGORY&&name.startsWith(category)&&category.length>best.length)best=category;
   return best||LOCKED_CATEGORY;
 }
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // <select> 안의 <option> 목록. empty가 있으면 맨 앞에 값 없는 선택지(예: 자동 분류)를 둔다.
 export function categoryOptions(selected,{empty=''}={}){
   const value=selected===''&&empty?'':categoryOf(selected);
-  return (empty?`<option value=""${value===''?' selected':''}>${esc(empty)}</option>`:'')+current.map(name=>`<option value="${esc(name)}"${name===value?' selected':''}>${esc(name)}</option>`).join('');
+  return (empty?`<option value=""${value===''?' selected':''}>${esc(empty)}</option>`:'')+shapeOf(current).ordered.map(name=>`<option value="${esc(name)}"${name===value?' selected':''}>${esc(categoryLabel(name))}</option>`).join('');
 }
-// 자료 줄의 작은 분류 꼬리표.
+// 자료 줄의 작은 분류 꼬리표('선전 › 투쟁속보').
 export function categoryTag(value){
   const name=categoryOf(value);
-  return `<span class="doc-category-tag" data-doc-category="${esc(name)}">${esc(name)}</span>`;
+  return `<span class="doc-category-tag" data-doc-category="${esc(name)}">${esc(categoryLabel(name))}</span>`;
 }
 
 // 이 분류로 보이는 자료의 "저장된 예전 값"들(정부자료 등). 이름 바꾸기·삭제 함수가 이 값의 자료도 함께 바꾸도록 넘긴다.
 // 지금 목록에 있는 이름은 넘기지 않는다(함수가 거절함). 50개를 넘기면 null(함수 한도).
-export function storedValuesOf(name,documents){
+// group이면 그 큰 분류와 소분류로 보이는 값 모두(큰 분류를 소분류와 함께 지울 때).
+export function storedValuesOf(name,documents,{group=false}={}){
   const stored=new Set();
   for(const doc of documents||[]){
     const value=doc?.category;
     if(typeof value!=='string'||value===''||current.includes(value))continue;
-    if(categoryOf(value)===name)stored.add(value);
+    if(group?topCategoryOf(value)===name:categoryOf(value)===name)stored.add(value);
   }
   return stored.size>50?null:[...stored];
 }
-// 이 분류로 보이는 자료 수(안내 문구용).
-export function documentCountOf(name,documents){return (documents||[]).filter(doc=>categoryOf(doc?.category)===name).length;}
+// 이 분류로 보이는 자료 수(안내 문구용). group이면 소분류 자료까지.
+export function documentCountOf(name,documents,{group=false}={}){return (documents||[]).filter(doc=>group?topCategoryOf(doc?.category)===name:categoryOf(doc?.category)===name).length;}
 
 // 새 이름을 서버에 보내기 전 쉬운 말로 먼저 걸러 준다(최종 판정은 함수와 표 검사가 한다).
-export function categoryNameProblem(raw,{except=''}={}){
+// parent가 있으면 소분류 이름(raw는 '›' 뒤의 이름)이고, 20자 한도는 '큰분류›소분류' 전체에 건다. except는 바꾸기 전의 전체 이름.
+export const subcategoryNameLimit=parent=>CATEGORY_NAME_LIMIT-[...String(parent??'')].length-1;
+export function categoryNameProblem(raw,{except='',parent=''}={}){
   const name=String(raw??'').trim();
-  if(!name)return '분류 이름을 적어 주세요.';
-  if([...name].length>CATEGORY_NAME_LIMIT)return `분류 이름은 ${CATEGORY_NAME_LIMIT}자까지 쓸 수 있어요.`;
+  if(!name)return parent?'소분류 이름을 적어 주세요.':'분류 이름을 적어 주세요.';
+  if(name.includes(SUB_SEPARATOR))return `분류 이름에는 ‘${SUB_SEPARATOR}’ 글자를 쓸 수 없어요.`;
+  if(parent){const limit=subcategoryNameLimit(parent);if(limit<1)return '큰 분류 이름이 길어서 소분류를 만들 수 없어요.';if([...name].length>limit)return `‘${parent}’의 소분류 이름은 ${limit}자까지 쓸 수 있어요.`;}
+  else if([...name].length>CATEGORY_NAME_LIMIT)return `분류 이름은 ${CATEGORY_NAME_LIMIT}자까지 쓸 수 있어요.`;
   if(/[,\u0000-\u001f\u007f]/.test(name))return '분류 이름에는 쉼표를 쓸 수 없어요.';
-  if(name!==except&&current.includes(name))return '이미 있는 분류 이름이에요.';
+  const full=parent?subcategoryName(parent,name):name;
+  if(full!==except&&current.includes(full))return parent?'이미 있는 소분류 이름이에요.':'이미 있는 분류 이름이에요.';
   if(current.length>=30&&!except)return '분류는 30개까지 만들 수 있어요.';
   return '';
 }
@@ -137,7 +171,7 @@ const ERROR_TEXT=Object.freeze({
 });
 export const categoryErrorText=code=>ERROR_TEXT[code]||ERROR_TEXT.REFUSED;
 
-// 함수 3개 호출. 결과: {ok:true,categories,documents} · {ok:false,error:코드} · {ok:false,error:'UNKNOWN'}(보냈는지 모름: 다시 보내지 않고 목록을 다시 읽어 확인).
+// 분류 함수 호출. 결과: {ok:true,categories,documents} · {ok:false,error:코드} · {ok:false,error:'UNKNOWN'}(보냈는지 모름: 다시 보내지 않고 목록을 다시 읽어 확인).
 async function call(name,body,rt){
   let data;
   try{
@@ -163,3 +197,8 @@ const done=result=>{
 export const addDocumentCategory=(name,{rt=window.KPTURuntime}={})=>call('app_document_category_add',{p_name:name},rt).then(done);
 export const renameDocumentCategory=(from,to,stored,{rt=window.KPTURuntime}={})=>call('app_document_category_rename',{p_from:from,p_to:to,p_stored:stored||[]},rt).then(done);
 export const deleteDocumentCategory=(name,stored,{rt=window.KPTURuntime}={})=>call('app_document_category_delete',{p_name:name,p_stored:stored||[]},rt).then(done);
+// LIB-소분류(DB 20261031000000): 큰 분류를 소분류와 함께 이름 바꾸기·지우기, 소분류 지우기(그 자료는 큰 분류로 남음).
+// 소분류가 없는 큰 분류는 위의 기존 함수를 그대로 쓴다(뜻이 같다). 소분류 추가·이름 바꾸기도 기존 add·rename('큰분류›소분류' 전체 이름).
+export const renameDocumentCategoryGroup=(from,to,stored,{rt=window.KPTURuntime}={})=>call('app_document_category_rename_group',{p_from:from,p_to:to,p_stored:stored||[]},rt).then(done);
+export const deleteDocumentCategoryGroup=(name,stored,{rt=window.KPTURuntime}={})=>call('app_document_category_delete_group',{p_name:name,p_stored:stored||[]},rt).then(done);
+export const deleteDocumentSubcategory=(name,{rt=window.KPTURuntime}={})=>call('app_document_subcategory_delete',{p_name:name},rt).then(done);
