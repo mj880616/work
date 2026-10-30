@@ -1188,7 +1188,7 @@ async function hwpxFixture(page,options={}){
  const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>r.request().method()==='GET'?r.fulfill({json:[{display_name:options.profileName??'가상 담당'}]}):r.fallback());
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>new URL(r.request().url()).searchParams.get('select')==='id,name,aliases,active'?r.fulfill({json:f.more.orgs.map(o=>({...o,aliases:[],active:o.active!==false}))}):r.fallback());
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();if(q.get('category')==='eq.주간보고 개인본'){sent.personal.push(Object.fromEntries(q));return r.fulfill({json:(options.personal??[]).filter(d=>!q.has('document_date')||q.get('document_date')===`eq.${d.document_date}`)});}sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();if(q.get('category')==='in.("주간보고 개인본","주간보고›개인본")'){sent.personal.push(Object.fromEntries(q));return r.fulfill({json:(options.personal??[]).filter(d=>!q.has('document_date')||q.get('document_date')===`eq.${d.document_date}`)});}sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
  await page.route(SB+'/functions/v1/document-actions',r=>{
   if(r.request().method()==='OPTIONS')return r.fulfill({status:200,headers:cors});
   const body=r.request().postDataJSON();sent.open.push(body);
@@ -1216,7 +1216,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  const f=await hwpxFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
  await openDraft(page);
- expect(f.sent.other.filter(x=>!x.ai)).toEqual([{category:'eq.주간보고 확정본'}]); // AI 초안(weekly_draft)은 아래에서 따로 본다
+ expect(f.sent.other.filter(x=>!x.ai)).toEqual([{category:'in.("주간보고 확정본","주간보고›확정본")'}]); // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾음. AI 초안(weekly_draft)은 아래에서 따로 본다
  expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'doc-team'}]);
  // 내 줄 2개(다른 담당의 가-2 줄은 없음), 내 담당 조직(가상 노동조합)만. 이름은 프로필에서.
  await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
@@ -1335,7 +1335,7 @@ test('[주간보고 한글 파일 만들기] 환류: 개인본 바탕 + 확정�
  await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주에 내가 올린 개인본을 바탕으로 만들어요. 팀 확정본에서 바뀐 칸은 옆에 작게 알려요. [확정]을 눌러야 자료실에 저장돼요.');
  const library=hwpx(page).locator('[data-hwpx-library]');
  await expect(library).toHaveText('자료실 최신 "주간보고 개인본" 쓰기');
- expect(f.sent.personal[0]).toMatchObject({category:'eq.주간보고 개인본',workspace_id:'eq.w'});
+ expect(f.sent.personal[0]).toMatchObject({category:'in.("주간보고 개인본","주간보고›개인본")',workspace_id:'eq.w'});
  await library.click();
  const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1'),b1=rowBox(page,'사업영역 나 › 세부 과제 나-1');
  await expect(a1.locator('textarea')).toHaveValue('- 내가 쓴 가-1 진행');
