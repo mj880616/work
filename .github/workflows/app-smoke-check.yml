@@ -60,6 +60,8 @@ on:
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-recorder-model.test.mjs'
+      - 'tests/meeting-recording-discard.test.mjs'
+      - 'supabase/functions/meeting-transcribe/index.ts'
       - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
@@ -167,6 +169,8 @@ on:
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-recorder-model.test.mjs'
+      - 'tests/meeting-recording-discard.test.mjs'
+      - 'supabase/functions/meeting-transcribe/index.ts'
       - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
@@ -349,6 +353,9 @@ jobs:
 
       - name: Laptop recording rules (MTG-노트북녹음 2단계, segment roll·piece retry·text join·band words)
         run: node --test tests/meeting-recorder-model.test.mjs
+
+      - name: Laptop recording discard and undo (버리기·되돌리기, owner check·other people's recording refused)
+        run: node --test tests/meeting-recording-discard.test.mjs
 
       - name: Meeting card time, kind colors and PC layout
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
