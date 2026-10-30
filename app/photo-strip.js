@@ -5,7 +5,8 @@
 // 🗑(원드라이브 사진만)은 묻지 않고 목록에서 바로 빼고 '휴지통으로 옮겼어요 · 되돌리기'를 몇 초 보여 준다. 그 시간이 지나거나 닫거나 화면을 떠나면
 // 원드라이브 휴지통으로 보낸다(영구 삭제 아님). 되돌리기는 보내기 전이라 같은 자리로 그대로 돌아온다. 기기 저장 없음.
 import {swipeKind, shareFileName, UNDO_MS} from './photo-viewer-model.mjs';
-import {preparePhotoBlob, sharePhotoElement, paintPhotoNote, PHOTO_WAIT} from './photo-share.js';
+import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, PHOTO_WAIT} from './photo-share.js';
+import {shareFrom} from './share-menu.js';
 
 let viewer = null, pending = null;
 
@@ -151,9 +152,14 @@ export function openPhotoStrip(opts) {
   }
   // OD-공유고침: [공유]는 화면에 이미 뜬 그림의 바이트를 바로 넘긴다(photo-share.js). 아직 안 떴을 때만 '사진 받는 중…'을 띄우고 뜨면 넘긴다.
   // 원드라이브 그림 주소는 로그인 없이 열리는 임시 주소라 링크로 넘기지 않는다.
-  function shareCurrent() {
+  // PC공유메뉴: 넓은 화면은 누른 자리 작은 메뉴(share-menu.js), 좁은 화면은 지금처럼 바로 기기 공유 창.
+  function shareCurrent(trigger) {
     const item = items[at], el = slidePhoto(at); if (!item || !el) return;
-    sharePhotoElement(el, blob => shareFileName(item, blob.type), {alive:() => viewer?.box === box && items[at] === item, note});
+    const nameOf = blob => shareFileName(item, blob.type), alive = () => viewer?.box === box && items[at] === item;
+    shareFrom(trigger, {video:!!item.video, count:1, note,
+      getFiles:() => photoFilesFor(el, nameOf, {alive, note}),
+      native:() => sharePhotoElement(el, nameOf, {alive, note}),
+      download:item.video && download ? () => download(item) : null});
   }
   const star = item => { if (!item) return; if (viewer) viewer.starChanged = true; return toggleStar(item); };
   // 한 손가락 세로 밀기(사진 위): 위 = 별표, 아래 = 닫기. 가로 넘기기·확대(두 손가락)는 브라우저가 맡는다.
@@ -176,7 +182,7 @@ export function openPhotoStrip(opts) {
   box.addEventListener('click', event => {
     if (event.target.closest('[data-diary-viewer-close]')) closePhotoStrip();
     else if (event.target.closest('[data-diary-star]')) star(items[at]);
-    else if (event.target.closest('[data-diary-share]')) shareCurrent();
+    else if (event.target.closest('[data-diary-share]')) shareCurrent(event.target.closest('[data-diary-share]'));
     else if (event.target.closest('[data-diary-undo]')) undoPending();
     else if (event.target.closest('[data-od-delete]')) deleteCurrent();
     else if (event.target.closest('[data-strip-play]')) playAt(Number(event.target.closest('[data-strip-play]').dataset.stripPlay));

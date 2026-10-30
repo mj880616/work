@@ -13,7 +13,7 @@ export const PHOTO_URLS_MAX = 20;
 export const GRAPH_BATCH_PHOTOS = 10;
 // 사진 색인(2026-10-28): 달을 열 때마다 폴더를 훑지 않고, 고른 맨 위 폴더의 delta를 나눠 받아 서버 표에 적는다.
 // 한 요청 안에서 받는 양은 시간·쪽 수로 자른다(Edge 요청 시간 안에 끝나게). 못 끝내면 다음 쪽 주소를 저장하고 more:true.
-export const DELTA_SELECT = "id,name,size,file,folder,photo,image,video,location,fileSystemInfo,parentReference,deleted";
+export const DELTA_SELECT = "id,name,size,createdDateTime,file,folder,photo,image,video,location,fileSystemInfo,parentReference,deleted";
 // 한 걸음은 화면 요청 시간(45초) 안에 넉넉히 끝나야 한다: 쪽 하나가 최대 20초 걸릴 수 있으므로 새 쪽은 8초까지만 시작한다.
 export const SYNC_BUDGET_MS = 8000;
 export const SYNC_MAX_PAGES = 15;
@@ -68,6 +68,7 @@ export type OneDriveItem = {
   video?: { duration?: number; width?: number; height?: number };
   location?: { latitude?: number; longitude?: number };
   fileSystemInfo?: { createdDateTime?: string };
+  createdDateTime?: string;
   parentReference?: { path?: string; id?: string };
   deleted?: unknown;
   "@microsoft.graph.downloadUrl"?: string;
@@ -98,8 +99,21 @@ export function mediaFields(item: OneDriveItem) {
     lat: both ? lat : null,
     lon: both ? lon : null,
     screenshot: kind === "photo" && isScreenshotName(item.name),
+    // 올린 시각(원드라이브에 파일이 생긴 시각, 진짜 UTC). 없거나 이상하면 비움(정렬은 찍은 시각으로 대신).
+    uploaded_at: uploadedOf(item),
   };
 }
+
+export function uploadedOf(item: OneDriveItem): string | null {
+  const v = item.createdDateTime;
+  if (typeof v !== "string" || v.length > 40) return null;
+  const ms = Date.parse(v);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+// PHOTO-정렬: 사진 목록 정렬 기준(화면 view_prefs.photo_view.sort, DB 검사와 같은 값). 기본은 찍은 날 최근 먼저.
+export const SORTS = ["taken_desc", "taken_asc", "uploaded_desc", "name_asc", "size_desc", "duration_desc"] as const;
+export type Sort = typeof SORTS[number];
 
 // 로그인 응답의 허용 범위를 소문자 목록으로 만든다(Graph 주소 접두사는 뗀다).
 export const normalizeScopes = (v: unknown): string[] =>
@@ -180,7 +194,8 @@ export function safeDownloadUrl(v: string | null): URL | null {
 export const CAMERA_CLOCK_OFFSET_MS = 9 * 3600 * 1000;
 // 이 시각보다 먼저 다 받은 색인은 옛 규칙(찍은 시각을 UTC로 읽음)으로 적혀 있다. 이 고침이 배포된 뒤 한 번 처음부터 다시 받는다(handler syncStep).
 // 배포보다 앞서기만 하면 된다(배포 뒤 새로 다 받은 색인은 이보다 늦으므로 다시 받지 않는다).
-export const TAKEN_FIX_AT = "2026-10-28T23:00:00Z";
+// PHOTO-정렬(2026-10-30): 올린 시각(uploaded_at, DB 20261030150000) 칸을 옛 줄에도 채우려고 기준을 한 번 더 옮겼다(이보다 먼저 다 받은 색인은 한 번 다시 받는다).
+export const TAKEN_FIX_AT = "2026-10-30T04:30:00Z";
 export function cameraClockToUtc(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?)(Z|[+-]\d{2}:\d{2})?$/.exec(v.trim());

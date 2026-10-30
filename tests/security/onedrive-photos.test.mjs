@@ -332,7 +332,7 @@ test('photos: read from the server index, grouped by Seoul day, photos only (vid
   assert.equal(out.days['2026-10-20'][0].approx,true);assert.equal(out.days['2026-10-13'][0].approx,false);assert.equal(out.truncated,false);
   // 저장한 것은 목록 정보뿐: 사진 표 칸은 정해진 것만
   for(const r of ctx.admin.state.mem.tables.app_onedrive_photos)assert.deepEqual(Object.keys(r).sort(),['approx','duration_ms','enabled','height','item_id','kind','lat','lon','mime','name','orig_parent_id','parent_id',
-    'screenshot','sha1','size_bytes','taken_at','taken_day','trashed_at','updated_at','width','workspace_id'].filter(k=>k!=='enabled'||'enabled' in r).sort());
+    'screenshot','sha1','size_bytes','taken_at','taken_day','trashed_at','updated_at','uploaded_at','width','workspace_id'].filter(k=>k!=='enabled'||'enabled' in r).sort());
   // 동영상(A3)도 색인하지만 일기 날짜 화면(photos)에는 사진만 나온다.
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.find(r=>r.item_id==='A3').kind,'video');
   for(const month of ['2026-13','2026-1','x',null,'2026-10-01'])assert.equal((await post(ctx.handler,{action:'photos',month})).status,400,String(month));
@@ -695,11 +695,38 @@ test('library: newest first, visible folders only (off and Web2 trash hidden), l
   const text=await r.text(),out=JSON.parse(text);
   assert.deepEqual(ids(out),['A1','A2','A3','T5','T4','T3','T2','T1','B1']);
   assert.equal(out.next_cursor,null);assert.equal(out.indexing,false);
-  assert.deepEqual(out.items[1],{id:'A2',name:'img-A2.jpg',taken_at:'2026-10-19T01:00:00.000Z',approx:false,day:'2026-10-19',kind:'video',mime:'video/mp4',width:4000,height:3000,duration_ms:42000,screenshot:false});
+  assert.deepEqual(out.items[1],{id:'A2',name:'img-A2.jpg',taken_at:'2026-10-19T01:00:00.000Z',approx:false,day:'2026-10-19',kind:'video',mime:'video/mp4',width:4000,height:3000,duration_ms:42000,screenshot:false,size_bytes:1000,uploaded_at:null});
   assert.ok(!/lat|lon|sha1|graph\.microsoft|synthetic-refresh|synthetic-access/.test(text),'no location, hash, Graph link or token');
   assert.equal(ctx.ms.calls.length,0);
 });
 
+// PHOTO-정렬: 찍은 날 최근 먼저가 아닌 기준. 보이는 줄만, cursor {v,id}로 빠짐·겹침 없이, 거르기·폴더는 같다. 값이 없는 칸은 맨 뒤(올린 시각은 찍은 시각으로 대신).
+test('library sort: taken_asc, uploaded_desc, name_asc, size_desc, duration_desc page with {v,id} cursors over visible rows only',async()=>{
+  const index=library();
+  const set=(id,extra)=>Object.assign(index.app_onedrive_photos.find(p=>p.item_id===id),extra);
+  set('A1',{name:'b10.jpg',size_bytes:500,uploaded_at:'2026-10-01T00:00:00Z'});set('A3',{name:'b2.jpg',size_bytes:9000,uploaded_at:'2026-10-25T00:00:00Z'});
+  set('B1',{name:'가.jpg',size_bytes:null,uploaded_at:'2026-10-26T00:00:00Z'});set('T1',{name:'a.jpg',size_bytes:3000});
+  const ctx=make({admin:fakeAdmin({row:{...fresh},index})});
+  const all=async(sort,extra={})=>{const seen=[];let cursor=null;for(let i=0;i<20;i++){const out=await read(await post(ctx.handler,{action:'library',sort,limit:2,...extra,...(cursor?{cursor}:{})}));
+    seen.push(...ids(out));cursor=out.next_cursor;if(!cursor)break;}return seen;};
+  assert.deepEqual(await all('taken_asc'),['B1','T1','T2','T3','T4','T5','A3','A2','A1']);
+  // 올린 시각: B1(10-26) A3(10-25) → 나머지는 찍은 시각으로 대신(A2 10-19 … ), A1은 올린 시각 10-01이라 맨 뒤
+  assert.deepEqual(await all('uploaded_desc'),['B1','A3','A2','T5','T4','T3','T2','T1','A1']);
+  assert.deepEqual(await all('name_asc'),['B1','T1','A3','A1','A2','T2','T3','T4','T5'],'가나다(한국어 순서: 한글 먼저), 숫자는 숫자 크기로(b2 < b10)');
+  assert.deepEqual(await all('size_desc'),['A3','T1','T5','T4','T3','T2','A2','A1','B1'],'크기 없는 B1은 맨 뒤, 같은 크기는 id 내림차순');
+  assert.deepEqual((await all('duration_desc')).slice(0,1),['A2']);
+  assert.deepEqual(await all('size_desc',{filter:'shot'}),['A3']);
+  assert.deepEqual(await all('name_asc',{folder_id:'S1'}),['B1','A3','A2']);
+  assert.deepEqual(ids(await read(await post(ctx.handler,{action:'library',sort:'size_desc',filter:'star',star_ids:['B1','T1','X1','H1']}))),['T1','B1'],'별표도 보이는 것만');
+  const one=await read(await post(ctx.handler,{action:'library',sort:'uploaded_desc',limit:1}));
+  assert.deepEqual(one.next_cursor,{v:'2026-10-26T00:00:00.000Z',id:'B1'});assert.equal(one.items[0].uploaded_at,'2026-10-26T00:00:00.000Z');
+  for(const body of [{sort:'newest'},{sort:5},{sort:'size_desc',cursor:{v:'x',id:'A1'}},{sort:'name_asc',cursor:{v:3,id:'A1'}},{sort:'name_asc',cursor:{v:'a',id:'bad id!!/'}},
+    {sort:'size_desc',cursor:{v:-5,id:'A1'}},{sort:'name_asc',cursor:{v:'x'.repeat(401),id:'A1'}},{sort:'taken_asc',folder_id:'bad id!!/'}])
+    assert.equal((await post(ctx.handler,{action:'library',...body})).status,400,JSON.stringify(body));
+  assert.equal((await post(ctx.handler,{action:'library',sort:'name_asc',folder_id:TRASH})).status,404);
+  assert.equal((await post(ctx.handler,{action:'library',sort:'name_asc'},{jwt:'other'})).status,403);
+  assert.equal(ctx.ms.calls.length,0);
+});
 test('library: cursor pages walk ties at the same second without gaps or repeats; filters video/shot/star and folder_id',async()=>{
   const ctx=lib();const seen=[];let cursor=null;
   for(let i=0;i<10;i++){const out=await read(await post(ctx.handler,{action:'library',limit:2,...(cursor?{cursor}:{})}));seen.push(...ids(out));cursor=out.next_cursor;if(!cursor)break;}
