@@ -1304,7 +1304,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
  expect(f.sent.library).toHaveLength(1);
  const saved=f.sent.library[0];
- expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 2026년 10월 12일(월)','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwpx']);
+ expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 20261012 가상담당','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwpx']);
  expect(Object.keys(saved).sort()).toEqual(['category','document_date','file','title']);
  expect(validateHwpx(new Uint8Array(saved.file.bytes),zlib).errors).toEqual([]);
  await expect(hwpx(page).locator('[data-hwpx-confirm]')).toBeDisabled();

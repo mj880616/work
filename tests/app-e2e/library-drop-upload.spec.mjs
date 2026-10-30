@@ -110,9 +110,9 @@ test('PC: files dropped on the library screen upload at once with nothing set, a
   expect(state.uploads.map(u=>u.file_name)).toEqual(['a-요구안.hwpx','b-보도자료.pdf']);
   // Same request as an empty [+ 자료 등록]: only the file, no title / category / project fields.
   for(const names of state.forms)expect(names).toEqual(['file']);
-  // The same AI fill follows, with nothing kept.
+  // The same AI fill follows. Nothing was typed; the meaningful file names keep their own titles (LIB-파일이름그대로).
   await expect.poll(()=>state.fills.length).toBe(2);
-  for(const fill of state.fills)expect(fill.keep).toEqual([]);
+  for(const fill of state.fills)expect(fill.keep).toEqual(['title']);
   await expect(page.locator('#documentModal')).toBeHidden();
   expect(await page.locator('#libraryView').innerText()).not.toMatch(/AI|자동 ?채움|✨/);
 });

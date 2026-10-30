@@ -2,6 +2,7 @@
 // 가짜 PostgREST·Drive만 쓴다. 네트워크·실제 파일 없음.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { fileNameTitle, isMeaninglessName } from '../../supabase/functions/_shared/library-file-name.mjs';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import * as model from '../../app/library-prev-model.mjs';
@@ -289,8 +290,8 @@ function keepHarness({ doc: d, role = 'owner', readError = null, updateError = n
   const admin = { auth: { getUser: async () => ({ data: { user: { id: 'user-1' } }, error: null }) }, from: t => tables[t]() };
   let handler = null;
   const Deno = { env: { get: key => ({ SUPABASE_URL: 'https://sb.example', SUPABASE_SERVICE_ROLE_KEY: 'service', OPENAI_API_KEY: '' }[key]) }, serve: fn => { handler = fn; } };
-  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'createLibraryPhotoHandler', 'setKeep', 'fetch', 'console', SOURCE)(
-    Deno, () => admin, class {}, async () => '', async () => new FormData(), 0, 'm', () => '', b => b, () => async () => new Response('{}'), model.setKeep, async () => { throw new Error('no network'); }, { ...console, error: () => {}, warn: () => {}, log: () => {} });
+  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'createLibraryPhotoHandler', 'setKeep', 'fetch', 'console', 'fileNameTitle', 'isMeaninglessName', SOURCE)(
+    Deno, () => admin, class {}, async () => '', async () => new FormData(), 0, 'm', () => '', b => b, () => async () => new Response('{}'), model.setKeep, async () => { throw new Error('no network'); }, { ...console, error: () => {}, warn: () => {}, log: () => {} }, fileNameTitle, isMeaninglessName);
   return { handler, rows, updates };
 }
 const DOC = 'e0000000-0000-4000-8000-000000000001';
