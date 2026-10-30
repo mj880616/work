@@ -125,9 +125,11 @@ function syncMobile(){
   syncKeyboard();
 }
 // UI-업데이트기록입구: 판 이름은 계정 메뉴(폰은 메뉴 판)를 처음 열 때 한 번 읽어 채운다. 못 읽으면 비운 채(다음 열 때 다시).
+// 기록 파일은 배포 빌드가 만들므로, 빌드한 화면(app.js에 ?v=가 붙은 화면, version-notice.js와 같은 기준)에서만 읽는다(개발·시험 화면에서 헛된 404 없음).
 let versionFilled=false;
+const builtShell=()=>[...document.scripts].some(script=>{try{const url=new URL(script.src,location.href);return /\/app\.js$/.test(url.pathname)&&url.searchParams.has('v')}catch{return false}});
 function fillVersion(){
-  if(versionFilled)return;versionFilled=true;
+  if(versionFilled||!builtShell())return;versionFilled=true;
   import('./release-notes-read.js').then(m=>m.readReleaseNotes()).then(list=>{
     if(!list?.current){versionFilled=false;return}
     accounts.forEach(account=>{const ver=account.updates.querySelector('[data-account-ver]');if(ver)ver.textContent=`현재 ${list.current}`});
