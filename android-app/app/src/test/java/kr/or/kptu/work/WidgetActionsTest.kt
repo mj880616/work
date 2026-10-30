@@ -98,7 +98,8 @@ class WidgetActionsTest {
     @Test
     fun manifestListsTheWidgets() {
         val app = children(xml("src/main/AndroidManifest.xml"), "application").single()
-        val receivers = children(app, "receiver").associateBy { attr(it, "name") }
+        // 위젯 받는 곳만(앱 업데이트 결과 받는 곳 .UpdateReceiver는 UpdateRulesTest가 본다).
+        val receivers = children(app, "receiver").filter { attr(it, "name") != ".UpdateReceiver" }.associateBy { attr(it, "name") }
         assertEquals(setOf(".TodayWidget", ".QuickWidget", ".OneWidget", ".WeekWidget", ".TelegramWidget", ".ArsenalWidget"), receivers.keys)
         val infos = mapOf(".TodayWidget" to "@xml/today_widget_info", ".QuickWidget" to "@xml/quick_widget_info", ".OneWidget" to "@xml/one_widget_info", ".WeekWidget" to "@xml/week_widget_info", ".TelegramWidget" to "@xml/telegram_widget_info", ".ArsenalWidget" to "@xml/arsenal_widget_info")
         for ((name, r) in receivers) {
@@ -113,10 +114,13 @@ class WidgetActionsTest {
         assertEquals("true", attr(config, "exported"))
         val actions = children(config, "action").map { attr(it, "name") }
         assertEquals(listOf("android.appwidget.action.APPWIDGET_CONFIGURE"), actions)
-        // 권한은 늘리지 않았다(카메라·저장소 권한 없음).
+        // 위젯은 권한을 늘리지 않았다(카메라·저장소 권한 없음). 설치 권한 둘은 앱 스스로 업데이트(0.3.8)용.
         val perms = children(xml("src/main/AndroidManifest.xml"), "uses-permission").map { attr(it, "name") }.toSet()
         assertEquals(
-            setOf("android.permission.INTERNET", "android.permission.RECORD_AUDIO", "android.permission.FOREGROUND_SERVICE", "android.permission.FOREGROUND_SERVICE_MICROPHONE", "android.permission.POST_NOTIFICATIONS"),
+            setOf(
+                "android.permission.INTERNET", "android.permission.RECORD_AUDIO", "android.permission.FOREGROUND_SERVICE", "android.permission.FOREGROUND_SERVICE_MICROPHONE", "android.permission.POST_NOTIFICATIONS",
+                "android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION",
+            ),
             perms,
         )
     }
