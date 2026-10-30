@@ -1,6 +1,6 @@
 // NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 포스트잇 화면의 보드 여러 개(화면 없음, 시험 가능).
 // - 보드 목록: 서버 화면 기억 view_prefs.note_boards = [{id, name}] (12개까지, 순서 = 보드 칸 순서). 마지막에 연 보드는
-//   view_prefs.note_board = 'all' | 보드 id. 모양 검사는 DB 검사(migration 20261030090000)와 같다(view-prefs.js validValue).
+//   view_prefs.note_board = 'all' | 보드 id. 모양 검사는 DB 검사(migration 20261030091000)와 같다(view-prefs.js validValue).
 // - 보드에 붙인 노트와 그 자리: 노트 행의 기존 metadata.boards = {보드 id: {x, y, r, z}} (note-board-model.mjs placeShape와 같은 모양).
 //   [전체]는 지금 그대로 모든 노트 + metadata.board. 보드에서 빼기 = 그 키만 지우기(노트는 그대로). 같은 노트를 여러 보드에 붙일 수 있다.
 //   보드를 지워도 노트는 그대로이고, 목록에 없는 보드 id의 자리는 읽을 때 무시한다(지운 보드의 자리는 화면이 따로 지운다).

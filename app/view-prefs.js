@@ -39,7 +39,7 @@ export const PHOTO_VIEW_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']
 // NOTE-보기3가지: note_view = 노트 화면 [폴더|목록|포스트잇] 중 마지막에 고른 보기(없으면 폴더). migration 20261029183000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억
 export const NOTE_VIEWS = Object.freeze(['folder', 'list', 'board']);
 // NOTE-보드여러개: note_boards = 포스트잇 보드 목록 [{id, name}](12개까지, id 'b'+소문자 영문·숫자 6~12자, 이름 1~20자), note_board = 마지막에 연 보드('all' 또는 보드 id).
-// migration 20261030090000. 뜻(만들기·이름·순서)은 note-boards-model.mjs, 모양은 DB 검사와 같다. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.
+// migration 20261030091000. 뜻(만들기·이름·순서)은 note-boards-model.mjs, 모양은 DB 검사와 같다. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.
 export const NOTE_BOARDS_MAX = 12;
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);

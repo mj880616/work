@@ -3,7 +3,7 @@
 // 폰 노트 고르기 창, 보드 칸 우클릭(폰 꾹 누르기) 메뉴 [이름 바꾸기] [보드 지우기], 보드에 붙이기·빼기·옮긴 자리 저장.
 // 판 그리기는 note-board.js(그리는 곳 하나), 노트 목록·노트 메뉴·열기는 basket-notes.js가 맡는다.
 // 저장(기기 저장 없음):
-// - 보드 목록·마지막에 연 보드: 서버 화면 기억 view_prefs.note_boards·note_board(migration 20261030090000). DB 적용 전에는 서버가 거절해
+// - 보드 목록·마지막에 연 보드: 서버 화면 기억 view_prefs.note_boards·note_board(migration 20261030091000). DB 적용 전에는 서버가 거절해
 //   되돌리고 알린다(rejectable). 늦게 온 서버 값은 이번 접속에서 고른 뒤에는 덮지 않는다.
 // - 노트가 붙은 보드와 자리: 노트 metadata.boards[보드 id](basket-data.js setNoteBoardPlace). [전체]는 지금 그대로 metadata.board.
 import { viewPrefs } from './view-prefs.js';
