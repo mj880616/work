@@ -817,6 +817,8 @@ function callFeedVerdict(code) {
 //   - 보내는 이(sender_id)는 방·날짜마다 A, B, C 같은 임시 이름으로 바꿔 보낸다. 실제 값(번호)은 서버로 가지 않는다.
 //   - 이름표(TG-발언자이름 3단계): 열쇠(스크립트 속성 TG_FEED_SENDER_KEY)가 있으면 라벨마다 {label, key(번호를 열쇠로 섞은 고정 해시), name, self}를 몸통의 senders로 함께 보낸다.
 //     name·self는 수집기가 sender_name·sender_is_self 칸을 적었을 때만 있다. 열쇠가 없으면 senders를 보내지 않는다. 번호·이름·key는 로그에 남기지 않는다.
+//   - 방 종류(TODO-내일만 3, 10/30): 수집기가 메시지 json(또는 방 폴더 room.json)에 적은 chat_kind('user'|'group'|'channel')를 몸통 chat_kind로 보낸다.
+//     그 밖의 값·없음은 보내지 않는다(서버가 방 번호 모양으로 채우고, 실제 값이 오면 방 표에서 덮인다).
 //   - 1시간마다(TG-1시간수집, 명진 10/28 결정): 트리거가 매시 tgFeed_run을 부른다. 한국 시각 0~7시(TG_FEED_QUIET_FROM~TG_FEED_QUIET_UNTIL)는 쉬고,
 //     그 사이 쌓인 메시지는 7시 실행에서 한 번에 보낸다. 오늘(한국)도 보내되, 방마다 이미 보낸 가장 큰 메시지 번호(방 상태 m)보다 큰 새 메시지만 보낸다.
 //     하루가 끝난 날은 다음 날 첫 실행이 남은 새 메시지를 보내고 그 날을 끝낸 날로 적는다(서버가 그 묶음에서 그날 요약을 모인 소식 전체로 다시 쓴다).
@@ -1223,6 +1225,7 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
   tally.noText += fresh.total - fresh.messages.length;
   var parts = tgFeedSplit(fresh.messages);
   var senders = test ? [] : tgFeedSendersFor(tgFeed_buildSenders_(grouped.messages), fresh.messages);   // 시험 모드는 보내지 않으므로 해시도 만들지 않는다
+  var chatKind = grouped.chatKind || (test ? null : tgFeed_roomJsonKind_(run, room));   // 메시지 json 값 우선, 없으면 room.json
   if (test) { tally.parts += parts.length; Logger.log('[시험] ' + e.n + '번째 방 ' + day + (open ? '(오늘)' : '') + ': 새 메시지 ' + fresh.total + '개 중 글 있는 ' + fresh.messages.length + '개, 묶음 ' + parts.length + '개'); return; }
   var save = function (rs) { e.rs = rs; state.rooms[room.key] = rs; tgFeed_saveState_(state); };
   var after = function (p, count) { return tgFeedAfterSend(e.rs, day, isBack, open, p < count ? tgFeedMaxId(parts[p]) : fresh.maxId, p + 1 >= count ? fresh.maxId : ''); };
@@ -1231,7 +1234,7 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
     if (tally.parts >= TG_FEED_MAX_PARTS_PER_RUN) { run.stop = '한 번에 보낼 묶음 상한(' + TG_FEED_MAX_PARTS_PER_RUN + '개) 도달'; run.resumable = true; return; }
     var akey = room.key + '|' + day + '|' + (p + 1);
     var attempt = (state.attempts[akey] || 0) + 1;
-    var body = tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: p === 0 ? fresh.total : parts[p].length, part: p + 1, attempt: attempt, messages: parts[p], senders: senders, cont: cont || p > 0 });
+    var body = tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: p === 0 ? fresh.total : parts[p].length, part: p + 1, attempt: attempt, messages: parts[p], senders: senders, chatKind: chatKind, cont: cont || p > 0 });
     var res = tgFeed_post_(body, secret);
     var verdict = tgFeedVerdict(res.code, res.json && res.json.error);
     if (verdict === 'ok') {
@@ -1271,7 +1274,7 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
   if (!parts.length && !fresh.total) {   // 새 메시지가 없으면 보낼 것이 없다. 끝난 날이면 끝낸 날로만 적는다(오늘이면 그대로)
     if (!open) save(after(0, 1));
   } else if (!parts.length) {   // 새 메시지 중 글 있는 것이 없으면(첨부만 등) 개수만 서버에 알린다(서버는 AI를 부르지 않고 개수만 센다)
-    var emptyRes = tgFeed_post_(tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: fresh.total, part: 1, attempt: 1, messages: [], cont: cont }), secret);
+    var emptyRes = tgFeed_post_(tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: fresh.total, part: 1, attempt: 1, messages: [], chatKind: chatKind, cont: cont }), secret);
     var ev = tgFeedVerdict(emptyRes.code, emptyRes.json && emptyRes.json.error);
     if (ev === 'ok' || ev === 'drop') save(after(0, 1));
     else if (ev === 'auth') throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
@@ -1365,6 +1368,37 @@ function tgFeed_loadDirs_(run) {
 function tgFeed_saveDirs_(run) {
   if (!run.dirsDirty || !run.dirs) return;
   try { CacheService.getScriptCache().put(TG_FEED_DIRS_CACHE_KEY, JSON.stringify(run.dirs), 21600); } catch (e) { /* 기억은 속도용일 뿐이라 실패해도 계속한다 */ }
+}
+
+/**
+ * 방 폴더의 room.json(수집기가 쓰는 방 정보 파일, 설계 tg-room-day-group.md 6.2절)에서 방 종류만 읽는다. 없거나 못 읽으면 null.
+ * 메시지 json에 chat_kind가 없을 때만 부른다. 결과(못 찾음 포함)는 폴더 ID 기억(TG_FEED_DIRS, 6시간)의 k 칸에 두어 방마다 6시간에 한 번만 찾는다.
+ */
+function tgFeed_roomJsonKind_(run, room) {
+  var dirs = tgFeed_loadDirs_(run);
+  var c = dirs[room.key] || (dirs[room.key] = {});
+  if (typeof c.k === 'string') return tgFeedChatKindOf(c.k);
+  var kind = null;
+  try {
+    var folderId = String(room.folder.getId());
+    if (!/^[A-Za-z0-9_-]{10,}$/.test(folderId)) return null;
+    var auth = { Authorization: 'Bearer ' + tgFeed_token_(run) };
+    var q = "'" + folderId + "' in parents and name = 'room.json' and trashed = false";
+    var lr = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=' + encodeURIComponent('files(id)') +
+      '&pageSize=1&supportsAllDrives=true&includeItemsFromAllDrives=true', { method: 'get', headers: auth, muteHttpExceptions: true });
+    run.state.fetch.n++;
+    var files = lr.getResponseCode() === 200 ? (JSON.parse(lr.getContentText()).files || []) : null;
+    if (files === null) return null;   // 목록 실패는 기억하지 않고 다음에 다시 본다
+    if (files.length && typeof files[0].id === 'string') {
+      var fr = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(files[0].id) + '?alt=media&supportsAllDrives=true', { method: 'get', headers: auth, muteHttpExceptions: true });
+      run.state.fetch.n++;
+      if (fr.getResponseCode() !== 200) return null;
+      try { kind = tgFeedRoomChatKind([], JSON.parse(String(fr.getContentText()).replace(/^\uFEFF/, ''))); } catch (pe) { kind = null; }   // 틀린 파일은 '없음'으로 기억
+    }
+  } catch (e) { return null; }
+  c.k = kind || '';
+  run.dirsDirty = true;
+  return kind;
 }
 
 /** 그 방의 messages 폴더 ID와, 읽을 날짜들의 월 폴더 ID 목록. messages 폴더가 없으면 빈 목록. */
@@ -1616,11 +1650,29 @@ function tgFeedParseMessage(obj) {
   var sender = obj.sender_id == null ? '' : String(obj.sender_id);
   var senderName = tgFeedCleanName(obj.sender_name);
   var senderSelf = obj.sender_is_self === true ? true : (obj.sender_is_self === false ? false : null);
+  var chatKind = tgFeedChatKindOf(obj.chat_kind);   // 수집기가 적은 방 종류(10/30~). 없거나 틀리면 null
   return {
     id: id, day: callFeedKstDay(ms), at: new Date(ms).toISOString(),
     text: Array.from(text).slice(0, TG_FEED_MAX_CHARS).join(''), hasText: !service && text.length > 0, service: service,
-    senderId: sender, senderName: senderName, senderSelf: senderSelf, replyTo: replyTo, forwarded: !!obj.forwarded,
+    senderId: sender, senderName: senderName, senderSelf: senderSelf, chatKind: chatKind, replyTo: replyTo, forwarded: !!obj.forwarded,
   };
+}
+
+/** 방 종류 값 검사: 'user'(1:1)·'group'(단체방)·'channel'(채널·슈퍼그룹)만 그대로, 그 밖·없음은 null(서버로 보내지 않는다). */
+function tgFeedChatKindOf(value) {
+  return value === 'user' || value === 'group' || value === 'channel' ? value : null;
+}
+
+/**
+ * 한 방의 방 종류. 메시지 json의 chat_kind를 먼저 보고(가장 최근 메시지 값), 없으면 방 정보 파일(room.json)의 값을 쓴다.
+ * 둘 다 없으면 null(몸통에 chat_kind를 넣지 않는다 → 서버가 방 번호 모양으로 채운다).
+ */
+function tgFeedRoomChatKind(parsedMessages, roomInfoObj) {
+  var list = parsedMessages || [];
+  for (var i = list.length - 1; i >= 0; i--) {
+    if (list[i] && list[i].chatKind) return list[i].chatKind;
+  }
+  return tgFeedChatKindOf(roomInfoObj && typeof roomInfoObj === 'object' ? roomInfoObj.chat_kind : null);
 }
 
 /**
@@ -1639,7 +1691,7 @@ function tgFeedGroupDay(parsedList, day) {
     var d = Date.parse(a.at) - Date.parse(b.at);
     return d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   });
-  return { total: Math.min(all.length, TG_FEED_MAX_TOTAL), messages: msgs, ids: all.map(function (p) { return p.id; }) };
+  return { total: Math.min(all.length, TG_FEED_MAX_TOTAL), messages: msgs, ids: all.map(function (p) { return p.id; }), chatKind: tgFeedRoomChatKind(all, null) };
 }
 
 /** 메시지 번호 a가 b보다 큰가(숫자 글자는 자리수·글자 순으로 비교해 큰 번호도 정확). b가 비었으면 항상 참. 숫자가 아닌 번호는 새 것으로 본다. */
@@ -1808,6 +1860,8 @@ function tgFeedBuildBody(input) {
   if (input.attempt > 1) body.attempt = input.attempt;
   if (input.cont) body.cont = true;   // 이 방·날을 앞서 보낸 적이 있음(TG-1시간수집). 서버는 방 수를 다시 세지 않는다
   if (input.senders && input.senders.length) body.senders = input.senders;   // 나뉜 묶음마다 같은 목록. 라벨은 하루치 전체에서 정해져 일관된다
+  var kind = tgFeedChatKindOf(input.chatKind);
+  if (kind) body.chat_kind = kind;   // 방 종류(user|group|channel)만. 그 밖·없음은 넣지 않는다(서버가 방 번호 모양으로 채움)
   return body;
 }
 
@@ -2175,7 +2229,7 @@ if (typeof module !== 'undefined' && module.exports) {
     callFeedHasSummary: callFeedHasSummary, callFeedResendWanted: callFeedResendWanted,
     callFeedPendingClean: callFeedPendingClean, callFeedPendingTrim: callFeedPendingTrim, callFeedPendingDecision: callFeedPendingDecision,
     tgFeedAddDays: tgFeedAddDays, tgFeedParseRooms: tgFeedParseRooms, tgFeedRoomMatch: tgFeedRoomMatch, tgFeedRoomPick: tgFeedRoomPick, tgFeedRoomInfo: tgFeedRoomInfo,
-    tgFeedParseTime: tgFeedParseTime, tgFeedParseMessage: tgFeedParseMessage, tgFeedGroupDay: tgFeedGroupDay, tgFeedSenderName: tgFeedSenderName,
+    tgFeedParseTime: tgFeedParseTime, tgFeedParseMessage: tgFeedParseMessage, tgFeedChatKindOf: tgFeedChatKindOf, tgFeedRoomChatKind: tgFeedRoomChatKind, tgFeedGroupDay: tgFeedGroupDay, tgFeedSenderName: tgFeedSenderName,
     tgFeedAssignSenders: tgFeedAssignSenders, tgFeedCleanName: tgFeedCleanName, tgFeedHmacHex: tgFeedHmacHex, tgFeedBuildSenders: tgFeedBuildSenders, tgFeedSplit: tgFeedSplit, tgFeedBuildBody: tgFeedBuildBody, tgFeedRoomState: tgFeedRoomState,
     tgFeedPendingDays: tgFeedPendingDays, tgFeedIdAfter: tgFeedIdAfter, tgFeedMaxId: tgFeedMaxId, tgFeedFresh: tgFeedFresh, tgFeedSendersFor: tgFeedSendersFor, tgFeedQuiet: tgFeedQuiet, tgFeedAfterSend: tgFeedAfterSend, tgFeedPartsToSkip: tgFeedPartsToSkip, tgFeedAfterPart: tgFeedAfterPart, tgFeedWindow: tgFeedWindow,
     tgFeedMonths: tgFeedMonths, tgFeedBackfillDays: tgFeedBackfillDays, tgFeedLimitReason: tgFeedLimitReason, tgFeedLastRun: tgFeedLastRun, tgFeedLastRunClean: tgFeedLastRunClean, tgFeedLastRunText: tgFeedLastRunText, tgFeedProgress: tgFeedProgress, tgFeedProgressText: tgFeedProgressText, tgFeedRewind: tgFeedRewind, tgFeedPlanDays: tgFeedPlanDays, tgFeedVerdict: tgFeedVerdict,
