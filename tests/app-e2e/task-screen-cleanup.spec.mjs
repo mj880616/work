@@ -3,8 +3,8 @@ import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 const NOW=Date.parse('2026-10-08T03:00:00Z');
 const task=(id,due=null,extra={})=>({id,title:id,taskListId:'@default',taskListTitle:'내 할 일',due,status:'needsAction',...extra});
 async function open(page,tasks,options={}){await openEmphasisFixture(page,{view:'list',now:NOW,events:[],tasks,...options});await page.evaluate(()=>window.KPTURouter.go('tasks'));await expect(page.locator('[data-gt-count]')).toHaveText(`할 일 ${tasks.filter(t=>t.status!=='completed').length}개`);}
-// UI-PC할일: 1024px 이상은 기한별 열(tasks-pc-columns.spec.mjs). 이 묶음 목록 시험은 폰(360)과 목록이 그대로인 중간 폭(900)에서 본다.
-for(const width of [360,900]){
+// UI-PC할일: PC 틀(761px~, UI-폴드PC틀)은 기한별 열(tasks-pc-columns.spec.mjs). 이 묶음 목록 시험은 폰(360·760)에서 본다.
+for(const width of [360,760]){
  test(`nonempty groups, compact linked metadata and controls ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});
   const title='아주 긴 할 일 제목을 두 줄까지 보여 주고 나머지는 말줄임으로 처리하는 제목입니다 '.repeat(3);
@@ -58,7 +58,7 @@ for(const dismiss of ['Escape','edit'])test(`late link lookup keeps open menu an
 });
 
 test('a task removed during menu use closes without opening a blank editor',async({page})=>{
- await page.setViewportSize({width:900,height:844});
+ await page.setViewportSize({width:760,height:844});
  const tasks=[task('removed','2026-10-08')];await open(page,tasks);
  await page.locator('[data-gt-menu="removed"]').click();tasks.splice(0);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));

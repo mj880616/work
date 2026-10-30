@@ -121,8 +121,8 @@ test('project creation dialog exposes semantics, keyboard close, and trigger res
 });
 
 test('task dialog exposes semantics, closes on Escape, and restores trigger focus',async({page})=>{
-  // UI-PC할일: 1024px 이상에서 줄을 누르면 같은 수정 창이 오른쪽 상세 칸에 열린다(아래 시험). 팝업 창 시험은 팝업이 그대로인 중간 폭(900px).
-  await boot(page,{width:900,height:768});
+  // UI-PC할일: PC 틀(761px~)에서 줄을 누르면 같은 수정 창이 오른쪽 상세 칸에 열린다(아래 시험). 팝업 창 시험은 팝업이 그대로인 폰 폭(760px).
+  await boot(page,{width:760,height:768});
   await clickView(page,'tasks');
   // UI-할일입력: [할 일] has no [+]; the editor opens from a task row and returns focus to it.
   const trigger=page.locator('#gtTaskBody [data-gt-edit]').first();

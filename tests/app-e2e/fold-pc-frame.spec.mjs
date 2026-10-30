@@ -32,7 +32,7 @@ const overflow=page=>page.evaluate(()=>{
   const name=e=>e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(/\s+/).slice(0,2).join('.'):'');
   return `scrollWidth ${root.scrollWidth} > ${w}; `+[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>w+1&&getComputedStyle(e).position!=='fixed'}).slice(0,4).map(name).join(', ');
 });
-// [이름, 왼쪽 메뉴 안 버튼, 라우터 화면 이름, 노트 쪽인가]. 할 일·업무일지·일기는 [일정] 아래 작은 메뉴(좁은 칸에서는 이름을 펼쳐야 보임).
+// [이름, 왼쪽 메뉴 안 버튼, 라우터 화면 이름, 노트 쪽인가]. 할 일·업무일지·일기는 [일정] 아래 작은 메뉴(좁은 칸에서는 작은 그림).
 const MENU=[
   ['홈','.sidebar-brand','home'],
   ['정리함','.nav-btn[data-view="basket"]','basket'],
@@ -73,7 +73,6 @@ for(const size of SIZES)test(`${size.width}×${size.height}: PC 틀 — 모든 �
   if(size.rail)expect(n.width).toBeLessThanOrEqual(56);else expect(n.width).toBeGreaterThan(120);
   const bad=[];
   for(const [name,sel,view,note,sub] of MENU){
-    if(size.rail&&sub){await toggle(page).click();await expect(page.locator('#appView')).toHaveClass(/nav-open/)}
     const button=nav(page).locator(sel).first();
     await expect(button,name).toBeVisible();
     await button.click();
@@ -102,7 +101,10 @@ for(const size of SIZES.filter(s=>s.rail))test(`${size.width}×${size.height}: �
   await expect(calendar.locator('.nav-ico')).toBeVisible();
   expect((await calendar.locator('.nav-label').boundingBox())?.width??0).toBeLessThanOrEqual(1);
   await expect(calendar).toHaveAccessibleName('일정');
-  await expect(nav(page).locator('.nav-sub')).toBeHidden();
+  // [일정] 아래 할 일·업무일지·일기는 접힌 칸에서도 작은 그림으로 보이고, [달력]은 [일정]과 같은 곳이라 접힌 칸에서는 빠진다.
+  for(const v of ['tasks','journal','diary'])await expect(nav(page).locator(`.nav-sub-btn[data-view="${v}"] .nav-ico`)).toBeVisible();
+  await expect(nav(page).locator('.nav-sub-btn[data-goto="calendar"]')).toBeHidden();
+  await expect(nav(page).locator('.nav-home-mid')).toBeHidden();
   await expect(toggle(page)).toHaveAttribute('aria-expanded','false');
   await expect(toggle(page)).toHaveAccessibleName('메뉴 이름 펼치기');
   // 펼치기: 이름과 [일정] 아래 작은 메뉴가 보이고, 본문 칸 폭은 그대로(본문 위에 겹침).
@@ -112,7 +114,8 @@ for(const size of SIZES.filter(s=>s.rail))test(`${size.width}×${size.height}: �
   await expect(toggle(page)).toHaveAttribute('aria-expanded','true');
   expect((await nav(page).boundingBox()).width).toBeGreaterThanOrEqual(180);
   expect((await calendar.locator('.nav-label').boundingBox()).width).toBeGreaterThan(10);
-  await expect(nav(page).locator('.nav-sub[aria-label="일정"]')).toBeVisible();
+  await expect(nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]')).toBeVisible();
+  expect((await nav(page).locator('.nav-sub-btn[data-view="tasks"] .nav-label').boundingBox()).width).toBeGreaterThan(10);
   const after=await page.locator('#homeView').boundingBox();
   expect(Math.abs(after.x-before.x)).toBeLessThan(1);expect(Math.abs(after.width-before.width)).toBeLessThan(1);
   // Esc로 접히고 초점은 그 버튼으로.

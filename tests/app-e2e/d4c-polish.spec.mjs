@@ -5,7 +5,7 @@ const orgs=['전국철도노동조합','서울교통공사노동조합','부산�
 for(const zone of ['Asia/Seoul','America/Los_Angeles'])for(const now of ['2026-10-08T14:59:59.999Z','2026-10-08T15:00:00.000Z']){
   test(`KST task buckets ${zone} ${now}`,async({browser})=>{
     // UI-PC할일: 묶음 목록은 중간 폭(900px)에서, 같은 분류를 PC(1280px) 열에서도 본다.
-    const context=await browser.newContext({timezoneId:zone,viewport:{width:900,height:800}}),page=await context.newPage();
+    const context=await browser.newContext({timezoneId:zone,viewport:{width:760,height:800}}),page=await context.newPage();
     const today=now.includes('14:59')?'2026-10-08':'2026-10-09';
     const date=n=>new Date(Date.parse(today+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
     await openEmphasisFixture(page,{view:'list',now:Date.parse(now),events:[],tasks:[task('overdue',date(-1)),task('today',date(0)),task('tomorrow',date(1)),task('seventh',date(7)),task('eighth',date(8)),task('undated'),task('done',date(0),'completed')]});

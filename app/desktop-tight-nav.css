@@ -10,7 +10,7 @@
 }
 /* UI-폴드PC틀(2026-10-30 명진 시안 A): 761~1023px(폴드 펼침·좁은 노트북 창)도 PC 틀이다. 왼쪽 메뉴는 그림만 보이는 좁은 칸(52px)이고,
    위쪽 줄 맨 왼쪽 메뉴 버튼을 누르면 이름까지 펼친 메뉴가 본문 위에 잠깐 겹친다(#appView.nav-open, topbar-actions.js, 이 탭 메모리만).
-   메뉴를 고르거나 바깥을 누르거나 Esc면 다시 접힌다. 순서·묶음은 PC 사이드바 그대로(같은 버튼), 그림은 폰 하단바와 같은 선 그림(menu-model.mjs).
+   메뉴를 고르거나 바깥을 누르거나 Esc면 다시 접힌다. [일정] 아래 할 일·업무일지·일기는 접힌 칸에서도 작은 그림으로 보인다. 순서·묶음은 PC 사이드바 그대로(같은 버튼), 그림은 폰 하단바와 같은 선 그림(menu-model.mjs).
    이 폭에서는 PC [사이드바 숨김](nav-collapsed)을 쓰지 않는다(좁은 칸이 본문 폭을 거의 쓰지 않음). 1024px~는 지금 PC 그대로(그림 없음). */
 #appView>.app-nav .nav-ico{display:none}
 @media (min-width:761px) and (max-width:1023px){
@@ -20,14 +20,19 @@
   html body #appView>.app-nav .sidebar-brand{justify-content:center;gap:0;padding:4px 0 8px}
   html body #appView>.app-nav .sidebar-brand span,
   html body #appView>.app-nav .nav-label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-  html body #appView>.app-nav .nav-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;flex:0 0 auto;min-height:38px;padding:0;white-space:nowrap}
+  html body #appView>.app-nav :is(.nav-btn,.nav-sub-btn){position:relative;display:flex;align-items:center;justify-content:center;gap:10px;flex:0 0 auto;min-height:38px;padding:0;white-space:nowrap}
   html body #appView>.app-nav .nav-ico{display:block;flex:0 0 auto;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-  html body #appView>.app-nav :is(.nav-sub,.nav-quick-links){display:none}
-  /* 좁은 칸에서는 [일정] 아래 작은 메뉴가 안 보이므로 할 일·업무일지·일기를 볼 때도 [일정] 그림 칸이 고른 표시를 맡는다. */
-  html body #appView:not(.nav-open)>.app-nav .nav-btn:has(+ .nav-sub):is(.active,[aria-current]){color:var(--ds-select-ink);background:var(--ds-select-bg);box-shadow:var(--kptu-shadow-select)}
+  html body #appView>.app-nav :is(.nav-home-mid,.nav-quick-links,[hidden]){display:none}
+  /* 좁은 칸의 [일정] 아래 작은 메뉴: 할 일·업무일지·일기가 작은 그림으로 [일정] 바로 밑에 붙는다([달력]은 [일정]과 같은 곳이라 빠짐). */
+  html body #appView:not(.nav-open)>.app-nav .nav-sub{display:flex;flex-direction:column;gap:1px;margin:0 0 2px;padding:0;border-left:0}
+  html body #appView:not(.nav-open)>.app-nav .nav-sub-btn{min-height:32px}
+  html body #appView:not(.nav-open)>.app-nav .nav-sub-btn .nav-ico{width:17px;height:17px}
+  html body #appView:not(.nav-open)>.app-nav .nav-sub-btn[data-goto="calendar"]{display:none}
   html body #appView.nav-open>.app-nav{width:208px;padding:6px;overflow-y:auto;box-shadow:var(--kptu-shadow-float)}
   html body #appView.nav-open>.app-nav .sidebar-brand{justify-content:flex-start;gap:7px;padding:4px 10px 8px}
-  html body #appView.nav-open>.app-nav .nav-btn{justify-content:flex-start;padding:0 10px}
+  html body #appView.nav-open>.app-nav :is(.nav-btn,.nav-sub-btn){justify-content:flex-start;padding:0 10px}
+  html body #appView.nav-open>.app-nav .nav-sub-btn{min-height:30px}
+  html body #appView.nav-open>.app-nav .nav-sub-btn .nav-ico{display:none}
   html body #appView.nav-open>.app-nav :is(.sidebar-brand span,.nav-label){position:static;width:auto;height:auto;margin:0;overflow:hidden;clip:auto;text-overflow:ellipsis}
-  html body #appView.nav-open>.app-nav :is(.nav-sub,.nav-quick-links){display:flex}
+  html body #appView.nav-open>.app-nav .nav-quick-links{display:flex}
 }

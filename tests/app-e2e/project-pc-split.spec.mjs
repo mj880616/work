@@ -173,12 +173,18 @@ test('PC 1024: the list keeps its minimum width, the pane takes the rest, nothin
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
 
-test('middle width 900: list with the detail dialog as before (no pane, no auto-open)',async({page})=>{
- const {errors}=await fixture(page,{width:900});
- await clickView(page,'projects');await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]')).toBeVisible();
- await expect(pane(page)).toBeHidden();await expect(page.locator('#ps3DetailModal')).toBeHidden();
- await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expect(page.locator('#ps3DetailModal')).toHaveAttribute('aria-modal','true');
- await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden();expect(errors).toEqual([]);
+for(const width of [884,900])test(`fold/narrow window ${width} (UI-폴드PC틀): list on the left and the detail pane on the right, like the PC`,async({page})=>{
+ {
+  const {errors}=await fixture(page,{width});
+  await clickView(page,'projects');await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]')).toBeVisible();
+  await expect(pane(page)).toBeVisible();
+  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
+  await expect(page.locator('#ps3DetailModal')).toHaveAttribute('data-ps3-docked','1');
+  const list=await page.locator('#projectGrid .ps3-plist').boundingBox(),right=await pane(page).boundingBox();
+  expect(right.x).toBeGreaterThanOrEqual(list.x+list.width-1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(0);
+  expect(errors).toEqual([]);
+ }
 });
 
 for(const width of [390,1280])test(`organization ${width}: a 🧺 record returns to the same organization at the same scroll`,async({page})=>{

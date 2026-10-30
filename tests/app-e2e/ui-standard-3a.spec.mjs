@@ -160,8 +160,8 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  expect(errors).toEqual([]);
 });
 
-// UI-PC회의: 줄 단위 목록은 1024 미만. PC 열 배치는 meeting-columns.spec.mjs.
-for(const width of [390,1000])test(`회의: 줄 단위 목록·색 점 없음·필터·버튼 ${width}`,async({page})=>{
+// UI-PC회의: 줄 단위 목록은 폰(≤760, UI-폴드PC틀). PC 열 배치는 meeting-columns.spec.mjs.
+for(const width of [390,760])test(`회의: 줄 단위 목록·색 점 없음·필터·버튼 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  await view(page,'meetings');
  // MTG-프로젝트합치기 3단계: 두 보고가 다른 주(10.14·10.10, 시계 10.16)라 [전체]로 모든 주를 본다. 주 줄의 작은 버튼도 아래 버튼 기준 검사에 든다.

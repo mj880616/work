@@ -61,9 +61,13 @@ const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,butt
 // UI-폴드PC틀: each left-menu row carries the same line picture as the phone tabs (menu-model.mjs icon). At 761~1023px the menu is a
 // narrow column of pictures only (names stay as the buttons' text for screen readers); the top line's menu button spreads it out with
 // names over the page for one choice (#appView.nav-open, this tab's memory only). From 1024px the pictures are not shown (PC as before).
+// The [일정] sub rows (할 일·업무일지·일기) stay one tap away there too: they are small pictures under the [일정] picture.
 const NS='http://www.w3.org/2000/svg';
-buttonByKey.forEach((button,key)=>{
-  const d=itemOf(key)?.icon;if(!d||button.querySelector('.nav-ico'))return;
+const SUB_ICONS={tasks:'M4 6.5 5.5 8 8 5M11 7h9M4 12.5 5.5 14 8 11M11 13h9M11 19h9M4.5 19h3',journal:'M6 3h12v18H6zM9 7h6M9 11h6M9 15h4',diary:'M5 5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 1h11v-3M9 7h5'};
+const iconRows=[...buttonByKey].map(([key,button])=>[button,itemOf(key)?.icon]);
+appNav?.querySelectorAll('.nav-sub-btn[data-view]').forEach(button=>iconRows.push([button,SUB_ICONS[button.dataset.view]]));
+iconRows.forEach(([button,d])=>{
+  if(!d||button.querySelector('.nav-ico'))return;
   const svg=document.createElementNS(NS,'svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('class','nav-ico');
   const path=document.createElementNS(NS,'path');path.setAttribute('d',d);svg.append(path);
   const label=document.createElement('span');label.className='nav-label';

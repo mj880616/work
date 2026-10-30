@@ -46,7 +46,7 @@ test('옛 761~1023px 한 줄 메뉴·☰는 코드째 없다', () => {
 
 test('좁은 메뉴: 그림은 메뉴 목록 한 곳(menu-model.mjs)에서, 펼침은 탭 메모리만(저장 없음)', () => {
   const top = read('app/topbar-actions.js');
-  assert.match(top, /const d=itemOf\(key\)\?\.icon;/);
+  assert.match(top, /\[button,itemOf\(key\)\?\.icon\]/);
   assert.match(top, /function setNavOpen\(open\)\{[^}]*appView\.classList\.toggle\('nav-open',open\);paintNavToggle\(\);/);
   const open = top.slice(top.indexOf('function setNavOpen'), top.indexOf('railQuery.addEventListener'));
   // 펼침 줄에는 서버 저장(viewPrefs)도, 기기 저장소 이름(Storage)도 없다.

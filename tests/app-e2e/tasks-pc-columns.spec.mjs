@@ -298,8 +298,8 @@ test('폰 390: 지금 묶음 목록·수정 창 그대로(열·상세 칸 없음
   await page.locator('[data-gt-close]').click();await expect(modal).toBeHidden();
 });
 
-test('중간 폭 900: 열·상세 칸 없이 묶음 목록, 수정 창 [저장]은 맨 아래 줄 그대로',async({page})=>{
-  await open(page,900,[task('today','2026-10-08')]);
+test('폰 폭 760(UI-폴드PC틀: 761px~는 PC 열): 열·상세 칸 없이 묶음 목록, 수정 창 [저장]은 맨 아래 줄 그대로',async({page})=>{
+  await open(page,760,[task('today','2026-10-08')]);
   await expect(page.locator('#gtTaskBody .gt-cols')).toHaveCount(0);await expect(page.locator('#gtDetailPane')).toBeHidden();
   await page.locator('[data-gt-edit="today"]').click();
   const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
