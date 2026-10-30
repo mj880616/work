@@ -807,6 +807,13 @@ export async function readOdStars(rt = window.KPTURuntime) {
   if (!Array.isArray(rows)) throw new Error('stars');
   return rows.filter(r => r && r.source === 'onedrive' && typeof r.item_key === 'string');
 }
+// PHOTO-출처 ①: 폰 사진 별표(source 'phone', 열쇠 'ms:<번호>'). DB 20261030230000 적용 전에는 읽기가 빈 목록이고 넣기가 400(별표가 저장되지 않음).
+const STAR_SOURCES = ['onedrive', 'upload', 'phone'];
+export async function readPhoneStars(rt = window.KPTURuntime) {
+  const rows = await rt.api(`/rest/v1/app_diary_stars?workspace_id=eq.${encode(workspace(rt))}&source=eq.phone&select=source,item_key,taken_day&order=taken_day.desc&limit=10000`);
+  if (!Array.isArray(rows)) throw new Error('stars');
+  return rows.filter(r => r && r.source === 'phone' && typeof r.item_key === 'string');
+}
 export async function readStars(year, month, rt = window.KPTURuntime) {
   const {first, last} = monthRange(year, month);
   const rows = await rt.api(`/rest/v1/app_diary_stars?workspace_id=eq.${encode(workspace(rt))}&taken_day=gte.${first}&taken_day=lte.${last}&select=source,item_key,taken_day&order=taken_day.asc&limit=5000`);
@@ -814,7 +821,7 @@ export async function readStars(year, month, rt = window.KPTURuntime) {
   return rows.filter(r => r && (r.source === 'onedrive' || r.source === 'upload') && typeof r.item_key === 'string');
 }
 export async function addStar({source, key, day}, rt = window.KPTURuntime) {
-  if (!dayRe.test(day || '') || (source !== 'onedrive' && source !== 'upload') || !key) throw new Error('별표할 사진을 확인해 주세요.');
+  if (!dayRe.test(day || '') || !STAR_SOURCES.includes(source) || !key) throw new Error('별표할 사진을 확인해 주세요.');
   try {
     await rt.api('/rest/v1/app_diary_stars', {method: 'POST', prefer: 'return=representation', body: {workspace_id: workspace(rt), source, item_key: key, taken_day: day}});
   } catch (error) {
@@ -823,7 +830,7 @@ export async function addStar({source, key, day}, rt = window.KPTURuntime) {
   }
 }
 export async function removeStar({source, key}, rt = window.KPTURuntime) {
-  if ((source !== 'onedrive' && source !== 'upload') || !key) throw new Error('별표를 풀 사진을 확인해 주세요.');
+  if (!STAR_SOURCES.includes(source) || !key) throw new Error('별표를 풀 사진을 확인해 주세요.');
   await rt.api(`/rest/v1/app_diary_stars?workspace_id=eq.${encode(workspace(rt))}&source=eq.${source}&item_key=eq.${encode(key)}`, {method: 'DELETE', prefer: 'return=representation'});
 }
 

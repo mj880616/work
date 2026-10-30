@@ -198,7 +198,8 @@ export function calendarFromDays({year, month}, days = {}) {
   for (let n = 1; n <= total; n++) {
     const day = `${monthKey(year, month)}-${String(n).padStart(2, '0')}`;
     const d = days[day];
-    cells.push({day, n, count: d?.count || 0, rep: d ? {kind: 'od', source: 'onedrive', id: d.cover.id, key: d.cover.id, day, video: d.cover.kind === 'video', name: '', taken_at: ''} : null});
+    // PHOTO-출처 ①: 폰 사진만 있는 날은 d.rep(폰 사진 칸)을 그대로 쓴다(photo-sources-model.mjs mergeDays).
+    cells.push({day, n, count: d?.count || 0, rep: d?.rep || (d?.cover ? {kind: 'od', source: 'onedrive', id: d.cover.id, key: d.cover.id, day, video: d.cover.kind === 'video', name: '', taken_at: ''} : null)});
   }
   return {lead, cells};
 }
@@ -321,7 +322,9 @@ export function albumCards(tags, links) {
   for (const l of links || []) if (l && typeof l.tag_id === 'string' && typeof l.item_key === 'string') (byTag.get(l.tag_id) || byTag.set(l.tag_id, []).get(l.tag_id)).push(l);
   return (tags || []).filter(t => t && typeof t.id === 'string' && typeof t.name === 'string').map(t => {
     const list = (byTag.get(t.id) || []).slice().sort((a, b) => String(b.taken_day || '').localeCompare(String(a.taken_day || '')) || (a.item_key < b.item_key ? -1 : 1));
-    const cover = t.cover_key && list.some(l => l.item_key === t.cover_key) ? t.cover_key : list[0]?.item_key || null;
-    return {id: t.id, name: t.name, count: list.length, cover, keys: list.map(l => l.item_key)};
+    // PHOTO-출처 ①: keys = 원드라이브 사진 열쇠(서버 library로 읽음), phoneKeys = 폰 사진 열쇠('ms:<번호>', 앱에서 읽음). 장수는 둘을 더한다.
+    const od = list.filter(l => (l.source || 'onedrive') === 'onedrive'), phone = list.filter(l => l.source === 'phone');
+    const cover = t.cover_key && od.some(l => l.item_key === t.cover_key) ? t.cover_key : od[0]?.item_key || null;
+    return {id: t.id, name: t.name, count: list.length, cover, phoneCover: cover ? null : phone[0]?.item_key || null, keys: od.map(l => l.item_key), phoneKeys: phone.map(l => l.item_key)};
   }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }

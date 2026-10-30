@@ -200,7 +200,7 @@ test('앨범 카드: 이름순, 장수, 대표 = 정한 대표(앨범 안일 때
   const links = [{tag_id: 't1', item_key: 'k1', taken_day: '2026-01-01'}, {tag_id: 't1', item_key: 'k2', taken_day: '2026-05-01'},
     {tag_id: 't2', item_key: 'k3', taken_day: '2026-03-01'}, {tag_id: 't2', item_key: 'k4', taken_day: '2026-09-01'}];
   assert.deepEqual(albumCards(tags, links).map(c => [c.name, c.count, c.cover]), [['가족', 2, 'k1'], ['여행', 2, 'k4']]);
-  assert.deepEqual(albumCards([{id: 'e', name: '빈', cover_key: null}], []), [{id: 'e', name: '빈', count: 0, cover: null, keys: []}]);
+  assert.deepEqual(albumCards([{id: 'e', name: '빈', cover_key: null}], []), [{id: 'e', name: '빈', count: 0, cover: null, phoneCover: null, keys: [], phoneKeys: []}]);
 });
 
 test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(folder-tree.css)·위치 줄(folder-path.mjs)·공용 메뉴(anchored-menu.js), 기기 저장 없음', () => {

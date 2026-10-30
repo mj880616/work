@@ -12,7 +12,7 @@ export async function readPhotoTags(rt = window.KPTURuntime) {
   const ws = encode(workspace(rt));
   const [tags, links] = await Promise.all([
     rt.api(`/rest/v1/app_photo_tags?workspace_id=eq.${ws}&select=id,name,cover_key&order=name.asc&limit=1000`),
-    rt.api(`/rest/v1/app_photo_tag_items?workspace_id=eq.${ws}&source=eq.onedrive&select=tag_id,item_key,taken_day&limit=20000`),
+    rt.api(`/rest/v1/app_photo_tag_items?workspace_id=eq.${ws}&source=in.(onedrive,phone)&select=tag_id,source,item_key,taken_day&limit=20000`),
   ]);
   if (!Array.isArray(tags) || !Array.isArray(links)) throw new Error('tags');
   return {tags, links};
@@ -32,11 +32,13 @@ export const deletePhotoTag = (id, rt = window.KPTURuntime) =>
 // 여러 장 넣기(한 번에 200장까지, 이미 든 사진은 그대로 = 겹치면 건너뜀).
 export async function addPhotoTagItems(tagId, items, rt = window.KPTURuntime) {
   const ws = workspace(rt);
-  const rows = items.slice(0, 200).map(it => ({tag_id: tagId, workspace_id: ws, source: 'onedrive', item_key: it.key, taken_day: it.day || null}));
+  // PHOTO-출처 ①: 폰 사진은 source 'phone'(열쇠 'ms:<번호>', DB 20261030230000 뒤 받음).
+  const rows = items.slice(0, 200).map(it => ({tag_id: tagId, workspace_id: ws, source: it.source === 'phone' ? 'phone' : 'onedrive', item_key: it.key, taken_day: it.day || null}));
   if (!rows.length) return;
   await rt.api('/rest/v1/app_photo_tag_items?on_conflict=tag_id,source,item_key', {method: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal', body: rows});
 }
-export async function removePhotoTagItems(tagId, keys, rt = window.KPTURuntime) {
+export async function removePhotoTagItems(tagId, keys, rt = window.KPTURuntime, source = 'onedrive') {
   if (!keys.length) return;
-  await rt.api(`/rest/v1/app_photo_tag_items?workspace_id=eq.${encode(workspace(rt))}&tag_id=eq.${encode(tagId)}&source=eq.onedrive&item_key=in.${encode(list(keys.slice(0, 200)))}`, {method: 'DELETE', prefer: 'return=minimal'});
+  const src = source === 'phone' ? 'phone' : 'onedrive';
+  await rt.api(`/rest/v1/app_photo_tag_items?workspace_id=eq.${encode(workspace(rt))}&tag_id=eq.${encode(tagId)}&source=eq.${src}&item_key=in.${encode(list(keys.slice(0, 200)))}`, {method: 'DELETE', prefer: 'return=minimal'});
 }
