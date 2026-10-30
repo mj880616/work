@@ -19,6 +19,7 @@
 
         <TextView
             android:id="@+id/week_title"
+            android:text="이번 주"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -63,5 +64,5 @@
         android:ellipsize="end"
         android:textColor="@color/widget_muted"
         android:textSize="11sp"
-        android:visibility="gone" />
+        android:text="불러오는 중" />
 </LinearLayout>

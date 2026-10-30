@@ -625,6 +625,8 @@ class MainActivity : ComponentActivity() {
         resumed = true
         if (ShellRules.isInternalApp(webView.url)) syncBarColor()
         if (widgetTabWanted) openWidgetTab()
+        // FIX-위젯: 앱을 열면 위젯도 바로 새로(마지막 갱신에서 5분이 지났을 때만, 같은 이름 작업은 KEEP).
+        WidgetGuard.run { WidgetJobs.refreshOnOpen(applicationContext) }
     }
 
     override fun onPause() {

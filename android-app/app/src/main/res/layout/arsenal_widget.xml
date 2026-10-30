@@ -12,6 +12,7 @@
 
     <TextView
         android:id="@+id/ars_top"
+        android:text="아스날"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:singleLine="true"
@@ -22,6 +23,7 @@
 
     <TextView
         android:id="@+id/ars_bottom"
+        android:text="불러오는 중"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="1dp"

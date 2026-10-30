@@ -24,9 +24,9 @@ class WeekWidget : AppWidgetProvider() {
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val session = WidgetHub.session(context)
-        show(context, if (!session.signedIn()) State.SignedOut else last?.let { State.Shown(it) } ?: State.Loading, manager, ids)
-        if (session.signedIn()) {
+        val signedIn = WidgetGuard.get { WidgetHub.session(context).signedIn() } == true
+        show(context, if (!signedIn) State.SignedOut else last?.let { State.Shown(it) } ?: State.Loading, manager, ids)
+        if (signedIn) {
             WidgetJobs.schedule(context)
             WidgetJobs.refreshNow(context)
         }
@@ -66,13 +66,30 @@ class WeekWidget : AppWidgetProvider() {
         fun hasWidgets(context: Context): Boolean =
             AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, WeekWidget::class.java)).isNotEmpty()
 
+        fun state(p: WidgetRefresh.Paint<WidgetWeek.Content>): State = when (p) {
+            is WidgetRefresh.Paint.Shown -> State.Shown(p.content)
+            WidgetRefresh.Paint.SignedOut -> State.SignedOut
+            WidgetRefresh.Paint.Failed -> State.Failed
+        }
+
         fun show(context: Context, state: State) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, WeekWidget::class.java))
             if (ids.isNotEmpty()) show(context, state, manager, ids)
         }
 
+        /** 그리다 실패하면(예외·초기화 실패) 빈칸 대신 '불러오지 못했어요' 한 줄만 그린다(FIX-위젯). */
         private fun show(context: Context, state: State, manager: AppWidgetManager, ids: IntArray) {
+            if (WidgetGuard.run { draw(context, state, manager, ids) }) return
+            WidgetGuard.run {
+                val views = RemoteViews(context.packageName, R.layout.week_widget)
+                note(views, "불러오지 못했어요 · ↻로 다시")
+                views.setOnClickPendingIntent(R.id.week_refresh, refresh(context))
+                manager.updateAppWidget(ids, views)
+            }
+        }
+
+        private fun draw(context: Context, state: State, manager: AppWidgetManager, ids: IntArray) {
             when (state) {
                 is State.Shown -> last = state.content
                 State.SignedOut -> last = null
@@ -89,7 +106,7 @@ class WeekWidget : AppWidgetProvider() {
                 State.SignedOut -> {
                     views.setViewVisibility(R.id.week_refresh, View.GONE)
                     views.setViewVisibility(ROWS[0], View.VISIBLE)
-                    views.setTextViewText(ROWS[0], "위젯 로그인 — 누르면 구글 로그인")
+                    views.setTextViewText(ROWS[0], HomeWidgets.SIGNED_OUT_LINE)
                     views.setOnClickPendingIntent(ROWS[0], HomeWidgets.login(context))
                 }
                 State.Loading -> {
