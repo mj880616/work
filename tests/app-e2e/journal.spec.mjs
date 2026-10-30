@@ -1308,8 +1308,8 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  expect(Object.keys(saved).sort()).toEqual(['category','document_date','file','title']);
  expect(validateHwpx(new Uint8Array(saved.file.bytes),zlib).errors).toEqual([]);
  await expect(hwpx(page).locator('[data-hwpx-confirm]')).toBeDisabled();
- // 일정 제목 AI는 누를 때만. 상자를 처음 열 때 AI 초안(weekly_draft)·[확정] 뒤 환류 보고(weekly_review)만 저절로 부른다(여기선 서버 500 → 바탕 그대로).
- expect(f.sent.other.filter(x=>x.ai&&!['weekly_draft','weekly_review'].includes(x.kind))).toEqual([]);
+ // 일정 제목 AI는 누를 때만. 상자를 처음 열 때 AI 초안(weekly_draft)·[확정] 뒤 환류 보고(weekly_review)·칸 줄을 고를 때 줄 제안(weekly_line)만 저절로 부른다(여기선 서버 500 → 바탕 그대로).
+ expect(f.sent.other.filter(x=>x.ai&&!['weekly_draft','weekly_review','weekly_line'].includes(x.kind))).toEqual([]);
  expect(f.sent.other.filter(x=>x.ai).map(x=>x.kind)).toContain('weekly_draft');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  // 주가 바뀌면 초안은 닫힌다(다른 주 기록과 섞이지 않게).
@@ -1377,7 +1377,7 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
   if(body.kind==='weekly_draft')return r.fulfill({json:{ok:true,kind:'weekly_draft',week_start:body.week_start,mode:body.mode,learned:{weeks:1,rules:2},
    cells:body.cells.map(c=>({ref:c.ref,lines:c.where.includes('가-1')?['- 지난주 가-1 진행','- 가-1 목요일 기록']:c.where.includes('나-1')?['- AI 나-1 줄']:c.lines}))}});
   if(body.kind==='weekly_review'){
-   const row=f.exec.rows.find(x=>x.week_start===body.week_start),at='2026-10-09T09:00:00.000Z',review={at,candidates:['가상 규칙 후보'],suggestions:[{id:'s1',text:'가상 개선 제안'}]};
+   const row=f.exec.rows.find(x=>x.week_start===body.week_start),at='2026-10-09T09:00:00.000Z',review={at,candidates:['가상 규칙 후보'],suggestions:[{id:'s1',area:'input',text:'가상 개선 제안'}]};
    row.draft={...row.draft,feedback:{...row.draft.feedback,review},rules:{at,week:body.week_start,lines:[{text:'가상 규칙 하나',from:'auto'},{text:'가상 규칙 둘',from:'auto'}]}};row.draft_saved_at='2026-10-09T09:00:00.000Z';
    return r.fulfill({json:{ok:true,kind:'weekly_review',week_start:body.week_start,saved:true,review,rules:['가상 규칙 하나','가상 규칙 둘']}});
   }
@@ -1420,6 +1420,8 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  await expect(card.locator('[data-learn-review-head]')).toHaveText('이번 주 환류 보고 — AI 초안 줄 4개 중 4개 그대로(100%)');
  await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 고침 0 · 뺌 0 · 더함 0');
  await expect(card.locator('[data-learn-candidates] li')).toHaveText(['가상 규칙 후보']);
+ // WEEKLY-환류입력창 ①: 개선 제안은 분류 표시(입력창)와 함께.
+ await expect(card.locator('[data-learn-suggestion="s1"] [data-learn-area="input"]')).toHaveText('입력창');
  const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
  expect(row().draft.proposed.ai).toBe(true);
  expect(ai.find(x=>x.kind==='weekly_review')).toEqual({kind:'weekly_review',week_start:'2026-10-05'});
@@ -1439,6 +1441,62 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-환류입력창 ②: 칸 줄을 고르면(누름) 잠시 뒤 그 칸 줄만 ai-assist weekly_line 에 묻고, 칸 바로 아래 작은 흐린 '이렇게 바꾸면?' 한 줄.
+// 누르면 그 줄만 바뀌고 자동저장(2초) 길로 서버 임시저장, [되돌리기]로 원래 줄. 제안이 없는 칸(null)은 아무것도 보이지 않는다. 가짜 서버·가짜 글만.
+for(const width of [412,1440])test(`[주간보고 한글 파일] 줄 옆 '이렇게 바꾸면?': 고르면 제안 → 누르면 그 줄만 바뀜·자동저장 → [되돌리기] ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ const ai=[];
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{
+  const body=r.request().postDataJSON();ai.push(body);
+  if(body.kind==='weekly_line')return r.fulfill({json:{ok:true,kind:'weekly_line',week_start:body.week_start,learned:{weeks:1,rules:1},
+   lines:body.lines.map(l=>({ref:l.ref,text:/가-1 진행/.test(l.text)?'- 지난주 가-1 진행(완료)':null}))}});
+  return r.fulfill({status:500,json:{}});
+ });
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ const box=rowBox(page,'사업영역 가 › 세부 과제 가-1'),area=box.locator('textarea');
+ const lineAsks=()=>ai.filter(x=>x.kind==='weekly_line');
+ expect(lineAsks()).toEqual([]); // 열기만 해서는 묻지 않는다
+ await area.click();
+ const apply=box.locator('[data-hwpx-suggest-apply]');
+ await expect(apply).toHaveText('이렇게 바꾸면? - 지난주 가-1 진행(완료)');
+ await expect(apply).toHaveAccessibleName('1번째 줄을 이렇게 바꾸기: - 지난주 가-1 진행(완료)');
+ // 물은 것: 그 칸 줄만(다른 칸 글·이번 주 개인본 없음), 주·칸 이름.
+ expect(lineAsks()).toHaveLength(1);
+ expect(lineAsks()[0]).toMatchObject({week_start:'2026-10-05',lines:[{ref:'l1',text:'- 지난주 가-1 진행'}],cell:['- 지난주 가-1 진행']});
+ expect(lineAsks()[0].where).toContain('가-1');
+ expect(JSON.stringify(lineAsks()[0])).not.toContain('지난주 조직 소식');
+ // 같은 줄을 다시 골라도 다시 묻지 않는다.
+ await area.click();await page.waitForTimeout(1000);
+ expect(lineAsks()).toHaveLength(1);
+ // 칸 바로 아래, 화면 밖으로 넘치지 않음.
+ const [a,h]=await Promise.all([area.boundingBox(),box.locator('[data-hwpx-suggest]').boundingBox()]);
+ expect(h.y).toBeGreaterThanOrEqual(a.y+a.height-1);
+ expect(h.x+h.width).toBeLessThanOrEqual(width);
+ // 누르면 그 줄만 바뀌고 서버 임시저장(자동저장 2초 길).
+ await apply.click();
+ await expect(area).toHaveValue('- 지난주 가-1 진행(완료)');
+ const undo=box.locator('[data-hwpx-suggest-undo]');
+ await expect(box.locator('[data-hwpx-suggest]')).toContainText('1번째 줄을 바꿨어요.');
+ await expect(undo).toHaveAccessibleName('1번째 줄 되돌리기');
+ const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ await expect.poll(()=>JSON.stringify(row()?.draft?.rows??[]),{timeout:15000}).toContain('- 지난주 가-1 진행(완료)');
+ await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
+ // [되돌리기]: 원래 줄로, 다시 자동저장.
+ await undo.click();
+ await expect(area).toHaveValue('- 지난주 가-1 진행');
+ await expect.poll(()=>JSON.stringify(row()?.draft?.rows??[]),{timeout:15000}).not.toContain('(완료)');
+ // 제안이 없는 칸(답 null): 아무것도 보이지 않고 글은 그대로.
+ const org=orgRow(page,'가상 노동조합');
+ await org.click();
+ await expect.poll(()=>lineAsks().length).toBe(2);
+ await page.waitForTimeout(300);
+ await expect(hwpx(page).locator('[data-hwpx-part="orgs"] [data-hwpx-suggest-apply]')).toHaveCount(0);
+ await expect(org).toHaveValue('- 지난주 조직 소식');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
 // JOURNAL-주간정리다듬기 ②: 프로필 이름과 확정본 표기가 다르면 확정본 표기를 쓴다(가상 이름). 확정본에서 못 찾으면 프로필 이름 그대로.

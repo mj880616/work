@@ -842,7 +842,7 @@ jobs:
           grep -q 'app_workspace_members' app/team.js
 
       - name: Check weekly feedback loop model (WEEKLY-환류학습)
-        run: node --test tests/weekly-feedback.test.mjs
+        run: node --test tests/weekly-feedback.test.mjs tests/weekly-line-suggest.test.mjs
 
       - name: Check notification removal
         run: |
