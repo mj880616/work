@@ -503,3 +503,7 @@
 /* 옛 홈 '연락 없는 조직' 줄(org-quiet.js)은 홈 맨 아래. */
 #appView #homeView .home-quiet{ margin-top:2px; }
 #appView #homeView .journal-task-meta{ display:block; margin:-4px 0 4px; line-height:1.4; color:var(--kptu-faint); font-size:var(--ds-text-meta,12px); }
+/* WEEKLY-환류학습 3·4·6: AI 초안 한 줄·학습 시험 결과·환류 보고·규칙 고치기 칸. */
+#appView #homeView .journal-hwpx-learn{ display:flex; flex-direction:column; gap:4px; }
+#appView #homeView .journal-learn-head{ margin:2px 0; font-size:13px; }
+#appView #homeView .journal-learn-input{ min-width:0; width:min(100%, 36em); }

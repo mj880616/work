@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WIDGET-여러개 ①: 한 칸(1×1). 놓을 때 고른 기능 하나(그림 + 짧은 이름). 서버 요청 없음. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/one_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_tile_bg"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="4dp">
+
+    <ImageView
+        android:id="@+id/one_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_w_update" />
+
+    <TextView
+        android:id="@+id/one_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingTop="2dp"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:textColor="@color/widget_tile_ink"
+        android:textSize="11sp" />
+</LinearLayout>

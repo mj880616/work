@@ -160,10 +160,13 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
   if(exec.missing)return r.fulfill({status:404,json:{message:'relation does not exist'}});
   if(fail.execRequests&&method==='GET')return r.fulfill({status:500,json:{message:'QA failure'}});
   // WEEKLY-임시저장: draft_saved_at=eq.<값>/is.null 조건도 PostgREST처럼. 임시저장 쓰기는 updated_at을 보내지 않으므로 바꾸지 않는다(트리거 없음).
-  const hit=()=>exec.rows.filter(row=>['workspace_id','week_start','updated_at'].every(k=>!q.has(k)||q.get(k)===`eq.${row[k]}`)&&(!q.has('draft_saved_at')||(q.get('draft_saved_at')==='is.null'?row.draft_saved_at==null:q.get('draft_saved_at')===`eq.${row.draft_saved_at}`)));
+  // WEEKLY-환류학습: week_start=lt./lte. (학습 재료·규칙 읽기)와 select 안 'alias:draft->칸'도 PostgREST처럼.
+  const weekOk=row=>q.getAll('week_start').every(v=>v.startsWith('lte.')?row.week_start<=v.slice(4):v.startsWith('lt.')?row.week_start<v.slice(3):v===`eq.${row.week_start}`);
+  const shape=row=>{const sel=q.get('select')||'';if(!sel.includes('->'))return row;const out={};for(const part of sel.split(',')){const m=/^(\w+):(\w+)->(\w+)$/.exec(part);if(m)out[m[1]]=row[m[2]]?.[m[3]]??null;else out[part]=row[part];}return out;};
+  const hit=()=>exec.rows.filter(row=>['workspace_id','updated_at'].every(k=>!q.has(k)||q.get(k)===`eq.${row[k]}`)&&weekOk(row)&&(!q.has('draft_saved_at')||(q.get('draft_saved_at')==='is.null'?row.draft_saved_at==null:q.get('draft_saved_at')===`eq.${row.draft_saved_at}`)));
   if(exec.draftMissing&&body&&'draft' in body)return r.fulfill({status:400,json:{code:'PGRST204',message:"Could not find the 'draft' column of 'app_weekly_exec_requests' in the schema cache"}});
   if(exec.draftMissing&&method==='GET'&&/draft/.test(q.get('select')||''))return r.fulfill({status:400,json:{code:'42703',message:'column app_weekly_exec_requests.draft does not exist'}});
-  if(method==='GET')return r.fulfill({json:hit()});
+  if(method==='GET'){let list=hit();if(q.get('order')==='week_start.desc')list=[...list].sort((a,b)=>a.week_start<b.week_start?1:-1);return r.fulfill({json:list.map(shape)});}
   if(method==='POST'){if(exec.rows.some(x=>x.week_start===body.week_start))return r.fulfill({status:409,json:{code:'23505'}});const row={id:'x'+exec.rows.length,carried_at:null,draft:null,draft_saved_at:null,...body,updated_at:`2026-10-06T02:00:0${++exec.clock}Z`};exec.rows.push(row);return r.fulfill({status:201,json:[row]});}
   if(method==='PATCH'){const rows=hit();for(const row of rows)Object.assign(row,body,'updated_at' in body?{updated_at:`2026-10-06T02:00:0${++exec.clock}Z`}:{});return r.fulfill({json:rows});}
   return r.fulfill({status:405,json:{}});
@@ -1178,20 +1181,20 @@ function multipartBody(request){
 }
 async function hwpxFixture(page,options={}){
  const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[],personal:[]},bytes=teamHwpx(options.team);
- // WEEKLY-환류학습 1: 자료실 '주간보고 개인본'(내가 올린 것). 없으면 [] — 그때는 지금처럼 팀 확정본이 바탕이다.
- const personalBytes=options.personalReport?teamHwpx(options.personalReport):null;
+ // WEEKLY-환류학습 1: 자료실 '주간보고 개인본'(내가 올린 것). 없으면 [] — 그때는 지금처럼 팀 확정본이 바탕이다. files: 자료 id → 가짜 보고서(그 id로 열면 그 파일).
+ const files=Object.fromEntries(Object.entries(options.files??{}).map(([id,report])=>[id,teamHwpx(report)]));
  const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>r.request().method()==='GET'?r.fulfill({json:[{display_name:options.profileName??'가상 담당'}]}):r.fallback());
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>new URL(r.request().url()).searchParams.get('select')==='id,name,aliases,active'?r.fulfill({json:f.more.orgs.map(o=>({...o,aliases:[],active:o.active!==false}))}):r.fallback());
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();if(q.get('category')==='eq.주간보고 개인본'){sent.personal.push(Object.fromEntries(q));return r.fulfill({json:options.personal??[]});}sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();if(q.get('category')==='eq.주간보고 개인본'){sent.personal.push(Object.fromEntries(q));return r.fulfill({json:(options.personal??[]).filter(d=>!q.has('document_date')||q.get('document_date')===`eq.${d.document_date}`)});}sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
  await page.route(SB+'/functions/v1/document-actions',r=>{
   if(r.request().method()==='OPTIONS')return r.fulfill({status:200,headers:cors});
   const body=r.request().postDataJSON();sent.open.push(body);
-  const file=personalBytes&&body.document_id==='doc-mine'?personalBytes:bytes,fileName=file===bytes?'team.hwpx':'mine.hwpx';
+  const file=files[body.document_id]??bytes,fileName=file===bytes?'team.hwpx':`${body.document_id}.hwpx`;
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
  await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
- await page.route(SB+'/functions/v1/ai-assist',r=>{sent.other.push({ai:true});return r.fulfill({status:500,json:{}});});
+ await page.route(SB+'/functions/v1/ai-assist',r=>{sent.other.push({ai:true,kind:r.request().postDataJSON()?.kind});return r.fulfill({status:500,json:{}});});
  return {...f,sent};
 }
 const hwpx=page=>page.locator('#journalRoot [data-journal-hwpx]');
@@ -1211,7 +1214,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  const f=await hwpxFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
  await openDraft(page);
- expect(f.sent.other).toEqual([{category:'eq.주간보고 확정본'}]);
+ expect(f.sent.other.filter(x=>!x.ai)).toEqual([{category:'eq.주간보고 확정본'}]); // AI 초안(weekly_draft)은 아래에서 따로 본다
  expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'doc-team'}]);
  // 내 줄 2개(다른 담당의 가-2 줄은 없음), 내 담당 조직(가상 노동조합)만. 이름은 프로필에서.
  await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
@@ -1305,7 +1308,9 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  expect(Object.keys(saved).sort()).toEqual(['category','document_date','file','title']);
  expect(validateHwpx(new Uint8Array(saved.file.bytes),zlib).errors).toEqual([]);
  await expect(hwpx(page).locator('[data-hwpx-confirm]')).toBeDisabled();
- expect(f.sent.other.filter(x=>x.ai)).toEqual([]);
+ // 일정 제목 AI는 누를 때만. 상자를 처음 열 때 AI 초안(weekly_draft)·[확정] 뒤 환류 보고(weekly_review)만 저절로 부른다(여기선 서버 500 → 바탕 그대로).
+ expect(f.sent.other.filter(x=>x.ai&&!['weekly_draft','weekly_review'].includes(x.kind))).toEqual([]);
+ expect(f.sent.other.filter(x=>x.ai).map(x=>x.kind)).toContain('weekly_draft');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  // 주가 바뀌면 초안은 닫힌다(다른 주 기록과 섞이지 않게).
  await page.locator('#journalRoot [data-journal-next]').click();
@@ -1322,7 +1327,7 @@ test('[주간보고 한글 파일 만들기] 환류: 개인본 바탕 + 확정�
   {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 내가 쓴 가-1 진행'],owner:['가상 담당']}]},
   {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 지난주 나-1 진행'],owner:['가상 담당']}]},
  ],orgs:[{org:['가상 노동조합'],status:['- 지난주 조직 소식']}]};
- const f=await hwpxFixture(page,{width:1280,personalReport,personal:[{id:'doc-mine',title:'가상 개인본',file_name:'mine.hwpx',document_date:'2026-10-05',created_at:'2026-10-02T08:00:00Z'}]});
+ const f=await hwpxFixture(page,{width:1280,files:{'doc-mine':personalReport},personal:[{id:'doc-mine',title:'가상 개인본',file_name:'mine.hwpx',document_date:'2026-10-05',created_at:'2026-10-02T08:00:00Z'}]});
  await openJournal(page,1280);await openWeekly(page);
  await hwpx(page).locator('[data-hwpx-start]').click();
  await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주에 내가 올린 개인본을 바탕으로 만들어요. 팀 확정본에서 바뀐 칸은 옆에 작게 알려요. [확정]을 눌러야 자료실에 저장돼요.');
@@ -1354,6 +1359,85 @@ test('[주간보고 한글 파일 만들기] 환류: 개인본 바탕 + 확정�
  // 처음 초안(proposed)은 개인본 바탕 그대로 — 사람이 고치기 전 글.
  expect(row().draft.proposed.base).toEqual({from:'personal',document_id:'doc-mine'});
  expect(row().draft.proposed.cells.find(c=>c.key==='사업영역 가›세부 과제 가-1').lines).toEqual(['- 내가 쓴 가-1 진행']);
+ expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-환류학습 3·6·4: 처음 연 주는 AI 초안(weekly_draft)이 손대지 않은 칸에 들어가고, 이미 이번 주 개인본을 올린 주에도 [학습 시험]이
+// 저장 없이 AI 초안 ↔ 이번 주 개인본을 줄마다 견준다(이번 주 개인본 글은 AI에 보내지 않음). [확정] 뒤 환류 보고 한 장, 제안 [승인]은 그 주 행에,
+// [주간 정리] 맨 아래 '주간보고 규칙·환류'에서 규칙을 지우고 개발 후보를 본다. 가짜 서버·가짜 글만.
+test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시험] 결과 → [확정] 뒤 환류 보고 → 규칙·환류 목록',async({page})=>{
+ const weekReport={summary:[
+  {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 지난주 가-1 진행','- 가-1 목요일 기록(완료)'],owner:['가상 담당']}]},
+  {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 이번 주 개인본에만 쓴 줄'],owner:['가상 담당']}]},
+ ],orgs:[{org:['가상 노동조합'],status:['- 지난주 조직 소식']}]};
+ const f=await hwpxFixture(page,{width:1280,files:{'doc-week':weekReport},personal:[{id:'doc-week',title:'가상 이번 주 개인본',file_name:'doc-week.hwpx',document_date:'2026-10-12',created_at:'2026-10-09T08:00:00Z'}]});
+ const ai=[];
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{
+  const body=r.request().postDataJSON();ai.push(body);
+  if(body.kind==='weekly_draft')return r.fulfill({json:{ok:true,kind:'weekly_draft',week_start:body.week_start,mode:body.mode,learned:{weeks:1,rules:2},
+   cells:body.cells.map(c=>({ref:c.ref,lines:c.where.includes('가-1')?['- 지난주 가-1 진행','- 가-1 목요일 기록']:c.where.includes('나-1')?['- AI 나-1 줄']:c.lines}))}});
+  if(body.kind==='weekly_review'){
+   const row=f.exec.rows.find(x=>x.week_start===body.week_start),at='2026-10-09T09:00:00.000Z',review={at,candidates:['가상 규칙 후보'],suggestions:[{id:'s1',text:'가상 개선 제안'}]};
+   row.draft={...row.draft,feedback:{...row.draft.feedback,review},rules:{at,week:body.week_start,lines:[{text:'가상 규칙 하나',from:'auto'},{text:'가상 규칙 둘',from:'auto'}]}};row.draft_saved_at='2026-10-09T09:00:00.000Z';
+   return r.fulfill({json:{ok:true,kind:'weekly_review',week_start:body.week_start,saved:true,review,rules:['가상 규칙 하나','가상 규칙 둘']}});
+  }
+  return r.fulfill({status:500,json:{}});
+ });
+ await openJournal(page,1280);await openWeekly(page);
+ // 이번 주 개인본은 바탕이 아니다(보고일이 같음) → 팀 확정본이 바탕(안내문·버튼이 지금 그대로).
+ await hwpx(page).locator('[data-hwpx-start]').click();
+ await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주 팀 확정본을 바탕으로 내 칸만 고친 한글 파일을 만들어요. [확정]을 눌러야 자료실에 저장돼요.');
+ await hwpx(page).locator('[data-hwpx-library]').click();
+ await expect(hwpx(page).getByText('바탕: 자료실 · 가상 상집보고')).toBeVisible();
+ const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1'),b1=rowBox(page,'사업영역 나 › 세부 과제 나-1');
+ // AI 초안: 손대지 않은 칸에 들어가고 한 줄 알림.
+ await expect(b1.locator('textarea')).toHaveValue('- AI 나-1 줄');
+ await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행\n- 가-1 목요일 기록');
+ await expect(hwpx(page).locator('[data-hwpx-ai-draft]')).toContainText('AI 초안: 지난 1주 고침 기록·규칙 2줄을 보고 2칸을 고쳐 썼어요');
+ const draftAsk=ai.find(x=>x.kind==='weekly_draft');
+ expect(draftAsk.mode).toBe('draft');
+ expect(draftAsk.cells.find(c=>c.where.includes('가-1'))).toMatchObject({lines:['- 지난주 가-1 진행'],material:expect.arrayContaining([expect.stringContaining('가-1 목요일 기록')])});
+ // [학습 시험]: 이번 주 개인본과 줄마다. 재료에 이번 주 개인본 글이 없다. 칸·임시저장은 그대로.
+ await b1.locator('textarea').fill('- AI 나-1 줄'); // 그대로
+ await hwpx(page).locator('[data-hwpx-learn-test]').click();
+ const result=hwpx(page).locator('[data-hwpx-learn-result]');
+ await expect(result.locator('[data-hwpx-learn-score]')).toHaveText('학습 시험 — 그대로 쓸 수 있는 줄 3/4(75%)');
+ await expect(result.locator('[data-hwpx-learn-few]')).toHaveText('학습 기록이 아직 1주뿐이에요(지난 개인본·규칙 2줄로만 만들었어요).');
+ await expect(result.locator('[data-hwpx-learn-counts]')).toContainText('같음 2 · 비슷 1 · 다름 0 · 빠짐 1 · AI만 1');
+ await expect(result.locator('[data-hwpx-learn-row="missing"]')).toHaveText('빠짐 내 개인본: - 이번 주 개인본에만 쓴 줄');
+ await expect(result.locator('[data-hwpx-learn-row="ai_only"]')).toHaveText('AI만 AI: - AI 나-1 줄');
+ const testAsk=ai.filter(x=>x.kind==='weekly_draft').at(-1);
+ expect(testAsk.mode).toBe('test');
+ expect(JSON.stringify(testAsk)).not.toContain('이번 주 개인본에만 쓴 줄');
+ expect(JSON.stringify(testAsk)).not.toContain('(완료)');
+ expect(f.sent.open.map(o=>o.document_id)).toContain('doc-week');
+ expect(f.sent.library).toHaveLength(0);
+ await expect(b1.locator('textarea')).toHaveValue('- AI 나-1 줄');
+ // [확정] → 고침 기록 저장 → 환류 보고 한 장(숫자·후보·제안). [승인]은 그 주 행에 남는다.
+ page.once('dialog',d=>d.accept());
+ await hwpx(page).locator('[data-hwpx-confirm]').click();
+ const card=hwpx(page).locator('[data-hwpx-review] [data-learn-review]');
+ await expect(card.locator('[data-learn-review-head]')).toHaveText('이번 주 환류 보고 — AI 초안 줄 4개 중 4개 그대로(100%)');
+ await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 고침 0 · 뺌 0 · 더함 0');
+ await expect(card.locator('[data-learn-candidates] li')).toHaveText(['가상 규칙 후보']);
+ const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
+ expect(row().draft.proposed.ai).toBe(true);
+ expect(ai.find(x=>x.kind==='weekly_review')).toEqual({kind:'weekly_review',week_start:'2026-10-05'});
+ await card.locator('[data-learn-suggestion="s1"]').getByRole('button',{name:/^승인/}).click();
+ await expect.poll(()=>row().draft.feedback.review.suggestions[0].answer,{timeout:15000}).toBe('yes');
+ await expect(hwpx(page).locator('[data-hwpx-review]')).toContainText('승인했어요');
+ expect(row().draft.feedback.counts).toEqual({kept:4,changed:0,dropped:0,added:0,proposed:4,final:4});
+ // [주간 정리] 맨 아래 '주간보고 규칙·환류': 규칙 2줄, 이번 주 환류, 개발 후보 1. [지우기]는 그 행 규칙에서 한 줄을 뺀다.
+ const learn=page.locator('#journalRoot [data-journal-weekly-learn]');
+ await expect(learn.locator('summary')).toContainText('규칙 2줄 · 이번 주 100% 그대로 · 개발 후보 1');
+ await learn.locator('summary').click();
+ await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(2);
+ await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안']);
+ await learn.locator('[data-journal-learn-rule="0"]').getByRole('button',{name:/규칙 지우기/}).click();
+ await expect(learn.locator('[data-journal-learn-status]')).toHaveText('규칙을 지웠어요.');
+ await expect.poll(()=>row().draft.rules.lines.map(l=>l.text)).toEqual(['가상 규칙 둘']);
+ await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(1);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
 

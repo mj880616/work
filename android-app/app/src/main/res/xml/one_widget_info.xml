@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WIDGET-여러개 ①: 한 칸(1×1), 홈 화면 전용. 놓을 때 기능을 고른다(OneWidgetConfigActivity), 꾹 눌러 다시 고를 수 있다(reconfigurable). 갱신 작업 없음. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="kr.or.kptu.work.OneWidgetConfigActivity"
+    android:description="@string/one_widget_description"
+    android:initialLayout="@layout/one_widget"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:resizeMode="none"
+    android:updatePeriodMillis="0"
+    android:widgetFeatures="reconfigurable"
+    android:widgetCategory="home_screen" />

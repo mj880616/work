@@ -421,6 +421,12 @@ async function openEventWindow(task){
     if(task)document.querySelector('#eventModal [data-event-mode="task"]')?.click();
   }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
 }
+// WIDGET-여러개 ①: 폰 앱 홈 위젯 [업데이트]·[할 일]·[노트] 칸은 이 [+ 추가]와 같은 창을 연다(phone-widget-write.js가 부름). 새 저장 길 없음.
+window.KPTUQuickWrite={open(kind){
+  if(kind==='update'||kind==='note')return openWriter(kind);
+  if(kind==='task')return openEventWindow(true);
+  return Promise.resolve();
+}};
 async function openScreenNewButton(view,selector){
   try{
     await window.KPTURouter?.go(view,{source:'delegated'});
