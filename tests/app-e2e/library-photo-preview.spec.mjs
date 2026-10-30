@@ -87,7 +87,7 @@ for (const width of [390, 1440]) {
     await row(1).click();
     const view = page.locator('[data-basket-photo-view]');
     await expect(view).toBeVisible();
-    await expect(view.locator('img')).toBeVisible();
+    await expect(view.locator('img:not(.img-slot-preview)')).toBeVisible();
     expect(state.photoCalls.some(c => c.id === ID(1) && c.size === 'large')).toBe(true);
     expect(state.tokenCalls || 0).toBe(0);
     await page.keyboard.press('Escape');

@@ -145,7 +145,7 @@ test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 4줄, 사진 복사는 i
   await root(page).locator('[data-photos-id="A3"]').click();
   const viewer = root(page).locator('[data-diary-viewer]');
   await expect(viewer).toBeVisible();
-  await expect(viewer.locator('.diary-photo img').first()).toBeVisible();
+  await expect(viewer.locator('.diary-photo img:not(.img-slot-preview)').first()).toBeVisible();
   const shareMenu = page.locator('#shareMenu');
   await viewer.locator('[data-diary-share]').click();
   await expect(shareMenu).toBeVisible();
@@ -180,7 +180,7 @@ test('폰 공유: 좁은 화면(412) [공유]는 메뉴 없이 기기 공유 창
   await expect.poll(() => order(page)).toEqual(EXPECT.taken_desc);
   await root(page).locator('[data-photos-id="A3"]').click();
   const viewer = root(page).locator('[data-diary-viewer]');
-  await expect(viewer.locator('.diary-photo img').first()).toBeVisible();
+  await expect(viewer.locator('.diary-photo img:not(.img-slot-preview)').first()).toBeVisible();
   await viewer.locator('[data-diary-share]').click();
   await expect.poll(() => page.evaluate(() => window.__shared)).toBe(1);
   await expect(page.locator('#shareMenu')).toBeHidden();

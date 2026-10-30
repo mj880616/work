@@ -132,7 +132,7 @@ for (const width of [390, 1280]) {
     await expect(viewer.locator('[data-diary-viewer-when]')).toContainText('10:00');
     await expect(viewer.locator('[data-diary-viewer-caption]')).toHaveText('');
     await expect(viewer.locator('.diary-viewer-more, [data-diary-viewer-stars]')).toHaveCount(0);
-    await expect(viewer.locator('.diary-slide').first().locator('img')).toBeVisible();
+    await expect(viewer.locator('.diary-slide').first().locator('img:not(.img-slot-preview)')).toBeVisible();
     // 가까운 사진만 크게 받는다(6장 중 처음 3장).
     expect(new Set(f.photoReads.filter(r => r.size === 'large').map(r => r.id))).toEqual(new Set(['A1', 'A2', 'A3']));
     await expect(star).toHaveAttribute('aria-pressed', 'false');

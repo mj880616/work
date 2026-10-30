@@ -187,7 +187,7 @@ for(const width of [390,1280]){
   await expect(viewer).toBeVisible();
   const vb=await viewer.boundingBox();expect(vb.width).toBe(width);expect(vb.height).toBe(900);
   await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('3 / 6');
-  await expect(viewer.locator('.diary-slide').nth(2).locator('img')).toBeVisible();
+  await expect(viewer.locator('.diary-slide').nth(2).locator('img:not(.img-slot-preview)')).toBeVisible();
   expect(f.photoReads.some(r=>r.size==='large'&&r.note_id==='d3'&&r.file_id==='pc')).toBe(true);
   const vstrip=viewer.locator('[data-diary-viewer-strip]');
   await vstrip.evaluate(el=>el.scrollTo({left:el.clientWidth*3}));
@@ -452,7 +452,7 @@ for(const scheme of ['light','dark'])for(const width of [390,1280]){
   await expect(cell(page,'2026-10-03').locator('img')).toBeVisible();
   await cell(page,'2026-10-03').click();await expect(page.locator('#diaryRoot [data-diary-grid] img').first()).toBeVisible();
   await page.screenshot({path:info.outputPath(`diary-${width}-${scheme}.png`),fullPage:true});
-  await page.locator('#diaryRoot [data-diary-grid] .diary-grid-item').nth(1).click();await expect(page.locator('#diaryRoot [data-diary-viewer] .diary-slide').nth(1).locator('img')).toBeVisible();
+  await page.locator('#diaryRoot [data-diary-grid] .diary-grid-item').nth(1).click();await expect(page.locator('#diaryRoot [data-diary-viewer] .diary-slide').nth(1).locator('img:not(.img-slot-preview)')).toBeVisible();
   await page.screenshot({path:info.outputPath(`diary-view-${width}-${scheme}.png`)});
   await page.locator('#diaryRoot [data-diary-viewer-close]').click();
   await page.locator('#diaryRoot #newDiaryBtn').click();
@@ -547,12 +547,12 @@ for(const [width,height] of [[390,844],[720,900],[880,1000],[1280,800]]){
   for(let i=0;i<sizes.length;i++){
    if(i)await page.keyboard.press('ArrowRight');
    await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText(`${i+1} / ${sizes.length}`);
-   const img=viewer.locator('.diary-slide').nth(i).locator('img');
+   const img=viewer.locator('.diary-slide').nth(i).locator('img:not(.img-slot-preview)');
    await expect(img).toBeVisible();
    await expect.poll(()=>img.evaluate(el=>el.complete&&el.naturalWidth>0)).toBe(true);
    await page.waitForTimeout(450);
    const m=await page.evaluate(([i])=>{
-    const v=document.querySelector('[data-diary-viewer]'),s=v.querySelector('[data-diary-viewer-strip]'),img=v.querySelectorAll('.diary-slide img')[i];
+    const v=document.querySelector('[data-diary-viewer]'),s=v.querySelector('[data-diary-viewer-strip]'),img=v.querySelectorAll('.diary-slide img:not(.img-slot-preview)')[i];
     const r=img.getBoundingClientRect(),sr=s.getBoundingClientRect();
     return {x:r.x,y:r.y,w:r.width,h:r.height,sx:sr.x,sy:sr.y,sw:sr.width,sh:sr.height,nw:img.naturalWidth,nh:img.naturalHeight,fit:getComputedStyle(img).objectFit};
    },[i]);
