@@ -21,9 +21,9 @@ import {missingOrganizationLabel} from './project-trash-model.mjs'; // TRASH-화
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
 import {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
-import {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,noteAreaFromMeetings,LEGACY_NOTE} from './report-links.js';
+import {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,noteAreaFromMeetings,noteAreaNoneFromMeetings,LEGACY_NOTE} from './report-links.js';
 import {mountAreaFields} from './business-area-fields.js';
-import {untaggedInWeek,NO_AREA,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,undatedCount,reportWeekLabel,reportDay as reportDayOf,weekOf,shiftDays} from './business-area-model.mjs'; // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 + 다음 할 일 칸
+import {untaggedInWeek,NO_AREA,AREA_NONE,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,undatedCount,reportWeekLabel,reportDay as reportDayOf,weekOf,shiftDays} from './business-area-model.mjs'; // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 + 다음 할 일 칸
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const SESSION_KEY='kptu_collab_session_v1';
@@ -300,7 +300,7 @@ function targetNameOf(t){return (t.kind==='project'?projectName(t.id):orgNames.g
 function reportTargetsOf(m){return reportTargetMap.get(m?.id)||(m?.project_id?[{kind:'project',id:m.project_id}]:[])}
 function reportLinkLabel(m){return targetsLabel(reportTargetsOf(m),targetNameOf)}
 async function loadReportLinks(){
-  noteLocationFromMeetings(meetings);noteAreaFromMeetings(meetings); // 장소 칸이 서버에 있는지: 이미 읽은 사업 보고 줄(select=*)로 정한다. 입력 창을 열 때 새 요청을 보내지 않는다.
+  noteLocationFromMeetings(meetings);noteAreaFromMeetings(meetings);noteAreaNoneFromMeetings(meetings); // 장소 칸이 서버에 있는지: 이미 읽은 사업 보고 줄(select=*)로 정한다. 입력 창을 열 때 새 요청을 보내지 않는다.
   try{
     const [map,orgs]=await Promise.all([readAllReportTargets(meetings),api('/rest/v1/app_suborganizations?workspace_id=eq.'+workspace.id+'&select=id,name&limit=1000')]);
     reportTargetMap=map;orgNames=new Map((orgs||[]).map(o=>[o.id,o.name]));
@@ -361,7 +361,7 @@ function paintEntryWords(){
 function paintEntryKind(){const host=$('#meetingKindPick');if(!host)return;renderFilterChips(host,{label:'칸',value:entryKind(),options:REPORT_KINDS.map(k=>({value:k.value,label:k.label})),onChange:value=>{meetingEntryKind=value;paintEntryKind()}});paintEntryWords()}
 // [+]: [전체] 칩이면 칸 고르기 창을 먼저 열고, 다른 칩이면 그 칸이 채워진 입력 창을 바로 연다.
 // MTG-한줄업데이트: [전체]의 [+] 메뉴 맨 위 [한 줄 업데이트], [한 줄] 칩에서 [+]는 바로 한 줄 창. 사업영역 칩을 고른 채면 그 사업영역을 미리 고른다.
-function openOnelineEntry(trigger){const area=areaChip!=='all'&&areaChip!==NO_AREA?areaChip:'';import('./report-oneline.js').then(m=>m.openOneline(trigger,{areaId:area,onSaved:row=>{showSaved(row);renderMeetings({resetList:true})}}),err=>toast(err?.message||'한 줄 업데이트 창을 열지 못했습니다.'))}
+function openOnelineEntry(trigger){const area=areaChip!=='all'&&areaChip!==NO_AREA&&areaChip!==AREA_NONE?areaChip:'';import('./report-oneline.js').then(m=>m.openOneline(trigger,{areaId:area,onSaved:row=>{showSaved(row);renderMeetings({resetList:true})}}),err=>toast(err?.message||'한 줄 업데이트 창을 열지 못했습니다.'))}
 function newReport(trigger){if(reportChip===ONELINE_KIND){openOnelineEntry(trigger);return}if(reportChip!==ALL_KINDS){openMeetingModal({name:newMeetingName(),kind:reportChip});return}pickReportKind(trigger,{title:'어느 칸에 남길까요?',onPick:kind=>openMeetingModal({kind,trigger}),onOneline:()=>openOnelineEntry(trigger)})}
 function openMeetingModal({name='',kind=DEFAULT_KIND,trigger=document.activeElement,targets=[],at='',date='',location='',text='',onSaved=null}={}){meetingEntryOnSaved=onSaved;meetingEntryKind=isReportKind(kind)?kind:DEFAULT_KIND;entryRoundRows.paint(true);['meetingTitle','meetingAt','meetingNotes','meetingRoundNo','meetingShortName','meetingTranscript'].forEach(id=>{if($('#'+id))$('#'+id).value=''});meetingRoundEdited=false;meetingUploadEntries=[];renderMeetingSelectedFiles();if($('#meetingFiles'))$('#meetingFiles').value='';$('#meetingProject').innerHTML=projectOptions(true);meetingEntryTargets=targetList(targets);entryNames=new Map();$('#meetingAt').value=defaultReportAt({at,date});if($('#meetingLocation'))$('#meetingLocation').value=location||'';if(text)$('#meetingTranscript').value=text;paintEntryPlaces();areaFields()?.start({areaId:firstProjectId(meetingEntryTargets)||''});void locationAvailable().then(ok=>{const row=$('#meetingLocationRow');if(row)row.hidden=!ok},()=>{});installMeetingNamePicker($('#meetingTitle'),'meeting');setupMeetingNamePicker($('#meetingNameSelect'),$('#meetingTitle'),$('#meetingNameMatch'),$('#meetingNameUseMatch'),{current:name,names:meetingNameChoices(DEFAULT_KIND),onChoose:suggestMeetingRound,onCustom:()=>{const round=$('#meetingRoundNo');if(round&&!meetingRoundEdited)round.value=''}});paintEntryKind();openModal('meetingModal',{trigger,initialFocus:isMeetingKind(meetingEntryKind)&&meetingNameChoices(DEFAULT_KIND).length?'#meetingNameSelect':'#meetingTitle'})}
 function bind(){

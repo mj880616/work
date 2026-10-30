@@ -161,7 +161,9 @@ export function mountRadar(host, {place}) {
     const id = esc(c.id), isBusy = busy.has(c.id), dis = isBusy ? ' disabled' : '';
     const today = seoulDateKey(), tomorrow = seoulDateKey(addSeoulDays(today, 1));
     const chips = dueChoices(c, today, tomorrow).map(o => `<button type="button" class="radar-chip" data-radar-due-pick="${esc(o.key)}" data-due="${esc(o.due)}" aria-pressed="${edit.pick === o.key}"${dis}>${esc(o.label)}</button>`).join('');
-    return `<form class="radar-edit" data-radar-edit="${id}" novalidate><label>할 일 제목<input type="text" data-radar-title maxlength="${TASK_TITLE_MAX}" value="${esc(edit.title)}"${dis}></label><div class="radar-due" role="group" aria-label="기한">${chips}</div><div class="radar-actions"><button type="submit" class="primary" data-radar-make="${id}"${isBusy ? ' disabled aria-busy="true"' : ''}>넣기</button><button type="button" data-radar-cancel="${id}"${dis}>취소</button></div></form>`;
+    // UI-점검1030손질 C9: 칩 넷 끝에 앱 공용 날짜 칸(date-field.js가 저절로 감쌈) — 다른 날을 달력에서 고른다. 값은 칩과 같은 edit.due 하나.
+    const dateBox = `<input type="date" class="radar-date" data-radar-date value="${esc(/^\d{4}-\d{2}-\d{2}$/.test(edit.due || '') ? edit.due : '')}" aria-label="기한 날짜 고르기"${dis}>`;
+    return `<form class="radar-edit" data-radar-edit="${id}" novalidate><label>할 일 제목<input type="text" data-radar-title maxlength="${TASK_TITLE_MAX}" value="${esc(edit.title)}"${dis}></label><div class="radar-due" role="group" aria-label="기한">${chips}${dateBox}</div><div class="radar-actions"><button type="submit" class="primary" data-radar-make="${id}"${isBusy ? ' disabled aria-busy="true"' : ''}>넣기</button><button type="button" data-radar-cancel="${id}"${dis}>취소</button></div></form>`;
   }
   function rowHtml(c) {
     const id = esc(c.id), isBusy = busy.has(c.id), open = c.status === 'open';
@@ -292,6 +294,14 @@ export function mountRadar(host, {place}) {
   host.addEventListener('input', event => {
     if (!edit) return;
     if (event.target.matches('[data-radar-title]')) edit.title = event.target.value;
+  });
+  // 날짜 칸에서 고르면 그 날이 기한(칩 고름은 풀림). 비우면 '기한 없음'과 같다.
+  host.addEventListener('change', event => {
+    if (!edit || !event.target.matches('[data-radar-date]')) return;
+    const value = event.target.value || '';
+    edit.due = value; edit.pick = value ? 'date' : 'none';
+    edit.title = host.querySelector('[data-radar-title]')?.value ?? edit.title;
+    paint(); host.querySelector('[data-radar-date]')?.focus({preventScroll:true});
   });
   host.addEventListener('click', async event => {
     const b = event.target.closest('button'); if (!b || b.disabled || b.type === 'submit') return;
