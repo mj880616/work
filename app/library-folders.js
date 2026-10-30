@@ -266,7 +266,30 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const want=node&&!node.open&&t.kind!=='before'&&t.kind!=='after'?key:'';
     if(want===hoverKey)return;
     clearTimeout(hoverTimer);hoverKey=want;
-    if(want)hoverTimer=setTimeout(()=>{if(hoverKey===want&&(drag||touch?.grabbed)&&node.isConnected&&!node.open)node.open=true},HOVER_OPEN_MS);
+    if(want)hoverTimer=setTimeout(()=>{if(hoverKey===want&&(drag||touch?.grabbed||fileDrag)&&node.isConnected&&!node.open)node.open=true},HOVER_OPEN_MS);
+  }
+  // LIB-폴더로올리기 (2026-10-30 명진 요청): PC 파일을 폴더 묶기의 폴더 줄(머리, 또는 열린 폴더 안 자료 줄) 위로 끌면 그 폴더가 놓을 곳이다.
+  // 자료 옮기기와 같은 놓을 곳 표시·머물면 펼침을 쓴다. 폴더 묶기(free)에서만, 폴더가 아닌 곳('폴더 밖' 등)은 null(지금처럼 화면 끌어놓기).
+  let fileDrag=false;
+  function fileTarget(e){
+    if(drag||!s().free)return null;
+    let head=e?.target?.closest?.('#documentList summary.lu-node-head');
+    if(!head){const rowNode=e?.target?.closest?.('#documentList .lu-row')?.closest('details.lu-node');if(rowNode)head=rowNode.querySelector(':scope > summary.lu-node-head')}
+    const key=head?.parentElement?.dataset.luNode||'';
+    if(!key.startsWith('f:'))return null;
+    const f=folder(key.slice(2));
+    return f?{head,ok:true,kind:'into',target:f.id,name:f.name}:null;
+  }
+  function markFile(t){
+    if(drag)return;
+    if(!t){if(fileDrag){fileDrag=false;clearMarks()}return}
+    fileDrag=true;showMarks(t);hoverOpen(t);
+  }
+  // 막 올린 자료를 그 폴더에 넣는다(옮기기와 같은 자료 연결 표 한 줄 쓰기, 소유자 RLS). 안내·다시 읽기는 부른 쪽이 한 번에 한다.
+  async function putUploaded(docId,folderId){
+    if(!docId||!folder(folderId))return false;
+    try{await api(T_ITEMS,{method:'POST',prefer:'return=minimal',body:{document_id:docId,folder_id:folderId,workspace_id:s().workspace}});return true}
+    catch{return false}
   }
   function clearMarks(){clearTimeout(hoverTimer);hoverKey='';hideDropPanel();document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging,#documentList .lu-grabbed,#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
   function showMarks(t){
@@ -276,7 +299,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     t.head.classList.add(!t.ok?'lu-drop-no':t.kind==='before'?'lu-drop-before':t.kind==='after'?'lu-drop-after':'lu-drop-into');
     document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>{if(el!==t.head.parentElement)el.classList.remove('lu-drop-group')});
     // 놓일 묶음 전체(머리줄 + 안의 줄)를 연한 강조색으로: 분류 바꾸기, 그리고 자료를 폴더(또는 폴더 밖)에 넣을 때.
-    t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&(t.kind==='category'||(drag?.kind==='file'&&(t.kind==='into'||t.kind==='top'))));
+    t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&(t.kind==='category'||((drag?.kind==='file'||fileDrag)&&(t.kind==='into'||t.kind==='top'))));
   }
   const markDragging=d=>{for(const el of d?.els||[])el.classList.add('lu-dragging')};
   // 화면 가장자리 근처에서 끌면 목록이 저절로 움직인다(끌기가 끝나면 멈춤).
@@ -489,5 +512,5 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       trigger.click();
     });
   }
-  return {moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,startRename,get busy(){return busy}};
+  return {moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
 }
