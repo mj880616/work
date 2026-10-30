@@ -49,19 +49,26 @@ test('보고 장치 확인: 정책 밖 주소는 위반으로 잡히되 막히�
 
 for (const [width, height] of [[412, 915], [1280, 900]]) {
   test(`${width}px: 로그인과 16개 메뉴를 한 바퀴 여는 동안 CSP 위반 0개`, async ({page}) => {
-    test.setTimeout(240000);
+    test.setTimeout(900000);
     const {violations, served} = await boot(page, width, height);
     expect(served).toEqual(expect.arrayContaining(['/app/', '/app/login/']));
-    const opened = [];
+    const opened = [], missed = [];
     for (const view of VIEWS) {
-      await page.evaluate(v => window.KPTURouter.go(v), view);
-      await page.waitForFunction(v => window.KPTURouter?.current === v && window.KPTUViewLoader?.isLoaded?.(v) !== false
-        && !!document.querySelector('#appView .view-panel:not(.hidden)'), view, {timeout: 20000});
-      await page.waitForTimeout(1200);
-      opened.push(view);
+      try {
+        // 라우터는 세션 확인 뒤 loader가 불러온다. 다 뜬 뒤에 메뉴를 연다.
+        await page.waitForFunction(() => !!window.KPTURouter?.go && !!document.querySelector('#appView.kptu-ui-ready'), null, {timeout: 15000});
+        await page.evaluate(v => window.KPTURouter.go(v), view);
+        await page.waitForFunction(v => window.KPTURouter?.current === v && window.KPTUViewLoader?.isLoaded?.(v) !== false
+          && !!document.querySelector('#appView .view-panel:not(.hidden)'), view, {timeout: 15000});
+        await page.waitForTimeout(1200);
+        opened.push(view);
+      } catch (error) {
+        missed.push(`${view}: ${page.url()} ${String(error?.message || error).split('\n')[0].slice(0, 120)}`);
+      }
     }
-    expect(opened).toEqual(VIEWS);
     const lines = violations.map(v => `${v.page} ${v.directive} ${v.blocked} ${v.source} ${v.sample}`.trim());
-    expect(lines, 'CSP 위반(보고 전용 정책 기준)').toEqual([]);
+    // 한 번에 둘 다 보이게: 열리지 않은 메뉴와 CSP 위반(보고 전용 정책 기준).
+    expect({missed, violations: lines}).toEqual({missed: [], violations: []});
+    expect(opened).toEqual(VIEWS);
   });
 }

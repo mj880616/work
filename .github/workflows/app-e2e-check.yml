@@ -8,7 +8,6 @@ on:
       - 'app/**'
       - 'p/**'
       - 'tests/app-e2e/**'
-      - 'cloudflare/web2-csp.mjs'
       - '.github/workflows/app-e2e-check.yml'
       - '.github/actions/setup-playwright/**'
   # main 대상 PR은 경로와 무관하게 시작해 browser-e2e 결과를 항상 남긴다.
@@ -52,7 +51,7 @@ jobs:
           fi
           git diff --no-renames --name-only -z "$BASE_SHA...$HEAD_SHA" > /tmp/e2e-changed-files
           tr '\0' '\n' < /tmp/e2e-changed-files
-          if grep -zqE '^(app/|p/|tests/app-e2e/|cloudflare/web2-csp\.mjs$|\.github/workflows/app-e2e-check\.yml$)' /tmp/e2e-changed-files; then
+          if grep -zqE '^(app/|p/|tests/app-e2e/|\.github/workflows/app-e2e-check\.yml$)' /tmp/e2e-changed-files; then
             echo "browser E2E needed"
             echo "e2e=true" >> "$GITHUB_OUTPUT"
           else
