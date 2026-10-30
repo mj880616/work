@@ -177,7 +177,7 @@
 | 35 | `share-page-media` | Web2 공유 페이지 사진 올리기·보기 주소·지우기·페이지 완전 삭제(`purge_page`, SHARE-페이지삭제)(ED-통합편집기 ②) | 운영 배포됨(버전 번호 미확인) | 2026-10-23 17:21 시작 (승인형 run #47) | **true** | **운영 소스 `77a83215`**(#1044 사진 같이 지우기; run #47 success, 되돌리기 ref `ab008dd4`). 첫 배포는 10/23 10:35 시작 run #43(ref `ab008dd4`, `first_deploy=true`·verify_jwt=true). verify_jwt 값 변경 없음. work (코드·시험) |
 | 36 | `collector-feed` | Web2 수집 받기(CALL-통화메뉴·TG-소식메뉴 2단계, 앱 스크립트가 통화 분석·텔레그램 묶음을 보냄. 읽기 action `context`: 담당조직·프로젝트 이름 목록만, CALL-맥락문서) | 배포 대기 | 없음 | false | work (코드·시험, 첫 배포 전) |
 | 37 | `onedrive-photos` | Web2 일기 원드라이브 연결·폴더 지정·사진 읽기·사진 지우기(휴지통 이동)(JOURNAL-일기원드라이브, Files.ReadWrite, 고른 폴더 안 사진만) | 배포 대기 | 없음 | **true** | work (코드·시험, 첫 배포 전) |
-| 38 | `meeting-transcribe` | Web2 회의 녹음 파일 → 전사 글(Gemini, MTG-녹음초안 2단계. 녹음은 명진 Drive '웹2/회의자료/회의 녹음'에 올리고, 전사 글은 화면에만 돌려줌. MTG-노트북녹음: 노트북 [녹음] 5분 조각 받기·구간 합치기 `rec_*`) | 배포 대기 | 없음 | **true** | work (코드·시험, 첫 배포 전) |
+| 38 | `meeting-transcribe` | Web2 회의 녹음 파일 → 전사 글(Gemini, MTG-녹음초안 2단계. 녹음은 명진 Drive '웹2/회의자료/회의 녹음'에 올리고, 전사 글은 화면에만 돌려줌. MTG-노트북녹음: 노트북 [녹음]·폰 앱 1분 조각 받기·구간 합치기 `rec_*`) | 배포 대기 | 없음 | **true** | work (코드·시험, 첫 배포 전) |
 
 `meeting-transcribe`(38행)는 **첫 배포 전**이다(MTG-녹음초안 2단계, PR B). 사업 보고 › [회의] 입력 창에서 로그인한 소유자만 부르고 예약 호출이 없으므로 `verify_jwt=true`를 선택한다. 함수 코드도 Auth 서버로 로그인을 다시 확인하고 본인 `app_workspace_members` 행이 `owner`인 작업공간만 받는다.
 서버 키는 작업 표 `app_meeting_transcribe_jobs`(migration `20261029071500`, service_role은 정한 칸만 넣기·고치기, 지우기 없음)·Drive 연결 설정 읽기·사용량 기록(`app_ai_external_usage` 넣기)에만 쓴다. 회의 읽기·회의자료 링크 행 넣기·이번 달 사용량 읽기는 호출한 사람의 토큰(소유자 RLS)으로 한다. 전사 글은 저장하지 않는다.
