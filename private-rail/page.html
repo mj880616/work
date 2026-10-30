@@ -92,4 +92,4 @@ document.getElementById('cardModalSave').onclick=async()=>{const status=document
 document.getElementById('cardModalClose').onclick=closeCardModal;document.getElementById('cardModalCancel').onclick=closeCardModal;document.getElementById('cardModal').addEventListener('click',e=>{if(e.target.id==='cardModal')closeCardModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('cardModal').classList.contains('open'))closeCardModal()});
 renderCards();loadCards();
 setInterval(()=>{if(document.visibilityState==='visible')loadCards()},12000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadCards()});
-</script><script src="/work/assets/rich-copy.js"></script><script src="/work/app/web1-page-capabilities.js"></script><script src="/work/app/web1-admin-auth.js"></script></body></html>
+</script><script src="/work/assets/rich-copy.js"></script></body></html>
