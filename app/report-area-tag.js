@@ -5,20 +5,24 @@
 //   (ai-assist area_suggest, PR 1405)을 줄마다 차례로 불러 첫 추천을 미리 골라 둔다('AI'). 추천이 없거나 한도면 '고르기' 그대로. 서버는 추천을 저장하지 않는다.
 // - [저장] 한 번: 고른 줄마다 기존 사업 보고 저장 길(app_meetings REST PATCH, 소유자 RLS·같은 업무공간 조건)로 business_area_id·updated_at만 보낸다.
 //   서버·DB 변경 없음, 기기 저장 없음. 저장 뒤 목록을 다시 읽어 줄이 사라지고 꼬리표가 바로 바뀐다.
+// - MTG-사업영역없음(요청 10/30 07:51): 고르기 목록 '고르기' 바로 아래 [없음](회색). 고르면 business_area_id=null·business_area_none=true로 저장해
+//   '안 단 보고'에서 빠진다. 사업영역을 고르면 business_area_none=false를 함께 보낸다. 칸(20261030090000)이 없는 서버면 [없음]을 두지 않는다.
+//   [없음]은 미리 고르지 않는다(연결·AI 추천은 사업영역 id만).
 import {createChoiceSheet} from './choice-sheet.js';
-import {untaggedInWeek,presetArea,reportDay} from './business-area-model.mjs';
+import {untaggedInWeek,presetArea,reportDay,AREA_NONE,hasAreaNone,areaBody} from './business-area-model.mjs';
 import {loadReportPlaces} from './report-places-sheet.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const AI_ROWS=8;                                             // 창 하나에서 AI에 묻는 줄 수(한도 아끼기)
 const AI_STOP=new Set(['monthly_limit','daily_limit','not_ready','offline','session_required','auth_unavailable']);
 let sheet=null,active=null,run=0;
+const NONE_LABEL='없음';                                      // [없음] 고르기 줄(빈 화면 문구 아님)
 
 const titleOf=m=>String(m?.title||m?.series_name||'').replace(/\s+/g,' ').trim()||'제목 없음';
 const dayOf=m=>{const d=reportDay(m);return d?`${Number(d.slice(5,7))}.${Number(d.slice(8,10))}`:''};
 
-function optionsHtml(places){
-  return (places?.projects||[]).map(x=>`<option value="${esc(x.project.id)}">${'　'.repeat(Math.max(0,x.depth||0))}${esc(x.project.name||'이름 없는 사업영역')}</option>`).join('');
+function optionsHtml(places,withNone){
+  return (withNone?`<option value="${AREA_NONE}" class="area-tag-none">${NONE_LABEL}</option>`:'')+(places?.projects||[]).map(x=>`<option value="${esc(x.project.id)}">${'　'.repeat(Math.max(0,x.depth||0))}${esc(x.project.name||'이름 없는 사업영역')}</option>`).join('');
 }
 function rowHtml(m,options){
   const id=esc(m.id),title=titleOf(m);
@@ -28,12 +32,12 @@ function ensureSheet(){
   if(sheet)return sheet;
   sheet=createChoiceSheet({id:'reportAreaTagSheet',titleId:'reportAreaTagSheetTitle',historyKey:'kptuReportAreaTag',
     canOpen:()=>!!active,choices:()=>loadReportPlaces().then(p=>{if(active)active.places=p}),
-    render:()=>{const options=optionsHtml(active?.places);return {title:`사업영역 달기 · ${active?.list.length||0}건`,html:`<div class="area-tag-list">${(active?.list||[]).map(m=>rowHtml(m,options)).join('')}</div><div class="area-tag-foot"><span class="area-tag-status" data-area-tag-status role="status"></span><button type="button" class="primary area-tag-save" data-area-tag-save>저장</button></div>`}},
+    render:()=>{const options=optionsHtml(active?.places,!!active?.withNone);return {title:`사업영역 달기 · ${active?.list.length||0}건`,html:`<div class="area-tag-list">${(active?.list||[]).map(m=>rowHtml(m,options)).join('')}</div><div class="area-tag-foot"><span class="area-tag-status" data-area-tag-status role="status"></span><button type="button" class="primary area-tag-save" data-area-tag-save>저장</button></div>`}},
     onSelect:()=>{},
     onError:error=>active?.onMessage?.(error?.message||'사업영역을 불러오지 못했어요.')});
   const el=document.getElementById('reportAreaTagSheet');
   el.classList.add('area-tag-sheet');
-  el.addEventListener('change',e=>{const s=e.target.closest?.('[data-area-tag-select]');if(!s||!active)return;active.touched.add(s.dataset.areaTagSelect);mark(s,'')});
+  el.addEventListener('change',e=>{const s=e.target.closest?.('[data-area-tag-select]');if(!s||!active)return;active.touched.add(s.dataset.areaTagSelect);s.classList.toggle('is-none',s.value===AREA_NONE);mark(s,'')});
   el.addEventListener('click',e=>{if(e.target.closest?.('[data-area-tag-save]'))void save()});
   // 창이 닫히면(저장·×·Esc·뒤로가기·바깥) 남은 AI 추천 묻기를 멈춘다.
   el.addEventListener('close',()=>{run++;active=null});
@@ -65,10 +69,11 @@ async function suggestAll(mine){
 }
 
 function status(text){const el=document.querySelector('#reportAreaTagSheet [data-area-tag-status]');if(el)el.textContent=text}
-async function saveOne(rt,workspace,id,areaId){
-  const rows=await rt.api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(workspace)}&select=*`,{method:'PATCH',body:{business_area_id:areaId,updated_at:new Date().toISOString()},prefer:'return=representation'});
+async function saveOne(rt,workspace,id,value,withNone){
+  const area=areaBody(value,withNone);
+  const rows=await rt.api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(workspace)}&select=*`,{method:'PATCH',body:{...area,updated_at:new Date().toISOString()},prefer:'return=representation'});
   const row=Array.isArray(rows)&&rows.length===1?rows[0]:null;
-  if(!row||String(row.id)!==String(id)||row.workspace_id!==workspace||String(row.business_area_id||'')!==String(areaId))throw new Error('저장 결과를 확인하지 못했어요.');
+  if(!row||String(row.id)!==String(id)||row.workspace_id!==workspace||String(row.business_area_id||'')!==String(area.business_area_id||'')||(withNone&&row.business_area_none!==area.business_area_none))throw new Error('저장 결과를 확인하지 못했어요.');
 }
 async function save(){
   const a=active;if(!a||a.saving)return;
@@ -78,7 +83,7 @@ async function save(){
   if(!rt?.api||!workspace){status('로그인 상태를 확인하지 못했어요.');return}
   a.saving=true;run++;const button=document.querySelector('#reportAreaTagSheet [data-area-tag-save]');if(button){button.disabled=true;button.setAttribute('aria-busy','true')}status('');
   const failed=[];
-  for(const {m,area} of picks){try{await saveOne(rt,workspace,m.id,area)}catch(err){console.warn('area tag save failed',err?.message||err);failed.push(m)}}
+  for(const {m,area} of picks){try{await saveOne(rt,workspace,m.id,area,a.withNone&&hasAreaNone(m))}catch(err){console.warn('area tag save failed',err?.message||err);failed.push(m)}}
   a.saving=false;if(button){button.disabled=false;button.removeAttribute('aria-busy')}
   const saved=picks.length-failed.length;
   if(saved){try{await window.__KPTU_RELOAD_MEETINGS__?.()}catch(err){console.warn('meeting list refresh failed',err)}window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))}
@@ -95,7 +100,7 @@ async function save(){
 // trigger: [달기] 버튼. meetings·from: 사업 보고 화면이 가진 목록과 보고 있는 주(월요일).
 export async function openAreaTag(trigger,{meetings,from,onSaved=()=>{},onMessage=()=>{}}={}){
   const list=untaggedInWeek(meetings,from);if(!list.length)return;
-  active={list,places:null,touched:new Set(),saving:false,onSaved,onMessage};
+  active={list,places:null,touched:new Set(),saving:false,onSaved,onMessage,withNone:list.every(hasAreaNone)};
   const mine=++run;
   await ensureSheet().open('tag',trigger);
   if(mine===run&&active?.places)void suggestAll(mine);

@@ -142,3 +142,30 @@ for(const width of [390,1280])test(`${width}: '사업영역 안 단 보고 n건 
   await expect(page.locator('[data-biz-area-name]:visible')).toHaveText('공공기관 기능개혁 대응');
   expect(errors).toEqual([]);
 });
+
+// MTG-사업영역없음(요청 10/30 07:51): '사업영역 없음' 칸(business_area_none)이 있는 서버 — [달기] 창 '고르기' 바로 아래 [없음](회색)
+// → [저장] → '안 단 보고' 줄이 사라지고 그 보고는 꼬리표 없이 '사업영역 없음'. AI 추천은 [없음]을 미리 고르지 않는다.
+for(const width of [390,1280])test(`${width}: [달기] 창 [없음] → 저장 뒤 '안 단 보고'에서 빠지고 꼬리표 없이 '사업영역 없음'`,async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=state();for(const m of s.meetings)m.business_area_none=false;
+  await open(page,s,width);
+  const line=page.locator('#areaUntaggedLine');
+  await expect(weekLabel(page)).toContainText(WEEK_A);await expect(line).toContainText('사업영역 안 단 보고 1건');
+  await line.locator('[data-area-untagged]').click();
+  const sheet=page.locator('#reportAreaTagSheet');await expect(sheet).toBeVisible();
+  const select=sheet.locator('[data-area-tag-row="m-1"] [data-area-tag-select]');
+  await expect(select).toHaveValue('top-a'); // AI 추천은 사업영역만
+  const labels=await select.locator('option').allTextContents();
+  expect(labels.slice(0,2)).toEqual(['고르기','없음']);
+  await select.selectOption('__area_none__');await expect(select).toHaveClass(/is-none/);
+  const before=s.meetingWrites.length;
+  await sheet.locator('[data-area-tag-save]').click();await expect(sheet).toBeHidden();
+  const writes=s.meetingWrites.slice(before);
+  expect(writes).toHaveLength(1);expect(Object.keys(writes[0]).sort()).toEqual(['business_area_id','business_area_none','updated_at']);
+  expect(writes[0]).toMatchObject({business_area_id:null,business_area_none:true});
+  await expect(line).toBeHidden();
+  await openMeetingResult(page,'m-1');
+  await expect(page.locator('[data-biz-area-line]:visible')).toHaveText('사업영역 없음');
+  await expect(page.locator('[data-biz-area-name]:visible')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
