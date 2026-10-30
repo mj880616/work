@@ -396,6 +396,12 @@ jobs:
       - name: Check diary OneDrive folder switches (JOURNAL-일기원드라이브, synthetic)
         run: node --test tests/diary-onedrive-folders.test.mjs
 
+      - name: Check photo sort choices (PHOTO-정렬, synthetic)
+        run: node --test tests/photos-sort.test.mjs
+
+      - name: Check wide-screen share menu (PC공유메뉴, synthetic)
+        run: node --test tests/share-menu.test.mjs
+
       - name: Check OneDrive photo queue (OD-속도, visible first, limited at once, synthetic)
         run: node --test tests/od-thumb-loader.test.mjs
 

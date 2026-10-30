@@ -111,15 +111,45 @@ export function stepPhotoCols(wide, cols, dir) {
   const [lo, hi] = range(wide);
   return Math.max(lo, Math.min(hi, colsFor(wide, cols) - Math.sign(dir)));
 }
-// 서버 값 photo_view({filter, cols}) 읽기. 모양이 틀리면 그 칸만 버린다.
+// PHOTO-정렬(요청함 10/30): 사진·폴더·앨범 격자의 정렬 기준. view_prefs.photo_view.sort 하나(폰·PC 같음, DB 검사 20261030150000과 같은 값). 기본은 찍은 날 최근 먼저.
+export const SORTS = Object.freeze(['taken_desc', 'taken_asc', 'uploaded_desc', 'name_asc', 'size_desc', 'duration_desc']);
+export const DEFAULT_SORT = 'taken_desc';
+export const SORT_TEXT = Object.freeze({taken_desc: '찍은 날 최근 먼저', taken_asc: '찍은 날 오래된 먼저', uploaded_desc: '올린 날 최근 먼저',
+  name_asc: '파일 이름 가나다', size_desc: '크기 큰 것 먼저', duration_desc: '동영상 길이 긴 것 먼저'});
+// 버튼 글자(짧게): '찍은 날 ↓'
+export const SORT_SHORT = Object.freeze({taken_desc: '찍은 날 ↓', taken_asc: '찍은 날 ↑', uploaded_desc: '올린 날 ↓', name_asc: '이름 가나다', size_desc: '크기 ↓', duration_desc: '길이 ↓'});
+export const validSort = v => (SORTS.includes(v) ? v : DEFAULT_SORT);
+// 날짜 머리줄로 묶는 기준(찍은 날 기준일 때만).
+export const sortByDay = sort => sort === 'taken_desc' || sort === 'taken_asc';
+// 메뉴에 보일 기준: 동영상 길이는 동영상이 있을 때만(지금 그 기준이면 늘 보임).
+export const sortChoices = (hasVideo, sort = DEFAULT_SORT) => SORTS.filter(s => s !== 'duration_desc' || hasVideo || sort === s);
+// 여러 묶음(★·앨범 500개씩)을 그 기준 하나로 합치는 비교. 서버 onedrive-photos sortCmp와 같은 규칙(값 없는 크기·길이는 맨 뒤, 올린 시각이 없으면 찍은 시각).
+const nameOrder = typeof Intl === 'object' ? new Intl.Collator('ko', {numeric: true}) : null;
+const idAsc = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const num = v => (Number.isFinite(v) ? v : -1);
+export function sortCompare(sort) {
+  switch (validSort(sort)) {
+    case 'taken_asc': return (a, b) => String(a.taken_at).localeCompare(String(b.taken_at)) || idAsc(a.id, b.id);
+    case 'uploaded_desc': return (a, b) => String(b.uploaded_at || b.taken_at).localeCompare(String(a.uploaded_at || a.taken_at)) || idAsc(b.id, a.id);
+    case 'name_asc': return (a, b) => (nameOrder ? nameOrder.compare(String(a.name), String(b.name)) : String(a.name).localeCompare(String(b.name), 'ko')) || idAsc(a.id, b.id);
+    case 'size_desc': return (a, b) => num(b.size_bytes) - num(a.size_bytes) || idAsc(b.id, a.id);
+    case 'duration_desc': return (a, b) => num(b.duration_ms) - num(a.duration_ms) || idAsc(b.id, a.id);
+    default: return newestFirst;
+  }
+}
+// 서버 값 photo_view({filter, cols, sort}) 읽기. 모양이 틀리면 그 칸만 버린다.
 export function parsePhotoView(v) {
   const o = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
-  return {filter: validFilter(o.filter), cols: Number.isInteger(o.cols) && o.cols >= 3 && o.cols <= 12 ? o.cols : null};
+  return {filter: validFilter(o.filter), cols: Number.isInteger(o.cols) && o.cols >= 3 && o.cols <= 12 ? o.cols : null, sort: validSort(o.sort)};
 }
+// 저장할 photo_view(기본 정렬은 적지 않는다: DB 적용 전에도 다른 칸 저장이 거절되지 않게).
+export const photoViewValue = ({filter = 'all', cols = null, sort = DEFAULT_SORT} = {}) =>
+  ({filter: validFilter(filter), ...(Number.isInteger(cols) ? {cols} : {}), ...(validSort(sort) !== DEFAULT_SORT ? {sort: validSort(sort)} : {})});
 
 // 서버 한 쪽(odLibrary items) → 화면 칸. 같은 id가 다시 오면 빼고 잇는다.
 export const toItem = p => ({kind: 'od', source: 'onedrive', key: p.id, id: p.id, day: p.day, name: p.name || '', taken_at: p.taken_at || '', approx: p.approx === true,
-  video: p.kind === 'video', duration_ms: p.duration_ms ?? null, width: p.width ?? null, height: p.height ?? null, screenshot: p.screenshot === true});
+  video: p.kind === 'video', duration_ms: p.duration_ms ?? null, width: p.width ?? null, height: p.height ?? null, screenshot: p.screenshot === true,
+  size_bytes: p.size_bytes ?? null, uploaded_at: p.uploaded_at || ''});
 export function appendItems(list, page) {
   const seen = new Set(list.map(x => x.id));
   const out = list.slice();

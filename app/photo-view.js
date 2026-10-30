@@ -2,7 +2,8 @@
 // 화면 위를 덮는 전체 화면 보기에 ×, Esc, 폰 뒤로 가기(라우터 층 하나)가 있다. 사진은 basket-files photo(노트 번호 + 파일 번호)로 읽는다.
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
-import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement, paintPhotoNote} from './photo-share.js';
+import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement, photoFilesFor, paintPhotoNote} from './photo-share.js';
+import {shareFrom} from './share-menu.js';
 import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -83,17 +84,19 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = n
   let noteTimer = null;
   const note = (text, ms = 0) => { clearTimeout(noteTimer); paintPhotoNote(noteEl, text); if (ms) noteTimer = setTimeout(() => { noteEl.textContent = ''; }, ms); };
   // [공유]: 화면에 뜬 그림을 바로 넘긴다(일기 크게 보기와 같은 photo-share.js). 아직 안 떴으면 '사진 받는 중…' 뒤에 넘긴다.
-  const shareShown = () => {
+  // PC공유메뉴: 넓은 화면은 ⋯ 자리에 작은 메뉴(share-menu.js), 좁은 화면은 지금처럼 바로 기기 공유 창.
+  const shareShown = trigger => {
     const el = stage.querySelector('.diary-photo'), shownItem = item, name = String(item?.file?.name || '');
     const nameOf = blob => (/\.(jpe?g|png|gif|webp)$/i.test(name) ? name : `사진.${/png/.test(blob.type) ? 'png' : /webp/.test(blob.type) ? 'webp' : /gif/.test(blob.type) ? 'gif' : 'jpg'}`);
-    sharePhotoElement(el, nameOf, {alive: () => current?.box === box && item === shownItem, note});
+    const alive = () => current?.box === box && item === shownItem;
+    shareFrom(trigger, {count:1, note, getFiles:() => photoFilesFor(el, nameOf, {alive, note}), native:() => sharePhotoElement(el, nameOf, {alive, note})});
   };
   const paintMenu = () => {
     if (!actions) return;
     more.innerHTML = '<summary class="basket-photo-more-btn" data-ctx="off" aria-label="사진 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="basket-photo-more-panel" role="group" aria-label="사진 메뉴"></div>';
     const panel = more.querySelector('.basket-photo-more-panel');
     const share = document.createElement('button'); share.type = 'button'; share.dataset.photoShare = ''; share.textContent = '공유';
-    share.addEventListener('click', () => { more.removeAttribute('open'); shareShown(); });
+    share.addEventListener('click', () => { more.removeAttribute('open'); shareShown(more.querySelector('summary')); });
     panel.append(share);
     (actions(item) || []).forEach((action, i) => {
       let el;
