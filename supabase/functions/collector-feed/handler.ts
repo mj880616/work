@@ -217,6 +217,15 @@ type TelegramInput = {
   senders: TgSender[]; sendersInvalid: boolean; sendersSkipped: number; oddDropped: number;
   chat_kind: string | null; chat_username: string | null; open_ref: string | null; roomInfoDropped: number;
 };
+// 방 번호(room_key, 수집기 방 폴더 이름 앞 번호) 모양 → 방 종류(TODO-내일만 3). 텔레그램 표시 번호 규칙:
+// 양수 = 1:1 대화(user), -100으로 시작 = 채널 또는 슈퍼그룹(둘을 가를 수 없어 null), 그 밖의 음수 = 기본 단체방(group).
+// 숫자가 아니면 null. 앱 스크립트가 chat_kind를 보내면 그 값이 이긴다(이 함수는 비었을 때만 쓴다).
+export function roomKindFromKey(roomKey: string): "user" | "group" | null {
+  if (/^[1-9][0-9]{0,19}$/.test(roomKey)) return "user";
+  if (/^-100[0-9]+$/.test(roomKey)) return null;
+  if (/^-[1-9][0-9]{0,19}$/.test(roomKey)) return "group";
+  return null;
+}
 // 선택 칸 chat_kind·chat_username·open_ref 검사. 틀린 칸은 null로 버리고 버린 칸 수만 센다(소식 저장 우선). 값은 어디에도 남기지 않는다.
 function parseRoomInfo(b: Record<string, unknown>) {
   let dropped = 0;
@@ -262,7 +271,9 @@ function parseSenders(raw: unknown, labelsInMessages: Set<string> | null) {
     }
     if (e.self !== undefined && e.self !== null) {
       if (typeof e.self !== "boolean") return bad;
-      entry.self = e.self;
+      // true만 넘긴다(TODO-내일만 3). false는 '모름'과 같게 버려서, 화면에서 손으로 붙인 '나' 표시(app_tg_sender_set_self)를
+      // 수집기의 false가 다시 지우지 않게 한다(DB upsert는 self가 없으면 기존 값을 둔다).
+      if (e.self) entry.self = true;
     }
     // 이 묶음의 메시지에 없는 라벨은 건너뛴다(묶음이 나뉘면 같은 목록이 모든 묶음에 오므로 오류가 아니다).
     if (labelsInMessages && !labelsInMessages.has(entry.label)) { skipped++; continue; }
@@ -303,10 +314,12 @@ export function parseTelegramBody(b: Record<string, unknown>, today: string): Te
   messages.sort((x, y) => x.at - y.at || (x.ref < y.ref ? -1 : x.ref > y.ref ? 1 : 0));
   const sp = parseSenders(b.senders, new Set(messages.map((m) => m.sender)));
   const room = parseRoomInfo(b);
+  // 방 종류를 앱 스크립트가 보내지 않으면(지금 판은 room.json을 읽지 않는다) 방 번호 모양으로 정한다(roomKindFromKey).
+  const chatKind = room.chat_kind ?? roomKindFromKey(b.room_key);
   return {
     day: b.day, room_key: b.room_key, room_label: label, total: b.total, part, attempt, cont, messages,
     senders: sp.senders, sendersInvalid: sp.invalid, sendersSkipped: sp.skipped, oddDropped: sp.oddDropped,
-    chat_kind: room.chat_kind, chat_username: room.chat_username, open_ref: room.open_ref, roomInfoDropped: room.dropped,
+    chat_kind: chatKind, chat_username: room.chat_username, open_ref: room.open_ref, roomInfoDropped: room.dropped,
   };
 }
 

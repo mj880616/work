@@ -185,3 +185,41 @@ test('서버 재료: 앞서 모인 소식은 40개·요약 200자까지만',()=>
   assert.ok(lines.every(l=>(l.match(/가/g)||[]).length===200));
   assert.ok(!T.telegramMaterial(TODAY,'가상 방',[],[],[]).includes('앞서 모인 소식'));
 });
+
+// TODO-내일만 3: 수집기가 메시지 json·room.json에 적은 방 종류(chat_kind)를 몸통에 넣는다. 정해진 세 값만, 그 밖은 넣지 않는다.
+test('방 종류: 메시지 json의 chat_kind를 읽어 몸통에 넣고, 잘못된 값·없음은 넣지 않는다',()=>{
+  const mk=(id,kind)=>G.tgFeedParseMessage({message_id:id,date_utc:`${DAY}T01:00:00Z`,sender_id:'9001',text:'가상',...(kind===undefined?{}:{chat_kind:kind})});
+  for(const k of ['user','group','channel'])assert.equal(mk('1',k).chatKind,k);
+  for(const k of [undefined,null,'',' user','User','supergroup','private',1,true,{}])assert.equal(mk('1',k).chatKind,null,String(k));
+  assert.equal(G.tgFeedGroupDay([mk('1'),mk('2','group')],DAY).chatKind,'group','글 있는 메시지 중 하나라도 있으면 그 값');
+  assert.equal(G.tgFeedGroupDay([mk('1')],DAY).chatKind,null);
+  // 메시지 값이 없으면 room.json 값, 둘 다 있으면 메시지 값
+  assert.equal(G.tgFeedRoomChatKind([],{chat_kind:'channel'}),'channel');
+  assert.equal(G.tgFeedRoomChatKind([],{chat_kind:'bot'}),null);
+  assert.equal(G.tgFeedRoomChatKind([],null),null);
+  assert.equal(G.tgFeedRoomChatKind([mk('1','user')],{chat_kind:'group'}),'user');
+  const msgs=G.tgFeedFresh(G.tgFeedGroupDay([mk('1')],DAY),'').messages;
+  const base={day:DAY,roomKey:'-4567',roomLabel:'가상 방',total:1,part:1,attempt:1,messages:msgs};
+  for(const k of ['user','group','channel']){
+    const b=plain(G.tgFeedBuildBody({...base,chatKind:k}));
+    assert.equal(b.chat_kind,k);
+    assert.equal(parseTelegramBody(b,DAY).chat_kind,k,'서버가 그대로 읽는다');
+  }
+  for(const k of [undefined,null,'','supergroup','USER',0]){
+    const b=plain(G.tgFeedBuildBody({...base,chatKind:k}));
+    assert.ok(!('chat_kind' in b),String(k));
+  }
+  // 몸통에 없으면 서버가 방 번호 모양으로 채운다(-4567: 짧은 음수 = 단체방)
+  assert.equal(parseTelegramBody(plain(G.tgFeedBuildBody(base)),DAY).chat_kind,'group');
+  // 실제 값이 방 번호 추측보다 이긴다
+  assert.equal(parseTelegramBody(plain(G.tgFeedBuildBody({...base,roomKey:'123456',chatKind:'channel'})),DAY).chat_kind,'channel');
+});
+
+test('방 종류 소스: 보내기·빈 묶음 모두 chatKind를 넘기고, room.json은 메시지 값이 없을 때만 읽는다',()=>{
+  const fn=source.slice(source.indexOf('function tgFeed_sendDay_('),source.indexOf('function tgFeed_testMode_('));
+  assert.equal((fn.match(/chatKind: chatKind/g)||[]).length,2);
+  assert.match(fn,/grouped\.chatKind \|\| \(test \? null : tgFeed_roomJsonKind_\(run, room\)\)/);
+  const rj=source.slice(source.indexOf('function tgFeed_roomJsonKind_('),source.indexOf('/** 그 방의 messages 폴더 ID와,'));
+  assert.ok(!/Logger\.log/.test(rj),'방 정보는 로그에 남기지 않는다');
+  assert.ok(!/setContent|createFile|setTrashed/.test(rj),'Drive 파일을 고치지 않는다');
+});
