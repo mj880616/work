@@ -78,7 +78,7 @@ iconRows.forEach(([button,d])=>{
   button.append(svg,label);button.title=label.textContent.replace(/\s*›\s*$/,'').trim();
 });
 // PC 왼쪽 메뉴: 하단바 칸 메뉴가 위, 나머지가 그 아래 같은 순서. 정리함·일정은 아래 작은 메뉴(.nav-sub)와 한 덩어리로 옮긴다.
-// 맨 끝에 이어진 통화·텔레그램은 처음처럼 빈 공간 아래에 붙고, 그 위로 옮기면 보통 줄이 된다.
+// 메뉴 편집의 '아래 붙는 메뉴' 칸(통화·텔레그램 소식·아스날이 처음 자리)은 빈 공간 아래에 붙는다(MENU-세칸).
 let sidebarMoved=false;
 function placeSidebar(){
   if(!appNav)return;
@@ -96,8 +96,8 @@ function placeSidebar(){
   };
   const place=(ids,before)=>ids.map(unit).forEach(nodes=>nodes.forEach(node=>appNav.insertBefore(node,before)));
   place(main,spacer);place(tail,links);
-  ['calls','telegram','arsenal'].forEach(id=>{
-    const button=buttonByKey.get(id);if(!button)return;
+  // MENU-세칸: 맨 아래 묶음은 저장된 아래 칸(tail) 그대로라 어느 메뉴든 들어올 수 있다. 비면 묶음(위쪽 선)도 없다.
+  buttonByKey.forEach((button,id)=>{
     button.classList.toggle('nav-feed',tail.includes(id));
     button.classList.toggle('nav-feed-first',tail[0]===id);
   });

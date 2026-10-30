@@ -1,5 +1,5 @@
 // MENU-HOME-편집: 사용자가 정한 메뉴 순서(view_prefs.menu_layout)를 화면에 입히는 유일한 곳.
-// 목록의 뜻은 menu-model.mjs 한 곳이고, 여기서는 폰 하단바 칸과 폰 [메뉴] 창 안 목록을 그 순서대로 다시 만든다.
+// 목록의 뜻은 menu-model.mjs 한 곳이고, 여기서는 폰 하단바 칸과 폰 [메뉴] 창 안 목록(위 메뉴 · 선 · 아래 붙는 메뉴)을 그 순서대로 다시 만든다.
 // PC 왼쪽 메뉴(761px~)의 자리 바꾸기는 그 버튼들의 주인인 topbar-actions.js가 kptu:menu-layout-applied를 받아 한다.
 // 기본 구성이고 한 번도 바꾼 적이 없으면 index.html의 처음 모양을 그대로 둔다(다시 그리지 않음).
 // 저장은 view-prefs.js(서버)뿐이다. 서버가 새 칸을 아직 모르면(DB 적용 전) 거절 알림으로 원래 순서로 돌아가고 안내한다.
@@ -21,6 +21,7 @@ export function itemButtonHtml(item, where) {
   if (where === 'sheet') attrs.push('data-sheet-item');
   return `<button type="button" ${attrs.join(' ')}>${svg(item.icon)}<span>${esc(item.label)}</span></button>`;
 }
+export const SHEET_TAIL_LINE = '<span class="mobile-menu-tail-line" role="separator" data-menu-tail-line></span>';
 const toNodes = html => { const tpl = document.createElement('template'); tpl.innerHTML = html; return [...tpl.content.children]; };
 
 function paintPhone() {
@@ -33,8 +34,10 @@ function paintPhone() {
   const nav = document.querySelector('#mobileMenu .mobile-menu-panel nav[aria-label="더 보기"]');
   if (nav) {
     [...nav.children].forEach(el => el.remove());
-    const nodes = toNodes(layout.rest.map(id => itemButtonHtml(itemOf(id), 'sheet')).join(''));
-    nav.prepend(...nodes);
+    // MENU-세칸: 아래 붙는 메뉴(tail)는 [메뉴] 창 맨 아래, 선 하나 아래에(PC 왼쪽 맨 아래 묶음과 같은 규칙). 비면 선도 없다.
+    const html = layout.rest.map(id => itemButtonHtml(itemOf(id), 'sheet')).join('')
+      + (layout.tail.length ? SHEET_TAIL_LINE + layout.tail.map(id => itemButtonHtml(itemOf(id), 'sheet')).join('') : '');
+    nav.prepend(...toNodes(html));
   }
 }
 

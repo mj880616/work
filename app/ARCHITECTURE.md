@@ -164,7 +164,8 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 ### 메뉴 순서 편집 (view_prefs 서버 저장)
 
 - 메뉴 목록의 유일한 정의는 `menu-model.mjs`(항목·기본 하단바·정리 규칙). 폰 하단바와 [메뉴] 창은 `menu-layout.js`, PC 왼쪽 메뉴(761px~)는 `topbar-actions.js`, 하단바 선택 표시는 `mobile-tab-selection.mjs`가 같은 모델만 읽는다. 순서는 `view_prefs.menu_layout`({bar, rest}).
-- 편집 창은 `menu-edit.js`(계정 메뉴 [메뉴 편집]). 줄 끌기(마우스 ⠿ / 폰 길게 누르기 / 키보드)는 공용 `reorder-drag.js`.
+- MENU-세칸(2026-10-30): 메뉴는 세 칸 — 폰 하단바(bar) / 위 메뉴(rest: 폰 [메뉴] 창 · PC 왼쪽 위) / 아래 붙는 메뉴(tail: PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 저장 모양은 DB 검사를 바꾸지 않으려고 {bar, rest} 그대로이고 아래 칸은 rest 안 `bottom` 표시 뒤에 담는다. 표시 없는 옛 값은 rest 끝에 이어진 통화·텔레그램·아스날을 아래 칸으로 읽는다. PC 맨 아래 묶음(`pcSplit`)은 저장된 아래 칸만 보고, 비면 묶음도 없다.
+- 편집 창은 `menu-edit.js`(계정 메뉴 [메뉴 편집]). 세 칸 목록과 PC 왼쪽 메뉴 미리보기(PC는 오른쪽, 폰은 아래). 줄 끌기(마우스 ⠿ / 폰 길게 누르기 / 키보드)는 공용 `reorder-drag.js`.
 - (옛 홈 칸 편집 — `home-cards-model.mjs`·`home-edit.js`·`home-extra.js`, `view_prefs.home_cards` — 은 HOME-업무일지홈에서 옛 홈 칸 화면과 함께 코드째 지웠다. 저장된 값은 DB에 남아도 읽지 않는다.)
 - 두 키는 DB 검사(app_profiles_view_prefs_check)가 받아야 저장된다. 적용 전에는 거절 알림으로 원래 순서로 돌아간다.
 
