@@ -375,4 +375,4 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .basket-manual-task-files .gt-pick-list{list-style:none;margin:0;padding:0}
 #basketView .basket-manual-task-files .gt-pick-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--kptu-touch-target,44px);border-top:1px solid var(--kptu-border)}
 #basketView .basket-manual-task-files .gt-pick-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
-#basketView .basket-manual-task-files.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--ds-radius-control,6px)}
+#basketView .basket-manual-task-files.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--kptu-radius-sm)}
