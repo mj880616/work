@@ -62,7 +62,9 @@ async function fixture(page,{width=390,scheme='light',docs=null}={}){
  });
  return state;
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+// 폰 폭은 손가락 누르기. locator.tap()은 목록이 다시 그려져 줄이 바뀌어도 새 줄을 다시 찾아 그 가운데를 누른다
+// (좌표를 먼저 재고 누르면, 재는 사이 목록이 다시 그려질 때 'Element is not attached'로 깨졌다).
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 async function openNote(page,id,width){
  await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,id);
  await tap(page,page.locator(`[data-basket-row="${id}"]`),width);
