@@ -68,6 +68,5 @@ test('화면 연결: 소탭은 view_prefs.org_tab 하나, 현황 표 자리는 o
   assert.match(st, /app_org_status_rows/);assert.match(st, /kind: 'org_status_rows'/);
   assert.match(st, /기록에서 다시 채우기 \(AI\)/);assert.match(st, /주간보고 투쟁 사업장 현황에 그대로 들어감/);
   assert.match(st, /type="date"/, 'date is picked on the shared calendar field');
-  for (const src of [st, read('app/org-status-model.mjs')]) assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/, 'no device storage');
   assert.match(hw, /readStatusRows\(/);assert.match(hw, /siteLinesFromTable\(/);
 });

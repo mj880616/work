@@ -55,7 +55,7 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible:not(#wdStage input)')).toHaveCount(1);
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
-  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>(sec.querySelector('h3')||sec.querySelector('[role="tab"]'))?.firstChild?.textContent?.trim()));
+  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-subpanel[data-wd-subpanel="log"] > .wd-sec')].map(sec=>(sec.querySelector('h3')||sec.querySelector('[role="tab"]'))?.firstChild?.textContent?.trim()));
   expect(order).toEqual(['할 일','자료','사업 보고','기록','연도별 타임라인','주요 인물']);
   const pos=await page.locator('#wdModal .wd-card').evaluate(card=>({
     title:card.querySelector('#wdTitle').getBoundingClientRect().top,
