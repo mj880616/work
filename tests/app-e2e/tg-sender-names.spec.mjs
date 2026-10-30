@@ -47,6 +47,14 @@ async function fixture(page,{width=1280,senderTables='empty'}={}){
    names.senders=names.senders.filter(x=>x.id!==f.id);
    return r.fulfill({json:{ok:true,id:t.id,moved:1}});
   });
+  // TODO-내일만 3: 20261029233000_tg_sender_set_self.sql 과 같은 규칙(is_self만 바꿈).
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_tg_sender_set_self',r=>{
+   const b=r.request().postDataJSON();calls.push({fn:'set_self',...b});
+   const t=names.senders.find(x=>x.id===b.p_id);
+   if(!t)return r.fulfill({status:404,json:{code:'P0002',message:'TG_SENDER_NOT_FOUND'}});
+   const changed=t.is_self!==b.p_self;t.is_self=b.p_self;
+   return r.fulfill({json:{ok:true,changed,id:t.id,is_self:b.p_self,keyed:!!t.sender_key}});
+  });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_tg_sender_forget',r=>{
    const b=r.request().postDataJSON();calls.push({fn:'forget',...b});
    if(!names.senders.some(x=>x.id===b.p_id))return r.fulfill({status:404,json:{code:'P0002',message:'TG_SENDER_NOT_FOUND'}});
@@ -176,6 +184,16 @@ test('텔레그램 1280: 머리줄 ⋯ → 보낸 사람 이름: 목록, 이름 
  await box.locator('[data-tg-sbox-save]').click();
  await expect.poll(()=>f.calls).toEqual([{fn:'set_name',p_room_key:'room-a',p_day:'2026-10-06',p_label:'A',p_name:'새이름'}]);
  await expect(row(P1)).toContainText('새이름');await expect(row(P1)).toContainText('직접');
+
+ // 나로 표시 · 빼기(TODO-내일만 3): 서버 함수만 부르고, 다시 읽은 이름표로 메뉴가 바뀐다.
+ await row(P1).locator('[data-tg-person-more]').click();
+ await page.locator('#tgPersonMenu').getByRole('button',{name:/^나로 표시/}).click();
+ await expect.poll(()=>f.calls.at(-1)).toEqual({fn:'set_self',p_id:P1,p_self:true});
+ await expect(view).toContainText('나로 표시했어요. 다음 소식부터 내가 한 부탁은 챙길 것에 오르지 않아요.');
+ await row(P1).locator('[data-tg-person-more]').click();
+ await page.locator('#tgPersonMenu').getByRole('button',{name:'나 표시 빼기',exact:true}).click();
+ await expect.poll(()=>f.calls.at(-1)).toEqual({fn:'set_self',p_id:P1,p_self:false});
+ await expect(view).toContainText('나 표시를 뺐어요.');
 
  // 합치기: 안내문과, 두 사람 모두 열쇠가 있을 때의 강한 안내. 고르기 전에는 [합치기]가 막혀 있다.
  await row(P1).locator('[data-tg-person-more]').click();
