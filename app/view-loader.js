@@ -38,7 +38,8 @@ const routeStyles={
   calls:['./choice-sheet.css','./feed.css','./ui-standard.css'],
   telegram:['./choice-sheet.css','./feed.css','./ui-standard.css'],
   photos:['./diary.css','./od-link.css','./photos.css','./folder-tree.css','./ui-standard.css'],
-  arsenal:['./arsenal.css','./ui-standard.css']
+  arsenal:['./arsenal.css','./ui-standard.css'],
+  updates:['./release-notes.css','./ui-standard.css']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -171,7 +172,9 @@ async function telegram(){ await organizationOrder(); await module('./telegram-f
 async function photos(){ await module('./photos.js'); return {ok:true} }
 // 주소 개편 ② E1: [아스날](?view=arsenal, 메뉴 창 맨 아래·사이드바 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #arsenalView를 만들고 경기 자료도 그때 불러온다).
 async function arsenal(){ await module('./arsenal.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal};
+// UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
+async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,updates};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',journal:'home'};
 function normalize(view){

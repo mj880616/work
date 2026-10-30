@@ -80,3 +80,7 @@
 .re-grabbed{background:var(--kptu-primary-soft)}
 .re-drop-before{border-top:2px solid var(--kptu-primary-ink)}
 .re-drop-end{border-bottom:2px solid var(--kptu-primary-ink)}
+/* UI-업데이트기록입구: 계정 메뉴 [업데이트 기록] 줄 오른쪽 지금 판 이름(작고 흐린 글자). 못 읽으면 비운 채 자리를 차지하지 않는다. */
+.account-action .account-action-name{flex:1;min-width:0}
+.account-action .account-ver{flex:none;margin-left:8px;color:var(--kptu-muted);font-size:var(--ds-text-meta,11px);font-variant-numeric:tabular-nums}
+.account-action .account-ver:empty{display:none}

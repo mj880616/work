@@ -5,8 +5,10 @@ import {waitInlineHtml, failHtml} from './wait-state.js';
 //   더하기·빼기는 바로 서버에 저장한다(프로필 [저장]과 따로). 기기에는 아무것도 남기지 않는다.
 // - [쌓인 후보 다시 거르기]: 지금 대기 중인 챙길 것 후보를 새 기준으로 한 번 다시 거른다(ai-assist kind=todo_recheck).
 //   지우지 않고 '무시'로만 바꾼다. 무시한 후보는 정리함 [챙길 것]의 '무시함'에서 되돌릴 수 있다.
+// TODO-쌓인후보건수(요청함 10/30): 그 줄에 지금 대기 중 후보 건수('쌓인 후보 12건 [새 기준으로 다시 거르기]'), 0건이면 '쌓인 후보 없음'만(버튼 없음).
+//   다시 거른 뒤에는 그 아래 결과 한 줄('12건 중 3건을 무시함으로 옮겼어요')과 새 건수. 건수를 못 읽으면 예전처럼 '쌓인 후보 [버튼]'.
 // 표가 아직 없거나(DB 적용 전) 텔레그램 방이 없으면 방 줄은 숨기고 다시 거르기만 보인다.
-import {readAskRooms, addAskRoom, removeAskRoom, recheckTodos, ROOM_KEY} from './todo-radar-data.js';
+import {readAskRooms, addAskRoom, removeAskRoom, recheckTodos, countOpenCandidates, ROOM_KEY} from './todo-radar-data.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const CHANGED = 'kptu:todo-radar-changed';
@@ -23,14 +25,18 @@ async function readRooms(rt) {
 }
 
 export function mountTodoRulesSettings(host, {rt}) {
-  let state = {phase: 'loading', keys: [], rooms: [], roomsOk: false, busy: false, note: '', pick: ''};
+  let state = {phase: 'loading', keys: [], rooms: [], roomsOk: false, busy: false, note: '', pick: '', open: null, result: ''};
   let run = 0;
 
   function render() {
     if (!host.isConnected) return;
-    const {phase, keys, rooms, roomsOk, busy, note, pick} = state;
+    const {phase, keys, rooms, roomsOk, busy, note, pick, open, result} = state;
     const head = `<div class="ps-panel-head"><h3>챙길 것 기준</h3><span class="ps-state" data-ps-todo-state role="status" aria-live="polite">${esc(note)}</span></div>`;
-    const recheck = `<div class="ps-calref-row"><span class="ps-calref-label">쌓인 후보</span><button type="button" class="ps-todo-btn" data-ps-todo-recheck${busy ? ' disabled aria-busy="true"' : ''}>새 기준으로 다시 거르기</button></div>`;
+    const known = open?.ok === true;
+    const label = !known ? '쌓인 후보' : open.count === 0 && !open.more ? '쌓인 후보 없음' : `쌓인 후보 ${open.count}건${open.more ? ' 넘게' : ''}`;
+    const button = known && open.count === 0 && !open.more ? '' : `<button type="button" class="ps-todo-btn" data-ps-todo-recheck${busy ? ' disabled aria-busy="true"' : ''}>새 기준으로 다시 거르기</button>`;
+    const resultLine = result ? `<p class="ps-calref-line ps-todo-result" data-ps-todo-result>${esc(result)}</p>` : '';
+    const recheck = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-todo-open${known ? `="${open.count}"` : ''}>${esc(label)}</span>${button}</div>${resultLine}`;
     if (phase === 'loading') { host.innerHTML = `${head}<div class="ps-calref">${waitInlineHtml()}</div>`; return; }
     if (phase === 'failed') { host.innerHTML = `${head}<div class="ps-calref">${failHtml()}${recheck}</div>`; return; }
     const groups = rooms.filter(r => r.kind !== 'user');
@@ -46,9 +52,10 @@ export function mountTodoRulesSettings(host, {rt}) {
 
   async function load() {
     const mine = ++run;
-    state = {...state, phase: 'loading', note: ''}; render();
-    const [asked, rooms] = await Promise.all([readAskRooms(rt), readRooms(rt)]);
+    state = {...state, phase: 'loading', note: '', result: ''}; render();
+    const [asked, rooms, open] = await Promise.all([readAskRooms(rt), readRooms(rt), countOpenCandidates(rt)]);
     if (mine !== run) return;
+    state = {...state, open};
     if (asked.missing) { state = {...state, phase: 'no-table', keys: [], rooms: rooms.ok ? rooms.rooms : [], roomsOk: false}; render(); return; }
     if (!asked.ok) { state = {...state, phase: 'failed'}; render(); return; }
     state = {...state, phase: 'ready', keys: asked.keys, rooms: rooms.ok ? rooms.rooms : [], roomsOk: rooms.ok, pick: ''}; render();
@@ -80,11 +87,12 @@ export function mountTodoRulesSettings(host, {rt}) {
       return;
     }
     if ('psTodoRecheck' in b.dataset) {
-      state = {...state, busy: true}; render(); say('다시 거르는 중…');
+      state = {...state, busy: true, result: ''}; render(); say('다시 거르는 중…');
       const r = await recheckTodos({rt});
-      state = {...state, busy: false}; render();
-      if (!r.ok) { say(r.message); return; }
-      say(`후보 ${r.checked}건 중 ${r.dismissed}건을 무시로 옮겼어요.${r.more ? ' 남은 후보가 더 있어요. 한 번 더 눌러 주세요.' : ''}`);
+      if (!r.ok) { state = {...state, busy: false}; render(); say(r.message); return; }
+      const open = await countOpenCandidates(rt);
+      state = {...state, busy: false, open, result: `${r.checked}건 중 ${r.dismissed}건을 무시함으로 옮겼어요.${r.more ? ' 남은 후보가 더 있어요. 한 번 더 눌러 주세요.' : ''}`};
+      render(); say('');
       if (r.dismissed) window.dispatchEvent(new CustomEvent(CHANGED, {detail: {reload: true}}));
     }
   });
