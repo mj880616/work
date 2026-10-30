@@ -35,7 +35,8 @@ test('PC: the list follows the button when the window is resized, and becomes th
  await trigger.click();const sheet=dialog(page);await expect(sheet).toHaveClass(/home-choice-anchored/);
  await page.setViewportSize({width:1000,height:700});
  await expect.poll(async()=>(await near(trigger,sheet)).gap).toBeLessThanOrEqual(12);
- const {t,d}=await near(trigger,sheet);expect(Math.abs(d.x-t.x)).toBeLessThanOrEqual(1);expect(d.x+d.width).toBeLessThanOrEqual(1000);
+ // UI-폴드PC틀: 1000px도 PC 틀이라 기록할 곳 창은 넓은 나란한 목록(home-choice-split)일 수 있다. 그때는 화면 안에 맞춰 왼쪽 끝이 버튼과 다를 수 있다.
+ const {t,d}=await near(trigger,sheet),split=await sheet.evaluate(el=>el.classList.contains('home-choice-split'));if(!split)expect(Math.abs(d.x-t.x)).toBeLessThanOrEqual(1);expect(d.x).toBeGreaterThanOrEqual(0);expect(d.x+d.width).toBeLessThanOrEqual(1000);
  await page.setViewportSize({width:390,height:844});
  await expect(sheet).not.toHaveClass(/home-choice-anchored/);
  const b=await sheet.boundingBox();expect(b.width).toBeGreaterThanOrEqual(380);expect(b.y+b.height).toBeGreaterThan(844-200);
