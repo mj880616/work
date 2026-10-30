@@ -47,16 +47,17 @@ export async function runDropUpload(files,{upload,classify,preflight=()=>null,on
 export function bindLibraryDrop({doc=document,overlay,active,onFiles,place=()=>{},pick=()=>null,mark=()=>{}}){
   if(!overlay||doc.__luDropBound)return ()=>{};
   doc.__luDropBound=true;
-  let depth=0,hint='';
+  let depth=0,hint='',last=null;
   const say=t=>{const text=t?.name?folderHint(t.name):DROP_HINT;if(text===hint)return;hint=text;const el=overlay.firstChild||overlay;if(el)el.textContent=text};
   const show=on=>{if(on&&overlay.hidden)place();overlay.hidden=!on};
-  const reset=()=>{depth=0;show(false);mark(null);say(null)};
+  const reset=()=>{depth=0;last=null;show(false);mark(null);say(null)};
   const enter=e=>{if(!hasFiles(e)||!active())return;e.preventDefault();depth++;show(true)};
-  const over=e=>{if(!hasFiles(e)||!active()){if(!overlay.hidden)reset();return}e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';show(true);const t=pick(e);mark(t);say(t)};
+  const over=e=>{if(!hasFiles(e)||!active()){if(!overlay.hidden)reset();return}e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';show(true);const t=pick(e);last=t;mark(t);say(t)};
   const leave=e=>{if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth||e.relatedTarget===null)reset()};
   const drop=e=>{
     if(!hasFiles(e)||!active()){reset();return}
-    e.preventDefault();const t=pick(e);reset();
+    // 놓은 자리가 폴더면 그 폴더, 아니면 마지막으로 표시해 보여 준 곳(사람이 본 표시 그대로).
+    e.preventDefault();const t=pick(e)||last;reset();
     const files=Array.from(e.dataTransfer?.files||[]);
     if(files.length)onFiles(files,t||null);
   };
