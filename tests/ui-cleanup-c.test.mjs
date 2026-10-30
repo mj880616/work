@@ -71,7 +71,10 @@ test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트
   assert.match(notes, /<div class="basket-detail-head">\$\{basketBackHtml\(selected\?\.id, NOTE_BACK, rt\)\}<div class="note-head-main"/);
   assert.match(notes, /hasAttribute\('data-note-back'\)\) close\(\);/);
   assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] > \[data-note-detail\] > \.basket-detail-head:not\(:has\(> \[data-basket-return\]\)\):has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
-  assert.match(read('feed.css'), /#appView \.feed-view \.feed-pane > \.feed-detail-head:first-child,\s*#appView \.feed-view \.feed-list > \.feed-head:first-child:has\(> \.back-text\)\{ margin:calc\(-1 \* \(var\(--kptu-touch-target,44px\) \+ 12px\)\) 0 12px;/);
+  assert.match(read('feed.css'), /#appView \.feed-view \.feed-pane > \.feed-detail-head:first-child,\s*#appView \.feed-view \.feed-list > \.feed-head:first-child:has\(> \.back-text\)\{ margin:0 0 12px;/);
+  // UI-머리줄겹침: 음수 여백으로 위 머리줄 자리에 끌어올리지 않고, 빈 위 머리줄을 접는다(위에 다른 칸이 있어도 포개지지 않음).
+  for (const f of ['feed.css', 'basket.css', 'ui-standard.css', 'reference-bundles.css']) assert.doesNotMatch(read(f), /margin:calc\(-1 \* \(var\(--kptu-touch-target/, f);
+  assert.match(read('ui-standard.css'), /html:has\(#basketView:not\(\.hidden\) > \[data-basket-detail\]:not\(\[hidden\]\)\) #appView > \.mobile-shell-header\{ display:none; \}/);
   assert.match(read('journal.js'), /function syncDayTitle\(\) \{\s*const box = \$\('\[data-journal-day\]'\); if \(!box\) return;\s*box\.querySelector\('\[data-journal-day-title\]'\)\?\.remove\(\);/);
 });
 

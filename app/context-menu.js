@@ -91,6 +91,7 @@ function pin(trigger, x, y) {
 let openDetails = null; // { details, summary, panel, off }
 function resetPanel(panel) {
   for (const key of ['position', 'left', 'top', 'right', 'bottom', 'maxHeight', 'overflowY']) panel.style.removeProperty(key.replace(/[A-Z]/g, m => '-' + m.toLowerCase()));
+  delete panel.dataset.scrollBelow;
 }
 function closeDetails(focusBack) {
   if (!openDetails) return;
@@ -112,6 +113,10 @@ function placeDetails(panel, x, y) {
   const at = panel.getBoundingClientRect();
   if (Math.abs(at.left - left) > 0.5) panel.style.left = left + (left - at.left) + 'px';
   if (Math.abs(at.top - top) > 0.5) panel.style.top = top + (top - at.top) + 'px';
+  // UI-메뉴잘림: 창보다 길 때만 아래 흐림으로 '더 있음'(anchored-popup.js markScrollMore와 같은 표시, data-scroll-below → base-ui.css).
+  const more = () => { if (panel.scrollHeight - panel.clientHeight > 1 && panel.scrollTop + panel.clientHeight < panel.scrollHeight - 1) panel.dataset.scrollBelow = '1'; else delete panel.dataset.scrollBelow; };
+  if (!panel.dataset.scrollBelowBound) { panel.dataset.scrollBelowBound = '1'; panel.addEventListener('scroll', more, { passive: true }); }
+  more();
 }
 // A button menu whose panel a stylesheet pins under the ⋯ (position absolute, no left / top set by the menu's own code) is moved to
 // the pointer the same way. A panel the menu code places itself (fixed, or with an inline left / top) already follows the pinned box.
