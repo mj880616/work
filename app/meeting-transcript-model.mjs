@@ -134,11 +134,32 @@ export function durationText(seconds){
 }
 export function sizeText(bytes){const n=Number(bytes)||0;return n>=1024*1024?`${(n/1024/1024).toFixed(1)}MB`:`${Math.max(1,Math.round(n/1024))}KB`}
 // 서버 실패 코드 → 화면 한 줄(짧게). 모르는 코드는 일반 문구.
+// 전사 실패는 원인별로 나눈다(MTG-폰녹음전사): 전사 서비스(Gemini) 실패 · 파일 형식 · 연결 끊김(화면이 받은 시간 초과·네트워크 오류·서버 강제 종료).
+// 문구는 서버 model.mjs MESSAGES와 같다(시험이 맞춰 봄).
 const TRANSCRIBE_FAIL=Object.freeze({
   not_ready:'녹음 전사는 준비 중이에요.',monthly_limit:'이번 달 녹음 전사 한도에 닿았어요.',busy:'다른 녹음을 전사하는 중이에요. 끝난 뒤 다시 눌러 주세요.',
   too_large:'녹음 파일은 100MB까지 전사할 수 있어요.',too_long:'녹음은 1시간까지 전사할 수 있어요.',bad_type:'녹음 파일(m4a·mp3·wav 등)만 전사할 수 있어요.',
   empty_transcript:'녹음에서 글을 찾지 못했어요.',
+  drive_failed:'녹음 파일을 Drive에서 읽거나 저장하지 못했어요.',
+  gemini_failed:'전사 서비스(Gemini)가 실패했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_upload:'전사 서비스(Gemini)에 녹음을 올리지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_timeout:'전사 서비스(Gemini) 응답이 늦어 멈췄어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_file_failed:'전사 서비스가 녹음 파일 형식을 읽지 못했어요. 녹음은 Drive에 그대로 있어요.',
+  gemini_rejected:'전사 서비스가 녹음 파일을 받지 않았어요(파일 형식). 녹음은 Drive에 그대로 있어요.',
+  bad_format:'녹음 파일이 깨져 읽지 못했어요(파일 형식). 녹음은 Drive에 그대로 있어요.',
 });
+export const TRANSCRIBE_DISCONNECTED='연결이 끊겨 전사 결과를 받지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.';
 const KNOWN_FAIL=new Set(Object.values(TRANSCRIBE_FAIL));
-// 서버는 실패마다 정해진 한국어 한 줄(error)을 준다. 아는 줄이면 그대로, 아니면(Drive·Gemini 실패 등) 일반 문구.
-export function transcribeFailText(message){const m=String(message||'');return TRANSCRIBE_FAIL[m]||(KNOWN_FAIL.has(m)?m:'전사하지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.')}
+// 화면이 받은 오류가 연결 끊김인지: 시간 초과·네트워크 오류, 또는 서버 함수가 강제로 끝나 정해진 한 줄 없이 온 504·546.
+function disconnected(e){
+  if(!e||typeof e!=='object')return false;
+  if(e.code==='timeout'||e.code==='network_error')return true;
+  return (e.status===504||e.status===546)&&!KNOWN_FAIL.has(String(e.message||''));
+}
+// 서버는 실패마다 정해진 한국어 한 줄(error)을 준다. 아는 줄·코드면 그대로, 연결 끊김은 따로, 아니면 일반 문구.
+// 글(서버 줄·코드) 또는 오류 객체(runtime api가 던진 것: message·code·status)를 받는다.
+export function transcribeFailText(failure){
+  if(disconnected(failure))return TRANSCRIBE_DISCONNECTED;
+  const m=String((failure&&typeof failure==='object'?failure.message:failure)||'');
+  return TRANSCRIBE_FAIL[m]||(KNOWN_FAIL.has(m)?m:'전사하지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.');
+}

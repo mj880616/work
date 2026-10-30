@@ -125,7 +125,8 @@ test('2단계 녹음 전사: 상한·종류는 서버와 같고, 실패 문구�
   assert.equal(sizeText(5*1024*1024),'5.0MB');assert.equal(sizeText(10),'1KB');
   for(const code of ['not_ready','monthly_limit','busy','too_large','too_long','bad_type','empty_transcript'])assert.equal(transcribeFailText(server.MESSAGES[code]),server.MESSAGES[code]);
   assert.equal(transcribeFailText('not_ready'),server.MESSAGES.not_ready);
-  assert.match(transcribeFailText(server.MESSAGES.drive_failed),/녹음은 그대로/);
+  // MTG-폰녹음전사: Drive 실패도 서버 줄 그대로(원인별 문구). Gemini·형식 갈래는 tests/meeting-recording-ogg.test.mjs.
+  assert.equal(transcribeFailText(server.MESSAGES.drive_failed),server.MESSAGES.drive_failed);
   assert.match(transcribeFailText('Error: boom'),/녹음은 그대로/);
 });
 

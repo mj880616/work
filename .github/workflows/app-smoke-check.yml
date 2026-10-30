@@ -67,6 +67,9 @@ on:
       - 'tests/meeting-recording-pieces.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
       - 'supabase/functions/meeting-transcribe/recording.mjs'
+      - 'tests/meeting-recording-ogg.test.mjs'
+      - 'supabase/functions/meeting-transcribe/ogg.mjs'
+      - 'supabase/functions/meeting-transcribe/model.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -179,6 +182,9 @@ on:
       - 'tests/meeting-recording-pieces.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
       - 'supabase/functions/meeting-transcribe/recording.mjs'
+      - 'tests/meeting-recording-ogg.test.mjs'
+      - 'supabase/functions/meeting-transcribe/ogg.mjs'
+      - 'supabase/functions/meeting-transcribe/model.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -370,6 +376,9 @@ jobs:
 
       - name: Laptop recording 1-minute pieces (MTG-녹음1분조각, 60 pieces·mixed pieces join·rec_finish more·Drive calls in batches)
         run: node --test tests/meeting-recording-pieces.test.mjs
+
+      - name: Phone recording Ogg/Opus join and repair before transcription (MTG-폰녹음전사, byte pieces join·granule/EOS fix·failure texts by cause)
+        run: node --test tests/meeting-recording-ogg.test.mjs
 
       - name: Meeting card time, kind colors and PC layout
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
