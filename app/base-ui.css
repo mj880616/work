@@ -322,3 +322,10 @@ html .img-slot:not([data-img-state="shown"]){background:color-mix(in srgb,var(--
 .wait-empty[hidden]{display:none}
 #deferredFeatureStatus.wait-only-bar{position:sticky;top:0;z-index:5;margin:0}
 @media (prefers-reduced-motion:reduce){.wait-bar::after{animation:none;width:100%;opacity:.25}}
+/* UI-창잘림·끌어옮기기: 넓은 화면(761px~)에서 버튼 옆에 뜬 작은 창(data-anchor-side, anchored-popup.js)은 제목 줄을 잡고 끌어 옮긴다.
+   제목 왼쪽 작은 손잡이(∷)와 손 모양 커서. 폰 아래 창에는 data-anchor-side가 없어 보이지 않는다. 제목 없는 ⋯ 메뉴 판은 손잡이 없음. */
+@media (min-width:761px){
+  [data-anchor-side] .anchored-drag-title{cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none}
+  [data-anchor-side].anchored-dragging .anchored-drag-title{cursor:grabbing}
+  [data-anchor-side] .anchored-drag-title>:first-child::before{content:"∷";display:inline-block;margin-right:6px;font-weight:400;font-size:12px;line-height:1;color:var(--kptu-faint,var(--kptu-muted));vertical-align:1px}
+}

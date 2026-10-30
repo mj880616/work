@@ -16,10 +16,13 @@ function close(then,fromBack=false){
 }
 function position(){
   if(!active)return;
-  const rect=active.trigger.getBoundingClientRect(),margin=12,gap=8,width=Math.min(200,innerWidth-margin*2);
-  panel.style.width=width+'px';panel.style.left=Math.max(margin,Math.min(rect.right-width,innerWidth-width-margin))+'px';
+  // UI-창잘림·끌어옮기기: the left edge comes from the width the menu was really drawn at (its CSS may make it wider than 200px),
+  // so a menu opened from a button at the window's right edge is never cut. Menus have no title row and are not dragged.
+  const rect=active.trigger.getBoundingClientRect(),margin=12,gap=8,vw=document.documentElement.clientWidth||innerWidth;
+  panel.style.width=Math.min(200,vw-margin*2)+'px';
   const below=innerHeight-rect.bottom-gap-margin,above=rect.top-gap-margin,down=below>=Math.min(panel.scrollHeight,100)||below>=above;
-  panel.style.maxHeight=Math.max(0,down?below:above)+'px';const height=panel.getBoundingClientRect().height;
+  panel.style.maxHeight=Math.max(0,down?below:above)+'px';const box=panel.getBoundingClientRect(),width=box.width,height=box.height;
+  panel.style.left=Math.max(margin,Math.min(rect.right-width,vw-width-margin))+'px';
   panel.style.top=Math.max(margin,Math.min(down?rect.bottom+gap:rect.top-gap-height,innerHeight-height-margin))+'px';
 }
 function open(trigger){
