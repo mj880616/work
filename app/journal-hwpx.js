@@ -167,9 +167,12 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   const title = el('h4', 'journal-heading', '주간보고 한글 파일(.hwpx)'); title.id = 'journalHwpxTitle'; title.tabIndex = -1;
   const status = el('p', 'journal-hwpx-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.dataset.hwpxStatus = '';
   const body = el('div', 'journal-hwpx-body');
-  // 임시저장 한 줄: "임시저장 14:32" / "저장 중…" / "저장 못 함 — [다시]" / 준비 중.
+  // 임시저장 한 줄: "임시저장 14:32" / "저장 중…" / "저장 못 함 — [다시]" / 준비 중. 상자 맨 위 제목 줄 오른쪽 끝에 작은 글씨로 둔다
+  // (JOURNAL-임시저장자리, 요청함 10/30). 제목은 길면 말줄임, 이 줄은 글자만([다시]만 누름). 상자 안 다른 자리에는 두지 않는다.
+  const head = el('div', 'journal-hwpx-head'); head.dataset.hwpxHead = '';
   const draftLine = el('p', 'journal-hwpx-draft'); draftLine.dataset.hwpxDraftStatus = ''; draftLine.hidden = true; draftLine.setAttribute('aria-live', 'polite');
-  panel.append(title, draftLine, status, body);
+  head.append(title, draftLine);
+  panel.append(head, status, body);
   // UI-눌림느낌: the small [복사] says '✓ 복사됨' for 1.5s once the copy worked.
   // JOURNAL-복사버튼: [주간보고 초안 복사]는 이 줄의 작은 [복사]로 옮김(같은 복사 기능은 journal.js가 onCopy로 넘김). 한글 파일 상자가 열려도 [복사]는 남는다.
   const bar = el('div', 'journal-hwpx-bar');
@@ -1184,14 +1187,16 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   function paintDraft() {
     const st = state?.store;
     draftLine.hidden = !st || panel.hidden;
-    if (!st) { draftLine.replaceChildren(); return; }
+    if (!st) { draftLine.replaceChildren(); draftLine.removeAttribute('title'); return; }
     draftLine.dataset.kind = st.status === 'failed' ? 'error' : '';
-    if (st.status === 'missing') draftLine.replaceChildren(DRAFT_TEXT.missing);
-    else if (st.status === 'saving') draftLine.replaceChildren(DRAFT_TEXT.saving);
-    else if (st.status === 'failed') { const again = button('다시', 'hwpxDraftRetry'); again.setAttribute('aria-label', '임시저장 다시'); draftLine.replaceChildren(DRAFT_TEXT.failed, again); }
-    else if (st.status === 'readFailed') draftLine.replaceChildren(DRAFT_TEXT.readFailed);
-    else if (st.savedAt && st.status === 'saved') draftLine.replaceChildren(`임시저장 ${hm(st.savedAt)}`);
-    else draftLine.replaceChildren('고치면 서버에 임시저장해요.');
+    // 글은 말줄임 칸 하나에 넣고(제목 줄이 좁으면 잘림), 전체 글은 title로 둔다.
+    const text = value => { const t = el('span', 'journal-hwpx-draft-text', value); draftLine.title = value; return t; };
+    if (st.status === 'missing') draftLine.replaceChildren(text(DRAFT_TEXT.missing));
+    else if (st.status === 'saving') draftLine.replaceChildren(text(DRAFT_TEXT.saving));
+    else if (st.status === 'failed') { const again = button('다시', 'hwpxDraftRetry'); again.setAttribute('aria-label', '임시저장 다시'); draftLine.replaceChildren(text(DRAFT_TEXT.failed), again); }
+    else if (st.status === 'readFailed') draftLine.replaceChildren(text(DRAFT_TEXT.readFailed));
+    else if (st.savedAt && st.status === 'saved') draftLine.replaceChildren(text(`임시저장 ${hm(st.savedAt)}`));
+    else draftLine.replaceChildren(text('고치면 서버에 임시저장해요.'));
   }
   const cellLabel = cell => {
     if (cell === 'me') return '담당 팀원 칸의 내 이름';

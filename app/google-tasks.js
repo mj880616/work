@@ -13,6 +13,7 @@ import { paintFreshness } from './data-freshness.js';
 import { mountSplitResize } from './split-resize.js';
 import { followPane } from './follow-pane.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
+import { bindRowSwipe } from './row-swipe.js';
 (()=>{
 'use strict';
 if(window.__KPTU_GOOGLE_TASKS__)return;
@@ -382,6 +383,9 @@ function renderTasks(tasks){
   if(!unlinkedOnly)paintBody(body,'gt-list',(pending.length?'':emptyHtml())+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('tomorrow','내일',tomorrow)+group('week','일주일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length} <span class="gt-disclosure">▸</span></summary>${completed.map(x=>row(x)).join('')}</details>`:''));}
   if(unlinkedOnly){section()?.classList.remove('gt-pc');syncSplit();const unlinked=pending.filter(x=>x.t.unlinked);paintBody(body,'gt-list',`<div class="gt-group-head" tabindex="-1" data-gt-unlinked-heading>연결 안 된 할 일 ${unlinked.filter(x=>!isDone(x.t)).length} <button type="button" data-gt-show-all>전체 보기 ›</button></div>${unlinked.map(x=>row(x,isOverdue(x.p,now))).join('')}`);body.querySelector('[data-gt-show-all]').onclick=()=>{unlinkedOnly=false;renderTasks(lastTasks)}}
   body.querySelectorAll('[data-gt-toggle]').forEach(b=>b.onclick=()=>toggleTask(lastTasks.find(t=>t.id===b.dataset.gtToggle)));
+  // UI-목록밀기: 폰 할 일 줄 — 오른쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 다시 밀면 되돌아감). Google 할 일 삭제는 휴지통·되돌리기가 없어 왼쪽 밀기는 두지 않는다(⋯의 [삭제]는 그대로).
+  bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'},end:null}:null},
+    run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(key==='toggle'&&t)toggleTask(t)}});
   body.querySelectorAll('[data-gt-edit]').forEach(b=>b.onclick=()=>{const task=lastTasks.find(t=>t.id===b.dataset.gtEdit);if(task)openEditor(task,{docked:pc})});
   body.querySelectorAll('[data-gt-menu]').forEach(b=>b.onclick=()=>taskMenu.open(b));
   body.querySelectorAll('[data-gt-source-note]').forEach(a=>a.onclick=openSourceNote);

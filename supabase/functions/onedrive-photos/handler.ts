@@ -3,9 +3,9 @@ import {
   isMediaMime, LIBRARY_DEFAULT, LIBRARY_MAX, LIBRARY_SCAN_PAGES, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, MEDIA_URL_TTL_S, mediaFields,
   MOVE_MAX, PHOTO_URLS_MAX, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed, seoulDay, SIZES, STAR_IDS_MAX,
   SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, TAKEN_FIX_AT, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, TRASH_PURGE_STEP, validItemId,
-  VIDEO_MIME,
+  SORTS, VIDEO_MIME,
 } from "./graph.ts";
-import type { OneDriveItem } from "./graph.ts";
+import type { OneDriveItem, Sort } from "./graph.ts";
 
 // 일기 2차(JOURNAL-일기원드라이브): 원드라이브 연결·폴더 지정·사진 읽기·사진 지우기(휴지통 이동). 권한 Files.ReadWrite(고른 폴더 안 사진만 다룸).
 // 사진 메뉴 ①(PHOTO-사진메뉴): 최신순 쪽 읽기(library)·달별(months)·날별(days) 장수, 재생·받기 주소(media-url), 여러 장 지우기,
@@ -44,9 +44,9 @@ type FolderRow = { item_id: string; parent_id: string | null; name: string; enab
 type PhotoRow = { item_id: string; parent_id: string; name: string; taken_at: string; approx: boolean; taken_day: string };
 type MediaRow = PhotoRow & {
   kind: string; mime: string | null; width: number | null; height: number | null; duration_ms: number | null; screenshot: boolean;
-  trashed_at?: string | null; orig_parent_id?: string | null;
+  trashed_at?: string | null; orig_parent_id?: string | null; size_bytes?: number | null; uploaded_at?: string | null;
 };
-const MEDIA_COLS = "item_id,parent_id,name,taken_at,approx,taken_day,kind,mime,width,height,duration_ms,screenshot";
+const MEDIA_COLS = "item_id,parent_id,name,taken_at,approx,taken_day,kind,mime,width,height,duration_ms,screenshot,size_bytes,uploaded_at";
 const FILTERS = ["all", "star", "video", "shot"] as const;
 type Filter = typeof FILTERS[number];
 const iso = (v: unknown) => new Date(String(v)).toISOString();
@@ -517,7 +517,27 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   const itemOut = (r: MediaRow) => ({
     id: r.item_id, name: r.name, taken_at: iso(r.taken_at), approx: r.approx === true, day: String(r.taken_day).slice(0, 10), kind: r.kind === "video" ? "video" : "photo",
     mime: r.mime ?? null, width: r.width ?? null, height: r.height ?? null, duration_ms: r.duration_ms ?? null, screenshot: r.screenshot === true,
+    size_bytes: r.size_bytes ?? null, uploaded_at: r.uploaded_at ? iso(r.uploaded_at) : null,
   });
+  // PHOTO-정렬: 찍은 날 최근 먼저(taken_desc)가 아닌 기준. 화면 photos-model.mjs sortCompare와 같은 규칙이어야 한다(쪽을 이을 때 화면도 같은 순서로 합친다).
+  // 값이 없는 칸(옛 줄의 올린 시각·크기, 사진의 길이)은 올린 시각이면 찍은 시각으로 대신하고, 크기·길이는 맨 뒤로 보낸다. 같은 값이면 id로 순서를 정한다.
+  const nameOrder = new Intl.Collator("ko", { numeric: true });
+  type SortKey = string | number;
+  const sortKey = (sort: Sort, r: MediaRow): SortKey => sort === "taken_asc" ? iso(r.taken_at)
+    : sort === "uploaded_desc" ? iso(r.uploaded_at || r.taken_at) : sort === "name_asc" ? String(r.name || "")
+    : sort === "size_desc" ? (Number.isFinite(r.size_bytes) ? Number(r.size_bytes) : -1) : (Number.isFinite(r.duration_ms) ? Number(r.duration_ms) : -1);
+  const idAsc = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  function sortCmp(sort: Sort, ka: SortKey, ia: string, kb: SortKey, ib: string) {
+    if (sort === "name_asc") return nameOrder.compare(String(ka), String(kb)) || idAsc(ia, ib);
+    if (sort === "taken_asc") return String(ka).localeCompare(String(kb)) || idAsc(ia, ib);
+    const d = typeof ka === "number" && typeof kb === "number" ? kb - ka : String(kb).localeCompare(String(ka));
+    return d || idAsc(ib, ia);
+  }
+  function readSort(body: Record<string, unknown>): Sort {
+    const sort = body.sort === undefined ? "taken_desc" : body.sort;
+    if (typeof sort !== "string" || !(SORTS as readonly string[]).includes(sort)) throw new Fail(400, "onedrive_request_invalid");
+    return sort as Sort;
+  }
   // 보이는(켠 폴더, 휴지통 아님) 색인 행을 거르기에 맞춰 읽는다. 별표는 고른 id만 묶음으로 읽는다.
   async function readVisible(workspaceId: string, cols: string, filter: Filter, stars: Set<string> | null, more?: (q: Query) => Query) {
     const base = () => {
@@ -534,6 +554,36 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (Array.isArray(data)) out.push(...data as MediaRow[]);
     }
     return out;
+  }
+
+  // PHOTO-정렬: 찍은 날 최근 먼저가 아닌 기준의 쪽 읽기. 보이는 줄을 모두 읽어(달별 장수·별표와 같은 방식) 기준대로 줄 세운 뒤 cursor 다음 limit장.
+  // cursor = 앞 쪽 마지막 {v: 그 기준 값, id}. 같은 값은 id로 순서가 정해져 빠지거나 겹치지 않는다. folder_id·거르기는 찍은 날 기준과 같다.
+  async function sortedLibrary(workspaceId: string, conn: Conn, folder: { id: string }, body: Record<string, unknown>, filter: Filter,
+    stars: Set<string> | null, limit: number, sort: Sort) {
+    let cursor: { v: SortKey; id: string } | null = null;
+    if (body.cursor !== undefined && body.cursor !== null) {
+      const c = body.cursor as Record<string, unknown>;
+      const okV = typeof c?.v === "number" ? Number.isInteger(c.v) && c.v >= -1 : typeof c?.v === "string" && c.v.length <= 400;
+      if (!c || typeof c !== "object" || Array.isArray(c) || !okV || !validItemId(c.id)) throw new Fail(400, "onedrive_request_invalid");
+      if ((sort === "size_desc" || sort === "duration_desc") !== (typeof c.v === "number")) throw new Fail(400, "onedrive_request_invalid");
+      cursor = { v: c.v as SortKey, id: c.id as string };
+    }
+    let folderId: string | null = null;
+    if (body.folder_id !== undefined && body.folder_id !== null) {
+      if (!validItemId(body.folder_id)) throw new Fail(400, "onedrive_request_invalid");
+      folderId = body.folder_id;
+    }
+    const indexing = await autoSync(workspaceId, conn, folder);
+    const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+    if (folderId && !reach.has(folderId)) throw new Fail(404, "onedrive_folder_missing");
+    const shows = (r: MediaRow) => folderId ? r.parent_id === folderId : !!reach.get(r.parent_id)?.visible;
+    const rows = (await readVisible(workspaceId, MEDIA_COLS, filter, stars, (q) => folderId ? q.eq("parent_id", folderId) : q))
+      .filter(shows).map((r) => ({ r, k: sortKey(sort, r) })).sort((a, b) => sortCmp(sort, a.k, a.r.item_id, b.k, b.r.item_id));
+    const start = cursor ? rows.findIndex((x) => sortCmp(sort, x.k, x.r.item_id, cursor!.v, cursor!.id) > 0) : 0;
+    const page = start < 0 ? [] : rows.slice(start, start + limit);
+    const last = page[page.length - 1];
+    const next = last && start + limit < rows.length ? { v: last.k, id: last.r.item_id } : null;
+    return json({ items: page.map((x) => itemOut(x.r)), next_cursor: next, indexing });
   }
 
   const actions: Record<string, (ctx: { userId: string; workspaceId: string; body: Record<string, unknown> }) => Promise<Response>> = {
@@ -710,6 +760,8 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const { filter, stars } = readFilter(body);
       const limit = body.limit === undefined ? LIBRARY_DEFAULT : body.limit;
       if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > LIBRARY_MAX) throw new Fail(400, "onedrive_request_invalid");
+      const sort = readSort(body);
+      if (sort !== "taken_desc") return await sortedLibrary(workspaceId, conn!, folder, body, filter, stars, limit, sort);
       let cursor: { t: string; id: string } | null = null;
       if (body.cursor !== undefined && body.cursor !== null) {
         const c = body.cursor as Record<string, unknown>;

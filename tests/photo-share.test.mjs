@@ -86,7 +86,7 @@ test('다른 사이트 주소(원드라이브 임시 주소)는 읽지 않는다
 test('일기·사진 메뉴 크게 보기 [공유]는 누를 때 다시 받지 않고, 임시 주소를 글자·링크로 넘기지 않는다', () => {
   // PHOTO-사진메뉴 1차: 일기 크게 보기는 공용 부품 photo-strip.js로 옮겼다(일기·사진 메뉴가 함께 씀).
   const diary = read('app/photo-strip.js');
-  const share = diary.slice(diary.indexOf('function shareCurrent()'), diary.indexOf('// 한 손가락 세로 밀기'));
+  const share = diary.slice(diary.indexOf('function shareCurrent('), diary.indexOf('// 한 손가락 세로 밀기'));
   assert.match(share, /sharePhotoElement\(/);
   assert.doesNotMatch(share, /odPhotoUrl|diaryPhotoUrl|grabThumb|fetch\(/);
   for (const f of ['app/diary.js', 'app/photo-strip.js', 'app/photos.js', 'app/photo-share.js', 'app/photo-view.js']) assert.doesNotMatch(read(f), /navigator\.share\(\s*\{[^}]*\b(url|text)\s*:/);

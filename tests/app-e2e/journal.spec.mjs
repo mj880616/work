@@ -1731,6 +1731,30 @@ test('[주간보고 한글 파일] 임시저장 칸이 아직 없으면(DB 적�
  expect(f.writes).toEqual([]);expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
+// JOURNAL-임시저장자리 (요청함 10/30): 임시저장 한 줄은 상자 맨 위 제목 줄 오른쪽 끝 작은 글자. 상자 안 다른 자리엔 없고(하나뿐),
+// 제목이 길어도 제목만 말줄임되어 서로 겹치지 않는다. 폰 412·폴드 펼침 884·PC 1440.
+for(const width of [412,884,1440])test(`[주간보고 한글 파일] 임시저장 줄은 제목 줄 오른쪽 끝, 긴 제목도 겹치지 않음 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournalAt(page,width);await openWeekly(page);
+ await openDraft(page);
+ await orgRow(page,'가상 노동조합').fill('- 지난주 조직 소식\n- 자리 확인 줄');
+ const head=hwpx(page).locator('[data-hwpx-head]');
+ await expect(head.locator('[data-hwpx-draft-status]')).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
+ await expect(hwpx(page).locator('[data-hwpx-draft-status]')).toHaveCount(1);
+ const measure=()=>head.evaluate(h=>{
+  const t=h.querySelector('#journalHwpxTitle').getBoundingClientRect(),d=h.querySelector('[data-hwpx-draft-status]').getBoundingClientRect(),b=h.getBoundingClientRect();
+  return {overlap:t.right>d.left+0.5,sameRow:Math.abs((t.top+t.bottom)/2-(d.top+d.bottom)/2)<=4,atEnd:Math.abs(b.right-d.right)<=1,inside:d.left>=b.left&&d.right<=b.right+0.5,single:h.getBoundingClientRect().height<=Math.max(t.height,d.height)+1,small:parseFloat(getComputedStyle(h.querySelector('[data-hwpx-draft-status]')).fontSize)<parseFloat(getComputedStyle(h.querySelector('#journalHwpxTitle')).fontSize)};
+ });
+ expect(await measure()).toEqual({overlap:false,sameRow:true,atEnd:true,inside:true,single:true,small:true});
+ // 제목이 아주 길어도 제목만 말줄임: 임시저장 글은 그대로 보이고 겹침 0, 가로 넘침 없음.
+ await head.locator('#journalHwpxTitle').evaluate(n=>{n.textContent='아주 긴 제목 '.repeat(20);});
+ expect(await measure()).toEqual({overlap:false,sameRow:true,atEnd:true,inside:true,single:true,small:true});
+ await expect(head.locator('[data-hwpx-draft-status]')).toHaveText(/^임시저장 \d\d:\d\d$/);
+ expect(await head.locator('[data-hwpx-draft-status]').evaluate(d=>d.scrollWidth<=d.clientWidth+1)).toBe(true);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 // WEEKLY-환류 (docs/design/weekly-draft-feedback.md 3절): 5. 주요 일정 [빼기]·제목 고치기 → [확정] 뒤 "다음 주에도 쓸까요?"에서 [기억하기] →
 // 내 프로필 칸(weekly_schedule_memory) 하나만 PATCH → 다음 주에는 같은 원래 제목 일정에 기억한 이름이 먼저 들어가고 뺀 일정은 빠진다
 // ([이번 주만 넣기]로 그 주만 되살림) → [주간 정리] 맨 아래 '주간보고 기억'에서 [지우기]·[되돌리기]. 달력 원본은 그대로. 이름은 모두 합성.

@@ -98,9 +98,9 @@ test('거르기 네 가지·칸 수(폰 3~6·PC 5~12)·photo_view 읽기(결정 
   assert.equal(colsFor(false, null), 4); assert.equal(colsFor(true, null), 8);
   assert.equal(colsFor(false, 10), 6, 'PC에서 고른 값도 폰 범위로'); assert.equal(colsFor(true, 3), 5);
   assert.equal(stepPhotoCols(false, 3, 1), 3, '끝이면 그대로'); assert.equal(stepPhotoCols(false, 4, -1), 5); assert.equal(stepPhotoCols(true, 12, -1), 12);
-  assert.deepEqual(parsePhotoView({filter: 'shot', cols: 7}), {filter: 'shot', cols: 7});
-  assert.deepEqual(parsePhotoView({filter: 'bad', cols: 2}), {filter: 'all', cols: null});
-  assert.deepEqual(parsePhotoView(null), {filter: 'all', cols: null});
+  assert.deepEqual(parsePhotoView({filter: 'shot', cols: 7}), {filter: 'shot', cols: 7, sort: 'taken_desc'});
+  assert.deepEqual(parsePhotoView({filter: 'bad', cols: 2}), {filter: 'all', cols: null, sort: 'taken_desc'});
+  assert.deepEqual(parsePhotoView(null), {filter: 'all', cols: null, sort: 'taken_desc'});
   assert.equal(validValue('photo_view', {filter: 'video', cols: 12}), true);
   for (const bad of [{cols: 13}, {cols: 2}, {filter: 'x'}, {other: 1}, [], 'all', {cols: 4.5}]) assert.equal(validValue('photo_view', bad), false, JSON.stringify(bad));
 });

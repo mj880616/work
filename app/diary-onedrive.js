@@ -134,15 +134,20 @@ export const OD_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']);
 const mediaOf = p => ({id: p.id, name: String(p.name || ''), taken_at: String(p.taken_at || ''), approx: p.approx === true,
   day: dayRe.test(p.day || '') ? p.day : '', kind: p.kind === 'video' ? 'video' : 'photo',
   width: Number.isFinite(p.width) ? p.width : null, height: Number.isFinite(p.height) ? p.height : null,
-  duration_ms: Number.isFinite(p.duration_ms) ? p.duration_ms : null, screenshot: p.screenshot === true});
+  duration_ms: Number.isFinite(p.duration_ms) ? p.duration_ms : null, screenshot: p.screenshot === true,
+  size_bytes: Number.isFinite(p.size_bytes) ? p.size_bytes : null, uploaded_at: typeof p.uploaded_at === 'string' ? p.uploaded_at : ''});
 const filterBody = (filter, starIds) => ({filter: OD_FILTERS.includes(filter) ? filter : 'all', ...(starIds ? {star_ids: starIds} : {})});
 // 최신순 한 쪽: {items, next(다음 쪽 cursor 또는 null), indexing}.
 // folderId(사진 메뉴 ② 폴더 보기): 그 폴더 바로 안 사진만(꺼진 폴더도).
-export async function odLibrary(rt, {filter = 'all', cursor = null, limit = 120, starIds = null, folderId = null} = {}) {
-  const d = await odCall(rt, {action: 'library', ...filterBody(filter, starIds), limit, ...(cursor ? {cursor} : {}), ...(folderId ? {folder_id: folderId} : {})});
+// sort(PHOTO-정렬): 'taken_desc'(기본, 보내지 않음)가 아니면 서버가 그 기준으로 줄 세워 쪽을 준다. 그때 cursor는 {v, id}(그 기준 값).
+export async function odLibrary(rt, {filter = 'all', cursor = null, limit = 120, starIds = null, folderId = null, sort = 'taken_desc'} = {}) {
+  const d = await odCall(rt, {action: 'library', ...filterBody(filter, starIds), limit, ...(cursor ? {cursor} : {}), ...(folderId ? {folder_id: folderId} : {}),
+    ...(sort && sort !== 'taken_desc' ? {sort} : {})});
   const items = (Array.isArray(d?.items) ? d.items : []).filter(p => p && typeof p.id === 'string' && p.id && dayRe.test(p.day || '')).map(mediaOf);
   const n = d?.next_cursor;
-  return {items, next: n && typeof n.t === 'string' && typeof n.id === 'string' ? {t: n.t, id: n.id} : null, indexing: d?.indexing === true};
+  const next = !n || typeof n.id !== 'string' ? null : typeof n.t === 'string' ? {t: n.t, id: n.id}
+    : typeof n.v === 'string' || Number.isFinite(n.v) ? {v: n.v, id: n.id} : null;
+  return {items, next, indexing: d?.indexing === true};
 }
 // 달별 장수 {months:{'2026-10':n}, total}.
 export async function odMonths(rt, {filter = 'all', starIds = null} = {}) {
