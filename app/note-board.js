@@ -62,15 +62,17 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     const p = pointOf(drag.last);
     drag.card.style.left = `${Math.max(0, drag.place.x + p.x - drag.start.x)}px`; drag.card.style.top = `${Math.max(0, drag.place.y + p.y - drag.start.y)}px`;
   }
+  // 꾹 누르고 움직이지 않고 뗌 = 노트 메뉴. 터치는 손가락을 뗀 touchend에서 연다(브라우저가 꾹 누르기 끝을 pointerup 대신
+  // pointercancel로 보내도 메뉴가 뜨게 — 노트 목록·자료실 꾹 누르기와 같은 때). 마우스·펜은 꾹 누르기가 없다.
+  let heldUp = null;
+  function heldMenu(d) {
+    heldUp = null; suppressUntil = Date.now() + 600;
+    const btn = d.card.isConnected && d.card.querySelector('.nb-more'); if (btn) onMenu(btn, d.x, d.y);
+  }
   function finish(e) {
     const d = drag; stopEdge(); drag = null; clearTimeout(d.timer); dragOn(false);
     d.card.classList.remove('nb-dragging', 'nb-held');
-    if (!d.moving) {
-      if (!d.held) return; // 짧게 누르고 뗌 = 열기(click이 맡는다)
-      suppressUntil = Date.now() + 600; // 꾹 누르고 움직이지 않고 뗌 = 노트 메뉴
-      const btn = d.card.querySelector('.nb-more'); if (btn) onMenu(btn, d.x, d.y);
-      return;
-    }
+    if (!d.moving) { if (d.held) heldMenu(d); return; } // 짧게 누르고 뗌 = 열기(click이 맡는다)
     suppressUntil = Date.now() + 400;
     const p = pointOf(e), next = movedTo(d.place, p.x - d.start.x, p.y - d.start.y, topZ(places));
     const before = new Map(places); // 옮기기 전 자리(아직 저장 안 된 칸은 이 자리로 함께 저장)
@@ -121,13 +123,20 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (drag.touch) { if (!drag.edge) drag.edge = requestAnimationFrame(edgeLoop); }
     else edgeScroll(e);
   });
-  const up = e => { if (drag && e.pointerId === drag.pointerId) { if (e.type === 'pointercancel') cancelDrag(); else finish(e); } };
+  const up = e => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (drag.touch && drag.held && !drag.moving) { const d = drag; cancelDrag(); heldUp = d; suppressUntil = Date.now() + 600; return; } // 메뉴는 touchend
+    if (e.type === 'pointercancel') cancelDrag(); else finish(e);
+  };
   box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
   // 터치는 처음 누른 안쪽 요소(제목 글자 등)가 저절로 잡고 있다가, 끌기 시작에 칸으로 잡기를 옮기면 그 안쪽 요소에 lostpointercapture가 와서 칸까지 올라온다.
   // 그것을 끌기 끝으로 보면 8px쯤 움직이고 바로 놓인다(폰 '바로 끌기가 잘 안 됨'의 원인). 칸 자체가 잡기를 잃었을 때만 끝낸다.
   box.addEventListener('lostpointercapture', e => { if (drag && drag.moving && e.pointerId === drag.pointerId && e.target === drag.card) finish(e); });
   // 칸을 누르고 있는 동안의 touchmove는 브라우저 몫(스크롤·당겨서 새로고침·튕김)으로 넘기지 않는다. 판 빈 곳은 그대로 판 밀기.
   box.addEventListener('touchmove', e => { if (drag?.touch && e.touches.length === 1 && e.cancelable) e.preventDefault(); }, {passive:false});
+  box.addEventListener('touchend', e => { if (heldUp && !e.touches.length) { if (e.cancelable) e.preventDefault(); heldMenu(heldUp); } });
+  box.addEventListener('touchcancel', () => { heldUp = null; });
+  box.addEventListener('pointerdown', () => { heldUp = null; }, true);
   // 끈 뒤·꾹 누른 뒤의 클릭은 열기가 아니다.
   // 막는 것은 칸 열기(.nb-open)뿐: 칸의 ×(보드에서 빼기)·⋯(메뉴)는 끈 바로 뒤에도 누를 수 있다.
   box.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nb-card] .nb-open')) { e.preventDefault(); e.stopPropagation(); } }, true);
