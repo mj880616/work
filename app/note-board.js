@@ -123,7 +123,9 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   });
   const up = e => { if (drag && e.pointerId === drag.pointerId) { if (e.type === 'pointercancel') cancelDrag(); else finish(e); } };
   box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
-  box.addEventListener('lostpointercapture', e => { if (drag && drag.moving && e.pointerId === drag.pointerId) finish(e); });
+  // 터치는 처음 누른 안쪽 요소(제목 글자 등)가 저절로 잡고 있다가, 끌기 시작에 칸으로 잡기를 옮기면 그 안쪽 요소에 lostpointercapture가 와서 칸까지 올라온다.
+  // 그것을 끌기 끝으로 보면 8px쯤 움직이고 바로 놓인다(폰 '바로 끌기가 잘 안 됨'의 원인). 칸 자체가 잡기를 잃었을 때만 끝낸다.
+  box.addEventListener('lostpointercapture', e => { if (drag && drag.moving && e.pointerId === drag.pointerId && e.target === drag.card) finish(e); });
   // 칸을 누르고 있는 동안의 touchmove는 브라우저 몫(스크롤·당겨서 새로고침·튕김)으로 넘기지 않는다. 판 빈 곳은 그대로 판 밀기.
   box.addEventListener('touchmove', e => { if (drag?.touch && e.touches.length === 1 && e.cancelable) e.preventDefault(); }, {passive:false});
   // 끈 뒤·꾹 누른 뒤의 클릭은 열기가 아니다.
