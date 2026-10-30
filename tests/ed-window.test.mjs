@@ -155,7 +155,7 @@ test('opened and closed untouched: the editor value equals the start, so no save
 // organization / project record screens (update-window.js for the organization's [크게], record-window.js for an edit) open the new window. The old
 // big windows (md-editor.js, write-window.js) are deleted; no file in app/ names them any more.
 test('the new write window is opened by the note, update and record screens; nothing names the old one', () => {
-  for (const f of ['diary.js', 'home-read.js', 'journal.js']) assert.ok(!/update-window\.js|note-window\.js|record-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
+  for (const f of ['diary.js', 'journal.js', 'home-summary.js']) assert.ok(!/update-window\.js|note-window\.js|record-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
   for (const f of ['workplace-detail.js', 'project-system-v3.js', 'home-quick.js', 'basket.js', 'basket-notes.js', 'topbar-actions.js']) assert.ok(!/ed-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
   assert.match(readFileSync('app/note-window.js', 'utf8'), /from '\.\/ed-window\.js'/);
   assert.match(readFileSync('app/update-window.js', 'utf8'), /from '\.\/ed-window\.js'/);

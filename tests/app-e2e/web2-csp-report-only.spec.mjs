@@ -1,12 +1,13 @@
 // SEC-Web2CSP 1단계(보고만 하기): 운영 Worker(cloudflare/bokdoong-router.mjs)가 Web2 첫 화면·로그인 화면에 붙이는
 // Content-Security-Policy-Report-Only 헤더(cloudflare/web2-csp.mjs)를 시험 서버 응답에도 똑같이 붙이고,
-// 로그인 → 16개 메뉴를 한 바퀴 여는 동안 CSP 위반(securitypolicyviolation)이 0개인지 본다. 가짜 서버(filter-chip-fixture)만 쓴다.
+// 로그인 → 15개 메뉴를 한 바퀴 여는 동안 CSP 위반(securitypolicyviolation)이 0개인지 본다. 가짜 서버(filter-chip-fixture)만 쓴다.
 import {test, expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
 import {baseState, mockApp, signIn} from './helpers/filter-chip-fixture.mjs';
 import {WEB2_CSP, WEB2_REFERRER_POLICY} from '../../cloudflare/web2-csp.mjs';
 
-const VIEWS = ['home', 'calendar', 'tasks', 'journal', 'diary', 'photos', 'basket', 'library', 'meetings', 'team', 'pages', 'telegram', 'calls', 'ledger', 'hwp', 'arsenal'];
+// HOME-업무일지홈: 업무일지는 홈(home)이라 따로 열지 않는다.
+const VIEWS = ['home', 'calendar', 'tasks', 'diary', 'photos', 'basket', 'library', 'meetings', 'team', 'pages', 'telegram', 'calls', 'ledger', 'hwp', 'arsenal'];
 // 운영 Worker가 정책을 붙이는 주소(web2CspPage)를 시험 서버 경로(/app/…)로 옮긴 것.
 const PAGES = new Set(['/app/', '/app/index.html', '/app/login/', '/app/login/index.html']);
 
@@ -48,7 +49,7 @@ test('보고 장치 확인: 정책 밖 주소는 위반으로 잡히되 막히�
 });
 
 for (const [width, height] of [[412, 915], [1280, 900]]) {
-  test(`${width}px: 로그인과 16개 메뉴를 한 바퀴 여는 동안 CSP 위반 0개`, async ({page}) => {
+  test(`${width}px: 로그인과 15개 메뉴를 한 바퀴 여는 동안 CSP 위반 0개`, async ({page}) => {
     test.setTimeout(900000);
     const {violations, served} = await boot(page, width, height);
     expect(served).toEqual(expect.arrayContaining(['/app/', '/app/login/']));

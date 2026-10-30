@@ -7,12 +7,13 @@
 // - 순서는 서버(view_prefs.menu_layout = {bar, rest})에 둔다. 모르는 항목 이름은 버리고, 빠진 항목은 기본 자리에 다시 붙여
 //   나중에 메뉴가 늘어도 저장된 순서가 깨지지 않는다.
 
-// view: 라우터 화면 이름(없으면 note처럼 정리함 노트 쪽). group: 이 메뉴가 대표하는 화면들(일정 = 달력·할 일·업무일지·일기).
+// view: 라우터 화면 이름(없으면 note처럼 정리함 노트 쪽). group: 이 메뉴가 대표하는 화면들(일정 = 달력·할 일·일기).
+// HOME-업무일지홈: [홈]은 업무일지 화면이다(라우터 이름 home, 옛 이름 journal은 라우터 별칭). 그래서 [일정] 묶음에 업무일지가 없다.
 // icon: 24칸 선 그림 한 줄(폰 하단바·[메뉴] 창이 같이 쓴다). pc: PC 왼쪽 메뉴에서 이 항목 밑에 같이 따라오는 작은 메뉴 이름.
 export const ITEMS = Object.freeze([
   {id: 'home', label: '홈', view: 'home', icon: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9'},
   {id: 'basket', label: '정리함', view: 'basket', icon: 'M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3'},
-  {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'journal', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'journal', 'diary']},
+  {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'diary']},
   {id: 'note', label: '노트', kind: 'note', icon: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3'},
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.
   {id: 'meetings', label: '사업 보고', view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},

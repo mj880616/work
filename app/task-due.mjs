@@ -28,3 +28,12 @@ export function dueGroup(day, today = seoulDateKey(new Date())) {
   if (key === tomorrowKey(today)) return 'tomorrow';
   return key <= seoulDateKey(addSeoulDays(today, 7)) ? 'week' : 'later';
 }
+// HOME-업무일지홈 C(2026-10-30 명진 결정): 할 일이 줄로 나오는 곳(홈 할 일 칸, 정리함 챙길 것 줄, 담당조직 할 일 줄 등)의 기한 글자 하나.
+// '오늘' / 지난 기한 '지남 10.28' / 그 밖 '11.2 (월)'. 기한이 없으면 ''(화면은 아무것도 쓰지 않는다). 모양(작은 진회색)은 ui-standard.css .task-due-text.
+export function dueLabel(day, today = seoulDateKey(new Date())) {
+  const key = String(day || '').slice(0, 10);
+  if (!DAY.test(key)) return '';
+  if (key === today) return '오늘';
+  const [, m, d] = key.split('-').map(Number);
+  return key < today ? `지남 ${m}.${d}` : `${m}.${d} (${formatSeoulTime(key, {weekday:'short'})})`;
+}

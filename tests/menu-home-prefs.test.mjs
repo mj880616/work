@@ -62,7 +62,7 @@ test('바꾼 순서는 서버로 한 번에 보내고, 서버가 거절하면 �
 });
 test('새 코드는 서버 저장만 쓴다(이 기기에만 남는 저장 없음)', () => {
   const banned = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'document\\.' + 'cookie'].join('|'));
-  for (const file of ['menu-model.mjs', 'menu-layout.js', 'menu-edit.js', 'reorder-drag.js', 'home-cards-model.mjs', 'home-edit.js', 'home-extra.js']) assert.doesNotMatch(read('app/' + file), banned, file);
+  for (const file of ['menu-model.mjs', 'menu-layout.js', 'menu-edit.js', 'reorder-drag.js', 'home-summary.js', 'profile-status.js']) assert.doesNotMatch(read('app/' + file), banned, file);
 });
 test('메뉴 목록은 한 곳(menu-model.mjs)에서 정의하고 폰 하단바·[메뉴] 창·PC 왼쪽 메뉴가 읽는다', () => {
   assert.match(read('app/menu-layout.js'), /from '\.\/menu-model\.mjs'/);

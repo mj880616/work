@@ -3,7 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {laidOutBox} from './helpers/laid-out.mjs';
 // TASK-바로처리통일 (2026-10-23 사용자 결정 00:06): 업무일지 할 일 / 한 일의 바로 처리(동그라미 완료 + 5초 [되돌리기], 줄 ⋯ = 내일로 · 기한 바꾸기 ·
-// 고치기 · 지우기 / 끝낸 줄 다시 할 일로 · 고치기, PC hover·초점 줄에만 ⋯, 폰은 늘)를 홈 오늘 할 일·담당조직·프로젝트 상세 연결 할 일에도 같은
+// 고치기 · 지우기 / 끝낸 줄 다시 할 일로 · 고치기, PC hover·초점 줄에만 ⋯, 폰은 늘)를 홈 할 일 칸(HOME-업무일지홈: 홈 = 업무일지)·담당조직·프로젝트 상세 연결 할 일에도 같은
 // 공용 부품(task-inline.js)으로. 담당조직·프로젝트의 [연결 해제]는 ⋯ 안에 그대로 남는다. 달력 날짜 목록은 task-ops-unify.spec.mjs, 업무일지는 journal.spec.mjs.
 // 모의 자료만 쓴다(openHome). 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -22,26 +22,27 @@ async function taskCalls(page,c){
 }
 
 for(const width of [390,1280]){
- test(`홈 오늘 할 일: 동그라미 완료 + 5초 되돌리기, 줄 ⋯(PC hover·초점 / 폰 늘), 내일로·기한 바꾸기·고치기·지우기 ${width}`,async({page},info)=>{
+ test(`홈 할 일 칸: 동그라미 완료 + 5초 되돌리기, 줄 ⋯(PC hover·초점 / 폰 늘), 내일로·기한 바꾸기·고치기·지우기 ${width}`,async({page},info)=>{
   await page.setViewportSize({width,height:1000});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const c=await openHome(page);const calls=await taskCalls(page,c);
-  const card=page.locator('[data-home-card="tasks"]'),row=card.locator('[data-home-task="today"]'),more=row.locator('[data-home-task-menu]');
+  const card=page.locator('#homeView [data-journal-group="todo"]'),row=card.locator('li[data-journal-task="today"]'),more=row.locator('[data-journal-task-menu]');
+  const fold=card.locator('[data-journal-overdue]'),openFold=async()=>{if(!(await fold.evaluate(d=>d.open)))await fold.locator(':scope > summary').click();};
   await expect(row).toBeVisible();await expect(more).toBeEnabled();
   await expect(more).toHaveAccessibleName('오늘 항목 더 보기');
   // 작은 칸: 보이는 ⋯는 28px 안, 누르는 폭은 ::after 로 44px.
-  // 홈 칸은 이름·연결·회의 자료가 올 때마다 다시 그려진다(home-read.js paint). 붙어 있는 ⋯를 잰다.
+  // 홈 할 일 칸은 자료가 올 때마다 다시 그려진다(journal.js renderTasks). 붙어 있는 ⋯를 잰다.
   const b=await laidOutBox(more);expect(b.height).toBeLessThanOrEqual(32);expect(b.width).toBeLessThanOrEqual(32);
   if(width>=761){
    await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');
    await row.hover();await expect.poll(()=>opacity(more)).toBe('1');
    await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');
-   await row.locator('[data-home-edit]').focus();await expect.poll(()=>opacity(more)).toBe('1');
+   await row.locator('.journal-item-open').focus();await expect.poll(()=>opacity(more)).toBe('1');
    await page.mouse.move(5,5);
   }else await expect.poll(()=>opacity(more)).toBe('1');
   // ⋯ 항목
   await row.hover();await more.click();
-  const menu=page.locator('#homeTaskMenu');
+  const menu=page.locator('#journalTaskMenu');
   await expect(menu.getByRole('button')).toHaveText(['내일로','기한 바꾸기','고치기','지우기']);
   for(const btn of await menu.getByRole('button').all())expect((await btn.boundingBox()).height).toBeLessThanOrEqual(40);
   await page.screenshot({path:info.outputPath(`home-menu-${width}.png`)});
@@ -57,36 +58,38 @@ for(const width of [390,1280]){
   await expect.poll(()=>calls.update.length).toBe(1);
   expect(calls.update[0]).toEqual({action:'update',task_id:'today',task_list_id:'default',title:'오늘 항목',notes:'',due:'2026-10-09'});
   await expect(page.locator('#toast')).toHaveText("'오늘 항목' 기한을 10월 9일(금)로 바꿨어요.");
-  // 오늘 기한이 아니게 됐으니 오늘 할 일에서 빠진다(다시 읽은 목록).
+  // 그날 기한이 아니게 됐으니 홈 할 일 칸에서 빠진다.
   await expect(row).toHaveCount(0);
   // 동그라미: 지난 항목을 완료 → 5초 되돌리기 → 완료 취소
-  const late=card.locator('[data-home-task="overdue"]');
-  await late.locator('[data-home-toggle]').click();
-  await expect(late).toHaveClass(/completed/);
+  // 동그라미: 기한 지난 것(접힌 줄 안)을 완료 → 한 일 칸으로 → 5초 되돌리기 → 다시 할 일
+  const late=card.locator('li[data-journal-task="overdue"]'),doneLate=page.locator('#homeView [data-journal-group="done"] li[data-journal-task="overdue"]');
+  await openFold();
+  await late.locator('[data-journal-complete]').click();
+  await expect(doneLate).toBeVisible();await expect(late).toHaveCount(0);
   const undo=page.locator('[data-undo-notice]');
   await expect(undo).toContainText("'지연 항목'을 끝냈어요.");
   await undo.getByRole('button',{name:'되돌리기'}).click();
   await expect(undo).toContainText('다시 할 일로 돌려놨어요.');
-  await expect(late).not.toHaveClass(/completed/);
+  await expect(doneLate).toHaveCount(0);await expect(late).toHaveCount(1);
   await expect.poll(()=>calls.toggle.map(x=>x.completed)).toEqual([true,false]);
   // 내일로
-  await late.hover();await late.locator('[data-home-task-menu]').click();await menu.getByRole('button',{name:'내일로'}).click();
+  await openFold();await late.hover();await late.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'내일로'}).click();
   await expect.poll(()=>calls.update.length).toBe(2);expect(calls.update[1].due).toBe('2026-10-07');
   await expect(page.locator('#toast')).toHaveText("'지연 항목' 기한을 내일로 옮겼어요.");
   expect(errors).toEqual([]);
  });
 }
 
-test('홈 오늘 할 일 ⋯ 지우기: 확인 한 번, 취소하면 그대로, 확인하면 delete 요청 1번 390',async({page})=>{
+test('홈 할 일 칸 ⋯ 지우기: 확인 한 번, 취소하면 그대로, 확인하면 delete 요청 1번 390',async({page})=>{
  await page.setViewportSize({width:390,height:1000});
  const c=await openHome(page);const calls=await taskCalls(page,c);
- const row=page.locator('[data-home-card="tasks"] [data-home-task="today"]'),menu=page.locator('#homeTaskMenu');
+ const row=page.locator('#homeView [data-journal-group="todo"] li[data-journal-task="today"]'),menu=page.locator('#journalTaskMenu');
  let accept=false;const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());void(accept?d.accept():d.dismiss());});
- await row.locator('[data-home-task-menu]').click();await menu.getByRole('button',{name:'지우기'}).click();
+ await row.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'지우기'}).click();
  await expect.poll(()=>dialogs.length).toBe(1);expect(dialogs[0]).toBe('이 Google 할 일을 삭제할까요?');
  expect(calls.delete).toEqual([]);await expect(row).toBeVisible();
  accept=true;
- await row.locator('[data-home-task-menu]').click();await menu.getByRole('button',{name:'지우기'}).click();
+ await row.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'지우기'}).click();
  await expect(row).toHaveCount(0);
  expect(calls.delete).toEqual([{action:'delete',task_list_id:'default',task_id:'today'}]);
  await expect(page.locator('#toast')).toHaveText('할 일을 삭제했어요.');
@@ -149,7 +152,8 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  await input.fill('2026-10-12');await page.locator('#taskDuePopup').getByRole('button',{name:'바꾸기'}).click();
  await expect.poll(()=>state.calls.update.length).toBe(1);
  expect(state.calls.update[0]).toEqual({action:'update',task_id:'l-1',task_list_id:'@default',title:'합성 연결 할 일',notes:'',due:'2026-10-12'});
- await expect(row.locator('.gt-due')).toContainText('10. 12.');
+ // HOME-업무일지홈 C: 연결 할 일 줄 기한은 공용 기한 글자(task-due.mjs dueLabel, .task-due-text 진회색).
+ await expect(row.locator('[data-gt-linked-due]')).toHaveText('10.12 (월)');await expect(row.locator('[data-gt-linked-due]')).toHaveClass(/task-due-text/);
  // 고치기 = 수정 창
  await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'고치기'}).click();
  await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue('합성 연결 할 일');

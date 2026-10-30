@@ -30,8 +30,9 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   const requests=[];page.on('request',r=>{if(r.url().startsWith(SB))requests.push(r.url())});
   await open(page);
   await expect(page.locator('#homeView')).toBeVisible();
-  await expect(page.locator('[data-home-card="calendar"]')).toContainText('Google 캘린더 연결');
-  await expect(page.locator('[data-home-date]').first()).toHaveText(/\d+월 \d+일 [일월화수목금토]요일/);
+  // HOME-업무일지홈: 홈 = 업무일지. 맨 위 제목이 오늘 날짜, 그날 일정 칸이 있다.
+  await expect(page.locator('#homeView [data-journal-schedule]')).toBeVisible();
+  await expect(page.locator('#homeView [data-journal-title]')).toHaveText(/^\d+월 \d+일 [일월화수목금토]요일$/);
   expect(requests.some(u=>/app_tasks/.test(u))).toBe(false);
   const mobile=width<=760;
   await expect(page.locator('.mobile-tabs')).toBeVisible({visible:mobile});
@@ -115,7 +116,7 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
 });
 test('KST date crosses the day boundary independently of the browser timezone',async({page})=>{
   await page.clock.setFixedTime(new Date('2026-10-05T16:00:00Z'));await open(page);
-  await expect(page.locator('#homeView [data-home-date]')).toHaveText('10월 6일 화요일');
+  await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 6일 화요일');
 });
 test('drawer library item opens once and the account box has no copy-refresh row',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);

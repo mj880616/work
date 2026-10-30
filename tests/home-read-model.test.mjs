@@ -5,9 +5,6 @@ import {
   dayKey,
   milestoneChips,
   todayEvents,
-  dueTasks,
-  unlinkedTasks,
-  meetingTasks,
   weekUpdates,
 } from "../app/home-read-model.js";
 const now = Date.parse("2026-10-04T14:59:00Z");
@@ -67,44 +64,6 @@ test("all-day multi-day events overlap with exclusive end; timed events sorted",
   assert.deepEqual(
     todayEvents(es, now).map((e) => e.id),
     ["span", "early", "late"],
-  );
-});
-test("overdue oldest first; unlinked includes future, undated and meeting-only; Google status wins", () => {
-  const ts = [
-    { id: "today", due: "2026-10-04T00:00:00Z" },
-    { id: "past", due: "2026-10-02T00:00:00Z" },
-    { id: "meeting" },
-    { id: "future", due: "2026-10-12" },
-    { id: "done", status: "completed" },
-    { id: "pending" },
-  ];
-  const links = [
-    { google_task_id: "past", project_id: "p", status: "confirmed" },
-    {
-      google_task_id: "meeting",
-      meeting_id: "m",
-      status: "confirmed",
-      task_completed: true,
-    },
-    {
-      google_task_id: "done",
-      meeting_id: "m",
-      status: "confirmed",
-      task_completed: false,
-    },
-    { google_task_id: "pending", project_id: "p", status: "pending" },
-  ];
-  assert.deepEqual(
-    dueTasks(ts, now).map((t) => t.id),
-    ["past", "today"],
-  );
-  assert.deepEqual(
-    unlinkedTasks(ts, links).map((t) => t.id),
-    ["today", "meeting", "future", "pending"],
-  );
-  assert.deepEqual(
-    meetingTasks(ts, links).map((t) => t.id),
-    ["meeting"],
   );
 });
 test("weekly updates only assigned active orgs, end exclusive, newest five", () => {

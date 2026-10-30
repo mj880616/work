@@ -67,17 +67,11 @@ async function openOrg(page){
  await expect(page.locator('#wdModal')).toBeVisible();
  await expect(page.locator('#wdTitle')).toHaveText(orgs[0].name);
 }
-// 업무일지: 보이는 쪽(왼쪽 메뉴 또는 아래 [일정] 탭 → 위 전환 줄)으로 연다(journal.spec.mjs openJournalAt과 같은 길).
+// 업무일지 = 홈(HOME-업무일지홈): 폰은 하단 탭 [홈], PC 틀(761px~)은 사이드바 맨 위 [홈]으로 연다.
 async function openJournalAt(page,width){
- const nav=page.locator('.app-nav [data-view="journal"]');
- if(width>760&&await nav.isVisible())await nav.click();
- else{
-  // [일정] 탭은 마지막으로 본 쪽(달력·할 일·업무일지)을 연다. 업무일지가 아니면 위 전환 줄에서 고른다.
-  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
-  await expect(page.locator('#calendarView:visible, #journalView:visible, #tasksView:visible').first()).toBeVisible();
-  if(!await page.locator('#journalView').isVisible())await page.locator('.schedule-switch [data-view="journal"]:visible').first().click();
- }
- await expect(page.locator('#journalView')).toBeVisible();
+ if(width<=760)await page.locator('.mobile-tabs [data-view="home"]').click();
+ else await page.locator('#appView>.app-nav .sidebar-brand').click();
+ await expect(page.locator('#homeView')).toBeVisible();
 }
 const noSideScroll=async page=>expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 

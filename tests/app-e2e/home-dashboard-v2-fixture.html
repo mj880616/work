@@ -1,67 +1,9 @@
 <!doctype html>
 <html lang="ko">
-<head>
-<meta charset="utf-8">
-<link rel="stylesheet" href="../../app/styles.css">
-<style>:root{--line:#ddd;--muted:#6b7582;--blue:#315f95;--red:#a33b45}.dashboard-grid{display:grid}.panel{background:#fff;border:1px solid #ddd;padding:12px}.panel-head{display:flex;justify-content:space-between}.mini{font-size:11px}</style>
-</head>
+<head><meta charset="utf-8"><title>같은 출처 빈 쪽</title></head>
 <body>
-<section id="homeView"></section>
-<section id="projectsView" hidden><div id="projectGrid"><button type="button" data-ps3-project="project-1">인력확충 투쟁</button><button type="button" data-ps3-project="project-2">민자철도</button></div></section>
-<script>
-const now=new Date();
-const tomorrow=new Date(now.getTime()+86400000).toISOString();
-const yesterday=new Date(now.getTime()-86400000).toISOString();
-let failUserRequest=new URLSearchParams(location.search).has('fail-user');
-const raceSession=new URLSearchParams(location.search).has('race-session');
-let currentUserId='user-1';
-let releaseFirstMembership;
-const firstMembershipGate=new Promise(resolve=>{releaseFirstMembership=resolve});
-window.__apiCalls=[];
-window.KPTURuntime={
-  session:{ensure:async()=>true},
-  api:async(path)=>{
-    window.__apiCalls.push(path);
-    if(path==='/auth/v1/user'){
-      if(failUserRequest){failUserRequest=false;throw new Error('세션 확인에 실패했습니다.')}
-      return {id:currentUserId};
-    }
-    if(path.startsWith('/rest/v1/app_workspace_members')){
-      if(raceSession&&path.includes('user_id=eq.user-1')){
-        window.__firstMembershipPending=true;
-        await firstMembershipGate;
-      }
-      return [{workspace_id:currentUserId==='user-1'?'workspace-1':'workspace-2'}];
-    }
-    if(path.startsWith('/rest/v1/app_spaces'))return [
-      {id:'project-1',name:'인력확충 투쟁',parent_id:null,status:'active',metadata:{project_system:'v2',project_type:'campaign'},project_type:'campaign',current_phase:'execution',updated_at:new Date().toISOString(),is_legacy_snapshot:false},
-      {id:'project-2',name:'민자철도',parent_id:null,status:'active',metadata:{project_system:'v2',project_type:'ongoing'},project_type:'ongoing',current_phase:'consultation',updated_at:yesterday,is_legacy_snapshot:false},
-      {id:'legacy',name:'숨김 이식본',parent_id:null,status:'active',metadata:{legacy_snapshot:true},updated_at:new Date().toISOString(),is_legacy_snapshot:true}
-    ];
-    if(path.startsWith('/rest/v1/app_project_milestones'))return [
-      {id:'m1',project_id:'project-1',title:'국회 기자회견',status:'planned',start_at:tomorrow,updated_at:new Date().toISOString()}
-    ];
-    if(path.startsWith('/rest/v1/app_tasks'))return [
-      {id:'t1',title:'보도자료 확정',project_id:'project-1',status:'doing',priority:'high',due_at:tomorrow,updated_at:new Date().toISOString()},
-      {id:'t2',title:'국토부 면담자료 검토',project_id:'project-2',status:'todo',priority:'normal',due_at:null,updated_at:yesterday}
-    ];
-    if(path.startsWith('/rest/v1/app_documents'))return [
-      {id:'d1',title:'인력확충 기자회견 자료',project_id:'project-1',category:'선전·언론자료',source:'공공운수노조',document_date:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()},
-      {id:'d2',title:'민자철도 운영실태 개선요구',project_id:'project-2',category:'국토교통부 대응',source:'공공운수노조',document_date:null,updated_at:yesterday}
-    ];
-    return [];
-  }
-};
-window.__routeCalls=[];window.__projectClicks=[];
-window.__retryDashboard=()=>window.dispatchEvent(new Event('kptu:session-changed'));
-window.__switchDashboardSession=()=>{
-  currentUserId='user-2';
-  window.dispatchEvent(new Event('kptu:session-changed'));
-  releaseFirstMembership();
-};
-window.KPTURouter={go:(view,detail)=>window.__routeCalls.push({view,detail}),on:()=>{}};
-document.querySelectorAll('[data-ps3-project]').forEach(el=>el.addEventListener('click',()=>window.__projectClicks.push(el.dataset.ps3Project)));
-</script>
-<script src="../../app/home-dashboard-v2.js"></script>
+<!-- HOME-업무일지홈: 옛 홈 대시보드(home-dashboard-v2.js)는 코드째 지웠다. 이 쪽은 public-workspace-auth.spec.mjs가
+     다른 탭에서 같은 출처의 로그인 정보를 바꾸는 '조종 탭'으로만 쓴다(앱 스크립트 없음). -->
+<p>control</p>
 </body>
 </html>

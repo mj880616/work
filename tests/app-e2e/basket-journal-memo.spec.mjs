@@ -63,14 +63,12 @@ const rowMenu = page => page.locator('#basketRowMenu');
 const rowMore = (page, id) => page.locator(`[data-basket-row-more="${id}"]`);
 const row = (page, id) => page.locator(`[data-basket-row="${id}"]`);
 const notice = page => page.locator('[data-undo-notice]');
+// HOME-업무일지홈: 업무일지는 홈이다 — 폰은 하단 탭 [홈], PC는 사이드바 맨 위 [홈]. 들어오면 오늘(10월 6일 화요일).
 async function openJournal(page, width) {
-  if (width <= 760) {
-    await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
-    await expect(page.locator('#calendarView')).toBeVisible();
-    await page.locator('#calendarView .schedule-switch [data-view="journal"]').click();
-  } else await page.locator('.app-nav [data-view="journal"]').click();
-  await expect(page.locator('#journalView')).toBeVisible();
-  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
+  if (width <= 760) await page.locator('.mobile-tabs [data-view="home"]').click();
+  else await page.locator('#appView>.app-nav .sidebar-brand').click();
+  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 6일 화요일');
 }
 const group = (page, key) => page.locator(`#journalRoot [data-journal-group="${key}"]`);
 // JOURNAL-하루개편: 그 밖의 기록 is folded by default; open it (stays open while the screen lives).
@@ -143,9 +141,9 @@ for (const width of [390, 1280]) {
     expect(f.writes.at(-1).query['metadata->>journal_at']).toBe('eq.2026-10-06T01:00:00.000Z');
     await press(page, page.locator('[data-basket-filter="unclassified"]'), width);
     await expect(row(page, A)).toBeVisible();
-    // The schedule tab remembers the journal on a phone, so the second visit goes straight there.
-    await page.evaluate(() => window.KPTURouter.go('journal'));
-    await expect(page.locator('#journalView')).toBeVisible();
+    // HOME-업무일지홈: 두 번째 방문도 홈(업무일지).
+    await page.evaluate(() => window.KPTURouter.go('home'));
+    await expect(page.locator('#homeView')).toBeVisible();
     await openOthers(page, width);
     await expect(group(page, 'unsent').locator('.journal-item-open')).toHaveText(['합성 미분류 업데이트', '합성 기타 메모 하나']);
     await expect(group(page, 'memos')).toHaveCount(0);

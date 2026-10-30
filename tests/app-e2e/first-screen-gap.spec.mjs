@@ -79,7 +79,8 @@ async function topGap(page) {
 }
 
 // MTG-프로젝트합치기 ①: 사업영역 관리(projects)는 화면이 아니라 사업 보고 위 창이라 이 목록에서 뺀다(창 모양은 area-window.spec.mjs).
-const SCREENS = ['home', 'basket', 'note', 'calendar', 'tasks', 'journal', 'diary', 'meetings', 'library', 'pages', 'team', 'ledger', 'photos'];
+// HOME-업무일지홈: 업무일지는 홈(home)이라 따로 열지 않는다.
+const SCREENS = ['home', 'basket', 'note', 'calendar', 'tasks', 'diary', 'meetings', 'library', 'pages', 'team', 'ledger', 'photos'];
 async function show(page, name) {
   if (name === 'note') { await page.evaluate(() => window.KPTURouter.go('basket')); await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText(/노트 · \d+/); }
   else await page.evaluate(v => window.KPTURouter.go(v), name);

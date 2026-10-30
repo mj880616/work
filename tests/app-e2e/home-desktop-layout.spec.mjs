@@ -1,105 +1,130 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+// HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 = 업무일지. PC 1440·폴드 884(PC 틀)·폰 412에서
+// 앱을 열면 오늘 업무일지, 위에서부터 날짜 줄 → 요약 한 줄 → 업데이트 입력줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료·그 밖의 기록.
+// PC 틀(≥761)은 그날 일정·할 일이 좌우, 폰은 위아래이고 입력줄은 하단 탭 위 고정. 시계 2026-10-06(화) 10:00 KST(openHome).
+const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+const noOverflow = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+const box = (page, sel) => page.locator(sel).first().evaluate(el => { const r = el.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height, bottom: r.bottom, right: r.right}; });
 
-// A full-width sidebar, CSS-only reordering, or equal-height card rows must fail.
-async function boxes(page) {
-  return page.locator('#homeView').evaluate(root => {
-    const rect = el => { const {x,y,width,height,bottom,right}=el.getBoundingClientRect();return {x,y,width,height,bottom,right}; };
-    return Object.fromEntries([...root.querySelectorAll('[data-home-quick],[data-home-card]')]
-      .filter(el=>!el.hidden).map(el=>[el.dataset.homeCard||'quick',rect(el)]));
+for (const [width, phone] of [[1440, false], [884, false], [412, true]]) {
+  test(`home is today's work journal in the confirmed order (${width})`, async ({page}, info) => {
+    await page.setViewportSize({width, height: 1000});
+    await openHome(page);
+    await expect(page.locator('#homeView')).toBeVisible();
+    await expect(page.locator('#homeView #journalRoot')).toBeVisible();
+    expect(await page.evaluate(() => window.KPTURouter.current)).toBe('home');
+    expect(new URL(page.url()).searchParams.get('view')).toBeNull();
+    // 날짜 줄: 제목은 오늘, 오늘 칸이 고른 날이고 공용 '오늘' 표시.
+    await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 6일 화요일');
+    const today = page.locator('#homeView [data-journal-date="2026-10-06"]');
+    await expect(today).toHaveAttribute('aria-current', 'date');
+    await expect(today).toHaveAttribute('aria-pressed', 'true');
+    await expect(today).toHaveClass(/ds-today/);
+    await expect(page.locator('#homeView [data-journal-days] [data-journal-date]')).toHaveCount(7);
+    await expect(page.locator('#homeView [data-journal-today]')).toHaveText('이번 주');
+    // 순서: 날짜 줄 → 요약 → (PC) 입력줄 → 두 칸 → 오늘 한 일 → 재료.
+    const head = await box(page, '#homeView .journal-head');
+    const summary = await box(page, '#homeView [data-home-summary]');
+    const quick = await box(page, '#homeView .home-quick[data-home-quick]');
+    const sched = await box(page, '#homeView [data-journal-schedule]');
+    const tasks = await box(page, '#homeView [data-journal-tasks]');
+    const done = await box(page, '#homeView [data-journal-done-day]');
+    const mats = await box(page, '#homeView [data-journal-materials]');
+    expect(summary.y).toBeGreaterThanOrEqual(head.bottom - 1);
+    if (phone) {
+      // 폰: 입력줄은 화면 아래(하단 탭 위)에 붙고, 그날 일정 위에 할 일.
+      const tabs = await box(page, '.mobile-tabs');
+      expect(Math.abs(quick.bottom - tabs.y)).toBeLessThanOrEqual(2);
+      expect(await page.locator('#homeView .home-quick[data-home-quick]').evaluate(el => getComputedStyle(el).position)).toBe('fixed');
+      expect(tasks.y).toBeGreaterThanOrEqual(sched.bottom - 1);
+      expect(Math.abs(tasks.x - sched.x)).toBeLessThanOrEqual(1);
+    } else {
+      expect(quick.y).toBeGreaterThanOrEqual(summary.bottom - 1);
+      expect(sched.y).toBeGreaterThanOrEqual(quick.bottom - 1);
+      // PC 틀: 좌우 두 칸, 같은 줄에서 시작.
+      expect(Math.abs(tasks.y - sched.y)).toBeLessThanOrEqual(2);
+      expect(tasks.x).toBeGreaterThanOrEqual(sched.right - 1);
+    }
+    expect(done.y).toBeGreaterThanOrEqual(Math.max(sched.bottom, tasks.bottom) - 1);
+    expect(mats.y).toBeGreaterThanOrEqual(done.bottom - 1);
+    await expect(page.locator('#journalDoneTitle')).toHaveText('오늘 한 일');
+    // 그날 일정 칸: 개수·달력 › · D-day 칩(오늘만). 할 일 칸: 개수·할 일 ›.
+    await expect(page.locator('#homeView [data-journal-schedule] [data-journal-calendar]')).toHaveText('달력 ›');
+    await expect(page.locator('#homeView [data-journal-tasks] [data-journal-tasks-open]')).toHaveText('할 일 ›');
+    await expect(page.locator('#homeView [data-journal-dday] .journal-dday-chip')).toHaveText(['D-1 주요 일정']);
+    // 주간보고 재료는 펼쳐 있고, 그 밖의 기록은 접힌 한 줄.
+    await expect(page.locator('#homeView [data-journal-report]')).toBeVisible();
+    await expect(page.locator('#homeView details[data-journal-others]')).not.toHaveAttribute('open', '');
+    // 옛 홈 칸·옛 챙길 것 상자는 없다.
+    await expect(page.locator('[data-home-card],[data-home-cards],[data-journal-radar],#journalView')).toHaveCount(0);
+    expect(await noOverflow(page)).toBe(true);
+    await page.screenshot({path: info.outputPath(`home-journal-${width}.png`), fullPage: true});
   });
 }
-async function readingOrder(page) {
-  return page.locator('#homeView').evaluate(root=>[...root.querySelectorAll('[data-home-quick],[data-home-card]')]
-    .filter(el=>!el.hidden).map(el=>el.dataset.homeCard||'quick'));
-}
-async function noOverflow(page) {
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-}
-for(const width of [884,1024,1280,1440,760,390])for(const milestones of [true,false]) {
-  test(`home columns and reading order ${width} D-day ${milestones}`,async({page})=>{
-    await page.setViewportSize({width,height:1000});
-    await openHome(page,{milestones});
-    await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt);
-    const b=await boxes(page);
-    const left=['quick','calendar','tasks','meetings'];
-    const right=milestones?['dday']:[];
-    const order=width>=761?[...left,...right]:['quick','calendar','tasks','missed','tomorrow',...(milestones?['dday']:[]),'meetings'];
-    expect(await readingOrder(page)).toEqual(order);
-    if(width>=761&&milestones){
-      const sidebar=b[right[0]];
-      expect(sidebar.width).toBeGreaterThanOrEqual(320);
-      expect(sidebar.width).toBeLessThanOrEqual(380);
-      expect(b.quick.width).toBeGreaterThan(sidebar.width);
-      expect(Math.abs(b.quick.y-sidebar.y)).toBeLessThan(1);
-      expect(sidebar.x).toBeGreaterThan(b.quick.right);
-      for(let i=1;i<left.length;i++){
-        expect(b[left[i]].x).toBe(b.quick.x);
-        expect(b[left[i]].y-b[left[i-1]].bottom).toBeCloseTo(12,0);
-      }
-      expect(b.dday.bottom).toBeLessThan(b.meetings.bottom);
-    }else if(width<=760){
-      // 8-9e-2: the phone quick input is docked right above the bottom tabs; the cards stack above it.
-      const tabs=await page.locator('.mobile-tabs').boundingBox();
-      expect(Math.round(b.quick.bottom)).toBe(Math.round(tabs.y));
-      const cards=order.slice(1);
-      for(let i=1;i<cards.length;i++){
-        expect(b[cards[i]].x).toBe(b[cards[0]].x);
-        expect(b[cards[i]].y).toBeGreaterThanOrEqual(b[cards[i-1]].bottom);
-      }
-    }else{
-      for(let i=1;i<order.length;i++){
-        expect(b[order[i]].x).toBe(b.quick.x);
-        expect(b[order[i]].y).toBeGreaterThanOrEqual(b[order[i-1]].bottom);
-      }
-    }
-    if(width>=761&&!milestones){
-      await expect(page.locator('[data-home-column="aside"]')).toBeHidden();
-      const host=await page.locator('[data-home-cards]').boundingBox();
-      expect(b.quick.width).toBeCloseTo(host.width,0);
-    }
-    await noOverflow(page);
-    await expect(page.locator('[data-home-card="dday"]')).toHaveCount(1);
-    if(!milestones)await expect(page.locator('[data-home-card="dday"]')).toBeHidden();
-  });
-}
-test('home breakpoint moves the same D-day control and preserves input and focus',async({page})=>{
-  await page.setViewportSize({width:760,height:1000});await openHome(page);
-  await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt);
-  await page.locator('[data-quick-input]').fill('유지할 입력');
-  const chip=page.locator('[data-home-project]').first();await chip.focus();
-  await chip.evaluate(el=>window.layoutChip=el);
-  for(const width of [761,390,1440,760]){
-    await page.setViewportSize({width,height:1000});
-    await expect(chip).toBeFocused();
-    expect(await chip.evaluate(el=>el===window.layoutChip)).toBe(true);
-    await expect(page.locator('[data-quick-input]')).toHaveValue('유지할 입력');
-    await noOverflow(page);
-    // The D-day card moves on the media query's change event, which fires after the resize.
-    await expect.poll(()=>readingOrder(page)).toEqual(width>=761?['quick','calendar','tasks','meetings','dday']:['quick','calendar','tasks','missed','tomorrow','dday','meetings']);
+
+for (const width of [1440, 412]) test(`the [일정] menu has no 업무일지 line; 홈 menu is current (${width})`, async ({page}) => {
+  await page.setViewportSize({width, height: 900});
+  await openHome(page);
+  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#appView .nav-sub-btn', {hasText: '업무일지'})).toHaveCount(0);
+  await expect(page.locator('.schedule-switch button', {hasText: '업무일지'})).toHaveCount(0);
+  await expect(page.locator('[data-view="journal"]')).toHaveCount(0);
+  if (width < 761) {
+    await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current', 'page');
+    await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
+    await expect(page.locator('#calendarView')).toBeVisible();
+    await expect(page.locator('#calendarView .schedule-switch button')).toHaveText(['달력', '할 일', '일기']);
+  } else {
+    await expect(page.locator('#appView .sidebar-brand')).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#appView .nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력', '할 일', '일기']);
   }
 });
-for(const [card,view] of [['calendar','calendar'],['tasks','tasks'],['meetings','meetings']]){
-  test(`desktop home ${card} arrow keeps its destination`,async({page})=>{
-    await page.setViewportSize({width:1280,height:1000});await openHome(page);
-    await page.locator(`[data-home-card="${card}"] [data-goto="${view}"]`).click();
-    await expect(page.locator(`#${view}View`)).toBeVisible();
-  });
-}
-test('desktop home completion keeps its existing undo behavior',async({page})=>{
-  await page.setViewportSize({width:1024,height:1000});await openHome(page);
-  const toggle=page.locator('[data-home-toggle="today"]');await expect(toggle).toBeEnabled();
-  await toggle.click();await expect(toggle).toHaveAttribute('aria-pressed','true');
-  await toggle.click();await expect(toggle).toHaveAttribute('aria-pressed','false');
+
+test('the update input saves an update from the home', async ({page}) => {
+  await page.setViewportSize({width: 1440, height: 900});
+  const posts = [];
+  await openHome(page, {beforeLoad: () => page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', route => {
+    const req = route.request();
+    if (req.method() !== 'POST') return route.fallback();
+    const body = req.postDataJSON(); posts.push(body);
+    return route.fulfill({status: 201, json: [{id: 'n-home-1', workspace_id: 'w', kind: 'basket', raw_text: body.raw_text, created_at: '2026-10-06T01:00:00Z', updated_at: '2026-10-06T01:00:00Z', attachments: []}]});
+  })});
+  const quick = page.locator('#homeView .home-quick[data-home-quick]');
+  await expect(quick).toBeVisible();
+  await expect(quick.locator('[data-quick-mode="update"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(quick.locator('[data-quick-mode]')).toHaveText(['업데이트', '할 일']);
+  await quick.locator('[data-quick-input]').fill('홈에서 쓴 업데이트');
+  await quick.locator('[data-quick-save]').click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0]).toMatchObject({workspace_id: 'w', raw_text: '홈에서 쓴 업데이트'});
+  await expect(quick.locator('[data-quick-input]')).toHaveValue('');
+  await expect(page.locator('#toast')).toContainText('정리함에 저장했습니다.');
 });
-test('home refresh preserves the mounted input, draft and focus',async({page})=>{
-  await page.setViewportSize({width:1280,height:1000});await openHome(page);
-  await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt);
-  const input=page.locator('[data-quick-input]');await input.fill('갱신 중 입력');
-  await input.evaluate(el=>window.layoutInput=el);
-  await page.evaluate(()=>new Promise(resolve=>{
-    addEventListener('kptu:home-ready',resolve,{once:true});KPTUHome.start();
-  }));
-  await expect(input).toBeFocused();await expect(input).toHaveValue('갱신 중 입력');
-  expect(await input.evaluate(el=>el===window.layoutInput)).toBe(true);
+
+test('old addresses, reload and back all land on the new home (day kept in the address)', async ({page}) => {
+  await page.setViewportSize({width: 1440, height: 900});
+  await openHome(page, {query: '?view=journal&day=2026-10-07'});
+  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 7일 수요일');
+  await expect.poll(() => new URL(page.url()).searchParams.get('day')).toBe('2026-10-07');
+  // 새로고침해도 그 날.
+  await page.reload();
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout: 20000});
+  await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 7일 수요일');
+  // 다른 화면으로 갔다가 뒤로 가기 → 보던 날 그대로.
+  await page.locator('#appView .nav-btn[data-view="basket"]').click();
+  await expect(page.locator('#basketView')).toBeVisible();
+  await page.goBack();
+  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 7일 수요일');
+  // 로고(브랜드)를 누르면 오늘.
+  await page.locator('#appView [data-core-brand]').click();
+  await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 6일 화요일');
+  expect(new URL(page.url()).searchParams.get('day')).toBeNull();
+  // 옛 ?view=home도 홈.
+  await page.goto(page.url().replace(/\?.*$/, '') + '?view=home');
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout: 20000});
+  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 6일 화요일');
 });

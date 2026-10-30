@@ -2,8 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {dueGroup, DUE_GROUPS} from '../app/task-due.mjs';
-import {dueTasks} from '../app/home-read-model.js';
+import {dueGroup, DUE_GROUPS, dueLabel} from '../app/task-due.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -28,16 +27,20 @@ test('달·해 경계에서도 내일·일주일 안이 맞다', () => {
   assert.equal(dueGroup('2026-11-01', '2026-10-31'), 'tomorrow');
 });
 
-test('홈 [오늘 할 일]은 같은 묶음의 기한 지남·오늘만(내일은 빠짐)', () => {
-  const now = Date.parse('2026-10-29T03:00:00Z');
-  const t = (id, due, status = 'needsAction') => ({id, due, status});
-  const rows = dueTasks([t('a', '2026-10-30T00:00:00.000Z'), t('b', '2026-10-29T00:00:00.000Z'), t('c', '2026-10-27T00:00:00.000Z'), t('d', null), t('e', '2026-10-29T00:00:00.000Z', 'completed')], now);
-  assert.deepEqual(rows.map(r => r.id), ['c', 'b']);
+// HOME-업무일지홈 C: 할 일 줄 기한 글자 하나 — '오늘' / '지남 10.28' / '11.2 (월)', 기한 없으면 빈 글자.
+test('할 일 줄 기한 글자(dueLabel): 오늘·지남·날짜(요일), 없으면 안 씀', () => {
+  assert.equal(dueLabel('2026-10-30', '2026-10-30'), '오늘');
+  assert.equal(dueLabel('2026-10-30T00:00:00.000Z', '2026-10-30'), '오늘');
+  assert.equal(dueLabel('2026-10-28', '2026-10-30'), '지남 10.28');
+  assert.equal(dueLabel('2026-11-02', '2026-10-30'), '11.2 (월)');
+  assert.equal(dueLabel('2027-01-01', '2026-12-31'), '1.1 (금)');
+  assert.equal(dueLabel('', '2026-10-30'), '');
+  assert.equal(dueLabel(null, '2026-10-30'), '');
 });
 
 test('할 일 화면(폰 목록·PC 두 칸)은 공용 묶음 함수로 고르고 내일 묶음을 그린다', () => {
   const src = read('app/google-tasks.js');
-  assert.match(src, /import \{dueGroup\} from '\.\/task-due\.mjs'/);
+  assert.match(src, /import \{dueGroup, dueLabel\} from '\.\/task-due\.mjs'/);
   assert.match(src, /group\('tomorrow','내일',tomorrow\)/);
   assert.match(src, /gt-col-sub gt-col-sub-top">내일 \$\{tomorrow\.length\}/);
   assert.doesNotMatch(src, /inSevenDayWindow/);
