@@ -2986,3 +2986,58 @@ for(const width of [412,1440])test(`투쟁 사업장 현황: ⋯ 빼기·[되돌
  await expect(siteNames(page)).toHaveText(['나 지역 모임']);
  expect(f.errors).toEqual([]);
 });
+
+// CAL-조직참고캘린더(요청함 10/30 16:03): 내 프로필에서 고른 조직 참고 캘린더의 주요 일정은 [주간 정리] 4. 산하 조직 현황의 그 조직 칸에만
+// '캘린더 추천 · 날짜 제목 [+]'로 보인다. [+]는 요약 고치기 칸 끝에 그 줄을 넣고 [저장]해야 보고(조직 요약)에 들어간다.
+// 하루 카드·5. 주요 일정·참고 묶음에는 없다. 가상 캘린더·일정만 쓴다(그 주 10/5 + 앞으로 2주).
+for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그 조직 칸에만 추천 줄, [+]로 요약 칸에 넣고 저장, 다른 화면에는 없음 ${width}`,async({page})=>{
+ const f=await orgSummaryFixture(page,{width});
+ const reads=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>{
+  const q=new URL(r.request().url()).searchParams;
+  if(r.request().method()==='GET'&&q.get('select')==='ledger_calendar')return r.fulfill({json:[{ledger_calendar:{calendar:'cal-org',org:OA}}]});
+  return r.fallback();
+ });
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-calendar',r=>{
+  const q=new URL(r.request().url()).searchParams;
+  if(q.get('onlyCalendarId')!=='cal-org')return r.fallback();
+  reads.push([q.get('timeMin'),q.get('timeMax')]);
+  return r.fulfill({json:{events:[
+   {id:'r1',title:'가상 총력결의대회',calendarId:'cal-org',start:'2026-10-07T14:00:00+09:00',end:'2026-10-07T16:00:00+09:00',allDay:false},
+   {id:'r2',title:'중집',calendarId:'cal-org',start:'2026-10-08T10:00:00+09:00',end:'2026-10-08T12:00:00+09:00',allDay:false},
+   {id:'r3',title:'상집 회의',calendarId:'cal-org',start:'2026-10-08T15:00:00+09:00',end:'2026-10-08T16:00:00+09:00',allDay:false},
+   {id:'r4',title:'가상 농성장 설치',calendarId:'cal-org',start:'2026-10-19',end:'2026-10-20',allDay:true},
+   {id:'r5',title:'석 주 뒤 집회',calendarId:'cal-org',start:'2026-10-27T10:00:00+09:00',end:'2026-10-27T11:00:00+09:00',allDay:false},
+  ]}});
+ });
+ await openJournal(page,width);
+ // 하루 카드에는 참고 줄이 없다.
+ await expect(page.locator('#journalRoot [data-journal-calref]')).toHaveCount(0);
+ await openWeekly(page);
+ const orgs=weekly(page,'orgs'),a=orgs.locator('[data-journal-org="가상 노동조합"]');
+ const recs=a.locator('[data-journal-org-ref]');
+ await expect(recs).toHaveText(['캘린더 추천 · 10/7(수) 가상 총력결의대회 +','캘린더 추천 · 10/19(월) 가상 농성장 설치 +']);
+ expect(reads.length).toBeGreaterThan(0);
+ expect(reads.every(([a,b])=>a===new Date('2026-10-05T00:00:00+09:00').toISOString()&&b===new Date('2026-10-26T00:00:00+09:00').toISOString())).toBe(true);
+ // 다른 조직 칸·5. 주요 일정·참고 묶음에는 없다.
+ await expect(orgs.locator('[data-journal-org-ref]')).toHaveCount(2);
+ await expect(page.locator('#journalRoot [data-journal-weekly-chapter="calendar"]')).not.toContainText('총력결의대회');
+ await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"]')).not.toContainText('총력결의대회');
+ await expect(page.locator('#journalRoot [data-journal-weekly="note-calRefs"]')).toHaveCount(0);
+ // [+] → 요약 고치기 칸 끝에 그 줄(저장 전에는 서버에 쓰지 않음), [저장] → 조직 요약에 들어가고 추천 줄은 사라진다.
+ const before=f.sums.length;
+ await recs.first().locator('[data-journal-org-ref-add]').click();
+ const area=a.locator('[data-journal-org-edit-input]');
+ await expect(area).toHaveValue('10/7(수) 가상 총력결의대회');await expect(area).toBeFocused();
+ await expect(a.locator('[data-journal-org-edit-status]')).toContainText('[저장]을 누르면');
+ await expect(recs).toHaveText(['캘린더 추천 · 10/19(월) 가상 농성장 설치 +']);
+ expect(f.sums.length).toBe(before);
+ await recs.first().locator('[data-journal-org-ref-add]').click();
+ await expect(area).toHaveValue('10/7(수) 가상 총력결의대회\n10/19(월) 가상 농성장 설치');
+ await expect(recs).toHaveCount(0);
+ await a.locator('[data-journal-org-edit-save]').click();
+ await expect(a.locator('[data-journal-org-summary] li')).toHaveText(['10/7(수) 가상 총력결의대회','10/19(월) 가상 농성장 설치']);
+ expect(f.sums.at(-1)).toMatchObject({body:{summary:'10/7(수) 가상 총력결의대회\n10/19(월) 가상 농성장 설치',edited:true}});
+ await expect(recs).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

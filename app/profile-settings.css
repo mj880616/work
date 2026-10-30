@@ -38,13 +38,11 @@
 
 /* 원장 재료 C-4: 참고 일정 칸(한 줄씩, 안내문 없음) */
 #profileView .ps-calref{display:flex;flex-direction:column;gap:2px}
-#profileView .ps-calref-row{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);margin:0;font-size:var(--ds-text-row)}
-#profileView .ps-calref-label{flex:none;width:5.5em;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#profileView .ps-calref-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-height:var(--ds-compact-height);margin:0;font-size:var(--ds-text-row)}
+#profileView .ps-calref-label{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #profileView .ps-calref-line{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #profileView .ps-calref-select{flex:1;min-width:0;max-width:320px;height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-compact-text)}
-#profileView .ps-calref-colors{display:flex;flex:1;flex-wrap:wrap;gap:0;min-width:0}
-/* 색 칸 모양·고름 표시는 공용 부품(color-swatch.mjs, ui-standard.css UI-색고르기통일)만 맡는다. 여기서 바꾸지 않는다. */
-#profileView .ps-calref-check input{flex:none;width:16px;min-width:16px;height:16px;min-height:16px;margin:0;padding:0;accent-color:var(--kptu-primary)}
+#profileView .ps-calref-org{flex:0 1 12em}
 /* UI-업데이트안내(설계 9.4): 맨 아래 접힌 [업데이트 기록] — 한 줄 요약(버전명·날짜·첫 줄) + 누르면 펼침. 새 색·카드 없음. */
 #profileView .ps-release[hidden]{display:none}
 #profileView .ps-release{min-width:0}

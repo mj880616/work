@@ -1,38 +1,52 @@
 import {waitInlineHtml, failHtml} from './wait-state.js';
-// 원장 재료 C-4: 내 프로필의 '참고 일정' 칸 (docs/design/ledger-sources.md 5.1). profile-settings.js가 칸 자리를 만들고 이 모듈이 그 안을 그린다.
-// 캘린더 하나 고르기 → 내 일정 색(0~5개) → [내가 만든 일정도 포함]. 바꾸면 바로 서버(app_profiles.ledger_calendar)에 저장하고 한 번 맞춰 본다.
-// 이 칸은 프로필의 [저장] 버튼과 따로 바로 저장한다(고르기 값 하나라서, 저장 안 된 변경이 생기지 않음).
-// 캘린더를 비우거나 바꾸면 저장된 참고 일정을 모두 지운다(지우기 → 저장 순서: 저장이 실패해도 개인 일정이 남지 않는다).
-import {readChoice, saveChoice, readCalendars, clearRefs, syncRefs, defaultSyncRange} from './calendar-ref-data.js';
-import {toggleColor, COLORS_MAX} from './calendar-ref-model.mjs';
-import {swatchHtml} from './color-swatch.mjs'; // UI-색고르기통일: 색 칸은 공용 부품 하나
+// CAL-조직참고캘린더: 내 프로필의 '조직 참고 캘린더' 한 줄(profile-settings.js가 #psCalRefPanel 자리를 만들고 이 모듈이 그 안을 그린다).
+// [조직 고르기 ▾] 참고 캘린더 [캘린더 고르기 ▾] — 담당조직 하나(내 담당조직 규칙, my-organizations.js)와 구독한 캘린더 하나만.
+// 바꾸면 바로 서버(app_profiles.ledger_calendar)에 저장한다(프로필 [저장]과 따로, 고르기 값 둘이라 저장 안 된 변경이 생기지 않음).
+// 일정은 여기서 읽지도 저장하지도 않는다. 추천은 업무일지 [주간 정리]에서 그 조직 칸을 쓸 때만 보인다(calendar-ref-model.mjs).
+import {readChoice, saveChoice, readCalendars} from './calendar-ref-data.js';
+import {pickMyOrganizations} from './my-organizations.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const COLOR_IDS = Object.freeze(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']);
+const encode = encodeURIComponent;
 
-export function mountCalendarRefSettings(host, {rt, userId, confirm = message => window.confirm(message)}) {
-  let state = {phase: 'loading', choice: {calendar: '', colors: [], mine: false}, calendars: [], eventColors: {}, busy: false, note: ''};
+async function readMyOrgs(rt, userId) {
+  const workspaceId = rt.context?.read?.()?.workspace?.id;
+  if (!workspaceId || !userId) return [];
+  const [orgs, assignees] = await Promise.all([
+    rt.api(`/rest/v1/app_suborganizations?workspace_id=eq.${encode(workspaceId)}&select=id,name,active&order=name.asc&limit=1000`),
+    rt.api(`/rest/v1/app_suborganization_assignees?user_id=eq.${encode(userId)}&select=organization_id`).catch(() => []),
+  ]);
+  const mine = pickMyOrganizations(Array.isArray(orgs) ? orgs : [], Array.isArray(assignees) ? assignees : []);
+  const order = window.KPTUOrganizationOrder;
+  return (order?.sort ? order.sort(mine) : mine).map(o => ({id: String(o.id), name: String(o.name || '')}));
+}
+
+export function mountCalendarRefSettings(host, {rt, userId}) {
+  let state = {phase: 'loading', choice: {calendar: '', org: ''}, calendars: [], orgs: [], busy: false, note: ''};
   let run = 0;
 
+  function options(list, value, none, missing) {
+    const known = list.some(x => x.id === value);
+    return [`<option value="">${none}</option>`,
+      ...(value && !known ? [`<option value="${esc(value)}" selected>${missing}</option>`] : []),
+      ...list.map(x => `<option value="${esc(x.id)}"${x.id === value ? ' selected' : ''}>${esc(x.label)}</option>`)].join('');
+  }
   function render() {
     if (!host.isConnected) return;
-    const {phase, choice, calendars, eventColors, busy, note} = state;
-    const head = `<div class="ps-panel-head"><h3>참고 일정</h3><span class="ps-state" data-ps-calref-state role="status" aria-live="polite">${esc(note)}</span></div>`;
+    const {phase, choice, calendars, orgs, busy, note} = state;
+    const head = `<div class="ps-panel-head"><h3>조직 참고 캘린더</h3><span class="ps-state" data-ps-calref-state role="status" aria-live="polite">${esc(note)}</span></div>`;
     if (phase !== 'ready') {
       const line = phase === 'loading' ? waitInlineHtml() : phase === 'disconnected' ? '<span class="ps-calref-line">Google 캘린더를 연결하면 고를 수 있어요.</span>' : failHtml();
       host.innerHTML = `${head}<div class="ps-calref">${line}</div>`;
       return;
     }
-    const known = calendars.some(c => c.id === choice.calendar);
-    const options = ['<option value="">고르지 않음</option>',
-      ...(choice.calendar && !known ? [`<option value="${esc(choice.calendar)}" selected>고른 캘린더(목록에 없음)</option>`] : []),
-      ...calendars.map(c => `<option value="${esc(c.id)}"${c.id === choice.calendar ? ' selected' : ''}>${esc(c.summary || '이름 없는 캘린더')}</option>`)].join('');
-    const colors = choice.calendar ? `<div class="ps-calref-row" role="group" aria-label="내 일정 색"><span class="ps-calref-label">내 일정 색</span><span class="ps-calref-colors ui-swatches">${COLOR_IDS.map(id => {
-      const row = eventColors?.[id] || {};
-      return swatchHtml({color: row.background, ink: row.foreground, label: `색 ${id}`, text: id, on: choice.colors.includes(id), attrs: {'data-ps-calref-color': id}, disabled: busy});
-    }).join('')}</span></div>
-      <label class="ps-calref-row ps-calref-check"><input type="checkbox" data-ps-calref-mine${choice.mine ? ' checked' : ''}${busy ? ' disabled' : ''}><span>내가 만든 일정도 포함</span></label>` : '';
-    host.innerHTML = `${head}<div class="ps-calref"><label class="ps-calref-row"><span class="ps-calref-label">캘린더</span><select class="ps-calref-select" data-ps-calref-calendar aria-label="참고할 개인 공유 캘린더"${busy ? ' disabled' : ''}>${options}</select></label>${colors}</div>`;
+    const off = busy ? ' disabled' : '';
+    const org = options(orgs.map(o => ({id: o.id, label: o.name || '이름 없는 조직'})), choice.org, '조직 고르기', '고른 조직(담당 아님)');
+    const cal = options(calendars.map(c => ({id: c.id, label: c.summary || '이름 없는 캘린더'})), choice.calendar, '캘린더 고르기', '고른 캘린더(목록에 없음)');
+    host.innerHTML = `${head}<div class="ps-calref"><div class="ps-calref-row">`
+      + `<select class="ps-calref-select ps-calref-org" data-ps-calref-org aria-label="참고 캘린더의 담당조직"${off}>${org}</select>`
+      + `<span class="ps-calref-label">참고 캘린더</span>`
+      + `<select class="ps-calref-select" data-ps-calref-calendar aria-label="조직 참고 캘린더"${off}>${cal}</select></div></div>`;
   }
   const say = note => { state = {...state, note}; const el = host.querySelector('[data-ps-calref-state]'); if (el) el.textContent = note; };
 
@@ -41,53 +55,31 @@ export function mountCalendarRefSettings(host, {rt, userId, confirm = message =>
     state = {...state, phase: 'loading', note: ''};
     render();
     try {
-      const [{choice, unavailable}, cal] = await Promise.all([readChoice(rt, userId()), readCalendars(rt).catch(() => null)]);
+      const [{choice, unavailable}, cal, orgs] = await Promise.all([readChoice(rt, userId()), readCalendars(rt).catch(() => null), readMyOrgs(rt, userId()).catch(() => [])]);
       if (mine !== run) return;
       if (unavailable) state = {...state, phase: 'failed'};
-      else if (!cal) state = {...state, phase: choice.calendar ? 'ready' : 'failed', choice, calendars: [], eventColors: {}};
+      else if (!cal) state = {...state, phase: choice.calendar ? 'ready' : 'failed', choice, calendars: [], orgs};
       else if (!cal.connected && !choice.calendar) state = {...state, phase: 'disconnected', choice};
-      else state = {...state, phase: 'ready', choice, calendars: cal.calendars, eventColors: cal.eventColors};
+      else state = {...state, phase: 'ready', choice, calendars: cal.calendars, orgs};
     } catch { if (mine !== run) return; state = {...state, phase: 'failed'}; }
     render();
   }
 
-  // 새 값 저장 → (캘린더가 있으면) 지금 범위를 한 번 맞춰 결과 한 줄을 보인다.
   async function apply(next) {
     if (state.busy) return;
-    const prev = state.choice;
-    const calendarChanged = next.calendar !== prev.calendar;
-    if (calendarChanged && prev.calendar && !confirm('고른 캘린더가 바뀌면 지금 저장된 참고 일정을 모두 지워요. 계속할까요?')) { render(); return; }
     state = {...state, busy: true}; render(); say('저장 중…');
     try {
-      if (calendarChanged && prev.calendar) await clearRefs(rt);
       await saveChoice(rt, next, userId());
-      state = {...state, choice: next};
-    } catch { state = {...state, busy: false}; render(); say('저장하지 못했어요. 다시 골라 주세요.'); return; }
-    let note = next.calendar ? '저장했어요' : '비웠어요';
-    if (next.calendar) {
-      try {
-        const { first, end } = defaultSyncRange();
-        const result = await syncRefs(rt, next, first, end);
-        note = result?.summary || note;
-        if (result?.fallback) note += ' · 달력 화면에 보이는 캘린더만 읽혀요(서버 갱신 전)';
-        else if (result?.legacy && next.mine) note += ' · 내가 만든 일정은 서버 갱신 뒤부터 가려져요';
-      } catch { note = '저장했어요 · 일정은 지금 읽지 못했어요'; }
-    }
-    state = {...state, busy: false}; render(); say(note);
+      state = {...state, choice: next, busy: false}; render();
+      say(next.calendar && next.org ? '저장했어요 · 주간 정리에서 그 조직 칸에 추천이 보여요' : next.calendar || next.org ? '저장했어요 · 조직과 캘린더를 둘 다 고르면 추천이 보여요' : '비웠어요');
+    } catch { state = {...state, busy: false}; render(); say('저장하지 못했어요. 다시 골라 주세요.'); }
   }
 
   host.addEventListener('change', event => {
-    const select = event.target.closest?.('[data-ps-calref-calendar]');
-    if (select) { const calendar = select.value; apply({calendar, colors: calendar === state.choice.calendar ? state.choice.colors : [], mine: calendar && !state.choice.calendar ? true : state.choice.mine}); return; }
-    const mine = event.target.closest?.('[data-ps-calref-mine]');
-    if (mine) apply({...state.choice, mine: mine.checked});
-  });
-  host.addEventListener('click', event => {
-    const button = event.target.closest?.('[data-ps-calref-color]');
-    if (!button || state.busy) return;
-    const colors = toggleColor(state.choice.colors, button.dataset.psCalrefColor);
-    if (!colors) { say(`색은 ${COLORS_MAX}개까지 고를 수 있어요.`); return; }
-    apply({...state.choice, colors});
+    const cal = event.target.closest?.('[data-ps-calref-calendar]');
+    if (cal) { apply({...state.choice, calendar: cal.value}); return; }
+    const org = event.target.closest?.('[data-ps-calref-org]');
+    if (org) apply({...state.choice, org: org.value});
   });
   return {load};
 }

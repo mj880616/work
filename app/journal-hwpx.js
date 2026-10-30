@@ -59,6 +59,8 @@ import {pickBase, teamIsNewer, teamChanges, cellList, feedbackRecord, compareTes
 import {reviewCard, answerSuggestion, readLearnRows} from './weekly-learn-panel.js';
 import {caretLine, askTargets, lineRequest, readAnswer, replaceLine, suggestKey, PICK_MS, PAUSE_MS, PER_OPEN} from './weekly-line-suggest.mjs';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
+import {matchOrg} from './org-name-match.mjs';
+import {reportLine as orgRefLine, materialLine as orgRefMaterial, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
 // WEEKLY-환류학습 1(docs/design/weekly-draft-feedback.md 10절): 다음 주 바탕은 내가 최종으로 올린 최신 '주간보고 개인본'(보고일 앞의 것). 없으면 지금처럼 팀 확정본.
@@ -486,12 +488,26 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     g.timer = setTimeout(() => { if (state === s) void suggestNow(s, key); }, ms);
   }
   const hints = () => Object.fromEntries([...body.querySelectorAll('[data-hwpx-suggest]')].map(n => [n.dataset.hwpxSuggest, n]));
+  // CAL-조직참고캘린더: 이번 주 기록 후보(draft.weekMaterial)에, 내 프로필에서 고른 조직의 칸(확정본 줄 이름이 그 조직에 맞는 첫 줄)만
+  // 조직 참고 캘린더 추천 줄을 더한다(그 주·앞으로 2주 주요 일정, model.orgRefs). 칸에 이미 든 일정은 뺀다. 붙이기·AI 재료(초안·줄 제안)에 함께 쓰인다.
+  function materialOf(s, model = getWeek().model) {
+    const m = s.draft.weekMaterial(model, s.rows, s.orgs, {aliases:s.aliases});
+    const refs = model?.orgRefs, org = refs?.org;
+    if (!org || !refs.items?.length || s.context.orgFailed) return m;
+    const row = s.orgs.find(r => matchOrg(r.org, s.context.organizations)?.id === org);
+    if (!row || !m.byOrg.has(row.index)) return m;
+    const have = s.edits?.orgs?.get(row.index) ?? [];
+    const add = refs.items.filter(item => !orgRefIn(have, item)).map(item => ({day:'', text:orgRefLine(item), from:row.org, orgRef:true, ai:orgRefMaterial(item)}));
+    m.byOrg.set(row.index, [...m.byOrg.get(row.index), ...add]);
+    return m;
+  }
+  const aiLine = x => x.ai ?? `${x.day ? `${shortDay(x.day)} ` : ''}${x.text}`;
   function cellMaterial(s, key) {
     const [section, index] = key.split(':');
     if (section === 'sites') return [];
-    const m = s.draft.weekMaterial(getWeek().model, s.rows, s.orgs, {aliases:s.aliases});
+    const m = materialOf(s);
     const list = (section === 'summary' ? m.byRow : m.byOrg).get(Number(index)) ?? [];
-    return list.map(x => `${x.day ? `${shortDay(x.day)} ` : ''}${x.text}`);
+    return list.map(aiLine);
   }
   async function suggestNow(s, key) {
     const g = suggestOf(s), area = areas[key];
@@ -561,14 +577,15 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   function renderMaterial() {
     if (!state || panel.hidden) return;
     const {draft} = state, model = getWeek().model;
-    const m = draft.weekMaterial(model, state.rows, state.orgs, {aliases:state.aliases});
+    const m = materialOf(state, model);
     const fill = (key, list) => {
       const host_ = body.querySelector(`[data-hwpx-material="${key}"]`);
       if (!host_) return;
       host_.replaceChildren(...list.map(item => {
         const li = el('li');
-        li.append(el('span', 'journal-weekly-day', item.day ? shortDay(item.day) : '요약'), doc.createTextNode(item.text + ' '));
-        const add = button('붙이기', 'hwpxAppend'); add.dataset.hwpxTarget = key; add.dataset.hwpxText = item.text;
+        li.append(el('span', 'journal-weekly-day', item.orgRef ? '캘린더 추천' : item.day ? shortDay(item.day) : '요약'), doc.createTextNode(item.text + ' '));
+        if (item.orgRef) li.dataset.hwpxOrgRef = '';
+        const add = button(item.orgRef ? '+' : '붙이기', 'hwpxAppend'); add.dataset.hwpxTarget = key; add.dataset.hwpxText = item.text;
         add.setAttribute('aria-label', `붙이기: ${item.text}`);
         li.append(add);
         return li;
@@ -1040,14 +1057,14 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 칸마다 바탕 줄(처음 바탕 initial — 고친 칸 글이 아님)과 그 칸 옆 이번 주 기록 줄을 보낸다. 서버는 그 주 '앞' 주들의 고침 기록·규칙만 읽는다.
   const sendLine = (v, max) => [...String(v ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]+/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim()].slice(0, max).join('');
   function aiRequest(s, mode) {
-    const m = s.draft.weekMaterial(getWeek().model, s.rows, s.orgs, {aliases:s.aliases});
+    const m = materialOf(s);
     const refs = new Map(), cells = [];
     for (const [id, at] of s.cellAt) {
       if (cells.length >= 80) break;
       const ref = `c${cells.length + 1}`; refs.set(ref, id);
       const material = at.section === 'summary' ? m.byRow.get(at.index) : at.section === 'orgs' ? m.byOrg.get(at.index) : [];
       cells.push({ref, where:sendLine(whereOf(id), 120) || '칸', lines:(s.initial.get(id) ?? []).map(l => sendLine(l, 300)).filter(Boolean).slice(0, 20),
-        material:(material ?? []).map(x => sendLine(`${x.day ? `${shortDay(x.day)} ` : ''}${x.text}`, 400)).filter(Boolean).slice(0, 20)});
+        material:(material ?? []).map(x => sendLine(aiLine(x), 400)).filter(Boolean).slice(0, 20)});
     }
     const unmatched = [...(m.unmatched ?? []), ...(m.orgUnmatched ?? [])].map(x => sendLine(`${x.from ? `${x.from}: ` : ''}${x.text}`, 400)).filter(Boolean).slice(0, 40);
     const request = {kind:'weekly_draft', week_start:s.start, mode, cells, unmatched};
@@ -1485,7 +1502,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else if (b.matches('[data-hwpx-restart]')) void restart();
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }
     else if (b.matches('[data-hwpx-conflict-pick]')) pickConflict(Number(b.dataset.hwpxConflict), b.dataset.hwpxConflictPick);
-    else if (b.matches('[data-hwpx-append]')) { const key = b.dataset.hwpxTarget || doc.getElementById(b.dataset.hwpxPickFrom)?.value; if (!key) return; append(key, b.dataset.hwpxText); say('붙였어요. 칸에서 고칠 수 있어요.'); }
+    else if (b.matches('[data-hwpx-append]')) { const key = b.dataset.hwpxTarget || doc.getElementById(b.dataset.hwpxPickFrom)?.value; if (!key) return; append(key, b.dataset.hwpxText); if (b.closest('[data-hwpx-org-ref]')) renderMaterial(); say('붙였어요. 칸에서 고칠 수 있어요.'); }
     else if (!state) return;
     else if (b.matches('[data-hwpx-build]')) doBuild();
     else if (b.matches('[data-hwpx-hwp]')) doHwp();
