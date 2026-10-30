@@ -89,7 +89,7 @@ test('pending sessions: unfinished only, live recording hidden, newest first',()
 test('code shape: owner + own rows, ordered optimistic append, Drive folders fixed, trash only in piece/recording folders, no sound/text in rows or logs',()=>{
  for(const a of ['rec_start','rec_piece','rec_finish','rec_pending'])assert.match(index,new RegExp(`action === '${a}'`));
  assert.match(index,/async function ownRecording[\s\S]*?await requireOwner\(userId, data\.workspace_id\);\s*if \(data\.created_by !== userId\) throw new Fail\('not_found'\);/);
- assert.match(index,/async function ownSession[\s\S]*?r\.created_by !== userId[\s\S]*?await requireOwner\(userId, ws\);/);
+ assert.match(index,/async function ownSession[\s\S]*?const ws = ownRows\(data, userId\);[\s\S]*?await requireOwner\(userId, ws\);/);
  assert.match(index,/update\(patch\)\.eq\('id', rec\.id\)\.eq\('status', 'recording'\)\.eq\('updated_at', rec\.updated_at\)/);
  assert.match(index,/setRec\(seg\.id, \{ status: 'combined', error_code: null, job_id: job\.id \}, \{ status: 'closed' \}\)/);
  assert.match(index,/childFolder\(token, recordings, PIECE_FOLDER, create\)/);assert.equal(r.PIECE_FOLDER,'녹음 조각');

@@ -16,6 +16,9 @@
 //   rec_finish  {session_id}              → 열린 구간 닫기 → 닫힌 구간마다 조각을 이어 한 파일(회의 녹음 폴더)로 → 전사 작업 한 행(uploaded)
 //               → 조각 휴지통. 전사·붙이기는 위 transcribe·attach를 구간마다 그대로 부른다. 시간이 모자라면 more=true.
 //   rec_pending {workspace_id}            → 끝나지 않은 녹음 목록('이어서 정리').
+//   rec_discard {session_id}              → 녹음 버리기: 열린 구간 닫기 → 조각(합쳤으면 합친 파일)을 Drive 휴지통으로, 구간은 '버림' 표시.
+//               전사·요약·회의 초안은 하지 않는다. 끝난 전사·회의에 붙인 녹음은 건드리지 않는다.
+//   rec_restore {session_id}              → 버린 녹음 되돌리기: 휴지통에서 다시 꺼내 '이어서 정리' 상태로(닫힘·합침). 녹음을 이어 하지는 않는다.
 // 열쇠(비밀값 GEMINI_API_KEY)가 없으면 config는 ready=false, 나머지는 503 not_ready('준비 중').
 // 실패하면 작업만 failed로 두고, Gemini에 올린 임시 파일은 지운다. 녹음 원본·회의 기록은 그대로다.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -27,8 +30,8 @@ import {
 } from './model.mjs';
 import {
   PIECE_FOLDER, REC_FINISH_BUDGET_MS, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
-  appendPatch, closePatch, nextSegment, parsePiece, pendingSessions, pendingSince, pieceDecision, pieceFileName, recFailBody, recMime,
-  segmentFileName, toCombine,
+  appendPatch, closePatch, discardPatch, discardPlan, nextSegment, ownRows, parsePiece, pendingSessions, pendingSince, pieceDecision,
+  pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
 } from './recording.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
@@ -358,9 +361,7 @@ async function ownSession(userId: string, sessionId: unknown): Promise<Job[]> {
   const { data, error } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('session_id', sessionId as string)
     .order('segment_no', { ascending: true }).limit(REC_MAX_SEGMENTS + 1);
   if (error) throw new Fail('failed');
-  if (!data?.length) throw new Fail('not_found');
-  const ws = data[0].workspace_id;
-  if (data.some(r => r.workspace_id !== ws || r.created_by !== userId)) throw new Fail('not_found');
+  const ws = ownRows(data, userId); // 모두 이 사람·같은 작업공간이 아니면 not_found
   await requireOwner(userId, ws);
   return data as Job[];
 }
@@ -408,6 +409,7 @@ async function trashPieces(seg: Job, token: string, folder: string | null, extra
     }
   } else if ((seg.piece_ids || []).length) all = false;
   if (all) await setRec(seg.id, { ...extra, pieces_trashed_at: new Date().toISOString() });
+  return all;
 }
 // 닫힌 구간 하나 → 한 파일(회의 녹음 폴더) + 전사 작업 한 행 → 조각 휴지통.
 async function combineSegment(userId: string, seg: Job, token: string, pieces: string | null, target: string) {
@@ -449,11 +451,16 @@ async function sweepRecordings(workspaceId: string) {
       .is('pieces_trashed_at', null).order('created_at', { ascending: true }).limit(SWEEP_LIMIT);
     const { data: old } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('workspace_id', workspaceId).in('status', ['recording', 'closed', 'failed'])
       .is('pieces_trashed_at', null).lt('created_at', since).order('created_at', { ascending: true }).limit(SWEEP_LIMIT);
-    if (!done?.length && !old?.length) return;
+    // 버린 녹음 중 조각 휴지통이 덜 된 것(30일 기다리지 않고 다시 시도). 상태(버림 표시)는 그대로.
+    const { data: dropped } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('workspace_id', workspaceId).eq('status', 'failed')
+      .like('error_code', 'discarded%').is('pieces_trashed_at', null).order('created_at', { ascending: true }).limit(SWEEP_LIMIT);
+    if (!done?.length && !old?.length && !dropped?.length) return;
     const token = await driveToken();
     const folder = await pieceFolder(workspaceId, token, false);
     for (const seg of done || []) await trashPieces(seg, token, folder);
+    for (const seg of dropped || []) await trashPieces(seg, token, folder);
     for (const seg of old || []) {
+      if (seg.status === 'failed' && (dropped || []).some(d => d.id === seg.id)) continue; // 위에서 이미 다시 시도함
       await trashPieces(seg, token, folder, seg.status === 'failed' ? {} : { status: 'failed', error_code: 'expired', closed_at: seg.closed_at ?? new Date().toISOString() });
     }
   } catch (e) {
@@ -559,6 +566,108 @@ async function recPending(user: { id: string }, body: Record<string, unknown>) {
   return json({ ok: true, sessions: pendingSessions(rows || [], jobs, now) });
 }
 
+// ---- 버리기·되돌리기 ----
+// Drive 휴지통에서 한 파일 꺼내기(moveDriveFileToTrash의 거꾸로). 이 앱이 가진 파일이고 지정한 폴더 바로 아래 것만.
+// 'restored'(꺼냄)·'ok'(이미 휴지통 밖) = 됨, 'not_ours'(없음·남의 것·다른 폴더)·'retry'(잠깐 실패) = 안 됨.
+async function untrashDriveFile(id: string, folder: string, token: string): Promise<'restored' | 'ok' | 'not_ours' | 'retry'> {
+  const auth = { Authorization: `Bearer ${token}` };
+  let meta;
+  try {
+    const r = await fetch(`${DRIVE}/${encodeURIComponent(id)}?fields=id,mimeType,ownedByMe,trashed,parents`, { headers: auth, redirect: 'error', signal: AbortSignal.timeout(30000) });
+    if (r.status === 404) return 'not_ours';
+    if (!r.ok) return 'retry';
+    meta = await r.json();
+  } catch { return 'retry'; }
+  if (!meta || meta.id !== id || typeof meta.trashed !== 'boolean') return 'retry';
+  if (meta.ownedByMe !== true || meta.mimeType === FOLDER || !Array.isArray(meta.parents) || meta.parents.length !== 1 || meta.parents[0] !== folder) return 'not_ours';
+  if (!meta.trashed) return 'ok';
+  try {
+    const r = await fetch(`${DRIVE}/${encodeURIComponent(id)}?fields=id,trashed`, {
+      method: 'PATCH', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: false }),
+      redirect: 'error', signal: AbortSignal.timeout(30000),
+    });
+    const d = await r.json().catch(() => null);
+    return r.ok && d?.id === id && d?.trashed === false ? 'restored' : 'retry';
+  } catch { return 'retry'; }
+}
+async function sessionJobs(rows: Job[]): Promise<Job[]> {
+  const ids = [...new Set(rows.map(r => r.job_id).filter(Boolean))] as string[];
+  if (!ids.length) return [];
+  const { data, error } = await admin.from(TABLE).select(JOB_COLUMNS).in('id', ids);
+  if (error) throw new Fail('failed');
+  return (data || []).filter(j => j.workspace_id === rows[0].workspace_id) as Job[];
+}
+
+async function recDiscard(user: { id: string }, body: Record<string, unknown>) {
+  // 1) 상태부터 바꾼다(그 뒤로는 조각이 더 붙지 않음: rec_piece는 status='recording'일 때만 더함).
+  //    읽은 뒤 조각이 붙었으면(updated_at이 달라짐) 다시 읽고 다시 한다(그 조각도 같이 휴지통으로).
+  const plan: ReturnType<typeof discardPlan> = [];
+  let ws = '';
+  for (let tries = 0; ; tries++) {
+    const rows = await ownSession(user.id, body.session_id);
+    ws = rows[0].workspace_id as string;
+    let now: ReturnType<typeof discardPlan>;
+    try { now = discardPlan(rows, await sessionJobs(rows)); } catch (e) {
+      if (plan.length && e instanceof Fail && e.code === 'not_found') break; // 앞 시도에서 이미 다 버림
+      throw e;
+    }
+    const at = new Date();
+    let lost = false;
+    for (const p of now) {
+      if (await setRec(p.row.id, discardPatch(p.row, p.kind, at), { status: p.row.status, updated_at: p.row.updated_at })) plan.push(p);
+      else lost = true;
+    }
+    if (!lost) break;
+    if (tries >= 2) throw new Fail('busy');
+  }
+  // 2) Drive 휴지통(영구 삭제 아님). 일부 실패해도 버림 표시는 그대로이고, 남은 것은 rec_pending 정리가 다시 넣는다.
+  let trashed = true;
+  try {
+    const token = await driveToken();
+    const folder = await pieceFolder(ws, token, false);
+    const target = await recordingFolder(ws, token, false);
+    for (const p of plan) {
+      if (p.kind === 'close') continue;
+      if (p.kind === 'combined') {
+        const job = p.job as Job;
+        const result = target && job.drive_file_id ? await moveDriveFileToTrash(fetch, job.drive_file_id, target, token).catch(() => 'unknown') : 'not_ours';
+        if (result === 'trashed' || result === 'already_trashed' || result === 'not_ours') await setJob(job.id, { trashed_at: new Date().toISOString() });
+        else trashed = false;
+      }
+      if (!p.row.pieces_trashed_at && !(await trashPieces(p.row, token, folder).catch(() => false))) trashed = false;
+    }
+  } catch (e) {
+    trashed = false;
+    console.warn('meeting-transcribe: discard trash later', e instanceof Fail ? e.code : 'error');
+  }
+  return json({ ok: true, session_id: body.session_id, discarded: plan.filter(p => p.kind !== 'close').length, trashed });
+}
+
+async function recRestore(user: { id: string }, body: Record<string, unknown>) {
+  const rows = await ownSession(user.id, body.session_id);
+  const ws = rows[0].workspace_id as string;
+  const plan = restorePlan(rows);
+  const jobs = new Map((await sessionJobs(rows)).map(j => [j.id, j]));
+  const token = await driveToken();
+  const folder = await pieceFolder(ws, token, false);
+  const target = await recordingFolder(ws, token, false);
+  const ok = (r: string) => r === 'restored' || r === 'ok';
+  let restored = 0;
+  for (const p of plan) {
+    if (p.to === 'combined') {
+      const job = jobs.get(p.row.job_id);
+      if (!job || !target || !job.drive_file_id || !ok(await untrashDriveFile(job.drive_file_id, target, token))) throw new Fail('drive_failed');
+      await setJob(job.id, { trashed_at: null });
+      if (await setRec(p.row.id, { status: 'combined', error_code: null }, { status: 'failed', error_code: p.row.error_code })) restored++;
+    } else {
+      if (!folder) throw new Fail('drive_failed');
+      for (const id of p.row.piece_ids || []) if (!ok(await untrashDriveFile(id, folder, token))) throw new Fail('drive_failed');
+      if (await setRec(p.row.id, { status: 'closed', error_code: null, pieces_trashed_at: null }, { status: 'failed', error_code: p.row.error_code })) restored++;
+    }
+  }
+  return json({ ok: true, session_id: body.session_id, restored });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ ok: false, error: 'POST only' }, 405);
@@ -579,6 +688,8 @@ Deno.serve(async (req: Request) => {
     if (action === 'rec_start') return await recStart(user, body);
     if (action === 'rec_finish') return await recFinish(user, body);
     if (action === 'rec_pending') return await recPending(user, body);
+    if (action === 'rec_discard') return await recDiscard(user, body);
+    if (action === 'rec_restore') return await recRestore(user, body);
     throw new Fail('bad_request');
   } catch (e) {
     if (e instanceof AuthError) return json({ ok: false, code: e.message, error: e.status === 401 ? '로그인이 필요합니다.' : '접근 권한이 없습니다.' }, e.status);

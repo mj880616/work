@@ -147,3 +147,59 @@ export function pendingSessions(rows, jobs, now) {
 }
 
 export function pendingSince(now) { return new Date(now.getTime() - REC_PENDING_DAYS * 86400000).toISOString(); }
+
+// ---- 버리기·되돌리기(rec_discard·rec_restore, 요청함 10/30 10:01) ----
+// 버린 구간은 표에서 지우지 않는다(지우기 권한 없음, 칸 추가 없음): status 'failed' + error_code 'discarded_closed'|'discarded_combined'.
+// 'discarded_…'의 뒷말이 되돌릴 때 돌아갈 상태다. 조각(또는 합친 파일)은 Drive 휴지통으로만 옮긴다(영구 삭제 아님).
+// 30일 정리(sweepRecordings)와 겹치지 않음: 버리며 조각을 모두 휴지통에 넣으면 pieces_trashed_at이 차서 30일 정리 대상(…is null)이 아니고,
+// 일부 실패로 비어 있으면 정리 쪽이 휴지통 넣기만 다시 하며 status는 'failed' 그대로 둔다(되돌릴 상태 표시를 지우지 않음).
+export const DISCARD_PREFIX = 'discarded_';
+export const isDiscarded = r => r?.status === 'failed' && typeof r?.error_code === 'string' && r.error_code.startsWith(DISCARD_PREFIX);
+
+// 한 녹음(session)의 행이 모두 이 사람 것인지. 하나라도 남의 것이거나 다른 작업공간이면 없는 것으로 본다(남의 녹음을 있다고도 알리지 않음).
+export function ownRows(rows, userId) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length || !userId) throw new Fail('not_found');
+  const ws = list[0].workspace_id;
+  if (!ws || list.some(r => r?.workspace_id !== ws || r?.created_by !== userId)) throw new Fail('not_found');
+  return ws;
+}
+
+// 버릴 구간. rows: 그 녹음의 구간들, jobs: 합친 구간의 전사 작업({id,status,meeting_id,trashed_at}).
+// - recording·closed: 조각을 휴지통으로(조각 없는 열린 구간은 그냥 닫음 = empty).
+// - combined: 전사가 끝나지 않았고 회의에 붙이지 않은 것만 합친 파일을 휴지통으로. 전사 중이면 busy.
+// - 끝난 전사·회의에 붙인 녹음·empty·이미 실패/버린 구간은 건드리지 않는다.
+export function discardPlan(rows, jobs) {
+  const byId = new Map((Array.isArray(jobs) ? jobs : []).map(j => [j.id, j]));
+  const out = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (r?.status === 'recording' || r?.status === 'closed') {
+      const empty = !(Array.isArray(r.piece_ids) && r.piece_ids.length);
+      out.push({ row: r, kind: empty ? 'close' : 'pieces' });
+    } else if (r?.status === 'combined' && r.job_id) {
+      const job = byId.get(r.job_id);
+      if (!job || job.trashed_at || job.meeting_id || job.status === 'done') continue;
+      if (job.status === 'running') throw new Fail('busy');
+      out.push({ row: r, kind: 'combined', job });
+    }
+  }
+  if (!out.some(p => p.kind !== 'close')) throw new Fail('not_found');
+  return out;
+}
+export function discardPatch(row, kind, now) {
+  if (kind === 'close') return closePatch(row, now);
+  return {
+    status: 'failed', error_code: `${DISCARD_PREFIX}${kind === 'combined' ? 'combined' : 'closed'}`,
+    closed_at: row?.closed_at ?? now.toISOString(), updated_at: now.toISOString(),
+  };
+}
+
+// 되돌릴 구간: 버린 표시가 있는 것만. 돌아갈 상태(closed|combined)를 붙여 준다.
+export function restorePlan(rows) {
+  const out = (Array.isArray(rows) ? rows : []).filter(isDiscarded).map(r => {
+    const to = r.error_code.slice(DISCARD_PREFIX.length);
+    return { row: r, to: to === 'combined' && r.job_id ? 'combined' : 'closed' };
+  });
+  if (!out.length) throw new Fail('not_found');
+  return out;
+}
