@@ -52,5 +52,6 @@ test('화면 연결: [정렬 ▾]는 공용 anchored-menu, 고른 기준은 서�
   assert.match(screen, /folderId:id, cursor:fNext, limit:PAGE_SIZE, sort\}/);
   assert.match(screen, /\$\('\[data-photos-sort\]'\)\.hidden = tab === 'calendar' \|\| tab === 'trash'/, '달력·휴지통에는 정렬 버튼 없음');
   assert.match(od, /sort && sort !== 'taken_desc' \? \{sort\} : \{\}/);
-  assert.ok(!/localStorage|sessionStorage/.test(screen), '기기 저장 없음');
+  const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'caches' + '\\.'].join('|'));
+  assert.ok(!deviceStores.test(screen), '기기 저장 없음');
 });

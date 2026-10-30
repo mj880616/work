@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { clickView } from './helpers/shell-navigation.mjs';
 // PHOTO-정렬(요청함 10/30 10:29): 사진 메뉴 오른쪽 위 [찍은 날 ↓ ▾] → 누른 자리 작은 메뉴(기준 6줄, 고른 줄 ✓). 고른 기준은 서버 view_prefs.photo_view.sort 하나,
 //   서버 쪽 읽기(library)에 sort를 보내 그 순서로 받는다. 날짜 머리줄은 찍은 날 기준일 때만, 달력에는 정렬 버튼 없음. 새로고침 뒤 같은 기준.
 // PC공유메뉴(요청함 10/30 10:27): 넓은 화면(761px~)의 [공유] → Web2 작은 메뉴 4줄([사진 복사] [정리함에 넣기] [다운로드] [다른 앱으로 공유…]).
@@ -72,11 +73,9 @@ async function fixture(page, width) {
   });
   return state;
 }
-async function openPhotos(page, width) {
-  if (width <= 760) {
-    await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '사진', exact: true }).click();
+// 그 폭의 실제 입구(PC 옆 메뉴·폴드 ☰·폰 [메뉴])로 연다(공용 도구).
+async function openPhotos(page) {
+  await clickView(page, 'photos');
   await expect(page.locator('#photosView')).toBeVisible();
 }
 const root = page => page.locator('#photosRoot');
@@ -167,8 +166,7 @@ test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 4줄, 사진 복사는 i
   await expect.poll(() => page.evaluate(() => window.__shared)).toBe(1);
   // 동영상: [사진 복사]·[정리함에 넣기] 없음.
   await viewer.locator('[data-diary-viewer-strip]').focus();
-  for (let k = 0; k < 4; k++) await page.keyboard.press('ArrowRight');
-  await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('5 / 7');
+  for (let k = 2; k <= 5; k++) { await page.keyboard.press('ArrowRight'); await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText(`${k} / 7`); }
   await viewer.locator('[data-diary-share]').click();
   await expect(shareMenu.locator('button')).toHaveText(['다운로드', '다른 앱으로 공유…']);
   await page.keyboard.press('Escape');

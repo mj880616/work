@@ -55,7 +55,8 @@ test('화면 연결: [공유]가 있는 곳 모두(사진 크게 보기·문서 
   const menu = read('app/share-menu.js');
   assert.match(menu, /createAnchoredMenu\(\{id:'shareMenu'/);
   assert.match(menu, /import\('\.\/basket-upload\.js'\)/, '정리함 기존 저장 길');
-  assert.ok(!/localStorage|sessionStorage|indexedDB/.test(menu));
+  const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'caches' + '\\.'].join('|'));
+  assert.ok(!deviceStores.test(menu), '기기 저장 없음');
   assert.match(read('app/photo-strip.js'), /shareFrom\(trigger, \{video:!!item\.video/);
   assert.match(read('app/photo-view.js'), /shareFrom\(trigger, \{count:1/);
   assert.match(read('app/photos.js'), /shareFrom\(trigger, \{count:list\.length/);
