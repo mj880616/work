@@ -6,6 +6,7 @@ import {readPlaces,placeSources,placeSheetHtml,placeValue,placeList,togglePlace,
 import {pickerLine,pickableReports} from './report-links-model.mjs';
 import {seoulParts} from './meeting-time.js';
 import {reportRuntime} from './report-links.js';
+import {AREA_NONE} from './business-area-model.mjs';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let placesSheet=null,placesActive=null,placesCache=null,placesCacheOwner='';
@@ -61,6 +62,7 @@ export function pickReport(trigger,{reports,linkedIds=new Set(),title,onPick}={}
 
 // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 고르기 — 하나만(명진 결정 ①). 사업영역 = 지금 프로젝트 트리(공용 고르기 창의 한 줄 모양 그대로).
 // 맨 위 '꼬리표 없음'. 고르면 바로 닫히고 onPick(id|'')가 불린다.
+// MTG-사업영역없음: allowNone이면 맨 위는 '고르지 않음'(''), 그 아래 회색 '없음'(AREA_NONE — 사업영역이 원래 없는 보고). 한 줄 업데이트 창은 사업영역이 필수라 두지 않는다.
 let areaSheet=null,areaActive=null;
 export const areaPathName=x=>x?[x.path,x.project?.name||'이름 없는 사업영역'].filter(Boolean).join(' › '):'';
 // 고를 수 있는 사업영역 목록에서 id의 경로 이름('사업영역 › 세부 과제'). 목록에 없으면(보관·휴지통) ''.
@@ -69,12 +71,13 @@ function ensureAreaSheet(){
   areaSheet||=createChoiceSheet({id:'reportAreaSheet',titleId:'reportAreaSheetTitle',historyKey:'kptuReportArea',
     canOpen:()=>!!areaActive,choices:()=>loadReportPlaces().then(p=>{if(areaActive)areaActive.places=p}),
     render:()=>{const rows=areaActive?.places?.projects||[],sel=areaActive?.chosen||'';
-      return {title:'사업영역 꼬리표',search:'사업영역 이름 검색',html:[{project:{id:'',name:'꼬리표 없음'},depth:0},...rows].map(x=>projectRow(x,sel,esc)).join('')}},
+      const top=areaActive?.allowNone?[{project:{id:'',name:'고르지 않음'},depth:0},{project:{id:AREA_NONE,name:'없음'},depth:0,none:true}]:[{project:{id:'',name:'꼬리표 없음'},depth:0}];
+      return {title:'사업영역 꼬리표',search:'사업영역 이름 검색',html:[...top,...rows].map(x=>projectRow(x,sel,esc,x.none?{extra:'data-area-none'}:{})).join('')}},
     onSelect:(kind,value)=>{const pick=areaActive?.onPick;queueMicrotask(()=>pick?.(value||''))},
     onError:error=>areaActive?.onMessage?.(error?.message||'사업영역을 불러오지 못했어요.')});
   return areaSheet;
 }
-export function pickBusinessArea(trigger,{chosen='',onPick,onMessage}={}){
-  areaActive={chosen:String(chosen||''),places:null,onPick,onMessage};
+export function pickBusinessArea(trigger,{chosen='',allowNone=false,onPick,onMessage}={}){
+  areaActive={chosen:String(chosen||''),allowNone:!!allowNone,places:null,onPick,onMessage};
   return ensureAreaSheet().open('area',trigger);
 }

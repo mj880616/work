@@ -7,6 +7,7 @@ on:
       - 'app/**'
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
+      - 'tests/web2-csp.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'p/**'
@@ -27,6 +28,7 @@ on:
       - 'tests/seoul-time.test.mjs'
       - 'tests/ui-cleanup-b.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
+      - 'tests/ui-audit-1030.test.mjs'
       - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
@@ -112,6 +114,7 @@ on:
       - 'app/**'
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
+      - 'tests/web2-csp.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'p/**'
@@ -132,6 +135,7 @@ on:
       - 'tests/seoul-time.test.mjs'
       - 'tests/ui-cleanup-b.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
+      - 'tests/ui-audit-1030.test.mjs'
       - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
@@ -235,6 +239,8 @@ jobs:
 
       - name: Check editor toolbar, add buttons and top bands stay unified (UI-화면정리 C)
         run: node --test tests/ui-cleanup-c.test.mjs
+      - name: Check site audit fixes stay in the shared parts (UI-점검1030손질)
+        run: node --test tests/ui-audit-1030.test.mjs
       - name: Check one shared loading/failed/empty part (UI-기다림표시통일)
         run: node --test tests/wait-state.test.mjs
 
@@ -418,6 +424,9 @@ jobs:
       - name: Check domain routing and service worker registration
         run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/supabase-origin.test.mjs
 
+      - name: Check Web2 report-only CSP and referrer policy (SEC-Web2CSP 1단계)
+        run: node --test tests/web2-csp.test.mjs
+
       - name: Check home, inbox, quick save and trash units (STAB-단위시험등록)
         run: node --test tests/home-fill-data.test.mjs tests/home-fill-model.test.mjs tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
 
@@ -462,6 +471,9 @@ jobs:
 
       - name: Check business area window and untagged report line (MTG-프로젝트합치기 ①③)
         run: node --test tests/area-window.test.mjs
+
+      - name: Check business area none choice (MTG-사업영역없음)
+        run: node --test tests/area-none.test.mjs
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs

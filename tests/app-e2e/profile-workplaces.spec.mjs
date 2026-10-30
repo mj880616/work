@@ -56,6 +56,10 @@ for(const [label,width] of [['폰 412',412],['폰 884',884],['PC 1440',1440]]){
     // 크기: 저장 버튼·줄은 작고, 찾기 칸도 작다. 가로로 넘치지 않는다.
     expect((await view.locator('#psSave').boundingBox()).height).toBeLessThanOrEqual(33);
     expect((await list.locator('.ps-org-row').first().boundingBox()).height).toBeLessThanOrEqual(34);
+    // UI-점검1030손질 C4: 체크칸(16px)은 작게 두되 줄 전체(label)가 누르는 곳이고 그 범위는 위아래 44px(::after).
+    const pick=list.locator('.ps-org-pick').first();
+    expect(await pick.evaluate(el=>{const a=getComputedStyle(el,'::after');return {content:a.content,h:parseFloat(a.height),pos:getComputedStyle(el).position}})).toEqual({content:'""',h:44,pos:'relative'});
+    expect((await list.locator('.ps-org-box').first().boundingBox()).height).toBeLessThanOrEqual(16.5);
     expect(sb.height).toBeLessThanOrEqual(33);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
     // 초성으로 찾기 → 맞는 것만 남는다.

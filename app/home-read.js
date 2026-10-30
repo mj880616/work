@@ -158,7 +158,7 @@ function placeCards() {
   // AI-사용량줄: 'AI 사용량' 줄은 수집 칸 바로 아래(PC: 마지막 수집 시각 칸 아래, 폰: '수집 정상 ✓' 줄 자리 아래). 수집 칸을 빼면 같이 빠진다.
   const aiAnchor = !aiLine || !collectOn ? null : phone ? collectLines?.ok : els.get('collect');
   const aiPlaced = !aiLine || (aiAnchor ? aiAnchor.nextElementSibling === aiLine : !aiLine.isConnected);
-  if (same(left, want.main) && same(right, want.aside) && (lines ?? true) && aiPlaced) return;
+  if (same(left, want.main) && same(right, want.aside) && (lines ?? true) && aiPlaced) { editMount?.dock?.(); return; }
   const focused = [...mine].find(el => el.contains(document.activeElement)) ? document.activeElement : null;
   for (const el of mine) if (!want.main.includes(el) && !want.aside.includes(el)) el.remove();
   want.main.forEach(el => left.append(el));
@@ -168,6 +168,7 @@ function placeCards() {
     else { collectLines.alert.remove(); collectLines.ok.remove(); }
   }
   if (aiLine) { const anchor = !collectOn ? null : phone ? collectLines?.ok : els.get('collect'); if (!anchor) aiLine.remove(); else if (anchor.nextElementSibling !== aiLine) anchor.after(aiLine); }
+  editMount?.dock?.();
   focused?.focus({ preventScroll: true });
 }
 window.addEventListener('kptu:home-cards-changed', placeCards);
@@ -221,7 +222,7 @@ function shell() {
   aiLine.className = 'home-ai-usage';
   aiLine.dataset.homeAiUsage = '';
   aiLine.setAttribute('aria-label', 'AI 사용량');
-  aiMount = mountAiUsageLine(aiLine);
+  aiMount = mountAiUsageLine(aiLine, { onPaint: () => editMount?.dock?.() });
   aiMount?.refresh();
   textDoneMount?.destroy();
   textDoneMount = mountTextBackfillNotice(host.querySelector('[data-home-text-done]'));

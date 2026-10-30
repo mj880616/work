@@ -152,7 +152,7 @@
 | 9 | `meeting-ai-ingest` | Web2 | v7 | 09-21 04:50 | **true** | work |
 | 10 | `meeting-files` | Web2 | v7 | 09-26 01:58 | false | work |
 | 11 | `page-ai-draft` | Web2 | v5 | 09-25 20:58 | **true** | work |
-| 12 | `team-ai` | Web2 | v5 | 09-22 07:34 | false | work |
+| 12 | `team-ai` | Web2(은퇴. 원본 삭제 SEC-정리묶음 2026-10-30, 운영 삭제는 명진 대시보드) | v5 | 09-22 07:34 | false | 저장소 원본 없음(git 기록에 남음) |
 | 13 | `workspace-drive` | Web2 | v6 | 09-26 01:58 | false | work |
 | 14 | `public-page-edit` | Web1 | v6 | 09-20 17:16 | false | work |
 | 15 | `public-policy-drive` | Web1 | v15 | 09-23 10:09 | false | work |
@@ -235,3 +235,11 @@ version 1, verify_jwt=false, 비로그인 POST 401, OPTIONS 200, source b466910.
 - 2026-10-29 00:37 KST, 명진 지시로 커맨드센터가 Supabase 대시보드에서 Edge `wedding-mc-shared`를 삭제했다(SEC-공개저장소점검 2차, 화면 `wedding/` 삭제 #1412 뒤 부르는 곳 없음).
 - 5절 표에서 23번 행을 뺐다(다른 행 번호는 그대로 둠). 원본 폴더 `supabase/functions/wedding-mc-shared/`도 같은 원장 롤업 PR에서 지웠다. 되돌릴 원본은 git 기록(main `2a74bde7` 이전 커밋)에 남아 있고, 되살릴 때는 2.2의 verify_jwt=false로 재배포한다.
 - DB 표 `wedding_mc_shared`는 데이터 보존 원칙에 따라 그대로 둔다(정리 여부는 별도 판단).
+
+### 5.3 저장소 원본 대조 (2026-10-30, SEC-정리묶음)
+
+- 이 세션은 운영 조회 없이 저장소 `supabase/functions/` 폴더 목록과 위 표만 맞춰 봤다(`_shared` 제외).
+- 이번에 원본을 지운 폴더: `kptu-board-probe`·`pc-file-test`·`pc0914-storage-test`·`rail-1007-page`·`rail-1007-page-v2`(운영은 ENV-6c에서 이미 삭제, 5.1) · `team-ai`(위 12행, 운영 삭제 대기). 되살릴 원본은 git 기록에 남고, 되살릴 때는 2.2의 verify_jwt 값으로 재배포한다.
+- 저장소에 원본이 있으나 위 표에 행이 없는 함수: `push-notifications` 1개. 운영에서는 ENV-6c로 삭제됐다(5.1). 410만 답하는 껍데기이며, 첫 배포 표 행으로 잘못 쓰이지 않게 표에 넣지 않는다. 원본 정리는 별도 판단.
+- 표에 있으나 이 저장소에 원본이 없는 함수: 읽생기 7개(24~30행, read-think-write 저장소), Web1 공개 페이지 5개(18~22행, 사용자 PC 보관 2.3). 의도된 상태다.
+- 그 밖의 표 행 24개는 저장소 폴더 24개(`push-notifications` 빼고 전부)와 이름이 1:1로 맞는다. verify_jwt 값은 이번에 바꾸지 않았다(운영 조회 없음, 값 근거는 각 행 기록).
