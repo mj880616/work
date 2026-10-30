@@ -20,10 +20,10 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./ui-standard.css'],
-  home:['./library-upload.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
+  basket:['./basket.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./ui-standard.css'],
+  home:['./library-upload.css','./row-swipe.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./calendar-ui.css','./ui-standard.css'],
-  tasks:['./task-layout.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
+  tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
   journal:['./journal.css','./todo-radar.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./ui-standard.css'],

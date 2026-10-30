@@ -182,12 +182,12 @@
 
 /* CALL-목록상세정리: 폰에서 '‹ 통화'·'‹ 업무 통화'·'‹ 소식'이 보일 때는 맨 위 화면 이름('통화')을 감춰 한 줄만 남긴다(바구니 상세와 같은 방식, ui-standard.css). */
 @media(max-width:760px){
-  html:has(#callsView:not(.hidden) :is([data-cf-back],[data-cf-box="work"])) .mobile-shell-header [data-mobile-view-name],
-  html:has(#telegramView:not(.hidden) :is([data-tg-back],[data-tg-shelf-back])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
+  html:has(#callsView:not(.hidden) :is([data-cf-back],[data-cf-box="work"])) #appView > .mobile-shell-header,
+  html:has(#telegramView:not(.hidden) :is([data-tg-back],[data-tg-shelf-back])) #appView > .mobile-shell-header{ display:none; }
   /* UI-화면정리 C(B① 위쪽 빈 띠): 이름을 감춘 머리줄이 빈 채로 남고 그 아래에 '‹ 통화'·'‹ 소식' 줄이 따로 있어 위쪽 70~80px이 비었다.
-     바구니 상세와 같은 방식으로 그 줄을 머리줄 자리로 올린다(머리줄 44px + 아래 간격 12px). */
+     UI-머리줄겹침(2026-10-30): 빈 위 머리줄을 위에서 접고(display:none), '‹' 줄은 음수 여백 없이 제자리에서 첫 줄이 된다(위에 다른 칸이 있으면 그 아래). */
   #appView .feed-view .feed-pane > .feed-detail-head:first-child,
-  #appView .feed-view .feed-list > .feed-head:first-child:has(> .back-text){ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; min-height:var(--kptu-touch-target,44px); position:relative; z-index:2; }
+  #appView .feed-view .feed-list > .feed-head:first-child:has(> .back-text){ margin:0 0 12px; min-height:var(--kptu-touch-target,44px); }
 }
 
 /* CALL-손고치기: 줄 안 제목 입력, 조직·이름 박스, 핵심내용 고치기. 크기·색은 기존 토큰만(UI-버튼기준). */

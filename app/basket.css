@@ -213,8 +213,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .note-editor > .basket-text-label:first-child{ margin-top:0; }
 @media(max-width:760px){
   /* 폰: 노트 읽기·수정도 메모처럼 위 머리줄의 "바구니" 자리에 '‹ 노트'·[복사]·[⋯]가 올라간다(UI-화면정리 C: 정리함 상세의 '‹ 정리함'처럼 뒤로 가기 표시). */
-  #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head{ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; position:relative; z-index:2; }
-  html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-detail]:not([hidden])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
+  /* UI-머리줄겹침: 음수 여백으로 끌어올리지 않는다. 비어 버린 위 머리줄을 접고, 이 줄은 제자리(위에 다른 칸이 있으면 그 아래)에 둔다(ui-standard.css 정리함 상세와 같음). */
+  html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-detail]:not([hidden])) #appView > .mobile-shell-header{ display:none; }
   #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head > .note-head-main{ justify-content:flex-end; }
 }
 /* BASKET-노트입력창: 노트 입력칸(PC)은 왼쪽 여백만(NOTE-파일붙이기: PC 클립은 입력칸 밖 [추가] 앞, 폰은 ui-standard.css가 클립 자리를 둔다). */

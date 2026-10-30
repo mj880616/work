@@ -40,6 +40,7 @@ import { openPhotoView } from './photo-view.js';
 import { attachmentName } from './attachment-name.mjs';
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
+import { bindRowSwipe, claimedSince } from './row-swipe.js';
 import { notePreview, noteCopyPayload, plainLines } from './note-preview.mjs';
 // NOTE-보기3가지(요청함 10/29 15:05): [폴더|목록|포스트잇] 세 보기. 고른 보기는 서버(view_prefs.note_view), 포스트잇 자리는 노트 metadata.board.
 import { mountNoteBoard } from './note-board.js';
@@ -324,7 +325,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '고른 것 메뉴' : '노트 메뉴');
     el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuItems(note, from).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
     el.hidden = false;
-    const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: 320});
+    // UI-메뉴잘림: 높이를 묶지 않는다(창 높이까지 다 보임, 정말 길 때만 스크롤 + 아래 흐림 — anchored-popup.js).
+    const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: window.innerHeight});
     place();
     menu = {noteId: note?.id ?? null, from, fileId, folderId, trigger, stop: followAnchor(el, trigger, {place, lost: () => closeMenu()})};
     trigger.setAttribute('aria-expanded', 'true');
@@ -921,13 +923,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     } finally { if (run === epoch && selected) lock(false); else busy = false; }
   }
   // [삭제] from the open note or from a list row: the same confirmation (what goes with it) and the same delete path.
-  async function remove(id = selected?.id) {
+  async function remove(id = selected?.id, {confirmed = false} = {}) {
     if (!id || editing || busy) return;
     const fromList = !selected, run = ++epoch, owner = scope(); lock(true); report('');
     const current = () => run === epoch && owner === scope() && window.KPTURouter.current === 'basket' && (fromList ? !selected : selected?.id === id);
     let result;
     // NOTE-파일붙이기 (2026-10-22 사용자 결정): deleting a note removes it and its links; its files stay in Drive.
-    try { result = await deleteNoteOriginal(id, {rt, isCurrent:current, trash:true}); }
+    try { result = await deleteNoteOriginal(id, {rt, isCurrent:current, trash:true, confirmed}); }
     catch { result = {status:'unknown', message:'결과를 확인하지 못했어요. 노트 다시 불러오기로 실제 상태를 확인해 주세요.'}; }
     finally { busy = false; }
     if (!current() || result.status === 'stale') return;
@@ -1063,13 +1065,18 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }, {passive:true});
   list.addEventListener('touchend', e => {
     const s = swipe; swipe = null;
-    if (!s || touch?.grabbed || !e.changedTouches.length) return;
+    if (!s || touch?.grabbed || !e.changedTouches.length || claimedSince(s.t)) return; // UI-목록밀기: 줄 위에서 민 것은 줄 밀기(보기 전환 아님)
     const p = e.changedTouches[0], dx = p.clientX - s.x, dy = p.clientY - s.y;
     if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - s.t > 800) return;
     const i = VIEWS.indexOf(view) + (dx < 0 ? 1 : -1);
     if (i >= 0 && i < VIEWS.length) { suppressUntil = Date.now() + 400; setView(VIEWS[i]); }
   }, {passive:true});
   list.addEventListener('touchcancel', () => { swipe = null; }, {passive:true});
+  // UI-목록밀기: 폰 노트 줄 — 왼쪽으로 밀기 [삭제](휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음), 오른쪽으로 밀기 [고정]/[고정 풀기]. 기존 ⋯ 메뉴의 길 그대로.
+  // 선택 모드·열린 노트·포스트잇 보드에서는 밀지 않는다(보드는 칸 옮기기).
+  bindRowSwipe(list, {row:'[data-nx-note]', enabled:() => !selected && !pick.active && !busy && !editing && view !== 'board',
+    actions:el => { const note = notes.find(n => n.id === el.dataset.nxNote); return note ? {start:{key:'pin', label:notePinnedAt(note) ? '고정 풀기' : '고정', tone:'info'}, end:{key:'delete', label:'삭제', tone:'danger'}} : null; },
+    run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, {confirmed:true}); else void pin(note); }});
   // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.
   host.addEventListener('focusout', e => { const el = menuEl(); if (menu && e.relatedTarget && !el.contains(e.relatedTarget) && e.relatedTarget !== menu.trigger) closeMenu(); });
   document.addEventListener('click', e => { if (menu && !menuEl().contains(e.target) && !menu.trigger.contains(e.target)) closeMenu(); });

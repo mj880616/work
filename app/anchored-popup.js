@@ -34,6 +34,9 @@ export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edg
     bottom=Math.max(edge,vh-want)+'px';
   }else if(Math.max(below,above)>=minHeight){
     side=below>=Math.min(maxHeight,above)?'below':'above';
+    // UI-메뉴잘림: 고른 쪽에 내용이 다 들어가지 않는데 반대쪽에는 다 들어가면 반대쪽으로(⋯ 메뉴 끝 항목이 안쪽 스크롤에 숨지 않게).
+    const want=Math.min(maxHeight,panel.scrollHeight||0);
+    if(want&&side==='below'&&below<want&&above>=want)side='above';else if(want&&side==='above'&&above<want&&below>=want)side='below';
     left=Math.max(edge,Math.min(t.left,vw-width-edge));
     height=Math.min(maxHeight,side==='below'?below:above);
     if(side==='below')top=t.bottom+gap+'px';else bottom=vh-t.top+gap+'px';
@@ -47,8 +50,17 @@ export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edg
   }
   Object.assign(panel.style,{inset:'auto',margin:'0',width:width+'px',left:left+'px',top,bottom,maxHeight:Math.max(0,height)+'px'});
   panel.dataset.anchorSide=side;
+  markScrollMore(panel);
   keepInside(panel,edge);
   return side;
+}
+// UI-메뉴잘림(2026-10-30): 창이 정말 내용보다 짧아 안쪽이 스크롤될 때만 아래 끝을 흐리게 해 '더 있음'을 보인다(data-scroll-below, base-ui.css).
+// 끝까지 내리면 흐림이 사라진다. 다른 고정 판(⋯ 메뉴·우클릭 메뉴)도 같은 표시를 부를 수 있다. 화면 상태만, 저장 없음.
+export function markScrollMore(panel){
+  if(!panel)return;
+  const paint=()=>{const more=panel.scrollHeight-panel.clientHeight>1&&panel.scrollTop+panel.clientHeight<panel.scrollHeight-1;if(more)panel.dataset.scrollBelow='1';else delete panel.dataset.scrollBelow;};
+  if(!panel.dataset.scrollBelowBound){panel.dataset.scrollBelowBound='1';panel.addEventListener('scroll',paint,{passive:true});}
+  paint();
 }
 const clamp=(value,min,max)=>Math.max(min,Math.min(value,max));
 // Moves a fixed panel back inside the window by the box it was really drawn at (a hidden panel, 0×0, is left alone).
@@ -61,7 +73,7 @@ export function keepInside(panel,edge=8){
 export function clearAnchored(panel){
   for(const key of ['inset','margin','width','left','top','bottom','maxHeight'])panel.style[key]='';
   if(!panel.getAttribute('style'))panel.removeAttribute('style');
-  delete panel.dataset.anchorSide;delete panel.dataset.anchorMoved;panel.classList.remove('anchored-dragging');
+  delete panel.dataset.anchorSide;delete panel.dataset.anchorMoved;delete panel.dataset.scrollBelow;panel.classList.remove('anchored-dragging');
 }
 
 // UI-창잘림·끌어옮기기: on a wide screen an anchored popup with a title row (selector, inside the panel) can be dragged by that

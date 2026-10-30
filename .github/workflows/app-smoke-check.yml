@@ -495,6 +495,9 @@ jobs:
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
 
+      - name: UI-목록밀기 폰 목록 줄 밀기 셈·연결, UI-메뉴잘림
+        run: node --test tests/row-swipe-model.test.mjs
+
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
 

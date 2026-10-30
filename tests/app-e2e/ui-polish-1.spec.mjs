@@ -203,9 +203,10 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  await expect(listMore).toBeHidden();
  const back=detail.locator('.basket-back');await expect(back).toHaveText('‹ 정리함');await expect(back).toHaveAccessibleName('정리함 목록으로');
  if(width<761){
-  await expect(page.locator('[data-mobile-view-name]')).toBeHidden();
-  const [b,header]=await Promise.all([rect(back),rect(page.locator('.mobile-shell-header'))]);
-  expect(Math.abs((b.top+b.bottom)/2-(header.top+header.bottom)/2)).toBeLessThanOrEqual(6);
+  // UI-머리줄겹침: 빈 위 머리줄은 접히고 '‹ 정리함' 줄이 화면 첫 줄(음수 여백 없이 제자리).
+  await expect(page.locator('#appView > .mobile-shell-header')).toBeHidden();
+  const [b,panel]=await Promise.all([rect(back),rect(page.locator('#basketView'))]);
+  expect(b.top).toBeGreaterThanOrEqual(panel.top-1);expect(b.top-panel.top).toBeLessThanOrEqual(24);
  }
  // Card's last row (UI-바구니상세개편): three buttons, one look (UI-바구니상세버튼색). No write-request candidate anywhere.
  await expect(detail.locator('[data-basket-read-actions] button')).toHaveText(['연결하기','할 일 만들기','노트로 옮기기']);

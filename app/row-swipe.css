@@ -1,0 +1,17 @@
+/* UI-목록밀기(2026-10-30): 폰 목록 줄 밀기 공용 모양(row-swipe.js). 텔레그램 소식 줄 밀기(feed.css .feed-act)와 같은 64px 칸·같은 옅은 색.
+   줄은 바탕색을 가진 채 옆으로 밀리고, 그 뒤에 버튼 칸이 있다. 크고 굵은 버튼 없음, 글자 11px. 값은 --kptu-*·--ds-* 토큰만. */
+@media(max-width:760px){
+  :is(#basketRows [data-basket-row-item],#noteRows [data-nx-note],[data-nx-recent] [data-nx-note],.inbox-todo-list > [data-inbox-todo-row],#gtTaskBody .gt-row[data-google-task]){ touch-action:pan-y; }
+}
+.row-swipe-host{ position:relative; }
+.row-swipe-row{ position:relative; z-index:1; background:var(--kptu-surface); transition:transform .18s ease; }
+.row-swipe-row.is-drag{ transition:none; }
+.row-swipe-acts{ position:absolute; z-index:0; left:0; right:0; display:flex; justify-content:space-between; overflow:hidden; list-style:none; margin:0; padding:0; }
+.row-swipe-act{ display:flex; align-items:center; justify-content:center; width:64px; min-width:64px; min-height:0; height:100%; margin:0; padding:0 6px; border:0; border-radius:0; font:inherit; font-size:11px; line-height:1.2; cursor:pointer; }
+.row-swipe-acts > .row-swipe-end{ margin-left:auto; }
+.row-swipe-acts[data-side="start"] > .row-swipe-end,.row-swipe-acts[data-side="end"] > .row-swipe-start{ visibility:hidden; }
+.row-swipe-tone-danger{ background:var(--kptu-danger-soft); color:var(--kptu-danger); }
+.row-swipe-tone-info{ background:var(--kptu-info-soft); color:var(--kptu-info); }
+.row-swipe-tone-warning{ background:var(--kptu-warning-soft); color:var(--kptu-warning); }
+.row-swipe-act:focus-visible{ outline:2px solid var(--kptu-info); outline-offset:-2px; }
+@media(prefers-reduced-motion:reduce){ .row-swipe-row{ transition:none; } }

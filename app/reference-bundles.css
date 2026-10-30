@@ -60,5 +60,5 @@
 
 /* CALL-목록상세정리: 폰에서 '‹ 참고 묶음'이 보일 때는 맨 위 화면 이름을 감춰 한 줄만 남긴다(통화·소식 상세와 같은 규칙, feed.css). */
 @media(max-width:760px){
-  html:has(#referenceView:not(.hidden) [data-rb-back]) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
+  html:has(#referenceView:not(.hidden) [data-rb-back]) #appView > .mobile-shell-header{ display:none; }
 }
