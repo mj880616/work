@@ -258,6 +258,8 @@ jobs:
         run: node --test tests/org-quiet.test.mjs
       - name: Check note views and sticky board (NOTE-보기3가지)
         run: node --test tests/note-board-model.test.mjs
+      - name: Check note boards (NOTE-보드여러개)
+        run: node --test tests/note-boards-model.test.mjs
 
       - name: Check ledger decision history (FEAT-1029묶음 ⑥)
         run: node --test tests/ledger-decision-history.test.mjs

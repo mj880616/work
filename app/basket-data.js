@@ -6,6 +6,7 @@ import { requestsGuard } from './update-requests.js';
 import { noteJournalAt, journalGuard, othersGuard, MOVED_KEY } from './update-journal.js';
 import { bodyWithoutTitleLine } from './note-markdown.mjs';
 import { attachmentName } from './attachment-name.mjs';
+import { withBoardPlace } from './note-boards-model.mjs';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -303,6 +304,11 @@ export function setNoteBoard(note, board, rt = window.KPTURuntime) {
     metadata.board = {x:board.x, y:board.y, r:board.r, z:board.z};
     return metadata;
   }, rt);
+}
+// NOTE-보드여러개: 이름 붙은 보드에 붙인 자리는 같은 metadata의 boards = {보드 id: {x, y, r, z}}(같은 읽고-지키며-쓰기, updated_at 그대로).
+// place가 null이면 그 보드에서 뺀다(노트는 그대로). 값의 뜻은 note-boards-model.mjs가 정한다.
+export function setNoteBoardPlace(note, boardId, place, rt = window.KPTURuntime) {
+  return patchNoteMetadata(note, metadata => withBoardPlace(metadata, boardId, place), rt);
 }
 // UI-노트폴더 1단계 (docs/design/note-folders.md 결정 1·3): a note's folder is one name in its existing metadata jsonb
 // (metadata.folder; no folder = "폴더 없음"). One level, 0 or 1 folder per note, names of 1~20 letters, at most 30 folders,
