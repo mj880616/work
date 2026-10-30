@@ -136,3 +136,87 @@ test('a failed table read tells waiting windows no; a later answer tells yes onc
     assert.deepEqual(heard, [['m1', false], ['m1', true]]);
   } finally { stop(); }
 });
+
+// TASK-첨부교체: the edit window holds 교체·빼기·붙이기 until [저장], then sends the same attach / detach requests as ⋯ → 파일 붙이기.
+import { taskAttachHtml, applyTaskAttachPlan, taskAttachNotice } from '../app/task-files.js';
+const tf = name => new File(['abc'], name, { type: 'text/plain' });
+const editRt = ({ failAttach = [], failDetach = [], start = [] } = {}) => {
+  const calls = [];
+  let files = start.map(f => ({ ...f }));
+  let next = 1;
+  const rt = {
+    copyUploadFile: async f => f,
+    api: async (path, options = {}) => {
+      if (path.includes('action=attach')) {
+        const name = options.body.get('file').name; calls.push(['attach', name]);
+        if (failAttach.includes(name)) throw Object.assign(Error('올리지 못했습니다.'), { status: 502 });
+        if (files.length >= MAX_TASK_FILES) throw Object.assign(Error('한 할 일에는 파일을 10개까지 붙일 수 있습니다.'), { status: 400 });
+        files.push({ drive_file_id: 'new' + next++, file_name: name, size_bytes: 3 });
+        return { ok: true, files: [...files], task: { id: 't1', notes: 'n' }, notes_synced: true };
+      }
+      if (path.includes('action=detach')) {
+        const id = options.body.drive_file_id; calls.push(['detach', id]);
+        if (failDetach.includes(id)) throw Object.assign(Error('빼지 못했습니다.'), { status: 502 });
+        if (!files.some(f => f.drive_file_id === id)) throw Object.assign(Error('이미 빠진 파일입니다.'), { status: 404 });
+        files = files.filter(f => f.drive_file_id !== id);
+        return { ok: true, files: [...files], task: { id: 't1', notes: 'n' }, notes_synced: true };
+      }
+      throw Error('unexpected ' + path);
+    }
+  };
+  return { rt, calls, files: () => files };
+};
+
+test('attach box rows: 교체·빼기 on each file, held changes tagged with 되돌리기, new files with 취소, 파일 붙이기 under them', () => {
+  const base = [{ drive_file_id: 'a', file_name: 'a.pdf', inTable: true }, { drive_file_id: 'b', file_name: 'b.pdf', inTable: true }, { drive_file_id: 'c', file_name: 'c.pdf', inTable: false }];
+  const plain = taskAttachHtml({ base, editable: true });
+  assert.equal((plain.match(/data-gt-att-swap=/g) || []).length, 3);
+  assert.equal((plain.match(/data-gt-att-remove=/g) || []).length, 3);
+  assert.match(plain, /data-gt-att-add[^>]*>파일 붙이기</);
+  const held = taskAttachHtml({ base, editable: true, edits: new Map([['a', { kind: 'swap', file: tf('새 a.pdf') }], ['b', { kind: 'remove' }]]), added: [tf('<새>.txt')] });
+  assert.match(held, /is-changed[^]*새 a\.pdf[^]*>교체<[^]*data-gt-att-undo="a"/);
+  assert.match(held, /is-removed[^]*b\.pdf[^]*>뺌<[^]*data-gt-att-undo="b"/);
+  assert.match(held, /is-new[^]*&lt;새&gt;\.txt[^]*data-gt-att-drop="0"/);
+  assert.match(held, /저장하면 반영됩니다 · 원래 파일은 Drive에 남습니다/);
+  // A changed row offers no 열기 of the old file; the unchanged one still does.
+  assert.equal((held.match(/data-fa-menu="open"/g) || []).length, 1);
+  // No files yet: only 첨부 [파일 붙이기].
+  assert.equal(taskAttachHtml({ base: [], editable: true }).includes('gt-att-row'), false);
+  assert.match(taskAttachHtml({ base: [], editable: true }), /파일 붙이기/);
+  // Full: 파일 붙이기 is off; busy: every button is off.
+  const ten = Array.from({ length: 10 }, (_, i) => ({ drive_file_id: 'f' + i, file_name: i + '.txt', inTable: true }));
+  assert.match(taskAttachHtml({ base: ten, editable: true }), /data-gt-att-add aria-label="첨부 파일 붙이기" disabled/);
+  assert.doesNotMatch(taskAttachHtml({ base, editable: true, busy: true }).replace(/data-fa-menu="(open|download)"[^>]*>/g, ''), /class="ghost gt-att-btn" data-gt-att[^>]*"(?! disabled)>/);
+});
+
+test('applyTaskAttachPlan: swap uploads first then detaches the old one; remove detaches; add uploads; Drive is never asked to delete', async () => {
+  const start = [{ drive_file_id: 'a', file_name: 'a.pdf' }, { drive_file_id: 'b', file_name: 'b.pdf' }];
+  const { rt, calls, files } = editRt({ start });
+  const plan = { remove: [{ drive_file_id: 'b', file_name: 'b.pdf', inTable: true }, { drive_file_id: 'n', file_name: 'n.pdf', inTable: false }], swap: [{ from: { drive_file_id: 'a', file_name: 'a.pdf', inTable: true }, file: tf('a2.pdf') }], add: [tf('c.txt')], tableCount: 2 };
+  const r = await applyTaskAttachPlan('t1', plan, { rt });
+  assert.deepEqual(calls, [['detach', 'b'], ['attach', 'a2.pdf'], ['detach', 'a'], ['attach', 'c.txt']]);
+  assert.deepEqual(r.failed, []);
+  assert.deepEqual([...r.gone].sort(), ['a', 'b', 'n']);
+  assert.deepEqual(files().map(f => f.file_name), ['a2.pdf', 'c.txt']);
+  assert.deepEqual(r.files.map(f => f.file_name), ['a2.pdf', 'c.txt']);
+  assert.equal(taskAttachNotice(r), '');
+});
+
+test('applyTaskAttachPlan: a failed upload keeps the old file; a full task takes the old one off first; failures are named', async () => {
+  const one = editRt({ start: [{ drive_file_id: 'a', file_name: 'a.pdf' }], failAttach: ['a2.pdf'] });
+  const r1 = await applyTaskAttachPlan('t1', { remove: [], swap: [{ from: { drive_file_id: 'a', file_name: 'a.pdf', inTable: true }, file: tf('a2.pdf') }], add: [], tableCount: 1 }, { rt: one.rt });
+  assert.deepEqual(one.calls, [['attach', 'a2.pdf']]);
+  assert.deepEqual(one.files().map(f => f.drive_file_id), ['a']);
+  assert.equal(r1.gone.size, 0);
+  assert.match(taskAttachNotice(r1), /^할 일은 저장했습니다\. 첨부 1건\(a2\.pdf\)을 바꾸지 못했습니다: 올리지 못했습니다\./);
+  const ten = Array.from({ length: 10 }, (_, i) => ({ drive_file_id: 'f' + i, file_name: i + '.txt' }));
+  const full = editRt({ start: ten });
+  const r2 = await applyTaskAttachPlan('t1', { remove: [], swap: [{ from: { drive_file_id: 'f3', file_name: '3.txt', inTable: true }, file: tf('3 new.txt') }], add: [], tableCount: 10 }, { rt: full.rt });
+  assert.deepEqual(full.calls, [['detach', 'f3'], ['attach', '3 new.txt']]);
+  assert.deepEqual(r2.failed, []);
+  assert.equal(full.files().length, 10);
+  const gone = editRt({ start: [] });
+  const r3 = await applyTaskAttachPlan('t1', { remove: [{ drive_file_id: 'x', file_name: 'x.pdf', inTable: true }], swap: [], add: [], tableCount: 1 }, { rt: gone.rt });
+  assert.deepEqual(r3.failed, []);
+  assert.deepEqual([...r3.gone], ['x']);
+});

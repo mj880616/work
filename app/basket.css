@@ -364,3 +364,15 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nbb-pick-foot { display:flex; justify-content:flex-end; }
 .nbb-pick .nbb-pick-ok { height:30px; min-height:0; margin:0; padding:0 14px; border:0; border-radius:var(--ds-radius-control,8px); background:var(--kptu-primary-soft); color:var(--kptu-primary-ink,var(--kptu-primary)); font:inherit; font-size:13px; }
 .nbb-pick .nbb-pick-ok:disabled { opacity:.5; }
+/* TASK-첨부교체: 정리함 [할 일 만들기]의 [파일 붙이기]는 할 일 창과 같은 부품(task-files.js mountNewTaskFilePick). 이 화면에는 google-tasks.css가 없어 모양만 여기 둔다. */
+#basketView .basket-manual-task-files[hidden],#basketView .basket-manual-task-files [hidden]{display:none}
+#basketView .basket-manual-task-files[data-gt-pick-wait]{visibility:hidden}
+#basketView .basket-manual-task-files{min-width:0;margin:0 0 8px}
+#basketView .basket-manual-task-files .gt-pick-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-height:var(--kptu-touch-target,44px)}
+#basketView .basket-manual-task-files .gt-pick-btn{display:inline-flex;align-items:center;gap:4px;width:auto;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px)}
+#basketView .basket-manual-task-files .gt-pick-btn svg{color:var(--kptu-link)}
+#basketView .basket-manual-task-files .gt-pick-hint{min-width:0;color:var(--kptu-muted);font-size:11px;line-height:1.4;word-break:keep-all}
+#basketView .basket-manual-task-files .gt-pick-list{list-style:none;margin:0;padding:0}
+#basketView .basket-manual-task-files .gt-pick-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--kptu-touch-target,44px);border-top:1px solid var(--kptu-border)}
+#basketView .basket-manual-task-files .gt-pick-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+#basketView .basket-manual-task-files.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--ds-radius-control,6px)}

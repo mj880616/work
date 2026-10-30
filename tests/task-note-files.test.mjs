@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { splitTaskNotes, joinTaskNotes, taskAttachments, noteFileLine } from '../app/task-note-files.mjs';
-import { attachmentRowsHtml, fileLinksHtml } from '../app/task-files.js';
+import { taskAttachHtml, fileLinksHtml } from '../app/task-files.js';
 
 // TASK-첨부열기: one reader/writer for the "첨부: 이름 주소" lines of a Google task's notes (card + edit window + save).
 const url = id => `https://drive.google.com/file/d/${id}/view`;
@@ -53,8 +53,8 @@ test('taskAttachments: link-table files first (their names win), then lines only
 });
 
 test('edit-window rows: icon, one-line name, [열기] [내려받기] using the shared file buttons', () => {
-  assert.equal(attachmentRowsHtml([]), '');
-  const html = attachmentRowsHtml([{drive_file_id: 'f1', file_name: '<b>"x"</b>.pdf'}, {drive_file_id: 'f2', file_name: 'b.png'}]);
+  assert.equal(taskAttachHtml({base: []}), '');
+  const html = taskAttachHtml({base: [{drive_file_id: 'f1', file_name: '<b>"x"</b>.pdf'}, {drive_file_id: 'f2', file_name: 'b.png'}]});
   assert.equal((html.match(/class="gt-att-row"/g) || []).length, 2);
   assert.equal((html.match(/data-fa-menu="open"/g) || []).length, 2);
   assert.equal((html.match(/data-fa-menu="download"/g) || []).length, 2);
@@ -62,6 +62,8 @@ test('edit-window rows: icon, one-line name, [열기] [내려받기] using the s
   assert.ok(!html.includes('<b>"x"'), 'names are escaped');
   assert.match(html, />열기<\/button>/);
   assert.match(html, />내려받기<\/button>/);
+  // Read-only (no link table yet): no 교체·빼기·붙이기.
+  assert.doesNotMatch(html, /data-gt-att-(swap|remove|add)/);
 });
 
 test('card name stays a link that opens the file; long names end in an ellipsis on one line', () => {

@@ -273,3 +273,12 @@ div.gt-main{cursor:default}
 #gtTaskModal .gt-att-icon{flex:none;color:var(--kptu-muted)}
 #gtTaskModal .gt-att-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #gtTaskModal .gt-att-btn{flex:none;width:auto;min-height:28px;height:28px;margin:0;padding:0 8px;font-size:var(--kptu-text-meta);white-space:nowrap}
+/* TASK-첨부교체: [교체] [빼기] on each row, held changes tagged (교체·뺌·새 파일) with [되돌리기]/[취소], then [파일 붙이기]. PC: drop on a row or the box. */
+#gtTaskModal .gt-att-tag{flex:none;padding:0 4px;border-radius:var(--ds-radius-control,6px);background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:11px;line-height:18px}
+#gtTaskModal .gt-att-row.is-removed .gt-att-name{color:var(--kptu-muted);text-decoration:line-through}
+#gtTaskModal .gt-att-row.is-changed .gt-att-name,#gtTaskModal .gt-att-row.is-new .gt-att-name{color:var(--kptu-ink)}
+#gtTaskModal .gt-att-more{display:flex;flex-wrap:wrap;align-items:center;gap:2px var(--kptu-space-2);min-width:0;min-height:28px}
+#gtTaskModal .gt-att-hint{min-width:0;color:var(--kptu-muted);font-size:11px;line-height:1.4;word-break:keep-all}
+#gtTaskModal .gt-att.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--ds-radius-control,6px)}
+@media (max-width:600px){#gtTaskModal .gt-att-btn{padding:0 6px}#gtTaskModal .gt-att-row{gap:2px}}
+.gt-pick.is-drop{outline:1px dashed var(--kptu-link);outline-offset:2px;border-radius:var(--ds-radius-control,6px)}

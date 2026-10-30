@@ -66,17 +66,6 @@ export function fileLinksHtml(files) {
   return `<div class="gt-files">${files.map(f => `<a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer" ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})} aria-label="첨부 파일 열기: ${esc(f.file_name)}">${esc(f.file_name)}</a>`).join('')}</div>`;
 }
 
-// TASK-첨부열기: the 첨부 rows of the edit window, under 할 일: file icon + name (one line, ellipsis) + [열기] [내려받기].
-// Both buttons are the shared file-actions buttons (data-fa-menu): Drive view in a new tab / Drive's own download. Nothing new on the server.
-export function attachmentRowsHtml(files) {
-  if (!files?.length) return '';
-  const icon = '<svg class="gt-att-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 1.5h5l3 3v10H4z M9 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
-  return files.map(f => {
-    const attrs = fileAttrs({name: f.file_name, driveId: f.drive_file_id}), name = esc(f.file_name);
-    return `<div class="gt-att-row">${icon}<span class="gt-att-name" title="${name}">${name}</span><button type="button" class="ghost gt-att-btn" data-fa-menu="open"${attrs} aria-label="첨부 열기: ${name}">열기</button><button type="button" class="ghost gt-att-btn" data-fa-menu="download"${attrs} aria-label="첨부 내려받기: ${name}">내려받기</button></div>`;
-  }).join('');
-}
-
 // The dialog behind ⋯ → 파일 붙이기: current files with [빼기], a picker, and a status line. The owner of the task list
 // (google-tasks.js) passes the task, its files and onChange(files, task) to store answers; this dialog only shows them.
 let dialog = null;
@@ -269,6 +258,19 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
     if (problem) { onError(problem); return; }
     chosen = [...chosen, ...added]; onError(''); render();
   };
+  // TASK-첨부교체: PC can drop files on the part too (the same checks as the picker). The drop stays here (no page-level drop).
+  const takesDrop = e => !host.hidden && !host.hasAttribute('data-gt-pick-wait') && !isBusy() && [...(e.dataTransfer?.types || [])].includes('Files');
+  host.addEventListener('dragover', e => { if (!takesDrop(e)) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; host.classList.add('is-drop'); });
+  host.addEventListener('dragleave', e => { if (!host.contains(e.relatedTarget)) host.classList.remove('is-drop'); });
+  host.addEventListener('drop', e => {
+    host.classList.remove('is-drop');
+    if (!takesDrop(e)) return;
+    e.preventDefault(); e.stopPropagation();
+    const added = [...(e.dataTransfer.files || [])], problem = pickProblem(chosen, added);
+    if (problem) { onError(problem); return; }
+    if (!added.length) return;
+    chosen = [...chosen, ...added]; onError(''); render();
+  });
   list.onclick = e => {
     const b = e.target.closest('[data-gt-pick-remove]'); if (!b || isBusy()) return;
     chosen.splice(Number(b.dataset.gtPickRemove), 1); render();
@@ -285,3 +287,137 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
   };
 }
 
+
+// TASK-첨부교체: the rows of the edit window's 첨부 box (pure: the box above draws it). Unchanged rows use the shared file-actions
+// buttons (data-fa-menu) for [열기] [내려받기]; held changes show a small tag and [되돌리기] / [취소].
+const ATT_ICON = '<svg class="gt-att-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 1.5h5l3 3v10H4z M9 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+const keptCount = (base, edits, added) => base.filter(f => edits.get(f.drive_file_id)?.kind !== 'remove').length + added.length;
+export function taskAttachHtml({base = [], edits = new Map(), added = [], editable = false, busy = false} = {}) {
+  const btn = (label, attr, aria, off) => `<button type="button" class="ghost gt-att-btn" ${attr} aria-label="${esc(aria)}"${off ? ' disabled' : ''}>${label}</button>`;
+  const rows = base.map(f => {
+    const id = esc(f.drive_file_id), name = esc(f.file_name), e = edits.get(f.drive_file_id);
+    if (e?.kind === 'swap') {
+      const next = esc(e.file.name);
+      return `<div class="gt-att-row is-changed" data-gt-att-id="${id}">${ATT_ICON}<span class="gt-att-name" title="${next} (원래: ${name})">${next}</span><small class="gt-att-tag">교체</small>${btn('되돌리기', `data-gt-att-undo="${id}"`, `교체 되돌리기: ${f.file_name}`, busy)}</div>`;
+    }
+    if (e?.kind === 'remove') return `<div class="gt-att-row is-removed" data-gt-att-id="${id}">${ATT_ICON}<span class="gt-att-name" title="${name}">${name}</span><small class="gt-att-tag">뺌</small>${btn('되돌리기', `data-gt-att-undo="${id}"`, `빼기 되돌리기: ${f.file_name}`, busy)}</div>`;
+    const attrs = fileAttrs({name: f.file_name, driveId: f.drive_file_id});
+    return `<div class="gt-att-row" data-gt-att-id="${id}">${ATT_ICON}<span class="gt-att-name" title="${name}">${name}</span><button type="button" class="ghost gt-att-btn" data-fa-menu="open"${attrs} aria-label="첨부 열기: ${name}">열기</button><button type="button" class="ghost gt-att-btn" data-fa-menu="download"${attrs} aria-label="첨부 내려받기: ${name}">내려받기</button>${editable ? btn('교체', `data-gt-att-swap="${id}"`, `첨부 교체: ${f.file_name}`, busy) + btn('빼기', `data-gt-att-remove="${id}"`, `첨부 빼기: ${f.file_name}`, busy) : ''}</div>`;
+  });
+  const fresh = added.map((f, i) => `<div class="gt-att-row is-new">${ATT_ICON}<span class="gt-att-name" title="${esc(f.name)}">${esc(f.name)}</span><small class="gt-att-tag">새 파일</small>${btn('취소', `data-gt-att-drop="${i}"`, `붙이기 취소: ${f.name}`, busy)}</div>`);
+  const changed = edits.size > 0 || added.length > 0;
+  const more = editable ? `<div class="gt-att-more">${btn('파일 붙이기', 'data-gt-att-add', '첨부 파일 붙이기', busy || keptCount(base, edits, added) >= MAX_TASK_FILES)}<small class="gt-att-hint">${changed ? '저장하면 반영됩니다 · 원래 파일은 Drive에 남습니다' : `${MAX_TASK_FILES}개까지 · 파일당 100MB`}</small></div>` : '';
+  return rows.join('') + fresh.join('') + more;
+}
+
+// TASK-첨부교체: the 첨부 rows of the edit window, with changes held until [저장]. Each file: name · [열기] [내려받기] [교체] [빼기];
+// a task without files: 첨부 [파일 붙이기]. [교체] picks one file in place of that row (PC: drop a file on the row too); [빼기]
+// marks the row; drops elsewhere in the box add files. Nothing goes to the server here: the owner (google-tasks.js) reads plan()
+// at [저장] and sends the same attach / detach requests as ⋯ → 파일 붙이기. Closing the window (set() on the next open) forgets
+// the changes. Detaching never deletes the Drive file. editable:false (no link table yet) keeps only [열기] [내려받기].
+export function mountTaskAttach(host, {isBusy = () => false, onError = () => {}, onChange = () => {}} = {}) {
+  let base = [], editable = false, shown = false, edits = new Map(), added = [], swapFor = '';
+  host.innerHTML = '<span class="gt-att-label">첨부</span><div class="gt-att-list" data-gt-att-list></div><input type="file" multiple hidden data-gt-att-add-input><input type="file" hidden data-gt-att-swap-input>';
+  const list = host.querySelector('[data-gt-att-list]'), addInput = host.querySelector('[data-gt-att-add-input]'), swapInput = host.querySelector('[data-gt-att-swap-input]');
+  const kept = () => keptCount(base, edits, added);
+  const dirty = () => edits.size > 0 || added.length > 0;
+  const changed = () => { onError(''); render(); onChange(); };
+  function render() {
+    host.classList.toggle('hidden', !shown || (!editable && !base.length));
+    list.innerHTML = taskAttachHtml({base, edits, added, editable, busy: isBusy()});
+  }
+  function addFiles(files) {
+    if (!editable || isBusy() || !files.length) return;
+    let count = kept();
+    for (const file of files) { const problem = fileProblem(file, count++); if (problem) { onError(`${file.name}: ${problem}`); return; } }
+    added = [...added, ...files]; changed();
+  }
+  function swapFile(id, file) {
+    if (!editable || isBusy() || !file || !base.some(f => f.drive_file_id === id)) return;
+    const problem = fileProblem(file, 0);
+    if (problem) { onError(`${file.name}: ${problem}`); return; }
+    edits.set(id, {kind: 'swap', file}); changed();
+    list.querySelector(`[data-gt-att-undo="${CSS.escape(id)}"]`)?.focus();
+  }
+  list.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled || isBusy()) return;
+    if (b.hasAttribute('data-gt-att-add')) { addInput.click(); return; }
+    if (b.dataset.gtAttSwap) { swapFor = b.dataset.gtAttSwap; swapInput.click(); return; }
+    if (b.dataset.gtAttRemove) { const id = b.dataset.gtAttRemove; edits.set(id, {kind: 'remove'}); changed(); list.querySelector(`[data-gt-att-undo="${CSS.escape(id)}"]`)?.focus(); return; }
+    if (b.dataset.gtAttUndo) { const id = b.dataset.gtAttUndo; edits.delete(id); changed(); list.querySelector(`[data-gt-att-swap="${CSS.escape(id)}"]`)?.focus(); return; }
+    if (b.dataset.gtAttDrop != null) { added.splice(Number(b.dataset.gtAttDrop), 1); changed(); list.querySelector('[data-gt-att-add]')?.focus(); }
+  });
+  addInput.onchange = () => { const files = [...(addInput.files || [])]; addInput.value = ''; addFiles(files); };
+  swapInput.onchange = () => { const file = swapInput.files?.[0]; swapInput.value = ''; const id = swapFor; swapFor = ''; if (file) swapFile(id, file); };
+  // PC: drop a file on a row to put it in that row's place; anywhere else in the box adds it.
+  const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+  host.addEventListener('dragover', e => { if (!editable || isBusy() || !hasFiles(e)) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; host.classList.add('is-drop'); });
+  host.addEventListener('dragleave', e => { if (!host.contains(e.relatedTarget)) host.classList.remove('is-drop'); });
+  host.addEventListener('drop', e => {
+    host.classList.remove('is-drop');
+    if (!editable || isBusy() || !hasFiles(e)) return;
+    e.preventDefault(); e.stopPropagation();
+    const files = [...(e.dataTransfer.files || [])], row = e.target.closest?.('[data-gt-att-id]'), id = row?.dataset.gtAttId;
+    if (id && files.length === 1 && edits.get(id)?.kind !== 'remove') swapFile(id, files[0]); else addFiles(files);
+  });
+  return {
+    // files: the task's current files ({drive_file_id, file_name, inTable}); a new set forgets every held change.
+    set(files = [], {editable: canEdit = false, shown: visible = true} = {}) { base = files.map(f => ({...f})); editable = !!canEdit; shown = !!visible; edits = new Map(); added = []; swapFor = ''; render(); },
+    dirty,
+    // What [저장] sends: rows to take off, rows to put a new file in place of, and new files.
+    plan() {
+      const remove = [], swap = [];
+      for (const f of base) { const e = edits.get(f.drive_file_id); if (e?.kind === 'remove') remove.push(f); else if (e?.kind === 'swap') swap.push({from: f, file: e.file}); }
+      return {remove, swap, add: [...added], tableCount: base.filter(f => f.inTable).length};
+    },
+    render,
+  };
+}
+
+// TASK-첨부교체: [저장] of the edit window: the held plan goes to the server one request at a time. Takeoffs first (room under the
+// 10-file limit), then each swap (the new file goes up before the old one comes off, so a failed upload keeps the old one; a full
+// task takes the old one off first), then new files. A file known only from a notes line is taken off by the caller's notes save
+// (gone + noteOnly). Never throws: every failure is named in the result.
+export async function applyTaskAttachPlan(taskId, plan, {rt = window.KPTURuntime, onProgress = () => {}} = {}) {
+  const failed = [], gone = new Set();
+  let files = null, task = null, unsynced = false, count = Number(plan.tableCount) || 0;
+  const take = d => { if (Array.isArray(d?.files)) { files = d.files.map(f => ({drive_file_id: f.drive_file_id, file_name: String(f.file_name || '파일'), size_bytes: Number(f.size_bytes) || 0})); count = files.length; } if (d?.task) task = d.task; if (d?.notes_synced === false) unsynced = true; };
+  const off = async f => {
+    if (f.inTable) {
+      try { const d = await detachTaskFile(taskId, f.drive_file_id, {rt}); count = Math.max(0, count - 1); take(d); }
+      catch (e) { if (e?.status !== 404) throw e; count = Math.max(0, count - 1); }
+    }
+    gone.add(f.drive_file_id);
+  };
+  const up = async file => {
+    const problem = fileProblem(file, 0); if (problem) throw Error(problem);
+    const d = await attachTaskFile(taskId, file, {rt});
+    if (!d?.ok) throw Error('저장 결과를 확인하지 못했습니다.');
+    count++; take(d);
+  };
+  const steps = plan.remove.length + plan.swap.length + plan.add.length;
+  let step = 0;
+  for (const f of plan.remove) {
+    onProgress(step++, steps, f.file_name, '빼는 중');
+    try { await off(f); } catch (e) { failed.push({name: f.file_name, message: message(e)}); }
+  }
+  for (const {from, file} of plan.swap) {
+    onProgress(step++, steps, file.name, '올리는 중');
+    const full = from.inTable && count >= MAX_TASK_FILES;
+    try {
+      if (full) { await off(from); await up(file); }
+      else { await up(file); try { await off(from); } catch (e) { failed.push({name: from.file_name, message: `새 파일은 붙였지만 원래 파일을 빼지 못했습니다. ${message(e)}`}); } }
+    } catch (e) { failed.push({name: file.name, message: message(e)}); }
+  }
+  for (const file of plan.add) {
+    onProgress(step++, steps, file.name, '올리는 중');
+    try { await up(file); } catch (e) { failed.push({name: file.name, message: message(e)}); }
+  }
+  return {failed, gone, files, task, unsynced};
+}
+// One line for the edit window when part of the plan did not go through. Never silent.
+export function taskAttachNotice(result) {
+  if (!result?.failed?.length) return '';
+  const names = [...new Set(result.failed.map(f => f.name))].join(', ');
+  return `할 일은 저장했습니다. 첨부 ${result.failed.length}건(${names})을 바꾸지 못했습니다: ${result.failed[0].message} 다시 해 주세요.`;
+}
