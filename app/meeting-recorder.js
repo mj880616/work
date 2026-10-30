@@ -1,4 +1,4 @@
-// MTG-노트북녹음 2단계(요청함 10/29 14:26): 노트북(PC 1024px~) 사업 보고 위쪽 줄 [녹음] → 화면 맨 위 녹음 띠 → [멈추고 정리] → 회의 기록 초안.
+// MTG-노트북녹음 2단계(요청함 10/29 14:26): 노트북(PC 761px~) 사업 보고 위쪽 줄 [녹음] → 화면 맨 위 녹음 띠 → [멈추고 정리] → 회의 기록 초안.
 // 설계: docs/design/laptop-recording.md 8절. 서버: Edge meeting-transcribe의 rec_start·rec_piece·rec_finish·rec_pending(PR 1511)과 기존 transcribe·attach.
 // - 주인: 이 모듈 하나가 녹음기·녹음 띠(#recBand)·[녹음](#reportRecordBtn)·'이어서 정리' 줄(#recPendingLine)을 그린다(AGENTS.md 5절 one state owner).
 //   loader-v2.js가 첫 화면 뒤 한 번 불러오고, 화면 전환에 다시 그리지 않으므로 다른 메뉴로 옮겨도 녹음은 계속된다.
@@ -15,7 +15,7 @@ import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs
 if(window.KPTUMeetingRecorder)return;
 const $=s=>document.querySelector(s);
 const FN='/functions/v1/meeting-transcribe';
-const PC=window.matchMedia?.('(min-width:1024px)');
+const PC=window.matchMedia?.('(min-width:761px)');
 const MR=window.MediaRecorder;
 const MIME=pickMime(MR?.isTypeSupported?.bind(MR));
 const supported=()=>!!(MIME&&navigator.mediaDevices?.getUserMedia);

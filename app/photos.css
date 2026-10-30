@@ -80,7 +80,7 @@
 #appView #photosView .photos-name[hidden]{ display:none; }
 #appView #photosView .photos-name label{ display:flex; align-items:center; gap:6px; flex:1; min-width:0; color:var(--kptu-muted); }
 #appView #photosView .photos-name input{ flex:1; min-width:0; height:var(--ds-compact-height,32px); min-height:0; padding:0 8px; font:inherit; color:var(--kptu-ink); background:var(--kptu-bg); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); }
-/* [폴더]: 폴더 나무(공용 folder-tree.css 줄 모양) + 위치 줄(공용 .fp-path) + 그 폴더 사진 격자. PC(1024px~)는 왼쪽 나무·오른쪽 격자. */
+/* [폴더]: 폴더 나무(공용 folder-tree.css 줄 모양) + 위치 줄(공용 .fp-path) + 그 폴더 사진 격자. PC(761px~)는 왼쪽 나무·오른쪽 격자. */
 #appView #photosView .photos-fx{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #photosView .photos-fx.is-wide{ display:grid; grid-template-columns:minmax(180px,24%) minmax(0,1fr); gap:10px; align-items:start; }
 #appView #photosView .photos-fx-pane{ display:flex; flex-direction:column; gap:4px; min-width:0; }

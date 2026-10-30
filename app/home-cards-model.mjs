@@ -3,7 +3,7 @@
 // 홈에서 뺀 칸은 화면에서만 빠지고 데이터·기능은 그대로다. 빠른 입력 칸과 한 줄 요약은 칸이 아니라 고정 자리다.
 //
 // 현재 홈 칸 표(기본 순서 = 폰 한 칸 홈의 위에서 아래; PC는 column 별로 나눠 같은 순서로 그린다)
-//   id        이름               PC 칸   폰·중간 폭만   그리는 곳
+//   id        이름               PC 칸   폰만   그리는 곳
 //   quiet     연락 없는 조직     aside                org-quiet.js (FEAT-1029묶음 ③: 폰은 한 줄 요약 바로 아래, PC는 오른쪽 칸 맨 위)
 //   calendar  오늘 일정           main                 home-read.js
 //   tasks     오늘 할 일          main                 home-read.js
@@ -72,7 +72,7 @@ export function stepCard(list, id, dir, phone = true) {
   if (at < 0 || to < 0 || to >= shown.length) return normalizeCards(list);
   return moveCard(list, id, to, phone);
 }
-// 칸 배치: 폰·중간 폭은 한 칸에 위에서 아래로, PC는 칸(main·aside)별로 같은 순서.
+// 칸 배치: 폰은 한 칸에 위에서 아래로, PC는 칸(main·aside)별로 같은 순서.
 export function placement(list, phone) {
   const shown = visibleCards(list, phone);
   if (phone) return {main: shown, aside: []};

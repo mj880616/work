@@ -62,8 +62,8 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-sheet.home-choice-anchored .home-choice-chip::after { height:32px; left:-3px; right:-3px; }
 .home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"] { border-color:var(--kptu-success); background:var(--kptu-success-soft); color:var(--kptu-success); font-weight:var(--ds-weight-medium,500); }
 .home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"]::before { content:"✓" / ""; margin-right:4px; }
-/* UI-기록할곳창PC(넓은 PC 1024px~, 기록할 곳 창만): 제목 옆 검색칸, 그 아래 "최근" 한 줄, 그 아래 왼쪽 담당조직(묶음별 줄) / 오른쪽
-   프로젝트(한 줄 목록). 창 높이는 버튼 아래 남은 화면만큼이고, 항목이 많으면 각 열 안에서만 스크롤한다. 폰·중간 폭은 위아래 그대로. */
+/* UI-기록할곳창PC(넓은 PC 761px~, 기록할 곳 창만): 제목 옆 검색칸, 그 아래 "최근" 한 줄, 그 아래 왼쪽 담당조직(묶음별 줄) / 오른쪽
+   프로젝트(한 줄 목록). 창 높이는 버튼 아래 남은 화면만큼이고, 항목이 많으면 각 열 안에서만 스크롤한다. 폰은 위아래 그대로. */
 .home-choice-sheet.home-choice-split header { gap:12px; }
 .home-choice-sheet.home-choice-split h2 { flex:none; }
 .home-choice-sheet.home-choice-split header .home-choice-search { flex:1 1 auto; width:auto; min-width:0; max-width:360px; margin-left:auto; }
@@ -91,7 +91,7 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 /* 조직 이름은 줄이지 않는다(긴 이름은 줄 안에서 줄바꿈). */
 .home-choice-sheet .home-choice-org-items .home-choice-pick { height:auto; min-height:var(--kptu-touch-target,44px); white-space:normal; overflow:visible; text-overflow:clip; }
 .home-choice-sheet .home-choice-org-items .home-choice-pick .home-choice-name { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
-/* 넓은 PC(1024px~) 나란히 배치: 조직 열 안에서 묶음을 두 단으로 흘려 1280×800에서도 스크롤 없이 한 번에 보이게(UI-기록할곳창PC).
+/* 넓은 PC(761px~) 나란히 배치: 조직 열 안에서 묶음을 두 단으로 흘려 1280×800에서도 스크롤 없이 한 번에 보이게(UI-기록할곳창PC).
    묶음은 단 사이에서 쪼개지지 않고, 각 조직은 여전히 한 줄에 하나. */
 .home-choice-sheet.home-choice-split [data-sheet-all] { columns:2; column-gap:12px; }
 .home-choice-sheet.home-choice-split [data-sheet-all] .home-choice-org-group { break-inside:avoid; }

@@ -129,7 +129,7 @@ test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없�
   // 브라우저 저장 공간 이름(시험 파일이 저장 감사에 걸리지 않게 조각으로 만든다).
   const deviceStore=new RegExp(['local','session'].map(k=>k+'Storage').concat('indexed'+'DB').join('|'),'i');
   assert.doesNotMatch(code,deviceStore);
-  assert.match(src,/matchMedia\?\.\('\(min-width:1024px\)'\)/);
+  assert.match(src,/matchMedia\?\.\('\(min-width:761px\)'\)/);
   for(const action of ['rec_start','rec_piece','rec_finish','rec_pending','transcribe'])assert.ok(src.includes(`'${action}'`),action);
   assert.match(src,/beforeunload/);
   assert.match(src,/KPTUMeetingTranscriptDraft/);

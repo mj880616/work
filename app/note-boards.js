@@ -17,7 +17,7 @@ import { askConfirm } from './small-notice.js';
 import { emptyHtml } from './wait-state.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 
-// wide: PC 왼쪽 목록을 보일 너비(노트 화면과 같은 1024px~). get/set: basket-notes.js의 노트 배열. folderOf·folders·matches: 지금 노트 화면의 값.
+// wide: PC 왼쪽 목록을 보일 너비(노트 화면과 같은 761px~). get/set: basket-notes.js의 노트 배열. folderOf·folders·matches: 지금 노트 화면의 값.
 export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope}) {
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
   let openSet = new Set(), menu = null, picker = null;

@@ -25,7 +25,7 @@
 .rec-btn:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .rec-band .rec-stop{color:var(--kptu-danger)}
 body.rec-on{padding-top:var(--rec-band-height,32px)}
-@media (min-width:1024px){
+@media (min-width:761px){
   body.rec-on #appView{--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--rec-band-height,32px))}
   body.rec-on #appView>.app-nav{top:calc(12px + var(--rec-band-height,32px));height:calc(100dvh - 24px - var(--rec-band-height,32px))}
 }

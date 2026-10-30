@@ -34,7 +34,7 @@ test('C2 공용 칩 부품 둘이 모두 끝 처리를 부르고, 흐림 모양�
 
 test('C7 담당조직·프로젝트 [자료] 종류 칩은 PC(1024px~)에서 줄바꿈', () => {
   const css = noComments(read('ui-standard.css'));
-  assert.match(css, /@media\(min-width:1024px\)\{\s*html \.doc-kind-chips:not\(\[hidden\]\)\{ flex-wrap:wrap; row-gap:4px; overflow:visible; \}/);
+  assert.match(css, /@media\(min-width:761px\)\{\s*html \.doc-kind-chips:not\(\[hidden\]\)\{ flex-wrap:wrap; row-gap:4px; overflow:visible; \}/);
 });
 
 test('C4 체크칸 줄(내 프로필·원장)은 줄 전체 + 위아래 44px이 누르는 곳', () => {

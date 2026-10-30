@@ -449,8 +449,7 @@
     return true;
   }
 
-  // syncNavigation: repaint the menu marks for the current view (topbar-actions.js calls it when the 761~1023px row hands
-  // its buttons back to the PC sidebar, whose [일정] head marks its whole group).
+  // syncNavigation: repaint the menu marks for the current view (menu-layout.js calls it after the menu order changes).
   const api={current:null,sub:null,go,setSub,place,setPlace,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.

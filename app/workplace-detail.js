@@ -374,12 +374,12 @@ window.addEventListener('popstate',event=>{
 },true);
 wdInstall();document.addEventListener('click',wdReportClick);wdBind();wdBindDocDrop();wdUpBind();wdCtx();window.addEventListener('kptu:basket-links-changed',()=>{void wdRefreshLinks()});window.addEventListener('kptu:documents-changed',()=>{void wdRefreshDocs()});window.addEventListener('kptu:document-categories-changed',()=>{wdRenderDocs()});window.addEventListener('kptu:before-reload',event=>{if(!wdConfirmDiscard())event.preventDefault()});window.addEventListener('kptu:view-changed',()=>{if(wdTargetId)wdClose();wdPlace()});window.addEventListener('kptu:session-changed',()=>{if(wdSaveSameScope(wdSaveObservedScope))return;wdSaveObservedScope=null;wdSessionEpoch++;wdSaveAttempts.clear();wdClose(true);wdBasicInputs.forEach(k=>{const input=document.querySelector('#wd'+k);if(input)input.value=''}) ;wdUser=null;wdWorkspace=null;wdRole=null;wdOrg=null;wdLinks=[];wdUpdates=[];wdDocs=[];wdDocsError=false;document.querySelector('#wdUpdates')?.replaceChildren();const inbox=document.querySelector('#wdInboxText');if(inbox)inbox.value='';queueMicrotask(()=>wdCtx().catch(()=>{}))});
 
-// ORG-PC좌우(2026-10-21): on a PC (1024px~) the 담당조직 screen is the list on the left (suborganizations.js) and the chosen
+// ORG-PC좌우(2026-10-21): on a PC (761px~) the 담당조직 screen is the list on the left (suborganizations.js) and the chosen
 // organization's detail on the right, the way the projects screen does it (UI-PC프로젝트좌우, project-system-v3.js placeDetail):
 // the same detail element (#wdModal, drawn only by wdRender) moves into #wdDetailPane as a region instead of a dialog.
-// Phones, middle widths (761~1023px) and a detail opened over another screen (basket, profile) keep the dialog.
+// Phones and a detail opened over another screen (basket, profile) keep the dialog.
 // wdPlace() is the only place that moves it. The pane is laid out only by the PC rule of suborganizations.css.
-const WD_PC=window.matchMedia?.('(min-width:1024px)');
+const WD_PC=window.matchMedia?.('(min-width:761px)');
 const wdLastOrg=lastSeen('organization');
 let wdResuming=false;
 const wdListIds=()=>[...document.querySelectorAll('#soOrganizationList [data-so-org]')].map(row=>row.dataset.soOrg);

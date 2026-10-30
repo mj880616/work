@@ -3,7 +3,7 @@ import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우�
 // REF-참고묶음 화면 2 (docs/design/ref-bundle.md 6절, 질문 1~7 추천안): the 참고 묶음 screen (?view=reference). This module is the
 // only renderer of #referenceView: the bundle list (name · linked count · last date, head ⋯ [묶음 더하기]·[순서 바꾸기]) and one
 // bundle's detail (its linked updates and notes, newest first; a row opens the original, its ⋯ [업데이트 열기]·[연결 해제];
-// head ⋯ [이름 바꾸기]·[묶음 지우기] — the latter only for an empty bundle). PC (1024px~) shows list and detail side by side
+// head ⋯ [이름 바꾸기]·[묶음 지우기] — the latter only for an empty bundle). PC (761px~) shows list and detail side by side
 // (split-resize.js); a phone shows the list, then the detail over it (one router layer, so Back returns to the list).
 // Reads and writes are the owner's own: app_reference_bundles REST (reference-bundles-data.js) and the confirmed links to bundles
 // (basket-link-records.js readLinkRecords({kind:'bundle'})). Disconnect is the shared disconnectWithUndo (5 seconds to undo).
@@ -21,7 +21,7 @@ const rt=window.KPTURuntime;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=sel=>document.querySelector(sel);
 const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
-const pc=window.matchMedia('(min-width:1024px)');
+const pc=window.matchMedia('(min-width:761px)');
 const md=value=>{const t=Date.parse(value);if(Number.isNaN(t))return '';const p=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric'}).formatToParts(new Date(t));const get=k=>p.find(x=>x.type===k)?.value||'';return `${get('month')}.${get('day')}`;};
 const MORE='<span class="more-dots" aria-hidden="true">⋯</span>';
 

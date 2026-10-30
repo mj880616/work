@@ -1,4 +1,4 @@
-/* FEAT-1029묶음 ④ 성명·보도자료 초안 창(app/press-draft.js). 콤팩트·톤다운, 기존 --kptu-* 변수만. 폰: 한 칸씩, PC(1024px~): 근거 | 미리보기 두 칸. */
+/* FEAT-1029묶음 ④ 성명·보도자료 초안 창(app/press-draft.js). 콤팩트·톤다운, 기존 --kptu-* 변수만. 폰: 한 칸씩, PC(761px~): 근거 | 미리보기 두 칸. */
 .press-draft{width:min(1180px,calc(100vw - 16px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);display:none;flex-direction:column;font-size:13px}
 .press-draft[open]{display:flex}
 .press-draft::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
@@ -40,4 +40,4 @@ p.pd-muted{margin:4px 0}
 .pd-checks ol,.pd-sources ol{margin:2px 0 0;padding-left:18px}
 .pd-status{margin:0;padding:4px var(--kptu-space-3);min-height:18px;font-size:12px;color:var(--kptu-muted);border-top:1px solid var(--kptu-border)}
 .pd-status:empty{display:none}
-@media (max-width:1023px){.press-draft{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}}
+@media (max-width:760px){.press-draft{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}}

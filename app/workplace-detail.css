@@ -58,7 +58,7 @@
 #wdUpdates .ai-summary-proposal-label{color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
 
 /* UI-바구니첨부메모 PR 3 ⑨: 조직 상세 [자료] 묶음. 프로젝트 상세의 [자료]와 같은 모양(줄 + ⋯, 최근 5개, "전체 N개 보기 ›"). */
-/* UI-전수디자인점검 F08: 위 ②(입력칸 안 ⤢·작은 [저장] 32px)를 PC 상세 칸만이 아니라 폰·761~1023px 상세 창에도 같은 모양으로 쓴다(ORG-입력칸⤢ 규칙 하나).
+/* UI-전수디자인점검 F08: 위 ②(입력칸 안 ⤢·작은 [저장] 32px)를 PC 상세 칸만이 아니라 폰 상세 창에도 같은 모양으로 쓴다(ORG-입력칸⤢ 규칙 하나).
    전에는 창에서 [⤢ 크게]가 입력칸 아래 테두리 버튼 한 줄을 따로 만들고 [저장]은 36px였다. 모양의 주인은 이 묶음 하나다(ui-standard.css의 옛 #wdInbox* 크기 줄은 지움).
    #wdInbox를 넣어 id 셋으로 쓰는 것은 화면 공용 채운 버튼 규칙(ui-standard.css '#appView :is(#teamView,…) button.primary')보다 앞서기 위해서다. */
 #wdModal .wd-inbox:not(.hidden){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:var(--kptu-space-2)}
@@ -111,14 +111,14 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 #wdUpdates .wd-up-edit-actions button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #wdUpdates :is(.wd-up-edit-actions [data-wd-field-big],[data-link-summary-form] [data-link-summary-big]){display:inline-flex;align-items:center;justify-content:center;min-width:44px;margin-right:auto;padding:6px 10px;color:var(--kptu-muted)}
 
-/* ORG-PC상세정리 (요청 14:10, PC 상세 칸만 — 761~1023px·폰 상세 창은 그대로).
+/* ORG-PC상세정리 (요청 14:10, PC 상세 칸만 — 폰 상세 창은 그대로).
    ② (UI-전수디자인점검 F08부터 창에도 같은 모양, 아래 '#wdModal' 묶음) 입력칸 안 오른쪽 아래 ⤢(프로젝트 상세 [큰 창에서 쓰기]와 같은 방식, 보조 32px·누르는 범위 44px), [저장]은 작은 버튼(32px, UI-버튼기준).
       [크게]·[저장]을 담은 줄은 칸에서만 display:contents로 풀어 입력칸과 한 격자에 둔다(요소 순서·Tab 순서는 그대로).
       ⤢는 입력칸 높이 조절 손잡이(오른쪽 아래 끝)를 가리지 않게 그 왼쪽에 둔다.
    ③ 할 일 줄 [연결 해제]는 ⋯ 안으로(google-tasks.js opts.more). 상세 창에서는 지금처럼 줄의 [연결 해제].
    ④ 할 일 제목은 할 일 화면 목록과 같은 13px·보통 굵기.
    ⑤ 자료 0개는 한 줄(workplace-detail.js wdRenderDocs). */
-@media(min-width:1024px){
+@media(min-width:761px){
   #appView #teamView #wdModal.wd-docked .gt-linked .gt-row .gt-main b{font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular);line-height:1.4}
 }
 #wdDocs .wd-head{align-items:center}#wdDocs .wd-head>div:first-child{flex:0 0 auto}#wdDocs.drop-active{outline:2px dashed var(--kptu-info);outline-offset:-4px;border-radius:var(--kptu-radius-md)}

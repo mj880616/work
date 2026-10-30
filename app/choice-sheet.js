@@ -28,7 +28,7 @@ export function orgGroupRows(groups,row){
     return `<div class="home-choice-org-group${name?'':' home-choice-group-plain'}" data-sheet-section${name?` data-sheet-group="${name}"`:''}>${name?`<p class="home-choice-group-name">${name}</p>`:''}<div class="home-choice-org-items">${g.map(row).join('')}</div></div>`;
   }).join('');
 }
-const SPLIT_QUERY='(min-width:1024px)';
+const SPLIT_QUERY='(min-width:761px)';
 const searchText=value=>String(value||'').toLowerCase().replace(/\s+/g,'');
 // UI-PC팝업위치: on a wide screen (761px~, anchored-popup.js) every choice sheet opens as a small list right below the button that
 // was pressed (above or beside it when there is no room), with no dimming; phones keep the bottom sheet. anchored(kind) is
@@ -67,7 +67,7 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
     const anchor=active.anchor||active.trigger;
     // Chip lists (organizations, many per line) get a wider list than one-per-line rows so fewer lines need scrolling.
     const chips=!!sheet.querySelector('[data-sheet-content] .home-choice-chip');
-    // UI-기록할곳창PC: a sheet whose render() asks for split, on a wide PC (1024px~), is one wide list with its columns
+    // UI-기록할곳창PC: a sheet whose render() asks for split, on a wide PC (761px~), is one wide list with its columns
     // (data-sheet-col) side by side, as tall as the window allows below the button; each column scrolls on its own.
     const split=!!active.split&&window.matchMedia(SPLIT_QUERY).matches;
     if(!wantAnchor(active.kind)||!placeAnchored(sheet,anchor,split?{maxWidth:880,maxHeight:760,minHeight:320}:{maxWidth:chips?480:360,maxHeight:chips?560:480})){unplace();filter();return;}
