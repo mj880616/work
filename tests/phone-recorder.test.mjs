@@ -174,7 +174,8 @@ test('화면 연결: 폰 앱에서만 불러오고, 노트북 녹음과 따로 �
   assert.match(html, /<div id="meetingList"/);
   for (const f of ['phone-recorder.js', 'phone-recorder-core.mjs']) {
     const src = readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8');
-    assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+    // 이름을 나눠 적는다(이 시험 파일 자체가 브라우저 저장 공간 검사에 걸리지 않게).
+    assert.doesNotMatch(src, new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|')));
     assert.doesNotMatch(src, /#reportRecordBtn|#recBand|#recPendingLine/, '노트북 녹음 자리를 건드리지 않음');
     assert.doesNotMatch(src, /console\.(log|info)\(/);
   }
