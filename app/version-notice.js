@@ -60,6 +60,8 @@ export function startVersionNotice(scriptUrl){
     if(!window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail})))return false;
     return !detail.otherDraft||window.confirm('저장하지 않은 내용이 있습니다. 새로고침하면서 버릴까요?');
   }
+  // APP-당겨서새로고침: 폰 앱 '당겨서 새로고침'도 같은 확인을 쓴다(phone-pull-refresh.js). 확인 길을 하나로 둔다.
+  window.KPTUReloadGuard={allow:allowReload};
   function layout(){
     document.body.style.setProperty('--kptu-version-notice-height',`${box?.getBoundingClientRect().height||0}px`);
   }
