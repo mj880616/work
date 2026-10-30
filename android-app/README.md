@@ -1,6 +1,6 @@
 # 웹2 폰 앱 (안드로이드·갤럭시 전용)
 
-설계: [docs/design/phone-app-v2.md](../docs/design/phone-app-v2.md). 지금은 단계 ③(홈 화면 위젯)과 [녹음](0.3.3), 위젯 여러 개 ①(0.3.4)까지다.
+설계: [docs/design/phone-app-v2.md](../docs/design/phone-app-v2.md). 지금은 단계 ③(홈 화면 위젯)과 [녹음](0.3.3), 위젯 여러 개 ①(0.3.4)·②(0.3.5)까지다.
 
 - 화면은 모두 `https://bokdoong.com/work/app/` 웹이다(0.3.1부터, 주소 이전 ①-D1). 웹을 배포하면 앱을 다시 열 때 바로 반영된다.
 - 앱 안 주소(`ShellRules.isInternalApp`, 시험으로 고정): `https` + 호스트 `bokdoong.com`·`desk.bokdoong.com`·`work.bokdoong.com`·`mj880616.github.io`의 `/work/app/` 아래, 그리고 `bokdoong.com`·`desk`의 맨 앞 `/`(Worker가 Web2로 보냄). desk·work는 넘김(302) 기간 동안 안쪽으로 둔다. 그 밖(`bokdoong.com/p/` 같은 Web1 공개 페이지, 공유 짧은 주소 `bokdoong.com/s/…`, 공유 페이지 `work.bokdoong.com/work/share/`, `work`의 Web1)은 바깥 브라우저 탭으로 연다(설계 `docs/design/domain-move.md` 4.3절).
@@ -26,7 +26,7 @@
 - HTTP 도구는 OkHttp. 자바 표준 `HttpURLConnection`은 Origin 머리글을 소리 없이 버린다(`WidgetHttpTest`가 둘 다 확인).
 - 토큰: 새로고침 토큰은 Android Keystore AES-GCM 키로 암호화해 `noBackupFilesDir/widget_session.bin` 하나에(`KeystoreVault.kt`), 접근 토큰은 메모리에만. 위젯 내용은 폰에 저장하지 않는다(W-D2, 마지막 그림은 프로세스 메모리에만). 자동으로 끊지 않는다(W-D3).
 - 갱신: WorkManager 고유 작업(30분 주기 + 지금 한 번, 같은 이름은 KEEP), 토큰 갱신은 `WidgetSession` 잠금 하나, 새 토큰을 먼저 저장한 뒤 사용. 400·401·403은 열쇠 삭제 → [로그인] 줄, 네트워크·5xx·429는 그대로 두고 다음 갱신.
-- 위젯이 부르는 주소는 다섯 개뿐(`WidgetRules.allowed`, 시험으로 고정): `auth-handoff`(POST), `auth/v1/token?grant_type=refresh_token`, `auth/v1/logout?scope=local`, `google-calendar?action=events`(GET), `google-tasks?action=overview`(GET).
+- 위젯이 부르는 주소는 여섯 개뿐(`WidgetRules.allowed`, 시험으로 고정): `auth-handoff`(POST), `auth/v1/token?grant_type=refresh_token`, `auth/v1/logout?scope=local`, `google-calendar?action=events`(GET), `google-tasks?action=overview`(GET), `rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&order=created_at.desc&limit=100`(GET, 0.3.5).
 - 끊기(W-D5): 웹 내 프로필 '계정' 칸의 [위젯 로그아웃](앱에서만 보임, `app/phone-widget-line.js`) → 다리 `widget:logout` → `logout?scope=local` + 파일·키 삭제. 앱 지우기, PC 웹 로그아웃(모든 세션이면 위젯도 끊김, 실기기 확인 필요)도 끊는다.
 - WorkManager가 매니페스트에 일반 권한(`WAKE_LOCK`·`ACCESS_NETWORK_STATE`·`RECEIVE_BOOT_COMPLETED`·`FOREGROUND_SERVICE`)을 자동으로 더한다. 사용자에게 묻지 않는 권한이고 데이터 접근을 넓히지 않는다.
 
@@ -39,6 +39,13 @@
 - [녹음]: 녹음 시작 인텐트(`RecordHub.ACTION_START` → `RecordActionActivity`).
 - 한 칸 위젯이 고른 기능은 앱 전용 설정 파일 `widget_one`(위젯 번호 → 기능 이름, 백업 제외)에만 둔다. 위젯을 지우면 그 줄도 지운다.
 - 색: 앱 아이콘 톤(종이색 #F2EFE6 바탕·남색 #3B4A6B), 어두운 모드는 `values-night`. 폴드 접음·펼침: 빠른 쓰기는 가로로 늘고 줄며, 한 칸은 크기 고정.
+
+## 오늘 손보기·이번 주 (0.3.5, WIDGET-여러개 ②)
+
+- '웹2 오늘' 맨 아래 '챙길 것 n · 나한테 온 요청 n' 줄(건수만, 누르면 정리함). 웹 `inbox-count.js`와 같은 규칙(처리 전 후보 중 이미 할 일이 된 제목은 빼고, 텔레그램 후보를 '요청'으로 셈). 읽기는 허용 주소 하나 `rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&…`(GET, 기존 소유자 RLS). 후보 표가 없으면(404) 0, 다른 실패면 줄을 숨긴다.
+- '웹2 이번 주'(4×2): 이번 주(월~일, 서울) 중 오늘부터 일요일까지 일정 8줄까지. 지난 날 시작해 오늘까지 이어지면 '계속'. 줄을 누르면 앱 달력의 그 날(`WIDGET_DAY` → 웹 `?view=calendar&day=` 또는 다리 `day:open:`, 달력 `showDay`).
+- 갱신은 오늘·이번 주가 같은 WorkManager 작업 하나(30분 + 지금 한 번), 읽기도 `WidgetSession.readList` 한 번에 묶는다. 위젯을 모두 지우면 작업을 끈다.
+- 이번 주 일정 읽기는 오늘 위젯과 같은 `google-calendar?action=events` 모양이라 허용 주소 규칙이 그대로 받는다.
 
 ## 녹음 (0.3.3, MTG-폰녹음)
 
@@ -65,6 +72,7 @@
 | `app/src/main/java/kr/or/kptu/work/KeystoreVault.kt` | 위젯 새로고침 토큰 암호화 보관 |
 | `app/src/main/java/kr/or/kptu/work/WidgetToday.kt` | 위젯 줄 만들기(오늘 범위·정렬·안내) |
 | `app/src/main/java/kr/or/kptu/work/TodayWidget.kt` | 위젯 그리기·WorkManager 작업·`WidgetLoginActivity` |
+| `app/src/main/java/kr/or/kptu/work/WidgetWeek.kt`, `WeekWidget.kt` | 이번 주 위젯 줄 만들기(JVM 시험 대상)·그리기 |
 | `app/src/main/java/kr/or/kptu/work/WidgetActions.kt` | 빠른 쓰기·한 칸 위젯 규칙(칸 순서·고르기 목록·여는 곳·쓰기 주소, 단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/ActionWidgets.kt` | 빠른 쓰기·한 칸 위젯 그리기, 한 칸 기능 고르기 창, [사진] 고르기·카메라 |
 | `app/src/main/java/kr/or/kptu/work/MiniJson.kt` | 응답 JSON 읽기(JVM 시험용, org.json 대신) |
@@ -80,4 +88,4 @@
 
 `.github/workflows/build-android-app.yml`이 단위 시험, debug APK(`web2-phone-<버전>-debug` artifact), 서명 없는 release 빌드 확인을 한다.
 
-새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
+새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.

@@ -4,9 +4,13 @@
 // 2) 웹2가 이미 떠 있으면 앱이 다리(KPTUAppShell, 허용 Origin의 최상위 화면에만 보임)로 'write:open:<종류>'를 보낸다
 //    (화면을 다시 불러오지 않아 쓰던 글이 사라지지 않는다). 이 화면은 붙을 때 'write:hello'로 받을 준비를 알린다.
 // 창은 상단 [+ 추가]와 같은 것(topbar-actions.js의 KPTUQuickWrite)이고 저장 길도 그대로다. 앱은 토큰·글을 보지 않는다.
+// WIDGET-여러개 ②: 이번 주 위젯 줄은 달력의 그 날(?view=calendar&day=YYYY-MM-DD 또는 다리 'day:open:YYYY-MM-DD').
+//   달력 화면의 기존 '그 날로 옮기기'(calendar-view.js showDay, 업무일지 [달력 ›]와 같은 길)를 쓴다.
 const BRIDGE = 'KPTUAppShell';
 const KINDS = ['update', 'task', 'note'];
 const OPEN = /^write:open:([a-z]{1,16})$/;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_OPEN = /^day:open:(\d{4}-\d{2}-\d{2})$/;
 
 /** 허용된 종류만 돌려준다. */
 export function writeKind(value) {
@@ -17,6 +21,18 @@ export function writeKind(value) {
 export function bridgeKind(data) {
   const m = OPEN.exec(typeof data === 'string' ? data : '');
   return m ? writeKind(m[1]) : null;
+}
+
+/** yyyy-mm-dd 모양의 실제 날짜만. */
+export function dayValue(value) {
+  if (typeof value !== 'string' || !DAY.test(value)) return null;
+  const [y, m, d] = value.split('-').map(Number), t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d ? value : null;
+}
+
+export function bridgeDay(data) {
+  const m = DAY_OPEN.exec(typeof data === 'string' ? data : '');
+  return m ? dayValue(m[1]) : null;
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -36,6 +52,16 @@ export function startWidgetWrite(win = window, {wait = sleep, tries = 100} = {})
     } catch { /* 창을 열지 못하면 [+ 추가]의 안내 줄이 알린다. */ }
     finally { busy = false; }
   }
+  async function openDay(day) {
+    try {
+      for (let i = 0; i < tries && win.__KPTU_TEAM_READY_STATE__ !== 'workspace'; i++) await wait(100);
+      if (win.__KPTU_TEAM_READY_STATE__ !== 'workspace') return;
+      await win.KPTUViewLoader?.load?.('calendar');
+      if (win.KPTURouter?.current !== 'calendar') await win.KPTURouter?.go?.('calendar', {source: 'delegated'});
+      for (let i = 0; i < tries && !win.KPTUCalendarView?.showDay; i++) await wait(100);
+      win.KPTUCalendarView?.showDay?.(day);
+    } catch { /* 달력은 열린 채로 둔다. */ }
+  }
   try {
     const url = new URL(win.location.href);
     if (url.searchParams.has('write')) {
@@ -44,10 +70,19 @@ export function startWidgetWrite(win = window, {wait = sleep, tries = 100} = {})
       win.history.replaceState(win.history.state, '', url);
       if (kind) void open(kind);
     }
+    if (url.searchParams.has('day')) {
+      const day = dayValue(url.searchParams.get('day'));
+      url.searchParams.delete('day');
+      win.history.replaceState(win.history.state, '', url);
+      if (day) void openDay(day);
+    }
   } catch { /* 주소를 못 읽어도 다리 길은 그대로 쓴다. */ }
   const bridge = win[BRIDGE];
   if (bridge && typeof bridge.postMessage === 'function' && typeof bridge.addEventListener === 'function') {
-    bridge.addEventListener('message', event => { const kind = bridgeKind(event?.data); if (kind) void open(kind); });
+    bridge.addEventListener('message', event => {
+      const kind = bridgeKind(event?.data); if (kind) { void open(kind); return; }
+      const day = bridgeDay(event?.data); if (day) void openDay(day);
+    });
     try { bridge.postMessage('write:hello'); } catch { /* 다리가 사라진 화면 */ }
   }
   return true;

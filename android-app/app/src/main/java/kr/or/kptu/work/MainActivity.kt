@@ -242,6 +242,11 @@ class MainActivity : ComponentActivity() {
             webView.loadUrl(if (kind == null) ShellRules.HOME else WidgetActions.writeUrl(kind))
             return
         }
+        if (intent?.action == WeekWidget.ACTION_DAY) {
+            // WIDGET-여러개 ②: 이번 주 위젯 줄 → 앱 달력의 그 날(날짜가 없거나 이상하면 오늘).
+            webView.loadUrl(WidgetWeek.dayUrl(widgetDay(intent)))
+            return
+        }
         val data = intent?.data?.toString()
         if (ShellRules.isAppReturn(data)) {
             // 위젯 로그인 표시(메모리, 10분·한 번)가 살아 있을 때만 앱이 직접 받는다. 캘린더 연결 복귀(google=)는 건드리지 않는다.
@@ -268,6 +273,11 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.action == WidgetActions.ACTION_WRITE) {
             openWrite(WidgetActions.writeKind(intent.getStringExtra(WidgetActions.EXTRA_KIND)))
+            return
+        }
+        if (intent.action == WeekWidget.ACTION_DAY) {
+            val day = widgetDay(intent)
+            if (!postWrite(WidgetWeek.dayMessage(day))) webView.loadUrl(WidgetWeek.dayUrl(day))
             return
         }
         if (intent.action == RecordHub.ACTION_OPEN) {
@@ -510,17 +520,24 @@ class MainActivity : ComponentActivity() {
             if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
             return
         }
-        val reply = writeReply
-        if (reply != null && ShellRules.isInternalApp(webView.url) && !ShellRules.isLoginPage(webView.url)) {
-            try {
-                reply.postMessage(WidgetActions.writeMessage(kind))
-                return
-            } catch (_: Exception) {
-                writeReply = null
-            }
-        }
-        webView.loadUrl(WidgetActions.writeUrl(kind))
+        if (!postWrite(WidgetActions.writeMessage(kind))) webView.loadUrl(WidgetActions.writeUrl(kind))
     }
+
+    /** 웹2가 떠 있고 위젯 다리(write:hello)가 붙어 있으면 다리로 보낸다. 보냈으면 true. */
+    private fun postWrite(message: String): Boolean {
+        val reply = writeReply ?: return false
+        if (!ShellRules.isInternalApp(webView.url) || ShellRules.isLoginPage(webView.url)) return false
+        return try {
+            reply.postMessage(message)
+            true
+        } catch (_: Exception) {
+            writeReply = null
+            false
+        }
+    }
+
+    private fun widgetDay(intent: Intent?): java.time.LocalDate =
+        WidgetWeek.parseDay(intent?.getStringExtra(WeekWidget.EXTRA_DAY)) ?: java.time.LocalDate.now(WidgetToday.ZONE)
 
     private fun micGranted(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
@@ -561,7 +578,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         // 앱을 닫거나 뒤로 보낼 때 위젯을 한 번 새로 그린다(같은 이름 작업은 KEEP).
-        if (WidgetHub.session(this).signedIn() && TodayWidget.hasWidgets(this)) WidgetJobs.refreshNow(this)
+        if (WidgetHub.session(this).signedIn() && HomeWidgets.any(this)) WidgetJobs.refreshNow(this)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

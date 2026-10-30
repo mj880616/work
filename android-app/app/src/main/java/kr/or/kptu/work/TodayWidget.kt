@@ -55,27 +55,78 @@ object WidgetJobs {
     }
 }
 
+/**
+ * 오늘·이번 주 위젯을 같은 갱신 작업 하나로(WIDGET-여러개 ②, 배터리). 위젯 세션 읽기(readList)도 한 번에 묶는다:
+ * 오늘 위젯이 있으면 오늘 일정·할 일·처리 전 후보, 이번 주 위젯이 있으면 이번 주 일정.
+ */
 class TodayWidgetWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         val ctx = applicationContext
-        if (!TodayWidget.hasWidgets(ctx)) {
+        val today = TodayWidget.hasWidgets(ctx)
+        val week = WeekWidget.hasWidgets(ctx)
+        if (!today && !week) {
             WidgetJobs.cancel(ctx)
             return Result.success()
         }
         val session = WidgetHub.session(ctx)
         if (!session.signedIn()) {
-            TodayWidget.show(ctx, TodayWidget.State.SignedOut)
+            HomeWidgets.showSignedOut(ctx)
             return Result.success()
         }
         val now = System.currentTimeMillis()
         val (from, to) = WidgetToday.range(now)
-        val state = when (val r = session.readToday(from, to)) {
-            is WidgetSession.Outcome.Ok -> TodayWidget.State.Shown(WidgetToday.content(r.value, now))
-            is WidgetSession.Outcome.SignedOut -> TodayWidget.State.SignedOut
-            is WidgetSession.Outcome.Failed -> TodayWidget.State.Failed
+        val (weekFrom, weekTo) = WidgetWeek.range(now)
+        val urls = ArrayList<String>()
+        if (today) urls.addAll(listOf(WidgetRules.calendarUrl(from, to), WidgetRules.TASKS, WidgetRules.CANDIDATES))
+        if (week) urls.add(WidgetRules.calendarUrl(weekFrom, weekTo))
+        when (val r = session.readList(urls)) {
+            is WidgetSession.Outcome.Ok -> {
+                val got = r.value
+                if (today) {
+                    val raw = WidgetSession.Raw(got[0].status, got[0].body, got[1].status, got[1].body, got[2].status, got[2].body)
+                    TodayWidget.show(ctx, TodayWidget.State.Shown(WidgetToday.content(raw, now)))
+                }
+                if (week) {
+                    val w = got.last()
+                    WeekWidget.show(ctx, WeekWidget.State.Shown(WidgetWeek.content(w.status, w.body, now)))
+                }
+            }
+            is WidgetSession.Outcome.SignedOut -> HomeWidgets.showSignedOut(ctx)
+            is WidgetSession.Outcome.Failed -> {
+                if (today) TodayWidget.show(ctx, TodayWidget.State.Failed)
+                if (week) WeekWidget.show(ctx, WeekWidget.State.Failed)
+            }
         }
-        TodayWidget.show(ctx, state)
         return Result.success()
+    }
+}
+
+/** 위젯 세션을 쓰는 위젯들(오늘·이번 주)을 함께 다루는 곳. 로그인·로그아웃 뒤 앱이 부른다. */
+object HomeWidgets {
+    fun any(context: Context): Boolean = TodayWidget.hasWidgets(context) || WeekWidget.hasWidgets(context)
+
+    fun showSignedOut(context: Context) {
+        TodayWidget.show(context, TodayWidget.State.SignedOut)
+        WeekWidget.show(context, WeekWidget.State.SignedOut)
+    }
+
+    fun signedInChanged(context: Context, signedIn: Boolean) {
+        if (!any(context)) return
+        if (signedIn) {
+            TodayWidget.show(context, TodayWidget.State.Loading)
+            WeekWidget.show(context, WeekWidget.State.Loading)
+            WidgetJobs.schedule(context)
+            WidgetJobs.refreshNow(context)
+        } else {
+            WidgetJobs.cancel(context)
+            showSignedOut(context)
+        }
+    }
+
+    /** 위젯 [로그인] 줄(오늘·이번 주 같은 길). */
+    fun login(context: Context): PendingIntent {
+        val intent = Intent(context, WidgetLoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return PendingIntent.getActivity(context, 21, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 }
 
@@ -106,7 +157,7 @@ class TodayWidget : AppWidgetProvider() {
     }
 
     override fun onDisabled(context: Context) {
-        WidgetJobs.cancel(context)
+        if (!HomeWidgets.any(context)) WidgetJobs.cancel(context)
         last = null
     }
 
@@ -132,18 +183,10 @@ class TodayWidget : AppWidgetProvider() {
         fun hasWidgets(context: Context): Boolean =
             AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, TodayWidget::class.java)).isNotEmpty()
 
-        /** 로그인·로그아웃 뒤 앱이 부른다. */
+        /** 로그인·로그아웃 뒤 앱이 부른다(이번 주 위젯도 함께). */
         fun signedInChanged(context: Context, signedIn: Boolean) {
-            if (!hasWidgets(context)) return
-            if (signedIn) {
-                show(context, State.Loading)
-                WidgetJobs.schedule(context)
-                WidgetJobs.refreshNow(context)
-            } else {
-                last = null
-                WidgetJobs.cancel(context)
-                show(context, State.SignedOut)
-            }
+            if (!signedIn) last = null
+            HomeWidgets.signedInChanged(context, signedIn)
         }
 
         fun show(context: Context, state: State) {
@@ -165,13 +208,14 @@ class TodayWidget : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_refresh, refresh(context))
             ROWS.forEach { views.setViewVisibility(it, View.GONE) }
             views.setViewVisibility(R.id.widget_note, View.GONE)
+            views.setViewVisibility(R.id.widget_counts, View.GONE)
             when (state) {
                 State.SignedOut -> {
                     views.setTextViewText(R.id.widget_title, WidgetToday.header(now))
                     views.setViewVisibility(R.id.widget_refresh, View.GONE)
                     views.setViewVisibility(ROWS[0], View.VISIBLE)
                     views.setTextViewText(ROWS[0], "위젯 로그인 — 누르면 구글 로그인")
-                    views.setOnClickPendingIntent(ROWS[0], login(context))
+                    views.setOnClickPendingIntent(ROWS[0], HomeWidgets.login(context))
                 }
                 State.Loading -> {
                     views.setTextViewText(R.id.widget_title, WidgetToday.header(now))
@@ -181,12 +225,18 @@ class TodayWidget : AppWidgetProvider() {
                 State.Failed -> {
                     val shown = last
                     views.setViewVisibility(R.id.widget_refresh, View.VISIBLE)
-                    if (shown != null) rows(context, views, shown) else views.setTextViewText(R.id.widget_title, WidgetToday.header(now))
+                    if (shown != null) {
+                        rows(context, views, shown)
+                        counts(context, views, shown)
+                    } else {
+                        views.setTextViewText(R.id.widget_title, WidgetToday.header(now))
+                    }
                     note(views, "불러오지 못했어요 · ↻로 다시")
                 }
                 is State.Shown -> {
                     views.setViewVisibility(R.id.widget_refresh, View.VISIBLE)
                     rows(context, views, state.content)
+                    counts(context, views, state.content)
                     state.content.note?.let { note(views, it) }
                 }
             }
@@ -196,6 +246,14 @@ class TodayWidget : AppWidgetProvider() {
         private fun note(views: RemoteViews, text: String) {
             views.setViewVisibility(R.id.widget_note, View.VISIBLE)
             views.setTextViewText(R.id.widget_note, text)
+        }
+
+        /** 맨 아래 '챙길 것 n · 나한테 온 요청 n'(건수만). 누르면 정리함. */
+        private fun counts(context: Context, views: RemoteViews, content: WidgetToday.Content) {
+            val line = content.counts ?: return
+            views.setViewVisibility(R.id.widget_counts, View.VISIBLE)
+            views.setTextViewText(R.id.widget_counts, line)
+            views.setOnClickPendingIntent(R.id.widget_counts, openApp(context, "basket", 14))
         }
 
         private fun rows(context: Context, views: RemoteViews, content: WidgetToday.Content) {
@@ -219,11 +277,6 @@ class TodayWidget : AppWidgetProvider() {
         private fun refresh(context: Context): PendingIntent {
             val intent = Intent(context, TodayWidget::class.java).setAction(ACTION_REFRESH)
             return PendingIntent.getBroadcast(context, 20, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        }
-
-        private fun login(context: Context): PendingIntent {
-            val intent = Intent(context, WidgetLoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            return PendingIntent.getActivity(context, 21, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
     }
 }

@@ -23,7 +23,41 @@ object WidgetToday {
 
     data class Row(val time: String, val title: String, val target: Target)
 
-    data class Content(val title: String, val rows: List<Row>, val note: String?)
+    /** counts: WIDGET-여러개 ② 맨 아래 '챙길 것 n · 나한테 온 요청 n' 줄(읽지 못했으면 null, 줄을 숨김). */
+    data class Content(val title: String, val rows: List<Row>, val note: String?, val counts: String? = null)
+
+    /** 처리 전 후보 건수. 웹 inbox-count.js의 openTodos·openAsks와 같은 규칙(이미 할 일이 된 제목은 빼기). */
+    data class Counts(val todo: Int, val asks: Int) {
+        fun line(): String = "챙길 것 $todo · 나한테 온 요청 $asks"
+    }
+
+    private val TITLE_NOISE = Regex("(?U)[\\s\\p{P}\\p{S}]+")
+
+    /** 웹 todo-radar-data.js normalizeTitle과 같은 비교용 제목(소문자·NFKC·공백·문장부호·기호 빼기·80자). */
+    fun normalizeTitle(value: String?): String {
+        val t = java.text.Normalizer.normalize((value ?: "").lowercase(), java.text.Normalizer.Form.NFKC).replace(TITLE_NOISE, "")
+        return if (t.length > 80) t.substring(0, 80) else t
+    }
+
+    /** 후보 목록(rest app_todo_candidates, 처리 전만)과 할 일 목록 → 건수. 목록 모양이 아니면 null. */
+    fun counts(candidates: Any?, tasks: Any?): Counts? {
+        val rows = MiniJson.list(candidates) ?: return null
+        val known = HashSet<String>()
+        MiniJson.list(MiniJson.obj(tasks)?.get("tasks"))?.forEach { item ->
+            val t = MiniJson.obj(item) ?: return@forEach
+            if (MiniJson.str(t["status"]) == "completed") return@forEach
+            normalizeTitle(MiniJson.str(t["title"])).takeIf { it.isNotEmpty() }?.let(known::add)
+        }
+        var todo = 0
+        var asks = 0
+        for (item in rows) {
+            val r = MiniJson.obj(item) ?: continue
+            if (normalizeTitle(MiniJson.str(r["summary"])) in known) continue
+            todo++
+            if (MiniJson.str(r["source_kind"]) == "telegram") asks++
+        }
+        return Counts(todo, asks)
+    }
 
     /** 오늘 0시와 내일 0시(서울)를 UTC 글(…Z)로. */
     fun range(nowMs: Long, zone: ZoneId = ZONE): Pair<String, String> {
@@ -118,7 +152,13 @@ object WidgetToday {
             rows.isEmpty() -> "오늘 일정·할 일이 없어요"
             else -> null
         }
-        return Content(header(nowMs, zone), rows, note)
+        // 후보 표가 아직 없으면(404) 웹처럼 0으로 센다. 그 밖의 실패·읽지 않음은 줄을 숨긴다.
+        val counts = when (raw.candidatesStatus) {
+            200 -> counts(raw.candidates, if (raw.tasksStatus == 200) raw.tasks else null)?.line()
+            404 -> Counts(0, 0).line()
+            else -> null
+        }
+        return Content(header(nowMs, zone), rows, note, counts)
     }
 
     private fun more(rows: List<Row>, max: Int, target: Target, word: String): List<Row> {

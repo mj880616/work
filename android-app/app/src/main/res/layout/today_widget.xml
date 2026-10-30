@@ -66,6 +66,20 @@
     <TextView android:id="@+id/widget_row6" style="@style/WidgetRow" />
     <TextView android:id="@+id/widget_row7" style="@style/WidgetRow" />
 
+    <!-- WIDGET-여러개 ②: 맨 아래 '챙길 것 n · 나한테 온 요청 n'(건수만). 누르면 정리함. -->
+    <TextView
+        android:id="@+id/widget_counts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="26dp"
+        android:gravity="center_vertical"
+        android:paddingEnd="8dp"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:textColor="@color/widget_accent"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/widget_note"
         android:layout_width="match_parent"

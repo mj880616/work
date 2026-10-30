@@ -87,3 +87,44 @@ test('창은 상단 [+ 추가]의 열기 길을 쓰고 로더는 앱에서만 �
   const loader = readFileSync(new URL('../app/loader-v2.js', import.meta.url), 'utf8');
   assert.match(loader, /if\(\/KPTUAndroid\/i\.test\(navigator\.userAgent\|\|''\)\)import\('\.\/phone-widget-write\.js'\)/);
 });
+
+// WIDGET-여러개 ②: 이번 주 위젯 줄 → 달력의 그 날.
+import {dayValue, bridgeDay} from '../app/phone-widget-write.js';
+
+function calendarSetup(href) {
+  const s = setup({href});
+  const calls = [];
+  s.win.KPTUViewLoader = {load: async view => { calls.push('load:' + view); }};
+  s.win.KPTURouter = {current: 'home', go: async view => { calls.push('go:' + view); s.win.KPTURouter.current = view; }};
+  s.win.KPTUCalendarView = {showDay: day => calls.push('day:' + day)};
+  return {...s, calls};
+}
+
+test('날짜는 yyyy-mm-dd 실제 날짜만', () => {
+  assert.equal(dayValue('2026-10-30'), '2026-10-30');
+  assert.equal(dayValue('2026-02-30'), null);
+  assert.equal(dayValue('2026-1-3'), null);
+  assert.equal(dayValue('x'), null);
+  assert.equal(bridgeDay('day:open:2026-11-01'), '2026-11-01');
+  assert.equal(bridgeDay('day:open:2026-13-01'), null);
+  assert.equal(bridgeDay('day:open:2026-11-01&x'), null);
+});
+
+test('주소 ?day=는 지우고 달력의 그 날로 옮긴다', async () => {
+  const s = calendarSetup('https://bokdoong.com/work/app/?view=calendar&day=2026-10-31');
+  startWidgetWrite(s.win, {wait: tick});
+  for (let i = 0; i < 6; i++) await tick();
+  assert.deepEqual(s.replaced, ['https://bokdoong.com/work/app/?view=calendar']);
+  assert.deepEqual(s.calls, ['load:calendar', 'go:calendar', 'day:2026-10-31']);
+  assert.deepEqual(s.opened, []);
+});
+
+test('떠 있는 화면은 다리 day:open으로 옮긴다', async () => {
+  const s = calendarSetup('https://bokdoong.com/work/app/');
+  startWidgetWrite(s.win, {wait: tick});
+  s.message('day:open:2026-11-02');
+  for (let i = 0; i < 6; i++) await tick();
+  s.message('day:open:2026-11-31');
+  for (let i = 0; i < 6; i++) await tick();
+  assert.deepEqual(s.calls, ['load:calendar', 'go:calendar', 'day:2026-11-02']);
+});
