@@ -1,4 +1,4 @@
-// APP-폰앱새로 ② 공유로 바구니 넣기: 폰 앱이 넘긴 "받은 항목 목록"을 읽고, 확인 줄 문구와 저장할 글을 만드는 규칙.
+// APP-폰앱새로 ② 공유로 바구니 넣기: 폰 앱이 넘긴 "받은 항목 목록"을 읽고, 알림 문구와 저장할 글을 만드는 규칙(SHARE-바로넣기: 확인 줄 없이 바로 넣음).
 // 화면·네트워크를 쓰지 않는다(단위 시험 tests/share-intake-model.test.mjs). 한도는 basket-upload.js·basket-data.js와 같다.
 export const SHARE_MAX_FILES = 20;
 export const SHARE_MAX_BYTES = 100 * 1024 * 1024;
@@ -52,12 +52,19 @@ export function shareSummary({items = [], text = '', subject = ''}, skipped = {}
   if (!parts.length && (text.trim() || subject.trim())) parts.push('글 1');
   let line = parts.join(' · ') || '넣을 것 없음';
   if (known) line += ` (${sizeText(known)})`;
+  const left = skippedText(skipped);
+  if (left) line += ` · ${left}`;
+  return line;
+}
+
+/** 넣지 않고 뺀 것 한 줄: "뺌: 100MB 넘는 파일 1개, 빈 파일 1개". 없으면 ''. failed는 받다가 읽지 못한 것. */
+export function skippedText(skipped = {}) {
   const left = [];
+  if (skipped.failed) left.push(`읽지 못한 파일 ${skipped.failed}개`);
   if (skipped.large) left.push(`100MB 넘는 파일 ${skipped.large}개`);
   if (skipped.empty) left.push(`빈 파일 ${skipped.empty}개`);
   if (skipped.over) left.push(`20개 넘는 ${skipped.over}개`);
-  if (left.length) line += ` · 뺌: ${left.join(', ')}`;
-  return line;
+  return left.length ? `뺌: ${left.join(', ')}` : '';
 }
 
 export const sizeText = size => size >= 1048576 ? `${(size / 1048576).toFixed(1)}MB` : size >= 1024 ? `${(size / 1024).toFixed(1)}KB` : `${size}B`;
@@ -80,4 +87,12 @@ export function shareRawText({memo = '', subject = '', text = ''}) {
   const body = String(text ?? '').trim();
   const title = subject && !body.includes(subject) ? subject : '';
   return fitText([line, title, body].filter(Boolean).join('\n'));
+}
+
+/** 공유로 넣은 뒤 [메모 달기]: 한 줄 메모를 기존 글 맨 앞에 붙인 새 글. 메모가 비면 null. 기존 글은 그대로 둔다. */
+export function withMemo(memo, existing = '') {
+  const line = clean(memo, SHARE_MEMO_MAX).replace(/\n+/g, ' ').trim();
+  if (!line) return null;
+  const body = String(existing ?? '');
+  return fitText(body.trim() ? `${line}\n${body}` : line);
 }
