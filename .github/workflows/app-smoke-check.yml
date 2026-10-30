@@ -274,6 +274,9 @@ jobs:
       - name: Check organization key people tab (ORG-주요인물)
         run: node --test tests/org-key-people.test.mjs
 
+      - name: Check organization status table sub-tab (DESK-현황표)
+        run: node --test tests/org-status-model.test.mjs
+
       - name: Check home quiet organizations line (FEAT-1029묶음 ③)
         run: node --test tests/org-quiet.test.mjs
       - name: Check note views and sticky board (NOTE-보기3가지)

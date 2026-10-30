@@ -47,10 +47,13 @@ export const NOTE_VIEWS = Object.freeze(['folder', 'list', 'board']);
 // PHOTO-출처 ①: photo_sources = 사진 메뉴 출처 켜기/끄기 {onedrive, gdrive, phone}(셋 다 선택, 참·거짓). migration 20261030230000. 뜻은 photo-sources-model.mjs.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(출처는 기본 — 원드라이브·폰 사진 켜짐).
 export const PHOTO_SOURCE_NAMES = Object.freeze(['onedrive', 'gdrive', 'phone']);
+// DESK-현황표: org_tab = 담당조직 상세 소탭 [기록|현황 표] 중 마지막에 고른 것('log'·'table', 없으면 기록). migration 20261030233000.
+// 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
+export const ORG_TABS = Object.freeze(['log', 'table']);
 export const NOTE_BOARDS_MAX = 12;
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -75,6 +78,7 @@ export function validValue(key, value) {
     case 'photo_cols_wide': return PHOTO_COLS_WIDE.includes(value);
     case 'diary_view': return DIARY_VIEWS.includes(value);
     case 'note_view': return NOTE_VIEWS.includes(value);
+    case 'org_tab': return ORG_TABS.includes(value);
     case 'note_boards': return Array.isArray(value) && value.length <= NOTE_BOARDS_MAX && value.every(b => !!b && typeof b === 'object' && !Array.isArray(b)
       && Object.keys(b).every(name => name === 'id' || name === 'name') && typeof b.id === 'string' && NOTE_BOARD_ID_RE.test(b.id) && noteBoardName(b.name));
     case 'note_board': return typeof value === 'string' && (value === 'all' || NOTE_BOARD_ID_RE.test(value));

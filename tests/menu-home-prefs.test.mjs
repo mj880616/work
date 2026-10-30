@@ -5,11 +5,15 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
-test('허용 칸 스물한 개가 DB 검사(마지막 migration, photo_sources 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261030230000_photo_sources.sql');
+test('허용 칸 스물두 개가 DB 검사(마지막 migration, org_tab 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261030233000_profile_view_prefs_org_tab.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS].sort(), listed.sort());
-  assert.equal(KEYS.length, 21);
+  assert.equal(KEYS.length, 22);
+});
+test('org_tab은 log·table 글자만(DESK-현황표, DB 검사와 같음)', () => {
+  for (const v of ['log', 'table']) assert.equal(validValue('org_tab', v), true, v);
+  for (const v of ['', 'tbl', 1, true, null, ['table'], {v: 'table'}]) assert.equal(validValue('org_tab', v), false, JSON.stringify(v));
 });
 test('photo_sources는 onedrive·gdrive·phone 참·거짓만(PHOTO-출처, DB 검사와 같음)', () => {
   for (const v of [{}, {onedrive:true}, {onedrive:false, gdrive:false, phone:true}]) assert.ok(validValue('photo_sources', v), JSON.stringify(v));
