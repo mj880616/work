@@ -1,7 +1,7 @@
 // NOTE-보기3가지: 노트 [포스트잇] 보기 — 화면보다 넓은 보드 위에 같은 크기 포스트잇을 아무 데나 끌어다 놓고 겹쳐 붙인다.
 // 이 모듈은 보드 칸 하나만 그린다(한 화면 영역 = 한 그리는 곳). 노트 목록·저장·메뉴는 basket-notes.js가 맡는다:
 // - 칸의 [열기]는 basket-notes.js의 노트 줄과 같은 data-note-row 단추라 누르면 같은 길로 열린다(선택 모드면 고르기).
-// - 칸의 작은 ⋯는 같은 data-note-row-more 단추(PC 우클릭은 공용 context-menu.js가 이 ⋯를 누른다). 폰 꾹 누르기는 onMenu.
+// - 칸의 작은 ⋯는 같은 data-note-row-more 단추(PC 우클릭은 공용 context-menu.js가 이 ⋯를 누른다). 폰 꾹 눌렀다 떼기는 onMenu(꾹 누른 뒤 끌면 옮기기).
 // - 끌어 놓으면 onMove(id, board, places)로 알린다(저장은 부르는 쪽, metadata.board). 끄는 칸은 바로 맨 위로 올라온다.
 // 보드는 밀어서 이동(브라우저 스크롤), 두 손가락 벌리기·오므리기와 [＋][－]로 크게·작게(사진 격자와 같은 공용 핀치 부품 photo-grid-size.js attachPinch).
 // 확대 단계는 이번 접속 화면 메모리만(저장할 값 아님). 기기 저장 없음.
@@ -47,16 +47,30 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   }
   const pointOf = e => { const r = scroll.getBoundingClientRect(); return {x:(e.clientX - r.left + scroll.scrollLeft) / zoom, y:(e.clientY - r.top + scroll.scrollTop) / zoom}; };
   const raise = (card, z) => { card.style.zIndex = String(z + 1); };
+  // NOTE-포스트잇끌기 (요청함 10/30 14:09 "둘 다 되게"): 폰 한 손가락은 바로 끌어도, 꾹 누른 뒤 끌어도 옮긴다.
+  // 꾹 누르면(LONG_MS) 칸이 살짝 떠오르고(nb-held) 진동만 한다. 노트 메뉴는 꾹 누른 뒤 움직이지 않고 손을 뗄 때만 연다(메뉴가 끌기를 끊지 않음).
+  // 끄는 동안(잡힘·끌기) 문서 당김(당겨서 새로고침·튕김)이 일어나지 않게 html에 nb-drag-on을 둔다(basket.css overscroll-behavior:none).
+  const dragOn = on => document.documentElement.classList.toggle('nb-drag-on', on);
+  function stopEdge() { if (drag?.edge) { cancelAnimationFrame(drag.edge); drag.edge = 0; } }
   function cancelDrag() {
     if (!drag) return;
-    clearTimeout(drag.timer);
-    const {card, place} = drag; drag = null;
+    clearTimeout(drag.timer); stopEdge();
+    const {card, place} = drag; drag = null; dragOn(false);
     card.classList.remove('nb-dragging', 'nb-held'); card.style.left = `${place.x}px`; card.style.top = `${place.y}px`; raise(card, place.z);
   }
+  function follow() { // 마지막 손가락 자리로 칸을 옮긴다(가장자리 자동 스크롤 중에도 같은 계산 — 배율 반영)
+    const p = pointOf(drag.last);
+    drag.card.style.left = `${Math.max(0, drag.place.x + p.x - drag.start.x)}px`; drag.card.style.top = `${Math.max(0, drag.place.y + p.y - drag.start.y)}px`;
+  }
   function finish(e) {
-    const d = drag; drag = null; clearTimeout(d.timer);
+    const d = drag; stopEdge(); drag = null; clearTimeout(d.timer); dragOn(false);
     d.card.classList.remove('nb-dragging', 'nb-held');
-    if (!d.moving) return;
+    if (!d.moving) {
+      if (!d.held) return; // 짧게 누르고 뗌 = 열기(click이 맡는다)
+      suppressUntil = Date.now() + 600; // 꾹 누르고 움직이지 않고 뗌 = 노트 메뉴
+      const btn = d.card.querySelector('.nb-more'); if (btn) onMenu(btn, d.x, d.y);
+      return;
+    }
     suppressUntil = Date.now() + 400;
     const p = pointOf(e), next = movedTo(d.place, p.x - d.start.x, p.y - d.start.y, topZ(places));
     const before = new Map(places); // 옮기기 전 자리(아직 저장 안 된 칸은 이 자리로 함께 저장)
@@ -64,42 +78,54 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     d.card.style.left = `${next.x}px`; d.card.style.top = `${next.y}px`; raise(d.card, next.z);
     onMove(d.id, next, before);
   }
-  function edgeScroll(e) {
+  // 끌기 중 손가락이 판 가장자리(EDGE) 안에 있으면 멈춰 있어도 판이 계속 밀린다(한 프레임에 14px).
+  function edgeStep(x, y) {
     const r = scroll.getBoundingClientRect();
-    const dx = e.clientX < r.left + EDGE ? -14 : e.clientX > r.right - EDGE ? 14 : 0, dy = e.clientY < r.top + EDGE ? -14 : e.clientY > r.bottom - EDGE ? 14 : 0;
-    if (dx || dy) scroll.scrollBy(dx, dy);
+    return {dx:x < r.left + EDGE ? -14 : x > r.right - EDGE ? 14 : 0, dy:y < r.top + EDGE ? -14 : y > r.bottom - EDGE ? 14 : 0};
+  }
+  function edgeScroll(e) { const {dx, dy} = edgeStep(e.clientX, e.clientY); if (dx || dy) scroll.scrollBy(dx, dy); }
+  function edgeLoop() {
+    if (!drag?.moving) return;
+    const {dx, dy} = edgeStep(drag.last.clientX, drag.last.clientY);
+    if (!dx && !dy) { drag.edge = 0; return; }
+    const sl = scroll.scrollLeft, st = scroll.scrollTop; scroll.scrollBy(dx, dy);
+    if (scroll.scrollLeft !== sl || scroll.scrollTop !== st) follow();
+    drag.edge = requestAnimationFrame(edgeLoop);
   }
   box.addEventListener('pointerdown', e => {
     if (!e.isPrimary) { cancelDrag(); return; } // 두 번째 손가락이면 끌기 대신 핀치
     const card = e.target.closest?.('[data-nb-card]');
     if (!card || !box.contains(card) || e.target.closest('.nb-more,.nb-x') || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const id = card.dataset.nbCard, place = places.get(id); if (!place) return;
-    drag = {id, card, place, start:pointOf(e), x:e.clientX, y:e.clientY, moving:false, touch:e.pointerType !== 'mouse', pointerId:e.pointerId, timer:null};
+    if (drag) cancelDrag();
+    drag = {id, card, place, start:pointOf(e), x:e.clientX, y:e.clientY, last:{clientX:e.clientX, clientY:e.clientY}, moving:false, held:false, touch:e.pointerType !== 'mouse', pointerId:e.pointerId, timer:null, edge:0};
     if (drag.touch) {
-      card.classList.add('nb-held');
-      drag.timer = setTimeout(() => { // 폰: 움직이지 않고 꾹 누르면 노트 메뉴
+      dragOn(true);
+      drag.timer = setTimeout(() => { // 폰: 움직이지 않고 꾹 누르면 잡힘 표시만(메뉴는 손을 뗄 때)
         if (!drag || drag.card !== card || drag.moving) return;
-        const btn = card.querySelector('.nb-more'); cancelDrag(); suppressUntil = Date.now() + 600;
+        drag.held = true; card.classList.add('nb-held'); raise(card, topZ(places) + 1);
         try { navigator.vibrate?.(12); } catch { /* 진동 없음 */ }
-        if (btn) onMenu(btn, e.clientX, e.clientY);
       }, LONG_MS);
     }
   });
   box.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.pointerId) return;
+    drag.last = {clientX:e.clientX, clientY:e.clientY};
     if (!drag.moving) {
       if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) <= (drag.touch ? SLOP : 4)) return;
       drag.moving = true; clearTimeout(drag.timer);
-      drag.card.classList.add('nb-dragging'); raise(drag.card, topZ(places) + 1);
+      drag.card.classList.remove('nb-held'); drag.card.classList.add('nb-dragging'); raise(drag.card, topZ(places) + 1);
       try { drag.card.setPointerCapture(e.pointerId); } catch { /* 잡기 실패해도 움직임은 받는다 */ }
     }
-    e.preventDefault(); edgeScroll(e);
-    const p = pointOf(e);
-    drag.card.style.left = `${Math.max(0, drag.place.x + p.x - drag.start.x)}px`; drag.card.style.top = `${Math.max(0, drag.place.y + p.y - drag.start.y)}px`;
+    e.preventDefault(); follow();
+    if (drag.touch) { if (!drag.edge) drag.edge = requestAnimationFrame(edgeLoop); }
+    else edgeScroll(e);
   });
   const up = e => { if (drag && e.pointerId === drag.pointerId) { if (e.type === 'pointercancel') cancelDrag(); else finish(e); } };
   box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
   box.addEventListener('lostpointercapture', e => { if (drag && drag.moving && e.pointerId === drag.pointerId) finish(e); });
+  // 칸을 누르고 있는 동안의 touchmove는 브라우저 몫(스크롤·당겨서 새로고침·튕김)으로 넘기지 않는다. 판 빈 곳은 그대로 판 밀기.
+  box.addEventListener('touchmove', e => { if (drag?.touch && e.touches.length === 1 && e.cancelable) e.preventDefault(); }, {passive:false});
   // 끈 뒤·꾹 누른 뒤의 클릭은 열기가 아니다.
   // 막는 것은 칸 열기(.nb-open)뿐: 칸의 ×(보드에서 빼기)·⋯(메뉴)는 끈 바로 뒤에도 누를 수 있다.
   box.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nb-card] .nb-open')) { e.preventDefault(); e.stopPropagation(); } }, true);

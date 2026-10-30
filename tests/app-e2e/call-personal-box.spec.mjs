@@ -210,9 +210,13 @@ test('통화 390: 줄을 길게 누르면 같은 메뉴가 열린다',async({pag
  const view=page.locator('#callsView');
  const row=view.locator(`[data-cf-row="${W2}"]`);await row.scrollIntoViewIfNeeded();
  const b=await row.boundingBox();
- await row.dispatchEvent('pointerdown',{pointerType:'touch',clientX:b.x+40,clientY:b.y+b.height/2,bubbles:true});
+ const pt={pointerType:'touch',clientX:b.x+40,clientY:b.y+b.height/2,bubbles:true};
+ await row.dispatchEvent('pointerdown',pt);
  await page.waitForTimeout(700);
- const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
+ // 메뉴는 꾹 누른 채가 아니라 움직이지 않고 손을 뗄 때 열린다(feed-hold.js, 꾹 누른 뒤 밀기를 끊지 않음).
+ const menu=page.locator('#cfMenu');await expect(menu).toBeHidden();
+ await row.dispatchEvent('pointerup',pt);
+ await expect(menu).toBeVisible();
  await expect(menu.getByRole('button',{name:'개인 통화로 옮기기'})).toBeVisible();
  expect(f.moves).toEqual([]);
  expect(f.errors).toEqual([]);
