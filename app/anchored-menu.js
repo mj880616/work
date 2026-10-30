@@ -1,4 +1,5 @@
 // D-3e anchored menu: shared history, focus, outside-click replay and positioning.
+import {markScrollMore} from './anchored-popup.js';
 export function createAnchoredMenu({id,className,label,historyKey,parent=document.body,key,render,onAction,onClose=()=>{},canOpen=()=>true}){
   let active=null,closing=null;
   const panel=document.createElement('div');panel.id=id;panel.className=className;panel.hidden=true;panel.setAttribute('role','group');panel.setAttribute('aria-label',label);
@@ -20,10 +21,11 @@ function position(){
   // so a menu opened from a button at the window's right edge is never cut. Menus have no title row and are not dragged.
   const rect=active.trigger.getBoundingClientRect(),margin=12,gap=8,vw=document.documentElement.clientWidth||innerWidth;
   panel.style.width=Math.min(200,vw-margin*2)+'px';
-  const below=innerHeight-rect.bottom-gap-margin,above=rect.top-gap-margin,down=below>=Math.min(panel.scrollHeight,100)||below>=above;
+  const below=innerHeight-rect.bottom-gap-margin,above=rect.top-gap-margin,down=below>=panel.scrollHeight||below>=above; // UI-메뉴잘림: 아래에 다 들어갈 때만 아래로, 아니면 더 넓은 쪽(끝 항목이 안쪽 스크롤에 숨지 않게)
   panel.style.maxHeight=Math.max(0,down?below:above)+'px';const box=panel.getBoundingClientRect(),width=box.width,height=box.height;
   panel.style.left=Math.max(margin,Math.min(rect.right-width,vw-width-margin))+'px';
   panel.style.top=Math.max(margin,Math.min(down?rect.bottom+gap:rect.top-gap-height,innerHeight-height-margin))+'px';
+  markScrollMore(panel);
 }
 function open(trigger){
   if(trigger.disabled||!canOpen(trigger))return;

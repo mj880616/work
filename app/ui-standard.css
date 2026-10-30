@@ -620,9 +620,10 @@
 #appView #basketView button.basket-chip-x:hover{ color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
 #appView #basketView button.basket-chip-x:focus-visible,#appView #basketView button.basket-chip-open:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:1px; }
 @media(max-width:760px){
-  /* 폰: 위 머리줄의 "바구니" 자리에 "‹ 바구니"·[⋯]가 올라간다(목록의 [⋯]와 같은 방식). */
-  #appView #basketView > [data-basket-detail] > .basket-detail-head{ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; position:relative; z-index:2; }
-  html:has(#basketView:not(.hidden) > [data-basket-detail]:not([hidden])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
+  /* 폰: 상세의 '‹ 정리함'·[⋯] 줄이 화면 첫 줄이 된다. 비어 버린 위 머리줄(화면 이름 자리)은 접어서 없앤다.
+     UI-머리줄겹침(2026-10-30): 예전처럼 음수 여백으로 위 머리줄 자리에 끌어올리면, 위에 공유 받기 칸 같은 다른 칸이 있을 때 그 위에 포개졌다.
+     이제 머리줄은 제자리에서 아래로 쌓인다(위에 다른 칸이 있으면 그 아래). */
+  html:has(#basketView:not(.hidden) > [data-basket-detail]:not([hidden])) #appView > .mobile-shell-header{ display:none; }
 }
 
 /* ───────── UI-버튼크기(2026-10-17 사용자 결정) ─────────

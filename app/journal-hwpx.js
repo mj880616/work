@@ -43,17 +43,21 @@ import {scheduleForm} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras} from './weekly-draft-store.js';
 import {sameIssuedLines} from './weekly-lines.mjs';
+import {pickBase, teamIsNewer, teamChanges, cellList, feedbackRecord} from './weekly-feedback.mjs';
 import {isDropped, defaultTitle, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
+// WEEKLY-환류학습 1(docs/design/weekly-draft-feedback.md 10절): 다음 주 바탕은 내가 최종으로 올린 최신 '주간보고 개인본'(보고일 앞의 것). 없으면 지금처럼 팀 확정본.
+const PERSONAL_CATEGORY = '주간보고 개인본';
 const encode = encodeURIComponent;
 const TEXT = Object.freeze({
   // WEEKLY-한글파일다듬기 ①(2026-10-23 사용자 요청 11:35): 안내문 쉽게, 바탕 확정본이 있을 때·없을 때 따로.
   intro: '지난주 팀 확정본을 바탕으로 내 칸만 고친 한글 파일을 만들어요. [확정]을 눌러야 자료실에 저장돼요.',
   introNoBase: `지난주 팀 확정본이 없어요. 자료실에 ‘${CONFIRMED_CATEGORY}’으로 올리거나, 내 컴퓨터에서 골라 주세요.`,
   checking: '자료실에서 지난주 팀 확정본을 찾는 중이에요.',
+  introPersonal: '지난주에 내가 올린 개인본을 바탕으로 만들어요. 팀 확정본에서 바뀐 칸은 옆에 작게 알려요. [확정]을 눌러야 자료실에 저장돼요.',
   noBrowser: '이 브라우저는 한글 파일 만들기(압축)를 지원하지 않아요. 최신 크롬·사파리·엣지에서 열어 주세요.',
   noConfirmed: `자료실에 "${CONFIRMED_CATEGORY}" 분류 자료가 없어요. 팀 확정본을 그 분류로 올리거나 [기기에서 파일 고르기]를 써 주세요.`,
   readFailed: '자료실을 읽지 못했어요. 잠시 뒤 다시 시도하거나 [기기에서 파일 고르기]를 써 주세요.',
@@ -129,10 +133,13 @@ async function readContext(rt) {
   const stages = await loadDisputeState({rt, workspaceId:workspace, force:true}).catch(() => ({status:'error', stages:[], histories:new Map()}));
   return {stages, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
 }
-async function latestConfirmed(rt) {
+// 바탕 고르기(weekly-feedback.mjs pickBase): 보고일 앞의 최신 개인본 → {doc, from:'personal', team(최신 팀 확정본 — '확정본에서 바뀜' 참고용)},
+// 없으면 최신 팀 확정본 → {doc, from:'confirmed'}, 둘 다 없으면 null. 개인본을 읽지 못하면 지금처럼 확정본만 본다.
+async function latestBase(rt, day) {
   const workspace = rt.context.read()?.workspace?.id;
-  const rows = await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=eq.${encode(CONFIRMED_CATEGORY)}&select=id,title,file_name,created_at&order=created_at.desc,id.desc&limit=1`);
-  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  const q = (category, limit) => `/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=eq.${encode(category)}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=${limit}`;
+  const [personal, confirmed] = await Promise.all([rt.api(q(PERSONAL_CATEGORY, 5)).catch(() => []), rt.api(q(CONFIRMED_CATEGORY, 1))]);
+  return pickBase({personal:Array.isArray(personal) ? personal : [], confirmed:Array.isArray(confirmed) ? confirmed : []}, day);
 }
 
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
@@ -149,9 +156,12 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   const title = el('h4', 'journal-heading', '주간보고 한글 파일(.hwpx)'); title.id = 'journalHwpxTitle'; title.tabIndex = -1;
   const status = el('p', 'journal-hwpx-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.dataset.hwpxStatus = '';
   const body = el('div', 'journal-hwpx-body');
-  // 임시저장 한 줄: "임시저장 14:32" / "저장 중…" / "저장 못 함 — [다시]" / 준비 중.
+  // 임시저장 한 줄: "임시저장 14:32" / "저장 중…" / "저장 못 함 — [다시]" / 준비 중. 상자 맨 위 제목 줄 오른쪽 끝에 작은 글씨로 둔다
+  // (JOURNAL-임시저장자리, 요청함 10/30). 제목은 길면 말줄임, 이 줄은 글자만([다시]만 누름). 상자 안 다른 자리에는 두지 않는다.
+  const head = el('div', 'journal-hwpx-head'); head.dataset.hwpxHead = '';
   const draftLine = el('p', 'journal-hwpx-draft'); draftLine.dataset.hwpxDraftStatus = ''; draftLine.hidden = true; draftLine.setAttribute('aria-live', 'polite');
-  panel.append(title, draftLine, status, body);
+  head.append(title, draftLine);
+  panel.append(head, status, body);
   // UI-눌림느낌: the small [복사] says '✓ 복사됨' for 1.5s once the copy worked.
   // JOURNAL-복사버튼: [주간보고 초안 복사]는 이 줄의 작은 [복사]로 옮김(같은 복사 기능은 journal.js가 onCopy로 넘김). 한글 파일 상자가 열려도 [복사]는 남는다.
   const bar = el('div', 'journal-hwpx-bar');
@@ -206,9 +216,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       const actions = el('div', 'journal-hwpx-actions'); actions.append(go, clear); box.append(actions);
       body.prepend(box);
     });
-    latestConfirmed(rt).then(found => ({found}), () => ({failed:true})).then(({found = null, failed = false}) => {
+    latestBase(rt, reportDay(week)).then(found => ({found}), () => ({failed:true})).then(({found = null, failed = false}) => {
       if (mine !== sourceRun || !library.isConnected) return;
       confirmed = failed ? undefined : found;
+      if (found?.from === 'personal') { library.disabled = false; library.textContent = `자료실 최신 "${PERSONAL_CATEGORY}" 쓰기`; library.dataset.hwpxBaseFrom = 'personal'; intro.textContent = TEXT.introPersonal; return; }
       if (found || failed) { library.disabled = false; intro.textContent = TEXT.intro; return; }
       intro.textContent = TEXT.introNoBase;
       row.prepend(pick);
@@ -220,7 +231,11 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const mine = ++run;
     say('자료실에서 확정본을 찾는 중…');
     try {
-      const found = pinned || (confirmed !== undefined ? confirmed : await latestConfirmed(rt));
+      const day = reportDay(getWeek().start);
+      // [이어서 고치기]는 그때 바탕을 다시 연다. 그것이 지금 고른 개인본이면 팀 확정본 참고 표시도 함께 본다.
+      const pick = pinned ? (confirmed !== undefined ? confirmed : await latestBase(rt, day).catch(() => null)) : (confirmed !== undefined ? confirmed : await latestBase(rt, day));
+      const chosen = pinned ? (pick?.doc?.id === pinned.id ? pick : {doc:pinned, from:'confirmed', team:null}) : pick;
+      const found = chosen?.doc ?? null;
       if (mine !== run) return;
       if (!found) { say(TEXT.noConfirmed, 'error'); return; }
       const {drive} = await lazy();
@@ -228,7 +243,12 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       say(`"${found.title || found.file_name}"을(를) 여는 중…`);
       const {bytes, info} = await drive.openHwpFromDrive({kind:'library', document:{id:found.id}}, {rt});
       if (mine !== run) return;
-      await load(bytes, found.file_name, info.format, `자료실 · ${found.title || found.file_name}`, mine, {from:'library', document_id:String(found.id), file_name:String(found.file_name || ''), title:String(found.title || '')});
+      const personal = chosen.from === 'personal';
+      await load(bytes, found.file_name, info.format, `자료실${personal ? ' 개인본' : ''} · ${found.title || found.file_name}`, mine, {from:'library', document_id:String(found.id), file_name:String(found.file_name || ''), title:String(found.title || '')});
+      if (mine !== run || !state) return;
+      state.baseKind = personal ? 'personal' : 'confirmed';
+      if (state.store?.extras && !state.store.extras.proposed) state.store.extras.proposed = proposedNow(state);
+      if (personal && teamIsNewer(found, chosen.team)) void loadTeamChanges(state, chosen.team);
     } catch (error) {
       if (mine === run) say(error?.kind ? error.message : TEXT.readFailed, 'error');
     }
@@ -284,6 +304,66 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       if (mine === run) say(error?.code ? error.message : '확정본을 읽지 못했어요. 아무것도 만들지 않았어요.', 'error');
     }
   }
+  // ---- 환류학습 1: 팀 확정본에서 바뀜(참고용) ----
+  // 바탕이 개인본일 때, 그보다 나중에 나온 팀 확정본의 내 칸 글과 다르면 칸 옆에 작은 '확정본에서 바뀜'(눌러 그 글 보기·[이 글로 바꾸기]).
+  // 열지 못하면 조용히 표시하지 않는다(바탕은 개인본 그대로).
+  function rawCells(s, team) {
+    const base = s.draft.startDraft(team, {me:s.me, myOrgs:s.myOrgs, orgList:s.context.orgFailed ? null : s.context.organizations, date:s.date});
+    const out = new Map();
+    for (const [section, list, keyOf] of [['summary', s.draft.editableRows(base, s.me), summaryKey], ['orgs', s.draft.editableOrgs(base, 'orgs'), orgKey], ['sites', s.draft.editableOrgs(base, 'sites'), orgKey]]) {
+      const keys = cellKeys(list, keyOf);
+      list.forEach((row, i) => out.set(cellId(section, keys[i].key, keys[i].n), row.lines));
+    }
+    return out;
+  }
+  async function hwpxBytes(bytes, name) {
+    if (state?.draft.hwpKind(bytes) === 'hwpx') return bytes;
+    if (state?.draft.hwp5Header(bytes)?.password) throw new Error('locked');
+    engine ||= createEngine();
+    return engine.toHwpx(bytes, name);
+  }
+  async function loadTeamChanges(s, teamDoc) {
+    try {
+      const {drive} = await lazy();
+      if (!drive.isHwpName(teamDoc.file_name)) return;
+      const {bytes} = await drive.openHwpFromDrive({kind:'library', document:{id:teamDoc.id}}, {rt});
+      const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, teamDoc.file_name)));
+      if (state !== s) return;
+      s.teamDiff = teamChanges(rawCells(s, s.team), rawCells(s, team));
+      s.teamTitle = String(teamDoc.title || teamDoc.file_name || '');
+      paintTeam();
+    } catch { /* 참고 표시만 없음 */ }
+  }
+  function paintTeam() {
+    const s = state;
+    if (!s?.teamDiff || panel.hidden) return;
+    for (const node of body.querySelectorAll('[data-hwpx-team]')) {
+      const [section, index] = node.dataset.hwpxTeam.split(':'), id = s.cellOf?.[section]?.get(Number(index)), lines = id && s.teamDiff.get(id);
+      node.hidden = !lines;
+      if (!lines) { node.replaceChildren(); continue; }
+      const fold = el('details', 'journal-hwpx-team-fold');
+      const mark = el('summary', 'journal-exec-carried', '확정본에서 바뀜'); mark.title = `팀 확정본(${s.teamTitle})에서 이 칸 글이 달라요`;
+      const use = button('이 글로 바꾸기', 'hwpxTeamUse'); use.dataset.hwpxTeamCell = node.dataset.hwpxTeam;
+      fold.append(mark, el('p', 'journal-muted', lines.join(' / ') || '(빈 칸)'), use);
+      node.replaceChildren(fold);
+    }
+  }
+  function useTeam(key) {
+    const s = state, [section, index] = key.split(':'), id = s?.cellOf?.[section]?.get(Number(index)), lines = id && s.teamDiff?.get(id);
+    if (!lines) return;
+    s.edits[section].set(Number(index), [...lines]); s.built = null;
+    const area = areas[key];
+    if (area) area.value = lines.join('\n');
+    typed(`row:${id}`);
+    say('팀 확정본 글로 바꿨어요. 칸에서 고칠 수 있어요.');
+  }
+  // 환류학습 2: 그 주 처음 만든 초안 칸 글(proposed). 서버에 따로 쓰지 않고 다음 임시저장·[확정] 때 함께 실린다.
+  const nowIso = () => new Date().toISOString();
+  function cellsNow(s, from = 'edits') {
+    return new Map([...s.cellAt].map(([id, at]) => [id, from === 'initial' ? [...(s.initial.get(id) ?? [])] : [...(s.edits[at.section].get(at.index) ?? [])]]));
+  }
+  const proposedNow = s => ({at:nowIso(), base:{from:s.baseKind === 'personal' ? 'personal' : s.baseInfo?.from === 'file' ? 'file' : 'confirmed', ...(s.baseInfo?.document_id ? {document_id:s.baseInfo.document_id} : {})}, cells:cellList(cellsNow(s, 'initial'))});
+
   // (Re)build my base from the team report for the current name; edits start from the base lines.
   function rebase() {
     const {draft, team} = state;
@@ -349,7 +429,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     area.addEventListener('input', () => { state.edits[section].set(row.index, area.value.split('\n')); state.built = null; renderMismatches(); typed(`row:${state.cellOf[section].get(row.index)}`); });
     areas[`${section}:${row.index}`] = area;
     const material = el('ul', 'journal-hwpx-material'); material.dataset.hwpxMaterial = `${section}:${row.index}`;
-    box.append(name, area, material);
+    const team = el('div', 'journal-hwpx-team'); team.dataset.hwpxTeam = `${section}:${row.index}`; team.hidden = true;
+    box.append(name, team, area, material);
     return box;
   }
   function append(key, text) {
@@ -513,6 +594,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     renderRemember();
     renderMaterial();
     renderRequestNote();
+    paintTeam();
   }
 
   // 일정 줄마다: 날짜·시각 · 원래 제목(늘 보임) · 고칠 제목 칸 · 장소 칸(비우면 '미정') · [빼기]. 칸 값은 state.titles(일정 키 → {title, place}),
@@ -692,7 +774,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       if (mine !== run) return;
       state.saved = result;
       say(result.message, result.kind === 'created' ? 'ok' : 'error');
-      if (result.kind === 'created' && state.store) { state.store.confirmed = {document_id:String(result.document?.id ?? ''), at:new Date().toISOString()}; state.store.dirty = true; await recordIssued(state, b.bytes, false); void saveDraft(state); }
+      if (result.kind === 'created' && state.store) { state.store.confirmed = {document_id:String(result.document?.id ?? ''), at:new Date().toISOString()}; state.store.dirty = true; await recordIssued(state, b.bytes, false); recordFeedback(state); void saveDraft(state); }
       if (result.kind === 'created') offerMemory(state);
       // An unknown outcome may have saved: the button stays off until the owner checks the library.
       if (result.kind !== 'unknown') trigger.disabled = result.kind === 'created';
@@ -745,6 +827,16 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     box.replaceChildren(fold);
   }
 
+  // ---- 환류학습 2: [확정] 때 처음 초안 ↔ 내 최종 개인본 줄 비교(draft.feedback) ----
+  // 사람이 확정한 값만 배운다. 그 주 요청 표 행(owner 전용 서버 표)에만 남고 로그·오류 보고에 글을 쓰지 않는다.
+  function recordFeedback(s) {
+    const st = s?.store;
+    if (!st || st.status === 'missing') return null;
+    const proposed = st.extras?.proposed ?? proposedNow(s);
+    st.extras = {...(st.extras ?? {}), proposed, feedback:feedbackRecord({week:s.start, at:nowIso(), proposed:proposed.cells, final:cellsNow(s)})};
+    return st.extras.feedback;
+  }
+
   // ---- 받은 초안 기록 (WEEKLY-개인본대조 W-2, draft.issued) ----
   // 파일을 내줄 때(.hwpx 받기·HWP로 받기·확정) 그 파일의 1~4절 글 줄을 그 주 임시저장 draft.issued 에 적는다. 새 표·새 저장소 없음(같은 서버 길, owner RLS).
   // 같은 줄이면 다시 쓰지 않고, 여러 번 내주면 가장 나중에 내준 것이 기준이다. 읽을 줄이 없거나 너무 길면 적지 않는다(원장 쪽이 그 주를 건너뜀). 실패해도 파일 받기는 그대로다.
@@ -780,7 +872,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const cells = new Map([...s.cellAt].map(([id, at]) => [id, s.edits[at.section].get(at.index) ?? []]));
     const typedMe = s.meFrom === 'typed';
     return makeDraft({base:s.baseInfo ? {...s.baseInfo, digest:s.digest} : null, me:typedMe ? s.me : '', meFrom:typedMe ? 'typed' : '', date:s.date === s.defaultDate ? '' : s.date, cells, initial:s.initial,
-      keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], areas:s.areas ?? null, confirmed:s.store?.confirmed ?? null, issued:s.store?.issued ?? null});
+      keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], areas:s.areas ?? null, confirmed:s.store?.confirmed ?? null, issued:s.store?.issued ?? null, extras:s.store?.extras ?? null});
   }
   // Put a draft's cells into the current base by name; what does not fit is kept aside (shown folded, saved again as it was).
   function placeCells(s, d) {
@@ -802,7 +894,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   }
   async function attachDraft(s, baseInfo, saved) {
     s.baseInfo = baseInfo ?? null;
-    s.store = {status:'idle', known:null, last:null, timer:0, conflicts:[], keep:[], dirty:false, flight:null, again:false, confirmed:null, resumed:null, savedAt:null, issued:null};
+    s.store = {status:'idle', known:null, last:null, timer:0, conflicts:[], keep:[], dirty:false, flight:null, again:false, confirmed:null, resumed:null, savedAt:null, issued:null, extras:{}};
     s.digest = await baseDigest(s.initial).catch(() => '');
     if (saved?.missing) { s.store.status = 'missing'; paintDraft(); return; }
     if (saved?.failed) { s.store.status = 'readFailed'; paintDraft(); return; }
@@ -810,6 +902,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const d = saved.row?.draft;
     s.store.last = d ?? null;
     s.store.issued = d?.issued ?? null;
+    s.store.extras = draftExtras(d); // 처음 초안·고침 기록·규칙 목록: 이 상자는 읽은 그대로 다시 실어 보낸다(처음 초안이 없을 때만 지금 바탕으로 정함)
     s.docs = draftDocs(d);
     s.areas = draftAreaSummaries(d); // 사업영역 한 줄 요약: 이 상자는 고치지 않고 읽은 그대로 다시 실어 보낸다
     s.store.savedAt = saved.row?.saved_at ?? null;
@@ -842,6 +935,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const {draft: merged, conflicts} = merge3(st.last, mine, theirs);
     st.last = theirs ?? null;
     st.issued = merged.issued ?? null; // 받은 초안 기록은 더 나중에 낸 쪽(다른 기기 것일 수 있음)
+    st.extras = draftExtras(merged); // 처음 초안·고침 기록·규칙 목록도 칸마다 더 나중 것
     s.areas = draftAreaSummaries(merged); // 사업영역 한 줄 요약도 합친 판(서버가 그사이 쓴 AI 줄 포함)
     if (state !== s) return merged;
     // Nothing came from the other side (e.g. a row made by the request table meanwhile): keep the box as it is.
@@ -900,14 +994,16 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   function paintDraft() {
     const st = state?.store;
     draftLine.hidden = !st || panel.hidden;
-    if (!st) { draftLine.replaceChildren(); return; }
+    if (!st) { draftLine.replaceChildren(); draftLine.removeAttribute('title'); return; }
     draftLine.dataset.kind = st.status === 'failed' ? 'error' : '';
-    if (st.status === 'missing') draftLine.replaceChildren(DRAFT_TEXT.missing);
-    else if (st.status === 'saving') draftLine.replaceChildren(DRAFT_TEXT.saving);
-    else if (st.status === 'failed') { const again = button('다시', 'hwpxDraftRetry'); again.setAttribute('aria-label', '임시저장 다시'); draftLine.replaceChildren(DRAFT_TEXT.failed, again); }
-    else if (st.status === 'readFailed') draftLine.replaceChildren(DRAFT_TEXT.readFailed);
-    else if (st.savedAt && st.status === 'saved') draftLine.replaceChildren(`임시저장 ${hm(st.savedAt)}`);
-    else draftLine.replaceChildren('고치면 서버에 임시저장해요.');
+    // 글은 말줄임 칸 하나에 넣고(제목 줄이 좁으면 잘림), 전체 글은 title로 둔다.
+    const text = value => { const t = el('span', 'journal-hwpx-draft-text', value); draftLine.title = value; return t; };
+    if (st.status === 'missing') draftLine.replaceChildren(text(DRAFT_TEXT.missing));
+    else if (st.status === 'saving') draftLine.replaceChildren(text(DRAFT_TEXT.saving));
+    else if (st.status === 'failed') { const again = button('다시', 'hwpxDraftRetry'); again.setAttribute('aria-label', '임시저장 다시'); draftLine.replaceChildren(text(DRAFT_TEXT.failed), again); }
+    else if (st.status === 'readFailed') draftLine.replaceChildren(text(DRAFT_TEXT.readFailed));
+    else if (st.savedAt && st.status === 'saved') draftLine.replaceChildren(text(`임시저장 ${hm(st.savedAt)}`));
+    else draftLine.replaceChildren(text('고치면 서버에 임시저장해요.'));
   }
   const cellLabel = cell => {
     if (cell === 'me') return '담당 팀원 칸의 내 이름';
@@ -997,6 +1093,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     if (b.matches('[data-hwpx-start]')) open();
     else if (b.matches('[data-hwpx-close]')) { close(); start.focus(); }
     else if (b.matches('[data-hwpx-library]')) fromLibrary();
+    else if (b.matches('[data-hwpx-team-use]') && state) useTeam(b.dataset.hwpxTeamCell);
     else if (b.matches('[data-hwpx-stage-clear]') && state) { const index = Number(b.dataset.hwpxIndex); state.edits.sites.set(index, []); state.stageFixes = state.stageFixes.filter(f => f.index !== index); state.built = null; renderEdit(); say('줄을 비웠어요.'); typed(`row:${state.cellOf.sites.get(index)}`); }
     else if (b.matches('[data-hwpx-restart]')) void restart();
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }

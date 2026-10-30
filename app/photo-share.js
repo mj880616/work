@@ -62,6 +62,15 @@ export async function sharePhotoElement(el, nameOf, {alive = () => true, note = 
   if (SHARE_TEXT[result]) note(SHARE_TEXT[result], 4000); else note('', 0);
   return result;
 }
+// PC공유메뉴: 넓은 화면 메뉴([사진 복사]·[정리함에 넣기]·[다운로드])가 쓸 그림 파일 하나. 바로 넘길 바이트가 없으면 note(받는 중)를 띄우고 기다린다.
+// 못 받으면 [] (알림은 메뉴가 띄운다). 바이트는 이 화면 메모리에만.
+export async function photoFilesFor(el, nameOf, {alive = () => true, note = () => {}} = {}) {
+  if (!el) return [];
+  let blob = readyPhotoBlob(el);
+  if (!blob) { note(SHARE_TEXT.waiting, 0); blob = await waitPhotoBlob(el, {alive}); note('', 0); }
+  const file = blob && alive() ? photoFile(blob, nameOf(blob)) : null;
+  return file ? [file] : [];
+}
 const isImage = blob => !!blob && typeof blob.size === 'number' && blob.size > 0 && /^image\//.test(blob.type || '');
 
 // 이 화면이 만든 그림 주소(blob:)의 바이트. 다른 사이트 주소는 읽지 않는다(null).

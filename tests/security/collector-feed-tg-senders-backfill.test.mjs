@@ -48,7 +48,7 @@ test('정상: 이름표 함수 하나만 부르고(작업공간은 서버 허용
   const out=await r.json();
   assert.deepEqual(out,{ok:true,people:2,linked:1,conflicts:1,name_dropped:0});
   assert.deepEqual(h.calls.feature,[{p_feature:'telegram'}]);
-  assert.deepEqual(h.calls.rpc,[{p_workspace:WS,p_room_key:'-100123',p_day:'2026-10-20',p_senders:senders2()}]);
+  assert.deepEqual(h.calls.rpc,[{p_workspace:WS,p_room_key:'-100123',p_day:'2026-10-20',p_senders:[senders2()[0],{label:'B',key:KEY_B,name:NAME_B}]}],'self:false는 서버가 버린다(TODO-내일만 3: 화면에서 붙인 \'나\'를 지우지 않게)');
   assert.deepEqual(h.calls.other,[],'app_feed_items·app_feed_days·방 함수 등 다른 경로 없음');
   assert.equal(h.calls.openai,0);
   assert.ok(!leaks(JSON.stringify(out))&&!leaks(h.calls.logs.join('\n')),'응답·로그에 이름·키 없음');
@@ -171,7 +171,7 @@ test('평소와 같은 라벨 규칙으로 만든 이름표가 key 있는 사람
   const list=G.tgFeedSendersBackList(G.tgFeedBuildSenders(grouped.messages,keyFn));
   assert.deepEqual(plain(list),[{label:'A',key:KEY_B,name:NAME_B,self:false},{label:'B',key:KEY_A,name:NAME_A,self:true}],'번호 없는 C는 뺀다');
   const parsed=parseSendersBody(plain(G.tgFeedSendersBackBody('2026-10-20','-100123',list)),TODAY);
-  assert.deepEqual(parsed.senders,plain(list));
+  assert.deepEqual(parsed.senders,[{label:'A',key:KEY_B,name:NAME_B},{label:'B',key:KEY_A,name:NAME_A,self:true}],'self:false는 서버가 버린다(TODO-내일만 3)');
   assert.deepEqual(plain(G.tgFeedSendersBackList(Array.from({length:45},(_,i)=>({label:'A'+i,key:KEY_A})))).length,40);
 });
 

@@ -27,6 +27,7 @@ import {SIZE_BUTTONS, WIDE_QUERY, createGridSizer} from './photo-grid-size.js';
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
+import {shareFrom, wideShare} from './share-menu.js';
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {createOdSettings} from './od-settings.js';
 import {createSelectMode} from './select-mode.js';
@@ -40,8 +41,8 @@ import {notify, askConfirm} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
 import {followPane} from './follow-pane.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
-  colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, newestFirst, durationLabel, monthBar, monthAt, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
-  takeItems, putItems} from './photos-model.mjs';
+  colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
+  takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
 
 (() => {
 if (window.KPTUPhotos) return;
@@ -57,7 +58,7 @@ install();
 const root = document.getElementById('photosRoot');
 if (!root) return;
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><span class="photos-sp"></span><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select>${SIZE_BUTTONS}${odLinkButtonHtml()}</div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><label><span data-photos-name-label></span><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"></label><button type="submit" class="mini">저장</button><button type="button" class="mini" data-photos-name-cancel>취소</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
+root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><span class="photos-sp"></span><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}${odLinkButtonHtml()}</div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><label><span data-photos-name-label></span><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"></label><button type="submit" class="mini">저장</button><button type="button" class="mini" data-photos-name-cancel>취소</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
 const $ = sel => root.querySelector(sel);
 const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), linkBtn = $('[data-od-link]'), odHost = $('[data-photos-od]');
 const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
@@ -65,7 +66,7 @@ const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), t
 const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
 let owner = ownerScope(rt), run = 0;
 let od = {...OD_NONE}, odFault = false, odReady = false, odMessage = '';
-let tab = 'all', filter = 'all', colsSaved = null, prefsRead = false;
+let tab = 'all', filter = 'all', colsSaved = null, prefsRead = false, sort = DEFAULT_SORT;
 // [사진] 목록: items(최신순), next(다음 쪽 cursor), from(막대·달력으로 건너뛴 시작 {cursor, label} 또는 null = 최신부터).
 let items = [], next = null, ended = false, loading = null, failed = '', from = null, rendered = 0;
 let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, syncing = false, syncDone = false;
@@ -91,10 +92,17 @@ function readPrefs() {
   if (prefsRead) return;
   prefsRead = true;
   const v = parsePhotoView(viewPrefs.get('photo_view'));
-  filter = v.filter; colsSaved = v.cols;
-  $('[data-photos-filter]').value = filter;
+  filter = v.filter; colsSaved = v.cols; sort = v.sort;
+  $('[data-photos-filter]').value = filter; paintSortButton();
 }
-const savePrefs = () => viewPrefs.set('photo_view', {filter, ...(colsSaved ? {cols:colsSaved} : {})}, {rejectable:true});
+const savePrefs = () => viewPrefs.set('photo_view', photoViewValue({filter, cols:colsSaved, sort}), {rejectable:true});
+// ---- 정렬(PHOTO-정렬, view_prefs.photo_view.sort 하나 — 사진·폴더·앨범 같은 기준) ----
+// [사진]에서 달·날로 건너뛴 목록(from)은 찍은 날 최근 먼저로 본다(그 자리부터 이어 보는 기능이라).
+const listSort = () => (from ? DEFAULT_SORT : sort);
+function paintSortButton() {
+  const b = $('[data-photos-sort]'); if (!b) return;
+  b.textContent = `${SORT_SHORT[sort]} ▾`; b.setAttribute('aria-label', `정렬: ${SORT_TEXT[sort]}`);
+}
 const sizer = createGridSizer({current:wide => colsFor(wide, colsSaved), step:stepPhotoCols, save:(wide, n) => { colsSaved = n; savePrefs(); }});
 
 // ---- 서버 읽기 ----
@@ -143,15 +151,15 @@ function loadMore() {
         for (const ids of chunks(starIds(), STAR_CHUNK)) {
           let cursor = from?.cursor || null;
           for (let guard = 0; guard < 50; guard++) {
-            const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200});
+            const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort:listSort()});
             if (!current(r)) return;
             all.push(...page.items); cursor = page.next;
             if (!cursor) break;
           }
         }
-        items = appendItems(items, all.map(toItem).sort(newestFirst)); ended = true;
+        items = appendItems(items, all.map(toItem).sort(sortCompare(listSort()))); ended = true;
       } else {
-        const page = await odLibrary(rt, {filter, cursor:next || from?.cursor || null, limit:PAGE_SIZE});
+        const page = await odLibrary(rt, {filter, cursor:next || from?.cursor || null, limit:PAGE_SIZE, sort:listSort()});
         if (!current(r)) return;
         items = appendItems(items, page.items.map(toItem)); next = page.next; ended = !page.next;
       }
@@ -225,12 +233,19 @@ function paintList({full = false} = {}) {
   const counts = new Map();
   for (const it of items) counts.set(it.day, (counts.get(it.day) || 0) + 1);
   let i = rendered;
-  for (const group of groupByDay(items.slice(rendered))) {
-    const lastHead = list.lastElementChild?.previousElementSibling;
-    let grid;
-    if (lastHead?.dataset.photosDay === group.day) grid = list.lastElementChild;
-    else { list.append(dayHeadEl(group.day, 0)); grid = newGrid(); list.append(grid); }
-    for (const item of group.items) grid.append(cell(item, i++));
+  if (sortByDay(listSort())) {
+    for (const group of groupByDay(items.slice(rendered))) {
+      const lastHead = list.lastElementChild?.previousElementSibling;
+      let grid;
+      if (lastHead?.dataset.photosDay === group.day) grid = list.lastElementChild;
+      else { list.append(dayHeadEl(group.day, 0)); grid = newGrid(); list.append(grid); }
+      for (const item of group.items) grid.append(cell(item, i++));
+    }
+  } else {
+    // 찍은 날이 아닌 기준: 날짜 머리줄 없이 한 격자
+    let grid = list.lastElementChild;
+    if (!grid?.matches?.('[data-diary-grid]')) { grid = newGrid(); list.append(grid); }
+    for (const item of items.slice(rendered)) grid.append(cell(item, i++));
   }
   rendered = items.length;
   list.querySelectorAll('[data-photos-day]').forEach(h => { const n = h.querySelector('[data-photos-day-n]'); if (n) n.textContent = `· ${counts.get(h.dataset.photosDay) || 0}장`; });
@@ -304,6 +319,7 @@ async function renderTrash({reload = false} = {}) {
 function render() {
   root.querySelectorAll('[data-photos-tab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.photosTab === tab)));
   $('[data-photos-filter]').hidden = tab !== 'all' && tab !== 'calendar'; root.querySelector('.photo-size').hidden = tab === 'calendar';
+  $('[data-photos-sort]').hidden = tab === 'calendar' || tab === 'trash'; paintSortButton();
   paintOd();
   if (tab === 'calendar') { select.stop(); paintSelect(); paintRail(); renderCalendar(); return; }
   if (tab === 'trash') { paintRail(); renderTrash(); return; }
@@ -330,7 +346,7 @@ function paintStars() {
 
 // ---- 빠른 이동 막대(오른쪽 끝, [사진]에서 달이 둘 이상일 때) ----
 function paintRail() {
-  const on = tab === 'all' && ready() && bar.length > 1 && !select.active;
+  const on = tab === 'all' && ready() && bar.length > 1 && !select.active && listSort() === DEFAULT_SORT;
   rail.hidden = !on;
   if (!on) return;
   const top = items.length ? items[0].day.slice(0, 7) : (from ? from.cursor.t.slice(0, 7) : '');
@@ -456,7 +472,8 @@ function paintSelect() {
   const none = !select.size;
   $('[data-photos-act-delete]').disabled = !od.canDelete || none;
   $('[data-photos-act-star]').disabled = none; $('[data-photos-act-down]').disabled = none;
-  const share = $('[data-photos-act-share]'); share.hidden = !canShare(); share.disabled = none;
+  // PC공유메뉴: 넓은 화면은 기기 공유 창이 없어도 [⇪ 공유] 메뉴(복사·정리함·다운로드)를 쓴다.
+  const share = $('[data-photos-act-share]'); share.hidden = !canShare() && !wideShare(); share.disabled = none;
   $('[data-photos-act-move]').disabled = none || !od.canDelete || busy; $('[data-photos-act-tag]').disabled = none || busy;
   const untag = $('[data-photos-act-untag]'); untag.hidden = !(tab === 'albums' && album); untag.disabled = none || busy;
   $('[data-photos-restore]').disabled = none || !od.canDelete; $('[data-photos-purge]').disabled = none || !od.canDelete;
@@ -484,9 +501,8 @@ async function downloadPicked() {
 }
 // 여러 장 공유: 큰 그림을 받아 기기 공유 창으로(동영상은 빼고, 20장까지). 받는 사이 누른 효력이 끝나면 한 번 더 누르게 한다(받은 것은 메모리에 그대로).
 let shareReady = null;
-async function sharePicked() {
-  const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
-  if (!list.length) { notify('공유할 사진이 없어요(동영상은 [⤓ 받기]로).'); return; }
+// 고른 사진(동영상 빼고 20장까지)의 큰 그림 파일. 같은 묶음이면 받은 것을 다시 쓴다(메모리에만).
+async function pickedFiles(list) {
   const key = list.map(x => x.id).join(',');
   if (shareReady?.key !== key) {
     notify('사진 받는 중…', {ms:30000});
@@ -496,7 +512,18 @@ async function sharePicked() {
     }
     shareReady = {key, files};
   }
-  const {files} = shareReady;
+  return shareReady.files;
+}
+// [⇪ 공유]: 넓은 화면은 누른 자리 작은 메뉴(share-menu.js — 한 장이면 [사진 복사]도), 좁은 화면은 지금처럼 기기 공유 창.
+function shareButton(trigger) {
+  const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
+  if (!list.length) { notify('공유할 사진이 없어요(동영상은 [⤓ 받기]로).'); return; }
+  shareFrom(trigger, {count:list.length, getFiles:() => pickedFiles(list), native:canShare() ? sharePicked : null, download:downloadPicked});
+}
+async function sharePicked() {
+  const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
+  if (!list.length) { notify('공유할 사진이 없어요(동영상은 [⤓ 받기]로).'); return; }
+  const files = await pickedFiles(list);
   if (!files.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true}); return; }
   if (!navigator.canShare?.({files})) { notify('이 기기는 여러 장 공유를 못 해요. [⤓ 받기]로 받아 주세요.'); return; }
   try { await navigator.share({files}); shareReady = null; notify(`${files.length}장을 넘겼어요`); }
@@ -674,7 +701,7 @@ function loadFolder(id) {
   fToken = token;
   fLoading = (async () => {
     try {
-      const page = await odLibrary(rt, {folderId:id, cursor:fNext, limit:PAGE_SIZE});
+      const page = await odLibrary(rt, {folderId:id, cursor:fNext, limit:PAGE_SIZE, sort});
       if (!current(r) || fToken !== token) return;
       fItems = appendItems(fItems, page.items.map(toItem)); fNext = page.next; fEnded = !page.next; fFailed = '';
     } catch (error) { if (current(r) && fToken === token) fFailed = odErrorText(error); }
@@ -853,13 +880,13 @@ async function loadAlbum(id) {
       for (const ids of chunks(c.keys, STAR_CHUNK)) {
         let cursor = null;
         for (let guard = 0; guard < 50; guard++) {
-          const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200});
+          const page = await odLibrary(rt, {filter:'star', starIds:ids, cursor, limit:200, sort});
           if (!current(r) || aFor !== id) return;
           all.push(...page.items); cursor = page.next;
           if (!cursor) break;
         }
       }
-      aItems = all.map(toItem).sort(newestFirst);
+      aItems = all.map(toItem).sort(sortCompare(sort));
     } catch (error) { if (current(r) && aFor === id) aFailed = odErrorText(error); }
     finally { if (aFor === id) aLoading = null; }
     if (current(r) && tab === 'albums' && album === id) renderAlbums();
@@ -1005,6 +1032,20 @@ const albumMenu = createAnchoredMenu({id:'photosAlbumMenu', className:'od-link-m
   key:t => t.dataset.photosAlMore || '',
   render:() => [menuBtn('data-am-rename', '이름 바꾸기'), menuBtn('data-am-delete', '지우기(사진은 그대로)', 'od-link-danger')].join(''),
   onAction:(b, {id, trigger}) => { if (b.matches('[data-am-rename]')) return renameAlbum(id); if (b.matches('[data-am-delete]')) return deleteAlbum(trigger, id); }});
+// [정렬 ▾]: 누른 자리 작은 메뉴(공용 anchored-menu). 고른 줄에 ✓. 동영상 길이는 동영상이 있을 때만.
+const sortMenu = createAnchoredMenu({id:'photosSortMenu', className:'od-link-menu photos-sort-menu', label:'정렬 기준', historyKey:'kptuPhotosSortMenu',
+  key:() => 'sort',
+  render:() => sortChoices(filter === 'video' || shownList().some(x => x.video), sort).map(v =>
+    `<button type="button" data-sort-pick="${v}" aria-pressed="${v === sort}"><span class="photos-sort-ck" aria-hidden="true">${v === sort ? '✓' : ''}</span>${esc(SORT_TEXT[v])}</button>`).join(''),
+  onAction:b => setSort(b.dataset.sortPick)});
+function setSort(v) {
+  if (!SORT_TEXT[v] || v === sort) return;
+  sort = v; savePrefs(); paintSortButton();
+  select.stop(); resetList();
+  fFor = null; fItems = [];
+  if (aItems.length) aItems = aItems.slice().sort(sortCompare(sort));
+  render(); window.scrollTo?.(0, 0);
+}
 // 고르기 판: 옮길 폴더(나무 순서, 들여쓰기) 또는 넣을 앨범. 무엇을 할지는 pickFor에 둔다.
 let pickFor = null;
 const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-menu photos-pick-menu', label:'고르기', historyKey:'kptuPhotosPickMenu',
@@ -1116,7 +1157,8 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-sel-off]')) { select.stop(); return paintSelect(); }
   if (b.matches('[data-photos-day-pick]')) { select.toggle(items.filter(x => x.day === b.dataset.photosDayPick).map(x => x.id), {anchor:false}); return paintSelect(); }
   if (b.matches('[data-photos-act-star]')) return starPicked();
-  if (b.matches('[data-photos-act-share]')) return sharePicked();
+  if (b.matches('[data-photos-sort]')) return sortMenu.open(b);
+  if (b.matches('[data-photos-act-share]')) return shareButton(b);
   if (b.matches('[data-photos-act-down]')) return downloadPicked();
   if (b.matches('[data-photos-act-delete]')) return deletePicked();
   if (b.matches('[data-photos-act-move]')) return openPick(b, {kind:'photos', ids:pickedItems().map(x => x.id)});
@@ -1170,7 +1212,7 @@ window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt);
   closePhotoStrip({fromBack:true, restore:false});
-  batch = null; resetList(); syncDone = false; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; calCursor = null;
+  batch = null; resetList(); syncDone = false; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop();
   tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; folderLayer = null; albumLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();

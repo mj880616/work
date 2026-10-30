@@ -1,6 +1,7 @@
 // TG-방날짜묶기 4단계 (docs/design/tg-room-day-group.md): 텔레그램 소식 화면의 "날짜 아래 방 한 줄" 목록과 방 상세의 순수 규칙.
 // DOM·네트워크 없음. 글은 모두 바깥(Drive, 서버 AI)에서 온 것이라 화면이 글자로만 넣는다. 방 이름·아이디·소식 내용은 시험에 가짜 값만 쓴다.
 import {addDays} from './feed-model.mjs';
+import {SWIPE_BTN, SWIPE_START, SWIPE_EDGE, swipeIntent, swipeEdge} from './row-swipe-model.mjs';
 
 // 한 번에 읽는 날 수와 목록이 거슬러 올라가는 한계(옛 소식 목록과 같은 120일). 읽기 함수는 한 번에 93일까지, 줄 수 한도를 넘지 않게 7일씩 나눠 부른다.
 export const LIST_WINDOW = 14;
@@ -181,16 +182,8 @@ export const withRoomState = (lines, rooms) => (lines || []).map(l => { const r 
 
 // ---------- 밀기 (폰, 터치만). 가로로 충분히 밀었을 때만 반응한다. 오른쪽으로 밀면 왼쪽에 두 버튼(폴더로·보관, 64px씩 128px),
 // 왼쪽으로 밀면 오른쪽에 한 버튼(삭제 64px). 화면 가장자리 24px 안에서 시작한 밀기는 무시한다(뒤로가기 제스처와 겹침 방지).
-export const SWIPE_BTN = 64;
-export const SWIPE_START = 12;
-export const SWIPE_EDGE = 24;
-// 'wait'(아직 모름) | 'scroll'(세로, 밀기 아님) | 'swipe'(가로가 세로의 1.5배를 넘고 12px 이상)
-export function swipeIntent(dx, dy) {
-  const ax = Math.abs(dx), ay = Math.abs(dy);
-  if (Math.max(ax, ay) < SWIPE_START) return 'wait';
-  return ax >= SWIPE_START && ax > ay * 1.5 ? 'swipe' : 'scroll';
-}
-export const swipeEdge = (x, width) => !(x >= SWIPE_EDGE && x <= width - SWIPE_EDGE);
+// UI-목록밀기: 손동작 기준(시작 12px·가장자리 24px·버튼 64px)은 다른 목록 밀기와 같은 공용 셈(row-swipe-model.mjs)에서 가져온다.
+export {SWIPE_BTN, SWIPE_START, SWIPE_EDGE, swipeIntent, swipeEdge};
 // allow: 각 쪽 버튼 수 {start, end}(0 = 그쪽 버튼 없음).
 export const swipeWidths = allow => ({start:(Number(allow?.start) || 0) * SWIPE_BTN, end:(Number(allow?.end) || 0) * SWIPE_BTN});
 export function swipeOffset(dx, open = 0, allow = {start:2, end:1}) {

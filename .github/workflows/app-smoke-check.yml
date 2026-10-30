@@ -397,6 +397,12 @@ jobs:
       - name: Check diary OneDrive folder switches (JOURNAL-일기원드라이브, synthetic)
         run: node --test tests/diary-onedrive-folders.test.mjs
 
+      - name: Check photo sort choices (PHOTO-정렬, synthetic)
+        run: node --test tests/photos-sort.test.mjs
+
+      - name: Check wide-screen share menu (PC공유메뉴, synthetic)
+        run: node --test tests/share-menu.test.mjs
+
       - name: Check OneDrive photo queue (OD-속도, visible first, limited at once, synthetic)
         run: node --test tests/od-thumb-loader.test.mjs
 
@@ -510,6 +516,9 @@ jobs:
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
+
+      - name: UI-목록밀기 폰 목록 줄 밀기 셈·연결, UI-메뉴잘림
+        run: node --test tests/row-swipe-model.test.mjs
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
@@ -826,6 +835,9 @@ jobs:
           if grep -Eq 'team-member-overview|team-member-management|team-profile-view|collaboration-center' app/loader-v2.js app/view-loader.js app/styles.css; then echo 'removed UI module was loaded'; exit 1; fi
           if test -e app/mobile-dock.js || test -e app/mobile-dock.css; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q 'app_workspace_members' app/team.js
+
+      - name: Check weekly feedback loop model (WEEKLY-환류학습)
+        run: node --test tests/weekly-feedback.test.mjs
 
       - name: Check notification removal
         run: |

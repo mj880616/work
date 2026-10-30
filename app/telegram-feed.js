@@ -19,7 +19,7 @@ import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {copyText} from './copy-text.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
-import {readSenders, setSenderName, mergeSenders, forgetSender} from './tg-sender-data.js';
+import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
   firstWindow, olderWindow, reachedEnd, chunksOf, cleanFolderName, FOLDER_ERROR_TEXT, archivedRooms, withRoomState, pinnedRooms, withoutPinned, pinsWithoutLine,
   swipeIntent, swipeEdge, swipeOffset, swipeSettle, swipeOpenOffset, allowOf, SWIPE_ACTIONS, ACTION_LABEL,
@@ -444,6 +444,19 @@ function saveMan() {
   }).then(() => { if (!state.sman) $('#tgList [data-tg-shelf-back]')?.focus({preventScroll:true}); });
 }
 
+// 나로 표시·빼기(TODO-내일만 3). 저장은 서버(app_tg_sender_set_self)뿐이고, 끝나면 이름표를 다시 읽는다.
+const personSelf = id => state.senders?.senders.find(s => s.id === id)?.is_self === true;
+function saveSelf(id, self) {
+  const p = personOf(id); if (!p || state.busy) return;
+  endEdit(); state.sman = null; state.status = ''; paintList();
+  return guarded(async current => {
+    const res = await setSenderSelf(id, self, rt); if (!current()) return;
+    if (!res.ok) { state.status = SENDER_FAIL_TEXT[res.error] || SENDER_FAIL_TEXT.REFUSED; if (res.error === 'GONE' || res.error === 'UNKNOWN') await reloadSenders(); return; }
+    const ok = await reloadSenders(); if (!current()) return;
+    state.status = (self ? `나로 표시했어요. ${res.keyed ? '다음 소식부터 내가 한 부탁은 챙길 것에 오르지 않아요.' : '이 방 이 날 소식에만 적용돼요.'}` : '나 표시를 뺐어요.') + (ok ? '' : ' 목록은 다시 불러오지 못했어요.');
+  }).then(() => $(`#tgList [data-tg-person="${CSS.escape(id)}"] button`)?.focus({preventScroll:true}));
+}
+
 // ---------- actions
 // 방 상세 열기. item: 열자마자 원문을 펼칠 소식. 폰은 router layer 한 칸(뒤로가기 = 목록).
 function select(room, day, item = '') {
@@ -732,16 +745,17 @@ const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소�
     const r = itemOf(active.id.slice(active.id.indexOf(':') + 1)); if (!r) return;
     if (act === 'pin') void pin(r); else if (act === 'trash') void trashItem(r); else if (act === 'copy') void copyTg(tgText(r)); else if (act === 'link') startLink(r); else if (act === 'sumedit') startSumEdit('item', r);
   }});
-// 보낸 사람 이름 목록의 줄마다 ⋯: 이름 고치기 · 다른 사람과 합치기 · 지우기.
+// 보낸 사람 이름 목록의 줄마다 ⋯: 이름 고치기 · 나로 표시(빼기) · 다른 사람과 합치기 · 지우기.
 const pmenu = createAnchoredMenu({id:'tgPersonMenu', className:'feed-menu', label:'보낸 사람 메뉴', historyKey:'kptuTelegramPersonMenu',
   key:t => 'person:' + t.dataset.tgPersonMore,
   render:id => {
     const p = personOf(id.slice(id.indexOf(':') + 1)); if (!p) return '';
-    return `<button type="button" data-tg-pact="rename">${p.unnamed ? '이름 붙이기' : '이름 고치기'}</button>${peopleList().length > 1 ? '<button type="button" data-tg-pact="merge">다른 사람과 합치기</button>' : ''}<button type="button" class="feed-menu-danger" data-tg-pact="forget">지우기 <span class="feed-faint">소식 글은 그대로</span></button>`;
+    const self = personSelf(p.id) ? '<button type="button" data-tg-pact="unself">나 표시 빼기</button>' : '<button type="button" data-tg-pact="self">나로 표시 <span class="feed-faint">내가 한 부탁은 챙길 것에서 빠짐</span></button>';
+    return `<button type="button" data-tg-pact="rename">${p.unnamed ? '이름 붙이기' : '이름 고치기'}</button>${self}${peopleList().length > 1 ? '<button type="button" data-tg-pact="merge">다른 사람과 합치기</button>' : ''}<button type="button" class="feed-menu-danger" data-tg-pact="forget">지우기 <span class="feed-faint">소식 글은 그대로</span></button>`;
   },
   onAction:(button, active) => {
     const id = active.id.slice(active.id.indexOf(':') + 1), act = button.dataset.tgPact;
-    if (act === 'rename') startPersonEdit(id); else if (act === 'merge') startMan(id, 'merge'); else if (act === 'forget') startMan(id, 'forget');
+    if (act === 'rename') startPersonEdit(id); else if (act === 'self' || act === 'unself') void saveSelf(id, act === 'self'); else if (act === 'merge') startMan(id, 'merge'); else if (act === 'forget') startMan(id, 'forget');
   }});
 
 // 방 줄 ⋯ 메뉴(PC) · 길게 누르기(폰) · 오른쪽 클릭(PC): 고정 · 폴더로 · 보관 · 삭제(그 날 한 줄만).

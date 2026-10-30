@@ -16,6 +16,7 @@ import {dueLabel} from './task-due.mjs';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {copyText} from './copy-text.js';
 import {flashDone} from './press-feedback.js';
+import {bindRowSwipe} from './row-swipe.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '할 일로 보냄'], ['dismissed', '무시함']]);
@@ -187,6 +188,10 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
       if (ok) { unmarked.delete(c.id); rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = taskId; c.task_due = dues.get(c.id) || null; paint(); changed(); } else { rowStatus.set(c.id, '표시하지 못했어요. 다시 눌러 주세요.'); paint(); }
     }
   });
+  // UI-목록밀기: 폰 챙길 것 줄 — 오른쪽으로 밀기 [무시](위쪽 '무시했어요 [되돌리기]', 기존 [무시] 길). 챙길 것은 지우는 길이 없어 왼쪽 밀기는 두지 않는다.
+  bindRowSwipe(host, {row:'[data-inbox-todo-row]', enabled:() => state === 'ok',
+    actions:el => { const c = byId(el.dataset.inboxTodoRow); return c && c.status === 'open' && !busy.has(c.id) ? {start:{key:'dismiss', label:'무시', tone:'warning'}, end:null} : null; },
+    run:(key, el) => { const c = byId(el.dataset.inboxTodoRow); if (key === 'dismiss' && c && c.status === 'open' && !busy.has(c.id)) { status = ''; void dismiss(c); } }});
   chips?.addEventListener('click', event => {
     const b = event.target.closest('[data-inbox-chip]'); if (!b) return;
     chip = b.dataset.inboxChip; status = ''; paint();

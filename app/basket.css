@@ -213,8 +213,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .note-editor > .basket-text-label:first-child{ margin-top:0; }
 @media(max-width:760px){
   /* 폰: 노트 읽기·수정도 메모처럼 위 머리줄의 "바구니" 자리에 '‹ 노트'·[복사]·[⋯]가 올라간다(UI-화면정리 C: 정리함 상세의 '‹ 정리함'처럼 뒤로 가기 표시). */
-  #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head{ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; position:relative; z-index:2; }
-  html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-detail]:not([hidden])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
+  /* UI-머리줄겹침: 음수 여백으로 끌어올리지 않는다. 비어 버린 위 머리줄을 접고, 이 줄은 제자리(위에 다른 칸이 있으면 그 아래)에 둔다(ui-standard.css 정리함 상세와 같음). */
+  html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-detail]:not([hidden])) #appView > .mobile-shell-header{ display:none; }
   #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head > .note-head-main{ justify-content:flex-end; }
 }
 /* BASKET-노트입력창: 노트 입력칸(PC)은 왼쪽 여백만(NOTE-파일붙이기: PC 클립은 입력칸 밖 [추가] 앞, 폰은 ui-standard.css가 클립 자리를 둔다). */
@@ -318,7 +318,9 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nb-card { position:absolute; width:148px; height:148px; box-sizing:border-box; transform:rotate(var(--nb-r,0deg)); background:var(--nb-paper); color:var(--ds-note-ink); border-radius:2px; box-shadow:var(--ds-note-shadow); touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; clip-path:polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%); }
 /* 아래 오른쪽 모서리 접힌 느낌 */
 .nb-card::after { content:""; position:absolute; right:0; bottom:0; width:16px; height:16px; background:linear-gradient(135deg, var(--ds-note-fold) 0 50%, transparent 50%); pointer-events:none; }
-.nb-card.nb-dragging { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); transform:rotate(var(--nb-r,0deg)) scale(1.03); }
+.nb-card.nb-dragging, .nb-card.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); transform:rotate(var(--nb-r,0deg)) scale(1.03); }
+/* 폰에서 포스트잇을 누르고 있는 동안(잡힘·끌기) 문서 당김(당겨서 새로고침·튕김)이 일어나지 않게(note-board.js). */
+html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-card.nb-picked { outline:2px solid var(--kptu-primary); outline-offset:2px; }
 #appView #basketView .nb-card .nb-open { display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%; height:100%; min-height:0; box-sizing:border-box; margin:0; padding:9px 10px 18px; overflow:hidden; text-align:left; border:0; border-radius:0; background:transparent; box-shadow:none; color:inherit; font:inherit; cursor:pointer; }
 #appView #basketView .nb-card .nb-open:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:-2px; }

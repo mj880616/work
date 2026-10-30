@@ -8,6 +8,7 @@
 // - 내용은 업무 글이다. 로그·오류 보고에 내용을 쓰지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
 
 import {readIssued, newerIssued} from './weekly-lines.mjs';
+import {readExtras, mergeExtras, EXTRA_KEYS} from './weekly-feedback.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,6 +28,10 @@ export const DOC_TEXT_MAX = 200;
 //   area_summaries: {"<사업영역 id>": {text, hash, edited, at}}. AI 줄(edited:false)은 서버 ai-assist가 쓰고, 사람이 고친 줄(edited:true)은
 //   [사업요약표 미리보기]의 [고치기]가 changeWeekAreaSummary로 쓴다. 한글 파일 상자·[주간 정리]는 읽은 그대로 다시 실어 보낸다.
 //   3자 비교 칸은 고친 줄만(area:<id>). AI 줄은 합칠 때 더 나중에 쓴 것(at)을 둔다. hasContent에는 넣지 않는다(상자에서 고친 것이 아님).
+
+// WEEKLY-환류학습(docs/design/weekly-draft-feedback.md 9절): 같은 draft의 proposed(그 주 처음 만든 초안 칸 글)·feedback(확정 때 초안 ↔ 최종 줄 비교와
+//   환류 보고)·rules(주간보고 규칙 목록) 칸. issued 와 같은 '사본 기록'이라 hasContent·3자 비교 칸에는 넣지 않고, 합칠 때는 칸마다 더 나중(at)의 것을 쓴다.
+//   모양 검사는 weekly-feedback.mjs readExtras(모르는 것·틀린 것은 버림). 읽은 그대로 다시 실어 보낸다(안 그러면 다음 임시저장에 지워진다).
 
 // ---- 칸 열쇠 ----
 const oneLine = s => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -48,7 +53,7 @@ const sameLines = (a, b) => JSON.stringify(cleanLines(a)) === JSON.stringify(cle
 // me는 고친 이름일 때만(meFrom='typed'), date는 바탕(보고일)과 다를 때만 넘긴다(아니면 '').
 // keep: 이번 바탕에 넣지 못한 저장 칸(버리지 않고 다시 저장). titles: Map event → {title, place}.
 // drops(WEEKLY-환류, 설계 3.4): Map event → 'drop'(이번 주에 뺀 일정) | 'keep'(기억으로 빠지는 일정을 이번 주만 넣음) → dropped·kept.
-export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], areas = null, confirmed = null, issued = null} = {}) {
+export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], areas = null, confirmed = null, issued = null, extras = null} = {}) {
   const rows = [];
   for (const [id, lines] of cells) {
     if (initial.has(id) && sameLines(lines, initial.get(id))) continue;
@@ -62,9 +67,17 @@ export function makeDraft({base = null, me = '', meFrom = '', date = '', cells =
   putDrops(out, drops);
   putDocs(out, docs);
   putAreas(out, areas);
+  putExtras(out, extras);
   if (confirmed) out.confirmed = confirmed;
   return putIssued(out, issued);
 }
+// proposed·feedback·rules 칸을 모양대로 붙인다(없으면 칸을 두지 않음).
+export function putExtras(out, extras) {
+  for (const key of EXTRA_KEYS) delete out[key];
+  Object.assign(out, readExtras(extras));
+  return out;
+}
+export const draftExtras = draft => readExtras(draft);
 // issued 를 덧붙인 draft(원본은 건드리지 않음). 없으면 칸을 두지 않는다. 크기 상한(DRAFT_MAX_BYTES)을 넘기면 issued 를 뺀다 — 기록 때문에 고친 칸 저장이 막히면 안 된다.
 export function putIssued(draft, issued) {
   const { issued: _old, ...rest } = draft ?? {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[]};
@@ -106,10 +119,11 @@ export function withDocEdit(draft, id, patch) {
 // [처음부터]: 상자에서 고친 것은 비우되 [주간 정리]의 자료 줄 고침은 남긴다(없으면 null = 임시저장 비움).
 // 받은 초안 기록(issued)·사업영역 한 줄 요약(area_summaries)도 남긴다 — 상자에서 고친 것이 아니다.
 export const keepDocsOnly = draft => {
-  const docs = draftDocs(draft), issued = readIssued(draft?.issued), areas = draftAreaSummaries(draft);
-  if (!docs.length && !issued && !Object.keys(areas).length) return null;
+  const docs = draftDocs(draft), issued = readIssued(draft?.issued), areas = draftAreaSummaries(draft), extras = readExtras(draft);
+  if (!docs.length && !issued && !Object.keys(areas).length && !Object.keys(extras).length) return null;
   const out = {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[], ...(docs.length ? {docs} : {})};
   putAreas(out, areas);
+  putExtras(out, extras);
   return putIssued(out, issued);
 };
 // ---- 사업영역 한 줄 요약(area_summaries) ----
@@ -174,6 +188,7 @@ export function readDraft(raw) {
   putDocs(out, raw.docs);
   if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
   putAreas(out, raw.area_summaries);
+  putExtras(out, raw);
   const issued = readIssued(raw.issued);
   if (issued) out.issued = issued;
   return out;
@@ -233,6 +248,7 @@ export function merge3(base, mine, theirs) {
   putDrops(out, new Map([...merged].filter(([k]) => k.startsWith('drop:')).map(([k, v]) => [k.slice(5), v])));
   putDocs(out, [...merged].filter(([k]) => k.startsWith('doc:')).map(([k, v]) => ({id:k.slice(4), ...v})));
   putAreas(out, mergeAreas(base, mine, theirs, merged));
+  putExtras(out, mergeExtras(mergeExtras(readExtras(base), readExtras(mine)), readExtras(theirs)));
   const confirmed = mine?.confirmed ?? theirs?.confirmed;
   if (confirmed) out.confirmed = confirmed;
   return {draft:putIssued(out, newerIssued(newerIssued(base?.issued ?? null, mine?.issued ?? null), theirs?.issued ?? null)), conflicts};

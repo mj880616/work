@@ -1,5 +1,5 @@
-// TG-발언자이름 4단계: 보낸 사람 이름표의 읽기(소유자 RLS REST)와 쓰기(DB 함수 3개). docs/design/telegram-sender-names.md 2절.
-// 읽기: app_tg_senders(사람)·app_tg_day_senders(방·날짜·라벨 → 사람). 쓰기는 표에 직접 하지 않고 app_tg_sender_set_name·merge·forget 으로만 한다
+// TG-발언자이름 4단계: 보낸 사람 이름표의 읽기(소유자 RLS REST)와 쓰기(DB 함수 4개). docs/design/telegram-sender-names.md 2절.
+// 읽기: app_tg_senders(사람)·app_tg_day_senders(방·날짜·라벨 → 사람). 쓰기는 표에 직접 하지 않고 app_tg_sender_set_name·merge·forget·set_self 로만 한다
 // (소유자 확인은 DB가 한다). 번호 원문은 어디에도 없고, 열쇠(해시)는 "열쇠 있음" 여부(keyed)만 남기고 버린다.
 import {readRecordPages} from './basket-link-records.js';
 import {senderError} from './tg-sender-model.mjs';
@@ -30,3 +30,5 @@ async function rpc(name, body, rt) {
 export const setSenderName = (roomKey, day, label, name, rt = window.KPTURuntime) => rpc('app_tg_sender_set_name', {p_room_key:roomKey, p_day:day, p_label:label, p_name:name}, rt);
 export const mergeSenders = (from, to, rt = window.KPTURuntime) => rpc('app_tg_sender_merge', {p_from:from, p_to:to}, rt);
 export const forgetSender = (id, rt = window.KPTURuntime) => rpc('app_tg_sender_forget', {p_id:id}, rt);
+// 이 사람이 나(기록 주인)인지 표시하거나 뺀다(TODO-내일만 3). 서버는 '나'가 보낸 부탁을 챙길 것 후보로 올리지 않는다. 돌려주는 값: {ok, changed, id, is_self, keyed} 또는 {ok:false, error}.
+export const setSenderSelf = (id, self, rt = window.KPTURuntime) => rpc('app_tg_sender_set_self', {p_id:id, p_self:!!self}, rt);

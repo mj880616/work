@@ -1177,15 +1177,18 @@ function multipartBody(request){
  return parts;
 }
 async function hwpxFixture(page,options={}){
- const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[]},bytes=teamHwpx(options.team);
+ const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[],personal:[]},bytes=teamHwpx(options.team);
+ // WEEKLY-환류학습 1: 자료실 '주간보고 개인본'(내가 올린 것). 없으면 [] — 그때는 지금처럼 팀 확정본이 바탕이다.
+ const personalBytes=options.personalReport?teamHwpx(options.personalReport):null;
  const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>r.request().method()==='GET'?r.fulfill({json:[{display_name:options.profileName??'가상 담당'}]}):r.fallback());
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>new URL(r.request().url()).searchParams.get('select')==='id,name,aliases,active'?r.fulfill({json:f.more.orgs.map(o=>({...o,aliases:[],active:o.active!==false}))}):r.fallback());
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();if(q.get('category')==='eq.주간보고 개인본'){sent.personal.push(Object.fromEntries(q));return r.fulfill({json:options.personal??[]});}sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
  await page.route(SB+'/functions/v1/document-actions',r=>{
   if(r.request().method()==='OPTIONS')return r.fulfill({status:200,headers:cors});
   const body=r.request().postDataJSON();sent.open.push(body);
-  return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:'team.hwpx',format:'hwpx',size:bytes.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:bytes});
+  const file=personalBytes&&body.document_id==='doc-mine'?personalBytes:bytes,fileName=file===bytes?'team.hwpx':'mine.hwpx';
+  return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
  await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
  await page.route(SB+'/functions/v1/ai-assist',r=>{sent.other.push({ai:true});return r.fulfill({status:500,json:{}});});
@@ -1310,6 +1313,48 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('주가 바뀌어 한글 파일 초안을 닫았어요.');
  await expect(hwpx(page).locator('[data-hwpx-start]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-환류학습 1·2: 다음 주 바탕은 내가 올린 최신 '주간보고 개인본'(보고일 앞). 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳은 칸 옆 작은
+// '확정본에서 바뀜'(눌러 그 글 보기·[이 글로 바꾸기], 참고용). [확정]하면 처음 초안 ↔ 최종 줄 비교(남김·고침·뺌·더함)가 그 주 행 draft.feedback 에 남는다.
+test('[주간보고 한글 파일 만들기] 환류: 개인본 바탕 + 확정본에서 바뀜 표시 + [확정] 고침 기록',async({page})=>{
+ const personalReport={summary:[
+  {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 내가 쓴 가-1 진행'],owner:['가상 담당']}]},
+  {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 지난주 나-1 진행'],owner:['가상 담당']}]},
+ ],orgs:[{org:['가상 노동조합'],status:['- 지난주 조직 소식']}]};
+ const f=await hwpxFixture(page,{width:1280,personalReport,personal:[{id:'doc-mine',title:'가상 개인본',file_name:'mine.hwpx',document_date:'2026-10-05',created_at:'2026-10-02T08:00:00Z'}]});
+ await openJournal(page,1280);await openWeekly(page);
+ await hwpx(page).locator('[data-hwpx-start]').click();
+ await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주에 내가 올린 개인본을 바탕으로 만들어요. 팀 확정본에서 바뀐 칸은 옆에 작게 알려요. [확정]을 눌러야 자료실에 저장돼요.');
+ const library=hwpx(page).locator('[data-hwpx-library]');
+ await expect(library).toHaveText('자료실 최신 "주간보고 개인본" 쓰기');
+ expect(f.sent.personal[0]).toMatchObject({category:'eq.주간보고 개인본',workspace_id:'eq.w'});
+ await library.click();
+ const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1'),b1=rowBox(page,'사업영역 나 › 세부 과제 나-1');
+ await expect(a1.locator('textarea')).toHaveValue('- 내가 쓴 가-1 진행');
+ await expect(hwpx(page).getByText('바탕: 자료실 개인본 · 가상 개인본')).toBeVisible();
+ // 바탕(개인본)을 연 뒤 팀 확정본도 열어 내 칸을 견준다. 바뀐 칸(가-1)에만 표시, 같은 칸(나-1)은 없음.
+ await expect(a1.locator('[data-hwpx-team] summary')).toHaveText('확정본에서 바뀜');
+ await expect(b1.locator('[data-hwpx-team]')).toBeHidden();
+ expect(f.sent.open.map(o=>o.document_id)).toEqual(['doc-mine','doc-team']);
+ await a1.locator('[data-hwpx-team] summary').click();
+ await expect(a1.locator('[data-hwpx-team] p')).toHaveText('- 지난주 가-1 진행');
+ await a1.locator('[data-hwpx-team-use]').click();
+ await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행');
+ await b1.locator('textarea').fill('- 지난주 나-1 진행\n- 새로 쓴 나-1 줄');
+ page.once('dialog',d=>d.accept());
+ await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
+ const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ await expect.poll(()=>row()?.draft?.feedback?.counts,{timeout:15000}).toEqual({kept:2,changed:1,dropped:0,added:1,proposed:3,final:4});
+ const fb=row().draft.feedback;
+ expect(fb.week).toBe('2026-10-05');
+ expect(fb.changed).toEqual([{where:'요약 · 사업영역 가 › 세부 과제 가-1',before:'- 내가 쓴 가-1 진행',after:'- 지난주 가-1 진행'}]);
+ expect(fb.added).toEqual([{where:'요약 · 사업영역 나 › 세부 과제 나-1',text:'- 새로 쓴 나-1 줄'}]);
+ // 처음 초안(proposed)은 개인본 바탕 그대로 — 사람이 고치기 전 글.
+ expect(row().draft.proposed.base).toEqual({from:'personal',document_id:'doc-mine'});
+ expect(row().draft.proposed.cells.find(c=>c.key==='사업영역 가›세부 과제 가-1').lines).toEqual(['- 내가 쓴 가-1 진행']);
+ expect(f.errors).toEqual([]);
 });
 
 // JOURNAL-주간정리다듬기 ②: 프로필 이름과 확정본 표기가 다르면 확정본 표기를 쓴다(가상 이름). 확정본에서 못 찾으면 프로필 이름 그대로.
@@ -1617,6 +1662,30 @@ test('[주간보고 한글 파일] 임시저장 칸이 아직 없으면(DB 적�
  const {report}=await savedReport(download);
  expect(report.orgs[0].status).toEqual(['- 저장 안 되는 줄']);
  expect(f.writes).toEqual([]);expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
+// JOURNAL-임시저장자리 (요청함 10/30): 임시저장 한 줄은 상자 맨 위 제목 줄 오른쪽 끝 작은 글자. 상자 안 다른 자리엔 없고(하나뿐),
+// 제목이 길어도 제목만 말줄임되어 서로 겹치지 않는다. 폰 412·폴드 펼침 884·PC 1440.
+for(const width of [412,884,1440])test(`[주간보고 한글 파일] 임시저장 줄은 제목 줄 오른쪽 끝, 긴 제목도 겹치지 않음 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournalAt(page,width);await openWeekly(page);
+ await openDraft(page);
+ await orgRow(page,'가상 노동조합').fill('- 지난주 조직 소식\n- 자리 확인 줄');
+ const head=hwpx(page).locator('[data-hwpx-head]');
+ await expect(head.locator('[data-hwpx-draft-status]')).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
+ await expect(hwpx(page).locator('[data-hwpx-draft-status]')).toHaveCount(1);
+ const measure=()=>head.evaluate(h=>{
+  const t=h.querySelector('#journalHwpxTitle').getBoundingClientRect(),d=h.querySelector('[data-hwpx-draft-status]').getBoundingClientRect(),b=h.getBoundingClientRect();
+  return {overlap:t.right>d.left+0.5,sameRow:Math.abs((t.top+t.bottom)/2-(d.top+d.bottom)/2)<=4,atEnd:Math.abs(b.right-d.right)<=1,inside:d.left>=b.left&&d.right<=b.right+0.5,single:h.getBoundingClientRect().height<=Math.max(t.height,d.height)+1,small:parseFloat(getComputedStyle(h.querySelector('[data-hwpx-draft-status]')).fontSize)<parseFloat(getComputedStyle(h.querySelector('#journalHwpxTitle')).fontSize)};
+ });
+ expect(await measure()).toEqual({overlap:false,sameRow:true,atEnd:true,inside:true,single:true,small:true});
+ // 제목이 아주 길어도 제목만 말줄임: 임시저장 글은 그대로 보이고 겹침 0, 가로 넘침 없음.
+ await head.locator('#journalHwpxTitle').evaluate(n=>{n.textContent='아주 긴 제목 '.repeat(20);});
+ expect(await measure()).toEqual({overlap:false,sameRow:true,atEnd:true,inside:true,single:true,small:true});
+ await expect(head.locator('[data-hwpx-draft-status]')).toHaveText(/^임시저장 \d\d:\d\d$/);
+ expect(await head.locator('[data-hwpx-draft-status]').evaluate(d=>d.scrollWidth<=d.clientWidth+1)).toBe(true);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
 // WEEKLY-환류 (docs/design/weekly-draft-feedback.md 3절): 5. 주요 일정 [빼기]·제목 고치기 → [확정] 뒤 "다음 주에도 쓸까요?"에서 [기억하기] →

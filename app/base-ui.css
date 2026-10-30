@@ -330,3 +330,7 @@ html .img-slot:not([data-img-state="shown"]){background:color-mix(in srgb,var(--
   [data-anchor-side].anchored-dragging .anchored-drag-title{cursor:grabbing}
   [data-anchor-side] .anchored-drag-title>:first-child::before{content:"∷";display:inline-block;margin-right:6px;font-weight:400;font-size:12px;line-height:1;color:var(--kptu-faint,var(--kptu-muted));vertical-align:1px}
 }
+/* UI-메뉴잘림(2026-10-30): ⋯·우클릭 메뉴와 버튼 옆 작은 창은 항목을 끝까지 다 보인다. 창보다 정말 길 때만 안쪽 스크롤이 생기고, 그때 아래 끝을 흐리게 해
+   '더 있음'을 보인다(anchored-popup.js markScrollMore가 data-scroll-below를 단다. 끝까지 내리면 사라짐). 지우기 같은 위험 항목은 메뉴 맨 끝에 두고 위에 가는 선으로 나눈다. */
+[data-scroll-below]{-webkit-mask-image:linear-gradient(to bottom,currentColor calc(100% - 28px),transparent);mask-image:linear-gradient(to bottom,currentColor calc(100% - 28px),transparent)}
+[role="group"]>button:is(.basket-menu-danger,.feed-menu-danger,.gt-menu-danger,.lu-menu-danger,.rb-menu-danger,.diary-menu-danger,.ql-menu-danger,.ci-menu-danger,.task-inline-danger,.ps3-record-danger,.od-link-danger,.basket-link-danger):last-child:not(:first-child){box-shadow:inset 0 var(--ds-line-width,1px) 0 var(--ds-line,var(--kptu-border))}
