@@ -2,9 +2,16 @@
 // 일기에 있던 크게 보기를 그대로 옮겨 왔다(모양·손동작·버튼줄 같음). 상태(목록·별표·지우기)는 부르는 화면이 갖고, 여기는 그리기와 손동작만 한다.
 // 위 줄 [✕] '6 / 256' … 찍은 날짜·시각, 아래 버튼줄 [☆ 별표] [⇪ 공유] [🗑 지우기] [ⓘ 정보](명진 결정 2026-10-28 07:45).
 // 손동작: 좌우 넘기기 = 앞뒤 사진, 위로 밀기 = 별표 토글, 아래로 밀기 = 닫기(× 버튼·뒤로가기도 닫기, router layer). S 키 = 별표.
+// PHOTO-스와이프안내(2026-10-30 명진 결정 "스와이프 모션 좋아"): 세로로 밀면 사진이 손가락을 따라 움직이고, 위로 정해진 거리(STAR_DIST)를 넘기면
+// 가운데 별이 차오른다. 덜 밀고 놓으면 제자리(별표 안 됨). 별표 순간 큰 노란 별이 '톡' 커졌다가 아래 [별표] 버튼으로 들어가고(폰은 짧은 진동),
+// 풀기는 빈 별이 흐려지며 사라진다. 아래로 밀어 닫기도 사진이 따라 내려가다 닫힌다. prefers-reduced-motion이면 움직임 없이 버튼 별만 바뀐다.
+// 처음 HINT_TIMES번(기본 3번) 열 때 손가락 동그라미가 아래에서 위로 두 번 올라가는 시늉 + 사진 아래 작은 회색 한 줄. 본 횟수는 서버(view_prefs.photo_hint).
+// [ⓘ 정보] 맨 아래 '불러오기 1.4초 (주소 0.5 · 사진 0.9)'(PHOTO-크게보기빨리): 그 칸이 메모리에 잰 시간(img-slot.js slotTiming), 기록·전송 없음.
 // 🗑(원드라이브 사진만)은 묻지 않고 목록에서 바로 빼고 '휴지통으로 옮겼어요 · 되돌리기'를 몇 초 보여 준다. 그 시간이 지나거나 닫거나 화면을 떠나면
 // 원드라이브 휴지통으로 보낸다(영구 삭제 아님). 되돌리기는 보내기 전이라 같은 자리로 그대로 돌아온다. 기기 저장 없음.
-import {swipeKind, shareFileName, UNDO_MS} from './photo-viewer-model.mjs';
+import {swipeKind, shareFileName, UNDO_MS, dragAxis, dragEnd, dragOffset, starFill, hintDue, hintNext, hintSeen, HINT_TEXT, loadTimeText} from './photo-viewer-model.mjs';
+import {slotTimingOf} from './img-slot.js';
+import {viewPrefs} from './view-prefs.js';
 import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, PHOTO_WAIT} from './photo-share.js';
 import {shareFrom} from './share-menu.js';
 
@@ -36,6 +43,8 @@ if (typeof document !== 'undefined') {
 }
 
 const zoomed = () => (globalThis.visualViewport?.scale || 1) > 1.05;
+const still = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+const buzz = () => { try { globalThis.navigator?.vibrate?.(12); } catch { /* 진동 없는 기기 */ } };
 export const photoStripOpen = () => !!viewer;
 export const photoStripNote = text => viewer?.note(text);
 export const photoStripRefresh = () => viewer?.refresh();
@@ -62,11 +71,12 @@ export function openPhotoStrip(opts) {
   const trigger = document.activeElement, box = document.createElement('div');
   box.className = 'diary-viewer'; box.dataset.diaryViewer = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', title);
-  box.innerHTML = `<div class="diary-viewer-bar"><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">✕</button><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-when" data-diary-viewer-when></span></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-caption" data-diary-viewer-caption></p><dl class="diary-viewer-info" data-diary-viewer-info hidden></dl><p class="diary-viewer-note" data-diary-viewer-note role="status"><span data-diary-viewer-note-text></span><button type="button" class="diary-viewer-undo" data-diary-undo hidden>되돌리기</button></p><div class="diary-viewer-actions" role="group" aria-label="사진 동작"><button type="button" data-diary-star aria-pressed="false"><span aria-hidden="true">☆</span> 별표</button><button type="button" data-diary-share><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-od-delete><span aria-hidden="true">🗑</span> 지우기</button><button type="button" data-diary-info aria-expanded="false"><span aria-hidden="true">ⓘ</span> 정보</button></div>`;
+  box.innerHTML = `<div class="diary-viewer-bar"><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">✕</button><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-when" data-diary-viewer-when></span></div><div class="diary-viewer-stage"><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><span class="diary-viewer-starfx" data-strip-starfx aria-hidden="true">★</span><span class="diary-viewer-finger" data-strip-finger aria-hidden="true" hidden></span></div><p class="diary-viewer-hint" data-diary-viewer-hint hidden>${HINT_TEXT}</p><p class="diary-viewer-caption" data-diary-viewer-caption></p><dl class="diary-viewer-info" data-diary-viewer-info hidden></dl><p class="diary-viewer-note" data-diary-viewer-note role="status"><span data-diary-viewer-note-text></span><button type="button" class="diary-viewer-undo" data-diary-undo hidden>되돌리기</button></p><div class="diary-viewer-actions" role="group" aria-label="사진 동작"><button type="button" data-diary-star aria-pressed="false"><span aria-hidden="true">☆</span> 별표</button><button type="button" data-diary-share><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-od-delete><span aria-hidden="true">🗑</span> 지우기</button><button type="button" data-diary-info aria-expanded="false"><span aria-hidden="true">ⓘ</span> 정보</button></div>`;
   const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]'), captionEl = box.querySelector('[data-diary-viewer-caption]');
   const whenEl = box.querySelector('[data-diary-viewer-when]'), infoEl = box.querySelector('[data-diary-viewer-info]'), infoBtn = box.querySelector('[data-diary-info]');
   const starBtn = box.querySelector('[data-diary-star]'), delBtn = box.querySelector('[data-od-delete]'), undoBtn = box.querySelector('[data-diary-undo]');
   const noteText = text => paintPhotoNote(box.querySelector('[data-diary-viewer-note-text]'), text);
+  const fx = box.querySelector('[data-strip-starfx]'), finger = box.querySelector('[data-strip-finger]'), hintEl = box.querySelector('[data-diary-viewer-hint]');
   const fill = i => {
     const slide = strip.children[i];
     if (!slide || slide.dataset.filled) return;
@@ -113,6 +123,8 @@ export function openPhotoStrip(opts) {
       a.dataset.diaryOriginal = ''; dd.append(a);
     } else dd.textContent = o.text || '';
     infoEl.append(Object.assign(document.createElement('dt'), {textContent:'원본'}), dd);
+    const took = loadTimeText(slotTimingOf(slidePhoto(at)));
+    if (took) { const t = Object.assign(document.createElement('dd'), {textContent:took}); t.dataset.stripLoadTime = ''; infoEl.append(Object.assign(document.createElement('dt'), {textContent:'불러오기'}), t); }
   };
   const slidePhoto = i => strip.children[i]?.querySelector('.diary-photo') || null;
   const prepareShown = () => { const el = slidePhoto(at); if (el) preparePhotoBlob(el); };
@@ -133,7 +145,7 @@ export function openPhotoStrip(opts) {
   };
   const note = (text, ms = 0) => { clearTimeout(noteTimer); noteText(text); if (ms) noteTimer = setTimeout(() => { if (!pending) noteText(''); }, ms); };
   // 보는 장의 그림이 뜨면(load는 거품이 없어 잡기 단계로 듣는다) 그 그림의 바이트를 미리 준비해 [공유]를 바로 넘긴다.
-  strip.addEventListener('load', () => setTimeout(prepareShown, 0), true);
+  strip.addEventListener('load', event => { setTimeout(prepareShown, 0); if (event.target?.closest?.('.diary-slide') === strip.children[at]) paintInfo(); }, true);
   strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && items[next]) { at = next; show(); } }, {passive:true});
   const step = dir => strip.scrollTo({left:Math.max(0, Math.min(items.length - 1, at + dir)) * strip.clientWidth, behavior:'smooth'});
   // 목록이 바뀐 뒤(지우기·되돌리기) 다시 짠다. id가 주어지면 그 사진으로 간다.
@@ -168,26 +180,88 @@ export function openPhotoStrip(opts) {
       download:item.video && download ? () => download(item) : null});
   }
   const star = item => { if (!item) return; if (viewer) viewer.starChanged = true; return toggleStar(item); };
-  // 한 손가락 세로 밀기(사진 위): 위 = 별표, 아래 = 닫기. 가로 넘기기·확대(두 손가락)는 브라우저가 맡는다.
+  // 별 움직임: on = 지금 별표됨. 큰 별이 '톡' 커졌다가 [별표] 버튼 자리로 날아가 작아지며 사라진다 / 풀면 빈 별이 흐려진다.
+  let fxTimer = null;
+  function starMotion(on) {
+    buzz();
+    clearTimeout(fxTimer); fx.style.removeProperty('--fill');
+    if (still()) { delete fx.dataset.anim; return; }
+    fx.textContent = on ? '★' : '☆';
+    const b = starBtn.getBoundingClientRect(), f = fx.getBoundingClientRect();
+    fx.style.setProperty('--fly-x', `${Math.round(b.left + b.width / 2 - (f.left + f.width / 2))}px`);
+    fx.style.setProperty('--fly-y', `${Math.round(b.top + b.height / 2 - (f.top + f.height / 2))}px`);
+    fx.dataset.anim = on ? 'pop' : 'fade';
+    if (on) fxTimer = setTimeout(() => { fx.dataset.anim = 'fly'; fxTimer = setTimeout(() => { delete fx.dataset.anim; starBtn.dataset.stripPopped = ''; setTimeout(() => delete starBtn.dataset.stripPopped, 260); }, 280); }, 220);
+    else fxTimer = setTimeout(() => { delete fx.dataset.anim; }, 320);
+  }
+  // swipe: 위로 밀기일 때만 '별표했어요' 한 줄(버튼·S 키는 버튼 별이 바뀌는 것으로 충분, 예전 그대로).
+  const toggleHere = ({swipe = false} = {}) => {
+    const item = items[at]; if (!item) return;
+    const was = isStarred(item); star(item);
+    const on = isStarred(item);
+    if (on !== was) { starMotion(on); if (swipe) note(was ? '별표를 풀었어요' : '별표했어요', 1500); }
+  };
+  // 한 손가락 세로 밀기(사진 위): 사진이 손가락을 따라 움직인다. 위 = 별표, 아래 = 닫기. 가로 넘기기·확대(두 손가락)는 브라우저가 맡는다.
   let touch = null;
-  strip.addEventListener('touchstart', event => { touch = event.touches.length === 1 ? {x:event.touches[0].clientX, y:event.touches[0].clientY, t:Date.now(), fingers:1} : null; }, {passive:true});
-  strip.addEventListener('touchmove', event => { if (touch && event.touches.length > 1) touch.fingers = event.touches.length; }, {passive:true});
+  const slideNow = () => strip.children[at] || null;
+  const follow = dy => {
+    const s = slideNow();
+    if (!still() && s) { s.style.transition = 'none'; s.style.transform = dy ? `translateY(${Math.round(dragOffset(dy))}px)` : ''; }
+    const fill = dy < 0 ? starFill(dy) : 0;
+    if (!still() && fill > 0) { fx.textContent = isStarred(items[at]) ? '☆' : '★'; fx.dataset.anim = 'drag'; fx.style.setProperty('--fill', fill.toFixed(3)); }
+    else if (fx.dataset.anim === 'drag') { delete fx.dataset.anim; fx.style.removeProperty('--fill'); }
+    box.dataset.stripDrag = dy < 0 ? (fill >= 1 ? 'star-ready' : 'up') : dy > 0 ? 'down' : '';
+  };
+  const settle = () => {
+    const s = slideNow(); delete box.dataset.stripDrag;
+    if (fx.dataset.anim === 'drag') { delete fx.dataset.anim; fx.style.removeProperty('--fill'); }
+    if (!s || !s.style.transform) return;
+    s.style.transition = 'transform .18s ease-out'; s.style.transform = '';
+    setTimeout(() => { s.style.transition = ''; }, 200);
+  };
+  const closeDown = () => {
+    const s = slideNow(); delete box.dataset.stripDrag;
+    if (still() || !s) { closePhotoStrip(); return; }
+    s.style.transition = 'transform .16s ease-in, opacity .16s ease-in'; s.style.transform = `translateY(${Math.round(strip.clientHeight || 400)}px)`; s.style.opacity = '0';
+    setTimeout(() => { if (viewer?.box === box) closePhotoStrip(); }, 160);
+  };
+  const finish = kind => {
+    if (kind === 'close') { closeDown(); return; }
+    settle();
+    if (kind === 'star') toggleHere({swipe:true});
+  };
+  strip.addEventListener('touchstart', event => {
+    touch = event.touches.length === 1 ? {x:event.touches[0].clientX, y:event.touches[0].clientY, t:Date.now(), fingers:1, axis:null} : null;
+    if (!touch) settle();
+  }, {passive:true});
+  strip.addEventListener('touchmove', event => {
+    if (!touch) return;
+    if (event.touches.length > 1) { touch.fingers = event.touches.length; touch.axis = 'none'; settle(); return; }
+    const p = event.touches[0], dx = p.clientX - touch.x, dy = p.clientY - touch.y;
+    if (touch.axis === null) touch.axis = dragAxis({dx, dy, fingers:touch.fingers, zoomed:zoomed()});
+    if (touch.axis === 'y') follow(dy);
+  }, {passive:true});
   strip.addEventListener('touchend', event => {
     const start = touch; touch = null;
     const end = event.changedTouches[0];
-    if (!start || !end) return;
-    const kind = swipeKind({dx:end.clientX - start.x, dy:end.clientY - start.y, dt:Date.now() - start.t, fingers:start.fingers, zoomed:zoomed()});
-    if (kind === 'down') closePhotoStrip();
-    else if (kind === 'up') { const item = items[at], was = isStarred(item); star(item); if (isStarred(item) !== was) note(was ? '별표를 풀었어요' : '별표했어요', 1500); }
+    if (!start || !end) { settle(); return; }
+    const dx = end.clientX - start.x, dy = end.clientY - start.y;
+    if (start.axis === 'y') { finish(dragEnd(dy)); return; }
+    // 움직임이 잡히기 전에 끝난 빠른 손짓은 예전 판정(swipeKind)으로 본다.
+    if (start.axis === null) {
+      const kind = swipeKind({dx, dy, dt:Date.now() - start.t, fingers:start.fingers, zoomed:zoomed()});
+      if (kind) finish(kind === 'up' ? 'star' : 'close');
+    }
   }, {passive:true});
+  strip.addEventListener('touchcancel', () => { touch = null; settle(); }, {passive:true});
   box.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); closePhotoStrip(); }
     else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); step(event.key === 'ArrowRight' ? 1 : -1); }
-    else if ((event.key === 's' || event.key === 'S') && !event.target.closest('input,textarea')) { event.preventDefault(); star(items[at]); }
+    else if ((event.key === 's' || event.key === 'S') && !event.target.closest('input,textarea')) { event.preventDefault(); toggleHere(); }
   });
   box.addEventListener('click', event => {
     if (event.target.closest('[data-diary-viewer-close]')) closePhotoStrip();
-    else if (event.target.closest('[data-diary-star]')) star(items[at]);
+    else if (event.target.closest('[data-diary-star]')) toggleHere();
     else if (event.target.closest('[data-diary-share]')) shareCurrent(event.target.closest('[data-diary-share]'));
     else if (event.target.closest('[data-diary-undo]')) undoPending();
     else if (event.target.closest('[data-od-delete]')) deleteCurrent();
@@ -201,7 +275,17 @@ export function openPhotoStrip(opts) {
   document.documentElement.classList.add('diary-viewer-open');
   strip.scrollLeft = index * strip.clientWidth; show();
   box.querySelector('[data-diary-viewer-close]').focus();
+  showHint();
   return viewer;
+  // 처음 몇 번만: 손가락 동그라미 시늉 2번(움직임 줄이기면 없음) + 한 줄 안내. 연 횟수를 하나 올려 서버에 둔다(적용 전 DB는 거절 → 이번만 기억 안 됨).
+  function showHint() {
+    const seen = viewPrefs.get('photo_hint');
+    if (!hintDue(seen)) return;
+    hintEl.hidden = false;
+    if (!still()) { finger.hidden = false; finger.addEventListener('animationend', () => { finger.hidden = true; }, {once:true}); }
+    viewPrefs.set('photo_hint', hintNext(seen), {rejectable:true});
+    box.dataset.stripHint = String(hintSeen(seen) + 1);
+  }
 }
 export function closePhotoStrip({fromBack = false, restore = true} = {}) {
   if (!viewer) return;

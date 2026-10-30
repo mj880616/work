@@ -5,7 +5,7 @@
 import {seoulDateKey} from './meeting-time.js';
 import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
 import {holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
-import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
+import {slotBox, slotLoading, slotShown, slotFailed, slotPreview, slotTiming} from './img-slot.js';
 import {diaryDocToStore, diaryDocError} from './diary-doc.mjs';
 import {withMark} from './diary-list-model.mjs';
 
@@ -238,6 +238,9 @@ export async function uploadDiaryPhotos(row, files, {rt = window.KPTURuntime, is
 // write()). Revoking then broke every photo already on screen (object URL gone, img fails), so the cache is dropped only
 // when the signed-in owner really changes or signs out; diaryPhotoUrl's owner-scope check still guards each read.
 const photoCache = new Map();
+// PHOTO-크게보기빨리: 이미 다 받은 그림 주소(같은 키). 크게 보기가 큰 그림을 받는 동안 작은 그림을 바로 띄울 때 쓴다(요청 없음).
+const photoReady = new Map();
+export const readyDiaryPhotoUrl = (noteId, fileId, size = 'small') => photoReady.get(`${noteId}:${fileId}:${size}`) || '';
 let cacheScope = '';
 let cacheSessionOwner = globalThis.window?.KPTURuntime?.session?.read?.()?.user?.id || '';
 export function photoSessionChanged(session) {
@@ -247,13 +250,13 @@ export function photoSessionChanged(session) {
   return true;
 }
 globalThis.window?.addEventListener?.('kptu:session-changed', event => { photoSessionChanged(event?.detail?.session || null); });
-export function clearPhotoCache() { for (const flight of photoCache.values()) flight.then(url => URL.revokeObjectURL(url), () => {}); photoCache.clear(); }
+export function clearPhotoCache() { for (const flight of photoCache.values()) flight.then(url => URL.revokeObjectURL(url), () => {}); photoCache.clear(); photoReady.clear(); }
 // The browser could not draw this cached photo (revoked or undecodable): forget it so the next read fetches again.
 // Only the cached copy that failed is dropped (another photo element may already have read a fresh one).
 export function forgetDiaryPhoto(noteId, fileId, size, failedUrl) {
   const key = `${noteId}:${fileId}:${size}`, flight = photoCache.get(key);
   if (!flight) return Promise.resolve();
-  return flight.then(url => { if (url === failedUrl && photoCache.get(key) === flight) { photoCache.delete(key); URL.revokeObjectURL(url); } }, () => {});
+  return flight.then(url => { if (url === failedUrl && photoCache.get(key) === flight) { photoCache.delete(key); photoReady.delete(key); URL.revokeObjectURL(url); } }, () => {});
 }
 export function diaryPhotoUrl(noteId, fileId, size = 'small', {rt = window.KPTURuntime, fetcher = globalThis.fetch} = {}) {
   const scope = ownerScope(rt);
@@ -271,7 +274,7 @@ export function diaryPhotoUrl(noteId, fileId, size = 'small', {rt = window.KPTUR
     return URL.createObjectURL(await response.blob());
   })();
   photoCache.set(key, flight);
-  flight.catch(() => { if (photoCache.get(key) === flight) photoCache.delete(key); });
+  flight.then(url => { if (photoCache.get(key) === flight) photoReady.set(key, url); }, () => { if (photoCache.get(key) === flight) photoCache.delete(key); });
   return flight;
 }
 // One photo element (shared img-slot.js rule, PHOTO-못받은사진): light gray while loading, the reduced image once drawn, and a small ↻
@@ -284,9 +287,13 @@ export function photoElement(row, file, size, {label = '', rt = window.KPTURunti
   img.alt = label || file.file_name || '일기 사진'; img.decoding = 'async'; img.loading = 'lazy';
   box.append(img); box.dataset.state = 'loading'; slotBox(box);
   let anchor = null;
+  // 큰 그림(크게 보기): 누른 때부터 시간을 재고, 이미 받아 둔 작은 그림이 있으면 받는 동안 먼저 띄운다(PHOTO-크게보기빨리).
+  const big = size === 'large';
+  if (big) { slotTiming(box); slotPreview(box, readyDiaryPhotoUrl(row.id, file.drive_file_id, 'small')); }
   // 'shown' only after the browser really drew the image (load). An error (revoked URL, undecodable file) forgets the
   // cached copy and reads once more; a second failure shows the same ↻ as a failed photo view.
   const attempt = tries => diaryPhotoUrl(row.id, file.drive_file_id, size, {rt}).then(url => {
+    if (big) slotTiming(box, 'url');
     img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => localImageBlob(url)); box.dataset.state = 'shown'; slotShown(box); };
     img.onerror = () => {
       img.onload = img.onerror = null; forgetPhotoBlob(box); img.removeAttribute('src');

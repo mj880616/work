@@ -4,7 +4,7 @@ import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
 import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement, photoFilesFor, paintPhotoNote} from './photo-share.js';
 import {shareFrom} from './share-menu.js';
-import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
+import {slotBox, slotLoading, slotShown, slotFailed, slotPreview} from './img-slot.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null;
@@ -36,7 +36,8 @@ export function openPhotoView({row, file, trigger = null, rt = window.KPTURuntim
 // 자료실 자료 사진(노트가 없는 자료). getUrl()은 크게 보기 그림 주소를 준다.
 // 그릴 수 없으면 Drive에서 열기 링크로 바꾼다(photoElement와 같은 대체).
 // driveHref는 그릴 수 없을 때 보여 줄 Drive 보기 주소(file-actions.js가 계산해 넘긴다: 두 파일이 서로 부르지 않게).
-function documentPhotoBox({file, getUrl, driveHref = ''}) {
+// preview()(선택, PHOTO-크게보기빨리): 이미 받아 둔 작은 그림 주소(없으면 빈 값). 큰 그림을 받는 동안 먼저 띄운다.
+function documentPhotoBox({file, getUrl, driveHref = '', preview = null}) {
   const shown = attachmentName({file_name: file.name}, '사진');
   const box = document.createElement('span');
   box.className = 'diary-photo'; box.dataset.state = 'loading'; slotBox(box);
@@ -61,14 +62,15 @@ function documentPhotoBox({file, getUrl, driveHref = ''}) {
     Promise.resolve().then(getUrl).then(url => { if (!url) throw new Error('url'); img.src = url; }, () => fallback('url'));
   }
   load();
+  if (typeof preview === 'function') Promise.resolve().then(preview).then(src => { if (src) slotPreview(box, src); }, () => {});
   return {shown, box};
 }
 
 // ACT-사진 3단계: 사업 보고 사진 줄이 쓰는 같은 크게 보기. nav = {count, index, item(i) → {file, getUrl, driveHref}} 이 있으면 좌우 버튼과 ←/→ 키로 넘기고,
 // actions(item) → [{label, href?} | {label, run}] 이 있으면 ⋯ 메뉴(Drive에서 열기·내려받기·지우기)가 생긴다. run()이 true를 주면(지웠다) 크게 보기를 닫는다.
-export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = null, nav = null, actions = null}) {
+export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = null, trigger = null, nav = null, actions = null}) {
   if (!file || typeof getUrl !== 'function' || current) return false;
-  const first = documentPhotoBox({file, getUrl, driveHref});
+  const first = documentPhotoBox({file, getUrl, driveHref, preview});
   if (!showPhotoBox(first.shown, first.box, trigger)) return false;
   if (!nav && !actions) return true;
   const {box} = current, stage = box.querySelector('.basket-photo-stage'), bar = box.querySelector('.basket-photo-bar');

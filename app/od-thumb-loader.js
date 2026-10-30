@@ -173,7 +173,9 @@ export function createThumbLoader({fetchUrls, fetchBytes, revoke = () => {}, now
     for (const hit of memo.values()) if (hit.kind === 'blob') revoke(hit.url);
     memo.clear(); bytesOnly.clear(); active = 0; pausedUntil = 0;
   }
-  return {get, bump, drop, bad, forget, clear, stats, get mode() { return mode; }, get size() { return memo.size; }, has: (id, size = 'small') => !!cachedUrl(keyOf(id, size))};
+  return {get, bump, drop, bad, forget, clear, stats, get mode() { return mode; }, get size() { return memo.size; }, has: (id, size = 'small') => !!cachedUrl(keyOf(id, size)),
+    // PHOTO-크게보기빨리: 이미 받아 둔 주소만(요청 없음). 크게 보기가 큰 그림을 받는 동안 작은 그림을 먼저 띄울 때 쓴다.
+    peek: (id, size = 'small') => cachedUrl(keyOf(id, size))};
 }
 
 // 실패한 칸을 다시 받기까지 기다릴 밀리초: 3초에서 두 배씩, 60초까지. 4번 넘게 연달아 실패하면 null(그 칸이 화면에 다시 들어올 때까지 멈춤).
