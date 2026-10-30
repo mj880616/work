@@ -165,7 +165,7 @@ export function joinPieces(openPiece, ids) {
 
 // rec_finish 한 번: 닫힌 구간을 번호 순으로 합치되, 쓴 시간이 budget을 넘으면 새 구간은 시작하지 않고 more로 끊는다.
 // 화면은 more면 rec_finish를 다시 부른다(합친 구간은 combined라 다음 번엔 남은 것만). 한 번에 적어도 한 구간은 한다.
-export async function combineWithin(pending, combineOne, { started, now = Date.now, budget = REC_FINISH_BUDGET_MS } = {}) {
+export async function combineWithin(pending, combineOne, started, { now = Date.now, budget = REC_FINISH_BUDGET_MS } = {}) {
   let done = 0;
   for (const seg of Array.isArray(pending) ? pending : []) {
     if (done > 0 && now() - started > budget) return { more: true, done };

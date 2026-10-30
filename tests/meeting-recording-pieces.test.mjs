@@ -111,7 +111,7 @@ test('rec_finish more 반복: 시간 안에 못 끝낸 구간은 다음 부름�
   const calls=[];
   for(let i=0;i<10;i++){
     const started=clock;
-    const res=await r.combineWithin(r.toCombine(segs),combine,{started,now:()=>clock});
+    const res=await r.combineWithin(r.toCombine(segs),combine,started,{now:()=>clock});
     calls.push(res);
     if(!res.more)break;
   }
@@ -120,10 +120,10 @@ test('rec_finish more 반복: 시간 안에 못 끝낸 구간은 다음 부름�
   assert.deepEqual(calls,[{more:true,done:2},{more:false,done:2}]);
   // 시작부터 예산을 넘겨도 한 구간은 한다(끝없이 more만 돌지 않음).
   const late=[{segment_no:1,status:'closed'},{segment_no:2,status:'closed'}];
-  assert.deepEqual(await r.combineWithin(late,async s=>{s.status='combined'},{started:0,now:()=>10**9}),{more:true,done:1});
-  assert.deepEqual(await r.combineWithin([],async()=>{},{started:0}),{more:false,done:0});
+  assert.deepEqual(await r.combineWithin(late,async s=>{s.status='combined'},0,{now:()=>10**9}),{more:true,done:1});
+  assert.deepEqual(await r.combineWithin([],async()=>{},0),{more:false,done:0});
   // 한 구간 실패는 그대로 올라간다(화면 [다시]).
-  await assert.rejects(r.combineWithin(late,async()=>{throw Object.assign(new Error('x'),{code:'drive_failed'})},{started:0,now:()=>0}),{code:'drive_failed'});
+  await assert.rejects(r.combineWithin(late,async()=>{throw Object.assign(new Error('x'),{code:'drive_failed'})},0,{now:()=>0}),{code:'drive_failed'});
 });
 
 test('섞인 녹음: 옛 5분 조각 구간 + 1분 조각 구간이 한 녹음이어도 이어서 정리·버리기·되돌리기 규칙이 같다',()=>{
@@ -153,7 +153,7 @@ test('Edge: 조각 길이를 고정으로 쓰는 곳 없음, 공용 이어 붙�
   assert.match(index,/mapLimit\(ids, REC_DRIVE_PARALLEL/);
   assert.match(index,/mapLimit\(seg\.piece_ids \|\| \[\], REC_DRIVE_PARALLEL/);
   assert.match(index,/mapLimit\(p\.row\.piece_ids \|\| \[\], REC_DRIVE_PARALLEL, \(id: string\) => untrashDriveFile\(id, folder, token\)\)/);
-  assert.match(index,/combineWithin\(pending, \(seg: Job\) => combineSegment\(user\.id, seg, token, pieces, target\), \{ started \}\)/);
+  assert.match(index,/combineWithin\(pending, \(seg: Job\) => combineSegment\(user\.id, seg, token, pieces, target\), started\)/);
   assert.match(index,/piece_seconds: REC_PIECE_SECONDS, segment_seconds: REC_SEGMENT_SECONDS, max_pieces: REC_ROLL_PIECES/);
   // REC_PIECE_SECONDS는 화면에 알려 주는 데만 쓴다(계산에 쓰지 않음).
   assert.equal([...index.matchAll(/REC_PIECE_SECONDS/g)].length,2);

@@ -518,7 +518,7 @@ async function recFinish(user: { id: string }, body: Record<string, unknown>) {
     const pieces = await pieceFolder(ws, token, false);
     const target = await recordingFolder(ws, token, true);
     if (!target) throw new Fail('drive_failed');
-    ({ more } = await combineWithin(pending, (seg: Job) => combineSegment(user.id, seg, token, pieces, target), { started }));
+    ({ more } = await combineWithin(pending, (seg: Job) => combineSegment(user.id, seg, token, pieces, target), started));
     rows = await ownSession(user.id, body.session_id);
   }
   return json({ ok: true, session_id: body.session_id, more, segments: rows.filter(r => r.status !== 'empty').map(segmentView) });
