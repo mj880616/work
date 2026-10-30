@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { withOwner } from './helpers/owner-member.mjs';
 
 // 원장 재료 C-2: google-calendar 일정에 `mine`(참/거짓 한 칸)이 붙고, `events`가 캘린더 하나만 읽을 수 있다.
 // 진짜 핸들러를 가짜 Supabase·Google로 돌린다(네트워크 없음). 주소·이름은 모두 지어낸 값이다.
@@ -41,7 +42,7 @@ function harness({ perCalendar }) {
   };
   let handler = null;
   const Deno = { env: { get: k => ({ SUPABASE_URL: 'https://sb.example', SUPABASE_SERVICE_ROLE_KEY: 'service' }[k]) }, serve: fn => { handler = fn; } };
-  new Function('Deno', 'createClient', 'fetch', SOURCE)(Deno, () => admin, fetchMock);
+  new Function('Deno', 'createClient', 'fetch', SOURCE)(Deno, withOwner(() => admin), fetchMock);
   return { calls, get: async (params = {}) => {
     const u = new URL('https://sb.example/functions/v1/google-calendar?action=events');
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);

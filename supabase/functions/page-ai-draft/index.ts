@@ -9,11 +9,13 @@ const OPENAI=Deno.env.get('OPENAI_API_KEY')||'';
 const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST,OPTIONS'};
 const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
+// SEC-정리묶음: Google·AI 쪽 오류 원문은 서버 로그에만 남기고, 응답에는 우리 글(단계)만 싣는다.
+const upstreamFail=(stage:string,message:string,status:number,detail:unknown)=>{console.error('page-ai-draft '+stage+' failed',{status,detail});return Object.assign(new Error(message),{stage})};
 const cut=(v:any,n:number)=>{const s=typeof v==='string'?v:JSON.stringify(v);return s.length>n?s.slice(0,n)+'…':s};
 
 function userClient(req:Request){return createClient(SB,ANON,{auth:{persistSession:false},global:{headers:{Authorization:req.headers.get('Authorization')||''}}})}
 async function userOf(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new Error('로그인이 필요합니다.');const {data,error}=await admin.auth.getUser(token);if(error||!data.user)throw new Error('로그인 세션을 확인할 수 없습니다.');return data.user}
-async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body))});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'AI 요청에 실패했습니다.');return d}
+async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body))});const d=await r.json();if(!r.ok)throw upstreamFail('ai_request','AI 요청에 실패했습니다.',r.status,d?.error?.message||null);return d}
 async function member(workspaceId:string,userId:string){const {data}=await admin.from('app_workspace_members').select('role').eq('workspace_id',workspaceId).eq('user_id',userId).maybeSingle();return data}
 async function canViewProject(projectId:string,userId:string,workspaceId:string){const {data:p}=await admin.from('app_spaces').select('id,workspace_id').eq('id',projectId).eq('workspace_id',workspaceId).maybeSingle();if(!p)return false;const {data:wm}=await admin.from('app_workspace_members').select('role').eq('workspace_id',workspaceId).eq('user_id',userId).maybeSingle();return wm?.role==='owner'}
 function words(s:string){const stop=new Set(['그리고','그러나','대한','관련','해서','있는','하는','내용','자료','참고','작성','페이지','현장','알림','으로','에서','에게','이번','위해','the','and','for','with']);return [...new Set((s.toLowerCase().match(/[가-힣a-z0-9]{2,}/g)||[]).filter(x=>!stop.has(x)))].slice(0,40)}

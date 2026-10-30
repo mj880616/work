@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { createTaskFiles } from '../../supabase/functions/google-tasks/task-files.ts';
+import { withOwner } from './helpers/owner-member.mjs';
 
 // 일정 인증-1: google-calendar and google-tasks (both verify_jwt=false, auth in code) answer 401 when the caller is not
 // logged in (no token, malformed, forged, or expired), so runtime-client.js refreshes the session once and retries.
@@ -35,7 +36,7 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function harness(name, { scope = 'openid https://www.googleapis.com/auth/tasks' } = {}) {
+function harness(name, { scope = 'openid https://www.googleapis.com/auth/tasks', owner = {} } = {}) {
   const calls = { db: [], google: [] };
   const connections = {
     'user-a': { user_id: 'user-a', enabled: true, calendar_ids: ['primary'], calendar_colors: {}, google_email: 'a@example.test', access_token: 'google-a', refresh_token: 'r', token_expires_at: iso(Date.now() + DAY) },
@@ -71,7 +72,7 @@ function harness(name, { scope = 'openid https://www.googleapis.com/auth/tasks' 
     serve: fn => { handler = fn; }
   };
   const quiet = { log: () => {}, error: () => {}, warn: () => {} };
-  new Function('Deno', 'createClient', 'createTaskFiles', 'fetch', 'console', SOURCES[name])(Deno, () => client, createTaskFiles, fetchMock, quiet);
+  new Function('Deno', 'createClient', 'createTaskFiles', 'fetch', 'console', SOURCES[name])(Deno, withOwner(() => client, owner), createTaskFiles, fetchMock, quiet);
   return { handler, calls };
 }
 
@@ -177,4 +178,39 @@ test('google-calendar: bad request 400 is unchanged for a logged-in caller', asy
   const r = await send(harness('google-calendar'), 'google-calendar', { token: 'token-a', method: 'POST', body: { action: 'delete-event' } });
   assert.equal(r.status, 400);
   assert.match(r.body.error, /일정 ID가 없습니다/);
+});
+
+// SEC-정리묶음: 로그인만으로는 쓸 수 없다. 작업공간 소유자 행이 없으면(또는 owner가 아니면) Google·연결 표를 건드리기 전에 403.
+test('signed-in callers without their own owner row get 403 before any connection read or Google call', async () => {
+  for (const name of Object.keys(SOURCES)) for (const req of REQUESTS[name]) for (const member of [null, { workspace_id: 'synthetic-workspace', role: 'editor' }, { workspace_id: null, role: 'owner' }]) {
+    const reads = [];
+    const h = harness(name, { owner: { member, reads } });
+    const r = await send(h, name, { token: 'token-a', ...req });
+    assert.equal(r.status, 403, `${name} ${JSON.stringify(req)} ${JSON.stringify(member)}`);
+    assert.deepEqual(h.calls.google, []);
+    assert.deepEqual(h.calls.db, []);
+    assert.deepEqual(reads, [{ user_id: 'user-a', role: 'owner' }]);
+  }
+});
+
+test('an owner check failure stops with our own message (not 401) and no Google call', async () => {
+  for (const name of Object.keys(SOURCES)) {
+    const h = harness(name, { owner: { error: { code: 'XX000', message: 'synthetic-private-db-detail' } } });
+    const r = await send(h, name, { token: 'token-a', action: name === 'google-tasks' ? 'tasks' : 'events' });
+    assert.equal(r.status, 400);
+    assert.equal(r.body.error, '작업공간 확인에 실패했습니다.');
+    assert.doesNotMatch(JSON.stringify(r.body), /synthetic-private/);
+    assert.deepEqual(h.calls.google, []);
+  }
+});
+
+test('owner callers keep working (status read reaches the connection and Google)', async () => {
+  for (const name of Object.keys(SOURCES)) {
+    const reads = [];
+    const h = harness(name, { owner: { reads } });
+    const r = await send(h, name, { token: 'token-a', action: name === 'google-tasks' ? 'tasks' : 'events' });
+    assert.equal(r.status, 200, name);
+    assert.equal(reads.length, 1);
+    assert.ok(h.calls.google.length > 0, name);
+  }
 });
