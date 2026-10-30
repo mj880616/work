@@ -247,6 +247,24 @@ test('통화 1280: 조직 연결은 핵심내용을 요약 기본값으로, 저�
  expect(f.errors).toEqual([]);
 });
 
+// FIX-main(2026-10-30): 전문이 ⋯ 메뉴를 연 뒤에 도착해도 메뉴에서 고른 항목이 실행된다(전문 칸만 다시 그리고 ⋯ 버튼은 그대로).
+test('통화 1280: 전문이 늦게 와도 열린 ⋯ 메뉴의 조직 연결이 실행됨',async({page})=>{
+ const f=await fixture(page,{width:1280});
+ let release;const held=new Promise(r=>{release=r});
+ await page.route(u=>u.pathname==='/rest/v1/app_feed_items'&&new URL(u).searchParams.get('id')===`eq.${C2}`,async r=>{await held;await r.fallback();});
+ await openMenu(page,1280,'통화');
+ await page.locator(`#callsView [data-cf-row="${C2}"]`).click();
+ const more=page.locator('#cfDetail [data-cf-more]');
+ await more.click();
+ await expect(page.locator('#cfMenu').getByRole('button',{name:'조직 연결'})).toBeVisible();
+ release();
+ await expect(page.locator('#cfDetail [data-cf-script="lines"]')).toBeAttached();
+ await expect(more).toHaveAttribute('aria-expanded','true');
+ await page.locator('#cfMenu').getByRole('button',{name:'조직 연결'}).click();
+ await expect(page.locator('#cfDetail [data-cf-link-text]')).toHaveValue('- 원고 금요일 마감');
+ expect(f.errors).toEqual([]);
+});
+
 for(const width of [390,1280])test(`빈 상태 ${width}: 표가 없으면 '준비 중', 비었으면 한 줄(메뉴는 숨기지 않음)`,async({page})=>{
  const f=await fixture(page,{width,missing:true});
  await openMenu(page,width,'통화');
