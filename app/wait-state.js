@@ -1,7 +1,7 @@
 // UI-기다림표시통일(2026-10-29 명진 A안 확정): 앱 전체 '기다림·실패·없음' 표시는 이 부품 하나만 쓴다.
 // - 기다림: 글자 없이 위쪽 가는 줄이 흐르고, 목록 자리에 실제 줄 높이의 회색 빈 줄(화면이 출렁이지 않게). 0.4초 안에 끝나면
 //   아무것도 보이지 않는다(base-ui.css .wait 의 0.4초 늦은 표시 — 글자 HTML 로 넣어도 같은 규칙).
-// - 실패: 빨간 작은 글자 '불러오지 못했습니다' + 작은 [다시].
+// - 실패: 빨간 작은 글자 '불러오지 못했습니다'(+ 이유가 있으면 ' · 이유') + 작은 [다시].
 // - 없음: 회색 작은 '없음'(필요하면 'n 없음' 같은 짧은 글자).
 // 민트(.notice) 상자는 '완료' 알림에만 쓴다. 기다림·빈 화면·안내에 색 상자를 쓰지 않는다.
 // 회색 빈 줄 색은 그림 칸(img-slot.js의 받는 중 회색 칸)과 같은 색이다.
@@ -26,10 +26,14 @@ export function waitInlineHtml() {
   return `<span class="wait wait-inline" data-wait role="status" aria-label="${WAIT_LABEL}"><span class="wait-row" aria-hidden="true"></span></span>`;
 }
 // 실패. retry: [다시] 버튼에 붙일 속성 이름(그 화면의 기존 다시 받기 처리기가 받는다, 예 'data-diary-retry'). 없으면 [다시] 없음.
-export function failHtml({retry = '', text = FAIL_TEXT} = {}) {
+// reason(PHOTO-폰사진못읽음): 그 화면이 만든 실제 이유 글. 있으면 '불러오지 못했습니다 · 이유'로 같은 빨간 작은 글자에 붙인다(200자까지).
+export const REASON_MAX = 200;
+export function failHtml({retry = '', text = FAIL_TEXT, reason = ''} = {}) {
   const attr = /^data-[a-z0-9-]+$/.test(retry) ? ` ${retry}` : '';
   const button = attr ? ` <button type="button" class="wait-retry"${attr}>다시</button>` : '';
-  return `<p class="wait-fail" data-wait-fail role="alert">${esc(text)}${button}</p>`;
+  const why = String(reason ?? '').trim().slice(0, REASON_MAX);
+  const reasonHtml = why ? `<span class="wait-reason" data-wait-reason> · ${esc(why)}</span>` : '';
+  return `<p class="wait-fail" data-wait-fail role="alert">${esc(text)}${reasonHtml}${button}</p>`;
 }
 // 없음. text: 기본 '없음'(같은 화면에 빈 칸이 여럿이라 구분이 필요하면 '일정 없음'처럼 짧게).
 // attrs: 그 화면이 찾는 표시(예 'data-journal-events-empty', 'data-cf-empty="none" hidden'). data-*·hidden·id 만 받는다.
@@ -43,8 +47,8 @@ const fromHtml = html => { const t = document.createElement('template'); t.inner
 export const waitEl = opts => fromHtml(waitHtml(opts));
 export const waitInlineEl = () => fromHtml(waitInlineHtml());
 // 실패(요소). onRetry 함수를 주면 [다시]를 누를 때 부른다.
-export function failEl({onRetry = null, text = FAIL_TEXT} = {}) {
-  const node = fromHtml(failHtml({retry: onRetry ? 'data-wait-retry' : '', text}));
+export function failEl({onRetry = null, text = FAIL_TEXT, reason = ''} = {}) {
+  const node = fromHtml(failHtml({retry: onRetry ? 'data-wait-retry' : '', text, reason}));
   if (onRetry) node.querySelector('button').addEventListener('click', event => { event.preventDefault(); onRetry(); });
   return node;
 }

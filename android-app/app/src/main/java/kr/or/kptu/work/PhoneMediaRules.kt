@@ -50,8 +50,71 @@ object PhoneMediaRules {
         data class Days(val month: String, val filter: String, val prefer: Set<Long>) : Request()
         data class Thumb(val id: Long, val large: Boolean) : Request()
         data class Original(val id: Long) : Request()
-        /** __phone 주소이지만 열쇠·모양이 틀림 → 404. */
+        /** __phone 주소이지만 모양(호스트·방법·값)이 틀림 → 400 bad_request. */
         object Bad : Request()
+        /** __phone 주소·모양은 맞지만 열쇠가 틀리거나 아직 없음(앱을 다시 켠 뒤 옛 화면 등) → 403 key. */
+        object WrongKey : Request()
+    }
+
+    // ── 실패 종류(PHOTO-폰사진못읽음, 요청함 10/30 23:58) ──
+    // 예전에는 모든 실패를 빈 404로 돌려줘 웹이 이유를 몰랐다. 이제 상태 코드 + {"error":종류,"detail":예외 클래스 이름}.
+    // 사진 이름·경로·내용·예외 글(message)은 넣지 않는다(예외 글에 경로가 들어갈 수 있다).
+
+    enum class Fail(val code: String, val status: Int) {
+        PERMISSION("permission", 403),
+        KEY("key", 403),
+        BAD_REQUEST("bad_request", 400),
+        QUERY("query", 500),
+        COLUMN("column", 500),
+        DECODE("decode", 500),
+        NOT_FOUND("not_found", 404),
+    }
+
+    /** 어느 단계에서 났나: 목록(사진첩 조회) / 작은 그림 / 원본. */
+    enum class Stage { LIST, THUMB, ORIGINAL }
+
+    fun stageOf(req: Request): Stage = when (req) {
+        is Request.Thumb -> Stage.THUMB
+        is Request.Original -> Stage.ORIGINAL
+        else -> Stage.LIST
+    }
+
+    /** 예외 → 실패 종류. 예외 글은 판정에만 쓰고 밖으로 내보내지 않는다. */
+    fun classify(e: Throwable, stage: Stage): Fail {
+        val columnLike = (e is IllegalArgumentException || e.javaClass.simpleName.contains("SQLite")) &&
+            (e.message ?: "").contains("column", ignoreCase = true)
+        return when {
+            e is SecurityException -> Fail.PERMISSION
+            stage == Stage.LIST && columnLike -> Fail.COLUMN
+            stage == Stage.LIST -> Fail.QUERY
+            e is java.io.FileNotFoundException -> Fail.NOT_FOUND
+            else -> Fail.DECODE
+        }
+    }
+
+    /** 응답에 넣을 짧은 이름(예외 클래스 이름만, 글자·숫자·_·$·.만, 60자까지). */
+    fun detailOf(e: Throwable?): String = safeDetail(e?.javaClass?.simpleName)
+
+    fun safeDetail(v: String?): String = (v ?: "").filter { it.isLetterOrDigit() && it.code < 128 || it == '_' || it == '$' || it == '.' }.take(60)
+
+    fun failJson(fail: Fail, detail: String = ""): String =
+        "{\"error\":\"" + fail.code + "\",\"detail\":" + ShellRules.jsonString(safeDetail(detail)) + "}"
+
+    fun reasonPhrase(status: Int): String = when (status) {
+        400 -> "Bad Request"
+        403 -> "Forbidden"
+        404 -> "Not Found"
+        else -> "Internal Server Error"
+    }
+
+    /**
+     * 사진·동영상 모음을 따로 읽어 합친다(안드로이드 13+ 사진·동영상 권한은 모음별). 둘 다 못 읽었으면 null(→ 첫 실패를 돌려준다).
+     * 한쪽만 읽었으면 그쪽만 쓴다. 같은 번호가 겹치면 한 번만.
+     */
+    fun combine(images: List<Media>?, videos: List<Media>?): List<Media>? {
+        if (images == null && videos == null) return null
+        val seen = HashSet<Long>()
+        return (images.orEmpty() + videos.orEmpty()).filter { seen.add(it.id) }
     }
 
     private val PATH = Regex("^(?:/work/app)?/__phone/([A-Za-z0-9_-]{22,64})/(page|ids|months|days|thumb/([0-9]{1,18})|media/([0-9]{1,18}))$")
@@ -78,7 +141,7 @@ object PhoneMediaRules {
         if ((u.host?.lowercase() ?: "") !in ShellRules.INTERNAL_HOSTS) return Request.Bad
         if (!"GET".equals(method, ignoreCase = true) || u.rawFragment != null) return Request.Bad
         val m = PATH.matchEntire(path) ?: return Request.Bad
-        if (!isKey(key) || !sameKey(m.groupValues[1], key)) return Request.Bad
+        if (!isKey(key) || !sameKey(m.groupValues[1], key)) return Request.WrongKey
         val q = query(u.rawQuery) ?: return Request.Bad
         val what = m.groupValues[2]
         val filter = q["filter"] ?: "all"
