@@ -7,4 +7,9 @@
     <color name="widget_ink">#2B2A26</color>
     <color name="widget_muted">#77746B</color>
     <color name="widget_accent">#3F6A5A</color>
+    <!-- WIDGET-여러개 ①: 빠른 쓰기·한 칸 위젯(앱 아이콘 톤: 종이색 바탕·남색). -->
+    <color name="widget_tile_bg">#F2EFE6</color>
+    <color name="widget_icon">#3B4A6B</color>
+    <color name="widget_tile_ink">#3B4A6B</color>
+    <color name="widget_rec">#8C5A4E</color>
 </resources>

@@ -245,6 +245,8 @@
   if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-widget-auth.js').catch(err=>console.warn('widget auth load failed',err?.name||'Error'));
   // MTG-폰녹음: 폰 앱이면 [녹음](앱이 녹음, 화면이 꺼져도 계속)을 붙인다. 앱이 rec:hello에 답해야(0.3.3+) 버튼이 보인다. 기다리지 않는다.
   if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-recorder.js').catch(err=>console.warn('phone recorder load failed',err?.name||'Error'));
+  // WIDGET-여러개 ①: 폰 앱 홈 위젯 [업데이트]·[할 일]·[노트] 칸이 여는 쓰기 창(?write= 또는 앱 다리 write:open). 앱이 아니면 아무것도 하지 않는다.
+  if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-widget-write.js').catch(err=>console.warn('widget write load failed',err?.name||'Error'));
   const defer=window.requestIdleCallback?((fn,opts)=>window.requestIdleCallback(fn,opts)):((fn)=>setTimeout(fn,200));
   // OD-미리받기: 첫 화면이 다 뜬 뒤 한가할 때 원드라이브 연결 확인·이번 달 목록·작은 그림 몇 장을 뒤에서 받아 둔다(기다리지 않음, 화면 없음).
   // UI-기다림표시통일 ⑤: 첫 화면이 다 뜬 뒤 쉬는 틈에 메뉴 화면 프로그램을 미리 받아 둔다(받기만, 실행 안 함 — 처음 눌러도 '불러오는 중'이 거의 안 보이게).

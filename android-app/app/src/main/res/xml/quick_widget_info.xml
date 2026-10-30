@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WIDGET-여러개 ①: 빠른 쓰기(4×1), 홈 화면 전용. 서버를 읽지 않아 갱신 작업이 없다(updatePeriodMillis 0). 폴드 접음·펼침 모두 가로만 늘이고 줄인다. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/quick_widget_description"
+    android:initialLayout="@layout/quick_widget"
+    android:previewLayout="@layout/quick_widget"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

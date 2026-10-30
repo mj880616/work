@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WIDGET-여러개 ①: 녹음 칸 그림. 앱 아이콘 톤(종이색 바탕·남색 선), 어두운 모드는 values-night 색. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="@color/widget_rec" android:fillType="evenOdd" android:pathData="M12,7a5,5 0,1 0,0 10a5,5 0,1 0,0 -10zM12,2a10,10 0,1 0,0 20a10,10 0,1 0,0 -20zM12,4a8,8 0,1 0,0 16a8,8 0,1 0,0 -16z" />
+</vector>

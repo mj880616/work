@@ -1,0 +1,89 @@
+// WIDGET-여러개 ①: 폰 앱 홈 위젯 쓰기 칸이 여는 창(app/phone-widget-write.js).
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {writeKind, bridgeKind, startWidgetWrite} from '../app/phone-widget-write.js';
+
+function setup({ua = 'Mozilla/5.0 KPTUAndroid/0.3.4', href = 'https://bokdoong.com/work/app/', ready = 'workspace', bridge = true} = {}) {
+  const sent = [], opened = [], replaced = [];
+  let onMessage = null;
+  const win = {
+    navigator: {userAgent: ua},
+    location: {href},
+    history: {state: {a: 1}, replaceState: (state, title, url) => replaced.push(String(url))},
+    __KPTU_TEAM_READY_STATE__: ready,
+    KPTUQuickWrite: {open: kind => { opened.push(kind); return Promise.resolve(); }},
+  };
+  if (bridge) win.KPTUAppShell = {postMessage: m => sent.push(m), addEventListener: (t, fn) => { if (t === 'message') onMessage = fn; }};
+  return {win, sent, opened, replaced, message: data => onMessage?.({data})};
+}
+const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+
+test('종류는 업데이트·할 일·노트 셋만', () => {
+  assert.equal(writeKind('update'), 'update');
+  assert.equal(writeKind('task'), 'task');
+  assert.equal(writeKind('note'), 'note');
+  assert.equal(writeKind('photo'), null);
+  assert.equal(writeKind(''), null);
+  assert.equal(bridgeKind('write:open:note'), 'note');
+  assert.equal(bridgeKind('write:open:delete'), null);
+  assert.equal(bridgeKind('write:open:note '), null);
+  assert.equal(bridgeKind({}), null);
+});
+
+test('웹 브라우저에서는 아무것도 하지 않는다', () => {
+  const s = setup({ua: 'Mozilla/5.0 Chrome', href: 'https://bokdoong.com/work/app/?write=task'});
+  assert.equal(startWidgetWrite(s.win), false);
+  assert.deepEqual(s.sent, []);
+  assert.deepEqual(s.replaced, []);
+});
+
+test('주소 ?write=는 한 번 읽고 지운 뒤 같은 창을 연다', async () => {
+  const s = setup({href: 'https://bokdoong.com/work/app/?view=home&write=task'});
+  assert.equal(startWidgetWrite(s.win, {wait: tick}), true);
+  await tick(); await tick();
+  assert.deepEqual(s.opened, ['task']);
+  assert.deepEqual(s.replaced, ['https://bokdoong.com/work/app/?view=home']);
+  assert.deepEqual(s.sent, ['write:hello']);
+  assert.equal(startWidgetWrite(s.win), false, '두 번 붙지 않는다');
+});
+
+test('모르는 종류는 주소만 지우고 열지 않는다', async () => {
+  const s = setup({href: 'https://bokdoong.com/work/app/?write=evil'});
+  startWidgetWrite(s.win, {wait: tick});
+  await tick();
+  assert.deepEqual(s.opened, []);
+  assert.deepEqual(s.replaced, ['https://bokdoong.com/work/app/']);
+});
+
+test('떠 있는 화면은 다리 write:open으로 연다(다시 불러오지 않음)', async () => {
+  const s = setup();
+  startWidgetWrite(s.win, {wait: tick});
+  s.message('write:open:note');
+  await tick();
+  s.message('share:list:{}');
+  s.message('write:open:photo');
+  await tick();
+  assert.deepEqual(s.opened, ['note']);
+});
+
+test('작업공간이 준비될 때까지 기다렸다 연다', async () => {
+  const s = setup({href: 'https://bokdoong.com/work/app/?write=update', ready: 'loading'});
+  startWidgetWrite(s.win, {wait: async () => { s.win.__KPTU_TEAM_READY_STATE__ = 'workspace'; }});
+  await tick(); await tick();
+  assert.deepEqual(s.opened, ['update']);
+});
+
+test('준비되지 않으면(로그인 안 됨) 열지 않는다', async () => {
+  const s = setup({href: 'https://bokdoong.com/work/app/?write=update', ready: 'auth'});
+  startWidgetWrite(s.win, {wait: tick, tries: 3});
+  for (let i = 0; i < 6; i++) await tick();
+  assert.deepEqual(s.opened, []);
+});
+
+test('창은 상단 [+ 추가]의 열기 길을 쓰고 로더는 앱에서만 붙인다', () => {
+  const topbar = readFileSync(new URL('../app/topbar-actions.js', import.meta.url), 'utf8');
+  assert.match(topbar, /window\.KPTUQuickWrite=\{open\(kind\)\{\n  if\(kind==='update'\|\|kind==='note'\)return openWriter\(kind\);\n  if\(kind==='task'\)return openEventWindow\(true\);/);
+  const loader = readFileSync(new URL('../app/loader-v2.js', import.meta.url), 'utf8');
+  assert.match(loader, /if\(\/KPTUAndroid\/i\.test\(navigator\.userAgent\|\|''\)\)import\('\.\/phone-widget-write\.js'\)/);
+});

@@ -5,4 +5,6 @@
         <item name="android:windowBackground">@color/web_bg</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+    <!-- WIDGET-여러개 ①: 한 칸 위젯 기능 고르기 작은 창(밝은·어두운 모드). -->
+    <style name="WidgetConfigTheme" parent="android:style/Theme.DeviceDefault.Dialog" />
 </resources>
