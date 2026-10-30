@@ -221,7 +221,7 @@ async function luDropFiles(files,target=null){
   const entries=Array.from(files||[]).map(file=>({file,folder}));
   // 이미 올리는 중이면 새로 놓은 파일은 그 줄 뒤에 이어 올린다(순서대로, 동시에 보내지 않음).
   if(luDropRun){luDropRun.queue.push(...entries);return}
-  const run=luDropRun={queue:entries};
+  const run=luDropRun={queue:[...entries]};// 줄은 복사본(올리며 비우므로, 결과 문구는 처음 놓은 entries로 본다)
   const btn=document.querySelector('#newDocumentBtn');luUploading=true;luSetBusy(btn,true);
   const total={done:0,failed:[],rest:0,unfiled:0};let stopped=null;const places=new Set(),filed=new Set();
   try{
@@ -237,7 +237,7 @@ async function luDropFiles(files,target=null){
     if(total.done||total.failed.some(f=>f.kind==='unknown')){try{await luLoadDocuments();luRenderLibrary()}catch(e){console.error('library list refresh after drop upload failed',e)}}
     if(total.done)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null}}));
     // 한 폴더에만 놓았으면 결과 문구에 그 폴더 이름('주간보고에 2개 올렸어요').
-    const only=places.size===1&&!places.has('')?entries.find(x=>x.folder)?.folder?.name||'':'';
+    const only=places.size===1&&!places.has('')&&folder?folder.name:'';
     luDropStatus(luDropResultText({...total,folder:only}),{error:!!(total.failed.length||total.rest||total.unfiled)});
     if(stopped&&luIsDriveAuthError(stopped.error))await luMaybeReconnectDrive(stopped.error);
   }catch(e){console.error('library drop upload failed',e);luDropStatus('올리지 못했어요. 잠시 후 다시 놓아 주세요.',{error:true})}
