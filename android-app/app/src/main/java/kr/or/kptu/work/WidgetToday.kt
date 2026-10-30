@@ -31,7 +31,11 @@ object WidgetToday {
         fun line(): String = "챙길 것 $todo · 나한테 온 요청 $asks"
     }
 
-    private val TITLE_NOISE = Regex("(?U)[\\s\\p{P}\\p{S}]+")
+    /**
+     * 웹 /[\s\p{P}\p{S}]+/gu와 같은 글자들. 안드로이드 정규식(ICU)은 자바 전용 줄 안 표시 U(유니코드 글자 묶음)를 받지 않아(PatternSyntaxException)
+     * 이 객체가 만들어지지 못하면 위젯 전체가 빈칸이 된다(FIX-위젯). 그래서 표시 없이 유니코드 공백(\p{Z}·FEFF)을 직접 적는다.
+     */
+    private val TITLE_NOISE = Regex("[\\s\\p{Z}\\uFEFF\\p{P}\\p{S}]+")
 
     /** 웹 todo-radar-data.js normalizeTitle과 같은 비교용 제목(소문자·NFKC·공백·문장부호·기호 빼기·80자). */
     fun normalizeTitle(value: String?): String {

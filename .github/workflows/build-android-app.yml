@@ -46,7 +46,11 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install icon renderer
-        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin fonts-noto-cjk
+        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin fonts-noto-cjk libicu74
+
+      # FIX-위젯: 안드로이드 정규식은 ICU라 JVM 시험이 못 잡는 글((?U) 등)이 있다. 앱 코드의 Regex("…")를 ICU로 만들어 본다.
+      - name: Check regex on ICU
+        run: python3 android-app/scripts/check-icu-regex.py
 
       - name: Render Android launcher icon
         run: |

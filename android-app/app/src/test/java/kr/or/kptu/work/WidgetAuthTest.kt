@@ -274,7 +274,7 @@ class WidgetAuthTest {
     fun widgetSourcesDoNotLog() {
         // 토큰·응답 본문을 로그에 쓰지 않는다(설계 8절). 위젯 파일에는 로그 호출 자체가 없다.
         val dir = File("src/main/java/kr/or/kptu/work")
-        val files = listOf("WidgetAuth.kt", "WidgetHttp.kt", "WidgetToday.kt", "TodayWidget.kt", "WidgetWeek.kt", "WeekWidget.kt", "WidgetTelegram.kt", "TelegramWidget.kt", "WidgetArsenal.kt", "ArsenalWidget.kt", "KeystoreVault.kt", "MiniJson.kt", "MainActivity.kt")
+        val files = listOf("WidgetAuth.kt", "WidgetHttp.kt", "WidgetToday.kt", "TodayWidget.kt", "WidgetWeek.kt", "WeekWidget.kt", "WidgetTelegram.kt", "TelegramWidget.kt", "WidgetArsenal.kt", "ArsenalWidget.kt", "WidgetRefresh.kt", "KeystoreVault.kt", "MiniJson.kt", "MainActivity.kt")
         for (name in files) {
             val text = File(dir, name).readText()
             for (bad in listOf("Log.", "println(", "printStackTrace", "HttpLoggingInterceptor")) {
