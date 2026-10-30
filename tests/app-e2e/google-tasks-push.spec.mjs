@@ -379,12 +379,17 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
   expect(calls.find(x=>x.action==='create').body.task_list_id).toBeUndefined();
+  // 폰 폭(~760px)에서 수정 창은 뒤로 가기 이력을 하나 쌓고, 저장해 닫으면 그 이력을 history.back()으로 거둔다(비동기).
+  // 거두기가 끝나기 전에 창을 다시 열면 늦게 온 뒤로 가기가 새 창을 닫는다. 사람처럼 닫힘이 끝난 뒤 다시 연다.
+  const closedSettled=async()=>{await expect(page.locator('#gtTaskModal')).toBeHidden();await page.waitForFunction(()=>history.state?.kptuOverlay!=='gtTaskModal')};
+  await closedSettled();
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('연결 둘');
   await links.locator('input[value="p:p2"]').check();
   await links.locator('input[value="o:o1"]').check();
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.filter(x=>x.action==='create')[1]?.body?.links).toEqual([{project_id:'p2'},{organization_id:'o1'}]);
+  await closedSettled();
   await page.locator('[data-gt-edit="g1"]').click();
   await expect(links.locator('input[value="p:p1"]')).toBeChecked();
   await links.locator('input[value="p:p1"]').uncheck();
@@ -400,6 +405,7 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await expect(page.locator('#taskList')).toBeEmpty();
   await expect(page.locator('[data-gt-add]')).toHaveCount(0);
   // Saving closes the editor; reopen it before measuring the visible link options.
+  await closedSettled();
   await page.locator('[data-gt-edit="g1"]').click();
   await expect(links.locator('[data-gt-link]')).toHaveCount(17);
   for(const width of [360,1280]){
