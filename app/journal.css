@@ -200,6 +200,10 @@
 #appView #journalView .journal-hwpx-target{ width:100%; min-width:0; box-sizing:border-box; font:inherit; font-size:var(--kptu-text-body); }
 #appView #journalView .journal-hwpx-target{ width:auto; max-width:100%; }
 #appView #journalView .journal-hwpx-row{ display:flex; flex-direction:column; gap:4px; }
+/* WEEKLY-환류학습 1: 개인본 바탕일 때 팀 확정본에서 바뀐 칸 — 칸 위 작은 표시(눌러 그 글·[이 글로 바꾸기]). */
+#appView #journalView .journal-hwpx-team-fold > summary{ cursor:pointer; width:max-content; list-style:none; }
+#appView #journalView .journal-hwpx-team-fold > summary::-webkit-details-marker{ display:none; }
+#appView #journalView .journal-hwpx-team-fold > p{ margin:2px 0; font-size:12px; overflow-wrap:anywhere; }
 #appView #journalView .journal-hwpx-label{ font-size:var(--kptu-text-body); font-weight:var(--ds-weight-medium); overflow-wrap:anywhere; }
 #appView #journalView .journal-hwpx-lines{ resize:vertical; line-height:1.5; }
 #appView #journalView .journal-hwpx-material{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
