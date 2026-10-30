@@ -58,7 +58,16 @@ class RecorderService : Service() {
     private fun start() {
         val s = RecordHub.session()
         // startForegroundService로 불렸으므로 어떤 경우든 먼저 앞쪽 서비스로 올린다(안 하면 앱이 죽는다).
-        goForeground(s)
+        // 화면이 뒤로 간 사이에 불렸으면(안드로이드 14+ 마이크 제한) 올리지 못한다: 녹음을 열지 않고 알린다.
+        try {
+            goForeground(s)
+        } catch (_: Exception) {
+            if (recorder == null) {
+                RecordHub.failStart()
+                stopSelf()
+            }
+            return
+        }
         if (recorder != null) return
         val seg = s?.current
         if (s == null || seg == null || s.state != RecordRules.State.RECORDING || !open(seg)) {
