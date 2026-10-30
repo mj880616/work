@@ -152,7 +152,8 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  await input.fill('2026-10-12');await page.locator('#taskDuePopup').getByRole('button',{name:'바꾸기'}).click();
  await expect.poll(()=>state.calls.update.length).toBe(1);
  expect(state.calls.update[0]).toEqual({action:'update',task_id:'l-1',task_list_id:'@default',title:'합성 연결 할 일',notes:'',due:'2026-10-12'});
- await expect(row.locator('.gt-due')).toContainText('10. 12.');
+ // HOME-업무일지홈 C: 연결 할 일 줄 기한은 공용 기한 글자(task-due.mjs dueLabel, .task-due-text 진회색).
+ await expect(row.locator('[data-gt-linked-due]')).toHaveText('10.12 (월)');await expect(row.locator('[data-gt-linked-due]')).toHaveClass(/task-due-text/);
  // 고치기 = 수정 창
  await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'고치기'}).click();
  await expect(page.locator('#gtTaskModal')).toBeVisible();await expect(page.locator('#gtEditTitle')).toHaveValue('합성 연결 할 일');

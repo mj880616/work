@@ -172,7 +172,8 @@ test('feature navigation lazy-loads only the destination view and nonmembers sto
   expect(source).toContain("if(teamState!=='workspace')return;");
   expect(source).not.toContain("access-approval.js");
   expect(source).toContain("event.stopImmediatePropagation()");
-  expect(source).toContain('#appView [data-hdv-goto]');
+  expect(source).toContain('#appView [data-goto]');
+  expect(source).not.toContain('data-hdv-goto'); // HOME-업무일지홈: 옛 홈 대시보드(home-dashboard-v2) 이동 버튼은 화면째 없음
   expect(source).toContain('#newTaskBtn');
   expect(source).toContain("viewLoader.load(view).then");
   // BIZ-버튼줄정리: openView는 ⋯ 메뉴 판(#appView 밖)이 같은 기다림·실패 줄로 화면을 여는 길이다.
