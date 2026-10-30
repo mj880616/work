@@ -35,7 +35,8 @@ export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edg
   }else if(Math.max(below,above)>=minHeight){
     side=below>=Math.min(maxHeight,above)?'below':'above';
     // UI-메뉴잘림: 고른 쪽에 내용이 다 들어가지 않는데 반대쪽에는 다 들어가면 반대쪽으로(⋯ 메뉴 끝 항목이 안쪽 스크롤에 숨지 않게).
-    const want=Math.min(maxHeight,panel.scrollHeight||0);
+    // 테두리 두께까지(box-sizing:border-box에서 max-height는 테두리를 포함한다).
+    const want=panel.scrollHeight?Math.min(maxHeight,Math.ceil(panel.scrollHeight+Math.max(0,panel.offsetHeight-panel.clientHeight))):0;
     if(want&&side==='below'&&below<want&&above>=want)side='above';else if(want&&side==='above'&&above<want&&below>=want)side='below';
     left=Math.max(edge,Math.min(t.left,vw-width-edge));
     height=Math.min(maxHeight,side==='below'?below:above);
