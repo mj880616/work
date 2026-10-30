@@ -379,7 +379,10 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
   expect(calls.find(x=>x.action==='create').body.task_list_id).toBeUndefined();
+  // 폰 폭(760)은 창을 닫을 때 뒤로 가기 기록을 하나 소비한다(mobile-modal-history.js). 그 닫힘이 끝난 뒤 다시 열어야 늦게 온 닫힘이 새 창을 닫지 않는다.
+  await expect(page.locator('#gtTaskModal')).toBeHidden();
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
+  await expect(page.locator('#gtEditTitle')).toBeVisible();
   await page.locator('#gtEditTitle').fill('연결 둘');
   await links.locator('input[value="p:p2"]').check();
   await links.locator('input[value="o:o1"]').check();
