@@ -439,7 +439,7 @@ test('weekly draft: the form order (1 → 2 → 4 → 5 → 참고); lines in sa
   assert.deepEqual(rows.filter(r => r.startsWith('■ ')), ['■ 일시 : 2026년 10월 12일(월)']);
   assert.deepEqual(partOf(text, '1. 요청사항'), ['1) 임원 일정 배정·논의 요청 (일 | 시간/내용/장소 | 참석 요청)',
     '- 10.13.(화) 10:30 / 가상 결의대회 / 가상 광장 — 참석 요청: 가상 임원 갑, 가상 임원 을', '- 10.15.(목) 가상 토론회',
-    '2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외. 자동 채우기는 나중에']);
+    '2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외.']);
   const ref = partOf(text, '참고');
   assert.deepEqual(ref.slice(0, 5), ['◦ 한 줄', '- 10월 6일(화) 현장 회의 정리', '- 10월 7일(수) 첫 줄', '- 10월 7일(수) 둘째 줄', '- 10월 7일(수) 셋째 줄']);
   // This week's events are the day card's 일정, not draft material (5. 주요 일정 is the two weeks after).
