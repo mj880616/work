@@ -226,7 +226,9 @@ test('account switch in another tab reloads without retaining the previous priva
       value:{access_token:'second-access',refresh_token:'second-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'u2',email:'second@example.org'}}
     })
   ]);
-  await expect.poll(()=>page.evaluate(()=>window.__KPTU_BOOT_CONTEXT__?.user?.id||''),{timeout:20000}).toBe('u2');
+  // 다시 불러오는 도중(문서가 바뀌는 순간)에 읽으면 page.evaluate가 'Execution context was destroyed'로 던진다.
+  // 그 순간은 '아직 u2 아님'으로 보고 다음 읽기에서 다시 본다(기다리는 시간·재시도 수는 그대로).
+  await expect.poll(()=>page.evaluate(()=>window.__KPTU_BOOT_CONTEXT__?.user?.id||'').catch(()=>''),{timeout:20000}).toBe('u2');
   await expect(page.locator('#privateSentinel')).toHaveCount(0);
   await expect(page.locator('#appView')).toBeVisible();
   await context.close();
