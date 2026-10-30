@@ -239,10 +239,10 @@ async function audit(page,id){
  // UI-회의결과창정리: 자료 등록 창 [📎 파일 고르기]는 label이지만 보조 버튼(13px)이다.
  for(const label of await modal.locator('label:not(.secondary):not(.primary):not(.library-pick-button)').all())await expect(label).toHaveCSS('font-size','12px');
  // UI-디자인기준 3/3 3부(8-9e-3): 창 제목은 새 기준 18px(--ds-text-title).
- for(const h2 of await modal.locator('.modal-head h2,.w1b-detail-head h2').all())await expect(h2).toHaveCSS('font-size','18px');
+ for(const h2 of await modal.locator('.modal-head h2').all())await expect(h2).toHaveCSS('font-size','18px');
 }
 
-const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','web1BoardDetailModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
+const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
 for(const width of [390,1440])test('D-3e installed dialog templates use role sizes '+width,async({page},testInfo)=>{
  await page.setViewportSize({width,height:900});await boot(page);
  for(const name of ['projects','meetings','team','library','tasks','calendar','pages'])await view(page,name);
@@ -257,7 +257,7 @@ for(const width of [390,1440])test('D-3e installed dialog templates use role siz
    for(const e of text){const size=parseFloat(getComputedStyle(e).fontSize);if(size<12)result.violations.push({id,element:e.id||e.className||e.tagName,size})}
    for(const e of root.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select'))if(getComputedStyle(e).fontSize!=='14px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:14});
    for(const e of root.querySelectorAll('label:not(.secondary):not(.primary):not(.library-pick-button)'))if(getComputedStyle(e).fontSize!=='12px')result.violations.push({id,element:e.id||e.className,size:getComputedStyle(e).fontSize,want:12});
-   for(const e of root.querySelectorAll('.modal-head h2,.w1b-detail-head h2'))if(getComputedStyle(e).fontSize!=='18px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:18});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
+   for(const e of root.querySelectorAll('.modal-head h2'))if(getComputedStyle(e).fontSize!=='18px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:18});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
   }return result;
  },modalIds);
  expect(inventory.violations).toEqual([]);
@@ -305,10 +305,11 @@ const d6bSelectors=d6bSource('base-ui.css').split('\n').slice(194,210).map(line=
 // The progress line is gone; the header line is now #ps3Summary with the same role, so the current page is read through that selector.
 const d6bProgressLine='#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective)',d6bHeaderLine='#ps3DetailModal #ps3Summary';
 // PRESS-자료실편입 Contract: 삭제된 성명·보도자료 창(#pressDetailModal)은 현재 CSS 묶음 선택자에서 빠졌다.
-const d6bDropPress=selector=>selector.replace(',#pressDetailModal','');
+// DOMAIN-④ E2: the Web1 board reader (#web1BoardDetailModal) is removed with Web1, like the press dialog before it.
+const d6bDropPress=selector=>selector.replace(',#pressDetailModal','').replace(',#web1BoardDetailModal','');
 const d6bCurrentSelectors=d6bSelectors.map(selector=>d6bDropPress(selector===d6bProgressLine?d6bHeaderLine:selector));
 // UI-회의결과창정리: 업로드 상자 글자(#documentModal .library-dropzone strong)와 회의자료 라벨 설명은 화면에서 없어졌다.
-const d6bRetired=['#documentModal .library-dropzone strong','#meetingModal .meeting-materials-block label span'];
+const d6bRetired=['#documentModal .library-dropzone strong','#meetingModal .meeting-materials-block label span','#web1BoardDetailModal .w1b-detail-head h2'];
 
 async function d6bPrepare(page,source){
  await boot(page);
@@ -434,6 +435,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // MTG-고치기바로: 사업 보고 창 요소는 PC에서 세 번째 칸에 붙고(불러오는 중 줄·떠나기 확인 줄이 더해졌다) 창으로도 쓰인다. 창으로 떼어 놓은 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   await page.evaluate(()=>window.KPTUMeetingRoundDetail?.undock?.());
   {const html=await page.locator('#meetingRoundDetailModal').evaluate(el=>el.outerHTML);await original.locator('#meetingRoundDetailModal').evaluate((el,html)=>{el.outerHTML=html},html)}
+  // DOMAIN-④ E2: main's Web1 board reader dialog is gone from the current page; take it out of main's page too.
+  await original.locator('#web1BoardDetailModal').evaluate(el=>el.remove());
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
   // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
   const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];
@@ -469,7 +472,7 @@ test('D-6b keeps hide priorities and removes only dialog priorities',async()=>{
  const fs=await import('node:fs'),css=fs.readFileSync('app/base-ui.css','utf8');
  expect(css.match(/!important/g)).toHaveLength(4);
  expect(css.split('\n').slice(54,57)).toEqual(d6bSource('base-ui.css').split('\n').slice(54,57));
- const owners=['workspace-ui.css','project-system-v3.css','workplace-detail.css','library-upload.css','meeting-ui.css','google-tasks.css','web1-board.css'];
+ const owners=['workspace-ui.css','project-system-v3.css','workplace-detail.css','library-upload.css','meeting-ui.css','google-tasks.css'];
  const owned=owners.map(path=>{
   const current=fs.readFileSync('app/'+path,'utf8');
   expect((current.match(/!important/g)||[]).length,path+' adds no priorities').toBeLessThanOrEqual((d6bSource(path).match(/!important/g)||[]).length);

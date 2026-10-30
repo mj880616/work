@@ -1,8 +1,6 @@
-import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 
-const BASE=appOrigin;
 const repoRoot=new URL('../../',import.meta.url);
 const read=path=>readFile(new URL(path,repoRoot),'utf8');
 
@@ -52,32 +50,6 @@ test('9호선 1단계 행감 하위페이지는 독립 문서·상위 복귀·�
   expect(html).toContain('id="printPageBtn"');
 });
 
-test('공개페이지 편집기는 Google 관리자 인증과 서버 RLS 권한검증을 사용한다', async () => {
-  const editor=await read('app/public-page-editor.js');
-  const auth=await read('app/web1-admin-auth.js');
-  expect(editor).toContain("ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js'");
-  expect(editor).toContain('window.KPTUWeb1AdminAuth');
-  expect(editor).toContain("'/functions/v1/public-page-edit'");
-  expect(editor).not.toContain('window.KPTURuntime');
-  expect(auth).toContain("provider:'google'");
-  expect(auth).not.toContain('grant_type=password');
-});
-
-test('비로그인 공개 열람자의 수정은 Google 관리자 로그인을 시작한다',async({page})=>{
-  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?anon=1`);
-  await expect(page.locator('#editPageBtn')).toBeVisible();
-  await page.locator('#editPageBtn').click();
-  await expect.poll(()=>page.evaluate(()=>window.__ppeGoogleLogin||0)).toBe(1);
-  await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
-});
-
-test('관리자가 아닌 Google 계정은 편집모드로 진입하지 않는다',async({page})=>{
-  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?forbidden=1`);
-  await page.locator('#editPageBtn').click();
-  await expect.poll(()=>page.evaluate(()=>window.__ppeGoogleLogin||0)).toBe(1);
-  await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
-});
-
 test('public-page-edit 함수는 지정 관리자 JWT·DB 편집권한·app_pages RLS를 모두 확인한다',async()=>{
   const fn=await read('supabase/functions/public-page-edit/index.ts');
   expect(fn).toContain("req.headers.get('Authorization')");
@@ -89,11 +61,8 @@ test('public-page-edit 함수는 지정 관리자 JWT·DB 편집권한·app_page
   expect(fn).not.toContain('0822');
 });
 
-test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은 좌측 고정 규칙을 쓴다', async () => {
-  const forumTools = await read('app/forum-flow-polish.js');
+test('국감 페이지의 사업현황 돌아가기 버튼은 좌측 고정 규칙을 쓴다', async () => {
   const questionTools = await read('assets/private-rail-question-tools.js');
-  expect(forumTools).toContain("a.className='print-btn back-link'");
-  expect(forumTools).toContain("a.style.marginRight='auto'");
   expect(questionTools).toContain('private-rail-question-back back-link');
   expect(questionTools).toContain('margin-right:auto!important');
   expect(questionTools).toContain('bar.append(back,stat,edit,cancel,print)');

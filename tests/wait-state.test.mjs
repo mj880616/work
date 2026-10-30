@@ -136,7 +136,6 @@ test('옮긴 화면은 공용 부품을 쓴다', () => {
   }
   // 옛 모양 파일(즉시 실행 함수·선언 시험 대상)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
   for (const rel of ['library-upload.js', 'workplace-report.js']) assert.match(read(rel), /globalThis\.KPTUWait\?\.waitInlineHtml/, rel);
-  assert.match(read('index.html'), /id="web1BoardDetailStatus" class="w1b-detail-status hidden"><div class="wait" data-wait role="status" aria-label="불러오는 중">/);
 });
 
 // UI-기다림표시통일 3차(2026-10-29 명진 A안 '없음 = 회색 작은 없음'): 목록·칸이 비었을 때 따로 쓴 글자('사진이 없어요.',
@@ -214,7 +213,7 @@ test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
     assert.match(read(rel), /import \{[^}]*\bempty(Html|El)\b[^}]*\} from '\.\/wait-state\.js';/, rel);
   }
   // 옛 모양 파일(즉시 실행 함수)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
-  for (const rel of ['home-dashboard-v2.js', 'library-upload.js', 'profile-settings.js', 'suborganizations.js', 'task-layout.js', 'web1-board.js', 'workplace-report.js']) {
+  for (const rel of ['home-dashboard-v2.js', 'library-upload.js', 'profile-settings.js', 'suborganizations.js', 'task-layout.js', 'workplace-report.js']) {
     assert.match(read(rel), /globalThis\.KPTUWait\?\.emptyHtml\?\.\(/, rel);
   }
 });

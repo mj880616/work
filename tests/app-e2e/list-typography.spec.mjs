@@ -51,7 +51,6 @@ const samples={
  projects:[['.add-list-head [data-ps3-total]',12],['.ps3-prow-name',13],['.ps3-prow-meta',12],['button.primary',13]],
  // UI-디자인기준 3/3(8-9e-1): 회의·담당조직 목록 이름 13px, 상자 제목(섹션 이름) 13px, 버튼 13px(새 기준).
  meetings:[['.add-list-head h2',13],['.meeting-list-title h3',13],['.meeting-list-row p',12],['button.primary',13]],
- pages:[['.w1b-card h3',13],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
  // UI-디자인손질 3: the "N개 담당조직" line (.muted) is gone; the group heading carries the 12px meta text.
  // UI-조직추가숨김: the team menu's only button.secondary was the [+ 담당조직] add button, which is no longer drawn (team-list.spec asserts it is absent).
  team:[['.so-card h4',13],['.so-group-heading',12]]

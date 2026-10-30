@@ -1,4 +1,3 @@
-import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {THEMES} from './helpers/theme-list.mjs';
 import {test,expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -154,11 +153,10 @@ test('밝은 설정은 그대로 밝고, 칸막이(HWP 편집기·성명·게시
  expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).toBe('rgb(22, 22, 19)');
  const paper='rgb(255, 255, 255)';
  await view(page,'hwp');expect((await look(page.locator('#hwpLabEditor'))).bg).toBe(paper);
- for(const id of ['#web1BoardDetailFrame'])expect(await page.locator(id).evaluate(el=>[getComputedStyle(el).backgroundColor,getComputedStyle(el).colorScheme])).toEqual([paper,'light']);
  expect(light.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·게시판 '+width,async({page})=>{
+for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀 '+width,async({page})=>{
  const {errors}=await boot(page,width);
  const primary=await token(page,'--kptu-primary');
  // HWP 편집: PC는 상자 0.5px·12px, 버튼 한 높이·[내 기기에 저장] 하나만 채운 버튼, 칸막이 바깥 틀 0.5px·8px.
@@ -169,18 +167,6 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·게시
  const card=await look(hwp.locator('.hwp-lab'));expect(card.radius).toBe(width<1024?'0px':'12px');expect(card.shadow).toBe('none');
  await expect(hwp.locator('h2,.hwp-lab-note')).toHaveCount(0);
  expect((await look(hwp.locator('#hwpLabEditor'))).radius).toBe(width<1024?'0px':'8px');
- // 게시판: 한 상자 안 줄(44px)·이름 13px/400·오른쪽 ›, 카드 그림자·떠오름 없음.
- await view(page,'pages');await openLegacyBoard(page);
- const board=page.locator('#web1BoardActive');await expect(board.locator('.w1b-card').first()).toBeVisible();
- const box=await look(board);expect(box.radius).toBe('12px');expect(box.shadow).toBe('none');expect(box.borderStyle).toBe('solid');
- for(const row of await board.locator('.w1b-card').all()){const s=await look(row);expect(s.height).toBeGreaterThanOrEqual(44);expect(s.radius).toBe('0px');expect(s.shadow).toBe('none');}
- const name=await look(board.locator('.w1b-card h3').first());expect([name.fontSize,name.fontWeight]).toEqual(['13px','400']);
- expect(await board.locator('.w1b-card').first().evaluate(el=>getComputedStyle(el,'::after').content)).toBe('"›" / ""');
- await expect(board.locator('.w1b-card').first()).toHaveAccessibleName(/^[^›]+$/);
- await board.locator('.w1b-card').first().click();
- const detail=page.locator('#web1BoardDetailModal');await expect(detail).toBeVisible();
- expect(await sameButtons(page,detail)).toEqual([]);
- await page.keyboard.press('Escape');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(errors).toEqual([]);
 });
