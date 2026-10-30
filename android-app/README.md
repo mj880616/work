@@ -54,6 +54,11 @@
 - '아스날'(2×1): 다음 경기(자료가 있으면)·지난 경기 결과. 자료는 앱 아스날 화면과 같은 공개 정적 파일 `app/arsenal/matches.js`를 로그인 없이(토큰 없이) 같은 갱신 작업 안에서 6시간에 한 번만 받는다(`WidgetSession.readPublic`, 이 주소 하나만). 지금 파일에는 끝난 경기만 있어 '다음 경기 자료 준비 중'으로 보인다. 점수가 없고 날짜가 오늘 이후인 줄(선택 `"kickoff":"HH:MM"` 서울 시각)이 생기면 그 줄을 다음 경기로 쓴다.
 - 허용 주소 추가(GET만, 시험으로 고정): `rpc/app_my_features`, `app_feed_days?source=eq.telegram&day=eq.<날짜>&select=day,kept_count,room_count`, `app_feed_items?source=eq.telegram&hidden_at=is.null&day=gte.<날짜>&select=room_key,room_label,title,summary,day,occurred_at&order=occurred_at.desc&limit=40`, `bokdoong.com/work/app/arsenal/matches.js`(토큰 없음).
 
+## 당겨서 새로고침 (0.3.7, APP-당겨서새로고침)
+
+- 웹 화면을 `SwipeRefreshLayout`(동그란 표시)이 감싼다. 손가락을 댈 때마다 당기기를 끄고, 웹2 화면(`app/phone-pull-refresh.js`)이 그 손가락에 다리 `pull:on`을 보낼 때만 받는다(`ShellRules.pullReady`). 웹은 화면 맨 위가 아니거나, 포스트잇 판·열린 창(아래에서 올라온 창 포함)·메뉴, 내려가 있는 칸 안 스크롤 목록, 글 쓰는 중이면 `pull:off`.
+- 당기면 앱이 웹에 `KPTUPullRefresh.run()`을 묻는다. 저장 안 한 글이 있으면 웹이 새 버전 안내 [새로고침]과 같은 확인(`KPTUReloadGuard`, `version-notice.js`)으로 먼저 묻고, 같은 주소로 다시 연다. 웹 다리가 없는 웹2 화면은 앱이 같은 주소를 다시 연다. 다리는 기존 허용 Origin 최상위 화면 규칙 그대로.
+
 ## 녹음 (0.3.3, MTG-폰녹음)
 
 - 자리: 앱 안 사업 보고 위쪽 줄 [녹음](노트북 [녹음]과 같은 자리, `app/phone-recorder.js`가 붙임). 웹 화면이 `rec:hello`를 보내 앱이 답해야 보인다(웹 브라우저·0.3.2 이하 앱에서는 안 보임).
@@ -96,4 +101,4 @@
 
 `.github/workflows/build-android-app.yml`이 단위 시험, debug APK(`web2-phone-<버전>-debug` artifact), 서명 없는 release 빌드 확인을 한다.
 
-새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
+새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36, 0.3.7=37). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.

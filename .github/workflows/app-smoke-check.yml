@@ -62,6 +62,7 @@ on:
       - 'tests/meeting-recorder-model.test.mjs'
       - 'tests/phone-recorder.test.mjs'
       - 'tests/phone-widget-write.test.mjs'
+      - 'tests/phone-pull-refresh.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
@@ -174,6 +175,7 @@ on:
       - 'tests/meeting-recorder-model.test.mjs'
       - 'tests/phone-recorder.test.mjs'
       - 'tests/phone-widget-write.test.mjs'
+      - 'tests/phone-pull-refresh.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
@@ -481,6 +483,9 @@ jobs:
 
       - name: Check phone widget write windows (WIDGET-여러개 ①)
         run: node --test tests/phone-widget-write.test.mjs
+
+      - name: Check phone app pull to refresh (APP-당겨서새로고침)
+        run: node --test tests/phone-pull-refresh.test.mjs
 
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs

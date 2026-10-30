@@ -12,7 +12,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -33,6 +35,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
@@ -51,6 +54,9 @@ import org.json.JSONArray
 class MainActivity : ComponentActivity() {
     private lateinit var root: LinearLayout
     private lateinit var webView: WebView
+    /** APP-당겨서새로고침: 웹 화면을 감싸는 당겨서 새로고침. 웹이 그 손가락에 'pull:on'을 보낸 때만 받는다. */
+    private lateinit var refresher: SwipeRefreshLayout
+    @Volatile private var pullOn = false
     private lateinit var updateBar: LinearLayout
     private lateinit var updateText: TextView
     private lateinit var updateGet: TextView
@@ -106,7 +112,10 @@ class MainActivity : ComponentActivity() {
         buildUpdateBar()
         webView = WebView(this)
         root.addView(updateBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        root.addView(webView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        refresher = SwipeRefreshLayout(this)
+        refresher.addView(webView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        root.addView(refresher, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        setUpPullRefresh()
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
@@ -156,6 +165,7 @@ class MainActivity : ComponentActivity() {
                 else if (data.startsWith("widget:")) onWidgetMessage(data, reply)
                 else if (data.startsWith("rec:")) onRecordMessage(data, reply)
                 else if (data == "write:hello") writeReply = reply
+                else if (data == "pull:on" || data == "pull:off") pullOn = data == "pull:on"
             }
         }
 
@@ -192,6 +202,9 @@ class MainActivity : ComponentActivity() {
                 // 새 화면을 열기 시작하면 앞 화면의 '로그인됨'·쓰기 창 다리는 더 쓰지 않는다.
                 readyReply = null
                 writeReply = null
+                // 당겨서 새로고침으로 다시 여는 중이면 동그란 표시를 거둔다. 새 화면의 손가락 판정은 처음부터.
+                if (::refresher.isInitialized) refresher.isRefreshing = false
+                pullOn = false
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -556,6 +569,33 @@ class MainActivity : ComponentActivity() {
     private fun widgetDay(intent: Intent?): java.time.LocalDate =
         WidgetWeek.parseDay(intent?.getStringExtra(WeekWidget.EXTRA_DAY)) ?: java.time.LocalDate.now(WidgetToday.ZONE)
 
+    /**
+     * APP-당겨서새로고침(요청함 10/30 14:07). 손가락을 댈 때마다 끄고(ShellRules.pullOnTouch), 웹2 화면(phone-pull-refresh.js)이
+     * 그 손가락에 'pull:on'을 보낼 때만 당기기를 받는다(맨 위·포스트잇 판·열린 창·칸 안 목록·글 쓰는 중은 웹이 끔).
+     * 당기면 웹에 KPTUPullRefresh.run()을 묻는다: 저장 안 한 글이 있으면 웹이 먼저 묻고 같은 주소로 다시 연다. 웹2가 아니면 당기기 없음.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setUpPullRefresh() {
+        refresher.setColorSchemeColors(ContextCompat.getColor(this, R.color.widget_icon))
+        refresher.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.widget_tile_bg))
+        refresher.setOnChildScrollUpCallback { _, _ -> !ShellRules.pullReady(pullOn, webView.scrollY, ShellRules.isInternalApp(webView.url)) }
+        webView.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) pullOn = false
+            false
+        }
+        refresher.setOnRefreshListener {
+            if (!ShellRules.isInternalApp(webView.url)) {
+                refresher.isRefreshing = false
+                return@setOnRefreshListener
+            }
+            webView.evaluateJavascript(PULL_SCRIPT) { value ->
+                refresher.isRefreshing = false
+                // 웹 다리가 없는 웹2 화면(옛 판·불러오는 중)은 같은 주소를 그대로 다시 연다. 'cancel'이면(글을 버리지 않음) 그대로 둔다.
+                if (value != "\"reload\"" && value != "\"cancel\"") webView.reload()
+            }
+        }
+    }
+
     private fun micGranted(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
@@ -766,7 +806,7 @@ class MainActivity : ComponentActivity() {
         writeReply = null
         if (RecordHub.listener === recListener) RecordHub.listener = null
         webView.stopLoading()
-        (webView.parent as? LinearLayout)?.removeView(webView)
+        (webView.parent as? ViewGroup)?.removeView(webView)
         webView.destroy()
         super.onDestroy()
     }
@@ -785,6 +825,8 @@ class MainActivity : ComponentActivity() {
         val INK_ON_DARK = Color.rgb(0xe8, 0xe6, 0xdf)
 
         // %ID%는 ShellRules.isShareId를 통과한 값([A-Za-z0-9_-])만 들어간다.
+        /** APP-당겨서새로고침: 웹2 화면에 새로고침을 맡긴다(저장 안 한 글 확인 → 같은 주소 다시 열기). 답은 "reload"·"cancel", 다리가 없으면 null. */
+        const val PULL_SCRIPT = "(function(){try{var p=window.KPTUPullRefresh;return p&&p.run?p.run():null}catch(e){return null}})()"
         const val ARRIVE_SCRIPT =
             "(function(){try{return !!(window.KPTUShareIntake&&window.KPTUShareIntake.arrive('%ID%'));}catch(e){return false;}})();"
 
