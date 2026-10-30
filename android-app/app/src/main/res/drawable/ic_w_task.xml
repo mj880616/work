@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WIDGET-여러개 ①: 할 일 칸 그림. 앱 아이콘 톤(종이색 바탕·남색 선), 어두운 모드는 values-night 색. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:strokeColor="@color/widget_icon" android:strokeWidth="1.8" android:strokeLineJoin="round" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M5,4H19V20H5Z" />
+    <path android:strokeColor="@color/widget_icon" android:strokeWidth="1.8" android:strokeLineJoin="round" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M8.5,12L11,14.5L15.5,9.5" />
+</vector>

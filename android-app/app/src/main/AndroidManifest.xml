@@ -65,6 +65,48 @@
             android:name=".RecorderService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+        <!-- WIDGET-여러개 ①: 위젯 [사진] 칸. 사진 고르기·카메라 → 공유 받기 길로 정리함. 내보내지 않는다. 저장소·카메라 권한 없음(고른 사진의 임시 읽기, 카메라 앱이 찍어 사진첩에 저장). -->
+        <activity
+            android:name=".PhotoPickActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- WIDGET-여러개 ①: 한 칸 위젯 기능 고르기. 홈 화면 앱이 열어야 해서 내보내지만 이 앱 위젯 번호의 기능 이름 하나만 저장한다. -->
+        <activity
+            android:name=".OneWidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/WidgetConfigTheme">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <!-- WIDGET-여러개 ①: 빠른 쓰기(4×1). 서버를 읽지 않는다. -->
+        <receiver
+            android:name=".QuickWidget"
+            android:exported="false"
+            android:label="웹2 빠른 쓰기">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_widget_info" />
+        </receiver>
+        <!-- WIDGET-여러개 ①: 한 칸(1×1). 놓을 때 기능을 고른다. 서버를 읽지 않는다. -->
+        <receiver
+            android:name=".OneWidget"
+            android:exported="false"
+            android:label="웹2 한 칸">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/one_widget_info" />
+        </receiver>
         <!-- 단계 ③: 홈 화면 '웹2 오늘' 위젯(홈 화면 전용). 권한은 그대로 인터넷 하나. -->
         <receiver
             android:name=".TodayWidget"

@@ -73,6 +73,8 @@ class MainActivity : ComponentActivity() {
     @Volatile private var alive = true
     /** MTG-폰녹음: 웹2 화면(phone-recorder.js)이 'rec:hello'로 연 다리. 녹음 상태가 바뀌면 여기로 알린다. */
     private var recReply: JavaScriptReplyProxy? = null
+    /** WIDGET-여러개 ①: 쓰기 창 다리(app/phone-widget-write.js가 write:hello로 알림). 새 화면을 열기 시작하면 버린다. */
+    private var writeReply: JavaScriptReplyProxy? = null
     private val recListener: (String) -> Unit = { message -> postRec(message) }
     private val recPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         postRec(if (micGranted()) "rec:ready" else "rec:denied")
@@ -153,6 +155,7 @@ class MainActivity : ComponentActivity() {
                 else if (data.startsWith("share:")) onShareMessage(data, reply)
                 else if (data.startsWith("widget:")) onWidgetMessage(data, reply)
                 else if (data.startsWith("rec:")) onRecordMessage(data, reply)
+                else if (data == "write:hello") writeReply = reply
             }
         }
 
@@ -186,8 +189,9 @@ class MainActivity : ComponentActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                // 새 화면을 열기 시작하면 앞 화면의 '로그인됨' 다리는 더 쓰지 않는다.
+                // 새 화면을 열기 시작하면 앞 화면의 '로그인됨'·쓰기 창 다리는 더 쓰지 않는다.
                 readyReply = null
+                writeReply = null
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -232,6 +236,12 @@ class MainActivity : ComponentActivity() {
             startWidgetLogin()
             return
         }
+        if (intent?.action == WidgetActions.ACTION_WRITE) {
+            // WIDGET-여러개 ①: 홈 위젯 쓰기 칸. 웹이 ?write=를 읽어 상단 [+ 추가]와 같은 창을 연다. 모르는 종류는 첫 화면.
+            val kind = WidgetActions.writeKind(intent?.getStringExtra(WidgetActions.EXTRA_KIND))
+            webView.loadUrl(if (kind == null) ShellRules.HOME else WidgetActions.writeUrl(kind))
+            return
+        }
         val data = intent?.data?.toString()
         if (ShellRules.isAppReturn(data)) {
             // 위젯 로그인 표시(메모리, 10분·한 번)가 살아 있을 때만 앱이 직접 받는다. 캘린더 연결 복귀(google=)는 건드리지 않는다.
@@ -254,6 +264,10 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (ShareIntake.isShare(intent)) {
             deliverShare(intent)
+            return
+        }
+        if (intent.action == WidgetActions.ACTION_WRITE) {
+            openWrite(WidgetActions.writeKind(intent.getStringExtra(WidgetActions.EXTRA_KIND)))
             return
         }
         if (intent.action == RecordHub.ACTION_OPEN) {
@@ -487,6 +501,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * WIDGET-여러개 ①: 웹2가 떠 있고 쓰기 창 다리가 붙어 있으면 다리로 창만 연다(화면을 다시 불러오지 않아 쓰던 글이 남는다).
+     * 아니면 ?write=<종류>로 웹2를 연다. 모르는 종류는 무시한다(보던 화면 그대로, 웹2가 아니면 첫 화면).
+     */
+    private fun openWrite(kind: WidgetAction?) {
+        if (kind == null) {
+            if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
+            return
+        }
+        val reply = writeReply
+        if (reply != null && ShellRules.isInternalApp(webView.url) && !ShellRules.isLoginPage(webView.url)) {
+            try {
+                reply.postMessage(WidgetActions.writeMessage(kind))
+                return
+            } catch (_: Exception) {
+                writeReply = null
+            }
+        }
+        webView.loadUrl(WidgetActions.writeUrl(kind))
+    }
+
     private fun micGranted(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
@@ -694,6 +729,7 @@ class MainActivity : ComponentActivity() {
         fileCallback = null
         widgetReply = null
         recReply = null
+        writeReply = null
         if (RecordHub.listener === recListener) RecordHub.listener = null
         webView.stopLoading()
         (webView.parent as? LinearLayout)?.removeView(webView)
