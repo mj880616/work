@@ -36,8 +36,14 @@ jobs:
           fi
           # 폰 앱 v2(Kotlin)로 바뀐 뒤에도 앱 소스 전체를 본다. 파일이 없으면 grep 오류(2)로 검사가 빠지지 않게 폴더를 지정한다.
           test -d android-app/app/src/main
-          if grep -rEq 'FirebaseMessaging|FirebaseApp|KPTUNativePush|POST_NOTIFICATIONS|MESSAGING_EVENT|firebase-messaging' android-app/app/src/main android-app/app/build.gradle; then
+          if grep -rEq 'FirebaseMessaging|FirebaseApp|KPTUNativePush|MESSAGING_EVENT|firebase-messaging' android-app/app/src/main android-app/app/build.gradle; then
             echo 'Android push integration returned'; exit 1
+          fi
+          # MTG-폰녹음(요청함 10/30 10:56 명진 결정): 녹음 중 알림줄(앞쪽 서비스 알림)만을 위한 알림 권한은 허용한다.
+          # 권한 선언(매니페스트)과 녹음 권한 묻기(MainActivity) 두 곳 밖에서 쓰면 푸시가 돌아온 것으로 보고 막는다.
+          other=$(grep -rlE 'POST_NOTIFICATIONS' android-app/app/src/main android-app/app/build.gradle | grep -vxE 'android-app/app/src/main/AndroidManifest.xml|android-app/app/src/main/java/kr/or/kptu/work/MainActivity.kt' || true)
+          if [ -n "$other" ]; then
+            echo "notification permission used outside the recorder: $other"; exit 1
           fi
           if grep -Eq "addEventListener\('push'|addEventListener\('notificationclick'" app/sw.js; then
             echo 'service worker push handler returned'; exit 1
