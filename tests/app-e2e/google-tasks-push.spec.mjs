@@ -384,6 +384,7 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   const closedSettled=async()=>{await expect(page.locator('#gtTaskModal')).toBeHidden();await page.waitForFunction(()=>history.state?.kptuOverlay!=='gtTaskModal')};
   await closedSettled();
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
+  await expect(page.locator('#gtEditTitle')).toBeVisible();
   await page.locator('#gtEditTitle').fill('연결 둘');
   await links.locator('input[value="p:p2"]').check();
   await links.locator('input[value="o:o1"]').check();
