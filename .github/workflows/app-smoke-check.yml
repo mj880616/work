@@ -457,6 +457,9 @@ jobs:
       - name: Check phone share intake model (APP-폰앱새로 ②)
         run: node --test tests/share-intake-model.test.mjs
 
+      - name: Check share goes straight into the basket (SHARE-바로넣기, 확인 줄 없음·메모 달기·되돌리기·다시)
+        run: node --test tests/share-auto-put.test.mjs
+
       - name: Check phone widget logout line (APP-폰앱새로 ③)
         run: node --test tests/phone-widget-line.test.mjs
 

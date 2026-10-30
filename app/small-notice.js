@@ -18,6 +18,8 @@
 //     false·{status:'failed'|'unknown'…, message} 또는 throw = '되돌리지 못했어요: label'(message가 있으면 그 글).
 //     {status:'conflict'|'stale'} = 그사이 다른 기기·다른 곳에서 바뀜 → 덮어쓰지 않고 '다른 곳에서 바뀌어 되돌리지 않았어요: label'.
 //     {silent:true} = 화면이 직접 결과를 알렸음(이 부품은 아무 말도 하지 않음).
+//   (라) 되돌리기 말고 다른 버튼: notify('정리함에 넣었어요',{actions:[{label:'메모 달기',run:({box,close})=>{…}}],undo,…}) — [되돌리기] 앞에 놓인다.
+//       run은 알림을 닫지 않는다(필요하면 close()). box 안을 작은 입력칸으로 바꿔도 되고, 초점이 안에 있는 동안은 사라지지 않는다(SHARE-바로넣기).
 import {placeAnchored,clearAnchored} from './anchored-popup.js';
 
 export const NOTICE_MS=2000,NOTICE_UNDO_MS=2000,NOTICE_ERROR_MS=5000,UNDO_LIMIT=10;
@@ -130,7 +132,7 @@ function ensureHost(doc){
 // {undo:async()=>…, label, undoLabel, note, error, ms}. 반환: {close} — 화면이 먼저 알림을 거둘 때.
 // undo가 있으면 되돌리기 기록에도 올린다(record:false면 올리지 않음). label은 '되돌렸어요: …'에 쓰는 말(없으면 알림 글 첫 문장).
 // [되돌리기]를 누르든 Ctrl+Z든 undo는 한 번만 돌고, 끝나면 결과 한 줄(되돌렸어요/되돌리지 못했어요/다른 곳에서 바뀜)을 이 부품이 알린다.
-export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리기',note='',error=false,ms,record=true,doc=globalThis.document}={}){
+export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리기',actions=[],note='',error=false,ms,record=true,doc=globalThis.document}={}){
   const line=noticeText(text);if(!doc||!line)return {close(){}};
   const box=ensureHost(doc),token=++seq;clock?.stop();clock=null;
   const shared=doc.getElementById?.('toast');if(shared&&!shared.classList.contains('hidden')){toastClock?.stop();toastClock=null;shared.classList.add('hidden')}
@@ -138,6 +140,11 @@ export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리
   if(error){box.setAttribute('role','alert');box.removeAttribute('aria-live')}else{box.setAttribute('role','status');box.setAttribute('aria-live','polite')}
   const span=doc.createElement('span');span.className='kptu-notice-text';span.textContent=line;box.append(span);
   const close=()=>{if(token!==seq)return;clock?.stop();clock=null;box.hidden=true;box.replaceChildren()};
+  for(const action of Array.isArray(actions)?actions:[]){
+    if(!action?.label||typeof action.run!=='function')continue;
+    const b=doc.createElement('button');b.type='button';b.className='kptu-notice-undo kptu-notice-action';b.textContent=String(action.label);
+    b.addEventListener('click',()=>{if(token===seq)action.run({box,close,doc})});box.append(b);
+  }
   if(undo){
     const entry=makeEntry({label:label||line,undo});if(record)pushEntry(entry);
     const b=doc.createElement('button');b.type='button';b.className='kptu-notice-undo';b.textContent=buttonLabel;

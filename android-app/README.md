@@ -14,7 +14,7 @@
 - 앱은 받은 항목을 메모리에만 든다(`ShareIntake.kt`). 폰 저장소에 복사하지 않고, 앱을 닫으면 버린다. `content://`만 받는다.
 - 웹을 `?view=basket&share=<일회용 번호>`로 열거나(이미 웹2 화면이면 `window.KPTUShareIntake.arrive`로 알림) → 웹 `basket-share.js`가 바 색 다리(`KPTUAppShell`, 허용 Origin 최상위 화면만)로 `share:get:<번호>`를 보내 목록(이름·종류·크기·글)만 받는다.
 - 파일 내용은 웹이 `__share/<번호>/<순번>`을 fetch하면 앱이 `shouldInterceptRequest`(서비스 워커 요청 포함)로 가로채 흘려준다. 서버로 나가지 않는다. 항목마다 한 번만 열리고, 다 열리거나 `share:done`이면 번호를 버린다.
-- 저장은 웹 바구니 기존 길 그대로(`basket-upload.js` → `basket-files`, 글만은 `app_notes`). 앱은 토큰을 보지 않는다. 실패하면 웹 메모리의 파일로 [다시 보내기].
+- 공유가 들어오면 확인 줄·[넣기] 없이 바로 넣는다(SHARE-바로넣기, 2026-10-30). 저장은 웹 바구니 기존 길 그대로(`basket-upload.js` → `basket-files`, 글만은 `app_notes`). 앱은 토큰을 보지 않는다. 결과는 위쪽 작은 알림 "정리함에 넣었어요 [메모 달기] [되돌리기]", 실패하면 "넣지 못했어요 [다시]"(웹 메모리의 파일로 다시 보냄, 폰에 따로 남기지 않음). 앱 쪽 바뀐 것은 없다(`share:back`은 웹이 더 보내지 않지만 앱은 그대로 받는다).
 
 ## 홈 화면 위젯 (단계 ③)
 
