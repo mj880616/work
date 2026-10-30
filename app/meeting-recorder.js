@@ -324,7 +324,7 @@ async function finishSession(known=null){
     void loadPending(true);
   }catch(e){
     console.warn('recording finish failed',e?.status||'',e?.code||'');
-    const text=e?.recText||(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':step==='전사'?transcribeFailText(e?.message):step==='요약'?'초안 창을 열지 못했어요. [다시]를 누르세요.':'녹음을 합치지 못했어요. 소리는 Drive에 남아 있어요.');
+    const text=e?.recText||(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':step==='전사'?transcribeFailText(e):step==='요약'?'초안 창을 열지 못했어요. [다시]를 누르세요.':'녹음을 합치지 못했어요. 소리는 Drive에 남아 있어요.');
     fail(text,e?.recRetry!==false);
   }
 }

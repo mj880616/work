@@ -25,7 +25,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import {
   Fail, GEMINI_KEY_NAME, MAX_BYTES, MAX_SECONDS, MONTHLY_LIMIT_KRW, STATUS, SWEEP_LIMIT, TRANSCRIBE_MODEL, USAGE_REF_PREFIX,
-  attachDocument, canStart, failBody, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
+  attachDocument, canStart, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
   seoulDay, transcriptionRequest, trashBefore, usageRef, wantsDiarize,
 } from './model.mjs';
 import {
@@ -33,6 +33,7 @@ import {
   appendPatch, closePatch, combineWithin, discardPatch, discardPlan, joinPieces, mapLimit, nextSegment, ownRows, parsePiece, pendingSessions, pendingSince, pieceDecision,
   pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
 } from './recording.mjs';
+import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -161,38 +162,47 @@ async function driveUpload(token: string, folder: string, body: ReadableStream<U
 }
 
 // ---- Gemini ----
-async function geminiUpload(key: string, job: Job, media: Response) {
+// Gemini 실패 기록: HTTP 상태·오류 종류 이름(INVALID_ARGUMENT 등)만. 오류 글·파일 주소·소리는 쓰지 않는다.
+async function geminiWarn(step: string, r: Response) {
+  const d = await r.json().catch(() => null);
+  const kind = typeof d?.error?.status === 'string' && /^[A-Z_]{1,40}$/.test(d.error.status) ? d.error.status : '-';
+  console.warn('meeting-transcribe: gemini', step, r.status, kind);
+}
+async function geminiUpload(key: string, job: Job, body: ReadableStream<Uint8Array> | Uint8Array, size: number) {
   const start = await fetch(`${GEM}/upload/v1beta/files`, {
     method: 'POST',
     headers: {
       'x-goog-api-key': key, 'X-Goog-Upload-Protocol': 'resumable', 'X-Goog-Upload-Command': 'start',
-      'X-Goog-Upload-Header-Content-Length': String(job.size_bytes), 'X-Goog-Upload-Header-Content-Type': job.mime_type, 'Content-Type': 'application/json',
+      'X-Goog-Upload-Header-Content-Length': String(size), 'X-Goog-Upload-Header-Content-Type': job.mime_type, 'Content-Type': 'application/json',
     },
     body: JSON.stringify({ file: { display_name: `meeting-${job.id}` } }),
   });
   const url = start.headers.get('x-goog-upload-url');
-  if (!start.ok || !url) throw new Fail('gemini_failed');
+  if (!start.ok || !url) { await geminiWarn('upload_start', start); throw new Fail('gemini_upload'); }
   const r = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Length': String(job.size_bytes), 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' },
-    body: media.body, duplex: 'half',
+    headers: { 'Content-Length': String(size), 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' },
+    body, ...(body instanceof Uint8Array ? {} : { duplex: 'half' }),
   } as RequestInit);
+  if (!r.ok) { await geminiWarn('upload', r); throw new Fail(r.status === 400 ? 'gemini_rejected' : 'gemini_upload'); }
   const d = await r.json().catch(() => null);
   const file = d?.file;
-  if (!r.ok || typeof file?.name !== 'string' || typeof file?.uri !== 'string') throw new Fail('gemini_failed');
+  if (typeof file?.name !== 'string' || typeof file?.uri !== 'string') throw new Fail('gemini_upload');
   return file as { name: string; uri: string; state?: string; mimeType?: string };
 }
+// Gemini가 올린 파일을 다 읽을 때까지. FAILED = 파일을 풀지 못함(형식), 60초 안에 안 끝나면 늦음.
 async function geminiActive(key: string, name: string, state?: string) {
   let s = state;
   for (let i = 0; s !== 'ACTIVE' && i < 30; i++) {
-    if (s === 'FAILED') throw new Fail('gemini_failed');
+    if (s === 'FAILED') { console.warn('meeting-transcribe: gemini file FAILED'); throw new Fail('gemini_file_failed'); }
     await new Promise(res => setTimeout(res, 2000));
     const r = await fetch(`${GEM}/v1beta/${name}`, { headers: { 'x-goog-api-key': key } });
+    if (!r.ok) { await geminiWarn('file_state', r); throw new Fail('gemini_failed'); }
     const d = await r.json().catch(() => null);
-    if (!r.ok) throw new Fail('gemini_failed');
     s = d?.state;
   }
-  if (s !== 'ACTIVE') throw new Fail('gemini_failed');
+  if (s === 'FAILED') { console.warn('meeting-transcribe: gemini file FAILED'); throw new Fail('gemini_file_failed'); }
+  if (s !== 'ACTIVE') throw new Fail('gemini_timeout');
 }
 async function geminiDelete(key: string, name: string) {
   try { await fetch(`${GEM}/v1beta/${name}`, { method: 'DELETE', headers: { 'x-goog-api-key': key } }); } catch { /* 48시간 뒤 Gemini가 지움 */ }
@@ -204,9 +214,10 @@ async function geminiTranscribe(key: string, uri: string, mime: string, diarize:
   });
   let r = await send(diarize);
   // 통화 전사와 같은 규칙: 화자 구분을 거절(400)하면 화자 구분 없이 한 번 더.
-  if (diarize && r.status === 400) { await r.body?.cancel(); r = await send(false); }
+  if (diarize && r.status === 400) { await geminiWarn('transcribe_diarize', r); r = await send(false); }
+  if (!r.ok) { await geminiWarn('transcribe', r); throw new Fail(geminiCode(r.status)); }
   const d = await r.json().catch(() => null);
-  if (!r.ok || !d) throw new Fail('gemini_failed');
+  if (!d) throw new Fail('gemini_failed');
   return d;
 }
 
@@ -297,10 +308,11 @@ async function transcribe(user: { id: string }, userDb: ReturnType<typeof userCl
     const token = await driveToken();
     const media = await fetch(`${DRIVE}/${encodeURIComponent(job.drive_file_id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
     if (!media.ok || !media.body) throw new Fail('drive_failed');
-    const file = await geminiUpload(key, job, media);
+    const audio = await audioForGemini(job, media);
+    const file = await geminiUpload(key, job, audio.body, audio.size);
     geminiFile = file.name;
     await geminiActive(key, file.name, file.state);
-    const response = await geminiTranscribe(key, file.uri, file.mimeType || job.mime_type, wantsDiarize(job.duration_sec));
+    const response = await geminiTranscribe(key, file.uri, file.mimeType || job.mime_type, wantsDiarize(job.duration_sec ?? audio.seconds));
     // Gemini가 답했으면(글이 비었어도) 쓴 만큼 기록한다.
     const usage = readUsage(response, job.duration_sec);
     const at = new Date();
@@ -312,11 +324,29 @@ async function transcribe(user: { id: string }, userDb: ReturnType<typeof userCl
     await setJob(job.id, { status: 'done', error_code: null, model: usage.model, finished_at: new Date().toISOString() });
     return json({ ok: true, job_id: job.id, text: result.text, speaker_split: result.speakerSplit, model: usage.model });
   } catch (e) {
-    const code = e instanceof Fail ? e.code : (e instanceof DOMException && e.name === 'TimeoutError' ? 'gemini_failed' : 'failed');
+    const code = e instanceof Fail ? e.code : (e instanceof DOMException && e.name === 'TimeoutError' ? 'gemini_timeout' : 'failed');
     await setJob(job.id, { status: 'failed', error_code: code, finished_at: new Date().toISOString() }).catch(() => undefined);
     throw e instanceof Fail ? e : new Fail(code);
   } finally {
     if (geminiFile) await geminiDelete(key, geminiFile);
+  }
+}
+
+// Gemini에 보낼 소리. Ogg 파일(폰 녹음 등)은 쪽 머리를 규격대로 고쳐 보낸다(ogg.mjs: 안드로이드 녹음기의 granule·끝 표시 문제).
+// Drive 원본은 그대로 둔다(이미 합친 오늘 녹음도 [다시]로 이 길을 탄다). 그 밖의 형식·큰 파일은 지금처럼 흘려 보낸다.
+async function audioForGemini(job: Job, media: Response): Promise<{ body: ReadableStream<Uint8Array> | Uint8Array; size: number; seconds: number | null }> {
+  if (!wantsOggFix(job.mime_type, job.file_name, job.size_bytes)) return { body: media.body!, size: job.size_bytes, seconds: null };
+  let bytes: Uint8Array;
+  try { bytes = new Uint8Array(await media.arrayBuffer()); } catch { throw new Fail('drive_failed'); }
+  try {
+    const fixed = normalizeOggOpus(bytes);
+    const st = fixed.stats;
+    // 수만 남긴다(운영 로그에서 원인 확인용): 쪽 수·길이·고친 granule·첫 granule 초·검사합 틀림·뺀 바이트·끝 표시 추가.
+    console.warn('meeting-transcribe: ogg', st.kind, st.pages, st.seconds, st.fixed_granule, st.first_granule_sec, st.bad_crc, st.dropped_bytes, st.eos_added);
+    return { body: fixed.bytes, size: fixed.bytes.byteLength, seconds: st.kind === 'opus' ? st.seconds || null : null };
+  } catch (e) {
+    if (e instanceof OggFail) { console.warn('meeting-transcribe: ogg unreadable', bytes.byteLength); throw new Fail('bad_format'); }
+    throw e;
   }
 }
 
