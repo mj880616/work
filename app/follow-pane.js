@@ -4,6 +4,7 @@
 // - 칸이 화면보다 길면 내려갈 때는 칸 끝까지 같이 내려간 뒤 아래쪽에 붙고, 올라갈 때는 칸 머리까지 같이 올라간 뒤 위쪽에 붙는다.
 //   그래서 칸 안에 따로 스크롤 막대를 두지 않아도 칸 전체를 읽을 수 있다.
 // - 새 항목을 그려 다시 부르면(followPane 다시 호출) 칸 머리부터 보인다(아래쪽 옛 줄을 눌러도 상세가 바로 보임).
+//   칸을 품은 줄 끝 때문에 머리가 화면 위에 남으면 그만큼만 화면을 올린다(revealHead).
 // 모양(position:sticky·top)은 desktop-ui.css의 .kptu-follow-pane 한 곳이 정하고, 이 모듈은 칸마다 --follow-top 값 하나만 바꾼다.
 // 칸 내용·배치는 각 화면 renderer 그대로다. 서버·기기 저장 없음.
 const GAP = 12;
@@ -25,6 +26,17 @@ function apply(el, st) {
   st.t = clampFollowTop(st.t, { top: st.top, view: viewH(st.scroller), height: el.offsetHeight });
   const v = `${Math.round(st.t)}px`;
   if (el.style.getPropertyValue('--follow-top') !== v) el.style.setProperty('--follow-top', v);
+}
+// 칸 머리가 화면(또는 창 몸통) 위로 지나가 있으면 그만큼 화면을 올려 머리를 보인다.
+// 붙어 따라오는 칸(sticky)은 자기를 품은 줄(목록 칸과 같은 grid 줄) 끝 아래로는 내려가지 못한다. 그래서 목록 맨 아래 옛 줄을 고른 때처럼
+// 화면이 줄 끝 가까이 내려가 있고 칸이 화면보다 길면, top 값을 머리로 돌려도 머리가 화면 위에 남는다(CI arsenal-view PC 1440).
+function revealHead(el, st) {
+  if (!el.getClientRects().length) return;
+  const base = st.scroller === window ? 0 : st.scroller.getBoundingClientRect().top;
+  const over = el.getBoundingClientRect().top - base - st.top;
+  if (over >= -1) return;
+  if (st.scroller === window) window.scrollBy({ top: over, behavior: 'instant' }); else st.scroller.scrollTop += over;
+  lastPos.set(st.scroller, pos(st.scroller)); // 이 이동은 머리를 보이려는 것이라 따라오기 값(t)을 다시 밀지 않는다.
 }
 function onScroll(scroller) {
   const now = pos(scroller), d = now - (lastPos.get(scroller) ?? now);
@@ -64,4 +76,5 @@ export function followPane(el, { top = GAP, scroller = window, reset = true } = 
     if (reset) { st.t = top; lastPos.set(scroller, pos(scroller)); }
   }
   apply(el, st);
+  if (reset) revealHead(el, st);
 }

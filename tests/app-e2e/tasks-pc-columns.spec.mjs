@@ -4,6 +4,7 @@
 // 폰·중간 폭은 지금 묶음 목록 그대로. 상세 칸은 지금 수정 창과 같은 요소·같은 저장 경로(google-tasks update/link/unlink)를 쓴다.
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
+import {innerScrollers} from './helpers/one-scroll.mjs';
 
 const NOW=Date.parse('2026-10-08T03:00:00Z'); // 한국 시각 10월 8일 정오
 const task=(id,due=null,extra={})=>({id,title:'할 일 '+id,taskListId:'@default',taskListTitle:'내 할 일',due,status:'needsAction',notes:'',...extra});
@@ -336,6 +337,7 @@ test('PC 1024(좁은 PC): 좌 1/3 : 우 2/3(왼쪽 최소 폭 안), 체크 목�
   const xs=await page.locator('#gtDetailPane .gt-link-group[aria-label="사업영역"] .gt-link-opt').evaluateAll(es=>es.map(e=>Math.round(e.getBoundingClientRect().left)));
   expect(new Set(xs).size).toBe(1);
   const m=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,sh:document.documentElement.scrollHeight,ih:innerHeight}));
-  expect(m.sw).toBeLessThanOrEqual(m.cw+1);expect(m.sh).toBeLessThanOrEqual(m.ih+1);
+  // UI-칸안스크롤하나로(시안 A): 화면보다 길면 화면(문서)이 세로로 넘어가고, 칸 안에는 따로 세로 스크롤이 없다(예전: 화면 높이 한 페이지 + 칸 안 스크롤).
+  expect(m.sw).toBeLessThanOrEqual(m.cw+1);expect(await innerScrollers(page,'#tasksView')).toEqual([]);
   const pw=await page.locator('#gtDetailPane').evaluate(e=>e.scrollWidth-e.clientWidth);expect(pw).toBeLessThanOrEqual(1);
 });

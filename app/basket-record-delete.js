@@ -9,7 +9,7 @@
 import {confirmLinks} from './basket-classification.js';
 import {TRASH_STATE,TRASH_TEXT,otherDeleteText,otherDeleteBlockedText} from './project-trash-model.mjs';
 import {readTrashKind,restoreFromTrashKind} from './trash-rpc.js';
-import {holdTimer,recordUndo,dropUndo,hideSmallNotices,NOTICE_UNDO_MS} from './small-notice.js'; // UI-작은알림자리: 위쪽 2초·올려 두면 멈춤·Ctrl+Z 기록
+import {holdTimer,recordUndo,dropUndo,hideSmallNotices,noticeHost,NOTICE_UNDO_MS} from './small-notice.js'; // UI-작은알림자리: 위쪽 2초·올려 두면 멈춤·Ctrl+Z 기록
 
 const PAGE_SIZE=100;
 const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
@@ -213,7 +213,7 @@ export function closeUndoNotice(){undoClock?.stop();undoClock=null;undoBox?.remo
 globalThis.window?.addEventListener?.('kptu:session-changed',closeUndoNotice);
 export function offerUndoNotice({text=RECORD_DELETE_TEXT.DISCONNECTED,onUndo,ms=UNDO_MS,doc=globalThis.document}={}){
   closeUndoNotice();if(!doc||typeof onUndo!=='function')return null;
-  const host=[...doc.querySelectorAll('.modal:not(.hidden)')].at(-1)||doc.body;
+  const host=noticeHost(doc); // 열린 창 안(PC 칸에 붙인 창은 그 창 안에 있을 때만, small-notice.js)
   const box=doc.createElement('div');box.className='kptu-undo-notice';box.dataset.undoNotice='';
   box.innerHTML='<span role="status" aria-live="polite" data-undo-text></span><button type="button" data-undo-action>되돌리기</button>';
   const line=box.querySelector('[data-undo-text]'),button=box.querySelector('[data-undo-action]');line.textContent=text;
