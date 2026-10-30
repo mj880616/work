@@ -157,8 +157,8 @@ for(const width of [390,1280])test(`organization documents show each kind and fi
  await expect(host).toHaveAttribute('role','group');
  for(const name of DEFAULT)await expect(chip(host,name)).toHaveAttribute('aria-pressed','true');
  // Phone: one line that scrolls sideways. PC(1024px~, UI-점검1030손질 C7): wraps instead (no sideways scroll a mouse cannot reach). Small; touch area 44px.
- expect(await oneLine(host)).toBe(width<1024);
- if(width>=1024)expect(await host.evaluate(h=>h.scrollWidth<=h.clientWidth)).toBe(true);
+ if(width<1024)expect(await oneLine(host)).toBe(true);
+ else{expect(await host.evaluate(h=>getComputedStyle(h).flexWrap)).toBe('wrap');expect(await host.evaluate(h=>h.scrollWidth<=h.clientWidth)).toBe(true);}
  const box=await chip(host,'투쟁').boundingBox();expect(box.height).toBeLessThanOrEqual(32.5);
  expect(await noWideScroll(page)).toBe(true);
  if(width<761)expect(await host.evaluate(h=>h.scrollWidth>h.clientWidth)).toBe(true);

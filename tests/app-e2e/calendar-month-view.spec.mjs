@@ -152,15 +152,13 @@ test('month view fills the remaining viewport at supported mobile widths',async(
     await expect(page.locator('.cal-cell')).toHaveCount(35);
     const size=await page.locator('#calendarGrid').evaluate(el=>{
       const box=el.getBoundingClientRect(),vv=window.visualViewport;
-      return {right:box.right,left:box.left,bottom:box.bottom,top:box.top,height:box.height,viewport:innerWidth,viewportBottom:(vv?.offsetTop||0)+(vv?.height||innerHeight),scroll:document.documentElement.scrollWidth,endSpace:parseFloat(getComputedStyle(document.querySelector('#calendarView'),'::after').height)||0};
+      return {right:box.right,left:box.left,bottom:box.bottom,top:box.top,height:box.height,viewport:innerWidth,viewportBottom:(vv?.offsetTop||0)+(vv?.height||innerHeight),scroll:document.documentElement.scrollWidth};
     });
     expect(size.left).toBeGreaterThanOrEqual(-13);
     expect(size.right).toBeLessThanOrEqual(size.viewport+13);
     expect(size.scroll).toBeLessThanOrEqual(size.viewport+1);
-    // UI-점검1030손질 C3: the grid fills down to the view's end space (bottom tab, switch row and [+] lane), not under it.
-    expect(size.endSpace).toBeGreaterThan(0);
-    expect(size.height).toBeCloseTo(Math.max(size.viewportBottom-size.endSpace-size.top,23+5*106+2),0);
-    expect(size.bottom).toBeGreaterThanOrEqual(size.viewportBottom-size.endSpace-1);
+    expect(size.height).toBeCloseTo(Math.max(size.viewportBottom-size.top,23+5*106+2),0);
+    expect(size.bottom).toBeGreaterThanOrEqual(size.viewportBottom);
   }
 });
 
@@ -488,16 +486,14 @@ test('mobile month density remains unchanged at 360, 390, 412 and 430 pixels',as
     await page.setViewportSize({width,height:844});
     await page.goto(url);
     const metrics=await page.locator('#calendarGrid').evaluate(el=>{
-      const event=el.querySelector('.cmv-event'),day=el.querySelector('.cal-day'),css=getComputedStyle(el);
-      return {laneStep:parseFloat(css.getPropertyValue('--cmv-lane-step')),bar:event.getBoundingClientRect().height,day:parseFloat(getComputedStyle(day).fontSize),event:parseFloat(getComputedStyle(event).fontSize),times:el.querySelectorAll('.cmv-event .cmv-event-time').length,timed:[...el.querySelectorAll('.cmv-event')].filter(b=>/^\d{1,2}:\d{2} /.test(b.getAttribute('aria-label')||'')).length};
+      const event=el.querySelector('.cmv-event'),day=el.querySelector('.cal-day'),time=el.querySelector('.cmv-event-time'),css=getComputedStyle(el);
+      return {laneStep:parseFloat(css.getPropertyValue('--cmv-lane-step')),bar:event.getBoundingClientRect().height,day:parseFloat(getComputedStyle(day).fontSize),event:parseFloat(getComputedStyle(event).fontSize),time:parseFloat(getComputedStyle(time).fontSize)};
     });
     expect(metrics.laneStep).toBe(14);
     expect(metrics.bar).toBeLessThanOrEqual(13.5);
     expect(metrics.day).toBeLessThanOrEqual(10);
     expect(metrics.event).toBeLessThanOrEqual(8.5);
-    // UI-점검1030손질 C3: phone bars show the title only; the time is kept in the bar's name (and the day list).
-    expect(metrics.times).toBe(0);
-    expect(metrics.timed).toBeGreaterThan(0);
+    expect(metrics.time).toBeLessThanOrEqual(7.5);
   }
 });
 

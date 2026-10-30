@@ -47,7 +47,8 @@ for(const width of [412,884,1440])test(`기간이 맨 위, 월말 예상, 입력
   // 추정은 맨 위 한 곳만, 잔액·충전·청구·설명 문장·입력 없음
   expect(await line.evaluate(el=>(el.textContent.match(/추정/g)||[]).length)).toBe(1);
   await expect(line).not.toContainText(/잔액|충전|청구|돌려받은/);
-  await expect(line.locator('button')).toHaveCount(1);
+  // 줄 자기 버튼은 펼치기 하나(폰·중간 폭은 제목 줄 끝에 홈 ⋯가 따로 들어온다, UI-점검1030손질 C6).
+  await expect(line.locator('button:not([data-he-more])')).toHaveCount(1);
   await expect(line.locator('input,select,form,details')).toHaveCount(0);
   // 한 줄 높이가 커지지 않음(제목+요약 두 줄), 가로 넘침 없음
   expect((await head.boundingBox()).height).toBeLessThanOrEqual(48);

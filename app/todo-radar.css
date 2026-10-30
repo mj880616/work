@@ -59,7 +59,7 @@
 #appView :is(#homeView,#journalView) .radar-checked{ margin-top:6px; }
 /* UI-점검1030손질 C9: 기한 칩 끝의 공용 날짜 칸(date-field.js). 칩과 같은 높이·작은 글자, 폭은 날짜 글자만큼(위 .radar-edit input의 넓은 칸 규칙을 이 칸만 좁힌다). */
 #appView :is(#homeView,#journalView) .radar-edit .radar-due input.radar-date{ flex:none; width:8.5em; min-width:0; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 26px 0 10px; font-size:var(--ds-compact-text); }
-#appView :is(#homeView,#journalView) .radar-due .date-field{ flex:none; }
+#appView :is(#homeView,#journalView) .radar-due .date-field{ flex:none; display:inline-flex; width:auto; }
 
 #appView #journalView .journal-radar.radar-collapsed{ padding:6px 12px; gap:0; }
 #appView #journalView .journal-radar .radar-quiet{ margin:0; }

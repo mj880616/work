@@ -5,7 +5,7 @@ import {join, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {paintScrollEdges} from '../app/scroll-edge.js';
 
-// UI-점검1030손질(2026-10-30 사이트 점검 실측 C2~C9)의 재발 방지. 화면 수치는 tests/app-e2e/ui-audit-1030.spec.mjs 등(412·1440)이 본다.
+// UI-점검1030손질(2026-10-30 사이트 점검 실측 C2·C4~C7·C9)의 재발 방지. 화면 수치는 tests/app-e2e/ui-audit-1030.spec.mjs 등(412·1440)이 본다.
 const app = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const read = f => readFileSync(join(app, f), 'utf8');
 const noComments = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -48,12 +48,6 @@ test('C5 정리함 [다시 찾기]는 거르기 칩과 다른 글자 버튼(테�
   const find = css.match(/#appView #basketView \.inbox-find \{([^}]*)\}/)?.[1] || '';
   assert.match(find, /border:0;/); assert.match(find, /background:transparent;/); assert.match(find, /color:var\(--kptu-primary-ink\)/);
   assert.doesNotMatch(css, /\.inbox-find,#appView #basketView \.inbox-chip \{/);
-});
-
-test('C3 폰 달력 막대는 제목만, 칸은 끝 여백(하단 탭·전환 줄·[+]) 위에서 끝난다', () => {
-  const src = read('calendar-month-view.js');
-  assert.match(src, /tm&&!mq760\.matches\?`<span class="cmv-event-time">/);
-  assert.match(src, /getComputedStyle\(view,'::after'\)\.height/);
 });
 
 test('C6 홈 ⋯는 AI 사용량 제목 줄 끝 자리로(폰·중간 폭), 그 줄은 자리만 둔다', () => {

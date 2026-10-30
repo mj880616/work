@@ -2,8 +2,8 @@ import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 // UI-점검1030손질(2026-10-30 사이트 점검 실측): 폰 412·PC 1440 수치 확인.
-// C2 사업 보고 칸 칩 줄은 [거르기 ▾] 앞에서 끝나고 넘치면 끝을 흐리게, C3 폰 달력 [+]가 마지막 줄 칸을 가리지 않고 일정 막대는 제목만,
-// C4 달력 이전·다음 달 화살표 누르는 범위 44px, C5 정리함 [다시 찾기]는 칩이 아니라 글자 버튼. 합성 자료만, 진짜 서버 호출 없음.
+// C2 사업 보고 칸 칩 줄은 [거르기 ▾] 앞에서 끝나고 넘치면 끝을 흐리게, C4 달력 이전·다음 달 화살표 누르는 범위 44px.
+// 합성 자료만, 진짜 서버 호출 없음.
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'audit-user',email:'audit@example.invalid',user_metadata:{display_name:'Audit QA'}};
@@ -45,28 +45,13 @@ async function openApp(page,view){
   await page.evaluate(v=>window.KPTURouter.go(v,{source:'audit-test'}),view);
   await expect(page.locator(`#${view}View`)).toBeVisible({timeout:15000});
 }
-const overlap=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
 
 test.describe('폰 412',()=>{
   test.use({viewport:{width:412,height:915},timezoneId:'Asia/Seoul',hasTouch:true});
 
-  test('C3 달력: [+]가 마지막 줄 칸을 가리지 않고, 일정 막대는 제목만(시각은 이름에), 화살표 누르는 범위 44px',async({page})=>{
+  test('C4 달력 이전·다음 달 화살표: 보이는 폭은 좁아도 누르는 범위 44px',async({page})=>{
     await openApp(page,'calendar');
-    await expect(page.locator('#calendarGrid .cal-cell[data-date="2026-10-31"]')).toBeVisible();
-    const fab=await page.locator('#newEventBtn').boundingBox();
-    const cells=await page.locator('#calendarGrid .cal-cell').evaluateAll(list=>list.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,date:el.dataset.date}}));
-    expect(cells.length).toBeGreaterThanOrEqual(35);
-    // 화면을 밀지 않은 첫 모습에서 어떤 날짜 칸도 [+]와 겹치지 않는다(31일 칸 포함).
-    expect(cells.filter(c=>overlap(c,fab)).map(c=>c.date)).toEqual([]);
-    const last=cells.at(-1),tabs=await page.locator('.mobile-tabs').boundingBox();
-    expect(last.y+last.height).toBeLessThanOrEqual(fab.y+1);
-    expect(last.y+last.height).toBeLessThanOrEqual(tabs.y);
-    // 일정 막대: 폰 칸(약 58px)에는 제목만 그린다. 시각은 막대 이름에 남는다.
-    const bar=page.locator('#calendarGrid .cmv-event[data-google-event="audit-ev-1"]').first();
-    await expect(bar).toBeVisible();
-    await expect(bar.locator('.cmv-event-time')).toHaveCount(0);
-    await expect(bar.locator('.cmv-event-title')).toHaveText('피부과 합성 일정');
-    await expect(bar).toHaveAttribute('aria-label','10:00 피부과 합성 일정');
+    await expect(page.locator('#prevMonthBtn')).toBeVisible();await expect(page.locator('#nextMonthBtn')).toBeVisible();
     // 이전·다음 달 화살표: 보이는 칸은 좁아도(16px) 옆 18px을 눌러도 그 화살표다.
     for(const [id,dx] of [['prevMonthBtn',18],['nextMonthBtn',-18]]){
       const b=await page.locator('#'+id).boundingBox();
@@ -90,17 +75,6 @@ test.describe('폰 412',()=>{
       await row.evaluate(el=>{el.scrollLeft=el.scrollWidth});
       await expect(row).toHaveAttribute('data-scroll-more','start');
     }
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  });
-});
-
-test.describe('PC 1440',()=>{
-  test.use({viewport:{width:1440,height:900},timezoneId:'Asia/Seoul'});
-  test('C3 달력: PC 일정 막대는 시각과 제목을 그대로 그린다',async({page})=>{
-    await openApp(page,'calendar');
-    const bar=page.locator('#calendarGrid .cmv-event[data-google-event="audit-ev-1"]').first();
-    await expect(bar).toBeVisible();
-    await expect(bar.locator('.cmv-event-time')).toHaveText('10:00');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 });

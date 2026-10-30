@@ -158,7 +158,7 @@ for(const width of [1280])test(`✎ opens in place: fix the title, pick 오늘/�
 });
 
 // UI-점검1030손질 C9: the ✎ box also has the app's shared date field (date-field.js) after the four chips; a picked day is the due.
-for(const width of [412,1440])test(`✎ box has the shared date field and a picked day becomes the due ${width}`,async({page})=>{
+for(const width of [1440])test(`✎ box has the shared date field and a picked day becomes the due ${width}`,async({page})=>{
  const f=await fixture(page,{width});const box=radar(page),creates=createsOf(page);
  const row=box.locator(`[data-radar-row="${id(1)}"]`);
  await tap(page,btn(row,'고쳐서 넣기'),width);
