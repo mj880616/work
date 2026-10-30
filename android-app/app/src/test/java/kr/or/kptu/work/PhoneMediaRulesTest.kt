@@ -31,7 +31,7 @@ class PhoneMediaRulesTest {
     @Test
     fun wrongKeyHostMethodOrValuesAreRefused() {
         val other = "ZZZZefghijklmnopqrstuvwxyzABCDEF"
-        assertEquals(Request.Bad, PhoneMediaRules.request("https://bokdoong.com/work/app/__phone/$other/page", "GET", key))
+        assertEquals(Request.WrongKey, PhoneMediaRules.request("https://bokdoong.com/work/app/__phone/$other/page", "GET", key))
         assertEquals(Request.Bad, PhoneMediaRules.request("https://evil.example/work/app/__phone/$key/page", "GET", key))
         assertEquals(Request.Bad, PhoneMediaRules.request("http://bokdoong.com/work/app/__phone/$key/page", "GET", key))
         assertEquals(Request.Bad, PhoneMediaRules.request("https://bokdoong.com:8443/work/app/__phone/$key/page", "GET", key))
@@ -47,7 +47,7 @@ class PhoneMediaRulesTest {
         assertEquals(Request.Bad, PhoneMediaRules.request(base + "days?month=2026-13", "GET", key))
         assertEquals(Request.Bad, PhoneMediaRules.request(base + "../etc", "GET", key))
         // 열쇠가 아직 없으면(빈 값) 무엇도 주지 않는다.
-        assertEquals(Request.Bad, PhoneMediaRules.request(base + "page", "GET", ""))
+        assertEquals(Request.WrongKey, PhoneMediaRules.request(base + "page", "GET", ""))
     }
 
     @Test
@@ -125,5 +125,51 @@ class PhoneMediaRulesTest {
         val days = PhoneMediaRules.daysJson(listOf(media(1, d1), media(2, d1 + 1000), media(3, d1 + 2000, video = true)), "2026-10", setOf(1L))
         assertTrue(days.startsWith("{\"days\":{\"2026-10-02\":{\"count\":3,\"cover\":{\"id\":\"1\""))
         assertTrue(PhoneMediaRules.idsJson(listOf(media(1, 1), media(2, 2)), listOf(2L, 7L)).contains("\"id\":\"2\""))
+    }
+
+    // PHOTO-폰사진못읽음: 실패를 빈 404로 뭉개지 않고 종류를 돌려준다(사진 이름·경로·예외 글은 넣지 않음).
+    @Test
+    fun failuresCarryKindAndClassNameOnly() {
+        assertEquals("{\"error\":\"query\",\"detail\":\"IllegalStateException\"}", PhoneMediaRules.failJson(PhoneMediaRules.Fail.QUERY, "IllegalStateException"))
+        assertEquals("{\"error\":\"key\",\"detail\":\"\"}", PhoneMediaRules.failJson(PhoneMediaRules.Fail.KEY))
+        // 클래스 이름 자리에 경로·따옴표가 와도 글자·숫자·_·$·.만 남는다.
+        assertEquals("storageemulated0DCIMa.jpg", PhoneMediaRules.safeDetail("/storage/emulated/0/DCIM/\"a.jpg"))
+        assertEquals(60, PhoneMediaRules.safeDetail("x".repeat(100)).length)
+        assertEquals(403, PhoneMediaRules.Fail.PERMISSION.status)
+        assertEquals(403, PhoneMediaRules.Fail.KEY.status)
+        assertEquals(400, PhoneMediaRules.Fail.BAD_REQUEST.status)
+        assertEquals(500, PhoneMediaRules.Fail.QUERY.status)
+        assertEquals("Forbidden", PhoneMediaRules.reasonPhrase(403))
+        assertEquals("Internal Server Error", PhoneMediaRules.reasonPhrase(500))
+    }
+
+    @Test
+    fun exceptionsAreSortedByStage() {
+        val list = PhoneMediaRules.Stage.LIST
+        assertEquals(PhoneMediaRules.Fail.PERMISSION, PhoneMediaRules.classify(SecurityException("no"), list))
+        assertEquals(PhoneMediaRules.Fail.COLUMN, PhoneMediaRules.classify(IllegalArgumentException("Invalid column date_taken"), list))
+        assertEquals(PhoneMediaRules.Fail.QUERY, PhoneMediaRules.classify(IllegalArgumentException("Unknown URL"), list))
+        assertEquals(PhoneMediaRules.Fail.QUERY, PhoneMediaRules.classify(IllegalStateException("cursor"), list))
+        assertEquals(PhoneMediaRules.Fail.PERMISSION, PhoneMediaRules.classify(SecurityException("no"), PhoneMediaRules.Stage.THUMB))
+        assertEquals(PhoneMediaRules.Fail.NOT_FOUND, PhoneMediaRules.classify(java.io.FileNotFoundException("x"), PhoneMediaRules.Stage.THUMB))
+        assertEquals(PhoneMediaRules.Fail.DECODE, PhoneMediaRules.classify(java.io.IOException("x"), PhoneMediaRules.Stage.THUMB))
+        assertEquals(PhoneMediaRules.Stage.THUMB, PhoneMediaRules.stageOf(Request.Thumb(1, false)))
+        assertEquals(PhoneMediaRules.Stage.ORIGINAL, PhoneMediaRules.stageOf(Request.Original(1)))
+        assertEquals(PhoneMediaRules.Stage.LIST, PhoneMediaRules.stageOf(Request.Months("all")))
+        assertEquals("SecurityException", PhoneMediaRules.detailOf(SecurityException("/storage/x.jpg")))
+    }
+
+    @Test
+    fun imagesAndVideosAreReadSeparatelyAndCombined() {
+        val a = media(1, 100)
+        val b = media(2, 200, video = true)
+        assertNull(PhoneMediaRules.combine(null, null))
+        assertEquals(listOf(a), PhoneMediaRules.combine(listOf(a), null))
+        assertEquals(listOf(b), PhoneMediaRules.combine(null, listOf(b)))
+        assertEquals(listOf(a, b), PhoneMediaRules.combine(listOf(a), listOf(b, a)))
+        assertEquals(emptyList<Media>(), PhoneMediaRules.combine(emptyList(), null))
+        // 합친 뒤 정렬은 쪽 규칙 그대로(찍은 날 최근 먼저).
+        val page = PhoneMediaRules.page(PhoneMediaRules.combine(listOf(a), listOf(b))!!, Request.Page("taken_desc", "all", 0, 10, null))
+        assertEquals(listOf(2L, 1L), page.items.map { it.id })
     }
 }

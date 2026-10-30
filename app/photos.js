@@ -27,7 +27,7 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
   odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, readPhoneStars, addStar, removeStar, starKey, takenLabel, takeOdReturn} from './diary-onedrive.js';
 import {phonePhotos} from './phone-photos.js';
-import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, SOURCE_TEXT} from './photo-sources-model.mjs';
+import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT} from './photo-sources-model.mjs';
 import {ownerScope} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
 import {SIZE_BUTTONS, WIDE_QUERY, createGridSizer} from './photo-grid-size.js';
@@ -149,6 +149,8 @@ function ensureStars(r) {
 }
 const starIds = () => [...starSet].filter(k => k.startsWith('onedrive:')).map(k => k.slice('onedrive:'.length));
 const phoneStarIds = () => [...starSet].filter(k => k.startsWith('phone:')).map(k => phoneIdOfKey(k.slice('phone:'.length))).filter(Boolean);
+// PHOTO-폰사진못읽음: 실패 이유 글. 폰 다리 실패(error.phone·폰 접근 없음)는 폰 이유, 나머지는 원드라이브 이유.
+const readErrorText = error => (error?.phone || error?.message === 'phone_no_access' ? phoneErrorText(error) : odErrorText(error));
 // 폰 사진 별표 칸(★ 거르기 목록·달력·막대). 별표가 바뀌면 버린다.
 async function phoneStarList(r) {
   await ensureStars(r);
@@ -246,7 +248,7 @@ function loadMore() {
       failed = '';
     } catch (error) {
       if (!current(r)) return;
-      if (src === 'phone') failed = '폰 사진을 읽지 못했어요.';
+      if (src === 'phone' || error?.phone) failed = phoneErrorText(error);
       else { failed = odErrorText(error); odFault = true; paintOdLink(linkBtn, od, odFault); }
     } finally { if (current(r)) loading = null; }
     if (current(r) && tab === 'all') { paintList(); loadBar(r); }
@@ -360,7 +362,7 @@ function paintList({full = false} = {}) {
   rendered = items.length; renderedIds = items.map(x => x.id);
   list.querySelectorAll('[data-photos-day]').forEach(h => { const n = h.querySelector('[data-photos-day-n]'); if (n) n.textContent = `· ${counts.get(h.dataset.photosDay) || 0}장`; });
   const foot = body.querySelector('[data-photos-foot]');
-  foot.innerHTML = failed ? failHtml({retry: 'data-photos-more'})
+  foot.innerHTML = failed ? failHtml({retry: 'data-photos-more', reason: failed})
     : ended ? (items.length ? '' : filter === 'all' ? '사진이 없어요.' : `${FILTER_TEXT[filter]} 사진이 없어요.`) : waitHtml({rows:2, h:72});
   sizer.paintButtons(root); paintSelect(); paintRail();
   watchFoot(foot);
@@ -398,7 +400,7 @@ async function renderCalendar() {
       }
       days = mergeDays(odD, phD);
       calData.set(cacheKey, days);
-    } catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(odErrorText(error))}</p>`; return; }
+    } catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(readErrorText(error))}</p>`; return; }
     if (!current(r) || tab !== 'calendar' || calCursor !== ym || filter !== want) return;
   }
   const {lead, cells} = calendarFromDays(ym, days), today = seoulDateKey(new Date());
@@ -892,7 +894,7 @@ function paintFolderGrid() {
   box.replaceChildren();
   const list = fFor === at ? fItems : [];
   if (list.length) { const grid = newGrid(); list.forEach((item, i) => { const c = cell(item, i); c.draggable = treeWide(); grid.append(c); }); box.append(grid); }
-  foot.innerHTML = fFor === at && fFailed ? failHtml({retry:'data-photos-fx-again'}) : fFor === at && fEnded ? (list.length ? '' : '이 폴더에 바로 든 사진이 없어요.') : waitHtml({rows:2, h:72});
+  foot.innerHTML = fFor === at && fFailed ? failHtml({retry:'data-photos-fx-again', reason:fFailed}) : fFor === at && fEnded ? (list.length ? '' : '이 폴더에 바로 든 사진이 없어요.') : waitHtml({rows:2, h:72});
   sizer.paintButtons(root); paintSelect();
   io?.disconnect();
   if (fFor === at && !fEnded && !fFailed && 'IntersectionObserver' in window) {
@@ -1035,7 +1037,7 @@ async function loadAlbum(id) {
       const ph = phoneUsable() && c.phoneKeys.length ? await phone.byIds(c.phoneKeys.map(phoneIdOfKey)) : [];
       if (!current(r) || aFor !== id) return;
       aItems = [...all.map(toItem), ...ph].sort(sortCompare(sort));
-    } catch (error) { if (current(r) && aFor === id) aFailed = odErrorText(error); }
+    } catch (error) { if (current(r) && aFor === id) aFailed = readErrorText(error); }
     finally { if (aFor === id) aLoading = null; }
     if (current(r) && tab === 'albums' && album === id) renderAlbums();
   })();

@@ -447,6 +447,8 @@ jobs:
         run: node --test tests/photos-model.test.mjs
       - name: "Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)"
         run: node --test tests/photo-sources.test.mjs
+      - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"
+        run: node --test tests/phone-photo-errors.test.mjs
 
       - name: Check arsenal menu (주소 개편 ② E1, newest-first list·season/competition/search filters·goal lines·https links only, real archive data)
         run: node --test tests/arsenal-model.test.mjs
