@@ -43,7 +43,7 @@ test('⑤ 공용 formatSeoulTime은 시·분을 받으면 초 없이 24시간 �
 });
 
 // '오전'·'오후' 글자를 쓰는 곳은 글 속 시각을 읽는 해석기·흔한 낱말 목록·반나절 표시뿐이다(시각 표기 아님).
-const MERIDIEM_OK = new Set(['meeting-when.js', 'weekly-hwpx/schedule.mjs', 'library-ai-fill.js', 'weekly-exec-requests.js', 'collection-status.js', 'meeting-time.js', 'calendar-create-slot.js']);
+const MERIDIEM_OK = new Set(['meeting-when.js', 'weekly-hwpx/schedule.mjs', 'library-file-name.mjs', 'weekly-exec-requests.js', 'collection-status.js', 'meeting-time.js', 'calendar-create-slot.js']);
 test('⑤ 오전/오후 글자를 새로 화면 시각에 붙이지 않는다', () => {
   const found = scripts.filter(f => /['"`]오[전후]|오[전후]['"`]/.test(code(read(f)))).filter(f => !MERIDIEM_OK.has(f));
   assert.deepEqual(found, []);
