@@ -122,22 +122,30 @@ test('weekly_draft: untrusted answer lines are cleaned per line; broken answers 
 });
 
 test('weekly_review: reads the week\'s confirmed feedback, writes review + rules into that row (human-edited rules kept), retries on a moved stamp',async()=>{
-  const review={rules:['끝난 일은 결과부터','날짜는 10.28.(화) 꼴','사람이 고친 규칙'],candidates:['끝난 일은 결과부터'],suggestions:['산하조직 칸은 그 주 업데이트가 없으면 지난 줄 유지','회의 결정 칸을 요약 끝에']};
+  const review={rules:['끝난 일은 결과부터','날짜는 10.28.(화) 꼴','사람이 고친 규칙'],candidates:['끝난 일은 결과부터'],
+    suggestions:[{area:'material',text:'회의 결정 칸을 요약 끝에'},{area:'input',text:'산하조직 칸은 4주 중 3주 비움 — 처음부터 비워 두면'},{area:'bogus',text:'분류 틀림'}]};
   const {handler,calls,db}=harness({openai:()=>respond(answer(review)),patchMiss:1});
   const res=await post(handler,{kind:'weekly_review',week_start:WEEK});
   assert.equal(res.status,200);
   const body=await res.json();
   assert.equal(body.saved,true);
-  assert.deepEqual(body.review.suggestions.map(s=>s.id),['s1','s2']);
+  // 입력창 분류가 앞에, 분류가 틀린 항목은 버린다.
+  assert.deepEqual(body.review.suggestions,[{id:'s1',area:'input',text:'산하조직 칸은 4주 중 3주 비움 — 처음부터 비워 두면'},{id:'s2',area:'material',text:'회의 결정 칸을 요약 끝에'}]);
   const sent=JSON.parse(calls.openai[0].input[1].content);
   assert.equal(sent.this_week.kept_percent,60);
   assert.deepEqual(sent.past_weeks.map(p=>p.week),['2026-10-19','2026-10-12']);
   assert.deepEqual(sent.current_rules,['THIS_WEEK_RULE','사람이 고친 규칙']);
-  const row=db.app_weekly_exec_requests.find(r=>r.id==='r1');
-  assert.deepEqual(row.draft.feedback.review.candidates,['끝난 일은 결과부터']);
-  assert.equal(row.draft.feedback.counts.kept,3,'feedback numbers kept');
-  assert.deepEqual(row.draft.rules.lines,[{text:'사람이 고친 규칙',from:'edited'},{text:'끝난 일은 결과부터',from:'auto'},{text:'날짜는 10.28.(화) 꼴',from:'auto'}]);
-  assert.equal(row.draft.v,1);assert.deepEqual(row.draft.rows,[]);
+  assert.ok(Array.isArray(sent.input_patterns)&&sent.input_patterns.length>0,'input patterns sent');
+  const o=calls.openai[0];
+  assert.deepEqual(o.text.format.schema.properties.suggestions.items.properties.area.enum,['input','material','flow']);
+  assert.match(o.input[0].content,/area=input\(입력창 모양·칸 구성\)/);
+  assert.match(o.input[0].content,/빼면\/나누면\/합치면/);
+  const row=()=>db.app_weekly_exec_requests.find(r=>r.id==='r1');
+  assert.deepEqual(row().draft.feedback.review.candidates,['끝난 일은 결과부터']);
+  assert.equal(row().draft.feedback.counts.kept,3,'feedback numbers kept');
+  assert.equal(row().draft.feedback.review.suggestions[0].area,'input');
+  assert.deepEqual(row().draft.rules.lines,[{text:'사람이 고친 규칙',from:'edited'},{text:'끝난 일은 결과부터',from:'auto'},{text:'날짜는 10.28.(화) 꼴',from:'auto'}]);
+  assert.equal(row().draft.v,1);assert.deepEqual(row().draft.rows,[]);
   const patches=calls.rest.filter(c=>c.method==='PATCH');
   assert.equal(patches.length,2);
   assert.match(patches[0].query,/draft_saved_at=eq\.2026-10-30T04:00:00\.000Z/);
@@ -153,7 +161,60 @@ test('weekly_review: reads the week\'s confirmed feedback, writes review + rules
 test('pure: learnFromRows keeps only earlier weeks; withReview keeps human rules first and caps at 20',()=>{
   const l=wl.learnFromRows([{week_start:WEEK,feedback:fb(WEEK)},{week_start:'2026-10-19',feedback:fb('2026-10-19'),rules:{at:'a',lines:['r']}},{week_start:'bad'}],WEEK);
   assert.equal(l.weeks,1);assert.deepEqual(l.rules,['r']);
-  const d=wl.withReview({v:1,feedback:fb(WEEK)},{rules:Array.from({length:30},(_,i)=>`규칙 ${i}`),candidates:[],suggestions:['s']},{at:'a',lines:[{text:'내 규칙',from:'added'}]},WEEK,'t');
+  const d=wl.withReview({v:1,feedback:fb(WEEK)},{rules:Array.from({length:30},(_,i)=>`규칙 ${i}`),candidates:[],suggestions:[{area:'input',text:'s'}]},{at:'a',lines:[{text:'내 규칙',from:'added'}]},WEEK,'t');
   assert.equal(d.rules.lines.length,20);assert.deepEqual(d.rules.lines[0],{text:'내 규칙',from:'added'});
-  assert.deepEqual(d.feedback.review,{at:'t',candidates:[],suggestions:[{id:'s1',text:'s'}]});
+  assert.deepEqual(d.feedback.review,{at:'t',candidates:[],suggestions:[{id:'s1',area:'input',text:'s'}]});
+});
+
+// WEEKLY-환류입력창 ①: 칸별 고침 모양(매번 비워 두는 칸·늘 손으로 다시 쓰는 칸·늘 지우는 줄)을 세어 환류 보고 재료로 보낸다.
+test('pure: inputPatterns counts empty / rewritten / dropped weeks per cell (cell stats, or lists for old records)',()=>{
+  const cell=(where,o)=>({where,proposed:2,final:2,kept:2,changed:0,dropped:0,added:0,...o});
+  const weeks=['2026-10-19','2026-10-12','2026-10-05'].map(w=>wl.readFeedbackCell({at:'a',week:w,counts:{},cells:[
+    cell('산하조직 · 가상 조직',{final:0,kept:0,dropped:2}),cell('요약 · 가 › 가-1',{kept:0,changed:1,added:1}),cell('요약 · 나 › 나-1',{})]},w));
+  const old=wl.readFeedbackCell({at:'a',week:'2026-09-28',counts:{},dropped:[{where:'투쟁 사업장 · B 사업장',text:'x'}]},'2026-09-28');
+  const p=wl.inputPatterns([...weeks,old]);
+  assert.deepEqual(p.map(x=>x.where),['산하조직 · 가상 조직','요약 · 가 › 가-1','투쟁 사업장 · B 사업장']);
+  assert.deepEqual(p[0],{where:'산하조직 · 가상 조직',weeks:3,empty_weeks:3,rewritten_weeks:0,dropped_weeks:3,untouched_weeks:0});
+  assert.deepEqual(p[1],{where:'요약 · 가 › 가-1',weeks:3,empty_weeks:0,rewritten_weeks:3,dropped_weeks:0,untouched_weeks:0});
+  assert.equal(p[2].empty_weeks,1,'old record: only dropped lines → final 0');
+  // 손대지 않은 칸은 보내지 않는다.
+  assert.ok(!p.some(x=>x.where==='요약 · 나 › 나-1'));
+  const material=JSON.parse(wl.weeklyReviewMaterial(weeks[0],weeks.slice(1),['r']));
+  assert.equal(material.input_patterns[0].empty_weeks,3);
+});
+
+// WEEKLY-환류입력창 ②: 줄 옆 '이렇게 바꾸면?'. 학습 재료는 규칙·지난 고침 기록(같은 칸 예가 앞), 이번 주 행(개인본·고침·규칙)은 보내지 않는다. 저장 없음.
+const lineBody=(over={})=>({kind:'weekly_line',week_start:WEEK,where:'요약 · 나 › 나-1',lines:[{ref:'l1',text:'- 가상 교섭 3차 진행 중'},{ref:'l2',text:'- 가상 행사'}],cell:['- 가상 교섭 3차 진행 중','- 가상 행사'],material:['가상 교섭 3차 결렬(10/28)'],...over});
+test('weekly_line: rules + past edits (same cell first) are the material, this week is never sent, answer per line, nothing stored',async()=>{
+  const {handler,calls,db}=harness({openai:()=>respond(answer({lines:[{ref:'l1',text:'- 가상 교섭 3차 결렬(10.28.)'},{ref:'l2',text:'- 가상 행사'},{ref:'l9',text:'없는 줄'}]}))});
+  const res=await post(handler,lineBody());
+  assert.equal(res.status,200);
+  const body=await res.json();
+  assert.deepEqual(body,{ok:true,kind:'weekly_line',week_start:WEEK,lines:[{ref:'l1',text:'- 가상 교섭 3차 결렬(10.28.)'},{ref:'l2',text:null}],learned:{weeks:2,rules:1}});
+  const o=calls.openai[0];
+  assert.equal(o.store,false);assert.equal(o.text.format.name,'weekly_line');assert.equal(o.text.format.strict,true);
+  const material=o.input[1].content,sent=JSON.parse(material);
+  assert.deepEqual(sent.rules,['날짜는 10.28.(화) 꼴']);
+  assert.equal(sent.past_edits[0].where,'요약 · 나 › 나-1','same cell example first');
+  assert.ok(sent.past_edits.length>=3);
+  assert.deepEqual(sent.lines,[{ref:'l1',text:'- 가상 교섭 3차 진행 중'},{ref:'l2',text:'- 가상 행사'}]);
+  assert.deepEqual(sent.this_week,['가상 교섭 3차 결렬(10/28)']);
+  for(const hidden of ['THIS_WEEK_ANSWER','THIS_WEEK_BEFORE','THIS_WEEK_RULE','FOREIGN_TEXT','FOREIGN_RULE',OWNER,WS])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  const read=calls.rest.find(c=>c.table==='app_weekly_exec_requests');
+  assert.match(read.query,/week_start=lt\.2026-10-26/);
+  assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'),'no write but the usage count');
+  assert.equal(db.app_ai_daily_usage[0].requests,1);
+  assert.ok(!/가상|교섭|규칙/.test(JSON.stringify(calls.logs)),'no text in logs');
+  assert.ok(calls.logs.some(l=>l.code==='weekly_line_done'&&l.detail.asked===2&&l.detail.answered===1));
+  assert.equal(DAILY_LIMITS.weekly_line,20);
+});
+test('weekly_line: bad requests never reach AI; untrusted answers cleaned',async()=>{
+  const bad=[lineBody({lines:[]}),lineBody({lines:Array.from({length:9},(_,i)=>({ref:`l${i+1}`,text:'줄'}))}),lineBody({lines:[{ref:'l1',text:'a'},{ref:'l1',text:'b'}]}),
+    lineBody({lines:[{ref:'x1',text:'a'}]}),lineBody({lines:[{ref:'l1',text:'<b>x</b>'}]}),lineBody({lines:[{ref:'l1',text:'x'.repeat(301)}]}),lineBody({cell:Array(21).fill('줄')}),
+    lineBody({material:['x'.repeat(401)]}),lineBody({extra:1}),lineBody({week_start:'2026-10-27'}),lineBody({where:''})];
+  for(const b of bad){const {handler,calls}=harness();await expectError(await post(handler,b),400,'invalid_request');assert.equal(calls.openai.length,0);}
+  {const {handler}=harness({openai:()=>respond(answer({lines:[{ref:'l1',text:'연락 010-1234-5678'},{ref:'l2',text:'<i>가상</i> 행사 끝'}]}))});
+   const body=await (await post(handler,lineBody())).json();
+   assert.deepEqual(body.lines,[{ref:'l1',text:null},{ref:'l2',text:'가상 행사 끝'}]);}
+  {const {handler}=harness({openai:()=>respond({status:'completed',output:[]})});await expectError(await post(handler,lineBody()),502,'ai_invalid_response');}
 });

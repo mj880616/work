@@ -47,6 +47,7 @@ import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued,
 import {sameIssuedLines} from './weekly-lines.mjs';
 import {pickBase, teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback} from './weekly-feedback.mjs';
 import {reviewCard, answerSuggestion, readLearnRows} from './weekly-learn-panel.js';
+import {caretLine, askTargets, lineRequest, readAnswer, replaceLine, suggestKey, PICK_MS, PAUSE_MS, PER_OPEN} from './weekly-line-suggest.mjs';
 import {isDropped, defaultTitle, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
@@ -439,12 +440,93 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const name = el('label', 'journal-hwpx-label', label); name.htmlFor = id;
     const area = el('textarea', 'journal-hwpx-lines'); area.id = id; area.rows = Math.min(12, Math.max(3, row.lines.length + 1));
     area.value = state.edits[section].get(row.index).join('\n'); area.dataset.hwpxLines = '';
-    area.addEventListener('input', () => { state.edits[section].set(row.index, area.value.split('\n')); state.built = null; renderMismatches(); typed(`row:${state.cellOf[section].get(row.index)}`); });
-    areas[`${section}:${row.index}`] = area;
-    const material = el('ul', 'journal-hwpx-material'); material.dataset.hwpxMaterial = `${section}:${row.index}`;
-    const team = el('div', 'journal-hwpx-team'); team.dataset.hwpxTeam = `${section}:${row.index}`; team.hidden = true;
-    box.append(name, team, area, material);
+    const key = `${section}:${row.index}`;
+    area.addEventListener('input', () => { state.edits[section].set(row.index, area.value.split('\n')); state.built = null; renderMismatches(); typed(`row:${state.cellOf[section].get(row.index)}`); suggestSoon(key, PAUSE_MS); });
+    // WEEKLY-환류입력창 ②: 줄을 고르면(초점·누름·화살표) 잠시 뒤 그 줄 옆 제안. 타자마다 묻지 않는다.
+    for (const type of ['focus', 'click']) area.addEventListener(type, () => suggestSoon(key, PICK_MS));
+    area.addEventListener('keyup', event => { if (/^(Arrow|Home|End|Page)/.test(event.key)) suggestSoon(key, PICK_MS); });
+    areas[key] = area;
+    const material = el('ul', 'journal-hwpx-material'); material.dataset.hwpxMaterial = key;
+    const team = el('div', 'journal-hwpx-team'); team.dataset.hwpxTeam = key; team.hidden = true;
+    const hint = el('p', 'journal-hwpx-suggest'); hint.dataset.hwpxSuggest = key; hint.hidden = true;
+    box.append(name, team, area, hint, material);
     return box;
+  }
+  // ---- 환류입력창 ②: 줄 옆 '이렇게 바꾸면?'(ai-assist weekly_line) ----
+  // 고르는 칸 한 개의 줄만, 이미 받은 줄은 다시 묻지 않는다(상자를 열 때마다 PER_OPEN 번까지). 서버가 없거나(배포 전) 한 번 실패하면 이 상자에선 조용히 끈다.
+  // 누르면 그 줄만 바뀌고(칸 input 그대로 → 자동저장 2초 길), [되돌리기]로 원래 줄. 무시하면 아무 일 없다. 줄 글은 기록에 남기지 않는다.
+  const suggestOf = s => (s.suggest ??= {cache:new Map(), asked:0, off:false, flight:false, timer:0, focus:'', undo:null});
+  function suggestSoon(key, ms) {
+    const s = state;
+    if (!s) return;
+    const g = suggestOf(s);
+    g.focus = key;
+    clearTimeout(g.timer);
+    if (g.undo?.key !== key || (ms === PAUSE_MS && !g.applying)) g.undo = null; // 다른 칸으로 가거나 이어서 고치면 [되돌리기]는 거둔다
+    for (const [k, node] of Object.entries(hints())) if (k !== key) node.hidden = true;
+    g.timer = setTimeout(() => { if (state === s) void suggestNow(s, key); }, ms);
+  }
+  const hints = () => Object.fromEntries([...body.querySelectorAll('[data-hwpx-suggest]')].map(n => [n.dataset.hwpxSuggest, n]));
+  function cellMaterial(s, key) {
+    const [section, index] = key.split(':');
+    if (section === 'sites') return [];
+    const m = s.draft.weekMaterial(getWeek().model, s.rows, s.orgs, {aliases:s.aliases});
+    const list = (section === 'summary' ? m.byRow : m.byOrg).get(Number(index)) ?? [];
+    return list.map(x => `${x.day ? `${shortDay(x.day)} ` : ''}${x.text}`);
+  }
+  async function suggestNow(s, key) {
+    const g = suggestOf(s), area = areas[key];
+    if (!area || !area.isConnected || g.focus !== key) return;
+    const [section, index] = key.split(':'), id = s.cellOf?.[section]?.get(Number(index));
+    if (!id) return;
+    const caret = caretLine(area.value, area.selectionStart), lines = area.value.split('\n');
+    const ck = suggestKey(id, caret.text);
+    if (g.cache.has(ck) || g.off || g.flight || g.asked >= PER_OPEN) { paintSuggest(s, key); return; }
+    const targets = askTargets(lines, caret.index, g.cache, id);
+    if (!targets.length) { paintSuggest(s, key); return; }
+    const {request, refs} = lineRequest({week:s.start, where:whereOf(id), lines, targets, material:cellMaterial(s, key)});
+    g.asked++; g.flight = true;
+    let r;
+    try { r = await callAiAssist(request, {rt}, LEARN_TEXT); } catch { r = {ok:false}; }
+    g.flight = false;
+    if (state !== s) return;
+    if (!r.ok || r.data?.kind !== 'weekly_line' || r.data.week_start !== s.start) { g.off = true; return; }
+    for (const [k, v] of readAnswer(r.data, refs, lines, id)) g.cache.set(k, v);
+    if (g.focus === key) paintSuggest(s, key);
+  }
+  function paintSuggest(s, key) {
+    const g = suggestOf(s), area = areas[key], hint = hints()[key];
+    if (!area || !hint) return;
+    const [section, index] = key.split(':'), id = s.cellOf?.[section]?.get(Number(index));
+    if (g.undo?.key === key) {
+      const u = g.undo;
+      const back = button('되돌리기', 'hwpxSuggestUndo'); back.setAttribute('aria-label', `${u.index + 1}번째 줄 되돌리기`);
+      back.addEventListener('click', () => {
+        const next = replaceLine(area.value, u.index, u.text, u.before);
+        g.undo = null; hint.hidden = true;
+        if (next == null) return;
+        area.value = next; area.focus(); area.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+      hint.replaceChildren(el('span', 'journal-muted', `${u.index + 1}번째 줄을 바꿨어요.`), ' ', back);
+      hint.hidden = false; return;
+    }
+    const caret = caretLine(area.value, area.selectionStart), text = id ? g.cache.get(suggestKey(id, caret.text)) : null;
+    if (!text) { hint.hidden = true; hint.replaceChildren(); return; }
+    const apply = el('button', 'mini journal-hwpx-suggest-apply'); apply.type = 'button'; apply.dataset.hwpxSuggestApply = '';
+    apply.setAttribute('aria-label', `${caret.index + 1}번째 줄을 이렇게 바꾸기: ${text}`);
+    apply.append(el('span', 'journal-hwpx-suggest-mark', '이렇게 바꾸면?'), ' ', el('span', null, text));
+    apply.addEventListener('click', () => {
+      const next = replaceLine(area.value, caret.index, caret.text, text);
+      if (next == null) { hint.hidden = true; return; }
+      g.cache.set(suggestKey(id, text), null); // 바꾼 줄은 다시 묻지 않는다
+      g.undo = {key, index:caret.index, before:caret.text, text};
+      g.applying = true;
+      try { area.value = next; area.dispatchEvent(new Event('input', {bubbles:true})); } finally { g.applying = false; }
+      clearTimeout(g.timer); // input 이 건 다음 제안 대기는 거둔다(되돌리기 줄을 남긴다)
+      paintSuggest(s, key);
+    });
+    hint.replaceChildren(apply);
+    hint.hidden = false;
   }
   function append(key, text) {
     const area = areas[key];

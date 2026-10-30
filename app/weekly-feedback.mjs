@@ -17,7 +17,10 @@ export const FEEDBACK_LIST_MAX = 60;      // 고침·뺌·더함 목록마다(�
 export const PROPOSED_CELLS_MAX = 200;
 export const RULES_MAX = 20;
 export const RULE_CHARS = 120;
-export const SUGGESTIONS_MAX = 3;
+export const SUGGESTIONS_MAX = 4;       // 입력창 1~3 + 재료·흐름(서버 WL_SUGGESTIONS 와 같음)
+export const CELL_STATS_MAX = 120;      // 고침 기록의 칸별 숫자(입력창 모양 제안 재료)
+// 개선 제안 분류(서버 weekly-learn.ts SUGGESTION_AREAS 와 같음). 입력창 = 한글 파일 상자 칸 모양·칸 구성.
+export const SUGGESTION_AREA = Object.freeze({input:'입력창', material:'재료', flow:'흐름'});
 export const EXTRA_MAX_BYTES = 60000;     // 칸 하나 상한(draft 전체 200 KiB 안에서)
 export const LEARN_WEEKS = 4;             // 학습 재료로 보는 지난 주 수
 export const SIMILAR = 0.75;              // 이 이상이면 '비슷'(그대로 쓸 수 있는 줄로 셈)
@@ -94,10 +97,12 @@ export function diffLines(before = [], after = []) {
 }
 // 칸 단위로 비교해 모은다. 초안에만 있는 칸은 뺀 줄, 최종에만 있는 칸은 새 줄.
 export function diffCells(proposed, final) {
-  const p = toCells(proposed), f = toCells(final), out = {kept:0, changed:[], dropped:[], added:[], proposed:0, final:0};
+  const p = toCells(proposed), f = toCells(final), out = {kept:0, changed:[], dropped:[], added:[], proposed:0, final:0, cells:[]};
   for (const id of [...new Set([...p.keys(), ...f.keys()])]) {
     const before = p.get(id) ?? [], after = f.get(id) ?? [], d = diffLines(before, after), where = whereOf(id);
     out.proposed += before.length; out.final += after.length; out.kept += d.kept.length;
+    // 칸마다 숫자만(글 없음): 매번 비워 두는 칸·늘 손으로 다시 쓰는 칸·늘 지우는 줄을 환류 보고가 여러 주에 걸쳐 센다.
+    out.cells.push({where, proposed:before.length, final:after.length, kept:d.kept.length, changed:d.changed.length, dropped:d.dropped.length, added:d.added.length});
     for (const c of d.changed) out.changed.push({where, before:c.before, after:c.after});
     for (const t of d.dropped) out.dropped.push({where, text:t});
     for (const t of d.added) out.added.push({where, text:t});
@@ -109,7 +114,7 @@ export function feedbackRecord({week, at, proposed, final, from = 'confirm'}) {
   const d = diffCells(proposed, final);
   const counts = {kept:d.kept, changed:d.changed.length, dropped:d.dropped.length, added:d.added.length, proposed:d.proposed, final:d.final};
   const trim = list => list.slice(0, FEEDBACK_LIST_MAX);
-  return readFeedback({at, week, from, counts, changed:trim(d.changed), dropped:trim(d.dropped), added:trim(d.added)});
+  return readFeedback({at, week, from, counts, cells:d.cells.slice(0, CELL_STATS_MAX), changed:trim(d.changed), dropped:trim(d.dropped), added:trim(d.added)});
 }
 // 초안 줄 가운데 그대로 남은 비율(0~100, 초안 줄이 없으면 null).
 export const keptRate = counts => (counts && counts.proposed > 0 ? Math.round((counts.kept / counts.proposed) * 100) : null);
@@ -164,10 +169,11 @@ export function readProposed(raw) {
 const cleanPairs = list => (Array.isArray(list) ? list : []).slice(0, FEEDBACK_LIST_MAX).map(c => (isObj(c) ? {where:line(c.where).slice(0, 80), before:line(c.before), after:line(c.after)} : null)).filter(c => c && c.before && c.after);
 const cleanTexts = list => (Array.isArray(list) ? list : []).slice(0, FEEDBACK_LIST_MAX).map(c => (isObj(c) ? {where:line(c.where).slice(0, 80), text:line(c.text)} : null)).filter(c => c && c.text);
 const count = v => (Number.isInteger(v) && v >= 0 && v < 100000 ? v : 0);
+const cleanStats = list => (Array.isArray(list) ? list : []).slice(0, CELL_STATS_MAX).map(c => (isObj(c) && line(c.where) ? {where:line(c.where).slice(0, 80), proposed:count(c.proposed), final:count(c.final), kept:count(c.kept), changed:count(c.changed), dropped:count(c.dropped), added:count(c.added)} : null)).filter(Boolean);
 export function readReview(raw) {
   if (!isObj(raw) || !at40(raw.at)) return null;
   const candidates = (Array.isArray(raw.candidates) ? raw.candidates : []).map(t => line(t).slice(0, RULE_CHARS)).filter(Boolean).slice(0, 10);
-  const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).slice(0, SUGGESTIONS_MAX).map((s, i) => (isObj(s) && line(s.text) ? {id:typeof s.id === 'string' && /^s[1-3]$/.test(s.id) ? s.id : `s${i + 1}`, text:line(s.text).slice(0, 200), ...(s.answer === 'yes' || s.answer === 'no' ? {answer:s.answer} : {})} : null)).filter(Boolean);
+  const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).slice(0, SUGGESTIONS_MAX).map((s, i) => (isObj(s) && line(s.text) ? {id:typeof s.id === 'string' && /^s[1-4]$/.test(s.id) ? s.id : `s${i + 1}`, ...(Object.hasOwn(SUGGESTION_AREA, s.area) ? {area:s.area} : {}), text:line(s.text).slice(0, 200), ...(s.answer === 'yes' || s.answer === 'no' ? {answer:s.answer} : {})} : null)).filter(Boolean);
   return {at:raw.at, candidates, suggestions, ...(raw.ai === false ? {ai:false} : {})};
 }
 export function readFeedback(raw) {
@@ -176,6 +182,8 @@ export function readFeedback(raw) {
   const out = {at:raw.at, week:raw.week, from:raw.from === 'test' ? 'test' : 'confirm',
     counts:{kept:count(c.kept), changed:count(c.changed), dropped:count(c.dropped), added:count(c.added), proposed:count(c.proposed), final:count(c.final)},
     changed:cleanPairs(raw.changed), dropped:cleanTexts(raw.dropped), added:cleanTexts(raw.added)};
+  const stats = cleanStats(raw.cells);
+  if (stats.length) out.cells = stats;
   const review = readReview(raw.review);
   if (review) out.review = review;
   return bytes(out) > EXTRA_MAX_BYTES ? null : out;

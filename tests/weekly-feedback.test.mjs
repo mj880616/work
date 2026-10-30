@@ -134,3 +134,22 @@ test('임시저장: proposed·feedback·rules 는 읽은 그대로 다시 실리
   // 모르는 칸·틀린 모양은 버린다.
   assert.deepEqual(readExtras({proposed:{cells:[]}, feedback:{at:'x', week:'nope'}, rules:'x'}), {});
 });
+
+// WEEKLY-환류입력창 ①: 고침 기록에 칸마다 숫자(글 없음)를 남겨 '매번 비워 두는 칸·늘 손으로 다시 쓰는 칸·늘 지우는 줄'을 셀 수 있게 하고,
+// 환류 보고 개선 제안은 분류(입력창·재료·흐름)를 지킨다.
+test('고침 기록 칸별 숫자 + 개선 제안 분류(입력창)', () => {
+  const proposed = new Map([[id('가'), ['- 가상 줄 하나', '- 가상 줄 둘']], [id('A 지부', 'orgs'), ['- 가상 조직 줄']], [id('나'), ['- 그대로 둔 줄']]]);
+  const final = new Map([[id('가'), ['- 손으로 다시 쓴 가상 내용']], [id('A 지부', 'orgs'), []], [id('나'), ['- 그대로 둔 줄']]]);
+  const f = feedbackRecord({week:'2026-10-26', at:'2026-10-30T09:00:00Z', proposed, final});
+  const by = Object.fromEntries(f.cells.map(c => [c.where, c]));
+  assert.deepEqual(by['산하조직 · A 지부'], {where:'산하조직 · A 지부', proposed:1, final:0, kept:0, changed:0, dropped:1, added:0});
+  assert.equal(by['요약 · 가'].kept, 0); assert.equal(by['요약 · 가'].final, 1);
+  assert.deepEqual(by['요약 · 나'], {where:'요약 · 나', proposed:1, final:1, kept:1, changed:0, dropped:0, added:0});
+  assert.ok(!JSON.stringify(f.cells).includes('가상'), '칸별 숫자에는 줄 글이 없다');
+  // 다시 읽어도 남는다(임시저장이 draft 를 통째로 다시 실어 보냄).
+  assert.deepEqual(readFeedback(JSON.parse(JSON.stringify(f))).cells, f.cells);
+  const withReview = readFeedback({...f, review:{at:'2026-10-30T09:01:00Z', candidates:[], suggestions:[
+    {id:'s1', area:'input', text:'산하조직 칸을 처음부터 비워 두면'}, {id:'s2', area:'flow', text:'가상 흐름 제안'}, {id:'s3', area:'모름', text:'분류 없는 제안'}, {id:'s4', text:'옛 제안'}]}});
+  assert.deepEqual(withReview.review.suggestions.map(s => [s.id, s.area ?? '']), [['s1', 'input'], ['s2', 'flow'], ['s3', ''], ['s4', '']]);
+  assert.equal(withAnswer(withReview, 's4', 'yes').review.suggestions[3].answer, 'yes');
+});

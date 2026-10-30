@@ -215,6 +215,13 @@
 #appView #homeView .journal-hwpx-lines{ resize:vertical; line-height:1.5; }
 #appView #homeView .journal-hwpx-material{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
 #appView #homeView .journal-hwpx-material:empty{ display:none; }
+/* WEEKLY-환류입력창 ②: 칸 바로 아래 작은 흐린 '이렇게 바꾸면?' 한 줄(누르면 그 줄이 바뀜), 바꾼 뒤엔 [되돌리기] */
+#appView #homeView .journal-hwpx-suggest{ margin:2px 0 0; font-size:13px; line-height:1.45; color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #homeView .journal-hwpx-suggest[hidden]{ display:none; }
+#appView #homeView .journal-hwpx-suggest button.mini.journal-hwpx-suggest-apply{ height:auto; min-height:var(--ds-compact-height-sm); padding:2px 4px; text-align:left; white-space:normal; font-size:13px; font-weight:400; line-height:1.45; color:var(--kptu-muted); background:transparent; border-color:transparent; }
+#appView #homeView .journal-hwpx-suggest button.mini.journal-hwpx-suggest-apply:hover:not(:disabled){ color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
+#appView #homeView .journal-hwpx-suggest-mark{ font-weight:600; }
+#appView #homeView .journal-learn-area{ display:inline-block; padding:0 4px; border:1px solid currentColor; border-radius:4px; font-size:11px; line-height:1.4; color:var(--kptu-muted); }
 #appView #homeView .journal-hwpx-material li > .mini,
 #appView #homeView .journal-hwpx-material li > select{ margin-left:4px; vertical-align:middle; }
 /* WEEKLY-한글파일다듬기 ①(2026-10-23 사용자 요청 11:35): 이 상자의 모든 버튼(위 줄 [주간보고 한글 파일 만들기]·[복사], 바탕 고르기 줄,

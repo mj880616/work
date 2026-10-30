@@ -6,7 +6,7 @@
 // - journal.js 는 다시 그릴 때마다 paintWeeklyLearn(자리, 주)만 부른다. 읽은 값은 주마다 이 모듈이 들고 있다(다시 그려도 다시 읽지 않음).
 //   상자가 [확정] 뒤 환류 보고를 받으면 'kptu:weekly-learn-changed'를 보내고, 이 모듈이 다시 읽어 그린다.
 import {changeWeekDocs, missingDraft} from './weekly-draft-store.js';
-import {readFeedback, readRules, withRuleText, withoutRule, withRule, withAnswer, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS} from './weekly-feedback.mjs';
+import {readFeedback, readRules, withRuleText, withoutRule, withRule, withAnswer, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS, SUGGESTION_AREA} from './weekly-feedback.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const encode = encodeURIComponent;
@@ -53,6 +53,7 @@ export function reviewCard(doc, feedback, previous = [], {answerable = true, bus
     const ul = el('ul', 'journal-kinds-off-list'); ul.dataset.learnSuggestions = '';
     for (const s of r.suggestions) {
       const li = el('li'); li.dataset.learnSuggestion = s.id;
+      if (s.area) { const tag = el('small', 'journal-learn-area', SUGGESTION_AREA[s.area]); tag.dataset.learnArea = s.area; li.append(tag, ' '); }
       li.append(el('span', null, s.text), ' ');
       if (s.answer) li.append(el('small', 'journal-muted', s.answer === 'yes' ? '승인함 — 다음 개발 후보' : '아니'));
       if (answerable) for (const [answer, label] of [['yes', '승인'], ['no', '아니']]) {
@@ -102,7 +103,7 @@ function draw(slot, start, s, rt) {
   if (s.status === 'failed') { box.append(el('summary', null, '주간보고 규칙·환류'), el('p', 'journal-muted', '읽지 못했어요. 업무일지를 다시 열면 다시 읽어요.')); slot.replaceChildren(box); return; }
   const rr = rulesRow(s.rows), rules = rr?.rules?.lines ?? [], mine = s.rows.find(r => r.week_start === start)?.feedback ?? null;
   const prev = s.rows.filter(r => r.week_start < start).map(r => r.feedback).filter(Boolean);
-  const dev = s.rows.flatMap(r => (r.feedback?.review?.suggestions ?? []).filter(x => x.answer === 'yes').map(x => ({week:r.week_start, text:x.text})));
+  const dev = s.rows.flatMap(r => (r.feedback?.review?.suggestions ?? []).filter(x => x.answer === 'yes').map(x => ({week:r.week_start, text:x.text, area:x.area})));
   const sum = el('summary');
   sum.append(el('span', 'journal-heading', '주간보고 규칙·환류'), ' ', el('small', 'journal-others-count', `규칙 ${rules.length}줄 · ${mine ? `이번 주 ${keptRate(mine.counts) ?? 0}% 그대로` : '이번 주 환류 없음'}${dev.length ? ` · 개발 후보 ${dev.length}` : ''}`));
   box.append(sum);
@@ -143,7 +144,7 @@ function draw(slot, start, s, rt) {
     const d = el('section', 'journal-weekly-part'); d.dataset.journalLearnDev = '';
     d.append(el('h5', 'journal-weekly-sub', '개발 후보(승인한 개선 제안)'));
     const list = el('ul', 'journal-kinds-off-list');
-    for (const x of dev) { const li = el('li'); li.append(el('span', 'journal-weekly-day', slash(x.week)), ' ', el('span', null, x.text)); list.append(li); }
+    for (const x of dev) { const li = el('li'); li.append(el('span', 'journal-weekly-day', slash(x.week)), ' '); if (x.area) li.append(el('small', 'journal-learn-area', SUGGESTION_AREA[x.area]), ' '); li.append(el('span', null, x.text)); list.append(li); }
     d.append(list); box.append(d);
   }
   const say = el('p', 'journal-line-status', s.ui.msg); say.dataset.journalLearnStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
