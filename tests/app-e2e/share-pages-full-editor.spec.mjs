@@ -173,7 +173,7 @@ test('저장: [저장], Ctrl+S and Cmd+S save in place; 저장 안 됨 shows onl
   page.once('dialog', d => d.accept());
   await editor.getByRole('button', {name:'공유 페이지 목록으로', exact:true}).click();
   await expect(editor).toBeHidden();
-  await expect(page.locator('#sharePagesRoot details.sp-box')).toBeVisible();
+  await expect(page.locator('#sharePagesRoot .sp-list-view')).toBeVisible();
   expect(state.writes).toHaveLength(3);
   expect(errors).toEqual([]);
 });
