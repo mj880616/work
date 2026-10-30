@@ -74,6 +74,22 @@
 .me-handle:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .me-name{flex:1;min-width:0;font-size:var(--ds-text-row,13px)}
 .me-tag{color:var(--kptu-muted);font-size:11px}
+.me-cols{display:flex;flex-direction:column;gap:8px}
+.me-lists{flex:1 1 auto;min-width:0}
+/* MENU-세칸: PC 왼쪽 메뉴 미리보기. 위 메뉴 … 빈 공간 … 선 … 아래 붙는 메뉴. 작고 흐리게. */
+.me-preview{margin:0;flex:0 0 auto}
+.me-preview figcaption{margin:8px 0 4px;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
+.me-pv-box{display:flex;flex-direction:column;min-height:180px;padding:4px 0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-surface-subtle)}
+.me-pv-box ol{list-style:none;margin:0;padding:0}
+.me-pv-box li{padding:2px 8px;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-ink)}
+.me-pv-gap{flex:1 1 auto;min-height:12px}
+.me-pv-tail{border-top:1px solid var(--kptu-border);padding-top:2px}
+@media (min-width:761px){
+  .menu-edit-card{width:min(600px,calc(100vw - 24px))}
+  .me-cols{flex-direction:row;align-items:stretch;gap:12px}
+  .me-preview{width:170px;display:flex;flex-direction:column}
+  .me-pv-box{flex:1 1 auto}
+}
 .me-note{margin:8px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
 .re-active,.re-active *{user-select:none;-webkit-user-select:none}
 .re-dragging{opacity:.45}

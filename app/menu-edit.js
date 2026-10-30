@@ -1,8 +1,9 @@
-// MENU-HOME-편집: 계정 메뉴 [메뉴 편집] 창. 한 창에 두 칸: 위 '하단바(5칸까지)', 아래 '폰 [메뉴] 창 안 · PC 왼쪽 메뉴 순서'.
-// ⠿을 잡고 끌어 옮기고(폰은 길게 눌러 끌기, reorder-drag.js), 위·아래 칸 사이로 옮기면 하단바에 넣고 뺀다. 홈은 맨 앞 고정.
+// MENU-HOME-편집 · MENU-세칸: 계정 메뉴 [메뉴 편집] 창. 화면 모양 그대로 세 칸: ① 폰 하단바(5칸까지) ② 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위)
+// ③ 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래). ⠿을 잡고 끌어 세 칸 사이를 옮기고(폰은 길게 눌러 끌기, reorder-drag.js),
+// 키보드 위·아래도 칸 사이를 넘는다. 홈은 맨 앞 고정. 오른쪽(폰은 아래)에 PC 왼쪽 메뉴 미리보기(pcSplit, 실제 왼쪽 메뉴와 같은 규칙).
 // 바꾸면 그 자리에서 메뉴에 반영되고 서버에 저장된다(menu-layout.js). [처음대로]는 기본 순서로, [완료]는 창을 닫는다.
 import {mountReorder} from './reorder-drag.js';
-import {BAR_MAX, FIXED_ID, itemOf, normalizeLayout} from './menu-model.mjs';
+import {BAR_MAX, FIXED_ID, itemOf, normalizeLayout, pcSplit} from './menu-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const modal = () => document.getElementById('menuEditModal');
@@ -18,13 +19,22 @@ function paint(focusId = '') {
   const body = modal()?.querySelector('[data-menu-edit-body]');
   if (!body) return;
   const layout = normalizeLayout(window.KPTUMenuLayout?.current?.());
-  body.innerHTML = `<section class="me-group" aria-label="하단바"><h3>하단바 <small>${layout.bar.length}/${BAR_MAX}칸</small></h3><ol class="me-list" data-reorder-list="bar">${layout.bar.map(rowHtml).join('')}</ol></section>`
-    + `<section class="me-group" aria-label="메뉴 창과 왼쪽 메뉴"><h3>폰 [메뉴] 창 안 · PC 왼쪽 메뉴 순서</h3><ol class="me-list" data-reorder-list="rest">${layout.rest.map(rowHtml).join('')}</ol></section>`
-    + `<p class="me-note" role="status" aria-live="polite">${esc(note || '⠿을 잡고 끌어 옮겨요(폰은 줄을 길게 눌러서). 위 칸으로 옮기면 하단바에 들어가요.')}</p>`;
+  const group = (list, label, head) => `<section class="me-group" aria-label="${esc(label)}"><h3>${head}</h3><ol class="me-list" data-reorder-list="${list}">${layout[list].map(rowHtml).join('')}</ol></section>`;
+  const {main, tail} = pcSplit(layout);
+  const pv = id => `<li>${esc(itemOf(id)?.label)}</li>`;
+  body.innerHTML = `<div class="me-cols"><div class="me-lists">`
+    + group('bar', '폰 하단바', `폰 하단바 <small>${layout.bar.length}/${BAR_MAX}칸</small>`)
+    + group('rest', '위 메뉴', '위 메뉴 <small>폰 [메뉴] 창 · PC 왼쪽 위</small>')
+    + group('tail', '아래 붙는 메뉴', '아래 붙는 메뉴 <small>PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래</small>')
+    + `</div><figure class="me-preview" aria-label="PC 왼쪽 메뉴 미리보기"><figcaption>PC 왼쪽 메뉴</figcaption><div class="me-pv-box" data-menu-edit-preview>`
+    + `<ol class="me-pv-main">${main.map(pv).join('')}</ol><span class="me-pv-gap" aria-hidden="true"></span>`
+    + (tail.length ? `<ol class="me-pv-tail">${tail.map(pv).join('')}</ol>` : '')
+    + `</div></figure></div>`
+    + `<p class="me-note" role="status" aria-live="polite">${esc(note || '⠿을 잡고 끌어 세 칸 사이로 옮겨요(폰은 줄을 길게 눌러서). 키보드는 위·아래 화살표.')}</p>`;
   if (focusId) body.querySelector(`[data-reorder-id="${CSS.escape(focusId)}"] [data-reorder-handle]`)?.focus({preventScroll: true});
 }
 function result(r, id) {
-  note = r.ok ? '' : r.reason === 'full' ? `하단바는 홈을 포함해 ${BAR_MAX}칸까지예요. 먼저 한 칸을 [메뉴] 쪽으로 옮겨 주세요.` : r.reason === 'fixed' ? '홈은 맨 앞에 고정이에요.' : '';
+  note = r.ok ? '' : r.reason === 'full' ? `하단바는 홈을 포함해 ${BAR_MAX}칸까지예요. 먼저 한 칸을 위 메뉴로 옮겨 주세요.` : r.reason === 'fixed' ? '홈은 맨 앞에 고정이에요.' : '';
   paint(id);
 }
 function close() {
