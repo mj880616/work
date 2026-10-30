@@ -32,7 +32,49 @@ export function slotShown(box) {
   slotBox(box); dropRetry(box);
   box.dataset.imgState = 'shown'; delete box.dataset.imgWhy;
   retries.delete(box);
+  if (timings.has(box)) slotTiming(box, 'shown');
+  dropPreview(box);
 }
+
+// PHOTO-크게보기빨리(2026-10-30 명진 결정 "둘다 넣어"): 큰 그림을 받는 동안 이미 있는 작은 그림을 먼저 크게 띄운다.
+// - 작은 그림은 칸 안 맨 앞의 <img class="img-slot-preview">(장식, 대체 글자 없음). 뜨면 회색 칸 대신 보이고(data-img-preview="shown"),
+//   큰 그림이 다 받아지면(slotShown) 큰 그림이 부드럽게 나타나고(base-ui.css) 작은 그림은 잠시 뒤 떼어 낸다.
+// - 작은 그림도 없으면 지금처럼 회색 칸. src가 이 칸만 쓰는 blob: 주소면 revoke:true로 넘겨 떼어 낼 때 놓는다.
+const previews = new WeakMap();
+export const PREVIEW_FADE_MS = 260;
+export function slotPreview(box, src, {revoke = false} = {}) {
+  if (!src || box.dataset.imgState === 'shown' || box.dataset.imgState === 'failed') { if (revoke) URL.revokeObjectURL(src); return null; }
+  if (previews.has(box)) { if (revoke) URL.revokeObjectURL(src); return previews.get(box).img; }
+  const img = document.createElement('img');
+  img.className = 'img-slot-preview'; img.alt = ''; img.setAttribute('aria-hidden', 'true'); img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
+  previews.set(box, {img, revoke: revoke ? src : ''});
+  img.onload = () => { img.onload = img.onerror = null; if (previews.get(box)?.img === img && box.dataset.imgState !== 'shown') box.dataset.imgPreview = 'shown'; };
+  img.onerror = () => { img.onload = img.onerror = null; dropPreview(box, {now: true}); };
+  box.dataset.imgPreview = 'loading';
+  if (typeof box.prepend === 'function') box.prepend(img); else box.append(img);
+  img.src = src;
+  return img;
+}
+export const slotHasPreview = box => box?.dataset?.imgPreview === 'shown';
+function dropPreview(box, {now = false} = {}) {
+  const p = previews.get(box);
+  if (!p) return;
+  previews.delete(box);
+  const done = () => { p.img.remove(); if (p.revoke) URL.revokeObjectURL(p.revoke); if (!previews.has(box)) delete box.dataset.imgPreview; };
+  if (now || box.dataset.imgPreview !== 'shown') { done(); return; }
+  box.dataset.imgPreview = 'fading';
+  setTimeout(done, PREVIEW_FADE_MS);
+}
+// 불러오기 시간 재기(PHOTO-크게보기빨리 2): 칸마다 메모리에만 둔다(기록·전송 없음). start = 누른 때(칸을 만든 때), url = 그림 주소를 받은 때, shown = 그림이 다 뜬 때.
+const timings = new WeakMap();
+const clock = () => (globalThis.performance?.now ? globalThis.performance.now() : Date.now());
+export function slotTiming(box, mark = '') {
+  let t = timings.get(box);
+  if (!t) { t = {start: clock(), url: null, shown: null}; timings.set(box, t); }
+  if (mark && t[mark] == null) t[mark] = clock();
+  return t;
+}
+export const slotTimingOf = box => (box && timings.get(box)) || null;
 // 못 받음: ↻ 하나. retry가 없으면 ↻ 없이 회색 칸만(다시 받을 길이 없는 곳). why는 진단용 짧은 이름(화면에 보이지 않음).
 // passive: 그림이 더 큰 누르기 칸의 바탕일 때(달력 날짜 칸·목록 줄 등). ↻는 표시만 하고 누르기는 바깥 칸(그날 열기 등)이 그대로 받는다.
 // 이런 칸은 화면을 다시 열면 저절로 다시 받는다.

@@ -98,6 +98,25 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView :is(#diaryView,#photosView) .diary-viewer-bar button:focus-visible{ outline:2px solid var(--ds-photo-ink); outline-offset:-2px; }
 #appView :is(#diaryView,#photosView) .diary-viewer-strip{ flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior:contain; scrollbar-width:none; touch-action:pan-x pinch-zoom; }
 #appView :is(#diaryView,#photosView) .diary-viewer-strip:focus-visible{ outline:none; }
+/* PHOTO-스와이프안내(2026-10-30): 세로 밀기 별 움직임·처음 몇 번 손동작 안내. 움직임은 photo-strip.js가 data-anim·--fill로만 바꾼다. */
+#appView :is(#diaryView,#photosView) .diary-viewer-stage{ position:relative; flex:1; min-height:0; display:flex; flex-direction:column; }
+#appView :is(#diaryView,#photosView) .diary-viewer-starfx{ position:absolute; left:50%; top:50%; z-index:2; font-size:72px; line-height:1; color:var(--ds-photo-star); text-shadow:0 1px 6px var(--ds-photo-scrim); pointer-events:none; opacity:0; transform:translate(-50%,-50%) scale(.4); }
+#appView :is(#diaryView,#photosView) .diary-viewer-starfx[data-anim="drag"]{ opacity:calc(var(--fill,0) * .9); transform:translate(-50%,-50%) scale(calc(.4 + var(--fill,0) * .6)); }
+#appView :is(#diaryView,#photosView) .diary-viewer[data-strip-drag="star-ready"] .diary-viewer-starfx[data-anim="drag"]{ opacity:1; }
+#appView :is(#diaryView,#photosView) .diary-viewer-starfx[data-anim="pop"]{ animation:strip-star-pop .22s ease-out forwards; }
+#appView :is(#diaryView,#photosView) .diary-viewer-starfx[data-anim="fly"]{ animation:strip-star-fly .28s cubic-bezier(.5,0,.75,0) forwards; }
+#appView :is(#diaryView,#photosView) .diary-viewer-starfx[data-anim="fade"]{ color:var(--ds-photo-ink); animation:strip-star-fade .32s ease-out forwards; }
+#appView :is(#diaryView,#photosView) .diary-viewer-actions [data-strip-popped] > span{ display:inline-block; animation:strip-btn-pop .26s ease-out; }
+#appView :is(#diaryView,#photosView) .diary-viewer-finger{ position:absolute; left:50%; bottom:18%; z-index:2; width:34px; height:34px; margin-left:-17px; border-radius:50%; background:var(--ds-photo-ink); opacity:0; pointer-events:none; animation:strip-finger-up 1.1s ease-in-out .3s 2; }
+#appView :is(#diaryView,#photosView) .diary-viewer-finger[hidden]{ display:none; }
+#appView :is(#diaryView,#photosView) .diary-viewer-hint{ margin:0; padding:2px 16px 0; text-align:center; font-size:var(--ds-compact-text); color:var(--ds-photo-ink); opacity:.6; }
+#appView :is(#diaryView,#photosView) .diary-viewer-hint[hidden]{ display:none; }
+@keyframes strip-star-pop{ 0%{ opacity:.9; transform:translate(-50%,-50%) scale(1); } 60%{ opacity:1; transform:translate(-50%,-50%) scale(1.35); } 100%{ opacity:1; transform:translate(-50%,-50%) scale(1.1); } }
+@keyframes strip-star-fly{ from{ opacity:1; transform:translate(-50%,-50%) scale(1.1); } to{ opacity:0; transform:translate(calc(-50% + var(--fly-x,0px)),calc(-50% + var(--fly-y,0px))) scale(.25); } }
+@keyframes strip-star-fade{ from{ opacity:.85; transform:translate(-50%,-50%) scale(1); } to{ opacity:0; transform:translate(-50%,-50%) scale(.8); } }
+@keyframes strip-btn-pop{ 0%{ transform:scale(1); } 50%{ transform:scale(1.4); } 100%{ transform:scale(1); } }
+@keyframes strip-finger-up{ 0%{ opacity:0; transform:translateY(0); } 20%{ opacity:.55; } 80%{ opacity:.55; transform:translateY(-120px); } 100%{ opacity:0; transform:translateY(-140px); } }
+@media (prefers-reduced-motion:reduce){ #appView :is(#diaryView,#photosView) .diary-viewer-starfx,#appView :is(#diaryView,#photosView) .diary-viewer-finger{ display:none; } #appView :is(#diaryView,#photosView) .diary-viewer-actions [data-strip-popped] > span{ animation:none; } }
 /* 사진 상자는 칸(슬라이드)을 절대 위치로 꽉 채워 높이가 확정된 상태에서 contain으로 맞춘다.
    예전에는 img의 max-height:100%가 높이 미확정 상자(grid 안 height:100%) 안에서 풀리지 않아 폭만 제한됐고,
    넓은 화면(폴드 펼침·PC)에서는 폭 기준으로 커진 사진이 화면 높이를 넘어 위아래가 잘렸다. */

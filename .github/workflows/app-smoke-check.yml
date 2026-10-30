@@ -420,6 +420,9 @@ jobs:
       - name: Check OneDrive warm-up after app start (OD-미리받기, status·this month·few small pictures in memory, synthetic)
         run: node --test tests/od-warm.test.mjs
 
+      - name: Check photo viewer swipe motion, quick large view and app-start prefetch (PHOTO-스와이프안내·크게보기빨리·미리받기앱시작, synthetic)
+        run: node --test tests/photo-swipe-fast.test.mjs
+
       - name: Check OneDrive link icon and dropdown (OD-연결아이콘, one icon·dim·red dot·shared menu·diary photo switch, synthetic)
         run: node --test tests/od-link.test.mjs
 

@@ -8,8 +8,8 @@ import './od-thumb-cache.js';
 import {ownerScope, diaryPhotos, todayKey} from './diary-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE, GATHER_MS} from './od-thumb-loader.js';
-import {holdPhotoBlob, holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
-import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
+import {holdPhotoBlob, holdPhotoMaker, forgetPhotoBlob, localImageBlob, readyPhotoBlob} from './photo-share.js';
+import {slotBox, slotLoading, slotShown, slotFailed, slotPreview, slotTiming} from './img-slot.js';
 
 export const OD_FN = '/functions/v1/onedrive-photos';
 const encode = encodeURIComponent;
@@ -303,6 +303,20 @@ export async function odWarm(rt = window.KPTURuntime, {today = todayKey(), now =
   const picks = warmPicks(data, today);
   return {done: true, picks: picks.length, kept: await warmThumbs(rt, picks, owner)};
 }
+// PHOTO-미리받기앱시작(2026-10-30 명진 결정 "어 맞아"): 앱을 켜고 한가할 때(od-warm.js) 일기를 열지 않아도 미리 받기를 시작한다.
+// 받아 둔 이번 달 목록이 있으면 그것을 쓴다(꺼내지 않고 함께 기다린다 — 일기를 열면 그 목록을 그대로 쓴다). 연결·폴더가 없으면 시작하지 않는다.
+export async function odWarmPrefetch(rt = window.KPTURuntime, {today = todayKey()} = {}) {
+  const owner = warmFor(rt);
+  if (!owner) return false;
+  let st; try { st = await odStatusCached(rt); } catch { return false; }
+  if (!st?.configured || !st.connected || !st.folder || warmFor(rt) !== owner) return false;
+  const year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7)) - 1, hit = warm.months.get(monthParam(year, month));
+  let first = null;
+  if (hit) { try { first = await hit.promise; } catch { first = null; } }
+  if (warmFor(rt) !== owner) return false;
+  if (first) odKeepReconcile(year, month, first, {rt});
+  return odStartPrefetch(year, month, first, {rt});
+}
 async function warmThumbs(rt, picks, owner) {
   if (!picks.length) return 0;
   const l = odThumbLoader(rt), store = keepStore(), keep = !!store?.available();
@@ -389,8 +403,8 @@ export function odThumbLoader(rt = window.KPTURuntime, {fetchUrls, fetchBytes, g
   });
   return loader;
 }
-export function clearOdPhotoCache() { loader?.clear(); odWarmReset(); }
-export function forgetOdPhoto(id, rt = window.KPTURuntime) { loader?.forget(id); keepStore()?.remove(ownerScope(rt), id); }
+export function clearOdPhotoCache() { loader?.clear(); odWarmReset(); heldLarge.clear(); }
+export function forgetOdPhoto(id, rt = window.KPTURuntime) { loader?.forget(id); heldLarge.delete(id); keepStore()?.remove(ownerScope(rt), id); }
 // 그림 주소 하나(대기열을 거친다). 크게 보기·미리 받기가 쓴다.
 export const odPhotoUrl = (id, size = 'small', {rt = window.KPTURuntime, prio = VISIBLE} = {}) => odThumbLoader(rt).get(id, size, prio);
 // 달을 열면 날마다 앞 몇 장의 주소를 가장 낮은 순서로 미리 받아 둔다(주소 묶음 길일 때만; 한 장씩 받는 길에서는 요청을 늘리지 않는다).
@@ -457,9 +471,20 @@ export function odKeepForOwner(rt = window.KPTURuntime) { const owner = ownerSco
 // 색인된 사진을 최근 달부터 거꾸로(켠 폴더만 — 서버 photos가 켠 폴더만 준다), 화면이 열려 있으면 한가할 때 하나씩 받는다.
 // 화면이 가려지면(앱 닫기·다른 앱) 이미 주소를 받아 둔 다음 몫(최대 100장)을 Background Fetch로 넘긴다(지원 브라우저만). 그 사이 이 반복은 쉰다.
 // 데이터 절약·배터리로 멈추는 장치는 두지 않는다(명진 결정). 주소는 메모리에만 잠시 두고 넘긴 뒤 버린다.
-export const PREFETCH = Object.freeze({chunk: 100, maxMonths: 240, emptyStop: 24, bgPrefix: 'od-thumb-', freshMs: 30 * 60 * 1000});
-const pf = {run: 0, active: false, ahead: [], wake: null, owner: '', listening: false};
-export const prefetchState = () => ({active: pf.active, ahead: pf.ahead.length});
+// recentBig(PHOTO-미리받기앱시작): 가장 최근 100장은 큰 그림도 받아 둔다(크게 보기가 바로 뜨게). 큰 그림은 폰 보관(OD-폰보관은 작은 그림만) 밖이라
+// 이 탭 메모리에만 둔다(heldLarge, 100장까지, 앱을 닫거나 로그인한 사람이 바뀌면 버린다). 그다음 옛날 사진은 작은 그림만, 더 옛날 큰 그림은 열 때 받는다.
+export const PREFETCH = Object.freeze({chunk: 100, maxMonths: 240, emptyStop: 24, bgPrefix: 'od-thumb-', freshMs: 30 * 60 * 1000, recentBig: 100, bigBatch: 20});
+const pf = {run: 0, active: false, ahead: [], wake: null, owner: '', listening: false, big: 0};
+export const prefetchState = () => ({active: pf.active, ahead: pf.ahead.length, big: heldLarge.size});
+// 미리 받은 큰 그림(Blob, 메모리만). 크게 보기 칸(odPhotoElement 'large')이 대기열보다 먼저 쓴다.
+const heldLarge = new Map();
+let heldOwner = '';
+export const odHeldLarge = id => heldLarge.get(id) || null;
+function holdLarge(owner, id, blob) {
+  if (heldOwner !== owner) { heldLarge.clear(); heldOwner = owner; }
+  heldLarge.delete(id); heldLarge.set(id, blob);
+  while (heldLarge.size > PREFETCH.recentBig) heldLarge.delete(heldLarge.keys().next().value);
+}
 const idle = () => new Promise(resolve => {
   if (typeof globalThis.requestIdleCallback === 'function') globalThis.requestIdleCallback(() => resolve(), {timeout: 2000});
   else setTimeout(resolve, 100);
@@ -471,6 +496,8 @@ export function prefetchOrder(month, ym = '') {
   return Object.entries(month?.days || {}).filter(([day]) => !ym || day.startsWith(ym + '-')).sort(([a], [b]) => b.localeCompare(a)).flatMap(([, list]) => [...list].reverse());
 }
 export function odStopPrefetch() { pf.run++; pf.active = false; pf.ahead = []; pf.wake?.(); pf.wake = null; }
+// 앱을 닫으면(pagehide) 멈춘다. 큰 그림 메모리도 버린다.
+function stopOnClose() { odStopPrefetch(); heldLarge.clear(); }
 // 가려질 때 넘길 요청: 사진 주소의 # 뒤에 어느 사진인지 표시(서버로 가지 않음)를 붙인다. 30분 넘은 주소는 버린다.
 export function handoffRequests(ahead, now = Date.now()) {
   const api = globalThis.ODThumbCache;
@@ -492,6 +519,7 @@ async function handoff() {
 function listen() {
   if (pf.listening || !globalThis.document?.addEventListener) return;
   pf.listening = true;
+  globalThis.addEventListener?.('pagehide', stopOnClose);
   globalThis.document.addEventListener('visibilitychange', () => {
     if (pageHidden()) handoff();
     else { const wake = pf.wake; pf.wake = null; wake?.(); }
@@ -531,7 +559,7 @@ export async function bytesThumb(rt, id, fetcher = globalThis.fetch) {
 }
 async function prefetchLoop(my, rt, owner, year, month, first) {
   const store = keepStore(), l = odThumbLoader(rt);
-  let y = year, m = month, empty = 0, kept = await store.count(owner);
+  let y = year, m = month, empty = 0, big = 0, kept = await store.count(owner);
   const live = () => pf.run === my;
   for (let i = 0; i < PREFETCH.maxMonths && empty < PREFETCH.emptyStop; i++, m = m === 0 ? 11 : m - 1, y = m === 11 ? y - 1 : y) {
     if (!live()) return;
@@ -547,41 +575,86 @@ async function prefetchLoop(my, rt, owner, year, month, first) {
     const list = prefetchOrder(data, ym);
     empty = list.length ? 0 : empty + 1;
     const have = await store.monthIds(owner, KEEP_SIZE, ym);
+    // 최근 100장(PREFETCH.recentBig): 작은 그림 → 큰 그림 순으로 먼저, 그다음 이 달의 나머지 작은 그림.
+    const recent = list.slice(0, Math.max(0, PREFETCH.recentBig - big));
+    big += recent.length;
+    const recentIds = new Set(recent.map(p => p.id));
     const want = list.filter(p => !have.has(p.id));
+    const wantRecent = want.filter(p => recentIds.has(p.id)), wantRest = want.filter(p => !recentIds.has(p.id));
+    if (await smallParts(wantRecent, ym) === 'stop') return;
+    if (recent.length && await bigParts(recent) === 'stop') return;
+    if (await smallParts(wantRest, ym) === 'stop') return;
+  }
+  async function smallParts(want, ym) {
     for (let at = 0; at < want.length; at += PREFETCH.chunk) {
-      if (!live()) return;
-      if (kept >= store.limits.maxEntries) return; // 상한까지 찼다: 더 받지 않는다(오래된 것을 밀어내며 계속 받지 않게).
+      if (!live()) return 'stop';
+      if (kept >= store.limits.maxEntries) return 'stop'; // 상한까지 찼다: 더 받지 않는다(오래된 것을 밀어내며 계속 받지 않게).
       await untilVisible(); await idle();
-      if (!live()) return;
+      if (!live()) return 'stop';
       // 한 몫(최대 100장)의 주소를 대기열(가장 낮은 순서, 20장씩 묶음)로 받아 둔다. 화면이 가려지면 이 몫이 Background Fetch로 넘어간다.
       const part = want.slice(at, at + PREFETCH.chunk);
       if (corsBlocked()) { // 썸네일 주소를 CORS로 못 받는 브라우저·계정: 서버가 한 장씩 넘기는 길로 천천히(한 번에 하나) 받는다.
         for (const p of part) {
           await untilVisible(); await idle();
-          if (!live()) return;
+          if (!live()) return 'stop';
           const r = await bytesThumb(rt, p.id);
-          if (!live()) return;
+          if (!live()) return 'stop';
           if (r.wait) { await new Promise(resolve => setTimeout(resolve, r.wait)); continue; }
-          if (r.stop) return;
+          if (r.stop) return 'stop';
           if (r.blob && await store.put(owner, p.id, KEEP_SIZE, ym, r.blob)) kept++;
         }
         continue;
       }
       const got = await Promise.allSettled(part.map(p => l.get(p.id, KEEP_SIZE, IDLE)));
-      if (!live()) return;
+      if (!live()) return 'stop';
       const stamp = Date.now();
       pf.ahead = part.map((p, k) => (got[k].status === 'fulfilled' ? {owner, id: p.id, month: ym, url: got[k].value, at: stamp} : null)).filter(Boolean);
       while (pf.ahead.length) {
         await idle();
-        if (!live()) return;
+        if (!live()) return 'stop';
         if (pageHidden()) { await untilVisible(); continue; } // 넘기지 못하고 가려진 채면 기다린다(넘겼으면 ahead가 비어 있다).
         const x = pf.ahead.shift();
         const blob = await grabThumb(x.url);
         if (blob && await store.put(owner, x.id, KEEP_SIZE, ym, blob)) kept++;
-        if (!live()) return;
+        if (!live()) return 'stop';
       }
     }
+    return 'go';
   }
+  // 큰 그림: 주소 묶음 길일 때만(한 장씩 받는 길은 미리 받기를 하지 않는다), 20장씩 주소를 받고 한 장씩 바이트를 메모리에 둔다.
+  // 이미 들고 있는 사진은 다시 받지 않는다. 바이트를 못 받으면(CORS) 그 주소를 브라우저가 한 번 받아 두게만 한다(일반 HTTP 캐시).
+  async function bigParts(recent) {
+    const todo = recent.filter(p => !heldLarge.has(p.id));
+    for (let at = 0; at < todo.length; at += PREFETCH.bigBatch) {
+      if (!live()) return 'stop';
+      if (l.mode !== 'urls') return 'go';
+      await untilVisible(); await idle();
+      if (!live()) return 'stop';
+      const part = todo.slice(at, at + PREFETCH.bigBatch);
+      const got = await Promise.allSettled(part.map(p => l.get(p.id, 'large', IDLE)));
+      for (let k = 0; k < part.length; k++) {
+        if (!live()) return 'stop';
+        if (got[k].status !== 'fulfilled') continue;
+        await untilVisible(); await idle();
+        if (!live()) return 'stop';
+        const url = got[k].value, blob = corsBlocked() ? null : await grabThumb(url);
+        if (!live()) return 'stop';
+        if (blob) holdLarge(owner, part[k].id, blob); else await warmHttp(url);
+      }
+    }
+    return 'go';
+  }
+}
+// 바이트를 못 들고 있을 때: 같은 주소를 브라우저가 한 번 받아 두게 한다(크게 보기가 같은 주소를 쓰면 브라우저 캐시에서 뜬다).
+function warmHttp(url) {
+  return new Promise(resolve => {
+    if (typeof Image !== 'function' || !safeThumbUrl(url)) { resolve(false); return; }
+    const img = new Image(), done = ok => { clearTimeout(timer); img.onload = img.onerror = null; resolve(ok); };
+    const timer = setTimeout(() => done(false), 20000);
+    img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
+    img.onload = () => done(true); img.onerror = () => done(false);
+    img.src = url;
+  });
 }
 
 // 화면에 보이는지(VISIBLE)와 곧 보일지(NEAR: 아래로 한 화면, 위로 조금)를 두 관찰자로 본다. 칸마다의 처리기는 WeakMap(떼어 낸 칸은 저절로 놓인다).
@@ -596,6 +669,26 @@ function observers() {
   return views;
 }
 const RETRY_GAP_MS = 3000;
+// PHOTO-크게보기빨리(2026-10-30 명진 결정 "둘다 넣어"): 크게 보기를 누른 순간 먼저 띄울 작은 그림(요청 없음).
+// ① 화면에 이미 떠 있는 같은 사진 칸(격자·날짜 칸; 크게 보기 안은 빼고) ② 대기열 메모리의 작은 그림 주소. 둘 다 없으면 null(부르는 쪽이 폰 보관 사본을 찾는다).
+export function shownSmallSrc(id, rt = window.KPTURuntime, doc = globalThis.document) {
+  for (const el of doc?.querySelectorAll?.('[data-diary-photo]') || []) {
+    if (el.dataset.diaryPhoto !== 'od:' + id || el.dataset.imgState !== 'shown' || el.closest('[data-diary-viewer]')) continue;
+    const blob = readyPhotoBlob(el);
+    if (blob) return {src: URL.createObjectURL(blob), revoke: true};
+    const img = el.querySelector('img:not(.img-slot-preview)'), src = img?.currentSrc || img?.src || '';
+    if (src && !src.startsWith('blob:')) return {src, revoke: false};
+  }
+  const url = odThumbLoader(rt).peek?.(id, KEEP_SIZE);
+  return url ? {src: url, revoke: false} : null;
+}
+function previewSmall(box, item, rt) {
+  const now = shownSmallSrc(item.id, rt);
+  if (now) { slotPreview(box, now.src, {revoke: now.revoke}); return; }
+  const keep = keepOf(item, KEEP_SIZE, rt);
+  if (!keep) return;
+  keepStore().get(keep.owner, item.id, KEEP_SIZE, keep.month).then(blob => { if (blob && box.dataset.imgState !== 'shown') slotPreview(box, URL.createObjectURL(blob), {revoke: true}); });
+}
 // 사진 한 칸(.diary-photo는 직접 올린 사진과 같은 모양). 보일 때·곧 보일 때 받고, 멀어지면 차례가 안 온 요청은 거둔다.
 // 표시는 공용 img-slot.js(PHOTO-못받은사진): 받는 중·다시 받기를 기다리는 동안은 글자 없는 연한 회색 칸, 받으면 그림, 끝내 못 받으면 작은 ↻.
 // 못 받으면 3초부터 두 배씩(60초까지) 기다렸다 다시 받고, 4번 넘게 실패하면 ↻로 쉰다. ↻를 누르거나 그 칸이 화면에 다시 들어오면 처음부터 다시 받는다
@@ -609,7 +702,9 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
   const img = document.createElement('img');
   img.alt = label || '사진'; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
   box.append(img); box.dataset.state = 'idle'; slotBox(box);
-  const l = odThumbLoader(rt);
+  const l = odThumbLoader(rt), big = size === 'large';
+  // 큰 그림 칸: 누른 때부터 시간을 재고([ⓘ 정보] '불러오기'), 받는 동안 작은 그림을 먼저 띄운다.
+  if (big) { slotTiming(box); previewSmall(box, item, rt); }
   let busy = false, holding = false, looking = false, failures = 0, timer = null, gaveUpAt = 0, visible = false, near = false, why = '';
   const wanted = () => eager || visible || near;
   const order = () => (eager ? prio : visible ? VISIBLE : NEAR);
@@ -635,6 +730,9 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
     // 받는 중: 다시 보이면 기다리는 칸으로 다시 세고(거두지 않게), 순서만 당긴다.
     if (busy) { if (looking) return; if (holding) l.bump(item.id, size, order()); else { holding = true; l.get(item.id, size, order()); } return; }
     busy = true; box.dataset.state = 'loading'; slotLoading(box);
+    // 앱을 켤 때 미리 받아 둔 큰 그림(메모리)이 있으면 대기열을 거치지 않는다.
+    const held = big ? odHeldLarge(item.id) : null;
+    if (held) { slotTiming(box, 'url'); showBlob(held, null); return; }
     const keep = keepOf(item, size, rt);
     // 폰에 보관된 작은 그림이 있으면 대기열을 거치지 않고 바로 보여 준다.
     if (keep) {
@@ -654,7 +752,7 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
   function showBlob(blob, url, keep = null) {
     const local = URL.createObjectURL(blob);
     img.onload = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); holdPhotoBlob(box, blob); shown(); };
-    img.onerror = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); forgetPhotoBlob(box); img.removeAttribute('src'); if (url) l.bad(item.id, size, url); else if (keep) keepStore().remove(keep.owner, item.id); busy = false; failed('img-blob'); };
+    img.onerror = () => { img.onload = img.onerror = null; URL.revokeObjectURL(local); forgetPhotoBlob(box); img.removeAttribute('src'); if (url) l.bad(item.id, size, url); else if (keep) keepStore().remove(keep.owner, item.id); else if (big) heldLarge.delete(item.id); busy = false; failed('img-blob'); };
     img.src = local;
   }
   function showUrl(url) {
@@ -666,6 +764,7 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
     holding = true;
     l.get(item.id, size, force ? VISIBLE : order()).then(url => {
       holding = false;
+      if (big) slotTiming(box, 'url');
       if (!keep) return showUrl(url);
       // 보관할 수 있는 칸: 그림 바이트를 받아 보관하고 그 바이트로 보여 준다. 바이트를 못 받으면(CORS 등) 예전처럼 주소로 보여 준다.
       grabThumb(url).then(blob => {
