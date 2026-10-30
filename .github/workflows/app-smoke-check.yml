@@ -7,6 +7,7 @@ on:
       - 'app/**'
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
+      - 'tests/web2-csp.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'p/**'
@@ -112,6 +113,7 @@ on:
       - 'app/**'
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
+      - 'tests/web2-csp.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'p/**'
@@ -417,6 +419,9 @@ jobs:
 
       - name: Check domain routing and service worker registration
         run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/supabase-origin.test.mjs
+
+      - name: Check Web2 report-only CSP and referrer policy (SEC-Web2CSP 1단계)
+        run: node --test tests/web2-csp.test.mjs
 
       - name: Check home, inbox, quick save and trash units (STAB-단위시험등록)
         run: node --test tests/home-fill-data.test.mjs tests/home-fill-model.test.mjs tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
