@@ -1370,11 +1370,22 @@ function sourceClick(b) {
   if (name === 'phone' && sources.phone && !phoneUsable()) phone.ask();
   sourcesChanged();
 }
-// 원드라이브 아이콘 꾹 누르기(PC 우클릭) = 연결 메뉴(폴더 바꾸기·하위 폴더·연결 끊기).
+// 원드라이브 아이콘 꾹 누르기(PC 우클릭) = 연결 메뉴(폴더 바꾸기·하위 폴더·연결 끊기). 꾹 누른 뒤 오는 누르기(켜기/끄기)는 먹는다.
+let srcHold = null, srcAte = false;
 root.addEventListener('contextmenu', e => {
   const b = e.target.closest?.('[data-photos-src="onedrive"]'); if (!b) return;
-  e.preventDefault(); linkMenu.open(b);
+  e.preventDefault();
+  if (srcAte) return;
+  linkMenu.open(b);
 });
+root.addEventListener('pointerdown', e => {
+  const b = e.target.closest?.('[data-photos-src="onedrive"]'); srcAte = false; if (!b || e.pointerType === 'mouse') return;
+  clearTimeout(srcHold?.timer);
+  srcHold = {x:e.clientX, y:e.clientY, timer:setTimeout(() => { srcHold = null; srcAte = true; navigator.vibrate?.(12); linkMenu.open(b); }, HOLD_MS)};
+});
+root.addEventListener('pointermove', e => { if (srcHold && Math.hypot(e.clientX - srcHold.x, e.clientY - srcHold.y) > HOLD_MOVE) { clearTimeout(srcHold.timer); srcHold = null; } });
+for (const t of ['pointerup', 'pointercancel']) root.addEventListener(t, () => { if (srcHold) { clearTimeout(srcHold.timer); srcHold = null; } });
+root.addEventListener('click', e => { if (srcAte && e.target.closest?.('[data-photos-src]')) { srcAte = false; e.preventDefault(); e.stopPropagation(); } }, true);
 window.addEventListener('kptu:view-prefs-rejected', e => {
   if (!(e.detail?.paths || []).includes('photo_sources')) return;
   sources = parseSources(viewPrefs.get('photo_sources'));

@@ -211,7 +211,8 @@ test('사진 메뉴: 원드라이브 설정 창(하위 폴더)을 일기로 넘�
   const f = await fixture(page, { width: 390 });
   await openPhotos(page, 390);
   await expect(items(page)).toHaveCount(7);
-  await root(page).locator('[data-od-link]').click();
+  // PHOTO-출처 ①: 연결된 뒤 원드라이브 아이콘 누르기 = 켜기/끄기, 연결 메뉴는 꾹 누르기(PC 우클릭).
+  await root(page).locator('[data-od-link]').click({ button: 'right' });
   const menu = page.locator('#photosOdMenu');
   await expect(menu).toBeVisible();
   await menu.locator('button', { hasText: '하위 폴더 켜고 끄기' }).click();
