@@ -77,7 +77,10 @@ test('담당조직 상세에서 연결된 할 일을 보고, 이 조직으로 �
   expect(calls.filter(c=>c.action==='linked').map(c=>c.query.organization_id)).toEqual([RAIL]);
   // Completed in the last 3 days shows dimmed in the same list; undated pending is shown (decision 3).
   await expect(body.locator('[data-google-task="org-done"]')).toHaveClass(/completed/);
-  await expect(body.locator('[data-google-task="org-undated"]')).toContainText('기한 미정');
+  // HOME-업무일지홈 C: 기한 없는 할 일은 기한 글자를 쓰지 않는다(옛 '기한 미정' 없음). 기한 있는 줄은 공용 진회색 글자.
+  await expect(body.locator('[data-google-task="org-undated"]')).toBeVisible();
+  await expect(body.locator('[data-google-task="org-undated"]')).not.toContainText('기한 미정');
+  await expect(body.locator('[data-google-task="org-undated"] [data-gt-linked-due]')).toHaveCount(0);
 
   await page.locator('#wdTaskAdd').click();
   const editor=page.locator('#gtTaskModal');
@@ -139,7 +142,7 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   await expect(rail.locator('.so-task-count')).toHaveCount(0);
   await expect(rail.locator('[data-so-dot]')).toHaveAttribute('data-so-at',/./);
   expect(await rail.locator('[data-so-dot]').evaluate(t=>{const d=new Date(Date.parse(t.dataset.soAt)+9*3600000).toISOString();return Number(d.slice(5,7))+'.'+Number(d.slice(8,10))})).toBe('1.9');
-  await page.waitForFunction(()=>window.KPTUHome?.metrics?.readyAt>0);
+  await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView .home-quick[data-home-quick]'));
   // The list itself asks Google for no organization; on a PC (ORG-PC좌우) only the detail opened on the right (the first
   // organization in the list, 전국철도노동조합) asks for its own tasks.
   await expect.poll(()=>calls.filter(c=>c.action==='linked').map(c=>c.query.organization_id)).toEqual([RAIL]);

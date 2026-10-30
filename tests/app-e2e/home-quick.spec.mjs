@@ -91,18 +91,19 @@ test('stale post-save refresh cannot overwrite a restarted home',async({page})=>
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route(SB+'/functions/v1/google-tasks?action=create',r=>r.fulfill({json:createdTaskReply(r.request().postDataJSON())}));
  let release,count=0;const pending=new Promise(r=>release=r);
- await page.route('**/functions/v1/google-tasks?action=overview*',async r=>{count++;if(count===1)await pending;return r.fulfill({json:{connected:true,authorized:true,pending_scope:'all',tasks:[]}});});
- await quick(page).locator('[data-quick-input]').fill('QA');await quick(page).locator('[data-quick-save]').click();await expect.poll(()=>count).toBe(1);
- await page.evaluate(()=>window.KPTUHome.start({freshTasks:true}));release();await expect(page.locator('[data-home-card="tasks"]')).toHaveAttribute('data-state','ready');expect(errors).toEqual([]);
+ // HOME-업무일지홈: 저장 뒤 다시 읽기는 홈(업무일지) 할 일 읽기(action=tasks)다. 첫 다시 읽기를 붙잡아 둔 채 홈을 다시 시작한다.
+ await page.route('**/functions/v1/google-tasks?action=tasks*',async r=>{count++;if(count===1)await pending;return r.fallback();});
+ await quick(page).locator('[data-quick-input]').fill('QA');await quick(page).locator('[data-quick-save]').click();await expect.poll(()=>count).toBeGreaterThanOrEqual(1);
+ await page.evaluate(()=>window.KPTUJournal.refresh());release();await expect(page.locator('#homeView [data-journal-group="todo"] li[data-journal-task="today"]')).toBeVisible();expect(errors).toEqual([]);
 });
 test('stale post-save refresh after session loss has no detached-card error',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route(SB+'/functions/v1/google-tasks?action=create',r=>r.fulfill({json:createdTaskReply(r.request().postDataJSON())}));
  let release,count=0;const pending=new Promise(r=>release=r);
- await page.route('**/functions/v1/google-tasks?action=overview*',async r=>{count++;await pending;return r.fulfill({json:{connected:true,authorized:true,pending_scope:'all',tasks:[]}});});
- await quick(page).locator('[data-quick-input]').fill('QA');await quick(page).locator('[data-quick-save]').click();await expect.poll(()=>count).toBe(1);
+ await page.route('**/functions/v1/google-tasks?action=tasks*',async r=>{count++;await pending;return r.fallback();});
+ await quick(page).locator('[data-quick-input]').fill('QA');await quick(page).locator('[data-quick-save]').click();await expect.poll(()=>count).toBeGreaterThanOrEqual(1);
  await page.evaluate(()=>{window.KPTURuntime.context.clear();window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:null}}));});release();
- await expect(page.locator('[data-home-card="tasks"]')).toHaveCount(0);await expect(page).toHaveURL(/login/);expect(errors).toEqual([]);
+ await expect(page.locator('#homeView [data-journal-task]')).toHaveCount(0);await expect(page).toHaveURL(/login/);expect(errors).toEqual([]);
 });
 test('organization detail retains the existing shared inbox save payload and failure draft',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await page.evaluate(async()=>{await KPTUViewLoader.load('team');await KPTUWorkplace.open('o');});await expect(page.locator('#wdModal')).toBeVisible();
@@ -112,7 +113,7 @@ test('organization detail retains the existing shared inbox save payload and fai
 });
 test('task screen saveEditor retains shared create title notes due and links',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{const body=r.request().postDataJSON();bodies.push(body);return r.fulfill({json:{ok:true,task:{id:'new',title:body.title,notes:body.notes,due:body.due,taskListId:'@default',status:'needsAction'},links:body.links.map(t=>({...t,google_task_id:'new',status:'confirmed'})),meeting_links:[]}});});
- await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await expect(page.locator('#gtTaskSection')).toBeVisible();await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await expect(page.locator('#gtTaskModal')).toBeVisible();
+ await page.locator('#homeView [data-journal-tasks-open]').click();await expect(page.locator('#gtTaskSection')).toBeVisible();await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await expect(page.locator('#gtTaskModal')).toBeVisible();
  await page.locator('#gtEditTitle').fill('QA');await page.locator('#gtEditNotes').fill('QA notes');await page.locator('#gtEditDue').fill('2026-10-09');await page.locator('[data-gt-link][value="p:child"]').check();await page.locator('#gtSaveBtn').click();
  await expect(page.locator('#gtTaskModal')).toBeHidden();expect(bodies[0]).toMatchObject({title:'QA',notes:'QA notes',due:'2026-10-09',links:[{project_id:'child'}]});
 });
@@ -121,7 +122,7 @@ test('quick add and show-all link respond in the transparent 44px target',async(
  await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
  await q.locator('[data-quick-input]').fill('QA');const add=await q.locator('[data-quick-save]').boundingBox();await page.mouse.click(add.x+add.width/2,add.y-1);
  await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies).toHaveLength(1);
- await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await expect(page.locator('#tasksView')).toBeVisible();await expect(page.locator('[data-gt-overdue]')).toBeVisible();await page.evaluate(()=>KPTUGoogleTasks.showUnlinked());const show=page.locator('[data-gt-show-all]');await expect(show).toHaveText('전체 보기 ›');await expect(show).toHaveCSS('font-size','12px');await expect(show).toHaveCSS('font-weight','500');/* UI-디자인기준 2/3: 할 일 화면 굵기 400·500 */await expect(show).toHaveCSS('border-top-width','0px');
+ await page.locator('#homeView [data-journal-tasks-open]').click();await expect(page.locator('#tasksView')).toBeVisible();await expect(page.locator('[data-gt-overdue]')).toBeVisible();await page.evaluate(()=>KPTUGoogleTasks.showUnlinked());const show=page.locator('[data-gt-show-all]');await expect(show).toHaveText('전체 보기 ›');await expect(show).toHaveCSS('font-size','12px');await expect(show).toHaveCSS('font-weight','500');/* UI-디자인기준 2/3: 할 일 화면 굵기 400·500 */await expect(show).toHaveCSS('border-top-width','0px');
  const hit=await show.boundingBox();await page.mouse.click(hit.x+hit.width/2,hit.y+hit.height/2-21);await expect(show).toHaveCount(0);await expect(page.locator('[data-gt-overdue]')).toBeVisible();
 });
 test('recent organization paging finds three unique choices beyond repeated records',async({page})=>{

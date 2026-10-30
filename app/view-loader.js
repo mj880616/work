@@ -20,11 +20,10 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./ui-standard.css'],
-  home:['./library-upload.css','./row-swipe.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
+  basket:['./basket.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./ui-standard.css'],
+  home:['./journal.css','./home-quick.css','./library-upload.css','./row-swipe.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./calendar-ui.css','./ui-standard.css'],
-  tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
-  journal:['./journal.css','./todo-radar.css','./ui-standard.css'],
+  tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./home-quick.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./markdown-view.css','./ui-standard.css'],
@@ -32,7 +31,7 @@ const routeStyles={
   pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
-  profile:['./profile-settings.css','./ui-standard.css'],
+  profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
   ledger:['./ledger-import.css','./ui-standard.css'],
   search:['./filter-chips.css','./global-search.css','./ui-standard.css'],
   reference:['./reference-bundles.css','./ui-standard.css'],
@@ -150,18 +149,10 @@ async function organizations(){
   import('./workplace-report.js').catch(console.error);
   return {ok:true}
 }
-async function home(){
-  const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
-  document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
-  await module('./home-read.js');
-  return {ok:true}
-}
-window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
-window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
+// HOME-업무일지홈: 홈은 업무일지 화면이다(journal.js가 #homeView 안 #journalRoot의 유일한 renderer). 옛 홈 칸 화면은 코드째 삭제.
+async function home(){ await module('./journal.js'); return {ok:true} }
 async function basket(){ await module('./basket.js'); return {ok:true} }
 // HWP-편집기(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
-// JOURNAL-일지 2단계: [일지] is journal.js (week row, "오늘 한 줄", the day's materials); [일기] is diary.js (month photo calendar).
-async function journal(){ await module('./journal.js'); return {ok:true} }
 async function diary(){ await module('./diary.js'); return {ok:true} }
 async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 // UI-프로필입구: [계정 ▾] → [내 프로필]. Like hwp, it stays out of loadAll; the module installs #profileView and loads its data on first open.
@@ -180,9 +171,9 @@ async function telegram(){ await organizationOrder(); await module('./telegram-f
 async function photos(){ await module('./photos.js'); return {ok:true} }
 // 주소 개편 ② E1: [아스날](?view=arsenal, 메뉴 창 맨 아래·사이드바 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #arsenalView를 만들고 경기 자료도 그때 불러온다).
 async function arsenal(){ await module('./arsenal.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
-const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library'};
+const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',journal:'home'};
 function normalize(view){
   view=VIEW_ALIAS[view]||view;
   return loaders[view]?view:'home'
@@ -210,7 +201,7 @@ const warmModules={
   basket:['./basket.js'],
   calendar:['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js'],
   tasks:['./project-catalog.js','./organization-order.js','./google-tasks.js'],
-  journal:['./journal.js'],
+  home:['./journal.js'],
   diary:['./diary.js'],
   projects:['./project-system-v3.js'],
   library:['./library-upload.js'],

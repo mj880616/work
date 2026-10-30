@@ -140,8 +140,8 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await boot(page,1280);
  await expect(page.locator('[data-menu-write]')).toHaveCount(0);
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
- // UI-PC일정묶음: 할 일·업무일지·일기는 [일정] 아래 하위 메뉴(달력·할 일·업무일지·일기)로.
- await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
+ // UI-PC일정묶음: 할 일·일기는 [일정] 아래 하위 메뉴(달력·할 일·일기)로. HOME-업무일지홈: 업무일지는 홈이라 이 줄에 없다.
+ await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','일기']);
  // BASKET-PC메뉴: [정리함] 아래 [업데이트]·[챙길 것], [노트]는 [일정] 다음.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
  await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','일정','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);

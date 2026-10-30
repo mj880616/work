@@ -34,7 +34,9 @@ test('task uses shared save path with date-only, project and notes; refreshes ca
  await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();await expect(page.locator('#toast')).toHaveText('할 일을 추가했습니다.');
  expect(bodies).toEqual([{action:'create',task_id:null,title:'QA',due:'2026-10-06',links:[{project_id:'child'}],notes:'QA notes'}]);await expect.poll(()=>overview).toBeGreaterThan(0);
  await expect(page.locator('#calendarList [data-date="2026-10-06"] .clv-tasks')).toContainText('할 일 1개');
- await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('[data-home-cards]')).toContainText('QA');
+ // HOME-업무일지홈: 홈 = 업무일지. 홈 할 일 칸은 업무일지 할 일 읽기(action=tasks)로 새로 만든 할 일을 보인다.
+ await page.route(SB+'/functions/v1/google-tasks?action=tasks*',r=>r.fulfill({json:{tasks:[{id:'created',title:'QA',due:'2026-10-06',status:'needsAction',taskListId:'default'}],needs_reconnect:false,pending_scope:'all'}}));
+ await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView [data-journal-group="todo"]')).toContainText('QA');
 });
 test('task failure retains draft and blocks repeated saves; undated and partial success are supported',async({page})=>{
  await open(page);await page.locator('[data-event-mode="task"]').click();await page.locator('#eventTitle').fill('QA');await page.locator('#eventStartDate').fill('');await page.locator('#eventTaskProject').click();await page.getByRole('button',{name:'자식 프로젝트',exact:true}).click();

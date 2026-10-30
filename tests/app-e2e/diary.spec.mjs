@@ -134,20 +134,23 @@ async function photoFiles(page,n,{w=3000,h=1500}={}){
  const out=[];for(let i=0;i<n;i++)out.push({name:`IMG_${i+1}.png`,mimeType:'image/png',buffer:await pngFor(page,['#e85','#5a8','#58e'][i%3],w,h)});return out;
 }
 
-test('[일정] 머리줄 [달력|할 일|업무일지|일기]: 높이 32·고른 쪽 테마색, [업무일지] 화면, 탭은 마지막으로 본 쪽',async({page})=>{
+// HOME-업무일지홈: 업무일지는 홈이라 [일정] 전환 줄은 [달력|할 일|일기] 셋이다.
+test('[일정] 머리줄 [달력|할 일|일기]: 높이 32·고른 쪽 테마색, [일기] 화면, 탭은 마지막으로 본 쪽',async({page})=>{
  const f=await fixture(page);
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  const sw=page.locator('#calendarView .schedule-switch');
- await expect(sw).toBeVisible();await expect(sw.locator('button')).toHaveText(['달력','할 일','업무일지','일기']);
+ await expect(sw).toBeVisible();await expect(sw.locator('button')).toHaveText(['달력','할 일','일기']);
+ await expect(sw.locator('[data-view="journal"]')).toHaveCount(0);
  // UI-버튼작게 ③: 폰은 아래 탭 바로 위 한 줄.
  const box=await sw.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
  expect(Math.round(box.height)).toBe(32);expect(Math.round(tabs.y-(box.y+box.height))).toBe(6);expect(box.x+box.width).toBeLessThanOrEqual(390);
- await sw.locator('[data-view="journal"]').click();
- await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#journalRoot [data-journal-input]')).toBeVisible();await expect(page.locator('#journalView')).not.toContainText('준비 중');
- const pressed=page.locator('#journalView .schedule-switch [aria-pressed="true"]');await expect(pressed).toHaveText('업무일지');
+ await sw.locator('[data-view="diary"]').click();
+ await expect(page.locator('#diaryView')).toBeVisible();await expect(page.locator('#diaryView')).not.toContainText('준비 중');
+ const pressed=page.locator('#diaryView .schedule-switch [aria-pressed="true"]');await expect(pressed).toHaveText('일기');
  expect(await pressed.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-select-bg)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
- await page.locator('#journalView .schedule-switch [data-view="diary"]').click();await expect(page.locator('#diaryView')).toBeVisible();
- await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
+ await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();
+ await expect(page.locator('#journalRoot [data-journal-input]')).toBeAttached();
+ await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  await expect(page.locator('#diaryView')).toBeVisible();await expect(page).toHaveURL(/view=diary/);
  await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveAttribute('aria-current','page');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);

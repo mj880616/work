@@ -193,16 +193,15 @@ test('task_due: the handled row keeps the due it was put in with (saved on the c
    await mod.markTasked(id(1),'g3',w,new Date('2026-10-27T01:00:00Z'),'2026-10-31');assert.equal(c[1].opts.body.task_due,'2026-10-31');}
 });
 
-test('task_due: both lists read the saved due first and keep it when marking again',async()=>{
+test('task_due: the inbox list reads the saved due first and keep it when marking again',async()=>{
   const {readFile}=await import('node:fs/promises');
   const read=name=>readFile(new URL(`../app/${name}`,import.meta.url),'utf8');
-  const [radar,inbox]=await Promise.all([read('todo-radar.js'),read('inbox-todos.js')]);
-  assert.match(radar,/function taskedDue\(c\) \{\n    if \(c\.task_due\) return c\.task_due;/);
+  // HOME-업무일지홈: 옛 홈·업무일지 챙길 것 상자(todo-radar.js mountRadar)는 없앴다 — 줄을 그리는 곳은 정리함 하나.
+  const inbox=await read('inbox-todos.js');
   assert.match(inbox,/const due = c\.task_due \? dotDay\(c\.task_due\)/);
   // a failed mark keeps the chosen due for the retry, and a successful one fills the row at once
-  assert.match(radar,/markTasked\(c\.id, taskId, rt, new Date\(\), shared\.dueOf\.get\(c\.id\) \|\| null\)/);
   assert.match(inbox,/markTasked\(c\.id, taskId, rt, new Date\(\), dues\.get\(c\.id\) \|\| null\)/);
-  assert.match(radar,/c\.task_due = draft\.due \|\| null/);assert.match(inbox,/c\.task_due = draft\.due \|\| null/);
+  assert.match(inbox,/c\.task_due = draft\.due \|\| null/);
 });
 
 test('FEAT-1029 ⑤ telegram candidates: one feed read adds the room; a failed read keeps the rows; source words',async()=>{

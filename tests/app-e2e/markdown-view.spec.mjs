@@ -80,7 +80,7 @@ const startedLibs=seen=>[...new Set(seen.libs.map(path=>path.split('/')[0].repla
 for(const width of [390,1280]){
  test(`basket memo shows ChatGPT markdown, diagrams and math safely with no outside request ${width}`,async({page},info)=>{
   await page.setViewportSize({width,height:900});const seen=await fixture(page),detail=page.locator('[data-basket-detail]'),read=detail.locator('[data-basket-read-text]');
-  await press(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await expect(page.locator('[data-basket-row]')).toHaveCount(2);
+  await press(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await expect(page.locator('[data-basket-row]')).toHaveCount(2);
   // Plain note first: formatted, but the diagram and math tools are not loaded.
   await press(page,page.locator('[data-basket-row="plain"]'),width);
   await expect(read).toHaveClass(/md-body/);await expect(read.locator('p')).toHaveCount(1);expect(await read.innerText()).toBe(PLAIN);

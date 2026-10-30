@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // UI-디자인기준 1/3 보완(8-9c2): 홈·바구니 버튼 높이 하나(홈 빠른 입력 [추가] 높이), 버튼 4종,
-// 홈 빠른 입력 탭 종류 색, "오늘 할 일" 제목, 바구니 AI 버튼 [⋯ 더보기], 다크 모드 끔.
+// 홈 빠른 입력 탭 종류 색, 홈 "할 일" 칸 제목, 바구니 AI 버튼 [⋯ 더보기], 다크 모드 끔.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00.123456+00:00';
 const n='10000000-0000-4000-8000-000000000002';
@@ -15,7 +15,7 @@ async function open(page,width,dark=false){
  const note={id:n,workspace_id:'w',occurred_at:stamp,updated_at:stamp,raw_text:'10/20 기자회견 자료',ai_export_allowed:true,archived_at:null,attachments:[{drive_file_id:'drive-a',file_name:'안내문.pdf',mime_type:'application/pdf',size_bytes:4096},{drive_file_id:'drive-h',file_name:'양식.hwp',mime_type:'application/x-hwp',size_bytes:8192}],metadata:{}};
  for(const t of ['app_suborganizations','app_suborganization_assignees','app_spaces','app_record_links'])await page.route(SB+'/rest/v1/'+t+'?**',r=>r.fulfill({json:[]}));
  await page.route(SB+'/rest/v1/app_notes?**',r=>{const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET')return r.fulfill({status:500,json:{}});if(q.get('metadata'))return r.fulfill({json:[]});return r.fulfill({json:[note].slice(Number(q.get('offset')||0))});});
- await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt>0);
+ await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView .home-quick[data-home-quick]'));
  return errors;
 }
 // Every visible button-shaped control in a region: the same height, 13px, 500, 8px corners, no shadow or gradient.
@@ -77,10 +77,10 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
   await sameButtons(quick.locator('.home-quick-modes'),height,quickHeight);
  }
  await quick.locator('[data-quick-mode="update"]').click();
- // 이름만 바꿈: 밀린 할 일도 그대로 보인다.
- const tasks=page.locator('#homeView [data-home-card="tasks"]');
- await expect(tasks.locator('h3')).toContainText('오늘 할 일');await expect(tasks.locator('h3')).not.toContainText('밀린');
- await expect(tasks).toContainText('지연 항목');await expect(tasks).toContainText('오늘 항목');
+ // HOME-업무일지홈: 홈 할 일 칸 제목은 '할 일'(밀린 것은 '기한 지난 것' 접힌 줄 안).
+ const tasks=page.locator('#homeView [data-journal-group="todo"]');
+ await expect(tasks.locator('h4').first()).toContainText('할 일');await expect(tasks.locator('h4').first()).not.toContainText('밀린');
+ await expect(tasks).toContainText('오늘 항목');await expect(tasks.locator('[data-journal-overdue] > summary')).toHaveText('기한 지난 것 1');
 
  // Basket list: filters, [추가], the top line's small [다시 찾기] and the 챙길 것 chips (BASKET-정리함한화면: no [⋯ 더보기]).
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);

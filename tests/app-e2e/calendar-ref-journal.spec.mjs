@@ -41,14 +41,12 @@ async function setup(page,{configured=true,eventsFail=false,stored=[]}={}){
  await openHome(page,{beforeLoad});
  return {refs,writes,gcal};
 }
+// HOME-업무일지홈: 업무일지는 홈이다 — 폰은 하단 탭 [홈], PC는 사이드바 맨 위 [홈]. 들어오면 오늘(10월 6일 화요일).
 async function openJournal(page,width){
- if(width<=760){
-  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
-  await expect(page.locator('#calendarView')).toBeVisible();
-  await page.locator('#calendarView .schedule-switch [data-view="journal"]').click();
- }else await page.locator('.app-nav [data-view="journal"]').click();
- await expect(page.locator('#journalView')).toBeVisible();
- await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
+ if(width<=760)await page.locator('.mobile-tabs [data-view="home"]').click();
+ else await page.locator('#appView>.app-nav .sidebar-brand').click();
+ await expect(page.locator('#homeView')).toBeVisible();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 6일 화요일');
 }
 const fold=page=>page.locator('#journalRoot [data-journal-calref]');
 

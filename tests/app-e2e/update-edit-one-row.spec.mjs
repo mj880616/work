@@ -12,7 +12,7 @@ async function openEdit(page, width) {
   await page.setViewportSize({ width, height: 900 });
   await openHome(page);
   await page.route('**/rest/v1/app_notes**', r => r.request().method() === 'GET' ? r.fulfill({ json: [{ id: 'n', kind: 'basket', raw_text: '고칠 업데이트', occurred_at: '2026-10-06', attachments: [] }] }) : r.fallback());
-  await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
+  await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
   await page.locator('[data-basket-row="n"]').click();
   await noteAction(page, '[data-basket-edit]');
   return errors;

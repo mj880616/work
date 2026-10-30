@@ -25,7 +25,7 @@ async function fixture(page){
   await openHome(page);
   // Keep openHome's Oct 6 clock for the whole roundtrip. Advancing it after
   // rendering would retire the Oct 7 milestone and change the aside width.
-  await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt>0);
+  await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView .home-quick[data-home-quick]'));
   const notes=[{id:noteId,workspace_id:'w',raw_text:'합성 메모 · 담당조직에 연결할 내용',updated_at:stamp,occurred_at:stamp,ai_export_allowed:true,attachments:[]},
     {id:'archived',raw_text:'보관한 합성 메모',updated_at:stamp,occurred_at:stamp,archived_at:stamp,attachments:[]}];
   const links=[];

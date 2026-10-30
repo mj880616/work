@@ -104,7 +104,7 @@ for(const width of [390,1280]){
 for(const width of [390,1280])test(`정리함 업데이트 수정 [큰 창에서 수정] [📎 첨부]: 수정 화면과 같은 파일 선택, 저장은 기존 [첨부 저장] ${width}`,async({page})=>{
  const f=await fixture(page,width);
  await page.route('**/rest/v1/app_notes**',r=>r.request().method()==='GET'?r.fulfill({json:[{id:'n',kind:'basket',raw_text:'고칠 업데이트',occurred_at:'2026-10-06',attachments:[]}]}):r.fallback());
- await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
+ await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
  await page.locator('[data-basket-row="n"]').click();
  await page.locator('[data-basket-note-more]').click();await page.locator('[data-basket-edit]').click();
  const detail=page.locator('[data-basket-detail]');

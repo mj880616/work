@@ -73,3 +73,10 @@
 #profileView .ps-todo-rooms{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
 #profileView .ps-todo-room{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);font-size:var(--ds-text-row)}
 #profileView .ps-todo-room-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* HOME-업무일지홈: '수집·사용량' 칸(profile-status.js). 모양은 home-quick.css의 수집 칸·AI 사용량 줄 그대로, 칸 사이만 촘촘히. */
+#profileView .ps-status{display:flex;flex-direction:column;gap:8px}
+#profileView .ps-status h3{margin:0}
+#profileView .ps-status .home-collect h3{font-size:var(--ds-text-section,13px);margin:0 0 4px}
+#profileView .ps-status .home-ai-usage{margin:0}
+#profileView .ps-quiet-weeks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#profileView .ps-quiet-note:empty{display:none}

@@ -32,13 +32,12 @@ const overflow=page=>page.evaluate(()=>{
   const name=e=>e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(/\s+/).slice(0,2).join('.'):'');
   return `scrollWidth ${root.scrollWidth} > ${w}; `+[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>w+1&&getComputedStyle(e).position!=='fixed'}).slice(0,4).map(name).join(', ');
 });
-// [이름, 왼쪽 메뉴 안 버튼, 라우터 화면 이름, 노트 쪽인가]. 할 일·업무일지·일기는 [일정] 아래 작은 메뉴(좁은 칸에서는 작은 그림).
+// [이름, 왼쪽 메뉴 안 버튼, 라우터 화면 이름, 노트 쪽인가]. 할 일·일기는 [일정] 아래 작은 메뉴(좁은 칸에서는 작은 그림).
 const MENU=[
   ['홈','.sidebar-brand','home'],
   ['정리함','.nav-btn[data-view="basket"]','basket'],
   ['달력','.nav-btn[data-view="calendar"]','calendar'],
   ['할 일','.nav-sub-btn[data-view="tasks"]','tasks',false,true],
-  ['업무일지','.nav-sub-btn[data-view="journal"]','journal',false,true],
   ['일기','.nav-sub-btn[data-view="diary"]','diary',false,true],
   ['노트','.nav-btn[data-basket-kind-nav="note"]','basket',true],
   ['사업 보고','.nav-btn[data-view="meetings"]','meetings'],
@@ -101,8 +100,10 @@ for(const size of SIZES.filter(s=>s.rail))test(`${size.width}×${size.height}: �
   await expect(calendar.locator('.nav-ico')).toBeVisible();
   expect((await calendar.locator('.nav-label').boundingBox())?.width??0).toBeLessThanOrEqual(1);
   await expect(calendar).toHaveAccessibleName('일정');
-  // [일정] 아래 할 일·업무일지·일기는 접힌 칸에서도 작은 그림으로 보이고, [달력]은 [일정]과 같은 곳이라 접힌 칸에서는 빠진다.
-  for(const v of ['tasks','journal','diary'])await expect(nav(page).locator(`.nav-sub-btn[data-view="${v}"] .nav-ico`)).toBeVisible();
+  // [일정] 아래 할 일·일기는 접힌 칸에서도 작은 그림으로 보이고, [달력]은 [일정]과 같은 곳이라 접힌 칸에서는 빠진다.
+  // HOME-업무일지홈: 업무일지는 홈이라 [일정] 아래에 없다.
+  await expect(nav(page).locator('.nav-sub-btn[data-view="journal"]')).toHaveCount(0);
+  for(const v of ['tasks','diary'])await expect(nav(page).locator(`.nav-sub-btn[data-view="${v}"] .nav-ico`)).toBeVisible();
   await expect(nav(page).locator('.nav-sub-btn[data-goto="calendar"]')).toBeHidden();
   await expect(nav(page).locator('.nav-home-mid')).toBeHidden();
   await expect(toggle(page)).toHaveAttribute('aria-expanded','false');

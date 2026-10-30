@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// LIB-글자채우기야간: home "예전 자료 글자 읽기 끝남 (N개)" line (app/text-backfill-notice.js). drive-summary is mocked;
+// LIB-글자채우기야간: "예전 자료 글자 읽기 끝남 (N개)" line (app/text-backfill-notice.js). drive-summary is mocked;
+// HOME-업무일지홈: the line moved from the old home to 내 프로필 '수집·사용량' (profile-status.js).
 // nothing here calls a real server. The line shares the collection card's one GET ?action=status.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const answer=text_backfill=>({ok:true,checked_at:'2026-10-06T01:00:00.000Z',copy:{state:'found',last_success_at:'2026-10-05T21:17:00.000Z',last_failure_at:null,last_failure_code:null},text_backfill});
@@ -22,7 +23,10 @@ async function fixture(page,{status=answer({done_at:'2026-10-05T18:25:00.000Z',c
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#homeView')).toBeVisible();
-  return {calls,line:page.locator('[data-home-text-done]')};
+  await page.evaluate(()=>window.KPTURouter.go('profile'));
+  await expect(page.locator('#profileView')).toBeVisible({timeout:15000});
+  await expect(page.locator('#homeView [data-home-text-done]')).toHaveCount(0);
+  return {calls,line:page.locator('#profileView [data-ps-text-done]')};
 }
 
 for(const width of [1280,390])test(`shows one line when done, ✕ saves the dismissal on the server and hides it (${width})`,async({page})=>{
@@ -40,10 +44,10 @@ for(const width of [1280,390])test(`shows one line when done, ✕ saves the dism
 
 for(const [name,status] of [['already dismissed',answer({done_at:'2026-10-05T18:25:00.000Z',count:3,dismissed_at:'2026-10-05T23:00:00.000Z'})],['not done yet',answer(null)],['function not deployed','missing']])test(`${name}: no line`,async({page})=>{
   const {line}=await fixture(page,{status});
-  await page.waitForFunction(()=>window.KPTUHome?.metrics?.readyAt);
+  await expect(page.locator('#psStatusPanel')).toBeVisible();
   await page.waitForTimeout(300);
   await expect(line).toBeHidden();
-  await expect(page.locator('#homeView')).not.toContainText('글자 읽기 끝남');
+  await expect(page.locator('#profileView')).not.toContainText('글자 읽기 끝남');
 });
 
 test('a failed ✕ keeps the line with a short note',async({page})=>{

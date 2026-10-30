@@ -1,7 +1,6 @@
 import {seoulParts,seoulDate,addSeoulDays} from './meeting-time.js';
 import {paintFreshness} from './data-freshness.js';
-import {createHomeCache} from './home-read-cache.js';
-import {dayKey,ranges,homeEventRows} from './home-read-model.js';
+import {dayKey,ranges} from './home-read-model.js';
 let cpState=null,cpEvents=[],cpSavePromise=null,cpSaveQueued=false,cpOwner=null;
 // 메모리 캐시: status는 연결 상태일 때만 5분, 범위별 events는 5분 동안 먼저 보여주고 항상 뒤에서 다시 읽는다.
 // CAL-저장본먼저(2026-10-22 사용자 결정): 이 기기에도 마지막 연결 상태와 범위별 일정을 남겨, 다음에 열 때 바로 보여 주고 곧바로 다시 읽는다.
@@ -27,13 +26,8 @@ function cpCopySave(owner,key,s,e,d){
   for(const r of Object.values(v.ranges))r.events=r.events.filter(ev=>ids.has(ev.calendarId+':'+ev.id)||!cals.has(ev.calendarId)||!(cpTime(ev.start)<+e&&cpTime(ev.end)>+s));
   v.status=cpCopyStatus();v.ranges[key]={at:now,s:+s,e:+e,events:cpCopyEvents(d.events),eventColors:d.eventColors||{}};
   cpCopyStore(owner,v);
-  cpHomeCopy(d.events||[],s,e);
 }
 const cpTime=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?Date.parse(v+'T00:00:00+09:00'):Date.parse(v);
-// The home 오늘 일정 copy (home-read-cache.js) follows a fresh read that covers today, so the home shows it next time without a gap.
-let cpHome=null;
-function cpHomeCache(){const rt=window.KPTURuntime;if(!cpHome&&rt?.ownerCache?.prefix)try{cpHome=createHomeCache({storage:localStorage,keyPrefix:rt.ownerCache.prefix+'home-read-v1:',context:()=>({owner:rt.context?.read?.()?.user?.id,workspaceId:rt.context?.read?.()?.workspace?.id})})}catch{}return cpHome}
-function cpHomeCopy(events,s,e){const r=ranges();if(+s>r.start||+e<r.end)return;cpHomeCache()?.save('calendar',{day:dayKey(),rows:homeEventRows(events,cpState)})}
 function cpFreshness(state){
   // Only the day placeholder (불러오는 중… / 불러오지 못함) depends on this state; other changes are painted by their own events.
   if(cpFresh!==state){const repaint=(cpFresh==='failed')!==(state==='failed');cpFresh=state;if(repaint)cpPaint()}
@@ -105,7 +99,6 @@ function cpForget(id,calendarId){
   if(cpEvents.some(same)){cpEvents=cpEvents.filter(ev=>!same(ev));cpSyncEvents()}
   for(const hit of cpRangeCache.values())if(hit.d?.events)hit.d={...hit.d,events:hit.d.events.filter(ev=>!same(ev))};
   const v=cpCopyRead(owner);if(v){for(const r of Object.values(v.ranges))r.events=r.events.filter(ev=>!same(ev));cpCopyStore(owner,v)}
-  cpHomeCache()?.update('calendar',card=>({...card,rows:card.rows.filter(r=>!(r.id===id&&(!calendarId||r.calendarId===calendarId)))}));
   cpChanged(id);
 }
 // HOME-줄누르기: 다른 화면(홈) 위에서 연 수정 창으로 고치거나 지운 일정을 그 화면이 다시 읽게 알린다(지연 덮어쓰기 없음).
@@ -118,7 +111,6 @@ function cpPut(ev,prevCalendarId){
   if(cpEvents.some(old)){cpEvents=swap(cpEvents);cpSyncEvents()}
   for(const hit of cpRangeCache.values())if(hit.d?.events)hit.d={...hit.d,events:swap(hit.d.events)};
   const v=cpCopyRead(owner);if(v){for(const r of Object.values(v.ranges))r.events=cpCopyEvents(swap(r.events));cpCopyStore(owner,v)}
-  cpHomeCache()?.update('calendar',card=>card.day!==dayKey()?card:{...card,rows:homeEventRows([...card.rows.filter(r=>!(r.id===ev.id&&r.calendarId===from)),ev],cpState)});
   cpChanged(ev.id);
 }
 // An event opened from this device's copy: wait for the read under way (or read again when the last one failed) and answer
@@ -135,5 +127,5 @@ window.KPTUCalendarPersistence={paint:cpPaint,knows:cpKnows,state:()=>cpFresh,fr
 // 일정 생성·수정·삭제 직후 호출된다: 캐시와 진행 중 요청을 무시하고 새로 읽는다.
 window.__KPTU_RELOAD_GOOGLE_EVENTS__=()=>cpLoadEvents({force:true});
 window.__KPTU_CALENDAR_PERSISTENCE_READY__=cpInit().catch(e=>{console.warn('calendar persistence init',e);return false});
-window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(cpOwner&&next===cpOwner)return;cpOwner=next||null;cpInvalidate();cpShownKey='';cpCover=null;cpFromCopy=false;cpAnswered=false;cpCheckedAt=0;cpHome=null;cpEventSeq++;cpFreshness('');cpState={connected:false,enabled:false,selected:[],calendars:[],colors:{},eventColors:{},email:null};cpEvents=[];window.KPTUCalendarView?.cancel();cpSyncState();cpSyncEvents()});
+window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(cpOwner&&next===cpOwner)return;cpOwner=next||null;cpInvalidate();cpShownKey='';cpCover=null;cpFromCopy=false;cpAnswered=false;cpCheckedAt=0;cpEventSeq++;cpFreshness('');cpState={connected:false,enabled:false,selected:[],calendars:[],colors:{},eventColors:{},email:null};cpEvents=[];window.KPTUCalendarView?.cancel();cpSyncState();cpSyncEvents()});
 window.addEventListener('focus',()=>{cpOnFocus()});

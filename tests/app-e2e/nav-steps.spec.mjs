@@ -58,7 +58,8 @@ for(const width of [1440,412,884]){
 }
 
 // 메뉴 화면 한 바퀴: 홈 → 화면 → ‹ 홈 → › 그 화면. 폰 폭은 같은 기록을 브라우저 뒤로/앞으로가 같은 결과로 지난다.
-const SCREENS=['basket','library','tasks','calendar','journal','meetings','team'];
+// HOME-업무일지홈: 업무일지는 홈이라 이 한 바퀴에서는 같은 묶음의 일기를 지난다.
+const SCREENS=['basket','library','tasks','calendar','diary','meetings','team'];
 for(const width of [1440,884]){
  test(`${width}: 메뉴 화면마다 ‹ 는 이전 화면, › 는 다시 그 화면`,async({page})=>{
   await fixture(page,width);const step=stepper(page,width);

@@ -126,12 +126,12 @@ test('민트(.notice) 상자를 안내·기다림에 쓰지 않는다(완료 알
 });
 
 test('옮긴 화면은 공용 부품을 쓴다', () => {
-  for (const rel of ['journal.js', 'home-read.js', 'home-fill.js', 'telegram-feed.js', 'call-feed.js', 'photos.js', 'diary-list.js', 'ledger-browse.js',
+  for (const rel of ['journal.js', 'telegram-feed.js', 'call-feed.js', 'photos.js', 'diary-list.js', 'ledger-browse.js',
     'google-tasks.js', 'workplace-detail.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js', 'team.js', 'meeting-round-detail.js', 'calendar-day-items.js', 'basket.js',
     // 2차
     'data-freshness.js', 'global-search.js', 'calendar-list-view.js', 'calendar-interactions-v2.js', 'calendar-plus.js', 'project-system-v3.js',
     'basket-manual-link.js', 'business-area-fields.js', 'home-quick.js', 'meeting-todo-candidates.js', 'workflow-ai-v3.js',
-    'ledger-merge.js', 'todo-radar.js', 'journal-hwpx.js', 'journal-weekly.js', 'photo-share.js', 'telegram-feed.js', 'share-pages.js', 'diary.js']) {
+    'ledger-merge.js', 'journal-hwpx.js', 'journal-weekly.js', 'photo-share.js', 'telegram-feed.js', 'share-pages.js', 'diary.js']) {
     assert.match(read(rel), /from '\.\/wait-state\.js';/, rel);
   }
   // 옛 모양 파일(즉시 실행 함수·선언 시험 대상)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
@@ -151,8 +151,6 @@ const EMPTY_BASELINE = {
   'basket.js': 1,
   // - 안내 글(빈 목록 아님): 이미 연결된 곳은 고를 수 없다는 안내(basket-manual-link.js).
   'basket-manual-link.js': 1,
-  // - 접힌 머리 줄의 상태 글('챙길 것 없음 · 마지막 찾기 hh:mm', todo-radar.js): 제목 역할(aria-labelledby)이라 글자를 둔다.
-  'todo-radar.js': 1,
 };
 // 글이 '…없어요'로 끝나는 곳만 센다(따옴표·태그·${} 앞). 문장 가운데의 '지울 수 없어요' 같은 안내는 세지 않는다.
 const NONE_WORDS = '(?:없어요|없습니다|없음|없네요|비어 있어요|비어 있습니다)\\.?(?=[\'"`<$])';
@@ -204,16 +202,16 @@ test('따로 쓴 빈 화면 문구가 새로 생기지 않는다(기준표보다
 });
 
 test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
-  for (const rel of ['journal.js', 'journal-weekly.js', 'prep-sheet-view.js', 'project-system-v3.js', 'home-read.js', 'home-extra.js', 'home-fill.js',
+  for (const rel of ['journal.js', 'journal-weekly.js', 'prep-sheet-view.js', 'project-system-v3.js',
     'telegram-feed.js', 'call-feed.js', 'ledger-browse.js', 'org-key-people.js', 'report-views.js', 'diary.js', 'diary-list.js', 'photos.js',
     'workplace-detail.js', 'google-tasks.js', 'team.js', 'meeting-columns.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js',
     'library-folders.js', 'library-move-picker.js', 'calendar-day-overflow.js', 'calendar-tasks.js', 'calendar-day-items.js', 'choice-sheet.js',
-    'pick-fold.mjs', 'home-edit.js', 'journal-hwpx.js', 'meeting-round-detail.js', 'od-settings.js', 'press-draft.js', 'record-sheet.js',
-    'report-summary-preview.js', 'task-files.js', 'task-workflow.js', 'todo-radar.js', 'basket-notes.js', 'global-search.js', 'inbox-todos.js', 'share-pages.js']) {
+    'pick-fold.mjs', 'journal-hwpx.js', 'meeting-round-detail.js', 'od-settings.js', 'press-draft.js', 'record-sheet.js',
+    'report-summary-preview.js', 'task-files.js', 'task-workflow.js', 'basket-notes.js', 'global-search.js', 'inbox-todos.js', 'share-pages.js']) {
     assert.match(read(rel), /import \{[^}]*\bempty(Html|El)\b[^}]*\} from '\.\/wait-state\.js';/, rel);
   }
   // 옛 모양 파일(즉시 실행 함수)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
-  for (const rel of ['home-dashboard-v2.js', 'library-upload.js', 'profile-settings.js', 'suborganizations.js', 'task-layout.js', 'workplace-report.js']) {
+  for (const rel of ['library-upload.js', 'profile-settings.js', 'suborganizations.js', 'task-layout.js', 'workplace-report.js']) {
     assert.match(read(rel), /globalThis\.KPTUWait\?\.emptyHtml\?\.\(/, rel);
   }
 });
