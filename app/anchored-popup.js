@@ -40,6 +40,8 @@ export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edg
     left=Math.max(edge,Math.min(t.left,vw-width-edge));
     height=Math.min(maxHeight,side==='below'?below:above);
     if(side==='below')top=t.bottom+gap+'px';else bottom=vh-t.top+gap+'px';
+    // UI-메뉴잘림: 위·아래 어느 쪽에도 다 들어가지 않지만 창에는 다 들어가면, 창 안으로 밀어 올려(누른 줄 위에 조금 겹쳐) 끝 항목까지 다 보인다.
+    if(want&&height<want&&want<=vh-edge*2){height=want;top=Math.max(edge,Math.min(t.bottom+gap,vh-edge-want))+'px';bottom='auto';side='below';}
   }else{
     // Neither below nor above has room (a button near the middle of a short window): open beside it, right side first.
     side='side';
