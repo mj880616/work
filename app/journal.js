@@ -89,7 +89,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 <section class="journal-day" data-journal-day>
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
 <section class="journal-done-day" data-journal-done-day aria-labelledby="journalDoneTitle"><h4 class="journal-heading" id="journalDoneTitle" data-journal-done-title>오늘 한 일</h4>
-<form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="1" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 고쳐서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
+<form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 고쳐서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <div class="journal-done-tasks" data-journal-done-tasks></div>
 </section>
@@ -331,7 +331,7 @@ function renderTasks(card) {
   box.className = 'journal-group journal-task-col'; box.dataset.journalGroup = 'todo';
   const head = document.createElement('div'); head.className = 'journal-schedule-head';
   const count = part.loading ? '' : String((part.todo || []).length + (part.overdue || []).length);
-  head.innerHTML = `<h4 class="journal-heading">할 일 <small class="journal-head-count" data-journal-todo-count>${count}</small></h4><button type="button" class="journal-schedule-cal" data-journal-tasks-open aria-label="할 일 화면 열기">할 일 ›</button>`;
+  head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">할 일</h4><small class="journal-head-count" data-journal-todo-count>${count}</small></span><button type="button" class="journal-schedule-cal" data-journal-tasks-open aria-label="할 일 화면 열기">할 일 ›</button>`;
   box.append(head);
   if (part.loading) box.insertAdjacentHTML('beforeend', waitHtml({rows:2}));
   else {
@@ -378,7 +378,7 @@ function eventRow(item) {
 function renderSchedule(card) {
   const host = $('[data-journal-schedule]'), part = card.events;
   const head = document.createElement('div'); head.className = 'journal-schedule-head';
-  head.innerHTML = `<h4 class="journal-heading">그날 일정 <small class="journal-head-count" data-journal-events-count>${part.loading ? '' : part.items.length}</small></h4><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>`;
+  head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">그날 일정</h4><small class="journal-head-count" data-journal-events-count>${part.loading ? '' : part.items.length}</small></span><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>`;
   host.replaceChildren(head);
   const dday = ddayLine();
   if (dday) host.append(dday);

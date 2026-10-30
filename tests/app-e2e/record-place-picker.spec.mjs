@@ -25,13 +25,14 @@ async function setup(page,{width,height=800,projects=12,orgs=NAMES}={}){
 const box=el=>el.boundingBox();
 
 test('PC 1280×800: 넓은 창 — 제목 옆 검색칸, 최근 한 줄, 왼쪽 담당조직 / 오른쪽 프로젝트, 창 안 스크롤 없음',async({page})=>{
- const q=await setup(page,{width:1280,height:800});
+ // HOME-업무일지홈: 홈 입력줄은 날짜 줄·요약 줄 아래(시안 v2)라 버튼이 약 80px 내려왔다. 창이 버튼 바로 아래에서 다 보이는지는 같은 기준으로, 창 높이만 그만큼 늘려 본다.
+ const q=await setup(page,{width:1280,height:880});
  await q.locator('[data-quick-org]').click();const sheet=dialog(page);await expect(sheet).toBeVisible();
  await expect(sheet).toHaveClass(/home-choice-anchored/);await expect(sheet).toHaveClass(/home-choice-split/);
  const d=await box(sheet),t=await box(q.locator('[data-quick-org]'));
  // Still opened by the button (anchored-popup.js), inside the window, wider than the old 480px list.
  expect(d.y-(t.y+t.height)).toBeGreaterThanOrEqual(-1);expect(d.y-(t.y+t.height)).toBeLessThanOrEqual(12);
- expect(d.width).toBeGreaterThan(700);expect(d.x).toBeGreaterThanOrEqual(0);expect(d.x+d.width).toBeLessThanOrEqual(1280);expect(d.y+d.height).toBeLessThanOrEqual(800);
+ expect(d.width).toBeGreaterThan(700);expect(d.x).toBeGreaterThanOrEqual(0);expect(d.x+d.width).toBeLessThanOrEqual(1280);expect(d.y+d.height).toBeLessThanOrEqual(880);
  // The search box is on the title line, right of the title, before ×.
  const title=await box(sheet.locator('h2')),search=sheet.getByRole('searchbox',{name:'조직·사업영역 이름 검색'}),s=await box(search),close=await box(sheet.getByRole('button',{name:'선택판 닫기'}));
  expect(s.x).toBeGreaterThan(title.x+title.width);expect(s.x+s.width).toBeLessThanOrEqual(close.x);expect(Math.abs((s.y+s.height/2)-(title.y+title.height/2))).toBeLessThanOrEqual(4);

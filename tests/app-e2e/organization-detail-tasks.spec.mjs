@@ -77,7 +77,10 @@ test('담당조직 상세에서 연결된 할 일을 보고, 이 조직으로 �
   expect(calls.filter(c=>c.action==='linked').map(c=>c.query.organization_id)).toEqual([RAIL]);
   // Completed in the last 3 days shows dimmed in the same list; undated pending is shown (decision 3).
   await expect(body.locator('[data-google-task="org-done"]')).toHaveClass(/completed/);
-  await expect(body.locator('[data-google-task="org-undated"]')).toContainText('기한 미정');
+  // HOME-업무일지홈 C: 기한 없는 할 일은 기한 글자를 쓰지 않는다(옛 '기한 미정' 없음). 기한 있는 줄은 공용 진회색 글자.
+  await expect(body.locator('[data-google-task="org-undated"]')).toBeVisible();
+  await expect(body.locator('[data-google-task="org-undated"]')).not.toContainText('기한 미정');
+  await expect(body.locator('[data-google-task="org-undated"] [data-gt-linked-due]')).toHaveCount(0);
 
   await page.locator('#wdTaskAdd').click();
   const editor=page.locator('#gtTaskModal');

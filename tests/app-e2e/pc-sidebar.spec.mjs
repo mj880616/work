@@ -161,7 +161,8 @@ test('업무일지 = 홈: 옛 ?view=journal은 홈, 사이드바·폰 전환 줄
  await page.setViewportSize({width:870,height:900});await expect(page.locator('#homeView')).toBeVisible();
  expect(await bare()).toBe(0);
  await page.setViewportSize({width:390,height:844});await expect(page.locator('#homeView')).toBeVisible();
- for(const id of ['#calendarView','#tasksView','#diaryView'])await expect(page.locator(`${id} .schedule-switch`).getByRole('button')).toHaveText(['달력','할 일','일기']);
+ // 숨은 화면의 전환 줄이라 역할 이름이 아니라 버튼 글자로 본다.
+ for(const id of ['#calendarView','#tasksView','#diaryView'])await expect(page.locator(`${id} .schedule-switch button`)).toHaveText(['달력','할 일','일기']);
  await expect(page.locator('.schedule-switch [data-view="journal"]')).toHaveCount(0);
  expect(await bare()).toBe(0);
  // 폰: 하단 탭 6칸·메뉴 판 항목은 그대로, 홈 탭이 고른 칸.

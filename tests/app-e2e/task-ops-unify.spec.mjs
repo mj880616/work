@@ -32,7 +32,10 @@ for (const width of [412, 1280]) {
     await expect(page.locator('#gtSaveBtn')).toBeEnabled();
     await page.locator('#gtEditTitle').fill('바꾼 오늘 항목');
     await page.locator('#gtSaveBtn').click();
-    await expect(page.locator('#gtTaskModal')).toBeHidden();
+    // 폰은 창이 닫히고, PC 할 일 화면은 오른쪽 칸에 붙은 편집기(gt-docked)가 그 할 일을 계속 보인다.
+    if (width < 761) await expect(page.locator('#gtTaskModal')).toBeHidden();
+    else await expect(page.locator('#gtEditTitle')).toHaveValue('바꾼 오늘 항목');
+    await expect.poll(() => updates.length).toBe(1);
     expect(updates).toHaveLength(1);
     expect(updates[0].task_id).toBe('today');
     expect(updates[0].title).toBe('바꾼 오늘 항목');

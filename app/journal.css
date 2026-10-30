@@ -450,7 +450,7 @@
 /* HOME-업무일지홈(2026-10-30 명진 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주 · (오른쪽 끝) [하루|주간 정리].
    날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘은 공용 '오늘' 표시(갈색 테두리), 고른 날은 옅은 초록 바탕. 폰은 제목이 한 줄, 아래 날짜 줄. */
 #appView #homeView .journal-head{ justify-content:flex-start; gap:6px 10px; }
-#appView #homeView .journal-day-title{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
+#appView #homeView .journal-day-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
 #appView #homeView .journal-head .journal-week-nav{ gap:2px; min-width:0; }
 #appView #homeView .journal-head .journal-mode-switch{ margin-left:auto; }
 #appView #homeView .journal-head .journal-days{ display:flex; gap:2px; }
@@ -458,15 +458,17 @@
 #appView #homeView .journal-head .journal-weekday{ display:none; }
 #appView #homeView .journal-head .journal-dot{ bottom:1px; width:4px; height:4px; margin-left:-2px; }
 #appView #homeView .journal-head .journal-date[aria-pressed="true"]{ border-color:transparent; box-shadow:none; background:var(--ds-kind-journal-soft); }
+/* 폰: 첫 줄 = 날짜 제목 + [하루|주간 정리], 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
 @media(max-width:760px){
-  #appView #homeView .journal-day-title{ flex:1 0 100%; order:-1; }
-  #appView #homeView .journal-head .journal-week-nav{ flex:1 1 auto; }
-  #appView #homeView .journal-head .journal-days{ flex:1 1 auto; justify-content:space-between; }
-  #appView #homeView .journal-head .journal-date{ min-width:0; flex:1 1 0; }
-  #appView #homeView .journal-head .journal-mode-switch{ margin-left:0; }
+  #appView #homeView .journal-day-title{ flex:1 1 auto; order:-2; }
+  #appView #homeView .journal-head .journal-mode-switch{ order:-1; margin-left:auto; }
+  #appView #homeView .journal-head .journal-week-nav{ flex:1 1 100%; }
+  #appView #homeView .journal-head .journal-days{ flex:1 1 auto; min-width:0; justify-content:space-between; }
+  #appView #homeView .journal-head .journal-date{ min-width:0; flex:1 1 0; padding:0; }
+  #appView #homeView .journal-head .journal-num{ min-width:22px; padding:0 2px; }
 }
 /* 요약 한 줄(home-summary.js): '나한테 온 요청 n'만 노란 주목 글씨, 나머지 흐린 글씨. 누르면 정리함. */
-#appView #homeView .home-summary{ margin:0; }
+#appView #homeView .home-summary{ margin:0; font-size:var(--ds-text-meta,12px); line-height:1.5; }
 #appView #homeView .home-summary-open{ position:relative; display:inline; margin:0; padding:0; border:0; background:transparent; box-shadow:none; font:inherit; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-faint); text-align:left; cursor:pointer; }
 #appView #homeView .home-summary-open::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #homeView .home-summary-ask{ color:var(--kptu-muted); }
@@ -477,13 +479,14 @@
 #appView #homeView .journal-top-cols{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px 16px; }
 @media(min-width:761px){ #appView #homeView .journal-top-cols{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
 #appView #homeView .journal-top-cols > *{ min-width:0; }
-#appView #homeView .journal-head-count{ margin-left:2px; font-weight:var(--ds-weight-regular,400); color:var(--kptu-muted); }
+#appView #homeView .journal-head-name{ display:inline-flex; align-items:baseline; gap:4px; min-width:0; }
+#appView #homeView .journal-head-count{ font-weight:var(--ds-weight-regular,400); color:var(--kptu-muted); }
 #appView #homeView .journal-done-day{ display:flex; flex-direction:column; gap:6px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #homeView .journal-done-day > h4{ margin:0; }
 #appView #homeView .journal-done-col:empty{ display:none; }
 /* D-day 주요 일정(그날 일정 칸 맨 위, 오늘만): 작은 테두리 칩 한 줄, 3일 안은 진한 테두리. */
 #appView #homeView .journal-dday{ display:flex; flex-wrap:wrap; gap:4px; margin:2px 0 4px; }
-#appView #homeView .journal-dday-chip{ position:relative; box-sizing:border-box; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:0 8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px); background:transparent; box-shadow:none; font:inherit; font-size:var(--ds-text-meta,12px); color:var(--kptu-ink); white-space:nowrap; cursor:pointer; }
+#appView #homeView .journal-dday-chip{ position:relative; box-sizing:border-box; max-width:100%; overflow:hidden; text-overflow:ellipsis; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:0 8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px); background:transparent; box-shadow:none; font:inherit; font-size:var(--ds-text-meta,12px); color:var(--kptu-ink); white-space:nowrap; cursor:pointer; }
 #appView #homeView .journal-dday-chip.is-soon{ border-color:var(--kptu-muted); }
 #appView #homeView .journal-dday-chip::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 /* 옛 홈 '연락 없는 조직' 줄(org-quiet.js)은 홈 맨 아래. */

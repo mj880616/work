@@ -54,6 +54,8 @@ export function mountHomeSummary({root, line, rt = window.KPTURuntime, onTasksCh
     assignments: () => share('assignments', () => readRecordPages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encodeURIComponent(ctx().user?.id || '')}&select=organization_id&order=organization_id.asc`, rt)),
     google: () => share('google', async () => { await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]); return window.KPTUGoogleTasks; }),
   };
+  // 옛 홈처럼 할 일 모듈을 처음부터 불러 둔다(할 일 줄 바로 처리·고치기 창·할 일 화면이 같은 KPTUGoogleTasks를 씀).
+  void dependencies.google().catch(() => {});
   mountQuick({root, dependencies, refreshTasks: () => onTasksChanged(), invalidateProjects: () => flights.delete('projects'), esc, view: 'home', idPrefix: 'home', onSaved: () => void refresh()});
   window.addEventListener('kptu:session-changed', () => { flights.clear(); run++; paint(null); });
   window.addEventListener('kptu:todo-radar-changed', event => { if (event.detail?.reload && window.KPTURouter?.current === 'home') void refresh(); });
