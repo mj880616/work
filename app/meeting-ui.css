@@ -440,3 +440,15 @@
 #reportAreaTagSheet .area-tag-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:6px 0 2px;background:var(--kptu-surface)}
 #reportAreaTagSheet .area-tag-status{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-danger)}
 #reportAreaTagSheet .area-tag-save{height:var(--ds-compact-height,32px);min-height:0;padding:0 14px;font-size:var(--ds-text-meta,13px)}
+/* MTG-결과마크다운: 결과 원문·특이사항은 노트·정리함 업데이트와 같은 마크다운 보기(.md-body, markdown-view.css). 머리줄 오른쪽 작은 [원문 보기],
+   입력 칸 이름 옆 작은 [⤢ 크게](노트와 같은 쓰기 창). 보이는 크기는 작게, 누르는 범위는 공용 작은 버튼 그대로. */
+.mrd-text-head{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2,8px);margin:0 0 var(--kptu-space-3)}
+.mrd-result-section .mrd-text-head h3,.mrd-special-section .mrd-text-head h3{margin:0}
+.mrd-text.md-body{white-space:normal}
+.mrd-text.record-text-raw{white-space:pre-wrap;overflow-wrap:anywhere}
+.mrd-text.md-body :is(td,th){overflow-wrap:normal;word-break:keep-all}
+.mrd-text.md-body table{display:block;max-width:100%;overflow-x:auto}
+button.record-raw-toggle,button.record-big-write{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:32px;height:var(--ds-compact-height,32px);min-height:0;padding:0 8px;color:var(--kptu-muted);background:transparent;border-color:transparent}
+button.record-raw-toggle[aria-pressed="true"]{color:var(--kptu-ink);background:var(--kptu-surface-subtle);border-color:var(--kptu-border)}
+button.record-big-write{margin-left:4px;vertical-align:middle}
+:is(button.record-raw-toggle,button.record-big-write):hover{color:var(--kptu-ink)}

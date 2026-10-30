@@ -27,7 +27,7 @@ const routeStyles={
   diary:['./diary.css','./od-link.css','./ed-doc.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./markdown-view.css','./ui-standard.css'],
-  meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
+  meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
