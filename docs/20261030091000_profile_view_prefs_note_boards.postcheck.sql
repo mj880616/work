@@ -1,7 +1,7 @@
 -- SELECT only. Works after apply (record + check accepting note_boards) and after rollback/dry-run (no record + note view check without it).
 -- The hash/count items must equal the precheck values of the same name (no grant, policy, trigger or index change; no row added or removed).
 with history as (
-  select count(*) as n,count(*) filter(where name='profile_view_prefs_note_boards') as named from supabase_migrations.schema_migrations where version='20261030090000'
+  select count(*) as n,count(*) filter(where name='profile_view_prefs_note_boards') as named from supabase_migrations.schema_migrations where version='20261030091000'
 ), checks as (
   select count(*) filter(where c.convalidated) as valid,count(*) as n,
     count(*) filter(where pg_get_constraintdef(c.oid) ~ 'note_boards') as with_report
