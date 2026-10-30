@@ -82,6 +82,10 @@ class MainActivity : ComponentActivity() {
     /** WIDGET-여러개 ①: 쓰기 창 다리(app/phone-widget-write.js가 write:hello로 알림). 새 화면을 열기 시작하면 버린다. */
     private var writeReply: JavaScriptReplyProxy? = null
     private val recListener: (String) -> Unit = { message -> postRec(message) }
+    /** APP-스스로업데이트: 업데이트 상태가 바뀌면 위쪽 줄을 다시 그린다. */
+    private val updateListener: () -> Unit = { ui.post { renderUpdate() } }
+    /** [닫기]를 누른 상태(그 상태가 바뀌면 다시 보인다). */
+    private var updateClosedFor: UpdateRules.Phase? = null
     private val recPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         postRec(if (micGranted()) "rec:ready" else "rec:denied")
     }
@@ -97,6 +101,8 @@ class MainActivity : ComponentActivity() {
         barColor = ContextCompat.getColor(this, R.color.web_bg)
         RecordHub.init(this)
         RecordHub.listener = recListener
+        RecordHub.changed = { AppUpdater.poke(applicationContext) }
+        AppUpdater.listener = updateListener
 
         // targetSdk 35부터 화면 끝까지 그린다. 바 자리는 앱이 비우고 웹 바탕색으로 칠한다.
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -632,8 +638,15 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
+    override fun onStart() {
+        super.onStart()
+        AppUpdater.onForeground(this)
+        renderUpdate()
+    }
+
     override fun onStop() {
         super.onStop()
+        AppUpdater.onBackground(this)
         // 앱을 닫거나 뒤로 보낼 때 위젯을 한 번 새로 그린다(같은 이름 작업은 KEEP).
         if (WidgetHub.session(this).signedIn() && HomeWidgets.any(this)) WidgetJobs.refreshNow(this)
     }
@@ -752,7 +765,7 @@ class MainActivity : ComponentActivity() {
             isFocusable = true
             minHeight = dp(32)
             gravity = Gravity.CENTER
-            setOnClickListener { updateUrl?.let { openView(Uri.parse(it)) } }
+            setOnClickListener { onUpdateTap() }
         }
         updateClose = TextView(this).apply {
             text = "닫기"
@@ -762,7 +775,10 @@ class MainActivity : ComponentActivity() {
             isFocusable = true
             minHeight = dp(32)
             gravity = Gravity.CENTER
-            setOnClickListener { updateBar.visibility = View.GONE }
+            setOnClickListener {
+                updateClosedFor = AppUpdater.phase
+                updateBar.visibility = View.GONE
+            }
         }
         updateBar.addView(updateText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         updateBar.addView(updateGet)
@@ -776,10 +792,38 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 if (!alive) return@runOnUiThread
                 updateUrl = found.url
-                updateText.text = "앱 새 버전 ${found.version}"
-                updateBar.visibility = View.VISIBLE
+                // 앱 안에서 받아 설치한다(AppUpdater). 어긋나면 FAILED → 예전처럼 [받기](브라우저).
+                AppUpdater.found(this, found)
+                renderUpdate()
             }
         }.apply { isDaemon = true }.start()
+    }
+
+    /** 위쪽 새 버전 줄(UpdateRules.barText). */
+    private fun renderUpdate() {
+        if (!alive) return
+        val r = AppUpdater.release ?: return
+        updateUrl = r.url
+        val phase = AppUpdater.phase
+        val bar = UpdateRules.barText(phase, r.version)
+        if (bar == null || updateClosedFor == phase) {
+            updateBar.visibility = View.GONE
+            return
+        }
+        updateClosedFor = null
+        updateText.text = bar.first
+        updateGet.text = bar.second ?: ""
+        updateGet.visibility = if (bar.second == null) View.GONE else View.VISIBLE
+        updateBar.visibility = View.VISIBLE
+    }
+
+    private fun onUpdateTap() {
+        when (AppUpdater.phase) {
+            UpdateRules.Phase.READY -> AppUpdater.installNow(this)
+            UpdateRules.Phase.NEED_PERMISSION -> AppUpdater.askPermission(this)
+            UpdateRules.Phase.CONFIRM -> if (!AppUpdater.startConfirm(this)) updateUrl?.let { openView(Uri.parse(it)) }
+            else -> updateUrl?.let { openView(Uri.parse(it)) }
+        }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
@@ -805,6 +849,7 @@ class MainActivity : ComponentActivity() {
         recReply = null
         writeReply = null
         if (RecordHub.listener === recListener) RecordHub.listener = null
+        if (AppUpdater.listener === updateListener) AppUpdater.listener = null
         webView.stopLoading()
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.destroy()

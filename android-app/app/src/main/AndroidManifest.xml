@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 권한은 인터넷 하나. 사진·저장소 전체 읽기, 앱 설치 권한은 요청하지 않는다(설계 5.2·6.3). -->
+    <!-- 기본 권한은 인터넷. 사진·저장소 전체 읽기는 요청하지 않는다(설계 5.2·6.3). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- APP-스스로업데이트(0.3.8): 이 앱 자신의 새 판(같은 서명, 공개 릴리스)만 설치한다. 처음 한 번 '이 앱에서 설치 허용'을 사용자가 켠다.
+         UPDATE_PACKAGES_WITHOUT_USER_ACTION(안드로이드 14+, 일반 권한)은 이 앱이 설치한 이 앱을 확인 없이 업데이트할 때 쓴다. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <!-- MTG-폰녹음(0.3.3): [녹음]에만 쓰는 마이크·앞쪽 서비스(마이크)·알림. 마이크·알림은 처음 녹음할 때만 묻는다. 저장소 권한은 없다(앱 전용 공간만). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -142,6 +146,14 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/arsenal_widget_info" />
+        </receiver>
+        <!-- APP-스스로업데이트: PackageInstaller 결과와 새 판으로 바뀜(MY_PACKAGE_REPLACED). 내보내지 않는다(시스템만 보냄). -->
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
         </receiver>
         <!-- 단계 ③: 홈 화면 '웹2 오늘' 위젯(홈 화면 전용). 권한은 그대로 인터넷 하나. -->
         <receiver

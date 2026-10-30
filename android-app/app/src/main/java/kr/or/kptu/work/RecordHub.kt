@@ -33,6 +33,9 @@ object RecordHub {
     /** 웹 화면에 알리기(UI 스레드에서 부른다). MainActivity가 붙이고 뗀다. */
     @Volatile var listener: ((String) -> Unit)? = null
 
+    /** 녹음 상태가 바뀌거나 녹음을 지운 뒤 부른다(앱 업데이트가 녹음 끝을 기다릴 때, AppUpdater.poke). */
+    @Volatile var changed: (() -> Unit)? = null
+
     @Synchronized
     fun init(context: Context) {
         if (store != null) return
@@ -76,6 +79,7 @@ object RecordHub {
             store().sweep(session)
         }
         if (push) pushState()
+        changed?.invoke()
     }
 
     /** 저장하지 않는 시계 갱신(1초마다). 저장은 조각을 자를 때 한다. */
@@ -93,6 +97,7 @@ object RecordHub {
             store().clear()
         }
         pushState()
+        changed?.invoke()
     }
 
     /** 녹음기를 열지 못함: 녹음을 지우고 웹에 알린다(서버 구간은 조각 없이 남고 다음 rec_start가 닫는다). */

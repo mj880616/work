@@ -1,11 +1,11 @@
 # 웹2 폰 앱 (안드로이드·갤럭시 전용)
 
-설계: [docs/design/phone-app-v2.md](../docs/design/phone-app-v2.md). 지금은 단계 ③(홈 화면 위젯)과 [녹음](0.3.3), 위젯 여러 개 ①(0.3.4)·②(0.3.5)·③(0.3.6)까지다.
+설계: [docs/design/phone-app-v2.md](../docs/design/phone-app-v2.md). 지금은 단계 ③(홈 화면 위젯)과 [녹음](0.3.3), 위젯 여러 개 ①(0.3.4)·②(0.3.5)·③(0.3.6), 당겨서 새로고침(0.3.7), 앱 스스로 업데이트(0.3.8)까지다.
 
 - 화면은 모두 `https://bokdoong.com/work/app/` 웹이다(0.3.1부터, 주소 이전 ①-D1). 웹을 배포하면 앱을 다시 열 때 바로 반영된다.
 - 앱 안 주소(`ShellRules.isInternalApp`, 시험으로 고정): `https` + 호스트 `bokdoong.com`·`desk.bokdoong.com`·`work.bokdoong.com`·`mj880616.github.io`의 `/work/app/` 아래, 그리고 `bokdoong.com`·`desk`의 맨 앞 `/`(Worker가 Web2로 보냄). desk·work는 넘김(302) 기간 동안 안쪽으로 둔다. 그 밖(`bokdoong.com/p/` 같은 Web1 공개 페이지, 공유 짧은 주소 `bokdoong.com/s/…`, 공유 페이지 `work.bokdoong.com/work/share/`, `work`의 Web1)은 바깥 브라우저 탭으로 연다(설계 `docs/design/domain-move.md` 4.3절).
-- 앱이 맡는 것: 시스템 바 색(웹 theme-color를 따라감), 뒤로가기(`window.KPTUNativeBack`), 로그인 복귀(`kptuwork://auth?handoff=` → 웹 `auth-handoff-client.js`), 바깥 링크(앱 위 브라우저 탭), 파일 선택, 새 버전 알림 줄, 공유 받기(아래).
-- 앱은 웹 화면의 토큰·업무 데이터를 따로 저장하지 않는다(위젯 세션의 새로고침 토큰 하나만 아래처럼 암호화해 둔다). 요청 권한은 인터넷과 [녹음]용 마이크·앞쪽 서비스(마이크)·알림(아래, WorkManager가 일반 권한 몇 개를 자동으로 더함). 백업·새 폰 옮기기에서 앱 저장 공간을 뺀다.
+- 앱이 맡는 것: 시스템 바 색(웹 theme-color를 따라감), 뒤로가기(`window.KPTUNativeBack`), 로그인 복귀(`kptuwork://auth?handoff=` → 웹 `auth-handoff-client.js`), 바깥 링크(앱 위 브라우저 탭), 파일 선택, 새 버전 줄과 앱 스스로 업데이트(아래), 공유 받기(아래).
+- 앱은 웹 화면의 토큰·업무 데이터를 따로 저장하지 않는다(위젯 세션의 새로고침 토큰 하나만 아래처럼 암호화해 둔다). 요청 권한은 인터넷과 [녹음]용 마이크·앞쪽 서비스(마이크)·알림, 앱 스스로 업데이트용 '이 앱에서 설치 허용'(`REQUEST_INSTALL_PACKAGES`)·`UPDATE_PACKAGES_WITHOUT_USER_ACTION`(아래, WorkManager가 일반 권한 몇 개를 자동으로 더함). 백업·새 폰 옮기기에서 앱 저장 공간을 뺀다.
 - 앱 ID `kr.or.kptu.work`, 이름 "웹2"는 옛 앱과 같다(설계 D2·D11). 옛 앱은 debug 키 서명이라 덮어 깔리지 않으므로 한 번 지우고 깐다.
 
 ## 공유로 바구니 넣기 (단계 ②)
@@ -59,6 +59,20 @@
 - 웹 화면을 `SwipeRefreshLayout`(동그란 표시)이 감싼다. 손가락을 댈 때마다 당기기를 끄고, 웹2 화면(`app/phone-pull-refresh.js`)이 그 손가락에 다리 `pull:on`을 보낼 때만 받는다(`ShellRules.pullReady`). 웹은 화면 맨 위가 아니거나, 포스트잇 판·열린 창(아래에서 올라온 창 포함)·메뉴, 내려가 있는 칸 안 스크롤 목록, 글 쓰는 중이면 `pull:off`.
 - 당기면 앱이 웹에 `KPTUPullRefresh.run()`을 묻는다. 저장 안 한 글이 있으면 웹이 새 버전 안내 [새로고침]과 같은 확인(`KPTUReloadGuard`, `version-notice.js`)으로 먼저 묻고, 같은 주소로 다시 연다. 웹 다리가 없는 웹2 화면은 앱이 같은 주소를 다시 연다. 다리는 기존 허용 Origin 최상위 화면 규칙 그대로.
 
+## 설치·업데이트 (0.3.8, APP-스스로업데이트)
+
+처음 설치: GitHub 릴리스 `phone-app-v<버전>`의 `web2-phone-<버전>.apk`를 폰 브라우저로 받아 누른다. **0.3.7 이하에서 0.3.8로는 마지막으로 한 번 브라우저로 받아 설치한다**(0.3.7 이하는 앱 안 설치 기능이 없다). 0.3.8부터는 다음 판을 앱이 스스로 받는다.
+
+- 확인: 앱을 열 때 공개 릴리스 목록(로그인·토큰 없음)에서 지금보다 새 판을 찾는다(`UpdateRules.pick`). 초안·미리보기, 다른 저장소·다른 태그 자산, 크기 0·64MB 넘는 자산은 뺀다.
+- 받기(`AppUpdater`): 앱 전용 공간 `noBackupFilesDir/update/web2-phone-<버전>.apk`에 받는다. 첫 주소는 `https://github.com/mj880616/work/releases/download/phone-app-v<버전>/…apk`만, 넘김(302)은 자동으로 따라가지 않고 한 번씩 허용 목록(`objects.githubusercontent.com`·`release-assets.githubusercontent.com`, https·기본 포트)만 따라간다(5번까지). 받는 동안 릴리스 정보의 크기를 넘으면 멈추고, 다 받으면 크기·sha256(릴리스 `digest`가 있을 때)을 맞춘다.
+- 확인(설치 전): 받은 APK를 `PackageManager`로 열어 앱 ID `kr.or.kptu.work`, 버전 이름 = 릴리스 버전, 버전 번호 > 지금, 서명 인증서 SHA-256 묶음 = 지금 앱 서명(`UpdateRules.sameSigner`)을 본다. 설치 직전에 한 번 더 본다.
+- 처음 한 번 '이 앱에서 설치 허용': 위쪽 줄 '처음 한 번 설치 허용 필요 [허용하기]' → 안내 창(1. [설정 열기] 2. '이 출처 허용' 켜기 3. 뒤로가기) → 설정 화면(`ACTION_MANAGE_UNKNOWN_APP_SOURCES`, 이 앱 자리)이 바로 열린다. 돌아오면 이어서 설치한다.
+- 설치: `PackageInstaller` 세션. 안드로이드 12+는 `setRequireUserAction(USER_ACTION_NOT_REQUIRED)`로 확인 없이 업데이트를 청한다. 시스템이 확인을 원하면(첫 번째 앱 안 업데이트는 설치한 곳이 브라우저라 보통 확인 한 번) 알림 [업데이트] 한 번(화면에서 [지금 업데이트]를 눌렀으면 바로 확인 창). 앱이 스스로 설치한 뒤부터는 확인 없이 될 수 있다(실기기 확인 필요).
+- 언제: 화면을 쓰는 중에는 앱을 닫지 않는다. 위쪽 줄 '준비됨 [지금 업데이트]'를 누르거나, 앱이 뒤에 10분 머물면(WorkManager, 앞에 오면 취소) 설치한다. 로그인 탭·파일 고르기·카메라로 잠깐 뒤에 가는 사이에는 설치하지 않는다.
+- 녹음: 녹음 중·일시정지·[멈추고 정리] 뒤 조각 올리는 중에는 설치하지 않고 '녹음이 끝나면 업데이트'로 미룬다(`UpdateRules.recordingBusy`, 녹음 상태가 바뀌면 다시 본다). 앱이 죽어 남은 녹음(이어서 정리 대기)은 앱 전용 공간에 남아 업데이트 뒤에도 이어서 정리된다.
+- 상태: 받는 중·설치 중은 알림줄 한 줄('웹2 0.3.9 받는 중'·'설치 중', 알림 권한이 없으면 위쪽 줄만). 새 판으로 바뀌면 받은 파일을 지우고 '웹2 <버전>로 업데이트했어요'(`MY_PACKAGE_REPLACED`).
+- 실패: 주소·넘김·크기·sha256·앱 ID·버전·서명 중 하나라도 어긋나거나, 설치가 실패·취소되면 예전처럼 위쪽 줄 [받기](브라우저로 APK 주소).
+
 ## 녹음 (0.3.3, MTG-폰녹음)
 
 - 자리: 앱 안 사업 보고 위쪽 줄 [녹음](노트북 [녹음]과 같은 자리, `app/phone-recorder.js`가 붙임). 웹 화면이 `rec:hello`를 보내 앱이 답해야 보인다(웹 브라우저·0.3.2 이하 앱에서는 안 보임).
@@ -79,6 +93,8 @@
 | `app/src/main/java/kr/or/kptu/work/ShellRules.kt` | 주소 판정·로그인 복귀 값·바 색·버전 비교·공유 번호·목록 JSON 규칙(단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/ShareIntake.kt` | 공유 받기(메모리 보관·`__share` 가로채기) |
 | `app/src/main/java/kr/or/kptu/work/UpdateCheck.kt` | 공개 릴리스 `phone-app-v*` 최신 버전 확인 |
+| `app/src/main/java/kr/or/kptu/work/UpdateRules.kt` | 앱 스스로 업데이트 규칙(릴리스 고르기·허용 주소·넘김·크기·버전·서명 비교·녹음 중 미룸·상태 줄, 단위 시험 대상) |
+| `app/src/main/java/kr/or/kptu/work/AppUpdater.kt` | 앱 스스로 업데이트(받기·확인·PackageInstaller 설치·알림줄, `UpdateReceiver`·`UpdateInstallWorker`) |
 | `app/src/main/java/kr/or/kptu/work/WidgetAuth.kt` | 위젯 세션(로그인 표시·consume·갱신·로그아웃)과 허용 주소 규칙 |
 | `app/src/main/java/kr/or/kptu/work/WidgetHttp.kt` | 위젯 HTTP(OkHttp) |
 | `app/src/main/java/kr/or/kptu/work/KeystoreVault.kt` | 위젯 새로고침 토큰 암호화 보관 |
@@ -94,6 +110,7 @@
 | `app/src/main/java/kr/or/kptu/work/RecordHub.kt` | 녹음 한 곳 상태·`__rec` 가로채기·`RecordActionActivity` |
 | `app/src/main/java/kr/or/kptu/work/RecorderService.kt` | 녹음 앞쪽 서비스·알림줄 |
 | `app/src/test/…/ShellRulesTest.kt` | 규칙 단위 시험 |
+| `app/src/test/…/UpdateRulesTest.kt` | 앱 스스로 업데이트 단위 시험(허용 주소·넘김·크기·서명 비교·녹음 중 미룸·실패 시 브라우저 길·토큰 없음) |
 | `app/src/test/…/RecordRulesTest.kt`, `RecordStoreTest.kt` | 녹음 단위 시험(조각 나누기·업로드 재시도·임시 파일 지우기·권한 흐름·다리 글) |
 | `app/src/test/…/Widget*Test.kt`, `MiniJsonTest.kt` | 위젯 단위 시험(Origin 전송, 표시·저장 순서·실패 종류·주소 목록·로그 없음) |
 
@@ -101,4 +118,4 @@
 
 `.github/workflows/build-android-app.yml`이 단위 시험, debug APK(`web2-phone-<버전>-debug` artifact), 서명 없는 release 빌드 확인을 한다.
 
-새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36, 0.3.7=37). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
+새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36, 0.3.7=37, 0.3.8=38). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다.
