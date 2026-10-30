@@ -1,4 +1,5 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
+import {followPane} from './follow-pane.js';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절, 시안 docs/design/mockups/domain-move.html): '아스날' 화면(?view=arsenal). #arsenalView의 유일한 그리기 주인.
 // - 자료 app/arsenal/matches.js(window.ARSENAL_MATCHES)는 이 화면을 처음 열 때만 불러온다(view-loader가 이 모듈도 열 때만 부름 → 첫 화면 속도 영향 없음).
 // - 위 줄: 시즌·대회 고르기·상대 검색·경기 수. 아래: 경기 목록(최신순) + 고른 경기 리뷰.
@@ -31,7 +32,7 @@ install();
 
 const root = document.getElementById('arsenalRoot');
 const $ = sel => root?.querySelector(sel);
-let matches = null, loading = null, failed = false, selected = null, detailOpen = false, layer = null;
+let matches = null, loading = null, failed = false, selected = null, detailOpen = false, layer = null, followed = null;
 const filters = {season: ALL, competition: ALL, query: ''};
 
 // 자료 한 번 불러오기(고전 스크립트, window.ARSENAL_MATCHES). 실패하면 [다시]로 다시 부를 수 있다.
@@ -112,6 +113,13 @@ function paint() {
   list.innerHTML = shown.length ? shown.map(m => rowHtml(m, m === current)).join('') : emptyHtml('맞는 경기 없음');
   detail.innerHTML = current ? reviewHtml(current) : '';
   root.dataset.open = String(!!current && (pc.matches || detailOpen));
+  // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 목록은 화면과 같이 내려가고 리뷰 칸은 위 줄(.ars-bar, 위에 붙음) 바로 아래에 붙어 따라온다.
+  // 다른 경기를 고르면 리뷰 머리부터 보인다.
+  if (pc.matches && current) {
+    const bar = $('.ars-bar');
+    followPane(detail, {top: (bar?.offsetHeight || 40) + 8, reset: followed !== current.id});
+    followed = current.id;
+  }
 }
 
 function closeLayer() {

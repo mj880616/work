@@ -321,6 +321,9 @@ jobs:
       - name: Check split-resize column math
         run: node --test tests/split-resize-math.test.mjs
 
+      - name: UI-칸안스크롤하나로 옆 칸 따라오기 계산 시험
+        run: node --test tests/follow-pane-math.test.mjs
+
       - name: Check Drive copy refresh batching after saves
         run: node --test tests/drive-summary-refresh.test.mjs
 

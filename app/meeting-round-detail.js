@@ -388,7 +388,7 @@ async function mrdDock(slot,id){
 function mrdUndock(){
   if(!mrdDocked)return;
   const m=mrdModalEl(),a=document.activeElement;
-  mrdMemo={id:String(mrdCurrent?.id??''),top:m.scrollTop,focus:a&&a.id&&m.contains(a)?{id:a.id,start:a.selectionStart??null,end:a.selectionEnd??null}:null};
+  mrdMemo={id:String(mrdCurrent?.id??''),top:m.scrollTop,page:window.scrollY||0,focus:a&&a.id&&m.contains(a)?{id:a.id,start:a.selectionStart??null,end:a.selectionEnd??null}:null};
   mrdMoreMenu?.close();mrdTaskMenu?.close();
   document.body.append(m);
   mrdDocked=false;mrdPaintDocked();mrdPlaceActions(false);
@@ -396,7 +396,8 @@ function mrdUndock(){
 }
 function mrdRestoreView(key){
   const memo=mrdMemo;mrdMemo=null;if(!memo||memo.id!==key)return;
-  const m=mrdModalEl(),set=()=>{if(m)m.scrollTop=memo.top};set();requestAnimationFrame(set);
+  // UI-칸안스크롤하나로: PC 칸은 화면 스크롤 하나라 화면 자리(page)도 돌려준다(칸이 잠깐 비어 화면이 짧아졌다가 다시 길어짐).
+  const m=mrdModalEl(),set=()=>{if(m)m.scrollTop=memo.top;if(mrdDocked&&Math.abs((window.scrollY||0)-memo.page)>1)window.scrollTo({top:memo.page,behavior:'instant'})};set();requestAnimationFrame(set);
   if(memo.focus){const el=document.getElementById(memo.focus.id);if(el&&!el.disabled){el.focus({preventScroll:true});try{if(memo.focus.start!=null)el.setSelectionRange(memo.focus.start,memo.focus.end)}catch{}}}
 }
 // 목록이 더 새로운 기록을 갖고 있으면(다른 곳에서 연결·칸이 바뀜) 칸에 붙은 창도 맞춘다. 고치는 중에는 입력을 건드리지 않는다.

@@ -104,6 +104,17 @@ export function holdToast(el,{ms}={}){
   toastClock=holdTimer(el,Number.isFinite(ms)&&ms>0?ms:NOTICE_MS,()=>{toastClock=null;el.classList.add('hidden')});
 }
 
+// 위쪽 작은 알림([되돌리기] 등)을 넣을 곳: 맨 뒤에 열린 창(.modal, role=dialog) 안이라 창의 포커스 순환이 [되돌리기]에 닿는다.
+// PC 칸에 붙인 창(role=region: 사업영역·할 일·담당조직·사업 보고 상세)은 창이 아니다. 그 칸이 열린 창 안에 있으면 그 칸에 넣고(같은 층),
+// 창 밖(밑의 화면)에 있으면 넣지 않는다: 밑의 화면 칸은 화면에 붙어 따라오는 칸(sticky)이라 알림이 그 층에 갇혀 위에 뜬 창
+// (#areaWindow) 머리줄 밑에 깔렸다(UI-칸안스크롤하나로, CI task-inline-unify 1280). 열린 창이 없으면 맨 뒤의 붙인 칸, 없으면 body.
+export function noticeHost(doc=globalThis.document){
+  const open=[...doc.querySelectorAll('.modal:not(.hidden)')],docked=m=>m.getAttribute('role')==='region';
+  const top=open.filter(m=>!docked(m)).at(-1);
+  if(top)return open.filter(m=>docked(m)&&top.contains(m)).at(-1)||top;
+  return open.at(-1)||doc.body;
+}
+
 let host=null,clock=null,seq=0;
 // 되돌리기 알림(offerUndoNotice)이 뜰 때 앞서 떠 있던 작은 알림·#toast를 내린다(같은 자리라 [되돌리기]를 가리지 않게). 뒤에 뜨는 것은 CSS가 한 줄 아래로.
 export function hideSmallNotices(doc=globalThis.document){

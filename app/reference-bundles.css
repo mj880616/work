@@ -50,11 +50,11 @@
 .rb-menu button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .rb-menu .rb-menu-danger{color:var(--kptu-danger)}
 @media(min-width:1024px){
-  html:has(#appView #referenceView:not(.hidden)) main{padding-bottom:12px}
-  #appView #referenceView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
-  #appView #referenceView .rb-split{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3)}
-  #appView #referenceView .rb-list{grid-column:1;grid-row:1;align-self:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain}
-  #appView #referenceView .rb-pane{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
+  /* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): 스크롤은 화면 전체 하나. 목록은 화면과 같이 내려가고, 상세 칸은
+     follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 화면에 붙여 따라오게 한다. */
+  #appView #referenceView .rb-split{display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto;align-items:start;column-gap:var(--kptu-space-3)}
+  #appView #referenceView .rb-list{grid-column:1;grid-row:1;align-self:start;min-width:0}
+  #appView #referenceView .rb-pane{grid-column:2;grid-row:1;min-width:0;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
   #appView #referenceView .rb-pane .rb-items{border:0;border-top:var(--ds-line-width) solid var(--kptu-border);border-radius:0}
 }
 

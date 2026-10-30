@@ -3,6 +3,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {installTgServer,telegramRows,T} from './helpers/tg-room-day-server.mjs';
+import {innerScrollers,docScroll} from './helpers/one-scroll.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const A6='room-a|2026-10-06',B6='room-b|2026-10-06',C6='-1001234567|2026-10-06',A5='room-a|2026-10-05',B3='room-b|2026-10-03';
@@ -189,4 +190,20 @@ test('텔레그램 1280: 목록 1/3 · 상세 2/3, 고른 줄 표시, 소식 ⋯
  await expect(rd(view,A6).locator('.feed-ft span').first()).toHaveText('소식 2');
  expect(f.errors).toEqual([]);
 });
+});
+
+// UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): PC 텔레그램 화면은 스크롤 막대 하나(목록·방 상세 칸에 따로 스크롤 없음), 상세는 화면에 붙어 따라온다.
+test('텔레그램 1440: 목록·방 상세 칸 안에 따로 스크롤이 없고, 상세 칸은 화면에 붙어 따라온다',async({page})=>{
+ const f=await fixture(page,{width:1440});
+ await page.setViewportSize({width:1440,height:420});
+ await openMenu(page,1440,'텔레그램 소식');
+ const view=page.locator('#telegramView'),list=view.locator('#tgList'),detail=view.locator('#tgDetail');
+ await rd(view,A6).locator('.feed-rdb').click();
+ await expect(detail.locator('[data-tg-daybox]')).toBeVisible();
+ expect(await innerScrollers(page,'#telegramView')).toEqual([]);
+ await expect(list).toHaveCSS('overflow-y','visible');await expect(detail).toHaveCSS('overflow-y','visible');await expect(detail).toHaveCSS('position','sticky');
+ const d=await docScroll(page);expect(d.wide).toBeLessThanOrEqual(0);
+ // 화면이 낮아 문서가 넘치면 문서만 넘어가고, 끝까지 내려도 상세 칸 일부는 화면 안에 있다.
+ if(d.over>0){await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));await expect(detail).toBeInViewport();}
+ expect(f.errors).toEqual([]);
 });

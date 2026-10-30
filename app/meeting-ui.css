@@ -144,16 +144,15 @@
    위쪽 종류 칩 줄은 PC에서 없다(왼쪽 목록과 겹침). [+ 회의 결과]는 위 하나(④). 높이는 공용 버튼 기준(--kptu-control-height 36px), 누르는 범위 44px은 base-ui.css ::after. */
 #mcolMenu[hidden]{display:none}
 @media(min-width:1024px){
-  html:has(#appView #meetingsView:not(.hidden) #meetingList.meeting-columns) main{padding-bottom:12px}
-  html:has(#appView #meetingsView:not(.hidden) #meetingList.meeting-columns) #appView>.app-nav{margin-bottom:0}
-  #appView #meetingsView:not(.hidden):has(#meetingList.meeting-columns){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
-  #appView #meetingsView:has(#meetingList.meeting-columns)>#meetingsListCard{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin:0}
+  /* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): 스크롤은 화면 전체 하나. 화면 높이에 맞춘 한 페이지·칸마다 스크롤은 없앴다.
+     종류·차수 칸은 화면과 같이 내려가고, 오른쪽 결과 칸(.mcol-result)은 follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 화면에 붙여 따라오게 한다(team.js). */
+  #appView #meetingsView:has(#meetingList.meeting-columns)>#meetingsListCard{display:flex;flex-direction:column;margin:0}
   #appView #meetingsView #newMeetingBtn{height:var(--kptu-control-height);min-height:var(--kptu-control-height)}
-  #meetingList.meeting-columns{display:flex;flex:1 1 auto;min-height:0}
-  #meetingList .mcol-layout{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);gap:var(--kptu-space-3)}
+  #meetingList.meeting-columns{display:flex}
+  #meetingList .mcol-layout{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto;align-items:start;gap:var(--kptu-space-3)}
   #meetingList .mcol-three{grid-template-columns:minmax(var(--ds-split-col-min),var(--ds-split-col-a)) minmax(var(--ds-split-col-b-min),var(--ds-split-col-b)) minmax(0,var(--ds-split-col-c))}
   #meetingList :is(.mcol-kinds,.mcol-rounds,.mcol-result){box-sizing:border-box;min-width:0;min-height:0;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
-  #meetingList .mcol-kinds{overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-2)}
+  #meetingList .mcol-kinds{padding:var(--kptu-space-2)}
   #meetingList .mcol-kinds ul{display:grid;gap:2px;margin:0;padding:0;list-style:none}
   #meetingList .mcol-kind{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:0 var(--kptu-space-3);border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);font-family:inherit;font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular);line-height:1.4;text-align:left;cursor:pointer}
   #meetingList .mcol-kind:hover{background:var(--kptu-surface-subtle)}
@@ -164,7 +163,7 @@
   #meetingList .mcol-dot{flex:0 0 8px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
   #meetingList .mcol-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #meetingList .mcol-count{flex:none;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
-  #meetingList .mcol-cards{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:grid;align-content:start;gap:2px;margin:0;padding:2px;list-style:none}
+  #meetingList .mcol-cards{flex:1 1 auto;display:grid;align-content:start;gap:2px;margin:0;padding:2px;list-style:none}
   /* 가운데 차수 줄: 차수(짧은 이름) 한 줄 + 날짜·시간 한 줄. 고른 줄은 종류 목록과 같은 옅은 바탕 + 왼쪽 색 띠. */
   #meetingList .mcol-card{box-sizing:border-box;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:6px var(--kptu-space-3) 6px calc(var(--kptu-space-3) - 3px);border:0;border-left:3px solid transparent;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);font-family:inherit;text-align:left;cursor:pointer}
   #meetingList .mcol-card:hover{background:var(--kptu-surface-subtle)}
@@ -185,11 +184,11 @@
     #meetingList .mcol-card{padding-right:var(--kptu-space-2)}
   }
   /* MTG-고치기바로: 오른쪽(세 번째) 칸은 사업 보고 창 요소 하나를 그대로 붙인 자리다(meeting-round-detail.js mrdDock). 프로젝트(.ps3-docked)·할 일(.gt-docked) 붙임과 같은 방식.
-     칸 자체가 세로 스크롤 틀이고, 제목 줄(칸·시각·연결 + ⋯ 또는 고치는 중의 [취소][저장] + 안내)은 위에 고정된다. */
+     칸은 화면에 붙어 따라오고(따로 스크롤 없음), 제목 줄(칸·시각·연결 + ⋯ 또는 고치는 중의 [취소][저장] + 안내)은 화면 위에 고정된다. */
   #meetingList .mcol-result{display:flex;flex-direction:column}
   #meetingList .mcol-result>.mcol-empty{padding:var(--kptu-space-3) var(--kptu-space-4)}
   #meetingList .mcol-empty{margin:0;font-size:var(--ds-text-row);color:var(--kptu-faint)}
-  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked{position:static;inset:auto;display:block;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0;background:transparent;z-index:auto}
+  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked{position:static;inset:auto;display:block;flex:1 1 auto;padding:0;background:transparent;z-index:auto}
   #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked>.modal-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0 var(--kptu-space-4) var(--kptu-space-4);border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
   #meetingList .mrd-docked .modal-head{position:sticky;top:0;z-index:3;flex-wrap:wrap;align-items:center;gap:var(--kptu-space-2);margin:0 calc(var(--kptu-space-4) * -1) var(--kptu-space-3);padding:var(--kptu-space-3) var(--kptu-space-4) var(--kptu-space-2);background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);box-shadow:none}
   #meetingList .mrd-docked .modal-head>div:first-child{flex:1 1 0;min-width:0}

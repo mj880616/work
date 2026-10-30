@@ -1,6 +1,8 @@
 /* 폴더 나무 공용 모양(사진 메뉴 ②, 2026-10-29): 노트(basket-notes.js NOTE-탐색기)와 사진 메뉴 [폴더](photos.js)가 같은 줄 모양을 쓴다.
    노란 폴더(📁/📂)·들여쓰기(--nx-indent, folder-limits.mjs 4단까지)·장수·지금 폴더 강조·끌어 놓을 곳·끄는 중. basket.css에 있던 줄을 그대로 옮겼다. */
-.nx-tree:not([hidden]) { position:sticky; top:8px; max-height:calc(100vh - 140px); overflow:auto; padding-right:4px; border-right:1px solid var(--kptu-border); }
+/* UI-칸안스크롤하나로(시안 A): 나무 칸에 따로 스크롤을 두지 않는다. 화면 스크롤 하나이고, 나무는 follow-pane.js가 --follow-top으로 화면에 붙여 따라오게 한다
+   (짧으면 위쪽, 길면 끝까지 같이 내려간 뒤 아래쪽). */
+.nx-tree:not([hidden]) { position:sticky; top:var(--follow-top,8px); align-self:start; padding-right:4px; border-right:1px solid var(--kptu-border); }
 .nx-row { position:relative; display:flex; align-items:center; min-width:0; }
 .nx-row.nx-folder, .nx-row.nx-outside { padding-left:calc(var(--nx-indent, 0) * 14px); }
 .nx-main { flex:1 1 auto; display:flex; align-items:center; gap:6px; min-width:0; min-height:36px; padding:0 6px; border:0; background:none; color:var(--kptu-ink); font:inherit; font-size:14px; text-align:left; cursor:pointer; border-radius:var(--kptu-radius-sm); }

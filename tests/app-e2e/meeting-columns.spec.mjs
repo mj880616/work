@@ -1,5 +1,6 @@
 // UI-PC회의(2026-10-20) → MEET-결과정리(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥1024) 회의 결과는 왼쪽 회의 종류 / 가운데 차수·날짜·시간 /
 // 오른쪽 고른 차수의 회의 결과(읽기용, 고칠 때는 ⋯ → 수정) 3단, 폰은 지금 한 줄 목록 그대로. ① 카드 시각(직접 지정 → 결과 글의 일시 → 날짜만) ② 종류별 색 겹침 없음 ③ 차수 대신 짧은 이름 ④ [+ 회의 결과] 하나.
+import {innerScrollers,docScroll} from './helpers/one-scroll.mjs';
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
@@ -88,7 +89,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await expect(result(page)).toHaveAttribute('data-meeting-result','rail-5');await expect(toplineItem(page)).toContainText('5차');
   await expect(result(page).locator('#mrdMaterials .mrd-file-row')).toHaveCount(0);
   await expect(result(page).locator('#mrdSpecialSection')).toBeHidden();
-  // 배치: 종류 | 차수 | 결과 가로로 나란히, 위 끝 맞춤, 종류+차수 두 칸 합 : 결과 = 1 : 2, 셋 다 화면 아래 끝 가까이까지, 가로 넘침 없음.
+  // 배치: 종류 | 차수 | 결과 가로로 나란히, 위 끝 맞춤, 종류+차수 두 칸 합 : 결과 = 1 : 2, 가로 넘침 없음.
   const g=await page.evaluate(()=>{const r=s=>{const b=document.querySelector(s).getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom,w:b.width}};return {k:r('#meetingList .mcol-kinds'),d:r('#meetingList .mcol-rounds'),x:r('#meetingList .mcol-result'),vh:innerHeight,sw:document.documentElement.scrollWidth-innerWidth,sh:document.documentElement.scrollHeight-innerHeight}});
   expect(g.k.r).toBeLessThanOrEqual(g.d.l);expect(g.d.r).toBeLessThanOrEqual(g.x.l);
   expect(Math.abs(g.k.t-g.d.t)).toBeLessThanOrEqual(1);expect(Math.abs(g.k.t-g.x.t)).toBeLessThanOrEqual(1);
@@ -96,8 +97,8 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   // MTG-3칸정리 ④: 가운데 칸은 첫 칸의 약 절반(기본 1 : 0.5 : 4.5), 남는 폭은 결과 칸이 쓴다.
   const lists=g.k.w+g.d.w;expect(g.x.w/lists).toBeGreaterThan(2.6);
   expect(g.d.w).toBeLessThan(g.k.w*0.75);expect(g.d.w).toBeGreaterThan(g.k.w*0.35);
-  for(const box of [g.k,g.d,g.x])expect(g.vh-box.b).toBeLessThanOrEqual(40);
-  expect(g.sw).toBeLessThanOrEqual(1);expect(g.sh).toBeLessThanOrEqual(1);
+  // UI-칸안스크롤하나로(시안 A): 칸은 화면 높이에 맞춰 늘이지 않고 내용만큼(화면 스크롤 하나). 가로 넘침은 없다.
+  expect(g.sw).toBeLessThanOrEqual(1);
   // ⋯ → [수정]: 누른 자리 바로 아래에 메뉴가 펼쳐지고, 고르면 같은 칸이 그 자리에서 고치는 화면으로 바뀐다(팝업 없음).
   const more=result(page).locator('#mrdMore');await more.click();
   const menu=page.locator('#mrdMoreMenu');await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
@@ -161,7 +162,8 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   await expect.poll(()=>s.downloads.at(-1)?.document_id).toBe('labor-doc');
 });
 
-test('PC: 차수가 많으면 가운데 목록만, 종류가 많으면 왼쪽 목록만, 결과 글이 길면 오른쪽 결과만 세로로 넘긴다',async({page})=>{
+// UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): 칸마다 따로 스크롤하던 것을 화면 스크롤 하나로 바꿨다.
+test('PC: 차수·종류·결과 글이 길어도 칸 안 스크롤 없이 화면 스크롤 하나, 결과 칸은 화면에 붙어 따라온다',async({page})=>{
   const s=columnState();
   for(let n=7;n<=40;n++)s.meetings.push({id:`rail-${n}`,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:n,meeting_at:`2026-07-${String(1+n%28).padStart(2,'0')}T01:00:00Z`,transcript_text:'원문',created_by:s.user.id});
   for(let i=0;i<20;i++)s.meetings.push({id:`extra-${i}`,workspace_id:s.workspace.id,title:`추가 회의 ${i}`,series_name:`추가 회의 ${i}`,round_no:1,meeting_at:`2026-06-${String(i+1).padStart(2,'0')}T01:00:00Z`,transcript_text:'원문',created_by:s.user.id});
@@ -173,15 +175,37 @@ test('PC: 차수가 많으면 가운데 목록만, 종류가 많으면 왼쪽 �
   const list=page.locator('#meetingList .mcol-cards'),side=page.locator('#meetingList .mcol-kinds'),body=page.locator('#meetingList #meetingRoundDetailModal.mrd-docked');
   for(const box of [list,side,body]){
     const m=await box.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));
-    expect(m.sh).toBeGreaterThan(m.ch);expect(m.oy).toBe('auto');
+    expect(m.oy).toBe('visible');expect(m.sh).toBeLessThanOrEqual(m.ch+1);
   }
-  expect(await page.evaluate(()=>({w:document.documentElement.scrollWidth-innerWidth,h:document.documentElement.scrollHeight-innerHeight}))).toEqual({w:0,h:0});
-  // 맨 아래 줄에 키보드 포커스가 가면 목록이 그 카드를 보이게 넘긴다.
-  const last=detail(page).locator('.mcol-card').last();await last.focus();await expect(last).toBeFocused();
-  expect(await last.evaluate(e=>{const a=e.getBoundingClientRect(),b=e.closest('.mcol-cards').getBoundingClientRect();return a.bottom<=b.bottom+1&&a.top>=b.top-1})).toBe(true);
-  // 다른 종류를 고르면 가운데 목록은 맨 위부터.
-  await list.evaluate(e=>{e.scrollTop=e.scrollHeight});await kind(page,'노사협의회').click();
-  await expect.poll(()=>list.evaluate(e=>e.scrollTop)).toBe(0);
+  // 화면(문서)만 세로로 넘어가고, 가로 넘김은 없다. 문서 밖 스크롤 틀은 사이드바뿐이다.
+  const doc=await page.evaluate(()=>({w:document.documentElement.scrollWidth-innerWidth,h:document.documentElement.scrollHeight-innerHeight}));
+  expect(doc.w).toBeLessThanOrEqual(0);expect(doc.h).toBeGreaterThan(200);
+  expect(await page.evaluate(()=>[...document.querySelectorAll('#meetingsView *')].filter(e=>/(auto|scroll)/.test(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+4&&e.getClientRects().length).map(e=>e.className))).toEqual([]);
+  // 결과 칸은 화면에 붙어 따라온다: 화면을 내려도 결과 칸 일부가 늘 화면 안에 있다.
+  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+  await expect(page.locator('#meetingList .mcol-result')).toBeInViewport();
+  await expect(page.locator('#meetingList .mcol-result')).toHaveCSS('position','sticky');
+  // 맨 아래 줄에 키보드 포커스가 가면 그 카드가 화면 안에 보인다.
+  await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+  const last=detail(page).locator('.mcol-card').last();await last.focus();await expect(last).toBeFocused();await expect(last).toBeInViewport();
+  // 다른 종류를 고르면 가운데 목록은 맨 위부터(칸 머리가 화면 위로 지나가 있으면 칸 머리로 올라온다).
+  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));await kind(page,'노사협의회').click();
+  await expect(detail(page).locator('.mcol-card').first()).toBeInViewport();
+});
+
+// UI-칸안스크롤하나로: 사이트 점검(10/30) 대상 사업 보고 상세(#meetingRoundDetailModal.mrd-docked)를 PC 1440에서 수치로 확인.
+test('PC 1440: 사업 보고 결과 칸(mrd-docked)은 따로 스크롤 없이 화면 스크롤 하나, 결과가 길면 문서가 넘어간다',async({page})=>{
+  const s=columnState();
+  s.meetings.find(m=>m.id==='rail-6').transcript_text=Array.from({length:120},(_,i)=>`가상 결과 줄 ${i+1}`).join('\n');
+  await open(page,s,1440,900);
+  await kind(page,'궤도협의회').click();await round(page,'rail-6').click();
+  const body=page.locator('#meetingList #meetingRoundDetailModal.mrd-docked');await expect(body).toBeVisible();
+  expect(await innerScrollers(page,'#meetingsView')).toEqual([]);
+  await expect(body).toHaveCSS('overflow-y','visible');await expect(page.locator('#meetingList .mcol-result')).toHaveCSS('position','sticky');
+  const d=await docScroll(page);expect(d.over).toBeGreaterThan(500);expect(d.wide).toBeLessThanOrEqual(0);
+  // 끝까지 내려도 결과 칸 머리줄(제목·⋯)은 화면 위에 붙어 보인다.
+  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+  await expect(body.locator('.modal-head')).toBeInViewport();
 });
 
 test('PC ④: [+ 회의 결과]는 화면에 하나, 왼쪽에서 고른 종류를 미리 고른 기존 만들기 창(회의명 미지정은 비운 채)',async({page})=>{

@@ -172,3 +172,11 @@
   .quick-links-panel .ql-dragging{opacity:.5}
   .quick-links-panel .ql-foot{position:sticky;bottom:-8px;display:flex;justify-content:flex-end;gap:6px;margin:6px -12px -8px;padding:8px 12px;background:var(--kptu-surface);border-top:var(--ds-line-width,1px) solid var(--kptu-border)}
 }
+
+/* UI-칸안스크롤하나로(2026-10-30 사용자 결정, 시안 A): PC 좌우 화면의 스크롤은 화면 전체 하나다. 옆 칸(오른쪽 상세·왼쪽 폴더 나무)은
+   follow-pane.js가 이 이름을 붙이고 --follow-top 값만 바꾼다: 짧은 칸은 위쪽에 붙고, 긴 칸은 끝까지 같이 내려간 뒤 아래쪽에 붙는다.
+   칸 안에는 따로 스크롤을 두지 않는다(overflow 없음). 칸 안 고정 머리줄·[저장] 줄은 화면 끝(0)에 붙는다. */
+@media (min-width:1024px){
+  .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:none;overflow:visible}
+  .kptu-follow-pane .modal-action-footer{bottom:0}
+}

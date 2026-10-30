@@ -84,7 +84,7 @@
 #appView #photosView .photos-fx{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #photosView .photos-fx.is-wide{ display:grid; grid-template-columns:minmax(180px,24%) minmax(0,1fr); gap:10px; align-items:start; }
 #appView #photosView .photos-fx-pane{ display:flex; flex-direction:column; gap:4px; min-width:0; }
-#appView #photosView .photos-fx-tree{ top:calc(var(--kptu-touch-target,44px) + 8px); }
+#appView #photosView .photos-fx-tree{ top:var(--follow-top,calc(var(--kptu-touch-target,44px) + 8px)); } /* 따라오는 자리는 photos.js followPane(top 52) */
 #appView #photosView .photos-fx-here{ display:flex; align-items:center; gap:6px; margin:2px 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #photosView .photos-fx-here b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
 #appView #photosView .photos-fx-row .nx-main{ min-height:36px; height:auto; margin:0; box-shadow:none; font-weight:var(--ds-weight-regular,400); }

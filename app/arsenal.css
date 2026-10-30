@@ -12,7 +12,8 @@
 @media(min-width:1024px){
   #appView #arsenalView .ars-body{ grid-template-columns:minmax(0,1fr) minmax(0,2fr); align-items:start; }
   #appView #arsenalView .ars[data-open="true"] .ars-list{ display:block; }
-  #appView #arsenalView .ars-list{ position:sticky; top:calc(var(--kptu-topline-space,0px) + 44px); max-height:calc(100vh - var(--kptu-topline-space,0px) - 60px); overflow-y:auto; }
+  /* UI-칸안스크롤하나로(시안 A): 목록 칸에 따로 스크롤을 두지 않는다. 목록은 화면과 같이 내려가고, 리뷰 칸(.ars-detail)은
+     follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 위 줄 아래에 붙여 따라오게 한다. */
 }
 #appView #arsenalView .ars-list{ min-width:0; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
 #appView #arsenalView .ars-row{ display:flex; flex-direction:column; align-items:stretch; gap:1px; width:100%; min-width:0; min-height:var(--kptu-touch-target,44px); margin:0; padding:6px 4px; text-align:left;
@@ -50,7 +51,11 @@
 #appView #arsenalView .goal-source{ margin:0; font-size:11px; }
 #appView #arsenalView .ars-verdict{ margin:0; padding-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); font-size:var(--ds-text-read,15px); line-height:1.6; }
 #appView #arsenalView .ars-sec{ border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
-#appView #arsenalView .ars-sec summary{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row,14px); font-weight:var(--ds-weight-medium,500); cursor:pointer; }
+#appView #arsenalView .ars-sec summary{ display:flex; align-items:center; gap:4px; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row,14px); font-weight:var(--ds-weight-medium,500); cursor:pointer; list-style:none; }
+/* UI-칸안스크롤하나로 ②: 접힌 칸 제목 앞 펼침 표시(▸ 접힘 / ▾ 펼침, 앱의 다른 접힌 칸과 같은 글자). display:flex라 기본 표시가 사라졌었다. */
+#appView #arsenalView .ars-sec summary::-webkit-details-marker{ display:none; }
+#appView #arsenalView .ars-sec summary::before{ content:"\25B8"; flex:none; font-size:10px; color:var(--kptu-muted); }
+#appView #arsenalView .ars-sec[open] summary::before{ content:"\25BE"; }
 #appView #arsenalView .ars-sec ul{ margin:0 0 8px; padding-left:18px; line-height:1.6; }
 #appView #arsenalView .ars-sec li + li{ margin-top:4px; }
 #appView #arsenalView .ars-stats{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); text-align:center; }
