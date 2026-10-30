@@ -424,6 +424,9 @@
 .home-tools-more,.home-tools-btn{min-height:24px;padding:0 8px;border:0;border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-row,13px)}
 .home-tools-more{min-width:28px;font-size:16px;line-height:1}
 .home-tools-more:hover,.home-tools-btn:hover{background:var(--kptu-primary-soft)}
+/* UI-점검1030손질 C6(UI-더보기제목줄): 폰·중간 폭에서 홈 ⋯는 'AI 사용량' 제목 줄 오른쪽 끝(home-edit.js dock). 줄 높이(28px)에 맞춘 작은 ⋯. */
+.home-tools.home-tools-docked{flex:none;height:auto;align-self:flex-start}
+.home-tools.home-tools-docked:not(.home-tools-open) .home-tools-more{position:relative;right:auto;top:auto;height:var(--ds-compact-height-sm,28px);min-height:var(--ds-compact-height-sm,28px)}
 #appView #homeView .home-edit[hidden],#appView #homeView [data-home-cards][hidden]{display:none}
 .he-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .he-row{display:flex;align-items:center;gap:4px;min-height:32px;padding:0 4px 0 0;border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-sm,6px)}
@@ -442,6 +445,8 @@
 .home-ai-usage[hidden],.home-ai-usage .aiu-panel[hidden] { display:none; }
 .home-ai-usage { margin:6px 0 0; padding:6px 2px 0; border-top:1px solid var(--kptu-border); font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-ink); min-width:0; }
 .home-ai-usage .aiu-open { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:0 6px; width:100%; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:2px 4px; border:0; border-radius:var(--ds-radius-control,8px); background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.home-ai-usage .aiu-top { display:flex; align-items:flex-start; gap:2px; min-width:0; }
+.home-ai-usage .aiu-top > .aiu-open { flex:1 1 auto; min-width:0; }
 .home-ai-usage .aiu-open[data-warn] { display:flex; background:var(--kptu-warning-soft,var(--kptu-surface)); }
 .home-ai-usage .aiu-open[data-warn] .aiu-sum { flex:1 1 auto; color:var(--kptu-warning); font-weight:700; }
 .home-ai-usage .aiu-open:focus-visible,.home-ai-usage button:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }

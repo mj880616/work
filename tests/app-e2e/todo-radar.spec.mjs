@@ -157,6 +157,26 @@ for(const width of [1280])test(`✎ opens in place: fix the title, pick 오늘/�
  expect(f.calls.patch).toHaveLength(2);expect(f.errors).toEqual([]);
 });
 
+// UI-점검1030손질 C9: the ✎ box also has the app's shared date field (date-field.js) after the four chips; a picked day is the due.
+for(const width of [1440])test(`✎ box has the shared date field and a picked day becomes the due ${width}`,async({page})=>{
+ const f=await fixture(page,{width});const box=radar(page),creates=createsOf(page);
+ const row=box.locator(`[data-radar-row="${id(1)}"]`);
+ await tap(page,btn(row,'고쳐서 넣기'),width);
+ const date=row.locator('.radar-due .date-field > input[type="date"][data-radar-date]');
+ await expect(date).toHaveCount(1);await expect(date).toHaveValue('2026-10-09');
+ await expect(row.locator('.radar-due .date-field')).toHaveAttribute('data-date-text','10.9 (금)');
+ // Small like the chips (UI-버튼기준), on the chips' line or the next, never wider than the box.
+ const db=await row.locator('.radar-due .date-field').boundingBox(),cb=await row.locator('[data-radar-due-pick="today"]').boundingBox();
+ expect(Math.abs(db.height-cb.height)).toBeLessThanOrEqual(1);expect(db.width).toBeLessThan(160);
+ await date.fill('2026-10-20');await date.dispatchEvent('change');
+ await expect(row.locator('.radar-due .date-field')).toHaveAttribute('data-date-text','10.20 (화)');
+ for(const key of ['today','tomorrow','suggested','none'])await expect(row.locator(`[data-radar-due-pick="${key}"]`)).toHaveAttribute('aria-pressed','false');
+ await tap(page,btn(row,'넣기'),width);
+ await expect(box.locator(`[data-radar-open] [data-radar-row="${id(1)}"]`)).toHaveCount(0);
+ expect(creates.map(c=>[c.title,c.due])).toEqual([['가상 의견 제출','2026-10-20']]);
+ expect(await noWideScroll(page)).toBe(true);expect(f.errors).toEqual([]);
+});
+
 test('✎ with an empty title asks for one and creates nothing; [취소] returns to the row',async({page})=>{
  const f=await fixture(page);const box=radar(page),row=box.locator(`[data-radar-row="${id(1)}"]`);
  const creates=createsOf(page);
