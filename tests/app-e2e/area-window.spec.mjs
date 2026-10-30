@@ -169,3 +169,33 @@ for(const width of [390,1280])test(`${width}: [달기] 창 [없음] → 저장 �
   await expect(page.locator('[data-biz-area-name]:visible')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+// UI-창잘림·끌어옮기기: PC 1440·노트북 1024·폴드 펼침 884에서 [달기] 창은 화면 안(오른쪽·아래 침범 0), 고르기 칸·[저장]이 보인다.
+// 제목 줄('∷ 사업영역 달기 · n건 …… ×')을 잡고 끌면 옮겨지고 화면 밖으로는 못 나간다. 닫았다 다시 열면 [달기] 버튼 옆으로.
+for(const width of [1440,1024,884])test(`${width}: [달기] 창은 화면 안, 제목 줄로 끌어 옮기고 화면 밖으로 못 나감`,async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=state();await open(page,s,width);
+  const btn=page.locator('#areaUntaggedLine [data-area-untagged]');await btn.click();
+  const sheet=page.locator('#reportAreaTagSheet');await expect(sheet).toBeVisible();await expect(sheet).toHaveClass(/home-choice-anchored/);
+  const vw=await page.evaluate(()=>document.documentElement.clientWidth),vh=900;
+  const inside=async()=>{const b=await sheet.boundingBox();expect(b.x).toBeGreaterThanOrEqual(0);expect(b.y).toBeGreaterThanOrEqual(0);expect(b.x+b.width).toBeLessThanOrEqual(vw);expect(b.y+b.height).toBeLessThanOrEqual(vh);return b;};
+  const first=await inside();expect(first.width).toBeGreaterThanOrEqual(Math.min(420,vw-16)-1);
+  for(const el of [sheet.locator('[data-area-tag-select]').first(),sheet.locator('[data-area-tag-save]')]){const b=await el.boundingBox();expect(b.x+b.width).toBeLessThanOrEqual(first.x+first.width);expect(b.x+b.width).toBeLessThanOrEqual(vw);}
+  // 제목 줄: 손잡이(∷)와 손 모양 커서.
+  const head=sheet.locator('header');
+  expect(await head.evaluate(el=>getComputedStyle(el).cursor)).toBe('grab');
+  expect(await sheet.locator('h2').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('"∷"');
+  const h=await sheet.locator('h2').boundingBox(),sx=h.x+h.width/2,sy=h.y+h.height/2;
+  const dx=first.x>200?-120:120,dy=first.y+first.height+100<vh?80:-80;
+  await page.mouse.move(sx,sy);await page.mouse.down();await page.mouse.move(sx+dx,sy+dy,{steps:6});await page.mouse.up();
+  const moved=await inside();expect(Math.round(moved.x-first.x)).toBe(dx);expect(Math.round(moved.y-first.y)).toBe(dy);
+  await expect(sheet).toBeVisible();
+  // 오른쪽 아래 끝까지 끌어도 화면 안에 멈춘다.
+  await page.mouse.move(sx+dx,sy+dy);await page.mouse.down();await page.mouse.move(vw-2,vh-2,{steps:6});await page.mouse.up();
+  const edge=await inside();expect(Math.round(edge.x+edge.width)).toBe(vw-8);expect(Math.round(edge.y+edge.height)).toBe(vh-8);
+  // 닫으면 잊는다: 다시 열면 [달기] 버튼 옆.
+  await sheet.locator('[data-sheet-close]').click();await expect(sheet).toBeHidden();
+  await btn.click();await expect(sheet).toBeVisible();
+  const again=await inside();expect(Math.round(again.x)).toBe(Math.round(first.x));expect(Math.round(again.y)).toBe(Math.round(first.y));
+  expect(errors).toEqual([]);
+});

@@ -34,7 +34,9 @@ function ensureSheet(){
     canOpen:()=>!!active,choices:()=>loadReportPlaces().then(p=>{if(active)active.places=p}),
     render:()=>{const options=optionsHtml(active?.places,!!active?.withNone);return {title:`사업영역 달기 · ${active?.list.length||0}건`,html:`<div class="area-tag-list">${(active?.list||[]).map(m=>rowHtml(m,options)).join('')}</div><div class="area-tag-foot"><span class="area-tag-status" data-area-tag-status role="status"></span><button type="button" class="primary area-tag-save" data-area-tag-save>저장</button></div>`}},
     onSelect:()=>{},
-    onError:error=>active?.onMessage?.(error?.message||'사업영역을 불러오지 못했어요.')});
+    onError:error=>active?.onMessage?.(error?.message||'사업영역을 불러오지 못했어요.'),
+    // UI-창잘림·끌어옮기기: 고르기 칸까지 한 줄에 들어가게 넓은 창(폭은 공용 부품이 정하고 화면 안으로 맞춘다).
+    width:420});
   const el=document.getElementById('reportAreaTagSheet');
   el.classList.add('area-tag-sheet');
   el.addEventListener('change',e=>{const s=e.target.closest?.('[data-area-tag-select]');if(!s||!active)return;active.touched.add(s.dataset.areaTagSelect);s.classList.toggle('is-none',s.value===AREA_NONE);mark(s,'')});

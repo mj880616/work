@@ -260,6 +260,8 @@ jobs:
         run: node --test tests/note-board-model.test.mjs
       - name: Check note boards (NOTE-보드여러개)
         run: node --test tests/note-boards-model.test.mjs
+      - name: Check small popup width and title drag (UI-창잘림·끌어옮기기)
+        run: node --test tests/popup-fit-drag.test.mjs
 
       - name: Check ledger decision history (FEAT-1029묶음 ⑥)
         run: node --test tests/ledger-decision-history.test.mjs
