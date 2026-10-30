@@ -1,1 +1,0 @@
-Deno.serve((_req: Request) => new Response(JSON.stringify({error:'retired',message:'Temporary storage test endpoint has been retired.'}),{status:410,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}}));

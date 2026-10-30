@@ -43,7 +43,7 @@
 
 성명·보도자료는 자료실의 종류 하나이며(PRESS-자료실편입), 옛 `?view=media` 주소는 자료실을 그 종류 하나만 켠 모아보기로 엽니다: `view-loader.js`·`app-router.js`의 옛 주소 표(`VIEW_ALIAS`, `media→library`)가 화면을 바꾸고, 라우터가 한 번만 건네는 요청(`noteAlias`·`takeEntry`)을 자료실(`library-upload.js` `luApplyEntry`)이 받아 종류 칩을 거릅니다(새 저장소 없음). 게시판은 현장 공유 페이지를 관리함. 개인 배지·구성원 관리·메시지 화면은 앱 셸에서 제거했으며 기존 개인 화면 URL은 홈으로 귀결됨. 단, 내 프로필(`profile`, 이름·직책과 담당 사업장 체크 목록)은 [계정 ▾] 맨 위 [내 프로필]에서만 열림: 버튼이 `KPTURouter.go('profile')`를 부르면 `view-loader.js`가 처음에 `profile-settings.js`·`profile-settings.css`를 불러오고(시작 로더·`loadAll`에는 없음) 그 모듈이 `#profileView`를 만든 뒤 자료를 읽음. PROFILE-화면정리(2026-10-23): 위 줄 [저장] 하나가 프로필(`app_profiles` PATCH) → 담당 사업장 추가 → 삭제 순서로 저장하고(서버 호출·표는 그대로), 중간에 실패하면 멈추고 실패한 체크·입력을 화면에 남기며, 바뀐 것이 있는 채 떠나려 하면 `kptu:before-view-change`에서 확인창을 한 번 띄움. 담당 사업장 목록의 묶음·순서는 `organization-order.js` 그대로이고, 줄 끝 `›`(`data-ps-workplace-org`)가 `workplace-detail.js`의 조직 정보를 열며 이름은 체크 전용. 옛 [맡은 프로젝트] 칸(`app_profile_report_projects`)은 화면·불러오기 코드만 없앴고 표·데이터·정책은 그대로임. `?view=profile` 주소로 시작하거나 새로고침해도 같은 방식으로 이 화면이 열림(`?view=hwp`와 같음). 포토룸 화면·코드는 삭제했으며(TASK-포토룸삭제 1단계) `?view=photos`는 홈으로 귀결되고 주소에서 폐기된 `view`를 제거함(기본 홈). 저장된 사진·DB 기록은 DB 정리 때 따로 다룸.
 
-TASK-팀AI삭제 1단계에서 조직 상세의 주간보고·타임라인 AI 초안과 비활성 프로젝트 AI 초안 호출을 제거함. 조직의 저장된 주간보고 열람·수정과 타임라인 수동 관리는 유지하며, `?view=ai`·`?view=team-ai` 같은 옛 주소는 홈으로 귀결됨. `team-ai` Edge와 AI 기록은 별도 2단계 대상임.
+TASK-팀AI삭제 1단계에서 조직 상세의 주간보고·타임라인 AI 초안과 비활성 프로젝트 AI 초안 호출을 제거함. 조직의 저장된 주간보고 열람·수정과 타임라인 수동 관리는 유지하며, `?view=ai`·`?view=team-ai` 같은 옛 주소는 홈으로 귀결됨. `team-ai` Edge 원본은 SEC-정리묶음(2026-10-30)에서 저장소에서 지웠고, 운영 함수 삭제와 AI 기록 표 정리는 별도임.
 
 D-4a ②는 실제 `#homeView`의 읽기 칸을 독립 조회한다. `?view=home`과 브랜드, 기본 `/app/`는 홈으로 가며 일정은 `?view=calendar`이다. 홈이 남아 있는 project query보다 우선하고, 안드로이드 뒤로의 마지막 복귀(Web2 첫 기록에서)는 home이다.
 
@@ -181,9 +181,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 
 현재 진입 경로에서 로드되지 않는 과거 보정 모듈은 `app/legacy/`로 격리함. Task 13에서 공개 페이지와 프로젝트 공유를 되살릴 수 있던 격리 모듈은 제거함.
 
-- `editable-page.js`
 - `meeting-detail-patches.js`
-- `page-preview-tools.js`
 - `project-child-header.js`
 - `project-hierarchy-ui.js`
 - `startup-speed.js`
