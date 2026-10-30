@@ -59,6 +59,13 @@ object ShellRules {
         return host in ROOT_TO_WEB2_HOSTS && (path.isEmpty() || path == "/")
     }
 
+    /** 웹2 로그인 화면(/work/app/login/)인지. 웹 화면이 로그아웃 상태라 이리로 보낸 것으로 본다(위젯 로그인 대체 길). */
+    fun isLoginPage(url: String?): Boolean {
+        if (!isInternalApp(url)) return false
+        val path = parse(url)?.rawPath ?: return false
+        return path == APP_PATH + "login" || path.startsWith(APP_PATH + "login/")
+    }
+
     /** 앱 안 웹 화면이 이동하려는 주소를 바깥(브라우저 탭·다른 앱)으로 보낼지. */
     fun opensOutside(url: String?): Boolean {
         if (!isInternalApp(url)) return true

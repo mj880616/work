@@ -67,6 +67,30 @@ object WidgetRules {
 }
 
 /**
+ * 위젯 로그인 줄을 눌렀을 때의 단계(설계 docs/design/phone-widget-auth.md 12절). 안드로이드 API 없이 시험한다.
+ * WAITING: 웹2 화면의 'widget:ready'(로그인됨)를 기다림 → MINTING: 'widget:mint'를 보내고 봉인을 기다림 → 봉인이 오면 IDLE.
+ * 웹 화면이 로그아웃(로그인 화면)·실패·시간 초과면 FALLBACK(구글 로그인 탭). FALLBACK은 곧바로 IDLE로 돌린다.
+ */
+object WidgetLoginFlow {
+    enum class Step { IDLE, WAITING, MINTING, FALLBACK }
+    enum class Event { WEB_READY, WEB_SIGNED_OUT, MINT_FAILED, TIMEOUT, HANDOFF }
+
+    fun next(step: Step, event: Event): Step = when (step) {
+        Step.WAITING -> when (event) {
+            Event.WEB_READY -> Step.MINTING
+            Event.HANDOFF -> Step.WAITING
+            else -> Step.FALLBACK
+        }
+        Step.MINTING -> when (event) {
+            Event.HANDOFF -> Step.IDLE
+            Event.WEB_READY -> Step.MINTING
+            else -> Step.FALLBACK
+        }
+        Step.IDLE, Step.FALLBACK -> step
+    }
+}
+
+/**
  * 위젯 전용 로그인 세션(같은 사용자의 두 번째 세션, 설계 2·3·5절).
  * - 새로고침 토큰: vault(암호화)에만. 접근 토큰: 메모리에만. 로그인 표시: 메모리에만, 10분·한 번.
  * - 토큰 갱신은 잠금 하나로 묶고, 새 토큰을 먼저 저장한 뒤 쓴다.
@@ -99,6 +123,14 @@ class WidgetSession(
     }
 
     fun loginPending(): Boolean = synchronized(lock) { fresh(loginSince) }
+
+    /** 표시를 세운 시각(없으면 0). 화면 상태 저장(savedInstanceState)에 시각만 넣는다(비밀 아님, 폰 저장소에 쓰지 않음). */
+    fun loginStartedAt(): Long = synchronized(lock) { if (fresh(loginSince)) loginSince else 0L }
+
+    /** 화면이 다시 만들어질 때 저장해 둔 시각을 잇는다. 10분이 지났거나 미래 시각이면 무시한다. */
+    fun resumeLogin(since: Long) {
+        synchronized(lock) { if (loginSince <= 0L && fresh(since)) loginSince = since }
+    }
 
     /** 표시가 살아 있으면 true를 돌려주고 지운다(한 번만). */
     fun takeLogin(): Boolean = synchronized(lock) {
