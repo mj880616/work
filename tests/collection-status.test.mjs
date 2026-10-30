@@ -83,6 +83,36 @@ test('mount: hidden for non-owner and when nothing can be checked; cached for 10
   assert.equal(ok.calls.length, 2, 'second refresh within 10 minutes uses the tab cache');
 });
 
+// STAB-E2E(10/30): the profile view hook can call refresh() again while the card's first read is still on its way.
+test('mount: a refresh while the first read is in flight shares it (one radar read), and the card still paints', async () => {
+  mod.resetCollectionCache();
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const ok = fakeRt({copy:{ok:true, copy:{state:'found', last_success_at:iso(now - H), last_failure_at:null}}, radar:[{last_success_at:iso(now - 2 * H)}]});
+  const api = ok.rt.api;
+  ok.rt.api = async (path, opts) => { await gate; return api(path, opts); };
+  const h = host(), m = mod.mountCollectionStatus(h, {rt:ok.rt, now:() => now});
+  const first = m.refresh(), second = m.refresh();
+  release();
+  await Promise.all([first, second]);
+  assert.equal(ok.calls.filter(c => c.path.startsWith('/rest/v1/app_todo_radar_state')).length, 1, 'one radar read');
+  assert.equal(ok.calls.filter(c => c.path.startsWith('/functions/v1/drive-summary')).length, 1, 'one status read');
+  assert.equal(h.hidden, false);
+  assert.match(h.innerHTML, /data-collect="radar" data-collect-state="ok"/);
+  await m.refresh();
+  assert.equal(ok.calls.length, 2, 'the shared answer fills the 10 minute cache');
+});
+test('mount: a failed shared read does not stick; the next refresh reads again', async () => {
+  mod.resetCollectionCache();
+  const ok = fakeRt({copy:{ok:true, copy:{state:'found', last_success_at:iso(now - H), last_failure_at:null}}, radar:[{last_success_at:iso(now - 2 * H)}]});
+  const api = ok.rt.api; let fail = true;
+  ok.rt.api = (path, opts) => { if (fail) { fail = false; throw new Error('not ready'); } return api(path, opts); };
+  const h = host(), m = mod.mountCollectionStatus(h, {rt:ok.rt, now:() => now});
+  await assert.rejects(m.refresh());
+  await m.refresh();
+  assert.match(h.innerHTML, /data-collect="copy" data-collect-state="ok"/);
+});
+
 test('radar state: no row or no time yet hides the line', () => {
   assert.equal(mod.radarFromRows([]), null);
   assert.equal(mod.radarFromRows([{last_success_at:null}]), null);
