@@ -29,7 +29,8 @@ async function sameButtons(region,height,quickHeight=height){
   // UI-바구니상세개편: the [복사]·원문 toggle icons, photo previews and the files' small text links are not button shapes either.
   // UI-업데이트목록메뉴: the update row's [⋯] beside [복사] is the same small icon (as the note row's).
   // UI-PC바구니첨부버튼: the [📎 첨부] shared button (46px) is checked in basket-attach-button.spec.
-  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.inbox-todo-link,.inbox-todo-source,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more],.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
+  // UI-점검1030손질 C5: 정리함 '챙길 것'의 [다시 찾기]는 홈과 같은 글자 버튼(칩·상자 모양 아님, 28px·누르는 범위 44px은 ui-audit-1030.spec).
+  if(await control.evaluate(el=>el.matches('.inbox-find,.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.inbox-todo-link,.inbox-todo-source,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more],.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
   // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [업데이트 ▾|할 일]·바구니 [메모|노트])은 32px 상자 안 칸으로
   // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
@@ -40,7 +41,7 @@ async function sameButtons(region,height,quickHeight=height){
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
    if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};
    if(el.matches('[data-basket-filter]'))return {min:32,max:32,radius:'999px'};
-   if(el.matches('.inbox-find,.inbox-chip'))return {min:32,max:32,radius:'8px'};
+   if(el.matches('.inbox-chip'))return {min:32,max:32,radius:'8px'};
    return null;
   });
   const label=await control.textContent();

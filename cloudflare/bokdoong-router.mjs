@@ -1,3 +1,5 @@
+import { WEB2_CSP, WEB2_REFERRER_POLICY, web2CspPage } from './web2-csp.mjs';
+
 const PAGES_ORIGIN = 'https://mj880616.github.io';
 const SERVICES = Object.freeze({
   'work.bokdoong.com': { root: '/work/', prefix: '/work/' },
@@ -334,6 +336,11 @@ export default {
     if (webPage && !hasCurrentEpoch(request)) {
       responseHeaders.set('Clear-Site-Data', '"cache"');
       responseHeaders.append('Set-Cookie', `${EPOCH_COOKIE}=${CACHE_EPOCH}; Path=/work/app/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax`);
+    }
+    // SEC-Web2CSP 1단계: Web2 첫 화면·로그인 화면에만 보고 전용 CSP(막지 않음)와 Referrer-Policy. 304에도 붙여 저장된 헤더를 갱신한다.
+    if (web2Path(host, incoming.pathname) && web2CspPage(incoming.pathname) && (upstream.status === 200 || upstream.status === 304)) {
+      responseHeaders.set('Content-Security-Policy-Report-Only', WEB2_CSP);
+      responseHeaders.set('Referrer-Policy', WEB2_REFERRER_POLICY);
     }
     const response = new Response(body, { status: upstream.status, headers: responseHeaders });
     if (immutableAsset && edgeCache) {
