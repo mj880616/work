@@ -14,7 +14,7 @@ const BASELINE = {
   'basket-manual-link.js': 3, 'basket-notes.js': 4, 'basket-record-delete.js': 1, 'basket.js': 10,
   'calendar-ref-settings.js': 2, 'call-feed.js': 2, 'diary.js': 4, 'document-category-editor.js': 1, 'od-settings.js': 1, 'document-delete.js': 6,
   'google-tasks.js': 2, 'home-quick.js': 1, 'hwp-lab.js': 7, 'journal-hwpx.js': 3, 'ledger-browse.js': 2,
-  'legacy/editable-page.js': 1, 'legacy/meeting-detail-patches.js': 2, 'library-upload.js': 2, 'meeting-round-detail.js': 3,
+  'legacy/meeting-detail-patches.js': 2, 'library-upload.js': 2, 'meeting-round-detail.js': 3,
   'profile-settings.js': 1, 'project-system-v3.js': 7, 'public-page-editor.js': 3, 'reference-bundles.js': 1, 'share-pages.js': 5,
   'task-inline.js': 1, 'task-layout.js': 1, 'team.js': 1, 'telegram-feed.js': 1, 'trash-actions.js': 1, 'version-notice.js': 1,
   'workplace-detail.js': 7,

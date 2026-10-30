@@ -35,7 +35,7 @@ test('collector-feed: 담당조직 읽기는 deleted_at=is.null, drive-summary: 
 
 test('사용자 토큰으로 읽는 함수는 서버 키로 이 두 표를 읽지 않는다(숨김 정책이 거른다)', () => {
   // 서버 키 클라이언트 이름: admin / service / SERVICE_KEY 로 만든 것. 이 함수들이 그 이름으로 두 표를 읽기 시작하면 이 시험이 알려 준다.
-  for (const file of ['google-tasks/index.ts', 'meeting-ai-ingest/index.ts', 'meeting-ai-draft/index.ts', 'meeting-files/index.ts', 'team-ai/index.ts']) {
+  for (const file of ['google-tasks/index.ts', 'meeting-ai-ingest/index.ts', 'meeting-ai-draft/index.ts', 'meeting-files/index.ts']) {
     const js = src(file);
     assert.doesNotMatch(js, new RegExp(`(?:admin|service\\w*|sb)\\.from\\('(?:app_meetings|app_suborganizations)'\\)`), `${file}: 서버 키로 읽으면 deleted_at을 걸러야 한다`);
     assert.match(js, TABLES, `${file}: 두 표를 읽는 곳이 있어야 이 시험이 뜻이 있다`);

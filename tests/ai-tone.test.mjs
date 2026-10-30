@@ -77,7 +77,6 @@ const EXCLUDED = new Map([
   ['meeting-ai-ingest/index.ts', '문서에서 사실을 추출해 두는 재료 글(회의 요약 아님)'],
   ['page-ai-draft/index.ts', '현장 공유 페이지 초안(바깥에 내보내는 글)'],
   ['ai-assist/hwp-convert.ts', '노조 서식 한글 문서(바깥에 내는 공식 문서, 명사형 문체 유지)'],
-  ['team-ai/index.ts', '대화 답변(요약 아님). 공식 보고 문안은 요청 시 -함/-임을 이미 우선함'],
   ['ai-assist/press-draft.ts', '성명·보도자료 초안(바깥에 내는 글, 성명 문체 \'~다\'·보도자료 \'~습니다\', FEAT-1029 공통 규칙 4)'],
 ]);
 
