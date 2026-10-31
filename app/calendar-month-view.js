@@ -70,8 +70,11 @@ import {eventColor} from './home-read-model.js';
     if(!view||!view.classList.contains('hidden')){
       const viewportHeight=document.documentElement.clientHeight||window.innerHeight||0;
       const gridBox=grid.getBoundingClientRect();
-      // 달력 아래에 오는 것(카드 아래 여백, 하단바·전환 줄·[+] 자리인 화면 끝 여백 ::after)은 화면 칸 안이므로 그 높이만큼 뺀다.
-      const tail=view?Math.max(0,view.getBoundingClientRect().bottom-gridBox.bottom):0;
+      // 달력 아래에 오는 것(카드 아래 여백, 하단바·전환 줄·[+] 자리인 화면 끝 여백 ::after, 화면 칸 아래 여백)만 더한다.
+      // 화면 칸 아래끝 − 달력 아래끝으로 재면, 처음 그릴 때(달력이 아직 비어 있음) 화면 칸 최소 높이만큼 부풀어 틀린다.
+      const px=(el,prop,pseudo)=>el?(parseFloat(getComputedStyle(el,pseudo)[prop])||0):0;
+      const card=grid.closest('.calendar-card');
+      const tail=px(grid,'marginBottom')+(card&&card!==view?px(card,'paddingBottom')+px(card,'borderBottomWidth'):0)+px(view,'paddingBottom')+px(view,'height','::after');
       const available=Math.floor(viewportHeight-(gridBox.top+window.scrollY)-tail);
       height=Math.max(minGrid,available);
     }
