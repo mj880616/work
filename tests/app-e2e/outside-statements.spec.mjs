@@ -153,7 +153,7 @@ for (const width of [412, 1280]) {
     await expect(sw('kctu')).toHaveAttribute('aria-checked', 'true');
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'false');
     await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['사이트가 자동 읽기를 막음']);
-    await expect(root(page).locator('.os-src-row', { has: sw('kctu') }).locator('.os-src-note')).toHaveText('마지막 10. 5. (월) 18:07');
+    await expect(root(page).locator('.os-src-row:has([data-os-source="kctu"]) .os-src-note')).toHaveText('마지막 10. 5. (월) 18:07');
     // 없던 단체 켜기 = 새 줄 넣기(workspace_id·source_key·enabled만), 켠 단체 끄기 = enabled만 고치기.
     await sw('kptu').click();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'true');

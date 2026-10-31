@@ -76,7 +76,7 @@ for(const width of [1440,884,412]){
     await openEdit(page,width);
     await modal(page).locator('[data-menu-edit-reset]').click();
     await expect.poll(()=>ids(page,'tail')).toEqual(['calls','telegram','arsenal']);
-    expect(await ids(page,'rest')).toEqual(['note','library','hwp','pages','ledger','photos']);
+    expect(await ids(page,'rest')).toEqual(['note','library','hwp','pages','ledger','photos','outside']);
     await expect.poll(()=>prefs.value?.menu_layout??null).toBeNull();
     await modal(page).locator('[data-close="menuEditModal"]').click();
     await expect.poll(()=>pcSide(page)).toEqual({photos:false,calls:true,feed:['calls','telegram','arsenal'],first:'calls'});
