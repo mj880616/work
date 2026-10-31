@@ -209,7 +209,7 @@ for(const width of [390,1280]){
   await expect(week.locator('button')).toHaveText(['월 10.12','화 10.13','수 10.14','목 10.15','금 10.16','토 10.17','일 10.18']);
   const wb=await week.boundingBox();expect(wb.x).toBeGreaterThanOrEqual(0);expect(wb.x+wb.width).toBeLessThanOrEqual(width);expect(wb.y+wb.height).toBeLessThanOrEqual(1000);
   // 목록 밖을 누르면 목록만 닫힌다(저장 없음).
-  await card.locator(':scope > h4').click({position:{x:2,y:2}});
+  await card.click({position:{x:2,y:2}});
   await expect(week).toBeHidden();expect(calls.update.length).toBe(0);
   // 다시 열어 고르면 그날로 바로 저장.
   await row.hover();await more.click();await menu.getByRole('button',{name:'기한 바꾸기'}).click();
