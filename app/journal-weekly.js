@@ -30,6 +30,8 @@ import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './j
 import {itemWhat} from './weekly-hwpx/schedule.mjs';
 import {annotateCalendar, memoryTitle, idleWeeks} from './weekly-schedule-memory.js';
 import {whoList, titleFields, hqFields, hqLines} from './weekly-schedule-rows.mjs';
+import {splitScheduleFields} from './schedule-line-split.mjs';
+import {timeCell} from './time-input.js';
 import {scheduleItems} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
@@ -38,6 +40,8 @@ import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
 import {slashDay as nextSlashDay} from './next-week-sheet-model.mjs';
 import {renderPrepSheet} from './prep-sheet-view.js';
+// 화면·복사용 '시간 / 제목 / 장소'(WEEKLY-장소칸: 한 줄 모양 제목은 나눠 읽음 — '종일 / 10:30 / …'가 되지 않게).
+const lineWhat = f => { const x = splitScheduleFields(f); return [x.time, x.title, x.place].filter(Boolean).join(' / '); };
 
 // The reads behind each part (journal.js materials keys; 'lines' is the journal's own lines read).
 // 'upcoming' is the two-week calendar read of 5. 주요 일정 (journal-data.js readScheduleEvents).
@@ -158,7 +162,7 @@ export function upcomingSchedule(events, start) {
     // key: the event's own id (WEEKLY-일정다듬기 — the .hwpx title check keeps what was confirmed per event); time/title/place: the parts
     // of the form cell (weekly-hwpx/schedule.mjs formWhat). `what` stays the screen and copy text as before.
     list.push({day:first < from ? from : first, first, last, multi:first !== last, allDay:!!event.allDay, at:event.allDay ? 0 : Date.parse(event.start), title, time, place,
-      key:key || `${first}|${time}|${title}`, what:[time, title, place].filter(Boolean).join(' / '), ...(event.id ? {open:{id:String(event.id), calendarId:event.calendarId || 'primary'}} : {})});
+      key:key || `${first}|${time}|${title}`, what:lineWhat({time, title, place}), ...(event.id ? {open:{id:String(event.id), calendarId:event.calendarId || 'primary'}} : {})});
   }
   list.sort((a, b) => a.day.localeCompare(b.day) || a.multi - b.multi || (a.multi && a.last.localeCompare(b.last)) || b.allDay - a.allDay || a.at - b.at || a.title.localeCompare(b.title, 'ko'));
   const rows = [];
@@ -929,10 +933,10 @@ function execEditRow(doc, el, ui, item) {
     const input = el('input'); input.type = type; input.value = draft[name] ?? ''; input.dataset.journalExecField = name;
     input.id = `journalExec-${key}-${name}`;
     if (type === 'text') { input.maxLength = EXEC_LIMITS[name]; input.autocomplete = 'off'; }
-    if (name === 'time') input.placeholder = '10:30';
     if (ui.invalid === name) input.setAttribute('aria-invalid', 'true');
     if (ui.saving) input.disabled = true;
-    wrap.append(input); form.append(wrap);
+    // FORM-시간숫자: 숫자 자판 시간 칸 + 작은 [종일](공용 time-input.js). 지난주에서 가져온 옛 글(예: '10:00~12:00')은 고치지 않으면 그대로 둔다.
+    wrap.append(name === 'time' ? timeCell(input, {label, allDay:true}) : input); form.append(wrap);
   }
   const actions = el('div', 'journal-edit-actions save-row');
   const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalExecSave = key;

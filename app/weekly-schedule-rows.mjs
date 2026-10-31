@@ -10,6 +10,7 @@
 // 한글 파일 모양은 그대로다: 일정 칸 글은 '10:30 / 제목 / 장소' 한 줄(schedule.mjs formWhat), 2) 주요 일정은 '- 11.6.(금) 13:00 / 내용 / 장소' 줄.
 // 브라우저 저장소에 아무것도 두지 않는다. 내용은 업무 글이라 로그에 쓰지 않는다.
 import {formDay, realDay, newId} from './weekly-exec-requests.js';
+import {splitScheduleFields} from './schedule-line-split.mjs';
 
 export const HQ_MAX = 40;
 export const TITLE_MAX = 200;
@@ -51,18 +52,24 @@ export const titleFields = t => { const {event, ...rest} = cleanTitleEdit({event
 // 달력 일정 하나(scheduleItems 줄: {key, day, time, title, place, memo?})의 바탕 값 = 기억(제목·장소) 아니면 달력. who 바탕 = 내 이름.
 export function baseFields(item, me = '') {
   const memo = item?.memo?.title ? {title:item.memo.title, place:item.memo.place ?? item.place} : null;
-  return {day:String(item?.day ?? ''), time:String(item?.time ?? ''), title:one(memo?.title ?? item?.title), place:one(memo?.place ?? item?.place ?? ''), who:one(me)};
+  // WEEKLY-장소칸: 예전 한 줄 모양('10:30 / 제목 / 장소')의 달력 제목·기억은 칸별로 나눠 읽는다(schedule-line-split.mjs).
+  return splitScheduleFields({day:String(item?.day ?? ''), time:String(item?.time ?? ''), title:one(memo?.title ?? item?.title), place:one(memo?.place ?? item?.place ?? ''), who:one(me)});
 }
 // 보이는 값 = 칸별 고침 > 바탕. edit = {title, place, day?, time?, who?} | undefined.
 export function eventFields(item, edit, me = '') {
   const b = baseFields(item, me);
   if (!edit) return b;
-  return {day:edit.day || b.day, time:edit.time || b.time, title:one(edit.title) || b.title, place:edit.place !== undefined ? one(edit.place) : b.place, who:edit.who !== undefined ? one(edit.who) : b.who};
+  // 임시저장(draft.titles)에 한 줄 모양으로 남은 제목도 나눠 읽는다. 시간은 고친 시간 > 제목 앞 시각 > 바탕.
+  const own = splitScheduleFields({time:edit.time || '', title:one(edit.title), place:edit.place !== undefined ? one(edit.place) : ''});
+  const place = edit.place !== undefined || own.place ? own.place : b.place;
+  return {day:edit.day || b.day, time:own.time || b.time, title:own.title || b.title, place, who:edit.who !== undefined ? one(edit.who) : b.who};
 }
 // 화면 칸 값(next) → 저장할 고침(바탕과 같으면 null = 고침 없음). title·place는 늘 넣고, day·time·who는 바탕과 다를 때만.
 export function editFrom(item, next, me = '') {
-  const b = baseFields(item, me), n = {...b, ...Object.fromEntries(Object.entries(next ?? {}).map(([k, v]) => [k, one(v)]))};
-  if (!n.title) n.title = one(item?.title) || b.title;
+  const b = baseFields(item, me);
+  // 칸에 한 줄 모양('10:30 / 제목 / 장소')을 붙여 넣어도 나뉜 모양으로 저장한다.
+  const n = splitScheduleFields({...b, ...Object.fromEntries(Object.entries(next ?? {}).map(([k, v]) => [k, one(v)]))});
+  if (!n.title) n.title = b.title || one(item?.title);
   const time = cleanTime(n.time);
   n.time = time === null || !time ? b.time : time;
   if (!realDay(n.day)) n.day = b.day;
@@ -95,7 +102,7 @@ export function readHq(list) {
 // 줄 하나의 보이는 값. events: Map(일정 키 → scheduleItems 줄), titles: Map(일정 키 → 고침).
 export function hqFields(row, {events = new Map(), titles = new Map()} = {}) {
   const item = row.event ? events.get(row.event) : null;
-  if (!item) return {day:row.day, time:row.time, title:row.title, place:row.place, linked:false};
+  if (!item) return {...splitScheduleFields({day:row.day, time:row.time, title:row.title, place:row.place}), linked:false};
   const f = eventFields(item, titles.get(row.event));
   return {day:f.day, time:f.time, title:f.title, place:f.place, linked:true};
 }

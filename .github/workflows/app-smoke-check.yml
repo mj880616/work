@@ -37,6 +37,7 @@ on:
       - 'tests/ui-audit-1030.test.mjs'
       - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
+      - 'tests/schedule-line-split.test.mjs'
       - 'tests/meeting-compact.test.mjs'
       - 'tests/select-menu.test.mjs'
       - 'tests/basket-data.test.mjs'
@@ -158,6 +159,7 @@ on:
       - 'tests/ui-audit-1030.test.mjs'
       - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
+      - 'tests/schedule-line-split.test.mjs'
       - 'tests/meeting-compact.test.mjs'
       - 'tests/select-menu.test.mjs'
       - 'tests/basket-data.test.mjs'
@@ -264,6 +266,9 @@ jobs:
 
       - name: Check meeting Korea time conversions
         run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/select-menu.test.mjs tests/calendar-week-timeline.test.mjs tests/calendar-drag-model.test.mjs tests/calendar-create-slot.test.mjs
+
+      - name: Check time cells and one-line schedule titles split into cells (FORM-시간숫자·WEEKLY-장소칸)
+        run: node --test tests/schedule-line-split.test.mjs
 
       - name: Check shared UI parts stay unified (UI-화면정리 B)
         run: node --test tests/ui-cleanup-b.test.mjs

@@ -30,7 +30,7 @@ for(const width of [390,1280])test.describe(`${width}px`,()=>{
     // A wrong time stays as typed with a hint under the cell, and nothing is saved.
     await start.fill('2599');await start.press('Tab');
     const hint=page.locator('#'+await start.getAttribute('data-time-hint'));
-    await expect(start).toHaveValue('2599');await expect(start).toHaveAttribute('aria-invalid','true');await expect(hint).toBeVisible();await expect(hint).toContainText('0930');
+    await expect(start).toHaveValue('2599');await expect(start).toHaveAttribute('aria-invalid','true');await expect(hint).toBeVisible();await expect(hint).toHaveText('시간을 확인해 주세요');
     await expect(start).toHaveAttribute('aria-describedby',await hint.getAttribute('id'));
     await page.locator('#saveEventBtn').click();await expect(page.locator('#eventStatus')).toContainText('시간을 확인');expect(s.writes).toEqual([]);
     await start.fill('1405');await expect(hint).toBeHidden();await expect(start).not.toHaveAttribute('aria-invalid','true');await expect(end).toHaveValue('17:05');await expect(endDate).toHaveValue('2026-10-01');

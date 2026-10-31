@@ -6,6 +6,8 @@
 // - 적용 순서: 이번 주 임시저장(일정 키 열쇠의 titles·drops) > 기억 > 달력(설계 3.6).
 // - 칸 값이 틀렸거나 읽지 못하면(칸 준비 전 포함) "기억 없음" — 지금처럼 달력 제목 그대로다. 화면이 추측으로 빼지 않는다.
 // - 쓰기는 쓰기 직전에 다시 읽고 바꿀 항목만 바꿔 이 칸만 PATCH한다(다른 기기 변경 보존, 내 행만 — 기존 owner 정책). 브라우저 저장소 없음.
+import {splitScheduleFields} from './schedule-line-split.mjs';
+
 export const MEMORY_MAX = 200;
 export const MEMORY_BYTES = 65536;
 export const KEY_MAX = 200;
@@ -58,7 +60,8 @@ export function annotateCalendar(calendar, memory) {
     const memo = e.drop ? {key:e.key, drop:true} : {key:e.key, title:e.title, ...(e.place ? {place:e.place} : {})};
     if (memo.drop) { dropped++; return {...item, memo}; }
     const place = memo.place ?? item.place;
-    return {...item, memo, what:[item.time, memo.title, place].filter(Boolean).join(' / ')};
+    const x = splitScheduleFields({time:item.time, title:memo.title, place});
+    return {...item, memo, what:[x.time, x.title, x.place].filter(Boolean).join(' / ')};
   })}));
   const rows = allRows.map(row => ({...row, items:row.items.filter(i => !i.memo?.drop)})).filter(row => row.items.length);
   return {...calendar, rows, allRows, memoryDropped:dropped};
