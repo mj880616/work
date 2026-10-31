@@ -52,6 +52,7 @@ async function sweep(page,scope,limit=10){
   // 손가락으로 누른 것처럼 초점만 옮긴다(브라우저 스스로의 스크롤 없이: 올리기는 앱 규칙이 한다).
   const ok=await page.evaluate(i=>{const el=document.querySelector(`[data-kb-sweep="${i}"]`);if(!el||!el.checkVisibility())return false;el.focus({preventScroll:true});return document.activeElement===el;},i);
   if(!ok)continue;
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
   results.push(await page.evaluate(coverCheck));
  }
  await page.evaluate(()=>document.querySelectorAll('[data-kb-sweep]').forEach(el=>el.removeAttribute('data-kb-sweep')));

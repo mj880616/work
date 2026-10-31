@@ -66,6 +66,9 @@
       if(!delta)break;
       port.el.scrollBy(0,delta);
     }
+    // Last resort when nested scrolling left the field outside the part above the keyboard: the middle of it.
+    const end=field.getBoundingClientRect(),vTop=viewport?viewport.offsetTop:0,vBottom=viewport?vTop+viewport.height:innerHeight;
+    if(end.bottom<=vTop||end.top>=vBottom||(!tall&&(end.top<vTop||end.bottom>vBottom)))field.scrollIntoView({block:'center',inline:'nearest'});
   }
   function syncKeyboard(){
     const viewport=window.visualViewport,focused=document.activeElement,editing=editable(focused);
@@ -97,7 +100,8 @@
   window.visualViewport?.addEventListener('scroll',syncKeyboard);
   window.addEventListener('resize',syncKeyboard);
   phone.addEventListener?.('change',syncKeyboard);
-  document.addEventListener('focusin',syncKeyboard);
+  // A screen's own focus handler can move its content after ours: check the newly focused field once more next frame.
+  document.addEventListener('focusin',()=>{syncKeyboard();requestAnimationFrame(()=>{if(keyboardOpen&&keyboardField&&document.activeElement===keyboardField)revealField(keyboardField)})});
   document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
 
   // companions (optional): a function returning controls outside the dialog that stay in its Tab cycle (the full-screen
