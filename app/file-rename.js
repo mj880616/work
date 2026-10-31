@@ -104,7 +104,6 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
       const detail = {drive_file_id: data.drive_file_id, name: data.name, notes: Array.isArray(data.notes) ? data.notes : [], updated: data.updated || {}};
       window.dispatchEvent(new CustomEvent('kptu:file-renamed', {detail}));
       if (detail.updated.documents) window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
-      if (detail.updated.tasks) window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
       const t = document.querySelector('#toast');
       if (t) { t.textContent = 'Drive 원본 이름도 바꿨어요.'; holdToast(t); }
     } catch (e) {
