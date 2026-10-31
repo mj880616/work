@@ -226,6 +226,16 @@ export async function odTrashPurge(rt, ids) {
   const d = await odCall(rt, {action: 'trash-purge', ids, confirm: true});
   return {purged: Array.isArray(d?.purged) ? d.purged : [], failed: d?.failed && typeof d.failed === 'object' ? d.failed : {}};
 }
+// S47-16 PHOTO-폰지우기안전장치: 폰에서만 지우기 전 원드라이브 사본 다시 확인(항목 id·폰 사진 크기만 보냄, 사진은 보내지 않음),
+// 지운 뒤 기록(폰 사진 번호·사본 id만), 다음 사진 확인 때 사본 사라짐 검사·경고 확인. 기록은 서버 표에만 둔다(기기 저장 없음).
+const idsOf = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string') : []);
+export async function odCopyCheck(rt, pairs) {
+  const d = await odCall(rt, {action: 'copy-check', pairs});
+  return {ok: idsOf(d?.ok), missing: idsOf(d?.missing), unsure: idsOf(d?.unsure)};
+}
+export async function odTrashLog(rt, pairs) { const d = await odCall(rt, {action: 'trash-log', pairs}); return Number.isInteger(d?.saved) ? d.saved : 0; }
+export async function odTrashWatch(rt) { const d = await odCall(rt, {action: 'trash-watch'}); return Number.isInteger(d?.gone) && d.gone > 0 ? d.gone : 0; }
+export async function odTrashSeen(rt) { await odCall(rt, {action: 'trash-seen'}); }
 // 연결 뒤 돌아올 화면(명진 결정 5): 마이크로소프트가 그대로 돌려주는 state 끝에 '~photos'를 붙인다. 돌아오는 페이지가 떼어 내고 그 화면으로 보낸다
 // (서버가 확인하는 서명 부분은 그대로, 저장 없음). 일기는 붙이지 않는다(예전 그대로).
 export const OD_BACK_VIEWS = Object.freeze(['photos']);

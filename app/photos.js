@@ -29,10 +29,11 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 // - [앨범]: #태그(app_photo_tags·app_photo_tag_items, owner RLS, 원드라이브 파일은 그대로). 카드(대표 사진·#이름·장수)·+ 새 앨범, 카드 ⋯ = 이름 바꾸기·지우기.
 //   고른 사진 [# 앨범]으로 넣고, 앨범 안에서는 [앨범에서 빼기]. 앨범 사진 목록은 그 앨범 사진 id를 서버 library에 보내 색인에 있는 것만 그린다.
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
-  odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, readPhoneStars, addStar, removeStar, starKey, takenLabel, takeOdReturn} from './diary-onedrive.js';
+  odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, readPhoneStars, addStar, removeStar, starKey, takenLabel, takeOdReturn,
+  odCopyCheck, odTrashLog, odTrashWatch, odTrashSeen} from './diary-onedrive.js';
 import {phonePhotos} from './phone-photos.js';
 import {createPhotoTidy} from './photo-tidy.js';
-import {typeFilter} from './photo-tidy-model.mjs';
+import {typeFilter, keptText, COPY_BATCH, LOG_BATCH} from './photo-tidy-model.mjs';
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
   gdriveAllowed, gdriveToItem, gdriveBefore, gdriveFrom, gdriveKey, gdriveErrorText, gdriveCode, gdriveNeedsReconnect, gdriveState, GDRIVE_RECONNECT} from './photo-sources-model.mjs';
@@ -150,6 +151,7 @@ const NO_SOURCE_HTML = '<p class="photos-muted" data-photos-no-source>위 출처
 let tidyOpen = false, tidyView = null;
 const tidyChip = $('[data-photos-tidy-chip]'), tidyBox = $('[data-photos-tidy]');
 const tidy = createPhotoTidy({phone, odReady:() => ready(), odError:e => odErrorText(e), phoneError:e => phoneErrorText(e), phoneOff:() => phoneOff, onChange:() => paintTidy(), isStarred:it => isStarred(it),
+  watchTrash:() => odTrashWatch(rt), seenTrash:() => odTrashSeen(rt),
   readOd:async (cursor, limit) => { const page = await odLibrary(rt, {filter:'all', cursor, limit}); return {items:page.items.map(toItem), next:page.next}; }});
 const tidyPlace = () => (tidyView?.startsWith('place:') ? tidyView.slice(6) : 'all');
 function paintTidy() {
@@ -182,24 +184,51 @@ function tidyFill() {
   bar = monthBar(m); monthsFor = filter;
   return true;
 }
+// S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰에서만 지우기]·[나머지 지우기]는 원드라이브 사본이 지금도 있는(같은 파일·크기) 사진만 지운다.
+// 서버가 사본을 다시 확인하고(copy-check), 확인된 것만 폰 휴지통으로 보낸 뒤 지운 기록(폰 사진 번호·사본 id)을 서버에 남긴다(trash-log).
+// 잡동사니 [지우기]는 사본과 상관없이 고른 그대로(예전 그대로).
 async function tidyTrash(b, kind) {
   const g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) return;
-  // ③ 공간 비우기: 원드라이브에 정말 있는지 — 읽은 지 오래됐으면 다시 확인부터.
-  if (kind === 'space' && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); tidyView = null; tidy.rescan(); return; }
-  const n = g.items.length;
+  const needCopy = kind === 'space' || kind.startsWith('dup');
+  // 원드라이브에 정말 있는지 — 읽은 지 오래됐으면 다시 확인부터.
+  if (needCopy && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); tidyView = null; tidy.rescan(); return; }
+  let list = g.items, copyOf = null, kept = '';
+  if (needCopy) {
+    const pl = tidy.copyPairs(g.items);
+    if (!pl) { notify('원드라이브를 읽은 뒤에 지울 수 있어요.'); return; }
+    const ok = new Set(), seen = {missing:pl.noCopy.length, unsure:0};
+    for (let i = 0; i < pl.pairs.length; i += COPY_BATCH) {
+      const part = pl.pairs.slice(i, i + COPY_BATCH);
+      let res;
+      try { res = await odCopyCheck(rt, part.map(x => ({id:x.copy.id, size:x.item.size_bytes}))); }
+      catch { res = {ok:[], missing:[], unsure:part.map(x => x.copy.id)}; }
+      const good = new Set(res.ok), bad = new Set(res.missing);
+      for (const x of part) { if (good.has(x.copy.id)) ok.add(x.item.id); else if (bad.has(x.copy.id)) seen.missing++; else seen.unsure++; }
+    }
+    copyOf = new Map(pl.pairs.filter(x => ok.has(x.item.id)).map(x => [x.item.id, x.copy.id]));
+    list = g.items.filter(x => copyOf.has(x.id));
+    kept = keptText(seen.missing, seen.unsure);
+    if (!list.length) { notify(`지울 사진이 없어요. ${kept}`); return; }
+  }
+  const n = list.length;
   const keepNote = kind === 'space' ? '원드라이브에는 그대로 남아요. ' : kind.startsWith('dup') ? '남길 사진은 그대로예요. ' : '';
-  if (!await askConfirm(b, {text:`${g.label} ${n}장을 폰 휴지통으로 옮길까요?`, note:`${keepNote}폰이 한 번 더 확인 창을 띄워요(200장씩). 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요.`, ok:'폰 휴지통으로', danger:true})) return;
+  if (!await askConfirm(b, {text:`${g.label} ${n}장을 폰 휴지통으로 옮길까요?`, note:`${kept ? kept + '. ' : ''}${keepNote}폰이 한 번 더 확인 창을 띄워요(200장씩). 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요.`, ok:'폰 휴지통으로', danger:true})) return;
   const gone = [];
+  let logFail = false;
   for (let i = 0; i < n; i += 200) {
-    const part = g.items.slice(i, i + 200);
+    const part = list.slice(i, i + 200);
     const res = await phone.trash(part);
     if (!res.ok) break;
     gone.push(...part.map(x => x.id));
+    if (copyOf) {
+      const rows = part.map(x => ({phone_id:x.phoneId, copy_id:copyOf.get(x.id)}));
+      for (let k = 0; k < rows.length; k += LOG_BATCH) { try { await odTrashLog(rt, rows.slice(k, k + LOG_BATCH)); } catch { logFail = true; } }
+    }
   }
-  if (!gone.length) { notify('폰에서 지우지 않았어요.'); return; }
+  if (!gone.length) { notify(`폰에서 지우지 않았어요.${kept ? ' ' + kept : ''}`); return; }
   tidy.forget(gone);
   calData.clear(); monthsFor = ''; phStarItems = null; aFor = null;
-  notify(`${gone.length}장을 폰 휴지통으로 옮겼어요`);
+  notify(`${gone.length}장을 폰 휴지통으로 옮겼어요${kept ? ' · ' + kept : ''}${logFail ? ' · 지운 기록 일부를 남기지 못했어요' : ''}`);
   if (tab === 'all') { resetList(); render(); } else paintTidy();
 }
 function tidyHide(kind) {
@@ -219,6 +248,7 @@ function tidyClick(b) {
   if (b.matches('[data-photos-tidy-rescan]')) { tidyView = null; tidy.rescan(); resetList(); render(); return true; }
   if (b.matches('[data-photos-tidy-hide]')) { tidyHide(b.dataset.photosTidyHide); return true; }
   if (b.matches('[data-photos-tidy-trash]')) { tidyTrash(b, b.dataset.photosTidyTrash); return true; }
+  if (b.matches('[data-photos-tidy-gone-ok]')) { tidy.goneSeen(); return true; }
   if (b.matches('[data-photos-tidy-folder]')) {
     if (!sources.phone) { notify('폰 사진 출처를 켜면 그 폴더를 볼 수 있어요.'); return true; }
     select.stop(); pAt = b.dataset.photosTidyFolder; setTab('folders'); window.scrollTo?.(0, 0); return true;
