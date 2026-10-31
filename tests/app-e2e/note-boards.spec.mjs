@@ -171,7 +171,8 @@ test('PC 1440: 노트 목록 | 보드 경계 끌기·키보드·새로고침 유
   const id = 'b1a2b3c4';
   const { errors, server } = await fixture(page, 1440, { note_view: 'board', note_boards: [{ id, name: '국회 대응' }], note_board: id });
   const side = page.locator('[data-nbb-side]');
-  const open = async () => { await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3'); await expect(side).toBeVisible(); };
+  // 새로고침 직후에는 사이드바가 아직 없을 수 있어(그러면 도우미가 폰 메뉴를 찾는다) 사이드바 [노트] 줄부터 기다린다.
+  const open = async () => { await expect(page.locator('#appView > .app-nav [data-basket-kind-nav="note"]')).toBeVisible(); await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3'); await expect(side).toBeVisible(); };
   await expect(side).toBeVisible();
   await checkSplit(page, { container: '[data-note-list] .nbw-body', left: ':scope>[data-nbb-side]', right: ':scope>[data-note-board]', name: 'noteboard', share: 0.16, server, reopen: open });
   expect(errors).toEqual([]);

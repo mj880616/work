@@ -284,7 +284,8 @@ test('phone 390: one screen at a time — folder list → folder (sub folder fir
 test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유지·두 번 눌러 기본', async ({ page }) => {
   const server = await installViewPrefsServer(page);
   const { errors } = await fixture(page, 1280);
-  const open = async () => { await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3'); await expect(page.locator('[data-nx-tree]')).toBeVisible(); };
+  // 새로고침 직후에는 사이드바가 아직 없을 수 있어(그러면 도우미가 폰 메뉴를 찾는다) 사이드바 [노트] 줄부터 기다린다.
+  const open = async () => { await expect(page.locator('#appView > .app-nav [data-basket-kind-nav="note"]')).toBeVisible(); await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3'); await expect(page.locator('[data-nx-tree]')).toBeVisible(); };
   await expect(page.locator('[data-nx-tree]')).toBeVisible();
   await checkSplit(page, { container: '[data-note-list] [data-nx-body]', left: ':scope>[data-nx-tree]', right: ':scope>.nx-pane', name: 'notes', share: 0.3, server, reopen: open });
   expect(errors).toEqual([]);
