@@ -13,7 +13,8 @@
 3. **보관 경계**: 국내 단체 성명·논평·보도자료는 본문 전체를 Web2 서버에 비공개(작업공간 소유자만)로, 문장 단위로 쪼개 보관한다. 외국 매체는 **제목·링크·한국어 요약·핵심 문장 3개까지(원문 + 번역)**만 보관하고 전문·전문 번역은 저장하지 않는다. 공개 저장소·Web1에는 어느 것도 넣지 않는다.
 4. **문장 찾기**: 새 검색 함수 `app_outside_search`(INVOKER, owner RLS 그대로, 기존 `app_search_records`와 같은 모양) — 낱말 일치 + "뜻이 비슷한 문장"은 1단계에서 **AI가 찾는 말을 비슷한 표현 몇 개로 넓혀 함께 찾는 방식**(새 DB 확장 없음). 의미 벡터(pgvector)는 2단계 선택지로 남긴다. 명진 쪽 성명(자료실 종류 '성명·보도자료'의 `app_documents.extracted_text`)도 같은 결과에 함께 나온다.
 5. **알림**: 18시 수집 뒤 하루 한 번 저녁 요약 — 홈·위젯에 '새 성명 n건', 폰 알림은 기존 저녁 알림 묶음(phone-notifications 설계의 `evening` 칸)에 한 줄 더한다.
-6. **막힌 곳**: 정의당은 robots.txt가 게시판 자동 읽기를 막는다 → 자동 수집 안 함(결정 Q1). 공공운수노조·전국결집은 주소를 확인하지 못했다(결정 Q2·Q3).
+6. **막힌 곳**: 정의당은 robots.txt가 게시판 자동 읽기를 막는다 → 자동 수집 안 함(결정 Q1). 공공운수노조는 명진이 준 성명 게시판 주소(Q2)도 robots.txt 이유로 WebFetch가 거절했다(2026-10-31 S46-32) — 수집기가 실행 때 robots를 직접 읽어 막혀 있으면 건너뛴다(3.4). 전국결집은 leftall.com(Q3), 성명 게시판 없이 공지사항에 [입장]·[연서명] 머리말 글.
+7. **결정**: 8절 Q1~Q9 모두 결정됨(명진 2026-10-31 22:35). ② DB는 S46-32 PR(`20261031230000_outside_statements`).
 
 ## 1. 사이트별 읽는 길 (조사 결과)
 
@@ -24,7 +25,7 @@
 | 묶음 | 단체 | 홈페이지 | 성명·논평·보도자료 읽는 곳 | RSS | robots | 이용 조건 | 읽는 방식(추천) · 막히는 점 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 민주노총 | 민주노총 | nodong.org [사실] | `nodong.org/statement` — 성명·보도자료·취재요청이 한 게시판, 제목 머리말([성명] 등)로 구분 [사실]. 기관지 노동과세계(worknworld.kctu.org) '성명/논평' 분류 [사실, http 전용이라 내용 못 봄] | 페이지에 없음 [사실]. XE 기반이라 게시판 RSS가 있을 수 있음 [추정] | 목록 열림 [사실] | 무단 전재 문구 없음, 이용약관 링크 비어 있음 [사실] | 게시판 목록 HTML. 종류는 제목 머리말로 가름 |
-| 공공운수노조 | 공공운수노조 | 확인 못 함(검색에 공식 주소가 안 나옴. kptu.net로 짐작 [추정]) | 확인 못 함 | 확인 못 함 | 확인 못 함 | 확인 못 함 | **결정 Q2**: 명진이 주소 한 줄 알려 주면 DB PR 전에 다시 조사 |
+| 공공운수노조 | 공공운수노조(전국공공운수사회서비스노조) | www.kptu.net [사실, 명진 Q2·검색 결과] | 성명·보도자료 게시판 `www.kptu.net/board/list.aspx?mid=F686C1F3` [명진 Q2]. 글 `board/detail.aspx?mid=F686C1F3&idx=번호`(뒤에 `bid=KPTU_NEW04`·`page=` 붙기도 함), 제목 머리말 [성명]·[보도자료]로 구분 [사실, 검색 결과의 글 주소·제목] | 확인 못 함(ASP.NET 게시판 [추정]) | **목록·글·첫 화면 모두 WebFetch가 robots.txt 이유로 거절** [사실, 2026-10-31] — 이 도구(AI 수집 도구)만 막는지 모든 수집기를 막는지는 robots.txt 원문을 못 봐 확인 못 함 | 확인 못 함(페이지를 못 엶) | 게시판 목록 HTML, 종류는 제목 머리말. **수집기가 실행 때 robots.txt를 직접 읽어 우리 User-Agent·`/board/` 경로가 막혀 있으면 건너뛰고 `last_error='robots'`**(정의당과 같은 원칙). 막혀 있으면 ③ Edge PR 보고에 적고 명진에게 다른 길(텔레그램·메일 구독 등)을 묻는다 |
 | 정당 | 노동당 | laborparty.kr [사실] | 성명&논평 `laborparty.kr/?page_id=13642`, 글 `?mod=document&page_id=13642&uid=번호` [사실] | 페이지에 없음 [사실]. WordPress+KBoard라 KBoard RSS가 있을 수 있음 [추정] | 페이지 열림 [사실] | 확인 못 함 | 게시판 목록 HTML(RSS 있으면 RSS) |
 | 정당 | 녹색당 | kgreens.org [사실] | 전국당 논평 `/statement`, 지역당·위원회 `/statement2`, 발언 `/address`, 보도자료 `/press` [사실]. 상단 '논평/성명'은 다른 도메인(campaignus.me)으로 연결 [사실] | 없음 [사실] | 페이지 열림 [사실] | 저작권 문구 없음, 이용약관 `/?mode=policy` [사실] | 게시판 목록 HTML(`/statement`·`/press`). 아임웹 기반 [추정], 글 주소 `?bmode=view&idx=번호` |
 | 정당 | 진보당 | jinboparty.com [사실] | `/pages/?p=15&b=b_1_2`(논평), `p=316&b=b_1_126`(정책논평), `p=286&b=b_1_111`(보도자료), `p=315&b=b_1_125`(모두발언) [사실] | 없음 [사실] | 페이지 열림 [사실] | "Copyright © 2017 진보당. All Rights Reserved." [사실] | 게시판 목록 HTML, 논평·보도자료 두 곳 |
@@ -32,9 +33,9 @@
 | 사회운동 | 사회진보연대 | pssp.org [사실] | 성명 `/bbs/list.php?board=statement` [사실] | 없음(텔레그램 채널·메일 구독은 있음) [사실] | 확인 못 함(https 목록 열림) | 저작권 문구 없음 [사실] | 게시판 목록 HTML(https만, http는 서버 오류) |
 | 사회운동 | 노동자연대 | ws.or.kr(옛 wspaper.org) [사실] | 성명 전용 분류 없음. 제목 머리말 [노동자연대 성명]·[성명]으로 구분, 글 `/article/번호` [사실] | **`ws.or.kr/feed` 링크가 페이지에 있음** [사실, 내용은 못 열어 봄] | 확인 못 함 | "Copyright (c) ws.or.kr All rights reserved", CC 없음 [사실] | RSS + 제목 머리말로 성명만 고름(신문 기사는 거름) |
 | 사회운동 | 플랫폼C | platformc.kr [사실] | 분류 `/readings/`, 글 `/YYYY/MM/슬러그` [사실]. 성명 전용 분류는 확인 못 함 | 없음 [사실] | 확인 못 함 | 저작권·CC 문구 없음 [사실] | 목록 HTML. Next.js 기반 [추정] — 목록이 화면 스크립트로만 그려지면 막힘(구현 때 확인) |
-| 사회운동 | 전국결집 | 확인 못 함 | 확인 못 함 | 확인 못 함 | 확인 못 함 | 확인 못 함 | **결정 Q3**: 정식 이름·주소 확인 필요 |
+| 사회운동 | 전국결집(노동해방을 위한 좌파활동가 전국결집) | leftall.com [사실, 명진 Q3] | 성명 전용 게시판 없음. 메뉴는 소개·공지사항·소식지·자료실(`/bbs/board.php?bo_table=notice` 등) [사실]. 입장문은 공지사항에 [입장]·[연서명] 머리말로 올라옴 [사실]. 글 주소 `leftall.com/notice/번호`·`/newsletter/번호` [사실] | 페이지에 없음 [사실]. 그누보드라 `/bbs/rss.php?bo_table=notice`가 있을 수 있음 [추정] | 첫 화면 열림 [사실], robots.txt 원문은 못 봄 | "© 2026. 전국결집. All Rights Reserved." [사실] | 그누보드 RSS가 있으면 RSS, 없으면 공지사항 목록 HTML. 제목 머리말 [입장]만 성명으로(공지·토론회 안내는 거름), 소식지는 1단계에서 넣지 않음 |
 | 사회운동 | 사회주의를향한전진 | socialism.jinbo.net [사실](옛 nht.jinbo.net에 이전 공지) | 성명·논평 `/bbs/board.php?bo_table=news&me_id=11&me_code=20` [사실] | 페이지에 없음. 그누보드라 `/bbs/rss.php?bo_table=news`가 있을 수 있음 [추정] | 확인 못 함 | 메타 정보 '저작권: 사회주의를 향한 전진', CC 없음 [사실] | 그누보드 RSS가 있으면 RSS, 없으면 목록 HTML |
-| 사회운동 | 사회주의자 | socialist.kr [사실] | 잡지 `/잡지/`, 글 `/슬러그/` [검색 결과 기준]. 성명 분류 확인 못 함 | 확인 못 함(WordPress면 `/feed` [추정]) | 확인 못 함 | 확인 못 함 | **http 전용**이라 WebFetch로 못 엶. 결정 Q4 |
+| 사회운동 | 사회주의자 | socialist.kr [사실] | 잡지 `/잡지/`, 글 `/슬러그/` [검색 결과 기준]. 성명 분류 확인 못 함 | 확인 못 함(WordPress면 `/feed` [추정]) | 확인 못 함 | 확인 못 함 | **http 전용**이라 WebFetch로 못 엶. Q4 결정: http로 읽기(카탈로그에 http 허용 표시, 이 단체만) |
 
 ### 1.2 외국 매체
 
@@ -55,7 +56,7 @@
 | Spectre (spectrejournal.com) | 마르크스주의 잡지 | `/feed/`, 링크만 [사실] | 표기 없음 |
 | New Left Review·Sidecar (newleftreview.org) | 이론지 | `/feed` [사실] | 대부분 구독자 전용 [사실] → 요약 소개가 어려움 |
 
-- 추천(CC 의견): Labor Notes(노조 현장 소식, 한국 노조 활동과 가장 가까움)·Red Pepper·Socialist Worker(재게재 조건이 명시돼 경계가 분명)를 먼저 고르고, NLR은 유료라 빼는 것을 추천한다. 고르기 전에는 Jacobin만 넣는다.
+- Q5 결정(명진 2026-10-31, 추천대로): Jacobin + Labor Notes·Red Pepper·Socialist Worker. NLR은 유료라 뺀다. In These Times·The Nation·Tribune·Spectre도 1단계에 넣지 않는다.
 
 ## 2. 저작권·보관 경계
 
@@ -74,18 +75,21 @@
 
 ### 3.1 DB 표 (DB PR에서 만듦 — ★정지 지점★)
 
-모두 `workspace_id` 칸 + RLS 켬 + `private.app_is_workspace_owner(workspace_id)` 소유자 정책(기존 Web2 표와 같은 모양). `anon`·`PUBLIC` 권한 없음. 화면이 쓰는 칸은 켜기·끄기·읽음 표시뿐이고, 글 넣기는 Edge(service role)만 한다.
+모두 `workspace_id` 칸 + RLS 켬 + `private.app_is_workspace_owner(workspace_id)` 소유자 정책(기존 Web2 표와 같은 모양). `anon`·`PUBLIC` 권한 없음. 화면이 쓰는 칸은 켜기·끄기·읽음 표시뿐이고, 글 넣기는 Edge(service role)만 한다. **실제 migration: `supabase/migrations/20261031230000_outside_statements.sql`(S46-32)** — 아래는 그 PR에서 고친 모양이다.
 
 | 표 | 칸(요지) | 화면(authenticated) 권한 |
 | --- | --- | --- |
-| `app_outside_sources` | `workspace_id`, `source_key`(카탈로그 키, 검사 제약으로 형식만), `enabled`, `last_ok_at`, `last_error`(짧은 코드), `created_at` | select·insert·update(`enabled`만)·delete — 자기 작업공간만 |
-| `app_outside_posts` | `id`, `workspace_id`, `source_key`, `kind`(`statement|comment|press|article`), `lang`(`ko|en`), `title`, `title_ko`, `url`(유일: workspace+url), `published_at`, `fetched_at`, `summary_ko`, `key_sentences` jsonb(외국만, 3개까지), `has_body` | select만 |
-| `app_outside_sentences` | `post_id`, `workspace_id`, `idx`, `text`(500자 안쪽) | select만 (국내 글만 행이 생김) |
+| `app_outside_sources` | `workspace_id`, `source_key`(카탈로그 키, 검사 제약으로 형식만 `^[a-z0-9][a-z0-9-]{1,39}$`), `enabled`, `last_ok_at`, `last_error`(짧은 코드), `created_at`, `updated_at` | select·delete, insert(`workspace_id, source_key, enabled`)·update(`enabled, updated_at`) — 자기 작업공간만. `last_ok_at`·`last_error`는 service role만 |
+| `app_outside_posts` | `id`, `workspace_id`, `source_key`, `kind`(`statement|comment|press|article`), `lang`(`ko|en`), `title`, `title_ko`, `author`, `url`(유일: workspace+url, `http(s)://`만), `published_at`, `fetched_at`, `summary_ko`(2000자 안쪽), `key_sentences` jsonb(외국만, 3개까지, 각각 `{orig, ko}` 1~300자 — DB 검사), `has_body`(외국 글은 늘 false — DB 검사) | select만 |
+| `app_outside_sentences` | `post_id`, `workspace_id`, `lang`(늘 `ko`), `idx`(0~3000), `text`(500자 안쪽). `(post_id, workspace_id, lang)` → 글 표 외래 키 + `lang='ko'` 검사로 **외국 글·다른 작업공간 글에는 문장 행을 만들 수 없음** | select만 |
+| `app_outside_seen` | `workspace_id`(기본 키), `seen_at`, `updated_at` — [새로 온 것]을 마지막으로 본 시각 | select, insert(`workspace_id, seen_at`)·update(`seen_at, updated_at`). 지우기 없음 |
 
 - 사람마다 작업공간 하나이므로(AGENTS §5) 같은 단체를 두 사람이 켜면 글이 작업공간마다 따로 들어간다. 수집기는 **한 번 실행에 사이트마다 한 번만 읽고** 켠 작업공간마다 나눠 넣는다(사이트 부담 줄이기). 작업공간 사이 공유 표는 만들지 않는다.
-- 저녁 알림의 '새 n건' 기준 시각은 `app_profiles`에 칸 하나(`outside_seen_at`)를 더하는 것을 추천(새 표 늘리지 않기, phone-notifications의 `notify_prefs`와 같은 방식).
+- 저녁 알림의 '새 n건' 기준 시각: 처음엔 `app_profiles.outside_seen_at` 칸을 추천했으나, S46-32에서 **작은 새 표 `app_outside_seen`으로 바꿨다** — 기존 표(`app_profiles`)에 열·열 권한을 더하지 않기 위해서(승인형 DB workflow 확장 규칙의 `grant-existing` 회피, 작업 지시).
 - 크기 상한: 글 한 건 본문 6만 자 안쪽(넘으면 자름 + `has_body` 표시), 작업공간마다 2년 지난 글은 문장만 지우고 제목·요약은 남김(결정 Q7, 추천).
-- 검색 함수 `app_outside_search(p_query text, p_terms text[], p_sources text[], p_from date, p_to date, p_include_mine boolean, p_limit int, p_offset int)`: `SECURITY INVOKER`, `authenticated`만 실행, `search_path` 고정. 문장 표에서 ILIKE로 찾고(기존 `app_search_records`가 pg_trgm 색인을 쓰지 않은 이유와 같음), 일치한 문장과 앞뒤 한 문장·글 제목·단체·시각을 돌려준다. `p_include_mine`이면 자료실 '성명·보도자료'의 `extracted_text`에서도 찾는다(같은 RLS).
+- 검색 함수 `app_outside_search(p_query text, p_terms text[], p_sources text[], p_from date, p_to date, p_limit int, p_offset int)`(S46-32에서 `p_include_mine` 뺌): `SECURITY INVOKER`, `authenticated`만 실행, `search_path` 고정. 문장 표에서 ILIKE로 찾고(%·_·\\는 글자 그대로, 기존 `app_search_records`가 pg_trgm 색인을 쓰지 않은 이유와 같음), 원래 말 + 비슷한 말 6개까지, 일치한 문장과 앞뒤 한 문장·글 제목·단체·종류·시각·찾은 말(`matched`)·비슷한 말로 찾았는지(`is_similar`)를 돌려준다. 한 번에 1~100건, 건너뛰기 0~2000.
+- '내 성명 함께'는 이 함수에 넣지 않고 화면(⑤)이 **이미 있는 `app_search_records`(자료실 찾기, 같은 owner RLS)를 함께 불러** 종류 '성명·보도자료' 결과만 붙인다 — 같은 목적의 문서 찾기를 새로 만들지 않기(AGENTS §4) + 자료실 표 모양(종류·휴지통)에 이 migration이 묶이지 않게.
+- 2년 지난 글(Q7 결정): ③ Edge 수집기가 실행할 때 `published_at`(없으면 `fetched_at`) 2년 지난 글의 문장 행을 지우고 `has_body=false`로 둔다(제목·요약은 남김). DB 쪽 새 함수·예약은 없다.
 
 ### 3.2 Edge 함수 `outside-feed` (Edge PR — ★배포 정지 지점★)
 
@@ -141,8 +145,8 @@
 
 | 순서 | PR | 내용 | 정지 |
 | --- | --- | --- | --- |
-| ① | 이 PR | 설계 문서 | — |
-| ② | DB | 3개 표 + `app_profiles.outside_seen_at` + `app_outside_search` + 짝 파일 5개(적용·되돌리기·확인·snapshot·사후 확인) + 권한 시험 | ★DB 적용 정지★ (승인형 workflow) |
+| ① | #1633 (merge됨) | 설계 문서 | — |
+| ② | S46-32 DB | 4개 표(`app_outside_seen` 포함) + `app_outside_search` + 짝 파일 5개(적용·되돌리기·확인·snapshot·사후 확인) + 실제 PostgreSQL 권한 시험 + 이 문서 결정 반영 | ★DB 적용 정지★ (승인형 workflow) |
 | ③ | Edge | `outside-feed` + 카탈로그(확정된 단체만) + 단체별 읽기 시험 + `outside-feed.yml` 예약 + `docs/web2-env6b-edge-source.md` 5절 표 추가(`verify_jwt=false`) | ★Edge 첫 배포 정지★ + 명진 비밀값 등록 |
 | ④ | 화면 1 | 메뉴·[새로 온 것]·단체 켜고 끄기 + 업데이트 기록 | — |
 | ⑤ | 화면 2 | [문장 찾기](낱말 + 비슷한 말) + 내 성명 함께 | ③의 `expand` 필요 |
@@ -150,19 +154,19 @@
 | ⑦ | 초안 연결 | 성명 초안 '바깥 문장' | `press-draft.js`를 만지는 다른 PR과 앞뒤로 |
 | ⑧ | 외국 매체 더하기 | Q5에서 고른 매체 카탈로그 추가 | Edge 재배포 정지 |
 
-## 8. 명진 결정 (일상어)
+## 8. 명진 결정 (일상어) — 모두 결정됨(명진 2026-10-31 22:35)
 
-| 번호 | 질문 | 추천 |
+| 번호 | 질문 | 결정 |
 | --- | --- | --- |
-| Q1 | 정의당 홈페이지는 "자동으로 읽어 가지 말라"고 막아 두었어요. 어떻게 할까요? | 자동으로 가져오지 않기(막아 둔 걸 존중). 필요하면 정의당 텔레그램·메일 구독 등 다른 길을 나중에 따로 |
-| Q2 | 공공운수노조 성명 게시판 주소를 못 찾았어요. 주소 한 줄 알려 주세요 | — |
-| Q3 | '전국결집'의 정식 이름과 홈페이지를 못 찾았어요. 알려 주세요 | — |
-| Q4 | 사회주의자(socialist.kr)는 보안 연결(https) 없이만 열려요. 그래도 읽을까요? | 읽기(읽기만 하고 로그인·비밀 정보가 없어 위험 낮음) |
-| Q5 | 외국 매체는 Jacobin 말고 어디를 더 넣을까요? (1.3 표) | Labor Notes·Red Pepper·Socialist Worker |
-| Q6 | 외국 글을 펼칠 때 그 자리에서 전문을 번역해 보여 줄까요? | 처음엔 안 함 — Jacobin은 번역을 허락받으라고 적어 둠. 요약 + 핵심 문장만 |
-| Q7 | 2년 지난 글은 본문 문장을 지우고 제목·요약만 남길까요? | 남기기(저장 공간·찾기 속도) — 아니면 전부 보관도 가능 |
-| Q8 | '뜻이 비슷한 문장'을 더 정확하게(의미 벡터) 만들까요? | 1단계는 비슷한 말 넓히기로 하고, 써 보고 부족하면 그때 |
-| Q9 | 이 메뉴를 나중에 다른 노조 사람도 자기 것으로 쓰게 할까요? | 쓰게 하기(각자 자기 단체 목록) |
+| Q1 | 정의당 홈페이지는 "자동으로 읽어 가지 말라"고 막아 두었어요. 어떻게 할까요? | 결정됨: 자동으로 가져오지 않기(막아 둔 걸 존중). 다른 길은 나중에 따로 |
+| Q2 | 공공운수노조 성명 게시판 주소 | 결정됨: `https://www.kptu.net/board/list.aspx?mid=F686C1F3`. 다만 이 주소도 robots.txt 이유로 조사 도구가 거절 → 수집기가 robots를 직접 확인해 막혀 있으면 건너뜀(1.1 표) |
+| Q3 | '전국결집'의 정식 이름과 홈페이지 | 결정됨: `https://leftall.com/` (공지사항의 [입장] 글을 성명으로) |
+| Q4 | 사회주의자(socialist.kr)는 https 없이만 열려요. 그래도 읽을까요? | 결정됨: 읽기(이 단체만 http 허용) |
+| Q5 | 외국 매체는 Jacobin 말고 어디를 더 넣을까요? | 결정됨: Jacobin + Labor Notes·Red Pepper·Socialist Worker, NLR 뺌 |
+| Q6 | 외국 글을 펼칠 때 그 자리에서 전문을 번역해 보여 줄까요? | 결정됨: 안 함 — 요약 + 핵심 문장만(DB도 외국 글 본문·문장 행을 거절) |
+| Q7 | 2년 지난 글은 본문 문장을 지우고 제목·요약만 남길까요? | 결정됨: 남기기(문장만 지움, ③ 수집기가 처리) |
+| Q8 | '뜻이 비슷한 문장'을 더 정확하게(의미 벡터) 만들까요? | 결정됨: 1단계는 비슷한 말 넓히기, 부족하면 그때 |
+| Q9 | 이 메뉴를 나중에 다른 노조 사람도 자기 것으로 쓰게 할까요? | 결정됨: 쓰게 하기(각자 자기 작업공간·자기 단체 목록, 운영자 전용 기능 아님) |
 
 ## 9. 완료 기준 (요청함 그대로)
 
@@ -172,4 +176,4 @@
 
 ## 10. 확인에 쓴 주소
 
-nodong.org/statement · laborparty.kr/?page_id=13642 · kgreens.org · jinboparty.com/pages/?b=b_1_2 · justice21.org(robots로 거절) · pssp.org/bbs/view.php?board=statement · ws.or.kr/article/37334 · platformc.kr · socialism.jinbo.net · socialist.kr(http 전용, 못 엶) · jacobin.com · jacobin.com/rss · jacobin.com/contact · labornotes.org/rss-feed · inthesetimes.com/rss · thenation.com/all-rss · tribunemag.co.uk/about · redpepper.org.uk FAQ · socialistworker.co.uk · spectrejournal.com/feed · newleftreview.org/pages/about
+nodong.org/statement · laborparty.kr/?page_id=13642 · kgreens.org · jinboparty.com/pages/?b=b_1_2 · justice21.org(robots로 거절) · kptu.net/board/list.aspx?mid=F686C1F3(robots로 거절, 글 주소·제목은 검색 결과로) · leftall.com · pssp.org/bbs/view.php?board=statement · ws.or.kr/article/37334 · platformc.kr · socialism.jinbo.net · socialist.kr(http 전용, 못 엶) · jacobin.com · jacobin.com/rss · jacobin.com/contact · labornotes.org/rss-feed · inthesetimes.com/rss · thenation.com/all-rss · tribunemag.co.uk/about · redpepper.org.uk FAQ · socialistworker.co.uk · spectrejournal.com/feed · newleftreview.org/pages/about
