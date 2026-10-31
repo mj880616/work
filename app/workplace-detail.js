@@ -12,7 +12,7 @@ let wdFollowed=null; // UI-칸안스크롤하나로: 상세 칸이 마지막으�
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn} from './basket-note-tasks.js';
 import {categoryTag,categoryOf,topDocumentCategories,loadDocumentCategories} from './document-categories.js';
-import {renderCategoryChips,toggleCategoryOff,detailDefaultOff,hiddenCategories} from './category-chips.js';
+import {renderCategoryChips,clearCategorySubRow,toggleCategoryOff,detailDefaultOff,hiddenCategories} from './category-chips.js';
 import {lastSeen} from './split-last.js';
 import {bigWindowOpen} from './big-window-open.js';
 import {hasDoc,sameRecord,recordPatch} from './record-doc.mjs';
@@ -150,8 +150,8 @@ function wdRenderDocs(){
   if(count){count.textContent=wdDocsError?'':wdDocs.length;count.hidden=wdDocsError}
   const add=document.querySelector('#wdDocAdd');if(add)add.hidden=!can;
   const kinds=document.querySelector('#wdDocKinds');
-  // 숨길 때도 부른다: 같은 렌더러가 소분류 줄도 함께 숨긴다.
-  if(kinds){kinds.hidden=wdDocsError||!wdDocs.length;renderCategoryChips(kinds,{names:topDocumentCategories(),off:wdDocOff,sub:wdDocSub,label:'자료 종류 (여러 개 고르기)',controls:'wdDocBody',key:'docKind',onToggle:wdToggleDocKind,onSub:wdPickDocSub})}
+  // 칩 줄을 숨길 때는 그 아래 소분류 줄도 함께 걷는다(같은 부품).
+  if(kinds){kinds.hidden=wdDocsError||!wdDocs.length;if(kinds.hidden)clearCategorySubRow(kinds);else renderCategoryChips(kinds,{names:topDocumentCategories(),off:wdDocOff,sub:wdDocSub,label:'자료 종류 (여러 개 고르기)',controls:'wdDocBody',key:'docKind',onToggle:wdToggleDocKind,onSub:wdPickDocSub})}
   if(wdDocsError){box.innerHTML='<div class="status error" role="status">자료를 불러오지 못했습니다. <button type="button" data-wd-doc-retry>다시 불러오기</button></div>';return}
   box.innerHTML=(wdDocs.length?(rows.length?`<div class="wd-doc-lines">${rows.map(x=>wdDocRow(x,can)).join('')}</div>`:emptyHtml('고른 종류 없음',{attrs:'data-wd-doc-nokind'}))+`<button type="button" class="wd-doc-all" data-wd-library>전체 ${wdDocs.length}개 보기 <span aria-hidden="true">›</span></button>`:'')+`<div class="status${wdDocNote.text?(wdDocNote.error?' error':' ok'):''}" data-wd-doc-state role="status">${wdE(wdDocNote.text)}</div>`;
 }

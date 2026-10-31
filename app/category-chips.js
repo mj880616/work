@@ -73,6 +73,9 @@ export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,
   watchScrollEdges(host);
 }
 
+// 칩 줄을 그리지 않고 숨길 때(자료 없음 등) 그 아래 소분류 줄을 걷는다.
+export function clearCategorySubRow(host){if(host?._ccSubRow){host._ccSubRow.remove();host._ccSubRow=null;}}
+
 function renderSubRow(host,{names,off,sub,onSub,onAddSub,subAfter,controls,key}){
   const parent=onSub?soleParent(names,off):'',subs=parent?subcategoriesOf(parent):[];
   let row=host._ccSubRow;
