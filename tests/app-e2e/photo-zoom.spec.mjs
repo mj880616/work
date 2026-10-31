@@ -132,6 +132,8 @@ test.describe('폰 412 터치', () => {
     expect(await page.evaluate(() => window.__blocked)).toBe(0);
     await expect(count(page)).toHaveText(`7 / ${N}`);
     await expect(photo(page, 6)).toHaveAttribute('data-img-state', 'shown');
+    // 붙는 움직임이 끝날 때까지(7번째 장 자리).
+    await expect.poll(() => page.locator('[data-diary-viewer-strip]').evaluate(el => el.scrollLeft - 6 * el.clientWidth)).toBe(0);
 
     // 확대한 채로는 좌우 넘기기가 쉬고, 다음 사진으로 넘기면(→) 원래 크기로 돌아온다.
     await doubleTap(x, y);
