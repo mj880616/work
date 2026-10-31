@@ -8,7 +8,7 @@
 // NOTE-보드여러개: 같은 그리는 곳이 [전체]와 이름 붙은 보드를 다 그린다. paint의 placeOf가 어느 자리 값을 읽을지(기본 [전체] metadata.board),
 // removable이면 칸에 작은 ×(보드에서 빼기, data-nb-remove — 누르기는 basket-notes.js), empty는 빈 판의 한 줄.
 // PC 왼쪽 노트 목록에서 끌어 온 노트(드래그 자료 형식 NOTE_DRAG)를 판에 놓으면 onDrop(id, 보드 좌표)로 알린다.
-import { attachPinch } from './photo-grid-size.js';
+import { attachPinch, multiTouchActive, onMultiTouch } from './photo-grid-size.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
 import { layoutBoard, boardExtent, topZ, movedTo, stepZoom, folderTone, CARD } from './note-board-model.mjs';
 
@@ -95,7 +95,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     drag.edge = requestAnimationFrame(edgeLoop);
   }
   box.addEventListener('pointerdown', e => {
-    if (!e.isPrimary) { cancelDrag(); return; } // 두 번째 손가락이면 끌기 대신 핀치
+    if (!e.isPrimary || multiTouchActive()) { cancelDrag(); heldUp = null; return; } // 두 번째 손가락이면 끌기·꾹 누르기 대신 핀치(손을 모두 뗄 때까지)
     const card = e.target.closest?.('[data-nb-card]');
     if (!card || !box.contains(card) || e.target.closest('.nb-more,.nb-x') || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const id = card.dataset.nbCard, place = places.get(id); if (!place) return;
@@ -166,6 +166,8 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     const id = e.dataTransfer.getData(NOTE_DRAG); if (id) onDrop(id, pointOf(e), new Map(places));
   });
   attachPinch(scroll, null, dir => setZoom(stepZoom(zoom, dir)));
+  // 두 번째 손가락이 판 밖에서 닿아도(공용 지킴이) 끌기·꾹 누르기 메뉴를 끈다. 핀치 손 떼기의 누르기는 attachPinch가 먹는다.
+  onMultiTouch(() => { cancelDrag(); heldUp = null; });
   return {
     paint,
     isDragging: () => !!drag?.moving,

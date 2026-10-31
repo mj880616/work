@@ -34,7 +34,7 @@ import {phonePhotos} from './phone-photos.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT} from './photo-sources-model.mjs';
 import {ownerScope} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
-import {SIZE_BUTTONS, WIDE_QUERY, createGridSizer} from './photo-grid-size.js';
+import {SIZE_BUTTONS, WIDE_QUERY, createGridSizer, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
@@ -754,10 +754,12 @@ async function purgeAsk(anchor, ids) {
 
 // 길게 누르기(0.5초, 손가락이 10px 넘게 움직이면 취소)로 선택 모드를 켠다. 켠 뒤 바로 오는 누르기는 먹는다.
 // 선택 모드에서 칸을 누른 채 좌우로 끌면 처음 칸부터 지금 칸까지 함께 고른다(위아래로 가면 화면 끝에서 저절로 넘어감).
-let hold = null, ateClick = false, drag = null;
+// 두 번째 손가락이 닿으면(핀치) 꾹 누르기·끌어 고르기를 바로 취소하고, 손가락을 모두 뗄 때까지 다시 걸지 않는다(공용 지킴이 photo-grid-size.js).
+let hold = null, ateClick = false, drag = null, rowHold = null; // rowHold: 폴더 줄·앨범 카드 꾹 누르기(아래)
 const itemOf = b => shownList()[Number(b?.dataset.photosOpen)];
 body.addEventListener('pointerdown', e => {
   ateClick = false;
+  if (multiTouchActive()) return cancelGestures();
   const b = e.target.closest('[data-photos-open]'); if (!b || e.button > 0) return;
   const item = itemOf(b); if (!item) return;
   // [폴더] PC: 고른 사진을 잡으면 끌어 놓기(옮기기)이고 여러 칸 고르기 끌기가 아니다(dragstart가 맡음).
@@ -766,6 +768,13 @@ body.addEventListener('pointerdown', e => {
   hold = {b, x:e.clientX, y:e.clientY, timer:setTimeout(() => { hold = null; ateClick = true; navigator.vibrate?.(15); startSelect(item); }, HOLD_MS)};
 });
 const cancelHold = () => { if (hold) { clearTimeout(hold.timer); hold = null; } };
+// 핀치: 꾹 누르기·폴더 줄 꾹 누르기를 끄고, 이미 끌어 고르던 중이면 끌기 전 선택으로 되돌린다.
+function cancelGestures() {
+  cancelHold();
+  if (rowHold) { clearTimeout(rowHold.timer); rowHold = null; }
+  if (drag) { const was = drag; drag = null; stopAuto(); if (was.on) { select.items = new Set(was.base); paintSelect(); } }
+}
+onMultiTouch(cancelGestures);
 let scrollTimer = null, lastY = 0;
 const stopAuto = () => { clearInterval(scrollTimer); scrollTimer = null; };
 function dragTo(x, y) {
@@ -777,6 +786,7 @@ function dragTo(x, y) {
   select.items = next; paintSelect();
 }
 body.addEventListener('pointermove', e => {
+  if (drag && e.pointerId !== drag.id) return; // 끌어 고르기는 처음 손가락만 따라간다
   if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > HOLD_MOVE) cancelHold();
   if (!drag) return;
   if (!drag.on) {
@@ -1364,9 +1374,8 @@ body.addEventListener('drop', e => {
   if (ids.length) movePhotos(ids, row.dataset.photosFolder);
 });
 // 폰: 폴더 줄·앨범 카드를 꾹 누르면 그 ⋯ 메뉴(PC 우클릭과 같은 메뉴).
-let rowHold = null;
 body.addEventListener('pointerdown', e => {
-  if (e.pointerType !== 'touch' || !e.isPrimary) return;
+  if (e.pointerType !== 'touch' || !e.isPrimary || multiTouchActive()) return;
   const row = e.target.closest?.('[data-photos-folder],[data-photos-album]'); if (!row || e.target.closest('.nx-more,.photos-album-more')) return;
   clearTimeout(rowHold?.timer);
   rowHold = {x:e.clientX, y:e.clientY, timer:setTimeout(() => {

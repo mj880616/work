@@ -89,3 +89,50 @@ test('공유 파일 이름과 되돌리기 자리', () => {
   assert.deepEqual(putBack(undefined, {id: 'b'}, 0).map(p => p.id), ['b']);
   assert.deepEqual(putBack([{id: 'b'}], {id: 'b'}, 0).map(p => p.id), ['b'], '이미 있으면 그대로');
 });
+
+// PHOTO-핀치꾹누르기: 두 손가락 지킴이(공용). 두 번째 손가락 = 바로 취소 알림, 모두 뗄 때까지 '두 손가락 중', 뗀 직후 누르기는 먹을 대상.
+test('두 손가락 지킴이: 두 번째 손가락에 취소 알림, 모두 뗄 때까지 유지, 한 손가락은 그대로', async () => {
+  const g = await import('../app/photo-grid-size.js');
+  const target = new EventTarget();
+  g.installMultiTouchGuard(target); g.resetMultiTouch();
+  const ptr = (type, id, primary, pointerType = 'touch') => target.dispatchEvent(Object.assign(new Event(type), {pointerId: id, isPrimary: primary, pointerType}));
+  const touch = (type, n) => target.dispatchEvent(Object.assign(new Event(type), {touches: Array.from({length: n}, () => ({}))}));
+  let calls = 0; const off = g.onMultiTouch(() => { calls++; });
+  // 한 손가락: 꾹 누르기 그대로.
+  ptr('pointerdown', 1, true); touch('touchstart', 1);
+  assert.equal(g.multiTouchActive(), false); assert.equal(calls, 0);
+  ptr('pointerup', 1, true); touch('touchend', 0);
+  assert.equal(g.afterMultiTouch(), false, '한 손가락 누르기는 먹지 않음');
+  // 두 손가락(핀치): 두 번째 pointerdown에서 바로 알림 한 번.
+  ptr('pointerdown', 1, true); ptr('pointerdown', 2, false);
+  assert.equal(g.multiTouchActive(), true); assert.equal(calls, 1);
+  touch('touchstart', 2); touch('touchmove', 2);
+  assert.equal(calls, 1, '같은 손동작에서 다시 부르지 않음');
+  ptr('pointerup', 2, false); touch('touchend', 1);
+  assert.equal(g.multiTouchActive(), true, '한 손가락이 남아 있으면 계속 두 손가락 중');
+  ptr('pointerdown', 3, false);
+  assert.equal(calls, 1);
+  ptr('pointerup', 3, false); ptr('pointerup', 1, true); touch('touchend', 0);
+  assert.equal(g.multiTouchActive(), false);
+  assert.equal(g.afterMultiTouch(), true, '모두 뗀 직후의 누르기는 먹는다');
+  // touches만 오는 브라우저(손가락 두 개)도 같은 판정.
+  g.resetMultiTouch(); touch('touchstart', 2);
+  assert.equal(g.multiTouchActive(), true); assert.equal(calls, 2);
+  touch('touchend', 0); assert.equal(g.multiTouchActive(), false);
+  // 마우스는 세지 않음. 놓친 손 떼기는 다음 첫 손가락에서 비운다.
+  g.resetMultiTouch(); ptr('pointerdown', 9, true, 'mouse'); ptr('pointerdown', 8, false, 'mouse');
+  assert.equal(g.multiTouchActive(), false);
+  ptr('pointerdown', 5, true); ptr('pointerdown', 6, true);
+  assert.equal(g.multiTouchActive(), false, '첫 손가락(isPrimary)마다 지난 기록을 비움');
+  off(); g.resetMultiTouch();
+});
+
+test('두 손가락 지킴이: 핀치를 쓰는 화면이 모두 같은 공용 부품으로 꾹 누르기를 끈다', () => {
+  const photos = read('app/photos.js'), board = read('app/note-board.js'), grid = read('app/photo-grid-size.js');
+  assert.match(photos, /onMultiTouch\(cancelGestures\)/);
+  assert.match(photos, /if \(multiTouchActive\(\)\) return cancelGestures\(\);/);
+  assert.match(photos, /!e\.isPrimary \|\| multiTouchActive\(\)\) return;/, '폴더 줄·앨범 꾹 누르기');
+  assert.match(board, /onMultiTouch\(\(\) => \{ cancelDrag\(\); heldUp = null; \}\)/);
+  assert.match(board, /!e\.isPrimary \|\| multiTouchActive\(\)/);
+  assert.match(grid, /grid\.addEventListener\('click', eatClick, true\)/, '핀치 영역 안 손 떼기 누르기 먹기');
+});

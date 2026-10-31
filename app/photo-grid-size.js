@@ -64,9 +64,65 @@ export function changeCols(dir, {prefs = viewPrefs, wide = isWide()} = {}) {
 // [－][＋] 두 버튼(작고 낮게). 격자 줄 오른쪽 끝에 붙인다.
 export const SIZE_BUTTONS = '<span class="photo-size" role="group" aria-label="사진 크기"><button type="button" data-photo-size="-1" aria-label="사진 작게(한 줄 칸 늘리기)">－</button><button type="button" data-photo-size="1" aria-label="사진 크게(한 줄 칸 줄이기)">＋</button></span>';
 
+// PHOTO-핀치꾹누르기 (명진 2026-10-30 23:59 "핀치로 크게 작게 바꾸면 선택화면 활성화됨"): 두 손가락 지킴이. 핀치를 쓰는 모든 화면 공용.
+// - 두 번째 손가락이 닿는 순간(다른 터치 pointerdown 또는 touches 2개 이상)부터 손가락을 모두 뗄 때까지 '두 손가락 중'이다.
+// - 그 순간 onMultiTouch로 등록한 함수(꾹 누르기 타이머·끌어 고르기 취소)를 부르고, 그동안 쓰는 곳은 꾹 누르기를 새로 걸지 않는다(multiTouchActive).
+// - 모두 뗀 직후 오는 누르기(click)는 핀치 손 떼기라 attachPinch를 붙인 영역 안에서 먹는다(afterMultiTouch). 화면마다 따로 막지 않는다.
+// - window 잡기 단계(capture)에서 먼저 세므로, 화면의 pointerdown 처리보다 항상 앞선다. 메모리 상태만(기기 저장 없음).
+export const PINCH_CLICK_GUARD_MS = 400;
+const touchIds = new Set(), multiHooks = new Set();
+let multi = false, multiEndedAt = -Infinity, guardOn = false;
+const now = () => (globalThis.performance?.now?.() ?? Date.now());
+function enterMulti() {
+  if (multi) return;
+  multi = true;
+  for (const fn of [...multiHooks]) { try { fn(); } catch { /* 한 화면의 취소 실패가 다른 화면을 막지 않게 */ } }
+}
+function leaveMulti() { touchIds.clear(); if (multi) { multi = false; multiEndedAt = now(); } }
+function guardDown(e) {
+  if (e.pointerType !== 'touch') return;
+  if (e.isPrimary) touchIds.clear(); // 첫 손가락 = 다른 터치가 없다(놓친 손 떼기가 남지 않게)
+  touchIds.add(e.pointerId);
+  if (touchIds.size >= 2 || !e.isPrimary) enterMulti();
+}
+function guardUp(e) {
+  if (e.pointerType !== 'touch') return;
+  touchIds.delete(e.pointerId);
+  if (!touchIds.size) leaveMulti();
+}
+function guardTouch(e) {
+  const n = e.touches?.length || 0;
+  if (n >= 2) enterMulti();
+  else if (!n && e.type !== 'touchstart') leaveMulti();
+}
+export function installMultiTouchGuard(target = globalThis) {
+  if (guardOn || !target?.addEventListener) return;
+  guardOn = true;
+  const opt = {capture:true, passive:true};
+  target.addEventListener('pointerdown', guardDown, opt);
+  target.addEventListener('pointerup', guardUp, opt);
+  target.addEventListener('pointercancel', guardUp, opt);
+  for (const t of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) target.addEventListener(t, guardTouch, opt);
+}
+// 지금 두 손가락 중인가(두 번째 손가락이 닿은 뒤 모두 뗄 때까지).
+export const multiTouchActive = () => multi;
+// 두 손가락 중이거나 막 모두 뗐는가(그 손 떼기에서 오는 누르기를 먹을 때).
+export const afterMultiTouch = () => multi || now() - multiEndedAt < PINCH_CLICK_GUARD_MS;
+// 두 번째 손가락이 닿는 순간 부를 함수. 떼어 낼 함수를 돌려준다.
+export function onMultiTouch(fn) {
+  installMultiTouchGuard();
+  if (typeof fn !== 'function') return () => {};
+  multiHooks.add(fn);
+  return () => multiHooks.delete(fn);
+}
+
 // 격자 위 두 손가락 벌리기·오므리기. onChange(dir)는 단계가 바뀐 뒤 부른다. 떼어 낼 함수를 돌려준다.
+// 붙인 영역 안에서는 두 손가락 중·직후의 누르기(click)를 먹는다(사진 열기·노트 열기로 잡히지 않게).
 export function attachPinch(grid, onChange, change = changeCols) {
   if (!grid?.addEventListener) return () => {};
+  installMultiTouchGuard();
+  const eatClick = event => { if (afterMultiTouch()) { event.preventDefault(); event.stopPropagation(); } };
+  grid.addEventListener('click', eatClick, true);
   let base = 0, active = false;
   const dist = touches => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
   const start = event => {
@@ -87,6 +143,7 @@ export function attachPinch(grid, onChange, change = changeCols) {
   grid.addEventListener('touchend', end, {passive: true});
   grid.addEventListener('touchcancel', end, {passive: true});
   return () => {
+    grid.removeEventListener('click', eatClick, true);
     grid.removeEventListener('touchstart', start); grid.removeEventListener('touchmove', move);
     grid.removeEventListener('touchend', end); grid.removeEventListener('touchcancel', end);
   };
@@ -116,3 +173,5 @@ export function createGridSizer({current, step, save}) {
 }
 // 테스트용: 이번 접속의 선택을 비운다.
 export function resetChosen() { chosen.narrow = null; chosen.wide = null; }
+// 테스트용: 두 손가락 지킴이 상태를 처음으로.
+export function resetMultiTouch() { touchIds.clear(); multi = false; multiEndedAt = -Infinity; }

@@ -207,6 +207,55 @@ test('사진 메뉴: 길게 눌러 여러 장 고르기 → [☆ 별표]·[🗑 
   expect(f.errors).toEqual([]);
 });
 
+// PHOTO-핀치꾹누르기: 두 번째 손가락이 닿으면 꾹 누르기(선택 모드)·끌어 고르기를 바로 취소, 손 뗀 직후 누르기는 사진 열기가 아니다. 한 손가락 꾹 누르기는 그대로.
+test('사진 메뉴: 핀치로 칸 수를 바꿔도 선택 모드·크게 보기가 켜지지 않고, 한 손가락 꾹 누르기는 선택 모드 390', async ({ page }) => {
+  const f = await fixture(page, { width: 390 });
+  await openPhotos(page, 390);
+  await expect(items(page)).toHaveCount(7);
+  const grid = root(page).locator('[data-diary-grid]').first();
+  const cols = () => grid.evaluate(el => el.style.getPropertyValue('--photo-cols'));
+  const before = await cols();
+  // 첫 손가락(꾹 누르기 타이머가 걸림) → 0.1초 뒤 두 번째 손가락 → 0.5초 넘게 대고 있기 → 벌리기 → 모두 떼고 그 자리 누르기.
+  const fingers = (phase, d = 0) => grid.evaluate((el, [phase, d]) => {
+    const cells = el.querySelectorAll('[data-photos-open]'), a = cells[0], b = cells[1];
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    const pa = { x: ra.left + ra.width / 2 - d, y: ra.top + ra.height / 2 }, pb = { x: rb.left + rb.width / 2 + d, y: rb.top + rb.height / 2 };
+    const P = (t, n, id, primary, p) => n.dispatchEvent(new PointerEvent(t, { pointerId: id, isPrimary: primary, pointerType: 'touch', clientX: p.x, clientY: p.y, bubbles: true, cancelable: true }));
+    const T = (id, n, p) => new Touch({ identifier: id, target: n, clientX: p.x, clientY: p.y });
+    const TE = (t, list) => a.dispatchEvent(new TouchEvent(t, { touches: list, changedTouches: list.length ? list : [T(1, a, pa)], bubbles: true, cancelable: true }));
+    if (phase === 'one') { P('pointerdown', a, 1, true, pa); TE('touchstart', [T(1, a, pa)]); }
+    if (phase === 'two') { P('pointerdown', b, 2, false, pb); TE('touchstart', [T(1, a, pa), T(2, b, pb)]); }
+    if (phase === 'move') { TE('touchmove', [T(1, a, pa), T(2, b, pb)]); P('pointermove', b, 2, false, pb); }
+    if (phase === 'up') { P('pointerup', b, 2, false, pb); TE('touchend', [T(1, a, pa)]); P('pointerup', a, 1, true, pa); TE('touchend', []); a.click(); }
+  }, [phase, d]);
+  await fingers('one');
+  await page.waitForTimeout(100);
+  await fingers('two');
+  await page.waitForTimeout(700); // 두 손가락을 대고 움직이기 전(꾹 누르기 시간 0.5초가 지남)
+  await expect(root(page).locator('[data-photos-sel]')).toBeHidden();
+  await fingers('move', 60);
+  await fingers('up', 60);
+  await expect.poll(cols).not.toBe(before); // 핀치는 그대로 칸 수를 바꾼다
+  await expect(root(page).locator('[data-photos-sel]')).toBeHidden();
+  await expect(root(page).locator('[data-diary-viewer]')).toHaveCount(0);
+  // 잠시 뒤 한 손가락 꾹 누르기 = 선택 모드(지금처럼).
+  await page.waitForTimeout(500);
+  await items(page).nth(0).evaluate(el => {
+    const r = el.getBoundingClientRect();
+    el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 7, isPrimary: true, pointerType: 'touch', clientX: r.left + 5, clientY: r.top + 5, bubbles: true, cancelable: true }));
+  });
+  await page.waitForTimeout(700);
+  await items(page).nth(0).evaluate(el => {
+    const r = el.getBoundingClientRect();
+    el.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, isPrimary: true, pointerType: 'touch', clientX: r.left + 5, clientY: r.top + 5, bubbles: true, cancelable: true }));
+    el.click();
+  });
+  await expect(root(page).locator('[data-photos-sel]')).toBeVisible();
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+  await expect(root(page).locator('[data-diary-viewer]')).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
+
 test('사진 메뉴: 원드라이브 설정 창(하위 폴더)을 일기로 넘어가지 않고 이 화면 안에서 연다 390', async ({ page }) => {
   const f = await fixture(page, { width: 390 });
   await openPhotos(page, 390);
