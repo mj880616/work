@@ -68,7 +68,10 @@ import {
 import {
   hasOwnTitle, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
 } from "./note-title.ts";
-import { noteAiOff, noteAiOffMark, noteRowAiBlocked } from "./note-secret.ts";
+import { noteAiOff, noteAiOffMark, noteRowAiBlocked, looksSecret as fileTextSecret } from "./note-secret.ts";
+import {
+  FILE_NAME_INSTRUCTIONS, FILE_NAME_MAX_OUTPUT_TOKENS, FILE_NAME_SCHEMA, fileNameMaterial, noteOcrText, parseFileNameAnswer, parseFileNameRequest, type FileNameRequest,
+} from "./file-name.ts";
 import {
   JOURNAL_DRAFT_BODY_BYTES, JOURNAL_DRAFT_HOUR, JOURNAL_DRAFT_INSTRUCTIONS, JOURNAL_DRAFT_MAX_OUTPUT_TOKENS, JOURNAL_DRAFT_SCHEMA,
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
@@ -179,7 +182,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -505,6 +508,7 @@ type WeeklyLineInput = { kind: "weekly_line" } & WeeklyLineRequest;
 type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
+type FileNameInput = { kind: "file_name" } & FileNameRequest;
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
 type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "auto" | "user"; items: NextWeekItem[] };
 type PreMeetingSheetInput = { kind: "pre_meeting_sheet"; mode: "auto" | "user"; event: PreMeetingEvent; organization_id: string };
@@ -558,7 +562,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -603,6 +607,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     return { kind: "note_title", ...parsed };
   }
   // 업무일지 저녁 초안(journal_draft): 날짜와 그날 재료 줄(60줄까지)만 받는다. 이미 있는 초안·업무일지 줄은 서버가 로그인 토큰으로 읽는다.
+  // 첨부 파일 [AI 이름](file_name, ATT-이름고치기): 줄 종류·줄 ID·Drive 파일 ID만 받는다. 읽어 둔 글자는 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "file_name") {
+    const parsed = parseFileNameRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "file_name", ...parsed };
+  }
   if (b.kind === "journal_draft") {
     const parsed = parseJournalDraftRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
@@ -4142,6 +4152,81 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
   return json({ ok: true, kind: "note_title", id: input.id, title });
 }
 
+// ---- 쓰임 file_name: 첨부 파일 [AI 이름] 추천(ATT-이름고치기, file-name.ts) -------------------------------------------------------
+// 저장하지 않는다(추천만 돌려줌). 읽어 둔 글자가 없거나 AI 제외 기록이면 AI를 부르지 않고 skipped(사용량에 잡지 않음).
+async function runFileName(ctx: Ctx, input: FileNameInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId), file = encodeURIComponent(input.drive_file_id);
+  const skip = (reason: string) => { deps.log("file_name_skipped", { reason }); return json({ ok: true, kind: "file_name", skipped: reason }); };
+  let fileName = "", text = "";
+  if (input.target === "note") {
+    const note = await readOne(ctx, `app_notes?id=eq.${input.id}&workspace_id=eq.${ws}&select=id,workspace_id,kind,attachments,archived_at,ai_export_allowed,metadata,raw_text&limit=2`);
+    if (!note || String(note.id).toLowerCase() !== input.id) throw new Fail(404, "not_found");
+    const att = (Array.isArray(note.attachments) ? note.attachments : []).find((a: unknown) => !!a && typeof a === "object" && (a as Record<string, unknown>).drive_file_id === input.drive_file_id) as Record<string, unknown> | undefined;
+    if (!att || typeof att.file_name !== "string") throw new Fail(404, "not_found");
+    if (note.kind === "diary" || note.archived_at != null || note.ai_export_allowed !== true || noteAiOffMark(note) === true) return skip("not_allowed");
+    fileName = att.file_name; text = noteOcrText(att);
+  } else if (input.target === "task") {
+    const row = await readOne(ctx, `app_task_attachments?google_task_id=eq.${encodeURIComponent(input.id)}&drive_file_id=eq.${file}&workspace_id=eq.${ws}&select=drive_file_id,file_name&limit=2`);
+    if (!row || row.drive_file_id !== input.drive_file_id || typeof row.file_name !== "string") throw new Fail(404, "not_found");
+    fileName = row.file_name;
+  } else {
+    const row = await readOne(ctx, `app_documents?id=eq.${input.id}&workspace_id=eq.${ws}&select=id,file_id,file_name,extracted_text&limit=2`);
+    if (!row || String(row.id).toLowerCase() !== input.id || row.file_id !== input.drive_file_id) throw new Fail(404, "not_found");
+    fileName = typeof row.file_name === "string" ? row.file_name : ""; text = typeof row.extracted_text === "string" ? row.extracted_text : "";
+  }
+  // 노트·할 일 첨부도 자료실에 같은 Drive 원본으로 보낸 적이 있으면 그 본문 글자를 쓴다.
+  if (!text.trim()) {
+    try {
+      const doc = await readOne(ctx, `app_documents?workspace_id=eq.${ws}&file_id=eq.${file}&extracted_text=not.is.null&select=extracted_text&limit=1`);
+      if (doc && typeof doc.extracted_text === "string") text = doc.extracted_text;
+    } catch { /* 글자 없음으로 본다 */ }
+  }
+  if ([...text.trim()].length < 8) return skip("no_text");
+  if (fileTextSecret(text)) return skip("secret");
+  const material = fileNameMaterial(fileName, text);
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "file_name", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: FILE_NAME_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: FILE_NAME_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "file_name", strict: true, schema: FILE_NAME_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: FILE_NAME_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const name = parseFileNameAnswer(outputText(result.raw, 16 * 1024) ?? "");
+  if (!name) return skip("no_name");
+  const sentChars = chars(material);
+  deps.log("file_name_done", { size: sentChars });
+  return json({ ok: true, kind: "file_name", name });
+}
+
 // ---- 사업영역 AI(MTG-프로젝트합치기, business-area.ts) ------------------------------------------------------------------
 // 한 줄 요약(area_week_summary)·쓰기 창 추천(area_suggest). 둘 다 월 AI 상한·하루 횟수 안에서만, 부르면 사용량 줄(app_ai_daily_usage)에 더한다.
 // AI를 부르지 않는 경우(고친 요약·같은 지문의 저장된 요약·보고 없음·짧거나 비밀 모양 글)는 사용량에 잡지 않는다.
@@ -4712,6 +4797,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "hwp_convert") return await runHwpConvert(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "file_name") return await runFileName(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "next_week_sheet") return await runNextWeekSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "pre_meeting_sheet") return await runPreMeetingSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });

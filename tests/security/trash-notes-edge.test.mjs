@@ -35,6 +35,8 @@ const CLASSIFIED = {
   'basket-files/ocr.ts': 'user-token',
   'basket-files/photo.ts': 'user-token',
   'basket-files/note-delete.ts': 'user-token',
+  // ATT-이름고치기: 첨부 이름 바꾸기는 노트 읽기·쓰기를 모두 로그인 토큰으로(서버 키 없음)
+  'document-actions/file-rename.ts': 'user-token',
 };
 
 test('app_notes를 다루는 Edge 소스는 모두 분류돼 있다(새 읽는 곳은 여기서 걸린다)', () => {
