@@ -89,3 +89,8 @@ test('undo: 바꾼 값이 그대로인 자료만 원래 값으로, 그 사이 �
   assert.equal(f.rows().find(x=>x.id==='d1').category,'정책자료');assert.deepEqual(f.rows().find(x=>x.id==='d1').field_origin,{category:'ai',project_id:'ai'});
   assert.equal(f.rows().find(x=>x.id==='d2').category,'회의자료');
 });
+
+// LIB-소분류 ②: 분류 바꾸기 목록에서 소분류는 한 칸 들여 소분류 이름만.
+test('category choices indent subcategories under their parent',()=>{
+  assert.deepEqual(bulkChoices('category',{categories:['선전','선전›투쟁속보','기타']}),[{value:'선전',label:'선전'},{value:'선전›투쟁속보',label:'투쟁속보',depth:1},{value:'기타',label:'기타'}]);
+});

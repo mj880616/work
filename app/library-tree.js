@@ -128,8 +128,9 @@ function byOrganization(o){
   return flat([...organizations.map(x=>groups.get(x.id)),...unknown,none].filter(Boolean),o).filter(n=>!n.organizationId||known.has(n.organizationId)||n.stale);
 }
 function byCategory(o){
-  const {docs,categories=[],categoryOf}=o,groups=new Map(categories.map(name=>[name,node('group','c:'+name,name,{category:name})]));
-  for(const d of docs){const name=categoryOf(d.category);if(!groups.has(name))groups.set(name,node('group','c:'+name,name,{category:name}));groups.get(name).files.push(d)}
+  // LIB-소분류: 소분류는 '선전 › 투쟁속보' 이름의 묶음(큰 분류 바로 뒤). 끌어 분류 바꾸기도 그 묶음 이름(전체 이름 값)으로 한다.
+  const {docs,categories=[],categoryOf,categoryLabel=name=>name}=o,group=name=>node('group','c:'+name,categoryLabel(name),{category:name}),groups=new Map(categories.map(name=>[name,group(name)]));
+  for(const d of docs){const name=categoryOf(d.category);if(!groups.has(name))groups.set(name,group(name));groups.get(name).files.push(d)}
   return flat([...groups.values()],o);
 }
 function byMonth(o){

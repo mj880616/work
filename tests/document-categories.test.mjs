@@ -173,3 +173,62 @@ test('weekly report categories read both names and save the listed one', async (
   assert.equal(categoryOf('주간보고 확정본'), '주간보고›확정본');
   resetDocumentCategories();
 });
+
+// LIB-소분류 ②: 소분류는 '큰분류›소분류' 한 칸. 칩은 큰 분류만, 고르기 목록은 큰 분류 바로 뒤에 소분류, 꼬리표는 '선전 › 투쟁속보'.
+test('subcategories: shape, order, tags and the 20-character limit on the whole name', async () => {
+  const m = await import('../app/document-categories.js');
+  resetDocumentCategories();
+  setDocumentCategories(['교섭', '선전', '기타', '주간보고', '주간보고›확정본', '주간보고›개인본', '선전›투쟁속보']);
+  assert.deepEqual([...m.topDocumentCategories()], ['교섭', '선전', '기타', '주간보고']);
+  assert.deepEqual([...m.subcategoriesOf('선전')], ['선전›투쟁속보']);
+  assert.deepEqual([...m.subcategoriesOf('교섭')], []);
+  assert.deepEqual([...m.orderedDocumentCategories()], ['교섭', '선전', '선전›투쟁속보', '기타', '주간보고', '주간보고›확정본', '주간보고›개인본']);
+  assert.equal(categoryOf('선전›투쟁속보'), '선전›투쟁속보');
+  // 목록에 없는 소분류 값(지워진 소분류)은 큰 분류로, 큰 분류도 없으면 기타.
+  assert.equal(categoryOf('선전›소식지'), '선전');
+  assert.equal(categoryOf('홍보›소식지'), '기타');
+  assert.equal(m.topCategoryOf('선전›투쟁속보'), '선전');
+  assert.equal(m.topCategoryOf('주간보고 확정본'), '주간보고');
+  assert.match(categoryTag('선전›투쟁속보'), /data-doc-category="선전›투쟁속보">선전 › 투쟁속보</);
+  assert.ok(categoryOptions('선전›투쟁속보').includes('<option value="선전">선전</option><option value="선전›투쟁속보" selected>선전 › 투쟁속보</option><option value="기타">'));
+  // 자료 수·예전 값: group이면 소분류 자료까지.
+  const docs = [{ category: '선전' }, { category: '선전›투쟁속보' }, { category: '선전›소식지' }, { category: '교섭' }];
+  assert.equal(documentCountOf('선전', docs), 2);
+  assert.equal(documentCountOf('선전', docs, { group: true }), 3);
+  assert.deepEqual(storedValuesOf('선전', docs), ['선전›소식지']);
+  assert.deepEqual(storedValuesOf('선전', docs, { group: true }), ['선전›소식지']);
+  // 이름 검사: '›' 금지, 소분류는 '큰분류›소분류' 전체 20자 안에서, 같은 큰 분류 안 겹침.
+  assert.equal(categoryNameProblem('가›나'), '분류 이름에는 ‘›’ 글자를 쓸 수 없어요.');
+  assert.equal(categoryNameProblem('투쟁속보', { parent: '선전' }), '이미 있는 소분류 이름이에요.');
+  assert.equal(categoryNameProblem('투쟁속보', { parent: '교섭' }), '');
+  assert.equal(m.subcategoryNameLimit('선전'), 17);
+  assert.equal(categoryNameProblem('가'.repeat(17), { parent: '선전' }), '');
+  assert.equal(categoryNameProblem('가'.repeat(18), { parent: '선전' }), '‘선전’의 소분류 이름은 17자까지 쓸 수 있어요.');
+  assert.equal(categoryNameProblem('투쟁속보', { parent: '선전', except: '선전›투쟁속보' }), '');
+  assert.equal(m.categoryLabel('주간보고›확정본'), '주간보고 › 확정본');
+  resetDocumentCategories();
+});
+
+test('subcategory functions: group rename, group delete and subcategory delete call the LIB-소분류 functions', async () => {
+  const m = await import('../app/document-categories.js');
+  resetDocumentCategories(); events.length = 0;
+  const LIST = ['선전', '기타', '선전›투쟁속보'];
+  const { calls, rt } = runtime((path, options) => {
+    if (path.endsWith('app_document_subcategory_delete')) return { ok: true, categories: ['선전', '기타'], documents: 2 };
+    if (path.endsWith('app_document_category_rename_group')) return { ok: true, categories: ['홍보', '기타', '홍보›투쟁속보'], documents: 1 };
+    return { ok: true, categories: ['기타'], documents: 0 };
+  });
+  setDocumentCategories(LIST);
+  assert.deepEqual(await m.deleteDocumentSubcategory('선전›투쟁속보', { rt }), { ok: true, categories: ['선전', '기타'], documents: 2 });
+  assert.deepEqual(calls.at(-1).options.body, { p_name: '선전›투쟁속보' });
+  assert.ok(events.includes('documents'));
+  setDocumentCategories(LIST);
+  await m.renameDocumentCategoryGroup('선전', '홍보', ['선전자료'], { rt });
+  assert.equal(calls.at(-1).path, '/rest/v1/rpc/app_document_category_rename_group');
+  assert.deepEqual(calls.at(-1).options.body, { p_from: '선전', p_to: '홍보', p_stored: ['선전자료'] });
+  assert.deepEqual([...documentCategories()], ['홍보', '기타', '홍보›투쟁속보']);
+  await m.deleteDocumentCategoryGroup('홍보', null, { rt });
+  assert.equal(calls.at(-1).path, '/rest/v1/rpc/app_document_category_delete_group');
+  assert.deepEqual(calls.at(-1).options.body, { p_name: '홍보', p_stored: [] });
+  resetDocumentCategories();
+});

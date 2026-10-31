@@ -1303,6 +1303,15 @@ html .doc-kind-chips button:focus-visible{ outline:2px solid var(--kptu-primary)
 html .doc-kind-chips button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 html .doc-kind-chips button[aria-pressed="mixed"]{ color:var(--kptu-ink); background-color:var(--kptu-surface); background-image:linear-gradient(90deg,var(--ds-kind-other-soft) 50%,transparent 50%); border-color:var(--ds-kind-other-soft); }
 html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); background:var(--kptu-surface); border-color:color-mix(in srgb,var(--ds-line) 50%,transparent); }
+/* LIB-소분류(2026-10-30 명진 시안): 큰 분류 하나만 켜면 칩 줄 바로 아래 소분류 줄 '(큰 분류) 전체 · 소분류 · + 소분류'(category-chips.js, 자료실·담당조직·프로젝트 상세 공통).
+   왼쪽 세로선 + 큰 분류 칩보다 작고 흐린 글자, 고른 것만 진하게. 테두리·바탕 없음. 보이는 높이 26px, 누르는 범위 44px. */
+html .cc-sub-row:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:2px; max-width:100%; min-width:0; margin:0 0 4px 4px; padding:0 0 0 6px; border-left:2px solid var(--kptu-border); overflow-x:auto; overflow-y:hidden; scrollbar-width:none; box-sizing:border-box; }
+html .cc-sub-row::-webkit-scrollbar{ display:none; }
+html .cc-sub-row button{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; flex:0 0 auto; width:auto; min-width:0; height:26px; min-height:26px; margin:0; padding:0 7px; border:0; border-radius:var(--kptu-radius-sm,4px); background:transparent; box-shadow:none; color:var(--kptu-muted); font-family:inherit; font-size:var(--kptu-text-meta,12px); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; }
+html .cc-sub-row button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+html .cc-sub-row button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
+html .cc-sub-row button[aria-pressed="true"]{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium,600); }
+html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-primary)); }
 
 /* ACT-사진: 사업 보고 사진 작은 그림 3장 + '외 n장'(report-photos.js). 담당조직·프로젝트 상세 줄과 자료실 묶음 줄이 같이 쓴다. 줄 안 자리(grid)는 각 화면 CSS가 정한다. */
 .report-photo-strip{display:inline-flex;align-items:center;gap:3px}

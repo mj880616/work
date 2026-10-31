@@ -14,8 +14,8 @@ import {tapExpand} from './text-clamp.js';
 import {foldedSet,isFoldedOwn,partitionTree,blocks,foldedMetadata,foldSummary} from './project-fold.mjs';
 import {recordLines} from './note-preview.mjs';
 import {readRecordPages,readLinkRecords,recordMark,recordText,isNoteRecord,mountLinkSummaryEditor} from './basket-link-records.js';
-import {categoryTag,categoryOf,documentCategories,loadDocumentCategories} from './document-categories.js';
-import {renderCategoryChips,toggleCategoryOff,detailDefaultOff} from './category-chips.js';
+import {categoryTag,categoryOf,topDocumentCategories,loadDocumentCategories} from './document-categories.js';
+import {renderCategoryChips,toggleCategoryOff,detailDefaultOff,hiddenCategories} from './category-chips.js';
 import {disconnectWithUndo,offerUndoNotice} from './basket-record-delete.js';
 import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,restoreTargets} from './report-links.js';
 import {readReportPhotos,reportPhotosHtml,mountReportPhotos} from './report-photos.js';
@@ -516,16 +516,20 @@ function docRow(x){const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',
 // UI-바구니첨부메모 ⑨⑩: 최근 5개 + "전체 N개 보기 ›"(자료실을 이 프로젝트로 걸러 연다).
 // LIB-조직프로젝트자료종류: [자료] 위의 종류 칩은 자료실과 같은 칩 코드(category-chips.js). 꺼 둔 종류는 이 프로젝트를 열어 두는 동안만 기억하고(저장 안 함),
 // 처음엔 모두 켜져 있어('회의' 포함, category-chips.js DETAIL_DEFAULT_OFF) 자료가 숨지 않는다. 거르는 건 줄 보이기뿐이라 위의 자료 수와 [전체 N개 보기]는 프로젝트 전체 자료 기준 그대로다.
-let docOff=detailDefaultOff(),docOffFor='';
-function docOffSet(d){if(docOffFor!==d.p.id){docOffFor=d.p.id;docOff=detailDefaultOff()}return docOff}
-function docListHtml(d){const off=docOffSet(d),rows=d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:emptyHtml('고른 종류 없음',{attrs:'data-ps3-doc-nokind'})):''}
+// LIB-소분류: 큰 분류 하나만 켜면 칩 아래 소분류 줄(category-chips.js). 고른 소분류(docSub)도 이 프로젝트를 열어 둔 동안만 기억한다.
+let docOff=detailDefaultOff(),docOffFor='',docSub='';
+function docOffSet(d){if(docOffFor!==d.p.id){docOffFor=d.p.id;docOff=detailDefaultOff();docSub=''}return docOff}
+// 숨길 분류(전체 이름) 모음: 꺼 둔 큰 분류 + 소분류를 골랐으면 그 밖의 것.
+function docHidden(d){const off=docOffSet(d);return hiddenCategories(topDocumentCategories(),off,docSub)}
+function docListHtml(d){const off=docHidden(d),rows=d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:emptyHtml('고른 종류 없음',{attrs:'data-ps3-doc-nokind'})):''}
 function docsHtml(d){return `<section class="ps3-section" id="ps3-documents"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'documents','자료'))} ${count(d.docs.length)}</h3><div class="ps3-section-actions">${addPlus('자료 올리기','data-ps3-global="document"')}</div></div><div id="ps3DocKinds" class="doc-kind-chips"${d.docs.length?'':' hidden'}></div><div data-ps3-doc-list>${docListHtml(d)}</div>${d.docs.length?`<button type="button" class="ps3-text-btn ps3-docs-all" data-ps3-library>전체 ${d.docs.length}개 보기 <span aria-hidden="true">›</span></button>`:''}</section>`}
 // 종류 칩을 그리고 누르면 줄 목록만 다시 그린다(칩 단추는 그대로라 초점·터치가 유지됨).
 function mountDocKinds(d){
   const host=$('#ps3-documents #ps3DocKinds');if(!host||d!==detail||!d.docs.length)return;
-  renderCategoryChips(host,{names:documentCategories(),off:docOffSet(d),label:'자료 종류 (여러 개 고르기)',controls:'ps3-documents',key:'docKind',onToggle:value=>{
-    if(d!==detail)return;docOff=toggleCategoryOff(documentCategories(),docOffSet(d),value);
-    const list=$('#ps3-documents [data-ps3-doc-list]');if(list)list.innerHTML=docListHtml(d);mountDocKinds(d)}});
+  const redraw=()=>{const list=$('#ps3-documents [data-ps3-doc-list]');if(list)list.innerHTML=docListHtml(d);mountDocKinds(d)};
+  renderCategoryChips(host,{names:topDocumentCategories(),off:docOffSet(d),sub:docSub,label:'자료 종류 (여러 개 고르기)',controls:'ps3-documents',key:'docKind',onToggle:value=>{
+    if(d!==detail)return;docOff=toggleCategoryOff(topDocumentCategories(),docOffSet(d),value);redraw()},
+    onSub:value=>{if(d!==detail)return;docOffSet(d);docSub=value;redraw()}});
 }
 // PRJ-회의표시 → MTG-사업보고 6단계: 이 프로젝트에 연결된 사업 보고(회의·정책·교섭 …, 모든 종류)를 최근 순으로. 연결은 연결 표의 '출처 회의' 줄(report-links.js)이라
 // 사업 보고 쪽에서 연결해도, 여기서 [연결]로 골라도 같은 줄이다. 이미 연결돼 있던 회의는 그대로 '회의' 종류로 나온다. 하위 프로젝트 것은 넣지 않는다.

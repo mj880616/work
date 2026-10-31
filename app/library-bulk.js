@@ -35,7 +35,8 @@ export function bulkChoices(kind,{projects=[],organizations=[],categories=[]}={}
   const spec=BULK_FIELDS[kind];
   if(kind==='project')return [{value:'',label:spec.none},...projects.map(p=>({value:p.value,label:p.label,depth:p.depth||0}))];
   if(kind==='organization')return [{value:'',label:spec.none},...organizations.map(o=>({value:o.id,label:String(o.name||'이름 없는 조직')}))];
-  return categories.map(name=>({value:name,label:name}));
+  // LIB-소분류: 소분류('선전›투쟁속보')는 큰 분류 바로 아래에 한 칸 들여 소분류 이름만(목록 순서는 부른 쪽이 묶어 넘긴다).
+  return categories.map(name=>{const i=name.indexOf('›');return i<0?{value:name,label:name}:{value:name,label:name.slice(i+1),depth:1}});
 }
 export const commonValue=(docs,kind)=>{
   const field=BULK_FIELDS[kind].field,first=norm(docs[0]?.[field]);
