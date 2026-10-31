@@ -8,7 +8,7 @@ import {mountSplitResize} from './split-resize.js';
 // - 리뷰: 날짜·대회·경기장 줄, 점수, 득점·도움, 판정(한 문장 요약, 늘 보임), 묶음 넷(첫 묶음만 펼침), 주요 통계, 영상·참고 링크(https만, 새 탭).
 // 저장하는 것 없음(읽기 전용 화면, 기기 저장 없음). 거르기 값은 이 탭 메모리에만.
 import {ALL, normalizeMatches, seasonsOf, competitionsOf, competitionText, filterMatches, pickMatch, dateText, scoreText,
-  goalsOf, reviewSections, statsOf, linksOf, safeUrl, RESULT_KIND} from './arsenal-model.mjs';
+  goalsOf, reviewSections, statsOf, linksOf, safeUrl, RESULT_KIND, upcomingOf, upcomingText, kstToday} from './arsenal-model.mjs';
 
 (() => {
 if (window.KPTUArsenal) return;
@@ -33,7 +33,7 @@ install();
 
 const root = document.getElementById('arsenalRoot');
 const $ = sel => root?.querySelector(sel);
-let matches = null, loading = null, failed = false, selected = null, detailOpen = false, layer = null, followed = null;
+let matches = null, rawData = [], loading = null, failed = false, selected = null, detailOpen = false, layer = null, followed = null;
 const filters = {season: ALL, competition: ALL, query: ''};
 
 // 자료 한 번 불러오기(고전 스크립트, window.ARSENAL_MATCHES). 실패하면 [다시]로 다시 부를 수 있다.
@@ -47,7 +47,7 @@ function loadData() {
     script.onload = () => Array.isArray(window.ARSENAL_MATCHES) ? resolve(window.ARSENAL_MATCHES) : reject(new Error('arsenal data'));
     script.onerror = () => { script.remove(); reject(new Error('arsenal data')); };
     document.head.append(script);
-  }).then(raw => { matches = normalizeMatches(raw); failed = false; fillFilters(); return matches; })
+  }).then(raw => { rawData = raw; matches = normalizeMatches(raw); failed = false; fillFilters(); return matches; })
     .catch(err => { failed = true; throw err; })
     .finally(() => { loading = null; });
   return loading;
@@ -111,7 +111,10 @@ function paint() {
   selected = current?.id || null;
   if (!current) closeLayer();
   count.textContent = `경기 ${shown.length}`;
-  list.innerHTML = shown.length ? shown.map(m => rowHtml(m, m === current)).join('') : emptyHtml('맞는 경기 없음');
+  // S46-26: 예정 경기는 목록 위 작은 줄(누를 수 없음, 기록·개수에 안 들어감). 시즌·대회 거르기는 같이 받는다.
+  const next = filterMatches(upcomingOf(rawData, kstToday()), {...filters, query: ''});
+  const nextHtml = next.length ? `<div class="ars-next" data-ars-next aria-label="예정 경기">${next.map(m => `<p class="ars-next-row" data-ars-upcoming="${esc(m.id)}">${esc(upcomingText(m))} <span class="ars-faint">${esc(competitionText(m.competition))}</span></p>`).join('')}</div>` : '';
+  list.innerHTML = nextHtml + (shown.length ? shown.map(m => rowHtml(m, m === current)).join('') : emptyHtml('맞는 경기 없음'));
   detail.innerHTML = current ? reviewHtml(current) : '';
   root.dataset.open = String(!!current && (pc.matches || detailOpen));
   // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 목록은 화면과 같이 내려가고 리뷰 칸은 위 줄(.ars-bar, 위에 붙음) 바로 아래에 붙어 따라온다.

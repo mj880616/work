@@ -130,3 +130,75 @@ test('2025-26 match statistics have numeric big-chance coverage and source links
   assert.deepEqual([brugge.stats.xg, brugge.opponentStats.xg, brugge.stats.bigChances, brugge.opponentStats.bigChances],
     ['2.97', '1.06', '5', '1']);
 });
+
+// S46-26 예정 경기 줄.
+const upcoming = (extra = {}) => ({ id: '2026-11-01-liverpool-away', upcoming: true, date: '2026-11-02', kickoff: '01:30',
+  season: '2026-27', competition: 'Premier League', round: '9R', venue: 'Anfield', home: '리버풀', away: '아스날',
+  sources: [{ label: '공식 일정', url: 'https://www.premierleague.com/en/news/1' }], ...extra });
+const TODAY = '2026-10-31';
+
+test('upcoming record without scores is accepted and does not count toward 2025-26 or the 2026-27 guard', () => {
+  const data = copy();
+  data.unshift(upcoming());
+  const result = auditArchive(data, { complete: false, baselineMatches: original, today: TODAY });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.counts, { premierLeague: 15, championsLeague: 5, total: 20 });
+});
+
+test('upcoming record dated before today fails', () => {
+  const data = copy();
+  data.unshift(upcoming({ date: '2026-10-30' }));
+  assert.match(auditArchive(data, { complete: false, today: TODAY }).errors.join(' '), /past/);
+  // 오늘 날짜는 통과(한국 시간 기준 당일 경기).
+  assert.deepEqual(auditArchive([upcoming({ date: TODAY })], { complete: false, today: TODAY }).errors, []);
+});
+
+test('upcoming record with scores, scorers, stats or review text fails', () => {
+  for (const extra of [{ homeScore: 0 }, { awayScore: 1 }, { result: '승' }, { goals: [] }, { goalsSource: 'https://a.example/' },
+    { stats: { possession: '50%' } }, { opponentStats: {} }, { summary: ['a'] }, { title: 'x' }, { lineup: {} }, { events: [] }]) {
+    const errors = auditArchive([upcoming(extra)], { complete: false, today: TODAY }).errors.join(' ');
+    assert.match(errors, /must not have/, JSON.stringify(extra));
+  }
+});
+
+test('upcoming kickoff, competition, sides and flag are checked', () => {
+  const check = extra => auditArchive([upcoming(extra)], { complete: false, today: TODAY }).errors.join(' ');
+  assert.match(check({ kickoff: '1:30' }), /kickoff/);
+  assert.match(check({ kickoff: undefined }), /kickoff/);
+  assert.match(check({ competition: 'Friendly' }), /competition/);
+  assert.match(check({ home: '아스날', away: '아스날' }), /exactly one side/);
+  assert.match(check({ home: 'A', away: 'B' }), /exactly one side/);
+  assert.match(check({ season: '2025-26' }), /season/);
+  assert.match(check({ sources: [{ label: 'x', url: 'http://a.example/' }] }), /source/);
+  assert.match(auditArchive([upcoming({ upcoming: 'yes' })], { complete: false, today: TODAY }).errors.join(' '), /upcoming must be true/);
+});
+
+test('finished records keep their checks: missing scores without the upcoming flag fail in any season', () => {
+  const data = copy();
+  delete data.find(m => m.season === '2026-27').homeScore;
+  assert.match(auditArchive(data, { complete: false, today: TODAY }).errors.join(' '), /homeScore/);
+  const old = copy();
+  delete old.find(m => m.season === '2025-26').awayScore;
+  assert.match(auditArchive(old, { complete: false, today: TODAY }).errors.join(' '), /awayScore/);
+});
+
+test('an upcoming record may be replaced by the finished record with the same id, but not the reverse', () => {
+  const finished = structuredClone(original.find(m => m.season === '2026-27'));
+  const baseline = [...copy(), upcoming({ id: 'x-upcoming' })];
+  const replaced = [...copy(), { ...finished, id: 'x-upcoming' }];
+  // 예정 → 결과(같은 id): 기준의 예정 줄은 지킬 기록이 아니므로 통과(새 결과 줄 자체 검사는 그대로).
+  assert.deepEqual(auditArchive(replaced, { complete: false, baselineMatches: baseline, today: TODAY }).errors.filter(e => /2026-27/.test(e)), []);
+  // 결과 → 예정(되돌리기): 지켜야 할 기록이 사라진 것이므로 실패.
+  const reverted = copy();
+  const idx = reverted.findIndex(m => m.season === '2026-27');
+  reverted[idx] = upcoming({ id: reverted[idx].id });
+  assert.match(auditArchive(reverted, { complete: false, baselineMatches: original, today: TODAY }).errors.join(' '), /2026-27/);
+});
+
+test('real archive upcoming records are well formed (date checks use today in KST)', () => {
+  const data = loadArchive(readFileSync(new URL('../../app/arsenal/matches.js', import.meta.url), 'utf8'));
+  const rows = data.filter(m => m.upcoming === true);
+  assert.ok(rows.length <= 3, 'keep at most the next three fixtures');
+  const errors = auditArchive(rows, { complete: false, today: '2026-10-31' }).errors;
+  assert.deepEqual(errors, []);
+});

@@ -47,3 +47,16 @@ Only `personal/arsenal-match-archive/matches.js` should change for match content
 The validator must assert exactly 38 distinct Premier League rounds, exactly 15 distinct Champions League rounds/stages, exactly 53 total 2025-26 reviews, no duplicate IDs or invalid dates, required text blocks, at least two distinct source URLs for each added match, safe URL schemes, and no duplicate match identity. Compare the existing 2026-27 records against their baseline serialization to catch accidental mutation. Run Node syntax checks after every batch and full validation at completion.
 
 Serve `personal/arsenal-match-archive/index.html` locally and run browser checks at desktop and mobile widths: season filter, both competition filters, clicked review identity, valid media link targets, no console errors and no layout overflow. Run relevant local repository checks and inspect all PR CI results; report any nonapplicable workflows separately. Do not merge if checks fail. The PR report states EPL 38/38, UCL 15/15, total 53, how many reviews have a verified actual photo-gallery or video link (not merely any `media` item), changed files, test/CI results, PR URL and any remaining evidentiary uncertainty. If a record lacks enough sources for a defensible tactical analysis, do not fabricate it or describe the archive as complete.
+
+## 예정 경기 줄 (S46-26, 2026-10-31)
+
+폰 아스날 위젯(`android-app/.../WidgetArsenal.kt`)의 '다음 경기' 칸과 Web2 아스날 화면의 '예정' 줄을 위해, `app/arsenal/matches.js`에 끝나지 않은 경기를 같은 배열 안의 짧은 줄로 둔다.
+
+- 표시: `"upcoming": true`. 점수(`homeScore`·`awayScore`)가 없다. 위젯은 점수가 없고 날짜가 오늘 이후인 줄을 다음 경기로 쓰고, 화면·검사는 `upcoming` 표시로 예정 줄을 가린다.
+- 둘 수 있는 키는 이것뿐이다: `id`, `upcoming`, `date`, `kickoff`, `season`, `competition`, `round`, `venue`(확정된 경기장만, 없으면 뺌), `home`, `away`, `sources`(공식 일정 https 링크). 결과·득점자(`goals`)·득점 출처·통계·라인업·사건·리뷰 글(`title`·`subtitle`·`verdict`·`summary` 등)은 넣지 않는다.
+- `id`: 끝난 경기와 같은 규칙(`현지 경기 날짜-상대-home|away[-ucl|-carabao|-facup]`). 끝나면 같은 `id`의 결과 줄로 바꾸므로 id는 그대로 이어진다.
+- `date`·`kickoff`: **한국 시간** 기준 날짜와 `HH:MM`. 영국 16:30 GMT 일요일 경기는 `date` = 다음 날(월), `kickoff` = `01:30`. 결과 줄로 바꿀 때 `date`는 끝난 경기 규칙(현지 경기 날짜)으로 고친다. 시각이 공식으로 확인되지 않은 경기는 넣지 않는다.
+- `competition`: `Premier League`, `UEFA Champions League`, `Carabao Cup`, `FA Cup` 중 하나. `round`는 끝난 경기와 같은 표기(`9R`, `League Phase MD4` 등).
+- 개수: 늘 다음 공식 경기 3개. 지난 날짜(한국 날짜가 오늘보다 앞)인 예정 줄은 검사(`scripts/arsenal/validate-archive.mjs`)가 실패시킨다 — 끝난 경기는 결과 줄로 바꾸고 다음 경기를 더한다.
+- 검사: 끝난 경기 검사는 그대로이고, 점수가 없는 줄은 `upcoming` 표시가 있어야 한다(시즌 무관). 2026-27 기록 보호(기준 커밋 대조)는 예정 줄을 지킬 기록으로 보지 않는다(시각 변경·결과 줄로 교체·삭제 허용). 거꾸로 결과 줄을 예정 줄로 되돌리면 실패한다.
+- 화면: Web2 아스날 목록 위에 `예정 · 11.2.(월) 01:30 원정 리버풀 · 프리미어리그` 모양의 작은 줄(누르지 않음). 경기 수·시즌·기록·통계·득점 계산에는 들어가지 않는다. 옛 기록 페이지(`personal/arsenal-match-archive`)는 예정 줄을 보이지 않는다.

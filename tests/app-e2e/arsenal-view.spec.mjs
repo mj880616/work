@@ -10,7 +10,10 @@ import { checkSplit } from './helpers/split-check.mjs';
 // 시즌·대회·상대 검색 거르기, 목록 → 리뷰(폰은 한 칸 + 뒤로가기 = 목록, PC는 두 칸), 바깥 링크는 https·새 탭.
 const context = { window: {} };
 runInNewContext(readFileSync(new URL('../../app/arsenal/matches.js', import.meta.url), 'utf8'), context);
-const ALL = context.window.ARSENAL_MATCHES;
+// S46-26: 예정 경기 줄(upcoming:true)은 목록·개수에 안 들어가고 목록 위 작은 줄로만 보인다(오늘(한국) 이후만).
+const ALL = context.window.ARSENAL_MATCHES.filter(m => m.upcoming !== true);
+const kstToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const NEXT = context.window.ARSENAL_MATCHES.filter(m => m.upcoming === true && m.date >= kstToday);
 const newest = [...ALL].sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))[0];
 
 async function start(page, width) {
@@ -42,6 +45,8 @@ test('아스날 폰 390: 메뉴 창 맨 아래에서 열고, 자료는 그때 �
   await openArsenal(page, 390);
   await expect(rows(page)).toHaveCount(ALL.length);
   await expect(page.locator('#arsenalRoot [data-ars-count]')).toHaveText(`경기 ${ALL.length}`);
+  await expect(page.locator('#arsenalRoot [data-ars-upcoming]')).toHaveCount(NEXT.length);
+  if (NEXT.length) await expect(page.locator('#arsenalRoot [data-ars-upcoming]').first()).toContainText(/^예정 · \d{1,2}\.\d{1,2}\.\([일월화수목금토]\)/);
   expect(f.data).toHaveLength(1);
   expect(f.data[0]).toMatch(/\/app\/arsenal\/matches\.js(\?|$)/);
   // 폰은 목록이 먼저(리뷰 칸은 닫혀 있음).

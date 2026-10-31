@@ -15,13 +15,39 @@ export const RESULT_KIND = Object.freeze({'승': 'win', '무': 'draw', '패': 'l
 const text = value => typeof value === 'string' ? value : '';
 const list = value => Array.isArray(value) ? value.filter(item => typeof item === 'string' && item.trim()) : [];
 
-// 자료 → 화면이 쓰는 경기 목록(최신 날짜가 위). 형식이 틀린 줄은 버린다(검사가 막지만 화면이 깨지지 않게).
+// S46-26: 예정 경기 줄("upcoming":true, 점수·득점·통계 없음, date·kickoff는 한국 시간). 기록·통계·목록 개수에서는 빼고
+// 목록 위에 작은 '예정' 줄로만 보인다(형식: docs/superpowers/specs/2026-09-20-arsenal-2025-26-archive-design.md '예정 경기 줄').
+export const isUpcoming = m => !!m && typeof m === 'object' && m.upcoming === true;
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+// 한국 날짜(YYYY-MM-DD). 지난 날짜 예정 줄은 화면에서 뺀다(자료 검사는 실패로 막는다).
+export const kstToday = (now = new Date()) => new Date(now.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+
+// 자료 → 화면이 쓰는 경기 목록(최신 날짜가 위). 형식이 틀린 줄과 예정 줄은 버린다(검사가 막지만 화면이 깨지지 않게).
 export function normalizeMatches(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter(m => m && typeof m === 'object' && typeof m.id === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.date || ''))
+    .filter(m => m && typeof m === 'object' && !isUpcoming(m) && typeof m.id === 'string' && DAY_RE.test(m.date || ''))
     .slice()
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+}
+
+// 예정 줄: 오늘(한국) 이후만, 가까운 경기가 위.
+export function upcomingOf(raw, today = kstToday()) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(m => isUpcoming(m) && typeof m.id === 'string' && DAY_RE.test(m.date || '') && m.date >= today)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date) || String(a.kickoff || '').localeCompare(String(b.kickoff || '')) || a.id.localeCompare(b.id));
+}
+const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+// '예정 · 11.2.(월) 01:30 원정 리버풀'. 시각이 확정되지 않았으면 날짜만.
+export function upcomingText(m) {
+  const [y, mo, d] = String(m?.date || '').split('-').map(Number);
+  const day = DAYS[new Date(Date.UTC(y, mo - 1, d)).getUTCDay()];
+  const time = HHMM_RE.test(m?.kickoff || '') ? ` ${m.kickoff}` : '';
+  const home = m?.home === '아스날';
+  return `예정 · ${mo}.${d}.(${day})${time} ${home ? '홈' : '원정'} ${text(home ? m.away : m.home)}`;
 }
 
 export const seasonsOf = matches => [...new Set(matches.map(m => text(m.season)).filter(Boolean))].sort().reverse();

@@ -26,6 +26,13 @@ const ipswichAssistCorrections = new Map([
   ]
 ]);
 
+// S46-26 예정 경기 줄: 이 키만 둘 수 있다(점수·결과·득점자·통계·리뷰 글 없음).
+const upcomingKeys = new Set(['id', 'upcoming', 'date', 'kickoff', 'season', 'competition', 'round', 'venue', 'home', 'away', 'sources']);
+const upcomingCompetitions = new Set(['Premier League', 'UEFA Champions League', 'Carabao Cup', 'FA Cup']);
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+// 한국 날짜(YYYY-MM-DD). 예정 줄의 date·kickoff는 한국 시간이다.
+export const kstToday = (now = new Date()) => new Date(now.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+
 const validDate = value => typeof value === 'string' &&
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
@@ -50,7 +57,27 @@ export function loadArchive(sourceText) {
   return JSON.parse(JSON.stringify(window.ARSENAL_MATCHES));
 }
 
-export function auditArchive(matches, { complete = true, baselineMatches } = {}) {
+function auditUpcoming(match, name, today, errors) {
+  for (const key of Object.keys(match)) {
+    if (!upcomingKeys.has(key)) errors.push(`${name}: upcoming record must not have ${key}`);
+  }
+  if (validDate(match.date) && match.date < today) errors.push(`${name}: upcoming date is in the past (${match.date} < ${today})`);
+  if (!HHMM.test(match.kickoff ?? '')) errors.push(`${name}: upcoming kickoff must be HH:MM (KST)`);
+  if (match.season === '2025-26' || typeof match.season !== 'string' || !/^\d{4}-\d{2}$/.test(match.season)) errors.push(`${name}: invalid upcoming season`);
+  if (!upcomingCompetitions.has(match.competition)) errors.push(`${name}: invalid upcoming competition`);
+  for (const field of ['round', 'home', 'away']) {
+    if (typeof match[field] !== 'string' || !match[field].trim()) errors.push(`${name}: missing ${field}`);
+  }
+  if (match.venue !== undefined && (typeof match.venue !== 'string' || !match.venue.trim())) errors.push(`${name}: invalid venue`);
+  if ((match.home === '아스날') === (match.away === '아스날')) errors.push(`${name}: Arsenal must be exactly one side`);
+  if (match.sources !== undefined && (!Array.isArray(match.sources) ||
+      new Set(match.sources.map(source => source?.url)).size !== match.sources.length ||
+      match.sources.some(source => !source || typeof source.label !== 'string' || !source.label.trim() || !isHttps(source.url)))) {
+    errors.push(`${name}: invalid or duplicate source URL`);
+  }
+}
+
+export function auditArchive(matches, { complete = true, baselineMatches, today = kstToday() } = {}) {
   const errors = [];
   if (!Array.isArray(matches)) {
     return { counts: { premierLeague: 0, championsLeague: 0, total: 0 }, errors: ['matches must be an array'] };
@@ -72,6 +99,15 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
     else if (ids.has(match.id)) errors.push(`${name}: duplicate id`);
     else ids.add(match.id);
     if (!validDate(match.date)) errors.push(`${name}: invalid date`);
+    if (match.upcoming !== undefined && match.upcoming !== true) errors.push(`${name}: upcoming must be true when present`);
+    if (match.upcoming === true) {
+      auditUpcoming(match, name, today, errors);
+      continue;
+    }
+    // 끝난 경기는 시즌과 관계없이 점수가 있어야 한다(점수 없는 줄은 예정 표시가 있어야 함).
+    for (const field of ['homeScore', 'awayScore']) {
+      if (!Number.isInteger(match[field]) || match[field] < 0) errors.push(`${name}: invalid ${field}`);
+    }
     for (const field of ['goalsSource', 'goalsTimeSource']) {
       if (match[field] !== undefined && !isHttps(match[field])) {
         errors.push(`${name}: invalid scoring source URL (${field})`);
@@ -98,9 +134,6 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
     }
     if (match.home !== '아스날' && match.away !== '아스날') errors.push(`${name}: Arsenal is neither home nor away`);
     if (!['승', '무', '패'].includes(match.result)) errors.push(`${name}: invalid result`);
-    for (const field of ['homeScore', 'awayScore']) {
-      if (!Number.isInteger(match[field]) || match[field] < 0) errors.push(`${name}: invalid ${field}`);
-    }
     for (const field of ['summary', 'decisive', 'arteta', 'nextWatch']) {
       if (!Array.isArray(match[field]) || match[field].length < 3 || match[field].some(x => typeof x !== 'string' || !x.trim())) {
         errors.push(`${name}: invalid ${field}`);
@@ -135,7 +168,8 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
     }
   }
   if (baselineMatches) {
-    const recent = list => list.filter(match => match?.season === '2026-27');
+    // 예정 줄은 지켜야 할 기록이 아니다(시각이 바뀌거나, 끝나면 같은 id의 결과 줄로 바뀌거나, 빠질 수 있음).
+    const recent = list => list.filter(match => match?.season === '2026-27' && match?.upcoming !== true);
     const baselineRecent = recent(baselineMatches);
     const currentById = new Map(recent(matches).map(match => [match.id, match]));
     const scoringFields = new Set(['goals', 'goalsSource', 'goalsTimeSource']);

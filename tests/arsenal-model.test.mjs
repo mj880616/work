@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {ALL, normalizeMatches, seasonsOf, competitionsOf, competitionText, filterMatches, pickMatch, dateText, scoreText,
-  goalsOf, reviewSections, statsOf, safeUrl, linksOf} from '../app/arsenal-model.mjs';
+  goalsOf, reviewSections, statsOf, safeUrl, linksOf, isUpcoming, upcomingOf, upcomingText, kstToday} from '../app/arsenal-model.mjs';
 
 const context = {window: {}};
 runInNewContext(readFileSync(new URL('../app/arsenal/matches.js', import.meta.url), 'utf8'), context);
@@ -12,7 +12,7 @@ const raw = context.window.ARSENAL_MATCHES;
 
 test('자료 → 최신 날짜가 위, 형식이 틀린 줄은 버림', () => {
   const list = normalizeMatches(raw);
-  assert.equal(list.length, raw.length);
+  assert.equal(list.length, raw.filter(m => !isUpcoming(m)).length);
   for (let i = 1; i < list.length; i++) assert.ok(list[i - 1].date >= list[i].date);
   assert.deepEqual(normalizeMatches([{id: 'a', date: '2026-01-01'}, {id: 'b'}, null, {date: '2026-01-02'}, {id: 'c', date: '2026-02-01'}]).map(m => m.id), ['c', 'a']);
   assert.deepEqual(normalizeMatches('x'), []);
@@ -73,4 +73,27 @@ test('바깥 링크는 https만', () => {
   for (const bad of ['http://example.org', 'javascript:alert(1)', 'data:text/html,x', '', null, '/rel']) assert.equal(safeUrl(bad), '');
   assert.deepEqual(linksOf([{label: 'A', url: 'https://a.example/'}, {label: 'B', url: 'javascript:x'}, null]), [{label: 'A', url: 'https://a.example/'}]);
   for (const match of normalizeMatches(raw)) for (const source of match.sources || []) assert.ok(safeUrl(source.url), `${match.id}: ${source.label}`);
+});
+
+test('S46-26 예정 경기 줄: 목록·개수·득점에서 빠지고, 오늘 이후만 가까운 순으로 작은 줄', () => {
+  const fake = [
+    {id: 'f', date: '2026-10-27', home: '아스날', away: 'A', homeScore: 1, awayScore: 0},
+    {id: 'u2', upcoming: true, date: '2026-11-08', kickoff: '00:00', home: '아스날', away: '헐 시티', competition: 'Premier League', season: '2026-27'},
+    {id: 'u1', upcoming: true, date: '2026-11-02', kickoff: '01:30', home: '리버풀', away: '아스날', competition: 'Premier League', season: '2026-27'},
+    {id: 'old', upcoming: true, date: '2026-10-30', kickoff: '20:00', home: '아스날', away: 'B'},
+    {id: 'nokick', upcoming: true, date: '2026-11-10', home: 'C', away: '아스날'}
+  ];
+  assert.deepEqual(normalizeMatches(fake).map(m => m.id), ['f']);
+  assert.deepEqual(upcomingOf(fake, '2026-10-31').map(m => m.id), ['u1', 'u2', 'nokick']);
+  assert.deepEqual(upcomingOf(fake, '2026-11-03').map(m => m.id), ['u2', 'nokick']);
+  assert.equal(upcomingText(fake[2]), '예정 · 11.2.(월) 01:30 원정 리버풀');
+  assert.equal(upcomingText(fake[1]), '예정 · 11.8.(일) 00:00 홈 헐 시티');
+  assert.equal(upcomingText(fake[4]), '예정 · 11.10.(화) 원정 C');
+  assert.equal(kstToday(new Date('2026-10-31T15:30:00Z')), '2026-11-01');
+  assert.equal(kstToday(new Date('2026-10-31T14:59:00Z')), '2026-10-31');
+  // 실제 자료: 예정 줄은 점수·득점자가 없다.
+  for (const m of raw.filter(isUpcoming)) {
+    assert.equal(m.homeScore, undefined, m.id);
+    assert.equal(m.goals, undefined, m.id);
+  }
 });
