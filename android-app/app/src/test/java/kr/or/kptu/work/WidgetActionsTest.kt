@@ -116,13 +116,14 @@ class WidgetActionsTest {
         assertEquals(listOf("android.appwidget.action.APPWIDGET_CONFIGURE"), actions)
         // 위젯은 권한을 늘리지 않았다(카메라 권한 없음). 설치 권한 둘은 앱 스스로 업데이트(0.3.8)용.
         // 사진·동영상 읽기 넷은 사진 메뉴 '폰 사진'(PHOTO-출처 ①, 0.3.9)용 — 저장소 쓰기·위치·카메라는 없다.
+        // MANAGE_MEDIA는 사진 [폴더]의 폰 폴더 바꾸기(PHOTO-폴더스위치, 0.4.1)용 — 사용자가 설정에서 켜야만 쓰인다.
         val perms = children(xml("src/main/AndroidManifest.xml"), "uses-permission").map { attr(it, "name") }.toSet()
         assertEquals(
             setOf(
                 "android.permission.INTERNET", "android.permission.RECORD_AUDIO", "android.permission.FOREGROUND_SERVICE", "android.permission.FOREGROUND_SERVICE_MICROPHONE", "android.permission.POST_NOTIFICATIONS",
                 "android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION",
                 "android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO", "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-                "android.permission.READ_EXTERNAL_STORAGE",
+                "android.permission.READ_EXTERNAL_STORAGE", "android.permission.MANAGE_MEDIA",
             ),
             perms,
         )
