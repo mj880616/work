@@ -271,6 +271,8 @@
 
 /* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js). 콤팩트·톤다운, 색은 토큰만. 보기 전환은 머리줄의 작은 알약 칩(공용 filter-chips). */
 #meetingsView #reportViewFilter{flex:none;max-width:100%}
+/* UI-칩줄두줄: [목록|달력|사진]은 칩 셋이라 한 줄이고, 머리 줄 높이(옆 ⋯·추가 버튼의 누르는 범위 44px)를 지키도록 줄 칸은 44px 그대로. */
+#appView #meetingsView #reportViewFilter.filter-chips:not([hidden]){min-height:var(--kptu-touch-target,44px)}
 #meetingList .rv-dot{flex:none;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
 #meetingList .rv-day-title{margin:0;padding:6px 2px 4px;font-size:var(--ds-text-section,13px);font-weight:var(--ds-weight-medium,500);color:var(--ds-section-ink,var(--kptu-ink))}
 #meetingList .rv-cal-head{display:flex;align-items:center;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2)}

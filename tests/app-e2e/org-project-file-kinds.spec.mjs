@@ -144,7 +144,8 @@ async function openProjectDetail(page){
  await page.locator(`[data-ps3-project="${P}"]`).first().click();
  await expect(page.locator('#ps3-documents')).toBeVisible();
 }
-const oneLine=async(host)=>{const b=await host.locator('button').evaluateAll(list=>list.map(x=>Math.round(x.getBoundingClientRect().top)));return new Set(b).size===1;};
+// UI-칩줄두줄(10/31): 폰·PC 모두 옆으로 밀지 않고 줄바꿈 두 줄까지(넘치면 [더보기]).
+const twoLines=async(host)=>{const b=await host.locator('button').evaluateAll(list=>list.filter(x=>x.getClientRects().length).map(x=>Math.round(x.getBoundingClientRect().top)));return new Set(b).size<=2&&await host.evaluate(h=>getComputedStyle(h).flexWrap==='wrap'&&h.scrollWidth<=h.clientWidth+1);};
 
 for(const width of [390,1280])test(`organization documents show each kind and filter by kind chips ${width}`,async({page},info)=>{
  const f=await fixture(page,{width,categories:[...DEFAULT]});
@@ -156,9 +157,8 @@ for(const width of [390,1280])test(`organization documents show each kind and fi
  await expect(host.getByRole('button')).toHaveText(['전체',...DEFAULT]);
  await expect(host).toHaveAttribute('role','group');
  for(const name of DEFAULT)await expect(chip(host,name)).toHaveAttribute('aria-pressed','true');
- // Phone: one line that scrolls sideways. PC(1024px~, UI-점검1030손질 C7): wraps instead (no sideways scroll a mouse cannot reach). Small; touch area 44px.
- if(width<761)expect(await oneLine(host)).toBe(true);
- else{expect(await host.evaluate(h=>getComputedStyle(h).flexWrap)).toBe('wrap');expect(await host.evaluate(h=>h.scrollWidth<=h.clientWidth)).toBe(true);}
+ // UI-칩줄두줄: phone and PC wrap to at most two lines, never sideways. Small chips.
+ expect(await twoLines(host)).toBe(true);
  const box=await chip(host,'투쟁').boundingBox();expect(box.height).toBeLessThanOrEqual(32.5);
  expect(await noWideScroll(page)).toBe(true);
  if(width<761)expect(await host.evaluate(h=>h.scrollWidth>h.clientWidth)).toBe(true);
@@ -194,8 +194,8 @@ for(const width of [390,1280])test(`project documents show each kind and filter 
  await expect(section.locator('.ps3-doc-row')).toHaveCount(5);
  await expect(kinds(section)).toHaveText(['교섭·합의','투쟁','공문','성명·보도자료','교육']);
  await expect(host.getByRole('button')).toHaveText(['전체',...DEFAULT]);
- // UI-점검1030손질 C7: phone one sideways line; PC wraps (no hidden sideways part).
- if(width<761)expect(await oneLine(host)).toBe(true);else expect(await host.evaluate(h=>h.scrollWidth<=h.clientWidth)).toBe(true);
+ // UI-칩줄두줄: phone and PC wrap to at most two lines (no hidden sideways part).
+ expect(await twoLines(host)).toBe(true);
  expect((await chip(host,'공문').boundingBox()).height).toBeLessThanOrEqual(32.5);
  await tap(page,chip(host,'공문'),width);
  await expect(section.locator('.ps3-doc-row b')).toHaveText(['합성 교섭 일정','합성 집회 계획','합성 성명서','합성 교육 안내','합성 국토부 지침']);

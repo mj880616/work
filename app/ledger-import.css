@@ -202,7 +202,7 @@
 /* UI-칩줄두줄: 조직·주제 칩 두 줄 + [더보기 ▾]는 앱 공용 칩 줄 부품(chip-rows.js, 모양은 ui-standard.css). 칩은 26px, 누르는 범위 둘레 2px. */
 #appView #ledgerView .lb-topics{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap); margin:4px 0; }
 #appView #ledgerView .lb-topic{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; gap:4px; height:var(--ds-chip-row-height); margin:0; padding:0 var(--ds-chip-row-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-meta); line-height:1; white-space:nowrap; cursor:pointer; }
-#appView #ledgerView .lb-topic::after{ content:""; position:absolute; left:-2px; right:-2px; top:-2px; height:calc(100% + 4px); }
+#appView #ledgerView .lb-topic::after{ content:""; position:absolute; left:-2px; right:-2px; top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); }
 #appView #ledgerView .lb-topic:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #ledgerView .lb-topic-n{ color:var(--kptu-faint); font-variant-numeric:tabular-nums; }
 #appView #ledgerView .lb-topic[data-lb-type="topic"]{ border-style:dashed; }
