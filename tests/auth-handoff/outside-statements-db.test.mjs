@@ -112,7 +112,7 @@ test('outside statements db: plan, dry-run, apply, owner boundary, server-only w
      await assert.rejects(server(c=>addPost(c,WS_A,{lang:'en',url:'https://jacobin.com/c',key:bad,body:false})),{code:'23514'},JSON.stringify(bad).slice(0,60));
    await assert.rejects(server(c=>addPost(c,WS_A,{lang:'ko',url:'https://example.org/k',key})),{code:'23514'},'domestic posts carry no key sentences');
    // Sentence rows must belong to a post in the same workspace.
-   await assert.rejects(server(c=>addSentences(c,WS_B,postA,['다른 작업공간'])),{code:'23503'});
+   await assert.rejects(server(c=>c.query("insert into public.app_outside_sentences(post_id,workspace_id,idx,text) values ($1,$2,50,'다른 작업공간')",[postA,WS_B])),{code:'23503'});
    for(const bad of [{kind:'tweet'},{lang:'jp'},{url:'javascript:alert(1)'},{url:'https://a b'},{title:''},{title:'줄\n바꿈'},{source:'Bad Key'}])
      await assert.rejects(server(c=>addPost(c,WS_A,{url:'https://example.org/bad',...bad})),{code:'23514'},JSON.stringify(bad));
   });
