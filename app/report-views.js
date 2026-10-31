@@ -21,7 +21,7 @@ export function calendarHtml(ctx) {
   const weekdays = `<thead><tr>${WEEKDAYS.map((w, i) => `<th scope="col"${i === 0 ? ' class="rv-sun"' : i === 6 ? ' class="rv-sat"' : ''}>${w}</th>`).join('')}</tr></thead>`;
   const body = monthWeeks(month).map(week => `<tr>${week.map(c => {
     const list = c.inMonth ? byDay.get(c.key) || [] : [], plan = cellPlan(list);
-    const cls = ['rv-cell', c.inMonth ? '' : 'rv-out', c.key === todayKey ? (c.inMonth ? 'rv-now ds-today' : 'rv-now') : '', c.key === selected ? 'rv-sel' : ''].filter(Boolean).join(' ');
+    const cls = ['rv-cell', c.inMonth ? '' : 'rv-out', c.key === todayKey ? (c.inMonth ? 'rv-now ds-today' : 'rv-now') : '', c.key === selected ? 'rv-sel ds-day-sel' : ''].filter(Boolean).join(' ');
     const label = `${dayHeading(c.key)}${list.length ? ` 사업 보고 ${list.length}건` : ''}`;
     const num = c.inMonth ? `<button type="button" class="rv-num${c.key === todayKey ? ' ds-today-num' : ''}" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
     const dots = plan.total ? `<span class="rv-dots" aria-hidden="true">${list.slice(0, 3).map(m => dot(colorOf(m))).join('')}</span>` : '';

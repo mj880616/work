@@ -15,7 +15,7 @@
 #appView #homeView .journal-status{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-status:empty{ display:none; }
 
-/* 날짜 숫자 줄: 7칸, 오늘은 앱 공용 '오늘' 표시(칸 둘레 선 + 숫자 동그라미, ui-standard.css .ds-today), 고른 날은 칸 테두리, 한 줄 쓴 날은 아래 초록 점(J4 ①). */
+/* 날짜 숫자 줄: 7칸, 오늘(네모 선)·고른 날(옅은 바탕)은 앱 공용 표시(ui-standard.css .ds-today·.ds-day-sel, UI-오늘네모), 한 줄 쓴 날은 아래 초록 점(J4 ①). */
 #appView #homeView .journal-days{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
 #appView #homeView .journal-date{ position:relative; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; width:100%; height:auto;
   min-height:60px; margin:0; padding:6px 0 14px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line);
@@ -24,15 +24,13 @@
 #appView #homeView .journal-date.sunday .journal-weekday{ color:var(--kptu-danger); }
 #appView #homeView .journal-num{ box-sizing:border-box; display:grid; place-items:center; min-width:24px; height:24px; padding:0 4px; font-size:var(--ds-text-row); line-height:1; border-radius:999px; }
 #appView #homeView .journal-dot{ position:absolute; left:50%; bottom:6px; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-journal-ink); }
-#appView #homeView .journal-date[aria-pressed="true"]{ border-color:var(--ds-kind-journal-ink); box-shadow:0 0 0 2px var(--ds-kind-journal-ink); background:var(--ds-kind-journal-soft); }
 #appView #homeView .journal-date:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView .journal-date:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
-/* UI-전수디자인점검 F09(PC): 요일 칸은 테두리 상자 대신 높이 40px 한 줄(요일·날짜), 고른 날만 옅은 초록 바탕. 폰은 위 두 줄 칸 그대로. */
+/* UI-전수디자인점검 F09(PC): 요일 칸은 테두리 상자 대신 높이 40px 한 줄(요일·날짜), 고른 날만 옅은 바탕(공용 .ds-day-sel). 폰은 위 두 줄 칸 그대로. */
 @media(min-width:761px){
   #appView #homeView .journal-days{ gap:2px; }
   #appView #homeView .journal-date{ flex-direction:row; justify-content:center; align-items:center; gap:6px; min-height:40px; padding:0 0 4px; border-color:transparent; }
   #appView #homeView .journal-dot{ bottom:3px; width:5px; height:5px; margin-left:-2.5px; }
-  #appView #homeView .journal-date[aria-pressed="true"]{ border-color:transparent; box-shadow:none; background:var(--ds-kind-journal-soft); }
 }
 
 /* 고른 날: 맨 위 "오늘 한 줄", 아래 재료. */
@@ -469,7 +467,7 @@
 #appView #homeView .journal-next-group > .journal-weekly-list{ margin:2px 0 4px; }
 
 /* HOME-업무일지홈(2026-10-30 명진 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주 · (오른쪽 끝) [하루|주간 정리].
-   날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘은 공용 '오늘' 표시(갈색 테두리), 고른 날은 옅은 초록 바탕. 폰은 제목이 한 줄, 아래 날짜 줄. */
+   날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘(네모 선)·고른 날(옅은 바탕)은 공용 표시(ui-standard.css .ds-today·.ds-day-sel). 폰은 제목이 한 줄, 아래 날짜 줄. */
 #appView #homeView .journal-head{ justify-content:flex-start; gap:6px 10px; }
 #appView #homeView .journal-day-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
 #appView #homeView .journal-head .journal-week-nav{ gap:2px; min-width:0; }
@@ -478,7 +476,6 @@
 #appView #homeView .journal-head .journal-date{ flex:0 0 auto; width:auto; min-width:32px; min-height:32px; height:32px; padding:0 4px; flex-direction:row; justify-content:center; gap:0; border-color:transparent; background:transparent; }
 #appView #homeView .journal-head .journal-weekday{ display:none; }
 #appView #homeView .journal-head .journal-dot{ bottom:1px; width:4px; height:4px; margin-left:-2px; }
-#appView #homeView .journal-head .journal-date[aria-pressed="true"]{ border-color:transparent; box-shadow:none; background:var(--ds-kind-journal-soft); }
 /* 폰: 첫 줄 = 날짜 제목 + [하루|주간 정리], 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
 @media(max-width:760px){
   #appView #homeView .journal-day-title{ flex:1 1 auto; order:-2; }

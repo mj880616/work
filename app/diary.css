@@ -28,12 +28,11 @@
 #appView #diaryView .diary-cell .diary-num{ position:absolute; top:4px; left:5px; z-index:1; font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #diaryView .diary-cell .diary-dot{ position:absolute; left:50%; bottom:18%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--kptu-primary-ink); }
 #appView #diaryView .diary-cell.has-photo .diary-num:not(.ds-today-num){ padding:1px 5px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); border-radius:6px; }
-/* 오늘 칸: 앱 공용 '오늘' 표시(칸 둘레 진한 선 + 날짜 숫자 동그라미, ui-standard.css .ds-today·.ds-today-num, UI-오늘표시통일). 고른 날은 아래 aria-pressed 테두리. */
+/* 오늘 칸(네모 선)·고른 날(옅은 바탕)은 앱 공용 표시(ui-standard.css .ds-today·.ds-today-num·.ds-day-sel, UI-오늘네모). */
 #appView #diaryView .diary-cell .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #diaryView .diary-cell .diary-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
-#appView #diaryView .diary-cell[aria-pressed="true"]{ border-color:var(--kptu-primary-ink); box-shadow:0 0 0 2px var(--kptu-primary-ink); }
 #appView #diaryView .diary-cell:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-@media(hover:hover){ #appView #diaryView .diary-cell:not(.diary-blank):hover{ background:var(--kptu-surface-subtle); } }
+@media(hover:hover){ #appView #diaryView .diary-cell:not(.diary-blank):not(.ds-day-sel):hover{ background:var(--kptu-surface-subtle); } }
 /* UI-전수디자인점검 F10(PC): 날마다 둥근 상자 31개 대신 가는 격자선 한 겹(칸 사이 0, 선 0.5px). 빈 날은 높이 56px,
    사진 있는 날만 4:3 칸(같은 줄 다른 칸은 그 높이로 늘어나 선이 이어진다). 폰은 위 정사각 칸 그대로. */
 @media(min-width:761px){
@@ -41,7 +40,6 @@
   #appView #diaryView .diary-cell{ aspect-ratio:auto; min-height:56px; border:0; border-right:var(--ds-line-width) solid var(--ds-line); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
   #appView #diaryView .diary-cell.has-photo{ aspect-ratio:4/3; }
   #appView #diaryView .diary-blank{ border-color:var(--ds-line); background:var(--kptu-surface-subtle); }
-  #appView #diaryView .diary-cell[aria-pressed="true"]{ border-color:var(--kptu-primary-ink); box-shadow:inset 0 0 0 2px var(--kptu-primary-ink); }
 }
 
 /* 이 달 일기 목록: 달력 아래, 최신 날짜 먼저. 날짜를 고르면 같은 자리에 그날 일기가 나온다. */

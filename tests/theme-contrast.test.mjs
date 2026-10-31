@@ -208,16 +208,18 @@ test('고른 줄 표시: 바탕·왼쪽 줄·글자가 열 가지 색 모두에�
 });
 
 // UI-선택표시톤다운(명진 2026-10-28 18:40): 선택 표시 규칙 — 고른 메뉴·탭·전환·필터는 연한 바탕 + 얇은 선, 꽉 칠한 주 색은 누르는 주 버튼에만, 오늘 표시는 동그라미 테두리.
-const tokenBlock=css.slice(css.indexOf('--ds-select-bg:'),css.indexOf('--kptu-shadow-today:'));
+const tokenBlock=css.slice(css.indexOf('--ds-select-bg:'),css.indexOf('--ds-today-ink:'));
 // 글자로 쓰는 강조색(--kptu-primary-text): 수수한 다섯은 주 버튼 색, 산뜻한 다섯은 읽히는 글자색.
 const accentText=(name,c)=>VIVID.includes(name)?c['--kptu-primary-ink']:c['--kptu-primary'];
 test('선택 표시 토큰: 연한 바탕·보통 글자·강조 글자색의 얇은 선, 오늘은 테두리(값은 theme-tokens.css 한 곳)',()=>{
-  const v=vars(css.slice(css.indexOf('--ds-select-bg:')-2,css.indexOf('--kptu-shadow-today:')+200));
+  const v=vars(css.slice(css.indexOf('--ds-select-bg:')-2,css.indexOf('--ds-today-ink:')+200));
   assert.equal(v['--ds-select-bg'],'var(--kptu-primary-soft)');
   assert.equal(v['--ds-select-ink'],'var(--kptu-ink)');
   assert.equal(v['--ds-select-line'],'var(--kptu-primary-text)');
   assert.equal(v['--kptu-shadow-select'],'inset 2px 0 0 var(--ds-select-line)');
-  assert.equal(v['--kptu-shadow-today'],'inset 0 0 0 1.5px var(--kptu-primary-text)');
+  assert.equal(v['--ds-today-ink'],'var(--kptu-primary-text)');
+  // UI-오늘네모: 오늘 숫자 동그라미 토큰은 없앴다.
+  assert.ok(!css.includes('--kptu-shadow-today'),'--kptu-shadow-today 없음');
   assert.ok(tokenBlock.length>0);
   assert.equal((css.match(/--ds-select-bg:/g)||[]).length,1,'declared once (dark mode reuses it through --kptu-* values)');
   for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]]){
@@ -225,6 +227,8 @@ test('선택 표시 토큰: 연한 바탕·보통 글자·강조 글자색의 �
     need(`${name} ${mode} selected text`,c['--kptu-ink'],c['--kptu-primary-soft'],7);
     for(const surface of ['--kptu-primary-soft','--kptu-surface','--kptu-bg'])need(`${name} ${mode} selection line / today ring on ${surface}`,line,c[surface],3);
     need(`${name} ${mode} today number`,line,c['--kptu-surface'],4.5);
+    // UI-오늘네모: 오늘을 고르면 옅은 바탕(--ds-select-bg = --kptu-primary-soft) 위 오늘 숫자.
+    need(`${name} ${mode} today number on selected`,line,c['--kptu-primary-soft'],4.5);
   }
 });
 test('선택 표시 규칙: 고른 상태·오늘 표시는 주 색으로 꽉 칠하지 않는다(app의 모든 CSS)',()=>{
@@ -240,7 +244,7 @@ test('선택 표시 규칙: 고른 상태·오늘 표시는 주 색으로 꽉 �
       if(STATE.test(selector)&&FILL.test(m[2])&&!/\.sr-stage\.is-current|::before/.test(selector))bad.push(file+': '+selector.slice(0,80));
     }
   }
-  assert.deepEqual(bad,[],'use --ds-select-bg + --ds-select-line (or --kptu-shadow-today for today)');
+  assert.deepEqual(bad,[],'use --ds-select-bg + --ds-select-line (today: .ds-today frame)');
 });
 test('선택 표시 규칙: 색별 조정(레몬은 버터·겨자, 빨강은 벽돌색, 코랄은 주 버튼만 살짝 낮춤)',()=>{
   assert.equal(light('lemon')['--kptu-primary'],'#e3c25a');assert.equal(light('lemon')['--kptu-bg'],'#fbf8ec');
@@ -261,7 +265,7 @@ test('오늘 표시 토큰: 칸 둘레 선은 진한 강조 글자색, 모든 �
   for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]])
     for(const surface of ['--kptu-surface','--kptu-surface-subtle','--kptu-bg'])need(`${name} ${mode} today frame on ${surface}`,c['--kptu-primary-ink'],c[surface],3);
 });
-test('오늘 표시 규칙: 오늘 모양(선·동그라미·바탕)은 ui-standard.css 공용 규칙 한 곳에서만 그린다',()=>{
+test('오늘 표시 규칙: 오늘 모양(네모 선)·고른 날(옅은 바탕)은 ui-standard.css 공용 규칙 한 곳에서만 그린다',()=>{
   const TODAY=/\.ds-today(?![-\w])|\.ds-today-num|\.today\b|\.cwv-today|\.clv-today|\.rv-now|\[aria-current="date"\]/;
   const LOOK=/(^|;|\s)(box-shadow|background(-color)?|border(-[a-z]+)*|outline)\s*:/;
   const bad=[];
@@ -275,7 +279,24 @@ test('오늘 표시 규칙: 오늘 모양(선·동그라미·바탕)은 ui-stand
   assert.deepEqual(bad,[],'오늘 표시는 .ds-today/.ds-today-num 공용 규칙(ui-standard.css)만 쓴다');
   const shared=readFileSync('app/ui-standard.css','utf8');
   assert.match(shared,/#appView \.ds-today::before\{[^}]*border:var\(--ds-today-line-width\) solid var\(--ds-today-line\)/);
-  assert.match(shared,/#appView \.ds-today \.ds-today-num\{[^}]*box-shadow:var\(--kptu-shadow-today\)/);
+  // UI-오늘네모(명진 2026-10-30): 오늘 숫자는 동그라미 없이 글자색만, 고른 날은 옅은 바탕(.ds-day-sel) 하나.
+  const num=shared.match(/#appView \.ds-today \.ds-today-num\{([^}]*)\}/)[1];
+  assert.match(num,/box-shadow:none/);assert.match(num,/color:var\(--ds-today-ink\)/);assert.doesNotMatch(num,/border-radius|border:/);
+  const photo=shared.match(/#appView \.ds-today:has\(img\) \.ds-today-num\{([^}]*)\}/)[1];
+  assert.match(photo,/box-shadow:none/);assert.match(photo,/background:var\(--ds-photo-scrim\)/);
+  assert.match(shared,/\.ds-day-sel:not\(#ds-none\)\{ background:var\(--ds-select-bg\); \}/);
+  // 고른 날 모양은 공용 규칙만: 화면 CSS에서 날짜 칸의 고른 상태(aria-pressed·.rv-sel·.ds-day-sel)에 바탕·테두리·그림자를 따로 주지 않는다.
+  const DAY=/\.(journal-date|diary-cell|rv-cell|rv-num|cal-cell|cwv-day|photos-cal-cell)[^,]*\[aria-pressed="true"\]|\.rv-sel\b|\.ds-day-sel\b/;
+  const badSel=[];
+  for(const file of readdirSync('app').filter(name=>name.endsWith('.css')&&name!=='ui-standard.css')){
+    const text=readFileSync('app/'+file,'utf8').replace(/\/\*[\s\S]*?\*\//g,'');
+    for(const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)){
+      const selector=m[1].trim().replace(/:not\([^)]*\)/g,'');
+      if(DAY.test(selector)&&LOOK.test(m[2]))badSel.push(file+': '+selector.slice(0,80));
+    }
+  }
+  assert.deepEqual(badSel,[],'고른 날 표시는 .ds-day-sel 공용 규칙(ui-standard.css)만 쓴다');
+  for(const file of ['journal.js','diary.js','report-views.js'])assert.ok(readFileSync('app/'+file,'utf8').includes('ds-day-sel'),file+': 고른 날 .ds-day-sel');
   // 오늘을 표시하는 달력은 모두 공용 클래스를 붙인다(칸 + 날짜 숫자).
   for(const file of ['calendar-month-view.js','calendar-week-view.js','diary.js','journal.js','report-views.js','photos.js']){
     const js=readFileSync('app/'+file,'utf8');
