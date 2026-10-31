@@ -55,6 +55,8 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   if (d.missing) { const p = el('p', 'journal-muted', TEXT.missing); p.dataset.journalDiscussMissing = ''; slot.replaceChildren(p); return; }
   if (d.failed || !d.editable) { const p = el('p', 'wait-fail journal-failed', TEXT.failed); slot.replaceChildren(p); return; }
   const rows = d.rows, busy = ui.saving;
+  // 다시 그려도(조직 이름을 다 읽은 뒤 등) 고치던 칸의 초점은 그대로.
+  const was = doc.activeElement, keepField = slot.contains(was) ? was?.dataset?.journalDiscussField : '';
 
   const table = el('table', 'journal-weekly-table journal-exec-table journal-discuss-table'); table.dataset.journalDiscussTable = '';
   table.innerHTML = '<thead><tr><th scope="col">안건</th><th scope="col">설명</th><th scope="col">관련 조직</th><th scope="col" class="journal-exec-tools-head" aria-label="고치기"></th></tr></thead>';
@@ -88,6 +90,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     onDrop:({id, index}) => save(list => movedDiscussRow(list, id, index), '순서를 바꿨어요.'),
     onStep:(id, dir) => { const at = rows.findIndex(r => r.id === id); if (at >= 0) save(list => movedDiscussRow(list, id, Math.max(0, at + dir)), '순서를 바꿨어요.', `tr[data-reorder-id="${id}"] [data-reorder-handle]`); }});
   if (ui.focus) { slot.querySelector(ui.focus)?.focus(); ui.focus = ''; }
+  else if (keepField) slot.querySelector(`[data-journal-discuss-field="${keepField}"]`)?.focus();
   return;
 
   function editRow(row) {

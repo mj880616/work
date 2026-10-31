@@ -479,13 +479,21 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (refreshBox) hwpx?.refresh();
 }
 // [주간 정리]·상자 어느 쪽이 그 주 임시저장(2)·3) 줄)을 쓴 뒤: 재료를 바꾸고 두 자리를 다시 그리고, 열린 상자도 서버 판과 맞춘다.
-function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx.sync(week); }; }
+function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); paintBoxRequests(null, {force:true}); hwpx.sync(week); }; }
 // S46-27: 한글 파일 상자 안 '1. 요청사항' 자리(journal-hwpx.js가 자리만 두고, 그리기는 이 화면 — [주간 정리]와 같은 함수·같은 상태).
-function paintBoxRequests(model) {
+// [주간 정리]를 다시 그릴 때마다 상자 표까지 갈아 끼우지 않는다: 세 칸 자료·고치기 상태가 그대로면 둔다(입력 중 초점·누르는 버튼이 바뀌지 않게).
+// 표 안 동작(줄 추가·취소·저장 결과)은 각 부품이 force로 다시 그린다.
+const boxSigs = new WeakMap();
+function paintBoxRequests(model, {force = !model} = {}) {
   const slot = $('[data-journal-hwpx] [data-hwpx-requests-slot]');
   if (!slot || mode !== 'week') return;
   const week = start;
   if (!model) { model = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}); model.picks = picksModel(start); }
+  const flags = p => [!!p?.loading, !!p?.missing, !!p?.failed?.length || p?.failed === true, !!p?.editable];
+  const cal = model.calendar;
+  const sig = JSON.stringify([week, {...execUi, draft:null}, flags(model.requests), model.requests?.items, flags(model.hq), model.hq?.rows, !!cal?.loading, (cal?.allRows ?? cal?.rows ?? []).length, flags(model.discuss), model.discuss?.rows]);
+  if (!force && boxSigs.get(slot) === sig && slot.querySelector('[data-hwpx-req="discuss"]')) return;
+  boxSigs.set(slot, sig);
   const part = key => { let box = slot.querySelector(`[data-hwpx-req="${key}"]`); if (!box) { box = document.createElement('section'); box.className = 'journal-weekly-part'; box.dataset.hwpxReq = key; const h = document.createElement('h6'); h.className = 'journal-weekly-sub'; h.textContent = REQUEST_TITLES[key]; const body = document.createElement('div'); body.dataset.hwpxReqBody = ''; box.append(h, body); slot.append(box); } return box.querySelector('[data-hwpx-req-body]'); };
   const ask = part('ask'), hq = part('hq'), discuss = part('discuss');
   ask.replaceChildren(...execRequestsPart(document, model, execUi, 'box'));
