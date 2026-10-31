@@ -6,7 +6,7 @@
 //   고르지 않은 사진은 어디에도 올리지 않고, 목록·그림·고른 것은 이 창 메모리에만 있다(기기·서버 저장 없음).
 // - 출처는 사진 메뉴 출처 켜기/끄기(view_prefs.photo_sources)와 끈 폰 폴더(view_prefs.phone_folders_off)를 따른다. 쓸 출처가 없으면 줄을 그리지 않는다.
 import {phonePhotos} from './phone-photos.js';
-import {odStatusCached, odPhotos, odPhotoElement, odMediaUrl, odPhotoBlob, odErrorText} from './diary-onedrive.js';
+import {odStatusCached, odStatusIfWarm, odPhotos, odPhotoElement, odMediaUrl, odPhotoBlob, odErrorText} from './diary-onedrive.js';
 import {parseSources, phoneErrorText} from './photo-sources-model.mjs';
 import {parsePhoneOff} from './phone-folders-model.mjs';
 import {viewPrefs} from './view-prefs.js';
@@ -18,12 +18,13 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&l
 const PHONE_READ = 200;
 
 // 쓸 수 있는 출처: 폰(앱 안·사진 접근 허용·출처 켜짐), 원드라이브(연결·폴더·출처 켜짐).
-export async function timePhotoSources({rt = globalThis.window?.KPTURuntime, phone = phonePhotos()} = {}) {
+// quiet: 서버에 묻지 않는다(원드라이브는 받아 둔 연결 상태만 본다). 줄을 보일지 정할 때 쓰고, [골라 붙이기]를 누르면 다시 확인한다.
+export async function timePhotoSources({rt = globalThis.window?.KPTURuntime, phone = phonePhotos(), quiet = false} = {}) {
   const on = parseSources(viewPrefs.get('photo_sources'));
   const out = {phone:false, onedrive:false};
   const jobs = [];
   if (on.phone && phone.usable) jobs.push(phone.hello().then(s => { out.phone = s.access !== 'none' && !!s.key; }, () => {}));
-  if (on.onedrive && rt) jobs.push(Promise.resolve(odStatusCached(rt)).then(s => { out.onedrive = !!(s?.connected && s?.folder); }, () => {}));
+  if (on.onedrive && rt) jobs.push(Promise.resolve(quiet ? odStatusIfWarm(rt) : odStatusCached(rt)).then(s => { out.onedrive = !!(s?.connected && s?.folder); }, () => {}));
   await Promise.all(jobs);
   return out;
 }
@@ -63,8 +64,8 @@ async function odFile(rt, item) {
 }
 
 // host 안에 한 줄을 그린다. at() = 보고 시각('YYYY-MM-DDTHH:MM' 서울 또는 ISO), onPick(files) = 붙이기(Promise 가능),
-// busy() = 저장·올리는 중이면 참, allowed() = 지금 이 줄을 보여도 되는가(고칠 수 있는 보고). 돌려준 함수로 다시 맞춘다(창을 다시 열 때 접기·고른 것 비우기).
-export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed = () => true, rt = globalThis.window?.KPTURuntime, phone = phonePhotos()} = {}) {
+// busy() = 저장·올리는 중이면 참, allowed() = 지금 이 줄을 보여도 되는가(고칠 수 있는 보고), quiet = 창을 열 때 서버에 묻지 않기. 돌려준 함수로 다시 맞춘다(창을 다시 열 때 접기·고른 것 비우기).
+export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed = () => true, quiet = false, rt = globalThis.window?.KPTURuntime, phone = phonePhotos()} = {}) {
   if (!host) return () => {};
   let run = 0, items = [], picked = new Set(), open = false, src = {phone:false, onedrive:false}, attaching = false;
   host.classList.add('tp');
@@ -106,6 +107,9 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
     $('[data-tp-strip]').replaceChildren(); paintFoot();
     if (!Number.isFinite(atMs)) { $('[data-tp-head]').textContent = '그 시각 사진'; note('일시를 먼저 넣어 주세요'); return; }
     note(''); $('[data-tp-strip]').innerHTML = waitInlineHtml();
+    // 누른 때 출처를 다시 확인한다(조용히 정한 줄이면 원드라이브 연결을 이때 서버에 묻는다).
+    try { src = await timePhotoSources({rt, phone}); } catch { /* 이전 값 그대로 */ }
+    if (mine !== run || !open) return;
     const win = nearWindow(atMs), fails = [];
     const [ph, od] = await Promise.all([
       src.phone ? phoneNear(phone, win).catch(e => { fails.push(phoneErrorText(e)); return []; }) : [],
@@ -155,7 +159,7 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
   async function reset() {
     const mine = ++run;
     setOpen(false); note('');
-    try { src = await timePhotoSources({rt, phone}); } catch { src = {phone:false, onedrive:false}; }
+    try { src = await timePhotoSources({rt, phone, quiet}); } catch { src = {phone:false, onedrive:false}; }
     if (mine !== run) return;
     host.hidden = !allowed() || !(src.phone || src.onedrive);
   }

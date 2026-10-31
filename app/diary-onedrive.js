@@ -276,6 +276,12 @@ export function odStatusCached(rt, {force = false, now = Date.now()} = {}) {
   flight.then(st => { if (!(st?.configured && st.connected && st.folder)) drop(); }, drop);
   return flight;
 }
+// 받아 둔 연결 상태만 본다(서버에 묻지 않음): 30분 안에 받아 둔 '연결·폴더 있음'(또는 받는 중)이면 그 Promise, 없으면 null.
+// 창을 열기만 해서는 서버 요청을 보내지 않아야 하는 곳(새 사업 보고 쓰기 창의 '그 시각 사진' 줄)이 쓴다.
+export function odStatusIfWarm(rt, {now = Date.now()} = {}) {
+  const owner = warmFor(rt);
+  return owner && warm.status && now - warm.statusAt < WARM.statusMs ? warm.status : null;
+}
 // 받아 둔 이번 달 목록을 한 번만 꺼낸다(10분 넘었거나 없으면 null → 부르는 쪽이 서버에 묻는다). 미리 받기가 실패했으면 서버에 다시 묻는다.
 export function odTakeWarmMonth(rt, year, month, {now = Date.now()} = {}) {
   const owner = warmFor(rt), key = monthParam(year, month), hit = warm.months.get(key);

@@ -272,7 +272,7 @@ function renderMeetingSelectedFiles(){
 }
 // S46-20 사진 정리 ⑥(명진 11/01 01:04): 사진 줄 안 '그 시각 사진 [골라 붙이기]'(time-photos.js). 고른 사진만 위 사진 파일과 같은 길(저장할 때 차례로 올림, Drive 첨부).
 let meetingTimePhotos=null,meetingTimePhotosLoading=false;
-function resetMeetingTimePhotos(){const host=$('#meetingTimePhotos');if(!host)return;if(meetingTimePhotos){void meetingTimePhotos();return}if(meetingTimePhotosLoading)return;meetingTimePhotosLoading=true;import('./time-photos.js').then(m=>{meetingTimePhotos=m.mountTimePhotos(host,{at:()=>$('#meetingAt')?.value||'',onPick:files=>addMeetingFiles(files),busy:()=>meetingSavePending})},e=>console.warn('time photos load failed',e)).finally(()=>{meetingTimePhotosLoading=false})}
+function resetMeetingTimePhotos(){const host=$('#meetingTimePhotos');if(!host)return;if(meetingTimePhotos){void meetingTimePhotos();return}if(meetingTimePhotosLoading)return;meetingTimePhotosLoading=true;import('./time-photos.js').then(m=>{meetingTimePhotos=m.mountTimePhotos(host,{at:()=>$('#meetingAt')?.value||'',onPick:files=>addMeetingFiles(files),busy:()=>meetingSavePending,quiet:true})},e=>console.warn('time photos load failed',e)).finally(()=>{meetingTimePhotosLoading=false})}
 function addMeetingFiles(files){if(meetingSavePending)return;const added=Array.from(files||[]).map(file=>({file,kind:'pending'}));if(!added.length)return;meetingUploadEntries=[...meetingUploadEntries,...added];renderMeetingSelectedFiles()}
 function selectMeetingFiles(){const input=$('#meetingFiles'),files=Array.from(input.files||[]);input.value='';addMeetingFiles(files)}
 function selectMeetingPhotos(){const input=$('#meetingPhotoFiles'),files=Array.from(input.files||[]).filter(isPhotoFile);input.value='';addMeetingFiles(files)}
