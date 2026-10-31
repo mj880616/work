@@ -184,7 +184,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-select-bar button { min-height:30px; padding:0 8px; font-size:13px; }
 .nx-select-bar .nx-sel-close { margin-left:auto; }
 .nx-body { display:block; }
-[data-note-list].nx-wide .nx-body { display:grid; grid-template-columns:minmax(180px, 30%) minmax(0, 1fr); gap:10px; align-items:start; }
+/* UI-칸폭끌기전수: 나무 | 노트 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 30:70). */
+[data-note-list].nx-wide .nx-body { --ds-split-list:30fr; --ds-split-detail:70fr; --ds-split-list-min:180px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:10px; align-items:start; }
 #appView #basketView .nx-row.nx-note { padding-left:calc(var(--nx-indent, 0) * 14px); }
 .nx-outside .nx-name { color:var(--kptu-muted); }
 #appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:36px; }
@@ -337,7 +338,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--kptu-primary-soft); border-color:transparent; color:var(--kptu-primary-ink,var(--kptu-primary)); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }
 .nbw-body { display:block; }
-.nbw-body.nbw-split { display:grid; grid-template-columns:170px minmax(0, 1fr); gap:8px; align-items:start; }
+/* UI-칸폭끌기전수: 노트 목록 | 보드 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 16:84·목록 최소 150px). */
+.nbw-body.nbw-split { --ds-split-list:16fr; --ds-split-detail:84fr; --ds-split-list-min:150px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:8px; align-items:start; }
 .nbb-side { height:calc(100dvh - 186px); min-height:320px; overflow:auto; box-sizing:border-box; padding:4px 2px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); font-size:12.5px; }
 .nbb-side-head { padding:2px 6px 4px; font-size:11px; color:var(--kptu-faint,var(--kptu-muted)); }
 :is(#appView #basketView .nbb-side, .nbb-pick) :is(.nbb-folder,.nbb-note) { display:flex; align-items:center; gap:4px; width:100%; min-width:0; min-height:0; height:26px; box-sizing:border-box; margin:0; padding:0 6px 0 calc(6px + var(--nx-indent, 0) * 12px); border:0; border-radius:6px; background:transparent; box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:12.5px; line-height:1; text-align:left; cursor:pointer; }

@@ -4,12 +4,12 @@ import {createViewPrefs,parsePrefs,applyChanges,validValue,THEMES} from '../app/
 
 // SET-보기선택서버저장: 서버 저장소(프로필 view_prefs)·기기 값 옮기기·모아 쓰기·실패 시 기본값.
 const OWNER='u1';
-function env({server=null,status=0,legacy={},patchFail=false,oldCheck=false}={}){
+function env({server=null,status=0,legacy={},patchFail=false,oldCheck=false,refuse=null}={}){
   const calls=[];let row=server;const store=new Map(Object.entries(legacy));
   const rt={context:{read:()=>({user:{id:OWNER}})},ownerCache:{prefix:'kptu_owner_cache:'},
     api:async(path,opts={})=>{calls.push({path,method:opts.method||'GET',body:opts.body});
       if(status){const e=new Error('x');e.status=status;throw e}
-      if((opts.method||'GET')==='PATCH'){if(oldCheck&&!['olive','navy','terracotta','sand','mugwort','lavender','ink','rose','teal','mustard',undefined].includes(opts.body.view_prefs?.theme)){const e=new Error('check');e.status=400;throw e}if(patchFail){const e=new Error('x');e.status=500;throw e}row=opts.body.view_prefs;return [{user_id:OWNER}]}
+      if((opts.method||'GET')==='PATCH'){if(refuse?.(opts.body.view_prefs)){const e=new Error('check');e.status=400;throw e}if(oldCheck&&!['olive','navy','terracotta','sand','mugwort','lavender','ink','rose','teal','mustard',undefined].includes(opts.body.view_prefs?.theme)){const e=new Error('check');e.status=400;throw e}if(patchFail){const e=new Error('x');e.status=500;throw e}row=opts.body.view_prefs;return [{user_id:OWNER}]}
       return [{view_prefs:row}]}};
   const timers=[];
   const api=createViewPrefs({runtime:()=>rt,storage:()=>({getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)}),
@@ -123,4 +123,27 @@ test('split ratio accepts every screen name of its own and moves only the origin
   const e=env({server:{},legacy:{'kptu-split-ratio:telegram':'0.3','kptu-split-ratio:tasks':'0.4'}});
   assert.equal(await e.api.load(),'ok');assert.equal(e.api.getSplit('tasks'),0.4);assert.equal(e.api.getSplit('telegram'),undefined);
   assert.equal(e.api.setSplit('calls',0.45),true);assert.equal(e.api.getSplit('calls'),0.45);
+});
+
+// UI-칸폭끌기전수: 사진 폴더·아스날·노트 폴더·노트 보드도 자기 이름. DB가 새 이름을 아직 모르면(400) 그 칸 폭만 되돌리고 다른 칸은 저장한다.
+test('the four new split screens are accepted, and a server that does not know them yet only drops that width',async()=>{
+  for(const name of ['photos','arsenal','notes','noteboard'])assert.equal(validValue('split_ratio',{[name]:0.3}),true,name);
+  assert.equal(validValue('split_ratio',{library:0.3}),false);
+  const heard=[];const had=globalThis.window;
+  globalThis.window={dispatchEvent:event=>{heard.push([event.type,event.detail]);return true}};
+  try{
+    const NEW=['photos','arsenal','notes','noteboard'];
+    const e=env({server:{split_ratio:{tasks:0.4}},refuse:v=>NEW.some(n=>v?.split_ratio&&n in v.split_ratio)});await e.api.load();heard.length=0;
+    assert.equal(e.api.setSplit('photos',0.3),true);e.api.set('nav_collapsed',true);
+    assert.equal(e.api.getSplit('photos'),0.3,'the screen keeps the dragged width first');
+    await e.api.flush();
+    assert.equal(e.api.getSplit('photos'),undefined,'back to the default width');
+    assert.deepEqual(heard.find(h=>h[0]==='kptu:view-prefs-rejected')?.[1],{paths:['split_ratio.photos']});
+    assert.deepEqual(e.row,{split_ratio:{tasks:0.4},nav_collapsed:true},'the other change and old widths were still saved');
+    assert.equal(e.api.status(),'ok','later saves still work');
+    e.api.setSplit('tasks',0.35);await e.api.flush();assert.deepEqual(e.row.split_ratio,{tasks:0.35});
+    const ok=env({server:{}});await ok.api.load();
+    for(const name of NEW)ok.api.setSplit(name,0.25);await ok.api.flush();
+    assert.deepEqual(ok.row,{split_ratio:{photos:0.25,arsenal:0.25,notes:0.25,noteboard:0.25}});
+  }finally{if(had===undefined)delete globalThis.window;else globalThis.window=had}
 });

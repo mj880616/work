@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
+import { checkSplit } from './helpers/split-check.mjs';
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더](원드라이브 폴더 나무·폴더 안 사진·여러 장 옮기기·끌어 놓기·되돌리기·우클릭/⋯ 메뉴·새 폴더)와
 // [앨범](#태그: 새 앨범에 넣기·앨범 카드·앨범 사진·앨범에서 빼기). 지어낸 Supabase: onedrive-photos(Edge)·app_photo_tags·app_photo_tag_items·app_diary_stars.
 // 폭: 폰 412(한 화면씩)·폴드 펼침 884(한 화면씩)·PC 1440(왼쪽 나무 + 오른쪽 격자).
@@ -241,3 +242,18 @@ for (const width of [412, 1440]) {
     expect(f.errors).toEqual([]);
   });
 }
+
+// UI-칸폭끌기전수(요청함 10/30 10:29): PC [폴더]의 폴더 나무 | 사진 사이 경계를 끌어 폭을 바꾸고, 폭은 서버(view_prefs.split_ratio.photos)에 기억한다.
+test('사진 메뉴 ② 폴더 PC 1440: 나무 | 사진 경계 끌기·키보드·새로고침 유지·두 번 눌러 기본', async ({ page }) => {
+  const server = await installViewPrefsServer(page);
+  const f = await fixture(page, 1440);
+  const open = async () => {
+    await openPhotos(page);
+    await root(page).locator('[data-photos-tab="folders"]').click();
+    await expect(root(page).locator('[data-photos-fx-tree]')).toBeVisible();
+    await expect.poll(() => ids(page)).toEqual(['A1', 'A2']);
+  };
+  await open();
+  await checkSplit(page, { container: '#photosRoot .photos-fx.is-wide', left: ':scope>.photos-fx-tree', right: ':scope>.photos-fx-pane', name: 'photos', share: 0.24, server, reopen: open });
+  expect(f.errors).toEqual([]);
+});

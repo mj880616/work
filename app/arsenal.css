@@ -10,7 +10,8 @@
 #appView #arsenalView .ars-body{ display:grid; grid-template-columns:minmax(0,1fr); gap:10px; min-width:0; }
 #appView #arsenalView .ars[data-open="true"] .ars-list,#appView #arsenalView .ars:not([data-open="true"]) .ars-detail{ display:none; }
 @media(min-width:761px){
-  #appView #arsenalView .ars-body{ grid-template-columns:minmax(0,1fr) minmax(0,2fr); align-items:start; }
+  /* UI-칸폭끌기전수: 목록 | 리뷰 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 1:2). */
+  #appView #arsenalView .ars-body{ grid-template-columns:minmax(0,var(--ds-split-list)) minmax(0,var(--ds-split-detail)); align-items:start; }
   #appView #arsenalView .ars[data-open="true"] .ars-list{ display:block; }
   /* UI-칸안스크롤하나로(시안 A): 목록 칸에 따로 스크롤을 두지 않는다. 목록은 화면과 같이 내려가고, 리뷰 칸(.ars-detail)은
      follow-pane.js(.kptu-follow-pane, desktop-ui.css)가 위 줄 아래에 붙여 따라오게 한다. */

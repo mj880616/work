@@ -94,7 +94,8 @@ test('화면 연결: 보드 칸 줄·PC 끌어 놓기·폰 고르기·서버 저
   assert.match(js, /data-nbb-rename>이름 바꾸기</); assert.match(js, /data-nbb-delete>보드 지우기</);
   assert.match(notes, /\['data-nbb-detach', '보드에서 빼기'\]/); assert.match(board, /data-nb-remove=/);
   assert.match(notes, /import \{ createNoteBoards \} from '\.\/note-boards\.js'/);
-  assert.match(css, /grid-template-columns:170px minmax\(0, 1fr\)/, '왼쪽 목록 170px');
+  // UI-칸폭끌기전수: 왼쪽 목록 | 보드 경계를 끌어 폭 조절(공용 split-resize.js, 기본 16:84·목록 최소 150px, 서버 이름 noteboard).
+  assert.match(css, /\.nbw-body\.nbw-split \{ --ds-split-list:16fr; --ds-split-detail:84fr; --ds-split-list-min:150px; display:grid; grid-template-columns:minmax\(var\(--ds-split-list-min\), var\(--ds-split-list\)\) minmax\(0, var\(--ds-split-detail\)\)/, '왼쪽 목록 끌어 폭 조절');
   assert.doesNotMatch(js + notes, /\?v=/);
   const deviceStore = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));
   for (const src of [js, board, read('app/note-boards-model.mjs')]) assert.doesNotMatch(src, deviceStore);
