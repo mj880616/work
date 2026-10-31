@@ -35,7 +35,7 @@ concurrency:
 jobs:
   # Cheap checks first, with read-only access, so a wrongly named tag fails before anyone is asked to approve.
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       tag: ${{ steps.check.outputs.tag }}
