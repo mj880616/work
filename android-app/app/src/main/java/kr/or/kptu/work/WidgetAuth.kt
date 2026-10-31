@@ -1,5 +1,6 @@
 package kr.or.kptu.work
 
+import java.io.File
 import java.io.IOException
 import java.net.URLEncoder
 
@@ -44,6 +45,27 @@ object WidgetRules {
     private const val WORKSPACE_PREFIX = "$SUPABASE/rest/v1/app_workspace_members?user_id=eq."
     private const val WORKSPACE_SUFFIX = "&select=workspace_id&limit=1"
 
+    /**
+     * APP-위젯빠른쓰기 [사진] 뒤에서 올리기: 정리함 첨부 올리기(웹 basket-upload.js uploadBatch와 같은 길). 물음표 없는 정확한 주소에
+     * multipart(파일 하나 + 이어 붙일 때 note_id)만 보낸다. 같은 주소의 JSON(글자 읽기)·action(지우기·사진 보기·정리)은 보내지 않는다.
+     */
+    const val BASKET_FILES = "$SUPABASE/functions/v1/basket-files"
+
+    /**
+     * multipart 모양 검사: basket-files POST에만, 본문 글 없이, 'file' 파일 칸 정확히 하나 + 선택 'note_id'(uuid) 하나.
+     * 그 밖의 칸·다른 주소의 multipart·basket-files의 JSON 본문은 모두 거절한다.
+     */
+    fun allowedParts(method: String, url: String, body: String?, parts: List<WidgetPart>?): Boolean {
+        if (parts == null) return url != BASKET_FILES
+        if (method != "POST" || url != BASKET_FILES || body != null) return false
+        val files = parts.filter { it.name == "file" }
+        val notes = parts.filter { it.name == "note_id" }
+        if (files.size != 1 || notes.size > 1 || files.size + notes.size != parts.size) return false
+        val f = files[0]
+        if (f.file == null || f.value != null || f.fileName.isNullOrEmpty()) return false
+        return notes.all { it.file == null && isUserId(it.value) }
+    }
+
     fun workspaceUrl(userId: String): String {
         require(isUserId(userId))
         return WORKSPACE_PREFIX + userId + WORKSPACE_SUFFIX
@@ -76,7 +98,7 @@ object WidgetRules {
 
     /** 위젯이 보내도 되는 요청인지. 이 밖의 주소·방식은 보내지 않는다. */
     fun allowed(method: String, url: String): Boolean = when (method) {
-        "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT || url == NOTES || url == TASK_CREATE
+        "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT || url == NOTES || url == TASK_CREATE || url == BASKET_FILES
         "GET" -> url == TASKS || url == CANDIDATES || url == ARSENAL || isCalendarUrl(url) || isWorkspaceUrl(url)
         else -> false
     }
@@ -403,6 +425,49 @@ class WidgetSession(
         }
     }
 
+    // ── [사진] 뒤에서 올리기(APP-위젯빠른쓰기 남은 일 1) ──
+
+    /** 사진 한 장 올리기 결과: 저장됨(정리함 글 번호), 로그인 풀림, 실패(이유 한 줄·다시 시도 가능 여부·이어 붙일 글이 사라졌는지). */
+    sealed class Photo {
+        data class Saved(val noteId: String) : Photo()
+        object SignedOut : Photo()
+        data class Failed(val reason: String, val retry: Boolean, val forgetNote: Boolean = false) : Photo()
+    }
+
+    /**
+     * 사진 한 장을 정리함에 올린다(basket-files multipart). noteId가 있으면 그 정리함 글에 이어 붙인다(여러 장을 한 업데이트로).
+     * 접근 토큰은 잠금 안에서 받고, 올리기(몇 초)는 잠금 밖에서 해 위젯 갱신을 막지 않는다. 401이면 토큰을 버리고 한 번만 다시.
+     * 서버가 소유자·작업공간을 스스로 정한다(요청에 작업공간 id 없음).
+     */
+    fun uploadPhoto(file: File, name: String, type: String, noteId: String?): Photo {
+        val parts = QuickPhotoRules.parts(file, name, type, noteId)
+        for (attempt in 0..1) {
+            val token = when (val t = accessToken()) {
+                is Outcome.Ok -> t.value
+                is Outcome.SignedOut -> return Photo.SignedOut
+                is Outcome.Failed -> return Photo.Failed(QuickPhotoRules.NETWORK, true)
+            }
+            val headers = mapOf("Authorization" to "Bearer $token", "apikey" to WidgetRules.PUBLIC_KEY)
+            val res = try {
+                send(WidgetRequest("POST", WidgetRules.BASKET_FILES, headers, null, parts))
+            } catch (_: IOException) {
+                return Photo.Failed(QuickPhotoRules.NETWORK, true)
+            }
+            if (res.status == 401) {
+                synchronized(lock) {
+                    if (access == token) {
+                        access = null
+                        accessUntil = 0L
+                    }
+                }
+                if (attempt == 0) continue
+                return Photo.Failed(QuickPhotoRules.SIGNED_OUT, true)
+            }
+            return QuickPhotoRules.result(res.status, MiniJson.parse(res.body), noteId)
+        }
+        return Photo.Failed(QuickPhotoRules.SIGNED_OUT, true)
+    }
+
     // ── 위젯 로그아웃(설계 5절 폐기 1) ──
 
     /** 이 세션만 서버에서 끝내고(scope=local), 성공·실패와 관계없이 폰의 열쇠를 지운다. */
@@ -433,6 +498,7 @@ class WidgetSession(
 
     private fun send(request: WidgetRequest): WidgetResponse {
         if (!WidgetRules.allowed(request.method, request.url)) throw IOException("blocked")
+        if (!WidgetRules.allowedParts(request.method, request.url, request.body, request.parts)) throw IOException("blocked")
         return http.send(request)
     }
 

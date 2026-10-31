@@ -18,6 +18,7 @@ import android.widget.LinearLayout
 import android.widget.RemoteViews
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 
 /**
  * WIDGET-여러개 ①: 서버를 읽지 않는 위젯. 칸을 누르면 앱 화면만 연다(서버 요청 없음, WidgetRules.allowed 그대로).
@@ -190,7 +191,8 @@ class OneWidgetConfigActivity : Activity() {
 }
 
 /**
- * 위젯 [사진] 칸: 사진 고르기(여러 장) 또는 카메라 → 공유 받기와 같은 길(ShareIntake, SHARE-바로넣기)로 정리함에 바로 넣는다.
+ * 위젯 [사진] 칸: 사진 고르기(여러 장) 또는 카메라 → 정리함에 넣는다.
+ * 위젯 로그인이 있으면 창을 바로 닫고 뒤에서 올린다(QuickPhoto, APP-위젯빠른쓰기 남은 일 1). 없으면 공유 받기와 같은 길(ShareIntake, SHARE-바로넣기).
  * 내보내지 않아 이 앱 안에서만 열린다. 저장소 권한은 쓰지 않는다(고른 사진의 임시 읽기 권한만).
  * 카메라 사진은 카메라 앱이 사진첩(Pictures/웹2)에 저장한다. 찍지 않고 닫으면 미리 만든 빈 자리를 지운다.
  */
@@ -245,18 +247,40 @@ class PhotoPickActivity : Activity() {
         if (picked.isEmpty() && resultCode == RESULT_OK && camera != null && hasBytes(camera)) picked.add(camera)
         else if (camera != null && camera !in picked) dropShot()
         val content = picked.filter { "content".equals(it.scheme, ignoreCase = true) }
-        if (content.isNotEmpty()) {
-            val send = Intent(this, MainActivity::class.java)
-                .setAction(Intent.ACTION_SEND_MULTIPLE)
-                .setType("image/*")
-                .putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(content))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            val clip = ClipData.newRawUri("", content[0])
-            content.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
-            send.clipData = clip
-            startActivity(send)
+        if (content.isNotEmpty() && WidgetGuard.get { WidgetHub.session(applicationContext).signedIn() } == true) {
+            // APP-위젯빠른쓰기 남은 일 1: 위젯 로그인이 있으면 웹2를 띄우지 않고 뒤에서 올린다(QuickPhoto).
+            // 고른 사진의 임시 읽기 권한은 이 창이 살아 있을 때만 있으므로, 앱 전용 임시 폴더로 복사한 뒤 바로 닫는다.
+            val app = applicationContext
+            val resolver = contentResolver
+            Thread {
+                val staged = WidgetGuard.get { QuickPhoto.stage(app, resolver, content) }
+                runOnUiThread {
+                    if (staged != null) {
+                        WidgetGuard.run { QuickPhoto.start(app, staged.batch) }
+                        Toast.makeText(app, QuickPhotoRules.staged(staged.count, staged.skipped), Toast.LENGTH_SHORT).show()
+                    } else {
+                        shareToWeb(content)
+                    }
+                    finish()
+                }
+            }.start()
+            return
         }
+        if (content.isNotEmpty()) shareToWeb(content)
         finish()
+    }
+
+    /** 위젯 로그인이 없거나 복사하지 못했으면 지금처럼 공유 받기 길(웹2 정리함 올리기, SHARE-바로넣기)로. */
+    private fun shareToWeb(content: List<Uri>) {
+        val send = Intent(this, MainActivity::class.java)
+            .setAction(Intent.ACTION_SEND_MULTIPLE)
+            .setType("image/*")
+            .putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(content))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val clip = ClipData.newRawUri("", content[0])
+        content.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
+        send.clipData = clip
+        startActivity(send)
     }
 
     private fun newShot(): Uri? = try {

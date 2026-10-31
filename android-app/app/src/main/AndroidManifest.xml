@@ -85,6 +85,10 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- APP-위젯빠른쓰기 남은 일 1: [사진] 뒤에서 올리기 실패 알림의 [다시 시도]·밀어 버리기(임시 파일 지움). 내보내지 않는다(이 앱 알림만). 권한 추가 없음. -->
+        <receiver
+            android:name=".QuickPhotoReceiver"
+            android:exported="false" />
         <!-- APP-위젯빠른쓰기: 위젯 [업데이트]·[할 일]·[노트]가 바로 여는 작은 입력 창(웹2를 띄우지 않음). 내보내지 않는다. 권한 추가 없음. -->
         <activity
             android:name=".QuickWriteActivity"

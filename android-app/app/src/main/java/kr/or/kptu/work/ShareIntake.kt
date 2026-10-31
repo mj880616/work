@@ -101,7 +101,7 @@ object ShareIntake {
         return out
     }
 
-    private fun meta(resolver: ContentResolver, uri: Uri, intentType: String?, index: Int): ShellRules.ShareMeta {
+    fun meta(resolver: ContentResolver, uri: Uri, intentType: String?, index: Int): ShellRules.ShareMeta {
         var name: String? = null
         var size = -1L
         try {
