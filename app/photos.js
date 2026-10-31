@@ -109,7 +109,7 @@ let gdAt = null, gdTrail = [], gdFFor = null, gdFItems = [], gdFLoading = null, 
 // PHOTO-폴더스위치: 끈 폰 폴더(view_prefs.phone_folders_off, 서버). 앱 0.4.1+만 스위치·바꾸기(phone.state().hide·ops). 새 폴더(사진을 옮겨 넣기 전)는 이 화면 메모리에만.
 let phoneOff = new Set(), pPending = [], manageAsked = false;
 const phone = phonePhotos();
-let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, syncing = false, syncAt = 0;
+let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, dayLayer = null, syncing = false, syncAt = 0;
 let trash = null, trashFailed = '', trashBusy = false;
 // [폴더]: tree(서버 folders-tree), at(보는 폴더 id), openSet(PC 나무에서 펼친 폴더, 화면 기억만), 그 폴더 사진 fItems(fFor = 어느 폴더 것인지).
 let tree = null, treeFailed = '', treeLoading = null, at = null, fFor = null, fItems = [], fNext = null, fEnded = false, fLoading = null, fFailed = '', folderLayer = null, busy = false;
@@ -2099,6 +2099,8 @@ function setTab(nextTab, {fromBack = false} = {}) {
   if (nextTab === tab) return;
   select.stop(); nameDone(null);
   if (!fromBack) closeSubLayers(); else { folderLayer = null; albumLayer = null; }
+  // [달력] → 날짜로 들어간 '그날 사진' 겹이 열린 채 다른 칩으로 가면 그 겹부터 닫는다(남은 기록 없이 [달력] 겹 위로).
+  if (dayLayer && !fromBack) { const l = dayLayer; dayLayer = null; l.close(); }
   tab = nextTab;
   window.KPTURouter?.setPlace?.('photos', tab === 'all' ? {} : {tab});
   // 뒤로가기 = 이전 칩: [달력]·[휴지통]은 라우터 겹 하나라 뒤로가면 [사진]으로 돌아온다.
@@ -2106,8 +2108,29 @@ function setTab(nextTab, {fromBack = false} = {}) {
   if (tab === 'all' && tabLayer && !fromBack) { const l = tabLayer; tabLayer = null; l.close(); }
   render();
 }
+// UI-뒤로가기겹규칙: [달력]에서 날짜를 누르면 [달력] 겹 위에 '그날 사진' 겹을 하나 더 쌓는다.
+// 뒤로가기(‹·폰 뒤로) = 그 겹만 닫고 같은 달·같은 스크롤 위치의 [달력]으로 돌아온다.
+function openDay(day) {
+  const from = {y:window.scrollY || 0};
+  select.stop(); nameDone(null);
+  tab = 'all';
+  dayLayer = window.KPTURouter.layer.open('photos-day', {reopen:() => { if (tab === 'calendar' && tabLayer && !dayLayer) openDay(day); }, close:() => {
+    dayLayer = null;
+    if (tab === 'calendar') return true;
+    select.stop(); nameDone(null); folderLayer = null; albumLayer = null;
+    tab = 'calendar';
+    window.KPTURouter?.setPlace?.('photos', {tab:'calendar'});
+    render();
+    requestAnimationFrame(() => window.scrollTo?.(0, from.y));
+    return true;
+  }}) || null;
+  window.KPTURouter?.setPlace?.('photos', {});
+  render();
+  jumpTo(day, dayCursor(day), dayHead(day));
+}
 function goDay(day) {
-  // [달력] 겹을 닫는 뒤로가기(popstate)가 스크롤을 되돌릴 수 있으므로, 그것이 끝난 뒤에 그날로 간다.
+  if (tab === 'calendar' && tabLayer && window.KPTURouter?.layer?.open) return openDay(day);
+  // 라우터 겹이 없을 때(겹 없이 [달력]을 연 경우)만: [사진]으로 바꾼 뒤 그날로 간다.
   const settled = tabLayer ? new Promise(ok => { const t = setTimeout(ok, 400); window.addEventListener('popstate', () => { clearTimeout(t); setTimeout(ok, 0); }, {once:true}); }) : Promise.resolve();
   setTab('all');
   settled.then(() => { if (tab === 'all') jumpTo(day, dayCursor(day), dayHead(day)); });
@@ -2254,7 +2277,7 @@ async function enter() {
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'photos') return;
   closePhotoStrip({fromBack:true, restore:false});
-  tabLayer = null; folderLayer = null; albumLayer = null; select.stop({fromBack:true}); settings.drop(); odHost.replaceChildren(); io?.disconnect(); nameDone(null);
+  tabLayer = null; dayLayer = null; folderLayer = null; albumLayer = null; select.stop({fromBack:true}); settings.drop(); odHost.replaceChildren(); io?.disconnect(); nameDone(null);
   if (batch) commitBatch();
 });
 window.addEventListener('kptu:session-changed', () => {
@@ -2267,7 +2290,7 @@ window.addEventListener('kptu:session-changed', () => {
   tidy.reset(); tidyOpen = false; tidyView = null;
   gd = {allowed:false, problem:'', foldersOn:0, checked:false}; gdItems = []; gdEnded = false; gdCursor = null; gdSyncAt = 0; gdLevels.clear(); gdLevelFailed.clear(); gdAt = null; gdTrail = []; gdFFor = null; gdFItems = []; gdClear();
   if (gdPlayUrl) { URL.revokeObjectURL(gdPlayUrl); gdPlayUrl = ''; }
-  tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; albumViewChosen = null; folderLayer = null; albumLayer = null; nameDone(null);
+  tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; albumViewChosen = null; folderLayer = null; albumLayer = null; tabLayer = null; dayLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();
 });
 window.KPTURouter?.on?.('photos', enter);
