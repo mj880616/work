@@ -85,9 +85,9 @@ test('사진 메뉴: [폴더]·[휴지통]·[앨범]이 출처 켜기를 따른�
   assert.match(s, /const cards = \(\) => albumCards\(tags \|\| \[\], links\)\.map\(c => albumForSources\(c, useSrc\(\)\)\);/);
   assert.match(s.slice(s.indexOf('function renderAlbums()'), s.indexOf('function syncAlbumLayer')), /const g = listGate\(\);/);
   // 출처를 바꾸면 모든 칩이 바로 따라 바뀐다(앨범 사진·폰 폴더 위치도 버림).
-  assert.match(s, /function sourcesChanged\(\) \{ select\.stop\(\); resetList\(\); calData\.clear\(\); phStarItems = null; aFor = null; pAt = null; paintSources\(\); render\(\); \}/);
+  assert.match(s, /function sourcesChanged\(\) \{ select\.stop\(\); resetList\(\); calData\.clear\(\); phStarItems = null; aFor = null; pAt = null; gdAt = null; gdTrail = \[\]; paintSources\(\); render\(\); \}/);
   // 크게 보기·고르기는 지금 보이는 목록(폰 폴더 안이면 그 폴더 사진).
-  assert.match(s, /t === 'folders' \? \(pAt !== null \? pItems : fItems\)/);
+  assert.match(s, /t === 'folders' \? \(gdAt !== null \? gdFItems : pAt !== null \? pItems : fItems\)/);
 });
 
 test('앱(0.4.0+): 폰 폴더 읽기 하나 추가(서버로 보내지 않음)', () => {
