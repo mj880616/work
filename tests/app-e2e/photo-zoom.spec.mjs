@@ -88,6 +88,12 @@ test.describe('폰 412 터치', () => {
     const { x, y } = await center(page);
     const tap = async (px = x, py = y) => { await touch('touchStart', [{ x: px, y: py, id: 0 }]); await touch('touchEnd', []); };
     const doubleTap = async (px, py) => { await tap(px, py); await page.waitForTimeout(60); await tap(px, py); };
+    // 한 손가락 가로 밀기(천천히 10걸음, 놓으면 가까운 장으로 붙는다).
+    const swipeX = async dx => {
+      await touch('touchStart', [{ x, y, id: 0 }]);
+      for (let i = 1; i <= 10; i++) { await touch('touchMove', [{ x: Math.round(x + dx * i / 10), y, id: 0 }]); await page.waitForTimeout(16); }
+      await touch('touchEnd', []);
+    };
 
     // 두 손가락 벌리기 = 확대(사진 칸만 커지고 화면 전체는 그대로).
     await touch('touchStart', [{ x: x - 30, y, id: 0 }, { x: x + 30, y, id: 1 }]);
@@ -120,16 +126,20 @@ test.describe('폰 412 터치', () => {
     await doubleTap(x, y);
     await expect(viewer(page)).not.toHaveAttribute('data-strip-zoom', '');
 
-    // 원래 크기: 좌우 넘기기 그대로.
-    await cdp.send('Input.synthesizeScrollGesture', { x, y, xDistance: -260, yDistance: 0, gestureSourceType: 'touch', speed: 1200 });
+    // 원래 크기: 좌우 넘기기 그대로(이 화면의 손동작 처리가 가로 밀기를 막지 않는다).
+    await page.evaluate(() => { window.__blocked = 0; document.addEventListener('touchmove', e => { if (e.defaultPrevented) window.__blocked++; }); });
+    await swipeX(-300);
+    expect(await page.evaluate(() => window.__blocked)).toBe(0);
     await expect(count(page)).toHaveText(`7 / ${N}`);
     await expect(photo(page, 6)).toHaveAttribute('data-img-state', 'shown');
 
     // 확대한 채로는 좌우 넘기기가 쉬고, 다음 사진으로 넘기면(→) 원래 크기로 돌아온다.
     await doubleTap(x, y);
     await expect(viewer(page)).toHaveAttribute('data-strip-zoom', '');
-    await cdp.send('Input.synthesizeScrollGesture', { x, y, xDistance: -260, yDistance: 0, gestureSourceType: 'touch', speed: 1200 });
+    const left = await page.locator('[data-diary-viewer-strip]').evaluate(el => el.scrollLeft);
+    await swipeX(-300);
     await page.waitForTimeout(400);
+    expect(await page.locator('[data-diary-viewer-strip]').evaluate(el => el.scrollLeft)).toBe(left);
     await expect(count(page)).toHaveText(`7 / ${N}`);
     await page.keyboard.press('ArrowRight');
     await expect(count(page)).toHaveText(`8 / ${N}`);
