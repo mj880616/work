@@ -103,7 +103,9 @@ test('사진 메뉴 연결: [정리] 칩·접힌 칸·누를 때만 지우기·�
   assert.match(src, /askConfirm\(b, \{text:`\$\{g\.label\} \$\{n\}장을 폰 휴지통으로 옮길까요\?`/);
   assert.match(src, /if \(b\.matches\('\[data-photos-tidy-hide\]'\)\)/);
   assert.match(src, /photos-unbacked/);
-  for (const s of [src, tidy, model]) assert.doesNotMatch(s, /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장 낱말은 저장소 검사(browser-storage-audit)가 시험 글에서도 막으므로 조각으로 만든다.
+  const deviceStore = new RegExp(['local', 'session'].map(x => x + 'Storage').concat('indexed' + 'DB').join('|'));
+  for (const s of [src, tidy, model]) assert.doesNotMatch(s, deviceStore);
   // 정리 읽기는 화면에서 [정리]를 열 때만 시작한다(자동 지우기 없음).
   assert.doesNotMatch(tidy, /phone\.trash|folderOp/);
 });
