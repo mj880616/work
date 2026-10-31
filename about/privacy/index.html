@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>개인정보 처리방침 · 웹2</title>
+<meta name="description" content="웹2 개인정보 처리방침: Google 사용자 데이터를 무엇에 쓰고 어디에 저장하며 어떻게 지우는지 설명합니다.">
+<!-- AUTH-구글화면이름: 구글 브랜드 인증 심사가 이 페이지를 봐야 하므로 검색 차단(noindex)을 넣지 않는다. -->
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://work.bokdoong.com/work/about/privacy/">
+<link rel="icon" href="../web2-logo-120.png" type="image/png">
+<link rel="stylesheet" href="../about.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="top">
+    <img src="../web2-logo-120.png" alt="" width="32" height="32">
+    <b>웹2</b>
+    <nav><a href="../">웹2 소개</a><a href="../terms/">이용 약관</a></nav>
+  </div>
+  <article class="card">
+    <h1>개인정보 처리방침</h1>
+    <p class="lead">웹2는 사용자 본인의 업무 정리에 필요한 범위에서만 개인정보와 Google 사용자 데이터를 처리합니다. 판매하거나 광고에 쓰지 않습니다.</p>
+    <p class="meta">시행일: 2026년 10월 31일</p>
+
+    <h2>1. 웹2는 어떤 서비스인가요</h2>
+    <p>웹2는 노동조합 사람들(10명 안팎)이 각자 쓰는 개인 업무 도구입니다. 한 사람이 자기 작업공간 하나를 쓰고, 작업공간의 내용은 그 사람만 볼 수 있습니다. 다른 사람의 작업공간을 보거나 함께 쓰는 화면은 없습니다.</p>
+
+    <h2>2. 처리하는 정보</h2>
+    <ul>
+      <li><b>로그인 정보</b>: Google 로그인으로 받는 계정 식별자, 이메일 주소, 이름·프로필 사진(Google 기본 정보). Google 비밀번호는 받지도 저장하지도 않습니다.</li>
+      <li><b>사용자가 웹2에 직접 쓴 기록</b>: 일정, 할 일, 프로젝트, 회의 기록, 메모, 올린 자료.</li>
+      <li><b>Google 연결 정보</b>: 사용자가 연결에 동의한 경우 연결을 유지하기 위한 접근·갱신 토큰과 연결한 Google 계정 이메일.</li>
+      <li><b>Google에서 가져온 데이터</b>: 아래 3절의 권한으로 읽은 일정·할 일·Drive 파일 정보.</li>
+    </ul>
+
+    <h2>3. 요청하는 Google 권한과 쓰는 곳</h2>
+    <p>캘린더·할 일·Drive 권한은 사용자가 웹2 안에서 직접 '연결'을 눌러 동의할 때만 요청합니다.</p>
+    <table>
+      <thead><tr><th>권한</th><th>무엇에 쓰나요</th></tr></thead>
+      <tbody>
+        <tr><td><code>openid</code>, <code>email</code>, <code>profile</code></td><td>로그인과 본인 확인, 연결한 Google 계정 표시</td></tr>
+        <tr><td><code>https://www.googleapis.com/auth/calendar.calendarlist.readonly</code></td><td>내 캘린더 목록을 읽어, 웹2 달력에 보여 줄 캘린더를 고르게 합니다(읽기만).</td></tr>
+        <tr><td><code>https://www.googleapis.com/auth/calendar.events</code></td><td>고른 캘린더의 일정을 웹2 달력에 보여 주고, 사용자가 웹2에서 만들거나 고치거나 지운 일정을 Google 캘린더에 반영합니다.</td></tr>
+        <tr><td><code>https://www.googleapis.com/auth/tasks</code></td><td>내 Google 할 일 목록을 웹2에서 보여 주고, 사용자가 웹2에서 한 추가·완료·수정·삭제를 Google 할 일에 반영합니다.</td></tr>
+        <tr><td><code>https://www.googleapis.com/auth/drive.file</code></td><td>사용자가 웹2 자료실·메모에 올린 파일을 내 Drive에 저장하고, 웹2가 만든 그 파일만 다시 읽거나 지웁니다.</td></tr>
+        <tr><td><code>https://www.googleapis.com/auth/drive</code></td><td>사용자가 고른 Drive 폴더의 사진·동영상 목록을 웹2 사진 화면에 보여 주고, 사용자가 웹2에서 지우기를 누른 사진만 Drive 휴지통으로 옮깁니다(영구 삭제 없음). 이 권한은 동의 화면에서 따로 끌 수 있고, 끄면 사진 화면만 쓰지 않습니다.</td></tr>
+      </tbody>
+    </table>
+    <p>위 목적 밖으로 Google 데이터를 쓰지 않습니다. 사람이 Google 데이터를 직접 열어 보지 않으며, 예외는 사용자가 동의한 경우, 보안 문제 조사, 법적 의무 이행뿐입니다.</p>
+
+    <h2>4. 저장 위치와 보관</h2>
+    <ul>
+      <li>정보는 사용자 본인 작업공간에만 저장되며, 데이터베이스가 작업공간 주인만 읽고 쓸 수 있게 막습니다.</li>
+      <li>저장소는 웹2가 쓰는 클라우드 데이터베이스(Supabase)입니다. Google에서 가져온 일정·할 일은 화면을 빠르게 보여 주기 위해 사본을 둘 수 있고, 사진은 원본을 저장하지 않고 고른 폴더와 사진 목록만 둡니다.</li>
+      <li>사용자가 웹2에 올린 파일은 사용자 본인의 Google Drive에 저장됩니다.</li>
+      <li>정보는 작업공간을 쓰는 동안 보관하고, 삭제를 요청하면 6절대로 지웁니다.</li>
+    </ul>
+
+    <h2>5. 다른 곳에 주는 경우</h2>
+    <ul>
+      <li>개인정보와 Google 사용자 데이터를 판매하지 않고, 광고·마케팅·신용 판단에 쓰지 않으며, 데이터 중개인에게 주지 않습니다.</li>
+      <li>다른 사용자와 나누지 않습니다. 사용자가 직접 공유 링크를 만든 내용만 그 링크를 받은 사람이 볼 수 있습니다.</li>
+      <li>사용자가 웹2의 AI 기능(요약·초안 등)을 직접 누르면, 그 기능에 필요한 내용만 AI 처리 업체(OpenAI) API로 보내 결과를 받습니다. 이 내용에는 Google에서 가져온 자료가 들어 있을 수 있습니다. Google 사용자 데이터를 범용 AI 모델의 개발·학습·개선에 쓰지 않습니다.</li>
+      <li>서비스를 돌리는 데 필요한 처리 위탁: 데이터베이스·서버 함수(Supabase), 화면 호스팅(GitHub Pages, Cloudflare).</li>
+      <li>법령에 따른 요청이 있으면 그 범위에서만 제공할 수 있습니다.</li>
+    </ul>
+
+    <h2>6. 연결 끊기와 삭제</h2>
+    <ul>
+      <li>Google 계정의 <a href="https://myaccount.google.com/connections" rel="noopener">타사 연결 관리</a>에서 언제든 웹2 접근을 끊을 수 있습니다. 끊으면 웹2는 더 이상 Google 데이터를 읽거나 바꿀 수 없습니다.</li>
+      <li>저장된 연결 정보(토큰)와 Google 데이터 사본만 지우고 싶을 때도 아래 운영 담당자에게 요청하면 지웁니다.</li>
+      <li>계정과 작업공간 데이터 전체 삭제는 웹2를 안내한 노동조합 운영 담당자에게 요청하면 처리합니다. 본인의 Google 캘린더·할 일·Drive에 있는 원본은 Google 계정에 그대로 남습니다.</li>
+    </ul>
+
+    <h2>7. Google API 사용자 데이터 정책 준수</h2>
+    <p>웹2가 Google API로 받은 정보를 쓰고 다른 앱으로 옮기는 일은 제한적 사용(Limited Use) 요구사항을 포함한 <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API 서비스 사용자 데이터 정책</a>을 따릅니다.</p>
+    <p lang="en">Web2's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+    <h2>8. 보호 조치</h2>
+    <ul>
+      <li>모든 연결은 암호화된 주소(HTTPS)로만 오갑니다.</li>
+      <li>Google 토큰은 서버 쪽에만 두고 화면 코드에 넣지 않습니다.</li>
+      <li>로그인하지 않은 사람은 웹2 안의 어떤 기록도 볼 수 없습니다.</li>
+    </ul>
+
+    <h2>9. 문의와 변경</h2>
+    <p>개인정보 관련 문의·열람·정정·삭제 요청은 웹2를 안내한 노동조합 운영 담당자에게 해 주세요. 이 방침이 바뀌면 이 페이지에 시행일을 새로 적어 알립니다.</p>
+  </article>
+  <footer><a href="../">웹2 소개</a> · <a href="../terms/">이용 약관</a></footer>
+</main>
+</body>
+</html>

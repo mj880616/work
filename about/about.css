@@ -1,0 +1,23 @@
+/* AUTH-구글화면이름: 웹2 공개 소개·처리방침·약관 공통 모양(로그인 없이 열림, 스크립트 없음). */
+:root{--bg:#f3f1ea;--card:#fbfaf6;--ink:#23262b;--muted:#646a72;--line:#dedad0;--accent:#3b4a6b;--ok:#2f7a62}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;font-size:14px;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:20px 14px 40px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.top img{width:32px;height:32px;border-radius:8px}
+.top b{font-size:15px}
+.top nav{margin-left:auto;display:flex;gap:12px;font-size:13px}
+a{color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 18px 10px}
+h1{font-size:20px;margin:0 0 6px}
+h2{font-size:15px;margin:18px 0 4px;padding-top:10px;border-top:1px solid var(--line)}
+p,li{margin:4px 0}
+ul{padding-left:20px;margin:4px 0}
+.lead{color:var(--muted);margin-bottom:8px}
+.meta{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#efece3;font-weight:600}
+code{font-size:12px;word-break:break-all}
+footer{margin-top:14px;font-size:12px;color:var(--muted);text-align:center}
+@media(max-width:560px){.top{flex-wrap:wrap}.top nav{margin-left:0;width:100%}.card{padding:14px 12px 8px}th,td{padding:4px 5px}}
