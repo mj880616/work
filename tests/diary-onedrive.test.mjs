@@ -11,10 +11,22 @@ function runtime(reply = () => ({})) {
 
 test('status keeps only the safe fields; auth-start follows only the Microsoft sign-in address', async () => {
   const m = await mod;
-  assert.deepEqual(await m.odStatus(runtime(() => ({configured:true, connected:true, folder:{name:'카메라'}, can_delete:true, refresh_token:'x'}))), {configured:true, connected:true, folder:{name:'카메라'}, canDelete:true});
-  assert.deepEqual(await m.odStatus(runtime(() => ({}))), {configured:false, connected:false, folder:null, canDelete:false});
+  assert.deepEqual(await m.odStatus(runtime(() => ({configured:true, connected:true, folder:{name:'카메라'}, whole:true, can_delete:true, refresh_token:'x'}))), {configured:true, connected:true, folder:{name:'카메라'}, whole:true, canDelete:true});
+  assert.deepEqual(await m.odStatus(runtime(() => ({}))), {configured:false, connected:false, folder:null, whole:false, canDelete:false});
   assert.equal(await m.odAuthStart(runtime(() => ({url:'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?x=1'}))), 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?x=1');
   for (const url of ['https://evil.example/x', 'http://login.microsoftonline.com/x', 'javascript:alert(1)', null]) await assert.rejects(m.odAuthStart(runtime(() => ({url}))), /onedrive_unavailable/);
+});
+
+// PHOTO-폴더스위치: 아직 '고른 폴더 하나' 연결이면 전체 보기로 바꾸기를 한 번 부탁하고 다시 읽는다. 서버가 모르면(action_invalid) 그 뒤로 묻지 않는다.
+test('status asks the server once to switch an old connection to the whole drive; an old server is asked only once', async () => {
+  const m = await mod;
+  let whole = false;
+  const rt = runtime((path, o) => o.body.action === 'whole-drive' ? (whole = true, {whole:true, changed:true}) : {configured:true, connected:true, folder:{name:whole ? 'OneDrive' : '카메라'}, whole, can_delete:true});
+  assert.deepEqual(await m.odStatus(rt), {configured:true, connected:true, folder:{name:'OneDrive'}, whole:true, canDelete:true});
+  assert.deepEqual(rt.calls.map(c => c.body.action), ['status', 'whole-drive', 'status']);
+  const old = runtime((path, o) => { if (o.body.action === 'whole-drive') throw new Error('action_invalid'); return {configured:true, connected:true, folder:{name:'카메라'}, can_delete:true}; });
+  assert.equal((await m.odStatus(old)).whole, false); assert.equal((await m.odStatus(old)).whole, false);
+  assert.deepEqual(old.calls.map(c => c.body.action), ['status', 'whole-drive', 'status']);
 });
 
 test('every Edge call is a POST with one action; delete always carries confirm', async () => {

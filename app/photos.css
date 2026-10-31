@@ -130,3 +130,9 @@
 /* 칸 오른쪽 아래 작은 출처 표시(출처가 둘 이상 켜졌을 때만). 동영상 길이는 그 왼쪽으로. */
 #appView #photosView .photos-src-mark{ position:absolute; right:3px; bottom:3px; z-index:1; display:grid; place-items:center; width:14px; height:14px; border-radius:3px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
 #appView #photosView .has-src .photos-dur{ right:20px; }
+/* PHOTO-폴더스위치(10/31): 폴더 줄 오른쪽 작은 스위치(일기 설정 창과 같은 .diary-od-switch), 꺼진 줄은 흐림, 같은 이름 폴더는 위치 이름을 흐리게. */
+#appView #photosView .photos-fx-row .photos-fx-sw,#appView #photosView .photos-fx-here .photos-fx-sw{ height:32px; }
+#appView #photosView .photos-fx-row.is-off .nx-main{ opacity:.5; }
+#appView #photosView .photos-fx-place{ color:var(--kptu-muted); font-size:12px; }
+#appView #photosView .photos-fx-hint{ margin:2px 0 4px; color:var(--kptu-muted); font-size:12px; }
+#appView #photosView .photos-fx-here.has-sw{ display:flex; align-items:center; justify-content:space-between; gap:8px; }

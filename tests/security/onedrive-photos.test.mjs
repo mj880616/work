@@ -134,6 +134,8 @@ function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,moveRe
       }
       const byPath=path.match(/^\/me\/drive\/items\/([^/:]+):\/(.+):$/);
       if(byPath){return byPath[2]===TRASH_NAME&&itemById[TRASH]?new Response(JSON.stringify(itemById[TRASH])):new Response('{}',{status:404});}
+      // PHOTO-폴더스위치: 원드라이브 루트(전체 보기).
+      if(path==='/me/drive/root')return new Response(JSON.stringify({id:'ROOT!1',name:'root',folder:{}}));
       const one=path.match(/^\/me\/drive\/items\/([^/]+)$/);
       if(one&&init.method==='PATCH'){
         // 사진 메뉴 ②: 폴더 이름 바꾸기·옮기기(덮어쓰지 않음 = conflictBehavior fail). patchReply(id,body)가 상태를 주면 그것으로.
@@ -204,9 +206,9 @@ test('without secrets the function stops safely: status says not configured, eve
 
 test('status when configured: connected flag and folder name only, never the token',async()=>{
   const none=make({admin:fakeAdmin()});
-  assert.deepEqual(await read(await post(none.handler,{action:'status'})),{configured:true,connected:false,folder:null,connected_at:null,can_delete:false});
+  assert.deepEqual(await read(await post(none.handler,{action:'status'})),{configured:true,connected:false,folder:null,whole:false,connected_at:null,can_delete:false});
   const ok=make();const text=await (await post(ok.handler,{action:'status'})).text();
-  assert.deepEqual(JSON.parse(text),{configured:true,connected:true,folder:{name:'카메라'},connected_at:'2026-10-20T00:00:00Z',can_delete:true});
+  assert.deepEqual(JSON.parse(text),{configured:true,connected:true,folder:{name:'카메라'},whole:false,connected_at:'2026-10-20T00:00:00Z',can_delete:true});
   assert.ok(!text.includes(REFRESH));
 });
 
@@ -600,7 +602,7 @@ test('sync: 410 from Graph clears the index and starts over; deleted items and n
 test('folders-tree and folder-toggle: counts per folder, switching a folder off hides it and everything below it',async()=>{
   const ctx=make({ms:fakeMicrosoft({deltaPages:tree()})});await post(ctx.handler,{action:'sync'});
   const t=await read(await post(ctx.handler,{action:'folders-tree'}));
-  assert.deepEqual(t.top,{id:'F1!100',name:'카메라',count:1,total:5});assert.equal(t.indexing,false);
+  assert.deepEqual(t.top,{id:'F1!100',name:'카메라',count:1,total:5,enabled:true});assert.equal(t.indexing,false);assert.equal(t.whole,false);
   assert.deepEqual(t.folders.map(f=>[f.id,f.parent_id,f.enabled,f.count,f.total]),[['S1','F1!100',true,1,1],['S2','F1!100',true,1,3],['S21','S2',true,2,2]]);
   const days=async()=>(await read(await post(ctx.handler,{action:'photos',month:'2026-10'}))).days['2026-10-13'].map(p=>p.id);
   assert.deepEqual(await days(),['P0','P1','P2','P3']);
@@ -1109,4 +1111,53 @@ test('taken time: the re-walk spreads over requests like a first index (indexing
   assert.deepEqual(await read(await post(ctx.handler,{action:'sync'})),{more:false,indexing:false,changed:5});
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,20);
   assert.ok(ctx.admin.state.mem.tables.app_onedrive_photos.every(r=>r.taken_at==='2026-10-12T16:00:00.000Z'&&r.taken_day==='2026-10-13'));
+});
+
+// PHOTO-폴더스위치(요청함 10/31 11:04): 원드라이브 전체 보기. 고른 폴더와 지금 보이던 하위 폴더는 켜진 채 옮기고, 그 밖·새 폴더는 꺼진 채.
+test('whole-drive: the chosen folder and its visible sub-folders stay on, hidden ones and new folders start off, every switch stands alone',async()=>{
+  const ms=fakeMicrosoft({deltaPages:tree(),itemById:{'F1!100':{id:'F1!100',name:'카메라',folder:{},parentReference:{id:'PIC!1',path:'/drive/root:/Pictures'}},
+    'PIC!1':{id:'PIC!1',name:'Pictures',folder:{},parentReference:{id:'ROOT!1',path:'/drive/root:'}}}});
+  const ctx=make({ms});await post(ctx.handler,{action:'sync'});
+  await post(ctx.handler,{action:'folder-toggle',folder_id:'S2',enabled:false});
+  const days=async()=>(await read(await post(ctx.handler,{action:'photos',month:'2026-10'}))).days['2026-10-13']?.map(p=>p.id)||[];
+  assert.deepEqual(await days(),['P0','P1'],'before: S2 off hides S2 and S21');
+  assert.deepEqual(await read(await post(ctx.handler,{action:'whole-drive'})),{whole:true,changed:true});
+  const row=ctx.admin.state.row;
+  assert.deepEqual([row.folder_id,row.folder_name,row.folder_path,row.delta_link,row.index_done_at],['ROOT!1','OneDrive','/drive/root:',null,null]);
+  const f=id=>ctx.admin.state.mem.tables.app_onedrive_folders.find(x=>x.item_id===id);
+  assert.deepEqual([f('F1!100').enabled,f('F1!100').parent_id,f('S1').enabled,f('S2').enabled,f('S21').enabled,f('PIC!1').enabled,f('PIC!1').parent_id],
+    [true,'PIC!1',true,false,false,false,'ROOT!1'],'what was visible stays on, the rest is off; the parent chain is ready before re-indexing');
+  assert.deepEqual(await read(await post(ctx.handler,{action:'whole-drive'})),{whole:true,changed:false},'only once');
+  // 다시 받는 동안(색인 비움 없음)과 다 받은 뒤 모두 같은 사진이 보인다. 루트부터 받은 새 폴더는 꺼진 채 들어온다.
+  ms.calls.length=0;
+  const rootPages=[[{id:'ROOT!1',name:'root',folder:{},root:{}},dir('PIC!1','ROOT!1','Pictures'),dir('DOC!1','ROOT!1','문서'),...tree()[0],pic('R0','ROOT!1'),pic('D0','DOC!1')]];
+  const ms2=fakeMicrosoft({deltaPages:rootPages});
+  const ctx2={admin:ctx.admin,ms:ms2,handler:createOneDriveHandler(ctx.admin,{env:n=>ENV[n],fetch:ms2.fetch,now:()=>NOW,log:()=>{},takenFixAt:FIX0})};
+  await post(ctx2.handler,{action:'sync'});
+  assert.ok(ms2.calls.some(c=>c.url.includes('/me/drive/items/ROOT!1/delta')),'the index now walks from the drive root');
+  assert.deepEqual([f('DOC!1').enabled,f('ROOT!1').enabled,f('F1!100').enabled,f('S1').enabled],[false,false,true,true],'new folders and the root start off; kept switches are not overwritten');
+  assert.deepEqual((await read(await post(ctx2.handler,{action:'photos',month:'2026-10'}))).days['2026-10-13'].map(p=>p.id),['P0','P1']);
+  const t=await read(await post(ctx2.handler,{action:'folders-tree'}));
+  assert.deepEqual([t.whole,t.top.id,t.top.enabled],[true,'ROOT!1',false]);
+  // 스위치는 폴더마다 따로: 위 폴더(S2)가 꺼져도 S21을 켜면 S21 사진이 보인다. 루트도 켜고 끌 수 있다.
+  await post(ctx2.handler,{action:'folder-toggle',folder_id:'S21',enabled:true});
+  await post(ctx2.handler,{action:'folder-toggle',folder_id:'ROOT!1',enabled:true});
+  assert.deepEqual((await read(await post(ctx2.handler,{action:'photos',month:'2026-10'}))).days['2026-10-13'].map(p=>p.id),['P0','P1','P3','R0']);
+  await post(ctx2.handler,{action:'folder-toggle',folder_id:'F1!100',enabled:false});
+  assert.deepEqual((await read(await post(ctx2.handler,{action:'photos',month:'2026-10'}))).days['2026-10-13'].map(p=>p.id),['P1','P3','R0'],'turning a folder off hides only its own photos');
+  // 폴더 하나로 좁히기는 더 받지 않는다.
+  assert.equal((await post(ctx2.handler,{action:'folder-set',folder_id:'F1!100'})).status,409);
+  // 다시 연결해도 폴더 스위치는 남는다(사진 줄만 비움).
+  const fin=await post(ctx2.handler,{action:'auth-finish',code:'synthetic-code-123',state:await startState(ctx2.handler)});assert.equal(fin.status,200,await fin.clone().text());
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,0);assert.equal(f('S21').enabled,true);
+});
+
+test('whole-drive: a fresh connection (no folder yet) just points at the root; not connected is 424',async()=>{
+  const ctx=make({admin:fakeAdmin({row:{...connected,folder_id:null,folder_name:null,folder_path:null}})});
+  assert.deepEqual(await read(await post(ctx.handler,{action:'whole-drive'})),{whole:true,changed:true});
+  assert.deepEqual([ctx.admin.state.row.folder_id,ctx.admin.state.row.folder_path],['ROOT!1','/drive/root:']);
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_folders.length,0);
+  assert.equal((await read(await post(ctx.handler,{action:'status'}))).whole,true);
+  const none=make({admin:fakeAdmin()});
+  assert.equal((await post(none.handler,{action:'whole-drive'})).status,424);
 });

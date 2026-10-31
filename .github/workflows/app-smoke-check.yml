@@ -468,6 +468,8 @@ jobs:
 
       - name: Check photo menu (PHOTO-사진메뉴 1차, newest-first list·day heads·calendar cover·multi star·delete undo·shared viewer, synthetic)
         run: node --test tests/photos-model.test.mjs
+      - name: "Photo folder switches (PHOTO-폴더스위치: 폴더 줄 스위치·원드라이브 전체 보기·같은 이름 위치, synthetic)"
+        run: node --test tests/photo-folder-switch.test.mjs
       - name: "Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)"
         run: node --test tests/photo-sources.test.mjs
       - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"

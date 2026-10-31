@@ -58,14 +58,26 @@ export function odErrorText(error) {
   return '원드라이브 요청이 실패했어요. 잠시 뒤 다시 해 주세요.';
 }
 
+const statusOf = d => ({
+  configured: d?.configured === true,
+  connected: d?.connected === true,
+  folder: typeof d?.folder?.name === 'string' ? {name: d.folder.name} : null,
+  whole: d?.whole === true,
+  canDelete: d?.can_delete === true,
+});
+// PHOTO-폴더스위치(요청함 10/31 11:04): 연결돼 있는데 아직 '고른 폴더 하나' 연결이면 서버에 전체 보기로 바꾸기를 한 번 부탁한다(서버가 지금 보이던
+// 폴더를 켠 채 옮김). 서버가 아직 이 동작을 모르면(배포 전) 이 화면을 여는 동안 다시 묻지 않고 지금 모양 그대로 쓴다.
+let wholeUnknown = false;
 export async function odStatus(rt) {
-  const d = await odCall(rt, {action: 'status'});
-  return {
-    configured: d?.configured === true,
-    connected: d?.connected === true,
-    folder: typeof d?.folder?.name === 'string' ? {name: d.folder.name} : null,
-    canDelete: d?.can_delete === true,
-  };
+  const s = statusOf(await odCall(rt, {action: 'status'}));
+  if (!s.configured || !s.connected || s.whole || wholeUnknown) return s;
+  try {
+    const d = await odCall(rt, {action: 'whole-drive'});
+    if (d?.whole === true) return statusOf(await odCall(rt, {action: 'status'}));
+  } catch (error) {
+    if (String(error?.message || '') === 'action_invalid') wholeUnknown = true;
+  }
+  return s;
 }
 export async function odAuthStart(rt) {
   const d = await odCall(rt, {action: 'auth-start'});
@@ -104,7 +116,9 @@ export async function odFolderTree(rt) {
   if (!d?.top || typeof d.top.id !== 'string') throw new Error('onedrive_unavailable');
   const folders = (Array.isArray(d.folders) ? d.folders : []).filter(f => f && typeof f.id === 'string' && f.id && typeof f.name === 'string' && typeof f.parent_id === 'string')
     .map(f => ({id: f.id, name: f.name, parent_id: f.parent_id, enabled: f.enabled !== false, count: wholeCount(f.count), total: wholeCount(f.total)}));
-  return {top: {id: d.top.id, name: String(d.top.name || ''), count: wholeCount(d.top.count), total: wholeCount(d.top.total)}, folders, indexing: d.indexing === true};
+  // PHOTO-폴더스위치: whole = 원드라이브 전체 보기(폴더마다 스위치, 맨 위 줄도 스위치). 옛 서버는 whole·top.enabled가 없다(맨 위 늘 켜짐).
+  return {top: {id: d.top.id, name: String(d.top.name || ''), count: wholeCount(d.top.count), total: wholeCount(d.top.total), enabled: d.top.enabled !== false},
+    folders, indexing: d.indexing === true, whole: d.whole === true};
 }
 export const odFolderToggle = (rt, folderId, enabled) => odCall(rt, {action: 'folder-toggle', folder_id: folderId, enabled: enabled === true});
 // 스위치 줄: 맨 위 폴더 바로 아래부터, ▾로 펼친 폴더의 하위만 들여쓰기로 이어 붙인다. dim=위 폴더 중 하나가 꺼져 있음(서버 규칙: 상위를 끄면 아래는 숨김).
