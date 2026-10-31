@@ -60,6 +60,7 @@ import {mountHomeSummary} from './home-summary.js';
 import {paintWeeklyLearn} from './weekly-learn-panel.js'; // WEEKLY-환류학습
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
 import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
+import {cellTime, TIME_HINT} from './time-input.js';
 import {readAutoPromises} from './journal-ledger.js';
 import {readOverlapRows, askPairs, reviveOverlaps} from './overlap-weekly-data.js';
 import {weekCandidates, reviveEdges, WEEK_BACK_WEEKS} from './overlap-weekly.mjs';
@@ -1228,7 +1229,13 @@ async function saveExecEdit() {
   execDraftFromScreen(root);
   const id = execUi.editing;
   let item;
-  try { item = cleanItem({...execUi.draft}, {id:id === 'new' ? undefined : id}); }
+  try {
+    // FORM-시간숫자: 시간 칸은 '' | HH:MM | 종일. 고치지 않은 옛 글(지난주에서 가져온 '10:00~12:00' 등)은 그대로 둔다.
+    const before = id === 'new' ? null : execRows().find(row => row.id === id), raw = String(execUi.draft.time ?? '').trim();
+    const time = cellTime(raw, {allDay:true});
+    if (time === null && raw !== (before?.time ?? '')) throw Object.assign(new Error(TIME_HINT), {code:'invalid', field:'time'});
+    item = cleanItem({...execUi.draft, time:time ?? raw}, {id:id === 'new' ? undefined : id});
+  }
   catch (error) { execUi.status = error.message; execUi.error = true; execUi.invalid = error.field || ''; renderWeekly_(); root.querySelector(`[data-journal-exec-field="${execUi.invalid || 'day'}"]`)?.focus(); return; }
   execUi.saving = true; execUi.status = '저장하는 중…'; execUi.error = false; renderWeekly_();
   try {

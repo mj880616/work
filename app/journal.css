@@ -273,7 +273,8 @@
 #appView #homeView .journal-exec-form{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:flex-end; }
 #appView #homeView .journal-exec-field{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 140px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #homeView .journal-exec-field input{ box-sizing:border-box; width:100%; min-height:var(--ds-compact-height); font-size:var(--kptu-text-body); color:var(--kptu-ink); }
-#appView #homeView .journal-exec-time{ flex:0 1 96px; }
+#appView #homeView .journal-exec-time{ flex:0 1 128px; }
+#appView #homeView .journal-exec-field .time-cell > input{ width:auto; }
 #appView #homeView .journal-exec-what{ flex:2 1 220px; }
 #appView #homeView .journal-exec-form .journal-edit-actions{ flex:1 1 100%; }
 #appView #homeView .journal-exec-form input[aria-invalid="true"]{ border-color:var(--kptu-danger); }
@@ -539,7 +540,9 @@
    새 크기 값 없음(토큰만), 버튼은 공용 작은 버튼. */
 #appView #homeView .journal-hwpx-title-fields > .date-field{ flex:0 1 136px; min-width:0; }
 #appView #homeView .journal-hwpx-title-fields .journal-hwpx-day-input{ box-sizing:border-box; width:100%; min-width:0; height:var(--ds-compact-height); font:inherit; font-size:var(--kptu-text-body); }
-#appView #homeView .journal-hwpx-time-input{ flex:0 1 72px; }
+#appView #homeView .journal-hwpx-title-fields > .time-cell{ flex:0 1 auto; }
+#appView #homeView .journal-hwpx-title-fields .journal-hwpx-time-input{ box-sizing:border-box; width:64px; height:var(--ds-compact-height); font:inherit; font-size:var(--kptu-text-body); }
+#appView #homeView .journal-hwpx-title-fields > .time-input-hint{ flex:1 1 100%; margin-top:0; }
 #appView #homeView .journal-hwpx-who-input{ flex:1 1 96px; }
 #appView #homeView .journal-hwpx-title-fields > input[aria-invalid="true"]{ border-color:var(--kptu-danger); }
 #appView #homeView .journal-hq-table thead th:nth-child(1){ width:24%; }

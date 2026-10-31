@@ -1259,7 +1259,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  const titles=hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]');
  await expect(titles).toHaveCount(2);
  await expect(titles.locator('[data-hwpx-origin]')).toHaveText(['원래: 가상 다음 주 회의 / 가상 회의실','원래: 가상 수련회']);
- await expect(titles.nth(1).locator('[data-hwpx-place-input]')).toHaveAttribute('placeholder','미정');
+ await expect(titles.nth(1).locator('[data-hwpx-place-input]')).toHaveAttribute('placeholder','장소');
  await titles.nth(0).locator('[data-hwpx-title-input]').fill('가상 노동조합 다음 주 점검 회의');
  await expect(titles.nth(0)).toHaveAttribute('data-changed','true');
  await expect(hwpx(page).locator('[data-hwpx-titles-ai]')).toBeVisible();
@@ -3045,4 +3045,49 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
  expect(f.sums.at(-1)).toMatchObject({body:{summary:'10/7(수) 가상 총력결의대회\n10/19(월) 가상 농성장 설치',edited:true}});
  await expect(recs).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+// FORM-시간숫자 + WEEKLY-장소칸(요청함 10/31 00:28·00:31): 상자 5. 주요 일정 칸의 흐린 글자는 칸 이름(시간·제목·장소·참석), 빈 장소는 파일에 '미정'.
+// 시간 칸은 숫자 자판(1030 → 10:30), 틀린 시간은 칸 아래 '시간을 확인해 주세요'(저장 안 함), 옆 작은 [종일]은 누르면 종일·다시 누르면 풀림.
+// 예전 한 줄 모양('10:30 / 제목 / 장소')으로 저장된 기억은 읽을 때 시간·제목·장소 칸으로 나뉘고 파일 칸도 한 번만 들어간다(서버 값은 그대로). 이름은 모두 합성.
+for(const width of [412,1440])test(`상자 5. 주요 일정: 칸 이름 흐린 글자, 숫자 시간 칸·[종일], 한 줄 모양 기억은 칸별로 나눠 읽기 ${width}`,async({page})=>{
+ const f=await memoryFixture(page,{width,memory:[{key:'가상수련회',origin:'가상 수련회',title:'10:30 / 가상 결의대회 / 가상 시의회',saved:'2026-10-01'}]});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const row=titleRow(page,'가상 다음 주 회의'),time=row.locator('[data-hwpx-time-input]');
+ await expect(row.locator('[data-hwpx-place-input]')).toHaveAttribute('placeholder','장소');
+ await expect(row.locator('[data-hwpx-title-input]')).toHaveAttribute('placeholder','제목');
+ await expect(row.locator('[data-hwpx-who-input]')).toHaveAttribute('placeholder','참석');
+ await expect(time).toHaveAttribute('placeholder','시간');
+ await expect(time).toHaveAttribute('inputmode','numeric');
+ // 숫자만: 930 → 떠나면 09:30, 1030 → 바로 10:30.
+ await time.fill('930');await time.press('Tab');await expect(time).toHaveValue('09:30');
+ await time.fill('1030');await expect(time).toHaveValue('10:30');
+ // 틀린 시간: 안내만, 파일은 바탕 시간.
+ await time.fill('2575');await time.press('Tab');
+ await expect(time).toHaveAttribute('aria-invalid','true');
+ await expect(row.locator('.time-input-hint')).toHaveText('시간을 확인해 주세요');
+ await time.fill('1100');await expect(time).toHaveValue('11:00');await expect(row.locator('.time-input-hint')).toBeHidden();
+ // [종일]: 누르면 종일(칸은 읽기만), 다시 누르면 누르기 전 시간.
+ const allDay=row.locator('[data-time-all-day-toggle]');
+ await expect(allDay).toHaveText('종일');await expect(allDay).toHaveAttribute('aria-pressed','false');
+ await allDay.click();
+ await expect(time).toHaveValue('종일');await expect(allDay).toHaveAttribute('aria-pressed','true');
+ let [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ let {report}=await savedReport(download);
+ expect(report.calendar.find(d=>d.day==='10.13.(화)').items.map(i=>i.what)).toEqual(['종일 / 가상 다음 주 회의 / 가상 회의실']);
+ await allDay.click();
+ await expect(time).toHaveValue('11:00');await expect(allDay).toHaveAttribute('aria-pressed','false');
+ // 한 줄 모양 기억: 시간·제목·장소 칸으로 나뉘어 보이고, 파일 칸에 시간이 두 번 들어가지 않는다.
+ const camp=titleRow(page,'가상 수련회');
+ await expect(camp.locator('[data-hwpx-time-input]')).toHaveValue('10:30');
+ await expect(camp.locator('[data-hwpx-title-input]')).toHaveValue('가상 결의대회');
+ await expect(camp.locator('[data-hwpx-place-input]')).toHaveValue('가상 시의회');
+ [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ ({report}=await savedReport(download));
+ expect(report.calendar.find(d=>d.day==='10.13.(화)').items.map(i=>i.what)).toEqual(['11:00 / 가상 다음 주 회의 / 가상 회의실']);
+ expect(report.calendar.find(d=>d.day==='10.14.(수) ~ 10.15.(목)').items.map(i=>i.what)).toEqual(['10:30 / 가상 결의대회 / 가상 시의회']);
+ // 읽기만으로는 서버 기억을 고치지 않는다.
+ expect(f.profile.patches).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
 });

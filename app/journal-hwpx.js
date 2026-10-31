@@ -50,7 +50,8 @@ import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './wee
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
 import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftSiteLayout, readCarriedLayout} from './weekly-draft-store.js';
-import {eventFields, editFrom, cleanTime, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey, ALL_DAY} from './weekly-schedule-rows.mjs';
+import {timeCell} from './time-input.js';
+import {eventFields, editFrom, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey} from './weekly-schedule-rows.mjs';
 import {mountReorder} from './reorder-drag.js';
 import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
@@ -798,16 +799,18 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const days = getWeek().model?.calendar?.days ?? [];
     const day = input('journal-hwpx-day-input', 'hwpxDayInput', f.day, '날짜', 'date');
     if (days.length) { day.min = days[0]; day.max = days.at(-1); }
-    const time = input('journal-hwpx-time-input', 'hwpxTimeInput', f.time, `시간(예: 10:30, ${ALL_DAY})`); time.placeholder = `10:30·${ALL_DAY}`; time.maxLength = 5; time.autocomplete = 'off';
-    const title = input('journal-hwpx-title-input', 'hwpxTitleInput', f.title, '일정 제목'); title.id = id;
-    const place = input('journal-hwpx-place-input', 'hwpxPlaceInput', f.place, `일정 장소(비우면 ${NO_PLACE})`); place.placeholder = NO_PLACE;
+    // FORM-시간숫자: 숫자 자판 시간 칸 + 작은 [종일](공용 time-input.js timeCell). WEEKLY-장소칸: 흐린 글자는 칸 이름, 빈 장소는 파일에 '미정'.
+    const time = input('journal-hwpx-time-input', 'hwpxTimeInput', f.time, '시간');
+    const timeBox = timeCell(time, {label:`${label} 시간`, allDay:true});
+    const title = input('journal-hwpx-title-input', 'hwpxTitleInput', f.title, '일정 제목'); title.id = id; title.placeholder = '제목';
+    const place = input('journal-hwpx-place-input', 'hwpxPlaceInput', f.place, `일정 장소(비우면 ${NO_PLACE})`); place.placeholder = '장소';
     const who = input('journal-hwpx-who-input', 'hwpxWhoInput', f.who, '참석(쉼표로 여럿)'); who.placeholder = '참석';
     const save = () => setFields(item, {day:day.value, time:time.value, title:title.value, place:place.value, who:who.value}, li);
     for (const x of [time, title, place, who]) x.addEventListener('input', save);
     day.addEventListener('change', save);
-    // 시간은 칸을 떠날 때 모양을 맞춘다(0930 → 09:30). 읽을 수 없으면 표시만(값은 바탕 시간 그대로).
-    time.addEventListener('change', () => { const t = cleanTime(time.value); if (t === null) time.setAttribute('aria-invalid', 'true'); else { time.removeAttribute('aria-invalid'); if (t) time.value = t; } save(); });
-    const fields = el('div', 'journal-hwpx-title-fields'); fields.append(day, time, title, place, who, drop);
+    // 시간 모양 맞춤·틀린 시간 안내는 공용 칸이 한다(1030 → 10:30). 틀린 시간은 저장하지 않는다(editFrom이 바탕 시간을 둠).
+    time.addEventListener('change', save);
+    const fields = el('div', 'journal-hwpx-title-fields'); fields.append(day, timeBox, title, place, who, drop);
     li.append(head, fields);
     li.dataset.changed = o ? 'true' : 'false';
     if (out) li.dataset.dropped = 'true';
