@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { openHome } from './helpers/home-entry.mjs';
 import { innerScrollers, docScroll } from './helpers/one-scroll.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { checkSplit } from './helpers/split-check.mjs';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절): Web2 '아스날' 메뉴(?view=arsenal).
 // 메뉴 창 맨 아래(폰)·사이드바 맨 아래 묶음 끝(PC), 경기 자료 app/arsenal/matches.js는 이 화면을 처음 열 때만 한 번 불러온다.
 // 시즌·대회·상대 검색 거르기, 목록 → 리뷰(폰은 한 칸 + 뒤로가기 = 목록, PC는 두 칸), 바깥 링크는 https·새 탭.
@@ -150,5 +152,15 @@ test('아스날 PC 1440: 스크롤 막대는 화면 하나, 아래쪽 옛 경기
   const closed = review(page).locator(`.ars-sec[data-ars-sec="${key}"] summary`);
   await closed.click(); await expect(review(page).locator(`.ars-sec[data-ars-sec="${key}"]`)).toHaveAttribute('open', '');
   expect(await closed.evaluate(s => getComputedStyle(s, '::before').content)).toBe('"▾"');
+  expect(f.errors).toEqual([]);
+});
+
+// UI-칸폭끌기전수(요청함 10/30 10:29): PC 목록 | 리뷰 사이 경계를 끌어 폭을 바꾸고, 폭은 서버(view_prefs.split_ratio.arsenal)에 기억한다.
+test('아스날 PC 1440: 목록 | 리뷰 경계 끌기·키보드·새로고침 유지·두 번 눌러 기본', async ({ page }) => {
+  const server = await installViewPrefsServer(page);
+  const f = await start(page, 1440);
+  const open = async () => { await openArsenal(page, 1440); await expect(review(page)).toBeVisible(); };
+  await open();
+  await checkSplit(page, { container: '#arsenalRoot .ars-body', left: ':scope>.ars-list', right: ':scope>.ars-detail', name: 'arsenal', share: 1 / 3, server, reopen: open });
   expect(f.errors).toEqual([]);
 });

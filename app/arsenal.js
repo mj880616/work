@@ -1,5 +1,6 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {followPane} from './follow-pane.js';
+import {mountSplitResize} from './split-resize.js';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절, 시안 docs/design/mockups/domain-move.html): '아스날' 화면(?view=arsenal). #arsenalView의 유일한 그리기 주인.
 // - 자료 app/arsenal/matches.js(window.ARSENAL_MATCHES)는 이 화면을 처음 열 때만 불러온다(view-loader가 이 모듈도 열 때만 부름 → 첫 화면 속도 영향 없음).
 // - 위 줄: 시즌·대회 고르기·상대 검색·경기 수. 아래: 경기 목록(최신순) + 고른 경기 리뷰.
@@ -120,6 +121,11 @@ function paint() {
     followPane(detail, {top: (bar?.offsetHeight || 40) + 8, reset: followed !== current.id});
     followed = current.id;
   }
+  // UI-칸폭끌기전수(요청함 10/30 10:29): PC는 목록 | 리뷰 사이 경계를 끌어 폭을 바꾼다(공용 split-resize.js, 기본 1:2). 폭은 서버
+  // (view_prefs.split_ratio.arsenal)에 기억한다. 칸(.ars-body)은 그대로 있고 안만 다시 그리므로 다시 불러도 경계는 하나다.
+  const grid = $('.ars-body');
+  if (grid) mountSplitResize({container:grid, name:'arsenal', label:'경기 목록과 리뷰 칸 폭 조절', list:() => list, pane:() => detail,
+    active:() => pc.matches && grid.isConnected && !document.getElementById('arsenalView')?.classList.contains('hidden')});
 }
 
 function closeLayer() {

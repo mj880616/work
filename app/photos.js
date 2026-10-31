@@ -51,6 +51,7 @@ import {photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, pho
 import {notify, askConfirm} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
 import {followPane} from './follow-pane.js';
+import {mountSplitResize} from './split-resize.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
@@ -949,7 +950,7 @@ function renderFolders() {
     if (wide) body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="폰 폴더">${phoneGroupHtml({wide, head:false})}</div><div class="photos-fx-pane">${f ? `${phonePathHtml(f)}${phoneHeadHtml(f)}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>` : ''}</div></div>`;
     else body.innerHTML = f ? `<div class="photos-fx">${phonePathHtml(f)}${phoneHeadHtml(f)}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p></div>`
       : `${top}<div class="photos-fx"><div class="photos-fx-list">${phoneGroupHtml({wide, head:false})}</div></div>`;
-    if (wide) followPane(body.querySelector('[data-photos-fx-tree]'), {top:52});
+    if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); fxSplit(); }
     syncFolderLayer();
     if (f) paintPhoneFolderGrid();
     return;
@@ -978,11 +979,20 @@ function renderFolders() {
     const phoneRows = both && at === tree.top.id ? `<div class="photos-fx-list">${phoneGroupHtml({wide, head:true})}</div>` : '';
     body.innerHTML = `${top}<div class="photos-fx">${odHead}${path}<div class="photos-fx-list">${kids.map(r => folderRowHtml(r, {wide})).join('')}${newFolderHtml()}</div>${phoneRows}${head}${grid}</div>`;
   }
-  if (wide) followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다.
+  if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); fxSplit(); } // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다.
   syncFolderLayer();
   if (pf) { paintPhoneFolderGrid(); return; }
   paintFolderGrid();
   if (fFor !== at || (!fEnded && !fItems.length && !fFailed)) loadFolder(at);
+}
+// UI-칸폭끌기전수(요청함 10/30 10:29): PC [폴더]의 폴더 나무 | 사진 사이 경계를 끌어 폭을 바꾼다(공용 split-resize.js, 기본 24:76·나무 최소 180px).
+// 고른 폭은 서버(view_prefs.split_ratio.photos)에 기억한다. 다시 그릴 때마다 불러도 된다(새 칸이면 새 경계).
+function fxSplit() {
+  const box = body.querySelector('.photos-fx.is-wide'); if (!box) return;
+  mountSplitResize({container:box, name:'photos', label:'폴더와 사진 칸 폭 조절', columns:[
+    {el:() => box.querySelector(':scope>.photos-fx-tree'), varName:'--ds-split-list', minVar:'--ds-split-list-min', minFallback:180, share:24},
+    {el:() => box.querySelector(':scope>.photos-fx-pane'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:76}],
+    active:() => treeWide() && tab === 'folders' && box.isConnected && !document.getElementById('photosView')?.classList.contains('hidden')});
 }
 // 폰 폴더 사진 격자(보기 전용: 끌어 옮기기 없음).
 function paintPhoneFolderGrid() {
