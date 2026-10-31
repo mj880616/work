@@ -299,7 +299,16 @@ function matchSectionRow(name, aliasList, rows, sections) {
 }
 // 후보 목록은 이 함수 한 곳에서 만든다. 어떤 기록·자료가 그 주 후보인지(자료는 자료 날짜 기준, WEEKLY-자료날짜)는 model(journal-weekly.js
 // weeklySummary·weekFiles)이 이미 정했다. 다음 작업 '주간보고 모든 제안에 [×] + 학습'은 사람이 뺀 후보를 여기서(byRow·byOrg·unmatched·
-// orgUnmatched에 넣기 전) 거르면 된다 — 줄마다 from(칸 이름)·day·text가 있다.
+// orgUnmatched에 넣기 전) 거르면 된다 — 줄마다 from(칸 이름)·day·text·src(record|doc|ai)가 있다.
+const lineSquash = s => String(s ?? '').replace(/^[-\s]+/, '').replace(/\s+/g, '').toLowerCase();
+export function dedupeLines(list) {
+  const seen = new Set();
+  for (let i = 0; i < list.length; i++) {
+    const k = `${list[i].day ?? ''}\u0000${list[i].from ?? ''}\u0000${lineSquash(list[i].text)}`;
+    if (seen.has(k)) list.splice(i--, 1); else seen.add(k);
+  }
+  return list;
+}
 export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
   const byRow = new Map(rows.map(r => [r.index, []]));
   const unmatched = [];
@@ -307,10 +316,10 @@ export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
   for (const area of areas) for (const row of area.rows) for (const item of row.items) {
     const task = row.task?.name ?? '';
     const hit = rows.find(r => norm(r.area) === norm(area.name) && (task ? norm(r.task) === norm(task) : true));
-    const line = {day: item.day, text: candidateLine(item), from: [area.name, task].filter(Boolean).join(' › ')};
+    const line = {day: item.day, text: candidateLine(item), from: [area.name, task].filter(Boolean).join(' › '), src: item.file ? 'doc' : 'record'};
     if (hit) byRow.get(hit.index).push(line); else unmatched.push(line);
   }
-  for (const other of model?.summary?.others ?? []) for (const item of other.items) unmatched.push({day: item.day, text: `- ${item.text}`, from: other.name});
+  for (const other of model?.summary?.others ?? []) for (const item of other.items) unmatched.push({day: item.day, text: `- ${item.text}`, from: other.name, src: item.file ? 'doc' : 'record'});
   const byOrg = new Map(orgs.map(o => [o.index, []]));
   const orgUnmatched = [];
   const allSections = (model?.orgs?.sections ?? []).map(sec => ({name: sec.name, aliases: aliases.get(sec.name) ?? []}));
@@ -320,10 +329,13 @@ export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
     const hit = matchSectionRow(section.name, aliases.get(section.name) ?? [], orgs, allSections);
     // JOURNAL-조직현황AI요약: an organization with a summary offers its summary lines (no day) instead of the raw records.
     const summary = String(section.summary?.text ?? '').split('\n').map(s => s.trim()).filter(Boolean);
-    const lines = summary.length ? summary.map(text => ({day: '', text: `- ${text}`, from: section.name, summary: true}))
-      : section.items.map(item => ({day: item.day, text: `- ${item.text}`, from: section.name}));
+    const lines = summary.length ? summary.map(text => ({day: '', text: `- ${text}`, from: section.name, summary: true, src: 'ai'}))
+      : section.items.map(item => ({day: item.day, text: `- ${item.text}`, from: section.name, src: item.file ? 'doc' : 'record'}));
     for (const line of lines) if (hit) byOrg.get(hit.index).push(line); else orgUnmatched.push(line);
   }
+  // S46-22 ④: 같은 날 같은 글 후보는 한 번만(같은 기록이 두 곳에서 모이거나 같은 조직 줄이 두 번 맞을 때). 사람이 뺀 후보 거르기는
+  // 한글 파일 상자(journal-hwpx.js materialOf + weekly-picks.mjs sortPicks)가 한다 — 접힌 '뺀 제안'에 다시 넣기로 보여야 해서.
+  for (const list of [...byRow.values(), unmatched, ...byOrg.values(), orgUnmatched]) dedupeLines(list);
   return {byRow, unmatched, byOrg, orgUnmatched};
 }
 

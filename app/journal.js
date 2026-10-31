@@ -58,6 +58,8 @@ import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-sched
 import {readWeekDraft, changeWeekDocs, withDocEdit} from './weekly-draft-store.js';
 import {mountHomeSummary} from './home-summary.js';
 import {paintWeeklyLearn} from './weekly-learn-panel.js'; // WEEKLY-환류학습
+import {droppedOf, keptOf} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
+import {learnFor, markPick, releaseSig} from './weekly-picks.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
 import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
 import {cellTime, TIME_HINT} from './time-input.js';
@@ -115,6 +117,8 @@ let materials = {};
 let kinds = {status:'loading'}, kindsBusy = false;
 // WEEKLY-환류: 주간보고 기억(내 프로필 칸 weekly_schedule_memory, weekly-schedule-memory.js) — read with the kinds; memoryUi = the folded list's state.
 let memory = {status:'loading'}, memoryUi = {open:false, busy:false, status:'', error:false, undo:null};
+// S46-22: [주간 정리] 제안 [×]·다시 넣기·[풀기] 상태(undo = 방금 뺀 제안 하나).
+let pickUi = {busy:false, undo:null, status:'', error:false};
 // WEEKLY-자료요약 화면 ②: 자료 줄 [고치기]·[빼기]·[넣기] (그 주 임시저장 draft.docs, weekly-draft-store.js). fileUi = memory only.
 const freshFileUi = () => ({editing:null, value:'', saving:false, status:'', error:false, open:new Set()});
 let fileUi = freshFileUi();
@@ -454,6 +458,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   const fileInput = host.querySelector('[data-journal-file-edit-input]'), fileFocus = fileInput && fileInput === document.activeElement;
   if (fileInput && fileUi.editing === fileInput.dataset.journalFileEditInput) fileUi.value = fileInput.value;
   const weekModel = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory});
+  weekModel.picks = picksModel(start);
   renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
   // WEEKLY-주요일정칸 B: 1. 2) 주요 일정 수기 표(weekly-hq-schedule.js가 그 자리만 그림). 쓰면 그 주 임시저장 행을 바꾸고 열린 한글 파일 상자도 맞춘다.
   const hqWeek = start;
@@ -1055,6 +1060,38 @@ async function toggleKind(key, hide, name) {
     renderDay(); renderWeekly_();
   } finally { kindsBusy = false; }
 }
+// ---- S46-22 제안 [×]·학습: 이번 주 picks 는 그 주 행(materials.weekDraft), 지난 주들은 weekly-picks.js 가 읽어 둔다. ----
+function weekPicks() {
+  const w = materials.weekDraft;
+  return w?.status === 'ok' && !w.items?.missing ? w.items?.row?.draft?.picks ?? null : null;
+}
+function picksModel(week) {
+  const w = materials.weekDraft, ready = w?.status === 'ok' && !w.items?.missing, p = weekPicks();
+  return {ready, dropped:droppedOf(p), kept:keptOf(p), learn:learnFor(week, p, {rt, redraw:() => { if (week === start) renderWeekly_({refreshBox:false}); }}).learn, ...pickUi, undo:pickUi.undo?.week === week ? pickUi.undo : null};
+}
+async function changePick(write, after) {
+  if (pickUi.busy || materials.weekDraft?.status !== 'ok' || materials.weekDraft.items?.missing) return;
+  const run = epoch, scope = owner, week = start;
+  pickUi = {...pickUi, busy:true, status:'', error:false}; renderWeekly_({refreshBox:false});
+  try {
+    const r = await write(week, materials.weekDraft.items.row);
+    if (!current(run, scope)) return;
+    if (r.missing) { materials.weekDraft = {status:'ok', items:{missing:true, row:null}}; pickUi.status = '제안 빼기는 아직 준비 중이에요.'; return; }
+    materials.weekDraft = {status:'ok', items:{missing:false, row:r.row}};
+    after?.();
+  } catch {
+    if (!current(run, scope)) return;
+    pickUi.status = '저장하지 못했어요. 다시 해 주세요.'; pickUi.error = true;
+  } finally { if (current(run, scope)) { pickUi.busy = false; renderWeekly_({refreshBox:false}); hwpx?.sync(week); } }
+}
+const pickOf = button => { try { const x = JSON.parse(button.dataset.journalPick ?? ''); return x && typeof x.key === 'string' ? x : null; } catch { return null; } };
+function pickAct(button) {
+  const item = pickOf(button); if (!item) return;
+  const act = button.matches('[data-journal-pick-drop]') ? 'drop' : 'none';
+  return changePick((week, known) => markPick({start:week, known, item, act}, rt), () => { pickUi.undo = act === 'drop' ? {...item, week:start} : null; pickUi.status = act === 'none' ? '다시 넣었어요.' : ''; });
+}
+const pickRelease = sig => changePick((week, known) => releaseSig({start:week, known, sig}, rt), () => { pickUi.undo = null; pickUi.status = '풀었어요. 다음 제안부터 다시 나와요.'; });
+
 // WEEKLY-자료요약 화면 ②: 자료 줄 고침 하나 → 그 주 임시저장 docs(다시 읽고 docs만 바꿔 조건부 쓰기). 그 주 보고 글만 바뀌고 자료 요약은 그대로.
 async function changeFileEdit(id, patch, message) {
   if (fileUi.saving || materials.weekDraft?.status !== 'ok' || materials.weekDraft.items?.missing) return false;
@@ -1302,6 +1339,8 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-org-ai-run]')) return makeOrgSummaries();
   if (button.matches('[data-journal-org-edit-open]')) return openOrgEdit(button.dataset.journalOrgEditOpen);
   if (button.matches('[data-journal-org-ref-add]')) return addOrgRef(button.dataset.journalOrgRefAdd, button.dataset.journalOrgRefText);
+  if (button.matches('[data-journal-pick-drop], [data-journal-pick-put], [data-journal-pick-undo]')) return pickAct(button);
+  if (button.matches('[data-journal-pick-release]')) return pickRelease(button.dataset.journalPickRelease);
   if (button.matches('[data-journal-org-edit-save]')) return saveOrgEdit();
   if (button.matches('[data-journal-org-edit-cancel]')) return closeOrgEdit();
   if (button.matches('[data-journal-exec-add]')) return openExecEdit('new');
@@ -1390,7 +1429,7 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++; sharedEpoch++;
-  kinds = {status:'loading'}; memory = {status:'loading'}; memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; fileUi = freshFileUi(); overlapUi = freshOverlapUi(); overlapFor = -1; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
+  kinds = {status:'loading'}; memory = {status:'loading'}; memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; pickUi = {busy:false, undo:null, status:'', error:false}; fileUi = freshFileUi(); overlapUi = freshOverlapUi(); overlapFor = -1; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   pendingReturn = null; taskLine.close(); selfBusy = 0; othersOpen = false; taskMeetings = new Map();
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'home') enter();

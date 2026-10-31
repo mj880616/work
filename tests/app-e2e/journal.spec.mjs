@@ -1426,7 +1426,7 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  const card=hwpx(page).locator('[data-hwpx-review] [data-learn-review]');
  await expect(card.locator('[data-learn-review-head]')).toHaveText('이번 주 환류 보고 — AI 초안 줄 4개 중 4개 그대로(100%)');
  await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 고침 0 · 뺌 0 · 더함 0');
- await expect(card.locator('[data-learn-candidates] li')).toHaveText(['가상 규칙 후보']);
+ await expect(card.locator('[data-learn-candidates] li')).toHaveText(['가상 규칙 후보 ×']);
  // WEEKLY-환류입력창 ①: 개선 제안은 분류 표시(입력창)와 함께.
  await expect(card.locator('[data-learn-suggestion="s1"] [data-learn-area="input"]')).toHaveText('입력창');
  const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
@@ -1435,11 +1435,16 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  await card.locator('[data-learn-suggestion="s1"]').getByRole('button',{name:/^승인/}).click();
  await expect.poll(()=>row().draft.feedback.review.suggestions[0].answer,{timeout:15000}).toBe('yes');
  await expect(hwpx(page).locator('[data-hwpx-review]')).toContainText('승인했어요');
+ // S46-22: 규칙 후보도 [×]로 빼면 접힌 '뺀 후보 1개'(다시 넣기). [승인]은 받은 제안, [×]는 거절한 제안으로 그 주 행 picks 에 남는다.
+ await card.locator('[data-learn-candidates] [data-learn-pick-drop]').click();
+ await expect(card.locator('[data-learn-candidates] li')).toHaveCount(0);
+ await expect(card.locator('[data-learn-pick-gone] summary')).toHaveText('뺀 후보 1개');
+ await expect.poll(()=>(row().draft.picks?.items??[]).map(i=>[i.kind,i.cell,i.act].join(',')).sort().join('|'),{timeout:15000}).toBe('review,개선 제안,take|review,규칙 후보,drop');
  expect(row().draft.feedback.counts).toEqual({kept:4,changed:0,dropped:0,added:0,proposed:4,final:4});
  // [주간 정리] 맨 아래 '주간보고 규칙·환류': 규칙 2줄, 이번 주 환류, 개발 후보 1. [지우기]는 그 행 규칙에서 한 줄을 뺀다.
  const learn=page.locator('#journalRoot [data-journal-weekly-learn]');
- await expect(learn.locator('summary')).toContainText('규칙 2줄 · 이번 주 100% 그대로 · 개발 후보 1');
- await learn.locator('summary').click();
+ await expect(learn.locator('summary').first()).toContainText('규칙 2줄 · 이번 주 100% 그대로 · 개발 후보 1');
+ await learn.locator('summary').first().click();
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(2);
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안']);
  await learn.locator('[data-journal-learn-rule="0"]').getByRole('button',{name:/규칙 지우기/}).click();
@@ -3026,7 +3031,7 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
  await openWeekly(page);
  const orgs=weekly(page,'orgs'),a=orgs.locator('[data-journal-org="가상 노동조합"]');
  const recs=a.locator('[data-journal-org-ref]');
- await expect(recs).toHaveText(['캘린더 추천 · 10/7(수) 가상 총력결의대회 +','캘린더 추천 · 10/19(월) 가상 농성장 설치 +']);
+ await expect(recs).toHaveText(['캘린더 추천 · 10/7(수) 가상 총력결의대회 + ×','캘린더 추천 · 10/19(월) 가상 농성장 설치 + ×']);
  expect(reads.length).toBeGreaterThan(0);
  expect(reads.every(([a,b])=>a===new Date('2026-10-05T00:00:00+09:00').toISOString()&&b===new Date('2026-10-26T00:00:00+09:00').toISOString())).toBe(true);
  // 다른 조직 칸·5. 주요 일정·참고 묶음에는 없다.
@@ -3034,13 +3039,22 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="calendar"]')).not.toContainText('총력결의대회');
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"]')).not.toContainText('총력결의대회');
  await expect(page.locator('#journalRoot [data-journal-weekly="note-calRefs"]')).toHaveCount(0);
+ // S46-22: [×] → 이번 주 제안에서 빠지고(그 주 임시저장 picks 에 서버 저장) 위 '되돌리기'·아래 접힌 '뺀 제안 1개'. [되돌리기]로 다시 보인다.
+ await recs.nth(1).locator('[data-journal-pick-drop]').click();
+ await expect(recs).toHaveText(['캘린더 추천 · 10/7(수) 가상 총력결의대회 + ×']);
+ await expect(a.locator('[data-journal-pick-gone] summary')).toHaveText('뺀 제안 1개');
+ const pickWrite=f.exec.calls.filter(c=>c.method!=='GET'&&c.body?.draft?.picks).at(-1);
+ expect(pickWrite.body.draft.picks.items.map(i=>[i.kind,i.act,i.text])).toEqual([['calendar','drop','10/19(월) 가상 농성장 설치']]);
+ await a.locator('[data-journal-pick-undo] button').click();
+ await expect(recs).toHaveCount(2);
+ await expect(a.locator('[data-journal-pick-gone]')).toHaveCount(0);
  // [+] → 요약 고치기 칸 끝에 그 줄(저장 전에는 서버에 쓰지 않음), [저장] → 조직 요약에 들어가고 추천 줄은 사라진다.
  const before=f.sums.length;
  await recs.first().locator('[data-journal-org-ref-add]').click();
  const area=a.locator('[data-journal-org-edit-input]');
  await expect(area).toHaveValue('10/7(수) 가상 총력결의대회');await expect(area).toBeFocused();
  await expect(a.locator('[data-journal-org-edit-status]')).toContainText('[저장]을 누르면');
- await expect(recs).toHaveText(['캘린더 추천 · 10/19(월) 가상 농성장 설치 +']);
+ await expect(recs).toHaveText(['캘린더 추천 · 10/19(월) 가상 농성장 설치 + ×']);
  expect(f.sums.length).toBe(before);
  await recs.first().locator('[data-journal-org-ref-add]').click();
  await expect(area).toHaveValue('10/7(수) 가상 총력결의대회\n10/19(월) 가상 농성장 설치');

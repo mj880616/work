@@ -562,3 +562,13 @@
 @media(max-width:760px){
   #appView #homeView .journal-hq-table .journal-exec-tools{ text-align:left; }
 }
+/* S46-22 제안 [×]·뺀 제안 접기: 작고 낮은 글자 버튼(테두리 없이 흐린 색), 접기는 메타 글씨. */
+#appView #homeView .journal-hwpx-pick-x,
+#appView #homeView .journal-pick-x{ min-width:0; padding:0 4px; border-color:transparent; background:transparent; color:var(--kptu-muted); line-height:1.2; }
+#appView #homeView .journal-hwpx-pick-x:hover,
+#appView #homeView .journal-pick-x:hover{ color:var(--kptu-ink); }
+#appView #homeView .journal-hwpx-gone-row{ list-style:none; margin-left:-18px; }
+#appView #homeView .journal-hwpx-gone,
+#appView #homeView .journal-weekly-gone{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-hwpx-gone > summary,
+#appView #homeView .journal-weekly-gone > summary{ cursor:pointer; }
