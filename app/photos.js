@@ -31,6 +31,8 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
   odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, readPhoneStars, addStar, removeStar, starKey, takenLabel, takeOdReturn} from './diary-onedrive.js';
 import {phonePhotos} from './phone-photos.js';
+import {createPhotoTidy} from './photo-tidy.js';
+import {typeFilter} from './photo-tidy-model.mjs';
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT} from './photo-sources-model.mjs';
 import {ownerScope} from './diary-data.js';
@@ -76,7 +78,7 @@ const PHONE_SVG = '<svg class="photos-src-ic" viewBox="0 0 24 24" width="16" hei
 const MARK_SVG = {onedrive:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .4-5.6A3.8 3.8 0 0 0 4.8 6a3.3 3.3 0 0 0-.3 6.5z" fill="currentColor"/></svg>',
   phone:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 4.5A1 1 0 0 1 3 3.5h3l1.3 1.3H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" fill="currentColor"/></svg>'};
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><span class="photos-sp"></span><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-srcs" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" aria-pressed="false" aria-disabled="true" aria-label="구글 드라이브 · 준비 중" title="구글 드라이브 · 준비 중">${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" aria-pressed="true" aria-label="폰 사진" title="폰 사진" hidden>${PHONE_SVG}</button></span></div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><label><span data-photos-name-label></span><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"></label><button type="submit" class="mini">저장</button><button type="button" class="mini" data-photos-name-cancel>취소</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
+root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><span class="photos-sp"></span><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-srcs" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" aria-pressed="false" aria-disabled="true" aria-label="구글 드라이브 · 준비 중" title="구글 드라이브 · 준비 중">${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" aria-pressed="true" aria-label="폰 사진" title="폰 사진" hidden>${PHONE_SVG}</button></span></div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><label><span data-photos-name-label></span><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"></label><button type="submit" class="mini">저장</button><button type="button" class="mini" data-photos-name-cancel>취소</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
 const $ = sel => root.querySelector(sel);
 const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), linkBtn = $('[data-od-link]'), odHost = $('[data-photos-od]');
 const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
@@ -126,6 +128,79 @@ const phoneSw = () => phone.state().hide === true;
 const phoneOps = () => phone.state().ops === true;
 const noSource = () => !sources.onedrive && !phoneOn();
 const NO_SOURCE_HTML = '<p class="photos-muted" data-photos-no-source>위 출처 아이콘을 켜 주세요.</p>';
+// S46-20 사진 정리 제안 ①(photo-tidy.js): [정리 n] 칩(폰 앱에서 [사진]일 때만) → 접힌 칸. tidyView = [사진]에 정리 목록을 보이는 중('place:phone'·'junk:kakao', 이 화면 메모리만).
+let tidyOpen = false, tidyView = null;
+const tidyChip = $('[data-photos-tidy-chip]'), tidyBox = $('[data-photos-tidy]');
+const tidy = createPhotoTidy({phone, odReady:() => ready(), odError:e => odErrorText(e), phoneError:e => phoneErrorText(e), phoneOff:() => phoneOff, onChange:() => paintTidy(),
+  readOd:async (cursor, limit) => { const page = await odLibrary(rt, {filter:'all', cursor, limit}); return {items:page.items.map(toItem), next:page.next}; }});
+const tidyPlace = () => (tidyView?.startsWith('place:') ? tidyView.slice(6) : 'all');
+function paintTidy() {
+  const show = tab === 'all' && phoneUsable();
+  const n = tidy.count();
+  tidyChip.hidden = !show; tidyChip.textContent = n ? `정리 ${n}` : '정리';
+  tidyChip.setAttribute('aria-expanded', String(show && tidyOpen));
+  tidyBox.hidden = !show || !tidyOpen;
+  if (tidyBox.hidden) return;
+  if (!tidy.state) tidy.open();
+  const open = new Set([...tidyBox.querySelectorAll('details[open]')].map(d => d.dataset.k));
+  tidyBox.innerHTML = tidy.html({place:tidyPlace(), canHide:phoneSw(), canTrash:phone.state().trash === true});
+  tidyBox.querySelectorAll('details[data-k]').forEach(d => { if (open.has(d.dataset.k)) d.open = true; });
+}
+// 정리 목록 보기 켜기/끄기([사진] 목록을 그 목록으로 바꾼다).
+function setTidyView(key) {
+  tidyView = key && tidy.list(key) ? key : null;
+  select.stop(); resetList(); render(); window.scrollTo?.(0, 0);
+}
+// [사진]에 보일 정리 목록(지금 거르기·정렬·건너뛴 달 그대로). 목록이 없어졌으면(다시 확인 중 등) 끈다.
+function tidyFill() {
+  const list = tidy.list(tidyView);
+  if (!list) { tidyView = null; return false; }
+  const cut = from ? Date.parse(from.cursor.t) : null;
+  items = typeFilter(list, filter, isStarred).filter(it => !hidden.has(it.id) && (!cut || Date.parse(it.taken_at) < cut)).sort(sortCompare(listSort()));
+  ended = true;
+  const m = {}; for (const it of items) m[it.day.slice(0, 7)] = (m[it.day.slice(0, 7)] || 0) + 1;
+  bar = monthBar(m); monthsFor = filter;
+  return true;
+}
+async function tidyTrash(b, kind) {
+  const g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) return;
+  const n = g.items.length;
+  if (!await askConfirm(b, {text:`${g.label} ${n}장을 폰 휴지통으로 옮길까요?`, note:'폰이 한 번 더 확인 창을 띄워요(200장씩). 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요.', ok:'폰 휴지통으로', danger:true})) return;
+  const gone = [];
+  for (let i = 0; i < n; i += 200) {
+    const part = g.items.slice(i, i + 200);
+    const res = await phone.trash(part);
+    if (!res.ok) break;
+    gone.push(...part.map(x => x.id));
+  }
+  if (!gone.length) { notify('폰에서 지우지 않았어요.'); return; }
+  tidy.forget(gone);
+  calData.clear(); monthsFor = ''; phStarItems = null; aFor = null;
+  notify(`${gone.length}장을 폰 휴지통으로 옮겼어요`);
+  if (tab === 'all') { resetList(); render(); } else paintTidy();
+}
+function tidyHide(kind) {
+  const g = tidy.group(kind); if (!g || !g.folders.length || !phoneSw()) return;
+  const next = new Set(phoneOff), hide = !g.folders.every(f => phoneOff.has(f));
+  for (const f of g.folders) { if (hide) next.add(f); else next.delete(f); }
+  if (!savePhoneOff(next)) return;
+  notify(hide ? `${g.label} 폴더를 사진에서 숨겼어요` : `${g.label} 폴더를 다시 보여요`);
+  render();
+}
+function tidyClick(b) {
+  if (b.matches('[data-photos-tidy-chip]')) { tidyOpen = !tidyOpen; paintTidy(); return true; }
+  if (b.matches('[data-photos-place]')) { const p = b.dataset.photosPlace; setTidyView(p === 'all' ? null : 'place:' + p); return true; }
+  if (b.matches('[data-photos-tidy-see]')) { setTidyView('junk:' + b.dataset.photosTidySee); return true; }
+  if (b.matches('[data-photos-tidy-end]')) { setTidyView(null); return true; }
+  if (b.matches('[data-photos-tidy-rescan]')) { tidyView = null; tidy.rescan(); resetList(); render(); return true; }
+  if (b.matches('[data-photos-tidy-hide]')) { tidyHide(b.dataset.photosTidyHide); return true; }
+  if (b.matches('[data-photos-tidy-trash]')) { tidyTrash(b, b.dataset.photosTidyTrash); return true; }
+  if (b.matches('[data-photos-tidy-folder]')) {
+    if (!sources.phone) { notify('폰 사진 출처를 켜면 그 폴더를 볼 수 있어요.'); return true; }
+    select.stop(); pAt = b.dataset.photosTidyFolder; setTab('folders'); window.scrollTo?.(0, 0); return true;
+  }
+  return false;
+}
 
 // ---- 칸 수(view_prefs.photo_view.cols, 일기와 따로) ----
 function readPrefs() {
@@ -225,6 +300,7 @@ async function loadStream(source, r) {
 // 다음 쪽. ★는 별표 id(500개씩)로 모두 받아 최신순으로 합친다(별표는 많지 않다).
 // 출처가 둘이면 앞을 막는 출처(아직 덜 받은 쪽)부터 한 쪽씩, 보일 칸이 늘 때까지(4쪽까지) 받는다.
 function loadMore() {
+  if (tidyView && !loading) { if (tidyFill()) { if (tab === 'all') paintList({full:true}); return null; } resetList(); }
   if (loading || ended || !anyUse()) return loading;
   const r = run;
   loading = (async () => {
@@ -358,7 +434,8 @@ function paintList({full = false} = {}) {
   const same = rendered <= items.length && renderedIds.every((id, k) => items[k]?.id === id);
   if (full || !list || !same) {
     rendered = 0;
-    const top = srcNotes() + (from ? `<p class="photos-muted photos-top">${esc(from.label)}부터 보는 중 · <button type="button" class="mini" data-photos-newest>최신으로</button></p>` : '');
+    const tv = tidyView ? `<p class="photos-muted photos-top" data-photos-tidy-top>정리 · ${esc(tidy.label(tidyView))} ${items.length}장 보는 중 · <button type="button" class="mini" data-photos-tidy-end>전체로</button></p>` : '';
+    const top = srcNotes() + tv + (from ? `<p class="photos-muted photos-top">${esc(from.label)}부터 보는 중 · <button type="button" class="mini" data-photos-newest>최신으로</button></p>` : '');
     body.innerHTML = `${top}<div data-photos-list></div><p class="photos-muted photos-foot" data-photos-foot></p>`;
     list = body.querySelector('[data-photos-list]');
   }
@@ -460,6 +537,7 @@ async function renderTrash({reload = false} = {}) {
   sizer.paintButtons(root); paintSelect();
 }
 function render() {
+  paintTidy();
   root.querySelectorAll('[data-photos-tab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.photosTab === tab)));
   $('[data-photos-filter]').hidden = tab !== 'all' && tab !== 'calendar'; root.querySelector('.photo-size').hidden = tab === 'calendar';
   $('[data-photos-sort]').hidden = tab === 'calendar' || tab === 'trash'; paintSortButton();
@@ -697,6 +775,7 @@ async function commitBatch({keepalive = false} = {}) {
     const res = await odDeleteMany(rt, b.taken.map(t => t.item.id), {keepalive});
     const bad = new Set(Object.keys(res.failed).filter(id => res.failed[id] !== 'missing'));
     for (const t of b.taken) { if (bad.has(t.item.id)) back.push(t); else forgetOdPhoto(t.item.id); }
+    tidy.forget(b.taken.filter(t => !bad.has(t.item.id)).map(t => t.item.id));
   } catch { back.push(...b.taken); }
   trash = null;
   if (back.length) { setListFor(b.tab, putItems(listFor(b.tab), back)); if (current(b.run) && tab === b.tab) repaintShown(); notify(`${back.length}장을 지우지 못했어요.`, {error:true}); }
@@ -709,7 +788,9 @@ async function trashPhonePicked(list) {
   if (!res.ok) { notify('폰에서 지우지 않았어요.', {error:!phone.state().trash}); return; }
   const t = takeItems(listFor(t0), list.map(x => x.id));
   setListFor(t0, t.rest); calData.clear(); monthsFor = '';
+  tidy.forget(list.map(x => x.id));
   if (tab === t0) repaintShown();
+  paintTidy();
   notify(`${t.taken.length}장을 폰 휴지통으로 옮겼어요`);
 }
 function deletePicked() {
@@ -938,7 +1019,7 @@ function phoneFolderRowHtml(f, {wide}) {
   const cur = wide && pAt === f.id, sw = phoneSw() && !f.pending, off = sw && phoneOff.has(f.id);
   return `<div class="nx-row nx-folder photos-fx-row${cur ? ' nx-current' : ''}${off ? ' is-off' : ''}" data-photos-pf="${esc(f.id)}" style="--nx-indent:0"${wide ? ' role="treeitem"' : ''}>`
     + (wide ? '<span class="photos-fx-tog" aria-hidden="true"></span>' : '')
-    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">${cur ? '\u{1F4C2}' : '\u{1F4C1}'}</span><span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span><span class="nx-num" aria-label="사진 ${f.count}장">${f.count}</span></button>`
+    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">${cur ? '\u{1F4C2}' : '\u{1F4C1}'}</span><span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : ''}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span><span class="nx-num" aria-label="사진 ${f.count}장">${f.count}</span></button>`
     + (sw ? phoneSwHtml(f) : '')
     + (phoneOps() ? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more="${esc(f.id)}" aria-label="${esc(f.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
     + '</div>';
@@ -1097,7 +1178,7 @@ async function toggleFolder(id) {
   finally { swBusy.delete(id); if (tab === 'folders') renderFolders(); }
 }
 // PHOTO-폴더스위치 ②: 폰 폴더 스위치 = 끈 폴더 목록(view_prefs.phone_folders_off) 저장. 바로 칠하고, 서버가 거절하면 되돌리고 알린다.
-function phoneOffChanged() { resetList(); calData.clear(); phStarItems = null; aFor = null; monthsFor = ''; }
+function phoneOffChanged() { resetList(); calData.clear(); phStarItems = null; aFor = null; monthsFor = ''; tidy.offChanged(); }
 function savePhoneOff(next) {
   const value = phoneOffValue(next);
   if (!value) { notify('끈 폰 폴더가 너무 많아요(80개까지).', {error:true}); return false; }
@@ -1124,7 +1205,7 @@ async function phoneOpGo(anchor, op, done, after = null) {
   try { res = await phone.folderOp(op); } finally { busy = false; }
   notify(phoneOpText(res, done(res)), {error:!res.ok});
   if (res.ok) after?.(res);
-  if (res.ok) { pFolders = null; pFor = null; pItems = []; resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
+  if (res.ok) { pFolders = null; pFor = null; pItems = []; tidy.reset(); tidyView = null; resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
   if (tab === 'folders') renderFolders(); else render();
   return res;
 }
@@ -1617,6 +1698,7 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-act-move]')) return openPick(b, {kind:'photos', ids:pickedItems().map(x => x.id)});
   if (b.matches('[data-photos-act-tag]')) return openPick(b, {kind:'tag', items:pickedItems()});
   if (b.matches('[data-photos-act-untag]')) return untagPicked();
+  if (tidyClick(b)) return;
   if (folderClick(b)) return;
   if (albumClick(b)) return;
   if (b.matches('[data-photos-restore]')) return trashRun(pickedItems().map(x => x.id), 'restore');
@@ -1700,7 +1782,7 @@ window.addEventListener('kptu:view-prefs-rejected', e => {
 });
 // 폰 사진 접근이 바뀌면(처음 허용·설정에서 바꿈) 목록을 새로.
 let entering = false;
-phone.onChange(() => { pFolders = null; pFor = null; pItems = []; if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged(); });
+phone.onChange(() => { pFolders = null; pFor = null; pItems = []; tidy.reset(); tidyView = null; if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged(); });
 async function enter() {
   readPrefs();
   const placed = window.KPTURouter?.place?.('photos')?.tab;
@@ -1729,6 +1811,7 @@ window.addEventListener('kptu:session-changed', () => {
   batch = null; resetList(); syncAt = 0; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop(); sources = parseSources(null); phStarItems = null;
   pFolders = null; pFoldersFailed = ''; pAt = null; pFor = null; pItems = []; phoneOff = new Set(); pPending = []; manageAsked = false;
+  tidy.reset(); tidyOpen = false; tidyView = null;
   tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; folderLayer = null; albumLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();
 });

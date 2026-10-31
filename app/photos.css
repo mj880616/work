@@ -137,3 +137,23 @@
 #appView #photosView .photos-fx-place{ color:var(--kptu-muted); font-size:12px; }
 #appView #photosView .photos-fx-hint{ margin:2px 0 4px; color:var(--kptu-muted); font-size:12px; }
 #appView #photosView .photos-fx-here.has-sw{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+/* S46-20 사진 정리 제안 ①: [정리 n] 칩(펼치면 칩 색) + 접힌 칸. 줄마다 한 줄 요약 + [보기](details), 작은 글·낮은 버튼. */
+#appView #photosView .photos-tidy-chip[hidden],#appView #photosView .photos-tidy[hidden]{ display:none; }
+#appView #photosView .photos-tidy-chip[aria-expanded="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView #photosView .photos-tidy{ display:flex; flex-direction:column; gap:2px; margin:0 0 4px; padding:4px 8px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface); font-size:13px; }
+#appView #photosView .photos-tidy-line,#appView #photosView .photos-tidy-foot{ margin:2px 0; color:var(--kptu-muted); font-size:12px; }
+#appView #photosView .photos-tidy-places{ display:flex; flex-wrap:wrap; gap:4px; padding:2px 0; }
+#appView #photosView .photos-tidy-place{ min-height:0; min-width:0; height:28px; margin:0; padding:0 10px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px); color:var(--kptu-muted); background:transparent; box-shadow:none; font-size:12px; font-weight:400; font-variant-numeric:tabular-nums; }
+#appView #photosView .photos-tidy-place[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView #photosView .photos-tidy-row > summary{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:32px; cursor:pointer; list-style:none; }
+#appView #photosView .photos-tidy-row > summary::-webkit-details-marker{ display:none; }
+#appView #photosView .photos-tidy-row b{ font-weight:600; }
+#appView #photosView .photos-tidy-see{ color:var(--kptu-primary-ink); font-size:12px; }
+#appView #photosView .photos-tidy-row[open] .photos-tidy-see::after{ content:" ▴"; }
+#appView #photosView .photos-tidy-list{ display:flex; flex-direction:column; gap:2px; padding:0 0 4px 8px; }
+#appView #photosView .photos-tidy-item{ display:flex; justify-content:space-between; gap:8px; min-height:30px; min-width:0; margin:0; padding:0 4px; border:0; background:transparent; box-shadow:none; color:var(--kptu-ink); font-size:13px; font-weight:400; text-align:left; }
+#appView #photosView .photos-tidy-num{ flex:none; color:var(--kptu-muted); font-size:12px; font-variant-numeric:tabular-nums; }
+#appView #photosView .photos-tidy-junk{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-height:30px; }
+#appView #photosView .photos-tidy-junk > span{ flex:1 1 auto; min-width:0; }
+#appView #photosView .photos-unbacked{ color:var(--kptu-warning); }
+#appView #photosView .photos-tidy-junk .photos-danger{ color:var(--kptu-danger); }
