@@ -28,12 +28,15 @@ for(const width of [390,760])test(`공용 알약 필터·2단 프로젝트·키�
   await expect(rows).toHaveCount(0);
   await page.keyboard.press('ArrowLeft');await expect(group.getByRole('radio',{name:'회의',exact:true})).toHaveAttribute('aria-checked','true');await expect(rows).toHaveCount(s.meetings.length);
   if(width===390){
-    await group.getByRole('radio',{name:'기타',exact:true}).tap();expect(await group.evaluate(e=>e.scrollLeft)).toBeGreaterThan(0);
+    // UI-칩줄두줄(10/31): 칩 줄은 옆으로 밀지 않고 두 줄 + [더보기]. 접혀 있으면 [더보기]로 펼친 뒤 고른다.
+    const more=group.locator('[data-chip-rows-more]');if(await more.isVisible())await more.tap();
+    await group.getByRole('radio',{name:'기타',exact:true}).tap();await expect(group.getByRole('radio',{name:'기타',exact:true})).toHaveAttribute('aria-checked','true');
+    expect(await group.evaluate(e=>[e.scrollLeft,new Set([...e.children].filter(c=>c.getClientRects().length).map(c=>Math.round(c.getBoundingClientRect().top))).size<=(e.querySelector('[data-chip-rows-more][aria-expanded=true]')?9:2)])).toEqual([0,true]);
     await page.evaluate(async()=>{await window.__KPTU_RELOAD_MEETINGS__()});
     const geometry=await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),r=b.getBoundingClientRect(),lane=e.getBoundingClientRect();return {height:r.height,touch:getComputedStyle(b,'::after').content,wrap:getComputedStyle(e).flexWrap,inside:r.left>=lane.left-1&&r.right<=lane.right+1}});
-    // UI-버튼크기: filters are 32px pill chips; a 44px touch extender (::after) stays inside the scroll lane.
-    expect(geometry).toEqual({height:32,touch:'""',wrap:'nowrap',inside:true});
-    expect(await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),p=getComputedStyle(b,'::after');return [parseFloat(p.height),getComputedStyle(b).borderRadius,e.getBoundingClientRect().height]})).toEqual([44,'999px',44]);
+    // UI-칩줄두줄: filters are 26px pill chips that wrap; the touch extender (::after) is the chip + 2px around so two lines never overlap.
+    expect(geometry).toEqual({height:26,touch:'""',wrap:'wrap',inside:true});
+    expect(await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),p=getComputedStyle(b,'::after');return [parseFloat(p.height),getComputedStyle(b).borderRadius]})).toEqual([30,'999px']);
   }
   await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('library'));
   // UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents list with the rest.

@@ -501,9 +501,11 @@ test('hub reads: new documents and changed share pages of the week, this workspa
   assert.ok(rt.calls[0].path.startsWith('/rest/v1/app_documents?')); assert.ok(rt.calls[1].path.startsWith('/rest/v1/app_share_pages?'));
   assert.equal(doc.get('workspace_id'), 'eq.w'); assert.equal(share.get('workspace_id'), 'eq.w');
   // The week in Korea time: Monday 00:00 KST up to (not including) next Monday 00:00 KST.
-  assert.deepEqual(doc.getAll('created_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
+  // WEEKLY-자료날짜: put in the library in the week, or the document's own date in the week (one read).
+  assert.deepEqual(doc.getAll('created_at'), []);
+  assert.equal(doc.get('or'), '(and(created_at.gte.2026-10-04T15:00:00.000Z,created_at.lt.2026-10-11T15:00:00.000Z),and(document_date.gte.2026-10-05,document_date.lte.2026-10-11))');
   assert.deepEqual(share.getAll('updated_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
-  assert.equal(doc.get('select'), 'id,title,file_name,category,meeting_id,created_at,organization_id,project_id,file_id');
+  assert.equal(doc.get('select'), 'id,title,file_name,category,meeting_id,created_at,document_date,organization_id,project_id,file_id');
   assert.equal(share.get('select'), 'id,title,status,updated_at');
   for (const q of [doc, share]) { assert.equal(q.get('limit'), String(m.WEEK_READ_CAP)); assert.equal(/blocks|content|text|\*/.test(q.get('select')), false); }
   assert.equal(docs.capped, false);

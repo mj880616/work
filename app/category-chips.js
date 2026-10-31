@@ -2,7 +2,8 @@
 // 자료실·담당조직 상세·프로젝트 상세의 [자료]가 모두 이 모듈 하나를 쓴다(새 칩 코드를 따로 만들지 않음).
 // 칩은 '꺼 둔 종류 이름 모음(off)'으로 상태를 말한다: 꺼진 이름이 아닌 종류가 보인다. 저장은 이 모듈이 하지 않는다(부른 쪽이 정함).
 import {allState,afterAllTap} from './library-view-pref.js';
-import {watchScrollEdges} from './scroll-edge.js';
+import {fitChipRows} from './chip-rows.js';
+import {pickedToggles} from './chip-rows-model.mjs';
 import {documentCategories,subcategoriesOf,categoryParent,categoryLeaf} from './document-categories.js';
 
 // 담당조직·프로젝트 상세 [자료]가 처음 열릴 때 꺼 둘 종류(2026-10-24 명진 결정: '회의' 기본 켜짐).
@@ -63,6 +64,7 @@ export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,
   }
   for(const b of host.children){
     const value=b.dataset[key];
+    if(value===undefined)continue;
     b.setAttribute('aria-pressed',value==='all'?(state==='all'?'true':state==='none'?'false':'mixed'):String(!off.has(value)));
   }
   if(!host._ccBound){
@@ -70,7 +72,9 @@ export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,
     host.addEventListener('click',e=>{const b=e.target.closest('button');if(b?.parentElement===host&&b.dataset[host._ccKey]!==undefined)host._ccToggle?.(b.dataset[host._ccKey])});
   }
   host._ccKey=key;
-  watchScrollEdges(host);
+  // UI-칩줄두줄: 두 줄 + [더보기 ▾](공용 chip-rows.js). 접혀도 [전체]와 고른 칩(켠 것·끈 것 중 적은 쪽)은 보인다.
+  const picked=pickedToggles(names,off);
+  fitChipRows(host,{keep:b=>b.dataset[key]==='all'||picked.has(b.dataset[key])});
 }
 
 // 칩 줄을 그리지 않고 숨길 때(자료 없음 등) 그 아래 소분류 줄을 걷는다.
@@ -106,4 +110,6 @@ function renderSubRow(host,{names,off,sub,onSub,onAddSub,subAfter,controls,key})
   }
   for(const b of row.children)if(b.dataset.ccSub!==undefined)b.setAttribute('aria-pressed',String(b.dataset.ccSub===active));
   row.dataset.ccSubFor=key||'';
+  // UI-칩줄두줄: 소분류 줄도 같은 두 줄 + [더보기]. '(큰 분류) 전체'·고른 소분류·[+ 소분류]는 접혀도 보인다.
+  fitChipRows(row,{keep:b=>b.dataset.ccSub===''||b.getAttribute('aria-pressed')==='true'||b.dataset.ccAddSub!==undefined});
 }

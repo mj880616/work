@@ -4,8 +4,10 @@ export async function selectFilter(page,selector,option){
   const matches=()=>label?host.getByRole('radio',{name:label,exact:true}):host.locator(`[data-filter-value="${value}"]`).first();
   if(selector==='#documentProject'&&!(await matches().isVisible().catch(()=>false))){
     const roots=await host.locator(':scope > .filter-chips').first().getByRole('radio').evaluateAll(bs=>bs.map(b=>b.dataset.filterValue));
-    for(const root of roots){await host.locator(':scope > .filter-chips').first().locator(`[data-filter-value="${root}"]`).click();if(await matches().isVisible().catch(()=>false))break}
+    for(const root of roots){await host.locator(':scope > .filter-chips').first().locator(`[data-filter-value="${root}"]`).evaluate(b=>b.click());if(await matches().isVisible().catch(()=>false))break}
   }
+  // UI-칩줄두줄: 칩 줄이 두 줄로 접혀 고를 칩이 숨어 있으면 [더보기 ▾]로 펼친 뒤 누른다.
+  if(!(await matches().isVisible().catch(()=>false))){for(const more of await host.locator('[data-chip-rows-more][aria-expanded="false"]:visible').all())await more.click();}
   await matches().filter({visible:true}).click();
 }
 export async function filterOptions(page,selector){

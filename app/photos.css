@@ -2,7 +2,8 @@
    여기는 사진 메뉴에만 있는 칩 줄·날짜 머리줄·달력·선택 줄만. 콤팩트·톤다운, 버튼은 32px(누르는 범위 44px). */
 #appView #photosView .photos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 #appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); background:var(--kptu-bg); }
-#appView #photosView .photos-chips{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; min-width:0; }
+/* UI-칩줄두줄(10/31): 보기 칩 줄은 옆으로 밀지 않고 줄바꿈(칩 다섯이라 두 줄을 넘지 않아 [더보기]는 없다). */
+#appView #photosView .photos-chips{ display:flex; flex-wrap:wrap; gap:var(--ds-chip-row-gap,4px); min-width:0; }
 /* UI-전수디자인점검 F02: 폰은 칩 줄이 한 줄을 다 쓰고, [전체 ▾]·[－][＋]는 그 아래 줄 오른쪽(칩이 잘리거나 고르기 칸 밑에 숨지 않게). */
 @media(max-width:760px){
   #appView #photosView .photos-bar{ flex-wrap:wrap; row-gap:4px; }

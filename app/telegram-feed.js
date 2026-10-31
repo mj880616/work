@@ -11,6 +11,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {createFeedHold} from './feed-hold.js';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
+import {fitChipRows} from './chip-rows.js';
 import {hhmm, dayLabel, telegramLines, telegramToday, telegramHeadText, roomTone, roomInitial, pinnedOf, missingTable, kstDay} from './feed-model.mjs';
 import {readDays, readRaw, readOrganizations, setPinned, setFeedState, scopeOf, readRoomDayLines, readRoomDay, readTitleRows, readPinnedItems, readTrashedItems,
   readFeedFolders, readFeedRooms, readTrashedDays, setRoom, setRoomDay, createFolder, renameFolder, deleteFolder, readSummaryEdits, editSummary, readLineMarks, readSeenDays, markRoomDaySeen, setRoomPin, readRoomLatestLine} from './feed-data.js';
@@ -324,7 +325,11 @@ function paintList() {
   const top = pinned.length ? `<div class="feed-pinrooms" data-tg-pinrooms role="group" aria-label="고정한 방">${pinned.map(pinRowHtml).join('')}</div>` : '';
   const feed = top + (groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(l => rowHtml(l)).join('')}`).join('') : pinned.length ? '' : emptyHtml('없음', {attrs: 'data-tg-empty="none"'}));
   box.innerHTML = headHtml() + pinbar + `<div class="feed-feed">${feed}</div>${older}` + tail;
+  fitFolderChips(box);
 }
+// UI-칩줄두줄: 칸 줄(전체·요청·안 본 것·폴더…·+ 폴더·보관함·⋯)은 두 줄 + [더보기 ▾](공용 chip-rows.js). 접히는 것은 고르지 않은 폴더 칩뿐이고,
+// 보기 전환·[전체]·거르기 칩·[+ 폴더]·[보관함]·⋯는 늘 보인다. 줄을 다시 그려도 펼침은 이 화면을 보는 동안 이어진다(저장 안 함).
+const fitFolderChips = box => fitChipRows(box.querySelector('.feed-chiprow'), {key:'telegram', keep:el => !el.matches('[data-tg-folder]:not([data-tg-folder=""])') || el.getAttribute('aria-pressed') === 'true'});
 function openLinkHtml(line, summary, room = state.sel?.room) {
   const t = openTarget({room_key:room, chat_username:line?.chat_username, open_ref:summary?.openRef});
   if (t.kind === 'link') return `<a class="feed-open" href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" data-tg-openlink>텔레그램에서 열기</a>`;

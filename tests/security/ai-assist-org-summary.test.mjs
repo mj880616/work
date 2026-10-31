@@ -59,15 +59,20 @@ function harness({openai=null,summaries=[],usage=[],missing=false,fail={},docs=[
     :table==='app_workspace_members'?row.user_id===uid:wsOwner[row.workspace_id]===uid;
   const cmp=(cell,op,val)=>{
     if(op==='eq')return String(cell)===val;
-    if(op==='gte')return cell!=null&&String(cell)>=val; if(op==='lt')return cell!=null&&String(cell)<val;
+    if(op==='gte')return cell!=null&&String(cell)>=val; if(op==='lt')return cell!=null&&String(cell)<val; if(op==='lte')return cell!=null&&String(cell)<=val;
     if(op==='in')return val.slice(1,-1).split(',').map(v=>v.replace(/^"|"$/g,'')).includes(String(cell));
     if(op==='is')return val==='null'?cell==null:val==='true'?cell===true:cell===false;
     throw new Error('op '+op);
   };
   const instant=(k,v)=>/_at$/.test(k)&&typeof v==='string'&&v.includes('T')?new Date(v).toISOString():v;
+  // PostgREST or=(and(col.op.val,…),and(…)) — only the shape the handler sends (values hold no commas or parentheses).
+  const split=v=>{const out=[];let depth=0,cur='';for(const ch of v){if(ch==='(')depth++;if(ch===')')depth--;if(ch===','&&depth===0){out.push(cur);cur='';continue}cur+=ch}if(cur)out.push(cur);return out};
+  const cond=(row,c)=>{const [k,op,...rest]=c.split('.');return cmp(instant(k,row[k]),op,instant(k,rest.join('.')))};
+  const matchOr=(row,v)=>split(v.slice(1,-1)).some(g=>g.startsWith('and(')?split(g.slice(4,-1)).every(c=>cond(row,c)):cond(row,g));
   const matches=(row,url)=>{
     for(const [k,v] of url.searchParams){
       if(['select','limit','order','on_conflict'].includes(k))continue;
+      if(k==='or'){if(!matchOr(row,v))return false;continue}
       const i=v.indexOf('.'),op=v.slice(0,i),val=v.slice(i+1);
       if(!cmp(instant(k,row[k]),op,instant(k,val)))return false;
     }
@@ -283,10 +288,30 @@ test('file summaries: b1: summaries of the week\'s documents of that organizatio
     {type:'자료 요약',date:'10.21.(수)',text:'제목없음.pdf — 인력 충원안 검토.'},
   ]);
   for(const hidden of ['OLD_INDEX_SUMMARY','MEETING_FILE_SUMMARY','LAST_WEEK_FILE_SUMMARY','BAD_SUMMARY'])assert.ok(!material.includes(hidden),hidden);
-  const q=calls.rest.find(c=>c.table==='app_documents'&&c.query.includes('created_at=gte.')).query;
+  const q=calls.rest.find(c=>c.table==='app_documents'&&c.query.includes('or=')).query;
+  assert.ok(q.includes(`document_date.gte.${WEEK}`)&&q.includes('document_date.lte.2026-10-25'),q);
   assert.match(q,/meeting_id=is\.null/);assert.match(q,new RegExp(`workspace_id=eq\\.${WS}`));
   assert.ok(calls.rest.filter(c=>c.table==='app_document_ai_index').every(c=>c.method==='GET'&&c.query.includes(`workspace_id=eq.${WS}`)));
   assert.match(os.ORG_SUMMARY_INSTRUCTIONS,/'자료 요약'/);
+});
+
+// WEEKLY-자료날짜: 그 주 자료 = 자료 날짜가 그 주인 자료(비었을 때만 올린 날). 작년 성명을 이번 주에 올려도 재료가 아니고, 지난주에 올린 이번 주 날짜 자료는 재료.
+test('file summaries: the week is the document\'s own date (document_date), the upload day only when it is empty',async()=>{
+  const h='b1:'+'c'.repeat(32);
+  const docs=[
+    {id:id(50),workspace_id:WS,organization_id:ORG_C,title:'작년 성명',file_name:'a.hwp',created_at:TUE,document_date:'2025-10-26',meeting_id:null},
+    {id:id(51),workspace_id:WS,organization_id:ORG_C,title:'이번 주 성명',file_name:'b.hwp',created_at:TUE,document_date:'2026-10-21',meeting_id:null},
+    {id:id(52),workspace_id:WS,organization_id:ORG_C,title:'미리 올린 자료',file_name:'c.hwp',created_at:LAST_WEEK,document_date:'2026-10-23',meeting_id:null},
+    {id:id(53),workspace_id:WS,organization_id:ORG_C,title:'날짜 없는 자료',file_name:'d.hwp',created_at:TUE,document_date:null,meeting_id:null},
+  ];
+  const briefs=docs.map(d=>({document_id:d.id,workspace_id:WS,content_hash:h,summary:`${d.title} 요약.`}));
+  const {handler,calls}=harness({docs,briefs});
+  assert.equal((await post(handler,run([ORG_C]))).status,200);
+  const sent=JSON.parse(calls.openai[0].input[1].content);
+  assert.deepEqual(sent.organizations[0].records.map(r=>[r.date,r.text.split(' — ')[0]]).sort(),[
+    ['10.20.(화)','날짜 없는 자료'],['10.21.(수)','이번 주 성명'],['10.23.(금)','미리 올린 자료'],
+  ]);
+  assert.ok(!calls.openai[0].input[1].content.includes('작년 성명'));
 });
 
 test('file summaries: an unreadable summary table leaves the organization summary as before',async()=>{

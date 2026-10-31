@@ -126,7 +126,7 @@ for(const width of [390,1280])test(`묶기 전환: 담당조직·종류·월별�
   const group=page.locator('#libraryGroupBy');
   await expect(group).toHaveAttribute('role','radiogroup');await expect(group.getByRole('radio')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);
   await expect(group.getByRole('radio',{name:'사업영역'})).toHaveAttribute('aria-checked','true');
-  await expect(group.getByRole('radio').first()).toHaveCSS('height','32px');
+  await expect(group.getByRole('radio').first()).toHaveCSS('height','26px');// UI-칩줄두줄
   await libraryNodeHead(page,'p:top-a').click();
   await group.getByRole('radio',{name:'월별'}).click();
   expect(await tops(page)).toEqual(['m:2026-10','m:2026-09','m:2026-08','m:2026-07']);

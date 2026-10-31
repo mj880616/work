@@ -305,9 +305,17 @@ export async function readWeekMeetings(start, rt = window.KPTURuntime) {
       .filter(l => l?.status === 'confirmed' && typeof l.summary === 'string' && l.summary.trim()).map(l => l.summary)}; });
 }
 
-// 자료실 새 자료: documents of this workspace added (created_at) in the week — the day they were put in the library, not the
-// document's own date (an old document would land on an old day). Title, file name, category and links only; capped.
+// 자료실 새 자료: documents of this workspace added (created_at) in the week — the day they were put in the library — and, since
+// WEEKLY-자료날짜, documents whose own date (document_date) is in the week even when put in the library later. 'Reference › 자료실 새 자료'
+// still lists by the day put in the library (created_at); the weekly candidates (조직 칸·사업영역 줄) go by docDay (the document's own date,
+// the day put in the library only when the date is empty), so last year's statement put in this week is not this week's news.
+// Title, file name, category, the document's date and links only; capped.
 export const WEEK_READ_CAP = 300;
+const DOC_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// 자료 날짜(YYYY-MM-DD) 또는 ''(비었거나 모양이 다름).
+export const docDate = doc => { const d = String(doc?.document_date ?? '').slice(0, 10); return DOC_DATE.test(d) && seoulDateKey(d) === d ? d : ''; };
+// WEEKLY-자료날짜: 자료가 '그 날의 소식'인 날 = 자료 날짜, 비어 있을 때만 올린 날(한국 날짜).
+export const docDay = doc => docDate(doc) || (doc?.created_at && Number.isFinite(Date.parse(doc.created_at)) ? seoulDateKey(doc.created_at) : '');
 const capped = rows => { if (!Array.isArray(rows)) throw new Error('read'); return Object.assign(rows, {capped:rows.length >= WEEK_READ_CAP}); };
 // WEEKLY-자료요약 화면 ① (docs/design/weekly-file-summary.md 3.1·4.3·5.1절): 담당조직·프로젝트 연결과 Drive 파일 id도 읽고, 그 주 자료의
 // 한두 줄 요약(자료별 AI 요약 표 app_document_ai_index의 'b1:' 행만)을 자료 id 목록으로 한 번 더 읽어 doc.brief = {summary, hash}로 붙인다.
@@ -315,8 +323,9 @@ const capped = rows => { if (!Array.isArray(rows)) throw new Error('read'); retu
 // 요약 없이 자료만 돌려준다(제목만 보임, 깨지지 않는 조건). 글자(extracted_text)·옛 요약 행('b1:' 아님)은 읽지 않는다.
 export const BRIEF_HASH_RE = /^b1:[0-9a-f]{32}$/;
 export async function readWeekDocuments(start, rt = window.KPTURuntime) {
-  const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1)), ws = encode(workspace(rt));
-  const docs = capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${ws}&created_at=gte.${encode(from)}&created_at=lt.${encode(to)}&select=id,title,file_name,category,meeting_id,created_at,organization_id,project_id,file_id&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
+  const days = weekDays(start), from = dayStartIso(days[0]), to = dayStartIso(shiftWeek(start, 1)), ws = encode(workspace(rt));
+  const span = `(and(created_at.gte.${from},created_at.lt.${to}),and(document_date.gte.${days[0]},document_date.lte.${days[6]}))`;
+  const docs = capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${ws}&or=${encode(span)}&select=id,title,file_name,category,meeting_id,created_at,document_date,organization_id,project_id,file_id&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
   try { await attachBriefs(docs, {ws, from, rt}); } catch { for (const doc of docs) { delete doc.brief; delete doc.repeat; } }
   return docs;
 }
@@ -528,7 +537,12 @@ export function meetingLine(meeting) {
 }
 export const pendingOn = (tasks, day) => (tasks || []).filter(task => task?.status !== 'completed' && dueDay(task) === day)
   .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
-export const documentLine = doc => `[${categoryOf(doc?.category)}] ${String(doc?.title || doc?.file_name || '').trim() || '(제목 없음)'}${doc?.meeting_id ? ' · 회의자료' : ''}`;
+// WEEKLY-자료날짜: 올린 날 목록('자료실 새 자료')에서 자료 날짜가 올린 날과 다르면 끝에 자료 날짜를 붙인다(예: 작년 성명을 이번 주에 올림).
+const dotDay = day => day.replace(/-/g, '.');
+export const documentLine = doc => {
+  const date = docDate(doc), put = doc?.created_at && Number.isFinite(Date.parse(doc.created_at)) ? seoulDateKey(doc.created_at) : '';
+  return `[${categoryOf(doc?.category)}] ${String(doc?.title || doc?.file_name || '').trim() || '(제목 없음)'}${doc?.meeting_id ? ' · 회의자료' : ''}${date && date !== put ? ` · 자료 날짜 ${dotDay(date)}` : ''}`;
+};
 export const sharePageLine = page => `${String(page?.title || '').trim() || '제목 없음'} · ${page?.status === 'published' ? '게시' : '초안'}`;
 
 // JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): the [하루] card from top to bottom —

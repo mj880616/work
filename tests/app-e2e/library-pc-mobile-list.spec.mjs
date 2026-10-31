@@ -212,15 +212,16 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-test('폰 거르기 줄: 줄마다 이름표(묶기·종류) + 옆으로 밀기, 차례는 PC와 같음',async({page})=>{
+test('폰 거르기 줄: 줄마다 이름표(묶기·종류) + 칩 두 줄(옆으로 밀지 않음, UI-칩줄두줄), 차례는 PC와 같음',async({page})=>{
   const {errors}=await boot(page,390);
   await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveText(['묶기','분류']);
   const group=page.locator('#libraryGroupBy'),category=page.locator('#libraryCategoryFilter');
   const top=await box(group),cat=await box(category);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
   for(const [b,n] of [[top,0],[cat,1]]){const l=await box(page.locator('#libraryView .lu-filter-label:visible').nth(n));expect(b.x).toBeGreaterThanOrEqual(l.x+l.width-1)}
-  // 묶기 줄(칩 + 모두 펴기)과 종류 줄(칩 + 편집)은 줄 전체가 옆으로 민다.
-  for(const row of ['group','category']){const r=page.locator(`#libraryView .lu-filter-row[data-lu-filter-row="${row}"]`);await expect(r).toHaveCSS('overflow-x','auto');await expect(r).toHaveCSS('flex-wrap','nowrap')}
-  await expect(category).toHaveCSS('flex-wrap','nowrap');
+  // UI-칩줄두줄: 묶기 줄(칩 + 모두 펴기)과 종류 줄(칩 + 편집)은 옆으로 밀지 않고, 칩 묶음이 줄바꿈으로 두 줄까지.
+  for(const row of ['group','category']){const r=page.locator(`#libraryView .lu-filter-row[data-lu-filter-row="${row}"]`);await expect(r).toHaveCSS('overflow-x','visible')}
+  for(const g of [group,category]){await expect(g).toHaveCSS('flex-wrap','wrap');await expect(g).toHaveCSS('overflow-x','visible');
+    expect(await g.evaluate(el=>new Set([...el.children].filter(c=>c.getClientRects().length).map(c=>Math.round(c.getBoundingClientRect().top))).size)).toBeLessThanOrEqual(2)}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
@@ -236,10 +237,12 @@ for(const width of [1280,390])test(`종류 칩 줄 맨 끝 [편집] ${width}: �
   expect(await edit.evaluate(el=>el.previousElementSibling?.id==='libraryCategoryFilter'&&!el.nextElementSibling&&el.parentElement.dataset.luFilterRow==='category')).toBe(true);
   await expect(category.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
   const e=await box(edit),c=await box(category);
-  expect(Math.abs((e.y+e.height/2)-(c.y+c.height/2))).toBeLessThan(4);
+  // PC는 칩 줄 가운데, 폰(칩이 두 줄일 수 있음)은 첫 줄 칩 가운데와 같은 높이(UI-칩줄두줄).
+  if(width>=761)expect(Math.abs((e.y+e.height/2)-(c.y+c.height/2))).toBeLessThan(4);
+  else{const first=await box(category.locator('[data-lu-category]').first());expect(Math.abs((e.y+e.height/2)-(first.y+first.height/2))).toBeLessThan(4);}
   if(width>=761){const lastChip=await box(category.locator('[data-lu-category]').last());expect(e.x).toBeGreaterThanOrEqual(lastChip.x+lastChip.width-1);}
   // 폰에서도 화면 안에 보이고(칩이 많아도 [편집]은 줄 끝에 남음) 보이는 높이는 작은 버튼 32px, 누르는 범위는 44px.
-  // 폰: 칩이 많으면 줄 전체가 옆으로 밀려 [편집]은 맨 끝에서 만난다(칩과 겹치지 않음).
+  // 폰: 칩 묶음은 두 줄까지 줄바꿈하고 [편집]은 그 오른쪽(칩과 겹치지 않음).
   if(width<761){const lastChip=await box(category.locator('[data-lu-category]').last());expect(e.x).toBeGreaterThanOrEqual(lastChip.x+lastChip.width-1);await edit.scrollIntoViewIfNeeded();const e2=await box(edit);expect(e2.x+e2.width).toBeLessThanOrEqual(width+1);}
   expect(Math.round(e.height)).toBe(32);
   expect(await edit.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBe(44);
