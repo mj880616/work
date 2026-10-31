@@ -2,9 +2,11 @@ import { inspectBasketOriginal } from '../_shared/basket-file-origin.ts';
 import { readBoundedJson } from '../_shared/bounded-json.mjs';
 import { createHwpEdit, HwpEditError } from '../_shared/hwp-edit.ts';
 import { createDocumentText } from '../_shared/document-text.ts';
+import { renameFile } from './file-rename.ts';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -77,6 +79,22 @@ async function driveAccessToken() {
     throw new Error('Google Drive 토큰 갱신에 실패했습니다.');
   }
   return d.access_token as string;
+}
+
+
+// ATT-이름고치기: 이름 바꾸기의 DB 읽기·쓰기는 내 로그인 토큰으로(RLS 소유자 정책). 서버 키는 쓰지 않는다.
+function userDbFor(token: string) {
+  return async (path: string, opts: { method?: string; body?: unknown; prefer?: string } = {}) => {
+    if (!ANON) throw Object.assign(new Error('서버 설정을 확인하지 못했습니다.'), { code: 'CONFIG_MISSING' });
+    const headers: Record<string, string> = { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    if (opts.prefer) headers.Prefer = opts.prefer;
+    const r = await fetch(`${SB}/rest/v1/${path}`, { method: opts.method || 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
+    const text = await r.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    if (!r.ok) throw Object.assign(new Error(`DB 요청 실패 ${r.status}`), { status: r.status });
+    return data;
+  };
 }
 
 const fail = (message: string, code: string) => Object.assign(new Error(message), { code });
@@ -315,6 +333,19 @@ Deno.serve(async (req: Request) => {
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'TEXT_FAILED';
         console.error(e);
         return json({ error: e instanceof Error ? e.message : String(e), code }, code === 'TEXT_FAILED' ? 503 : 400);
+      }
+    }
+    if (action === 'rename-file') {
+      const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      try {
+        return json(await renameFile(body, { userDb: userDbFor(token), driveToken: driveAccessToken, fetch, now: Date.now }));
+      } catch (e) {
+        // 400: 아무것도 바꾸지 않고 거절. 503: Drive 또는 일부 줄이 바뀌었을 수 있다 — 화면이 다시 읽는다.
+        const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'RESULT_UNKNOWN';
+        console.error('document-actions rename-file failed', { code });
+        const known = ['INVALID_REQUEST', 'INVALID_NAME', 'NOT_FOUND', 'ATTACHMENT_NOT_FOUND', 'DRIVE_FILE_MISSING', 'DRIVE_FORBIDDEN', 'DRIVE_UNAVAILABLE', 'RESULT_UNKNOWN', 'CONFIG_MISSING'].includes(code);
+        const message = known && e instanceof Error ? e.message : '이름 바꾸기 결과를 확인하지 못했습니다. 다시 열어 확인해 주세요.';
+        return json({ error: message, code: known ? code : 'RESULT_UNKNOWN' }, code === 'RESULT_UNKNOWN' || !known || code === 'DRIVE_UNAVAILABLE' || code === 'CONFIG_MISSING' ? 503 : 400);
       }
     }
     if (action === 'register-basket-attachment') {
