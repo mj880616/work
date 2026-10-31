@@ -101,7 +101,14 @@ export function notePhotos({getNote, upload, rt = window.KPTURuntime}) {
 // The edit field: the new editor in the note's detail, on the note's text. Returns {getValue, isChanged, setValue, focus, destroy}.
 export async function mountEditField(host, note, {photos = null, label = '본문'} = {}) {
   const [{createDocEditor}, start] = await Promise.all([editorModule(), startValue(note)]);
-  const editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, shortcuts: true});
+  // UI-뒤로가기겹규칙: 편집기 안의 작은 상자(글자색 목록·표 칸 메뉴·버튼 줄 판)가 열리면 라우터 겹 하나 — 뒤로가기 = 상자만 닫기(일기·창과 같은 onBox 계약).
+  let editor = null, boxLayer = null;
+  const dropBox = () => { if (boxLayer) { const l = boxLayer; boxLayer = null; l.close(); } };
+  const onBox = open => {
+    if (open) boxLayer ||= window.KPTURouter?.layer?.open('note-edit-box', {close:() => { boxLayer = null; editor?.closeBoxes(); return true; }}) || null;
+    else dropBox();
+  };
+  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, shortcuts: true, onBox});
   let base = JSON.stringify(editor.getValue());
   return {
     editor,
@@ -110,6 +117,6 @@ export async function mountEditField(host, note, {photos = null, label = '본문
     setValue(value) { editor.setValue(value); },
     markSaved() { base = JSON.stringify(editor.getValue()); },
     focus: () => editor.focus(),
-    destroy: () => editor.destroy(),
+    destroy: () => { dropBox(); editor.destroy(); },
   };
 }

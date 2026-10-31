@@ -35,8 +35,7 @@ function ensureDialog(){
 let layer=null;
 function close(){
   const l=layer;layer=null;
-  const done=l?new Promise(ok=>{const t=setTimeout(ok,400);window.addEventListener('popstate',()=>{clearTimeout(t);queueMicrotask(ok)},{once:true})}):Promise.resolve();
-  l?.close();
+  const done=Promise.resolve(l?.close());
   if(dialog?.open)dialog.close();state?.trigger?.focus?.({preventScroll:true});state=null;
   return done;
 }
