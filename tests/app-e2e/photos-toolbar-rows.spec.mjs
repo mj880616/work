@@ -4,7 +4,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18, 명진 '시안대로 진행'). 지어낸 서버(onedrive-photos·gdrive-photos·app_photo_tags·app_my_features), 네트워크 없음.
 // - 사진·달력·폴더·앨범·휴지통 다섯 탭 모두 위쪽이 두 줄(1줄 칩, 2줄 정렬·크기·출처)이고 높이가 같다. 폭 412(접은 폴드)·1280(PC).
 // - 출처 아이콘은 둘째 줄 오른쪽 끝(사진 탭: [전체 ▾][찍은 날 ▾][－][＋] … 출처). 구글 드라이브 칩의 점(::before ≤10px)·누르는 범위(::after ≥44px) 그대로.
-// - 앨범 탭: 정렬 [－][＋] … [+ 새 앨범]. [－][＋]로 큰 칸 → 작은 그림 목록(이름·장수·기간) → 한 줄 목록, 서버(view_prefs.album_view)에 저장되어 새로고침해도 그대로.
+// - 앨범 탭: 정렬 [－][＋] … 출처 [+ 새 앨범](출처 칩은 모든 탭에서 보임). [－][＋]로 큰 칸 → 작은 그림 목록(이름·장수·기간) → 한 줄 목록, 서버(view_prefs.album_view)에 저장되어 새로고침해도 그대로.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
 const OD = [
@@ -87,7 +87,7 @@ for (const width of [412, 1280]) {
       heights[tab] = s.height;
       if (tab === 'all') expect(s.order).toEqual(['filter', 'sort', 'size', 'sp', 'srcs']);
       if (tab === 'folders') expect(s.order).toEqual(['sort', 'size', 'sp', 'srcs']);
-      if (tab === 'albums') expect(s.order).toEqual(['sort', 'size', 'sp', 'new']);
+      if (tab === 'albums') expect(s.order).toEqual(['sort', 'size', 'sp', 'srcs', 'new']);
     }
     expect(new Set(Object.values(heights)).size, JSON.stringify(heights)).toBe(1);
     // 출처 칩을 옮겨도 문제 점(::before)은 작고, 누르는 범위(::after)는 44px.

@@ -634,14 +634,14 @@ function render() {
   paintList({full:true});
   if (!listGate() && !items.length && !ended) loadMore();
 }
-// PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18): 위쪽 둘째 줄 = [정리][거르기][정렬][－＋] … 출처. [앨범] 탭(목록)은 정렬 [－＋] … [+ 새 앨범].
+// PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18): 위쪽 둘째 줄 = [정리][거르기][정렬][－＋] … 출처. [앨범] 탭(목록)은 정렬 [－＋] … 출처 [+ 새 앨범]
+// (출처 칩은 모든 탭에서 보인다 — 앨범 장수도 켜진 출처로 센다, photos-gdrive.spec 점 검사).
 // 칸은 늘 같은 줄 하나에 있고 탭마다 보이기만 바꾼다(높이는 CSS가 고정). 앨범 목록에서 [－＋]는 사진 칸 수 대신 앨범 보기 크기 세 단계.
 const albumSizing = () => tab === 'albums' && !album;
 function paintTools() {
   $('[data-photos-filter]').hidden = tab !== 'all' && tab !== 'calendar';
   root.querySelector('.photo-size').hidden = tab === 'calendar';
   $('[data-photos-sort]').hidden = tab === 'calendar' || tab === 'trash';
-  root.querySelector('.photos-srcs').hidden = tab === 'albums';
   $('[data-photos-al-new]').hidden = !albumSizing();
   paintSize();
 }

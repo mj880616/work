@@ -2,7 +2,7 @@
    여기는 사진 메뉴에만 있는 칩 줄·날짜 머리줄·달력·선택 줄만. 콤팩트·톤다운, 버튼은 32px(누르는 범위 44px). */
 #appView #photosView .photos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 /* PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18): 위쪽은 사진·달력·폴더·앨범·휴지통 모든 탭, 모든 폭에서 두 줄 —
-   1줄 보기 칩, 2줄(.photos-tools) [정리][전체 ▾][찍은 날 ↓][－][＋] … 출처 아이콘(앨범 탭은 … [+ 새 앨범]).
+   1줄 보기 칩, 2줄(.photos-tools) [정리][전체 ▾][찍은 날 ↓][－][＋] … 출처 아이콘(앨범 탭은 그 뒤에 [+ 새 앨범]).
    둘째 줄은 높이가 고정이고 줄바꿈하지 않아, 탭을 옮겨도 위쪽 높이가 같다(좁으면 고르기 칸·정렬 글자가 줄어든다). */
 #appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:2px 0; background:var(--kptu-bg); }
 /* UI-칩줄두줄(10/31): 보기 칩 줄은 옆으로 밀지 않고 줄바꿈(칩 다섯이라 두 줄을 넘지 않아 [더보기]는 없다). */
