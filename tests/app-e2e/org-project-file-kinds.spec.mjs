@@ -161,7 +161,7 @@ for(const width of [390,1280])test(`organization documents show each kind and fi
  expect(await twoLines(host)).toBe(true);
  const box=await chip(host,'투쟁').boundingBox();expect(box.height).toBeLessThanOrEqual(32.5);
  expect(await noWideScroll(page)).toBe(true);
- if(width<761)expect(await host.evaluate(h=>h.scrollWidth>h.clientWidth)).toBe(true);
+ expect(await host.evaluate(h=>h.scrollWidth<=h.clientWidth+1)).toBe(true);// UI-칩줄두줄: 칩 줄은 옆으로 넘치지 않는다
  // Turning a kind off hides those files and the next ones fill the five lines; the count and 'all N' stay for the whole organization.
  await tap(page,chip(host,'투쟁'),width);
  await expect(chip(host,'투쟁')).toHaveAttribute('aria-pressed','false');
