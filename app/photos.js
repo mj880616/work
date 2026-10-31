@@ -131,7 +131,7 @@ const NO_SOURCE_HTML = '<p class="photos-muted" data-photos-no-source>위 출처
 // S46-20 사진 정리 제안 ①(photo-tidy.js): [정리 n] 칩(폰 앱에서 [사진]일 때만) → 접힌 칸. tidyView = [사진]에 정리 목록을 보이는 중('place:phone'·'junk:kakao', 이 화면 메모리만).
 let tidyOpen = false, tidyView = null;
 const tidyChip = $('[data-photos-tidy-chip]'), tidyBox = $('[data-photos-tidy]');
-const tidy = createPhotoTidy({phone, odReady:() => ready(), odError:e => odErrorText(e), phoneError:e => phoneErrorText(e), phoneOff:() => phoneOff, onChange:() => paintTidy(),
+const tidy = createPhotoTidy({phone, odReady:() => ready(), odError:e => odErrorText(e), phoneError:e => phoneErrorText(e), phoneOff:() => phoneOff, onChange:() => paintTidy(), isStarred:it => isStarred(it),
   readOd:async (cursor, limit) => { const page = await odLibrary(rt, {filter:'all', cursor, limit}); return {items:page.items.map(toItem), next:page.next}; }});
 const tidyPlace = () => (tidyView?.startsWith('place:') ? tidyView.slice(6) : 'all');
 function paintTidy() {
@@ -145,6 +145,8 @@ function paintTidy() {
   const open = new Set([...tidyBox.querySelectorAll('details[open]')].map(d => d.dataset.k));
   tidyBox.innerHTML = tidy.html({place:tidyPlace(), canHide:phoneSw(), canTrash:phone.state().trash === true});
   tidyBox.querySelectorAll('details[data-k]').forEach(d => { if (open.has(d.dataset.k)) d.open = true; });
+  // ④ 묶음 작은 그림(폰 앱에서만 읽음, 메모리만).
+  tidyBox.querySelectorAll('[data-photos-tidy-th]').forEach(el => { const it = tidy.item(el.dataset.photosTidyTh); if (it) el.append(phone.element(it, 'small', {label:''})); });
 }
 // 정리 목록 보기 켜기/끄기([사진] 목록을 그 목록으로 바꾼다).
 function setTidyView(key) {
@@ -164,8 +166,11 @@ function tidyFill() {
 }
 async function tidyTrash(b, kind) {
   const g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) return;
+  // ③ 공간 비우기: 원드라이브에 정말 있는지 — 읽은 지 오래됐으면 다시 확인부터.
+  if (kind === 'space' && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); tidyView = null; tidy.rescan(); return; }
   const n = g.items.length;
-  if (!await askConfirm(b, {text:`${g.label} ${n}장을 폰 휴지통으로 옮길까요?`, note:'폰이 한 번 더 확인 창을 띄워요(200장씩). 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요.', ok:'폰 휴지통으로', danger:true})) return;
+  const keepNote = kind === 'space' ? '원드라이브에는 그대로 남아요. ' : kind.startsWith('dup') ? '남길 사진은 그대로예요. ' : '';
+  if (!await askConfirm(b, {text:`${g.label} ${n}장을 폰 휴지통으로 옮길까요?`, note:`${keepNote}폰이 한 번 더 확인 창을 띄워요(200장씩). 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요.`, ok:'폰 휴지통으로', danger:true})) return;
   const gone = [];
   for (let i = 0; i < n; i += 200) {
     const part = g.items.slice(i, i + 200);
@@ -190,7 +195,8 @@ function tidyHide(kind) {
 function tidyClick(b) {
   if (b.matches('[data-photos-tidy-chip]')) { tidyOpen = !tidyOpen; paintTidy(); return true; }
   if (b.matches('[data-photos-place]')) { const p = b.dataset.photosPlace; setTidyView(p === 'all' ? null : 'place:' + p); return true; }
-  if (b.matches('[data-photos-tidy-see]')) { setTidyView('junk:' + b.dataset.photosTidySee); return true; }
+  if (b.matches('[data-photos-tidy-see]')) { const k = b.dataset.photosTidySee; setTidyView(k === 'space' ? 'space:' : 'junk:' + k); return true; }
+  if (b.matches('[data-photos-tidy-keep]')) { const [g, id] = b.dataset.photosTidyKeep.split('|'); tidy.keep(g, id); paintTidy(); return true; }
   if (b.matches('[data-photos-tidy-end]')) { setTidyView(null); return true; }
   if (b.matches('[data-photos-tidy-rescan]')) { tidyView = null; tidy.rescan(); resetList(); render(); return true; }
   if (b.matches('[data-photos-tidy-hide]')) { tidyHide(b.dataset.photosTidyHide); return true; }

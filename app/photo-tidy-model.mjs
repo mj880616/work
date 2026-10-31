@@ -101,3 +101,68 @@ export function typeFilter(list, filter, isStarred = () => false) {
   if (filter === 'star') return list.filter(isStarred);
   return list.slice();
 }
+
+// ---- S46-20 ②: ③ 폰 공간 비우기 · ④ 같은 사진·비슷한 사진 묶음 ----
+// ③ 후보: 원드라이브에 같은 사진이 확인된 폰 사진 중 1년 지난 것, 또는 한 달 지난 큰 동영상(50MB 이상). 별표 사진은 뺀다.
+export const SPACE_DAYS = 365, SPACE_VIDEO_DAYS = 30, SPACE_VIDEO_BYTES = 50e6;
+const bytesOf = p => (Number.isFinite(p.size_bytes) && p.size_bytes > 0 ? p.size_bytes : 0);
+export function spacePlan(phItems, index, {now = Date.now(), isStarred = () => false} = {}) {
+  const old = now - SPACE_DAYS * DAY_MS, vOld = now - SPACE_VIDEO_DAYS * DAY_MS;
+  const items = [];
+  let photos = 0, videos = 0;
+  for (const p of phItems || []) {
+    if (!index?.phoneHas?.has(p.id) || isStarred(p)) continue;
+    const t = Date.parse(p.taken_at);
+    if (!Number.isFinite(t)) continue;
+    const bigVideo = p.video && bytesOf(p) >= SPACE_VIDEO_BYTES && t < vOld;
+    if (t < old || bigVideo) { items.push(p); if (p.video) videos++; else photos++; }
+  }
+  return {items, photos, videos, bytes:items.reduce((n, p) => n + bytesOf(p), 0)};
+}
+// 재료를 읽은 지 오래됐으면(10분) 지우기 전에 다시 확인한다(원드라이브에 정말 있는지).
+export const FRESH_MS = 10 * 60 * 1000;
+export const scanFresh = (at, now = Date.now()) => Number.isFinite(at) && now - at < FRESH_MS;
+
+// ④ 묶음: 같은 사진 여러 번 저장(같은 크기·같은 가로세로 — 가로세로를 알 때만, 50KB 이상) = 'copy', 연사(같은 폴더에서 1초 안에 이어 찍은 사진, 동영상·스크린샷 제외) = 'burst'.
+export const BURST_MS = 1000, COPY_MIN_BYTES = 50e3, GROUP_MAX = 500;
+export function dupGroups(phItems) {
+  const list = (phItems || []).filter(p => p && p.id);
+  const parent = new Map(list.map(p => [p.id, p.id]));
+  const find = id => { let r = id; while (parent.get(r) !== r) r = parent.get(r); for (let x = id; parent.get(x) !== r;) { const n = parent.get(x); parent.set(x, r); x = n; } return r; };
+  const kinds = new Map();
+  const join = (a, b, kind) => { const ra = find(a.id), rb = find(b.id); if (ra !== rb) parent.set(rb, ra); kinds.set(find(a.id), kinds.get(ra) === 'copy' || kinds.get(rb) === 'copy' || kind === 'copy' ? 'copy' : 'burst'); };
+  // 같은 사진 여러 번 저장
+  const bySize = new Map();
+  for (const p of list) if (bytesOf(p) >= COPY_MIN_BYTES && p.width > 0 && p.height > 0) { const k = `${p.video ? 'v' : 'p'}:${p.size_bytes}:${p.width ?? ''}x${p.height ?? ''}`; (bySize.get(k) || bySize.set(k, []).get(k)).push(p); }
+  for (const same of bySize.values()) for (let i = 1; i < same.length; i++) join(same[0], same[i], 'copy');
+  // 연사
+  const byFolder = new Map();
+  for (const p of list) if (!p.video && !p.screenshot && p.folder && Number.isFinite(Date.parse(p.taken_at))) (byFolder.get(p.folder) || byFolder.set(p.folder, []).get(p.folder)).push(p);
+  for (const f of byFolder.values()) {
+    f.sort((a, b) => Date.parse(a.taken_at) - Date.parse(b.taken_at) || a.id.localeCompare(b.id));
+    for (let i = 1; i < f.length; i++) if (Date.parse(f[i].taken_at) - Date.parse(f[i - 1].taken_at) <= BURST_MS) join(f[i - 1], f[i], 'burst');
+  }
+  const groups = new Map();
+  for (const p of list) { const r = find(p.id); (groups.get(r) || groups.set(r, []).get(r)).push(p); }
+  const out = [];
+  for (const [r, items] of groups) {
+    if (items.length < 2) continue;
+    items.sort((a, b) => String(a.taken_at).localeCompare(String(b.taken_at)) || a.id.localeCompare(b.id));
+    const kind = kinds.get(find(r)) || 'burst';
+    out.push({id:r, kind, items, keep:defaultKeep(items, kind), bytes:0});
+  }
+  for (const g of out) g.bytes = g.items.filter(p => p.id !== g.keep).reduce((n, p) => n + bytesOf(p), 0);
+  return out.sort((a, b) => b.bytes - a.bytes || String(b.items[0].taken_at).localeCompare(String(a.items[0].taken_at))).slice(0, GROUP_MAX);
+}
+// 남길 것 기본값: 같은 사진은 카메라 폴더(DCIM) 것 → 가장 먼저 저장된 것, 연사는 가장 큰 파일(같으면 첫 장).
+export function defaultKeep(items, kind) {
+  if (kind === 'copy') return (items.find(p => /^DCIM\//.test(p.folder || '')) || items[0]).id;
+  return items.reduce((best, p) => (bytesOf(p) > bytesOf(best) ? p : best), items[0]).id;
+}
+// 지울 것(남길 것 말고 전부). keeps = Map(묶음 id → 남길 칸 id), 명진이 고른 것이 기본값보다 앞선다.
+export function dupTrashList(groups, keeps = new Map()) {
+  const out = [];
+  for (const g of groups || []) { const keep = g.items.some(p => p.id === keeps.get(g.id)) ? keeps.get(g.id) : g.keep; out.push(...g.items.filter(p => p.id !== keep)); }
+  return out;
+}
+export const DUP_TEXT = Object.freeze({copy:'같은 사진', burst:'연사'});

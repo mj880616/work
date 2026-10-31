@@ -107,3 +107,68 @@ test('사진 메뉴 연결: [정리] 칩·접힌 칸·누를 때만 지우기·�
   // 정리 읽기는 화면에서 [정리]를 열 때만 시작한다(자동 지우기 없음).
   assert.doesNotMatch(tidy, /phone\.trash|folderOp/);
 });
+
+// ---- S46-20 ②: 공간 비우기·같은 사진 묶음 ----
+import {spacePlan, dupGroups, dupTrashList, defaultKeep, scanFresh, FRESH_MS} from '../app/photo-tidy-model.mjs';
+
+test('공간 비우기: 원드라이브에 확인된 것만, 1년 지난 사진·한 달 지난 큰 동영상, 별표 뺌', () => {
+  const vid = ph(9, 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z', 'DCIM/Camera/', {video:true});
+  const oldOd = od('D', 'IMG_0.jpg', 1000, '2024-05-01T01:00:00.000Z'), vOd = {...od('E', 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z'), video:true};
+  const oldPh = ph(10, 'IMG_0.jpg', 1000, '2024-05-01T01:00:00.000Z', 'DCIM/Camera/');
+  const starOld = ph(11, 'IMG_S.jpg', 500, '2024-05-02T01:00:00.000Z', 'DCIM/Camera/');
+  const odItems = [...ODS, oldOd, vOd, od('F', 'IMG_S.jpg', 500, '2024-05-02T01:00:00.000Z')], phItems = [...PHS, vid, oldPh, starOld];
+  const plan = spacePlan(phItems, matchIndex(odItems, phItems), {now:NOW, isStarred:p => p.id === 'ph:11'});
+  assert.deepEqual(plan.items.map(x => x.id).sort(), ['ph:10', 'ph:9']);
+  assert.equal(plan.bytes, 80e6 + 1000); assert.equal(plan.videos, 1); assert.equal(plan.photos, 1);
+  // 원드라이브에 없는 오래된 스크린샷(ph:7)은 후보가 아니다.
+  assert.ok(!plan.items.some(x => x.id === 'ph:7'));
+  assert.ok(scanFresh(NOW - 1000, NOW) && !scanFresh(NOW - FRESH_MS - 1, NOW) && !scanFresh(0, NaN));
+});
+
+test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연사(같은 폴더 1초 안), 남길 것 고르기', () => {
+  const list = [
+    ph(20, 'a.jpg', 300e3, '2026-10-01T01:00:00.000Z', 'Pictures/KakaoTalk/', {width:100, height:80}),
+    ph(21, 'IMG_a.jpg', 300e3, '2026-09-30T01:00:00.000Z', 'DCIM/Camera/', {width:100, height:80}),
+    ph(22, 'b.jpg', 300e3, '2026-10-01T01:00:00.000Z', 'Pictures/X/', {width:80, height:100}), // 가로세로 다르면 다른 사진
+    ph(30, 'B1.jpg', 2e6, '2026-10-05T01:00:00.000Z', 'DCIM/Camera/'),
+    ph(31, 'B2.jpg', 3e6, '2026-10-05T01:00:00.600Z', 'DCIM/Camera/'),
+    ph(32, 'B3.jpg', 2e6, '2026-10-05T01:00:01.400Z', 'DCIM/Camera/'),
+    ph(33, 'B4.jpg', 2e6, '2026-10-05T01:00:05.000Z', 'DCIM/Camera/'),
+    ph(34, 'S.png', 10e3, '2026-10-05T01:00:00.100Z', 'DCIM/Camera/', {screenshot:true}),
+  ];
+  const g = dupGroups(list);
+  const burst = g.find(x => x.kind === 'burst'), copy = g.find(x => x.kind === 'copy');
+  assert.deepEqual(burst.items.map(x => x.id), ['ph:30', 'ph:31', 'ph:32']);
+  assert.equal(burst.keep, 'ph:31', '연사는 가장 큰 파일');
+  assert.deepEqual(copy.items.map(x => x.id), ['ph:21', 'ph:20']);
+  assert.equal(copy.keep, 'ph:21', '같은 사진은 카메라 폴더 것');
+  assert.equal(g.length, 2);
+  assert.deepEqual(dupTrashList(g).map(x => x.id).sort(), ['ph:20', 'ph:30', 'ph:32']);
+  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:30']])).map(x => x.id), ['ph:31', 'ph:32'], '명진이 고른 것이 남는다');
+  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:99']])).map(x => x.id), ['ph:30', 'ph:32'], '묶음 밖 id는 무시');
+  assert.equal(defaultKeep([list[0]], 'copy'), 'ph:20');
+});
+
+test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누를 때만', async () => {
+  const vid = ph(9, 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z', 'DCIM/Camera/', {video:true});
+  const vOd = {...od('E', 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z'), video:true};
+  const b1 = ph(30, 'B1.jpg', 2e6, '2026-10-05T01:00:00.000Z', 'DCIM/Camera/'), b2 = ph(31, 'B2.jpg', 3e6, '2026-10-05T01:00:00.600Z', 'DCIM/Camera/');
+  let clock = NOW;
+  const t = createPhotoTidy({phone:{page:async () => ({items:[...PHS, vid, b1, b2], next:null})}, odReady:() => true, readOd:async () => ({items:[...ODS, vOd], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => clock});
+  await t.rescan();
+  const html = t.html({canTrash:true});
+  assert.match(html, /폰에서만 지우면 <b>80MB<\/b> 비워져요/);
+  assert.match(html, /data-photos-tidy-trash="space"/);
+  assert.match(html, /같은 사진 묶음 <b>1개<\/b>/);
+  assert.match(html, /data-photos-tidy-keep="ph:30\|ph:31" aria-pressed="true"/);
+  assert.match(html, /data-photos-tidy-keep="ph:30\|ph:30" aria-pressed="false"/);
+  assert.deepEqual(t.group('dups').items.map(x => x.id), ['ph:30']);
+  t.keep('ph:30', 'ph:30');
+  assert.deepEqual(t.group('dup|ph:30').items.map(x => x.id), ['ph:31']);
+  assert.deepEqual(t.list('space:').map(x => x.id), ['ph:9']);
+  assert.ok(t.fresh()); clock += 11 * 60 * 1000; assert.ok(!t.fresh(), '10분 지나면 지우기 전에 다시 확인');
+  assert.doesNotMatch(t.html({canTrash:false}), /data-photos-tidy-trash/);
+  const src = read('app/photos.js');
+  assert.match(src, /if \(kind === 'space' && !tidy\.fresh\(\)\)/);
+});
