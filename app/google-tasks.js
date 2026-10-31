@@ -344,10 +344,12 @@ function paintSourceNote(task){
 let taskFiles={owner:'',supported:false,map:new Map()};
 const filesSupported=()=>taskFiles.supported&&taskFiles.owner===currentOwner();
 const filesOf=id=>taskFiles.owner&&taskFiles.owner===currentOwner()?taskFiles.map.get(id)||[]:[];
-const fileLinks=t=>fileLinksHtml(taskAttachments(t.notes,filesOf(t.id)));
+const fileLinks=t=>{const table=filesOf(t.id);return fileLinksHtml(taskAttachments(t.notes,table),{taskId:t.id,tableIds:filesSupported()?new Set(table.map(f=>f.drive_file_id)):null})};
+// ATT-이름고치기: 첨부 이름을 고치면(서버가 Drive 원본·할 일 첨부 표를 함께 바꿈) 들고 있는 파일 목록을 고쳐 다시 그린다. 잡아 둔 수정 창 변경은 그대로.
+window.addEventListener('kptu:file-renamed',e=>{const d=e.detail;if(!d?.drive_file_id||!taskFiles.owner)return;let hit=false;const map=new Map();for(const [id,files] of taskFiles.map)map.set(id,files.map(f=>f.drive_file_id===d.drive_file_id&&f.file_name!==d.name?(hit=true,{...f,file_name:d.name}):f));if(!hit)return;taskFiles={...taskFiles,map};if(tasksViewShown())renderTasks(lastTasks);attach?.renamed?.(d)});
 // TASK-첨부열기: the edit window's 첨부 row (same merged list as the card). Hidden when the task has none.
 // TASK-첨부교체: every paint starts from the saved files, so closing the window or opening another task forgets held changes.
-function paintAttach(task){if(!attach)return;const table=task?filesOf(task.id):[],ids=new Set(table.map(f=>f.drive_file_id));attach.set(task?taskAttachments(task.notes,table).map(f=>({...f,inTable:ids.has(f.drive_file_id)})):[],{editable:!!task?.id&&filesSupported(),shown:!!task})}
+function paintAttach(task){if(!attach)return;const table=task?filesOf(task.id):[],ids=new Set(table.map(f=>f.drive_file_id));attach.set(task?taskAttachments(task.notes,table).map(f=>({...f,inTable:ids.has(f.drive_file_id)})):[],{editable:!!task?.id&&filesSupported(),shown:!!task,taskId:task?.id||''})}
 async function loadTaskFiles(owner,epoch,tasks){
   let map=null;try{map=await readTaskFiles(tasks.map(t=>t.id),{rt})}catch{map=null}
   if(!stillCurrent(epoch,owner))return false;

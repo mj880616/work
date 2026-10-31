@@ -1,3 +1,4 @@
+import { markRenameHost, renameButtonHtml } from './file-rename.js'; // ATT-이름고치기
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {notify} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
@@ -109,11 +110,14 @@ async function mrdTaskClick(e){
 async function mrdDeleteTask(t,trigger){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting||!confirm(`“${t.title}” Google 할 일을 삭제할까요?`))return;if(trigger)trigger.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdReload(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){notify(err.message||String(err),{error:true});if(trigger)trigger.disabled=false}}}
 // FILE-누르면동작: 자료 줄을 누르면 종류별 동작(file-actions.js). docs는 이 창이 그린 자료 목록.
 async function mrdDownload(id,docs=[]){const d=docs.find(x=>x.id===id);if(!d)return;await pressFile(meetingFileFile(d),{api:mrdApi,onError:m=>notify(m,{error:true})})}
+const mrdRename=d=>d?.file_id&&d.file_name?renameButtonHtml({target:'document',id:d.id,driveId:d.file_id,name:d.file_name}):'';
 function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
     // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯), ×는 기존 삭제 확인을 거친다.
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name)}<button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):emptyHtml();
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`${mrdRename(d)}<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name)}<button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):emptyHtml();
+    // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ✎로 파일 이름을 그 자리에서 고친다(file-rename.js). 자료는 고친 뒤 kptu:documents-changed로 다시 읽는다.
+    document.querySelectorAll('#mrdMaterials [data-mrd-doc-row]').forEach(row=>{const d=(docs||[]).find(x=>x.id===row.dataset.mrdDocRow);if(d?.file_id&&d.file_name)markRenameHost(row.querySelector('.file-line-main b'),{target:'document',id:d.id,driveId:d.file_id,name:d.file_name})});
     document.querySelectorAll('[data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();return mrdDeleteMaterial(b,allDocs)});
     document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload,docs)});
 }

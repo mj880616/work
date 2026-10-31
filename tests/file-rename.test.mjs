@@ -144,3 +144,53 @@ test('서버 연결: document-actions가 rename-file을 내 로그인 토큰으�
   const run = ai.slice(ai.indexOf('async function runFileName'), ai.indexOf('// ---- 사업영역 AI'));
   assert.doesNotMatch(run, /method: "PATCH"|method: "POST"/);
 });
+
+// ---- 화면 공용 부품(app/file-rename.js)과 화면 연결 ----
+const ui = await import('../app/file-rename.js');
+
+test('공용 부품: ✎·이름 칸 표시, 고친 이름 반영, 오류 안내', () => {
+  const spec = { target: 'note', id: 'n1', driveId: 'F1', name: '216079.jpg' };
+  assert.match(ui.renameButtonHtml(spec), /class="fr-edit" data-fr-edit data-fr-target="note" data-fr-id="n1" data-fr-drive="F1" data-fr-name="216079.jpg"/);
+  assert.match(ui.renameHostAttrs(spec), /^ data-fr-host data-fr-target="note"/);
+  assert.equal(ui.renameButtonHtml({ ...spec, driveId: '' }), '');
+  assert.equal(ui.renameHostAttrs(null), '');
+  assert.match(ui.renameButtonHtml({ ...spec, name: '"><b>x' }), /data-fr-name="&quot;&gt;&lt;b&gt;x"/);
+  const note = { id: 'n1', updated_at: 'old', attachments: [{ drive_file_id: 'F1', file_name: '216079.jpg' }, { drive_file_id: 'F2', file_name: 'b.png' }] };
+  assert.equal(ui.applyRenamedNote(note, { drive_file_id: 'F1', name: '명단.jpg', notes: [{ id: 'n1', updated_at: 'new' }] }), true);
+  assert.equal(note.attachments[0].file_name, '명단.jpg');
+  assert.equal(note.attachments[1].file_name, 'b.png');
+  assert.equal(note.updated_at, 'new');
+  assert.match(ui.renameErrorText({ status: 400, message: 'Unknown action' }), /아직 준비되지 않았어요/);
+  assert.match(ui.renameErrorText({ status: 400, message: '이름은 120자까지예요.' }), /120자/);
+  assert.match(ui.renameErrorText({ status: 503 }), /확인하지 못했어요/);
+  assert.match(ui.aiNameText({ skipped: 'no_text' }), /읽어 둔 글자가 없어/);
+});
+
+test('부품: 서버에는 이름 부분만 보내고(확장자는 서버가), 자동 저장 없음(기기 저장 검사는 audit 작업)', () => {
+  const src = read('../app/file-rename.js');
+  assert.match(src, /action: 'rename-file', target: spec\.target, id: spec\.id, drive_file_id: spec\.driveId, base: r\.base/);
+  assert.match(src, /kind: 'file_name', target: spec\.target, id: spec\.id, drive_file_id: spec\.driveId/);
+  // [AI 이름]은 칸만 채운다: suggest 안에서 rename-file을 부르지 않는다.
+  const suggest = src.slice(src.indexOf('const suggest = async'), src.indexOf('// 줄을 누르면 파일이 열리므로'));
+  assert.doesNotMatch(suggest, /rename-file/);
+  assert.match(src, /'\.\/file-rename\.css'/);
+});
+
+test('첨부 파일 줄이 있는 화면마다 같은 부품을 쓴다', () => {
+  const uses = {
+    'basket.js': /renameHostAttrs\(renameSpec\)[\s\S]*renameButtonHtml\(renameSpec\)/,
+    'basket-notes.js': /markRenameHost\(line\.querySelector\('\.file-line-main b'\)/,
+    'task-files.js': /target: 'task', id: taskId/,
+    'meeting-round-detail.js': /markRenameHost\(row\.querySelector\('\.file-line-main b'\)/,
+    'workplace-detail.js': /renameButtonHtml\(rn\)/,
+    'project-system-v3.js': /renameButtonHtml\(rn\)/,
+  };
+  for (const [file, re] of Object.entries(uses)) {
+    const src = read('../app/' + file);
+    assert.match(src, /from '\.\/file-rename\.js'/, file);
+    assert.match(src, re, file);
+  }
+  assert.match(read('../app/google-tasks.js'), /kptu:file-renamed[\s\S]*attach\?\.renamed\?\.\(d\)/);
+  assert.match(read('../app/google-tasks.js'), /taskId:task\?\.id/);
+  for (const file of ['basket.js', 'basket-notes.js', 'task-files.js', 'google-tasks.js', 'project-system-v3.js']) assert.match(read('../app/' + file), /kptu:file-renamed/, file);
+});
