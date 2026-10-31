@@ -65,8 +65,9 @@ class PhoneMediaRulesTest {
 
     @Test
     fun stateMessageGivesKeyOnlyWithAccess() {
-        assertEquals("photos:state:{\"access\":\"none\",\"trash\":true}", PhoneMediaRules.stateMessage(Access.NONE, key, 34))
-        assertEquals("photos:state:{\"access\":\"partial\",\"key\":\"$key\",\"trash\":false}", PhoneMediaRules.stateMessage(Access.PARTIAL, key, 29))
+        assertEquals("photos:state:{\"access\":\"none\",\"trash\":true,\"hide\":true,\"ops\":true,\"manage\":false}", PhoneMediaRules.stateMessage(Access.NONE, key, 34))
+        assertEquals("photos:state:{\"access\":\"partial\",\"key\":\"$key\",\"trash\":false,\"hide\":true,\"ops\":false,\"manage\":false}", PhoneMediaRules.stateMessage(Access.PARTIAL, key, 29))
+        assertTrue(PhoneMediaRules.stateMessage(Access.FULL, key, 34, manage = true).endsWith("\"manage\":true}"))
     }
 
     @Test
@@ -200,5 +201,52 @@ class PhoneMediaRulesTest {
         assertEquals(listOf(2L, 1L), page.items.map { it.id })
         assertEquals(2, page.total)
         assertEquals(3, PhoneMediaRules.page(list, Request.Page("taken_desc", "all", 0, 10, null)).total)
+    }
+
+    // ── PHOTO-폴더스위치(0.4.1) ──
+    private fun inFolder(id: Long, folder: String, taken: Long = id * 1000) =
+        Media(id, "IMG_$id.jpg", 10, taken, false, taken, "image/jpeg", 1, 1, 0, false, false, folder)
+
+    @Test
+    fun hideListLeavesOutHiddenFoldersOnly() {
+        val hide = "%5B%22DCIM%2FCamera%2F%22%5D" // ["DCIM/Camera/"]
+        assertEquals(Request.Page("taken_desc", "all", 0, 120, null, null, setOf("DCIM/Camera/")), PhoneMediaRules.request(base + "page?hide=$hide", "GET", key))
+        assertEquals(Request.Months("all", setOf("DCIM/Camera/")), PhoneMediaRules.request(base + "months?hide=$hide", "GET", key))
+        assertEquals(Request.Ids(listOf(1L), setOf("DCIM/Camera/")), PhoneMediaRules.request(base + "ids?ids=1&hide=$hide", "GET", key))
+        assertEquals(Request.Days("2026-10", "all", emptySet(), setOf("")), PhoneMediaRules.request(base + "days?month=2026-10&hide=%5B%22%22%5D", "GET", key))
+        assertEquals(Request.Bad, PhoneMediaRules.request(base + "folders?hide=$hide", "GET", key))
+        assertEquals(Request.Bad, PhoneMediaRules.request(base + "page?hide=DCIM", "GET", key))
+        assertEquals(Request.Bad, PhoneMediaRules.request(base + "page?hide=%5B1%5D", "GET", key))
+        assertEquals(Request.Bad, PhoneMediaRules.request(base + "page?hide=%5B%22a%5Cnb%22%5D", "GET", key))
+        assertNull(PhoneMediaRules.hideList("[" + (1..81).joinToString(",") { "\"P/$it/\"" } + "]"))
+        val list = listOf(inFolder(1, "DCIM/Camera/"), inFolder(2, "DCIM/Camera/Sub/"), inFolder(3, "Pictures/KakaoTalk/"))
+        assertEquals(listOf(2L, 3L), PhoneMediaRules.visible(list, setOf("DCIM/Camera/")).map { it.id })
+        assertTrue(PhoneMediaRules.itemJson(list[2]).contains("\"folder\":\"Pictures/KakaoTalk/\""))
+    }
+
+    @Test
+    fun folderOpsAreCheckedAndMapPaths() {
+        val list = listOf(inFolder(1, "Pictures/A/"), inFolder(2, "Pictures/A/B/"), inFolder(3, "DCIM/Camera/"))
+        val rename = PhoneMediaRules.folderOp("{\"op\":\"rename\",\"from\":\"Pictures/A/\",\"name\":\"새 이름\"}")
+        assertEquals(PhoneMediaRules.FolderOp.Rename("Pictures/A/", "새 이름"), rename)
+        assertEquals(listOf("Pictures/새 이름/", "Pictures/새 이름/B/"), PhoneMediaRules.targets(list, rename!!).map { PhoneMediaRules.newPath(it, rename) })
+        assertEquals("Pictures/새 이름/", PhoneMediaRules.opPath(rename))
+        val into = PhoneMediaRules.folderOp("{\"op\":\"movefolder\",\"from\":\"Pictures/A/\",\"into\":\"DCIM/Camera/\"}")!!
+        assertEquals(listOf("DCIM/Camera/A/", "DCIM/Camera/A/B/"), PhoneMediaRules.targets(list, into).map { PhoneMediaRules.newPath(it, into) })
+        val move = PhoneMediaRules.folderOp("{\"op\":\"move\",\"ids\":[\"3\",\"1\"],\"to\":\"Pictures/A/\"}")!!
+        assertEquals(listOf(3L), PhoneMediaRules.targets(list, move).map { it.id })
+        val trash = PhoneMediaRules.folderOp("{\"op\":\"trashfolder\",\"from\":\"Pictures/A/\"}")!!
+        assertEquals(listOf(1L, 2L), PhoneMediaRules.targets(list, trash).map { it.id })
+        // 맨 위·DCIM·Pictures 자체, 자기 아래로 옮기기, 이상한 이름·경로는 받지 않는다.
+        for (bad in listOf("{\"op\":\"rename\",\"from\":\"DCIM/\",\"name\":\"x\"}", "{\"op\":\"rename\",\"from\":\"Pictures/A/\",\"name\":\"a/b\"}",
+            "{\"op\":\"rename\",\"from\":\"Pictures/A/\",\"name\":\".x\"}", "{\"op\":\"rename\",\"from\":\"Download/A/\",\"name\":\"x\"}",
+            "{\"op\":\"movefolder\",\"from\":\"Pictures/A/\",\"into\":\"Pictures/A/B/\"}", "{\"op\":\"movefolder\",\"from\":\"Pictures/A/\",\"into\":\"Pictures/\"}",
+            "{\"op\":\"move\",\"ids\":[],\"to\":\"Pictures/A/\"}", "{\"op\":\"move\",\"ids\":[\"1\"],\"to\":\"../x/\"}", "{\"op\":\"move\",\"ids\":[\"1\"],\"to\":\"Pictures//\"}",
+            "{\"op\":\"trashfolder\",\"from\":\"DCIM/\"}", "{\"op\":\"trashfolder\",\"from\":\"\"}", "{\"op\":\"delete\"}", "nope")) {
+            assertNull(bad, PhoneMediaRules.folderOp(bad))
+        }
+        assertTrue(PhoneMediaRules.message("photos:op:{\"op\":\"trashfolder\",\"from\":\"Pictures/A/\"}") is PhoneMediaRules.Message.Op)
+        assertEquals(PhoneMediaRules.Message.Manage, PhoneMediaRules.message("photos:manage"))
+        assertEquals("photos:done:{\"ok\":true,\"count\":2,\"error\":\"\",\"path\":\"Pictures/B/\"}", PhoneMediaRules.doneMessage(true, 2, "", "Pictures/B/"))
     }
 }

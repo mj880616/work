@@ -203,7 +203,8 @@ export async function odFolderCreate(rt, parentId, name) {
 }
 export const odFolderRename = (rt, folderId, name) => odCall(rt, {action: 'folder-rename', folder_id: folderId, name});
 export const odFolderMove = (rt, folderId, parentId) => odCall(rt, {action: 'folder-move', folder_id: folderId, parent_id: parentId});
-export const odFolderDelete = (rt, folderId) => odCall(rt, {action: 'folder-delete', folder_id: folderId, confirm: true});
+// PHOTO-폴더스위치 ②: contents = 사진·하위 폴더가 든 폴더도(폴더째 원드라이브 휴지통). 서버 옛 판은 빈 폴더만 지우고 409 onedrive_folder_not_empty.
+export const odFolderDelete = (rt, folderId, {contents = false} = {}) => odCall(rt, {action: 'folder-delete', folder_id: folderId, confirm: true, ...(contents ? {contents: true} : {})});
 // {moved:[{id, from}], failed:{id:이유}}. from = 원래 폴더 id(되돌리기에 씀).
 export async function odPhotosMove(rt, ids, parentId) {
   const d = await odCall(rt, {action: 'photos-move', ids, parent_id: parentId});

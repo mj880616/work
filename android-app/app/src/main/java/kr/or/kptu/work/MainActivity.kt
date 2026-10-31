@@ -104,6 +104,32 @@ class MainActivity : ComponentActivity() {
         trashCount = 0
     }
 
+    /** PHOTO-폴더스위치: 폰 폴더 바꾸기(쓰기 요청 → 허락하면 relative_path 바꾸기, 지우기는 휴지통 요청). 한 번에 하나. */
+    private var folderOp: PhoneMediaRules.FolderOp? = null
+    private var folderOpList: List<PhoneMediaRules.Media> = emptyList()
+    private val photoWrite = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val op = folderOp
+        val list = folderOpList
+        folderOp = null
+        folderOpList = emptyList()
+        if (op == null) return@registerForActivityResult
+        if (result.resultCode != android.app.Activity.RESULT_OK) {
+            PhoneMedia.forget()
+            postPhotos(PhoneMediaRules.doneMessage(false, 0, "refused"))
+            return@registerForActivityResult
+        }
+        if (op is PhoneMediaRules.FolderOp.TrashFolder) {
+            PhoneMedia.forget()
+            postPhotos(PhoneMediaRules.doneMessage(true, list.size))
+            return@registerForActivityResult
+        }
+        val app = applicationContext
+        Thread {
+            val n = try { PhoneMedia.applyMove(app, list, op) } catch (_: Exception) { 0 }
+            ui.post { postPhotos(PhoneMediaRules.doneMessage(n > 0, n, if (n > 0) "" else "failed", PhoneMediaRules.opPath(op))) }
+        }.start()
+    }
+
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileCallback ?: return@registerForActivityResult
         fileCallback = null
@@ -629,6 +655,14 @@ class MainActivity : ComponentActivity() {
             } catch (_: Exception) {
                 postPhotos(PhoneMedia.stateMessage(this))
             }
+            PhoneMediaRules.Message.Manage -> try {
+                if (Build.VERSION.SDK_INT >= 31) {
+                    startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_MANAGE_MEDIA, android.net.Uri.parse("package:$packageName")))
+                }
+            } catch (_: Exception) {
+                postPhotos(PhoneMedia.stateMessage(this))
+            }
+            is PhoneMediaRules.Message.Op -> startFolderOp(m.op)
             is PhoneMediaRules.Message.Trash -> {
                 if (Build.VERSION.SDK_INT < 30) {
                     postPhotos(PhoneMediaRules.trashedMessage(false, 0))
@@ -648,6 +682,38 @@ class MainActivity : ComponentActivity() {
                     postPhotos(PhoneMediaRules.trashedMessage(false, 0))
                 }
             }
+        }
+    }
+
+    /** PHOTO-폴더스위치: 폴더 바꾸기 시작. 안드로이드 11+만. 바꿀 사진이 없으면 바로 답한다. */
+    private fun startFolderOp(op: PhoneMediaRules.FolderOp) {
+        if (Build.VERSION.SDK_INT < 30) {
+            postPhotos(PhoneMediaRules.doneMessage(false, 0, "old"))
+            return
+        }
+        if (folderOp != null) {
+            postPhotos(PhoneMediaRules.doneMessage(false, 0, "busy"))
+            return
+        }
+        try {
+            val list = PhoneMedia.opTargets(this, op)
+            if (list.isEmpty()) {
+                postPhotos(PhoneMediaRules.doneMessage(false, 0, "none"))
+                return
+            }
+            val uris = list.map(PhoneMedia::uriOf)
+            val sender = if (op is PhoneMediaRules.FolderOp.TrashFolder) {
+                android.provider.MediaStore.createTrashRequest(contentResolver, uris, true).intentSender
+            } else {
+                android.provider.MediaStore.createWriteRequest(contentResolver, uris).intentSender
+            }
+            folderOp = op
+            folderOpList = list
+            photoWrite.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
+        } catch (_: Exception) {
+            folderOp = null
+            folderOpList = emptyList()
+            postPhotos(PhoneMediaRules.doneMessage(false, 0, "failed"))
         }
     }
 

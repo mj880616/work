@@ -999,6 +999,25 @@ test('folder-delete: only an empty folder (no sub-folder, no indexed photo, no o
   assert.ok(!empty.admin.state.mem.tables.app_onedrive_folders.some(f=>f.item_id===made.folder.id));
 });
 
+// PHOTO-폴더스위치 ②: contents:true면 사진·하위 폴더가 든 폴더도 폴더째 원드라이브 휴지통으로. 색인은 그 폴더 나무의 줄만 지운다. Web2 휴지통이 든 폴더·맨 위는 거절.
+test('folder-delete contents: a folder with photos and sub-folders goes to the recycle bin whole; index rows of that subtree only; trash or top refused',async()=>{
+  const ctx=folderCtx();
+  ctx.admin.state.mem.tables.app_onedrive_folders.push(frow('SUB','S1','안쪽'));
+  ctx.admin.state.mem.tables.app_onedrive_photos.push(prow('C1','SUB','2026-10-10T01:00:00Z'));
+  assert.equal((await post(ctx.handler,{action:'folder-delete',folder_id:'S1',contents:true})).status,400,'confirm is still required');
+  assert.equal((await post(ctx.handler,{action:'folder-delete',folder_id:'F1!100',confirm:true,contents:true})).status,400,'the top folder is never deleted');
+  assert.deepEqual(await read(await post(ctx.handler,{action:'folder-delete',folder_id:'S1',confirm:true,contents:true})),{deleted:true,folders:2});
+  assert.deepEqual(ctx.ms.calls.filter(c=>c.init.method==='DELETE').map(c=>c.url),['https://graph.microsoft.com/v1.0/me/drive/items/S1']);
+  const t=ctx.admin.state.mem.tables;
+  assert.deepEqual(t.app_onedrive_folders.map(f=>f.item_id).sort(),['F1!100','OFF',TRASH].sort());
+  assert.deepEqual(t.app_onedrive_photos.map(p=>p.item_id).sort(),['A1','H1','T1','T2','T3','T4','T5','X1'].sort(),'photos of S1 and SUB are gone, the Web2 trash photo stays');
+  // Web2 휴지통이 그 폴더 안(바로 아래)이면 지우지 않는다.
+  const withBin=folderCtx();
+  withBin.admin.state.mem.tables.app_onedrive_folders.find(f=>f.item_id===TRASH).parent_id='S1';
+  assert.deepEqual(await read(await post(withBin.handler,{action:'folder-delete',folder_id:'S1',confirm:true,contents:true})),{error:'onedrive_folder_has_trash'});
+  assert.ok(!withBin.ms.calls.some(c=>c.init.method==='DELETE'));
+});
+
 test('photos-move: many photos into one folder in $batch, original folder in the answer (for undo), all refused when one is outside, trash photos and the trash folder refused',async()=>{
   const ctx=folderCtx();
   const out=await read(await post(ctx.handler,{action:'photos-move',ids:['A1','A2','H1','X1','MISSING'],parent_id:'OFF'}));

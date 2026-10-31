@@ -46,12 +46,12 @@ object PhoneMediaRules {
     val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
 
     sealed class Request {
-        data class Page(val sort: String, val filter: String, val offset: Int, val limit: Int, val beforeMs: Long?, val folder: String? = null) : Request()
+        data class Page(val sort: String, val filter: String, val offset: Int, val limit: Int, val beforeMs: Long?, val folder: String? = null, val hide: Set<String> = emptySet()) : Request()
         /** PHOTO-출처모든칩: 폰 폴더 목록(폴더마다 장수·대표 1장). */
         object Folders : Request()
-        data class Ids(val ids: List<Long>) : Request()
-        data class Months(val filter: String) : Request()
-        data class Days(val month: String, val filter: String, val prefer: Set<Long>) : Request()
+        data class Ids(val ids: List<Long>, val hide: Set<String> = emptySet()) : Request()
+        data class Months(val filter: String, val hide: Set<String> = emptySet()) : Request()
+        data class Days(val month: String, val filter: String, val prefer: Set<Long>, val hide: Set<String> = emptySet()) : Request()
         data class Thumb(val id: Long, val large: Boolean) : Request()
         data class Original(val id: Long) : Request()
         /** __phone 주소이지만 모양(호스트·방법·값)이 틀림 → 400 bad_request. */
@@ -149,6 +149,9 @@ object PhoneMediaRules {
         val q = query(u.rawQuery) ?: return Request.Bad
         val what = m.groupValues[2]
         val filter = q["filter"] ?: "all"
+        // PHOTO-폴더스위치(0.4.1): hide = 끈 폰 폴더(JSON 글자 배열). 사진 목록·달·날·번호 읽기에서 그 폴더 바로 안 사진을 뺀다.
+        val hide = if (q.containsKey("hide")) hideList(q["hide"]) ?: return Request.Bad else emptySet()
+        if (hide.isNotEmpty() && what != "page" && what != "ids" && what != "months" && what != "days") return Request.Bad
         return when {
             what == "page" -> {
                 val sort = q["sort"] ?: "taken_desc"
@@ -157,20 +160,20 @@ object PhoneMediaRules {
                 val before = q["before"]?.let { if (NUMBER.matches(it)) it.toLong() else return Request.Bad }
                 val folder = q["folder"]?.let { if (isFolder(it)) it else return Request.Bad }
                 if (sort !in SORTS || filter !in FILTERS || filter == "star" || limit !in 1..PAGE_MAX) return Request.Bad
-                Request.Page(sort, filter, offset, limit, before, folder)
+                Request.Page(sort, filter, offset, limit, before, folder, hide)
             }
             what == "ids" -> {
                 val ids = numbers(q["ids"] ?: "") ?: return Request.Bad
                 if (ids.isEmpty() || ids.size > IDS_MAX) return Request.Bad
-                Request.Ids(ids)
+                Request.Ids(ids, hide)
             }
             what == "folders" -> if (q.isNotEmpty()) Request.Bad else Request.Folders
-            what == "months" -> if (filter !in FILTERS || filter == "star") Request.Bad else Request.Months(filter)
+            what == "months" -> if (filter !in FILTERS || filter == "star") Request.Bad else Request.Months(filter, hide)
             what == "days" -> {
                 val month = q["month"] ?: return Request.Bad
                 val prefer = (q["prefer"]?.let { numbers(it) ?: return Request.Bad } ?: emptyList()).toSet()
                 if (!MONTH.matches(month) || filter !in FILTERS || filter == "star" || prefer.size > IDS_MAX) return Request.Bad
-                Request.Days(month, filter, prefer)
+                Request.Days(month, filter, prefer, hide)
             }
             what.startsWith("thumb/") -> {
                 val size = q["s"] ?: "small"
@@ -183,6 +186,25 @@ object PhoneMediaRules {
 
     /** 폰 폴더 값: 빈 값(사진첩 맨 위) 또는 255자 이하, 줄바꿈·제어 글자 없음. */
     fun isFolder(v: String): Boolean = v.length <= 255 && v.none { it.isISOControl() }
+
+    const val HIDE_MAX = 80
+
+    /** 끈 폰 폴더 목록: JSON 글자 배열, 80개까지, 칸마다 isFolder. 모양이 다르면 null(→ 400). */
+    fun hideList(raw: String?): Set<String>? {
+        if (raw == null || raw.length > 40_000) return null
+        val list = try { MiniJson.list(MiniJson.parse(raw)) } catch (_: Exception) { null } ?: return null
+        if (list.size > HIDE_MAX) return null
+        val out = LinkedHashSet<String>()
+        for (v in list) {
+            val s = v as? String ?: return null
+            if (!isFolder(s)) return null
+            out.add(s)
+        }
+        return out
+    }
+
+    /** 끈 폴더 바로 안 사진을 뺀다(하위 폴더는 따로 켜고 끈다). */
+    fun visible(list: List<Media>, hide: Set<String>): List<Media> = if (hide.isEmpty()) list else list.filter { it.folder !in hide }
 
     private fun sameKey(a: String, b: String): Boolean = MessageDigest.isEqual(a.toByteArray(), b.toByteArray())
 
@@ -210,7 +232,7 @@ object PhoneMediaRules {
             val v = if (i < 0) "" else part.substring(i + 1)
             val key = try { URLDecoder.decode(k, "UTF-8") } catch (_: Exception) { return null }
             val value = try { URLDecoder.decode(v, "UTF-8") } catch (_: Exception) { return null }
-            if (key !in setOf("sort", "filter", "offset", "limit", "before", "ids", "month", "prefer", "s", "folder") || out.containsKey(key)) return null
+            if (key !in setOf("sort", "filter", "offset", "limit", "before", "ids", "month", "prefer", "s", "folder", "hide") || out.containsKey(key)) return null
             out[key] = value
         }
         return out
@@ -239,26 +261,135 @@ object PhoneMediaRules {
     }
 
     /** 다리로 보내는 상태 글. 접근이 없으면 열쇠를 주지 않는다. trash = 폰 휴지통 보내기를 할 수 있는 폰(안드로이드 11+). */
-    fun stateMessage(access: Access, key: String, sdk: Int): String {
+    fun stateMessage(access: Access, key: String, sdk: Int, manage: Boolean = false): String {
         val name = access.name.lowercase()
         val sb = StringBuilder("photos:state:{\"access\":\"").append(name).append('"')
         if (access != Access.NONE) sb.append(",\"key\":").append(ShellRules.jsonString(key))
-        sb.append(",\"trash\":").append(sdk >= 30).append('}')
-        return sb.toString()
+        sb.append(",\"trash\":").append(sdk >= 30)
+        // PHOTO-폴더스위치(0.4.1): hide = 끈 폴더 거르기를 안다, ops = 폰 폴더 바꾸기(안드로이드 11+), manage = '미디어 관리 허용'이 켜짐(12+).
+        sb.append(",\"hide\":true,\"ops\":").append(sdk >= 30).append(",\"manage\":").append(manage)
+        return sb.append('}').toString()
     }
 
     sealed class Message {
         object Hello : Message()
         object Ask : Message()
+        /** PHOTO-폴더스위치: '미디어 관리 허용' 설정 화면 열기(안드로이드 12+). 켜 두면 폴더 바꾸기·지우기 때 매번 묻지 않는다. */
+        object Manage : Message()
         data class Trash(val ids: List<Long>) : Message()
+        /** PHOTO-폴더스위치: 폰 폴더 바꾸기(op 하나). */
+        data class Op(val op: FolderOp) : Message()
     }
 
     fun message(data: String?): Message? = when {
         data == "photos:hello" -> Message.Hello
         data == "photos:ask" -> Message.Ask
+        data == "photos:manage" -> Message.Manage
         data != null && data.startsWith("photos:trash:") -> numbers(data.substring("photos:trash:".length))
             ?.takeIf { it.isNotEmpty() && it.size <= TRASH_MAX }?.let { Message.Trash(it) }
+        data != null && data.startsWith("photos:op:") -> folderOp(data.substring("photos:op:".length))?.let { Message.Op(it) }
         else -> null
+    }
+
+    // ── 폰 폴더 바꾸기(PHOTO-폴더스위치 ③, 0.4.1) ──
+    // 안드로이드 사진첩 폴더는 사진들의 relative_path다(빈 폴더는 없다). 그래서
+    // - 이름 바꾸기·폴더 옮기기 = 그 폴더(와 하위 폴더) 사진의 relative_path 앞부분을 바꾼다.
+    // - 고른 사진 옮기기 = 그 사진들의 relative_path를 옮길 폴더로(새 폴더면 사진이 들어가며 생긴다).
+    // - 폴더 지우기 = 그 폴더(와 하위 폴더) 사진을 폰 휴지통으로(시스템 확인 창, '미디어 관리 허용'이면 바로).
+    // 옮길 곳은 DCIM/·Pictures/ 아래만(안드로이드가 사진·동영상을 받는 곳). 사진 이름·경로는 로그에 쓰지 않는다.
+
+    const val OP_MAX = 2000
+    const val NAME_MAX = 60
+    val TOPS = listOf("DCIM/", "Pictures/")
+
+    sealed class FolderOp {
+        data class Move(val ids: List<Long>, val to: String) : FolderOp()
+        data class Rename(val from: String, val name: String) : FolderOp()
+        data class MoveFolder(val from: String, val into: String) : FolderOp()
+        data class TrashFolder(val from: String) : FolderOp()
+    }
+
+    /** 새 폴더 이름: 1~60자, '/'·제어 글자·앞 '.' 없음, 앞뒤 빈칸 없음. */
+    fun isName(v: String?): Boolean = v != null && v.length in 1..NAME_MAX && v == v.trim() && !v.startsWith(".") &&
+        v.none { it == '/' || it == '\\' || it.isISOControl() }
+
+    /** 폴더 경로 모양: 'DCIM/…/' 또는 'Pictures/…/'(끝 '/' 하나, 빈 칸 없음, 칸마다 isName). */
+    fun isTarget(v: String?): Boolean {
+        if (v == null || v.length > 255 || !v.endsWith("/") || TOPS.none { v.startsWith(it) }) return false
+        return v.dropLast(1).split('/').drop(1).all { isName(it) }
+    }
+
+    /** 바꿀 수 있는 폴더(사진첩 맨 위 '·DCIM·Pictures 자체는 안 됨). */
+    fun isMovable(v: String?): Boolean = isTarget(v) && TOPS.none { it == v }
+
+    fun parentOf(path: String): String = path.dropLast(1).substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
+
+    fun folderOp(raw: String): FolderOp? {
+        if (raw.length > 60_000) return null
+        val o = try { MiniJson.obj(MiniJson.parse(raw)) } catch (_: Exception) { null } ?: return null
+        return when (MiniJson.str(o["op"])) {
+            "move" -> {
+                val list = MiniJson.list(o["ids"]) ?: return null
+                val ids = ArrayList<Long>(list.size)
+                for (v in list) {
+                    val t = MiniJson.str(v) ?: return null
+                    if (!NUMBER.matches(t)) return null
+                    ids.add(t.toLong())
+                }
+                val to = MiniJson.str(o["to"]) ?: return null
+                val uniq = ids.distinct()
+                if (uniq.isEmpty() || uniq.size > OP_MAX || !isTarget(to)) null else FolderOp.Move(uniq, to)
+            }
+            "rename" -> {
+                val from = MiniJson.str(o["from"]) ?: return null
+                val name = MiniJson.str(o["name"]) ?: return null
+                if (!isMovable(from) || !isName(name) || !isTarget(parentOf(from) + name + "/")) null else FolderOp.Rename(from, name)
+            }
+            "movefolder" -> {
+                val from = MiniJson.str(o["from"]) ?: return null
+                val into = MiniJson.str(o["into"]) ?: return null
+                val leaf = from.dropLast(1).substringAfterLast('/')
+                if (!isMovable(from) || !isTarget(into) || into.startsWith(from) || parentOf(from) == into || !isTarget("$into$leaf/")) null
+                else FolderOp.MoveFolder(from, into)
+            }
+            "trashfolder" -> {
+                val from = MiniJson.str(o["from"]) ?: return null
+                if (from.isEmpty() || !isFolder(from) || TOPS.any { it == from } || !from.endsWith("/")) null else FolderOp.TrashFolder(from)
+            }
+            else -> null
+        }
+    }
+
+    /** 그 폴더 또는 그 아래 폴더인가. */
+    fun under(path: String, folder: String): Boolean = path == folder || path.startsWith(folder)
+
+    /** 바꾼 뒤 경로(바꾸지 않는 사진은 null). */
+    fun newPath(m: Media, op: FolderOp): String? = when (op) {
+        is FolderOp.Move -> if (m.id in op.ids && m.folder != op.to) op.to else null
+        is FolderOp.Rename -> if (under(m.folder, op.from)) parentOf(op.from) + op.name + "/" + m.folder.substring(op.from.length) else null
+        is FolderOp.MoveFolder -> if (under(m.folder, op.from)) op.into + op.from.dropLast(1).substringAfterLast('/') + "/" + m.folder.substring(op.from.length) else null
+        is FolderOp.TrashFolder -> null
+    }
+
+    /** 이번 바꾸기에 드는 사진(지우기는 그 폴더와 하위 폴더 모두). */
+    fun targets(list: List<Media>, op: FolderOp): List<Media> = when (op) {
+        is FolderOp.TrashFolder -> list.filter { under(it.folder, op.from) }
+        else -> list.filter { newPath(it, op) != null }
+    }
+
+    /** 바꾼 폴더 경로(화면이 끈 폴더 목록을 맞춤): 이름 바꾸기·폴더 옮기기 = 새 경로, 그 밖 = null. */
+    fun opPath(op: FolderOp): String? = when (op) {
+        is FolderOp.Rename -> parentOf(op.from) + op.name + "/"
+        is FolderOp.MoveFolder -> op.into + op.from.dropLast(1).substringAfterLast('/') + "/"
+        else -> null
+    }
+
+    /** 다리 답: ok·count(바꾼 장수)·error(종류: none·denied·refused·failed·old)·path(새 폴더 경로). */
+    fun doneMessage(ok: Boolean, count: Int, error: String = "", path: String? = null): String {
+        val sb = StringBuilder("photos:done:{\"ok\":").append(ok).append(",\"count\":").append(count)
+        sb.append(",\"error\":").append(ShellRules.jsonString(error.filter { it in 'a'..'z' }.take(20)))
+        if (path != null) sb.append(",\"path\":").append(ShellRules.jsonString(path.take(255)))
+        return sb.append('}').toString()
     }
 
     fun trashedMessage(ok: Boolean, count: Int): String = "photos:trashed:{\"ok\":$ok,\"count\":$count}"
@@ -337,6 +468,8 @@ object PhoneMediaRules {
         sb.append(",\"screenshot\":").append(m.screenshot)
         sb.append(",\"size_bytes\":").append(if (m.size >= 0) m.size.toString() else "null")
         sb.append(",\"uploaded_at\":\"").append(iso(m.addedMs)).append('"')
+        // PHOTO-폴더스위치(0.4.1): 사진마다 폰 폴더(relative_path). 화면 메모리에서만 쓴다(서버로 보내지 않음).
+        sb.append(",\"folder\":").append(ShellRules.jsonString(m.folder.take(255)))
         return sb.append('}').toString()
     }
 

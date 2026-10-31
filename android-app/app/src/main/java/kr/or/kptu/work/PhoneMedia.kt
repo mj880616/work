@@ -48,7 +48,14 @@ object PhoneMedia {
         return PhoneMediaRules.access(Build.VERSION.SDK_INT, granted)
     }
 
-    fun stateMessage(context: Context): String = PhoneMediaRules.stateMessage(access(context), key, Build.VERSION.SDK_INT)
+    fun stateMessage(context: Context): String = PhoneMediaRules.stateMessage(access(context), key, Build.VERSION.SDK_INT, canManage(context))
+
+    /** PHOTO-폴더스위치: '미디어 관리 허용'(안드로이드 12+)이 켜져 있나. 켜져 있으면 바꾸기·휴지통 요청에 시스템이 묻지 않는다. */
+    fun canManage(context: Context): Boolean = try {
+        Build.VERSION.SDK_INT >= 31 && MediaStore.canManageMedia(context)
+    } catch (_: Exception) {
+        false
+    }
 
     /** 목록 읽기 실패(종류·예외 클래스 이름만). */
     private class ListFailed(val fail: PhoneMediaRules.Fail, val detail: String) : Exception()
@@ -65,11 +72,11 @@ object PhoneMedia {
         val stage = PhoneMediaRules.stageOf(req)
         return try {
             when (req) {
-                is PhoneMediaRules.Request.Page -> json(PhoneMediaRules.pageJson(PhoneMediaRules.page(all(context), req)))
-                is PhoneMediaRules.Request.Ids -> json(PhoneMediaRules.idsJson(all(context), req.ids))
+                is PhoneMediaRules.Request.Page -> json(PhoneMediaRules.pageJson(PhoneMediaRules.page(PhoneMediaRules.visible(all(context), req.hide), req)))
+                is PhoneMediaRules.Request.Ids -> json(PhoneMediaRules.idsJson(PhoneMediaRules.visible(all(context), req.hide), req.ids))
                 PhoneMediaRules.Request.Folders -> json(PhoneMediaRules.foldersJson(all(context)))
-                is PhoneMediaRules.Request.Months -> json(PhoneMediaRules.monthsJson(PhoneMediaRules.filter(all(context), req.filter)))
-                is PhoneMediaRules.Request.Days -> json(PhoneMediaRules.daysJson(PhoneMediaRules.filter(all(context), req.filter), req.month, req.prefer))
+                is PhoneMediaRules.Request.Months -> json(PhoneMediaRules.monthsJson(PhoneMediaRules.filter(PhoneMediaRules.visible(all(context), req.hide), req.filter)))
+                is PhoneMediaRules.Request.Days -> json(PhoneMediaRules.daysJson(PhoneMediaRules.filter(PhoneMediaRules.visible(all(context), req.hide), req.filter), req.month, req.prefer))
                 is PhoneMediaRules.Request.Thumb -> thumb(context, req)
                 is PhoneMediaRules.Request.Original -> original(context, req.id)
                 PhoneMediaRules.Request.Bad, PhoneMediaRules.Request.WrongKey -> fail(PhoneMediaRules.Fail.BAD_REQUEST, "", "request")
@@ -191,6 +198,29 @@ object PhoneMedia {
     }
 
     private const val TAG = "KPTUPhoneMedia"
+
+    /** PHOTO-폴더스위치: 폴더 바꾸기에 드는 사진(새 목록에서). */
+    fun opTargets(context: Context, op: PhoneMediaRules.FolderOp): List<PhoneMediaRules.Media> =
+        PhoneMediaRules.targets(all(context, fresh = true), op).take(PhoneMediaRules.OP_MAX)
+
+    /**
+     * 허락(쓰기 요청)을 받은 뒤 relative_path를 바꾼다(안드로이드가 파일을 그 폴더로 옮긴다). 바꾼 장수.
+     * 한 장이 실패해도 나머지는 계속한다. 사진 이름·경로는 로그에 쓰지 않는다.
+     */
+    fun applyMove(context: Context, list: List<PhoneMediaRules.Media>, op: PhoneMediaRules.FolderOp): Int {
+        var done = 0
+        for (m in list) {
+            val to = PhoneMediaRules.newPath(m, op) ?: continue
+            try {
+                val v = android.content.ContentValues().apply { put(MediaStore.MediaColumns.RELATIVE_PATH, to) }
+                if (context.contentResolver.update(uriOf(m), v, null, null) > 0) done++
+            } catch (e: Exception) {
+                log(PhoneMediaRules.Fail.QUERY, PhoneMediaRules.detailOf(e), "folder-op")
+            }
+        }
+        forget()
+        return done
+    }
 
     /** 폰 휴지통으로 보내기 요청(안드로이드 11+, 시스템이 확인 창을 띄움). 지금 목록에 있는 것만. */
     fun trashUris(context: Context, ids: List<Long>): List<Uri> {

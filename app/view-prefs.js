@@ -56,9 +56,12 @@ export const ORG_TABS = Object.freeze(['log', 'table']);
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
 export const TG_VIEWS = Object.freeze(['day', 'room']);
 export const NOTE_BOARDS_MAX = 12;
+// PHOTO-폴더스위치: phone_folders_off = 사진 [폴더]에서 끈 폰 폴더(안드로이드 사진첩 relative_path) 글자 배열, 80개까지·칸마다 0~255자·제어문자 없음.
+// migration 20261031060000. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(스위치가 켜짐으로 돌아감).
+export const PHONE_FOLDERS_OFF_MAX = 80;
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -91,6 +94,8 @@ export function validValue(key, value) {
     case 'diary_onedrive': return typeof value === 'boolean';
     case 'quiet_weeks': return Number.isInteger(value) && value >= 0 && value <= 12;
     case 'photo_hint': return Number.isInteger(value) && value >= 0 && value <= 9;
+    case 'phone_folders_off': return Array.isArray(value) && value.length <= PHONE_FOLDERS_OFF_MAX
+      && value.every(v => typeof v === 'string' && v.length <= 255 && !/[\p{Cc}]/u.test(v));
     case 'photo_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => PHOTO_SOURCE_NAMES.includes(name) && typeof value[name] === 'boolean');
     case 'photo_view': return !!value && typeof value === 'object' && !Array.isArray(value)

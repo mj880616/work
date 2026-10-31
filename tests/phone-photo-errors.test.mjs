@@ -94,5 +94,5 @@ test('앱(0.4.0): 실패를 빈 404로 뭉개지 않고, 사진·동영상 모�
   const logs = [...kt.matchAll(/Log\.\w\(([^\n]*)\)/g)].map(m => m[1]);
   assert.ok(logs.length >= 1);
   for (const l of logs) assert.doesNotMatch(l, /message|name\b|\.name|path/i, l);
-  assert.match(read('android-app/app/build.gradle'), /versionName '0\.4\.0'/);
+  assert.match(read('android-app/app/build.gradle'), /versionName '0\.4\.[1-9]'/);
 });
