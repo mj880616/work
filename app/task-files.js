@@ -5,6 +5,7 @@ import {emptyHtml} from './wait-state.js';
 // Deploy order: google-tasks Edge first, then the table. The menu item and file names appear only once the table answers,
 // so an older Edge never gets an attach request.
 import { fileAttrs, driveFileUrl } from './file-actions.js';
+import { renameHostAttrs, renameButtonHtml, applyRenamed } from './file-rename.js'; // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
 export const MAX_TASK_FILES = 10;
@@ -61,9 +62,10 @@ export async function detachTaskFile(taskId, driveFileId, {rt = window.KPTURunti
 }
 
 // Small names under a task row; each opens the file in Drive.
-export function fileLinksHtml(files) {
+export function fileLinksHtml(files, {taskId = '', tableIds = null} = {}) {
   if (!files?.length) return '';
-  return `<div class="gt-files">${files.map(f => `<a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer" ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})} aria-label="첨부 파일 열기: ${esc(f.file_name)}">${esc(f.file_name)}</a>`).join('')}</div>`;
+  const spec = f => taskId && tableIds?.has(f.drive_file_id) ? {target: 'task', id: taskId, driveId: f.drive_file_id, name: f.file_name} : null;
+  return `<div class="gt-files">${files.map(f => `<a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(spec(f))} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})} aria-label="첨부 파일 열기: ${esc(f.file_name)}">${esc(f.file_name)}</a>`).join('')}</div>`;
 }
 
 // The dialog behind ⋯ → 파일 붙이기: current files with [빼기], a picker, and a status line. The owner of the task list
@@ -101,6 +103,8 @@ function status(text, failed = false) {
   el.textContent = text;
   el.classList.toggle('error', failed);
 }
+// ATT-이름고치기: 열린 [파일 붙이기] 창의 줄도 고친 이름으로.
+if (typeof window !== 'undefined') window.addEventListener('kptu:file-renamed', e => { const s = dialog?.state; if (s && applyRenamed(s.files, e.detail)) paint(); });
 function paint() {
   const s = dialog?.state;
   if (!s) return;
@@ -108,7 +112,7 @@ function paint() {
   m.querySelector('[data-gt-files-task]').textContent = s.task.title || '제목 없음';
   const list = m.querySelector('[data-gt-files-list]');
   list.innerHTML = s.files.length
-    ? s.files.map(f => `<li><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer" ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a><button type="button" class="mini" data-fa-menu="open"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} Drive에서 열기">Drive에서 열기</button><button type="button" class="mini" data-fa-menu="download"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} 내려받기">내려받기</button><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${s.busy ? ' disabled' : ''}>빼기</button></li>`).join('')
+    ? s.files.map(f => { const rn = {target: 'task', id: s.task.id, driveId: f.drive_file_id, name: f.file_name}; return `<li data-fr-row><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(rn)} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a>${s.busy ? '' : renameButtonHtml(rn)}<button type="button" class="mini" data-fa-menu="open"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} Drive에서 열기">Drive에서 열기</button><button type="button" class="mini" data-fa-menu="download"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} 내려받기">내려받기</button><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${s.busy ? ' disabled' : ''}>빼기</button></li>`; }).join('')
     : `<li class="gt-files-empty">${emptyHtml()}</li>`;
   list.querySelectorAll('[data-gt-file-detach]').forEach(b => { b.onclick = () => void detach(b.dataset.gtFileDetach); });
   const pick = m.querySelector('[data-gt-files-pick]');
@@ -292,7 +296,7 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
 // buttons (data-fa-menu) for [열기] [내려받기]; held changes show a small tag and [되돌리기] / [취소].
 const ATT_ICON = '<svg class="gt-att-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 1.5h5l3 3v10H4z M9 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 const keptCount = (base, edits, added) => base.filter(f => edits.get(f.drive_file_id)?.kind !== 'remove').length + added.length;
-export function taskAttachHtml({base = [], edits = new Map(), added = [], editable = false, busy = false} = {}) {
+export function taskAttachHtml({base = [], edits = new Map(), added = [], editable = false, busy = false, taskId = ''} = {}) {
   const btn = (label, attr, aria, off) => `<button type="button" class="ghost gt-att-btn" ${attr} aria-label="${esc(aria)}"${off ? ' disabled' : ''}>${label}</button>`;
   const rows = base.map(f => {
     const id = esc(f.drive_file_id), name = esc(f.file_name), e = edits.get(f.drive_file_id);
@@ -302,7 +306,9 @@ export function taskAttachHtml({base = [], edits = new Map(), added = [], editab
     }
     if (e?.kind === 'remove') return `<div class="gt-att-row is-removed" data-gt-att-id="${id}">${ATT_ICON}<span class="gt-att-name" title="${name}">${name}</span><small class="gt-att-tag">뺌</small>${btn('되돌리기', `data-gt-att-undo="${id}"`, `빼기 되돌리기: ${f.file_name}`, busy)}</div>`;
     const attrs = fileAttrs({name: f.file_name, driveId: f.drive_file_id});
-    return `<div class="gt-att-row" data-gt-att-id="${id}">${ATT_ICON}<span class="gt-att-name" title="${name}">${name}</span><button type="button" class="ghost gt-att-btn" data-fa-menu="open"${attrs} aria-label="첨부 열기: ${name}">열기</button><button type="button" class="ghost gt-att-btn" data-fa-menu="download"${attrs} aria-label="첨부 내려받기: ${name}">내려받기</button>${editable ? btn('교체', `data-gt-att-swap="${id}"`, `첨부 교체: ${f.file_name}`, busy) + btn('빼기', `data-gt-att-remove="${id}"`, `첨부 빼기: ${f.file_name}`, busy) : ''}</div>`;
+    // ATT-이름고치기: 할 일 첨부 표에 있는 파일만(메모 속 '첨부:' 줄만 있는 파일은 서버 줄이 없어 고칠 수 없음).
+    const rn = editable && taskId && f.inTable ? {target: 'task', id: taskId, driveId: f.drive_file_id, name: f.file_name} : null;
+    return `<div class="gt-att-row" data-gt-att-id="${id}" data-fr-row>${ATT_ICON}<span class="gt-att-name" title="${name}"${renameHostAttrs(rn)}>${name}</span>${busy ? '' : renameButtonHtml(rn)}<button type="button" class="ghost gt-att-btn" data-fa-menu="open"${attrs} aria-label="첨부 열기: ${name}">열기</button><button type="button" class="ghost gt-att-btn" data-fa-menu="download"${attrs} aria-label="첨부 내려받기: ${name}">내려받기</button>${editable ? btn('교체', `data-gt-att-swap="${id}"`, `첨부 교체: ${f.file_name}`, busy) + btn('빼기', `data-gt-att-remove="${id}"`, `첨부 빼기: ${f.file_name}`, busy) : ''}</div>`;
   });
   const fresh = added.map((f, i) => `<div class="gt-att-row is-new">${ATT_ICON}<span class="gt-att-name" title="${esc(f.name)}">${esc(f.name)}</span><small class="gt-att-tag">새 파일</small>${btn('취소', `data-gt-att-drop="${i}"`, `붙이기 취소: ${f.name}`, busy)}</div>`);
   const changed = edits.size > 0 || added.length > 0;
@@ -316,7 +322,7 @@ export function taskAttachHtml({base = [], edits = new Map(), added = [], editab
 // at [저장] and sends the same attach / detach requests as ⋯ → 파일 붙이기. Closing the window (set() on the next open) forgets
 // the changes. Detaching never deletes the Drive file. editable:false (no link table yet) keeps only [열기] [내려받기].
 export function mountTaskAttach(host, {isBusy = () => false, onError = () => {}, onChange = () => {}} = {}) {
-  let base = [], editable = false, shown = false, edits = new Map(), added = [], swapFor = '';
+  let base = [], editable = false, shown = false, edits = new Map(), added = [], swapFor = '', taskId = '';
   host.innerHTML = '<span class="gt-att-label">첨부</span><div class="gt-att-list" data-gt-att-list></div><input type="file" multiple hidden data-gt-att-add-input><input type="file" hidden data-gt-att-swap-input>';
   const list = host.querySelector('[data-gt-att-list]'), addInput = host.querySelector('[data-gt-att-add-input]'), swapInput = host.querySelector('[data-gt-att-swap-input]');
   const kept = () => keptCount(base, edits, added);
@@ -324,7 +330,7 @@ export function mountTaskAttach(host, {isBusy = () => false, onError = () => {},
   const changed = () => { onError(''); render(); onChange(); };
   function render() {
     host.classList.toggle('hidden', !shown || (!editable && !base.length));
-    list.innerHTML = taskAttachHtml({base, edits, added, editable, busy: isBusy()});
+    list.innerHTML = taskAttachHtml({base, edits, added, editable, busy: isBusy(), taskId});
   }
   function addFiles(files) {
     if (!editable || isBusy() || !files.length) return;
@@ -362,7 +368,7 @@ export function mountTaskAttach(host, {isBusy = () => false, onError = () => {},
   });
   return {
     // files: the task's current files ({drive_file_id, file_name, inTable}); a new set forgets every held change.
-    set(files = [], {editable: canEdit = false, shown: visible = true} = {}) { base = files.map(f => ({...f})); editable = !!canEdit; shown = !!visible; edits = new Map(); added = []; swapFor = ''; render(); },
+    set(files = [], {editable: canEdit = false, shown: visible = true, taskId: id = ''} = {}) { base = files.map(f => ({...f})); editable = !!canEdit; shown = !!visible; taskId = String(id || ''); edits = new Map(); added = []; swapFor = ''; render(); },
     dirty,
     // What [저장] sends: rows to take off, rows to put a new file in place of, and new files.
     plan() {
@@ -371,6 +377,8 @@ export function mountTaskAttach(host, {isBusy = () => false, onError = () => {},
       return {remove, swap, add: [...added], tableCount: base.filter(f => f.inTable).length};
     },
     render,
+    // ATT-이름고치기: 고친 이름을 들고 있는 줄에 반영한다(잡아 둔 교체·빼기는 그대로).
+    renamed(detail) { if (applyRenamed(base, detail)) render(); },
   };
 }
 

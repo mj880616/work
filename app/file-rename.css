@@ -1,0 +1,20 @@
+/* ATT-이름고치기: 첨부 파일 이름 그 자리에서 고치기(app/file-rename.js 공용 부품, 이 부품을 쓰는 모든 화면 같은 모양).
+   UI-버튼기준: 줄 안의 보조 버튼이라 보이는 높이 --ds-compact-height-sm(28px)·글자 --ds-text-meta, 누르는 범위는 ::after로 --kptu-touch-target. 값은 theme-tokens.css만 쓴다. */
+.fr-edit,.fr-acts button{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--ds-compact-height-sm);min-height:var(--ds-compact-height-sm);padding:0 8px;border:var(--ds-line-width) solid transparent;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1;cursor:pointer;flex:none;vertical-align:middle}
+.fr-edit{min-width:var(--ds-compact-height-sm);padding:0 4px;margin-left:2px}
+.fr-edit::after,.fr-acts button::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,var(--kptu-touch-target));height:var(--kptu-touch-target);transform:translate(-50%,-50%)}
+.fr-edit:hover,.fr-edit:focus-visible,.fr-acts button:hover:not(:disabled){background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.fr-acts button{border-color:var(--ds-line);color:var(--kptu-ink)}
+.fr-acts .fr-save{color:var(--kptu-primary-ink);border-color:var(--kptu-primary-soft)}
+.fr-acts button:disabled{opacity:.55;cursor:default}
+[data-fr-host]{-webkit-touch-callout:none}
+.fr-box{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px;min-width:0;max-width:100%;vertical-align:middle}
+.fr-field{display:inline-flex;align-items:center;gap:2px;min-width:0;flex:1 1 12em}
+.fr-input{flex:1 1 auto;min-width:6em;height:var(--ds-compact-height);padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row)}
+.fr-input:focus{outline:2px solid var(--kptu-primary-soft);outline-offset:0;border-color:var(--kptu-primary)}
+.fr-ext{color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
+.fr-acts{display:inline-flex;gap:4px;flex:none}
+.fr-err{flex-basis:100%;font-size:var(--ds-text-meta);color:var(--kptu-danger)}
+.fr-err.fr-note{color:var(--kptu-muted)}
+/* 폰: 입력 글자 16px(누를 때 화면이 확대되지 않게). */
+@media (pointer:coarse){.fr-input{font-size:16px}}

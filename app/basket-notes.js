@@ -38,6 +38,7 @@ import { fileLine } from './meeting-compact.js';
 import { pressFile, downloadFile, openInDrive, menuItemsHtml } from './file-actions.js';
 import { openPhotoView } from './photo-view.js';
 import { attachmentName } from './attachment-name.mjs';
+import { markRenameHost, renameButtonHtml, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
 import { bindRowSwipe, claimedSince } from './row-swipe.js';
@@ -77,6 +78,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const VIEWS = ['folder', 'list', 'board'];
   const savedView = () => { const v = viewPrefs.get('note_view'); return VIEWS.includes(v) ? v : 'folder'; };
   let view = savedView(), viewChosen = false, board = null;
+  // ATT-이름고치기: 첨부 이름을 고치면 들고 있는 노트 값을 고치고, 열린 노트의 첨부 줄을 다시 그린다.
+  window.addEventListener('kptu:file-renamed', e => {
+    const d = e.detail; if (!d?.drive_file_id) return;
+    let hit = false;
+    for (const n of notes) if (applyRenamedNote(n, d)) hit = true;
+    if (selected && !notes.includes(selected) && applyRenamedNote(selected, d)) hit = true;
+    if (hit && selected) paintMeta();
+  });
   window.addEventListener('kptu:view-prefs-ready', () => { if (viewChosen || view === savedView()) return; view = savedView(); if (loaded && !selected) renderList(); });
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
   host.innerHTML = `<div data-note-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><span class="nv-switch" role="group" aria-label="노트 보기"><button type="button" data-note-view="folder" aria-pressed="true">폴더</button><button type="button" data-note-view="list" aria-pressed="false">목록</button><button type="button" data-note-view="board" aria-pressed="false">포스트잇</button></span><span class="a11y-only" data-nx-count aria-live="polite"></span><button type="button" class="basket-icon-button note-folder-more" data-note-folder-more data-ctx="off" aria-label="노트 목록 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div><div class="nx-select-bar" data-nx-select-bar role="toolbar" aria-label="고른 노트" hidden><span data-nx-select-count></span><button type="button" data-nx-sel-move>폴더로 옮기기</button><button type="button" data-nx-sel-delete>지우기</button><button type="button" data-nx-sel-all>전체 고르기</button><button type="button" class="nx-sel-close" data-nx-sel-close aria-label="선택 끝내기">✕</button></div><nav class="fp-path nx-where" data-nx-where aria-label="지금 위치" hidden></nav><p class="note-folder-status" data-note-folder-status role="status" hidden></p><div data-note-list-status role="status"></div><button type="button" data-note-retry hidden>다시 시도</button><div class="nx-body" data-nx-body><div class="nx-tree" data-nx-tree role="tree" aria-label="노트 폴더" hidden></div><div class="nx-pane"><div class="nx-here" data-nx-here hidden></div><div class="nx-recent" data-nx-recent role="group" aria-label="최근 노트" hidden></div><div data-note-rows id="noteRows" class="nx-rows"></div></div></div><div class="nbw" data-note-board-wrap hidden><div class="nbb" data-nbb role="toolbar" aria-label="보드"></div><div class="nbw-body"><div class="nbb-side" data-nbb-side hidden></div><div class="nb" data-note-board></div></div></div></div><div data-note-detail hidden></div><div id="noteDocMenu" class="basket-more-menu note-pop-menu" role="group" aria-label="노트 메뉴" hidden></div>`;
@@ -360,9 +369,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const url = driveFileUrl(file.drive_file_id), name = attachmentName(file);
       const link = url ? `<a class="file-line-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>` : '<span class="file-line-state">링크를 확인할 수 없습니다.</span>';
       const more = `<button type="button" class="basket-icon-button note-file-more" data-note-file-more="${esc(file.drive_file_id)}" aria-label="${esc(name)} 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
-      return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end:link + more, attrs:` data-note-file="${esc(file.drive_file_id)}"`});
+      const edit = renameButtonHtml({target:'note', id:selected.id, driveId:file.drive_file_id, name:String(file.file_name || '')});
+      return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end:edit + link + more, attrs:` data-note-file="${esc(file.drive_file_id)}" data-fr-row`});
     }).join('');
     attBox.querySelectorAll('.file-line-main').forEach(el => { el.setAttribute('role', 'button'); el.tabIndex = 0; });
+    // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ✎로 그 자리에서 고친다(file-rename.js).
+    attBox.querySelectorAll('[data-note-file]').forEach(line => {
+      const file = (selected.attachments || []).find(f => f.drive_file_id === line.dataset.noteFile);
+      if (file) markRenameHost(line.querySelector('.file-line-main b'), {target:'note', id:selected.id, driveId:file.drive_file_id, name:String(file.file_name || '')});
+    });
   }
   // UI-상단줄제목: with the PC top line (761px~) the open note's title is already in the place, so the head has no title line of its
   // own there (the element is not made); below that width it is made, as before.
