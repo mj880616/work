@@ -68,7 +68,6 @@
 #appView #pagesView .sp-item-stages > .sp-input{ grid-column:2; }
 #appView #pagesView .sp-item-stages > .sp-tool{ grid-column:3; margin-top:0; }
 #appView #pagesView .sp-current{ display:inline-flex; align-items:center; gap:4px; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView #pagesView .sp-current input{ width:18px; height:18px; min-height:0; margin:0; }
 #appView #pagesView .sp-add-item{ align-self:flex-start; }
 #appView #pagesView .sp-add{ display:flex; flex-wrap:wrap; gap:8px; padding:6px 0; }
 #appView #pagesView .sp-save-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }

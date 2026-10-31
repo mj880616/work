@@ -15,7 +15,6 @@
 #profileView .ps-fields input:last-child{flex:.8}
 .ps-org-row{display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height);break-inside:avoid}
 .ps-org-pick{display:flex;flex-direction:row;justify-content:flex-start;flex:1;align-items:center;text-align:left;font-weight:var(--ds-weight-regular);color:var(--kptu-ink);gap:8px;min-width:0;min-height:var(--ds-compact-height);margin:0;cursor:pointer;font-size:var(--ds-text-row)}
-#profileView .ps-org-box{flex:none;width:16px;min-width:16px;height:16px;min-height:16px;margin:0;padding:0;accent-color:var(--kptu-primary)}
 .ps-org-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #profileView .ps-org-go{position:relative;flex:none;width:var(--ds-compact-height);height:var(--ds-compact-height);padding:0;border:0;background:transparent;color:var(--kptu-faint);font-size:16px;line-height:1}
 #profileView .ps-org-go::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px)/2);height:var(--kptu-touch-target,44px)}

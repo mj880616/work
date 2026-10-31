@@ -33,6 +33,7 @@ on:
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
       - 'tests/ui-cleanup-b.test.mjs'
+      - 'tests/ui-check-unify.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
       - 'tests/ui-audit-1030.test.mjs'
       - 'tests/wait-state.test.mjs'
@@ -155,6 +156,7 @@ on:
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
       - 'tests/ui-cleanup-b.test.mjs'
+      - 'tests/ui-check-unify.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
       - 'tests/ui-audit-1030.test.mjs'
       - 'tests/wait-state.test.mjs'
@@ -272,6 +274,9 @@ jobs:
 
       - name: Check shared UI parts stay unified (UI-화면정리 B)
         run: node --test tests/ui-cleanup-b.test.mjs
+
+      - name: Check checkboxes share one small look (UI-체크칸통일)
+        run: node --test tests/ui-check-unify.test.mjs
 
       - name: Check editor toolbar, add buttons and top bands stay unified (UI-화면정리 C)
         run: node --test tests/ui-cleanup-c.test.mjs

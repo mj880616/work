@@ -21,7 +21,7 @@
 p.pd-muted{margin:4px 0}
 .pd-count{margin:6px 0 2px}
 .pd-pick{display:flex;align-items:flex-start;gap:8px;min-height:40px;padding:6px 2px;border-bottom:1px solid var(--kptu-border);cursor:pointer}
-.pd-pick input{flex:none;width:18px;height:18px;margin:2px 0 0}
+.pd-pick input{margin-top:2px}
 .pd-pick-text{display:flex;flex-direction:column;min-width:0}
 .pd-pick-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pd-bar{display:flex;justify-content:flex-end;gap:6px;padding:8px 0 2px}
