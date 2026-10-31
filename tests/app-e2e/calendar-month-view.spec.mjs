@@ -50,7 +50,9 @@ test('empty date space opens the existing create flow with the clicked date',asy
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
   const cell=page.locator('.cal-cell[data-date="2026-09-25"]');
-  await cell.click({position:{x:10,y:110}});
+  // S46-23: 한 화면 크기에서는 칸 높이가 화면에 따라 달라 칸 맨 아래 빈자리를 누른다(날짜 줄 누르는 범위 44px 아래).
+  const cellBox=await cell.boundingBox();
+  await cell.click({position:{x:10,y:cellBox.height-4}});
   await expect(page.locator('#eventModal')).toBeVisible();
   await expect(page.locator('#eventStartDate')).toHaveValue('2026-09-25');
   await expect(page.locator('#eventEndDate')).toHaveValue('2026-09-25');
