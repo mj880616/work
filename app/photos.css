@@ -128,9 +128,10 @@
 #appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"]{ background:transparent; color:var(--kptu-faint); }
 #appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"] svg{ opacity:.55; }
 #appView #photosView .photos-srcs [data-photos-src][aria-disabled="true"]{ opacity:.45; cursor:default; }
-/* S46-24 ④: 구글 드라이브 칩이 권한 없음·못 읽음이면 오른쪽 위 작은 빨간 점(원드라이브 아이콘과 같은 모양). 이유는 작은 글자. */
+/* S46-24 ④: 구글 드라이브 칩이 권한 없음·못 읽음이면 오른쪽 위 작은 빨간 점(원드라이브 아이콘과 같은 모양). 이유는 작은 글자.
+   S46-29: 점은 ::before. button.mini의 ::after는 base-ui.css가 누르는 영역(44px)으로 쓰므로 표시를 그리지 않는다. */
 #appView #photosView .photos-srcs [data-photos-src="gdrive"]{ position:relative; }
-#appView #photosView .photos-srcs [data-photos-src="gdrive"][data-problem]::after{ content:""; position:absolute; top:3px; right:3px; width:7px; height:7px; border-radius:50%; background:var(--kptu-danger); box-shadow:0 0 0 1.5px var(--kptu-surface); }
+#appView #photosView .photos-srcs [data-photos-src="gdrive"][data-problem]::before{ content:""; position:absolute; top:3px; right:3px; width:7px; height:7px; border-radius:50%; background:var(--kptu-danger); box-shadow:0 0 0 1.5px var(--kptu-surface); }
 #appView #photosView .photos-gd-why{ color:var(--kptu-muted); font-size:11px; }
 /* 칸 오른쪽 아래 작은 출처 표시(출처가 둘 이상 켜졌을 때만). 동영상 길이는 그 왼쪽으로. */
 #appView #photosView .photos-src-mark{ position:absolute; right:3px; bottom:3px; z-index:1; display:grid; place-items:center; width:14px; height:14px; border-radius:3px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }

@@ -81,6 +81,21 @@ async function openPhotos(page, width) {
 }
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
 const gdBtn = page => page.locator('#photosRoot [data-photos-src="gdrive"]');
+// S46-29: 문제 표시 점(::before)은 10px 이하, 칩의 누르는 영역(::after, base-ui.css)은 44px 이상. 두 가상 요소가 겹치면 점이 44px 원이 된다.
+const gdMarks = page => gdBtn(page).evaluate(b => {
+  const d = getComputedStyle(b, '::before'), a = getComputedStyle(b, '::after');
+  return { dot: [d.content, parseFloat(d.width), parseFloat(d.height)], hit: [a.content, parseFloat(a.minWidth), parseFloat(a.minHeight), a.backgroundColor] };
+});
+async function expectSmallDot(page) {
+  const m = await gdMarks(page);
+  expect(m.dot[0]).not.toBe('none');
+  expect(m.dot[1]).toBeLessThanOrEqual(10);
+  expect(m.dot[2]).toBeLessThanOrEqual(10);
+  expect(m.hit[0]).not.toBe('none');
+  expect(m.hit[1]).toBeGreaterThanOrEqual(44);
+  expect(m.hit[2]).toBeGreaterThanOrEqual(44);
+  expect(m.hit[3]).toBe('rgba(0, 0, 0, 0)');
+}
 
 test.describe('PC 1440', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
@@ -155,6 +170,7 @@ test.describe('폰 412', () => {
       await expect(gdBtn(page)).toBeVisible();
       await expect(gdBtn(page)).toHaveAttribute('data-problem', c.code);
       await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 권한 없음');
+      await expectSmallDot(page);
       const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
       await expect(noteEl).toContainText('권한 없음');
       await expect(noteEl.getByRole('button', { name: 'Drive 다시 연결' })).toBeVisible();
@@ -169,4 +185,16 @@ test.describe('폰 412', () => {
       expect(state.errors).toEqual([]);
     });
   }
+  test('구글 드라이브 권한 없음: 사진·달력·폴더·앨범 탭 모두 칩 점은 작고(10px 이하) 누르는 영역은 44px 이상', async ({ page }) => {
+    const { state } = await fixture(page, { status: { ok: true, scope: false, folders_on: 0, synced_at: null }, prefs: { photo_sources: { onedrive: true, gdrive: true, phone: true } } });
+    await openPhotos(page, 412);
+    await expect(gdBtn(page)).toHaveAttribute('data-problem', 'scope_missing');
+    for (const tab of ['all', 'calendar', 'folders', 'albums']) {
+      await page.locator(`#photosRoot [data-photos-tab="${tab}"]`).click();
+      await expect(page.locator(`#photosRoot [data-photos-tab="${tab}"]`)).toHaveAttribute('aria-pressed', 'true');
+      await expect(gdBtn(page)).toBeVisible();
+      await expectSmallDot(page);
+    }
+    expect(state.errors).toEqual([]);
+  });
 });

@@ -89,8 +89,10 @@ for(const width of [390,1280])test.describe(`${width}px`,()=>{
     // 같은 줄의 칸들은 높이가 같고(28px), 연결할 곳 버튼의 ▾는 오른쪽 끝에 있다.
     const hs=await page.evaluate(()=>['#meetingTitle','#meetingAtTime','#meetingModal .dt-date','#meetingPlaces'].map(sel=>Math.round(document.querySelector(sel).getBoundingClientRect().height)));
     expect(new Set(hs).size,hs.join()).toBe(1);expect(hs[0]).toBeLessThanOrEqual(30);
-    const caret=await page.locator('#meetingPlaces').evaluate(el=>{const a=getComputedStyle(el,'::after');return {text:a.content,right:a.right,align:getComputedStyle(el).textAlign}});
-    expect(caret.text).toBe('"▾"');expect(caret.align).toBe('left');
+    // S46-29: ▾는 ::before(오른쪽 10px). ::after는 base-ui.css의 누르는 영역(44px)으로 남는다.
+    const caret=await page.locator('#meetingPlaces').evaluate(el=>{const b=getComputedStyle(el,'::before'),a=getComputedStyle(el,'::after');return {text:b.content,right:b.right,align:getComputedStyle(el).textAlign,hit:[a.content,parseFloat(a.minHeight)]}});
+    expect(caret.text).toBe('"▾"');expect(caret.right).toBe('10px');expect(caret.align).toBe('left');
+    expect(caret.hit[0]).toBe('""');expect(caret.hit[1]).toBeGreaterThanOrEqual(44);
     // 다시 열면 이전에 고른 날짜가 남지 않고 다시 오늘 10:00.
     await page.locator('#meetingModal [data-close="meetingModal"]').click();await page.locator('#newMeetingBtn').click();
     await expect(page.locator('#meetingAt')).toHaveValue(`${today}T10:00`);
