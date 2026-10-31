@@ -23,6 +23,8 @@ export const ITEMS = Object.freeze([
   {id: 'hwp', label: 'HWP 편집', view: 'hwp', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7'},
   {id: 'ledger', label: '원장', view: 'ledger', icon: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM9 8h6M9 12h6M9 16h4'},
   {id: 'photos', label: '사진', view: 'photos', icon: 'M3 6h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01'},
+  // OUTSIDE-바깥성명 ④: [바깥 성명]은 처음 자리가 위 메뉴 끝(사진 다음, 설계 docs/design/outside-statements.md 4절).
+  {id: 'outside', label: '바깥 성명', view: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
   {id: 'calls', label: '통화', view: 'calls', feed: true, icon: 'M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z'},
   {id: 'telegram', label: '텔레그램 소식', view: 'telegram', feed: true, icon: 'M21 4 3 11l6 2 2 6 3-4 5 4z'},
   // 주소 개편 ② E1: [아스날]은 처음 자리가 [메뉴] 창 맨 아래(PC 사이드바도 맨 아래 묶음 끝, feed와 같은 자리). 메뉴 편집으로 옮길 수 있다.
@@ -35,7 +37,7 @@ export const BAR_MAX = 5;
 // MENU-세칸(명진 요청 2026-10-30 10:19): 메뉴는 세 칸이다. bar = 폰 하단바, rest = 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위),
 // tail = 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 어느 메뉴든 세 칸 사이를 옮길 수 있다.
 export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'meetings', 'team']);
-export const DEFAULT_REST = Object.freeze(['note', 'library', 'hwp', 'pages', 'ledger', 'photos']);
+export const DEFAULT_REST = Object.freeze(['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
@@ -65,11 +67,12 @@ export function normalizeLayout(raw) {
   bar = bar.slice(0, room);
   if (!rawTail) {
     // 옛 저장값({bar, rest}만): 지금까지처럼 빠진 항목을 rest 끝에 붙이고, 끝에 이어진 feed 메뉴를 아래 칸으로 읽는다.
+    // 그때 없던 항목은 기본 자리 칸으로: 아래 칸 기본(feed) 메뉴는 끝에 이어진 feed 묶음 뒤, 나머지(예: 바깥 성명)는 그 앞 위 메뉴 끝.
     const have = new Set([FIXED_ID, ...bar, ...spill, ...rest]);
-    const all = [...spill, ...rest, ...ITEMS.map(item => item.id).filter(id => !have.has(id))];
-    let end = all.length;
-    while (end > 0 && KNOWN.get(all[end - 1])?.feed) end--;
-    return {bar: [FIXED_ID, ...bar], rest: all.slice(0, end), tail: all.slice(end)};
+    const listed = [...spill, ...rest], missing = ITEMS.map(item => item.id).filter(id => !have.has(id));
+    let end = listed.length;
+    while (end > 0 && KNOWN.get(listed[end - 1])?.feed) end--;
+    return {bar: [FIXED_ID, ...bar], rest: [...listed.slice(0, end), ...missing.filter(id => !DEFAULT_TAIL.includes(id))], tail: [...listed.slice(end), ...missing.filter(id => DEFAULT_TAIL.includes(id))]};
   }
   const inRest = new Set(rest);
   const tail = unique(known(rawTail)).filter(id => id !== FIXED_ID && !inBar.has(id) && !inRest.has(id));
