@@ -1549,18 +1549,19 @@ body.addEventListener('drop', e => {
 // 폰: 폴더 줄·앨범 카드를 꾹 누르면 그 ⋯ 메뉴(PC 우클릭과 같은 메뉴).
 body.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'touch' || !e.isPrimary || multiTouchActive()) return;
-  const row = e.target.closest?.('[data-photos-folder],[data-photos-album]'); if (!row || e.target.closest('.nx-more,.photos-album-more')) return;
+  const row = e.target.closest?.('[data-photos-folder],[data-photos-pf],[data-photos-album]'); if (!row || e.target.closest('.nx-more,.photos-album-more,.photos-fx-sw')) return;
   clearTimeout(rowHold?.timer);
   rowHold = {x:e.clientX, y:e.clientY, timer:setTimeout(() => {
-    rowHold = null; ateClick = true; navigator.vibrate?.(12);
+    rowHold = null;
     const more = row.querySelector('.nx-more,.photos-album-more'); if (!more) return;
+    ateClick = true; navigator.vibrate?.(12);
     const r = row.getBoundingClientRect(); window.KPTUContextMenu?.pinAt?.(more, r.left + Math.min(r.width / 2, 48), r.top + r.height / 2);
-    (row.dataset.photosFolder ? folderMenu : albumMenu).open(more);
+    (row.dataset.photosFolder ? folderMenu : row.dataset.photosPf !== undefined ? phoneFolderMenu : albumMenu).open(more);
   }, HOLD_MS)};
 });
 body.addEventListener('pointermove', e => { if (rowHold && Math.hypot(e.clientX - rowHold.x, e.clientY - rowHold.y) > HOLD_MOVE) { clearTimeout(rowHold.timer); rowHold = null; } });
 for (const t of ['pointerup', 'pointercancel']) body.addEventListener(t, () => { if (rowHold) { clearTimeout(rowHold.timer); rowHold = null; } });
-body.addEventListener('click', e => { if (ateClick && e.target.closest?.('[data-photos-folder],[data-photos-album]')) { ateClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
+body.addEventListener('click', e => { if (ateClick && e.target.closest?.('[data-photos-folder],[data-photos-pf],[data-photos-album]')) { ateClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
 TREE_WIDE?.addEventListener?.('change', () => { if (tab === 'folders') renderFolders(); });
 
 // [폴더]·[앨범] 안의 겹(폰 뒤로가기 = 한 단계 위)을 닫는다(다른 칩으로 갈 때).
