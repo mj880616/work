@@ -91,7 +91,7 @@ function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,moveRe
           const own=subReply?.(q);if(own)return {id:q.id,...own};
           const t=q.url.match(/^\/me\/drive\/items\/([^/?]+)\/thumbnails\?select=([a-z0-9]+)$/);
           if(t){const id=decodeURIComponent(t[1]);return itemById[id]?{id:q.id,status:200,body:{value:[{id:'0',[t[2]]:{url:'https://thumbs.synthetic.example.test/u/'+id+'/'+t[2]}}]}}:{id:q.id,status:404,body:{}};}
-          const one=q.url.match(/^\/me\/drive\/items\/([^/?]+)\?\$select=id,(?:name,)?file,folder,parentReference$/);
+          const one=q.url.match(/^\/me\/drive\/items\/([^/?]+)\?\$select=id,(?:name,)?(?:size,)?file,folder,parentReference$/);
           if(one&&q.method==='GET'){const id=decodeURIComponent(one[1]);return itemById[id]?{id:q.id,status:200,body:itemById[id]}:{id:q.id,status:404,body:{}};}
           const mv=q.url.match(/^\/me\/drive\/items\/([^/?]+)\?@microsoft\.graph\.conflictBehavior=rename$/);
           if(mv&&q.method==='PATCH'){assert.equal(q.headers['Content-Type'],'application/json');return {id:q.id,...moveOne(decodeURIComponent(mv[1]),q.body)};}
@@ -1179,4 +1179,83 @@ test('whole-drive: a fresh connection (no folder yet) just points at the root; n
   assert.equal((await read(await post(ctx.handler,{action:'status'}))).whole,true);
   const none=make({admin:fakeAdmin()});
   assert.equal((await post(none.handler,{action:'whole-drive'})).status,424);
+});
+
+// ---- S47-16 PHOTO-폰지우기안전장치: copy-check · trash-log · trash-watch · trash-seen ----
+function copyGraph(){
+  const inCam={id:'F1!100',path:'/drive/root:/Pictures/Camera'};
+  const itemById={
+    C1:{id:'C1',name:'a.jpg',size:1000,file:{mimeType:'image/jpeg'},parentReference:inCam},
+    C2:{id:'C2',name:'b.jpg',size:2000,file:{mimeType:'image/jpeg'},parentReference:inCam},
+    OUT:{id:'OUT',name:'o.jpg',size:3000,file:{mimeType:'image/jpeg'},parentReference:{id:'Z',path:'/drive/root:/Other'}},
+    TR:{id:'TR',name:'t.jpg',size:4000,file:{mimeType:'image/jpeg'},parentReference:{id:TRASH,path:'/drive/root:/Pictures/Camera/'+TRASH_NAME}},
+    DOC:{id:'DOC',name:'d.pdf',size:10,file:{mimeType:'application/pdf'},parentReference:inCam},
+  };
+  return itemById;
+}
+const trashFolderRow={workspace_id:WS,item_id:TRASH,parent_id:'F1!100',name:TRASH_NAME,role:'trash',enabled:true};
+test('copy-check: only copies that still exist in the chosen folder, outside the Web2 trash, with the same size are ok; throttled is unsure',async()=>{
+  const itemById=copyGraph();
+  const ctx=make({admin:fakeAdmin({row:{...connected},index:{app_onedrive_folders:[trashFolderRow]}}),
+    ms:fakeMicrosoft({itemById,subReply:q=>q.url.startsWith('/me/drive/items/SLOW?')?{status:429,headers:{'Retry-After':'7'},body:{}}:null})});
+  const out=await read(await post(ctx.handler,{action:'copy-check',pairs:[{id:'C1',size:1000},{id:'C2',size:1999},{id:'GONE',size:5},{id:'OUT',size:3000},{id:'TR',size:4000},{id:'DOC',size:10},{id:'SLOW',size:9}]}));
+  assert.deepEqual(out.ok,['C1']);
+  assert.deepEqual(out.missing.sort(),['C2','DOC','GONE','OUT','TR']);
+  assert.deepEqual(out.unsure,['SLOW']);
+  assert.equal(out.retry_after,7);
+  // Graph에는 크기 칸을 함께 묻는다(색인 크기를 믿지 않음).
+  const batch=ctx.ms.calls.find(c=>c.url.endsWith('/$batch'));
+  assert.match(JSON.parse(batch.init.body).requests[0].url,/\$select=id,name,size,file,folder,parentReference$/);
+  // 요청 모양: 빈 목록·101개·잘못된 id·크기 없음·0·소수·같은 id 다른 크기는 400. 폰 사진 내용은 받지 않는다.
+  for(const pairs of [[],Array.from({length:101},(_,i)=>({id:'P'+i,size:1})),[{id:'a b',size:1}],[{id:'C1'}],[{id:'C1',size:0}],[{id:'C1',size:1.5}],[{id:'C1',size:1},{id:'C1',size:2}],'x'])
+    assert.equal((await post(ctx.handler,{action:'copy-check',pairs})).status,400,JSON.stringify(pairs).slice(0,40));
+  // 남의 계정·연결 없음
+  assert.equal((await post(ctx.handler,{action:'copy-check',pairs:[{id:'C1',size:1000}]},{jwt:'other'})).status,403);
+  const none=make({admin:fakeAdmin()});
+  assert.equal((await post(none.handler,{action:'copy-check',pairs:[{id:'C1',size:1000}]})).status,424);
+});
+test('trash-log saves only phone number, copy id and time for this workspace; bad shapes refused',async()=>{
+  const ctx=make({ms:fakeMicrosoft({itemById:copyGraph()})});
+  assert.deepEqual(await read(await post(ctx.handler,{action:'trash-log',pairs:[{phone_id:'101',copy_id:'C1'},{phone_id:'102',copy_id:'C2'}]})),{saved:2});
+  const rows=ctx.admin.state.mem.tables.app_phone_trash_log;
+  assert.equal(rows.length,2);
+  assert.deepEqual(Object.keys(rows[0]).sort(),['copy_id','gone_at','id','phone_id','seen_at','source','trashed_at','workspace_id']);
+  assert.equal(rows[0].workspace_id,WS);assert.equal(rows[0].source,'onedrive');assert.equal(rows[0].trashed_at,new Date(NOW).toISOString());
+  for(const pairs of [[],[{phone_id:'1a',copy_id:'C1'}],[{phone_id:101,copy_id:'C1'}],[{phone_id:'1',copy_id:'../x'}],Array.from({length:101},(_,i)=>({phone_id:String(i),copy_id:'C1'}))])
+    assert.equal((await post(ctx.handler,{action:'trash-log',pairs})).status,400);
+  assert.equal(rows.length,2);
+  assert.equal(ctx.ms.calls.length,0);
+});
+test('trash-watch marks copies gone (deleted or in the Web2 trash), keeps unsure ones for later, counts unseen; trash-seen clears the warning',async()=>{
+  const itemById=copyGraph();
+  const d=n=>new Date(NOW-n*86400000).toISOString();
+  const log=[
+    {id:'l1',workspace_id:WS,phone_id:'1',source:'onedrive',copy_id:'C1',trashed_at:d(1),gone_at:null,seen_at:null},
+    {id:'l2',workspace_id:WS,phone_id:'2',source:'onedrive',copy_id:'GONE',trashed_at:d(1),gone_at:null,seen_at:null},
+    {id:'l3',workspace_id:WS,phone_id:'3',source:'onedrive',copy_id:'TR',trashed_at:d(2),gone_at:null,seen_at:null},
+    {id:'l4',workspace_id:WS,phone_id:'4',source:'onedrive',copy_id:'SLOW',trashed_at:d(2),gone_at:null,seen_at:null},
+    {id:'l5',workspace_id:WS,phone_id:'5',source:'onedrive',copy_id:'GONE2',trashed_at:d(40),gone_at:null,seen_at:null},
+    {id:'l6',workspace_id:WS,phone_id:'6',source:'onedrive',copy_id:'C2',trashed_at:d(70),gone_at:null,seen_at:null},
+    {id:'l7',workspace_id:'other-ws',phone_id:'7',source:'onedrive',copy_id:'GONE3',trashed_at:d(1),gone_at:null,seen_at:null},
+  ];
+  const ctx=make({admin:fakeAdmin({row:{...connected},index:{app_onedrive_folders:[trashFolderRow],app_phone_trash_log:log}}),
+    ms:fakeMicrosoft({itemById,subReply:q=>q.url.startsWith('/me/drive/items/SLOW?')?{status:503,body:{}}:null})});
+  const out=await read(await post(ctx.handler,{action:'trash-watch'}));
+  assert.deepEqual(out,{gone:2,checked:4,unsure:1});
+  const rows=Object.fromEntries(ctx.admin.state.mem.tables.app_phone_trash_log.map(r=>[r.id,r]));
+  assert.equal(rows.l1.gone_at,null);assert.ok(rows.l2.gone_at);assert.ok(rows.l3.gone_at);assert.equal(rows.l4.gone_at,null);
+  assert.equal(rows.l5.gone_at,null,'older than 30 days is not checked');
+  assert.equal(rows.l6,undefined,'older than 60 days is removed');
+  assert.equal(rows.l7.gone_at,null,'another workspace is untouched');
+  // 다시 확인해도 이미 본 것은 다시 묻지 않고 수는 그대로.
+  assert.equal((await read(await post(ctx.handler,{action:'trash-watch'}))).gone,2);
+  assert.deepEqual(await read(await post(ctx.handler,{action:'trash-seen'})),{seen:true});
+  assert.equal(rows.l2.seen_at!=null&&rows.l3.seen_at!=null&&rows.l1.seen_at==null&&rows.l7.seen_at==null,true);
+  assert.equal((await read(await post(ctx.handler,{action:'trash-watch'}))).gone,0);
+  // 기록이 없으면 Graph를 부르지 않는다. 연결이 끊겨 있어도 수만 답한다.
+  const empty=make();
+  assert.deepEqual(await read(await post(empty.handler,{action:'trash-watch'})),{gone:0,checked:0});
+  assert.equal(empty.ms.calls.length,0);
+  const off=make({admin:fakeAdmin({index:{app_phone_trash_log:[{...log[1]}]}})});
+  assert.deepEqual(await read(await post(off.handler,{action:'trash-watch'})),{gone:0,checked:0});
 });

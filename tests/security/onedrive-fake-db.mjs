@@ -1,7 +1,7 @@
 // 지어낸 Supabase 표(메모리). onedrive-photos 시험 전용. 네트워크·실제 자료 없음.
 // handler가 쓰는 PostgREST 모양만 흉내 낸다: select/eq/neq/is/in/gte/lt/lte/or(is.null,lt)/order/range/maybeSingle, insert/upsert/update/delete(+select).
 // 시각 칸(…_at)은 글자 모양이 달라도 같은 시각이면 같게 비교한다(PostgreSQL timestamptz처럼). upsert는 supabase-js처럼 묶음 안 칸 합집합을 쓰고 빠진 칸은 null.
-export const KEYS={app_onedrive_folders:['workspace_id','item_id'],app_onedrive_photos:['workspace_id','item_id']};
+export const KEYS={app_onedrive_folders:['workspace_id','item_id'],app_onedrive_photos:['workspace_id','item_id'],app_phone_trash_log:['id']};
 export function memTables(seed={}){
   const tables={app_onedrive_folders:[],app_onedrive_photos:[],...structuredClone(seed)};
   const cmp=(k,a,b)=>{if(a==null||b==null)return null;if(/_at$/.test(k)){const x=Date.parse(a),y=Date.parse(b);if(Number.isFinite(x)&&Number.isFinite(y))return x<y?-1:x>y?1:0;}
@@ -14,6 +14,7 @@ export function memTables(seed={}){
       eq(k,v){q.filters.push(r=>r[k]===v||cmp(k,r[k],v)===0&&/_at$/.test(k));return b;},
       neq(k,v){q.filters.push(r=>r[k]!=null&&r[k]!==v);return b;},
       is(k,v){q.filters.push(r=>v===null?r[k]==null:r[k]===v);return b;},
+      not(k,op,v){if(op!=='is'||v!==null)throw new Error('fake not: is null only');q.filters.push(r=>r[k]!=null);return b;},
       in(k,vs){q.filters.push(r=>vs.includes(r[k]));return b;},
       gte(k,v){q.filters.push(r=>cmp(k,r[k],v)>=0&&r[k]!=null);return b;},
       lt(k,v){q.filters.push(r=>r[k]!=null&&cmp(k,r[k],v)<0);return b;},
@@ -39,7 +40,7 @@ export function memTables(seed={}){
       if(q.range)out=out.slice(q.range[0],q.range[1]+1);
       return {data:out,error:null};
     }
-    if(q.op==='insert'){for(const v of [].concat(q.value)){if(rows.some(r=>same(r,v)))return {error:{code:'23505'}};rows.push({...v});}return {error:null};}
+    if(q.op==='insert'){for(let v of [].concat(q.value)){if(table==='app_phone_trash_log'&&!v.id)v={id:'log'+(rows.length+1),gone_at:null,seen_at:null,...v};if(rows.some(r=>same(r,v)))return {error:{code:'23505'}};rows.push({...v});}return {error:null};}
     if(q.op==='upsert'){
       const list=[].concat(q.value);const seen=new Set();
       // supabase-js upsert(defaultToNull): 묶음 안 어느 행에 있는 칸은 모든 행에 보내고, 없는 행은 null. 그 칸이 아예 없으면 기존 값 그대로.
