@@ -3,13 +3,24 @@
     <!-- 웹 theme-color 기본값(app/index.html). 웹이 열리면 계정 테마 바탕으로 바뀐다. -->
     <color name="web_bg">#F3F1EA</color>
     <!-- 홈 화면 위젯(톤다운). -->
-    <color name="widget_bg">#F3F1EA</color>
-    <color name="widget_ink">#2B2A26</color>
-    <color name="widget_muted">#77746B</color>
-    <color name="widget_accent">#3F6A5A</color>
+    <color name="widget_bg">#F7F5F0</color>
+    <color name="widget_ink">#262624</color>
+    <color name="widget_muted">#5F5E59</color>
+    <color name="widget_accent">#2F5E8E</color>
     <!-- WIDGET-여러개 ①: 빠른 쓰기·한 칸 위젯(앱 아이콘 톤: 종이색 바탕·남색). -->
-    <color name="widget_tile_bg">#F2EFE6</color>
-    <color name="widget_icon">#3B4A6B</color>
-    <color name="widget_tile_ink">#3B4A6B</color>
+    <color name="widget_tile_bg">#F7F5F0</color>
+    <color name="widget_icon">#23486D</color>
+    <color name="widget_tile_ink">#23486D</color>
     <color name="widget_rec">#8C5A4E</color>
+    <!-- APP-위젯다시: 지금·이번 주·빠른 쓰기 시안 색(톤다운 크림 바탕, 앱 테마와 같은 남색·주황 계열). -->
+    <color name="widget_line">#E2DFD7</color>
+    <color name="widget_req_bg">#F6E4D6</color>
+    <color name="widget_req_ink">#8A3F10</color>
+    <color name="widget_todo_bg">#E1E8F0</color>
+    <color name="widget_todo_ink">#23486D</color>
+    <color name="widget_zero_bg">#ECEAE4</color>
+    <color name="widget_zero_ink">#4A4945</color>
+    <color name="widget_btn_bg">#E7ECF2</color>
+    <color name="widget_btn_ink">#23486D</color>
+    <color name="widget_day_busy">#F3EEE6</color>
 </resources>

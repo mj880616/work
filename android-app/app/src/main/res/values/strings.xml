@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">오늘 일정과 할 일 몇 줄, 챙길 것·나한테 온 요청 건수</string>
+    <string name="now_widget_description">다음 일정과 남은 시간, 나한테 온 요청·챙길 것·오늘 기한 할 일</string>
     <string name="quick_widget_description">업데이트·할 일·노트 쓰기 창, 사진 올리기를 한 번에</string>
     <string name="one_widget_description">노트·업데이트·할 일·사진·녹음 중 하나를 골라 한 칸에</string>
-    <string name="week_widget_description">이번 주 남은 일정, 누르면 달력의 그 날</string>
-    <string name="telegram_widget_description">텔레그램 새 소식·요청 건수와 최근 방 몇 줄(운영자 전용)</string>
+    <string name="week_widget_description">이번 주 요일별 일정 수, 가장 큰 일·상집 보고일·몰린 날</string>
     <string name="arsenal_widget_description">아스날 다음 경기·지난 경기 결과</string>
 </resources>

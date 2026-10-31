@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯다시: 나한테 온 요청 숫자 표·이번 주 가장 큰 일 표. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_req_bg" />
+    <corners android:radius="10dp" />
+</shape>

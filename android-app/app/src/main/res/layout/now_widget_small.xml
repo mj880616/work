@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯다시 ①: '지금'(2×2). 다음 일정 + 요청·챙길 것 숫자 두 칸. 안드로이드 12+에서 칸이 좁으면 홈 화면이 이 그림을 고른다. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/now_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/now_left"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_accent"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_weight="1" />
+        <TextView
+            android:id="@+id/now_refresh"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="↻"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_muted"
+            android:textSize="13sp"
+            android:paddingStart="8dp"
+            android:contentDescription="새로고침" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/now_next"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clickable="true"
+        android:focusable="true"
+        android:orientation="vertical">
+        <TextView
+            android:id="@+id/now_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_ink"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/now_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_ink"
+            android:textSize="14sp" />
+        <TextView
+            android:id="@+id/now_note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="불러오는 중"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_muted"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <LinearLayout
+            android:id="@+id/now_row_asks"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/widget_badge_req"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="vertical"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="4dp">
+            <TextView
+                android:id="@+id/now_asks_n"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_req_ink"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="요청"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_req_ink"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <Space
+            android:layout_width="6dp"
+            android:layout_height="1dp" />
+        <LinearLayout
+            android:id="@+id/now_row_todo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/widget_badge_todo"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="vertical"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="4dp">
+            <TextView
+                android:id="@+id/now_todo_n"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_todo_ink"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="챙길 것"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_todo_ink"
+                android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

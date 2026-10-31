@@ -6,15 +6,12 @@
 // 창은 상단 [+ 추가]와 같은 것(topbar-actions.js의 KPTUQuickWrite)이고 저장 길도 그대로다. 앱은 토큰·글을 보지 않는다.
 // WIDGET-여러개 ②: 이번 주 위젯 줄은 달력의 그 날(?view=calendar&day=YYYY-MM-DD 또는 다리 'day:open:YYYY-MM-DD').
 //   달력 화면의 기존 '그 날로 옮기기'(calendar-view.js showDay, 업무일지 [달력 ›]와 같은 길)를 쓴다.
-// WIDGET-여러개 ③: 텔레그램 위젯 줄은 그 방·그 날(?view=telegram&tg_room=&tg_day= 또는 다리 'tg:open:YYYY-MM-DD:<방 번호>').
-//   텔레그램 화면의 기존 열기(KPTUTelegramFeed.show, 사람·챙길 것 줄과 같은 길)를 쓴다. 운영자 아닌 화면은 서버가 내용을 주지 않는다.
+// APP-위젯다시: 텔레그램 위젯은 지웠다(그 방 열기 길 tg_room·tg:open도 함께 지움).
 const BRIDGE = 'KPTUAppShell';
 const KINDS = ['update', 'task', 'note'];
 const OPEN = /^write:open:([a-z]{1,16})$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_OPEN = /^day:open:(\d{4}-\d{2}-\d{2})$/;
-const ROOM = /^[A-Za-z0-9_.:-]{1,100}$/;
-const TG_OPEN = /^tg:open:(\d{4}-\d{2}-\d{2}):([A-Za-z0-9_.:-]{1,100})$/;
 
 /** 허용된 종류만 돌려준다. */
 export function writeKind(value) {
@@ -37,17 +34,6 @@ export function dayValue(value) {
 export function bridgeDay(data) {
   const m = DAY_OPEN.exec(typeof data === 'string' ? data : '');
   return m ? dayValue(m[1]) : null;
-}
-
-/** 텔레그램 방 번호(수집 서버와 같은 모양)만. */
-export function roomValue(value) {
-  return typeof value === 'string' && ROOM.test(value) ? value : null;
-}
-
-export function bridgeRoom(data) {
-  const m = TG_OPEN.exec(typeof data === 'string' ? data : '');
-  const day = m ? dayValue(m[1]) : null;
-  return day ? {day, room:m[2]} : null;
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -77,16 +63,6 @@ export function startWidgetWrite(win = window, {wait = sleep, tries = 100} = {})
       win.KPTUCalendarView?.showDay?.(day);
     } catch { /* 달력은 열린 채로 둔다. */ }
   }
-  async function openRoom({room, day}) {
-    try {
-      for (let i = 0; i < tries && win.__KPTU_TEAM_READY_STATE__ !== 'workspace'; i++) await wait(100);
-      if (win.__KPTU_TEAM_READY_STATE__ !== 'workspace') return;
-      await win.KPTUViewLoader?.load?.('telegram');
-      if (win.KPTURouter?.current !== 'telegram') await win.KPTURouter?.go?.('telegram', {source: 'delegated'});
-      for (let i = 0; i < tries && !win.KPTUTelegramFeed?.show; i++) await wait(100);
-      await win.KPTUTelegramFeed?.show?.(room, day);
-    } catch { /* 텔레그램 화면은 열린 채로 둔다. */ }
-  }
   try {
     const url = new URL(win.location.href);
     if (url.searchParams.has('write')) {
@@ -101,19 +77,12 @@ export function startWidgetWrite(win = window, {wait = sleep, tries = 100} = {})
       win.history.replaceState(win.history.state, '', url);
       if (day) void openDay(day);
     }
-    if (url.searchParams.has('tg_room') || url.searchParams.has('tg_day')) {
-      const room = roomValue(url.searchParams.get('tg_room')), day = dayValue(url.searchParams.get('tg_day'));
-      url.searchParams.delete('tg_room'); url.searchParams.delete('tg_day');
-      win.history.replaceState(win.history.state, '', url);
-      if (room && day) void openRoom({room, day});
-    }
   } catch { /* 주소를 못 읽어도 다리 길은 그대로 쓴다. */ }
   const bridge = win[BRIDGE];
   if (bridge && typeof bridge.postMessage === 'function' && typeof bridge.addEventListener === 'function') {
     bridge.addEventListener('message', event => {
       const kind = bridgeKind(event?.data); if (kind) { void open(kind); return; }
-      const day = bridgeDay(event?.data); if (day) { void openDay(day); return; }
-      const room = bridgeRoom(event?.data); if (room) void openRoom(room);
+      const day = bridgeDay(event?.data); if (day) void openDay(day);
     });
     try { bridge.postMessage('write:hello'); } catch { /* 다리가 사라진 화면 */ }
   }

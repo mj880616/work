@@ -284,13 +284,6 @@ class MainActivity : ComponentActivity() {
             webView.loadUrl(WidgetWeek.dayUrl(widgetDay(intent)))
             return
         }
-        if (intent?.action == TelegramWidget.ACTION_TG) {
-            // WIDGET-여러개 ③: 텔레그램 위젯 줄 → 그 방·그 날. 방 번호·날짜가 이상하면 텔레그램 화면만.
-            val room = intent?.getStringExtra(TelegramWidget.EXTRA_ROOM)?.takeIf(WidgetTelegram::isRoomKey)
-            val day = WidgetWeek.parseDay(intent?.getStringExtra(TelegramWidget.EXTRA_DAY))
-            webView.loadUrl(if (room != null && day != null) WidgetTelegram.roomUrl(room, day) else ShellRules.HOME + "?view=telegram")
-            return
-        }
         val data = intent?.data?.toString()
         if (ShellRules.isAppReturn(data)) {
             // 위젯 로그인 표시(메모리, 10분·한 번)가 살아 있을 때만 앱이 직접 받는다. 캘린더 연결 복귀(google=)는 건드리지 않는다.
@@ -322,16 +315,6 @@ class MainActivity : ComponentActivity() {
         if (intent.action == WeekWidget.ACTION_DAY) {
             val day = widgetDay(intent)
             if (!postWrite(WidgetWeek.dayMessage(day))) webView.loadUrl(WidgetWeek.dayUrl(day))
-            return
-        }
-        if (intent.action == TelegramWidget.ACTION_TG) {
-            val room = intent.getStringExtra(TelegramWidget.EXTRA_ROOM)?.takeIf(WidgetTelegram::isRoomKey)
-            val day = WidgetWeek.parseDay(intent.getStringExtra(TelegramWidget.EXTRA_DAY))
-            if (room == null || day == null) {
-                webView.loadUrl(ShellRules.HOME + "?view=telegram")
-            } else if (!postWrite(WidgetTelegram.roomMessage(room, day))) {
-                webView.loadUrl(WidgetTelegram.roomUrl(room, day))
-            }
             return
         }
         if (intent.action == RecordHub.ACTION_OPEN) {
@@ -419,7 +402,7 @@ class MainActivity : ComponentActivity() {
         val app = applicationContext
         Thread {
             val ok = WidgetHub.session(app).consume(handoff) is WidgetSession.Outcome.Ok
-            TodayWidget.signedInChanged(app, WidgetHub.session(app).signedIn())
+            NowWidget.signedInChanged(app, WidgetHub.session(app).signedIn())
             runOnUiThread {
                 if (!alive) return@runOnUiThread
                 if (!ok && fallbackOnFail) {
@@ -462,7 +445,7 @@ class MainActivity : ComponentActivity() {
                 val app = applicationContext
                 Thread {
                     WidgetHub.session(app).logout()
-                    TodayWidget.signedInChanged(app, false)
+                    NowWidget.signedInChanged(app, false)
                     runOnUiThread { if (alive) notifyWidgetStatus() }
                 }.apply { isDaemon = true }.start()
             }
@@ -591,7 +574,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun widgetDay(intent: Intent?): java.time.LocalDate =
-        WidgetWeek.parseDay(intent?.getStringExtra(WeekWidget.EXTRA_DAY)) ?: java.time.LocalDate.now(WidgetToday.ZONE)
+        WidgetWeek.parseDay(intent?.getStringExtra(WeekWidget.EXTRA_DAY)) ?: java.time.LocalDate.now(WidgetNow.ZONE)
 
     /**
      * APP-당겨서새로고침(요청함 10/30 14:07). 손가락을 댈 때마다 끄고(ShellRules.pullOnTouch), 웹2 화면(phone-pull-refresh.js)이

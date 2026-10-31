@@ -5,10 +5,21 @@
     <color name="widget_bg">#1F1E1A</color>
     <color name="widget_ink">#E8E6DF</color>
     <color name="widget_muted">#9C998F</color>
-    <color name="widget_accent">#8DB7A6</color>
+    <color name="widget_accent">#8FB3D9</color>
     <!-- WIDGET-여러개 ①: 빠른 쓰기·한 칸 위젯(앱 아이콘 톤: 종이색 바탕·남색). -->
-    <color name="widget_tile_bg">#24272F</color>
-    <color name="widget_icon">#E6E1D3</color>
-    <color name="widget_tile_ink">#D5D9E4</color>
+    <color name="widget_tile_bg">#1F1E1A</color>
+    <color name="widget_icon">#C9D6E8</color>
+    <color name="widget_tile_ink">#C9D6E8</color>
     <color name="widget_rec">#D49A8C</color>
+    <!-- APP-위젯다시: 지금·이번 주·빠른 쓰기 시안 색(톤다운 크림 바탕, 앱 테마와 같은 남색·주황 계열). -->
+    <color name="widget_line">#33312C</color>
+    <color name="widget_req_bg">#4A3022</color>
+    <color name="widget_req_ink">#F0C2A0</color>
+    <color name="widget_todo_bg">#263445</color>
+    <color name="widget_todo_ink">#B8CCE4</color>
+    <color name="widget_zero_bg">#2C2B27</color>
+    <color name="widget_zero_ink">#B5B2A8</color>
+    <color name="widget_btn_bg">#2A3340</color>
+    <color name="widget_btn_ink">#C9D6E8</color>
+    <color name="widget_day_busy">#2A2824</color>
 </resources>
