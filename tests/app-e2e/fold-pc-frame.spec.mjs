@@ -47,6 +47,7 @@ const MENU=[
   ['HWP 편집','.nav-btn[data-view="hwp"]','hwp'],
   ['원장','.nav-btn[data-view="ledger"]','ledger'],
   ['사진','.nav-btn[data-view="photos"]','photos'],
+  ['바깥 성명','.nav-btn[data-view="outside"]','outside'],
   ['통화','.nav-btn[data-view="calls"]','calls'],
   ['텔레그램 소식','.nav-btn[data-view="telegram"]','telegram'],
   ['아스날','.nav-btn[data-view="arsenal"]','arsenal']

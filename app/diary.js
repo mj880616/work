@@ -15,7 +15,7 @@ import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoSt
 import {deleteNoteOriginal, offerUndoNotice} from './basket-record-delete.js';
 import {notify as notifySmall} from './small-notice.js';
 import {odStatusCached, odTakeWarmMonth, odDelete, odPhotos, odPhotoElement, odPrefetchMonth, clearOdPhotoCache, forgetOdPhoto, odKeepReconcile, odStartPrefetch, odStopPrefetch, odKeepCount, odKeepClear, odKeepForOwner,
-  odErrorText, odSync, odSyncDelay, odFolderTree, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
+  odErrorText, odMediaUrl, odSync, odSyncDelay, odFolderTree, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
 import {renderDoc} from './ed-render.mjs';
@@ -367,6 +367,8 @@ function openViewer(index) {
     info:item => [['찍은 때', whenText(item)], ['파일', item.kind === 'upload' ? (item.file?.file_name || '') : item.name], ['출처', item.kind === 'od' ? '원드라이브' : item.kind === 'phone' ? '폰' : '직접 올린 사진']],
     // [원본 내려받기]: 직접 올린 사진은 Drive 원본(Drive 로그인 필요). 원드라이브 사진은 원본을 넘기는 서버 동작이 아직 없어 원드라이브 앱에서 받는다.
     original:item => { const href = item.kind === 'upload' ? originalHref(item.file?.drive_file_id) : ''; return href ? {href} : {text:item.kind === 'phone' ? '폰 갤러리에 있어요' : '원드라이브 앱에서 받아 주세요'}; },
+    // PHOTO-전체화면확대: 원드라이브 사진은 확대할 때 원본 해상도(받기 주소, 메모리에만). 직접 올린 사진은 큰 그림 그대로 확대.
+    hires:item => (item.kind === 'od' && !item.video ? odMediaUrl(rt, item.id, 'download').then(r => r.url) : item.kind === 'phone' && !item.video ? Promise.resolve(phone.mediaUrl(item) || null) : null),
     isStarred, toggleStar,
     deletable:item => ({ok:item.kind === 'od' && od.canDelete, title:item.kind === 'od' ? (od.canDelete ? '원드라이브 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요') : item.kind === 'phone' ? '폰 사진은 사진 메뉴에서 지워요' : '직접 올린 사진은 일기 [수정]에서 빼요'}),
     take:item => { const t = takeFromMonth(item); if (t) { renderMonth(); renderPhotos(); } return t; },
