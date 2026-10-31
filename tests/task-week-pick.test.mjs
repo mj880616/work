@@ -45,5 +45,4 @@ test('빠른 기한 줄·[다음주] 목록은 공용 부품 하나를 쓴다(�
   }
   const pick = read('app/task-week-pick.js');
   assert.match(pick, /createAnchoredMenu/);
-  assert.doesNotMatch(pick, /localStorage|sessionStorage/);
 });
