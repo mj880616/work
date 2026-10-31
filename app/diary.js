@@ -92,7 +92,7 @@ function renderMonth() {
     const cell = document.createElement('button');
     cell.type = 'button'; cell.className = 'diary-cell'; cell.dataset.diaryDay = day;
     if (day === today) { cell.setAttribute('aria-current', 'date'); cell.classList.add('ds-today'); }
-    cell.setAttribute('aria-pressed', String(selected === day));
+    cell.setAttribute('aria-pressed', String(selected === day)); cell.classList.toggle('ds-day-sel', selected === day);
     cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}${odDay.length ? `, 원드라이브 사진 ${odDay.length}장` : ''}`);
     if (photos[0]) { cell.classList.add('has-photo'); cell.append(photoElement(row, photos[0], 'small', {label:'', link:false, retry:false})); }
     const num = document.createElement('span'); num.className = day === today ? 'diary-num ds-today-num' : 'diary-num'; num.textContent = String(n); cell.append(num);
@@ -183,7 +183,7 @@ function writePlace() {
 }
 function selectDay(day, {focus = false} = {}) {
   selected = day; source = 'all';
-  days.querySelectorAll('[data-diary-day]').forEach(cell => cell.setAttribute('aria-pressed', String(cell.dataset.diaryDay === day)));
+  days.querySelectorAll('[data-diary-day]').forEach(cell => { const on = cell.dataset.diaryDay === day; cell.setAttribute('aria-pressed', String(on)); cell.classList.toggle('ds-day-sel', on); });
   renderDetail();
   // NAV-PC앞뒤통일: › (or the browser's forward) over the day's entry opens the same day again (reopen).
   dayLayer ||= window.KPTURouter?.layer?.open('diary-day', {close:() => { closeDetail({fromBack:true}); return true; }, reopen:() => selectDay(day)}) || null;
@@ -215,7 +215,7 @@ toplineWide?.addEventListener?.('change', syncDetailTitle);
 function closeDetail({fromBack = false} = {}) {
   closeViewer({fromBack, restore:false});
   selected = null; sendWhere(null); detail.hidden = true; detail.replaceChildren();
-  days.querySelectorAll('[aria-pressed="true"]').forEach(cell => cell.setAttribute('aria-pressed', 'false'));
+  days.querySelectorAll('[aria-pressed="true"]').forEach(cell => { cell.setAttribute('aria-pressed', 'false'); cell.classList.remove('ds-day-sel'); });
   if (!fromBack) writePlace();
   const opened = dayLayer; dayLayer = null; if (!fromBack) opened?.close();
   renderList();

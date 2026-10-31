@@ -100,40 +100,38 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`② today is a theme-accent ring (not filled) on the number, the chosen day keeps the border (일기·달력) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`② today is a square frame only (no ring on the number), the chosen day is a soft fill (일기·달력) ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await page.evaluate(()=>window.KPTURouter.go('diary'));
  const TODAY='#diaryRoot [data-diary-day="2026-10-06"]',OTHER='#diaryRoot [data-diary-day="2026-10-04"]',today=page.locator(TODAY),other=page.locator(OTHER);
  await expect(today).toHaveAttribute('aria-current','date');
- // UI-선택표시톤다운: 오늘 = 강조 글자색(--kptu-primary-text) 동그라미 테두리 + 같은 색 숫자, 바탕은 칠하지 않는다.
- const accent=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-primary-text)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).color;e.remove();return c;});
+ const tokenColor=(t,prop='color')=>page.evaluate(([t,prop])=>{const e=document.createElement('span');e.style[prop]=`var(${t})`;document.querySelector('#diaryView').append(e);const c=getComputedStyle(e)[prop];e.remove();return c;},[t,prop]);
+ const accent=await tokenColor('--kptu-primary-text'),ink=await tokenColor('--kptu-primary-ink'),soft=await tokenColor('--ds-select-bg','backgroundColor');
  // 달력 칸은 읽기가 끝날 때마다(일기·별표·원드라이브) 새로 그려진다. 이 달 읽기가 끝난 뒤, 잴 때마다 그 순간의 칸을 한 번에 찾아 잰다
  // (찾은 칸을 들고 있다가 재면 그 사이 새로 그려진 옛 칸을 재어 빈 값이 나온다).
  await expect(page.locator('#diaryRoot [data-diary-status] [data-wait]')).toHaveCount(0);
- const look=loc=>page.evaluate(sel=>{const el=document.querySelector(sel);const n=el.querySelector('.diary-num'),c=getComputedStyle(n),cell=getComputedStyle(el);const r=n.getBoundingClientRect();return {bg:c.backgroundColor,fg:c.color,numRing:c.boxShadow,radius:c.borderRadius,w:Math.round(r.width),h:Math.round(r.height),ring:cell.boxShadow,frame:getComputedStyle(el,'::before').borderTopWidth,frameColor:getComputedStyle(el,'::before').borderTopColor,photo:el.classList.contains('has-photo')};},loc);
- const ringed=t=>t.photo?t.numRing.includes('inset'):(t.numRing.startsWith(accent)&&t.numRing.includes('inset'));
+ const look=loc=>page.evaluate(sel=>{const el=document.querySelector(sel);const n=el.querySelector('.diary-num'),c=getComputedStyle(n),cell=getComputedStyle(el);return {bg:c.backgroundColor,fg:c.color,numRing:c.boxShadow,cellBg:cell.backgroundColor,ring:cell.boxShadow,frame:getComputedStyle(el,'::before').borderTopWidth,frameColor:getComputedStyle(el,'::before').borderTopColor,photo:el.classList.contains('has-photo')};},loc);
+ // UI-오늘네모(명진 2026-10-30): 오늘 = 칸 둘레 진한 네모 선(::before, --ds-today-line = --kptu-primary-ink 2px)만. 숫자 동그라미 없음, 숫자는 강조 글자색.
  const t=await look(TODAY),o=await look(OTHER);
+ expect(t.numRing).toBe('none');expect(o.numRing).toBe('none');
  if(!t.photo){expect(t.bg).toBe('rgba(0, 0, 0, 0)');expect(t.fg).toBe(accent);}
- expect(ringed(t)).toBe(true);expect(t.radius).toBe('999px');expect(t.h).toBe(20);expect(t.w).toBeGreaterThanOrEqual(20);
- if(!o.photo)expect(o.bg).toBe('rgba(0, 0, 0, 0)');expect(o.numRing).toBe('none');
- // UI-오늘표시통일: 오늘 칸은 고르지 않아도 칸 둘레 전체 진한 선(::before, --ds-today-line = --kptu-primary-ink 2px)이 있다. 다른 날은 선 없음.
- const ink=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-primary-ink)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(t.frame).toBe('2px');expect(t.frameColor).toBe(ink);expect(o.frame).not.toBe('2px');
- // 고르지 않은 오늘은 고른 표시(칸 그림자)는 없다. Pressing a day adds the ring and leaves today's circle and frame as they were.
- expect(t.ring).toBe('none');
- await other.click();await expect(other).toHaveAttribute('aria-pressed','true');
- expect((await look(OTHER)).ring).not.toBe('none');expect((await look(OTHER)).numRing).toBe('none');
- expect(ringed(await look(TODAY))).toBe(true);expect((await look(TODAY)).ring).toBe('none');expect((await look(TODAY)).frame).toBe('2px');
+ // 고른 날 = 테두리·그림자 없이 옅은 바탕(--ds-select-bg). 고르지 않은 오늘은 바탕 없음.
+ expect(t.ring).toBe('none');expect(t.cellBg).not.toBe(soft);
+ await other.click();await expect(other).toHaveAttribute('aria-pressed','true');await expect(other).toHaveClass(/ds-day-sel/);
+ const picked=await look(OTHER);expect(picked.ring).toBe('none');expect(picked.numRing).toBe('none');if(!picked.photo)expect(picked.cellBg).toBe(soft);
+ expect((await look(TODAY)).frame).toBe('2px');expect((await look(TODAY)).cellBg).not.toBe(soft);
  await page.locator('#diaryRoot [data-diary-detail-close]').click();
- await today.click();
- const both=await look(TODAY);expect(ringed(both)).toBe(true);expect(both.ring).not.toBe('none');
- // [달력]: the same ring and colour on today's number.
+ await expect(other).not.toHaveClass(/ds-day-sel/);
+ // 오늘을 고르면 네모 + 바탕.
+ await today.click();await expect(today).toHaveClass(/ds-day-sel/);
+ const both=await look(TODAY);expect(both.frame).toBe('2px');expect(both.numRing).toBe('none');expect(both.ring).toBe('none');if(!both.photo)expect(both.cellBg).toBe(soft);
+ // [달력]: 오늘 숫자는 같은 강조 글자색, 동그라미 없음. 칸은 일기 달력과 같은 네모 선(같은 굵기·색).
  await openMonth(page);
  const day=page.locator('#calendarGrid .cal-cell.today .cal-day');
  await expect(day).toBeVisible();
- const c=await page.evaluate(()=>{const el=document.querySelector('#calendarGrid .cal-cell.today .cal-day'),s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,ring:s.boxShadow,radius:s.borderRadius};});
- expect(c.bg).toBe('rgba(0, 0, 0, 0)');expect(c.fg).toBe(accent);expect(c.ring.startsWith(accent)&&c.ring.includes('inset')).toBe(true);expect(c.radius).toBe('999px');
- // UI-오늘표시통일: [달력] 오늘 칸도 일기 달력과 같은 칸 둘레 선(같은 굵기·색).
+ const c=await page.evaluate(()=>{const el=document.querySelector('#calendarGrid .cal-cell.today .cal-day'),s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,ring:s.boxShadow};});
+ expect(c).toEqual({bg:'rgba(0, 0, 0, 0)',fg:accent,ring:'none'});
  const frame=await page.evaluate(()=>{const s=getComputedStyle(document.querySelector('#calendarGrid .cal-cell.today'),'::before');return {w:s.borderTopWidth,color:s.borderTopColor,z:s.zIndex};});
  expect(frame).toEqual({w:'2px',color:ink,z:'2'});
  expect(f.errors).toEqual([]);

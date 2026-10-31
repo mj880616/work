@@ -712,16 +712,19 @@ for(const width of [390,1280]){
   await cell(page,'2026-10-04').click();
   await expectDiaryDay(page,'10월 4일 일요일');await expect(list).toBeHidden();
   await page.locator('#diaryRoot [data-diary-detail-close]').click();
-  // 표시색: 글만 있는 날 점·고른 날 테두리는 --kptu-primary-ink, 오늘은 --kptu-primary-text 동그라미 테두리, 사진 칸 바탕은 --kptu-primary-soft.
+  // 표시색: 글만 있는 날 점은 --kptu-primary-ink, 오늘 숫자는 --kptu-primary-text 글자(동그라미 없음, UI-오늘네모), 고른 날은 옅은 바탕(--ds-select-bg).
   const color=(token)=>page.evaluate(t=>{const e=document.createElement('span');e.style.color=`var(${t})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},token);
   const ink=await color('--kptu-primary-ink');
   expect(await cell(page,'2026-10-04').locator('[data-diary-dot]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(ink);
-  // UI-선택표시톤다운: 오늘은 칠하지 않고 강조 글자색 동그라미 테두리.
+  // 오늘은 칠하지 않고 강조 글자색 숫자만, 동그라미 없음.
   const accent=await color('--kptu-primary-text');
   expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-  expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).boxShadow)).toContain(accent);
+  expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).color)).toBe(accent);
+  expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).boxShadow)).toBe('none');
   await cell(page,'2026-10-04').click();
-  expect(await cell(page,'2026-10-04').evaluate(el=>getComputedStyle(el).borderTopColor)).toBe(ink);
+  const soft=await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-select-bg)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;});
+  expect(await cell(page,'2026-10-04').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(soft);
+  expect(await cell(page,'2026-10-04').evaluate(el=>getComputedStyle(el).boxShadow)).toBe('none');
   expect(f.errors).toEqual([]);
  });
 }
