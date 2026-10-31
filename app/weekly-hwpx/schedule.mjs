@@ -84,7 +84,20 @@ export function orgsIn(text, orgs) {
 // 돌려주는 것: [{day, where, line, body:[시각], events:[칸 글], kind:'time'|'missing', sure}]
 //   time = 그날 일정은 있는데 본문 시각과 같은 시각의 일정이 없음(종일 일정만 있는 날 포함), missing = 본문에 시각까지 적힌 날에 일정이 없음.
 //   sure = 본문 줄과 그날 일정에 같은 조직 이름이 있음(없으면 '확인'으로만 보임). 시각이 없는 본문 줄은 보지 않는다(일정표에 없는 일도 많음).
-export function scheduleMismatches({sections, calendar, overrides, orgs = []}) {
+// S46-22 ④: 같은 날·같은 본문 줄·같은 다름은 한 번만 낸다(같은 줄이 투쟁 사업장·산하조직 칸에 함께 있거나, 한 줄에 같은 날이 두 번 적혀
+// 같은 경고가 두 번 나오던 것). 줄이 든 칸이 여럿이면 where 를 '·'로 잇는다.
+const mismatchKey = f => [f.day, f.kind, one(f.line).replace(/\s+/g, '').toLowerCase(), f.body.join(',')].join('\u0000');
+export function scheduleMismatches(args) {
+  const out = [], at = new Map();
+  for (const f of rawMismatches(args)) {
+    const k = mismatchKey(f), had = at.get(k);
+    if (!had) { at.set(k, f); out.push(f); continue; }
+    if (!had.where.split('·').includes(f.where)) had.where = `${had.where}·${f.where}`;
+    had.sure = had.sure || f.sure;
+  }
+  return out;
+}
+function rawMismatches({sections, calendar, overrides, orgs = []}) {
   const out = [];
   if (!calendar || calendar.loading || calendar.failed?.length || !calendar.days?.length) return out;
   const byDay = new Map();

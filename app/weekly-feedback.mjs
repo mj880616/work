@@ -10,8 +10,9 @@
 //   withRule* / readRules                → '주간보고 규칙' 목록 고치기·지우기·더하기(10~20줄)
 //   learnInput(행들, 보고 주)            → 학습 재료: 보고 주 '앞' 주들의 고침 기록·규칙만(이번 주 개인본·이번 주 기록은 넣지 않음)
 import {squashLine} from './weekly-lines.mjs';
+import {readPicks, mergePicks} from './weekly-picks.mjs';
 
-export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules']);
+export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules', 'picks']); // picks: S46-22 제안 [×]·받음 기록(weekly-picks.mjs)
 export const FEEDBACK_LINE_CHARS = 300;
 export const FEEDBACK_LIST_MAX = 60;      // 고침·뺌·더함 목록마다(넘으면 숫자만 맞고 줄은 앞 60개)
 export const PROPOSED_CELLS_MAX = 200;
@@ -205,6 +206,8 @@ export function readExtras(draft) {
   if (p) out.proposed = p;
   if (f) out.feedback = f;
   if (r) out.rules = r;
+  const k = readPicks(draft.picks);
+  if (k) out.picks = k;
   return out;
 }
 // 칸마다 더 나중(at)의 것(같으면 앞). 없는 쪽은 무시.
@@ -212,6 +215,7 @@ export function mergeExtras(a = {}, b = {}) {
   const out = {};
   for (const key of EXTRA_KEYS) {
     const x = a?.[key], y = b?.[key];
+    if (key === 'picks') { const m = mergePicks(x, y); if (m) out.picks = m; continue; } // 제안 표시는 열쇠마다 합친다(두 기기가 서로 다른 것을 빼도 둘 다 남게)
     const tx = Date.parse(x?.at ?? ''), ty = Date.parse(y?.at ?? '');
     const pick = !x ? y : !y ? x : Number.isFinite(ty) && !(Number.isFinite(tx) && tx >= ty) ? y : x;
     if (pick) out[key] = pick;
