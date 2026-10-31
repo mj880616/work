@@ -15,7 +15,7 @@ import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSo
 import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
-import { cut, decodeBody, extractBody, oneLine, parseFeed, parseListHtml, robotsAllows, splitSentences, textDate, type ListItem } from "./parse.ts";
+import { cut, decodeBody, extractBody, oneLine, pageDate, parseFeed, parseListHtml, robotsAllows, splitSentences, type ListItem } from "./parse.ts";
 
 export type OutsideFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: Log };
 
@@ -370,7 +370,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
         body = extractBody(page.text, it.title) || body;
       } else if (!body && !it.summary) { out.skipped++; continue; }
     }
-    const published = it.published_at ?? (pageText ? textDate(extractBody(pageText, it.title) || "", nowMs) : null);
+    const published = it.published_at ?? (pageText ? pageDate(pageText, it.title, nowMs) : null);
     const rows: Record<string, unknown>[] = [];
     if (source.lang === "ko") {
       if (!body) { out.skipped++; continue; }

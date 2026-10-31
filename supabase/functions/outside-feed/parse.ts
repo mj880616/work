@@ -85,7 +85,8 @@ export function canonicalUrl(source: OutsideSource, raw: string, base?: string):
   return out;
 }
 export function cleanTitle(raw: string): string | null {
-  const t = cut(oneLine(decodeEntities(raw.replace(/<[^>]*>/g, " "))), TITLE_MAX_CHARS);
+  // RSS·Atom(type="html") 제목은 한 번 더 이스케이프돼 오기도 해서 풀고 → 태그 걷고 → 다시 푼다.
+  const t = cut(oneLine(decodeEntities(decodeEntities(raw).replace(/<[^>]*>/g, " "))), TITLE_MAX_CHARS);
   return t ? t : null;
 }
 
@@ -182,15 +183,27 @@ export function extractBody(html: string, title: string): string {
     ?? (/<body\b[^>]*>([\s\S]*)<\/body\s*>/i.exec(html)?.[1] ?? html);
   const cleaned = scoped.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " ");
   const lines = htmlToText(cleaned).split("\n");
-  const key = oneLine(title).replace(/^\s*[\[<(【〈「][^\]>)】〉」]{1,20}[\]>)】〉」]\s*/, "").slice(0, 20);
-  let start = key ? lines.findIndex((l) => l.includes(key)) : -1;
-  start = start < 0 ? 0 : start + 1;
+  const start = afterTitle(lines, title);
   const body: string[] = [];
   for (const l of lines.slice(start)) {
     if (END_MARK.test(l)) break;
+    if (DATE_ONLY.test(l)) continue; // 글 머리의 날짜·시각 줄은 본문이 아니다
     body.push(l);
   }
   return cut(body.join("\n").trim(), BODY_MAX_CHARS);
+}
+const DATE_ONLY = /^(?=.*\d)[\d\s.:/\-()년월일시분오전후AMPMampm]+$/;
+// 제목 줄 다음 줄 번호(제목을 못 찾으면 0). 머리말([성명] 등)은 빼고 앞 20자로 찾는다.
+function afterTitle(lines: string[], title: string): number {
+  const key = oneLine(title).replace(/^\s*[\[<(【〈「][^\]>)】〉」]{1,20}[\]>)】〉」]\s*/, "").slice(0, 20);
+  const i = key ? lines.findIndex((l) => l.includes(key)) : -1;
+  return i < 0 ? 0 : i + 1;
+}
+// 글 페이지의 게시 날짜: 제목 줄 뒤 15줄 안에서 처음 나오는 날짜(제목을 못 찾으면 페이지 앞에서).
+export function pageDate(html: string, title: string, nowMs: number): string | null {
+  const lines = htmlToText(html).split("\n");
+  const start = afterTitle(lines, title);
+  return textDate(lines.slice(start, start + 15).join("\n"), nowMs);
 }
 
 // 문장 나누기: 문단(줄) → 문장 끝(. ! ? … 。 다음 빈칸)으로. 500자 넘는 문장은 잘라 여러 줄로. 3001개까지.
