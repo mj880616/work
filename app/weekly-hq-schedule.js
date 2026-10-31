@@ -5,6 +5,7 @@
 // 고친 값과 늘 같다(한 곳만 고치면 두 곳 같음). 저장은 그 주 주간보고 행(app_weekly_exec_requests.draft — hq·titles 칸, weekly-draft-store.js
 // changeWeekDocs: 다시 읽고 그 칸만 바꿔 조건부 쓰기). 한글 파일 1. 2) 주요 일정 칸에도 같은 줄('- 11.6.(금) 13:00 / 내용 / 장소')이 들어간다.
 // 이 자리(data-journal-weekly-hq-slot)는 이 모듈 하나가 그린다. 브라우저 저장소에 아무것도 두지 않는다.
+// S46-27: 같은 표를 한글 파일 상자 1. 요청사항 안에도 그린다(place 'weekly' | 'box'). 고치기 상태·끌기는 자리마다 따로, 자료는 같은 그 주 행 하나.
 import {changeWeekDocs, withHq, withTitleEdit, draftHq} from './weekly-draft-store.js';
 import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, HQ_MAX, TITLE_MAX, PLACE_MAX} from './weekly-schedule-rows.mjs';
 import {timeCell, TIME_HINT} from './time-input.js';
@@ -22,14 +23,18 @@ const TEXT = Object.freeze({
   full:`줄은 ${HQ_MAX}개까지예요.`,
   noEvents:'이 2주 달력 일정이 없어요.',
 });
-let ui = fresh(''), drag = null;
+const places = new Map(); // place → {ui, drag}
 function fresh(start) { return {start, editing:null, draft:{}, picking:false, picked:new Set(), saving:false, status:'', error:false}; }
 
 // slot: 자리, model: weeklySummary 결과(hq·calendar), start: 그 주 월요일, onSaved(row): 서버에 쓴 뒤(journal.js가 재료를 바꾸고 다시 그림).
-export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, onSaved = () => {}, redraw = () => {}}) {
+export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, onSaved = () => {}, redraw = () => {}, place = 'weekly'}) {
   if (!slot) return;
-  if (ui.start !== start) ui = fresh(start);
-  drag?.destroy(); drag = null;
+  if (!places.has(place)) places.set(place, {ui:fresh(''), drag:null});
+  const own = places.get(place);
+  let ui = own.ui;
+  if (ui.start !== start) ui = own.ui = fresh(start);
+  own.drag?.destroy(); own.drag = null;
+  const setUi = next => { ui = own.ui = next; };
   const doc = slot.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const btn = (text, data, cls = 'mini') => { const b = el('button', cls, text); b.type = 'button'; b.dataset[data] = ''; return b; };
@@ -72,10 +77,11 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   parts.push(say);
   slot.replaceChildren(...parts);
   slot.onclick = onClick; slot.oninput = onInput;
-  if (!ui.editing && !busy) drag = mountReorder(slot, {listSelector:'[data-reorder-list="hq"]', itemSelector:'tr[data-reorder-id]',
+  if (!ui.editing && !busy) own.drag = mountReorder(slot, {listSelector:'[data-reorder-list="hq"]', itemSelector:'tr[data-reorder-id]',
     onDrop:({id, index}) => save(list => movedHqRow(list, id, index), '순서를 바꿨어요.'),
     onStep:(id, dir) => { const at = rows.findIndex(r => r.id === id); if (at >= 0) save(list => movedHqRow(list, id, Math.max(0, at + dir)), '순서를 바꿨어요.', `tr[data-reorder-id="${id}"] [data-reorder-handle]`); }});
   if (ui.focus) { slot.querySelector(ui.focus)?.focus(); ui.focus = ''; }
+  return;
 
   function editRow(row) {
     const tr = el('tr', 'journal-exec-edit-row'); tr.dataset.journalHqEditRow = row?.id ?? 'new';
@@ -84,7 +90,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     const d = ui.draft, key = row?.id ?? 'new';
     for (const [name, label, type, max] of [['day', '일', 'date'], ['time', '시간', 'text', 5], ['title', '내용', 'text', TITLE_MAX], ['place', '장소', 'text', PLACE_MAX]]) {
       const wrap = el('label', `journal-exec-field journal-exec-${name === 'title' ? 'what' : name}`); wrap.append(el('span', null, label));
-      const input = el('input'); input.type = type; input.value = d[name] ?? ''; input.dataset.journalHqField = name; input.id = `journalHq-${key}-${name}`;
+      const input = el('input'); input.type = type; input.value = d[name] ?? ''; input.dataset.journalHqField = name; input.id = `journalHq-${place}-${key}-${name}`;
       if (max) { input.maxLength = max; input.autocomplete = 'off'; }
       if (ui.invalid === name) input.setAttribute('aria-invalid', 'true');
       if (busy) input.disabled = true;
@@ -128,13 +134,13 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   function onClick(event) {
     const b = event.target.closest?.('button');
     if (!b || !slot.contains(b) || b.disabled) return;
-    if (b.matches('[data-journal-hq-add]')) { ui = {...fresh(start), editing:'new', draft:{day:'', time:'', title:'', place:''}, focus:'[data-journal-hq-field="day"]'}; redraw(); }
-    else if (b.matches('[data-journal-hq-edit]')) { const row = rows.find(r => r.id === b.dataset.journalHqEdit); if (!row) return; ui = {...fresh(start), editing:row.id, draft:{day:row.day, time:row.time, title:row.title, place:row.place}, focus:'[data-journal-hq-field="title"]'}; redraw(); }
-    else if (b.matches('[data-journal-hq-cancel]')) { const id = ui.editing; ui = fresh(start); ui.focus = id && id !== 'new' ? `[data-journal-hq-edit="${id}"]` : '[data-journal-hq-add]'; redraw(); }
+    if (b.matches('[data-journal-hq-add]')) { setUi({...fresh(start), editing:'new', draft:{day:'', time:'', title:'', place:''}, focus:'[data-journal-hq-field="day"]'}); redraw(); }
+    else if (b.matches('[data-journal-hq-edit]')) { const row = rows.find(r => r.id === b.dataset.journalHqEdit); if (!row) return; setUi({...fresh(start), editing:row.id, draft:{day:row.day, time:row.time, title:row.title, place:row.place}, focus:'[data-journal-hq-field="title"]'}); redraw(); }
+    else if (b.matches('[data-journal-hq-cancel]')) { const id = ui.editing; setUi(fresh(start)); ui.focus = id && id !== 'new' ? `[data-journal-hq-edit="${id}"]` : '[data-journal-hq-add]'; redraw(); }
     else if (b.matches('[data-journal-hq-save]')) void saveEdit();
     else if (b.matches('[data-journal-hq-delete]')) { const id = b.dataset.journalHqDelete; void save(list => withoutHqRow(list, id), '줄을 뺐어요.'); }
-    else if (b.matches('[data-journal-hq-pick]')) { ui = {...fresh(start), picking:true}; redraw(); }
-    else if (b.matches('[data-journal-hq-pick-cancel]')) { ui = fresh(start); redraw(); }
+    else if (b.matches('[data-journal-hq-pick]')) { setUi({...fresh(start), picking:true}); redraw(); }
+    else if (b.matches('[data-journal-hq-pick-cancel]')) { setUi(fresh(start)); redraw(); }
     else if (b.matches('[data-journal-hq-pick-save]')) { const picked = events.filter(i => ui.picked.has(i.key)); void save(list => withPicked(list, picked, {titles:hq.titles}), `${picked.length}줄을 넣었어요.`); }
   }
   async function saveEdit() {
@@ -163,8 +169,8 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     ui.saving = true; ui.status = '저장하는 중…'; ui.error = false; redraw();
     try {
       const r = await changeWeekDocs({start, known:hq.row, change:draft => { const next = change(draftHq(draft)); if (!next) { full = true; return draft; } const out = withHq(draft, next); return extra ? extra(out) : out; }}, rt);
-      if (r.missing) { ui = {...fresh(start), status:TEXT.missing, error:true}; redraw(); return; }
-      ui = {...fresh(start), status:full ? TEXT.full : done, error:full};
+      if (r.missing) { setUi({...fresh(start), status:TEXT.missing, error:true}); redraw(); return; }
+      setUi({...fresh(start), status:full ? TEXT.full : done, error:full});
       ui.focus = focus;
       onSaved(r.row);
     } catch {

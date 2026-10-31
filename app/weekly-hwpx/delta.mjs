@@ -100,6 +100,7 @@ export function personalReportFromTeam(team, me, {myOrgs = [], orgList = null, t
     title, date,
     requests: [],
     schedule: [],
+    discuss: [],
     summary: personalFromTeam(team.summary ?? [], me),
     details: [],
     rallies: [],

@@ -39,6 +39,9 @@
 //   1. 2) 주요 일정 칸에는 [주간 정리] 수기 표 줄(draft.hq)을 '- 11.6.(금) 13:00 / 내용 / 장소'로 넣는다(이 상자는 그 줄을 읽은 그대로 다시 실어 보냄).
 //   3. 2) 투쟁 사업장 현황: 사업장 줄 ⋯ → [이번 주 보고에서 빼기](위쪽 "○○을 뺐어요 [되돌리기]", 적은 글은 칸에 그대로), 맨 아래 [+ 사업장 추가]
 //   (내 담당 조직에서만), ⠿로 끌어 순서. 구성은 draft.site_layout — 그 주에 없으면 가장 가까운 지난주 구성을 이어 쓴다. 파일에는 들어간 사업장만.
+// - S46-27(요청함 10/31 00:24): 1. 요청사항 세 칸(1) 임원 배정 요청 · 2) 주요 일정 · 3) 상집 논의 요청)을 이 상자 안에서 바로 입력한다. 상자는 자리
+//   (data-hwpx-requests-slot)만 두고 그리기는 journal.js가 [주간 정리]와 같은 부품·같은 자료로 한다(onRequestsSlot). 3) 줄(draft.discuss)은
+//   2) 줄처럼 읽은 그대로 다시 실어 보내고, 한글 파일 2) 아래에 '3) 상집 논의 요청' 작은 제목 + 줄(없으면 빈 칸)로 넣는다.
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
 import {waitHtml, waitInlineHtml, emptyEl} from './wait-state.js'; // UI-기다림표시통일 2차
@@ -49,8 +52,9 @@ import {scheduleForm} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftSiteLayout, readCarriedLayout} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftSiteLayout, readCarriedLayout} from './weekly-draft-store.js';
 import {timeCell} from './time-input.js';
+import {discussLines} from './weekly-discuss.mjs';
 import {eventFields, editFrom, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey} from './weekly-schedule-rows.mjs';
 import {mountReorder} from './reorder-drag.js';
 import {sameIssuedLines} from './weekly-lines.mjs';
@@ -178,7 +182,7 @@ async function latestBase(rt, day) {
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
 // draftDelay: how long typing must pause before the draft is saved (tests may pass a shorter one).
 // onMemory(list): [기억하기]로 내 프로필의 주간보고 기억을 쓴 뒤 저장된 목록을 알린다(journal.js가 [주간 정리]를 다시 그림).
-export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
+export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onRequestsSlot = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
   if (!host) return null;
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -332,6 +336,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const ownLayout = draftSiteLayout(saved?.row?.draft);
       state.carriedLayout = carriedLayout; state.layout = ownLayout ?? carriedLayout; state.layoutOwn = !!ownLayout;
       state.hq = draftHq(saved?.row?.draft);
+      state.discuss = draftDiscuss(saved?.row?.draft);
       rebase();
       await attachDraft(state, baseInfo, saved);
       if (mine !== run) return;
@@ -462,7 +467,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       : c.status === 'saving' ? '지난주 확정본에서 고른 줄을 저장하는 중이에요.'
       : c.status === 'failed' ? '지난주에서 고른 줄을 저장하지 못했어요. 파일에는 고른 줄만 넣어요.'
       : `지난주 확정본에서 ${c.items.length}줄을 골랐어요${dropped ? `(뺀 줄: ${dropped})` : ''}. 저장 칸 준비 전이라 이 파일에만 넣어요.`;
-    note.textContent = `1. 요청사항 표: ${rows.items.length}줄(위 "1) 임원 일정 배정·논의 요청" 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 '임원 요청' 기록이 가리키거나 내 담당 사업장·사업 관련 줄만.`;
+    note.textContent = `1) 임원 배정 요청 ${rows.items.length}줄(아래 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 '임원 요청' 기록이 가리키거나 내 담당 사업장·사업 관련 줄만.`;
   }
   // 5. 주요 일정: 기억으로 뺀 일정까지 든 달력(allRows)과 이 주에 실제 들어가는 달력(이번 주 빼기·넣기 반영).
   const fullCalendar = () => { const c = getWeek().model?.calendar; return c && c.allRows ? {...c, rows:c.allRows} : c; };
@@ -754,7 +759,11 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       : s.context.orgFallback ? `담당 사업장이 지정되지 않아 모든 조직(${s.context.organizations.length}곳)을 내 조직으로 봤어요. 내 프로필 → 담당 사업장에서 정할 수 있어요.`
       : `내 담당 조직 ${s.context.organizations.length}곳(내 프로필 → 담당 사업장 기준)`;
     const o = el('p', 'journal-muted', orgLine); o.dataset.hwpxOrgs = ''; parts.push(o);
-    const req = el('p', 'journal-muted', ''); req.dataset.hwpxRequests = ''; parts.push(req);
+    // S46-27 1. 요청사항: 세 칸 표 자리(그리기는 journal.js — [주간 정리]와 같은 부품). 지난주에서 가져온 줄 안내는 표 위 한 줄.
+    const reqPart = el('section', 'journal-hwpx-part'); reqPart.dataset.hwpxPart = 'requests';
+    reqPart.append(el('h5', 'journal-weekly-sub', '1. 요청사항'));
+    const req = el('p', 'journal-muted', ''); req.dataset.hwpxRequests = ''; reqPart.append(req);
+    const reqSlot = el('div', 'journal-hwpx-requests'); reqSlot.dataset.hwpxRequestsSlot = ''; reqPart.append(reqSlot);
     if (s.plans?.length) {
       const plans = el('details', 'journal-hwpx-plans'); plans.dataset.hwpxPlans = '';
       plans.append(el('summary', '', `보고일(${formDay(reportDay(s.start))})보다 지난 날짜의 '예정' ${s.plans.length}줄에서 '예정'만 뺐어요(파란 글씨).`));
@@ -777,6 +786,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       fix.append(list); parts.push(fix);
     }
     const hqNote = el('p', 'journal-muted'); hqNote.dataset.hwpxHq = ''; parts.push(hqNote);
+    parts.push(reqPart);
     const ai = el('p', 'journal-muted'); ai.dataset.hwpxAiDraft = ''; ai.setAttribute('role', 'status'); ai.setAttribute('aria-live', 'polite'); parts.push(ai);
     const cal = el('p', 'journal-muted', ''); cal.dataset.hwpxCalendar = ''; parts.push(cal);
     const loading = el('div', 'journal-muted'); loading.innerHTML = waitHtml({rows: 1}); loading.dataset.hwpxLoading = ''; loading.hidden = true; parts.push(loading);
@@ -818,6 +828,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     parts.push(remember);
     body.replaceChildren(...parts);
     mountSiteDrag();
+    onRequestsSlot();
     paintHqNote();
     renderRemember();
     renderMaterial();
@@ -912,11 +923,14 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // ---- 1. 2) 주요 일정 줄(draft.hq — [주간 정리] 수기 표가 쓴다, 이 상자는 읽은 그대로 다시 실어 보냄) ----
   const hqContext = () => ({events:new Map(scheduleItems(fullCalendar()).map(i => [i.key, i])), titles:state?.titles ?? new Map()});
   const hqFileLines = () => (state ? hqLines(state.hq ?? [], hqContext()) : []);
+  // S46-27 1. 3) 상집 논의 요청 줄(draft.discuss — 표는 journal.js가 그림, 이 상자는 읽은 그대로 다시 실어 보내고 파일에 넣음).
+  const discussFileLines = () => (state ? discussLines(state.discuss ?? []) : []);
   function paintHqNote() {
     const p = body.querySelector('[data-hwpx-hq]');
     if (!p || !state) return;
     const n = hqFileLines().length;
-    p.textContent = `1. 2) 주요 일정: ${n ? `[주간 정리] 2) 주요 일정 표 ${n}줄을 넣어요.` : '[주간 정리] 2) 주요 일정 표가 비어 있어 비워요.'} 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.`;
+    const k = discussFileLines().length;
+    p.textContent = `1. 요청사항: 2) 주요 일정 ${n ? `${n}줄` : '빈 칸'}, 3) 상집 논의 요청 ${k ? `${k}줄` : '빈 칸'}을 넣어요(아래 표에서 고쳐요). 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.`;
   }
   // ---- 3. 2) 투쟁 사업장 현황 구성 ----
   const siteRows = s => s.sites.map(r => ({index:r.index, org:r.org}));
@@ -1053,7 +1067,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   async function build() {
     const {draft} = state;
     if (state.built) return state.built;
-    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, state.edits);
+    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, state.edits);
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     const bytes = await draft.buildHwpx(state.template, data);
@@ -1365,7 +1379,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const typedMe = s.meFrom === 'typed';
     return makeDraft({base:s.baseInfo ? {...s.baseInfo, digest:s.digest} : null, me:typedMe ? s.me : '', meFrom:typedMe ? 'typed' : '', date:s.date === s.defaultDate ? '' : s.date, cells, initial:s.initial,
       keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], areas:s.areas ?? null, confirmed:s.store?.confirmed ?? null, issued:s.store?.issued ?? null, extras:s.store?.extras ?? null,
-      hq:s.hq ?? [], siteLayout:s.layoutOwn ? s.layout : null});
+      hq:s.hq ?? [], discuss:s.discuss ?? [], siteLayout:s.layoutOwn ? s.layout : null});
   }
   // Put a draft's cells into the current base by name; what does not fit is kept aside (shown folded, saved again as it was).
   function placeCells(s, d) {
@@ -1381,6 +1395,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     s.meFrom = typedMe ? 'typed' : s.meResolvedFrom;
     // 투쟁 사업장 구성·2) 주요 일정 줄: 합친 판(다른 기기·[주간 정리]가 쓴 것 포함). 구성에 바탕에 없는 사업장이 생기면 바탕을 다시 만든다.
     s.hq = draftHq(d);
+    s.discuss = draftDiscuss(d);
     const own = draftSiteLayout(d);
     if (own) { s.layout = own; s.layoutOwn = true; }
     const needSites = missingSites(s.sites ?? [], s.layout, s.context.organizations.map(o => o.name)).length > 0;
@@ -1509,6 +1524,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (cell === 'date') return '■ 일시';
     if (cell.startsWith('area:')) return '사업요약표 사업영역 한 줄';
     if (cell === 'hq') return '1. 2) 주요 일정 줄';
+    if (cell === 'discuss') return '1. 3) 상집 논의 요청 줄';
     if (cell === 'sites_layout') return '3. 2) 투쟁 사업장 넣고 뺀 구성';
     if (cell.startsWith('title:') || cell.startsWith('drop:')) { const key = cell.slice(cell.indexOf(':') + 1), item = scheduleItems(fullCalendar()).find(i => i.key === key); return `5. 주요 일정 ${item ? `${item.label} ${item.time} ${item.title}` : ''}${cell.startsWith('drop:') ? ' 빼기' : ''}`.trim(); }
     const {section, key, n} = parseCellId(cell.slice(4));
@@ -1543,6 +1559,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       else if (c.cell === 'date') s.date = v ?? s.defaultDate;
       else if (c.cell.startsWith('title:')) { const key = c.cell.slice(6); if (v) s.titles.set(key, {...v}); else s.titles.delete(key); s.titleKeys = ''; }
       else if (c.cell === 'hq') s.hq = v ?? [];
+      else if (c.cell === 'discuss') s.discuss = v ?? [];
       else if (c.cell === 'sites_layout') { s.layout = v ? readSiteLayout({...v, at:new Date().toISOString()}) : s.carriedLayout; s.layoutOwn = !!v; const kept = currentDraft(s); rebase(); placeCells(s, kept); }
       else if (c.cell.startsWith('area:')) { const id = c.cell.slice(5), areas = {...(s.areas ?? {})}; if (v) areas[id] = {text:v, hash:'', edited:true, at:new Date().toISOString()}; else delete areas[id]; s.areas = areas; }
       else if (c.cell.startsWith('drop:')) { const key = c.cell.slice(5); if (v) s.drops.set(key, v); else s.drops.delete(key); s.titleKeys = ''; }

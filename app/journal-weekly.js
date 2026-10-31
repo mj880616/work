@@ -1,7 +1,7 @@
 import {waitHtml, emptyEl} from './wait-state.js';
 // JOURNAL-주간보고허브 2단계: [주간 정리] — one week of the journal's materials grouped in the order of the weekly report form
 // (docs/design/weekly-report-hub.md 4절 2단계, 7절 결정; the form is docs/design/weekly-hwpx-draft.md 1.2·1.3절):
-//   1. 요청사항 — 1) 임원 일정 배정·논의 요청 (WEEKLY-임원요청정리, 2026-10-23): the week's own request rows (일 | 시간/내용/장소 |
+//   1. 요청사항 — 1) 임원 배정 요청 (WEEKLY-임원요청정리, 2026-10-23; S46-27에서 이름만 바꿈): the week's own request rows (일 | 시간/내용/장소 |
 //      참석 요청), added, changed and removed here and saved on the server (weekly-exec-requests.js, app_weekly_exec_requests). Rows
 //      carried from last week's confirmed report (journal-hwpx.js, filtered) show a small '지난주에서' tag on this screen only.
 //   2. 기본·영역·의제 사업 — 1) 요약: 사업영역(1단 project) → 세부 과제(2단) → 진행 상황 및 이후 계획. The screen has no 담당 팀원
@@ -35,7 +35,8 @@ import {timeCell} from './time-input.js';
 import {scheduleItems} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
-import {docEdits, draftAreaSummaries, draftHq} from './weekly-draft-store.js';
+import {docEdits, draftAreaSummaries, draftHq, draftDiscuss} from './weekly-draft-store.js';
+import {discussLines, DISCUSS_TITLE} from './weekly-discuss.mjs';
 import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
@@ -354,9 +355,13 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const hq = {loading:fileEdits.loading, editable:fileEdits.editable, missing:!!draftRead?.missing, failed:m.weekDraft?.status === 'failed', row:draftRead?.row ?? null,
     rows:hqRows.map(r => ({...r, ...hqFields(r, {events, titles:titleEdits})})), events, titles:titleEdits,
     lines:hqLines(hqRows, {events, titles:titleEdits})};
+  // S46-27 1. 3) 상집 논의 요청 줄: 그 주 임시저장 discuss(weekly-discuss.mjs). 2) 주요 일정과 같은 읽기·같은 쓰기.
+  const discussRows = draftRead && !draftRead.missing ? draftDiscuss(draftRead.row?.draft) : [];
+  const discuss = {loading:fileEdits.loading, editable:fileEdits.editable, missing:!!draftRead?.missing, failed:m.weekDraft?.status === 'failed', row:draftRead?.row ?? null,
+    rows:discussRows, lines:discussLines(discussRows)};
   // 주간보고 기억 목록(맨 아래 접힘): 일정 이름·일정 빼기(내 프로필 칸) + 회의 종류 빼기 전체(지금은 그 주에 걸린 것만 보이던 것).
   const remembered = {ready:memory?.status === 'ok', entries:memory?.status === 'ok' ? memory.list : [], kinds:kinds?.status === 'ok' ? kinds.list : null, today};
-  // 1. 요청사항 › 1) 임원 일정 배정·논의 요청: the week's saved rows (weekly-exec-requests.js readExecRequests → {missing, row}).
+  // 1. 요청사항 › 1) 임원 배정 요청: the week's saved rows (weekly-exec-requests.js readExecRequests → {missing, row}).
   const requests = part('requests', () => {
     const read = ok(m, 'execRequests');
     return {missing:!!read?.missing, row:read?.row ?? null, items:sortItems(read?.row?.items ?? [])};
@@ -388,7 +393,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   // 한글 파일 상자 그 조직 칸), 5. 주요 일정·참고·복사 글에는 넣지 않는다. 고르지 않았거나 못 읽으면 빈 값(추천 줄이 안 보일 뿐).
   const refRead = ok(m, 'orgRefs');
   const orgRefs = refRead?.configured ? {org:refRead.org, items:refRead.items || []} : {org:'', items:[]};
-  return {start, days, requests, summary, meetings, orgs, calendar, calendarView, hq, notes, remembered, fileEdits, overlap, overlapSource, orgRefs};
+  return {start, days, requests, summary, meetings, orgs, calendar, calendarView, hq, discuss, notes, remembered, fileEdits, overlap, overlapSource, orgRefs};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
 
@@ -427,14 +432,14 @@ export const orgSummaryLines = text => String(text ?? '').split('\n').map(line =
 // ---- [주간보고 초안 복사] (2026-10-21 사용자 승인: 날짜순이 아니라 양식 순서) ----
 // The same grouping as the tab, as text in the form's order: 1. 요청사항 → 2. 사업 → 4. 산하 조직 → 5. 주요 일정 → 참고. A part
 // that is still loading or failed says so in its place, and the end names what could not be read.
-const LABELS = Object.freeze({requests:'임원 일정 배정·논의 요청', summary:'사업영역 기록', meetings:'회의·활동 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
+const LABELS = Object.freeze({requests:'임원 배정 요청', summary:'사업영역 기록', meetings:'회의·활동 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
 export function weeklyReportText(model) {
   const {days} = model, out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, `■ 일시 : ${reportDateText(model.start)}`, ''];
   const item = (i, text = i.text) => `- ${shortDay(i.day)} ${requestPrefix(i.requests)}${text}`;
   const gap = (part, key) => part.loading ? '(불러오는 중)' : !part.failed?.length ? '' : part.failed.length < WEEKLY_SOURCES[key].length ? '(일부를 불러오지 못함)' : '(불러오지 못함)';
   const missing = [];
   const note = (key, part, label = LABELS[key]) => { const g = gap(part, key); if (g) { out.push(g); if (!part.loading) missing.push(label); } return !!part.loading || (part.failed?.length || 0) >= WEEKLY_SOURCES[key].length; };
-  out.push('1. 요청사항', `1) 임원 일정 배정·논의 요청 (${EXEC_HEAD.join(' | ')})`);
+  out.push('1. 요청사항', `1) 임원 배정 요청 (${EXEC_HEAD.join(' | ')})`);
   // The saved rows in the form's order and cells; the carried mark is not copied.
   const r = model.requests;
   if (!note('requests', r)) { for (const i of r.items) out.push(requestLine(i)); if (!r.items.length) out.push(r.missing ? '(요청 표 저장 칸 준비 전)' : '(요청 없음)'); }
@@ -442,6 +447,10 @@ export function weeklyReportText(model) {
   const hqLinesNow = model.hq?.lines ?? [];
   if (hqLinesNow.length) out.push(`2) 주요 일정 (${HQ_SCHEDULE_GUIDE})`, ...hqLinesNow, '');
   else out.push(`2) 주요 일정: (비워 둠) ${HQ_SCHEDULE_GUIDE}`, '');
+  // S46-27: 3) 상집 논의 요청('- 안건 — 설명 (관련 조직)', 한글 파일과 같은 줄). 없으면 (비워 둠).
+  const discussNow = model.discuss?.lines ?? [];
+  if (discussNow.length) out.splice(out.length - 1, 1, DISCUSS_TITLE, ...discussNow, '');
+  else out.splice(out.length - 1, 1, `${DISCUSS_TITLE}: (비워 둠)`, '');
   out.push('2. 기본·영역·의제 사업', '1) 요약');
   const s = model.summary;
   if (!note('summary', s)) {
@@ -621,18 +630,18 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   // 1. 요청사항: 1) the week's request rows (일 | 시간/내용/장소 | 참석 요청), each with a small [고치기]; one small [줄 추가] under the
   // table opens the same edit row (date picker, time, text, place, attendees). 2) 주요 일정 only says what goes there.
   const one = chapter('requests', '1. 요청사항');
-  const ask = block('ask', '1) 임원 일정 배정·논의 요청');
-  const r = model.requests;
-  if (!status(ask, r, '요청 표') && !r.failed.length) {
-    if (r.missing) { const p = muted('요청 표 저장 칸이 아직 준비되지 않았어요(서버 적용 전). 한글 파일에는 지난주 확정본에서 날짜가 안 지났고 내 사업장·사업과 관련된 줄만 들어가요.'); p.dataset.journalExecMissing = ''; ask.append(p); }
-    else ask.append(...execTable(doc, el, r.items, execUi));
-  }
-  const hq = block('hq-schedule', '2) 주요 일정');
+  const ask = block('ask', REQUEST_TITLES.ask);
+  if (!status(ask, model.requests, '요청 표') && !model.requests.failed.length) ask.append(...execRequestsPart(doc, model, execUi, 'weekly'));
+  const hq = block('hq-schedule', REQUEST_TITLES.hq);
   const guide = muted(HQ_SCHEDULE_GUIDE); guide.dataset.journalWeeklyGuide = '';
   // 수기 표 자리: 그리기는 weekly-hq-schedule.js 하나가 맡는다(journal.js가 이 자리에 붙임). node 시험에서는 빈 자리.
   const hqSlot = el('div', 'journal-hq-slot'); hqSlot.dataset.journalWeeklyHqSlot = '';
   hq.append(guide, hqSlot);
-  one.append(ask, hq);
+  // S46-27 3) 상집 논의 요청: 그리기는 weekly-discuss-table.js 하나(journal.js가 이 자리에 붙임).
+  const discuss = block('discuss', REQUEST_TITLES.discuss);
+  const discussSlot = el('div', 'journal-discuss-slot'); discussSlot.dataset.journalWeeklyDiscussSlot = '';
+  discuss.append(discussSlot);
+  one.append(ask, hq, discuss);
 
   // 2. 기본·영역·의제 사업
   const two = chapter('business', '2. 기본·영역·의제 사업');
@@ -947,6 +956,25 @@ function memoryBox(doc, el, r_, ui = {}, picks = null) {
 }
 
 // 1. 요청사항 › 1) the request rows and their edit row. Returns the nodes for the box (table, edit row for a new line, tools, status).
+// S46-27: 1. 요청사항 세 칸 제목(화면 두 곳 — [주간 정리]·한글 파일 상자 — 같은 글).
+export const REQUEST_TITLES = Object.freeze({ask:'1) 임원 배정 요청', hq:'2) 주요 일정', discuss:DISCUSS_TITLE});
+// 1) 임원 배정 요청 칸 속(표·안내). place = 'weekly' | 'box'. 고치는 줄(execUi.editing)은 고치기를 연 자리(execUi.where)에만 그린다
+// (두 자리에 같은 입력칸이 생기지 않게). 다른 자리는 그동안 버튼을 잠근다. journal.js가 두 자리 모두 이 함수로 그린다.
+export function execRequestsPart(doc, model, execUi, place = 'weekly') {
+  const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const r = model.requests;
+  if (r.loading) { const w = el('div'); w.innerHTML = waitHtml({rows:2}); return [w]; }
+  if (r.failed?.length) {
+    const note = el('p', 'wait-fail journal-failed', '요청 표를 불러오지 못했어요. ');
+    note.dataset.journalFailed = ''; note.setAttribute('role', 'alert');
+    const retry = el('button', 'wait-retry', '다시'); retry.type = 'button'; retry.dataset.journalWeeklyRetry = r.failed.join(' ');
+    note.append(retry); return [note];
+  }
+  if (r.missing) { const p = el('p', 'journal-muted', '요청 표 저장 칸이 아직 준비되지 않았어요(서버 적용 전). 한글 파일에는 지난주 확정본에서 날짜가 안 지났고 내 사업장·사업과 관련된 줄만 들어가요.'); p.dataset.journalExecMissing = ''; return [p]; }
+  const here = (execUi.where || 'weekly') === place;
+  const ui = here ? execUi : {...execUi, editing:null, status:'', error:false, saving:execUi.saving || !!execUi.editing};
+  return execTable(doc, el, r.items, ui);
+}
 function execTable(doc, el, items, ui) {
   const editing = ui.editing ?? null, busy = !!ui.saving;
   const table = el('table', 'journal-weekly-table journal-exec-table'); table.dataset.journalExecTable = '';
@@ -1003,6 +1031,8 @@ function execEditRow(doc, el, ui, item) {
   const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalExecSave = key;
   const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalExecCancel = key;
   if (item) { const del = el('button', 'mini journal-delete save-row-start', '삭제'); del.type = 'button'; del.dataset.journalExecDelete = item.id; actions.append(del); }
+  // S46-27: 지난주에서 가져온 논의 줄 등 — 이 줄을 3) 상집 논의 요청으로 옮긴다(안건 = 내용, 설명 = 일·시간·장소).
+  if (item) { const move = el('button', 'mini', '3)으로 옮기기'); move.type = 'button'; move.dataset.journalExecMove = item.id; move.setAttribute('aria-label', `${item.what} 줄을 3) 상집 논의 요청으로 옮기기`); actions.append(move); }
   actions.append(cancel, save);
   if (ui.saving) for (const b of actions.children) b.disabled = true;
   form.append(actions); td.append(form); tr.append(td);

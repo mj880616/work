@@ -261,7 +261,7 @@
 #appView #homeView .journal-weekly-schedule thead th:nth-child(1){ width:30%; }
 #appView #homeView .journal-weekly-schedule thead th:nth-child(2){ width:auto; }
 #appView #homeView .journal-weekly-schedule thead th:nth-child(3){ width:14%; }
-/* 1. 요청사항 › 1) 임원 일정 배정·논의 요청 표(WEEKLY-임원요청정리): 일 | 시간/내용/장소 | 참석 요청 + 줄마다 작은 [고치기].
+/* 1. 요청사항 › 1) 임원 배정 요청 표(옛 이름 임원 일정 배정·논의 요청)(WEEKLY-임원요청정리): 일 | 시간/내용/장소 | 참석 요청 + 줄마다 작은 [고치기].
    지난주 확정본에서 가져온 줄은 작은 '지난주에서' 글자(화면에만). 고치기 줄은 표 안 한 칸에 칸들을 줄바꿈으로 놓는다(UI-버튼기준: 작은 버튼). */
 #appView #homeView .journal-exec-table thead th:nth-child(1){ width:24%; }
 #appView #homeView .journal-exec-table thead th:nth-child(2){ width:auto; }
@@ -559,8 +559,24 @@
 #appView #homeView .journal-hwpx-site-tools .journal-kind-more[open]{ position:relative; }
 #appView #homeView .journal-hwpx-site-add{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
 #appView #homeView .journal-hwpx-undo{ margin:0 0 6px; font-size:var(--kptu-text-body); color:var(--kptu-ink); }
+/* S46-27 3) 상집 논의 요청 표(weekly-discuss-table.js): 안건 | 설명 | 관련 조직 | 고치기 — 2) 주요 일정 표와 같은 작은 모양.
+   한글 파일 상자 1. 요청사항: [주간 정리]와 같은 세 칸 표(제목은 작은 글씨, 칸 사이 좁게). */
+#appView #homeView .journal-discuss-table thead th:nth-child(1){ width:34%; }
+#appView #homeView .journal-discuss-table thead th:nth-child(2){ width:auto; }
+#appView #homeView .journal-discuss-table thead th:nth-child(3){ width:18%; }
+#appView #homeView .journal-discuss-table thead th:nth-child(4){ width:112px; }
+#appView #homeView .journal-discuss-table .journal-exec-tools{ white-space:nowrap; }
+#appView #homeView .journal-discuss-table tr.re-dragging{ opacity:.55; }
+#appView #homeView .journal-discuss-table .journal-discuss-title{ font-weight:400; text-align:left; }
+#appView #homeView .journal-discuss-table .journal-discuss-org{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-exec-field select{ box-sizing:border-box; width:100%; min-height:var(--ds-compact-height); font-size:var(--kptu-text-body); color:var(--kptu-ink); }
+#appView #homeView .journal-exec-org{ flex:1 1 140px; }
+#appView #homeView .journal-hwpx-requests{ display:flex; flex-direction:column; gap:6px; }
+#appView #homeView .journal-hwpx-requests > .journal-weekly-part{ margin:0; }
+#appView #homeView .journal-hwpx-requests h6.journal-weekly-sub{ margin:0 0 2px; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
 @media(max-width:760px){
-  #appView #homeView .journal-hq-table .journal-exec-tools{ text-align:left; }
+  #appView #homeView .journal-hq-table .journal-exec-tools,
+  #appView #homeView .journal-discuss-table .journal-exec-tools{ text-align:left; }
 }
 /* S46-22 제안 [×]·뺀 제안 접기: 작고 낮은 글자 버튼(테두리 없이 흐린 색), 접기는 메타 글씨. */
 #appView #homeView .journal-hwpx-pick-x,

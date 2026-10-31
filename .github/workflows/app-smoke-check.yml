@@ -17,6 +17,10 @@ on:
       - 'tests/security/basket-note-delete.test.mjs'
       - 'tests/security/basket-jsonb-contains.test.mjs'
       - 'tests/security/helpers/postgrest-jsonb.mjs'
+      - 'tests/outside-statements-db.test.mjs'
+      - 'supabase/migrations/20261031230000_outside_statements.sql'
+      - 'docs/20261031230000_outside_statements.*'
+      - 'docs/design/outside-statements.md'
       - 'scripts/ops/db-*.mjs'
       - 'tests/security/db-workflow-annotations.test.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
@@ -141,6 +145,10 @@ on:
       - 'tests/security/basket-note-delete.test.mjs'
       - 'tests/security/basket-jsonb-contains.test.mjs'
       - 'tests/security/helpers/postgrest-jsonb.mjs'
+      - 'tests/outside-statements-db.test.mjs'
+      - 'supabase/migrations/20261031230000_outside_statements.sql'
+      - 'docs/20261031230000_outside_statements.*'
+      - 'docs/design/outside-statements.md'
       - 'scripts/ops/db-*.mjs'
       - 'tests/security/db-workflow-annotations.test.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
@@ -273,6 +281,9 @@ jobs:
 
       - name: Check time cells and one-line schedule titles split into cells (FORM-시간숫자·WEEKLY-장소칸)
         run: node --test tests/schedule-line-split.test.mjs
+
+      - name: Check weekly report 1. 요청사항 three parts — 3) 상집 논의 요청 rows, shared draft cell, hwpx order (S46-27)
+        run: node --test tests/weekly-discuss.test.mjs
 
       - name: Check shared UI parts stay unified (UI-화면정리 B)
         run: node --test tests/ui-cleanup-b.test.mjs
@@ -491,6 +502,8 @@ jobs:
         run: node --test tests/photo-sources-chips.test.mjs
       - name: "Google Drive photo source screen (S46-24 ④: 칩은 운영자 기능만·쓰기 confirm·썸네일 4장씩·지우기 확인 창, synthetic)"
         run: node --test tests/gdrive-photos-ui.test.mjs
+      - name: "Outside statements DB (S46-32 바깥 성명 ①: 짝 파일·확장 규칙·owner RLS·외국 글 문장 금지·찾기 함수 INVOKER, migration text only)"
+        run: node --test tests/outside-statements-db.test.mjs
 
       - name: Check arsenal menu (주소 개편 ② E1, newest-first list·season/competition/search filters·goal lines·https links only, real archive data)
         run: node --test tests/arsenal-model.test.mjs
