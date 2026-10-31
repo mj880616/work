@@ -26,6 +26,11 @@ import {viewPrefs} from './view-prefs.js';
 // OD-연결아이콘: 원드라이브 연결 표시는 [오늘] 오른쪽 아이콘 하나 + 드롭다운(공용 부품, 사진 메뉴도 같은 부품).
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {createOdSettings} from './od-settings.js';
+// S46-20 사진 정리 ⑥(명진 11/01 01:04): 그날 폰 사진도 같은 격자에 '보여 주기만'(앱 다리로 폰 안에서만 읽음, 서버 저장 없음).
+import {phonePhotos} from './phone-photos.js';
+import {parseSources} from './photo-sources-model.mjs';
+import {parsePhoneOff} from './phone-folders-model.mjs';
+import {dayEndMs, phoneDayItems} from './time-photos-model.mjs';
 
 (() => {
 if (window.KPTUDiary) return;
@@ -223,24 +228,46 @@ function closeDetail({fromBack = false} = {}) {
 function renderDetail() {
   if (!selected) return;
   sendWhere(longDay(selected));
-  const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odShown()).length > 0;
+  const row = rows.get(selected), text = diaryText(row), hasPhotos = dayAll(selected, row).length > 0;
   detail.hidden = false; list.hidden = true; if (!allHost.hidden) listView.hide();
   detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : emptyHtml('일기 없음')}`;
   syncDetailTitle();
   const view = detail.querySelector('[data-diary-text-view]');
   if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
   renderPhotos();
+  void loadPhoneDay(selected);
 }
 // ☆를 아직 쓸 수 없을 때의 안내. 원드라이브 준비 전에는 예전 안내 그대로.
 // UI-기다림표시통일 2차: 별표를 읽는 동안은 글자 대신 회색 칸(starNoteHtml).
 const starNote = () => !od.configured ? '원드라이브 연결 뒤 쓸 수 있어요' : starsState === 'loading' ? '' : '별표를 지금은 쓸 수 없어요';
 const starNoteHtml = () => od.configured && starsState === 'loading' ? waitInlineHtml() : esc(starNote());
-const itemElement = (item, size, opts) => item.kind === 'od' ? odPhotoElement(item, size, opts) : photoElement(item.row, item.file, size, opts);
+const itemElement = (item, size, opts) => item.kind === 'od' ? odPhotoElement(item, size, opts) : item.kind === 'phone' ? phone.element(item, size, opts) : photoElement(item.row, item.file, size, opts);
+// S46-20 사진 정리 ⑥: 그날 폰 사진(폰 앱에서만, 사진 메뉴 출처 '폰 사진'이 켜졌을 때). 그날 끝 시각부터 거꾸로 한 쪽만 읽어 그날 것만 남긴다.
+// 끈 폰 폴더는 빼고, 원드라이브에 같은 사진이 있으면 원드라이브 것만 보인다. 목록·그림은 이 화면 메모리에만 있다.
+const phone = phonePhotos();
+let phoneDay = {day:'', items:[], state:'idle'};
+const phoneOnHere = () => phone.usable && parseSources(viewPrefs.get('photo_sources')).phone;
+async function loadPhoneDay(day) {
+  if (phoneDay.day === day && phoneDay.state !== 'idle') return;
+  if (!phoneOnHere()) { phoneDay = {day, items:[], state:'off'}; return; }
+  phoneDay = {day, items:[], state:'loading'};
+  try {
+    const s = await phone.hello();
+    if (phoneDay.day !== day) return;
+    if (s.access === 'none' || !s.key) { phoneDay = {day, items:[], state:'off'}; return; }
+    const page = await phone.page({sort:'taken_desc', filter:'all', before:dayEndMs(day), limit:200, hide:[...parsePhoneOff(viewPrefs.get('phone_folders_off'))]});
+    if (phoneDay.day !== day) return;
+    phoneDay = {day, items:page.items.filter(it => it.day === day), state:'ready'};
+  } catch { if (phoneDay.day === day) phoneDay = {day, items:[], state:'failed'}; return; }
+  if (selected === day && !photoStripOpen() && !edit && phoneDay.items.length) renderDetail();
+}
+const phoneShown = day => (phoneDay.day === day && phoneDay.state === 'ready' ? phoneDayItems(phoneDay.items, day, odShown()?.days?.[day] || []) : []);
+const dayAll = (day, row) => [...dayItems(day, row, odShown()), ...phoneShown(day)];
 // The day's photos: the ones uploaded here, then the OneDrive ones of the day, as one small square grid. [별표] keeps the starred ones.
 function renderPhotos() {
   const host = detail.querySelector('[data-diary-photos]');
   if (!host || !selected) return;
-  const row = rows.get(selected), all = dayItems(selected, row, odShown());
+  const row = rows.get(selected), all = dayAll(selected, row);
   if (source === 'star') {
     if (starsState !== 'ready') { shown = []; host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>${starNoteHtml()}</p>`; return; }
     shown = all.filter(isStarred);
@@ -338,11 +365,11 @@ function openViewer(index) {
   openPhotoStrip({host:root, list:() => shown, index, title:`${shortDay(selected)} 사진`,
     element:itemElement, label:(item, i) => `${shortDay(selected)} 사진 ${i + 1}`, when:whenText,
     caption:item => (item.kind === 'upload' ? (photoComments(item.row)[item.file.drive_file_id] || '') : ''),
-    info:item => [['찍은 때', whenText(item)], ['파일', item.kind === 'od' ? item.name : (item.file?.file_name || '')], ['출처', item.kind === 'od' ? '원드라이브' : '직접 올린 사진']],
+    info:item => [['찍은 때', whenText(item)], ['파일', item.kind === 'upload' ? (item.file?.file_name || '') : item.name], ['출처', item.kind === 'od' ? '원드라이브' : item.kind === 'phone' ? '폰' : '직접 올린 사진']],
     // [원본 내려받기]: 직접 올린 사진은 Drive 원본(Drive 로그인 필요). 원드라이브 사진은 원본을 넘기는 서버 동작이 아직 없어 원드라이브 앱에서 받는다.
-    original:item => { const href = item.kind === 'upload' ? originalHref(item.file?.drive_file_id) : ''; return href ? {href} : {text:'원드라이브 앱에서 받아 주세요'}; },
+    original:item => { const href = item.kind === 'upload' ? originalHref(item.file?.drive_file_id) : ''; return href ? {href} : {text:item.kind === 'phone' ? '폰 갤러리에 있어요' : '원드라이브 앱에서 받아 주세요'}; },
     isStarred, toggleStar,
-    deletable:item => ({ok:item.kind === 'od' && od.canDelete, title:item.kind === 'od' ? (od.canDelete ? '원드라이브 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요') : '직접 올린 사진은 일기 [수정]에서 빼요'}),
+    deletable:item => ({ok:item.kind === 'od' && od.canDelete, title:item.kind === 'od' ? (od.canDelete ? '원드라이브 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요') : item.kind === 'phone' ? '폰 사진은 사진 메뉴에서 지워요' : '직접 올린 사진은 일기 [수정]에서 빼요'}),
     take:item => { const t = takeFromMonth(item); if (t) { renderMonth(); renderPhotos(); } return t; },
     restore:p => { if (putBackMonth(p)) { renderMonth(); if (selected === p.day && !edit) renderPhotos(); } },
     commit:async (p, {keepalive}) => {

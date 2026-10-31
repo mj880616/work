@@ -829,11 +829,12 @@ export async function readPhoneStars(rt = window.KPTURuntime) {
   if (!Array.isArray(rows)) throw new Error('stars');
   return rows.filter(r => r && r.source === 'phone' && typeof r.item_key === 'string');
 }
+// 일기 그 달 별표: 직접 올린 사진·원드라이브, 그리고 S46-20 ⑥부터 그날 폰 사진('phone', 사진 메뉴와 같은 줄).
 export async function readStars(year, month, rt = window.KPTURuntime) {
   const {first, last} = monthRange(year, month);
   const rows = await rt.api(`/rest/v1/app_diary_stars?workspace_id=eq.${encode(workspace(rt))}&taken_day=gte.${first}&taken_day=lte.${last}&select=source,item_key,taken_day&order=taken_day.asc&limit=5000`);
   if (!Array.isArray(rows)) throw new Error('stars');
-  return rows.filter(r => r && (r.source === 'onedrive' || r.source === 'upload') && typeof r.item_key === 'string');
+  return rows.filter(r => r && (r.source === 'onedrive' || r.source === 'upload' || r.source === 'phone') && typeof r.item_key === 'string');
 }
 export async function addStar({source, key, day}, rt = window.KPTURuntime) {
   if (!dayRe.test(day || '') || !STAR_SOURCES.includes(source) || !key) throw new Error('별표할 사진을 확인해 주세요.');

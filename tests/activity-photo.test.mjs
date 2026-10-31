@@ -63,3 +63,54 @@ test('원본 규칙: 사진을 브라우저에서 줄이거나 기기에 저장�
   const up=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   assert.match(up,/if\(!photo\)luAiFill\(/); // 사진은 AI 채우기를 건너뛴다
 });
+
+// S46-20 사진 정리 ⑥: 업무 사진 붙이기(그 시각 사진)·일기 그날 폰 사진의 순수 규칙.
+import {reportAtMs,nearPhotos,phoneDayItems,windowMonths,nearWindow,dayEndMs,attachName,odMonthItems,NEAR_MS} from '../app/time-photos-model.mjs';
+const ph=(id,taken,extra={})=>({kind:'phone',source:'phone',key:'ms:'+id,id:'ph:'+id,phoneId:String(id),day:taken.slice(0,10),name:`IMG_${id}.jpg`,taken_at:taken,approx:false,video:false,size_bytes:100+id,...extra});
+const odi=(id,taken,name=`od_${id}.jpg`)=>({kind:'od',source:'onedrive',key:id,id,day:taken.slice(0,10),name,taken_at:taken,approx:false,video:false,size_bytes:null});
+
+test('그 시각: 쓰기 창 값(서울)과 저장된 값(ISO)이 같은 시각, 못 읽으면 NaN', () => {
+  assert.equal(reportAtMs('2026-10-24T14:00'),Date.parse('2026-10-24T05:00:00Z'));
+  assert.equal(reportAtMs('2026-10-24T05:00:00+00:00'),Date.parse('2026-10-24T05:00:00Z'));
+  assert.ok(Number.isNaN(reportAtMs('')));assert.ok(Number.isNaN(reportAtMs('2026-10-24')));
+  // 서울 자정 근처 창은 두 달에 걸친다.
+  assert.deepEqual(windowMonths(nearWindow(reportAtMs('2026-11-01T01:00'))),['2026-10','2026-11']);
+  assert.deepEqual(windowMonths(nearWindow(reportAtMs('2026-11-15T12:00'))),['2026-11']);
+  assert.equal(dayEndMs('2026-10-24'),Date.parse('2026-10-24T15:00:00Z'));
+});
+
+test('그 시각 사진: 앞뒤 3시간 안 폰·원드라이브, 동영상 빼고, 같은 사진은 폰 것 한 장, 찍은 순', () => {
+  const at=reportAtMs('2026-10-24T14:00');
+  const phone=[ph(1,'2026-10-24T05:30:00.000Z'),ph(2,'2026-10-24T03:00:00.000Z'),ph(3,'2026-10-24T09:00:00.000Z'),ph(4,'2026-10-24T05:10:00.000Z',{video:true})];
+  const od=[odi('A','2026-10-24T04:00:00.000Z'),odi('B','2026-10-24T05:30:01.000Z','img_1.JPG'),odi('C','2026-10-23T05:00:00.000Z')];
+  assert.deepEqual(nearPhotos({phone,od,atMs:at}).map(x=>x.id),['ph:2','A','ph:1']);
+  assert.deepEqual(nearPhotos({phone,od,atMs:NaN}),[]);
+  // 많으면 보고 시각에 가까운 것부터 max장.
+  const many=Array.from({length:10},(_,i)=>ph(10+i,new Date(at-NEAR_MS+i*60e3*30).toISOString()));
+  assert.deepEqual(nearPhotos({phone:many,od:[],atMs:at,max:2}).map(x=>x.id),['ph:15','ph:16']);
+});
+
+test('일기 그날 폰 사진: 그날 것만, 동영상 빼고, 원드라이브에 같은 사진이면 뺀다', () => {
+  const phone=[ph(1,'2026-10-24T05:00:00.000Z'),ph(2,'2026-10-24T01:00:00.000Z'),ph(3,'2026-10-23T05:00:00.000Z'),ph(4,'2026-10-24T02:00:00.000Z',{video:true})];
+  assert.deepEqual(phoneDayItems(phone,'2026-10-24',[{id:'X',name:'IMG_1.jpg',taken_at:'2026-10-24T05:00:01.000Z'}]).map(x=>x.id),['ph:2']);
+  assert.deepEqual(phoneDayItems(phone,'2026-10-24').map(x=>x.id),['ph:2','ph:1']);
+  assert.deepEqual(odMonthItems({days:{'2026-10-24':[{id:'A',name:'a.jpg',taken_at:'2026-10-24T01:00:00Z'}],'2026-10-25':'x'}}).map(x=>[x.id,x.day,x.kind]),[['A','2026-10-24','od']]);
+});
+
+test('붙일 파일 이름: 확장자 없으면 형식대로, 나쁜 글자 빼기', () => {
+  assert.equal(attachName('IMG_1.jpg','image/jpeg'),'IMG_1.jpg');
+  assert.equal(attachName('IMG_1','image/png'),'IMG_1.png');
+  assert.equal(attachName('a/b:c','image/webp'),'abc.webp');
+  assert.equal(attachName('','image/jpeg'),'사진.jpg');
+});
+
+test('그 시각 사진 줄: 고른 사진만 기존 첨부 길로, 새 저장소·기기 저장 없음', () => {
+  const src=readFileSync(new URL('../app/time-photos.js',import.meta.url),'utf8');
+  assert.doesNotMatch(src,/localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(src,/rest\/v1|functions\/v1/); // 서버에 직접 쓰지 않는다(올리기는 부르는 쪽의 기존 길)
+  const team=readFileSync(new URL('../app/team.js',import.meta.url),'utf8'),mrd=readFileSync(new URL('../app/meeting-round-detail.js',import.meta.url),'utf8');
+  assert.match(team,/onPick:files=>addMeetingFiles\(files\)/);
+  assert.match(mrd,/onPick:files=>mrdAddPhotos\(files\)/);
+  const diary=readFileSync(new URL('../app/diary.js',import.meta.url),'utf8');
+  assert.doesNotMatch(diary.slice(diary.indexOf('let phoneDay'),diary.indexOf('const dayAll')),/uploadDiaryPhotos|rt\.api|addStar/);
+});
