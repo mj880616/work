@@ -207,7 +207,7 @@ class PhotoPickActivity : Activity() {
         }
         // 앞에서 멈춘 사진 올리기(인터넷·로그인 풀림)가 있으면 이어 올린다(QuickPhoto '다시 시도').
         val app = applicationContext
-        Thread { WidgetGuard.run { if (WidgetHub.session(app).signedIn()) QuickPhoto.resume(app) } }.start()
+        Thread { WidgetGuard.run { QuickPhoto.resume(app) } }.start()
         val pick = Intent(Intent.ACTION_GET_CONTENT)
             .setType("image/*")
             .addCategory(Intent.CATEGORY_OPENABLE)
@@ -250,7 +250,7 @@ class PhotoPickActivity : Activity() {
         if (picked.isEmpty() && resultCode == RESULT_OK && camera != null && hasBytes(camera)) picked.add(camera)
         else if (camera != null && camera !in picked) dropShot()
         val content = picked.filter { "content".equals(it.scheme, ignoreCase = true) }
-        if (content.isNotEmpty() && WidgetGuard.get { WidgetHub.session(applicationContext).signedIn() } == true) {
+        if (content.isNotEmpty() && WidgetGuard.get { QuickPhoto.signedIn(applicationContext) } == true) {
             // APP-위젯빠른쓰기 남은 일 1: 위젯 로그인이 있으면 웹2를 띄우지 않고 뒤에서 올린다(QuickPhoto).
             // 고른 사진의 임시 읽기 권한은 이 창이 살아 있을 때만 있으므로, 앱 전용 임시 폴더로 복사한 뒤 바로 닫는다.
             val app = applicationContext

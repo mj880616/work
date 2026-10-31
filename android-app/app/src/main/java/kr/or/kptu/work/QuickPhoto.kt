@@ -81,8 +81,12 @@ object QuickPhoto {
         toast(context, QuickPhotoRules.failed(run))
     }
 
-    /** 위젯 [사진]을 누를 때: 남아 있는 묶음(실패·로그인 풀림으로 멈춘 것)을 다시 맡긴다. 이미 도는 묶음은 그대로(KEEP). */
+    /** 위젯 로그인이 있는지(뒤에서 올릴 수 있는지). 위젯 칸 코드는 서버·세션을 직접 만지지 않고 여기를 거친다. */
+    fun signedIn(context: Context): Boolean = WidgetHub.session(context.applicationContext).signedIn()
+
+    /** 위젯 [사진]을 누를 때: 위젯 로그인이 있으면 남아 있는 묶음(실패·로그인 풀림으로 멈춘 것)을 다시 맡긴다. 이미 도는 묶음은 그대로(KEEP). */
     fun resume(context: Context): Int {
+        if (!signedIn(context)) return 0
         val pending = store(context).pending()
         pending.forEach { WidgetGuard.run { start(context, it) } }
         return pending.size
