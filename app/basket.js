@@ -109,9 +109,15 @@ function journalItem(note){
   if(noteJournalAt(note))return [['unjournal','업무일지에서 빼기']];
   return canKeepInJournal(note,links,docs)?[['journal','업무일지에 남기기']]:[];
 }
-function closeRowMenu({focus=false}={}){
+// UI-뒤로가기겹규칙: 줄 ⋯ 메뉴가 열려 있으면 라우터 겹 하나 — 뒤로가기 = 메뉴만 닫기(이전 탭으로 건너뛰지 않음).
+// 목록을 다시 그리며 같은 메뉴를 다시 붙일 때(keepRowMenu)는 겹을 그대로 둔다.
+let rowLayer=null;
+function dropRowLayer(){const l=rowLayer;rowLayer=null;return Promise.resolve(l?.close())}
+function closeRowMenu({focus=false,keepLayer=false}={}){
+  if(!keepLayer&&!rowMenu)dropRowLayer();
   if(!rowMenu)return null;
   const closed=rowMenu;rowMenu=null;closed.stop();
+  closed.released=keepLayer?Promise.resolve():dropRowLayer();
   rowMenuEl.hidden=true;clearAnchored(rowMenuEl);
   closed.trigger.setAttribute('aria-expanded','false');
   if(focus&&closed.trigger.isConnected)closed.trigger.focus({preventScroll:true});
@@ -122,6 +128,7 @@ function openRowMenu(trigger){
   if(rowMenu?.trigger===trigger){closeRowMenu({focus:true});return;}
   closeRowMenu();if(!note||busy||selected)return;
   attachRowMenu(note,trigger);
+  rowLayer||=window.KPTURouter?.layer?.open('basket-row-menu',{close:()=>{rowLayer=null;closeRowMenu();return true}})||null;
   rowMenuEl.querySelector('button')?.focus({preventScroll:true});
 }
 const rowMenuHtml=note=>rowMenuItems(note).map(([act,label,cls])=>`<button type="button" data-basket-row-act="${act}"${cls?` class="${cls}"`:''}>${label}</button>`).join('');
@@ -555,7 +562,7 @@ function taskPlaceLine(note) {
 }
 function renderList() {
   const active=document.activeElement,kept=rowMenu&&{noteId:rowMenu.noteId,focusAct:rowMenuEl.contains(active)?active.dataset.basketRowAct||'':null};
-  closeRowMenu();
+  closeRowMenu({keepLayer:true});
   
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
   paintPlaceFilter(); paintSubFilter();
@@ -574,6 +581,7 @@ function renderList() {
   // BASKET-정리함한화면: the '업데이트' box title and the top line count what is not handled yet (미분류, not 보류). Unknown while the first read is pending.
   paintPaneCount('update', loadingRun && !notes.length ? null : unclassifiedCount);
   keepRowMenu(kept);
+  if(!rowMenu)dropRowLayer();
 }
 const textDirty = () => selected && detail.querySelector('[data-basket-text]')?.value !== selected.raw_text.replace(/\r\n?/g, '\n');
 const dirty = () => textDirty() || upload.entries.some(e=>e.kind!=='success');
@@ -969,7 +977,12 @@ root.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b||b.disabled) return;
   if (b.hasAttribute('data-basket-note-more')) { setNoteMenu(noteMenu()?.hidden ?? false); return; }
   if (b.hasAttribute('data-basket-row-more')) { openRowMenu(b); return; }
-  if (rowMenuEl.contains(b)) { const from = closeRowMenu({focus:true}); if (from) rowMenuAction(b.dataset.basketRowAct, from.noteId); return; }
+  if (rowMenuEl.contains(b)) {
+    const from = closeRowMenu({focus:true}), act = b.dataset.basketRowAct;
+    // 복사는 누른 그 순간에(클립보드 권한), 나머지는 메뉴 겹의 뒤로가기가 도착한 뒤에 한다(그다음 여는 창·화면 기록을 지우지 않게).
+    if (from) { if (act === 'copy') rowMenuAction(act, from.noteId); else from.released.then(() => rowMenuAction(act, from.noteId)); }
+    return;
+  }
   const fromNoteMenu = !!noteMenu()?.contains(b); if (fromNoteMenu) setNoteMenu(false, {focus:true});
   if (b.hasAttribute('data-basket-read-raw')) { rawView = !rawView; paintReadText(); return; }
   if (b.hasAttribute('data-basket-row-copy')) { void copyNote(notes.find(n => n.id === b.dataset.basketRowCopy), b); return; }
