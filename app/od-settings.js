@@ -39,7 +39,7 @@ export function createOdSettings({rt, layerName, back = '', hint = '켠 폴더�
         list = `<ul class="diary-od-tree"><li class="diary-od-toprow"><span class="diary-od-fname">${esc(t.top.name)} (이 폴더 바로 안)</span><span class="diary-od-n">${folderCount(t.top.count)}</span></li>${rows.map(r => `<li class="diary-od-row${r.dim ? ' is-dim' : ''}" data-depth="${Math.min(r.depth, 5)}"><button type="button" role="switch" class="diary-od-switch" data-od-sw="${esc(r.id)}" aria-checked="${r.on}" aria-label="${esc(r.name)} 사진 보기"></button>${r.hasKids ? `<button type="button" class="diary-od-fold" data-od-fold="${esc(r.id)}" aria-expanded="${r.open}" aria-label="${esc(r.name)} 하위 폴더">${r.open ? '▾' : '▸'}</button>` : '<span class="diary-od-fold" aria-hidden="true"></span>'}<span class="diary-od-fname">${esc(r.name)}</span><span class="diary-od-n">${folderCount(r.total)}</span></li>`).join('')}</ul>${rows.length ? '' : emptyHtml('하위 폴더 없음')}`;
         foot += '<button type="button" class="primary" data-od-save>저장</button>';
       }
-      body = `<div class="diary-od-top"><b>원드라이브 · ${esc(o.folder.name)}</b><button type="button" class="secondary" data-od-change>위 폴더 바꾸기</button></div><p class="diary-muted">${esc(hint)}</p>${list}<div class="diary-od-actions"><button type="button" class="secondary diary-danger" data-od-disconnect>연결 끊기</button>${o.canDelete ? '' : '<button type="button" class="secondary" data-od-connect>지우기를 쓰려면 다시 연결</button>'}</div><p class="diary-od-keep" data-od-keep>폰에 보관한 작은 그림 ${keep === null ? '…' : `${keep}장`} · <button type="button" class="diary-od-keep-clear" data-od-keep-clear>비우기</button></p>`;
+      body = `<div class="diary-od-top"><b>원드라이브 · ${esc(o.folder.name)}</b>${o.whole ? '' : '<button type="button" class="secondary" data-od-change>위 폴더 바꾸기</button>'}</div><p class="diary-muted">${esc(hint)}</p>${list}<div class="diary-od-actions"><button type="button" class="secondary diary-danger" data-od-disconnect>연결 끊기</button>${o.canDelete ? '' : '<button type="button" class="secondary" data-od-connect>지우기를 쓰려면 다시 연결</button>'}</div><p class="diary-od-keep" data-od-keep>폰에 보관한 작은 그림 ${keep === null ? '…' : `${keep}장`} · <button type="button" class="diary-od-keep-clear" data-od-keep-clear>비우기</button></p>`;
     } else {
       body = waitHtml({rows:3});
     }
@@ -87,6 +87,8 @@ export function createOdSettings({rt, layerName, back = '', hint = '켠 폴더�
       await odAuthFinish(rt, backValue);
       await refresh(true);
       const o = od();
+      // PHOTO-폴더스위치: 전체 보기면 폴더를 고르지 않는다(사진 [폴더]에서 폴더마다 스위치로 켬). 옛 서버면 예전처럼 폴더 고르기 창.
+      if (o.whole) { setOpen(false); reset({disconnected:false}); message(o.canDelete ? '연결됐어요. 사진 [폴더]에서 볼 폴더의 스위치를 켜 주세요.' : '연결됐어요. 다만 지우기 권한이 없어요.'); reload(); return; }
       const text = o.canDelete ? '연결됐어요. 사진을 읽을 폴더를 골라 주세요.' : '연결됐어요. 다만 지우기 권한이 없어요.';
       await startBrowse();
       message(text);

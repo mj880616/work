@@ -244,7 +244,7 @@ export function photoSubfolders(tree, id) {
 }
 export function photoFolderById(tree, id) {
   if (!tree) return null;
-  if (tree.top?.id === id) return {...tree.top, parent_id: null, enabled: true};
+  if (tree.top?.id === id) return {...tree.top, parent_id: null, enabled: tree.top.enabled !== false};
   return tree.folders.find(f => f.id === id) || null;
 }
 // PC 왼쪽 나무 줄: 맨 위 폴더(늘 열림) → 열린 폴더 안 폴더 들여쓰기(4단까지 밀고 그 아래는 그대로, folder-limits.mjs). 닫힌 폴더 안은 만들지 않는다.
@@ -260,7 +260,7 @@ export function photoFolderRows(tree, isOpen = () => false) {
       if (open) walk(f.id, depth + 1);
     }
   };
-  rows.push({id: tree.top.id, name: tree.top.name, depth: 0, indent: 0, count: tree.top.count, total: tree.top.total, enabled: true, kids: photoSubfolders(tree, tree.top.id).length > 0, open: true, top: true});
+  rows.push({id: tree.top.id, name: tree.top.name, depth: 0, indent: 0, count: tree.top.count, total: tree.top.total, enabled: tree.top.enabled !== false, kids: photoSubfolders(tree, tree.top.id).length > 0, open: true, top: true});
   walk(tree.top.id, 1);
   return rows;
 }
@@ -334,3 +334,32 @@ export function albumCards(tags, links) {
     return {id: t.id, name: t.name, count: list.length, cover, phoneCover: cover ? null : phone[0]?.item_key || null, keys: od.map(l => l.item_key), phoneKeys: phone.map(l => l.item_key)};
   }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }
+
+// ---- PHOTO-폴더스위치(요청함 10/31 11:04): 같은 이름 폴더 구분 · 위치 이름 ----
+// 폰 폴더 위치(relative_path의 위 칸) 이름: 첫 칸은 일상어로(Pictures→사진 등), 나머지는 그대로 '/'로 잇는다. 'DCIM/Camera/' → '카메라'.
+const PHONE_PLACE = Object.freeze({Pictures:'사진', DCIM:'카메라', Download:'다운로드', Movies:'동영상', Documents:'문서', Android:'앱'});
+export function phoneFolderPlace(path) {
+  const parts = String(path || '').split('/').filter(Boolean);
+  if (parts.length < 2) return '';
+  const up = parts.slice(0, -1);
+  return [PHONE_PLACE[up[0]] || up[0], ...up.slice(1)].join('/');
+}
+// 목록 안에서 이름이 같은 폴더(대소문자 무시)만 위치 이름을 단다. list = [{id, name}], placeOf(f) = 위치 이름. 답 = Map(id → 위치 이름).
+// 위치 이름까지 같으면 위치 이름 대신 순번을 붙인다('KakaoTalk · 사진 2').
+export function folderPlaceLabels(list, placeOf) {
+  const byName = new Map();
+  for (const f of list || []) { const k = String(f?.name || '').normalize('NFC').toLowerCase(); (byName.get(k) || byName.set(k, []).get(k)).push(f); }
+  const out = new Map();
+  for (const same of byName.values()) {
+    if (same.length < 2) continue;
+    const seen = new Map();
+    for (const f of same) {
+      const place = String(placeOf(f) || '').trim() || '맨 위';
+      const n = (seen.get(place) || 0) + 1; seen.set(place, n);
+      out.set(f.id, n > 1 ? `${place} ${n}` : place);
+    }
+  }
+  return out;
+}
+// 원드라이브 폴더 위치 이름 = 부모 폴더 이름(맨 위 폴더 바로 안이면 맨 위 이름).
+export const odFolderPlace = (tree, f) => (f?.parent_id ? photoFolderById(tree, f.parent_id)?.name || '' : '');

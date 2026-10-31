@@ -21,7 +21,9 @@ function runtime({connected = true, folder = true, user = 'u', fail = {}} = {}) 
     api:async (path, options = {}) => {
       const action = options.body?.action; calls.push(action);
       if (fail[action]) throw Object.assign(new Error(fail[action]), {status:502});
-      if (action === 'status') return {configured:true, connected, folder:folder ? {name:'카메라'} : null, can_delete:true};
+      if (action === 'status') return {configured:true, connected, folder:folder ? {name:'카메라'} : null, whole:folder, can_delete:true};
+      // PHOTO-폴더스위치: 폴더 없는 새 연결이면 화면이 전체 보기로 바꾸기를 한 번 부탁한다(여기서는 실패로 답해 지금 모양 그대로).
+      if (action === 'whole-drive') throw Object.assign(new Error('onedrive_unavailable'), {status:503});
       if (action === 'photos') return {days:Object.fromEntries(Object.entries(month.days).map(([d, l]) => [d, l.map(p => ({...p, name:p.id + '.jpg', taken_at:d + 'T01:00:00Z'}))]))};
       if (action === 'photo-urls') return {urls:Object.fromEntries(options.body.ids.map(id => [id, 'https://thumbs.example.test/' + id]))};
       throw new Error('unexpected ' + action);
@@ -35,7 +37,7 @@ test('not connected: one status check and nothing else (no list, no pictures)', 
   for (const opts of [{connected:false}, {folder:false}]) {
     fresh(); const rt = runtime(opts);
     assert.deepEqual(await mod.odWarm(rt, {today:TODAY}), {done:false, why:'not-connected'});
-    assert.deepEqual(rt.calls, ['status']);
+    assert.deepEqual(rt.calls, opts.connected === false ? ['status'] : ['status', 'whole-drive']);
   }
   fresh(); const broken = runtime({fail:{status:'onedrive_unavailable'}});
   assert.deepEqual(await mod.odWarm(broken, {today:TODAY}), {done:false, why:'status'});

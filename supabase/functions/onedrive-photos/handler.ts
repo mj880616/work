@@ -38,6 +38,9 @@ class Fail extends Error {
   }
 }
 
+// PHOTO-폴더스위치(요청함 10/31 11:04): 맨 위 = 원드라이브 전체(루트). 이 경로 표시가 '전체 보기' 연결이다(옛 연결은 고른 폴더 경로).
+// 전체 보기에서는 폴더마다 스위치가 따로다(켜짐 = 그 폴더 바로 안 사진이 보임, 위 폴더를 따라가지 않음). 새로 색인에 들어온 폴더는 꺼진 채 시작.
+export const WHOLE_PATH = "/drive/root:";
 const CONN = "app_onedrive_connections", FOLDERS = "app_onedrive_folders", PHOTOS = "app_onedrive_photos";
 const DB_PAGE = 1000, UPSERT_CHUNK = 500, IN_CHUNK = 100;
 type FolderRow = { item_id: string; parent_id: string | null; name: string; enabled: boolean; role?: string | null };
@@ -240,7 +243,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   const folderOf = (conn: Awaited<ReturnType<typeof readConnection>>) => {
     if (!conn) throw new Fail(424, "onedrive_not_connected");
     if (!conn.folder_id || !conn.folder_path) throw new Fail(424, "onedrive_folder_not_set");
-    return { id: conn.folder_id, path: conn.folder_path };
+    return { id: conn.folder_id, path: conn.folder_path, whole: conn.folder_path === WHOLE_PATH };
   };
 
   // ── 사진 색인(서버 표) ──────────────────────────────────────────────────────────────
@@ -261,21 +264,23 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   // 맨 위 폴더에서 부모 id로 이어지는 폴더만 트리에 든다(이어지지 않는 폴더 = 지워졌거나 밖으로 옮겨짐 → 보이지 않음).
   // 사진이 보이려면 맨 위 폴더 아래로 거치는 모든 폴더가 켜져 있어야 한다(맨 위 폴더 자체는 늘 켜짐).
   // 'Web2 휴지통' 폴더(role='trash')와 그 아래는 트리에 넣지 않는다(일기·사진·폴더 보기 어디에도 보이지 않음).
-  function folderTree(rows: FolderRow[], topId: string) {
+  // PHOTO-폴더스위치: independent(전체 보기)면 폴더마다 제 스위치만 본다(위 폴더가 꺼져도 켠 폴더는 보임). 맨 위(루트) 줄도 스위치가 있다(없으면 꺼짐).
+  function folderTree(rows: FolderRow[], topId: string, independent = false) {
     const byId = new Map(rows.map((r) => [r.item_id, r]));
     const kids = new Map<string, FolderRow[]>();
     for (const r of rows) {
       if (r.item_id === topId || !r.parent_id || r.role === "trash") continue;
       (kids.get(r.parent_id) || kids.set(r.parent_id, []).get(r.parent_id)!).push(r);
     }
-    const reach = new Map<string, { visible: boolean; depth: number }>([[topId, { visible: true, depth: 0 }]]);
+    const topOn = independent ? byId.get(topId)?.enabled === true : true;
+    const reach = new Map<string, { visible: boolean; depth: number }>([[topId, { visible: topOn, depth: 0 }]]);
     const stack = [topId];
     while (stack.length) {
       const id = stack.pop()!, cur = reach.get(id)!;
       if (cur.depth >= MAX_FOLDER_DEPTH) continue;
       for (const k of kids.get(id) || []) {
         if (reach.has(k.item_id)) continue;
-        reach.set(k.item_id, { visible: cur.visible && k.enabled !== false, depth: cur.depth + 1 });
+        reach.set(k.item_id, { visible: (independent || cur.visible) && k.enabled !== false, depth: cur.depth + 1 });
         stack.push(k.item_id);
       }
     }
@@ -297,8 +302,8 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
 
   // 색인 비우기: 맨 위 폴더를 바꾸거나 다시 연결하거나 Graph가 처음부터 다시 받으라고(410) 할 때.
   const INDEX_RESET = { delta_link: null, next_link: null, index_done_at: null, synced_at: null, index_lock_until: null };
-  async function clearIndexRows(workspaceId: string) {
-    for (const table of [PHOTOS, FOLDERS]) {
+  async function clearIndexRows(workspaceId: string, keepFolders = false) {
+    for (const table of keepFolders ? [PHOTOS] : [PHOTOS, FOLDERS]) {
       const { error } = await admin.from(table).delete().eq("workspace_id", workspaceId);
       if (error) dbFail("onedrive_index_clear_failed", error);
     }
@@ -310,7 +315,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   //  ③ 휴지통 안 사진 = 휴지통 칸(trashed_at·orig_parent_id)을 건드리지 않음 ④ 그 밖 사진 = 휴지통 칸을 비움(원드라이브에서 꺼냈으면 휴지통에서 빠짐).
   // 반환: 이 쪽에서 찾은 휴지통 폴더 id(없으면 받은 값 그대로).
   // 돌려주는 값: 휴지통 폴더 id와 이 쪽에서 바뀐 사진·동영상 수(새로·고침·휴지통으로·지움. 폴더·사진 아닌 파일은 세지 않는다).
-  async function applyDelta(workspaceId: string, topId: string, items: OneDriveItem[], stamp: string, trashId: string | null = null) {
+  async function applyDelta(workspaceId: string, topId: string, items: OneDriveItem[], stamp: string, trashId: string | null = null, whole = false) {
     let removed = 0;
     const folders = new Map<string, Record<string, unknown>>(), photos = new Map<string, Record<string, unknown>>(), gone = new Set<string>();
     const trashFolders = new Map<string, Record<string, unknown>>(), trashed = new Map<string, Record<string, unknown>>();
@@ -360,6 +365,18 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         trashed.set(id, row);
       } else Object.assign(row, { trashed_at: null, orig_parent_id: null });
     }
+    // 전체 보기: 색인에 처음 들어오는 폴더는 꺼진 채(enabled:false)로 넣는다. 이미 있는 폴더는 스위치 칸을 보내지 않아 그대로 둔다.
+    if (whole && folders.size) {
+      const known = new Set<string>(), ids = [...folders.keys()];
+      for (let i = 0; i < ids.length; i += IN_CHUNK) {
+        const { data, error } = await admin.from(FOLDERS).select("item_id").eq("workspace_id", workspaceId).in("item_id", ids.slice(i, i + IN_CHUNK));
+        if (error) dbFail("onedrive_index_read_failed:known_folders", error);
+        for (const r of Array.isArray(data) ? data : []) known.add(r.item_id);
+      }
+      const fresh = [...folders.values()].filter((r) => !known.has(r.item_id as string)).map((r) => ({ ...r, enabled: false }));
+      for (const r of fresh) folders.delete(r.item_id as string);
+      await upsertRows("onedrive_index_save_failed:new_folders", FOLDERS, fresh);
+    }
     await upsertRows("onedrive_index_save_failed:folders", FOLDERS, [...folders.values()]);
     await upsertRows("onedrive_index_save_failed:trash_folder", FOLDERS, [...trashFolders.values()]);
     await upsertRows("onedrive_index_save_failed:photos", PHOTOS, [...photos.values()]);
@@ -391,7 +408,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   // 색인 한 걸음: 잠금 → (처음이면 다음 쪽 주소, 끝났으면 변경 주소)부터 시간·쪽 상한까지 받기 → 진행 저장·잠금 풀기.
   // 이미 다른 요청이 받는 중이면 409 onedrive_index_busy. 쪽마다 바로 표에 반영하므로 중간에 멈춰도 다음 요청이 이어 간다.
   type Conn = NonNullable<Awaited<ReturnType<typeof readConnection>>>;
-  async function syncStep(workspaceId: string, conn: Conn, folder: { id: string }, budgetMs: number, maxPages: number) {
+  async function syncStep(workspaceId: string, conn: Conn, folder: { id: string; whole?: boolean }, budgetMs: number, maxPages: number) {
     const startAt = now(), stamp = new Date(startAt).toISOString();
     const { data: locked, error } = await admin.from(CONN)
       .update({ index_lock_until: new Date(startAt + SYNC_LOCK_MS).toISOString() })
@@ -420,7 +437,8 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         if (r.status === 410) {
           // Graph가 이어 받기 주소를 버렸다: 색인을 비우고 처음부터 다시 받는다.
           log("onedrive_delta_resync");
-          await clearIndexRows(workspaceId);
+          // 전체 보기는 폴더 줄(켜고 끈 스위치)을 남기고 사진 줄만 비운다(다시 받으면 같은 폴더는 스위치 그대로).
+          await clearIndexRows(workspaceId, folder.whole);
           next = null;
           delta = null;
           done = null;
@@ -430,7 +448,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         }
         graphCheck("onedrive_delta", r, "onedrive_folder_missing");
         const d = await bodyJson(r);
-        const applied = await applyDelta(workspaceId, folder.id, Array.isArray(d.value) ? d.value as OneDriveItem[] : [], stamp, trashId);
+        const applied = await applyDelta(workspaceId, folder.id, Array.isArray(d.value) ? d.value as OneDriveItem[] : [], stamp, trashId, folder.whole);
         trashId = applied.trashId;
         changed += applied.changed;
         const nl = graphNextLink(d["@odata.nextLink"]), dl = graphNextLink(d["@odata.deltaLink"]);
@@ -491,7 +509,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   // 색인이 덜 됐거나 10분 넘게 안 받았으면 짧게 한 걸음 받는다. 바쁨·요청 많음·일시 장애면 기록만 하고 지금까지의 색인으로 답한다.
   // PHOTO-속도(2026-10-30): 화면이 sync:false를 보내면(사진 메뉴는 스스로 'sync'를 따로 부른다) Microsoft를 부르지 않고 지금 색인으로 바로 답한다.
   // 첫 쪽이 원드라이브 delta 받기(토큰 새로 받기 + delta 한 쪽, 최대 3초)를 기다리지 않게 한다. 보내지 않으면 예전처럼 받는다(일기 등).
-  async function autoSync(workspaceId: string, conn: Conn, folder: { id: string }, body: Record<string, unknown> = {}) {
+  async function autoSync(workspaceId: string, conn: Conn, folder: { id: string; whole?: boolean }, body: Record<string, unknown> = {}) {
     let indexing = !conn.index_done_at || needsTakenRefix(conn.index_done_at);
     if (body.sync !== undefined && typeof body.sync !== "boolean") throw new Fail(400, "onedrive_request_invalid");
     if (body.sync === false) return indexing;
@@ -567,7 +585,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
 
   // PHOTO-정렬: 찍은 날 최근 먼저가 아닌 기준의 쪽 읽기. 보이는 줄을 모두 읽어(달별 장수·별표와 같은 방식) 기준대로 줄 세운 뒤 cursor 다음 limit장.
   // cursor = 앞 쪽 마지막 {v: 그 기준 값, id}. 같은 값은 id로 순서가 정해져 빠지거나 겹치지 않는다. folder_id·거르기는 찍은 날 기준과 같다.
-  async function sortedLibrary(workspaceId: string, conn: Conn, folder: { id: string }, body: Record<string, unknown>, filter: Filter,
+  async function sortedLibrary(workspaceId: string, conn: Conn, folder: { id: string; whole?: boolean }, body: Record<string, unknown>, filter: Filter,
     stars: Set<string> | null, limit: number, sort: Sort) {
     let cursor: { v: SortKey; id: string } | null = null;
     if (body.cursor !== undefined && body.cursor !== null) {
@@ -583,7 +601,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       folderId = body.folder_id;
     }
     const indexing = await autoSync(workspaceId, conn, folder, body);
-    const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+    const { reach } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
     if (folderId && !reach.has(folderId)) throw new Fail(404, "onedrive_folder_missing");
     const shows = (r: MediaRow) => folderId ? r.parent_id === folderId : !!reach.get(r.parent_id)?.visible;
     const rows = (await readVisible(workspaceId, MEDIA_COLS, filter, stars, (q) => folderId ? q.eq("parent_id", folderId) : q))
@@ -604,6 +622,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         configured: true,
         connected: !!conn,
         folder: conn?.folder_id ? { name: conn.folder_name } : null,
+        whole: !!conn?.folder_id && conn.folder_path === WHOLE_PATH,
         connected_at: conn?.connected_at ?? null,
         can_delete: !!conn && scopeAllowed(normalizeScopes(conn.scope)),
       });
@@ -638,14 +657,16 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         throw new Fail(502, "onedrive_unavailable");
       }
       cached.delete(workspaceId);
+      const wasWhole = (await readConnection(workspaceId))?.folder_path === WHOLE_PATH;
       const stamp = new Date(now()).toISOString();
       // 다시 연결하면 다른 계정일 수 있으므로 폴더 지정은 비운다.
       await saveConnection(workspaceId, {
         refresh_token: d.refresh_token, folder_id: null, folder_name: null, folder_path: null,
         scope: granted.join(" "), connected_at: stamp, updated_at: stamp,
       });
-      // 다른 계정일 수 있으므로 이전 색인도 비운다.
-      await clearIndexRows(workspaceId);
+      // 다른 계정일 수 있으므로 이전 색인도 비운다. 전체 보기였으면 폴더 줄(스위치)은 남긴다: 같은 계정이면 스위치가 그대로 이어지고,
+      // 다른 계정이면 그 줄들은 새 루트에서 이어지지 않아 어디에도 보이지 않는다.
+      await clearIndexRows(workspaceId, wasWhole);
       const { error } = await admin.from(CONN).update(INDEX_RESET).eq("workspace_id", workspaceId);
       if (error) dbFail("onedrive_index_clear_failed:progress", error);
       return json({ connected: true });
@@ -671,6 +692,8 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const conn = await readConnection(workspaceId);
       if (!conn) throw new Fail(424, "onedrive_not_connected");
       if (!validItemId(body.folder_id)) throw new Fail(400, "onedrive_request_invalid");
+      // PHOTO-폴더스위치: 전체 보기로 바꾼 뒤에는 폴더 하나로 좁히지 않는다(폴더마다 스위치로 고른다).
+      if (conn.folder_path === WHOLE_PATH) throw new Fail(409, "onedrive_whole_drive");
       const token = await accessToken(workspaceId, conn);
       const item = await getItem(token, body.folder_id, "id,name,folder,parentReference");
       const path = folderPathOf(item);
@@ -686,6 +709,62 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       return json({ folder: { name: item.name } });
     },
 
+    // PHOTO-폴더스위치(요청함 10/31 11:04): 원드라이브 전체 보기로 바꾼다(한 번, 화면이 연결 상태를 읽을 때 부른다). 이미 전체면 그대로 답한다.
+    // 옛 연결(고른 폴더 하나)이면: 고른 폴더와, 그 아래에서 지금 보이던 폴더(켜짐이고 위 폴더도 모두 켜짐)를 켠 채로 두고 나머지는 끈다.
+    // 고른 폴더에서 루트까지의 위 폴더 줄을 꺼진 채 미리 넣어, 색인을 루트부터 다시 받는 동안에도 지금 보이던 사진이 그대로 보이게 한다.
+    // 사진 줄은 지우지 않는다(다시 받는 줄마다 덮임). 루트 줄과 새로 들어오는 폴더는 꺼진 채 시작(명진 결정 10/31 11:04).
+    async "whole-drive"({ workspaceId }) {
+      const conn = await readConnection(workspaceId);
+      if (!conn) throw new Fail(424, "onedrive_not_connected");
+      if (conn.folder_id && conn.folder_path === WHOLE_PATH) return json({ whole: true, changed: false });
+      const token = await accessToken(workspaceId, conn);
+      const r = await graph("onedrive_root", token, "/me/drive/root?$select=id,name,folder");
+      graphCheck("onedrive_root", r, "onedrive_folder_missing");
+      const root = (await bodyJson(r)) as OneDriveItem;
+      if (!validItemId(root.id) || !root.folder) {
+        log("onedrive_root_invalid");
+        throw new Fail(502, "onedrive_unavailable");
+      }
+      const stamp = new Date(now()).toISOString();
+      const old = conn.folder_id;
+      if (old && old !== root.id && validItemId(old)) {
+        const rows = await readFolders(workspaceId);
+        const { reach } = folderTree(rows, old);
+        const on: string[] = [], off: string[] = [];
+        for (const row of rows) {
+          if (row.role === "trash" || row.item_id === old) continue;
+          (reach.get(row.item_id)?.visible ? on : off).push(row.item_id);
+        }
+        for (const [ids, enabled] of [[on, true], [off, false]] as const) {
+          for (let i = 0; i < ids.length; i += IN_CHUNK) {
+            const { error } = await admin.from(FOLDERS).update({ enabled, updated_at: stamp })
+              .eq("workspace_id", workspaceId).in("item_id", ids.slice(i, i + IN_CHUNK));
+            if (error) dbFail("onedrive_whole_save_failed:switch", error);
+          }
+        }
+        // 고른 폴더 → 루트까지 위 폴더(16단까지). 고른 폴더 줄은 켜짐, 위 폴더 줄은 꺼짐.
+        const chain: Record<string, unknown>[] = [];
+        let id = old, name = conn.folder_name || "폴더";
+        for (let depth = 0; depth < 16; depth++) {
+          const item = await getItem(token, id, "id,name,folder,parentReference");
+          const parent = item.parentReference?.id;
+          if (item.id !== id || !item.folder || !validItemId(parent)) break;
+          if (typeof item.name === "string" && item.name) name = item.name.slice(0, 400);
+          chain.push({ workspace_id: workspaceId, item_id: id, parent_id: parent, name, enabled: id === old, updated_at: stamp });
+          if (parent === root.id) break;
+          id = parent;
+          name = "폴더";
+        }
+        if (!chain.length) chain.push({ workspace_id: workspaceId, item_id: old, parent_id: null, name: conn.folder_name || "폴더", enabled: true, updated_at: stamp });
+        await upsertRows("onedrive_whole_save_failed:chain", FOLDERS, chain);
+      }
+      const { error } = await admin.from(CONN)
+        .update({ folder_id: root.id, folder_name: "OneDrive", folder_path: WHOLE_PATH, updated_at: stamp, ...INDEX_RESET })
+        .eq("workspace_id", workspaceId);
+      if (error) dbFail("onedrive_whole_save_failed", error);
+      return json({ whole: true, changed: true });
+    },
+
     // 달 사진: 서버 색인에서 읽는다(켠 폴더와 그 아래만, 서울 날짜 기준). 색인이 덜 됐거나 10분 넘게 안 받았으면 짧게 한 걸음 받는다.
     // 그 한 걸음이 바쁨·요청 많음·일시 장애로 못 가면 기록만 하고 지금까지의 색인으로 답한다(연결 풀림은 그대로 알린다).
     // 일기 날짜 화면은 사진(kind='photo')만 보인다(동영상은 사진 메뉴에서만). Web2 휴지통 안 사진은 빠진다(폴더 트리 밖).
@@ -696,7 +775,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (!validMonth(month)) throw new Fail(400, "onedrive_request_invalid");
       const indexing = await autoSync(workspaceId, conn!, folder);
       const end = monthEnd(month);
-      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       const rows = await readAll<PhotoRow>("onedrive_index_read_failed:photos", () =>
         admin.from(PHOTOS).select("item_id,parent_id,name,taken_at,approx,taken_day").eq("workspace_id", workspaceId).eq("kind", "photo")
           .is("trashed_at", null).gte("taken_day", `${month}-01`).lt("taken_day", end).order("item_id"));
@@ -723,7 +802,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     async "folders-tree"({ workspaceId }) {
       const conn = await readConnection(workspaceId);
       const folder = folderOf(conn);
-      const { byId, kids, reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const { byId, kids, reach } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       const parents = await readAll<{ parent_id: string }>("onedrive_index_read_failed:counts", () =>
         admin.from(PHOTOS).select("parent_id").eq("workspace_id", workspaceId).order("item_id"));
       const count = new Map<string, number>();
@@ -741,8 +820,11 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         return { id, name: r.name, parent_id: r.parent_id, enabled: r.enabled !== false, count: count.get(id) || 0, total: total.get(id) || 0 };
       }).sort((a, b) => a.name.localeCompare(b.name, "ko") || a.id.localeCompare(b.id));
       return json({
-        top: { id: folder.id, name: conn!.folder_name, count: count.get(folder.id) || 0, total: total.get(folder.id) || 0 },
-        folders, indexing: !conn!.index_done_at,
+        top: {
+          id: folder.id, name: conn!.folder_name, count: count.get(folder.id) || 0, total: total.get(folder.id) || 0,
+          enabled: folder.whole ? byId.get(folder.id)?.enabled === true : true,
+        },
+        folders, indexing: !conn!.index_done_at, whole: folder.whole,
       });
     },
 
@@ -750,7 +832,8 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     async "folder-toggle"({ workspaceId, body }) {
       const conn = await readConnection(workspaceId);
       const folder = folderOf(conn);
-      if (!validItemId(body.folder_id) || typeof body.enabled !== "boolean" || body.folder_id === folder.id) {
+      // 전체 보기(PHOTO-폴더스위치)에서는 루트 줄도 켜고 끌 수 있다(루트 바로 안 사진).
+      if (!validItemId(body.folder_id) || typeof body.enabled !== "boolean" || (body.folder_id === folder.id && !folder.whole)) {
         throw new Fail(400, "onedrive_request_invalid");
       }
       const { data, error } = await admin.from(FOLDERS).update({ enabled: body.enabled, updated_at: new Date(now()).toISOString() })
@@ -784,7 +867,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         folderId = body.folder_id;
       }
       const indexing = await autoSync(workspaceId, conn!, folder, body);
-      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       if (folderId && !reach.has(folderId)) throw new Fail(404, "onedrive_folder_missing");
       const shows = (r: MediaRow) => folderId ? r.parent_id === folderId : !!reach.get(r.parent_id)?.visible;
       const after = (r: MediaRow) => {
@@ -851,7 +934,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const folder = folderOf(conn);
       const { filter, stars } = readFilter(body);
       const indexing = await autoSync(workspaceId, conn!, folder, body);
-      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       const rows = await readVisible(workspaceId, "item_id,parent_id,taken_day,kind,screenshot", filter, stars);
       const months: Record<string, number> = {};
       let total = 0;
@@ -871,7 +954,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const month = body.month;
       if (!validMonth(month)) throw new Fail(400, "onedrive_request_invalid");
       const { filter, stars } = readFilter(body);
-      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       const rows = (await readVisible(workspaceId, MEDIA_COLS, filter, stars, (q) => q.gte("taken_day", `${month}-01`).lt("taken_day", monthEnd(month))))
         .filter((r) => reach.get(r.parent_id)?.visible && passes(r, filter, stars) && String(r.taken_day).startsWith(month + "-"))
         .sort((a, b) => iso(a.taken_at).localeCompare(iso(b.taken_at)) || (a.item_id < b.item_id ? -1 : a.item_id > b.item_id ? 1 : 0));
@@ -918,7 +1001,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
           log("onedrive_trash_purge_skipped:" + e.code);
         }
       }
-      const { byId } = folderTree(await readFolders(workspaceId), folder.id);
+      const { byId } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       rows.sort((a, b) => iso(b.trashed_at || stamp).localeCompare(iso(a.trashed_at || stamp)) || (a.item_id < b.item_id ? 1 : -1));
       const truncated = rows.length > TRASH_LIST_MAX;
       const items = rows.slice(0, TRASH_LIST_MAX).map((r) => ({
@@ -936,7 +1019,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (!trashId) throw new Fail(404, "onedrive_trash_missing");
       const token = await accessToken(workspaceId, conn);
       const { ok, failed, retryAfter } = await checkMedia(token, ids, folder, (it) => it.parentReference?.id === trashId ? null : "not_in_trash");
-      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       const origin = new Map<string, string>();
       for (let i = 0; i < ids.length; i += IN_CHUNK) {
         const { data, error } = await admin.from(PHOTOS).select("item_id,orig_parent_id").eq("workspace_id", workspaceId).in("item_id", ids.slice(i, i + IN_CHUNK));
@@ -1065,7 +1148,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const { conn, folder, ids } = await writeRequest(workspaceId, body, false);
       if (!validItemId(body.parent_id)) throw new Fail(400, "onedrive_request_invalid");
       const target = body.parent_id;
-      const tree = folderTree(await readFolders(workspaceId), folder.id);
+      const tree = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       if (!tree.reach.has(target)) throw new Fail(404, "onedrive_folder_missing");
       const token = await accessToken(workspaceId, conn);
       await folderInTop(token, target, folder);
@@ -1094,7 +1177,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     const conn = await readConnection(workspaceId);
     const folder = folderOf(conn);
     if (!scopeAllowed(normalizeScopes(conn!.scope))) throw new Fail(424, "onedrive_reconnect_needed");
-    const tree = folderTree(await readFolders(workspaceId), folder.id);
+    const tree = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
     const token = await accessToken(workspaceId, conn!);
     return { conn: conn!, folder, tree, token };
   }
