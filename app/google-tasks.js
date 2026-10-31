@@ -8,7 +8,7 @@ import { dayKey } from './home-read-model.js';
 import { pickMyOrganizations } from './my-organizations.js';
 import { createGoogleTask } from './quick-save.js';
 import { readTaskSourceNotes, requestBasketNote, takeTaskOpenRequest, basketNoteHref } from './basket-note-tasks.js';
-import { readTaskFiles, fileLinksHtml, attachmentRowsHtml, splitTaskNotes, joinTaskNotes, taskAttachments, openTaskFilesDialog, taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
+import { readTaskFiles, fileLinksHtml, mountTaskAttach, applyTaskAttachPlan, taskAttachNotice, splitTaskNotes, joinTaskNotes, taskAttachments, openTaskFilesDialog, taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
 import { paintFreshness } from './data-freshness.js';
 import { mountSplitResize } from './split-resize.js';
 import { followPane } from './follow-pane.js';
@@ -69,9 +69,11 @@ function openScope(){
   modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');window.KPTUA11y?.dialog.activate(modal,{trigger:document.activeElement,initialFocus:'[data-gt-scope-close]',onRequestClose:closeScope});
 }
 
-function ensureModal(){let m=document.querySelector('#gtTaskModal');if(m)return m;document.body.insertAdjacentHTML('beforeend',`<div id="gtTaskModal" class="modal hidden" data-enter-save role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gtTaskHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="gtTaskHeading">Google 할 일</h2></div><button class="icon-btn" data-gt-close type="button" aria-label="닫기">×</button></div><label>할 일<input id="gtEditTitle" type="text"></label><div id="gtEditAttach" class="gt-att hidden"><span class="gt-att-label">첨부</span><div class="gt-att-list" data-gt-att-list></div></div><p class="gt-scope-note" data-gt-list-note>Google "내 할 일" 목록에 저장됩니다.</p><div class="gt-due-row"><label>기한<input id="gtEditDue" type="date"></label><div class="gt-due-quick" role="group" aria-label="기한 빠른 선택"><button type="button" class="ghost" data-gt-due-quick="0">오늘</button><button type="button" class="ghost" data-gt-due-quick="1">내일</button><button type="button" class="ghost" data-gt-due-quick="2">모레</button><button type="button" class="ghost" data-gt-due-quick="7">다음주</button><button type="button" class="ghost" data-gt-due-quick="">기한 없음</button></div></div><label>메모<textarea id="gtEditNotes" rows="4"></textarea></label><div id="gtNewFiles"></div><p class="gt-scope-note hidden" id="gtMeetingLinks"></p><p class="gt-scope-note hidden" id="gtSourceNote"></p><fieldset class="gt-links"><legend class="gt-links-legend">연결할 사업영역·조직</legend><p class="gt-links-hint">고르지 않아도 됩니다 · 여러 개 가능</p><div id="gtEditLinkBody" class="gt-link-body"></div></fieldset><div class="modal-action-footer"><div id="gtEditStatus" class="status"></div><div class="gt-modal-actions"><button id="gtDeleteBtn" class="ghost tl-danger hidden" type="button">삭제</button><button id="gtToggleBtn" class="ghost hidden" type="button">완료</button><button id="gtSaveBtn" data-enter-save-submit class="primary" type="button">저장</button></div></div></div></div>`);m=document.querySelector('#gtTaskModal');m.querySelector('[data-gt-close]').onclick=closeEditor;document.querySelector('#gtSaveBtn').onclick=saveEditor;m.querySelectorAll('[data-gt-due-quick]').forEach(q=>q.onclick=()=>{if(!editing||editorSaving||!editorReady)return;const n=q.dataset.gtDueQuick;document.querySelector('#gtEditDue').value=n===''?'':kstDateKey(Number(n));saveEditor()});document.querySelector('#gtDeleteBtn').onclick=deleteEditor;document.querySelector('#gtToggleBtn').onclick=toggleEditor;newFiles=mountNewTaskFilePick(m.querySelector('#gtNewFiles'),{isBusy:()=>editorSaving,onError:text=>{document.querySelector('#gtEditStatus').textContent=text}});return m}
+function ensureModal(){let m=document.querySelector('#gtTaskModal');if(m)return m;document.body.insertAdjacentHTML('beforeend',`<div id="gtTaskModal" class="modal hidden" data-enter-save role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gtTaskHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="gtTaskHeading">Google 할 일</h2></div><button class="icon-btn" data-gt-close type="button" aria-label="닫기">×</button></div><label>할 일<input id="gtEditTitle" type="text"></label><div id="gtEditAttach" class="gt-att hidden"><span class="gt-att-label">첨부</span><div class="gt-att-list" data-gt-att-list></div></div><p class="gt-scope-note" data-gt-list-note>Google "내 할 일" 목록에 저장됩니다.</p><div class="gt-due-row"><label>기한<input id="gtEditDue" type="date"></label><div class="gt-due-quick" role="group" aria-label="기한 빠른 선택"><button type="button" class="ghost" data-gt-due-quick="0">오늘</button><button type="button" class="ghost" data-gt-due-quick="1">내일</button><button type="button" class="ghost" data-gt-due-quick="2">모레</button><button type="button" class="ghost" data-gt-due-quick="7">다음주</button><button type="button" class="ghost" data-gt-due-quick="">기한 없음</button></div></div><label>메모<textarea id="gtEditNotes" rows="4"></textarea></label><div id="gtNewFiles"></div><p class="gt-scope-note hidden" id="gtMeetingLinks"></p><p class="gt-scope-note hidden" id="gtSourceNote"></p><fieldset class="gt-links"><legend class="gt-links-legend">연결할 사업영역·조직</legend><p class="gt-links-hint">고르지 않아도 됩니다 · 여러 개 가능</p><div id="gtEditLinkBody" class="gt-link-body"></div></fieldset><div class="modal-action-footer"><div id="gtEditStatus" class="status"></div><div class="gt-modal-actions"><button id="gtDeleteBtn" class="ghost tl-danger hidden" type="button">삭제</button><button id="gtToggleBtn" class="ghost hidden" type="button">완료</button><button id="gtSaveBtn" data-enter-save-submit class="primary" type="button">저장</button></div></div></div></div>`);m=document.querySelector('#gtTaskModal');m.querySelector('[data-gt-close]').onclick=closeEditor;document.querySelector('#gtSaveBtn').onclick=saveEditor;m.querySelectorAll('[data-gt-due-quick]').forEach(q=>q.onclick=()=>{if(!editing||editorSaving||!editorReady)return;const n=q.dataset.gtDueQuick;document.querySelector('#gtEditDue').value=n===''?'':kstDateKey(Number(n));saveEditor()});document.querySelector('#gtDeleteBtn').onclick=deleteEditor;document.querySelector('#gtToggleBtn').onclick=toggleEditor;newFiles=mountNewTaskFilePick(m.querySelector('#gtNewFiles'),{isBusy:()=>editorSaving,onError:text=>{document.querySelector('#gtEditStatus').textContent=text}});attach=mountTaskAttach(m.querySelector('#gtEditAttach'),{isBusy:()=>editorSaving,onError:text=>{document.querySelector('#gtEditStatus').textContent=text}});return m}
 // TASK-추가창파일: [파일 붙이기] in the editor while it adds a new task, once the link table answers (as ⋯ → 파일 붙이기).
 let newFiles=null;
+// TASK-첨부교체: the 첨부 box of the edit window (교체·빼기·붙이기 held until [저장], task-files.js mountTaskAttach).
+let attach=null;
 // TEST-홈빠른입력안정화: a known yes shows the row at once; otherwise its place is kept (unseen) until the answer.
 function paintNewFiles(task){if(!newFiles)return;newFiles.show(false);if(task)return;if(taskFilesKnown({rt})){newFiles.show(true);return}newFiles.wait();const seq=editorSeq;void taskFilesAvailable({rt}).then(on=>{if(seq===editorSeq&&!editing)newFiles.show(on)})}
 function closeEditor(){editorSeq++;editorRequest=null;editorSaving=false;const m=document.querySelector('#gtTaskModal');if(!m)return;const target=editorReturn?document.querySelector(editorReturn):null;if(isDocked()){const hadFocus=m.contains(document.activeElement);m.classList.add('hidden');m.setAttribute('aria-hidden','true');placeEditor(false);editing=null;editorReturn='';paintSelection();if(hadFocus)(target?.getClientRects().length?target:focusFallback())?.focus({preventScroll:true});return}m.classList.add('hidden');m.setAttribute('aria-hidden','true');window.KPTUA11y?.dialog.deactivate(m,{restoreFocus:true,fallbackFocus:target?.getClientRects().length?target:focusFallback()});editing=null;editorReturn=''}
@@ -120,7 +122,7 @@ async function recheckOpened(id,seq){
 function dropGone(id,owner){lastTasks=lastTasks.filter(t=>t.id!==id);if(cacheOwnerId===owner)cacheWrite(owner,lastTasks);if(tasksViewShown())renderTasks(lastTasks);notifyState();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed',{detail:{source:'gone'}}))}
 // Compare the draft exactly, including whitespace and retained links. Never save a draft as a side effect of completion.
 function readEditorDraft(){return JSON.stringify(['#gtEditTitle','#gtEditDue','#gtEditNotes'].map(selector=>document.querySelector(selector).value))}
-function editorDirty(){const chosen=chosenLinks();return readEditorDraft()!==editorDraft||Boolean(chosen&&editorLinks&&(chosen.size!==editorLinks.size||[...chosen].some(key=>!editorLinks.has(key))))}
+function editorDirty(){const chosen=chosenLinks();return readEditorDraft()!==editorDraft||!!attach?.dirty()||Boolean(chosen&&editorLinks&&(chosen.size!==editorLinks.size||[...chosen].some(key=>!editorLinks.has(key))))}
 async function toggleEditor(){
   if(editorSaving||!editing||!editorReady)return;
   const task=editing,m=ensureModal(),st=document.querySelector('#gtEditStatus'),seq=editorSeq,epoch=sessionEpoch,owner=currentOwner();
@@ -180,16 +182,28 @@ async function attachChosenFiles(r){
   const notice=newTaskFilesNotice(result);if(notice)toast(editorActive(r)?'할 일은 저장했습니다. 파일을 확인해 주세요.':notice);
   return notice;
 }
+async function applyAttachEdits(r){
+  const plan=r.att;r.att=null;
+  const result=await applyTaskAttachPlan(r.task.id,plan,{rt,onProgress:(i,n,name,doing)=>{if(editorActive(r))editorNotice(`${name} ${doing}… (${i+1}/${n})`)}});
+  if(r.owner===currentOwner()&&taskFiles.owner===r.owner&&result.files){const map=new Map(taskFiles.map);if(result.files.length)map.set(r.task.id,result.files);else map.delete(r.task.id);taskFiles={...taskFiles,map}}
+  const fresh=result.task?.id===r.task.id&&typeof result.task.notes==='string'?result.task.notes:r.task.notes;
+  // Lines of files taken off never come back from this save; lines only the notes hold are dropped here (no table row to detach).
+  const keep=splitTaskNotes(fresh).attachments.filter(f=>!result.gone.has(f.drive_file_id));
+  const noteOnly=[...plan.remove,...plan.swap.map(s=>s.from)].some(f=>!f.inTable&&result.gone.has(f.drive_file_id));
+  r.task={...r.task,notes:fresh};if(editorActive(r)){editing=r.task;paintAttach(editing)}
+  const notice=taskAttachNotice(result);if(notice&&!editorActive(r))toast(notice);
+  return {notice,noteOnly,notes:joinTaskNotes(JSON.parse(r.text)[2],keep)};
+}
 async function saveEditor(){
   if(editorSaving||!editorReady)return;
   const title=document.querySelector('#gtEditTitle').value.trim();if(!title)return editorNotice('할 일을 입력해 주세요.');
   const chosen=chosenLinks();if(chosen&&[...chosen].filter(k=>!k.startsWith('m:')).length>MAX_LINKS)return editorNotice(`연결은 ${MAX_LINKS}개까지 고를 수 있습니다.`);
   const owner=currentOwner(),epoch=editorSession();if(!owner)return editorNotice('로그인이 필요합니다.');
   if(!editing&&createAttempt?.owner===owner&&createAttempt.epoch===epoch){editorNotice(createAttempt.pending?'앞선 할 일을 저장 중입니다. 결과가 확인될 때까지 새로 만들지 않습니다.':'앞선 할 일의 저장 결과를 확인해 주세요. 새로 만들지 않았습니다.',{recover:!createAttempt.pending});return}
-  const r={owner,epoch,seq:editorSeq,task:editing,text:readEditorDraft(),chosen:chosen?new Set(chosen):null,files:newFiles?.files()||[]},b=document.querySelector('#gtSaveBtn'),toggle=document.querySelector('#gtToggleBtn');
+  const r={owner,epoch,seq:editorSeq,task:editing,text:readEditorDraft(),chosen:chosen?new Set(chosen):null,files:newFiles?.files()||[],att:editing&&attach?.dirty()?attach.plan():null},b=document.querySelector('#gtSaveBtn'),toggle=document.querySelector('#gtToggleBtn');
   const body={action:r.task?'update':'create',task_id:r.task?.id||null,title,notes:joinTaskNotes(document.querySelector('#gtEditNotes').value,splitTaskNotes(r.task?.notes).attachments),due:document.querySelector('#gtEditDue').value||null};
   if(r.task)body.task_list_id=r.task.taskListId||null;else body.links=[...(r.chosen||new Set(editorPreset.map(linkKey)))].map(keyLink);
-  r.done=new Promise(resolve=>{r.finish=resolve});if(r.task)pendingEditors.set(taskUncertaintyKey(r.task.id),r);editorRequest=r;editorSaving=true;b.disabled=true;toggle.disabled=true;newFiles?.render();editorNotice('저장 중…');
+  r.done=new Promise(resolve=>{r.finish=resolve});if(r.task)pendingEditors.set(taskUncertaintyKey(r.task.id),r);editorRequest=r;editorSaving=true;b.disabled=true;toggle.disabled=true;newFiles?.render();attach?.render();editorNotice('저장 중…');
   let stage='body',attempt=null,filesNotice='';
   try{
     if(r.task&&uncertainTasks.has(taskUncertaintyKey(r.task.id))){
@@ -202,7 +216,9 @@ async function saveEditor(){
       const d=await editorCall(r,endpoint('links')+'&task_id='+encodeURIComponent(r.task.id),{singleFlight:false});if(!editorActive(r))return;
       editorLinks=confirmedKeys(d);uncertainTasks.delete(taskUncertaintyKey(r.task.id));
     }
-    if(!r.task||r.text!==editorDraft){
+    // TASK-첨부교체: the held 교체·빼기·붙이기 go first (each through attach / detach); a line known only from the notes goes with the notes below.
+    if(r.task&&r.att){stage='files';const res=await applyAttachEdits(r);filesNotice=res.notice;body.notes=res.notes;if(!editorActive(r)){tasksChanged();return}stage='body';if(res.noteOnly)r.notesChanged=true}
+    if(!r.task||r.text!==editorDraft||r.notesChanged){
       if(!editorActive(r))return;
       if(!r.task){attempt={owner,epoch,pending:true,task:null};createAttempt=attempt}
       const d=r.task?await editorCall(r,endpoint('update'),{method:'POST',body}):await createGoogleTask(body,{api:(path,options)=>editorCall(r,path,options)});
@@ -255,7 +271,7 @@ async function saveEditor(){
     else{if(r.task)uncertainTasks.set(taskUncertaintyKey(r.task.id),'body');editorNotice('저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+errorText(e),{recover:!r.task})}
   }finally{
     for(const [key,pending] of pendingEditors)if(pending===r)pendingEditors.delete(key);r.finish();
-    if(editorRequest===r){editorRequest=null;editorSaving=false;newFiles?.render();if(r.seq===editorSeq&&r.epoch===editorSession()&&r.owner===currentOwner()){b.disabled=false;toggle.disabled=!editorReady}}
+    if(editorRequest===r){editorRequest=null;editorSaving=false;newFiles?.render();attach?.render();if(r.seq===editorSeq&&r.epoch===editorSession()&&r.owner===currentOwner()){b.disabled=false;toggle.disabled=!editorReady}}
   }
 }
 async function deleteEditor(){if(editorSaving||!editing||!confirm('이 Google 할 일을 삭제할까요?'))return;const task=editing,seq=editorSeq,epoch=editorSession(),owner=currentOwner(),toggle=document.querySelector('#gtToggleBtn');const active=()=>seq===editorSeq&&epoch===editorSession()&&owner===currentOwner()&&editing?.id===task.id&&!document.querySelector('#gtTaskModal').classList.contains('hidden');editorSaving=true;toggle.disabled=true;try{await rt.api(endpoint('delete'),{method:'POST',expectedSessionEpoch:epoch,body:{action:'delete',task_list_id:task.taskListId,task_id:task.id}});if(!active())return;closeEditor();tasksChanged()}catch(e){if(active())document.querySelector('#gtEditStatus').textContent=String(e?.message||e)}finally{if(seq===editorSeq&&epoch===editorSession()&&owner===currentOwner()){editorSaving=false;toggle.disabled=!editorReady}}}
@@ -330,7 +346,8 @@ const filesSupported=()=>taskFiles.supported&&taskFiles.owner===currentOwner();
 const filesOf=id=>taskFiles.owner&&taskFiles.owner===currentOwner()?taskFiles.map.get(id)||[]:[];
 const fileLinks=t=>fileLinksHtml(taskAttachments(t.notes,filesOf(t.id)));
 // TASK-첨부열기: the edit window's 첨부 row (same merged list as the card). Hidden when the task has none.
-function paintAttach(task){const box=document.querySelector('#gtEditAttach');if(!box)return;const html=task?attachmentRowsHtml(taskAttachments(task.notes,filesOf(task.id))):'';box.querySelector('[data-gt-att-list]').innerHTML=html;box.classList.toggle('hidden',!html)}
+// TASK-첨부교체: every paint starts from the saved files, so closing the window or opening another task forgets held changes.
+function paintAttach(task){if(!attach)return;const table=task?filesOf(task.id):[],ids=new Set(table.map(f=>f.drive_file_id));attach.set(task?taskAttachments(task.notes,table).map(f=>({...f,inTable:ids.has(f.drive_file_id)})):[],{editable:!!task?.id&&filesSupported(),shown:!!task})}
 async function loadTaskFiles(owner,epoch,tasks){
   let map=null;try{map=await readTaskFiles(tasks.map(t=>t.id),{rt})}catch{map=null}
   if(!stillCurrent(epoch,owner))return false;
@@ -465,7 +482,7 @@ async function load(force=false){
     if(loadSeq===seq)loadingEpoch=-1;
     // Source notes: one owner-scoped query per load. A failure only hides the links.
     void loadSourceNotes(owner,epoch).then(changed=>{if(changed&&seq===loadSeq)renderTasks(lastTasks)},()=>{}).finally(()=>{if(seq===loadSeq&&stillCurrent(epoch,owner))openRequestedTask()});
-    void loadTaskFiles(owner,epoch,lastTasks).then(changed=>{if(changed&&seq===loadSeq)renderTasks(lastTasks)},()=>{});
+    void loadTaskFiles(owner,epoch,lastTasks).then(changed=>{if(changed&&seq===loadSeq){renderTasks(lastTasks);if(editing?.id&&!editorSaving&&!attach?.dirty())paintAttach(editing)}},()=>{});
     try{const decorated=await describeTasks(fresh);if(seq!==loadSeq||!stillCurrent(epoch,owner))return;lastTasks=lastTasks.map(t=>{const d=decorated.find(x=>x.id===t.id);return {...t,unlinked:d?.unlinked||false,projectNames:d?.projectNames||[],orgIds:d?.orgIds||[]}});cacheWrite(owner,lastTasks);renderTasks(lastTasks)}catch{if(seq===loadSeq&&stillCurrent(epoch,owner))setSync('연결 표시를 확인하지 못했습니다.',true)}
   }catch(e){
     if(seq!==loadSeq||!stillCurrent(epoch,owner))return;

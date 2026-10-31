@@ -102,6 +102,9 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   const statusHtml=text=>text===WAITING?waitInlineHtml():esc(text);
   let host=null,mode=null,noteId=null,choices=null,choicesFlight=null,seq=0;
   let link={targets:[],status:''},task=null;
+  // TASK-첨부교체: the same [파일 붙이기] part as the task editor's add window (task-files.js mountNewTaskFilePick). It lives in one
+  // element kept across repaints; the files go up after Google made the task (the same attach request as ⋯ → 파일 붙이기).
+  let taskFilesHost=null,taskFilesPick=null,taskFilesMod=null,taskFilesOn=false,taskFilesFlight=null;
   // One AI answer per update and place for [요약해서 기록으로]: pressing again reuses it instead of asking AI again.
   const filesCache=new Map();
   const note=()=>{const n=getNote();return n&&n.id===noteId?n:null;};
@@ -227,6 +230,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     return `<section class="basket-manual" data-manual-task data-enter-save aria-labelledby="basketManualTaskTitle"><h3 id="basketManualTaskTitle">Google 할 일 만들기</h3>
 <label class="basket-text-label">할 일 제목<input type="text" data-manual-task-title maxlength="${TASK_LIMITS.title}" value="${esc(task.title)}"></label>
 <label class="basket-text-label">할 일 메모<textarea data-manual-task-notes rows="6" spellcheck="false">${esc(task.notes)}</textarea></label>
+<div data-manual-task-files-slot></div>
 <div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc('사업영역: '+project):'사업영역'}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
 <p class="basket-manual-hint">만든 할 일은 이 업데이트의 ‘이 업데이트로 만든 할 일’에 기록돼요.</p>
 <p data-manual-task-status role="status">${statusHtml(task.status)}</p><div data-manual-task-recover></div>
@@ -242,13 +246,28 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     host.hidden=false;host.innerHTML=mode==='link'?linkMarkup(n):taskMarkup();
     if(open)host.querySelector('[data-manual-original]').open=true;
     if(mode==='task'&&task.recover)paintRecover();
+    if(mode==='task')placeTaskFiles();
     controls();
     if(focusKey){const next=host.querySelector(`[${focusKey}${focusValue?`="${CSS.escape(focusValue)}"`:''}]`);if(next&&!next.disabled){next.focus({preventScroll:true});if(caret&&'setSelectionRange' in next)try{next.setSelectionRange(...caret);}catch{}}}
     onModeChange?.();
   }
+  function placeTaskFiles(){
+    const slot=host?.querySelector('[data-manual-task-files-slot]');if(!slot)return;
+    if(!taskFilesHost){taskFilesHost=document.createElement('div');taskFilesHost.className='basket-manual-task-files';taskFilesHost.hidden=true;}
+    slot.replaceWith(taskFilesHost);
+    if(taskFilesFlight)return;
+    const owner=scope();
+    taskFilesFlight=import('./task-files.js').then(m=>{
+      taskFilesMod=m;
+      taskFilesPick=m.mountNewTaskFilePick(taskFilesHost,{isBusy,onError:text=>{if(task&&mode==='task'){task.status=text;paint();}}});
+      if(m.taskFilesKnown({rt}))return true;
+      taskFilesPick.wait();return m.taskFilesAvailable({rt});
+    }).then(on=>{if(owner!==scope()){taskFilesFlight=null;taskFilesPick?.show(false);return;}taskFilesOn=!!on;taskFilesPick?.show(taskFilesOn);controls();if(!taskFilesOn)taskFilesFlight=null;}).catch(()=>{taskFilesFlight=null;taskFilesPick?.show(false);});
+  }
   function controls(){
     if(!host)return;const busy=isBusy();
     host.querySelectorAll('button,input,textarea').forEach(el=>{el.disabled=busy;});
+    taskFilesPick?.render();
     const save=host.querySelector('[data-manual-task-save]');
     if(save&&task?.unknown)save.disabled=true;
     // A summary being made keeps only its own [AI 요약] locked; the rest of the panel stays usable.
@@ -290,10 +309,10 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     if(next==='task')void loadChoices().then(()=>{if(mode==='task')paintTaskProject();}).catch(()=>{});
     return '';
   }
-  function reset(){++seq;mode=null;noteId=null;link={targets:[],status:''};task=null;sheet.dismiss();}
+  function reset(){++seq;mode=null;noteId=null;link={targets:[],status:''};task=null;sheet.dismiss();taskFilesPick?.clear();}
   function hasDraft(){
     if(mode==='link')return link.targets.length>0;
-    if(mode==='task'&&task)return !!task.unknown||task.title!==task.initial.title||task.notes!==task.initial.notes||!!task.due||!!task.project;
+    if(mode==='task'&&task)return !!task.unknown||task.title!==task.initial.title||task.notes!==task.initial.notes||!!task.due||!!task.project||!!(taskFilesOn&&taskFilesPick?.files().length);
     return false;
   }
   function cancel({force=false}={}){
@@ -371,6 +390,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     const problem=validateTaskInput(task);if(problem){task.status=problem;paint();host.querySelector(problem.includes('메모')?'[data-manual-task-notes]':'[data-manual-task-title]')?.focus();return;}
     const body=Object.freeze({title:task.title.trim(),notes:task.notes,due:task.due||null,links:task.project?[{project_id:task.project}]:[]});
     const run=++seq,owner=scope(),epoch=rt.session.epoch(),id=n.id,current=()=>run===seq&&owner===scope()&&rt.session.epoch()===epoch&&note()?.id===id&&mode==='task';
+    const files=taskFilesOn&&taskFilesMod?taskFilesPick?.files()||[]:[];
     setBusy(true);task.status='만드는 중…';paint();
     let result=null,error=null;
     try{result=await createGoogleTask({...body,expectedSessionEpoch:epoch},rt);}catch(e){error=e;}
@@ -381,12 +401,15 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       task.status='할 일을 만들었어요. 업데이트에 기록하는 중…';paint();
       let recorded=null;
       try{recorded=await recordNoteTask(id,noteTaskEntry(result.task),{rt,expectedSessionEpoch:epoch});}catch{recorded=null;}
+      // TASK-첨부교체: the chosen files go up once the task exists; a file that did not go up is named, never retried by making another task.
+      let filesNotice='';
+      if(files.length){const sent=await taskFilesMod.attachNewTaskFiles(result.task.id,files,{rt,onProgress:(i,count,f)=>{if(current()){task.status=`${f.name} 올리는 중… (${i+1}/${count})`;paint();}}});filesNotice=taskFilesMod.newTaskFilesNotice(sent);}
       setBusy(false);
       // A result that lands after an account switch or a different note is never shown or applied.
       if(!current())return;
       if(recorded?.ok)onTaskRecorded?.(recorded.note);
       reset();paint();
-      const message=[recorded?.ok?'Google 할 일을 만들었어요. 이 업데이트에 기록했어요.':'할 일은 만들었지만 업데이트에 기록하지 못했어요.',linkMissing?'사업영역 연결은 할 일 화면에서 확인해 주세요.':''].filter(Boolean).join(' ');
+      const message=[recorded?.ok?'Google 할 일을 만들었어요. 이 업데이트에 기록했어요.':'할 일은 만들었지만 업데이트에 기록하지 못했어요.',linkMissing?'사업영역 연결은 할 일 화면에서 확인해 주세요.':'',filesNotice].filter(Boolean).join(' ');
       document.querySelector('[data-basket-status]')?.replaceChildren(message);showToast('Google 할 일을 만들었어요.');
       window.KPTUGoogleTasks?.invalidateAfterCreate?.();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
       document.querySelector('[data-basket-task-open]')?.focus();return;
