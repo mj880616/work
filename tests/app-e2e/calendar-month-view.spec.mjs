@@ -145,21 +145,72 @@ test('horizontal month-threshold swipe never changes month and vertical movement
   expect(await page.evaluate(()=>window.__navDelta)).toBe(0);
 });
 
-test('month view fills the remaining viewport at supported mobile widths',async({page})=>{
+// S46-23: 폰 월 보기는 처음에 '한 화면' — 달력 아래 화면 끝 여백(하단바·[+] 자리)까지 넣어 한 달이 화면 안에 다 보이고 세로 스크롤이 없다.
+test('month view fits one screen at supported mobile widths (5 and 6 weeks)',async({page})=>{
   await page.goto(url);
-  for(const width of [360,390,412,430]){
-    await page.setViewportSize({width,height:844});
-    await expect(page.locator('.cal-cell')).toHaveCount(35);
-    const size=await page.locator('#calendarGrid').evaluate(el=>{
-      const box=el.getBoundingClientRect(),vv=window.visualViewport;
-      return {right:box.right,left:box.left,bottom:box.bottom,top:box.top,height:box.height,viewport:innerWidth,viewportBottom:(vv?.offsetTop||0)+(vv?.height||innerHeight),scroll:document.documentElement.scrollWidth};
-    });
-    expect(size.left).toBeGreaterThanOrEqual(-13);
-    expect(size.right).toBeLessThanOrEqual(size.viewport+13);
-    expect(size.scroll).toBeLessThanOrEqual(size.viewport+1);
-    expect(size.height).toBeCloseTo(Math.max(size.viewportBottom-size.top,23+5*106+2),0);
-    expect(size.bottom).toBeGreaterThanOrEqual(size.viewportBottom);
+  for(const [width,height] of [[344,882],[360,640],[390,844],[412,780],[430,932]]){
+    await page.setViewportSize({width,height});
+    for(const [year,month,weeks] of [[2026,8,5],[2026,7,6]]){
+      await page.evaluate(([y,m])=>window.renderMonth(y,m),[year,month]);
+      await expect(page.locator('.cmv-week')).toHaveCount(weeks);
+      const size=await page.locator('#calendarGrid').evaluate(el=>{
+        const box=el.getBoundingClientRect(),view=el.closest('#calendarView').getBoundingClientRect(),last=[...el.querySelectorAll('.cmv-week')].pop().getBoundingClientRect();
+        return {right:box.right,left:box.left,bottom:box.bottom,lastBottom:last.bottom,viewBottom:view.bottom,viewport:innerWidth,innerHeight,scroll:document.documentElement.scrollWidth};
+      });
+      expect(size.left).toBeGreaterThanOrEqual(-13);
+      expect(size.right).toBeLessThanOrEqual(size.viewport+13);
+      expect(size.scroll).toBeLessThanOrEqual(size.viewport+1);
+      expect(size.lastBottom).toBeLessThanOrEqual(size.bottom+1);
+      // 화면 끝 여백(::after, 앱에서는 하단바·전환 줄·[+] 자리)까지 화면 안: 마지막 주가 잘리거나 [+]에 가리지 않는다.
+      expect(size.viewBottom).toBeLessThanOrEqual(size.innerHeight+1);
+      expect(size.viewBottom).toBeGreaterThanOrEqual(size.innerHeight-30);
+    }
   }
+});
+
+// S46-23: 일정이 칸을 넘치는 달은 달력 위를 세로로 밀면 칸이 커져 모두 보이고, 펼친 채 맨 위에서 아래로 끌면 한 화면으로 돌아온다.
+test('phone month expands by a vertical drag and collapses from the top',async({page})=>{
+  await page.setViewportSize({width:390,height:640});
+  await page.goto(url);
+  const grid=page.locator('#calendarGrid');
+  await expect(page.locator('.kptu-day-more')).not.toHaveCount(0);
+  await expect(grid).toHaveAttribute('data-cmv-expandable','1');
+  await expect(grid).toHaveAttribute('data-no-pull','');
+  const drag=async(fromY,toY,x=200)=>grid.evaluate((el,[x,a,b])=>{
+    const fire=(type,y,k='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,k,{value:[{clientX:x,clientY:y}]});if(k!=='touches')Object.defineProperty(e,'touches',{value:[]});el.dispatchEvent(e)};
+    fire('touchstart',a);fire('touchmove',(a+b)/2);fire('touchmove',b);fire('touchend',b,'changedTouches');
+  },[x,fromY,toY]);
+  // 가로로 민 손가락은 바꾸지 않는다.
+  await grid.evaluate(el=>{const fire=(type,x,y)=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,'touches',{value:type==='touchend'?[]:[{clientX:x,clientY:y}]});Object.defineProperty(e,'changedTouches',{value:[{clientX:x,clientY:y}]});el.dispatchEvent(e)};fire('touchstart',60,300);fire('touchmove',200,320);fire('touchend',200,320)});
+  await expect(grid).toHaveAttribute('data-cmv-expanded','0');
+  const before=await page.evaluate(()=>document.documentElement.scrollHeight);
+  await drag(300,380);
+  await expect(grid).toHaveAttribute('data-cmv-expanded','1');
+  await expect(page.locator('.kptu-day-more')).toHaveCount(0);
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollHeight)).toBeGreaterThan(before);
+  await expect.poll(()=>page.locator('.cmv-week').first().evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(8*14+20);
+  // 펼친 뒤 위로 밀기는 화면 스크롤(접히지 않음).
+  await drag(400,300);
+  await expect(grid).toHaveAttribute('data-cmv-expanded','1');
+  await page.evaluate(()=>scrollTo(0,0));
+  await drag(300,380);
+  await expect(grid).toHaveAttribute('data-cmv-expanded','0');
+  await expect(page.locator('.kptu-day-more')).not.toHaveCount(0);
+  // 달을 바꾸면 늘 한 화면 크기로 시작(크기 기억 없음).
+  await drag(300,380);await expect(grid).toHaveAttribute('data-cmv-expanded','1');
+  await page.evaluate(()=>window.renderMonth(2026,9));await page.evaluate(()=>window.renderMonth(2026,8));
+  await expect(grid).toHaveAttribute('data-cmv-expanded','0');
+});
+
+test('phone month without hidden schedules has nothing to expand',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url);
+  await page.evaluate(()=>KPTUCalendarMonthView.render({year:2026,month:8,googleEvents:[]}));
+  const grid=page.locator('#calendarGrid');
+  await expect(grid).toHaveAttribute('data-cmv-expandable','0');
+  expect(await grid.getAttribute('data-no-pull')).toBeNull();
+  expect(await page.evaluate(()=>KPTUCalendarMonthView.setExpanded(true))).toBe(false);
+  await expect(grid).toHaveAttribute('data-cmv-expanded','0');
 });
 
 test('today is indicated on the date number instead of filling the whole cell',async({page})=>{

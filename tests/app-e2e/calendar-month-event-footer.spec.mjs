@@ -49,7 +49,7 @@ for(const [width,height] of sizes){
         console.log('overflow target',width,index,JSON.stringify(geometry));
         await expect(more).toHaveCSS('font-size',width<=760?'12px':Math.min(11,Math.max(9.5,width*.0065))+'px');
         await expect(more).toHaveCSS('font-weight','800');
-        expect(geometry.height).toBe(width<=760?18:44);expect(geometry.width).toBeGreaterThanOrEqual(44);
+        expect(geometry.height).toBe(width<=760?14:44); // S46-23: 폰 '+n'은 일정 줄 한 칸 높이expect(geometry.width).toBeGreaterThanOrEqual(44);
         expect(geometry.within).toBe(true);expect(geometry.overlap).toBe(false);expect(geometry.belowBars).toBe(true);expect(geometry.hit).toBe(true);
         await more.click();
         await expect(page.locator('#calendarDayModal')).toBeVisible();
@@ -59,7 +59,9 @@ for(const [width,height] of sizes){
       const task=cell.locator('.cmv-task-count');
       if(await task.count()){
         const target=width<=760?task.locator('..'):task;
-        await expect(target).toHaveCSS('height','44px');
+        // S46-23: 폰 날짜 줄은 보이는 높이 20px(날짜 바로 아래 일정), 누르는 범위는 ::after 44px.
+        await expect(target).toHaveCSS('height',width<=760?'20px':'44px');
+        if(width<=760)expect(await target.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
         expect(await target.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(44);
         await expect(task).toHaveText(String(index===3?17:1));
         await task.click();await expect(page.locator('#calendarDayModal')).toBeVisible();

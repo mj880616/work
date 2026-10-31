@@ -39,8 +39,9 @@ for(const [width,height] of [[360,640],[360,844],[390,640],[390,844],[686,820]])
         markerRight:marker.right<=nb.right&&marker.left>=day.right,scroll:document.documentElement.scrollWidth,viewport:innerWidth};
     });
     console.log('three lines',width,height,JSON.stringify(metrics));
-    expect(metrics.numberWidth).toBeGreaterThanOrEqual(44);expect(metrics.numberHeight).toBe(44);
-    expect(metrics.moreWidth).toBeGreaterThanOrEqual(44);expect(metrics.moreHeight).toBe(18);
+    expect(metrics.numberWidth).toBeGreaterThanOrEqual(44);expect(metrics.numberHeight).toBe(20); // S46-23: 날짜 바로 아래 일정(누르는 범위는 ::after 44px)
+    expect(await number.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
+    expect(metrics.moreWidth).toBeGreaterThanOrEqual(44);expect(metrics.moreHeight).toBe(14);
     expect(metrics.barsFit).toBe(true);expect(metrics.moreFits).toBe(true);expect(metrics.markerRight).toBe(true);
     expect(metrics.font).toEqual(Array(slots-1).fill('8px'));expect(metrics.line).toEqual(Array(slots-1).fill('13px'));
     expect(metrics.scroll).toBeLessThanOrEqual(metrics.viewport);

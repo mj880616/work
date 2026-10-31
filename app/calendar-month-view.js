@@ -14,6 +14,8 @@ import {eventColor} from './home-read-model.js';
   let tasks=[],tasksSig='';
   // CAL-끌어옮기기(PC 월간): 끄는 동안 옮겨 갈 날짜 칸 표시도 이 renderer가 그린다. 상태는 calendar-drag.js가 setDrag로 넘긴다(메모리만).
   let drag=null;
+  // S46-23: 폰 월 보기의 펼침 상태(메모리만). monthKey가 바뀌면(달 바꾸기) 한 화면 크기로 돌아간다.
+  let expanded=false,expandable=false,monthKey='',animateFrom=null;
 
   const pad=n=>String(n).padStart(2,'0');
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -52,11 +54,37 @@ import {eventColor} from './home-read-model.js';
     const value=parseFloat(getComputedStyle(el).getPropertyValue(name));
     return Number.isFinite(value)?value:fallback;
   }
+  // S46-23 폰 월 보기: 처음엔 '한 화면' 크기(위 줄·하단바·[+] 자리를 뺀 남은 높이를 주 수로 나눔), 일정이 칸을 넘치는 달은
+  // 달력을 위아래로 밀면 칸이 커져 모두 보이는 '펼친' 크기. 크기는 메모리에만 두고(기기 저장 없음) 열 때·달 바꿀 때 늘 한 화면으로 시작한다.
+  function phoneLayout(grid,weeks,head){
+    const header=cssPx(grid,'--cmv-date-header-height',20),step=cssPx(grid,'--cmv-lane-step',14);
+    const minWeek=Math.ceil(header+step+2);
+    grid.style.setProperty('--cmv-content-week-height',minWeek+'px');
+    const headHeight=head?.getBoundingClientRect().height||cssPx(grid,'--cmv-head-height',23);
+    const style=getComputedStyle(grid);
+    const border=(parseFloat(style.borderTopWidth)||0)+(parseFloat(style.borderBottomWidth)||0);
+    const minGrid=Math.ceil(headHeight+minWeek*weeks+border);
+    const view=grid.closest('#calendarView');
+    let height=minGrid;
+    if(!view||!view.classList.contains('hidden')){
+      const viewportHeight=document.documentElement.clientHeight||window.innerHeight||0;
+      const gridBox=grid.getBoundingClientRect();
+      // 달력 아래에 오는 것(카드 아래 여백, 하단바·전환 줄·[+] 자리인 화면 끝 여백 ::after)은 화면 칸 안이므로 그 높이만큼 뺀다.
+      const tail=view?Math.max(0,view.getBoundingClientRect().bottom-gridBox.bottom):0;
+      const available=Math.floor(viewportHeight-(gridBox.top+window.scrollY)-tail);
+      height=Math.max(minGrid,available);
+    }
+    const rowHeight=Math.max(minWeek,(height-headHeight-border)/weeks);
+    const slots=Math.max(1,Math.floor((rowHeight-header-2)/step));
+    if(expanded)grid.style.removeProperty('--cmv-grid-height');else grid.style.setProperty('--cmv-grid-height',height+'px');
+    grid.dataset.cmvViewportHeight=String(height);
+    grid.dataset.cmvLaneSlots=String(slots);
+    return {height,rowHeight,slots,dateHeaderHeight:header,laneStep:step};
+  }
   function viewportLayout(grid,weeks,head,maxLanes){
+    if(mq760.matches)return phoneLayout(grid,weeks,head);
     const header=cssPx(grid,'--cmv-date-header-height',44),step=cssPx(grid,'--cmv-lane-step',14);
-    // Phones reserve three unchanged rows plus one thin overflow row, then fill the viewport.
-    const moreHeight=cssPx(grid,'--cmv-more-height',44);
-    const required=mq760.matches?header+3*step+moreHeight+2:mqPc.matches?0:header+Math.min(1,maxLanes)*step+(maxLanes>1?44:0)+2;
+    const required=mqPc.matches?0:header+Math.min(1,maxLanes)*step+(maxLanes>1?44:0)+2;
     grid.style.setProperty('--cmv-content-week-height',required+'px');
     const headHeight=cssPx(grid,'--cmv-head-height',23),minWeek=Math.max(required,cssPx(grid,'--cmv-min-week-height',58));
     const dateHeaderHeight=cssPx(grid,'--cmv-date-header-height',23),laneStep=cssPx(grid,'--cmv-lane-step',14);
@@ -70,16 +98,16 @@ import {eventColor} from './home-read-model.js';
       const viewportHeight=document.documentElement.clientHeight||window.innerHeight||window.visualViewport?.height||0;
       const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0;
       // Page scrolling must not create extra slots when tasks or events trigger a rerender.
-      const gridTop=grid.getBoundingClientRect().top+(mq760.matches?window.scrollY:0);
+      const gridTop=grid.getBoundingClientRect().top;
       const available=Math.floor(viewportHeight-gridTop-safeBottom);
       height=Math.max(minGrid,available);
-      if(!mq760.matches)height=Math.min(height,Math.max(minGrid,Math.floor(viewportHeight*.82)));
+      height=Math.min(height,Math.max(minGrid,Math.floor(viewportHeight*.82)));
     }
     grid.style.setProperty('--cmv-grid-height',height+'px');
     grid.dataset.cmvViewportHeight=String(height);
     const actualHead=head?.getBoundingClientRect().height||headHeight;
     const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead)/weeks);
-    const slots=Math.max(1,Math.floor((rowHeight-dateHeaderHeight-2-(mq760.matches?Math.max(0,moreHeight-laneStep):0))/laneStep));
+    const slots=Math.max(1,Math.floor((rowHeight-dateHeaderHeight-2)/laneStep));
     grid.dataset.cmvLaneSlots=String(slots);
     return {height,rowHeight,slots,dateHeaderHeight,laneStep};
   }
@@ -184,6 +212,8 @@ import {eventColor} from './home-read-model.js';
     bindTouchGuard();
     layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
     const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
+    const phone=mq760.matches;
+    if(monthKey!==year+'-'+month||!phone){expanded=false;monthKey=year+'-'+month}
     const events=allEvents(options);
     const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range);
     const pendingByDate=new Map();
@@ -199,8 +229,9 @@ import {eventColor} from './home-read-model.js';
     const layout=viewportLayout(grid,range.weeks,heads,Math.max(...weeks.map(w=>w.laneCount)));
 
     const weeksBox=document.createElement('div');weeksBox.className='cmv-weeks';
+    let anyHidden=false;
     weeks.forEach(week=>{
-      const lanes=mqPc.matches?week.laneCount:laneCap(week.laneCount,layout);
+      const lanes=mqPc.matches||(phone&&expanded)?week.laneCount:laneCap(week.laneCount,layout);
       const wrap=document.createElement('div');wrap.className='cmv-week';wrap.dataset.weekStart=key(week.start);wrap.dataset.laneCap=String(lanes);wrap.dataset.laneCount=String(week.laneCount);
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
@@ -241,7 +272,7 @@ import {eventColor} from './home-read-model.js';
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';
       const hidden=Array(7).fill(0);
-      const dayCaps=mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
+      const dayCaps=phone&&expanded?Array(7).fill(Infinity):mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
       week.segments.forEach(seg=>{
         if(!mq760.matches){
           if(seg.lane<lanes){const button=eventButton(seg);if(mqPc.matches&&canDrag(seg.ev.calendarId,options.googleState))button.dataset.drag='day';layer.appendChild(button)}
@@ -259,8 +290,14 @@ import {eventColor} from './home-read-model.js';
         }
         appendRun();
       });
+      if(phone){
+        // 한 화면: 주마다 같은 높이. 펼침: 그 주의 일정 줄이 모두 들어가는 높이(한 화면 높이보다 작아지지 않음).
+        const full=layout.dateHeaderHeight+week.laneCount*layout.laneStep+4;
+        wrap.style.setProperty('--cmv-week-h',(expanded?Math.max(layout.rowHeight,full):layout.rowHeight)+'px');
+      }
       hidden.forEach((count,col)=>{
         if(!count)return;
+        anyHidden=true;
         const date=addSeoulDays(week.start,col);
         const more=document.createElement('button');more.type='button';more.className='kptu-day-more';more.dataset.date=key(date);more.textContent=`+${count}`;more.style.gridColumn=String(col+1);more.style.gridRow=String(dayCaps[col]+1);more.setAttribute('aria-label',`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 일정 ${count}개 더 보기`);
         more.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
@@ -269,9 +306,65 @@ import {eventColor} from './home-read-model.js';
       wrap.append(dayGrid,layer);weeksBox.appendChild(wrap);
     });
     grid.appendChild(weeksBox);
+    if(phone){
+      // 펼칠 일정이 없는 달(+n 없음)은 펼치기 없이 그대로.
+      expandable=expanded||anyHidden;
+      if(!expandable)expanded=false;
+    }else expandable=false;
+    paintExpand(grid);
+    if(phone&&animateFrom)playExpand(weeksBox,animateFrom);
+    animateFrom=null;
     paintDrag(grid);
     window.__KPTU_MONTH_VIEW_RANGE__={start:new Date(range.start),end:new Date(range.end),weeks:range.weeks,days:range.days};
     return true;
+  }
+  // S46-23 펼침 표시: 펼칠 수 있거나 펼친 동안은 이 달력 위 손가락이 펼치기·접기 몫이므로 폰 앱 당겨서 새로고침(phone-pull-refresh.js
+  // [data-no-pull])과 브라우저 당겨서 새로고침(html.cmv-no-overscroll)을 달력 위에서만 끈다. 달력 밖(위 줄)에서는 그대로 당겨서 새로고침.
+  function paintExpand(grid){
+    const on=mq760.matches&&expandable;
+    grid.classList.toggle('cmv-expanded',mq760.matches&&expanded);
+    grid.dataset.cmvExpandable=on?'1':'0';
+    grid.dataset.cmvExpanded=mq760.matches&&expanded?'1':'0';
+    if(on)grid.setAttribute('data-no-pull','');else grid.removeAttribute('data-no-pull');
+    document.documentElement.classList.toggle('cmv-no-overscroll',on);
+    watchHidden(grid);
+  }
+  const reduceMotion=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  // 뛰어가지 않게: 다시 그린 주 줄을 이전 높이에서 새 높이로 옮긴다(CSS transition, calendar-ui.css).
+  function playExpand(weeksBox,from){
+    const rows=[...weeksBox.querySelectorAll(':scope > .cmv-week')];
+    if(reduceMotion()||rows.length!==from.length)return;
+    const target=rows.map(r=>r.style.getPropertyValue('--cmv-week-h'));
+    rows.forEach((r,i)=>{r.classList.add('cmv-week-moving');r.style.setProperty('--cmv-week-h',from[i]+'px')});
+    void weeksBox.offsetHeight;
+    requestAnimationFrame(()=>{
+      rows.forEach((r,i)=>r.style.setProperty('--cmv-week-h',target[i]));
+      setTimeout(()=>rows.forEach(r=>r.classList.remove('cmv-week-moving')),260);
+    });
+  }
+  function setExpanded(next){
+    next=!!next;
+    if(!mq760.matches||next===expanded||(next&&!expandable)||!last)return false;
+    const grid=document.querySelector('#calendarGrid');
+    animateFrom=grid?[...grid.querySelectorAll('.cmv-weeks > .cmv-week')].map(r=>r.getBoundingClientRect().height):null;
+    expanded=next;
+    if(!next&&window.scrollY>0)window.scrollTo(0,0);
+    render(last);
+    return true;
+  }
+  // 달력 화면을 떠나면(칸이 사라짐) 펼침을 잊는다. 다음에 열 때는 한 화면 크기.
+  let hideWatch=null;
+  function watchHidden(grid){
+    if(hideWatch||typeof IntersectionObserver!=='function')return;
+    hideWatch=new IntersectionObserver(entries=>{
+      for(const entry of entries){
+        if(entry.boundingClientRect.width>0||entry.boundingClientRect.height>0)continue;
+        expanded=false;expandable=false;
+        document.documentElement.classList.remove('cmv-no-overscroll');
+        grid.removeAttribute('data-no-pull');grid.classList.remove('cmv-expanded');
+      }
+    });
+    hideWatch.observe(grid);
   }
   function paintDrag(grid){
     grid.querySelectorAll('.cmv-drop').forEach(el=>el.classList.remove('cmv-drop','cmv-drop-blocked'));
@@ -286,6 +379,16 @@ import {eventColor} from './home-read-model.js';
     if(cells[0]){const tag=document.createElement('span');tag.className='cmv-drop-label';tag.setAttribute('aria-hidden','true');tag.textContent=drag.label||'';cells[0].append(tag)}
   }
   function setDrag(next){drag=next;const grid=document.querySelector('#calendarGrid');if(grid)paintDrag(grid)}
+  // S46-23 손가락 규칙(폰 월 보기, 달력 위에서만): 세로로 뚜렷이 민 손가락 하나(가로 밀기는 건드리지 않음)가 한 번만 바꾼다.
+  // 한 화면 + 펼칠 일정 있음 → 위아래 어느 쪽으로 밀어도 펼침. 펼침 + 화면 맨 위에서 시작해 아래로 끌기 → 한 화면으로 돌아감.
+  // 펼친 뒤 위로 밀기는 보통 화면 스크롤이다.
+  const EXPAND_PX=28;
+  function expandGesture(dx,dy){
+    if(!touchStart||touchStart.done||!mq760.matches||!expandable)return;
+    if(Math.abs(dy)<EXPAND_PX||Math.abs(dy)<Math.abs(dx)*1.5)return;
+    if(!expanded){touchStart.done=true;setExpanded(true);return}
+    if(dy>0&&touchStart.top&&window.scrollY<=0){touchStart.done=true;setExpanded(false)}
+  }
   // Only guard the release click here (no tab-swipe exists any more),
   // including events and overflow, without consuming touch events or restricting browser pan.
   function bindTouchGuard(){
@@ -293,7 +396,7 @@ import {eventColor} from './home-read-model.js';
     grid.dataset.cmvTouchGuard='1';
     grid.addEventListener('touchstart',e=>{
       if(e.touches?.length!==1){touchStart=null;return}
-      const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY,moved:false};
+      const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY,moved:false,top:window.scrollY<=0,done:false};
     },{passive:true});
     grid.addEventListener('touchmove',e=>{
       if(e.touches?.length!==1){touchStart=null;return}
@@ -301,6 +404,7 @@ import {eventColor} from './home-read-model.js';
       const t=e.touches[0];
       const slop=tapSlop();
       if(Math.abs(t.clientX-touchStart.x)>slop||Math.abs(t.clientY-touchStart.y)>slop)touchStart.moved=true;
+      expandGesture(t.clientX-touchStart.x,t.clientY-touchStart.y);
     },{passive:true});
     grid.addEventListener('touchend',e=>{
       if(e.touches?.length){touchStart=null;return}
@@ -343,7 +447,7 @@ import {eventColor} from './home-read-model.js';
   if(mq760.addEventListener)mq760.addEventListener('change',forceRerender);else mq760.addListener?.(forceRerender);
   document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')forceRerender()},true);
 
-  window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[],setDrag};
+  window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[],setDrag,setExpanded,isExpanded:()=>expanded};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);
   window.__KPTU_CALENDAR_MONTH_VIEW_READY__=Promise.resolve(true);
 })();
