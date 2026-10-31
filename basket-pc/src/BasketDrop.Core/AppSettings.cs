@@ -13,6 +13,14 @@ public sealed class AppSettings
 
     /// <summary>Screen corner that opens the drop box: TopRight (default), BottomRight or Off. See <see cref="CornerChoices"/>.</summary>
     public string Corner { get; set; } = CornerChoices.Default.ToString();
+
+    /// <summary>The small "바구니로" tile on the desktop that stays after Win+D. On by default; the tray menu turns it off.</summary>
+    public bool DesktopTile { get; set; } = true;
+
+    /// <summary>Top-left corner of the desktop tile in physical screen pixels. Null until the user moves it (default: top right).</summary>
+    public int? DesktopTileX { get; set; }
+
+    public int? DesktopTileY { get; set; }
 }
 
 public sealed class SettingsStore
