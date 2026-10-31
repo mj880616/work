@@ -60,7 +60,7 @@ function fakeWorld({ driveStatus = 200, taskInsertFails = false } = {}) {
     if (table === 'app_notes') {
       let rows = state.notes.filter((x) => (!p.get('id') || x.id === eq(p.get('id'))) && (!p.get('workspace_id') || x.workspace_id === eq(p.get('workspace_id'))));
       if (p.get('attachments')) { const want = JSON.parse(p.get('attachments').replace(/^cs\./, ''))[0].drive_file_id; rows = rows.filter((x) => x.attachments.some((a) => a.drive_file_id === want)); }
-      if (method === 'PATCH') { rows = rows.filter((x) => x.updated_at === eq(p.get('updated_at'))); rows.forEach((x) => Object.assign(x, opts.body)); return rows.map((x) => ({ id: x.id })); }
+      if (method === 'PATCH') { rows = rows.filter((x) => x.updated_at === eq(p.get('updated_at'))); rows.forEach((x) => Object.assign(x, opts.body)); return rows.map((x) => ({ id: x.id, updated_at: x.updated_at })); }
       return structuredClone(rows);
     }
     if (table === 'app_task_attachments') {
@@ -88,6 +88,7 @@ test('정리함 첨부 이름 바꾸기: Drive 원본 → 노트·할 일·자�
   const out = await renameFile({ action: 'rename-file', target: 'note', id: w.NOTE, drive_file_id: 'F1', base: '교섭위원 명단 표' }, w.deps);
   assert.equal(out.name, '교섭위원 명단 표.jpg');
   assert.deepEqual(out.updated, { notes: 1, tasks: 1, documents: 1 });
+  assert.deepEqual(out.notes, [{ id: w.NOTE, updated_at: new Date(0).toISOString() }]);
   assert.equal(w.state.drive.length, 1);
   assert.match(w.state.drive[0].url, /files\/F1\?/);
   assert.deepEqual(w.state.drive[0].body, { name: '교섭위원 명단 표.jpg' });

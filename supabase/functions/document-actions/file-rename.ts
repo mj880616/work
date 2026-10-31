@@ -83,24 +83,25 @@ async function renameDrive(fileId: string, name: string, deps: RenameDeps) {
 }
 
 // ④-1 노트 첨부(jsonb 배열): 그 파일 칸의 file_name만 바꾼다. 읽은 뒤 바뀌었으면(updated_at 다름) 한 번 다시 읽어 맞춘다.
-async function syncNotes(workspaceId: string, fileId: string, name: string, deps: RenameDeps): Promise<number> {
+// 맞춘 노트마다 새 updated_at을 돌려준다(화면이 들고 있는 노트의 저장 확인 값을 맞추게).
+async function syncNotes(workspaceId: string, fileId: string, name: string, deps: RenameDeps): Promise<{ id: string; updated_at: string }[]> {
   const contains = enc(JSON.stringify([{ drive_file_id: fileId }]));
-  let count = 0;
+  const changed: { id: string; updated_at: string }[] = [];
   for (let round = 0; round < 2; round++) {
     const rows = await deps.userDb(`app_notes?workspace_id=eq.${enc(workspaceId)}&attachments=cs.${contains}&select=id,attachments,updated_at&limit=50`);
     const todo = (Array.isArray(rows) ? rows : []).filter((n) => attOf(n).some((a) => a?.drive_file_id === fileId && a.file_name !== name));
-    if (!todo.length) return count;
+    if (!todo.length) return changed;
     for (const n of todo) {
       const attachments = attOf(n).map((a) => a?.drive_file_id === fileId ? { ...a, file_name: name } : a);
-      const done = await deps.userDb(`app_notes?id=eq.${enc(n.id)}&workspace_id=eq.${enc(workspaceId)}&updated_at=eq.${enc(n.updated_at)}&select=id`, {
+      const done = await deps.userDb(`app_notes?id=eq.${enc(n.id)}&workspace_id=eq.${enc(workspaceId)}&updated_at=eq.${enc(n.updated_at)}&select=id,updated_at`, {
         method: 'PATCH', prefer: 'return=representation', body: { attachments, updated_at: new Date(deps.now()).toISOString() },
       });
-      if (Array.isArray(done) && done.length === 1) count++;
+      if (Array.isArray(done) && done.length === 1 && typeof done[0].updated_at === 'string') changed.push({ id: String(done[0].id), updated_at: done[0].updated_at });
     }
   }
   const left = await deps.userDb(`app_notes?workspace_id=eq.${enc(workspaceId)}&attachments=cs.${contains}&select=id,attachments&limit=50`);
   if ((Array.isArray(left) ? left : []).some((n) => attOf(n).some((a) => a?.drive_file_id === fileId && a.file_name !== name))) throw fail('기록의 첨부 이름을 다 맞추지 못했습니다.', 'RESULT_UNKNOWN', { drive_result: 'renamed' });
-  return count;
+  return changed;
 }
 
 // ④-2 할 일 첨부: update 권한이 없으므로 지우고 같은 값 + 새 이름으로 다시 넣는다.
@@ -149,5 +150,5 @@ export async function renameFile(body: any, deps: RenameDeps) {
   const notes = await syncNotes(workspaceId, input.driveFileId, name, deps);
   const tasks = await syncTasks(workspaceId, input.driveFileId, name, deps);
   const documents = await syncDocuments(workspaceId, input.driveFileId, oldName, name, deps);
-  return { ok: true, drive_file_id: input.driveFileId, name, unchanged: name === oldName, updated: { notes, tasks, documents } };
+  return { ok: true, drive_file_id: input.driveFileId, name, unchanged: name === oldName, notes, updated: { notes: notes.length, tasks, documents } };
 }
