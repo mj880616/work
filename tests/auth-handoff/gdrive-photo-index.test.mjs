@@ -38,6 +38,10 @@ test('gdrive photo index: service_role-only tables, operator feature for the Dri
   await cluster.initialise();await cluster.start();
   pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);await pool.query(prerequisites);
+  await pool.query('revoke usage on schema private from service_role');
+  await pool.query('grant select on public.app_spaces to authenticated');
+  await pool.query('alter table public.app_spaces enable row level security');
+  await pool.query('create policy fake_owner_read on public.app_spaces for select to authenticated using (private.app_is_workspace_owner(workspace_id))');
   await pool.query("update public.app_workspaces set slug='kptu-work' where id=$1",[WS_A]);
   await pool.query("update public.app_workspaces set slug='other-work' where id=$1",[WS_B]);
   // operator_features가 seed할 수 있게 통화 자료를 운영 작업공간(WS_A)에만 둔다(운영과 같음).
