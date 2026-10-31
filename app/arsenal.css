@@ -49,6 +49,9 @@
 #appView #arsenalView .goal-entry b{ font-weight:var(--ds-weight-medium,500); }
 #appView #arsenalView .ars-k{ margin:0 0 2px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #arsenalView .ars-faint{ color:var(--kptu-muted); }
+/* S46-26: 예정 경기 줄(목록 위, 작게, 누르지 않음). */
+#appView #arsenalView .ars-next{ display:grid; gap:1px; padding:4px 4px 6px; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #arsenalView .ars-next-row{ margin:0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-meta,12px); color:var(--kptu-ink); font-variant-numeric:tabular-nums; }
 #appView #arsenalView .goal-source{ margin:0; font-size:11px; }
 #appView #arsenalView .ars-verdict{ margin:0; padding-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); font-size:var(--ds-text-read,15px); line-height:1.6; }
 #appView #arsenalView .ars-sec{ border-top:var(--ds-line-width,.5px) solid var(--ds-line); }

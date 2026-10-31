@@ -5,7 +5,8 @@ import { runInNewContext } from 'node:vm';
 
 const context = { window: {} };
 runInNewContext(readFileSync(new URL('../../app/arsenal/matches.js', import.meta.url), 'utf8'), context);
-const matches = context.window.ARSENAL_MATCHES;
+// S46-26: 예정 경기 줄(upcoming:true)은 득점 기록이 없다 — 끝난 경기만 본다.
+const matches = context.window.ARSENAL_MATCHES.filter(match => match.upcoming !== true);
 
 test('every archived score has one structured entry per goal, on the credited side', () => {
   assert.equal(matches.length, 66);

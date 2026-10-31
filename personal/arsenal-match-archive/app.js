@@ -1,5 +1,6 @@
 (() => {
-  const matches = Array.isArray(window.ARSENAL_MATCHES) ? [...window.ARSENAL_MATCHES] : [];
+  // S46-26: 예정 경기 줄(upcoming:true, 점수·리뷰 없음)은 이 기록 페이지에 보이지 않는다.
+  const matches = Array.isArray(window.ARSENAL_MATCHES) ? window.ARSENAL_MATCHES.filter((match) => match && match.upcoming !== true) : [];
   matches.sort((a, b) => b.date.localeCompare(a.date));
 
   const latestEl = document.getElementById("latestReview");
