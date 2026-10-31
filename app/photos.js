@@ -56,7 +56,8 @@ import {folderPathHtml} from './folder-path.mjs';
 import {odFolderTree, odFolderCreate, odFolderRename, odFolderMove, odFolderDelete, odPhotosMove, odFolderToggle} from './diary-onedrive.js';
 import {readPhotoTags, createPhotoTag, renamePhotoTag, deletePhotoTag, addPhotoTagItems, removePhotoTagItems} from './photo-tags.js';
 import {photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, folderErrorText,
-  cleanTagName, sameTag, albumCards, albumForSources, folderPlaceLabels, odFolderPlace, phoneFolderPlace} from './photos-model.mjs';
+  cleanTagName, sameTag, albumCards, albumForSources, folderPlaceLabels, odFolderPlace, phoneFolderPlace,
+  validAlbumView, stepAlbumView, albumPeriod, ALBUM_VIEW_TEXT} from './photos-model.mjs';
 import {notify, askConfirm} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
 import {followPane} from './follow-pane.js';
@@ -85,7 +86,7 @@ const MARK_SVG = {onedrive:'<svg viewBox="0 0 16 16" width="10" height="10" aria
   phone:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 4.5A1 1 0 0 1 3 3.5h3l1.3 1.3H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" fill="currentColor"/></svg>',
   gdrive:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M5.6 2.5h4.8l4.1 7.1-2.3 3.9H3.8L1.5 9.6z" fill="currentColor"/></svg>'};
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><span class="photos-sp"></span><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-srcs" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" aria-pressed="true" aria-label="폰 사진" title="폰 사진" hidden>${PHONE_SVG}</button></span></div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><label><span data-photos-name-label></span><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"></label><button type="submit" class="mini">저장</button><button type="button" class="mini" data-photos-name-cancel>취소</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-rename hidden><span aria-hidden="true">✎</span> 이름</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
+root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><div class="photos-tools" data-photos-tools><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-sp"></span><span class="photos-srcs" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" aria-pressed="true" aria-label="폰 사진" title="폰 사진" hidden>${PHONE_SVG}</button></span><button type="button" class="secondary photos-al-new" data-photos-al-new hidden>+ 새 앨범</button></div></div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><label><span data-photos-name-label></span><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"></label><button type="submit" class="mini">저장</button><button type="button" class="mini" data-photos-name-cancel>취소</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-rename hidden><span aria-hidden="true">✎</span> 이름</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
 const $ = sel => root.querySelector(sel);
 const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), linkBtn = $('[data-od-link]'), odHost = $('[data-photos-od]');
 const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
@@ -545,7 +546,7 @@ function paintList({full = false} = {}) {
   const foot = body.querySelector('[data-photos-foot]');
   foot.innerHTML = failed ? failHtml({retry: 'data-photos-more', reason: failed})
     : ended ? (items.length ? '' : filter === 'all' ? '사진이 없어요.' : `${FILTER_TEXT[filter]} 사진이 없어요.`) : waitHtml({rows:2, h:72});
-  sizer.paintButtons(root); paintSelect(); paintRail();
+  paintSize(); paintSelect(); paintRail();
   watchFoot(foot);
 }
 let io = null;
@@ -619,13 +620,12 @@ async function renderTrash({reload = false} = {}) {
   if (!trash) { body.innerHTML = `${phoneLine}<p class="photos-muted">휴지통을 읽지 못했어요: ${esc(trashFailed)} <button type="button" class="mini" data-photos-trash-retry>다시</button></p>`; return; }
   body.innerHTML = `${phoneLine}<p class="photos-muted photos-top">30일 뒤 원드라이브 휴지통으로 가요${trash.length ? ' · <button type="button" class="mini" data-photos-purge-all>모두 비우기</button>' : ''}</p>${trash.length ? '' : emptyHtml()}`;
   if (trash.length) { const grid = newGrid(); trash.forEach((item, i) => { const b = cell(item, i); b.dataset.photosTrash = ''; grid.append(b); }); body.append(grid); }
-  sizer.paintButtons(root); paintSelect();
+  paintSize(); paintSelect();
 }
 function render() {
   paintTidy();
   root.querySelectorAll('[data-photos-tab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.photosTab === tab)));
-  $('[data-photos-filter]').hidden = tab !== 'all' && tab !== 'calendar'; root.querySelector('.photo-size').hidden = tab === 'calendar';
-  $('[data-photos-sort]').hidden = tab === 'calendar' || tab === 'trash'; paintSortButton();
+  paintTools(); paintSortButton();
   paintOd();
   if (tab === 'calendar') { select.stop(); paintSelect(); paintRail(); renderCalendar(); return; }
   if (tab === 'trash') { paintRail(); renderTrash(); return; }
@@ -634,8 +634,41 @@ function render() {
   paintList({full:true});
   if (!listGate() && !items.length && !ended) loadMore();
 }
-function sizeChanged() { root.querySelectorAll('[data-diary-grid]').forEach(sizer.paintGrid); sizer.paintButtons(root); }
-globalThis.matchMedia?.(WIDE_QUERY)?.addEventListener?.('change', () => sizer.paintButtons(root));
+// PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18): 위쪽 둘째 줄 = [정리][거르기][정렬][－＋] … 출처. [앨범] 탭(목록)은 정렬 [－＋] … [+ 새 앨범].
+// 칸은 늘 같은 줄 하나에 있고 탭마다 보이기만 바꾼다(높이는 CSS가 고정). 앨범 목록에서 [－＋]는 사진 칸 수 대신 앨범 보기 크기 세 단계.
+const albumSizing = () => tab === 'albums' && !album;
+function paintTools() {
+  $('[data-photos-filter]').hidden = tab !== 'all' && tab !== 'calendar';
+  root.querySelector('.photo-size').hidden = tab === 'calendar';
+  $('[data-photos-sort]').hidden = tab === 'calendar' || tab === 'trash';
+  root.querySelector('.photos-srcs').hidden = tab === 'albums';
+  $('[data-photos-al-new]').hidden = !albumSizing();
+  paintSize();
+}
+const SIZE_LABEL = {'-1':['사진 작게(한 줄 칸 늘리기)', '앨범 작게 보기'], '1':['사진 크게(한 줄 칸 줄이기)', '앨범 크게 보기']};
+function paintSize() {
+  if (!albumSizing()) {
+    root.querySelectorAll('[data-photo-size]').forEach(b => b.setAttribute('aria-label', SIZE_LABEL[b.dataset.photoSize]?.[0] || ''));
+    sizer.paintButtons(root); return;
+  }
+  const v = albumView();
+  root.querySelectorAll('[data-photo-size]').forEach(b => {
+    b.disabled = stepAlbumView(v, Number(b.dataset.photoSize)) === v;
+    b.title = `앨범 보기: ${ALBUM_VIEW_TEXT[v]}`;
+    b.setAttribute('aria-label', SIZE_LABEL[b.dataset.photoSize]?.[1] || '');
+  });
+}
+// 앨범 보기 단계: 서버 view_prefs.album_view(폰·컴퓨터 같음). 서버가 아직 칸을 모르면(DB 적용 전) 쓰기가 거절되어도 이번 접속 동안은 고른 단계(메모리만, 기기 저장 없음).
+let albumViewChosen = null;
+const albumView = () => albumViewChosen || validAlbumView(viewPrefs.get('album_view'));
+function changeAlbumView(dir) {
+  const v = albumView(), next = stepAlbumView(v, dir);
+  if (next === v) return;
+  albumViewChosen = next; viewPrefs.set('album_view', next, {rejectable:true});
+  renderAlbums();
+}
+function sizeChanged() { root.querySelectorAll('[data-diary-grid]').forEach(sizer.paintGrid); paintSize(); }
+globalThis.matchMedia?.(WIDE_QUERY)?.addEventListener?.('change', () => paintSize());
 const listFor = t => (t === 'trash' ? trash || [] : t === 'folders' ? (gdAt !== null ? gdFItems : pAt !== null ? pItems : fItems) : t === 'albums' ? aItems : items);
 const shownList = () => listFor(tab);
 function setListFor(t, list) {
@@ -1236,7 +1269,7 @@ function paintPhoneFolderGrid() {
   const list = pFor === pAt ? pItems : [];
   if (list.length) { const grid = newGrid(); list.forEach((item, i) => grid.append(cell(item, i))); box.append(grid); }
   foot.innerHTML = pFor === pAt && pFailed ? failHtml({retry:'data-photos-pf-again', reason:pFailed}) : pFor === pAt && pEnded ? (list.length ? '' : '이 폴더에 사진이 없어요.') : waitHtml({rows:2, h:72});
-  sizer.paintButtons(root); paintSelect();
+  paintSize(); paintSelect();
   io?.disconnect();
   if (pFor === pAt && !pEnded && !pFailed && !pLoading && 'IntersectionObserver' in window) {
     io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) loadPhoneFolder(pAt); }, {rootMargin:'600px 0px'});
@@ -1256,7 +1289,7 @@ function paintFolderGrid() {
   const list = fFor === at ? fItems : [];
   if (list.length) { const grid = newGrid(); list.forEach((item, i) => { const c = cell(item, i); c.draggable = treeWide(); grid.append(c); }); box.append(grid); }
   foot.innerHTML = fFor === at && fFailed ? failHtml({retry:'data-photos-fx-again', reason:fFailed}) : fFor === at && fEnded ? (list.length ? '' : '이 폴더에 바로 든 사진이 없어요.') : waitHtml({rows:2, h:72});
-  sizer.paintButtons(root); paintSelect();
+  paintSize(); paintSelect();
   io?.disconnect();
   if (fFor === at && !fEnded && !fFailed && 'IntersectionObserver' in window) {
     io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) loadFolder(at); }, {rootMargin:'600px 0px'});
@@ -1624,7 +1657,7 @@ function paintGdFolderGrid() {
   const list = gdFFor === gdAt ? gdFItems : [];
   if (list.length) { const grid = newGrid(); list.forEach((item, i) => grid.append(cell(item, i))); box.append(grid); }
   foot.innerHTML = gdFFor === gdAt && gdFFailed ? failHtml({retry:'data-photos-gf-again', reason:gdFFailed}) : gdFFor === gdAt && !gdFLoading ? (list.length ? '' : '이 폴더에 바로 든 사진이 없어요.') : waitHtml({rows:2, h:72});
-  sizer.paintButtons(root); paintSelect();
+  paintSize(); paintSelect();
 }
 function goGdFolder(id) {
   const f = gdFolderInfo(id); if (!f) return;
@@ -1742,6 +1775,16 @@ async function loadAlbum(id) {
   })();
   return aLoading;
 }
+// 앨범 한 줄(보기 단계마다 모양만 다르고, 여는 버튼·⋯ 메뉴·길게 누르기는 같다).
+// card = 대표 사진 큰 칸 + #이름 장수, thumb = 작은 대표 사진 + #이름 / n장 · 기간, line = #이름 … 장수(그림 없음).
+function albumRowHtml(c, view) {
+  const name = `<span class="photos-album-name">#${esc(c.name)}</span>`, n = `<span class="photos-album-n">${c.count}</span>`;
+  const period = albumPeriod(c.from, c.to);
+  const inner = view === 'line' ? name + n
+    : view === 'thumb' ? `<span class="photos-album-cover" data-photos-al-cover></span><span class="photos-album-txt">${name}<span class="photos-album-meta">${n}장${period ? ` · <span class="photos-album-span">${esc(period)}</span>` : ''}</span></span>`
+    : `<span class="photos-album-cover" data-photos-al-cover></span>${name}${n}`;
+  return `<div class="photos-album" data-photos-album="${esc(c.id)}"><button type="button" class="photos-album-open" data-photos-al-open="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범, 사진 ${c.count}장${view === 'thumb' && period ? `, ${esc(period)}` : ''}">${inner}</button><button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`;
+}
 function renderAlbums() {
   io?.disconnect();
   const g = listGate();
@@ -1755,8 +1798,9 @@ function renderAlbums() {
   if (album && !cardOf(album)) album = null;
   syncAlbumLayer();
   if (!album) {
-    const list = cards();
-    body.innerHTML = `<div class="photos-albums" data-photos-albums>${list.map(c => `<div class="photos-album" data-photos-album="${esc(c.id)}"><button type="button" class="photos-album-open" data-photos-al-open="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범, 사진 ${c.count}장"><span class="photos-album-cover" data-photos-al-cover></span><span class="photos-album-name">#${esc(c.name)}</span><span class="photos-album-n">${c.count}</span></button><button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`).join('')}<button type="button" class="photos-album photos-album-new" data-photos-al-new>+ 새 앨범</button></div>${list.length ? '' : '<p class="photos-muted">사진을 길게 눌러 고른 뒤 [# 앨범]으로 넣어요.</p>'}`;
+    const list = cards(), view = albumView();
+    paintTools();
+    body.innerHTML = `<div class="photos-albums" data-photos-albums data-view="${view}">${list.map(c => albumRowHtml(c, view)).join('')}</div>${list.length ? '' : '<p class="photos-muted">사진을 길게 눌러 고른 뒤 [# 앨범]으로 넣어요.</p>'}`;
     for (const c of list) {
       const slot = body.querySelector(`[data-photos-album="${CSS.escape(c.id)}"] [data-photos-al-cover]`);
       if (slot && c.cover) slot.append(odPhotoElement({kind:'od', source:'onedrive', key:c.cover, id:c.cover, day:''}, 'small', {label:'', rt, retry:false}));
@@ -1765,6 +1809,7 @@ function renderAlbums() {
     paintSelect();
     return;
   }
+  paintTools();
   const c = cardOf(album);
   if (aFor !== album) { body.innerHTML = waitHtml({rows:3, h:72}); loadAlbum(album); return; }
   body.innerHTML = `<p class="photos-fx-here photos-al-head"><button type="button" class="mini" data-photos-al-back aria-label="앨범 목록으로">‹ 앨범</button><b>#${esc(c.name)}</b> · ${aLoading ? c.count : aItems.length}장<button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></p>`;
@@ -1772,7 +1817,7 @@ function renderAlbums() {
   if (aFailed) { body.insertAdjacentHTML('beforeend', `<p class="photos-muted">사진을 읽지 못했어요: ${esc(aFailed)}</p>`); return; }
   if (!aItems.length) { body.insertAdjacentHTML('beforeend', emptyHtml()); paintSelect(); return; }
   const grid = newGrid(); aItems.forEach((item, i) => grid.append(cell(item, i))); body.append(grid);
-  sizer.paintButtons(root); paintSelect();
+  paintSize(); paintSelect();
 }
 function syncAlbumLayer() {
   const inside = tab === 'albums' && !!album;
@@ -2083,7 +2128,7 @@ root.addEventListener('click', event => {
   }
   if (odHost.contains(b) && settings.click(b, odHost)) return;
   if (b.matches('[data-photos-tab]')) return setTab(b.dataset.photosTab);
-  if (b.matches('[data-photo-size]')) { if (sizer.changeCols(Number(b.dataset.photoSize))) sizeChanged(); return; }
+  if (b.matches('[data-photo-size]')) { if (albumSizing()) { changeAlbumView(Number(b.dataset.photoSize)); return; } if (sizer.changeCols(Number(b.dataset.photoSize))) sizeChanged(); return; }
   if (b.matches('[data-photos-src]')) return sourceClick(b);
   if (b.matches('[data-photos-phone-ask]')) return phone.ask();
   if (b.matches('[data-od-link]')) return linkMenu.open(b);
@@ -2222,7 +2267,7 @@ window.addEventListener('kptu:session-changed', () => {
   tidy.reset(); tidyOpen = false; tidyView = null;
   gd = {allowed:false, problem:'', foldersOn:0, checked:false}; gdItems = []; gdEnded = false; gdCursor = null; gdSyncAt = 0; gdLevels.clear(); gdLevelFailed.clear(); gdAt = null; gdTrail = []; gdFFor = null; gdFItems = []; gdClear();
   if (gdPlayUrl) { URL.revokeObjectURL(gdPlayUrl); gdPlayUrl = ''; }
-  tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; folderLayer = null; albumLayer = null; nameDone(null);
+  tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; albumViewChosen = null; folderLayer = null; albumLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();
 });
 window.KPTURouter?.on?.('photos', enter);

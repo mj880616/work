@@ -1,14 +1,20 @@
 /* PHOTO-사진메뉴 1차: '사진' 메뉴(#photosView). 격자·크게 보기·[－][＋]는 일기와 같은 칸(diary.css의 :is(#diaryView,#photosView) 규칙).
    여기는 사진 메뉴에만 있는 칩 줄·날짜 머리줄·달력·선택 줄만. 콤팩트·톤다운, 버튼은 32px(누르는 범위 44px). */
 #appView #photosView .photos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
-#appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); background:var(--kptu-bg); }
+/* PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18): 위쪽은 사진·달력·폴더·앨범·휴지통 모든 탭, 모든 폭에서 두 줄 —
+   1줄 보기 칩, 2줄(.photos-tools) [정리][전체 ▾][찍은 날 ↓][－][＋] … 출처 아이콘(앨범 탭은 … [+ 새 앨범]).
+   둘째 줄은 높이가 고정이고 줄바꿈하지 않아, 탭을 옮겨도 위쪽 높이가 같다(좁으면 고르기 칸·정렬 글자가 줄어든다). */
+#appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:2px 0; background:var(--kptu-bg); }
 /* UI-칩줄두줄(10/31): 보기 칩 줄은 옆으로 밀지 않고 줄바꿈(칩 다섯이라 두 줄을 넘지 않아 [더보기]는 없다). */
 #appView #photosView .photos-chips{ display:flex; flex-wrap:wrap; gap:var(--ds-chip-row-gap,4px); min-width:0; }
-/* UI-전수디자인점검 F02: 폰은 칩 줄이 한 줄을 다 쓰고, [전체 ▾]·[－][＋]는 그 아래 줄 오른쪽(칩이 잘리거나 고르기 칸 밑에 숨지 않게). */
-@media(max-width:760px){
-  #appView #photosView .photos-bar{ flex-wrap:wrap; row-gap:4px; }
-  #appView #photosView .photos-chips{ flex:1 0 100%; }
-}
+#appView #photosView .photos-tools{ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; height:var(--ds-compact-height,32px); min-width:0; }
+#appView #photosView .photos-tools > *{ flex:none; }
+#appView #photosView .photos-tools > .photos-sp{ flex:1 1 0; min-width:0; }
+#appView #photosView .photos-tools > .photos-filter{ flex:0 1 auto; min-width:4.5em; }
+#appView #photosView .photos-tools > .photos-sort{ flex:0 1 auto; min-width:3.5em; overflow:hidden; text-overflow:ellipsis; }
+#appView #photosView .photos-srcs[hidden],#appView #photosView .photos-al-new[hidden]{ display:none; }
+#appView #photosView button.photos-al-new{ position:relative; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 10px; font-size:var(--ds-compact-text,13px); white-space:nowrap; }
+#appView #photosView button.photos-al-new::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #photosView .photos-chip{ position:relative; flex:none; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 12px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px);
   color:var(--kptu-muted); background:transparent; box-shadow:none; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-regular,400); }
 #appView #photosView .photos-chip[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
@@ -103,7 +109,7 @@
 #appView #photosView .photos-fx-group{ margin:6px 0 0; padding:0 6px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #photosView .photos-fx-group:first-child{ margin-top:0; }
 #appView #photosView .diary-grid-item.nx-dragging{ opacity:.55; }
-/* [앨범]: 카드 2칸(폰)·5칸(PC). 대표 사진 + #이름 + 장수, 마지막 + 새 앨범. */
+/* [앨범]: 카드 2칸(폰)·5칸(PC). 대표 사진 + #이름 + 장수. [+ 새 앨범]은 위쪽 둘째 줄 오른쪽 끝. */
 #appView #photosView .photos-albums{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
 @media (min-width:761px){ #appView #photosView .photos-albums{ grid-template-columns:repeat(5,minmax(0,1fr)); } }
 #appView #photosView .photos-album{ position:relative; min-width:0; }
@@ -113,8 +119,19 @@
 #appView #photosView .photos-album-name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:2px; }
 #appView #photosView .photos-album-n{ color:var(--kptu-muted); font-size:12px; font-variant-numeric:tabular-nums; padding-right:28px; }
 #appView #photosView .photos-album .photos-album-more{ position:absolute; right:0; bottom:0; }
-#appView #photosView button.photos-album-new{ display:grid; place-items:center; aspect-ratio:1/1; height:auto; min-height:0; margin:0; padding:0; border:var(--ds-line-width,.5px) dashed var(--ds-line); border-radius:6px; background:none; box-shadow:none; color:var(--kptu-muted); font-size:13px; font-weight:400; }
 #appView #photosView .photos-al-head .photos-album-more{ position:relative; margin-left:auto; }
+/* PHOTO-위쪽두줄앨범보기: 앨범 보기 세 단계([－][＋]). card = 위 큰 칸(두 칸씩, PC 다섯 칸), thumb = 작은 대표 사진 + #이름 / n장 · 기간 목록, line = #이름 … 장수 한 줄(그림 없음).
+   목록 두 단계는 한 줄씩 얇은 선으로 나누고, ⋯는 줄 오른쪽 가운데. */
+#appView #photosView .photos-albums:is([data-view="thumb"],[data-view="line"]){ display:flex; flex-direction:column; gap:0; }
+#appView #photosView .photos-albums:is([data-view="thumb"],[data-view="line"]) .photos-album{ display:flex; align-items:center; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #photosView .photos-albums:is([data-view="thumb"],[data-view="line"]) .photos-album-open{ flex:1 1 auto; display:flex; align-items:center; gap:10px; padding:4px 0; min-height:var(--kptu-touch-target,44px); }
+#appView #photosView .photos-albums:is([data-view="thumb"],[data-view="line"]) .photos-album .photos-album-more{ position:relative; right:auto; bottom:auto; }
+#appView #photosView .photos-albums[data-view="thumb"] .photos-album-cover{ flex:none; width:48px; height:48px; aspect-ratio:auto; }
+#appView #photosView .photos-album-txt{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+#appView #photosView .photos-album-meta{ color:var(--kptu-muted); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#appView #photosView .photos-albums[data-view="thumb"] .photos-album-n{ padding:0; font-size:inherit; }
+#appView #photosView .photos-albums[data-view="line"] .photos-album-name{ flex:1 1 auto; padding-left:2px; }
+#appView #photosView .photos-albums[data-view="line"] .photos-album-n{ padding-right:4px; }
 /* 고르기 판(옮길 폴더·넣을 앨범): od-link-menu 모양, 긴 나무는 판 안에서 넘김. */
 .photos-pick-menu{ max-height:min(60vh,420px); }
 .photos-pick-menu button:disabled{ opacity:.45; cursor:default; }
