@@ -48,7 +48,8 @@ for(const edge of ['left','right','bottom']){
   test(`number ${edge} edge belongs to the day list`,async({page})=>{
     await open(page);
     const button=dateButton(page,'2026-10-21'),box=await button.boundingBox();
-    expect(box.height).toBeGreaterThanOrEqual(32);
+    // S46-23: 보이는 날짜 줄 20px(날짜 바로 아래 일정), 누르는 범위는 ::after 44px.
+    expect(box.height).toBe(20);expect(await button.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
     const position=edge==='left'?{x:1,y:16}:edge==='right'?{x:box.width-1,y:16}:{x:box.width/2,y:box.height-1};
     await button.click({position});
     await expect(page.locator('#calendarDayModal')).toBeVisible();

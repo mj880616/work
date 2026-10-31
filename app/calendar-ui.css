@@ -112,7 +112,7 @@
 @media(max-width:760px){
   /* S46-23 폰 월 보기: 날짜 숫자 바로 아래부터 일정 줄(날짜 줄 20px), '+n'도 일정 줄 한 칸 높이. 주 높이는 calendar-month-view.js가
      '한 화면'(남은 높이 ÷ 주 수) 또는 '펼침'(그 주 일정이 모두 들어가는 높이)으로 --cmv-week-h에 넣는다. */
-  #calendarView .calendar-grid{--cmv-date-header-height:20px;--cmv-min-week-height:36px;--cmv-more-font-size:12px;--cmv-more-line-height:14px;--cmv-more-height:14px}
+  #calendarView .calendar-grid{--cmv-date-header-height:20px;--cmv-min-week-height:36px;--cmv-more-font-size:12px;--cmv-more-line-height:16px;--cmv-more-height:16px}
   #calendarView .cmv-weeks{display:flex;flex-direction:column}
   #calendarView .cmv-week{flex:0 0 auto;box-sizing:border-box;height:var(--cmv-week-h,auto);min-height:0;overflow:hidden}
   #calendarView .cmv-week-days{min-height:0}

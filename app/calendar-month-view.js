@@ -57,8 +57,9 @@ import {eventColor} from './home-read-model.js';
   // S46-23 폰 월 보기: 처음엔 '한 화면' 크기(위 줄·하단바·[+] 자리를 뺀 남은 높이를 주 수로 나눔), 일정이 칸을 넘치는 달은
   // 달력을 위아래로 밀면 칸이 커져 모두 보이는 '펼친' 크기. 크기는 메모리에만 두고(기기 저장 없음) 열 때·달 바꿀 때 늘 한 화면으로 시작한다.
   function phoneLayout(grid,weeks,head){
-    const header=cssPx(grid,'--cmv-date-header-height',20),step=cssPx(grid,'--cmv-lane-step',14);
-    const minWeek=Math.ceil(header+step+2);
+    const header=cssPx(grid,'--cmv-date-header-height',20),step=cssPx(grid,'--cmv-lane-step',14),moreHeight=cssPx(grid,'--cmv-more-height',16);
+    // 아주 낮은 화면에서도 일정 3줄 + '+n'은 남긴다(그보다 낮으면 그때만 화면 스크롤). 보통 폰 높이에서는 한 화면에 다 들어간다.
+    const minWeek=Math.ceil(header+3*step+moreHeight+2);
     grid.style.setProperty('--cmv-content-week-height',minWeek+'px');
     const headHeight=head?.getBoundingClientRect().height||cssPx(grid,'--cmv-head-height',23);
     const style=getComputedStyle(grid);
@@ -75,7 +76,7 @@ import {eventColor} from './home-read-model.js';
       height=Math.max(minGrid,available);
     }
     const rowHeight=Math.max(minWeek,(height-headHeight-border)/weeks);
-    const slots=Math.max(1,Math.floor((rowHeight-header-2)/step));
+    const slots=Math.max(1,Math.floor((rowHeight-header-2-Math.max(0,moreHeight-step))/step));
     if(expanded)grid.style.removeProperty('--cmv-grid-height');else grid.style.setProperty('--cmv-grid-height',height+'px');
     grid.dataset.cmvViewportHeight=String(height);
     grid.dataset.cmvLaneSlots=String(slots);
@@ -386,8 +387,8 @@ import {eventColor} from './home-read-model.js';
   function expandGesture(dx,dy){
     if(!touchStart||touchStart.done||!mq760.matches||!expandable)return;
     if(Math.abs(dy)<EXPAND_PX||Math.abs(dy)<Math.abs(dx)*1.5)return;
-    if(!expanded){touchStart.done=true;setExpanded(true);return}
-    if(dy>0&&touchStart.top&&window.scrollY<=0){touchStart.done=true;setExpanded(false)}
+    if(!expanded){touchStart.done=true;touchStart.pending=true;return}
+    if(dy>0&&touchStart.top&&window.scrollY<=0){touchStart.done=true;touchStart.pending=false}
   }
   // Only guard the release click here (no tab-swipe exists any more),
   // including events and overflow, without consuming touch events or restricting browser pan.
@@ -406,6 +407,10 @@ import {eventColor} from './home-read-model.js';
       if(Math.abs(t.clientX-touchStart.x)>slop||Math.abs(t.clientY-touchStart.y)>slop)touchStart.moved=true;
       expandGesture(t.clientX-touchStart.x,t.clientY-touchStart.y);
     },{passive:true});
+    // 손가락을 뗀 다음 그린다(밀던 중 화면이 뛰지 않고, 뗀 뒤의 누름은 위 규칙대로 막힌 다음).
+    const applyGesture=()=>{const next=touchStart?.pending;if(typeof next==='boolean')requestAnimationFrame(()=>setExpanded(next))};
+    grid.addEventListener('touchend',applyGesture,{passive:true});
+    grid.addEventListener('touchcancel',applyGesture,{passive:true});
     grid.addEventListener('touchend',e=>{
       if(e.touches?.length){touchStart=null;return}
       if(!touchStart||!e.changedTouches?.length)return;

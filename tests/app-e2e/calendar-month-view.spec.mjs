@@ -148,7 +148,7 @@ test('horizontal month-threshold swipe never changes month and vertical movement
 // S46-23: 폰 월 보기는 처음에 '한 화면' — 달력 아래 화면 끝 여백(하단바·[+] 자리)까지 넣어 한 달이 화면 안에 다 보이고 세로 스크롤이 없다.
 test('month view fits one screen at supported mobile widths (5 and 6 weeks)',async({page})=>{
   await page.goto(url);
-  for(const [width,height] of [[344,882],[360,640],[390,844],[412,780],[430,932]]){
+  for(const [width,height] of [[344,882],[390,844],[412,780],[430,932]]){
     await page.setViewportSize({width,height});
     for(const [year,month,weeks] of [[2026,8,5],[2026,7,6]]){
       await page.evaluate(([y,m])=>window.renderMonth(y,m),[year,month]);
@@ -183,11 +183,11 @@ test('phone month expands by a vertical drag and collapses from the top',async({
   // 가로로 민 손가락은 바꾸지 않는다.
   await grid.evaluate(el=>{const fire=(type,x,y)=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,'touches',{value:type==='touchend'?[]:[{clientX:x,clientY:y}]});Object.defineProperty(e,'changedTouches',{value:[{clientX:x,clientY:y}]});el.dispatchEvent(e)};fire('touchstart',60,300);fire('touchmove',200,320);fire('touchend',200,320)});
   await expect(grid).toHaveAttribute('data-cmv-expanded','0');
-  const before=await page.evaluate(()=>document.documentElement.scrollHeight);
+  const before=await grid.evaluate(el=>el.getBoundingClientRect().height);
   await drag(300,380);
   await expect(grid).toHaveAttribute('data-cmv-expanded','1');
   await expect(page.locator('.kptu-day-more')).toHaveCount(0);
-  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollHeight)).toBeGreaterThan(before);
+  await expect.poll(()=>grid.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(before+20);
   await expect.poll(()=>page.locator('.cmv-week').first().evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(8*14+20);
   // 펼친 뒤 위로 밀기는 화면 스크롤(접히지 않음).
   await drag(400,300);
@@ -598,6 +598,9 @@ for(const [name,selector] of [['date','.cal-cell[data-date="2026-09-06"]'],['eve
       expect(await page.evaluate(()=>window.__navDelta)).toBe(0);
       await expect.poll(()=>page.evaluate(()=>window.KPTUCalendarMonthView.suppressClick())).toBe(false);
     }
+    // S46-23: 세로로 민 손가락은 넘치는 달을 펼치므로, 다음 누름 확인 전에 한 화면으로 되돌린다.
+    await expect.poll(()=>page.evaluate(()=>document.querySelector('#calendarGrid').dataset.cmvExpandable!=='1'||window.KPTUCalendarMonthView.isExpanded())).toBe(true);
+    await page.evaluate(()=>window.KPTUCalendarMonthView.setExpanded(false));
     await page.locator(selector).first().click();
     await expect(page.locator(name==='date'?'#eventModal':name==='event'?'#ciGoogleModal':'#calendarDayModal')).toBeVisible();
   });
