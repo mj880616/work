@@ -33,6 +33,7 @@ import { openPhotoView, closePhotoView } from './photo-view.js';
 import { pressFile, downloadFile, driveDownloadUrl } from './file-actions.js';
 import { fileKind } from './meeting-compact.js';
 import { attachmentName } from './attachment-name.mjs';
+import { renameHostAttrs, renameButtonHtml, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(공용 부품)
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
@@ -680,12 +681,12 @@ function fileRow(file){
   const library=!id?'':inLibrary?(doc?`<a class="basket-file-link" href="${esc(libraryHref)}" data-basket-library-open="${esc(doc)}" aria-label="${esc(name)} 자료실에서 보기">${link('library','자료실에서 보기')}</a>`:'')
     :sent?.kind==='unknown'?'':`<button type="button" class="basket-file-link" data-basket-library-send="${esc(id)}" aria-label="${esc(name)} ${sending?'보내는 중…':'자료실로 보내기'}"${sending?' disabled':''}>${link('library',sending?'보내는 중…':'자료실로 보내기')}</button>`;
   const hwp=id&&isHwpName(name)?`<button type="button" class="basket-file-link" data-basket-hwp-edit="${esc(id)}" aria-label="${esc(name)} 편집">${link('edit','편집')}</button>`:'';
-  const kind=fileKind(name);
+  const kind=fileKind(name),renameSpec={target:'note',id:selected?.id,driveId:id,name:String(file?.file_name||'')};
   const thumb=isPhoto(file)&&id?`<button type="button" class="basket-file-thumb" data-basket-photo="${esc(id)}" aria-label="${esc(name)} 크게 보기"></button>`
     :`<span class="basket-file-thumb basket-file-kind file-kind" data-kind="${esc(kind.key)}" aria-hidden="true">${esc(kind.label)}</span>`;
   // A sent or already-there result is a short notice (sendToLibrary); a refusal or an unknown result stays as one line here.
   const message=sent?.message&&!inLibrary?`<p class="basket-library-result" role="status" data-basket-library-status="${esc(id)}">${esc(sent.message)}</p>`:'';
-  return `<div class="basket-file" data-basket-file-card="${esc(id)}">${thumb}<div class="basket-file-body"><b class="basket-file-name" role="button" tabindex="0" data-basket-file-press="${esc(id)}">${esc(name)}</b><small class="basket-file-meta">${esc(meta)}</small><div class="basket-file-links" data-basket-library="${esc(id)}"${editing?' hidden':''}>${open}${save}${library}${hwp}</div></div>${ocrMarkup(file)}${message}</div>`;
+  return `<div class="basket-file" data-basket-file-card="${esc(id)}">${thumb}<div class="basket-file-body"><span class="basket-file-namebox" data-fr-row><b class="basket-file-name" role="button" tabindex="0" data-basket-file-press="${esc(id)}"${editing?'':renameHostAttrs(renameSpec)}>${esc(name)}</b>${editing?'':renameButtonHtml(renameSpec)}</span><small class="basket-file-meta">${esc(meta)}</small><div class="basket-file-links" data-basket-library="${esc(id)}"${editing?' hidden':''}>${open}${save}${library}${hwp}</div></div>${ocrMarkup(file)}${message}</div>`;
 }
 // The large photo: shared view (photo-view.js) with ×, Esc and phone Back (one router layer), as the diary does.
 function openPhoto(fileId,trigger){
@@ -1077,6 +1078,14 @@ async function rereadLinks() {
   } catch {}
 }
 window.addEventListener('kptu:basket-links-changed', rereadLinks);
+// ATT-이름고치기: 첨부 이름을 고치면(서버가 Drive 원본·Web2 줄을 함께 바꿈) 들고 있는 노트 값을 고치고 첨부 줄을 다시 그린다.
+window.addEventListener('kptu:file-renamed', e => {
+  const d = e.detail; if (!d?.drive_file_id) return;
+  let hit = false;
+  for (const n of notes) if (applyRenamedNote(n, d)) hit = true;
+  if (selected && !notes.includes(selected) && applyRenamedNote(selected, d)) hit = true;
+  if (hit && selected && root.isConnected && !editing) paintAttachments();
+});
 window.addEventListener('kptu:documents-changed', rereadLinks);
 window.addEventListener('kptu:document-categories-changed', () => { if (root.isConnected) renderList(); });
 function openHwpEditor(fileId){

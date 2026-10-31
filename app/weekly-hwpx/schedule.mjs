@@ -4,6 +4,7 @@
 //   scheduleMismatches — 본문(요약·산하조직·투쟁 사업장 줄)과 일정표가 같은 날 다르게 적힌 곳을 찾는다(고치지 않음, 화면 표시만).
 // AI(ai-assist kind=schedule_titles)가 다듬은 제목은 화면의 확인 목록에 들어갈 뿐이고, 여기서는 사람이 확인한 값만 쓴다.
 import {orgKey} from '../org-name-match.mjs';
+import {splitScheduleFields} from '../schedule-line-split.mjs';
 
 export const NO_PLACE = '미정';
 export const ALL_DAY = '종일';
@@ -18,7 +19,12 @@ export function itemWhat(item, overrides) {
   if (!item || item.time === undefined) return String(item?.what ?? '');
   const o = overrides?.get?.(item.key);
   // WEEKLY-주요일정칸: 칸별 고침의 시간(o.time)도 칸 글에 넣는다(날짜·참석은 scheduleForm이 줄·참석자 칸에).
-  return formWhat({time: o && one(o.time) ? o.time : item.time, title: o && one(o.title) ? o.title : item.title, place: o && o.place !== undefined ? o.place : item.place});
+  return formWhat(itemFields(item, overrides));
+}
+// 칸 글의 세 부분 {time, title, place}. WEEKLY-장소칸: 예전 한 줄 모양('10:30 / 제목 / 장소') 제목은 나눠 읽는다(schedule-line-split.mjs).
+export function itemFields(item, overrides) {
+  const o = overrides?.get?.(item.key);
+  return splitScheduleFields({time: o && one(o.time) ? o.time : item.time, title: o && one(o.title) ? o.title : item.title, place: o && o.place !== undefined ? o.place : item.place});
 }
 
 // 확인 목록에 보일 일정(휴가 빼고, 표 순서 그대로). [{key, day, label, time, title, place, multi, memo?}] — memo = 주간보고 기억(weekly-schedule-memory.js)
@@ -96,7 +102,7 @@ export function scheduleMismatches({sections, calendar, overrides, orgs = []}) {
       const events = byDay.get(day) ?? [];
       const what = events.map(e => itemWhat(e, overrides));
       if (!events.length) { out.push({day, where, line, body: times, events: [], kind: 'missing', sure: false}); continue; }
-      const at = new Set(events.map(e => overrides?.get?.(e.key)?.time || (e.time ?? String(e.what ?? '').split(' / ')[0])).filter(t => /^\d{2}:\d{2}$/.test(t)));
+      const at = new Set(events.map(e => (e.time === undefined ? String(e.what ?? '').split(' / ')[0] : itemFields(e, overrides).time)).filter(t => /^\d{2}:\d{2}$/.test(t)));
       if (times.every(t => at.has(t))) continue;
       const sure = events.some(e => [...orgsIn(itemWhat(e, overrides), orgs)].some(n => lineOrgs.has(n)));
       out.push({day, where, line, body: times, events: what, kind: 'time', sure});

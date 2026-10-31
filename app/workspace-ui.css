@@ -45,3 +45,10 @@ html,body{min-height:100%;scroll-padding-bottom:24px}
 .dt-pair{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:var(--kptu-space-2)}
 .time-input-hint{display:block;margin-top:var(--kptu-space-1);color:var(--kptu-danger);font-size:var(--kptu-text-meta);font-weight:400;line-height:1.4}
 .time-input-hint[hidden]{display:none}
+/* FORM-시간숫자: 화면이 만드는 시간 칸(time-input.js timeCell) = 숫자 칸 + 옆 작은 [종일](눌림은 연한 바탕). 새 크기 값 없음(토큰만). */
+.time-cell{display:inline-flex;align-items:center;gap:var(--kptu-space-1);min-width:0}
+.time-cell>input{flex:1 1 auto;min-width:0;width:auto}
+.time-cell>input[aria-invalid="true"]{border-color:var(--kptu-danger)}
+.time-cell>input[readonly]{color:var(--kptu-muted)}
+.time-cell>.time-all-day{flex:0 0 auto;white-space:nowrap}
+.time-cell>.time-all-day[aria-pressed="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink);border-color:var(--kptu-primary-ink)}

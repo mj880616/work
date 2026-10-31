@@ -6,7 +6,8 @@
 // changeWeekDocs: 다시 읽고 그 칸만 바꿔 조건부 쓰기). 한글 파일 1. 2) 주요 일정 칸에도 같은 줄('- 11.6.(금) 13:00 / 내용 / 장소')이 들어간다.
 // 이 자리(data-journal-weekly-hq-slot)는 이 모듈 하나가 그린다. 브라우저 저장소에 아무것도 두지 않는다.
 import {changeWeekDocs, withHq, withTitleEdit, draftHq} from './weekly-draft-store.js';
-import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, HQ_MAX, TITLE_MAX, PLACE_MAX, ALL_DAY} from './weekly-schedule-rows.mjs';
+import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, HQ_MAX, TITLE_MAX, PLACE_MAX} from './weekly-schedule-rows.mjs';
+import {timeCell, TIME_HINT} from './time-input.js';
 import {scheduleItems} from './weekly-hwpx/schedule.mjs';
 import {formDay} from './weekly-exec-requests.js';
 import {mountReorder} from './reorder-drag.js';
@@ -17,7 +18,7 @@ const TEXT = Object.freeze({
   failed:'2) 주요 일정을 불러오지 못했어요.',
   saveFailed:'저장하지 못했어요. 잠시 뒤 다시 해 주세요.',
   noTitle:'내용을 적어 주세요.',
-  badTime:'시간을 확인해 주세요(예: 0930 → 09:30, 종일).',
+  badTime:TIME_HINT,
   full:`줄은 ${HQ_MAX}개까지예요.`,
   noEvents:'이 2주 달력 일정이 없어요.',
 });
@@ -85,10 +86,10 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
       const wrap = el('label', `journal-exec-field journal-exec-${name === 'title' ? 'what' : name}`); wrap.append(el('span', null, label));
       const input = el('input'); input.type = type; input.value = d[name] ?? ''; input.dataset.journalHqField = name; input.id = `journalHq-${key}-${name}`;
       if (max) { input.maxLength = max; input.autocomplete = 'off'; }
-      if (name === 'time') input.placeholder = `10:30·${ALL_DAY}`;
       if (ui.invalid === name) input.setAttribute('aria-invalid', 'true');
       if (busy) input.disabled = true;
-      wrap.append(input); form.append(wrap);
+      // FORM-시간숫자: 숫자 자판 시간 칸 + 작은 [종일](공용 time-input.js). 틀린 시간은 칸 아래 안내, 저장 때 다시 거른다.
+      wrap.append(name === 'time' ? timeCell(input, {label:'시간', allDay:true}) : input); form.append(wrap);
     }
     const actions = el('div', 'journal-edit-actions save-row');
     if (row) { const del = btn('빼기', 'journalHqDelete', 'mini journal-delete save-row-start'); del.dataset.journalHqDelete = row.id; del.setAttribute('aria-label', `${row.title} 줄 빼기`); actions.append(del); }

@@ -208,9 +208,10 @@ for(const viewport of [{width:412,height:915},{width:1440,height:900}]){
     const open=async()=>{await row(page,'a').locator('[data-gt-edit]').click();await expect(page.locator('#gtEditAttach')).toBeVisible()};
     const att=page.locator('#gtEditAttach');
     await open();
-    await expect(att.locator('.gt-att-row').first().locator('button')).toHaveText(['열기','내려받기','교체','빼기']);
+    // ATT-이름고치기: the file name now carries a small ✎ (rename in place) before the row buttons.
+    await expect(att.locator('.gt-att-row').first().locator('button')).toHaveText(['✎','열기','내려받기','교체','빼기']);
     // Same small size on one line.
-    const boxes=await att.locator('.gt-att-row').first().locator('button').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return {h:Math.round(r.height),y:Math.round(r.top)}}));
+    const boxes=await att.locator('.gt-att-row').first().locator('button:not([data-fr-edit])').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return {h:Math.round(r.height),y:Math.round(r.top)}}));
     expect(new Set(boxes.map(b=>b.h)).size).toBe(1);expect(new Set(boxes.map(b=>b.y)).size).toBe(1);expect(boxes[0].h).toBeLessThanOrEqual(30);
     expect(await noSideScroll(page)).toBe(true);
 
