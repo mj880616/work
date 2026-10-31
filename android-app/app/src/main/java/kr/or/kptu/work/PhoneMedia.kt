@@ -67,6 +67,7 @@ object PhoneMedia {
             when (req) {
                 is PhoneMediaRules.Request.Page -> json(PhoneMediaRules.pageJson(PhoneMediaRules.page(all(context), req)))
                 is PhoneMediaRules.Request.Ids -> json(PhoneMediaRules.idsJson(all(context), req.ids))
+                PhoneMediaRules.Request.Folders -> json(PhoneMediaRules.foldersJson(all(context)))
                 is PhoneMediaRules.Request.Months -> json(PhoneMediaRules.monthsJson(PhoneMediaRules.filter(all(context), req.filter)))
                 is PhoneMediaRules.Request.Days -> json(PhoneMediaRules.daysJson(PhoneMediaRules.filter(all(context), req.filter), req.month, req.prefer))
                 is PhoneMediaRules.Request.Thumb -> thumb(context, req)
@@ -141,7 +142,7 @@ object PhoneMedia {
                         id = c.getLong(iId), name = name, size = long(iSize) ?: -1L, takenMs = takenMs, approx = approx,
                         addedMs = (long(iAdd) ?: 0L) * 1000, mime = str(iMime) ?: if (video) "video/mp4" else "image/jpeg",
                         width = (long(iW) ?: 0L).toInt(), height = (long(iH) ?: 0L).toInt(), durationMs = long(iDur) ?: 0L,
-                        video = video, screenshot = PhoneMediaRules.isScreenshot(str(iPath), name),
+                        video = video, screenshot = PhoneMediaRules.isScreenshot(str(iPath), name), folder = str(iPath) ?: "",
                     ),
                 )
             }

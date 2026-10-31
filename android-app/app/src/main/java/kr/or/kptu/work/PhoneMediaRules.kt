@@ -30,6 +30,8 @@ object PhoneMediaRules {
         val durationMs: Long,
         val video: Boolean,
         val screenshot: Boolean,
+        /** PHOTO-출처모든칩: 사진첩 폴더(relative_path, 예 'DCIM/Camera/'). 폰 폴더 보기에만 쓰고 밖으로 보내지 않는다. */
+        val folder: String = "",
     )
 
     enum class Access { FULL, PARTIAL, NONE }
@@ -44,7 +46,9 @@ object PhoneMediaRules {
     val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
 
     sealed class Request {
-        data class Page(val sort: String, val filter: String, val offset: Int, val limit: Int, val beforeMs: Long?) : Request()
+        data class Page(val sort: String, val filter: String, val offset: Int, val limit: Int, val beforeMs: Long?, val folder: String? = null) : Request()
+        /** PHOTO-출처모든칩: 폰 폴더 목록(폴더마다 장수·대표 1장). */
+        object Folders : Request()
         data class Ids(val ids: List<Long>) : Request()
         data class Months(val filter: String) : Request()
         data class Days(val month: String, val filter: String, val prefer: Set<Long>) : Request()
@@ -117,7 +121,7 @@ object PhoneMediaRules {
         return (images.orEmpty() + videos.orEmpty()).filter { seen.add(it.id) }
     }
 
-    private val PATH = Regex("^(?:/work/app)?/__phone/([A-Za-z0-9_-]{22,64})/(page|ids|months|days|thumb/([0-9]{1,18})|media/([0-9]{1,18}))$")
+    private val PATH = Regex("^(?:/work/app)?/__phone/([A-Za-z0-9_-]{22,64})/(page|ids|months|days|folders|thumb/([0-9]{1,18})|media/([0-9]{1,18}))$")
     private val MONTH = Regex("^[0-9]{4}-(0[1-9]|1[0-2])$")
     private val NUMBER = Regex("^[0-9]{1,18}$")
     private val KEY = Regex("^[A-Za-z0-9_-]{22,64}$")
@@ -151,14 +155,16 @@ object PhoneMediaRules {
                 val offset = q["offset"]?.let(::smallInt) ?: if (q.containsKey("offset")) return Request.Bad else 0
                 val limit = q["limit"]?.let(::smallInt) ?: if (q.containsKey("limit")) return Request.Bad else 120
                 val before = q["before"]?.let { if (NUMBER.matches(it)) it.toLong() else return Request.Bad }
+                val folder = q["folder"]?.let { if (isFolder(it)) it else return Request.Bad }
                 if (sort !in SORTS || filter !in FILTERS || filter == "star" || limit !in 1..PAGE_MAX) return Request.Bad
-                Request.Page(sort, filter, offset, limit, before)
+                Request.Page(sort, filter, offset, limit, before, folder)
             }
             what == "ids" -> {
                 val ids = numbers(q["ids"] ?: "") ?: return Request.Bad
                 if (ids.isEmpty() || ids.size > IDS_MAX) return Request.Bad
                 Request.Ids(ids)
             }
+            what == "folders" -> if (q.isNotEmpty()) Request.Bad else Request.Folders
             what == "months" -> if (filter !in FILTERS || filter == "star") Request.Bad else Request.Months(filter)
             what == "days" -> {
                 val month = q["month"] ?: return Request.Bad
@@ -174,6 +180,9 @@ object PhoneMediaRules {
             else -> if (q.isNotEmpty()) Request.Bad else Request.Original(m.groupValues[4].toLong())
         }
     }
+
+    /** 폰 폴더 값: 빈 값(사진첩 맨 위) 또는 255자 이하, 줄바꿈·제어 글자 없음. */
+    fun isFolder(v: String): Boolean = v.length <= 255 && v.none { it.isISOControl() }
 
     private fun sameKey(a: String, b: String): Boolean = MessageDigest.isEqual(a.toByteArray(), b.toByteArray())
 
@@ -201,7 +210,7 @@ object PhoneMediaRules {
             val v = if (i < 0) "" else part.substring(i + 1)
             val key = try { URLDecoder.decode(k, "UTF-8") } catch (_: Exception) { return null }
             val value = try { URLDecoder.decode(v, "UTF-8") } catch (_: Exception) { return null }
-            if (key !in setOf("sort", "filter", "offset", "limit", "before", "ids", "month", "prefer", "s") || out.containsKey(key)) return null
+            if (key !in setOf("sort", "filter", "offset", "limit", "before", "ids", "month", "prefer", "s", "folder") || out.containsKey(key)) return null
             out[key] = value
         }
         return out
@@ -300,7 +309,8 @@ object PhoneMediaRules {
 
     /** 한 쪽. 날로 건너뛰면(before, 찍은 날 최근 먼저만) 그 자리가 0이고 offset·next는 그 자리부터 센다. */
     fun page(list: List<Media>, req: Request.Page): Page {
-        val sorted = sorted(filter(list, req.filter), req.sort)
+        val inFolder = if (req.folder == null) list else list.filter { it.folder == req.folder }
+        val sorted = sorted(filter(inFolder, req.filter), req.sort)
         val start = if (req.beforeMs != null && req.sort == "taken_desc") startIndex(sorted, req.beforeMs) else 0
         val from = (start + req.offset).coerceIn(0, sorted.size)
         val to = (from + req.limit).coerceAtMost(sorted.size)
@@ -360,6 +370,25 @@ object PhoneMediaRules {
             "\"$d\":{\"count\":${ms.size},\"cover\":${itemJson(cover)}}"
         } + "}}"
     }
+
+    // ── 폰 폴더(PHOTO-출처모든칩) ──
+
+    /** 폴더 이름 = relative_path의 마지막 칸('DCIM/Camera/' → 'Camera'). 비면 '폰'. */
+    fun folderName(path: String): String = path.trimEnd('/').substringAfterLast('/').ifEmpty { "폰" }
+
+    data class Folder(val path: String, val name: String, val count: Int, val cover: Media, val latestMs: Long)
+
+    /** 폴더마다 장수·대표(가장 최근 사진, 사진이 없으면 동영상). 최근 사진이 있는 폴더 먼저, 같으면 이름순. */
+    fun folders(list: List<Media>): List<Folder> {
+        val by = LinkedHashMap<String, MutableList<Media>>()
+        for (m in sorted(list, "taken_desc")) by.getOrPut(m.folder) { mutableListOf() }.add(m)
+        return by.map { (path, ms) -> Folder(path, folderName(path), ms.size, ms.firstOrNull { !it.video } ?: ms.first(), ms.first().takenMs) }
+            .sortedWith(compareByDescending<Folder> { it.latestMs }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }.thenBy { it.path })
+    }
+
+    fun foldersJson(list: List<Media>): String = "{\"folders\":[" + folders(list).joinToString(",") {
+        "{\"id\":" + ShellRules.jsonString(it.path.take(255)) + ",\"name\":" + ShellRules.jsonString(it.name.take(255)) + ",\"count\":" + it.count + ",\"cover\":" + itemJson(it.cover) + "}"
+    } + "]}"
 
     /** 그림 크기: 긴 쪽 기준(작은 그림 320, 크게 보기 1600). */
     fun thumbSide(large: Boolean): Int = if (large) THUMB_LARGE else THUMB_SMALL

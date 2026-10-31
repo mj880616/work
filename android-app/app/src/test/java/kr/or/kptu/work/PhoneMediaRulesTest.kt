@@ -172,4 +172,33 @@ class PhoneMediaRulesTest {
         val page = PhoneMediaRules.page(PhoneMediaRules.combine(listOf(a), listOf(b))!!, Request.Page("taken_desc", "all", 0, 10, null))
         assertEquals(listOf(2L, 1L), page.items.map { it.id })
     }
+
+    // PHOTO-출처모든칩: 폰 폴더 보기(사진첩 relative_path 기준, 보기 전용).
+    @Test
+    fun phoneFoldersAndFolderPages() {
+        assertEquals(Request.Folders, PhoneMediaRules.request(base + "folders", "GET", key))
+        assertEquals(Request.Bad, PhoneMediaRules.request(base + "folders?x=1", "GET", key))
+        assertEquals(Request.Page("taken_desc", "all", 0, 120, null, "DCIM/Camera/"), PhoneMediaRules.request(base + "page?folder=DCIM%2FCamera%2F", "GET", key))
+        assertEquals(Request.Page("taken_desc", "all", 0, 120, null, ""), PhoneMediaRules.request(base + "page?folder=", "GET", key))
+        assertEquals(Request.Bad, PhoneMediaRules.request(base + "page?folder=a%0Ab", "GET", key))
+        assertEquals(Request.Bad, PhoneMediaRules.request(base + "page?folder=" + "a".repeat(256), "GET", key))
+        assertEquals("Camera", PhoneMediaRules.folderName("DCIM/Camera/"))
+        assertEquals("Screenshots", PhoneMediaRules.folderName("Pictures/Screenshots/"))
+        assertEquals("폰", PhoneMediaRules.folderName(""))
+
+        val cam1 = media(1, 100).copy(folder = "DCIM/Camera/")
+        val cam2 = media(2, 300, video = true).copy(folder = "DCIM/Camera/")
+        val shot = media(3, 200, shot = true).copy(folder = "Pictures/Screenshots/")
+        val list = listOf(cam1, cam2, shot)
+        val folders = PhoneMediaRules.folders(list)
+        assertEquals(listOf("DCIM/Camera/", "Pictures/Screenshots/"), folders.map { it.path })
+        assertEquals(2, folders[0].count)
+        assertEquals(1L, folders[0].cover.id) // 사진 먼저(동영상보다)
+        val json = PhoneMediaRules.foldersJson(list)
+        assertTrue(json.startsWith("{\"folders\":[{\"id\":\"DCIM/Camera/\",\"name\":\"Camera\",\"count\":2,\"cover\":{\"id\":\"1\""))
+        val page = PhoneMediaRules.page(list, Request.Page("taken_desc", "all", 0, 10, null, "DCIM/Camera/"))
+        assertEquals(listOf(2L, 1L), page.items.map { it.id })
+        assertEquals(2, page.total)
+        assertEquals(3, PhoneMediaRules.page(list, Request.Page("taken_desc", "all", 0, 10, null)).total)
+    }
 }

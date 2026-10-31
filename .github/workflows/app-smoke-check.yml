@@ -453,6 +453,8 @@ jobs:
         run: node --test tests/photo-sources.test.mjs
       - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"
         run: node --test tests/phone-photo-errors.test.mjs
+      - name: "Photo sources on every chip (PHOTO-출처모든칩: 폴더·휴지통·앨범 출처 따르기·폰 폴더 보기, synthetic)"
+        run: node --test tests/photo-sources-chips.test.mjs
 
       - name: Check arsenal menu (주소 개편 ② E1, newest-first list·season/competition/search filters·goal lines·https links only, real archive data)
         run: node --test tests/arsenal-model.test.mjs

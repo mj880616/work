@@ -97,6 +97,9 @@
 #appView #photosView button.photos-fx-new{ display:flex; min-height:28px; height:auto; margin:2px 0 0; padding:0 6px; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:13px; font-weight:400; justify-content:flex-start; }
 #appView #photosView button.photos-fx-new:hover{ color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
 #appView #photosView .photos-fx-list{ display:flex; flex-direction:column; }
+/* PHOTO-출처모든칩: 두 출처면 '원드라이브'·'폰' 묶음 이름(작은 회색 글자 한 줄). */
+#appView #photosView .photos-fx-group{ margin:6px 0 0; padding:0 6px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #photosView .photos-fx-group:first-child{ margin-top:0; }
 #appView #photosView .diary-grid-item.nx-dragging{ opacity:.55; }
 /* [앨범]: 카드 2칸(폰)·5칸(PC). 대표 사진 + #이름 + 장수, 마지막 + 새 앨범. */
 #appView #photosView .photos-albums{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }

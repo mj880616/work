@@ -317,6 +317,12 @@ export function cleanTagName(v) {
 }
 export const sameTag = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 // 앨범 카드: 이름순, 장수 = 그 앨범의 원드라이브 사진 수, 대표 = 정한 대표(그 앨범에 있을 때) → 없으면 가장 최근 찍은 날의 사진.
+// PHOTO-출처모든칩: 앨범 카드를 지금 읽는 출처(use = {onedrive, phone})로 줄인다. 장수·대표 사진·안의 격자가 켜진 출처 것만.
+export function albumForSources(card, use = {}) {
+  const keys = use.onedrive ? card.keys : [], phoneKeys = use.phone ? card.phoneKeys : [];
+  const cover = use.onedrive ? card.cover : null;
+  return {...card, keys, phoneKeys, cover, phoneCover: cover ? null : phoneKeys[0] || null, count: keys.length + phoneKeys.length};
+}
 export function albumCards(tags, links) {
   const byTag = new Map();
   for (const l of links || []) if (l && typeof l.tag_id === 'string' && typeof l.item_key === 'string') (byTag.get(l.tag_id) || byTag.set(l.tag_id, []).get(l.tag_id)).push(l);
