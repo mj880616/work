@@ -56,7 +56,7 @@
 
 - 시작할 때 원격 최신 `main`을 다시 확인한다. 기억한 commit hash를 최신으로 가정하지 않는다.
 - 최신 `main`에서 작업 브랜치를 만든다. 관련 브랜치·열린 PR이 있으면 그것을 이어서 쓴다.
-- 작업 브랜치 → 커밋 → PR. `main`에 직접 push하지 않는다. **merge는 사용자 승인 후에만 한다.**
+- 작업 브랜치 → 커밋 → PR. `main`에 직접 push하지 않는다. **merge는 사용자 승인 후에만 한다.** 커맨드센터는 사용자의 상시 허락(새 방 첫 허락 문장, `docs/command-center-ops.md` 0절)으로 merge한다 — 그것이 이 승인이다. 작업 세션은 merge하지 않고 커맨드센터에 맡긴다.
 - 사용자의 미커밋 변경을 덮어쓰거나 지우지 않는다. 관련 없는 변경을 한 작업에 섞지 않는다.
 - 과거 대화와 현재 저장소가 다르면 저장소와 실행 결과를 따른다.
 
@@ -129,13 +129,13 @@ Web2 (`app/`) is a private personal work system. Each signed-in user owns exactl
 
 ## 6. 정지 지점
 
-아래는 적용 직전에 멈추고, 적용 순서와 복구 경로를 보고한 뒤 승인을 받는다.
+아래는 적용 직전에 멈추고, 적용 순서와 복구 경로를 보고한 뒤 승인을 받는다. 작업 세션은 여기서 멈추고 커맨드센터에 맡긴다. 커맨드센터는 사용자의 상시 허락(`docs/command-center-ops.md` 0절)으로 진행하되, 순서(시험 적용 먼저)·되돌리기 경로 기록·사후 확인과 3절 보안 규칙은 그대로 지킨다(2026-10-31 사용자 결정: 사용자 손을 최대한 덜 가게, 보호 장치는 낮추지 않음).
 DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudflare 설정 변경, production 데이터 변경.
 
 ## 7. production DB 적용 (Claude Code 로컬 또는 폰 경로 C)
 
 - 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
-- 사용자 승인형 DB workflow: 커맨드센터가 main에서 apply를 시작 → 사용자 승인 한 번 → 사전 확인·snapshot·시험 적용(취소)·백업·적용·사후 확인, 하나라도 실패하면 멈춤(rollback 자동 실행 없음, 사용자 결정). AI는 승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 엄격 규칙 밖의 정책·권한·트리거·함수는 확장 규칙(짝 파일 5개 필수, anon·PUBLIC 권한·RLS 끄기·DEFINER+anon/PUBLIC 실행·권한을 넓히는 정책 교체 등 거절. 같은 이름·같은 표로 다시 만들며 권한을 높이지 않는 정책 교체는 운영 정의와 비교해 받음)으로만 받는다(`docs/ops-db-workflow.md` "승인 한 번 흐름"). rollback 모드 규칙은 그대로다.
+- 사용자 승인형 DB workflow: 커맨드센터가 main에서 apply를 시작 → (environment 승인이 걸려 있으면 승인 한 번) → 사전 확인·snapshot·시험 적용(취소)·백업·적용·사후 확인, 하나라도 실패하면 멈춤(rollback 자동 실행 없음, 사용자 결정). AI는 승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 엄격 규칙 밖의 정책·권한·트리거·함수는 확장 규칙(짝 파일 5개 필수, anon·PUBLIC 권한·RLS 끄기·DEFINER+anon/PUBLIC 실행·권한을 넓히는 정책 교체 등 거절. 같은 이름·같은 표로 다시 만들며 권한을 높이지 않는 정책 교체는 운영 정의와 비교해 받음)으로만 받는다(`docs/ops-db-workflow.md` "승인 한 번 흐름"). rollback 모드 규칙은 그대로다.
 - SQL Editor 적용은 항상 새 쿼리 창(+)에서 시작한다. 붙여 넣은 뒤 첫 줄·마지막 줄(`commit;`)·대상 프로젝트 ID를 확인하고 실행한다.
 - AI가 apply_migration 등 쓰기 도구로 production DB를 직접 변경하지 않는다.
 - **`supabase db push`·`migration repair`는 영구 금지.** production DB를 읽생기 저장소와 공유한다(`docs/migration-history.md`).
