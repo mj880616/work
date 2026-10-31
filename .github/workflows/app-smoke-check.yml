@@ -525,6 +525,9 @@ jobs:
       - name: Check save button place rule (UI-저장자리)
         run: node --test tests/save-button-rule.test.mjs
 
+      - name: Check phone keyboard never covers the field (UI-자판가림)
+        run: node --test tests/ui-keyboard-cover.test.mjs
+
       - name: Check small notice and confirm parts (UI-작은알림)
         run: node --test tests/small-notice.test.mjs
 
