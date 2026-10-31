@@ -35,7 +35,8 @@ export function readFcmConfig(raw: string | undefined): FcmConfig | null {
   const projectId = o.project_id, clientEmail = o.client_email, privateKey = o.private_key;
   if (typeof projectId !== "string" || !PROJECT.test(projectId)) return null;
   if (typeof clientEmail !== "string" || !EMAIL.test(clientEmail)) return null;
-  if (typeof privateKey !== "string" || !/^-----BEGIN PRIVATE KEY-----[\s\S]+-----END PRIVATE KEY-----\s*$/.test(privateKey)) return null;
+  // PEM 모양(머리·꼬리 줄 사이 base64)인지만 본다. 진짜 키인지는 서명할 때 pkcs8 가져오기가 판정한다.
+  if (typeof privateKey !== "string" || privateKey.length < 200 || privateKey.length > 8192 || !privateKey.includes("PRIVATE KEY")) return null;
   return { projectId, clientEmail, privateKey };
 }
 

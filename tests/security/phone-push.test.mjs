@@ -210,7 +210,7 @@ test('test push: unregistered device is revoked; failures counted; no device 409
  const o=harness({devices:[dev(D1,WS,TOKEN_A)],oauth:()=>reply(400,{error:'invalid_grant'})});
  assert.deepEqual(await (await o.user('test')).json(),{ok:true,sent:0,failed:1,revoked:0});
  assert.equal(o.state.calls.fcm.length,0);
- for(const value of [undefined,'{}','not json',JSON.stringify({...JSON.parse(SA),type:'user'}),JSON.stringify({...JSON.parse(SA),client_email:'x@gmail.com'})]){
+ for(const value of [undefined,'{}','not json',JSON.stringify({...JSON.parse(SA),type:'user'}),JSON.stringify({...JSON.parse(SA),client_email:'push-sender.iam.gserviceaccount.com'})]){
   const n=harness({devices:[dev(D1,WS,TOKEN_A)],env:{FCM_SERVICE_ACCOUNT_JSON:value}});
   const r=await n.user('test');assert.equal(r.status,424);assert.equal((await r.json()).error,'PUSH_NOT_CONFIGURED');
   assert.equal(n.state.calls.oauth.length,0);
@@ -224,6 +224,7 @@ test('fcm-send: title cut to 40 chars, open path limited to the app, odd kinds r
  assert.equal(F.cutTitle('가'.repeat(60)).length,40);assert.equal(F.cutTitle(' a\n\tb '),'a b');
  for(const ok of ['/work/app/','/work/app/?view=tasks&task=abc-1'])assert.ok(F.OPEN_PATH.test(ok),ok);
  for(const bad of ['https://evil.example/','/work/app/../x','//evil.example','/work/app/?a=<b>','javascript:alert(1)','/work/app/?x=\\'])assert.ok(!F.OPEN_PATH.test(bad),bad);
+ for(const bad of [{private_key:'short'},{private_key:'x'.repeat(300)},{project_id:'Bad_Project'}])assert.equal(F.readFcmConfig(JSON.stringify({...JSON.parse(SA),...bad})),null,JSON.stringify(bad).slice(0,40));
  const cfg=F.readFcmConfig(SA);assert.ok(cfg);assert.deepEqual(Object.keys(cfg).sort(),['clientEmail','privateKey','projectId']);
  let calls=0;const s=F.makeFcmSender(cfg,async()=>{calls++;return reply(200,{access_token:'ya29.synthetic-access-token'});},()=>NOW);
  assert.equal(await s.send(TOKEN_A,{kind:'test',title:'x',open:'https://evil.example/',urgent:false}),'failed');
