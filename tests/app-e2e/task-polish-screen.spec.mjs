@@ -67,7 +67,7 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·기한
   await expect(week.locator('.task-week-end')).toHaveCount(2);
   const wb=await week.boundingBox(),qb=await quick.getByRole('button',{name:'다음주',exact:true}).boundingBox();
   expect(wb.y).toBeGreaterThanOrEqual(qb.y+qb.height-1);expect(wb.y+wb.height).toBeLessThanOrEqual(800);
-  await page.locator('#gtEditNotes').click();
+  await page.locator('#gtEditTitle').click(); // 목록 밖(목록이 덮지 않는 제목 칸)을 누름
   await expect(week).toBeHidden();
   expect(calls.filter(c=>c.action==='update').length).toBe(before);
   await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-08');
