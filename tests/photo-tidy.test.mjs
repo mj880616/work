@@ -172,5 +172,61 @@ test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누�
   assert.ok(t.fresh()); clock += 11 * 60 * 1000; assert.ok(!t.fresh(), '10분 지나면 지우기 전에 다시 확인');
   assert.doesNotMatch(t.html({canTrash:false}), /data-photos-tidy-trash/);
   const src = read('app/photos.js');
-  assert.match(src, /if \(kind === 'space' && !tidy\.fresh\(\)\)/);
+  assert.match(src, /if \(needCopy && !tidy\.fresh\(\)\)/);
+});
+
+// ---- S47-16 PHOTO-폰지우기안전장치 ----
+import {copyPairs, keptText, goneText, SAFE_SYNC_TEXT} from '../app/photo-tidy-model.mjs';
+test('지우기 전 사본 짝: 같은 크기 + (같은 이름 또는 찍은 시각)만, 크기를 모르면 짝 없음', () => {
+  const noSize = ph(40, 'IMG_1.jpg', null, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/');
+  const otherSize = ph(41, 'IMG_2.jpg', 201, '2026-10-02T01:00:00.000Z', 'DCIM/Camera/');
+  const {pairs, noCopy} = copyPairs([PHS[0], PHS[1], PHS[2], noSize, otherSize], ODS);
+  assert.deepEqual(pairs.map(x => [x.item.id, x.copy.id]), [['ph:1', 'A'], ['ph:2', 'B']]);
+  assert.deepEqual(noCopy.map(x => x.id), ['ph:3', 'ph:40', 'ph:41']);
+  assert.deepEqual(copyPairs(PHS, []).pairs, []);
+  assert.equal(keptText(2, 0), '원드라이브에 없음 2장은 남겼어요');
+  assert.equal(keptText(0, 3), '원드라이브 확인 못 한 3장은 남겼어요');
+  assert.equal(keptText(0, 0), '');
+  assert.match(goneText(4), /^폰에서 지운 4장이 원드라이브에서도 지워졌어요\. 원드라이브 휴지통\(30일\)에서 되살리세요\. 동기화 앱이 양방향이면 업로드만으로 바꾸세요$/);
+});
+test('다음 사진 확인 때 사본 사라짐 경고 한 줄·[알았어요], 원드라이브를 못 읽으면 검사·[나머지 지우기] 없음', async () => {
+  const vid = ph(9, 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z', 'DCIM/Camera/', {video:true});
+  const vOd = {...od('E', 'VID_1.mp4', 80e6, '2026-09-01T01:00:00.000Z'), video:true};
+  const b1 = ph(30, 'B1.jpg', 2e6, '2026-10-05T01:00:00.000Z', 'DCIM/Camera/'), b2 = ph(31, 'B2.jpg', 3e6, '2026-10-05T01:00:00.600Z', 'DCIM/Camera/');
+  let watched = 0, seen = 0, gone = 3;
+  const t = createPhotoTidy({phone:{page:async () => ({items:[...PHS, vid, b1, b2], next:null})}, odReady:() => true, readOd:async () => ({items:[...ODS, vOd], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW,
+    watchTrash:async () => { watched++; return gone; }, seenTrash:async () => { seen++; }});
+  await t.rescan(); await new Promise(r => setTimeout(r, 0));
+  assert.equal(watched, 1);
+  let html = t.html({canTrash:true});
+  assert.match(html, /class="photos-tidy-line photos-tidy-warn" role="alert">폰에서 지운 3장이 원드라이브에서도 지워졌어요\..*<button type="button" class="mini" data-photos-tidy-gone-ok>알았어요<\/button>/);
+  assert.ok(html.includes(`<p class="photos-tidy-line">${SAFE_SYNC_TEXT}</p>`), '공간 비우기 설명 한 줄');
+  assert.match(html, /data-photos-tidy-trash="dups"/);
+  assert.deepEqual(t.copyPairs(t.group('space').items).pairs.map(x => x.copy.id), ['E']);
+  t.goneSeen();
+  assert.equal(seen, 1);
+  assert.doesNotMatch(t.html({canTrash:true}), /photos-tidy-warn/);
+  gone = 0; await t.rescan(); await new Promise(r => setTimeout(r, 0));
+  assert.equal(watched, 2); assert.doesNotMatch(t.html({canTrash:true}), /photos-tidy-warn/);
+  // 원드라이브 없음: 사본 검사 안 함, 짝 없음(null), 묶음 [나머지 지우기] 없음(잡동사니 지우기는 그대로).
+  let w2 = 0;
+  const t2 = createPhotoTidy({phone:{page:async () => ({items:[...PHS, b1, b2], next:null})}, odReady:() => false, readOd:async () => ({items:[], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW, watchTrash:async () => { w2++; return 5; }});
+  await t2.rescan(); await new Promise(r => setTimeout(r, 0));
+  assert.equal(w2, 0); assert.equal(t2.copyPairs(PHS), null);
+  const h2 = t2.html({canTrash:true});
+  assert.doesNotMatch(h2, /data-photos-tidy-trash="dup/); assert.match(h2, /data-photos-tidy-trash="kakao"/);
+});
+test('사진 메뉴 지우기 연결: 사본 확인된 것만 폰 휴지통, 지운 뒤 서버 기록, 경고 [알았어요]', () => {
+  const src = read('app/photos.js'), od = read('app/diary-onedrive.js');
+  assert.match(src, /const needCopy = kind === 'space' \|\| kind\.startsWith\('dup'\);/);
+  assert.match(src, /odCopyCheck\(rt, part\.map\(x => \(\{id:x\.copy\.id, size:x\.item\.size_bytes\}\)\)\)/);
+  assert.match(src, /list = g\.items\.filter\(x => copyOf\.has\(x\.id\)\);/);
+  // 확인 실패(네트워크)는 지우지 않음(확인 못 함).
+  assert.match(src, /catch \{ res = \{ok:\[\], missing:\[\], unsure:part\.map\(x => x\.copy\.id\)\}; \}/);
+  assert.match(src, /phone_id:x\.phoneId, copy_id:copyOf\.get\(x\.id\)/);
+  assert.match(src, /if \(b\.matches\('\[data-photos-tidy-gone-ok\]'\)\) \{ tidy\.goneSeen\(\); return true; \}/);
+  assert.match(src, /watchTrash:\(\) => odTrashWatch\(rt\), seenTrash:\(\) => odTrashSeen\(rt\)/);
+  for (const a of ['copy-check', 'trash-log', 'trash-watch', 'trash-seen']) assert.ok(od.includes(`action: '${a}'`), a);
 });
