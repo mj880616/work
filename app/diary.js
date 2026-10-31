@@ -228,7 +228,7 @@ function closeDetail({fromBack = false} = {}) {
 function renderDetail() {
   if (!selected) return;
   sendWhere(longDay(selected));
-  const row = rows.get(selected), text = diaryText(row), hasPhotos = dayAll(selected, row).length > 0;
+  const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odShown()).length + phoneShown(selected).length > 0;
   detail.hidden = false; list.hidden = true; if (!allHost.hidden) listView.hide();
   detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : emptyHtml('일기 없음')}`;
   syncDetailTitle();
@@ -262,12 +262,11 @@ async function loadPhoneDay(day) {
   if (selected === day && !photoStripOpen() && !edit && phoneDay.items.length) renderDetail();
 }
 const phoneShown = day => (phoneDay.day === day && phoneDay.state === 'ready' ? phoneDayItems(phoneDay.items, day, odShown()?.days?.[day] || []) : []);
-const dayAll = (day, row) => [...dayItems(day, row, odShown()), ...phoneShown(day)];
 // The day's photos: the ones uploaded here, then the OneDrive ones of the day, as one small square grid. [별표] keeps the starred ones.
 function renderPhotos() {
   const host = detail.querySelector('[data-diary-photos]');
   if (!host || !selected) return;
-  const row = rows.get(selected), all = dayAll(selected, row);
+  const row = rows.get(selected), all = dayItems(selected, row, odShown()).concat(phoneShown(selected));
   if (source === 'star') {
     if (starsState !== 'ready') { shown = []; host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>${starNoteHtml()}</p>`; return; }
     shown = all.filter(isStarred);

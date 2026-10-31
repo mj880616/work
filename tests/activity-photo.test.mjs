@@ -112,5 +112,5 @@ test('그 시각 사진 줄: 고른 사진만 기존 첨부 길로, 새 저장�
   assert.match(team,/onPick:files=>addMeetingFiles\(files\)/);
   assert.match(mrd,/onPick:files=>mrdAddPhotos\(files\)/);
   const diary=readFileSync(new URL('../app/diary.js',import.meta.url),'utf8');
-  assert.doesNotMatch(diary.slice(diary.indexOf('let phoneDay'),diary.indexOf('const dayAll')),/uploadDiaryPhotos|rt\.api|addStar/);
+  assert.doesNotMatch(diary.slice(diary.indexOf('let phoneDay'),diary.indexOf('const phoneShown')),/uploadDiaryPhotos|rt\.api|addStar/);
 });
