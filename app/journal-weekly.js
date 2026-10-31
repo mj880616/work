@@ -23,7 +23,7 @@ import {waitHtml, emptyEl} from './wait-state.js';
 // renderWeekly() into the box it owns.
 import {weeklyAreaRecords, summarizeAreaRecords, isOneline} from './business-area-model.mjs';
 import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
-  compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, OTHERS, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
+  compareOrgSections, journalMemosOn, documentLine, docDay, sharePageLine, UNSORTED, OTHERS, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
 import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
@@ -285,8 +285,9 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     const all = [...rawRecords, ...areaRecords], records = all.filter(r => keep(r, 'summary'));
     const tree = ok(m, 'catalog');
     // WEEKLY-자료요약: 프로젝트에만 연결된 자료 → 그 프로젝트 줄(placeRecords가 자리를 찾음). 같은 프로젝트의 그 주 기록과 비교한다.
+    // WEEKLY-자료날짜: 줄 날짜 = 자료 날짜(비었을 때만 올린 날). 그 주 밖 날짜 자료는 weekFiles가 이미 뺐다.
     const fileRecords = files.projects.map(({doc, id, name}) => {
-      const day = seoulDay(doc.created_at);
+      const day = docDay(doc);
       const item = editFile(fileItem(doc, day, fileVerdict(doc, {records:all.filter(r => r.id === id).map(r => r.text), attached:files.attachedProjects.get(id)})));
       return {id, name, day, at:doc.created_at, text:item.text, requests:[], file:item.file};
     });
@@ -318,7 +319,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     // 비교는 그 칸의 그 주 기록(자료 줄을 넣기 전)과 한다. 같으면 접고, 날짜·올린 시각 순으로 기록 뒤에 둔다.
     const recordsOf = new Map([...sections].map(([name, sec]) => [name, sec.items.map(item => item.text)]));
     for (const {doc, id, name, others} of files.orgs) {
-      const key = others ? OTHERS : name, day = seoulDay(doc.created_at);
+      const key = others ? OTHERS : name, day = docDay(doc);
       if (!sections.has(key)) sections.set(key, {name:key, items:[], folded:[], dropped:[]});
       const item = editFile(fileItem(doc, day, fileVerdict(doc, {records:recordsOf.get(key) || [], attached:files.attachedOrgs.get(id)})));
       if (others) { item.text = `${name} · ${item.text}`; if (item.file.original) item.file.original = `${name} · ${item.file.original}`; }
@@ -369,6 +370,8 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     due:part('due', () => ({items:perDayTasks((read, day) => pendingOn(read, day)),
       ...(days[6] > pendingCoverTo(today) ? {note:`할 일 예정은 오늘부터 ${PENDING_DAYS}일 안 마감만 모여요.`} : {})})),
     // 조직 칸·프로젝트 줄로 간 자료는 여기서 뺀다(두 번 안 보이게). 회의자료·연결 없는 자료는 그대로.
+    // WEEKLY-자료날짜: 이 목록은 올린 날(created_at) 기준 그대로다(자료 날짜가 그 주 밖인 자료도 여기엔 남음 — 자료는 지우지 않는다).
+    // 자료 날짜가 올린 날과 다르면 줄 끝에 자료 날짜(documentLine).
     docs:part('docs', () => ({items:perDay('documents', (read, day) => read.filter(doc => !files.placed.has(doc?.id) && seoulDay(doc?.created_at) === day).map(documentLine))})),
     shares:part('shares', () => ({items:perDay('sharePages', (read, day) => read.filter(page => seoulDay(page?.updated_at) === day).map(sharePageLine))})),
     memos:part('memos', () => ({items:perDay('basket', (read, day) => journalMemosOn(read, day))})),
@@ -395,7 +398,9 @@ function weekFiles(m, days) {
   const docs = ok(m, 'documents') || [], updates = ok(m, 'orgUpdates'), tree = ok(m, 'catalog'), basket = ok(m, 'basket');
   const names = new Map((updates?.orgs || []).map(org => [String(org.id).toLowerCase(), String(org.name || '').trim() || '조직']));
   const projects = new Map((Array.isArray(tree) ? tree : []).map(({project}) => [String(project?.id), String(project?.name || '').trim() || '이름 없는 사업영역']));
-  const week = docs.filter(doc => days.includes(seoulDay(doc?.created_at)));
+  // WEEKLY-자료날짜(10/31 요청함): 그 주 후보 = 자료 날짜(document_date)가 그 주인 자료. 자료 날짜가 비었을 때만 올린 날로 본다.
+  // 작년 성명을 이번 주에 올리면 자료 날짜가 작년이라 이번 주 조직 칸·사업영역 줄 후보에 들지 않는다('참고 › 자료실 새 자료'에는 남음).
+  const week = docs.filter(doc => days.includes(docDay(doc)));
   const placed = placeFiles(week, {orgs:{names, mine:updates?.mine instanceof Set ? new Set([...updates.mine].map(id => String(id).toLowerCase())) : null}, projects});
   const attachedOrgs = new Map(), attachedProjects = new Map();
   const put = (map, id, file) => { if (!id || !file) return; const key = String(id); if (!map.has(key)) map.set(key, new Set()); map.get(key).add(String(file)); };
