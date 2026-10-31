@@ -1358,7 +1358,8 @@ html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-prim
    아래가 칸처럼 생긴 버튼(.field-btn)과 날짜 칸(.dt-date)을 같은 높이·선·모서리로 맞춘다. 창마다 따로 덮지 않는다. */
 /* 같은 창의 공용 보조 버튼 규칙(.modal button.secondary, 32px·가운데 맞춤)보다 앞서도록 클래스를 겹쳐 쓴다. */
 .modal button.field-btn.field-btn{ position:relative; justify-content:flex-start; display:block; width:100%; box-sizing:border-box; height:var(--ds-field-height); min-height:var(--ds-field-height); margin:0; padding:0 24px 0 10px; line-height:calc(var(--ds-field-height) - 2px); text-align:left; font-size:var(--kptu-text-body); font-weight:var(--ds-weight-regular); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
-.modal button.field-btn::after{ content:"▾"; position:absolute; right:10px; top:0; color:var(--kptu-muted); }
+/* S46-29: ▾는 ::before(::after는 base-ui.css의 누르는 영역). */
+.modal button.field-btn::before{ content:"▾"; position:absolute; right:10px; top:0; color:var(--kptu-muted); }
 /* 날짜 칸(③⑥): 보이는 글자는 앱이 한 가지 'YYYY-MM-DD'로 그리고, 기기 달력(input type=date)은 그 위에 투명하게 겹쳐 눌러서 고른다(고르는 방식은 그대로). */
 .modal .dt-date{ position:relative; display:flex; align-items:center; box-sizing:border-box; height:var(--ds-field-height); min-width:0; padding:0 10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--kptu-text-body); font-weight:var(--ds-weight-regular); line-height:1; white-space:nowrap; }
 .modal .dt-date:focus-within{ border-color:var(--kptu-primary-ink); box-shadow:0 0 0 3px var(--kptu-primary-soft); }
