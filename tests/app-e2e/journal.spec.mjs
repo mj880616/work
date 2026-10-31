@@ -87,9 +87,13 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width,height});
  await openHome(page);
+ // PostgREST or=(and(col.op.val,…),…) — only the shape the journal sends (WEEKLY-자료날짜: put in the library in the week, or dated in the week).
+ const orSplit=v=>{const out=[];let depth=0,cur='';for(const ch of v){if(ch==='(')depth++;if(ch===')')depth--;if(ch===','&&depth===0){out.push(cur);cur='';continue}cur+=ch}if(cur)out.push(cur);return out};
+ const orCond=(row,c)=>{const [col,...rest]=c.split('.');if(row[col]==null)return false;const one=new URLSearchParams([[col,rest.join('.')]]);return match(instants(row,one),one)};
  const match=(row,q)=>{
   for(const [k,v] of q.entries()){
    if(['select','order','limit','offset'].includes(k))continue;
+   if(k==='or'){if(!orSplit(v.slice(1,-1)).some(g=>g.startsWith('and(')?orSplit(g.slice(4,-1)).every(c=>orCond(row,c)):orCond(row,g)))return false;continue}
    const [op,...rest]=v.split('.'),val=rest.join('.'),cell=String(row[k]);
    if(op==='eq'&&cell!==val)return false;
    if(op==='gte'&&!(cell>=val))return false;
@@ -118,7 +122,7 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
  await table('app_project_progress_updates',more.progress,'progress',q=>q.has('effective_on'));
  await table('app_spaces',more.spaces,null,q=>q.get('select')==='id,name'&&q.has('id'));
  await table('app_meetings',more.meetings,'meetings',q=>q.has('meeting_at'));
- await table('app_documents',more.docs,'documents',q=>q.has('created_at'));
+ await table('app_documents',more.docs,'documents',q=>q.has('created_at')||q.has('or'));
  await table('app_share_pages',more.shares,'sharePages',q=>q.has('updated_at'));
  // updated_at filters come as ISO instants; compare them as instants.
  const norm=(row,q)=>{const copy={...row};if(q.has('updated_at'))copy.updated_at=new Date(row.updated_at).toISOString();return copy;};
@@ -345,7 +349,8 @@ for(const width of [390,1280]){
   expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2)',occurred_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
   expect(f.reads.find(q=>q.table==='app_meetings')).toMatchObject({workspace_id:'eq.w',meeting_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
   // 자료실·공유 페이지 읽기도 이 업무 공간·이번 주로 가리고, 칸을 줄이고(본문·블록 없음) 개수를 제한한다.
-  expect(f.reads.find(q=>q.table==='app_documents')).toMatchObject({workspace_id:'eq.w',created_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z',select:'id,title,file_name,category,meeting_id,created_at,organization_id,project_id,file_id',limit:'300'});
+  // WEEKLY-자료날짜: 이번 주에 올린 자료 + 자료 날짜가 이번 주인 자료(한 번 읽기).
+  expect(f.reads.find(q=>q.table==='app_documents')).toMatchObject({workspace_id:'eq.w',or:'(and(created_at.gte.2026-10-04T15:00:00.000Z,created_at.lt.2026-10-11T15:00:00.000Z),and(document_date.gte.2026-10-05,document_date.lte.2026-10-11))',select:'id,title,file_name,category,meeting_id,created_at,document_date,organization_id,project_id,file_id',limit:'300'});
   expect(f.reads.find(q=>q.table==='app_share_pages')).toMatchObject({workspace_id:'eq.w',updated_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z',select:'id,title,status,updated_at',limit:'300'});
   expect(f.reads.find(q=>q.table==='app_project_progress_updates')).toMatchObject({effective_on:'gte.2026-10-05&lte.2026-10-11'});
   expect(f.reads.find(q=>q.kind==='eq.work')).toMatchObject({journal_day:'gte.2026-10-05&lte.2026-10-11'});
