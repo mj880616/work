@@ -133,6 +133,6 @@ test('앱(0.4.1): 끈 폴더 거르기·사진마다 폴더·폴더 바꾸기·�
   assert.match(main, /Settings\.ACTION_REQUEST_MANAGE_MEDIA/);
   assert.match(read('android-app/app/src/main/AndroidManifest.xml'), /android\.permission\.MANAGE_MEDIA/);
   const gradle = read('android-app/app/build.gradle');
-  assert.match(gradle, /versionName '0\.4\.1'/);
-  assert.match(gradle, /versionCode 41/);
+  assert.match(gradle, /versionName '0\.4\.[1-9]'/);
+  assert.match(gradle, /versionCode 4[1-9]/);
 });

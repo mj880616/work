@@ -18,9 +18,14 @@ const CALS=['primary','cal-b','cal-c'];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const iso=d=>d.toISOString();
 
+// 앱 달력은 서울 날짜 기준이다. 러너(UTC) 날짜로 달을 고르면 서울 자정~오전 9시에 달이 어긋난다.
+// 서울은 일광절약시간이 없어 +9시간으로 '서울 오늘'의 연·월을 구한다.
+function seoulYearMonth(now=Date.now()){const d=new Date(now+9*3600000);return {y:d.getUTCFullYear(),m:d.getUTCMonth()}}
+
 function monthEvents(){
-  const base=new Date(),y=base.getFullYear(),m=base.getMonth(),out=[];
-  for(const off of [-1,0,1])CALS.forEach((cal,i)=>{const d=new Date(y,m+off,10+i,9);out.push({id:`${cal}-${off}`,title:`G${off}-${cal}`,start:iso(d),end:iso(new Date(d.getTime()+3600000)),allDay:false,calendarId:cal,source:'google',color:'#4285f4'})});
+  const {y,m}=seoulYearMonth(),out=[];
+  // 서울 시각 오전 9시(UTC 00시)에 일정을 둔다. 러너 시간대와 상관없이 같은 날이 된다.
+  for(const off of [-1,0,1])CALS.forEach((cal,i)=>{const d=new Date(Date.UTC(y,m+off,10+i,0));out.push({id:`${cal}-${off}`,title:`G${off}-${cal}`,start:iso(d),end:iso(new Date(d.getTime()+3600000)),allDay:false,calendarId:cal,source:'google',color:'#4285f4'})});
   return out;
 }
 
@@ -126,7 +131,7 @@ test('Google Calendar 요청 수·시간 측정 (첫 진입·월 이동·포커�
 test('일정 생성 직후에는 캐시와 포커스 제한을 무시하고 새로 읽는다',async({page})=>{
   const state=newState();
   await openCalendar(page,state);
-  const mark=state.log.length,day=new Date(new Date().getFullYear(),new Date().getMonth(),20),ymd=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-20`;
+  const mark=state.log.length,{y,m}=seoulYearMonth(),ymd=`${y}-${String(m+1).padStart(2,'0')}-20`;
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('새 Google 일정');
   await page.locator('#eventStartDate').fill(ymd);
