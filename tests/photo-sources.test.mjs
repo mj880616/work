@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, phoneToItem, phoneIdOfKey, sameMedia, dupFinder, mergeSources, mergeDays, mergeMonths, daysFromItems, SOURCE_DEFAULT} from '../app/photo-sources-model.mjs';
+import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, GDRIVE_READY, gdriveAllowed, gdriveToItem, gdriveIdOf, gdriveBefore, gdriveFrom, gdriveErrorText, gdriveNeedsReconnect, gdriveState, phoneToItem, phoneIdOfKey, sameMedia, dupFinder, mergeSources, mergeDays, mergeMonths, daysFromItems, SOURCE_DEFAULT} from '../app/photo-sources-model.mjs';
 import {validValue} from '../app/view-prefs.js';
 import {albumCards, calendarFromDays} from '../app/photos-model.mjs';
 
@@ -23,13 +23,54 @@ test('출처 상태: 없으면 원드라이브·폰 켜짐, 구글 꺼짐 / 켜�
   for (const name of ['onedrive', 'gdrive', 'phone']) assert.match(sql, new RegExp(`"${name}"`));
 });
 
-test('아이콘 줄: 폰 사진은 앱에서만, 구글 드라이브는 준비 중(켜지지 않음)', () => {
-  assert.deepEqual(sourceButtons(null).map(b => b.name), ['onedrive', 'gdrive']);
-  const app = sourceButtons({gdrive:true}, {phone:true});
+test('아이콘 줄: 폰 사진은 앱에서만, 구글 드라이브는 운영자 기능이 있을 때만(권한 없으면 \'권한 없음\')', () => {
+  assert.deepEqual(sourceButtons(null).map(b => b.name), ['onedrive'], '기능 없는 작업공간: 구글 드라이브 칩 자체가 없음');
+  const app = sourceButtons({gdrive:true}, {phone:true, gdrive:true});
   assert.deepEqual(app.map(b => b.name), ['onedrive', 'gdrive', 'phone']);
-  assert.equal(app[1].on, false); assert.equal(app[1].ready, false); assert.match(app[1].label, /준비 중/);
+  assert.equal(app[1].on, true); assert.equal(app[1].ready, true); assert.equal(app[1].label, '구글 드라이브 켜짐');
+  const missing = sourceButtons({gdrive:true}, {gdrive:true, gdriveProblem:'scope_missing'})[1];
+  assert.equal(missing.ready, false); assert.equal(missing.label, '구글 드라이브 · 권한 없음');
+  assert.equal(sourceButtons(null, {gdrive:true, gdriveProblem:'drive_auth_expired'})[1].label, '구글 드라이브 · 권한 없음');
+  assert.equal(sourceButtons(null, {gdrive:true, gdriveProblem:'gdrive_unavailable'})[1].label, '구글 드라이브 · 못 읽음');
   assert.deepEqual(activeSources({phone:true}, {onedrive:true, phone:false}), {onedrive:true, phone:false, gdrive:false});
   assert.deepEqual(activeSources({onedrive:false}, {onedrive:true, phone:true}), {onedrive:false, phone:true, gdrive:false});
+  assert.deepEqual(activeSources({gdrive:true}, {gdrive:true}), {onedrive:false, phone:false, gdrive:true});
+  assert.deepEqual(activeSources({gdrive:true}, {gdrive:false}).gdrive, false, '권한 없음이면 읽지 않음');
+  assert.equal(activeCount({onedrive:true, gdrive:true}), 2);
+});
+
+test('구글 드라이브: 기능 목록·칸 모양·다음 쪽 기준·오류 글·상태', () => {
+  assert.equal(GDRIVE_READY, true);
+  assert.equal(gdriveAllowed(['calls', 'gdrive_photos']), true);
+  assert.equal(gdriveAllowed(['calls']), false); assert.equal(gdriveAllowed(null), false); assert.equal(gdriveAllowed('gdrive_photos'), false);
+  const it = gdriveToItem({id:'AbC_1-x', folder:'F1', name:'IMG_1.jpg', video:false, size_bytes:500, taken_at:'2026-10-30T10:00:00+09:00', approx:false, day:'2026-10-30'});
+  assert.equal(it.id, 'gd:AbC_1-x'); assert.equal(it.key, 'gd:AbC_1-x'); assert.equal(it.gdId, 'AbC_1-x'); assert.equal(it.source, 'gdrive'); assert.equal(it.kind, 'gdrive');
+  assert.equal(it.taken_at, '2026-10-30T01:00:00.000Z', '시각은 원드라이브와 같은 ISO 모양으로');
+  assert.equal(gdriveIdOf(it.id), 'AbC_1-x'); assert.equal(gdriveIdOf('ph:1'), null);
+  assert.equal(gdriveToItem({id:'a/b', taken_at:'2026-10-30T00:00:00Z', day:'2026-10-30'}), null);
+  assert.equal(gdriveToItem({id:'a', taken_at:'x', day:'2026-10-30'}), null);
+  assert.equal(gdriveToItem({id:'a', taken_at:'2026-10-30T00:00:00Z', day:'2026-10-30', folder:'../x'}).folder, null);
+  assert.deepEqual(gdriveBefore(it), {t:it.taken_at, id:'AbC_1-x'});
+  assert.equal(gdriveBefore(null), null);
+  assert.equal(gdriveFrom('2026-10-01T00:00:00.000Z').t, '2026-10-01T00:00:00.000Z');
+  assert.match(gdriveFrom('2026-10-01T00:00:00.000Z').id, /^z+$/);
+  assert.equal(gdriveErrorText({message:'scope_missing'}), '구글 드라이브 사진 권한이 없어요 (scope_missing)');
+  assert.match(gdriveErrorText({message:'뭔가 이상한 글', status:500}), /\(http_500\)$/);
+  assert.equal(gdriveNeedsReconnect({message:'drive_auth_expired'}), true);
+  assert.equal(gdriveNeedsReconnect({message:'gdrive_unavailable'}), false);
+  assert.deepEqual(gdriveState({ok:true, scope:false, folders_on:0}), {problem:'scope_missing', foldersOn:0});
+  assert.deepEqual(gdriveState({ok:true, scope:true, folders_on:3}), {problem:'', foldersOn:3});
+});
+
+test('섞기: 같은 사진은 원드라이브 > 구글 드라이브 > 폰 사진 순서로 한 장', () => {
+  const o = od('A', '2026-10-30T09:00:00.000Z', {name:'IMG_1.jpg', size_bytes:500});
+  const g = (id, t, extra = {}) => gdriveToItem({id, name:`${id}.jpg`, taken_at:t, day:t.slice(0, 10), size_bytes:77, ...extra});
+  const gds = [g('G1', '2026-10-31T09:00:00.000Z', {name:'IMG_7.jpg', size_bytes:700}), g('G2', '2026-10-30T09:00:00.000Z', {name:'IMG_1.jpg', size_bytes:500})];
+  const phs = [ph(7, '2026-10-31T09:00:00.000Z', {name:'IMG_7.jpg', size_bytes:700}), ph(8, '2026-10-29T09:00:00.000Z')];
+  const m = mergeSources([{source:'onedrive', items:[o], ended:true}, {source:'gdrive', items:gds, ended:true}, {source:'phone', items:phs, ended:true}], 'taken_desc');
+  assert.deepEqual(m.items.map(x => x.id), ['gd:G1', 'A', 'ph:8'], 'G2는 원드라이브 A와 같은 사진, 폰 7은 구글 G1과 같은 사진');
+  const open = mergeSources([{source:'onedrive', items:[o], ended:true}, {source:'gdrive', items:[gds[0]], ended:false}], 'taken_desc');
+  assert.deepEqual(open.items.map(x => x.id), ['gd:G1'], '끝나지 않은 구글 드라이브 마지막 칸보다 뒤는 아직 안 보임');
 });
 
 test('폰 사진 칸: 앱 JSON → 칸(열쇠 ms:번호, id ph:번호), 모양이 틀리면 버림', () => {
