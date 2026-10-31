@@ -33,7 +33,7 @@ import {mountCategoryEditor} from './document-category-editor.js';
 import {startAutoTextRead} from './document-text-read.js';
 import {fillLibraryDocument,keptFields,originAfterEdit,autoTidyLibrary,reclassifyLibraryDocument} from './library-ai-fill.js';
 import {openLibraryHtmlView} from './library-html-view.js';
-import {bindLibraryDrop,runDropUpload,progressText as luDropProgressText,resultText as luDropResultText,DROP_HINT,DROP_RESULT_CLEAR_MS} from './library-drop.js';
+import {bindLibraryDrop,groupDropTarget,runDropUpload,progressText as luDropProgressText,resultText as luDropResultText,DROP_HINT,DROP_RESULT_CLEAR_MS} from './library-drop.js';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const LU_SESSION='kptu_collab_session_v1';
@@ -220,32 +220,46 @@ function luSetSelectedFiles(files){if(luUploading)return;luUploadEntries=Array.f
 let luDropRun=null,luDropClearTimer=0;
 const luDropActive=()=>window.KPTURouter?.current==='library'&&!luPhone()&&!document.querySelector('.modal:not(.hidden)')&&(!luUploading||!!luDropRun);
 function luDropStatus(text,{error=false,busy=false}={}){const st=document.querySelector('#libraryDropStatus');if(!st)return;clearTimeout(luDropClearTimer);st.textContent=text||'';st.hidden=!text;st.classList.toggle('error',!!error);st.setAttribute('aria-busy',busy?'true':'false');st.setAttribute('role',error?'alert':'status');if(text&&!error&&!busy)luDropClearTimer=setTimeout(()=>luDropStatus(''),DROP_RESULT_CLEAR_MS)}
-async function luUploadDropped(file){let fd=null;try{fd=new FormData();fd.append('file',await window.KPTURuntime.copyUploadFile(file));const d=await luUploadRequest(fd,file);if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했습니다.');luAiFill(d.document.id,fd,file.name);return d.document}finally{fd?.delete('file');fd=null}}
+// S46-25: value({field,value})가 있으면 그 값을 달아 올린다. 사업영역·분류는 [+ 자료 등록]과 같은 요청 칸(project_id·category, 서버가 사업영역 권한을 다시 봄),
+// 담당조직은 담당조직 상세 [+]와 같은 연결(linkUploadedDocument, DB가 같은 작업공간 조직만 받음). AI 채우기는 그 뒤에 시작해 사람이 놓은 값을 덮지 않는다
+// (분류는 keep, 사업영역·담당조직은 이미 차 있어 AI가 비어 있는 연결만 채우는 규칙에 걸리지 않음). 결과 {doc,linked}.
+async function luUploadDropped(file,value=null){let fd=null;try{fd=new FormData();fd.append('file',await window.KPTURuntime.copyUploadFile(file));if(value&&value.field!=='organization_id')fd.append(value.field,value.value);const d=await luUploadRequest(fd,file);if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했습니다.');let linked=true;if(value?.field==='organization_id')linked=await linkUploadedDocument(window.KPTURuntime,{documentId:d.document.id,workspaceId:luWorkspace,organizationId:value.value});luAiFill(d.document.id,fd,file.name);return {doc:d.document,linked}}finally{fd?.delete('file');fd=null}}
+// S46-25: 묶음 머리 값 확인. 사업영역은 고를 수 있는 사업영역(보관·옛 공간·확인 불가 제외), 담당조직은 읽어 온 내 작업공간 조직, 분류는 내 분류 목록에 있는 이름만.
+function luDropValue(raw){
+  if(luGroupBy==='project')return raw&&luCatalog()&&luIsSelectableProject(raw)?{name:luProjectName(raw)}:null;
+  if(luGroupBy==='organization'){const o=(luOrganizations||[]).find(x=>x.id===raw);return o?{name:String(o.name||'이름 없는 조직')}:null}
+  if(luGroupBy==='category')return documentCategories().includes(raw)?{name:categoryLabel(raw)}:null;
+  return null;
+}
+function luDropTarget(e){if(luGroupBy==='folder')return luFoldersReady?luFolders().fileTarget(e):null;return groupDropTarget(e,luGroupBy,{resolve:luDropValue})}
 // LIB-폴더로올리기 (2026-10-30): 폴더 묶기에서 폴더 줄에 놓았으면(target) 올린 자료마다 그 폴더에 넣는다(옮기기와 같은 자료 연결 표, 폴더 부품 putUploaded).
 // 다른 곳에 놓은 파일은 지금처럼 폴더 밖. 올리기 중 또 놓으면 그 파일은 놓은 곳(폴더 또는 밖) 그대로 줄 뒤에 이어 올린다.
+// S46-25: 사업영역·담당조직·분류 묶음 머리에 놓았으면(target.field) 그 값을 달아 올린다('공공기관사업본부로 2개 올렸어요').
 async function luDropFiles(files,target=null){
   const folder=target?.target?{id:target.target,name:target.name||'폴더'}:null;
-  const entries=Array.from(files||[]).map(file=>({file,folder}));
+  const value=!folder&&target?.field?{field:target.field,value:target.value,name:target.name||'',key:target.key}:null;
+  const entries=Array.from(files||[]).map(file=>({file,folder,value}));
   // 이미 올리는 중이면 새로 놓은 파일은 그 줄 뒤에 이어 올린다(순서대로, 동시에 보내지 않음).
   if(luDropRun){luDropRun.queue.push(...entries);return}
   const run=luDropRun={queue:[...entries]};// 줄은 복사본(올리며 비우므로, 결과 문구는 처음 놓은 entries로 본다)
   const btn=document.querySelector('#newDocumentBtn');luUploading=true;luSetBusy(btn,true);
-  const total={done:0,failed:[],rest:0,unfiled:0};let stopped=null;const places=new Set(),filed=new Set();
+  const total={done:0,failed:[],rest:0,unfiled:0,unlinked:0};let stopped=null;const places=new Set(),filed=new Set(),valued=new Set();
   try{
     while(run.queue.length){
-      const batch=run.queue.splice(0,run.queue.length),where=new Map(batch.map(x=>[x.file,x.folder]));
-      for(const x of batch)places.add(x.folder?x.folder.id:'');
-      const upload=async file=>{const doc=await luUploadDropped(file),f=where.get(file);if(f){if(await luFolders().putUploaded(doc?.id,f.id))filed.add(f.id);else total.unfiled++}return doc};
+      const batch=run.queue.splice(0,run.queue.length),where=new Map(batch.map(x=>[x.file,x]));
+      for(const x of batch)places.add(x.folder?'f:'+x.folder.id:x.value?'v:'+x.value.key:'');
+      const upload=async file=>{const x=where.get(file),f=x?.folder,v=x?.value;const {doc,linked}=await luUploadDropped(file,v);if(v){if(linked)valued.add(v.key);else total.unlinked++}if(f){if(await luFolders().putUploaded(doc?.id,f.id))filed.add(f.id);else total.unfiled++}return doc};
       const r=await runDropUpload(batch.map(x=>x.file),{upload,preflight:luPreflightFailure,classify:e=>{const f=luUploadFailure(e);return {message:f.message,kind:f.kind,stop:!!f.stop}},onProgress:p=>luDropStatus(luDropProgressText(p),{busy:true})});
       total.done+=r.done;total.failed.push(...r.failed);total.rest+=r.rest;
       if(r.stopped){stopped=r.stopped;break}
     }
     if(filed.size){try{await luLoadFolders()}catch(e){console.error('library folders refresh after drop upload failed',e)}if(filed.size===1)luFolders().revealFolder([...filed][0])}
     if(total.done||total.failed.some(f=>f.kind==='unknown')){try{await luLoadDocuments();luRenderLibrary()}catch(e){console.error('library list refresh after drop upload failed',e)}}
+    if(valued.size===1)luRevealKeys([...valued]);
     if(total.done)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null}}));
     // 한 폴더에만 놓았으면 결과 문구에 그 폴더 이름('주간보고에 2개 올렸어요').
-    const only=places.size===1&&!places.has('')&&folder?folder.name:'';
-    luDropStatus(luDropResultText({...total,folder:only}),{error:!!(total.failed.length||total.rest||total.unfiled)});
+    const one=places.size===1&&!places.has(''),only=one&&folder?folder.name:'',onlyValue=one&&value?value.name:'';
+    luDropStatus(luDropResultText({...total,folder:only,value:onlyValue}),{error:!!(total.failed.length||total.rest||total.unfiled||total.unlinked)});
     if(stopped&&luIsDriveAuthError(stopped.error))await luMaybeReconnectDrive(stopped.error);
   }catch(e){console.error('library drop upload failed',e);luDropStatus('올리지 못했어요. 잠시 후 다시 놓아 주세요.',{error:true})}
   finally{luDropRun=null;luUploading=false;luSetBusy(btn,false)}
@@ -256,7 +270,7 @@ function luEnhanceDrop(){
   const overlay=document.createElement('div');overlay.id='libraryDropOverlay';overlay.className='lu-drop-overlay';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');overlay.innerHTML='<span class="lu-drop-hint"></span>';overlay.firstChild.textContent=DROP_HINT;document.body.append(overlay);
   // 왼쪽 메뉴를 뺀 화면 전체(자료실 칸의 가로 범위, 세로는 창 전체).
   const place=()=>{const r=view.getBoundingClientRect();overlay.style.left=Math.max(0,Math.round(r.left))+'px';overlay.style.right=Math.max(0,Math.round(window.innerWidth-r.right))+'px'};
-  bindLibraryDrop({overlay,active:luDropActive,onFiles:luDropFiles,place,pick:e=>luGroupBy==='folder'&&luFoldersReady?luFolders().fileTarget(e):null,mark:t=>{if(luFolderUi)luFolderUi.markFile(t)}});
+  bindLibraryDrop({overlay,active:luDropActive,onFiles:luDropFiles,place,pick:luDropTarget,mark:t=>{if(t)luFolders().markFile(t);else if(luFolderUi)luFolderUi.markFile(null)}});
 }
 function luSetFileStatus(entry,kind,label){entry.kind=kind;entry.label=label;luRenderSelectedFiles()}
 function luResetUploadSelection({clearStatus=true}={}){luUploadEntries=[];const input=document.querySelector('#libraryFileInput');if(input)input.value='';luRenderSelectedFiles();if(clearStatus)luSetStatus(document.querySelector('#documentStatus'),'')}
