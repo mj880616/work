@@ -117,7 +117,8 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
     return {runway,scrollHeight:document.documentElement.scrollHeight,viewport:innerHeight};
   });
   expect(scrollRoom.runway).toBeGreaterThanOrEqual(56);
-  expect(scrollRoom.scrollHeight-scrollRoom.viewport).toBeGreaterThan(40);
+  // S46-23: 처음 월 보기는 한 화면(화면 끝 여백 = 하단바·전환 줄·[+] 자리까지 화면 안), 세로 스크롤 없음.
+  expect(scrollRoom.scrollHeight-scrollRoom.viewport).toBeLessThanOrEqual(2);
   const more=page.locator('.kptu-day-more').first();
   await expect(more).toBeVisible({timeout:10000});
   const busyWeek=page.locator(`.cal-cell[data-date="${today}"]`).locator('..').locator('..');
