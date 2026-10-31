@@ -92,7 +92,7 @@ export function clampPan(z, box = {}) {
   if (s <= 1 + ZOOM_EPS) return {s: 1, x: 0, y: 0};
   const {cw, ch} = fitSize(box);
   const mx = Math.max(0, (cw * s - num(box.W)) / 2), my = Math.max(0, (ch * s - num(box.H)) / 2);
-  return {s, x: Math.max(-mx, Math.min(mx, num(z?.x))), y: Math.max(-my, Math.min(my, num(z?.y)))};
+  return {s, x: Math.max(-mx, Math.min(mx, num(z?.x))) || 0, y: Math.max(-my, Math.min(my, num(z?.y))) || 0}; // -0 → 0
 }
 // 칸 가운데 기준 점 (fx, fy)를 그 자리에 둔 채 배율을 s1로.
 export function zoomAt(z, s1, fx = 0, fy = 0, box = {}) {
