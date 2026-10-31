@@ -14,7 +14,8 @@ test('저장 줄 CSS: 오른쪽 정렬, 맨 아래 고정 줄은 자판이 올�
  assert.match(css,/\.save-row\{[^}]*justify-content:flex-end/);
  assert.match(css,/\.save-row\s*>\s*\.save-row-start[^{]*\{[^}]*margin-right:auto/);
  assert.match(css,/\.save-row-sticky\{[^}]*position:sticky[^}]*bottom:calc\(var\(--kptu-mobile-tab-height/);
- assert.match(css,/body\.kptu-mobile-keyboard \.save-row-sticky\{[^}]*display:none/);
+ // 자판이 열리면 숨는 것은 UI-자판가림 한 목록(tests/ui-keyboard-cover.test.mjs)에 든다.
+ assert.match(css,/body\.kptu-mobile-keyboard :is\([^{]*\.save-row-sticky,[^{]*\):not\(:has\(\[data-keyboard-field\]\)\)\{ display:none !important; \}/);
  assert.match(base,/\.modal-action-footer\{[^}]*justify-content:flex-end/);
 });
 test('예전 떠 있는 [저장](float-save)은 없다',()=>{

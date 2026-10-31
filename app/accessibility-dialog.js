@@ -14,8 +14,62 @@
   // seen before the field was focused) or only the visual viewport. Compensate for zoom so iOS input auto-zoom
   // still counts as a keyboard, while pinch zoom alone does not.
   const phone=window.matchMedia('(max-width:760px)');
-  const editable=el=>!!el?.matches?.('input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),textarea,select,[contenteditable="true"]');
+  // A focused iframe (the HWP editor box) also counts: the field is inside it, and the viewport check below still decides.
+  const editable=el=>!!el?.matches?.('input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),textarea,select,[contenteditable="true"],iframe');
   let inputFooter=null,keyboardOpen=false,layoutHeight=innerHeight,layoutWidth=innerWidth;
+  // UI-자판가림: the field being typed in carries data-keyboard-field while the keyboard is open (one field at a time).
+  // ui-standard.css hides every docked bar at the bottom (quick input, [+], switch row, sticky save row…) unless it holds
+  // that field, so the docks never cover it. The mark stays through a tap's blur (like the keyboard state) and goes when
+  // the keyboard closes. When the field gets focus, or the keyboard opens or grows, the field is scrolled into the part
+  // of the screen above the keyboard with a little room under it; a later scroll by hand is left alone.
+  let keyboardField=null,shownHeight=0;
+  // A field on a bar that is itself fixed (a quick input dock, a bottom sheet) already sits where it can be seen; only
+  // fields in the page or in a popup's scrolling card are moved.
+  const pinned=el=>/^(fixed|sticky)$/.test(getComputedStyle(el).position);
+  const onFixedBar=el=>{for(let p=el.parentElement;p&&p!==document.body;p=p.parentElement){if(getComputedStyle(p).position==='fixed')return !p.matches('.modal')}return false};
+  // The pinned bar (a popup's title line, a sticky list head) drawn at this point that does not hold the field.
+  function barAt(field,x,y){
+    const hit=document.elementFromPoint(x,y);
+    for(let p=hit;p&&p!==document.body&&p!==document.documentElement;p=p.parentElement){if(pinned(p))return p.contains(field)?null:p.getBoundingClientRect()}
+    return null;
+  }
+  function scrollport(field){
+    for(let p=field.parentElement;p&&p!==document.body;p=p.parentElement){
+      if(/^(auto|scroll|overlay)$/.test(getComputedStyle(p).overflowY)&&p.scrollHeight>p.clientHeight+1){const r=p.getBoundingClientRect();return {el:p,top:r.top,bottom:r.bottom}}
+    }
+    return {el:document.scrollingElement||document.documentElement,top:0,bottom:innerHeight};
+  }
+  function revealField(field){
+    if(!field?.isConnected||field.matches('iframe')||onFixedBar(field))return;
+    const viewport=window.visualViewport,r=field.getBoundingClientRect();
+    if(!r.width&&!r.height)return;
+    const port=scrollport(field),x=Math.min(Math.max(r.left+r.width/2,1),innerWidth-1);
+    let top=Math.max(viewport?viewport.offsetTop:0,port.top),bottom=Math.min(viewport?viewport.offsetTop+viewport.height:innerHeight,port.bottom);
+    const head=barAt(field,x,top+2),foot=barAt(field,x,bottom-2);
+    if(head)top=Math.max(top,head.bottom);
+    if(foot)bottom=Math.min(bottom,foot.top);
+    // Room: a little above the field, one to two lines under it.
+    top+=8;bottom-=40;
+    const tall=r.height>bottom-top;
+    if(!(tall?(r.top<bottom&&r.bottom>top):(r.top>=top&&r.bottom<=bottom))){
+      field.style.scrollMarginTop=Math.max(0,Math.round(top-port.top))+'px';
+      field.style.scrollMarginBottom=Math.max(0,Math.round(port.bottom-bottom))+'px';
+      field.scrollIntoView({block:tall?'start':'nearest',inline:'nearest'});
+      field.style.scrollMarginTop='';field.style.scrollMarginBottom='';
+      if(!field.getAttribute('style'))field.removeAttribute('style');
+    }
+    // A pinned bar that was not at the edge when measured (a popup title line not yet stuck) can still lie on the
+    // field: look at the field's own top and bottom edge and move it clear (twice at most).
+    for(let i=0;i<2;i++){
+      const now=field.getBoundingClientRect(),over=barAt(field,x,now.top+1),under=tall?null:barAt(field,x,now.bottom-1);
+      const delta=over?now.top-over.bottom-8:under?now.bottom-under.top+40:0;
+      if(!delta)break;
+      port.el.scrollBy(0,delta);
+    }
+    // Last resort when nested scrolling left the field outside the part above the keyboard: the middle of it.
+    const end=field.getBoundingClientRect(),vTop=viewport?viewport.offsetTop:0,vBottom=viewport?vTop+viewport.height:innerHeight;
+    if(end.bottom<=vTop||end.top>=vBottom||(!tall&&(end.top<vTop||end.bottom>vBottom)))field.scrollIntoView({block:'center',inline:'nearest'});
+  }
   function syncKeyboard(){
     const viewport=window.visualViewport,focused=document.activeElement,editing=editable(focused);
     if((!editing&&!keyboardOpen)||!phone.matches||innerWidth!==layoutWidth){layoutHeight=innerHeight;layoutWidth=innerWidth}
@@ -24,7 +78,11 @@
     // A tap on a button blurs the field during its mousedown, before the click: dropping the state there would
     // bring the tab bar back under the finger. Keep it until the viewport actually grows back.
     const keyboard=phone.matches&&(editing||keyboardOpen)&&(viewport?covered>120:editing);
+    const opened=!!keyboard&&!keyboardOpen;
     keyboardOpen=!!keyboard;
+    const field=keyboardOpen?(editing?focused:keyboardField):null,moved=field!==keyboardField;
+    if(moved){keyboardField?.removeAttribute('data-keyboard-field');field?.setAttribute('data-keyboard-field','')}
+    keyboardField=field;
     document.body?.classList.toggle('kptu-mobile-keyboard',keyboardOpen);
     // Where the layout viewport already shrinks with the keyboard this stays 0.
     const inset=keyboardOpen&&viewport?Math.max(0,Math.round(innerHeight-viewport.height*scale-viewport.offsetTop)):0;
@@ -34,12 +92,16 @@
     if(inputFooter!==footer)inputFooter?.removeAttribute('data-keyboard-open');
     inputFooter=footer;
     footer?.toggleAttribute('data-keyboard-open',keyboardOpen&&editing&&modal.contains(focused));
+    const height=viewport?viewport.height*scale:innerHeight;
+    if(keyboardOpen&&editing&&(opened||(moved&&field)||height<shownHeight-1))revealField(field);
+    shownHeight=keyboardOpen?height:0;
   }
   window.visualViewport?.addEventListener('resize',syncKeyboard);
   window.visualViewport?.addEventListener('scroll',syncKeyboard);
   window.addEventListener('resize',syncKeyboard);
   phone.addEventListener?.('change',syncKeyboard);
-  document.addEventListener('focusin',syncKeyboard);
+  // A screen's own focus handler can move its content after ours: check the newly focused field once more next frame.
+  document.addEventListener('focusin',()=>{syncKeyboard();requestAnimationFrame(()=>{if(keyboardOpen&&keyboardField&&document.activeElement===keyboardField)revealField(keyboardField)})});
   document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
 
   // companions (optional): a function returning controls outside the dialog that stay in its Tab cycle (the full-screen
