@@ -110,12 +110,22 @@
 }
 
 @media(max-width:760px){
-  #calendarView .calendar-grid{--cmv-date-header-height:44px;--cmv-more-font-size:12px;--cmv-more-line-height:18px;--cmv-more-height:18px}
+  /* S46-23 폰 월 보기: 날짜 숫자 바로 아래부터 일정 줄(날짜 줄 20px), '+n'도 일정 줄 한 칸 높이. 주 높이는 calendar-month-view.js가
+     '한 화면'(남은 높이 ÷ 주 수) 또는 '펼침'(그 주 일정이 모두 들어가는 높이)으로 --cmv-week-h에 넣는다. */
+  #calendarView .calendar-grid{--cmv-date-header-height:20px;--cmv-min-week-height:36px;--cmv-more-font-size:12px;--cmv-more-line-height:16px;--cmv-more-height:16px}
+  #calendarView .cmv-weeks{display:flex;flex-direction:column}
+  #calendarView .cmv-week{flex:0 0 auto;box-sizing:border-box;height:var(--cmv-week-h,auto);min-height:0;overflow:hidden}
+  #calendarView .cmv-week-days{min-height:0}
+  #calendarView .cmv-week.cmv-week-moving{transition:height .22s ease}
+  /* 펼칠 수 있거나 펼친 동안 브라우저의 당겨서 새로고침을 끈다(달력 위 손가락은 펼치기·접기 몫). */
+  html.cmv-no-overscroll,html.cmv-no-overscroll body{overscroll-behavior-y:contain}
   #calendarView .cal-cell{position:relative;border-right:0}
   #calendarView .cal-cell::after{content:'';position:absolute;right:0;top:0;bottom:0;border-right:1px solid var(--kptu-border);pointer-events:none}
   #calendarView .cal-cell:last-child::after{display:none}
   .cmv-date-list,.cmv-date-create{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer}
-  .cmv-date-list{top:0;height:var(--cmv-date-header-height);padding:2px 0;text-align:left;display:flex;align-items:flex-start}
+  .cmv-date-list{top:0;height:var(--cmv-date-header-height);padding:0;text-align:left;display:flex;align-items:flex-start}
+  /* 보이는 날짜 줄은 20px, 누르는 범위는 공용 기준 44px(일정 줄 위는 일정 버튼이 먼저 받는다). */
+  .cmv-date-list::after{content:'';position:absolute;left:0;right:0;top:0;height:var(--kptu-touch-target,44px)}
   .cmv-date-list .cal-day{flex-shrink:1;min-width:0}
   .cmv-date-create{top:var(--cmv-date-header-height);bottom:0;padding:0}
   .cmv-date-list:focus-visible,.cmv-date-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}

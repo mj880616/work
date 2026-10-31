@@ -44,7 +44,8 @@ for(const width of [360,1280]){
         overlaps:others.map(x=>{const b=x.getBoundingClientRect();return {name:x.className,overlap:r.left<b.right-.1&&r.right>b.left+.1&&r.top<b.bottom-.1&&r.bottom>b.top+.1}}),
         hit:el.contains(document.elementFromPoint(r.right-2,r.top+2))};
     });
-    expect(geometry.height).toBe(44);expect(geometry.width).toBeGreaterThanOrEqual(44);
+    expect(geometry.height).toBe(width<=760?20:44);expect(geometry.width).toBeGreaterThanOrEqual(44); // S46-23: 폰 날짜 줄 20px(누르는 범위 ::after 44px)
+    if(width<=760)expect(await target.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
     expect(geometry.within).toBe(true);expect(geometry.overlaps.filter(x=>x.overlap)).toEqual([]);expect(geometry.hit).toBe(true);
     console.log('task target',width,JSON.stringify(geometry));
     if(width<761){
