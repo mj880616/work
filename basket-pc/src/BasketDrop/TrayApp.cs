@@ -33,11 +33,13 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _hotkeyMenu = new("단축키 바꾸기");
     private readonly ToolStripMenuItem _autoStartItem = new("윈도우를 켤 때 자동 실행");
     private readonly ToolStripMenuItem _cornerMenu = new("화면 구석 던지기 칸");
+    private readonly ToolStripMenuItem _desktopTileItem = new("바탕화면 칸");
     private readonly ToolStripMenuItem _restartForUpdateItem = new("새 버전으로 다시 시작") { Visible = false };
     private readonly SettingsStore _settings = new(AppPaths.Settings);
     private readonly AutoStartManager _autoStart;
     private readonly UpdateService _updates;
     private readonly CornerWatcher _cornerWatcher;
+    private readonly DesktopTile _desktopTile;
     private CancellationTokenSource? _signInCts;
     private PasteForm? _paste;
     private StatusForm? _status;
@@ -83,6 +85,9 @@ internal sealed class TrayApp : ApplicationContext
 
         _cornerWatcher = new CornerWatcher(this, CornerChoices.FromId(_settings.Load().Corner));
         RefreshCornerMenu();
+
+        _desktopTile = new DesktopTile(this, _settings, _log, _settings.Load().DesktopTile);
+        _desktopTileItem.Checked = _desktopTile.On;
 
         _autoStart = new AutoStartManager(new RegistryStartup(), _settings, UpdateService.IsInstalled ? Environment.ProcessPath : null);
         SyncAutoStart();
@@ -132,6 +137,8 @@ internal sealed class TrayApp : ApplicationContext
             _cornerMenu.DropDownItems.Add(item);
         }
         menu.Items.Add(_cornerMenu);
+        _desktopTileItem.Click += (_, _) => ToggleDesktopTile();
+        menu.Items.Add(_desktopTileItem);
         _autoStartItem.Click += (_, _) => ToggleAutoStart();
         menu.Items.Add(_autoStartItem);
         _restartForUpdateItem.Click += (_, _) => RestartForUpdate();
@@ -191,6 +198,22 @@ internal sealed class TrayApp : ApplicationContext
         ToastForm.Show(corner == CornerChoice.Off
             ? "화면 구석 던지기 칸을 껐어요. 트레이 메뉴에서 다시 켤 수 있어요."
             : $"화면 {CornerChoices.Label(corner)} 구석에 마우스를 잠깐 대면 던지기 칸이 나타나요.");
+    }
+
+    // ---- desktop tile ----
+
+    private void ToggleDesktopTile()
+    {
+        var on = !_desktopTile.On;
+        _desktopTile.Apply(on);
+        var s = _settings.Load();
+        s.DesktopTile = on;
+        try { _settings.Save(s); }
+        catch (IOException) { _log.Write(LogCode.Error); }
+        _desktopTileItem.Checked = on;
+        ToastForm.Show(on
+            ? "바탕화면 칸을 켰어요. 눌러서 끌면 위치를 옮길 수 있어요."
+            : "바탕화면 칸을 껐어요. 트레이 메뉴에서 다시 켤 수 있어요.");
     }
 
     // ---- start with Windows ----
@@ -273,6 +296,7 @@ internal sealed class TrayApp : ApplicationContext
         _stop.Cancel();
         _hotkey.Dispose();
         _cornerWatcher.Dispose();
+        _desktopTile.Dispose();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
         _updates.ApplyAndRestart();
@@ -388,6 +412,7 @@ internal sealed class TrayApp : ApplicationContext
         _stop.Cancel();
         _hotkey.Dispose();
         _cornerWatcher.Dispose();
+        _desktopTile.Dispose();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
         ExitThread();

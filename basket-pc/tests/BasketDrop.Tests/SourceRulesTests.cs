@@ -136,7 +136,29 @@ public class SourceRulesTests
         Assert.DoesNotContain("Clipboard", watcher);
         Assert.DoesNotContain("ClipboardReader", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerDropForm.cs")));
         // A drop goes through the one gate, like every other entry.
-        Assert.Contains("_app.Submit(", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerDropForm.cs")));
+        Assert.Contains("DropData.Send(_app,", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerDropForm.cs")));
+        Assert.Contains("app.Submit(", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "DropData.cs")));
+    }
+
+    [Fact]
+    public void The_desktop_tile_is_never_topmost_reads_no_keys_or_clipboard_and_sends_through_the_one_gate()
+    {
+        var form = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "DesktopTileForm.cs"));
+        var keeper = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "DesktopTile.cs"));
+        Assert.Contains("TopMost = false", form);
+        Assert.Contains("WsExNoActivate", form); // never takes focus
+        foreach (var text in new[] { form, keeper })
+        {
+            Assert.DoesNotContain("WsExTopmost", text);
+            Assert.DoesNotContain("HWND_TOPMOST", text);
+            Assert.DoesNotContain("new(-1)", text); // HWND_TOPMOST as a number
+            Assert.DoesNotContain("Clipboard", text);
+            Assert.DoesNotContain("GetCursorPos", text); // the keeper does not watch the mouse
+            Assert.DoesNotContain("HttpClient", text);
+        }
+        Assert.Contains("DropData.Send(_app,", form);
+        Assert.DoesNotContain(".Submit(", form);
+        Assert.Contains("\"Progman\"", keeper); // the owner is the desktop window
     }
 
     [Fact]

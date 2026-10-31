@@ -12,7 +12,6 @@ namespace BasketDrop.App;
 internal sealed class CornerWatcher : IDisposable
 {
     private const int VkLButton = 0x01, VkRButton = 0x02;
-    private const int MdtEffectiveDpi = 0;
 
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 50 };
     private readonly CornerDetector _detector = new();
@@ -45,12 +44,6 @@ internal sealed class CornerWatcher : IDisposable
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr MonitorFromPoint(NativePoint point, uint flags);
-
-    [DllImport("shcore.dll")]
-    private static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
 
     [DllImport("shell32.dll")]
     private static extern int SHQueryUserNotificationState(out int state);
@@ -91,7 +84,7 @@ internal sealed class CornerWatcher : IDisposable
         var now = DateTimeOffset.Now;
         if (_monitor == null || now - _layoutAt > TimeSpan.FromSeconds(5))
         {
-            _monitor = CornerGeometry.PickMonitor(Monitors(), _corner);
+            _monitor = CornerGeometry.PickMonitor(MonitorList.All(), _corner);
             _layoutAt = now;
         }
         var m = _monitor;
@@ -122,21 +115,6 @@ internal sealed class CornerWatcher : IDisposable
         var name = new StringBuilder(64);
         _ = GetClassName(fg, name, name.Capacity);
         return FullscreenRule.CoversMonitor(Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom), m.Bounds, name.ToString(), IsZoomed(fg));
-    }
-
-    /// <summary>All monitors in physical pixels (the program is per-monitor DPI aware) with each one's scale.</summary>
-    private static List<MonitorInfo> Monitors()
-    {
-        var list = new List<MonitorInfo>();
-        foreach (var s in Screen.AllScreens)
-        {
-            var dpi = 96;
-            var center = new NativePoint { X = s.Bounds.Left + s.Bounds.Width / 2, Y = s.Bounds.Top + s.Bounds.Height / 2 };
-            var handle = MonitorFromPoint(center, 2 /* MONITOR_DEFAULTTONEAREST */);
-            if (handle != IntPtr.Zero && GetDpiForMonitor(handle, MdtEffectiveDpi, out var dx, out _) == 0 && dx > 0) dpi = (int)dx;
-            list.Add(new MonitorInfo(s.Bounds, s.WorkingArea, s.Primary, dpi));
-        }
-        return list;
     }
 
     public void Dispose()
