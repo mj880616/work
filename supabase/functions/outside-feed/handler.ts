@@ -104,7 +104,11 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
       try { await r.body?.cancel(); } catch { /* ignore */ }
       throw new Fail(503, "STORE_UNAVAILABLE");
     }
-    if (r.status === 204) return [];
+    // 돌려받지 않는 쓰기(return=minimal·204)는 몸통이 비어 있다.
+    if (r.status === 204 || (prefer ?? "").includes("return=minimal") || r.headers.get("content-length") === "0") {
+      try { await r.body?.cancel(); } catch { /* ignore */ }
+      return [];
+    }
     let v: unknown;
     try { v = await readBoundedJson(r, { maxBytes: 4 * 1024 * 1024 }); } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
     return Array.isArray(v) ? v as Record<string, unknown>[] : [];
