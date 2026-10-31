@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 const KNOWN = [
   'basket-link-records.js', 'basket-notes.js', 'basket.js', 'calendar-day-overflow.js', 'calendar-interactions-v2.js' /* 일정 수정 창 머리줄 ⋯(data-ctx="off", 우클릭은 달력 일정의 메뉴가 맡음) */, 'call-feed.js', 'diary-list.js', 'diary.js', 'google-tasks.js', 'inbox-todos.js' /* TODO-내일만 챙길 것 줄 ⋯ */,
   'journal-hwpx.js' /* WEEKLY-주요일정칸: 한글 파일 상자 투쟁 사업장 줄 ⋯(이번 주 보고에서 빼기) — 공통 우클릭이 그 줄 ⋯을 연다 */, 'journal-weekly.js', 'journal.js', 'ledger-browse.js', 'legacy/meeting-detail-patches.js', 'library-tree.js', 'library-upload.js',
-  'meeting-columns.js', 'meeting-round-detail.js', 'org-dispute-stage-ui.js', 'photo-view.js', 'photos.js', 'project-system-v3.js', 'quick-links.js', 'reference-bundles.js',
+  'meeting-columns.js', 'meeting-round-detail.js', 'org-dispute-stage-ui.js', 'outside-statements.js' /* 바깥 성명 머리 줄 ⋯(data-ctx="off", 도구 줄 메뉴라 우클릭 대상 아님) */, 'photo-view.js', 'photos.js', 'project-system-v3.js', 'quick-links.js', 'reference-bundles.js',
   'share-pages.js', 'suborganizations.js', 'task-inline.js', 'task-row-view.js', 'task-workflow.js', 'telegram-feed.js', 'workplace-detail.js'
 ];
 const app = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
