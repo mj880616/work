@@ -270,8 +270,8 @@
 #appView :is(#teamView,#libraryView,#meetingsView) button.primary:not(.icon-btn,.lu-more-panel *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); min-height:var(--kptu-control-height); }
 /* UI-버튼전수조사(2026-10-24): 위 기본은 작은 버튼 32px, 채운 버튼(주 동작)은 36px. 담당조직·프로젝트 상세 [자료] 위 종류 칩(.doc-kind-chips)은
    이 규칙에서 빼서 자료실 종류 칩과 같은 알약 32px(아래 LIB-조직프로젝트자료종류)을 받는다. */
-/* ② 고른 필터는 회색(종류 색 '그 밖', UI-선택표시통일). 필터 묶음은 회색 알약 판 대신 버튼을 나란히(가로로 밀어 보기). */
-#appView :is(#libraryView,#meetingsView) .filter-chips{ gap:6px; padding:0; background:transparent; border-radius:0; min-height:var(--kptu-touch-target,44px); }
+/* ② 고른 필터는 회색(종류 색 '그 밖', UI-선택표시통일). 필터 묶음은 회색 알약 판 대신 버튼을 나란히(UI-칩줄두줄: 두 줄 + [더보기]). */
+#appView :is(#libraryView,#meetingsView) .filter-chips{ gap:var(--ds-chip-row-gap); padding:0; background:transparent; border-radius:0; min-height:0; }
 #appView :is(#libraryView,#meetingsView) .filter-chips button[aria-checked="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #appView :is(#libraryView,#meetingsView) .filter-chips button::after{ content:none; }
 
@@ -697,7 +697,7 @@
 /* ② 필터·날짜 고르기(알약 칩): 바구니 [미분류·분류·보류]와 [분류] 아래 분류된 곳 칩, 자료실 프로젝트·자료 분류, 회의 종류, 할 일 [프로젝트 ▾]·[오늘]·[내일]·[날짜]. */
 #appView #basketView .basket-switch-row .basket-filters:not([hidden]),
 #appView #homeView .home-quick [data-quick-task-options]:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 6px; width:auto; max-width:100%; margin:0; padding:0; background:transparent; border:0; border-radius:0; }
-#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; }
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap); min-height:0; padding:2px 2px; }
 #appView #basketView .basket-switch-row .basket-filters button,
 #appView #homeView .home-quick [data-quick-task-options] button,
 #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),
@@ -707,6 +707,9 @@
   font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); box-shadow:none;
 }
+/* UI-칩줄두줄: 칩 줄 안의 칩은 더 작고 낮게(26px·12px). 누르는 범위는 칩 둘레 2px(두 줄이 겹치지 않게). */
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button:not(.icon-btn,.chip-rows-more){ gap:4px; height:var(--ds-chip-row-height); min-height:var(--ds-chip-row-height); padding:0 var(--ds-chip-row-pad-x); font-size:var(--ds-text-meta); }
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button:not(.icon-btn,.chip-rows-more)::after{ top:-2px; height:calc(100% + 4px); left:-2px; right:-2px; }
 #appView #basketView .basket-switch-row .basket-filters button::after,
 #appView #homeView .home-quick [data-quick-task-options] button::after,
 #appView #basketView button:is([data-manual-task-day],[data-manual-task-project])::after,
@@ -741,11 +744,10 @@
 #appView #basketView:has(> [data-basket-list][hidden]) .basket-switch-row .basket-filters{ display:none; }
 #appView #basketView .basket-filters[hidden]{ display:none; }
 /* UI-바구니거르기: [분류]를 고르면 바로 아래 한 줄에 분류된 곳 칩 [전체·담당조직·프로젝트·자료실·할 일](공용 filter-chips.js, 자료실·회의와 같은 알약).
-   넘치면 옆으로 밀어 본다. 목록이 숨으면(노트·읽기·분류 창) 함께 숨는다. */
-#appView #basketView > .basket-place-filter:not([hidden]){ width:auto; max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; margin:-8px 0 4px; background:transparent; border-radius:0; }
-#appView #basketView > .basket-place-filter::-webkit-scrollbar{ display:none; }
+   넘치면 두 줄 + [더보기](UI-칩줄두줄). 목록이 숨으면(노트·읽기·분류 창) 함께 숨는다. */
+#appView #basketView > .basket-place-filter:not([hidden]){ width:auto; max-width:100%; margin:-8px 0 4px; background:transparent; border-radius:0; }
 #appView #basketView:has(> [data-basket-list][hidden]) > .basket-place-filter{ display:none; }
-/* UI-바구니거르기2: 그 아래 한 줄 더 — [담당조직]·[프로젝트]는 이름 칩, [자료실]은 분류 7개 칩. 같은 알약·옆으로 밀기. 위 줄과 붙인다. */
+/* UI-바구니거르기2: 그 아래 한 줄 더 — [담당조직]·[프로젝트]는 이름 칩, [자료실]은 분류 7개 칩. 같은 알약·두 줄 + [더보기]. 위 줄과 붙인다. */
 #appView #basketView > .basket-place-filter.basket-sub-filter:not([hidden]){ margin-top:-4px; }
 #appView #basketView .basket-chip[data-chip-kind="task"] .basket-chip-dot{ background:var(--ds-kind-task-ink); }
 /* 자료실: 검색칸 아래 거르기 줄(프로젝트·세부·종류)은 한 줄에 하나씩 차례로 쌓는다(UI-PC자료실 거르기 줄, library-upload.css). */
@@ -1300,22 +1302,20 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 .task-due-popup button.mini{ position:relative; flex:0 0 auto; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
 
 /* ───────── LIB-조직프로젝트자료종류(2026-10-23 사용자 요청): 담당조직·프로젝트 상세 [자료] 위의 종류 칩 ─────────
-   자료실 [종류] 칩(#libraryCategoryFilter)과 같은 모양·같은 코드(category-chips.js). 한 줄 가로 스크롤, 보이는 높이 --ds-compact-height, 누르는 범위 44px.
+   자료실 [종류] 칩(#libraryCategoryFilter)과 같은 모양·같은 코드(category-chips.js). UI-칩줄두줄: 두 줄 + [더보기], 보이는 높이 --ds-chip-row-height, 누르는 범위 칩 둘레 2px.
    고른 칩 = 회색 '그 밖' 색, 일부만 켜진 [전체] = 반쯤 찬 칩, 꺼진 칩 = 흐리게(자료실과 같은 값). 새 색·새 크기는 만들지 않는다. */
-html .doc-kind-chips:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; width:auto; max-width:100%; min-width:0; min-height:var(--kptu-touch-target,44px); margin:0; padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; background:transparent; border-radius:0; box-sizing:border-box; }
-html .doc-kind-chips::-webkit-scrollbar{ display:none; }
-html .doc-kind-chips button{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:auto; min-width:0; height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); font-family:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); box-shadow:none; -webkit-tap-highlight-color:transparent; }
-html .doc-kind-chips button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+html .doc-kind-chips:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap); width:auto; max-width:100%; min-width:0; min-height:0; margin:0; padding:2px; background:transparent; border-radius:0; box-sizing:border-box; }
+html .doc-kind-chips button:not(.chip-rows-more){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:auto; min-width:0; height:var(--ds-chip-row-height); min-height:var(--ds-chip-row-height); margin:0; padding:0 var(--ds-chip-row-pad-x); font-family:inherit; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); box-shadow:none; -webkit-tap-highlight-color:transparent; }
+html .doc-kind-chips button:not(.chip-rows-more)::after{ content:""; position:absolute; left:-2px; right:-2px; top:-2px; height:calc(100% + 4px); }
 html .doc-kind-chips button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
 html .doc-kind-chips button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 html .doc-kind-chips button[aria-pressed="mixed"]{ color:var(--kptu-ink); background-color:var(--kptu-surface); background-image:linear-gradient(90deg,var(--ds-kind-other-soft) 50%,transparent 50%); border-color:var(--ds-kind-other-soft); }
 html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); background:var(--kptu-surface); border-color:color-mix(in srgb,var(--ds-line) 50%,transparent); }
 /* LIB-소분류(2026-10-30 명진 시안): 큰 분류 하나만 켜면 칩 줄 바로 아래 소분류 줄 '(큰 분류) 전체 · 소분류 · + 소분류'(category-chips.js, 자료실·담당조직·프로젝트 상세 공통).
-   왼쪽 세로선 + 큰 분류 칩보다 작고 흐린 글자, 고른 것만 진하게. 테두리·바탕 없음. 보이는 높이 26px, 누르는 범위 44px. */
-html .cc-sub-row:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:2px; max-width:100%; min-width:0; margin:0 0 4px 4px; padding:0 0 0 6px; border-left:2px solid var(--kptu-border); overflow-x:auto; overflow-y:hidden; scrollbar-width:none; box-sizing:border-box; }
-html .cc-sub-row::-webkit-scrollbar{ display:none; }
-html .cc-sub-row button{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; flex:0 0 auto; width:auto; min-width:0; height:26px; min-height:26px; margin:0; padding:0 7px; border:0; border-radius:var(--kptu-radius-sm,4px); background:transparent; box-shadow:none; color:var(--kptu-muted); font-family:inherit; font-size:var(--kptu-text-meta,12px); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; }
-html .cc-sub-row button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+   왼쪽 세로선 + 큰 분류 칩보다 작고 흐린 글자, 고른 것만 진하게. 테두리·바탕 없음. 보이는 높이 26px, 누르는 범위 칩 둘레 2px(UI-칩줄두줄: 두 줄 + [더보기]). */
+html .cc-sub-row:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap) 2px; max-width:100%; min-width:0; margin:0 0 4px 4px; padding:0 0 0 6px; border-left:2px solid var(--kptu-border); box-sizing:border-box; }
+html .cc-sub-row button:not(.chip-rows-more){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; flex:0 0 auto; width:auto; min-width:0; height:26px; min-height:26px; margin:0; padding:0 7px; border:0; border-radius:var(--kptu-radius-sm,4px); background:transparent; box-shadow:none; color:var(--kptu-muted); font-family:inherit; font-size:var(--kptu-text-meta,12px); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; }
+html .cc-sub-row button:not(.chip-rows-more)::after{ content:""; position:absolute; left:-1px; right:-1px; top:-2px; height:calc(100% + 4px); }
 html .cc-sub-row button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
 html .cc-sub-row button[aria-pressed="true"]{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium,600); }
 html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-primary)); }
@@ -1539,17 +1539,20 @@ select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-others,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime)[open]>summary::before{content:"\25BE"}
 
-/* ===== UI-점검1030손질(2026-10-30 사이트 점검 실측 C2·C4·C7): 공용 칩 줄 끝·PC 종류 칩 줄바꿈·체크칸 줄 누르는 범위 =====
+/* ===== UI-점검1030손질(2026-10-30 사이트 점검 실측 C4): 체크칸 줄 누르는 범위 =====
    기록: docs/design-decisions.md "UI-점검1030손질". 재발 방지: tests/ui-audit-1030.test.mjs(App smoke check), tests/app-e2e/ui-audit-1030.spec.mjs(412·1440 실측).
-   ① 옆으로 미는 칩 줄(공용 filter-chips·category-chips)이 넘치면 가려진 쪽 끝 24px을 흐리게 한다. 넘치는지는 scroll-edge.js가 data-scroll-more로만 알린다
-      (사업 보고 칸 칩 줄이 [거르기 ▾] 앞에서 '국…'처럼 뚝 잘려 보이던 것). 칩 모양·누르는 범위는 그대로다. */
-.filter-chips[data-scroll-more="end"]{ -webkit-mask-image:linear-gradient(to right,currentColor calc(100% - 24px),transparent); mask-image:linear-gradient(to right,currentColor calc(100% - 24px),transparent); }
-.filter-chips[data-scroll-more="start"]{ -webkit-mask-image:linear-gradient(to left,currentColor calc(100% - 24px),transparent); mask-image:linear-gradient(to left,currentColor calc(100% - 24px),transparent); }
-.filter-chips[data-scroll-more="start end"]{ -webkit-mask-image:linear-gradient(to right,transparent,currentColor 24px,currentColor calc(100% - 24px),transparent); mask-image:linear-gradient(to right,transparent,currentColor 24px,currentColor calc(100% - 24px),transparent); }
-/* ② 담당조직·프로젝트 상세 [자료] 종류 칩(.doc-kind-chips): PC(761px~)는 마우스로 옆으로 밀 수 없으므로 한 줄 가로 스크롤 대신 줄바꿈. 폰은 지금처럼 한 줄. */
-@media(min-width:761px){
-  html .doc-kind-chips:not([hidden]){ flex-wrap:wrap; row-gap:4px; overflow:visible; }
-}
+   C2(옆으로 미는 칩 줄 끝 흐림)·C7(PC만 종류 칩 줄바꿈)은 아래 "UI-칩줄두줄"로 바뀌어 지웠다. */
+
+/* ===== UI-칩줄두줄(2026-10-31 명진 결정, 요청함 11:14): 앱 전체 칩 줄 = 줄바꿈 두 줄 + [더보기 ▾] =====
+   폰·PC 모두 칩 줄은 옆으로 밀지 않고 줄바꿈으로 두 줄까지만 보인다. 넘치면 끝에 작은 [더보기 ▾] → 누르면 전부, [접기 ▴]로 다시 두 줄(펼침은 저장 안 함).
+   부품 하나: app/chip-rows.js(재기·접기) + 이 묶음(모양). 접힌 칩은 data-chip-cut, [더보기]는 .chip-rows-more 하나. 고른 칩은 접혀도 보인다.
+   [더보기]는 칩 줄 안의 작은 글자 버튼이라 줄마다 있는 칩 버튼 규칙을 이기도록 :is(html,#appView)를 겹쳐 강도를 올렸다(모양은 이 한 곳). */
+[data-chip-rows] > [data-chip-cut]{ display:none !important; }
+:is(html,#appView):is(html,#appView):is(html,#appView) [data-chip-rows] > button.chip-rows-more{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; flex:0 0 auto; width:auto; min-width:0; max-width:none; height:var(--ds-chip-row-height); min-height:0; margin:0; padding:0 6px; border:0; border-radius:var(--kptu-radius-sm,4px); background:transparent; background-image:none; color:var(--kptu-primary-ink,var(--kptu-primary)); font-family:inherit; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+:is(html,#appView):is(html,#appView):is(html,#appView) [data-chip-rows] > button.chip-rows-more[hidden]{ display:none; }
+:is(html,#appView):is(html,#appView):is(html,#appView) [data-chip-rows] > button.chip-rows-more::after{ content:""; position:absolute; left:-2px; right:-2px; top:-2px; width:auto; height:calc(100% + 4px); bottom:auto; }
+:is(html,#appView):is(html,#appView):is(html,#appView) [data-chip-rows] > button.chip-rows-more:hover{ background:var(--kptu-surface-subtle); }
+:is(html,#appView):is(html,#appView):is(html,#appView) [data-chip-rows] > button.chip-rows-more:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 /* ③ 체크칸 줄 누르는 범위: 보이는 체크칸(14~16px)·줄 높이(32px)는 그대로, 줄(label) 전체가 누르는 곳이고 위아래 44px까지 넓힌다(UI-버튼기준, 옆 ›의 ::after와 같은 식).
       내 프로필 담당 사업장·참고 일정 '내가 만든 일정도 포함', 원장 '지난 기록도 보기'. 그 밖의 체크칸 줄은 이미 40~44px이다(PR 본문 표). */
 #profileView :is(.ps-org-pick,.ps-calref-check),#appView #ledgerView .lb-check{ position:relative; }

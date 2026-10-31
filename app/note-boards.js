@@ -16,6 +16,7 @@ import { NOTE_DRAG } from './note-board.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
 import { askConfirm } from './small-notice.js';
 import { emptyHtml } from './wait-state.js';
+import { fitChipRows } from './chip-rows.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 
 // wide: PC 왼쪽 목록을 보일 너비(노트 화면과 같은 761px~). get/set: basket-notes.js의 노트 배열. folderOf·folders·matches: 지금 노트 화면의 값.
@@ -47,6 +48,8 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
   function paintBar() {
     const phoneAdd = named() && !wide.matches;
     bar.innerHTML = `<button type="button" class="nbb-chip" data-nbb-board="${ALL}" aria-pressed="${current === ALL}">전체</button>${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true" title="우클릭(폰은 꾹 누르기): 이름 바꾸기·지우기">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
+    // UI-칩줄두줄: 보드 칸 줄도 두 줄 + [더보기 ▾](공용 chip-rows.js). 접히는 것은 고르지 않은 보드 칸뿐, [전체]·[+ 새 보드]·[+ 노트 붙이기]는 늘 보인다.
+    fitChipRows(bar, { key: 'noteboards', keep: el => el.dataset.nbbBoard === undefined || el.dataset.nbbBoard === ALL || el.getAttribute('aria-pressed') === 'true' });
   }
   // PC 왼쪽 목록: 노트 화면과 같은 폴더 나무(note-tree.mjs treeRows) + 그 안 노트. 이미 붙은 노트는 흐리게(끌 수 없음).
   function paintSide() {

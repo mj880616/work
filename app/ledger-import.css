@@ -88,7 +88,7 @@
 #appView #ledgerView .lb-kinds{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; margin:0; padding:0; border:0; min-width:0; }
 #appView #ledgerView .lb-kinds legend{ float:left; padding:0; margin:0 6px 0 0; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); color:var(--kptu-muted); }
 /* 종류 칩: 작은 알약(--ds-compact-height-sm). 체크 칸(input)은 화면에서만 숨기고(키보드·읽기 도구용으로 남김) 누르면 계정 색으로 칠해진다. 전역 label(세로·굵게)·input 규칙은 이 칩 안에서만 되돌린다. */
-#appView #ledgerView .lb-chip{ position:relative; box-sizing:border-box; display:inline-flex; flex-direction:row; align-items:center; height:var(--ds-compact-height-sm); margin:0; padding:0 10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); line-height:1; white-space:nowrap; cursor:pointer; }
+#appView #ledgerView .lb-chip{ position:relative; box-sizing:border-box; display:inline-flex; flex-direction:row; align-items:center; height:var(--ds-chip-row-height); margin:0; padding:0 var(--ds-chip-row-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); line-height:1; white-space:nowrap; cursor:pointer; }
 #appView #ledgerView .lb-chip::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #ledgerView .lb-chip input{ position:absolute; inset:0; width:100%; height:100%; min-width:0; min-height:0; margin:0; padding:0; opacity:0; cursor:pointer; z-index:1; }
 #appView #ledgerView .lb-chip:has(input:checked){ background:var(--ds-select-bg); border-color:var(--ds-select-line); color:var(--ds-select-ink); }
@@ -199,14 +199,14 @@
 #appView #ledgerView .lb-sec-h:focus{ outline:none; }
 #appView #ledgerView .lb-sec-n{ font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); color:var(--kptu-faint); font-variant-numeric:tabular-nums; }
 #appView #ledgerView [data-lb-sec="overdue"] .lbr-summary{ color:var(--kptu-danger); }
-#appView #ledgerView .lb-topics{ display:flex; flex-wrap:wrap; gap:6px; margin:4px 0; }
-#appView #ledgerView .lb-topic{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; gap:4px; height:var(--ds-compact-height-sm); margin:0; padding:0 10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-meta); line-height:1; white-space:nowrap; cursor:pointer; }
-#appView #ledgerView .lb-topic::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+/* UI-칩줄두줄: 조직·주제 칩 두 줄 + [더보기 ▾]는 앱 공용 칩 줄 부품(chip-rows.js, 모양은 ui-standard.css). 칩은 26px, 누르는 범위 둘레 2px. */
+#appView #ledgerView .lb-topics{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap); margin:4px 0; }
+#appView #ledgerView .lb-topic{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; gap:4px; height:var(--ds-chip-row-height); margin:0; padding:0 var(--ds-chip-row-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-meta); line-height:1; white-space:nowrap; cursor:pointer; }
+#appView #ledgerView .lb-topic::after{ content:""; position:absolute; left:-2px; right:-2px; top:-2px; height:calc(100% + 4px); }
 #appView #ledgerView .lb-topic:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #ledgerView .lb-topic-n{ color:var(--kptu-faint); font-variant-numeric:tabular-nums; }
 #appView #ledgerView .lb-topic[data-lb-type="topic"]{ border-style:dashed; }
-#appView #ledgerView .lb-topic[hidden],#appView #ledgerView .lb-chip-more[hidden]{ display:none; }
-#appView #ledgerView .lb-chip-more,#appView #ledgerView .lb-list-more{ flex:none; white-space:nowrap; }
+#appView #ledgerView .lb-list-more{ flex:none; white-space:nowrap; }
 #appView #ledgerView .lb-list-more{ margin:2px 0 0; }
 #appView #ledgerView .lb-chip-sec .lb-topics{ margin:0; }
 #appView #ledgerView .lb-story-head{ display:flex; align-items:center; gap:8px; margin:4px 0 8px; min-width:0; }

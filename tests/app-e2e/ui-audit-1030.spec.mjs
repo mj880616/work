@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 // UI-점검1030손질(2026-10-30 사이트 점검 실측): 폰 412·PC 1440 수치 확인.
-// C2 사업 보고 칸 칩 줄은 [거르기 ▾] 앞에서 끝나고 넘치면 끝을 흐리게, C4 달력 이전·다음 달 화살표 누르는 범위 44px.
+// C2 사업 보고 칸 칩 줄은 [거르기 ▾] 앞에서 끝나고 넘치면 두 줄 + [더보기](UI-칩줄두줄), C4 달력 이전·다음 달 화살표 누르는 범위 44px.
 // 합성 자료만, 진짜 서버 호출 없음.
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -61,20 +61,16 @@ test.describe('폰 412',()=>{
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 
-  test('C2 사업 보고: 칸 칩 줄은 [거르기 ▾] 앞에서 끝나고, 넘치면 가려진 끝을 흐리게 한다',async({page})=>{
+  test('C2 사업 보고: 칸 칩 줄은 [거르기 ▾] 앞에서 끝나고, 옆으로 밀지 않고 두 줄까지(UI-칩줄두줄)',async({page})=>{
     await openApp(page,'meetings');
     const row=page.locator('#reportKindFilter'),btn=page.locator('#reportFilterBtn');
     await expect(row.locator('button').first()).toBeVisible();await expect(btn).toBeVisible();
     const r=await row.boundingBox(),b=await btn.boundingBox();
     expect(r.x+r.width).toBeLessThanOrEqual(b.x);
-    const m=await row.evaluate(el=>({over:el.scrollWidth>el.clientWidth+1,more:el.dataset.scrollMore||'',mask:getComputedStyle(el).maskImage||getComputedStyle(el).webkitMaskImage||''}));
-    if(m.over){expect(m.more).toBe('end');expect(m.mask).toContain('linear-gradient');}
-    else{expect(m.more).toBe('');}
-    // 끝까지 밀면 앞쪽이 흐려지고 끝은 또렷해진다.
-    if(m.over){
-      await row.evaluate(el=>{el.scrollLeft=el.scrollWidth});
-      await expect(row).toHaveAttribute('data-scroll-more','start');
-    }
+    const m=await row.evaluate(el=>({over:el.scrollWidth>el.clientWidth+1,ox:getComputedStyle(el).overflowX,wrap:getComputedStyle(el).flexWrap,
+      lines:new Set([...el.children].filter(c=>c.getClientRects().length).map(c=>Math.round(c.getBoundingClientRect().top))).size}));
+    expect(m).toEqual({over:false,ox:'visible',wrap:'wrap',lines:m.lines});
+    expect(m.lines).toBeLessThanOrEqual(2);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 });

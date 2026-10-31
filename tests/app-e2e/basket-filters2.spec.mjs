@@ -81,10 +81,10 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류
  await expect(subs).toBeVisible();await expect(subs).toHaveAttribute('role','radiogroup');await expect(subs).toHaveAttribute('aria-label','조직');
  await expect(subs.getByRole('radio')).toHaveText(['모든 조직 3','합성 한빛지부','합성 두리지부']);
  await expect(subs.locator('[aria-checked="true"]')).toHaveText('모든 조직 3');
- // Same pill as the rows above (32px, 44px touch), sitting right below the place row and above the list.
+ // Same pill as the rows above (UI-칩줄두줄: 26px, touch = chip + 2px around), sitting right below the place row and above the list.
  const look=l=>l.evaluate(el=>({h:el.getBoundingClientRect().height,touch:parseFloat(getComputedStyle(el,'::after').height),bg:getComputedStyle(el).backgroundColor}));
  const gray=await page.evaluate(()=>{const p=document.createElement('i');p.style.color='var(--ds-select-bg)';document.querySelector('#appView').append(p);const c=getComputedStyle(p).color;p.remove();return c;});
- const first=subs.getByRole('radio').first();expect((await look(first)).h).toBe(32);expect((await look(first)).touch).toBe(44);expect((await look(first)).bg).toBe(gray);
+ const first=subs.getByRole('radio').first();expect((await look(first)).h).toBe(26);expect((await look(first)).touch).toBe(30);expect((await look(first)).bg).toBe(gray);
  const pb=await places.boundingBox(),sb=await subs.boundingBox(),lb=await page.locator('#basketView [data-basket-rows]').boundingBox();
  expect(sb.y).toBeGreaterThanOrEqual(pb.y+pb.height-1);expect(sb.y+sb.height).toBeLessThanOrEqual(lb.y+1);
  expect(await shown(page)).toEqual([ORG_A1,ORG_A2,ORG_B]);
@@ -137,20 +137,24 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// ⑥ Phone: a long row of names stays one line and slides sideways like the other chip rows; the page never scrolls sideways.
-test('phone: many organization names slide sideways in one line',async({page},info)=>{
+// ⑥ Phone (UI-칩줄두줄 2026-10-31): a long row of names wraps to two lines with a small [더보기 ▾]; nothing slides sideways and the page never scrolls sideways.
+test('phone: many organization names wrap to two lines with [더보기]',async({page},info)=>{
  const f=await fixture(page,{width:390,manyOrgs:true});await enter(page,390);
  const places=page.locator('[data-basket-place-filter]'),subs=page.locator('[data-basket-sub-filter]');
  await tap(page,places.getByRole('radio',{name:'담당조직',exact:true}),390);
- await expect(subs.getByRole('radio')).toHaveCount(8);
+ await expect(subs.getByRole('radio',{includeHidden:true})).toHaveCount(8);
  await expect(subs.getByRole('radio').first()).toHaveText('모든 조직 8');await expect(subs.getByRole('radio').nth(1)).toHaveText('합성 한빛지부');
- const box=await subs.evaluate(el=>({sw:el.scrollWidth,cw:el.clientWidth,ox:getComputedStyle(el).overflowX,wrap:getComputedStyle(el).flexWrap,tops:[...el.children].map(c=>Math.round(c.getBoundingClientRect().top))}));
- expect(box.sw).toBeGreaterThan(box.cw);expect(box.ox).toBe('auto');expect(box.wrap).toBe('nowrap');expect(new Set(box.tops).size).toBe(1);
- // Same scroll setup as the place row above.
- expect(await places.evaluate(el=>getComputedStyle(el).overflowX)).toBe('auto');
- // Choosing the last chip brings it into view (filter-chips.js reveal) and narrows the list.
- const last=subs.getByRole('radio').last();await last.scrollIntoViewIfNeeded();await tap(page,last,390);
- await expect(last).toHaveAttribute('aria-checked','true');await expect.poll(()=>subs.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);
+ const lines=()=>subs.evaluate(el=>new Set([...el.children].filter(c=>c.getClientRects().length).map(c=>Math.round(c.getBoundingClientRect().top))).size);
+ const box=await subs.evaluate(el=>({ox:getComputedStyle(el).overflowX,wrap:getComputedStyle(el).flexWrap}));
+ expect(box.ox).toBe('visible');expect(box.wrap).toBe('wrap');expect(await lines()).toBeLessThanOrEqual(2);
+ // Same wrapping setup as the place row above.
+ expect(await places.evaluate(el=>[getComputedStyle(el).overflowX,getComputedStyle(el).flexWrap])).toEqual(['visible','wrap']);
+ // Open every name with [더보기] when it is folded, choose the last one: it narrows the list and stays visible after folding back.
+ const more=subs.locator('[data-chip-rows-more]');
+ if(await more.isVisible()){await tap(page,more,390);await expect(more).toHaveText(/접기/);}
+ const last=subs.getByRole('radio').last();await tap(page,last,390);
+ await expect(last).toHaveAttribute('aria-checked','true');
+ if(await more.isVisible()){await tap(page,more,390);await expect(more).toHaveText(/더보기/);await expect(last).toBeVisible();expect(await lines()).toBeLessThanOrEqual(2);}
  await expect.poll(()=>shown(page)).toHaveLength(1);
  await capture(page,info,'basket-sub-organization-many-390-light');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

@@ -315,9 +315,8 @@ export function chipList(ids, names) {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'));
 }
 
-// LEDGER-첫화면정리: 원장 모든 목록의 첫 보임 건수(5~8건 중 6)와 칩 두 줄 계산. 화면(ledger-browse.js)은 이 둘만 쓴다.
+// LEDGER-첫화면정리: 원장 모든 목록의 첫 보임 건수(5~8건 중 6). 칩 두 줄은 앱 공용 칩 줄 부품(chip-rows.js·chip-rows-model.mjs, UI-칩줄두줄).
 export const LIST_FIRST = 6;
-export const CHIP_ROWS = 2;
 // 목록 하나를 처음엔 LIST_FIRST건만. 펼쳤거나 펼친 기록(openId)이 숨는 쪽에 있으면 전부.
 // fromEnd=true는 시간순(오래된 것 먼저) 타임라인용: 가장 최근 쪽 LIST_FIRST건을 남기고 앞(오래된 쪽)을 접는다.
 // 반환 {shown, hidden}: hidden은 접힌 건수.
@@ -328,26 +327,6 @@ export function capList(rows, { expanded = false, openId = null, fromEnd = false
   if (openId && cut.some(r => r?.id === openId)) return { shown: list, hidden: 0 };
   return { shown: fromEnd ? list.slice(list.length - first) : list.slice(0, first), hidden: cut.length };
 }
-// 칩이 줄바꿈(flex-wrap, 칸 사이 gap)으로 놓일 때 두 줄(maxRows)에 들어가는 개수를 센다.
-// widths: 칩 폭들, width: 칸 폭, moreWidth: 끝의 [더보기] 폭. 전부 두 줄에 들어가면 {visible: 전체, overflow:false}(더보기 없음),
-// 넘치면 [더보기]가 둘째 줄 끝에 함께 들어가도록 칩을 덜 보이게 한 {visible, overflow:true}.
-// 칸 폭이 0(숨은 화면) 이하이거나 폭 값이 잘못이면 계산하지 않고 null.
-export function chipFit(widths, { width, gap = 6, moreWidth = 0, maxRows = CHIP_ROWS } = {}) {
-  const ws = Array.isArray(widths) ? widths : [];
-  if (!(Number.isFinite(width) && width > 0) || ws.some(w => !(Number.isFinite(w) && w >= 0))) return null;
-  const rowsOf = list => {
-    let rows = 1, x = 0;
-    for (const w of list) {
-      const next = x === 0 ? w : x + gap + w;
-      if (x !== 0 && next > width) { rows += 1; x = w; } else x = next;
-    }
-    return rows;
-  };
-  if (rowsOf(ws) <= maxRows) return { visible: ws.length, overflow: false };
-  for (let k = ws.length - 1; k >= 0; k -= 1) if (rowsOf([...ws.slice(0, k), moreWidth]) <= maxRows) return { visible: k, overflow: true };
-  return { visible: 0, overflow: true };
-}
-
 // ---------- 원문 단위로 틀림 처리(설계 2.4 · 6.5): 통화 지우기 확인의 [원장에서도 틀림으로] ----------
 // 한 원문에서 나온 자동 기록 중 그 원문만 근거인 기록(활성)의 원장 ID. 다른 근거도 있는 기록은 남긴다(수정 요청에 '근거 떼기'가 없음).
 // recordSources = [{record_id, source_id}] (그 기록들의 근거 전부), records = [{id, ledger_id, validity}].

@@ -89,10 +89,12 @@ const newStandard=p=>p.evaluate(()=>{
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
   // LIB-목록간격(2026-10-23 사용자 확정 11:02): 자료실 트리의 맨 위 단 이름(프로젝트·'프로젝트 없음')만 굵게(700) — 두 가지 굵기 기준의 유일한 예외.
   if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
-  if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn,[data-sp-new],.lb-add'))){
+  if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button')&&!e.matches('.icon-btn,.chip-rows-more,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn,[data-sp-new],.lb-add'))){
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px. UI-버튼전수조사: 채운 버튼은 36px, 나머지 버튼도 32px.
-   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,#manageLibraryBtn')||e.matches('#newMeetingBtn')&&innerWidth>760?32:e.matches('.primary')?36:32;/* BIZ-버튼줄정리: [+ 사업 보고]는 작고 낮게 32px *//* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
-   if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
+   // UI-칩줄두줄(2026-10-31): 칩 줄의 칩은 26px·12px.
+   const chip=e.matches('.filter-chips button');
+   const h=Math.round(e.getBoundingClientRect().height),want=chip?26:e.matches('#manageLibraryBtn')||e.matches('#newMeetingBtn')&&innerWidth>760?32:e.matches('.primary')?36:32;/* BIZ-버튼줄정리: [+ 사업 보고]는 작고 낮게 32px *//* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
+   if(h!==want||s.fontSize!==(chip?'12px':'13px'))bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
   }
  }
  return bad;
@@ -199,10 +201,10 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
         for(const toggle of await toggles.all()){
           const pressedValue=await toggle.getAttribute('aria-pressed'),on=pressedValue==='true',mixed=pressedValue==='mixed';
           const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await toggle.evaluate(style);
-          expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' category chip style').toEqual(['13px','500','32px','12px','12px','999px']);
+          expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' category chip style').toEqual(['12px','500','26px','8px','8px','999px']);
           expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:mixed?[tokens['--kptu-ink'],tokens['--kptu-surface']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);
-          expect((await toggle.boundingBox()).height,name+' category chip height').toBe(32);
-          expect(await toggle.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' category chip touch').toBe(44);
+          expect((await toggle.boundingBox()).height,name+' category chip height').toBe(26);
+          expect(await toggle.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' category chip touch').toBe(30);// UI-칩줄두줄: 두 줄이라 칩 둘레 2px
         }
         continue;
       }
@@ -211,10 +213,10 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
       for(const radio of await group.getByRole('radio').all()){
         const selected=await radio.getAttribute('aria-checked')==='true';
         const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await radio.evaluate(style);
-        expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' filter chip style').toEqual(['13px','500','32px','12px','12px','999px']);
+        expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' filter chip style').toEqual(['12px','500','26px','8px','8px','999px']);
         expect([color,background],name+' filter chip color').toEqual(selected?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:[tokens['--kptu-ink'],tokens['--kptu-surface']]);
-        expect((await radio.boundingBox()).height,name+' filter height').toBe(32);
-        expect(await radio.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' filter touch').toBe(44);
+        expect((await radio.boundingBox()).height,name+' filter height').toBe(26);
+        expect(await radio.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' filter touch').toBe(30);// UI-칩줄두줄: 두 줄이라 칩 둘레 2px
       }
     }
   }

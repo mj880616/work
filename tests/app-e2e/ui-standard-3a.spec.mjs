@@ -71,7 +71,7 @@ async function sameButtons(page,region){
   // 8-9e-2: on phones the add button is the floating round [+] and 담당조직 추가 is a small text link (ui-standard-3b).
   // ORG-PC좌우: the organization detail on the right of the PC 담당조직 screen keeps the detail's own buttons (as in its dialog).
   // REF-참고묶음 화면 2: the 참고 묶음 › entry at the bottom of the organization list is a list row (44px, no box), not a button.
-  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,.so-reference-entry,[data-ps3-project]')||!!el.closest('#wdDetailPane')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
+  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,.so-reference-entry,[data-ps3-project],.chip-rows-more')||!!el.closest('#wdDetailPane')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
   const s=await look(control),label=(await control.textContent()).trim();
   // UI-버튼크기: 필터 칩(자료실·회의)은 32px 알약, 보조 버튼([분류 수정])은 32px. 둘 다 누르는 범위 44px. 나머지는 46px·8px.
   // LIB-토글트리: [모두 펴기/접기]·[N건 더]는 안내 줄 안의 작은 글자 버튼(28px, 테두리 없음, 누르는 범위 44px, UI-버튼기준).
@@ -80,8 +80,9 @@ async function sameButtons(page,region){
   // UI-PC버튼36: PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(36px), 누르는 범위 44px.
   // UI-버튼전수조사(2026-10-24): 채운 버튼(주 동작·목록 머리 추가)은 36px, 나머지 버튼은 작은 버튼 32px. 둘 다 누르는 범위 44px.
   if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=761&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));const want=await control.evaluate(el=>el.matches('.primary')&&!(innerWidth>=761&&el.matches('#newMeetingBtn'))?36:32);/* BIZ-버튼줄정리: [+ 사업 보고]는 32px */expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
-  else{expect(s.height,label).toBe(32);expect(s.radius,label).toBe(kind==='chip'?'999px':'8px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
-  expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
+  // UI-칩줄두줄(10/31): 칩 줄의 칩은 26px·12px, 두 줄이라 누르는 범위는 칩 둘레 2px(30px).
+  else{expect(s.height,label).toBe(kind==='chip'?26:32);expect(s.radius,label).toBe(kind==='chip'?'999px':'8px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(kind==='chip'?30:44);}
+  expect(s.fontSize,label).toBe(kind==='chip'?'12px':'13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
   // UI-테마선택색: 고른 전환·필터 쪽은 일부러 주 버튼 색이라 채운 버튼 수에서 뺀다.
   if(s.bg===primary&&!await control.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active')))filled.push(label);
  }

@@ -20,7 +20,7 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 //   [틀린 기록으로 표시 ▸] 하위 목록. 바로가기는 기존 수정 요청 함수 app_apply_ledger_fix의 replace 하나(옛 기록은 '대체됨'으로 남고, 직후 [되돌리기]).
 //   ③ ⋯는 상세 상자 맨 위 빈 줄이 아니라 제목 첫 줄 오른쪽 끝(제목이 ⋯ 옆으로 비켜 줄바꿈). 이번 범위는 원장 화면만.
 // LEDGER-첫화면정리(명진 요청 2026-10-25): ① 조직별·주제별 칩 묶음을 검색칸·[+ 기록하기] 바로 아래로(별도 제목 줄 없음, 조직·주제를 한데 섞어 많은 순).
-//   칩은 두 줄만 보이고 끝에 [더보기 ▾]/[접기 ▴](폭에 맞춰 개수 자동 계산 = ledger-browse-model.mjs chipFit, 폭이 바뀌면 다시 계산, 펼침은 저장하지 않음).
+//   칩은 두 줄만 보이고 끝에 [더보기 ▾]/[접기 ▴](앱 공용 칩 줄 부품 chip-rows.js, 폭이 바뀌면 다시 계산, 펼침은 저장하지 않음).
 //   그 아래 순서: 상대가 안 지킨 약속 → 지금 추적 중인 일 → 최근 자동으로 기록됨. ② 모든 목록(첫 화면 세 칸·이야기 타임라인·검색 결과)은
 //   처음엔 최근 쪽 6건만, 나머지는 [더보기 n ▾](공용 규칙 capList). 펼침 여부는 새 검색·화면 이동 때 접힌 채로 돌아간다.
 // 첫 화면 칸 읽기는 owner RLS REST뿐(새 RPC 없음): 안 지킨 약속·추적 중 사건·칩 집계·최근 자동 기록.
@@ -28,12 +28,13 @@ import {
   KIND_DISPLAY, KIND_HINT, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
   freshFilters, searchArgs, validResult, detailFields, sourceHref, linkLabel, rowView, activeConditions, clearCondition, countLabel,
   web2Source, web2OpenTarget, web2SourceLabel, changeInfo, AUTO_TAG, MANUAL_TAG, RETIRE_REASONS, retireRequest, undoErrorText,
-  isSearching, overdueLabel, seoulDay, storySort, chipList, overdueRecordsPath, LEDGER_ROW_COLS, capList, chipFit,
+  isSearching, overdueLabel, seoulDay, storySort, chipList, overdueRecordsPath, LEDGER_ROW_COLS, capList,
   historyPath, historyLines, historyLabel, topicDecisionArgs, HISTORY_STEPS, HISTORY_MAX
 } from './ledger-browse-model.mjs';
 import { QUICK_ACTIONS, QUICK_NOTE_MAX, menuPlan, quickRequest, quickDoneText, reopenPlan, fixErrorText } from './ledger-fix-model.mjs';
 import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
 import { offerUndoNotice } from './basket-record-delete.js';
+import { fitChipRows, foldChipRows } from './chip-rows.js';
 
 const rt = window.KPTURuntime;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -48,7 +49,7 @@ let seq = 0;
 function fresh() {
   return { phase: 'loading', organizations: [], topics: [], filters: freshFilters(), limit: PAGE, rows: [], busy: false, error: '',
     openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false, changes: new Map(), acting: '', actError: '', notice: '',
-    home: null, homeBusy: false, story: null, quick: null, more: new Set(), chipsOpen: false,
+    home: null, homeBusy: false, story: null, quick: null, more: new Set(),
     histOpen: false, histRows: new Set(), histDetails: new Map() };
 }
 const LIVE = 'validity=in.(current,needs_check,fulfilled)';
@@ -428,30 +429,12 @@ function render() {
 }
 
 // ---------- 칩 두 줄 맞추기 / 목록 더보기 ----------
-// 칩은 전부 그린 뒤 폭을 재서(chipFit) 두 줄을 넘는 칩을 숨기고 [더보기]를 둘째 줄 끝에 둔다. 화면 폭이 바뀌면 다시 잰다.
+// UI-칩줄두줄: 칩 두 줄 + [더보기 ▾]/[접기 ▴]는 앱 공용 칩 줄 부품(chip-rows.js) 하나가 맡는다. 칩 줄을 다시 그릴 때마다 다시 재고,
+// 폭이 바뀌면 저절로 다시 잰다. 펼침은 저장하지 않고 화면을 옮기거나 [처음으로]면 접힌다. 칩이 아닌 칸은 접지 않는다.
 function fitChips() {
   const box = document.querySelector('#ledgerBrowseRoot [data-lb-chips]');
-  if (!box) { chipWatch?.disconnect(); watched = null; return; }
-  if (watched !== box) { chipWatch?.disconnect(); watched = box; chipWatch?.observe(box); }
-  const chips = [...box.querySelectorAll('.lb-topic')], toggle = box.querySelector('[data-lb-action="chips-toggle"]');
-  if (!toggle) return;
-  for (const c of chips) c.hidden = false;
-  toggle.hidden = false; toggle.textContent = '더보기 ▾';
-  const gap = parseFloat(getComputedStyle(box).columnGap) || 6;
-  const fit = chipFit(chips.map(c => c.getBoundingClientRect().width), { width: box.clientWidth, gap, moreWidth: toggle.getBoundingClientRect().width });
-  if (!fit) { toggle.hidden = true; return; } // 숨은 화면(폭 0): 보일 때 ResizeObserver가 다시 부른다.
-  if (!fit.overflow) { toggle.hidden = true; return; }
-  const open = state.chipsOpen;
-  toggle.textContent = open ? '접기 ▴' : '더보기 ▾';
-  toggle.setAttribute('aria-expanded', String(open));
-  chips.forEach((c, i) => { c.hidden = !open && i >= fit.visible; });
+  if (box) fitChipRows(box, { key: 'ledger', keep: el => !el.matches('.lb-topic') });
 }
-let chipWatch = null, watched = null;
-if (typeof ResizeObserver === 'function') {
-  let lastWidth = 0;
-  chipWatch = new ResizeObserver(entries => { const w = Math.round(entries[0]?.contentRect?.width || 0); if (w !== lastWidth) { lastWidth = w; fitChips(); } });
-}
-try { document.fonts?.ready?.then?.(() => fitChips()); } catch { /* 글꼴 읽기가 끝나면 다시 재는 것뿐 */ }
 // 목록 하나의 첫 보임 건수 제한. 접힌 건수가 있으면 [더보기 n ▾].
 const moreBtn = (key, hidden) => hidden ? `<button type="button" class="lg-text-btn lb-list-more" data-lb-action="list-more" data-lb-list="${key}">더보기 ${hidden} <span aria-hidden="true">▾</span></button>` : '';
 const capped = (key, rows, opts = {}) => capList(rows, { expanded: state.more.has(key), openId: state.openId, ...opts });
@@ -532,7 +515,7 @@ function homeHtml() {
   const empty = !overdue.length && !tracking.length && !h.orgChips.length && !h.topicChips.length && !recent.length;
   if (empty) return emptyHtml('없음', {attrs: 'data-lb-empty'});
   return [
-    chipItems.length ? `<section class="lb-sec lb-chip-sec" data-lb-sec="chips" aria-label="조직·주제"><div class="lb-topics" data-lb-chips>${chips}<button type="button" class="lg-text-btn lb-chip-more" data-lb-action="chips-toggle" aria-expanded="false" hidden>더보기 ▾</button></div></section>` : '',
+    chipItems.length ? `<section class="lb-sec lb-chip-sec" data-lb-sec="chips" aria-label="조직·주제"><div class="lb-topics" data-lb-chips>${chips}</div></section>` : '',
     overdue.length ? section('overdue', '상대가 안 지킨 약속', list('overdue', overdue, r => overdueLabel(r)), overdue.length) : '',
     tracking.length ? section('tracking', '지금 추적 중인 일', list('tracking', tracking), tracking.length) : '',
     recent.length ? section('recent', '최근 자동으로 기록됨', list('recent', recent)) : ''
@@ -713,7 +696,6 @@ function bind() {
     else if (action === 'unset') { readForm(root()); state.filters = clearCondition(state.filters, button.dataset.lbKey || ''); render(); run(); root().querySelector('#lbCondBtn')?.focus?.(); }
     else if (action === 'clear') { state.filters = freshFilters(); render(); run(); }
     else if (action === 'list-more') { state.more.add(button.dataset.lbList || ''); render(); }
-    else if (action === 'chips-toggle') { state.chipsOpen = !state.chipsOpen; fitChips(); }
     else if (action === 'reload') void load();
     else if (action === 'original') {
       const d = state.details.get(button.dataset.lbId), s = d?.sources.find(x => x.id === button.dataset.lbSrc);
@@ -731,7 +713,7 @@ function bind() {
     }
     else if (action === 'find') { state.filters = { ...freshFilters(), q: button.dataset.lbQ || '', inactive: true, scope: 'all' }; render(); run(); }
     else if (action === 'story') void openStory(button.dataset.lbType === 'topic' ? 'topic' : 'organization', button.dataset.lbSid || '');
-    else if (action === 'home') { state.story = null; state.openId = null; state.chipsOpen = false; state.more.clear(); ++seq; render(); void loadHome(); }
+    else if (action === 'home') { state.story = null; state.openId = null; foldChipRows('ledger'); state.more.clear(); ++seq; render(); void loadHome(); }
     else if (action === 'add') window.KPTULedgerFix?.open?.({});
     else if (action === 'fix') {
       const d = state.details.get(button.dataset.lbId);
@@ -745,7 +727,7 @@ function bind() {
     else if (action === 'quick-apply') void quickApply(button.dataset.lbId);
   });
   window.addEventListener('kptu:ledger-changed', () => { if (state.phase !== 'hidden' || document.querySelector('#ledgerBrowseRoot')) void load(); });
-  window.KPTURouter?.on?.('ledger', () => { state.chipsOpen = false; void load(); });
+  window.KPTURouter?.on?.('ledger', () => { foldChipRows('ledger'); void load(); });
 }
 
 window.addEventListener('kptu:session-changed', () => { state = fresh(); if (document.querySelector('#ledgerBrowseRoot') && workspaceId()) void load(); });
@@ -756,7 +738,7 @@ async function boot() {
   // 업무일지 "새로 기록된 약속 N"에서: 약속만 보이게 거른 뒤 화면을 연다(목록은 열 때 읽음).
   // HOME-줄누르기 ⑤: 홈 '놓친 약속' 줄 → openId: 첫 화면(검색 없음)에서 그 기록을 펼친 채로 연다. 화면이 열리며 읽는 load가 펼친 기록의
   // 상세를 읽고(settleOpen), 다 그리면 그 줄로 옮긴다. 목록에 없으면(이미 지켜짐·폐기) 접힌 첫 화면 그대로.
-  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [], openId = null } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = UUID.test(String(openId || '')) ? String(openId) : null; state.reveal = state.openId; state.quick = null; state.condOpen = false; state.story = null; state.chipsOpen = false; state.more.clear(); } };
+  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [], openId = null } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = UUID.test(String(openId || '')) ? String(openId) : null; state.reveal = state.openId; state.quick = null; state.condOpen = false; state.story = null; foldChipRows('ledger'); state.more.clear(); } };
   return true;
 }
 window.__KPTU_LEDGER_BROWSE_READY__ = boot().catch(err => { console.error('ledger browse init', err?.name || 'error'); return false; });

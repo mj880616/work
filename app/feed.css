@@ -243,8 +243,10 @@
 .feed-view .feed-person .feed-pmt+.feed-more,.feed-view .feed-person .feed-whotag+.feed-more{margin-left:0}
 
 /* 텔레그램 4-나: 칸 줄(전체·폴더·+ 폴더·보관함), 줄 밀기 버튼, 행 ⋯ */
-.feed-view .feed-chiprow{display:flex;align-items:center;gap:4px;margin:0 0 4px;padding:2px 0;overflow-x:auto;scrollbar-width:none}
-.feed-view .feed-chiprow::-webkit-scrollbar{display:none}
+.feed-view .feed-chiprow{display:flex;flex-wrap:wrap;align-items:center;gap:var(--ds-chip-row-gap,4px);margin:0 0 4px;padding:2px 0}
+/* UI-칩줄두줄(10/31): 칸 줄은 옆으로 밀지 않고 두 줄 + [더보기 ▾](공용 chip-rows.js). 칩은 26px, 누르는 범위는 둘레 2px(두 줄이 겹치지 않게). */
+.feed-view .feed-chiprow .feed-chip{height:var(--ds-chip-row-height,26px);padding:0 var(--ds-chip-row-pad-x,8px)}
+.feed-view .feed-chiprow .feed-chip::after{inset:-2px}
 .feed-view .feed-chiprow .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--kptu-primary-ink)}
 .feed-view .feed-chiprow .feed-chip.is-add{background:transparent;border-style:dashed}
 .feed-view .feed-chiprow .feed-chip.is-box{margin-left:auto}
