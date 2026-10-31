@@ -6,6 +6,7 @@
 // - ③ 원장 약속은 일반·내부(S0·S1)만. 교섭·전략(S2) 기록은 AI 재료로 보내지 않는다(원장 고치기 AI와 같은 선).
 // - 원본(Google 할 일·캘린더·원장·챙길 것·회의)은 읽기만 한다. 이 장은 그 순간의 보기용 사본이다.
 import {meetingKindKey} from './journal-meeting-kinds.js';
+import {wordClip} from './prep-sheet-text.mjs';
 
 export const SHEET_HOUR = 15;
 export const GROUP_CAP = 30;
@@ -43,7 +44,7 @@ export function shouldAutoMake({shownStart, now = new Date(), read, asked}) {
 }
 
 const item = (group, title, day, source_kind, source_id, org = null) => {
-  const t = clip(title, TITLE_MAX), o = org ? clip(org, ORG_MAX) : '';
+  const t = wordClip(title, TITLE_MAX), o = org ? clip(org, ORG_MAX) : ''; // 줄 글은 낱말 중간에서 자르지 않음(PREP-서식)
   const id = String(source_id ?? '');
   if (!t || !SOURCE_ID.test(id)) return null;
   return {group, title:t, day:DAY.test(day || '') ? day : null, source_kind, source_id:id, org:o || null};
@@ -137,7 +138,8 @@ export function sheetView(row, week) {
   const valid = new Set(items.map(it => it.index));
   const top = (Array.isArray(row?.top_lines) ? row.top_lines : []).slice(0, 3)
     .filter(t => typeof t?.text === 'string' && t.text.trim())
-    .map(t => ({text:clip(t.text, 80), refs:(Array.isArray(t.refs) ? t.refs : []).filter(n => valid.has(n))}));
+    
+    .map(t => ({text:wordClip(t.text, 80), refs:(Array.isArray(t.refs) ? t.refs : []).filter(n => valid.has(n))}));
   const aiNote = row?.ai_status === 'limit' ? '핵심 세 가지는 이번 달 AI 한도로 만들지 못함.'
     : row?.ai_status === 'failed' ? '핵심 세 가지는 AI가 답하지 않아 만들지 못함.' : '';
   return {week, range:`${slashDay(week)}~${slashDay(addDays(week, 6))}`, made:madeText(row?.updated_at || row?.created_at), top, groups:list, aiNote, empty:!list.length};

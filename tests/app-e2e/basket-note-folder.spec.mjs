@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { checkSplit } from './helpers/split-check.mjs';
 
 // NOTE-탐색기 (2026-10-28 09:24·10:34·11:01): the note list is a folder tree (app_note_folders, migration 20261028170000).
 // 10/28 17:45·17:55 화면 정리: PC = 왼쪽 폴더 나무(맨 아래 '폴더 없음' + [+ 새 폴더]) · 오른쪽은 고른 폴더의 노트만 한 줄씩(위에 '이름 · 장수').
@@ -276,4 +278,15 @@ test('phone 390: one screen at a time — folder list → folder (sub folder fir
   await expect(noteRow(page, 'n2')).toHaveCount(0);
   await expect(page.locator('#basketView')).toBeVisible();
   expect(f.errors).toEqual([]);
+});
+
+// UI-칸폭끌기전수(요청함 10/30 10:29): PC [폴더]의 폴더 나무 | 노트 사이 경계를 끌어 폭을 바꾸고, 폭은 서버(view_prefs.split_ratio.notes)에 기억한다.
+test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유지·두 번 눌러 기본', async ({ page }) => {
+  const server = await installViewPrefsServer(page);
+  const { errors } = await fixture(page, 1280);
+  // 새로고침 직후에는 사이드바가 아직 없을 수 있어(그러면 도우미가 폰 메뉴를 찾는다) 사이드바 [노트] 줄부터 기다린다.
+  const open = async () => { await expect(page.locator('#appView > .app-nav [data-basket-kind-nav="note"]')).toBeVisible(); await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3'); await expect(page.locator('[data-nx-tree]')).toBeVisible(); };
+  await expect(page.locator('[data-nx-tree]')).toBeVisible();
+  await checkSplit(page, { container: '[data-note-list] [data-nx-body]', left: ':scope>[data-nx-tree]', right: ':scope>.nx-pane', name: 'notes', share: 0.3, server, reopen: open });
+  expect(errors).toEqual([]);
 });

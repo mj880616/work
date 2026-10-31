@@ -89,14 +89,25 @@ for(const width of [412,884,1440])test(`담당조직 상세: 다가오는 교섭
  await expect(modal).toBeVisible();
  await expect(modal.locator('#pmsHeading')).toHaveText(EVENT.title);
  await expect(body.locator('.pms-subline')).toContainText('내일 10/7(수) 14:00 · 본사 회의실 · 쟁의 단계: 조정 신청');
- await expect(body.locator('.pms-top li')).toHaveText(['3차에서 남은 쟁점은 인상률 한 가지임.','자료 회신 약속이 아직 대기임.']);
+ await expect(body.locator('.pms-top .pms-top-text')).toHaveText(['3차에서 남은 쟁점은 인상률 한 가지임.','자료 회신 약속이 아직 대기임.']);
+ // PREP-서식: 핵심 줄 글은 읽는 글(버튼 아님), 줄 끝 작은 '근거 ›'. 묶음 번호는 보이는 묶음 차례로(빈 묶음을 빼도 번호가 비지 않음).
+ await expect(body.locator('.pms-top li button')).toHaveText(['근거 ›','근거 ›']);
+ await expect(body.locator('.pms-group > summary .pms-label')).toHaveText(['① 지난 교섭·회의 결과','② 남은 쟁점','③ 우리 약속','④ 최근 통화·텔레그램','⑤ 관련 자료']);
  await expect(body.locator('[data-pms-group="issues"] summary')).toContainText('② 남은 쟁점 2건');
- await expect(body.locator('[data-pms-group="feed"] summary')).toContainText('⑤ 최근 통화·텔레그램 1건 — 통화 1 · 텔레그램 0 (최근 30일)');
+ await expect(body.locator('[data-pms-group="feed"] summary')).toContainText('④ 최근 통화·텔레그램 1건 — 통화 1 · 텔레그램 0 (최근 30일)');
  await expect(body.locator('details[open]')).toHaveCount(0);
  // 핵심 줄 → 근거 묶음이 열리고 그 줄로.
  await body.locator('.pms-top [data-pms-ref]').first().click();
  await expect(body.locator('[data-pms-group="meetings"]')).toHaveAttribute('open','');
  await expect(body.locator('[data-pms-item="1"] [data-pms-open]')).toBeFocused();
+ // 그 근거 줄이 잠깐 옅게 칠해지고, 다른 묶음은 펼치지 않는다. 핵심 줄 글을 눌러도 아무 일 없음.
+ await expect(body.locator('[data-pms-item="1"]')).toHaveClass(/is-flash/);
+ await expect(body.locator('details.pms-group[open]')).toHaveCount(1);
+ await body.locator('.pms-top .pms-top-text').nth(1).click();
+ await expect(body.locator('details.pms-group[open]')).toHaveCount(1);
+ // 첫 줄 앞 번호: 글이 두 줄이 돼도 번호 위치는 글 첫 줄과 같은 높이.
+ const tops=await body.locator('.pms-top li').first().evaluate(li=>{const r=document.createRange();r.selectNodeContents(li.querySelector('.pms-top-text'));const first=r.getClientRects()[0];return {li:li.getBoundingClientRect().top,text:first.top};});
+ expect(Math.abs(tops.text-tops.li)).toBeLessThan(4);
  await noSideScroll(page);
  if(width<=760){
   const fit=await modal.locator('.pms-card').evaluate(c=>{const tab=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height'))||0;return c.getBoundingClientRect().bottom<=innerHeight-tab+1});

@@ -2,6 +2,7 @@ import {waitInlineHtml, emptyHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
 import { followPane } from './follow-pane.js';
+import { mountSplitResize } from './split-resize.js';
 import { formatSeoulTime } from './meeting-time.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
@@ -241,6 +242,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       recentBox.innerHTML = recent.length ? `<div class="nx-sec" aria-hidden="true">${RECENT_NAME}</div>${recent.map(r => rowHtml(r)).join('')}` : '';
     }
     paintWhere(); paintSelectBar();
+    // UI-칸폭끌기전수(요청함 10/30 10:29): PC [폴더]는 폴더 나무 | 노트 사이 경계를 끌어 폭을 바꾼다(공용 split-resize.js, 기본 30:70·나무 최소 180px).
+    // 폭은 서버(view_prefs.split_ratio.notes)에 기억한다. 목록·포스트잇 보기와 폰에서는 경계가 숨는다.
+    const nxBody = host.querySelector('[data-nx-body]');
+    if (nxBody) mountSplitResize({container:nxBody, name:'notes', label:'노트 폴더와 노트 칸 폭 조절', columns:[
+      {el:() => nxBody.querySelector(':scope>[data-nx-tree]'), varName:'--ds-split-list', minVar:'--ds-split-list-min', minFallback:180, share:30},
+      {el:() => nxBody.querySelector(':scope>.nx-pane'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:70}],
+      active:() => wideList.matches && view === 'folder' && nxBody.isConnected && !!nxBody.querySelector(':scope>[data-nx-tree]')?.getClientRects().length});
     host.querySelector('[data-nx-count]').textContent = loaded ? `노트 · ${notes.length}` : '';
     if (!loaded) return;
     // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.

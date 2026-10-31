@@ -12,14 +12,22 @@
 .pms-group > summary{ cursor:pointer; line-height:1.6; }
 .pms-label{ font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); }
 .pms-list{ list-style:none; margin:2px 0 4px; padding:0 0 0 4px; display:flex; flex-direction:column; gap:2px; }
-.pms-day{ display:inline-block; min-width:5.5em; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+.pms-list > li{ display:flex; align-items:baseline; gap:6px; border-radius:var(--ds-radius-box, 6px); transition:background-color .6s; }
+.pms-row{ flex:1 1 auto; min-width:0; }
+.pms-row > button.pms-open{ max-width:100%; }
+.pms-list > li.is-flash{ background:var(--kptu-warning-soft, var(--kptu-surface-subtle)); transition:none; }
+.pms-more > summary{ width:max-content; cursor:pointer; font-size:var(--kptu-text-small, 12px); }
+.pms-more-text{ display:block; }
+.pms-day{ flex:0 0 auto; display:inline-block; min-width:5.5em; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
 .pms-ai{ color:var(--kptu-ink); }
-button.pms-open, button.pms-tag, button.pms-line{ position:relative; border:0; background:none; padding:0; margin:0; font:inherit; color:var(--kptu-primary-ink, var(--kptu-ink)); text-align:left; cursor:pointer; }
-button.pms-open::after, button.pms-tag::after, button.pms-line::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - 16px); height:32px; }
-button.pms-tag{ font-size:var(--kptu-text-small, 12px); color:var(--kptu-muted); text-decoration:underline; text-underline-offset:2px; }
+button.pms-open, button.pms-ref, button.pms-line{ position:relative; border:0; background:none; padding:0; margin:0; font:inherit; color:var(--kptu-primary-ink, var(--kptu-ink)); text-align:left; cursor:pointer; }
+button.pms-open::after, button.pms-ref::after, button.pms-line::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - 16px); height:32px; }
+/* PREP-서식: 핵심 줄 끝·AI 줄 끝 작은 흐린 '근거 ›'(줄을 바꾸지 않음). 여는 줄 끝 흐린 '›'. */
+button.pms-ref{ font-size:var(--kptu-text-small, 12px); color:var(--kptu-muted); white-space:nowrap; vertical-align:baseline; }
+.pms-go{ color:var(--kptu-muted); }
 button.pms-btn{ height:var(--ds-compact-height, 32px); padding:0 10px; border:var(--ds-line-width, 1px) solid var(--ds-line); border-radius:var(--ds-radius-box, 6px); background:var(--kptu-surface, transparent); color:var(--kptu-ink); font:inherit; font-size:var(--kptu-text-small, 12px); cursor:pointer; }
-button.pms-open:focus-visible, button.pms-tag:focus-visible, button.pms-line:focus-visible, button.pms-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink, currentColor); outline-offset:2px; }
-@media(hover:hover){ button.pms-open:hover, button.pms-line:hover{ text-decoration:underline; text-underline-offset:2px; } }
+button.pms-open:focus-visible, button.pms-ref:focus-visible, button.pms-line:focus-visible, button.pms-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink, currentColor); outline-offset:2px; }
+@media(hover:hover){ button.pms-ref:hover{ color:var(--kptu-ink); } button.pms-open:hover, button.pms-line:hover{ text-decoration:underline; text-underline-offset:2px; } }
 /* 여는 줄(일정 수정 창·담당조직 상세). */
 .pms-line-host{ display:flex; flex-direction:column; gap:2px; margin:2px 0 6px; font-size:var(--kptu-text-body); }
 .pms-line-host[hidden]{ display:none; }

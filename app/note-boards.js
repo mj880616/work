@@ -7,6 +7,7 @@
 //   되돌리고 알린다(rejectable). 늦게 온 서버 값은 이번 접속에서 고른 뒤에는 덮지 않는다.
 // - 노트가 붙은 보드와 자리: 노트 metadata.boards[보드 id](basket-data.js setNoteBoardPlace). [전체]는 지금 그대로 metadata.board.
 import { viewPrefs } from './view-prefs.js';
+import { mountSplitResize } from './split-resize.js';
 import { ALL, BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
 import { layoutBoard } from './note-board-model.mjs';
 import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs';
@@ -50,7 +51,14 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
   // PC 왼쪽 목록: 노트 화면과 같은 폴더 나무(note-tree.mjs treeRows) + 그 안 노트. 이미 붙은 노트는 흐리게(끌 수 없음).
   function paintSide() {
     const show = named() && wide.matches;
-    side.hidden = !show; side.parentElement?.classList.toggle('nbw-split', show);
+    const body = side.parentElement;
+    side.hidden = !show; body?.classList.toggle('nbw-split', show);
+    // UI-칸폭끌기전수(요청함 10/30 10:29): PC 이름 붙은 보드는 왼쪽 노트 목록 | 보드 사이 경계를 끌어 폭을 바꾼다(공용 split-resize.js,
+    // 기본 16:84·목록 최소 150px). 폭은 서버(view_prefs.split_ratio.noteboard)에 기억한다. 목록이 없으면(전체 보드·폰) 경계가 숨는다.
+    if (body) mountSplitResize({container:body, name:'noteboard', label:'노트 목록과 보드 칸 폭 조절', columns:[
+      {el:() => side, varName:'--ds-split-list', minVar:'--ds-split-list-min', minFallback:150, share:16},
+      {el:() => body.querySelector(':scope>[data-note-board]'), varName:'--ds-split-detail', minVar:'--ds-split-detail-min', minFallback:360, share:84}],
+      active:() => wide.matches && body.isConnected && !side.hidden && !!side.getClientRects().length});
     if (!show) { side.replaceChildren(); return; }
     const all = notes.get(), m = matches();
     // 폴더가 하나도 없으면 노트가 바로 한 목록(폴더 없음 묶음도 펼쳐 둔다).

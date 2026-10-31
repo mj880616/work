@@ -15,7 +15,7 @@
 #appView #homeView .journal-status{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-status:empty{ display:none; }
 
-/* 날짜 숫자 줄: 7칸, 오늘은 앱 공용 '오늘' 표시(칸 둘레 선 + 숫자 동그라미, ui-standard.css .ds-today), 고른 날은 칸 테두리, 한 줄 쓴 날은 아래 초록 점(J4 ①). */
+/* 날짜 숫자 줄: 7칸, 오늘(네모 선)·고른 날(옅은 바탕)은 앱 공용 표시(ui-standard.css .ds-today·.ds-day-sel, UI-오늘네모), 한 줄 쓴 날은 아래 초록 점(J4 ①). */
 #appView #homeView .journal-days{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
 #appView #homeView .journal-date{ position:relative; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; width:100%; height:auto;
   min-height:60px; margin:0; padding:6px 0 14px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line);
@@ -24,15 +24,13 @@
 #appView #homeView .journal-date.sunday .journal-weekday{ color:var(--kptu-danger); }
 #appView #homeView .journal-num{ box-sizing:border-box; display:grid; place-items:center; min-width:24px; height:24px; padding:0 4px; font-size:var(--ds-text-row); line-height:1; border-radius:999px; }
 #appView #homeView .journal-dot{ position:absolute; left:50%; bottom:6px; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-journal-ink); }
-#appView #homeView .journal-date[aria-pressed="true"]{ border-color:var(--ds-kind-journal-ink); box-shadow:0 0 0 2px var(--ds-kind-journal-ink); background:var(--ds-kind-journal-soft); }
 #appView #homeView .journal-date:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView .journal-date:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
-/* UI-전수디자인점검 F09(PC): 요일 칸은 테두리 상자 대신 높이 40px 한 줄(요일·날짜), 고른 날만 옅은 초록 바탕. 폰은 위 두 줄 칸 그대로. */
+/* UI-전수디자인점검 F09(PC): 요일 칸은 테두리 상자 대신 높이 40px 한 줄(요일·날짜), 고른 날만 옅은 바탕(공용 .ds-day-sel). 폰은 위 두 줄 칸 그대로. */
 @media(min-width:761px){
   #appView #homeView .journal-days{ gap:2px; }
   #appView #homeView .journal-date{ flex-direction:row; justify-content:center; align-items:center; gap:6px; min-height:40px; padding:0 0 4px; border-color:transparent; }
   #appView #homeView .journal-dot{ bottom:3px; width:5px; height:5px; margin-left:-2.5px; }
-  #appView #homeView .journal-date[aria-pressed="true"]{ border-color:transparent; box-shadow:none; background:var(--ds-kind-journal-soft); }
 }
 
 /* 고른 날: 맨 위 "오늘 한 줄", 아래 재료. */
@@ -451,7 +449,13 @@
 #appView #homeView .journal-calref-item{ display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0; font-size:var(--ds-text-row); cursor:pointer; }
 #appView #homeView .journal-calref-item input{ flex:none; width:16px; min-width:16px; height:16px; min-height:16px; margin:0; padding:0; accent-color:var(--kptu-primary); }
 /* HOME-줄누르기 ⑦: [주간 정리]의 일정 칸·할 일 줄 글자는 누르면 그 일정·할 일 수정 창. 글처럼 보이고(버튼 모양 없음) 누르는 범위만 넓힌다. */
-#appView #homeView button.journal-weekly-open{ position:relative; display:inline; margin:0; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; white-space:normal; cursor:pointer; }
+#appView #homeView button.journal-weekly-open{ position:relative; display:inline; vertical-align:top; max-width:100%; margin:0; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; white-space:normal; cursor:pointer; }
+/* PREP-서식 전수: 글 전체가 여는 버튼인 목록 줄(주간 정리 할 일 줄 등)은 [점·날짜] [글] — 글이 두 줄이 돼도 점·날짜는 첫 줄 앞, 넘친 글은 들여쓴 자리에서 이어짐. */
+#appView #homeView .journal-weekly-list > li:has(> button.journal-weekly-open){ display:flex; align-items:baseline; list-style:none; }
+#appView #homeView .journal-weekly-list > li:has(> button.journal-weekly-open)::before{ content:"•"; flex:0 0 auto; width:14px; margin-left:-14px; color:var(--kptu-muted); }
+#appView #homeView .journal-weekly-list > li > .journal-weekly-day{ flex:0 0 auto; }
+#appView #homeView .journal-weekly-list > li > .journal-weekly-label{ flex:0 0 auto; margin-right:.25em; }
+#appView #homeView .journal-weekly-list > li > button.journal-weekly-open{ flex:0 1 auto; min-width:0; }
 #appView #homeView button.journal-weekly-open::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - 16px); height:32px; }
 #appView #homeView button.journal-weekly-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView button.journal-weekly-open:hover{ text-decoration:underline; text-underline-offset:2px; } }
@@ -466,10 +470,23 @@
 #appView #homeView .journal-next-top{ margin:0; padding-left:20px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
 #appView #homeView .journal-next-group > summary{ cursor:pointer; font-size:var(--kptu-text-body); line-height:1.6; overflow-wrap:anywhere; }
 #appView #homeView .journal-next-label{ font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
-#appView #homeView .journal-next-group > .journal-weekly-list{ margin:2px 0 4px; }
+#appView #homeView .journal-next-group > .journal-weekly-list{ margin:2px 0 4px; padding-left:4px; list-style:none; }
+/* PREP-서식(2026-10-31): 줄 = [날짜] [글 칸] — 넘친 글은 글 칸 안에서 줄바꿈(날짜 뒤 들여쓴 자리). 핵심 줄은 읽는 글 + 줄 끝 작은 흐린 '근거 ›'.
+   '근거 ›'를 누르면 그 줄이 잠깐 옅게 칠해진다(is-flash). 긴 줄은 한 문장 요약 + 접힌 '세부'. 교섭 전 한 장(pre-meeting-sheet.css .pms-*)과 같은 규칙. */
+#appView #homeView .journal-next-group > .journal-weekly-list > li{ display:flex; align-items:baseline; gap:0; border-radius:var(--ds-radius-box); transition:background-color .6s; }
+#appView #homeView .journal-next-group > .journal-weekly-list > li.is-flash{ background:var(--kptu-warning-soft, var(--kptu-surface)); transition:none; }
+#appView #homeView .journal-next-group .journal-weekly-day{ flex:0 0 auto; }
+#appView #homeView .journal-next-row{ flex:1 1 auto; min-width:0; }
+#appView #homeView .journal-next-go{ color:var(--kptu-muted); }
+#appView #homeView button.journal-next-ref{ position:relative; display:inline; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta); white-space:nowrap; cursor:pointer; }
+#appView #homeView button.journal-next-ref::after{ content:""; position:absolute; left:-6px; right:-6px; top:calc(50% - 16px); height:32px; }
+#appView #homeView button.journal-next-ref:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #homeView button.journal-next-ref:hover{ color:var(--kptu-ink); } }
+#appView #homeView .journal-next-more > summary{ width:max-content; cursor:pointer; font-size:var(--ds-text-meta); }
+#appView #homeView .journal-next-more-text{ display:block; }
 
 /* HOME-업무일지홈(2026-10-30 명진 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주 · (오른쪽 끝) [하루|주간 정리].
-   날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘은 공용 '오늘' 표시(갈색 테두리), 고른 날은 옅은 초록 바탕. 폰은 제목이 한 줄, 아래 날짜 줄. */
+   날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘(네모 선)·고른 날(옅은 바탕)은 공용 표시(ui-standard.css .ds-today·.ds-day-sel). 폰은 제목이 한 줄, 아래 날짜 줄. */
 #appView #homeView .journal-head{ justify-content:flex-start; gap:6px 10px; }
 #appView #homeView .journal-day-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
 #appView #homeView .journal-head .journal-week-nav{ gap:2px; min-width:0; }
@@ -478,7 +495,6 @@
 #appView #homeView .journal-head .journal-date{ flex:0 0 auto; width:auto; min-width:32px; min-height:32px; height:32px; padding:0 4px; flex-direction:row; justify-content:center; gap:0; border-color:transparent; background:transparent; }
 #appView #homeView .journal-head .journal-weekday{ display:none; }
 #appView #homeView .journal-head .journal-dot{ bottom:1px; width:4px; height:4px; margin-left:-2px; }
-#appView #homeView .journal-head .journal-date[aria-pressed="true"]{ border-color:transparent; box-shadow:none; background:var(--ds-kind-journal-soft); }
 /* 폰: 첫 줄 = 날짜 제목 + [하루|주간 정리], 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
 @media(max-width:760px){
   #appView #homeView .journal-day-title{ flex:1 1 auto; order:-2; }

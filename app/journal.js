@@ -46,7 +46,8 @@ import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
-import {weeklySummary, renderWeekly, weeklyReportText, renderNextWeekSheet} from './journal-weekly.js';
+import {weeklySummary, renderWeekly, weeklyReportText, renderNextWeekSheet, NEXT_WEEK_SKIN} from './journal-weekly.js';
+import {jumpToPrepRef} from './prep-sheet-view.js';
 import {readNextWeekSheet, makeNextWeekSheet} from './next-week-sheet-data.js';
 import {sheetView, shouldAutoMake, isAutoTime, seoulNow, openTarget as nextOpenTarget} from './next-week-sheet-model.mjs';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
@@ -148,7 +149,7 @@ function renderWeek() {
     button.type = 'button'; button.className = 'journal-date'; button.dataset.journalDate = day;
     if (i >= 5) button.classList.add(i === 6 ? 'sunday' : 'saturday');
     if (day === today) { button.setAttribute('aria-current', 'date'); button.classList.add('ds-today'); }
-    button.setAttribute('aria-pressed', String(day === selected));
+    button.setAttribute('aria-pressed', String(day === selected)); button.classList.toggle('ds-day-sel', day === selected);
     button.setAttribute('aria-label', `${longDay(day)}${line ? ', 한 줄 있음' : ''}`);
     button.innerHTML = `<span class="journal-weekday" aria-hidden="true">${WEEKDAYS[i]}</span><span class="journal-num${day === today ? ' ds-today-num' : ''}" aria-hidden="true">${seoulParts(day).day}</span>${line ? '<span class="journal-dot" data-journal-dot aria-hidden="true"></span>' : ''}`;
     return button;
@@ -1330,13 +1331,12 @@ root.addEventListener('click', event => {
   // HOME-줄누르기 ⑦: [주간 정리]의 5. 주요 일정 칸·끝낸 할 일·할 일 예정 줄 → 하루 화면의 일정·할 일 줄과 같은 열기.
   if (button.matches('[data-journal-weekly-event]')) { void openOriginal({type:'event', id:button.dataset.journalWeeklyEvent, calendarId:button.dataset.journalWeeklyCalendar || 'primary'}, button); return; }
   if (button.matches('[data-journal-weekly-task]')) { void openOriginal({type:'task', id:button.dataset.journalWeeklyTask}, button); return; }
-  // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, 핵심 줄 → 근거 묶음을 열고 그 줄로.
+  // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, '근거 ›' → 근거 묶음 하나만 열고 그 줄로(잠깐 옅게 칠함, 공용 jumpToPrepRef).
   if (button.matches('[data-journal-next-make]')) { void makeNextWeek('user'); return; }
   if (button.matches('[data-journal-next-open]')) { void openNextWeekLine(Number(button.dataset.journalNextOpen), button); return; }
   if (button.matches('[data-journal-next-ref]')) {
-    const li = root.querySelector(`[data-journal-next-item="${CSS.escape(button.dataset.journalNextRef)}"]`), fold = li?.closest('details');
-    if (fold) { fold.open = true; nextUi.open.add(fold.dataset.journalNextGroup); }
-    li?.scrollIntoView({block:'nearest'}); li?.querySelector('[data-journal-next-open]')?.focus({preventScroll:true});
+    const group = jumpToPrepRef(root.querySelector('[data-journal-next-week]'), button.dataset.journalNextRef, NEXT_WEEK_SKIN);
+    if (group) nextUi.open.add(group);
     return;
   }
   if (button.matches('[data-journal-open]')) { const target = opens.get(button.dataset.journalOpen); if (target) void openOriginal(target, button); return; }

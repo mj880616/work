@@ -2776,7 +2776,8 @@ for(const width of [412,884,1440])test(`[주간 정리] [다음 주] 칸: 금요
  await openWeekly(page);
  const box=nextBox(page);
  await expect(box.locator('h4')).toHaveText('다음 주 10/12(월)~10/18(일) 준비');
- await expect(box.locator('.journal-next-top li')).toHaveText(['화요일 회의 준비 필요함.']);
+ await expect(box.locator('.journal-next-top .journal-next-top-text')).toHaveText(['화요일 회의 준비 필요함.']);
+ await expect(box.locator('.journal-next-top [data-journal-next-ref]')).toHaveText('근거 ›');
  expect(s.calls.length).toBe(1);
  const sent=s.calls[0];
  expect(sent.mode).toBe('auto');expect(sent.week_start).toBe('2026-10-12');
@@ -2791,13 +2792,17 @@ for(const width of [412,884,1440])test(`[주간 정리] [다음 주] 칸: 금요
  const events=box.locator('[data-journal-next-group="events"]');
  await expect(events).not.toHaveAttribute('open','');
  await expect(events.locator('summary')).toContainText('① 다음 주 일정');
- await expect(box.locator('[data-journal-next-group="overdue"] summary')).toContainText('④ 넘어가는 할 일 2건 — 이번 주 기한 지남');
+ await expect(box.locator('[data-journal-next-group="overdue"] summary')).toContainText('넘어가는 할 일 2건 — 이번 주 기한 지남');
+ // PREP-서식: 묶음 번호는 보이는 묶음 차례로(빈 묶음을 빼도 번호가 비지 않음).
+ const labels=await box.locator('.journal-next-group > summary .journal-next-label').allTextContents();
+ expect(labels.map(l=>l.charAt(0))).toEqual([...'①②③④⑤⑥'].slice(0,labels.length));
  // 가로로 넘치지 않는다.
  expect(await box.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
  // 핵심 줄 → 근거 묶음이 열리고 그 줄로.
  await box.locator('[data-journal-next-ref]').click();
  await expect(events).toHaveAttribute('open','');
  await expect(events.locator('[data-journal-next-open]').first()).toBeFocused();
+ await expect(box.locator('[data-journal-next-item="0"]')).toHaveClass(/is-flash/);
  // 다시 그려도(주간 정리를 다시 열어도) 자동은 한 번뿐.
  await page.locator('#journalRoot [data-journal-mode="day"]').click();await openWeekly(page);
  await expect(box.locator('.journal-next-top li')).toHaveCount(1);

@@ -4,7 +4,7 @@
 // - 만들기: ai-assist kind=pre_meeting_sheet(일정 값 + 담당조직 id만 보냄, 재료는 서버가 읽음). 이 모듈에는 원본 쓰기 호출이 없다.
 // - 자동: 전날 18시(서울) 뒤 업무일지·홈을 열면 내일 대상마다 한 번(autoMakeTomorrow, 같은 일정은 이 화면 세션에서 한 번만 묻는다).
 // - 모양: 다음 주 준비 한 장과 같은 공용 그리기(prep-sheet-view.js). 기다림은 wait-state.js. 기기 저장 없음.
-import {renderPrepSheet} from './prep-sheet-view.js';
+import {renderPrepSheet, jumpToPrepRef} from './prep-sheet-view.js';
 import {waitHtml} from './wait-state.js';
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
 import {requestLibraryDocument} from './basket-library-send.js';
@@ -207,9 +207,8 @@ function onClick(e) {
   if (b.matches('[data-pms-make]')) { void make(); return; }
   if (b.matches('[data-pms-open]')) { void openLine(Number(b.dataset.pmsOpen), b); return; }
   if (b.matches('[data-pms-ref]')) {
-    const li = document.querySelector(`#pmsBody [data-pms-item="${CSS.escape(b.dataset.pmsRef)}"]`), fold = li?.closest('details');
-    if (fold) { fold.open = true; ui.open.add(fold.dataset.pmsGroup); }
-    li?.scrollIntoView({block:'nearest'}); (li?.querySelector('[data-pms-open]') || li)?.focus?.({preventScroll:true});
+    const group = jumpToPrepRef(document.querySelector('#pmsBody'), b.dataset.pmsRef, SKIN);
+    if (group) ui.open.add(group);
   }
 }
 

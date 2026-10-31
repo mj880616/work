@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { checkSplit } from './helpers/split-check.mjs';
 
 // NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 포스트잇 보기 위 [전체] [보드…] [+ 새 보드].
 // PC: 왼쪽 폴더·노트 목록에서 끌어 놓기(또는 누르기)로 붙이기, 이미 붙은 노트는 흐리게, ×로 빼도 노트는 남음, 옮긴 자리는 metadata.boards[보드 id].
@@ -54,12 +55,13 @@ test('PC: 새 보드 → 왼쪽 목록에서 끌어 놓기·누르기로 붙이�
   const id = boardId(server);
   await expect.poll(() => server.value?.note_board).toBe(id);
   expect(server.value.note_boards).toEqual([{ id, name: '국회 대응' }]);
-  // 빈 판 한 줄, 왼쪽 170px 목록.
+  // 빈 판 한 줄, 왼쪽 좁은 목록(UI-칸폭끌기전수: 기본 16:84·최소 150px, 경계를 끌어 바꿈 — 아래 시험).
   await expect(cards(page)).toHaveCount(0);
   await expect(page.locator('[data-nb-empty]')).toHaveText('왼쪽 노트를 끌어다 놓으세요');
   const side = page.locator('[data-nbb-side]');
   await expect(side).toBeVisible();
-  expect(Math.round((await side.boundingBox()).width)).toBe(170);
+  const sideWidth = Math.round((await side.boundingBox()).width);
+  expect(sideWidth).toBeGreaterThanOrEqual(150); expect(sideWidth).toBeLessThan(260);
   await side.locator('[data-nbb-folder]', { hasText: '회의' }).click();
   await side.locator('[data-nbb-folder]', { hasText: '폴더 없음' }).click();
   await expect(side.locator('[data-nbb-note]')).toHaveCount(3);
@@ -163,3 +165,15 @@ for (const width of [412, 760]) {
     expect(errors).toEqual([]);
   });
 }
+
+// UI-칸폭끌기전수(요청함 10/30 10:29): PC 이름 붙은 보드의 노트 목록 | 보드 사이 경계를 끌어 폭을 바꾸고, 폭은 서버(view_prefs.split_ratio.noteboard)에 기억한다.
+test('PC 1440: 노트 목록 | 보드 경계 끌기·키보드·새로고침 유지·두 번 눌러 기본', async ({ page }) => {
+  const id = 'b1a2b3c4';
+  const { errors, server } = await fixture(page, 1440, { note_view: 'board', note_boards: [{ id, name: '국회 대응' }], note_board: id });
+  const side = page.locator('[data-nbb-side]');
+  // 새로고침 직후에는 사이드바가 아직 없을 수 있어(그러면 도우미가 폰 메뉴를 찾는다) 사이드바 [노트] 줄부터 기다린다.
+  const open = async () => { await expect(page.locator('#appView > .app-nav [data-basket-kind-nav="note"]')).toBeVisible(); await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3'); await expect(side).toBeVisible(); };
+  await expect(side).toBeVisible();
+  await checkSplit(page, { container: '[data-note-list] .nbw-body', left: ':scope>[data-nbb-side]', right: ':scope>[data-note-board]', name: 'noteboard', share: 0.16, server, reopen: open });
+  expect(errors).toEqual([]);
+});

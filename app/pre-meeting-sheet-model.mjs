@@ -3,6 +3,7 @@
 // - 때(결정 2): 전날 18시(서울) 뒤 업무일지·홈을 열면 내일 대상마다 한 번(서버도 같은 규칙을 다시 본다) + 언제든 [지금 만들기](7일 안).
 // - 모양: 다음 주 준비 한 장과 같은 공용 그리기(prep-sheet-view.js)에 넘길 view를 만든다. 줄은 한 번 더 검사한다(믿지 않는 입력).
 // 기기 저장 없음.
+import {wordClip} from './prep-sheet-text.mjs';
 export const KEYWORDS = Object.freeze(['교섭', '회의', '간담회', '협의', '면담']);
 export const AUTO_HOUR = 18;
 export const SHOW_DAYS = 7; // 여는 줄은 앞으로 7일 안 일정에만.
@@ -109,14 +110,14 @@ export function sheetView(row, event = null) {
     .filter(g => typeof g?.title === 'string' && g.title.trim() && (g.group === 'stage' || GROUPS.some(([key]) => key === g.group)));
   const valid = new Set(items.filter(it => it.source_kind !== 'ai').map(it => it.index));
   const refsOf = list => (Array.isArray(list) ? list : []).filter(n => valid.has(n));
-  const shown = it => ({index:it.index, day:it.day ? slashDay(it.day) : '', title:clip(it.title, 120), ai:it.source_kind === 'ai', refs:refsOf(it.refs),
+  const shown = it => ({index:it.index, day:it.day ? slashDay(it.day) : '', title:wordClip(it.title, 120), ai:it.source_kind === 'ai', refs:refsOf(it.refs),
     open:!['people_brief', 'stage', 'ai'].includes(it.source_kind), org:it.s2 ? '교섭·전략' : '', source_kind:it.source_kind, rawDay:it.day});
   const groups = GROUPS.map(([key, label]) => {
     const mine = items.filter(it => it.group === key).sort((a, b) => (a.source_kind === 'ai' ? 0 : 1) - (b.source_kind === 'ai' ? 0 : 1)).map(shown);
     return mine.length ? {key, label, items:mine, summary:groupSummary(key, mine.map(it => ({...it, day:it.rawDay})))} : null;
   }).filter(Boolean);
   const top = (Array.isArray(row?.top_lines) ? row.top_lines : []).slice(0, 3)
-    .filter(t => typeof t?.text === 'string' && t.text.trim()).map(t => ({text:clip(t.text, 80), refs:refsOf(t.refs)}));
+    .filter(t => typeof t?.text === 'string' && t.text.trim()).map(t => ({text:wordClip(t.text, 80), refs:refsOf(t.refs)}));
   const stage = items.find(it => it.group === 'stage');
   const aiNote = row?.ai_status === 'limit' ? '핵심 세 가지는 AI 한도로 만들지 못함.'
     : row?.ai_status === 'failed' ? '핵심 세 가지는 AI가 답하지 않아 만들지 못함.' : '';
