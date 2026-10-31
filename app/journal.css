@@ -451,7 +451,13 @@
 #appView #homeView .journal-calref-item{ display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0; font-size:var(--ds-text-row); cursor:pointer; }
 #appView #homeView .journal-calref-item input{ flex:none; width:16px; min-width:16px; height:16px; min-height:16px; margin:0; padding:0; accent-color:var(--kptu-primary); }
 /* HOME-줄누르기 ⑦: [주간 정리]의 일정 칸·할 일 줄 글자는 누르면 그 일정·할 일 수정 창. 글처럼 보이고(버튼 모양 없음) 누르는 범위만 넓힌다. */
-#appView #homeView button.journal-weekly-open{ position:relative; display:inline; margin:0; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; white-space:normal; cursor:pointer; }
+#appView #homeView button.journal-weekly-open{ position:relative; display:inline; vertical-align:top; max-width:100%; margin:0; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; white-space:normal; cursor:pointer; }
+/* PREP-서식 전수: 글 전체가 여는 버튼인 목록 줄(주간 정리 할 일 줄 등)은 [점·날짜] [글] — 글이 두 줄이 돼도 점·날짜는 첫 줄 앞, 넘친 글은 들여쓴 자리에서 이어짐. */
+#appView #homeView .journal-weekly-list > li:has(> button.journal-weekly-open){ display:flex; align-items:baseline; list-style:none; }
+#appView #homeView .journal-weekly-list > li:has(> button.journal-weekly-open)::before{ content:"•"; flex:0 0 auto; width:14px; margin-left:-14px; color:var(--kptu-muted); }
+#appView #homeView .journal-weekly-list > li > .journal-weekly-day{ flex:0 0 auto; }
+#appView #homeView .journal-weekly-list > li > .journal-weekly-label{ flex:0 0 auto; margin-right:.25em; }
+#appView #homeView .journal-weekly-list > li > button.journal-weekly-open{ flex:0 1 auto; min-width:0; }
 #appView #homeView button.journal-weekly-open::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - 16px); height:32px; }
 #appView #homeView button.journal-weekly-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView button.journal-weekly-open:hover{ text-decoration:underline; text-underline-offset:2px; } }
@@ -466,7 +472,20 @@
 #appView #homeView .journal-next-top{ margin:0; padding-left:20px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
 #appView #homeView .journal-next-group > summary{ cursor:pointer; font-size:var(--kptu-text-body); line-height:1.6; overflow-wrap:anywhere; }
 #appView #homeView .journal-next-label{ font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
-#appView #homeView .journal-next-group > .journal-weekly-list{ margin:2px 0 4px; }
+#appView #homeView .journal-next-group > .journal-weekly-list{ margin:2px 0 4px; padding-left:4px; list-style:none; }
+/* PREP-서식(2026-10-31): 줄 = [날짜] [글 칸] — 넘친 글은 글 칸 안에서 줄바꿈(날짜 뒤 들여쓴 자리). 핵심 줄은 읽는 글 + 줄 끝 작은 흐린 '근거 ›'.
+   '근거 ›'를 누르면 그 줄이 잠깐 옅게 칠해진다(is-flash). 긴 줄은 한 문장 요약 + 접힌 '세부'. 교섭 전 한 장(pre-meeting-sheet.css .pms-*)과 같은 규칙. */
+#appView #homeView .journal-next-group > .journal-weekly-list > li{ display:flex; align-items:baseline; gap:0; border-radius:var(--ds-radius-box); transition:background-color .6s; }
+#appView #homeView .journal-next-group > .journal-weekly-list > li.is-flash{ background:var(--kptu-warning-soft, var(--kptu-surface)); transition:none; }
+#appView #homeView .journal-next-group .journal-weekly-day{ flex:0 0 auto; }
+#appView #homeView .journal-next-row{ flex:1 1 auto; min-width:0; }
+#appView #homeView .journal-next-go{ color:var(--kptu-muted); }
+#appView #homeView button.journal-next-ref{ position:relative; display:inline; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta); white-space:nowrap; cursor:pointer; }
+#appView #homeView button.journal-next-ref::after{ content:""; position:absolute; left:-6px; right:-6px; top:calc(50% - 16px); height:32px; }
+#appView #homeView button.journal-next-ref:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #homeView button.journal-next-ref:hover{ color:var(--kptu-ink); } }
+#appView #homeView .journal-next-more > summary{ width:max-content; cursor:pointer; font-size:var(--ds-text-meta); }
+#appView #homeView .journal-next-more-text{ display:block; }
 
 /* HOME-업무일지홈(2026-10-30 명진 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주 · (오른쪽 끝) [하루|주간 정리].
    날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘은 공용 '오늘' 표시(갈색 테두리), 고른 날은 옅은 초록 바탕. 폰은 제목이 한 줄, 아래 날짜 줄. */
