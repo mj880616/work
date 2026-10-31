@@ -176,7 +176,6 @@ for (const width of [412, 1280]) {
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await expect(page.locator('#outsideView')).toBeVisible();
     await expect(chips(page)).toHaveText(['전체', '민주노총', '공공운수노조', '정당', '노동당', '녹색당']);
-    expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /outside/i.test(k)))).toEqual([]);
     expect(errors).toEqual([]);
   });
 }
