@@ -82,6 +82,14 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- APP-위젯빠른쓰기: 위젯 [업데이트]·[할 일]·[노트]가 바로 여는 작은 입력 창(웹2를 띄우지 않음). 내보내지 않는다. 권한 추가 없음. -->
+        <activity
+            android:name=".QuickWriteActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/QuickWriteTheme"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
         <!-- WIDGET-여러개 ①: 한 칸 위젯 기능 고르기. 홈 화면 앱이 열어야 해서 내보내지만 이 앱 위젯 번호의 기능 이름 하나만 저장한다. -->
         <activity
             android:name=".OneWidgetConfigActivity"
