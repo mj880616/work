@@ -121,6 +121,16 @@ for (const width of [390, 1280]) {
     await expect.poll(cols).toBe(width < 761 ? 3 : 6);
     await pinch(70, 40);
     await expect.poll(cols).toBe(width < 761 ? 4 : 8);
+    // PHOTO-핀치꾹누르기: 핀치 손을 뗀 바로 뒤 오는 누르기는 사진 열기가 아니다(공용 attachPinch가 먹음).
+    await detail.locator('[data-diary-grid]').evaluate(el => {
+      const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + 20;
+      const T = (id, x) => new Touch({ identifier: id, target: el, clientX: x, clientY: cy });
+      const ev = (type, d) => el.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [T(1, cx - d), T(2, cx + d)], changedTouches: [T(1, cx - d), T(2, cx + d)], bubbles: true, cancelable: true }));
+      ev('touchstart', 40); ev('touchmove', 45); ev('touchend', 45);
+      el.querySelector('[data-diary-open]').click();
+    });
+    await expect(page.locator('#diaryRoot [data-diary-viewer]')).toHaveCount(0);
+    await page.waitForTimeout(500);
     await expect(detail.locator('.diary-star-mark:not([hidden])')).toHaveCount(0);
     expect(f.photoReads.every(r => r.size === 'small')).toBe(true);
 
