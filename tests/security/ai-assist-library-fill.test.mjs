@@ -740,3 +740,22 @@ test('needsTidy / upgradeTextFields: a meaningful file-name title is not untidy;
   assert.deepEqual(lib.upgradeTextFields({...d,field_origin:{title:'ai',source:'ai'}},[]),['source']);
   assert.deepEqual(lib.upgradeTextFields({...d,file_name:'scan0001.pdf',field_origin:{title:'ai'}},[]),['title']);
 });
+
+// WEEKLY-자료날짜(10/31): 연도 없이 월·일만 적힌 자료의 날짜를 올해로 단정하지 않는다 — AI 답의 해가 자료 글자·파일 이름에서 확인될 때만 쓴다.
+test('자료 날짜: the year must be seen in the text or the file name (four digits, yy.mm, yymmdd, or the weekday next to the same month and day)',()=>{
+  const seen=(date,text,name='')=>lib.dateYearSeen(date,text,name);
+  assert.equal(seen('2026-10-26','가상 지하철 노동자 10월 26일 성명'),false);
+  assert.equal(seen('2025-10-26','10월 26일(일) 가상 기자회견'),true);
+  assert.equal(seen('2026-10-26','10월 26일(일) 가상 기자회견'),false);
+  assert.equal(seen('2026-10-26','10. 26.(월) 가상 기자회견'),true);
+  assert.equal(seen('2025-10-22','','가상성명_251022.hwp'),true);
+  assert.equal(seen('2025-10-22','2025. 10. 22. 가상 노동조합'),true);
+  assert.equal(seen('2025-10-22','25.10.22 가상 성명'),true);
+  assert.equal(seen('2025-10-25','2026. 10. 25. 가상 성명'),false);
+  assert.equal(seen('2025-10-22','2026년 10월 22일'),false);
+  const parsed=new Map([['d1',{document_date:'2026-10-26',title:'가상 성명'}],['d2',{document_date:'2025-10-22'}],['d3',{category:'기타'}]]);
+  const n=lib.dropUnseenYears(parsed,[{ref:'d1',text:'10월 26일 가상 성명',doc:{file_name:'가상.hwp'}},{ref:'d2',text:'',doc:{file_name:'251022.pdf'}},{ref:'d3',text:'',doc:{file_name:null}}]);
+  assert.equal(n,1);
+  assert.deepEqual(parsed.get('d1'),{title:'가상 성명'});assert.deepEqual(parsed.get('d2'),{document_date:'2025-10-22'});
+  assert.match(lib.LIBRARY_FILL_INSTRUCTIONS,/올해로 짐작하지 않는다/);
+});

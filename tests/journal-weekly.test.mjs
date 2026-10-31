@@ -300,6 +300,34 @@ test('자료 요약: without the documents read (loading or failed) the cells sh
   assert.deepEqual(plain.notes.docs.items.map(i => i.text), ['[기타] 가 조직 요구안']);
 });
 
+// WEEKLY-자료날짜(10/31 요청함): 조직 칸·사업영역 줄 후보는 자료 날짜(document_date)로, 비었을 때만 올린 날. 그 주 밖 날짜 자료는 후보에서 빠지고
+// '참고 › 자료실 새 자료'(올린 날 목록)에 자료 날짜를 붙여 남는다. 지난주에 올린 이번 주 날짜 자료는 이번 주 후보.
+test('자료 날짜: candidates go by the document\'s own date; last year\'s statement put in this week is not this week\'s news but stays in 참고 with its date', async () => {
+  const m = await mod, draft = await import('../app/weekly-hwpx/draft.mjs');
+  const updates = Object.assign([...orgUpdates], {mine:new Set(['o1', 'o2']), orgs:[{id:'o1', name:'가 조직'}, {id:'o2', name:'나 조직'}]});
+  const docs = [
+    {id:'y1', title:'작년 성명', category:'성명', organization_id:'o1', created_at:'2026-10-05T01:00:00Z', document_date:'2025-10-26'},
+    {id:'y2', title:'작년 기자회견', organization_id:'o1', project_id:'A2', created_at:'2026-10-05T02:00:00Z', document_date:'2025-10-27'},
+    {id:'t1', title:'이번 주 성명', organization_id:'o1', created_at:'2026-10-05T03:00:00Z', document_date:'2026-10-08'},
+    {id:'t2', title:'날짜 없는 자료', project_id:'A2', created_at:'2026-10-07T03:00:00Z', document_date:null},
+    {id:'t3', title:'미리 올린 자료', organization_id:'o1', created_at:'2026-09-30T03:00:00Z', document_date:'2026-10-09'},
+  ];
+  const w = m.weeklySummary({...base, materials:{...materials(), orgUpdates:ok(updates), documents:ok(docs)}});
+  const ga = w.orgs.sections.find(s => s.name === '가 조직');
+  assert.deepEqual(ga.items.filter(i => i.file).map(i => [i.day, i.text]), [['2026-10-08', '이번 주 성명'], ['2026-10-09', '미리 올린 자료']]);
+  const a2 = w.summary.areas.find(a => a.name === '사업영역 A').rows.find(r => r.task?.name === '세부 과제 A-2');
+  assert.deepEqual(a2.items.filter(i => i.file).map(i => [i.day, i.text]), [['2026-10-07', '날짜 없는 자료']]);
+  // the old ones are kept (not deleted) in the upload-day list, with their own date; the one put in last week is not a new document of this week
+  assert.deepEqual(w.notes.docs.items.map(i => [i.day, i.text]), [
+    ['2026-10-05', '[기타] 작년 성명 · 자료 날짜 2025.10.26'], ['2026-10-05', '[기타] 작년 기자회견 · 자료 날짜 2025.10.27']]);
+  const text = m.weeklyReportText(w);
+  assert.equal(text.includes('작년 성명') && !text.includes('자료 날짜 2025.10.26'), false);
+  assert.ok(text.includes('- 10월 8일(목) 이번 주 성명\n'));
+  const material = draft.weekMaterial(w, [], [{index:0, org:'가 조직', lines:[]}]);
+  assert.deepEqual(material.byOrg.get(0).filter(l => /성명|자료/.test(l.text)).map(l => [l.day, l.text]), [['2026-10-08', '- 이번 주 성명'], ['2026-10-09', '- 미리 올린 자료']]);
+  assert.equal(JSON.stringify(material).includes('작년'), false);
+});
+
 // HOME-줄누르기 ⑦: [주간 정리]의 끝낸 할 일 줄과 5. 주요 일정 칸은 누를 곳(할 일 id·일정 id와 달력)을 함께 가진다. 글은 그대로.
 test('weekly task lines and schedule cells carry what to open (text unchanged)', async () => {
   const m = await mod;

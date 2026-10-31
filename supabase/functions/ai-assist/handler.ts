@@ -121,7 +121,7 @@ import {
 import {
   BRIEF_HASH, briefHash, cleanBrief, RECORD_SUMMARY_RULE, LIBRARY_BRIEF_BACKFILL_UNTIL, type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
   LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, legacyUserFields, type LibraryField, libraryMaterial, type LinkOptions, type MaterialFile,
-  NO_LINKS, openLinkFields, organizationOptions, type OriginField, parseLibraryFill, projectOptions, proposalsFor, readOrigin, upgradeTextFields,
+  NO_LINKS, openLinkFields, organizationOptions, type OriginField, parseLibraryFill, dropUnseenYears, projectOptions, proposalsFor, readOrigin, upgradeTextFields,
   validCategories,
 } from "./library-fill.ts";
 import {
@@ -1093,6 +1093,13 @@ async function runTodoRecheck(ctx: Ctx, deps: RadarDeps): Promise<Response> {
 // ---- 쓰임 2: 챙길 것 찾기(todo_radar) ----------------------------------------------------------------------------
 
 const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
+// WEEKLY-자료날짜: 자료가 '그 날의 소식'인 날 = 자료 날짜(YYYY-MM-DD), 비었거나 모양이 다르면 올린 시각(ms)의 한국 날짜.
+export function docDayOf(documentDate: unknown, createdMs: number): string {
+  const d = typeof documentDate === "string" ? documentDate.slice(0, 10) : "";
+  const t = /^\d{4}-\d{2}-\d{2}$/.test(d) ? Date.parse(`${d}T00:00:00Z`) : NaN;
+  if (Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === d) return d;
+  return kstDay(createdMs);
+}
 const timeOf = (v: unknown) => { const t = typeof v === "string" ? Date.parse(v) : NaN; return Number.isFinite(t) ? t : NaN; };
 const isUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -2575,6 +2582,8 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     }
   }
   const parsed = result.ok ? parseLibraryFill(result.raw, files.map((f) => f.ref), categories, today, sentLinks) : null;
+  // WEEKLY-자료날짜: 해가 자료에서 확인되지 않은 자료 날짜는 쓰지 않는다(연도 없는 날짜를 올해로 단정하지 않음).
+  if (parsed) { const n = dropUnseenYears(parsed, files); if (n) deps.log("library_date_year_unseen", { documents: n }); }
   if (!result.ok || !parsed) {
     const code = result.ok ? "ai_invalid_response" : result.code;
     deps.log(code);
@@ -2738,17 +2747,23 @@ async function loadOrgMaterial(ctx: Ctx, week: string, orgs: Map<string, string>
     const docs = await readList(ctx, `app_documents?workspace_id=eq.${ws}&file_id=in.(${chunk})&organization_id=in.(${ids})&select=file_id,organization_id&limit=500`);
     for (const d of docs) for (const noteId of fileToNotes.get(String(d.file_id)) ?? []) addNote(String(d.organization_id).toLowerCase(), noteId, "");
   }
-  // WEEKLY-자료요약: 그 주에 올린(created_at) 그 조직 자료의 한두 줄 요약. 'b1:' 행만, 서버 검사를 다시 통과한 글만. 회의자료는 빼고(Q3).
+  // WEEKLY-자료요약: 그 주 그 조직 자료의 한두 줄 요약. 'b1:' 행만, 서버 검사를 다시 통과한 글만. 회의자료는 빼고(Q3).
+  // WEEKLY-자료날짜: 그 주 자료 = 자료 날짜(document_date)가 그 주인 자료, 자료 날짜가 비었을 때만 올린 날(created_at, 한국 날짜)로 본다.
+  // 화면(journal-data.js docDay)과 같은 기준 — 작년 성명을 이번 주에 올려도 이번 주 재료가 아니다. 줄 날짜도 자료 날짜.
   // 요약 표를 못 읽으면(DB 모양이 다름·권한 없음) 자료 요약 없이 진행한다(예전과 같은 재료).
   try {
-    const weekDocs = await readList(ctx, `app_documents?workspace_id=eq.${ws}&organization_id=in.(${ids})&created_at=gte.${from}&created_at=lt.${to}&meeting_id=is.null&select=id,workspace_id,organization_id,title,file_name,created_at,meeting_id&order=created_at.asc&limit=${RADAR_READ_LIMIT}`);
+    const lastDay = addDays(week, days - 1);
+    const span = encodeURIComponent(`(and(created_at.gte.${seoulMidnight(week)},created_at.lt.${seoulMidnight(addDays(week, days))}),and(document_date.gte.${week},document_date.lte.${lastDay}))`);
+    const weekDocs = await readList(ctx, `app_documents?workspace_id=eq.${ws}&organization_id=in.(${ids})&or=${span}&meeting_id=is.null&select=id,workspace_id,organization_id,title,file_name,created_at,document_date,meeting_id&order=created_at.asc&limit=${RADAR_READ_LIMIT}`);
     full(weekDocs, RADAR_READ_LIMIT);
-    const byDoc = new Map<string, { org: string; at: number; title: string }>();
+    const byDoc = new Map<string, { org: string; at: number; day: string; title: string }>();
     for (const d of weekDocs) {
       const org = String(d.organization_id).toLowerCase(), at = timeOf(d.created_at);
       if (!isUuid(d.id) || String(d.workspace_id).toLowerCase() !== ctx.workspaceId || !records.has(org) || !Number.isFinite(at) || d.meeting_id != null) continue;
+      const day = docDayOf(d.document_date, at);
+      if (day < week || day > lastDay) continue;
       const title = String((typeof d.title === "string" && d.title.trim()) ? d.title : d.file_name ?? "").trim();
-      byDoc.set(String(d.id).toLowerCase(), { org, at, title: [...title].slice(0, 120).join("") });
+      byDoc.set(String(d.id).toLowerCase(), { org, at, day, title: [...title].slice(0, 120).join("") });
     }
     const docIds = [...byDoc.keys()];
     for (let i = 0; i < docIds.length; i += IN_CHUNK) {
@@ -2757,7 +2772,7 @@ async function loadOrgMaterial(ctx: Ctx, week: string, orgs: Map<string, string>
         const d = byDoc.get(b.document_id);
         const summary = b.content_hash && BRIEF_HASH.test(b.content_hash) ? cleanBrief(b.summary) : null;
         if (!d || !summary) continue;
-        records.get(d.org)!.push({ day: kstDay(d.at), at: d.at, type: "file_summary", text: d.title ? `${d.title} — ${summary.replace(/\n/g, " ")}` : summary.replace(/\n/g, " ") });
+        records.get(d.org)!.push({ day: d.day, at: d.at, type: "file_summary", text: d.title ? `${d.title} — ${summary.replace(/\n/g, " ")}` : summary.replace(/\n/g, " ") });
       }
     }
   } catch {

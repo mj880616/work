@@ -506,6 +506,9 @@ jobs:
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs
 
+      - name: Check weekly document date rule (WEEKLY-자료날짜, read-only count SQL and year check, synthetic)
+        run: node --test tests/security/weekly-doc-date-check-sql.test.mjs tests/security/ai-assist-library-fill.test.mjs tests/security/ai-assist-org-summary.test.mjs
+
       - name: Check loaded app has no app_tasks writes
         run: node --test tests/security/app-tasks-loaded-writes.test.mjs
 

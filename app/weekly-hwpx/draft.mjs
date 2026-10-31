@@ -297,6 +297,9 @@ function matchSectionRow(name, aliasList, rows, sections) {
   // 이 줄 이름이 기록 쪽 다른 조직에도 맞으면 애매 — 정식 이름이 같은 조직이 있으면 그쪽이 우선(matchOrgs)
   return matchOrgs(found[0].org, sections).length === 1 ? found[0] : null;
 }
+// 후보 목록은 이 함수 한 곳에서 만든다. 어떤 기록·자료가 그 주 후보인지(자료는 자료 날짜 기준, WEEKLY-자료날짜)는 model(journal-weekly.js
+// weeklySummary·weekFiles)이 이미 정했다. 다음 작업 '주간보고 모든 제안에 [×] + 학습'은 사람이 뺀 후보를 여기서(byRow·byOrg·unmatched·
+// orgUnmatched에 넣기 전) 거르면 된다 — 줄마다 from(칸 이름)·day·text가 있다.
 export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
   const byRow = new Map(rows.map(r => [r.index, []]));
   const unmatched = [];
