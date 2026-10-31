@@ -45,9 +45,12 @@ class WidgetActionsTest {
 
     @Test
     fun eachCellOpensTheRightPlace() {
-        assertEquals(WidgetActions.Target("MainActivity", "kr.or.kptu.work.action.WIDGET_WRITE", "update"), WidgetActions.target(WidgetAction.UPDATE))
-        assertEquals(WidgetActions.Target("MainActivity", "kr.or.kptu.work.action.WIDGET_WRITE", "task"), WidgetActions.target(WidgetAction.TASK))
-        assertEquals(WidgetActions.Target("MainActivity", "kr.or.kptu.work.action.WIDGET_WRITE", "note"), WidgetActions.target(WidgetAction.NOTE))
+        assertEquals(WidgetActions.Target("QuickWriteActivity", "kr.or.kptu.work.action.WIDGET_QUICK_WRITE", "update"), WidgetActions.target(WidgetAction.UPDATE))
+        assertEquals(WidgetActions.Target("MainActivity", "kr.or.kptu.work.action.WIDGET_WRITE", "update"), WidgetActions.bigTarget(WidgetAction.UPDATE))
+        assertEquals(WidgetActions.Target("QuickWriteActivity", "kr.or.kptu.work.action.WIDGET_QUICK_WRITE", "task"), WidgetActions.target(WidgetAction.TASK))
+        assertEquals(WidgetActions.Target("MainActivity", "kr.or.kptu.work.action.WIDGET_WRITE", "task"), WidgetActions.bigTarget(WidgetAction.TASK))
+        assertEquals(WidgetActions.Target("QuickWriteActivity", "kr.or.kptu.work.action.WIDGET_QUICK_WRITE", "note"), WidgetActions.target(WidgetAction.NOTE))
+        assertEquals(WidgetActions.Target("MainActivity", "kr.or.kptu.work.action.WIDGET_WRITE", "note"), WidgetActions.bigTarget(WidgetAction.NOTE))
         assertEquals(WidgetActions.Target("PhotoPickActivity", "kr.or.kptu.work.action.WIDGET_PHOTO", null), WidgetActions.target(WidgetAction.PHOTO))
         // 녹음은 MTG-폰녹음의 녹음 시작 인텐트 그대로(내보내지 않은 RecordActionActivity).
         assertEquals(WidgetActions.Target("RecordActionActivity", RecordHub.ACTION_START, null), WidgetActions.target(WidgetAction.RECORD))
@@ -109,6 +112,7 @@ class WidgetActionsTest {
         val activities = children(app, "activity").associateBy { attr(it, "name") }
         // 칸이 여는 화면: 사진·녹음은 내보내지 않은 화면, 고르기 창만 홈 화면 앱용으로 내보낸다(설정 동작 하나만).
         assertEquals("false", attr(activities.getValue(".PhotoPickActivity"), "exported"))
+        assertEquals("false", attr(activities.getValue(".QuickWriteActivity"), "exported"))
         assertEquals("false", attr(activities.getValue(".RecordActionActivity"), "exported"))
         val config = activities.getValue(".OneWidgetConfigActivity")
         assertEquals("true", attr(config, "exported"))

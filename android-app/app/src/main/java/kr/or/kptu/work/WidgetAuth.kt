@@ -35,6 +35,24 @@ object WidgetRules {
      * 기존 소유자 RLS(app_todo_candidates)가 이 사람 작업공간 줄만 준다. 두 칸(종류·한 줄)만 읽는다.
      */
     const val CANDIDATES = "$SUPABASE/rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&order=created_at.desc&limit=100"
+    /**
+     * APP-위젯빠른쓰기(설계 13절): '새 글 넣기' 세 가지만. app_notes는 물음표 없는 정확한 주소 하나(필터를 붙인 일괄 요청 불가),
+     * 할 일은 google-tasks create 하나. 작업공간 확인은 위젯 세션 사용자 id로 읽는 한 줄(기존 소유자 RLS).
+     */
+    const val NOTES = "$SUPABASE/rest/v1/app_notes"
+    const val TASK_CREATE = "$SUPABASE/functions/v1/google-tasks?action=create"
+    private const val WORKSPACE_PREFIX = "$SUPABASE/rest/v1/app_workspace_members?user_id=eq."
+    private const val WORKSPACE_SUFFIX = "&select=workspace_id&limit=1"
+
+    fun workspaceUrl(userId: String): String {
+        require(isUserId(userId))
+        return WORKSPACE_PREFIX + userId + WORKSPACE_SUFFIX
+    }
+
+    private fun isWorkspaceUrl(url: String): Boolean =
+        url.startsWith(WORKSPACE_PREFIX) && url.endsWith(WORKSPACE_SUFFIX) &&
+            isUserId(url.substring(WORKSPACE_PREFIX.length, url.length - WORKSPACE_SUFFIX.length))
+
     /** WIDGET-여러개 ③ 아스날: 공개 정적 파일(앱 아스날 화면과 같은 자료). 로그인 토큰을 붙이지 않는다(readPublic). */
     const val ARSENAL = ShellRules.HOME + "arsenal/matches.js"
 
@@ -58,8 +76,8 @@ object WidgetRules {
 
     /** 위젯이 보내도 되는 요청인지. 이 밖의 주소·방식은 보내지 않는다. */
     fun allowed(method: String, url: String): Boolean = when (method) {
-        "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT
-        "GET" -> url == TASKS || url == CANDIDATES || url == ARSENAL || isCalendarUrl(url)
+        "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT || url == NOTES || url == TASK_CREATE
+        "GET" -> url == TASKS || url == CANDIDATES || url == ARSENAL || isCalendarUrl(url) || isWorkspaceUrl(url)
         else -> false
     }
 
@@ -227,6 +245,7 @@ class WidgetSession(
     }
 
     private fun forget() {
+        workspace = null
         access = null
         accessUntil = 0L
         vault.clear()
@@ -322,6 +341,66 @@ class WidgetSession(
         }
         if (got.any { it.status == 401 }) return null
         return Outcome.Ok(got.map { Reply(it.status, MiniJson.parse(it.body)) })
+    }
+
+    // ── 빠른 쓰기(설계 13절, APP-위젯빠른쓰기) ──
+
+    /** 이 위젯 세션 사용자의 작업공간 id(메모리에만, 사용자와 함께). */
+    private var workspace: Pair<String, String>? = null
+
+    /** 쓰기 결과: 성공, 로그인 풀림(웹2 쓰기 창으로 넘김), 실패(이유 한 줄, 글은 창에 남김). */
+    sealed class Write {
+        object Saved : Write()
+        object SignedOut : Write()
+        data class Failed(val reason: String) : Write()
+    }
+
+    /**
+     * 새 글 하나를 넣는다(업데이트·할 일·노트). 읽기와 같은 잠금·같은 '401이면 한 번만 새로 받기'.
+     * 보내는 요청은 QuickWriteRules.request가 만든 것과 작업공간 확인 GET뿐이고, 둘 다 WidgetRules.allowed를 거친다.
+     */
+    fun write(kind: WidgetAction, text: String): Write = synchronized(lock) {
+        when (val c = QuickWriteRules.check(kind, text)) {
+            is QuickWriteRules.Check.Bad -> return@synchronized Write.Failed(c.reason)
+            QuickWriteRules.Check.Ok -> Unit
+        }
+        writeOnce(kind, text) ?: run {
+            access = null
+            accessUntil = 0L
+            writeOnce(kind, text) ?: Write.Failed(QuickWriteRules.SIGNED_OUT)
+        }
+    }
+
+    /** 한 번 쓰기. 401이면 null(접근 토큰을 새로 받아 한 번 더). */
+    private fun writeOnce(kind: WidgetAction, text: String): Write? {
+        val token = when (val t = tokenLocked()) {
+            is Outcome.Ok -> t.value
+            is Outcome.SignedOut -> return Write.SignedOut
+            is Outcome.Failed -> return Write.Failed(QuickWriteRules.NETWORK)
+        }
+        val user = stored()?.first ?: return Write.SignedOut
+        val headers = mapOf("Authorization" to "Bearer $token", "apikey" to WidgetRules.PUBLIC_KEY)
+        try {
+            val ws = workspace?.takeIf { it.first == user }?.second ?: run {
+                val r = send(WidgetRequest("GET", WidgetRules.workspaceUrl(user), headers))
+                if (r.status == 401) return null
+                if (r.status != 200) return Write.Failed(QuickWriteRules.NO_WORKSPACE)
+                val id = MiniJson.str(MiniJson.obj(MiniJson.list(MiniJson.parse(r.body))?.firstOrNull())?.get("workspace_id"))
+                if (!WidgetRules.isUserId(id)) return Write.Failed(QuickWriteRules.NO_WORKSPACE)
+                workspace = user to id!!
+                id
+            }
+            val req = QuickWriteRules.request(kind, text, ws)
+            val h = HashMap(headers)
+            h["Content-Type"] = "application/json"
+            req.prefer?.let { h["Prefer"] = it }
+            val r = send(WidgetRequest("POST", req.url, h, req.body))
+            if (r.status == 401) return null
+            val body = MiniJson.parse(r.body)
+            return if (QuickWriteRules.success(kind, r.status, body)) Write.Saved else Write.Failed(QuickWriteRules.reason(kind, r.status, body))
+        } catch (_: IOException) {
+            return Write.Failed(QuickWriteRules.NETWORK)
+        }
     }
 
     // ── 위젯 로그아웃(설계 5절 폐기 1) ──

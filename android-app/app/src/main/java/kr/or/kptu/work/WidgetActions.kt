@@ -2,8 +2,9 @@ package kr.or.kptu.work
 
 /**
  * WIDGET-여러개 ①: 서버를 읽지 않는 위젯(빠른 쓰기 4×1, 한 칸 1×1)의 규칙. 안드로이드 API를 쓰지 않아 JVM 시험 대상이다.
- * - 칸을 누르면 앱 화면만 연다. 위젯이 서버에 보내는 요청은 없다(WidgetRules.allowed 목록은 그대로).
- * - [업데이트]·[할 일]·[노트]: 웹2의 상단 [+ 추가]와 같은 쓰기 창(웹 phone-widget-write.js).
+ * - 칸을 누르면 앱 화면만 연다. 이 객체·위젯 그리기는 서버 요청을 하지 않는다.
+ * - [업데이트]·[할 일]·[노트]: APP-위젯빠른쓰기 — 웹2를 띄우지 않는 앱 자체 작은 입력 창(QuickWriteActivity, 설계 13절).
+ *   위젯 로그인이 없거나 풀렸으면, 또는 [크게 열기]는 웹2의 상단 [+ 추가]와 같은 쓰기 창(웹 phone-widget-write.js).
  * - [사진]: 사진 고르기·카메라 → 공유 받기와 같은 길로 정리함에 바로 넣는다(SHARE-바로넣기).
  * - [녹음]: 녹음 시작 인텐트(RecordHub.ACTION_START, 내보내지 않은 RecordActionActivity).
  * - 한 칸 위젯이 고른 기능은 앱 전용 공간(SharedPreferences, 백업 제외)에 위젯 번호별로 둔다. 업무 내용은 두지 않는다.
@@ -39,6 +40,12 @@ object WidgetActions {
     /** 쓰기 창 종류만 받는다(밖에서 보낸 다른 값은 무시). */
     fun writeKind(value: String?): WidgetAction? = fromId(value)?.takeIf(::isWrite)
 
+    /** 빠른 창의 [크게 열기]·로그인 없음 넘김: 지금의 웹2 쓰기 창(MainActivity ACTION_WRITE). */
+    fun bigTarget(action: WidgetAction): Target {
+        require(isWrite(action))
+        return Target(MAIN, ACTION_WRITE, action.id)
+    }
+
     /** 웹2를 새로 열 때의 주소(웹이 읽고 주소에서 지운다). */
     fun writeUrl(action: WidgetAction): String {
         require(isWrite(action))
@@ -58,9 +65,11 @@ object WidgetActions {
     const val PHOTO_ACTIVITY = "PhotoPickActivity"
     const val RECORD_ACTIVITY = "RecordActionActivity"
     const val ACTION_PHOTO = "kr.or.kptu.work.action.WIDGET_PHOTO"
+    const val QUICK_ACTIVITY = "QuickWriteActivity"
+    const val ACTION_QUICK = "kr.or.kptu.work.action.WIDGET_QUICK_WRITE"
 
     fun target(action: WidgetAction): Target = when (action) {
-        WidgetAction.UPDATE, WidgetAction.TASK, WidgetAction.NOTE -> Target(MAIN, ACTION_WRITE, action.id)
+        WidgetAction.UPDATE, WidgetAction.TASK, WidgetAction.NOTE -> Target(QUICK_ACTIVITY, ACTION_QUICK, action.id)
         WidgetAction.PHOTO -> Target(PHOTO_ACTIVITY, ACTION_PHOTO, null)
         WidgetAction.RECORD -> Target(RECORD_ACTIVITY, RecordHub.ACTION_START, null)
     }

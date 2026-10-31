@@ -24,10 +24,12 @@ import android.widget.TextView
  * 어디로 여는지는 WidgetActions.target(시험으로 고정)이 정하고, 여기서는 그대로 Intent로 바꾼다.
  */
 object WidgetIntents {
-    fun intent(context: Context, action: WidgetAction): Intent {
-        val t = WidgetActions.target(action)
+    fun intent(context: Context, action: WidgetAction): Intent = intent(context, WidgetActions.target(action))
+
+    fun intent(context: Context, t: WidgetActions.Target): Intent {
         val cls: Class<*> = when (t.activity) {
             WidgetActions.MAIN -> MainActivity::class.java
+            WidgetActions.QUICK_ACTIVITY -> QuickWriteActivity::class.java
             WidgetActions.PHOTO_ACTIVITY -> PhotoPickActivity::class.java
             WidgetActions.RECORD_ACTIVITY -> RecordActionActivity::class.java
             else -> error("unknown target")
