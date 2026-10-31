@@ -422,7 +422,6 @@
 #appView #homeView .journal-hwpx-title[data-dropped="true"] > .journal-hwpx-title-fields,
 #appView #homeView .journal-hwpx-title[data-dropped="true"] .journal-hwpx-origin{ opacity:.5; }
 #appView #homeView .journal-hwpx-title[data-dropped="true"] .journal-hwpx-origin{ text-decoration:line-through; }
-#appView #homeView .journal-hwpx-remember-pick{ display:inline-flex; align-items:baseline; gap:4px; flex-wrap:wrap; }
 #appView #homeView .journal-weekly-memory > summary{ cursor:pointer; }
 #appView #homeView .journal-weekly-memory .journal-kinds-off-list li{ overflow-wrap:anywhere; }
 /* WEEKLY-자료요약 화면 ②: 자료 줄 [고치기] 한 줄 칸(줄 자리에서), ⋯ 안 작은 버튼은 회의 종류 ⋯와 같은 모양. */
@@ -448,7 +447,6 @@
 #appView #homeView .journal-calref > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #homeView ul.journal-calref-list{ list-style:none; margin:0; padding:0 0 4px; display:flex; flex-direction:column; }
 #appView #homeView .journal-calref-item{ display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0; font-size:var(--ds-text-row); cursor:pointer; }
-#appView #homeView .journal-calref-item input{ flex:none; width:16px; min-width:16px; height:16px; min-height:16px; margin:0; padding:0; accent-color:var(--kptu-primary); }
 /* HOME-줄누르기 ⑦: [주간 정리]의 일정 칸·할 일 줄 글자는 누르면 그 일정·할 일 수정 창. 글처럼 보이고(버튼 모양 없음) 누르는 범위만 넓힌다. */
 #appView #homeView button.journal-weekly-open{ position:relative; display:inline; vertical-align:top; max-width:100%; margin:0; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; white-space:normal; cursor:pointer; }
 /* PREP-서식 전수: 글 전체가 여는 버튼인 목록 줄(주간 정리 할 일 줄 등)은 [점·날짜] [글] — 글이 두 줄이 돼도 점·날짜는 첫 줄 앞, 넘친 글은 들여쓴 자리에서 이어짐. */

@@ -143,7 +143,6 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .permission-box,.revision-box{border-top:1px solid var(--kptu-border);padding-top:var(--kptu-space-4);margin-top:var(--kptu-space-4);font-size:12px}
 .permission-box>b,.revision-box>b{display:block;margin-bottom:var(--kptu-space-2)}
 .group-check{display:flex;align-items:center;gap:var(--kptu-space-2);margin:var(--kptu-space-2) 0;font-weight:600}
-.group-check input{width:auto;min-height:0}
 .side-actions{display:flex;flex-direction:column;gap:var(--kptu-space-2);margin-top:var(--kptu-space-4)}
 .link-button{text-align:center;text-decoration:none;font-size:13px}
 .revision-list{color:var(--kptu-muted);font-size:11px;display:flex;flex-direction:column;gap:var(--kptu-space-1)}

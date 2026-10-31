@@ -73,13 +73,11 @@ body.kptu-workspace-shell .topbar{display:none!important}
 .inline-form.row{grid-template-columns:minmax(0,1fr) auto}
 .inline-form textarea,.inline-form input,.inline-form select{margin:0}
 .check-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--kptu-space-2);align-items:center;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);padding:var(--kptu-space-2);margin:0}
-.check-row input{width:auto;min-height:0}
 .check-row small{font-size:10px;color:var(--kptu-muted)}
 .action-box{background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-3);margin:var(--kptu-space-4) 0}
 .muted{color:var(--kptu-muted);font-size:12px;margin:3px 0}
 .google-bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:9px 11px;margin-bottom:var(--kptu-space-3)}
 .toggle-line{display:flex;flex-direction:row;align-items:center;gap:5px;margin:0;font-size:11px}
-.toggle-line input{width:auto;min-height:0}
 .google-cal-list{background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-3);margin:-3px 0 var(--kptu-space-3);display:flex;gap:var(--kptu-space-3);align-items:center;flex-wrap:wrap}
 .google-cal-list>b{width:100%;font-size:11px}
 .badge.google{background:var(--kptu-success-soft);color:var(--kptu-success)}
