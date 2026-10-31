@@ -99,7 +99,7 @@ function postHtml(p, now) {
   const link = v.url ? `<a class="os-link" href="${esc(v.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v.title)} 원문 (새 창)">원문</a>` : '';
   const open = v.body && state.open.has(p.id);
   const body = v.body ? `<details class="os-fold" data-os-fold="${esc(p.id)}"${open ? ' open' : ''}><summary>${v.body === 'foreign' ? '요약·핵심 문장' : '본문'}</summary><div class="os-body" data-os-body="${esc(p.id)}">${open ? bodyHtml(p, v) : ''}</div></details>` : '';
-  return `<article class="os-post${p.lang === 'en' ? ' is-foreign' : ''}" data-os-post="${esc(p.id)}">${meta}<h3 class="os-title"${p.lang === 'en' && !p.title_ko ? ' lang="en"' : ''}>${esc(v.title)}</h3>${lead}<div class="os-foot">${body}${link}</div></article>`;
+  return `<article class="os-post${p.lang === 'en' ? ' is-foreign' : ''}" data-os-post="${esc(p.id)}">${meta}<h4 class="os-title"${p.lang === 'en' && !p.title_ko ? ' lang="en"' : ''}>${esc(v.title)}</h4>${lead}<div class="os-foot">${body}${link}</div></article>`;
 }
 
 function listHtml() {
