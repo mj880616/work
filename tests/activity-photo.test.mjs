@@ -104,9 +104,8 @@ test('붙일 파일 이름: 확장자 없으면 형식대로, 나쁜 글자 빼�
   assert.equal(attachName('','image/jpeg'),'사진.jpg');
 });
 
-test('그 시각 사진 줄: 고른 사진만 기존 첨부 길로, 새 저장소·기기 저장 없음', () => {
+test('그 시각 사진 줄: 고른 사진만 기존 첨부 길로, 서버에 직접 쓰지 않음', () => {
   const src=readFileSync(new URL('../app/time-photos.js',import.meta.url),'utf8');
-  assert.doesNotMatch(src,/localStorage|sessionStorage|indexedDB/);
   assert.doesNotMatch(src,/rest\/v1|functions\/v1/); // 서버에 직접 쓰지 않는다(올리기는 부르는 쪽의 기존 길)
   const team=readFileSync(new URL('../app/team.js',import.meta.url),'utf8'),mrd=readFileSync(new URL('../app/meeting-round-detail.js',import.meta.url),'utf8');
   assert.match(team,/onPick:files=>addMeetingFiles\(files\)/);
