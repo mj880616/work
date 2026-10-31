@@ -1578,4 +1578,6 @@ body.kptu-mobile-keyboard :is(
 /* 팝업·시트 아래 버튼 줄은 숨기지 않고 글 끝에 붙여(제자리 흐름) 칸을 덮지 않게 한다. 팝업 창은 자판 위에서 끝난다(자판이 화면만 덮는 브라우저). */
 body.kptu-mobile-keyboard :is(.modal-foot,#reportAreaTagSheet .area-tag-foot,#gtDetailPane #gtTaskModal.gt-docked .modal-action-footer){ position:static; }
 body.kptu-mobile-keyboard .modal:not(.ed-window){ bottom:var(--kptu-keyboard-inset,0px); }
+/* 폰 팝업 카드 높이(workspace-ui.css, 100dvh 기준 !important)를 자판 위 창 높이 안으로. */
+body.kptu-mobile-keyboard .modal:not(.ed-window) > .modal-card{ max-height:100% !important; }
 /* 칸을 누르면 그 칸이 위쪽 머리줄 아래·자판 위 1~2줄 여유 자리로 올라온다: accessibility-dialog.js revealField가 그때그때 잰다(CSS 규칙 없음). */

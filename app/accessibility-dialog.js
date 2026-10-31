@@ -35,9 +35,9 @@
   }
   function scrollport(field){
     for(let p=field.parentElement;p&&p!==document.body;p=p.parentElement){
-      if(/^(auto|scroll|overlay)$/.test(getComputedStyle(p).overflowY)&&p.scrollHeight>p.clientHeight+1){const r=p.getBoundingClientRect();return {top:r.top,bottom:r.bottom}}
+      if(/^(auto|scroll|overlay)$/.test(getComputedStyle(p).overflowY)&&p.scrollHeight>p.clientHeight+1){const r=p.getBoundingClientRect();return {el:p,top:r.top,bottom:r.bottom}}
     }
-    return {top:0,bottom:innerHeight};
+    return {el:document.scrollingElement||document.documentElement,top:0,bottom:innerHeight};
   }
   function revealField(field){
     if(!field?.isConnected||field.matches('iframe')||onFixedBar(field))return;
@@ -51,12 +51,21 @@
     // Room: a little above the field, one to two lines under it.
     top+=8;bottom-=40;
     const tall=r.height>bottom-top;
-    if(tall?(r.top<bottom&&r.bottom>top):(r.top>=top&&r.bottom<=bottom))return;
-    field.style.scrollMarginTop=Math.max(0,Math.round(top-port.top))+'px';
-    field.style.scrollMarginBottom=Math.max(0,Math.round(port.bottom-bottom))+'px';
-    field.scrollIntoView({block:tall?'start':'nearest',inline:'nearest'});
-    field.style.scrollMarginTop='';field.style.scrollMarginBottom='';
-    if(!field.getAttribute('style'))field.removeAttribute('style');
+    if(!(tall?(r.top<bottom&&r.bottom>top):(r.top>=top&&r.bottom<=bottom))){
+      field.style.scrollMarginTop=Math.max(0,Math.round(top-port.top))+'px';
+      field.style.scrollMarginBottom=Math.max(0,Math.round(port.bottom-bottom))+'px';
+      field.scrollIntoView({block:tall?'start':'nearest',inline:'nearest'});
+      field.style.scrollMarginTop='';field.style.scrollMarginBottom='';
+      if(!field.getAttribute('style'))field.removeAttribute('style');
+    }
+    // A pinned bar that was not at the edge when measured (a popup title line not yet stuck) can still lie on the
+    // field: look at the field's own top and bottom edge and move it clear (twice at most).
+    for(let i=0;i<2;i++){
+      const now=field.getBoundingClientRect(),over=barAt(field,x,now.top+1),under=tall?null:barAt(field,x,now.bottom-1);
+      const delta=over?now.top-over.bottom-8:under?now.bottom-under.top+40:0;
+      if(!delta)break;
+      port.el.scrollBy(0,delta);
+    }
   }
   function syncKeyboard(){
     const viewport=window.visualViewport,focused=document.activeElement,editing=editable(focused);
