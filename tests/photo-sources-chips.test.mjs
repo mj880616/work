@@ -75,9 +75,10 @@ test('사진 메뉴: [폴더]·[휴지통]·[앨범]이 출처 켜기를 따른�
   assert.ok(folders.indexOf('if (!u.onedrive)') < folders.indexOf('loadTree()'), '원드라이브가 꺼지면 원드라이브 나무를 읽지 않음');
   assert.match(folders, /data-photos-fx-group="onedrive">원드라이브/);
   assert.match(s, /data-photos-fx-group="phone">폰/);
-  // 폰 폴더 줄은 보기 전용: ⋯·끌기·새 폴더 없음.
+  // 폰 폴더 줄: 끌기 없음, 원드라이브 ⋯·스위치와 섞이지 않음. ⋯·새 폴더는 앱 0.4.1+(phoneOps)만(PHOTO-폴더스위치).
   const row = s.slice(s.indexOf('function phoneFolderRowHtml'), s.indexOf('// 폰 묶음 줄들'));
-  assert.doesNotMatch(row, /nx-more|data-photos-fx-more|draggable|photos-fx-new/);
+  assert.doesNotMatch(row, /data-photos-fx-more|draggable/);
+  assert.match(row, /phoneOps\(\) \? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more=/);
   const grid = s.slice(s.indexOf('function paintPhoneFolderGrid()'), s.indexOf('function goPhoneFolder'));
   assert.doesNotMatch(grid, /draggable/);
   // [앨범]: 켜진 출처로 줄인 카드.
@@ -89,10 +90,10 @@ test('사진 메뉴: [폴더]·[휴지통]·[앨범]이 출처 켜기를 따른�
   assert.match(s, /t === 'folders' \? \(pAt !== null \? pItems : fItems\)/);
 });
 
-test('앱(0.4.0): 폰 폴더 읽기 하나 추가(서버로 보내지 않음)', () => {
+test('앱(0.4.0+): 폰 폴더 읽기 하나 추가(서버로 보내지 않음)', () => {
   const rules = read('android-app/app/src/main/java/kr/or/kptu/work/PhoneMediaRules.kt');
   assert.match(rules, /\(page\|ids\|months\|days\|folders\|thumb/);
   assert.match(rules, /fun foldersJson\(/);
   assert.match(read('android-app/app/src/main/java/kr/or/kptu/work/PhoneMedia.kt'), /PhoneMediaRules\.Request\.Folders -> json\(PhoneMediaRules\.foldersJson\(all\(context\)\)\)/);
-  assert.match(read('android-app/app/build.gradle'), /versionName '0\.4\.0'/);
+  assert.match(read('android-app/app/build.gradle'), /versionName '0\.4\.[1-9]'/);
 });

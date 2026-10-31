@@ -302,7 +302,7 @@ export function moveUndoGroups(moved, target) {
 }
 // 서버 거절을 일상어로(폴더 동작).
 export function folderErrorText(code) {
-  return ({onedrive_name_taken: '같은 이름의 폴더가 이미 있어요.', onedrive_folder_not_empty: '폴더가 비어 있을 때만 지울 수 있어요. 사진·파일을 먼저 옮겨 주세요.',
+  return ({onedrive_name_taken: '같은 이름의 폴더가 이미 있어요.', onedrive_folder_not_empty: '폴더가 비어 있을 때만 지울 수 있어요. 사진·파일을 먼저 옮겨 주세요.', onedrive_folder_has_trash: '이 폴더 안에 사진 휴지통이 있어 지울 수 없어요.',
     onedrive_outside_folder: '고른 원드라이브 폴더 밖이라 할 수 없어요.', onedrive_folder_missing: '폴더를 찾지 못했어요. 새로 고친 뒤 다시 해 주세요.',
     onedrive_reconnect_needed: '원드라이브를 다시 연결해 주세요.', onedrive_request_invalid: '이름이나 옮길 곳을 확인해 주세요.'})[code] || '';
 }

@@ -48,7 +48,9 @@ export function phoneToItem(p) {
   if (!taken || !dayRe.test(p.day || '')) return null;
   return {kind:'phone', source:'phone', key:phoneKey(phoneId), id:`ph:${phoneId}`, phoneId, day:p.day, name:String(p.name || ''), taken_at:taken, approx:p.approx === true,
     video:p.kind === 'video', duration_ms:Number.isFinite(p.duration_ms) ? p.duration_ms : null, width:Number.isFinite(p.width) ? p.width : null, height:Number.isFinite(p.height) ? p.height : null,
-    screenshot:p.screenshot === true, size_bytes:Number.isFinite(p.size_bytes) && p.size_bytes >= 0 ? p.size_bytes : null, uploaded_at:isoOf(p.uploaded_at)};
+    screenshot:p.screenshot === true, size_bytes:Number.isFinite(p.size_bytes) && p.size_bytes >= 0 ? p.size_bytes : null, uploaded_at:isoOf(p.uploaded_at),
+    // PHOTO-폴더스위치(앱 0.4.1+): 폰 폴더(relative_path). 옛 앱은 없음(null). 화면 메모리에서만 쓴다.
+    folder:typeof p.folder === 'string' && p.folder.length <= 255 ? p.folder : null};
 }
 // ---- PHOTO-폰사진못읽음: 앱 다리 실패 이유(앱 0.4.0+는 상태 코드 + {"error":종류,"detail":예외 클래스 이름}) ----
 export const PHONE_FAIL_KINDS = Object.freeze(['permission', 'key', 'bad_request', 'query', 'column', 'decode', 'not_found']);

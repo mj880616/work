@@ -1128,6 +1128,24 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (!validItemId(body.folder_id) || body.confirm !== true || body.folder_id === w.folder.id) throw new Fail(400, "onedrive_request_invalid");
       const id = body.folder_id;
       inTree(w, id);
+      // PHOTO-폴더스위치 ②: contents:true = 사진·하위 폴더가 든 폴더도 지운다(화면이 확인 한 번 받은 뒤). 원드라이브가 폴더째 휴지통으로 옮긴다
+      // (원드라이브 휴지통에서 되살림). 색인은 그 폴더 나무의 폴더 줄·사진 줄만 지운다. Web2 휴지통 폴더가 그 안에 있으면 지우지 않는다(409).
+      if (body.contents === true) {
+        const all = [...below(w, id)];
+        const { data: bins, error: binErr } = await admin.from(FOLDERS).select("item_id,parent_id").eq("workspace_id", workspaceId).eq("role", "trash");
+        if (binErr) dbFail("onedrive_index_read_failed:folder_delete", binErr);
+        if ((bins || []).some((b: { item_id: string; parent_id: string | null }) => all.includes(b.item_id) || (b.parent_id !== null && all.includes(b.parent_id)))) {
+          throw new Fail(409, "onedrive_folder_has_trash");
+        }
+        await folderInTop(w.token, id, w.folder);
+        const gone = await call("onedrive_folder_delete", `${GRAPH}/me/drive/items/${encodeURIComponent(id)}`, {
+          method: "DELETE", headers: { Authorization: `Bearer ${w.token}` },
+        });
+        if (gone.status !== 404) graphCheck("onedrive_folder_delete", gone, "onedrive_folder_missing");
+        await deleteIn("onedrive_index_delete_failed:folder_photos", PHOTOS, workspaceId, "parent_id", all);
+        await deleteIn("onedrive_index_delete_failed:folder", FOLDERS, workspaceId, "item_id", all);
+        return json({ deleted: true, folders: all.length });
+      }
       if ((w.tree.kids.get(id) || []).length) throw new Fail(409, "onedrive_folder_not_empty");
       const { data, error } = await admin.from(PHOTOS).select("item_id").eq("workspace_id", workspaceId).eq("parent_id", id).range(0, 0);
       if (error) dbFail("onedrive_index_read_failed:folder_delete", error);

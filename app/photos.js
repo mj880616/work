@@ -31,6 +31,7 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
   odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, readPhoneStars, addStar, removeStar, starKey, takenLabel, takeOdReturn} from './diary-onedrive.js';
 import {phonePhotos} from './phone-photos.js';
+import {parsePhoneOff, phoneOffValue, remapPhoneOff, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT} from './photo-sources-model.mjs';
 import {ownerScope} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
@@ -90,6 +91,8 @@ let items = [], next = null, ended = false, loading = null, failed = '', from = 
 let odList = [], odEnded = false, phList = [], phNext = 0, phEnded = false;
 const hidden = new Set();
 let sources = parseSources(null), phStarItems = null;
+// PHOTO-폴더스위치: 끈 폰 폴더(view_prefs.phone_folders_off, 서버). 앱 0.4.1+만 스위치·바꾸기(phone.state().hide·ops). 새 폴더(사진을 옮겨 넣기 전)는 이 화면 메모리에만.
+let phoneOff = new Set(), pPending = [], manageAsked = false;
 const phone = phonePhotos();
 let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, syncing = false, syncAt = 0;
 let trash = null, trashFailed = '', trashBusy = false;
@@ -117,6 +120,10 @@ const anyUse = () => { const u = useSrc(); return u.onedrive || u.phone; };
 const marks = () => { const u = useSrc(); return u.onedrive && u.phone; };
 // PHOTO-출처모든칩: 폰 사진 출처가 켜졌나(앱이 폰 사진을 지원할 때만, PC는 늘 꺼짐). 모두 꺼지면 모든 칩이 한 줄 안내.
 const phoneOn = () => sources.phone && phone.available();
+// 끈 폰 폴더를 읽기에 붙인다(옛 앱은 phone-photos.js가 붙이지 않음).
+const hideArg = () => ({hide:[...phoneOff]});
+const phoneSw = () => phone.state().hide === true;
+const phoneOps = () => phone.state().ops === true;
 const noSource = () => !sources.onedrive && !phoneOn();
 const NO_SOURCE_HTML = '<p class="photos-muted" data-photos-no-source>위 출처 아이콘을 켜 주세요.</p>';
 
@@ -127,6 +134,7 @@ function readPrefs() {
   const v = parsePhotoView(viewPrefs.get('photo_view'));
   filter = v.filter; colsSaved = v.cols; sort = v.sort;
   sources = parseSources(viewPrefs.get('photo_sources'));
+  phoneOff = parsePhoneOff(viewPrefs.get('phone_folders_off'));
   $('[data-photos-filter]').value = filter; paintSortButton();
 }
 const savePrefs = () => viewPrefs.set('photo_view', photoViewValue({filter, cols:colsSaved, sort}), {rejectable:true});
@@ -165,7 +173,7 @@ const readErrorText = error => (error?.phone || error?.message === 'phone_no_acc
 // 폰 사진 별표 칸(★ 거르기 목록·달력·막대). 별표가 바뀌면 버린다.
 async function phoneStarList(r) {
   await ensureStars(r);
-  if (!phStarItems) phStarItems = (await phone.byIds(phoneStarIds())).sort(sortCompare(listSort()));
+  if (!phStarItems) phStarItems = (await phone.byIds(phoneStarIds(), hideArg())).sort(sortCompare(listSort()));
   return phStarItems;
 }
 // 원드라이브에서 바뀐 것을 서버 색인에 이어 받는다(일기와 같은 서버 동작 'sync'). 새로 받은 것이 있으면 처음부터 다시 그린다.
@@ -210,7 +218,7 @@ async function loadStream(source, r) {
     odList = appendItems(odList, page.items.map(toItem)); next = page.next; odEnded = !page.next;
     return;
   }
-  const page = await phone.page({sort:listSort(), filter, offset:phNext, limit:PAGE_SIZE, before:from ? Date.parse(from.cursor.t) : null});
+  const page = await phone.page({sort:listSort(), filter, offset:phNext, limit:PAGE_SIZE, before:from ? Date.parse(from.cursor.t) : null, ...hideArg()});
   if (!current(r)) return;
   phList = appendItems(phList, page.items); phNext = page.next ?? phNext; phEnded = page.next === null;
 }
@@ -281,7 +289,7 @@ async function loadBar(r) {
     }
     if (u.phone) {
       if (want === 'star') { const m = {}; for (const it of await phoneStarList(r)) m[it.day.slice(0, 7)] = (m[it.day.slice(0, 7)] || 0) + 1; parts.push(m); }
-      else parts.push(await phone.months(want));
+      else parts.push(await phone.months(want, hideArg()));
     }
     if (!current(r) || filter !== want) return;
     bar = monthBar(mergeMonths(...parts)); paintRail();
@@ -408,7 +416,7 @@ async function renderCalendar() {
       }
       if (u.phone) {
         if (want === 'star') phD = daysFromItems(await phoneStarList(r), key);
-        else phD = await phone.days(key, {filter:want, prefer:phoneStarIds()});
+        else phD = await phone.days(key, {filter:want, prefer:phoneStarIds(), ...hideArg()});
       }
       days = mergeDays(odD, phD);
       calData.set(cacheKey, days);
@@ -622,7 +630,7 @@ function paintSelect() {
   $('[data-photos-act-star]').disabled = none; $('[data-photos-act-down]').disabled = none;
   // PC공유메뉴: 넓은 화면은 기기 공유 창이 없어도 [⇪ 공유] 메뉴(복사·정리함·다운로드)를 쓴다.
   const share = $('[data-photos-act-share]'); share.hidden = !canShare() && !wideShare(); share.disabled = none;
-  $('[data-photos-act-move]').disabled = none || !od.canDelete || busy || !pickedItems().some(x => x.kind !== 'phone'); $('[data-photos-act-tag]').disabled = none || busy;
+  $('[data-photos-act-move]').disabled = none || busy || !pickedItems().some(x => (x.kind === 'phone' ? phoneOps() : od.canDelete)); $('[data-photos-act-tag]').disabled = none || busy;
   const untag = $('[data-photos-act-untag]'); untag.hidden = !(tab === 'albums' && album); untag.disabled = none || busy;
   $('[data-photos-restore]').disabled = none || !od.canDelete; $('[data-photos-purge]').disabled = none || !od.canDelete;
   if (rail) paintRail();
@@ -900,7 +908,7 @@ function loadPhoneFolders(force = false) {
   if (pFoldersLoading) return pFoldersLoading;
   if (pFolders !== null && !force) return Promise.resolve(pFolders);
   const r = run;
-  pFoldersLoading = phone.folders().then(list => { if (current(r)) { pFolders = list === null ? false : list; pFoldersFailed = ''; } return pFolders; },
+  pFoldersLoading = phone.folders().then(list => { if (current(r)) { pFolders = list === null ? false : list; pFoldersFailed = ''; if (list) pPending = pPending.filter(x => !list.some(f => f.id === x.id)); } return pFolders; },
     error => { if (current(r)) pFoldersFailed = phoneErrorText(error); return null; }).finally(() => { pFoldersLoading = null; });
   return pFoldersLoading;
 }
@@ -921,13 +929,21 @@ function loadPhoneFolder(id) {
   })();
   return pLoading;
 }
-const phoneFolderOf = id => (pFolders || []).find(f => f.id === id) || null;
+// 폰 폴더 + 아직 사진을 옮겨 넣지 않은 새 폴더(이 화면 메모리만, 장수 0).
+const phoneFolderList = () => [...(pFolders || []), ...pPending.filter(x => !(pFolders || []).some(f => f.id === x.id))];
+const phoneFolderOf = id => phoneFolderList().find(f => f.id === id) || null;
+// PHOTO-폴더스위치: 폰 폴더 줄도 원드라이브 줄과 같은 모양 [📁 이름 | 장수 | 스위치 | ⋯](스위치·⋯는 앱 0.4.1+).
+const phoneSwHtml = f => switchHtml('ph:' + f.id, f.name, !phoneOff.has(f.id)).replace('data-photos-fx-sw=', 'data-photos-pf-sw=');
 function phoneFolderRowHtml(f, {wide}) {
-  const cur = wide && pAt === f.id;
-  return `<div class="nx-row nx-folder photos-fx-row${cur ? ' nx-current' : ''}" data-photos-pf="${esc(f.id)}" style="--nx-indent:0"${wide ? ' role="treeitem"' : ''}>`
+  const cur = wide && pAt === f.id, sw = phoneSw() && !f.pending, off = sw && phoneOff.has(f.id);
+  return `<div class="nx-row nx-folder photos-fx-row${cur ? ' nx-current' : ''}${off ? ' is-off' : ''}" data-photos-pf="${esc(f.id)}" style="--nx-indent:0"${wide ? ' role="treeitem"' : ''}>`
     + (wide ? '<span class="photos-fx-tog" aria-hidden="true"></span>' : '')
-    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">${cur ? '\u{1F4C2}' : '\u{1F4C1}'}</span><span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}</span><span class="nx-num" aria-label="사진 ${f.count}장">${f.count}</span></button></div>`;
+    + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}><span class="nx-ico" aria-hidden="true">${cur ? '\u{1F4C2}' : '\u{1F4C1}'}</span><span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span><span class="nx-num" aria-label="사진 ${f.count}장">${f.count}</span></button>`
+    + (sw ? phoneSwHtml(f) : '')
+    + (phoneOps() ? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more="${esc(f.id)}" aria-label="${esc(f.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
+    + '</div>';
 }
+const phoneNewHtml = () => (phoneOps() ? '<button type="button" class="nx-new-folder photos-fx-new" data-photos-pf-new>+ 새 폴더</button>' : '');
 // 폰 묶음 줄들. 옛 앱(folders 읽기 없음)이면 비운다(폰 폴더 묶음만 안 보임).
 function phoneGroupHtml({wide, head}) {
   if (pFolders === false) return '';
@@ -937,11 +953,15 @@ function phoneGroupHtml({wide, head}) {
     const r = run; loadPhoneFolders().then(() => { if (current(r) && tab === 'folders') renderFolders(); });
     return title + waitHtml({rows:2, h:36});
   }
-  return title + (pFolders.length ? pFolders.map(f => phoneFolderRowHtml(f, {wide})).join('') : emptyHtml('폰 폴더 없음'));
+  const list = phoneFolderList();
+  const hint = phoneSw() && (!head || !tree?.whole) ? '<p class="photos-fx-hint">스위치 켜짐 = 사진에 보임</p>' : '';
+  return title + hint + (list.length ? list.map(f => phoneFolderRowHtml(f, {wide})).join('') : emptyHtml('폰 폴더 없음')) + phoneNewHtml();
 }
 // 위치 줄 '사진 › 폰 › Camera'. 앞 두 칸은 폴더 목록으로(data-photos-pf-at).
 const phonePathHtml = f => `<nav class="fp-path photos-fx-path" aria-label="지금 위치">${folderPathHtml({rootLabel:'사진', trail:[{id:'phone', name:'폰'}, {id:f.id, name:f.name}], attr:'data-photos-pf-at', esc})}</nav>`;
-const phoneHeadHtml = f => `<p class="photos-fx-here"><b>${esc(f.name)}</b> · ${f.count}장 · 폰</p>`;
+const phoneHeadHtml = f => (phoneSw() && !f.pending
+  ? `<p class="photos-fx-here has-sw"><span><b>${esc(f.name)}</b> · ${f.count}장 · 폰${phoneOff.has(f.id) ? ' · 사진에 안 보임' : ''}</span>${phoneSwHtml(f)}</p>`
+  : `<p class="photos-fx-here"><b>${esc(f.name)}</b> · ${f.count}장 · 폰</p>`);
 function renderFolders() {
   io?.disconnect();
   const g = listGate();
@@ -1076,6 +1096,79 @@ async function toggleFolder(id) {
   catch (error) { setTreeEnabled(id, !next); folderFail(error, '스위치를 바꾸지 못했어요'); }
   finally { swBusy.delete(id); if (tab === 'folders') renderFolders(); }
 }
+// PHOTO-폴더스위치 ②: 폰 폴더 스위치 = 끈 폴더 목록(view_prefs.phone_folders_off) 저장. 바로 칠하고, 서버가 거절하면 되돌리고 알린다.
+function phoneOffChanged() { resetList(); calData.clear(); phStarItems = null; aFor = null; monthsFor = ''; }
+function savePhoneOff(next) {
+  const value = phoneOffValue(next);
+  if (!value) { notify('끈 폰 폴더가 너무 많아요(80개까지).', {error:true}); return false; }
+  phoneOff = next; viewPrefs.set('phone_folders_off', value, {rejectable:true});
+  phoneOffChanged();
+  return true;
+}
+function togglePhoneFolder(id) {
+  if (!phoneSw() || !phoneFolderOf(id)) return;
+  const next = new Set(phoneOff);
+  if (next.has(id)) next.delete(id); else next.add(id);
+  savePhoneOff(next);
+  if (tab === 'folders') renderFolders();
+}
+// PHOTO-폴더스위치 ③: 폰 폴더 바꾸기(앱 0.4.1+). 처음 한 번 '미디어 관리 허용' 안내(켜 두면 매번 묻지 않음, 안 켜면 바꿀 때마다 폰이 확인 창).
+async function phoneOpGo(anchor, op, done, after = null) {
+  if (busy || !phoneOps()) return null;
+  if (!phone.state().manage && !manageAsked) {
+    manageAsked = true;
+    if (await askConfirm(anchor, {text:"폰 폴더를 바꿀 때 매번 묻지 않게 '미디어 관리 허용'을 켤까요?", note:'설정에서 웹2의 미디어 관리 허용을 켜고 돌아와 다시 눌러 주세요. 안 켜면 바꿀 때마다 폰이 확인 창을 띄워요.', ok:'설정 열기'})) { phone.manage(); return null; }
+  }
+  busy = true; paintSelect();
+  let res;
+  try { res = await phone.folderOp(op); } finally { busy = false; }
+  notify(phoneOpText(res, done(res)), {error:!res.ok});
+  if (res.ok) after?.(res);
+  if (res.ok) { pFolders = null; pFor = null; pItems = []; resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
+  if (tab === 'folders') renderFolders(); else render();
+  return res;
+}
+async function newPhoneFolder(within = pAt) {
+  if (!phoneOps()) return;
+  const name = cleanPhoneName(await askName('새 폰 폴더 이름') || '');
+  if (!name) return;
+  const parent = within !== null && phoneFolderOf(within) ? within : 'Pictures/', path = newPhonePath(parent, name);
+  if (!path) return notify('폴더 이름을 확인해 주세요(1~60자, / \\ 없이).', {error:true});
+  if (phoneFolderOf(path)) return notify('같은 이름 폴더가 있어요.', {error:true});
+  pPending = [...pPending, {id:path, name, count:0, pending:true}];
+  notify(`'${name}' 폴더 — 사진을 골라 [옮기기]로 넣으면 폰에 생겨요`);
+  if (tab === 'folders') renderFolders();
+}
+// 이름 바꾸기·옮기기·지우기 뒤: 보던 폴더와 끈 폴더 목록이 새 경로를 따라간다(지우기면 뺀다).
+function followPhone(from, to) {
+  if (pAt !== null && pAt.startsWith(from)) pAt = to ? to + pAt.slice(from.length) : null;
+  if ([...phoneOff].some(p => p.startsWith(from))) savePhoneOff(remapPhoneOff(phoneOff, from, to));
+}
+async function renamePhoneFolder(anchor, id) {
+  const f = phoneFolderOf(id); if (!f || !isPhoneMovable(id)) return notify('이 폴더는 이름을 바꿀 수 없어요(DCIM·Pictures 아래만).', {error:true});
+  const raw = await askName('폰 폴더 이름', f.name); if (raw === null) return;
+  const name = cleanPhoneName(raw), to = name ? renamedPhonePath(id, name) : '';
+  if (!to) return notify('폴더 이름을 확인해 주세요(1~60자, / \\ 없이).', {error:true});
+  if (name === f.name) return;
+  if (f.pending) { pPending = pPending.map(x => (x.id === id ? {...x, id:to, name} : x)); if (pAt === id) pAt = to; return renderFolders(); }
+  await phoneOpGo(anchor, {op:'rename', from:id, name}, r => `이름을 바꿨어요(${r.count}장)`, r => followPhone(id, r.path || to));
+}
+async function movePhoneFolder(anchor, id, into) {
+  const to = movedPhonePath(id, into); if (!to || !isPhoneMovable(id)) return;
+  await phoneOpGo(anchor, {op:'movefolder', from:id, into}, r => `폴더를 옮겼어요(${r.count}장)`, r => followPhone(id, r.path || to));
+}
+async function trashPhoneFolder(anchor, id) {
+  const f = phoneFolderOf(id); if (!f) return;
+  if (f.pending) { pPending = pPending.filter(x => x.id !== id); if (pAt === id) pAt = null; return renderFolders(); }
+  if (!isPhoneTrashable(id)) return notify('이 폴더는 지울 수 없어요.', {error:true});
+  if (!await askConfirm(anchor, {text:`'${f.name}' 폴더를 지울까요?`, note:`안의 사진 ${f.count}장(하위 폴더 포함)이 폰 휴지통으로 가요(갤러리 앱에서 30일 안에 되살림).`, ok:'지우기', danger:true})) return;
+  await phoneOpGo(anchor, {op:'trashfolder', from:id}, r => `폴더를 지웠어요(${r.count}장 폰 휴지통)`, () => followPhone(id, null));
+}
+async function movePhonePhotos(anchor, list, to) {
+  const ids = list.map(x => x.phoneId).filter(Boolean); if (!ids.length || !to) return;
+  select.stop();
+  await phoneOpGo(anchor, {op:'move', ids, to}, r => `${r.count}장을 옮겼어요`, () => { pPending = pPending.filter(x => x.id !== to); });
+}
 async function newFolder(parentId) {
   if (busy || !tree) return;
   const name = cleanPhotoFolderName(await askName('새 폴더 이름') || '');
@@ -1110,17 +1203,23 @@ async function moveFolder(id, parentId) {
 }
 async function deleteFolder(anchor, id) {
   const f = photoFolderById(tree, id); if (busy || !f || id === tree.top.id) return;
-  if (f.total > 0 || photoSubfolders(tree, id).length) return notify('폴더가 비어 있을 때만 지울 수 있어요. 사진·하위 폴더를 먼저 옮겨 주세요.', {error:true});
-  if (!await askConfirm(anchor, {text:`'${f.name}' 폴더를 지울까요?`, note:'원드라이브 휴지통으로 가요(30일 보관).', ok:'지우기', danger:true})) return;
+  // PHOTO-폴더스위치 ②: 사진·하위 폴더가 든 폴더도 확인 한 번 뒤 폴더째 원드라이브 휴지통으로.
+  const full = f.total > 0 || photoSubfolders(tree, id).length > 0;
+  if (!await askConfirm(anchor, {text:`'${f.name}' 폴더를 지울까요?`, note:full ? `안의 사진 ${f.total}장과 하위 폴더까지 폴더째 원드라이브 휴지통으로 가요(원드라이브에서 30일 안에 되살림).` : '원드라이브 휴지통으로 가요(30일 보관).', ok:'지우기', danger:true})) return;
   busy = true;
-  try { await odFolderDelete(rt, id); if (at === id) at = f.parent_id; await loadTree(true); notify('폴더를 지웠어요'); }
+  try {
+    await odFolderDelete(rt, id, {contents:full});
+    if (at && (at === id || photoFolderTrail(tree, at).some(x => x.id === id))) at = f.parent_id;
+    await loadTree(true); if (full) { resetList(); calData.clear(); aFor = null; fFor = null; fItems = []; }
+    notify('폴더를 지웠어요');
+  }
   catch (error) { folderFail(error, '폴더를 지우지 못했어요'); }
   finally { busy = false; if (tab === 'folders') renderFolders(); }
 }
 // 여러 장 폴더로 옮기기(원드라이브에서도 실제 이동). 50장씩. 끝나면 위쪽 '옮겼어요 · 되돌리기'(원래 폴더로 같은 동작).
 async function movePhotos(allIds, target) {
   const ids = allIds.filter(id => !String(id).startsWith('ph:'));
-  if (ids.length < allIds.length) notify('폰 사진은 폴더로 옮길 수 없어요(원드라이브 사진만).');
+  if (ids.length < allIds.length) notify('폰 사진은 따로 골라 옮겨 주세요(원드라이브 사진만 옮겨요).');
   if (!ids.length) return;
   if (busy || !ids.length || !tree) return;
   const name = photoFolderById(tree, target)?.name || '';
@@ -1161,6 +1260,9 @@ function folderClick(b) {
   if (b.matches('[data-photos-fx-retry]')) { treeFailed = ''; renderFolders(); return true; }
   if (b.matches('[data-photos-fx-again]')) { fFailed = ''; paintFolderGrid(); loadFolder(at); return true; }
   if (b.matches('[data-photos-pf-open]')) { goPhoneFolder(b.dataset.photosPfOpen); return true; }
+  if (b.matches('[data-photos-pf-sw]')) { togglePhoneFolder(b.dataset.photosPfSw.slice(3)); return true; }
+  if (b.matches('[data-photos-pf-more]')) { phoneFolderMenu.open(b); return true; }
+  if (b.matches('[data-photos-pf-new]')) { newPhoneFolder(); return true; }
   if (b.matches('[data-photos-pf-at]')) { select.stop(); pAt = null; renderFolders(); return true; }
   if (b.matches('[data-photos-pf-retry]')) { pFoldersFailed = ''; renderFolders(); return true; }
   if (b.matches('[data-photos-pf-again]')) { pFailed = ''; paintPhoneFolderGrid(); loadPhoneFolder(pAt); return true; }
@@ -1196,7 +1298,7 @@ async function loadAlbum(id) {
         }
       }
       // 폰 사진(이 폰에 있는 것만 — 다른 폰·지운 사진은 빠진다).
-      const ph = phoneUsable() && c.phoneKeys.length ? await phone.byIds(c.phoneKeys.map(phoneIdOfKey)) : [];
+      const ph = phoneUsable() && c.phoneKeys.length ? await phone.byIds(c.phoneKeys.map(phoneIdOfKey), hideArg()) : [];
       if (!current(r) || aFor !== id) return;
       aItems = [...all.map(toItem), ...ph].sort(sortCompare(sort));
     } catch (error) { if (current(r) && aFor === id) aFailed = readErrorText(error); }
@@ -1329,9 +1431,23 @@ const folderMenu = createAnchoredMenu({id:'photosFolderMenu', className:'od-link
     if (b.matches('[data-fm-move]')) return openPick(trigger, {kind:'folder', id});
     if (b.matches('[data-fm-delete]')) return deleteFolder(trigger, id);
   }});
+// PHOTO-폴더스위치 ③: 폰 폴더 ⋯ 메뉴(원드라이브 폴더 메뉴와 같은 모양·같은 항목 순서). 앱 0.4.1+만.
+const phoneFolderMenu = createAnchoredMenu({id:'photosPhoneFolderMenu', className:'od-link-menu', label:'폰 폴더 메뉴', historyKey:'kptuPhotosPhoneFolderMenu',
+  key:t => t.dataset.photosPfMore || '',
+  render:id => {
+    const f = phoneFolderOf(id), can = phoneOps() && !!f, mov = can && isPhoneMovable(id);
+    return [can ? menuBtn('data-pfm-new', '새 하위 폴더') : '', mov ? menuBtn('data-pfm-rename', '이름 바꾸기') : '', mov && !f.pending ? menuBtn('data-pfm-move', '옮기기…') : '',
+      can && (f.pending || isPhoneTrashable(id)) ? menuBtn('data-pfm-delete', '지우기', 'od-link-danger') : '', mov ? '' : '<p class="od-link-status">DCIM·Pictures 아래 폴더만 이름·위치를 바꿀 수 있어요</p>'].join('');
+  },
+  onAction:(b, {id, trigger}) => {
+    if (b.matches('[data-pfm-new]')) return newPhoneFolder(id);
+    if (b.matches('[data-pfm-rename]')) return renamePhoneFolder(trigger, id);
+    if (b.matches('[data-pfm-move]')) return openPick(trigger, {kind:'phfolder', id});
+    if (b.matches('[data-pfm-delete]')) return trashPhoneFolder(trigger, id);
+  }});
 const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
   key:t => t.dataset.photosId || '',
-  render:() => [menuBtn('data-pm-select', '선택'), od.canDelete && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'),
+  render:id => [menuBtn('data-pm-select', '선택'), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'),
     od.canDelete || phone.state().trash ? menuBtn('data-pm-delete', '지우기', 'od-link-danger') : ''].join(''),
   onAction:(b, {trigger}) => {
     const it = itemOf(trigger); if (!it) return;
@@ -1365,6 +1481,10 @@ let pickFor = null;
 const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-menu photos-pick-menu', label:'고르기', historyKey:'kptuPhotosPickMenu',
   key:() => pickFor?.kind || '',
   render:kind => {
+    if (kind === 'phfolder' || kind === 'phphotos') {
+      const rows = phonePickRows(phoneFolderList(), kind === 'phfolder' ? {moving:pickFor.id} : {here:tab === 'folders' ? pAt : null});
+      return '<p class="od-link-status">어느 폰 폴더로 옮길까요?</p>' + rows.map(r => `<button type="button" data-pick-phone="${esc(r.id)}" style="padding-left:${10 + r.indent * 12}px"${r.current ? ' disabled aria-disabled="true"' : ''}><span aria-hidden="true">\u{1F4C1}</span> ${esc(r.name)}${places.has('ph:' + r.id) ? `<span class="photos-fx-place"> · ${esc(places.get('ph:' + r.id))}</span>` : ''}</button>`).join('');
+    }
     if (kind === 'tag') return cards().map(c => menuBtn(`data-pick-tag="${esc(c.id)}"`, `#${esc(c.name)} <span class="photos-pick-n">${c.count}</span>`)).join('') + menuBtn('data-pick-newtag', '+ 새 앨범…');
     if (!tree) return '<p class="od-link-status">폴더를 읽지 못했어요</p>';
     const rows = photoMoveTargets(tree, kind === 'folder' ? {moving:pickFor.id} : {here:tab === 'folders' ? at : null});
@@ -1374,14 +1494,28 @@ const pickMenu = createAnchoredMenu({id:'photosPickMenu', className:'od-link-men
   },
   onAction:b => {
     const p = pickFor; pickFor = null; if (!p) return;
+    if (b.dataset.pickPhone) return p.kind === 'phfolder' ? movePhoneFolder(p.anchor, p.id, b.dataset.pickPhone) : movePhonePhotos(p.anchor, p.items, b.dataset.pickPhone);
     if (b.dataset.pickFolder) return p.kind === 'folder' ? moveFolder(p.id, b.dataset.pickFolder) : movePhotos(p.ids, b.dataset.pickFolder);
     if (b.dataset.pickTag) { const t = (tags || []).find(x => x.id === b.dataset.pickTag); if (t) tagItems(t, p.items); return; }
     if (b.matches('[data-pick-newtag]')) return newAlbum(p.items);
   }});
 async function openPick(trigger, what) {
   if (busy) return;
-  if (what.kind === 'photos') what = {...what, ids:what.ids.filter(id => !String(id).startsWith('ph:'))};
-  if (what.kind === 'photos' && !what.ids.length) return notify('폰 사진은 폴더로 옮길 수 없어요(원드라이브 사진만).');
+  // PHOTO-폴더스위치 ③: 폰 사진만 고르면 폰 폴더로(앱 0.4.1+), 원드라이브 사진만이면 원드라이브 폴더로. 섞이면 원드라이브 사진만(다른 출처 사이 옮기기는 없음).
+  if (what.kind === 'photos') {
+    const ph = what.ids.filter(id => String(id).startsWith('ph:')), odIds = what.ids.filter(id => !String(id).startsWith('ph:'));
+    if (ph.length && !odIds.length) {
+      if (!phoneOps()) return notify('폰 사진을 옮기려면 앱 새 판이 필요해요.');
+      await loadPhoneFolders();
+      const byId = new Map([...shownList(), ...pItems, ...aItems].map(x => [x.id, x]));
+      what = {kind:'phphotos', items:ph.map(id => byId.get(id)).filter(Boolean)};
+      if (!what.items.length || !trigger.isConnected) return;
+      pickFor = {...what, anchor:trigger}; pickMenu.open(trigger); return;
+    }
+    if (ph.length) notify('폰 사진은 따로 골라 옮겨 주세요(원드라이브 사진만 옮겨요).');
+    what = {...what, ids:odIds};
+  }
+  if (what.kind === 'phfolder') { await loadPhoneFolders(); if (!trigger.isConnected) return; pickFor = {...what, anchor:trigger}; pickMenu.open(trigger); return; }
   if (what.kind === 'tag' && !what.items.length) return;
   if (what.kind === 'tag') await loadTags(); else await loadTree();
   if (what.kind === 'tag' && !tags) return notify('앨범을 읽지 못했어요.', {error:true});
@@ -1415,18 +1549,19 @@ body.addEventListener('drop', e => {
 // 폰: 폴더 줄·앨범 카드를 꾹 누르면 그 ⋯ 메뉴(PC 우클릭과 같은 메뉴).
 body.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'touch' || !e.isPrimary || multiTouchActive()) return;
-  const row = e.target.closest?.('[data-photos-folder],[data-photos-album]'); if (!row || e.target.closest('.nx-more,.photos-album-more')) return;
+  const row = e.target.closest?.('[data-photos-folder],[data-photos-pf],[data-photos-album]'); if (!row || e.target.closest('.nx-more,.photos-album-more,.photos-fx-sw')) return;
   clearTimeout(rowHold?.timer);
   rowHold = {x:e.clientX, y:e.clientY, timer:setTimeout(() => {
-    rowHold = null; ateClick = true; navigator.vibrate?.(12);
+    rowHold = null;
     const more = row.querySelector('.nx-more,.photos-album-more'); if (!more) return;
+    ateClick = true; navigator.vibrate?.(12);
     const r = row.getBoundingClientRect(); window.KPTUContextMenu?.pinAt?.(more, r.left + Math.min(r.width / 2, 48), r.top + r.height / 2);
-    (row.dataset.photosFolder ? folderMenu : albumMenu).open(more);
+    (row.dataset.photosFolder ? folderMenu : row.dataset.photosPf !== undefined ? phoneFolderMenu : albumMenu).open(more);
   }, HOLD_MS)};
 });
 body.addEventListener('pointermove', e => { if (rowHold && Math.hypot(e.clientX - rowHold.x, e.clientY - rowHold.y) > HOLD_MOVE) { clearTimeout(rowHold.timer); rowHold = null; } });
 for (const t of ['pointerup', 'pointercancel']) body.addEventListener(t, () => { if (rowHold) { clearTimeout(rowHold.timer); rowHold = null; } });
-body.addEventListener('click', e => { if (ateClick && e.target.closest?.('[data-photos-folder],[data-photos-album]')) { ateClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
+body.addEventListener('click', e => { if (ateClick && e.target.closest?.('[data-photos-folder],[data-photos-pf],[data-photos-album]')) { ateClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
 TREE_WIDE?.addEventListener?.('change', () => { if (tab === 'folders') renderFolders(); });
 
 // [폴더]·[앨범] 안의 겹(폰 뒤로가기 = 한 단계 위)을 닫는다(다른 칩으로 갈 때).
@@ -1557,6 +1692,12 @@ window.addEventListener('kptu:view-prefs-rejected', e => {
   notify('출처 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true});
   if (window.KPTURouter?.current === 'photos') sourcesChanged();
 });
+window.addEventListener('kptu:view-prefs-rejected', e => {
+  if (!(e.detail?.paths || []).includes('phone_folders_off')) return;
+  phoneOff = parsePhoneOff(viewPrefs.get('phone_folders_off')); phoneOffChanged();
+  notify('폰 폴더 스위치를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true});
+  if (window.KPTURouter?.current === 'photos') { if (tab === 'folders') renderFolders(); else render(); }
+});
 // 폰 사진 접근이 바뀌면(처음 허용·설정에서 바꿈) 목록을 새로.
 let entering = false;
 phone.onChange(() => { pFolders = null; pFor = null; pItems = []; if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged(); });
@@ -1587,7 +1728,7 @@ window.addEventListener('kptu:session-changed', () => {
   closePhotoStrip({fromBack:true, restore:false});
   batch = null; resetList(); syncAt = 0; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop(); sources = parseSources(null); phStarItems = null;
-  pFolders = null; pFoldersFailed = ''; pAt = null; pFor = null; pItems = [];
+  pFolders = null; pFoldersFailed = ''; pAt = null; pFor = null; pItems = []; phoneOff = new Set(); pPending = []; manageAsked = false;
   tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; folderLayer = null; albumLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();
 });
