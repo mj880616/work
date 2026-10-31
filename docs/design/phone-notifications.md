@@ -118,6 +118,8 @@
 
 검사 이름 "Notification removal check"는 "Notification boundary check"로 바꾸는 것을 제안한다(같은 workflow 파일, 뜻이 바뀌었으므로).
 
+**구현(S47-12 PR-B).** 위 표대로 바꿨고 이름도 "Notification boundary check"로 바꿨다. 차이 두 가지: ① 메시지 받는 서비스 선언(intent-filter)은 매니페스트에 있어야 하므로 `MESSAGING_EVENT`는 `PushService.kt`와 `AndroidManifest.xml`에서 허용, ② `POST_NOTIFICATIONS`는 이미 허용된 녹음 알림줄 권한 묻기(`MainActivity.kt`, MTG-폰녹음)도 그대로 허용. 더해서 `google-services.json` 파일·구글 서비스 Gradle 플러그인(`com.google.gms`)을 막는다(4.3절: 설정은 빌드 변수로만). 예약 workflow는 `phone-push-schedule.yml`(저장소 변수 `PHONE_PUSH_ENABLED=true`일 때만 돎)로 N3에 함께 넣었다.
+
 ## 6. 단계·정지 지점
 
 | 단계 | 내용 | 정지 지점·명진 몫 |
