@@ -809,6 +809,8 @@ function openViewer(index) {
     element:(item, size, opts) => photoEl(item, size, opts), label:(item, i) => `${item.video ? '동영상' : '사진'} ${i + 1}`, when:whenText,
     info:item => [['찍은 때', whenText(item)], ['파일', item.name], ['크기', item.width && item.height ? `${item.width} × ${item.height}` : ''], ['길이', durationLabel(item.duration_ms)], ['출처', SOURCE_TEXT[item.source] || '원드라이브']],
     original:item => (item.kind === 'phone' ? {} : {download:true}), download:downloadOne,
+    // PHOTO-전체화면확대: 확대할 때 원본 해상도(폰 = 앱 다리 원본, 구글 = 서버 중계 원본, 원드라이브 = 받기 주소). 못 받으면 큰 그림 그대로.
+    hires:hiresOf,
     play:async item => (item.kind === 'phone' ? phone.mediaUrl(item) : item.kind === 'gdrive' ? gdPlay(item) : (await odMediaUrl(rt, item.id, 'play')).url), badge:item => durationLabel(item.duration_ms),
     isStarred, toggleStar:item => { starsChanged(); return toggleStar(item); },
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : '이 폰은 여기서 지우지 못해요'}
@@ -819,6 +821,13 @@ function openViewer(index) {
     onClose:({starChanged, restore}) => { if (starChanged && filter === 'star' && restore && shown === 'all') { setListFor('all', items.filter(isStarred)); paintList({full:true}); } }});
 }
 
+// 확대용 원본 그림 주소(메모리에만). 구글 드라이브는 받은 바이트의 메모리 주소라 크게 보기가 다 쓰면 놓는다(revoke).
+async function hiresOf(item) {
+  if (!item || item.video) return null;
+  if (item.kind === 'phone') return phone.mediaUrl(item) || null;
+  if (item.kind === 'gdrive') return {url:URL.createObjectURL(await gdMediaBlob(rt, item.gdId)), revoke:true};
+  return (await odMediaUrl(rt, item.id, 'download')).url;
+}
 // 구글 드라이브 동영상: 서버를 거쳐 통째로 받아 메모리 주소로 튼다(앞 주소는 놓음, 기기 저장 없음).
 async function gdPlay(item) {
   try {
