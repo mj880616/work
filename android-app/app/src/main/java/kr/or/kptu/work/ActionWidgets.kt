@@ -205,6 +205,9 @@ class PhotoPickActivity : Activity() {
             shot = savedInstanceState.getString(STATE_SHOT)?.let(Uri::parse)
             return
         }
+        // 앞에서 멈춘 사진 올리기(인터넷·로그인 풀림)가 있으면 이어 올린다(QuickPhoto '다시 시도').
+        val app = applicationContext
+        Thread { WidgetGuard.run { if (WidgetHub.session(app).signedIn()) QuickPhoto.resume(app) } }.start()
         val pick = Intent(Intent.ACTION_GET_CONTENT)
             .setType("image/*")
             .addCategory(Intent.CATEGORY_OPENABLE)

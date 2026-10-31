@@ -214,7 +214,12 @@ class QuickPhotoTest {
             if (calls == 1) WidgetSession.Photo.Saved(note) else WidgetSession.Photo.Failed(QuickPhotoRules.NETWORK, true)
         }
         assertEquals(QuickPhotoRules.Run.Stopped(QuickPhotoRules.NETWORK, true, 1, 3), first)
-        assertEquals("사진 3장 중 2장을 못 올렸어요 · " + QuickPhotoRules.NETWORK, QuickPhotoRules.failed(first as QuickPhotoRules.Run.Stopped))
+        assertEquals(
+            "사진 3장 중 2장을 못 올렸어요 · " + QuickPhotoRules.NETWORK + " · " + QuickPhotoRules.RESUME,
+            QuickPhotoRules.failed(first as QuickPhotoRules.Run.Stopped),
+        )
+        // 멈춘 묶음은 다음 [사진] 때 이어 올릴 목록에 있다.
+        assertEquals(listOf(b), store.pending())
         assertEquals(listOf(1, 2), store.items(b).map { it.index })
         assertEquals(note, store.note(b))
         // [다시 시도]: 남은 두 장만, 같은 정리함 글에 이어 붙인다.
@@ -237,6 +242,9 @@ class QuickPhotoTest {
         val run = QuickPhotoRules.run(store, b) { _, _ -> WidgetSession.Photo.SignedOut }
         assertEquals(QuickPhotoRules.Run.Stopped(QuickPhotoRules.SIGNED_OUT, true, 0, 1), run)
         assertEquals(1, store.items(b).size)
+        // 로그인 풀림은 저절로 다시 하지 않고(로그인 뒤 [사진]으로 이어 올림), 같은 안내를 두 번 붙이지 않는다.
+        assertFalse(QuickPhotoRules.autoRetry(run as QuickPhotoRules.Run.Stopped, 0))
+        assertEquals("사진을 정리함에 올리지 못했어요 · " + QuickPhotoRules.SIGNED_OUT, QuickPhotoRules.failed(run))
     }
 
     @Test
@@ -310,6 +318,29 @@ class QuickPhotoTest {
     }
 
     @Test
+    fun autoRetryOnlyForPassingFailuresThreeTimes() {
+        val net = QuickPhotoRules.Run.Stopped(QuickPhotoRules.NETWORK, true, 0, 1)
+        assertTrue(QuickPhotoRules.autoRetry(net, 0))
+        assertTrue(QuickPhotoRules.autoRetry(net, 1))
+        assertFalse(QuickPhotoRules.autoRetry(net, 2))
+        assertFalse(QuickPhotoRules.autoRetry(QuickPhotoRules.Run.Stopped(QuickPhotoRules.UNKNOWN, false, 0, 1), 0))
+        assertEquals("사진을 정리함에 올리지 못했어요 · " + QuickPhotoRules.UNKNOWN, QuickPhotoRules.failed(QuickPhotoRules.Run.Stopped(QuickPhotoRules.UNKNOWN, false, 0, 1)))
+    }
+
+    @Test
+    fun pendingSkipsBatchesStillCopyingOrFinished() {
+        val store = QuickPhotoStore(tmp.newFolder("q")) { 5_000L }
+        val copying = store.create()
+        assertTrue(store.add(copying, 0, bytes(3)))
+        val left = store.create()
+        assertTrue(store.add(left, 0, bytes(3)))
+        store.seal(left, listOf(Triple(0, "image/jpeg", "a.jpg")))
+        val empty = store.create()
+        store.seal(empty, listOf(Triple(0, "image/jpeg", "a.jpg")))
+        assertEquals(listOf(left), store.pending())
+    }
+
+    @Test
     fun batchIdsAreChecked() {
         assertFalse(QuickPhotoRules.isBatch(null))
         assertFalse(QuickPhotoRules.isBatch("../x"))
@@ -326,10 +357,15 @@ class QuickPhotoTest {
         assertTrue(widgets.contains("QuickPhoto.start("))
         // 위젯 로그인이 없으면 지금처럼 공유 받기 길.
         assertTrue(widgets.contains("shareToWeb(content)"))
+        // 다음 [사진] 때 멈춘 묶음을 이어 올린다.
+        assertTrue(widgets.contains("QuickPhoto.resume("))
+        // 폰 알림줄 알림·알림 권한은 쓰지 않는다(녹음 알림줄 전용, collaboration-ownership-check). 실패는 토스트 한 줄.
+        for (name in listOf("QuickPhoto.kt", "QuickPhotoRules.kt")) {
+            val text = File("src/main/java/kr/or/kptu/work/$name").readText()
+            for (bad in listOf("POST_NOTIFICATIONS", "NotificationCompat", "NotificationManager", "BroadcastReceiver")) assertFalse("$name: $bad", text.contains(bad))
+        }
         val manifest = File("src/main/AndroidManifest.xml").readText()
-        val receiver = Regex("<receiver\\s+android:name=\"\\.QuickPhotoReceiver\"\\s+android:exported=\"false\"").containsMatchIn(manifest)
-        assertTrue(receiver)
-        // 권한을 더하지 않는다(알림 권한은 녹음 때 이미 있음).
+        assertFalse(manifest.contains("QuickPhoto"))
         assertFalse(manifest.contains("FOREGROUND_SERVICE_DATA_SYNC"))
         assertEquals(12, Regex("<uses-permission ").findAll(manifest).count())
     }

@@ -10,7 +10,8 @@ import java.security.SecureRandom
  * 안드로이드 API를 쓰지 않아 JVM 시험 대상이다(QuickPhotoTest).
  * - 사진을 고르면 창은 바로 닫히고, 앱 전용 공간의 임시 파일에서 정리함 첨부 올리기(basket-files, 웹 uploadBatch와 같은 길)로 뒤에서 올린다.
  * - 여러 장은 첫 장이 만든 정리함 글 하나에 이어 붙인다(웹과 같음). 올린 장은 바로 지우고, 다 올리면 묶음 폴더를 지운다.
- * - 실패하면 알림 한 줄 + [다시 시도]. 이미 올린 장은 다시 올리지 않는다. 알림을 밀어 버리면 임시 파일을 지운다. 3일 지난 묶음도 지운다.
+ * - 일시 오류는 저절로 다시(최대 3번). 그래도 안 되면 한 줄(토스트) 알리고 남은 사진은 두었다가 다음에 [사진]을 누르면 이어 올린다.
+ *   이미 올린 장은 다시 올리지 않는다. 3일 지난 묶음은 지운다. 폰 알림줄 알림은 쓰지 않는다(알림 권한은 녹음 전용).
  * - 서버·DB·Edge 변경 없음. 작업공간·소유자는 서버(basket-files)가 로그인 사용자로 정한다.
  * 로그·오류에 파일 이름·토큰·응답 원문을 싣지 않는다.
  */
@@ -112,17 +113,24 @@ object QuickPhotoRules {
 
     fun saved(count: Int): String = if (count <= 1) "정리함에 사진을 넣었어요" else "정리함에 사진 ${count}장을 넣었어요"
 
-    /** 실패 알림 한 줄. */
+    /** 실패 한 줄(토스트). 다시 될 실패면 다음 [사진]에서 이어 올린다고 알린다. */
     fun failed(run: Run.Stopped): String {
         val head = if (run.saved > 0) "사진 ${run.total}장 중 ${run.total - run.saved}장을 못 올렸어요" else "사진을 정리함에 올리지 못했어요"
-        return head + " · " + run.reason
+        val tail = if (run.retry && run.reason != SIGNED_OUT) " · " + RESUME else ""
+        return head + " · " + run.reason + tail
     }
 
+    /** WorkManager가 저절로 다시 할지: 다시 될 실패(로그인 풀림 제외)이고 3번 안쪽. runAttemptCount는 0부터. */
+    const val AUTO_RETRIES = 3
+
+    fun autoRetry(run: Run.Stopped, attempts: Int): Boolean = run.retry && run.reason != SIGNED_OUT && attempts < AUTO_RETRIES - 1
+
     const val NETWORK = "인터넷 연결을 확인해 주세요"
-    const val SIGNED_OUT = "위젯 로그인이 풀렸어요 · 위젯에서 로그인 뒤 다시 시도"
+    const val SIGNED_OUT = "위젯 로그인이 풀렸어요 · 위젯에서 로그인 뒤 [사진]을 누르면 이어 올려요"
+    const val RESUME = "위젯 [사진]을 누르면 남은 사진부터 다시 올려요"
     const val SERVER = "서버가 잠시 답하지 않아요"
     const val UNKNOWN = "올렸는지 확인하지 못했어요 · 정리함을 확인해 주세요"
-    const val NOTE_GONE = "이어 붙일 정리함 글이 지워졌어요 · 다시 시도하면 새 글로 넣어요"
+    const val NOTE_GONE = "이어 붙일 정리함 글이 지워졌어요 · 남은 사진은 새 글로 넣어요"
     const val TOO_BIG = "사진이 너무 커요(100MB까지)"
     const val TOO_MANY = "한 번에 20장까지 넣을 수 있어요"
     const val FORBIDDEN = "저장 권한을 확인하지 못했어요"
@@ -239,6 +247,11 @@ class QuickPhotoStore(private val root: File, private val now: () -> Long = Syst
     }
 
     fun exists(batch: String): Boolean = dir(batch).isDirectory
+
+    /** 목록을 마쳤고 아직 올리지 않은 장이 남은 묶음(멈춘 것). 복사 중인 묶음(목록 없음)은 뺀다. */
+    fun pending(): List<String> =
+        root.listFiles().orEmpty().filter { it.isDirectory && QuickPhotoRules.isBatch(it.name) }.map { it.name }
+            .filter { total(it) > 0 && items(it).isNotEmpty() }.sorted()
 
     /** 묶음 폴더를 통째로 지운다(임시 파일 정리). */
     fun drop(batch: String) {
