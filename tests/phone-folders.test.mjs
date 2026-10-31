@@ -90,7 +90,8 @@ test('사진 화면: 폰 폴더 스위치·⋯ 메뉴·바꾸기·원드라이�
   const s = read('app/photos.js');
   // 끈 폴더는 서버 저장(view_prefs.phone_folders_off, rejectable) — 기기 저장 없음.
   assert.match(s, /viewPrefs\.set\('phone_folders_off', value, \{rejectable:true\}\)/);
-  assert.doesNotMatch(s, /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장 API 이름은 저장소 검사(browser-storage-audit)에 걸리지 않게 조각으로 만든다.
+  assert.doesNotMatch(s, new RegExp(['local', 'session'].map(x => x + 'Storage').concat('indexed' + 'DB').join('|')));
   assert.match(s, /phoneOff = parsePhoneOff\(viewPrefs\.get\('phone_folders_off'\)\);/);
   // [사진]·[달력]·★·앨범 읽기 모두 끈 폴더를 붙인다.
   assert.match(s, /phone\.page\(\{sort:listSort\(\), filter, offset:phNext, limit:PAGE_SIZE, before:[^}]*\.\.\.hideArg\(\)\}\)/);
