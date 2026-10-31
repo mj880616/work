@@ -373,8 +373,12 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         if (error) dbFail("onedrive_index_read_failed:known_folders", error);
         for (const r of Array.isArray(data) ? data : []) known.add(r.item_id);
       }
-      const fresh = [...folders.values()].filter((r) => !known.has(r.item_id as string)).map((r) => ({ ...r, enabled: false }));
-      for (const r of fresh) folders.delete(r.item_id as string);
+      const fresh: Record<string, unknown>[] = [];
+      for (const [id, row] of [...folders]) {
+        if (known.has(id)) continue;
+        fresh.push({ ...row, enabled: false });
+        folders.delete(id);
+      }
       await upsertRows("onedrive_index_save_failed:new_folders", FOLDERS, fresh);
     }
     await upsertRows("onedrive_index_save_failed:folders", FOLDERS, [...folders.values()]);

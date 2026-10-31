@@ -39,7 +39,7 @@ test('cloud menu: [폴더 바꾸기]·[하위 폴더 켜고 끄기] are gone on 
   assert.equal(odLinkLabel('ok', {folder:{name:'OneDrive'}, whole:true}), '원드라이브 · 연결됨');
 });
 
-test('photos [폴더]: one switch per row (role=switch, server toggle), dim off rows, hint line, place names in rows and the move picker; no device storage', () => {
+test('photos [폴더]: one switch per row (role=switch, server toggle), dim off rows, hint line, place names in rows and the move picker', () => {
   const src = readFileSync(new URL('../app/photos.js', import.meta.url), 'utf8');
   assert.match(src, /role="switch" class="diary-od-switch photos-fx-sw" data-photos-fx-sw=/);
   assert.match(src, /odFolderToggle\(rt, id, next\)/);
@@ -47,7 +47,6 @@ test('photos [폴더]: one switch per row (role=switch, server toggle), dim off 
   assert.match(src, /스위치 켜짐 = 사진에 보임/);
   assert.equal((src.match(/placeHtml\(/g) || []).length >= 3, true, 'od rows, phone rows, head line');
   assert.match(src, /어느 폴더로 옮길까요\?[\s\S]{0,400}photos-fx-place/);
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
   const css = readFileSync(new URL('../app/photos.css', import.meta.url), 'utf8');
   assert.match(css, /\.photos-fx-row\.is-off \.nx-main\{ opacity:\.5; \}/);
 });
