@@ -191,3 +191,33 @@ for(const width of [390,1280])test(`프로젝트 상세 연결 할 일: 같은 �
  expect(state.calls.unlink[0]).toEqual(expect.objectContaining({task_id:'l-1',links:[{project_id:'p'}]}));
  expect(errors).toEqual([]);
 });
+
+// S46-30(2026-10-31 명진 결정): ⋯ [기한 바꾸기] 상자에도 수정 창과 같은 빠른 기한 줄. [다음주] → 다음 주 월~일 목록 → 고르면 바로 저장.
+for(const width of [390,1280]){
+ test(`⋯ 기한 바꾸기: 빠른 기한 줄과 [다음주] 요일 목록, 목록 밖은 저장 없이 닫힘 ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:1000});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const c=await openHome(page);const calls=await taskCalls(page,c);
+  const card=page.locator('#homeView [data-journal-group="todo"]'),row=card.locator('li[data-journal-task="today"]'),more=row.locator('[data-journal-task-menu]');
+  const menu=page.locator('#journalTaskMenu'),popup=page.locator('#taskDuePopup'),week=page.locator('#taskWeekPick');
+  await expect(row).toBeVisible();
+  await row.hover();await more.click();await menu.getByRole('button',{name:'기한 바꾸기'}).click();
+  await expect(popup.locator('[data-task-due-quick]')).toHaveText(['오늘','내일','모레','다음주','기한 없음']);
+  for(const b of await popup.locator('[data-task-due-quick]').all()){const box=await b.boundingBox();expect(box.height).toBeLessThanOrEqual(33);expect(box.x+box.width).toBeLessThanOrEqual(width);}
+  await popup.getByRole('button',{name:'다음주',exact:true}).click();
+  await expect(popup).toHaveCount(0);await expect(week).toBeVisible();
+  await expect(week.locator('button')).toHaveText(['월 10.12','화 10.13','수 10.14','목 10.15','금 10.16','토 10.17','일 10.18']);
+  const wb=await week.boundingBox();expect(wb.x).toBeGreaterThanOrEqual(0);expect(wb.x+wb.width).toBeLessThanOrEqual(width);expect(wb.y+wb.height).toBeLessThanOrEqual(1000);
+  // 목록 밖을 누르면 목록만 닫힌다(저장 없음).
+  await card.click({position:{x:2,y:2}});
+  await expect(week).toBeHidden();expect(calls.update.length).toBe(0);
+  // 다시 열어 고르면 그날로 바로 저장.
+  await row.hover();await more.click();await menu.getByRole('button',{name:'기한 바꾸기'}).click();
+  await popup.getByRole('button',{name:'다음주',exact:true}).click();await expect(week).toBeVisible();
+  await week.getByRole('button',{name:'목 10.15',exact:true}).click();
+  await expect.poll(()=>calls.update.length).toBe(1);
+  expect(calls.update[0]).toEqual({action:'update',task_id:'today',task_list_id:'default',title:'오늘 항목',notes:'',due:'2026-10-15'});
+  await expect(page.locator('#toast')).toHaveText("'오늘 항목' 기한을 10월 15일(목)로 바꿨어요.");
+  expect(errors).toEqual([]);
+ });
+}
