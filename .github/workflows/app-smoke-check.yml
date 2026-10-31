@@ -17,6 +17,8 @@ on:
       - 'tests/security/basket-note-delete.test.mjs'
       - 'tests/security/basket-jsonb-contains.test.mjs'
       - 'tests/security/helpers/postgrest-jsonb.mjs'
+      - 'scripts/ops/db-*.mjs'
+      - 'tests/security/db-workflow-annotations.test.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'supabase/functions/ai-assist/note-secret.ts'
@@ -132,6 +134,8 @@ on:
       - 'tests/security/basket-note-delete.test.mjs'
       - 'tests/security/basket-jsonb-contains.test.mjs'
       - 'tests/security/helpers/postgrest-jsonb.mjs'
+      - 'scripts/ops/db-*.mjs'
+      - 'tests/security/db-workflow-annotations.test.mjs'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'supabase/functions/ai-assist/note-secret.ts'
@@ -447,6 +451,10 @@ jobs:
         run: node --test tests/photos-model.test.mjs
       - name: "Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)"
         run: node --test tests/photo-sources.test.mjs
+      - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"
+        run: node --test tests/phone-photo-errors.test.mjs
+      - name: "Photo sources on every chip (PHOTO-출처모든칩: 폴더·휴지통·앨범 출처 따르기·폰 폴더 보기, synthetic)"
+        run: node --test tests/photo-sources-chips.test.mjs
 
       - name: Check arsenal menu (주소 개편 ② E1, newest-first list·season/competition/search filters·goal lines·https links only, real archive data)
         run: node --test tests/arsenal-model.test.mjs
@@ -465,6 +473,9 @@ jobs:
 
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
+
+      - name: Check DB workflow result annotations (OPS-DB결과API, synthetic)
+        run: node --test tests/security/db-workflow-annotations.test.mjs
 
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs
@@ -558,6 +569,9 @@ jobs:
 
       - name: UI-업데이트안내 기록 파일 검사·버전명·배포물 생성(needs the locked parser)
         run: node --test tests/release-notes.test.mjs
+
+      - name: Check telegram room view model (TG-방별보기)
+        run: node --test tests/tg-room-view-model.test.mjs
 
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs

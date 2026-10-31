@@ -200,6 +200,8 @@ export const swipeOpenOffset = (side, allow = {start:2, end:1}) => { const w = s
 export const SWIPE_ACTIONS = Object.freeze({
   live:{start:['folder', 'archive'], end:['trash']},
   archive:{start:['unarchive'], end:[]},
+  // TG-방별보기: 방별 목록의 방 한 줄은 방 전체라 '이 날 한 줄 삭제'가 없다.
+  room:{start:['folder', 'archive'], end:[]},
 });
 export const ACTION_LABEL = Object.freeze({folder:'폴더로', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
 export const allowOf = mode => { const a = SWIPE_ACTIONS[mode] || {start:[], end:[]}; return {start:a.start.length, end:a.end.length}; };

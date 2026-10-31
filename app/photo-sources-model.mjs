@@ -50,6 +50,31 @@ export function phoneToItem(p) {
     video:p.kind === 'video', duration_ms:Number.isFinite(p.duration_ms) ? p.duration_ms : null, width:Number.isFinite(p.width) ? p.width : null, height:Number.isFinite(p.height) ? p.height : null,
     screenshot:p.screenshot === true, size_bytes:Number.isFinite(p.size_bytes) && p.size_bytes >= 0 ? p.size_bytes : null, uploaded_at:isoOf(p.uploaded_at)};
 }
+// ---- PHOTO-폰사진못읽음: 앱 다리 실패 이유(앱 0.4.0+는 상태 코드 + {"error":종류,"detail":예외 클래스 이름}) ----
+export const PHONE_FAIL_KINDS = Object.freeze(['permission', 'key', 'bad_request', 'query', 'column', 'decode', 'not_found']);
+const PHONE_FAIL_TEXT = Object.freeze({
+  permission:'사진 접근 허용이 없어요', key:'앱 열쇠가 바뀌었어요, [다시]를 눌러 주세요', bad_request:'앱이 요청 모양을 받지 않았어요',
+  query:'사진첩 조회가 실패했어요', column:'사진첩 항목 이름이 맞지 않아요', decode:'그림을 만들지 못했어요', not_found:'그 사진이 폰에 없어요',
+  unreached:'앱이 요청을 받지 못했어요', answer:'앱 답을 읽지 못했어요', no_access:'사진 접근 허용이 없어요', old:'앱이 이유를 주지 않았어요(앱 새 판 필요)',
+});
+const DETAIL_RE = /^[A-Za-z0-9_$.]{1,60}$/;
+// 실패 답 해석. status: HTTP 상태(0 = 앱에 닿지 않음), body: 답 글(JSON이 아니어도 됨). 모르는 종류·이상한 글은 버린다.
+export function phoneFailure(status, body = '', {error = '', detail: given = ''} = {}) {
+  let v = null;
+  try { v = body ? JSON.parse(body) : null; } catch { v = null; }
+  const kind = error || (PHONE_FAIL_KINDS.includes(v?.error) ? v.error : '');
+  const raw = given || v?.detail;
+  const detail = typeof raw === 'string' && DETAIL_RE.test(raw) ? raw : '';
+  return {status:Number.isInteger(status) && status >= 0 && status < 1000 ? status : 0, error:kind, detail};
+}
+// 실패 → 화면 글('폰 사진을 읽지 못했어요: 이유 (종류·클래스·상태)'). 사진 이름·경로는 들어오지 않는다(앱이 보내지 않음).
+export function phoneErrorText(err) {
+  const p = err?.phone;
+  if (!p) return `폰 사진을 읽지 못했어요${err?.message === 'phone_no_access' ? `: ${PHONE_FAIL_TEXT.no_access}` : '.'}`;
+  const kind = PHONE_FAIL_TEXT[p.error] ? p.error : p.status === 404 ? 'old' : '';
+  const tags = [p.error, p.detail && DETAIL_RE.test(p.detail) ? p.detail : '', p.status ? String(p.status) : ''].filter(Boolean).join('·');
+  return `폰 사진을 읽지 못했어요: ${PHONE_FAIL_TEXT[kind] || '알 수 없는 실패'}${tags ? ` (${tags})` : ''}`;
+}
 export const phoneIdOfKey = key => (/^ms:(\d{1,18})$/.exec(String(key || '')) || [])[1] || null;
 
 // ---- 중복 판정: 이름(대소문자 무시)이 같고 크기나 찍은 시각(2초 안)이 같거나, 크기가 같고 찍은 시각이 2초 안 ----

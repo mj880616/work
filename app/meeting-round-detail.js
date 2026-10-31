@@ -347,9 +347,11 @@ function mrdPaintDocked(){
   document.querySelector('#mrdClose')?.classList.toggle('hidden',mrdDocked);
 }
 // 한 줄 안내(불러오는 중·불러오지 못함). 글이 있으면 보기·고치기 면은 감춘다(다른 사업 보고의 내용이 남아 보이지 않게).
+// PHOTO-폰사진못읽음 전수: 실패 이유(err.message)가 있으면 공용 실패 글 뒤에 붙인다(예전에는 만들어 놓고 버렸다).
+const MRD_LOAD_FAIL='사업 보고를 불러오지 못했습니다.';
 function mrdShowLoading(text,bad=false){
   const line=document.querySelector('#mrdLoading');if(!line)return;
-  if(text===true)line.innerHTML=waitHtml({rows:4});else if(bad)line.innerHTML=failHtml();else line.textContent=text||'';line.classList.toggle('hidden',!text);line.classList.toggle('error',!!bad);
+  if(text===true)line.innerHTML=waitHtml({rows:4});else if(bad)line.innerHTML=failHtml({reason:typeof text==='string'&&text!==MRD_LOAD_FAIL?text:''});else line.textContent=text||'';line.classList.toggle('hidden',!text);line.classList.toggle('error',!!bad);
   if(text){document.querySelector('#mrdView')?.classList.add('hidden');document.querySelector('#mrdEditor')?.classList.add('hidden');const meta=document.querySelector('#mrdMeta');if(meta)meta.textContent='';mrdPaintMore(false)}
 }
 // 고치는 동안 [취소][저장]은 칸에서는 맨 위 오른쪽(제목 줄), 안내 글은 그 아래 줄로 올린다. 팝업과 고치지 않을 때는 아래 줄(footer). 옮길 때만 건드린다.
@@ -382,7 +384,7 @@ async function mrdDock(slot,id){
     if(!(await mrdLoadMeeting(key,epoch)))return false;
     mrdShowLoading('');mrdTodos?.open();return true;
   }catch(err){
-    if(epoch===mrdRequestEpoch)mrdShowLoading(err.message||'사업 보고를 불러오지 못했습니다.',true);
+    if(epoch===mrdRequestEpoch)mrdShowLoading(err.message||MRD_LOAD_FAIL,true);
     return false;
   }
 }

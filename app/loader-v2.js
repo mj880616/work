@@ -151,7 +151,7 @@
     let box=document.querySelector('#deferredFeatureError');
     if(!box){box=document.createElement('div');box.id='deferredFeatureError';box.setAttribute('role','alert');document.querySelector('#appView .app-nav')?.after(box)}
     box.className='wait-fail-host';
-    box.replaceChildren(wait.failEl({onRetry:retry?()=>{box.remove();retry()}:()=>location.reload()}));
+    box.replaceChildren(wait.failEl({onRetry:retry?()=>{box.remove();retry()}:()=>location.reload(),reason:/^[A-Za-z]{1,40}$/.test(err?.name||'')?`화면 프로그램 받기 실패(${err.name})`:''}));
     box.firstElementChild?.removeAttribute('role');
   };
 

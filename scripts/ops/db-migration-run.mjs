@@ -77,6 +77,30 @@ function snapshotRows(rows, secretValues) {
   }
   return rows;
 }
+// Fixed reasons for the runner's own validation errors (messages are constants in this
+// file, never DB text). Anything else keeps only queryErrorSummary.
+const RUNNER_REASONS = new Map([
+  ['Invalid snapshot size', 'snapshot 결과가 2000행을 넘거나 배열이 아님'],
+  ['Invalid snapshot row', 'snapshot 행 모양 위반(열 8개 이하 객체)'],
+  ['Invalid snapshot column', 'snapshot 열 이름 규칙 위반'],
+  ['Unsafe snapshot value', 'snapshot 값이 8192자를 넘거나 허용 형식이 아님(긴 정의는 md5·length로 줄여야 함)'],
+  ['Unsafe check value', '확인 값이 65536자를 넘거나 허용 형식이 아님'],
+  ['Unsafe precheck value', '사전 집계 값이 집계·해시 형식이 아님'],
+  ['Invalid history count', 'migration 기록 수 응답 형식 위반'],
+  ['Dry-run left history', '시험 적용 뒤 migration 기록이 남음'],
+  ['Unexpected write response', '쓰기 요청이 결과 행을 돌려줌'],
+  ['Unexpected post-history', '적용 뒤 migration 기록 수가 기대와 다름'],
+  ['Invalid backup counts', '백업 행 수 응답 형식 위반'],
+  ['Invalid backup count', '백업 행 수 응답 형식 위반'],
+  ['Changed precheck observations', 'dry-run 뒤 사전 집계 값이 달라짐'],
+  ['Invalid postcheck size', '사후 검사 결과 행 수 위반'],
+  ['Invalid postcheck verdict', '사후 검사 판정 값 형식 위반'],
+]);
+export function failureText(error) {
+  const reason = error?.constructor === Error ? RUNNER_REASONS.get(error.message) : undefined;
+  return queryErrorSummary(error) + (reason ? ` 원인 분류: ${reason}.` : '');
+}
+
 export function rollbackGuide(plan, snapshotName) {
   return '### 되돌리기 (자동 실행 안 함 — 사용자 결정)\n\n'
     + `1. 커맨드센터가 이 실행의 snapshot artifact${snapshotName ? ` \`${snapshotName}\`` : ''}와 \`${plan.rollbackPath ?? `docs/${plan.version}_${plan.name}.rollback.sql`}\`를 대조합니다.\n`
@@ -90,6 +114,9 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
   const steps = [];
   let writeRequested = false; let executed = false; let applied = false; let snapshotName = null;
   let phase = '사전 기록 확인';
+  // Annotation report (OPS-DB결과API): only text that also goes to the summary,
+  // after the same safeLabel/display/escapeSummary/queryErrorSummary filters.
+  const report = { phase: null, reason: null, failed: [], error: null };
   const historyCount = async (matchName = false) => {
     const rows = await query(`select count(*)::int as count from supabase_migrations.schema_migrations where version='${plan.version}'${matchName ? ` and name='${plan.name}'` : ''};`, { readOnly: true });
     if (rows.length !== 1 || !onlyKeys(rows[0], ['count']) || !Number.isSafeInteger(rows[0].count) || rows[0].count < 0) throw new Error('Invalid history count');
@@ -102,6 +129,7 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
   };
   const stop = reason => {
     steps.push(`멈춤: ${reason}`);
+    report.phase = phase; report.reason = reason;
     return finish(false);
   };
   const finish = ok => {
@@ -109,7 +137,9 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
     text += `쓰기 요청 전송: ${writeRequested ? '예' : '아니오'} · 적용 요청 전송: ${executed ? '예' : '아니오'}\n\n`;
     if (plan.mode === 'apply' && (applied || executed)) text += rollbackGuide(plan, snapshotName);
     if (!ok && writeRequested && !applied) text += '\n요청을 자동 재시도하지 않습니다. 결과를 커맨드센터에서 확인한 뒤 다음 단계를 정합니다.\n';
-    return { ok, verification: ok ? 'complete' : 'incomplete', summary: text };
+    if (ok) report.phase = '끝';
+    report.writes = `쓰기 요청 전송: ${writeRequested ? '예' : '아니오'} · 적용 요청 전송: ${executed ? '예' : '아니오'}`;
+    return { ok, verification: ok ? 'complete' : 'incomplete', summary: text, report };
   };
   try {
     const count = await historyCount();
@@ -135,10 +165,12 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
     const preLines = [...pre].map(([item, value]) => {
       const expected = expectationFor(expect, item) ?? '예';
       const ok = meetsExpectation(value, expected); prePassed &&= ok;
-      return `| ${safeLabel(item, secretValues)} | ${display(value)} | ${escapeSummary(expected)} | ${ok ? '예' : '아니오'} |`;
+      const label = safeLabel(item, secretValues);
+      if (!ok) report.failed.push({ stage: '사전', item: label, value: display(value), expected: escapeSummary(expected) });
+      return `| ${label} | ${display(value)} | ${escapeSummary(expected)} | ${ok ? '예' : '아니오'} |`;
     });
     const missing = [...expect.keys()].filter(item => !item.endsWith(' *') && !pre.has(item));
-    if (missing.length) prePassed = false;
+    if (missing.length) { prePassed = false; report.missing = missing.length; }
     notes.push('사전 확인:\n\n| 항목 | 값 | 기대 | 판정 |\n| --- | --- | --- | --- |\n' + preLines.join('\n')
       + (missing.length ? `\n\n기대 주석에 있으나 결과에 없는 항목: ${missing.length}개` : ''));
     if (!prePassed) return stop('사전 확인이 기대와 다릅니다. 아무것도 쓰지 않았습니다.');
@@ -206,14 +238,17 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
       else if (pre.has(item)) { basis = '사전 값과 같음'; ok = pre.get(item) === value; }
       else { basis = '비교 기준 없음'; ok = false; }
       postPassed &&= ok;
-      return `| ${safeLabel(item, secretValues)} | ${display(value)} | ${escapeSummary(basis)} | ${ok ? '예' : '아니오'} |`;
+      const label = safeLabel(item, secretValues);
+      if (!ok) report.failed.push({ stage: '사후', item: label, value: display(value), expected: escapeSummary(basis) });
+      return `| ${label} | ${display(value)} | ${escapeSummary(basis)} | ${ok ? '예' : '아니오'} |`;
     });
     notes.push('사후 확인:\n\n| 항목 | 값 | 기준 | 판정 |\n| --- | --- | --- | --- |\n' + postLines.join('\n'));
     if (!postPassed) return stop('사후 확인 실패. 이미 적용된 변경은 자동으로 되돌리지 않습니다. 아래 되돌리기 안내를 보고 결정하세요.');
     steps.push('사후 확인: 모두 예');
     return finish(true);
   } catch (error) {
-    steps.push(`${phase}: 실패. ${queryErrorSummary(error)}`);
+    steps.push(`${phase}: 실패. ${failureText(error)}`);
+    report.phase = phase; report.error = failureText(error);
     return finish(false);
   }
 }
@@ -226,6 +261,7 @@ export async function runMigrationPlan(plan, query, { secretValues = [], saveSna
   let baseline;
   let verification = 'incomplete';
   let phase = '사전 기록 확인';
+  const report = { phase: null, reason: null, failed: [], error: null };
   const historyCount = async (matchName = false) => {
     const rows = await query(`select count(*)::int as count from supabase_migrations.schema_migrations where version='${plan.version}'${matchName ? ` and name='${plan.name}'` : ''};`, { readOnly: true });
     if (rows.length !== 1 || !onlyKeys(rows[0], ['count']) || !Number.isSafeInteger(rows[0].count) || rows[0].count < 0) throw new Error('Invalid history count');
@@ -240,7 +276,8 @@ export async function runMigrationPlan(plan, query, { secretValues = [], saveSna
     const count = await historyCount(plan.mode === 'rollback');
     if (plan.mode === 'rollback' ? count !== 1 : count !== 0) {
       notes.push('사전 기록 확인: 거부. 적용·시험은 미적용 version만, rollback은 해당 version/name 1행이 있어야 합니다.');
-      return { ok: false, summary: notes.join('\n\n') + '\n' };
+      report.phase = phase; report.reason = '사전 기록 확인 거부(적용·시험은 미적용 version만, rollback은 해당 version/name 1행 필요)';
+      return { ok: false, summary: notes.join('\n\n') + '\n', report };
     }
     if (plan.checks.precheck && !plan.checks.precheck.baselineNull) {
       phase = '사전 집계 확인';
@@ -303,10 +340,14 @@ export async function runMigrationPlan(plan, query, { secretValues = [], saveSna
           const key = ['expected', 'ok', 'value'].find(key => onlyKeys(row, ['item', key]));
           if (!key || ![true, false, '예', '아니오'].includes(row[key])) throw new Error('Invalid postcheck verdict');
           const yes = row[key] === true || row[key] === '예'; passed &&= yes;
-          return `| ${safeLabel(row.item, secretValues)} | ${yes ? '예' : '아니오'} |`;
+          const label = safeLabel(row.item, secretValues);
+          if (!yes) report.failed.push({ stage: '사후', item: label, value: '아니오', expected: '예' });
+          return `| ${label} | ${yes ? '예' : '아니오'} |`;
         });
         notes.push('사후 검사:\n\n| 항목 | 판정 |\n| --- | --- |\n' + lines.join('\n'));
-        if (!passed) return { ok: false, summary: notes.join('\n\n') + (plan.mode === 'dry-run'
+        if (!passed) report.phase = phase;
+        if (!passed) report.reason = plan.mode === 'dry-run' ? 'dry-run 원래 상태 검사 실패' : '사후 검사 실패(자동 취소 안 함)';
+        if (!passed) return { ok: false, report, summary: notes.join('\n\n') + (plan.mode === 'dry-run'
           ? '\n\ndry-run 원래 상태 검사 실패. SQL 취소와 migration 기록 부재만 확인됐습니다. snapshot을 대조한 뒤 진행 여부를 결정하세요.\n'
           : '\n\n사후 검사 실패. 이미 실행한 변경은 자동 취소하지 않습니다.\n') };
       }
@@ -318,13 +359,18 @@ export async function runMigrationPlan(plan, query, { secretValues = [], saveSna
       }
       if (verification === 'incomplete') notes.push('dry-run 검증 미완료: 수동 snapshot 확인 필요. SQL 취소·migration 기록 부재와 원래 상태 검증은 별개입니다. 수동 대조 전 apply로 진행하지 마세요.');
       else notes.push('dry-run 사후 검증: 완료. 관측한 집계·선택된 원래 상태 검사 범위만 확인했습니다.');
-      return { ok: true, verification, summary: notes.join('\n\n') + '\n' };
+      report.phase = '끝';
+      if (verification === 'incomplete') report.reason = 'dry-run 검증 미완료: 수동 snapshot 확인 필요';
+      return { ok: true, verification, summary: notes.join('\n\n') + '\n', report };
     }
-    return { ok: true, summary: notes.join('\n\n') + '\n' };
+    report.phase = '끝';
+    return { ok: true, summary: notes.join('\n\n') + '\n', report };
   } catch (error) {
-    notes.push(`${phase}: 실패. ${queryErrorSummary(error)}`);
+    notes.push(`${phase}: 실패. ${failureText(error)}`);
     notes.push(`쓰기 요청 전송: ${writeRequested ? '예' : '아니오'} · 실행 요청 전송: ${executed ? '예' : '아니오'}`);
     notes.push(writeRequested ? '요청을 자동 재시도하지 않습니다. 쓰기 요청 결과를 커맨드센터에서 확인한 뒤 복구 여부를 결정하세요.' : '적용 요청을 보내지 않았습니다.');
-    return { ok: false, summary: notes.join('\n\n') + '\n' };
+    report.phase = phase; report.error = failureText(error);
+    report.writes = `쓰기 요청 전송: ${writeRequested ? '예' : '아니오'} · 실행 요청 전송: ${executed ? '예' : '아니오'}`;
+    return { ok: false, summary: notes.join('\n\n') + '\n', report };
   }
 }

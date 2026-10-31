@@ -1,10 +1,11 @@
 // PHOTO-출처 ①(요청함 10/30 17:30): 사진 메뉴 '폰 사진'의 앱 다리. 폰 앱(웹2 앱 0.3.9+) 안에서만 쓴다(PC·폰 브라우저는 없음).
+// PHOTO-폰사진못읽음(10/30 23:58): 앱 0.4.0+는 실패 종류를 돌려준다(phoneFailure·phoneErrorText, photo-sources-model.mjs).
 // - 다리(KPTUAppShell, 허용 Origin 최상위 화면에만 보임)에 'photos:hello'를 보내 접근 상태({access: full|partial|none, key, trash})를 받는다.
 //   답이 오지 않으면(옛 앱) 폰 사진 아이콘을 그리지 않는다.
 // - 목록·그림은 ./__phone/<열쇠>/… 를 fetch·<img src>로 받는다. 앱이 가로채 폰 사진첩에서 답하고 서버로 나가지 않는다(android-app PhoneMedia.kt).
 //   열쇠는 메모리에만 있다(화면을 새로 열면 다시 받는다). 사진·목록은 이 화면 메모리에만 있고 기기·서버에 저장하지 않는다.
 // - 처음 한 번 'photos:ask' = 안드로이드 사진 접근 허용 창(14+는 '고른 사진만'도). 지우기는 'photos:trash:<번호들>' = 폰 휴지통(시스템 확인 창).
-import {phoneToItem} from './photo-sources-model.mjs';
+import {phoneToItem, phoneFailure} from './photo-sources-model.mjs';
 import {slotImg} from './img-slot.js';
 
 const BRIDGE = 'KPTUAppShell';
@@ -38,11 +39,24 @@ export function createPhonePhotos(win = globalThis.window) {
   }
   const base = () => win.document?.baseURI || win.location?.href;
   const url = path => new URL(`__phone/${state.key}/${path}`, base()).href;
+  // PHOTO-폰사진못읽음: 실패하면 error.phone = {status, error(종류), detail(예외 클래스 이름)}. 화면 글은 phoneErrorText.
+  const failure = info => Object.assign(new Error('phone_read_failed'), {phone:info});
+  async function read(u) {
+    try { return await win.fetch(u, {cache:'no-store', credentials:'omit'}); }
+    catch (e) { throw failure(phoneFailure(0, '', {error:'unreached', detail:e?.name || ''})); }
+  }
+  async function refuse(r) {
+    let body = ''; try { body = await r.text(); } catch { body = ''; }
+    const info = phoneFailure(r.status, body.slice(0, 500));
+    // 앱을 다시 켜 열쇠가 바뀌었으면 새 열쇠를 받아 둔다([다시]부터 맞는 열쇠).
+    if (info.error === 'key') send('photos:hello');
+    return failure(info);
+  }
   async function getJson(path) {
     if (!state.key) throw new Error('phone_no_access');
-    const r = await win.fetch(url(path), {cache:'no-store', credentials:'omit'});
-    if (!r.ok) throw new Error('phone_read_failed');
-    return r.json();
+    const r = await read(url(path));
+    if (!r.ok) throw await refuse(r);
+    try { return await r.json(); } catch { throw failure(phoneFailure(r.status, '', {error:'answer'})); }
   }
   const items = list => (Array.isArray(list) ? list : []).map(phoneToItem).filter(Boolean);
   const api = {
@@ -64,9 +78,11 @@ export function createPhonePhotos(win = globalThis.window) {
     // 처음 한 번 '사진 접근 허용'(이미 허용했으면 시스템이 바로 돌려준다, 부분 허용이면 고른 사진을 다시 고르는 창).
     ask: () => (usable ? send('photos:ask') : false),
     // 한 쪽: {items, next(다음 offset 또는 null)}. before = 그 시각보다 앞에 찍은 것부터(찍은 날 최근 먼저만).
-    async page({sort = 'taken_desc', filter = 'all', offset = 0, limit = 120, before = null} = {}) {
+    // folder(PHOTO-출처모든칩) = 그 폰 폴더(relative_path) 바로 안 것만.
+    async page({sort = 'taken_desc', filter = 'all', offset = 0, limit = 120, before = null, folder = null} = {}) {
       const q = new URLSearchParams({sort, filter, offset:String(offset), limit:String(limit)});
       if (Number.isFinite(before) && before > 0) q.set('before', String(Math.floor(before)));
+      if (typeof folder === 'string' && folder.length <= 255) q.set('folder', folder);
       const d = await getJson(`page?${q}`);
       return {items:items(d?.items), next:Number.isInteger(d?.next) ? d.next : null};
     },
@@ -76,6 +92,17 @@ export function createPhonePhotos(win = globalThis.window) {
       const want = [...new Set((ids || []).map(String).filter(id => /^\d{1,18}$/.test(id)))];
       for (let i = 0; i < want.length; i += 500) out.push(...items((await getJson(`ids?ids=${want.slice(i, i + 500).join(',')}`))?.items));
       return out;
+    },
+    // PHOTO-출처모든칩: 폰 폴더 목록 [{id(relative_path), name, count, cover(칸)}]. 옛 앱(0.3.9)은 이 읽기가 없어 null(폰 폴더 묶음만 안 보임).
+    async folders() {
+      let d;
+      try { d = await getJson('folders'); }
+      catch (err) { if (err?.phone && ((err.phone.status === 404 && !err.phone.error) || err.phone.error === 'bad_request')) return null; throw err; }
+      return (Array.isArray(d?.folders) ? d.folders : []).map(f => {
+        const cover = phoneToItem(f?.cover);
+        return typeof f?.id === 'string' && f.id.length <= 255 && Number.isInteger(f?.count) && f.count > 0 && cover
+          ? {id:f.id, name:String(f.name || '폰').slice(0, 255), count:f.count, cover} : null;
+      }).filter(Boolean);
     },
     async months(filter = 'all') { const d = await getJson(`months?filter=${encodeURIComponent(filter)}`); return d?.months && typeof d.months === 'object' ? d.months : {}; },
     async days(month, {filter = 'all', prefer = []} = {}) {
@@ -88,8 +115,9 @@ export function createPhonePhotos(win = globalThis.window) {
     thumbUrl: (item, size = 'small') => (state.key ? url(`thumb/${item.phoneId}?s=${size === 'large' ? 'large' : 'small'}`) : ''),
     mediaUrl: item => (state.key ? url(`media/${item.phoneId}`) : ''),
     async blob(item, size = 'large') {
-      const r = await win.fetch(api.thumbUrl(item, size), {cache:'no-store', credentials:'omit'});
-      if (!r.ok) throw new Error('phone_read_failed');
+      if (!state.key) throw new Error('phone_no_access');
+      const r = await read(api.thumbUrl(item, size));
+      if (!r.ok) throw await refuse(r);
       return r.blob();
     },
     // 폰 휴지통으로(안드로이드 11+). 시스템 확인 창에서 [허용]하면 {ok:true, count}.
