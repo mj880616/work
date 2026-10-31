@@ -2960,12 +2960,14 @@ for(const width of [412,1440])test(`S46-27 1. 요청사항 세 칸: 상자 안�
  await ask.locator('[data-journal-exec-field="what"]').fill('가상 집회');
  await ask.locator('[data-journal-exec-save]').click();
  await expect(ask.locator('[data-journal-exec-status]')).toHaveText('요청 줄을 더했어요.');
- await expect(weekly(page,'ask').locator('tbody tr .journal-weekly-what')).toHaveText(['가상 집회']);
+ // (상자를 열 때 지난주 확정본에서 가져온 줄 1개가 먼저 들어 있다.)
+ await expect(weekly(page,'ask').locator('tbody tr .journal-weekly-what')).toHaveText([/가상 노동조합 결의대회/,'가상 집회']);
  // 1) 줄을 3)으로 옮기기(안건 = 내용, 설명 = 일).
- await ask.locator('[data-journal-exec-edit]').first().click();
+ await ask.locator('tbody tr[data-journal-exec-row]').filter({hasText:'가상 집회'}).locator('[data-journal-exec-edit]').click();
  await ask.locator('[data-journal-exec-move]').click();
  await expect(ask.locator('[data-journal-exec-status]')).toHaveText('3) 상집 논의 요청으로 옮겼어요.');
- await expect(ask.locator('tbody tr[data-journal-exec-row]')).toHaveCount(0);
+ await expect(ask.locator('tbody tr[data-journal-exec-row]')).toHaveCount(1);
+ await expect(weekly(page,'ask').locator('tbody tr .journal-weekly-what')).toHaveText([/가상 노동조합 결의대회/]);
  await expect(d.locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑','가상 안건 을','가상 집회']);
  // 상자 3)에서 줄 빼기([×]).
  await d.locator('[data-journal-discuss-row]').nth(2).locator('[data-journal-discuss-edit]').click();
