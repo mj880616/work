@@ -8,7 +8,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app=`${appOrigin}/app/`;
 // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴 줄은 없다(사업영역 관리는 사업 보고 ⋯ 안에서 연다).
 // HOME-업무일지홈: 업무일지는 홈이라 [일정] 아래에 없다.
-const views=['home','basket','calendar','tasks','diary','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
+const views=['home','basket','calendar','tasks','diary','meetings','library','pages','team','hwp','ledger','photos','outside','calls','telegram','arsenal'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 
