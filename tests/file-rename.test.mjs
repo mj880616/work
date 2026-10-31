@@ -166,11 +166,10 @@ test('공용 부품: ✎·이름 칸 표시, 고친 이름 반영, 오류 안내
   assert.match(ui.aiNameText({ skipped: 'no_text' }), /읽어 둔 글자가 없어/);
 });
 
-test('부품: 서버에는 이름 부분만 보내고(확장자는 서버가), 자동 저장 없음·기기 저장 없음', () => {
+test('부품: 서버에는 이름 부분만 보내고(확장자는 서버가), 자동 저장 없음(기기 저장 검사는 audit 작업)', () => {
   const src = read('../app/file-rename.js');
   assert.match(src, /action: 'rename-file', target: spec\.target, id: spec\.id, drive_file_id: spec\.driveId, base: r\.base/);
   assert.match(src, /kind: 'file_name', target: spec\.target, id: spec\.id, drive_file_id: spec\.driveId/);
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
   // [AI 이름]은 칸만 채운다: suggest 안에서 rename-file을 부르지 않는다.
   const suggest = src.slice(src.indexOf('const suggest = async'), src.indexOf('// 줄을 누르면 파일이 열리므로'));
   assert.doesNotMatch(suggest, /rename-file/);
