@@ -287,3 +287,47 @@ test('사진 메뉴: 원드라이브 연결 전에는 한 줄 안내와 [연결]
   expect(f.edge.some(b => b.action === 'library')).toBe(false);
   expect(f.errors).toEqual([]);
 });
+
+// UI-뒤로가기겹규칙(S47-4): [달력]에서 날짜를 누르면 달력 겹 위에 '그날 사진' 겹이 쌓인다.
+// 뒤로가기 = 같은 달·같은 스크롤 위치의 [달력], 한 번 더 = [사진]. 폰 앱 뒤로(KPTURouter.back)도 같은 기록을 되돌린다.
+test('사진 메뉴: 달력 → 날짜 → 뒤로가기 = 같은 달 달력(폴드 접은 화면 412)', async ({ page }) => {
+  const f = await fixture(page, { width: 412 });
+  await page.setViewportSize({ width: 412, height: 560 });
+  await openPhotos(page, 412);
+  await expect(items(page)).toHaveCount(7);
+  await root(page).locator('[data-photos-tab="calendar"]').click();
+  await root(page).locator('[data-photos-cal="-1"]').click();
+  await root(page).locator('[data-photos-cal="-1"]').click();
+  await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
+  const day = root(page).locator('[data-photos-cal-day="2026-08-15"]');
+  await day.scrollIntoViewIfNeeded();
+  const y = await page.evaluate(() => Math.round(window.scrollY));
+  await day.click();
+  await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(root(page).locator('[data-photos-day="2026-08-15"]')).toBeInViewport();
+  // 브라우저 뒤로 = 같은 달 달력, 같은 스크롤 위치.
+  await page.goBack();
+  await expect(root(page).locator('[data-photos-tab="calendar"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(y);
+  await expect(page).toHaveURL(/tab=calendar/);
+  // 폰 앱 뒤로와 같은 길(KPTURouter.back): 날짜 → 한 번 = 달력, 한 번 더 = [사진].
+  await root(page).locator('[data-photos-cal-day="2026-08-15"]').click();
+  await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => window.KPTURouter.back());
+  await expect(root(page).locator('[data-photos-tab="calendar"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
+  await page.evaluate(() => window.KPTURouter.back());
+  await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#photosView')).toBeVisible();
+  // 그날 사진에서 다른 칩([휴지통])으로 가면 '그날 사진' 겹은 닫히고, 뒤로 한 번 = [사진].
+  await root(page).locator('[data-photos-tab="calendar"]').click();
+  await root(page).locator('[data-photos-cal-day="2026-10-05"]').click();
+  await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await root(page).locator('[data-photos-tab="trash"]').click();
+  await expect(root(page).locator('[data-photos-tab="trash"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.goBack();
+  await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#photosView')).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
