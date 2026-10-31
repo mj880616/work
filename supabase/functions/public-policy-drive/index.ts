@@ -117,6 +117,17 @@ async function assertDriveAdmin(userId: string) {
   if (!['owner', 'admin'].includes(role)) throw new Error('Drive 재연결은 관리자만 할 수 있습니다.');
 }
 
+// S46-24(명진 G1 2026-10-31): 자료실·바구니가 쓰는 drive.file에 더해, 사진 출처 구글 드라이브(Edge gdrive-photos)용 drive(읽기·쓰기)를 요청한다.
+// 동의 화면에서 drive 칸만 끄고 동의해도 연결은 저장되고(drive.file 기능 그대로), 사진 출처만 '권한 없음'으로 돌려보낸다.
+// 이 함수와 기존 Drive 함수들이 부르는 API는 바뀌지 않는다. 쓰기 동작은 gdrive-photos에만 있다.
+const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FULL_SCOPE = 'https://www.googleapis.com/auth/drive';
+const DRIVE_SCOPES = [DRIVE_FILE_SCOPE, DRIVE_FULL_SCOPE];
+// Google 토큰 응답의 scope(공백으로 나눈 목록)에 drive 전체 권한이 정확히 들어 있는지. 'drive.file'·'drive.readonly'는 아니다.
+function grantedFullDrive(scope: unknown) {
+  return typeof scope === 'string' && scope.split(/\s+/).includes(DRIVE_FULL_SCOPE);
+}
+
 async function startDriveAuth(req: Request) {
   const user = await getUser(req);
   await assertDriveAdmin(user.id);
@@ -133,7 +144,7 @@ async function startDriveAuth(req: Request) {
     client_id: cfg.google_client_id,
     redirect_uri: CALLBACK_URL,
     response_type: 'code',
-    scope: 'https://www.googleapis.com/auth/drive.file',
+    scope: DRIVE_SCOPES.join(' '),
     access_type: 'offline',
     prompt: 'consent',
     state: raw,
@@ -145,10 +156,11 @@ async function startDriveAuth(req: Request) {
   });
 }
 
-function driveRedirect(result: 'connected' | 'error', reason?: string) {
+function driveRedirect(result: 'connected' | 'error', reason?: string, photos?: 'scope_missing') {
   const u = new URL(DRIVE_APP_URL);
   u.searchParams.set('drive', result);
   if (reason) u.searchParams.set('reason', reason);
+  if (photos) u.searchParams.set('photos', photos);
   return u.toString();
 }
 function calendarRedirect(result: 'connected' | 'error', state?: string | null) {
@@ -268,7 +280,7 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString()
       });
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`);
-      return Response.redirect(driveRedirect('connected'), 302);
+      return Response.redirect(driveRedirect('connected', undefined, grantedFullDrive(tokens.scope) ? undefined : 'scope_missing'), 302);
     }
 
     let email: string | null = null;
