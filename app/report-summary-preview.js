@@ -30,7 +30,16 @@ function ensureDialog(){
   dialog.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.target.closest?.('[data-bp-edit-input]')&&state?.editing){e.preventDefault();void saveEdit(state.editing,false)}});
   return dialog;
 }
-function close(){if(dialog?.open)dialog.close();state?.trigger?.focus?.({preventScroll:true});state=null}
+// UI-뒤로가기겹규칙: 맨 <dialog>라 라우터 겹 하나를 연다(뒤로가기 = 고치던 줄이 있으면 그것만, 아니면 이 창 닫기).
+// 닫고 다른 화면으로 갈 때는 겹의 뒤로가기가 도착한 뒤 간다(늦게 온 뒤로가기가 새 화면 기록을 지우지 않게).
+let layer=null;
+function close(){
+  const l=layer;layer=null;
+  const done=l?new Promise(ok=>{const t=setTimeout(ok,400);window.addEventListener('popstate',()=>{clearTimeout(t);queueMicrotask(ok)},{once:true})}):Promise.resolve();
+  l?.close();
+  if(dialog?.open)dialog.close();state?.trigger?.focus?.({preventScroll:true});state=null;
+  return done;
+}
 function say(text){const el=dialog?.querySelector('[data-bp-status]');if(el)el.textContent=text||''}
 
 async function onClick(e){
@@ -42,8 +51,8 @@ async function onClick(e){
   const cancel=e.target.closest('[data-bp-edit-cancel]');if(cancel){state.editing='';return paintAreas()}
   const saveBtn=e.target.closest('[data-bp-edit-save]');if(saveBtn)return saveEdit(saveBtn.dataset.bpEditSave,false);
   const reset=e.target.closest('[data-bp-edit-reset]');if(reset)return saveEdit(reset.dataset.bpEditReset,true);
-  const open=e.target.closest('[data-bp-open]');if(open){const id=open.dataset.bpOpen;close();const mod=await import('./report-open.js');return mod.openReport(id)}
-  if(e.target.closest('[data-bp-hwpx]')){const day=state.from;close();window.KPTURouter?.go?.('journal',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day,{hwpx:true}))}
+  const open=e.target.closest('[data-bp-open]');if(open){const id=open.dataset.bpOpen;await close();const mod=await import('./report-open.js');return mod.openReport(id)}
+  if(e.target.closest('[data-bp-hwpx]')){const day=state.from;await close();window.KPTURouter?.go?.('journal',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day,{hwpx:true}))}
 }
 // 업무일지 부품이 아직 안 불러와졌으면 잠깐(최대 5초) 기다린다.
 async function waitJournal(){for(let i=0;i<50&&!window.KPTUJournal?.showWeek;i++)await new Promise(r=>setTimeout(r,100));return window.KPTUJournal}
@@ -149,5 +158,6 @@ export function openReportPreview(trigger,{meetings}){
   ensureDialog();const week=weekOf(todaySeoul());
   state={trigger,meetings,from:week.from,to:week.to,run:0,areas:new Map(),ai:null,editing:''};
   if(!dialog.open)dialog.showModal();void paint();
+  if(!layer)layer=window.KPTURouter?.layer?.open('report-preview',{close:()=>{if(state?.editing){state.editing='';paintAreas();return false}layer=null;close();return true}})||null;
   dialog.querySelector('[data-bp-close]').focus({preventScroll:true});
 }
