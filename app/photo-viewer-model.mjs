@@ -67,3 +67,57 @@ export function loadTimeText(t) {
   if (!Number.isFinite(t.url)) return `${total}초`;
   return `${total}초 (주소 ${sec(t.url - t.start)} · 사진 ${sec(t.shown - t.url)})`;
 }
+
+// PHOTO-전체화면확대(요청함 10/31 19:23): 크게 보기 안 사진 확대·축소(갤럭시 갤러리와 같은 손동작). 화면 없는 순수 함수(단위 시험 대상).
+// 상태 z = {s, x, y}: s = 배율(1 = 원래 크기), x·y = 사진 가운데가 칸 가운데에서 옮겨 간 거리(px). 기기 저장 없음(메모리만).
+// - 두 손가락 벌리기·오므리기 / 휠 = 손가락(마우스) 아래 점을 그 자리에 둔 채 배율만 바꾼다(zoomAt).
+// - 두 번 톡 / 더블클릭 = 원래 크기면 ZOOM_TAP배로 그 점을 확대, 확대 중이면 원래 크기(zoomToggle).
+// - 확대 중에는 한 손가락(마우스 끌기)으로 사진 안을 움직이고, 사진 끝이 칸 끝을 넘어 비지 않게 막는다(clampPan).
+export const ZOOM_MIN = 1, ZOOM_MAX = 5, ZOOM_TAP = 2.5, ZOOM_EPS = 0.02;
+export const TAP_MS = 300, TAP_MOVE = 12, DOUBLE_TAP_MS = 320, DOUBLE_TAP_DIST = 40;
+export const ZOOM_ONE = Object.freeze({s: 1, x: 0, y: 0});
+const num = (v, d = 0) => (Number.isFinite(v) ? v : d);
+export const clampScale = s => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, num(s, 1)));
+export const isZoomed = z => num(z?.s, 1) > 1 + ZOOM_EPS;
+// 사진이 칸 안에서 차지하는 크기(object-fit:contain): 그림 원래 크기를 모르면 칸 크기 그대로.
+export function fitSize({W = 0, H = 0, nw = 0, nh = 0} = {}) {
+  if (!(W > 0 && H > 0)) return {cw: 0, ch: 0};
+  if (!(nw > 0 && nh > 0)) return {cw: W, ch: H};
+  const f = Math.min(W / nw, H / nh);
+  return {cw: nw * f, ch: nh * f};
+}
+// 옮긴 거리를 사진 끝이 칸 끝 안으로 들어오지 않을 만큼으로 막는다(사진이 칸보다 작은 쪽은 가운데 고정).
+export function clampPan(z, box = {}) {
+  const s = clampScale(z?.s);
+  if (s <= 1 + ZOOM_EPS) return {s: 1, x: 0, y: 0};
+  const {cw, ch} = fitSize(box);
+  const mx = Math.max(0, (cw * s - num(box.W)) / 2), my = Math.max(0, (ch * s - num(box.H)) / 2);
+  return {s, x: Math.max(-mx, Math.min(mx, num(z?.x))) || 0, y: Math.max(-my, Math.min(my, num(z?.y))) || 0}; // -0 → 0
+}
+// 칸 가운데 기준 점 (fx, fy)를 그 자리에 둔 채 배율을 s1로.
+export function zoomAt(z, s1, fx = 0, fy = 0, box = {}) {
+  const s0 = clampScale(z?.s), s = clampScale(s1), k = s / s0;
+  return clampPan({s, x: fx - (fx - num(z?.x)) * k, y: fy - (fy - num(z?.y)) * k}, box);
+}
+// 두 손가락: 시작 상태 z0, 시작 거리 d0·가운데 m0 → 지금 거리 d·가운데 m. 손가락 사이 점이 손가락을 따라간다.
+export function pinchTo(z0, d0, m0, d, m, box = {}) {
+  if (!(d0 > 0 && d > 0)) return clampPan(z0, box);
+  const s0 = clampScale(z0?.s), s = clampScale(s0 * d / d0), k = s / s0;
+  return clampPan({s, x: num(m?.x) - (num(m0?.x) - num(z0?.x)) * k, y: num(m?.y) - (num(m0?.y) - num(z0?.y)) * k}, box);
+}
+// 끌기: 시작 상태 z0에서 손가락이 (dx, dy) 움직였을 때.
+export const panBy = (z0, dx, dy, box = {}) => clampPan({s: z0?.s, x: num(z0?.x) + num(dx), y: num(z0?.y) + num(dy)}, box);
+// 두 번 톡·더블클릭.
+export const zoomToggle = (z, fx = 0, fy = 0, box = {}) => (isZoomed(z) ? {...ZOOM_ONE} : zoomAt(ZOOM_ONE, ZOOM_TAP, fx, fy, box));
+// 마우스 휠 한 번의 배율(deltaMode 1 = 줄 단위, 2 = 쪽 단위). 아래로 굴리면 작게, 위로 굴리면 크게.
+export function wheelScale(s, deltaY = 0, deltaMode = 0) {
+  const px = num(deltaY) * (deltaMode === 1 ? 40 : deltaMode === 2 ? 800 : 1);
+  return clampScale(clampScale(s) * Math.exp(-Math.max(-300, Math.min(300, px)) * 0.002));
+}
+// 한 손가락 톡인가(짧고 거의 안 움직임).
+export const isTap = ({dx = 0, dy = 0, dt = 0} = {}) => dt >= 0 && dt <= TAP_MS && Math.hypot(dx, dy) <= TAP_MOVE;
+// 앞 톡(prev = {x, y, t})과 이번 톡(cur)이 두 번 톡인가.
+export const isDoubleTap = (prev, cur) => !!prev && !!cur && cur.t - prev.t >= 0 && cur.t - prev.t <= DOUBLE_TAP_MS && Math.hypot(cur.x - prev.x, cur.y - prev.y) <= DOUBLE_TAP_DIST;
+// 다 놓았을 때: 원래 크기 가까이면 원래 크기로 붙인다.
+export const settleZoom = (z, box = {}) => (clampScale(z?.s) < 1.05 ? {...ZOOM_ONE} : clampPan(z, box));
+export const zoomTransform = z => (isZoomed(z) ? `translate(${num(z.x).toFixed(1)}px, ${num(z.y).toFixed(1)}px) scale(${clampScale(z.s).toFixed(3)})` : '');

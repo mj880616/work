@@ -58,7 +58,7 @@ const menuQuery=mobileQuery;
 const appNav=document.querySelector('#appView>.app-nav');
 // BASKET-정리함한화면: the order is the sidebar's: 홈 / 정리함 / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','calendar','note','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
+const ALL_KEYS=['home','basket','calendar','note','meetings','library','pages','team','hwp','ledger','photos','outside','calls','telegram','arsenal'];
 const keyButton=key=>appNav?.querySelector(key==='note'?'.nav-btn[data-basket-kind-nav="note"]':`.nav-btn[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
 // UI-폴드PC틀: each left-menu row carries the same line picture as the phone tabs (menu-model.mjs icon). At 761~1023px the menu is a
@@ -192,7 +192,7 @@ const syncKeyboard=()=>window.KPTUA11y?.keyboard?.sync?.();
 menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'바깥 성명'})[event.detail?.view]||''}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -379,7 +379,7 @@ paintSteps();
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'team',projects:'reports'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'담당조직',view:'team'},reports:{name:'사업 보고',view:'meetings'}};
-const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날'};
+const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'바깥 성명'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 const whereItems=new Map();
