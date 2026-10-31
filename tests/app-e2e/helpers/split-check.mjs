@@ -6,7 +6,7 @@ const settle=page=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>re
 const measure=(page,s)=>page.evaluate(({container,left,right})=>{
   const c=document.querySelector(container),l=c?.querySelector(left),r=c?.querySelector(right);if(!l||!r)throw new Error('칸 없음: '+container);
   const a=l.getBoundingClientRect(),b=r.getBoundingClientRect();return {left:a.width,right:b.width,ratio:a.width/(a.width+b.width),apart:b.x>=a.x+a.width-1};
-},s);
+},{container:s.container,left:s.left,right:s.right}); // 선택자만 넘긴다(함수·서버 상태는 화면에 못 보냄)
 const handleBox=(page,s)=>page.evaluate(sel=>{const h=document.querySelector(sel+'>.split-resize-handle');const b=h.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height}},s.container);
 // 왼쪽 몫이 r이 되는 x(두 칸이 나눠 쓰는 폭 = 내용 폭 - 칸 사이 틈).
 const xFor=(page,s,r)=>page.evaluate(([sel,r])=>{const c=document.querySelector(sel),st=getComputedStyle(c),g=parseFloat(st.columnGap)||0,b=c.getBoundingClientRect(),pl=parseFloat(st.paddingLeft)||0,w=c.clientWidth-pl-(parseFloat(st.paddingRight)||0)-g;return b.left+pl+r*w+g/2},[s.container,r]);
