@@ -1079,11 +1079,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else close();
   });
   // NOTE-보기3가지 ①: 폰은 좌우로 밀어 세 보기 전환(왼쪽으로 밀면 폴더 → 목록 → 포스트잇). 포스트잇 보드 위는 보드 이동이라 빼고,
-  // 보드에서는 위쪽 줄(검색 칸 줄)에서 밀거나 전환 단추를 누른다. 꾹 눌러 잡은 줄·선택 모드·열린 노트·글 칸에서는 밀기를 보지 않는다.
+  // 보드에서는 위쪽 줄(검색 칸 줄·보드 칸 줄)에서 밀거나 전환 단추를 누른다. 꾹 눌러 잡은 줄·선택 모드·열린 노트·글 칸에서는 밀기를 보지 않는다.
+  // UI-칩줄두줄: 보드 칸 줄(data-nbb)은 이제 옆으로 밀지 않으므로(두 줄 + [더보기]) 밀기 예외에서 뺐다.
   let swipe = null;
   list.addEventListener('touchstart', e => {
     swipe = null;
-    if (e.touches.length !== 1 || wideList.matches || selected || pick.active || e.target.closest('[data-nb-scroll],[data-nbb],[data-nbb-side],input,textarea,[contenteditable]')) return;
+    if (e.touches.length !== 1 || wideList.matches || selected || pick.active || e.target.closest('[data-nb-scroll],[data-nbb-side],input,textarea,[contenteditable]')) return;
     const p = e.touches[0]; swipe = {x:p.clientX, y:p.clientY, t:Date.now()};
   }, {passive:true});
   list.addEventListener('touchend', e => {

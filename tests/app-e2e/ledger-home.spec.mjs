@@ -171,7 +171,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   // 칩은 검색칸 바로 아래·'조직별·주제별' 제목 줄 없음. 칩이 적으면 [더보기]도 없다.
   expect(await browse.locator('#lbQuery').evaluate(el=>el.compareDocumentPosition(document.querySelector('[data-lb-sec="chips"]'))&Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
   await expect(browse.getByText('조직별·주제별')).toHaveCount(0);
-  await expect(browse.locator('[data-lb-action="chips-toggle"]')).toBeHidden();
+  await expect(browse.locator('[data-lb-chips] [data-chip-rows-more]')).toBeHidden();
   expect(await browse.locator('#lbQuery').evaluate(el=>el.compareDocumentPosition(document.querySelector('[data-lb-sec="overdue"]'))&Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
   // 안 지킨 약속: 상대·확인일·며칠째.
   const overdue=browse.locator('[data-lb-sec="overdue"]');
@@ -529,25 +529,26 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   const browse=page.locator('#ledgerBrowseRoot');
   const box=browse.locator('[data-lb-chips]');
   await expect(box).toBeVisible({timeout:15000});
-  const toggle=browse.locator('[data-lb-action="chips-toggle"]');
+  // UI-칩줄두줄: [더보기 ▾]/[접기 ▴]는 앱 공용 칩 줄 부품(chip-rows.js)의 버튼, 접힌 칩은 data-chip-cut.
+  const toggle=box.locator('[data-chip-rows-more]');
   await expect(toggle).toBeVisible();
   await expect(toggle).toHaveText(/더보기/);
   // 보이는 칩은 두 줄 안(칩 줄 위치가 둘뿐), [더보기]는 둘째 줄 안.
-  const rows=()=>box.evaluate(el=>{const tops=[...el.children].filter(c=>!c.hidden).map(c=>Math.round(c.getBoundingClientRect().top));return [...new Set(tops)].length;});
+  const rows=()=>box.evaluate(el=>{const tops=[...el.children].filter(c=>c.getClientRects().length).map(c=>Math.round(c.getBoundingClientRect().top));return [...new Set(tops)].length;});
   expect(await rows()).toBeLessThanOrEqual(2);
-  const hiddenCount=await box.locator('.lb-topic[hidden]').count();
+  const hiddenCount=await box.locator('.lb-topic[data-chip-cut]').count();
   expect(hiddenCount).toBeGreaterThan(0);
   // 펼치면 전부, 접으면 다시 두 줄.
   await toggle.click();
   await expect(toggle).toHaveText(/접기/);
-  await expect(box.locator('.lb-topic[hidden]')).toHaveCount(0);
+  await expect(box.locator('.lb-topic[data-chip-cut]')).toHaveCount(0);
   expect(await rows()).toBeGreaterThan(2);
   await toggle.click();
-  await expect(box.locator('.lb-topic[hidden]')).toHaveCount(hiddenCount);
+  await expect(box.locator('.lb-topic[data-chip-cut]')).toHaveCount(hiddenCount);
   // 화면 폭이 바뀌면 개수를 다시 계산한다(좁히면 숨는 칩이 늘거나 같다).
   await page.setViewportSize({width:width===1280?700:320,height:900});
   await expect.poll(async()=>(await rows())<=2).toBe(true);
-  expect(await box.locator('.lb-topic[hidden]').count()).toBeGreaterThanOrEqual(hiddenCount);
+  expect(await box.locator('.lb-topic[data-chip-cut]').count()).toBeGreaterThanOrEqual(hiddenCount);
   await page.setViewportSize({width,height:900});
   // 추적 중인 일: 9건 중 처음 6건 + [더보기 3 ▾].
   const tracking=browse.locator('[data-lb-sec="tracking"]');

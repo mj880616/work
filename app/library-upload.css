@@ -190,7 +190,7 @@
 #appView #libraryView .lu-filter-label{font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
 #appView #libraryView .lu-filter-label[hidden]{display:none}
 #appView #libraryView .lu-filter-row > .filter-chips{min-width:0}
-/* UI-자료실편집버튼(2026-10-21): [분류 수정]을 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮긴다. 칩 바로 오른쪽에 붙고, 칩이 많으면 칩만 줄어 옆으로 민다. */
+/* UI-자료실편집버튼(2026-10-21): [분류 수정]을 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮긴다. 칩 바로 오른쪽에 붙고, 칩이 많으면 칩 줄이 두 줄 + [더보기](UI-칩줄두줄). */
 #appView #libraryView .lu-filter-row[data-lu-filter-row="category"]{grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,max-content) auto;justify-content:start}
 #appView #libraryView .lu-filter-row > .lu-category-edit{margin:0;white-space:nowrap}
 /* LIB-소분류: 소분류 줄은 [분류] 줄 바로 아래 한 줄(칩 시작 자리에 맞춤). 폰은 이름표가 없으므로 왼쪽 끝에서. */
@@ -199,11 +199,11 @@
 @media(max-width:760px){
   #appView #libraryView .library-filter-toolbar #documentProject,
   #appView #libraryView .library-filter-toolbar .lu-filter-row{grid-template-columns:minmax(0,1fr)}
-  /* 폰: 종류 줄 전체(칩 + [편집])가 한 줄로 옆으로 민다. [편집]은 칩 줄 맨 끝에 있고, 칩과 겹치지 않는다. */
-  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"]{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
-  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .filter-chips{flex:0 0 auto;max-width:none;overflow:visible}
-  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .lu-category-edit{flex:0 0 auto}
-  /* 폰: 이름표(프로젝트·세부·종류 등)를 칩 줄 왼쪽에 작게 둔다. 줄이 옆으로 밀려도 칩 폭은 그대로. */
+  /* 폰(UI-칩줄두줄): 종류 줄은 칩(두 줄 + [더보기]) | [편집]. 칩 줄이 남은 폭을 쓰고 [편집]은 첫 줄 오른쪽 끝. 옆으로 밀지 않는다. */
+  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"]{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:6px}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .filter-chips{flex:1 1 0;min-width:0;max-width:100%}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .lu-category-edit{flex:0 0 auto;margin-top:2px}
+  /* 폰: 이름표(프로젝트·세부·종류 등)를 칩 줄 왼쪽에 작게 둔다. */
   #appView #libraryView .library-filter-toolbar #documentProject,
   #appView #libraryView .library-filter-toolbar .lu-filter-row:not([data-lu-filter-row="category"]){grid-template-columns:3.6em minmax(0,1fr);column-gap:6px}
   #appView #libraryView .lu-filter-label{flex:0 0 3.6em;font-size:11px}
@@ -263,8 +263,9 @@
   #appView #libraryView .lu-node-head{padding-left:calc(var(--lu-depth,0) * 12px)}
   #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 12px)}
   #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 12px)}
-  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
-  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .filter-chips{flex:0 0 auto;max-width:none;overflow:visible}
+  /* 폰(UI-칩줄두줄): 묶기 줄도 칩(두 줄 + [더보기]) | [모두 펴기]. 옆으로 밀지 않는다. */
+  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:6px}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .filter-chips{flex:1 1 0;min-width:0;max-width:100%}
   #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .lu-expand-all{flex:0 0 auto}
 }
 @media(prefers-reduced-motion:reduce){#appView #libraryView .lu-node-head::before{transition:none}}

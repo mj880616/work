@@ -172,7 +172,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 /* NOTE-마크다운선택: 노트 수정 칸의 [☐ 마크다운] 체크(노트마다 따로 저장). 누르는 범위 44px. */
 #appView #basketView .note-editor label.note-md-toggle { display:flex; flex-direction:row; width:max-content; align-items:center; gap:8px; min-height:44px; margin:2px 0 0; font-size:14px; font-weight:500; color:var(--kptu-ink); cursor:pointer; }
 .note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }
-/* UI-노트폴더: 검색칸 아래 한 줄 [전체][폴더…][폴더 없음](공용 filter-chips.js, 넘치면 옆으로 밂) + 줄 끝 폴더 ⋯. */
 /* NOTE-탐색기(10/28 09:24): 맨 위 '노트 · 54 · 🔍 ⋯', 폴더 나무(📁 닫힘 / 📂 열림, ▸ 없음), 한 줄 노트, 선택 모드·끌어 놓기. 작고 낮게, 톤다운. */
 .note-list-head { display:flex; align-items:center; gap:6px; min-width:0; }
 .note-list-head > .note-search { flex:1 1 auto; min-width:0; }
@@ -329,10 +328,10 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-folder { flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px; color:var(--ds-note-ink-faint); }
 #appView #basketView .nb-card .nb-more { position:absolute; right:2px; top:2px; width:24px; height:22px; min-width:0; min-height:0; margin:0; padding:0; border:0; background:transparent; box-shadow:none; color:var(--ds-note-ink-faint); font-size:14px; line-height:1; opacity:.7; }
 /* NOTE-보드여러개: 포스트잇 보기 위 보드 칸 줄 [전체] [보드…] [+ 새 보드](작고 낮은 칸), PC 왼쪽 170px 폴더·노트 목록, 폰 노트 고르기 창. */
-.nbb { display:flex; flex-wrap:nowrap; gap:4px; align-items:center; margin:4px 0; overflow-x:auto; scrollbar-width:none; }
-.nbb::-webkit-scrollbar { display:none; }
-#appView #basketView .nbb button { flex:none; position:relative; min-width:0; min-height:0; height:26px; margin:0; padding:0 9px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:12.5px; line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
-#appView #basketView .nbb button::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+.nbb { display:flex; flex-wrap:wrap; gap:var(--ds-chip-row-gap,4px); align-items:center; margin:4px 0; }
+#appView #basketView .nbb button:not(.chip-rows-more) { flex:none; position:relative; min-width:0; min-height:0; height:26px; margin:0; padding:0 9px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:12.5px; line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
+/* UI-칩줄두줄: 보드 칸 줄도 두 줄 + [더보기](chip-rows.js). 누르는 범위는 칩 둘레 2px(두 줄이 겹치지 않게). */
+#appView #basketView .nbb button:not(.chip-rows-more)::after { content:""; position:absolute; left:-2px; right:-2px; top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); }
 #appView #basketView .nbb .nbb-chip { max-width:12em; overflow:hidden; text-overflow:ellipsis; }
 #appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--kptu-primary-soft); border-color:transparent; color:var(--kptu-primary-ink,var(--kptu-primary)); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }

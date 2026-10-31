@@ -1,10 +1,10 @@
 @import url('./quick-controls.css');
-/* The 30px home pill sits in a 44px scroll lane so touch targets are not clipped. */
-.filter-chips { box-sizing:border-box; max-width:100%; min-width:0; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; padding:7px 2px; min-height:44px; scrollbar-width:none; }
-.filter-chips::-webkit-scrollbar { display:none; }
-.filter-chips button { box-sizing:border-box; flex:0 0 auto; min-width:44px; min-height:30px; font-family:inherit; font-size:12px; white-space:nowrap; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+/* UI-칩줄두줄(2026-10-31): 칩 줄은 옆으로 밀지 않고 줄바꿈 두 줄 + [더보기 ▾](app/chip-rows.js, 모양은 ui-standard.css "UI-칩줄두줄"). */
+.filter-chips { box-sizing:border-box; max-width:100%; min-width:0; flex-wrap:wrap; row-gap:var(--ds-chip-row-gap,4px); padding:2px; }
+.filter-chips button:not(.chip-rows-more) { box-sizing:border-box; flex:0 0 auto; min-width:0; height:var(--ds-chip-row-height,26px); min-height:0; padding:0 var(--ds-chip-row-pad-x,8px); font-family:inherit; font-size:12px; white-space:nowrap; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+/* 두 줄이라 누르는 범위는 칩 둘레 2px까지(위아래 줄과 겹치지 않게). */
+.filter-chips button:not(.chip-rows-more)::after { top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); left:-2px; right:-2px; }
 .filter-chips button:focus-visible { outline:2px solid var(--kptu-primary);outline-offset:-2px; }
-.filter-chips-small button { height:26px;min-height:26px;padding:0 10px; }
 .filter-chip-dot { width:8px;height:8px;flex:0 0 8px;border-radius:50%; }
 #libraryView .library-filter-toolbar { display:flex;flex-wrap:wrap;align-items:center;gap:8px; }
 #libraryView .library-filter-toolbar .search { flex:1 1 100%; }

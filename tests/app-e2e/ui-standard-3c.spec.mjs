@@ -65,7 +65,7 @@ const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('sp
 async function sameButtons(page,region,skip='.icon-btn'){
  const primary=await token(page,'--kptu-primary'),filled=[];
  for(const control of await region.locator('button:visible,a.mini:visible').all()){
-  if(await control.evaluate((el,skip)=>el.matches(skip),skip))continue;
+  if(await control.evaluate((el,skip)=>el.matches(skip)||el.matches('.chip-rows-more'),skip))continue;
   const s=await look(control),label=(await control.textContent()).trim();
   // UI-버튼크기: 필터 칩은 32px 알약, 전환 세그먼트(일정 창 [일정 | 할 일])는 32px 상자 안 칸. 둘 다 누르는 범위 44px.
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('[data-event-mode]')?'segment':'button');
@@ -73,8 +73,9 @@ async function sameButtons(page,region,skip='.icon-btn'){
   // UI-버튼전수조사(2026-10-24): 남은 46px 버튼도 기준으로 — 채운 버튼(주 동작)은 36px, 나머지는 작은 버튼 32px.
   const want=await control.evaluate(el=>el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,#gtDeleteBtn,#gtToggleBtn,.gt-pick-btn,.gt-pane-save,#wdInboxBig,#wdInboxSave')?32:el.matches('.primary,#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate')?36:32);
   if(kind==='button'){expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');}
-  else{expect(s.height,label).toBeGreaterThanOrEqual(kind==='chip'?32:30);expect(s.height,label).toBeLessThanOrEqual(32);if(kind==='chip')expect(s.radius,label).toBe('999px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
-  expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
+  // UI-칩줄두줄(10/31): 칩 줄의 칩은 26px·12px, 누르는 범위는 칩 둘레 2px(30px).
+  else{expect(s.height,label).toBeGreaterThanOrEqual(kind==='chip'?26:30);expect(s.height,label).toBeLessThanOrEqual(kind==='chip'?26:32);if(kind==='chip')expect(s.radius,label).toBe('999px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(kind==='chip'?30:44);}
+  expect(s.fontSize,label).toBe(kind==='chip'?'12px':'13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
   // UI-테마선택색: 고른 전환·필터 쪽은 일부러 주 버튼 색이라 채운 버튼 수에서 뺀다.
   if(s.bg===primary&&!await control.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active')))filled.push(label);
  }

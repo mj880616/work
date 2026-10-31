@@ -520,13 +520,14 @@ for(const width of [320,360,390,760]){
     await expect(button).toBeVisible();await expect(filter).toBeVisible();
     const head=page.locator('#meetingsListCard .add-list-head');
     const [b,s,h,btn,f]=await Promise.all([bar.boundingBox(),select.boundingBox(),head.boundingBox(),button.boundingBox(),filter.boundingBox()]);
-    expect(s.height).toBeCloseTo(44,0);
+    // UI-칩줄두줄(10/31): 칩 줄은 옆으로 밀지 않고 두 줄까지(칩 26px, 줄 사이 4px).
+    expect(s.height).toBeLessThanOrEqual(64);
     expect(s.x).toBeCloseTo(b.x,0);
     expect(s.x+s.width).toBeLessThanOrEqual(f.x);
     expect(f.x+f.width).toBeCloseTo(b.x+b.width,0);
     expect(f.height).toBeCloseTo(32,0);expect(f.y+f.height/2).toBeCloseTo(s.y+s.height/2,0);
-    expect(b.height).toBeCloseTo(44,0);
-    expect(await select.locator('[role=radio]').first().evaluate(el=>el.getBoundingClientRect().height)).toBe(32);
+    expect(b.height).toBeCloseTo(Math.max(s.height,f.height),0);
+    expect(await select.locator('[role=radio]').first().evaluate(el=>el.getBoundingClientRect().height)).toBe(26);
     // ⋯은 [목록|달력|사진]과 같은 머리 줄의 오른쪽 끝(혼자 둘째 줄을 차지하지 않음).
     const [views,more]=await Promise.all([page.locator('#reportViewFilter').boundingBox(),page.locator('#reportMore').boundingBox()]);
     expect(more.y+more.height/2).toBeCloseTo(views.y+views.height/2,0);expect(more.x+more.width).toBeCloseTo(h.x+h.width,0);
