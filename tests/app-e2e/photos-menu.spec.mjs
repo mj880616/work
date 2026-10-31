@@ -320,9 +320,10 @@ test('사진 메뉴: 달력 → 날짜 → 뒤로가기 = 같은 달 달력(폴�
   await page.evaluate(() => window.KPTURouter.back());
   await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#photosView')).toBeVisible();
-  // 그날 사진에서 다른 칩([휴지통])으로 가면 '그날 사진' 겹은 닫히고, 뒤로 한 번 = [사진].
+  // 그날 사진에서 다른 칩([휴지통])으로 가면 '그날 사진' 겹은 닫히고, 뒤로 한 번 = [사진]. 달력은 마지막에 본 달(8월) 그대로.
   await root(page).locator('[data-photos-tab="calendar"]').click();
-  await root(page).locator('[data-photos-cal-day="2026-10-05"]').click();
+  await expect(root(page).locator('.photos-cal-head b')).toHaveText('2026년 8월');
+  await root(page).locator('[data-photos-cal-day="2026-08-15"]').click();
   await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
   await root(page).locator('[data-photos-tab="trash"]').click();
   await expect(root(page).locator('[data-photos-tab="trash"]')).toHaveAttribute('aria-pressed', 'true');
