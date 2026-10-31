@@ -179,6 +179,7 @@
 | 37 | `onedrive-photos` | Web2 일기 원드라이브 연결·폴더 지정·사진 읽기·사진 지우기(휴지통 이동)(JOURNAL-일기원드라이브, Files.ReadWrite, 고른 폴더 안 사진만) | 운영 배포됨(10/31, 버전 번호 미확인) | 2026-10-31 14:54 시작 (승인형 run #170) | **true** | **10/31 배포**: run #168(41164885048, 12:33, main `cd63516d`=#1607 PHOTO-폴더스위치 ①) → run #170(41174442001, 14:54, main `04153011`=#1619 PHOTO-폴더스위치 B) 모두 success. 이전 운영 소스 SHA는 run summary에만 있어 API로 못 읽음(미확인). 10/28~10/30 배포는 원장 운영 적용 기록. work (코드·시험, 첫 배포 전) |
 | 38 | `meeting-transcribe` | Web2 회의 녹음 파일 → 전사 글(Gemini, MTG-녹음초안 2단계. 녹음은 명진 Drive '웹2/회의자료/회의 녹음'에 올리고, 전사 글은 화면에만 돌려줌. MTG-노트북녹음: 노트북 [녹음]·폰 앱 1분 조각 받기·구간 합치기 `rec_*`) | 배포 대기 | 없음 | **true** | work (코드·시험, 첫 배포 전) |
 | 39 | `gdrive-photos` | Web2 사진 출처 구글 드라이브(S46-24, 명진 G1 drive 읽기·쓰기): 폴더 목록·켜기/끄기·사진 목록·썸네일·원본/동영상 중계·이름 바꾸기·옮기기·휴지통으로(영구 삭제 없음)·폴더 만들기·이름·휴지통으로. 운영자 작업공간 owner + `gdrive_photos` + Drive 연결 주인만 | 운영 배포됨(10/31 첫 배포, 버전 번호 미확인) | 2026-10-31 15:41 시작 (승인형 run #172, 첫 배포) | **true** | **10/31 첫 배포**: run #172(41177649459, 15:41, main `c10b621b`=#1623 merge) success. 첫 배포라 이전 버전 없음(되돌리기 = 화면이 부르지 않는 상태 유지, 필요하면 명진 대시보드 판단). 버전 번호·HTTP 검사 결과는 run summary에만 있음. work (코드·시험, 첫 배포 전) |
+| 40 | `outside-feed` | Web2 바깥 성명 수집(OUTSIDE-바깥성명 ③, 하루 3번 GitHub 예약이 단체 성명 게시판·외국 매체 RSS를 읽기만 함. 화면 입구 `catalog`·`expand`는 로그인 owner만) | 배포 대기 | 없음 | false | work (코드·시험, 첫 배포 전) |
 
 `meeting-transcribe`(38행)는 **첫 배포 전**이다(MTG-녹음초안 2단계, PR B). 사업 보고 › [회의] 입력 창에서 로그인한 소유자만 부르고 예약 호출이 없으므로 `verify_jwt=true`를 선택한다. 함수 코드도 Auth 서버로 로그인을 다시 확인하고 본인 `app_workspace_members` 행이 `owner`인 작업공간만 받는다.
 서버 키는 작업 표 `app_meeting_transcribe_jobs`(migration `20261029071500`, service_role은 정한 칸만 넣기·고치기, 지우기 없음)·Drive 연결 설정 읽기·사용량 기록(`app_ai_external_usage` 넣기)에만 쓴다. 회의 읽기·회의자료 링크 행 넣기·이번 달 사용량 읽기는 호출한 사람의 토큰(소유자 RLS)으로 한다. 전사 글은 저장하지 않는다.
@@ -210,6 +211,11 @@ JPEG만(3MB 이하), 머리 구간에 EXIF·XMP·IPTC가 있으면 거절한다.
 `onedrive-photos`(37행)는 **배포 대기**다(JOURNAL-일기원드라이브, `docs/design/diary-onedrive.md` 10절: 2026-10-27 결정으로 읽기 전용에서 Files.ReadWrite·사진 지우기로 바뀜). 로그인한 소유자만 부르는 함수라 `verify_jwt=true`를 선택한다(화면은 로그인 토큰을 붙여 부르고, 사진은 받은 바이트를 화면에서 그림으로 바꿔 보여 주므로 로그인 없는 주소가 필요 없다).
 함수 코드도 Auth `getUser` + 작업공간 owner 확인을 다시 하고, 갱신 토큰은 service role로만 읽고 쓰며 응답에 싣지 않는다. 비밀값 `ONEDRIVE_CLIENT_ID`·`ONEDRIVE_CLIENT_SECRET`·`ONEDRIVE_REDIRECT_URI`가 없으면 `status`만 `configured:false`로 답하고 나머지는 424로 멈춘다.
 첫 배포는 DB 적용(`20261026140000_diary_onedrive_db`) 뒤 `first_deploy=true`·`verify_jwt=true`·`expect_unauth_401=true`로 한다. 비밀값 등록은 배포와 별개이며 사용자가 대시보드에서 직접 넣는다. 되돌리기: 화면이 아직 이 함수를 쓰지 않는 상태 유지, 필요하면 사용자가 대시보드에서 함수 삭제를 판단한다(자동 삭제 없음). 비밀값을 지우면 입구가 바로 닫힌다.
+
+`outside-feed`(40행)는 **배포 대기**다(OUTSIDE-바깥성명 ③, `docs/design/outside-statements.md` 3.2~3.4·6절). 예약 호출(`.github/workflows/outside-feed.yml`, 서울 08·13·18시 7분)은 사용자 로그인이 없으므로 `verify_jwt=false`를 선택한다.
+예약 입구(`run_plan`·`run`)는 함수 코드가 `x-outside-feed-cron-secret` 헤더를 새 비밀값 `OUTSIDE_FEED_CRON_SECRET`(32자 이상)과 SHA-256 고정 길이로 비교한다. 화면 입구(`catalog`·`expand`)는 Auth 서버로 로그인을 확인하고 본인 `app_workspace_members` 행이 `owner`인 작업공간 하나만 받는다. 열쇠가 없거나, 두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401이다.
+읽는 주소는 `supabase/functions/_shared/outside-catalog.ts` 고정 목록의 허용 호스트뿐이다(요청은 단체 키만 보냄, 리다이렉트도 같은 호스트만, GET·2MB·10초, robots.txt 확인). DB는 service role로 migration `20261031230000_outside_statements`의 네 표 안에서만 쓰고, 외국 글 본문·전문 번역은 저장하지 않는다.
+첫 배포는 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`(열쇠 없는 POST는 401)로 한다. 이전 버전이 없으므로 되돌리기는 예약 workflow를 끄고(화면이 아직 이 함수를 쓰지 않음) 필요하면 사용자가 대시보드에서 삭제를 판단한다. 비밀값을 지우면 예약 입구가 바로 닫힌다.
 
 `basket-files`는 2026-10-10 사용자 승인형 #475 신규 배포 경로로 최초 배포 완료했다.
 version 1, verify_jwt=false, 비로그인 POST 401, OPTIONS 200, source b466910.

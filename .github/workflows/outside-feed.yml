@@ -1,0 +1,38 @@
+name: Outside feed
+
+# OUTSIDE-바깥성명 ③: 노동·진보 단체 성명과 외국 매체 글을 하루 3번 서버(Edge outside-feed)가 읽어 온다.
+# 시각(KST): 08:07·13:07·18:07(UTC 23:07·04:07·09:07). 정각은 GitHub 예약이 몰려 늦어지므로 7분.
+# 비밀값 OUTSIDE_FEED_CRON_SECRET은 GitHub Actions 비밀값과 Supabase Edge 비밀값 두 곳에 같은 값(명진이 등록).
+# 함수 첫 배포·비밀값 등록 전에는 401로 실패한다(되돌리기: 이 workflow를 끄면 예약 호출이 멈춘다).
+on:
+  schedule:
+    - cron: '7 23,4,9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: outside-feed
+  cancel-in-progress: false
+
+jobs:
+  read:
+    if: github.repository == 'mj880616/work'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Read outside statements
+        env:
+          OUTSIDE_FEED_CRON_SECRET: ${{ secrets.OUTSIDE_FEED_CRON_SECRET }}
+        run: node scripts/ops/outside-feed.mjs
