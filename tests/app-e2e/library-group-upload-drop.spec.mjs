@@ -5,6 +5,7 @@ import {bootLibrary,libDoc,SB} from './helpers/library-folder-server.mjs';
 // 월별 묶기와 '값 없음' 묶음(사업영역 없음·조직 없음)은 지금처럼 화면 끌어놓기. 가짜 서버만 쓴다(실제 Supabase·Drive·AI 없음).
 const ORGS=[{id:'org-1',name:'공공기관사업본부',active:true},{id:'org-2',name:'철도본부',active:true}];
 const DOCS=[libDoc('a-1','top-a',{organization_id:'org-1'}),libDoc('a-2','top-a',{organization_id:'org-2',category:'교섭'}),libDoc('n-1',null)];
+const uid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const head=key=>`#documentList details[data-lu-node="${key}"] > summary`;
 const dropFiles=(page,to,names,{wait=0}={})=>page.evaluate(async({to,names,wait})=>{
   const dst=document.querySelector(to),dt=new DataTransfer(),r=dst.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
@@ -25,7 +26,8 @@ async function boot(page,group){
     const raw=(route.request().postDataBuffer()||Buffer.from('')).toString('utf8');
     const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;
     s.fields.push({project_id:field('project_id'),category:field('category'),organization_id:field('organization_id')});
-    const row={id:`upload-${s.uploads.length+1}`,workspace_id:'workspace-1',project_id:field('project_id'),organization_id:null,title:'업로드',file_name:'up.pdf',category:field('category')||'기타',tags:[],created_at:new Date().toISOString()};
+    // AI 채우기는 UUID 자료만 보내므로 UUID 모양 id.
+    const row={id:uid(s.uploads.length+1),workspace_id:'workspace-1',project_id:field('project_id'),organization_id:null,title:'업로드',file_name:'up.pdf',category:field('category')||'기타',tags:[],created_at:new Date().toISOString()};
     s.uploads.push(row);s.docs.push(row);
     return route.fulfill({json:{ok:true,document:row}});
   });
@@ -51,11 +53,11 @@ test.describe('PC 1440 PC 파일을 묶음 머리에 놓아 그 값으로 올리
     const r=await dropFiles(page,head('o:org-1'),['a.hwpx','b.pdf'],{wait:1300});
     expect(r).toEqual({allowed:true,into:true,group:true,open:true,hint:'놓으면 ‘공공기관사업본부’로 올려요'});
     await expect(page.locator('#libraryDropStatus')).toHaveText('공공기관사업본부로 2개 올렸어요');
-    expect(s.uploads.map(u=>u.id)).toEqual(['upload-1','upload-2']);
+    expect(s.uploads.map(u=>u.id)).toEqual([uid(1),uid(2)]);
     // 조직은 올리기 요청 칸이 아니라 올린 뒤 자료 연결(담당조직 상세 [+]와 같은 길).
     expect(s.fields.every(f=>f.organization_id===null)).toBe(true);
-    expect(s.patches.filter(p=>p.body?.organization_id).map(p=>[p.id,p.body.organization_id])).toEqual([['upload-1','org-1'],['upload-2','org-1']]);
-    await expect(page.locator('#documentList details[data-lu-node="o:org-1"] [data-lu-document="upload-2"]')).toHaveCount(1);
+    expect(s.patches.filter(p=>p.body?.organization_id).map(p=>[p.id,p.body.organization_id])).toEqual([[uid(1),'org-1'],[uid(2),'org-1']]);
+    await expect(page.locator(`#documentList details[data-lu-node="o:org-1"] [data-lu-document="${uid(2)}"]`)).toHaveCount(1);
     await expect(page.locator('#documentList .lu-drop-into,#documentList .lu-drop-group')).toHaveCount(0);
     const out=await dropFiles(page,head('o:none'),['c.pdf']);
     expect(out.hint).toBe('놓으면 바로 올려요');expect(out.group).toBe(false);
