@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯다시: 0건·몰린 날 표. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_zero_bg" />
+    <corners android:radius="10dp" />
+</shape>

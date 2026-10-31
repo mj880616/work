@@ -129,39 +129,14 @@ test('떠 있는 화면은 다리 day:open으로 옮긴다', async () => {
   assert.deepEqual(s.calls, ['load:calendar', 'go:calendar', 'day:2026-11-02']);
 });
 
-// WIDGET-여러개 ③: 텔레그램 위젯 줄 → 그 방·그 날.
-import {roomValue, bridgeRoom} from '../app/phone-widget-write.js';
-
-function telegramSetup(href) {
-  const s = setup({href});
+// APP-위젯다시: 텔레그램 위젯을 지워 tg_room·tg:open 길도 지웠다. 그 글은 이제 아무것도 열지 않는다.
+test('지운 텔레그램 길(tg_room·tg:open)은 아무것도 열지 않는다', async () => {
+  const s = setup({href: 'https://bokdoong.com/work/app/?view=telegram&tg_room=-100123&tg_day=2026-10-30'});
   const calls = [];
   s.win.KPTUViewLoader = {load: async view => { calls.push('load:' + view); }};
-  s.win.KPTURouter = {current: 'home', go: async view => { calls.push('go:' + view); s.win.KPTURouter.current = view; }};
-  s.win.KPTUTelegramFeed = {show: async (room, day) => { calls.push('show:' + room + '@' + day); return true; }};
-  return {...s, calls};
-}
-
-test('방 번호·다리 글은 정해진 모양만', () => {
-  assert.equal(roomValue('-1001234:abc_1.x'), '-1001234:abc_1.x');
-  assert.equal(roomValue('a b'), null);
-  assert.equal(roomValue(''), null);
-  assert.deepEqual(bridgeRoom('tg:open:2026-10-30:-100123'), {day: '2026-10-30', room: '-100123'});
-  assert.equal(bridgeRoom('tg:open:2026-10-32:-100123'), null);
-  assert.equal(bridgeRoom('tg:open:2026-10-30:<x>'), null);
-});
-
-test('주소 tg_room·tg_day는 지우고 텔레그램 그 방을 연다', async () => {
-  const s = telegramSetup('https://bokdoong.com/work/app/?view=telegram&tg_room=-100123&tg_day=2026-10-30');
-  startWidgetWrite(s.win, {wait: tick});
-  for (let i = 0; i < 8; i++) await tick();
-  assert.deepEqual(s.replaced, ['https://bokdoong.com/work/app/?view=telegram']);
-  assert.deepEqual(s.calls, ['load:telegram', 'go:telegram', 'show:-100123@2026-10-30']);
-});
-
-test('떠 있는 화면은 다리 tg:open으로 연다', async () => {
-  const s = telegramSetup('https://bokdoong.com/work/app/');
+  s.win.KPTUTelegramFeed = {show: async () => { calls.push('show'); return true; }};
   startWidgetWrite(s.win, {wait: tick});
   s.message('tg:open:2026-10-29:room.1');
   for (let i = 0; i < 8; i++) await tick();
-  assert.deepEqual(s.calls, ['load:telegram', 'go:telegram', 'show:room.1@2026-10-29']);
+  assert.deepEqual(calls, []);
 });

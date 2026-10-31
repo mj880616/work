@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯다시 ②: 빠른 쓰기(2×1). 자주 쓰는 [업데이트] [할 일] 두 개. 안드로이드 12+에서 칸이 좁으면 홈 화면이 이 그림을 고른다. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/quick_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="horizontal"
+    android:padding="6dp">
+    <LinearLayout
+        android:id="@+id/quick_cell0"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_btn"
+        android:clickable="true"
+        android:contentDescription="업데이트"
+        android:focusable="true"
+        android:gravity="center"
+        android:minHeight="40dp"
+        android:orientation="vertical">
+
+        <ImageView
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_w_update" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="업데이트"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="12sp"
+            android:paddingTop="2dp" />
+    </LinearLayout>
+    <Space
+        android:layout_width="6dp"
+        android:layout_height="1dp" />
+    <LinearLayout
+        android:id="@+id/quick_cell1"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_btn"
+        android:clickable="true"
+        android:contentDescription="할 일"
+        android:focusable="true"
+        android:gravity="center"
+        android:minHeight="40dp"
+        android:orientation="vertical">
+
+        <ImageView
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_w_task" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="할 일"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="12sp"
+            android:paddingTop="2dp" />
+    </LinearLayout>
+</LinearLayout>

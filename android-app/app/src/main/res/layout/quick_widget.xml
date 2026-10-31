@@ -1,127 +1,131 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WIDGET-여러개 ①: 빠른 쓰기(4×1). 네 칸을 누르면 앱의 쓰기 창(업데이트·할 일·노트)·사진 고르기가 열린다. 서버 요청 없음. -->
+<!-- APP-위젯다시 ②: 빠른 쓰기(4×1). 칸을 꽉 채운 큰 단추 넷(색 칠한 둥근 칸 + 26dp 그림 + 글자). 서버 요청 없음. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/quick_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_tile_bg"
-    android:gravity="center_vertical"
+    android:background="@drawable/widget_bg"
     android:orientation="horizontal"
-    android:padding="2dp">
-
+    android:padding="6dp">
     <LinearLayout
         android:id="@+id/quick_cell0"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="?android:attr/selectableItemBackground"
+        android:background="@drawable/widget_btn"
         android:clickable="true"
         android:contentDescription="업데이트"
         android:focusable="true"
         android:gravity="center"
         android:minHeight="40dp"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
         <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_w_update" />
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="4dp"
-            android:singleLine="true"
             android:text="업데이트"
-            android:textColor="@color/widget_tile_ink"
-            android:textSize="12sp" />
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="12sp"
+            android:paddingTop="2dp" />
     </LinearLayout>
-
+    <Space
+        android:layout_width="6dp"
+        android:layout_height="1dp" />
     <LinearLayout
         android:id="@+id/quick_cell1"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="?android:attr/selectableItemBackground"
+        android:background="@drawable/widget_btn"
         android:clickable="true"
         android:contentDescription="할 일"
         android:focusable="true"
         android:gravity="center"
         android:minHeight="40dp"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
         <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_w_task" />
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="4dp"
-            android:singleLine="true"
             android:text="할 일"
-            android:textColor="@color/widget_tile_ink"
-            android:textSize="12sp" />
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="12sp"
+            android:paddingTop="2dp" />
     </LinearLayout>
-
+    <Space
+        android:layout_width="6dp"
+        android:layout_height="1dp" />
     <LinearLayout
         android:id="@+id/quick_cell2"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="?android:attr/selectableItemBackground"
+        android:background="@drawable/widget_btn"
         android:clickable="true"
         android:contentDescription="노트"
         android:focusable="true"
         android:gravity="center"
         android:minHeight="40dp"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
         <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_w_note" />
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="4dp"
-            android:singleLine="true"
             android:text="노트"
-            android:textColor="@color/widget_tile_ink"
-            android:textSize="12sp" />
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="12sp"
+            android:paddingTop="2dp" />
     </LinearLayout>
-
+    <Space
+        android:layout_width="6dp"
+        android:layout_height="1dp" />
     <LinearLayout
         android:id="@+id/quick_cell3"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="?android:attr/selectableItemBackground"
+        android:background="@drawable/widget_btn"
         android:clickable="true"
         android:contentDescription="사진"
         android:focusable="true"
         android:gravity="center"
         android:minHeight="40dp"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
         <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_w_photo" />
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="4dp"
-            android:singleLine="true"
             android:text="사진"
-            android:textColor="@color/widget_tile_ink"
-            android:textSize="12sp" />
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="12sp"
+            android:paddingTop="2dp" />
     </LinearLayout>
 </LinearLayout>

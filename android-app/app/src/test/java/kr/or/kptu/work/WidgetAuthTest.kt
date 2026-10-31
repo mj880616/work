@@ -118,7 +118,7 @@ class WidgetAuthTest {
         // 다음 요청(읽기) 때 금고에는 이미 새 토큰이 있다.
         http.answers.add(ok("{\"events\":[]}"))
         http.answers.add(ok("{\"tasks\":[]}"))
-        val (a, b) = WidgetToday.range(clock)
+        val (a, b) = WidgetNow.range(clock)
         assertTrue(session.readToday(a, b) is WidgetSession.Outcome.Ok)
         assertEquals("v1\n$user\nr2", http.vaultAtSend.last())
     }
@@ -167,7 +167,7 @@ class WidgetAuthTest {
     @Test
     fun readTodayUsesWidgetTokenAndRetriesOnceOn401() {
         signIn()
-        val (a, b) = WidgetToday.range(clock)
+        val (a, b) = WidgetNow.range(clock)
         http.answers.add(status(401))
         http.answers.add(ok("{\"tasks\":[]}"))
         http.answers.add(ok(sessionJson("a2", "r2")))
@@ -191,7 +191,7 @@ class WidgetAuthTest {
 
     @Test
     fun readTodayWithoutLoginSendsNothing() {
-        val (a, b) = WidgetToday.range(clock)
+        val (a, b) = WidgetNow.range(clock)
         assertEquals(WidgetSession.Outcome.SignedOut, session.readToday(a, b))
         assertTrue(http.sent.isEmpty())
         vault.value = "garbage"
@@ -226,7 +226,7 @@ class WidgetAuthTest {
         http.answers.add(ok(sessionJson("a2", "r2")))
         http.answers.add(ok("{\"events\":[]}"))
         http.answers.add(ok("{\"tasks\":[]}"))
-        val (a, b) = WidgetToday.range(clock)
+        val (a, b) = WidgetNow.range(clock)
         session.readToday(a, b)
         http.answers.add(ok("{}"))
         session.logout()
@@ -274,7 +274,7 @@ class WidgetAuthTest {
     fun widgetSourcesDoNotLog() {
         // 토큰·응답 본문을 로그에 쓰지 않는다(설계 8절). 위젯 파일에는 로그 호출 자체가 없다.
         val dir = File("src/main/java/kr/or/kptu/work")
-        val files = listOf("WidgetAuth.kt", "WidgetHttp.kt", "WidgetToday.kt", "TodayWidget.kt", "WidgetWeek.kt", "WeekWidget.kt", "WidgetTelegram.kt", "TelegramWidget.kt", "WidgetArsenal.kt", "ArsenalWidget.kt", "WidgetRefresh.kt", "KeystoreVault.kt", "MiniJson.kt", "MainActivity.kt")
+        val files = listOf("WidgetAuth.kt", "WidgetHttp.kt", "WidgetNow.kt", "NowWidget.kt", "WidgetWeek.kt", "WeekWidget.kt", "WidgetArsenal.kt", "ArsenalWidget.kt", "WidgetRefresh.kt", "KeystoreVault.kt", "MiniJson.kt", "MainActivity.kt")
         for (name in files) {
             val text = File(dir, name).readText()
             for (bad in listOf("Log.", "println(", "printStackTrace", "HttpLoggingInterceptor")) {

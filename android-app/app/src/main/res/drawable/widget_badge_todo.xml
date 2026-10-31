@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯다시: 챙길 것·할 일 숫자 표·상집 보고일 표. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_todo_bg" />
+    <corners android:radius="10dp" />
+</shape>

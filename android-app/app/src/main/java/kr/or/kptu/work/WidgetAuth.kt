@@ -14,7 +14,7 @@ interface WidgetVault {
 
 /**
  * 위젯이 부를 수 있는 주소와 로그인 주소(설계 docs/design/phone-widget-auth.md 3·4·6절).
- * 위젯 코드가 만드는 요청은 여기 적은 것뿐이다(WidgetAuthTest·WidgetWeekTest·WidgetTelegramTest가 고정).
+ * 위젯 코드가 만드는 요청은 여기 적은 것뿐이다(WidgetAuthTest·WidgetWeekTest·WidgetRefreshTest가 고정).
  */
 object WidgetRules {
     const val SUPABASE = "https://xmlkxfjeagycwttklxjw.supabase.co"
@@ -31,39 +31,12 @@ object WidgetRules {
     const val CALENDAR_PREFIX = "$SUPABASE/functions/v1/google-calendar?action=events&timeMin="
     const val TASKS = "$SUPABASE/functions/v1/google-tasks?action=overview"
     /**
-     * WIDGET-여러개 ②: 오늘 위젯 맨 아래 '챙길 것 n · 나한테 온 요청 n'(건수만). 웹 inbox-count.js와 같은 처리 전 후보 읽기.
-     * 기존 소유자 RLS(app_todo_candidates)가 이 사람 작업공간 줄만 준다. 두 칸(종류·한 줄)만 읽고 위젯은 건수만 그린다.
+     * APP-위젯다시: '지금' 위젯의 '나한테 온 요청'·'챙길 것' 줄(건수 + 한 줄). 웹 inbox-count.js와 같은 처리 전 후보 읽기.
+     * 기존 소유자 RLS(app_todo_candidates)가 이 사람 작업공간 줄만 준다. 두 칸(종류·한 줄)만 읽는다.
      */
     const val CANDIDATES = "$SUPABASE/rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&order=created_at.desc&limit=100"
-    /**
-     * WIDGET-여러개 ③ 텔레그램 새 소식(운영자 전용). 내 작업공간에 허용된 기능 목록(public.app_my_features, stable이라 GET).
-     * 내용은 기존 RLS가 서버 허용표(private.app_workspace_has_feature)로만 준다. 위젯은 목록에 telegram이 없으면 '이 기능 없음'.
-     */
-    const val FEATURES = "$SUPABASE/rest/v1/rpc/app_my_features"
-    private const val FEED_DAYS_PREFIX = "$SUPABASE/rest/v1/app_feed_days?source=eq.telegram&day=eq."
-    private const val FEED_DAYS_SUFFIX = "&select=day,kept_count,room_count"
-    private const val FEED_ITEMS_PREFIX = "$SUPABASE/rest/v1/app_feed_items?source=eq.telegram&hidden_at=is.null&day=gte."
-    private const val FEED_ITEMS_SUFFIX = "&select=room_key,room_label,title,summary,day,occurred_at&order=occurred_at.desc&limit=40"
     /** WIDGET-여러개 ③ 아스날: 공개 정적 파일(앱 아스날 화면과 같은 자료). 로그인 토큰을 붙이지 않는다(readPublic). */
     const val ARSENAL = ShellRules.HOME + "arsenal/matches.js"
-    private val DAY = Regex("^\\d{4}-\\d{2}-\\d{2}$")
-
-    /** 그 날(서울) 텔레그램 소식 건수. */
-    fun feedDaysUrl(day: String): String {
-        require(DAY.matches(day))
-        return FEED_DAYS_PREFIX + day + FEED_DAYS_SUFFIX
-    }
-
-    /** 그 날(서울)부터의 텔레그램 소식 최근 40줄(방 이름·한 줄만). */
-    fun feedItemsUrl(fromDay: String): String {
-        require(DAY.matches(fromDay))
-        return FEED_ITEMS_PREFIX + fromDay + FEED_ITEMS_SUFFIX
-    }
-
-    private fun isDayUrl(url: String, prefix: String, suffix: String): Boolean {
-        if (!url.startsWith(prefix) || !url.endsWith(suffix)) return false
-        return DAY.matches(url.substring(prefix.length, url.length - suffix.length))
-    }
 
     /** 단계 ①과 같은 로그인 주소(돌아올 주소가 같아 Supabase 허용 주소를 늘리지 않는다). */
     val LOGIN_URL: String =
@@ -86,8 +59,7 @@ object WidgetRules {
     /** 위젯이 보내도 되는 요청인지. 이 밖의 주소·방식은 보내지 않는다. */
     fun allowed(method: String, url: String): Boolean = when (method) {
         "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT
-        "GET" -> url == TASKS || url == CANDIDATES || url == FEATURES || url == ARSENAL || isCalendarUrl(url) ||
-            isDayUrl(url, FEED_DAYS_PREFIX, FEED_DAYS_SUFFIX) || isDayUrl(url, FEED_ITEMS_PREFIX, FEED_ITEMS_SUFFIX)
+        "GET" -> url == TASKS || url == CANDIDATES || url == ARSENAL || isCalendarUrl(url)
         else -> false
     }
 

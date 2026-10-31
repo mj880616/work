@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯다시 ①: '지금'(4×2, 줄이면 2×2), 홈 화면 전용(잠금 화면 아님, 결정 W-D4). 갱신은 WorkManager 30분(updatePeriodMillis 0). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/now_widget_description"
+    android:initialLayout="@layout/now_widget"
+    android:previewLayout="@layout/now_widget"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

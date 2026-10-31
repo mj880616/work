@@ -47,7 +47,14 @@
 - 갱신은 오늘·이번 주가 같은 WorkManager 작업 하나(30분 + 지금 한 번), 읽기도 `WidgetSession.readList` 한 번에 묶는다. 위젯을 모두 지우면 작업을 끈다.
 - 이번 주 일정 읽기는 오늘 위젯과 같은 `google-calendar?action=events` 모양이라 허용 주소 규칙이 그대로 받는다.
 
-## 텔레그램·아스날 (0.3.6, WIDGET-여러개 ③)
+## 위젯 다시 기획 (APP-위젯다시)
+
+- '웹2 오늘'·'웹2 텔레그램' 위젯은 코드째 지우고 '웹2 지금'(4×2·2×2)으로 합쳤다. 4×2: 다음 일정 크게(시각·제목·남은 시간) + 그다음 한 줄 + 처리할 것 세 줄(나한테 온 요청·챙길 것·오늘 기한 할 일). 2×2: 다음 일정 + 요청·챙길 것 숫자 두 칸. 텔레그램 읽기 주소(`app_my_features`·`app_feed_*`)는 허용 목록에서 뺐다.
+- '웹2 이번 주'(4×2·4×1): 요일 칸 7개(일정 수, 몰린 날·가장 큰 일 날 옅은 색) + 가장 큰 일 D-n·상집 보고일·일정 몰린 날. 토·일엔 다음 주. 고르는 기준은 `docs/design/phone-widget-auth.md` 14절.
+- 빠른 쓰기(4×1·2×1)는 칸을 꽉 채운 큰 단추. 크기별 그림은 안드로이드 12+에서 `RemoteViews(Map<SizeF, RemoteViews>)`(`HomeWidgets.sized`), 그 아래는 큰 그림 하나.
+- 갱신 작업 이름은 `widget-periodic`·`widget-now`(작업 클래스 `WidgetWorker`). 옛 이름(`today-widget-*`)은 새 판에서 지운다.
+
+## 텔레그램·아스날 (0.3.6, WIDGET-여러개 ③ — 텔레그램 위젯은 APP-위젯다시에서 지움)
 
 - '웹2 텔레그램'(4×2, 운영자 전용): 머리 '새 소식 n · 요청 n'(오늘 중요한 소식 수·텔레그램 '나한테 온 요청' 수) + 어제·오늘 최근 방 세 곳(방 이름 · 한 줄). 줄을 누르면 앱 텔레그램 화면의 그 방·그 날(`WIDGET_TG` → 웹 `?view=telegram&tg_room=&tg_day=` 또는 다리 `tg:open:`, `KPTUTelegramFeed.show`).
 - 내용은 서버 허용표(`private.app_workspace_has_feature`)를 쓰는 기존 RLS만 준다. 위젯은 내 기능 목록(`rpc/app_my_features`, GET)에 telegram이 없으면 '이 기능 없음'만 그린다(누를 곳·새로고침 없음).
@@ -107,8 +114,8 @@
 | `app/src/main/java/kr/or/kptu/work/WidgetHttp.kt` | 위젯 HTTP(OkHttp) |
 | `app/src/main/java/kr/or/kptu/work/KeystoreVault.kt` | 위젯 새로고침 토큰 암호화 보관 |
 | `app/src/main/java/kr/or/kptu/work/WidgetToday.kt` | 위젯 줄 만들기(오늘 범위·정렬·안내) |
-| `app/src/main/java/kr/or/kptu/work/TodayWidget.kt` | 위젯 그리기·WorkManager 작업·`WidgetLoginActivity` |
-| `app/src/main/java/kr/or/kptu/work/WidgetTelegram.kt`, `TelegramWidget.kt`, `WidgetArsenal.kt`, `ArsenalWidget.kt` | 텔레그램·아스날 위젯 내용 만들기(JVM 시험 대상)·그리기 |
+| `app/src/main/java/kr/or/kptu/work/NowWidget.kt`, `WidgetNow.kt` | '지금' 위젯 그리기·내용 만들기(JVM 시험 대상)·WorkManager 작업(`WidgetWorker`)·`WidgetLoginActivity` |
+| `app/src/main/java/kr/or/kptu/work/WidgetArsenal.kt`, `ArsenalWidget.kt` | 아스날 위젯 내용 만들기(JVM 시험 대상)·그리기 |
 | `app/src/main/java/kr/or/kptu/work/WidgetWeek.kt`, `WeekWidget.kt` | 이번 주 위젯 줄 만들기(JVM 시험 대상)·그리기 |
 | `app/src/main/java/kr/or/kptu/work/WidgetActions.kt` | 빠른 쓰기·한 칸 위젯 규칙(칸 순서·고르기 목록·여는 곳·쓰기 주소, 단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/ActionWidgets.kt` | 빠른 쓰기·한 칸 위젯 그리기, 한 칸 기능 고르기 창, [사진] 고르기·카메라 |

@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WIDGET-여러개 ②: 이번 주 일정(4×2), 홈 화면 전용. 갱신은 오늘 위젯과 같은 WorkManager 작업 하나(updatePeriodMillis 0). -->
+<!-- APP-위젯다시 ③: 이번 주(4×2, 줄이면 4×1), 홈 화면 전용. 갱신은 지금 위젯과 같은 WorkManager 작업 하나(updatePeriodMillis 0). -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/week_widget_description"
     android:initialLayout="@layout/week_widget"
+    android:previewLayout="@layout/week_widget"
     android:minWidth="250dp"
     android:minHeight="110dp"
     android:minResizeWidth="180dp"
-    android:minResizeHeight="70dp"
+    android:minResizeHeight="40dp"
     android:targetCellWidth="4"
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"

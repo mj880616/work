@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯다시: 빠른 쓰기 큰 단추(색 칠한 둥근 칸). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_btn_bg" />
+    <corners android:radius="16dp" />
+</shape>

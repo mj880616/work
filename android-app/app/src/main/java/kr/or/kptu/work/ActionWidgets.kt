@@ -54,19 +54,25 @@ object WidgetIntents {
     }
 }
 
-/** 빠른 쓰기(4×1): [업데이트] [할 일] [노트] [사진]. */
+/**
+ * 빠른 쓰기(4×1·2×1, APP-위젯다시 ②): 칸을 꽉 채우는 큰 단추(색 칠한 둥근 칸 + 26dp 그림 + 글자).
+ * 4×1: [업데이트] [할 일] [노트] [사진]. 2×1: 자주 쓰는 [업데이트] [할 일] 두 개(같은 칸 번호, 홈 화면이 칸 크기로 고름).
+ */
 class QuickWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = RemoteViews(context.packageName, R.layout.quick_widget)
         val cells = intArrayOf(R.id.quick_cell0, R.id.quick_cell1, R.id.quick_cell2, R.id.quick_cell3)
-        WidgetActions.QUICK.forEachIndexed { i, action ->
-            views.setOnClickPendingIntent(cells[i], WidgetIntents.pending(context, WIDGET, action))
+        val views = HomeWidgets.sized(context, R.layout.quick_widget_small, R.layout.quick_widget, SMALL, LARGE) { v, _ ->
+            WidgetActions.QUICK.forEachIndexed { i, action ->
+                v.setOnClickPendingIntent(cells[i], WidgetIntents.pending(context, WIDGET, action))
+            }
         }
         manager.updateAppWidget(ids, views)
     }
 
     companion object {
         const val WIDGET = 1
+        private val SMALL = android.util.SizeF(110f, 40f)
+        private val LARGE = android.util.SizeF(250f, 40f)
     }
 }
 

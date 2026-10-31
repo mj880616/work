@@ -73,7 +73,7 @@ class ArsenalWidget : AppWidgetProvider() {
         private fun lines(): WidgetArsenal.Content {
             val list = matches
             return WidgetGuard.get {
-                val today = WidgetTelegram.today(System.currentTimeMillis())
+                val today = java.time.LocalDate.now(WidgetNow.ZONE)
                 when {
                     list != null -> WidgetArsenal.content(list, today)
                     failed -> WidgetArsenal.content(null, today)
