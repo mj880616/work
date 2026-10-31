@@ -117,11 +117,11 @@ test('보고서 만들기: 빈 서식의 글자·문단 모양·테두리만 쓰
   // 양식 차례(상집보고 전체 구조)
   const order = sec.root.children.filter(n => n.name === 'hp:p' && !n.children.some(c => c.name === 'hp:run' && c.children.some(k => k.name === 'hp:tbl')))
     .map(p => textOf(p)).filter(t => /^(\d\.|\d\))/.test(t));
-  assert.deepEqual(order, ['1. 요청사항', '1) 집회/행사 참가 요청', '2) 주요 일정', '2. 기본․영역․의제 사업', '1) 요약', '2) 세부 내용',
+  assert.deepEqual(order, ['1. 요청사항', '1) 임원 배정 요청', '2) 주요 일정', '3) 상집 논의 요청', '2. 기본․영역․의제 사업', '1) 요약', '2) 세부 내용',
     '3. 투쟁 사업', '1) 집회·농성 등', '2) 투쟁 사업장 현황', '4. 산하조직 현황', '1) 요약', '2) 참고자료', '5. 주요 일정']);
   // 3·4절 "1)"은 '중간 제목', 1·2절은 '작은 제목'
   const styleOf = text => { const id = sec.root.children.find(p => textOf(p) === text).attrs.styleIDRef; return headerStyles(header).find(x => x.id === id).name; };
-  assert.deepEqual(['1) 집회/행사 참가 요청', '2) 세부 내용', '1) 집회·농성 등', '2) 참고자료'].map(styleOf), ['작은 제목', '작은 제목', '중간 제목', '중간 제목']);
+  assert.deepEqual(['1) 임원 배정 요청', '3) 상집 논의 요청', '2) 세부 내용', '1) 집회·농성 등', '2) 참고자료'].map(styleOf), ['작은 제목', '작은 제목', '작은 제목', '중간 제목', '중간 제목']);
   assert.deepEqual(back.details, [{heading: '(1) 가짜 회의 정', box: DEMO_DATA.details[0].box.map(b => ({label: b.label, lines: b.lines.map(lineText)}))}]);
   assert.deepEqual(back.calendar, DEMO_DATA.calendar);
   assert.deepEqual(back.orgs.map(({org, status}) => ({org, status})), DEMO_DATA.orgs);

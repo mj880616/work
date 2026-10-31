@@ -10,6 +10,7 @@
 import {readIssued, newerIssued} from './weekly-lines.mjs';
 import {readExtras, mergeExtras, EXTRA_KEYS} from './weekly-feedback.mjs';
 import {cleanTitleEdit, titleFields, readHq, readSiteLayout} from './weekly-schedule-rows.mjs';
+import {readDiscuss} from './weekly-discuss.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -36,6 +37,7 @@ export const DOC_TEXT_MAX = 200;
 // WEEKLY-주요일정칸(weekly-schedule-rows.mjs): titles 항목은 칸별(title·place 늘, day·time·who는 고쳤을 때만), hq = [주간 정리] 2) 주요 일정 줄,
 //   site_layout = 3. 2) 투쟁 사업장 현황 구성. hq·site_layout은 '고친 칸'이 아니라 hasContent에 넣지 않고(이어 쓰기 질문 없음), [처음부터]에도 남는다.
 //   3자 비교 칸은 hq(줄 목록 통째)·sites_layout(구성 통째). 상자·[주간 정리] 모두 읽은 그대로 다시 실어 보낸다.
+// S46-27(weekly-discuss.mjs): discuss = 1. 3) 상집 논의 요청 줄. hq와 같은 대접(hasContent 밖, [처음부터]에도 남음, 3자 비교 칸 discuss 통째).
 
 // ---- 칸 열쇠 ----
 const oneLine = s => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -57,7 +59,7 @@ const sameLines = (a, b) => JSON.stringify(cleanLines(a)) === JSON.stringify(cle
 // me는 고친 이름일 때만(meFrom='typed'), date는 바탕(보고일)과 다를 때만 넘긴다(아니면 '').
 // keep: 이번 바탕에 넣지 못한 저장 칸(버리지 않고 다시 저장). titles: Map event → {title, place}.
 // drops(WEEKLY-환류, 설계 3.4): Map event → 'drop'(이번 주에 뺀 일정) | 'keep'(기억으로 빠지는 일정을 이번 주만 넣음) → dropped·kept.
-export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], areas = null, confirmed = null, issued = null, extras = null, hq = null, siteLayout = null} = {}) {
+export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], areas = null, confirmed = null, issued = null, extras = null, hq = null, siteLayout = null, discuss = null} = {}) {
   const rows = [];
   for (const [id, lines] of cells) {
     if (initial.has(id) && sameLines(lines, initial.get(id))) continue;
@@ -71,6 +73,7 @@ export function makeDraft({base = null, me = '', meFrom = '', date = '', cells =
   putDrops(out, drops);
   putDocs(out, docs);
   putHq(out, hq);
+  putDiscuss(out, discuss);
   putSiteLayout(out, siteLayout);
   putAreas(out, areas);
   putExtras(out, extras);
@@ -113,6 +116,10 @@ function putSiteLayout(out, layout) { const l = readSiteLayout(layout); if (l) o
 const emptyDraft = () => ({v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[]});
 // [주간 정리]가 쓰는 바꾸기(draft가 없으면 빈 임시저장으로 시작).
 export function withHq(draft, list) { const out = draft ? {...draft} : emptyDraft(); putHq(out, list); return out; }
+// ---- 3) 상집 논의 요청 줄(discuss) ----
+export const draftDiscuss = draft => readDiscuss(draft?.discuss);
+function putDiscuss(out, list) { const rows = readDiscuss(list); if (rows.length) out.discuss = rows; else delete out.discuss; }
+export function withDiscuss(draft, list) { const out = draft ? {...draft} : emptyDraft(); putDiscuss(out, list); return out; }
 export function withSiteLayout(draft, layout) { const out = draft ? {...draft} : emptyDraft(); putSiteLayout(out, layout); return out; }
 // 일정 하나의 칸별 고침을 바꾼다(fields가 null이면 지움 = 바탕 그대로).
 export function withTitleEdit(draft, event, fields) {
@@ -142,10 +149,11 @@ export function withDocEdit(draft, id, patch) {
 // [처음부터]: 상자에서 고친 것은 비우되 [주간 정리]의 자료 줄 고침은 남긴다(없으면 null = 임시저장 비움).
 // 받은 초안 기록(issued)·사업영역 한 줄 요약(area_summaries)도 남긴다 — 상자에서 고친 것이 아니다.
 export const keepDocsOnly = draft => {
-  const docs = draftDocs(draft), issued = readIssued(draft?.issued), areas = draftAreaSummaries(draft), extras = readExtras(draft), hq = draftHq(draft), layout = draftSiteLayout(draft);
-  if (!docs.length && !issued && !Object.keys(areas).length && !Object.keys(extras).length && !hq.length && !layout) return null;
+  const docs = draftDocs(draft), issued = readIssued(draft?.issued), areas = draftAreaSummaries(draft), extras = readExtras(draft), hq = draftHq(draft), layout = draftSiteLayout(draft), discuss = draftDiscuss(draft);
+  if (!docs.length && !issued && !Object.keys(areas).length && !Object.keys(extras).length && !hq.length && !discuss.length && !layout) return null;
   const out = {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[], ...(docs.length ? {docs} : {})};
   putHq(out, hq);
+  putDiscuss(out, discuss);
   putSiteLayout(out, layout);
   putAreas(out, areas);
   putExtras(out, extras);
@@ -211,6 +219,7 @@ export function readDraft(raw) {
   if (kept.length) out.kept = kept;
   putDocs(out, raw.docs);
   putHq(out, raw.hq);
+  putDiscuss(out, raw.discuss);
   putSiteLayout(out, raw.site_layout);
   if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
   putAreas(out, raw.area_summaries);
@@ -246,6 +255,8 @@ export function draftCells(draft) {
   for (const t of draft.titles ?? []) out.set(`title:${t.event}`, titleFields(t));
   const hq = draftHq(draft), layout = draftSiteLayout(draft);
   if (hq.length) out.set('hq', hq);
+  const discuss = draftDiscuss(draft);
+  if (discuss.length) out.set('discuss', discuss);
   if (layout) out.set('sites_layout', {order:layout.order, hidden:layout.hidden});
   for (const [event, how] of draftDrops(draft)) out.set(`drop:${event}`, how);
   for (const {id, ...rest} of draftDocs(draft)) out.set(`doc:${id}`, rest);
@@ -274,6 +285,7 @@ export function merge3(base, mine, theirs) {
     if (k.startsWith('row:')) { const {section, key, n} = parseCellId(k.slice(4)); out.rows.push({section, key, n, lines:v}); }
     else if (k.startsWith('title:')) { const t = cleanTitleEdit({...v, event:k.slice(6)}); if (t) out.titles.push(t); }
     else if (k === 'hq') putHq(out, v);
+    else if (k === 'discuss') putDiscuss(out, v);
     else if (k === 'sites_layout') putSiteLayout(out, {...v, at:[base, mine, theirs].map(d => draftSiteLayout(d)?.at ?? '').sort().at(-1)});
   }
   putDrops(out, new Map([...merged].filter(([k]) => k.startsWith('drop:')).map(([k, v]) => [k.slice(5), v])));

@@ -274,6 +274,9 @@ jobs:
       - name: Check time cells and one-line schedule titles split into cells (FORM-시간숫자·WEEKLY-장소칸)
         run: node --test tests/schedule-line-split.test.mjs
 
+      - name: Check weekly report 1. 요청사항 three parts — 3) 상집 논의 요청 rows, shared draft cell, hwpx order (S46-27)
+        run: node --test tests/weekly-discuss.test.mjs
+
       - name: Check shared UI parts stay unified (UI-화면정리 B)
         run: node --test tests/ui-cleanup-b.test.mjs
 

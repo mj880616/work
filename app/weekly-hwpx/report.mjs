@@ -5,6 +5,7 @@
 //   title: '○○팀 주간보고', date: '2026년 1월 5일(월)',
 //   requests: [{day: '1.7.(수)', items: [{what: '10:00 / 행사 A / 장소 A', who: ['참석자 A']}]}],
 //   schedule: ['- 일정 A'],                       // 1. 요청사항 › 2) 주요 일정 아래 바탕글 줄
+//   discuss: ['- 안건 A — 설명 A (조직 A)'],       // 1. 요청사항 › 3) 상집 논의 요청 아래 바탕글 줄(S46-27, 2)과 같은 모양, 없으면 빈 줄)
 //   summary: [{area: ['사업영역 A'], rows: [      // 2. 기본·영역·의제 사업 › 1) 요약 표
 //     {task: ['세부 과제 A-1'], progress: ['- 진행 A', {text: '- 바뀐 줄', changed: true}], owner: ['담당 A']},
 //     {task: null, progress: [...], owner: null}, // null = 위 칸과 합친 칸(세로 병합)
@@ -356,6 +357,8 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
     paragraph(protos.small, ''), // 사용자가 한글에서 더한 빈 줄(요청 표와 "2) 주요 일정" 사이, 작은 제목 문단)
     paragraph(protos.small, S.schedule),
     ...lines(protos.body, data.schedule),
+    paragraph(protos.small, S.discuss),
+    ...lines(protos.body, data.discuss),
     paragraph(protos.big, S.work),
     paragraph(protos.small, S.summaryTable),
     fillTable(protos.summaryTable, summaryGrid(data.summary ?? []), changed),
@@ -392,8 +395,9 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
 }
 
 // 양식 번호·제목 글(상집보고 차례 — 기획 문서 1.2절. 3·4절의 "1)"은 '중간 제목', 1·2절은 '작은 제목').
+// S46-27(2026-10-31 사용자 결정): 1. 요청사항 = 1) 임원 배정 요청 · 2) 주요 일정 · 3) 상집 논의 요청(확정본 양식에 없던 3)은 2) 뒤에 같은 모양).
 export const DEFAULT_SECTIONS = Object.freeze({
-  requests: '1. 요청사항', requestTable: '1) 집회/행사 참가 요청', schedule: '2) 주요 일정',
+  requests: '1. 요청사항', requestTable: '1) 임원 배정 요청', schedule: '2) 주요 일정', discuss: '3) 상집 논의 요청',
   work: '2. 기본․영역․의제 사업', summaryTable: '1) 요약', details: '2) 세부 내용',
   struggle: '3. 투쟁 사업', rallyTable: '1) 집회·농성 등', siteTable: '2) 투쟁 사업장 현황',
   orgs: '4. 산하조직 현황', orgTable: '1) 요약', orgNotes: '2) 참고자료',
@@ -402,7 +406,7 @@ export const DEFAULT_SECTIONS = Object.freeze({
 
 // 보고 자료 안의 모든 글(검사용)
 export function reportTexts(data) {
-  const out = [data.title, data.date, ...(data.schedule ?? []), ...(data.orgNotes ?? []), ...(data.calendarNotes ?? [])];
+  const out = [data.title, data.date, ...(data.schedule ?? []), ...(data.discuss ?? []), ...(data.orgNotes ?? []), ...(data.calendarNotes ?? [])];
   for (const d of [...(data.requests ?? []), ...(data.calendar ?? [])]) { out.push(d.day); for (const i of d.items) out.push(i.what, ...i.who); }
   for (const a of data.summary ?? []) { out.push(...a.area); for (const r of a.rows) out.push(...(r.task ?? []), ...r.progress.map(lineText), ...(r.owner ?? [])); }
   for (const d of data.details ?? []) { out.push(d.heading); for (const b of d.box ?? []) out.push(b.label, ...b.lines.map(lineText)); }

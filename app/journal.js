@@ -46,22 +46,24 @@ import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
-import {weeklySummary, renderWeekly, weeklyReportText, renderNextWeekSheet, NEXT_WEEK_SKIN} from './journal-weekly.js';
+import {weeklySummary, renderWeekly, weeklyReportText, renderNextWeekSheet, NEXT_WEEK_SKIN, execRequestsPart, REQUEST_TITLES} from './journal-weekly.js';
 import {jumpToPrepRef} from './prep-sheet-view.js';
 import {readNextWeekSheet, makeNextWeekSheet} from './next-week-sheet-data.js';
 import {sheetView, shouldAutoMake, isAutoTime, seoulNow, openTarget as nextOpenTarget} from './next-week-sheet-model.mjs';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {paintHqSchedule} from './weekly-hq-schedule.js';
+import {paintDiscuss} from './weekly-discuss-table.js';
+import {withDiscussRow, discussFromRequest} from './weekly-discuss.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
-import {readWeekDraft, changeWeekDocs, withDocEdit} from './weekly-draft-store.js';
+import {readWeekDraft, changeWeekDocs, withDocEdit, withDiscuss, draftDiscuss} from './weekly-draft-store.js';
 import {mountHomeSummary} from './home-summary.js';
 import {paintWeeklyLearn} from './weekly-learn-panel.js'; // WEEKLY-환류학습
 import {droppedOf, keptOf} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {learnFor, markPick, releaseSig} from './weekly-picks.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
-import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
+import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord, dayLabel} from './weekly-exec-requests.js';
 import {cellTime, TIME_HINT} from './time-input.js';
 import {readAutoPromises} from './journal-ledger.js';
 import {readOverlapRows, askPairs, reviveOverlaps} from './overlap-weekly-data.js';
@@ -141,7 +143,8 @@ let mode = 'day';
 // JOURNAL-조직현황AI요약: the 4. 산하 조직 현황 summary controls of [주간 정리] (memory only; the summaries live in their table).
 let orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
 // WEEKLY-임원요청정리: the request table's edit row (memory only; the rows themselves are saved on the server).
-const freshExec = () => ({editing:null, draft:{}, status:'', error:false, invalid:'', saving:false});
+// where: 고치기를 연 자리('weekly' = [주간 정리], 'box' = 한글 파일 상자 1. 요청사항, S46-27). 고치는 줄은 그 자리에만 그린다.
+const freshExec = () => ({editing:null, draft:{}, status:'', error:false, invalid:'', saving:false, where:'weekly'});
 let execUi = freshExec();
 const current = (run, scope) => run === epoch && scope === ownerScope(rt);
 
@@ -450,7 +453,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   const typing = host.querySelector('[data-journal-org-edit-input]'), focused = typing && typing === document.activeElement;
   if (typing && orgUi.editing?.id === typing.dataset.journalOrgEditInput) orgUi.editing.value = typing.value;
   // The request edit row keeps what is being typed and which field has the focus across redraws too.
-  const execFocus = execDraftFromScreen(host);
+  const execFocus = execDraftFromScreen(root);
   const memoryFold = host.querySelector('[data-journal-weekly-memory]'); if (memoryFold) memoryUi.open = memoryFold.open;
   // 자료 접힘(기록과 같아 뺀·뺀 자료)이 열려 있는지, 고치던 글과 초점도 다시 그려도 그대로.
   for (const d of host.querySelectorAll('[data-journal-file-fold-key]')) { if (d.open) fileUi.open.add(d.dataset.journalFileFoldKey); else fileUi.open.delete(d.dataset.journalFileFoldKey); }
@@ -462,15 +465,32 @@ function renderWeekly_({refreshBox = true} = {}) {
   renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
   // WEEKLY-주요일정칸 B: 1. 2) 주요 일정 수기 표(weekly-hq-schedule.js가 그 자리만 그림). 쓰면 그 주 임시저장 행을 바꾸고 열린 한글 파일 상자도 맞춘다.
   const hqWeek = start;
-  paintHqSchedule(host.querySelector('[data-journal-weekly-hq-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(),
-    onSaved:row => { if (hqWeek !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx.sync(hqWeek); }});
+  paintHqSchedule(host.querySelector('[data-journal-weekly-hq-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  // S46-27 3) 상집 논의 요청(weekly-discuss-table.js가 그 자리만 그림) — 2) 주요 일정과 같은 저장·같은 맞춤.
+  paintDiscuss(host.querySelector('[data-journal-weekly-discuss-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  // S46-27 한글 파일 상자 1. 요청사항 세 칸: 같은 부품·같은 자료로 상자 안 자리에도 그린다(열려 있을 때만).
+  paintBoxRequests(weekModel);
   paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js)
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
   renderNextWeek_();
   if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
-  if (execFocus) host.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
+  if (execFocus) root.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   // 상자가 임시저장한 뒤 다시 그릴 때(onDraft)는 상자를 건드리지 않는다(칸 옆 재료 버튼이 고치는 중에 바뀌지 않게).
   if (refreshBox) hwpx?.refresh();
+}
+// [주간 정리]·상자 어느 쪽이 그 주 임시저장(2)·3) 줄)을 쓴 뒤: 재료를 바꾸고 두 자리를 다시 그리고, 열린 상자도 서버 판과 맞춘다.
+function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx.sync(week); }; }
+// S46-27: 한글 파일 상자 안 '1. 요청사항' 자리(journal-hwpx.js가 자리만 두고, 그리기는 이 화면 — [주간 정리]와 같은 함수·같은 상태).
+function paintBoxRequests(model) {
+  const slot = $('[data-journal-hwpx] [data-hwpx-requests-slot]');
+  if (!slot || mode !== 'week') return;
+  const week = start;
+  if (!model) { model = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}); model.picks = picksModel(start); }
+  const part = key => { let box = slot.querySelector(`[data-hwpx-req="${key}"]`); if (!box) { box = document.createElement('section'); box.className = 'journal-weekly-part'; box.dataset.hwpxReq = key; const h = document.createElement('h6'); h.className = 'journal-weekly-sub'; h.textContent = REQUEST_TITLES[key]; const body = document.createElement('div'); body.dataset.hwpxReqBody = ''; box.append(h, body); slot.append(box); } return box.querySelector('[data-hwpx-req-body]'); };
+  const ask = part('ask'), hq = part('hq'), discuss = part('discuss');
+  ask.replaceChildren(...execRequestsPart(document, model, execUi, 'box'));
+  paintHqSchedule(hq, {model, start, rt, place:'box', redraw:() => paintBoxRequests(), onSaved:draftSaved(week)});
+  paintDiscuss(discuss, {model, start, rt, place:'box', redraw:() => paintBoxRequests(), onSaved:draftSaved(week)});
 }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
 // WEEKLY-임원요청정리: it also gets the active project names (carry-over matching) and hands back last week's filtered request rows.
@@ -486,6 +506,8 @@ function execRecordTexts() {
   return out;
 }
 const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), onCarry: (week, items) => carryRequests(week, items),
+  // S46-27: 상자가 '1. 요청사항' 자리를 새로 그렸다 → 세 칸 표를 그 자리에 그린다.
+  onRequestsSlot: () => paintBoxRequests(),
   // [확정] 뒤 [기억하기]: the box wrote my profile's memory; the screen follows the saved list.
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
   // WEEKLY-주요일정칸: 상자가 임시저장을 쓴 뒤(일정 칸별 고침 등) [주간 정리] 2) 주요 일정·5. 주요 일정 화면도 같은 판으로.
@@ -1227,7 +1249,10 @@ root.addEventListener('input', event => {
   if (execUi.invalid === event.target.dataset.journalExecField) { execUi.invalid = ''; event.target.removeAttribute('aria-invalid'); }
 });
 
-// WEEKLY-임원요청정리 ---- 1. 요청사항 › 1) 임원 일정 배정·논의 요청: rows saved with the week (weekly-exec-requests.js).
+// WEEKLY-임원요청정리 ---- 1. 요청사항 › 1) 임원 배정 요청: rows saved with the week (weekly-exec-requests.js).
+// S46-27: the same table also sits in the .hwpx box (where 'box'); a place's container finds its own buttons and fields.
+const execPlace = (where = execUi.where) => (where === 'box' ? $('[data-journal-hwpx] [data-hwpx-requests-slot]') : null) || $('[data-journal-weekly]');
+const execWhere = button => (button?.closest?.('[data-hwpx-requests-slot]') ? 'box' : 'weekly');
 function execDraftFromScreen(host) {
   if (!execUi.editing) return '';
   let focus = '';
@@ -1239,18 +1264,19 @@ function execDraftFromScreen(host) {
 }
 const execRead = () => (materials.execRequests?.status === 'ok' && !materials.execRequests.items?.missing ? materials.execRequests.items : null);
 const execRows = () => execRead()?.row?.items ?? [];
-function openExecEdit(id) {
+function openExecEdit(id, where = 'weekly') {
   if (execUi.saving || !execRead()) return;
   const item = id === 'new' ? null : execRows().find(row => row.id === id);
   if (id !== 'new' && !item) return;
-  execUi = {...freshExec(), editing:id, draft:item ? {day:item.day, until:item.until || '', time:item.time, what:item.what, place:item.place, who:item.who} : {day:'', until:'', time:'', what:'', place:'', who:''}};
+  execUi = {...freshExec(), editing:id, draft:item ? {day:item.day, until:item.until || '', time:item.time, what:item.what, place:item.place, who:item.who} : {day:'', until:'', time:'', what:'', place:'', who:''}, where};
   renderWeekly_();
-  root.querySelector('[data-journal-exec-field="day"]')?.focus();
+  execPlace().querySelector('[data-journal-exec-field="day"]')?.focus();
 }
 function closeExecEdit(message = '') {
-  const id = execUi.editing; execUi = {...freshExec(), status:message};
+  const id = execUi.editing, where = execUi.where; execUi = {...freshExec(), status:message, where};
   renderWeekly_();
-  (root.querySelector(`[data-journal-exec-edit="${id}"]`) || root.querySelector('[data-journal-exec-add]'))?.focus();
+  const place = execPlace(where);
+  (place.querySelector(`[data-journal-exec-edit="${id}"]`) || place.querySelector('[data-journal-exec-add]'))?.focus();
 }
 const execError = error => error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.code === 'changed' || error?.code === 'missing' || error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 시도해 주세요.';
 // One change of the week's rows; the screen then shows the saved row the server sent back.
@@ -1273,7 +1299,7 @@ async function saveExecEdit() {
     if (time === null && raw !== (before?.time ?? '')) throw Object.assign(new Error(TIME_HINT), {code:'invalid', field:'time'});
     item = cleanItem({...execUi.draft, time:time ?? raw}, {id:id === 'new' ? undefined : id});
   }
-  catch (error) { execUi.status = error.message; execUi.error = true; execUi.invalid = error.field || ''; renderWeekly_(); root.querySelector(`[data-journal-exec-field="${execUi.invalid || 'day'}"]`)?.focus(); return; }
+  catch (error) { execUi.status = error.message; execUi.error = true; execUi.invalid = error.field || ''; renderWeekly_(); execPlace().querySelector(`[data-journal-exec-field="${execUi.invalid || 'day'}"]`)?.focus(); return; }
   execUi.saving = true; execUi.status = '저장하는 중…'; execUi.error = false; renderWeekly_();
   try {
     // An edited row is the owner's own now: the '지난주에서' mark goes.
@@ -1282,7 +1308,7 @@ async function saveExecEdit() {
     closeExecEdit(id === 'new' ? '요청 줄을 더했어요.' : '요청 줄을 고쳤어요.');
   } catch (error) {
     execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_();
-    root.querySelector('[data-journal-exec-field="what"]')?.focus();
+    execPlace().querySelector('[data-journal-exec-field="what"]')?.focus();
   }
 }
 // Removes the row right away and offers [되돌리기] for 5 seconds (the app's undo notice), like the journal lines.
@@ -1306,6 +1332,30 @@ async function deleteExecRow(id) {
       return {status:'restored', message:'지운 요청 줄을 되돌렸어요.'};
     } catch (error) { return {status:'failed', message:execError(error)}; }
   }});
+}
+// S46-27 [3)으로 옮기기]: 1) 임원 배정 요청 줄 하나를 3) 상집 논의 요청 줄로(안건 = 내용, 설명 = 일·시간·장소). 3)에 먼저 쓰고(그 주 임시저장),
+// 된 뒤에 1)에서 지운다 — 중간에 실패하면 줄이 사라지지 않고 두 곳에 남는다(안내 후 사람이 1)에서 지움).
+async function moveExecToDiscuss(id) {
+  if (execUi.saving) return;
+  const item = execRows().find(row => row.id === id);
+  if (!item) return;
+  const week = start, run = epoch, scope = owner;
+  const draftRead = materials.weekDraft?.status === 'ok' ? materials.weekDraft.items : null;
+  if (!draftRead || draftRead.missing) { execUi.status = '3) 상집 논의 요청 저장 칸이 아직 준비되지 않았어요.'; execUi.error = true; renderWeekly_(); return; }
+  execUi.saving = true; execUi.status = '옮기는 중…'; execUi.error = false; renderWeekly_();
+  let full = false;
+  try {
+    const r = await changeWeekDocs({start:week, known:draftRead.row, change:draft => { const next = withDiscussRow(draftDiscuss(draft), discussFromRequest(item, dayLabel(item))); if (!next) { full = true; return draft; } return withDiscuss(draft, next); }}, rt);
+    if (!current(run, scope) || week !== start) return;
+    if (r.missing || full) { execUi.saving = false; execUi.status = full ? '3) 상집 논의 요청 줄이 가득 찼어요.' : '3) 상집 논의 요청 저장 칸이 아직 준비되지 않았어요.'; execUi.error = true; renderWeekly_(); return; }
+    materials.weekDraft = {status:'ok', items:{missing:false, row:r.row}};
+    hwpx.sync(week);
+  } catch { execUi.saving = false; execUi.status = '옮기지 못했어요. 다시 시도해 주세요.'; execUi.error = true; renderWeekly_(); return; }
+  try {
+    const result = await writeExec(list => list.filter(row => row.id !== id));
+    if (result.stale) return;
+  } catch (error) { execUi.saving = false; execUi.status = `3)에 넣었지만 1)에서 지우지 못했어요: ${execError(error)}`; execUi.error = true; renderWeekly_(); return; }
+  closeExecEdit('3) 상집 논의 요청으로 옮겼어요.');
 }
 // From the .hwpx box: last week's request rows that are still to come and relate to my workplaces/projects, once a week.
 // Returns {status:'saved'|'before'|'unsaved'|'failed'|'stale', added}.
@@ -1343,8 +1393,9 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-pick-release]')) return pickRelease(button.dataset.journalPickRelease);
   if (button.matches('[data-journal-org-edit-save]')) return saveOrgEdit();
   if (button.matches('[data-journal-org-edit-cancel]')) return closeOrgEdit();
-  if (button.matches('[data-journal-exec-add]')) return openExecEdit('new');
-  if (button.matches('[data-journal-exec-edit]')) return openExecEdit(button.dataset.journalExecEdit);
+  if (button.matches('[data-journal-exec-add]')) return openExecEdit('new', execWhere(button));
+  if (button.matches('[data-journal-exec-edit]')) return openExecEdit(button.dataset.journalExecEdit, execWhere(button));
+  if (button.matches('[data-journal-exec-move]')) return void moveExecToDiscuss(button.dataset.journalExecMove);
   if (button.matches('[data-journal-exec-save]')) return void saveExecEdit();
   if (button.matches('[data-journal-exec-cancel]')) return closeExecEdit();
   if (button.matches('[data-journal-exec-delete]')) return void deleteExecRow(button.dataset.journalExecDelete);

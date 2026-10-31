@@ -628,7 +628,7 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  expect(lines.filter(l=>/^(\d\. |참고$)/.test(l))).toEqual(['1. 요청사항','2. 기본·영역·의제 사업','4. 산하 조직 현황','5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))','참고']);
  expect(lines.filter(l=>l.startsWith('■ '))).toEqual(['■ 일시 : 2026년 10월 12일(월)']);expect(lines.some(l=>l.startsWith('한 줄: '))).toBe(false);
  const part=title=>{const at=lines.indexOf(title);return lines.slice(at+1,lines.indexOf('',at));};
- expect(part('1. 요청사항')).toEqual(['1) 임원 일정 배정·논의 요청 (일 | 시간/내용/장소 | 참석 요청)','(요청 없음)','2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외.']);
+ expect(part('1. 요청사항')).toEqual(['1) 임원 배정 요청 (일 | 시간/내용/장소 | 참석 요청)','(요청 없음)','2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외.','3) 상집 논의 요청: (비워 둠)']);
  // 2. 사업: 프로젝트 기록(프로젝트 트리 — 이 fixture에서는 홈 모의 트리의 사업영역 한 개) → 회의·행사 결과.
  expect(part('2. 기본·영역·의제 사업')).toEqual(['1) 요약','◦ 테스트 프로젝트','- 10월 6일(화) 진행상황 업데이트','2) 세부 내용 — 회의·활동 결과','- 10월 6일(화) 14:00 가상 기자회견','- 10월 8일(목) 10:00 운영위원회 3차']);
  expect(text).not.toContain('미분류: 가상 사업');
@@ -1002,7 +1002,8 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  // ■ 일시 = 상집 보고일(보고 있는 주의 다음 월요일) — 한글 파일·초안 복사와 같은 날짜.
  await expect(page.locator('#journalRoot [data-journal-weekly-date]')).toHaveText('■ 일시 : 2026년 10월 12일(월) (상집 보고일)');
  // 1. 요청사항: 1) 요청 표(일 | 시간/내용/장소 | 참석 요청, 저장한 줄이 없으면 머리만 + 작은 [+ 줄 추가]). 2) 주요 일정은 뜻만 한 줄로 알린다.
- await expect(weekly(page,'ask').locator('h5')).toHaveText('1) 임원 일정 배정·논의 요청');
+ await expect(weekly(page,'ask').locator('h5')).toHaveText('1) 임원 배정 요청');
+ await expect(weekly(page,'discuss').locator('h5')).toHaveText('3) 상집 논의 요청');
  await expect(weekly(page,'hq-schedule').locator('h5')).toHaveText('2) 주요 일정');
  await expect(weekly(page,'hq-schedule').locator('[data-journal-weekly-guide]')).toHaveText('본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외.');
  // WEEKLY-주요일정칸: 안내 아래 수기 표(아직 줄 없음) + [+ 줄 추가]·[달력에서 골라 넣기].
@@ -1012,7 +1013,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(weekly(page,'ask').locator('tbody tr')).toHaveCount(0);
  await expect(weekly(page,'ask').locator('[data-journal-exec-empty][data-wait-empty]')).toHaveText('없음');
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="requests"]').locator('input,textarea,select')).toHaveCount(0);
- await expect(page.locator('#journalRoot [data-journal-weekly-chapter="requests"] button')).toHaveText(['+ 줄 추가','+ 줄 추가','달력에서 골라 넣기']);
+ await expect(page.locator('#journalRoot [data-journal-weekly-chapter="requests"] button')).toHaveText(['+ 줄 추가','+ 줄 추가','달력에서 골라 넣기','+ 줄 추가']);
  // 2. 요약: 사업영역 → 세부 과제 순서는 프로젝트 트리 그대로. 사업영역 칸은 세로로 합친다.
  const summary=weekly(page,'summary');
  await expect(summary.locator('tbody tr')).toHaveCount(3);
@@ -1573,7 +1574,7 @@ test('[주간보고 한글 파일 만들기]: 자료실에 확정본이 없으�
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// WEEKLY-임원요청정리: [주간 정리] 1. 요청사항 › 1) 임원 일정 배정·논의 요청 표 — 작은 [+ 줄 추가]·[고치기]로 일(달력)·시간·내용·장소·참석 요청을
+// WEEKLY-임원요청정리: [주간 정리] 1. 요청사항 › 1) 임원 배정 요청 표 — 작은 [+ 줄 추가]·[고치기]로 일(달력)·시간·내용·장소·참석 요청을
 // 넣고 고치고 지운다(5초 되돌리기). 그 주 1행(app_weekly_exec_requests)에 서버 저장(브라우저 저장소 없음), 날짜·시간순. 복사·한글 파일은 같은 줄을
 // 기존 표 모양으로 쓰고, 지난주 확정본에서 고른 줄(10.14.)은 한 번만 더해진다. 이름·조직은 모두 합성.
 const execWrites=f=>f.exec.calls.filter(c=>c.method!=='GET');
@@ -1635,7 +1636,7 @@ for(const width of [390,1280])test(`[주간 정리] 임원 참석 요청 표: �
  await page.locator('#journalRoot [data-hwpx-copy]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('1. 요청사항');
- expect(lines.slice(at+1,at+4)).toEqual(['1) 임원 일정 배정·논의 요청 (일 | 시간/내용/장소 | 참석 요청)','- 10.12.(월) ~ 10.13.(화) 14:00 / 가상 토론회 / 가상 회관 — 참석 요청: 가상 임원 갑, 가상 임원 을','- 10.13.(화) 가상 결의대회']);
+ expect(lines.slice(at+1,at+4)).toEqual(['1) 임원 배정 요청 (일 | 시간/내용/장소 | 참석 요청)','- 10.12.(월) ~ 10.13.(화) 14:00 / 가상 토론회 / 가상 회관 — 참석 요청: 가상 임원 갑, 가상 임원 을','- 10.13.(화) 가상 결의대회']);
  // 한글 파일: 확정본을 열면 지난주에서 고른 줄(10.14.)이 그 주 표에 한 번 더해지고(같은 줄은 다시 안 더함), 파일 요청 표 = 이 표 그대로.
  await openDraft(page);
  await expect(ask.locator('tbody tr th')).toHaveText(['10.12.(월) ~ 10.13.(화)','10.13.(화)','10.14.(수)']);
@@ -2888,7 +2889,8 @@ for(const width of [412,1440])test(`[주간 정리] 2) 주요 일정 수기 표:
  expect(f.exec.rows[0].items).toEqual([]);
  // 상자를 열면 1. 2) 칸에 2줄. 상자 5번에서 그 일정 제목을 고치면 [주간 정리] 2) 줄도 같은 값(같은 자료).
  await openDraft(page);
- await expect(hwpx(page).locator('[data-hwpx-hq]')).toContainText('[주간 정리] 2) 주요 일정 표 2줄을 넣어요.');
+ await expect(hwpx(page).locator('[data-hwpx-hq]')).toContainText('2) 주요 일정 2줄');
+ await expect(hwpx(page).locator('[data-hwpx-req="hq"] [data-journal-hq-row]')).toHaveCount(2);
  const titles=hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]');
  await titles.nth(0).locator('[data-hwpx-title-input]').fill('가상 집행국 회의');
  await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
@@ -2916,6 +2918,74 @@ for(const width of [412,1440])test(`[주간 정리] 2) 주요 일정 수기 표:
  await page.reload();
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible({timeout:20000});
  await expect(hqTexts(page)).toHaveText(['10:30 / 가상 집행국 회의 / 가상 회관 6층 달력']);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+// S46-27(요청함 10/31 00:24, 시안 확정 21:15): 1. 요청사항 세 칸(1) 임원 배정 요청 · 2) 주요 일정 · 3) 상집 논의 요청)을 한글 파일 상자 안에서도 바로 입력한다.
+// 상자와 [주간 정리]는 같은 부품·같은 자료(1)은 요청 표 행, 2)·3)은 그 주 행 draft의 hq·discuss) — 한쪽에서 고치면 다른 쪽도 같다. 가짜 안건·조직만.
+const discussBox=page=>weekly(page,'discuss');
+const boxReq=(page,key)=>hwpx(page).locator(`[data-hwpx-req="${key}"]`);
+for(const width of [412,1440])test(`S46-27 1. 요청사항 세 칸: 상자 안에서 바로 입력 = [주간 정리]와 같은 값, 3) 줄 추가·고치기·빼기, 파일 차례, 새로고침 뒤 그대로 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ await expect(hwpx(page).locator('[data-hwpx-req] > h6')).toHaveText(['1) 임원 배정 요청','2) 주요 일정','3) 상집 논의 요청']);
+ await expect(boxReq(page,'ask').locator('[data-journal-exec-add]')).toBeVisible();
+ await expect(boxReq(page,'hq').locator('[data-journal-hq-add]')).toBeVisible();
+ // 상자 안 3)에서 줄 추가: 안건·설명·관련 조직(내 담당조직에서 고르기). 안건 없이 [저장]하면 저장하지 않는다.
+ const d=boxReq(page,'discuss'),field=name=>d.locator(`[data-journal-discuss-field="${name}"]`);
+ await expect(d.locator('[data-journal-discuss-empty]')).toBeVisible();
+ await d.locator('[data-journal-discuss-add]').click();
+ await expect(field('title')).toBeFocused();
+ await d.locator('[data-journal-discuss-save]').click();
+ await expect(d.locator('[data-journal-discuss-status]')).toHaveText('안건을 적어 주세요.');
+ await field('title').fill('가상 안건 갑');await field('note').fill('가상 설명');
+ await field('org').selectOption({label:'가상 노동조합'});
+ await d.locator('[data-journal-discuss-save]').click();
+ await expect(d.locator('[data-journal-discuss-status]')).toHaveText('저장했어요.');
+ await expect(d.locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑']);
+ await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05')?.draft?.discuss?.map(r=>[r.title,r.note,r.org])).toEqual([['가상 안건 갑','가상 설명','가상 노동조합']]);
+ // [주간 정리] 3)에도 같은 줄. 거기서 줄을 더하면 상자에도.
+ await expect(discussBox(page).locator('[data-journal-discuss-row]')).toHaveCount(1);
+ await expect(discussBox(page).locator('[data-journal-discuss-row] td').first()).toHaveText('가상 설명');
+ await discussBox(page).locator('[data-journal-discuss-add]').click();
+ await discussBox(page).locator('[data-journal-discuss-field="title"]').fill('가상 안건 을');
+ await discussBox(page).locator('[data-journal-discuss-save]').click();
+ await expect(d.locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑','가상 안건 을']);
+ // 상자 안 1)에서 요청 줄 추가 → 입력칸은 상자에만, 저장하면 [주간 정리] 1)에도.
+ const ask=boxReq(page,'ask');
+ await ask.locator('[data-journal-exec-add]').click();
+ await expect(ask.locator('[data-journal-exec-field="day"]')).toBeFocused();
+ await expect(weekly(page,'ask').locator('[data-journal-exec-field]')).toHaveCount(0);
+ await ask.locator('[data-journal-exec-field="day"]').fill('2026-10-14');
+ await ask.locator('[data-journal-exec-field="what"]').fill('가상 집회');
+ await ask.locator('[data-journal-exec-save]').click();
+ await expect(ask.locator('[data-journal-exec-status]')).toHaveText('요청 줄을 더했어요.');
+ await expect(weekly(page,'ask').locator('tbody tr .journal-weekly-what')).toHaveText(['가상 집회']);
+ // 1) 줄을 3)으로 옮기기(안건 = 내용, 설명 = 일).
+ await ask.locator('[data-journal-exec-edit]').first().click();
+ await ask.locator('[data-journal-exec-move]').click();
+ await expect(ask.locator('[data-journal-exec-status]')).toHaveText('3) 상집 논의 요청으로 옮겼어요.');
+ await expect(ask.locator('tbody tr[data-journal-exec-row]')).toHaveCount(0);
+ await expect(d.locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑','가상 안건 을','가상 집회']);
+ // 상자 3)에서 줄 빼기([×]).
+ await d.locator('[data-journal-discuss-row]').nth(2).locator('[data-journal-discuss-edit]').click();
+ await d.locator('[data-journal-discuss-delete]').click();
+ await expect(d.locator('[data-journal-discuss-row]')).toHaveCount(2);
+ // 한글 파일: 1. 요청사항 아래 1) 임원 배정 요청 → 2) 주요 일정 → 3) 상집 논의 요청 + 줄.
+ const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const {pkg}=await savedReport(download);
+ const sec=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
+ const at=k=>sec.indexOf(k);
+ expect(at('1) 임원 배정 요청')).toBeGreaterThan(0);
+ expect(at('1) 임원 배정 요청')).toBeLessThan(at('2) 주요 일정'));
+ expect(at('2) 주요 일정')).toBeLessThan(at('3) 상집 논의 요청'));
+ expect(at('3) 상집 논의 요청')).toBeLessThan(at('- 가상 안건 갑 — 가상 설명 (가상 노동조합)'));
+ expect(at('- 가상 안건 갑 — 가상 설명 (가상 노동조합)')).toBeLessThan(at('- 가상 안건 을'));
+ expect(sec).not.toContain('가상 집회');
+ // 새로고침 뒤에도 서버에서 그대로.
+ await page.reload();
+ await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible({timeout:20000});
+ await expect(discussBox(page).locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑','가상 안건 을']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
