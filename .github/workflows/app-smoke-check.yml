@@ -570,6 +570,9 @@ jobs:
       - name: UI-업데이트안내 기록 파일 검사·버전명·배포물 생성(needs the locked parser)
         run: node --test tests/release-notes.test.mjs
 
+      - name: Check telegram room view model (TG-방별보기)
+        run: node --test tests/tg-room-view-model.test.mjs
+
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
 
