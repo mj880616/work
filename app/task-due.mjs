@@ -11,9 +11,10 @@ export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numer
 // (google-tasks.js saveEditor). That action writes title, notes and due together, so the task's own title and notes go with it.
 export async function moveTaskToDay(task, day, rt = globalThis.window?.KPTURuntime) {
   if (!task?.id) throw new Error('할 일을 확인할 수 없어요.');
-  if (!DAY.test(String(day || ''))) throw new Error('날짜를 확인할 수 없어요.');
+  // S46-30: '' = 기한 없음(수정 창의 [기한 없음]과 같이 due:null을 보낸다).
+  if (day !== '' && !DAY.test(String(day || ''))) throw new Error('날짜를 확인할 수 없어요.');
   const data = await rt.api('/functions/v1/google-tasks?action=update', {method:'POST', body:{action:'update', task_id:task.id, task_list_id:task.taskListId || null,
-    title:String(task.title || ''), notes:String(task.notes || ''), due:day}});
+    title:String(task.title || ''), notes:String(task.notes || ''), due:day || null}});
   if (data?.ok !== true || data.task?.id !== task.id || dueDay(data.task) !== day) throw new Error('기한을 바꾸지 못했어요. 다시 시도해 주세요.');
   return data.task;
 }
@@ -36,4 +37,25 @@ export function dueLabel(day, today = seoulDateKey(new Date())) {
   if (key === today) return '오늘';
   const [, m, d] = key.split('-').map(Number);
   return key < today ? `지남 ${m}.${d}` : `${m}.${d} (${formatSeoulTime(key, {weekday:'short'})})`;
+}
+// S46-30(2026-10-31 명진 결정): 할 일 기한 빠른 버튼 한 줄 — [오늘][내일][모레][다음주][기한 없음]. [다음주]는 바로 저장하지 않고
+// 다음 주 월~일 일곱 날 작은 목록(task-week-pick.js)을 연다. 날짜는 한국 날짜 'YYYY-MM-DD' 그대로 셈한다(기기 시간대와 무관).
+const keyDays = (key, n) => { const [y, m, d] = key.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
+export const QUICK_DUES = Object.freeze([['0', '오늘'], ['1', '내일'], ['2', '모레'], ['week', '다음주'], ['', '기한 없음']]);
+export const quickDueDay = (offset, today = seoulDateKey(new Date())) => keyDays(today, Number(offset) || 0);
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+// '2026-11-04' → '수 11.4'(요일 목록 글자, 고른 뒤 버튼 글자).
+export function weekdayLabel(day) {
+  const [y, m, d] = String(day || '').slice(0, 10).split('-').map(Number);
+  return y && m && d ? `${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${m}.${d}` : '';
+}
+// 다음 주 월~일(오늘이 일요일이면 내일부터 일주일). [{day:'2026-11-02', label:'월 11.2', weekend:false}, …]
+export function nextWeekDays(today = seoulDateKey(new Date())) {
+  const [y, m, d] = String(today).slice(0, 10).split('-').map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const monday = keyDays(String(today).slice(0, 10), ((8 - dow) % 7) || 7);
+  return Array.from({length:7}, (_, i) => {
+    const day = keyDays(monday, i);
+    return {day, label:weekdayLabel(day), weekend:i >= 5};
+  });
 }

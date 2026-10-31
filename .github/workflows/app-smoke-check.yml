@@ -507,6 +507,9 @@ jobs:
       - name: Check task due groups (TASK-내일칸, 지남·오늘·내일·일주일 안·나중·기한 없음 one shared rule, synthetic)
         run: node --test tests/task-due-group.test.mjs
 
+      - name: Check task due quick row and next-week day list (S46-30, 다음주 월~일 목록 one shared part, synthetic)
+        run: node --test tests/task-week-pick.test.mjs
+
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
 

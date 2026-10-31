@@ -11,6 +11,8 @@ import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
 import {announceRecordSaved,basketDetail} from './record-saved.js';
 import {dayKey} from './home-read-model.js';
+import {quickDueDay,weekdayLabel} from './task-due.mjs';
+import {openWeekPick} from './task-week-pick.js'; // S46-30 [다음주] 요일 목록
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
 import {aiSummaryAllowed,aiSummaryMarkup,appliedText,attachmentTextState,newAiState,placeAiSummary,readDocumentBrief,requestLinkSummary} from './basket-ai-summary.js';
 
@@ -231,7 +233,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
 <label class="basket-text-label">할 일 제목<input type="text" data-manual-task-title maxlength="${TASK_LIMITS.title}" value="${esc(task.title)}"></label>
 <label class="basket-text-label">할 일 메모<textarea data-manual-task-notes rows="6" spellcheck="false">${esc(task.notes)}</textarea></label>
 <div data-manual-task-files-slot></div>
-<div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc('사업영역: '+project):'사업영역'}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
+<div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc('사업영역: '+project):'사업영역'}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="after" aria-pressed="${task.dateKind==='after'}">모레</button><button type="button" data-manual-task-day="week" aria-haspopup="true" aria-pressed="${task.dateKind==='week'}">${esc(task.dateKind==='week'&&task.due?weekdayLabel(task.due):'다음주')}</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
 <p class="basket-manual-hint">만든 할 일은 이 업데이트의 ‘이 업데이트로 만든 할 일’에 기록돼요.</p>
 <p data-manual-task-status role="status">${statusHtml(task.status)}</p><div data-manual-task-recover></div>
 <div class="basket-actions save-row"><button type="button" class="secondary" data-manual-task-cancel>취소</button><button type="button" class="quick-pill-primary" data-manual-task-save data-enter-save-submit>할 일 만들기</button></div></section>`;
@@ -454,7 +456,9 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
         const kind=b.dataset.manualTaskDay;
         if(task.dateKind===kind){task.due='';task.dateKind='';paint();return;}
         if(kind==='date'){const date=host.querySelector('[data-manual-task-date]');try{date.showPicker();}catch{date.focus();date.click();}return;}
-        task.dateKind=kind;task.due=dayKey(Date.now()+(kind==='tomorrow'?86400000:0));paint();
+        // S46-30: [다음주]는 다음 주 월~일 작은 목록(task-week-pick.js)에서 고른다. 고르면 기한이 그날, 버튼 글자는 '수 11.4'.
+        if(kind==='week'){const mine=task;openWeekPick(b,{onPick:day=>{if(task!==mine)return;task.dateKind='week';task.due=day;paint();}});return;}
+        task.dateKind=kind;task.due=quickDueDay(kind==='tomorrow'?1:kind==='after'?2:0,dayKey(Date.now()));paint();
       }
       else if(b.dataset.manualTaskRecover==='check')void recoverTask();
       else if(b.dataset.manualTaskRecover==='close')cancel({force:true});
