@@ -38,6 +38,21 @@ test('quick task none/today/custom due, Enter and failure retains content',async
  await expect(input).toBeEnabled();await q.getByRole('button',{name:'10.9',exact:true}).click();await expect(q.getByRole('button',{name:'날짜',exact:true})).toHaveAttribute('aria-pressed','false');
  await input.fill(' ');await input.press('Enter');expect(bodies).toHaveLength(3);
 });
+// S46-30: 빠른 쓰기 할 일 줄도 [오늘][내일][모레][다음주]. [다음주]는 다음 주 월~일 목록에서 고르고, 버튼 글자가 고른 날('목 10.15')이 된다.
+test('quick task next-week day list and 모레',async({page})=>{
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),input=q.locator('[data-quick-input]'),bodies=[];
+ await page.route(SB+'/functions/v1/google-tasks?action=create',async r=>{bodies.push(r.request().postDataJSON());await r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
+ await page.clock.setFixedTime(new Date('2026-10-06T03:00:00Z'));
+ await input.fill('QA');await input.focus();await expect(q.locator('[data-quick-options]')).toBeVisible();
+ await q.getByRole('button',{name:'모레',exact:true}).click();await expect(q.getByRole('button',{name:'모레',exact:true})).toHaveAttribute('aria-pressed','true');
+ await q.getByRole('button',{name:'다음주',exact:true}).click();
+ const week=page.locator('#taskWeekPick');await expect(week).toBeVisible();
+ await expect(week.locator('button')).toHaveText(['월 10.12','화 10.13','수 10.14','목 10.15','금 10.16','토 10.17','일 10.18']);
+ await week.getByRole('button',{name:'목 10.15',exact:true}).click();await expect(week).toBeHidden();
+ await expect(q.getByRole('button',{name:'목 10.15',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(q.getByRole('button',{name:'모레',exact:true})).toHaveAttribute('aria-pressed','false');
+ await input.press('Enter');await expect.poll(()=>bodies.length).toBe(1);expect(bodies[0].due).toBe('2026-10-15');
+});
 // BASKET-업데이트통합 PR 1: [업데이트] with no place saves to the basket; picking a place in ▾ saves that place's record.
 test('quick update with a chosen organization preserves multiline and saves without home record reads',async({page})=>{
  const {requests}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),input=q.locator('[data-quick-input]');

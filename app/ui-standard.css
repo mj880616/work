@@ -1298,6 +1298,11 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 .task-due-popup .task-due-form{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:0; }
 .task-due-popup .task-due-input{ box-sizing:border-box; flex:1 1 140px; min-width:0; height:var(--ds-compact-height); min-height:var(--ds-compact-height); width:auto; max-width:100%; margin:0; padding:0 8px; font-size:var(--kptu-text-body); }
 .task-due-popup button.mini{ position:relative; flex:0 0 auto; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
+/* S46-30: 날짜 칸 위 빠른 기한 줄(수정 창과 같은 다섯 개, 같은 작은 버튼). [다음주]는 아래 요일 목록을 연다. */
+.task-due-popup .task-due-quick{ display:flex; flex-wrap:wrap; gap:4px; margin:0 0 4px; }
+/* [다음주] 요일 목록: 메뉴 창은 .task-inline-menu 그대로, 토·일은 옅은 글자, 지금 기한인 날은 굵게. */
+.task-week-menu .task-week-end{ color:var(--kptu-muted); }
+.task-week-menu button[aria-current="date"]{ font-weight:700; }
 
 /* ───────── LIB-조직프로젝트자료종류(2026-10-23 사용자 요청): 담당조직·프로젝트 상세 [자료] 위의 종류 칩 ─────────
    자료실 [종류] 칩(#libraryCategoryFilter)과 같은 모양·같은 코드(category-chips.js). UI-칩줄두줄: 두 줄 + [더보기], 보이는 높이 --ds-chip-row-height, 누르는 범위 칩 둘레 2px.

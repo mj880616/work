@@ -8,7 +8,8 @@
 //   ⋯       → the shared anchored menu (right-click opens the same menu, context-menu.js): pending [내일로 · 기한 바꾸기 · 고치기 ·
 //             (the screen's own items) · 지우기], finished [다시 할 일로 · 고치기 · (the screen's own items)].
 //   내일로·기한 바꾸기 → the editor's own google-tasks action=update with the task's title and notes (task-due.mjs moveTaskToDay);
-//             기한 바꾸기 opens a small date box under the ⋯ (the device's own calendar), [바꾸기] saves.
+//             기한 바꾸기 opens a small date box under the ⋯ (the device's own calendar), [바꾸기] saves; above it the shared quick row
+//             [오늘][내일][모레][다음주][기한 없음] saves at once ([다음주] = the next-week day list, task-week-pick.js; S46-30).
 //   고치기   → the task screen's editor window (KPTUGoogleTasks.openEditor), unless the screen gives its own way to open it.
 //   지우기   → one confirmation, then KPTUGoogleTasks.deleteTask.
 // State stays with each screen: the screen passes find(id, el) to read its own task and optional hooks to draw its own change
@@ -17,7 +18,8 @@ import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {placeAnchored, followAnchor} from './anchored-popup.js';
-import {moveTaskToDay, tomorrowKey, dueDay, shortDay} from './task-due.mjs';
+import {moveTaskToDay, tomorrowKey, dueDay, shortDay, QUICK_DUES, quickDueDay} from './task-due.mjs';
+import {openWeekPick, closeWeekPick} from './task-week-pick.js'; // S46-30 [다음주] 요일 목록
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 const tasksApi = () => window.KPTUGoogleTasks;
@@ -57,23 +59,32 @@ function openDue(anchor, {name, value, onPick}) {
   const host = dialogOf(anchor);
   const panel = document.createElement('div');
   panel.id = 'taskDuePopup'; panel.className = 'task-due-popup'; panel.setAttribute('role', 'group'); panel.setAttribute('aria-label', `${name} 기한 바꾸기`);
-  panel.innerHTML = `<form class="task-due-form" data-task-due-form><input type="date" class="task-due-input" data-task-due-input value="${esc(value)}" aria-label="${esc(name)} 새 기한"><button type="submit" class="mini">바꾸기</button><button type="button" class="mini" data-task-due-cancel>취소</button></form>`;
+  // S46-30: 수정 창과 같은 빠른 기한 줄 [오늘][내일][모레][다음주][기한 없음](누르면 바로 저장, [다음주]는 요일 목록) 아래에 날짜 칸.
+  const quick = QUICK_DUES.map(([k, label]) => `<button type="button" class="mini" data-task-due-quick="${k}">${label}</button>`).join('');
+  panel.innerHTML = `<div class="task-due-quick" role="group" aria-label="기한 빠른 선택">${quick}</div><form class="task-due-form" data-task-due-form><input type="date" class="task-due-input" data-task-due-input value="${esc(value)}" aria-label="${esc(name)} 새 기한"><button type="submit" class="mini">바꾸기</button><button type="button" class="mini" data-task-due-cancel>취소</button></form>`;
   const popover = typeof panel.showPopover === 'function' && 'popover' in panel;
   if (popover) panel.setAttribute('popover', 'manual');
   host.append(panel);
   if (popover) { try { panel.showPopover(); } catch { panel.removeAttribute('popover'); } }
-  const place = () => placeAnchored(panel, anchor, {maxWidth:280, maxHeight:120, minHeight:48});
+  const place = () => placeAnchored(panel, anchor, {maxWidth:280, maxHeight:160, minHeight:48});
   place();
   const form = panel.querySelector('form'), input = panel.querySelector('input');
   form.addEventListener('submit', event => { event.preventDefault(); const day = input.value; if (!day) return; closeDue(); onPick(day); });
   panel.querySelector('[data-task-due-cancel]').addEventListener('click', () => closeDue());
+  panel.querySelectorAll('[data-task-due-quick]').forEach(button => button.addEventListener('click', () => {
+    const k = button.dataset.taskDueQuick;
+    if (k !== 'week') { closeDue(); onPick(k === '' ? '' : quickDueDay(k)); return; }
+    // [다음주]: 날짜 칸을 닫고 같은 ⋯ 아래에 요일 목록(이 누르기가 끝난 뒤 열어야 목록 밖 누르기로 바로 닫히지 않는다).
+    closeDue({focus:false});
+    setTimeout(() => { if (anchor.isConnected) openWeekPick(anchor, {selected:value, onPick}); }, 0);
+  }));
   const onKey = event => { if (event.key === 'Escape' && !event.isComposing && duePopup?.panel === panel) { event.preventDefault(); event.stopImmediatePropagation(); closeDue(); } };
   const onDown = event => { if (duePopup?.panel === panel && !panel.contains(event.target) && !anchor.contains(event.target)) closeDue({focus:false}); };
   document.addEventListener('keydown', onKey, true); document.addEventListener('pointerdown', onDown, true);
   const off = () => { document.removeEventListener('keydown', onKey, true); document.removeEventListener('pointerdown', onDown, true); };
   duePopup = {panel, anchor, off, stop:followAnchor(panel, anchor, {place, lost:() => closeDue({focus:false})})};
-  input.focus({preventScroll:true});
-  try { input.showPicker?.(); } catch { /* the box itself still works */ }
+  // S46-30: 빠른 줄이 생겨 기기 달력은 바로 띄우지 않는다(날짜 칸을 누르면 뜬다). 초점은 첫 빠른 버튼.
+  panel.querySelector('[data-task-due-quick]')?.focus({preventScroll:true});
 }
 window.addEventListener('kptu:session-changed', () => closeDue({focus:false}));
 
@@ -136,7 +147,7 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
       saved?.(id, next);
       // The task screen's copy, the linked lists and every listening screen follow (google-tasks.js taskSaved).
       if (api?.taskSaved) api.taskSaved(next); else window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
-      toast(day === tomorrowKey() ? `'${name}' 기한을 내일로 옮겼어요.` : `'${name}' 기한을 ${shortDay(day)}로 바꿨어요.`);
+      toast(!day ? `'${name}' 기한을 없앴어요.` : day === tomorrowKey() ? `'${name}' 기한을 내일로 옮겼어요.` : `'${name}' 기한을 ${shortDay(day)}로 바꿨어요.`);
     } catch (error) {
       if (owner !== ownerNow()) return;
       toast(error?.message && !error.status ? error.message : '기한을 바꾸지 못했어요. 다시 시도해 주세요.');
@@ -196,6 +207,6 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
     complete:(id, el = null) => setDone(id, true, {el}),
     openMenu, moveDue, remove, edit:openEditor,
     isBusy:id => busy.has(id),
-    close:() => { menu?.close(); closeDue({focus:false}); },
+    close:() => { menu?.close(); closeDue({focus:false}); closeWeekPick(); },
   };
 }
