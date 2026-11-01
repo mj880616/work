@@ -14,6 +14,9 @@ test.describe('폰 앱 412 · 사진 정리 뒤로가기', () => {
     await page.locator('#photosRoot [data-photos-tidy-chip]').click();
     const only = page.locator('#photosRoot [data-photos-place="onedrive"]');
     await expect(only).toBeVisible();
+    // 사진 확인이 다 끝나 칸이 다시 그려지지 않을 때 누른다(확인 중 줄이 사라진 뒤).
+    await expect(page.locator('#photosRoot [data-photos-tidy] .photos-tidy-line[role="status"]')).toHaveCount(0);
+    await expect(only).toContainText(/원드라이브에만 [0-9]+/);
     await only.click();
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2']);
     await page.locator('#photosRoot [data-photos-id="O2"]').tap();
