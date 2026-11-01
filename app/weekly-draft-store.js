@@ -8,7 +8,8 @@
 // - 내용은 업무 글이다. 로그·오류 보고에 내용을 쓰지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
 
 import {readIssued, newerIssued} from './weekly-lines.mjs';
-import {readExtras, mergeExtras, EXTRA_KEYS} from './weekly-feedback.mjs';
+import {readExtras, mergeExtras, EXTRA_KEYS, readProposed, FEEDBACK_LINE_CHARS} from './weekly-feedback.mjs';
+import {withPick, pickKey, PICK_KIND, ANSWER_ACTS} from './weekly-picks.mjs';
 import {cleanTitleEdit, titleFields, readHq, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {readDiscuss} from './weekly-discuss.mjs';
 
@@ -108,6 +109,72 @@ export function cleanDocEdit(e) {
   if (e.keep === true) out.keep = true;
   return Object.keys(out).length > 1 ? out : null;
 }
+// ---- 한 벌 칸 줄 (WEEKLY-한흐름확정 ①, docs/design/weekly-one-flow.md 2·3절) ----
+// 보고서 칸 줄은 그 주 draft 하나: 칸 글 = rows 에 고친 칸이 있으면 그것, 없으면 proposed(그 주 처음 연 바탕 칸 글)의 그 칸.
+// 누름 한 번(제안 [수용]·[고쳐서 수용]·[빼기], 줄 ⋯ [고치기]·[빼기], [+ 추가], 되돌리기) = withCellLine 한 번 = rows + picks 를 한 draft 로 → changeWeekCell 이 PATCH 한 번.
+// AI 를 부르지 않는다. 글은 로그에 쓰지 않는다.
+export const CELL_LINE_MAX = FEEDBACK_LINE_CHARS; // 줄 하나 길이(환류 비교가 자르는 길이와 같음)
+const proposedOf = draft => readProposed(draft?.proposed);
+// draft → Map(cellId → 줄 배열): proposed 칸 위에 rows(고친 칸)를 덮는다.
+export function weekCells(draft) {
+  const out = new Map();
+  for (const c of proposedOf(draft)?.cells ?? []) out.set(cellId(c.section, c.key, c.n), [...c.lines]);
+  for (const r of draft?.rows ?? []) if (SECTIONS.includes(r?.section)) out.set(cellId(r.section, r.key, r.n), cleanLines(r.lines));
+  return out;
+}
+export const cellLinesOf = (draft, {section, key, n = 0}) => weekCells(draft).get(cellId(section, key, n)) ?? [];
+// 그 칸의 바탕(proposed) 줄. proposed 가 없으면 null(바탕을 모름).
+const proposedCell = (draft, id) => { const p = proposedOf(draft); if (!p) return null; const c = p.cells.find(x => cellId(x.section, x.key, x.n) === id); return c ? [...c.lines] : []; };
+// 이 주 처음 연 바탕 칸 글을 싣는다(이미 있으면 그대로 — 처음 것이 환류 비교의 기준).
+export function withProposed(draft, proposed) {
+  const out = draft ? {...draft} : emptyDraft();
+  const extras = readExtras(out);
+  if (extras.proposed) return out;
+  const p = readProposed(proposed);
+  if (!p) throw Object.assign(new Error('proposed'), {code:'proposed'});
+  return putExtras(out, {...extras, proposed:p});
+}
+const lineText = s => String(s ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
+const badLine = code => Object.assign(new Error(code === 'too_long' ? `한 줄은 ${CELL_LINE_MAX}자까지예요.` : 'line'), {code});
+// 누름 하나를 draft 에 반영한다(원본은 건드리지 않음). op:
+//   {section, key, n=0, act, index?, text?, item?, lines?, at}
+//   act 'take'·'edit'·'add': 칸 끝에 text 한 줄을 더함(edit 은 item.text = 제안 글 → before). 'fix': index 줄을 text 로. 'cut': index 줄을 뺌.
+//   'drop': 칸은 그대로, 제안 거절 표시만. 'none': 앞 동작 지움 — lines 를 주면 칸을 그 줄들로 되돌린다(5초 [되돌리기]).
+//   item: 제안 동작(take·edit·drop)의 제안 {key?, kind, from, cell, org, text}. 보고서 줄 동작(fix·cut·add)은 item 없이 kind 'line'으로 남긴다.
+//   'none'(되돌리기)은 앞 동작의 기록 항목(제안이면 그 제안, 줄 동작이면 lineDone 이 돌려준 항목)을 item 으로 넘겨 그 기록을 지운다.
+// 반환 draft. 칸 글이 바탕(proposed)과 같아지면 rows 에서 그 칸을 뺀다(바탕을 모르면 빈 칸이라도 남김 — 상자가 바탕 글로 되살리지 않게).
+export function withCellLine(draft, {section, key, n = 0, act, index = -1, text = '', item = null, lines = null, at = new Date().toISOString()} = {}) {
+  if (!SECTIONS.includes(section) || typeof key !== 'string' || !Number.isInteger(n) || n < 0) throw badLine('cell');
+  if (!['take', 'edit', 'add', 'fix', 'cut', 'drop', 'none'].includes(act)) throw badLine('act');
+  const id = cellId(section, key, n), now = cellLinesOf(draft, {section, key, n}), line = lineText(text);
+  if (['take', 'edit', 'add', 'fix'].includes(act)) { if (!line) throw badLine('empty'); if ([...line].length > CELL_LINE_MAX) throw badLine('too_long'); }
+  if (['fix', 'cut'].includes(act) && !(Number.isInteger(index) && index >= 0 && index < now.length)) throw badLine('index');
+  if (ANSWER_ACTS.includes(act) && !(item && PICK_KIND[item.kind])) throw badLine('item');
+  let next = now;
+  if (act === 'take' || act === 'edit' || act === 'add') next = [...now, line];
+  else if (act === 'fix') next = now.map((x, i) => (i === index ? line : x));
+  else if (act === 'cut') next = now.filter((_, i) => i !== index);
+  else if (act === 'none' && Array.isArray(lines)) next = cleanLines(lines).map(lineText).filter(Boolean);
+  const out = draft ? {...draft} : emptyDraft();
+  const base = proposedCell(out, id), rows = (Array.isArray(out.rows) ? out.rows : []).filter(r => cellId(r.section, r.key, r.n) !== id);
+  out.rows = base && sameLines(next, base) ? rows : [...rows, {section, key, n, lines:next}];
+  // 동작 기록(picks) — 같은 draft 안이라 한 PATCH 로 함께 저장된다.
+  const where = `${section}:${key}${n ? `#${n}` : ''}`;
+  let pick;
+  if (item) pick = act === 'edit' ? {...item, key:item.key ?? pickKey(item), text:line, before:item.text ?? ''} : {...item, ...(act === 'take' ? {text:line || item.text} : {})};
+  else pick = {kind:'line', from:act === 'add' ? 'hand' : '', cell:where, org:section === 'summary' ? '' : key,
+    text:act === 'cut' ? now[index] : act === 'none' ? '' : line, ...(act === 'fix' ? {before:now[index]} : {}),
+    key:lineKey({section, key, n, text:act === 'fix' || act === 'cut' ? now[index] : line})};
+  if (act === 'none' && !item && !pick.text) return out; // 되돌릴 기록이 없는 줄 되돌리기 — 칸만
+  const extras = readExtras(out);
+  return putExtras(out, {...extras, picks:withPick(extras.picks ?? null, pick, act, at)});
+}
+// [주간 정리] 누름 하나 쓰기: 그 주 행을 다시 읽고 withCellLine 한 번(rows + picks)을 draft_saved_at 조건 PATCH 한 번으로. 반환 changeWeekDocs 결과.
+// 줄 동작(fix·cut·add) 하나가 남긴 기록 항목(되돌리기 때 item 으로 넘김). draft 는 동작 뒤 판.
+export const lineDone = (draft, key) => readExtras(draft).picks?.items.find(x => x.key === key) ?? null;
+export const lineKey = ({section, key, n = 0, text}) => pickKey({kind:'line', cell:`${section}:${key}${n ? `#${n}` : ''}`, text});
+export const changeWeekCell = ({start, known = null, ...op}, rt = window.KPTURuntime) => changeWeekDocs({start, known, change:draft => withCellLine(draft, op)}, rt);
+
 // ---- 2) 주요 일정 줄(hq)·투쟁 사업장 구성(site_layout) ----
 export const draftHq = draft => readHq(draft?.hq);
 function putHq(out, hq) { const list = readHq(hq); if (list.length) out.hq = list; else delete out.hq; }

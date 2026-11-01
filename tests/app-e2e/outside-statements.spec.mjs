@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 4절, 12:43 시안): '바깥 성명' 메뉴(?view=outside).
+// OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 4절, 12:43 시안): '사회운동 Now' 메뉴(?view=outside).
 // [새로 온 것]: 칩으로 단체 묶음 거르기(공용 두 줄 + [더보기]), 날짜 묶음, 글마다 단체·종류·시각 / 제목 / 한 문장 요약(늘 보임) / 본문 접기 / [원문](새 창).
 // 2년 지난 글은 제목·요약만. ⋯ → [단체 켜고 끄기]는 서버 표(app_outside_sources)에 저장하고, 뒤로가기 한 번 = 목록. 들어오면 본 시각을 서버에 둔다.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글은 모두 가상의 글.
@@ -71,8 +71,8 @@ async function start(page, width) {
 async function openOutside(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: '바깥 성명' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '바깥 성명', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: '사회운동 Now' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '사회운동 Now', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
 }
@@ -88,6 +88,9 @@ for (const width of [412, 1280]) {
     const { errors, server } = await start(page, width);
     await openOutside(page, width);
     await expect(posts(page)).toHaveCount(POSTS.length);
+    // 위쪽 작은 줄(OUTSIDE-이름·바로읽기): 마지막 읽음 10. 5. 18:07, 오늘 08:07 예약분이 아직 안 돌아 '다음 곧'.
+    await expect(page.locator('#osTitle')).toHaveText('사회운동 Now');
+    await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 어제 18:07 · 다음 곧(08:07 예정분)');
 
     // 칩 줄: 전체 + 켠 단체가 있는 묶음 + 둘 이상 켜진 묶음(정당)의 단체 낱개.
     await expect(chips(page)).toHaveText(['전체', '민주노총', '정당', '외국', '노동당', '녹색당']);

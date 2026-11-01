@@ -954,6 +954,9 @@ jobs:
       - name: Check weekly suggestion dismiss and learning (S46-22)
         run: node --test tests/weekly-picks.test.mjs
 
+      - name: Check weekly one-flow data layer (WEEKLY-한흐름확정 ①)
+        run: node --test tests/weekly-one-flow-data.test.mjs
+
       - name: Check notification removal
         run: |
           set -e
