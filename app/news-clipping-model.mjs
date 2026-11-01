@@ -35,7 +35,7 @@ export const isForeign = item => !!item && typeof item.lang === 'string' && item
 
 // 상태 글(제목 아래 작은 줄). 정상(ok)은 없음.
 const STATE_NOTE = {
-  pending: '읽는 중',
+  pending: '아직 안 읽음',
   robots: '사이트가 자동 읽기를 막아 둠 · 원문에서',
   bot_check: '사이트 확인 화면 · 원문에서',
   paywall: '유료 기사 · 공개 요약만',

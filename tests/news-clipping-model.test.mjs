@@ -31,7 +31,7 @@ test('줄 보임: 요약 늘 보임, 외국어는 번역 저장본이 있을 때
   const media = M.itemView({id: '3', lane: 'media', lang: 'ko', title: '매체 새 글', state: 'ok', body_kind: null, url: 'https://example.org/m'});
   assert.equal(media.summary, '');
   const pending = M.itemView({id: '4', lane: 'channel', lang: 'ko', title: null, state: 'pending', url: 'https://www.example.org/x'});
-  assert.equal(pending.title, 'example.org'); assert.equal(pending.note, '읽는 중'); assert.equal(pending.canOpen, false);
+  assert.equal(pending.title, 'example.org'); assert.equal(pending.note, '아직 안 읽음'); assert.equal(pending.canOpen, false);
   assert.equal(M.itemView({id: '5', url: 'javascript:alert(1)', state: 'ok'}).url, '', '이상한 주소는 링크로 쓰지 않음');
 });
 

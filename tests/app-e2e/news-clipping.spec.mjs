@@ -114,9 +114,9 @@ for (const width of [412, 884, 1440]) {
     await expect(c1.locator('.nc-time')).toHaveText('09:20');
     await expect(c1.getByRole('link', { name: /원문/ })).toHaveAttribute('href', 'https://example.org/c1');
     await expect(item(page, 'k1').locator('.nc-kw')).toHaveText('가짜어');
-    // 대기 줄: 주소의 도메인 + '읽는 중', 본문 칸 없음.
+    // 대기 줄: 주소의 도메인 + '아직 안 읽음', 본문 칸 없음.
     await expect(item(page, 'w1').locator('.nc-title')).toHaveText('example.org');
-    await expect(item(page, 'w1').locator('.nc-note')).toHaveText('읽는 중');
+    await expect(item(page, 'w1').locator('.nc-note')).toHaveText('아직 안 읽음');
     await expect(item(page, 'w1').locator('details')).toHaveCount(0);
     // 유료: 공개 요약만 표시 + 펼치면 공개 앞부분만(Edge open을 부르지 않음).
     await expect(item(page, 'p1').locator('.nc-note')).toHaveText('유료 기사 · 공개 요약만');
