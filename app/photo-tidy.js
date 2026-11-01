@@ -1,11 +1,12 @@
 // S46-20 사진 정리 제안 ①(요청함 10/31 11:04, 시안 확정 10/31 13:2x): 사진 메뉴 위 [정리 n] 칩 → 접힌 칸.
 // ① 거르기 줄 [전체|폰에만|원드라이브에만|둘 다] ② 백업 안 됨 n개 폴더 ⑤ 잡동사니(1년 지난 스크린샷·카톡·텔레그램 받은 사진) n장.
-// 줄마다 한 줄 요약 + [보기](<details>). 지우기·숨기기는 명진이 눌러야만(폰 휴지통은 시스템 확인 창도). 자동 삭제 없음.
+// 줄마다 한 줄 요약 + [보기](<details>). S47-19(요청함 11/01 12:55·12:56): 모든 [보기]는 그 줄 아래에서 사진 칸으로 펼친다(합계 용량·정렬 칩). 지우기·숨기기는 명진이 눌러야만(폰 휴지통은 시스템 확인 창도). 자동 삭제 없음.
 // - 재료: 폰 사진 전부(앱 다리, 끈 폴더 포함)와 원드라이브 사진 전부(서버 library, 고른 폴더 색인). [정리]를 처음 누를 때 읽는다.
 //   사진·목록은 이 화면 메모리에만 있고 기기·서버에 저장하지 않는다(폰 사진은 서버로 올라가지 않는다).
 // - 규칙은 photo-tidy-model.mjs(같은 사진 판정은 섞어 보기 규칙 그대로).
 import {matchIndex, placeItems, placeCounts, unbackedFolders, junkGroups, groupHidden, tidyCount, forgetIds, sizeText, PLACES, PLACE_TEXT, SCAN_MAX,
-  spacePlan, dupGroups, dupTrashList, scanFresh, DUP_TEXT, copyPairs, goneText, SAFE_SYNC_TEXT} from './photo-tidy-model.mjs';
+  spacePlan, dupGroups, dupTrashList, scanFresh, DUP_TEXT, copyPairs, goneText, SAFE_SYNC_TEXT,
+  TIDY_SORTS, DUP_SORTS, paneSortDefault, sortTidy, sortDupGroups, totalBytes} from './photo-tidy-model.mjs';
 
 const PAGE = 200;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,6 +16,10 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
   watchTrash = async () => 0, seenTrash = async () => {}}) {
   let st = null, token = 0;
   const keeps = new Map(); // ④ 명진이 고른 남길 것(묶음 id → 칸 id), 이 화면 메모리만
+  // S47-19: 펼친 [보기](key → 정렬). 'place:phone'·'space'·'junk:kakao'·'unbacked:<폰 폴더>'·'dups'(묶음 정렬만).
+  // 고른 정렬은 이 화면 메모리만(서버 view_prefs.photo_view에 칸이 없어 DB 변경이 있어야 저장할 수 있다).
+  const panes = new Map(), sorts = new Map();
+  const sortOf = key => sorts.get(key) || (key === 'dups' ? 'save' : paneSortDefault(key));
   const empty = () => ({running:false, done:false, partial:false, failed:'', odFailed:'', od:[], ph:[], odOn:false, index:null, unbacked:[], junk:[], counts:null, space:null, dups:[], at:0, gone:0});
   const changed = () => { try { onChange?.(); } catch { /* 화면 다시 그리기 실패가 읽기를 막지 않게 */ } };
   function derive() {
@@ -69,7 +74,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     // 처음 열 때만 읽는다(다시 확인은 [다시 확인]).
     open() { if (!st) scan(); },
     rescan: () => scan(),
-    reset() { token++; st = null; keeps.clear(); },
+    reset() { token++; st = null; keeps.clear(); panes.clear(); },
     // 끈 폴더가 바뀌면 장수만 다시.
     offChanged() { if (ready()) { derive(); } },
     count: () => (ready() ? tidyCount(st, phoneOff()) + (st.space?.items.length ? 1 : 0) + (st.dups.length ? 1 : 0) : 0),
@@ -77,21 +82,26 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     fresh: () => ready() && scanFresh(st.at, now()),
     item: id => (st ? st.ph.find(p => p.id === id) || null : null),
     unbackedIds: () => new Set(ready() ? st.unbacked.map(f => f.id) : []),
-    // 보기 목록: 'place:phone' · 'junk:kakao'. 없으면 null.
+    // 보기 목록(정렬 전): 'place:phone' · 'space' · 'junk:kakao' · 'unbacked:<폰 폴더>'. 없으면 null.
     list(key) {
       if (!ready()) return null;
-      const [kind, name] = String(key || '').split(':');
+      const k = String(key || ''), at = k.indexOf(':'), kind = at < 0 ? k : k.slice(0, at), name = at < 0 ? '' : k.slice(at + 1);
       if (kind === 'place' && st.odOn && PLACES.includes(name) && name !== 'all') return placeItems(name, {odItems:st.od, phItems:st.ph, index:st.index, off:phoneOff()});
       if (kind === 'junk') return st.junk.find(g => g.kind === name)?.items.slice() || null;
       if (kind === 'space') return st.space?.items.length ? st.space.items.slice() : null;
+      if (kind === 'unbacked') return st.unbacked.some(f => f.id === name) ? st.ph.filter(p => p.folder === name) : null;
       return null;
     },
-    label(key) {
-      const [kind, name] = String(key || '').split(':');
-      if (kind === 'place') return PLACE_TEXT[name] || '';
-      if (kind === 'space') return '공간 비우기 후보';
-      return st?.junk.find(g => g.kind === name)?.label || '';
+    // 펼친 칸에 보일 목록(고른 정렬). 없으면 null.
+    paneList: key => { const list = api.list(key); return list ? sortTidy(list, sortOf(key)) : null; },
+    // [보기] 펼치기/접기. 어디에 있나 칩은 하나만 펼친다('place:all' = 접기).
+    toggle(key) {
+      const k = String(key || '');
+      if (k.startsWith('place:')) { const was = panes.has(k); for (const x of [...panes.keys()]) if (x.startsWith('place:')) panes.delete(x); if (!was && api.list(k)) panes.set(k, true); return; }
+      if (panes.has(k)) panes.delete(k); else if (api.list(k)) panes.set(k, true);
     },
+    opened: key => panes.has(key),
+    sortSet(key, s) { if ((key === 'dups' ? DUP_SORTS : TIDY_SORTS)[s]) sorts.set(key, s); },
     group(kind) {
       if (!ready()) return null;
       if (kind === 'space') return st.space?.items.length ? {kind, label:'원드라이브에 있는 폰 사진', items:st.space.items.slice(), folders:[]} : null;
@@ -110,12 +120,22 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       st.od = forgetIds(st.od, ids); st.ph = forgetIds(st.ph, ids);
       if (ready()) derive();
     },
-    // 접힌 칸 HTML. place = 지금 거르기, canHide = 폰 폴더 스위치를 쓸 수 있음(앱 0.4.1+), canTrash = 폰 휴지통.
-    html({place = 'all', canHide = false, canTrash = false} = {}) {
+    // 접힌 칸 HTML. canHide = 폰 폴더 스위치를 쓸 수 있음(앱 0.4.1+), canTrash = 폰 휴지통.
+    html({canHide = false, canTrash = false} = {}) {
       if (!st) return '';
       if (st.running) return `<p class="photos-tidy-line" role="status">사진 확인 중 · 폰 ${st.ph.length}장${st.odOn ? ` · 원드라이브 ${st.od.length}장` : ''}</p>`;
       if (st.failed) return `<p class="photos-tidy-line">${esc(st.failed)} <button type="button" class="mini" data-photos-tidy-rescan>다시</button></p>`;
       const off = phoneOff(), rows = [];
+      // 펼친 칸: 합계 용량 + 정렬 칩 + 사진 칸 자리(사진은 photos.js가 처음 일정 장수만 그리고 스크롤로 이어 그린다).
+      const chips = (key, names) => `<span class="photos-tidy-sorts" role="group" aria-label="정렬">${Object.entries(names).map(([s, t]) =>
+        `<button type="button" class="photos-tidy-place" data-photos-tidy-sort="${esc(key)}|${s}" aria-pressed="${s === sortOf(key)}">${t}</button>`).join('')}</span>`;
+      const pane = key => {
+        const list = api.list(key); if (!list) return '';
+        const b = totalBytes(list);
+        return `<div class="photos-tidy-pane" data-photos-tidy-pane="${esc(key)}"><div class="photos-tidy-pane-head"><span class="photos-tidy-num">${list.length}장${b ? ' · 합계 ' + sizeText(b) : ''}</span>${chips(key, TIDY_SORTS)}</div>`
+          + '<div class="photos-tidy-grid" data-photos-tidy-grid></div><p class="photos-tidy-line" data-photos-tidy-more hidden></p></div>';
+      };
+      const placeOpen = PLACES.find(p => panes.has('place:' + p)) || 'all';
       if (st.gone > 0) rows.push(`<p class="photos-tidy-line photos-tidy-warn" role="alert">${esc(goneText(st.gone))} <button type="button" class="mini" data-photos-tidy-gone-ok>알았어요</button></p>`);
       // [나머지 지우기]도 원드라이브 사본이 확인된 사진만 지운다(원드라이브를 읽었을 때만 단추).
       const dupTrash = canTrash && st.odOn;
@@ -123,15 +143,20 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       if (st.odOn) {
         rows.push(`<div class="photos-tidy-row photos-tidy-places" role="group" aria-label="어디에 있나">${PLACES.map(p => {
           const n = p === 'all' ? '' : ` ${st.counts?.[p] ?? 0}`;
-          return `<button type="button" class="photos-tidy-place" data-photos-place="${p}" aria-pressed="${p === place}">${PLACE_TEXT[p]}${n}</button>`;
+          return `<button type="button" class="photos-tidy-place" data-photos-place="${p}" aria-pressed="${p === placeOpen}">${PLACE_TEXT[p]}${n}</button>`;
         }).join('')}</div>`);
+        if (placeOpen !== 'all') rows.push(pane('place:' + placeOpen));
       } else rows.push(`<p class="photos-tidy-line">어디에 있는지 거르기·백업 확인은 원드라이브 연결 뒤${st.odFailed ? `: ${esc(st.odFailed)}` : ''}</p>`);
       // ② 백업 안 됨
       if (st.odOn) {
         const n = st.unbacked.reduce((s, f) => s + f.count, 0);
         rows.push(st.unbacked.length
-          ? `<details class="photos-tidy-row" data-k="unbacked"><summary><span>백업 안 됨 <b>${st.unbacked.length}개 폴더</b> · ${n}장</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">${st.unbacked.map(f =>
-            `<button type="button" class="photos-tidy-item" data-photos-tidy-folder="${esc(f.id)}"><span>📁 ${esc(f.name)}</span><span class="photos-tidy-num">${f.count}장${f.bytes ? ' · ' + sizeText(f.bytes) : ''}${off.has(f.id) ? ' · 꺼짐' : ''}</span></button>`).join('')}</div></details>`
+          ? `<details class="photos-tidy-row" data-k="unbacked"><summary><span>백업 안 됨 <b>${st.unbacked.length}개 폴더</b> · ${n}장</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">${st.unbacked.map(f => {
+            const key = 'unbacked:' + f.id;
+            return `<div class="photos-tidy-junk"><span>📁 ${esc(f.name)} <span class="photos-tidy-num">${f.count}장${f.bytes ? ' · ' + sizeText(f.bytes) : ''}${off.has(f.id) ? ' · 꺼짐' : ''}</span></span>`
+              + `<button type="button" class="mini" data-photos-tidy-see="${esc(key)}" aria-expanded="${panes.has(key)}">보기</button><button type="button" class="mini" data-photos-tidy-folder="${esc(f.id)}">폴더</button></div>`
+              + (panes.has(key) ? pane(key) : '');
+          }).join('')}</div></details>`
           : '<p class="photos-tidy-line">백업 안 됨 · 없음(폰 폴더마다 원드라이브에 같은 사진이 있어요)</p>');
       }
       // ③ 공간 비우기
@@ -139,19 +164,18 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
         const sp = st.space;
         rows.push(sp.items.length
           ? `<details class="photos-tidy-row" data-k="space"><summary><span>공간 비우기 · 폰에서만 지우면 <b>${sizeText(sp.bytes) || sp.items.length + '장'}</b> 비워져요</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list"><p class="photos-tidy-line">${SAFE_SYNC_TEXT}</p><div class="photos-tidy-junk"><span>원드라이브에 있는 1년 지난 사진 ${sp.photos}장 · 큰 동영상 ${sp.videos}개(별표 뺌)</span>`
-            + '<button type="button" class="mini" data-photos-tidy-see="space">보기</button>'
-            + (canTrash ? '<button type="button" class="mini photos-danger" data-photos-tidy-trash="space">폰에서만 지우기</button>' : '') + '</div></div></details>'
+            + (canTrash ? '<button type="button" class="mini photos-danger" data-photos-tidy-trash="space">폰에서만 지우기</button>' : '') + `</div>${pane('space')}</div></details>`
           : '<p class="photos-tidy-line">공간 비우기 · 후보 없음</p>');
       }
       // ④ 같은 사진 묶음
       if (st.dups.length) {
-        const shown = st.dups.slice(0, 40), bytes = st.dups.reduce((n, g) => n + g.bytes, 0);
+        const shown = sortDupGroups(st.dups.slice(0, 40), sortOf('dups')), bytes = st.dups.reduce((n, g) => n + g.bytes, 0);
         rows.push(`<details class="photos-tidy-row" data-k="dups"><summary><span>같은 사진 묶음 <b>${st.dups.length}개</b>${bytes ? ' · ' + sizeText(bytes) : ''}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">`
-          + '<p class="photos-tidy-line">묶음마다 남길 사진을 누르세요(테두리 = 남김).</p>'
+          + `<div class="photos-tidy-pane-head"><span class="photos-tidy-num">묶음마다 남길 사진을 누르세요(테두리 = 남김)</span>${chips('dups', DUP_SORTS)}</div>`
           + shown.map(g => {
             const keep = g.items.some(p => p.id === keeps.get(g.id)) ? keeps.get(g.id) : g.keep;
             return `<div class="photos-tidy-dup" data-photos-tidy-dup="${esc(g.id)}"><span class="photos-tidy-num">${DUP_TEXT[g.kind]} ${g.items.length}장${g.bytes ? ' · ' + sizeText(g.bytes) : ''}</span><span class="photos-tidy-ths">`
-              + g.items.slice(0, 8).map(p => `<button type="button" class="photos-tidy-pick" data-photos-tidy-keep="${esc(g.id)}|${esc(p.id)}" aria-pressed="${p.id === keep}" aria-label="${p.id === keep ? '남길 사진' : '이 사진 남기기'}"><span class="photos-tidy-th" data-photos-tidy-th="${esc(p.id)}"></span></button>`).join('')
+              + g.items.slice(0, 8).map(p => `<button type="button" class="photos-tidy-pick" data-photos-tidy-keep="${esc(g.id)}|${esc(p.id)}" aria-pressed="${p.id === keep}" aria-label="${p.id === keep ? '남길 사진' : '이 사진 남기기'}"><span class="photos-tidy-th" data-photos-tidy-th="${esc(p.id)}"></span>${sizeText(p.size_bytes) ? `<span class="photos-tidy-size">${sizeText(p.size_bytes)}</span>` : ''}</button>`).join('')
               + `${g.items.length > 8 ? `<span class="photos-tidy-num">외 ${g.items.length - 8}장</span>` : ''}</span>`
               + (dupTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="dup|${esc(g.id)}">나머지 지우기</button>` : '') + '</div>';
           }).join('')
@@ -163,12 +187,12 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       const junkN = st.junk.reduce((s, g) => s + g.items.length, 0), junkB = st.junk.reduce((s, g) => s + g.bytes, 0);
       rows.push(st.junk.length
         ? `<details class="photos-tidy-row" data-k="junk"><summary><span>잡동사니 <b>${junkN}장</b>${junkB ? ' · ' + sizeText(junkB) : ''}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">${st.junk.map(g => {
-          const hidden = groupHidden(g, off);
+          const hidden = groupHidden(g, off), key = 'junk:' + g.kind;
           return `<div class="photos-tidy-junk"><span>${esc(g.label)} ${g.items.length}장${g.bytes ? ' · ' + sizeText(g.bytes) : ''}${hidden ? ' · 숨김' : ''}</span>`
-            + `<button type="button" class="mini" data-photos-tidy-see="${g.kind}">보기</button>`
+            + `<button type="button" class="mini" data-photos-tidy-see="${key}" aria-expanded="${panes.has(key)}">보기</button>`
             + (canHide && g.folders.length ? `<button type="button" class="mini" data-photos-tidy-hide="${g.kind}">${hidden ? '다시 보이기' : '숨기기'}</button>` : '')
             + (canTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="${g.kind}">지우기</button>` : '')
-            + '</div>';
+            + '</div>' + (panes.has(key) ? pane(key) : '');
         }).join('')}</div></details>`
         : '<p class="photos-tidy-line">잡동사니 · 없음</p>');
       rows.push(`<p class="photos-tidy-foot">폰 ${st.ph.length}장${st.odOn ? ` · 원드라이브 ${st.od.length}장` : ''} 확인${st.partial ? `(${SCAN_MAX}장까지만)` : ''} · <button type="button" class="mini" data-photos-tidy-rescan>다시 확인</button></p>`);

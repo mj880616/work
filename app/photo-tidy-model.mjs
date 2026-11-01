@@ -82,9 +82,34 @@ export const groupHidden = (group, off) => group.folders.length > 0 && group.fol
 export function sizeText(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '';
   if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(bytes >= 1e10 ? 0 : 1)}GB`;
-  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)}MB`;
+  if (bytes >= 1e6) return `${bytes < 1e7 ? (bytes / 1e6).toFixed(1).replace(/\.0$/, '') : Math.round(bytes / 1e6)}MB`;
   return `${Math.max(1, Math.round(bytes / 1e3))}KB`;
 }
+// ---- S47-19 정리 [보기] 그 줄 안 펼침(요청함 11/01 12:55·12:56): 합계 용량·정렬 ----
+// 정렬 칩. 공간 비우기·잡동사니·백업 안 됨은 용량 큰 순, 어디에 있나(폰에만 등)는 찍은 날 최신이 기본. 같은 사진 묶음은 묶음 순서.
+export const TIDY_SORTS = Object.freeze({size:'용량 큰 순', new:'찍은 날 최신', old:'찍은 날 오래된'});
+export const DUP_SORTS = Object.freeze({save:'아낄 용량 큰 순', new:'찍은 날 최신', old:'찍은 날 오래된'});
+export const paneSortDefault = key => (String(key || '').startsWith('place:') ? 'new' : 'size');
+const takenMs = p => { const t = Date.parse(p?.taken_at); return Number.isFinite(t) ? t : NaN; };
+const idCmp = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+// 찍은 시각 비교(시각 모르는 것은 늘 뒤).
+const byTaken = (a, b, dir) => { const x = takenMs(a), y = takenMs(b); if (Number.isNaN(x) || Number.isNaN(y)) return Number.isNaN(x) - Number.isNaN(y); return dir * (x - y); };
+export function sortTidy(list, sort) {
+  const out = (list || []).slice();
+  if (sort === 'old') return out.sort((a, b) => byTaken(a, b, 1) || idCmp(a, b));
+  if (sort === 'size') return out.sort((a, b) => bytesOfItem(b) - bytesOfItem(a) || byTaken(a, b, -1) || idCmp(a, b));
+  return out.sort((a, b) => byTaken(a, b, -1) || idCmp(a, b));
+}
+// 묶음 정렬: 아낄 용량 큰 순(dupGroups 순서) · 찍은 날(묶음 첫 장).
+export function sortDupGroups(groups, sort) {
+  const out = (groups || []).slice();
+  if (sort === 'new') return out.sort((a, b) => byTaken(a.items[0], b.items[0], -1) || idCmp(a, b));
+  if (sort === 'old') return out.sort((a, b) => byTaken(a.items[0], b.items[0], 1) || idCmp(a, b));
+  return out.sort((a, b) => b.bytes - a.bytes || byTaken(a.items[0], b.items[0], -1) || idCmp(a, b));
+}
+export const totalBytes = list => (list || []).reduce((n, p) => n + bytesOfItem(p), 0);
+const bytesOfItem = p => (Number.isFinite(p?.size_bytes) && p.size_bytes > 0 ? p.size_bytes : 0);
+
 // [정리 n]의 n: 할 거리가 있는 제안 줄 수(백업 안 됨 폴더·잡동사니 무리 중 숨기지 않은 것).
 export function tidyCount({unbacked = [], junk = []} = {}, off = null) {
   return (unbacked.length ? 1 : 0) + (junk.some(g => !groupHidden(g, off)) ? 1 : 0);
