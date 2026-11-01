@@ -1515,61 +1515,72 @@ for(const width of [412,1440])test(`[주간 정리] 줄 제안: 줄을 고르면
 });
 
 // JOURNAL-주간정리다듬기 ②: 프로필 이름과 확정본 표기가 다르면 확정본 표기를 쓴다(가상 이름). 확정본에서 못 찾으면 프로필 이름 그대로.
-test('[주간보고 한글 파일 만들기] 담당 팀원 칸 이름: 직전 확정본 표기 우선, 없으면 프로필 이름',async({page})=>{
+// WEEKLY-한흐름확정 ②: 이름은 맨 위 한 줄(어디서 온 이름인지는 그 이름의 title), 고치기는 맨 위 ⋯ → [이름 고치기].
+const topMore=async(page,button)=>{const m=topLine(page).locator('details.row-more');if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await m.locator(button).click();};
+test('[주간 정리] 담당 팀원 칸 이름: 직전 확정본 표기 우선, 없으면 프로필 이름',async({page})=>{
  const f=await hwpxFixture(page,{width:1280,profileName:'가상 담당자'});
  await openJournal(page,1280);await openWeekly(page);
  await openDraft(page);
- await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
- await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.');
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const name=topLine(page).locator('[data-hwpx-me]');
+ await expect(name).toHaveText('가상 담당');
+ await expect(name).toHaveAttribute('data-hwpx-me','confirmed');
+ await expect(name).toHaveAttribute('title','담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.');
+ await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveCount(0); // 확인할 일이 없으면 안내 줄 없음
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.summary.map(a=>a.rows.map(r=>r.owner))).toEqual([[['가상 담당'],[]],[['가상 담당']]]);
  // 5. 주요 일정 참석자 칸도 같은 이름.
  expect(report.calendar.find(d=>d.items.length).items[0].who).toEqual(['가상 담당']);
- // 직접 고치면 그 이름으로 다시 찾는다(못 찾으면 안내).
- await hwpx(page).locator('[data-hwpx-me]').fill('없는 이름');await hwpx(page).locator('[data-hwpx-me]').press('Tab');
- await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('담당 팀원 칸 이름을 직접 고쳤어요.');
+ // 직접 고치면(맨 위 ⋯ → [이름 고치기]) 그 이름으로 다시 찾는다(못 찾으면 안내).
+ await topMore(page,'[data-hwpx-top-me]');
+ const input=topLine(page).locator('[data-hwpx-top-input="me"]');
+ await expect(input).toHaveValue('가상 담당');
+ await input.fill('없는 이름');await input.press('Enter');
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('없는 이름');
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveAttribute('title','담당 팀원 칸 이름을 직접 고쳤어요.');
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('[주간보고 한글 파일 만들기] 담당 팀원 칸 이름: 확정본에서 표기를 못 찾으면 프로필 이름을 쓰고 알린다',async({page})=>{
+test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 찾으면 프로필 이름을 쓰고 알린다',async({page})=>{
  const f=await hwpxFixture(page,{width:390,profileName:'전혀 다른 사람'});
  await openJournal(page,390);await openWeekly(page);
- await hwpx(page).locator('[data-hwpx-start]').click();
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('전혀 다른 사람');
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('전혀 다른 사람');
  await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.');
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('[주간보고 한글 파일 만들기]: 자료실에 확정본이 없으면 알리고, [HWP로 받기]·기기 HWP 파일 고르기는 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
+test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 알리고, [HWP로 받기]·기기 HWP 파일 고르기는 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
  test.setTimeout(120000);
  await servePagesCors(page);
  const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
  await openJournal(page,1280);await openWeekly(page);
- await hwpx(page).locator('[data-hwpx-start]').click();
- // WEEKLY-한글파일다듬기 ①: 확정본이 없으면 안내문이 바뀌고 [자료실 최신 … 쓰기]는 흐리게(누를 수 없음), [기기에서 파일 고르기]가 앞.
- await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주 팀 확정본이 없어요. 자료실에 ‘주간보고 확정본’으로 올리거나, 내 컴퓨터에서 골라 주세요.');
- await expect(hwpx(page).locator('[data-hwpx-library]')).toBeDisabled();
- await expect(hwpx(page).locator('.journal-hwpx-actions button').first()).toHaveAttribute('data-hwpx-pick','');
- await expect(hwpx(page)).not.toContainText('이 기기 안에서만');
+ // WEEKLY-한글파일다듬기 ①: 확정본이 없으면 상태 줄에 까닭과 할 일(맨 위 ⋯ → [바탕 바꾸기(기기 파일)]), 칸 자리에도 한 줄.
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('자료실에 바탕(지난 개인본·"주간보고 확정본")이 없어요. 팀 확정본을 그 분류로 올리거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.');
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-flow-no-base]')).toContainText('바탕을 열지 못해');
+ await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('이 기기 안에서만');
+ await expect(topLine(page).locator('[data-hwpx-pick]')).toHaveText('바탕 바꾸기(기기 파일)');
  expect(f.sent.open).toEqual([]);
- // 기기 파일(.hwpx) → 고칠 칸
+ // 기기 파일(.hwpx) → 칸 줄
  await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
- await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행');
- await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
- // [HWP로 받기]: 같은 엔진이 HWP 5로 저장(OLE 머리)
- const [hwp]=await Promise.all([page.waitForEvent('download',{timeout:90000}),hwpx(page).locator('[data-hwpx-hwp]').click()]);
+ await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('가상 담당');
+ await expect(topLine(page)).toContainText('바탕 기기 파일');
+ // ⋯ → [HWP로 받기]: 같은 엔진이 HWP 5로 저장(OLE 머리)
+ const [hwp]=await Promise.all([page.waitForEvent('download',{timeout:90000}),confirmMore(page,'[data-hwpx-hwp]')]);
  expect(hwp.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwp');
  const hwpBytes=readFileSync(await hwp.path());
  expect([...hwpBytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
  // 그 HWP를 다시 기기 파일로: 엔진이 .hwpx로 바꾼 뒤 같은 칸
- await hwpx(page).locator('[data-hwpx-restart]').click();
+ // (칸 줄은 그 주 draft 그대로 — 바탕 파일만 바뀐다.) 바꾸는 동안 상태 줄, 끝나면 오류 없이 지워진다.
+ const st=hwpx(page).locator('[data-hwpx-status]');
  await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwp',mimeType:'application/x-hwp',buffer:hwpBytes});
- await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행',{timeout:60000});
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ await expect(st).toHaveText(/바꾸는 중|여는 중/);
+ await expect(st).toHaveText('',{timeout:60000});
+ await expect(st).not.toHaveAttribute('data-kind','error');
+ await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행'],{timeout:60000});
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.summary[0].rows[0].progress).toEqual(['- 지난주 가-1 진행']);
  expect(f.sent.library).toEqual([]);

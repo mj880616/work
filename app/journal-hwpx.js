@@ -111,6 +111,8 @@ const LEARN_TEXT = Object.freeze({
 const LEARN_BODY_BYTES = 60 * 1024; // 서버 상한(64KB)보다 조금 작게
 const MAX_BYTES = 30 * 1024 * 1024;
 const DRAFT_DELAY = 2000;
+// 담당 팀원 칸 이름이 어디서 왔나(맨 위 한 줄 이름에 title 로, 프로필 이름을 쓴 때만 바탕 아래 한 줄로도).
+const ME_FROM = Object.freeze({confirmed:'담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.', profile:'직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.', typed:'담당 팀원 칸 이름을 직접 고쳤어요.'});
 const SECTION_NAME = Object.freeze({summary:'요약', orgs:'산하조직', sites:'투쟁 사업장'});
 const DRAFT_TEXT = Object.freeze({
   missing: '임시저장은 준비 중이에요. 상자를 닫으면 고친 내용은 사라져요.',
@@ -252,7 +254,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       return;
     }
     line.append('■ 일시 ', el('b', null, date || '—'));
-    if (me) line.append(' · ', el('b', null, me));
+    if (me) { const name = el('b', null, me); const from = s ? s.meFrom : 'typed'; if (ME_FROM[from]) { name.title = ME_FROM[from]; name.dataset.hwpxMe = from; } line.append(' · ', name); }
     if (base) line.append(` · 바탕 ${base}`);
     if (flight && !s) line.append(' · 바탕 여는 중…');
     const items = [{text:'이름 고치기', data:{hwpxTopMe:''}}, {text:'일시 고치기', data:{hwpxTopDate:''}}, {text:'바탕 바꾸기(기기 파일)', data:{hwpxPick:''}}, {text:'처음부터', data:{hwpxRestart:''}, danger:true}];
@@ -263,7 +265,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   function saveTop(value) {
     const s = state, v = String(value ?? '').trim();
     if (!s || !topEdit) return;
-    if (topEdit === 'me') { if (!v) return; const kept = currentDraft(s); s.me = v; s.meFrom = 'typed'; rebase(); placeCells(s, kept); typed('me'); }
+    if (topEdit === 'me') { if (!v) return; const kept = currentDraft(s); s.me = v; s.meFrom = 'typed'; rebase(); placeCells(s, kept); typed('me'); topEdit = null; renderEdit(); return; }
     else { s.date = v || s.defaultDate; s.built = null; typed('date'); }
     topEdit = null; paintTop();
   }
@@ -729,6 +731,11 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       plans.append(list); parts.push(plans);
     }
     if (!s.me || !s.rows.length) { const p = el('p', 'journal-muted', TEXT.noMine); p.dataset.hwpxNoMine = ''; parts.push(p); }
+    // 담당 팀원 칸 이름·담당 조직은 맨 위 한 줄에 보인다. 여기에는 확인이 필요한 때만 한 줄(직전 확정본에서 이름을 못 찾음·담당 사업장을 못 읽음·지정 안 됨).
+    if (s.meFrom === 'profile') { const p = el('p', 'journal-muted', ME_FROM.profile); p.dataset.hwpxMeFrom = 'profile'; parts.push(p); }
+    const orgNote = s.context.orgFailed ? '담당 사업장을 읽지 못해 산하조직 표는 비워요.'
+      : s.context.orgFallback ? `담당 사업장이 지정되지 않아 모든 조직(${s.context.organizations.length}곳)을 내 조직으로 봤어요. 내 프로필 → 담당 사업장에서 정할 수 있어요.` : '';
+    if (orgNote) { const p = el('p', 'journal-muted', orgNote); p.dataset.hwpxOrgs = ''; parts.push(p); }
     // ORG-쟁의단계 ②: 투쟁 사업장 표를 쟁의 단계로 채웠는지(못 읽었으면 직전 확정본 줄 그대로) + 더는 투쟁 중이 아닌데 확정본에 있던 줄('지울까요?').
     const stageState = s.context.stages?.status;
     if (stageState && stageState !== 'ready') { const n = el('p', 'journal-muted', stageState === 'preparing' ? '쟁의 단계가 아직 준비 중이라 투쟁 사업장 칸은 직전 확정본 그대로예요.' : '단계를 불러오지 못했어요. 투쟁 사업장 칸은 직전 확정본 그대로예요.'); n.dataset.hwpxStageNote = stageState; parts.push(n); }
