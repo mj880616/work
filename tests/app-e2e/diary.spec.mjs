@@ -371,6 +371,18 @@ test('폰 뒤로가기: 쓰기 창 → 날짜 순서로 닫힘',async({page})=>{
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
+// S47-18: 쓰기 창 ⋯ 메뉴가 열린 채 뒤로가기 = 메뉴만 닫힘(쓰기 창 그대로), 다음 뒤로가기 = 쓰기 창.
+test('폰 뒤로가기: 쓰기 창 ⋯ 메뉴 → 메뉴만, 다음은 쓰기 창',async({page})=>{
+ const f=await fixture(page);await openDiary(page,390);
+ await cell(page,'2026-10-03').click();await page.locator('#diaryRoot [data-diary-edit]').click();
+ const ed=page.locator('#diaryRoot [data-diary-editor]'),detail=page.locator('#diaryRoot [data-diary-detail]'),menu=page.locator('#diaryEditorMenu');
+ await ed.locator('[data-diary-editor-more]').click();await expect(menu).toBeVisible();
+ await page.goBack();await expect(menu).toBeHidden();await expect(ed).toBeVisible();
+ await page.goBack();await expect(ed).toBeHidden();await expect(detail).toBeVisible();
+ await page.goBack();await expect(detail).toBeHidden();await expect(page.locator('#diaryView')).toBeVisible();
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 test('일기는 정리함 목록에 나오지 않는다',async({page})=>{
  const f=await fixture(page);
  await page.evaluate(()=>{window.__copied=[];const keep=t=>{window.__copied.push(String(t));return Promise.resolve();};navigator.clipboard.writeText=keep;navigator.clipboard.write=async items=>keep(await (await items[0].getType('text/plain')).text());});

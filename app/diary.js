@@ -725,12 +725,14 @@ async function commitDiaryDelete(job) {
   restoreDiaryRow(job.row);
   notifySmall(`${shortDay(job.row.journal_day)} 일기를 지우지 못해 되살렸어요. ${String(result.message || '').replace(/업데이트/g, '일기')}`.trim(), {error:true});
 }
-// [⋯] 작은 목록: 쓰기 창 머리줄 안에 붙어 열린다(뒤로 가기 기록을 쓰지 않아 쓰기 창의 뒤로 가기와 엉키지 않는다). 바깥을 누르거나 Esc면 닫힌다.
+// [⋯] 작은 목록: 쓰기 창 머리줄 안에 붙어 열린다. 바깥을 누르거나 Esc면 닫힌다.
+// S47-18: 열려 있을 때 뒤로가기 = 메뉴만 닫기(공용 작은 메뉴 겹 KPTUMenuLayer, details-menu-back.js). 쓰기 창은 그대로.
 function toggleEditorMenu(button, open = !button.nextElementSibling || button.nextElementSibling.hidden) {
   const menu = button.nextElementSibling;
   if (!menu?.matches?.('[data-diary-editor-menu]')) return;
   menu.hidden = !open; button.setAttribute('aria-expanded', String(open));
-  if (open) menu.querySelector('button')?.focus({preventScroll:true});
+  if (open) { menu.querySelector('button')?.focus({preventScroll:true}); window.KPTUMenuLayer?.opened(menu, () => toggleEditorMenu(button, false)); }
+  else window.KPTUMenuLayer?.closed(menu);
 }
 document.addEventListener('click', event => {
   const open = editor?.querySelector?.('[data-diary-editor-menu]:not([hidden])');

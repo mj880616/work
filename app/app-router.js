@@ -133,7 +133,7 @@
   // state lists the open layers, so browser, PWA and Android back all pop it before the tab.
   // The owner's close button calls the returned close() after closing itself.
   const LAYERS='kptuLayers';
-  const layers=[];let releasing=0,deferred=[],layerReturn=false,traverseDelta=0,released=[];
+  const layers=[];let releasing=0,deferred=[],layerReturn=false,traverseDelta=0,released=[],closing=null;
   // NAV-새로고침제자리: a side step (setSub) or a place (setPlace) asked while a layer is closing waits for that back to arrive,
   // so the step's own entry is added after it instead of being the one the late back leaves (one owner of the history stack).
   let pendingSub=null,pendingPlace=null;
@@ -142,9 +142,21 @@
   const reopeners=new Map();
   const chainOf=state=>Array.isArray(state?.[LAYERS])?state[LAYERS]:[];
   const topOf=state=>chainOf(state).at(-1);
+  // S47-18 UI-뒤로가기겹규칙 2차: a layer is tied to its own history entry (position and key of the Navigation API), not only to
+  // its name in the entry's list. Entries added on top of a layer (a menu, a small ask) copy the list, so the name alone cannot
+  // tell whether the layer's own entry is still there.
+  const here=()=>{const entry=window.navigation?.currentEntry;return entry&&Number.isInteger(entry.index)?entry:null};
+  const entryAt=index=>{try{return window.navigation.entries()[index]||null}catch{return null}};
+  // Is the layer's own entry still at or below where the history stands now?
+  function layerAlive(layer){
+    const entry=here();
+    if(!entry||!Number.isInteger(layer.index)||!layer.key)return null;
+    return layer.index<=entry.index&&entryAt(layer.index)?.key===layer.key;
+  }
   function pushLayer(layer){
     history.pushState({...(history.state||{}),[LAYERS]:[...chainOf(history.state),layer.name]},'',location.href);
-    layer.index=window.navigation?.currentEntry?.index;
+    const entry=here();
+    layer.index=entry?.index;layer.key=entry?.key;
     keepReopen(layer);
   }
   function keepReopen(layer){
@@ -155,33 +167,67 @@
   }
   function openLayer(name,{close,reopen=null,adoptOnly=false}){
     const known=layers.find(layer=>layer.name===name);
-    if(known)return {close:()=>releaseLayer(known)};
+    // A layer of that name whose own entry is gone (its owner closed it without telling the router) is dropped and opened anew,
+    // so the new one gets its own entry instead of sharing none (one Back would then leave the screen).
+    if(known&&layerAlive(known)===false&&!deferred.includes(known)){layers.splice(layers.indexOf(known),1)}
+    else if(known)return {close:()=>releaseLayer(known)};
     // NAV-새로고침제자리: after a reload the entry still lists the layers that were open (a phone note folder, then a note in it); they are
     // reopened in the same order, so each one takes its place in that list instead of adding an entry.
-    const adopt=!releasing&&(topOf(history.state)===name||chainOf(history.state)[layers.length]===name);
+    const entry=here(),chain=chainOf(history.state);
+    const pos=chain[layers.length]===name?layers.length:topOf(history.state)===name?chain.length-1:-1;
+    const adopt=!releasing&&pos>=0&&!layers.some(layer=>layer.key&&layer.key===entry?.key);
     if(adoptOnly&&!adopt)return null;
-    const layer={name,close,reopen,index:adopt?window.navigation?.currentEntry?.index:undefined};
+    // Each layer of the list had its own entry, one under the other: the one at position pos sits that many entries below the top.
+    const at=adopt&&entry?entryAt(entry.index-(chain.length-1-pos)):null;
+    const layer={name,close,reopen,index:at?at.index:undefined,key:at?at.key:undefined};
     layers.push(layer);
     if(adopt)keepReopen(layer);else if(releasing)deferred.push(layer);else pushLayer(layer);
     return {close:()=>releaseLayer(layer)};
   }
   // UI-뒤로가기겹규칙: close() returns a promise that settles once the layer's history.back() has arrived, so an owner that closes
   // its layer and then opens a window or goes to another screen (a menu item) can wait for it instead of having the late back undo that.
+  // S47-18: layers closed in the same moment (a note closed with its small box open, an event deleted from its ⋯ menu) are gathered
+  // and their entries are left in one traversal to just below the lowest one, so no entry of them stays for the next Back to skip.
   function releaseLayer(layer){
     const at=layers.indexOf(layer);
     if(at<0)return Promise.resolve();
     layers.splice(at,1);
     const waiting=deferred.indexOf(layer);
     if(waiting>=0){deferred.splice(waiting,1);return Promise.resolve()}
-    if(topOf(history.state)!==layer.name)return Promise.resolve();
-    releasing++;
+    const alive=layerAlive(layer);
+    if(alive===null){
+      // Without entry positions (no Navigation API): the old rule, back only when the layer is the top of this entry.
+      if(topOf(history.state)!==layer.name)return Promise.resolve();
+      releasing++;
+      const done=new Promise(resolve=>released.push(resolve));
+      history.back();
+      return done;
+    }
+    // Only entries of this open stack are left: when a step to another side or screen was written above it (its entry no longer
+    // lists the layer), that step stays where it is and the layer's entry is passed over later.
+    if(!alive||!chainOf(history.state).includes(layer.name))return Promise.resolve();
     const done=new Promise(resolve=>released.push(resolve));
-    history.back();
+    if(!closing){
+      closing={low:layer.index};
+      releasing++;
+      queueMicrotask(leaveClosed);
+    }else closing.low=Math.min(closing.low,layer.index);
     return done;
+  }
+  function leaveClosed(){
+    const batch=closing;closing=null;
+    const entry=here();
+    // Still-open layers below stay: go back only to just above the highest of them.
+    const keep=layers.filter(layer=>!deferred.includes(layer)&&layerAlive(layer)).reduce((max,layer)=>Math.max(max,layer.index),-1);
+    const target=Math.max(batch.low-1,keep);
+    const delta=entry?target-entry.index:0;
+    if(delta<0){history.go(delta);return}
+    releasing--;
+    if(!releasing){flushPending();settleReleased()}
   }
   function settleReleased(){const list=released;released=[];list.forEach(resolve=>queueMicrotask(resolve))}
   // A view change ends the layers of the view left; their owners close them on kptu:view-changed.
-  function forgetLayers(){layers.length=0;deferred=[];releasing=0;pendingSub=null;pendingPlace=null;settleReleased()}
+  function forgetLayers(){layers.length=0;deferred=[];releasing=0;closing=null;pendingSub=null;pendingPlace=null;settleReleased()}
   function flushPending(){
     const step=pendingSub,where=pendingPlace;pendingSub=null;pendingPlace=null;
     if(step&&api.current===step.view)writeSub(step.view,step.sub,{replace:step.replace});
@@ -201,17 +247,24 @@
     history.forward();
   }
   // Same-view traversal: close each open layer whose entry was left, top first. A declined
-  // close (unsaved edit) returns to its entry without rewriting history.
+  // close (unsaved edit) returns to its entry without rewriting history. Returns 'declined', or how many layers it closed.
+  function layerLeft(layer,chain){
+    const alive=layerAlive(layer);
+    return alive===null?!chain.includes(layer.name):!alive;
+  }
   function closeLeftLayers(){
     const chain=chainOf(history.state);
-    while(layers.length&&!chain.includes(layers.at(-1).name)){
+    let count=0;
+    while(layers.length&&layerLeft(layers.at(-1),chain)){
       const layer=layers.at(-1);
       let closed=true;
       try{closed=layer.close({fromBack:true})!==false}catch(err){console.error('layer close',layer.name,err)}
-      if(!closed){returnToLayer(layer);return true}
-      layers.pop();
+      if(!closed){returnToLayer(layer);return 'declined'}
+      const now=layers.indexOf(layer);
+      if(now>=0)layers.splice(now,1);
+      count++;
     }
-    return false;
+    return count;
   }
   // An entry for a layer that is no longer open (left by a tab change) is passed over in
   // the direction of travel, so one press always changes the screen.
@@ -249,9 +302,11 @@
       return;
     }
     const sameView=appReady()&&viewFromUrl()===api.current;
-    if(sameView&&closeLeftLayers())return;
+    const closed=sameView?closeLeftLayers():0;
+    if(closed==='declined')return;
     restoreFromUrl('popstate');
-    if(!returningTo)skipStaleLayer();
+    // One press, one change: when this Back already closed something, an entry left over below is not passed over now.
+    if(!returningTo&&!closed)skipStaleLayer();
   }
   // ‹ and Android back: one step back through Web2's own entries; at the first entry the
   // last return is home (D-4a ②). Returns false only when Web2 has nothing left to close.
@@ -260,7 +315,8 @@
     if(entry&&Number.isInteger(entry.index)&&Number.isInteger(baseIndex)){
       if(entry.index>baseIndex){history.back();return true}
     }else if(layers.length){history.back();return true}
-    if(api.current&&api.current!=='home'&&viewExists('home'))return go('home',{source:'back',replaceUrl:true});
+    // A home still loading counts as a step taken (go() answers false then): only home itself has nothing left (the app leaves).
+    if(api.current&&api.current!=='home'&&viewExists('home')){go('home',{source:'back',replaceUrl:true});return true}
     return false;
   }
   // NAV-PC앞뒤통일: the PC top line ‹ › are this router's back and forward (the same path as the browser, PWA and Android back),
