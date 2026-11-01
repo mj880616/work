@@ -20,13 +20,12 @@ async function boot(page, {app = false, view = 'home'} = {}) {
       .observe(document, {subtree: true, attributes: true, attributeFilter: ['class'], childList: true});
     if (!isApp) return;
     const listeners = [];
-    const sent = JSON.parse(sessionStorage.getItem('__reopenSent') || '[]');
+    const sent = [];
     window.__reopenSent = sent;
     window.KPTUAppShell = {
       postMessage(m) {
         m = String(m);
         sent.push(m);
-        sessionStorage.setItem('__reopenSent', JSON.stringify(sent));
         if (m === 'reopen:list') setTimeout(() => listeners.forEach(fn => fn({data: 'reopen:list:start@1761955200000,pull@1761955500000'})), 0);
       },
       addEventListener(type, fn) { if (type === 'message') listeners.push(fn); },
