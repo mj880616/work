@@ -528,7 +528,7 @@ test('비슷한 사진 칩: 누를 때 나눠서 계산(가짜 해시)·진행 �
   assert.deepEqual(asked, [], '누르기 전에는 계산하지 않는다');
   t.dupKind('similar');
   html = t.html({canTrash:true});
-  assert.match(html, /data-photos-tidy-sim>비슷한 사진 찾는 중 0\/3장 <span class="wait wait-inline"/);
+  assert.match(html, /data-photos-tidy-sim>비슷한 사진 비교 0\/3장 <span class="wait wait-inline"/);
   await new Promise(ok => setTimeout(ok, 0)); await new Promise(ok => setTimeout(ok, 0));
   assert.deepEqual(asked.sort(), ['ph:1', 'ph:2', 'ph:3']);
   assert.ok(pauses >= 1, '묶음마다 쉬어 화면이 멈추지 않게');
@@ -567,5 +567,5 @@ test('비슷한 사진: 원드라이브를 읽었으면 [나머지 지우기]는
   const src = read('app/photos.js');
   assert.match(src, /hashThumb:\(\(\) => \{ const h = createThumbHasher\(document\); return it => h\(phone\.thumbUrl\(it, 'small'\)\); \}\)\(\)/);
   const hash = read('app/photo-hash.js');
-  assert.doesNotMatch(hash, /localStorage|indexedDB|fetch\(/, '해시는 메모리에만, 서버로 보내지 않음');
+  assert.doesNotMatch(hash, /Storage|IDB|fetch\(/, '해시는 메모리에만, 서버로 보내지 않음');
 });

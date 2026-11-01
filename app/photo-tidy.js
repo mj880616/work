@@ -260,7 +260,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
             return `<button type="button" class="photos-tidy-place" data-photos-tidy-dupkind="${k}" aria-pressed="${k === kind}"${n || k === 'similar' ? '' : ' disabled'}>${label}</button>`;
           }).join('')}</div>`
           + `<p class="photos-tidy-line">${DUP_HOW[kind]} · ${dupStatText(stat)}</p>`
-          + (simWait ? (sim.running ? `<p class="photos-tidy-line" data-photos-tidy-sim>비슷한 사진 찾는 중 ${sim.count}/${st.simCand.length}장 ${waitInlineHtml()}</p>`
+          + (simWait ? (sim.running ? `<p class="photos-tidy-line" data-photos-tidy-sim>비슷한 사진 비교 ${sim.count}/${st.simCand.length}장 ${waitInlineHtml()}</p>`
             : `<p class="photos-tidy-line" data-photos-tidy-sim>사진 ${st.simCand.length}장의 작은 그림을 비교해요 <button type="button" class="mini" data-photos-tidy-dupkind="similar">찾기</button></p>`) : '')
           + doLine(dupTrash ? TIDY_HELP.dupsDo : '묶음마다 남길 한 장을 고를 수 있어요 · 지우기는 원드라이브 연결·폰 휴지통이 있을 때만')
           + `<div class="photos-tidy-pane-head"><span class="photos-tidy-num">묶음마다 남길 사진을 누르세요(테두리 = 남김)</span>${chips('dups', DUP_SORTS)}</div>`
