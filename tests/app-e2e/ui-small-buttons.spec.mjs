@@ -105,9 +105,10 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  const f=await fixture(page);
  const tabs=page.locator('#appView > .mobile-tabs'),tabsTop=(await tabs.boundingBox()).y;
  const gray=await paint(page,'backgroundColor','--ds-select-bg'),white=await paint(page,'backgroundColor','--kptu-surface');
- const header=await page.locator('.mobile-shell-header').boundingBox();
  async function dock(switchSel,labels,picked){
   const sw=page.locator(switchSel);await expect(sw).toBeVisible();
+  // APP-위여백: 폰 머리줄은 화면 이름이 있을 때만 자리를 차지한다(홈은 없음). 이 화면(일정·할 일·일기)의 머리줄을 잰다.
+  const header=await page.locator('.mobile-shell-header').boundingBox();
   await expect(sw.getByRole('button')).toHaveText(labels);
   const b=await sw.boundingBox();
   // A 44px row right on top of the tabs; the 32px pill sits in its middle, centred across the screen.
