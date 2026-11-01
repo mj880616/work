@@ -1,7 +1,7 @@
 // 바깥 성명 카탈로그(OUTSIDE-바깥성명 ③, 설계 docs/design/outside-statements.md 1·3.2절, 8절 결정).
 // 서버(outside-feed)가 읽는 주소는 이 목록뿐이다. 화면·요청 몸통은 주소를 보낼 수 없고, 키(source_key)만 고른다(SSRF 차단).
 // - hosts: 이 단체에서 요청해도 되는 호스트(목록·글·robots.txt·리다이렉트 모두 이 안에서만).
-// - allowHttp: http 주소 허용(Q4 결정: socialist.kr 하나만). 나머지는 https만.
+// - httpHosts: http 주소를 허용하는 호스트(Q4 결정: socialist.kr 하나만 — 텔레그램 글 안 원문 링크용). 나머지 호스트는 https만.
 // - item: 목록 HTML에서 글 주소로 볼 링크(절대 주소 기준). canon: 같은 글의 주소를 하나로(쪽 번호 같은 군더더기 빼기).
 // - kindOf: 제목·주소로 종류(statement|comment|press|article)를 정한다. null이면 성명 게시판의 다른 글(공지·취재요청 등)이라 넣지 않는다.
 // 빠진 것(결정): 정의당(Q1, robots.txt가 막음 — 자동 수집 안 함), NLR(Q5, 유료), In These Times·The Nation·Tribune·Spectre(Q5).
@@ -14,10 +14,12 @@ export type OutsideSource = {
   name: string;
   group: Group;
   lang: "ko" | "en";
-  mode: "rss" | "html";
+  mode: "rss" | "html" | "telegram";
   lists: string[];
   hosts: string[];
-  allowHttp?: boolean;
+  httpHosts?: string[];
+  // mode=telegram: 공개 채널 웹 미리보기(t.me/s/<채널>)의 채널 이름. 글마다 t.me/<채널>/<번호>, 본문 안에 단체 사이트 글 주소가 있으면 그 주소를 원문으로.
+  telegram?: string;
   item?: RegExp;
   canon?: (url: URL) => string;
   // 목록이 글을 `javascript:` 링크로 여는 단체: 그 링크를 글 주소로 바꾼다(못 바꾸면 null). 바꾼 주소도 item·hosts 검사를 그대로 받는다.
@@ -30,7 +32,7 @@ export type OutsideSource = {
   dateClass?: RegExp;
   // 글 쪽 본문 칸(class 이름 또는 id). 맞는 칸의 안쪽만 본문으로 읽는다(없거나 비면 흔한 본문 칸·<article>·페이지 전체 순서).
   bodyClass?: RegExp;
-  // robots.txt 예외(명진 결정 기록). 이 칸만으로는 효과가 없고, outside-feed handler의 ROBOTS_EXEMPT_KEYS에도 같은 키가 있어야 한다(둘 다 kptu 하나뿐 — 시험이 고정).
+  // robots.txt 예외(명진 결정 기록). 이 칸만으로는 효과가 없고, outside-feed handler의 ROBOTS_EXEMPT_KEYS에도 같은 키가 있어야 한다(둘 다 kptu·laborparty 두 곳뿐 — 시험이 고정).
   robotsException?: string;
   kindOf: (title: string, url: string) => Kind | null;
 };
@@ -54,6 +56,8 @@ function byPrefix(fallback: Kind | null, skip: RegExp | null = /취재요청|취
     return fallback;
   };
 }
+// 노동자연대: 괄호 없는 머리말('노동자연대 성명:', '노동자연대 학생그룹 성명 —').
+const WS_BARE_STATEMENT = /^\s*노동자\s?연대(\s?학생그룹)?\s?성명\s*[:：\-–—|]/;
 // 쿼리 값 몇 개만 남긴 주소(같은 글이 쪽 번호만 달라 두 번 들어오지 않게).
 function keepQuery(keys: string[]) {
   return (u: URL) => {
@@ -96,7 +100,11 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix("statement"),
   },
   {
+    // robots.txt 요청을 사이트가 거절해(401·403 → robots_denied, 2026-11-01 20:3x 운영 실행) 명진 결정 11/01 21:08로 이 단체도 읽는다:
+    // 공공운수노조 예외와 똑같이 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
+    // 다른 단체의 robots 규칙은 그대로 지킨다.
     key: "laborparty", name: "노동당", group: "party", lang: "ko", mode: "html",
+    robotsException: "명진 결정 11/01 21:08",
     lists: ["https://laborparty.kr/?page_id=13642"], hosts: ["laborparty.kr", "www.laborparty.kr"],
     item: /^https:\/\/(www\.)?laborparty\.kr\/\?(?=[^#]*\bmod=document\b)(?=[^#]*\bpage_id=13642\b)(?=[^#]*\buid=\d+\b)/,
     canon: keepQuery(["mod", "page_id", "uid"]),
@@ -132,11 +140,13 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix("statement"),
   },
   {
-    // 신문 기사와 성명이 한 피드에 섞여 있어 제목 머리말에 '성명'이 있는 글만 넣는다.
+    // 신문 기사와 성명이 한 피드에 섞여 있어 제목 머리말에 '성명'이 있는 글만 넣는다([노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명] 등).
+    // 2026-11-01 OUTSIDE-막힌단체: 운영 실행의 no_match는 고장이 아니다 — 피드는 읽혔고(글 있음) 최근 글에 성명 머리말 글이 없었을 뿐(화면엔 '마지막 …'로 정상 표시).
+    // 머리말을 괄호 없이 쓴 제목('노동자연대 성명: …')도 성명으로 받는다.
     key: "ws", name: "노동자연대", group: "movement", lang: "ko", mode: "rss",
     lists: ["https://ws.or.kr/feed"], hosts: ["ws.or.kr", "www.ws.or.kr"],
     canon: plain,
-    kindOf: (title) => (/성명/.test(prefixOf(title)) ? "statement" : null),
+    kindOf: (title) => (/성명/.test(prefixOf(title)) || WS_BARE_STATEMENT.test(title) ? "statement" : null),
   },
   {
     // 2026-11-01 확인: RSS·사이트맵이 없고, 글 목록(/readings)은 모든 글을 한 쪽에 실어 3.4MB라 2MB 상한에 걸렸다(too_large).
@@ -173,10 +183,14 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix(null),
   },
   {
-    // https 없이만 열린다(Q4 결정: 이 단체만 http 허용).
-    key: "socialist", name: "사회주의자", group: "movement", lang: "ko", mode: "rss",
-    lists: ["http://socialist.kr/feed"], hosts: ["socialist.kr", "www.socialist.kr"], allowHttp: true,
-    canon: plain,
+    // 사이트(http://socialist.kr/feed)는 로봇 확인 화면(bot_check, 2026-11-01 운영 실행)이라 읽지 않는다 — 그 화면은 절대 우회하지 않는다.
+    // 명진 결정 11/01 21:13: 이 단체의 공개 텔레그램 채널(@ksocialist) 웹 미리보기(로그인 없이 열리는 공개 페이지)를 읽기 경로로 쓴다.
+    // t.me는 이 단체의 이 경로(목록 t.me/s/ksocialist, 글 t.me/ksocialist/<번호>)만 허용한다. robots.txt는 그대로 지킨다(예외 아님).
+    // 글 쪽은 읽지 않는다: 본문은 채널 글 자체, 원문 링크는 본문 안 socialist.kr 글 주소(있으면, 요청하지 않고 링크로만) 아니면 채널 글 주소.
+    key: "socialist", name: "사회주의자", group: "movement", lang: "ko", mode: "telegram", telegram: "ksocialist",
+    lists: ["https://t.me/s/ksocialist"], hosts: ["t.me", "socialist.kr", "www.socialist.kr"], httpHosts: ["socialist.kr", "www.socialist.kr"],
+    // WordPress 짧은 주소(?p=번호)는 번호를 남긴다(빼면 모든 글이 첫 화면 주소 하나로 겹친다).
+    canon: (u) => { const p = u.searchParams.get("p"); return p && /^\d{1,9}$/.test(p) ? `${plain(u)}?p=${p}` : plain(u); },
     kindOf: byPrefix("article"),
   },
   // 외국 매체(Q5): 제목·링크·한국어 요약·핵심 문장 3개까지만 저장한다(본문·전문 번역 저장 안 함, 2절).
@@ -209,9 +223,17 @@ export function sourceByKey(key: unknown): OutsideSource | null {
 export function allowedUrl(source: OutsideSource, raw: string): URL | null {
   let u: URL;
   try { u = new URL(raw); } catch { return null; }
-  if (u.protocol !== "https:" && !(u.protocol === "http:" && source.allowHttp)) return null;
+  const host = u.hostname.toLowerCase();
+  if (u.protocol !== "https:" && !(u.protocol === "http:" && (source.httpHosts ?? []).includes(host))) return null;
   if (u.username || u.password || u.port) return null;
-  if (!source.hosts.includes(u.hostname.toLowerCase())) return null;
+  if (!source.hosts.includes(host)) return null;
+  // t.me는 단체 채널 경로만(다른 채널·로그인·앱 주소 금지): /s/<채널> 목록, /<채널>/<번호> 글.
+  if (host === "t.me") {
+    const ch = source.telegram;
+    if (!ch) return null;
+    const p = u.pathname;
+    if (!(p === `/s/${ch}` || new RegExp(`^/${ch}/\\d{1,9}$`).test(p))) return null;
+  }
   return u;
 }
 
