@@ -493,7 +493,8 @@ function prepareFlow() {
   if (flowBase.start === start) return;
   const week = start;
   Object.assign(flowBase, {start:week, status:'opening', note:''});
-  void hwpx.prepare().then(s => { if (flowBase.start !== week) return; flowBase.status = s ? 'open' : 'failed'; flowBase.note = s ? '' : '바탕을 열지 못해 칸을 만들지 못했어요. 아래 상태 줄과 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 봐 주세요.'; renderWeekly_({refreshBox:false}); },
+  // 그사이 다른 주로 갔으면(상자가 그 열기를 멈춤) 결과를 적지 않고 잊는다 — 그 주에 다시 오면 다시 연다.
+  void hwpx.prepare().then(s => { if (flowBase.start !== week) return; if (start !== week) { flowBase.start = ''; return; } flowBase.status = s ? 'open' : 'failed'; flowBase.note = s ? '' : '바탕을 열지 못해 칸을 만들지 못했어요. 아래 상태 줄과 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 봐 주세요.'; renderWeekly_({refreshBox:false}); },
     () => { if (flowBase.start === week) { flowBase.status = 'failed'; flowBase.note = '바탕을 열지 못했어요.'; renderWeekly_({refreshBox:false}); } });
 }
 function paintFlow(host, model) {

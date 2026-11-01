@@ -1801,6 +1801,49 @@ for(const width of [390,1280])test(`[주간 정리] 임시저장: 칸 줄·일�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
+// S47-58 E2E 안정화: 다음 주(빈 주)에서 바탕을 여는 중에 그 주 임시저장 읽기가 늦게 오면, 옛 열기가 돌아온 주의 새 열기를 밀어내고
+// [처음부터] 결과 줄을 빈 줄로 덮었다(간헐 실패의 원인). 주를 바꾸거나 상자를 닫으면 아직 여는 중인 열기도 멈춘다 — 늦은 응답을 붙잡아 두고 확인.
+test('[주간 정리] 다른 주에서 여는 중이던 바탕이 늦게 와도 돌아온 주의 바탕·[처음부터] 결과 줄을 덮지 않는다 1280',async({page})=>{
+ const f=await hwpxFixture(page,{width:1280});
+ // 다음 주(10/12) 임시저장 읽기 가운데 두 번째(상자가 바탕을 열며 읽는 것)를 붙잡아 둔다. 첫 번째는 [주간 정리] 화면이 읽는 것.
+ let n=0,release,held=new Promise(r=>{release=r;}),caught;const seen=new Promise(r=>{caught=r;});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_exec_requests'&&u.searchParams.get('week_start')==='eq.2026-10-12'&&/draft/.test(u.searchParams.get('select')??''),async r=>{
+  if(r.request().method()==='GET'&&++n===2){caught();await held;}
+  return r.fallback();
+ });
+ await openJournal(page,1280);await openWeekly(page);
+ await openDraft(page);
+ await addLine(page,'가상 노동조합','- 임시저장할 조직 소식');
+ await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
+ await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 12일 ~ 18일');
+ await seen; // 다음 주 바탕 열기가 그 주 임시저장 읽기에서 기다리는 중
+ await page.locator('#journalRoot [data-journal-prev]').click();
+ await expect(cellLines(flowCell(page,'가상 노동조합'))).toHaveText(['- 지난주 조직 소식','- 임시저장할 조직 소식']);
+ const row=f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ page.once('dialog',d=>d.accept());
+ await topMore(page,'[data-hwpx-restart]');
+ const status=hwpx(page).locator('[data-hwpx-status]');
+ await expect(status).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
+ await expect(cellLines(flowCell(page,'가상 노동조합'))).toHaveText(['- 지난주 조직 소식']);
+ expect(row.draft.rows).toEqual([]);
+ // 바탕 열기: 처음 1번 + [처음부터] 앞(돌아온 주는 아직 안 엶) 1번 + 지운 뒤 다시 1번 = 3번. 다음 주 열기는 읽기에서 멈춰 있어 보내지 않았다.
+ await expect.poll(()=>f.sent.open.length).toBe(3);
+ const opened=f.sent.open.length;
+ // 붙잡아 둔 다음 주 읽기를 이제 보낸다: 멈춘 열기라 바탕을 다시 열지 않고, 결과 줄도 그대로.
+ const late=page.waitForResponse(r=>r.url().includes('week_start=eq.2026-10-12')&&r.request().method()==='GET');
+ release();await late;
+ await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,0)))));
+ await expect(status).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
+ expect(f.sent.open.length).toBe(opened);
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
+ // 다음 주에 다시 가면 그 주 바탕을 다시 연다(멈춘 열기를 '못 엶'으로 남기지 않음).
+ await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 12일 ~ 18일');
+ await expect.poll(()=>f.sent.open.length,{timeout:15000}).toBeGreaterThan(opened);
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="orgs"]')).not.toContainText('바탕을 열지 못해');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
 test('[주간 정리] 임시저장 두 기기: 다른 기기가 먼저 저장했으면 다시 읽고 그 판 위에 이 누름을 얹는다(다른 칸·같은 칸 모두 남음) 1280',async({page})=>{
  const f=await hwpxFixture(page,{width:1280});
  await openJournal(page,1280);await openWeekly(page);

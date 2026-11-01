@@ -221,6 +221,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const lazy = () => lib || (lib = Promise.all([import('./weekly-hwpx/draft.mjs'), import('./hwp-drive.js')]).then(([draft, drive]) => ({draft, drive})));
 
   // 바탕을 닫는다(주가 바뀜·처음부터). 고치던 것은 닫기와 같이 저장. 맨 위 한 줄·확정 버튼 줄은 그대로(draft 로 다시 그림).
+  // 아직 여는 중인 열기도 함께 끝낸다: run(fromLibrary·load 차례)과 sourceRun(ensure 차례)을 올려 옛 열기는 바탕·상태 줄을 건드리지 않는다.
   function close(message = '') {
     reopenNote = null;
     if (state?.store?.dirty) void saveDraft(state);
@@ -234,15 +235,20 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const week = getWeek().start;
     if (state && state.start === week) return Promise.resolve(state);
     if (flight?.week === week) return flight.promise;
+    // 이 열기 차례(ticket): 기다리는 사이 상자가 닫혔거나(주 바뀜·[처음부터]) 보이는 주가 바뀌었으면 여기서 멈춘다.
+    // 멈추지 않으면 나중에 깨어난 옛 열기가 새 열기를 밀어내고 상태 줄·바탕을 덮는다(S47-58).
+    const ticket = sourceRun, stale = () => ticket !== sourceRun || getWeek().start !== week;
     const promise = (async () => {
       const {draft} = await lazy();
+      if (stale()) return null;
       if (!draft.canCompress()) { say(TEXT.noBrowser, 'error'); return null; }
       const saved = await readDraftFor(week);
+      if (stale()) return null;
       const d = saved?.row?.draft, p = d?.proposed?.base ?? null, b = d?.base ?? null;
       const id = p?.document_id ?? (b?.from === 'library' ? b.document_id : '');
       if (!id && (p?.from === 'file' || b?.from === 'file')) { say(`이 주 바탕이 기기 파일${b?.file_name ? `(${b.file_name})` : ''}이었어요. 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]로 같은 파일을 골라 주세요.`, 'error'); return null; }
       await fromLibrary(id ? {id, file_name:b?.document_id === id ? b?.file_name ?? '' : '', title:b?.document_id === id ? b?.title ?? '' : '', from:p?.from ?? ''} : null);
-      return state && state.start === getWeek().start ? state : null;
+      return !stale() && state && state.start === week ? state : null;
     })().finally(() => { if (flight?.promise === promise) flight = null; paintTop(); paintConfirm(); });
     flight = {week, promise};
     paintTop();
@@ -1507,7 +1513,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
 
   return {
     // The shown week or the owner changed: a draft belongs to one week, so it closes.
-    setWeek(week) { if (state && week !== state.start) close(); else { paintTop(); paintConfirm(); } },
+    setWeek(week) { if ((state && week !== state.start) || (flight && flight.week !== week)) close(); else { paintTop(); paintConfirm(); } },
     // 그 주 행이 바뀌었다(다시 읽음·[주간 정리]가 씀): 맨 위 한 줄·확정 줄만 다시.
     paint() { if (!topEdit) paintTop(); paintConfirm(); },
     // 칸 줄이 아직 없을 때 [주간 정리]가 부른다: 바탕을 열어 처음 초안(proposed)을 만든다.
