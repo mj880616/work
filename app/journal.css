@@ -163,7 +163,6 @@
 #appView #homeView .journal-kind-more{ display:inline-block; margin-left:6px; vertical-align:baseline; }
 #appView #homeView .journal-kind-more > summary{ list-style:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); margin-block:-4px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; border-radius:var(--kptu-radius-md); vertical-align:middle; }
 #appView #homeView .journal-kind-more > summary::-webkit-details-marker{ display:none; }
-#appView #homeView .journal-kind-more[open] > .mini{ margin-left:4px; }
 #appView #homeView .journal-kinds-off{ display:flex; flex-direction:column; gap:2px; margin-top:4px; }
 #appView #homeView .journal-kinds-off-list{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:2px; font-size:var(--kptu-text-body); color:var(--kptu-muted); }
 #appView #homeView .journal-kinds-off-list .mini{ margin-left:6px; }
@@ -269,7 +268,6 @@
 #appView #homeView .journal-exec-table thead th:nth-child(4){ width:76px; }
 #appView #homeView .journal-exec-tools{ text-align:right; }
 #appView #homeView .journal-exec-carried{ display:inline-block; margin-left:2px; padding:0 5px; border-radius:var(--ds-chip-radius); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.6; white-space:nowrap; vertical-align:baseline; }
-#appView #homeView .journal-exec-bar{ display:flex; align-items:center; gap:6px; margin-top:4px; }
 #appView #homeView .journal-exec-form{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:flex-end; }
 #appView #homeView .journal-exec-field{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 140px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #homeView .journal-exec-field input{ box-sizing:border-box; width:100%; min-height:var(--ds-compact-height); font-size:var(--kptu-text-body); color:var(--kptu-ink); }
@@ -382,20 +380,12 @@
 #appView #homeView .journal-others-parts{ display:flex; flex-direction:column; gap:8px; }
 #appView #homeView .journal-others-parts > .journal-group{ border-top:0; padding-top:4px; }
 @media(min-width:761px){ #appView #homeView .journal-others-parts{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 16px; } }
-/* JOURNAL-조직현황AI요약: 4. 산하 조직 현황 > 1) 요약의 조직별 요약. UI-버튼기준: [요약 만들기]는 작은 버튼(--ds-compact-height),
-   조직마다 [요약 고치기]·[원문 N건]은 글자 크기(--ds-text-meta)의 낮은 글자 버튼(--ds-compact-height-sm), 누르는 범위는 ::after 44px.
+/* JOURNAL-조직현황AI요약: 4. 산하 조직 현황 > 1) 요약의 조직별 요약. [요약 만들기]는 묶음 제목 줄 오른쪽 작은 글자 버튼, 조직마다
+   [요약 고치기]는 이름 줄 끝 ⋯ 안(WEEKLY-화면디자인정리, 아래 묶음). [원문 N건]은 낮은 글자 버튼(--ds-compact-height-sm).
    요약 줄은 일반 목록과 같은 글자, 원문은 <details>로 접어 둔다. 새 크기 값 없음. */
-#appView #homeView .journal-org-ai{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
-#appView #homeView .journal-org-ai .mini,
-#appView #homeView .journal-org-tools .mini{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; margin:0; line-height:1; white-space:nowrap; font-weight:var(--ds-weight-medium); }
-#appView #homeView .journal-org-ai .mini{ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
-#appView #homeView .journal-org-tools .mini{ height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); padding:0 8px; font-size:var(--ds-text-meta); color:var(--kptu-primary-ink); background:transparent; border-color:transparent; }
-#appView #homeView .journal-org-ai .mini::after,
-#appView #homeView .journal-org-tools .mini::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-@media(hover:hover){ #appView #homeView .journal-org-tools .mini:hover:not(:disabled){ background:var(--kptu-surface-subtle); } }
 #appView #homeView .journal-org-ai-status{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .journal-org-ai-status:empty{ display:none; }
 #appView #homeView .journal-org-ai-status.journal-failed{ color:var(--kptu-danger); }
-#appView #homeView .journal-org-tools{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
 #appView #homeView .journal-org-edited{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-org-raw > summary{ display:inline-flex; align-items:center; min-height:var(--ds-compact-height-sm); cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-org-raw > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
@@ -406,8 +396,6 @@
 #appView #homeView .journal-org-raw > summary::-webkit-details-marker{ display:none; }
 #appView #homeView .journal-org-raw > summary::before{ content:"▸"; display:inline-block; transition:transform .15s; }
 #appView #homeView .journal-org-raw[open] > summary::before{ transform:rotate(90deg); }
-#appView #homeView .journal-org-tools .mini{ margin-left:-8px; }
-#appView #homeView .journal-org-tools .journal-org-edited + .mini{ margin-left:0; }
 /* LEDGER-자동기록: 하루 카드 재료 위 "새로 기록된 약속 N" 한 줄(기존 줄 버튼 모양 그대로). */
 #appView #homeView .journal-ledger-line{ margin:0; }
 /* WEEKLY-자료요약 화면 ①: [주간 정리] 자료 줄 — 작은 '자료' 꼬리표(요청 표 '지난주에서'와 같은 모양), 누르면 자료실이 열리는 글(글자 버튼, 테두리 없음),
@@ -588,3 +576,72 @@
 #appView #homeView .journal-weekly-gone{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-hwpx-gone > summary,
 #appView #homeView .journal-weekly-gone > summary{ cursor:pointer; }
+
+/* WEEKLY-화면디자인정리·요청사항버튼정리·칸밖재료접기(요청함 11/01 01:08·01:21·01:22, 명진 시안 "ㅇㅋ" 01:28): 주간 정리 화면 버튼 하나의 규칙.
+   - 줄마다의 [고치기]·[지우기/빼기]는 줄 끝 작은 ⋯ 하나(row-more.js). 누르면 ⋯ 바로 아래 오른쪽 맞춤의 작은 글자 줄 메뉴로 뜨고 줄을 밀지 않는다.
+   - 묶음의 [+ 추가](와 [달력에서]·[요약 만들기])는 묶음 제목 줄 오른쪽 작은 글자 버튼(.journal-part-add). 표 아래 따로 한 줄을 두지 않는다.
+   - 폰(~760px)에서 표가 줄마다 쌓일 때도 ⠿·⋯ 는 그 줄 오른쪽 위에 겹쳐 두어(빈 줄 없음) 줄은 날짜 줄 + 내용 줄까지만.
+   - '참고 — 보고서 칸 밖 재료'·'주간보고 기억'·'주간보고 규칙·환류'는 접힌 한 줄(제목 + 건수, .journal-weekly-fold).
+   값은 토큰만(UI-버튼기준: 보이는 28px, 누르는 범위 44px은 ::after). */
+#appView #homeView .row-more{ position:relative; }
+#appView #homeView .row-more-menu{ position:absolute; z-index:40; top:calc(100% + 2px); right:0; display:flex; flex-direction:column; min-width:7.5em; box-sizing:border-box; padding:4px;
+  border:var(--ds-line-width) solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); }
+#appView #homeView .row-more-menu > button{ display:flex; align-items:center; width:100%; height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:0; padding:0 10px;
+  border:0; border-radius:var(--kptu-radius-sm); background:transparent; box-shadow:none; color:var(--kptu-ink); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-regular); line-height:1; text-align:left; white-space:nowrap; }
+#appView #homeView .row-more-menu > button:is(:hover,:focus-visible):not(:disabled){ background:var(--kptu-primary-soft); outline:none; }
+#appView #homeView .row-more-menu > button.row-more-danger{ color:var(--kptu-danger); }
+#appView #homeView .row-more-menu > button:disabled{ color:var(--kptu-muted); opacity:.6; }
+#appView #homeView .row-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
+/* 묶음 제목 줄 오른쪽: 묶음(section.journal-part-has-add)은 두 칸 격자, 제목은 왼쪽 위, 작은 버튼 묶음은 오른쪽 위. 그리기 자리(.journal-part-slot)는
+   자기 상자를 만들지 않아(display:contents) 그 안의 버튼 묶음도 제목 줄에 선다. 나머지는 모두 한 줄 전체 폭. */
+#appView #homeView .journal-part-has-add{ display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:8px; row-gap:4px; align-items:center; }
+#appView #homeView .journal-part-has-add > *,
+#appView #homeView .journal-part-has-add > .journal-part-slot > *{ grid-column:1 / -1; min-width:0; }
+#appView #homeView .journal-part-has-add > .journal-part-slot{ display:contents; }
+#appView #homeView .journal-part-has-add > .journal-weekly-sub{ grid-column:1; grid-row:1; }
+#appView #homeView .journal-part-has-add > .journal-part-add,
+#appView #homeView .journal-part-has-add > .journal-part-slot > .journal-part-add{ grid-column:2; grid-row:1; justify-self:end; }
+#appView #homeView .journal-part-add{ display:inline-flex; align-items:center; gap:2px; }
+#appView #homeView .journal-part-add-button{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm);
+  margin:0; padding:0 8px; border:0; border-radius:var(--kptu-radius-sm); background:transparent; box-shadow:none; color:var(--kptu-primary-ink); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; }
+#appView #homeView .journal-part-add-button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #homeView .journal-part-add-button:disabled{ color:var(--kptu-muted); opacity:.6; }
+@media(hover:hover){ #appView #homeView .journal-part-add-button:hover:not(:disabled){ background:var(--kptu-surface-subtle); } }
+/* 표 끝 고치기 칸: ⠿·⋯ 두 개만이라 좁게, 오른쪽 맞춤. 그 칸의 작은 버튼은 28px. */
+#appView #homeView .journal-exec-table thead th:nth-child(4),
+#appView #homeView .journal-hq-table thead th:nth-child(3),
+#appView #homeView .journal-discuss-table thead th:nth-child(4){ width:64px; }
+#appView #homeView .journal-exec-table .journal-exec-tools{ text-align:right; white-space:nowrap; vertical-align:top; }
+#appView #homeView .journal-exec-tools > .journal-kind-more{ margin-left:2px; }
+#appView #homeView .journal-exec-tools > .journal-hwpx-grip{ min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); padding:0; border:0; background:transparent; box-shadow:none; vertical-align:middle; }
+#appView #homeView .journal-weekly .journal-org.journal-org-has-tools{ display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:6px; row-gap:2px; align-items:center; }
+#appView #homeView .journal-org-has-tools > *{ grid-column:1 / -1; min-width:0; }
+#appView #homeView .journal-org-has-tools > .journal-org-name{ grid-column:1; grid-row:1; }
+#appView #homeView .journal-org-has-tools > .journal-org-tools{ grid-column:2; grid-row:1; display:inline-flex; align-items:center; gap:4px; }
+#appView #homeView .journal-org-tools .journal-kind-more{ margin-left:0; }
+/* 3) 상집 논의 요청: 여러 줄 글은 줄바꿈 그대로 보이고, 입력은 글만큼 커지는 글상자. PC는 [안건]·[관련 조직]이 한 줄, [설명]은 한 줄 전체 폭. */
+#appView #homeView .journal-discuss-table :is(.journal-discuss-title,.journal-discuss-note){ white-space:pre-wrap; overflow-wrap:anywhere; }
+#appView #homeView .journal-discuss-form .journal-discuss-title{ flex:3 1 260px; }
+#appView #homeView .journal-discuss-form .journal-exec-org{ flex:1 1 140px; }
+#appView #homeView .journal-discuss-form .journal-discuss-note{ flex:1 1 100%; }
+#appView #homeView .journal-discuss-text{ box-sizing:border-box; width:100%; min-height:var(--ds-compact-height); padding:5px 8px; resize:vertical; overflow-y:auto; font:inherit; font-size:var(--kptu-text-body); line-height:1.5; color:var(--kptu-ink); }
+#appView #homeView .journal-discuss-text[aria-invalid="true"]{ border-color:var(--kptu-danger); }
+/* 접힌 묶음: 제목 + 건수 한 줄, ▸ 표시. 열면 그 안이 보인다. */
+#appView #homeView .journal-weekly-fold > summary{ list-style:none; display:flex; align-items:baseline; gap:6px; min-height:var(--ds-compact-height-sm); cursor:pointer; }
+#appView #homeView .journal-weekly-fold > summary::-webkit-details-marker{ display:none; }
+#appView #homeView .journal-weekly-fold > summary::before{ content:"▸"; color:var(--kptu-muted); font-size:var(--ds-text-meta); transition:transform .15s; }
+#appView #homeView .journal-weekly-fold[open] > summary::before{ transform:rotate(90deg); }
+#appView #homeView .journal-weekly-fold > summary .journal-heading{ margin:0; font-size:var(--ds-text-read); font-weight:700; line-height:1.4; color:var(--kptu-ink); }
+#appView #homeView .journal-weekly-fold > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #homeView .journal-weekly-fold:not([open]){ gap:0; }
+/* 줄 끝 ⋯ 가 붙은 목록 줄은 ⋯ 가 줄 높이를 넘지 않게(28px 칸을 위아래로 당김). */
+#appView #homeView .journal-kinds-off-list li > .journal-kind-more{ margin-left:4px; }
+@media(max-width:760px){
+  /* 폰: 표가 줄마다 쌓여도 ⠿·⋯ 는 그 줄 오른쪽 위(빈 줄 없음). 글은 그 자리만큼 오른쪽을 비운다. */
+  #appView #homeView :is(.journal-exec-table,.journal-hq-table,.journal-discuss-table) tbody tr[data-journal-exec-row],
+  #appView #homeView :is(.journal-exec-table,.journal-hq-table,.journal-discuss-table) tbody tr[data-journal-hq-row],
+  #appView #homeView :is(.journal-exec-table,.journal-hq-table,.journal-discuss-table) tbody tr[data-journal-discuss-row]{ position:relative; padding-right:64px; min-height:var(--ds-compact-height-sm); }
+  #appView #homeView :is(.journal-exec-table,.journal-hq-table,.journal-discuss-table) tbody tr > td.journal-exec-tools{ position:absolute; top:4px; right:0; padding:0; text-align:right; }
+  #appView #homeView .journal-discuss-table .journal-discuss-org:empty,
+  #appView #homeView .journal-discuss-table .journal-discuss-note:empty{ display:none; }
+}
