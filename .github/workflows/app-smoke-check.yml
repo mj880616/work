@@ -78,6 +78,7 @@ on:
       - 'tests/phone-pull-refresh.test.mjs'
       - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
+      - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
@@ -208,6 +209,7 @@ on:
       - 'tests/phone-pull-refresh.test.mjs'
       - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
+      - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
@@ -582,6 +584,9 @@ jobs:
 
       - name: Check phone push settings and device sync (APP-폰알림 N4)
         run: node --test tests/phone-push-settings.test.mjs
+
+      - name: Check done notices and recent 7 days rules (UI-앱안알림 4·5)
+        run: node --test tests/notice-done-model.test.mjs
 
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs
