@@ -138,7 +138,7 @@ const lineText = s => String(s ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]
 const badLine = code => Object.assign(new Error(code === 'too_long' ? `한 줄은 ${CELL_LINE_MAX}자까지예요.` : 'line'), {code});
 // 누름 하나를 draft 에 반영한다(원본은 건드리지 않음). op:
 //   {section, key, n=0, act, index?, text?, item?, lines?, at}
-//   act 'take'·'edit'·'add': 칸 끝에 text 한 줄을 더함(edit 은 item.text = 제안 글 → before). 'fix': index 줄을 text 로. 'cut': index 줄을 뺌.
+//   act 'take'·'edit'·'add': 칸 끝에 text 한 줄을 더함(edit 은 item.text = 제안 글 → before). take·edit 에 index 를 주면 그 줄을 바꿈(줄 제안, item.line = 바꾸기 전 줄). 'fix': index 줄을 text 로. 'cut': index 줄을 뺌.
 //   'drop': 칸은 그대로, 제안 거절 표시만. 'none': 앞 동작 지움 — lines 를 주면 칸을 그 줄들로 되돌린다(5초 [되돌리기]).
 //   item: 제안 동작(take·edit·drop)의 제안 {key?, kind, from, cell, org, text}. 보고서 줄 동작(fix·cut·add)은 item 없이 kind 'line'으로 남긴다.
 //   'none'(되돌리기)은 앞 동작의 기록 항목(제안이면 그 제안, 줄 동작이면 lineDone 이 돌려준 항목)을 item 으로 넘겨 그 기록을 지운다.
@@ -151,7 +151,11 @@ export function withCellLine(draft, {section, key, n = 0, act, index = -1, text 
   if (['fix', 'cut'].includes(act) && !(Number.isInteger(index) && index >= 0 && index < now.length)) throw badLine('index');
   if (ANSWER_ACTS.includes(act) && !(item && PICK_KIND[item.kind])) throw badLine('item');
   let next = now;
-  if (act === 'take' || act === 'edit' || act === 'add') next = [...now, line];
+  // 줄 제안(ai_line) [수용]·[고쳐서 수용]은 index 줄을 바꾼다(그새 줄이 바뀌었으면 거절 — 엉뚱한 줄을 바꾸지 않음).
+  if ((act === 'take' || act === 'edit') && index >= 0) {
+    if (!(Number.isInteger(index) && index < now.length) || (item?.line != null && lineText(now[index]) !== lineText(item.line))) throw badLine('index');
+    next = now.map((x, i) => (i === index ? line : x));
+  } else if (act === 'take' || act === 'edit' || act === 'add') next = [...now, line];
   else if (act === 'fix') next = now.map((x, i) => (i === index ? line : x));
   else if (act === 'cut') next = now.filter((_, i) => i !== index);
   else if (act === 'none' && Array.isArray(lines)) next = cleanLines(lines).map(lineText).filter(Boolean);

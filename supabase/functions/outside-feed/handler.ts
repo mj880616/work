@@ -385,7 +385,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     for (const it of found) if (!seen.has(it.url)) { seen.add(it.url); items.push(it); }
   }
   out.listed = items.length;
-  // 목록은 잘 읽었는데 이번 첫 쪽에 넣을 종류의 글이 없을 때(예: 노동자연대 피드는 신문 기사가 대부분이고 성명만 넣는다)는
+  // 목록은 잘 읽었는데 이번 첫 쪽에 넣을 종류의 글이 없을 때(예: 첫 쪽이 공지·취재요청 글뿐일 때)는
   // 고장이 아니다: 읽기 성공으로 적고(last_error 비움) 새 글 0건으로 끝낸다.
   if (!items.length && stats.candidates > 0 && !listError) {
     await markSources(db, source.key, workspaces, null, nowIso);
