@@ -203,7 +203,9 @@
       history.back();
       return done;
     }
-    if(!alive)return Promise.resolve();
+    // Only entries of this open stack are left: when a step to another side or screen was written above it (its entry no longer
+    // lists the layer), that step stays where it is and the layer's entry is passed over later.
+    if(!alive||!chainOf(history.state).includes(layer.name))return Promise.resolve();
     const done=new Promise(resolve=>released.push(resolve));
     if(!closing){
       closing={low:layer.index};

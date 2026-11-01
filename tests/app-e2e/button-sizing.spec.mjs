@@ -199,6 +199,8 @@ for(const width of [390,1440])test('D-button Google event editor delete and save
 test('뒤로가기: 사업영역 상세 ⋯ 메뉴는 메뉴만, 다음은 상세, 그다음 홈 412',async({page})=>{
  await page.setViewportSize({width:412,height:900});await boot(page);await view(page,'projects');
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="type-project"]').click();await expectProjectDetail(page,'type-project');
+ // 상세 창의 기록(창·프로젝트 주소)이 다 붙은 뒤에 ⋯를 연다.
+ await expect.poll(()=>page.evaluate(()=>history.state?.project&&history.state?.kptuOverlay&&String(navigation.currentEntry.index)===document.querySelector('#ps3DetailModal').dataset.kptuHistoryIndex)).toBe(true);
  const more=page.locator('#ps3Menu .ps3-more');
  await more.locator('>summary').click();await expect(more).toHaveAttribute('open','');
  await page.goBack();await expect(more).not.toHaveAttribute('open','');await expect(page.locator('#ps3DetailModal')).toBeVisible();

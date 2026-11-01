@@ -24,7 +24,13 @@
         delete modal.dataset.kptuHistoryClosing;
         return;
       }
-      if(history.state?.kptuOverlay===modal.id)history.back();
+      // S47-18: entries opened on top of this window (a ⋯ menu, a detail inside it) carry its name too; closing the window leaves
+      // them all in one traversal down to just below its own entry, so no entry of it stays for the next Back to land on.
+      const at=Number(modal.dataset.kptuHistoryIndex),index=window.navigation?.currentEntry?.index;
+      if(history.state?.kptuOverlay===modal.id){
+        if(modal.dataset.kptuHistoryIndex&&Number.isInteger(at)&&Number.isInteger(index)&&index>at)history.go(at-1-index);
+        else history.back();
+      }
     }
   }
 
