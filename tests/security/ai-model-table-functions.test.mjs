@@ -95,7 +95,7 @@ test('collector-feed: 텔레그램 호출 상한에 생각 여유가 더해져 �
 
 test('새 Edge 함수가 OpenAI를 부르면서 여유·공용 길을 빠뜨리지 못한다(전체 함수 폴더 검사)',async()=>{
   const {readdirSync,statSync,existsSync}=await import('node:fs');
-  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed','outside-feed']);
+  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed','outside-feed','news-feed']);
   const missing=[];
   for(const d of readdirSync(ROOT)){
     if(d.startsWith('_')||!statSync(ROOT+d).isDirectory()||known.has(d))continue;
@@ -105,6 +105,15 @@ test('새 Edge 함수가 OpenAI를 부르면서 여유·공용 길을 빠뜨리�
     }
   }
   assert.deepEqual(missing,[],'OpenAI를 부르는 새 함수는 위 목록에 넣고 withReasoning·여유를 적용해야 한다');
+});
+
+test('news-feed: 공용 callOpenAi(생각 수준)만 쓰고 출력 상한에 생각 여유가 더해져 있다',()=>{
+  const t=read(ROOT+'news-feed/handler.ts');
+  assert.match(t,/callOpenAi\(/);
+  const at=[...t.matchAll(/max_output_tokens:/g)].map(m=>t.slice(m.index,m.index+80));
+  assert.equal(at.length,1);
+  for(const c of at)assert.match(c,/\+ AI_REASONING_TOKEN_HEADROOM/,c);
+  for(const f of ['page.ts','index.ts'])assert.doesNotMatch(read(ROOT+'news-feed/'+f),/api\.openai\.com|max_output_tokens:/,f);
 });
 
 test('outside-feed: 공용 callOpenAi(생각 수준)만 쓰고 모든 출력 상한에 생각 여유가 더해져 있다',()=>{
