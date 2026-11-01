@@ -50,6 +50,12 @@ export function upcomingText(m) {
   return `예정 · ${mo}.${d}.(${day})${time} ${home ? '홈' : '원정'} ${text(home ? m.away : m.home)}`;
 }
 
+// S47-63: 예정 줄의 국내 중계(선택 칸). 없거나 형식이 틀리면 빈 글자 — 화면은 그때 아무것도 보이지 않는다.
+export function broadcastOf(m) {
+  const value = isUpcoming(m) ? text(m.broadcast).trim() : '';
+  return value && value.length <= 40 && !/[\r\n<>]|https?:/i.test(value) ? value : '';
+}
+
 export const seasonsOf = matches => [...new Set(matches.map(m => text(m.season)).filter(Boolean))].sort().reverse();
 export const competitionsOf = matches => [...new Set(matches.map(m => text(m.competition)).filter(Boolean))].sort();
 

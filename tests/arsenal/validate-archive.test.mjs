@@ -202,3 +202,14 @@ test('real archive upcoming records are well formed (date checks use today in KS
   const errors = auditArchive(rows, { complete: false, today: '2026-10-31' }).errors;
   assert.deepEqual(errors, []);
 });
+
+// S47-63 예정 줄 선택 칸 broadcast(국내 중계 이름).
+test('upcoming broadcast is optional text; empty, long, URL or non-string fails', () => {
+  const check = extra => auditArchive([upcoming(extra)], { complete: false, today: TODAY }).errors.join(' ');
+  assert.equal(check({ broadcast: '쿠팡플레이' }), '');
+  assert.equal(check({}), '');
+  for (const bad of ['', '   ', 'x'.repeat(41), 'https://a.example/', '쿠팡\n플레이', '<b>x</b>', 3, null]) {
+    assert.match(check({ broadcast: bad }), /invalid broadcast/, JSON.stringify(bad));
+  }
+});
+
