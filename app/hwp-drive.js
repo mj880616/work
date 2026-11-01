@@ -176,6 +176,20 @@ export async function saveWeeklyReport(bytes,{fileName,title,documentDate},{rt=w
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 
+// WEEKLY-한흐름확정 ②(명진 결정 ②): 같은 주를 다시 확정하면 그 주 개인본 자료의 파일만 새 판으로 바꾼다(library-files replace_document_id —
+// 제목·분류·날짜는 그대로, 옛 판은 [이전 파일]에 30일). 자료가 없어졌으면 {kind:'gone'}(부르는 쪽이 새 자료로). 한 번만 보내고 모르는 결과는 확인을 부탁한다.
+export async function replaceWeeklyReport(bytes,{fileName,documentId},{rt=window.KPTURuntime,fetcher}={}){
+  const form=new FormData();
+  form.append('file',new File([bytes],fileName,{type:/\.hwpx$/i.test(fileName)?'application/hwp+zip':'application/x-hwp'}));
+  form.append('replace_document_id',documentId);
+  let response;
+  try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
+  const data=await readJson(response);
+  if(response.ok&&data?.ok===true&&data.document?.id===documentId){readTextLater(data.document,{rt});return {kind:'replaced',document:{id:documentId,title:String(data.document.title||'')},message:'자료실 개인본을 새 판으로 바꿨어요. 옛 판은 30일 동안 [이전 파일]에 있어요.'};}
+  if(response.status===404)return {kind:'gone',message:'바꿀 개인본이 자료실에 없어요.'};
+  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
+}
+
 // 바구니: the HWP is added to the same note as a new attachment (basket-files). The note decides the workspace.
 export async function saveBasketCopy(target,bytes,{rt=window.KPTURuntime,fetcher}={}){
   const form=new FormData();

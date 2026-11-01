@@ -84,6 +84,7 @@ const EXCLUDED = new Map([
   ['ai-assist/library-fill.ts', '자료 한두 줄 요약은 주간보고 줄의 재료(주간보고 문체), 나머지 칸은 제목·값'],
   ['ai-assist/schedule-titles.ts', '주간보고 일정 제목(제목, 문장 아님)'],
   ['ai-assist/todo-radar.ts', '챙길 것 한 줄은 할 일 이름(명사형)이고 요약이 아님'],
+  ['ai-assist/todo-rules.ts', '챙길 것 거르기 규칙 후보 한 줄(명사형 규칙 목록, 문장 요약 아님 — TODO-이미함·환류)'],
   ['ai-assist/overlap.ts', '두 기록이 같은 활동인지 가리는 판정 이유 한 문장(요약이 아님)'],
   ['ai-assist/call-refill.ts', '통화 제목·조직·상대 칸 채우기(핵심내용 요약은 쓰지 않음)'],
   ['ai-assist/business-area.ts', '사업요약표 진행 칸 한 줄(명사형 끝맺음, 주간보고 문체)과 사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관'],

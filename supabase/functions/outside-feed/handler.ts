@@ -18,7 +18,7 @@ import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSo
 import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
-import { cut, decodeBody, extractBody, looksLikeBotCheck, oneLine, pageDate, parseFeed, parseListHtml, robotsAllows, splitSentences, type ListItem, type ListStats } from "./parse.ts";
+import { cut, decodeBody, extractBody, looksLikeBotCheck, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, type ListItem, type ListStats } from "./parse.ts";
 
 export type OutsideFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: Log };
 
@@ -45,9 +45,10 @@ export const READ_NOW_MAX_NEW = 5;                 // 바로 읽기: 새 글 상
 export const MAX_BODY_BYTES = 4096;
 export const MIN_BODY_CHARS = 60;                  // 이보다 짧은 본문은 본문이 없는 것으로 본다(글쓴이·등록일 줄만 뽑힌 경우 등) — AI에 보내지 않음
 // robots.txt 예외(명진 결정 11/01 16:49): 이 목록에 있고 카탈로그에도 robotsException이 적힌 단체만 robots.txt를 읽지 않는다.
-// 지금은 공공운수노조(kptu) 하나뿐이다. 늘리려면 명진 결정 + 이 줄·카탈로그·시험을 함께 고치는 PR이 필요하다(시험이 ['kptu']로 고정).
+// 지금은 공공운수노조(kptu, 명진 결정 11/01 16:49)와 노동당(laborparty, 명진 결정 11/01 21:08) 두 곳뿐이다.
+// 늘리려면 명진 결정 + 이 줄·카탈로그·시험을 함께 고치는 PR이 필요하다(시험이 ['kptu','laborparty']로 고정).
 // 예외 단체는 예약 실행 때만 읽고(바로 읽기 없음) 목록 한 쪽 + 새 글만 읽는다(다른 단체와 같은 LIST_LIMIT·MAX_NEW_PER_RUN·GAP_MS).
-export const ROBOTS_EXEMPT_KEYS: readonly string[] = Object.freeze(["kptu"]);
+export const ROBOTS_EXEMPT_KEYS: readonly string[] = Object.freeze(["kptu", "laborparty"]);
 export const robotsExempt = (source: OutsideSource) => ROBOTS_EXEMPT_KEYS.includes(source.key) && typeof source.robotsException === "string" && source.robotsException.length > 0;
 const OPENAI_URL = "https://api.openai.com/v1/responses";
 const KEY_NAME = "WEB2_OPENAI_API_KEY";
@@ -377,7 +378,9 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     const got = await reader.get(source, list, source.mode === "rss");
     if (!got.ok) { listError = got.code; continue; }
     const before = stats.candidates;
-    const found = source.mode === "rss" ? parseFeed(source, got.text, nowMs, LIST_LIMIT, stats) : parseListHtml(source, got.text, got.url, LIST_LIMIT, stats, nowMs);
+    const found = source.mode === "rss" ? parseFeed(source, got.text, nowMs, LIST_LIMIT, stats)
+      : source.mode === "telegram" ? parseTelegram(source, got.text, nowMs, LIST_LIMIT, stats)
+      : parseListHtml(source, got.text, got.url, LIST_LIMIT, stats, nowMs);
     if (stats.candidates === before && looksLikeBotCheck(got.text)) listError = "bot_check";
     for (const it of found) if (!seen.has(it.url)) { seen.add(it.url); items.push(it); }
   }
@@ -409,7 +412,11 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     let body = it.content && chars(it.content) >= 200 ? it.content : "";
     let pageText = "";
     let pageRead = false;
-    if (!body) {
+    if (source.mode === "telegram") {
+      // 텔레그램 채널 글: 목록에 실린 글 자체가 본문이다. 글 쪽(채널 글·단체 사이트)은 따로 요청하지 않는다(사이트 로봇 확인 화면을 건드리지 않음).
+      body = it.content && chars(it.content) >= MIN_BODY_CHARS ? it.content : "";
+      pageRead = true; // 본문이 짧으면 제목만 넣는다(요약 줄 비움).
+    } else if (!body) {
       const page = await reader.get(source, it.url, false);
       if (page.ok) {
         pageRead = true;
@@ -538,7 +545,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
         const mine = await db.get(`app_outside_sources?workspace_id=eq.${who.workspaceId}&source_key=eq.${source.key}&select=enabled,last_ok_at&limit=1`);
         if (mine[0]?.enabled !== true) throw new Fail(409, "NOT_ENABLED");
-        // robots 예외 단체(공공운수노조)는 하루 3번 예약 때만 읽는다(명진 결정 11/01 16:49: 부하 최소).
+        // robots 예외 단체(공공운수노조·노동당)는 하루 3번 예약 때만 읽는다(명진 결정 11/01 16:49·21:08: 부하 최소).
         if (robotsExempt(source)) return json({ ok: true, source: source.key, status: "scheduled_only", inserted: 0 });
         const lastOk = Date.parse(String(mine[0]?.last_ok_at ?? ""));
         if (Number.isFinite(lastOk) && nowMs - lastOk < READ_NOW_COOLDOWN_MS) return json({ ok: true, source: source.key, status: "recent", inserted: 0 });
