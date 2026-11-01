@@ -188,6 +188,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   //             + 상태 한 줄, 그 아래 바탕을 연 뒤에만 보이는 것(다른 기기와 겹친 칸·일정 칸 고치기·환류 보고·기억).
   // 보고서 칸 줄은 weekly-flow-cells.js 가 그 주 draft 에서 그린다. 바탕 파일은 그 주 처음(칸 만들기)·파일 만들 때·일정 칸 고치기를 펼칠 때만 연다(ensure).
   const topLine = el('div', 'weekly-flow-top'); topLine.dataset.weeklyFlowTop = '';
+  // 1. 요청사항 › 1) 위 한 줄: 바탕(지난주 확정본)에서 가져온 요청 줄 안내. [주간 정리]가 그 자리에 붙인다. 바탕을 연 판에서만 보인다.
+  const reqNote = el('p', 'journal-muted journal-hwpx-requests-note'); reqNote.dataset.hwpxRequests = ''; reqNote.hidden = true;
   const panel = el('section', 'journal-hwpx-panel'); panel.hidden = true; panel.setAttribute('aria-label', '주간보고 한글 파일');
   const status = el('p', 'journal-hwpx-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.dataset.hwpxStatus = '';
   const body = el('div', 'journal-hwpx-body');
@@ -213,7 +215,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (state?.store?.dirty) void saveDraft(state);
     if (state?.store) clearTimeout(state.store.timer);
     run++; sourceRun++; state = null; weekDraft = null; flight = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true; siteDrag?.destroy(); siteDrag = null;
-    panel.hidden = true; body.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm();
+    panel.hidden = true; body.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm(); renderRequestNote();
   }
   // 그 주 바탕을 연다(이미 열려 있으면 그대로). 그 주 임시저장에 바탕 자료가 적혀 있으면 그것을, 없으면 자료실 최신 개인본(없으면 팀 확정본).
   // 반환: 열렸으면 state, 못 열었으면 null(까닭은 상태 줄).
@@ -444,8 +446,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     return {items:state.carry?.status === 'saving' ? mergeCarried(r.items, carried) : r.items, from:'saved'};
   }
   function renderRequestNote() {
-    const note = body.querySelector('[data-hwpx-requests]');
-    if (!note || !state?.carry) return;
+    const note = reqNote;
+    note.hidden = !state?.carry || state.start !== getWeek().start;
+    if (note.hidden) return;
     const c = state.carry, n = c.counts, rows = requestRows();
     const dropped = [n.past ? `지난 날짜 ${n.past}` : '', n.unrelated ? `관련 없음 ${n.unrelated}` : '', n.unread ? `날짜·내용을 못 읽음 ${n.unread}` : ''].filter(Boolean).join(', ');
     const took = c.status === 'before' ? '이 주는 이미 지난주 줄을 가져와서 다시 가져오지 않았어요.'
@@ -776,6 +779,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     body.replaceChildren(...parts);
     renderRemember();
     renderMaterial();
+    renderRequestNote();
     paintTeam();
     paintAi();
     paintLearn();
@@ -1583,7 +1587,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (state !== s) return;
     if (!saved && st?.dirty) void saveDraft(s); // 아직 못 쓴 받은 초안 기록(issued)만 있을 때
     // 칸이 비면 [주간 정리]가 바탕을 다시 열어 처음 초안부터 만든다(prepare → ensure).
-    close(saved ? '임시저장본을 지웠어요. 바탕부터 다시 만들어요.' : ''); onDraft?.(s.start, null);
+    close(saved ? '임시저장본을 지웠어요. 바탕부터 다시 만들어요.' : ''); onDraft?.(s.start, null); onFlow({restart:s.start});
   }
   doc.addEventListener('visibilitychange', () => {
     if (!state?.store) return;
@@ -1640,6 +1644,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // 그 주 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳(칸 id → 줄). 바탕을 연 판에서만.
     team: start => (state && state.start === start && state.teamDiff ? {diff:state.teamDiff, title:state.teamTitle ?? ''} : null),
     topLine,
+    requestNote: reqNote,
     // The week's reads landed: refresh only the candidates beside the rows (what was typed stays).
     refresh() { if (state) state.built = null; renderMaterial(); renderRequestNote(); paintHqNote(); },
     // [주간 정리]가 그 주 임시저장(2) 주요 일정 줄·일정 칸별 고침)을 썼다: 열린 상자는 서버 판과 맞춘다(3자 비교, 고치던 칸은 그대로).
