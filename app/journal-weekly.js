@@ -102,7 +102,9 @@ export function placeRecords(records, tree) {
     area.rows.sort((a, b) => at(a.task?.id) - at(b.task?.id));
   }
   return {areas:areas.filter(area => area.rows.length), others:[...others].map(([name, {items, folded, dropped}]) => ({name, items, ...(folded.length ? {folded} : {}), ...(dropped.length ? {dropped} : {})})).sort((a, b) => a.name.localeCompare(b.name, 'ko')),
-    quiet:areas.filter(area => !area.rows.length).map(area => area.name)};
+    quiet:areas.filter(area => !area.rows.length).map(area => area.name),
+    // WEEKLY-한흐름확정 ③: 내 담당 사업영역 이름 전부(사업 목록 순서) — 보고서 요약 칸이 이 주 기록이 없어도 모두 들어가게(weekly-flow-cells.js·journal-hwpx.js).
+    names:areas.map(area => area.name)};
 }
 // The text of one 요약 item as the report writes it: "세부과제: 내용", "세부과제 › 사안: 내용", or the bare text on the area row.
 export const summaryLine = item => item.label ? `${item.label}: ${item.text}` : item.text;
@@ -696,7 +698,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       summary.append(rest);
     }
     if (!s.count && !s.failed.some(k => k !== 'catalog')) summary.append(empty());
-    if (s.ordered && s.quiet.length && s.count) { const q = muted(`이 주 기록 없는 사업영역: ${s.quiet.join(', ')}`); q.dataset.journalWeeklyQuiet = ''; summary.append(q); }
+    // WEEKLY-한흐름확정 ③: '이 주 기록 없는 사업영역: …' 한 줄은 없앴다 — 기록 없는 사업영역도 위 보고서 칸에 지난주 줄 그대로 칸이 있다.
     const sGone = overlapFold(s.overlapped, 'summary'); if (sGone) summary.append(sGone);
   }
   foldRecords(summary, 'summary', '이번 주 기록', s.count ?? 0);

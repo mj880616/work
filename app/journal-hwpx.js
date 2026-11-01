@@ -406,10 +406,19 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   }
   const proposedNow = s => proposedOf({at:nowIso(), baseKind:s.baseKind, baseInfo:s.baseInfo, cells:cellsNow(s, 'initial')});
 
+  // 내 사업영역 이름(사업 목록 1단, 순서대로). 사업 목록을 아직 못 읽었으면 빈 목록(바탕 그대로).
+  const areaNames = () => getWeek().model?.summary?.names ?? [];
+  // 바탕을 연 뒤에 사업 목록이 읽혀 아직 줄이 없는 사업영역이 생겼는지.
+  const needAreas = s => !!s?.draft && s.draft.missingAreas(s.rows ?? [], areaNames()).length > 0;
   // (Re)build my base from the team report for the current name; edits start from the base lines.
   function rebase() {
     const {draft, team} = state;
     state.base = draft.startDraft(team, {me:state.me, myOrgs:state.myOrgs, orgList:state.context.orgFailed ? null : state.context.organizations, date:state.date});
+    // WEEKLY-한흐름확정 ③: 내 사업영역(사업 목록) 가운데 바탕 요약 표에 내 줄이 없는 것은 빈 내 줄을 더한다(이 주 기록이 없어도 칸이 모두 들어감).
+    // 바탕에 원래 있던 내 줄 수(0이면 '이 이름을 찾지 못했어요' — 더한 줄과 상관없이 이름 확인을 알린다).
+    const own = draft.editableRows(state.base, state.me);
+    state.ownRows = own.length;
+    state.base = draft.withAreaRows(state.base, draft.missingAreas(own, areaNames()), state.me);
     state.rows = draft.editableRows(state.base, state.me);
     state.orgs = draft.editableOrgs(state.base, 'orgs');
     // ORG-쟁의단계 ②: 투쟁 사업장 표는 쟁의 단계에서 채운다(draft.applySiteStages). 단계를 읽지 못했으면 바탕 그대로.
@@ -638,7 +647,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       for (const c of s.plans) { const li = el('li'); li.append(el('span', 'journal-weekly-label', `${c.where}: `), doc.createTextNode(`${c.from.trim()} → ${c.to.trim()}`)); list.append(li); }
       plans.append(list); parts.push(plans);
     }
-    if (!s.me || !s.rows.length) { const p = el('p', 'journal-muted', TEXT.noMine); p.dataset.hwpxNoMine = ''; parts.push(p); }
+    if (!s.me || !s.ownRows) { const p = el('p', 'journal-muted', TEXT.noMine); p.dataset.hwpxNoMine = ''; parts.push(p); }
     // 담당 팀원 칸 이름·담당 조직은 맨 위 한 줄에 보인다. 여기에는 확인이 필요한 때만 한 줄(직전 확정본에서 이름을 못 찾음·담당 사업장을 못 읽음·지정 안 됨).
     if (s.meFrom === 'profile') { const p = el('p', 'journal-muted', ME_FROM.profile); p.dataset.hwpxMeFrom = 'profile'; parts.push(p); }
     const orgNote = s.context.orgFailed ? '담당 사업장을 읽지 못해 산하조직 표는 비워요.'
@@ -861,6 +870,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
 
   async function build() {
     const {draft} = state;
+    // 바탕을 연 뒤에 사업 목록이 읽혔으면 빠진 사업영역 줄을 더하고 칸을 다시 놓는다(그 칸에 쓴 줄이 파일에 들어가게).
+    if (needAreas(state)) { const kept = currentDraft(state); rebase(); placeCells(state, kept); }
     if (state.built) return state.built;
     const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, state.edits);
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
@@ -1231,7 +1242,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const own = draftSiteLayout(d);
     if (own) { s.layout = own; s.layoutOwn = true; }
     const needSites = missingSites(s.sites ?? [], s.layout, s.context.organizations.map(o => o.name)).length > 0;
-    if (me !== s.me || needSites) { s.me = me; rebase(); }
+    if (me !== s.me || needSites || needAreas(s)) { s.me = me; rebase(); }
     s.date = d.date || s.defaultDate;
     const placed = placeCells(s, d);
     s.titles = placed.titles; s.drops = placed.drops; s.docs = draftDocs(d); s.areas = draftAreaSummaries(d); s.titleKeys = '';
