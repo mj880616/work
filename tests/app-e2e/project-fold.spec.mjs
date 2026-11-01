@@ -43,7 +43,7 @@ const foldWrites=state=>state.writes.map(w=>[w.id,w.body.metadata.folded===true]
 
 test('PC 1280: right-click folds a project to the bottom line, opens dimmed, and 다시 위로 returns it; saved on the server',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  await expect(page.locator('#projectGrid .ps3-plist .ps3-fold')).toHaveCount(0);
  await openMenu(page,'pe');
  await expect(menu(page).locator('button')).toHaveText(['아래로 접기']);
@@ -74,7 +74,7 @@ test('PC 1280: right-click folds a project to the bottom line, opens dimmed, and
 
 test('PC 1280: folding a big project folds its children with it; one child can be folded alone; the saved state survives a reload',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  await openMenu(page,'pg');
  await menu(page).locator('[data-ps3-fold-action="fold"]').click();
  await expect.poll(()=>foldWrites(state)).toEqual([['pg',true]]);

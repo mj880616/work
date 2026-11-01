@@ -51,7 +51,7 @@ async function forceParent(page,id){await page.locator('#ps3CreateParent').evalu
 
 test('PC 1280: the list is an indented tree to the third level; the third level has no child list and a two-step parent line',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(6);
  await expect(row(page,'pc')).toHaveAttribute('data-ps3-depth','1');await expect(row(page,'pd')).toHaveAttribute('data-ps3-depth','2');
  // Tree order: the third level right under its parent.
@@ -95,7 +95,7 @@ test('PC 1280: a third level is made from the second level’s +; the parent lis
 
 test('PC 1280: moves that would make a fourth level or a cycle are not offered and are refused on save',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  // A main project with two levels under it can go nowhere but the top.
  await openEdit(page,'pa');expect(await parentValues(page)).toEqual(['']);
  // Under its own grandchild (a cycle): refused, nothing written.

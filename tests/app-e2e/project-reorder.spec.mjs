@@ -46,7 +46,7 @@ const optionIds=page=>page.evaluate(()=>{const d=document.createElement('select'
 
 test('PC 1280: drag a row onto a sibling saves sort_order and every list shows the new order; a non-sibling drop does nothing',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  expect(await listIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
  // PC orders by drag only: no [순서 바꾸기] button, and the detail ⋯ menu has no 위로·아래로.
  await expect(page.locator('#ps3OrderBtn')).toHaveCount(0);
@@ -156,7 +156,7 @@ test('PC 1280: 기록할 곳 (home [업데이트]) and 할 일 연결 list proje
  const {errors}=await fixture(page);
  // 할 일 연결 read once before the move (its list is kept for the visit): it must not keep the old order.
  expect(await taskLinkIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  await row(page,'pe').dragTo(row(page,'pa'),{targetPosition:{x:40,y:4}});
  await expect.poll(()=>listIds(page)).toEqual(['pe','pa','pc','pd','pg','pb']);
  await clickView(page,'home');

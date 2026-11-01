@@ -860,7 +860,8 @@ for(const width of [390,1280])test(`V3 generated dialogs expose consistent acces
   await page.setViewportSize({width,height:900});
   const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   // UI-PC프로젝트좌우: on a PC the detail is the right pane — a labelled region, not a modal dialog.
-  if(width>=761)await expectProjectDetail(page,'main-1');
+  // UI-스와이프·주소: 목록부터 — 고른 뒤 오른쪽 칸에 상세.
+  if(width>=761){await page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]').click();await expectProjectDetail(page,'main-1');}
   for(const id of ['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3MilestoneModal','ps3DeleteModal','ps3ArchiveModal']){
     const modal=page.locator('#'+id);
     if(id==='ps3DetailModal'&&width>=761){await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal',/.*/);await expect(page.locator('#ps3DetailPane')).toHaveAttribute('aria-label','사업영역 상세')}
@@ -884,12 +885,14 @@ for(const width of [390,1280])test(`V3 detail and edit dialogs manage focus, Esc
   const card=page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]');
   if(width>=761){
     // UI-PC프로젝트좌우: the PC pane is not a dialog of its own — choosing a row keeps focus on that row.
-    await expectProjectDetail(page,'main-1');
-    await card.focus();await card.click();await expect(card).toBeFocused();await expect(card).toHaveAttribute('aria-current','true');
+    // UI-스와이프·주소: 목록부터 — 고르기 전에는 오른쪽 칸이 비어 있다.
+    await expect(page.locator('#ps3DetailModal')).toBeHidden();
+    await card.focus();await card.click();await expectProjectDetail(page,'main-1');await expect(card).toBeFocused();await expect(card).toHaveAttribute('aria-current','true');
     // MTG-프로젝트합치기 ①: 목록·상세 칸은 사업 보고 위 창(#areaWindow) 안이다. Esc는 칸만 닫지 않고 창 하나를 닫아 사업 보고로 돌아가고,
-    // 다시 열면 같은 사업영역이 오른쪽 칸에 있다.
+    // 다시 열면 목록부터(UI-스와이프·주소: 마지막에 본 사업영역으로 넘어가지 않음).
     await page.keyboard.press('Escape');await expect(page.locator('#areaWindow')).toBeHidden();await expect(page.locator('#meetingsView')).toBeVisible();
-    await clickView(page,'projects');await expectProjectDetail(page,'main-1');await expect(card).toHaveAttribute('aria-current','true');
+    await clickView(page,'projects');await expect(card).toBeVisible();await expect(page.locator('#ps3DetailModal')).toBeHidden();await expect(card).not.toHaveAttribute('aria-current','true');
+    await card.click();await expectProjectDetail(page,'main-1');
   }else{
   await card.focus();await card.click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
