@@ -58,5 +58,7 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     // APP-폰알림 N4: 폰 알림 받기(FCM). 설정은 빌드 변수로 직접 초기화(PushSetup.kt).
     implementation 'com.google.firebase:firebase-messaging:24.1.0'
+    // 위 라이브러리가 옛 androidx.fragment(1.3 미만)를 끌어와 registerForActivityResult 검사(lintVital)가 막는다. 새 판으로 맞춘다.
+    implementation 'androidx.fragment:fragment:1.8.5'
     testImplementation 'junit:junit:4.13.2'
 }
