@@ -140,13 +140,14 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix("statement"),
   },
   {
-    // 신문 기사와 성명이 한 피드에 섞여 있어 제목 머리말에 '성명'이 있는 글만 넣는다([노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명] 등).
-    // 2026-11-01 OUTSIDE-막힌단체: 운영 실행의 no_match는 고장이 아니다 — 피드는 읽혔고(글 있음) 최근 글에 성명 머리말 글이 없었을 뿐(화면엔 '마지막 …'로 정상 표시).
-    // 머리말을 괄호 없이 쓴 제목('노동자연대 성명: …')도 성명으로 받는다.
+    // 신문 기사와 성명이 한 피드에 섞여 있다. 명진 결정(11/01 22:30): 성명뿐 아니라 기사도 받는다.
+    // 제목 머리말에 '성명'이 있으면([노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명], 괄호 없는 '노동자연대 성명: …') 성명,
+    // 나머지는 기사(article: 종류 칸 비움). 공지·안내·모집 등 머리말 글은 다른 단체처럼 뺀다(byPrefix).
+    // 하루 수십 건이어도 한 번 실행에 단체마다 새 글 MAX_NEW_PER_RUN(8)건, 나머지는 다음 실행으로 넘긴다(handler.ts).
     key: "ws", name: "노동자연대", group: "movement", lang: "ko", mode: "rss",
     lists: ["https://ws.or.kr/feed"], hosts: ["ws.or.kr", "www.ws.or.kr"],
     canon: plain,
-    kindOf: (title) => (/성명/.test(prefixOf(title)) || WS_BARE_STATEMENT.test(title) ? "statement" : null),
+    kindOf: (title) => (WS_BARE_STATEMENT.test(title) ? "statement" : byPrefix("article")(title)),
   },
   {
     // 2026-11-01 확인: RSS·사이트맵이 없고, 글 목록(/readings)은 모든 글을 한 쪽에 실어 3.4MB라 2MB 상한에 걸렸다(too_large).
