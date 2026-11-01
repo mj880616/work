@@ -11,8 +11,14 @@
 // DB는 service role로 migration 20261101010000의 grant(app_push_devices·app_push_log select·insert·update·delete) 안에서만 쓰고,
 //   그 밖에는 owner 확인용 app_workspace_members 읽기뿐이다. 기기 토큰은 응답·로그에 싣지 않는다(화면에는 끝 6자리만).
 // 보내기는 _shared/fcm-send.ts(FCM HTTP v1, 비밀값 FCM_SERVICE_ACCOUNT_JSON). 비밀값이 없으면 시험 알림은 424로 멈춘다.
+// UI-앱안알림 4·5단계(S47-40, migration 20261101210000_push_log_notices): 사용자 입구에 셋을 더한다.
+// - `notices`: 뒤에서 끝난 일(done-items.ts 공용 목록) 중 아직 열지 않은 것 → 맨 위 알림 줄. 처음 뜬 것은 app_push_log에 shown_at을 남긴다.
+// - `opened` {kind, ref_key}: 폰 알림·알림 줄을 눌러 연 것 → 같은 종류·열쇠 기록에 opened_at(한 번 열면 끝).
+// - `recent`: 최근 알림 7일(폰으로 보낸 것·알림 줄에 뜬 것) — 내 프로필 '폰 알림' 아래 목록. 종류·열쇠·시각·여는 주소만.
+// 재료 표 중 service_role 권한이 없는 것(다음 주 준비 한 장)은 그 사용자 로그인 그대로(owner RLS) 읽는다(SUPABASE_ANON_KEY).
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
+import { doneItems, NOTICE_LOG_KINDS, RECENT_LIMIT, recentRows, recentSince, REF_KEY, type DoneItem } from "./done-items.ts";
 
 type Env = (name: string) => string | undefined;
 type Log = (code: string, detail?: Record<string, unknown>) => void;
@@ -23,7 +29,7 @@ export const SECRET_NAME = "PHONE_PUSH_CRON_SECRET";
 export const SECRET_MIN_CHARS = 32;
 const FOREIGN_SECRET_HEADERS = ["x-drive-summary-cron-secret", "x-collector-feed-secret", "x-collector-heartbeat-secret", "x-outside-feed-cron-secret"];
 export const SLOTS = ["quarter", "morning", "evening", "friday"] as const;
-export const USER_ACTIONS = ["register", "unregister", "devices", "test"] as const;
+export const USER_ACTIONS = ["register", "unregister", "devices", "test", "notices", "opened", "recent"] as const;
 export const MAX_DEVICES = 10;          // 작업공간마다 살아 있는 기기 수 상한
 export const TEST_DAILY_PER_USER = 20;  // 시험 알림 하루 상한(인스턴스 메모리)
 export const LOG_KEEP_DAYS = 30;
@@ -176,6 +182,61 @@ async function sendToDevices(db: Db, sender: FcmSender, devices: Record<string, 
   return { sent, failed, revoked };
 }
 
+// ---- 알림 줄·최근 알림(UI-앱안알림 4·5) ---------------------------------------------------------------------------
+
+// 사용자 로그인 그대로 읽기(owner RLS). anon 열쇠가 없으면 읽지 않는다(그 재료만 건너뜀).
+function makeUserRead(sb: string, anonKey: string | undefined, jwt: string, doFetch: typeof fetch) {
+  return async (path: string) => {
+    if (!anonKey) throw new Fail(503, "STORE_UNAVAILABLE");
+    let r: Response;
+    try {
+      r = await doFetch(`${sb}/rest/v1/${path}`, { headers: { apikey: anonKey, Authorization: `Bearer ${jwt}`, Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+    } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
+    if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Fail(503, "STORE_UNAVAILABLE"); }
+    let v: unknown;
+    try { v = await readBoundedJson(r, { maxBytes: 256 * 1024 }); } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
+    if (!Array.isArray(v)) throw new Fail(503, "STORE_UNAVAILABLE");
+    return v as Record<string, unknown>[];
+  };
+}
+const inList = (values: string[]) => `in.(${values.map((v) => `"${v}"`).join(",")})`;
+
+async function notices(db: Db, items: DoneItem[], workspaceId: string, nowIso: string) {
+  if (!items.length) return { ok: true, items: [] };
+  const kinds = [...new Set(items.map((i) => i.kind))], refs = [...new Set(items.map((i) => i.ref_key))];
+  const rows = await db.get(`app_push_log?workspace_id=eq.${workspaceId}&kind=${inList(kinds)}&ref_key=${inList(refs)}&select=kind,ref_key,day,shown_at,opened_at&limit=200`);
+  const same = (r: Record<string, unknown>, i: DoneItem) => r.kind === i.kind && r.ref_key === i.ref_key;
+  const open = items.filter((i) => !rows.some((r) => same(r, i) && r.opened_at));
+  for (const i of open) {
+    const row = rows.find((r) => same(r, i) && r.day === i.day);
+    if (!row) {
+      // 폰 알림이 아직 없으면 '알림 줄에만 뜸' 한 줄. 같은 때 다른 기기가 넣었으면 그대로 둔다.
+      await db.send("POST", "app_push_log?on_conflict=workspace_id,kind,ref_key,day",
+        { workspace_id: workspaceId, kind: i.kind, ref_key: i.ref_key, day: i.day, status: "shown", shown_at: nowIso }, "resolution=ignore-duplicates,return=minimal");
+    } else if (!row.shown_at) {
+      // 폰으로 이미 보낸 같은 기록이면 그 줄에 '알림 줄에도 뜸'만 더한다.
+      await db.send("PATCH", `app_push_log?workspace_id=eq.${workspaceId}&kind=eq.${i.kind}&ref_key=eq.${encodeURIComponent(i.ref_key)}&day=eq.${i.day}&shown_at=is.null`,
+        { shown_at: nowIso }, "return=minimal");
+    }
+  }
+  return { ok: true, items: open.map((i) => ({ kind: i.kind, ref_key: i.ref_key, open: i.open })) };
+}
+
+async function opened(db: Db, workspaceId: string, b: Record<string, unknown>, nowIso: string) {
+  if (!exactKeys(b, ["kind", "ref_key"]) || typeof b.kind !== "string" || !(NOTICE_LOG_KINDS as readonly string[]).includes(b.kind)
+      || typeof b.ref_key !== "string" || !REF_KEY.test(b.ref_key)) throw new Fail(400, "INVALID_BODY");
+  const rows = await db.send("PATCH",
+    `app_push_log?workspace_id=eq.${workspaceId}&kind=eq.${b.kind}&ref_key=eq.${encodeURIComponent(b.ref_key)}&opened_at=is.null&select=day`,
+    { opened_at: nowIso }, "return=representation");
+  return { ok: true, opened: rows.length };
+}
+
+async function recent(db: Db, workspaceId: string, nowMs: number) {
+  const rows = await db.get(`app_push_log?workspace_id=eq.${workspaceId}&sent_at=gte.${encodeURIComponent(recentSince(nowMs))}`
+    + `&select=kind,ref_key,sent_at,status,shown_at,opened_at&order=sent_at.desc&limit=${RECENT_LIMIT}`);
+  return { ok: true, items: recentRows(rows) };
+}
+
 // ---- 예약 입구 ------------------------------------------------------------------------------------------------------
 
 async function runSlot(db: Db, slot: string, nowMs: number) {
@@ -233,8 +294,14 @@ export function createPhonePushHandler(deps: PhonePushDeps) {
       const who = await authorizeUser(sb, key, auth!.slice("Bearer ".length), doFetch, db);
       if (action === "register") return json(await register(db, who, b, nowIso));
       if (action === "unregister") return json(await unregister(db, who, b));
+      if (action === "opened") return json(await opened(db, who.workspaceId, b, nowIso));
       if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
       if (action === "devices") return json(await listDevices(db, who));
+      if (action === "recent") return json(await recent(db, who.workspaceId, nowMs));
+      if (action === "notices") {
+        const asUser = makeUserRead(sb, deps.env("SUPABASE_ANON_KEY"), auth!.slice("Bearer ".length), doFetch);
+        return json(await notices(db, await doneItems(asUser, who.workspaceId, nowMs), who.workspaceId, nowIso));
+      }
 
       // test: 내 살아 있는 기기에 시험 알림 1개씩.
       const cfg = readFcmConfig(deps.env(FCM_SECRET_NAME));
