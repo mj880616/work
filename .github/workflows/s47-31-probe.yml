@@ -1,0 +1,21 @@
+name: S47-31 probe (temporary)
+# 일회용 조사: 막힌 바깥 단체 목록 구조 확인(GET만, 비밀값 없음). 조사 뒤 브랜치째 지운다. main에 넣지 않는다.
+on:
+  push:
+    branches: [s47-31-probe]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: tmp-probe
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: node tmp-probe/probe.mjs
