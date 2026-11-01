@@ -8,6 +8,8 @@
   if (window.__KPTU_DETAILS_MENU_BACK__) return;
   window.__KPTU_DETAILS_MENU_BACK__ = true;
   const MENU = 'details:is(.ps3-more,.ps3-line-more,.wd-doc-more,.file-line-more,.journal-item-more,.journal-kind-more,.sp-more,.sp-slot,.basket-photo-more,.lb-kebab)';
+  // 항목을 눌러도 열린 채 남는 메뉴(공유 페이지 블록 ⋯: 옮긴 블록 위에서 다음 누름을 기다림)는 항목을 가로채지 않는다(겹만 붙임).
+  const STAYS = 'details.sp-more';
   let open = null; // {el, hide, layer}
   function shut(entry) { try { entry.hide(); } catch (err) { console.error('menu close', err); } }
   function opened(el, hide) {
@@ -34,7 +36,7 @@
   document.addEventListener('click', event => {
     if (!open || passing) return;
     const button = event.target.closest?.('button,a[href]');
-    if (!button || button.disabled || !open.el.contains(button) || button.closest('summary')) return;
+    if (!button || button.disabled || !open.el.contains(button) || button.closest('summary') || open.el.matches?.(STAYS)) return;
     event.preventDefault(); event.stopImmediatePropagation();
     const entry = open; open = null;
     shut(entry);
