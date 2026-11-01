@@ -91,6 +91,7 @@ async function load(){
   renderWorkplaces();
   void loadCalRef();
   void loadTodoRules();
+  void loadPush();
   return true;
 }
 // CAL-조직참고캘린더: '조직 참고 캘린더' 칸은 따로 바로 저장한다(calendar-ref-settings.js). 못 불러와도 프로필 화면은 그대로다.
@@ -103,6 +104,16 @@ async function loadTodoRules(){
     if(!todoRules||todoRules.host!==host){const ready=import('./todo-rules-settings.js').then(m=>m.mountTodoRulesSettings(host,{rt}));todoRules={host,ready};ready.catch(()=>{if(todoRules?.ready===ready)todoRules=null})}
     await (await todoRules.ready).load();
   }catch(e){console.error('todo rules settings',e?.name||'Error')}
+}
+// APP-폰알림 N4: '폰 알림' 칸(종류별 켜고 끄기·조용한 시간·시험 알림·등록된 폰)은 따로 바로 저장한다(phone-push-settings.js). 칸 자리는 '계정' 칸 앞, 한 번만 붙인다.
+let pushSettings=null;
+async function loadPush(){
+  try{
+    let host=$('#psPushPanel');
+    if(!host){const before=$('#profileView .ps-account-panel');if(!before)return;before.insertAdjacentHTML('beforebegin','<article class="panel ps-panel" id="psPushPanel" aria-label="폰 알림"></article>');host=$('#psPushPanel')}
+    if(!pushSettings||pushSettings.host!==host){const ready=import('./phone-push-settings.js').then(m=>m.mountPhonePushSettings(host,{rt}));pushSettings={host,ready};ready.catch(()=>{if(pushSettings?.ready===ready)pushSettings=null})}
+    await (await pushSettings.ready).load();
+  }catch(e){console.error('phone push settings',e?.name||'Error')}
 }
 async function loadCalRef(){
   try{

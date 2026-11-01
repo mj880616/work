@@ -33,7 +33,7 @@ import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, o
   odCopyCheck, odTrashLog, odTrashWatch, odTrashSeen} from './diary-onedrive.js';
 import {phonePhotos} from './phone-photos.js';
 import {createPhotoTidy} from './photo-tidy.js';
-import {typeFilter, keptText, COPY_BATCH, LOG_BATCH} from './photo-tidy-model.mjs';
+import {keptText, sizeText, COPY_BATCH, LOG_BATCH} from './photo-tidy-model.mjs';
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
   gdriveAllowed, gdriveToItem, gdriveBefore, gdriveFrom, gdriveKey, gdriveErrorText, gdriveCode, gdriveNeedsReconnect, gdriveState, GDRIVE_RECONNECT} from './photo-sources-model.mjs';
@@ -147,48 +147,85 @@ const phoneSw = () => phone.state().hide === true;
 const phoneOps = () => phone.state().ops === true;
 const noSource = () => !sources.onedrive && !phoneOn() && !gdOn();
 const NO_SOURCE_HTML = '<p class="photos-muted" data-photos-no-source>위 출처 아이콘을 켜 주세요.</p>';
-// S46-20 사진 정리 제안 ①(photo-tidy.js): [정리 n] 칩(폰 앱에서 [사진]일 때만) → 접힌 칸. tidyView = [사진]에 정리 목록을 보이는 중('place:phone'·'junk:kakao', 이 화면 메모리만).
-let tidyOpen = false, tidyView = null, tidyLayer = null;
+// S46-20 사진 정리 제안 ①(photo-tidy.js): [정리 n] 칩(폰 앱에서 [사진]일 때만) → 접힌 칸.
+// S47-19(요청함 11/01 12:55·12:56): 정리 칸의 모든 [보기]는 그 줄 아래에서 사진 칸으로 펼친다(아래 [사진] 목록을 바꾸지 않음).
+// 펼친 칸은 처음 TIDY_STEP장만 그리고 내리면 이어 그린다(수천 장도 멈추지 않게). 사진을 누르면 크게 보기, 뒤로가기 = 펼친 칸.
+let tidyOpen = false;
 const tidyChip = $('[data-photos-tidy-chip]'), tidyBox = $('[data-photos-tidy]');
 const tidy = createPhotoTidy({phone, odReady:() => ready(), odError:e => odErrorText(e), phoneError:e => phoneErrorText(e), phoneOff:() => phoneOff, onChange:() => paintTidy(), isStarred:it => isStarred(it),
   watchTrash:() => odTrashWatch(rt), seenTrash:() => odTrashSeen(rt),
   readOd:async (cursor, limit) => { const page = await odLibrary(rt, {filter:'all', cursor, limit}); return {items:page.items.map(toItem), next:page.next}; }});
-const tidyPlace = () => (tidyView?.startsWith('place:') ? tidyView.slice(6) : 'all');
+const TIDY_STEP = 60;
+const tidyShown = new Map(); // 펼친 칸 key → 그린 장수(다시 그려도 같은 만큼, 이 화면 메모리만)
+const tidyGone = new Set(); // 크게 보기에서 지우는 중인 칸(되돌리면 다시 보임)
+let tidyIo = null;
 function paintTidy() {
   const show = tab === 'all' && phoneUsable();
   const n = tidy.count();
   tidyChip.hidden = !show; tidyChip.textContent = n ? `정리 ${n}` : '정리';
   tidyChip.setAttribute('aria-expanded', String(show && tidyOpen));
   tidyBox.hidden = !show || !tidyOpen;
-  if (tidyBox.hidden) return;
+  if (tidyBox.hidden) { tidyIo?.disconnect(); return; }
   if (!tidy.state) tidy.open();
   const open = new Set([...tidyBox.querySelectorAll('details[open]')].map(d => d.dataset.k));
-  tidyBox.innerHTML = tidy.html({place:tidyPlace(), canHide:phoneSw(), canTrash:phone.state().trash === true});
+  // 다시 그려도 누른 단추에 초점을 둔다(키보드로 펼치기·정렬).
+  const fa = document.activeElement, focusAttr = tidyBox.contains(fa) ? [...(fa.attributes || [])].find(x => x.name.startsWith('data-photos-')) : null;
+  tidyBox.innerHTML = tidy.html({canHide:phoneSw(), canTrash:phone.state().trash === true});
   tidyBox.querySelectorAll('details[data-k]').forEach(d => { if (open.has(d.dataset.k)) d.open = true; });
+  if (focusAttr) [...tidyBox.querySelectorAll(`[${focusAttr.name}]`)].find(x => x.getAttribute(focusAttr.name) === focusAttr.value)?.focus({preventScroll:true});
   // ④ 묶음 작은 그림(폰 앱에서만 읽음, 메모리만).
   tidyBox.querySelectorAll('[data-photos-tidy-th]').forEach(el => { const it = tidy.item(el.dataset.photosTidyTh); if (it) el.append(phone.element(it, 'small', {label:''})); });
+  fillTidyPanes();
 }
-// 정리 목록 보기 켜기/끄기([사진] 목록을 그 목록으로 바꾼다).
-// UI-뒤로가기겹규칙: 정리 목록([보기]로 연 'junk:'·'space:' 목록)은 라우터 겹 하나라 뒤로가기 = 원래 [사진] 목록.
-const tidySeeing = key => !!key && !key.startsWith('place:');
-// 정리 목록을 코드가 끌 때(다시 확인·출처 바뀜 등): 겹도 함께 닫아 빈 뒤로가기 칸을 남기지 않는다.
-function dropTidy() { tidyView = null; if (tidyLayer) { const l = tidyLayer; tidyLayer = null; l.close(); } }
-function setTidyView(key, {fromBack = false} = {}) {
-  tidyView = key && tidy.list(key) ? key : null;
-  if (tidySeeing(tidyView) && !tidyLayer) tidyLayer = window.KPTURouter?.layer?.open('photos-tidy', {close:() => { tidyLayer = null; if (tidySeeing(tidyView)) setTidyView(null, {fromBack:true}); return true; }}) || null;
-  if (!tidySeeing(tidyView) && tidyLayer && !fromBack) { const l = tidyLayer; tidyLayer = null; l.close(); }
-  select.stop(); resetList(); render(); window.scrollTo?.(0, 0);
+// <details>(공간 비우기 등)를 열 때 그 안 펼친 칸을 채운다.
+tidyBox.addEventListener('toggle', e => { if (e.target.open) e.target.querySelectorAll?.('[data-photos-tidy-pane]').forEach(p => { if (!p.closest('details:not([open])')) fillTidyPane(p); }); }, true);
+const tidyPaneList = key => (tidy.paneList(key) || []).filter(x => !tidyGone.has(x.id));
+// 보이는 펼친 칸(닫힌 <details> 안은 열 때)을 채운다.
+function fillTidyPanes() {
+  tidyIo?.disconnect();
+  tidyBox.querySelectorAll('[data-photos-tidy-pane]').forEach(p => { if (!p.closest('details:not([open])')) fillTidyPane(p); });
 }
-// [사진]에 보일 정리 목록(지금 거르기·정렬·건너뛴 달 그대로). 목록이 없어졌으면(다시 확인 중 등) 끈다.
-function tidyFill() {
-  const list = tidy.list(tidyView);
-  if (!list) { dropTidy(); return false; }
-  const cut = from ? Date.parse(from.cursor.t) : null;
-  items = typeFilter(list, filter, isStarred).filter(it => !hidden.has(it.id) && (!cut || Date.parse(it.taken_at) < cut)).sort(sortCompare(listSort()));
-  ended = true;
-  const m = {}; for (const it of items) m[it.day.slice(0, 7)] = (m[it.day.slice(0, 7)] || 0) + 1;
-  bar = monthBar(m); monthsFor = filter;
-  return true;
+function fillTidyPane(pane, more = false) {
+  const key = pane.dataset.photosTidyPane, list = tidyPaneList(key), grid = pane.querySelector('[data-photos-tidy-grid]');
+  if (!grid) return;
+  if (!grid.matches('[data-diary-grid]')) { grid.classList.add('diary-grid', 'photos-grid'); grid.dataset.diaryGrid = ''; sizer.paintGrid(grid); }
+  const from = grid.children.length;
+  const want = Math.min(list.length, more ? from + TIDY_STEP : Math.max(TIDY_STEP, Math.min(600, tidyShown.get(key) || 0)));
+  for (let i = from; i < want; i++) grid.append(tidyCell(list[i], i));
+  tidyShown.set(key, want);
+  const foot = pane.querySelector('[data-photos-tidy-more]');
+  foot.hidden = want >= list.length;
+  foot.innerHTML = foot.hidden ? '' : `${want} / ${list.length}장 <button type="button" class="mini" data-photos-tidy-more-btn>더 보기</button>`;
+  if (foot.hidden || !('IntersectionObserver' in window)) return;
+  tidyIo ||= new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { const p = e.target.closest('[data-photos-tidy-pane]'); if (p) fillTidyPane(p, true); } }), {rootMargin:'400px 0px'});
+  // 다시 지켜보면 아직 보이는 끝 줄도 한 번 더 알린다(이어 그린 뒤에도 끝이 보이면 또 이어서).
+  tidyIo.unobserve(foot); tidyIo.observe(foot);
+}
+function tidyCell(item, i) {
+  const b = document.createElement('button'), size = sizeText(item.size_bytes);
+  b.type = 'button'; b.className = 'diary-grid-item'; b.dataset.photosTidyOpen = String(i); b.dataset.photosId = item.id;
+  b.setAttribute('aria-label', cellLabel(item, isStarred(item)) + (size ? `, ${size}` : ''));
+  b.append(photoEl(item, 'small', {label:''}));
+  if (item.video) b.append(Object.assign(document.createElement('span'), {className:'photos-dur', textContent:`▶${durationLabel(item.duration_ms) ? ' ' + durationLabel(item.duration_ms) : ''}`}));
+  if (size) b.append(Object.assign(document.createElement('span'), {className:'photos-tidy-size', textContent:size}));
+  return b;
+}
+// 펼친 칸의 사진 크게 보기: 그 칸 목록(고른 정렬) 그대로 넘기고, 지우면 그 칸·정리 재료·[사진] 목록에서 뺀다.
+function openTidyViewer(key, index) {
+  openViewer(index, {
+    list:() => tidyPaneList(key),
+    take:item => { tidyGone.add(item.id); paintTidy(); return [{item, index:0}]; },
+    restore:taken => { for (const t of taken) tidyGone.delete(t.item.id); paintTidy(); },
+    commit:async (taken, opts) => {
+      try { await commitOne(taken, opts); } catch (error) { for (const t of taken) tidyGone.delete(t.item.id); paintTidy(); throw error; }
+      const ids = taken.map(t => t.item.id);
+      for (const id of ids) tidyGone.delete(id);
+      tidy.forget(ids);
+      if (items.some(x => ids.includes(x.id))) { setListFor('all', items.filter(x => !ids.includes(x.id))); if (tab === 'all') paintList({full:true}); }
+      calData.clear(); monthsFor = '';
+      paintTidy();
+    },
+  });
 }
 // S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰에서만 지우기]·[나머지 지우기]는 원드라이브 사본이 지금도 있는(같은 파일·크기) 사진만 지운다.
 // 서버가 사본을 다시 확인하고(copy-check), 확인된 것만 폰 휴지통으로 보낸 뒤 지운 기록(폰 사진 번호·사본 id)을 서버에 남긴다(trash-log).
@@ -197,7 +234,7 @@ async function tidyTrash(b, kind) {
   const g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) return;
   const needCopy = kind === 'space' || kind.startsWith('dup');
   // 원드라이브에 정말 있는지 — 읽은 지 오래됐으면 다시 확인부터.
-  if (needCopy && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); dropTidy(); tidy.rescan(); return; }
+  if (needCopy && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); tidy.rescan(); return; }
   let list = g.items, copyOf = null, kept = '';
   if (needCopy) {
     const pl = tidy.copyPairs(g.items);
@@ -247,11 +284,14 @@ function tidyHide(kind) {
 }
 function tidyClick(b) {
   if (b.matches('[data-photos-tidy-chip]')) { tidyOpen = !tidyOpen; paintTidy(); return true; }
-  if (b.matches('[data-photos-place]')) { const p = b.dataset.photosPlace; setTidyView(p === 'all' ? null : 'place:' + p); return true; }
-  if (b.matches('[data-photos-tidy-see]')) { const k = b.dataset.photosTidySee; setTidyView(k === 'space' ? 'space:' : 'junk:' + k); return true; }
+  // S47-19: [보기]·어디에 있나 칩 = 그 줄 아래 펼치기/접기, 정렬 칩 = 그 칸 정렬(처음 장수부터 다시).
+  if (b.matches('[data-photos-place]')) { tidy.toggle('place:' + b.dataset.photosPlace); paintTidy(); return true; }
+  if (b.matches('[data-photos-tidy-see]')) { tidy.toggle(b.dataset.photosTidySee); paintTidy(); return true; }
+  if (b.matches('[data-photos-tidy-sort]')) { const v = b.dataset.photosTidySort, at = v.lastIndexOf('|'), key = v.slice(0, at); tidy.sortSet(key, v.slice(at + 1)); tidyShown.delete(key); paintTidy(); return true; }
+  if (b.matches('[data-photos-tidy-open]')) { const p = b.closest('[data-photos-tidy-pane]'); if (p) openTidyViewer(p.dataset.photosTidyPane, Number(b.dataset.photosTidyOpen)); return true; }
+  if (b.matches('[data-photos-tidy-more-btn]')) { const p = b.closest('[data-photos-tidy-pane]'); if (p) fillTidyPane(p, true); return true; }
   if (b.matches('[data-photos-tidy-keep]')) { const [g, id] = b.dataset.photosTidyKeep.split('|'); tidy.keep(g, id); paintTidy(); return true; }
-  if (b.matches('[data-photos-tidy-end]')) { setTidyView(null); return true; }
-  if (b.matches('[data-photos-tidy-rescan]')) { dropTidy(); tidy.rescan(); resetList(); render(); return true; }
+  if (b.matches('[data-photos-tidy-rescan]')) { tidyShown.clear(); tidy.rescan(); return true; }
   if (b.matches('[data-photos-tidy-hide]')) { tidyHide(b.dataset.photosTidyHide); return true; }
   if (b.matches('[data-photos-tidy-trash]')) { tidyTrash(b, b.dataset.photosTidyTrash); return true; }
   if (b.matches('[data-photos-tidy-gone-ok]')) { tidy.goneSeen(); return true; }
@@ -417,7 +457,6 @@ async function loadStream(source, r) {
 // 다음 쪽. ★는 별표 id(500개씩)로 모두 받아 최신순으로 합친다(별표는 많지 않다).
 // 출처가 둘이면 앞을 막는 출처(아직 덜 받은 쪽)부터 한 쪽씩, 보일 칸이 늘 때까지(4쪽까지) 받는다.
 function loadMore() {
-  if (tidyView && !loading) { if (tidyFill()) { if (tab === 'all') paintList({full:true}); return null; } resetList(); }
   if (loading || ended || !anyUse()) return loading;
   const r = run;
   loading = (async () => {
@@ -555,8 +594,7 @@ function paintList({full = false} = {}) {
   const same = rendered <= items.length && renderedIds.every((id, k) => items[k]?.id === id);
   if (full || !list || !same) {
     rendered = 0;
-    const tv = tidyView ? `<p class="photos-muted photos-top" data-photos-tidy-top>정리 · ${esc(tidy.label(tidyView))} ${items.length}장 보는 중 · <button type="button" class="mini" data-photos-tidy-end>전체로</button></p>` : '';
-    const top = srcNotes() + tv + (from ? `<p class="photos-muted photos-top">${esc(from.label)}부터 보는 중 · <button type="button" class="mini" data-photos-newest>최신으로</button></p>` : '');
+    const top = srcNotes() + (from ? `<p class="photos-muted photos-top">${esc(from.label)}부터 보는 중 · <button type="button" class="mini" data-photos-newest>최신으로</button></p>` : '');
     body.innerHTML = `${top}<div data-photos-list></div><p class="photos-muted photos-foot" data-photos-foot></p>`;
     list = body.querySelector('[data-photos-list]');
   }
@@ -838,10 +876,11 @@ async function downloadOne(item) {
     return false;
   }
 }
-function openViewer(index) {
+// own = 다른 목록(정리 펼친 칸)의 크게 보기 {list, take, restore, commit}.
+function openViewer(index, own = null) {
   if (photoStripOpen()) return;
   const shown = tab;
-  openPhotoStrip({host:root, list:() => listFor(shown), index, title:'사진', layerName:'photos-photo',
+  openPhotoStrip({host:root, list:own?.list || (() => listFor(shown)), index, title:'사진', layerName:'photos-photo',
     element:(item, size, opts) => photoEl(item, size, opts), label:(item, i) => `${item.video ? '동영상' : '사진'} ${i + 1}`, when:whenText,
     info:item => [['찍은 때', whenText(item)], ['파일', item.name], ['크기', item.width && item.height ? `${item.width} × ${item.height}` : ''], ['길이', durationLabel(item.duration_ms)], ['출처', SOURCE_TEXT[item.source] || '원드라이브']],
     original:item => (item.kind === 'phone' ? {} : {download:true}), download:downloadOne,
@@ -852,9 +891,9 @@ function openViewer(index) {
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : '이 폰은 여기서 지우지 못해요'}
       : item?.kind === 'gdrive' ? {ok:false, title:'구글 드라이브 사진은 길게 눌러 고른 뒤 [지우기]로(확인 한 번)'}
       : {ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요'}),
-    take:takeOne, restore:restoreTaken, commit:commitOne,
+    take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
     errorText:error => (error?.message === 'phone_trash_refused' ? '폰에서 지우지 않았어요.' : `지우지 못했어요: ${odErrorText(error)}`), onError:note,
-    onClose:({starChanged, restore}) => { if (starChanged && filter === 'star' && restore && shown === 'all') { setListFor('all', items.filter(isStarred)); paintList({full:true}); } }});
+    onClose:({starChanged, restore}) => { if (!own && starChanged && filter === 'star' && restore && shown === 'all') { setListFor('all', items.filter(isStarred)); paintList({full:true}); } }});
 }
 
 // 확대용 원본 그림 주소(메모리에만). 구글 드라이브는 받은 바이트의 메모리 주소라 크게 보기가 다 쓰면 놓는다(revoke).
@@ -1407,7 +1446,7 @@ async function phoneOpGo(anchor, op, done, after = null) {
   try { res = await phone.folderOp(op); } finally { busy = false; }
   notify(phoneOpText(res, done(res)), {error:!res.ok});
   if (res.ok) after?.(res);
-  if (res.ok) { pFolders = null; pFor = null; pItems = []; tidy.reset(); dropTidy(); resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
+  if (res.ok) { pFolders = null; pFor = null; pItems = []; tidy.reset(); tidyShown.clear(); resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
   if (tab === 'folders') renderFolders(); else render();
   return res;
 }
@@ -2301,7 +2340,7 @@ window.addEventListener('kptu:view-prefs-rejected', e => {
 });
 // 폰 사진 접근이 바뀌면(처음 허용·설정에서 바꿈) 목록을 새로.
 let entering = false;
-phone.onChange(() => { pFolders = null; pFor = null; pItems = []; tidy.reset(); dropTidy(); if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged(); });
+phone.onChange(() => { pFolders = null; pFor = null; pItems = []; tidy.reset(); tidyShown.clear(); if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged(); });
 async function enter() {
   readPrefs();
   const placed = window.KPTURouter?.place?.('photos')?.tab;
@@ -2321,7 +2360,7 @@ async function enter() {
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'photos') return;
   closePhotoStrip({fromBack:true, restore:false});
-  tabLayer = null; dayLayer = null; tidyLayer = null; folderLayer = null; albumLayer = null; select.stop({fromBack:true}); settings.drop(); odHost.replaceChildren(); io?.disconnect(); nameDone(null);
+  tabLayer = null; dayLayer = null; folderLayer = null; albumLayer = null; select.stop({fromBack:true}); settings.drop(); odHost.replaceChildren(); io?.disconnect(); nameDone(null);
   if (batch) commitBatch();
 });
 window.addEventListener('kptu:session-changed', () => {
@@ -2331,7 +2370,7 @@ window.addEventListener('kptu:session-changed', () => {
   batch = null; resetList(); syncAt = 0; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop(); sources = parseSources(null); phStarItems = null;
   pFolders = null; pFoldersFailed = ''; pAt = null; pFor = null; pItems = []; phoneOff = new Set(); pPending = []; manageAsked = false;
-  tidy.reset(); tidyOpen = false; tidyView = null; tidyLayer = null;
+  tidy.reset(); tidyOpen = false; tidyShown.clear(); tidyGone.clear();
   gd = {allowed:false, problem:'', foldersOn:0, checked:false}; gdItems = []; gdEnded = false; gdCursor = null; gdSyncAt = 0; gdLevels.clear(); gdLevelFailed.clear(); gdAt = null; gdTrail = []; gdFFor = null; gdFItems = []; gdClear();
   if (gdPlayUrl) { URL.revokeObjectURL(gdPlayUrl); gdPlayUrl = ''; }
   tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; albumViewChosen = null; folderLayer = null; albumLayer = null; tabLayer = null; dayLayer = null; nameDone(null);

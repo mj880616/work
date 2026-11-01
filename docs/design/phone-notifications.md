@@ -103,6 +103,10 @@
 - 기기 토큰은 앱이 서버에 직접 보내지 않는다. 앱 → `KPTUAppShell` 다리(허용 Origin 최상위 화면만) → 웹 화면 → `phone-push register`(웹 세션 JWT). 앱이 로그인 토큰을 만지지 않는 원칙(상위 설계 4.2)을 지킨다.
 - 받는 메시지는 "데이터 메시지"(제목·종류·`open`)로 받아 앱이 알림을 그린다. `open`은 3절 판정.
 
+**구현(S47-17, 앱 0.4.4).** 위대로 넣었다. 파일: `PushRules.kt`(판단 규칙, JVM 시험 `PushRulesTest.kt`), `PushSetup.kt`(빌드 변수로 `FirebaseApp` 켜기·알림 권한·채널 9개·알림 그리기, 잠금 화면 "웹2 · 새 알림"), `PushService.kt`(데이터 메시지 받기·토큰 받기/지우기), `MainActivity.kt`(다리 `push:hello`·`push:enable`·`push:forget`, 알림을 누르면 `PushRules.openUrl`로 웹2 안쪽 주소만), `ic_push.xml`. 빌드 변수는 Gradle이 환경 변수 `WEB2_FCM_PROJECT_ID`·`WEB2_FCM_APP_ID`·`WEB2_FCM_SENDER_ID`·`WEB2_FCM_API_KEY`(영문·숫자·`:._-`만)로 받아 `BuildConfig.FCM_*`에 넣고, 하나라도 없으면 알림 기능이 꺼진 채로 빌드된다(PR CI). release는 `phone-app-release.yml`의 release 빌드 단계만 environment `phone-app-release` 변수(`vars.WEB2_FCM_*`)를 넘긴다.
+- 다리 글: 웹 → 앱 `push:hello`(상태)·`push:enable`(이 폰에서 받기: 권한 한 번 + 토큰)·`push:forget`(이 폰 끊기), 앱 → 웹 `push:none`(설정 없는 판)·`push:off`·`push:denied`·`push:fail`·`push:on:<토큰>`. '이 폰에서 받기' 켬/끔 표시만 앱 설정에 둔다(토큰은 앱이 저장하지 않음, Firebase가 관리).
+- 웹: `app/phone-push-settings.js`(내 프로필 '폰 알림' 칸, `phone-push` 호출은 이 파일 하나) + `app/phone-push-model.mjs`(규칙). 종류 칩 일곱 개·조용한 시간 두 칸은 `app_profiles.notify_prefs`에 바로 저장, 등록된 폰 목록은 `app_push_devices`를 기존 RLS로 읽음(토큰 칸 없이), [끊기]·[시험 알림]은 `phone-push`. 폰 앱이 웹2를 열 때마다(`loader-v2.js` → `startDeviceSync`) 이 폰이 켜짐이면 다시 `register`(바뀐 토큰·마지막 시각). 기록 하나를 콕 집어 여는 질의(예: 할 일 id)는 N5 서버가 정하는 `open` 값에 맞춰 그때 더한다 — 지금은 화면 단위(`?view=`·`pane`·`day`) 주소를 그대로 연다.
+
 ## 5. 옛 알림 금지 검사 바꾸기 (N-D6 승인됨 2026-11-01)
 
 지금 검사는 "알림이 다시 들어오지 않게" 넣은 장치다. 새 알림을 넣으려면 검사를 **좁고 분명하게** 바꿔야 한다. 명진이 2026-11-01에 승인했다(결정 N-D6).
