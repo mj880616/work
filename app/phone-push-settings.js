@@ -6,8 +6,11 @@
 //   [이 폰에서 받기]·[시험 알림]은 알림 권한을 한 번 묻고(push:enable), [이 폰 끊기]는 서버에서 지운 뒤 앱 토큰을 지운다(push:forget).
 //   앱이 준 토큰은 이 화면 메모리에만 두고, 웹 세션(JWT)으로 register 한다. 화면·로그에 출력하지 않는다.
 // - startDeviceSync: 폰 앱이 웹2를 열 때마다(loader-v2.js) 이 폰이 '켜짐'이면 다시 등록해 바뀐 토큰·마지막 시각을 맞춘다.
+// - 최근 알림 7일(UI-앱안알림 5단계, 설계 6절 A6): 폰 알림과 맨 위 알림 줄이 같은 기록(app_push_log)에서 phone-push recent로 읽어
+//   '시각 · 무엇' 한 줄씩. 누르면 그 자리(notice-place.js goPlace)로 가고 아직 안 연 것은 '열었음'을 남긴다.
 import {waitInlineHtml, failHtml} from './wait-state.js';
-import {KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME} from './phone-push-model.mjs';
+import {goPlace} from './notice-place.js';
+import {KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems} from './phone-push-model.mjs';
 
 const ENDPOINT = '/functions/v1/phone-push';
 const BRIDGE = 'KPTUAppShell';
@@ -101,7 +104,7 @@ export function startDeviceSync(win = window) {
 export function mountPhonePushSettings(host, {rt, win = window}) {
   phone.rt = phone.rt || rt;
   const inApp = !!bridgeOf(win);
-  let state = {phase: 'loading', prefs: parsePrefs(null), devices: [], devicesOk: false, busy: false, note: '', result: ''};
+  let state = {phase: 'loading', prefs: parsePrefs(null), devices: [], devicesOk: false, recent: [], recentOk: false, busy: false, note: '', result: ''};
   let run = 0, saveChain = Promise.resolve(), savedPrefs = null;
   const userId = () => rt.context?.read?.()?.user?.id || '';
   const workspaceId = () => rt.context?.read?.()?.workspace?.id || '';
@@ -133,6 +136,13 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     return head + (rows ? `<ul class="ps-todo-rooms">${rows}</ul>` : '');
   }
 
+  function recentPart() {
+    if (!state.recentOk) return '<p class="ps-calref-line" data-ps-push-recent="failed">최근 알림을 읽지 못했어요</p>';
+    const head = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-push-recent="${state.recent.length}">${state.recent.length ? '최근 알림 7일' : '최근 7일 알림 없음'}</span></div>`;
+    const rows = state.recent.map((r, i) => `<li class="ps-push-recent-row"><button type="button" class="ps-push-recent" data-ps-push-recent-open="${i}"${r.opened ? ' data-opened' : ''}>${esc(r.line)}</button></li>`).join('');
+    return head + (rows ? `<ul class="ps-push-recent-list">${rows}</ul>` : '');
+  }
+
   function render() {
     if (!host.isConnected) return;
     const head = `<div class="ps-panel-head"><h3>폰 알림</h3><span class="ps-state" data-ps-push-state role="status" aria-live="polite">${esc(state.note)}</span></div>`;
@@ -144,7 +154,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     const time = (end, label) => `<input type="time" class="ps-push-time" data-ps-push-quiet="${end}" value="${esc(prefs.quiet[end])}" aria-label="${label}" step="300"${busy}>`;
     const quiet = `<div class="ps-calref-row"><span class="ps-calref-label">조용한 시간</span>${time('from', '조용한 시간 시작')}<span class="ps-calref-line">~</span>${time('to', '조용한 시간 끝')}<button type="button" class="ps-todo-btn" data-ps-push-test${state.busy ? ' disabled aria-busy="true"' : ''}>시험 알림</button></div>`;
     const result = state.result ? `<p class="ps-calref-line ps-todo-result" data-ps-push-result>${esc(state.result)}</p>` : '';
-    host.innerHTML = `${head}<div class="ps-calref"><div class="ps-push-kinds" role="group" aria-label="받을 알림 종류">${chips}</div>${quiet}${result}${phoneLine()}${devicesPart()}</div>`;
+    host.innerHTML = `${head}<div class="ps-calref"><div class="ps-push-kinds" role="group" aria-label="받을 알림 종류">${chips}</div>${quiet}${result}${phoneLine()}${devicesPart()}${recentPart()}</div>`;
   }
   const say = note => { state = {...state, note}; const el = host.querySelector('[data-ps-push-state]'); if (el) el.textContent = note; };
   const onPhone = () => render();
@@ -160,6 +170,9 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     const rows = await rt.api(`/rest/v1/app_push_devices?workspace_id=eq.${encode(ws)}&revoked_at=is.null&select=id,app_version,created_at,last_seen_at&order=last_seen_at.desc&limit=${MAX_DEVICES}`, {singleFlight: false});
     return (Array.isArray(rows) ? rows : []).filter(d => typeof d?.id === 'string');
   }
+  async function readRecent() {
+    return recentItems(await callPush(rt, 'recent'));
+  }
   async function reloadDevices() {
     try { state = {...state, devices: await readDevices(), devicesOk: true}; } catch { state = {...state, devicesOk: false}; }
     render();
@@ -170,11 +183,12 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     if (!userId()) { state = {...state, phase: 'failed'}; render(); return; }
     state = {...state, phase: 'loading', note: '', result: ''}; render();
     if (inApp) send('push:hello');
-    const [prefs, devices] = await Promise.allSettled([readPrefs(), readDevices()]);
+    const [prefs, devices, recent] = await Promise.allSettled([readPrefs(), readDevices(), readRecent()]);
     if (mine !== run) return;
     if (prefs.status !== 'fulfilled') { state = {...state, phase: 'failed'}; render(); return; }
     savedPrefs = prefs.value;
-    state = {...state, phase: 'ready', prefs: prefs.value, devices: devices.status === 'fulfilled' ? devices.value : [], devicesOk: devices.status === 'fulfilled'};
+    state = {...state, phase: 'ready', prefs: prefs.value, devices: devices.status === 'fulfilled' ? devices.value : [], devicesOk: devices.status === 'fulfilled',
+      recent: recent.status === 'fulfilled' ? recent.value : [], recentOk: recent.status === 'fulfilled'};
     render();
   }
 
@@ -223,6 +237,13 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
   host.addEventListener('click', async event => {
     const b = event.target.closest('button');
     if (!b || b.disabled || state.busy || state.phase !== 'ready') return;
+    if (b.dataset.psPushRecentOpen !== undefined) {
+      const item = state.recent[Number(b.dataset.psPushRecentOpen)];
+      if (!item) return;
+      if (!item.opened) { item.opened = true; void callPush(rt, 'opened', {kind: item.kind, ref_key: item.ref_key}).catch(() => null); }
+      goPlace(item.open, win);
+      return;
+    }
     const kind = b.dataset.psPushKind;
     if (kind) {
       await savePrefs(toggleKind(state.prefs, kind));

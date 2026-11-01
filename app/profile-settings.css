@@ -68,4 +68,9 @@
 #profileView .ps-push-kind::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px)/2);height:var(--kptu-touch-target,44px)}
 #profileView .ps-push-kind[aria-pressed="true"]{color:var(--ds-select-ink);background:var(--ds-select-bg);border-color:var(--ds-select-line)}
 #profileView .ps-push-kind:disabled{opacity:.5;cursor:default}
+/* UI-앱안알림 5단계: 최근 알림 7일 — 한 줄 '시각 · 무엇', 누르면 그 자리. 연 것은 옅게. */
+#profileView .ps-push-recent-list{list-style:none;margin:0;padding:0;display:grid;gap:0}
+#profileView .ps-push-recent{display:block;width:100%;min-height:var(--ds-compact-height-sm,28px);padding:2px 0;border:0;background:none;text-align:left;font-size:var(--ds-compact-text);color:var(--kptu-ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#profileView .ps-push-recent[data-opened]{color:var(--kptu-muted)}
+#profileView .ps-push-recent:hover,#profileView .ps-push-recent:focus-visible{text-decoration:underline}
 #profileView .ps-push-time{flex:none;width:7.2em;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 6px;font-size:var(--ds-compact-text)}

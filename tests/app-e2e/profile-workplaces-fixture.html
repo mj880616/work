@@ -34,7 +34,10 @@ function defaultEvents(){return [
  {id:'e3',title:'병원 예약',calendarId:'cal-a',start:nowIso(),end:nowIso(),allDay:false,colorId:null,mine:true}
 ]}
 window.KPTURuntime={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})},session:{ensure:async()=>true},api:async(path,opts={})=>{
- const method=opts.method||'GET';state.calls.push({path,method,body:clone(opts.body??null)});
+ const method=opts.method||'GET';
+ // UI-앱안알림 4·5: 내 프로필 '폰 알림' 칸의 최근 알림 7일(phone-push recent)은 POST로 묻는 읽기라 calls(쓰기 검사 대상)에 넣지 않는다.
+ if(/^\/functions\/v1\/phone-push\?action=(recent|notices)$/.test(path))return {ok:true,items:[]};
+ state.calls.push({path,method,body:clone(opts.body??null)});
  const hit=state.fail.find(x=>x.method===method&&path.startsWith(x.path)&&(!x.org||path.includes(x.org)||JSON.stringify(opts.body??null).includes(x.org)));if(hit)throw new Error('mock failure');
  if(path==='/auth/v1/user')return clone(state.user);
  if(path.startsWith('/functions/v1/google-calendar?action=status'))return {connected:true,calendars:[{id:'cal-a',summary:'가상 공유 캘린더'},{id:'cal-b',summary:'다른 캘린더'}],eventColors:{'1':{background:'#a4bdfc',foreground:'#1d1d1d'},'2':{background:'#7ae7bf',foreground:'#1d1d1d'},'3':{background:'#dbadff',foreground:'#1d1d1d'},'4':{background:'#ff887c',foreground:'#1d1d1d'},'5':{background:'#fbd75b',foreground:'#1d1d1d'},'6':{background:'#ffb878',foreground:'#1d1d1d'},'7':{background:'#46d6db',foreground:'#1d1d1d'},'8':{background:'#e1e1e1',foreground:'#1d1d1d'},'9':{background:'#5484ed',foreground:'#1d1d1d'},'10':{background:'#51b749',foreground:'#1d1d1d'},'11':{background:'#dc2127',foreground:'#1d1d1d'}}};

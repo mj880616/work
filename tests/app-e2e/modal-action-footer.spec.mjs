@@ -21,6 +21,8 @@ async function open(page,c,{gate=null,error="합성 저장 오류"}={}){
     if(p.endsWith('app_suborganizations'))return route.fulfill({json:orgs});
     if(p.endsWith('app_suborganization_assignees'))return route.fulfill({json:orgs.map(o=>({organization_id:o.id,user_id:'home-test'}))});
     if(p.endsWith('google-calendar')&&u.searchParams.get('action')==='event')return route.fulfill({json:{event}});
+    // UI-앱안알림 4·5: 맨 위 알림 줄이 시작 때 묻는 phone-push notices(POST로 묻는 읽기)는 이 시험의 저장 요청이 아니다.
+    if(p.endsWith('/functions/v1/phone-push')&&/[?&]action=(notices|recent)\b/.test(req.url()))return route.fulfill({json:{ok:true,items:[]}});
     if(req.method()==='POST'&&p.includes('/functions/')){writes.push(req.postDataJSON());await gate;return route.fulfill({status:500,json:{message:error}});}
     return route.fallback();
   });
