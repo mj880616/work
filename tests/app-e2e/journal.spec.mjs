@@ -1240,7 +1240,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  // 위 [주간보고 한글 파일 만들기] 상자는 없다(명진 결정 ①). 맨 위 한 줄: ■ 일시 · 이름 · 바탕.
  await expect(page.locator('#journalRoot [data-hwpx-start]')).toHaveCount(0);
  await expect(topLine(page)).toContainText('■ 일시 2026년 10월 12일(월) · 가상 담당 · 바탕 팀 확정본');
- // 내 줄 2개(다른 담당의 가-2 줄은 없음), 3. 투쟁 사업장은 흐름 안, 4. 내 담당 조직 전부(가나다순).
+ // 내 줄 2개(다른 담당의 가-2 줄은 없음), 3. 투쟁 사업장은 흐름 안, 4. 내 담당 조직 전부(바탕 순서, 바탕에 없는 조직은 끝에 빈 칸 — 한흐름 ④).
  await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-label')).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1']);
  await expect(page.locator('#journalRoot [data-weekly-flow-cells="orgs"] .weekly-flow-label')).toHaveText(['가상 노동조합','나 지역 모임']);
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="sites"] h4')).toHaveText('3. 투쟁 사업장 현황');
@@ -1327,6 +1327,27 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  await page.locator('#journalRoot [data-journal-next]').click();
  await expect(hwpx(page).locator('.journal-hwpx-panel')).toBeHidden();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-한흐름확정 ④(요청 11/01 01:18): 4. 산하 조직 칸 순서 = 바탕(지난 개인본) 순서. 가나다순으로 다시 세우지 않고, 소식 없는 조직도 빈 칸으로 제자리,
+// 바탕에 없는 내 담당 조직은 맨 끝 빈 칸. 확정해서 받은 한글 파일 4번 표도 같은 순서.
+for(const width of [412,1280])test(`[주간 정리] 한흐름 ④: 4. 산하 조직 칸은 개인본 순서 그대로·빈 칸 유지, 한글 파일도 같은 순서 ${width}`,async({page})=>{
+ const personalReport={summary:[{area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 지난주 가-1 진행'],owner:['가상 담당']}]}],
+  orgs:[{org:['나 지역 모임'],status:[]},{org:['다 바깥 모임'],status:['- 남의 조직 소식']}]};
+ const f=await hwpxFixture(page,{width,files:{'doc-mine':personalReport},personal:[{id:'doc-mine',title:'가상 개인본',file_name:'mine.hwpx',document_date:'2026-10-05',created_at:'2026-10-02T08:00:00Z'}]});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ await expect(topLine(page)).toContainText('바탕 지난 개인본');
+ // 개인본 순서: 나 지역 모임(소식 없음 → 빈 칸, 제자리) → 바탕에 없던 가상 노동조합(끝, 빈 칸). 남의 조직(다 바깥 모임)은 없다.
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="orgs"] .weekly-flow-label')).toHaveText(['나 지역 모임','가상 노동조합']);
+ await expect(flowCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');
+ await expect(flowCell(page,'가상 노동조합').locator('[data-flow-empty]')).toHaveText('빈 칸');
+ const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ await expect.poll(()=>(row()?.draft?.proposed?.cells??[]).filter(c=>c.section==='orgs').map(c=>c.key),{timeout:15000}).toEqual(['나 지역 모임','가상 노동조합']);
+ page.once('dialog',d=>d.accept());
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
+ const {report}=await savedReport(download);
+ expect(report.orgs.map(o=>o.org.join(''))).toEqual(['나 지역 모임','가상 노동조합']);
 });
 
 // WEEKLY-환류학습 1·2: 다음 주 바탕은 내가 올린 최신 '주간보고 개인본'(보고일 앞). 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳은 칸 옆 작은
@@ -3268,6 +3289,49 @@ for(const width of [412,1440])test(`[주간 정리] 5. 주요 일정 칸 고치�
  expect(report.calendar.find(d=>d.day==='10.14.(수) ~ 10.15.(목)').items.map(i=>i.what)).toEqual(['10:30 / 가상 결의대회 / 가상 시의회']);
  // 읽기만으로는 서버 기억을 고치지 않는다.
  expect(f.profile.patches).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-한흐름확정 ③(확정 규칙 '내 담당 사업은 사업 요약표에 모두 들어간다'): 바탕에 내 줄이 없는 내 사업영역도 2. 1) 요약에 빈 칸,
+// 이 주 기록 없는 칸은 지난주 줄 그대로 + 작은 '지난주에서', '이 주 기록 없는 사업영역: …' 한 줄 없음, 빈 칸에 쓴 줄은 한글 파일에 내 줄로. 글은 모두 가짜.
+for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 내 사업영역 칸 전부 — 바탕에 없던 사업영역 빈 칸·지난주에서·파일에 들어감 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ // 내 사업 목록에 바탕(팀 확정본)에 없는 사업영역 하나를 더하고, 나-1 의 이 주 기록은 없앤다(→ 지난주 줄 그대로).
+ const tree=[...weeklyTree,{id:'wc',name:'사업영역 다',parent_id:null,status:'active',sort_order:3,metadata:{project_system:'v2'}}];
+ f.more.spaces.push({id:'wc',workspace_id:'w',name:'사업영역 다'});
+ f.more.progress.splice(f.more.progress.findIndex(p=>p.id==='p2'),1);
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_spaces',async r=>{const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET'||q.get('select')!=='*')return r.fallback();return r.fulfill({json:tree.map(p=>({...p,workspace_id:'w',owner_id:'home-test',created_at:at}))});});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ const labels=page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-label');
+ await expect(labels).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1','사업영역 다 › —']);
+ const c=flowCell(page,'사업영역 다 › —');
+ await expect(c.locator('[data-flow-empty]')).toHaveText('빈 칸');
+ await expect(c.locator('[data-flow-orphan]')).toHaveCount(0);
+ // 이 주 기록이 있는 칸(가-1)·빈 칸에는 '지난주에서'가 없다.
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-flow-carried]')).toHaveCount(1);
+ await expect(page.locator('#journalRoot [data-journal-weekly-quiet]')).toHaveCount(0);
+ // 빈 칸 [+ 추가] → 서버 쓰기 한 번, 다시 그려도 같은 칸.
+ const before=f.exec.calls.filter(x=>x.method==='PATCH').length;
+ await c.getByRole('button',{name:'사업영역 다 › — 칸에 줄 추가'}).click();
+ await c.locator('input[data-flow-input]').fill('- 다 영역 손 줄');await c.getByRole('button',{name:'저장'}).click();
+ await expect(cellLines(c)).toHaveText(['- 다 영역 손 줄']);
+ expect(f.exec.calls.filter(x=>x.method==='PATCH').length).toBe(before+1);
+ expect(f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.rows).toContainEqual({section:'summary',key:'사업영역 다›',n:0,lines:['- 다 영역 손 줄']});
+ // 손댄 칸(나-1 줄 고치기)은 '지난주에서'가 사라진다.
+ const b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await expect(b1.locator('[data-flow-carried]')).toHaveText('지난주에서');
+ await pressMore(b1.locator('[data-flow-line="0"]'),'[data-flow-fix]');
+ await b1.locator('input[data-flow-input]').fill('- 지난주 나-1 진행(고침)');await b1.locator('input[data-flow-input]').press('Enter');
+ await expect(cellLines(b1)).toHaveText(['- 지난주 나-1 진행(고침)']);
+ await expect(b1.locator('[data-flow-carried]')).toHaveCount(0);
+ // 한글 파일: 바탕에 없던 사업영역이 표 맨 아래 내 줄로(담당 = 내 이름), 쓴 줄 그대로.
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ expect(report.summary.map(a=>a.area.join(' '))).toEqual(['사업영역 가','사업영역 나','사업영역 다']);
+ expect(report.summary[2].rows.map(r=>[r.progress,r.owner])).toEqual([[['- 다 영역 손 줄'],['가상 담당']]]);
+ expect(report.summary[1].rows[0].progress).toEqual(['- 지난주 나-1 진행(고침)']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });

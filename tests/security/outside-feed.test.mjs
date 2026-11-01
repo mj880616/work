@@ -7,6 +7,7 @@ import {readFileSync} from 'node:fs';
 const {OUTSIDE_CATALOG,OUTSIDE_SOURCE_KEYS,allowedUrl,sourceByKey,publicCatalog,prefixOf}=await import('../../supabase/functions/_shared/outside-catalog.ts');
 const P=await import('../../supabase/functions/outside-feed/parse.ts');
 const H=await import('../../supabase/functions/outside-feed/handler.ts');
+const {postView}=await import('../../app/outside-statements-model.mjs');
 
 const FX=name=>readFileSync(new URL(`../fixtures/outside-feed/${name}`,import.meta.url),'utf8');
 const NOW=Date.parse('2026-10-31T03:00:00Z');
@@ -30,7 +31,7 @@ const EXPECT={
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
   jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
   pssp:[['https://pssp.org/bbs/view.php?board=statement&nid=6001','statement']],
-  ws:[['https://ws.or.kr/article/40001','statement'],['https://ws.or.kr/article/39999','statement']],
+  ws:[['https://ws.or.kr/article/40001','statement'],['https://ws.or.kr/article/40000','article'],['https://ws.or.kr/article/39999','statement']],
   platformc:[['https://platformc.kr/2026/10/fake-reading-one','article']],
   leftall:[['https://leftall.com/notice/120','statement'],['https://leftall.com/notice/118','statement']],
   socialism:[['https://socialism.jinbo.net/bbs/board.php?bo_table=news&wr_id=55','comment']],
@@ -86,7 +87,14 @@ test('title prefixes decide the kind; notices/press-call posts are dropped', () 
   assert.equal(prefixOf('제목만'),'');
   assert.equal(sourceByKey('kctu').kindOf('[취재요청] x',''),null);
   assert.equal(sourceByKey('leftall').kindOf('[공지] 토론회',''),null);
-  assert.equal(sourceByKey('ws').kindOf('그냥 기사',''),null);
+  // 노동자연대(명진 결정 11/01 22:30): 기사도 받는다 — 성명 머리말은 statement, 나머지는 article(종류 칸 비움), 공지류 머리말은 뺀다.
+  assert.equal(sourceByKey('ws').kindOf('그냥 기사',''),'article');
+  assert.equal(sourceByKey('ws').kindOf('[긴 글] 가상 긴 글',''),'article');
+  assert.equal(sourceByKey('ws').kindOf('[노동자연대 성명] x',''),'statement');
+  assert.equal(sourceByKey('ws').kindOf('[성명] x',''),'statement');
+  assert.equal(sourceByKey('ws').kindOf('노동자연대 학생그룹 성명: x',''),'statement');
+  assert.equal(sourceByKey('ws').kindOf('[공지] 가상 모임',''),null);
+  assert.equal(sourceByKey('ws').kindOf('[안내] 가상 행사',''),null);
 });
 
 // ---- 단체별 읽기(표본) -------------------------------------------------------------------------------------------
@@ -490,8 +498,8 @@ test('플랫폼C: 첫 화면 카드 제목(h2 …__title)만 제목으로, 스�
   assert.equal(H.FETCH_MAX_BYTES,2*1024*1024,'size cap unchanged');
 });
 
-test('노동자연대: 피드는 읽었지만 이번 첫 쪽에 성명이 없으면 고장 아님(no_match, 실패 표시 지움)', async () => {
-  const feed=`<?xml version="1.0"?><rss version="2.0"><channel><item><title><![CDATA[가상 신문 기사 하나]]></title><link>https://ws.or.kr/article/41001</link></item><item><title><![CDATA[[긴 글] 가상 긴 글]]></title><link>https://ws.or.kr/article/41000</link></item></channel></rss>`;
+test('노동자연대: 피드는 읽었지만 이번 첫 쪽에 넣을 글(성명·기사)이 없으면 고장 아님(no_match, 실패 표시 지움)', async () => {
+  const feed=`<?xml version="1.0"?><rss version="2.0"><channel><item><title><![CDATA[[공지] 가상 모임 안내]]></title><link>https://ws.or.kr/article/41001</link></item><item><title><![CDATA[[안내] 가상 행사]]></title><link>https://ws.or.kr/article/41000</link></item></channel></rss>`;
   const h=harness({sources:[{workspace_id:WS,source_key:'ws',last_error:'parse_empty'}],sites:{'https://ws.or.kr/feed':new Response(feed,{status:200,headers:{'Content-Type':'application/xml'}})}});
   const out=await (await h.cron('run',{source:'ws'})).json();
   assert.equal(out.status,'no_match');assert.equal(out.listed,0);assert.equal(out.inserted,0);
@@ -543,10 +551,24 @@ test('사회주의자: 채널 목록 한 번만 읽고 글 쪽·단체 사이트
   assert.equal((await (await red.cron('run',{source:'socialist'})).json()).status,'redirect_outside');
 });
 
-test('노동자연대: 머리말 [노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명]·괄호 없는 \'노동자연대 성명:\'만 성명, 신문 기사는 뺀다', () => {
+test('노동자연대: 성명 머리말([노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명]·괄호 없는 \'노동자연대 성명:\')은 성명, 나머지 기사는 article(명진 결정 11/01 22:30)', () => {
   const k=sourceByKey('ws').kindOf;
   for(const t of['[노동자연대 성명] 가상','[성명] 가상','[노동자연대 학생그룹 성명] 가상','노동자연대 성명: 가상','노동자연대 학생그룹 성명 — 가상'])assert.equal(k(t,''),'statement',t);
-  for(const t of['〈노동자 연대〉가 뽑은: 가상 10대 뉴스','가상 기사에서 성명을 다룸','노동자연대 성명서 낭독 현장 기사'])assert.equal(k(t,''),null,t);
+  for(const t of['〈노동자 연대〉가 뽑은: 가상 10대 뉴스','가상 기사에서 성명을 다룸','노동자연대 성명서 낭독 현장 기사','[긴 글] 가상 긴 글'])assert.equal(k(t,''),'article',t);
+  for(const t of['[공지] 가상 모임','[모집] 가상 기자','[알림] 가상 휴간','■ 가상 주간 홍보 일정'])assert.equal(k(t,''),null,t);
+});
+
+test('노동자연대: 기사가 하루 수십 건이어도 한 번에 MAX_NEW_PER_RUN건만, 나머지는 다음 실행 — 종류 칸은 성명만 \'성명\', 기사는 비움', async () => {
+  const items=Array.from({length:20},(_,i)=>`<item><title><![CDATA[${i%5===0?'[노동자연대 성명] ':''}가상 기사 ${i}]]></title><link>https://ws.or.kr/article/${50100-i}</link><pubDate>Sun, 01 Nov 2026 0${i%10}:00:00 +0900</pubDate></item>`).join('');
+  const sites={'https://ws.or.kr/feed':new Response(`<?xml version="1.0"?><rss version="2.0"><channel>${items}</channel></rss>`,{status:200,headers:{'Content-Type':'application/xml'}})};
+  for(let i=0;i<20;i++)sites[`https://ws.or.kr/article/${50100-i}`]=FX('article-ko.html');
+  const h=harness({sources:[{workspace_id:WS,source_key:'ws'}],sites});
+  const out=await (await h.cron('run',{source:'ws'})).json();
+  assert.equal(out.listed,20);assert.equal(out.inserted,H.MAX_NEW_PER_RUN);assert.equal(out.deferred,20-H.MAX_NEW_PER_RUN);
+  const kinds=h.db.app_outside_posts.map(p=>p.kind);
+  assert.ok(kinds.includes('statement')&&kinds.includes('article'),'성명·기사 함께');
+  assert.ok(kinds.every(x=>x==='statement'||x==='article'));
+  assert.equal(postView({kind:'statement'}).kind,'성명');assert.equal(postView({kind:'article'}).kind,'');
 });
 
 // 공공운수노조 robots 예외(명진 결정 11/01 16:49): 소속 노조의 공개 성명 게시판 한 곳만. 일반 robots 검사는 약하게 하지 않는다.

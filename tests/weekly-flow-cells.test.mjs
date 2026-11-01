@@ -50,3 +50,19 @@ test('투쟁 사업장: 구성(order)에 넣은 내 담당 조직(4번 칸 이�
   const next = withCellLine(draft, {section:'sites', key:'A 지부', act:'add', text:'- 새 사업장 소식'});
   assert.deepEqual(siteCells(next, layout).map(c => [c.key, c.lines]), [['B 노조', ['- 가상 조정 신청']], ['A 지부', ['- 새 사업장 소식']]]);
 });
+
+// WEEKLY-한흐름확정 ③: 내 사업영역은 이 주 기록이 없어도 칸이 모두 있다(바탕에 내 줄이 없던 사업영역은 빈 칸으로 뒤에).
+test('요약 칸: 내 사업영역 전부 — 칸이 없는 사업영역은 빈 칸, 이름 모양(띄어쓰기·가운뎃점) 무시', async () => {
+  const {summaryCells, areaCellKey} = await import('../app/weekly-flow-cells.js');
+  const cells = summaryCells(draft, ['가 영역', '다 · 영역', '나영역', '다·영역']);
+  assert.deepEqual(cells.map(c => [c.key, c.lines, !!c.added]), [['가 영역›가-1 과제', ['- 가상 교섭 3차'], false], ['나 영역›나-1 과제', [], false], ['다 · 영역›', [], true]]);
+  assert.equal(areaCellKey('다 · 영역'), '다 · 영역›');
+  // 빈 칸에 줄을 더하면 그 주 draft rows 에 남고, 다음에 그릴 때 같은 칸(더한 칸이 아니라 저장된 칸)으로 보인다.
+  const next = withCellLine(draft, {section:'summary', key:areaCellKey('다 · 영역'), act:'add', text:'- 손으로 쓴 가상 줄'});
+  const again = summaryCells(next, ['가 영역', '다 · 영역']);
+  assert.deepEqual(again.map(c => [c.key, c.lines, !!c.added]).at(-1), ['다 · 영역›', ['- 손으로 쓴 가상 줄'], false]);
+  assert.equal(again.length, 3);
+  // 이 주 기록(세부 과제가 있는 기록)은 그 사업영역의 빈 칸 제안으로 간다.
+  const m = flowMaterial(weekMaterial, {summary:{areas:[{name:'다 · 영역', rows:[{task:{name:'다-1 과제'}, items:[{day:'2026-10-28', text:'가상 회의'}]}]}], others:[], names:['가 영역', '다 · 영역']}, orgs:{sections:[]}}, draft);
+  assert.deepEqual(m.get(summaryCells(draft, ['가 영역', '다 · 영역']).at(-1).id).map(x => x.text), ['- 다-1 과제: 가상 회의']);
+});

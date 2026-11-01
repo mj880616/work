@@ -186,3 +186,41 @@ test('담당 팀원 칸 이름: 직전 확정본 표기를 그대로 가져오�
   // 프로필 이름 그대로는 내 줄을 찾지 못한다(그래서 확정본 표기를 쓴다).
   assert.deepEqual(editableRows(startDraft(again.team, {me: '가짜담당갑', date: ''}), '가짜담당갑'), []);
 });
+
+// WEEKLY-한흐름확정 ③: 내 사업영역(사업 목록)은 바탕 요약 표에 내 줄이 없어도 빈 내 줄로 들어가고, 그 칸에 쓴 줄이 한글 파일에 들어간다.
+test('빠진 내 사업영역: 같은 이름 묶음이 있으면 그 맨 아래, 없으면 표 맨 아래 새 묶음. 칸 이름은 사업 목록 이름', async () => {
+  const {missingAreas, withAreaRows} = await import('../app/weekly-hwpx/draft.mjs');
+  const {team, template} = prepareConfirmed(await openConfirmed(fakeBytes()));
+  const base = startDraft(team, {me: ME, date: ''});
+  const rows = editableRows(base, ME);
+  const myArea = rows[0].area, otherArea = base.summary.map(a => a.area.join(' ')).find(a => !rows.some(r => r.area === a));
+  // 내 줄이 있는 사업영역(띄어쓰기만 다른 이름 포함)은 빠진 것이 아니다.
+  const want = [myArea.replace(/\s+/g, ''), '가짜 새 영역', ...(otherArea ? [otherArea] : [])];
+  const missing = missingAreas(rows, want);
+  assert.deepEqual(missing, ['가짜 새 영역', ...(otherArea ? [otherArea] : [])]);
+  assert.equal(withAreaRows(base, missing, ''), base); // 내 이름을 모르면 그대로
+  const more = withAreaRows(base, missing, ME);
+  assert.notEqual(more, base);
+  assert.equal(editableRows(base, ME).length, rows.length); // 원본은 그대로
+  const now = editableRows(more, ME);
+  assert.deepEqual(missing.map(n => now.find(r => r.area === n) && [now.find(r => r.area === n).task, now.find(r => r.area === n).lines]), missing.map(() => ['', []]));
+  assert.equal(now.length, rows.length + missing.length);
+  assert.deepEqual(missingAreas(now, want), []);
+  // 그 칸에 쓴 줄 → 파일에 내 줄로(규격 검사 통과).
+  const added = now.find(r => r.area === '가짜 새 영역');
+  const data = assembleDraft(more, {summary: new Map([[added.index, ['- 가짜 손 줄']]])});
+  const bytes = await buildHwpx(template, data);
+  assert.deepEqual(validateHwpx(bytes, zlib).errors, []);
+  const back = readReport(openHwpx(bytes, zlib));
+  const area = back.summary.find(a => a.area.join(' ') === '가짜 새 영역');
+  assert.deepEqual(area.rows.map(r => [r.progress, r.owner]), [[['- 가짜 손 줄'], [ME]]]);
+});
+
+test('빠진 내 사업영역: 남의 줄만 있던 같은 이름 묶음에는 그 맨 아래 내 줄(칸 이름 = 사업 목록 이름)', async () => {
+  const {missingAreas, withAreaRows} = await import('../app/weekly-hwpx/draft.mjs');
+  const base = {summary: [{area: ['가짜 남·영역'], rows: [{task: ['가짜 남 과제'], progress: ['- 가짜 남 줄'], paras: [], owner: ['가짜을']}]}]};
+  const more = withAreaRows(base, missingAreas(editableRows(base, ME), ['가짜 남 · 영역']), ME);
+  assert.equal(more.summary.length, 1);
+  assert.deepEqual(more.summary[0].rows.map(r => r.owner), [['가짜을'], [ME]]);
+  assert.deepEqual(editableRows(more, ME).map(r => [r.area, r.task, r.lines]), [['가짜 남 · 영역', '', []]]);
+});

@@ -180,6 +180,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const button = (text, data, cls = 'mini') => { const b = el('button', cls, text); b.type = 'button'; b.dataset[data] = ''; return b; };
   let state = null, engine = null, lib = null, run = 0, confirmed = undefined, sourceRun = 0, weekDraft = null, flight = null;
+  // [처음부터] 뒤 바탕을 다시 연 끝에 남길 상태 줄({week, text}). 다시 여는 동안의 '여는 중…' 줄이 지운 결과 안내를 연 뒤 되살린다(한 번만).
+  let reopenNote = null;
   // WEEKLY-한흐름확정 ②(명진 결정 ①: 위 상자 없앰): 이 모듈은 [주간 정리] 안 두 자리를 그린다.
   //   topLine — 맨 위 한 줄 '■ 일시 · 이름 · 바탕 … 임시저장 HH:MM ⋯'(⋯ = 이름 고치기·일시 고치기·바탕 바꾸기(기기 파일)·처음부터)
   //   host    — 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기](이 화면의 유일한 채운 버튼) + ⋯(HWP로 받기·확정 없이 파일만 받기·글로 복사·학습 시험)
@@ -220,6 +222,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
 
   // 바탕을 닫는다(주가 바뀜·처음부터). 고치던 것은 닫기와 같이 저장. 맨 위 한 줄·확정 버튼 줄은 그대로(draft 로 다시 그림).
   function close(message = '') {
+    reopenNote = null;
     if (state?.store?.dirty) void saveDraft(state);
     if (state?.store) clearTimeout(state.store.timer);
     run++; sourceRun++; state = null; weekDraft = null; flight = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true;
@@ -366,7 +369,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       await attachDraft(state, baseInfo, saved);
       if (mine !== run) return;
       carry(week);
-      say('');
+      say(reopenNote?.week === week.start ? reopenNote.text : ''); reopenNote = null;
       // 환류학습 3: 그 주 처음 초안이 아직 없으면(처음 연 주) AI 초안을 한 번 쓴다(기록을 다 읽은 뒤 — renderMaterial). 있으면 그대로.
       state.ai = {status:state.store?.extras?.proposed ? (state.store.extras.proposed.ai ? 'done' : 'base') : 'wait', note:''};
       if (state.store?.status === 'missing' || state.store?.status === 'readFailed') state.ai.status = 'base';
@@ -406,10 +409,19 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   }
   const proposedNow = s => proposedOf({at:nowIso(), baseKind:s.baseKind, baseInfo:s.baseInfo, cells:cellsNow(s, 'initial')});
 
+  // 내 사업영역 이름(사업 목록 1단, 순서대로). 사업 목록을 아직 못 읽었으면 빈 목록(바탕 그대로).
+  const areaNames = () => getWeek().model?.summary?.names ?? [];
+  // 바탕을 연 뒤에 사업 목록이 읽혀 아직 줄이 없는 사업영역이 생겼는지.
+  const needAreas = s => !!s?.draft && s.draft.missingAreas(s.rows ?? [], areaNames()).length > 0;
   // (Re)build my base from the team report for the current name; edits start from the base lines.
   function rebase() {
     const {draft, team} = state;
     state.base = draft.startDraft(team, {me:state.me, myOrgs:state.myOrgs, orgList:state.context.orgFailed ? null : state.context.organizations, date:state.date});
+    // WEEKLY-한흐름확정 ③: 내 사업영역(사업 목록) 가운데 바탕 요약 표에 내 줄이 없는 것은 빈 내 줄을 더한다(이 주 기록이 없어도 칸이 모두 들어감).
+    // 바탕에 원래 있던 내 줄 수(0이면 '이 이름을 찾지 못했어요' — 더한 줄과 상관없이 이름 확인을 알린다).
+    const own = draft.editableRows(state.base, state.me);
+    state.ownRows = own.length;
+    state.base = draft.withAreaRows(state.base, draft.missingAreas(own, areaNames()), state.me);
     state.rows = draft.editableRows(state.base, state.me);
     state.orgs = draft.editableOrgs(state.base, 'orgs');
     // ORG-쟁의단계 ②: 투쟁 사업장 표는 쟁의 단계에서 채운다(draft.applySiteStages). 단계를 읽지 못했으면 바탕 그대로.
@@ -638,7 +650,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       for (const c of s.plans) { const li = el('li'); li.append(el('span', 'journal-weekly-label', `${c.where}: `), doc.createTextNode(`${c.from.trim()} → ${c.to.trim()}`)); list.append(li); }
       plans.append(list); parts.push(plans);
     }
-    if (!s.me || !s.rows.length) { const p = el('p', 'journal-muted', TEXT.noMine); p.dataset.hwpxNoMine = ''; parts.push(p); }
+    if (!s.me || !s.ownRows) { const p = el('p', 'journal-muted', TEXT.noMine); p.dataset.hwpxNoMine = ''; parts.push(p); }
     // 담당 팀원 칸 이름·담당 조직은 맨 위 한 줄에 보인다. 여기에는 확인이 필요한 때만 한 줄(직전 확정본에서 이름을 못 찾음·담당 사업장을 못 읽음·지정 안 됨).
     if (s.meFrom === 'profile') { const p = el('p', 'journal-muted', ME_FROM.profile); p.dataset.hwpxMeFrom = 'profile'; parts.push(p); }
     const orgNote = s.context.orgFailed ? '담당 사업장을 읽지 못해 산하조직 표는 비워요.'
@@ -861,6 +873,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
 
   async function build() {
     const {draft} = state;
+    // 바탕을 연 뒤에 사업 목록이 읽혔으면 빠진 사업영역 줄을 더하고 칸을 다시 놓는다(그 칸에 쓴 줄이 파일에 들어가게).
+    if (needAreas(state)) { const kept = currentDraft(state); rebase(); placeCells(state, kept); }
     if (state.built) return state.built;
     const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, state.edits);
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
@@ -1231,7 +1245,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const own = draftSiteLayout(d);
     if (own) { s.layout = own; s.layoutOwn = true; }
     const needSites = missingSites(s.sites ?? [], s.layout, s.context.organizations.map(o => o.name)).length > 0;
-    if (me !== s.me || needSites) { s.me = me; rebase(); }
+    if (me !== s.me || needSites || needAreas(s)) { s.me = me; rebase(); }
     s.date = d.date || s.defaultDate;
     const placed = placeCells(s, d);
     s.titles = placed.titles; s.drops = placed.drops; s.docs = draftDocs(d); s.areas = draftAreaSummaries(d); s.titleKeys = '';
@@ -1432,7 +1446,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (state !== s) return;
     if (!saved && st?.dirty) void saveDraft(s); // 아직 못 쓴 받은 초안 기록(issued)만 있을 때
     // 칸이 비면 [주간 정리]가 바탕을 다시 열어 처음 초안부터 만든다(prepare → ensure).
-    close(saved ? '임시저장본을 지웠어요. 바탕부터 다시 만들어요.' : ''); onDraft?.(s.start, null); onFlow({restart:s.start});
+    const note = saved ? '임시저장본을 지웠어요. 바탕부터 다시 만들어요.' : '';
+    close(note); reopenNote = note ? {week:s.start, text:note} : null; onDraft?.(s.start, null); onFlow({restart:s.start});
   }
   doc.addEventListener('visibilitychange', () => {
     if (!state?.store) return;

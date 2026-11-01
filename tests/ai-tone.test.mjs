@@ -92,10 +92,12 @@ const EXCLUDED = new Map([
   ['ai-assist/file-name.ts', '첨부 파일 이름 추천(명사형 파일 이름, 문장 아님 — ATT-이름고치기)'],
   ['library-files/index.ts', '자료 제목 찾기(제목, 문장 아님)'],
   ['document-ai-index/index.ts', '검색용 색인 요약: 화면에 보이지 않고 AI 재료로만 쓰임. 화면에 보이게 되면 적용으로 옮길 것'],
+  ['news-feed/handler.ts', '뉴스 클리핑 기사 한 줄 요약은 기사와 같은 언어(영어 기사는 영어)로 쓰고, [번역]은 요약 없이 원문 그대로 옮긴다 — 한국어 문장 말투 규칙과 무관(NEWS-클리핑)'],
   ['meeting-ai-ingest/index.ts', '문서에서 사실을 추출해 두는 재료 글(회의 요약 아님)'],
   ['page-ai-draft/index.ts', '현장 공유 페이지 초안(바깥에 내보내는 글)'],
   ['ai-assist/weekly-learn.ts', '주간보고 본문 칸 초안(바깥에 내는 주간보고 문체, 명사형 끝맺음)과 환류 보고 규칙·개선 제안(규칙 목록, 문장 요약 아님)'],
   ['ai-assist/hwp-convert.ts', '노조 서식 한글 문서(바깥에 내는 공식 문서, 명사형 문체 유지)'],
+  ['news-feed/handler.ts', '뉴스 클리핑: 기사와 같은 언어로 쓰는 한 줄 요약(외신은 원어)과 [번역] 전문 번역 — 원문에 충실해야 하고 말투를 바꾸면 안 됨(NEWS-클리핑)'],
   ['ai-assist/press-draft.ts', '성명·보도자료 초안(바깥에 내는 글, 성명 문체 \'~다\'·보도자료 \'~습니다\', FEAT-1029 공통 규칙 4)'],
 ]);
 
