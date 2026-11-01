@@ -3230,9 +3230,9 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
 // FORM-시간숫자 + WEEKLY-장소칸(요청함 10/31 00:28·00:31): 상자 5. 주요 일정 칸의 흐린 글자는 칸 이름(시간·제목·장소·참석), 빈 장소는 파일에 '미정'.
 // 시간 칸은 숫자 자판(1030 → 10:30), 틀린 시간은 칸 아래 '시간을 확인해 주세요'(저장 안 함), 옆 작은 [종일]은 누르면 종일·다시 누르면 풀림.
 // 예전 한 줄 모양('10:30 / 제목 / 장소')으로 저장된 기억은 읽을 때 시간·제목·장소 칸으로 나뉘고 파일 칸도 한 번만 들어간다(서버 값은 그대로). 이름은 모두 합성.
-for(const width of [412,1440])test(`상자 5. 주요 일정: 칸 이름 흐린 글자, 숫자 시간 칸·[종일], 한 줄 모양 기억은 칸별로 나눠 읽기 ${width}`,async({page})=>{
+for(const width of [412,1440])test(`[주간 정리] 5. 주요 일정 칸 고치기: 칸 이름 흐린 글자, 숫자 시간 칸·[종일], 한 줄 모양 기억은 칸별로 나눠 읽기 ${width}`,async({page})=>{
  const f=await memoryFixture(page,{width,memory:[{key:'가상수련회',origin:'가상 수련회',title:'10:30 / 가상 결의대회 / 가상 시의회',saved:'2026-10-01'}]});
- await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);await openSchedule(page);
  const row=titleRow(page,'가상 다음 주 회의'),time=row.locator('[data-hwpx-time-input]');
  await expect(row.locator('[data-hwpx-place-input]')).toHaveAttribute('placeholder','장소');
  await expect(row.locator('[data-hwpx-title-input]')).toHaveAttribute('placeholder','제목');
