@@ -24,6 +24,9 @@ class PullRefreshTest {
         assertTrue(src.contains("else if (data == \"pull:on\" || data == \"pull:off\") pullOn = data == \"pull:on\""))
         // 새로고침은 웹(저장 안 한 글 확인 → 같은 주소)에 맡기고, 'cancel'이면 다시 열지 않는다.
         assertTrue(src.contains("window.KPTUPullRefresh"))
-        assertTrue(src.contains("if (value != \"\\\"reload\\\"\" && value != \"\\\"cancel\\\"\") webView.reload()"))
+        assertTrue(src.contains("if (value != \"\\\"reload\\\"\" && value != \"\\\"cancel\\\"\") {"))
+        // APP-다시열림: 옛 화면을 앱이 다시 열 때도 까닭(pull)을 남기고, 당겨야 하는 거리를 늘려 저절로 걸리지 않게 한다.
+        assertTrue(src.contains("ReopenLog.log.expect(\"pull\", System.currentTimeMillis())\n                    webView.reload()"))
+        assertTrue(src.contains("refresher.setDistanceToTriggerSync((PULL_TRIGGER_DP * resources.displayMetrics.density).toInt())"))
     }
 }

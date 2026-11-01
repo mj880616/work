@@ -67,11 +67,13 @@
 
   const bootSession=window.KPTURuntime.session.read();
   const bootOwner=sessionOwner(bootSession);
+  // APP-다시열림: 폰 앱이면 다시 열기 직전에 까닭(종류만)을 앱 기록에 남긴다(app/phone-reopen.js 설명). 앱이 아니면 아무것도 하지 않는다.
+  const markReopen=kind=>{try{window.KPTUAppShell?.postMessage?.('reopen:mark:'+kind)}catch{}};
   const handleIdentityChange=next=>{
     const nextOwner=sessionOwner(next);
     if(next&&nextOwner&&nextOwner===bootOwner)return;
     lockPrivateUi();
-    if(next&&nextOwner)location.reload();
+    if(next&&nextOwner){markReopen('session');location.reload()}
     else location.replace(loginUrl());
   };
   window.addEventListener('kptu:session-changed',event=>handleIdentityChange(event.detail?.session||null));
@@ -84,6 +86,7 @@
     lockPrivateUi();
     const valid=await window.KPTURuntime.session.ensure().catch(()=>false);
     if(!valid){location.replace(loginUrl());return}
+    markReopen('bfcache');
     location.reload();
   });
   await Promise.all([
@@ -102,6 +105,9 @@
   const bootView=document.querySelector('#bootView');
   if(bootView){
     ['accessDeniedView','appView'].forEach(id=>document.querySelector('#'+id)?.classList.add('hidden'));
+    // APP-다시열림: 새로고침·뒤로 돌아와 다시 여는 중이면 큰 안내 카드 대신 맨 위 가는 줄 하나만 보인다(문구는 화면 읽기용으로 남김).
+    // 로그인 확인은 이미 끝났고, 앱 화면 내용은 이 단계에서도 아직 그리지 않는다(시작 순서 그대로). 오류가 나면 team.js가 카드로 되돌린다.
+    try{const nav=performance.getEntriesByType?.('navigation')?.[0]?.type;if(nav==='reload'||nav==='back_forward')bootView.classList.add('boot-quiet')}catch{}
     bootView.inert=false;
     bootView.classList.remove('hidden');
     bootView.setAttribute('aria-hidden','false');
@@ -250,6 +256,8 @@
   if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-widget-write.js').catch(err=>console.warn('widget write load failed',err?.name||'Error'));
   // APP-당겨서새로고침: 폰 앱이면 맨 위에서 당겨 새로고침을 켜고 끄는 다리(pull:on/off)와 저장 안 한 글 확인을 붙인다. 앱이 아니면 아무것도 하지 않는다.
   if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-pull-refresh.js').catch(err=>console.warn('pull refresh load failed',err?.name||'Error'));
+  // APP-다시열림: 폰 앱이면 알림·링크로 들어올 때 화면을 통째로 다시 열지 않고 자리만 옮기는 길(KPTUAppNav)을 붙인다. 앱이 아니면 아무것도 하지 않는다.
+  if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-reopen.js').catch(err=>console.warn('phone reopen load failed',err?.name||'Error'));
   // APP-폰알림 N4: 폰 앱이면 이 폰이 알림을 '받는 중'일 때 다시 등록해 바뀐 폰 주소·마지막 시각을 맞춘다(phone-push-settings.js). 앱이 아니면 아무것도 하지 않는다. 기다리지 않는다.
   if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-push-settings.js').then(m=>m.startDeviceSync(window)).catch(err=>console.warn('phone push sync load failed',err?.name||'Error'));
   const defer=window.requestIdleCallback?((fn,opts)=>window.requestIdleCallback(fn,opts)):((fn)=>setTimeout(fn,200));

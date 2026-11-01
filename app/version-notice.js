@@ -80,7 +80,7 @@ export function startVersionNotice(scriptUrl){
     box=document.createElement('aside');box.id='versionNotice';box.setAttribute('aria-label','새 버전 안내');
     box.innerHTML='<svg class="version-notice-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg><span role="status">새 버전이 있어요</span><button type="button" class="version-notice-reload" data-version-reload>새로고침</button><button type="button" class="version-notice-close" data-version-dismiss aria-label="닫기">✕</button>';
     box.querySelector('[data-version-dismiss]').onclick=()=>{dismissed.add(latest);remove()};
-    box.querySelector('[data-version-reload]').onclick=()=>{if(allowReload())location.reload()};
+    box.querySelector('[data-version-reload]').onclick=()=>{if(!allowReload())return;try{window.KPTUAppShell?.postMessage?.('reopen:mark:version')}catch{}location.reload()};
     document.body.prepend(box);document.body.classList.add('kptu-version-notice-open');
     observer.observe(box);layout();
     void describe(deployed);

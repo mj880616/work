@@ -109,7 +109,9 @@ test('앱: 빌드 변수로만 Firebase를 켜고, 알림을 누르면 웹2 안�
   const manifest = read('android-app/app/src/main/AndroidManifest.xml');
   assert.match(manifest, /android:name="\.PushService"\s+android:exported="false">\s*<intent-filter>\s*<action android:name="com\.google\.firebase\.MESSAGING_EVENT" \/>/);
   const main = read('android-app/app/src/main/java/kr/or/kptu/work/MainActivity.kt');
-  assert.match(main, /webView\.loadUrl\(PushRules\.openUrl\(intent\.getStringExtra\(PushRules\.EXTRA_OPEN\)\)\)/);
+  assert.match(main, /load\(PushRules\.openUrl\(intent\.getStringExtra\(PushRules\.EXTRA_OPEN\)\), "push"\)/);
+  // APP-다시열림: 앱이 떠 있으면 통째로 다시 열지 않고 화면 안에서 그 자리로만 옮긴다(못 옮기면 위 load).
+  assert.match(main, /openInPlace\(PushRules\.openUrl\(intent\.getStringExtra\(PushRules\.EXTRA_OPEN\)\), "push"\)/);
   const setup = read('android-app/app/src/main/java/kr/or/kptu/work/PushSetup.kt');
   assert.match(setup, /setVisibility\(NotificationCompat\.VISIBILITY_PRIVATE\)/);
   assert.match(setup, /setPublicVersion\(hidden\)/);

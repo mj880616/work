@@ -92,6 +92,7 @@ async function load(){
   void loadCalRef();
   void loadTodoRules();
   void loadPush();
+  void loadReopen();
   return true;
 }
 // CAL-조직참고캘린더: '조직 참고 캘린더' 칸은 따로 바로 저장한다(calendar-ref-settings.js). 못 불러와도 프로필 화면은 그대로다.
@@ -114,6 +115,16 @@ async function loadPush(){
     if(!pushSettings||pushSettings.host!==host){const ready=import('./phone-push-settings.js').then(m=>m.mountPhonePushSettings(host,{rt}));pushSettings={host,ready};ready.catch(()=>{if(pushSettings?.ready===ready)pushSettings=null})}
     await (await pushSettings.ready).load();
   }catch(e){console.error('phone push settings',e?.name||'Error')}
+}
+// APP-다시열림: 폰 앱이면 '폰 알림' 칸 뒤에 '다시 연 기록'(앱이 화면을 처음부터 다시 연 때·까닭, 앱 메모리만)을 접힌 채 한 번 붙인다. 앱이 아니면 칸 없음.
+async function loadReopen(){
+  try{
+    if(!/KPTUAndroid/i.test(navigator.userAgent||'')||$('#psReopenPanel'))return;
+    const after=$('#psPushPanel');if(!after)return;
+    after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReopenPanel" aria-label="다시 연 기록"></article>');
+    const m=await import('./phone-reopen.js');
+    if(!m.mountReopenLog($('#psReopenPanel')))$('#psReopenPanel')?.remove();
+  }catch(e){console.error('phone reopen log',e?.name||'Error')}
 }
 async function loadCalRef(){
   try{
