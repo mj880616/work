@@ -645,3 +645,30 @@
   #appView #homeView .journal-discuss-table .journal-discuss-org:empty,
   #appView #homeView .journal-discuss-table .journal-discuss-note:empty{ display:none; }
 }
+
+/* WEEKLY-한흐름확정 ②(시안 docs/design/mockups/weekly-one-flow.html 안 B): [주간 정리] = 주간보고. 맨 위 한 줄(■ 일시 · 이름 · 바탕 · 임시저장 ⋯),
+   보고서 칸(이름 줄 + [+ 추가] · 줄마다 ⋯ · 흐린 제안 줄 [수용]·⋯), 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기](이 화면의 유일한 채운 버튼) + ⋯ + 상태 한 줄. 큰 상자·카드 없음. */
+#appView #homeView .weekly-flow-top{ display:flex; align-items:center; gap:6px; min-width:0; padding:2px 0 6px; border-bottom:var(--ds-line-width) solid var(--kptu-border); font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #homeView .weekly-flow-top-text{ flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+#appView #homeView .weekly-flow-top-text b{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium); }
+#appView #homeView .weekly-flow-top .journal-hwpx-draft{ max-width:40%; }
+#appView #homeView .weekly-flow-top > .weekly-flow-edit{ flex:1 1 auto; }
+#appView #homeView .weekly-flow-cells{ display:flex; flex-direction:column; }
+#appView #homeView .weekly-flow-cell{ display:flex; flex-direction:column; gap:1px; padding:4px 0; border-top:var(--ds-line-width) solid var(--kptu-border); min-width:0; }
+#appView #homeView .weekly-flow-name{ display:flex; align-items:center; gap:4px; min-width:0; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #homeView .weekly-flow-label{ flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+#appView #homeView .weekly-flow-label b{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium); }
+#appView #homeView .weekly-flow-lines{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+#appView #homeView .weekly-flow-lines > li{ display:flex; align-items:center; gap:4px; min-width:0; min-height:var(--ds-compact-height-sm); font-size:var(--ds-text-row); }
+#appView #homeView .weekly-flow-text{ flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+#appView #homeView .weekly-flow-suggest > li{ color:var(--kptu-faint, var(--kptu-muted)); font-size:var(--ds-text-meta); }
+#appView #homeView .weekly-flow-tag{ flex:none; padding:0 4px; border:var(--ds-line-width) solid var(--kptu-border-strong); border-radius:6px; font-size:11px; line-height:1.5; color:var(--kptu-muted); }
+#appView #homeView .weekly-flow-take{ flex:none; color:var(--kptu-primary-ink); }
+#appView #homeView .weekly-flow-empty{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #homeView .weekly-flow-edit{ display:flex; align-items:center; gap:4px; flex:1 1 auto; min-width:0; }
+#appView #homeView .weekly-flow-edit > input{ flex:1 1 auto; min-width:0; }
+#appView #homeView .weekly-flow-records{ margin-top:4px; }
+#appView #homeView .weekly-flow-confirm-slot > .journal-hwpx{ margin-top:8px; padding-top:8px; border-top:var(--ds-line-width) solid var(--kptu-border-strong); }
+#appView #homeView .weekly-flow-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+#appView #homeView .weekly-flow-confirm-state{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #homeView .weekly-flow-confirm-slot .journal-hwpx-panel{ padding:0; border:0; background:transparent; }

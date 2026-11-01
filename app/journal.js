@@ -51,6 +51,7 @@ import {jumpToPrepRef} from './prep-sheet-view.js';
 import {readNextWeekSheet, makeNextWeekSheet} from './next-week-sheet-data.js';
 import {sheetView, shouldAutoMake, isAutoTime, seoulNow, openTarget as nextOpenTarget} from './next-week-sheet-model.mjs';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
+import {paintFlowCells, FLOW_SECTIONS} from './weekly-flow-cells.js';
 import {paintHqSchedule} from './weekly-hq-schedule.js';
 import {paintDiscuss} from './weekly-discuss-table.js';
 import {requestLibraryDocument} from './basket-library-send.js';
@@ -101,7 +102,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 </section>
 <div class="journal-materials" data-journal-materials></div>
 </section>
-<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><p class="journal-muted journal-weekly-intro">주간보고 양식 순서로 이 주 기록을 모았어요. 화면에서 보기만 하고 저장하지 않아요.</p><div class="journal-hwpx" data-journal-hwpx></div><div class="journal-weekly-body" data-journal-weekly></div></section>
+<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><div class="journal-weekly-body" data-journal-weekly></div></section>
 <section class="home-quiet" data-home-quiet aria-labelledby="home-quiet-title" hidden></section>`;
 const $ = selector => root.querySelector(selector);
 // HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
@@ -467,8 +468,9 @@ function renderWeekly_({refreshBox = true} = {}) {
   paintHqSchedule(host.querySelector('[data-journal-weekly-hq-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // S46-27 3) 상집 논의 요청(weekly-discuss-table.js가 그 자리만 그림) — 2) 주요 일정과 같은 저장·같은 맞춤.
   paintDiscuss(host.querySelector('[data-journal-weekly-discuss-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
-  // S46-27 한글 파일 상자 1. 요청사항 세 칸: 같은 부품·같은 자료로 상자 안 자리에도 그린다(열려 있을 때만).
-  paintBoxRequests(weekModel);
+  // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
+  // 맨 위 한 줄과 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 줄은 journal-hwpx.js 가 그리는 그대로의 마디를 그 자리로 옮겨 붙인다.
+  paintFlow(host, weekModel);
   paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js)
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
   renderNextWeek_();
@@ -478,27 +480,28 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (refreshBox) hwpx?.refresh();
 }
 // [주간 정리]·상자 어느 쪽이 그 주 임시저장(2)·3) 줄)을 쓴 뒤: 재료를 바꾸고 두 자리를 다시 그리고, 열린 상자도 서버 판과 맞춘다.
-function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); paintBoxRequests(null, {force:true}); hwpx.sync(week); }; }
-// S46-27: 한글 파일 상자 안 '1. 요청사항' 자리(journal-hwpx.js가 자리만 두고, 그리기는 이 화면 — [주간 정리]와 같은 함수·같은 상태).
-// [주간 정리]를 다시 그릴 때마다 상자 표까지 갈아 끼우지 않는다: 세 칸 자료·고치기 상태가 그대로면 둔다(입력 중 초점·누르는 버튼이 바뀌지 않게).
-// 표 안 동작(줄 추가·취소·저장 결과)은 각 부품이 force로 다시 그린다.
-const boxSigs = new WeakMap();
-function paintBoxRequests(model, {force = !model} = {}) {
-  const slot = $('[data-journal-hwpx] [data-hwpx-requests-slot]');
-  if (!slot || mode !== 'week') return;
+// 그 주 처음(칸 줄 없음): 바탕을 한 번 열어 처음 초안을 만든다(상자 ensure). 못 열면 그 주에는 다시 묻지 않고 까닭 한 줄.
+const flowBase = {start:'', status:'', note:''};
+function prepareFlow() {
+  if (flowBase.start === start) return;
   const week = start;
-  if (!model) { model = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}); model.picks = picksModel(start); }
-  const flags = p => [!!p?.loading, !!p?.missing, !!p?.failed?.length || p?.failed === true, !!p?.editable];
-  const cal = model.calendar;
-  const sig = JSON.stringify([week, {...execUi, draft:null}, flags(model.requests), model.requests?.items, flags(model.hq), model.hq?.rows, !!cal?.loading, (cal?.allRows ?? cal?.rows ?? []).length, flags(model.discuss), model.discuss?.rows]);
-  if (!force && boxSigs.get(slot) === sig && slot.querySelector('[data-hwpx-req="discuss"]')) return;
-  boxSigs.set(slot, sig);
-  const part = key => { let box = slot.querySelector(`[data-hwpx-req="${key}"]`); if (!box) { box = document.createElement('section'); box.className = 'journal-weekly-part journal-part-has-add'; box.dataset.hwpxReq = key; const h = document.createElement('h6'); h.className = 'journal-weekly-sub'; h.textContent = REQUEST_TITLES[key]; const body = document.createElement('div'); body.className = 'journal-part-slot'; body.dataset.hwpxReqBody = ''; box.append(h, body); slot.append(box); } return box.querySelector('[data-hwpx-req-body]'); };
-  const ask = part('ask'), hq = part('hq'), discuss = part('discuss');
-  ask.replaceChildren(...execRequestsPart(document, model, execUi, 'box'));
-  paintHqSchedule(hq, {model, start, rt, place:'box', redraw:() => paintBoxRequests(), onSaved:draftSaved(week)});
-  paintDiscuss(discuss, {model, start, rt, place:'box', redraw:() => paintBoxRequests(), onSaved:draftSaved(week)});
+  Object.assign(flowBase, {start:week, status:'opening', note:''});
+  void hwpx.prepare().then(s => { if (flowBase.start !== week) return; flowBase.status = s ? 'open' : 'failed'; flowBase.note = s ? '' : '바탕을 열지 못해 칸을 만들지 못했어요. 아래 상태 줄과 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 봐 주세요.'; renderWeekly_({refreshBox:false}); },
+    () => { if (flowBase.start === week) { flowBase.status = 'failed'; flowBase.note = '바탕을 열지 못했어요.'; renderWeekly_({refreshBox:false}); } });
 }
+function paintFlow(host, model) {
+  const w = materials.weekDraft, status = !w || w.status === 'loading' ? 'loading' : w.status === 'failed' ? 'failed' : w.items?.missing ? 'missing' : 'ok';
+  const row = status === 'ok' ? w.items.row : null;
+  if (status === 'ok' && !row?.draft?.proposed && flowBase.start !== start) prepareFlow();
+  for (const section of FLOW_SECTIONS) {
+    paintFlowCells(host.querySelector(`[data-weekly-flow-cells="${section}"]`), {section, start, row, status, model, rt, onSaved:draftSaved(start), redraw:() => renderWeekly_({refreshBox:false}),
+      reload:() => void loadGroup('weekDraft'), prepare:() => {}, baseNote:flowBase.start === start ? flowBase.note : ''});
+  }
+  host.querySelector('[data-weekly-flow-top]')?.replaceWith(hwpx.topLine);
+  host.querySelector('[data-weekly-flow-confirm]')?.append(hwpxHost);
+  hwpx.paint();
+}
+function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx.sync(week); }; }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
 // WEEKLY-임원요청정리: it also gets the active project names (carry-over matching) and hands back last week's filtered request rows.
 const projectNames = () => (materials.catalog?.status === 'ok' ? materials.catalog.items.map(entry => entry?.project?.name).filter(Boolean) : []);
@@ -512,14 +515,15 @@ function execRecordTexts() {
   for (const row of ok_('projectUpdates') ?? []) if (isExecRecord({text:row?.summary})) out.push(String(row.summary));
   return out;
 }
-const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), onCarry: (week, items) => carryRequests(week, items),
-  // S46-27: 상자가 '1. 요청사항' 자리를 새로 그렸다 → 세 칸 표를 그 자리에 그린다.
-  onRequestsSlot: () => paintBoxRequests(),
+// 한글 파일 마디(확정 버튼 줄·바탕 연 뒤 보이는 것)는 이 화면이 한 번 만들고, [주간 정리]를 다시 그릴 때마다 5. 주요 일정 맨 아래 자리로 옮겨 붙인다.
+const hwpxHost = document.createElement('div'); hwpxHost.className = 'journal-hwpx'; hwpxHost.dataset.journalHwpx = '';
+const weekRow = () => (materials.weekDraft?.status === 'ok' && !materials.weekDraft.items?.missing ? materials.weekDraft.items.row : null);
+const hwpx = mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft(), onCarry: (week, items) => carryRequests(week, items),
   // [확정] 뒤 [기억하기]: the box wrote my profile's memory; the screen follows the saved list.
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
   // WEEKLY-주요일정칸: 상자가 임시저장을 쓴 뒤(일정 칸별 고침 등) [주간 정리] 2) 주요 일정·5. 주요 일정 화면도 같은 판으로.
   onDraft: (week, row) => { if (week !== start || !row) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_({refreshBox:false}); },
-  getWeek: () => ({start, projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory})})});
+  getWeek: () => ({start, row:weekRow(), projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory})})});
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
@@ -1517,7 +1521,7 @@ function showWeek(day, {hwpx:openHwpx = false} = {}) {
   const week = weekStart(day);
   if (week !== start) { start = week; selected = day; loadWeek(); }
   if (mode !== 'week') setMode('week');
-  if (openHwpx) queueMicrotask(() => $('[data-journal-hwpx] [data-hwpx-start]:not([hidden])')?.click());
+  if (openHwpx) queueMicrotask(() => { const b = $('[data-journal-hwpx] [data-hwpx-confirm]'); b?.scrollIntoView({block:'center'}); b?.focus({preventScroll:true}); });
 }
 window.KPTUJournal = {refresh:() => loadWeek({shared:true}), show:showDay, showWeek};
 if (window.KPTURouter?.current === 'home') enter();
