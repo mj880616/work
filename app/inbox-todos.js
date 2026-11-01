@@ -9,6 +9,7 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 // The home card and the work journal box (todo-radar.js) stay as they are; both sides tell each other through the same change
 // event ('kptu:todo-radar-changed'). Nothing is kept in browser storage.
 import {createAnchoredMenu} from './anchored-menu.js';
+import {setHomeAsks} from './home-asks.js';
 import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, markNotMine, undoNotMine, markTasked, candidateToTask, validateTaskDraft, notPlanned,
   quickDue, dotDay, radarScope, ledgerRequestText, sourceText, RADAR_SOURCE_LABEL} from './todo-radar-data.js';
 import {seoulDateKey} from './meeting-time.js';
@@ -51,7 +52,10 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   const shownRows = () => chip === 'open' ? openRows() : handledRows(chip);
   const count = () => state === 'ok' ? openRows().length : null;
   let told;
-  const tell = () => { const next = count(); if (next !== told) { told = next; onCount(next); } };
+  // UI-앱안알림 3단계(A4): 정리함 본 목록(남의 읽기 read가 없는 것)은 '나한테 온 요청'(텔레그램 후보) 수를 메뉴 '홈' 표시에 알린다 —
+  // 홈 요약 줄과 같은 기준(inbox-count.js openAsks)이고 새 읽기 없음. 여기서 처리하면 다른 화면에서도 표시가 바로 맞는다.
+  const tellAsks = () => { if (!read && state === 'ok') setHomeAsks(openRows().filter(r => r.source_kind === 'telegram').length); };
+  const tell = () => { tellAsks(); const next = count(); if (next !== told) { told = next; onCount(next); } };
 
   function paintChips() {
     if (!chips) return;

@@ -289,6 +289,9 @@ export const overdueRecordsPath = (workspaceId, today, limit = 30) =>
 // ORG-주요인물: 아직 기다리는 약속 전부(놓친 약속과 같은 조건에서 확인일 조건만 뺌). 상대(counterparty)로 사람을 고른다.
 export const waitingCommitmentsPath = (workspaceId, limit = MAX_LIMIT) =>
   `/rest/v1/app_ledger_records?workspace_id=eq.${encodeURIComponent(workspaceId)}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&select=${LEDGER_ROW_COLS}&order=follow_up_on.asc.nullslast&limit=${limit}`;
+// UI-앱안알림 3단계(A5): 홈 요약 줄 '내일 약속 n'. 대기 중·유효한 약속 중 후속확인일(없으면 끝난 날)이 그날(서울 날짜 'YYYY-MM-DD')인 것. 수만 세므로 id만.
+export const tomorrowCommitmentsPath = (workspaceId, day, limit = 50) =>
+  `/rest/v1/app_ledger_records?workspace_id=eq.${encodeURIComponent(workspaceId)}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&or=(follow_up_on.eq.${day},and(follow_up_on.is.null,date_end.eq.${day}))&select=id&limit=${limit}`;
 // 확인일이 오늘(서울)보다 며칠 지났나. 지나지 않았거나 날짜가 아니면 0.
 export function overdueDays(day, now = new Date()) {
   if (!isDay(day)) return 0;
