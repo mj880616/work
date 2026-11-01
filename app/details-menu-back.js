@@ -35,8 +35,21 @@
   let passing = null;
   document.addEventListener('click', event => {
     if (!open || passing) return;
-    const button = event.target.closest?.('button,a[href]');
-    if (!button || button.disabled || !open.el.contains(button) || button.closest('summary') || open.el.matches?.(STAYS)) return;
+    const button = event.target.closest?.('button,a[href],summary');
+    // 메뉴 바깥을 누르면(창의 ✕, 다른 줄 등) 메뉴 칸부터 빼고 그 누름을 다시 보낸다: 창이 닫히며 빼는 칸이 메뉴 칸이 아니라 창 자신의 칸이 되게.
+    if (!open.el.contains(event.target)) {
+      const entry = open; open = null;
+      shut(entry);
+      if (!button || button.disabled) { entry.layer?.close(); return; }
+      event.preventDefault(); event.stopImmediatePropagation();
+      Promise.resolve(entry.layer?.close()).then(() => {
+        if (!button.isConnected) return;
+        passing = button;
+        try { button.click(); } finally { passing = null; }
+      });
+      return;
+    }
+    if (!button || button.disabled || button.matches('summary') || button.closest('summary') || open.el.matches?.(STAYS)) return;
     event.preventDefault(); event.stopImmediatePropagation();
     const entry = open; open = null;
     shut(entry);
