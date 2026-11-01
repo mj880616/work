@@ -289,6 +289,9 @@ jobs:
       - name: Check weekly report 1. 요청사항 three parts — 3) 상집 논의 요청 rows, shared draft cell, hwpx order (S46-27)
         run: node --test tests/weekly-discuss.test.mjs
 
+      - name: Check weekly report hand-added rows — 5. 주요 일정·참고 draft.hand, 칸 줄 밖 동작 기록 (WEEKLY-한흐름확정 ⑤)
+        run: node --test tests/weekly-hand.test.mjs
+
       - name: Check shared UI parts stay unified (UI-화면정리 B)
         run: node --test tests/ui-cleanup-b.test.mjs
 
