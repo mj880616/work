@@ -205,7 +205,14 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   confirmRow.append(confirmBtn, more, confirmState);
   const fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = '.hwp,.hwpx'; fileInput.hidden = true; fileInput.dataset.hwpxFile = '';
   fileInput.addEventListener('change', () => { const f = fileInput.files?.[0]; fileInput.value = ''; if (f) void fromFile(f).then(() => onDraft?.(getWeek().start, null)); });
-  host.replaceChildren(confirmRow, status, panel, fileInput);
+  // 바탕을 아직 안 연 판(그 주 두 번째 방문부터 — 칸 줄은 draft 만 읽음)에도 5. 주요 일정 칸 고치기는 늘 같은 자리 접힌 한 줄. 펼치면 그때 바탕을 연다.
+  const schedGate = el('details', 'journal-hwpx-part journal-hwpx-plans'); schedGate.dataset.hwpxSchedGate = '';
+  schedGate.append(el('summary', 'journal-hwpx-schedule-head', '5. 주요 일정 칸 고치기'));
+  schedGate.addEventListener('toggle', () => {
+    if (!schedGate.open) return;
+    void ensure().then(s => { schedGate.open = false; if (!s) return; s.schedOpen = true; renderEdit(); body.querySelector('[data-hwpx-part="schedule"] summary')?.focus(); });
+  });
+  host.replaceChildren(confirmRow, status, schedGate, panel, fileInput);
   let topEdit = null; // 맨 위 한 줄에서 고치는 칸('me'|'date', 기기 메모리만)
   const say = (text, kind = '') => { status.textContent = text || ''; status.dataset.kind = kind; };
   const lazy = () => lib || (lib = Promise.all([import('./weekly-hwpx/draft.mjs'), import('./hwp-drive.js')]).then(([draft, drive]) => ({draft, drive})));
@@ -280,6 +287,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const week = getWeek(), d = week.row?.draft ?? null, c = (state && state.start === week.start ? state.store?.confirmed : null) ?? d?.confirmed ?? null;
     confirmState.textContent = c?.at ? `${mdhm(c.at)} 확정 · 다시 누르면 새 판` : '확정 전';
     confirmBtn.disabled = !!state?.confirming;
+    schedGate.hidden = !!(state && state.start === week.start && !panel.hidden);
   }
 
   // pinned: the confirmed report the week's draft was made on ([이어서 고치기] opens the same one again).

@@ -447,6 +447,8 @@ function renderWeekly_({refreshBox = true} = {}) {
   const list = weekDays(start);
   $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
   const host = $('[data-journal-weekly]');
+  // 다시 그려도 초점이 있던 칸(id 가 있는 입력칸)은 그 칸으로 돌아간다 — 바탕을 여는 동안·저장 뒤 다시 그릴 때 2)·3) 표 입력 초점이 빠지지 않게.
+  const was = document.activeElement, keep = was && was.id && host.contains(was) && /^(INPUT|TEXTAREA|SELECT)$/.test(was.tagName) ? {id:was.id, at:[was.selectionStart, was.selectionEnd]} : null;
   // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
   // (a fold not drawn right now — its summary is being read again — keeps its last state.)
   for (const d of host.querySelectorAll('[data-journal-org-raw]')) { if (d.open) orgUi.open.add(d.dataset.journalOrgRaw); else orgUi.open.delete(d.dataset.journalOrgRaw); }
@@ -462,6 +464,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (fileInput && fileUi.editing === fileInput.dataset.journalFileEditInput) fileUi.value = fileInput.value;
   const weekModel = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory});
   weekModel.picks = picksModel(start);
+  lastWeekModel = weekModel;
   renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
   // WEEKLY-주요일정칸 B: 1. 2) 주요 일정 수기 표(weekly-hq-schedule.js가 그 자리만 그림). 쓰면 그 주 임시저장 행을 바꾸고 열린 한글 파일 상자도 맞춘다.
   const hqWeek = start;
@@ -478,10 +481,14 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (execFocus) root.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   // 상자가 임시저장한 뒤 다시 그릴 때(onDraft)는 상자를 건드리지 않는다(칸 옆 재료 버튼이 고치는 중에 바뀌지 않게).
   if (refreshBox) hwpx?.refresh();
+  if (keep && (document.activeElement === document.body || !document.activeElement)) { const back = document.getElementById(keep.id); if (back && !back.disabled) { back.focus({preventScroll:true}); try { if (keep.at[0] != null) back.setSelectionRange(keep.at[0], keep.at[1]); } catch { /* 글 칸이 아님 */ } } }
 }
 // [주간 정리]·상자 어느 쪽이 그 주 임시저장(2)·3) 줄)을 쓴 뒤: 재료를 바꾸고 두 자리를 다시 그리고, 열린 상자도 서버 판과 맞춘다.
 // 그 주 처음(칸 줄 없음): 바탕을 한 번 열어 처음 초안을 만든다(상자 ensure). 못 열면 그 주에는 다시 묻지 않고 까닭 한 줄.
 const flowBase = {start:'', status:'', note:''};
+// 칸 줄 자리만 다시(고치는 줄 열기·줄 제안 도착·제안 재료 도착 등 화면 상태만 바뀐 때). [주간 정리] 전체를 다시 그리면 다른 묶음의 입력 초점이 빠진다.
+let lastWeekModel = null;
+function redrawFlow() { const host = $('[data-journal-weekly]'); if (mode !== 'week' || !lastWeekModel || !host) return; paintFlow(host, lastWeekModel); }
 function prepareFlow() {
   if (flowBase.start === start) return;
   const week = start;
@@ -495,7 +502,7 @@ function paintFlow(host, model) {
   if (status === 'ok' && !row?.draft?.proposed && flowBase.start !== start) prepareFlow();
   const team = hwpx.team(start);
   for (const section of FLOW_SECTIONS) {
-    paintFlowCells(host.querySelector(`[data-weekly-flow-cells="${section}"]`), {section, start, row, status, model, rt, team:team?.diff ?? null, teamTitle:team?.title ?? '', onSaved:draftSaved(start), redraw:() => renderWeekly_({refreshBox:false}),
+    paintFlowCells(host.querySelector(`[data-weekly-flow-cells="${section}"]`), {section, start, row, status, model, rt, team:team?.diff ?? null, teamTitle:team?.title ?? '', onSaved:draftSaved(start), redraw:redrawFlow,
       reload:() => void loadGroup('weekDraft'), prepare:() => {}, baseNote:flowBase.start === start ? flowBase.note : ''});
   }
   host.querySelector('[data-weekly-flow-top]')?.replaceWith(hwpx.topLine);
@@ -527,7 +534,7 @@ const hwpx = mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft(), onCarry: 
   onDraft: (week, row) => { if (week !== start || !row) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_({refreshBox:false}); },
   // 바탕을 연 뒤 팀 확정본과 견준 결과('확정본에서 바뀜')가 왔다: 칸 줄만 다시.
   // [처음부터]: 그 주 임시저장을 지웠으니 그 주 행을 다시 읽고, 칸이 비면 바탕을 다시 연다(prepareFlow 를 그 주에 한 번 더).
-  onFlow: ({restart = ''} = {}) => { if (restart && restart === start) { flowBase.start = ''; prepareFlow(); void loadGroup('weekDraft'); return; } if (mode === 'week') renderWeekly_({refreshBox:false}); },
+  onFlow: ({restart = ''} = {}) => { if (restart && restart === start) { flowBase.start = ''; prepareFlow(); void loadGroup('weekDraft'); return; } redrawFlow(); },
   getWeek: () => ({start, row:weekRow(), projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory})})});
 function renderMode() {
   root.dataset.journalMode = mode;
