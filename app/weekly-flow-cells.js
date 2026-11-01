@@ -59,7 +59,7 @@ const describe = (c) => x => ({kind:x.orgRef ? 'calendar' : 'material', from:x.s
 //   model(weeklySummary), rt, onSaved(row), redraw(), prepare(): 바탕을 여는 쪽(상자) 깨우기, preparing: 바탕 여는 중}
 export function paintFlowCells(slot, ctx) {
   if (!slot) return;
-  const doc = slot.ownerDocument, root = slot.closest('[data-journal-weekly]') ?? slot;
+  const doc = slot.ownerDocument, root = slot.closest('[data-journal-weekly-root]') ?? slot.closest('.journal-weekly-body') ?? slot;
   let ui = uiOf.get(root);
   if (!ui || ui.start !== ctx.start) { ui = freshUi(ctx.start); uiOf.set(root, ui); }
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
