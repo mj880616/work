@@ -1,4 +1,4 @@
-// news-feed: 뉴스 클리핑 수집기(NEWS-클리핑 B, 설계 docs/design/news-clipping.md + S47-44 결정, DB migration 20261101230000).
+// news-feed: 뉴스 클리핑 수집기(NEWS-클리핑 B, 설계 docs/design/news-clipping.md + S47-44 결정, DB migration 20261101233000).
 //
 // 입구 두 개(verify_jwt=false, 함수 코드가 막음 — outside-feed와 같은 방식):
 // - 예약 입구(`run_plan`·`run`): `x-news-feed-cron-secret` 헤더를 비밀값 NEWS_FEED_CRON_SECRET(32자 이상)과 SHA-256 고정 길이 비교.
