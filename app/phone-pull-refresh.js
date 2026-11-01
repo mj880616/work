@@ -40,6 +40,8 @@ export function startPullRefresh(win = window) {
     run() {
       const guard = win.KPTUReloadGuard?.allow;
       if (typeof guard === 'function' && !guard()) return 'cancel';
+      // APP-다시열림: 앱 기록에 '당겨서 새로고침'으로 남긴다(종류만).
+      try { bridge.postMessage('reopen:mark:pull'); } catch { /* 다리가 사라진 화면 */ }
       win.location.reload();
       return 'reload';
     },

@@ -94,6 +94,12 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .status.ok{color:var(--kptu-success)}
 .notice{padding:10px var(--kptu-space-3);background:var(--kptu-success-soft);color:var(--kptu-success);border-radius:var(--kptu-radius-md);font-size:12px;margin:var(--kptu-space-3) 0}
 .center-card{margin:11vh auto}
+/* APP-다시열림: 새로고침·복원으로 다시 여는 중에는 큰 카드 대신 맨 위 가는 줄 하나(문구는 화면 읽기용으로만 남김). */
+#bootView.boot-quiet{position:fixed;top:0;left:0;right:0;z-index:20;width:auto;height:3px;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:hidden}
+#bootView.boot-quiet>*{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#bootView.boot-quiet::before{content:"";display:block;width:40%;height:3px;background:var(--kptu-accent);opacity:.7;animation:kptu-boot-quiet 1.1s ease-in-out infinite}
+@keyframes kptu-boot-quiet{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+@media (prefers-reduced-motion:reduce){#bootView.boot-quiet::before{width:100%;opacity:.4;animation:none}}
 .head-actions{display:flex;gap:var(--kptu-space-2);align-items:center;flex-wrap:wrap}
 .view-tabs{display:flex;gap:var(--kptu-space-5);border-bottom:1px solid var(--kptu-border);margin-bottom:var(--kptu-space-4)}
 .view-tab{border:0;background:transparent;padding:10px 2px;border-bottom:2px solid transparent;color:var(--kptu-muted);font-weight:700}

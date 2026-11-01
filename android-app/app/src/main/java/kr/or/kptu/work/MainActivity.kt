@@ -185,7 +185,12 @@ class MainActivity : ComponentActivity() {
 
         // 앱이 로그인 탭 뒤에서 메모리 부족으로 다시 만들어져도 위젯 로그인 표시(시각만, 비밀 아님)를 잇는다.
         savedInstanceState?.getLong(STATE_WIDGET_LOGIN, 0L)?.takeIf { it > 0L }?.let { WidgetHub.session(this).resumeLogin(it) }
+        // APP-다시열림: 이 화면을 왜 새로 여는지 남긴다(종류·시각만, 앱 메모리). 처음 켬·밖에서 꺼졌다 복원·화면만 다시 만듦·엔진 죽음.
+        val reopenKind = if (ReopenBook.engineGone) "engine" else ReopenRules.createKind(savedInstanceState != null, ReopenBook.freshProcess)
+        ReopenBook.engineGone = false
+        ReopenBook.freshProcess = false
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) loadFromIntent(intent)
+        ReopenBook.log.expect(reopenKind, System.currentTimeMillis())
         if (savedInstanceState == null) checkForUpdate()
     }
 
@@ -220,6 +225,7 @@ class MainActivity : ComponentActivity() {
                 else if (data.startsWith("push:")) onPushMessage(data, reply)
                 else if (data == "write:hello") writeReply = reply
                 else if (data == "pull:on" || data == "pull:off") pullOn = data == "pull:on"
+                else if (data.startsWith("reopen:")) onReopenMessage(data, reply)
             }
         }
 
@@ -254,6 +260,8 @@ class MainActivity : ComponentActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                // APP-다시열림: 웹2 화면을 통째로 다시 열기 시작함 → 까닭 한 줄(종류·시각만).
+                if (ShellRules.isInternalApp(url)) ReopenBook.log.started(System.currentTimeMillis(), ShellRules.isLoginPage(url))
                 // 새 화면을 열기 시작하면 앞 화면의 '로그인됨'·쓰기 창 다리는 더 쓰지 않는다.
                 readyReply = null
                 writeReply = null
@@ -287,7 +295,10 @@ class MainActivity : ComponentActivity() {
 
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                 // 화면 엔진이 죽으면 이 WebView는 다시 쓸 수 없다. 화면을 새로 만든다.
-                if (view === webView) recreate()
+                if (view === webView) {
+                    ReopenBook.engineGone = true
+                    recreate()
+                }
                 return true
             }
         }
@@ -310,17 +321,17 @@ class MainActivity : ComponentActivity() {
         if (intent?.action == WidgetActions.ACTION_WRITE) {
             // WIDGET-여러개 ①: 홈 위젯 쓰기 칸. 웹이 ?write=를 읽어 상단 [+ 추가]와 같은 창을 연다. 모르는 종류는 첫 화면.
             val kind = WidgetActions.writeKind(intent?.getStringExtra(WidgetActions.EXTRA_KIND))
-            webView.loadUrl(if (kind == null) ShellRules.HOME else WidgetActions.writeUrl(kind))
+            load(if (kind == null) ShellRules.HOME else WidgetActions.writeUrl(kind), "widget")
             return
         }
         if (intent?.action == PushRules.ACTION_OPEN) {
             // APP-폰알림: 알림을 누르면 그 자리. 웹2 안쪽 주소(/work/app/…)만, 아니면 첫 화면(PushRules.openUrl).
-            webView.loadUrl(PushRules.openUrl(intent.getStringExtra(PushRules.EXTRA_OPEN)))
+            load(PushRules.openUrl(intent.getStringExtra(PushRules.EXTRA_OPEN)), "push")
             return
         }
         if (intent?.action == WeekWidget.ACTION_DAY) {
             // WIDGET-여러개 ②: 이번 주 위젯 줄 → 앱 달력의 그 날(날짜가 없거나 이상하면 오늘).
-            webView.loadUrl(WidgetWeek.dayUrl(widgetDay(intent)))
+            load(WidgetWeek.dayUrl(widgetDay(intent)), "widget")
             return
         }
         val data = intent?.data?.toString()
@@ -329,15 +340,48 @@ class MainActivity : ComponentActivity() {
             val handoff = ShellRules.queryValue(data, "handoff")
             if (handoff != null && WidgetHub.session(this).takeLogin()) {
                 finishWidgetLogin(handoff)
-                if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
+                if (!ShellRules.isInternalApp(webView.url)) load(ShellRules.HOME, "signin")
                 return
             }
         }
         when {
-            ShellRules.isAppReturn(data) -> webView.loadUrl(ShellRules.homeForReturn(data))
-            ShellRules.isInternalApp(data) -> webView.loadUrl(data!!)
-            else -> webView.loadUrl(ShellRules.HOME)
+            ShellRules.isAppReturn(data) -> load(ShellRules.homeForReturn(data), "signin")
+            ShellRules.isInternalApp(data) -> load(data!!, "link")
+            else -> load(ShellRules.HOME, "start")
         }
+    }
+
+    /** APP-다시열림: 웹2를 통째로 연다. 그 전에 까닭(종류)만 표시해 둔다. */
+    private fun load(url: String, kind: String) {
+        ReopenBook.log.expect(kind, System.currentTimeMillis())
+        webView.loadUrl(url)
+    }
+
+    /**
+     * APP-다시열림: 웹2 화면이 이미 떠 있으면(로그인 화면 아님) 통째로 다시 열지 않고 그 화면 안에서 자리만 옮긴다(app/phone-reopen.js KPTUAppNav.open).
+     * 옮길 수 없는 주소이거나 화면이 아직 준비 전이면(false) 지금처럼 통째로 연다.
+     */
+    private fun openInPlace(url: String, kind: String) {
+        val query = ShellRules.inPlaceQuery(url)
+        if (query == null || !ShellRules.isInternalApp(webView.url) || ShellRules.isLoginPage(webView.url)) {
+            load(url, kind)
+            return
+        }
+        webView.evaluateJavascript(NAV_SCRIPT.replace("%Q%", query)) { value ->
+            if (value != "true") load(url, kind)
+        }
+    }
+
+    /** APP-다시열림: 웹2(프로필 '다시 연 기록')가 묻는 기록과, 웹2가 스스로 다시 열기 직전에 보내는 까닭. */
+    private fun onReopenMessage(data: String, reply: JavaScriptReplyProxy) {
+        if (data == ReopenRules.ASK_LIST) {
+            try {
+                reply.postMessage(ReopenRules.listMessage(ReopenBook.log.snapshot()))
+            } catch (_: Exception) {
+            }
+            return
+        }
+        ReopenRules.webMark(data)?.let { ReopenBook.log.expect(it, System.currentTimeMillis()) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -353,11 +397,12 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.action == WeekWidget.ACTION_DAY) {
             val day = widgetDay(intent)
-            if (!postWrite(WidgetWeek.dayMessage(day))) webView.loadUrl(WidgetWeek.dayUrl(day))
+            if (!postWrite(WidgetWeek.dayMessage(day))) load(WidgetWeek.dayUrl(day), "widget")
             return
         }
         if (intent.action == PushRules.ACTION_OPEN) {
-            loadFromIntent(intent)
+            // APP-다시열림: 알림을 눌러도 떠 있는 화면은 다시 열지 않고 그 자리로만 옮긴다.
+            openInPlace(PushRules.openUrl(intent.getStringExtra(PushRules.EXTRA_OPEN)), "push")
             return
         }
         if (intent.action == RecordHub.ACTION_OPEN) {
@@ -366,6 +411,11 @@ class MainActivity : ComponentActivity() {
             return
         }
         val data = intent.data?.toString()
+        // APP-다시열림: 웹2 링크로 들어오면 떠 있는 화면 안에서 자리만 옮긴다(못 옮기는 주소만 통째로 연다).
+        if (!ShellRules.isAppReturn(data) && ShellRules.isInternalApp(data) && intent.action != WidgetRules.ACTION_WIDGET_LOGIN) {
+            openInPlace(data!!, "link")
+            return
+        }
         // 로그인·캘린더 복귀 또는 웹2 주소일 때만 화면을 바꾼다. 아이콘으로 다시 열면 보던 화면을 그대로 둔다.
         if (ShellRules.isAppReturn(data) || ShellRules.isInternalApp(data) || intent.action == WidgetRules.ACTION_WIDGET_LOGIN) loadFromIntent(intent)
     }
@@ -516,11 +566,11 @@ class MainActivity : ComponentActivity() {
         }
         val target = ShellRules.shareHome(share.id)
         if (!ShellRules.isInternalApp(webView.url)) {
-            webView.loadUrl(target)
+            load(target, "share")
             return
         }
         webView.evaluateJavascript(ARRIVE_SCRIPT.replace("%ID%", share.id)) { value ->
-            if (value != "true") webView.loadUrl(target)
+            if (value != "true") load(target, "share")
         }
     }
 
@@ -646,7 +696,7 @@ class MainActivity : ComponentActivity() {
             if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
             return
         }
-        if (!postWrite(WidgetActions.writeMessage(kind))) webView.loadUrl(WidgetActions.writeUrl(kind))
+        if (!postWrite(WidgetActions.writeMessage(kind))) load(WidgetActions.writeUrl(kind), "widget")
     }
 
     /** 웹2가 떠 있고 위젯 다리(write:hello)가 붙어 있으면 다리로 보낸다. 보냈으면 true. */
@@ -674,6 +724,8 @@ class MainActivity : ComponentActivity() {
     private fun setUpPullRefresh() {
         refresher.setColorSchemeColors(ContextCompat.getColor(this, R.color.widget_icon))
         refresher.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.widget_tile_bg))
+        // APP-다시열림: 맨 위에서 목록을 위로 훑다가 저절로 새로고침되지 않게, 당겨야 하는 거리를 늘린다(기본 약 64dp → PULL_TRIGGER_DP).
+        refresher.setDistanceToTriggerSync((PULL_TRIGGER_DP * resources.displayMetrics.density).toInt())
         refresher.setOnChildScrollUpCallback { _, _ -> !ShellRules.pullReady(pullOn, webView.scrollY, ShellRules.isInternalApp(webView.url)) }
         webView.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_DOWN) pullOn = false
@@ -687,7 +739,10 @@ class MainActivity : ComponentActivity() {
             webView.evaluateJavascript(PULL_SCRIPT) { value ->
                 refresher.isRefreshing = false
                 // 웹 다리가 없는 웹2 화면(옛 판·불러오는 중)은 같은 주소를 그대로 다시 연다. 'cancel'이면(글을 버리지 않음) 그대로 둔다.
-                if (value != "\"reload\"" && value != "\"cancel\"") webView.reload()
+                if (value != "\"reload\"" && value != "\"cancel\"") {
+                    ReopenBook.log.expect("pull", System.currentTimeMillis())
+                    webView.reload()
+                }
             }
         }
     }
@@ -1056,6 +1111,11 @@ class MainActivity : ComponentActivity() {
         // %ID%는 ShellRules.isShareId를 통과한 값([A-Za-z0-9_-])만 들어간다.
         /** APP-당겨서새로고침: 웹2 화면에 새로고침을 맡긴다(저장 안 한 글 확인 → 같은 주소 다시 열기). 답은 "reload"·"cancel", 다리가 없으면 null. */
         const val PULL_SCRIPT = "(function(){try{var p=window.KPTUPullRefresh;return p&&p.run?p.run():null}catch(e){return null}})()"
+        /** APP-다시열림: 떠 있는 웹2 화면 안에서 자리만 옮기기. %Q%는 ShellRules.inPlaceQuery가 고른 글(따옴표 없음). */
+        /** APP-다시열림: 당겨서 새로고침이 걸리는 거리(dp). */
+        const val PULL_TRIGGER_DP = 140
+        const val NAV_SCRIPT =
+            "(function(){try{return !!(window.KPTUAppNav&&window.KPTUAppNav.open('%Q%'));}catch(e){return false;}})();"
         const val ARRIVE_SCRIPT =
             "(function(){try{return !!(window.KPTUShareIntake&&window.KPTUShareIntake.arrive('%ID%'));}catch(e){return false;}})();"
 

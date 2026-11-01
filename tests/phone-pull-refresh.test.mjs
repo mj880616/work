@@ -61,9 +61,11 @@ test('앱에서만 붙고, 손가락마다 pull:on/off를 보내고, 새로고�
   doc.listeners.touchstart({touches: [1], target: el({parent: doc.body})});
   assert.deepEqual(sent, ['pull:on', 'pull:off', 'pull:off']);
   assert.equal(win.KPTUPullRefresh.run(), 'reload');
+  assert.equal(sent.at(-1), 'reopen:mark:pull', 'APP-다시열림: 다시 열기 전에 까닭(종류만)을 앱에 알린다');
   allow = false;
   assert.equal(win.KPTUPullRefresh.run(), 'cancel');
   assert.equal(reloaded, 1);
+  assert.equal(sent.filter(m => m === 'reopen:mark:pull').length, 1, '취소하면 알리지 않는다');
 });
 
 test('확인 길은 새 버전 안내와 하나이고 로더는 앱에서만 붙인다', () => {

@@ -261,4 +261,23 @@ object ShellRules {
 
     /** APP-당겨서새로고침: 당기기를 받아도 되는지. 웹이 이 손가락에 pull:on을 보냈고, 웹 화면 자체가 맨 위이고, 웹2 화면일 때만. */
     fun pullReady(webSaidOn: Boolean, scrollY: Int, internal: Boolean): Boolean = webSaidOn && scrollY <= 0 && internal
+
+    /** APP-다시열림: 화면 안 이동에 넘길 질의 글 모양(폰 알림 open과 같은 글자, 200자까지). */
+    private val IN_PLACE_QUERY = Regex("^[A-Za-z0-9_=&%.-]{0,200}$")
+
+    /**
+     * APP-다시열림: 이미 열린 웹2 화면 안에서 자리만 옮길 수 있는 주소면 그 질의("?…" 또는 "")를 돌려준다.
+     * 웹2 앱 주소(/work/app/ 또는 /work/app/index.html)이고 질의 글자가 좁은 모양일 때만. 로그인 화면·조각(#)·다른 길은 null(통째로 연다).
+     * 돌려준 글은 따옴표·역슬래시가 없어 스크립트 글에 그대로 넣어도 된다.
+     */
+    fun inPlaceQuery(url: String?): String? {
+        if (!isInternalApp(url) || isLoginPage(url)) return null
+        val u = parse(url) ?: return null
+        if (u.rawFragment != null) return null
+        val path = u.rawPath ?: return null
+        if (path != APP_PATH && path != APP_PATH + "index.html") return null
+        val query = u.rawQuery ?: return ""
+        if (!IN_PLACE_QUERY.matches(query)) return null
+        return if (query.isEmpty()) "" else "?$query"
+    }
 }
