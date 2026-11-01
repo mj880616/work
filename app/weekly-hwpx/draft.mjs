@@ -277,9 +277,32 @@ export function applySiteStages(base, {orgs = [], stages = [], histories = new M
 }
 
 // 고칠 줄(내 담당 요약 표 줄). index = effectiveOwners 순서(assembleDraft가 같은 순서로 찾는다).
+// 더한 줄(withAreaRows)은 칸 이름이 사업 목록 이름(keyArea) — [주간 정리]가 같은 이름으로 칸을 만든다.
 export function editableRows(base, me) {
-  return effectiveOwners(base.summary).map((e, index) => ({index, area: e.area.join(' '), task: e.task.join(' '), mine: isMine(e.owner, me), lines: e.row.progress.map(lineText)}))
+  return effectiveOwners(base.summary).map((e, index) => ({index, area: e.row.keyArea ?? e.area.join(' '), task: e.task.join(' '), mine: isMine(e.owner, me), lines: e.row.progress.map(lineText)}))
     .filter(r => r.mine).map(({mine, ...r}) => r);
+}
+// WEEKLY-한흐름확정 ③(확정 규칙 '내 담당 사업은 사업 요약표에 모두 들어간다', 요청함 11/01 01:12):
+// 내 사업영역(사업 목록 1단 이름, 순서대로) 가운데 바탕 요약 표에 내 줄이 하나도 없는 것. 이름은 띄어쓰기·가운뎃점 모양을 무시하고 견준다.
+export function missingAreas(rows, names) {
+  const have = new Set((rows ?? []).map(r => norm(r.area)));
+  const seen = new Set();
+  return (names ?? []).map(n => String(n ?? '').trim()).filter(n => n && !have.has(norm(n)) && !seen.has(norm(n)) && seen.add(norm(n)));
+}
+// 그 사업영역마다 내 줄 하나(세부 과제·진행 칸 빈칸, 담당 팀원 칸 = 내 이름)를 바탕에 더한다(원본은 그대로).
+// 같은 이름 사업영역 묶음이 표에 있으면(다른 사람 줄만 있던 곳) 그 묶음 맨 아래, 없으면 표 맨 아래에 새 사업영역 묶음.
+// 줄에는 칸 이름(keyArea)을 붙인다 — 한글 파일에는 쓰지 않는 값(summaryGrid 는 area·task·progress·owner 만 읽음).
+export function withAreaRows(base, names, me) {
+  const list = (names ?? []).filter(Boolean);
+  if (!list.length || !String(me ?? '').trim()) return base;
+  const out = structuredClone(base);
+  out.summary = out.summary ?? [];
+  for (const name of list) {
+    const row = {task: [], progress: [], paras: [], owner: [String(me).trim()], keyArea: name};
+    const group = out.summary.find(a => norm(a.area.join('')) === norm(name));
+    if (group) group.rows.push(row); else out.summary.push({area: [name], rows: [row]});
+  }
+  return out;
 }
 export const editableOrgs = (base, section = 'orgs') => (base[section] ?? []).map((r, index) => ({index, org: r.org.join(' '), lines: r.status.map(lineText)}));
 
@@ -315,8 +338,11 @@ export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
   const areas = model?.summary?.areas ?? [];
   for (const area of areas) for (const row of area.rows) for (const item of row.items) {
     const task = row.task?.name ?? '';
-    const hit = rows.find(r => norm(r.area) === norm(area.name) && (task ? norm(r.task) === norm(task) : true));
-    const line = {day: item.day, text: candidateLine(item), from: [area.name, task].filter(Boolean).join(' › '), src: item.file ? 'doc' : 'record'};
+    // 세부 과제 이름이 맞는 줄이 없으면 그 사업영역의 세부 과제 빈 줄(WEEKLY-한흐름확정 ③: 바탕에 없던 사업영역에 더한 내 줄 등)에.
+    // 그 줄에는 세부 과제 이름이 없으므로 줄 앞에 '세부 과제: '를 붙인다.
+    const exact = rows.find(r => norm(r.area) === norm(area.name) && (task ? norm(r.task) === norm(task) : true));
+    const hit = exact ?? (task ? rows.find(r => norm(r.area) === norm(area.name) && !norm(r.task)) : undefined);
+    const line = {day: item.day, text: exact || !hit ? candidateLine(item) : `- ${item.label || task}: ${item.text}`, from: [area.name, task].filter(Boolean).join(' › '), src: item.file ? 'doc' : 'record'};
     if (hit) byRow.get(hit.index).push(line); else unmatched.push(line);
   }
   for (const other of model?.summary?.others ?? []) for (const item of other.items) unmatched.push({day: item.day, text: `- ${item.text}`, from: other.name, src: item.file ? 'doc' : 'record'});

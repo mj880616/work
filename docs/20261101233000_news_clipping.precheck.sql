@@ -2,7 +2,7 @@
 -- 적용 전 기대: new migration absent 예 / new tables absent 예 / new functions absent 예 / owner check function 예 / workspaces table 예 / notes metadata 예.
 -- recent migrations는 기록만.
 -- expect: recent migrations = 기록
-select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261101230000') then '예' else '아니오' end as value
+select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261101233000') then '예' else '아니오' end as value
 union all select 'new tables absent',case when to_regclass('public.app_news_items') is null and to_regclass('public.app_news_folders') is null
   and to_regclass('public.app_news_keywords') is null and to_regclass('public.app_news_days') is null then '예' else '아니오' end
 union all select 'new functions absent',case when to_regprocedure('private.app_news_folder_tree_guard()') is null and to_regprocedure('private.app_news_folder_lift()') is null

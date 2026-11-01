@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic (example.org).
-// S47-44 NEWS-클리핑 A) DB(20261101230000_news_clipping): 기사 한 목록·별표 폴더·키워드·하루 사용량 + app_news_prune — through the approved DB workflow runner.
+// S47-44 NEWS-클리핑 A) DB(20261101233000_news_clipping): 기사 한 목록·별표 폴더·키워드·하루 사용량 + app_news_prune — through the approved DB workflow runner.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
@@ -13,7 +13,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261101230000',name='news_clipping',stem=version+'_'+name;
+const version='20261101233000',name='news_clipping',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];

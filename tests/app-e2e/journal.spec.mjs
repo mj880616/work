@@ -11,13 +11,14 @@ import { buildReport, readReport, CHANGED_COLOR } from '../../app/weekly-hwpx/re
 import {expectJournalDay} from './helpers/screen-title.mjs';
 import {laidOutBox,pseudoContent} from './helpers/laid-out.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-// JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. 초안 복사는 [주간 정리]의
-// [주간보고 한글 파일 만들기] 옆 [복사] 하나다. 이 도우미는 [주간 정리]로 가서 [복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
+// JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. WEEKLY-한흐름확정 ②: 초안 복사는 [주간 정리]
+// 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 옆 ⋯ 안 [글로 복사]다. 이 도우미는 [주간 정리]로 가서 ⋯ → [글로 복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
 async function copyDraft(page){
  await page.locator('#journalRoot [data-journal-mode="week"]').click();
- const copy=page.locator('#journalRoot [data-hwpx-copy]');await expect(copy).toBeVisible();
+ const more=page.locator('#journalRoot [data-weekly-flow-confirm] details.row-more');await expect(more).toBeVisible();
  await page.locator('#journalRoot [data-journal-status]').evaluate(e=>{e.textContent='';});
- await copy.click();
+ await more.locator('summary').click();
+ await more.locator('[data-hwpx-copy]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
  await page.locator('#journalRoot [data-journal-mode="day"]').click();
  await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
@@ -979,6 +980,10 @@ async function weeklyFixture(page,options={}){
 }
 const weekly=(page,key)=>page.locator(`#journalRoot [data-journal-weekly="${key}"]`);
 // WEEKLY-화면디자인정리: 줄마다의 [고치기]·[지우기/빼기]는 줄 끝 작은 ⋯ 안. scope 안에서 그 버튼이 든 ⋯ 를 열고 버튼을 누른다.
+// WEEKLY-한흐름확정 ②: 칸 밖 원래 기록(이번 주 기록·조직 소식)은 칸 아래 접힌 한 줄 — 그 안 줄을 누르려면 먼저 펼친다.
+async function openRecords(page,key){const d=page.locator(`#journalRoot [data-journal-weekly-records="${key}"]`);await expect(d).toHaveCount(1);if(!(await d.evaluate(e=>e.open)))await d.locator(':scope > summary').click();await expect(d).toHaveJSProperty('open',true);}
+// 그 주 처음 [주간 정리]를 열면 바탕을 한 번 열어 본다(없으면 칸 자리에 까닭 한 줄). 그 시도가 끝나 다시 그린 뒤에 ⋯ 메뉴를 연다.
+async function settleBase(page){const slot=page.locator('#journalRoot [data-weekly-flow-cells="summary"]');await expect(slot.locator('[data-flow-cell]').or(slot.locator('[data-flow-no-base]').filter({hasText:'바탕을 열지 못해'})).first()).toBeVisible();await expect(page.locator('#journalRoot [data-weekly-flow-top]')).not.toContainText('바탕 여는 중');}
 async function pressMore(scope,button){const m=scope.locator('details.row-more').filter({has:scope.page().locator(button)}).first();if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await expect(m).toHaveJSProperty('open',true);await m.locator(button).click();}
 async function openWeekly(page){
  await page.locator('#journalRoot [data-journal-mode="week"]').click();
@@ -1000,11 +1005,11 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-day]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 5일 월요일 ~ 10월 11일 일요일');
- await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본·영역·의제 사업','4. 산하 조직 현황','5. 주요 일정']);
+ await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본·영역·의제 사업','3. 투쟁 사업장 현황','4. 산하 조직 현황','5. 주요 일정']); // WEEKLY-한흐름확정 ②: 3절이 흐름 안으로
  // WEEKLY-칸밖재료접기: '참고'는 맨 끝 접힌 한 줄(제목 + 건수).
  await expect(page.locator('#journalRoot details[data-journal-weekly-chapter="notes"] > summary .journal-heading')).toHaveText('참고 — 보고서 칸 밖 재료');
- // ■ 일시 = 상집 보고일(보고 있는 주의 다음 월요일) — 한글 파일·초안 복사와 같은 날짜.
- await expect(page.locator('#journalRoot [data-journal-weekly-date]')).toHaveText('■ 일시 : 2026년 10월 12일(월) (상집 보고일)');
+ // ■ 일시 = 상집 보고일(보고 있는 주의 다음 월요일) — 한글 파일·초안 복사와 같은 날짜. WEEKLY-한흐름확정 ②: 맨 위 한 줄.
+ await expect(page.locator('#journalRoot [data-weekly-flow-top] .weekly-flow-top-text')).toContainText('■ 일시 2026년 10월 12일(월)');
  // 1. 요청사항: 1) 요청 표(일 | 시간/내용/장소 | 참석 요청, 저장한 줄이 없으면 머리만 + 제목 줄 오른쪽 작은 [+ 추가]). 2) 주요 일정은 뜻만 한 줄로 알린다.
  await expect(weekly(page,'ask').locator('h5')).toHaveText('1) 임원 배정 요청');
  await expect(weekly(page,'discuss').locator('h5')).toHaveText('3) 상집 논의 요청');
@@ -1057,14 +1062,17 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('다음 주 자료');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`weekly-tab-${width}.png`),fullPage:true});
- // [주간보고 초안 복사] (JOURNAL-복사버튼·JOURNAL-주간정리다듬기 ①): 위 줄 버튼은 없고 [주간보고 한글 파일 만들기] 옆 [복사]가 같은 글을 복사한다.
+ // [주간보고 초안 복사] (JOURNAL-복사버튼·JOURNAL-주간정리다듬기 ①, WEEKLY-한흐름확정 ②): 위 줄 버튼·위 상자는 없고, 5. 주요 일정 맨 아래
+ // [확정하고 한글 파일 받기] 옆 ⋯ 안 [글로 복사]가 같은 글을 복사한다. 안내문 '화면에서 보기만 하고 저장하지 않아요'는 없다.
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);
- const copy=page.locator('#journalRoot [data-hwpx-copy]');
- await expect(copy).toBeVisible();await expect(copy).toHaveText('복사');await expect(copy).toHaveAccessibleName('주간보고 초안 복사');
- const startBox=await page.locator('#journalRoot [data-hwpx-start]').boundingBox(),copyBox=await copy.boundingBox();
- expect(copyBox.x).toBeGreaterThan(startBox.x+startBox.width-1);expect(Math.abs((copyBox.y+copyBox.height/2)-(startBox.y+startBox.height/2))).toBeLessThan(startBox.height);
- await page.locator('#journalRoot [data-hwpx-start]').focus();await page.keyboard.press('Tab');await expect(copy).toBeFocused();
- await page.keyboard.press('Enter');
+ await expect(page.locator('#journalRoot')).not.toContainText('저장하지 않아요');
+ await expect(page.locator('#journalRoot [data-hwpx-start]')).toHaveCount(0);
+ const confirmRow=page.locator('#journalRoot [data-journal-weekly-chapter="calendar"] [data-weekly-flow-confirm]');
+ await expect(confirmRow.locator('[data-hwpx-confirm]')).toHaveText('확정하고 한글 파일 받기');
+ await confirmRow.locator('details.row-more summary').focus();await page.keyboard.press('Enter');
+ const copy=confirmRow.locator('[data-hwpx-copy]');
+ await expect(copy).toBeVisible();await expect(copy).toHaveText('글로 복사');await expect(copy).toHaveAccessibleName('주간보고 초안 글로 복사');
+ await copy.click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  expect(lines.slice(0,4)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)','','1. 요청사항']);
@@ -1101,7 +1109,7 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await expect(page.locator('#journalRoot [data-journal-weekly-quiet-notes]')).toHaveText('기록 없는 묶음: 한 줄, 끝낸 할 일, 공유 페이지');
  // 5. 주요 일정은 그 주 다음 월요일부터 2주(10/19~11/1)로 다시 읽는다.
  await expect(weekly(page,'calendar').locator('h5')).toHaveText('10월 19일(월) ~ 11월 1일(일) · 다음 주 월요일부터 2주');
- await expect(page.locator('#journalRoot [data-journal-weekly-date]')).toHaveText('■ 일시 : 2026년 10월 19일(월) (상집 보고일)');
+ await expect(page.locator('#journalRoot [data-weekly-flow-top] .weekly-flow-top-text')).toContainText('■ 일시 2026년 10월 19일(월)');
  await expect(weekly(page,'calendar').locator('tbody th')).toHaveText(['10.27.(화)']);
  await expect(weekly(page,'calendar').locator('[data-journal-weekly-vacation]')).toHaveText('※ 휴가: 10/23(금) 연차');
  await page.locator('#journalRoot [data-journal-prev]').click();await page.locator('#journalRoot [data-journal-prev]').click();
@@ -1162,7 +1170,7 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
  // JOURNAL-주간정리다듬기 ①: 위 줄 [주간보고 초안 복사]는 [하루]·[주간 정리] 모두 없다. [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();
  await page.locator('#journalRoot [data-journal-mode="week"]').click();
- await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeVisible();
+ await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-confirm]')).toBeVisible(); // WEEKLY-한흐름확정 ②: [글로 복사]는 확정 버튼 옆 ⋯ 안
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
@@ -1210,157 +1218,147 @@ async function hwpxFixture(page,options={}){
  return {...f,sent};
 }
 const hwpx=page=>page.locator('#journalRoot [data-journal-hwpx]');
-const rowBox=(page,label)=>hwpx(page).locator('.journal-hwpx-row').filter({has:page.locator('label',{hasText:label})});
+// WEEKLY-한흐름확정 ②: 보고서 칸(그 주 draft 한 벌). label = '사업영역 가 › 세부 과제 가-1' 또는 조직 이름.
+const flowCell=(page,label)=>page.locator('#journalRoot [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}$`)})});
+const cellLines=cell=>cell.locator('.weekly-flow-lines:not(.weekly-flow-suggest) > li[data-flow-line] .weekly-flow-text');
+const topLine=page=>page.locator('#journalRoot [data-weekly-flow-top]');
+const confirmRow=page=>page.locator('#journalRoot [data-weekly-flow-confirm]');
+const topMore=async(page,button)=>{const m=topLine(page).locator('details.row-more');if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await m.locator(button).click();};
+async function confirmMore(page,button){const m=confirmRow(page).locator('details.row-more');if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await m.locator(button).click();}
+// [주간 정리]를 열면 그 주 처음에는 바탕(자료실 최신 개인본, 없으면 팀 확정본)을 한 번 열어 칸을 만든다(위 상자·[시작] 없음).
 async function openDraft(page){
- await hwpx(page).locator('[data-hwpx-start]').click();
- await expect(hwpx(page).locator('#journalHwpxTitle')).toBeFocused();
- // WEEKLY-한글파일다듬기 ①: 확정본이 있으면 쉬운 안내문 + [자료실 최신 … 쓰기]가 앞(찾는 동안은 흐림).
- await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주 팀 확정본을 바탕으로 내 칸만 고친 한글 파일을 만들어요. [확정]을 눌러야 자료실에 저장돼요.');
- await expect(hwpx(page).locator('.journal-hwpx-actions button').first()).toHaveAttribute('data-hwpx-library','');
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행');
+ await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
 }
 const savedReport=async download=>{const bytes=new Uint8Array(readFileSync(await download.path()));expect(validateHwpx(bytes,zlib).errors).toEqual([]);const pkg=openHwpx(bytes,zlib);return {pkg,report:readReport(pkg)};};
 
-for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자료실 확정본 → 내 줄·내 담당 조직만, 이번 주 기록 붙이기 → .hwpx 받기 → [확정] 자료실 저장 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 칸 줄·제안 [수용]·[+ 추가] → 확정 없이 파일만 → [확정하고 한글 파일 받기] 저장·받기 → 다시 누르면 새 판 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
  await openDraft(page);
- expect(f.sent.other.filter(x=>!x.ai)).toEqual([{category:'in.("주간보고 확정본","주간보고›확정본")'}]); // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾음. AI 초안(weekly_draft)은 아래에서 따로 본다
+ expect(f.sent.other.filter(x=>!x.ai)).toEqual([{category:'in.("주간보고 확정본","주간보고›확정본")'}]); // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾음
  expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'doc-team'}]);
- // 내 줄 2개(다른 담당의 가-2 줄은 없음), 내 담당 조직(가상 노동조합)만. 이름은 프로필에서.
- await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
- await expect(hwpx(page).locator('[data-hwpx-date]')).toHaveValue('2026년 10월 12일(월)');
- await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.');
- await expect(hwpx(page).locator('[data-hwpx-part="summary"] .journal-hwpx-label')).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1']);
- // WEEKLY-출력정리 ②: 내 담당 조직은 확정본에 줄이 없어도(나 지역 모임) 모두, 조직보고 순서(가나다순)로.
- await expect(hwpx(page).locator('[data-hwpx-part="orgs"] .journal-hwpx-label')).toHaveText(['가상 노동조합','나 지역 모임']);
- await expect(rowBox(page,'나 지역 모임').locator('textarea')).toHaveValue('');
- await expect(hwpx(page).locator('[data-hwpx-orgs]')).toContainText('내 담당 조직 2곳');
- // WEEKLY-임원요청정리: 지난주 요청 줄 가운데 고른 1줄을 그 주 요청 표에 한 번 저장하고(carried_at), [주간 정리] 표에 '지난주에서' 표시로 보인다.
+ // 위 [주간보고 한글 파일 만들기] 상자는 없다(명진 결정 ①). 맨 위 한 줄: ■ 일시 · 이름 · 바탕.
+ await expect(page.locator('#journalRoot [data-hwpx-start]')).toHaveCount(0);
+ await expect(topLine(page)).toContainText('■ 일시 2026년 10월 12일(월) · 가상 담당 · 바탕 팀 확정본');
+ // 내 줄 2개(다른 담당의 가-2 줄은 없음), 3. 투쟁 사업장은 흐름 안, 4. 내 담당 조직 전부(가나다순).
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-label')).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1']);
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="orgs"] .weekly-flow-label')).toHaveText(['가상 노동조합','나 지역 모임']);
+ await expect(page.locator('#journalRoot [data-journal-weekly-chapter="sites"] h4')).toHaveText('3. 투쟁 사업장 현황');
+ await expect(flowCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');
+ // WEEKLY-임원요청정리: 지난주 요청 줄 가운데 고른 1줄을 그 주 요청 표에 한 번 저장(carried_at).
  const ask=weekly(page,'ask');
  await expect(ask.locator('tbody tr')).toHaveCount(1);
- await expect(ask.locator('tbody tr th')).toHaveText('10.14.(수)');
  await expect(ask.locator('tbody tr .journal-weekly-what')).toHaveText('10:00 / 가상 노동조합 결의대회 / 가상 광장 지난주에서');
- await expect(ask.locator('[data-journal-exec-carried]')).toHaveText('지난주에서');
- await expect(hwpx(page).locator('[data-hwpx-requests]')).toContainText('지난주 확정본에서 1줄을 가져왔어요(뺀 줄: 지난 날짜 1, 관련 없음 1).');
- expect(f.exec.calls.filter(c=>c.method!=='GET').map(c=>[c.method,c.body.week_start,!!c.body.carried_at,c.body.items.map(i=>[i.day,i.time,i.what,i.place,i.who,i.carried])])).toEqual([
-  ['POST','2026-10-05',true,[['2026-10-14','10:00','가상 노동조합 결의대회','가상 광장','가상 임원 갑, 가상 임원 을',true]]]]);
- // 이번 주 기록이 이름이 같은 줄 옆에. 남의 줄(가-2) 기록은 "줄을 찾지 못한 기록"으로.
- const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1');
- await expect(a1.locator('[data-hwpx-material] li')).toHaveText([/가-1 목요일 기록/,/사안 가-1-ㄱ: 사안 수요일 기록/]);
- await expect(rowBox(page,'사업영역 나 › 세부 과제 나-1').locator('[data-hwpx-material] li')).toHaveText([/나-1 월요일 기록/]);
- await expect(hwpx(page).locator('[data-hwpx-unmatched]')).toContainText('가-2 화요일 기록');
- await a1.locator('[data-hwpx-material] li').first().getByRole('button',{name:/붙이기/}).click();
- await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행\n- 가-1 목요일 기록');
- // 짝 없는 기록은 줄을 골라 붙인다.
+ // 이번 주 기록은 이름이 같은 칸 아래 흐린 제안 줄. [수용] = 칸 끝에 한 줄 + 서버 쓰기 한 번(rows + picks).
+ const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1');
+ await expect(a1.locator('[data-flow-suggest-item] .weekly-flow-text')).toHaveText([/가-1 목요일 기록/,/사안 가-1-ㄱ: 사안 수요일 기록/]);
+ const before=f.exec.calls.filter(c=>c.method==='PATCH').length;
+ await a1.locator('[data-flow-suggest-item]').first().getByRole('button',{name:/^수용/}).click();
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록']);
+ expect(f.exec.calls.filter(c=>c.method==='PATCH').length).toBe(before+1);
+ const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ expect(row().draft.picks.items.map(x=>[x.act,x.kind])).toContainEqual(['take','material']);
+ // 남은 제안 ⋯ → [빼기]: 칸은 그대로, 접힌 '뺀 제안 1'.
+ await pressMore(a1.locator('[data-flow-suggest-item]').first(),'[data-flow-drop]');
+ await expect(a1.locator('[data-flow-gone]')).toHaveAttribute('data-flow-gone','1');
+ await expect(cellLines(a1)).toHaveCount(2);
+ // 줄 ⋯ → [고치기]: 그 자리 한 줄 칸, Enter 저장.
+ await pressMore(a1.locator('[data-flow-line="1"]'),'[data-flow-fix]');
+ await a1.locator('input[data-flow-input]').fill('- 가-1 목요일 기록(고침)');await a1.locator('input[data-flow-input]').press('Enter');
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록(고침)']);
+ // 짝 없는 기록(남의 줄 가-2)은 바탕을 연 뒤 확정 줄 아래 '줄을 찾지 못한 이번 주 기록'에서 칸을 골라 붙인다.
  const rest=hwpx(page).locator('[data-hwpx-unmatched] li').filter({hasText:'가-2 화요일 기록'});
- // WEEKLY-한글파일다듬기 ③: 고르기 칸 맨 앞은 '줄 고르기'(빈 값). 기본값은 이름이 가까운 줄(같은 사업영역 가의 내 줄 하나), 첫 줄을 그냥 고르지 않는다.
  await expect(rest.locator('select option').first()).toHaveText('줄 고르기');
- await expect(rest.locator('select')).toHaveValue(/^summary:/);
- await rest.locator('select').selectOption('');
- await expect(rest.getByRole('button',{name:/붙이기/})).toBeDisabled();
  await rest.locator('select').selectOption({label:'사업영역 나 › 세부 과제 나-1'});
- await expect(rest.getByRole('button',{name:/붙이기/})).toBeEnabled();
  await rest.getByRole('button',{name:/붙이기/}).click();
- await expect(rowBox(page,'사업영역 나 › 세부 과제 나-1').locator('textarea')).toHaveValue('- 지난주 나-1 진행\n- 가-2 화요일 기록');
- await rowBox(page,'가상 노동조합').locator('textarea').fill('- 지난주 조직 소식\n- 손으로 고친 조직 소식');
- // WEEKLY-일정다듬기 ④: 5. 주요 일정 — 제목 확인. 줄마다 원래 제목이 보이고, 고친 제목·장소(비우면 '미정')가 파일에만 들어간다(저장 없음).
- const titles=hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]');
+ await expect(cellLines(flowCell(page,'사업영역 나 › 세부 과제 나-1'))).toHaveText(['- 지난주 나-1 진행','- 가-2 화요일 기록']);
+ // 칸 [+ 추가]: 손으로 한 줄.
+ const org=flowCell(page,'가상 노동조합');
+ await org.getByRole('button',{name:'가상 노동조합 칸에 줄 추가'}).click();
+ await org.locator('input[data-flow-input]').fill('손으로 고친 조직 소식');await org.getByRole('button',{name:'저장'}).click();
+ await expect(cellLines(org)).toHaveText(['- 지난주 조직 소식','- 손으로 고친 조직 소식']);
+ // 5. 주요 일정 칸 고치기(접힘 → 펼쳐 제목 고침).
+ const sched=hwpx(page).locator('[data-hwpx-part="schedule"]');
+ await sched.locator('summary').first().click();
+ const titles=sched.locator('[data-hwpx-title]');
  await expect(titles).toHaveCount(2);
- await expect(titles.locator('[data-hwpx-origin]')).toHaveText(['원래: 가상 다음 주 회의 / 가상 회의실','원래: 가상 수련회']);
- await expect(titles.nth(1).locator('[data-hwpx-place-input]')).toHaveAttribute('placeholder','장소');
  await titles.nth(0).locator('[data-hwpx-title-input]').fill('가상 노동조합 다음 주 점검 회의');
- await expect(titles.nth(0)).toHaveAttribute('data-changed','true');
- await expect(hwpx(page).locator('[data-hwpx-titles-ai]')).toBeVisible();
- // .hwpx 받기: 규격 검사 통과, 내 줄만 채워지고 바뀐 줄만 파란 글씨, 요청 표는 확정본 그대로.
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
- // WEEKLY-한글파일다듬기 ④: 주간보고_보고일8자리_이름(로그인 사용자 표시 이름 = 프로필 이름).
+ // ⋯ → [확정 없이 파일만 받기]: 규격 검사 통과, 칸 줄 그대로.
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  expect(download.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
- const {pkg,report}=await savedReport(download);
- expect(report.summary[0].rows.map(r=>r.progress)).toEqual([['- 지난주 가-1 진행','- 가-1 목요일 기록'],[]]);
- expect(report.summary[0].rows[1].owner).toEqual([]);
- // JOURNAL-주간정리다듬기 ②: 한글 파일 요약 표에는 서식대로 담당 팀원 칸이 있고 내 줄에는 내 이름(직전 확정본 표기)이 들어간다.
- expect(report.summary.map(a=>a.rows.map(r=>r.owner))).toEqual([[['가상 담당'],[]],[['가상 담당']]]);
+ const {report}=await savedReport(download);
+ expect(report.summary[0].rows.map(r=>r.progress)).toEqual([['- 지난주 가-1 진행','- 가-1 목요일 기록(고침)'],[]]);
  expect(report.summary[1].rows[0].progress).toEqual(['- 지난주 나-1 진행','- 가-2 화요일 기록']);
  expect(report.orgs.map(o=>[o.org,o.status])).toEqual([[['가상 노동조합'],['- 지난주 조직 소식','- 손으로 고친 조직 소식']],[['나 지역 모임'],[]]]);
- // 요청 표: 그 주 요청 줄(가져온 1줄) 그대로 — 직전 주 표 통째·확인 필요 줄·'지난주에서' 표시는 없다.
  expect(report.requests).toEqual([{day:'10.14.(수)',items:[{what:'10:00 / 가상 노동조합 결의대회 / 가상 광장',who:['가상 임원 갑','가상 임원 을']}]}]);
- expect(new TextDecoder().decode(pkg.files.get('Contents/section0.xml'))).not.toMatch(/지난주에서|직전 주 확정본 그대로임|남의 모임 행사/);
- // 5. 주요 일정 표(WEEKLY-주요일정): 다음 주 월요일부터 2주(10/12~10/25) 14일을 한 줄씩(일정 없는 날도 날짜), 여러 날 일정은 첫날 다음 줄,
- // 참석자 = 내 이름. 휴가는 표 아래 빈 줄 다음 "※ 날짜 이름 연차", 일기 표시 일정은 없다. 1. 2) 주요 일정은 비운다.
- const me=['가상 담당'];
- expect(report.calendar).toEqual([
-  {day:'10.12.(월)',items:[]},{day:'10.13.(화)',items:[{what:'10:30 / 가상 노동조합 다음 주 점검 회의 / 가상 회의실',who:me}]},{day:'10.14.(수)',items:[]},
-  {day:'10.14.(수) ~ 10.15.(목)',items:[{what:'종일 / 가상 수련회 / 미정',who:me}]},
-  ...['10.15.(목)','10.16.(금)','10.17.(토)','10.18.(일)','10.19.(월)','10.20.(화)','10.21.(수)','10.22.(목)','10.23.(금)','10.24.(토)','10.25.(일)'].map(day=>({day,items:[]}))]);
- const secText=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
- expect(secText).toContain('<hp:t>※ 10.23.(금) 가상 담당 연차</hp:t>');
- expect(secText).not.toContain('가상 개인 약속');expect(secText).not.toContain('가상 아스날 경기');expect(secText).not.toContain('일기 쓰는 날');
- await expect(hwpx(page).locator('[data-hwpx-calendar]')).toHaveText('5. 주요 일정 표: 10월 12일(월)~10월 25일(일) 일정 2개(참석자 = 내 이름), 휴가 1개는 표 아래 ※ 줄로 채워요.');
- const header=readXml(pkg,'Contents/header.xml'),blue=new Set();
- for(const n of (function*w(x){yield x;for(const c of x.children||[])yield*w(c);})(header.root))if(n.name==='hh:charPr'&&n.attrs.textColor?.toUpperCase()===CHANGED_COLOR)blue.add(n.attrs.id);
- const sec=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
- const runOf=text=>new RegExp(`charPrIDRef="(\\d+)"><hp:t>${text}</hp:t>`).exec(sec)?.[1];
- expect(blue.has(runOf('- 가-1 목요일 기록'))).toBe(true);
- expect(blue.has(runOf('- 지난주 가-1 진행'))).toBe(false);
- await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('바뀐 줄 3개');
- // WEEKLY-한글파일다듬기 ①: 이 상자의 버튼은 모두 작은 버튼 하나(UI-버튼기준) — 같은 줄 버튼 높이·글자 크기가 같고, 채운 버튼도 크지 않다.
- const sizes=await hwpx(page).locator('button:visible').evaluateAll(list=>list.map(b=>{const r=b.getBoundingClientRect(),c=getComputedStyle(b);return {name:b.textContent.trim(),h:Math.round(r.height*10)/10,size:c.fontSize};}));
- expect(sizes.length).toBeGreaterThan(5);
- for(const b of sizes){expect(b.h,b.name).toBeLessThanOrEqual(32.5);expect(b.size,b.name).toBe(sizes[0].size);}
- expect(new Set(sizes.map(b=>b.h)).size).toBe(1);
- // [확정]: 한 번 묻고 library-files로 자료실에 저장(분류 "주간보고 개인본", 제목·날짜를 줘서 서버가 내용을 읽지 않음).
- page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-confirm]').click();
+ expect(report.calendar[1]).toEqual({day:'10.13.(화)',items:[{what:'10:30 / 가상 노동조합 다음 주 점검 회의 / 가상 회의실',who:['가상 담당']}]});
+ expect(f.sent.library).toHaveLength(0);
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toHaveText('확정 전');
+ // 환류 정리(weekly_review)는 확정 전에는 부르지 않는다(확정 전 '30건·6시간' 정리는 다음 단계 ⑤ — 서버가 picks 를 읽게 된 뒤).
+ expect(f.sent.other.filter(x=>x.kind==='weekly_review')).toEqual([]);
+ // [확정하고 한글 파일 받기]: 한 번 묻고 자료실 개인본 새 자료 + 내려받기. 이 화면의 채운 버튼은 이것 하나.
+ const filled=await page.locator('#journalRoot [data-journal-weekly-root] button.primary:visible').count();
+ expect(filled).toBe(1);
+ const asks=[];page.on('dialog',d=>{asks.push(d.message());d.accept();});
+ const [got]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
+ expect(got.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
+ expect(asks).toEqual(['"주간보고_20261012_가상담당.hwpx"을(를) 자료실 개인본으로 저장하고 받을까요?']);
  expect(f.sent.library).toHaveLength(1);
  const saved=f.sent.library[0];
  expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 20261012 가상담당','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwpx']);
- expect(Object.keys(saved).sort()).toEqual(['category','document_date','file','title']);
- expect(validateHwpx(new Uint8Array(saved.file.bytes),zlib).errors).toEqual([]);
- await expect(hwpx(page).locator('[data-hwpx-confirm]')).toBeDisabled();
- // 일정 제목 AI는 누를 때만. 상자를 처음 열 때 AI 초안(weekly_draft)·[확정] 뒤 환류 보고(weekly_review)·칸 줄을 고를 때 줄 제안(weekly_line)만 저절로 부른다(여기선 서버 500 → 바탕 그대로).
- expect(f.sent.other.filter(x=>x.ai&&!['weekly_draft','weekly_review','weekly_line'].includes(x.kind))).toEqual([]);
- expect(f.sent.other.filter(x=>x.ai).map(x=>x.kind)).toContain('weekly_draft');
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText('확정 · 다시 누르면 새 판');
+ await expect.poll(()=>row().draft.confirmed?.document_id).toBe('doc-new');
+ await expect.poll(()=>!!row().draft.feedback).toBe(true);
+ // 같은 주 다시 누르면 확인 창 → 그 개인본을 새 판으로 교체(replace_document_id, 새 자료 안 만듦 — 명진 결정 ②).
+ const [again]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
+ expect(again.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
+ expect(asks.at(-1)).toBe('이 주 개인본을 새 판으로 바꿀까요? 옛 판은 30일 동안 자료실 [이전 파일]에 남아요.');
+ await expect.poll(()=>f.sent.library.length).toBe(2);
+ expect(Object.keys(f.sent.library[1]).sort()).toEqual(['file','replace_document_id']);
+ expect(f.sent.library[1].replace_document_id).toBe('doc-new');
+ // AI 는 처음 초안(weekly_draft)·처음 확정 뒤 환류 정리(weekly_review)만 저절로(여기선 서버 500). 다시 확정은 새 동작이 10건 넘을 때만 → 이 주 1번.
+ await expect.poll(()=>f.sent.other.filter(x=>x.kind==='weekly_review').length).toBe(1);
+ await page.waitForTimeout(500);
+ expect(f.sent.other.filter(x=>x.kind==='weekly_review')).toHaveLength(1);
+ expect(f.sent.other.filter(x=>x.ai&&!['weekly_draft','weekly_review'].includes(x.kind))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- // 주가 바뀌면 초안은 닫힌다(다른 주 기록과 섞이지 않게).
+ // 주가 바뀌면 바탕을 닫고 그 주 것으로 다시.
  await page.locator('#journalRoot [data-journal-next]').click();
  await expect(hwpx(page).locator('.journal-hwpx-panel')).toBeHidden();
- await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('주가 바뀌어 한글 파일 초안을 닫았어요.');
- await expect(hwpx(page).locator('[data-hwpx-start]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
 // WEEKLY-환류학습 1·2: 다음 주 바탕은 내가 올린 최신 '주간보고 개인본'(보고일 앞). 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳은 칸 옆 작은
 // '확정본에서 바뀜'(눌러 그 글 보기·[이 글로 바꾸기], 참고용). [확정]하면 처음 초안 ↔ 최종 줄 비교(남김·고침·뺌·더함)가 그 주 행 draft.feedback 에 남는다.
-test('[주간보고 한글 파일 만들기] 환류: 개인본 바탕 + 확정본에서 바뀜 표시 + [확정] 고침 기록',async({page})=>{
+test('[주간 정리] 환류: 개인본 바탕 + 칸 아래 확정본에서 바뀜 표시 + [확정하고 한글 파일 받기] 고침 기록',async({page})=>{
  const personalReport={summary:[
   {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 내가 쓴 가-1 진행'],owner:['가상 담당']}]},
   {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 지난주 나-1 진행'],owner:['가상 담당']}]},
  ],orgs:[{org:['가상 노동조합'],status:['- 지난주 조직 소식']}]};
  const f=await hwpxFixture(page,{width:1280,files:{'doc-mine':personalReport},personal:[{id:'doc-mine',title:'가상 개인본',file_name:'mine.hwpx',document_date:'2026-10-05',created_at:'2026-10-02T08:00:00Z'}]});
  await openJournal(page,1280);await openWeekly(page);
- await hwpx(page).locator('[data-hwpx-start]').click();
- await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주에 내가 올린 개인본을 바탕으로 만들어요. 팀 확정본에서 바뀐 칸은 옆에 작게 알려요. [확정]을 눌러야 자료실에 저장돼요.');
- const library=hwpx(page).locator('[data-hwpx-library]');
- await expect(library).toHaveText('자료실 최신 "주간보고 개인본" 쓰기');
+ // 그 주 처음 [주간 정리]를 열면 자료실 최신 개인본(보고일 앞)을 바탕으로 칸을 만든다(위 상자·[시작] 없음).
+ const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1'),b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await expect(cellLines(a1)).toHaveText(['- 내가 쓴 가-1 진행']);
+ await expect(topLine(page)).toContainText('바탕 지난 개인본');
  expect(f.sent.personal[0]).toMatchObject({category:'in.("주간보고 개인본","주간보고›개인본")',workspace_id:'eq.w'});
- await library.click();
- const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1'),b1=rowBox(page,'사업영역 나 › 세부 과제 나-1');
- await expect(a1.locator('textarea')).toHaveValue('- 내가 쓴 가-1 진행');
- await expect(hwpx(page).getByText('바탕: 자료실 개인본 · 가상 개인본')).toBeVisible();
- // 바탕(개인본)을 연 뒤 팀 확정본도 열어 내 칸을 견준다. 바뀐 칸(가-1)에만 표시, 같은 칸(나-1)은 없음.
- await expect(a1.locator('[data-hwpx-team] summary')).toHaveText('확정본에서 바뀜');
- await expect(b1.locator('[data-hwpx-team]')).toBeHidden();
+ // 바탕(개인본)을 연 뒤 팀 확정본도 열어 내 칸을 견준다. 바뀐 칸(가-1)에만 칸 아래 작은 표시, 같은 칸(나-1)은 없음.
+ await expect(a1.locator('[data-flow-team] summary')).toHaveText('확정본에서 바뀜');
+ await expect(b1.locator('[data-flow-team]')).toHaveCount(0);
  expect(f.sent.open.map(o=>o.document_id)).toEqual(['doc-mine','doc-team']);
- await a1.locator('[data-hwpx-team] summary').click();
- await expect(a1.locator('[data-hwpx-team] p')).toHaveText('- 지난주 가-1 진행');
- await a1.locator('[data-hwpx-team-use]').click();
- await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행');
- await b1.locator('textarea').fill('- 지난주 나-1 진행\n- 새로 쓴 나-1 줄');
+ await a1.locator('[data-flow-team] summary').click();
+ await expect(a1.locator('[data-flow-team] p')).toHaveText('- 지난주 가-1 진행');
+ const before=f.exec.calls.filter(c=>c.method==='PATCH').length;
+ await a1.getByRole('button',{name:'이 글로 바꾸기'}).click();
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행']);
+ expect(f.exec.calls.filter(c=>c.method==='PATCH').length).toBe(before+1); // 누름 한 번 = 서버 쓰기 한 번
+ await expect(a1.locator('[data-flow-team]')).toHaveCount(0); // 같아졌으니 표시도 없음
+ await b1.getByRole('button',{name:'사업영역 나 › 세부 과제 나-1 칸에 줄 추가'}).click();
+ await b1.locator('input[data-flow-input]').fill('- 새로 쓴 나-1 줄');await b1.locator('input[data-flow-input]').press('Enter');
+ await expect(cellLines(b1)).toHaveText(['- 지난주 나-1 진행','- 새로 쓴 나-1 줄']);
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  await expect.poll(()=>row()?.draft?.feedback?.counts,{timeout:15000}).toEqual({kept:2,changed:1,dropped:0,added:1,proposed:3,final:4});
@@ -1377,7 +1375,7 @@ test('[주간보고 한글 파일 만들기] 환류: 개인본 바탕 + 확정�
 // WEEKLY-환류학습 3·6·4: 처음 연 주는 AI 초안(weekly_draft)이 손대지 않은 칸에 들어가고, 이미 이번 주 개인본을 올린 주에도 [학습 시험]이
 // 저장 없이 AI 초안 ↔ 이번 주 개인본을 줄마다 견준다(이번 주 개인본 글은 AI에 보내지 않음). [확정] 뒤 환류 보고 한 장, 제안 [승인]은 그 주 행에,
 // [주간 정리] 맨 아래 '주간보고 규칙·환류'에서 규칙을 지우고 개발 후보를 본다. 가짜 서버·가짜 글만.
-test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시험] 결과 → [확정] 뒤 환류 보고 → 규칙·환류 목록',async({page})=>{
+test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 뒤 환류 보고 → 규칙·환류 목록',async({page})=>{
  const weekReport={summary:[
   {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 지난주 가-1 진행','- 가-1 목요일 기록(완료)'],owner:['가상 담당']}]},
   {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 이번 주 개인본에만 쓴 줄'],owner:['가상 담당']}]},
@@ -1397,22 +1395,17 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
   return r.fulfill({status:500,json:{}});
  });
  await openJournal(page,1280);await openWeekly(page);
- // 이번 주 개인본은 바탕이 아니다(보고일이 같음) → 팀 확정본이 바탕(안내문·버튼이 지금 그대로).
- await hwpx(page).locator('[data-hwpx-start]').click();
- await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주 팀 확정본을 바탕으로 내 칸만 고친 한글 파일을 만들어요. [확정]을 눌러야 자료실에 저장돼요.');
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(hwpx(page).getByText('바탕: 자료실 · 가상 상집보고')).toBeVisible();
- const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1'),b1=rowBox(page,'사업영역 나 › 세부 과제 나-1');
- // AI 초안: 손대지 않은 칸에 들어가고 한 줄 알림.
- await expect(b1.locator('textarea')).toHaveValue('- AI 나-1 줄');
- await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행\n- 가-1 목요일 기록');
+ // 이번 주 개인본은 바탕이 아니다(보고일이 같음) → 팀 확정본이 바탕. 그 주 처음 열 때 한 번 AI 초안이 손대지 않은 칸에 들어간다.
+ const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1'),b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await expect(cellLines(b1)).toHaveText(['- AI 나-1 줄']);
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록']);
+ await expect(topLine(page)).toContainText('바탕 팀 확정본');
  await expect(hwpx(page).locator('[data-hwpx-ai-draft]')).toContainText('AI 초안: 지난 1주 고침 기록·규칙 2줄을 보고 2칸을 고쳐 썼어요');
  const draftAsk=ai.find(x=>x.kind==='weekly_draft');
  expect(draftAsk.mode).toBe('draft');
  expect(draftAsk.cells.find(c=>c.where.includes('가-1'))).toMatchObject({lines:['- 지난주 가-1 진행'],material:expect.arrayContaining([expect.stringContaining('가-1 목요일 기록')])});
  // [학습 시험]: 이번 주 개인본과 줄마다. 재료에 이번 주 개인본 글이 없다. 칸·임시저장은 그대로.
- await b1.locator('textarea').fill('- AI 나-1 줄'); // 그대로
- await hwpx(page).locator('[data-hwpx-learn-test]').click();
+ await confirmMore(page,'[data-hwpx-learn-test]');
  const result=hwpx(page).locator('[data-hwpx-learn-result]');
  await expect(result.locator('[data-hwpx-learn-score]')).toHaveText('학습 시험 — 그대로 쓸 수 있는 줄 3/4(75%)');
  await expect(result.locator('[data-hwpx-learn-few]')).toHaveText('학습 기록이 아직 1주뿐이에요(지난 개인본·규칙 2줄로만 만들었어요).');
@@ -1425,10 +1418,10 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  expect(JSON.stringify(testAsk)).not.toContain('(완료)');
  expect(f.sent.open.map(o=>o.document_id)).toContain('doc-week');
  expect(f.sent.library).toHaveLength(0);
- await expect(b1.locator('textarea')).toHaveValue('- AI 나-1 줄');
- // [확정] → 고침 기록 저장 → 환류 보고 한 장(숫자·후보·제안). [승인]은 그 주 행에 남는다.
+ await expect(cellLines(b1)).toHaveText(['- AI 나-1 줄']);
+ // [확정하고 한글 파일 받기] → 고침 기록 저장 → 환류 보고 한 장(숫자·후보·제안). [승인]은 그 주 행에 남는다.
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
  const card=hwpx(page).locator('[data-hwpx-review] [data-learn-review]');
  await expect(card.locator('[data-learn-review-head]')).toHaveText('이번 주 환류 보고 — AI 초안 줄 4개 중 4개 그대로(100%)');
  await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 고침 0 · 뺌 0 · 더함 0');
@@ -1470,118 +1463,133 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  expect(f.errors).toEqual([]);
 });
 
-// WEEKLY-환류입력창 ②: 칸 줄을 고르면(누름) 잠시 뒤 그 칸 줄만 ai-assist weekly_line 에 묻고, 칸 바로 아래 작은 흐린 '이렇게 바꾸면?' 한 줄.
-// 누르면 그 줄만 바뀌고 자동저장(2초) 길로 서버 임시저장, [되돌리기]로 원래 줄. 제안이 없는 칸(null)은 아무것도 보이지 않는다. 가짜 서버·가짜 글만.
-for(const width of [412,1440])test(`[주간보고 한글 파일] 줄 옆 '이렇게 바꾸면?': 고르면 제안 → 누르면 그 줄만 바뀜·자동저장 → [되돌리기] ${width}`,async({page})=>{
+// WEEKLY-환류입력창 ② → WEEKLY-한흐름확정 ②: 칸 줄을 고르면(누름·초점) 잠시 뒤 그 칸 줄만 ai-assist weekly_line 에 묻고, 칸 아래 흐린 'AI 제안' 줄.
+// [수용]하면 그 줄만 바뀌고 서버 쓰기 한 번(rows + picks), ⋯ [빼기]면 그 제안은 접힌 '뺀 제안'으로. 제안이 없는 칸(null)은 아무것도 보이지 않는다. 가짜 서버·가짜 글만.
+for(const width of [412,1440])test(`[주간 정리] 줄 제안: 줄을 고르면 칸 아래 'AI 제안' → [수용]하면 그 줄만 바뀜·서버 저장, [빼기]는 접힘 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  const ai=[];
  await page.route(SB+'/functions/v1/ai-assist',async r=>{
   const body=r.request().postDataJSON();ai.push(body);
   if(body.kind==='weekly_line')return r.fulfill({json:{ok:true,kind:'weekly_line',week_start:body.week_start,learned:{weeks:1,rules:1},
-   lines:body.lines.map(l=>({ref:l.ref,text:/가-1 진행/.test(l.text)?'- 지난주 가-1 진행(완료)':null}))}});
+   lines:body.lines.map(l=>({ref:l.ref,text:/가-1 진행/.test(l.text)?'- 지난주 가-1 진행(완료)':/나-1 진행/.test(l.text)?'- 지난주 나-1 진행(마무리)':null}))}});
   return r.fulfill({status:500,json:{}});
  });
  await openJournal(page,width);await openWeekly(page);
  await openDraft(page);
- const box=rowBox(page,'사업영역 가 › 세부 과제 가-1'),area=box.locator('textarea');
+ const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1');
  const lineAsks=()=>ai.filter(x=>x.kind==='weekly_line');
  expect(lineAsks()).toEqual([]); // 열기만 해서는 묻지 않는다
- await area.click();
- const apply=box.locator('[data-hwpx-suggest-apply]');
- await expect(apply).toHaveText('이렇게 바꾸면? - 지난주 가-1 진행(완료)');
- await expect(apply).toHaveAccessibleName('1번째 줄을 이렇게 바꾸기: - 지난주 가-1 진행(완료)');
+ await a1.locator('[data-flow-pick-line="0"]').click();
+ const hint=a1.locator('[data-flow-line-suggest]');
+ await expect(hint.locator('.weekly-flow-tag')).toHaveText('AI 제안');
+ await expect(hint.locator('.weekly-flow-text')).toHaveText('1번째 줄 → - 지난주 가-1 진행(완료)');
+ const take=hint.getByRole('button',{name:'1번째 줄을 이렇게 바꾸기: - 지난주 가-1 진행(완료)'});
+ await expect(take).toBeVisible();
  // 물은 것: 그 칸 줄만(다른 칸 글·이번 주 개인본 없음), 주·칸 이름.
  expect(lineAsks()).toHaveLength(1);
  expect(lineAsks()[0]).toMatchObject({week_start:'2026-10-05',lines:[{ref:'l1',text:'- 지난주 가-1 진행'}],cell:['- 지난주 가-1 진행']});
  expect(lineAsks()[0].where).toContain('가-1');
  expect(JSON.stringify(lineAsks()[0])).not.toContain('지난주 조직 소식');
  // 같은 줄을 다시 골라도 다시 묻지 않는다.
- await area.click();await page.waitForTimeout(1000);
+ await a1.locator('[data-flow-pick-line="0"]').click();await page.waitForTimeout(1000);
  expect(lineAsks()).toHaveLength(1);
- // 칸 바로 아래, 화면 밖으로 넘치지 않음.
- const [a,h]=await Promise.all([area.boundingBox(),box.locator('[data-hwpx-suggest]').boundingBox()]);
- expect(h.y).toBeGreaterThanOrEqual(a.y+a.height-1);
+ // 칸 줄 바로 아래, 화면 밖으로 넘치지 않음.
+ const [l,h]=await Promise.all([a1.locator('[data-flow-line="0"]').boundingBox(),hint.boundingBox()]);
+ expect(h.y).toBeGreaterThanOrEqual(l.y+l.height-1);
  expect(h.x+h.width).toBeLessThanOrEqual(width);
- // 누르면 그 줄만 바뀌고 서버 임시저장(자동저장 2초 길).
- await apply.click();
- await expect(area).toHaveValue('- 지난주 가-1 진행(완료)');
- const undo=box.locator('[data-hwpx-suggest-undo]');
- await expect(box.locator('[data-hwpx-suggest]')).toContainText('1번째 줄을 바꿨어요.');
- await expect(undo).toHaveAccessibleName('1번째 줄 되돌리기');
+ // [수용]: 그 줄만 바뀌고 서버 쓰기 한 번(rows + picks 'take' ai_line).
+ const before=f.exec.calls.filter(c=>c.method==='PATCH').length;
+ await take.click();
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행(완료)']);
+ expect(f.exec.calls.filter(c=>c.method==='PATCH').length).toBe(before+1);
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
- await expect.poll(()=>JSON.stringify(row()?.draft?.rows??[]),{timeout:15000}).toContain('- 지난주 가-1 진행(완료)');
- await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
- // [되돌리기]: 원래 줄로, 다시 자동저장.
- await undo.click();
- await expect(area).toHaveValue('- 지난주 가-1 진행');
- await expect.poll(()=>JSON.stringify(row()?.draft?.rows??[]),{timeout:15000}).not.toContain('(완료)');
+ expect(JSON.stringify(row().draft.rows)).toContain('- 지난주 가-1 진행(완료)');
+ expect(row().draft.picks.items.find(x=>x.kind==='ai_line')).toMatchObject({act:'take',from:'ai',text:'- 지난주 가-1 진행(완료)'});
+ await expect(a1.locator('[data-flow-line-suggest]')).toHaveCount(0);
+ // 다른 칸: ⋯ → [빼기]면 칸은 그대로, 접힌 '뺀 제안 1'.
+ const b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await b1.locator('[data-flow-pick-line="0"]').click();
+ await expect(b1.locator('[data-flow-line-suggest] .weekly-flow-text')).toHaveText('1번째 줄 → - 지난주 나-1 진행(마무리)');
+ await pressMore(b1.locator('[data-flow-line-suggest]'),'[data-flow-drop]');
+ await expect(b1.locator('[data-flow-gone]')).toHaveAttribute('data-flow-gone','1');
+ await expect(cellLines(b1)).toHaveText(['- 지난주 나-1 진행']);
  // 제안이 없는 칸(답 null): 아무것도 보이지 않고 글은 그대로.
- const org=orgRow(page,'가상 노동조합');
- await org.click();
- await expect.poll(()=>lineAsks().length).toBe(2);
+ const org=flowCell(page,'가상 노동조합');
+ await org.locator('[data-flow-pick-line="0"]').click();
+ await expect.poll(()=>lineAsks().length).toBe(3);
  await page.waitForTimeout(300);
- await expect(hwpx(page).locator('[data-hwpx-part="orgs"] [data-hwpx-suggest-apply]')).toHaveCount(0);
- await expect(org).toHaveValue('- 지난주 조직 소식');
+ await expect(org.locator('[data-flow-line-suggest]')).toHaveCount(0);
+ await expect(cellLines(org)).toHaveText(['- 지난주 조직 소식']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
 // JOURNAL-주간정리다듬기 ②: 프로필 이름과 확정본 표기가 다르면 확정본 표기를 쓴다(가상 이름). 확정본에서 못 찾으면 프로필 이름 그대로.
-test('[주간보고 한글 파일 만들기] 담당 팀원 칸 이름: 직전 확정본 표기 우선, 없으면 프로필 이름',async({page})=>{
+// WEEKLY-한흐름확정 ②: 이름은 맨 위 한 줄(어디서 온 이름인지는 그 이름의 title), 고치기는 맨 위 ⋯ → [이름 고치기].
+test('[주간 정리] 담당 팀원 칸 이름: 직전 확정본 표기 우선, 없으면 프로필 이름',async({page})=>{
  const f=await hwpxFixture(page,{width:1280,profileName:'가상 담당자'});
  await openJournal(page,1280);await openWeekly(page);
  await openDraft(page);
- await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
- await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.');
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const name=topLine(page).locator('[data-hwpx-me]');
+ await expect(name).toHaveText('가상 담당');
+ await expect(name).toHaveAttribute('data-hwpx-me','confirmed');
+ await expect(name).toHaveAttribute('title','담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.');
+ await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveCount(0); // 확인할 일이 없으면 안내 줄 없음
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.summary.map(a=>a.rows.map(r=>r.owner))).toEqual([[['가상 담당'],[]],[['가상 담당']]]);
  // 5. 주요 일정 참석자 칸도 같은 이름.
  expect(report.calendar.find(d=>d.items.length).items[0].who).toEqual(['가상 담당']);
- // 직접 고치면 그 이름으로 다시 찾는다(못 찾으면 안내).
- await hwpx(page).locator('[data-hwpx-me]').fill('없는 이름');await hwpx(page).locator('[data-hwpx-me]').press('Tab');
- await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('담당 팀원 칸 이름을 직접 고쳤어요.');
+ // 직접 고치면(맨 위 ⋯ → [이름 고치기]) 그 이름으로 다시 찾는다(못 찾으면 안내).
+ await topMore(page,'[data-hwpx-top-me]');
+ const input=topLine(page).locator('[data-hwpx-top-input="me"]');
+ await expect(input).toHaveValue('가상 담당');
+ await input.fill('없는 이름');await input.press('Enter');
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('없는 이름');
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveAttribute('title','담당 팀원 칸 이름을 직접 고쳤어요.');
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('[주간보고 한글 파일 만들기] 담당 팀원 칸 이름: 확정본에서 표기를 못 찾으면 프로필 이름을 쓰고 알린다',async({page})=>{
+test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 찾으면 프로필 이름을 쓰고 알린다',async({page})=>{
  const f=await hwpxFixture(page,{width:390,profileName:'전혀 다른 사람'});
  await openJournal(page,390);await openWeekly(page);
- await hwpx(page).locator('[data-hwpx-start]').click();
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('전혀 다른 사람');
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('전혀 다른 사람');
  await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.');
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('[주간보고 한글 파일 만들기]: 자료실에 확정본이 없으면 알리고, [HWP로 받기]·기기 HWP 파일 고르기는 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
+test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 알리고, [HWP로 받기]·기기 HWP 파일 고르기는 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
  test.setTimeout(120000);
  await servePagesCors(page);
  const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
  await openJournal(page,1280);await openWeekly(page);
- await hwpx(page).locator('[data-hwpx-start]').click();
- // WEEKLY-한글파일다듬기 ①: 확정본이 없으면 안내문이 바뀌고 [자료실 최신 … 쓰기]는 흐리게(누를 수 없음), [기기에서 파일 고르기]가 앞.
- await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주 팀 확정본이 없어요. 자료실에 ‘주간보고 확정본’으로 올리거나, 내 컴퓨터에서 골라 주세요.');
- await expect(hwpx(page).locator('[data-hwpx-library]')).toBeDisabled();
- await expect(hwpx(page).locator('.journal-hwpx-actions button').first()).toHaveAttribute('data-hwpx-pick','');
- await expect(hwpx(page)).not.toContainText('이 기기 안에서만');
+ // WEEKLY-한글파일다듬기 ①: 확정본이 없으면 상태 줄에 까닭과 할 일(맨 위 ⋯ → [바탕 바꾸기(기기 파일)]), 칸 자리에도 한 줄.
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('자료실에 바탕(지난 개인본·"주간보고 확정본")이 없어요. 팀 확정본을 그 분류로 올리거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.');
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-flow-no-base]')).toContainText('바탕을 열지 못해');
+ await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('이 기기 안에서만');
+ await expect(topLine(page).locator('[data-hwpx-pick]')).toHaveText('바탕 바꾸기(기기 파일)');
  expect(f.sent.open).toEqual([]);
- // 기기 파일(.hwpx) → 고칠 칸
+ // 기기 파일(.hwpx) → 칸 줄
  await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
- await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행');
- await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
- // [HWP로 받기]: 같은 엔진이 HWP 5로 저장(OLE 머리)
- const [hwp]=await Promise.all([page.waitForEvent('download',{timeout:90000}),hwpx(page).locator('[data-hwpx-hwp]').click()]);
+ await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
+ await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('가상 담당');
+ await expect(topLine(page)).toContainText('바탕 기기 파일');
+ // ⋯ → [HWP로 받기]: 같은 엔진이 HWP 5로 저장(OLE 머리)
+ const [hwp]=await Promise.all([page.waitForEvent('download',{timeout:90000}),confirmMore(page,'[data-hwpx-hwp]')]);
  expect(hwp.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwp');
  const hwpBytes=readFileSync(await hwp.path());
  expect([...hwpBytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
  // 그 HWP를 다시 기기 파일로: 엔진이 .hwpx로 바꾼 뒤 같은 칸
- await hwpx(page).locator('[data-hwpx-restart]').click();
+ // (칸 줄은 그 주 draft 그대로 — 바탕 파일만 바뀐다.) 바꾸는 동안 상태 줄, 끝나면 오류 없이 지워진다.
+ const st=hwpx(page).locator('[data-hwpx-status]');
  await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwp',mimeType:'application/x-hwp',buffer:hwpBytes});
- await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행',{timeout:60000});
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ await expect(st).toHaveText(/바꾸는 중|여는 중/);
+ await expect(st).toHaveText('',{timeout:60000});
+ await expect(st).not.toHaveAttribute('data-kind','error');
+ await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행'],{timeout:60000});
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.summary[0].rows[0].progress).toEqual(['- 지난주 가-1 진행']);
  expect(f.sent.library).toEqual([]);
@@ -1595,6 +1603,9 @@ const execWrites=f=>f.exec.calls.filter(c=>c.method!=='GET');
 for(const width of [390,1280])test(`[주간 정리] 임원 참석 요청 표: 줄 추가(달력 날짜)·고치기·지우기 → 서버 저장, 날짜·시간순, 복사·한글 파일도 같은 줄 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ // 바탕(지난주 확정본) 열기는 표를 다 고친 뒤까지 붙잡아 둔다(그 주 처음 [주간 정리]를 열면 바탕을 열어 지난주 요청 줄을 가져오므로).
+ let release;const gate=new Promise(r=>{release=r;});
+ await page.route(SB+'/functions/v1/document-actions',async r=>{if(r.request().method()!=='OPTIONS')await gate;return r.fallback();});
  await openJournal(page,width);await openWeekly(page);
  const ask=weekly(page,'ask'),field=name=>ask.locator(`[data-journal-exec-field="${name}"]`);
  await expect(ask.locator('[data-journal-exec-empty][data-wait-empty]')).toHaveText('없음');
@@ -1646,38 +1657,39 @@ for(const width of [390,1280])test(`[주간 정리] 임원 참석 요청 표: �
  expect(execWrites(f).map(c=>c.method)).toEqual(['POST','PATCH','PATCH','PATCH','PATCH']);
  expect(f.exec.rows[0].items).toHaveLength(2);
  // 복사: 같은 줄, 같은 순서(기존 칸 모양 "일 시간 / 내용 / 장소 — 참석 요청").
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('1. 요청사항');
  expect(lines.slice(at+1,at+4)).toEqual(['1) 임원 배정 요청 (일 | 시간/내용/장소 | 참석 요청)','- 10.12.(월) ~ 10.13.(화) 14:00 / 가상 토론회 / 가상 회관 — 참석 요청: 가상 임원 갑, 가상 임원 을','- 10.13.(화) 가상 결의대회']);
  // 한글 파일: 확정본을 열면 지난주에서 고른 줄(10.14.)이 그 주 표에 한 번 더해지고(같은 줄은 다시 안 더함), 파일 요청 표 = 이 표 그대로.
- await openDraft(page);
+ release();await openDraft(page);
  await expect(ask.locator('tbody tr th')).toHaveText(['10.12.(월) ~ 10.13.(화)','10.13.(화)','10.14.(수)']);
+ await expect(page.locator('#journalRoot [data-journal-weekly="ask"] [data-hwpx-requests]')).toContainText('지난주 확정본에서 1줄을 가져왔어요');
  await expect(ask.locator('tbody tr').nth(2).locator('[data-journal-exec-carried]')).toHaveText('지난주에서');
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.requests).toEqual([
   {day:'10.12.(월) ~ 10.13.(화)',items:[{what:'14:00 / 가상 토론회 / 가상 회관',who:['가상 임원 갑','가상 임원 을']}]},
   {day:'10.13.(화)',items:[{what:'가상 결의대회',who:[]}]},
   {day:'10.14.(수)',items:[{what:'10:00 / 가상 노동조합 결의대회 / 가상 광장',who:['가상 임원 갑','가상 임원 을']}]}]);
  // 한 번 가져온 주는 확정본을 다시 열어도 다시 가져오지 않는다(지운 줄이 되살아나지 않음).
- await hwpx(page).locator('[data-hwpx-restart]').click();
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(hwpx(page).locator('[data-hwpx-requests]')).toContainText('이 주는 이미 지난주 줄을 가져와서 다시 가져오지 않았어요.');
+ page.once('dialog',d=>d.accept());
+ await topMore(page,'[data-hwpx-restart]');
+ await expect(page.locator('#journalRoot [data-hwpx-requests]')).toContainText('이 주는 이미 지난주 줄을 가져와서 다시 가져오지 않았어요.');
  await expect(ask.locator('tbody tr')).toHaveCount(3);
  expect(execWrites(f).filter(c=>c.body.carried_at)).toHaveLength(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 // 12:43 ①: 내 '임원 요청' 기록(업데이트 글의 "임원 요청" — 표시 버튼은 없고 글에 씀)이 가리키는 지난주 줄은 담당 조직·사업 이름이 없어도 남는다.
-test('[주간보고 한글 파일 만들기] 지난주 요청 줄: 내 임원 요청 기록이 가리키는 줄도 가져온다 1280',async({page})=>{
+test('[주간 정리] 지난주 요청 줄: 내 임원 요청 기록이 가리키는 줄도 가져온다 1280',async({page})=>{
  const f=await hwpxFixture(page,{width:1280});
  f.rows.push({id:'b-exec',workspace_id:'w',kind:'basket',title:null,journal_day:null,raw_text:'10/14 남의 모임 행사에 본부장 임원 요청함',occurred_at:'2026-10-02T01:00:00Z',created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
  await openJournal(page,1280);await openWeekly(page);
  await openDraft(page);
  const ask=weekly(page,'ask');
  await expect(ask.locator('tbody tr .journal-weekly-what')).toHaveText(['10:00 / 가상 노동조합 결의대회 / 가상 광장 지난주에서','15:00 / 남의 모임 행사 / 어딘가 지난주에서']);
- await expect(hwpx(page).locator('[data-hwpx-requests]')).toContainText('지난주 확정본에서 2줄을 가져왔어요(뺀 줄: 지난 날짜 1).');
+ await expect(page.locator('#journalRoot [data-hwpx-requests]')).toContainText('지난주 확정본에서 2줄을 가져왔어요(뺀 줄: 지난 날짜 1).');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 test('[주간 정리] 임원 참석 요청 표 화면 모양(PC 1280): 작은 버튼, 고치기 줄 — 화면 사진',async({page},info)=>{
@@ -1685,11 +1697,11 @@ test('[주간 정리] 임원 참석 요청 표 화면 모양(PC 1280): 작은 �
  f.exec.rows.push({id:'x0',workspace_id:'w',week_start:'2026-10-05',carried_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',items:[
   {id:'a',day:'2026-10-13',time:'10:30',what:'가상 노동조합 결의대회',place:'가상 광장',who:'가상 임원 갑',carried:true},
   {id:'b',day:'2026-10-15',time:'14:00',what:'가상 토론회',place:'가상 회관',who:'가상 임원 을, 가상 임원 병'}]});
- await openJournal(page,1280);await openWeekly(page);
+ await openJournal(page,1280);await openWeekly(page);await settleBase(page);
  const ask=weekly(page,'ask');
  await expect(ask.locator('tbody tr')).toHaveCount(2);
  // UI-버튼기준: 제목 줄 [+ 추가]·줄 끝 ⋯ 는 작은 버튼(32px 이하), 지난주에서 표시는 작은 글자.
- for(const b of await ask.locator('button:visible,summary:visible').all())expect((await b.boundingBox()).height).toBeLessThanOrEqual(32.5);
+ for(const h of await ask.locator('button:visible,summary:visible').evaluateAll(els=>els.map(e=>e.getBoundingClientRect().height)))expect(h).toBeLessThanOrEqual(32.5);
  expect(await ask.locator('[data-journal-exec-carried]').evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeLessThanOrEqual(12.5);
  await pressMore(ask.locator('tbody tr[data-journal-exec-row]').filter({hasText:'가상 토론회'}),'[data-journal-exec-edit]');
  await expect(ask.locator('[data-journal-exec-form]')).toBeVisible();
@@ -1705,9 +1717,10 @@ test('[주간 정리] 임원 참석 요청 표: 저장 칸이 아직 없으면(4
  const ask=weekly(page,'ask');
  await expect(ask.locator('[data-journal-exec-missing]')).toContainText('요청 표 저장 칸이 아직 준비되지 않았어요');
  await expect(ask.locator('button,input,table')).toHaveCount(0);
- await openDraft(page);
- await expect(hwpx(page).locator('[data-hwpx-requests]')).toContainText('지난주 확정본에서 1줄을 골랐어요(뺀 줄: 지난 날짜 1, 관련 없음 1). 저장 칸 준비 전이라 이 파일에만 넣어요.');
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ // 임시저장 칸(그 주 행)도 없으니 칸 줄 자리는 한 줄 안내, 바탕은 파일을 만들 때 연다(칸 줄 = 바탕 그대로).
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"]')).toContainText('임시저장 칸이 아직 준비 전이에요');
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ await expect(page.locator('#journalRoot [data-hwpx-requests]')).toContainText('지난주 확정본에서 1줄을 골랐어요(뺀 줄: 지난 날짜 1, 관련 없음 1). 저장 칸 준비 전이라 이 파일에만 넣어요.');
  const {report}=await savedReport(download);
  expect(report.requests).toEqual([{day:'10.14.(수)',items:[{what:'10:00 / 가상 노동조합 결의대회 / 가상 광장',who:['가상 임원 갑','가상 임원 을']}]}]);
  expect(execWrites(f)).toEqual([]);
@@ -1715,141 +1728,123 @@ test('[주간 정리] 임원 참석 요청 표: 저장 칸이 아직 없으면(4
  expect(f.errors.filter(e=>!/404/.test(e))).toEqual([]);
 });
 
-// WEEKLY-임시저장 (docs/design/weekly-draft-feedback.md 2절): 한글 파일 상자에서 고친 칸·일정 제목은 2초 멈추면 그 주 요청 표 행의
-// draft 칸에 서버 저장(draft_saved_at 조건, updated_at 안 바꿈, 브라우저 저장소 없음). 다시 열면 [이어서 고치기]로 칸 이름대로 복원,
-// 다른 기기가 그사이 저장했으면 한쪽만 고친 칸은 합치고 같은 칸은 묻는다. 칸이 없으면 "임시저장은 준비 중". 이름·조직은 모두 합성.
+// WEEKLY-임시저장 (docs/design/weekly-draft-feedback.md 2절) → WEEKLY-한흐름확정 ②: 칸 줄 누름은 그때마다, 일정 칸 고침·이름·일시는 2초 멈추면
+// 그 주 요청 표 행의 draft 칸에 서버 저장(draft_saved_at 조건, updated_at 안 바꿈, 브라우저 저장소 없음). 다른 주에 갔다 와도(어느 기기에서든) draft 그대로,
+// 다른 기기가 그사이 저장했으면 다시 읽고 그 판 위에 누름 하나를 얹는다(한쪽만 고친 칸은 합쳐짐). 칸이 없으면 "임시저장은 준비 중". 이름·조직은 모두 합성.
 const draftWrites=f=>f.exec.calls.filter(c=>c.method!=='GET'&&c.body&&'draft' in c.body);
-const draftLine=page=>hwpx(page).locator('[data-hwpx-draft-status]');
-const orgRow=(page,name)=>hwpx(page).locator('[data-hwpx-part="orgs"] .journal-hwpx-row').filter({has:page.locator('label',{hasText:name})}).locator('textarea');
-for(const width of [390,1280])test(`[주간보고 한글 파일] 임시저장: 고치고 멈추면 서버에 저장 → 닫고 다시 열면 [이어서 고치기]로 복원 ${width}`,async({page})=>{
+const draftLine=page=>topLine(page).locator('[data-hwpx-draft-status]');
+async function addLine(page,label,text){const c=flowCell(page,label);await c.getByRole('button',{name:`${label} 칸에 줄 추가`}).click();await c.locator('input[data-flow-input]').fill(text);await c.locator('input[data-flow-input]').press('Enter');await expect(c.locator('input[data-flow-input]')).toHaveCount(0);}
+// 5. 주요 일정 칸 고치기: 바탕을 연 판이면 그 접힘을, 아직이면 같은 자리 접힌 한 줄(펼치면 바탕을 엶)을 펼친다.
+async function openSchedule(page){const sched=hwpx(page).locator('[data-hwpx-part="schedule"]');if(!(await sched.count())){await hwpx(page).locator('[data-hwpx-sched-gate] > summary').click();await expect(sched).toHaveJSProperty('open',true);}else if(!(await sched.evaluate(e=>e.open)))await sched.locator('summary').first().click();return sched;}
+for(const width of [390,1280])test(`[주간 정리] 임시저장: 칸 줄·일정 칸 고침은 서버에 → 다른 주에 갔다 와도 그대로, [처음부터]는 묻고 비움 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
  await openDraft(page);
- await expect(draftLine(page)).toHaveText('고치면 서버에 임시저장해요.');
- await orgRow(page,'가상 노동조합').fill('- 지난주 조직 소식\n- 임시저장할 조직 소식');
- await hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').nth(0).locator('[data-hwpx-title-input]').fill('가상 점검 회의');
+ await addLine(page,'가상 노동조합','- 임시저장할 조직 소식');
+ const sched=await openSchedule(page);
+ await sched.locator('[data-hwpx-title]').nth(0).locator('[data-hwpx-title-input]').fill('가상 점검 회의');
  await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
  const row=f.exec.rows.find(r=>r.week_start==='2026-10-05');
  expect(row.draft.v).toBe(1);
  // 칸 열쇠는 칸 이름(조직 이름), 고친 칸만. 일정은 일정 키. 바탕 = 자료실 확정본.
+ await expect.poll(()=>row.draft.titles,{timeout:15000}).toEqual([{event:'c:next',title:'가상 점검 회의',place:'가상 회의실'}]);
  expect(row.draft.rows).toEqual([{section:'orgs',key:'가상 노동조합',n:0,lines:['- 지난주 조직 소식','- 임시저장할 조직 소식']}]);
- expect(row.draft.titles).toEqual([{event:'c:next',title:'가상 점검 회의',place:'가상 회의실'}]);
- expect(row.draft.base).toMatchObject({from:'library',document_id:'doc-team',file_name:'team.hwpx'});
+ expect(row.draft.proposed.base).toMatchObject({from:'confirmed',document_id:'doc-team'});
  // 임시저장 쓰기는 updated_at을 보내지 않고, 처음 쓰기 뒤엔 draft_saved_at 조건으로만 고친다.
  for(const c of draftWrites(f))expect('updated_at' in c.body).toBe(false);
  const patches=draftWrites(f).filter(c=>c.method==='PATCH');
  expect(patches.length).toBeGreaterThan(0);
  for(const c of patches)expect(c.query.draft_saved_at).toMatch(/^(eq\.|is\.null)/);
- // 브라우저 저장소를 쓰지 않는 것은 정적 감사(browser-storage-audit)가 지킨다. 저장은 위 서버 행뿐.
- // 닫고 다시 열기: 이 주 임시저장본 안내 → [이어서 고치기] → 같은 확정본을 다시 열고 칸·일정 제목이 돌아온다.
- await hwpx(page).locator('[data-hwpx-close]').last().click();
- await hwpx(page).locator('[data-hwpx-start]').click();
- const resume=hwpx(page).locator('[data-hwpx-resume]');
- await expect(resume).toContainText('이 주 임시저장본(');
- await resume.locator('[data-hwpx-resume-go]').click();
- await expect(orgRow(page,'가상 노동조합')).toHaveValue('- 지난주 조직 소식\n- 임시저장할 조직 소식');
- await expect(hwpx(page).locator('[data-hwpx-resumed]')).toContainText('임시저장본(');
- await expect(hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').nth(0).locator('[data-hwpx-title-input]')).toHaveValue('가상 점검 회의');
- await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/);
- expect(f.sent.open.at(-1)).toEqual({action:'hwp-open',document_id:'doc-team'});
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ // 다른 주에 갔다 오기: 칸 줄은 draft 에서 바로(바탕을 다시 열지 않음), 일정 제목은 바탕을 열면 그대로.
+ const opened=f.sent.open.length;
+ await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 12일 ~ 18일');
+ await page.locator('#journalRoot [data-journal-prev]').click();
+ await expect(cellLines(flowCell(page,'가상 노동조합'))).toHaveText(['- 지난주 조직 소식','- 임시저장할 조직 소식']);
+ await expect.poll(()=>f.sent.open.slice(opened).filter(o=>o.document_id==='doc-team').length).toBeLessThanOrEqual(1); // 다음 주(빈 주) 처음 열기 한 번뿐
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.orgs[0].status).toEqual(['- 지난주 조직 소식','- 임시저장할 조직 소식']);
+ expect(report.calendar[1].items[0].what).toBe('10:30 / 가상 점검 회의 / 가상 회의실');
  // WEEKLY-개인본대조 W-2: 파일을 내주면 그 파일의 1~4절 글 줄이 draft.issued 에 적힌다(표 머리 칸 이름은 빠지고 칸 글은 들어간다).
  await expect.poll(()=>row.draft?.issued?.lines.map(l=>l.text)??[],{timeout:15000}).toContain('- 임시저장할 조직 소식');
  expect(row.draft.issued.lines.find(l=>l.text==='- 임시저장할 조직 소식').section).toBe('orgs');
  expect(row.draft.issued.lines.map(l=>l.text)).not.toContain('조직명');
  expect(row.draft.issued.from).toBe('generated');
- // [처음부터]는 묻고 서버 임시저장(고친 칸·일정)을 비운다. 이미 내준 초안 기록(issued)은 그 주 비교 기준이라 남는다.
+ // [처음부터](맨 위 ⋯)는 묻고 서버 임시저장(고친 칸·일정)을 비운다. 이미 내준 초안 기록(issued)은 그 주 비교 기준이라 남는다. 칸은 바탕부터 다시.
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-restart]').click();
- await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요.');
+ await topMore(page,'[data-hwpx-restart]');
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
  expect(row.draft.rows).toEqual([]);expect(row.draft.titles).toEqual([]);expect(row.draft.issued.lines.map(l=>l.text)).toContain('- 임시저장할 조직 소식');
- await expect(hwpx(page).locator('[data-hwpx-resume]')).toHaveCount(0);
+ await expect(cellLines(flowCell(page,'가상 노동조합'))).toHaveText(['- 지난주 조직 소식']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('[주간보고 한글 파일] 임시저장 두 기기: 다른 기기가 먼저 저장했으면 한쪽만 고친 칸은 합치고, 같은 칸은 [이 기기 것]/[다른 기기 것]으로 묻는다 1280',async({page})=>{
+test('[주간 정리] 임시저장 두 기기: 다른 기기가 먼저 저장했으면 다시 읽고 그 판 위에 이 누름을 얹는다(다른 칸·같은 칸 모두 남음) 1280',async({page})=>{
  const f=await hwpxFixture(page,{width:1280});
  await openJournal(page,1280);await openWeekly(page);
  await openDraft(page);
- await orgRow(page,'가상 노동조합').fill('- PC에서 고친 줄');
- await expect(draftLine(page)).toHaveText(/^임시저장 /,{timeout:15000});
+ await addLine(page,'가상 노동조합','- PC에서 더한 줄');
  const row=f.exec.rows.find(r=>r.week_start==='2026-10-05'),before=row.draft_saved_at;
  // 다른 기기(폰)가 같은 칸과 다른 칸(나 지역 모임)을 고쳐 저장했다.
  row.draft={...row.draft,rows:[{section:'orgs',key:'가상 노동조합',n:0,lines:['- 폰에서 고친 줄']},{section:'orgs',key:'나 지역 모임',n:0,lines:['- 폰에서 쓴 나 모임 소식']}]};
  row.draft_saved_at='2026-10-06T09:00:00.000Z';
- // 이 기기에서 같은 칸을 또 고친다 → 조건부 쓰기 0행 → 다시 읽고 3자 비교.
- await orgRow(page,'가상 노동조합').fill('- PC에서 다시 고친 줄');
- const conflicts=hwpx(page).locator('[data-hwpx-conflicts]');
- await expect(conflicts).toContainText('다른 기기에서도 고친 칸 1개',{timeout:15000});
- await expect(conflicts.locator('[data-hwpx-conflict-item]')).toContainText('이 기기 ‘- PC에서 다시 고친 줄’ · 다른 기기 ‘- 폰에서 고친 줄’');
- // 다른 기기만 고친 칸은 저절로 들어오고, 같은 칸은 고를 때까지 다른 기기 것.
- await expect(orgRow(page,'나 지역 모임')).toHaveValue('- 폰에서 쓴 나 모임 소식');
- await expect(orgRow(page,'가상 노동조합')).toHaveValue('- 폰에서 고친 줄');
+ // 이 기기에서 같은 칸에 또 더한다 → 조건부 쓰기 0행 → 다시 읽고 서버 판 위에 이 누름 하나.
+ await addLine(page,'가상 노동조합','- PC에서 또 더한 줄');
+ await expect(cellLines(flowCell(page,'가상 노동조합'))).toHaveText(['- 폰에서 고친 줄','- PC에서 또 더한 줄']);
+ await expect(cellLines(flowCell(page,'나 지역 모임'))).toHaveText(['- 폰에서 쓴 나 모임 소식']);
  expect(before).not.toBe(row.draft_saved_at);
- await expect.poll(()=>row.draft.rows.map(r=>[r.key,r.lines]),{timeout:15000}).toEqual([['가상 노동조합',['- 폰에서 고친 줄']],['나 지역 모임',['- 폰에서 쓴 나 모임 소식']]]);
+ expect(row.draft.rows.map(r=>[r.key,r.lines])).toEqual([['나 지역 모임',['- 폰에서 쓴 나 모임 소식']],['가상 노동조합',['- 폰에서 고친 줄','- PC에서 또 더한 줄']]]);
  expect(draftWrites(f).some(c=>c.method==='PATCH'&&c.query.draft_saved_at==='eq.2026-10-06T09:00:00.000Z')).toBe(true);
- await conflicts.locator('[data-hwpx-conflict-pick="mine"]').click();
- await expect(hwpx(page).locator('[data-hwpx-conflicts]')).toHaveCount(0);
- await expect(orgRow(page,'가상 노동조합')).toHaveValue('- PC에서 다시 고친 줄');
- await expect.poll(()=>row.draft.rows.map(r=>[r.key,r.lines]),{timeout:15000}).toEqual([['가상 노동조합',['- PC에서 다시 고친 줄']],['나 지역 모임',['- 폰에서 쓴 나 모임 소식']]]);
- await expect(draftLine(page)).toHaveText(/^임시저장 /);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('[주간보고 한글 파일] 임시저장: 바탕이 바뀌어 이름이 없는 칸은 접어서 보여 주고 버리지 않는다 390',async({page})=>{
+test('[주간 정리] 임시저장: 바탕이 바뀌어 이름이 없는 칸은 버리지 않고 "바탕에 없는 칸"으로 보인다 390',async({page})=>{
  const f=await hwpxFixture(page,{width:390});
  f.exec.rows.push({id:'x0',workspace_id:'w',week_start:'2026-10-05',carried_at:null,updated_at:'2026-10-06T01:00:00Z',items:[],draft_saved_at:'2026-10-06T03:00:00.000Z',draft:{v:1,
   base:{from:'library',document_id:'doc-team',file_name:'team.hwpx',title:'가상 상집보고',digest:'0000000000000000'},me:'',me_from:'',date:'',titles:[],
   rows:[{section:'orgs',key:'가상 노동조합',n:0,lines:['- 저장된 조직 소식']},{section:'summary',key:'없어진 사업›없어진 과제',n:0,lines:['- 옛 바탕에서 쓴 줄','- 둘째 줄']}]}});
  await openJournal(page,390);await openWeekly(page);
- await hwpx(page).locator('[data-hwpx-start]').click();
- await hwpx(page).locator('[data-hwpx-resume] [data-hwpx-resume-go]').click();
- await expect(orgRow(page,'가상 노동조합')).toHaveValue('- 저장된 조직 소식');
- await expect(hwpx(page).locator('[data-hwpx-resumed]')).toContainText('바탕이 그때와 달라 이름이 맞는 칸만 넣었어요.');
- const unplaced=hwpx(page).locator('[data-hwpx-unplaced]');
- await expect(unplaced.locator('summary')).toContainText('넣지 못한 임시저장 칸 1개');
- await unplaced.locator('summary').click();
- await expect(unplaced.locator('li')).toContainText('요약 · 없어진 사업 › 없어진 과제: - 옛 바탕에서 쓴 줄');
- // 다른 칸을 고쳐 다시 저장해도 넣지 못한 칸은 남는다.
- await orgRow(page,'나 지역 모임').fill('- 새 소식');
- await expect.poll(()=>f.exec.rows[0].draft.rows.map(r=>r.key),{timeout:15000}).toEqual(['가상 노동조합','나 지역 모임','없어진 사업›없어진 과제']);
+ await expect(cellLines(flowCell(page,'가상 노동조합'))).toHaveText(['- 저장된 조직 소식']);
+ const gone=flowCell(page,'없어진 사업 › 없어진 과제');
+ await expect(cellLines(gone)).toHaveText(['- 옛 바탕에서 쓴 줄','- 둘째 줄']);
+ await expect(gone.locator('[data-flow-orphan]')).toHaveText('바탕에 없는 칸 — 파일에는 안 들어가요');
+ await expect(flowCell(page,'사업영역 가 › 세부 과제 가-1').locator('[data-flow-orphan]')).toHaveCount(0);
+ // 다른 칸을 고쳐 다시 저장해도 그 칸은 남는다.
+ await addLine(page,'나 지역 모임','- 새 소식');
+ await expect.poll(()=>f.exec.rows[0].draft.rows.map(r=>r.key).sort(),{timeout:15000}).toEqual(['가상 노동조합','나 지역 모임','없어진 사업›없어진 과제']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
-test('[주간보고 한글 파일] 임시저장 칸이 아직 없으면(DB 적용 전) "준비 중" 한 줄로 지금처럼 동작한다 1280',async({page})=>{
+test('[주간 정리] 임시저장 칸이 아직 없으면(DB 적용 전) "준비 중" 한 줄, 파일은 바탕 그대로 만든다 1280',async({page})=>{
  const f=await hwpxFixture(page,{width:1280,fail:{draftMissing:true}});
  await openJournal(page,1280);await openWeekly(page);
- await openDraft(page);
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="orgs"]')).toContainText('임시저장 칸이 아직 준비 전이에요');
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  await expect(draftLine(page)).toHaveText('임시저장은 준비 중이에요. 상자를 닫으면 고친 내용은 사라져요.');
- await orgRow(page,'가상 노동조합').fill('- 저장 안 되는 줄');
+ const {report}=await savedReport(download);
+ expect(report.orgs[0].status).toEqual(['- 지난주 조직 소식']);
  await page.waitForTimeout(2600);
  expect(draftWrites(f)).toEqual([]);
- await expect(draftLine(page)).toHaveText('임시저장은 준비 중이에요. 상자를 닫으면 고친 내용은 사라져요.');
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
- const {report}=await savedReport(download);
- expect(report.orgs[0].status).toEqual(['- 저장 안 되는 줄']);
  expect(f.writes).toEqual([]);expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
-// JOURNAL-임시저장자리 (요청함 10/30): 임시저장 한 줄은 상자 맨 위 제목 줄 오른쪽 끝 작은 글자. 상자 안 다른 자리엔 없고(하나뿐),
-// 제목이 길어도 제목만 말줄임되어 서로 겹치지 않는다. 폰 412·폴드 펼침 884·PC 1440.
-for(const width of [412,884,1440])test(`[주간보고 한글 파일] 임시저장 줄은 제목 줄 오른쪽 끝, 긴 제목도 겹치지 않음 ${width}`,async({page})=>{
+// JOURNAL-임시저장자리 (요청함 10/30) → WEEKLY-한흐름확정 ②: 임시저장 한 줄은 맨 위 한 줄(■ 일시 · 이름 · 바탕) 오른쪽 작은 글자. 화면에 하나뿐,
+// 앞 글이 길어도 서로 겹치지 않고 가로로 넘치지 않는다. 폰 412·폴드 펼침 884·PC 1440.
+for(const width of [412,884,1440])test(`[주간 정리] 임시저장 줄은 맨 위 한 줄 오른쪽, 긴 글도 겹치지 않음 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  await openJournalAt(page,width);await openWeekly(page);
  await openDraft(page);
- await orgRow(page,'가상 노동조합').fill('- 지난주 조직 소식\n- 자리 확인 줄');
- const head=hwpx(page).locator('[data-hwpx-head]');
+ await addLine(page,'가상 노동조합','- 자리 확인 줄');
+ const head=topLine(page);
  await expect(head.locator('[data-hwpx-draft-status]')).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
- await expect(hwpx(page).locator('[data-hwpx-draft-status]')).toHaveCount(1);
+ await expect(page.locator('#journalRoot [data-hwpx-draft-status]')).toHaveCount(1);
  const measure=()=>head.evaluate(h=>{
-  const t=h.querySelector('#journalHwpxTitle').getBoundingClientRect(),d=h.querySelector('[data-hwpx-draft-status]').getBoundingClientRect(),b=h.getBoundingClientRect();
-  return {overlap:t.right>d.left+0.5,sameRow:Math.abs((t.top+t.bottom)/2-(d.top+d.bottom)/2)<=4,atEnd:Math.abs(b.right-d.right)<=1,inside:d.left>=b.left&&d.right<=b.right+0.5,single:h.getBoundingClientRect().height<=Math.max(t.height,d.height)+1,small:parseFloat(getComputedStyle(h.querySelector('[data-hwpx-draft-status]')).fontSize)<parseFloat(getComputedStyle(h.querySelector('#journalHwpxTitle')).fontSize)};
+  const t=h.querySelector('.weekly-flow-top-text').getBoundingClientRect(),d=h.querySelector('[data-hwpx-draft-status]').getBoundingClientRect(),b=h.getBoundingClientRect();
+  return {overlap:t.right>d.left+0.5,inside:d.left>=b.left&&d.right<=b.right+0.5,small:parseFloat(getComputedStyle(h.querySelector('[data-hwpx-draft-status]')).fontSize)<=parseFloat(getComputedStyle(h.querySelector('.weekly-flow-top-text')).fontSize)};
  });
- expect(await measure()).toEqual({overlap:false,sameRow:true,atEnd:true,inside:true,single:true,small:true});
- // 제목이 아주 길어도 제목만 말줄임: 임시저장 글은 그대로 보이고 겹침 0, 가로 넘침 없음.
- await head.locator('#journalHwpxTitle').evaluate(n=>{n.textContent='아주 긴 제목 '.repeat(20);});
- expect(await measure()).toEqual({overlap:false,sameRow:true,atEnd:true,inside:true,single:true,small:true});
+ expect(await measure()).toEqual({overlap:false,inside:true,small:true});
+ await head.locator('.weekly-flow-top-text').evaluate(n=>{n.textContent='아주 긴 글 '.repeat(30);});
+ expect(await measure()).toEqual({overlap:false,inside:true,small:true});
  await expect(head.locator('[data-hwpx-draft-status]')).toHaveText(/^임시저장 \d\d:\d\d$/);
  expect(await head.locator('[data-hwpx-draft-status]').evaluate(d=>d.scrollWidth<=d.clientWidth+1)).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -1884,10 +1879,10 @@ async function memoryFixture(page,options={}){
  return {...f,profile};
 }
 const titleRow=(page,title)=>hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').filter({has:page.locator('[data-hwpx-origin]',{hasText:`원래: ${title}`})});
-for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고치기 → [확정] 뒤 [기억하기] → 다음 주 초안·화면에 먼저 적용 → [주간 정리]에서 지우기·되돌리기 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고치기 → [확정하고 한글 파일 받기] 뒤 [기억하기] → 다음 주 초안·화면에 먼저 적용 → [주간 정리]에서 지우기·되돌리기 ${width}`,async({page})=>{
  const f=await memoryFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
- await openDraft(page);
+ await openDraft(page);await openSchedule(page);
  await titleRow(page,'가상 다음 주 회의').locator('[data-hwpx-title-input]').fill('가상 점검 회의');
  await titleRow(page,'가상 수련회').locator('[data-hwpx-title-drop]').click();
  await expect(titleRow(page,'가상 수련회')).toHaveAttribute('data-dropped','true');
@@ -1895,7 +1890,7 @@ for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고�
  // 이번 주 빼기는 임시저장(dropped)에 들어간다.
  await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05')?.draft?.dropped,{timeout:15000}).toEqual(['c:camp']);
  // 파일: 고친 이름, 뺀 수련회 줄은 없다.
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  const cells=report.calendar.flatMap(d=>d.items.map(i=>i.what));
  expect(cells).toEqual(['10:30 / 가상 점검 회의 / 가상 회의실']);
@@ -1903,7 +1898,7 @@ for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고�
  expect(f.profile.patches).toEqual([]);
  // [확정] → 다음 주에도 쓸까요? (체크된 채) → [기억하기]: 이 칸 하나만 PATCH.
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
  const ask=hwpx(page).locator('[data-hwpx-remember-ask]');
  await expect(ask.locator('summary')).toHaveText('다음 주에도 쓸까요? 달력 제목과 다르게 확정한 일정·뺀 일정 2개');
  await expect(ask.locator('[data-hwpx-remember-item]')).toHaveText([/가상 다음 주 회의 → 가상 점검 회의$/,/가상 수련회 → 빼기$/]);
@@ -1922,7 +1917,7 @@ for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고�
  await page.locator('#journalRoot [data-journal-next]').click();
  await expect(cal.locator('tbody .journal-weekly-what')).toHaveText(['10:30 / 가상 점검 회의 / 가상 회의실 기억','14:00 / 가상 남는 일정']);
  await expect(cal.locator('[data-journal-schedule-memory-dropped]')).toContainText('10.28.(수) 가상 수련회');
- await openDraft(page);
+ await openDraft(page);await openSchedule(page);
  await expect(titleRow(page,'가상 다음 주 회의').locator('[data-hwpx-title-input]')).toHaveValue('가상 점검 회의');
  await expect(titleRow(page,'가상 다음 주 회의').locator('[data-hwpx-memory-tag]')).toHaveText('기억');
  await expect(titleRow(page,'가상 수련회')).toHaveCount(0);
@@ -1932,12 +1927,11 @@ for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고�
  await fold.locator('[data-hwpx-title-keep]').click();
  await expect(titleRow(page,'가상 수련회')).toBeVisible();
  await expect(fold).toBeHidden();
- const [next]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [next]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report:nextReport}=await savedReport(next);
  expect(nextReport.calendar.flatMap(d=>d.items.map(i=>i.what))).toEqual(['10:30 / 가상 점검 회의 / 가상 회의실','종일 / 가상 수련회 / 미정','14:00 / 가상 남는 일정 / 미정']);
  await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-12')?.draft?.kept,{timeout:15000}).toEqual(['c:camp2']);
  // 기억 목록: 일정 이름·일정 빼기, [지우기] → 다시 읽고 그 항목만 빼서 PATCH, [되돌리기].
- await hwpx(page).locator('[data-hwpx-close]').last().click();
  const box=page.locator('#journalRoot [data-journal-weekly-memory]');
  await expect(box.locator(':scope > summary')).toContainText('주간보고 기억 일정 이름 1 · 일정 빼기 1');
  await box.locator(':scope > summary').click();
@@ -1955,13 +1949,13 @@ for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('[주간보고 기억] 칸이 아직 없으면(읽지 못함) 기억 없이 지금처럼 — [확정] 뒤 묻지 않고 기억 목록에도 일정 줄 없음 1280',async({page})=>{
+test('[주간보고 기억] 칸이 아직 없으면(읽지 못함) 기억 없이 지금처럼 — [확정하고 한글 파일 받기] 뒤 묻지 않고 기억 목록에도 일정 줄 없음 1280',async({page})=>{
  const f=await hwpxFixture(page,{width:1280});
  await openJournal(page,1280);await openWeekly(page);
- await openDraft(page);
+ await openDraft(page);await openSchedule(page);
  await hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').first().locator('[data-hwpx-title-drop]').click();
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
  await expect(hwpx(page).locator('[data-hwpx-remember]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-weekly-memory] [data-journal-memory-entry]')).toHaveCount(0);
@@ -2012,7 +2006,7 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 정기 회의
  await expect(off.locator('li')).toHaveText(['궤도 집행국 회의 · 2건다시 올리기','본부집행위 · 1건다시 올리기']);
  // 초안 복사에도 정기 회의가 없다.
  await page.locator('#journalRoot [data-journal-status]').evaluate(e=>{e.textContent='';});
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  expect(text).toContain('가상 기자회견');expect(text).toContain('새 회의 종류');expect(text).not.toMatch(/집행국|집행위/);
@@ -2054,7 +2048,7 @@ test('[주간 정리] 회의 종류: 목록을 못 읽으면(옛 응답) 지금�
  await openJournal(page,1280);await openWeekly(page);
  await expectKindTexts(page,['10월 5일(월)10:00 궤도 집행국 회의 12차','10월 6일(화)14:00 가상 기자회견','10월 7일(수)10:00 본부집행위','10월 8일(목)10:00 운영위원회 3차','10월 9일(금)10:00 새 회의 종류','10월 10일(토)10:00 궤도집행국회의 13차']);
  await expect(weekly(page,'meetings').locator('[data-journal-kind-more],[data-journal-kind-toggle],[data-journal-kinds-off]')).toHaveCount(0);
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain('궤도 집행국 회의 12차');
  expect(f.profile.patches).toEqual([]);expect(f.errors).toEqual([]);
@@ -2062,7 +2056,7 @@ test('[주간 정리] 회의 종류: 목록을 못 읽으면(옛 응답) 지금�
 
 test('[주간 정리] 회의 종류: 저장이 실패하면 안내하고 목록은 그대로, 이 주 회의가 모두 뺀 종류면 그렇게 알린다',async({page})=>{
  const f=await kindsFixture(page,{width:1280,patchStatus:500});
- await openJournal(page,1280);await openWeekly(page);
+ await openJournal(page,1280);await openWeekly(page);await settleBase(page);
  const line=kindLines(page).filter({hasText:'새 회의 종류'});
  await line.locator('summary').click();await line.locator('[data-journal-kind-toggle]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('저장하지 못했어요. 다시 시도해 주세요.');
@@ -2452,7 +2446,7 @@ async function orgSummaryFixture(page,{width,missing=false}={}){
 for(const width of [390,1280])test(`[주간 정리] 조직 요약: [요약 만들기]는 누를 때만·ID만, 요약 몇 줄+원문 접기, 고친 요약은 다시 만들어도 그대로, 복사도 요약 ${width}`,async({page},info)=>{
  const f=await orgSummaryFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
- await openJournal(page,width);await openWeekly(page);
+ await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs'),run=orgs.locator('[data-journal-org-ai-run]');
  await expect(run).toHaveText('요약 만들기');await expect(run).toHaveAccessibleName('조직별 요약 만들기(AI)');
  // 열기만 해서는 AI를 부르지 않는다. 요약이 없으면 원문 그대로.
@@ -2486,7 +2480,7 @@ for(const width of [390,1280])test(`[주간 정리] 조직 요약: [요약 만�
  // 원문 펼침은 다시 그려도 그대로.
  await expect(raw.locator('li')).toBeVisible();
  // 복사: 요약이 있는 조직은 요약 줄.
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('4. 산하 조직 현황');
  expect(lines.slice(at+2,at+7)).toEqual(['◦ 가상 노동조합','- 가상 노동조합 고친 첫 줄.','- 고친 둘째 줄.','◦ 나 지역 모임','- 조직 화면 기록 정리.']);
@@ -2507,7 +2501,7 @@ test('[주간 정리] 조직 요약: 표가 아직 없으면(404) 버튼 없이 
 });
 test('[주간 정리] 조직 요약: 직접 쓴 요약은 edited로 새로 저장, Escape는 취소, 비우고 저장하면 지워지고 원문이 다시 보인다',async({page})=>{
  const f=await orgSummaryFixture(page,{width:390});
- await openJournal(page,390);await openWeekly(page);
+ await openJournal(page,390);await openWeekly(page);await openRecords(page,'orgs');
  const b=weekly(page,'orgs').locator('[data-journal-org="나 지역 모임"]');
  await pressMore(b,'[data-journal-org-edit-open]');
  await b.locator('[data-journal-org-edit-input]').fill('직접 쓴 요약.');
@@ -2529,57 +2523,56 @@ test('[주간 정리] 조직 요약: 직접 쓴 요약은 edited로 새로 저�
 
 // ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
 // 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '지울까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
+const siteCell=(page,name)=>page.locator('#journalRoot [data-weekly-flow-cells="sites"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${name}$`)})});
 const SITES_TEAM={sites:[{org:['가상 노동조합'],status:['- 조정 신청(9.28)','- 지난주 현황 줄']},{org:['나 지역 모임'],status:['- 지난 투쟁 소식']}]};
-async function stageFixture(page,width,{history,fail=false,noEnd=false}){
- const f=await hwpxFixture(page,{width,team:SITES_TEAM});
+async function stageFixture(page,width,{history,fail=false,noEnd=false,team=SITES_TEAM}){
+ const f=await hwpxFixture(page,{width,team});
  await page.route(/\/rest\/v1\/app_dispute_stages(\?|$)/,r=>fail?r.fulfill({status:500,json:{message:'QA failure'}}):r.fulfill({json:defaultStageRows()}));
  // noEnd: DB 20261024180000 적용 전(end_date 칸 없음) → 끝 날짜를 고르면 400(42703).
  await page.route(/\/rest\/v1\/app_suborganization_dispute_stages(\?|$)/,r=>noEnd&&/end_date/.test(new URL(r.request().url()).searchParams.get('select')||'')?r.fulfill({status:400,json:{code:'42703',message:'column app_suborganization_dispute_stages.end_date does not exist'}}):r.fulfill({json:history}));
  return f;
 }
 const hist=(org,stage,date)=>({id:`h-${org}-${date}`,organization_id:org,stage_id:stage,stage_name:defaultStageRows().find(r=>r.id===stage).name,stage_date:date,created_at:`${date}T00:00:00Z`});
-for(const width of [390,1280])test(`주간보고 한글 파일: 투쟁 사업장 표를 쟁의 단계로 채움(투쟁 중 첫 줄·끝난 주 한 줄) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 투쟁 사업장 표를 쟁의 단계로 채움(투쟁 중 첫 줄·끝난 주 한 줄) ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-10-09')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- const sites=hwpx(page).locator('[data-hwpx-part="sites"]');
- await expect(sites.locator('.journal-hwpx-label')).toHaveText(['가상 노동조합','나 지역 모임']);
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 쟁의발생 결의(10.7)\n- 지난주 현황 줄');
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('- 협약체결(10.9)');
+ const sites=page.locator('#journalRoot [data-weekly-flow-cells="sites"]');
+ await expect(sites.locator('.weekly-flow-label')).toHaveText(['가상 노동조합','나 지역 모임']);
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 쟁의발생 결의(10.7)','- 지난주 현황 줄']);
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 협약체결(10.9)']);
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toHaveCount(0);
 });
-for(const width of [390,1280])test(`주간보고 한글 파일: 더는 투쟁 중이 아닌 확정본 줄은 말없이 지우지 않고 '지울까요?' 고칠 목록 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 더는 투쟁 중이 아닌 확정본 줄은 말없이 지우지 않고 '지울까요?' 고칠 목록 ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-09-28')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- const sites=hwpx(page).locator('[data-hwpx-part="sites"]');
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('- 지난 투쟁 소식');
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
  const fix=hwpx(page).locator('[data-hwpx-stage-fix]');await expect(fix).toBeVisible();
  await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix).toContainText('지울까요');
  await fix.locator('[data-hwpx-stage-clear]').click();
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('');
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveCount(0);await expect(siteCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
 });
 // ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간. 이 주(10.5~10.11)에 기간이 걸친 끝남(10.2~10.6)은 이 주에 한 줄, 투쟁 중은 기간으로 표기.
 const histP=(org,stage,date,end)=>({...hist(org,stage,date),end_date:end});
-for(const width of [390,1280])test(`주간보고 한글 파일: 단계 기간 표기(- 파업 찬반투표(10.5~10.7))와 기간이 걸친 주의 끝남 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 단계 기간 표기(- 파업 찬반투표(10.5~10.7))와 기간이 걸친 주의 끝남 ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[histP('o1','stage-6','2026-10-05','2026-10-07'),histP('o2','stage-10','2026-10-02','2026-10-06')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- const sites=hwpx(page).locator('[data-hwpx-part="sites"]');
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 파업 찬반투표(10.5~10.7)\n- 지난주 현황 줄');
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('- 협약체결(10.2~10.6)');
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 파업 찬반투표(10.5~10.7)','- 지난주 현황 줄']);
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 협약체결(10.2~10.6)']);
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
 });
-test('주간보고 한글 파일: 끝 날짜 칸이 아직 없어도(DB 적용 전) 단계로 채움',async({page})=>{
+test('[주간 정리] 투쟁 사업장: 끝 날짜 칸이 아직 없어도(DB 적용 전) 단계로 채움',async({page})=>{
  await stageFixture(page,390,{history:[hist('o1','stage-3','2026-10-07')],noEnd:true});
  await openJournal(page,390);await openWeekly(page);await openDraft(page);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toHaveCount(0);
- await expect(hwpx(page).locator('[data-hwpx-part="sites"] .journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 쟁의발생 결의(10.7)\n- 지난주 현황 줄');
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 쟁의발생 결의(10.7)','- 지난주 현황 줄']);
 });
-test('주간보고 한글 파일: 단계를 읽지 못하면 직전 확정본 줄 그대로 + 한 줄 알림',async({page})=>{
+test('[주간 정리] 투쟁 사업장: 단계를 읽지 못하면 직전 확정본 줄 그대로 + 한 줄 알림',async({page})=>{
  await stageFixture(page,390,{history:[],fail:true});
  await openJournal(page,390);await openWeekly(page);await openDraft(page);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toContainText('단계를 불러오지 못했어요');
- await expect(hwpx(page).locator('[data-hwpx-part="sites"] .journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 조정 신청(9.28)\n- 지난주 현황 줄');
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 조정 신청(9.28)','- 지난주 현황 줄']);
 });
 
 // WEEKLY-자료요약 화면 ① (docs/design/weekly-file-summary.md 4·5절): 그 주 자료가 조직 칸·프로젝트 줄에 '자료' 꼬리표 + "제목 — 요약"으로,
@@ -2612,7 +2605,7 @@ async function fileFixture(page,{width,briefFail=false,box=false}={}){
 for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 우선·프로젝트 줄·'자료' 꼬리표·같으면 접기·참고에서 빼기, 복사 글에는 꼬리표 없음 ${width}`,async({page})=>{
  const f=await fileFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
- await openJournal(page,width);await openWeekly(page);
+ await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs');
  const ga=orgs.locator('[data-journal-org="가상 노동조합"]');
  const file=ga.locator(`li[data-journal-weekly-file="${DOCID(1)}"]`);
@@ -2639,7 +2632,7 @@ for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 �
  // 터치·키보드: 누르는 범위와 가로 넘침.
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  // [복사]: "- 날짜 제목 — 요약", 꼬리표·접힌 자료 없음.
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  expect(text).toContain('- 10월 6일(화) 가상 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정\n');
  expect(text).toContain('- 10월 7일(수) 세부 과제 가-2: 가-2 참고 자료\n');
@@ -2657,7 +2650,7 @@ async function openFileMenu(loc){const m=fileMenu(loc);if(!(await m.evaluate(e=>
 for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기·넣기: 그 주 임시저장 docs에 저장, 복사·한글 파일 후보에 반영, 다시 열면 복원 ${width}`,async({page})=>{
  const f=await fileFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
- await openJournal(page,width);await openWeekly(page);
+ await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');await openRecords(page,'summary');
  const orgs=weekly(page,'orgs'),ga=orgs.locator('[data-journal-org="가상 노동조합"]'),nb=orgs.locator('[data-journal-org="나 지역 모임"]');
  const file=ga.locator(`li[data-journal-weekly-file="${DOCID(1)}"]`);
  // [고치기]: 줄 자리의 한 줄 칸(처음 값 = 지금 줄), Enter 저장.
@@ -2694,7 +2687,7 @@ for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기
  expect(writes.slice(1).every(c=>c.method==='PATCH'&&/^eq\./.test(c.query.draft_saved_at))).toBe(true);
  expect(f.briefReads.every(q=>!q.method)).toBe(true);
  // [복사]: 고친 줄·넣은 자료는 들어가고 뺀 자료는 빠진다.
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  expect(text).toContain('- 10월 6일(화) 가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)\n');
  expect(text).not.toContain('가-2 참고 자료');
@@ -2719,7 +2712,7 @@ for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('[주간 정리] 자료 줄 고침: 한글 파일 상자 임시저장이 docs를 지우지 않고, 자료 고침은 상자의 붙일 기록에 반영된다 1280',async({page})=>{
+test('[주간 정리] 자료 줄 고침: 칸 줄 쓰기·[처음부터]가 docs를 지우지 않고, 자료 고침은 그 조직 칸 제안에 반영된다 1280',async({page})=>{
  const f=await fileFixture(page,{width:1280,box:true});
  // 다른 기기에서 이미 자료 줄을 고쳐 둔 주.
  f.exec.rows.push({id:'x0',workspace_id:'w',week_start:'2026-10-05',carried_at:null,updated_at:'2026-10-06T01:00:00Z',items:[],draft_saved_at:'2026-10-06T03:00:00.000Z',
@@ -2727,19 +2720,19 @@ test('[주간 정리] 자료 줄 고침: 한글 파일 상자 임시저장이 do
  await openJournal(page,1280);await openWeekly(page);
  const file=weekly(page,'orgs').locator(`li[data-journal-weekly-file="${DOCID(1)}"]`);
  await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 다른 기기에서 고친 자료 줄 고침');
- // 한글 파일 상자: 이 주 임시저장본(자료 고침만)은 [이어서 고치기]가 아니라 그냥 새로 연다 — 붙일 기록에 고친 자료 줄이 보인다.
- await hwpx(page).locator('[data-hwpx-start]').click();
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(rowBox(page,'가상 노동조합').locator('[data-hwpx-material] li').filter({hasText:'다른 기기에서 고친 자료 줄'})).toHaveCount(1);
- // 상자에서 칸을 고쳐 임시저장해도 docs는 그대로 남는다.
- await rowBox(page,'가상 노동조합').locator('textarea').fill('- 상자에서 고친 줄');
+ // 그 주 임시저장본(자료 고침만)이 있어도 칸 줄은 바탕에서 새로 — 그 조직 칸 아래 제안에 고친 자료 줄이 보인다.
+ const org=page.locator('#journalRoot [data-weekly-flow-cells="orgs"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:/^가상 노동조합$/})});
+ await expect(org.locator('[data-flow-suggest-item]').filter({hasText:'다른 기기에서 고친 자료 줄'})).toHaveCount(1);
+ // 칸 줄을 써도 docs는 그대로 남는다.
+ await org.getByRole('button',{name:'가상 노동조합 칸에 줄 추가'}).click();
+ await org.locator('input[data-flow-input]').fill('- 칸에서 더한 줄');await org.locator('input[data-flow-input]').press('Enter');
  const row=f.exec.rows[0];
  await expect.poll(()=>row.draft.rows?.length,{timeout:15000}).toBe(1);
  expect(row.draft.docs).toEqual([{id:DOCID(1),text:'다른 기기에서 고친 자료 줄'}]);
- // [처음부터]도 상자 칸만 비우고 자료 줄 고침은 남긴다.
+ // [처음부터]도 칸 줄만 비우고 자료 줄 고침은 남긴다.
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-restart]').click();
- await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요.');
+ await topMore(page,'[data-hwpx-restart]');
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
  expect(row.draft.rows).toEqual([]);
  expect(row.draft.docs).toEqual([{id:DOCID(1),text:'다른 기기에서 고친 자료 줄'}]);
  expect(f.errors).toEqual([]);
@@ -2747,7 +2740,7 @@ test('[주간 정리] 자료 줄 고침: 한글 파일 상자 임시저장이 do
 test('[주간 정리] 자료 줄 고침: 임시저장 칸이 없으면(DB 적용 전) ⋯·[넣기] 없이 지금처럼 1280',async({page})=>{
  const f=await fileFixture(page,{width:1280});
  f.exec.draftMissing=true;
- await openJournal(page,1280);await openWeekly(page);
+ await openJournal(page,1280);await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs');
  await expect(orgs.locator(`li[data-journal-weekly-file="${DOCID(1)}"]`)).toBeVisible();
  await expect(page.locator('#journalRoot [data-journal-file-more]')).toHaveCount(0);
@@ -2873,6 +2866,8 @@ const hqTexts=page=>hqBox(page).locator('[data-journal-hq-row] .journal-weekly-w
 for(const width of [412,1440])test(`[주간 정리] 2) 주요 일정 수기 표: 줄 추가·고치기·순서·빼기·[달력에서 골라 넣기], 상자 5번과 같은 값, 새로고침 뒤 그대로, 한글 파일 1. 2) 칸 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
+ // 그 주 처음 열면 바탕을 열어 칸을 만든다(지난주 요청 줄 1개도 이때 1) 표로). 그 뒤에 2) 표를 쓴다.
+ await openDraft(page);
  await expect(hqBox(page).locator('[data-journal-weekly-guide]')).toHaveText('본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외.');
  await expect(hqBox(page).locator('[data-journal-hq-empty]')).toBeVisible();
  // 줄 추가: 날짜(달력 칸)·시간·내용·장소. 내용 없이 [저장]하면 저장하지 않는다.
@@ -2899,12 +2894,10 @@ for(const width of [412,1440])test(`[주간 정리] 2) 주요 일정 수기 표:
  await expect(hqTexts(page).first()).toContainText('가상 다음 주 회의');
  // 서버: 그 주 행 draft.hq(임시저장 칸), 요청 표 줄(items)은 그대로.
  await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05')?.draft?.hq?.map(r=>r.title)).toEqual(['가상 다음 주 회의','가상 공동 점검']);
- expect(f.exec.rows[0].items).toEqual([]);
- // 상자를 열면 1. 2) 칸에 2줄. 상자 5번에서 그 일정 제목을 고치면 [주간 정리] 2) 줄도 같은 값(같은 자료).
- await openDraft(page);
- await expect(hwpx(page).locator('[data-hwpx-hq]')).toContainText('2) 주요 일정 2줄');
- await expect(hwpx(page).locator('[data-hwpx-req="hq"] [data-journal-hq-row]')).toHaveCount(2);
- const titles=hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]');
+ expect(f.exec.rows[0].items.map(i=>i.what)).toEqual(['가상 노동조합 결의대회']); // 1) 표에는 지난주에서 가져온 줄뿐
+ // 5. 주요 일정 칸 고치기(접힘)에서 그 일정 제목을 고치면 [주간 정리] 2) 줄도 같은 값(같은 자료).
+ await expect(hqBox(page).locator('[data-journal-hq-row]')).toHaveCount(2);
+ const titles=(await openSchedule(page)).locator('[data-hwpx-title]');
  await titles.nth(0).locator('[data-hwpx-title-input]').fill('가상 집행국 회의');
  await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
  await expect(hqTexts(page).first()).toHaveText('10:30 / 가상 집행국 회의 / 가상 회의실 달력');
@@ -2916,7 +2909,7 @@ for(const width of [412,1440])test(`[주간 정리] 2) 주요 일정 수기 표:
  await expect(hqTexts(page).first()).toHaveText('10:30 / 가상 집행국 회의 / 가상 회관 6층 달력');
  await expect(titles.nth(0).locator('[data-hwpx-place-input]')).toHaveValue('가상 회관 6층',{timeout:10000});
  // 한글 파일: 1. 2) 칸에 두 줄(같은 값), 5. 주요 일정 칸은 '시간 / 제목 / 장소' 한 줄.
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {pkg,report}=await savedReport(download);
  const sec=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
  expect(sec).toContain('- 10.13.(화) 10:30 / 가상 집행국 회의 / 가상 회관 6층');
@@ -2936,12 +2929,11 @@ for(const width of [412,1440])test(`[주간 정리] 2) 주요 일정 수기 표:
 // S46-27(요청함 10/31 00:24, 시안 확정 21:15): 1. 요청사항 세 칸(1) 임원 배정 요청 · 2) 주요 일정 · 3) 상집 논의 요청)을 한글 파일 상자 안에서도 바로 입력한다.
 // 상자와 [주간 정리]는 같은 부품·같은 자료(1)은 요청 표 행, 2)·3)은 그 주 행 draft의 hq·discuss) — 한쪽에서 고치면 다른 쪽도 같다. 가짜 안건·조직만.
 const discussBox=page=>weekly(page,'discuss');
-const boxReq=(page,key)=>hwpx(page).locator(`[data-hwpx-req="${key}"]`);
 // WEEKLY-화면디자인정리·요청사항버튼정리·칸밖재료접기(요청함 11/01): 줄마다 버튼이 한 줄을 차지하지 않는다 — 줄 끝 작은 ⋯(고치기·지우기 메뉴),
 // 묶음 제목 줄 오른쪽 [+ 추가], [3)으로 옮기기] 없음, '참고 — 보고서 칸 밖 재료'는 접힌 한 줄(제목 + 건수). 가짜 내용만.
 for(const width of [412,1440])test(`[주간 정리] 버튼 모양 하나: 줄 끝 ⋯ 메뉴·제목 줄 [+ 추가]·옮기기 없음·칸 밖 재료 접힘 ${width}`,async({page},info)=>{
  const f=await hwpxFixture(page,{width});
- await openJournal(page,width);await openWeekly(page);
+ await openJournal(page,width);await openWeekly(page);await openDraft(page); // 그 주 처음 바탕을 열어 칸을 만든 뒤(다시 그림이 끝난 뒤) 잰다
  const ask=weekly(page,'ask'),field=name=>ask.locator(`[data-journal-exec-field="${name}"]`);
  // [+ 추가]는 묶음 제목과 같은 줄(오른쪽), 작은 글자 버튼.
  for(const [key,add] of [['ask','[data-journal-exec-add]'],['hq-schedule','[data-journal-hq-add]'],['discuss','[data-journal-discuss-add]']]){
@@ -2955,7 +2947,7 @@ for(const width of [412,1440])test(`[주간 정리] 버튼 모양 하나: 줄 �
  await ask.locator('[data-journal-exec-save]').click();
  await expect(ask.locator('[data-journal-exec-status]')).toHaveText('요청 줄을 더했어요.');
  // 줄 = 날짜 줄 + 내용 줄(+ 줄 끝 ⋯)까지만: 버튼 때문에 생기는 빈 줄 없음.
- const row=ask.locator('tbody tr[data-journal-exec-row]').first(),rb=await row.boundingBox();
+ const row=ask.locator('tbody tr[data-journal-exec-row]').filter({hasText:'가상 토론회'}),rb=await row.boundingBox();
  expect(rb.height).toBeLessThanOrEqual(width<=760?72:48);
  const sum=row.locator('details.row-more > summary'),sb=await sum.boundingBox();
  expect(sb.height).toBeGreaterThanOrEqual(28);expect(sb.height).toBeLessThanOrEqual(32);
@@ -2987,14 +2979,16 @@ for(const width of [412,1440])test(`[주간 정리] 버튼 모양 하나: 줄 �
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
-for(const width of [412,1440])test(`S46-27 1. 요청사항 세 칸: 상자 안에서 바로 입력 = [주간 정리]와 같은 값, 3) 줄 추가·고치기·빼기, 파일 차례, 새로고침 뒤 그대로 ${width}`,async({page})=>{
+for(const width of [412,1440])test(`S46-27 → 한흐름 ②: 1. 요청사항 세 칸은 [주간 정리] 한 곳에서 바로 입력, 3) 줄 추가·고치기·빼기, 파일 차례, 새로고침 뒤 그대로 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- await expect(hwpx(page).locator('[data-hwpx-req] > h6')).toHaveText(['1) 임원 배정 요청','2) 주요 일정','3) 상집 논의 요청']);
- await expect(boxReq(page,'ask').locator('[data-journal-exec-add]')).toBeVisible();
- await expect(boxReq(page,'hq').locator('[data-journal-hq-add]')).toBeVisible();
- // 상자 안 3)에서 줄 추가: 안건·설명·관련 조직(내 담당조직에서 고르기). 안건 없이 [저장]하면 저장하지 않는다.
- const d=boxReq(page,'discuss'),field=name=>d.locator(`[data-journal-discuss-field="${name}"]`);
+ await expect(page.locator('#journalRoot [data-hwpx-requests]')).toContainText('지난주 확정본에서 1줄을 가져왔어요'); // 바탕을 열며 가져온 줄 저장까지 끝난 뒤
+ // 위 상자가 없으니 1. 요청사항은 [주간 정리]에 한 벌뿐(같은 칸이 두 번 보이지 않음).
+ await expect(page.locator('#journalRoot [data-journal-exec-add]')).toHaveCount(1);
+ await expect(page.locator('#journalRoot [data-journal-hq-add]')).toHaveCount(1);
+ await expect(page.locator('#journalRoot [data-journal-discuss-add]')).toHaveCount(1);
+ // 3)에서 줄 추가: 안건·설명·관련 조직(내 담당조직에서 고르기). 안건 없이 [저장]하면 저장하지 않는다.
+ const d=discussBox(page),field=name=>d.locator(`[data-journal-discuss-field="${name}"]`);
  await expect(d.locator('[data-journal-discuss-empty]')).toBeVisible();
  await d.locator('[data-journal-discuss-add]').click();
  await expect(field('title')).toBeFocused();
@@ -3006,23 +3000,20 @@ for(const width of [412,1440])test(`S46-27 1. 요청사항 세 칸: 상자 안�
  await expect(d.locator('[data-journal-discuss-status]')).toHaveText('저장했어요.');
  await expect(d.locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑']);
  await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05')?.draft?.discuss?.map(r=>[r.title,r.note,r.org])).toEqual([['가상 안건 갑','가상 설명','가상 노동조합']]);
- // [주간 정리] 3)에도 같은 줄. 거기서 줄을 더하면 상자에도.
- await expect(discussBox(page).locator('[data-journal-discuss-row]')).toHaveCount(1);
- await expect(discussBox(page).locator('[data-journal-discuss-row] td').first()).toHaveText('가상 설명');
+ await expect(d.locator('[data-journal-discuss-row] td').first()).toHaveText('가상 설명');
  await discussBox(page).locator('[data-journal-discuss-add]').click();
  await discussBox(page).locator('[data-journal-discuss-field="title"]').fill('가상 안건 을');
  await discussBox(page).locator('[data-journal-discuss-save]').click();
  await expect(d.locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑','가상 안건 을']);
- // 상자 안 1)에서 요청 줄 추가 → 입력칸은 상자에만, 저장하면 [주간 정리] 1)에도.
- const ask=boxReq(page,'ask');
+ // 1)에서 요청 줄 추가.
+ const ask=weekly(page,'ask');
  await ask.locator('[data-journal-exec-add]').click();
  await expect(ask.locator('[data-journal-exec-field="day"]')).toBeFocused();
- await expect(weekly(page,'ask').locator('[data-journal-exec-field]')).toHaveCount(0);
  await ask.locator('[data-journal-exec-field="day"]').fill('2026-10-14');
  await ask.locator('[data-journal-exec-field="what"]').fill('가상 집회');
  await ask.locator('[data-journal-exec-save]').click();
  await expect(ask.locator('[data-journal-exec-status]')).toHaveText('요청 줄을 더했어요.');
- // (상자를 열 때 지난주 확정본에서 가져온 줄 1개가 먼저 들어 있다.)
+ // (그 주 처음 열 때 바탕(지난주 확정본)에서 가져온 줄 1개가 먼저 들어 있다.)
  await expect(weekly(page,'ask').locator('tbody tr .journal-weekly-what')).toHaveText([/가상 노동조합 결의대회/,'가상 집회']);
  // WEEKLY-요청사항버튼정리: [3)으로 옮기기]는 없다. 고치는 칸은 [취소][저장]만.
  await pressMore(ask.locator('tbody tr[data-journal-exec-row]').filter({hasText:'가상 집회'}),'[data-journal-exec-edit]');
@@ -3032,7 +3023,7 @@ for(const width of [412,1440])test(`S46-27 1. 요청사항 세 칸: 상자 안�
  // 1) 줄 끝 ⋯ 의 [지우기].
  await pressMore(ask.locator('tbody tr[data-journal-exec-row]').filter({hasText:'가상 집회'}),'[data-journal-exec-delete]');
  await expect(ask.locator('tbody tr[data-journal-exec-row]')).toHaveCount(1);
- // 3) 안건·설명은 여러 줄 글상자(줄바꿈 그대로 저장·표시). 상자 3)에서 줄 끝 ⋯ 의 [빼기].
+ // 3) 안건·설명은 여러 줄 글상자(줄바꿈 그대로 저장·표시). 줄 끝 ⋯ 의 [빼기].
  await d.locator('[data-journal-discuss-add]').click();
  await expect(field('title')).toHaveJSProperty('localName','textarea');await expect(field('note')).toHaveJSProperty('localName','textarea');
  await field('title').fill('가상 안건 병');await field('note').fill('첫 줄\n둘째 줄');
@@ -3043,7 +3034,7 @@ for(const width of [412,1440])test(`S46-27 1. 요청사항 세 칸: 상자 안�
  await pressMore(d.locator('[data-journal-discuss-row]').nth(2),'[data-journal-discuss-delete]');
  await expect(d.locator('[data-journal-discuss-row]')).toHaveCount(2);
  // 한글 파일: 1. 요청사항 아래 1) 임원 배정 요청 → 2) 주요 일정 → 3) 상집 논의 요청 + 줄.
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {pkg}=await savedReport(download);
  const sec=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
  const at=k=>sec.indexOf(k);
@@ -3060,10 +3051,10 @@ for(const width of [412,1440])test(`S46-27 1. 요청사항 세 칸: 상자 안�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
-for(const width of [412,1440])test(`한글 파일 상자 5. 주요 일정: 날짜·시간·제목·장소·참석 칸 따로 고치기, 파일은 한 줄, 다시 열어도·새로고침 뒤에도 그대로 ${width}`,async({page})=>{
+for(const width of [412,1440])test(`[주간 정리] 5. 주요 일정 칸 고치기: 날짜·시간·제목·장소·참석 칸 따로, 파일은 한 줄, 새로고침 뒤에도 그대로 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- const row=hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').first();
+ const row=(await openSchedule(page)).locator('[data-hwpx-title]').first();
  await expect(row.locator('[data-hwpx-origin]')).toHaveText('원래: 가상 다음 주 회의 / 가상 회의실');
  await expect(row.locator('[data-hwpx-day-input]')).toHaveValue('2026-10-13');
  await expect(row.locator('[data-hwpx-time-input]')).toHaveValue('10:30');
@@ -3076,59 +3067,66 @@ for(const width of [412,1440])test(`한글 파일 상자 5. 주요 일정: 날�
  await row.locator('[data-hwpx-who-input]').fill('가상 담당, 가상 임원');
  await row.locator('[data-hwpx-day-input]').fill('2026-10-16');
  await expect(row).toHaveAttribute('data-changed','true');
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.calendar.find(d=>d.day==='10.13.(화)').items).toEqual([]);
  expect(report.calendar.find(d=>d.day==='10.16.(금)').items).toEqual([{what:'11:00 / 가상 다음 주 회의 / 가상 회의실',who:['가상 담당','가상 임원']}]);
  // [주간 정리] 5. 주요 일정 화면도 같은 값(임시저장 뒤).
+ await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.titles?.length??0,{timeout:15000}).toBe(1);
  await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
  const saved=f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.titles;
  expect(saved).toEqual([{event:'c:next',title:'가상 다음 주 회의',place:'가상 회의실',day:'2026-10-16',time:'11:00',who:'가상 담당, 가상 임원'}]);
  await expect(weekly(page,'calendar').locator('[data-journal-schedule-day="2026-10-16"] .journal-weekly-what')).toContainText('11:00 / 가상 다음 주 회의 / 가상 회의실');
- // 새로고침 → 상자 다시 열기 → [이어서 고치기]: 칸 값 그대로.
+ // 새로고침 → 5. 주요 일정 칸 고치기를 다시 펼치면(바탕을 그때 엶) 칸 값 그대로.
  await page.reload();
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible({timeout:20000});
- await hwpx(page).locator('[data-hwpx-start]').click();
- await hwpx(page).locator('[data-hwpx-resume-go]').click();
- const again=hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').first();
+ await expect(weekly(page,'calendar').locator('[data-journal-schedule-day="2026-10-16"] .journal-weekly-what')).toContainText('11:00 / 가상 다음 주 회의 / 가상 회의실');
+ await expect(hwpx(page).locator('[data-hwpx-part="schedule"]')).toHaveCount(0); // 칸 줄은 draft 에서 — 바탕은 아직 안 엶
+ const again=(await openSchedule(page)).locator('[data-hwpx-title]').first();
  await expect(again.locator('[data-hwpx-time-input]')).toHaveValue('11:00');
  await expect(again.locator('[data-hwpx-day-input]')).toHaveValue('2026-10-16');
  await expect(again.locator('[data-hwpx-who-input]')).toHaveValue('가상 담당, 가상 임원');
  expect(f.errors).toEqual([]);
 });
-const siteNames=page=>hwpx(page).locator('[data-hwpx-part="sites"] .journal-hwpx-label');
-for(const width of [412,1440])test(`투쟁 사업장 현황: ⋯ 빼기·[되돌리기]·[+ 사업장 추가](내 담당 조직만)·순서, 파일에는 들어간 사업장만, 새로고침·다음 주에도 같은 구성 ${width}`,async({page})=>{
+const siteNames=page=>page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-label');
+for(const width of [412,1440])test(`[주간 정리] 투쟁 사업장 현황: ⋯ 빼기·[다시 넣기]·[+ 사업장 추가](내 담당 조직만)·⠿ 순서, 파일에는 들어간 사업장만, 새로고침·다음 주에도 같은 구성 ${width}`,async({page})=>{
  const f=await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-3','2026-10-08')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  await expect(siteNames(page)).toHaveText(['가상 노동조합','나 지역 모임']);
- const site=name=>hwpx(page).locator(`[data-hwpx-part="sites"] [data-hwpx-site="${name}"]`);
- await site('나 지역 모임').locator('[data-hwpx-site-more] summary').click();
- await site('나 지역 모임').locator('[data-hwpx-site-hide]').click();
+ const site=name=>siteCell(page,name),sites=page.locator('#journalRoot [data-weekly-flow-cells="sites"]');
+ const writes=()=>f.exec.calls.filter(c=>c.method==='PATCH').length;
+ let n=writes();
+ await pressMore(site('나 지역 모임'),'[data-flow-site-hide]');
  await expect(siteNames(page)).toHaveText(['가상 노동조합']);
- await expect(hwpx(page).locator('[data-hwpx-undo]')).toHaveText('나 지역 모임을 뺐어요 되돌리기');
- await hwpx(page).locator('[data-hwpx-site-undo]').click();
+ expect(writes()).toBe(n+1); // 누름 한 번 = 서버 쓰기 한 번(site_layout)
+ await expect(sites.locator('[data-flow-site-note]')).toHaveText('나 지역 모임을 뺐어요. 아래 접힌 줄에서 다시 넣을 수 있어요.');
+ const fold=sites.locator('[data-flow-hidden-sites]');
+ await expect(fold.locator('summary')).toHaveText('이번 주 보고에서 뺀 사업장 1');
+ await fold.locator('summary').click();
+ await fold.getByRole('button',{name:'다시 넣기'}).click();
  await expect(siteNames(page)).toHaveText(['가상 노동조합','나 지역 모임']);
- await expect(site('나 지역 모임').locator('textarea')).toHaveValue('- 쟁의발생 결의(10.8)\n- 지난 투쟁 소식');
+ await expect(cellLines(site('나 지역 모임'))).toHaveText(['- 쟁의발생 결의(10.8)','- 지난 투쟁 소식']);
  // 다시 빼고, [+ 사업장 추가]는 내 담당 조직 가운데 칸에 없는 것만(뺀 곳 포함) — 넣으면 적어 둔 글이 돌아온다.
- await site('나 지역 모임').locator('[data-hwpx-site-more] summary').click();
- await site('나 지역 모임').locator('[data-hwpx-site-hide]').click();
- await hwpx(page).locator('[data-hwpx-site-add]').click();
- await expect(hwpx(page).locator('[data-hwpx-site-pick] option')).toHaveText(['사업장 고르기','나 지역 모임']);
- await hwpx(page).locator('[data-hwpx-site-pick]').selectOption('나 지역 모임');
+ await pressMore(site('나 지역 모임'),'[data-flow-site-hide]');
+ await expect(siteNames(page)).toHaveText(['가상 노동조합']);
+ await sites.locator('[data-flow-site-add]').click();
+ await expect(sites.locator('[data-flow-site-pick] option')).toHaveText(['사업장 고르기','나 지역 모임']);
+ await sites.locator('[data-flow-site-pick]').selectOption('나 지역 모임');
  await expect(siteNames(page)).toHaveText(['가상 노동조합','나 지역 모임']);
- await expect(site('나 지역 모임').locator('textarea')).toHaveValue('- 쟁의발생 결의(10.8)\n- 지난 투쟁 소식');
+ await expect(cellLines(site('나 지역 모임'))).toHaveText(['- 쟁의발생 결의(10.8)','- 지난 투쟁 소식']);
  // 순서: ⠿에서 위 화살표.
+ n=writes();
  await site('나 지역 모임').locator('[data-reorder-handle]').focus();
  await page.keyboard.press('ArrowUp');
  await expect(siteNames(page)).toHaveText(['나 지역 모임','가상 노동조합']);
+ expect(writes()).toBe(n+1);
+ await expect(site('나 지역 모임').locator('[data-reorder-handle]')).toBeFocused();
  // 마지막으로 가상 노동조합을 빼고 파일: 들어간 사업장만.
- await site('가상 노동조합').locator('[data-hwpx-site-more] summary').click();
- await site('가상 노동조합').locator('[data-hwpx-site-hide]').click();
+ await pressMore(site('가상 노동조합'),'[data-flow-site-hide]');
  await expect(siteNames(page)).toHaveText(['나 지역 모임']);
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.sites.map(s=>s.org)).toEqual([['나 지역 모임']]);
- await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
  expect(f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.site_layout).toMatchObject({order:['나 지역 모임'],hidden:['가상 노동조합']});
  // 새로고침 뒤 같은 주: 같은 구성.
  await page.reload();
@@ -3140,6 +3138,28 @@ for(const width of [412,1440])test(`투쟁 사업장 현황: ⋯ 빼기·[되돌
  await expect(hwpx(page).locator('.journal-hwpx-panel')).toBeHidden();
  await openDraft(page);
  await expect(siteNames(page)).toHaveText(['나 지역 모임']);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+// 바탕(지난주 확정본)에 없는 내 담당 조직도 [+ 사업장 추가]로 빈 칸을 만들고 줄을 써 넣을 수 있다. 파일에는 그 사업장이 구성 순서대로 들어간다.
+test('[주간 정리] 투쟁 사업장 현황: 바탕에 없는 담당 조직 [+ 사업장 추가] → 빈 칸 → 줄 추가 → 파일 1280',async({page})=>{
+ const f=await stageFixture(page,1280,{history:[],team:{sites:[{org:['가상 노동조합'],status:['- 지난주 현황 줄']}]}});
+ await openJournal(page,1280);await openWeekly(page);await openDraft(page);
+ const sites=page.locator('#journalRoot [data-weekly-flow-cells="sites"]');
+ await expect(siteNames(page)).toHaveText(['가상 노동조합']);
+ await sites.locator('[data-flow-site-add]').click();
+ await expect(sites.locator('[data-flow-site-pick] option')).toHaveText(['사업장 고르기','나 지역 모임']);
+ await sites.locator('[data-flow-site-pick]').selectOption('나 지역 모임');
+ await expect(siteNames(page)).toHaveText(['가상 노동조합','나 지역 모임']);
+ await expect(siteCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');
+ await siteCell(page,'나 지역 모임').getByRole('button',{name:'나 지역 모임 칸에 줄 추가'}).click();
+ await siteCell(page,'나 지역 모임').locator('input[data-flow-input]').fill('- 새로 넣은 사업장 소식');
+ await siteCell(page,'나 지역 모임').locator('input[data-flow-input]').press('Enter');
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 새로 넣은 사업장 소식']);
+ await expect(sites.locator('[data-flow-site-add]')).toBeDisabled(); // 더 넣을 담당 조직이 없음
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ expect(report.sites.map(s=>[s.org,s.status])).toEqual([[['가상 노동조합'],['- 지난주 현황 줄']],[['나 지역 모임'],['- 새로 넣은 사업장 소식']]]);
  expect(f.errors).toEqual([]);
 });
 
@@ -3169,7 +3189,7 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
  await openJournal(page,width);
  // 하루 카드에는 참고 줄이 없다.
  await expect(page.locator('#journalRoot [data-journal-calref]')).toHaveCount(0);
- await openWeekly(page);
+ await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs'),a=orgs.locator('[data-journal-org="가상 노동조합"]');
  const recs=a.locator('[data-journal-org-ref]');
  await expect(recs).toHaveText(['캘린더 추천 · 10/7(수) 가상 총력결의대회 + ×','캘린더 추천 · 10/19(월) 가상 농성장 설치 + ×']);
@@ -3210,9 +3230,9 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
 // FORM-시간숫자 + WEEKLY-장소칸(요청함 10/31 00:28·00:31): 상자 5. 주요 일정 칸의 흐린 글자는 칸 이름(시간·제목·장소·참석), 빈 장소는 파일에 '미정'.
 // 시간 칸은 숫자 자판(1030 → 10:30), 틀린 시간은 칸 아래 '시간을 확인해 주세요'(저장 안 함), 옆 작은 [종일]은 누르면 종일·다시 누르면 풀림.
 // 예전 한 줄 모양('10:30 / 제목 / 장소')으로 저장된 기억은 읽을 때 시간·제목·장소 칸으로 나뉘고 파일 칸도 한 번만 들어간다(서버 값은 그대로). 이름은 모두 합성.
-for(const width of [412,1440])test(`상자 5. 주요 일정: 칸 이름 흐린 글자, 숫자 시간 칸·[종일], 한 줄 모양 기억은 칸별로 나눠 읽기 ${width}`,async({page})=>{
+for(const width of [412,1440])test(`[주간 정리] 5. 주요 일정 칸 고치기: 칸 이름 흐린 글자, 숫자 시간 칸·[종일], 한 줄 모양 기억은 칸별로 나눠 읽기 ${width}`,async({page})=>{
  const f=await memoryFixture(page,{width,memory:[{key:'가상수련회',origin:'가상 수련회',title:'10:30 / 가상 결의대회 / 가상 시의회',saved:'2026-10-01'}]});
- await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);await openSchedule(page);
  const row=titleRow(page,'가상 다음 주 회의'),time=row.locator('[data-hwpx-time-input]');
  await expect(row.locator('[data-hwpx-place-input]')).toHaveAttribute('placeholder','장소');
  await expect(row.locator('[data-hwpx-title-input]')).toHaveAttribute('placeholder','제목');
@@ -3232,7 +3252,7 @@ for(const width of [412,1440])test(`상자 5. 주요 일정: 칸 이름 흐린 �
  await expect(allDay).toHaveText('종일');await expect(allDay).toHaveAttribute('aria-pressed','false');
  await allDay.click();
  await expect(time).toHaveValue('종일');await expect(allDay).toHaveAttribute('aria-pressed','true');
- let [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ let [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  let {report}=await savedReport(download);
  expect(report.calendar.find(d=>d.day==='10.13.(화)').items.map(i=>i.what)).toEqual(['종일 / 가상 다음 주 회의 / 가상 회의실']);
  await allDay.click();
@@ -3242,12 +3262,55 @@ for(const width of [412,1440])test(`상자 5. 주요 일정: 칸 이름 흐린 �
  await expect(camp.locator('[data-hwpx-time-input]')).toHaveValue('10:30');
  await expect(camp.locator('[data-hwpx-title-input]')).toHaveValue('가상 결의대회');
  await expect(camp.locator('[data-hwpx-place-input]')).toHaveValue('가상 시의회');
- [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  ({report}=await savedReport(download));
  expect(report.calendar.find(d=>d.day==='10.13.(화)').items.map(i=>i.what)).toEqual(['11:00 / 가상 다음 주 회의 / 가상 회의실']);
  expect(report.calendar.find(d=>d.day==='10.14.(수) ~ 10.15.(목)').items.map(i=>i.what)).toEqual(['10:30 / 가상 결의대회 / 가상 시의회']);
  // 읽기만으로는 서버 기억을 고치지 않는다.
  expect(f.profile.patches).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-한흐름확정 ③(확정 규칙 '내 담당 사업은 사업 요약표에 모두 들어간다'): 바탕에 내 줄이 없는 내 사업영역도 2. 1) 요약에 빈 칸,
+// 이 주 기록 없는 칸은 지난주 줄 그대로 + 작은 '지난주에서', '이 주 기록 없는 사업영역: …' 한 줄 없음, 빈 칸에 쓴 줄은 한글 파일에 내 줄로. 글은 모두 가짜.
+for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 내 사업영역 칸 전부 — 바탕에 없던 사업영역 빈 칸·지난주에서·파일에 들어감 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ // 내 사업 목록에 바탕(팀 확정본)에 없는 사업영역 하나를 더하고, 나-1 의 이 주 기록은 없앤다(→ 지난주 줄 그대로).
+ const tree=[...weeklyTree,{id:'wc',name:'사업영역 다',parent_id:null,status:'active',sort_order:3,metadata:{project_system:'v2'}}];
+ f.more.spaces.push({id:'wc',workspace_id:'w',name:'사업영역 다'});
+ f.more.progress.splice(f.more.progress.findIndex(p=>p.id==='p2'),1);
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_spaces',async r=>{const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET'||q.get('select')!=='*')return r.fallback();return r.fulfill({json:tree.map(p=>({...p,workspace_id:'w',owner_id:'home-test',created_at:at}))});});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ const labels=page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-label');
+ await expect(labels).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1','사업영역 다 › —']);
+ const c=flowCell(page,'사업영역 다 › —');
+ await expect(c.locator('[data-flow-empty]')).toHaveText('빈 칸');
+ await expect(c.locator('[data-flow-orphan]')).toHaveCount(0);
+ // 이 주 기록이 있는 칸(가-1)·빈 칸에는 '지난주에서'가 없다.
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-flow-carried]')).toHaveCount(1);
+ await expect(page.locator('#journalRoot [data-journal-weekly-quiet]')).toHaveCount(0);
+ // 빈 칸 [+ 추가] → 서버 쓰기 한 번, 다시 그려도 같은 칸.
+ const before=f.exec.calls.filter(x=>x.method==='PATCH').length;
+ await c.getByRole('button',{name:'사업영역 다 › — 칸에 줄 추가'}).click();
+ await c.locator('input[data-flow-input]').fill('- 다 영역 손 줄');await c.getByRole('button',{name:'저장'}).click();
+ await expect(cellLines(c)).toHaveText(['- 다 영역 손 줄']);
+ expect(f.exec.calls.filter(x=>x.method==='PATCH').length).toBe(before+1);
+ expect(f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.rows).toContainEqual({section:'summary',key:'사업영역 다›',n:0,lines:['- 다 영역 손 줄']});
+ // 손댄 칸(나-1 줄 고치기)은 '지난주에서'가 사라진다.
+ const b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await expect(b1.locator('[data-flow-carried]')).toHaveText('지난주에서');
+ await pressMore(b1.locator('[data-flow-line="0"]'),'[data-flow-fix]');
+ await b1.locator('input[data-flow-input]').fill('- 지난주 나-1 진행(고침)');await b1.locator('input[data-flow-input]').press('Enter');
+ await expect(cellLines(b1)).toHaveText(['- 지난주 나-1 진행(고침)']);
+ await expect(b1.locator('[data-flow-carried]')).toHaveCount(0);
+ // 한글 파일: 바탕에 없던 사업영역이 표 맨 아래 내 줄로(담당 = 내 이름), 쓴 줄 그대로.
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ expect(report.summary.map(a=>a.area.join(' '))).toEqual(['사업영역 가','사업영역 나','사업영역 다']);
+ expect(report.summary[2].rows.map(r=>[r.progress,r.owner])).toEqual([[['- 다 영역 손 줄'],['가상 담당']]]);
+ expect(report.summary[1].rows[0].progress).toEqual(['- 지난주 나-1 진행(고침)']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
