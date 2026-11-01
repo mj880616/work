@@ -2002,7 +2002,7 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 정기 회의
  await expect(off.locator('li')).toHaveText(['궤도 집행국 회의 · 2건다시 올리기','본부집행위 · 1건다시 올리기']);
  // 초안 복사에도 정기 회의가 없다.
  await page.locator('#journalRoot [data-journal-status]').evaluate(e=>{e.textContent='';});
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  expect(text).toContain('가상 기자회견');expect(text).toContain('새 회의 종류');expect(text).not.toMatch(/집행국|집행위/);
@@ -2044,7 +2044,7 @@ test('[주간 정리] 회의 종류: 목록을 못 읽으면(옛 응답) 지금�
  await openJournal(page,1280);await openWeekly(page);
  await expectKindTexts(page,['10월 5일(월)10:00 궤도 집행국 회의 12차','10월 6일(화)14:00 가상 기자회견','10월 7일(수)10:00 본부집행위','10월 8일(목)10:00 운영위원회 3차','10월 9일(금)10:00 새 회의 종류','10월 10일(토)10:00 궤도집행국회의 13차']);
  await expect(weekly(page,'meetings').locator('[data-journal-kind-more],[data-journal-kind-toggle],[data-journal-kinds-off]')).toHaveCount(0);
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain('궤도 집행국 회의 12차');
  expect(f.profile.patches).toEqual([]);expect(f.errors).toEqual([]);
@@ -2476,7 +2476,7 @@ for(const width of [390,1280])test(`[주간 정리] 조직 요약: [요약 만�
  // 원문 펼침은 다시 그려도 그대로.
  await expect(raw.locator('li')).toBeVisible();
  // 복사: 요약이 있는 조직은 요약 줄.
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('4. 산하 조직 현황');
  expect(lines.slice(at+2,at+7)).toEqual(['◦ 가상 노동조합','- 가상 노동조합 고친 첫 줄.','- 고친 둘째 줄.','◦ 나 지역 모임','- 조직 화면 기록 정리.']);
@@ -2628,7 +2628,7 @@ for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 �
  // 터치·키보드: 누르는 범위와 가로 넘침.
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  // [복사]: "- 날짜 제목 — 요약", 꼬리표·접힌 자료 없음.
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  expect(text).toContain('- 10월 6일(화) 가상 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정\n');
  expect(text).toContain('- 10월 7일(수) 세부 과제 가-2: 가-2 참고 자료\n');
@@ -2683,7 +2683,7 @@ for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기
  expect(writes.slice(1).every(c=>c.method==='PATCH'&&/^eq\./.test(c.query.draft_saved_at))).toBe(true);
  expect(f.briefReads.every(q=>!q.method)).toBe(true);
  // [복사]: 고친 줄·넣은 자료는 들어가고 뺀 자료는 빠진다.
- await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await confirmMore(page,'[data-hwpx-copy]');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  expect(text).toContain('- 10월 6일(화) 가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)\n');
  expect(text).not.toContain('가-2 참고 자료');
