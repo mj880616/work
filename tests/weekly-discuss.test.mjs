@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {cleanDiscussRow, readDiscuss, withDiscussRow, withoutDiscussRow, movedDiscussRow, discussLines, discussFromRequest, DISCUSS_MAX} from '../app/weekly-discuss.mjs';
+import {cleanDiscussRow, readDiscuss, withDiscussRow, withoutDiscussRow, movedDiscussRow, discussLines, DISCUSS_MAX, DISCUSS_LIMITS} from '../app/weekly-discuss.mjs';
 import {makeDraft, readDraft, merge3, keepDocsOnly, draftDiscuss, withDiscuss, withHq, draftCells, hasContent} from '../app/weekly-draft-store.js';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml} from '../app/weekly-hwpx/hwpx.mjs';
@@ -16,12 +16,14 @@ import {weeklyLines} from '../app/weekly-lines.mjs';
 const A = {id:'d1', title:'가상 안건 갑', note:'가상 설명', org:'가상 지부'};
 const B = {id:'d2', title:'가상 안건 을'};
 
-test('줄 모양: 안건 필수·한 줄·길이 자르기, 모르는 칸 버림, 같은 id 한 번', () => {
+test('줄 모양: 안건 필수·여러 줄은 줄바꿈 그대로·길이 자르기, 모르는 칸 버림, 같은 id 한 번', () => {
   assert.deepEqual(cleanDiscussRow({...A, extra:1}), A);
-  assert.equal(cleanDiscussRow({id:'d3', title:'  '}), null);
+  assert.equal(cleanDiscussRow({id:'d3', title:'  \n '}), null);
   assert.equal(cleanDiscussRow({id:'bad id', title:'가'}), null);
-  assert.deepEqual(cleanDiscussRow({id:'d4', title:'가\n나', note:'', org:''}), {id:'d4', title:'가 나'});
-  assert.equal([...cleanDiscussRow({id:'d5', title:'가'.repeat(500)}).title].length, 120);
+  assert.deepEqual(cleanDiscussRow({id:'d4', title:' 가 \r\n나\t', note:'', org:'가\n지부'}), {id:'d4', title:'가\n나', org:'가 지부'});
+  assert.deepEqual(cleanDiscussRow({id:'d6', title:'가', note:'\n\n첫 줄\n\n\n\n둘째 줄\n'}), {id:'d6', title:'가', note:'첫 줄\n\n둘째 줄'});
+  assert.equal([...cleanDiscussRow({id:'d5', title:'가'.repeat(500)}).title].length, DISCUSS_LIMITS.title);
+  assert.equal([...cleanDiscussRow({id:'d7', title:'가', note:'나'.repeat(3000)}).note].length, DISCUSS_LIMITS.note);
   assert.deepEqual(readDiscuss([A, A, B, null, 'x']), [A, B]);
 });
 
@@ -37,9 +39,9 @@ test('더하기·고치기·빼기·옮기기, 가득 차면 null', () => {
   assert.equal(withDiscussRow(full, {title:'하나 더'}), null);
 });
 
-test('한글 파일·복사 줄과 1)에서 옮기기', () => {
+test('한글 파일·복사 줄: 여러 줄이면 이어지는 줄은 두 칸 들여 다음 줄', () => {
   assert.deepEqual(discussLines([A, B]), ['- 가상 안건 갑 — 가상 설명 (가상 지부)', '- 가상 안건 을']);
-  assert.deepEqual(discussFromRequest({what:'가상 토론회', time:'14:00', place:'가상 회관'}, '10.15.(목)'), {title:'가상 토론회', note:'10.15.(목) / 14:00 / 가상 회관'});
+  assert.deepEqual(discussLines([{id:'m1', title:'가상 안건', note:'첫 줄\n\n둘째 줄', org:'가상 지부'}]), ['- 가상 안건 — 첫 줄', '', '  둘째 줄 (가상 지부)']);
 });
 
 test('임시저장 칸: 상자·[주간 정리]가 같은 draft.discuss를 다시 실어 보내고, 3자 비교로 합친다', () => {

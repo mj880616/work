@@ -55,6 +55,7 @@ import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-sum
 import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftSiteLayout, readCarriedLayout} from './weekly-draft-store.js';
 import {timeCell} from './time-input.js';
 import {discussLines} from './weekly-discuss.mjs';
+import {rowMore} from './row-more.js';
 import {eventFields, editFrom, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey} from './weekly-schedule-rows.mjs';
 import {mountReorder} from './reorder-drag.js';
 import {sameIssuedLines} from './weekly-lines.mjs';
@@ -944,10 +945,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       box.dataset.reorderId = String(row.index); box.dataset.hwpxSite = row.org;
       const tools = el('div', 'journal-hwpx-site-tools');
       const grip = el('button', 'mini journal-hwpx-grip', '⠿'); grip.type = 'button'; grip.dataset.reorderHandle = ''; grip.setAttribute('aria-label', `${row.org} 순서 옮기기(위·아래 화살표)`);
-      const more = el('details', 'journal-kind-more'); more.dataset.hwpxSiteMore = row.org;
-      const sum = el('summary'); const dots = el('span', 'more-dots', '⋯'); dots.setAttribute('aria-hidden', 'true'); sum.append(dots); sum.setAttribute('aria-label', `${row.org} 사업장 칸 메뉴`);
-      const hide = button('이번 주 보고에서 빼기', 'hwpxSiteHide'); hide.dataset.hwpxSiteName = row.org;
-      more.append(sum, hide); tools.append(grip, more);
+      // WEEKLY-화면디자인정리: 주간 정리 화면 공용 ⋯(row-more.js) — 열린 메뉴가 칸 글을 밀지 않는다.
+      const more = rowMore(doc, {label:`${row.org} 사업장 칸 메뉴`, data:{hwpxSiteMore:row.org}, items:[{text:'이번 주 보고에서 빼기', data:{hwpxSiteHide:'', hwpxSiteName:row.org}}]});
+      tools.append(grip, more);
       box.prepend(tools);
       list.append(box);
     }
