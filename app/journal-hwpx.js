@@ -777,9 +777,18 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (out) li.dataset.dropped = 'true';
     return li;
   }
+  // 5. 주요 일정 줄 동작 기록 하나(일정마다 열쇠 하나 — 같은 일정을 여러 번 고치면 마지막 것만 남음). 글은 서버에만.
+  function schedPick(item, act, text) {
+    const st = state?.store;
+    if (!st || st.status === 'missing') return;
+    const was = [item.time, item.title, item.place].filter(Boolean).join(' / ');
+    const pick = {key:`line|calendar:${String(item.key).slice(0, 200)}`, kind:'line', from:'calendar', cell:'calendar', org:'', text:act === 'fix' ? text : was, ...(act === 'fix' ? {before:was} : {})};
+    st.extras = {...(st.extras ?? {}), picks:withPick(st.extras?.picks ?? null, pick, act, new Date().toISOString())};
+  }
   function setFields(item, next, li) {
     const edit = editFrom(item, next, state.me);
     if (edit) state.titles.set(item.key, edit); else state.titles.delete(item.key);
+    schedPick(item, edit ? 'fix' : 'none', edit ? [edit.time ?? item.time, edit.title ?? item.title, edit.place ?? item.place].filter(Boolean).join(' / ') : '');
     if (li) li.dataset.changed = state.titles.has(item.key) ? 'true' : 'false';
     state.built = null;
     renderMismatches();
@@ -810,6 +819,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else if (how === 'keep') state.drops.set(key, 'keep');
     else if (how === 'origin') { state.titles.set(key, {title:item.title, place:item.place}); state.titleKeys = ''; }
     state.built = null;
+    // WEEKLY-환류전칸 ⑤: 빼기·다시 넣기도 동작 기록(picks, 보고서 줄 동작 'cut'·'none', 칸 'calendar') — 환류 정리가 본다.
+    if (how === 'drop' || how === 'put') schedPick(item, how === 'drop' ? 'cut' : 'none', '');
     renderTitles(fullCalendar());
     renderMismatches();
     typed(how === 'origin' ? `title:${key}` : `drop:${key}`);
@@ -1508,6 +1519,18 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // The week's reads landed: refresh only the candidates beside the rows (what was typed stays).
     refresh() { if (state) state.built = null; renderMaterial(); renderRequestNote(); paintHqNote(); },
     // [주간 정리]가 그 주 임시저장(2) 주요 일정 줄·일정 칸별 고침)을 썼다: 열린 상자는 서버 판과 맞춘다(3자 비교, 고치던 칸은 그대로).
+    // WEEKLY-환류전칸 ⑤: [주간 정리] 5. 주요 일정 줄 ⋯ — 'fix'(그 일정 칸 고치기를 펼쳐 제목 칸으로) · 'drop'(이번 주 파일에서 빼기) · 'put'(다시 넣기).
+    schedule(key, how) {
+      void ensure().then(s => {
+        if (!s) return;
+        // 누름 한 번 = 바로 저장 한 번(타자 자동저장 2초를 기다리지 않음) → 저장되면 [주간 정리] 표가 다시 그려진다.
+        if (how === 'drop' || how === 'put') { setDrop(key, how); if (s.store) { clearTimeout(s.store.timer); void saveDraft(s); } return; }
+        s.schedOpen = true; renderEdit();
+        const li = [...body.querySelectorAll('[data-hwpx-title]')].find(n => n.dataset.hwpxTitle === key);
+        li?.scrollIntoView?.({block:'center'});
+        li?.querySelector('[data-hwpx-title-input]')?.focus();
+      });
+    },
     sync(start) { if (state?.store && state.start === start) { if (state.store.flight) state.store.again = true; else void syncDraft(state); } if (!topEdit) paintTop(); paintConfirm(); },
     close,
   };

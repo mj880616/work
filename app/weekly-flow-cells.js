@@ -264,6 +264,8 @@ export function paintFlowCells(slot, ctx) {
     input.dataset.flowInput = cell; input.dataset.flowWhy = ''; input.setAttribute('aria-label', `빼는 이유(안 써도 돼요): ${text}`); input.disabled = !!ui.busy;
     const cancel = btn('취소', {flowCancel:cell}); const go = btn('빼기 확인', {flowDropGo:cell}, 'mini primary'); cancel.disabled = go.disabled = !!ui.busy;
     f.append(input, ' ', cancel, go);
+    // 다시 그리기가 겹쳐도 새로 그린 칸으로 초점이 가게(그린 칸이 화면에 붙은 뒤 한 번).
+    if (ui.dropping?.focus) requestAnimationFrame(() => { if (input.isConnected && ui.dropping?.focus) { input.focus(); ui.dropping.focus = false; } });
     return f;
   }
   function editForm(cell, value, data, aria) {
@@ -387,7 +389,7 @@ export function paintFlowCells(slot, ctx) {
       void write(d.flowTake, {act:'take', text:li.dataset.flowText, item:it, index}, {after:() => { if (it?.kind === 'ai_line') ui.line.cache.set(suggestKey(d.flowTake, li.dataset.flowText), null); }});
       return;
     }
-    if (d.flowDrop) { const it = pick(); ui.dropping = {cell:d.flowDrop, key:it.key, item:it, value:''}; ui.editing = null; ui.adding = null; ui.taking = null; ctx.redraw?.(); focusInput(d.flowDrop); return; }
+    if (d.flowDrop) { const it = pick(); ui.dropping = {cell:d.flowDrop, key:it.key, item:it, value:'', focus:true}; ui.editing = null; ui.adding = null; ui.taking = null; ctx.redraw?.(); return; }
     if (d.flowDropGo) {
       const u = ui.dropping; if (!u) return;
       const why = String(b.parentElement.querySelector('input[data-flow-why]')?.value ?? '').trim();

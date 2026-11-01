@@ -9,7 +9,8 @@
 // - journal.js 는 다시 그릴 때마다 paintWeeklyLearn(자리, 주)만 부른다. 읽은 값은 주마다 이 모듈이 들고 있다(다시 그려도 다시 읽지 않음).
 //   상자가 [확정] 뒤 환류 보고를 받으면 'kptu:weekly-learn-changed'를 보내고, 이 모듈이 다시 읽어 그린다.
 import {changeWeekDocs, missingDraft} from './weekly-draft-store.js';
-import {withPick, pickKey, readPicks, WHY_MAX} from './weekly-picks.mjs'; // S46-22 답 학습(후보·개선 제안 답도 picks 에)
+import {withPick, pickKey, readPicks, reviewDue, withReview, WHY_MAX} from './weekly-picks.mjs';
+import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js'; // S46-22 답 학습(후보·개선 제안 답도 picks 에)
 import {emptyEl} from './wait-state.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 규칙 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {readFeedback, readRules, withRuleText, withoutRule, withRule, takeCandidate, dropCandidate, restoreRetired, withAnswer, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS, SUGGESTION_AREA} from './weekly-feedback.mjs';
@@ -223,6 +224,27 @@ async function load(start, rt) {
   const s = states.get(start);
   try { const rows = await readLearnRows(start, rt); s.status = rows ? 'ok' : 'missing'; s.rows = rows ?? []; }
   catch { s.status = 'failed'; }
+  if (last?.start === start && last.slot.isConnected) draw(last.slot, start, s, rt);
+  if (s.status === 'ok') void reviewOnOpen(start, s, rt);
+}
+// ---- 확정 전 환류 정리(명진 결정 11/01 ③, 설계 3.2절 ②) ----
+// [주간 정리]를 열 때 이 주 동작 기록이 마지막 정리 뒤 30건 넘게 모이고 6시간이 지났으면 weekly_review 를 한 번 부른다(주 3회 상한, 이 화면을 연 동안 주마다 한 번만 시도).
+// 서버가 정리를 저장하면(규칙 후보) 그 주 picks.reviews 에 부른 시각을 남기고 다시 읽는다. 서버가 아직 동작 기록만으로 정리하지 못하면(404) 조용히 넘어간다.
+// 글은 로그·오류 보고에 쓰지 않는다.
+const tried = new Set();
+const REVIEW_TEXT = Object.freeze({...AI_SUMMARY_TEXT});
+async function reviewOnOpen(start, s, rt) {
+  if (tried.has(start)) return;
+  const due = reviewDue(s.rows.find(r => r.week_start === start)?.picks ?? null, {when:'open'});
+  if (!due.due) return;
+  tried.add(start);
+  let r;
+  try { r = await callAiAssist({kind:'weekly_review', week_start:start}, {rt}, REVIEW_TEXT); } catch { return; }
+  if (!r?.ok || r.data?.kind !== 'weekly_review' || r.data.week_start !== start) return;
+  try { await changeWeekDocs({start, change:d => ({...(d ?? emptyDraft()), picks:withReview(d?.picks ?? null, nowIso())})}, rt); } catch { /* 시각만 못 남김 — 다음에 다시 셈 */ }
+  s.ui.msg = '고친 것을 모아 새 규칙 후보를 정리했어요.'; s.ui.error = false;
+  const rows = await readLearnRows(start, rt).catch(() => null);
+  if (rows) s.rows = rows;
   if (last?.start === start && last.slot.isConnected) draw(last.slot, start, s, rt);
 }
 if (typeof window !== 'undefined') window.addEventListener('kptu:weekly-learn-changed', () => {

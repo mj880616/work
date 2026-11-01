@@ -1397,6 +1397,35 @@ test('[주간 정리] 환류: 개인본 바탕 + 칸 아래 확정본에서 바�
  expect(f.errors).toEqual([]);
 });
 
+// WEEKLY-환류전칸 ⑤(명진 결정 ③): 확정 전이라도 이 주 동작 기록이 30건 넘게 모이고 마지막 정리에서 6시간이 지났으면 [주간 정리]를 열 때
+// 환류 정리(weekly_review)를 한 번 부르고, 부른 시각을 그 주 picks.reviews 에 남긴다(주 3회 상한). 새 규칙 후보는 '주간보고 규칙·환류'에. 가짜 서버·가짜 글만.
+for(const width of [412,1280])test(`[주간 정리] 확정 전 환류 정리: 동작 30건 넘으면 열 때 한 번 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ const items=Array.from({length:31},(_,i)=>({key:`material|summary:가|가짜${i}`,kind:'material',from:'record',cell:'summary:가',org:'',act:i%2?'drop':'take',text:`가짜 제안 ${i}`,at:`2026-10-06T01:${String(i).padStart(2,'0')}:00.000Z`}));
+ f.exec.rows.push({id:'x0',workspace_id:'w',week_start:'2026-10-05',carried_at:null,updated_at:'2026-10-06T01:00:00Z',items:[],draft_saved_at:'2026-10-06T03:00:00.000Z',
+  draft:{v:1,base:null,me:'',me_from:'',date:'',rows:[],titles:[],picks:{at:'2026-10-06T01:30:00.000Z',items,released:[]}}});
+ const ai=[];
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{
+  const body=r.request().postDataJSON();ai.push(body.kind);
+  if(body.kind!=='weekly_review')return r.fulfill({status:500,json:{}});
+  const row=f.exec.rows.find(x=>x.week_start===body.week_start),at='2026-10-06T04:00:00.000Z';
+  row.draft={...row.draft,rules:{v:2,at,week:body.week_start,lines:[],candidates:[{text:'가상 실시간 규칙 후보'}],retired:[]}};row.draft_saved_at=at;
+  return r.fulfill({json:{ok:true,kind:'weekly_review',week_start:body.week_start,saved:true,review:{at,candidates:['가상 실시간 규칙 후보'],suggestions:[]}}});
+ });
+ await openJournal(page,width);await openWeekly(page);
+ const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
+ await expect.poll(()=>row().draft.picks.reviews?.length??0,{timeout:15000}).toBe(1);
+ expect(ai.filter(k=>k==='weekly_review')).toHaveLength(1);
+ const learn=page.locator('#journalRoot [data-journal-weekly-learn]');
+ await expect(learn.locator('summary').first()).toContainText('후보 1');
+ await learn.locator('summary').first().click();
+ await expect(learn.locator('[data-learn-candidates] li')).toContainText(['가상 실시간 규칙 후보']);
+ // 다시 그려도(주 바꿈 없이) 한 번만 부른다.
+ await page.waitForTimeout(500);
+ expect(ai.filter(k=>k==='weekly_review')).toHaveLength(1);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
 // WEEKLY-환류학습 3·6·4: 처음 연 주는 AI 초안(weekly_draft)이 손대지 않은 칸에 들어가고, 이미 이번 주 개인본을 올린 주에도 [학습 시험]이
 // 저장 없이 AI 초안 ↔ 이번 주 개인본을 줄마다 견준다(이번 주 개인본 글은 AI에 보내지 않음). [확정] 뒤 환류 보고 한 장, 제안 [승인]은 그 주 행에,
 // [주간 정리] 맨 아래 '주간보고 규칙·환류'에서 규칙을 지우고 개발 후보를 본다. 가짜 서버·가짜 글만.
@@ -1924,6 +1953,31 @@ async function memoryFixture(page,options={}){
  return {...f,profile};
 }
 const titleRow=(page,title)=>hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').filter({has:page.locator('[data-hwpx-origin]',{hasText:`원래: ${title}`})});
+// WEEKLY-환류전칸 ⑤(요청함 11/01 01:20): [주간 정리] 5. 주요 일정 줄 끝 작은 ⋯ → [빼기]·[고치기]. 값은 한글 파일 칸 고치기와 같은 임시저장(dropped·titles),
+// 누름 한 번 = 바로 저장, 동작 기록(picks)에도 남는다. 뺀 일정은 접힌 '이번 주 뺀 일정'에서 [다시 넣기]. 가짜 서버·가짜 글만.
+for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 줄 ⋯ [빼기]·[다시 넣기]·[고치기] ${width}`,async({page})=>{
+ const f=await memoryFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ const cal=page.locator('#journalRoot [data-journal-weekly="calendar"]');
+ const camp=cal.locator('tbody tr').filter({hasText:'가상 수련회'});
+ await expect(camp).toHaveCount(1);
+ await pressMore(camp,'[data-journal-schedule-drop]');
+ await expect(camp).toHaveCount(0,{timeout:15000});
+ const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ expect(row().draft.dropped).toEqual(['c:camp']);
+ expect(row().draft.picks.items.find(i=>i.cell==='calendar')).toMatchObject({kind:'line',act:'cut'});
+ const fold=cal.locator('[data-journal-schedule-cut]');
+ await expect(fold).toHaveAttribute('data-journal-schedule-cut','1');
+ await fold.locator('summary').click();
+ await fold.getByRole('button',{name:/다시 넣기/}).click();
+ await expect(camp).toHaveCount(1,{timeout:15000});
+ expect(row().draft.dropped??[]).toEqual([]);
+ // [고치기]: 그 일정의 칸 고치기를 펼쳐 제목 칸으로.
+ await pressMore(cal.locator('tbody tr').filter({hasText:'가상 다음 주 회의'}),'[data-journal-schedule-fix]');
+ await expect(titleRow(page,'가상 다음 주 회의').locator('[data-hwpx-title-input]')).toBeFocused({timeout:15000});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
 for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고치기 → [확정하고 한글 파일 받기] 뒤 [기억하기] → 다음 주 초안·화면에 먼저 적용 → [주간 정리]에서 지우기·되돌리기 ${width}`,async({page})=>{
  const f=await memoryFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
