@@ -209,7 +209,11 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const say = (text, kind = '') => { status.textContent = text || ''; status.dataset.kind = kind; };
   const lazy = () => lib || (lib = Promise.all([import('./weekly-hwpx/draft.mjs'), import('./hwp-drive.js')]).then(([draft, drive]) => ({draft, drive})));
 
-  function close(message = '') {
+  // S47-18 UI-뒤로가기겹규칙 2차: 열린 한글 파일 판은 라우터 겹 하나(뒤로가기 = 판만 닫기, 고치던 초안은 닫기와 같이 저장).
+  let panelLayer = null;
+  function close(message = '', {fromBack = false} = {}) {
+    const layer = panelLayer; panelLayer = null;
+    if (!fromBack) layer?.close();
     if (state?.store?.dirty) void saveDraft(state);
     if (state?.store) clearTimeout(state.store.timer);
     run++; sourceRun++; state = null; weekDraft = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true; siteDrag?.destroy(); siteDrag = null;
@@ -218,6 +222,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   async function open() {
     const {draft} = await lazy();
     start.hidden = true; panel.hidden = false; say('');
+    panelLayer = window.KPTURouter?.layer?.open('journal-hwpx', {close:() => { if (!panel.hidden) close('', {fromBack:true}); else panelLayer = null; return true; }}) || null;
     if (!draft.canCompress()) { body.replaceChildren(el('p', 'journal-muted', TEXT.noBrowser), button('닫기', 'hwpxClose')); return; }
     weekDraft = null;
     renderSource();
