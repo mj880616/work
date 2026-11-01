@@ -107,6 +107,10 @@ import {
   splitFeedback, normalizeTitle as radarNormalize, RADAR_FEEDBACK_DAYS, RADAR_FEEDBACK_READ, RADAR_RULES_MAX, type RadarFeedback,
 } from "./todo-radar.ts";
 import {
+  parseRulesReview, rulesReviewMaterial, RULES_CANDIDATES_MAX, RULES_REVIEW_DAYS, RULES_REVIEW_MIN_ROWS, RULES_REVIEW_OUTPUT_TOKENS, RULES_REVIEW_READ,
+  TODO_RULES_INSTRUCTIONS, TODO_RULES_SCHEMA,
+} from "./todo-rules.ts";
+import {
   buildRecheckInstructions, keepCandidate, packRecheck, parseRecheck, RECHECK_MAX, RECHECK_MAX_OUTPUT_TOKENS, RECHECK_SCHEMA, recheckMaterial,
   type RecheckRoom, type RecheckRow,
 } from "./todo-recheck.ts";
@@ -183,7 +187,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -494,6 +498,8 @@ type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" } | { kind: "
 type LedgerCandidatesInput = { kind: "ledger_candidates" };
 // TODO-내일만 5번: 쌓인 대기 후보를 새 기준으로 한 번 다시 거르기. 글·ID 없이 kind 하나만(후보는 서버가 로그인 토큰으로 읽음).
 type TodoRecheckInput = { kind: "todo_recheck" };
+// TODO-이미함·환류 4.3: 누른 결과 기록에서 거르기 규칙 후보 만들기. kind 하나만(재료는 서버가 로그인 토큰으로 읽음).
+type TodoRulesReviewInput = { kind: "todo_rules_review" };
 type LedgerAutoInput = { kind: "ledger_auto" };
 type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
@@ -563,7 +569,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -583,6 +589,10 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
   if (b.kind === "todo_recheck") {
     if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
     return { kind: "todo_recheck" };
+  }
+  if (b.kind === "todo_rules_review") {
+    if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
+    return { kind: "todo_rules_review" };
   }
   // 원장 자동 기록도 글·ID 없이 kind 하나만 보낸다(재료·작업공간은 서버가 로그인 토큰으로 정함).
   if (b.kind === "ledger_auto") {
@@ -1089,6 +1099,86 @@ async function runTodoRecheck(ctx: Ctx, deps: RadarDeps): Promise<Response> {
   }
   deps.log("todo_recheck_done", { checked: rows.length, dismissed, judged: parsed.verdicts.size, dropped: parsed.dropped, more });
   return json({ ok: true, kind: "todo_recheck", checked: rows.length, dismissed, kept: rows.length - dismissed, more });
+}
+
+// ---- TODO-이미함·환류 4.3: 규칙 후보 만들기(todo_rules_review) ------------------------------------------------------
+// 사용자가 누른 한 번 실행. 최근 RULES_REVIEW_DAYS일 결과 기록과 지금 규칙(확정·후보·뺀 것)을 소유자 토큰으로 읽어 AI에 한 번 보내고,
+// 새 후보만 app_todo_rules에 candidate로 넣는다(확정은 사람이 화면에서). 기다리는 후보가 RULES_CANDIDATES_MAX개면 AI를 부르지 않는다.
+// 결과가 RULES_REVIEW_MIN_ROWS개보다 적으면 AI를 부르지 않는다(되풀이 모양을 볼 수 없음). 기록에는 숫자만.
+async function runTodoRulesReview(ctx: Ctx, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const since = encodeURIComponent(new Date(started - RULES_REVIEW_DAYS * 86400000).toISOString());
+  let rows: unknown, rules: unknown;
+  try {
+    [rows, rules] = await Promise.all([
+      rest(ctx, `app_todo_feedback?workspace_id=eq.${ws}&created_at=gte.${since}&select=outcome,summary,edited,kind,source_kind&order=created_at.desc&limit=${RULES_REVIEW_READ}`),
+      rest(ctx, `app_todo_rules?workspace_id=eq.${ws}&select=text,state&order=created_at.asc&limit=200`),
+    ]);
+  } catch {
+    throw new Fail(503, "radar_unavailable");
+  }
+  const results = Array.isArray(rows) ? rows as Record<string, unknown>[] : [];
+  const existing = Array.isArray(rules) ? rules as Record<string, unknown>[] : [];
+  const waiting = existing.filter((r) => r?.state === "candidate").length;
+  const room = RULES_CANDIDATES_MAX - waiting;
+  if (results.length < RULES_REVIEW_MIN_ROWS) return json({ ok: true, kind: "todo_rules_review", added: 0, reason: "few_results" });
+  if (room <= 0) return json({ ok: true, kind: "todo_rules_review", added: 0, reason: "full" });
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "todo_rules_review", started, config.price);
+  const material = rulesReviewMaterial(results, existing);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: RULES_REVIEW_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: TODO_RULES_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "todo_rules_review", strict: true, schema: TODO_RULES_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: RULES_REVIEW_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseRulesReview(outputText(result.raw, 32 * 1024), existing, room);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  let added = 0;
+  if (parsed.rules.length) {
+    try {
+      // rest()는 GET 밖의 답 본문을 읽지 않는다. 실패하면 던지므로, 지나가면 보낸 줄 수가 들어간 수다.
+      await rest(ctx, "app_todo_rules", {
+        method: "POST", prefer: "return=minimal",
+        body: parsed.rules.map((text) => ({ workspace_id: ctx.workspaceId, text, state: "candidate" })),
+      });
+      added = parsed.rules.length;
+    } catch {
+      throw new Fail(503, "radar_unavailable");
+    }
+  }
+  deps.log("todo_rules_review_done", { results: results.length, added, dropped: parsed.dropped });
+  return json({ ok: true, kind: "todo_rules_review", added });
 }
 
 // ---- 쓰임 2: 챙길 것 찾기(todo_radar) ----------------------------------------------------------------------------
@@ -4819,6 +4909,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       const input = parseRequest(await readBody(req));
       if (input.kind === "todo_radar") return await runTodoRadar(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "todo_recheck") return await runTodoRecheck(ctx, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "todo_rules_review") return await runTodoRulesReview(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_candidates") return await runLedgerCandidates(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_auto") return await runLedgerAuto(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_fix") return await runLedgerFix(ctx, input, { env: deps.env, now, sleep, log, doFetch });

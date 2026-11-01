@@ -349,3 +349,32 @@ export async function recheckTodos(options = {}) {
     return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
   return {ok:true, checked:d.checked, dismissed:d.dismissed, more:d.more === true};
 }
+
+// ---- TODO-이미함·환류 4.3: 챙길 것 거르기 규칙(app_todo_rules, 소유자 RLS) — AI 후보 → 명진 [ㅇ]·[×]·[고쳐서 확정] ----------
+// 찾기(ai-assist todo_radar)는 확정(confirmed)만 쓴다. [×]는 지우지 않고 뺀 것(retired)으로, 뺀 것은 [다시 후보로].
+export const RULE_STATES = Object.freeze(['candidate', 'confirmed', 'retired']);
+export const RULE_CHARS = 120;
+export const cleanRule = v => { const t = String(v ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim(); return t && [...t].length <= RULE_CHARS ? t : ''; };
+export async function readRules(rt = window.KPTURuntime) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_rules?workspace_id=eq.${encode(workspace(rt))}&select=id,text,state,created_at,decided_at&order=created_at.asc,id.asc&limit=200`, {singleFlight:false});
+    return {ok:true, rules:(Array.isArray(rows) ? rows : []).filter(r => UUID.test(String(r?.id)) && RULE_STATES.includes(r?.state) && cleanRule(r?.text))};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+// state 바꾸기(+ 고친 글). from = 지금 상태(다른 기기가 먼저 바꿨으면 0줄 → false).
+export async function setRule(id, from, to, rt = window.KPTURuntime, {text = null, now = new Date()} = {}) {
+  if (!UUID.test(String(id || '')) || !RULE_STATES.includes(from) || !RULE_STATES.includes(to)) return false;
+  const body = {state:to, decided_at:to === 'candidate' ? null : now.toISOString()};
+  if (text != null) { const t = cleanRule(text); if (!t) return false; body.text = t; }
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_rules?id=eq.${encode(id)}&workspace_id=eq.${encode(workspace(rt))}&state=eq.${from}&select=id,state`, {method:'PATCH', prefer:'return=representation', body});
+    return Array.isArray(rows) && rows.length === 1 && rows[0].state === to;
+  } catch { return false; }
+}
+// [규칙 후보 보기]: 서버가 최근 결과 기록을 읽어 후보를 더한다(ai-assist kind=todo_rules_review). {kind}만 보낸다.
+export async function reviewRules(options = {}) {
+  const r = await callAiAssist({kind:'todo_rules_review'}, {timeoutMs:RADAR_TIMEOUT_MS, ...options}, RADAR_TEXT);
+  if (!r.ok) return {ok:false, code:r.code, message:RADAR_TEXT[r.code] || RADAR_TEXT.internal_error};
+  if (!Number.isSafeInteger(r.data.added) || r.data.added < 0) return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
+  return {ok:true, added:r.data.added, reason:['few_results', 'full'].includes(r.data.reason) ? r.data.reason : ''};
+}
