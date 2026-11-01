@@ -23,13 +23,17 @@ test('한 목록: 꼬리표는 채널/자동 두 가지, 칩 걸러내기 조건
   assert.equal(M.keepTab('x'), M.ALL);
 });
 
-test('줄 보임: 요약 늘 보임, 외국어는 번역 저장본이 있을 때만 한국어, 유료는 공개 요약 표시', () => {
-  const en = {id: '1', lane: 'keyword', lang: 'en', title: 'A synthetic title', title_ko: '가짜 제목', translated_at: '2026-11-01T01:00:00Z', summary: 'One line.', state: 'ok', body_kind: 'full', url: 'https://example.org/a', created_at: '2026-11-01T02:00:00Z'};
+test('줄 보임: 요약 늘 보임, 외국어 제목은 미리 번역한 한국어 + 원제 작게, 본문 번역은 고를 때만, 유료는 공개 요약 표시', () => {
+  const en = {id: '1', lane: 'media', lang: 'en', title: 'A synthetic title', title_ko: '가짜 제목', translated_at: '2026-11-01T01:00:00Z', summary: 'One line.', state: 'ok', body_kind: 'full', url: 'https://example.org/a', created_at: '2026-11-01T02:00:00Z'};
   const v = M.itemView(en);
-  assert.equal(v.title, 'A synthetic title'); assert.equal(v.titleLang, 'en'); assert.equal(v.summary, 'One line.'); assert.equal(v.foreign, true);
+  assert.equal(v.title, '가짜 제목'); assert.equal(v.origTitle, 'A synthetic title'); assert.equal(v.titleLang, '');
+  assert.equal(v.summary, 'One line.'); assert.equal(v.foreign, true); assert.equal(v.showingKo, false, '본문은 원문부터');
   const ko = M.itemView(en, {showKo: true});
-  assert.equal(ko.title, '가짜 제목'); assert.equal(ko.titleLang, ''); assert.equal(ko.showingKo, true);
-  assert.equal(M.itemView({...en, translated_at: null, title_ko: null}, {showKo: true}).showingKo, false, '저장본 없으면 원문');
+  assert.equal(ko.title, '가짜 제목'); assert.equal(ko.showingKo, true);
+  const raw = M.itemView({...en, translated_at: null, title_ko: null});
+  assert.equal(raw.title, 'A synthetic title'); assert.equal(raw.origTitle, ''); assert.equal(raw.titleLang, 'en', '제목 번역 전이면 원제(lang 표시)');
+  const kr = M.itemView({...en, lang: 'ko', title: '한국어 기사', title_ko: '엉뚱한 값'});
+  assert.equal(kr.title, '한국어 기사'); assert.equal(kr.origTitle, '', '한국어 기사는 title_ko를 쓰지 않음');
   const paid = M.itemView({id: '2', lane: 'channel', lang: 'ko', title: '가짜 유료 기사', state: 'paywall', body_kind: 'lead', url: 'https://example.org/p', created_at: '2026-11-01T02:00:00Z'});
   assert.equal(paid.note, '유료 기사 · 공개 요약만'); assert.equal(paid.canOpen, true); assert.equal(paid.url, 'https://example.org/p');
   const media = M.itemView({id: '3', lane: 'media', lang: 'ko', title: '매체 새 글', state: 'ok', body_kind: null, url: 'https://example.org/m'});

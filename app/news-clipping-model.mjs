@@ -1,6 +1,7 @@
 // NEWS-클리핑 화면 계산(설계 docs/design/news-clipping.md, 명진 11/01 22:34): 그리기 없는 순수 함수만. app/news-clipping.js가 쓴다.
 // - 한 목록: 채널 기사(lane=channel) + 서버가 찾은 기사(lane=keyword·media) = 하나의 스크랩. 꼬리표는 '채널'/'자동' 두 가지뿐.
-// - 한 문장 요약은 늘 보이고 본문은 접는다. 외국어 기사는 원문 그대로, [번역]을 누를 때만 서버가 번역해 저장한다(저장본 재사용).
+// - 한 문장 요약은 늘 보이고 본문은 접는다. 외국어 기사 제목은 서버가 수집 때 한국어로 미리 번역해 두고(한국어 제목 + 원제 작게),
+//   본문은 [번역]을 누를 때만 서버가 번역해 저장한다(저장본 재사용, S47-57 명진 결정).
 // - 하루 횟수 같은 기본값은 서버(supabase/functions/news-feed/handler.ts) 상수 한 곳이 정하고, 화면은 catalog 응답 limits로 받는다.
 export const ALL = 'all';
 export const CHANNEL = 'channel';
@@ -80,22 +81,24 @@ export function groupItems(items, now = Date.now()) {
   return out;
 }
 
-// 줄 하나의 보임 값. showKo: 번역 저장본이 있고 번역 보기를 고른 상태.
+// 줄 하나의 보임 값. 외국어 제목은 한국어 번역(title_ko)이 있으면 늘 한국어로 보이고 원제는 origTitle로 작게.
+// showKo: 본문 번역 보기를 고른 상태(본문 번역 저장본이 있을 때만 화면이 켠다).
 export function itemView(item, {showKo = false} = {}) {
   const foreign = isForeign(item);
-  const ko = foreign && showKo && !!item.translated_at;
+  const ko = foreign && showKo;
   const t = whenOf(item);
-  const title = (ko && item.title_ko) || item.title || domainOf(item.url) || '제목 없음';
+  const koTitle = foreign && typeof item.title_ko === 'string' && item.title_ko.trim() ? item.title_ko : '';
+  const title = koTitle || item.title || domainOf(item.url) || '제목 없음';
   return {
     tag: tagOf(item),
     publisher: item.publisher || domainOf(item.url),
     time: t === null ? '' : hhmm(t),
     title,
-    titleLang: foreign && !ko ? item.lang : '',
+    origTitle: koTitle && item.title && item.title !== koTitle ? item.title : '',
+    titleLang: foreign && !koTitle ? item.lang : '',
     summary: item.summary || '',
     note: stateNote(item.state),
     foreign,
-    translated: !!item.translated_at,
     showingKo: ko,
     // 본문 접기: 매체 새 글(제목만)·대기·막힘 줄은 본문 칸이 없다(원문 링크만). 유료는 공개 요약(lead)만.
     canOpen: item.state === 'ok' || item.state === 'paywall' || !!item.body_kind,

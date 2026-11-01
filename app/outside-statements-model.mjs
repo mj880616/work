@@ -206,6 +206,11 @@ const whenText = (ms, now) => {
 };
 // 켠 단체 줄(rows: app_outside_sources) → 한 줄 글. 켠 단체가 없으면 ''(빈 화면 안내가 따로 있음).
 // 마지막 읽음 = 켠 단체 중 가장 늦은 last_ok_at. 그것이 지난 예약 시각보다 앞이면 예약 실행이 늦어진 것이라 '다음 곧'.
+// app_outside_sources는 뉴스 클리핑 매체(news- 키)도 같은 표에 둔다. 사회운동 Now는 자기 단체 줄만 센다
+// ('켬 n'·'마지막으로 읽음'·켠 단체 목록). 서버 조회도 news- 키를 빼고 읽지만 화면 계산에서도 한 번 더 거른다.
+export const NEWS_KEY_PREFIX = 'news-';
+export const ownSourceRows = rows => (Array.isArray(rows) ? rows : []).filter(r => r && typeof r.source_key === 'string' && r.source_key && !r.source_key.startsWith(NEWS_KEY_PREFIX));
+
 export function feedWhen(rows, now = Date.now()) {
   const on = (rows || []).filter(r => r && r.enabled === true);
   if (!on.length) return '';
