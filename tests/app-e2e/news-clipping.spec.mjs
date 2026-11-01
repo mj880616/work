@@ -45,21 +45,24 @@ for (const width of [412, 884, 1440]) {
     await expect(c1.locator('.nc-text')).toHaveText('가짜 본문 첫 문단.');
     expect(server.calls.find(c => c.action === 'open')).toMatchObject({ method: 'POST', body: { id: 'c1' } });
 
-    // 외국어: 원문 그대로, [번역]을 누를 때만 번역(저장본은 다시 부르지 않고 원문 보기와 오감).
+    // 외국어: 제목은 서버가 미리 번역한 한국어 + 원제 작게. 본문은 [번역]을 누를 때만 번역(저장본은 다시 부르지 않고 원문 보기와 오감).
     const e1 = item(page, 'e1');
-    await expect(e1.locator('.nc-title')).toHaveText('A fake foreign story');
-    await expect(e1.locator('.nc-title')).toHaveAttribute('lang', 'en');
+    await expect(e1.locator('.nc-title')).toHaveText('가짜 외국 기사');
+    await expect(e1.locator('.nc-title')).not.toHaveAttribute('lang', /.+/);
+    await expect(e1.locator('.nc-orig')).toHaveText('A fake foreign story');
+    await expect(e1.locator('.nc-orig')).toHaveAttribute('lang', 'en');
+    await expect(c1.locator('.nc-orig')).toHaveCount(0);
     expect(server.calls.filter(c => c.action === 'translate')).toHaveLength(0);
     await e1.locator('summary').click();
     await expect(e1.locator('.nc-text')).toHaveText('Fake body paragraph.');
     await e1.locator('[data-nc-translate]').click();
-    await expect(e1.locator('.nc-title')).toHaveText('가짜 외국 기사');
     await expect(e1.locator('.nc-text')).toHaveText('가짜 번역 본문.');
     await expect(e1.locator('[data-nc-translate]')).toHaveText('원문 보기');
     await e1.locator('[data-nc-translate]').click();
-    await expect(e1.locator('.nc-title')).toHaveText('A fake foreign story');
-    await e1.locator('[data-nc-translate]').click();
+    await expect(e1.locator('.nc-text')).toHaveText('Fake body paragraph.');
     await expect(e1.locator('.nc-title')).toHaveText('가짜 외국 기사');
+    await e1.locator('[data-nc-translate]').click();
+    await expect(e1.locator('.nc-text')).toHaveText('가짜 번역 본문.');
     expect(server.calls.filter(c => c.action === 'translate')).toHaveLength(1);
     expect(server.calls.find(c => c.action === 'translate').body).toEqual({ id: 'e1' });
 

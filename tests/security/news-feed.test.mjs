@@ -38,6 +38,8 @@ function fakeWorld(opts={}){
    if(p==='app_news_items'&&method==='GET'){
     const id=u.searchParams.get('id'),state=u.searchParams.get('state');
     if(id)return res(items.filter(i=>`eq.${i.id}`===id));
+    if(u.searchParams.get('title_ko')==='is.null')return res((opts.untitled??[]).filter(i=>!u.searchParams.get('workspace_id')||`eq.${i.workspace_id}`===u.searchParams.get('workspace_id')));
+    if(u.searchParams.get('translated_at'))return res(opts.todayTitles??[]);
     if(state)return res(items.filter(i=>i.state==='pending'&&i.lane==='channel'));
     if(u.searchParams.get('lane')==='eq.keyword')return res(opts.todayKeyword??[]);
     return res([]);
@@ -141,7 +143,7 @@ test('translate: foreign only, stored once, daily limit, server writes translati
  assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.status,'translated');
  const patch=w.writes().find(c=>c.url.includes('app_news_items?id=eq.'+ITEM_EN)).body;
  assert.equal(patch.title_ko,'합성 제목');assert.equal(patch.body_ko,'합성 본문 문단.');assert.ok(patch.translated_at);
- const stored=fakeWorld({items:[{...en,translated_at:'2026-10-31T00:00:00Z',title_ko:'x'}]});
+ const stored=fakeWorld({items:[{...en,translated_at:'2026-10-31T00:00:00Z',title_ko:'x',body_ko:'y'}]});
  const s=await call(stored,userReq('translate',{id:ITEM_EN}));
  assert.equal(s.body.status,'stored');assert.ok(!stored.calls.some(c=>c.url.includes('openai')),'no second translation');
  const ko=fakeWorld({items:[{...en,lang:'ko'}]});
@@ -152,6 +154,43 @@ test('translate: foreign only, stored once, daily limit, server writes translati
  for(const bad of [{},{id:'not-a-uuid'},{id:ITEM_EN,url:'https://example.org'}])
   assert.equal((await call(w,userReq('translate',bad))).status,400,JSON.stringify(bad));
  assert.equal((await call(fakeWorld({items:[]}),userReq('translate',{id:ITEM_EN}))).status,404,'other workspace item not found');
+});
+
+test('translate after background title: body only, keeps title_ko and first translated_at; stored when body_ko or title-only without body',async()=>{
+ const base={id:ITEM_EN,workspace_id:WS,lane:'media',url:'https://example.org/en',title:'Synthetic headline',lang:'en',body:'Synthetic body paragraph.',body_kind:'lead',title_ko:'배경 제목',translated_at:'2026-11-01T00:00:00Z',body_ko:null};
+ const w=fakeWorld({items:[base],ai:{title_ko:'다른 제목',body_ko:'합성 본문.'}});
+ const r=await call(w,userReq('translate',{id:ITEM_EN}));
+ assert.equal(r.body.status,'translated');
+ const patch=w.writes().find(c=>c.url.includes('app_news_items?id=eq.'+ITEM_EN)).body;
+ assert.equal(patch.title_ko,'배경 제목');assert.equal(patch.body_ko,'합성 본문.');assert.equal(patch.translated_at,'2026-11-01T00:00:00Z');
+ const done=fakeWorld({items:[{...base,body_ko:'이미'}]});
+ assert.equal((await call(done,userReq('translate',{id:ITEM_EN}))).body.status,'stored');assert.ok(!done.calls.some(c=>c.url.includes('openai')));
+ const noBody=fakeWorld({items:[{...base,body:null,body_kind:null}]});
+ assert.equal((await call(noBody,userReq('translate',{id:ITEM_EN}))).body.status,'stored');assert.ok(!noBody.calls.some(c=>c.url.includes('openai')));
+});
+
+test('titles step: one AI call per workspace for many foreign titles, title only, daily cap, bad AI lines ignored',async()=>{
+ const ids=[1,2,3].map(i=>`d0000000-0000-4000-8000-00000000000${i}`);
+ const untitled=ids.map((id,k)=>({id,workspace_id:WS,title:`Synthetic headline ${k+1}`}));
+ const w=fakeWorld({untitled,ai:{titles:[{i:1,ko:'합성 제목 1'},{i:3,ko:'합성 제목 3'},{i:9,ko:'범위 밖'},{i:1,ko:'중복'},{i:2,ko:''}]}});
+ const r=await call(w,cronReq('run',{step:'titles'}));
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.done,2);
+ const ai=w.calls.filter(c=>c.url.includes('openai'));
+ assert.equal(ai.length,1,'titles batched into one AI call');
+ const sent=ai[0].body.input[1].content;
+ assert.ok(sent.includes('1\tSynthetic headline 1')&&sent.includes('3\tSynthetic headline 3'));
+ const q=w.calls.find(c=>c.method==='GET'&&c.url.includes('title_ko=is.null'));
+ assert.ok(q.url.includes('lang=neq.ko'),'foreign only');
+ const patches=w.writes().filter(c=>c.method==='PATCH'&&c.url.includes('/app_news_items?id=eq.'));
+ assert.equal(patches.length,2);
+ for(const p of patches){assert.ok(p.url.includes('title_ko=is.null'),'never overwrites');assert.deepEqual(Object.keys(p.body).sort(),['title_ko','translated_at','updated_at']);}
+ assert.equal(patches[0].body.title_ko,'합성 제목 1');
+ const full=fakeWorld({untitled,todayTitles:Array.from({length:H.TITLES_DAILY},()=>({id:'x'}))});
+ const r2=await call(full,cronReq('run',{step:'titles'}));
+ assert.equal(r2.body.done,0);assert.equal(r2.body.deferred,3);assert.ok(!full.calls.some(c=>c.url.includes('openai')),'daily cap → no AI');
+ assert.equal((await call(fakeWorld(),userReq('run',{step:'titles'}))).status,400,'cron step not on user key');
+ const plan=await call(fakeWorld(),cronReq('run_plan'));
+ assert.ok(plan.body.steps.includes('titles'));
 });
 
 test('open: Google relay links are not read; media items only on catalog hosts',async()=>{

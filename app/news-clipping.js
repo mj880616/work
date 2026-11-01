@@ -15,7 +15,8 @@ import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, 
 // NEWS-클리핑 화면 C1(설계 docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑'(?view=news). #newsView의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(꼬리표 '채널'/'자동'). 칩 [전체·채널·자동], 폰은 좌우로 밀어 칩 이동.
 // - 줄: '꼬리표 · 매체 · 시각' / 제목 / 한 문장 요약(늘 보임) / 본문 접기(<details>, 펼칠 때 서버 줄에서 읽고 없으면 [본문 열기]=news-feed open)
-//   / 외국어는 [번역](news-feed translate, 저장본이 있으면 다시 부르지 않고 [원문 보기]와 오감) / [원문](새 창). 유료 기사는 공개 요약만 + 원문.
+//   / 외국어 제목은 서버가 미리 번역한 한국어 제목 + 원제 작게. 본문은 [번역](news-feed translate, 본문 번역 저장본이 있으면 다시 부르지 않고
+//   [원문 보기]와 오감) / [원문](새 창). 유료 기사는 공개 요약만 + 원문.
 // - ⋯: [지금 채우기](news-feed fill_now) · [키워드 고치기](app_news_keywords) · [매체 켜고 끄기](app_outside_sources의 news- 키).
 //   키워드·매체 칸은 같은 화면 안 한 칸이고 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 저장은 모두 서버(작업공간 소유자 RLS · Edge는 사용자 로그인 확인). 기기 저장 없음. 하루 횟수는 서버 상수가 정하고 catalog limits로 받는다.
@@ -124,7 +125,7 @@ function itemHtml(it) {
   const folder = starred ? `<button type="button" class="nc-act" data-nc-folder="${esc(it.id)}">${esc(fid ? folderPath(state.folders, fid).map(f => f.name).join(' › ') : '폴더')}</button>` : '';
   const memo = state.memos.get(it.id);
   const memoBtn = state.memoEdit === it.id ? '' : `<button type="button" class="nc-act" data-nc-memo="${esc(it.id)}">${memo ? '메모 고치기' : '메모'}</button>`;
-  return `<article class="nc-item${it.id === state.focus ? ' is-focus' : ''}" data-nc-item="${esc(it.id)}"><div class="nc-head">${meta}${star}</div><h4 class="nc-title"${v.titleLang ? ` lang="${esc(v.titleLang)}"` : ''}>${esc(v.title)}</h4>${sum}${note}${memoHtml(it, memo)}<div class="nc-foot">${fold}${tr}${folder}${memoBtn}${link}${actNote}</div></article>`;
+  return `<article class="nc-item${it.id === state.focus ? ' is-focus' : ''}" data-nc-item="${esc(it.id)}"><div class="nc-head">${meta}${star}</div><h4 class="nc-title"${v.titleLang ? ` lang="${esc(v.titleLang)}"` : ''}>${esc(v.title)}</h4>${v.origTitle ? `<p class="nc-orig" lang="${esc(it.lang)}">${esc(v.origTitle)}</p>` : ''}${sum}${note}${memoHtml(it, memo)}<div class="nc-foot">${fold}${tr}${folder}${memoBtn}${link}${actNote}</div></article>`;
 }
 // 내 메모(= 노트). 고치는 중이면 글 칸 + [취소][저장]. 새 서식(doc)으로 고친 메모는 여기서 글자만 보이고 노트에서 고친다.
 function memoHtml(it, memo) {
@@ -341,18 +342,16 @@ async function openBody(id) {
 async function translate(id) {
   const it = state.items.find(x => x.id === id), scope = state.scope;
   if (!it || state.busy.has(id)) return;
-  // 저장본이 있으면 다시 부르지 않고 번역·원문 보기만 오간다.
-  if (it.translated_at) {
-    if (state.ko.has(id)) state.ko.delete(id); else state.ko.add(id);
-    if (state.open.has(id) && !state.bodies.get(id)?.body_ko && state.ko.has(id)) { state.bodies.delete(id); openBody(id); return; }
-    paintItem(id); return;
-  }
+  // 본문 번역 저장본이 있으면(이미 읽은 본문 줄 기준) 다시 부르지 않고 번역·원문 보기만 오간다.
+  // 모르면 서버에 묻는다: 서버는 저장본이 있으면 AI를 다시 부르지 않고 'stored'로 답한다(제목 번역만 있는 줄은 본문만 번역).
+  if (state.ko.has(id)) { state.ko.delete(id); paintItem(id); return; }
+  if (state.bodies.get(id)?.body_ko) { state.ko.add(id); paintItem(id); return; }
   state.busy.add(id); state.notes.delete(id); paintItem(id);
   try {
     await edge('translate', {id}, 120000);
     if (scope !== state.scope) return;
     await readBody(id);
-    state.ko.add(id);
+    if (state.bodies.get(id)?.body_ko) state.ko.add(id); else state.notes.set(id, '번역할 본문 없음');
   } catch (e) {
     if (scope !== state.scope) return;
     state.notes.set(id, errorNote(e, '번역'));
