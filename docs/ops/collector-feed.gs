@@ -2118,6 +2118,306 @@ function tgFeedVerdict(code, errorCode) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 채널 기사 보내기 (NEWS-클리핑 D)
+//
+// 하는 일: 명진이 구독하는 텔레그램 채널(다른 사람이 기사를 고름)의 Drive 수집 폴더에서 새 메시지만 읽어,
+//   줄 'YYYY-MM-DD HH:MM:SS URL'의 기사 주소를 Web2 서버(collector-feed ?action=scrap)로 보낸다. Web2 '뉴스 클리핑'에 꼬리표 '채널'로 들어간다.
+//   - 어느 채널인지는 스크립트 속성 TG_SCRAP_ROOMS에만 적는다(TG_FEED_ROOMS와 같은 적는 법: 방 이름·폴더 이름 전체·맨 앞 방 번호). `*`는 받지 않는다.
+//     코드·저장소·문서에는 채널 이름·번호를 쓰지 않는다.
+//   - 폴더는 텔레그램 보내기와 같은 수집 폴더(TG_FEED_ROOT_FOLDER) → `원문` → `<방 번호>_<방 이름>` → messages → <YYYY-MM>. 읽기만 한다.
+//   - 새 줄만: 채널마다 보낸 가장 큰 메시지 번호를 스크립트 속성 TG_SCRAP_STATE에만 적는다. 처음에는 최근 TG_SCRAP_FIRST_DAYS일,
+//     그 뒤로는 최근 TG_SCRAP_LOOK_DAYS일(기본 3일, 속성으로 1~14) 안의 메시지 파일에서 그 번호보다 큰 메시지만 본다.
+//   - 한 번에 50줄씩 보낸다(서버 상한). 서버가 받으면(200) 그 묶음 끝 메시지 번호까지 위치를 옮긴다. 모양이 틀렸다(400·413)면 넘긴다.
+//     비밀값 불일치(401)·하루 상한(429)·서버 준비 안 됨·실패는 위치를 그대로 두고 멈춘다(다음 매시 실행이 다시 보낸다. 서버가 같은 주소는 무시).
+//   - 매시(한국 7~23시) 자기 트리거 tgScrap_run으로 돈다. 텔레그램 보내기(tgFeed_run)의 잠금은 쓰지 않고(서로 기다리지 않게)
+//     자기 실행만 겹치지 않게 짧은 표시(CacheService)를 둔다. 두 기능은 서로 다른 속성만 쓴다.
+//   - 시험 모드(TG_SCRAP_TEST_MODE, 기본 켬): 보내지 않고 개수만 로그에 적고 위치도 옮기지 않는다.
+//   - 로그에는 개수만 적는다(채널 이름·번호·주소·글 없음). 같은 비밀값(COLLECTOR_FEED_SECRET)을 쓴다. 이름은 모두 tgScrap으로 시작한다.
+// ═══════════════════════════════════════════════════════════════════════
+
+var TG_SCRAP_ROOMS_KEY = 'TG_SCRAP_ROOMS';             // 채널 지정(방 이름·폴더 이름 전체·맨 앞 방 번호, 쉼표·줄바꿈 구분). 값은 저장소에 쓰지 않는다
+var TG_SCRAP_TEST_KEY = 'TG_SCRAP_TEST_MODE';          // 없거나 '켬'이면 시험 모드. '끔'일 때만 실제로 보낸다
+var TG_SCRAP_STATE_KEY = 'TG_SCRAP_STATE';             // 채널마다 보낸 가장 큰 메시지 번호·오늘 URL 호출 수·마지막 실행(JSON)
+var TG_SCRAP_LOOK_DAYS_KEY = 'TG_SCRAP_LOOK_DAYS';     // 매번 다시 볼 최근 날 수(숫자 1~14). 없으면 기본
+var TG_SCRAP_LOOK_DAYS_DEFAULT = 3;
+var TG_SCRAP_FIRST_DAYS = 7;                           // 처음(그 채널 위치가 없을 때) 볼 최근 날 수
+var TG_SCRAP_MAX_ITEMS = 50;                           // 서버 한 번 상한(handler.ts SCRAP_MAX_ITEMS)
+var TG_SCRAP_MAX_SENDS = 20;                           // 한 번 실행에 보낼 묶음 수 상한(서버 하루 상한 100번 안)
+var TG_SCRAP_FETCH_BUDGET_KEY = 'TG_SCRAP_FETCH_BUDGET'; // 하루 URL 호출 상한(숫자, 200 이상). 텔레그램 보내기 몫과 따로 센다
+var TG_SCRAP_FETCH_BUDGET_DEFAULT = 1500;
+var TG_SCRAP_BUSY_KEY = 'TG_SCRAP_BUSY';               // 실행 중 표시(CacheService, 6분)
+var TG_SCRAP_URL_CHARS = 2000;                         // 서버가 받는 주소 길이(openArticleUrl)
+
+// ── 손으로 [실행]하는 함수 ───────────────────────────────────────────────
+
+/** 설정 확인: 채널 폴더·비밀값·시험 모드·트리거·마지막 실행을 본다(채널 이름·번호·값은 로그에 찍지 않는다). */
+function tgScrap_check() {
+  var props = PropertiesService.getScriptProperties();
+  var wanted = tgScrapParseRooms(props.getProperty(TG_SCRAP_ROOMS_KEY) || '');
+  var found = wanted.length ? tgScrap_rooms_(wanted) : { rooms: [], missing: 0 };
+  var feedWanted = tgFeedParseRooms(props.getProperty(TG_FEED_ROOMS_KEY) || '');
+  var feedExclude = tgFeedParseRooms(props.getProperty(TG_FEED_ROOMS_EXCLUDE_KEY) || '');
+  var overlap = found.rooms.filter(function (r) { return !!tgFeedRoomPick(r.folderName, feedWanted, feedExclude); }).length;
+  var state = tgScrap_loadState_();
+  var nowDay = callFeedKstDay(Date.now());
+  var secretLength = (props.getProperty(CALL_FEED_SECRET_KEY) || '').length;   // 길이만 본다
+  Logger.log([
+    '채널: 적은 것 ' + wanted.length + '개 중 ' + found.rooms.length + '개 찾음' + (found.missing ? ' — 못 찾은 것 ' + found.missing + '개(속성 ' + TG_SCRAP_ROOMS_KEY + ' 글자를 원문 폴더 이름과 맞추세요)' : ''),
+    overlap ? '주의: 채널 ' + overlap + '개가 텔레그램 소식 보내기에도 들어갑니다 — 속성 ' + TG_FEED_ROOMS_EXCLUDE_KEY + '(또는 ' + TG_FEED_ROOMS_KEY + ')에서 빼세요' : '텔레그램 소식 보내기와 겹치는 채널 없음',
+    '비밀값: ' + (secretLength >= 32 ? '있음' : '없음 또는 너무 짧음 — 통화 안내 2단계'),
+    '시험 모드: ' + (tgScrap_testMode_() ? '켬(보내지 않음)' : '끔(실제로 보냄)'),
+    '자동 실행 트리거: ' + feedTriggerSummary_(['tgScrap_run'], '매시(tgScrap_run)가 없습니다 — tgScrap_installHourlyTrigger를 실행하세요'),
+    '보낸 위치가 있는 채널: ' + Object.keys(state.rooms).length + '개',
+    '오늘 URL 호출: ' + (state.fetch.d === nowDay ? state.fetch.n : 0) + ' / ' + tgScrap_fetchBudget_(),
+    '마지막 실행: ' + tgScrapLastRunText(state.lastRun),
+  ].join('\n'));
+}
+
+/** 시험 모드 끄기: 다음 실행부터 실제로 보낸다. */
+function tgScrap_testModeOff() {
+  PropertiesService.getScriptProperties().setProperty(TG_SCRAP_TEST_KEY, '끔');
+  Logger.log('채널 기사 시험 모드를 껐습니다. 다음 실행부터 Web2로 보냅니다.');
+}
+
+/** 시험 모드 켜기: 보내지 않고 개수만 센다. */
+function tgScrap_testModeOn() {
+  PropertiesService.getScriptProperties().setProperty(TG_SCRAP_TEST_KEY, '켬');
+  Logger.log('채널 기사 시험 모드를 켰습니다. 보내지 않고 개수만 셉니다.');
+}
+
+/** 매시 트리거 만들기(이미 있으면 지우고 하나만). 통화·텔레그램 소식 트리거는 건드리지 않는다. */
+function tgScrap_installHourlyTrigger() {
+  tgScrap_removeTrigger();
+  ScriptApp.newTrigger('tgScrap_run').timeBased().everyHours(1).create();
+  Logger.log('채널 기사 매시 트리거를 만들었습니다(매시 아무 분에 돕니다). 한국 시각 ' + TG_FEED_QUIET_FROM + '~' + TG_FEED_QUIET_UNTIL + '시는 쉽니다.');
+}
+
+/** 멈추기: 채널 기사 트리거만 지운다. */
+function tgScrap_removeTrigger() {
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'tgScrap_run') { ScriptApp.deleteTrigger(t); removed++; }
+  });
+  Logger.log('지운 채널 기사 트리거: ' + removed + '개');
+}
+
+// ── 트리거가 부르는 함수 ───────────────────────────────────────────────
+
+/** 매시 트리거. 한국 시각 0~7시는 쉰다. 앞 실행이 아직 돌고 있으면 건너뛴다. */
+function tgScrap_run() {
+  if (tgFeedQuiet(Date.now())) { Logger.log('한국 시각 ' + TG_FEED_QUIET_FROM + '~' + TG_FEED_QUIET_UNTIL + '시는 쉽니다.'); return; }
+  var cache = CacheService.getScriptCache();
+  if (cache.get(TG_SCRAP_BUSY_KEY)) { Logger.log('앞 채널 기사 보내기가 아직 돌고 있어 이번에는 건너뜁니다.'); return; }
+  cache.put(TG_SCRAP_BUSY_KEY, '1', 360);
+  try { tgScrap_run_(); } finally { cache.remove(TG_SCRAP_BUSY_KEY); }
+}
+
+/** 실제 일: 채널마다 새 메시지를 읽어 기사 줄을 묶음으로 보낸다. */
+function tgScrap_run_() {
+  var started = Date.now();
+  var props = PropertiesService.getScriptProperties();
+  var test = tgScrap_testMode_();
+  var secret = props.getProperty(CALL_FEED_SECRET_KEY) || '';
+  if (!test && secret.length < 32) throw new Error('스크립트 속성에 ' + CALL_FEED_SECRET_KEY + '가 없습니다. 통화 안내 2단계를 먼저 하세요.');
+  var wanted = tgScrapParseRooms(props.getProperty(TG_SCRAP_ROOMS_KEY) || '');
+  if (!wanted.length) throw new Error('채널 지정(' + TG_SCRAP_ROOMS_KEY + ')이 비어 있습니다. 안내 S2단계를 먼저 하세요.');
+  var found = tgScrap_rooms_(wanted);
+  var state = tgScrap_loadState_();
+  var today = callFeedKstDay(Date.now());
+  if (state.fetch.d !== today) state.fetch = { d: today, n: 0 };
+  var lookDays = tgScrapLookDays(props.getProperty(TG_SCRAP_LOOK_DAYS_KEY));
+  var run = {
+    state: state, started: started, tally: { listed: 0, files: 0, unread: 0 },
+    readLimit: started + TG_FEED_TIME_LIMIT_MS, budget: tgScrap_fetchBudget_(),
+    statFiles: 0, statMs: 0, token: '', dirs: null, dirsDirty: false,
+  };
+  var t = { rooms: found.rooms.length, messages: 0, lines: 0, skipped: 0, sends: 0, inserted: 0, duplicate: 0, rejected: 0, dropped: 0 };
+  var stop = '';
+  for (var i = 0; i < found.rooms.length && !stop; i++) {
+    var room = found.rooms[i];
+    if (Date.now() - started > TG_FEED_TIME_LIMIT_MS) { stop = '시간 제한'; break; }
+    var lastId = (state.rooms[room.key] || {}).m || '';
+    var days = tgScrapDays(today, lastId ? lookDays : TG_SCRAP_FIRST_DAYS);
+    var rd = tgFeed_readDays_(run, { room: room }, days, true, false, false);
+    if (rd.status === 'quota') { stop = 'URL 호출 하루 한도 — 내일 이어 함'; break; }
+    if (rd.status !== 'ok') { stop = '채널 ' + (i + 1) + '번째를 읽지 못함(' + rd.status + ') — 다음 실행에서 다시'; break; }
+    var plan = tgScrapPlan(rd.parsed, lastId, TG_SCRAP_MAX_ITEMS);
+    t.messages += plan.messages; t.lines += plan.lines; t.skipped += plan.skipped;
+    if (test) continue;
+    for (var c = 0; c < plan.chunks.length && !stop; c++) {
+      var ch = plan.chunks[c];
+      if (ch.items.length) {
+        if (t.sends >= TG_SCRAP_MAX_SENDS) { stop = '한 번에 보낼 묶음 상한(' + TG_SCRAP_MAX_SENDS + '개) — 다음 실행에서 이어 함'; break; }
+        var res = tgFeed_postAction_('scrap', { items: ch.items }, secret);
+        t.sends++;
+        var v = tgFeedVerdict(res.code, res.json && res.json.error);
+        if (v === 'ok') {
+          t.inserted += Number(res.json && res.json.inserted) || 0;
+          t.duplicate += Number(res.json && res.json.duplicate) || 0;
+          t.rejected += Number(res.json && res.json.rejected) || 0;
+        } else if (v === 'drop') {
+          t.dropped += ch.items.length;   // 모양이 틀린 묶음은 다시 보내도 같으므로 넘긴다
+        } else {
+          stop = v === 'auth' ? '비밀값 불일치(401)' : v === 'limit' ? '서버 하루 상한(429) — 내일 이어 함' : '서버·연결 실패(HTTP ' + res.code + ') — 다음 실행에서 다시';
+          break;
+        }
+      }
+      state.rooms[room.key] = { m: ch.maxId };
+      tgScrap_saveState_(state);   // 묶음마다 저장(중간에 멈춰도 같은 묶음을 두 번 보내지 않게)
+    }
+  }
+  if (!test) {
+    state.lastRun = { at: new Date().toISOString(), sends: t.sends, inserted: t.inserted, duplicate: t.duplicate, rejected: t.rejected, stop: String(stop).slice(0, 80) };
+    tgScrap_saveState_(state);
+  }
+  tgFeed_saveDirs_(run);
+  Logger.log([
+    (test ? '[시험 모드 — 보내지 않음] ' : '') + '채널 ' + t.rooms + '개' + (found.missing ? ' (못 찾은 것 ' + found.missing + '개)' : ''),
+    '새 메시지 ' + t.messages + '개 · 기사 줄 ' + t.lines + '개 · 넘긴 줄(http·너무 긺) ' + t.skipped + '개',
+    test ? '' : '보낸 묶음 ' + t.sends + '개 · 새로 들어감 ' + t.inserted + ' · 이미 있음 ' + t.duplicate + ' · 서버가 버림 ' + t.rejected + (t.dropped ? ' · 모양 틀려 넘김 ' + t.dropped : ''),
+    stop ? '멈춘 이유: ' + stop : '끝까지 봄',
+  ].filter(function (s) { return s; }).join('\n'));
+  if (stop && /401/.test(stop)) throw new Error('비밀값 불일치(401) — 스크립트 속성 ' + CALL_FEED_SECRET_KEY + '와 Supabase 값이 같은지 확인하세요.');
+}
+
+function tgScrap_testMode_() {
+  return PropertiesService.getScriptProperties().getProperty(TG_SCRAP_TEST_KEY) !== '끔';
+}
+
+function tgScrap_fetchBudget_() {
+  var n = Number(PropertiesService.getScriptProperties().getProperty(TG_SCRAP_FETCH_BUDGET_KEY));
+  return isFinite(n) && n >= 200 ? Math.floor(n) : TG_SCRAP_FETCH_BUDGET_DEFAULT;
+}
+
+function tgScrap_loadState_() {
+  return tgScrapStateClean(PropertiesService.getScriptProperties().getProperty(TG_SCRAP_STATE_KEY));
+}
+
+function tgScrap_saveState_(state) {
+  PropertiesService.getScriptProperties().setProperty(TG_SCRAP_STATE_KEY, JSON.stringify(state));
+}
+
+/** 수집 폴더 `원문` 아래에서 채널 지정에 맞는 방 폴더만 찾는다. 다른 폴더는 이름만 보고 열지 않는다. */
+function tgScrap_rooms_(wanted) {
+  if (!TG_FEED_ROOT_FOLDER || TG_FEED_ROOT_FOLDER.indexOf('여기에_') === 0) throw new Error('코드 맨 위 텔레그램 수집 폴더 칸을 채우세요.');
+  var raw = callFeed_onlyChild_(DriveApp.getFolderById(TG_FEED_ROOT_FOLDER), TG_FEED_RAW_FOLDER);
+  if (!raw) throw new Error('수집 폴더 안에 "' + TG_FEED_RAW_FOLDER + '" 폴더가 없습니다.');
+  var rooms = [], matched = {};
+  var it = raw.getFolders();
+  while (it.hasNext()) {
+    var f = it.next();
+    var name = f.getName();
+    var hit = tgFeedRoomMatch(name, wanted);
+    if (!hit) continue;
+    var info = tgFeedRoomInfo(name);
+    if (!info) continue;
+    matched[hit] = true;
+    rooms.push({ key: info.key, label: info.label, folder: f, folderName: name });
+  }
+  rooms.sort(function (a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; });
+  return { rooms: rooms, missing: wanted.filter(function (w) { return !matched[w]; }).length };
+}
+
+// ── 순수 함수 (네트워크·Drive 없음, tests/security/collector-feed-scrap-gas.test.mjs가 시험) ──────────
+
+/** 채널 지정 글 → 이름 배열(tgFeedParseRooms와 같음). `*`(모든 방)는 받지 않는다 — 다른 방의 주소가 섞이지 않게. */
+function tgScrapParseRooms(text) {
+  return tgFeedParseRooms(text).filter(function (w) { return w !== '*'; });
+}
+
+/** 매번 다시 볼 날 수(1~14). 틀리면 기본. */
+function tgScrapLookDays(value) {
+  var n = Number(value);
+  return isFinite(n) && n >= 1 && n <= 14 ? Math.floor(n) : TG_SCRAP_LOOK_DAYS_DEFAULT;
+}
+
+/** 오늘(한국)까지 n일(오름차순). */
+function tgScrapDays(today, n) {
+  var out = [];
+  for (var i = n - 1; i >= 0; i--) out.push(tgFeedAddDays(today, -i));
+  return out;
+}
+
+/**
+ * 메시지 글 → 기사 줄 [{url, at}]. 줄마다 http(s) 주소를 모두 뽑는다(끝 문장부호·괄호 떼기, 한 메시지 안 같은 주소는 한 번).
+ * 줄 앞이 'YYYY-MM-DD HH:MM(:SS)'(한국 시각)이면 그 시각을, 아니면 메시지 시각(msgAt, ISO)을 스크랩 시각으로 쓴다.
+ * https만 보낸다(서버도 https만 받는다). http·너무 긴 주소는 skipped로만 센다.
+ */
+function tgScrapLines(text, msgAt) {
+  var items = [], skipped = 0, seen = {};
+  callFeedNfc(text).split(/\r?\n/).forEach(function (line) {
+    var dm = /^\s*(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(:\d{2})?(?=\s)/.exec(line);
+    var lineMs = dm ? Date.parse(dm[1] + 'T' + dm[2] + (dm[3] || ':00') + '+09:00') : NaN;
+    var at = isFinite(lineMs) ? new Date(lineMs).toISOString() : msgAt;
+    var re = /https?:\/\/[^\s<>"'`　]+/gi, m;
+    while ((m = re.exec(line))) {
+      var url = m[0].replace(/[).,;:!?\]}>'"」』…·]+$/, '');
+      if (!/^https:\/\//i.test(url) || url.length > TG_SCRAP_URL_CHARS) { skipped++; continue; }
+      if (seen[url]) continue;
+      seen[url] = true;
+      var item = { url: url };
+      if (at) item.at = at;
+      items.push(item);
+    }
+  });
+  return { items: items, skipped: skipped };
+}
+
+/**
+ * 읽은 메시지(tgFeedParseMessage 결과 목록) → 보낼 묶음. lastId보다 큰 글 있는 메시지만, 번호 순으로.
+ * 묶음 하나는 max줄까지이고 메시지를 쪼개지 않는다(한 메시지가 max줄을 넘으면 앞 max줄만). 묶음마다 maxId(그 묶음 끝 메시지 번호)를 붙인다.
+ * 기사 줄이 없는 새 메시지도 위치는 옮겨야 하므로, 마지막 묶음은 줄이 없어도 maxId를 남긴다(보낼 것 없음 = items 빈 목록).
+ * 반환: {chunks:[{items, maxId}], messages(새 메시지 수), lines(기사 줄 수), skipped}.
+ */
+function tgScrapPlan(parsed, lastId, max) {
+  var seen = {}, list = [];
+  (parsed || []).forEach(function (p) {
+    if (!p || p.service || !/^\d{1,20}$/.test(p.id) || seen[p.id] || !tgFeedIdAfter(p.id, lastId)) return;
+    seen[p.id] = true;
+    list.push(p);
+  });
+  list.sort(function (a, b) { return a.id === b.id ? 0 : tgFeedIdAfter(a.id, b.id) ? 1 : -1; });
+  var chunks = [], cur = { items: [], maxId: '' }, lines = 0, skipped = 0;
+  list.forEach(function (p) {
+    var got = p.hasText ? tgScrapLines(p.text, p.at) : { items: [], skipped: 0 };
+    var items = got.items.slice(0, max);
+    skipped += got.skipped + (got.items.length - items.length);
+    lines += items.length;
+    if (cur.items.length && cur.items.length + items.length > max) { chunks.push(cur); cur = { items: [], maxId: '' }; }
+    cur.items = cur.items.concat(items);
+    cur.maxId = p.id.replace(/^0+(?=\d)/, '');
+  });
+  if (cur.maxId) chunks.push(cur);
+  return { chunks: chunks, messages: list.length, lines: lines, skipped: skipped };
+}
+
+/** 스크립트 속성 TG_SCRAP_STATE 정리. 틀린 칸은 버린다. */
+function tgScrapStateClean(raw) {
+  var s = {};
+  try { s = typeof raw === 'string' && raw ? JSON.parse(raw) : (raw && typeof raw === 'object' ? raw : {}); } catch (e) { s = {}; }
+  var rooms = {};
+  if (s.rooms && typeof s.rooms === 'object') {
+    Object.keys(s.rooms).forEach(function (k) {
+      var m = s.rooms[k] && s.rooms[k].m;
+      if (/^-?\d{1,30}$/.test(k) && typeof m === 'string' && /^\d{1,20}$/.test(m)) rooms[k] = { m: m };
+    });
+  }
+  var f = s.fetch;
+  var lr = s.lastRun && typeof s.lastRun === 'object' && typeof s.lastRun.at === 'string' && !isNaN(Date.parse(s.lastRun.at)) ? s.lastRun : null;
+  return {
+    rooms: rooms,
+    fetch: f && /^\d{4}-\d{2}-\d{2}$/.test(f.d || '') && typeof f.n === 'number' && f.n >= 0 ? { d: f.d, n: Math.floor(f.n) } : { d: '', n: 0 },
+    lastRun: lr ? { at: lr.at, sends: Number(lr.sends) || 0, inserted: Number(lr.inserted) || 0, duplicate: Number(lr.duplicate) || 0, rejected: Number(lr.rejected) || 0, stop: String(lr.stop || '').slice(0, 80) } : null,
+  };
+}
+
+/** check가 쓰는 마지막 실행 한 줄(개수만). */
+function tgScrapLastRunText(lr) {
+  if (!lr) return '아직 없음';
+  return lr.at + ' · 보낸 묶음 ' + lr.sends + ' · 새로 ' + lr.inserted + ' · 이미 있음 ' + lr.duplicate + ' · 서버가 버림 ' + lr.rejected + (lr.stop ? ' · 멈춘 이유: ' + lr.stop : '');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // 멈춤 알림 (OPS-수집멈춤알림)
 //
 // 텔레그램·통화 보내기가 한 번 끝날 때마다 "시각 + 닫힌 상태 글자 하나"를 Web2 점검 신호 입구(drive-summary ?action=heartbeat)로 알린다.
@@ -2237,6 +2537,8 @@ if (typeof module !== 'undefined' && module.exports) {
     feedKindPick: feedKindPick, feedLimitKind: feedLimitKind, feedStallClean: feedStallClean, feedStallNext: feedStallNext, feedReportBody: feedReportBody,
     tgFeedSendersBackRange: tgFeedSendersBackRange, tgFeedSendersBackClean: tgFeedSendersBackClean, tgFeedSendersBackDays: tgFeedSendersBackDays,
     tgFeedSendersBackList: tgFeedSendersBackList, tgFeedSendersBackBody: tgFeedSendersBackBody,
+    tgScrapParseRooms: tgScrapParseRooms, tgScrapLookDays: tgScrapLookDays, tgScrapDays: tgScrapDays, tgScrapLines: tgScrapLines, tgScrapPlan: tgScrapPlan,
+    tgScrapStateClean: tgScrapStateClean, tgScrapLastRunText: tgScrapLastRunText,
     tgFeedCompactRoom: tgFeedCompactRoom, tgFeedCompactState: tgFeedCompactState, tgFeedRemaining: tgFeedRemaining, tgFeedRemainingText: tgFeedRemainingText,
   };
 }
