@@ -3,8 +3,14 @@
 // 자리 주인은 #noticeBar 하나만 화면 맨 위에 두고, 급한 순서(priority 작은 것)대로 한 번에 한 줄만 보인다.
 // 줄이 떠 있는 동안 body에 kptu-notice-bar-open과 --kptu-notice-bar-height(실제 높이)를 두어
 // 본문·폰 머리줄·PC 메뉴·작은 알림 자리가 그만큼 비켜선다(notice-bar.css·base-ui.css). 자리·높이 처리는 여기 한 곳만 한다.
+// 여러 줄이면 보이는 줄 맨 앞에 작은 '1/2'(누르면 다음 줄)를 둔다(설계 5절). 새 손님이 오면 가장 급한 줄부터 다시 보인다.
 const guests=new Map();
-let bar=null,observer=null,order=0;
+let bar=null,observer=null,order=0,shown=0,counter=null;
+function makeCounter(){
+  const b=document.createElement('button');b.type='button';b.className='kptu-notice-bar-count';
+  b.onclick=()=>{shown++;render();counter?.focus({preventScroll:true})};
+  return b;
+}
 
 function layout(){
   document.body.style.setProperty('--kptu-notice-bar-height',`${bar?.getBoundingClientRect().height||0}px`);
@@ -23,11 +29,18 @@ function render(){
     observer??=new ResizeObserver(layout);observer.observe(bar);
     document.body.classList.add('kptu-notice-bar-open');
   }
-  const top=list[0].element;
+  if(shown>=list.length)shown=0;
+  const top=list[shown].element;
   for(const guest of list){
     if(guest.element.parentNode!==bar)bar.append(guest.element);
     guest.element.hidden=guest.element!==top;
   }
+  if(list.length>1){
+    counter??=makeCounter();
+    counter.textContent=`${shown+1}/${list.length}`;
+    counter.setAttribute('aria-label',`알림 ${list.length}개 중 ${shown+1}번째, 다음 알림 보기`);
+    if(counter.parentNode!==top)top.prepend(counter);
+  }else counter?.remove();
   layout();
 }
 // key: 손님 이름(같은 이름이면 바꿔 끼움). priority: 작을수록 급함(4절 표 순서). element: 손님이 만든 줄.
@@ -35,13 +48,14 @@ export function putNotice(key,{priority=50,element}){
   if(!key||!element)return;
   const old=guests.get(key);
   if(old&&old.element!==element)old.element.remove();
+  if(!old)shown=0;
   guests.set(key,{priority,element,order:old?.order??++order});
   render();
 }
 export function removeNotice(key){
   const guest=guests.get(key);
   if(!guest)return;
-  guests.delete(key);guest.element.remove();
+  guests.delete(key);guest.element.remove();shown=0;
   render();
 }
 // 모듈이 아닌 화면 조각·시험에서도 같은 자리 주인을 쓰게 한 이름으로 둔다(배포 빌드는 모듈 주소에 해시를 붙이므로 import 대신 이 이름).

@@ -224,6 +224,9 @@ function hiddenToday(rt, now) {
 function hideToday(rt, now) {
   viewPrefs.set('collect_hidden_on', seoulDateKey(now));
 }
+// UI-앱안알림 2단계: 맨 위 알림 줄의 '수집 멈춤' ✕도 같은 '오늘 하루 숨김'(서버 프로필 view_prefs.collect_hidden_on)을 쓴다 — 폰·PC 같게, 다음 날 다시.
+export const collectHiddenToday = (now = Date.now()) => hiddenToday(null, now);
+export function hideCollectToday(now = Date.now()) { hideToday(null, now); void viewPrefs.flush?.(); }
 const cardHtml = (rows, titleId) => `<header><h3${titleId ? ` id="${titleId}"` : ''}>마지막 수집 시각</h3></header><ul class="collect-list">${rows}</ul>`;
 function menuHostFor(doc) {
   const panel = doc.querySelector('#mobileMenu .mobile-menu-panel');
@@ -290,5 +293,15 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
     paint(raw);
   }
   return {refresh, destroy() { alive = false; run++; alert?.removeEventListener('click', onClick); phoneQuery?.removeEventListener?.('change', onMedia); }};
+}
+// UI-앱안알림 2단계: 맨 위 알림 줄(notice-lines.js)의 '수집 멈춤' 재료. 내 프로필 '마지막 수집 시각' 칸과 같은 읽기·같은 탭 메모리(10분)·
+// 같은 기준(summarize)을 쓴다 — 칸과 줄이 서로 다른 판정을 내리지 않고, 10분 안에는 서버에 다시 묻지 않는다. 운영자 작업공간이 아니면 null.
+export async function readCollectionAttention(rt = window.KPTURuntime, now = () => Date.now()) {
+  if (!isOwner(rt)) return null;
+  const scope = scopeOf(rt);
+  const raw = cache && cache.scope === scope && now() - cache.at < CACHE_MS ? cache.raw : await readShared(rt, scope, now).catch(() => null);
+  if (scope !== scopeOf(rt) || !raw) return null;
+  const sum = summarize(raw, now());
+  return sum.empty ? null : sum;
 }
 export function resetCollectionCache() { cache = null; driveStatus = null; pending = null; }

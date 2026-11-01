@@ -6,11 +6,16 @@
 #noticeBar{position:fixed;z-index:60;top:0;left:0;right:0}
 .kptu-notice-line{box-sizing:border-box;display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height,32px);padding:0 max(8px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));border-bottom:1px solid var(--kptu-border);background:var(--kptu-primary-soft);color:var(--kptu-ink);font-size:var(--ds-text-meta,12px);line-height:1.4}
 .kptu-notice-line[hidden]{display:none}
+/* UI-앱안알림 2단계: 손봐야 하는 문제(연결 끊김·수집 멈춤)는 옅은 주황 바탕 한 줄. 빨간 배지·종 모양 없음. */
+.kptu-notice-line[data-tone="warn"]{background:var(--kptu-warning-soft);border-bottom-color:color-mix(in srgb,var(--kptu-warning) 25%,var(--kptu-border))}
+.kptu-notice-line[data-tone="warn"] .kptu-notice-line-icon{stroke:var(--kptu-warning)}
+.kptu-notice-line[data-tone="warn"]>.kptu-notice-line-action{color:var(--kptu-warning)}
 .kptu-notice-line-icon{flex:0 0 auto;width:14px;height:14px;fill:none;stroke:var(--kptu-primary-ink);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .kptu-notice-line>span{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kptu-notice-line>button{position:relative;flex:0 0 auto;box-sizing:border-box;height:var(--ds-compact-height-sm,28px);min-height:0;margin:0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
 .kptu-notice-line>button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .kptu-notice-line>.kptu-notice-line-action{color:var(--kptu-primary-ink);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.kptu-notice-line>.kptu-notice-bar-count{padding:0 4px;color:var(--kptu-muted);font-size:11px;font-variant-numeric:tabular-nums}
 .kptu-notice-line>.kptu-notice-line-close{margin-left:auto;min-width:var(--ds-compact-height-sm,28px);color:var(--kptu-muted)}
 .kptu-notice-line>button:hover{background:var(--kptu-surface)}
 .kptu-notice-line>button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}

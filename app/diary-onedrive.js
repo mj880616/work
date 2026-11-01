@@ -5,6 +5,7 @@
 // - OD-폰보관(2026-10-28 명진 결정, '기기 저장 금지'의 단 하나의 예외): '작은 그림(small)' 바이트 사본만 od-thumb-cache.js(Cache Storage)에 보관한다.
 //   주소·토큰·파일 이름은 보관하지 않는다. 그 밖의 것(별표·설정·일기)은 계속 서버에만 둔다.
 import './od-thumb-cache.js';
+import {reportLink} from './link-state.js';
 import {ownerScope, diaryPhotos, todayKey} from './diary-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE, GATHER_MS} from './od-thumb-loader.js';
@@ -26,7 +27,15 @@ const monthRange = (year, month) => ({first: `${monthParam(year, month)}-01`, la
 // ---- 원드라이브 (Edge) ----
 // 원드라이브는 서버가 사진 목록을 받아 오느라 한 번에 십수 초 걸릴 수 있어, 기본 15초 대신 45초까지 기다린다.
 export const OD_TIMEOUT_MS = 45000;
-export const odCall = (rt, body) => rt.api(OD_FN, {method: 'POST', body, singleFlight: false, timeoutMs: OD_TIMEOUT_MS});
+// UI-앱안알림 2단계: 원드라이브 호출 결과로 연결 끊김을 맨 위 알림 줄에 알린다(link-state.js, 새 요청 없음).
+// onedrive_auth_expired면 끊김, 연결 상태·연결 시작이 아닌 호출이 성공하면 풀림.
+export const odCall = (rt, body) => rt.api(OD_FN, {method: 'POST', body, singleFlight: false, timeoutMs: OD_TIMEOUT_MS}).then(data => {
+  if (!['status', 'auth-start'].includes(body?.action)) reportLink('onedrive', false);
+  return data;
+}, error => {
+  if (String(error?.message || '') === 'onedrive_auth_expired') reportLink('onedrive', true);
+  throw error;
+});
 
 const ERROR_TEXT = {
   onedrive_not_configured: '원드라이브 연결 준비가 아직 안 됐어요.',
