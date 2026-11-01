@@ -856,10 +856,12 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         if (item.edited) { const tag = el('span', 'journal-exec-carried', '고침'); tag.title = `원래: ${item.title}${item.place ? ` / ${item.place}` : ''}`; tag.dataset.journalScheduleEdited = ''; what.append(' ', tag); }
         else if (item.memo?.title) { const tag = el('span', 'journal-exec-carried', MEMORY_TAG); tag.title = `원래 제목: ${item.title}`; tag.dataset.journalScheduleMemory = ''; what.append(' ', tag); }
         // WEEKLY-환류전칸 ⑤(요청함 11/01 01:20): 줄 끝 작은 ⋯ → [고치기](날짜·시간·제목·장소·참석 칸)·[빼기](이번 주 파일에서). 값은 한글 파일 칸 고치기와 같은 임시저장.
-        if (item.key) what.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
+        //   ⋯ 는 줄 끝(참석자 칸 — 화면에서는 비어 있고 한글 파일에서 내 이름으로 채움) 오른쪽에 둔다.
+        const owner = el('td', 'journal-weekly-owner');
+        if (item.key) owner.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
           {text:'고치기', data:{journalScheduleFix:item.key}, aria:`일정 고치기: ${item.what}`},
           {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`}]}));
-        tr.append(what, el('td', 'journal-weekly-owner'));
+        tr.append(what, owner);
         body.append(tr);
       });
       table.append(body); cal.append(table);
