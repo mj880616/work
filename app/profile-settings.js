@@ -123,7 +123,7 @@ async function loadReopen(){
     const after=$('#psPushPanel');if(!after)return;
     after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReopenPanel" aria-label="다시 연 기록"></article>');
     const m=await import('./phone-reopen.js');
-    if(!m.mountReopenLog($('#psReopenPanel')))$('#psReopenPanel')?.remove();
+    if(!m.mountReopenBook($('#psReopenPanel')))$('#psReopenPanel')?.remove();
   }catch(e){console.error('phone reopen log',e?.name||'Error')}
 }
 async function loadCalRef(){

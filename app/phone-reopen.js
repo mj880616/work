@@ -99,7 +99,7 @@ export function startReopen(win = window) {
 }
 
 /** 프로필의 '다시 연 기록' 칸(폰 앱만). 접힌 채로 두고, 펼칠 때 앱에 묻는다. */
-export function mountReopenLog(host, win = window) {
+export function mountReopenBook(host, win = window) {
   const bridge = win[BRIDGE];
   if (!host || !/KPTUAndroid/i.test(win.navigator?.userAgent || '') || typeof bridge?.postMessage !== 'function' || typeof bridge?.addEventListener !== 'function') return null;
   host.innerHTML = `<details class="ps-reopen"><summary>다시 연 기록 <span class="ps-reopen-note">(앱이 화면을 처음부터 다시 연 때·까닭)</span></summary><ol class="ps-reopen-list" aria-live="polite"><li>${waitInlineHtml()}</li></ol></details>`;

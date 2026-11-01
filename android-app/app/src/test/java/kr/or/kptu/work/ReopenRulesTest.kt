@@ -65,8 +65,8 @@ class ReopenRulesTest {
         assertTrue(src.contains("openInPlace(PushRules.openUrl(intent.getStringExtra(PushRules.EXTRA_OPEN)), \"push\")"))
         assertTrue(src.contains("openInPlace(data!!, \"link\")"))
         assertTrue(src.contains("if (value != \"true\") load(url, kind)"))
-        assertTrue(src.contains("if (ShellRules.isInternalApp(url)) ReopenLog.log.started(System.currentTimeMillis(), ShellRules.isLoginPage(url))"))
-        assertTrue(src.contains("ReopenLog.engineGone = true\n                    recreate()"))
+        assertTrue(src.contains("if (ShellRules.isInternalApp(url)) ReopenBook.log.started(System.currentTimeMillis(), ShellRules.isLoginPage(url))"))
+        assertTrue(src.contains("ReopenBook.engineGone = true\n                    recreate()"))
         assertTrue(src.contains("else if (data.startsWith(\"reopen:\")) onReopenMessage(data, reply)"))
         // 질의 글은 따옴표 없는 좁은 모양만 스크립트에 넣는다.
         assertTrue(src.contains("webView.evaluateJavascript(NAV_SCRIPT.replace(\"%Q%\", query))"))

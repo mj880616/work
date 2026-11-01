@@ -90,7 +90,7 @@ object ReopenRules {
 }
 
 /** 앱 프로세스 하나에 하나. 프로세스가 끝나면 함께 비고, 새 프로세스의 첫 화면이 그 사실(restore/start)을 남긴다. */
-object ReopenLog {
+object ReopenBook {
     val log = ReopenRules.Log()
     /** 이 프로세스에서 아직 화면(Activity)을 만든 적이 없음. */
     @Volatile var freshProcess = true

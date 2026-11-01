@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {navTarget, parseReopenList, entryText, startReopen, mountReopenLog, KIND_LABEL} from '../app/phone-reopen.js';
+import {navTarget, parseReopenList, entryText, startReopen, mountReopenBook, KIND_LABEL} from '../app/phone-reopen.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -84,7 +84,7 @@ test('다시 연 기록 글: 종류·시각만, 모르는 종류는 버리고 �
 });
 
 test('다시 연 기록 칸: 앱에서만, 펼칠 때 묻고 답을 그린다', () => {
-  assert.equal(mountReopenLog({}, {navigator: {userAgent: 'Chrome'}}), null);
+  assert.equal(mountReopenBook({}, {navigator: {userAgent: 'Chrome'}}), null);
   const sent = [], listeners = [];
   const items = [];
   const list = {replaceChildren: (...xs) => { items.splice(0, items.length, ...xs.map(x => x.textContent)); }, set innerHTML(v) { items.splice(0, items.length, v); }};
@@ -96,7 +96,7 @@ test('다시 연 기록 칸: 앱에서만, 펼칠 때 묻고 답을 그린다', 
     document: {createElement: () => ({textContent: ''})},
     KPTUAppShell: {postMessage: m => sent.push(m), addEventListener: (t, fn) => listeners.push(fn)},
   };
-  assert.ok(mountReopenLog(host, win));
+  assert.ok(mountReopenBook(host, win));
   assert.match(host.html, /<details class="ps-reopen">/);
   assert.deepEqual(sent, [], '접힌 채로는 묻지 않는다');
   toggle({target: {open: true}});

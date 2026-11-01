@@ -186,11 +186,11 @@ class MainActivity : ComponentActivity() {
         // 앱이 로그인 탭 뒤에서 메모리 부족으로 다시 만들어져도 위젯 로그인 표시(시각만, 비밀 아님)를 잇는다.
         savedInstanceState?.getLong(STATE_WIDGET_LOGIN, 0L)?.takeIf { it > 0L }?.let { WidgetHub.session(this).resumeLogin(it) }
         // APP-다시열림: 이 화면을 왜 새로 여는지 남긴다(종류·시각만, 앱 메모리). 처음 켬·밖에서 꺼졌다 복원·화면만 다시 만듦·엔진 죽음.
-        val reopenKind = if (ReopenLog.engineGone) "engine" else ReopenRules.createKind(savedInstanceState != null, ReopenLog.freshProcess)
-        ReopenLog.engineGone = false
-        ReopenLog.freshProcess = false
+        val reopenKind = if (ReopenBook.engineGone) "engine" else ReopenRules.createKind(savedInstanceState != null, ReopenBook.freshProcess)
+        ReopenBook.engineGone = false
+        ReopenBook.freshProcess = false
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) loadFromIntent(intent)
-        ReopenLog.log.expect(reopenKind, System.currentTimeMillis())
+        ReopenBook.log.expect(reopenKind, System.currentTimeMillis())
         if (savedInstanceState == null) checkForUpdate()
     }
 
@@ -261,7 +261,7 @@ class MainActivity : ComponentActivity() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 // APP-다시열림: 웹2 화면을 통째로 다시 열기 시작함 → 까닭 한 줄(종류·시각만).
-                if (ShellRules.isInternalApp(url)) ReopenLog.log.started(System.currentTimeMillis(), ShellRules.isLoginPage(url))
+                if (ShellRules.isInternalApp(url)) ReopenBook.log.started(System.currentTimeMillis(), ShellRules.isLoginPage(url))
                 // 새 화면을 열기 시작하면 앞 화면의 '로그인됨'·쓰기 창 다리는 더 쓰지 않는다.
                 readyReply = null
                 writeReply = null
@@ -296,7 +296,7 @@ class MainActivity : ComponentActivity() {
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                 // 화면 엔진이 죽으면 이 WebView는 다시 쓸 수 없다. 화면을 새로 만든다.
                 if (view === webView) {
-                    ReopenLog.engineGone = true
+                    ReopenBook.engineGone = true
                     recreate()
                 }
                 return true
@@ -353,7 +353,7 @@ class MainActivity : ComponentActivity() {
 
     /** APP-다시열림: 웹2를 통째로 연다. 그 전에 까닭(종류)만 표시해 둔다. */
     private fun load(url: String, kind: String) {
-        ReopenLog.log.expect(kind, System.currentTimeMillis())
+        ReopenBook.log.expect(kind, System.currentTimeMillis())
         webView.loadUrl(url)
     }
 
@@ -376,12 +376,12 @@ class MainActivity : ComponentActivity() {
     private fun onReopenMessage(data: String, reply: JavaScriptReplyProxy) {
         if (data == ReopenRules.ASK_LIST) {
             try {
-                reply.postMessage(ReopenRules.listMessage(ReopenLog.log.snapshot()))
+                reply.postMessage(ReopenRules.listMessage(ReopenBook.log.snapshot()))
             } catch (_: Exception) {
             }
             return
         }
-        ReopenRules.webMark(data)?.let { ReopenLog.log.expect(it, System.currentTimeMillis()) }
+        ReopenRules.webMark(data)?.let { ReopenBook.log.expect(it, System.currentTimeMillis()) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -740,7 +740,7 @@ class MainActivity : ComponentActivity() {
                 refresher.isRefreshing = false
                 // 웹 다리가 없는 웹2 화면(옛 판·불러오는 중)은 같은 주소를 그대로 다시 연다. 'cancel'이면(글을 버리지 않음) 그대로 둔다.
                 if (value != "\"reload\"" && value != "\"cancel\"") {
-                    ReopenLog.log.expect("pull", System.currentTimeMillis())
+                    ReopenBook.log.expect("pull", System.currentTimeMillis())
                     webView.reload()
                 }
             }
