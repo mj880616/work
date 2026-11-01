@@ -109,7 +109,7 @@ let gdAt = null, gdTrail = [], gdFFor = null, gdFItems = [], gdFLoading = null, 
 // PHOTO-폴더스위치: 끈 폰 폴더(view_prefs.phone_folders_off, 서버). 앱 0.4.1+만 스위치·바꾸기(phone.state().hide·ops). 새 폴더(사진을 옮겨 넣기 전)는 이 화면 메모리에만.
 let phoneOff = new Set(), pPending = [], manageAsked = false;
 const phone = phonePhotos();
-let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, syncing = false, syncAt = 0;
+let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, dayLayer = null, syncing = false, syncAt = 0;
 let trash = null, trashFailed = '', trashBusy = false;
 // [폴더]: tree(서버 folders-tree), at(보는 폴더 id), openSet(PC 나무에서 펼친 폴더, 화면 기억만), 그 폴더 사진 fItems(fFor = 어느 폴더 것인지).
 let tree = null, treeFailed = '', treeLoading = null, at = null, fFor = null, fItems = [], fNext = null, fEnded = false, fLoading = null, fFailed = '', folderLayer = null, busy = false;
@@ -147,7 +147,7 @@ const phoneOps = () => phone.state().ops === true;
 const noSource = () => !sources.onedrive && !phoneOn() && !gdOn();
 const NO_SOURCE_HTML = '<p class="photos-muted" data-photos-no-source>위 출처 아이콘을 켜 주세요.</p>';
 // S46-20 사진 정리 제안 ①(photo-tidy.js): [정리 n] 칩(폰 앱에서 [사진]일 때만) → 접힌 칸. tidyView = [사진]에 정리 목록을 보이는 중('place:phone'·'junk:kakao', 이 화면 메모리만).
-let tidyOpen = false, tidyView = null;
+let tidyOpen = false, tidyView = null, tidyLayer = null;
 const tidyChip = $('[data-photos-tidy-chip]'), tidyBox = $('[data-photos-tidy]');
 const tidy = createPhotoTidy({phone, odReady:() => ready(), odError:e => odErrorText(e), phoneError:e => phoneErrorText(e), phoneOff:() => phoneOff, onChange:() => paintTidy(), isStarred:it => isStarred(it),
   readOd:async (cursor, limit) => { const page = await odLibrary(rt, {filter:'all', cursor, limit}); return {items:page.items.map(toItem), next:page.next}; }});
@@ -167,14 +167,20 @@ function paintTidy() {
   tidyBox.querySelectorAll('[data-photos-tidy-th]').forEach(el => { const it = tidy.item(el.dataset.photosTidyTh); if (it) el.append(phone.element(it, 'small', {label:''})); });
 }
 // 정리 목록 보기 켜기/끄기([사진] 목록을 그 목록으로 바꾼다).
-function setTidyView(key) {
+// UI-뒤로가기겹규칙: 정리 목록([보기]로 연 'junk:'·'space:' 목록)은 라우터 겹 하나라 뒤로가기 = 원래 [사진] 목록.
+const tidySeeing = key => !!key && !key.startsWith('place:');
+// 정리 목록을 코드가 끌 때(다시 확인·출처 바뀜 등): 겹도 함께 닫아 빈 뒤로가기 칸을 남기지 않는다.
+function dropTidy() { tidyView = null; if (tidyLayer) { const l = tidyLayer; tidyLayer = null; l.close(); } }
+function setTidyView(key, {fromBack = false} = {}) {
   tidyView = key && tidy.list(key) ? key : null;
+  if (tidySeeing(tidyView) && !tidyLayer) tidyLayer = window.KPTURouter?.layer?.open('photos-tidy', {close:() => { tidyLayer = null; if (tidySeeing(tidyView)) setTidyView(null, {fromBack:true}); return true; }}) || null;
+  if (!tidySeeing(tidyView) && tidyLayer && !fromBack) { const l = tidyLayer; tidyLayer = null; l.close(); }
   select.stop(); resetList(); render(); window.scrollTo?.(0, 0);
 }
 // [사진]에 보일 정리 목록(지금 거르기·정렬·건너뛴 달 그대로). 목록이 없어졌으면(다시 확인 중 등) 끈다.
 function tidyFill() {
   const list = tidy.list(tidyView);
-  if (!list) { tidyView = null; return false; }
+  if (!list) { dropTidy(); return false; }
   const cut = from ? Date.parse(from.cursor.t) : null;
   items = typeFilter(list, filter, isStarred).filter(it => !hidden.has(it.id) && (!cut || Date.parse(it.taken_at) < cut)).sort(sortCompare(listSort()));
   ended = true;
@@ -185,7 +191,7 @@ function tidyFill() {
 async function tidyTrash(b, kind) {
   const g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) return;
   // ③ 공간 비우기: 원드라이브에 정말 있는지 — 읽은 지 오래됐으면 다시 확인부터.
-  if (kind === 'space' && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); tidyView = null; tidy.rescan(); return; }
+  if (kind === 'space' && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); dropTidy(); tidy.rescan(); return; }
   const n = g.items.length;
   const keepNote = kind === 'space' ? '원드라이브에는 그대로 남아요. ' : kind.startsWith('dup') ? '남길 사진은 그대로예요. ' : '';
   if (!await askConfirm(b, {text:`${g.label} ${n}장을 폰 휴지통으로 옮길까요?`, note:`${keepNote}폰이 한 번 더 확인 창을 띄워요(200장씩). 폰 갤러리 휴지통에서 30일 안에 되살릴 수 있어요.`, ok:'폰 휴지통으로', danger:true})) return;
@@ -216,7 +222,7 @@ function tidyClick(b) {
   if (b.matches('[data-photos-tidy-see]')) { const k = b.dataset.photosTidySee; setTidyView(k === 'space' ? 'space:' : 'junk:' + k); return true; }
   if (b.matches('[data-photos-tidy-keep]')) { const [g, id] = b.dataset.photosTidyKeep.split('|'); tidy.keep(g, id); paintTidy(); return true; }
   if (b.matches('[data-photos-tidy-end]')) { setTidyView(null); return true; }
-  if (b.matches('[data-photos-tidy-rescan]')) { tidyView = null; tidy.rescan(); resetList(); render(); return true; }
+  if (b.matches('[data-photos-tidy-rescan]')) { dropTidy(); tidy.rescan(); resetList(); render(); return true; }
   if (b.matches('[data-photos-tidy-hide]')) { tidyHide(b.dataset.photosTidyHide); return true; }
   if (b.matches('[data-photos-tidy-trash]')) { tidyTrash(b, b.dataset.photosTidyTrash); return true; }
   if (b.matches('[data-photos-tidy-folder]')) {
@@ -1372,7 +1378,7 @@ async function phoneOpGo(anchor, op, done, after = null) {
   try { res = await phone.folderOp(op); } finally { busy = false; }
   notify(phoneOpText(res, done(res)), {error:!res.ok});
   if (res.ok) after?.(res);
-  if (res.ok) { pFolders = null; pFor = null; pItems = []; tidy.reset(); tidyView = null; resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
+  if (res.ok) { pFolders = null; pFor = null; pItems = []; tidy.reset(); dropTidy(); resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
   if (tab === 'folders') renderFolders(); else render();
   return res;
 }
@@ -2108,6 +2114,8 @@ function setTab(nextTab, {fromBack = false} = {}) {
   if (nextTab === tab) return;
   select.stop(); nameDone(null);
   if (!fromBack) closeSubLayers(); else { folderLayer = null; albumLayer = null; }
+  // [달력] → 날짜로 들어간 '그날 사진' 겹이 열린 채 다른 칩으로 가면 그 겹부터 닫는다(남은 기록 없이 [달력] 겹 위로).
+  if (dayLayer && !fromBack) { const l = dayLayer; dayLayer = null; l.close(); }
   tab = nextTab;
   window.KPTURouter?.setPlace?.('photos', tab === 'all' ? {} : {tab});
   // 뒤로가기 = 이전 칩: [달력]·[휴지통]은 라우터 겹 하나라 뒤로가면 [사진]으로 돌아온다.
@@ -2115,8 +2123,29 @@ function setTab(nextTab, {fromBack = false} = {}) {
   if (tab === 'all' && tabLayer && !fromBack) { const l = tabLayer; tabLayer = null; l.close(); }
   render();
 }
+// UI-뒤로가기겹규칙: [달력]에서 날짜를 누르면 [달력] 겹 위에 '그날 사진' 겹을 하나 더 쌓는다.
+// 뒤로가기(‹·폰 뒤로) = 그 겹만 닫고 같은 달·같은 스크롤 위치의 [달력]으로 돌아온다.
+function openDay(day) {
+  const from = {y:window.scrollY || 0};
+  select.stop(); nameDone(null);
+  tab = 'all';
+  dayLayer = window.KPTURouter.layer.open('photos-day', {reopen:() => { if (tab === 'calendar' && tabLayer && !dayLayer) openDay(day); }, close:() => {
+    dayLayer = null;
+    if (tab === 'calendar') return true;
+    select.stop(); nameDone(null); folderLayer = null; albumLayer = null;
+    tab = 'calendar';
+    window.KPTURouter?.setPlace?.('photos', {tab:'calendar'});
+    render();
+    requestAnimationFrame(() => window.scrollTo?.(0, from.y));
+    return true;
+  }}) || null;
+  window.KPTURouter?.setPlace?.('photos', {});
+  render();
+  jumpTo(day, dayCursor(day), dayHead(day));
+}
 function goDay(day) {
-  // [달력] 겹을 닫는 뒤로가기(popstate)가 스크롤을 되돌릴 수 있으므로, 그것이 끝난 뒤에 그날로 간다.
+  if (tab === 'calendar' && tabLayer && window.KPTURouter?.layer?.open) return openDay(day);
+  // 라우터 겹이 없을 때(겹 없이 [달력]을 연 경우)만: [사진]으로 바꾼 뒤 그날로 간다.
   const settled = tabLayer ? new Promise(ok => { const t = setTimeout(ok, 400); window.addEventListener('popstate', () => { clearTimeout(t); setTimeout(ok, 0); }, {once:true}); }) : Promise.resolve();
   setTab('all');
   settled.then(() => { if (tab === 'all') jumpTo(day, dayCursor(day), dayHead(day)); });
@@ -2243,7 +2272,7 @@ window.addEventListener('kptu:view-prefs-rejected', e => {
 });
 // 폰 사진 접근이 바뀌면(처음 허용·설정에서 바꿈) 목록을 새로.
 let entering = false;
-phone.onChange(() => { pFolders = null; pFor = null; pItems = []; tidy.reset(); tidyView = null; if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged(); });
+phone.onChange(() => { pFolders = null; pFor = null; pItems = []; tidy.reset(); dropTidy(); if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged(); });
 async function enter() {
   readPrefs();
   const placed = window.KPTURouter?.place?.('photos')?.tab;
@@ -2263,7 +2292,7 @@ async function enter() {
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'photos') return;
   closePhotoStrip({fromBack:true, restore:false});
-  tabLayer = null; folderLayer = null; albumLayer = null; select.stop({fromBack:true}); settings.drop(); odHost.replaceChildren(); io?.disconnect(); nameDone(null);
+  tabLayer = null; dayLayer = null; tidyLayer = null; folderLayer = null; albumLayer = null; select.stop({fromBack:true}); settings.drop(); odHost.replaceChildren(); io?.disconnect(); nameDone(null);
   if (batch) commitBatch();
 });
 window.addEventListener('kptu:session-changed', () => {
@@ -2273,10 +2302,10 @@ window.addEventListener('kptu:session-changed', () => {
   batch = null; resetList(); syncAt = 0; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop(); sources = parseSources(null); phStarItems = null;
   pFolders = null; pFoldersFailed = ''; pAt = null; pFor = null; pItems = []; phoneOff = new Set(); pPending = []; manageAsked = false;
-  tidy.reset(); tidyOpen = false; tidyView = null;
+  tidy.reset(); tidyOpen = false; tidyView = null; tidyLayer = null;
   gd = {allowed:false, problem:'', foldersOn:0, checked:false}; gdItems = []; gdEnded = false; gdCursor = null; gdSyncAt = 0; gdLevels.clear(); gdLevelFailed.clear(); gdAt = null; gdTrail = []; gdFFor = null; gdFItems = []; gdClear();
   if (gdPlayUrl) { URL.revokeObjectURL(gdPlayUrl); gdPlayUrl = ''; }
-  tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; albumViewChosen = null; folderLayer = null; albumLayer = null; nameDone(null);
+  tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; albumViewChosen = null; folderLayer = null; albumLayer = null; tabLayer = null; dayLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();
 });
 window.KPTURouter?.on?.('photos', enter);

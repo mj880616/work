@@ -78,7 +78,15 @@ let busy = false, layer = null;
 // ED-통합편집기 ①b: the open 글(doc) block is edited with the new editor (ed-editor.js). One instance at a time, for the
 // open block only; it writes each change into that block (block.doc), so a redraw (move, add) keeps the text.
 let docEditor = null, docMount = 0;
-function dropDocEditor() { docMount++; if (docEditor) { docEditor.destroy(); docEditor = null; } }
+// UI-뒤로가기겹규칙: 글 블록 편집기 안의 작은 상자(글자색 목록·표 칸 메뉴·버튼 줄 판)가 열리면 라우터 겹 하나 — 뒤로가기 = 상자만 닫기
+// (일기·노트 창과 같은 onBox 계약). 편집기를 내리면 겹도 닫는다.
+let boxLayer = null;
+function onDocBox(open) {
+  if (open) boxLayer ||= window.KPTURouter?.layer?.open('share-page-box', {close:() => { boxLayer = null; docEditor?.closeBoxes(); return true; }}) || null;
+  else dropBoxLayer();
+}
+function dropBoxLayer() { if (boxLayer) { const l = boxLayer; boxLayer = null; l.close(); } }
+function dropDocEditor() { docMount++; dropBoxLayer(); if (docEditor) { docEditor.destroy(); docEditor = null; } }
 
 const listView = el('div', {class:'sp-list-view', dataset:{spList:''}});
 const editorView = el('div', {class:'sp-editor', hidden:true, dataset:{spEditor:''}});
@@ -311,7 +319,7 @@ function editNode(block, b, count) {
     const host = el('div', {class:'sp-doc-host', dataset:{spDocHost:String(b)}}, waitEl({rows: 3}));
     box.append(host);
     const mount = ++docMount;
-    createDocEditor({host, value:block.doc, label:`${n}번째 블록 글`, placeholder:'여기에 쓰세요', photos:photosFor(editing),
+    createDocEditor({host, value:block.doc, label:`${n}번째 블록 글`, placeholder:'여기에 쓰세요', photos:photosFor(editing), onBox:onDocBox,
       onChange:value => { if (editing && editing.blocks[b] === block) block.doc = value; }}).then(ed => {
       if (mount !== docMount || !host.isConnected) { ed.destroy(); return; }
       host.querySelector('.sp-hint')?.remove();
@@ -543,7 +551,7 @@ function renderFull() {
   editorView.replaceChildren(top, host);
   paintStatusButtons(); renderLinks(); void paintProjects();
   const mount = ++docMount, block = page.blocks[0];
-  createDocEditor({host, value:block.doc, label:'본문', placeholder:'여기에 쓰세요', head:title, photos:photosFor(page),
+  createDocEditor({host, value:block.doc, label:'본문', placeholder:'여기에 쓰세요', head:title, photos:photosFor(page), onBox:onDocBox,
     onChange:value => { if (editing === page && page.blocks[0] === block) { block.doc = value; queueDirty(); } }}).then(ed => {
     if (mount !== docMount || !host.isConnected) { ed.destroy(); return; }
     host.querySelector('.sp-hint')?.remove();

@@ -133,7 +133,7 @@
   // state lists the open layers, so browser, PWA and Android back all pop it before the tab.
   // The owner's close button calls the returned close() after closing itself.
   const LAYERS='kptuLayers';
-  const layers=[];let releasing=0,deferred=[],layerReturn=false,traverseDelta=0;
+  const layers=[];let releasing=0,deferred=[],layerReturn=false,traverseDelta=0,released=[];
   // NAV-새로고침제자리: a side step (setSub) or a place (setPlace) asked while a layer is closing waits for that back to arrive,
   // so the step's own entry is added after it instead of being the one the late back leaves (one owner of the history stack).
   let pendingSub=null,pendingPlace=null;
@@ -165,18 +165,23 @@
     if(adopt)keepReopen(layer);else if(releasing)deferred.push(layer);else pushLayer(layer);
     return {close:()=>releaseLayer(layer)};
   }
+  // UI-뒤로가기겹규칙: close() returns a promise that settles once the layer's history.back() has arrived, so an owner that closes
+  // its layer and then opens a window or goes to another screen (a menu item) can wait for it instead of having the late back undo that.
   function releaseLayer(layer){
     const at=layers.indexOf(layer);
-    if(at<0)return;
+    if(at<0)return Promise.resolve();
     layers.splice(at,1);
     const waiting=deferred.indexOf(layer);
-    if(waiting>=0){deferred.splice(waiting,1);return}
-    if(topOf(history.state)!==layer.name)return;
+    if(waiting>=0){deferred.splice(waiting,1);return Promise.resolve()}
+    if(topOf(history.state)!==layer.name)return Promise.resolve();
     releasing++;
+    const done=new Promise(resolve=>released.push(resolve));
     history.back();
+    return done;
   }
+  function settleReleased(){const list=released;released=[];list.forEach(resolve=>queueMicrotask(resolve))}
   // A view change ends the layers of the view left; their owners close them on kptu:view-changed.
-  function forgetLayers(){layers.length=0;deferred=[];releasing=0;pendingSub=null;pendingPlace=null}
+  function forgetLayers(){layers.length=0;deferred=[];releasing=0;pendingSub=null;pendingPlace=null;settleReleased()}
   function flushPending(){
     const step=pendingSub,where=pendingPlace;pendingSub=null;pendingPlace=null;
     if(step&&api.current===step.view)writeSub(step.view,step.sub,{replace:step.replace});
@@ -240,6 +245,7 @@
       releasing--;
       if(!releasing)flushPending();
       restoreFromUrl('popstate');
+      if(!releasing)settleReleased();
       return;
     }
     const sameView=appReady()&&viewFromUrl()===api.current;
