@@ -503,7 +503,7 @@ function renderEditor() {
       el('label', {class:'sp-field'}, el('span', {text:'연결 사업영역 (선택)'}), el('select', {class:'sp-input', dataset:{spProject:''}}))),
     el('p', {class:'sp-hint', text:'게시 상태일 때만 링크를 받은 사람이 볼 수 있어요. 초안으로 바꾸면 모든 링크에서 바로 안 보여요.'}),
     el('section', {class:'sp-canvas', 'aria-labelledby':'spCanvasTitle'},
-      el('p', {class:'sp-canvas-cap', id:'spCanvasTitle', text:'받는 사람에게 보이는 모양 · 블록을 누르면 그 자리에서 고쳐요'}),
+      el('p', {class:'sp-canvas-cap', id:'spCanvasTitle', text:'받는 사람에게 보이는 모양'}),
       el('div', {class:'sr-wrap sp-canvas-page'}, title, el('div', {class:'sp-blocks', dataset:{spBlocks:''}})),
       el('div', {class:'sp-add', role:'group', 'aria-label':'블록 추가'}, ['doc', ...BLOCK_TYPES].map(type =>
         el('button', {type:'button', class:'sp-tool', dataset:{spAddBlock:type}, text:`+ ${BLOCK_LABELS[type]}`}))),

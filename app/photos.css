@@ -85,11 +85,15 @@
 /* 사진 메뉴 ②: 아래 작업 줄에 [📁 옮기기]·[# 앨범]이 더해져 폰 412px에서는 한 줄 가로 넘김(줄바꿈 없음). */
 #appView #photosView .photos-act{ overflow-x:auto; scrollbar-width:none; }
 @media (max-width:760px){ #appView #photosView .photos-act{ justify-content:flex-start; } #appView #photosView .photos-act button{ flex:none; padding:0 7px; } }
-/* 이름 넣기 줄(새 폴더·이름 바꾸기·새 앨범). */
-#appView #photosView .photos-name{ display:flex; align-items:center; gap:6px; padding:4px 6px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface); font-size:var(--ds-compact-text,13px); }
+/* 이름 넣기 줄(새 폴더·이름 바꾸기·새 앨범) — S47-26: 카드·제목 없이 한 줄 [입력칸][만들기][×]. 입력칸 높이는 앱 입력칸(--kptu-control-height),
+   버튼은 작은 버튼(--ds-compact-height), 누르는 범위 44px. 공용 label 기본(세로 쌓기·굵은 글자)을 쓰지 않으려고 label을 없앴다(이름은 엷은 글자·aria-label). */
+#appView #photosView .photos-name{ display:flex; align-items:center; gap:4px; margin:0; padding:0; border:0; background:none; font-size:var(--ds-compact-text,13px); }
 #appView #photosView .photos-name[hidden]{ display:none; }
-#appView #photosView .photos-name label{ display:flex; align-items:center; gap:6px; flex:1; min-width:0; color:var(--kptu-muted); }
-#appView #photosView .photos-name input{ flex:1; min-width:0; height:var(--ds-compact-height,32px); min-height:0; padding:0 8px; font:inherit; color:var(--kptu-ink); background:var(--kptu-bg); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); }
+#appView #photosView .photos-name input{ flex:1 1 auto; width:auto; min-width:0; box-sizing:border-box; height:var(--kptu-control-height,36px); min-height:0; margin:0; padding:0 10px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); }
+#appView #photosView .photos-name input::placeholder{ color:var(--kptu-muted); opacity:.75; }
+#appView #photosView .photos-name button{ position:relative; flex:none; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 10px; font-size:var(--ds-compact-text,13px); white-space:nowrap; }
+#appView #photosView .photos-name button.photos-name-x{ width:32px; padding:0; border:0; background:none; box-shadow:none; color:var(--kptu-muted); font-size:18px; line-height:1; }
+#appView #photosView .photos-name button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 /* [폴더]: 폴더 나무(공용 folder-tree.css 줄 모양) + 위치 줄(공용 .fp-path) + 그 폴더 사진 격자. PC(761px~)는 왼쪽 나무·오른쪽 격자. */
 #appView #photosView .photos-fx{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 /* UI-칸폭끌기전수: 나무 | 사진 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 24:76). */
@@ -110,7 +114,7 @@
 #appView #photosView .photos-fx-group:first-child{ margin-top:0; }
 #appView #photosView .diary-grid-item.nx-dragging{ opacity:.55; }
 /* [앨범]: 카드 2칸(폰)·5칸(PC). 대표 사진 + #이름 + 장수. [+ 새 앨범]은 위쪽 둘째 줄 오른쪽 끝. */
-#appView #photosView .photos-albums{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+#appView #photosView .photos-albums{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; touch-action:pan-y; } /* S47-26: 앨범 목록 위 두 손가락 = 보기 크기(화면 확대 대신) */
 @media (min-width:761px){ #appView #photosView .photos-albums{ grid-template-columns:repeat(5,minmax(0,1fr)); } }
 #appView #photosView .photos-album{ position:relative; min-width:0; }
 #appView #photosView .photos-album-open{ position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:auto auto; gap:2px 4px; width:100%; min-width:0; height:auto; min-height:0; margin:0; padding:0 0 4px; border:0; background:none; box-shadow:none; text-align:left; color:var(--kptu-ink); font-size:var(--ds-compact-text,13px); font-weight:400; }

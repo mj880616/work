@@ -118,7 +118,9 @@ export function onMultiTouch(fn) {
 
 // 격자 위 두 손가락 벌리기·오므리기. onChange(dir)는 단계가 바뀐 뒤 부른다. 떼어 낼 함수를 돌려준다.
 // 붙인 영역 안에서는 두 손가락 중·직후의 누르기(click)를 먹는다(사진 열기·노트 열기로 잡히지 않게).
-export function attachPinch(grid, onChange, change = changeCols) {
+// S47-26 앨범 보기 핀치: when(event)이 있으면 두 손가락이 닿을 때 그것이 true일 때만 받고(아니면 브라우저 확대 그대로),
+// onEnd()는 받던 손동작이 끝날 때(손가락이 둘 아래로) 부른다 — 손동작 중에는 닿은 칸을 다시 그리지 않고 끝나고 다시 그리는 쪽용.
+export function attachPinch(grid, onChange, change = changeCols, {when = null, onEnd = null} = {}) {
   if (!grid?.addEventListener) return () => {};
   installMultiTouchGuard();
   const eatClick = event => { if (afterMultiTouch()) { event.preventDefault(); event.stopPropagation(); } };
@@ -126,7 +128,7 @@ export function attachPinch(grid, onChange, change = changeCols) {
   let base = 0, active = false;
   const dist = touches => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
   const start = event => {
-    if (event.touches.length === 2) { base = dist(event.touches); active = base > 0; }
+    if (event.touches.length === 2) { base = dist(event.touches); active = base > 0 && (!when || !!when(event)); }
     else if (event.touches.length > 2) active = false;
   };
   const move = event => {
@@ -137,7 +139,7 @@ export function attachPinch(grid, onChange, change = changeCols) {
     base = d;
     if (change(dir)) onChange?.(dir);
   };
-  const end = event => { if (event.touches.length < 2) active = false; };
+  const end = event => { if (event.touches.length < 2 && active) { active = false; onEnd?.(); } };
   grid.addEventListener('touchstart', start, {passive: true});
   grid.addEventListener('touchmove', move, {passive: false});
   grid.addEventListener('touchend', end, {passive: true});
