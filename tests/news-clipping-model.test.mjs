@@ -12,10 +12,14 @@ test('한 목록: 꼬리표는 채널/자동 두 가지, 칩 걸러내기 조건
   assert.equal(M.laneFilter(M.ALL), '');
   assert.equal(M.laneFilter(M.CHANNEL), '&lane=eq.channel');
   assert.equal(M.laneFilter(M.AUTO), '&lane=in.(keyword,media)');
-  assert.deepEqual(M.TABS.map(t => t.label), ['전체', '채널', '자동']);
+  assert.deepEqual(M.TABS.map(t => t.label), ['전체', '채널', '자동', '별표']);
+  assert.equal(M.laneFilter(M.STAR), '&starred_at=not.is.null');
+  assert.equal(M.orderOf(M.STAR), 'starred_at.desc,id.desc');
+  assert.equal(M.orderOf(M.ALL), 'created_at.desc,id.desc');
   assert.equal(M.tabAt(M.ALL, 1), M.CHANNEL);
   assert.equal(M.tabAt(M.ALL, -1), null);
-  assert.equal(M.tabAt(M.AUTO, 1), null);
+  assert.equal(M.tabAt(M.AUTO, 1), M.STAR);
+  assert.equal(M.tabAt(M.STAR, 1), null);
   assert.equal(M.keepTab('x'), M.ALL);
 });
 
@@ -67,4 +71,19 @@ test('키워드·매체·한도', () => {
   assert.deepEqual(M.normalizeLimits(null), M.DEFAULT_LIMITS);
   assert.equal(M.sourceNote({enabled: true, last_error: 'robots'}), '읽지 못함');
   assert.equal(M.sourceNote({enabled: false}), '');
+});
+
+test('C2 별표 폴더·메모(= 노트)', () => {
+  const F = 'f0000000-0000-4000-8000-000000000001', I = 'c0000000-0000-4000-8000-000000000001';
+  const folders = [{id: F, parent_id: null, name: '가짜 폴더'}];
+  assert.equal(M.itemFolderId({starred_at: '2026-11-01T00:00:00Z', folder_id: F}, folders), F);
+  assert.equal(M.itemFolderId({starred_at: null, folder_id: F}, folders), null, '별표 없으면 폴더 없음');
+  assert.equal(M.itemFolderId({starred_at: 'x', folder_id: 'f0000000-0000-4000-8000-000000000009'}, folders), null, '모르는 폴더');
+  assert.equal(M.noteNewsItemId({metadata: {news_item_id: I}}), I);
+  assert.equal(M.noteNewsItemId({metadata: {news_item_id: 'nope'}}), null);
+  assert.equal(M.noteNewsItemId({metadata: null}), null);
+  assert.equal(M.memoTitle({title: '  가짜   제목 '}), '기사 메모 · 가짜 제목');
+  assert.equal([...M.memoTitle({title: '가'.repeat(300)})].length, 200);
+  const idx = M.memoIndex([{id: 'n1', metadata: {news_item_id: I}, updated_at: '2026-11-01T01:00:00Z'}, {id: 'n2', metadata: {news_item_id: I}, updated_at: '2026-11-01T02:00:00Z'}, {id: 'n3', metadata: {}}]);
+  assert.equal(idx.size, 1); assert.equal(idx.get(I).id, 'n2');
 });

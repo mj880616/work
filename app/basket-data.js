@@ -196,8 +196,11 @@ export function noteTitleFromText(text) {
 // NOTE-마크다운선택: markdown (true/false) is the window's [마크다운] box, kept in the row's existing metadata jsonb (metadata.markdown).
 // ED③ 노트: doc (optional) is the new editor's saved form; raw_text is then the letters taken out of it (ed-text.mjs toPlain).
 // FEAT-1029 ④: ai_export_allowed:false (optional) keeps an AI-written draft (성명·보도자료 초안) out of AI material; any other value is not sent.
-export async function createNoteDoc({title, raw_text, markdown, doc, ai_export_allowed}, rt = window.KPTURuntime) {
-  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(typeof markdown === 'boolean' ? {metadata:{markdown}} : {}), ...(doc ? {doc} : {}), ...(ai_export_allowed === false ? {ai_export_allowed:false} : {})};
+// NEWS-클리핑 C2: news_item_id(optional, 기사 id uuid)는 뉴스 클리핑 기사 메모 = 노트(metadata.news_item_id). 다른 값은 보내지 않는다.
+export async function createNoteDoc({title, raw_text, markdown, doc, ai_export_allowed, news_item_id}, rt = window.KPTURuntime) {
+  const newsId = typeof news_item_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(news_item_id) ? news_item_id : null;
+  const metadata = {...(typeof markdown === 'boolean' ? {markdown} : {}), ...(newsId ? {news_item_id:newsId} : {})};
+  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(Object.keys(metadata).length ? {metadata} : {}), ...(doc ? {doc} : {}), ...(ai_export_allowed === false ? {ai_export_allowed:false} : {})};
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
   return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, ...body}}));

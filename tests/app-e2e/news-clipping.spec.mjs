@@ -1,93 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { openHome } from './helpers/home-entry.mjs';
+import { start, openNews } from './helpers/news-server.mjs';
 // NEWS-클리핑 C1(docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑' 메뉴(?view=news).
 // 한 목록(꼬리표 채널/자동) · 한 문장 요약 늘 보임 · 본문 접기([본문 열기]=news-feed open) · 외국어 [번역](저장본 재사용) · 유료는 공개 요약만 + 원문
 // · ⋯ [지금 채우기]·[키워드 고치기]·[매체 켜고 끄기](서버 저장, 뒤로가기 한 번 = 목록) · 폰 좌우 밀기로 칩 이동. 사회운동 Now ⋯에도 [지금 채우기](read_now 재사용).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 기사·매체·주소는 모두 가짜(example.org).
-const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const CATALOG = [
-  { key: 'news-fake-a', name: '가짜노동신문', region: 'domestic', lang: 'ko' },
-  { key: 'news-fake-b', name: '가짜일보', region: 'domestic', lang: 'ko' },
-  { key: 'news-fake-en', name: 'Fake Wire', region: 'foreign', lang: 'en' },
-];
-const LIMITS = { fill: 10, translate: 20, open: 60, keyword_items: 30, keywords: 30 };
-const ITEMS = () => [
-  { id: 'c1', lane: 'channel', url: 'https://example.org/c1', title: '가짜 채널 기사', lang: 'ko', publisher: '가짜노동신문', source_key: null, keywords: [], published_at: '2026-10-06T00:00:00Z', scrapped_at: '2026-10-06T00:20:00Z', created_at: '2026-10-06T00:21:00Z', state: 'ok', summary: '가짜 채널 기사 한 문장 요약.', body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
-  { id: 'k1', lane: 'keyword', url: 'https://news.google.com/rss/articles/fake-1', title: '가짜 키워드 기사', lang: 'ko', publisher: '가짜일보', source_key: null, keywords: ['가짜어'], published_at: '2026-10-05T22:00:00Z', scrapped_at: null, created_at: '2026-10-06T00:10:00Z', state: 'ok', summary: '가짜 키워드 요약.', body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
-  { id: 'e1', lane: 'media', url: 'https://example.org/en1', title: 'A fake foreign story', lang: 'en', publisher: 'Fake Wire', source_key: 'news-fake-en', keywords: [], published_at: '2026-10-05T03:00:00Z', scrapped_at: null, created_at: '2026-10-05T03:10:00Z', state: 'ok', summary: 'One fake line.', body_kind: 'full', title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: 'Fake body paragraph.' },
-  { id: 'p1', lane: 'channel', url: 'https://example.org/paid', title: '가짜 유료 기사', lang: 'ko', publisher: '가짜일보', source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-05T02:00:00Z', created_at: '2026-10-05T02:01:00Z', state: 'paywall', summary: '공개된 가짜 요약.', body_kind: 'lead', title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: '공개된 가짜 앞부분.' },
-  { id: 'w1', lane: 'channel', url: 'https://www.example.org/wait', title: null, lang: 'ko', publisher: null, source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-04T02:00:00Z', created_at: '2026-10-04T02:01:00Z', state: 'pending', summary: null, body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
-];
-
-async function newsServer(page) {
-  const server = { items: ITEMS(), keywords: [{ word: '가짜어', enabled: true, created_at: '2026-10-01T00:00:00Z' }], sources: new Map([['news-fake-a', { source_key: 'news-fake-a', enabled: true, last_ok_at: '2026-10-06T00:07:00Z', last_error: null }]]), calls: [] };
-  await page.route(SB + '/**', async route => {
-    const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
-    const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
-    const body = req.postDataJSON?.() ?? null;
-    if (p === '/functions/v1/news-feed') {
-      const action = u.searchParams.get('action');
-      server.calls.push({ what: 'edge', action, method, auth: req.headers().authorization || '', body });
-      if (action === 'catalog') return ok({ ok: true, sources: CATALOG, limits: LIMITS });
-      if (action === 'open') { const it = server.items.find(i => i.id === body.id); it._body = '가짜 본문 첫 문단.'; it.body_kind = 'full'; return ok({ ok: true, status: 'ok' }); }
-      if (action === 'translate') { const it = server.items.find(i => i.id === body.id); it.title_ko = '가짜 외국 기사'; it._body_ko = '가짜 번역 본문.'; it.translated_at = '2026-10-06T01:00:00Z'; return ok({ ok: true, status: 'translated' }); }
-      if (action === 'fill_now') { const it = server.items.find(i => i.id === 'w1'); Object.assign(it, { state: 'ok', title: '채운 가짜 기사', summary: '채운 가짜 요약.' }); return ok({ ok: true, done: 1, deferred: 0 }); }
-      return ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
-    }
-    if (p === '/functions/v1/outside-feed') {
-      const action = u.searchParams.get('action');
-      server.calls.push({ what: 'outside-edge', action, body });
-      if (action === 'catalog') return ok({ ok: true, sources: [{ key: 'kctu', name: '가짜총연맹', group: 'kctu', lang: 'ko' }] });
-      if (action === 'read_now') return ok({ ok: true, source: body.source, status: 'ok', inserted: 0 });
-      return ok({ ok: false }, 400);
-    }
-    if (p.startsWith('/rest/v1/app_outside_') && !p.endsWith('app_outside_sources')) return ok([]);
-    if (!p.startsWith('/rest/v1/app_news_') && p !== '/rest/v1/app_outside_sources') return route.fallback();
-    server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body });
-    if (p === '/rest/v1/app_news_items') {
-      const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
-      const view = it => { const { _body, _body_ko, ...row } = it; return { ...row, body: _body ?? null, body_ko: _body_ko ?? null }; };
-      if (id) return ok(server.items.filter(i => i.id === id).map(view));
-      const lane = u.searchParams.get('lane');
-      const rows = server.items.filter(i => !lane || (lane === 'eq.channel' ? i.lane === 'channel' : i.lane !== 'channel'));
-      return ok(rows.map(({ _body, _body_ko, ...row }) => row));
-    }
-    if (p === '/rest/v1/app_news_keywords') {
-      const word = (u.searchParams.get('word') || '').replace(/^eq\./, '');
-      if (method === 'POST') { const row = { word: body.word, enabled: body.enabled, created_at: '2026-10-06T01:00:00Z' }; server.keywords.push(row); return ok([row], 201); }
-      if (method === 'PATCH') { const row = server.keywords.find(k => k.word === word); row.enabled = body.enabled; return ok([row]); }
-      if (method === 'DELETE') { server.keywords = server.keywords.filter(k => k.word !== word); return route.fulfill({ status: 204 }); }
-      return ok(server.keywords);
-    }
-    if (p === '/rest/v1/app_outside_sources') {
-      const key = (u.searchParams.get('source_key') || '').replace(/^eq\./, '');
-      if (method === 'PATCH') { const row = server.sources.get(key); row.enabled = body.enabled; return ok([row]); }
-      if (method === 'POST') { const row = { source_key: body.source_key, enabled: body.enabled, last_ok_at: null, last_error: null }; server.sources.set(row.source_key, row); return ok([row], 201); }
-      const like = u.searchParams.get('source_key');
-      return ok([...server.sources.values()].filter(r => like !== 'like.news-*' || r.source_key.startsWith('news-')));
-    }
-    return ok([]);
-  });
-  return server;
-}
-
-async function start(page, width) {
-  await page.setViewportSize({ width, height: 900 });
-  const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
-  await openHome(page);
-  const server = await newsServer(page);
-  return { errors, server };
-}
-async function openNews(page, width) {
-  if (width <= 760) {
-    await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: '뉴스 클리핑' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '뉴스 클리핑', exact: true }).click();
-  await expect(page.locator('#newsView')).toBeVisible();
-  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
-}
 const root = page => page.locator('#newsRoot');
 const items = page => root(page).locator('[data-nc-item]');
 const item = (page, id) => root(page).locator(`[data-nc-item="${id}"]`);

@@ -71,3 +71,29 @@
 #appView #newsView .nc-kw-add input{ flex:1 1 auto; min-width:0; max-width:20em; height:var(--ds-compact-height,32px); box-sizing:border-box; font-size:var(--ds-text-row,14px); }
 #appView #newsView .nc-kw-add-btn{ flex:none; }
 @media (prefers-reduced-motion:reduce){ #appView #newsView :is(.nc-switch-dot,.nc-switch-dot::after){ transition:none; } }
+
+/* C2: 별표(☆/★ 작은 글자 단추, 꼬리 줄 오른쪽) · 폴더 트리(노트 폴더 트리와 같은 들여쓰기 칸) · 내 메모(= 노트). */
+#appView #newsView .nc-head{ display:flex; align-items:flex-start; gap:6px; min-width:0; }
+#appView #newsView .nc-head > .nc-meta{ flex:1 1 auto; min-width:0; }
+#appView #newsView .nc-star{ position:relative; flex:none; display:inline-grid; place-items:center; width:24px; height:18px; min-height:0; margin:0; padding:0; font-size:14px; line-height:1;
+  color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; cursor:pointer; }
+#appView #newsView .nc-star::after{ content:""; position:absolute; inset:-13px -10px; }
+#appView #newsView .nc-star[aria-pressed="true"]{ color:var(--ds-kind-other-ink); }
+#appView #newsView .nc-star:focus-visible,#appView #newsView .nc-folder:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:1px; }
+#appView #newsView .nc-tree-head{ display:flex; align-items:center; gap:8px; }
+#appView #newsView .nc-tree-head .nc-new-folder{ align-self:flex-start; margin:4px 0; }
+#appView #newsView .nc-folder-row{ display:flex; align-items:center; gap:4px; min-height:32px; padding-left:calc(var(--nc-indent,0) * 14px); border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #newsView .nc-folder{ display:inline-flex; align-items:center; gap:6px; flex:1 1 auto; min-width:0; min-height:32px; margin:0; padding:0 2px; font:inherit; font-size:var(--ds-text-row,14px);
+  color:var(--kptu-ink); background:transparent; border:0; box-shadow:none; cursor:pointer; text-align:left; }
+#appView #newsView .nc-caret{ width:12px; color:var(--kptu-muted); font-size:11px; }
+#appView #newsView .nc-folder-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#appView #newsView .nc-folder-more{ position:relative; flex:none; display:inline-grid; place-items:center; width:var(--ds-compact-height,32px); height:28px; min-height:0; margin:0; padding:0; color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; cursor:pointer; }
+#appView #newsView .nc-folder-more::after{ content:""; position:absolute; inset:-8px -6px; }
+#appView #newsView .nc-tree-item{ padding-left:calc(var(--nc-indent,0) * 14px); }
+#appView #newsView .nc-item.is-focus{ background:var(--ds-select-bg); }
+#appView #newsView .nc-memo-text{ margin:2px 0 0; font-size:13px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--kptu-ink); }
+#appView #newsView .nc-memo-label{ margin-right:6px; font-size:11px; color:var(--kptu-muted); }
+#appView #newsView .nc-memo{ display:flex; flex-direction:column; gap:4px; margin:4px 0 2px; }
+#appView #newsView .nc-memo textarea{ box-sizing:border-box; width:100%; min-height:64px; font:inherit; font-size:13px; line-height:1.5; resize:vertical; }
+#appView #newsView .nc-memo-actions{ display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px; }
+#appView #newsView .nc-memo-actions .nc-panel-note{ margin:0 auto 0 0; }

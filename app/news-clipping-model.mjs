@@ -5,10 +5,13 @@
 export const ALL = 'all';
 export const CHANNEL = 'channel';
 export const AUTO = 'auto';
+// C2: 별표한 기사는 폴더 트리(폴더 안 폴더)로 본다.
+export const STAR = 'star';
 export const TABS = Object.freeze([
   {id: ALL, label: '전체'},
   {id: CHANNEL, label: '채널'},
   {id: AUTO, label: '자동'},
+  {id: STAR, label: '별표'},
 ]);
 export const PAGE_SIZE = 40;
 export const KEYWORD_MAX_CHARS = 30;
@@ -19,8 +22,10 @@ export const DEFAULT_LIMITS = Object.freeze({fill: 10, translate: 20, keyword_it
 export function laneFilter(tab) {
   if (tab === CHANNEL) return '&lane=eq.channel';
   if (tab === AUTO) return '&lane=in.(keyword,media)';
+  if (tab === STAR) return '&starred_at=not.is.null';
   return '';
 }
+export const orderOf = tab => (tab === STAR ? 'starred_at.desc,id.desc' : 'created_at.desc,id.desc');
 export const tagOf = item => (item?.lane === 'channel' ? '채널' : '자동');
 export const tabAt = (tab, step) => {
   const i = TABS.findIndex(t => t.id === tab) + step;
@@ -148,4 +153,32 @@ export function sourceNote(row) {
   const t = Date.parse(row.last_ok_at || '');
   if (!Number.isFinite(t)) return '아직 읽지 않음';
   return `${dayLabel(dayKey(t))} ${hhmm(t)} 읽음`;
+}
+
+// ---------- C2: 별표 폴더 · 메모(= 노트) ----------
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = v => typeof v === 'string' && UUID.test(v);
+// 기사 → 별표 폴더 id(없거나 모르는 폴더면 null = 폴더 없음).
+export const itemFolderId = (item, folders) => (item?.starred_at && isUuid(item.folder_id) && folders.some(f => f.id === item.folder_id) ? item.folder_id : null);
+// 메모 노트 → 기사 id(metadata.news_item_id). 노트 화면의 [기사로 가기]도 이것만 본다.
+export function noteNewsItemId(note) {
+  const m = note?.metadata;
+  const id = m && typeof m === 'object' && !Array.isArray(m) ? m.news_item_id : null;
+  return isUuid(id) ? id : null;
+}
+// 메모 노트 제목: '기사 메모 · 기사 제목'(한 줄, 200자 안쪽). 노트 목록에서 어느 기사 메모인지 보이게.
+export function memoTitle(item) {
+  const t = String(item?.title_ko || item?.title || domainOf(item?.url) || '기사').replace(/\s+/g, ' ').trim();
+  return [...`기사 메모 · ${t}`].slice(0, 200).join('');
+}
+// 기사 id 여러 개 → 메모 노트 묶음(기사마다 가장 최근에 고친 노트 하나).
+export function memoIndex(notes) {
+  const out = new Map();
+  for (const n of Array.isArray(notes) ? notes : []) {
+    const id = noteNewsItemId(n);
+    if (!id) continue;
+    const have = out.get(id);
+    if (!have || String(n.updated_at || '') > String(have.updated_at || '')) out.set(id, n);
+  }
+  return out;
 }

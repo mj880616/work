@@ -40,7 +40,7 @@ const routeStyles={
   photos:['./diary.css','./od-link.css','./photos.css','./folder-tree.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./ui-standard.css'],
   outside:['./outside-statements.css','./ui-standard.css'],
-  news:['./news-clipping.css','./ui-standard.css'],
+  news:['./news-clipping.css','./library-upload.css','./ui-standard.css'],
   updates:['./release-notes.css','./ui-standard.css']
 };
 async function prepare(view){
