@@ -27,7 +27,7 @@ const ipswichAssistCorrections = new Map([
 ]);
 
 // S46-26 예정 경기 줄: 이 키만 둘 수 있다(점수·결과·득점자·통계·리뷰 글 없음).
-const upcomingKeys = new Set(['id', 'upcoming', 'date', 'kickoff', 'season', 'competition', 'round', 'venue', 'home', 'away', 'sources']);
+const upcomingKeys = new Set(['id', 'upcoming', 'date', 'kickoff', 'season', 'competition', 'round', 'venue', 'home', 'away', 'broadcast', 'sources']);
 const upcomingCompetitions = new Set(['Premier League', 'UEFA Champions League', 'Carabao Cup', 'FA Cup']);
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 // 한국 날짜(YYYY-MM-DD). 예정 줄의 date·kickoff는 한국 시간이다.
@@ -70,6 +70,11 @@ function auditUpcoming(match, name, today, errors) {
   }
   if (match.venue !== undefined && (typeof match.venue !== 'string' || !match.venue.trim())) errors.push(`${name}: invalid venue`);
   if ((match.home === '아스날') === (match.away === '아스날')) errors.push(`${name}: Arsenal must be exactly one side`);
+  // S47-63 선택 칸: 국내 중계 이름(글자, 40자까지, 주소·줄바꿈 없음). 찾지 못하면 칸을 넣지 않는다(빈 글자 금지).
+  if (match.broadcast !== undefined && (typeof match.broadcast !== 'string' || !match.broadcast.trim() ||
+      match.broadcast.length > 40 || /[\r\n<>]|https?:/i.test(match.broadcast))) {
+    errors.push(`${name}: invalid broadcast`);
+  }
   if (match.sources !== undefined && (!Array.isArray(match.sources) ||
       new Set(match.sources.map(source => source?.url)).size !== match.sources.length ||
       match.sources.some(source => !source || typeof source.label !== 'string' || !source.label.trim() || !isHttps(source.url)))) {

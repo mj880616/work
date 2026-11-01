@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {ALL, normalizeMatches, seasonsOf, competitionsOf, competitionText, filterMatches, pickMatch, dateText, scoreText,
-  goalsOf, reviewSections, statsOf, safeUrl, linksOf, isUpcoming, upcomingOf, upcomingText, kstToday} from '../app/arsenal-model.mjs';
+  goalsOf, reviewSections, statsOf, safeUrl, linksOf, isUpcoming, upcomingOf, upcomingText, broadcastOf, kstToday} from '../app/arsenal-model.mjs';
 
 const context = {window: {}};
 runInNewContext(readFileSync(new URL('../app/arsenal/matches.js', import.meta.url), 'utf8'), context);
@@ -96,4 +96,15 @@ test('S46-26 예정 경기 줄: 목록·개수·득점에서 빠지고, 오늘 �
     assert.equal(m.homeScore, undefined, m.id);
     assert.equal(m.goals, undefined, m.id);
   }
+});
+
+test('S47-63 예정 줄 중계: 있을 때만 글자, 끝난 경기·형식 틀림은 빈 글자', () => {
+  const up = {id: 'u', upcoming: true, date: '2026-11-08', home: '아스날', away: 'B'};
+  assert.equal(broadcastOf({...up, broadcast: ' 쿠팡플레이 '}), '쿠팡플레이');
+  assert.equal(broadcastOf(up), '');
+  assert.equal(broadcastOf({...up, broadcast: ''}), '');
+  assert.equal(broadcastOf({...up, broadcast: 'https://a.example/'}), '');
+  assert.equal(broadcastOf({...up, broadcast: 'x'.repeat(41)}), '');
+  assert.equal(broadcastOf({...up, broadcast: 7}), '');
+  assert.equal(broadcastOf({id: 'f', date: '2026-10-27', home: '아스날', away: 'A', homeScore: 1, awayScore: 0, broadcast: '쿠팡플레이'}), '');
 });

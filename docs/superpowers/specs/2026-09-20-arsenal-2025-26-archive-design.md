@@ -53,10 +53,10 @@ Serve `personal/arsenal-match-archive/index.html` locally and run browser checks
 폰 아스날 위젯(`android-app/.../WidgetArsenal.kt`)의 '다음 경기' 칸과 Web2 아스날 화면의 '예정' 줄을 위해, `app/arsenal/matches.js`에 끝나지 않은 경기를 같은 배열 안의 짧은 줄로 둔다.
 
 - 표시: `"upcoming": true`. 점수(`homeScore`·`awayScore`)가 없다. 위젯은 점수가 없고 날짜가 오늘 이후인 줄을 다음 경기로 쓰고, 화면·검사는 `upcoming` 표시로 예정 줄을 가린다.
-- 둘 수 있는 키는 이것뿐이다: `id`, `upcoming`, `date`, `kickoff`, `season`, `competition`, `round`, `venue`(확정된 경기장만, 없으면 뺌), `home`, `away`, `sources`(공식 일정 https 링크). 결과·득점자(`goals`)·득점 출처·통계·라인업·사건·리뷰 글(`title`·`subtitle`·`verdict`·`summary` 등)은 넣지 않는다.
+- 둘 수 있는 키는 이것뿐이다: `id`, `upcoming`, `date`, `kickoff`, `season`, `competition`, `round`, `venue`(확정된 경기장만, 없으면 뺌), `home`, `away`, `broadcast`(선택, S47-63: 국내 중계 이름 글자 40자까지. 예: `쿠팡플레이`. 찾지 못하면 칸을 넣지 않는다), `sources`(공식 일정 https 링크). 결과·득점자(`goals`)·득점 출처·통계·라인업·사건·리뷰 글(`title`·`subtitle`·`verdict`·`summary` 등)은 넣지 않는다.
 - `id`: 끝난 경기와 같은 규칙(`현지 경기 날짜-상대-home|away[-ucl|-carabao|-facup]`). 끝나면 같은 `id`의 결과 줄로 바꾸므로 id는 그대로 이어진다.
 - `date`·`kickoff`: **한국 시간** 기준 날짜와 `HH:MM`. 영국 16:30 GMT 일요일 경기는 `date` = 다음 날(월), `kickoff` = `01:30`. 결과 줄로 바꿀 때 `date`는 끝난 경기 규칙(현지 경기 날짜)으로 고친다. 시각이 공식으로 확인되지 않은 경기는 넣지 않는다.
 - `competition`: `Premier League`, `UEFA Champions League`, `Carabao Cup`, `FA Cup` 중 하나. `round`는 끝난 경기와 같은 표기(`9R`, `League Phase MD4` 등).
 - 개수: 늘 다음 공식 경기 3개. 지난 날짜(한국 날짜가 오늘보다 앞)인 예정 줄은 검사(`scripts/arsenal/validate-archive.mjs`)가 실패시킨다 — 끝난 경기는 결과 줄로 바꾸고 다음 경기를 더한다.
 - 검사: 끝난 경기 검사는 그대로이고, 점수가 없는 줄은 `upcoming` 표시가 있어야 한다(시즌 무관). 2026-27 기록 보호(기준 커밋 대조)는 예정 줄을 지킬 기록으로 보지 않는다(시각 변경·결과 줄로 교체·삭제 허용). 거꾸로 결과 줄을 예정 줄로 되돌리면 실패한다.
-- 화면: Web2 아스날 목록 위에 `예정 · 11.2.(월) 01:30 원정 리버풀 · 프리미어리그` 모양의 작은 줄(누르지 않음). 경기 수·시즌·기록·통계·득점 계산에는 들어가지 않는다. 옛 기록 페이지(`personal/arsenal-match-archive`)는 예정 줄을 보이지 않는다.
+- 화면: Web2 아스날 목록 위에 `예정 · 11.2.(월) 01:30 원정 리버풀 · 프리미어리그` 모양의 작은 줄(누르지 않음). `broadcast`가 있으면 끝에 ` · 중계 쿠팡플레이`를 붙인다. 경기 수·시즌·기록·통계·득점 계산에는 들어가지 않는다. 옛 기록 페이지(`personal/arsenal-match-archive`)는 예정 줄을 보이지 않는다.
