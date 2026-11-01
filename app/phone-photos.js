@@ -8,18 +8,23 @@
 // - PHOTO-폴더스위치(앱 0.4.1+, 상태에 hide·ops·manage): 목록·달·날·번호 읽기에 hide(끈 폰 폴더 JSON 배열)를 붙이면 앱이 그 폴더 사진을 뺀다.
 //   폰 폴더 바꾸기는 'photos:op:{op,…}'(이름 바꾸기·폴더 옮기기·고른 사진 옮기기·폴더 지우기=폰 휴지통) → 'photos:done:{ok,count,error,path}'.
 //   'photos:manage' = '미디어 관리 허용' 설정 화면(켜 두면 바꿀 때 매번 묻지 않음). 옛 앱(0.4.0 이하)은 hide를 모르므로 붙이지 않는다(400).
+// - PHOTO-갤러리편집(앱 0.4.6+, 상태에 edit): 'photos:edit:{id}|{name,size,taken}' = 삼성 갤러리 편집기(없으면 고르기 창)로 넘김
+//   → 'photos:edited:{ok,changed,error}'. 폰에 없는 사진은 'photos:save:begin|part|end'로 원본 바이트를 Pictures/웹2에 한 장 저장한 뒤 그 번호로 편집.
 import {phoneToItem, phoneFailure} from './photo-sources-model.mjs';
 import {slotImg} from './img-slot.js';
 
 const BRIDGE = 'KPTUAppShell';
 const HELLO_MS = 1500, TRASH_MS = 120000, OP_MS = 180000, HIDE_MAX = 80;
+// 편집기에 머무는 시간(넉넉히 2시간), 받기 한 걸음 대기, 한 조각 바이트(base64로 512KB — 앱 한도 안), 받는 사진 한도(앱과 같게).
+const EDIT_MS = 2 * 60 * 60 * 1000, SAVE_STEP_MS = 30000, SAVE_PART = 384 * 1024, SAVE_MAX = 60 * 1024 * 1024;
+const SAVE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
 
 export function createPhonePhotos(win = globalThis.window) {
   const ua = /KPTUAndroid/i.test(win?.navigator?.userAgent || '');
   const bridge = win?.[BRIDGE];
   const usable = ua && !!bridge && typeof bridge.postMessage === 'function' && typeof bridge.addEventListener === 'function';
-  let state = {known:false, access:'none', key:'', trash:false, hide:false, ops:false, manage:false};
-  let helloWait = null, trashWait = null, opWait = null;
+  let state = {known:false, access:'none', key:'', trash:false, hide:false, ops:false, manage:false, edit:false};
+  let helloWait = null, trashWait = null, opWait = null, editWait = null, saveWait = null;
   const listeners = new Set();
   const send = t => { try { bridge.postMessage(t); return true; } catch { return false; } };
   if (usable) {
@@ -30,13 +35,21 @@ export function createPhonePhotos(win = globalThis.window) {
         const access = ['full', 'partial', 'none'].includes(v?.access) ? v.access : 'none';
         const key = access !== 'none' && /^[A-Za-z0-9_-]{22,64}$/.test(v?.key || '') ? v.key : '';
         const changed = !state.known || state.access !== access || state.key !== key || state.manage !== (v?.manage === true);
-        state = {known:true, access:key ? access : 'none', key, trash:v?.trash === true, hide:v?.hide === true, ops:v?.hide === true && v?.ops === true, manage:v?.manage === true};
+        state = {known:true, access:key ? access : 'none', key, trash:v?.trash === true, hide:v?.hide === true, ops:v?.hide === true && v?.ops === true, manage:v?.manage === true, edit:v?.edit === true};
         helloWait?.(state); helloWait = null;
         if (changed) listeners.forEach(fn => { try { fn(state); } catch { /* 한 곳 실패가 다른 곳을 막지 않게 */ } });
       } else if (d.startsWith('photos:trashed:')) {
         let v = null; try { v = JSON.parse(d.slice('photos:trashed:'.length)); } catch { v = null; }
         const w = trashWait; trashWait = null;
         w?.({ok:v?.ok === true, count:Number.isInteger(v?.count) ? v.count : 0});
+      } else if (d.startsWith('photos:edited:')) {
+        let v = null; try { v = JSON.parse(d.slice('photos:edited:'.length)); } catch { v = null; }
+        const w = editWait; editWait = null;
+        w?.({ok:v?.ok === true, changed:v?.changed === true, error:typeof v?.error === 'string' ? v.error.slice(0, 20) : 'failed'});
+      } else if (d.startsWith('photos:save:')) {
+        let v = null; try { v = JSON.parse(d.slice('photos:save:'.length)); } catch { v = null; }
+        const w = saveWait; saveWait = null;
+        w?.({ok:v?.ok === true, step:String(v?.step || ''), id:/^\d{1,18}$/.test(v?.id || '') ? v.id : '', error:typeof v?.error === 'string' ? v.error.slice(0, 20) : 'failed'});
       } else if (d.startsWith('photos:done:')) {
         let v = null; try { v = JSON.parse(d.slice('photos:done:'.length)); } catch { v = null; }
         const w = opWait; opWait = null;
@@ -158,6 +171,48 @@ export function createPhonePhotos(win = globalThis.window) {
         if (!send('photos:op:' + text)) { opWait = null; ok({ok:false, count:0, error:'failed', path:null}); }
       });
     },
+    // PHOTO-갤러리편집: 이 앱이 [편집]을 안다(0.4.6+). PC·브라우저·옛 앱은 false.
+    canEdit: () => usable && state.known && state.edit,
+    // 편집기로 넘기기. item = 폰 사진({phoneId}) 또는 원드라이브·구글 드라이브 사진({name, size_bytes, taken_at} — 같은 사진이 폰에 있으면 그것).
+    // 답 {ok, changed(사진첩이 바뀜), error: none(폰에 없음)·busy·noapp·failed·old}.
+    edit(item) {
+      if (!api.canEdit() || !item || item.video) return Promise.resolve({ok:false, changed:false, error:'old'});
+      const taken = Date.parse(item.taken_at || '');
+      const target = item.kind === 'phone' && /^\d{1,18}$/.test(String(item.phoneId || '')) ? {id:String(item.phoneId)}
+        : {name:String(item.name || '').slice(0, 255), size:Number.isInteger(item.size_bytes) && item.size_bytes > 0 ? item.size_bytes : 0, taken:Number.isFinite(taken) && taken > 0 ? taken : 0};
+      if (!target.id && !target.name && !target.size) return Promise.resolve({ok:false, changed:false, error:'none'});
+      editWait?.({ok:false, changed:false, error:'busy'});
+      return new Promise(resolve => {
+        let timer = null;
+        const ok = v => { clearTimeout(timer); resolve(v); };
+        editWait = ok;
+        timer = setTimeout(() => { if (editWait === ok) { editWait = null; ok({ok:false, changed:false, error:'failed'}); } }, EDIT_MS);
+        if (!send('photos:edit:' + JSON.stringify(target))) { editWait = null; ok({ok:false, changed:false, error:'failed'}); }
+      });
+    },
+    // 폰에 없는 사진의 원본(Blob)을 폰 사진첩 Pictures/웹2에 한 장 저장 → {ok, id(폰 사진 번호), error}. 바이트는 앱 다리로만(서버 안 거침).
+    async save(blob, name = '') {
+      const type = saveType(blob?.type, name);
+      if (!api.canEdit() || !blob || !SAVE_MIMES.includes(type) || !(blob.size > 0) || blob.size > SAVE_MAX) return {ok:false, id:'', error:blob?.size > SAVE_MAX ? 'big' : 'type'};
+      const step = text => new Promise(resolve => {
+        let timer = null;
+        const ok = v => { clearTimeout(timer); resolve(v); };
+        saveWait?.({ok:false, step:'', id:'', error:'busy'});
+        saveWait = ok;
+        timer = setTimeout(() => { if (saveWait === ok) { saveWait = null; ok({ok:false, step:'', id:'', error:'failed'}); } }, SAVE_STEP_MS);
+        if (!send(text)) { saveWait = null; ok({ok:false, step:'', id:'', error:'failed'}); }
+      });
+      let r = await step('photos:save:begin:' + JSON.stringify({name:String(name || '').slice(0, 255), mime:type, size:blob.size}));
+      if (!r.ok) return {ok:false, id:'', error:r.error || 'failed'};
+      for (let at = 0; at < blob.size; at += SAVE_PART) {
+        let part = '';
+        try { part = base64(new Uint8Array(await blob.slice(at, at + SAVE_PART).arrayBuffer())); } catch { part = ''; }
+        r = part ? await step('photos:save:part:' + part) : {ok:false, error:'failed'};
+        if (!r.ok) { send('photos:save:cancel'); return {ok:false, id:'', error:r.error || 'failed'}; }
+      }
+      r = await step('photos:save:end');
+      return r.ok && r.id ? {ok:true, id:r.id, error:''} : {ok:false, id:'', error:r.error || 'failed'};
+    },
     // '미디어 관리 허용' 설정 화면 열기(돌아오면 앱이 상태를 다시 알린다).
     manage: () => (usable && state.ops ? send('photos:manage') : false),
     // 사진 칸 하나(odPhotoElement와 같은 모양: span.diary-photo > img, 회색 칸 → 그림 → 못 받으면 ↻).
@@ -174,6 +229,19 @@ export function createPhonePhotos(win = globalThis.window) {
     },
   };
   return api;
+}
+// 받을 그림 종류: Blob 종류가 그림이 아니면(서버 중계가 octet-stream 등) 이름 끝으로 고른다.
+const EXT_MIME = {jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', heic:'image/heic', heif:'image/heif', gif:'image/gif'};
+export function saveType(type, name) {
+  const t = String(type || '').toLowerCase().split(';')[0].trim();
+  if (SAVE_MIMES.includes(t)) return t;
+  return EXT_MIME[(/\.([A-Za-z0-9]{1,5})$/.exec(String(name || '')) || [])[1]?.toLowerCase()] || t;
+}
+// 바이트 → base64(32KB씩 글자로 바꿔 btoa).
+export function base64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
 }
 let shared = null;
 export const phonePhotos = () => (shared ||= createPhonePhotos());

@@ -227,4 +227,73 @@ object PhoneMedia {
         val byId = all(context, fresh = true).associateBy { it.id }
         return ids.mapNotNull { byId[it] }.map(::uriOf)
     }
+
+    // ── PHOTO-갤러리편집(0.4.6) ──
+
+    /** 사진첩 세대 번호(안드로이드 11+). 편집기에서 돌아온 뒤 바뀌었는지 본다. 못 읽으면 -1. */
+    fun generation(context: Context): Long = try {
+        if (Build.VERSION.SDK_INT >= 30) MediaStore.getGeneration(context, MediaStore.VOLUME_EXTERNAL_PRIMARY) else -1L
+    } catch (_: Exception) {
+        -1L
+    }
+
+    /** 편집할 폰 사진(번호 또는 같은 사진 찾기). 접근 허용이 없으면 찾지 않는다(null → 웹이 원본 받기를 묻는다). */
+    fun editTarget(context: Context, target: PhotoEditRules.Target): PhoneMediaRules.Media? {
+        if (access(context) == PhoneMediaRules.Access.NONE) return null
+        return try {
+            PhotoEditRules.pick(all(context, fresh = true), target)
+        } catch (e: Exception) {
+            log(PhoneMediaRules.classify(e, PhoneMediaRules.Stage.LIST), PhoneMediaRules.detailOf(e), "edit-find")
+            null
+        }
+    }
+
+    /** 폰에 없는 사진 한 장 저장 시작: Pictures/웹2에 숨긴 칸(IS_PENDING)을 만들고 쓰기 통로를 연다. */
+    class Save(val uri: Uri, val out: java.io.OutputStream, val rules: PhotoEditRules.Saving, val mime: String)
+
+    fun saveBegin(context: Context, begin: PhotoEditRules.Message.Begin): Save {
+        val values = android.content.ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, begin.name)
+            put(MediaStore.MediaColumns.MIME_TYPE, begin.mime)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, PhotoEditRules.SAVE_DIR)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val resolver = context.contentResolver
+        val uri = resolver.insert(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)
+            ?: throw IllegalStateException("insert")
+        val out = try {
+            resolver.openOutputStream(uri, "w") ?: throw IllegalStateException("open")
+        } catch (e: Exception) {
+            try { resolver.delete(uri, null, null) } catch (_: Exception) {}
+            throw e
+        }
+        return Save(uri, out, PhotoEditRules.Saving(begin.size), begin.mime)
+    }
+
+    /** 조각 하나 쓰기. 선언한 크기를 넘으면 false. */
+    fun saveWrite(save: Save, bytes: ByteArray): Boolean {
+        if (!save.rules.add(bytes.size)) return false
+        save.out.write(bytes)
+        return true
+    }
+
+    /** 다 받았으면 보이게(IS_PENDING 0) 하고 번호를 돌려준다. 크기가 다르면 지우고 null. */
+    fun saveEnd(context: Context, save: Save): Long? {
+        try { save.out.close() } catch (_: Exception) {}
+        if (!save.rules.complete) {
+            saveDrop(context, save)
+            return null
+        }
+        val values = android.content.ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+        context.contentResolver.update(save.uri, values, null, null)
+        forget()
+        return ContentUris.parseId(save.uri)
+    }
+
+    fun saveDrop(context: Context, save: Save) {
+        try { save.out.close() } catch (_: Exception) {}
+        try { context.contentResolver.delete(save.uri, null, null) } catch (_: Exception) {}
+    }
+
+    fun logEdit(stage: String, e: Exception) = log(PhoneMediaRules.Fail.DECODE, PhoneMediaRules.detailOf(e), stage)
 }
