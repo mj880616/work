@@ -76,6 +76,7 @@ on:
       - 'tests/phone-recorder.test.mjs'
       - 'tests/phone-widget-write.test.mjs'
       - 'tests/phone-pull-refresh.test.mjs'
+      - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
@@ -205,6 +206,7 @@ on:
       - 'tests/phone-recorder.test.mjs'
       - 'tests/phone-widget-write.test.mjs'
       - 'tests/phone-pull-refresh.test.mjs'
+      - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
@@ -572,6 +574,9 @@ jobs:
 
       - name: Check phone app pull to refresh (APP-당겨서새로고침)
         run: node --test tests/phone-pull-refresh.test.mjs
+
+      - name: Check phone app reopen reasons and in-place open (APP-다시열림)
+        run: node --test tests/phone-reopen.test.mjs
 
       - name: Check phone push settings and device sync (APP-폰알림 N4)
         run: node --test tests/phone-push-settings.test.mjs
