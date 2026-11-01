@@ -60,8 +60,8 @@ import {mountReorder} from './reorder-drag.js';
 import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
 import {fileNameTitle} from './library-file-name.mjs';
-import {pickBase, teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback} from './weekly-feedback.mjs';
-import {reviewCard, answerSuggestion, readLearnRows, candidateChange} from './weekly-learn-panel.js';
+import {pickBase, teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback, readRules} from './weekly-feedback.mjs';
+import {reviewCard, answerSuggestion, readLearnRows, ruleChange} from './weekly-learn-panel.js';
 import {caretLine, askTargets, lineRequest, readAnswer, replaceLine, suggestKey, PICK_MS, PAUSE_MS, PER_OPEN} from './weekly-line-suggest.mjs';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 import {matchOrg} from './org-name-match.mjs';
@@ -1320,13 +1320,32 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!box) return;
     box.hidden = !v;
     if (!v) { box.replaceChildren(); return; }
-    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, picks:state.store ? picksOf(state) : undefined});
+    const typing = box.querySelector('[data-learn-rule-fix-input]'), typed = typing && typing === doc.activeElement;
+    if (typing) v.value = typing.value; // 다시 그려도 고치던 후보 글은 그대로
+    // 새 규칙 후보는 이 주 행 규칙 칸(환류 보고가 거기에 더함)에서 [ㅇ][×][고쳐서 확정]. 칸을 아직 못 읽었으면 글만.
+    const rules = state.store?.extras?.rules ? {week:state.start, rules:state.store.extras.rules} : null;
+    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, value:v.value ?? null});
     const parts = card ? [card] : [];
     if (v.status === 'running') { const p = el('p', 'journal-muted', '규칙 후보·개선 제안을 정리하는 중…'); p.dataset.hwpxReviewNote = 'running'; parts.push(p); }
     if (v.status === 'failed') { const p = el('p', 'journal-muted', `규칙 후보·개선 제안은 만들지 못했어요(${v.note}). 고침 기록은 저장했어요.`); p.dataset.hwpxReviewNote = 'failed'; parts.push(p); }
     if (v.msg) { const p = el('p', 'journal-line-status', v.msg); p.setAttribute('role', 'status'); parts.push(p); }
     box.replaceChildren(...parts);
     if (card) card.querySelector('[data-learn-review-pending]')?.remove();
+    if (typed) box.querySelector('[data-learn-rule-fix-input]')?.focus();
+  }
+  // 새 규칙 후보 [ㅇ]·[×]·[고쳐서 확정]: 이 주 임시저장 칸(규칙·picks)을 바꾸고 자동저장 길로 서버에 쓴다(answerSuggestion 과 같은 행).
+  function ruleAnswer(s, b) {
+    const v = s.review, st = s.store, rc = ruleChange(b, body);
+    if (!rc || !v) return;
+    if (rc.ui) { v.fixing = rc.ui === 'fix' ? rc.key : null; v.value = null; paintReview(); if (rc.ui === 'fix') body.querySelector('[data-hwpx-review] [data-learn-rule-fix-input]')?.focus(); return; }
+    if (!st || rc.week !== s.start) return;
+    let next;
+    try { next = rc.change({v:1, rules:st.extras?.rules ?? null, picks:st.extras?.picks ?? null}); }
+    catch (error) { v.msg = error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 눌러 주세요.'; paintReview(); return; }
+    st.extras = {...(st.extras ?? {}), rules:readRules(next.rules) ?? st.extras?.rules, picks:next.picks};
+    touchDraft();
+    v.fixing = null; v.value = null; v.msg = rc.done; paintReview();
+    try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:s.start}})); } catch { /* 다시 그리기만 못 함 */ }
   }
   async function answerReview(s, b) {
     const [week, id, answer] = b.dataset.learnAnswer.split(':');
@@ -1504,6 +1523,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (state === s && !panel.hidden) renderMaterial(); // S46-22: [주간 정리]에서 뺀 제안(picks)도 바로
     if (!sameDraft(currentDraft(s), read.row.draft)) { st.dirty = true; void saveDraft(s); }
     paintDraft();
+    if (s.review) paintReview(); // 환류 보고가 이 행 규칙 칸에 더한 후보를 바로
   }
   function paintDraft() {
     const st = state?.store;
@@ -1620,7 +1640,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else if (b.matches('[data-hwpx-ai-again]') && state) void aiDraft(state, true);
     else if (b.matches('[data-hwpx-learn-test]') && state) void learnTest(state, b);
     else if (b.matches('[data-learn-answer]') && state) void answerReview(state, b);
-    else if (b.matches('[data-learn-pick-drop], [data-learn-pick-put]') && state) { const c = candidateChange(b); if (c && c.week === state.start && markPick(state, c.item, c.act)) { paintReview(); say(c.act === 'drop' ? '후보를 뺐어요.' : '다시 넣었어요.'); } }
+    else if (b.matches('[data-learn-rule-take], [data-learn-rule-drop], [data-learn-rule-fix], [data-learn-rule-fix-go], [data-learn-rule-cancel]') && state?.review) ruleAnswer(state, b);
     else if (b.matches('[data-hwpx-stage-clear]') && state) { const index = Number(b.dataset.hwpxIndex); state.edits.sites.set(index, []); state.stageFixes = state.stageFixes.filter(f => f.index !== index); state.built = null; renderEdit(); say('줄을 비웠어요.'); typed(`row:${state.cellOf.sites.get(index)}`); }
     else if (b.matches('[data-hwpx-restart]')) void restart();
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }

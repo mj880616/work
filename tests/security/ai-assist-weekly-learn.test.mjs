@@ -25,7 +25,7 @@ function harness({openai=null,rows=null,patchMiss=0}={}){
     app_weekly_exec_requests:rows??[
       {id:'r1',workspace_id:WS,week_start:WEEK,items:[],draft_saved_at:'2026-10-30T04:00:00.000Z',draft:{v:1,rows:[],titles:[],feedback:fb(WEEK,{changed:[{where:'요약',before:'THIS_WEEK_BEFORE',after:'THIS_WEEK_ANSWER'}]}),
         rules:{at:'2026-10-30T04:30:00Z',week:WEEK,lines:[{text:'THIS_WEEK_RULE',from:'auto'},{text:'사람이 고친 규칙',from:'edited'}]}}},
-      {id:'r2',workspace_id:WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,feedback:fb('2026-10-19'),rules:{at:'2026-10-23T09:00:00Z',lines:[{text:'날짜는 10.28.(화) 꼴',from:'auto'}]}}},
+      {id:'r2',workspace_id:WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,feedback:fb('2026-10-19'),rules:{v:2,at:'2026-10-23T09:00:00Z',lines:[{text:'날짜는 10.28.(화) 꼴',from:'added'}],candidates:[{text:'UNCONFIRMED_CANDIDATE'}],retired:[{text:'RETIRED_RULE'}]}}},
       {id:'r3',workspace_id:WS,week_start:'2026-10-12',items:[],draft_saved_at:'x',draft:{v:1,feedback:fb('2026-10-12')}},
       {id:'r4',workspace_id:OTHER_WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,feedback:fb('2026-10-19',{added:[{where:'x',text:'FOREIGN_TEXT'}]}),rules:{at:'z',lines:['FOREIGN_RULE']}}},
     ],
@@ -96,7 +96,7 @@ test('weekly_draft: learns only from weeks before the asked week (no answer leak
   assert.deepEqual(sent.rules,['날짜는 10.28.(화) 꼴']);
   assert.deepEqual([...new Set(sent.past_edits.map(e=>e.week))],['2026-10-19','2026-10-12']);
   assert.deepEqual(sent.cells.map(c=>[c.ref,c.base,c.this_week]),[['c1',['- 가상 교섭 3차 진행'],['가상 교섭 3차 결렬(10/28)']],['c2',['- 가상 소식'],[]]]);
-  for(const hidden of ['THIS_WEEK_ANSWER','THIS_WEEK_BEFORE','THIS_WEEK_RULE','FOREIGN_TEXT','FOREIGN_RULE',OWNER,WS])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  for(const hidden of ['THIS_WEEK_ANSWER','THIS_WEEK_BEFORE','THIS_WEEK_RULE','FOREIGN_TEXT','FOREIGN_RULE','UNCONFIRMED_CANDIDATE','RETIRED_RULE',OWNER,WS])assert.ok(!material.includes(hidden),hidden+' must not be sent');
   const read=calls.rest.find(c=>c.table==='app_weekly_exec_requests');
   assert.match(read.query,/week_start=lt\.2026-10-26/);
   assert.match(read.query,/select=workspace_id,week_start,feedback:draft->feedback,rules:draft->rules/);
@@ -121,8 +121,8 @@ test('weekly_draft: untrusted answer lines are cleaned per line; broken answers 
   {const {handler,calls}=harness();const res=await post(handler,draftBody(),'stranger-token');if(res.status===200){const sent=JSON.parse(calls.openai[0].input[1].content);assert.ok(!JSON.stringify(sent).includes('날짜는 10.28.(화) 꼴'));}}
 });
 
-test('weekly_review: reads the week\'s confirmed feedback, writes review + rules into that row (human-edited rules kept), retries on a moved stamp',async()=>{
-  const review={rules:['끝난 일은 결과부터','날짜는 10.28.(화) 꼴','사람이 고친 규칙'],candidates:['끝난 일은 결과부터'],
+test('weekly_review: reads the week\'s confirmed feedback, adds only new candidates (confirmed rules untouched), retries on a moved stamp',async()=>{
+  const review={candidates:['끝난 일은 결과부터','날짜는 10.28.(화) 꼴','RETIRED_RULE','THIS_WEEK_RULE'],
     suggestions:[{area:'material',text:'회의 결정 칸을 요약 끝에'},{area:'input',text:'산하조직 칸은 4주 중 3주 비움 — 처음부터 비워 두면'},{area:'bogus',text:'분류 틀림'}]};
   const {handler,calls,db}=harness({openai:()=>respond(answer(review)),patchMiss:1});
   const res=await post(handler,{kind:'weekly_review',week_start:WEEK});
@@ -134,17 +134,24 @@ test('weekly_review: reads the week\'s confirmed feedback, writes review + rules
   const sent=JSON.parse(calls.openai[0].input[1].content);
   assert.equal(sent.this_week.kept_percent,60);
   assert.deepEqual(sent.past_weeks.map(p=>p.week),['2026-10-19','2026-10-12']);
-  assert.deepEqual(sent.current_rules,['THIS_WEEK_RULE','사람이 고친 규칙']);
+  // 확정은 앞 주 v2 칸의 확정 줄만. 이 행의 옛 줄(자동 정리)은 후보로 읽혀 기다리는 후보에.
+  assert.deepEqual(sent.current_rules,['날짜는 10.28.(화) 꼴']);
+  assert.deepEqual(sent.pending_candidates,['UNCONFIRMED_CANDIDATE','THIS_WEEK_RULE','사람이 고친 규칙']);
+  assert.deepEqual(sent.rejected_rules,['RETIRED_RULE']);
   assert.ok(Array.isArray(sent.input_patterns)&&sent.input_patterns.length>0,'input patterns sent');
   const o=calls.openai[0];
   assert.deepEqual(o.text.format.schema.properties.suggestions.items.properties.area.enum,['input','material','flow']);
   assert.match(o.input[0].content,/area=input\(입력창 모양·칸 구성\)/);
   assert.match(o.input[0].content,/빼면\/나누면\/합치면/);
+  assert.match(o.input[0].content,/일상어로 쓴다/);assert.match(o.input[0].content,/확정 규칙\(current_rules\)은 사람이 정한 것이라 고치거나 다시 쓰지 않는다/);
+  assert.deepEqual(o.text.format.schema.required,['candidates','suggestions']);assert.equal(o.text.format.schema.properties.rules,undefined);
   const row=()=>db.app_weekly_exec_requests.find(r=>r.id==='r1');
-  assert.deepEqual(row().draft.feedback.review.candidates,['끝난 일은 결과부터']);
+  assert.deepEqual(row().draft.feedback.review.candidates,['끝난 일은 결과부터']);assert.deepEqual(body.review.candidates,['끝난 일은 결과부터']);assert.equal(body.rules,undefined);
   assert.equal(row().draft.feedback.counts.kept,3,'feedback numbers kept');
   assert.equal(row().draft.feedback.review.suggestions[0].area,'input');
-  assert.deepEqual(row().draft.rules.lines,[{text:'사람이 고친 규칙',from:'edited'},{text:'끝난 일은 결과부터',from:'auto'},{text:'날짜는 10.28.(화) 꼴',from:'auto'}]);
+  // 확정·폐기는 그대로, 새 후보는 끝에(확정·폐기·기다리는 후보와 같은 줄은 버림).
+  assert.deepEqual(row().draft.rules,{v:2,at:row().draft.feedback.review.at,week:WEEK,lines:[{text:'날짜는 10.28.(화) 꼴',from:'added'}],
+    candidates:[{text:'UNCONFIRMED_CANDIDATE'},{text:'THIS_WEEK_RULE'},{text:'사람이 고친 규칙'},{text:'끝난 일은 결과부터'}],retired:[{text:'RETIRED_RULE'}]});
   assert.equal(row().draft.v,1);assert.deepEqual(row().draft.rows,[]);
   const patches=calls.rest.filter(c=>c.method==='PATCH');
   assert.equal(patches.length,2);
@@ -158,12 +165,21 @@ test('weekly_review: reads the week\'s confirmed feedback, writes review + rules
   {const {handler,calls}=harness();await expectError(await post(handler,{kind:'weekly_review',week_start:WEEK},'stranger-token'),404,'not_found');assert.equal(calls.openai.length,0);}
 });
 
-test('pure: learnFromRows keeps only earlier weeks; withReview keeps human rules first and caps at 20',()=>{
-  const l=wl.learnFromRows([{week_start:WEEK,feedback:fb(WEEK)},{week_start:'2026-10-19',feedback:fb('2026-10-19'),rules:{at:'a',lines:['r']}},{week_start:'bad'}],WEEK);
-  assert.equal(l.weeks,1);assert.deepEqual(l.rules,['r']);
-  const d=wl.withReview({v:1,feedback:fb(WEEK)},{rules:Array.from({length:30},(_,i)=>`규칙 ${i}`),candidates:[],suggestions:[{area:'input',text:'s'}]},{at:'a',lines:[{text:'내 규칙',from:'added'}]},WEEK,'t');
-  assert.equal(d.rules.lines.length,20);assert.deepEqual(d.rules.lines[0],{text:'내 규칙',from:'added'});
-  assert.deepEqual(d.feedback.review,{at:'t',candidates:[],suggestions:[{id:'s1',area:'input',text:'s'}]});
+test('pure: learnFromRows keeps only earlier weeks and confirmed rules; withReview keeps confirmed/retired and caps candidates at 20',()=>{
+  // 옛 모양(v 없음)의 줄은 모두 후보: 확정 0줄.
+  let l=wl.learnFromRows([{week_start:WEEK,feedback:fb(WEEK)},{week_start:'2026-10-19',feedback:fb('2026-10-19'),rules:{at:'a',lines:['r']}},{week_start:'bad'}],WEEK);
+  assert.equal(l.weeks,1);assert.deepEqual(l.rules,[]);assert.deepEqual(l.book.candidates,['r']);
+  l=wl.learnFromRows([{week_start:'2026-10-19',rules:{v:2,at:'a',lines:[{text:'확정',from:'added'},{text:'확정 ',from:'auto'}],candidates:['후보','확정'],retired:[{text:'폐기'},{text:'후보'}]}}],WEEK);
+  assert.deepEqual(l.rules,['확정']);assert.deepEqual(l.book.retired,['폐기','후보']);assert.deepEqual(l.book.candidates,[]);
+  assert.deepEqual(wl.readRulesCell({at:'a',lines:['옛 줄']}),[]);assert.equal(wl.readRulesCell(null),null);
+  const base=wl.readRuleBook({v:2,at:'a',lines:[{text:'내 규칙',from:'added'}],candidates:Array.from({length:19},(_,i)=>({text:`후보 ${i}`})),retired:[{text:'뺀 규칙'}]});
+  const d=wl.withReview({v:1,feedback:fb(WEEK)},{candidates:['새 후보 1','뺀 규칙','내 규칙','새 후보 2'],suggestions:[{area:'input',text:'s'}]},base,WEEK,'t');
+  assert.deepEqual(d.rules.lines,[{text:'내 규칙',from:'added'}]);assert.deepEqual(d.rules.retired,[{text:'뺀 규칙'}]);
+  assert.equal(d.rules.candidates.length,20);assert.deepEqual(d.rules.candidates.slice(-2),[{text:'새 후보 1'},{text:'새 후보 2'}]);assert.equal(d.rules.candidates[0].text,'후보 1');
+  assert.deepEqual(d.feedback.review,{at:'t',candidates:['새 후보 1','뺀 규칙','내 규칙','새 후보 2'],suggestions:[{id:'s1',area:'input',text:'s'}]});
+  // 바탕도 새 후보도 없으면 규칙 칸을 만들지 않는다.
+  assert.equal(wl.withReview({v:1,feedback:fb(WEEK)},{candidates:[],suggestions:[]},null,WEEK,'t').rules,undefined);
+  assert.deepEqual(wl.freshCandidates(base,['내 규칙','뺀 규칙','후보 3','새 것','새 것']),['새 것']);
 });
 
 // WEEKLY-환류입력창 ①: 칸별 고침 모양(매번 비워 두는 칸·늘 손으로 다시 쓰는 칸·늘 지우는 줄)을 세어 환류 보고 재료로 보낸다.
@@ -199,7 +215,7 @@ test('weekly_line: rules + past edits (same cell first) are the material, this w
   assert.ok(sent.past_edits.length>=3);
   assert.deepEqual(sent.lines,[{ref:'l1',text:'- 가상 교섭 3차 진행 중'},{ref:'l2',text:'- 가상 행사'}]);
   assert.deepEqual(sent.this_week,['가상 교섭 3차 결렬(10/28)']);
-  for(const hidden of ['THIS_WEEK_ANSWER','THIS_WEEK_BEFORE','THIS_WEEK_RULE','FOREIGN_TEXT','FOREIGN_RULE',OWNER,WS])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  for(const hidden of ['THIS_WEEK_ANSWER','THIS_WEEK_BEFORE','THIS_WEEK_RULE','FOREIGN_TEXT','FOREIGN_RULE','UNCONFIRMED_CANDIDATE','RETIRED_RULE',OWNER,WS])assert.ok(!material.includes(hidden),hidden+' must not be sent');
   const read=calls.rest.find(c=>c.table==='app_weekly_exec_requests');
   assert.match(read.query,/week_start=lt\.2026-10-26/);
   assert.ok(calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'),'no write but the usage count');
