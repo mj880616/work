@@ -1,12 +1,12 @@
 // WEEKLY-한흐름확정 ② 화면(docs/design/weekly-one-flow.md 4.1절, 시안 안 B): [주간 정리] 2. 1) 요약 · 3. 2) 투쟁 사업장 현황 · 4. 산하 조직 현황의
 // '보고서 칸'을 그 주 임시저장(draft) 한 벌에서 그린다. 보이는 줄 = 한글 파일에 들어갈 줄(weekly-draft-store.js weekCells: 바탕 proposed 위에 고친 rows).
-// - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가], 칸 아래 흐린 '제안'(이번 주 기록·자료·조직 AI 요약·캘린더 추천) → [수용]·⋯([고쳐서 수용]·[빼기]).
+// - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가], 칸 아래 흐린 '제안'(이번 주 기록·자료·조직 AI 요약·캘린더 추천) → [넣기]·⋯([고쳐서 넣기]·[빼기] — 빼기는 이유 한 줄, 안 써도 됨).
 // - 누름 한 번 = 서버 쓰기 한 번(changeWeekCell: rows + picks 를 한 PATCH). 실패하면 그 칸에 "저장 못 함 [다시]", 화면 값은 그대로.
 // - 투쟁 사업장 칸 구성(이번 주 보고에서 빼기·다시 넣기)은 draft.site_layout(없으면 지난주 구성을 이어 씀)에 쓴다.
 // - 제안 거르기·학습 열쇠는 한글 파일 상자와 같다(weekly-picks.mjs sortPicks, 칸 이름 'section:key#n', 캘린더 추천 'orgref:조직 id').
 // - 칸 하나의 그리기 주인은 이 모듈 하나(journal.js는 자리만 주고 다시 그릴 때 부른다). AI 를 부르지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
 import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, withSiteLayout, draftSiteLayout, readCarriedLayout, lineDone, lineKey, CELL_LINE_MAX} from './weekly-draft-store.js';
-import {sortPicks, droppedOf, keptOf, pickKey} from './weekly-picks.mjs';
+import {sortPicks, droppedOf, keptOf, pickKey, WHY_MAX} from './weekly-picks.mjs';
 import {learnFor} from './weekly-picks.js';
 import {arrangeSites, siteHidden, siteShown, siteMoved, siteKey, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {mountReorder} from './reorder-drag.js';
@@ -28,9 +28,9 @@ const LINE_TEXT = Object.freeze({...AI_SUMMARY_TEXT});
 // 줄 제안을 [주간 정리] 한 번 열 때 묻는 횟수 상한(설계 3.2절: 화면이 넓어져 상자 12회 → 8회).
 export const LINE_PER_OPEN = Math.min(8, PER_OPEN);
 const UNDO_MS = 5000;
-// 화면 상태(기기 메모리만): 고치는 줄·더하는 칸·고쳐서 수용하는 제안·쓰는 중·실패·되돌리기.
+// 화면 상태(기기 메모리만): 고치는 줄·더하는 칸·고쳐서 넣는 제안·빼는 이유를 쓰는 제안·쓰는 중·실패·되돌리기.
 const uiOf = new WeakMap();
-const freshUi = start => ({start, editing:null, adding:null, taking:null, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, mat:null, matFlight:null,
+const freshUi = start => ({start, editing:null, adding:null, taking:null, dropping:null, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, mat:null, matFlight:null,
   line:{cache:new Map(), asked:0, off:false, flight:false, timer:0, focus:null}, siteNote:'', siteAdding:false});
 
 const particle = name => { const code = String(name).charCodeAt(String(name).length - 1); return code >= 0xAC00 && code <= 0xD7A3 ? ((code - 0xAC00) % 28 ? '을' : '를') : '을(를)'; };
@@ -228,11 +228,13 @@ export function paintFlowCells(slot, ctx) {
         const text = x.raw.text.startsWith('-') || ai ? x.raw.text : `- ${lineOf(x.raw.text)}`;
         const li = el('li'); li.dataset.flowSuggestItem = x.key; li.dataset.flowPick = JSON.stringify(item); li.dataset.flowText = text;
         if (ai) { li.dataset.flowLineSuggest = String(x.raw.index); li.dataset.flowIndex = String(x.raw.index); }
-        if (ui.taking?.key === x.key) { li.append(editForm(c.id, ui.taking.value ?? text, {flowEditSave:c.id}, '고쳐서 수용')); sg.append(li); continue; }
+        if (ui.taking?.key === x.key) { li.append(editForm(c.id, ui.taking.value ?? text, {flowEditSave:c.id}, '고쳐서 넣기')); sg.append(li); continue; }
+        // [빼기]를 누르면 그 자리에 작은 한 줄 '이유(안 써도 돼요)' + [빼기 확인](요청함 11/01 23:42). 빈 칸이면 그냥 빠진다.
+        if (ui.dropping?.key === x.key) { li.append(el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text), ' ', whyForm(c.id, x.text)); sg.append(li); continue; }
         li.append(el('span', 'weekly-flow-tag', TAG[ai ? 'line' : x.raw.orgRef ? 'calendar' : x.from] ?? '기록'), el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text));
-        const take = btn('수용', {flowTake:c.id}, 'mini weekly-flow-take'); take.disabled = busy; take.setAttribute('aria-label', ai ? `${x.raw.index + 1}번째 줄을 이렇게 바꾸기: ${x.raw.text}` : `수용: ${x.text}`);
-        li.append(take, rowMore(doc, {label:`제안 고쳐서 수용·빼기: ${x.text}`, data:{flowSuggestMore:''}, items:[
-          {text:'고쳐서 수용', data:{flowEdit:c.id}, disabled:busy}, {text:'빼기', data:{flowDrop:c.id}, disabled:busy, danger:true, aria:`제안 빼기: ${x.text}`}]}));
+        const take = btn('넣기', {flowTake:c.id}, 'mini weekly-flow-take'); take.disabled = busy; take.setAttribute('aria-label', ai ? `${x.raw.index + 1}번째 줄을 이렇게 바꾸기: ${x.raw.text}` : `넣기: ${x.text}`);
+        li.append(take, rowMore(doc, {label:`제안 고쳐서 넣기·빼기: ${x.text}`, data:{flowSuggestMore:''}, items:[
+          {text:'고쳐서 넣기', data:{flowEdit:c.id}, disabled:busy}, {text:'빼기', data:{flowDrop:c.id}, disabled:busy, danger:true, aria:`제안 빼기: ${x.text}`}]}));
         sg.append(li);
       }
       box.append(sg);
@@ -254,6 +256,15 @@ export function paintFlowCells(slot, ctx) {
     if (!f || f.cell !== c.id) return [];
     const before = c.lines[f.index], text = before != null ? g.cache.get(suggestKey(c.id, before)) : null;
     return text ? [{lineAi:true, index:f.index, before, text, day:''}] : [];
+  }
+  // 제안 빼기 이유 한 줄(안 써도 됨). [취소]·[빼기 확인], Enter = 확인, Esc = 취소.
+  function whyForm(cell, text) {
+    const f = el('span', 'journal-file-edit weekly-flow-edit weekly-flow-why');
+    const input = el('input'); input.type = 'text'; input.value = ui.dropping?.value ?? ''; input.maxLength = WHY_MAX; input.placeholder = '이유(안 써도 돼요)';
+    input.dataset.flowInput = cell; input.dataset.flowWhy = ''; input.setAttribute('aria-label', `빼는 이유(안 써도 돼요): ${text}`); input.disabled = !!ui.busy;
+    const cancel = btn('취소', {flowCancel:cell}); const go = btn('빼기 확인', {flowDropGo:cell}, 'mini primary'); cancel.disabled = go.disabled = !!ui.busy;
+    f.append(input, ' ', cancel, go);
+    return f;
   }
   function editForm(cell, value, data, aria) {
     const f = el('span', 'journal-file-edit weekly-flow-edit');
@@ -288,6 +299,7 @@ export function paintFlowCells(slot, ctx) {
       const u = cur.ui;
       if (u.editing?.cell === input.dataset.flowInput) u.editing.value = input.value;
       else if (u.adding === input.dataset.flowInput) u.addValue = input.value;
+      else if (input.dataset.flowWhy != null && u.dropping) u.dropping.value = input.value;
       else if (u.taking) u.taking.value = input.value;
     });
   }
@@ -362,10 +374,10 @@ export function paintFlowCells(slot, ctx) {
     if (d.flowReload !== undefined) { ctx.reload?.(); return; }
     if (d.flowSiteAdd !== undefined) { ui.siteAdding = !ui.siteAdding; ctx.redraw?.(); if (ui.siteAdding) requestAnimationFrame(() => slot.querySelector('select[data-flow-site-pick]')?.focus()); return; }
     if (d.flowTeamUse) { const lines = team?.get(d.flowTeamUse); if (lines) void write(d.flowTeamUse, {act:'none', lines:[...lines]}); return; }
-    if (d.flowCancel !== undefined) { ui.editing = null; ui.adding = null; ui.addValue = ''; ui.taking = null; ctx.redraw?.(); return; }
-    if (d.flowFix) { ui.editing = {cell:d.flowFix, index:Number(d.flowIndex), value:null}; ui.adding = null; ui.taking = null; ctx.redraw?.(); focusInput(d.flowFix); return; }
-    if (d.flowAdd) { ui.adding = d.flowAdd; ui.addValue = ''; ui.editing = null; ui.taking = null; ctx.redraw?.(); focusInput(d.flowAdd); return; }
-    if (d.flowEdit) { const it = pick(); ui.taking = {cell:d.flowEdit, key:it.key, value:null}; ui.editing = null; ui.adding = null; ctx.redraw?.(); focusInput(d.flowEdit); return; }
+    if (d.flowCancel !== undefined) { ui.editing = null; ui.adding = null; ui.addValue = ''; ui.taking = null; ui.dropping = null; ctx.redraw?.(); return; }
+    if (d.flowFix) { ui.editing = {cell:d.flowFix, index:Number(d.flowIndex), value:null}; ui.adding = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowFix); return; }
+    if (d.flowAdd) { ui.adding = d.flowAdd; ui.addValue = ''; ui.editing = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowAdd); return; }
+    if (d.flowEdit) { const it = pick(); ui.taking = {cell:d.flowEdit, key:it.key, value:null}; ui.editing = null; ui.adding = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowEdit); return; }
     const value = () => String(b.parentElement.querySelector('input[data-flow-input]')?.value ?? '').trim();
     if (d.flowFixSave) { const v = value(); if (!v) return; const index = ui.editing.index; void write(d.flowFixSave, {act:'fix', index, text:v}, {after:() => { ui.editing = null; }}); return; }
     if (d.flowAddSave) { const v = value(); if (!v) return; void write(d.flowAddSave, {act:'add', text:v.startsWith('-') ? v : `- ${v}`}, {after:() => { ui.adding = null; ui.addValue = ''; }}); return; }
@@ -375,7 +387,13 @@ export function paintFlowCells(slot, ctx) {
       void write(d.flowTake, {act:'take', text:li.dataset.flowText, item:it, index}, {after:() => { if (it?.kind === 'ai_line') ui.line.cache.set(suggestKey(d.flowTake, li.dataset.flowText), null); }});
       return;
     }
-    if (d.flowDrop) { void write(d.flowDrop, {act:'drop', item:pick()}); return; }
+    if (d.flowDrop) { const it = pick(); ui.dropping = {cell:d.flowDrop, key:it.key, item:it, value:''}; ui.editing = null; ui.adding = null; ui.taking = null; ctx.redraw?.(); focusInput(d.flowDrop); return; }
+    if (d.flowDropGo) {
+      const u = ui.dropping; if (!u) return;
+      const why = String(b.parentElement.querySelector('input[data-flow-why]')?.value ?? '').trim();
+      void write(d.flowDropGo, {act:'drop', item:{...u.item, ...(why ? {why} : {})}}, {after:() => { ui.dropping = null; }});
+      return;
+    }
     if (d.flowPut) { void write(d.flowPut, {act:'none', item:pick()}); return; }
     if (d.flowCut) {
       const id = d.flowCut, index = Number(d.flowIndex), before = cellOf(id).lines, text = before[index];

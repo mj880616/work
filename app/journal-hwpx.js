@@ -62,7 +62,7 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback, readRules} from './weekly-feedback.mjs';
-import {reviewCard, answerSuggestion, readLearnRows, ruleChange} from './weekly-learn-panel.js';
+import {reviewCard, readLearnRows, learnPress, learnKeys} from './weekly-learn-panel.js';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 import {matchOrg} from './org-name-match.mjs';
 import {weeklyCategoryFilter} from './document-categories.js'; // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾기
@@ -1143,50 +1143,39 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!box) return;
     box.hidden = !v;
     if (!v) { box.replaceChildren(); return; }
-    const typing = box.querySelector('[data-learn-rule-fix-input]'), typed = typing && typing === doc.activeElement;
-    if (typing) v.value = typing.value; // 다시 그려도 고치던 후보 글은 그대로
-    // 새 규칙 후보는 이 주 행 규칙 칸(환류 보고가 거기에 더함)에서 [ㅇ][×][고쳐서 확정]. 칸을 아직 못 읽었으면 글만.
+    const typing = box.querySelector('.journal-learn-inline input'), typed = typing && typing === doc.activeElement;
+    if (typing) v.value = typing.value; // 다시 그려도 쓰던 글(고치는 후보·이유·내 생각)은 그대로
+    // 새 규칙 후보는 이 주 행 규칙 칸(환류 보고가 거기에 더함)에서 [넣기]·⋯[고쳐서 넣기]·[빼기]. 칸을 아직 못 읽었으면 글만.
     const rules = state.store?.extras?.rules ? {week:state.start, rules:state.store.extras.rules} : null;
-    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, value:v.value ?? null});
+    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, dropping:v.dropping ?? null, value:v.value ?? null, sfix:v.sfix ?? null, sdrop:v.sdrop ?? null, sadd:!!v.sadd});
     const parts = card ? [card] : [];
     if (v.status === 'running') { const p = el('p', 'journal-muted', '규칙 후보·개선 제안을 정리하는 중…'); p.dataset.hwpxReviewNote = 'running'; parts.push(p); }
     if (v.status === 'failed') { const p = el('p', 'journal-muted', `규칙 후보·개선 제안은 만들지 못했어요(${v.note}). 고침 기록은 저장했어요.`); p.dataset.hwpxReviewNote = 'failed'; parts.push(p); }
     if (v.msg) { const p = el('p', 'journal-line-status', v.msg); p.setAttribute('role', 'status'); parts.push(p); }
     box.replaceChildren(...parts);
     if (card) card.querySelector('[data-learn-review-pending]')?.remove();
-    if (typed) box.querySelector('[data-learn-rule-fix-input]')?.focus();
+    if (typed || v.focus) { box.querySelector('.journal-learn-inline input')?.focus(); v.focus = false; }
   }
-  // 새 규칙 후보 [ㅇ]·[×]·[고쳐서 확정]: 이 주 행의 규칙 칸·picks 를 서버에서 다시 읽고 바꿔 쓴다(answerSuggestion 과 같은 길).
-  // 쓴 뒤 이 상자 임시저장을 다시 읽어 합치고, [주간 정리] 목록에도 알린다.
-  async function ruleAnswer(s, b) {
-    const v = s.review, rc = ruleChange(b, body);
-    if (!rc || !v) return;
-    if (rc.ui) { v.fixing = rc.ui === 'fix' ? rc.key : null; v.value = null; paintReview(); if (rc.ui === 'fix') body.querySelector('[data-hwpx-review] [data-learn-rule-fix-input]')?.focus(); return; }
+  // 새 규칙 후보·개선 제안의 [넣기]·[고쳐서 넣기]·[빼기](이유)·[+ 추가]: 이 주 행의 규칙 칸·환류 칸·picks 를 서버에서 다시 읽고 바꿔 쓴다
+  // (weekly-learn-panel.js learnPress — [주간 정리] '주간보고 규칙·환류'와 같은 길). 쓴 뒤 이 상자 임시저장을 다시 읽어 합치고, 목록에도 알린다.
+  async function learnAnswer(s, b) {
+    const v = s.review;
+    if (!v) return;
+    const rc = learnPress(b, body.querySelector('[data-hwpx-review]'), v);
+    if (!rc) return;
+    if (rc === 'ui') { v.msg = ''; paintReview(); return; }
     if (rc.week !== s.start) return;
     v.busy = true; v.msg = '저장하는 중…'; paintReview();
     try {
       const r = await changeWeekDocs({start:rc.week, change:rc.change}, rt);
       if (r.missing) throw new Error('missing');
       if (s.store) s.store.extras = {...(s.store.extras ?? {}), rules:readRules(r.row?.draft?.rules) ?? s.store.extras?.rules};
-      v.fixing = null; v.value = null; v.msg = rc.done;
+      v.feedback = readFeedback(r.row?.draft?.feedback) ?? v.feedback;
+      v.fixing = null; v.dropping = null; v.sfix = null; v.sdrop = null; v.sadd = false; v.value = null; v.msg = rc.done;
       void syncDraft(s);
       try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:s.start}})); } catch { /* 다시 그리기만 못 함 */ }
     } catch (error) { v.msg = error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 눌러 주세요.'; }
     finally { v.busy = false; paintReview(); }
-  }
-  async function answerReview(s, b) {
-    const [week, id, answer] = b.dataset.learnAnswer.split(':');
-    if (!s.review || week !== s.start) return;
-    s.review.busy = true; s.review.msg = '저장하는 중…'; paintReview();
-    try {
-      const r = await answerSuggestion(week, id, answer, rt);
-      if (r.missing) throw new Error('missing');
-      s.review.feedback = readFeedback(r.row?.draft?.feedback) ?? s.review.feedback;
-      s.review.msg = answer === 'yes' ? '승인했어요. 다음 개발 후보로 올라가요.' : '아니로 답했어요.';
-      void syncDraft(s);
-      try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:week}})); } catch { /* 다시 그리기만 못 함 */ }
-    } catch { s.review.msg = '답을 저장하지 못했어요. 다시 눌러 주세요.'; }
-    finally { s.review.busy = false; paintReview(); }
   }
 
   // ---- 받은 초안 기록 (WEEKLY-개인본대조 W-2, draft.issued) ----
@@ -1487,8 +1476,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (b.matches('[data-hwpx-restart]')) { void restart(); return; }
     if (false) return;
     else if (b.matches('[data-hwpx-ai-again]') && state) void aiDraft(state, true);
-    else if (b.matches('[data-learn-answer]') && state) void answerReview(state, b);
-    else if (b.matches('[data-learn-rule-take], [data-learn-rule-drop], [data-learn-rule-fix], [data-learn-rule-fix-go], [data-learn-rule-cancel]') && state?.review) void ruleAnswer(state, b);
+    else if (b.closest('[data-hwpx-review]') && state?.review) void learnAnswer(state, b);
     else if (b.matches('[data-hwpx-stage-clear]') && state) void clearStage(state, Number(b.dataset.hwpxIndex), b);
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }
     else if (b.matches('[data-hwpx-conflict-pick]')) pickConflict(Number(b.dataset.hwpxConflict), b.dataset.hwpxConflictPick);
@@ -1503,6 +1491,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else if (b.matches('[data-hwpx-remember-go]') && state?.remember) void writeMemory(state, state.remember.candidates.filter(c => c.checked));
   };
   host.addEventListener('click', onClick);
+  host.addEventListener('keydown', learnKeys); // 후보·개선 제안 한 줄 칸: Enter = 확인, Esc = 취소
   topLine.addEventListener('click', onClick);
 
   return {
