@@ -42,6 +42,9 @@ class Fail extends Error {
 // 전체 보기에서는 폴더마다 스위치가 따로다(켜짐 = 그 폴더 바로 안 사진이 보임, 위 폴더를 따라가지 않음). 새로 색인에 들어온 폴더는 꺼진 채 시작.
 export const WHOLE_PATH = "/drive/root:";
 const CONN = "app_onedrive_connections", FOLDERS = "app_onedrive_folders", PHOTOS = "app_onedrive_photos";
+// S47-16: 폰에서 지운 사진 기록(20261101040000_phone_trash_log). 사본 확인은 한 번에 100장, 다음 확인 때 다시 보는 기록은 30일 안 최근 200개.
+const TRASH_LOG = "app_phone_trash_log";
+const COPY_CHECK_MAX = 100, TRASH_LOG_MAX = 100, WATCH_MAX = 200, WATCH_DAYS = 30, LOG_KEEP_DAYS = 60;
 const DB_PAGE = 1000, UPSERT_CHUNK = 500, IN_CHUNK = 100;
 type FolderRow = { item_id: string; parent_id: string | null; name: string; enabled: boolean; role?: string | null };
 type PhotoRow = { item_id: string; parent_id: string; name: string; taken_at: string; approx: boolean; taken_day: string };
@@ -1185,6 +1188,88 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       return json({ moved: out, failed: Object.fromEntries(failed), ...(wait ? { retry_after: wait } : {}) });
     },
 
+    // S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): 사진 정리 [폰에서만 지우기]·[나머지 지우기]의 원드라이브 사본 확인과 지운 기록.
+    // 폰 사진은 서버로 오지 않는다. 화면이 짝지은 원드라이브 항목 id와 폰 사진 크기만 받아, 그 항목이 지금도 고른 폴더 안에 있고
+    // (Web2 휴지통 아님) 크기가 같은지 Graph에 다시 묻는다. 기록 표(app_phone_trash_log)에는 폰 사진 번호·사본 id·시각만 둔다.
+    // 답: ok(사본 확인됨)·missing(없음·폴더 밖·휴지통·크기 다름)·unsure(요청 많음·Graph 실패 — 확인 못 함). 화면은 ok만 지운다.
+    async "copy-check"({ workspaceId, body }) {
+      const conn = await readConnection(workspaceId);
+      const folder = folderOf(conn);
+      const pairs = body.pairs;
+      if (!Array.isArray(pairs) || !pairs.length || pairs.length > COPY_CHECK_MAX) throw new Fail(400, "onedrive_request_invalid");
+      const want = new Map<string, number>();
+      for (const x of pairs) {
+        const id = (x as Record<string, unknown>)?.id, size = (x as Record<string, unknown>)?.size;
+        if (!validItemId(id) || !Number.isSafeInteger(size) || (size as number) <= 0) throw new Fail(400, "onedrive_request_invalid");
+        if (want.has(id) && want.get(id) !== size) throw new Fail(400, "onedrive_request_invalid");
+        want.set(id, size as number);
+      }
+      const token = await accessToken(workspaceId, conn!);
+      const trashId = await readTrashId(workspaceId);
+      const { ok, failed, retryAfter } = await checkMedia(token, [...want.keys()], folder,
+        (it) => (trashId && it.parentReference?.id === trashId ? "in_trash" : it.size !== want.get(it.id as string) ? "size" : null),
+        "id,name,size,file,folder,parentReference");
+      const unsure = [...failed].filter(([, why]) => why === "throttled" || why === "unavailable").map(([id]) => id);
+      const missing = [...failed].filter(([, why]) => why !== "throttled" && why !== "unavailable").map(([id]) => id);
+      return json({ ok: [...ok.keys()], missing, unsure, ...(retryAfter ? { retry_after: retryAfter } : {}) });
+    },
+
+    // 폰 휴지통으로 옮긴 뒤(앱 다리 성공) 화면이 부른다: [{phone_id, copy_id}] ≤ 100.
+    async "trash-log"({ workspaceId, body }) {
+      const pairs = body.pairs;
+      if (!Array.isArray(pairs) || !pairs.length || pairs.length > TRASH_LOG_MAX) throw new Fail(400, "onedrive_request_invalid");
+      const stamp = new Date(now()).toISOString();
+      const rows = pairs.map((x) => {
+        const phone = (x as Record<string, unknown>)?.phone_id, copy = (x as Record<string, unknown>)?.copy_id;
+        if (typeof phone !== "string" || !/^[0-9]{1,18}$/.test(phone) || !validItemId(copy)) throw new Fail(400, "onedrive_request_invalid");
+        return { workspace_id: workspaceId, phone_id: phone, source: "onedrive", copy_id: copy, trashed_at: stamp };
+      });
+      const { error } = await admin.from(TRASH_LOG).insert(rows);
+      if (error) dbFail("onedrive_trash_log_failed", error);
+      return json({ saved: rows.length });
+    },
+
+    // 다음 사진 확인 때: 30일 안에 폰에서 지운 기록 중 아직 사라짐을 못 본 것(최근 것부터 WATCH_MAX개)의 사본이 지금도 있는지 Graph에 묻고,
+    // 없어졌으면(없음·Web2 휴지통) gone_at을 적는다. 요청 많음·실패는 다음 확인으로 미룬다. 60일 지난 기록은 지운다.
+    // 답 gone = 사라졌는데 아직 확인(trash-seen)하지 않은 30일 안 기록 수.
+    async "trash-watch"({ workspaceId }) {
+      const nowIso = new Date(now()).toISOString(), since = new Date(now() - WATCH_DAYS * 86400000).toISOString();
+      const { error: oldError } = await admin.from(TRASH_LOG).delete().eq("workspace_id", workspaceId).lt("trashed_at", new Date(now() - LOG_KEEP_DAYS * 86400000).toISOString());
+      if (oldError) dbFail("onedrive_trash_log_failed:clean", oldError);
+      const { data: open, error } = await admin.from(TRASH_LOG).select("id,copy_id").eq("workspace_id", workspaceId).eq("source", "onedrive")
+        .is("gone_at", null).gte("trashed_at", since).order("trashed_at", { ascending: false }).range(0, WATCH_MAX - 1);
+      if (error) dbFail("onedrive_trash_log_failed:read", error);
+      let checked = 0, unsure = 0;
+      const rows = ((open || []) as { id: string; copy_id: string }[]).filter((r) => validItemId(r.copy_id));
+      const conn = rows.length ? await readConnection(workspaceId) : null;
+      if (rows.length && conn?.folder_id && conn.folder_path) {
+        const folder = folderOf(conn);
+        const token = await accessToken(workspaceId, conn);
+        const trashId = await readTrashId(workspaceId);
+        const { failed } = await checkMedia(token, [...new Set(rows.map((r) => r.copy_id))], folder, (it) => (trashId && it.parentReference?.id === trashId ? "in_trash" : null));
+        const goneIds = new Set([...failed].filter(([, why]) => why === "missing" || why === "in_trash").map(([id]) => id));
+        unsure = [...failed.values()].filter((why) => why === "throttled" || why === "unavailable").length;
+        checked = rows.length;
+        const mark = rows.filter((r) => goneIds.has(r.copy_id)).map((r) => r.id);
+        for (let i = 0; i < mark.length; i += IN_CHUNK) {
+          const { error: e } = await admin.from(TRASH_LOG).update({ gone_at: nowIso }).eq("workspace_id", workspaceId).in("id", mark.slice(i, i + IN_CHUNK));
+          if (e) dbFail("onedrive_trash_log_failed:mark", e);
+        }
+      }
+      const { data: gone, error: goneError } = await admin.from(TRASH_LOG).select("id").eq("workspace_id", workspaceId)
+        .is("seen_at", null).gte("gone_at", since).range(0, 9999);
+      if (goneError) dbFail("onedrive_trash_log_failed:gone", goneError);
+      return json({ gone: (gone || []).length, checked, ...(unsure ? { unsure } : {}) });
+    },
+
+    // 경고 한 줄 [알았어요]: 사라진 기록에 확인 시각을 적는다(다시 띄우지 않음).
+    async "trash-seen"({ workspaceId }) {
+      const { error } = await admin.from(TRASH_LOG).update({ seen_at: new Date(now()).toISOString() }).eq("workspace_id", workspaceId)
+        .is("seen_at", null).not("gone_at", "is", null);
+      if (error) dbFail("onedrive_trash_log_failed:seen", error);
+      return json({ seen: true });
+    },
+
     async disconnect({ workspaceId }) {
       cached.delete(workspaceId);
       await clearIndexRows(workspaceId);
@@ -1280,13 +1365,13 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   };
 
   // 여러 장이 사진·동영상이고 고른 폴더 안인지 Graph에 묻는다(+ 추가 조건 extra). 통과한 항목과 실패 이름(missing·outside·throttled·unavailable·…)을 돌려준다.
-  async function checkMedia(token: string, ids: string[], folder: { path: string }, extra: (it: OneDriveItem) => string | null) {
+  async function checkMedia(token: string, ids: string[], folder: { path: string }, extra: (it: OneDriveItem) => string | null, select = "id,name,file,folder,parentReference") {
     const ok = new Map<string, OneDriveItem>(), failed = new Map<string, string>();
     let retryAfter = 0;
     for (let i = 0; i < ids.length; i += GRAPH_BATCH_MAX) {
       const chunk = ids.slice(i, i + GRAPH_BATCH_MAX);
       const { parts, throttled } = await graphBatch("onedrive_check", token, chunk.map((id, k) => ({
-        id: `m${k}`, method: "GET", url: `/me/drive/items/${encodeURIComponent(id)}?$select=id,name,file,folder,parentReference`,
+        id: `m${k}`, method: "GET", url: `/me/drive/items/${encodeURIComponent(id)}?$select=${select}`,
       })));
       retryAfter = Math.max(retryAfter, throttled);
       chunk.forEach((id, k) => {
