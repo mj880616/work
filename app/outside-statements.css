@@ -1,0 +1,64 @@
+/* OUTSIDE-바깥성명 ④ 화면 1: '바깥 성명'(#outsideView). 콤팩트·톤다운(색은 theme-tokens.css 토큰만), 제목 14px·요약 13px·꼬리 12px(설계 4절).
+   한 칸 목록(폰·PC 같음, PC는 읽기 좋은 폭까지). 칩 줄은 공용 chip-rows.js(두 줄 + [더보기 ▾]) — 접힘 모양은 ui-standard.css "UI-칩줄두줄". */
+#appView #outsideView .os{ display:flex; flex-direction:column; gap:4px; min-width:0; max-width:860px; font-size:var(--ds-text-row,14px); color:var(--kptu-ink); }
+#appView #outsideView .os[data-mode="list"] .os-sources,#appView #outsideView .os[data-mode="sources"] :is(.os-list,.os-bar){ display:none; }
+#appView #outsideView .os-bar{ display:flex; align-items:flex-start; gap:6px; min-width:0; padding:2px 0; }
+#appView #outsideView .os-chips{ display:flex; flex-wrap:wrap; flex:1 1 auto; gap:var(--ds-chip-row-gap,4px); min-width:0; }
+#appView #outsideView .os-chips[hidden]{ display:none; }
+#appView #outsideView .os-chip{ position:relative; box-sizing:border-box; flex:0 0 auto; min-width:0; max-width:12em; height:var(--ds-chip-row-height,26px); min-height:0; margin:0; padding:0 var(--ds-chip-row-pad-x,8px);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink);
+  background:transparent; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-chip-radius,999px); box-shadow:none; cursor:pointer; }
+#appView #outsideView .os-chip::after{ content:""; position:absolute; left:-2px; right:-2px; top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); }
+#appView #outsideView .os-chip[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView #outsideView .os-chip:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
+#appView #outsideView .os-more{ position:relative; flex:none; display:inline-grid; place-items:center; width:var(--ds-compact-height,32px); height:var(--ds-chip-row-height,26px); min-height:0; margin:0 0 0 auto; padding:0;
+  color:var(--kptu-muted); background:transparent; border:0; border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
+#appView #outsideView .os-more::after{ content:""; position:absolute; inset:calc((var(--ds-chip-row-height,26px) - var(--kptu-touch-target,44px)) / 2) -6px; }
+#appView #outsideView .os-more:hover{ background:var(--kptu-surface-subtle); }
+
+/* 날짜 묶음 + 글 한 건(첫 줄 단체·종류·시각 / 제목 / 한 문장 요약 / 본문 접기 · [원문]). 큰 카드 없이 아래 선 하나. */
+#appView #outsideView .os-day-head{ margin:8px 0 0; padding:2px 0; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); }
+#appView #outsideView .os-post{ display:flex; flex-direction:column; gap:1px; min-width:0; padding:6px 2px; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .os-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:0 6px; margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .os-meta > span + span:not(.os-src)::before{ content:"·"; margin-right:6px; }
+#appView #outsideView .os-time{ font-variant-numeric:tabular-nums; }
+#appView #outsideView .os-new{ display:inline-grid; place-items:center; height:16px; padding:0 4px; font-size:11px; line-height:1; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-radius:var(--ds-radius-control,6px); }
+#appView #outsideView .os-new + .os-src::before{ content:none; }
+#appView #outsideView .os-title{ margin:0; font-size:14px; line-height:1.45; font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); overflow-wrap:anywhere; }
+#appView #outsideView .os-lead{ margin:0; font-size:13px; line-height:1.5; color:var(--kptu-ink); opacity:.86; overflow-wrap:anywhere; }
+#appView #outsideView .os-foot{ display:flex; flex-wrap:wrap; align-items:flex-start; gap:0 12px; min-width:0; font-size:var(--ds-text-meta,12px); }
+#appView #outsideView .os-fold{ flex:1 1 100%; order:2; min-width:0; }
+#appView #outsideView .os-fold > summary{ display:inline-flex; align-items:center; min-height:24px; color:var(--kptu-muted); cursor:pointer; }
+#appView #outsideView .os-fold[open] > summary{ color:var(--kptu-ink); }
+#appView #outsideView .os-fold:not([open]){ flex:0 0 auto; order:0; }
+#appView #outsideView .os-link{ order:1; display:inline-flex; align-items:center; min-height:24px; color:var(--kptu-muted); text-decoration:underline; text-underline-offset:2px; }
+#appView #outsideView .os-link:hover{ color:var(--kptu-ink); }
+#appView #outsideView .os-body{ padding:2px 0 4px; font-size:13px; line-height:1.6; }
+#appView #outsideView :is(.os-text,.os-sum-full,.os-orig){ margin:0 0 4px; white-space:pre-wrap; overflow-wrap:anywhere; }
+#appView #outsideView .os-orig{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .os-keys{ display:flex; flex-direction:column; gap:4px; margin:4px 0 0; padding:0 0 0 10px; list-style:none; border-left:2px solid var(--ds-line); }
+#appView #outsideView .os-keys li{ display:flex; flex-direction:column; gap:1px; }
+#appView #outsideView .os-key-orig{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .os-text-btn{ align-self:flex-start; min-height:0; height:var(--ds-compact-height-sm,28px); margin:6px 0 0; padding:0 8px; font:inherit; font-size:var(--ds-text-meta,12px);
+  color:var(--kptu-ink); background:transparent; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
+#appView #outsideView .os-more-posts{ align-self:center; margin:10px 0; }
+
+/* 단체 켜고 끄기 칸: 묶음 머리 + 단체 줄(켬/끔 스위치 · 이름 · 작은 상태 글). */
+#appView #outsideView .os-src-head{ display:flex; align-items:center; gap:6px; min-height:var(--ds-compact-height,32px); font-size:var(--ds-text-row,14px); }
+#appView #outsideView .os-back{ position:relative; display:inline-grid; place-items:center; width:28px; height:28px; min-height:0; margin:0; padding:0; font-size:18px; color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; cursor:pointer; }
+#appView #outsideView .os-back::after{ content:""; position:absolute; inset:-8px; }
+#appView #outsideView .os-faint{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .os-src-group-head{ margin:10px 0 0; padding:2px 0; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .os-src-row{ display:flex; flex-wrap:wrap; align-items:center; gap:0 8px; min-height:36px; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .os-switch{ position:relative; display:inline-flex; align-items:center; gap:8px; min-width:0; min-height:36px; margin:0; padding:0 2px; font:inherit; font-size:var(--ds-text-row,14px);
+  color:var(--kptu-ink); background:transparent; border:0; box-shadow:none; cursor:pointer; text-align:left; }
+#appView #outsideView .os-switch[disabled]{ opacity:.55; cursor:default; }
+/* 켬 표시는 선택 표시 규칙(옅은 바탕 --ds-select-bg + 선 색 --ds-select-line)을 따른다: 주 색으로 꽉 칠하지 않음. */
+#appView #outsideView .os-switch-dot{ position:relative; flex:none; box-sizing:border-box; width:28px; height:16px; color:var(--kptu-muted); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:999px; background:var(--kptu-surface-subtle); transition:background .15s; }
+#appView #outsideView .os-switch-dot::after{ content:""; position:absolute; top:1.5px; left:1.5px; width:12px; height:12px; border-radius:50%; background:currentColor; transition:transform .15s; }
+#appView #outsideView .os-switch[aria-checked="true"] .os-switch-dot{ color:var(--ds-select-line); background:var(--ds-select-bg); border-color:var(--ds-select-line); }
+#appView #outsideView .os-switch[aria-checked="true"] .os-switch-dot::after{ transform:translateX(12px); }
+#appView #outsideView .os-switch:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:2px; }
+#appView #outsideView .os-src-note{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .os-src-note.is-bad{ color:var(--kptu-danger); }
+@media (prefers-reduced-motion:reduce){ #appView #outsideView :is(.os-switch-dot,.os-switch-dot::after){ transition:none; } }

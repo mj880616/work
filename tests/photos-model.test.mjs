@@ -166,7 +166,7 @@ test('설정 창은 공용 부품 하나(결정 4): 일기·사진 메뉴가 od-
   for (const f of ['app/od-settings.js', 'app/onedrive-return.js']) assert.doesNotMatch(read(f), deviceStores, f);
 });
 
-import {photoFolderRows, photoFolderTrail, photoSubfolders, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, cleanTagName, albumCards, folderErrorText} from '../app/photos-model.mjs';
+import {photoFolderRows, photoFolderTrail, photoSubfolders, photoMoveTargets, cleanPhotoFolderName, moveUndoGroups, cleanTagName, albumCards, folderErrorText, albumForSources, ALBUM_VIEWS, validAlbumView, stepAlbumView, albumPeriod} from '../app/photos-model.mjs';
 const TREE = {top: {id: 'T', name: '카메라', count: 2, total: 9}, folders: [
   {id: 'B', name: '여행', parent_id: 'T', enabled: true, count: 3, total: 5}, {id: 'A', name: '2026', parent_id: 'T', enabled: true, count: 1, total: 2},
   {id: 'B1', name: '제주', parent_id: 'B', enabled: true, count: 2, total: 2}, {id: 'A1', name: '10월', parent_id: 'A', enabled: false, count: 1, total: 1},
@@ -200,7 +200,23 @@ test('앨범 카드: 이름순, 장수, 대표 = 정한 대표(앨범 안일 때
   const links = [{tag_id: 't1', item_key: 'k1', taken_day: '2026-01-01'}, {tag_id: 't1', item_key: 'k2', taken_day: '2026-05-01'},
     {tag_id: 't2', item_key: 'k3', taken_day: '2026-03-01'}, {tag_id: 't2', item_key: 'k4', taken_day: '2026-09-01'}];
   assert.deepEqual(albumCards(tags, links).map(c => [c.name, c.count, c.cover]), [['가족', 2, 'k1'], ['여행', 2, 'k4']]);
-  assert.deepEqual(albumCards([{id: 'e', name: '빈', cover_key: null}], []), [{id: 'e', name: '빈', count: 0, cover: null, phoneCover: null, keys: [], phoneKeys: []}]);
+  assert.deepEqual(albumCards([{id: 'e', name: '빈', cover_key: null}], []), [{id: 'e', name: '빈', count: 0, cover: null, phoneCover: null, keys: [], phoneKeys: [], odDays: [], phoneDays: []}]);
+});
+
+test('PHOTO-위쪽두줄앨범보기: 앨범 보기 세 단계 [－][＋]·기간 글자·켜진 출처만 기간', () => {
+  assert.deepEqual(ALBUM_VIEWS, ['card', 'thumb', 'line']);
+  assert.equal(validAlbumView('x'), 'card'); assert.equal(validAlbumView(undefined), 'card'); assert.equal(validAlbumView('line'), 'line');
+  assert.equal(stepAlbumView('card', -1), 'thumb'); assert.equal(stepAlbumView('thumb', -1), 'line'); assert.equal(stepAlbumView('line', -1), 'line');
+  assert.equal(stepAlbumView('line', 1), 'thumb'); assert.equal(stepAlbumView('thumb', 1), 'card'); assert.equal(stepAlbumView('card', 1), 'card');
+  assert.equal(stepAlbumView(null, -1), 'thumb');
+  assert.equal(albumPeriod('2026-10-01', '2026-10-31'), '2026.10.1–10.31');
+  assert.equal(albumPeriod('2026-10-05', '2026-10-05'), '2026.10.5');
+  assert.equal(albumPeriod('2025-12-30', '2026-01-02'), '2025.12.30–2026.1.2');
+  assert.equal(albumPeriod('', ''), ''); assert.equal(albumPeriod('2026-10-05', ''), '2026.10.5');
+  const [c] = albumCards([{id: 't', name: '여행'}], [{tag_id: 't', item_key: 'O1', taken_day: '2026-10-20'}, {tag_id: 't', item_key: 'O2', taken_day: '2026-10-02'}, {tag_id: 't', source: 'phone', item_key: 'ms:1', taken_day: '2026-11-01'}, {tag_id: 't', item_key: 'O3'}]);
+  assert.deepEqual(['from', 'to'].map(k => albumForSources(c, {onedrive: true, phone: true})[k]), ['2026-10-02', '2026-11-01']);
+  assert.deepEqual(['from', 'to'].map(k => albumForSources(c, {onedrive: true})[k]), ['2026-10-02', '2026-10-20']);
+  assert.deepEqual(['from', 'to'].map(k => albumForSources(c, {})[k]), ['', '']);
 });
 
 test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(folder-tree.css)·위치 줄(folder-path.mjs)·공용 메뉴(anchored-menu.js), 기기 저장 없음', () => {

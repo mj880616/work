@@ -179,6 +179,7 @@ D1 PR은 이 표를 다시 `grep`(`bokdoong.com`, `github.io`)으로 전수 확�
 | `share/`, 루트 `favicon.svg` | 공유 페이지(바깥에 보낸 공유 링크). 주소 `work.bokdoong.com/work/share/` 그대로 — Web2와 다른 주소라 공유 페이지 화면이 Web2 로그인 정보에 닿지 않음 |
 | `supabase/`(migrations·functions), `cloudflare/`, `scripts/` 중 Web2·공유·빌드용, `tests/` 중 Web2용, `docs/` | 운영·기록 |
 | `android-app/`, `windows-app/`, `basket-pc/` | Web2 앱 |
+| `about/`(웹2 소개·개인정보 처리방침·이용 약관·로고) | 구글 로그인 동의 화면 브랜딩(홈페이지·처리방침 주소)이 가리키는 공개 페이지(AUTH-구글화면이름). 주소 `work.bokdoong.com/work/about/`를 바꾸거나 지우면 구글 브랜드 인증이 풀릴 수 있으므로, 옮길 때는 콘솔 값을 먼저 바꾼다 |
 | DB의 Web1 표·`app_public_post` 등 | **데이터는 지우지 않음**(DB 변경 없음). 정리는 뒤에 따로 결정 |
 | `analysis/` | Web1 화면이 아니라 자료 분석 기록 — 보존 추천(질문 Q8) |
 

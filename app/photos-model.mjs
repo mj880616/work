@@ -321,7 +321,28 @@ export const sameTag = (a, b) => String(a).toLowerCase() === String(b).toLowerCa
 export function albumForSources(card, use = {}) {
   const keys = use.onedrive ? card.keys : [], phoneKeys = use.phone ? card.phoneKeys : [];
   const cover = use.onedrive ? card.cover : null;
-  return {...card, keys, phoneKeys, cover, phoneCover: cover ? null : phoneKeys[0] || null, count: keys.length + phoneKeys.length};
+  // PHOTO-위쪽두줄앨범보기: 기간 = 켜진 출처 사진의 찍은 날 가장 이른 날~늦은 날(모르면 빈칸).
+  const days = [...(use.onedrive ? card.odDays || [] : []), ...(use.phone ? card.phoneDays || [] : [])].filter(Boolean).sort();
+  return {...card, keys, phoneKeys, cover, phoneCover: cover ? null : phoneKeys[0] || null, count: keys.length + phoneKeys.length, from: days[0] || '', to: days.at(-1) || ''};
+}
+// PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18): 앨범 탭 보기 크기 세 단계. 큰 것부터 — 'card'(큰 칸 두 칸씩)·'thumb'(작은 그림 + 이름·장수·기간)·'line'(글자만 한 줄).
+// 고른 단계는 서버 view_prefs.album_view(view-prefs.js ALBUM_VIEWS와 같은 값). [＋](dir=+1)는 크게, [－](dir=-1)는 작게, 끝에서는 그대로.
+export const ALBUM_VIEWS = Object.freeze(['card', 'thumb', 'line']);
+export const DEFAULT_ALBUM_VIEW = 'card';
+export const validAlbumView = v => (ALBUM_VIEWS.includes(v) ? v : DEFAULT_ALBUM_VIEW);
+export function stepAlbumView(view, dir) {
+  const at = ALBUM_VIEWS.indexOf(validAlbumView(view));
+  return ALBUM_VIEWS[Math.max(0, Math.min(ALBUM_VIEWS.length - 1, at - Math.sign(Number(dir) || 0)))];
+}
+export const ALBUM_VIEW_TEXT = Object.freeze({card: '큰 칸', thumb: '작은 그림 목록', line: '한 줄 목록'});
+// 앨범 기간 글자: 'YYYY-MM-DD' 둘 → '2026.10.1' 하루, '2026.10.1–10.31' 같은 해, '2025.12.30–2026.1.2' 다른 해. 모르면 ''.
+export function albumPeriod(from, to) {
+  const parse = d => (/^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? String(d).split('-').map(Number) : null);
+  const a = parse(from), b = parse(to) || a;
+  if (!a) return '';
+  const full = x => `${x[0]}.${x[1]}.${x[2]}`;
+  if (a.join() === b.join()) return full(a);
+  return `${full(a)}–${a[0] === b[0] ? `${b[1]}.${b[2]}` : full(b)}`;
 }
 export function albumCards(tags, links) {
   const byTag = new Map();
@@ -331,7 +352,8 @@ export function albumCards(tags, links) {
     // PHOTO-출처 ①: keys = 원드라이브 사진 열쇠(서버 library로 읽음), phoneKeys = 폰 사진 열쇠('ms:<번호>', 앱에서 읽음). 장수는 둘을 더한다.
     const od = list.filter(l => (l.source || 'onedrive') === 'onedrive'), phone = list.filter(l => l.source === 'phone');
     const cover = t.cover_key && od.some(l => l.item_key === t.cover_key) ? t.cover_key : od[0]?.item_key || null;
-    return {id: t.id, name: t.name, count: list.length, cover, phoneCover: cover ? null : phone[0]?.item_key || null, keys: od.map(l => l.item_key), phoneKeys: phone.map(l => l.item_key)};
+    return {id: t.id, name: t.name, count: list.length, cover, phoneCover: cover ? null : phone[0]?.item_key || null, keys: od.map(l => l.item_key), phoneKeys: phone.map(l => l.item_key),
+      odDays: od.map(l => l.taken_day).filter(Boolean), phoneDays: phone.map(l => l.taken_day).filter(Boolean)};
   }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }
 
