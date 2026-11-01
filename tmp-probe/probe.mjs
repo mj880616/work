@@ -1,53 +1,29 @@
-// 일회용 조사(S47-31): 막힌 단체 목록 주소 구조 확인. GET만, robots.txt 먼저. 운영 DB·비밀값 없음.
+// 일회용 조사 2차(S47-31). GET만, 비밀값 없음.
 const UA="Web2OutsideFeed/1.0 (+https://github.com/mj880616/work/blob/main/docs/design/outside-statements.md)";
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function get(url,accept="*/*"){
-  try{const r=await fetch(url,{headers:{"User-Agent":UA,Accept:accept,"Accept-Language":"ko,en;q=0.8"},redirect:"manual",signal:AbortSignal.timeout(15000)});
-    const buf=new Uint8Array(await r.arrayBuffer());
-    return {status:r.status,loc:r.headers.get("location"),ct:r.headers.get("content-type"),cl:r.headers.get("content-length"),bytes:buf.byteLength,text:new TextDecoder("utf-8").decode(buf)};
-  }catch(e){return {err:`${e.name}: ${e.message} ${e.cause?.code??""}`};}
+async function get(url,accept="text/html"){
+  try{const r=await fetch(url,{headers:{"User-Agent":UA,Accept:accept,"Accept-Language":"ko,en;q=0.8"},redirect:"manual",signal:AbortSignal.timeout(20000)});
+    const buf=new Uint8Array(await r.arrayBuffer());await sleep(1500);
+    return {status:r.status,loc:r.headers.get("location"),ct:r.headers.get("content-type"),cl:r.headers.get("content-length"),bytes:buf.byteLength,text:new TextDecoder("utf-8").decode(buf),server:r.headers.get("server")};
+  }catch(e){await sleep(1500);return {err:`${e.name}: ${e.message} ${e.cause?.code??""}`};}
 }
-async function robots(origin){
-  const r=await get(origin+"/robots.txt","text/plain");
-  console.log(`  robots ${origin}: ${r.err??`${r.status} loc=${r.loc} ct=${r.ct} bytes=${r.bytes}`}`);
-  if(r.text&&r.status===200) console.log(r.text.split(/\r?\n/).filter(l=>/agent|allow|disallow|sitemap/i.test(l)).slice(0,40).map(l=>"    | "+l).join("\n"));
-  await sleep(1500);
-}
-async function page(url,{feed=false,hrefRe=null}={}){
-  const r=await get(url,feed?"application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9":"text/html, application/xhtml+xml;q=0.9");
-  console.log(`  GET ${url}: ${r.err??`${r.status} loc=${r.loc} ct=${r.ct} cl=${r.cl} bytes=${r.bytes}`}`);
-  await sleep(1500);
-  if(!r.text) return;
-  const t=r.text;
-  console.log(`    head: ${JSON.stringify(t.slice(0,200))}`);
-  const items=[...t.matchAll(/<(item|entry)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)];
-  if(items.length){console.log(`    items=${items.length}`);
-    for(const m of items.slice(0,12)){const ti=/<title[^>]*>([\s\S]*?)<\/title>/i.exec(m[2])?.[1]??"";const li=/<link[^>]*>([\s\S]*?)<\/link>/i.exec(m[2])?.[1]??(/<link\b[^>]*href="([^"]+)"/i.exec(m[2])?.[1]??"");console.log(`    - ${JSON.stringify(ti.slice(0,90))} ${li.slice(0,140)}`);}
-  }
-  const as=[...t.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)];
-  console.log(`    anchors=${as.length} onclick=${(t.match(/onclick=/gi)||[]).length} scripts=${(t.match(/<script/gi)||[]).length}`);
-  const hits=as.map(m=>[/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m[1]),m]).filter(([h])=>h).map(([h,m])=>[h[1]??h[2]??h[3],m[2].replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim().slice(0,60),m[1].slice(0,160)]);
-  const sel=hrefRe?hits.filter(([h])=>hrefRe.test(h)):hits.slice(0,0);
-  console.log(`    matching hrefs=${sel.length}`);
-  for(const [h,txt] of sel.slice(0,15)) console.log(`    > ${h.slice(0,160)} :: ${JSON.stringify(txt)}`);
-  if(hrefRe&&!sel.length){ // 링크 대신 무엇이 있는지
-    for(const [h,txt,attr] of hits.slice(0,400).filter(([h,txt])=>txt.length>12).slice(0,25)) console.log(`    ? ${h.slice(0,120)} :: ${JSON.stringify(txt)} attrs=${JSON.stringify(attr)}`);
-    const snip=/(read|view|bn=|nid=|goView|goRead|fn_|location\.href)/i.exec(t); if(snip) console.log(`    snippet@${snip.index}: ${JSON.stringify(t.slice(Math.max(0,snip.index-200),snip.index+300))}`);
-  }
-}
-console.log("== jinboparty"); await robots("https://jinboparty.com");
-await page("https://jinboparty.com/pages/?p=15&b=b_1_2",{hrefRe:/b_1_|bn=|read/i});
-await page("https://jinboparty.com/pages/?p=286&b=b_1_111",{hrefRe:/b_1_|bn=|read/i});
-console.log("== pssp"); await robots("https://pssp.org"); await robots("https://www.pssp.org");
-await page("https://pssp.org/bbs/list.php?board=statement",{hrefRe:/view\.php|nid=/i});
-await page("https://www.pssp.org/bbs/list.php?board=statement",{hrefRe:/view\.php|nid=/i});
-console.log("== ws"); await robots("https://ws.or.kr");
-await page("https://ws.or.kr/feed",{feed:true});
-await page("https://ws.or.kr/",{hrefRe:/\/article\/\d+/});
-console.log("== socialist"); await robots("http://socialist.kr"); await robots("https://socialist.kr");
-await page("http://socialist.kr/feed",{feed:true}); await page("http://socialist.kr/feed/",{feed:true}); await page("https://socialist.kr/feed/",{feed:true});
-console.log("== platformc"); await robots("https://platformc.kr");
-await page("https://platformc.kr/readings/",{hrefRe:/\/\d{4}\/\d{2}\//});
-for(const u of ["https://platformc.kr/feed/","https://platformc.kr/readings/feed/","https://platformc.kr/category/readings/feed/","https://platformc.kr/rss.xml","https://platformc.kr/feed.xml"]) await page(u,{feed:true});
-console.log("== laborparty"); await robots("https://laborparty.kr"); await robots("https://www.laborparty.kr");
-console.log("== kptu (robots.txt만, 막힌 경로는 열지 않음)"); await robots("https://www.kptu.net"); await robots("https://kptu.net");
+const line=(u,r)=>console.log(`  GET ${u}: ${r.err??`${r.status} loc=${r.loc} ct=${r.ct} cl=${r.cl} bytes=${r.bytes} server=${r.server}`}`);
+function hrefs(t){return [...t.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)].map(m=>{const h=/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m[1]);return [h?(h[1]??h[2]??h[3]):"",m[2].replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim().slice(0,70),m[1].replace(/\s+/g," ").slice(0,200)];});}
+console.log("== jinboparty 논평 목록");
+{const u="https://jinboparty.com/pages/?p=15&b=b_1_2";const r=await get(u);line(u,r);
+ if(r.text){const hs=hrefs(r.text);console.log(`  bn/read hrefs: ${hs.filter(([h])=>/bn=|m=read/i.test(h)).length}`);
+  for(const [h,t,a] of hs.filter(([h])=>/bn=|m=read/i.test(h)).slice(0,8)) console.log(`   > ${h} :: ${JSON.stringify(t)}`);
+  for(const [h,t,a] of hs.filter(([h,t])=>t.length>15).slice(0,30)) console.log(`   ? ${h.slice(0,120)} :: ${JSON.stringify(t)} attrs=${JSON.stringify(a)}`);
+  const i=r.text.search(/m=read|bn=|goRead|board_list|bbs_list|list_tit|subject/i);console.log(`  snippet@${i}: ${JSON.stringify(r.text.slice(Math.max(0,i-300),i+700))}`);
+  const tr=r.text.search(/<tbody|<ul class="[^"]*list/i);console.log(`  listsnip@${tr}: ${JSON.stringify(r.text.slice(tr,tr+1500))}`);}}
+console.log("== platformc");
+for(const u of ["https://platformc.kr/readings","https://platformc.kr/sitemap.xml","https://platformc.kr/server-sitemap.xml","https://platformc.kr/sitemap-0.xml"]){const r=await get(u,u.endsWith(".xml")?"application/xml":"text/html");line(u,r);
+ if(r.text&&r.status===200){const t=r.text;console.log(`   locs=${(t.match(/<loc>/g)||[]).length} dated=${(t.match(/\/\d{4}\/\d{2}\//g)||[]).length} nextdata=${t.indexOf("__NEXT_DATA__")} rsc=${(t.match(/self\.__next_f/g)||[]).length}`);
+  const hs=hrefs(t);console.log(`   anchors=${hs.length}`);for(const [h,tt] of hs.filter(([h])=>/\/\d{4}\/\d{2}\//.test(h)).slice(0,8)) console.log(`   > ${h} :: ${JSON.stringify(tt)}`);
+  for(const m of [...t.matchAll(/<loc>([^<]+)<\/loc>/g)].slice(0,15)) console.log(`   loc ${m[1]}`);
+  if(!hs.length&&!/<loc>/.test(t)) console.log(`   head ${JSON.stringify(t.slice(0,300))}`);
+  const big=[...t.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(m=>m[1].length).sort((a,b)=>b-a).slice(0,5);console.log(`   biggest scripts=${big}`);}}
+console.log("== laborparty (목록 한 번, 진단만)");
+for(const u of ["https://laborparty.kr/?page_id=13642"]){const r=await get(u);line(u,r);if(r.text)console.log(`   head ${JSON.stringify(r.text.slice(0,200))}`);}
+console.log("== socialist 첫 화면");
+{const u="http://socialist.kr/";const r=await get(u);line(u,r);if(r.text)console.log(`   head ${JSON.stringify(r.text.slice(0,400))}`);}
