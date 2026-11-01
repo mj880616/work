@@ -57,3 +57,10 @@
 #profileView .ps-status .home-ai-usage{margin:0}
 #profileView .ps-quiet-weeks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #profileView .ps-quiet-note:empty{display:none}
+/* APP-폰알림 N4: '폰 알림' 칸(phone-push-settings.js). 종류 칩 한 줄(넘치면 다음 줄), 조용한 시간 두 칸 + [시험 알림], 등록된 폰 한 줄씩. */
+#profileView .ps-push-kinds{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0}
+#profileView .ps-push-kind{position:relative;flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;font-size:var(--ds-compact-text);font-weight:var(--ds-weight-regular,400);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-muted);cursor:pointer}
+#profileView .ps-push-kind::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px)/2);height:var(--kptu-touch-target,44px)}
+#profileView .ps-push-kind[aria-pressed="true"]{color:var(--ds-select-ink);background:var(--ds-select-bg);border-color:var(--ds-select-line)}
+#profileView .ps-push-kind:disabled{opacity:.5;cursor:default}
+#profileView .ps-push-time{flex:none;width:7.2em;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 6px;font-size:var(--ds-compact-text)}

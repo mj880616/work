@@ -1,7 +1,7 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {fitChipRows} from './chip-rows.js';
 import {createAnchoredMenu} from './anchored-menu.js';
-import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState} from './outside-statements-model.mjs';
+import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState, feedWhen} from './outside-statements-model.mjs';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절, 12:43 시안): '바깥 성명' 화면(?view=outside). #outsideView의 유일한 그리기 주인.
 // - [새로 온 것]: 칩 줄(전체·묶음·단체, 공용 chip-rows.js 두 줄 + [더보기 ▾]) → 날짜 묶음 → 글마다 '단체 · 종류 · 시각' / 제목 / 한 문장 요약(늘 보임)
 //   / 본문 접기(<details>, 국내는 펼칠 때 서버 문장 표에서 읽음, 외국은 한국어 요약 + 핵심 문장) / 작은 [원문](그 단체 페이지, 새 창).
@@ -22,9 +22,10 @@ const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 function install() {
   if (document.getElementById('outsideView')) return;
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="outsideView" class="view-panel hidden" aria-labelledby="osTitle">
-<h2 id="osTitle" class="screen-title">바깥 성명</h2>
+<h2 id="osTitle" class="screen-title">사회운동 Now</h2>
 <div id="outsideRoot" class="os" data-mode="list">
-<div class="os-bar"><div class="os-chips" data-os-chips role="group" aria-label="단체 거르기"></div><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="바깥 성명 메뉴">${MORE}</button></div>
+<p class="os-when" data-os-when hidden></p>
+<div class="os-bar"><div class="os-chips" data-os-chips role="group" aria-label="단체 거르기"></div><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="사회운동 Now 메뉴">${MORE}</button></div>
 <div class="os-list" data-os-list aria-label="새로 온 글"></div>
 <div class="os-sources" data-os-sources aria-label="단체 켜고 끄기"></div>
 </div></section>`);
@@ -146,6 +147,9 @@ function paint() {
     bar.hidden = chips.length <= 1;
     if (!bar.hidden) fitChipRows(bar, {key: 'outside', keep: el => el.dataset.osChip === ALL || el.getAttribute('aria-pressed') === 'true'});
   }
+  // 위쪽 작은 줄: 마지막으로 읽은 시각 · 다음 읽기(켠 단체가 있을 때만, 목록 칸에서만).
+  const when = $('[data-os-when]');
+  if (when) { const text = state.sourcesLoaded && state.mode === 'list' ? feedWhen([...state.sources.values()]) : ''; when.textContent = text; when.hidden = !text; }
   const list = $('[data-os-list]'), sources = $('[data-os-sources]');
   if (state.mode === 'sources') { sources.innerHTML = sourcesHtml(); list.replaceChildren(); }
   else { list.innerHTML = listHtml(); sources.replaceChildren(); }
@@ -256,7 +260,7 @@ async function toggleSource(key) {
 }
 
 // ---------- 누르기 ----------
-const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: '바깥 성명 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
+const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: '사회운동 Now 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
   render: () => '<button type="button" data-os-act="sources">단체 켜고 끄기</button>',
   onAction: button => { if (button.dataset.osAct === 'sources') openSources(); }});
 

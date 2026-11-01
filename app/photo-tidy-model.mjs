@@ -42,8 +42,8 @@ export function placeCounts(ctx) {
 
 // 폰 폴더 이름(맨 끝 칸).
 export const folderLeaf = path => String(path || '').replace(/\/+$/, '').split('/').pop() || '폰';
-// 백업 안 되는 폴더: 사진이 있는데 그중 한 장도 원드라이브에 없는 폰 폴더. [{id(경로), name, count, bytes}] 장수 많은 순.
-export function unbackedFolders(phItems, index) {
+// 폰 폴더마다 원드라이브에서 찾은 장수. [{id(경로), name, count, backed, bytes}] (사진 없는 폴더는 없음).
+export function backupFolders(phItems, index) {
   const by = new Map();
   for (const p of phItems || []) {
     if (!p.folder) continue;
@@ -51,8 +51,17 @@ export function unbackedFolders(phItems, index) {
     f.count++; if (index?.phoneHas?.has(p.id)) f.backed++;
     if (Number.isFinite(p.size_bytes) && p.size_bytes > 0) f.bytes += p.size_bytes;
   }
-  return [...by.values()].filter(f => f.count > 0 && f.backed === 0).map(({backed, ...f}) => f)
+  return [...by.values()];
+}
+// 백업 안 되는 폴더: 사진이 있는데 그중 한 장도 원드라이브에 없는 폰 폴더. [{id(경로), name, count, bytes}] 장수 많은 순.
+export function unbackedFolders(phItems, index) {
+  return backupFolders(phItems, index).filter(f => f.count > 0 && f.backed === 0).map(({backed, ...f}) => f)
     .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
+}
+// S47-20: 원드라이브에 일부만 있는 폰 폴더(찾은 장수 backed / 전체 count). 못 찾은 장수 많은 순.
+export function partlyBackedFolders(phItems, index) {
+  return backupFolders(phItems, index).filter(f => f.backed > 0 && f.backed < f.count)
+    .sort((a, b) => (b.count - b.backed) - (a.count - a.backed) || a.id.localeCompare(b.id));
 }
 
 // 잡동사니: 1년 지난 스크린샷, 카톡·텔레그램으로 받은 사진(그 앱 폴더 안 사진).
@@ -82,12 +91,38 @@ export const groupHidden = (group, off) => group.folders.length > 0 && group.fol
 export function sizeText(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '';
   if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(bytes >= 1e10 ? 0 : 1)}GB`;
-  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)}MB`;
+  if (bytes >= 1e6) return `${bytes < 1e7 ? (bytes / 1e6).toFixed(1).replace(/\.0$/, '') : Math.round(bytes / 1e6)}MB`;
   return `${Math.max(1, Math.round(bytes / 1e3))}KB`;
 }
+// ---- S47-19 정리 [보기] 그 줄 안 펼침(요청함 11/01 12:55·12:56): 합계 용량·정렬 ----
+// 정렬 칩. 공간 비우기·잡동사니·백업 안 됨은 용량 큰 순, 어디에 있나(폰에만 등)는 찍은 날 최신이 기본. 같은 사진 묶음은 묶음 순서.
+export const TIDY_SORTS = Object.freeze({size:'용량 큰 순', new:'찍은 날 최신', old:'찍은 날 오래된'});
+export const DUP_SORTS = Object.freeze({save:'아낄 용량 큰 순', new:'찍은 날 최신', old:'찍은 날 오래된'});
+export const paneSortDefault = key => (String(key || '').startsWith('place:') ? 'new' : 'size');
+const takenMs = p => { const t = Date.parse(p?.taken_at); return Number.isFinite(t) ? t : NaN; };
+const idCmp = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+// 찍은 시각 비교(시각 모르는 것은 늘 뒤).
+const byTaken = (a, b, dir) => { const x = takenMs(a), y = takenMs(b); if (Number.isNaN(x) || Number.isNaN(y)) return Number.isNaN(x) - Number.isNaN(y); return dir * (x - y); };
+export function sortTidy(list, sort) {
+  const out = (list || []).slice();
+  if (sort === 'old') return out.sort((a, b) => byTaken(a, b, 1) || idCmp(a, b));
+  if (sort === 'size') return out.sort((a, b) => bytesOfItem(b) - bytesOfItem(a) || byTaken(a, b, -1) || idCmp(a, b));
+  return out.sort((a, b) => byTaken(a, b, -1) || idCmp(a, b));
+}
+// 묶음 정렬: 아낄 용량 큰 순(dupGroups 순서) · 찍은 날(묶음 첫 장).
+export function sortDupGroups(groups, sort) {
+  const out = (groups || []).slice();
+  if (sort === 'new') return out.sort((a, b) => byTaken(a.items[0], b.items[0], -1) || idCmp(a, b));
+  if (sort === 'old') return out.sort((a, b) => byTaken(a.items[0], b.items[0], 1) || idCmp(a, b));
+  return out.sort((a, b) => b.bytes - a.bytes || byTaken(a.items[0], b.items[0], -1) || idCmp(a, b));
+}
+export const totalBytes = list => (list || []).reduce((n, p) => n + bytesOfItem(p), 0);
+const bytesOfItem = p => (Number.isFinite(p?.size_bytes) && p.size_bytes > 0 ? p.size_bytes : 0);
+
 // [정리 n]의 n: 할 거리가 있는 제안 줄 수(백업 안 됨 폴더·잡동사니 무리 중 숨기지 않은 것).
+// S47-20: 꺼 둔 백업 안 됨 폴더는 셈에서 뺀다([폴더 끄기] = 목록에서 빼기).
 export function tidyCount({unbacked = [], junk = []} = {}, off = null) {
-  return (unbacked.length ? 1 : 0) + (junk.some(g => !groupHidden(g, off)) ? 1 : 0);
+  return (unbacked.some(f => !off?.has(f.id)) ? 1 : 0) + (junk.some(g => !groupHidden(g, off)) ? 1 : 0);
 }
 // 지운 칸을 재료에서 뺀다(폰 휴지통·원드라이브 휴지통 뒤).
 export function forgetIds(list, ids) {
@@ -191,4 +226,33 @@ export function keptText(missing, unsure) {
 }
 // 다음 사진 확인 때 사본이 사라진 경우의 경고 한 줄.
 export const goneText = n => `폰에서 지운 ${n}장이 원드라이브에서도 지워졌어요. 원드라이브 휴지통(30일)에서 되살리세요. 동기화 앱이 양방향이면 업로드만으로 바꾸세요`;
-export const SAFE_SYNC_TEXT = '원드라이브 동기화 앱이 업로드만일 때 안전해요';
+
+// ---- S47-20 정리 줄마다 쉬운 설명 + 할 일(요청함 11/01 12:57) · 찾은 결과 남겨 두기 ----
+// 줄마다 늘 보이는 한 줄(무엇을 어떻게 비교했나)과 펼치면 보이는 한 줄(무엇을 하면 되나).
+export const TIDY_HELP = Object.freeze({
+  all:'폰 사진과 원드라이브 사진을 이름·크기(또는 크기·찍은 시각)로 맞춰 봤어요',
+  phone:'원드라이브에서 못 찾은 폰 사진이에요 · 폰을 잃어버리면 사라져요(폴더별로는 아래 백업 안 됨)',
+  onedrive:'폰에서는 지웠고 원드라이브에만 남은 사진이에요 · 필요 없으면 원드라이브에서 지우면 돼요',
+  both:'폰과 원드라이브 양쪽에 있는 사진이에요 · 폰 공간이 모자라면 아래 공간 비우기를 보세요',
+  unbacked:'이 폴더 사진은 원드라이브에서 한 장도 못 찾았어요. 폰을 잃어버리면 같이 사라져요',
+  unbackedDo:"필요한 폴더면 동기화 앱(OneSync)에 이 폴더를 '업로드만'으로 추가하세요 · 필요 없는 폴더면 [폴더 끄기]로 목록에서 빼세요",
+  partly:'일부만 있음 = 원드라이브에서 찾은 장수/전체 장수 · [보기]는 못 찾은 사진만 · 동기화 앱이 아직 올리는 중일 수 있어요',
+  space:'원드라이브에 똑같은 사진이 있어서 폰에서만 지워도 안전한 사진이에요(동기화 앱이 업로드만일 때)',
+  spaceDo:'1년 지난 사진과 한 달 지난 50MB 넘는 동영상만 골랐고 별표는 뺐어요 · 지우기 직전에 원드라이브에 있는지 다시 확인해요',
+  dups:'같은 사진 = 크기·가로세로가 똑같은 사진, 연사 = 같은 폴더에서 1초 안에 이어 찍은 사진이에요',
+  dupsDo:'묶음마다 남길 한 장을 누르고 [나머지 지우기] · 원드라이브에 사본이 있는 사진만 지워요',
+  junk:'1년 지난 스크린샷과 카톡·텔레그램으로 받은 사진이에요',
+  junkDo:'필요 없으면 [지우기](폰 휴지통) · 지우기 싫으면 [숨기기]로 사진 목록에서만 빼요',
+});
+export const JUNK_HELP = Object.freeze({shot:'찍은 지 1년 넘은 화면 캡처', kakao:'카톡 대화방에서 받아 저장된 사진(KakaoTalk 폴더)', telegram:'텔레그램에서 받아 저장된 사진(Telegram 폴더)'});
+// 일부만 있음 숫자 글.
+export const partlyText = f => `원드라이브에 일부만 있음 ${f.backed}/${f.count}장`;
+// 찾은 지 얼마나 됐나(맨 위 한 줄).
+export function foundText(at, now = Date.now()) {
+  if (!Number.isFinite(at) || at <= 0) return '';
+  const min = Math.floor(Math.max(0, now - at) / 60000);
+  if (min < 1) return '방금 찾음';
+  if (min < 60) return `${min}분 전에 찾음`;
+  const h = Math.floor(min / 60);
+  return h < 24 ? `${h}시간 전에 찾음` : `${Math.floor(h / 24)}일 전에 찾음`;
+}

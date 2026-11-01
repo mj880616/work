@@ -55,12 +55,14 @@ import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-sum
 import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftSiteLayout, readCarriedLayout} from './weekly-draft-store.js';
 import {timeCell} from './time-input.js';
 import {discussLines} from './weekly-discuss.mjs';
+import {rowMore} from './row-more.js';
 import {eventFields, editFrom, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey} from './weekly-schedule-rows.mjs';
 import {mountReorder} from './reorder-drag.js';
 import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
 import {fileNameTitle} from './library-file-name.mjs';
-import {pickBase, teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback} from './weekly-feedback.mjs';
+import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
+import {teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback} from './weekly-feedback.mjs';
 import {reviewCard, answerSuggestion, readLearnRows, candidateChange} from './weekly-learn-panel.js';
 import {caretLine, askTargets, lineRequest, readAnswer, replaceLine, suggestKey, PICK_MS, PAUSE_MS, PER_OPEN} from './weekly-line-suggest.mjs';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
@@ -170,14 +172,8 @@ async function readContext(rt) {
   const statusRows = await readStatusRows({rt, workspaceId:workspace, orgIds:mine.organizations.map(o => o.id)}).then(r => r.missing ? new Map() : r.rows).catch(() => new Map());
   return {stages, statusRows, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
 }
-// 바탕 고르기(weekly-feedback.mjs pickBase): 보고일 앞의 최신 개인본 → {doc, from:'personal', team(최신 팀 확정본 — '확정본에서 바뀜' 참고용)},
-// 없으면 최신 팀 확정본 → {doc, from:'confirmed'}, 둘 다 없으면 null. 개인본을 읽지 못하면 지금처럼 확정본만 본다.
-async function latestBase(rt, day) {
-  const workspace = rt.context.read()?.workspace?.id;
-  const q = (kind, limit) => `/rest/v1/app_documents?workspace_id=eq.${encode(workspace)}&category=${weeklyCategoryFilter(kind)}&select=id,title,file_name,document_date,created_at&order=created_at.desc,id.desc&limit=${limit}`;
-  const [personal, confirmed] = await Promise.all([rt.api(q('personal', 5)).catch(() => []), rt.api(q('confirmed', 1))]);
-  return pickBase({personal:Array.isArray(personal) ? personal : [], confirmed:Array.isArray(confirmed) ? confirmed : []}, day);
-}
+// 바탕 고르기는 공용 모듈 weekly-base.js findBase(WEEKLY-한흐름확정 ①: [주간 정리]와 같은 코드).
+const latestBase = findBase;
 
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
 // draftDelay: how long typing must pause before the draft is saved (tests may pass a shorter one).
@@ -358,15 +354,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // ---- 환류학습 1: 팀 확정본에서 바뀜(참고용) ----
   // 바탕이 개인본일 때, 그보다 나중에 나온 팀 확정본의 내 칸 글과 다르면 칸 옆에 작은 '확정본에서 바뀜'(눌러 그 글 보기·[이 글로 바꾸기]).
   // 열지 못하면 조용히 표시하지 않는다(바탕은 개인본 그대로).
-  function rawCells(s, team) {
-    const base = s.draft.startDraft(team, {me:s.me, myOrgs:s.myOrgs, orgList:s.context.orgFailed ? null : s.context.organizations, date:s.date});
-    const out = new Map();
-    for (const [section, list, keyOf] of [['summary', s.draft.editableRows(base, s.me), summaryKey], ['orgs', s.draft.editableOrgs(base, 'orgs'), orgKey], ['sites', s.draft.editableOrgs(base, 'sites'), orgKey]]) {
-      const keys = cellKeys(list, keyOf);
-      list.forEach((row, i) => out.set(cellId(section, keys[i].key, keys[i].n), row.lines));
-    }
-    return out;
-  }
+  const rawCells = (s, team) => baseCells(s.draft, team, {me:s.me, myOrgs:s.myOrgs, orgList:s.context.orgFailed ? null : s.context.organizations, date:s.date});
   async function hwpxBytes(bytes, name) {
     if (state?.draft.hwpKind(bytes) === 'hwpx') return bytes;
     if (state?.draft.hwp5Header(bytes)?.password) throw new Error('locked');
@@ -413,7 +401,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   function cellsNow(s, from = 'edits') {
     return new Map([...s.cellAt].map(([id, at]) => [id, from === 'initial' ? [...(s.initial.get(id) ?? [])] : [...(s.edits[at.section].get(at.index) ?? [])]]));
   }
-  const proposedNow = s => ({at:nowIso(), base:{from:s.baseKind === 'personal' ? 'personal' : s.baseInfo?.from === 'file' ? 'file' : 'confirmed', ...(s.baseInfo?.document_id ? {document_id:s.baseInfo.document_id} : {})}, cells:cellList(cellsNow(s, 'initial'))});
+  const proposedNow = s => proposedOf({at:nowIso(), baseKind:s.baseKind, baseInfo:s.baseInfo, cells:cellsNow(s, 'initial')});
 
   // (Re)build my base from the team report for the current name; edits start from the base lines.
   function rebase() {
@@ -949,10 +937,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       box.dataset.reorderId = String(row.index); box.dataset.hwpxSite = row.org;
       const tools = el('div', 'journal-hwpx-site-tools');
       const grip = el('button', 'mini journal-hwpx-grip', '⠿'); grip.type = 'button'; grip.dataset.reorderHandle = ''; grip.setAttribute('aria-label', `${row.org} 순서 옮기기(위·아래 화살표)`);
-      const more = el('details', 'journal-kind-more'); more.dataset.hwpxSiteMore = row.org;
-      const sum = el('summary'); const dots = el('span', 'more-dots', '⋯'); dots.setAttribute('aria-hidden', 'true'); sum.append(dots); sum.setAttribute('aria-label', `${row.org} 사업장 칸 메뉴`);
-      const hide = button('이번 주 보고에서 빼기', 'hwpxSiteHide'); hide.dataset.hwpxSiteName = row.org;
-      more.append(sum, hide); tools.append(grip, more);
+      // WEEKLY-화면디자인정리: 주간 정리 화면 공용 ⋯(row-more.js) — 열린 메뉴가 칸 글을 밀지 않는다.
+      const more = rowMore(doc, {label:`${row.org} 사업장 칸 메뉴`, data:{hwpxSiteMore:row.org}, items:[{text:'이번 주 보고에서 빼기', data:{hwpxSiteHide:'', hwpxSiteName:row.org}}]});
+      tools.append(grip, more);
       box.prepend(tools);
       list.append(box);
     }

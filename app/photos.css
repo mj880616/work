@@ -163,8 +163,13 @@
 #appView #photosView .photos-tidy-chip[hidden],#appView #photosView .photos-tidy[hidden]{ display:none; }
 #appView #photosView .photos-tidy-chip[aria-expanded="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #appView #photosView .photos-tidy{ display:flex; flex-direction:column; gap:2px; margin:0 0 4px; padding:4px 8px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); background:var(--kptu-surface); font-size:13px; }
-#appView #photosView .photos-tidy-line,#appView #photosView .photos-tidy-foot{ margin:2px 0; color:var(--kptu-muted); font-size:12px; }
+#appView #photosView .photos-tidy-line{ margin:2px 0; color:var(--kptu-muted); font-size:12px; }
 #appView #photosView .photos-tidy-warn{ color:var(--kptu-danger); }
+#appView #photosView .photos-tidy-at{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:2px 0; color:var(--kptu-muted); font-size:12px; font-variant-numeric:tabular-nums; }
+#appView #photosView .photos-tidy-at .mini{ margin-left:auto; }
+#appView #photosView .photos-tidy-help{ display:block; color:var(--kptu-muted); font-size:11.5px; line-height:1.35; font-weight:400; }
+#appView #photosView .photos-tidy-row > summary > span:first-child{ min-width:0; }
+#appView #photosView .photos-tidy-do{ margin:0 0 2px; }
 #appView #photosView .photos-tidy-places{ display:flex; flex-wrap:wrap; gap:4px; padding:2px 0; }
 #appView #photosView .photos-tidy-place{ min-height:0; min-width:0; height:28px; margin:0; padding:0 10px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px); color:var(--kptu-muted); background:transparent; box-shadow:none; font-size:12px; font-weight:400; font-variant-numeric:tabular-nums; }
 #appView #photosView .photos-tidy-place[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
@@ -188,3 +193,10 @@
 #appView #photosView .photos-tidy-pick[aria-pressed="false"]{ opacity:.6; }
 #appView #photosView .photos-tidy-pick .diary-photo,#appView #photosView .photos-tidy-th{ display:block; width:100%; height:100%; }
 #appView #photosView .photos-tidy-pick img{ width:100%; height:100%; object-fit:cover; }
+/* S47-19: 정리 [보기]는 그 줄 아래 펼친 칸(합계 용량·정렬 칩·사진 칸, 칸마다 용량). */
+#appView #photosView .photos-tidy-pane{ display:flex; flex-direction:column; gap:3px; margin:2px 0 4px; }
+#appView #photosView .photos-tidy-pane-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px; }
+#appView #photosView .photos-tidy-sorts{ display:flex; flex-wrap:wrap; gap:4px; }
+#appView #photosView .photos-tidy-size{ position:absolute; left:3px; bottom:2px; z-index:1; padding:0 3px; border-radius:3px; font-size:10px; line-height:14px; font-variant-numeric:tabular-nums; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
+#appView #photosView .photos-tidy-pick .photos-tidy-size{ left:1px; bottom:1px; font-size:9px; line-height:12px; }
+#appView #photosView .photos-tidy-pane [data-photos-tidy-more]{ text-align:center; }
