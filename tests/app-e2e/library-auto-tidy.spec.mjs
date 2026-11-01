@@ -67,6 +67,8 @@ async function mockApp(page,state){
       }
       return ok({ok:true,kind:'library_fill',mode:'tidy',updated,fields:updated*4,skipped:body.document_ids.length-updated});
     }
+    // UI-앱안알림 4·5: 맨 위 알림 줄이 시작 때 묻는 phone-push notices(POST로 묻는 읽기)는 쓰기로 세지 않는다.
+    if(path==='/functions/v1/phone-push'&&['notices','recent'].includes(url.searchParams.get('action')))return ok({ok:true,items:[]});
     if(path.startsWith('/functions/v1/')){if(method!=='GET'&&method!=='OPTIONS')state.otherWrites.push(path);return ok({})}
     if(path==='/rest/v1/app_library_classify_attempts'){
       if(state.attemptsMode==='missing')return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST205'})});
