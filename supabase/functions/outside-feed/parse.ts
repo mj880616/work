@@ -9,6 +9,8 @@ export const TITLE_MAX_CHARS = 500;
 export const AUTHOR_MAX_CHARS = 200;
 export const URL_MAX_CHARS = 2000;
 
+// 목록에서 찾은 글 수(종류 거르기 전). 0이면 목록을 못 뽑은 것(parse_empty), 1 이상인데 넣을 글이 0이면 '이번엔 해당 글 없음'(no_match).
+export type ListStats = { candidates: number };
 export type ListItem = { url: string; title: string; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null };
 
 // ---- 글자 다듬기 ----------------------------------------------------------------------------------------------------
@@ -114,7 +116,7 @@ function atomLink(block: string): string | null {
 }
 
 // 피드 글 목록(최대 limit). 카탈로그 밖 주소·종류 없음(null)·제목 없음은 뺀다.
-export function parseFeed(source: OutsideSource, xml: string, nowMs: number, limit = 30): ListItem[] {
+export function parseFeed(source: OutsideSource, xml: string, nowMs: number, limit = 30, stats?: ListStats): ListItem[] {
   const blocks = [...xml.matchAll(/<(item|entry)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)].map((m) => m[2]);
   const out: ListItem[] = [];
   const seen = new Set<string>();
@@ -124,6 +126,7 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
     const rawLink = tag(b, ["link"]) || atomLink(b) || tag(b, ["guid"]) || "";
     const url = canonicalUrl(source, rawLink);
     if (!title || !url || seen.has(url)) continue;
+    if (stats) stats.candidates++;
     const kind = source.kindOf(title, url);
     if (!kind) continue;
     seen.add(url);
@@ -141,27 +144,42 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
   return out;
 }
 
+// 피드·목록 대신 '사람인지 확인' 스크립트 쪽이 온 경우(무료 호스팅의 자바스크립트 쿠키 확인 등).
+// 이 쪽은 풀지 않는다(우회 금지) — 단체 상태를 bot_check(사이트가 자동 읽기를 막아 둠)로 남길 뿐이다.
+export function looksLikeBotCheck(text: string): boolean {
+  if (/<(rss|feed|rdf:RDF)\b/i.test(text)) return false;
+  return /slowAES|\/aes\.js|\/cupid\.js|__test=|challenge-platform|cf-chl-|Just a moment\.\.\./i.test(text);
+}
+
 // ---- 목록 HTML -----------------------------------------------------------------------------------------------------
 
 // 목록 페이지의 <a href> 가운데 카탈로그 글 주소 규칙(item)에 맞는 것만. 같은 글에 링크가 여럿이면 가장 긴 글자를 제목으로.
-export function parseListHtml(source: OutsideSource, html: string, base: string, limit = 30): ListItem[] {
+export function parseListHtml(source: OutsideSource, html: string, base: string, limit = 30, stats?: ListStats): ListItem[] {
   if (!source.item) return [];
   const best = new Map<string, string>();
   const order: string[] = [];
   const body = html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ");
   for (const m of body.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
     const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m[1]);
-    const raw = href?.[1] ?? href?.[2] ?? href?.[3];
+    let raw = href?.[1] ?? href?.[2] ?? href?.[3];
     if (!raw) continue;
+    if (/^\s*javascript:/i.test(raw)) {
+      // 글을 스크립트로 여는 목록: 단체가 정한 바꾸기만(없거나 못 바꾸면 버림).
+      let baseUrl: URL;
+      try { baseUrl = new URL(base); } catch { continue; }
+      raw = source.listHref?.(decodeEntities(raw), baseUrl) ?? "";
+      if (!raw) continue;
+    }
     let abs: string;
     try { abs = new URL(decodeEntities(raw), base).href; } catch { continue; }
     if (!source.item.test(abs)) continue;
     const url = canonicalUrl(source, abs);
-    const title = cleanTitle(m[2]) ?? cleanTitle(/\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "");
+    const title = (source.titleClass ? innerTitle(m[2], source.titleClass) : null) ?? cleanTitle(m[2]) ?? cleanTitle(/\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "");
     if (!url || !title) continue;
     if (!best.has(url)) order.push(url);
     if (len(title) > len(best.get(url) ?? "")) best.set(url, title);
   }
+  if (stats) stats.candidates += order.length;
   const out: ListItem[] = [];
   for (const url of order) {
     if (out.length >= limit) break;
@@ -171,6 +189,22 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     out.push({ url, title, kind, published_at: null, author: null, summary: null, content: null });
   }
   return out;
+}
+
+// 링크 안에서 class 이름 하나가 re에 맞는 첫 칸의 글자(같은 이름 닫는 태그까지). 없으면 null.
+function innerTitle(inner: string, re: RegExp): string | null {
+  const lower = inner.toLowerCase();
+  for (const m of inner.matchAll(/<([a-z][a-z0-9]{0,9})\b([^>]*)>/gi)) {
+    const cls = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(m[2]);
+    const names = (cls?.[1] ?? cls?.[2] ?? "").split(/\s+/).filter(Boolean);
+    if (!names.some((n) => re.test(n))) continue;
+    const start = (m.index ?? 0) + m[0].length;
+    const end = lower.indexOf(`</${m[1].toLowerCase()}`, start);
+    if (end < 0) continue;
+    const t = cleanTitle(inner.slice(start, end));
+    if (t) return t;
+  }
+  return null;
 }
 
 // ---- 글 본문 ------------------------------------------------------------------------------------------------------

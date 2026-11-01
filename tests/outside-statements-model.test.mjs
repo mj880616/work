@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {ALL, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, isOld, firstSentence, postView, safeUrl, bodyText, isFresh, sourceState, FEED_SLOTS_KST, feedSlots, feedWhen} from '../app/outside-statements-model.mjs';
+import {ALL, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, isOld, firstSentence, postView, safeUrl, bodyText, isFresh, sourceState, errorNote, FEED_SLOTS_KST, feedSlots, feedWhen} from '../app/outside-statements-model.mjs';
 import {readFileSync} from 'node:fs';
 
 // OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 2·4절): 화면 계산 규칙.
@@ -59,8 +59,23 @@ test('작은 규칙: 첫 문장·원문 주소·본문 잇기·새 글·단체 �
   assert.equal(bodyText([{idx: 1, text: '둘.'}, {idx: 0, text: '하나.'}]), '하나. 둘.');
   assert.equal(isFresh({fetched_at: '2026-10-31T00:00:00Z'}, '2026-10-30T00:00:00Z'), true);
   assert.equal(isFresh({fetched_at: '2026-10-31T00:00:00Z'}, null), false);
-  assert.equal(sourceState({enabled: true, last_error: 'robots'}), '사이트가 자동 읽기를 막음');
+  assert.equal(sourceState({enabled: true, last_error: 'robots'}), '사이트가 자동 읽기를 막아 둠');
   assert.equal(sourceState({enabled: true, last_ok_at: '2026-10-31T09:07:00Z'}), '마지막 10. 31. (토) 18:07');
+});
+
+// OUTSIDE-막힌단체: 막힌 까닭을 단체 줄에 작은 글로(서버 단계 코드 → 일상어).
+test('막힌 단체 상태 글: 단계 코드마다 까닭 한 줄, 모르는 코드는 읽기 실패', () => {
+  assert.equal(sourceState({enabled: true, last_error: 'parse_empty', last_ok_at: '2026-10-31T09:07:00Z'}), '읽기 막힘 · 사이트 구조 바뀜');
+  assert.equal(errorNote('robots_denied'), '사이트가 자동 읽기를 막아 둠');
+  assert.equal(errorNote('bot_check'), '사이트가 자동 읽기를 막아 둠');
+  assert.equal(errorNote('too_large'), '읽기 막힘 · 목록이 너무 큼');
+  assert.equal(errorNote('robots_unreachable'), '읽기 막힘 · 사이트 응답 없음');
+  assert.equal(errorNote('timeout'), '읽기 막힘 · 사이트 응답 없음');
+  assert.equal(errorNote('http_503'), '읽기 막힘 · 사이트 오류');
+  assert.equal(errorNote('http_200'), '읽기 실패');
+  assert.equal(errorNote('constructor'), '읽기 실패');
+  assert.equal(errorNote('url_outside'), '읽기 실패');
+  assert.equal(errorNote(''), '');
 });
 
 // OUTSIDE-이름·바로읽기 ③: 목록 위 '마지막으로 읽음 … · 다음 …' 줄.

@@ -31,6 +31,7 @@ async function outsideServer(page) {
   server.gate = new Promise(r => { release = r; });
   server.release = () => release();
   server.sources.get('kgreens').last_error = 'robots';
+  server.sources.get('laborparty').last_error = 'parse_empty';
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
@@ -167,7 +168,8 @@ for (const width of [412, 1280]) {
     await expect(posts(page)).toHaveCount(0);
     await expect(sw('kctu')).toHaveAttribute('aria-checked', 'true');
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'false');
-    await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['사이트가 자동 읽기를 막음']);
+    // 막힌 까닭을 단체 줄에 작은 글로(OUTSIDE-막힌단체): robots → 막아 둠, parse_empty → 사이트 구조 바뀜. 카탈로그 순서(노동당 → 녹색당).
+    await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['읽기 막힘 · 사이트 구조 바뀜', '사이트가 자동 읽기를 막아 둠']);
     await expect(root(page).locator('.os-src-row:has([data-os-source="kctu"]) .os-src-note')).toHaveText('마지막 10. 5. (월) 18:07');
     // 없던 단체 켜기 = 새 줄 넣기(workspace_id·source_key·enabled만), 켠 단체 끄기 = enabled만 고치기.
     await sw('kptu').click();

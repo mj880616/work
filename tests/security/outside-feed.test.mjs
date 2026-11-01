@@ -28,8 +28,8 @@ const EXPECT={
   kptu:[['https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=9001','statement'],['https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=9000','press']],
   laborparty:[['https://laborparty.kr/?mod=document&page_id=13642&uid=5001','comment'],['https://laborparty.kr/?mod=document&page_id=13642&uid=5000','comment']],
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
-  jinboparty:[['https://jinboparty.com/pages/index.php?p=15&b=b_1_2&bn=3001','comment'],['https://jinboparty.com/pages/index.php?p=286&b=b_1_111&bn=4001','press']],
-  pssp:[['https://pssp.org/bbs/view.php?board=statement&id=6001','statement']],
+  jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
+  pssp:[['https://pssp.org/bbs/view.php?board=statement&nid=6001','statement']],
   ws:[['https://ws.or.kr/article/40001','statement'],['https://ws.or.kr/article/39999','statement']],
   platformc:[['https://platformc.kr/2026/10/fake-reading-one','article']],
   leftall:[['https://leftall.com/notice/120','statement'],['https://leftall.com/notice/118','statement']],
@@ -206,7 +206,7 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
     assert.equal(init.method,'GET');assert.equal(init.redirect,'manual');assert.match(init.headers['User-Agent'],/^Web2OutsideFeed\//);
     assert.equal(init.headers.Authorization,undefined,'never send credentials to outside sites');
     calls.site.push(url);
-    if(u.pathname==='/robots.txt'){const r=robots[u.origin];return r===undefined?new Response('',{status:404}):r instanceof Response?r:new Response(r,{status:200});}
+    if(u.pathname==='/robots.txt'){const r0=robots[u.origin];const r=typeof r0==='function'?r0():r0;return r===undefined?new Response('',{status:404}):r instanceof Response?r:new Response(r,{status:200});}
     const s=sites[url];if(s===undefined)return html('not found',404);return typeof s==='function'?s():s instanceof Response?s:html(s);
   };
   const handler=H.createOutsideFeedHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,OUTSIDE_FEED_CRON_SECRET:SECRET,WEB2_OPENAI_API_KEY:'synthetic-openai-key',...env})[n],
@@ -452,6 +452,80 @@ test('every catalog source runs end to end from its stored sample (domestic and 
     assert.equal(out.inserted+out.skipped,EXPECT[s.key].length,s.key);
     for(const u of h.calls.site)assert.ok(allowedUrl(s,u),`${s.key} requested only its own hosts`);
   }
+});
+
+// ---- OUTSIDE-막힌단체(S47-31): 2026-11-01 실제 목록 모양에 맞춘 표본 · 막힌 까닭 코드 ---------------------------------
+
+const listOf=(key,file,base)=>P.parseListHtml(sourceByKey(key),FX(file),base,30);
+
+test('진보당: javascript:js_board_view 링크를 글 주소로 바꾸고, 제목은 제목 칸만(좋아요 수·요약 빼기)', () => {
+  const c=listOf('jinboparty','jinboparty-comment.html','https://jinboparty.com/pages/?p=15&b=b_1_2');
+  assert.deepEqual(c.map(i=>[i.url,i.title,i.kind]),[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','[가상 대변인 브리핑] 가상 예산안 논평','comment']]);
+  const p=listOf('jinboparty','jinboparty-press.html','https://jinboparty.com/pages/?p=286&b=b_1_111');
+  assert.deepEqual(p.map(i=>[i.url,i.title,i.kind]),[['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','[보도자료] 가상 기자회견 보도자료','press']]);
+  // 바꾸기 규칙이 없는 단체는 javascript: 링크를 버린다. 목록 주소에 p·b가 없거나 이상하면 바꾸지 않는다.
+  assert.deepEqual(listOf('kctu','jinboparty-comment.html','https://nodong.org/statement'),[]);
+  assert.deepEqual(listOf('jinboparty','jinboparty-comment.html','https://jinboparty.com/pages/?p=15'),[]);
+  assert.deepEqual(listOf('jinboparty','jinboparty-comment.html','https://jinboparty.com/pages/?p=15&b=../x'),[]);
+});
+
+test('사회진보연대: 글 번호 nid 링크(./view.php?board=statement&nid=…)를 읽고 다른 게시판·http 링크는 거른다', () => {
+  const r=listOf('pssp','pssp.html','https://pssp.org/bbs/list.php?board=statement');
+  assert.deepEqual(r.map(i=>[i.url,i.kind]),[['https://pssp.org/bbs/view.php?board=statement&nid=6001','statement']]);
+});
+
+test('플랫폼C: 첫 화면 카드 제목(h2 …__title)만 제목으로, 스크립트 속 주소는 안 읽음, 목록 주소는 2MB 아래 첫 화면', () => {
+  const r=listOf('platformc','platformc.html','https://platformc.kr/');
+  assert.deepEqual(r.map(i=>[i.url,i.title]),[['https://platformc.kr/2026/10/fake-reading-one','가상 읽을거리 하나']]);
+  assert.deepEqual(sourceByKey('platformc').lists,['https://platformc.kr/']);
+  assert.equal(H.FETCH_MAX_BYTES,2*1024*1024,'size cap unchanged');
+});
+
+test('노동자연대: 피드는 읽었지만 이번 첫 쪽에 성명이 없으면 고장 아님(no_match, 실패 표시 지움)', async () => {
+  const feed=`<?xml version="1.0"?><rss version="2.0"><channel><item><title><![CDATA[가상 신문 기사 하나]]></title><link>https://ws.or.kr/article/41001</link></item><item><title><![CDATA[[긴 글] 가상 긴 글]]></title><link>https://ws.or.kr/article/41000</link></item></channel></rss>`;
+  const h=harness({sources:[{workspace_id:WS,source_key:'ws',last_error:'parse_empty'}],sites:{'https://ws.or.kr/feed':new Response(feed,{status:200,headers:{'Content-Type':'application/xml'}})}});
+  const out=await (await h.cron('run',{source:'ws'})).json();
+  assert.equal(out.status,'no_match');assert.equal(out.listed,0);assert.equal(out.inserted,0);
+  assert.equal(h.db.app_outside_sources[0].last_error,null);assert.ok(h.db.app_outside_sources[0].last_ok_at);
+  assert.deepEqual(h.calls.site,['https://ws.or.kr/robots.txt','https://ws.or.kr/feed'],'no article page, no AI');assert.equal(h.calls.ai.length,0);
+  // 목록에서 글을 하나도 못 찾으면 여전히 parse_empty.
+  const h2=harness({sources:[{workspace_id:WS,source_key:'ws'}],sites:{'https://ws.or.kr/feed':new Response('<rss><channel></channel></rss>',{status:200})}});
+  assert.equal((await (await h2.cron('run',{source:'ws'})).json()).status,'parse_empty');
+});
+
+test('사회주의자: 피드 대신 자바스크립트 사람 확인 쪽이 오면 풀지 않고 bot_check로 남긴다', async () => {
+  const gate='<html><body><script type="text/javascript" src="/cupid.js" ></script><script>function toNumbers(d){var e=[];return e}var a=toNumbers("00");document.cookie="__test="+a;location.href="http://socialist.kr/feed?i=1";</script></body></html>';
+  assert.equal(P.looksLikeBotCheck(gate),true);
+  assert.equal(P.looksLikeBotCheck(FX('socialist.xml')),false);
+  const h=harness({sources:[{workspace_id:WS,source_key:'socialist'}],sites:{'http://socialist.kr/feed':html(gate)}});
+  const out=await (await h.cron('run',{source:'socialist'})).json();
+  assert.equal(out.status,'bot_check');assert.equal(h.db.app_outside_sources[0].last_error,'bot_check');
+  assert.deepEqual(h.calls.site,['http://socialist.kr/robots.txt','http://socialist.kr/feed'],'the gate is not solved or retried with other requests');
+});
+
+test('공공운수노조: 실제 robots(모든 수집기 Disallow: /, 네이버만 일부 허용) → 목록도 안 열고 robots', async () => {
+  const h=harness({sources:[{workspace_id:WS,source_key:'kptu'}],sites:{'https://www.kptu.net/board/list.aspx?mid=F686C1F3':FX('kptu.html')},
+    robots:{'https://www.kptu.net':'User-agent: *\nDisallow: /\n\nUser-agent: Yeti\nDisallow: /adm\nDisallow: /member\n'}});
+  const out=await (await h.cron('run',{source:'kptu'})).json();
+  assert.equal(out.status,'robots');assert.deepEqual(h.calls.site,['https://www.kptu.net/robots.txt']);
+});
+
+test('robots.txt를 못 읽을 때: 401·403은 robots_denied(읽지 않음), 5xx·연결 실패는 robots_unreachable, 다음 실행은 다시 읽는다', async () => {
+  const sites={'https://laborparty.kr/?page_id=13642':FX('laborparty.html')};
+  for(const status of [401,403]){
+    const h=harness({sources:[{workspace_id:WS,source_key:'laborparty'}],sites,robots:{'https://laborparty.kr':()=>new Response('<h1>403 Forbidden</h1>',{status})}});
+    const out=await (await h.cron('run',{source:'laborparty'})).json();
+    assert.equal(out.status,'robots_denied');assert.deepEqual(h.calls.site,['https://laborparty.kr/robots.txt'],'list is not read when robots.txt is refused');
+    assert.equal(h.db.app_outside_sources[0].last_error,'robots_denied');
+  }
+  let n=0;
+  const h=harness({sources:[{workspace_id:WS,source_key:'laborparty'}],sites,robots:{'https://laborparty.kr':()=>(++n===1?new Response('',{status:503}):'User-agent: *\nDisallow:\n')}});
+  assert.equal((await (await h.cron('run',{source:'laborparty'})).json()).status,'robots_unreachable');
+  assert.equal(h.db.app_outside_sources[0].last_error,'robots_unreachable');
+  const again=await (await h.cron('run',{source:'laborparty'})).json();
+  assert.equal(again.status,'ok','next run reads robots.txt again (memory is per run)');
+  assert.equal(h.calls.site.filter(u=>u.endsWith('/robots.txt')).length,2);
+  assert.equal(h.db.app_outside_sources[0].last_error,null);
 });
 
 // ---- 문서 표·index ------------------------------------------------------------------------------------------------

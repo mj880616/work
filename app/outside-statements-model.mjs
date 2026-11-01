@@ -142,11 +142,31 @@ export function isFresh(p, seenAt) {
   return Number.isFinite(s) && Number.isFinite(f) && f > s;
 }
 
+// OUTSIDE-막힌단체: 서버가 남긴 단계 코드(last_error)를 일상어 한 줄로. 모르는 코드는 '읽기 실패'.
+const ERROR_NOTES = Object.freeze({
+  robots: '사이트가 자동 읽기를 막아 둠',
+  robots_denied: '사이트가 자동 읽기를 막아 둠',
+  bot_check: '사이트가 자동 읽기를 막아 둠',
+  parse_empty: '읽기 막힘 · 사이트 구조 바뀜',
+  too_large: '읽기 막힘 · 목록이 너무 큼',
+  robots_unreachable: '읽기 막힘 · 사이트 응답 없음',
+  timeout: '읽기 막힘 · 사이트 응답 없음',
+  network: '읽기 막힘 · 사이트 응답 없음',
+  redirect_outside: '읽기 막힘 · 사이트 주소 바뀜',
+  redirect_loop: '읽기 막힘 · 사이트 주소 바뀜',
+});
+export function errorNote(code) {
+  const c = String(code || '');
+  if (!c) return '';
+  if (Object.hasOwn(ERROR_NOTES, c)) return ERROR_NOTES[c];
+  if (/^http_[45]\d\d$/.test(c)) return '읽기 막힘 · 사이트 오류';
+  return '읽기 실패';
+}
+
 // 단체 켜고 끄기 줄의 작은 상태 글.
 export function sourceState(row) {
   if (!row) return '';
-  if (row.last_error === 'robots') return '사이트가 자동 읽기를 막음';
-  if (row.last_error) return '읽기 실패';
+  if (row.last_error) return errorNote(row.last_error);
   if (row.last_ok_at) {
     const day = kstDay(row.last_ok_at);
     return day ? `마지막 ${dayLabel(day)} ${hhmm(row.last_ok_at)}` : '';

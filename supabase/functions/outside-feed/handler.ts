@@ -18,7 +18,7 @@ import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSo
 import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
-import { cut, decodeBody, extractBody, oneLine, pageDate, parseFeed, parseListHtml, robotsAllows, splitSentences, type ListItem } from "./parse.ts";
+import { cut, decodeBody, extractBody, looksLikeBotCheck, oneLine, pageDate, parseFeed, parseListHtml, robotsAllows, splitSentences, type ListItem, type ListStats } from "./parse.ts";
 
 export type OutsideFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: Log };
 
@@ -129,7 +129,10 @@ type Got = { ok: true; text: string; url: string } | { ok: false; code: string }
 type Reader = { get: (source: OutsideSource, url: string, wantFeed: boolean) => Promise<Got> };
 
 function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>, log: Log): Reader {
-  const robots = new Map<string, string | null>(); // origin → robots 글자(없으면 빈 글자), 못 읽으면 null
+  // origin → robots 글자(없으면 빈 글자). 못 읽으면 text=null + 까닭 code:
+  //   robots_denied(401·403: 사이트가 우리 읽기를 거절 — 막힌 것으로 보고 읽지 않음),
+  //   robots_unreachable(5xx·429·연결 실패·시간 초과: 일시 오류로 보고 이번 실행은 건너뜀. 기억은 실행 하나 안에서만이라 다음 예약 실행에 다시 읽는다).
+  const robots = new Map<string, { text: string | null; code: string }>();
   let lastAt = 0;
   async function raw(url: URL, accept: string): Promise<{ res: Response | null; code?: string }> {
     // 같은 사이트 요청 사이 간격(GAP_MS). 한 실행은 단체 하나만 읽으므로 전체 간격으로 충분하다.
@@ -190,31 +193,35 @@ function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>,
     }
     return { ok: false, code: "redirect_loop" };
   }
-  async function robotsFor(source: OutsideSource, u: URL): Promise<string | null> {
+  async function robotsFor(source: OutsideSource, u: URL): Promise<{ text: string | null; code: string }> {
     const origin = `${u.protocol}//${u.host}`;
     if (robots.has(origin)) return robots.get(origin)!;
-    let text: string | null;
+    let text: string | null = null, code = "robots_unreachable";
     const got = await follow(source, new URL("/robots.txt", origin), "text/plain");
     if (!got.ok) text = null;
     else if (got.res.status === 404 || got.res.status === 410) { try { await got.res.body?.cancel(); } catch { /* ignore */ } text = ""; }
-    else if (!got.res.ok) { try { await got.res.body?.cancel(); } catch { /* ignore */ } text = null; }
-    else {
+    else if (!got.res.ok) {
+      try { await got.res.body?.cancel(); } catch { /* ignore */ }
+      if (got.res.status === 401 || got.res.status === 403) code = "robots_denied";
+      log("robots_http", { source: source.key, status: got.res.status });
+    } else {
       const b = await readCapped(got.res);
       text = b ? new TextDecoder("utf-8").decode(b) : null;
     }
-    robots.set(origin, text);
-    return text;
+    const out = { text, code };
+    robots.set(origin, out);
+    return out;
   }
   return {
     async get(source, rawUrl, wantFeed) {
       const u = allowedUrl(source, rawUrl);
       if (!u) return { ok: false, code: "url_outside" };
       const rb = await robotsFor(source, u);
-      if (rb === null) return { ok: false, code: "robots_unreachable" };
-      if (!robotsAllows(rb, ROBOTS_AGENT, u.pathname + u.search)) return { ok: false, code: "robots" };
+      if (rb.text === null) return { ok: false, code: rb.code };
+      if (!robotsAllows(rb.text, ROBOTS_AGENT, u.pathname + u.search)) return { ok: false, code: "robots" };
       const got = await follow(source, u, wantFeed ? "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9" : "text/html, application/xhtml+xml;q=0.9");
       if (!got.ok) return got;
-      if (got.url.href !== u.href && !robotsAllows((await robotsFor(source, got.url)) ?? "User-agent: *\nDisallow: /", ROBOTS_AGENT, got.url.pathname + got.url.search)) {
+      if (got.url.href !== u.href && !robotsAllows((await robotsFor(source, got.url)).text ?? "User-agent: *\nDisallow: /", ROBOTS_AGENT, got.url.pathname + got.url.search)) {
         try { await got.res.body?.cancel(); } catch { /* ignore */ }
         return { ok: false, code: "robots" };
       }
@@ -353,13 +360,22 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
   const items: ListItem[] = [];
   const seen = new Set<string>();
   let listError: string | null = null;
+  const stats: ListStats = { candidates: 0 };
   for (const list of source.lists) {
     const got = await reader.get(source, list, source.mode === "rss");
     if (!got.ok) { listError = got.code; continue; }
-    const found = source.mode === "rss" ? parseFeed(source, got.text, nowMs, LIST_LIMIT) : parseListHtml(source, got.text, got.url, LIST_LIMIT);
+    const before = stats.candidates;
+    const found = source.mode === "rss" ? parseFeed(source, got.text, nowMs, LIST_LIMIT, stats) : parseListHtml(source, got.text, got.url, LIST_LIMIT, stats);
+    if (stats.candidates === before && looksLikeBotCheck(got.text)) listError = "bot_check";
     for (const it of found) if (!seen.has(it.url)) { seen.add(it.url); items.push(it); }
   }
   out.listed = items.length;
+  // 목록은 잘 읽었는데 이번 첫 쪽에 넣을 종류의 글이 없을 때(예: 노동자연대 피드는 신문 기사가 대부분이고 성명만 넣는다)는
+  // 고장이 아니다: 읽기 성공으로 적고(last_error 비움) 새 글 0건으로 끝낸다.
+  if (!items.length && stats.candidates > 0 && !listError) {
+    await markSources(db, source.key, workspaces, null, nowIso);
+    return { ...out, status: "no_match" };
+  }
   if (!items.length) {
     const code = (listError ?? "parse_empty").slice(0, 40);
     ai.log("source_failed", { source: source.key, stage: code });
