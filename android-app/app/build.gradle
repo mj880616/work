@@ -3,6 +3,12 @@ plugins {
     id 'com.android.application'
 }
 
+// APP-폰알림: 환경 변수 → BuildConfig 글. 영문·숫자·:._- 200자까지만 받아 Java 글자 깨짐·끼워 넣기를 막는다. 값은 출력하지 않는다.
+def fcmField(String name) {
+    def value = (System.getenv(name) ?: '').trim()
+    return '"' + ((value ==~ /[A-Za-z0-9:._-]{1,200}/) ? value : '') + '"'
+}
+
 android {
     namespace 'kr.or.kptu.work'
     compileSdk 36
@@ -12,8 +18,16 @@ android {
         applicationId 'kr.or.kptu.work'
         minSdk 29
         targetSdk 36
-        versionCode 43
-        versionName '0.4.3'
+        versionCode 44
+        versionName '0.4.4'
+
+        // APP-폰알림 N4(설계 docs/design/phone-notifications.md 4.3절): Firebase 앱 설정 4개는 빌드 변수로만 받는다.
+        // release workflow(phone-app-release.yml)가 environment phone-app-release의 변수(vars.WEB2_FCM_*)를 넘긴다.
+        // google-services.json·구글 서비스 Gradle 플러그인은 쓰지 않는다. 값이 없거나 모양이 다르면 빈 글 → 알림 기능 꺼진 채로 빌드(PR CI debug).
+        buildConfigField 'String', 'FCM_PROJECT_ID', fcmField('WEB2_FCM_PROJECT_ID')
+        buildConfigField 'String', 'FCM_APP_ID', fcmField('WEB2_FCM_APP_ID')
+        buildConfigField 'String', 'FCM_SENDER_ID', fcmField('WEB2_FCM_SENDER_ID')
+        buildConfigField 'String', 'FCM_API_KEY', fcmField('WEB2_FCM_API_KEY')
     }
 
     buildFeatures {
@@ -42,5 +56,7 @@ dependencies {
     // 단계 ③ 위젯: 30분 갱신·같은 이름 작업 하나(WorkManager), Origin 머리글을 그대로 보내는 HTTP 도구(OkHttp, 설계 4절).
     implementation 'androidx.work:work-runtime:2.10.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    // APP-폰알림 N4: 폰 알림 받기(FCM). 설정은 빌드 변수로 직접 초기화(PushSetup.kt).
+    implementation 'com.google.firebase:firebase-messaging:24.1.0'
     testImplementation 'junit:junit:4.13.2'
 }
