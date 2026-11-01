@@ -103,3 +103,51 @@ export function deviceLabel(device) {
   const when = shortWhen(device?.last_seen_at || device?.created_at);
   return when ? `${ver} · ${when}` : ver;
 }
+
+// ---- UI-앱안알림 4·5단계(S47-40): 뒤에서 끝난 일 알림 줄 · 최근 알림 7일 ------------------------------------------------
+// 서버(phone-push notices·recent)는 종류·기록 열쇠·시각·여는 주소만 준다. 보일 말은 종류에서 여기서 정한다(업무 내용 없음).
+/** 알림 줄 한 줄(뒤에서 끝난 일). */
+export const NOTICE_TEXT = Object.freeze({
+  next_week: '다음 주 준비 한 장을 볼 때예요',
+  meeting_done: '회의 요약이 준비됐어요',
+});
+/** 최근 알림 목록의 '무엇'. */
+export const RECENT_LABEL = Object.freeze({
+  task_due: '할 일 기한', commitment: '원장 약속', meeting_done: '회의 요약', collect_stall: '수집 멈춤',
+  morning: '아침 묶음', evening: '저녁 묶음', next_week: '다음 주 준비 한 장', quiet_digest: '조용한 시간 묶음', test: '시험 알림',
+});
+const NOTICE_KIND = /^[a-z_]{1,20}$/;
+const NOTICE_REF = /^[A-Za-z0-9_.:-]{1,80}$/;
+
+/** 주소의 notice=종류.열쇠(폰 알림·알림 줄이 붙여 여는 표시) → {kind, ref_key} 또는 null. */
+export function noticeParam(search) {
+  let params;
+  try { params = new URLSearchParams(String(search || '')); } catch { return null; }
+  const raw = params.get('notice');
+  if (!raw) return null;
+  const dot = raw.indexOf('.');
+  const kind = raw.slice(0, dot), ref = raw.slice(dot + 1);
+  if (dot < 1 || !NOTICE_KIND.test(kind) || !Object.hasOwn(RECENT_LABEL, kind) || !NOTICE_REF.test(ref)) return null;
+  return {kind, ref_key: ref};
+}
+
+/** 서버가 준 여는 주소(/work/app/?view=…) → 화면 안 이동 {view, pane, mode} 또는 null. 웹2 앱 안 주소만. */
+export function noticePlace(open) {
+  if (typeof open !== 'string' || !/^\/work\/app\/(\?[A-Za-z0-9_=&%.-]{0,200})?$/.test(open)) return null;
+  const params = new URLSearchParams(open.slice(open.indexOf('?') + 1 || open.length));
+  const name = v => (v && /^[a-z][a-z0-9-]{0,31}$/.test(v) ? v : null);
+  return {view: name(params.get('view')) || 'home', pane: name(params.get('pane')), mode: params.get('mode') === 'week' ? 'week' : null};
+}
+
+/** 알림 줄에 올릴 수 있는 항목만(알아듣는 종류·모양). */
+export function noticeItems(out) {
+  const list = Array.isArray(out?.items) ? out.items : [];
+  return list.filter(i => Object.hasOwn(NOTICE_TEXT, i?.kind) && NOTICE_REF.test(String(i?.ref_key || '')) && noticePlace(i?.open)).slice(0, 5);
+}
+
+/** 최근 알림 한 줄: '11/06 16:00 · 다음 주 준비 한 장'. 모르는 종류는 뺀다. */
+export function recentItems(out) {
+  const list = Array.isArray(out?.items) ? out.items : [];
+  return list.filter(i => Object.hasOwn(RECENT_LABEL, i?.kind) && shortWhen(i?.at) && noticePlace(i?.open))
+    .map(i => ({kind: i.kind, ref_key: String(i.ref_key), open: i.open, opened: i.opened === true, line: `${shortWhen(i.at)} · ${RECENT_LABEL[i.kind]}`}));
+}

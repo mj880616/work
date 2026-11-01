@@ -11,7 +11,7 @@ const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/1
 const TOKEN = 'fake_fcm_token-0123456789abcdefghij:XYZ';
 
 async function boot(page, {app = false, prefs = null, devices = []} = {}) {
-  const state = {prefs, devices: devices.map(d => ({...d})), patches: [], push: [], errors: []};
+  const state = {prefs, devices: devices.map(d => ({...d})), patches: [], push: [], reads: [], errors: []};
   page.on('pageerror', e => state.errors.push(e.message));
   if (app) {
     await page.addInitScript(token => {
@@ -53,6 +53,11 @@ async function boot(page, {app = false, prefs = null, devices = []} = {}) {
     }
     else if (path === '/functions/v1/phone-push') {
       const action = url.searchParams.get('action'), body = JSON.parse(req.postData() || '{}');
+      // UI-앱안알림 4·5(S47-40): 알림 줄(notices)·최근 알림 7일(recent) 읽기는 따로 센다(이 시험은 설정 칸의 쓰기 호출만 본다).
+      if (action === 'notices' || action === 'recent') {
+        state.reads.push(action);
+        return route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({ok: true, items: []})});
+      }
       state.push.push({action, body});
       if (action === 'register') {
         let d = state.devices.find(x => x.token === body.token);
