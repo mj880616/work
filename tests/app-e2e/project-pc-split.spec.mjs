@@ -5,7 +5,7 @@ import {expectProjectTitle} from './helpers/screen-title.mjs';
 // UI-모바일업데이트겹쳐보기: on a phone a tapped record first comes up as a card over the detail; its full-open button continues as before.
 const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(≥1024) 프로젝트 화면은 왼쪽 목록 + 오른쪽 상세(같은 상세 창을 칸에 옮겨 씀).
-// 처음 열면 이 기기에서 마지막으로 본 프로젝트(저장 실패 시 맨 위). 761~1023px·폰은 지금처럼 목록 + 상세 창.
+// UI-스와이프·주소(S47-54): 창을 열면 목록부터(오른쪽 칸은 고르기 전까지 비어 있음, 이 기기에 마지막 사업영역을 적어 두지 않음). 폰은 목록 + 상세 창.
 // 돌아오기: 상세의 🧺 기록 → 업데이트 화면의 머리 줄 "‹ (이름)"·뒤로 가기·탭 → 같은 프로젝트(담당조직)·같은 스크롤.
 // 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z';
@@ -16,9 +16,8 @@ const spaces=[
  {id:'pb',workspace_id:'w',owner_id:'home-test',name:'합성 조직 사업',status:'active',sort_order:30,metadata:{project_system:'v2',color:'blue'}}
 ];
 const day=i=>`2026-09-${String(30-i).padStart(2,'0')}`;
-async function fixture(page,{width=1280,blockStorage=false}={}){
+async function fixture(page,{width=1280}={}){
  await page.setViewportSize({width,height:800});
- if(blockStorage)await page.addInitScript(()=>{const deny=()=>{throw new DOMException('blocked','SecurityError')};const s=Storage.prototype,get=s.getItem,set=s.setItem;s.getItem=function(k){return String(k).includes('project-last')?deny():get.call(this,k)};s.setItem=function(k,v){return String(k).includes('project-last')?deny():set.call(this,k,v)}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const f=await openHome(page);
  const state={spaces:structuredClone(spaces),patches:[],progress:Array.from({length:28},(_,i)=>({id:'pr-'+i,project_id:'pa',workstream_id:null,summary:'합성 기록 '+i,effective_on:day(i),created_at:day(i)+'T00:00:00Z'})),
@@ -44,6 +43,13 @@ async function fixture(page,{width=1280,blockStorage=false}={}){
  return {f,state,errors};
 }
 const pane=page=>page.locator('#ps3DetailPane');
+const choose=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`).click();
+// 목록부터: 목록은 보이고 오른쪽 칸은 안내 한 줄뿐, 주소에 사업영역이 없다.
+async function expectListFirst(page){
+ await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]')).toBeVisible();
+ await expect(pane(page)).toBeVisible();await expect(pane(page).locator('.ps3-pane-empty')).toBeVisible();
+ await expect(page.locator('#ps3DetailModal')).toBeHidden();expect(new URL(page.url()).searchParams.get('project')).toBeNull();
+}
 const basketLine=page=>page.locator('#ps3Body [data-basket-link="l-p"] a[data-ps3-basket-note]');
 // The record's place on screen: equal before and after a return means the same scroll.
 const top=locator=>locator.evaluate(el=>Math.round(el.getBoundingClientRect().top));
@@ -56,10 +62,11 @@ async function scrollToRecord(page,locator){
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>r())));return top(locator);
 }
 
-test('PC 1280: list on the left, the first project on the right without a dialog; rows switch the pane and children stay indented',async({page})=>{
+test('PC 1280: list first; a chosen project opens on the right without a dialog; rows switch the pane and children stay indented',async({page})=>{
  const {state,errors}=await fixture(page);
  await clickView(page,'projects');
- await expectProjectTitle(page,'합성 정책 사업');
+ await expectListFirst(page);
+ await choose(page,'pa');await expectProjectTitle(page,'합성 정책 사업');
  const modal=page.locator('#ps3DetailModal');
  await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();
  await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal','true');
@@ -86,23 +93,27 @@ test('PC 1280: list on the left, the first project on the right without a dialog
  // "+ 프로젝트" is the small button height.
  expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(32);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
- // Next time the projects screen opens on this device, the last project shows first.
+ // UI-스와이프·주소: 다시 열어도 목록부터(마지막에 본 사업영역으로 넘어가지 않음). 기기에 마지막 사업영역 키를 쓰지 않는다.
  await clickView(page,'home');await expect(page.locator('#ps3DetailModal')).toBeHidden();
- await clickView(page,'projects');await expectProjectTitle(page,'합성 조직 사업');
- await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});await clickView(page,'projects');await expectProjectTitle(page,'합성 조직 사업');
+ await clickView(page,'projects');await expectListFirst(page);
+ expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.includes('project-last')))).toEqual([]);
  expect(state.patches).toEqual([]);expect(errors).toEqual([]);
 });
 
-test('PC 1280: a blocked browser storage still opens the first project',async({page})=>{
- const {errors}=await fixture(page,{blockStorage:true});
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
- await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');
- await clickView(page,'home');await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');expect(errors).toEqual([]);
+for(const width of [412,870,1280])test(`${width}: 옛 주소 ?view=projects는 목록부터 — 마지막에 본 사업영역으로 넘어가지 않는다`,async({page})=>{
+ const {errors}=await fixture(page,{width});
+ await clickView(page,'projects');await choose(page,'pb');await expectProjectTitle(page,'합성 조직 사업');
+ await page.goto(new URL('/app/?view=projects',page.url()).href);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+ await expect(page.locator('#areaWindow')).toBeVisible();await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]')).toBeVisible();
+ await page.waitForTimeout(500);
+ await expect(page.locator('#ps3DetailModal')).toBeHidden();expect(new URL(page.url()).searchParams.get('project')).toBeNull();
+ if(width>760)await expect(pane(page).locator('.ps3-pane-empty')).toBeVisible();
+ expect(errors).toEqual([]);
 });
 
 test('PC 1280: the right pane keeps the detail actions — ⋯ (complete, edit, archive, delete), child list and parent link',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await choose(page,'pa');await expectProjectTitle(page,'합성 정책 사업');
  const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();await expect(more).toHaveAttribute('open','');
  expect(await more.locator('.ps3-more-panel button').allTextContents()).toEqual(['완료','수정','아래로 접기','보관','삭제']);
  await more.locator('[data-ps3-toggle-done]').click();await expect.poll(()=>state.patches.map(p=>p.body.status)).toEqual(['done']);
@@ -119,7 +130,7 @@ test('PC 1280: the right pane keeps the detail actions — ⋯ (complete, edit, 
 
 test('PC 1280: a 🧺 record opens the update with "‹ (project)" in the head; the button and back return to the same project and scroll',async({page})=>{
  const {errors}=await fixture(page);
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await expectListFirst(page);
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  const before=await scrollToRecord(page,basketLine(page));/* UI-칸안스크롤하나로: 창 안 스크롤은 창 몸통 하나(상세 칸은 따로 스크롤 없음) */expect(await page.locator('#areaWindow .area-window-body').evaluate(el=>el.scrollTop)).toBeGreaterThan(100);expect(await pane(page).evaluate(el=>el.scrollTop)).toBe(0);
@@ -167,7 +178,7 @@ test('phone 390: list and detail dialog stay; the update shows "‹ 사업영역
 
 test('PC 1024: the list keeps its minimum width, the pane takes the rest, nothing overflows sideways',async({page})=>{
  const {errors}=await fixture(page,{width:1024});
- await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await clickView(page,'projects');await choose(page,'pa');await expectProjectTitle(page,'합성 정책 사업');
  const list=await page.locator('#projectGrid .ps3-plist').boundingBox(),right=await pane(page).boundingBox();
  expect(list.width).toBeGreaterThanOrEqual(239);expect(right.width).toBeGreaterThan(list.width);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);

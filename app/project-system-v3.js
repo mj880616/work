@@ -8,7 +8,6 @@ import { splitFileName } from './file-rename-name.mjs';
 import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,seoulDateKey} from './meeting-time.js';
 import {bindDateTimeFields} from './time-input.js';
 import { dayKey, ranges } from './home-read-model.js';
-import {lastSeen} from './split-last.js';
 import {mountSplitResize} from './split-resize.js';
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import { createAnchoredMenu } from './anchored-menu.js';
@@ -201,11 +200,7 @@ function repaintHead(){const d=detail;if(d&&current&&d.p.id===current.id&&!$('#p
 function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;
 // UI-상단줄제목: the same project's name goes to the top line's place (kptu:where-item); null when nothing is open on the right.
 window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'projects',name:id?(current?.name||'이름 없음'):null}}));document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
-// The last project seen on this device opens first next time (PC): split-last.js, shared with the 담당조직 screen
-// (ORG-PC좌우). Owner-scoped (kptu_owner_cache: is cleared on sign-out); a blocked storage only means the first project opens.
-const lastProject=lastSeen('project');
-function rememberLast(id){lastProject.write(user?.id,id)}
-function readLast(){return lastProject.read(user?.id)}
+// UI-스와이프·주소(S47-54): 창을 열면 목록부터 보인다. PC에서도 사업영역을 고르기 전에는 오른쪽 칸이 비어 있고, 이 기기에 '마지막에 본 사업영역'을 따로 적어 두지 않는다.
 // Scroll of the detail and the list, kept when a 🧺 record opens its note and restored on return.
 function detailScroll(){const m=$('#ps3DetailModal');return {win:$('#areaWindow .area-window-body')?.scrollTop||0,pane:$('#ps3DetailPane')?.scrollTop||0,card:m?.querySelector('.modal-card')?.scrollTop||0,modal:m?.scrollTop||0,list:$('#projectGrid .ps3-plist')?.scrollTop||0,page:window.scrollY||0}}
 function restoreScroll(s){if(!s)return;const set=()=>{const m=$('#ps3DetailModal'),pane=$('#ps3DetailPane'),list=$('#projectGrid .ps3-plist'),card=m?.querySelector('.modal-card'),win=$('#areaWindow .area-window-body');if(win)win.scrollTop=s.win||0;if(pane)pane.scrollTop=s.pane||0;if(list)list.scrollTop=s.list||0;if(card)card.scrollTop=s.card||0;if(m)m.scrollTop=s.modal||0;window.scrollTo({top:s.page||0,behavior:'instant'})};set();requestAnimationFrame(set)}
@@ -692,7 +687,7 @@ const confirmDiscard=(extraDirty=false)=>!(unsavedContent()||extraDirty)||confir
 window.addEventListener('kptu:before-reload',event=>{if(!confirmDiscard(event.detail?.projectDraft===true))event.preventDefault()});
 // PC projects screen: show in the right pane (a selection, no history entry of its own); elsewhere: the dialog as before.
 function showDetail(){if(placeDetail()){const m=$('#ps3DetailModal');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');$('#ps3DetailPane').classList.add('has-project');paintSelection();repaintHead();return true}openModal('ps3DetailModal');repaintHead();return false}
-async function openProject(id,push=true,discardConfirmed=false,isCurrent=()=>true){if(!isCurrent())return;if(!discardConfirmed&&current?.id!==id&&!confirmDiscard())return;disposeBasketEditor();basketTargetId=id;const epoch=++detailEpoch;try{await loadProjects();if(epoch!==detailEpoch||!isCurrent())return;const p=projects.find(x=>x.id===id&&x.status!=='archived');if(!p){restoreBasketTarget();return}const result=await fetchDetail(id);if(epoch!==detailEpoch||!isCurrent())return;if(result?.p.id!==id){restoreBasketTarget();return}const switched=current?.id!==id;current=p;detail=acceptDetail(result);renderDetail(detail);const pane=showDetail();if(pane&&switched)$('#ps3DetailPane').scrollTop=0;rememberLast(id);flushBasketLinks();if(push&&!pane&&$('#areaWindow')?.dataset.kptuHistoryOpen!=='1')history.pushState({project:id},'',urlFor(id));else history.replaceState({...(pane?history.state:windowEntry()),project:id},'',urlFor(id))}catch(error){if(epoch!==detailEpoch||!isCurrent())return;restoreBasketTarget();throw error}}
+async function openProject(id,push=true,discardConfirmed=false,isCurrent=()=>true){if(!isCurrent())return;if(!discardConfirmed&&current?.id!==id&&!confirmDiscard())return;disposeBasketEditor();basketTargetId=id;const epoch=++detailEpoch;try{await loadProjects();if(epoch!==detailEpoch||!isCurrent())return;const p=projects.find(x=>x.id===id&&x.status!=='archived');if(!p){restoreBasketTarget();return}const result=await fetchDetail(id);if(epoch!==detailEpoch||!isCurrent())return;if(result?.p.id!==id){restoreBasketTarget();return}const switched=current?.id!==id;current=p;detail=acceptDetail(result);renderDetail(detail);const pane=showDetail();if(pane&&switched)$('#ps3DetailPane').scrollTop=0;flushBasketLinks();if(push&&!pane&&$('#areaWindow')?.dataset.kptuHistoryOpen!=='1')history.pushState({project:id},'',urlFor(id));else history.replaceState({...(pane?history.state:windowEntry()),project:id},'',urlFor(id))}catch(error){if(epoch!==detailEpoch||!isCurrent())return;restoreBasketTarget();throw error}}
 async function refreshDetail({preserveOpenEditors=false}={}){const recordSaving=()=>!!$('#ps3Body [data-ps3-record][data-saving="1"]'),editorOpen=()=>preserveOpenEditors&&!!$('#ps3Body [data-ps3-editing]');
   // (MTG-프로젝트합치기 3단계: 늘 보이던 빠른 기록 칸은 없어졌다. 열린 편집기·저장 중인 기록이 있으면 뒤에서 다시 그리지 않는다.)
   if(!current||basketTargetId!==current.id||unsavedContent()||recordSaving()||editorOpen())return;const epoch=++detailEpoch,id=current.id;await loadProjects();if(epoch!==detailEpoch||unsavedContent()||recordSaving()||editorOpen())return;current=projects.find(x=>x.id===id)||current;const result=await fetchDetail(id);if(epoch!==detailEpoch||unsavedContent()||recordSaving()||editorOpen())return;detail=acceptDetail(result);renderDetail(detail)}
@@ -1023,7 +1018,7 @@ async function handleProjectSessionChange(event){
   if(await context(epoch)&&epoch===projectEpoch)await renderGrid()
 }
 // UI-PC프로젝트좌우: each time the projects screen shows: the list, then (1) the project a 🧺 note was opened from, at the
-// same scroll, or (2) on a PC with nothing chosen, the last project seen on this device, else the first one.
+// same scroll; otherwise the list alone (PC: the right pane stays empty until a row is chosen — UI-스와이프·주소, S47-54).
 async function onProjectsView(){await renderGrid({isCurrent:areaOpen});if(areaOpen())await resumeProjects()}
 // 창을 닫을 때(area-window.js close): 열린 상세를 닫고(저장 안 한 글이 있으면 묻고, 그대로 두면 false) 칸 상태를 처음으로.
 function hideProjects(){orderMode=false;if(current){closingWindow=true;try{if(!closeDetail())return false}finally{closingWindow=false}}else{detailEpoch++;basketTargetId=null;disposeBasketEditor()}placeDetail();return true}
@@ -1036,9 +1031,6 @@ async function resumeProjects(){
     if(current?.id===o.id){restoreScroll(o.scroll);return}
   }
   placeDetail();
-  if(!splitWanted()||current||basketTargetId)return;
-  const listed=listedProjects(),last=readLast(),id=listed.some(p=>p.id===last)?last:listed[0]?.id;
-  if(id)await openProject(id,false,false,()=>splitWanted())
 }
 async function boot(){ensureUi();bind();window.addEventListener('kptu:session-changed',handleProjectSessionChange);if(!(await context(projectEpoch)))return false;await loadProjects();installProjectToolbar();const b=$('#newProjectBtn');if(b){b.classList.add('ps3-toolbar-btn');b.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();openCreate()}}await renderGrid();document.documentElement.classList.add('kptu-project-v3-ready');return true}
 window.__KPTU_PROJECT_V3_READY__=boot().catch(err=>{console.error(err);return false});

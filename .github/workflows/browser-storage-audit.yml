@@ -58,19 +58,14 @@ jobs:
               'tests/app-e2e/theme.spec.mjs':[r"Object\.defineProperty\(window,'localStorage',\{get\(\)\{throw Error\('theme storage blocked'\)\}\}\)"],
               'tests/theme-bootstrap.test.mjs':[r"Object\.defineProperty\(context,'localStorage',\{get\(\)\{throw Error\('storage must not be read'\)\}\}\)"],
               'index.html':[r'AUTH_KEY',r'AUTH_SESSION_KEY'],
-              'app/auth-handoff-client.js':[r'AH_SESSION'],
               'app/suborganization-planned-assignee.js':[r'PA_SESSION'],
-              'app/session-resilience.js':[r'SR_KEY'],
               'app/calendar-plus.js':[r'CM_PREF'],
               # UI-PC프로젝트좌우·ORG-PC좌우: device-local "last project / organization seen" on the PC left-list / right-detail
               # screens (one id, no names or content), stored under the per-owner cache prefix that sign-out and owner change clear.
               'app/split-last.js':[r'localStorage\.(?:getItem|setItem)\(k\b'],
               # ORG-PC좌우 시험: 합성 조직 id 하나를 넣고 읽어 로그아웃·사용자 변경 때 지워지는지 본다.
               'tests/app-e2e/organization-pc-split.spec.mjs':[r"organization-last"],
-              'app/library-upload.js':[r'LU_SESSION'],
               'app/suborganizations.js':[r'SO_SESSION'],
-              'app/team.js':[r'SESSION_KEY'],
-              'app/auth-bootstrap.js':[r'SESSION_KEY'],
               'app/runtime-client.js':[r'config\.sessionKey',r'OWNER_CACHE_PREFIX'],
               # 묶음C-2: per-owner read cache of Google Tasks (Google stays the source of truth),
               # dropped by KPTURuntime on sign-out or owner change.

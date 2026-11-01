@@ -16,7 +16,8 @@ function browser(url, fetch) {
     document: { documentElement: { innerHTML: '' }, querySelector: q => elements[q] },
     localStorage: { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v) },
     fetch: async (...args) => { requests++; return fetch(location, ...args); },
-    setTimeout: fn => fn(), window: {}, console
+    // The handoff client stores the session only through the runtime session store (runtime-client.js owns the storage key).
+    setTimeout: fn => fn(), window: { KPTURuntime: { session: { write: v => { storage.set('session', JSON.stringify(v)); return v; } } } }, console
   });
   return { ctx, elements, storage, location, requests: () => requests };
 }

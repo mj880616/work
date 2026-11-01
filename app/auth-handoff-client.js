@@ -1,5 +1,5 @@
 const AH_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const AH_SESSION='kptu_collab_session_v1';
+// 로그인 세션 저장 이름은 runtime-client.js(KPTURuntime.config.sessionKey) 한 곳이 가진다. loader-v2가 runtime을 먼저 기다린다.
 const ah=new URLSearchParams(location.search);
 const sealed=ah.get('handoff');
 if(ah.has('handoff')){
@@ -18,7 +18,7 @@ if(ah.has('handoff')){
     if(!r.ok||!d?.session?.access_token||!d?.session?.refresh_token)throw new Error('handoff failed');
     const s=d.session;
     s.expires_at=s.expires_at||Math.floor(Date.now()/1000)+(s.expires_in||3600);
-    localStorage.setItem(AH_SESSION,JSON.stringify(s));
+    window.KPTURuntime.session.write(s);
     if(status){status.textContent='로그인 완료';status.className='status ok'}
   }catch{
     if(status){status.textContent='로그인 정보를 전달하지 못했습니다. 새 로그인을 시작해 주세요.';status.className='status error'}

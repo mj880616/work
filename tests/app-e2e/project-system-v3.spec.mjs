@@ -224,7 +224,8 @@ test('project list loads and its heading uses available width at desktop, tablet
       return {title:rect(title).width,card:rect(card).width,overflow:document.documentElement.scrollWidth-window.innerWidth,ready:grid.dataset.ps3Ready};
     });
     expect(layout.ready).toBe('1');
-    expect(layout.title,`window heading at ${width}px`).toBeGreaterThan(80);
+    // UI-스와이프·주소: 목록부터 열려 머리줄은 '사업영역 관리'만(고른 사업영역 이름이 붙지 않음) — 그 글자가 잘리지 않을 폭이면 된다.
+    expect(layout.title,`window heading at ${width}px`).toBeGreaterThan(60);
     expect(layout.card,`project card at ${width}px`).toBeGreaterThan(200);
     expect(layout.overflow,`horizontal overflow at ${width}px`).toBeLessThanOrEqual(1);
   }

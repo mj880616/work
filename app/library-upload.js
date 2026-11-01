@@ -36,13 +36,13 @@ import {openLibraryHtmlView} from './library-html-view.js';
 import {bindLibraryDrop,groupDropTarget,runDropUpload,progressText as luDropProgressText,resultText as luDropResultText,DROP_HINT,DROP_RESULT_CLEAR_MS} from './library-drop.js';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
-const LU_SESSION='kptu_collab_session_v1';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luCategorySub='',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
 let luEditSequence=0,luEditView=0,luEditor=null,luEditObservedScope=null;const luEditAttempts=new Map();
 // These tokens own only the lifetime of in-flight UI work, not deletion authority.
 window.addEventListener('kptu:before-reload',event=>{if(luUploadEntries.length&&!document.querySelector('#documentModal')?.classList.contains('hidden'))event.detail.otherDraft=true});
-function luRead(){if(window.KPTURuntime?.session)return window.KPTURuntime.session.read();try{return JSON.parse(localStorage.getItem(LU_SESSION)||'null')}catch{return null}}
-async function luEnsure(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();luSession=window.KPTURuntime.session.read();return ok}luSession=luRead();if(!luSession)return false;if((luSession.expires_at||0)<Math.floor(Date.now()/1000)+60&&luSession.refresh_token){const r=await fetch(LU_SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:LU_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:luSession.refresh_token})});if(!r.ok)return false;const d=await r.json();d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);luSession=d;localStorage.setItem(LU_SESSION,JSON.stringify(d))}return true}
+// 로그인 세션은 runtime-client.js(KPTURuntime.session) 한 곳에서 읽고 갱신한다.
+function luRead(){return window.KPTURuntime?.session?.read?.()||null}
+async function luEnsure(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();luSession=window.KPTURuntime.session.read();return ok}luSession=luRead();return !!luSession}
 async function luApi(path,{method='GET',body=null,prefer='',expectedSessionEpoch=null,singleFlight=true,refreshSession=true}={}){if(window.KPTURuntime?.api)return window.KPTURuntime.api(path,{method,body,prefer,expectedSessionEpoch,singleFlight,refreshSession});if(!(await luEnsure()))throw new Error('로그인이 필요합니다.');const form=body instanceof FormData,h={apikey:LU_KEY,Authorization:'Bearer '+luSession.access_token};if(!form)h['Content-Type']='application/json';if(prefer)h.Prefer=prefer;const r=await fetch(LU_SB+path,{method,headers:h,body:body===null?null:(form?body:JSON.stringify(body)),cache:'no-store'});const t=await r.text();let d;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.error_description||d?.hint||('요청 실패 '+r.status));return d}
 function luEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function luSize(n){n=Number(n)||0;if(!n)return'';if(n<1024)return n+'B';if(n<1048576)return(n/1024).toFixed(1)+'KB';return(n/1048576).toFixed(1)+'MB'}
