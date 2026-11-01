@@ -309,7 +309,7 @@ test('source: new key name only, no service role, no tools, store:false, small d
   assert.match(handler,/store: false/);
   assert.doesNotMatch(handler,/tools\s*:/);
   assert.doesNotMatch(all,/sk-[A-Za-z0-9]/,'no key value in source');
-  assert.match(index,/Deno\.serve\(createAiAssistHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\);/);
+  assert.match(index,/Deno\.serve\(withWebCors\(createAiAssistHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\)\);/);
 });
 
 test('section 5 registers ai-assist once with verify_jwt=true and the first-deploy validation accepts it',()=>{

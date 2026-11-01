@@ -21,7 +21,7 @@ test('real google-tasks graph (task files + shared Drive upload) checks/bundles 
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['_shared/drive-upload.ts','google-tasks/index.ts','google-tasks/task-files.ts']);
+  assert.deepEqual(local.sort(),['_shared/drive-upload.ts','_shared/safe-error.ts','_shared/web-cors.ts','google-tasks/index.ts','google-tasks/task-files.ts']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'google-tasks.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });

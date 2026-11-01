@@ -3,13 +3,14 @@ import { readBoundedJson } from '../_shared/bounded-json.mjs';
 import { createHwpEdit, HwpEditError } from '../_shared/hwp-edit.ts';
 import { createDocumentText } from '../_shared/document-text.ts';
 import { renameFile } from './file-rename.ts';
+import { withWebCors } from "../_shared/web-cors.ts";
+import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
 const cors = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Expose-Headers': 'X-Web2-Hwp',
@@ -75,7 +76,7 @@ async function driveAccessToken() {
   const d = await r.json();
   if (!r.ok || !d.access_token) {
     // SEC-정리묶음: Google 원문은 서버 로그에만. 화면은 이 글(토큰 갱신 실패 판정 글)만 받는다.
-    console.error('document-actions drive_token failed', { status: r.status, error: d.error || null, detail: d.error_description || null });
+    console.error('document-actions drive_token failed', { status: r.status });
     throw new Error('Google Drive 토큰 갱신에 실패했습니다.');
   }
   return d.access_token as string;
@@ -270,9 +271,9 @@ const hwpEdit = createHwpEdit({ db: path => db(path), driveToken: driveAccessTok
 function hwpFailure(e: unknown) {
   const known = e instanceof HwpEditError;
   const backup = (e as { backup?: unknown })?.backup;
-  if (!known) console.error(e);
+  if (!known) console.error('document-actions hwp failed', safeErrorLog(e));
   // Anything not classified happened before a Drive write: a refusal that changed nothing.
-  return json({ error: e instanceof Error ? e.message : String(e), code: known ? e.code : 'HWP_REFUSED', ...(backup ? { backup } : {}) }, known ? e.status : 400);
+  return json({ error: safeErrorMessage(e), code: known ? e.code : 'HWP_REFUSED', ...(backup ? { backup } : {}) }, known ? e.status : 400);
 }
 
 // LIB-AI자동분류: 자료 파일의 본문 글자 앞부분을 읽어 이미 있는 app_documents.extracted_text 칸에 둔다(../_shared/document-text.ts).
@@ -300,7 +301,7 @@ async function readDocumentText(userId: string, body: { document_id?: unknown })
   return { ok: true, status, reason: result.reason };
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(withWebCors(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   try {
@@ -331,8 +332,8 @@ Deno.serve(async (req: Request) => {
         return json(await readDocumentText(user.id, body));
       } catch (e) {
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'TEXT_FAILED';
-        console.error(e);
-        return json({ error: e instanceof Error ? e.message : String(e), code }, code === 'TEXT_FAILED' ? 503 : 400);
+        console.error('document-actions read-text failed', safeErrorLog(e));
+        return json({ error: safeErrorMessage(e), code }, code === 'TEXT_FAILED' ? 503 : 400);
       }
     }
     if (action === 'rename-file') {
@@ -355,8 +356,8 @@ Deno.serve(async (req: Request) => {
         // 400: refused before any write. 503: the write may have happened; the
         // caller must check the library instead of sending again.
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : undefined;
-        console.error(e);
-        return json({ error: e instanceof Error ? e.message : String(e), ...(code ? { code } : {}) }, code === 'RESULT_UNKNOWN' ? 503 : 400);
+        console.error('document-actions register failed', safeErrorLog(e));
+        return json({ error: safeErrorMessage(e), ...(code ? { code } : {}) }, code === 'RESULT_UNKNOWN' ? 503 : 400);
       }
     }
     const documentId = String(body?.document_id || '');
@@ -364,8 +365,8 @@ Deno.serve(async (req: Request) => {
     if (action === 'delete') return json(await deleteDocument(user.id, documentId));
     return json({ error: 'Unknown action' }, 400);
   } catch (e) {
-    console.error(e);
+    console.error('document-actions failed', safeErrorLog(e));
     const details = e as Record<string, unknown>;
-    return json({ error: e instanceof Error ? e.message : String(e), ...Object.fromEntries(['code', 'drive_result', 'token_delete_result', 'document_delete_result'].filter(key => typeof details?.[key] === 'string').map(key => [key, details[key]])) }, 400);
+    return json({ error: safeErrorMessage(e), ...Object.fromEntries(['code', 'drive_result', 'token_delete_result', 'document_delete_result'].filter(key => typeof details?.[key] === 'string').map(key => [key, details[key]])) }, 400);
   }
-});
+}));

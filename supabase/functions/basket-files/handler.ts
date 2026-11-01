@@ -8,7 +8,6 @@ import { readMultipartForm } from "../_shared/multipart.ts";
 import type {OcrUser} from "./ocr.ts";
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

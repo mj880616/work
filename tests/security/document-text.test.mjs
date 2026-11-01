@@ -9,6 +9,7 @@ import { readBoundedJson } from '../../supabase/functions/_shared/bounded-json.m
 import { inspectBasketOriginal } from '../../supabase/functions/_shared/basket-file-origin.ts';
 import { createHwpEdit, HwpEditError } from '../../supabase/functions/_shared/hwp-edit.ts';
 import * as dt from '../../supabase/functions/_shared/document-text.ts';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // Minimal zip writer (stored or deflated entries) for synthetic HWPX files.
 function zip(entries) {
@@ -110,7 +111,7 @@ test('hwpx and text files are downloaded and read without conversion', async () 
 });
 
 // document-actions `document-text`: the server reads the row, checks the owner, writes only the existing text columns.
-const source = stripTypeScriptTypes(readFileSync(new URL('../../supabase/functions/document-actions/index.ts', import.meta.url), 'utf8'), { mode: 'strip' })
+const source = stripTypeScriptTypes(withEdgeShared(readFileSync(new URL('../../supabase/functions/document-actions/index.ts', import.meta.url), 'utf8')), { mode: 'strip' })
   .replace(/^import .*$/gm, '');
 const DOC = '20000000-0000-4000-8000-000000000001';
 function actions({ role = 'owner', doc = { id: DOC, workspace_id: 'ws-1', file_id: 'drive-1', file_name: '보고서.pdf', mime_type: 'application/pdf', file_size: 100, extraction_status: null } } = {}) {

@@ -19,7 +19,6 @@ const TITLES = { org: '조직 업데이트 (읽기용 사본)', project: '프로
 const LEDGER_BACKUP_FOLDER = '원장 백업';
 const PHASE = { preparation: '준비', in_progress: '진행', consultation: '협의', execution: '실행', follow_up: '후속조치', done: '종료' };
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-drive-summary-cron-secret',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Cache-Control': 'no-store',
