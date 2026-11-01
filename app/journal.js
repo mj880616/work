@@ -1347,7 +1347,8 @@ async function recordExecPick(pick) {
   try {
     // 요청 줄을 막 쓴 행이라 다시 읽고 쓴다(그 주 행이 방금 생겼을 수 있음 — 옛 '행 없음' 판으로 새로 만들지 않게).
     const r = await changeWeekDocs({start:week, known:null, change:draft => withLinePick(draft, {cell:'requests:ask', ...pick})}, rt);
-    if (r.ok && current(run, scope)) draftSaved(week)(r.row);
+    // 화면에 보이는 것은 바뀌지 않으므로 다시 그리지 않는다(방금 그린 표를 한 번 더 갈아 끼우지 않게) — 서버 판만 맞추고 열린 한글 파일 상자에 알린다.
+    if (r.ok && current(run, scope) && week === start) { materials.weekDraft = {status:'ok', items:{missing:false, row:r.row}}; hwpx.sync(week); }
   } catch { /* 동작 기록만 못 남김 */ }
 }
 // Removes the row right away and offers [되돌리기] for 5 seconds (the app's undo notice), like the journal lines.
