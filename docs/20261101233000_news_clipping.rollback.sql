@@ -1,5 +1,5 @@
 begin;
--- 20261101230000_news_clipping의 짝 되돌리기. 새 표 넷·함수 셋·이번 기록 1행만 되돌린다.
+-- 20261101233000_news_clipping의 짝 되돌리기. 새 표 넷·함수 셋·이번 기록 1행만 되돌린다.
 -- 지워지는 것: 모아 둔 기사(제목·본문·요약·번역)·별표·별표 폴더·관심 키워드·하루 사용량.
 -- 노트(app_notes)는 건드리지 않는다. 기사 메모 노트는 [노트]에 그대로 남고, metadata.news_item_id는 남아도 아무도 읽지 않는다.
 -- 먼저 Edge news-feed 예약을 끄고, 화면이 뉴스 클리핑 표를 부르지 않게 되돌린 뒤 실행한다.
@@ -10,7 +10,7 @@ set local statement_timeout = '60s';
 do $$
 begin
   if (select count(*) from supabase_migrations.schema_migrations
-      where version = '20261101230000' and name = 'news_clipping') <> 1 then
+      where version = '20261101233000' and name = 'news_clipping') <> 1 then
     raise exception 'NEWS_CLIPPING_ROLLBACK_BLOCKED: migration record differs';
   end if;
 end
@@ -25,5 +25,5 @@ drop function private.app_news_folder_tree_guard();
 drop function private.app_news_folder_lift();
 
 delete from supabase_migrations.schema_migrations
-  where version = '20261101230000' and name = 'news_clipping';
+  where version = '20261101233000' and name = 'news_clipping';
 commit;

@@ -20,13 +20,13 @@ begin;
 -- 매체 켜고 끄기는 기존 app_outside_sources를 키 앞머리 'news-'로 다시 쓴다(이 파일은 그 표를 바꾸지 않음).
 -- 권한: 네 표 모두 RLS 켬 + private.app_is_workspace_owner(workspace_id) 소유자 정책(authenticated만). anon·PUBLIC 권한 없음.
 -- 안 하는 것: 기존 표·열·정책·권한·함수 변경, 확장 추가, 읽생기 표.
--- 짝: docs/20261101230000_news_clipping.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261101233000_news_clipping.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261101230000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261101233000')
      or to_regclass('public.app_workspaces') is null
      or to_regclass('public.app_notes') is null
      or not exists (select 1 from pg_attribute where attrelid = to_regclass('public.app_notes') and attname = 'metadata'
@@ -357,5 +357,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261101230000', 'news_clipping', array['S47-44 NEWS-클리핑: app_news_items (one scrap list, body/translation server-only, star/folder/hide by owner) + app_news_folders (tree guard 100, lift) + app_news_keywords + app_news_days (owner RLS) + app_news_prune (DEFINER, service_role only, keeps channel/starred/memo items)']);
+values ('20261101233000', 'news_clipping', array['S47-44 NEWS-클리핑: app_news_items (one scrap list, body/translation server-only, star/folder/hide by owner) + app_news_folders (tree guard 100, lift) + app_news_keywords + app_news_days (owner RLS) + app_news_prune (DEFINER, service_role only, keeps channel/starred/memo items)']);
 commit;

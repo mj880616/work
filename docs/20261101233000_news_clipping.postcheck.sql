@@ -3,7 +3,7 @@ with t as (select to_regclass('public.app_news_items') as i,to_regclass('public.
   to_regclass('public.app_news_keywords') as k,to_regclass('public.app_news_days') as d,
   to_regprocedure('public.app_news_prune(timestamptz,integer)') as p,
   to_regprocedure('private.app_news_folder_tree_guard()') as g,to_regprocedure('private.app_news_folder_lift()') as l),
-history as (select count(*) filter(where name='news_clipping') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261101230000')
+history as (select count(*) filter(where name='news_clipping') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261101233000')
 select 'tables, functions and history agree' as item,case when
   (history.n=0 and t.i is null and t.f is null and t.k is null and t.d is null and t.p is null and t.g is null and t.l is null)
   or (history.n=1 and history.named=1 and t.i is not null and t.f is not null and t.k is not null and t.d is not null
