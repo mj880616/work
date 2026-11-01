@@ -81,8 +81,15 @@ test('정리 읽기: 폰(끈 폴더 포함)·원드라이브를 끝까지 쪽마
   assert.deepEqual([...t.unbackedIds()].sort(), ['Pictures/KakaoTalk/', 'Pictures/Screenshots/', 'Pictures/Telegram/']);
   assert.equal(t.count(), 2);
   assert.ok(paints > 2);
-  const html = t.html({place:'phone', canHide:true, canTrash:true});
+  t.toggle('place:phone');
+  const html = t.html({canHide:true, canTrash:true});
   assert.match(html, /data-photos-place="phone" aria-pressed="true"/);
+  // S47-19: 어디에 있나 칩도 그 줄 아래 펼친 칸(합계·정렬 칩, 기본 찍은 날 최신).
+  assert.match(html, /<\/div><div class="photos-tidy-pane" data-photos-tidy-pane="place:phone"><div class="photos-tidy-pane-head"><span class="photos-tidy-num">6장 · 합계 1KB<\/span>/);
+  assert.match(html, /data-photos-tidy-sort="place:phone\|new" aria-pressed="true"/);
+  assert.deepEqual(t.paneList('place:phone').map(x => x.id), ['ph:8', 'ph:3', 'ph:6', 'ph:5', 'ph:4', 'ph:7']);
+  t.toggle('place:phone');
+  assert.ok(!t.opened('place:phone'));
   assert.match(html, /백업 안 됨 <b>3개 폴더<\/b>/);
   assert.match(html, /data-photos-tidy-hide="kakao"/);
   assert.doesNotMatch(html, /data-photos-tidy-hide="shot"/);
@@ -168,7 +175,10 @@ test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누�
   assert.deepEqual(t.group('dups').items.map(x => x.id), ['ph:30']);
   t.keep('ph:30', 'ph:30');
   assert.deepEqual(t.group('dup|ph:30').items.map(x => x.id), ['ph:31']);
-  assert.deepEqual(t.list('space:').map(x => x.id), ['ph:9']);
+  assert.deepEqual(t.list('space').map(x => x.id), ['ph:9']);
+  // S47-19: 공간 비우기는 [보기] 단추 없이 그 줄 안(<details>)에 펼친 칸(기본 용량 큰 순).
+  assert.match(html, /<div class="photos-tidy-pane" data-photos-tidy-pane="space">.*data-photos-tidy-sort="space\|size" aria-pressed="true"/);
+  assert.doesNotMatch(html, /data-photos-tidy-see="space"/);
   assert.ok(t.fresh()); clock += 11 * 60 * 1000; assert.ok(!t.fresh(), '10분 지나면 지우기 전에 다시 확인');
   assert.doesNotMatch(t.html({canTrash:false}), /data-photos-tidy-trash/);
   const src = read('app/photos.js');
@@ -229,4 +239,53 @@ test('사진 메뉴 지우기 연결: 사본 확인된 것만 폰 휴지통, 지
   assert.match(src, /if \(b\.matches\('\[data-photos-tidy-gone-ok\]'\)\) \{ tidy\.goneSeen\(\); return true; \}/);
   assert.match(src, /watchTrash:\(\) => odTrashWatch\(rt\), seenTrash:\(\) => odTrashSeen\(rt\)/);
   for (const a of ['copy-check', 'trash-log', 'trash-watch', 'trash-seen']) assert.ok(od.includes(`action: '${a}'`), a);
+});
+
+// ---- S47-19 정리 [보기] 그 줄 안 펼침·용량·정렬 ----
+import {sortTidy, sortDupGroups, totalBytes, paneSortDefault, TIDY_SORTS, DUP_SORTS} from '../app/photo-tidy-model.mjs';
+test('정리 펼친 칸 정렬: 용량 큰 순·찍은 날 최신·오래된(시각 모르면 뒤), 합계, 묶음 정렬', () => {
+  const a = ph(1, 'a', 300, '2026-01-01T00:00:00.000Z', 'X/'), b = ph(2, 'b', 900, '2025-01-01T00:00:00.000Z', 'X/'), c = ph(3, 'c', 100, '2027-01-01T00:00:00.000Z', 'X/'), d = {...ph(4, 'd', 500, '2026-01-01T00:00:00.000Z', 'X/'), taken_at:''};
+  const list = [a, b, c, d];
+  assert.deepEqual(sortTidy(list, 'size').map(x => x.id), ['ph:2', 'ph:4', 'ph:1', 'ph:3']);
+  assert.deepEqual(sortTidy(list, 'new').map(x => x.id), ['ph:3', 'ph:1', 'ph:2', 'ph:4']);
+  assert.deepEqual(sortTidy(list, 'old').map(x => x.id), ['ph:2', 'ph:1', 'ph:3', 'ph:4']);
+  assert.deepEqual(list.map(x => x.id), ['ph:1', 'ph:2', 'ph:3', 'ph:4'], '원래 목록은 그대로');
+  assert.equal(totalBytes(list), 1800);
+  assert.equal(paneSortDefault('space'), 'size'); assert.equal(paneSortDefault('place:phone'), 'new');
+  assert.deepEqual(Object.keys(TIDY_SORTS), ['size', 'new', 'old']); assert.deepEqual(Object.keys(DUP_SORTS), ['save', 'new', 'old']);
+  const g1 = {id:'g1', bytes:10, items:[a]}, g2 = {id:'g2', bytes:30, items:[b]}, g3 = {id:'g3', bytes:20, items:[c]};
+  assert.deepEqual(sortDupGroups([g1, g2, g3], 'save').map(g => g.id), ['g2', 'g3', 'g1']);
+  assert.deepEqual(sortDupGroups([g1, g2, g3], 'new').map(g => g.id), ['g3', 'g1', 'g2']);
+  assert.deepEqual(sortDupGroups([g1, g2, g3], 'old').map(g => g.id), ['g2', 'g1', 'g3']);
+  assert.equal(sizeText(3.2e6), '3.2MB'); assert.equal(sizeText(3e6), '3MB'); assert.equal(sizeText(12.4e6), '12MB');
+});
+test('정리 [보기] 펼치기: 잡동사니·백업 안 됨 폴더 줄 아래에 칸, 정렬 바꾸기, 다시 확인하면 접힘', async () => {
+  const t = createPhotoTidy({phone:{page:async () => ({items:PHS, next:null})}, odReady:() => true, readOd:async () => ({items:ODS, next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW});
+  await t.rescan();
+  t.toggle('junk:kakao');
+  let html = t.html({canTrash:true});
+  assert.match(html, /data-photos-tidy-see="junk:kakao" aria-expanded="true">보기<\/button>.*?<\/div><div class="photos-tidy-pane" data-photos-tidy-pane="junk:kakao">/);
+  assert.match(html, /data-photos-tidy-pane="junk:kakao"><div class="photos-tidy-pane-head"><span class="photos-tidy-num">2장 · 합계 1KB<\/span>/);
+  assert.deepEqual(t.paneList('junk:kakao').map(x => x.id), ['ph:5', 'ph:4'], '기본 용량 큰 순');
+  t.sortSet('junk:kakao', 'old');
+  assert.deepEqual(t.paneList('junk:kakao').map(x => x.id), ['ph:4', 'ph:5']);
+  t.sortSet('junk:kakao', 'nope');
+  assert.match(t.html(), /data-photos-tidy-sort="junk:kakao\|old" aria-pressed="true"/);
+  t.toggle('unbacked:Pictures/Telegram/');
+  assert.deepEqual(t.paneList('unbacked:Pictures/Telegram/').map(x => x.id), ['ph:6']);
+  assert.match(t.html(), /data-photos-tidy-pane="unbacked:Pictures\/Telegram\/"/);
+  t.toggle('junk:kakao');
+  assert.doesNotMatch(t.html(), /data-photos-tidy-pane="junk:kakao"/);
+  assert.equal(t.paneList('unbacked:DCIM/Camera/'), null, '백업되는 폴더는 칸 없음');
+  t.toggle('junk:nope');
+  assert.ok(!t.opened('junk:nope'));
+});
+test('사진 메뉴: 정리 목록이 아래 [사진] 목록을 바꾸던 길은 없고, 펼친 칸은 이어 그리기·크게 보기', () => {
+  const src = read('app/photos.js'), css = read('app/photos.css');
+  for (const gone of ['setTidyView', 'tidyFill', 'tidyView', 'tidyLayer', 'data-photos-tidy-top', 'data-photos-tidy-end', "'photos-tidy'"]) assert.ok(!src.includes(gone), gone);
+  assert.match(src, /const TIDY_STEP = 60;/);
+  assert.match(src, /tidyIo\.unobserve\(foot\); tidyIo\.observe\(foot\);/);
+  assert.match(src, /openViewer\(index, \{\n    list:\(\) => tidyPaneList\(key\),/);
+  assert.match(css, /\.photos-tidy-size\{ position:absolute;/);
 });
