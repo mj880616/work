@@ -277,6 +277,49 @@ const kctuSites=()=>({
   'https://nodong.org/statement/310000':FX('article-ko.html').replace('[성명] 가상 노동법 개악 규탄','[보도자료] 가상 총파업 결과').replace('2026-10-30','2023-01-02'),
 });
 
+// ---- 화면 입구 read_now(OUTSIDE-이름·바로읽기): 켠 단체 하나를 그 사람 작업공간에만 바로 한 번 ------------------------
+
+test('read_now: owner only, catalog key only, must be enabled in own workspace; cron entrance cannot call it', async () => {
+  const h=harness({sources:[{workspace_id:WS,source_key:'kctu'},{workspace_id:WS,source_key:'kptu',enabled:false}],sites:kctuSites()});
+  assert.equal((await h.user('read_now',{source:'kctu'},'synthetic.user.jwt-bad-000000')).status,401);
+  assert.equal((await h.user('read_now',{source:'kctu'},JWT_STRANGER)).status,403);
+  assert.equal((await h.cron('read_now',{source:'kctu'})).status,400,'screen action through cron entrance');
+  assert.equal((await h.user('run',{source:'kctu'})).status,400,'cron action through screen entrance');
+  for(const body of[{},{source:'justice21'},{source:'kctu',workspace_id:WS2},{source:'kctu',url:'https://evil.example/'},{source:3}])
+    assert.ok([400].includes((await h.user('read_now',body)).status),JSON.stringify(body));
+  const off=await h.user('read_now',{source:'kptu'});assert.equal(off.status,409);assert.equal((await off.json()).error,'NOT_ENABLED');
+  assert.equal((await h.user('read_now',{source:'laborparty'})).status,409,'no row = not enabled');
+  assert.equal(h.calls.site.length,0,'nothing read before the checks pass');
+});
+
+test('read_now: reads the source into the caller workspace only, counts only, then cooldown', async () => {
+  const h=harness({sources:[{workspace_id:WS,source_key:'kctu'},{workspace_id:WS2,source_key:'kctu'}],sites:kctuSites()});
+  const r=await h.user('read_now',{source:'kctu'});assert.equal(r.status,200);
+  const out=await r.json();
+  assert.deepEqual(out,{ok:true,source:'kctu',status:'ok',inserted:2,deferred:0});
+  assert.ok(h.db.app_outside_posts.every(p=>p.workspace_id===WS),'other workspace (WS2) gets nothing from a screen read');
+  assert.ok(h.calls.site.every(u=>u.startsWith('https://nodong.org/')),'catalog hosts only');
+  const mine=h.db.app_outside_sources.find(s=>s.workspace_id===WS),other=h.db.app_outside_sources.find(s=>s.workspace_id===WS2);
+  assert.equal(mine.last_ok_at,new Date(NOW).toISOString());assert.equal(other.last_ok_at,null);
+  assert.doesNotMatch(JSON.stringify(h.calls.logs),/가상|https?:/);
+  // 10분 안에 다시 켜면 읽지 않는다(서버 DB 시각 기준, 인스턴스가 달라도 같음).
+  const before=h.calls.site.length;
+  const again=await h.user('read_now',{source:'kctu'});assert.equal(again.status,200);
+  assert.deepEqual(await again.json(),{ok:true,source:'kctu',status:'recent',inserted:0});
+  assert.equal(h.calls.site.length,before);
+});
+
+test('read_now: new-post cap is smaller than the scheduled run; daily cap per user', async () => {
+  assert.ok(H.READ_NOW_MAX_NEW<=H.MAX_NEW_PER_RUN&&H.READ_NOW_BUDGET_MS<H.RUN_BUDGET_MS&&H.READ_NOW_COOLDOWN_MS>=60000);
+  const h=harness({sources:[{workspace_id:WS,source_key:'kctu'}],sites:kctuSites()});
+  for(let i=0;i<H.READ_NOW_DAILY_PER_USER;i++){
+    h.db.app_outside_sources[0].last_ok_at=null;
+    assert.equal((await h.user('read_now',{source:'kctu'})).status,200);
+  }
+  h.db.app_outside_sources[0].last_ok_at=null;
+  const r=await h.user('read_now',{source:'kctu'});assert.equal(r.status,429);assert.equal((await r.json()).error,'DAILY_LIMIT');
+});
+
 test('run_plan lists only enabled catalog sources and prunes 2-year-old bodies (titles·summaries kept)', async () => {
   const old='2024-10-01T00:00:00.000Z';
   const h=harness({sources:[{workspace_id:WS,source_key:'jacobin'},{workspace_id:WS,source_key:'kctu'},{workspace_id:WS2,source_key:'kctu'},{workspace_id:WS,source_key:'kptu',enabled:false},{workspace_id:WS,source_key:'gone-source'}],
