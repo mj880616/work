@@ -53,3 +53,15 @@ const CSP_PAGES = new Set(['/work/app/', '/work/app/index.html', '/work/app/logi
 export function web2CspPage(pathname) {
   return CSP_PAGES.has(pathname);
 }
+
+// SEC-보안헤더: Web2(/work/app/**) 모든 응답에 붙이는 막는 헤더. 위 보고 전용 CSP와 별개로 지금 바로 적용한다.
+// - frame-ancestors 'self': 다른 사이트가 로그인된 Web2를 자기 페이지 안(iframe)에 끼워 넣지 못하게(클릭재킹 방지).
+//   Web2 안 칸막이(HWP 편집기·내 업무 현황)는 같은 주소라 그대로 된다. 폰 앱은 WebView로 직접 열어 영향 없다.
+// - X-Frame-Options: frame-ancestors를 모르는 옛 브라우저용 같은 뜻.
+// - nosniff: 파일 형식(Content-Type)과 다르게 해석하지 않게(스크립트·스타일로 몰래 실행 방지).
+export const WEB2_FRAME_ANCESTORS_CSP = "frame-ancestors 'self'";
+export const WEB2_SECURITY_HEADERS = Object.freeze([
+  ['Content-Security-Policy', WEB2_FRAME_ANCESTORS_CSP],
+  ['X-Frame-Options', 'SAMEORIGIN'],
+  ['X-Content-Type-Options', 'nosniff']
+]);

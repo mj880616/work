@@ -3,7 +3,7 @@
 // The file runs only inside a sandboxed frame without allow-same-origin (an origin of its own, "null"): it cannot read
 // this app's sign-in (browser storage), cookies or the page around it, and cannot move that page elsewhere.
 export const MAX_HTML_BYTES = 5 * 1024 * 1024; // the DB check app_share_page_html_size_check uses the same number
-export const HTML_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
+export const HTML_SANDBOX = 'allow-scripts allow-popups';
 export const SHORT_BASE = 'https://bokdoong.com/s/';
 export const CODE_LENGTH = 8; // letters the DB adds after the name (design 3: 4 letters are too few to be safe)
 export const NAME_MAX = 40;
