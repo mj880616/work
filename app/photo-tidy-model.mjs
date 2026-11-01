@@ -2,7 +2,7 @@
 // - 재료: 폰 사진 전부(앱 다리 page, 끈 폴더 포함)와 원드라이브 사진 전부(서버 library). 모두 이 화면 메모리에만 둔다(기기·서버 저장 없음).
 // - 같은 사진 판정은 섞어 보기의 '같은 사진이면 한 장' 규칙(photo-sources-model.mjs sameMedia·dupFinder)을 그대로 쓴다.
 // - 제안은 보여 주기만 한다. 지우기·숨기기는 명진이 눌러야만(이 파일은 목록만 만든다).
-import {dupFinder} from './photo-sources-model.mjs';
+import {dupFinder, sameMedia} from './photo-sources-model.mjs';
 
 export const PLACES = Object.freeze(['all', 'phone', 'onedrive', 'both']);
 export const PLACE_TEXT = Object.freeze({all:'전체', phone:'폰에만', onedrive:'원드라이브에만', both:'둘 다'});
@@ -166,3 +166,29 @@ export function dupTrashList(groups, keeps = new Map()) {
   return out;
 }
 export const DUP_TEXT = Object.freeze({copy:'같은 사진', burst:'연사'});
+
+// ---- S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰에서만 지우기]·[나머지 지우기] 전 원드라이브 사본 짝 ----
+// 폰 사진마다 원드라이브에서 같은 크기(그리고 같은 이름 또는 찍은 시각)인 사본을 찾는다. 크기를 모르면 짝이 없다(지우지 않음).
+// 지우기 전 서버(onedrive-photos copy-check)가 이 사본이 지금도 있고 크기가 같은지 다시 본다. 여기서는 짝만 만든다.
+export const COPY_BATCH = 50, LOG_BATCH = 100;
+export function copyFinder(odItems) {
+  const bySize = new Map();
+  for (const o of odItems || []) if (o && bytesOf(o) > 0 && o.id) (bySize.get(o.size_bytes) || bySize.set(o.size_bytes, []).get(o.size_bytes)).push(o);
+  return p => (p && bytesOf(p) > 0 ? (bySize.get(p.size_bytes) || []).find(o => sameMedia(p, o)) || null : null);
+}
+// 답: {pairs:[{item(폰 칸), copy(원드라이브 칸)}], noCopy:[폰 칸]}.
+export function copyPairs(items, odItems) {
+  const find = copyFinder(odItems), pairs = [], noCopy = [];
+  for (const p of items || []) { const o = p?.phoneId ? find(p) : null; if (o) pairs.push({item:p, copy:o}); else noCopy.push(p); }
+  return {pairs, noCopy};
+}
+// 남긴 사진 안내(사본 없음·확인 못 함).
+export function keptText(missing, unsure) {
+  const out = [];
+  if (missing > 0) out.push(`원드라이브에 없음 ${missing}장은 남겼어요`);
+  if (unsure > 0) out.push(`원드라이브 확인 못 한 ${unsure}장은 남겼어요`);
+  return out.join(' · ');
+}
+// 다음 사진 확인 때 사본이 사라진 경우의 경고 한 줄.
+export const goneText = n => `폰에서 지운 ${n}장이 원드라이브에서도 지워졌어요. 원드라이브 휴지통(30일)에서 되살리세요. 동기화 앱이 양방향이면 업로드만으로 바꾸세요`;
+export const SAFE_SYNC_TEXT = '원드라이브 동기화 앱이 업로드만일 때 안전해요';

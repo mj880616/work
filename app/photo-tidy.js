@@ -5,15 +5,17 @@
 //   사진·목록은 이 화면 메모리에만 있고 기기·서버에 저장하지 않는다(폰 사진은 서버로 올라가지 않는다).
 // - 규칙은 photo-tidy-model.mjs(같은 사진 판정은 섞어 보기 규칙 그대로).
 import {matchIndex, placeItems, placeCounts, unbackedFolders, junkGroups, groupHidden, tidyCount, forgetIds, sizeText, PLACES, PLACE_TEXT, SCAN_MAX,
-  spacePlan, dupGroups, dupTrashList, scanFresh, DUP_TEXT} from './photo-tidy-model.mjs';
+  spacePlan, dupGroups, dupTrashList, scanFresh, DUP_TEXT, copyPairs, goneText, SAFE_SYNC_TEXT} from './photo-tidy-model.mjs';
 
 const PAGE = 200;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, phoneOff, onChange, isStarred = () => false, now = () => Date.now()}) {
+// S47-16 PHOTO-폰지우기안전장치: watchTrash() = 다음 사진 확인 때 서버가 폰에서 지운 사진의 원드라이브 사본이 사라졌는지 본 수(경고 한 줄), seenTrash() = [알았어요].
+export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, phoneOff, onChange, isStarred = () => false, now = () => Date.now(),
+  watchTrash = async () => 0, seenTrash = async () => {}}) {
   let st = null, token = 0;
   const keeps = new Map(); // ④ 명진이 고른 남길 것(묶음 id → 칸 id), 이 화면 메모리만
-  const empty = () => ({running:false, done:false, partial:false, failed:'', odFailed:'', od:[], ph:[], odOn:false, index:null, unbacked:[], junk:[], counts:null, space:null, dups:[], at:0});
+  const empty = () => ({running:false, done:false, partial:false, failed:'', odFailed:'', od:[], ph:[], odOn:false, index:null, unbacked:[], junk:[], counts:null, space:null, dups:[], at:0, gone:0});
   const changed = () => { try { onChange?.(); } catch { /* 화면 다시 그리기 실패가 읽기를 막지 않게 */ } };
   function derive() {
     if (!st) return;
@@ -57,6 +59,8 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     if (t !== token) return;
     st.running = false; st.done = !st.failed; st.at = now();
     derive(); changed();
+    // 지운 사진 사본 검사(원드라이브를 다시 읽은 뒤). 실패하면 경고 없이 넘어간다(다음 확인 때 다시).
+    if (st.odOn) watchTrash().then(n => { if (t === token && Number.isInteger(n) && n > 0) { st.gone = n; changed(); } }).catch(() => {});
   }
   const ready = () => !!st?.done;
   const api = {
@@ -95,6 +99,9 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       if (kind.startsWith('dup|')) { const g = st.dups.find(x => x.id === kind.slice(4)); const items = g ? dupTrashList([g], keeps) : []; return items.length ? {kind, label:`${DUP_TEXT[g.kind]} 묶음의 남기지 않을 사진`, items, folders:[]} : null; }
       return st.junk.find(g => g.kind === kind) || null;
     },
+    // S47-16: 지울 폰 사진의 원드라이브 사본 짝({pairs, noCopy}). 원드라이브를 읽지 못했으면 null(지우지 않음).
+    copyPairs: items => (ready() && st.odOn ? copyPairs(items, st.od) : null),
+    goneSeen() { if (!st?.gone) return; st.gone = 0; changed(); seenTrash().catch(() => {}); },
     // ④ 남길 것 고르기.
     keep(groupId, itemId) { const g = st?.dups.find(x => x.id === groupId); if (g && g.items.some(p => p.id === itemId)) keeps.set(groupId, itemId); },
     // 지운 칸(폰 휴지통·원드라이브 휴지통 뒤)을 재료에서 뺀다.
@@ -109,6 +116,9 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       if (st.running) return `<p class="photos-tidy-line" role="status">사진 확인 중 · 폰 ${st.ph.length}장${st.odOn ? ` · 원드라이브 ${st.od.length}장` : ''}</p>`;
       if (st.failed) return `<p class="photos-tidy-line">${esc(st.failed)} <button type="button" class="mini" data-photos-tidy-rescan>다시</button></p>`;
       const off = phoneOff(), rows = [];
+      if (st.gone > 0) rows.push(`<p class="photos-tidy-line photos-tidy-warn" role="alert">${esc(goneText(st.gone))} <button type="button" class="mini" data-photos-tidy-gone-ok>알았어요</button></p>`);
+      // [나머지 지우기]도 원드라이브 사본이 확인된 사진만 지운다(원드라이브를 읽었을 때만 단추).
+      const dupTrash = canTrash && st.odOn;
       // ① 어디에 있나
       if (st.odOn) {
         rows.push(`<div class="photos-tidy-row photos-tidy-places" role="group" aria-label="어디에 있나">${PLACES.map(p => {
@@ -128,7 +138,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       if (st.odOn && st.space) {
         const sp = st.space;
         rows.push(sp.items.length
-          ? `<details class="photos-tidy-row" data-k="space"><summary><span>공간 비우기 · 폰에서만 지우면 <b>${sizeText(sp.bytes) || sp.items.length + '장'}</b> 비워져요</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list"><div class="photos-tidy-junk"><span>원드라이브에 있는 1년 지난 사진 ${sp.photos}장 · 큰 동영상 ${sp.videos}개(별표 뺌)</span>`
+          ? `<details class="photos-tidy-row" data-k="space"><summary><span>공간 비우기 · 폰에서만 지우면 <b>${sizeText(sp.bytes) || sp.items.length + '장'}</b> 비워져요</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list"><p class="photos-tidy-line">${SAFE_SYNC_TEXT}</p><div class="photos-tidy-junk"><span>원드라이브에 있는 1년 지난 사진 ${sp.photos}장 · 큰 동영상 ${sp.videos}개(별표 뺌)</span>`
             + '<button type="button" class="mini" data-photos-tidy-see="space">보기</button>'
             + (canTrash ? '<button type="button" class="mini photos-danger" data-photos-tidy-trash="space">폰에서만 지우기</button>' : '') + '</div></div></details>'
           : '<p class="photos-tidy-line">공간 비우기 · 후보 없음</p>');
@@ -143,10 +153,10 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
             return `<div class="photos-tidy-dup" data-photos-tidy-dup="${esc(g.id)}"><span class="photos-tidy-num">${DUP_TEXT[g.kind]} ${g.items.length}장${g.bytes ? ' · ' + sizeText(g.bytes) : ''}</span><span class="photos-tidy-ths">`
               + g.items.slice(0, 8).map(p => `<button type="button" class="photos-tidy-pick" data-photos-tidy-keep="${esc(g.id)}|${esc(p.id)}" aria-pressed="${p.id === keep}" aria-label="${p.id === keep ? '남길 사진' : '이 사진 남기기'}"><span class="photos-tidy-th" data-photos-tidy-th="${esc(p.id)}"></span></button>`).join('')
               + `${g.items.length > 8 ? `<span class="photos-tidy-num">외 ${g.items.length - 8}장</span>` : ''}</span>`
-              + (canTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="dup|${esc(g.id)}">나머지 지우기</button>` : '') + '</div>';
+              + (dupTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="dup|${esc(g.id)}">나머지 지우기</button>` : '') + '</div>';
           }).join('')
           + (st.dups.length > shown.length ? `<p class="photos-tidy-line">외 ${st.dups.length - shown.length}묶음(위 묶음을 정리하면 이어서 보여요)</p>` : '')
-          + (canTrash ? '<div class="photos-tidy-junk"><span>모든 묶음에서 남길 사진만 두고</span><button type="button" class="mini photos-danger" data-photos-tidy-trash="dups">나머지 모두 지우기</button></div>' : '')
+          + (dupTrash ? '<div class="photos-tidy-junk"><span>모든 묶음에서 남길 사진만 두고</span><button type="button" class="mini photos-danger" data-photos-tidy-trash="dups">나머지 모두 지우기</button></div>' : '')
           + '</div></details>');
       }
       // ⑤ 잡동사니
