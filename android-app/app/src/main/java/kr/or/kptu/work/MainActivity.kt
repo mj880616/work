@@ -90,6 +90,12 @@ class MainActivity : ComponentActivity() {
         postRec(if (micGranted()) "rec:ready" else "rec:denied")
     }
 
+    /** APP-폰알림 N4: 내 프로필 '폰 알림'(app/phone-push-settings.js)이 push:hello로 연 다리. 새 화면을 열기 시작하면 버린다. */
+    private var pushReply: JavaScriptReplyProxy? = null
+    private val pushPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && PushSetup.canPost(this)) pushOn() else postPush(PushRules.STATE_DENIED)
+    }
+
     /** PHOTO-출처 ①: 사진 메뉴(app/phone-photos.js)가 'photos:hello'로 연 다리. 접근 상태가 바뀌면 여기로 알린다. */
     private var photoReply: JavaScriptReplyProxy? = null
     private val photoPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
@@ -211,6 +217,7 @@ class MainActivity : ComponentActivity() {
                 else if (data.startsWith("widget:")) onWidgetMessage(data, reply)
                 else if (data.startsWith("rec:")) onRecordMessage(data, reply)
                 else if (data.startsWith("photos:")) onPhotoMessage(data, reply)
+                else if (data.startsWith("push:")) onPushMessage(data, reply)
                 else if (data == "write:hello") writeReply = reply
                 else if (data == "pull:on" || data == "pull:off") pullOn = data == "pull:on"
             }
@@ -251,6 +258,7 @@ class MainActivity : ComponentActivity() {
                 readyReply = null
                 writeReply = null
                 photoReply = null
+                pushReply = null
                 // 당겨서 새로고침으로 다시 여는 중이면 동그란 표시를 거둔다. 새 화면의 손가락 판정은 처음부터.
                 if (::refresher.isInitialized) refresher.isRefreshing = false
                 pullOn = false
@@ -305,6 +313,11 @@ class MainActivity : ComponentActivity() {
             webView.loadUrl(if (kind == null) ShellRules.HOME else WidgetActions.writeUrl(kind))
             return
         }
+        if (intent?.action == PushRules.ACTION_OPEN) {
+            // APP-폰알림: 알림을 누르면 그 자리. 웹2 안쪽 주소(/work/app/…)만, 아니면 첫 화면(PushRules.openUrl).
+            webView.loadUrl(PushRules.openUrl(intent.getStringExtra(PushRules.EXTRA_OPEN)))
+            return
+        }
         if (intent?.action == WeekWidget.ACTION_DAY) {
             // WIDGET-여러개 ②: 이번 주 위젯 줄 → 앱 달력의 그 날(날짜가 없거나 이상하면 오늘).
             webView.loadUrl(WidgetWeek.dayUrl(widgetDay(intent)))
@@ -341,6 +354,10 @@ class MainActivity : ComponentActivity() {
         if (intent.action == WeekWidget.ACTION_DAY) {
             val day = widgetDay(intent)
             if (!postWrite(WidgetWeek.dayMessage(day))) webView.loadUrl(WidgetWeek.dayUrl(day))
+            return
+        }
+        if (intent.action == PushRules.ACTION_OPEN) {
+            loadFromIntent(intent)
             return
         }
         if (intent.action == RecordHub.ACTION_OPEN) {
@@ -560,6 +577,52 @@ class MainActivity : ComponentActivity() {
             }
             RecordRules.Message.Finishing -> RecordHub.update(push = false) { it.copy(autoFinish = false) }
             RecordRules.Message.Clear -> if (!RecordHub.active()) RecordHub.clear() else RecordHub.pushState()
+        }
+    }
+
+    /**
+     * APP-폰알림 N4 다리(app/phone-push-settings.js). 허용 Origin 최상위 화면만 이 다리를 본다.
+     * push:hello = 지금 상태, push:enable = 이 폰에서 받기(알림 권한 한 번 묻기 + 토큰), push:forget = 이 폰 끊기(토큰 지움).
+     * 토큰은 웹 화면에만 넘기고(push:on:<토큰>), 웹 화면이 웹 세션으로 서버에 등록한다. 앱은 서버를 부르지 않는다.
+     */
+    private fun onPushMessage(data: String, reply: JavaScriptReplyProxy) {
+        val ask = PushRules.ask(data) ?: return
+        pushReply = reply
+        when (ask) {
+            PushRules.Ask.HELLO -> {
+                val state = PushSetup.state(this)
+                if (state != null) postPush(state) else PushService.token(this) { postPush(PushRules.onMessage(it)) }
+            }
+            PushRules.Ask.ENABLE -> when {
+                !PushSetup.init(this) -> postPush(PushRules.STATE_NONE)
+                PushSetup.needsAsk(this) -> try {
+                    pushPermission.launch(PushSetup.PERMISSION)
+                } catch (_: Exception) {
+                    postPush(PushRules.STATE_DENIED)
+                }
+                !PushSetup.canPost(this) -> postPush(PushRules.STATE_DENIED)
+                else -> pushOn()
+            }
+            PushRules.Ask.FORGET -> {
+                PushSetup.setEnabled(this, false)
+                PushService.forget(this) { postPush(PushRules.STATE_OFF) }
+            }
+        }
+    }
+
+    private fun pushOn() {
+        PushSetup.setEnabled(this, true)
+        PushSetup.channels(this)
+        PushService.token(this) { postPush(PushRules.onMessage(it)) }
+    }
+
+    private fun postPush(message: String) {
+        ui.post {
+            if (!alive) return@post
+            try {
+                pushReply?.postMessage(message)
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -968,6 +1031,7 @@ class MainActivity : ComponentActivity() {
         recReply = null
         writeReply = null
         photoReply = null
+        pushReply = null
         if (RecordHub.listener === recListener) RecordHub.listener = null
         if (AppUpdater.listener === updateListener) AppUpdater.listener = null
         webView.stopLoading()
