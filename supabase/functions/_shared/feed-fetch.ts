@@ -5,6 +5,8 @@
 // - 응답 FETCH_MAX_BYTES·FETCH_TIMEOUT_MS 상한, 쿠키·인증 헤더 없음, 정직한 User-Agent, 요청 사이 gapMs.
 // outside-feed는 아직 자기 읽기를 쓴다(그 함수의 다른 PR과 겹치지 않게 이번에는 손대지 않음 — 옮기기는 후속).
 import { decodeBody, robotsAllows } from "../outside-feed/parse.ts";
+import { cleanArticleUrl, openArticleUrl, urlKey } from "./news-url.ts";
+export { cleanArticleUrl, openArticleUrl, urlKey };
 
 export const FETCH_MAX_BYTES = 2 * 1024 * 1024;
 export const FETCH_TIMEOUT_MS = 10000;
@@ -133,41 +135,4 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
       return { ok: true, text: decodeBody(bytes, ct), url: got.url.href, contentType: ct };
     },
   };
-}
-
-// 채널 기사 원문 주소 규칙(열린 주소 — 매체가 정해져 있지 않으므로 허용 호스트 대신 막는 규칙).
-// https만, 기본 포트만, 사용자 정보 없음, 호스트가 IP 숫자·localhost·단일 이름·내부 이름·Supabase가 아님, 2000자 안쪽.
-// DNS가 내부 주소로 풀리는 경우는 코드로 막지 못한다(Edge 런타임의 사설망 차단에 기댐 — PR 남은 위험에 적음).
-const BLOCKED_SUFFIX = [".local", ".localhost", ".internal", ".intranet", ".lan", ".home", ".corp", ".arpa",
-  ".supabase.co", ".supabase.in", ".supabase.net", ".supabase.com"];
-export function openArticleUrl(raw: string): URL | null {
-  if (typeof raw !== "string" || raw.length > 2000) return null;
-  let u: URL;
-  try { u = new URL(raw.trim()); } catch { return null; }
-  if (u.protocol !== "https:" || u.username || u.password || u.port) return null;
-  const host = u.hostname.toLowerCase().replace(/\.$/, "");
-  if (!host.includes(".") || host === "localhost") return null;
-  if (/^[\d.]+$/.test(host) || host.startsWith("[") || host.includes(":")) return null; // IPv4 숫자·IPv6
-  if (/^0x|^\d+$/.test(host.split(".")[0]) && /^[\dx.a-f]+$/i.test(host)) return null;  // 16진·정수 IP 꼴
-  if (BLOCKED_SUFFIX.some((s) => host === s.slice(1) || host.endsWith(s))) return null;
-  if (!/^[a-z0-9.-]+$/.test(host)) return null; // 국제 도메인은 URL이 punycode로 바꿔 둠
-  return u;
-}
-
-// 겹침 판정용 주소: 스킴·www 떼기, 추적 값(utm_*·fbclid·gclid 등) 떼기, 조각(#) 떼기, 끝 '/' 떼기.
-const TRACKING = /^(utm_[a-z]+|fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|ref|ref_src|cmpid|from)$/i;
-export function cleanArticleUrl(raw: string): string | null {
-  let u: URL;
-  try { u = new URL(raw.trim()); } catch { return null; }
-  if (u.protocol !== "https:" && u.protocol !== "http:") return null;
-  u.hash = "";
-  for (const k of [...u.searchParams.keys()]) if (TRACKING.test(k)) u.searchParams.delete(k);
-  const out = u.href;
-  return /^https?:\/\/\S+$/.test(out) && out.length <= 2000 ? out : null;
-}
-export function urlKey(cleaned: string): string {
-  const u = new URL(cleaned);
-  const host = u.hostname.toLowerCase().replace(/^www\./, "");
-  const path = u.pathname.replace(/\/+$/, "");
-  return `${host}${path}${u.search}`.slice(0, 2000) || host;
 }
