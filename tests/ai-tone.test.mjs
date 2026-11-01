@@ -59,6 +59,22 @@ test('instructions that feed the outward weekly report keep their own style and 
   assert.match(library.LIBRARY_FILL_INSTRUCTIONS, /"~함", "~임"으로 끝내지 않는다/);
 });
 
+// OUTSIDE-읽기고침·요약·순서(11/01): 말투 규칙 탓에 '…없음'·'…불가함'으로 맺힌 '재료 없음' 안내 문장 검사 목록.
+// 요약 칸에 이런 문장이 오면 요약이 아니라서 비운다(바깥 성명 수집기). 실제 요약 속 '내용이 없어 비판함' 같은 말은 건드리지 않는다.
+test('AI 요약 실패 문구 검사 목록: 재료 없음 안내 문장은 잡고, 실제 요약은 그대로 둔다', () => {
+  assert.ok(Array.isArray(model.AI_NO_MATERIAL_PATTERNS) && Object.isFrozen(model.AI_NO_MATERIAL_PATTERNS));
+  for (const bad of ['요약할 수 없음.', '본문이 제공되지 않아 요약할 수 없음.', '요약 불가함.', '요약이 어려움.', '기사 본문이 없음.', '본문 내용이 확인되지 않음.',
+    '원문이 제공되지 않음.', '제목만으로는 내용 파악 어려움.', '요약할 내용이 없음.', 'The article body was not provided, so it cannot be summarized.', 'No content provided.'])
+    assert.equal(model.aiSaysNoMaterial(bad), true, bad);
+  for (const ok of ['가상 정부 대책에 실질 내용이 없어 비판함.', '노동법 개악 규탄 입장 밝힘.', '단체가 기사 내용을 반박함.', '교섭 결과 확인 필요함.', '', null])
+    assert.equal(model.aiSaysNoMaterial(ok), false, String(ok));
+  // 바깥 성명 요약 지시문은 빈 글자로 두라고 말하고, 그 안내 문장을 쓰지 말라고 한다.
+  const src = read('outside-feed/handler.ts');
+  assert.match(src, /요약할 재료가 없으면 summary를 빈 글자/);
+  assert.match(src, /요약할 재료가 없으면 summary_ko를 빈 글자/);
+  assert.match(src, /aiSaysNoMaterial/);
+});
+
 // 새 AI 지시문이 생기면 아래 목록에 '적용' 또는 '제외(이유)'로 올려야 한다. 말투를 빠뜨린 채 새 요약이 생기는 일을 막는다.
 const APPLIED = new Set(['collector-feed/telegram.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/org-status-rows.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/pre-meeting-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts', 'outside-feed/handler.ts']);
 const EXCLUDED = new Map([
@@ -68,6 +84,7 @@ const EXCLUDED = new Map([
   ['ai-assist/library-fill.ts', '자료 한두 줄 요약은 주간보고 줄의 재료(주간보고 문체), 나머지 칸은 제목·값'],
   ['ai-assist/schedule-titles.ts', '주간보고 일정 제목(제목, 문장 아님)'],
   ['ai-assist/todo-radar.ts', '챙길 것 한 줄은 할 일 이름(명사형)이고 요약이 아님'],
+  ['ai-assist/todo-rules.ts', '챙길 것 거르기 규칙 후보 한 줄(명사형 규칙 목록, 문장 요약 아님 — TODO-이미함·환류)'],
   ['ai-assist/overlap.ts', '두 기록이 같은 활동인지 가리는 판정 이유 한 문장(요약이 아님)'],
   ['ai-assist/call-refill.ts', '통화 제목·조직·상대 칸 채우기(핵심내용 요약은 쓰지 않음)'],
   ['ai-assist/business-area.ts', '사업요약표 진행 칸 한 줄(명사형 끝맺음, 주간보고 문체)과 사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관'],

@@ -268,6 +268,8 @@ object PhoneMediaRules {
         sb.append(",\"trash\":").append(sdk >= 30)
         // PHOTO-폴더스위치(0.4.1): hide = 끈 폴더 거르기를 안다, ops = 폰 폴더 바꾸기(안드로이드 11+), manage = '미디어 관리 허용'이 켜짐(12+).
         sb.append(",\"hide\":true,\"ops\":").append(sdk >= 30).append(",\"manage\":").append(manage)
+        // PHOTO-갤러리편집(0.4.6): edit = 크게 보기 [편집](photos:edit·photos:save)을 안다.
+        sb.append(",\"edit\":true")
         return sb.append('}').toString()
     }
 

@@ -47,7 +47,9 @@ test('readInboxCandidates: open rows and handled rows in two reads, malformed ro
   const rt = {context: {read: () => ({user: {id: 'u'}, workspace: {id: 'w'}})}, api: async path => { calls.push(path); return path.includes('status=eq.open') ? [cand(1), {...cand(2), id: 'x'}] : [cand(3, {status: 'tasked'}), cand(4, {status: 'dismissed'})]; }};
   const result = await radar.readInboxCandidates(rt);
   assert.deepEqual(result.rows.map(r => r.status), ['open', 'tasked', 'dismissed']);
-  assert.equal(calls.length, 2);
+  // TODO-이미함·환류: 처리한 줄의 결과(무시/내 일 아님)를 결과 기록에서 한 번 더 읽는다.
+  assert.equal(calls.length, 3);
   assert.match(calls[0], /workspace_id=eq\.w&status=eq\.open/);
-  assert.match(calls[1], /status=in\.\(tasked,dismissed\)/);
+  assert.match(calls[1], /status=in\.\(tasked,dismissed,done\)/);
+  assert.match(calls[2], /app_todo_feedback\?workspace_id=eq\.w&candidate_id=in\./);
 });

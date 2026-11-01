@@ -8,7 +8,11 @@ import {waitInlineHtml, failHtml} from './wait-state.js';
 // TODO-쌓인후보건수(요청함 10/30): 그 줄에 지금 대기 중 후보 건수('쌓인 후보 12건 [새 기준으로 다시 거르기]'), 0건이면 '쌓인 후보 없음'만(버튼 없음).
 //   다시 거른 뒤에는 그 아래 결과 한 줄('12건 중 3건을 무시함으로 옮겼어요')과 새 건수. 건수를 못 읽으면 예전처럼 '쌓인 후보 [버튼]'.
 // 표가 아직 없거나(DB 적용 전) 텔레그램 방이 없으면 방 줄은 숨기고 다시 거르기만 보인다.
-import {readAskRooms, addAskRoom, removeAskRoom, recheckTodos, countOpenCandidates, ROOM_KEY} from './todo-radar-data.js';
+import {readAskRooms, addAskRoom, removeAskRoom, recheckTodos, countOpenCandidates, readFeedbackSince, readRules, setRule, reviewRules, RULE_CHARS, ROOM_KEY} from './todo-radar-data.js';
+// TODO-이미함·환류 4.3: 같은 칸에 '거르기 규칙' — 확정(찾기에 쓰임)·후보(AI가 결과 기록에서 만든 것, [ㅇ][×][고쳐서 확정])·뺀 것(접힘, [다시 후보로]).
+// 후보는 [규칙 후보 보기]를 누를 때만 서버가 만든다(ai-assist todo_rules_review). 규칙 표가 없으면(DB 적용 전) 이 부분은 안 그린다.
+// TODO-이미함·환류 5절: 같은 칸 맨 아래에 '지난주 챙길 것 …' 비율 한 줄(정리함과 같은 계산). 결과 기록이 없으면 안 그린다.
+import {weekBounds, weeklySummary} from './todo-feedback-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const CHANGED = 'kptu:todo-radar-changed';
@@ -25,7 +29,7 @@ async function readRooms(rt) {
 }
 
 export function mountTodoRulesSettings(host, {rt}) {
-  let state = {phase: 'loading', keys: [], rooms: [], roomsOk: false, busy: false, note: '', pick: '', open: null, result: ''};
+  let state = {phase: 'loading', keys: [], rooms: [], roomsOk: false, busy: false, note: '', pick: '', open: null, result: '', week: '', rules: null, editing: '', draft: '', rulesNote: ''};
   let run = 0;
 
   function render() {
@@ -36,7 +40,8 @@ export function mountTodoRulesSettings(host, {rt}) {
     const label = !known ? '쌓인 후보' : open.count === 0 && !open.more ? '쌓인 후보 없음' : `쌓인 후보 ${open.count}건${open.more ? ' 넘게' : ''}`;
     const button = known && open.count === 0 && !open.more ? '' : `<button type="button" class="ps-todo-btn" data-ps-todo-recheck${busy ? ' disabled aria-busy="true"' : ''}>새 기준으로 다시 거르기</button>`;
     const resultLine = result ? `<p class="ps-calref-line ps-todo-result" data-ps-todo-result>${esc(result)}</p>` : '';
-    const recheck = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-todo-open${known ? `="${open.count}"` : ''}>${esc(label)}</span>${button}</div>${resultLine}`;
+    const weekLine = state.week ? `<p class="ps-calref-line" data-ps-todo-week>${esc(state.week)}</p>` : '';
+    const recheck = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-todo-open${known ? `="${open.count}"` : ''}>${esc(label)}</span>${button}</div>${resultLine}${weekLine}${rulesHtml()}`;
     if (phase === 'loading') { host.innerHTML = `${head}<div class="ps-calref">${waitInlineHtml()}</div>`; return; }
     if (phase === 'failed') { host.innerHTML = `${head}<div class="ps-calref">${failHtml()}${recheck}</div>`; return; }
     const groups = rooms.filter(r => r.kind !== 'user');
@@ -48,14 +53,42 @@ export function mountTodoRulesSettings(host, {rt}) {
       ? `<div class="ps-calref-row ps-todo-rooms-head"><span class="ps-calref-line">단체방 전체 부탁('다들 ~해 주세요')도 올릴 방</span></div>${chosen ? `<ul class="ps-todo-rooms">${chosen}</ul>` : '<p class="ps-calref-line">고른 방 없음 · 전체 부탁은 올리지 않아요</p>'}${add}` : '';
     host.innerHTML = `${head}<div class="ps-calref">${roomsPart}${recheck}</div>`;
   }
+  function rulesHtml() {
+    const {rules, busy, editing, draft, rulesNote} = state;
+    if (!Array.isArray(rules)) return '';
+    const dis = busy ? ' disabled' : '';
+    const of = s => rules.filter(r => r.state === s);
+    const line = (r, buttons) => editing === r.id
+      ? `<li class="ps-todo-rule" data-ps-rule="${esc(r.id)}"><input type="text" class="ps-todo-rule-input" data-ps-rule-draft maxlength="${RULE_CHARS}" value="${esc(draft)}" aria-label="규칙 고치기"${dis}><button type="button" class="ps-todo-btn" data-ps-rule-save="${esc(r.id)}"${dis}>확정</button><button type="button" class="ps-todo-btn" data-ps-rule-cancel${dis}>취소</button></li>`
+      : `<li class="ps-todo-rule" data-ps-rule="${esc(r.id)}"><span class="ps-todo-room-name">${esc(r.text)}</span>${buttons(r)}</li>`;
+    const confirmed = of('confirmed').map(r => line(r, x => `<button type="button" class="ps-todo-btn" data-ps-rule-retire="${esc(x.id)}" data-ps-rule-from="confirmed" aria-label="${esc(x.text)} 빼기"${dis}>빼기</button>`)).join('');
+    const waiting = of('candidate').map(r => line(r, x => `<button type="button" class="ps-todo-btn" data-ps-rule-take="${esc(x.id)}" aria-label="${esc(x.text)} 확정"${dis}>ㅇ</button><button type="button" class="ps-todo-btn" data-ps-rule-retire="${esc(x.id)}" data-ps-rule-from="candidate" aria-label="${esc(x.text)} 빼기"${dis}>×</button><button type="button" class="ps-todo-btn" data-ps-rule-edit="${esc(x.id)}"${dis}>고쳐서 확정</button>`)).join('');
+    const retired = of('retired');
+    const retiredPart = retired.length ? `<details class="ps-todo-rules-retired"><summary>뺀 규칙 ${retired.length}</summary><ul class="ps-todo-rooms">${retired.map(r => line(r, x => `<button type="button" class="ps-todo-btn" data-ps-rule-back="${esc(x.id)}"${dis}>다시 후보로</button>`)).join('')}</ul></details>` : '';
+    return `<div class="ps-calref-row ps-todo-rooms-head"><span class="ps-calref-line">거르기 규칙(확정만 찾기에 쓰여요)</span><button type="button" class="ps-todo-btn" data-ps-rule-review${dis}>규칙 후보 보기</button></div>`
+      + (confirmed ? `<ul class="ps-todo-rooms" data-ps-rules-confirmed>${confirmed}</ul>` : '<p class="ps-calref-line">확정한 규칙 없음</p>')
+      + (waiting ? `<p class="ps-calref-line">후보</p><ul class="ps-todo-rooms" data-ps-rules-waiting>${waiting}</ul>` : '')
+      + retiredPart + (rulesNote ? `<p class="ps-calref-line" data-ps-rule-note role="status">${esc(rulesNote)}</p>` : '');
+  }
+  async function loadRules() {
+    const r = await readRules(rt);
+    state = {...state, rules: r.ok ? r.rules : null};
+  }
+  async function ruleChange(fn, okNote) {
+    state = {...state, busy: true, rulesNote: ''}; render();
+    let ok = false;
+    try { ok = await fn(); } catch { ok = false; }
+    if (ok) await loadRules();
+    state = {...state, busy: false, editing: ok ? '' : state.editing, rulesNote: ok ? okNote : '바꾸지 못했어요. 다시 눌러 주세요.'}; render();
+  }
   const say = note => { state = {...state, note}; const el = host.querySelector('[data-ps-todo-state]'); if (el) el.textContent = note; };
 
   async function load() {
     const mine = ++run;
     state = {...state, phase: 'loading', note: '', result: ''}; render();
-    const [asked, rooms, open] = await Promise.all([readAskRooms(rt), readRooms(rt), countOpenCandidates(rt)]);
+    const [asked, rooms, open, fb] = await Promise.all([readAskRooms(rt), readRooms(rt), countOpenCandidates(rt), readFeedbackSince(weekBounds().prev, rt).catch(() => ({ok: false})), loadRules().catch(() => {})]);
     if (mine !== run) return;
-    state = {...state, open};
+    state = {...state, open, week: fb?.ok ? weeklySummary(fb.rows)?.text || '' : ''};
     if (asked.missing) { state = {...state, phase: 'no-table', keys: [], rooms: rooms.ok ? rooms.rooms : [], roomsOk: false}; render(); return; }
     if (!asked.ok) { state = {...state, phase: 'failed'}; render(); return; }
     state = {...state, phase: 'ready', keys: asked.keys, rooms: rooms.ok ? rooms.rooms : [], roomsOk: rooms.ok, pick: ''}; render();
@@ -69,6 +102,9 @@ export function mountTodoRulesSettings(host, {rt}) {
     if (ok) { await load(); say(okNote); } else { render(); say(failNote); }
   }
 
+  host.addEventListener('input', event => {
+    if (event.target.matches?.('[data-ps-rule-draft]')) state = {...state, draft: event.target.value};
+  });
   host.addEventListener('change', event => {
     const select = event.target.closest('[data-ps-todo-pick]'); if (!select) return;
     state = {...state, pick: select.value}; render();
@@ -84,6 +120,27 @@ export function mountTodoRulesSettings(host, {rt}) {
     if (b.dataset.psTodoRemove) {
       const key = b.dataset.psTodoRemove;
       await change(() => removeAskRoom(key, rt), '뺐어요.', '빼지 못했어요. 다시 눌러 주세요.');
+      return;
+    }
+    const rules = Array.isArray(state.rules) ? state.rules : [];
+    if (b.dataset.psRuleTake) { const id = b.dataset.psRuleTake; await ruleChange(() => setRule(id, 'candidate', 'confirmed', rt), '확정했어요. 다음 찾기부터 써요.'); return; }
+    if (b.dataset.psRuleRetire) { const id = b.dataset.psRuleRetire, from = b.dataset.psRuleFrom; await ruleChange(() => setRule(id, from, 'retired', rt), '뺐어요.'); return; }
+    if (b.dataset.psRuleBack) { const id = b.dataset.psRuleBack; await ruleChange(() => setRule(id, 'retired', 'candidate', rt), '후보로 되돌렸어요.'); return; }
+    if (b.dataset.psRuleEdit) {
+      const r = rules.find(x => x.id === b.dataset.psRuleEdit); if (!r) return;
+      state = {...state, editing: r.id, draft: r.text, rulesNote: ''}; render();
+      host.querySelector('[data-ps-rule-draft]')?.focus();
+      return;
+    }
+    if ('psRuleCancel' in b.dataset) { state = {...state, editing: '', draft: ''}; render(); return; }
+    if (b.dataset.psRuleSave) { const id = b.dataset.psRuleSave, text = state.draft; await ruleChange(() => setRule(id, 'candidate', 'confirmed', rt, {text}), '고쳐서 확정했어요.'); return; }
+    if ('psRuleReview' in b.dataset) {
+      state = {...state, busy: true, rulesNote: '규칙 후보를 만드는 중…'}; render();
+      const r = await reviewRules({rt});
+      if (r.ok) await loadRules();
+      const note = !r.ok ? r.message : r.reason === 'few_results' ? '지난 4주 처리 기록이 아직 적어요. 더 쌓이면 다시 눌러 주세요.'
+        : r.reason === 'full' ? '기다리는 후보가 많아요. 먼저 확정하거나 빼 주세요.' : r.added ? `새 후보 ${r.added}개를 만들었어요.` : '새로 만들 후보가 없어요.';
+      state = {...state, busy: false, rulesNote: note}; render();
       return;
     }
     if ('psTodoRecheck' in b.dataset) {

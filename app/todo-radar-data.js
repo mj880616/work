@@ -44,9 +44,11 @@ export const isMissing = error => error?.status === 404 || /PGRST205|42P01|does 
 export function validCandidate(row) {
   return !!row && typeof row === 'object' && UUID.test(String(row.id)) && Object.hasOwn(RADAR_KIND_LABEL, row.kind)
     && Object.hasOwn(RADAR_SOURCE_LABEL, row.source_kind) && UUID.test(String(row.source_id)) && DAY.test(String(row.source_day))
-    && typeof row.summary === 'string' && row.summary.trim() !== '' && ['open', 'tasked', 'dismissed'].includes(row.status)
+    && typeof row.summary === 'string' && row.summary.trim() !== '' && CANDIDATE_STATUSES.includes(row.status)
     && (row.due == null || DAY.test(String(row.due))) && (row.task_due == null || DAY.test(String(row.task_due)));
 }
+// TODO-이미함·환류: 'done' = [이미 함] (migration 20261101180000).
+export const CANDIDATE_STATUSES = Object.freeze(['open', 'tasked', 'dismissed', 'done']);
 const clean = rows => (Array.isArray(rows) ? rows : []).filter(validCandidate);
 
 // FEAT-1029 ⑤: a telegram candidate (server collector-feed, migration 20261029120000) points at one telegram news row (app_feed_items,
@@ -100,9 +102,10 @@ export async function readInboxCandidates(rt = window.KPTURuntime) {
     const base = `/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}`;
     const [open, handled] = await Promise.all([
       rt.api(`${base}&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false}),
-      rt.api(`${base}&status=in.(tasked,dismissed)&select=${FIELDS}&order=decided_at.desc.nullslast,id.asc&limit=100`, {singleFlight:false}),
+      rt.api(`${base}&status=in.(tasked,dismissed,done)&select=${FIELDS}&order=decided_at.desc.nullslast,id.asc&limit=100`, {singleFlight:false}),
     ]);
-    return {ok:true, rows:await withTelegramPlaces([...clean(open), ...clean(handled)], rt)};
+    const rows = await withTelegramPlaces([...clean(open), ...clean(handled)], rt);
+    return {ok:true, rows:await withOutcomes(rows, rt)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 // JOURNAL-챙길것화면 ⑤: home shows what is still open and, folded below, what was handled since `since` (today's start).
@@ -160,13 +163,65 @@ export async function findMeetingTodos(meetingId, options = {}) {
   return {ok:true, added:r.data.added};
 }
 
+// ---- TODO-이미함·환류: 누른 결과 기록(app_todo_feedback, migration 20261101180000, 소유자 RLS) ---------------------------
+// 후보마다 결과 한 줄(할 일로·이미 함·무시·내 일 아님)과 제안 당시 문장·고친 문장. 다음 찾기의 예시와 주간 비율에 쓰인다.
+// 기록은 덧붙이는 것이라 실패해도 후보 처리는 그대로다(표가 없으면 조용히 건너뜀). 기기에는 아무것도 남기지 않는다.
+export const FEEDBACK_OUTCOMES = Object.freeze(['tasked', 'done', 'dismissed', 'not_mine']);
+const oneLine = (v, n) => { const t = String(v ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim(); return t && [...t].length <= n ? t : ''; };
+export function feedbackBody(candidate, outcome, edited, ws) {
+  if (!candidate || !UUID.test(String(candidate.id)) || !FEEDBACK_OUTCOMES.includes(outcome)) return null;
+  const summary = oneLine(candidate.summary, 100);
+  if (!summary || !Object.hasOwn(RADAR_KIND_LABEL, candidate.kind) || !Object.hasOwn(RADAR_SOURCE_LABEL, candidate.source_kind)) return null;
+  const fixed = outcome === 'tasked' ? oneLine(edited, 200) : '';
+  return {workspace_id:ws, candidate_id:candidate.id, outcome, kind:candidate.kind, source_kind:candidate.source_kind, summary,
+    edited:fixed && normalizeTitle(fixed) !== normalizeTitle(summary) ? fixed : null};
+}
+// Returns the new row id, or null when nothing was kept.
+export async function logFeedback(candidate, outcome, {rt = window.KPTURuntime, edited = ''} = {}) {
+  let body;
+  try { body = feedbackBody(candidate, outcome, edited, workspace(rt)); } catch { return null; }
+  if (!body) return null;
+  try {
+    const rows = await rt.api('/rest/v1/app_todo_feedback?select=id', {method:'POST', prefer:'return=representation', body});
+    return Array.isArray(rows) && UUID.test(String(rows[0]?.id)) ? rows[0].id : null;
+  } catch { return null; }
+}
+export async function dropFeedback(feedbackId, rt = window.KPTURuntime) {
+  if (!UUID.test(String(feedbackId || ''))) return false;
+  try { await rt.api(`/rest/v1/app_todo_feedback?id=eq.${encode(feedbackId)}&workspace_id=eq.${encode(workspace(rt))}`, {method:'DELETE', prefer:'return=minimal'}); return true; }
+  catch { return false; }
+}
+// 처리한 줄의 결과(무시 / 내 일 아님 구분용). 표가 없거나 못 읽으면 그대로 둔다.
+async function withOutcomes(rows, rt) {
+  const ids = rows.filter(r => r.status !== 'open').map(r => String(r.id).toLowerCase()).slice(0, 100);
+  if (!ids.length) return rows;
+  try {
+    const found = await rt.api(`/rest/v1/app_todo_feedback?workspace_id=eq.${encode(workspace(rt))}&candidate_id=in.(${ids.map(encode).join(',')})&select=candidate_id,outcome&limit=100`, {singleFlight:false});
+    const byId = new Map((Array.isArray(found) ? found : []).filter(f => UUID.test(String(f?.candidate_id)) && FEEDBACK_OUTCOMES.includes(f?.outcome))
+      .map(f => [String(f.candidate_id).toLowerCase(), f.outcome]));
+    for (const r of rows) { const o = byId.get(String(r.id).toLowerCase()); if (o) r.outcome = o; }
+  } catch { /* labels only */ }
+  return rows;
+}
+// 주간 비율(설계 5절): 최근 두 주의 결과 기록(결과·문장·때)만 읽는다. since = ISO 시각.
+export const FEEDBACK_READ_MAX = 2000;
+export async function readFeedbackSince(since, rt = window.KPTURuntime) {
+  if (!Number.isFinite(Date.parse(since))) return {ok:false};
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_feedback?workspace_id=eq.${encode(workspace(rt))}&created_at=gte.${encode(new Date(since).toISOString())}&select=outcome,summary,edited,created_at&order=created_at.desc&limit=${FEEDBACK_READ_MAX}`, {singleFlight:false});
+    return {ok:true, rows:(Array.isArray(rows) ? rows : []).filter(r => FEEDBACK_OUTCOMES.includes(r?.outcome) && Number.isFinite(Date.parse(r?.created_at)))};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+
 // Each change is guarded by the current status, so a candidate already handled elsewhere is not changed twice.
 async function patch(id, from, body, rt) {
   const rows = await rt.api(`/rest/v1/app_todo_candidates?id=eq.${encode(id)}&workspace_id=eq.${encode(workspace(rt))}&status=eq.${from}&select=id,status,task_id,decided_at`, {method:'PATCH', prefer:'return=representation', body});
   return Array.isArray(rows) && rows.length === 1 && rows[0].status === body.status;
 }
 export const dismissCandidate = (id, rt = window.KPTURuntime, now = new Date()) => patch(id, 'open', {status:'dismissed', decided_at:now.toISOString()}, rt);
-export const reopenCandidate = (id, rt = window.KPTURuntime) => patch(id, 'dismissed', {status:'open', decided_at:null}, rt);
+export const reopenCandidate = (id, rt = window.KPTURuntime, from = 'dismissed') => patch(id, from, {status:'open', decided_at:null}, rt);
+// TODO-이미함: [이미 함] — 할 일을 만들지 않고 챙길 것에서 뺀다(되돌리기 = reopenCandidate(id, rt, 'done')).
+export const markDone = (id, rt = window.KPTURuntime, now = new Date()) => patch(id, 'open', {status:'done', decided_at:now.toISOString()}, rt);
 // JOURNAL-챙길것화면 후속: the due the task was put in with is saved on the candidate (task_due; null = no due), so the handled row can always show it.
 export const markTasked = (id, taskId, rt = window.KPTURuntime, now = new Date(), due = null) =>
   patch(id, 'open', {status:'tasked', task_id:String(taskId), decided_at:now.toISOString(), task_due:due && DAY.test(String(due)) ? String(due) : null}, rt);
@@ -199,6 +254,8 @@ export async function candidateToTask(candidate, draft, {rt = window.KPTURuntime
   if (result?.ok !== true || !result.task?.id) return {status:'failed'};
   let marked = false;
   try { marked = await markTasked(candidate.id, result.task.id, rt, now(), draft.due || null); } catch { marked = false; }
+  // TODO-환류: 할 일로 보낸 결과 + 고친 제목(제안 문장과 다를 때만). 실패해도 할 일·표시는 그대로.
+  if (marked) await logFeedback(candidate, 'tasked', {rt, edited:body.title});
   // BASKET-할일출처: a task made from an update is also listed on that update (existing feature). Failure is only reported.
   let recorded = null;
   if (candidate.source_kind === 'basket') {
@@ -244,15 +301,20 @@ export async function markNotMine(candidate, rt = window.KPTURuntime, now = new 
   if (!(await dismissCandidate(candidate.id, rt, now))) return {ok:false};
   const summary = String(candidate.summary || '').trim();
   if (!summary || [...summary].length > 100 || !Object.hasOwn(RADAR_SOURCE_LABEL, candidate.source_kind)) return {ok:true, saved:false};
+  let result;
   try {
     const rows = await rt.api('/rest/v1/app_todo_not_mine?select=id', {method:'POST', prefer:'return=representation', body:{workspace_id:workspace(rt), source_kind:candidate.source_kind, summary}});
     const id = Array.isArray(rows) && UUID.test(String(rows[0]?.id)) ? rows[0].id : null;
-    return {ok:true, saved:true, exampleId:id};
-  } catch { return {ok:true, saved:false}; }
+    result = {ok:true, saved:true, exampleId:id};
+  } catch { result = {ok:true, saved:false}; }
+  // TODO-이미함·환류: 결과 기록(내 일 아님)도 한 줄. 남겼을 때만 feedbackId가 붙는다(되돌리기가 지움).
+  const feedbackId = await logFeedback(candidate, 'not_mine', {rt});
+  return feedbackId ? {...result, feedbackId} : result;
 }
 // [되돌리기] after [내 일 아님]: the candidate comes back (reopenCandidate) and the example is removed again.
-export async function undoNotMine(candidateId, exampleId, rt = window.KPTURuntime) {
+export async function undoNotMine(candidateId, exampleId, rt = window.KPTURuntime, feedbackId = null) {
   if (!(await reopenCandidate(candidateId, rt))) return false;
+  if (feedbackId) await dropFeedback(feedbackId, rt);
   if (UUID.test(String(exampleId || ''))) {
     try { await rt.api(`/rest/v1/app_todo_not_mine?id=eq.${encode(exampleId)}&workspace_id=eq.${encode(workspace(rt))}`, {method:'DELETE', prefer:'return=minimal'}); } catch { /* the candidate is back; the example stays */ }
   }
@@ -286,4 +348,33 @@ export async function recheckTodos(options = {}) {
   if (!Number.isSafeInteger(d.checked) || !Number.isSafeInteger(d.dismissed) || d.checked < 0 || d.dismissed < 0 || d.dismissed > d.checked)
     return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
   return {ok:true, checked:d.checked, dismissed:d.dismissed, more:d.more === true};
+}
+
+// ---- TODO-이미함·환류 4.3: 챙길 것 거르기 규칙(app_todo_rules, 소유자 RLS) — AI 후보 → 명진 [ㅇ]·[×]·[고쳐서 확정] ----------
+// 찾기(ai-assist todo_radar)는 확정(confirmed)만 쓴다. [×]는 지우지 않고 뺀 것(retired)으로, 뺀 것은 [다시 후보로].
+export const RULE_STATES = Object.freeze(['candidate', 'confirmed', 'retired']);
+export const RULE_CHARS = 120;
+export const cleanRule = v => { const t = String(v ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim(); return t && [...t].length <= RULE_CHARS ? t : ''; };
+export async function readRules(rt = window.KPTURuntime) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_rules?workspace_id=eq.${encode(workspace(rt))}&select=id,text,state,created_at,decided_at&order=created_at.asc,id.asc&limit=200`, {singleFlight:false});
+    return {ok:true, rules:(Array.isArray(rows) ? rows : []).filter(r => UUID.test(String(r?.id)) && RULE_STATES.includes(r?.state) && cleanRule(r?.text))};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+// state 바꾸기(+ 고친 글). from = 지금 상태(다른 기기가 먼저 바꿨으면 0줄 → false).
+export async function setRule(id, from, to, rt = window.KPTURuntime, {text = null, now = new Date()} = {}) {
+  if (!UUID.test(String(id || '')) || !RULE_STATES.includes(from) || !RULE_STATES.includes(to)) return false;
+  const body = {state:to, decided_at:to === 'candidate' ? null : now.toISOString()};
+  if (text != null) { const t = cleanRule(text); if (!t) return false; body.text = t; }
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_rules?id=eq.${encode(id)}&workspace_id=eq.${encode(workspace(rt))}&state=eq.${from}&select=id,state`, {method:'PATCH', prefer:'return=representation', body});
+    return Array.isArray(rows) && rows.length === 1 && rows[0].state === to;
+  } catch { return false; }
+}
+// [규칙 후보 보기]: 서버가 최근 결과 기록을 읽어 후보를 더한다(ai-assist kind=todo_rules_review). {kind}만 보낸다.
+export async function reviewRules(options = {}) {
+  const r = await callAiAssist({kind:'todo_rules_review'}, {timeoutMs:RADAR_TIMEOUT_MS, ...options}, RADAR_TEXT);
+  if (!r.ok) return {ok:false, code:r.code, message:RADAR_TEXT[r.code] || RADAR_TEXT.internal_error};
+  if (!Number.isSafeInteger(r.data.added) || r.data.added < 0) return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
+  return {ok:true, added:r.data.added, reason:['few_results', 'full'].includes(r.data.reason) ? r.data.reason : ''};
 }

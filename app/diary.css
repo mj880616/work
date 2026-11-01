@@ -134,6 +134,7 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView :is(#diaryView,#photosView) .diary-viewer-actions button > span{ font-size:16px; }
 #appView :is(#diaryView,#photosView) .diary-viewer-actions button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView :is(#diaryView,#photosView) .diary-viewer-actions button:disabled{ opacity:.45; }
+#appView :is(#diaryView,#photosView) .diary-viewer-actions button[hidden]{ display:none; }
 #appView :is(#diaryView,#photosView) .diary-viewer-actions button:focus-visible{ outline:2px solid var(--ds-photo-ink); outline-offset:-2px; }
 #appView :is(#diaryView,#photosView) .diary-viewer-info{ display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 10px; margin:0; padding:4px 16px; font-size:var(--ds-compact-text); }
 #appView :is(#diaryView,#photosView) .diary-viewer-info[hidden]{ display:none; }

@@ -12,7 +12,8 @@ export const GROUPS = Object.freeze([
   {key: 'foreign', label: '외국'},
 ]);
 const GROUP_KEYS = new Set(GROUPS.map(g => g.key));
-export const KIND_LABEL = Object.freeze({statement: '성명', comment: '논평', press: '보도자료', article: '글'});
+// 종류 칸: 성명·논평·보도자료만. article(외국 매체 글·사회운동 글처럼 보도·논설 등을 가릴 수 없는 글)은 종류 칸을 비운다(11/01 요청 5).
+export const KIND_LABEL = Object.freeze({statement: '성명', comment: '논평', press: '보도자료', article: ''});
 export const PAGE_SIZE = 40;
 const KEY = /^[a-z0-9][a-z0-9-]{1,39}$/;
 
@@ -32,19 +33,32 @@ export function normalizeCatalog(raw) {
 // 켠 단체(enabled 줄) 열쇠 목록.
 export const enabledKeys = rows => (rows || []).filter(r => r && r.enabled === true && KEY.test(String(r.source_key || ''))).map(r => r.source_key);
 
-// 칩 줄: [전체] + 켠 단체가 있는 묶음 + 단체 낱개(단체가 둘 이상 켜진 묶음만 — 민주노총·공공운수노조처럼 하나뿐이면 묶음 칩이 곧 그 단체).
+// 칩 첫 줄: [전체] + 켠 단체가 있는 묶음만(민주노총·공공운수노조·정당·사회운동·외국). 단체 낱개는 둘째 줄(subChipsOf)로(11/01 요청 4).
 export function chipsOf(catalog, enabled) {
   const on = new Set(enabled || []);
   const chips = [{id: ALL, label: '전체'}];
-  const singles = [];
   for (const g of GROUPS) {
-    const members = (catalog || []).filter(s => s.group === g.key && on.has(s.key));
-    if (!members.length) continue;
-    chips.push({id: 'g:' + g.key, label: g.label});
-    if (members.length > 1) for (const s of members) singles.push({id: 's:' + s.key, label: s.name});
+    if ((catalog || []).some(s => s.group === g.key && on.has(s.key))) chips.push({id: 'g:' + g.key, label: g.label});
   }
-  return [...chips, ...singles];
+  return chips;
 }
+// 고른 칩이 속한 묶음 열쇠('g:party'이거나 그 묶음 단체 's:kgreens'면 'party'). 없으면 ''.
+export function groupOfChip(chip, catalog) {
+  if (typeof chip !== 'string') return '';
+  if (chip.startsWith('g:')) return GROUP_KEYS.has(chip.slice(2)) ? chip.slice(2) : '';
+  if (chip.startsWith('s:')) return (catalog || []).find(s => s.key === chip.slice(2))?.group || '';
+  return '';
+}
+// 칩 둘째 줄: 묶음을 골랐을 때 그 묶음의 켠 단체 낱개(둘 이상일 때만 — 하나뿐이면 묶음 칩이 곧 그 단체). 묶음을 안 골랐으면 [].
+export function subChipsOf(catalog, enabled, chip) {
+  const g = groupOfChip(chip, catalog);
+  if (!g) return [];
+  const on = new Set(enabled || []);
+  const members = (catalog || []).filter(s => s.group === g && on.has(s.key));
+  return members.length > 1 ? members.map(s => ({id: 's:' + s.key, label: s.name})) : [];
+}
+// 첫 줄 칩이 눌린 모양인가: 그 칩 자체이거나, 고른 단체가 그 묶음에 속할 때.
+export const chipPressed = (id, chip, catalog) => id === chip || (id.startsWith('g:') && groupOfChip(chip, catalog) === id.slice(2) && String(chip).startsWith('s:'));
 
 // 고른 칩 → 서버에 물을 단체 열쇠 목록. null = 거르지 않음(전체).
 export function keysOf(chip, catalog, enabled) {
@@ -54,7 +68,7 @@ export function keysOf(chip, catalog, enabled) {
   if (chip.startsWith('g:')) return (catalog || []).filter(s => s.group === chip.slice(2) && on.has(s.key)).map(s => s.key);
   return null;
 }
-// 칩 줄이 바뀌어 고른 칩이 없어졌으면 [전체]로.
+// 칩 줄이 바뀌어 고른 칩이 없어졌으면 [전체]로(chips = 첫 줄 + 둘째 줄).
 export const keepChip = (chip, chips) => (chips || []).some(c => c.id === chip) ? chip : ALL;
 
 // 글 시각: 게시 시각, 없으면 받은 시각.
@@ -121,7 +135,7 @@ export function postView(p, now = Date.now()) {
   return {
     title,
     origTitle: foreign && p?.title_ko && p.title_ko.trim() !== String(p?.title || '').trim() ? String(p.title || '').trim() : '',
-    kind: KIND_LABEL[p?.kind] || '글',
+    kind: Object.hasOwn(KIND_LABEL, p?.kind) ? KIND_LABEL[p.kind] : '',
     time: timeText(p),
     lead, summary, keys, body, old,
     url: safeUrl(p?.url),
@@ -143,24 +157,25 @@ export function isFresh(p, seenAt) {
 }
 
 // OUTSIDE-막힌단체: 서버가 남긴 단계 코드(last_error)를 일상어 한 줄로. 모르는 코드는 '읽기 실패'.
+// 모양: '못 읽음 · 이유 한 마디'(11/01 요청 1).
 const ERROR_NOTES = Object.freeze({
-  robots: '사이트가 자동 읽기를 막아 둠',
-  robots_denied: '사이트가 자동 읽기를 막아 둠',
-  bot_check: '사이트가 자동 읽기를 막아 둠',
-  parse_empty: '읽기 막힘 · 사이트 구조 바뀜',
-  too_large: '읽기 막힘 · 목록이 너무 큼',
-  robots_unreachable: '읽기 막힘 · 사이트 응답 없음',
-  timeout: '읽기 막힘 · 사이트 응답 없음',
-  network: '읽기 막힘 · 사이트 응답 없음',
-  redirect_outside: '읽기 막힘 · 사이트 주소 바뀜',
-  redirect_loop: '읽기 막힘 · 사이트 주소 바뀜',
+  robots: '못 읽음 · 사이트가 자동 읽기 막음',
+  robots_denied: '못 읽음 · 사이트가 자동 읽기 막음',
+  bot_check: '못 읽음 · 사이트가 자동 읽기 막음',
+  parse_empty: '못 읽음 · 사이트 구조 바뀜',
+  too_large: '못 읽음 · 목록이 너무 큼',
+  robots_unreachable: '못 읽음 · 사이트 응답 없음',
+  timeout: '못 읽음 · 사이트 응답 없음',
+  network: '못 읽음 · 사이트 응답 없음',
+  redirect_outside: '못 읽음 · 사이트 주소 바뀜',
+  redirect_loop: '못 읽음 · 사이트 주소 바뀜',
 });
 export function errorNote(code) {
   const c = String(code || '');
   if (!c) return '';
   if (Object.hasOwn(ERROR_NOTES, c)) return ERROR_NOTES[c];
-  if (/^http_[45]\d\d$/.test(c)) return '읽기 막힘 · 사이트 오류';
-  return '읽기 실패';
+  if (/^http_[45]\d\d$/.test(c)) return '못 읽음 · 사이트 오류';
+  return '못 읽음';
 }
 
 // 단체 켜고 끄기 줄의 작은 상태 글.
