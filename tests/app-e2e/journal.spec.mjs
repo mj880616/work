@@ -1166,7 +1166,7 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
  // JOURNAL-주간정리다듬기 ①: 위 줄 [주간보고 초안 복사]는 [하루]·[주간 정리] 모두 없다. [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();
  await page.locator('#journalRoot [data-journal-mode="week"]').click();
- await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeVisible();
+ await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-confirm]')).toBeVisible(); // WEEKLY-한흐름확정 ②: [글로 복사]는 확정 버튼 옆 ⋯ 안
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
