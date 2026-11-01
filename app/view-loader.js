@@ -40,6 +40,7 @@ const routeStyles={
   photos:['./diary.css','./od-link.css','./photos.css','./folder-tree.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./ui-standard.css'],
   outside:['./outside-statements.css','./ui-standard.css'],
+  news:['./news-clipping.css','./library-upload.css','./ui-standard.css'],
   updates:['./release-notes.css','./ui-standard.css']
 };
 async function prepare(view){
@@ -175,9 +176,11 @@ async function photos(){ await module('./photos.js'); return {ok:true} }
 async function arsenal(){ await module('./arsenal.js'); return {ok:true} }
 // OUTSIDE-바깥성명 ④: [바깥 성명](?view=outside, 위 메뉴 사진 다음). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #outsideView를 만든다).
 async function outside(){ await module('./outside-statements.js'); return {ok:true} }
+// NEWS-클리핑 C1: [뉴스 클리핑](?view=news, 위 메뉴 사회운동 Now 다음). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #newsView를 만든다).
+async function news(){ await module('./news-clipping.js'); return {ok:true} }
 // UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
 async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,updates};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,news,updates};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',journal:'home'};
 function normalize(view){
@@ -219,7 +222,8 @@ const warmModules={
   calls:['./call-feed.js'],
   telegram:['./telegram-feed.js'],
   photos:['./photos.js'],
-  outside:['./outside-statements.js']
+  outside:['./outside-statements.js'],
+  news:['./news-clipping.js']
 };
 const warmed=new Set();
 function hint(rel,path,as){

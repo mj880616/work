@@ -24,6 +24,7 @@ import { createMovePicker } from './library-move-picker.js';
 import { folderPathHtml } from './folder-path.mjs';
 import { createSelectMode } from './select-mode.js';
 import { notify, askConfirm } from './small-notice.js';
+import { requestNewsItem } from './news-request.mjs';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
@@ -53,6 +54,8 @@ import { folderTone } from './note-board-model.mjs';
 import { noteMasked } from './note-secret.mjs';
 import { noteMarkdown } from './note-markdown.mjs';
 import { basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
+// NEWS-클리핑 C2: 기사 메모 노트(metadata.news_item_id) → 기사 id.
+const newsItemOf = note => { const m = note?.metadata; const id = m && typeof m === 'object' && !Array.isArray(m) ? m.news_item_id : null; return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null; };
 
 const chipKinds = [['project','사업영역'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); };
@@ -368,7 +371,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!selected) return;
     const box = detail.querySelector('[data-note-meta]'), tags = chips(selected);
     const folder = folderName(folderOf(selected));
-    box.innerHTML = `${folder ? `<span class="note-meta-folder" data-note-meta-folder>폴더 ${esc(folder)}</span>` : ''}${noteAiOff(selected) ? '<span class="note-meta-ai-off" data-note-meta-ai-off>AI 제외</span>' : ''}${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>고친 날 ${esc(day(selected.updated_at))}</time>`;
+    box.innerHTML = `${folder ? `<span class="note-meta-folder" data-note-meta-folder>폴더 ${esc(folder)}</span>` : ''}${noteAiOff(selected) ? '<span class="note-meta-ai-off" data-note-meta-ai-off>AI 제외</span>' : ''}${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>고친 날 ${esc(day(selected.updated_at))}</time>${newsItemOf(selected) ? '<button type="button" class="note-meta-news" data-note-news>기사로 가기</button>' : ''}`;
+    // NEWS-클리핑 C2: 뉴스 클리핑 기사 메모(metadata.news_item_id)인 노트는 [기사로 가기] → 뉴스 클리핑 화면에 그 기사를 연다.
+    box.querySelector('[data-note-news]')?.addEventListener('click', () => { if (requestNewsItem(newsItemOf(selected))) window.KPTURouter?.go?.('news', {source:'delegated'}); });
     // UI-일기손질 ⑥: each attachment is the shared file line (meeting-compact.js) with a small [Drive에서 열기] at its end.
     // NOTE-파일붙이기: and a ⋯ after it whose one item, [빼기], takes the file off this note (the Drive file stays).
     // FILE-누르면동작: pressing the line acts by kind (file-actions.js); the small [Drive에서 열기] stays and the ⋯ holds [Drive에서 열기] [내려받기] [빼기].

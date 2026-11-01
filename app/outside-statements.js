@@ -9,6 +9,7 @@ import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, subChips
 // - ⋯ → [단체 켜고 끄기]: 카탈로그(서버 outside-feed ?action=catalog) 단체마다 켬/끔 + 마지막으로 읽은 시각·실패 표시.
 //   켬/끔은 서버 표 app_outside_sources에만 저장(기기 저장 없음). 폰·PC 모두 같은 화면 안 한 칸이고 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 들어오면 지난번 본 시각(app_outside_seen)을 읽어 그 뒤 받은 글에 작은 '새' 표시를 하고, 지금 시각으로 바꿔 둔다(서버 저장).
+// - ⋯ → [지금 채우기]: 켠 단체를 바로 읽기(readNow)로 하나씩 한 번 읽는다(NEWS-클리핑 C1).
 // - [문장 찾기]는 다음 PR(⑤) 몫이라 여기에는 없다. 글은 서버 수집기만 넣는다(화면은 읽기·켜고 끄기·본 시각만 쓴다).
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 글 제목·본문을 남기지 않는다.
 
@@ -307,10 +308,26 @@ async function readNow(key) {
   if (state.mode === 'list') { listDirty = false; loadPosts({keep: true}); } else { listDirty = true; paint(); }
 }
 
+// [지금 채우기](NEWS-클리핑 C1, 명진 11/01 22:34): 켠 단체를 하나씩 바로 읽는다. 읽는 일은 켤 때와 같은 readNow(서버 read_now)이고
+// 마지막으로 읽은 지 얼마 안 된 단체·하루 횟수는 서버가 거른다(새 읽기 길을 만들지 않음).
+let filling = false;
+async function fillNow() {
+  if (filling) return;
+  const scope = state.scope;
+  filling = true;
+  try {
+    if (!state.sourcesLoaded) await load().catch(() => {});
+    for (const key of enabledNow().filter(k => catalogOf(k))) { // news- 키(뉴스 클리핑 매체)는 같은 표에 있지만 이 화면 단체가 아님
+      if (scope !== state.scope) break;
+      await readNow(key);
+    }
+  } finally { filling = false; }
+}
+
 // ---------- 누르기 ----------
 const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: '사회운동 Now 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
-  render: () => '<button type="button" data-os-act="sources">단체 켜고 끄기</button>',
-  onAction: button => { if (button.dataset.osAct === 'sources') openSources(); }});
+  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button>`,
+  onAction: button => { if (button.dataset.osAct === 'sources') openSources(); else if (button.dataset.osAct === 'fill') fillNow(); }});
 
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');

@@ -48,6 +48,7 @@ const MENU=[
   ['원장','.nav-btn[data-view="ledger"]','ledger'],
   ['사진','.nav-btn[data-view="photos"]','photos'],
   ['사회운동 Now','.nav-btn[data-view="outside"]','outside'],
+  ['뉴스 클리핑','.nav-btn[data-view="news"]','news'],
   ['통화','.nav-btn[data-view="calls"]','calls'],
   ['텔레그램 소식','.nav-btn[data-view="telegram"]','telegram'],
   ['아스날','.nav-btn[data-view="arsenal"]','arsenal']

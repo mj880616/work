@@ -35,6 +35,9 @@ export const GAP_MS = 2000;
 export const LIST_LIMIT = 30;
 export const KEYWORDS_PER_WORKSPACE = 30;
 export const KEYWORD_WORDS_PER_RUN = 60;
+// 기본값(명진이 바꿀 때 이 줄들만 고친다 — 화면은 catalog 응답의 limits로 같은 값을 보인다):
+// 자동 키워드 기사는 작업공간마다 하루 KEYWORD_ITEMS_DAILY개까지(넘는 기사는 넣지 않음). 매체 새 글은 제목만(AI 없음).
+export const KEYWORD_ITEMS_DAILY = 30;
 export const PENDING_PER_RUN = 20;
 export const FILL_DAILY = 10;
 export const FILL_MAX = 5;
@@ -237,7 +240,8 @@ type NewRow = { workspace_id: string; lane: "keyword" | "media"; url: string; ur
   lang: string; publisher: string | null; source_key: string | null; keywords: string[]; published_at: string | null; fetched_at: string;
   state: "ok"; summary: string | null; body: string | null; body_kind: "full" | "lead" | null };
 // 같은 작업공간에 같은 주소(url_key) 또는 같은 제목(title_key)이 이미 있으면 넣지 않는다(채널 기사와 겹침 포함).
-async function insertNew(db: Db, rows: NewRow[]): Promise<number> {
+// left(키워드 단계만): 작업공간마다 오늘 더 넣을 수 있는 수. 넣은 만큼 줄인다.
+async function insertNew(db: Db, rows: NewRow[], left?: Map<string, number>): Promise<number> {
   let n = 0;
   const byWs = new Map<string, NewRow[]>();
   for (const r of rows) byWs.set(r.workspace_id, [...(byWs.get(r.workspace_id) ?? []), r]);
@@ -246,13 +250,14 @@ async function insertNew(db: Db, rows: NewRow[]): Promise<number> {
     const have = new Set<string>();
     for (let i = 0; i < keys.length; i += 40) for (const r of await db.get(`app_news_items?workspace_id=eq.${ws}&url_key=in.${encodeURIComponent(inList(keys.slice(i, i + 40)))}&select=url_key`)) have.add(`u:${r.url_key}`);
     for (let i = 0; i < tks.length; i += 40) for (const r of await db.get(`app_news_items?workspace_id=eq.${ws}&title_key=in.${encodeURIComponent(inList(tks.slice(i, i + 40)))}&select=title_key`)) have.add(`t:${r.title_key}`);
-    const fresh: NewRow[] = [];
+    let fresh: NewRow[] = [];
     const seen = new Set<string>();
     for (const r of list) {
       if (have.has(`u:${r.url_key}`) || (r.title_key && have.has(`t:${r.title_key}`)) || seen.has(r.url_key)) continue;
       seen.add(r.url_key); if (r.title_key) have.add(`t:${r.title_key}`);
       fresh.push(r);
     }
+    if (left) { const room = Math.max(0, left.get(ws) ?? 0); fresh = fresh.slice(0, room); left.set(ws, room - fresh.length); }
     if (fresh.length) {
       await db.send("POST", "app_news_items?on_conflict=workspace_id,url_key", fresh, "resolution=ignore-duplicates,return=minimal");
       n += fresh.length;
@@ -302,10 +307,23 @@ async function runKeywords(db: Db, readers: Readers, nowMs: number, startMs: num
     perWs.set(ws, (perWs.get(ws) ?? 0) + 1);
     byWord.set(w, [...(byWord.get(w) ?? []), ws]);
   }
+  // 하루 상한: 오늘(서울 날짜) 이미 넣은 자동 키워드 기사 수를 작업공간마다 센다.
+  const left = new Map<string, number>();
+  const allWs = [...perWs.keys()];
+  if (allWs.length) {
+    const dayStart = new Date(`${kstDay(nowMs)}T00:00:00+09:00`).toISOString();
+    for (const ws of allWs) left.set(ws, KEYWORD_ITEMS_DAILY);
+    for (let i = 0; i < allWs.length; i += 40) {
+      const got = await db.get(`app_news_items?lane=eq.keyword&created_at=gte.${encodeURIComponent(dayStart)}&workspace_id=in.(${allWs.slice(i, i + 40).join(",")})&select=workspace_id&limit=${40 * KEYWORD_ITEMS_DAILY + 40}`);
+      for (const r of got) { const ws = String(r.workspace_id); if (left.has(ws)) left.set(ws, (left.get(ws) ?? 0) - 1); }
+    }
+  }
   const reader = readers.catalog(GOOGLE_NEWS);
   const nowIso = new Date(nowMs).toISOString();
   let inserted = 0, words = 0, deferred = 0;
-  for (const [word, wss] of byWord) {
+  for (const [word, all] of byWord) {
+    const wss = all.filter((ws) => (left.get(ws) ?? 0) > 0);
+    if (!wss.length) continue;
     if (words >= KEYWORD_WORDS_PER_RUN || clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
     words++;
     const got = await reader.get(googleNewsUrl(word), ACCEPT_FEED);
@@ -317,7 +335,7 @@ async function runKeywords(db: Db, readers: Readers, nowMs: number, startMs: num
         lang: "ko", publisher, source_key: null, keywords: [word], published_at: it.published_at, fetched_at: nowIso, state: "ok",
         summary: null, body: null, body_kind: null });
     }
-    inserted += await insertNew(db, out);
+    inserted += await insertNew(db, out, left);
   }
   log("keywords_done", { words, inserted, deferred });
   return { ok: true, step: "keywords", words, inserted, deferred };
@@ -422,7 +440,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       const who = await authorizeUser(sb, key, auth!.slice("Bearer ".length), doFetch, db);
       if (action === "catalog") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
-        return json({ ok: true, sources: publicNewsCatalog(), limits: { fill: FILL_DAILY, translate: TRANSLATE_DAILY, open: OPEN_DAILY } });
+        return json({ ok: true, sources: publicNewsCatalog(), limits: { fill: FILL_DAILY, translate: TRANSLATE_DAILY, open: OPEN_DAILY, keyword_items: KEYWORD_ITEMS_DAILY, keywords: KEYWORDS_PER_WORKSPACE } });
       }
       if (action === "fill_now") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
