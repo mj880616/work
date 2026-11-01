@@ -52,7 +52,7 @@ import {scheduleForm} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftSiteLayout, readCarriedLayout} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftSiteLayout, readCarriedLayout, changeWeekDocs} from './weekly-draft-store.js';
 import {timeCell} from './time-input.js';
 import {discussLines} from './weekly-discuss.mjs';
 import {eventFields, editFrom, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey} from './weekly-schedule-rows.mjs';
@@ -1333,19 +1333,23 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (card) card.querySelector('[data-learn-review-pending]')?.remove();
     if (typed) box.querySelector('[data-learn-rule-fix-input]')?.focus();
   }
-  // 새 규칙 후보 [ㅇ]·[×]·[고쳐서 확정]: 이 주 임시저장 칸(규칙·picks)을 바꾸고 자동저장 길로 서버에 쓴다(answerSuggestion 과 같은 행).
-  function ruleAnswer(s, b) {
-    const v = s.review, st = s.store, rc = ruleChange(b, body);
+  // 새 규칙 후보 [ㅇ]·[×]·[고쳐서 확정]: 이 주 행의 규칙 칸·picks 를 서버에서 다시 읽고 바꿔 쓴다(answerSuggestion 과 같은 길).
+  // 쓴 뒤 이 상자 임시저장을 다시 읽어 합치고, [주간 정리] 목록에도 알린다.
+  async function ruleAnswer(s, b) {
+    const v = s.review, rc = ruleChange(b, body);
     if (!rc || !v) return;
     if (rc.ui) { v.fixing = rc.ui === 'fix' ? rc.key : null; v.value = null; paintReview(); if (rc.ui === 'fix') body.querySelector('[data-hwpx-review] [data-learn-rule-fix-input]')?.focus(); return; }
-    if (!st || rc.week !== s.start) return;
-    let next;
-    try { next = rc.change({v:1, rules:st.extras?.rules ?? null, picks:st.extras?.picks ?? null}); }
-    catch (error) { v.msg = error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 눌러 주세요.'; paintReview(); return; }
-    st.extras = {...(st.extras ?? {}), rules:readRules(next.rules) ?? st.extras?.rules, picks:next.picks};
-    touchDraft();
-    v.fixing = null; v.value = null; v.msg = rc.done; paintReview();
-    try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:s.start}})); } catch { /* 다시 그리기만 못 함 */ }
+    if (rc.week !== s.start) return;
+    v.busy = true; v.msg = '저장하는 중…'; paintReview();
+    try {
+      const r = await changeWeekDocs({start:rc.week, change:rc.change}, rt);
+      if (r.missing) throw new Error('missing');
+      if (s.store) s.store.extras = {...(s.store.extras ?? {}), rules:readRules(r.row?.draft?.rules) ?? s.store.extras?.rules};
+      v.fixing = null; v.value = null; v.msg = rc.done;
+      void syncDraft(s);
+      try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:s.start}})); } catch { /* 다시 그리기만 못 함 */ }
+    } catch (error) { v.msg = error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 눌러 주세요.'; }
+    finally { v.busy = false; paintReview(); }
   }
   async function answerReview(s, b) {
     const [week, id, answer] = b.dataset.learnAnswer.split(':');
@@ -1640,7 +1644,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else if (b.matches('[data-hwpx-ai-again]') && state) void aiDraft(state, true);
     else if (b.matches('[data-hwpx-learn-test]') && state) void learnTest(state, b);
     else if (b.matches('[data-learn-answer]') && state) void answerReview(state, b);
-    else if (b.matches('[data-learn-rule-take], [data-learn-rule-drop], [data-learn-rule-fix], [data-learn-rule-fix-go], [data-learn-rule-cancel]') && state?.review) ruleAnswer(state, b);
+    else if (b.matches('[data-learn-rule-take], [data-learn-rule-drop], [data-learn-rule-fix], [data-learn-rule-fix-go], [data-learn-rule-cancel]') && state?.review) void ruleAnswer(state, b);
     else if (b.matches('[data-hwpx-stage-clear]') && state) { const index = Number(b.dataset.hwpxIndex); state.edits.sites.set(index, []); state.stageFixes = state.stageFixes.filter(f => f.index !== index); state.built = null; renderEdit(); say('줄을 비웠어요.'); typed(`row:${state.cellOf.sites.get(index)}`); }
     else if (b.matches('[data-hwpx-restart]')) void restart();
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }
