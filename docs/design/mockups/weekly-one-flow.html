@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>주간 정리 한 흐름 시안</title>
+<style>
+/* Web2 기본 테마(olive) 변수 이름·값을 그대로 씀 (app/theme-tokens.css, app/base-ui.css). 글은 모두 가짜. */
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+  --kptu-warning:#8a6218;--kptu-danger:#9a4048;
+  --ds-line:var(--kptu-border-strong);--ds-kind-journal-ink:#2a6537;
+  --ds-text-row:13px;--ds-text-meta:12px;--ds-compact-height-sm:28px;--ds-radius-control:8px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+  --kptu-warning:#e0c97f;--kptu-danger:#e3a59c;--ds-kind-journal-ink:#9fd2a9;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+h2{font-size:13px;font-weight:500;margin:0 0 6px;color:var(--kptu-primary-ink)}
+.lead{font-size:12px;color:var(--kptu-faint);margin:0 0 14px;max-width:820px}
+.section{margin-bottom:26px}
+.cap{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.scroll{overflow-x:auto;padding-bottom:4px}
+.phone{width:412px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:12px;overflow:hidden}
+.pc{width:1440px;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:10px;overflow:hidden;display:flex}
+.pc .nav{width:200px;flex:none;border-right:.5px solid var(--kptu-border);padding:10px 12px;color:var(--kptu-muted);font-size:12px;background:var(--kptu-surface-subtle)}
+.pc .nav div{padding:4px 6px;border-radius:6px}.pc .nav .on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.pc .main{flex:1;min-width:0;padding:0 0 12px}
+.pc .wbody{max-width:980px}
+button{font:inherit;color:inherit;cursor:pointer}
+.jhead{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:.5px solid var(--kptu-border);flex-wrap:wrap}
+.seg{display:inline-flex;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);overflow:hidden}
+.seg button{border:0;background:transparent;height:var(--ds-compact-height-sm);padding:0 10px;font-size:var(--ds-text-row);color:var(--kptu-muted)}
+.seg button[aria-pressed=true]{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:500}
+.wk{display:inline-flex;align-items:center;gap:4px;margin-left:auto}
+.wk b{font-weight:500;font-size:13px;padding:0 4px}
+.mini{height:var(--ds-compact-height-sm);min-width:var(--ds-compact-height-sm);padding:0 8px;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);background:transparent;font-size:12px;color:var(--kptu-muted);white-space:nowrap}
+.mini.primary{background:var(--kptu-primary);border-color:var(--kptu-primary);color:var(--kptu-surface);font-weight:500}
+.dots{border:0;background:transparent;color:var(--kptu-faint);padding:0 4px;min-width:24px;height:22px;font-size:14px;line-height:1;flex:none}
+.wbody{padding:6px 12px 10px}
+.topline{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--kptu-muted);padding:4px 0 6px;border-bottom:.5px solid var(--kptu-border)}
+.topline b{color:var(--kptu-ink);font-weight:500}
+.topline .sp{margin-left:auto}
+.ch{margin:10px 0 0}
+.ch>h3{font-size:13px;font-weight:600;margin:0 0 4px;color:var(--ds-kind-journal-ink)}
+.blk>h4{font-size:12px;font-weight:500;margin:6px 0 2px;color:var(--kptu-muted)}
+.cell{border-top:.5px solid var(--kptu-border);padding:4px 0 4px}
+.cell .nm{font-size:12px;color:var(--kptu-muted);margin:0 0 1px}
+.cell .nm b{color:var(--kptu-ink);font-weight:500}
+ul.ln{list-style:none;margin:0;padding:0}
+ul.ln li{display:flex;align-items:baseline;gap:4px;padding:1px 0;font-size:13px}
+ul.ln li .t{flex:1;min-width:0}
+ul.ln li .t::before{content:"- ";color:var(--kptu-faint)}
+ul.sg li{color:var(--kptu-faint);font-size:12px}
+ul.sg li .t::before{content:none}
+.tag{font-size:11px;border:.5px solid var(--kptu-border-strong);border-radius:6px;padding:0 4px;color:var(--kptu-muted);flex:none}
+.take{height:22px;padding:0 6px;font-size:11px;border:.5px solid var(--ds-line);border-radius:6px;background:transparent;color:var(--kptu-primary-ink);flex:none}
+.add{border:0;background:transparent;padding:2px 0;font-size:12px;color:var(--kptu-primary-ink)}
+.empty{color:var(--kptu-faint);font-size:12px}
+.fold{font-size:12px;color:var(--kptu-faint);margin:1px 0 0}
+.menu{display:inline-flex;gap:4px;border:.5px solid var(--ds-line);border-radius:8px;padding:3px;background:var(--kptu-surface);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+table.sch{width:100%;border-collapse:collapse;font-size:12px}
+table.sch th,table.sch td{border-top:.5px solid var(--kptu-border);padding:3px 4px;text-align:left;vertical-align:top;font-weight:400}
+table.sch thead th{color:var(--kptu-muted)}
+table.sch td.w{display:flex;gap:4px;align-items:baseline}
+table.sch td.w span{flex:1}
+.confirm{display:flex;align-items:center;gap:6px;margin:10px 0 0;padding:8px 0 0;border-top:.5px solid var(--kptu-border-strong);flex-wrap:wrap}
+.confirm .st{font-size:12px;color:var(--kptu-faint)}
+.ref{margin-top:10px;font-size:12px;color:var(--kptu-muted)}
+.ref summary{cursor:pointer;padding:4px 0}
+.edit{display:flex;gap:4px;align-items:center;margin:2px 0}
+.edit input{flex:1;min-width:0;height:28px;border:.5px solid var(--ds-line);border-radius:6px;padding:0 6px;font:inherit;font-size:13px;background:var(--kptu-surface);color:var(--kptu-ink)}
+.saved{font-size:11px;color:var(--kptu-faint)}
+.boxA{margin:6px 0 0;border:.5px solid var(--ds-line);border-radius:8px;font-size:12px}
+.boxA summary{padding:5px 8px;color:var(--kptu-muted);cursor:pointer}
+.boxA .in{padding:0 8px 8px;color:var(--kptu-ink)}
+.boxA table{width:100%;border-collapse:collapse}
+.boxA td,.boxA th{border:.5px solid var(--kptu-border);padding:2px 4px;text-align:left;font-weight:400;vertical-align:top}
+.blue{color:#2b5fb4}
+@media (prefers-color-scheme:dark){.blue{color:#8db4ef}}
+.pc .two{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.notes{font-size:12px;color:var(--kptu-muted);max-width:820px;margin:6px 0 0;padding-left:18px}
+</style>
+</head>
+<body>
+<h1>주간 정리 한 흐름 시안 (WEEKLY-한흐름확정, S47-25)</h1>
+<p class="lead">[주간 정리]에 보이는 줄 = 한글 파일에 들어갈 줄. 줄 끝 ⋯ = [고치기]·[빼기], 흐린 제안 줄 = [수용]·⋯([고쳐서 수용]·[빼기]), 묶음 끝 [+ 추가]. 누르는 순간 그 주 임시저장(서버)에 기록. 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 하나. 줄 끝 ⋯·[+ 추가] 모양은 S47-23 확정 모양에 맞춤(이 시안은 요청 문구대로 그림). 글은 모두 가짜.</p>
+
+<template id="flow">
+  <div class="topline"><span>■ 일시 <b>11.2.(월)</b> · <b>가상이름</b> · 바탕 10/26 개인본</span><span class="sp saved">임시저장 14:32</span><button class="dots" aria-label="일시·이름·바탕 고치기">⋯</button></div>
+  <!--BOXA-->
+  <section class="ch"><h3>1. 요청사항</h3>
+    <div class="blk"><h4>1) 임원 배정 요청</h4><ul class="ln"><li><span class="t">11.4.(수) 14:00 / 가상 교섭 / 본부 회의실 — 위원장</span><button class="dots" aria-label="줄 고치기·빼기">⋯</button></li></ul><button class="add">+ 추가</button></div>
+    <div class="blk"><h4>2) 주요 일정 · 3) 상집 논의 요청</h4><p class="empty">없음</p><button class="add">+ 추가</button></div>
+  </section>
+  <section class="ch"><h3>2. 기본·영역·의제 사업</h3>
+    <div class="blk"><h4>1) 요약</h4>
+      <div class="cell"><p class="nm"><b>가 사업영역</b> › 가-1 세부 과제</p>
+        <ul class="ln"><li><span class="t">가상 교섭 3차 진행(10.29.) — 결렬</span><button class="dots" aria-label="줄 고치기·빼기">⋯</button></li>
+          <li><span class="t">가상 행사 준비 중</span><button class="dots" aria-label="줄 고치기·빼기">⋯</button></li></ul>
+        <ul class="ln sg"><li><span class="tag">기록</span><span class="t">10/31 가상 교섭 4차 일정 잡힘(11.5.)</span><button class="take">수용</button><button class="dots" aria-label="고쳐서 수용·빼기">⋯</button></li>
+          <li><span class="tag">AI</span><span class="t">가상 행사 → "가상 행사 11.7. 개최 확정"</span><button class="take">수용</button><button class="dots" aria-label="고쳐서 수용·빼기">⋯</button></li></ul>
+        <button class="add">+ 추가</button> <span class="fold">· 기록 3건 ▸</span>
+      </div>
+      <div class="cell"><p class="nm"><b>가 사업영역</b> › 가-2 세부 과제</p>
+        <ul class="ln"><li><span class="t">가상 실태조사 설문 마감</span><button class="dots" aria-label="줄 고치기·빼기">⋯</button></li></ul>
+        <div class="edit"><input value="가상 실태조사 설문 마감(응답 120명)" aria-label="줄 고치기"><button class="mini primary">저장</button><button class="mini">취소</button></div>
+        <button class="add">+ 추가</button> <span class="fold">· 이번 주 기록 없음 — 지난주 줄 그대로</span>
+      </div>
+    </div>
+    <div class="blk"><h4>2) 세부 내용 — 회의·활동 결과</h4><ul class="ln"><li><span class="t">10/28 가상 운영위 — 결정 2건</span><button class="dots">⋯</button></li></ul></div>
+  </section>
+  <section class="ch"><h3>3. 투쟁 사업장 현황</h3>
+    <div class="cell"><p class="nm"><b>A 지부</b></p>
+      <ul class="ln"><li><span class="t">가상 조정 신청(10.30.)</span><button class="dots">⋯</button></li></ul>
+      <ul class="ln sg"><li><span class="tag">캘린더</span><span class="t">11/4(수) 가상 결의대회</span><button class="take">수용</button><button class="dots">⋯</button></li></ul>
+      <button class="add">+ 추가</button></div>
+    <button class="add">+ 사업장 추가</button>
+  </section>
+  <section class="ch"><h3>4. 산하 조직 현황</h3>
+    <div class="cell"><p class="nm"><b>B 노조</b> <span class="saved">(개인본 순서)</span></p>
+      <ul class="ln"><li><span class="t">가상 임금교섭 상견례</span><button class="dots">⋯</button></li></ul>
+      <ul class="ln sg"><li><span class="tag">AI 요약</span><span class="t">가상 임금교섭 2차 — 사측 안 제시</span><button class="take">수용</button><button class="dots">⋯</button></li></ul>
+      <button class="add">+ 추가</button></div>
+    <div class="cell"><p class="nm"><b>C 지부</b></p><p class="empty">빈 칸(이번 주 소식 없음)</p><button class="add">+ 추가</button></div>
+  </section>
+  <section class="ch"><h3>5. 주요 일정 <span class="saved">11.2.(월) ~ 11.15.(일)</span></h3>
+    <table class="sch"><thead><tr><th>일</th><th>시간/내용/장소</th><th>참석자</th></tr></thead><tbody>
+      <tr><th>11.3.(화)</th><td class="w"><span>10:00 / 가상 회의 / 본부</span><button class="dots">⋯</button></td><td>가상이름</td></tr>
+      <tr><th>11.5.(목)</th><td class="w"><span>14:00 / 가상 교섭 4차 / 미정</span><button class="dots">⋯</button></td><td>가상이름</td></tr>
+    </tbody></table>
+    <p class="empty">※ 휴가: 11/13(금) 연차</p>
+    <div class="confirm"><button class="mini primary">확정하고 한글 파일 받기</button><button class="dots" aria-label="HWP로 받기·확정 없이 파일만 받기·글로 복사·학습 시험">⋯</button><span class="st">임시저장 14:32 · 확정 전</span></div>
+  </section>
+  <details class="ref"><summary>참고 — 보고서 칸 밖 재료 ▸</summary></details>
+  <details class="ref"><summary>주간보고 기억 ▸</summary></details>
+</template>
+
+<template id="boxA">
+  <details class="boxA"><summary>한글 모양으로 보기 ▸ <span class="saved">(안 A — 보기만, 고치기는 아래에서)</span></summary>
+    <div class="in"><table><tr><th>사업영역</th><th>세부 과제</th><th>진행 상황 및 이후 계획</th><th>담당</th></tr>
+      <tr><td rowspan="2">가</td><td>가-1</td><td>- 가상 교섭 3차 진행(10.29.) — 결렬<br><span class="blue">- 가상 교섭 4차 11.5.</span></td><td>가상이름</td></tr>
+      <tr><td>가-2</td><td><span class="blue">- 가상 실태조사 설문 마감(응답 120명)</span></td><td>가상이름</td></tr></table></div>
+  </details>
+</template>
+
+<div class="section"><h2>안 B (추천) — 위 상자 없앰 · 폰 412px</h2>
+  <div class="phone" data-fill="B"><div class="jhead"><div class="seg"><button>하루</button><button aria-pressed="true">주간 정리</button></div><span class="wk"><button class="mini">‹</button><b>10.26 주</b><button class="mini">›</button></span></div><div class="wbody"></div></div>
+</div>
+
+<div class="section"><h2>⋯ 눌렀을 때 (줄 · 제안 · 확정 버튼)</h2>
+  <p class="cap">보고서 줄 ⋯</p><div class="menu"><button class="mini">고치기</button><button class="mini">빼기</button></div>
+  <p class="cap" style="margin-top:8px">제안 줄 ⋯ ([수용]은 줄에 바로 있음)</p><div class="menu"><button class="mini">고쳐서 수용</button><button class="mini">빼기</button></div>
+  <p class="cap" style="margin-top:8px">맨 위 한 줄 ⋯</p><div class="menu"><button class="mini">이름 고치기</button><button class="mini">일시 고치기</button><button class="mini">바탕 바꾸기(기기 파일)</button><button class="mini">처음부터</button></div>
+  <p class="cap" style="margin-top:8px">[확정하고 한글 파일 받기] 옆 ⋯</p><div class="menu"><button class="mini">HWP로 받기</button><button class="mini">확정 없이 파일만 받기</button><button class="mini">글로 복사</button><button class="mini">학습 시험</button></div>
+  <p class="cap" style="margin-top:8px">다시 누를 때 확인 창</p><div class="menu" style="display:block;max-width:360px;padding:8px;font-size:12px">이 주 개인본을 새 판으로 바꿀까요? 옛 판은 30일 동안 자료실 [이전 파일]에 남아요.<div style="margin-top:6px;text-align:right"><button class="mini">취소</button> <button class="mini primary">바꾸고 받기</button></div></div>
+  <p class="cap" style="margin-top:8px">누른 뒤 (버튼 줄 오른쪽 한 줄)</p><div class="confirm" style="border:0"><button class="mini primary">확정하고 한글 파일 받기</button><button class="dots">⋯</button><span class="st">11/1 14:40 확정 · 자료실 개인본 저장 · 파일 받음 · 다시 누르면 새 판</span></div>
+</div>
+
+<div class="section"><h2>안 A — 위 상자를 '한글 모양으로 보기'(읽기 전용, 접힘)로 남김 · 폰 412px</h2>
+  <div class="phone" data-fill="A"><div class="jhead"><div class="seg"><button>하루</button><button aria-pressed="true">주간 정리</button></div><span class="wk"><button class="mini">‹</button><b>10.26 주</b><button class="mini">›</button></span></div><div class="wbody"></div></div>
+</div>
+
+<div class="section"><h2>안 B (추천) — PC 1440px</h2>
+  <div class="scroll"><div class="pc"><div class="nav"><div>홈</div><div>바구니</div><div>일정</div><div class="on">업무일지</div><div>자료실</div><div>담당조직</div></div>
+    <div class="main"><div class="jhead"><div class="seg"><button>하루</button><button aria-pressed="true">주간 정리</button></div><span class="wk"><button class="mini">‹</button><b>2026.10.26 – 11.1</b><button class="mini">›</button></span></div><div class="wbody" data-fill="B"></div></div></div></div>
+</div>
+
+<ul class="notes">
+  <li>안내문 "화면에서 보기만 하고 저장하지 않아요"는 없앰. 저장 상태는 맨 위 한 줄 오른쪽 작은 글씨(임시저장 시각)와 확정 버튼 줄 한 줄로만.</li>
+  <li>버튼은 모두 작은 버튼(UI-버튼기준). 큰 버튼·카드 없음. [확정하고 한글 파일 받기]만 채운 색(이 화면의 단 하나 주 동작).</li>
+  <li>안 A의 위 상자에는 버튼이 없다(중복 버튼 금지) — 펼쳐 보기만.</li>
+</ul>
+
+<script>
+// 시안 안에서 같은 본문을 폰·PC·안 A에 채운다(앱 코드 아님).
+const flow = document.getElementById('flow').innerHTML, boxA = document.getElementById('boxA').innerHTML;
+document.querySelectorAll('[data-fill]').forEach(node => {
+  const target = node.classList.contains('wbody') ? node : node.querySelector('.wbody');
+  target.innerHTML = flow.replace('<!--BOXA-->', node.dataset.fill === 'A' ? boxA : '');
+});
+</script>
+</body>
+</html>

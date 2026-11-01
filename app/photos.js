@@ -1281,8 +1281,7 @@ function phoneGroupHtml({wide, head}) {
     return title + waitHtml({rows:2, h:36});
   }
   const list = phoneFolderList();
-  const hint = phoneSw() && (!head || !tree?.whole) ? '<p class="photos-fx-hint">스위치 켜짐 = 사진에 보임</p>' : '';
-  return title + hint + (list.length ? list.map(f => phoneFolderRowHtml(f, {wide})).join('') : emptyHtml('폰 폴더 없음')) + phoneNewHtml();
+  return title + (list.length ? list.map(f => phoneFolderRowHtml(f, {wide})).join('') : emptyHtml('폰 폴더 없음')) + phoneNewHtml();
 }
 // 위치 줄 '사진 › 폰 › Camera'. 앞 두 칸은 폴더 목록으로(data-photos-pf-at).
 const phonePathHtml = f => `<nav class="fp-path photos-fx-path" aria-label="지금 위치">${folderPathHtml({rootLabel:'사진', trail:[{id:'phone', name:'폰'}, {id:f.id, name:f.name}], attr:'data-photos-pf-at', esc})}</nav>`;
@@ -1324,7 +1323,7 @@ function renderFolders() {
   if (!at || !photoFolderById(tree, at)) at = tree.top.id;
   const here = photoFolderById(tree, at), both = u.phone, many = u.phone || u.gdrive;
   const pf = both && pAt !== null ? phoneFolderOf(pAt) : null;
-  const odHead = (many ? '<p class="photos-fx-group" data-photos-fx-group="onedrive">원드라이브</p>' : '') + (tree.whole ? '<p class="photos-fx-hint">스위치 켜짐 = 사진에 보임</p>' : '');
+  const odHead = (many ? '<p class="photos-fx-group" data-photos-fx-group="onedrive">원드라이브</p>' : '');
   const path = `<nav class="fp-path photos-fx-path" aria-label="지금 위치">${folderPathHtml({rootLabel:'사진', trail:photoFolderTrail(tree, at), attr:'data-photos-fx-at', esc})}</nav>`;
   const head = `<p class="photos-fx-here${tree.whole ? ' has-sw' : ''}"><span><b>${esc(here.name)}</b>${placeHtml(here.id)} · ${here.count}장${here.enabled === false ? ' · 사진에 안 보임' : ''}</span>${tree.whole ? switchHtml(here.id, here.name, here.enabled !== false) : ''}</p>`;
   const grid = '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>';
@@ -1706,7 +1705,7 @@ function gdGroupHtml({wide, head}) {
   if (!gdOn()) return '';
   const title = head ? '<p class="photos-fx-group" data-photos-fx-group="gdrive">구글 드라이브</p>' : '';
   if (gd.problem) return title + gdNoteHtml();
-  return title + '<p class="photos-fx-hint">스위치 켜짐 = 사진에 보임</p>' + gdLevelHtml('root', {wide});
+  return title + gdLevelHtml('root', {wide});
 }
 // 들어간 구글 드라이브 폴더 하나(PC·폰 같은 한 칸 모양): 위치 줄 · 이름·스위치 · 하위 폴더 · 그 폴더 사진(켰을 때만).
 function renderGdFolder() {
