@@ -203,6 +203,8 @@ test('뒤로가기: 사업영역 상세 ⋯ 메뉴는 메뉴만, 다음은 상�
  await expect.poll(()=>page.evaluate(()=>history.state?.project&&history.state?.kptuOverlay&&String(navigation.currentEntry.index)===document.querySelector('#ps3DetailModal').dataset.kptuHistoryIndex)).toBe(true);
  const more=page.locator('#ps3Menu .ps3-more');
  await more.locator('>summary').click();await expect(more).toHaveAttribute('open','');
+ // 메뉴 겹의 기록 칸이 붙은 뒤에 뒤로가기.
+ await expect.poll(()=>page.evaluate(()=>(history.state?.kptuLayers||[]).includes('small-menu'))).toBe(true);
  await page.goBack();await expect(more).not.toHaveAttribute('open','');await expect(page.locator('#ps3DetailModal')).toBeVisible();
  await page.goBack();await expect(page.locator('#ps3DetailModal')).toBeHidden();await expect(page.locator('#homeView')).toBeHidden();
  // 사업영역 목록 창(사업 보고 위) → 뒤로 = 목록 창 닫힘(사업 보고) → 뒤로 = 홈.
