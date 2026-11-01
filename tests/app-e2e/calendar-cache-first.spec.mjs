@@ -187,6 +187,25 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
     release(state);
   });
 
+  // S47-18: 일정 창 ⋯ 메뉴가 열린 채 뒤로가기 = 메뉴만 닫힘, [일정 삭제]로 창이 닫힌 뒤 뒤로가기는 달력에서 한 칸만(건너뛰지 않음).
+  test('back with the event ⋯ menu open closes only the menu; delete leaves no extra entry',async({page})=>{
+    const state=newState();await mock(page,state);
+    await signIn(page,'calendar');
+    const start=await page.evaluate(()=>navigation.currentEntry.index);
+    await listEvent(page,'gone').click();
+    const modal=page.locator('#ciGoogleModal'),menu=page.locator('#ciGoogleMenu');
+    await expect(modal).toBeVisible();
+    await page.locator('#ciGoogleMore').click();await expect(menu).toBeVisible();
+    await page.evaluate(()=>window.KPTURouter.back());
+    await expect(menu).toBeHidden();await expect(modal).toBeVisible();
+    await page.locator('#ciGoogleMore').click();await page.locator('#ciGoogleDelete').click();
+    await answerAsk(page,true);
+    await expect(modal).toBeHidden();
+    await expect.poll(()=>state.deleted).toEqual(['gone']);
+    await expect.poll(()=>page.evaluate(()=>navigation.currentEntry.index)).toBe(start);
+    await expect(page.locator('#calendarView')).toBeVisible();
+  });
+
   test('an event opened from the copy that Google no longer has shows 삭제된 항목 and is dropped',async({page})=>{
     const state=newState();await mock(page,state);
     await signIn(page,'calendar');

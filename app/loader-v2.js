@@ -93,6 +93,7 @@
     import('./enter-save.js'),
     import('./press-feedback.js'),
     import('./native-back-guard.js'),
+    import('./details-menu-back.js'),
     import('./session-resilience.js'),
     import('./capabilities.js'),
     import('./pwa.js')
