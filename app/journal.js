@@ -1426,6 +1426,10 @@ root.addEventListener('click', event => {
   // HOME-줄누르기 ⑦: [주간 정리]의 5. 주요 일정 칸·끝낸 할 일·할 일 예정 줄 → 하루 화면의 일정·할 일 줄과 같은 열기.
   if (button.matches('[data-journal-weekly-event]')) { void openOriginal({type:'event', id:button.dataset.journalWeeklyEvent, calendarId:button.dataset.journalWeeklyCalendar || 'primary'}, button); return; }
   if (button.matches('[data-journal-weekly-task]')) { void openOriginal({type:'task', id:button.dataset.journalWeeklyTask}, button); return; }
+  // WEEKLY-환류전칸 ⑤: 5. 주요 일정 줄 ⋯ [고치기]·[빼기]·[다시 넣기] — 값은 한글 파일 칸 고치기와 같은 임시저장(journal-hwpx.js 가 씀).
+  if (button.matches('[data-journal-schedule-fix]')) { hwpx?.schedule(button.dataset.journalScheduleFix, 'fix'); return; }
+  if (button.matches('[data-journal-schedule-drop]')) { hwpx?.schedule(button.dataset.journalScheduleDrop, 'drop'); return; }
+  if (button.matches('[data-journal-schedule-put]')) { hwpx?.schedule(button.dataset.journalSchedulePut, 'put'); return; }
   // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, '근거 ›' → 근거 묶음 하나만 열고 그 줄로(잠깐 옅게 칠함, 공용 jumpToPrepRef).
   if (button.matches('[data-journal-next-make]')) { void makeNextWeek('user'); return; }
   if (button.matches('[data-journal-next-open]')) { void openNextWeekLine(Number(button.dataset.journalNextOpen), button); return; }

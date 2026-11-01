@@ -297,6 +297,10 @@
   #appView #homeView .journal-weekly-day{ min-width:0; }
   #appView #homeView .journal-exec-tools{ text-align:left; }
   #appView #homeView .journal-exec-who:empty{ display:none; }
+  /* WEEKLY-환류전칸 ⑤: 5. 주요 일정 줄 끝 ⋯ 는 참석자 칸에 있어, 폰에서는 그 칸 대신 ⋯ 만 줄 오른쪽 위에 둔다. */
+  #appView #homeView .journal-weekly-schedule tr{ position:relative; }
+  #appView #homeView .journal-weekly-schedule .journal-weekly-owner:has(.row-more){ display:block; position:absolute; right:0; top:4px; padding:0; }
+  #appView #homeView .journal-weekly-schedule .journal-weekly-what{ padding-right:28px; }
 }
 /* PC: 1. 요청사항·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
 @media(min-width:761px){

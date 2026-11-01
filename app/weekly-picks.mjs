@@ -5,6 +5,7 @@
 //     'take'(제안 그대로 [수용]) | 'edit'([고쳐서 수용], before = 제안 글) | 'drop'(제안 [빼기]·[×]) — 제안에 대한 답(학습 셈에 들어감)
 //     'fix'(보고서 줄 ⋯ [고치기], before = 고치기 전 줄) | 'cut'(보고서 줄 ⋯ [빼기]) | 'add'(묶음 [+ 추가] 수기 줄) — 보고서 줄 동작(kind 'line', 학습 셈 밖)
 //     'none'(되돌리기·다시 넣기 — 앞 동작을 지운 표시, 합칠 때 더 나중 것이 이김)
+//   why(WEEKLY-환류전칸 ⑤, 요청함 11/01 23:42): 'drop'(제안 [빼기])에 사람이 적은 이유 한 줄(안 써도 됨, WHY_MAX자까지). 서버 환류 정리가 참고한다.
 //   reviews: 이 주에 환류 정리(ai-assist weekly_review)를 부른 시각들 — 정리 시점 셈(reviewDue: 확정 때 1회 + 동작 30건·6시간, 주 3회 상한, 명진 결정 11/01).
 // - 학습: 지난 주들 + 이번 주 picks 를 모아 '종류'(sig = 제안 종류|출처|칸)마다 거절·받음을 센다. 여러 주에 걸쳐 계속 거절한 종류는
 //   '거절해서 안 내는 것'이 되어 다음 제안에서 빠지고(접힌 '뺀 제안'에는 남음), 받은 종류는 앞에 놓인다. [풀기]는 그 종류의 지난 셈을 지운다.
@@ -17,6 +18,8 @@ export const PICK_ACTS = Object.freeze(['take', 'edit', 'drop', 'fix', 'cut', 'a
 export const ANSWER_ACTS = Object.freeze(['take', 'edit', 'drop']);     // 제안에 대한 답 — 학습 셈(learnPicks)에 들어감
 export const LINE_ACTS = Object.freeze(['fix', 'cut', 'add']);          // 보고서 줄 동작
 export const BEFORE_ACTS = Object.freeze(['edit', 'fix']);              // before(바꾸기 전 글)를 남기는 동작
+export const WHY_ACTS = Object.freeze(['drop']);                        // why(빼는 이유, 안 써도 됨)를 남기는 동작
+export const WHY_MAX = 100;
 export const PICKS_MAX = 300;      // 한 주에 남기는 항목 수(넘으면 오래된 'none'부터, 그다음 오래된 것부터 버림)
 export const PICKS_MAX_BYTES = 60000; // picks 칸 하나 상한(draft 전체 200 KiB 안에서 — weekly-feedback.mjs EXTRA_MAX_BYTES 와 같은 값)
 export const REVIEWS_MAX = 12;
@@ -55,6 +58,8 @@ function readItem(r) {
   const out = {key:r.key, kind:r.kind, from:PICK_FROM[r.from] ? r.from : '', cell:cut(r.cell, PICK_CELL), org:cut(r.org, 60), act:r.act, text:cut(r.text, PICK_TEXT), at:ISO.test(String(r.at ?? '')) ? String(r.at) : ''};
   const before = BEFORE_ACTS.includes(r.act) ? cut(r.before, PICK_TEXT) : '';
   if (before) out.before = before;
+  const why = WHY_ACTS.includes(r.act) ? cut(r.why, WHY_MAX) : '';
+  if (why) out.why = why;
   return out;
 }
 const byteLen = v => new TextEncoder().encode(JSON.stringify(v)).length;
@@ -88,7 +93,7 @@ export function readPicks(raw) {
 export function withPick(picks, item, act, at) {
   const p = readPicks(picks) ?? {at:'', items:[], released:[]};
   const key = item.key ?? pickKey(item);
-  const next = {key, kind:item.kind, from:item.from ?? '', cell:item.cell ?? '', org:item.org ?? '', act, text:item.text ?? '', ...(item.before ? {before:item.before} : {}), at};
+  const next = {key, kind:item.kind, from:item.from ?? '', cell:item.cell ?? '', org:item.org ?? '', act, text:item.text ?? '', ...(item.before ? {before:item.before} : {}), ...(item.why ? {why:item.why} : {}), at};
   return readPicks({at, items:[...p.items.filter(x => x.key !== key), next], released:p.released, reviews:p.reviews});
 }
 export function withRelease(picks, sig, at) {
