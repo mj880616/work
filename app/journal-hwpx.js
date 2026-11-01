@@ -52,7 +52,7 @@ import {scheduleForm, reportDateText} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftSiteLayout, readCarriedLayout, changeWeekDocs} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftSiteLayout, readCarriedLayout, changeWeekDocs, changeWeekCell} from './weekly-draft-store.js';
 import {timeCell} from './time-input.js';
 import {discussLines} from './weekly-discuss.mjs';
 import {rowMore, partAdd} from './row-more.js';
@@ -1597,6 +1597,20 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // A draft that could not be saved yet: warn before the page goes away (what was typed is only on this screen).
   doc.defaultView?.addEventListener('beforeunload', event => { const st = state?.store; if (st && st.status !== 'missing' && (st.dirty || st.flight)) { event.preventDefault(); event.returnValue = ''; } });
 
+  // ORG-쟁의단계 ② '지울까요?' [줄 비우기]: 그 사업장 칸을 그 주 draft 에서 빈 칸으로(칸 줄 한 벌 — weekly-flow-cells.js 가 그대로 그린다). 쓰기 한 번.
+  async function clearStage(s, index, trigger) {
+    const fix = s.stageFixes?.find(f => f.index === index);
+    if (!fix) return;
+    trigger.disabled = true;
+    try {
+      const r = await changeWeekCell({start:s.start, known:getWeek().row ?? null, section:'sites', key:fix.org, n:0, act:'none', lines:[]}, rt);
+      if (state !== s) return;
+      if (r.missing) { say('임시저장 칸이 아직 준비 전이라 비우지 못했어요.', 'error'); trigger.disabled = false; return; }
+      s.edits.sites.set(index, []); s.stageFixes = s.stageFixes.filter(f => f.index !== index); s.built = null;
+      renderEdit(); say('줄을 비웠어요.');
+      onDraft?.(s.start, r.row);
+    } catch { if (state === s) { say('줄을 비우지 못했어요. 잠시 뒤 다시 눌러 주세요.', 'error'); trigger.disabled = false; } }
+  }
   const onClick = event => {
     const b = event.target.closest('button');
     if (!b || !event.currentTarget.contains(b) || b.disabled) return;
@@ -1615,7 +1629,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else if (b.matches('[data-hwpx-ai-again]') && state) void aiDraft(state, true);
     else if (b.matches('[data-learn-answer]') && state) void answerReview(state, b);
     else if (b.matches('[data-learn-rule-take], [data-learn-rule-drop], [data-learn-rule-fix], [data-learn-rule-fix-go], [data-learn-rule-cancel]') && state?.review) void ruleAnswer(state, b);
-    else if (b.matches('[data-hwpx-stage-clear]') && state) { const index = Number(b.dataset.hwpxIndex); state.edits.sites.set(index, []); state.stageFixes = state.stageFixes.filter(f => f.index !== index); state.built = null; renderEdit(); say('줄을 비웠어요.'); typed(`row:${state.cellOf.sites.get(index)}`); }
+    else if (b.matches('[data-hwpx-stage-clear]') && state) void clearStage(state, Number(b.dataset.hwpxIndex), b);
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }
     else if (b.matches('[data-hwpx-conflict-pick]')) pickConflict(Number(b.dataset.hwpxConflict), b.dataset.hwpxConflictPick);
     else if (b.matches('[data-hwpx-append]')) { const key = b.dataset.hwpxTarget || doc.getElementById(b.dataset.hwpxPickFrom)?.value; if (!key) return; append(key, b.dataset.hwpxText); const took = state && markPick(state, pickIndex(state).get(b.dataset.hwpxPickKey), 'take'); if (b.closest('[data-hwpx-org-ref]') || took) renderMaterial(); say('붙였어요. 칸에서 고칠 수 있어요.'); }

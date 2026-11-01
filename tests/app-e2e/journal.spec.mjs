@@ -2513,6 +2513,7 @@ test('[주간 정리] 조직 요약: 직접 쓴 요약은 edited로 새로 저�
 
 // ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
 // 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '지울까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
+const siteCell=(page,name)=>page.locator('#journalRoot [data-weekly-flow-cells="sites"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${name}$`)})});
 const SITES_TEAM={sites:[{org:['가상 노동조합'],status:['- 조정 신청(9.28)','- 지난주 현황 줄']},{org:['나 지역 모임'],status:['- 지난 투쟁 소식']}]};
 async function stageFixture(page,width,{history,fail=false,noEnd=false}){
  const f=await hwpxFixture(page,{width,team:SITES_TEAM});
@@ -2522,48 +2523,46 @@ async function stageFixture(page,width,{history,fail=false,noEnd=false}){
  return f;
 }
 const hist=(org,stage,date)=>({id:`h-${org}-${date}`,organization_id:org,stage_id:stage,stage_name:defaultStageRows().find(r=>r.id===stage).name,stage_date:date,created_at:`${date}T00:00:00Z`});
-for(const width of [390,1280])test(`주간보고 한글 파일: 투쟁 사업장 표를 쟁의 단계로 채움(투쟁 중 첫 줄·끝난 주 한 줄) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 투쟁 사업장 표를 쟁의 단계로 채움(투쟁 중 첫 줄·끝난 주 한 줄) ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-10-09')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- const sites=hwpx(page).locator('[data-hwpx-part="sites"]');
- await expect(sites.locator('.journal-hwpx-label')).toHaveText(['가상 노동조합','나 지역 모임']);
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 쟁의발생 결의(10.7)\n- 지난주 현황 줄');
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('- 협약체결(10.9)');
+ const sites=page.locator('#journalRoot [data-weekly-flow-cells="sites"]');
+ await expect(sites.locator('.weekly-flow-label')).toHaveText(['가상 노동조합','나 지역 모임']);
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 쟁의발생 결의(10.7)','- 지난주 현황 줄']);
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 협약체결(10.9)']);
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toHaveCount(0);
 });
-for(const width of [390,1280])test(`주간보고 한글 파일: 더는 투쟁 중이 아닌 확정본 줄은 말없이 지우지 않고 '지울까요?' 고칠 목록 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 더는 투쟁 중이 아닌 확정본 줄은 말없이 지우지 않고 '지울까요?' 고칠 목록 ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-09-28')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- const sites=hwpx(page).locator('[data-hwpx-part="sites"]');
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('- 지난 투쟁 소식');
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
  const fix=hwpx(page).locator('[data-hwpx-stage-fix]');await expect(fix).toBeVisible();
  await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix).toContainText('지울까요');
  await fix.locator('[data-hwpx-stage-clear]').click();
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('');
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveCount(0);await expect(siteCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
 });
 // ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간. 이 주(10.5~10.11)에 기간이 걸친 끝남(10.2~10.6)은 이 주에 한 줄, 투쟁 중은 기간으로 표기.
 const histP=(org,stage,date,end)=>({...hist(org,stage,date),end_date:end});
-for(const width of [390,1280])test(`주간보고 한글 파일: 단계 기간 표기(- 파업 찬반투표(10.5~10.7))와 기간이 걸친 주의 끝남 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 단계 기간 표기(- 파업 찬반투표(10.5~10.7))와 기간이 걸친 주의 끝남 ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[histP('o1','stage-6','2026-10-05','2026-10-07'),histP('o2','stage-10','2026-10-02','2026-10-06')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- const sites=hwpx(page).locator('[data-hwpx-part="sites"]');
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 파업 찬반투표(10.5~10.7)\n- 지난주 현황 줄');
- await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('- 협약체결(10.2~10.6)');
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 파업 찬반투표(10.5~10.7)','- 지난주 현황 줄']);
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 협약체결(10.2~10.6)']);
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
 });
-test('주간보고 한글 파일: 끝 날짜 칸이 아직 없어도(DB 적용 전) 단계로 채움',async({page})=>{
+test('[주간 정리] 투쟁 사업장: 끝 날짜 칸이 아직 없어도(DB 적용 전) 단계로 채움',async({page})=>{
  await stageFixture(page,390,{history:[hist('o1','stage-3','2026-10-07')],noEnd:true});
  await openJournal(page,390);await openWeekly(page);await openDraft(page);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toHaveCount(0);
- await expect(hwpx(page).locator('[data-hwpx-part="sites"] .journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 쟁의발생 결의(10.7)\n- 지난주 현황 줄');
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 쟁의발생 결의(10.7)','- 지난주 현황 줄']);
 });
-test('주간보고 한글 파일: 단계를 읽지 못하면 직전 확정본 줄 그대로 + 한 줄 알림',async({page})=>{
+test('[주간 정리] 투쟁 사업장: 단계를 읽지 못하면 직전 확정본 줄 그대로 + 한 줄 알림',async({page})=>{
  await stageFixture(page,390,{history:[],fail:true});
  await openJournal(page,390);await openWeekly(page);await openDraft(page);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toContainText('단계를 불러오지 못했어요');
- await expect(hwpx(page).locator('[data-hwpx-part="sites"] .journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 조정 신청(9.28)\n- 지난주 현황 줄');
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 조정 신청(9.28)','- 지난주 현황 줄']);
 });
 
 // WEEKLY-자료요약 화면 ① (docs/design/weekly-file-summary.md 4·5절): 그 주 자료가 조직 칸·프로젝트 줄에 '자료' 꼬리표 + "제목 — 요약"으로,
@@ -2900,7 +2899,7 @@ for(const width of [412,1440])test(`[주간 정리] 2) 주요 일정 수기 표:
  await expect(hqTexts(page).first()).toHaveText('10:30 / 가상 집행국 회의 / 가상 회관 6층 달력');
  await expect(titles.nth(0).locator('[data-hwpx-place-input]')).toHaveValue('가상 회관 6층',{timeout:10000});
  // 한글 파일: 1. 2) 칸에 두 줄(같은 값), 5. 주요 일정 칸은 '시간 / 제목 / 장소' 한 줄.
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {pkg,report}=await savedReport(download);
  const sec=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
  expect(sec).toContain('- 10.13.(화) 10:30 / 가상 집행국 회의 / 가상 회관 6층');
@@ -3027,7 +3026,7 @@ for(const width of [412,1440])test(`S46-27 1. 요청사항 세 칸: 상자 안�
  await pressMore(d.locator('[data-journal-discuss-row]').nth(2),'[data-journal-discuss-delete]');
  await expect(d.locator('[data-journal-discuss-row]')).toHaveCount(2);
  // 한글 파일: 1. 요청사항 아래 1) 임원 배정 요청 → 2) 주요 일정 → 3) 상집 논의 요청 + 줄.
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {pkg}=await savedReport(download);
  const sec=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
  const at=k=>sec.indexOf(k);
@@ -3060,7 +3059,7 @@ for(const width of [412,1440])test(`한글 파일 상자 5. 주요 일정: 날�
  await row.locator('[data-hwpx-who-input]').fill('가상 담당, 가상 임원');
  await row.locator('[data-hwpx-day-input]').fill('2026-10-16');
  await expect(row).toHaveAttribute('data-changed','true');
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.calendar.find(d=>d.day==='10.13.(화)').items).toEqual([]);
  expect(report.calendar.find(d=>d.day==='10.16.(금)').items).toEqual([{what:'11:00 / 가상 다음 주 회의 / 가상 회의실',who:['가상 담당','가상 임원']}]);
@@ -3109,7 +3108,7 @@ for(const width of [412,1440])test(`투쟁 사업장 현황: ⋯ 빼기·[되돌
  await site('가상 노동조합').locator('[data-hwpx-site-more] summary').click();
  await site('가상 노동조합').locator('[data-hwpx-site-hide]').click();
  await expect(siteNames(page)).toHaveText(['나 지역 모임']);
- const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  const {report}=await savedReport(download);
  expect(report.sites.map(s=>s.org)).toEqual([['나 지역 모임']]);
  await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
@@ -3216,7 +3215,7 @@ for(const width of [412,1440])test(`상자 5. 주요 일정: 칸 이름 흐린 �
  await expect(allDay).toHaveText('종일');await expect(allDay).toHaveAttribute('aria-pressed','false');
  await allDay.click();
  await expect(time).toHaveValue('종일');await expect(allDay).toHaveAttribute('aria-pressed','true');
- let [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ let [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  let {report}=await savedReport(download);
  expect(report.calendar.find(d=>d.day==='10.13.(화)').items.map(i=>i.what)).toEqual(['종일 / 가상 다음 주 회의 / 가상 회의실']);
  await allDay.click();
@@ -3226,7 +3225,7 @@ for(const width of [412,1440])test(`상자 5. 주요 일정: 칸 이름 흐린 �
  await expect(camp.locator('[data-hwpx-time-input]')).toHaveValue('10:30');
  await expect(camp.locator('[data-hwpx-title-input]')).toHaveValue('가상 결의대회');
  await expect(camp.locator('[data-hwpx-place-input]')).toHaveValue('가상 시의회');
- [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  ({report}=await savedReport(download));
  expect(report.calendar.find(d=>d.day==='10.13.(화)').items.map(i=>i.what)).toEqual(['11:00 / 가상 다음 주 회의 / 가상 회의실']);
  expect(report.calendar.find(d=>d.day==='10.14.(수) ~ 10.15.(목)').items.map(i=>i.what)).toEqual(['10:30 / 가상 결의대회 / 가상 시의회']);
