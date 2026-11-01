@@ -24,22 +24,34 @@ const SENTENCES = { p1: [{ idx: 0, text: '가상 본문 첫 문장이다.' }, { 
 async function outsideServer(page) {
   const server = {
     sources: new Map([['kctu', true], ['laborparty', true], ['kgreens', true], ['jacobin', true]].map(([k, on]) => [k, { source_key: k, enabled: on, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }])),
-    seen: [{ seen_at: '2026-10-05T00:00:00Z' }], calls: [],
+    seen: [{ seen_at: '2026-10-05T00:00:00Z' }], calls: [], extra: [],
   };
+  // 바로 읽기(read_now)는 열어 줄 때까지 붙잡아 둔다('읽는 중…' 확인용).
+  let release;
+  server.gate = new Promise(r => { release = r; });
+  server.release = () => release();
   server.sources.get('kgreens').last_error = 'robots';
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
     if (p === '/functions/v1/outside-feed') {
-      server.calls.push({ what: 'edge', action: u.searchParams.get('action'), method, auth: req.headers().authorization || '' });
-      return u.searchParams.get('action') === 'catalog' && method === 'POST' ? ok({ ok: true, sources: CATALOG }) : ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
+      const action = u.searchParams.get('action');
+      server.calls.push({ what: 'edge', action, method, auth: req.headers().authorization || '', body: req.postDataJSON?.() ?? null });
+      if (action === 'read_now' && method === 'POST') {
+        await server.gate;
+        const key = req.postDataJSON().source;
+        server.extra.unshift({ id: 'n-' + key, source_key: key, kind: 'statement', lang: 'ko', title: '[성명] 바로 읽은 가상 성명', title_ko: null, url: 'https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=1', published_at: '2026-10-06T00:50:00Z', fetched_at: '2026-10-06T01:00:00Z', summary_ko: '바로 읽은 가상 요약이다.', key_sentences: [], has_body: false });
+        const row = server.sources.get(key); if (row) row.last_ok_at = '2026-10-06T01:00:00Z';
+        return ok({ ok: true, source: key, status: 'ok', inserted: 1, deferred: 0 });
+      }
+      return action === 'catalog' && method === 'POST' ? ok({ ok: true, sources: CATALOG }) : ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
     }
     if (!p.startsWith('/rest/v1/app_outside_')) return route.fallback();
     const body = req.postDataJSON?.() ?? null;
     server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body });
     if (p === '/rest/v1/app_outside_posts') {
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      const rows = POSTS.filter(r => !inKeys || inKeys.includes(r.source_key));
+      const rows = [...server.extra, ...POSTS].filter(r => !inKeys || inKeys.includes(r.source_key));
       const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 100);
       return ok(rows.slice(offset, offset + limit));
     }
@@ -161,16 +173,27 @@ for (const width of [412, 1280]) {
     await sw('kptu').click();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'true');
     expect(server.calls.filter(c => c.what === 'app_outside_sources' && c.method === 'POST').at(-1).body).toEqual({ workspace_id: 'w', source_key: 'kptu', enabled: true });
+    // 켜면 그 단체만 바로 한 번 읽는다(OUTSIDE-이름·바로읽기): 사용자 로그인으로 Edge read_now, 몸통은 단체 키 하나.
+    await expect.poll(() => server.calls.filter(c => c.what === 'edge' && c.action === 'read_now').length).toBe(1);
+    expect(server.calls.find(c => c.action === 'read_now')).toMatchObject({ method: 'POST', auth: expect.stringMatching(/^Bearer /), body: { source: 'kptu' } });
+    await expect(root(page).locator('.os-src-row:has([data-os-source="kptu"]) .os-src-note')).toHaveText('읽는 중…');
     await sw('jacobin').click();
     await expect(sw('jacobin')).toHaveAttribute('aria-checked', 'false');
     const patch = server.calls.filter(c => c.what === 'app_outside_sources' && c.method === 'PATCH').at(-1);
     expect(Object.keys(patch.body).sort()).toEqual(['enabled', 'updated_at']);
     expect(patch.query).toContain('source_key=eq.jacobin');
     expect(await noWideScroll(page)).toBe(true);
+    // 끄기는 바로 읽기를 부르지 않는다. 읽기가 끝나면 단체 줄이 마지막 읽은 시각으로 바뀐다.
+    server.release();
+    await expect(root(page).locator('.os-src-row:has([data-os-source="kptu"]) .os-src-note')).toHaveText('마지막 10. 6. (화) 10:00');
+    expect(server.calls.filter(c => c.action === 'read_now').map(c => c.body.source)).toEqual(['kptu']);
 
     // 뒤로가기 한 번 = 목록(바깥 성명 화면 그대로). 칩 줄이 켠 단체대로 바뀐다.
     await page.goBack();
-    await expect(posts(page)).toHaveCount(POSTS.length);
+    // 바로 읽은 글이 목록에 곧바로 보이고, 위쪽 줄은 방금 읽은 시각(10:00, 08:07 예약분 뒤라 다음은 13:07).
+    await expect(posts(page)).toHaveCount(POSTS.length + 1);
+    await expect(post(page, 'n-kptu').locator('.os-title')).toHaveText('[성명] 바로 읽은 가상 성명');
+    await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 오늘 10:00 · 다음 13:07쯤');
     await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
     await expect(chips(page)).toHaveText(['전체', '민주노총', '공공운수노조', '정당', '노동당', '녹색당']);
 
