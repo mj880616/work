@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import {readBoundedJson} from '../../supabase/functions/_shared/bounded-json.mjs';
 import {createHwpEdit,HwpEditError} from '../../supabase/functions/_shared/hwp-edit.ts';
+import { withEdgeShared } from '../security/helpers/edge-shared.mjs';
 const helperURL = new URL(
   "../../supabase/functions/_shared/basket-file-origin.ts",
   import.meta.url,
@@ -9,7 +10,7 @@ const helperURL = new URL(
 const inspectBasketOriginal = existsSync(helperURL)
   ? (await import(helperURL.href)).inspectBasketOriginal
   : undefined;
-const source = stripTypeScriptTypes(
+const source = withEdgeShared(stripTypeScriptTypes(
   readFileSync(
     new URL(
       "../../supabase/functions/document-actions/index.ts",
@@ -18,7 +19,7 @@ const source = stripTypeScriptTypes(
     "utf8",
   ),
   { mode: "strip" },
-).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "").replace(/^import .*hwp-edit\.ts.*;\s*$/m, "").replace(/^import .*document-text\.ts.*;\s*$/m, "").replace(/^import .*file-rename\.ts.*;\s*$/m, "");
+).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "").replace(/^import .*hwp-edit\.ts.*;\s*$/m, "").replace(/^import .*document-text\.ts.*;\s*$/m, "").replace(/^import .*file-rename\.ts.*;\s*$/m, ""));
 export const folder = (id = "basket-1") => ({
   id,
   name: "Web2 바구니",

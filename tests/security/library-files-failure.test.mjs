@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { fileNameTitle, isMeaninglessName } from '../../supabase/functions/_shared/library-file-name.mjs';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 const { readMultipartForm } = await import('../../supabase/functions/_shared/multipart.ts');
 const { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } = await import('../../supabase/functions/_shared/ai-model.ts');
 const { outputText } = await import('../../supabase/functions/_shared/openai-responses.ts');
@@ -10,7 +11,7 @@ const { outputText } = await import('../../supabase/functions/_shared/openai-res
 // Runs the real library-files handler with mocked Supabase, Google Drive, and AI so each failure stage
 // can be checked for its status, structured error body, and Drive orphan cleanup. No network calls.
 const SOURCE = stripTypeScriptTypes(
-  readFileSync(new URL('../../supabase/functions/library-files/index.ts', import.meta.url), 'utf8')
+  withEdgeShared(readFileSync(new URL('../../supabase/functions/library-files/index.ts', import.meta.url), 'utf8'))
     .replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );

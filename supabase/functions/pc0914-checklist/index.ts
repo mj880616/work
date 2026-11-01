@@ -19,13 +19,13 @@ Deno.serve(async (req) => {
   const sb=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   if(req.method==="GET"){
     const {data,error}=await sb.from("checklist_state").select("item_key,checked,updated_at").eq("checklist","pc0914");
-    return new Response(JSON.stringify(error?{error:error.message}:data),{status:error?500:200,headers:cors});
+    return new Response(JSON.stringify(error?{error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}:data),{status:error?500:200,headers:cors});
   }
   if(req.method==="POST"){
     let body; try{body=await req.json()}catch{return new Response(JSON.stringify({error:"json"}),{status:400,headers:cors})}
     if(!allowed.has(body.item_key)||typeof body.checked!=="boolean") return new Response(JSON.stringify({error:"input"}),{status:400,headers:cors});
     const {error}=await sb.from("checklist_state").upsert({checklist:"pc0914",item_key:body.item_key,checked:body.checked,updated_at:new Date().toISOString()},{onConflict:"checklist,item_key"});
-    return new Response(JSON.stringify(error?{error:error.message}:{ok:true}),{status:error?500:200,headers:cors});
+    return new Response(JSON.stringify(error?{error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}:{ok:true}),{status:error?500:200,headers:cors});
   }
   return new Response(JSON.stringify({error:"method"}),{status:405,headers:cors});
 });

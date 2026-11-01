@@ -29,6 +29,7 @@
 #appView #newsView .nc-kw{ font-size:11px; color:var(--kptu-muted); }
 #appView #newsView .nc-kw::before{ content:"#"; }
 #appView #newsView .nc-title{ margin:0; font-size:14px; line-height:1.45; font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); overflow-wrap:anywhere; }
+#appView #newsView .nc-orig{ margin:0; font-size:var(--ds-text-meta,12px); line-height:1.4; color:var(--kptu-muted); overflow-wrap:anywhere; }
 #appView #newsView .nc-sum{ margin:0; font-size:13px; line-height:1.5; color:var(--kptu-ink); opacity:.86; overflow-wrap:anywhere; }
 #appView #newsView .nc-note,#appView #newsView .nc-faint{ margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #newsView .nc-faint.is-bad{ color:var(--kptu-danger); }

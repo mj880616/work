@@ -93,7 +93,7 @@ import {
 } from "./web2-ask.ts";
 import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
 import {
-  learnFromRows, parseWeeklyDraft, parseWeeklyDraftRequest, parseWeeklyLine, parseWeeklyLineRequest, parseWeeklyReview, parseWeeklyReviewRequest, readFeedbackCell, readRuleBook, mergeRuleBooks, freshCandidates, reviewSuggestions,
+  learnFromRows, parseWeeklyDraft, parseWeeklyDraftRequest, parseWeeklyLine, parseWeeklyLineRequest, parseWeeklyReview, parseWeeklyReviewRequest, readFeedbackCell, readPicksCell, readRuleBook, mergeRuleBooks, freshCandidates, reviewSuggestions,
   weeklyDraftMaterial, weeklyLineMaterial, weeklyReviewMaterial, withReview,
   WEEKLY_DRAFT_INSTRUCTIONS, WEEKLY_DRAFT_SCHEMA, WEEKLY_LEARN_BODY_BYTES, WEEKLY_LINE_INSTRUCTIONS, WEEKLY_LINE_SCHEMA, WEEKLY_REVIEW_INSTRUCTIONS, WEEKLY_REVIEW_SCHEMA,
   WL_DRAFT_OUTPUT_TOKENS, WL_LEARN_WEEKS, WL_LINE_OUTPUT_TOKENS, WL_REVIEW_OUTPUT_TOKENS,
@@ -210,7 +210,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ONLY_WHITESPACE = /^[\u0009-\u000d \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]*$/u;
 
 const cors: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -4429,7 +4428,7 @@ async function writeWeekDraftRow(ctx: Ctx, week: string, row: WeekDraftRow, draf
 async function readLearnRows(ctx: Ctx, week: string): Promise<unknown[]> {
   const from = addDays(week, -7 * (WL_LEARN_WEEKS * 3));
   try {
-    const rows = await rest(ctx, `${WEEKLY_REQUESTS_TABLE}?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&week_start=lt.${week}&week_start=gte.${from}&select=workspace_id,week_start,feedback:draft->feedback,rules:draft->rules&order=week_start.desc&limit=${WL_LEARN_WEEKS * 3}`);
+    const rows = await rest(ctx, `${WEEKLY_REQUESTS_TABLE}?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&week_start=lt.${week}&week_start=gte.${from}&select=workspace_id,week_start,feedback:draft->feedback,rules:draft->rules,picks:draft->picks&order=week_start.desc&limit=${WL_LEARN_WEEKS * 3}`);
     if (!Array.isArray(rows)) throw new Fail(503, "read_unavailable");
     return (rows as Record<string, unknown>[]).filter((r) => String(r.workspace_id).toLowerCase() === ctx.workspaceId && typeof r.week_start === "string" && r.week_start < week);
   } catch (e) {
@@ -4485,11 +4484,13 @@ async function runWeeklyReview(ctx: Ctx, input: WeeklyReviewInput, deps: RadarDe
   let row = await readWeekDraftRow(ctx, week);
   const draft = row?.draft as Record<string, unknown> | null | undefined;
   const current = row?.exists ? readFeedbackCell(draft?.feedback, week) : null;
-  if (!row || !current) throw new Fail(404, "not_found");
+  // WEEKLY-환류전칸 ⑤: 확정 전이라도 이 주 동작 기록(draft.picks)이 있으면 그것으로 정리한다. 둘 다 없으면 AI를 부르지 않는다.
+  const actions = row?.exists ? readPicksCell(draft?.picks) : [];
+  if (!row || (!current && !actions.length)) throw new Fail(404, "not_found");
   const learn = learnFromRows(await readLearnRows(ctx, week), week);
   // 바탕 규칙 칸: 이 행이 새 모양(v2)이면 그것, 아니면 앞 주 칸에 이 행의 옛 줄(후보로 읽힘)을 합친 것.
   const baseOf = (raw: unknown) => { const own = readRuleBook(raw); return own?.v2 ? own : mergeRuleBooks(learn.book, own); };
-  const material = weeklyReviewMaterial(current, learn.feedback, baseOf(draft?.rules ?? null));
+  const material = weeklyReviewMaterial(current, learn.feedback, baseOf(draft?.rules ?? null), week, actions);
   const raw = await callWeeklyAi(ctx, "weekly_review", deps, started, WEEKLY_REVIEW_INSTRUCTIONS, material, WEEKLY_REVIEW_SCHEMA, WL_REVIEW_OUTPUT_TOKENS);
   const parsed = parseWeeklyReview(raw);
   if (!parsed) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
@@ -4502,7 +4503,7 @@ async function runWeeklyReview(ctx: Ctx, input: WeeklyReviewInput, deps: RadarDe
     if (await writeWeekDraftRow(ctx, week, row, next, deps.now())) { saved = true; break; }
     row = await readWeekDraftRow(ctx, week);
   }
-  deps.log("weekly_review_done", { rules: learn.rules.length, candidates: review.candidates.length, suggestions: review.suggestions.length, saved, weeks: learn.weeks });
+  deps.log("weekly_review_done", { rules: learn.rules.length, candidates: review.candidates.length, suggestions: review.suggestions.length, saved, weeks: learn.weeks, actions: actions.length, confirmed: !!current });
   return json({ ok: true, kind: "weekly_review", week_start: week, saved, review: { at, candidates: review.candidates, suggestions: reviewSuggestions(review.suggestions) } });
 }
 

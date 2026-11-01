@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createShareMediaHandler, type MediaRow } from "./handler.ts";
+import { withWebCors } from "../_shared/web-cors.ts";
 
 // verify_jwt=true(신규, docs/web2-env6b-edge-source.md 5절). 코드에서도 로그인을 다시 확인한다.
 // 소유 확인·사진 기록 읽기·쓰기는 호출자의 로그인 토큰으로 DB(owner RLS)가 한다. 서버 키는 비공개 버킷 읽기·쓰기에만 쓴다.
@@ -11,7 +12,7 @@ const asUser = (token: string) => createClient(URL, Deno.env.get("SUPABASE_ANON_
   global: { headers: { Authorization: `Bearer ${token}` } },
 });
 
-Deno.serve(createShareMediaHandler({
+Deno.serve(withWebCors(createShareMediaHandler({
   async userId(token) {
     const { data, error } = await admin.auth.getUser(token);
     return error || !data.user ? null : data.user.id;
@@ -83,4 +84,4 @@ Deno.serve(createShareMediaHandler({
     const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(path, seconds);
     return error || !data ? null : data.signedUrl;
   },
-}));
+})));

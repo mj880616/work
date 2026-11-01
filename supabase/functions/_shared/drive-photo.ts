@@ -17,7 +17,6 @@ export const isUuid = (v: unknown): v is string =>
 export const isDriveId = (v: unknown): v is string =>
   typeof v === "string" && /^[A-Za-z0-9_-]{1,255}$/.test(v);
 export const photoCors = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

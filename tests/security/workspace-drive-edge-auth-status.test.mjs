@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // EDGE-워크스페이스401: workspace-drive (verify_jwt=false, auth in code) answers 401 when the caller is not logged in
 // (no token, malformed, forged, revoked, or expired) so runtime-client.js refreshes the session once and retries.
 // Input errors keep 400 and an auth server outage keeps 400 (a second 401 would make the app drop a valid session).
 // Runs the real handler against a mocked Supabase; no network calls.
 const SOURCE = stripTypeScriptTypes(
-  readFileSync(new URL('../../supabase/functions/workspace-drive/index.ts', import.meta.url), 'utf8').replace(/^import .*$/gm, ''),
+  withEdgeShared(readFileSync(new URL('../../supabase/functions/workspace-drive/index.ts', import.meta.url), 'utf8')).replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );
 
@@ -49,7 +50,7 @@ function harness() {
 async function send(h, { token = null, method = 'POST', action = '', body } = {}) {
   const u = new URL('https://sb.example/functions/v1/workspace-drive');
   if (action) u.searchParams.set('action', action);
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 'Content-Type': 'application/json', Origin: 'https://desk.bokdoong.com' };
   if (token !== null) headers.Authorization = 'Bearer ' + token;
   const response = await h.handler(new Request(u, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
   const text = await response.text();
@@ -71,7 +72,7 @@ test('workspace-drive: no Authorization header or an empty bearer answers 401 be
       const r = await send(h, { token, ...req });
       assert.equal(r.status, 401, `${JSON.stringify(req)} with token ${JSON.stringify(token)}`);
       assert.match(r.body.error, /로그인/);
-      assert.equal(r.headers.get('Access-Control-Allow-Origin'), '*', 'CORS headers stay on the 401');
+      assert.equal(r.headers.get('Access-Control-Allow-Origin'), 'https://desk.bokdoong.com', 'CORS headers stay on the 401');
       assert.deepEqual(h.calls, { db: [], fetch: [] });
     }
   }
@@ -123,7 +124,10 @@ test('workspace-drive: the download link without a token keeps 400 and CORS pref
   const h = harness();
   const dl = await send(h, { method: 'GET', action: 'download' });
   assert.equal(dl.status, 400);
-  const pre = await h.handler(new Request('https://sb.example/functions/v1/workspace-drive', { method: 'OPTIONS' }));
+  const pre = await h.handler(new Request('https://sb.example/functions/v1/workspace-drive', { method: 'OPTIONS', headers: { Origin: 'https://mj880616.github.io' } }));
   assert.equal(pre.status, 200);
-  assert.equal(pre.headers.get('Access-Control-Allow-Origin'), '*');
+  assert.equal(pre.headers.get('Access-Control-Allow-Origin'), 'https://mj880616.github.io');
+  const foreign = await h.handler(new Request('https://sb.example/functions/v1/workspace-drive', { method: 'OPTIONS', headers: { Origin: 'https://bokdoong.com.evil.example' } }));
+  assert.equal(foreign.status, 200);
+  assert.equal(foreign.headers.get('Access-Control-Allow-Origin'), null);
 });

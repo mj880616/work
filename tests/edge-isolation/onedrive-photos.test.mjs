@@ -21,7 +21,7 @@ test('real onedrive-photos graph checks/bundles with functions-only sources',{ti
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['onedrive-photos/graph.ts','onedrive-photos/handler.ts','onedrive-photos/index.ts']);
+  assert.deepEqual(local.sort(),['_shared/web-cors.ts','onedrive-photos/graph.ts','onedrive-photos/handler.ts','onedrive-photos/index.ts']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'onedrive-photos.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });
