@@ -186,6 +186,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   //             + 상태 한 줄, 그 아래 바탕을 연 뒤에만 보이는 것(다른 기기와 겹친 칸·일정 칸 고치기·환류 보고·기억).
   // 보고서 칸 줄은 weekly-flow-cells.js 가 그 주 draft 에서 그린다. 바탕 파일은 그 주 처음(칸 만들기)·파일 만들 때·일정 칸 고치기를 펼칠 때만 연다(ensure).
   const topLine = el('div', 'weekly-flow-top'); topLine.dataset.weeklyFlowTop = '';
+  // 맨 위 글 한 줄과 ⋯ 는 한 번만 만든다. 다시 그릴 때는 글만 바꿔, 저장·바탕 열기로 다시 그려도 열어 둔 ⋯ 가 닫히지 않는다.
+  const topText = el('span', 'weekly-flow-top-text');
+  const topMenu = rowMore(doc, {label:'일시·이름·바탕 고치기', data:{hwpxTopMore:''}, items:[{text:'이름 고치기', data:{hwpxTopMe:''}}, {text:'일시 고치기', data:{hwpxTopDate:''}}, {text:'바탕 바꾸기(기기 파일)', data:{hwpxPick:''}}, {text:'처음부터', data:{hwpxRestart:''}, danger:true}]});
   // 1. 요청사항 › 1) 위 한 줄: 바탕(지난주 확정본)에서 가져온 요청 줄 안내. [주간 정리]가 그 자리에 붙인다. 바탕을 연 판에서만 보인다.
   const reqNote = el('p', 'journal-muted journal-hwpx-requests-note'); reqNote.dataset.hwpxRequests = ''; reqNote.hidden = true;
   const panel = el('section', 'journal-hwpx-panel'); panel.hidden = true; panel.setAttribute('aria-label', '주간보고 한글 파일');
@@ -249,7 +252,6 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const me = s ? s.me : (d?.me_from === 'typed' ? d.me : '');
     const from = s ? s.baseKind : (d?.proposed?.base?.from ?? '');
     const base = from === 'personal' ? '지난 개인본' : from === 'file' ? '기기 파일' : from ? '팀 확정본' : '';
-    const line = el('span', 'weekly-flow-top-text');
     if (topEdit && s) {
       const input = el('input'); input.type = 'text'; input.value = topEdit === 'me' ? s.me : s.date; input.dataset.hwpxTopInput = topEdit;
       input.setAttribute('aria-label', topEdit === 'me' ? '담당 팀원 칸의 내 이름' : '■ 일시');
@@ -260,13 +262,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       requestAnimationFrame(() => input.focus());
       return;
     }
-    line.append('■ 일시 ', el('b', null, date || '—'));
-    if (me) { const name = el('b', null, me); const from = s ? s.meFrom : 'typed'; if (ME_FROM[from]) { name.title = ME_FROM[from]; name.dataset.hwpxMe = from; } line.append(' · ', name); }
-    if (base) line.append(` · 바탕 ${base}`);
-    if (flight && !s) line.append(' · 바탕 여는 중…');
-    const items = [{text:'이름 고치기', data:{hwpxTopMe:''}}, {text:'일시 고치기', data:{hwpxTopDate:''}}, {text:'바탕 바꾸기(기기 파일)', data:{hwpxPick:''}}, {text:'처음부터', data:{hwpxRestart:''}, danger:true}];
-    const menu = rowMore(doc, {label:'일시·이름·바탕 고치기', data:{hwpxTopMore:''}, items});
-    topLine.replaceChildren(line, draftLine, menu);
+    const parts = ['■ 일시 ', el('b', null, date || '—')];
+    if (me) { const name = el('b', null, me); const from = s ? s.meFrom : 'typed'; if (ME_FROM[from]) { name.title = ME_FROM[from]; name.dataset.hwpxMe = from; } parts.push(' · ', name); }
+    if (base) parts.push(` · 바탕 ${base}`);
+    if (flight && !s) parts.push(' · 바탕 여는 중…');
+    topText.replaceChildren(...parts);
+    const kids = topLine.children;
+    if (kids.length !== 3 || kids[0] !== topText || kids[1] !== draftLine || kids[2] !== topMenu) topLine.replaceChildren(topText, draftLine, topMenu);
     paintDraft();
   }
   function saveTop(value) {
