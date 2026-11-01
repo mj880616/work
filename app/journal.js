@@ -53,17 +53,16 @@ import {sheetView, shouldAutoMake, isAutoTime, seoulNow, openTarget as nextOpenT
 import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {paintHqSchedule} from './weekly-hq-schedule.js';
 import {paintDiscuss} from './weekly-discuss-table.js';
-import {withDiscussRow, discussFromRequest} from './weekly-discuss.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
-import {readWeekDraft, changeWeekDocs, withDocEdit, withDiscuss, draftDiscuss} from './weekly-draft-store.js';
+import {readWeekDraft, changeWeekDocs, withDocEdit} from './weekly-draft-store.js';
 import {mountHomeSummary} from './home-summary.js';
 import {paintWeeklyLearn} from './weekly-learn-panel.js'; // WEEKLY-환류학습
 import {droppedOf, keptOf} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {learnFor, markPick, releaseSig} from './weekly-picks.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
-import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord, dayLabel} from './weekly-exec-requests.js';
+import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
 import {cellTime, TIME_HINT} from './time-input.js';
 import {readAutoPromises} from './journal-ledger.js';
 import {readOverlapRows, askPairs, reviveOverlaps} from './overlap-weekly-data.js';
@@ -494,7 +493,7 @@ function paintBoxRequests(model, {force = !model} = {}) {
   const sig = JSON.stringify([week, {...execUi, draft:null}, flags(model.requests), model.requests?.items, flags(model.hq), model.hq?.rows, !!cal?.loading, (cal?.allRows ?? cal?.rows ?? []).length, flags(model.discuss), model.discuss?.rows]);
   if (!force && boxSigs.get(slot) === sig && slot.querySelector('[data-hwpx-req="discuss"]')) return;
   boxSigs.set(slot, sig);
-  const part = key => { let box = slot.querySelector(`[data-hwpx-req="${key}"]`); if (!box) { box = document.createElement('section'); box.className = 'journal-weekly-part'; box.dataset.hwpxReq = key; const h = document.createElement('h6'); h.className = 'journal-weekly-sub'; h.textContent = REQUEST_TITLES[key]; const body = document.createElement('div'); body.dataset.hwpxReqBody = ''; box.append(h, body); slot.append(box); } return box.querySelector('[data-hwpx-req-body]'); };
+  const part = key => { let box = slot.querySelector(`[data-hwpx-req="${key}"]`); if (!box) { box = document.createElement('section'); box.className = 'journal-weekly-part journal-part-has-add'; box.dataset.hwpxReq = key; const h = document.createElement('h6'); h.className = 'journal-weekly-sub'; h.textContent = REQUEST_TITLES[key]; const body = document.createElement('div'); body.className = 'journal-part-slot'; body.dataset.hwpxReqBody = ''; box.append(h, body); slot.append(box); } return box.querySelector('[data-hwpx-req-body]'); };
   const ask = part('ask'), hq = part('hq'), discuss = part('discuss');
   ask.replaceChildren(...execRequestsPart(document, model, execUi, 'box'));
   paintHqSchedule(hq, {model, start, rt, place:'box', redraw:() => paintBoxRequests(), onSaved:draftSaved(week)});
@@ -1220,7 +1219,7 @@ function addOrgRef(id, line) {
 }
 function closeOrgEdit() {
   const id = orgUi.editing?.id; orgUi.editing = null; renderWeekly_();
-  root.querySelector(`[data-journal-org-edit-open="${id}"]`)?.focus();
+  root.querySelector(`[data-journal-org-more="${id}"] > summary`)?.focus();
 }
 async function saveOrgEdit() {
   const edit = orgUi.editing; if (!edit || edit.saving) return;
@@ -1233,7 +1232,7 @@ async function saveOrgEdit() {
     if (!current(run, scope)) return;
     orgUi.editing = null; orgUi.status = `${edit.name} 요약을 저장했어요. 다시 만들어도 이 요약은 그대로예요.`; orgUi.error = false;
     await loadGroup('orgSummaries', run, scope);
-    root.querySelector(`[data-journal-org-edit-open="${edit.id}"]`)?.focus();
+    root.querySelector(`[data-journal-org-more="${edit.id}"] > summary`)?.focus();
   } catch (error) {
     if (!current(run, scope)) return;
     edit.saving = false; edit.status = error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : '저장하지 못했어요. 다시 시도해 주세요.';
@@ -1284,7 +1283,7 @@ function closeExecEdit(message = '') {
   const id = execUi.editing, where = execUi.where; execUi = {...freshExec(), status:message, where};
   renderWeekly_();
   const place = execPlace(where);
-  (place.querySelector(`[data-journal-exec-edit="${id}"]`) || place.querySelector('[data-journal-exec-add]'))?.focus();
+  (place.querySelector(`[data-journal-exec-more="${id}"] > summary`) || place.querySelector('[data-journal-exec-add]'))?.focus();
 }
 const execError = error => error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.code === 'changed' || error?.code === 'missing' || error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 시도해 주세요.';
 // One change of the week's rows; the screen then shows the saved row the server sent back.
@@ -1341,30 +1340,6 @@ async function deleteExecRow(id) {
     } catch (error) { return {status:'failed', message:execError(error)}; }
   }});
 }
-// S46-27 [3)으로 옮기기]: 1) 임원 배정 요청 줄 하나를 3) 상집 논의 요청 줄로(안건 = 내용, 설명 = 일·시간·장소). 3)에 먼저 쓰고(그 주 임시저장),
-// 된 뒤에 1)에서 지운다 — 중간에 실패하면 줄이 사라지지 않고 두 곳에 남는다(안내 후 사람이 1)에서 지움).
-async function moveExecToDiscuss(id) {
-  if (execUi.saving) return;
-  const item = execRows().find(row => row.id === id);
-  if (!item) return;
-  const week = start, run = epoch, scope = owner;
-  const draftRead = materials.weekDraft?.status === 'ok' ? materials.weekDraft.items : null;
-  if (!draftRead || draftRead.missing) { execUi.status = '3) 상집 논의 요청 저장 칸이 아직 준비되지 않았어요.'; execUi.error = true; renderWeekly_(); return; }
-  execUi.saving = true; execUi.status = '옮기는 중…'; execUi.error = false; renderWeekly_();
-  let full = false;
-  try {
-    const r = await changeWeekDocs({start:week, known:draftRead.row, change:draft => { const next = withDiscussRow(draftDiscuss(draft), discussFromRequest(item, dayLabel(item))); if (!next) { full = true; return draft; } return withDiscuss(draft, next); }}, rt);
-    if (!current(run, scope) || week !== start) return;
-    if (r.missing || full) { execUi.saving = false; execUi.status = full ? '3) 상집 논의 요청 줄이 가득 찼어요.' : '3) 상집 논의 요청 저장 칸이 아직 준비되지 않았어요.'; execUi.error = true; renderWeekly_(); return; }
-    materials.weekDraft = {status:'ok', items:{missing:false, row:r.row}};
-    hwpx.sync(week);
-  } catch { execUi.saving = false; execUi.status = '옮기지 못했어요. 다시 시도해 주세요.'; execUi.error = true; renderWeekly_(); return; }
-  try {
-    const result = await writeExec(list => list.filter(row => row.id !== id));
-    if (result.stale) return;
-  } catch (error) { execUi.saving = false; execUi.status = `3)에 넣었지만 1)에서 지우지 못했어요: ${execError(error)}`; execUi.error = true; renderWeekly_(); return; }
-  closeExecEdit('3) 상집 논의 요청으로 옮겼어요.');
-}
 // From the .hwpx box: last week's request rows that are still to come and relate to my workplaces/projects, once a week.
 // Returns {status:'saved'|'before'|'unsaved'|'failed'|'stale', added}.
 async function carryRequests(week, items) {
@@ -1403,7 +1378,6 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-org-edit-cancel]')) return closeOrgEdit();
   if (button.matches('[data-journal-exec-add]')) return openExecEdit('new', execWhere(button));
   if (button.matches('[data-journal-exec-edit]')) return openExecEdit(button.dataset.journalExecEdit, execWhere(button));
-  if (button.matches('[data-journal-exec-move]')) return void moveExecToDiscuss(button.dataset.journalExecMove);
   if (button.matches('[data-journal-exec-save]')) return void saveExecEdit();
   if (button.matches('[data-journal-exec-cancel]')) return closeExecEdit();
   if (button.matches('[data-journal-exec-delete]')) return void deleteExecRow(button.dataset.journalExecDelete);

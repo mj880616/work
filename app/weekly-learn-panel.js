@@ -7,6 +7,8 @@
 //   상자가 [확정] 뒤 환류 보고를 받으면 'kptu:weekly-learn-changed'를 보내고, 이 모듈이 다시 읽어 그린다.
 import {changeWeekDocs, missingDraft} from './weekly-draft-store.js';
 import {sortPicks, droppedOf, keptOf, withPick, emptyLearn} from './weekly-picks.mjs'; // S46-22 규칙 후보 [×]·답 학습
+import {emptyEl} from './wait-state.js';
+import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 규칙 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가](모양만, 규칙 상태 로직은 그대로)
 import {readFeedback, readRules, withRuleText, withoutRule, withRule, withAnswer, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS, SUGGESTION_AREA} from './weekly-feedback.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
@@ -129,7 +131,7 @@ function draw(slot, start, s, rt) {
   if (typing) s.ui.value = typing.value;
   s.ui.open = open;
   if (s.status === 'missing' || s.status === 'loading') { slot.replaceChildren(); return; }
-  const box = el('details', 'journal-weekly-chapter journal-weekly-memory'); box.dataset.journalWeeklyLearn = start; box.open = open;
+  const box = el('details', 'journal-weekly-chapter journal-weekly-memory journal-weekly-fold'); box.dataset.journalWeeklyLearn = start; box.open = open;
   box.addEventListener('toggle', () => { s.ui.open = box.open; });
   if (s.status === 'failed') { box.append(el('summary', null, '주간보고 규칙·환류'), el('p', 'journal-muted', '읽지 못했어요. 업무일지를 다시 열면 다시 읽어요.')); slot.replaceChildren(box); return; }
   const rr = rulesRow(s.rows), rules = rr?.rules?.lines ?? [], mine = s.rows.find(r => r.week_start === start)?.feedback ?? null;
@@ -139,9 +141,10 @@ function draw(slot, start, s, rt) {
   sum.append(el('span', 'journal-heading', '주간보고 규칙·환류'), ' ', el('small', 'journal-others-count', `규칙 ${rules.length}줄 · ${mine ? `이번 주 ${keptRate(mine.counts) ?? 0}% 그대로` : '이번 주 환류 없음'}${dev.length ? ` · 개발 후보 ${dev.length}` : ''}`));
   box.append(sum);
   // 규칙 목록
-  const part = el('section', 'journal-weekly-part'); part.dataset.journalLearnRules = rr?.week_start ?? '';
+  const part = el('section', 'journal-weekly-part journal-part-has-add'); part.dataset.journalLearnRules = rr?.week_start ?? '';
   part.append(el('h5', 'journal-weekly-sub', `주간보고 규칙${rr ? ` (${slash(rr.week_start)} 주 정리)` : ''}`));
-  if (!rules.length) part.append(el('p', 'journal-muted', '아직 없어요. [확정]하면 고침 기록에서 저절로 정리돼요.'));
+  if (!s.ui.adding && rules.length < RULES_MAX) { const add = el('button', 'journal-part-add-button', '+ 추가'); add.type = 'button'; add.dataset.journalLearnAdd = ''; add.disabled = s.ui.busy; add.setAttribute('aria-label', '규칙 더하기'); part.append(partAdd(doc, [add])); }
+  if (!rules.length) part.append(emptyEl());
   const ul = el('ul', 'journal-kinds-off-list');
   rules.forEach((rule, i) => {
     const li = el('li'); li.dataset.journalLearnRule = String(i);
@@ -153,9 +156,9 @@ function draw(slot, start, s, rt) {
     } else {
       li.append(el('span', null, rule.text));
       if (rule.from !== 'auto') li.append(' ', el('small', 'journal-muted', rule.from === 'edited' ? '고침' : '더함'));
-      const edit = el('button', 'mini', '고치기'); edit.type = 'button'; edit.dataset.journalLearnEdit = String(i); edit.disabled = s.ui.busy; edit.setAttribute('aria-label', `규칙 고치기: ${rule.text}`);
-      const del = el('button', 'mini', '지우기'); del.type = 'button'; del.dataset.journalLearnDelete = String(i); del.disabled = s.ui.busy; del.setAttribute('aria-label', `규칙 지우기: ${rule.text}`);
-      li.append(' ', edit, ' ', del);
+      li.append(rowMore(doc, {label:`규칙 메뉴: ${rule.text}`, data:{journalLearnMore:String(i)}, items:[
+        {text:'고치기', data:{journalLearnEdit:String(i)}, disabled:s.ui.busy, aria:`규칙 고치기: ${rule.text}`},
+        {text:'지우기', data:{journalLearnDelete:String(i)}, disabled:s.ui.busy, aria:`규칙 지우기: ${rule.text}`, danger:true}]}));
     }
     ul.append(li);
   });
@@ -166,7 +169,7 @@ function draw(slot, start, s, rt) {
     const go = el('button', 'mini', '더하기'); go.type = 'button'; go.dataset.journalLearnAddGo = '';
     const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalLearnCancel = '';
     row.append(input, ' ', go, ' ', cancel); part.append(row);
-  } else if (rules.length < RULES_MAX) { const add = el('button', 'mini', '규칙 더하기'); add.type = 'button'; add.dataset.journalLearnAdd = ''; add.disabled = s.ui.busy; part.append(add); }
+  }
   box.append(part);
   // 이번 주 환류 보고 · 개발 후보
   const card = mine ? reviewCard(doc, mine, prev, {busy:s.ui.busy, picks:s.rows.find(r => r.week_start === start)?.picks ?? null}) : null;
