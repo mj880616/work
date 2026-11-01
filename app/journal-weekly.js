@@ -622,8 +622,26 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const chapter = (key, title) => { const box = el('section', 'journal-weekly-chapter'); box.dataset.journalWeeklyChapter = key; box.append(el('h4', 'journal-heading', title)); return box; };
   const empty = (text = '없음') => emptyEl(text, {attrs: 'data-journal-weekly-empty'});
 
+  // 묶음 안 원래 기록 마디를 접힌 한 줄로 옮긴다(실패 줄·제목 줄 오른쪽 버튼·그 결과 줄은 밖에 둔다).
+  const foldRecords = (box, key, label, count) => {
+    const keep = n => n.matches('h5, h4, .wait-fail, .journal-part-add, .journal-org-ai-status');
+    const kids = [...box.children].filter(n => !keep(n));
+    const slot = flowSlot(key);
+    const after = [...box.children].filter(keep).at(-1);
+    if (after) after.after(slot); else box.prepend(slot);
+    if (kids.length) slot.after(recordsFold(key, label, count, kids));
+  };
   // ■ 일시: the report day (상집 보고일), the same date the .hwpx and the draft write.
-  const when = el('p', 'journal-weekly-date', `■ 일시 : ${reportDateText(model.start)} (상집 보고일)`); when.dataset.journalWeeklyDate = '';
+  // WEEKLY-한흐름확정 ②: 맨 위 한 줄(■ 일시 · 이름 · 바탕 · 임시저장 ⋯)은 journal-hwpx.js 가 그린 마디를 journal.js 가 이 자리에 붙인다.
+  const when = el('div', 'weekly-flow-top'); when.dataset.weeklyFlowTop = '';
+  // 보고서 칸 줄 자리(그리기는 weekly-flow-cells.js 하나, journal.js 가 부름). node 시험에서는 빈 자리.
+  const flowSlot = section => { const d = el('div', 'weekly-flow-cells'); d.dataset.weeklyFlowCells = section; return d; };
+  // 칸 밖 원래 기록(이번 주 기록·자료)은 칸 아래 접힌 한 줄 — 제안은 칸마다 보인다.
+  const recordsFold = (key, label, count, nodes) => {
+    const box = el('details', 'journal-org-raw weekly-flow-records'); box.dataset.journalWeeklyRecords = key;
+    box.open = !!host.querySelector?.(`[data-journal-weekly-records="${key}"]`)?.open;
+    box.append(el('summary', null, `${label} ${count}건`), ...nodes); return box;
+  };
   // 1. 요청사항: 1) the week's request rows (일 | 시간/내용/장소 | 참석 요청), each with a small ⋯ at the line end ([고치기]·[지우기]);
   // a small [+ 추가] on the heading line opens the same edit row (WEEKLY-화면디자인정리 11/01). 2)·3) the same shape.
   const one = chapter('requests', '1. 요청사항');
@@ -681,6 +699,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (s.ordered && s.quiet.length && s.count) { const q = muted(`이 주 기록 없는 사업영역: ${s.quiet.join(', ')}`); q.dataset.journalWeeklyQuiet = ''; summary.append(q); }
     const sGone = overlapFold(s.overlapped, 'summary'); if (sGone) summary.append(sGone);
   }
+  foldRecords(summary, 'summary', '이번 주 기록', s.count ?? 0);
   const meet = block('meetings', '2) 세부 내용 — 회의·활동 결과');
   if (!status(meet, model.meetings, '회의·활동 결과') && !model.meetings.failed.length) {
     const mt = model.meetings, off = mt.hidden || [];
@@ -808,7 +827,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (!o.sections.length && !o.failed.length) orgs.append(empty());
     const oGone = overlapFold(o.overlapped, 'orgs'); if (oGone) orgs.append(oGone);
   }
+  foldRecords(orgs, 'orgs', '조직 소식', (model.orgs.sections ?? []).reduce((n, x) => n + (x.items?.length ?? 0), 0));
   four.append(orgs);
+  // 3. 투쟁 사업장 현황(WEEKLY-한흐름확정 ②: 한글 파일 상자에서 옮김) — 칸 줄만, 구성은 칸 ⋯.
+  const three = chapter('sites', '3. 투쟁 사업장 현황');
+  three.append(flowSlot('sites'));
 
   // 5. 주요 일정: the two weeks from the next Monday in the form's cells; vacations as one line under the table.
   const five = chapter('calendar', '5. 주요 일정');
@@ -841,7 +864,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (c.noCalendar) { const p = muted(`'${REPORT_CALENDAR}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     cal.append(muted(`참석자 칸은 한글 파일에서 내 이름으로 채워요. '${REPORT_CALENDAR}' 달력 일정만 넣고, 일기·비공개 표시 일정은 빼요.`));
   }
-  five.append(cal);
+  // [확정하고 한글 파일 받기] 줄 자리(journal-hwpx.js 마디를 journal.js 가 붙임).
+  const confirmSlot = el('div', 'weekly-flow-confirm-slot'); confirmSlot.dataset.weeklyFlowConfirm = '';
+  five.append(cal, confirmSlot);
 
   // 참고
   // WEEKLY-칸밖재료접기(11/01 01:21): '참고 — 보고서 칸 밖 재료'부터 아래(주간보고 기억·규칙·환류)는 기본 접힘, 눌러 펼침. 접힌 줄은 제목 + 건수.
@@ -864,7 +889,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
 
   // WEEKLY-환류학습: '주간보고 규칙·환류' 자리 — 그림은 weekly-learn-panel.js 가 채운다(journal.js 가 그린 뒤 부름).
   const learn = el('div', 'journal-weekly-learn'); learn.dataset.journalWeeklyLearnSlot = '';
-  host.replaceChildren(when, one, two, four, five, ref, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks), learn);
+  host.replaceChildren(when, one, two, three, four, five, ref, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks), learn);
 }
 
 // S46-22: 뺀 제안 접기(다시 넣기). gone = sortPicks 의 gone.
