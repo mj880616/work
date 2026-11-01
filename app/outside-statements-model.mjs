@@ -153,3 +153,32 @@ export function sourceState(row) {
   }
   return row.enabled ? '아직 읽지 않음' : '';
 }
+
+// OUTSIDE-이름·바로읽기: 목록 위 작은 줄 '마지막으로 읽음 … · 다음 …'(글이 없을 때 언제 뜨는지 알 수 있게).
+// 예약 읽기 시각(서울). .github/workflows/outside-feed.yml의 cron '7 23,4,9 * * *'(UTC)와 같아야 한다(시험이 대조).
+export const FEED_SLOTS_KST = Object.freeze(['08:07', '13:07', '18:07']);
+const slotMs = (day, slot) => Date.parse(`${day}T${slot}:00+09:00`);
+// now 이전(같거나 앞)의 가장 늦은 예약 시각, now 뒤의 가장 이른 예약 시각.
+export function feedSlots(now = Date.now()) {
+  const today = kstDay(now);
+  const all = [addDays(today, -1), today, addDays(today, 1)].flatMap(d => FEED_SLOTS_KST.map(s => slotMs(d, s)));
+  return {prev: all.filter(t => t <= now).at(-1), next: all.find(t => t > now)};
+}
+const whenText = (ms, now) => {
+  const day = kstDay(ms), today = kstDay(now);
+  const head = day === today ? '오늘' : day === addDays(today, -1) ? '어제' : dayLabel(day);
+  return `${head} ${hhmm(new Date(ms).toISOString())}`;
+};
+// 켠 단체 줄(rows: app_outside_sources) → 한 줄 글. 켠 단체가 없으면 ''(빈 화면 안내가 따로 있음).
+// 마지막 읽음 = 켠 단체 중 가장 늦은 last_ok_at. 그것이 지난 예약 시각보다 앞이면 예약 실행이 늦어진 것이라 '다음 곧'.
+export function feedWhen(rows, now = Date.now()) {
+  const on = (rows || []).filter(r => r && r.enabled === true);
+  if (!on.length) return '';
+  const last = Math.max(-Infinity, ...on.map(r => Date.parse(r.last_ok_at || '')).filter(Number.isFinite));
+  const {prev, next} = feedSlots(now);
+  const lastText = Number.isFinite(last) ? `마지막으로 읽음 ${whenText(last, now)}` : '아직 읽지 않음';
+  const late = Number.isFinite(last) ? last < prev : false;
+  const nextDay = kstDay(next) === kstDay(now) ? '' : '내일 ';
+  const nextText = late ? `다음 곧(${hhmm(new Date(prev).toISOString())} 예정분)` : `다음 ${nextDay}${hhmm(new Date(next).toISOString())}쯤`;
+  return `${lastText} · ${nextText}`;
+}
