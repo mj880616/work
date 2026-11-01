@@ -9,7 +9,7 @@ const stalled={ok:true,checked_at:'2026-10-06T00:59:00.000Z',copy:{state:'found'
 const healthy={...stalled,copy:{...stalled.copy,last_success_at:'2026-10-06T00:30:00.000Z'}};
 const line=(page,key)=>page.locator(`#noticeBar [data-notice="${key}"]`);
 
-async function fixture(page,{width=1280,status=stalled,google='ok',prefs=null}={}){
+async function fixture(page,{width=1280,status=stalled,google='ok',prefs=null,warm=true}={}){
   await page.setViewportSize({width,height:844});
   if(prefs)await installViewPrefsServer(page,prefs);
   await openHome(page);
@@ -26,6 +26,16 @@ async function fixture(page,{width=1280,status=stalled,google='ok',prefs=null}={
   });
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  // 새 서버 호출 없음: 앱을 열기만 해서는 수집 상태를 읽지 않는다. 내 프로필 수집 칸이 읽은 값만 줄이 쓴다.
+  await page.waitForTimeout(300);
+  expect(calls.filter(a=>a==='status')).toHaveLength(0);
+  await expect(page.locator('#noticeBar [data-notice="collect"]')).toHaveCount(0);
+  if(warm){
+    await page.evaluate(()=>window.KPTURouter.go('profile'));
+    await expect(page.locator('#psStatusPanel')).toBeVisible({timeout:15000});
+    await expect.poll(()=>calls.filter(a=>a==='status').length).toBe(1);
+    await page.evaluate(()=>window.KPTURouter.go('calendar'));
+  }
   return {calls};
 }
 const geometry=page=>page.evaluate(()=>{
@@ -65,6 +75,7 @@ test('collection stall ✕ hides it for today on the server (view_prefs.collect_
   expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>/notice|collect/i.test(k)))).toEqual([]);
   // 다른 기기·새로고침: 서버 값이 오늘이라 안 뜬다.
   await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  await page.evaluate(()=>window.KPTURouter.go('profile'));await expect(page.locator('#psStatusPanel [data-collect="copy"]')).toBeVisible({timeout:15000});
   await page.evaluate(()=>window.KPTURouter.go('calendar'));await page.waitForTimeout(300);
   await expect(page.locator('#noticeBar')).toHaveCount(0);
 });

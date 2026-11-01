@@ -294,12 +294,14 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
   }
   return {refresh, destroy() { alive = false; run++; alert?.removeEventListener('click', onClick); phoneQuery?.removeEventListener?.('change', onMedia); }};
 }
-// UI-앱안알림 2단계: 맨 위 알림 줄(notice-lines.js)의 '수집 멈춤' 재료. 내 프로필 '마지막 수집 시각' 칸과 같은 읽기·같은 탭 메모리(10분)·
-// 같은 기준(summarize)을 쓴다 — 칸과 줄이 서로 다른 판정을 내리지 않고, 10분 안에는 서버에 다시 묻지 않는다. 운영자 작업공간이 아니면 null.
+// UI-앱안알림 2단계: 맨 위 알림 줄(notice-lines.js)의 '수집 멈춤' 재료. 내 프로필 '마지막 수집 시각' 칸과 같은 기준(summarize)이고,
+// 서버에 새로 묻지 않는다(새 서버 호출 금지): 그 칸이 이 탭에서 이미 읽어 둔 값(10분 메모리)이나 읽는 중인 것만 본다. 없으면 null.
+// 운영자 작업공간이 아니어도 null.
 export async function readCollectionAttention(rt = window.KPTURuntime, now = () => Date.now()) {
   if (!isOwner(rt)) return null;
   const scope = scopeOf(rt);
-  const raw = cache && cache.scope === scope && now() - cache.at < CACHE_MS ? cache.raw : await readShared(rt, scope, now).catch(() => null);
+  const raw = cache && cache.scope === scope && now() - cache.at < CACHE_MS ? cache.raw
+    : pending && pending.scope === scope ? await pending.promise.catch(() => null) : null;
   if (scope !== scopeOf(rt) || !raw) return null;
   const sum = summarize(raw, now());
   return sum.empty ? null : sum;
