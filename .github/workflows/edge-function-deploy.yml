@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       ref:
-        description: Commit SHA or branch to deploy; use the previously deployed SHA to roll back
+        description: Commit SHA or branch already merged into main; use the previously deployed main SHA to roll back
         required: true
         type: string
         default: main
@@ -41,6 +41,8 @@ concurrency:
 
 jobs:
   deploy:
+    # The workflow definition itself must come from main.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: production-edge
@@ -57,7 +59,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Require merged main commit
+        run: |
+          set -euo pipefail
+          # Only commits already merged into main (current or earlier, for rollback) may be deployed.
+          git rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}' > /dev/null || { echo 'main history is missing'; exit 1; }
+          deploy_sha="$(git rev-parse --verify 'HEAD^{commit}')"
+          git merge-base --is-ancestor "$deploy_sha" refs/remotes/origin/main || { echo 'Deployment ref must be a commit already merged into main'; exit 1; }
+          printf 'Main ancestor check: `%s` is in main history.\n\n' "$deploy_sha" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate inputs
         run: |

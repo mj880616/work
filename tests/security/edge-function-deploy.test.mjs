@@ -252,3 +252,48 @@ test('first-deploy failure summary requires manual dashboard decision even witho
     assert.doesNotMatch(summary, /Rollback uses the same button/);
   }
 }));
+
+test('deployment runs only from the main workflow and fetches full history for the ancestor check', () => {
+  assert.match(source, /  deploy:\n    # [^\n]*\n    if: github\.ref == 'refs\/heads\/main'\n/);
+  assert.match(source, /ref: \$\{\{ inputs\.ref \}\}\n          fetch-depth: 0\n          persist-credentials: false\n/);
+  const steps = [...source.matchAll(/      - name: ([^\n]+)\n/g)].map(m => m[1]);
+  assert.equal(steps[0], 'Check out requested deployment ref');
+  assert.equal(steps[1], 'Require merged main commit');
+});
+
+function gitSandbox(run) {
+  const cwd = mkdtempSync(join(tmpdir(), 'edge-deploy-git-'));
+  const git = (...args) => {
+    const result = spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid' } });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  try {
+    git('init', '-q', '-b', 'main');
+    git('commit', '-q', '--allow-empty', '-m', 'old main');
+    const oldMain = git('rev-parse', 'HEAD');
+    git('commit', '-q', '--allow-empty', '-m', 'new main');
+    const newMain = git('rev-parse', 'HEAD');
+    git('update-ref', 'refs/remotes/origin/main', newMain);
+    git('checkout', '-q', '-b', 'feature');
+    git('commit', '-q', '--allow-empty', '-m', 'unmerged');
+    const unmerged = git('rev-parse', 'HEAD');
+    return run({ cwd, git, oldMain, newMain, unmerged });
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+}
+
+test('only commits already merged into main (current or earlier for rollback) pass the ancestor check', () => gitSandbox(({ cwd, git, oldMain, newMain, unmerged }) => {
+  const check = sha => {
+    git('checkout', '-q', '--detach', sha);
+    return spawnSync('bash', ['-c', script('Require merged main commit')], {
+      cwd, encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: join(cwd, '.summary') },
+    });
+  };
+  assert.equal(check(newMain).status, 0);
+  assert.equal(check(oldMain).status, 0);
+  const rejected = check(unmerged);
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stdout, /already merged into main/);
+  git('update-ref', '-d', 'refs/remotes/origin/main');
+  assert.notEqual(check(newMain).status, 0);
+}));
