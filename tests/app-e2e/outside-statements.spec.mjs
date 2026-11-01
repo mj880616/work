@@ -176,7 +176,8 @@ for (const width of [412, 1280]) {
     // 켜면 그 단체만 바로 한 번 읽는다(OUTSIDE-이름·바로읽기): 사용자 로그인으로 Edge read_now, 몸통은 단체 키 하나.
     await expect.poll(() => server.calls.filter(c => c.what === 'edge' && c.action === 'read_now').length).toBe(1);
     expect(server.calls.find(c => c.action === 'read_now')).toMatchObject({ method: 'POST', auth: expect.stringMatching(/^Bearer /), body: { source: 'kptu' } });
-    await expect(root(page).locator('.os-src-row:has([data-os-source="kptu"]) .os-src-note')).toHaveText('읽는 중…');
+    // 기다리는 동안 그 단체 줄에 공용 작은 기다림 표시(wait-state.js).
+    await expect(root(page).locator('.os-src-row:has([data-os-source="kptu"]) [data-os-reading] [data-wait]')).toHaveCount(1);
     await sw('jacobin').click();
     await expect(sw('jacobin')).toHaveAttribute('aria-checked', 'false');
     const patch = server.calls.filter(c => c.what === 'app_outside_sources' && c.method === 'PATCH').at(-1);

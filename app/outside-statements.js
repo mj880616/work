@@ -1,4 +1,4 @@
-import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {fitChipRows} from './chip-rows.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState, feedWhen} from './outside-statements-model.mjs';
@@ -127,9 +127,9 @@ function sourcesHtml() {
     if (!members.length) return '';
     return `<section class="os-src-group" aria-label="${esc(g.label)}"><h3 class="os-src-group-head">${esc(g.label)}</h3>${members.map(s => {
       const row = state.sources.get(s.key), on = row?.enabled === true, busy = state.saving.has(s.key);
-      const note = state.reading.has(s.key) ? '읽는 중…' : state.readNote.get(s.key) || sourceState(row);
+      const reading = state.reading.has(s.key), note = reading ? '' : state.readNote.get(s.key) || sourceState(row);
       const bad = row?.last_error ? ' is-bad' : '';
-      return `<div class="os-src-row"><button type="button" class="os-switch" role="switch" data-os-source="${esc(s.key)}" aria-checked="${on}"${busy ? ' disabled' : ''}><span class="os-switch-dot" aria-hidden="true"></span><span class="os-src-name">${esc(s.name)}</span></button>${note ? `<span class="os-src-note${bad}">${esc(note)}</span>` : ''}</div>`;
+      return `<div class="os-src-row"><button type="button" class="os-switch" role="switch" data-os-source="${esc(s.key)}" aria-checked="${on}"${busy ? ' disabled' : ''}><span class="os-switch-dot" aria-hidden="true"></span><span class="os-src-name">${esc(s.name)}</span></button>${reading ? `<span class="os-src-note" data-os-reading>${waitInlineHtml()}</span>` : note ? `<span class="os-src-note${bad}">${esc(note)}</span>` : ''}</div>`;
     }).join('')}</section>`;
   }).join('');
   return head + (state.saveFailed ? failHtml({text: '저장하지 못했습니다', reason: state.saveFailed}) : '') + groups;
@@ -154,8 +154,11 @@ function paint() {
   const when = $('[data-os-when]');
   if (when) {
     const reading = [...state.reading].map(nameOf).join(', ');
-    const text = state.mode !== 'list' ? '' : reading ? `${reading} 읽는 중…` : state.sourcesLoaded ? feedWhen([...state.sources.values()]) : '';
-    when.textContent = text; when.hidden = !text;
+    // 바로 읽는 동안은 단체 이름 + 공용 작은 기다림 표시(wait-state.js), 아니면 마지막·다음 읽기 글.
+    const text = state.mode !== 'list' || reading ? '' : state.sourcesLoaded ? feedWhen([...state.sources.values()]) : '';
+    if (state.mode === 'list' && reading) when.innerHTML = `<span class="os-reading">${esc(reading)}</span> ${waitInlineHtml()}`;
+    else when.textContent = text;
+    when.hidden = !(text || (state.mode === 'list' && reading));
   }
   const list = $('[data-os-list]'), sources = $('[data-os-sources]');
   if (state.mode === 'sources') { sources.innerHTML = sourcesHtml(); list.replaceChildren(); }
@@ -268,7 +271,7 @@ async function toggleSource(key) {
   }
 }
 
-// 켜면 그 단체만 바로 한 번 읽는다. 기다리는 동안 '읽는 중…' 한 줄, 끝나면 단체 줄(마지막 읽은 시각)과 목록을 다시 읽는다.
+// 켜면 그 단체만 바로 한 번 읽는다. 기다리는 동안 공용 작은 기다림 표시, 끝나면 단체 줄(마지막 읽은 시각)과 목록을 다시 읽는다.
 // 실패해도 켬은 그대로이고 다음 예약 실행이 읽는다.
 async function readNow(key) {
   if (state.reading.has(key)) return;
