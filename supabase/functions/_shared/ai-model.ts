@@ -19,6 +19,24 @@ export const DEFAULT_PRICE_OUT_KRW_PER_MTOK = 700;
 // - 제목·이름·표 칸 값은 이 규칙 대상이 아니다. 지시문마다 요약 문장이 들어가는 칸에만 쓰게 한다.
 export const AI_TONE_RULE = "말투: 요약·정리 문장은 '~함.'·'~임.'·'~됨.'·'~필요함.'처럼 짧은 명사형으로 맺는다. '~했다'·'~한다'·'~이다'·'~합니다'·'~입니다'·'~해요'로 끝내지 않는다. 예: '제작하기로 했다' → '제작하기로 함', '확인해야 한다' → '확인 필요함', '목표이다' → '목표임'. 제목·이름·날짜·정해진 값 칸에는 쓰지 않고, 글 속에서 따온 말은 원문 그대로 둔다.";
 
+// AI가 요약 대신 쓰는 '재료 없음' 안내 문장(말투 규칙 탓에 '…없음'·'…불가함'으로 맺힌다) 검사 목록(OUTSIDE-읽기고침·요약·순서, 11/01 요청).
+// 요약 칸에 이런 문장이 오면 요약이 아니므로 비운다(제목만 보임). 실제 요약 속 '내용이 없어 비판함' 같은 말과 섞이지 않게
+// '요약'·'본문/원문/기사/글'과 '없음·제공되지 않음·확인할 수 없음'이 함께 있는 짧은 안내 꼴만 잡는다. 새 꼴을 보면 여기에 더한다(시험: tests/ai-tone.test.mjs).
+export const AI_NO_MATERIAL_PATTERNS: readonly RegExp[] = Object.freeze([
+  /요약할\s*수\s*(가\s*)?없/,
+  /요약(이|은)?\s*(불가|어려)/,
+  /(본문|원문|기사\s*본문|글\s*본문|기사|글의?\s*내용|본문\s*내용)(이|은|을|가)?\s*(제공되지\s*않|없(어|음|으므로|는|습)|비어\s*있|확인(할|되)\s*수\s*없|확인되지\s*않|포함되(어\s*있)?지\s*않)/,
+  /제목만(으로는|\s*있|\s*제공)/,
+  /(요약할|정리할)\s*(내용|재료|정보)(이|가)?\s*(없|부족)/,
+  /\b(cannot|can't|unable to)\s+(be\s+)?summari[sz]/i,
+  /\bno\s+(article\s+)?(body|content|text)\s+(was\s+|is\s+)?(provided|available)/i,
+]);
+export function aiSaysNoMaterial(text: unknown): boolean {
+  const s = typeof text === "string" ? text.replace(/\s+/g, " ").trim() : "";
+  if (!s) return false;
+  return AI_NO_MATERIAL_PATTERNS.some((re) => re.test(s));
+}
+
 // Responses 요청 몸통에 생각 수준을 붙인다. 부르는 쪽이 이미 reasoning을 정했으면 그대로 둔다.
 export function withReasoning<T extends Record<string, unknown>>(body: T): T & { reasoning: unknown } {
   return { ...body, reasoning: body.reasoning ?? { effort: AI_REASONING_EFFORT } };

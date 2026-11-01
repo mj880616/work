@@ -154,9 +154,10 @@ export function looksLikeBotCheck(text: string): boolean {
 // ---- 목록 HTML -----------------------------------------------------------------------------------------------------
 
 // 목록 페이지의 <a href> 가운데 카탈로그 글 주소 규칙(item)에 맞는 것만. 같은 글에 링크가 여럿이면 가장 긴 글자를 제목으로.
-export function parseListHtml(source: OutsideSource, html: string, base: string, limit = 30, stats?: ListStats): ListItem[] {
+export function parseListHtml(source: OutsideSource, html: string, base: string, limit = 30, stats?: ListStats, nowMs = Date.now()): ListItem[] {
   if (!source.item) return [];
   const best = new Map<string, string>();
+  const dates = new Map<string, string>();
   const order: string[] = [];
   const body = html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ");
   for (const m of body.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
@@ -174,10 +175,16 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     try { abs = new URL(decodeEntities(raw), base).href; } catch { continue; }
     if (!source.item.test(abs)) continue;
     const url = canonicalUrl(source, abs);
-    const title = (source.titleClass ? innerTitle(m[2], source.titleClass) : null) ?? cleanTitle(m[2]) ?? cleanTitle(/\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "");
+    const title = (source.titleAttr ? innerTitleAttr(m[2]) : null) ?? (source.titleClass ? innerTitle(m[2], source.titleClass) : null)
+      ?? cleanTitle(m[2]) ?? cleanTitle(/\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "");
     if (!url || !title) continue;
     if (!best.has(url)) order.push(url);
     if (len(title) > len(best.get(url) ?? "")) best.set(url, title);
+    if (source.dateClass && !dates.has(url)) {
+      const d = innerTitle(m[2], source.dateClass);
+      const t = d ? textDate(d, nowMs) : null;
+      if (t) dates.set(url, t);
+    }
   }
   if (stats) stats.candidates += order.length;
   const out: ListItem[] = [];
@@ -186,9 +193,15 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     const title = best.get(url)!;
     const kind = source.kindOf(title, url);
     if (!kind) continue;
-    out.push({ url, title, kind, published_at: null, author: null, summary: null, content: null });
+    out.push({ url, title, kind, published_at: dates.get(url) ?? null, author: null, summary: null, content: null });
   }
   return out;
+}
+
+// 링크 안 첫 title="…" 값(목록 카드의 그림 title처럼 줄임표 없이 제목 전체가 든 경우, 단체 규칙 titleAttr). 없으면 null.
+function innerTitleAttr(inner: string): string | null {
+  const m = /\btitle\s*=\s*(?:"([^"]{1,1000})"|'([^']{1,1000})')/i.exec(inner);
+  return m ? cleanTitle(m[1] ?? m[2] ?? "") : null;
 }
 
 // 링크 안에서 class 이름 하나가 re에 맞는 첫 칸의 글자(같은 이름 닫는 태그까지). 없으면 null.
@@ -209,19 +222,53 @@ function innerTitle(inner: string, re: RegExp): string | null {
 
 // ---- 글 본문 ------------------------------------------------------------------------------------------------------
 
-const END_MARK = /^(목록|목록으로|이전글|다음글|윗글|아랫글|이전 글|다음 글|댓글|덧글|관련\s?글|공유하기|SNS 공유|Share this|Related|Comments?|Leave a (reply|comment)|Copyright|ⓒ|©)/i;
-// 글 페이지에서 본문 글자만: <article>(또는 본문 칸)이 있으면 그 안, 없으면 페이지 전체. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
-export function extractBody(html: string, title: string): string {
-  const scoped = /<article\b[^>]*>([\s\S]*?)<\/article\s*>/i.exec(html)?.[1]
+const END_MARK = /^(목록|목록으로|이전글|다음글|윗글|아랫글|이전 글|다음 글|댓글|덧글|관련\s?글|공유하기|SNS 공유|Share this|Related|Comments?|Leave a (reply|comment)|Copyright|ⓒ|©|(수정|삭제)(\s+(수정|삭제|목록))*$)/i;
+// 첨부 파일 이름 줄(본문이 그림·한글 파일뿐인 글의 '…성명.hwp' 등)은 본문이 아니다.
+const FILE_LINE = /\.(hwpx?|pdf|docx?|xlsx?|pptx?|jpe?g|png|gif|zip)$/i;
+
+// 단체 규칙 bodyClass(class 이름 또는 id 하나가 맞는 칸)의 안쪽 HTML을 모두(같은 이름 칸이 여럿이면 차례로 이어서). 짝 맞는 닫는 태그까지만.
+export function bodyBlocks(html: string, re: RegExp): string {
+  const parts: string[] = [];
+  const open = /<([a-z][a-z0-9]{0,9})\b([^>]*)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = open.exec(html))) {
+    const attrs = m[2];
+    const cls = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+    const id = /\bid\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+    const names = [...(cls?.[1] ?? cls?.[2] ?? "").split(/\s+/), id?.[1] ?? id?.[2] ?? ""].filter(Boolean);
+    if (!names.some((n) => re.test(n))) continue;
+    const tag = m[1].toLowerCase();
+    const start = m.index + m[0].length;
+    const step = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi");
+    step.lastIndex = start;
+    let depth = 1, end = -1, t: RegExpExecArray | null;
+    while ((t = step.exec(html))) {
+      if (t[1]) { if (--depth === 0) { end = t.index; break; } }
+      else if (!t[0].endsWith("/>")) depth++;
+    }
+    if (end < 0) end = html.length;
+    parts.push(html.slice(start, end));
+    open.lastIndex = end;
+    if (parts.length >= 20) break;
+  }
+  return parts.join("\n");
+}
+
+// 글 페이지에서 본문 글자만: 단체 규칙 bodyClass 칸 → <article>(또는 흔한 본문 칸) → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
+export function extractBody(html: string, title: string, bodyClass?: RegExp): string {
+  const own = bodyClass ? bodyBlocks(html, bodyClass) : "";
+  const scoped = (own.trim() ? own : null)
+    ?? /<article\b[^>]*>([\s\S]*?)<\/article\s*>/i.exec(html)?.[1]
     ?? /<(?:div|section)\b[^>]*\b(?:class|id)\s*=\s*["'][^"']*\b(?:entry-content|post-content|article-body|article_body|view_content|view-content|board_view|bbs_view|xe_content|rd_body|content_view|viewContent|bo_v_con)\b[^"']*["'][^>]*>([\s\S]*)/i.exec(html)?.[1]
     ?? (/<body\b[^>]*>([\s\S]*)<\/body\s*>/i.exec(html)?.[1] ?? html);
   const cleaned = scoped.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " ");
   const lines = htmlToText(cleaned).split("\n");
-  const start = afterTitle(lines, title);
+  // 단체 본문 칸 안은 처음부터 본문이다(제목 찾기를 하면 '…규탄한다.hwp' 같은 첨부 이름 줄 뒤부터 읽게 된다).
+  const start = own.trim() ? 0 : afterTitle(lines, title);
   const body: string[] = [];
   for (const l of lines.slice(start)) {
     if (END_MARK.test(l)) break;
-    if (DATE_ONLY.test(l)) continue; // 글 머리의 날짜·시각 줄은 본문이 아니다
+    if (DATE_ONLY.test(l) || FILE_LINE.test(l)) continue; // 글 머리의 날짜·시각 줄, 첨부 파일 이름 줄은 본문이 아니다
     body.push(l);
   }
   return cut(body.join("\n").trim(), BODY_MAX_CHARS);

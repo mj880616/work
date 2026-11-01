@@ -16,7 +16,7 @@
 //   app_workspace_members 읽기뿐이다. 로그·응답에는 단계 코드·건수·단체 키만(제목·본문·주소 없음).
 import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSource } from "../_shared/outside-catalog.ts";
 import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_shared/openai-responses.ts";
-import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
+import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cut, decodeBody, extractBody, looksLikeBotCheck, oneLine, pageDate, parseFeed, parseListHtml, robotsAllows, splitSentences, type ListItem, type ListStats } from "./parse.ts";
 
@@ -43,6 +43,12 @@ export const READ_NOW_COOLDOWN_MS = 10 * 60000;    // 바로 읽기: 마지막�
 export const READ_NOW_BUDGET_MS = 60000;           // 바로 읽기: 화면이 기다리는 요청이라 예약보다 짧게
 export const READ_NOW_MAX_NEW = 5;                 // 바로 읽기: 새 글 상한(나머지는 다음 예약 실행)
 export const MAX_BODY_BYTES = 4096;
+export const MIN_BODY_CHARS = 60;                  // 이보다 짧은 본문은 본문이 없는 것으로 본다(글쓴이·등록일 줄만 뽑힌 경우 등) — AI에 보내지 않음
+// robots.txt 예외(명진 결정 11/01 16:49): 이 목록에 있고 카탈로그에도 robotsException이 적힌 단체만 robots.txt를 읽지 않는다.
+// 지금은 공공운수노조(kptu) 하나뿐이다. 늘리려면 명진 결정 + 이 줄·카탈로그·시험을 함께 고치는 PR이 필요하다(시험이 ['kptu']로 고정).
+// 예외 단체는 예약 실행 때만 읽고(바로 읽기 없음) 목록 한 쪽 + 새 글만 읽는다(다른 단체와 같은 LIST_LIMIT·MAX_NEW_PER_RUN·GAP_MS).
+export const ROBOTS_EXEMPT_KEYS: readonly string[] = Object.freeze(["kptu"]);
+export const robotsExempt = (source: OutsideSource) => ROBOTS_EXEMPT_KEYS.includes(source.key) && typeof source.robotsException === "string" && source.robotsException.length > 0;
 const OPENAI_URL = "https://api.openai.com/v1/responses";
 const KEY_NAME = "WEB2_OPENAI_API_KEY";
 const AI_TIMEOUT_MS = 45000;
@@ -216,12 +222,13 @@ function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>,
     async get(source, rawUrl, wantFeed) {
       const u = allowedUrl(source, rawUrl);
       if (!u) return { ok: false, code: "url_outside" };
-      const rb = await robotsFor(source, u);
+      const exempt = robotsExempt(source);
+      const rb = exempt ? { text: "", code: "" } : await robotsFor(source, u);
       if (rb.text === null) return { ok: false, code: rb.code };
       if (!robotsAllows(rb.text, ROBOTS_AGENT, u.pathname + u.search)) return { ok: false, code: "robots" };
       const got = await follow(source, u, wantFeed ? "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9" : "text/html, application/xhtml+xml;q=0.9");
       if (!got.ok) return got;
-      if (got.url.href !== u.href && !robotsAllows((await robotsFor(source, got.url)).text ?? "User-agent: *\nDisallow: /", ROBOTS_AGENT, got.url.pathname + got.url.search)) {
+      if (!exempt && got.url.href !== u.href && !robotsAllows((await robotsFor(source, got.url)).text ?? "User-agent: *\nDisallow: /", ROBOTS_AGENT, got.url.pathname + got.url.search)) {
         try { await got.res.body?.cancel(); } catch { /* ignore */ }
         return { ok: false, code: "robots" };
       }
@@ -242,6 +249,7 @@ function makeReader(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>,
 const KO_SUMMARY_INSTRUCTIONS = [
   "노동·진보 단체가 낸 성명·논평·보도자료 한 건을 받는다. 무엇에 대해 어떤 입장·요구인지 한국어 한 문장(120자 안쪽)으로 요약한다.",
   "본문에 없는 내용을 지어내지 않는다. 단체 이름·날짜는 본문에 있는 그대로 쓴다.",
+  "본문이 비었거나 글쓴이·날짜뿐이라 요약할 재료가 없으면 summary를 빈 글자(\"\")로 둔다. '요약할 수 없음'·'본문이 없음' 같은 안내 문장을 쓰지 않는다.",
   AI_TONE_RULE,
 ].join("\n");
 const KO_SUMMARY_SCHEMA = { type: "object", additionalProperties: false, required: ["summary"], properties: { summary: { type: "string" } } };
@@ -250,6 +258,7 @@ const EN_INSTRUCTIONS = [
   "title_ko: 제목의 한국어 번역(100자 안쪽). summary_ko: 글의 주장·근거를 한국어 3~5문장(600자 안쪽)으로 요약.",
   "key_sentences: 글에서 가장 중요한 문장 3개까지. orig는 본문에서 글자 그대로 따온 영어 문장(300자 안쪽, 고치거나 줄이지 않음), ko는 그 문장의 한국어 번역(300자 안쪽).",
   "글 전체를 번역하지 않는다. 본문에 없는 내용을 지어내지 않는다.",
+  "재료가 제목·한두 줄 소개뿐이면 그 안에 있는 내용만 짧게 요약한다. 요약할 재료가 없으면 summary_ko를 빈 글자(\"\")로, key_sentences를 빈 목록으로 둔다. '요약할 수 없음'·'본문이 제공되지 않음' 같은 안내 문장을 쓰지 않는다.",
   AI_TONE_RULE,
 ].join("\n");
 const EN_SCHEMA = {
@@ -281,15 +290,18 @@ async function askAi(deps: AiDeps, name: string, instructions: string, material:
 }
 
 const okText = (v: unknown, max: number) => typeof v === "string" && oneLine(v) !== "" && chars(oneLine(v)) <= max ? oneLine(v) : null;
+// 요약 칸에는 요약만: '요약할 수 없음' 같은 안내 문장(aiSaysNoMaterial)은 요약이 아니므로 비운다(제목만 보임).
+const summaryText = (v: unknown) => { const s = okText(v, 2000); return s && !aiSaysNoMaterial(s) ? s : null; };
 export function readKoSummary(v: unknown): string | null {
-  return v && typeof v === "object" ? okText((v as Record<string, unknown>).summary, 2000) : null;
+  return v && typeof v === "object" ? summaryText((v as Record<string, unknown>).summary) : null;
 }
 // 외국 글 AI 답 확인: 핵심 문장 orig는 재료에 글자 그대로 있어야 한다(빈칸 차이만 허용). 300자 넘거나 없는 문장은 버린다.
-export function readEnIntro(v: unknown, material: string): { title_ko: string | null; summary_ko: string; key_sentences: { orig: string; ko: string }[] } | null {
+// 답 모양이 틀리면 null(AI 실패 — 넣지 않고 다음 실행에 다시). 요약이 비었거나 안내 문장이면 summary_ko=null(제목만 넣음).
+export function readEnIntro(v: unknown, material: string): { title_ko: string | null; summary_ko: string | null; key_sentences: { orig: string; ko: string }[] } | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
-  const summary = okText(o.summary_ko, 2000);
-  if (!summary) return null;
+  if (typeof o.summary_ko !== "string") return null;
+  const summary = summaryText(o.summary_ko);
   const flat = oneLine(material);
   const keys: { orig: string; ko: string }[] = [];
   for (const k of Array.isArray(o.key_sentences) ? o.key_sentences : []) {
@@ -297,7 +309,7 @@ export function readEnIntro(v: unknown, material: string): { title_ko: string | 
     const orig = okText((k as Record<string, unknown>).orig, KEY_SENTENCE_MAX), ko = okText((k as Record<string, unknown>).ko, KEY_SENTENCE_MAX);
     if (orig && ko && flat.includes(orig)) keys.push({ orig, ko });
   }
-  return { title_ko: okText(o.title_ko, 500), summary_ko: summary, key_sentences: keys };
+  return { title_ko: okText(o.title_ko, 500), summary_ko: summary, key_sentences: summary ? keys : [] };
 }
 export function readTerms(v: unknown, query: string): string[] | null {
   if (!v || typeof v !== "object" || !Array.isArray((v as Record<string, unknown>).terms)) return null;
@@ -365,7 +377,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     const got = await reader.get(source, list, source.mode === "rss");
     if (!got.ok) { listError = got.code; continue; }
     const before = stats.candidates;
-    const found = source.mode === "rss" ? parseFeed(source, got.text, nowMs, LIST_LIMIT, stats) : parseListHtml(source, got.text, got.url, LIST_LIMIT, stats);
+    const found = source.mode === "rss" ? parseFeed(source, got.text, nowMs, LIST_LIMIT, stats) : parseListHtml(source, got.text, got.url, LIST_LIMIT, stats, nowMs);
     if (stats.candidates === before && looksLikeBotCheck(got.text)) listError = "bot_check";
     for (const it of found) if (!seen.has(it.url)) { seen.add(it.url); items.push(it); }
   }
@@ -393,29 +405,36 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
   const cutoff = nowMs - OLD_DAYS * 86400000;
   for (const [n, { it, ws }] of todo.entries()) {
     if (n >= maxNew || clock() - startMs > budget) { out.deferred = todo.length - n; break; }
+    // 본문: 피드 본문(200자 이상)이 있으면 그것, 없으면 글 페이지 1번 읽어 본문 칸을 뽑는다(국내·외국 같음 — 외국 글은 본문을 AI 재료로만 쓰고 버림).
     let body = it.content && chars(it.content) >= 200 ? it.content : "";
     let pageText = "";
-    if (!body || source.lang === "en") {
+    let pageRead = false;
+    if (!body) {
       const page = await reader.get(source, it.url, false);
       if (page.ok) {
+        pageRead = true;
         pageText = page.text;
-        body = extractBody(page.text, it.title) || body;
-      } else if (!body && !it.summary) { out.skipped++; continue; }
+        const got = extractBody(page.text, it.title, source.bodyClass);
+        body = chars(got) >= MIN_BODY_CHARS ? got : "";
+      } else if (!it.summary && !it.content) { out.skipped++; continue; } // 글 쪽을 못 읽음(일시 오류·robots) — 다음 실행에 다시
     }
     const published = it.published_at ?? (pageText ? pageDate(pageText, it.title, nowMs) : null);
     const rows: Record<string, unknown>[] = [];
     if (source.lang === "ko") {
-      if (!body) { out.skipped++; continue; }
+      // 글 쪽은 읽었는데 본문 칸이 없으면 제목만 넣는다(요약 줄 비움 — AI에 빈 본문을 보내 '요약할 수 없음'을 받지 않는다).
+      if (!body && !pageRead) { out.skipped++; continue; }
       const old = published !== null && Date.parse(published) < cutoff;
-      const sentences = old ? [] : splitSentences(body);
-      const summary = readKoSummary(await askAi(ai, "outside_ko_summary", KO_SUMMARY_INSTRUCTIONS,
-        `단체: ${source.name}\n제목: ${it.title}\n\n본문:\n${cut(body, AI_MATERIAL_CHARS)}`, KO_SUMMARY_SCHEMA, 300));
+      const sentences = old || !body ? [] : splitSentences(body);
+      const summary = body ? readKoSummary(await askAi(ai, "outside_ko_summary", KO_SUMMARY_INSTRUCTIONS,
+        `단체: ${source.name}\n제목: ${it.title}\n\n본문:\n${cut(body, AI_MATERIAL_CHARS)}`, KO_SUMMARY_SCHEMA, 300)) : null;
       for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: it.kind, lang: "ko", title: it.title, author: it.author, url: it.url, published_at: published, summary_ko: summary, has_body: sentences.length > 0, _sentences: sentences });
     } else {
+      // 재료: 본문(피드 또는 글 쪽 앞부분) → 없으면 피드 본문·소개 글. 하나도 없으면 제목만 넣는다(요약 줄 비움).
       const material = cut(body || it.content || it.summary || "", AI_MATERIAL_CHARS);
-      if (!material) { out.skipped++; continue; }
-      const intro = readEnIntro(await askAi(ai, "outside_en_intro", EN_INSTRUCTIONS, `Title: ${it.title}\n\n${material}`, EN_SCHEMA, 1200), material);
-      if (!intro) { out.skipped++; continue; } // 요약이 없으면 넣지 않고 다음 실행에 다시 본다.
+      const intro = material
+        ? readEnIntro(await askAi(ai, "outside_en_intro", EN_INSTRUCTIONS, `Title: ${it.title}\n\n${material}`, EN_SCHEMA, 1200), material)
+        : { title_ko: null, summary_ko: null, key_sentences: [] };
+      if (!intro) { out.skipped++; continue; } // AI가 없거나 답 모양이 틀림 — 넣지 않고 다음 실행에 다시 본다.
       for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: "article", lang: "en", title: it.title, title_ko: intro.title_ko, author: it.author, url: it.url, published_at: published, summary_ko: intro.summary_ko, key_sentences: intro.key_sentences, has_body: false, _sentences: [] });
     }
     for (const row of rows) {
@@ -519,6 +538,8 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
         const mine = await db.get(`app_outside_sources?workspace_id=eq.${who.workspaceId}&source_key=eq.${source.key}&select=enabled,last_ok_at&limit=1`);
         if (mine[0]?.enabled !== true) throw new Fail(409, "NOT_ENABLED");
+        // robots 예외 단체(공공운수노조)는 하루 3번 예약 때만 읽는다(명진 결정 11/01 16:49: 부하 최소).
+        if (robotsExempt(source)) return json({ ok: true, source: source.key, status: "scheduled_only", inserted: 0 });
         const lastOk = Date.parse(String(mine[0]?.last_ok_at ?? ""));
         if (Number.isFinite(lastOk) && nowMs - lastOk < READ_NOW_COOLDOWN_MS) return json({ ok: true, source: source.key, status: "recent", inserted: 0 });
         const use = `${kstDay(nowMs)} ${who.userId}`;
