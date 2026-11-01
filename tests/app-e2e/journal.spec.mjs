@@ -1390,8 +1390,9 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
    cells:body.cells.map(c=>({ref:c.ref,lines:c.where.includes('가-1')?['- 지난주 가-1 진행','- 가-1 목요일 기록']:c.where.includes('나-1')?['- AI 나-1 줄']:c.lines}))}});
   if(body.kind==='weekly_review'){
    const row=f.exec.rows.find(x=>x.week_start===body.week_start),at='2026-10-09T09:00:00.000Z',review={at,candidates:['가상 규칙 후보'],suggestions:[{id:'s1',area:'input',text:'가상 개선 제안'}]};
-   row.draft={...row.draft,feedback:{...row.draft.feedback,review},rules:{at,week:body.week_start,lines:[{text:'가상 규칙 하나',from:'auto'},{text:'가상 규칙 둘',from:'auto'}]}};row.draft_saved_at='2026-10-09T09:00:00.000Z';
-   return r.fulfill({json:{ok:true,kind:'weekly_review',week_start:body.week_start,saved:true,review,rules:['가상 규칙 하나','가상 규칙 둘']}});
+   // WEEKLY-규칙합의: 규칙 칸은 확정(lines)·후보(candidates)·폐기(retired). 서버는 확정을 바꾸지 않고 후보만 더한다.
+   row.draft={...row.draft,feedback:{...row.draft.feedback,review},rules:{v:2,at,week:body.week_start,lines:[{text:'가상 규칙 하나',from:'added'},{text:'가상 규칙 둘',from:'added'}],candidates:[{text:'가상 규칙 후보'}],retired:[]}};row.draft_saved_at='2026-10-09T09:00:00.000Z';
+   return r.fulfill({json:{ok:true,kind:'weekly_review',week_start:body.week_start,saved:true,review}});
   }
   return r.fulfill({status:500,json:{}});
  });
@@ -1431,7 +1432,8 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  const card=hwpx(page).locator('[data-hwpx-review] [data-learn-review]');
  await expect(card.locator('[data-learn-review-head]')).toHaveText('이번 주 환류 보고 — AI 초안 줄 4개 중 4개 그대로(100%)');
  await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 고침 0 · 뺌 0 · 더함 0');
- await expect(card.locator('[data-learn-candidates] li')).toHaveText(['가상 규칙 후보 ×']);
+ await expect(card.locator('[data-learn-candidates] li')).toHaveCount(1);
+ await expect(card.locator('[data-learn-candidates] li').first()).toContainText('가상 규칙 후보');
  // WEEKLY-환류입력창 ①: 개선 제안은 분류 표시(입력창)와 함께.
  await expect(card.locator('[data-learn-suggestion="s1"] [data-learn-area="input"]')).toHaveText('입력창');
  const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
@@ -1440,15 +1442,21 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  await card.locator('[data-learn-suggestion="s1"]').getByRole('button',{name:/^승인/}).click();
  await expect.poll(()=>row().draft.feedback.review.suggestions[0].answer,{timeout:15000}).toBe('yes');
  await expect(hwpx(page).locator('[data-hwpx-review]')).toContainText('승인했어요');
- // S46-22: 규칙 후보도 [×]로 빼면 접힌 '뺀 후보 1개'(다시 넣기). [승인]은 받은 제안, [×]는 거절한 제안으로 그 주 행 picks 에 남는다.
- await card.locator('[data-learn-candidates] [data-learn-pick-drop]').click();
+ // WEEKLY-규칙합의: 새 규칙 후보는 그 주 규칙 칸에서 [ㅇ][×][고쳐서 확정]. [×]는 폐기(그 행 rules.retired)로, 학습 기록(picks)에도 거절로 남는다.
+ const drop=card.locator('[data-learn-candidates] [data-learn-rule-drop]');
+ await expect(drop).toBeVisible({timeout:15000});
+ await expect(card.locator('[data-learn-candidates] [data-learn-rule-take]')).toHaveText('ㅇ');
+ await expect(card.locator('[data-learn-candidates] [data-learn-rule-fix]')).toHaveText('고쳐서 확정');
+ await drop.click();
  await expect(card.locator('[data-learn-candidates] li')).toHaveCount(0);
- await expect(card.locator('[data-learn-pick-gone] summary')).toHaveText('뺀 후보 1개');
+ await expect(hwpx(page).locator('[data-hwpx-review]')).toContainText('후보를 뺐어요.');
+ await expect.poll(()=>(row().draft.rules?.retired??[]).map(x=>x.text),{timeout:15000}).toEqual(['가상 규칙 후보']);
+ expect(row().draft.rules.lines.map(l=>l.text)).toEqual(['가상 규칙 하나','가상 규칙 둘']);
  await expect.poll(()=>(row().draft.picks?.items??[]).map(i=>[i.kind,i.cell,i.act].join(',')).sort().join('|'),{timeout:15000}).toBe('review,개선 제안,take|review,규칙 후보,drop');
  expect(row().draft.feedback.counts).toEqual({kept:4,changed:0,dropped:0,added:0,proposed:4,final:4});
- // [주간 정리] 맨 아래 '주간보고 규칙·환류': 규칙 2줄, 이번 주 환류, 개발 후보 1. [지우기]는 그 행 규칙에서 한 줄을 뺀다.
+ // [주간 정리] 맨 아래 '주간보고 규칙·환류': 확정 규칙 2줄, 이번 주 환류, 개발 후보 1. [지우기]는 그 확정 줄을 뺀 규칙(폐기)으로 옮긴다.
  const learn=page.locator('#journalRoot [data-journal-weekly-learn]');
- await expect(learn.locator('summary').first()).toContainText('규칙 2줄 · 이번 주 100% 그대로 · 개발 후보 1');
+ await expect(learn.locator('summary').first()).toContainText('확정 규칙 2줄 · 이번 주 100% 그대로 · 개발 후보 1');
  await learn.locator('summary').first().click();
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(2);
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안']);
@@ -1456,6 +1464,8 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  await expect(learn.locator('[data-journal-learn-status]')).toHaveText('규칙을 지웠어요.');
  await expect.poll(()=>row().draft.rules.lines.map(l=>l.text)).toEqual(['가상 규칙 둘']);
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(1);
+ expect(row().draft.rules.retired.map(x=>x.text)).toEqual(['가상 규칙 하나','가상 규칙 후보']);
+ await expect(learn.locator('[data-journal-learn-retired] summary')).toHaveText('뺀 규칙 2개');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });

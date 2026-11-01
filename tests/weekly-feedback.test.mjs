@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pickBase, teamIsNewer, teamChanges, diffLines, diffCells, feedbackRecord, feedbackTrend, keptRate, compareTest, learnInput,
-  readExtras, mergeExtras, readRules, withRule, withRuleText, withoutRule, withAnswer, readFeedback, cellIdOf, RULES_MAX, similarity} from '../app/weekly-feedback.mjs';
+  readExtras, mergeExtras, readRules, withRule, withRuleText, withoutRule, takeCandidate, dropCandidate, restoreRetired, CANDIDATES_MAX, withAnswer, readFeedback, cellIdOf, RULES_MAX, similarity} from '../app/weekly-feedback.mjs';
 import {makeDraft, readDraft, merge3, keepDocsOnly, hasContent} from '../app/weekly-draft-store.js';
 
 const id = (key, section = 'summary', n = 0) => cellIdOf(section, key, n);
@@ -77,7 +77,8 @@ test('학습 재료: 보고 주 앞의 고침 기록·규칙만(이번 주 행�
   ];
   const input = learnInput(rows, '2026-10-26');
   assert.deepEqual(input.feedback.map(f => f.week), ['2026-10-19', '2026-10-12']);
-  assert.deepEqual(input.rules.lines.map(l => l.text), ['지난주 규칙']);
+  assert.deepEqual(input.rules.lines, []); // 옛 모양 줄은 확정이 아니라 후보
+  assert.deepEqual(input.rules.candidates.map(l => l.text), ['지난주 규칙']);
   assert.equal(input.weeks, 2);
   assert.deepEqual(learnInput([], '2026-10-26'), {feedback:[], rules:null, weeks:0});
 });
@@ -97,19 +98,55 @@ test('학습 시험: 줄마다 같음·비슷·다름·빠짐·AI만, 그대로 
   assert.equal(r.pct, 50);
 });
 
-test('규칙 목록: 고치기·지우기·더하기, 중복·길이·20줄 상한', () => {
-  let r = readRules({at:'a', lines:[{text:'날짜는 10/28(화)처럼 쓴다'}, {text:'날짜는 10/28(화)처럼 쓴다'}, 'x'.repeat(500)]});
+test('규칙 목록: 확정 고치기·지우기(→폐기)·더하기, 중복·길이·20줄 상한', () => {
+  let r = readRules({v:2, at:'a', lines:[{text:'날짜는 10/28(화)처럼 쓴다'}, {text:'날짜는 10/28(화)처럼 쓴다'}, 'x'.repeat(500)]});
   assert.equal(r.lines.length, 2);
   assert.equal([...r.lines[1].text].length, 120);
   r = withRuleText(r, 0, '날짜는 10.28.(화)처럼 쓴다', 'b');
   assert.deepEqual(r.lines[0], {text:'날짜는 10.28.(화)처럼 쓴다', from:'edited'});
   r = withoutRule(r, 1, 'c');
   assert.equal(r.lines.length, 1);
+  assert.equal([...r.retired[0].text].length, 120); // 지운 확정 줄은 폐기로
   r = withRule(r, '끝난 일은 결과부터 쓴다', 'd');
   assert.deepEqual(r.lines.map(l => l.from), ['edited', 'added']);
-  let full = {at:'e', lines:Array.from({length:RULES_MAX}, (_, i) => ({text:`규칙 ${i}`}))};
+  let full = {v:2, at:'e', lines:Array.from({length:RULES_MAX}, (_, i) => ({text:`규칙 ${i}`}))};
   assert.throws(() => withRule(full, '하나 더', 'f'), {code:'too_many'});
-  assert.equal(readRules({at:'g', lines:Array.from({length:30}, (_, i) => `규칙 ${i}`)}).lines.length, RULES_MAX);
+  assert.equal(readRules({v:2, at:'g', lines:Array.from({length:30}, (_, i) => `규칙 ${i}`)}).lines.length, RULES_MAX);
+});
+
+test('규칙 상태(WEEKLY-규칙합의): 옛 줄은 후보, [ㅇ]·[고쳐서 확정]은 확정, [×]는 폐기, 같은 줄은 한 곳에만', () => {
+  // 옛 모양(v 없음): 자동 정리된 줄도 사람이 고친 줄도 모두 후보(확정 0줄).
+  let r = readRules({at:'a', lines:[{text:'후보 하나', from:'auto'}, {text:'후보 둘', from:'edited'}, '후보 셋']});
+  assert.deepEqual(r.lines, []);
+  assert.deepEqual(r.candidates.map(c => c.text), ['후보 하나', '후보 둘', '후보 셋']);
+  assert.equal(r.v, 2);
+  r = takeCandidate(r, '후보 하나', 'b');
+  assert.deepEqual(r.lines, [{text:'후보 하나', from:'auto'}]);
+  r = takeCandidate(r, ' 후보  둘', 'c', '후보 둘 고침');
+  assert.deepEqual(r.lines.at(-1), {text:'후보 둘 고침', from:'edited'});
+  r = dropCandidate(r, '후보 셋', 'd');
+  assert.deepEqual(r.candidates, []);
+  assert.deepEqual(r.retired, [{text:'후보 셋'}]);
+  assert.equal(r.at, 'd');
+  r = restoreRetired(r, '후보 셋', 'e');
+  assert.deepEqual([r.candidates, r.retired], [[{text:'후보 셋'}], []]);
+  // 없는 후보는 그대로, 확정과 같은 후보·폐기는 읽을 때 빠짐.
+  assert.equal(takeCandidate(r, '없는 후보', 'f').at, 'e');
+  const mixed = readRules({v:2, at:'g', lines:[{text:'같은 줄', from:'added'}], candidates:[{text:'같은 줄'}, {text:'폐기 줄'}, {text:'새 후보'}], retired:[{text:'폐기 줄'}]});
+  assert.deepEqual([mixed.lines.length, mixed.candidates.map(c => c.text), mixed.retired.map(c => c.text)], [1, ['새 후보'], ['폐기 줄']]);
+  // 사람이 더한 줄과 같은 후보·폐기 줄은 확정으로 옮긴다.
+  const added = withRule(mixed, '새 후보', 'h');
+  assert.deepEqual([added.lines.map(l => l.from), added.candidates], [['added', 'added'], []]);
+  // 후보는 CANDIDATES_MAX 까지(오래된 것부터 빠짐), 확정 20줄이면 [ㅇ]도 막는다.
+  const many = readRules({v:2, at:'i', lines:[], candidates:Array.from({length:CANDIDATES_MAX + 3}, (_, i) => `후보 ${i}`)});
+  assert.equal(many.candidates.length, CANDIDATES_MAX);
+  assert.equal(many.candidates[0].text, '후보 3');
+  const fullRules = {v:2, at:'j', lines:Array.from({length:RULES_MAX}, (_, i) => ({text:`규칙 ${i}`})), candidates:[{text:'하나 더'}]};
+  assert.throws(() => takeCandidate(fullRules, '하나 더', 'k'), {code:'too_many'});
+  // 기기 시계가 규칙 칸 시각보다 늦어도 고친 칸이 더 나중으로 잡힌다(합칠 때 사라지지 않게).
+  const late = dropCandidate({v:2, at:'2026-10-09T09:00:00.000Z', lines:[], candidates:['가상 후보']}, '가상 후보', '2026-10-06T01:00:00.000Z');
+  assert.equal(late.at, '2026-10-09T09:00:00.001Z');
+  assert.equal(mergeExtras({rules:late}, {rules:readRules({v:2, at:'2026-10-09T09:00:00.000Z', lines:[], candidates:['가상 후보']})}).rules.retired[0].text, '가상 후보');
 });
 
 test('개선 제안 승인/아니 답', () => {
@@ -126,9 +163,9 @@ test('임시저장: proposed·feedback·rules 는 읽은 그대로 다시 실리
   assert.equal(hasContent(d), false); // 사본 기록이라 '이어서 고치기'를 묻지 않는다
   const theirs = makeDraft({extras:{rules:rulesNew}});
   const merged = merge3(null, d, theirs).draft;
-  assert.equal(merged.rules.lines[0].text, '새 규칙');
+  assert.equal(merged.rules.candidates[0].text, '새 규칙');
   assert.equal(merged.proposed.at, proposed.at);
-  assert.deepEqual(mergeExtras({rules:readRules(rulesNew)}, {rules:readRules(rulesOld)}).rules.lines[0].text, '새 규칙');
+  assert.deepEqual(mergeExtras({rules:readRules(rulesNew)}, {rules:readRules(rulesOld)}).rules.candidates[0].text, '새 규칙');
   // [처음부터]도 남긴다.
   assert.equal(keepDocsOnly(d).proposed.at, proposed.at);
   // 모르는 칸·틀린 모양은 버린다.

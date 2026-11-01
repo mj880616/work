@@ -93,7 +93,7 @@ import {
 } from "./web2-ask.ts";
 import { TG_RAW_MAX_ITEMS, tgNameKey, tgNamesFor } from "./tg-raw.ts";
 import {
-  learnFromRows, parseWeeklyDraft, parseWeeklyDraftRequest, parseWeeklyLine, parseWeeklyLineRequest, parseWeeklyReview, parseWeeklyReviewRequest, readFeedbackCell, readRulesCell, reviewSuggestions,
+  learnFromRows, parseWeeklyDraft, parseWeeklyDraftRequest, parseWeeklyLine, parseWeeklyLineRequest, parseWeeklyReview, parseWeeklyReviewRequest, readFeedbackCell, readRuleBook, mergeRuleBooks, freshCandidates, reviewSuggestions,
   weeklyDraftMaterial, weeklyLineMaterial, weeklyReviewMaterial, withReview,
   WEEKLY_DRAFT_INSTRUCTIONS, WEEKLY_DRAFT_SCHEMA, WEEKLY_LEARN_BODY_BYTES, WEEKLY_LINE_INSTRUCTIONS, WEEKLY_LINE_SCHEMA, WEEKLY_REVIEW_INSTRUCTIONS, WEEKLY_REVIEW_SCHEMA,
   WL_DRAFT_OUTPUT_TOKENS, WL_LEARN_WEEKS, WL_LINE_OUTPUT_TOKENS, WL_REVIEW_OUTPUT_TOKENS,
@@ -4366,7 +4366,8 @@ async function runWeeklyDraft(ctx: Ctx, input: WeeklyDraftInput, deps: RadarDeps
   return json({ ok: true, kind: "weekly_draft", week_start: input.week_start, mode: input.mode, cells: parsed.cells, learned: { weeks: learn.weeks, rules: learn.rules.length } });
 }
 
-// weekly_review: 그 주 행의 고침 기록(사람이 [확정]한 값)을 읽어 규칙 목록·후보·개선 제안을 만들고 같은 행에 조건부로 쓴다.
+// weekly_review: 그 주 행의 고침 기록(사람이 [확정]한 값)을 읽어 새 규칙 후보·개선 제안을 만들고 같은 행에 조건부로 쓴다.
+// 확정 규칙은 AI가 바꾸지 않는다(WEEKLY-규칙합의). 후보는 그 행 규칙 칸의 candidates 에 더해지고, 사람이 [ㅇ]해야 확정이 된다.
 // 고침 기록이 없으면 404 not_found(AI를 부르지 않음). 그사이 다른 기기가 저장했으면 다시 읽고 한 번 더(세 번까지), 끝내 못 쓰면 답만 돌려준다(saved:false).
 async function runWeeklyReview(ctx: Ctx, input: WeeklyReviewInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now(), today = kstDay(started), week = input.week_start;
@@ -4376,23 +4377,23 @@ async function runWeeklyReview(ctx: Ctx, input: WeeklyReviewInput, deps: RadarDe
   const current = row?.exists ? readFeedbackCell(draft?.feedback, week) : null;
   if (!row || !current) throw new Fail(404, "not_found");
   const learn = learnFromRows(await readLearnRows(ctx, week), week);
-  const oldRules = draft?.rules ?? null;
-  const own = readRulesCell(oldRules), rules = own?.length ? own : learn.rules; // 이 행 규칙(사람이 고친 것 포함)이 먼저, 없으면 앞 주 규칙
-  const material = weeklyReviewMaterial(current, learn.feedback, rules);
+  // 바탕 규칙 칸: 이 행이 새 모양(v2)이면 그것, 아니면 앞 주 칸에 이 행의 옛 줄(후보로 읽힘)을 합친 것.
+  const baseOf = (raw: unknown) => { const own = readRuleBook(raw); return own?.v2 ? own : mergeRuleBooks(learn.book, own); };
+  const material = weeklyReviewMaterial(current, learn.feedback, baseOf(draft?.rules ?? null));
   const raw = await callWeeklyAi(ctx, "weekly_review", deps, started, WEEKLY_REVIEW_INSTRUCTIONS, material, WEEKLY_REVIEW_SCHEMA, WL_REVIEW_OUTPUT_TOKENS);
-  const review = parseWeeklyReview(raw);
-  if (!review) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
+  const parsed = parseWeeklyReview(raw);
+  if (!parsed) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
+  // 확정·폐기·기다리는 후보와 같은 후보는 버린다(폐기한 규칙을 AI가 다시 내도 다시 뜨지 않게).
+  const review = { ...parsed, candidates: freshCandidates(baseOf(draft?.rules ?? null), parsed.candidates) };
   const at = new Date(deps.now()).toISOString();
-  // 규칙 칸이 이 행에 없으면 앞 주 규칙을 바탕으로(사람이 고친 줄은 남김).
-  const baseRules = oldRules ?? { at: "", lines: rules.map((t) => ({ text: t, from: "auto" })) };
   let saved = false;
   for (let attempt = 0; attempt < 3 && row?.exists; attempt++) {
-    const next = withReview(row.draft, review, (row.draft as Record<string, unknown> | null)?.rules ?? baseRules, week, at);
+    const next = withReview(row.draft, review, baseOf((row.draft as Record<string, unknown> | null)?.rules ?? null), week, at);
     if (await writeWeekDraftRow(ctx, week, row, next, deps.now())) { saved = true; break; }
     row = await readWeekDraftRow(ctx, week);
   }
-  deps.log("weekly_review_done", { rules: review.rules.length, candidates: review.candidates.length, suggestions: review.suggestions.length, saved, weeks: learn.weeks });
-  return json({ ok: true, kind: "weekly_review", week_start: week, saved, review: { at, candidates: review.candidates, suggestions: reviewSuggestions(review.suggestions) }, rules: review.rules });
+  deps.log("weekly_review_done", { rules: learn.rules.length, candidates: review.candidates.length, suggestions: review.suggestions.length, saved, weeks: learn.weeks });
+  return json({ ok: true, kind: "weekly_review", week_start: week, saved, review: { at, candidates: review.candidates, suggestions: reviewSuggestions(review.suggestions) } });
 }
 
 // weekly_line: 고치는 칸의 줄마다 '이렇게 바꾸면?' 한 줄(같으면 null). 학습 재료는 weekly_draft 와 같이 그 주 '앞' 행만, 저장하지 않는다.

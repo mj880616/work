@@ -7,7 +7,10 @@
 //   compareTest(AI 초안 칸, 이번 주 개인본 칸) → [학습 시험] 줄마다 같음·비슷·다름·빠짐·AI만, '그대로 쓸 수 있는 줄 n/m'
 //   feedbackTrend(이번 주, 지난 주들)    → 환류 보고 ① 숫자(지난 주들과 비교)
 //   readExtras / mergeExtras             → 그 주 draft 의 proposed·feedback·rules 칸 모양 검사·합치기(weekly-draft-store.js 가 씀)
-//   withRule* / readRules                → '주간보고 규칙' 목록 고치기·지우기·더하기(10~20줄)
+//   withRule* / readRules                → '주간보고 규칙' 확정 목록 고치기·지우기·더하기(20줄까지)
+//   takeCandidate / dropCandidate / restoreRetired → 규칙 후보 [ㅇ]·[고쳐서 확정]·[×], 폐기 줄 다시 후보로(WEEKLY-규칙합의)
+//   규칙 칸 모양(v2): {v:2, at, week, lines:[확정 {text, from}], candidates:[후보 {text}], retired:[폐기 {text}]}.
+//   AI 초안이 보는 것은 확정(lines)뿐. 옛 모양(v 없음)의 줄은 모두 후보로 읽는다(명진이 확인하지 않은 자동 정리 규칙).
 //   learnInput(행들, 보고 주)            → 학습 재료: 보고 주 '앞' 주들의 고침 기록·규칙만(이번 주 개인본·이번 주 기록은 넣지 않음)
 import {squashLine} from './weekly-lines.mjs';
 import {readPicks, mergePicks} from './weekly-picks.mjs';
@@ -16,7 +19,9 @@ export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules', 'picks
 export const FEEDBACK_LINE_CHARS = 300;
 export const FEEDBACK_LIST_MAX = 60;      // 고침·뺌·더함 목록마다(넘으면 숫자만 맞고 줄은 앞 60개)
 export const PROPOSED_CELLS_MAX = 200;
-export const RULES_MAX = 20;
+export const RULES_MAX = 20;            // 확정 규칙
+export const CANDIDATES_MAX = 20;       // 후보(넘으면 오래된 것부터, 서버 WL_CANDIDATES_MAX 와 같음)
+export const RETIRED_MAX = 40;          // 폐기(서버 WL_RETIRED_MAX 와 같음)
 export const RULE_CHARS = 120;
 export const SUGGESTIONS_MAX = 4;       // 입력창 1~3 + 재료·흐름(서버 WL_SUGGESTIONS 와 같음)
 export const CELL_STATS_MAX = 120;      // 고침 기록의 칸별 숫자(입력창 모양 제안 재료)
@@ -189,15 +194,18 @@ export function readFeedback(raw) {
   if (review) out.review = review;
   return bytes(out) > EXTRA_MAX_BYTES ? null : out;
 }
+// 규칙 칸 읽기(항상 v2 모양으로 돌려줌). 같은 줄은 확정 → 폐기 → 후보 순으로 하나만.
 export function readRules(raw) {
   if (!isObj(raw) || !at40(raw.at)) return null;
-  const seen = new Set(), lines = [];
-  for (const r of Array.isArray(raw.lines) ? raw.lines : []) {
-    const text = line(isObj(r) ? r.text : r).slice(0, RULE_CHARS), k = squashLine(text);
-    if (!text || seen.has(k) || lines.length >= RULES_MAX) continue;
-    seen.add(k); lines.push({text, from:isObj(r) && (r.from === 'edited' || r.from === 'added') ? r.from : 'auto'});
-  }
-  return {at:raw.at, ...(DAY.test(String(raw.week ?? '')) ? {week:raw.week} : {}), lines};
+  const v2 = raw.v === 2, seen = new Set();
+  const textOf = r => line(isObj(r) ? r.text : r).slice(0, RULE_CHARS);
+  const fresh = t => { const k = squashLine(t); if (!t || seen.has(k)) return false; seen.add(k); return true; };
+  const lines = [], retired = [], candidates = [];
+  if (v2) for (const r of Array.isArray(raw.lines) ? raw.lines : []) { const text = textOf(r); if (lines.length < RULES_MAX && fresh(text)) lines.push({text, from:isObj(r) && (r.from === 'edited' || r.from === 'added') ? r.from : 'auto'}); }
+  if (v2) for (const r of Array.isArray(raw.retired) ? raw.retired : []) { const text = textOf(r); if (retired.length < RETIRED_MAX && fresh(text)) retired.push({text}); }
+  const pool = v2 ? raw.candidates : raw.lines;
+  for (const r of Array.isArray(pool) ? pool : []) { const text = textOf(r); if (fresh(text)) candidates.push({text}); }
+  return {v:2, at:raw.at, ...(DAY.test(String(raw.week ?? '')) ? {week:raw.week} : {}), lines, candidates:candidates.slice(-CANDIDATES_MAX), retired};
 }
 export function readExtras(draft) {
   const out = {};
@@ -223,20 +231,55 @@ export function mergeExtras(a = {}, b = {}) {
   return out;
 }
 
-// ---- 규칙 목록 고치기 ----
-const ruleBase = rules => readRules(rules) ?? {at:'', lines:[]};
+// ---- 규칙 목록 고치기(확정·후보·폐기) ----
+// 사람이 직접 더하거나 고친 줄, 후보에 [ㅇ]한 줄은 확정이다. 확정 줄 [지우기]는 폐기로 옮긴다(AI가 같은 후보를 다시 내지 않게).
+const ruleBase = rules => readRules(rules) ?? {v:2, at:'', lines:[], candidates:[], retired:[]};
+// 고친 시각은 늘 앞 시각보다 뒤(기기 시계가 늦거나 같아도 합칠 때 더 나중 것으로 잡히게, mergeExtras).
+const stamp = (prev, at) => { const p = Date.parse(prev ?? ''), a = Date.parse(at ?? ''); return Number.isFinite(p) && !(Number.isFinite(a) && a > p) ? new Date(p + 1).toISOString() : at; };
+const tooMany = () => Object.assign(new Error(`확정 규칙은 ${RULES_MAX}줄까지예요.`), {code:'too_many'});
+const notKey = key => x => squashLine(x.text) !== key;
 export function withRuleText(rules, i, text, at) {
   const r = ruleBase(rules), t = line(text).slice(0, RULE_CHARS);
   if (!r.lines[i]) return r;
-  const lines = r.lines.map((x, j) => (j === i ? {text:t, from:'edited'} : x)).filter(x => x.text);
-  return readRules({...r, at, lines});
+  if (!t) return withoutRule(rules, i, at);
+  const k = squashLine(t), lines = r.lines.map((x, j) => (j === i ? {text:t, from:'edited'} : x));
+  return readRules({...r, at:stamp(r.at, at), lines, candidates:r.candidates.filter(notKey(k)), retired:r.retired.filter(notKey(k))});
 }
-export const withoutRule = (rules, i, at) => { const r = ruleBase(rules); return readRules({...r, at, lines:r.lines.filter((_, j) => j !== i)}); };
+export function withoutRule(rules, i, at) {
+  const r = ruleBase(rules), gone = r.lines[i];
+  if (!gone) return r;
+  return readRules({...r, at:stamp(r.at, at), lines:r.lines.filter((_, j) => j !== i), retired:[{text:gone.text}, ...r.retired]});
+}
 export function withRule(rules, text, at) {
   const r = ruleBase(rules), t = line(text).slice(0, RULE_CHARS);
   if (!t) return r;
-  if (r.lines.length >= RULES_MAX) throw Object.assign(new Error(`규칙은 ${RULES_MAX}줄까지예요.`), {code:'too_many'});
-  return readRules({...r, at, lines:[...r.lines, {text:t, from:'added'}]});
+  const k = squashLine(t);
+  if (r.lines.some(x => squashLine(x.text) === k)) return r;
+  if (r.lines.length >= RULES_MAX) throw tooMany();
+  return readRules({...r, at:stamp(r.at, at), lines:[...r.lines, {text:t, from:'added'}], candidates:r.candidates.filter(notKey(k)), retired:r.retired.filter(notKey(k))});
+}
+// 후보 [ㅇ](text 없음 → 그대로 확정) · [고쳐서 확정](text → 고친 글로 확정). key 는 후보 글(공백 무시로 찾음). 없는 후보면 그대로.
+export function takeCandidate(rules, key, at, text = null) {
+  const r = ruleBase(rules), k = squashLine(line(key)), found = r.candidates.find(x => squashLine(x.text) === k);
+  if (!found) return r;
+  const t = text == null ? found.text : line(text).slice(0, RULE_CHARS);
+  if (!t) return r;
+  const k2 = squashLine(t), same = r.lines.some(x => squashLine(x.text) === k2);
+  if (!same && r.lines.length >= RULES_MAX) throw tooMany();
+  const lines = same ? r.lines : [...r.lines, {text:t, from:k2 === k ? 'auto' : 'edited'}];
+  return readRules({...r, at:stamp(r.at, at), lines, candidates:r.candidates.filter(x => ![k, k2].includes(squashLine(x.text))), retired:r.retired.filter(notKey(k2))});
+}
+// 후보 [×] → 폐기.
+export function dropCandidate(rules, key, at) {
+  const r = ruleBase(rules), k = squashLine(line(key)), found = r.candidates.find(x => squashLine(x.text) === k);
+  if (!found) return r;
+  return readRules({...r, at:stamp(r.at, at), candidates:r.candidates.filter(notKey(k)), retired:[{text:found.text}, ...r.retired]});
+}
+// 폐기 줄 [다시 후보로].
+export function restoreRetired(rules, key, at) {
+  const r = ruleBase(rules), k = squashLine(line(key)), found = r.retired.find(x => squashLine(x.text) === k);
+  if (!found) return r;
+  return readRules({...r, at:stamp(r.at, at), retired:r.retired.filter(notKey(k)), candidates:[...r.candidates, {text:found.text}]});
 }
 // 환류 보고 개선 제안 하나에 승인/아니 답.
 export function withAnswer(feedback, id, answer) {
