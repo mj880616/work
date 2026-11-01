@@ -282,6 +282,15 @@ function tidyHide(kind) {
   notify(hide ? `${g.label} 폴더를 사진에서 숨겼어요` : `${g.label} 폴더를 다시 보여요`);
   render();
 }
+// S47-20: 백업 안 됨 폴더 [폴더 끄기]/[다시 켜기] = 폰 폴더 보이기 스위치(phone_folders_off)와 같은 것. 결과는 다시 찾지 않는다(offChanged).
+function tidyFolderOff(id) {
+  if (!id || !phoneSw()) return;
+  const next = new Set(phoneOff), hide = !next.has(id);
+  if (hide) next.add(id); else next.delete(id);
+  if (!savePhoneOff(next)) return;
+  notify(hide ? '그 폴더를 사진 목록에서 뺐어요(폴더 탭 스위치로 다시 켤 수 있어요)' : '그 폴더를 다시 보여요');
+  render();
+}
 function tidyClick(b) {
   if (b.matches('[data-photos-tidy-chip]')) { tidyOpen = !tidyOpen; paintTidy(); return true; }
   // S47-19: [보기]·어디에 있나 칩 = 그 줄 아래 펼치기/접기, 정렬 칩 = 그 칸 정렬(처음 장수부터 다시).
@@ -293,6 +302,7 @@ function tidyClick(b) {
   if (b.matches('[data-photos-tidy-keep]')) { const [g, id] = b.dataset.photosTidyKeep.split('|'); tidy.keep(g, id); paintTidy(); return true; }
   if (b.matches('[data-photos-tidy-rescan]')) { tidyShown.clear(); tidy.rescan(); return true; }
   if (b.matches('[data-photos-tidy-hide]')) { tidyHide(b.dataset.photosTidyHide); return true; }
+  if (b.matches('[data-photos-tidy-off]')) { tidyFolderOff(b.dataset.photosTidyOff); return true; }
   if (b.matches('[data-photos-tidy-trash]')) { tidyTrash(b, b.dataset.photosTidyTrash); return true; }
   if (b.matches('[data-photos-tidy-gone-ok]')) { tidy.goneSeen(); return true; }
   if (b.matches('[data-photos-tidy-folder]')) {
@@ -1447,7 +1457,8 @@ async function phoneOpGo(anchor, op, done, after = null) {
   try { res = await phone.folderOp(op); } finally { busy = false; }
   notify(phoneOpText(res, done(res)), {error:!res.ok});
   if (res.ok) after?.(res);
-  if (res.ok) { pFolders = null; pFor = null; pItems = []; tidy.reset(); tidyShown.clear(); resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
+  // S47-20: 폴더를 바꿔도 찾은 정리 결과는 두고 '그 뒤 폰이 바뀌었어요'만 알린다(새로 찾기는 [다시 찾기]).
+  if (res.ok) { pFolders = null; pFor = null; pItems = []; tidy.stale(); resetList(); calData.clear(); phStarItems = null; aFor = null; await loadPhoneFolders(true); }
   if (tab === 'folders') renderFolders(); else render();
   return res;
 }
@@ -2340,8 +2351,15 @@ window.addEventListener('kptu:view-prefs-rejected', e => {
   if (window.KPTURouter?.current === 'photos') { if (tab === 'folders') renderFolders(); else render(); }
 });
 // 폰 사진 접근이 바뀌면(처음 허용·설정에서 바꿈) 목록을 새로.
-let entering = false;
-phone.onChange(() => { pFolders = null; pFor = null; pItems = []; tidy.reset(); tidyShown.clear(); if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged(); });
+// S47-20: 앱이 다시 앞으로 오거나 '미디어 관리 허용'만 바뀌어도 이 알림이 와서, 전에는 정리 결과를 지워 [정리]를 열 때마다 다시 찾았다.
+// 이제 정리 결과는 두고(앱을 끄기 전까지), 사진 접근 범위가 바뀐 때만 '그 뒤 폰이 바뀌었어요'를 알린다.
+let entering = false, tidyAccess = '';
+phone.onChange(s => {
+  pFolders = null; pFor = null; pItems = [];
+  if (tidyAccess && s?.access !== tidyAccess) tidy.stale();
+  tidyAccess = s?.access || '';
+  if (entering || window.KPTURouter?.current !== 'photos') return; sourcesChanged();
+});
 async function enter() {
   readPrefs();
   const placed = window.KPTURouter?.place?.('photos')?.tab;
