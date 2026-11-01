@@ -1001,11 +1001,11 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-day]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 5일 월요일 ~ 10월 11일 일요일');
- await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본·영역·의제 사업','4. 산하 조직 현황','5. 주요 일정']);
+ await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본·영역·의제 사업','3. 투쟁 사업장 현황','4. 산하 조직 현황','5. 주요 일정']); // WEEKLY-한흐름확정 ②: 3절이 흐름 안으로
  // WEEKLY-칸밖재료접기: '참고'는 맨 끝 접힌 한 줄(제목 + 건수).
  await expect(page.locator('#journalRoot details[data-journal-weekly-chapter="notes"] > summary .journal-heading')).toHaveText('참고 — 보고서 칸 밖 재료');
- // ■ 일시 = 상집 보고일(보고 있는 주의 다음 월요일) — 한글 파일·초안 복사와 같은 날짜.
- await expect(page.locator('#journalRoot [data-journal-weekly-date]')).toHaveText('■ 일시 : 2026년 10월 12일(월) (상집 보고일)');
+ // ■ 일시 = 상집 보고일(보고 있는 주의 다음 월요일) — 한글 파일·초안 복사와 같은 날짜. WEEKLY-한흐름확정 ②: 맨 위 한 줄.
+ await expect(page.locator('#journalRoot [data-weekly-flow-top] .weekly-flow-top-text')).toContainText('■ 일시 2026년 10월 12일(월)');
  // 1. 요청사항: 1) 요청 표(일 | 시간/내용/장소 | 참석 요청, 저장한 줄이 없으면 머리만 + 제목 줄 오른쪽 작은 [+ 추가]). 2) 주요 일정은 뜻만 한 줄로 알린다.
  await expect(weekly(page,'ask').locator('h5')).toHaveText('1) 임원 배정 요청');
  await expect(weekly(page,'discuss').locator('h5')).toHaveText('3) 상집 논의 요청');
@@ -1105,7 +1105,7 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await expect(page.locator('#journalRoot [data-journal-weekly-quiet-notes]')).toHaveText('기록 없는 묶음: 한 줄, 끝낸 할 일, 공유 페이지');
  // 5. 주요 일정은 그 주 다음 월요일부터 2주(10/19~11/1)로 다시 읽는다.
  await expect(weekly(page,'calendar').locator('h5')).toHaveText('10월 19일(월) ~ 11월 1일(일) · 다음 주 월요일부터 2주');
- await expect(page.locator('#journalRoot [data-journal-weekly-date]')).toHaveText('■ 일시 : 2026년 10월 19일(월) (상집 보고일)');
+ await expect(page.locator('#journalRoot [data-weekly-flow-top] .weekly-flow-top-text')).toContainText('■ 일시 2026년 10월 19일(월)');
  await expect(weekly(page,'calendar').locator('tbody th')).toHaveText(['10.27.(화)']);
  await expect(weekly(page,'calendar').locator('[data-journal-weekly-vacation]')).toHaveText('※ 휴가: 10/23(금) 연차');
  await page.locator('#journalRoot [data-journal-prev]').click();await page.locator('#journalRoot [data-journal-prev]').click();
