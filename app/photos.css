@@ -199,7 +199,7 @@
 #appView #photosView .photos-tidy-dup > .mini{ margin:0; }
 #appView #photosView .photos-tidy-dup > .photos-tidy-num{ flex:1 1 auto; }
 #appView #photosView .photos-tidy-cmp{ flex:1 1 100%; display:flex; flex-direction:column; gap:4px; padding:4px 0; }
-#appView #photosView .photos-tidy-cmp-pair{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+#appView #photosView .photos-tidy-cmp-pair{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px; }
 #appView #photosView .photos-tidy-cmp-slot{ display:flex; flex-direction:column; gap:2px; min-width:0; font-size:12px; }
 #appView #photosView .photos-tidy-cmp-ph{ display:block; width:100%; aspect-ratio:1/1; min-width:0; min-height:0; margin:0; padding:0; border:0; border-radius:4px; background:var(--ds-line); box-shadow:none; overflow:hidden; }
 #appView #photosView .photos-tidy-cmp-ph .diary-photo,#appView #photosView .photos-tidy-cmp-ph .photos-tidy-th{ display:block; width:100%; height:100%; }
