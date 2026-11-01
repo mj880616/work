@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
+import {installViewPrefsServer,leftoverDeviceKeys} from './helpers/view-prefs-server.mjs';
 // UI-앱안알림 2단계(docs/design/in-app-notices.md 4절 1·2): 맨 위 알림 줄의 '연결 끊김'·'수집 멈춤'(app/notice-lines.js).
 // 서버는 모두 흉내 낸다. 시험 글·값은 가짜다. 폰(폴드 접음)·폴드 펼침·PC 세 폭.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -72,7 +72,7 @@ test('collection stall ✕ hides it for today on the server (view_prefs.collect_
   await line(page,'collect').getByRole('button',{name:'닫기'}).click();
   await expect(page.locator('#noticeBar')).toHaveCount(0);
   await expect.poll(()=>prefs.patches.at(-1)?.collect_hidden_on).toBe('2026-10-06');
-  expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>/notice|collect/i.test(k)))).toEqual([]);
+  expect(await leftoverDeviceKeys(page)).toEqual([]);
   // 다른 기기·새로고침: 서버 값이 오늘이라 안 뜬다.
   await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await page.evaluate(()=>window.KPTURouter.go('profile'));await expect(page.locator('#psStatusPanel [data-collect="copy"]')).toBeVisible({timeout:15000});
