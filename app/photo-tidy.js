@@ -9,14 +9,17 @@
 import {matchIndex, placeItems, placeCounts, unbackedFolders, junkGroups, groupHidden, tidyCount, forgetIds, sizeText, PLACES, PLACE_TEXT, SCAN_MAX,
   spacePlan, dupGroups, dupTrashList, scanFresh, DUP_TEXT, copyPairs, goneText,
   TIDY_SORTS, DUP_SORTS, paneSortDefault, sortTidy, sortDupGroups, totalBytes, dupStats, dupStatText, whereLines, copiesFinder, DUP_HOW,
-  partlyBackedFolders, TIDY_HELP, JUNK_HELP, partlyText, foundText} from './photo-tidy-model.mjs';
+  partlyBackedFolders, TIDY_HELP, JUNK_HELP, partlyText, foundText, similarCandidates, similarGroups, SIMILAR_BATCH} from './photo-tidy-model.mjs';
+import {waitInlineHtml} from './wait-state.js';
 
 const PAGE = 200;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+// S47-32 PHOTO-비슷한사진: hashThumb(폰 칸) = 화면이 받는 작은 미리보기로 만든 64비트 해시(16진수, 못 만들면 ''). 없으면 비슷한 사진 칩이 없다.
+//   [비슷한 사진] 칩을 처음 누를 때 SIMILAR_BATCH장씩 나눠 계산한다(묶음마다 다시 그림). 해시는 이 메모리에만, [다시 찾기]·계정 바뀜에 지운다.
 // S47-16 PHOTO-폰지우기안전장치: watchTrash() = 다음 사진 확인 때 서버가 폰에서 지운 사진의 원드라이브 사본이 사라졌는지 본 수(경고 한 줄), seenTrash() = [알았어요].
 export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, phoneOff, onChange, isStarred = () => false, now = () => Date.now(),
-  watchTrash = async () => 0, seenTrash = async () => {}}) {
+  watchTrash = async () => 0, seenTrash = async () => {}, hashThumb = null, pause = () => new Promise(ok => setTimeout(ok, 0))}) {
   let st = null, token = 0;
   const keeps = new Map(); // ④ 명진이 고른 남길 것(묶음 id → 칸 id), 이 화면 메모리만
   // S47-19: 펼친 [보기](key → 정렬). 'place:phone'·'space'·'junk:kakao'·'unbacked:<폰 폴더>'·'dups'(묶음 정렬만).
@@ -26,7 +29,10 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
   // S47-19B: 묶음 종류 칩('copy'·'burst', 있는 종류 먼저), 비교 칸의 오른쪽 사진 번호(묶음 id → 남길 것 말고 몇 번째). 이 화면 메모리만.
   let dupKind = '';
   const cmpAt = new Map();
-  const dupKindOf = () => (st?.dups.some(g => g.kind === dupKind) ? dupKind : st?.dups.some(g => g.kind === 'copy') ? 'copy' : 'burst');
+  const hashes = new Map(); // S47-32 칸 id → 해시(이 화면 메모리만)
+  const simOn = () => !!hashThumb && !!st?.simCand.length;
+  const dupKindOf = () => (dupKind === 'similar' && simOn() ? 'similar' : st?.dups.some(g => g.kind === dupKind) ? dupKind
+    : st?.dups.some(g => g.kind === 'copy') ? 'copy' : st?.dups.some(g => g.kind === 'burst') ? 'burst' : 'similar');
   const SHOWN_DUPS = 40;
   const shownDups = () => sortDupGroups(st.dups.filter(g => g.kind === dupKindOf()), sortOf('dups')).slice(0, SHOWN_DUPS);
   const keepOf = g => (g.items.some(p => p.id === keeps.get(g.id)) ? keeps.get(g.id) : g.keep);
@@ -45,7 +51,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
       + (others.length > 1 ? `<div class="photos-tidy-cmp-nav"><button type="button" class="mini" data-photos-tidy-cmp-step="${esc(g.id)}|-1" aria-label="앞 사진">‹</button><span class="photos-tidy-num">${i + 1} / ${others.length}</span><button type="button" class="mini" data-photos-tidy-cmp-step="${esc(g.id)}|1" aria-label="다음 사진">›</button></div>` : '')
       + '</div>';
   }
-  const empty = () => ({running:false, done:false, partial:false, failed:'', odFailed:'', od:[], ph:[], odOn:false, index:null, unbacked:[], partly:[], junk:[], counts:null, space:null, dups:[], at:0, gone:0, stale:false});
+  const empty = () => ({running:false, done:false, partial:false, failed:'', odFailed:'', od:[], ph:[], odOn:false, index:null, unbacked:[], partly:[], junk:[], counts:null, space:null, dups:[], simCand:[], sim:{running:false, done:false, count:0}, at:0, gone:0, stale:false});
   const changed = () => { try { onChange?.(); } catch { /* 화면 다시 그리기 실패가 읽기를 막지 않게 */ } };
   function derive() {
     if (!st) return;
@@ -55,8 +61,37 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     st.junk = junkGroups(st.ph);
     st.counts = st.odOn ? placeCounts({odItems:st.od, phItems:st.ph, index:st.index, off:phoneOff()}) : null;
     st.space = st.odOn ? spacePlan(st.ph, st.index, {now:now(), isStarred}) : null;
-    st.dups = dupGroups(st.ph);
+    const base = dupGroups(st.ph), skip = new Set(base.flatMap(g => g.items.map(p => p.id)));
+    st.simCand = hashThumb ? similarCandidates(st.ph, skip) : [];
+    st.dups = [...base, ...similarGroups(st.simCand, hashes)];
     copies = null;
+  }
+  // S47-32 비슷한 사진: 아직 해시 없는 후보를 SIMILAR_BATCH장씩(동시 6장) 만들고, 한 묶음마다 다시 묶어 그린다. 못 만든 칸은 ''(묶지 않음).
+  async function hashSimilar(t) {
+    if (!st || st.sim.running || st.sim.done || !simOn()) return;
+    st.sim.running = true; st.sim.count = st.simCand.filter(p => hashes.has(p.id)).length; changed();
+    const todo = st.simCand.filter(p => !hashes.has(p.id));
+    for (let i = 0; i < todo.length; i += SIMILAR_BATCH) {
+      const batch = todo.slice(i, i + SIMILAR_BATCH);
+      let next = 0;
+      const one = async () => {
+        while (next < batch.length) {
+          const p = batch[next++];
+          let h = '';
+          try { h = String(await hashThumb(p) || ''); } catch { h = ''; }
+          if (t !== token) return;
+          hashes.set(p.id, h);
+        }
+      };
+      await Promise.all(Array.from({length:Math.min(6, batch.length)}, one));
+      if (t !== token || !st) return;
+      st.sim.count = st.simCand.filter(p => hashes.has(p.id)).length;
+      derive(); changed();
+      await pause();
+      if (t !== token || !st) return;
+    }
+    st.sim.running = false; st.sim.done = true;
+    derive(); changed();
   }
   async function scanPhone(t) {
     for (let offset = 0; st.ph.length < SCAN_MAX;) {
@@ -83,6 +118,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
   }
   async function scan() {
     const t = ++token;
+    hashes.clear();
     st = {...empty(), running:true, odOn:odReady()};
     changed();
     const jobs = [scanPhone(t).catch(e => { if (t === token) st.failed = phoneError(e); })];
@@ -101,7 +137,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     // 처음 열 때만 읽는다(새로 찾기는 [다시 찾기]만). 지난 결과가 있으면 그대로 보인다.
     open() { if (!st) scan(); },
     rescan: () => scan(),
-    reset() { token++; st = null; keeps.clear(); panes.clear(); cmpAt.clear(); },
+    reset() { token++; st = null; keeps.clear(); panes.clear(); cmpAt.clear(); hashes.clear(); },
     // 찾은 뒤 폰 쪽이 바뀌었다(폰 폴더 옮기기·사진 접근 바꿈): 결과는 두고 맨 위 한 줄에만 알린다.
     stale() { if (st?.done && !st.stale) { st.stale = true; changed(); } },
     // 끈 폴더가 바뀌면 장수만 다시.
@@ -145,7 +181,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     // ④ 남길 것 고르기.
     keep(groupId, itemId) { const g = st?.dups.find(x => x.id === groupId); if (g && g.items.some(p => p.id === itemId)) { keeps.set(groupId, itemId); cmpAt.delete(groupId); } },
     // S47-19B: 묶음 종류 칩·비교 칸 넘기기·묶음 사진(크게 보기 목록).
-    dupKind(k) { if (DUP_TEXT[k]) dupKind = k; },
+    dupKind(k) { if (!DUP_TEXT[k] || (k === 'similar' && !simOn())) return; dupKind = k; if (k === 'similar' && ready()) hashSimilar(token); },
     cmpStep(groupId, d) { const g = st?.dups.find(x => x.id === groupId); if (!g) return; const n = g.items.length - 1; if (n > 0) cmpAt.set(groupId, (((cmpAt.get(groupId) || 0) + d) % n + n) % n); },
     groupItems: groupId => st?.dups.find(x => x.id === groupId)?.items.slice() || null,
     // 지운 칸(폰 휴지통·원드라이브 휴지통 뒤)을 재료에서 뺀다.
@@ -213,14 +249,19 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
           : '<p class="photos-tidy-line">공간 비우기 · 후보 없음</p>');
       }
       // ④ 같은 사진·연사 묶음(S47-19B): 종류 칩으로 나눠 보고, 묶음을 열면(그 줄 안) 두 장씩 나란히 비교·남길 것 고르기.
-      if (st.dups.length) {
+      if (st.dups.length || simOn()) {
         const kind = dupKindOf(), all = dupStats(st.dups), mine = st.dups.filter(g => g.kind === kind), shown = shownDups(), stat = dupStats(mine);
+        const sim = st.sim, simWait = kind === 'similar' && !sim.done;
         rows.push(`<details class="photos-tidy-row" data-k="dups"><summary><span>같은 사진·연사 <b>묶음 ${all.groups}개</b> · 지울 수 있는 ${all.extra}장${all.bytes ? ' · ' + sizeText(all.bytes) : ''}${help(TIDY_HELP.dups)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">`
-          + `<div class="photos-tidy-row photos-tidy-places" role="group" aria-label="묶음 종류">${Object.keys(DUP_TEXT).map(k => {
+          + `<div class="photos-tidy-row photos-tidy-places" role="group" aria-label="묶음 종류">${Object.keys(DUP_TEXT).filter(k => k !== 'similar' || simOn()).map(k => {
             const n = st.dups.filter(g => g.kind === k).length;
-            return `<button type="button" class="photos-tidy-place" data-photos-tidy-dupkind="${k}" aria-pressed="${k === kind}"${n ? '' : ' disabled'}>${DUP_TEXT[k]} ${n}</button>`;
+            // 비슷한 사진은 누를 때 계산하므로 계산 전에는 숫자가 없고 늘 누를 수 있다.
+            const label = k === 'similar' && !sim.done && !sim.running ? DUP_TEXT[k] : `${DUP_TEXT[k]} ${n}`;
+            return `<button type="button" class="photos-tidy-place" data-photos-tidy-dupkind="${k}" aria-pressed="${k === kind}"${n || k === 'similar' ? '' : ' disabled'}>${label}</button>`;
           }).join('')}</div>`
           + `<p class="photos-tidy-line">${DUP_HOW[kind]} · ${dupStatText(stat)}</p>`
+          + (simWait ? (sim.running ? `<p class="photos-tidy-line" data-photos-tidy-sim>비슷한 사진 찾는 중 ${sim.count}/${st.simCand.length}장 ${waitInlineHtml()}</p>`
+            : `<p class="photos-tidy-line" data-photos-tidy-sim>사진 ${st.simCand.length}장의 작은 그림을 비교해요 <button type="button" class="mini" data-photos-tidy-dupkind="similar">찾기</button></p>`) : '')
           + doLine(dupTrash ? TIDY_HELP.dupsDo : '묶음마다 남길 한 장을 고를 수 있어요 · 지우기는 원드라이브 연결·폰 휴지통이 있을 때만')
           + `<div class="photos-tidy-pane-head"><span class="photos-tidy-num">묶음마다 남길 사진을 누르세요(테두리 = 남김)</span>${chips('dups', DUP_SORTS)}</div>`
           + shown.map(g => {

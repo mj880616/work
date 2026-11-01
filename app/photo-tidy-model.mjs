@@ -230,9 +230,70 @@ export function dupTrashList(groups, keeps = new Map()) {
   for (const g of groups || []) { const keep = g.items.some(p => p.id === keeps.get(g.id)) ? keeps.get(g.id) : g.keep; out.push(...g.items.filter(p => p.id !== keep)); }
   return out;
 }
-export const DUP_TEXT = Object.freeze({copy:'같은 사진', burst:'연사'});
+export const DUP_TEXT = Object.freeze({copy:'같은 사진', burst:'연사', similar:'비슷한 사진'});
 // 묶는 기준 한 줄(명진 12:54 '어떤 원리로 같은 사진을 추리는지').
-export const DUP_HOW = Object.freeze({copy:'파일 크기·가로세로가 똑같은 사진', burst:'카메라로 1초 안에 이어 찍은 사진'});
+export const DUP_HOW = Object.freeze({copy:'파일 크기·가로세로가 똑같은 사진', burst:'카메라로 1초 안에 이어 찍은 사진', similar:'10분 안에 같은 장면을 조금씩 다르게 찍은 사진'});
+
+// ---- S47-32 PHOTO-비슷한사진(명진 11/01 '비슷한 사진 추리는 기능 있나?') ----
+// 판정은 기기에서만: 화면이 받는 작은 미리보기(폰 앱 thumb small)를 9×8 회색으로 줄여 64비트 지각 해시(dHash, 16자리 16진수)를 만들고,
+// 찍은 시각 SIMILAR_MS 안 카메라 사진끼리만 비교해 해밍 거리 SIMILAR_DIST 이하면 묶는다(묶음 첫 장과 SIMILAR_MS 안, 한 묶음 SIMILAR_MAX장까지).
+// 같은 사진·연사 묶음에 든 사진은 다시 묶지 않는다. 시각이 10분 안에 이웃이 없는 사진은 해시를 만들지 않는다(받기를 줄인다).
+// 해시는 이 화면 메모리에만(서버·기기 저장 없음). 계산은 SIMILAR_BATCH장씩 나눠서(photo-tidy.js).
+export const SIMILAR_MS = 10 * 60 * 1000, SIMILAR_DIST = 10, SIMILAR_MAX = 20, SIMILAR_BATCH = 200, SIMILAR_HASH_MAX = 6000;
+export const HASH_W = 9, HASH_H = 8;
+const HEX_RE = /^[0-9a-f]{16}$/;
+// gray = 회색 값 HASH_W×HASH_H개(줄 우선). 줄마다 왼쪽이 오른쪽보다 밝으면 1. 답 16자리 16진수(모양이 틀리면 '').
+export function dHashHex(gray) {
+  if (!gray || gray.length !== HASH_W * HASH_H) return '';
+  let out = '';
+  for (let y = 0; y < HASH_H; y++) {
+    let byte = 0;
+    for (let x = 0; x < HASH_W - 1; x++) byte = (byte << 1) | (gray[y * HASH_W + x] > gray[y * HASH_W + x + 1] ? 1 : 0);
+    out += byte.toString(16).padStart(2, '0');
+  }
+  return out;
+}
+// RGBA 칸(getImageData().data) → 회색 값.
+export function grayOf(rgba) {
+  const n = Math.floor((rgba?.length || 0) / 4), out = new Array(n);
+  for (let i = 0; i < n; i++) out[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+  return out;
+}
+const POP = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
+// 두 해시의 다른 비트 수(모양이 틀리면 64 = 아주 다름).
+export function hamming(a, b) {
+  if (!HEX_RE.test(a || '') || !HEX_RE.test(b || '')) return 64;
+  let d = 0;
+  for (let i = 0; i < 16; i++) d += POP[parseInt(a[i], 16) ^ parseInt(b[i], 16)];
+  return d;
+}
+const tAt = p => Date.parse(p.taken_at);
+// 해시를 만들 사진: 카메라 폴더 사진(동영상·스크린샷·시각 어림 빼고), skip(같은 사진·연사 묶음 칸 id) 빼고,
+// SIMILAR_MS 안에 다른 후보가 있는 것만. 최근 찍은 것부터 SIMILAR_HASH_MAX장까지.
+export function similarCandidates(phItems, skip = new Set()) {
+  const list = (phItems || []).filter(p => p && p.id && !p.video && !p.screenshot && p.approx !== true && !skip.has(p.id) && cameraFolder(p.folder) && Number.isFinite(tAt(p)))
+    .sort((a, b) => tAt(a) - tAt(b) || a.id.localeCompare(b.id));
+  const out = list.filter((p, i) => (i > 0 && tAt(p) - tAt(list[i - 1]) <= SIMILAR_MS) || (i + 1 < list.length && tAt(list[i + 1]) - tAt(p) <= SIMILAR_MS));
+  return out.reverse().slice(0, SIMILAR_HASH_MAX);
+}
+// hashes = Map(칸 id → 16진수 해시, 못 만들면 ''). 찍은 순서대로 보며 묶음 첫 장과 SIMILAR_MS 안이고
+// 묶음 안 한 장이라도 해밍 거리 SIMILAR_DIST 이하면 가장 가까운 묶음에 넣는다. 답: 2장 이상 묶음(kind 'similar'), 아낄 용량 큰 순 GROUP_MAX개.
+export function similarGroups(cands, hashes) {
+  const list = (cands || []).filter(p => HEX_RE.test(hashes?.get(p.id) || '')).sort((a, b) => tAt(a) - tAt(b) || a.id.localeCompare(b.id));
+  const open = [], all = [];
+  for (const p of list) {
+    const t = tAt(p), h = hashes.get(p.id);
+    while (open.length && t - tAt(open[0][0]) > SIMILAR_MS) open.shift();
+    let best = null, bestD = SIMILAR_DIST + 1;
+    for (const g of open) {
+      if (g.length >= SIMILAR_MAX) continue;
+      const d = Math.min(...g.map(q => hamming(h, hashes.get(q.id))));
+      if (d < bestD) { best = g; bestD = d; }
+    }
+    if (best) best.push(p); else { const g = [p]; open.push(g); all.push(g); }
+  }
+  return all.filter(g => g.length > 1).map(g => groupOf(g, 'similar')).sort(bigFirst).slice(0, GROUP_MAX);
+}
 
 // ---- S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰에서만 지우기]·[나머지 지우기] 전 원드라이브 사본 짝 ----
 // 폰 사진마다 원드라이브에서 같은 크기(그리고 같은 이름 또는 찍은 시각)인 사본을 찾는다. 크기를 모르면 짝이 없다(지우지 않음).
@@ -271,7 +332,7 @@ export const TIDY_HELP = Object.freeze({
   partly:'일부만 있음 = 원드라이브에서 찾은 장수/전체 장수 · [보기]는 못 찾은 사진만 · 동기화 앱이 아직 올리는 중일 수 있어요',
   space:'원드라이브에 똑같은 사진이 있어서 폰에서만 지워도 안전한 사진이에요(동기화 앱이 업로드만일 때)',
   spaceDo:'1년 지난 사진과 한 달 지난 50MB 넘는 동영상만 골랐고 별표는 뺐어요 · 지우기 직전에 원드라이브에 있는지 다시 확인해요',
-  dups:'같은 사진 = 파일 크기·가로세로가 똑같은 사진, 연사 = 카메라로 1초 안에 이어 찍은 사진이에요',
+  dups:'같은 사진 = 파일 크기·가로세로가 똑같은 사진, 연사 = 카메라로 1초 안에 이어 찍은 사진, 비슷한 사진 = 10분 안에 같은 장면을 조금씩 다르게 찍은 사진이에요',
   dupsDo:'묶음마다 남길 한 장을 누르고 [나머지 지우기] · 원드라이브에 사본이 있는 사진만 지워요',
   junk:'1년 지난 스크린샷과 카톡·텔레그램으로 받은 사진이에요',
   junkDo:'필요 없으면 [지우기](폰 휴지통) · 지우기 싫으면 [숨기기]로 사진 목록에서만 빼요',
