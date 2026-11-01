@@ -63,7 +63,7 @@ test('PC 1280: 정리함 한 화면 — 맨 위 한 줄과 [다시 찾기], 위 
  const todo=basket.locator('[data-inbox-todo-section]'),update=basket.locator('.basket-switch-row');
  await expect(todo).toBeVisible();await expect(update).toBeVisible();
  expect((await todo.boundingBox()).y).toBeLessThan((await update.boundingBox()).y);
- await expect(todo.locator('[data-inbox-chip]')).toHaveText(['처리 전','보냄','무시']);
+ await expect(todo.locator('[data-inbox-chip]')).toHaveText(['처리 전','보냄','이미 함','무시']);
  await expect(update.locator('h3')).toContainText('업데이트');
  await page.evaluate(()=>window.KPTURouter.go('basket',{sub:'todo'}));
  await expect(todo).toBeVisible();await expect(page).not.toHaveURL(/pane=/);

@@ -148,6 +148,51 @@ test('정리함: [무시] moves the row to 무시함 with a 5 s [되돌리기] t
  expect(f.errors).toEqual([]);
 });
 
+// TODO-이미함·환류: [이미 함]은 할 일을 만들지 않고 빼며 결과 한 줄을 남긴다. [되돌리기]는 둘 다 되돌린다. 처리 전 위 지난주 비율 한 줄.
+for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이미 함, logs one result, undo brings both back; week line; ⋯ edit form ${width}`,async({page})=>{
+ const fb={posts:[],deletes:[]};
+ const lastWeek='2026-09-30T03:00:00Z'; // 시계는 2026-10-06(화) 한국 → 지난주 = 9.28~10.4
+ const f=await fixture(page,{width,routes:async()=>{
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_feedback',async route=>{
+   const req=route.request(),method=req.method();
+   if(method==='POST'){fb.posts.push(req.postDataJSON());return route.fulfill({status:201,json:[{id:'f0000000-0000-4000-8000-000000000001'}]});}
+   if(method==='DELETE'){fb.deletes.push(new URL(req.url()).searchParams.get('id'));return route.fulfill({status:204,body:''});}
+   const q=new URL(req.url()).searchParams;
+   if(q.has('created_at'))return route.fulfill({json:[{outcome:'tasked',summary:'가상 지난 제안',edited:null,created_at:lastWeek},{outcome:'done',summary:'가상 지난 일',edited:null,created_at:lastWeek}]});
+   return route.fulfill({json:[]});
+  });
+ }});
+ await openInbox(page);
+ const week=inbox(page).locator('[data-inbox-todo-week] > summary');
+ await expect(week).toHaveText('지난주 챙길 것 2건 · 할 일로 50% · 이미 함 50%');
+ const row=inbox(page).locator(`[data-inbox-todo-row="${id(2)}"]`);
+ await expect(row.locator('.inbox-todo-actions button')).toHaveText(['할 일로','이미 함','무시','⋯']);
+ expect(await noWideScroll(page)).toBe(true);
+ await tap(page,btn(row,'이미 함'),width);
+ await expect(row).toHaveCount(0);
+ await expect(page.locator('[data-undo-notice]')).toContainText('이미 한 일로 뺐어요.');
+ expect(f.calls.patch[0]).toMatchObject({query:{status:'eq.open'},body:{status:'done'}});
+ await expect.poll(()=>fb.posts.length).toBe(1);
+ expect(fb.posts[0]).toMatchObject({outcome:'done',kind:'request',source_kind:'org_update',summary:'가상 조직 회신',edited:null});
+ await page.locator('#basketView [data-inbox-chip="done"]').click();
+ await expect(inbox(page).locator(`[data-inbox-todo-row="${id(2)}"] .inbox-todo-done`)).toContainText('이미 함');
+ await page.locator('[data-undo-notice] [data-undo-action]').click();
+ await expect.poll(()=>f.calls.patch.length).toBe(2);
+ expect(f.calls.patch[1]).toMatchObject({query:{status:'eq.done'},body:{status:'open',decided_at:null}});
+ await expect.poll(()=>fb.deletes).toEqual(['eq.f0000000-0000-4000-8000-000000000001']);
+ await page.locator('#basketView [data-inbox-chip="open"]').click();
+ const back=inbox(page).locator(`[data-inbox-todo-row="${id(2)}"]`);
+ await expect(back).toBeVisible();
+ // ⋯ 안 [고쳐서 할 일로]: 제목·기한 입력 한 줄, [취소]로 닫힘(만들기 없음).
+ await tap(page,back.locator('[data-inbox-todo-more]'),width);
+ await page.locator('#inboxTodoRowMenu [data-inbox-todo-menu="edit"]').click();
+ await expect(back.locator('[data-inbox-todo-edit-title]')).toHaveValue('가상 조직 회신');
+ expect(await noWideScroll(page)).toBe(true);
+ await back.getByRole('button',{name:'취소',exact:true}).click();
+ await expect(back.locator('[data-inbox-todo-edit]')).toHaveCount(0);
+ expect(f.errors).toEqual([]);
+});
+
 test('정리함 [다시 찾기]: new candidates appear; a limit is one plain notice and is not retried',async({page})=>{
  const f=await fixture(page);
  await openInbox(page);

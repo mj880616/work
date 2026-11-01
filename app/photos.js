@@ -908,6 +908,59 @@ async function downloadOne(item) {
     return false;
   }
 }
+// PHOTO-갤러리편집(요청함 11/01 19:00, A안): 크게 보기 [✎ 편집] = 폰 앱(0.4.6+)이 삼성 갤러리 편집기로 넘긴다(웹2 자체 편집기 없음).
+// 원드라이브·구글 드라이브 사진은 같은 사진이 폰에 있으면 그것을 열고, 없으면 한 번 더 누를 때(한 줄 확인) 원본을
+// 기존 '원본 받기' 길로 받아 폰 사진첩 Pictures/웹2에 저장한 뒤 연다. 돌아와 사진첩이 바뀌었으면 사진 목록만 다시 읽는다(앱 화면은 다시 열지 않음).
+const EDIT_ASK_MS = 8000;
+const EDIT_ERROR = {none:'폰에서 이 사진을 찾지 못했어요.', busy:'편집기가 이미 열려 있어요.', noapp:'사진을 편집할 앱이 없어요.', old:'이 앱 판은 편집을 못 해요. 앱을 업데이트해 주세요.', big:'사진이 너무 커서(60MB 넘음) 폰에 받지 못했어요.', type:'이 사진 형식은 폰에 받아 편집하지 못해요.'};
+const editText = error => EDIT_ERROR[error] || '편집기를 열지 못했어요.';
+let editAsk = null, editBusy = false;
+const editable = item => phone.canEdit() && !!item && !item.video;
+// 원드라이브 원본 바이트: [⤓ 원본 받기]와 같은 받기 주소(약 1시간 사는 Microsoft 주소, 메모리에만)를 이 화면이 받는다.
+async function odOriginalBlob(item) {
+  const r = await fetch((await odMediaUrl(rt, item.id, 'download')).url, {credentials:'omit', referrerPolicy:'no-referrer', cache:'no-store'});
+  if (!r.ok) throw new Error('onedrive_media_unavailable');
+  return r.blob();
+}
+async function editOne(item) {
+  if (!editable(item) || editBusy) return;
+  const say = text => (photoStripOpen() ? photoStripNote(text) : notify(text));
+  editBusy = true;
+  try {
+    let res;
+    if (item.kind !== 'phone' && editAsk?.id === item.id && Date.now() - editAsk.at < EDIT_ASK_MS) {
+      editAsk = null;
+      say('원본을 폰에 받아요…');
+      let blob = null;
+      try { blob = item.kind === 'gdrive' ? await gdMediaBlob(rt, item.gdId) : await odOriginalBlob(item); }
+      catch (error) { if (item.kind === 'gdrive') gdProblemFrom(error); say(`원본을 받지 못했어요: ${item.kind === 'gdrive' ? gdriveErrorText(error) : odErrorText(error)}`); return; }
+      const saved = await phone.save(blob, item.name || '');
+      if (!saved.ok) { say(saved.error === 'big' || saved.error === 'type' ? editText(saved.error) : '폰에 저장하지 못했어요.'); return; }
+      say('갤러리 편집기를 열어요…');
+      res = await phone.edit({kind:'phone', phoneId:saved.id});
+    } else {
+      editAsk = null;
+      say('갤러리 편집기를 열어요…');
+      res = await phone.edit(item);
+      if (!res.ok && res.error === 'none' && item.kind !== 'phone') {
+        editAsk = {id:item.id, at:Date.now()};
+        say('폰에 없는 사진이에요. [편집]을 한 번 더 누르면 원본을 폰(사진첩 웹2 폴더)에 받아 편집해요.');
+        return;
+      }
+    }
+    if (!res.ok) { say(editText(res.error)); return; }
+    if (!res.changed) { say(''); return; }
+    phoneEdited();
+  } finally { editBusy = false; }
+}
+// 편집한 사진이 생겼다(새 사진·덮어쓰기): 크게 보기를 닫고 사진 목록만 다시 읽는다. 원드라이브 색인·별표·연결은 그대로.
+function phoneEdited() {
+  closePhotoStrip({restore:false});
+  pFolders = null; pFor = null; pItems = []; phStarItems = null; aFor = null;
+  resetList(); calData.clear();
+  if (window.KPTURouter?.current === 'photos') render();
+  notify('편집한 사진을 반영했어요');
+}
 // own = 다른 목록(정리 펼친 칸)의 크게 보기 {list, take, restore, commit}.
 function openViewer(index, own = null) {
   if (photoStripOpen()) return;
@@ -918,6 +971,7 @@ function openViewer(index, own = null) {
     original:item => (item.kind === 'phone' ? {} : {download:true}), download:downloadOne,
     // PHOTO-전체화면확대: 확대할 때 원본 해상도(폰 = 앱 다리 원본, 구글 = 서버 중계 원본, 원드라이브 = 받기 주소). 못 받으면 큰 그림 그대로.
     hires:hiresOf,
+    editable, edit:item => editOne(item),
     play:async item => (item.kind === 'phone' ? phone.mediaUrl(item) : item.kind === 'gdrive' ? gdPlay(item) : (await odMediaUrl(rt, item.id, 'play')).url), badge:item => durationLabel(item.duration_ms),
     isStarred, toggleStar:item => { starsChanged(); return toggleStar(item); },
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : '이 폰은 여기서 지우지 못해요'}

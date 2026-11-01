@@ -21,7 +21,7 @@ const FN='https://synthetic.supabase.test/functions/v1/outside-feed';
 // 단체 키 → 목록 표본(카탈로그 lists 순서대로).
 const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
   jinboparty:['jinboparty-comment.html','jinboparty-press.html'],pssp:['pssp.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html'],
-  socialism:['socialism.html'],socialist:['socialist.xml'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
+  socialism:['socialism.html'],socialist:['socialist-telegram.html'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
 // 단체별 기대: [정규화한 주소, 종류] 순서.
 const EXPECT={
   kctu:[['https://nodong.org/statement/310002','statement'],['https://nodong.org/statement/310000','press']],
@@ -34,13 +34,13 @@ const EXPECT={
   platformc:[['https://platformc.kr/2026/10/fake-reading-one','article']],
   leftall:[['https://leftall.com/notice/120','statement'],['https://leftall.com/notice/118','statement']],
   socialism:[['https://socialism.jinbo.net/bbs/board.php?bo_table=news&wr_id=55','comment']],
-  socialist:[['http://socialist.kr/fake-post/','article']],
+  socialist:[['https://t.me/ksocialist/1203','article'],['http://socialist.kr/fake-statement-1201/','statement']],
   jacobin:[['https://jacobin.com/2026/10/fictional-strike-wave','article']],
   labornotes:[['https://labornotes.org/2026/10/fictional-organizing','article']],
   redpepper:[['https://www.redpepper.org.uk/fictional-red-essay/','article']],
   socialistworker:[['https://socialistworker.co.uk/news/fictional-picket-report/','article']],
 };
-const itemsOf=s=>LISTS[s.key].flatMap((f,i)=>s.mode==='rss'?P.parseFeed(s,FX(f),NOW):P.parseListHtml(s,FX(f),s.lists[i]));
+const itemsOf=s=>LISTS[s.key].flatMap((f,i)=>s.mode==='rss'?P.parseFeed(s,FX(f),NOW):s.mode==='telegram'?P.parseTelegram(s,FX(f),NOW):P.parseListHtml(s,FX(f),s.lists[i]));
 
 // ---- 카탈로그 ------------------------------------------------------------------------------------------------------
 
@@ -54,7 +54,9 @@ test('catalog = decided sources only (Q1·Q2·Q3·Q4·Q5): no 정의당, no NLR,
   for(const s of OUTSIDE_CATALOG){
     assert.match(s.key,/^[a-z0-9][a-z0-9-]{1,39}$/,'DB source_key check');
     for(const l of s.lists){assert.ok(allowedUrl(s,l),`${s.key} list inside its own hosts`);}
-    assert.equal(!!s.allowHttp,s.key==='socialist','http only for socialist.kr (Q4)');
+    assert.deepEqual(s.httpHosts??[],s.key==='socialist'?['socialist.kr','www.socialist.kr']:[],'http only for socialist.kr (Q4)');
+    assert.equal('allowHttp' in s,false,'옛 칸(단체 전체 http 허용)은 없앰');
+    assert.equal(s.hosts.includes('t.me'),s.key==='socialist','t.me는 사회주의자 채널 하나만(명진 결정 11/01 21:13)');
     if(s.mode==='html')assert.ok(s.item instanceof RegExp);
   }
   // 화면에 주는 모양에는 주소·규칙이 없다.
@@ -70,6 +72,12 @@ test('allowedUrl (SSRF): only catalog hosts, https (http only socialist), no use
     assert.equal(allowedUrl(k,bad),null,bad);
   assert.ok(allowedUrl(s,'http://socialist.kr/feed'));
   assert.equal(allowedUrl(s,'http://nodong.org/'),null);
+  // t.me: 이 단체 채널의 목록·글 경로만, https만.
+  assert.ok(allowedUrl(s,'https://t.me/s/ksocialist'));assert.ok(allowedUrl(s,'https://t.me/ksocialist/1201'));
+  for(const bad of['http://t.me/s/ksocialist','https://t.me/s/otherchannel','https://t.me/otherchannel/1','https://t.me/ksocialist','https://t.me/s/ksocialist/1',
+    'https://t.me/ksocialist/1/2','https://t.me/joinchat/x','https://t.me/robots.txt','https://telegram.me/s/ksocialist','https://t.me/ksocialist/abc'])
+    assert.equal(allowedUrl(s,bad),null,bad);
+  for(const o of OUTSIDE_CATALOG.filter(x=>x.key!=='socialist'))assert.equal(allowedUrl({...o,hosts:[...o.hosts,'t.me']},'https://t.me/s/ksocialist'),null,`${o.key}: telegram 칸 없으면 t.me 불가`);
 });
 
 test('title prefixes decide the kind; notices/press-call posts are dropped', () => {
@@ -369,15 +377,15 @@ test('run: no enabled workspace → no outside request at all', async () => {
   assert.equal(out.status,'no_workspace');assert.equal(h.calls.site.length,0);
 });
 
-test('robots.txt disallow / unreachable → source skipped with last_error, nothing read (kptu case)', async () => {
-  const sites={'https://www.kptu.net/board/list.aspx?mid=F686C1F3':FX('kptu.html')};
-  const h=harness({sources:[{workspace_id:WS,source_key:'kptu'}],sites,robots:{'https://www.kptu.net':'User-agent: *\nDisallow: /board/\n'}});
-  const out=await (await h.cron('run',{source:'kptu'})).json();
-  assert.equal(out.status,'robots');assert.deepEqual(h.calls.site,['https://www.kptu.net/robots.txt']);
+test('robots.txt disallow / unreachable → source skipped with last_error, nothing read (robots를 지키는 단체)', async () => {
+  const sites={'https://kgreens.org/statement':FX('kgreens-statement.html'),'https://kgreens.org/press':FX('kgreens-press.html')};
+  const h=harness({sources:[{workspace_id:WS,source_key:'kgreens'}],sites,robots:{'https://kgreens.org':'User-agent: *\nDisallow: /\n'}});
+  const out=await (await h.cron('run',{source:'kgreens'})).json();
+  assert.equal(out.status,'robots');assert.deepEqual(h.calls.site,['https://kgreens.org/robots.txt']);
   assert.equal(h.db.app_outside_sources[0].last_error,'robots');assert.equal(h.db.app_outside_posts.length,0);
-  const h2=harness({sources:[{workspace_id:WS,source_key:'kptu'}],sites,robots:{'https://www.kptu.net':new Response('',{status:503})}});
-  assert.equal((await (await h2.cron('run',{source:'kptu'})).json()).status,'robots_unreachable');
-  assert.deepEqual(h2.calls.site,['https://www.kptu.net/robots.txt']);
+  const h2=harness({sources:[{workspace_id:WS,source_key:'kgreens'}],sites,robots:{'https://kgreens.org':new Response('',{status:503})}});
+  assert.equal((await (await h2.cron('run',{source:'kgreens'})).json()).status,'robots_unreachable');
+  assert.deepEqual(h2.calls.site,['https://kgreens.org/robots.txt']);
   // robots가 글 경로만 막으면 목록은 읽되 글은 건너뛴다.
   const h3=harness({sources:[{workspace_id:WS,source_key:'kctu'}],sites:kctuSites(),robots:{'https://nodong.org':'User-agent: Web2OutsideFeed\nDisallow: /statement/\n'}});
   const o3=await (await h3.cron('run',{source:'kctu'})).json();
@@ -450,7 +458,8 @@ test('every catalog source runs end to end from its stored sample (domestic and 
     const out=await (await h.cron('run',{source:s.key})).json();
     assert.equal(out.status,'ok',s.key);assert.equal(out.listed,EXPECT[s.key].length,s.key);
     assert.equal(out.inserted+out.skipped,EXPECT[s.key].length,s.key);
-    for(const u of h.calls.site)assert.ok(allowedUrl(s,u),`${s.key} requested only its own hosts`);
+    // robots.txt는 그 단체 호스트의 것만(t.me는 채널 경로만 허용하므로 robots.txt는 따로 본다 — 리더가 출처 origin에서만 만든다).
+    for(const u of h.calls.site)assert.ok(allowedUrl(s,u)||(new URL(u).pathname==='/robots.txt'&&new URL(u).protocol==='https:'&&s.hosts.includes(new URL(u).hostname)),`${s.key} requested only its own hosts`);
   }
 });
 
@@ -493,36 +502,136 @@ test('노동자연대: 피드는 읽었지만 이번 첫 쪽에 성명이 없으
   assert.equal((await (await h2.cron('run',{source:'ws'})).json()).status,'parse_empty');
 });
 
-test('사회주의자: 피드 대신 자바스크립트 사람 확인 쪽이 오면 풀지 않고 bot_check로 남긴다', async () => {
+test('로봇 확인 쪽이 오면 풀지 않고 bot_check로 남긴다(사회주의자 채널 목록 자리에 와도 같음)', async () => {
   const gate='<html><body><script type="text/javascript" src="/cupid.js" ></script><script>function toNumbers(d){var e=[];return e}var a=toNumbers("00");document.cookie="__test="+a;location.href="http://socialist.kr/feed?i=1";</script></body></html>';
   assert.equal(P.looksLikeBotCheck(gate),true);
-  assert.equal(P.looksLikeBotCheck(FX('socialist.xml')),false);
-  const h=harness({sources:[{workspace_id:WS,source_key:'socialist'}],sites:{'http://socialist.kr/feed':html(gate)}});
+  assert.equal(P.looksLikeBotCheck(FX('ws.xml')),false);
+  assert.equal(P.looksLikeBotCheck(FX('socialist-telegram.html')),false);
+  const h=harness({sources:[{workspace_id:WS,source_key:'socialist'}],sites:{'https://t.me/s/ksocialist':html(gate)}});
   const out=await (await h.cron('run',{source:'socialist'})).json();
   assert.equal(out.status,'bot_check');assert.equal(h.db.app_outside_sources[0].last_error,'bot_check');
-  assert.deepEqual(h.calls.site,['http://socialist.kr/robots.txt','http://socialist.kr/feed'],'the gate is not solved or retried with other requests');
+  assert.deepEqual(h.calls.site,['https://t.me/robots.txt','https://t.me/s/ksocialist'],'the gate is not solved or retried with other requests');
 });
 
-test('공공운수노조: 실제 robots(모든 수집기 Disallow: /, 네이버만 일부 허용) → 목록도 안 열고 robots', async () => {
-  const h=harness({sources:[{workspace_id:WS,source_key:'kptu'}],sites:{'https://www.kptu.net/board/list.aspx?mid=F686C1F3':FX('kptu.html')},
-    robots:{'https://www.kptu.net':'User-agent: *\nDisallow: /\n\nUser-agent: Yeti\nDisallow: /adm\nDisallow: /member\n'}});
+// 사회주의자(명진 결정 11/01 21:13): 사이트는 로봇 확인 화면이라 읽지 않고, 공개 텔레그램 채널 웹 미리보기를 읽는다.
+test('사회주의자: 텔레그램 공개 채널 글 — 새 글부터, 본문 안 사이트 글 주소를 원문으로(없으면 채널 글 주소), 사진뿐·다른 채널·공지 글은 뺀다', () => {
+  const s=sourceByKey('socialist');
+  assert.equal(s.mode,'telegram');assert.deepEqual(s.lists,['https://t.me/s/ksocialist']);assert.equal(H.robotsExempt(s),false,'robots 예외 아님');
+  const stats={candidates:0};
+  const items=P.parseTelegram(s,FX('socialist-telegram.html'),NOW,30,stats);
+  assert.equal(stats.candidates,4,'이 채널 글 4개(다른 채널 글은 셈하지 않음)');
+  assert.deepEqual(items.map(i=>[i.url,i.kind,i.title,i.published_at]),[
+    ['https://t.me/ksocialist/1203','article','✊ 가상 잡지 새 호가 나왔습니다','2026-10-31T02:00:00.000Z'],
+    ['http://socialist.kr/fake-statement-1201/','statement','[성명] 가상 노동법 개악을 멈춰라','2026-10-29T09:30:00.000Z']]);
+  assert.match(items[1].content,/가상 국회는 개정안을 멈추고/);assert.doesNotMatch(items[1].content,/스크립트 안 글자/);
+  assert.equal(items[0].author,null);
+});
+
+test('사회주의자: 채널 목록 한 번만 읽고 글 쪽·단체 사이트는 요청하지 않는다(로봇 확인 화면을 건드리지 않음), 짧은 글은 제목만', async () => {
+  const h=harness({sources:[{workspace_id:WS,source_key:'socialist'}],sites:{'https://t.me/s/ksocialist':FX('socialist-telegram.html')},robots:{'https://t.me':'User-agent: *\nDisallow: /admin\n'}});
+  const out=await (await h.cron('run',{source:'socialist'})).json();
+  assert.equal(out.status,'ok');assert.equal(out.inserted,2);assert.equal(out.skipped,0);
+  assert.deepEqual(h.calls.site,['https://t.me/robots.txt','https://t.me/s/ksocialist']);
+  const st=h.db.app_outside_posts.find(p=>p.url==='http://socialist.kr/fake-statement-1201/');
+  assert.equal(st.kind,'statement');assert.equal(st.has_body,true);assert.ok(st.summary_ko);
+  assert.equal(h.calls.ai.length,2);
+  // robots.txt가 채널 미리보기를 막으면 그대로 따른다(우회 없음).
+  const r=harness({sources:[{workspace_id:WS,source_key:'socialist'}],sites:{'https://t.me/s/ksocialist':FX('socialist-telegram.html')},robots:{'https://t.me':'User-agent: *\nDisallow: /s/\n'}});
+  assert.equal((await (await r.cron('run',{source:'socialist'})).json()).status,'robots');assert.deepEqual(r.calls.site,['https://t.me/robots.txt']);
+  // 채널 미리보기가 다른 채널·앱 주소로 넘기면 따라가지 않는다.
+  const red=harness({sources:[{workspace_id:WS,source_key:'socialist'}],sites:{'https://t.me/s/ksocialist':()=>new Response('',{status:302,headers:{location:'https://t.me/otherchannel'}})}});
+  assert.equal((await (await red.cron('run',{source:'socialist'})).json()).status,'redirect_outside');
+});
+
+test('노동자연대: 머리말 [노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명]·괄호 없는 \'노동자연대 성명:\'만 성명, 신문 기사는 뺀다', () => {
+  const k=sourceByKey('ws').kindOf;
+  for(const t of['[노동자연대 성명] 가상','[성명] 가상','[노동자연대 학생그룹 성명] 가상','노동자연대 성명: 가상','노동자연대 학생그룹 성명 — 가상'])assert.equal(k(t,''),'statement',t);
+  for(const t of['〈노동자 연대〉가 뽑은: 가상 10대 뉴스','가상 기사에서 성명을 다룸','노동자연대 성명서 낭독 현장 기사'])assert.equal(k(t,''),null,t);
+});
+
+// 공공운수노조 robots 예외(명진 결정 11/01 16:49): 소속 노조의 공개 성명 게시판 한 곳만. 일반 robots 검사는 약하게 하지 않는다.
+const KPTU_ROBOTS='User-agent: *\nDisallow: /\n\nUser-agent: Yeti\nDisallow: /adm\nDisallow: /member\n';
+test('robots 예외: 예외 목록은 kptu·laborparty 두 곳뿐, 카탈로그 robotsException도 두 곳뿐(명진 결정 주석)', () => {
+  assert.deepEqual([...H.ROBOTS_EXEMPT_KEYS],['kptu','laborparty']);
+  assert.ok(Object.isFrozen(H.ROBOTS_EXEMPT_KEYS));
+  assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.robotsException).map(s=>s.key),['kptu','laborparty']);
+  assert.match(sourceByKey('kptu').robotsException,/명진 결정 11\/01 16:49/);
+  assert.match(sourceByKey('laborparty').robotsException,/명진 결정 11\/01 21:08/);
+  assert.ok(H.robotsExempt(sourceByKey('kptu')));assert.ok(H.robotsExempt(sourceByKey('laborparty')));
+  for(const s of OUTSIDE_CATALOG.filter(s=>!['kptu','laborparty'].includes(s.key))){
+    assert.equal(H.robotsExempt(s),false,s.key);
+    assert.equal(H.robotsExempt({...s,robotsException:'누가 몰래 적어도'}),false,`${s.key}: 카탈로그 칸만으로는 예외가 되지 않음`);
+  }
+  assert.equal(H.robotsExempt({...sourceByKey('kptu'),robotsException:undefined}),false,'kptu도 결정 기록이 없으면 예외 아님');
+  assert.equal(H.robotsExempt({...sourceByKey('laborparty'),robotsException:''}),false,'laborparty도 결정 기록이 없으면 예외 아님');
+  assert.equal(H.robotsExempt({...sourceByKey('kctu'),key:'laborparty-x',robotsException:'x'}),false,'비슷한 이름도 아님');
+  assert.equal(publicCatalog().some(s=>'robotsException' in s),false,'화면에는 싣지 않음');
+});
+
+test('공공운수노조: robots.txt가 모두 막아도(Disallow: /) 목록 한 쪽 + 새 글만 읽는다 — robots.txt는 묻지 않고, 요청 머리는 그대로', async () => {
+  const sites={'https://www.kptu.net/board/list.aspx?mid=F686C1F3':FX('kptu-list-2026-11.html'),
+    'https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=96558':FX('kptu-article.html'),
+    'https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=96549':FX('kptu-article-image-only.html')};
+  const h=harness({sources:[{workspace_id:WS,source_key:'kptu'}],sites,robots:{'https://www.kptu.net':KPTU_ROBOTS}});
   const out=await (await h.cron('run',{source:'kptu'})).json();
-  assert.equal(out.status,'robots');assert.deepEqual(h.calls.site,['https://www.kptu.net/robots.txt']);
+  assert.equal(out.status,'ok');assert.equal(out.listed,2,'[주간홍보] 공지 글은 넣지 않음');assert.equal(out.inserted,2);assert.equal(out.skipped,0);
+  assert.ok(!h.calls.site.includes('https://www.kptu.net/robots.txt'));
+  assert.deepEqual(h.calls.site.filter(u=>/list\.aspx/.test(u)),['https://www.kptu.net/board/list.aspx?mid=F686C1F3'],'목록은 첫 쪽 한 번만');
+  const [a,b]=['96558','96549'].map(i=>h.db.app_outside_posts.find(p=>p.url.endsWith(`idx=${i}`)));
+  assert.equal(a.kind,'statement');assert.equal(a.has_body,true);assert.equal(a.summary_ko,'가상 단체가 노동법 개악 규탄 입장 밝힘.');assert.equal(a.published_at,'2026-10-28T15:00:00.000Z');
+  assert.ok(h.db.app_outside_sentences.some(x=>/상급심에서 바로잡을 것/.test(x.text)));
+  assert.ok(!h.db.app_outside_sentences.some(x=>/\.hwp|수정|삭제|이전글/.test(x.text)),'첨부 이름·단추 글자는 본문이 아님');
+  assert.equal(b.kind,'press');assert.equal(b.has_body,false);assert.equal(b.summary_ko,null,'그림뿐인 글은 제목만(요약 줄 비움)');
+  assert.equal(h.calls.ai.length,1,'본문 없는 글은 AI에 보내지 않음');
+  // 두 번째 예약 실행: 이미 넣은 글은 다시 읽지 않는다(새 글만).
+  const again=await (await h.cron('run',{source:'kptu'})).json();
+  assert.equal(again.fresh,0);assert.equal(h.calls.site.filter(u=>/detail\.aspx/.test(u)).length,2);
+});
+
+test('공공운수노조: 바로 읽기는 하지 않는다(하루 3번 예약 때만) — 바깥 요청 0', async () => {
+  const h=harness({sources:[{workspace_id:WS,source_key:'kptu'}],sites:{'https://www.kptu.net/board/list.aspx?mid=F686C1F3':FX('kptu-list-2026-11.html')}});
+  const r=await (await h.user('read_now',{source:'kptu'})).json();
+  assert.deepEqual(r,{ok:true,source:'kptu',status:'scheduled_only',inserted:0});assert.equal(h.calls.site.length,0);
+});
+
+// 노동당 robots 예외(명진 결정 11/01 21:08): 공공운수노조 예외와 같은 조건.
+test('노동당: robots.txt를 거절(403)해도 목록 한 쪽 + 새 글만 읽는다 — robots.txt는 묻지 않고, 요청 머리 그대로, 바로 읽기 없음', async () => {
+  const sites={'https://laborparty.kr/?page_id=13642':FX('laborparty.html'),
+    'https://laborparty.kr/?mod=document&page_id=13642&uid=5001':FX('article-ko.html'),
+    'https://laborparty.kr/?mod=document&page_id=13642&uid=5000':FX('article-ko.html')};
+  const h=harness({sources:[{workspace_id:WS,source_key:'laborparty'}],sites,robots:{'https://laborparty.kr':()=>new Response('<h1>403 Forbidden</h1>',{status:403})}});
+  const out=await (await h.cron('run',{source:'laborparty'})).json();
+  assert.equal(out.status,'ok');assert.equal(out.listed,2);
+  assert.ok(!h.calls.site.some(u=>u.endsWith('/robots.txt')),'robots.txt 요청 없음');
+  assert.deepEqual(h.calls.site.filter(u=>/page_id=13642$/.test(u)),['https://laborparty.kr/?page_id=13642'],'목록은 첫 쪽 한 번만');
+  const again=await (await h.cron('run',{source:'laborparty'})).json();
+  assert.equal(again.fresh,0,'두 번째 실행은 새 글만(없음)');
+  const r=await (await h.user('read_now',{source:'laborparty'})).json();
+  assert.deepEqual(r,{ok:true,source:'laborparty',status:'scheduled_only',inserted:0});
+});
+
+test('robots 예외는 kptu·laborparty 열쇠에만: 다른 단체는 같은 robots(Disallow: /)면 그대로 막힘', async () => {
+  for(const key of ['kctu','leftall','socialism','pssp','kgreens','jinboparty','platformc','ws','socialist','jacobin']){
+    const s=sourceByKey(key);const origin=new URL(s.lists[0]).origin;
+    const h=harness({sources:[{workspace_id:WS,source_key:key}],sites:{[s.lists[0]]:'<html></html>'},robots:{[origin]:KPTU_ROBOTS}});
+    const out=await (await h.cron('run',{source:key})).json();
+    assert.equal(out.status,'robots',key);assert.deepEqual(h.calls.site,[`${origin}/robots.txt`],key);
+  }
 });
 
 test('robots.txt를 못 읽을 때: 401·403은 robots_denied(읽지 않음), 5xx·연결 실패는 robots_unreachable, 다음 실행은 다시 읽는다', async () => {
-  const sites={'https://laborparty.kr/?page_id=13642':FX('laborparty.html')};
+  const sites={'https://pssp.org/bbs/list.php?board=statement':FX('pssp.html')};
   for(const status of [401,403]){
-    const h=harness({sources:[{workspace_id:WS,source_key:'laborparty'}],sites,robots:{'https://laborparty.kr':()=>new Response('<h1>403 Forbidden</h1>',{status})}});
-    const out=await (await h.cron('run',{source:'laborparty'})).json();
-    assert.equal(out.status,'robots_denied');assert.deepEqual(h.calls.site,['https://laborparty.kr/robots.txt'],'list is not read when robots.txt is refused');
+    const h=harness({sources:[{workspace_id:WS,source_key:'pssp'}],sites,robots:{'https://pssp.org':()=>new Response('<h1>403 Forbidden</h1>',{status})}});
+    const out=await (await h.cron('run',{source:'pssp'})).json();
+    assert.equal(out.status,'robots_denied');assert.deepEqual(h.calls.site,['https://pssp.org/robots.txt'],'list is not read when robots.txt is refused');
     assert.equal(h.db.app_outside_sources[0].last_error,'robots_denied');
   }
   let n=0;
-  const h=harness({sources:[{workspace_id:WS,source_key:'laborparty'}],sites,robots:{'https://laborparty.kr':()=>(++n===1?new Response('',{status:503}):'User-agent: *\nDisallow:\n')}});
-  assert.equal((await (await h.cron('run',{source:'laborparty'})).json()).status,'robots_unreachable');
+  const h=harness({sources:[{workspace_id:WS,source_key:'pssp'}],sites,robots:{'https://pssp.org':()=>(++n===1?new Response('',{status:503}):'User-agent: *\nDisallow:\n')}});
+  assert.equal((await (await h.cron('run',{source:'pssp'})).json()).status,'robots_unreachable');
   assert.equal(h.db.app_outside_sources[0].last_error,'robots_unreachable');
-  const again=await (await h.cron('run',{source:'laborparty'})).json();
+  const again=await (await h.cron('run',{source:'pssp'})).json();
   assert.equal(again.status,'ok','next run reads robots.txt again (memory is per run)');
   assert.equal(h.calls.site.filter(u=>u.endsWith('/robots.txt')).length,2);
   assert.equal(h.db.app_outside_sources[0].last_error,null);
@@ -539,4 +648,86 @@ test('docs 5절 table: outside-feed row is verify_jwt=false and 배포 대기; i
   const src=readFileSync('supabase/functions/outside-feed/handler.ts','utf8');
   assert.doesNotMatch(src,/console\.(log|info)\(/);
   assert.doesNotMatch(src,/"DELETE", `app_outside_posts/,'never deletes posts');
+});
+
+// ---- OUTSIDE-읽기고침·요약·순서(S47-34): 2026-11-01 실제 글 쪽 모양 표본 · 요약 실패 문구 ----------------------------------
+
+test('사회주의를향한전진: 메뉴·옆 칸 링크는 빼고 성명/논평 게시판(me_code=20)만, 제목은 그림 title(전체), 날짜는 카드 날짜', () => {
+  const s=sourceByKey('socialism');
+  const items=P.parseListHtml(s,FX('socialism-list-2026-11.html'),s.lists[0],30,undefined,NOW);
+  assert.deepEqual(items.map(i=>[i.url,i.kind,i.published_at]),[
+    ['https://socialism.jinbo.net/bbs/board.php?bo_table=news&wr_id=9102','statement','2026-10-20T15:00:00.000Z'],
+    ['https://socialism.jinbo.net/bbs/board.php?bo_table=news&wr_id=9098','comment','2026-09-24T15:00:00.000Z']]);
+  assert.equal(items[0].title,'[성명] 가상 특별법 발의, 노동개악 흥정을 멈추고 가상 총파업을 조직하자!','줄임표로 잘린 카드 제목이 아님');
+});
+
+test('사회주의를향한전진 \'건너뜀 8\'의 까닭: 첫 <article>은 공유 단추 칸 → 본문 칸(#body_content)만 읽어 넣는다', async () => {
+  const s=sourceByKey('socialism');
+  assert.doesNotMatch(P.extractBody(FX('socialism-article.html'),'[성명] 가상 특별법 발의, 노동개악 흥정을 멈추고 가상 총파업을 조직하자!'),/가상 10월 20일/,'단체 본문 칸 없이 읽으면 공유 단추 칸만 나옴(옛 \'건너뜀\' 재현)');
+  const body=P.extractBody(FX('socialism-article.html'),'[성명] 가상 특별법 발의, 노동개악 흥정을 멈추고 가상 총파업을 조직하자!',s.bodyClass);
+  assert.match(body,/^가상 10월 20일, 가상 정당이 가상 특별법을 냈다/);assert.doesNotMatch(body,/페이스북|후원|계좌|최종편집|다른 기사/);
+  const sites={[s.lists[0]]:FX('socialism-list-2026-11.html'),
+    'https://socialism.jinbo.net/bbs/board.php?bo_table=news&wr_id=9102':FX('socialism-article.html'),
+    'https://socialism.jinbo.net/bbs/board.php?bo_table=news&wr_id=9098':FX('socialism-article.html')};
+  const h=harness({sources:[{workspace_id:WS,source_key:'socialism'}],sites,robots:{'https://socialism.jinbo.net':'User-agent: *\nAllow: /\n'}});
+  const out=await (await h.cron('run',{source:'socialism'})).json();
+  assert.equal(out.status,'ok');assert.equal(out.skipped,0);assert.equal(out.inserted,2);
+  assert.ok(h.db.app_outside_posts.every(p=>p.has_body===true&&p.summary_ko));
+  assert.equal(h.db.app_outside_posts.find(p=>p.url.endsWith('9102')).published_at,'2026-10-20T15:00:00.000Z','글 쪽 \'최종편집\' 날짜가 아니라 카드 날짜');
+});
+
+test('진보당 글 쪽: 머리 칸(작성자·등록일·좋아요)이 아니라 본문 칸(content_box)을 읽는다', () => {
+  const s=sourceByKey('jinboparty');
+  const body=P.extractBody(FX('jinboparty-article.html'),'[가상 대변인 브리핑] 가상 판결, 국민이 납득할 수 있습니까!',s.bodyClass);
+  assert.match(body,/가상 법원은 같은 일을 두고/);assert.doesNotMatch(body,/작성자|좋아요|스크랩|목록/);
+});
+
+test('외국 글: 피드에 본문이 있으면 그것으로(글 쪽 안 읽음), 없으면 글 쪽 본문 칸 앞부분을 AI 재료로만 — 저장은 요약·핵심 문장뿐', async () => {
+  // Labor Notes처럼 피드에 본문(content:encoded)이 있으면 글 쪽의 옆 칸 글자가 본문을 덮어쓰지 않는다.
+  const feed=`<rss><channel><item><title>A Fictional Strike</title><link>https://labornotes.org/2026/10/fictional-organizing</link><pubDate>Thu, 29 Oct 2026 20:21:11 +0000</pubDate><description>Short teaser.</description><content:encoded><![CDATA[<p>${'Workers in a fictional city walked out on Monday. '.repeat(8)}</p>]]></content:encoded></item></channel></rss>`;
+  const h=harness({sources:[{workspace_id:WS,source_key:'labornotes'}],sites:{'https://labornotes.org/feed':feed,'https://labornotes.org/2026/10/fictional-organizing':'<html><body><div>Sidebar: other stories »</div></body></html>'}});
+  const out=await (await h.cron('run',{source:'labornotes'})).json();
+  assert.equal(out.inserted,1);assert.ok(!h.calls.site.includes('https://labornotes.org/2026/10/fictional-organizing'));
+  assert.match(h.calls.ai[0].input,/walked out on Monday/);
+  // Jacobin: 피드엔 소개 글뿐 → 글 쪽 본문 칸(po-bo__content 여러 칸)만 재료로. 겹친 다른 글 카드·광고는 빼고.
+  const jfeed=`<rss><channel><item><title>A Fictional War Might Get Worse</title><link>https://jacobin.com/2026/10/fictional-war</link><pubDate>Sat, 31 Oct 2026 14:43:45 +0000</pubDate><description>A short teaser line.</description></item></channel></rss>`;
+  const j=harness({sources:[{workspace_id:WS,source_key:'jacobin'}],sites:{'https://jacobin.com/rss':jfeed,'https://jacobin.com/2026/10/fictional-war':FX('jacobin-article.html')}});
+  const jo=await (await j.cron('run',{source:'jacobin'})).json();
+  assert.equal(jo.inserted,1);
+  assert.match(j.calls.ai[0].input,/widen a fictional war[\s\S]*Antiwar groups/);assert.doesNotMatch(j.calls.ai[0].input,/Settler Vanguard|Advertisement|related article/);
+  assert.doesNotMatch(JSON.stringify(j.db.app_outside_posts),/widen a fictional war after/,'본문은 저장하지 않음');
+});
+
+test('요약 실패 문구: AI가 \'요약할 수 없음\'류를 쓰면 요약 칸을 비운다(국내·외국), 본문이 없으면 AI를 부르지 않고 제목만', async () => {
+  for(const bad of ['본문이 제공되지 않아 요약할 수 없음.','요약 불가함.','기사 본문이 없음.','The article body was not provided, so it cannot be summarized.']){
+    assert.equal(H.readKoSummary({summary:bad}),null,bad);
+    const en=H.readEnIntro({title_ko:'가상 제목',summary_ko:bad,key_sentences:[{orig:'A line.',ko:'한 줄.'}]},'A line.');
+    assert.deepEqual(en,{title_ko:'가상 제목',summary_ko:null,key_sentences:[]},bad);
+  }
+  assert.equal(H.readKoSummary({summary:'가상 정부 대책에 실질 내용이 없어 비판함.'}),'가상 정부 대책에 실질 내용이 없어 비판함.','실제 요약 속 \'내용이 없어\'는 그대로');
+  assert.equal(H.readEnIntro({summary:'x'},'m'),null,'답 모양이 틀리면 AI 실패(넣지 않고 다음 실행에)');
+  // 국내: AI가 실패 문구 → 넣되 요약 null.
+  const h=harness({sources:[{workspace_id:WS,source_key:'kctu'}],sites:kctuSites(),ai:()=>({summary:'본문이 없어 요약할 수 없음.'})});
+  const out=await (await h.cron('run',{source:'kctu'})).json();
+  assert.equal(out.inserted,2);assert.ok(h.db.app_outside_posts.every(p=>p.summary_ko===null));assert.ok(h.db.app_outside_posts.some(p=>p.has_body===true),'본문 문장은 그대로 넣음');
+  // 국내: 글 쪽은 읽었는데 본문 칸이 비면 → 제목만(AI 안 부름).
+  const empty='<html><body><article><h1>[성명] 가상 노동법 개악 규탄</h1><p>작성자 가상</p></article></body></html>';
+  const sites={...kctuSites()};for(const k of Object.keys(sites))if(/statement\/\d/.test(k))sites[k]=empty;
+  const h2=harness({sources:[{workspace_id:WS,source_key:'kctu'}],sites});
+  const o2=await (await h2.cron('run',{source:'kctu'})).json();
+  assert.equal(o2.inserted,2);assert.equal(o2.skipped,0);assert.equal(h2.calls.ai.length,0);
+  assert.ok(h2.db.app_outside_posts.every(p=>p.summary_ko===null&&p.has_body===false));
+  // 외국: AI가 빈 요약 → 제목(+한국어 제목)만 넣음.
+  const j=harness({sources:[{workspace_id:WS,source_key:'jacobin'}],sites:{'https://jacobin.com/rss':FX('jacobin.xml'),'https://jacobin.com/2026/10/fictional-strike-wave':FX('article-en.html')},
+    ai:()=>({title_ko:'가상 파업 물결',summary_ko:'',key_sentences:[]})});
+  const jo=await (await j.cron('run',{source:'jacobin'})).json();
+  assert.equal(jo.inserted,1);assert.deepEqual([j.db.app_outside_posts[0].title_ko,j.db.app_outside_posts[0].summary_ko],['가상 파업 물결',null]);
+});
+
+test('안내 글은 넣지 않음: \'■ … 주간 홍보 일정\'·\'취재요청서 양식\'·[주간홍보]', () => {
+  for(const key of ['kctu','kptu']){
+    const s=sourceByKey(key);
+    for(const t of ['■ 가상 주간 홍보 일정 (11/2~11/8)','취재요청서 양식','[주간홍보] 가상 주간 홍보 일정(11/2~11/8)'])assert.equal(s.kindOf(t,s.lists[0]),null,`${key}: ${t}`);
+    assert.equal(s.kindOf('[성명] 가상 성명',s.lists[0]),'statement');
+  }
 });

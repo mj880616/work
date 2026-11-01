@@ -136,6 +136,31 @@ class MainActivity : ComponentActivity() {
         }.start()
     }
 
+    /**
+     * PHOTO-갤러리편집(0.4.6): 크게 보기 [편집] → 삼성 갤러리 편집기(없으면 고르기 창). 돌아오면 사진첩 세대 번호로 바뀌었는지 알린다
+     * (갤러리는 저장해도 결과를 RESULT_OK로 주지 않을 수 있어 번호로 본다). 화면을 다시 열지 않는다(APP-다시열림 규칙).
+     */
+    // 편집기가 다른 작업 줄에서 열리면 결과가 곧바로(취소로) 올 수 있다. 그래서 결과가 온 뒤 이 화면이 다시 앞에 나올 때(onResume) 알린다.
+    private var editGen = EDIT_IDLE
+    private var editReturned = false
+    private val photoEdit = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
+        editReturned = true
+        editBack()
+    }
+
+    private fun editBack() {
+        if (editGen == EDIT_IDLE || !editReturned || !resumed) return
+        val before = editGen
+        editGen = EDIT_IDLE
+        editReturned = false
+        PhoneMedia.forget()
+        postPhotos(PhotoEditRules.editedMessage(true, PhotoEditRules.changed(before, PhoneMedia.generation(this))))
+    }
+    /** 폰에 없는 사진을 Pictures/웹2에 받는 중인 한 장(한 번에 하나). 쓰기는 한 줄 일꾼에서 차례대로. */
+    private var photoSave: PhoneMedia.Save? = null
+    private var savedPhoto: Pair<Long, PhoneMedia.Save>? = null
+    private val saveWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileCallback ?: return@registerForActivityResult
         fileCallback = null
@@ -764,6 +789,18 @@ class MainActivity : ComponentActivity() {
      * trash:<번호들> = 폰 휴지통으로(안드로이드 11+, 시스템 확인 창). 목록·그림은 __phone 가로채기(PhoneMedia.serve)로만 준다.
      */
     private fun onPhotoMessage(data: String, reply: JavaScriptReplyProxy) {
+        if (data.startsWith("photos:edit:") || data.startsWith("photos:save:")) {
+            photoReply = reply
+            val e = PhotoEditRules.message(data)
+            if (e is PhotoEditRules.Message.Edit) startEdit(e.target)
+            else if (e != null) onSaveMessage(e)
+            else if (data.startsWith("photos:edit:")) postPhotos(PhotoEditRules.editedMessage(false, error = "failed"))
+            else {
+                saveCancel()
+                postPhotos(PhotoEditRules.saveMessage(false, "part", error = "bad"))
+            }
+            return
+        }
         val m = PhoneMediaRules.message(data) ?: return
         photoReply = reply
         when (m) {
@@ -800,6 +837,120 @@ class MainActivity : ComponentActivity() {
                     postPhotos(PhoneMediaRules.trashedMessage(false, 0))
                 }
             }
+        }
+    }
+
+    /** PHOTO-갤러리편집: 편집할 사진을 찾아(방금 받은 사진이면 그것) 편집기를 연다. 없으면 none(웹이 원본 받기를 묻는다). */
+    private fun startEdit(target: PhotoEditRules.Target) {
+        if (editGen != EDIT_IDLE) {
+            postPhotos(PhotoEditRules.editedMessage(false, error = "busy"))
+            return
+        }
+        val saved = savedPhoto
+        if (target is PhotoEditRules.Target.Id && saved != null && saved.first == target.id) {
+            launchEdit(saved.second.uri, saved.second.mime)
+            return
+        }
+        val app = applicationContext
+        Thread {
+            val m = PhoneMedia.editTarget(app, target)
+            ui.post {
+                if (!alive) return@post
+                if (m == null) postPhotos(PhotoEditRules.editedMessage(false, error = "none"))
+                else launchEdit(PhoneMedia.uriOf(m), m.mime)
+            }
+        }.start()
+    }
+
+    private fun launchEdit(uri: Uri, mime: String) {
+        val type = if (mime.startsWith("image/")) mime else "image/*"
+        val samsung = try {
+            packageManager.queryIntentActivities(Intent(PhotoEditRules.ACTION_EDIT).setDataAndType(uri, type).setPackage(PhotoEditRules.SAMSUNG_GALLERY), 0).isNotEmpty()
+        } catch (_: Exception) {
+            false
+        }
+        val canWrite = checkCallingOrSelfUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == PackageManager.PERMISSION_GRANTED
+        fun intentOf(plan: PhotoEditRules.Plan): Intent {
+            val edit = Intent(plan.action).setDataAndType(uri, plan.mime).addFlags(plan.flags)
+            edit.clipData = android.content.ClipData.newRawUri("", uri)
+            plan.pkg?.let { edit.setPackage(it) }
+            return if (plan.chooser) Intent.createChooser(edit, "편집할 앱").addFlags(plan.flags) else edit
+        }
+        editGen = PhoneMedia.generation(this).let { if (it == EDIT_IDLE) -1L else it }
+        editReturned = false
+        for (write in if (canWrite) listOf(true, false) else listOf(false)) {
+            val plan = PhotoEditRules.plan(uri.toString(), type, samsung, write) ?: break
+            try {
+                photoEdit.launch(intentOf(plan))
+                return
+            } catch (_: SecurityException) {
+                // 쓰기 허락을 넘길 수 없으면 읽기만으로 한 번 더(갤러리는 제 권한으로 저장).
+            } catch (_: ActivityNotFoundException) {
+                break
+            } catch (_: Exception) {
+                break
+            }
+        }
+        editGen = EDIT_IDLE
+        postPhotos(PhotoEditRules.editedMessage(false, error = "noapp"))
+    }
+
+    /** 폰에 없는 사진 받기(시작·조각·끝·취소). 쓰기는 saveWorker에서 차례대로, 답은 화면 줄에서. 사진 이름·내용은 로그에 쓰지 않는다. */
+    private fun onSaveMessage(m: PhotoEditRules.Message) {
+        val app = applicationContext
+        fun answer(text: String) = ui.post { if (alive) postPhotos(text) }
+        when (m) {
+            is PhotoEditRules.Message.Begin -> saveWorker.execute {
+                photoSave?.let { PhoneMedia.saveDrop(app, it) }
+                photoSave = null
+                try {
+                    photoSave = PhoneMedia.saveBegin(app, m)
+                    answer(PhotoEditRules.saveMessage(true, "begin"))
+                } catch (e: Exception) {
+                    PhoneMedia.logEdit("save-begin", e)
+                    answer(PhotoEditRules.saveMessage(false, "begin", error = "failed"))
+                }
+            }
+            is PhotoEditRules.Message.Part -> saveWorker.execute {
+                val save = photoSave
+                val ok = save != null && try {
+                    PhoneMedia.saveWrite(save, java.util.Base64.getDecoder().decode(m.base64))
+                } catch (e: Exception) {
+                    PhoneMedia.logEdit("save-part", e)
+                    false
+                }
+                if (!ok) {
+                    save?.let { PhoneMedia.saveDrop(app, it) }
+                    photoSave = null
+                }
+                answer(PhotoEditRules.saveMessage(ok, "part", save?.rules?.got ?: 0, error = if (ok) "" else "failed"))
+            }
+            PhotoEditRules.Message.End -> saveWorker.execute {
+                val save = photoSave
+                photoSave = null
+                val id = try {
+                    save?.let { PhoneMedia.saveEnd(app, it) }
+                } catch (e: Exception) {
+                    PhoneMedia.logEdit("save-end", e)
+                    save?.let { PhoneMedia.saveDrop(app, it) }
+                    null
+                }
+                if (id != null && save != null) ui.post { savedPhoto = id to save }
+                answer(PhotoEditRules.saveMessage(id != null, "end", save?.rules?.got ?: 0, id, if (id != null) "" else "failed"))
+            }
+            PhotoEditRules.Message.Cancel -> saveCancel()
+            is PhotoEditRules.Message.Edit -> Unit
+        }
+    }
+
+    private fun saveCancel() {
+        val app = applicationContext
+        try {
+            saveWorker.execute {
+                photoSave?.let { PhoneMedia.saveDrop(app, it) }
+                photoSave = null
+            }
+        } catch (_: Exception) {
         }
     }
 
@@ -859,6 +1010,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumed = true
+        editBack()
         if (ShellRules.isInternalApp(webView.url)) syncBarColor()
         if (widgetTabWanted) openWidgetTab()
         // PHOTO-출처 ①: 설정에서 사진 접근을 바꾸고 돌아왔을 수 있다. 목록을 새로 읽게 하고 상태를 다시 알린다.
@@ -1087,6 +1239,9 @@ class MainActivity : ComponentActivity() {
         writeReply = null
         photoReply = null
         pushReply = null
+        // 받다 만 사진(Pictures/웹2의 숨긴 칸)은 지운다.
+        saveCancel()
+        saveWorker.shutdown()
         if (RecordHub.listener === recListener) RecordHub.listener = null
         if (AppUpdater.listener === updateListener) AppUpdater.listener = null
         webView.stopLoading()
@@ -1097,6 +1252,8 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val BAR_BRIDGE = "KPTUAppShell"
+        /** PHOTO-갤러리편집: 편집기를 열지 않은 상태. */
+        const val EDIT_IDLE = Long.MIN_VALUE
         const val STATE_WIDGET_LOGIN = "widget_login_since"
         /** 앱 설정(소리·토큰 아님): 알림 권한을 이미 한 번 물었는지. */
         const val REC_PREFS = "recording"

@@ -12,7 +12,7 @@ function fakeRt(api){
     session:{ensure:async()=>true,read:()=>({access_token:'token-fixture'}),epoch:()=>1},
     api:async(path,opts={})=>{calls.push({path,opts});return api(path,opts);}}};
 }
-const cand={id:id(1),summary:'가상 남의 일.',source_kind:'meeting'};
+const cand={id:id(1),kind:'request',summary:'가상 남의 일.',source_kind:'meeting'};
 
 test('[내 일 아님]: dismiss first (guarded on open), then keep source kind + summary as an example; undo reopens and removes it',async()=>{
   const {rt,calls}=fakeRt(async(path,opts)=>{
@@ -23,15 +23,17 @@ test('[내 일 아님]: dismiss first (guarded on open), then keep source kind +
   assert.deepEqual(r,{ok:true,saved:true,exampleId:id(50)});
   assert.match(calls[0].path,/status=eq\.open/);assert.equal(calls[0].opts.body.status,'dismissed');
   assert.deepEqual(calls[1].opts.body,{workspace_id:'w',source_kind:'meeting',summary:'가상 남의 일.'});
+  // TODO-이미함·환류: 그다음 결과 기록 한 줄(내 일 아님). 이 가짜 서버는 그 줄 id를 주지 않아 feedbackId가 붙지 않는다.
+  assert.equal(calls[2].path,'/rest/v1/app_todo_feedback?select=id');assert.equal(calls[2].opts.body.outcome,'not_mine');
   assert.equal(await mod.undoNotMine(id(1),id(50),rt),true);
-  assert.match(calls[2].path,/status=eq\.dismissed/);assert.equal(calls[2].opts.body.status,'open');
-  assert.equal(calls[3].opts.method,'DELETE');assert.match(calls[3].path,new RegExp(`app_todo_not_mine\\?id=eq\\.${id(50)}&workspace_id=eq\\.w`));
+  assert.match(calls[3].path,/status=eq\.dismissed/);assert.equal(calls[3].opts.body.status,'open');
+  assert.equal(calls[4].opts.method,'DELETE');assert.match(calls[4].path,new RegExp(`app_todo_not_mine\\?id=eq\\.${id(50)}&workspace_id=eq\\.w`));
 });
 test('[내 일 아님]: not dismissed → nothing saved; example table missing → still out (saved=false); odd candidate refused',async()=>{
   const none=fakeRt(async()=>[]);
   assert.deepEqual(await mod.markNotMine(cand,none.rt),{ok:false});assert.equal(none.calls.length,1);
   const missing=fakeRt(async(path,opts)=>{if(path.includes('app_todo_not_mine')){const e=new Error('PGRST205');e.status=404;throw e;}return [{id:id(1),status:opts.body.status}];});
-  assert.deepEqual(await mod.markNotMine(cand,missing.rt),{ok:true,saved:false});
+  assert.deepEqual(await mod.markNotMine(cand,missing.rt),{ok:true,saved:false,feedbackId:id(1)});
   assert.deepEqual(await mod.markNotMine({...cand,id:'x'},none.rt),{ok:false});
   const odd=fakeRt(async(path,opts)=>[{id:id(1),status:opts.body.status}]);
   assert.deepEqual(await mod.markNotMine({...cand,source_kind:'mail'},odd.rt),{ok:true,saved:false});assert.equal(odd.calls.length,1);

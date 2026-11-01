@@ -105,8 +105,9 @@ for (const width of [412, 1280]) {
     await expect(page.locator('#osTitle')).toHaveText('사회운동 Now');
     await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 어제 18:07 · 다음 곧(08:07 예정분)');
 
-    // 칩 줄: 전체 + 켠 단체가 있는 묶음 + 둘 이상 켜진 묶음(정당)의 단체 낱개.
-    await expect(chips(page)).toHaveText(['전체', '민주노총', '정당', '외국', '노동당', '녹색당']);
+    // 칩 첫 줄: 전체 + 켠 단체가 있는 묶음만(단체 낱개는 묶음을 고르면 둘째 줄에).
+    await expect(chips(page)).toHaveText(['전체', '민주노총', '정당', '외국']);
+    await expect(root(page).locator('[data-os-subchips]')).toBeHidden();
     await expect(root(page).locator('[data-os-chip="all"]')).toHaveAttribute('aria-pressed', 'true');
     // 카탈로그는 사용자 로그인으로 Edge에서, 목록은 자기 작업공간만 묻는다.
     expect(server.calls.find(c => c.what === 'edge')).toMatchObject({ action: 'catalog', method: 'POST', auth: expect.stringMatching(/^Bearer /) });
@@ -142,6 +143,8 @@ for (const width of [412, 1280]) {
     // 외국 글: 한국어 제목, 첫 요약 문장, 펼치면 요약 전체 + 핵심 문장(원문 + 번역).
     const p3 = post(page, 'p3');
     await expect(p3.locator('.os-title')).toHaveText('가상의 외국 글');
+    // 외국 글은 보도·논설을 가릴 수 없어 종류 칸을 비운다('글'이라 쓰지 않음): 단체 이름 · 시각만.
+    await expect(p3.locator('.os-meta > span')).toHaveText(['Jacobin', '10:00']);
     await expect(p3.locator('.os-lead')).toHaveText('첫 요약 문장임.');
     await p3.locator('summary').click();
     await expect(p3.locator('.os-keys li')).toHaveCount(1);
@@ -157,8 +160,19 @@ for (const width of [412, 1280]) {
     await expect(posts(page)).toHaveCount(2);
     await expect(root(page).locator('[data-os-chip="g:party"]')).toHaveAttribute('aria-pressed', 'true');
     expect(server.calls.filter(c => c.what === 'app_outside_posts').at(-1).query).toContain('source_key=in.(laborparty,kgreens)');
+    // 묶음을 고르면 둘째 줄에 그 묶음 단체(첫 줄 아래). 단체를 고르면 그 단체만, 묶음 칩은 눌린 모양 그대로.
+    const sub = root(page).locator('[data-os-subchips]');
+    await expect(sub.locator('[data-os-chip]')).toHaveText(['노동당', '녹색당']);
+    const [barBox, subBox] = await Promise.all([root(page).locator('[data-os-chips]').boundingBox(), sub.boundingBox()]);
+    expect(subBox.y).toBeGreaterThanOrEqual(barBox.y + barBox.height - 1);
+    await sub.locator('[data-os-chip="s:kgreens"]').click();
+    await expect(posts(page)).toHaveCount(1);
+    await expect(sub.locator('[data-os-chip="s:kgreens"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(root(page).locator('[data-os-chip="g:party"]')).toHaveAttribute('aria-pressed', 'true');
+    expect(server.calls.filter(c => c.what === 'app_outside_posts').at(-1).query).toContain('source_key=in.(kgreens)');
     await root(page).locator('[data-os-chip="all"]').click();
     await expect(posts(page)).toHaveCount(POSTS.length);
+    await expect(sub).toBeHidden();
 
     // ⋯ → 단체 켜고 끄기: 카탈로그 단체마다 켬/끔 + 상태(마지막 읽은 시각·막힘).
     await root(page).locator('[data-os-more]').click();
@@ -169,7 +183,7 @@ for (const width of [412, 1280]) {
     await expect(sw('kctu')).toHaveAttribute('aria-checked', 'true');
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'false');
     // 막힌 까닭을 단체 줄에 작은 글로(OUTSIDE-막힌단체): robots → 막아 둠, parse_empty → 사이트 구조 바뀜. 카탈로그 순서(노동당 → 녹색당).
-    await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['읽기 막힘 · 사이트 구조 바뀜', '사이트가 자동 읽기를 막아 둠']);
+    await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['못 읽음 · 사이트 구조 바뀜', '못 읽음 · 사이트가 자동 읽기 막음']);
     await expect(root(page).locator('.os-src-row:has([data-os-source="kctu"]) .os-src-note')).toHaveText('마지막 10. 5. (월) 18:07');
     // 없던 단체 켜기 = 새 줄 넣기(workspace_id·source_key·enabled만), 켠 단체 끄기 = enabled만 고치기.
     await sw('kptu').click();
@@ -198,13 +212,13 @@ for (const width of [412, 1280]) {
     await expect(post(page, 'n-kptu').locator('.os-title')).toHaveText('[성명] 바로 읽은 가상 성명');
     await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 오늘 10:00 · 다음 13:07쯤');
     await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
-    await expect(chips(page)).toHaveText(['전체', '민주노총', '공공운수노조', '정당', '노동당', '녹색당']);
+    await expect(chips(page)).toHaveText(['전체', '민주노총', '공공운수노조', '정당']);
 
     // 새로고침해도 켜고 끈 값은 서버에서 다시 읽는다(기기 저장 없음).
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await expect(page.locator('#outsideView')).toBeVisible();
-    await expect(chips(page)).toHaveText(['전체', '민주노총', '공공운수노조', '정당', '노동당', '녹색당']);
+    await expect(chips(page)).toHaveText(['전체', '민주노총', '공공운수노조', '정당']);
     expect(errors).toEqual([]);
   });
 }
