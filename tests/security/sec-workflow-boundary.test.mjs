@@ -290,3 +290,15 @@ test('workflows that ignore tag pushes still run on branch pushes', () => {
     assert.doesNotMatch(push, /branches/, name);
   }
 });
+
+test('Phone app release passes only the four Firebase app variables (APP-폰알림 N4), only to the release build step, never echoed', () => {
+  const source = workflow('phone-app-release.yml');
+  const vars = [...source.matchAll(/vars\.(\w+)/g)].map(m => m[1]);
+  assert.deepEqual(vars, ['WEB2_FCM_PROJECT_ID', 'WEB2_FCM_APP_ID', 'WEB2_FCM_SENDER_ID', 'WEB2_FCM_API_KEY']);
+  const releaseJob = source.slice(source.indexOf('\n  release:\n'));
+  const buildStep = releaseJob.slice(releaseJob.indexOf('- name: Build release APK (unsigned)'), releaseJob.indexOf('- name: Sign the APK'));
+  assert.equal([...buildStep.matchAll(/vars\./g)].length, 4);
+  for (const name of vars) assert.match(buildStep, new RegExp(`^          ${name}: \\$\\{\\{ vars\\.${name} \\}\\}$`, 'm'));
+  assert.doesNotMatch(source, /(?:echo|printf)[^\n]*WEB2_FCM_/);
+  assert.doesNotMatch(source, /google-services/);
+});
