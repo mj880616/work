@@ -468,3 +468,104 @@ test('묶음 칸: 종류 칩(같은 사진·연사)·뜻이 보이는 숫자·�
   assert.match(src, /if \(b\.matches\('\[data-photos-tidy-dupkind\]'\)\)/);
   assert.match(src, /el\.dataset\.size === 'large' \? 'large' : 'small'/);
 });
+
+// ---- S47-32 PHOTO-비슷한사진: 기기에서만 작은 그림 해시(dHash)로 10분 안 같은 장면 묶기(가짜 해시) ----
+import {dHashHex, grayOf, hamming, similarCandidates, similarGroups, SIMILAR_MS, SIMILAR_DIST, SIMILAR_MAX, SIMILAR_BATCH, HASH_W, HASH_H} from '../app/photo-tidy-model.mjs';
+test('dHash·해밍 거리: 줄마다 왼쪽이 더 밝으면 1, 16자리 16진수, 모양이 틀리면 아주 다름(64)', () => {
+  assert.equal(HASH_W * HASH_H, 72);
+  const down = Array.from({length:72}, (_, i) => 255 - (i % 9) * 10); // 왼쪽이 늘 더 밝음
+  const up = Array.from({length:72}, (_, i) => (i % 9) * 10);
+  assert.equal(dHashHex(down), 'ffffffffffffffff');
+  assert.equal(dHashHex(up), '0000000000000000');
+  assert.equal(dHashHex([1, 2]), '');
+  assert.equal(hamming('ffffffffffffffff', '0000000000000000'), 64);
+  assert.equal(hamming('ff00000000000000', 'fe00000000000001'), 2);
+  assert.equal(hamming('abc', '0000000000000000'), 64);
+  assert.equal(hamming('', ''), 64);
+  assert.deepEqual(grayOf([255, 255, 255, 255, 0, 0, 0, 255]).map(Math.round), [255, 0]);
+  assert.equal(SIMILAR_MS, 10 * 60 * 1000);
+  assert.ok(SIMILAR_DIST > 0 && SIMILAR_DIST < 32 && SIMILAR_MAX >= 2 && SIMILAR_BATCH > 0);
+});
+const T1 = Date.parse('2026-10-05T01:00:00.000Z'), tm = ms => new Date(T1 + ms).toISOString();
+const cam = (n, ms, extra = {}) => ph(n, `P${n}.jpg`, 1e6 + n * 1000, tm(ms), 'DCIM/Camera/', extra);
+const H = {a:'ff00ff00ff00ff00', a2:'ff00ff00ff00ff03', a3:'ff00ff00ff00ff0f', far:'00ff00ff00ff00ff'};
+test('비슷한 사진 후보: 카메라 사진만, 10분 안에 이웃이 있는 것만, 같은 사진·연사 묶음 칸 빼고', () => {
+  const list = [cam(1, 0), cam(2, 60_000), cam(3, 3 * 3600e3), cam(4, 120_000, {video:true}), cam(5, 180_000, {screenshot:true}),
+    cam(6, 200_000, {approx:true}), ph(7, 'k.jpg', 5, tm(100_000), 'Pictures/KakaoTalk/'), cam(8, 240_000)];
+  assert.deepEqual(similarCandidates(list).map(p => p.id), ['ph:8', 'ph:2', 'ph:1'], '최근 것부터, 혼자인 ph:3·동영상·스크린샷·어림·받은 사진 뺌');
+  assert.deepEqual(similarCandidates(list, new Set(['ph:2'])).map(p => p.id), ['ph:8', 'ph:1']);
+});
+test('비슷한 사진 묶기: 해밍 거리 기준 이하·묶음 첫 장과 10분 안만, 해시 없는 칸은 빼고, 가장 큰 파일이 남길 것', () => {
+  const ps = [cam(1, 0), cam(2, 30_000), cam(3, 90_000), cam(4, 100_000), cam(5, 11 * 60_000), cam(6, 120_000)];
+  const hashes = new Map([['ph:1', H.a], ['ph:2', H.a2], ['ph:3', H.a3], ['ph:4', H.far], ['ph:5', H.a], ['ph:6', '']]);
+  const g = similarGroups(ps, hashes);
+  assert.deepEqual(g.map(x => [x.kind, x.items.map(p => p.id)]), [['similar', ['ph:1', 'ph:2', 'ph:3']]], '먼 해시·10분 넘음·해시 없음은 따로');
+  assert.equal(g[0].keep, 'ph:3');
+  assert.equal(g[0].bytes, (1e6 + 1000) + (1e6 + 2000));
+  // 기준 바로 위 거리는 묶지 않는다.
+  const far = 'ff00ff00ff00ff00'.split(''); // 11비트 다르게
+  const flip = '0'.repeat(13) + '7ff'; // 마지막 11비트
+  const hb = [...'ff00ff00ff00ff00'].map((c, i) => (parseInt(c, 16) ^ parseInt(flip[i], 16)).toString(16)).join('');
+  assert.equal(hamming(far.join(''), hb), SIMILAR_DIST + 1);
+  assert.deepEqual(similarGroups([cam(1, 0), cam(2, 1000)], new Map([['ph:1', far.join('')], ['ph:2', hb]])), []);
+  // 한 묶음 최대 장수.
+  const many = Array.from({length:SIMILAR_MAX + 3}, (_, i) => cam(100 + i, i * 1000));
+  const gm = similarGroups(many, new Map(many.map(p => [p.id, H.a])));
+  assert.deepEqual(gm.map(x => x.items.length).sort((a, b) => b - a), [SIMILAR_MAX, 3]);
+});
+test('비슷한 사진 칩: 누를 때 나눠서 계산(가짜 해시)·진행 줄·묶음·[나머지 모두 지우기]는 그 종류만, 다시 찾기에 해시 지움', async () => {
+  const ps = [cam(1, 0), cam(2, 30_000), cam(3, 90_000), cam(4, 3 * 3600e3), cam(9, 3 * 3600e3 + 400)];
+  const want = {'ph:1':H.a, 'ph:2':H.a2, 'ph:3':H.a3};
+  const asked = [];
+  let pauses = 0;
+  const t = createPhotoTidy({phone:{page:async () => ({items:ps, next:null})}, odReady:() => false, readOd:async () => ({items:[], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW,
+    hashThumb:async p => { asked.push(p.id); return want[p.id] || ''; }, pause:async () => { pauses++; }});
+  await t.rescan();
+  let html = t.html({canTrash:true});
+  // ph:4·ph:9는 연사(1초 안) → 비슷한 사진 후보 아님.
+  assert.match(html, /data-photos-tidy-dupkind="burst" aria-pressed="true">연사 1<\/button><button type="button" class="photos-tidy-place" data-photos-tidy-dupkind="similar" aria-pressed="false">비슷한 사진<\/button>/);
+  assert.deepEqual(asked, [], '누르기 전에는 계산하지 않는다');
+  t.dupKind('similar');
+  html = t.html({canTrash:true});
+  assert.match(html, /data-photos-tidy-sim>비슷한 사진 비교 0\/3장 <span class="wait wait-inline"/);
+  await new Promise(ok => setTimeout(ok, 0)); await new Promise(ok => setTimeout(ok, 0));
+  assert.deepEqual(asked.sort(), ['ph:1', 'ph:2', 'ph:3']);
+  assert.ok(pauses >= 1, '묶음마다 쉬어 화면이 멈추지 않게');
+  html = t.html({canTrash:true});
+  assert.doesNotMatch(html, /data-photos-tidy-sim/);
+  assert.match(html, /data-photos-tidy-dupkind="similar" aria-pressed="true">비슷한 사진 1<\/button>/);
+  assert.match(html, /10분 안에 같은 장면을 조금씩 다르게 찍은 사진 · 묶음 1개 · 지울 수 있는 사진 2장/);
+  assert.match(html, /data-photos-tidy-dup="ph:1"><span class="photos-tidy-num">비슷한 사진 3장/);
+  assert.doesNotMatch(html, /data-photos-tidy-trash/, '원드라이브를 못 읽으면 지우기 단추 없음(안전장치 그대로)');
+  assert.equal(t.copyPairs(t.group('dups').items), null, '사본 확인 없이 지우지 않음');
+  t.toggle('dup:ph:1');
+  assert.match(t.html(), /data-photos-tidy-cmp="ph:1"/);
+  assert.equal(t.count(), 1);
+  // 다시 누르면 다시 계산하지 않는다.
+  t.dupKind('similar'); await new Promise(ok => setTimeout(ok, 0));
+  assert.equal(asked.length, 3);
+  // 다시 찾기 = 해시 지우고 처음부터(누를 때).
+  await t.rescan();
+  assert.match(t.html(), /data-photos-tidy-dupkind="similar" aria-pressed="true">비슷한 사진<\/button>/);
+  assert.match(t.html(), /data-photos-tidy-sim>사진 3장의 작은 그림을 비교해요 <button type="button" class="mini" data-photos-tidy-dupkind="similar">찾기<\/button>/);
+  assert.equal(asked.length, 3);
+});
+test('비슷한 사진: 원드라이브를 읽었으면 [나머지 지우기]는 남길 것 말고(비슷한 사진 묶음만), hashThumb 없으면 칩 없음', async () => {
+  const ps = [cam(1, 0), cam(2, 30_000)];
+  const t = createPhotoTidy({phone:{page:async () => ({items:ps, next:null})}, odReady:() => true, readOd:async () => ({items:[], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW, hashThumb:async () => H.a, pause:async () => {}});
+  await t.rescan();
+  assert.match(t.html({canTrash:true}), /data-photos-tidy-dupkind="similar" aria-pressed="true">비슷한 사진<\/button>/, '다른 묶음이 없으면 비슷한 사진이 기본');
+  t.dupKind('similar'); await new Promise(ok => setTimeout(ok, 0)); await new Promise(ok => setTimeout(ok, 0));
+  assert.deepEqual(t.group('dups').items.map(x => x.id), ['ph:1']);
+  assert.match(t.html({canTrash:true}), /보이는 비슷한 사진 묶음에서 남길 사진만 두고/);
+  const none = createPhotoTidy({phone:{page:async () => ({items:ps, next:null})}, odReady:() => false, readOd:async () => ({items:[], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW});
+  await none.rescan();
+  assert.doesNotMatch(none.html(), /data-k="dups"/);
+  const src = read('app/photos.js');
+  assert.match(src, /hashThumb:\(\(\) => \{ const h = createThumbHasher\(document\); return it => h\(phone\.thumbUrl\(it, 'small'\)\); \}\)\(\)/);
+  const hash = read('app/photo-hash.js');
+  assert.doesNotMatch(hash, /Storage|IDB|fetch\(/, '해시는 메모리에만, 서버로 보내지 않음');
+});

@@ -33,6 +33,7 @@ import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, o
   odCopyCheck, odTrashLog, odTrashWatch, odTrashSeen} from './diary-onedrive.js';
 import {phonePhotos} from './phone-photos.js';
 import {createPhotoTidy} from './photo-tidy.js';
+import {createThumbHasher} from './photo-hash.js';
 import {keptText, sizeText, COPY_BATCH, LOG_BATCH} from './photo-tidy-model.mjs';
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
@@ -154,6 +155,7 @@ let tidyOpen = false;
 const tidyChip = $('[data-photos-tidy-chip]'), tidyBox = $('[data-photos-tidy]');
 const tidy = createPhotoTidy({phone, odReady:() => ready(), odError:e => odErrorText(e), phoneError:e => phoneErrorText(e), phoneOff:() => phoneOff, onChange:() => paintTidy(), isStarred:it => isStarred(it),
   watchTrash:() => odTrashWatch(rt), seenTrash:() => odTrashSeen(rt),
+  hashThumb:(() => { const h = createThumbHasher(document); return it => h(phone.thumbUrl(it, 'small')); })(),
   readOd:async (cursor, limit) => { const page = await odLibrary(rt, {filter:'all', cursor, limit}); return {items:page.items.map(toItem), next:page.next}; }});
 const TIDY_STEP = 60;
 const tidyShown = new Map(); // 펼친 칸 key → 그린 장수(다시 그려도 같은 만큼, 이 화면 메모리만)
