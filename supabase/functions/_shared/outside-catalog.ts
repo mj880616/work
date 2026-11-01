@@ -20,6 +20,10 @@ export type OutsideSource = {
   allowHttp?: boolean;
   item?: RegExp;
   canon?: (url: URL) => string;
+  // 목록이 글을 `javascript:` 링크로 여는 단체: 그 링크를 글 주소로 바꾼다(못 바꾸면 null). 바꾼 주소도 item·hosts 검사를 그대로 받는다.
+  listHref?: (href: string, base: URL) => string | null;
+  // 목록 링크 안에 제목 칸이 따로 있는 단체: 이 class 이름을 가진 칸의 글자만 제목으로(좋아요 수·요약 같은 덧글자 빼기).
+  titleClass?: RegExp;
   kindOf: (title: string, url: string) => Kind | null;
 };
 
@@ -52,6 +56,14 @@ function keepQuery(keys: string[]) {
   };
 }
 const plain = (u: URL) => `${u.protocol}//${u.host}${u.pathname}`;
+// 진보당 목록의 `javascript:js_board_view('번호')`(사이트 board.js: 목록 폼에 bn=번호·m=read를 넣어 GET으로 다시 보냄)
+// → 같은 게시판의 글 주소 `/pages/?p=..&b=..&bn=번호&m=read`. p·b는 목록 주소의 값을 쓴다.
+function jinboView(href: string, base: URL): string | null {
+  const m = /^javascript:\s*js_board_view\(\s*['"]?(\d{1,10})['"]?\s*\)\s*;?\s*$/i.exec(href.trim());
+  const p = base.searchParams.get("p"), b = base.searchParams.get("b");
+  if (!m || !p || !b || !/^\d{1,6}$/.test(p) || !/^b_\d{1,4}_\d{1,4}$/.test(b)) return null;
+  return `${base.protocol}//${base.host}/pages/?p=${p}&b=${b}&bn=${m[1]}&m=read`;
+}
 
 export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
@@ -85,15 +97,20 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     key: "jinboparty", name: "진보당", group: "party", lang: "ko", mode: "html",
     lists: ["https://jinboparty.com/pages/?p=15&b=b_1_2", "https://jinboparty.com/pages/?p=286&b=b_1_111"],
     hosts: ["jinboparty.com", "www.jinboparty.com"],
+    // 2026-11-01 목록 확인: 글 링크가 `javascript:js_board_view('번호')`라 주소로 바꿔 읽는다(listHref). 제목은 링크 안 제목 칸만
+    // (논평 `p.title`, 보도자료 `h4._tit`) — 같은 링크 안의 '좋아요 n'·요약 글자를 빼려고. 글 주소에는 m=read가 있어야 글이 열린다.
     item: /^https:\/\/(www\.)?jinboparty\.com\/pages\/(index\.php)?\?(?=[^#]*\bb=b_1_(2|111)\b)(?=[^#]*\b(bn|idx|no)=\d+\b)/,
-    canon: keepQuery(["p", "b", "bn", "idx", "no"]),
+    canon: keepQuery(["p", "b", "bn", "m", "idx", "no"]),
+    listHref: jinboView,
+    titleClass: /^(title|_tit)$/,
     kindOf: (title, url) => byPrefix(/\bb=b_1_111\b/.test(url) ? "press" : "comment")(title),
   },
   {
     key: "pssp", name: "사회진보연대", group: "movement", lang: "ko", mode: "html",
     lists: ["https://pssp.org/bbs/list.php?board=statement"], hosts: ["pssp.org", "www.pssp.org"],
-    item: /^https:\/\/(www\.)?pssp\.org\/bbs\/view\.php\?(?=[^#]*\bboard=statement\b)(?=[^#]*\b(id|no|idx)=\d+\b)/,
-    canon: keepQuery(["board", "id", "no", "idx"]),
+    // 글 번호는 nid(2026-11-01 목록 확인: `./view.php?board=statement&nid=번호&page=1`). 옛 모양(id·no·idx)도 받는다.
+    item: /^https:\/\/(www\.)?pssp\.org\/bbs\/view\.php\?(?=[^#]*\bboard=statement\b)(?=[^#]*\b(nid|id|no|idx)=\d+\b)/,
+    canon: keepQuery(["board", "nid", "id", "no", "idx"]),
     kindOf: byPrefix("statement"),
   },
   {
@@ -104,9 +121,12 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: (title) => (/성명/.test(prefixOf(title)) ? "statement" : null),
   },
   {
+    // 2026-11-01 확인: RSS·사이트맵이 없고, 글 목록(/readings)은 모든 글을 한 쪽에 실어 3.4MB라 2MB 상한에 걸렸다(too_large).
+    // 상한은 그대로 두고 더 작은 첫 화면(약 0.8MB, 최근 글 30개 카드)을 목록으로 읽는다. 카드 제목은 `h2.PostCard-module__…__title`.
     key: "platformc", name: "플랫폼C", group: "movement", lang: "ko", mode: "html",
-    lists: ["https://platformc.kr/readings/"], hosts: ["platformc.kr", "www.platformc.kr"],
+    lists: ["https://platformc.kr/"], hosts: ["platformc.kr", "www.platformc.kr"],
     item: /^https:\/\/(www\.)?platformc\.kr\/\d{4}\/\d{2}\/[^/?#]+\/?$/, canon: plain,
+    titleClass: /(^|__)title$/,
     kindOf: byPrefix("article"),
   },
   {
