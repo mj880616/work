@@ -7,8 +7,9 @@
 //   앱이 준 토큰은 이 화면 메모리에만 두고, 웹 세션(JWT)으로 register 한다. 화면·로그에 출력하지 않는다.
 // - startDeviceSync: 폰 앱이 웹2를 열 때마다(loader-v2.js) 이 폰이 '켜짐'이면 다시 등록해 바뀐 토큰·마지막 시각을 맞춘다.
 // - 최근 알림 7일(UI-앱안알림 5단계, 설계 6절 A6): 폰 알림과 맨 위 알림 줄이 같은 기록(app_push_log)에서 phone-push recent로 읽어
-//   '시각 · 무엇' 한 줄씩. 누르면 그 자리(notice-done.js goPlace)로 가고 아직 안 연 것은 '열었음'을 남긴다.
+//   '시각 · 무엇' 한 줄씩. 누르면 그 자리(notice-place.js goPlace)로 가고 아직 안 연 것은 '열었음'을 남긴다.
 import {waitInlineHtml, failHtml} from './wait-state.js';
+import {goPlace} from './notice-place.js';
 import {KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems} from './phone-push-model.mjs';
 
 const ENDPOINT = '/functions/v1/phone-push';
@@ -240,7 +241,6 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
       const item = state.recent[Number(b.dataset.psPushRecentOpen)];
       if (!item) return;
       if (!item.opened) { item.opened = true; void callPush(rt, 'opened', {kind: item.kind, ref_key: item.ref_key}).catch(() => null); }
-      const {goPlace} = await import('./notice-done.js');
       goPlace(item.open, win);
       return;
     }

@@ -8,31 +8,13 @@
 // phone-push를 부르는 곳은 phone-push-settings.js 하나라 그 callPush를 빌려 쓴다('Notification boundary check').
 import {putNotice, removeNotice} from './notice-bar.js';
 import {callPush} from './phone-push-settings.js';
-import {NOTICE_TEXT, noticeItems, noticeParam, noticePlace} from './phone-push-model.mjs';
+import {NOTICE_TEXT, noticeItems, noticeParam} from './phone-push-model.mjs';
+import {goPlace} from './notice-place.js';
 
 const ICON = '<svg class="kptu-notice-line-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5 8 14.5 16 6"/></svg>';
 const PRIORITY = 30; // 4절 표: 연결 끊김 10 · 수집 멈춤 20 · 뒤에서 끝난 일 30 · 업데이트 40
 const AGAIN_MS = 10 * 60 * 1000;
 const keyOf = item => `done:${item.kind}.${item.ref_key}`;
-
-/** 화면 안 이동: 다음 주 준비는 홈 [주간 정리]로, 그 밖에는 그 화면(·옆 칸)으로. */
-export function goPlace(open, win = window) {
-  const place = noticePlace(open);
-  const router = win.KPTURouter;
-  if (!place || !router?.go) return false;
-  if (router.current !== place.view || place.pane) router.go(place.view, {source:'delegated', ...(place.pane ? {sub:place.pane} : {})});
-  if (place.mode === 'week') {
-    // 홈(업무일지)의 [주간 정리] 단추가 보기 전환의 주인이다(journal.js setMode). 화면이 그려지면 그 단추를 한 번 누른다.
-    let tries = 0;
-    const press = () => {
-      const button = win.document.querySelector('#homeView button[data-journal-mode="week"]');
-      if (button && router.current === 'home') { if (button.getAttribute('aria-pressed') !== 'true') button.click(); return; }
-      if (++tries < 120) win.requestAnimationFrame(press);
-    };
-    press();
-  }
-  return true;
-}
 
 export function startDoneNotices({rt = window.KPTURuntime, win = window} = {}) {
   if (!rt?.api) return null;

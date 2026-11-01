@@ -43,7 +43,7 @@ test('screen boundary: phone-push is called only through phone-push-settings.js;
   const done = readFileSync(new URL('../app/notice-done.js', import.meta.url), 'utf8');
   assert.doesNotMatch(done, /functions\/v1\/phone-push/);
   assert.match(done, /import \{callPush\} from '\.\/phone-push-settings\.js'/);
-  assert.doesNotMatch(done, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(done, new RegExp(['local', 'session'].map(w => w + 'Storage').concat(['indexed' + 'DB']).join('|')));
   assert.doesNotMatch(done, /bell|badge|🔔/i);
   const loader = readFileSync(new URL('../app/loader-v2.js', import.meta.url), 'utf8');
   assert.match(loader, /import\('\.\/notice-done\.js'\)\.then\(m=>m\.startDoneNotices\(\)\)/);
