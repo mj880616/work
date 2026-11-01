@@ -1697,7 +1697,7 @@ test('[주간 정리] 임원 참석 요청 표 화면 모양(PC 1280): 작은 �
  f.exec.rows.push({id:'x0',workspace_id:'w',week_start:'2026-10-05',carried_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',items:[
   {id:'a',day:'2026-10-13',time:'10:30',what:'가상 노동조합 결의대회',place:'가상 광장',who:'가상 임원 갑',carried:true},
   {id:'b',day:'2026-10-15',time:'14:00',what:'가상 토론회',place:'가상 회관',who:'가상 임원 을, 가상 임원 병'}]});
- await openJournal(page,1280);await openWeekly(page);
+ await openJournal(page,1280);await openWeekly(page);await settleBase(page);
  const ask=weekly(page,'ask');
  await expect(ask.locator('tbody tr')).toHaveCount(2);
  // UI-버튼기준: 제목 줄 [+ 추가]·줄 끝 ⋯ 는 작은 버튼(32px 이하), 지난주에서 표시는 작은 글자.
