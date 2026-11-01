@@ -104,6 +104,7 @@ import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, RADAR_NOT_MINE_MAX, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
   RADAR_ALREADY_MAX, RADAR_LINKS_MAX, type RadarLink, type RadarSource,
+  splitFeedback, normalizeTitle as radarNormalize, RADAR_FEEDBACK_DAYS, RADAR_FEEDBACK_READ, RADAR_RULES_MAX, type RadarFeedback,
 } from "./todo-radar.ts";
 import {
   buildRecheckInstructions, keepCandidate, packRecheck, parseRecheck, RECHECK_MAX, RECHECK_MAX_OUTPUT_TOKENS, RECHECK_SCHEMA, recheckMaterial,
@@ -1327,6 +1328,21 @@ async function readNotMine(ctx: Ctx): Promise<string[]> {
   }
 }
 
+// TODO-이미함·환류(docs/design/todo-feedback.md 4절): 누른 결과(app_todo_feedback)와 확정 규칙(app_todo_rules)을 소유자 토큰으로 읽는다(migration 20261101180000).
+// 표가 없거나 읽지 못하면 그 부분만 빈다(찾기는 계속). seen = 최근 결과의 요약·고친 문장 열쇠(같은 일 다시 안 올리기).
+async function readRadarFeedback(ctx: Ctx, started: number): Promise<{ feedback: Partial<RadarFeedback>; seen: Set<string> }> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const since = encodeURIComponent(new Date(started - RADAR_FEEDBACK_DAYS * 86400000).toISOString());
+  const [notMine, rows, rules] = await Promise.all([
+    readNotMine(ctx),
+    rest(ctx, `app_todo_feedback?workspace_id=eq.${ws}&created_at=gte.${since}&select=outcome,summary,edited&order=created_at.desc&limit=${RADAR_FEEDBACK_READ}`).catch(() => []),
+    rest(ctx, `app_todo_rules?workspace_id=eq.${ws}&state=eq.confirmed&select=text&order=created_at.asc&limit=${RADAR_RULES_MAX}`).catch(() => []),
+  ]);
+  const split = splitFeedback(Array.isArray(rows) ? rows as Record<string, unknown>[] : []);
+  const ruleLines = (Array.isArray(rules) ? rules : []).map((r) => (r as Record<string, unknown>)?.text).filter((v): v is string => typeof v === "string");
+  return { feedback: { notMine, dismissed: split.dismissed, taken: split.taken, done: split.done, rules: ruleLines }, seen: split.seen };
+}
+
 type RadarDeps = { env: Env; now: () => number; sleep: (ms: number) => Promise<void>; log: Log; doFetch: typeof fetch };
 
 async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): Promise<Response> {
@@ -1389,7 +1405,8 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
     } catch {
       throw new Fail(503, "usage_unavailable");
     }
-    const material = radarMaterial(packed, today, await readNotMine(ctx));
+    const learned = await readRadarFeedback(ctx, started);
+    const material = radarMaterial(packed, today, learned.feedback);
     const profile = await readRadarProfile(ctx);
     const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
       model: config.model,
@@ -1423,7 +1440,10 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
     const promises = parsed.items.filter((i) => i.counterpart).map((i) => ({
       summary: i.summary, due: i.due, evidence: i.evidence, source_kind: i.source.kind, source_id: i.source.id, source_day: i.source.day,
     }));
-    const rows = parsed.items.filter((i) => !i.counterpart).map((i) => ({
+    // 같은 일 다시 안 올리기(설계 4.2): 최근 결과(할 일로·이미 함·무시·내 일 아님)의 요약·고친 문장과 같은 요약은 버린다(출처가 달라도).
+    const fresh = parsed.items.filter((i) => !i.counterpart && !learned.seen.has(radarNormalize(i.summary)));
+    const droppedFeedback = parsed.items.filter((i) => !i.counterpart).length - fresh.length;
+    const rows = fresh.map((i) => ({
       workspace_id: ctx.workspaceId,
       kind: i.kind,
       summary: i.summary,
@@ -1463,7 +1483,7 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
       deps.log("radar_cleanup_failed");
     }
     // 기록에는 숫자만 남긴다(재료·후보 글 없음).
-    deps.log("todo_radar_done", { sources: packed.length, found: parsed.items.length, added, dropped: parsed.dropped, excluded_owner: parsed.excluded_owner, promises: promises.length, partial });
+    deps.log("todo_radar_done", { sources: packed.length, found: parsed.items.length, added, dropped: parsed.dropped, excluded_owner: parsed.excluded_owner, dropped_feedback: droppedFeedback, promises: promises.length, partial });
     return json({ ok: true, kind: "todo_radar", added, found: rows.length, partial: meetingId ? false : partial, checked_at: meetingId ? state.last_success_at : new Date(started).toISOString(), promises });
   } finally {
     await release();

@@ -44,7 +44,7 @@ function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],can
     app_ai_daily_usage:structuredClone(usage),
     app_todo_radar_state:state?[{workspace_id:WS,last_success_at:null,last_partial:false,last_day:null,runs_on_day:0,running_since:null,...state}]:[],
     app_todo_candidates:structuredClone(candidates),
-    app_todo_not_mine:[],app_feed_items:[],app_feed_rooms:[],app_todo_ask_rooms:[],...structuredClone(extra),
+    app_todo_not_mine:[],app_feed_items:[],app_feed_rooms:[],app_todo_ask_rooms:[],app_todo_feedback:[],app_todo_rules:[],...structuredClone(extra),
     app_profiles:structuredClone(profile),
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
@@ -533,4 +533,67 @@ test('todo_recheck: nothing open → no AI call; bad answer changes nothing; ext
   const other=harness({candidates:[cand(1)]});
   assert.deepEqual(await (await post(other.handler,{kind:'todo_recheck'},'stranger-token')).json(),{ok:true,kind:'todo_recheck',checked:0,dismissed:0,kept:0,more:false});
   assert.equal(other.db.app_todo_candidates[0].status,'open');
+});
+
+// ---- TODO-이미함·환류: 누른 결과·확정 규칙만 예시로, 같은 일은 다시 안 올림(가짜 문장만) ----------------------------------
+const FB=n=>`d0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const fbRow=(n,o)=>({id:FB(n),workspace_id:WS,candidate_id:null,kind:'request',source_kind:'note',edited:null,created_at:RECENT,...o});
+test('feedback: own recent results become dismissed/taken/done examples; only confirmed rules are sent; old and foreign rows are not',async()=>{
+  const extra={
+    app_todo_feedback:[
+      fbRow(1,{outcome:'dismissed',summary:'가상 공지 확인.'}),
+      fbRow(2,{outcome:'tasked',summary:'가상 자료 제출.',edited:'가상 자료 금요일까지 제출'}),
+      fbRow(3,{outcome:'tasked',summary:'가상 회의 참석.'}),
+      fbRow(4,{outcome:'done',summary:'가상 명단 회신.'}),
+      fbRow(5,{outcome:'not_mine',summary:'가상 남의 일.'}),
+      fbRow(6,{outcome:'done',summary:'OLD_FEEDBACK',created_at:'2026-06-01T00:00:00Z'}),
+      fbRow(7,{outcome:'done',summary:'FOREIGN_FEEDBACK',workspace_id:OTHER_WS})],
+    app_todo_rules:[
+      {id:FB(20),workspace_id:WS,text:'가상 단체 공지는 올리지 않음.',state:'confirmed',created_at:RECENT},
+      {id:FB(21),workspace_id:WS,text:'CANDIDATE_RULE',state:'candidate',created_at:RECENT},
+      {id:FB(22),workspace_id:WS,text:'RETIRED_RULE',state:'retired',created_at:RECENT},
+      {id:FB(23),workspace_id:OTHER_WS,text:'FOREIGN_RULE',state:'confirmed',created_at:RECENT}]};
+  const {handler,calls}=harness({extra});
+  assert.equal((await post(handler,find())).status,200);
+  const raw=calls.openai[0].input[1].content,material=JSON.parse(raw);
+  assert.deepEqual(material.dismissed_examples,['가상 공지 확인.']);
+  assert.deepEqual(material.taken_examples,[{suggested:'가상 자료 제출.',final:'가상 자료 금요일까지 제출'},{suggested:'가상 회의 참석.'}]);
+  assert.deepEqual(material.done_examples,['가상 명단 회신.']);
+  assert.deepEqual(material.confirmed_rules,['가상 단체 공지는 올리지 않음.']);
+  for(const hidden of ['OLD_FEEDBACK','FOREIGN_FEEDBACK','CANDIDATE_RULE','RETIRED_RULE','FOREIGN_RULE'])assert.ok(!raw.includes(hidden),hidden);
+  const dev=calls.openai[0].input[0].content;
+  for(const word of ['dismissed_examples','taken_examples','done_examples','confirmed_rules','이미 끝났다'])assert.ok(dev.includes(word),word);
+  assert.ok(calls.rest.some(r=>r.table==='app_todo_feedback'&&r.method==='GET'&&/created_at=gte\./.test(r.query)));
+  assert.ok(calls.rest.some(r=>r.table==='app_todo_rules'&&r.method==='GET'&&/state=eq\.confirmed/.test(r.query)));
+});
+
+test('feedback: an item with the same text as a recent result (any outcome, edited too) is not added again; the log has numbers only',async()=>{
+  const extra={app_todo_feedback:[fbRow(1,{outcome:'done',summary:'A 사업장 자료 회신.'}),fbRow(2,{outcome:'tasked',summary:'가상 다른 제안.',edited:'B 사업장 명단 정리'})]};
+  const {handler,calls,db}=harness({extra,openai:[()=>respond(answer([item(),item({summary:'B 사업장 명단 정리.'}),item({summary:'C 사업장 일정 확인.'})]))]});
+  const res=await post(handler,find());
+  assert.equal(res.status,200);
+  const body=await res.json();
+  assert.equal(body.added,1);
+  assert.deepEqual(db.app_todo_candidates.map(c=>c.summary),['C 사업장 일정 확인.']);
+  const done=calls.logs.find(l=>l.code==='todo_radar_done');
+  assert.equal(done.detail.dropped_feedback,2);
+  assert.ok(!JSON.stringify(calls.logs).includes('사업장'),'no text in logs');
+});
+
+test('feedback: missing or unreadable result/rule tables do not stop finding and send no example keys',async()=>{
+  const {handler,calls}=harness({fail:{app_todo_feedback:true,app_todo_rules:true}});
+  assert.equal((await post(handler,find())).status,200);
+  const material=JSON.parse(calls.openai[0].input[1].content);
+  for(const k of ['dismissed_examples','taken_examples','done_examples','confirmed_rules'])assert.equal(material[k],undefined,k);
+});
+
+test('splitFeedback / radarMaterial: caps, cleaned lines, odd rows skipped, old array form still means not-mine', ()=>{
+  const rows=[...Array.from({length:20},(_,i)=>({outcome:'dismissed',summary:`가상 무시 ${i}`})),{outcome:'maybe',summary:'x'},{outcome:'done',summary:'<b>가상</b> 한 일'},{outcome:'done',summary:'가'.repeat(101)},{outcome:'tasked',summary:'가상 같은 말.',edited:'가상 같은 말'}];
+  const s=radar.splitFeedback(rows);
+  assert.equal(s.dismissed.length,radar.RADAR_FEEDBACK_MAX);
+  assert.deepEqual(s.done,['가상 한 일']);
+  assert.deepEqual(s.taken,[{suggested:'가상 같은 말.'}],'edited that only differs by marks is not a fix');
+  assert.ok(s.seen.has(radar.normalizeTitle('가상 무시 19')));
+  assert.deepEqual(JSON.parse(radar.radarMaterial([],TODAY,['가상 남의 일'])).not_mine_examples,['가상 남의 일']);
+  assert.deepEqual(Object.keys(JSON.parse(radar.radarMaterial([],TODAY,{}))),['today','records']);
 });
