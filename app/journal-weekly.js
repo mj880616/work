@@ -856,7 +856,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (!part.loading && !part.failed.length && !part.items.length && !part.note) { if (key !== 'memos') quiet.push(label); continue; }
     const box = block(`note-${key}`, label);
     if (!status(box, part, label) && !part.failed.length) { if (part.items.length) box.append(itemList(part.items)); if (part.note) box.append(muted(part.note)); }
-    refItems += part.items.length;
+    refItems += part.items?.length ?? 0;
     ref.append(box);
   }
   refCount.textContent = `${refItems}건`;
