@@ -32,6 +32,7 @@ const uiOf = new WeakMap();
 const freshUi = start => ({start, editing:null, adding:null, taking:null, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, mat:null, matFlight:null,
   line:{cache:new Map(), asked:0, off:false, flight:false, timer:0, focus:null}, siteNote:'', siteAdding:false});
 
+const particle = name => { const code = String(name).charCodeAt(String(name).length - 1); return code >= 0xAC00 && code <= 0xD7A3 ? ((code - 0xAC00) % 28 ? '을' : '를') : '을(를)'; };
 const lineOf = s => String(s ?? '').replace(/^\s*-\s*/, '').trim();
 const strip = s => lineOf(s).replace(/\s+/g, '').toLowerCase();
 const cellName = (section, key, n) => `${section}:${key}${n ? `#${n}` : ''}`;
@@ -107,8 +108,8 @@ export function paintFlowCells(slot, ctx) {
     const {shown, hidden} = arrangeSites(rows, layout);
     hiddenSites = hidden.map(r => cells[r.index]);
     cells = shown.map(r => cells[r.index]);
-    // [+ 사업장 추가]: 내 담당 조직(4번 칸 이름) 가운데 지금 넣지 않은 것(뺀 사업장은 아래 접힌 줄의 [다시 넣기]).
-    const taken = new Set([...cells, ...hiddenSites].map(c => siteKey(c.key)));
+    // [+ 사업장 추가]: 내 담당 조직(4번 칸 이름) 가운데 지금 칸에 없는 것(뺀 사업장 포함 — 넣으면 적어 둔 글이 돌아옴).
+    const taken = new Set(cells.map(c => siteKey(c.key)));
     siteOptions = flowCells(draft, 'orgs').map(c => c.key).filter(n => !taken.has(siteKey(n)));
   }
   // 제안 재료(draft.mjs weekMaterial — 무거워서 처음 쓸 때 한 번 가져옴).
@@ -147,6 +148,7 @@ export function paintFlowCells(slot, ctx) {
   }
   slot.replaceChildren(...parts);
   if (!slot.dataset.flowWired) wire();
+  if (ui.focusSite && !ui.busy && section === 'sites') { const name = ui.focusSite; ui.focusSite = null; [...slot.querySelectorAll('[data-reorder-id]')].find(n => n.dataset.reorderId === name)?.querySelector('[data-reorder-handle]')?.focus(); }
 
   function cellBox(c, list) {
     const box = el('div', 'weekly-flow-cell'); box.dataset.flowCell = c.id;
@@ -319,14 +321,14 @@ export function paintFlowCells(slot, ctx) {
     const next = how === 'hide' ? siteHidden(withName, layout, name, at) : how === 'show' ? siteShown(withName, layout, name, at, index) : siteMoved(withName, layout, name, index, at);
     const id = all.find(c => siteKey(c.key) === siteKey(name))?.id ?? cellId('sites', name, 0);
     ui.siteAdding = false;
-    ui.siteNote = how === 'show' ? `${name} 넣었어요.` : how === 'hide' ? `${name} 뺐어요.` : '';
+    ui.siteNote = how === 'show' ? `${name}${particle(name)} 넣었어요.` : how === 'hide' ? `${name}${particle(name)} 뺐어요. 아래 접힌 줄에서 다시 넣을 수 있어요.` : '';
     void write(id, {site:dr => withSiteLayout(dr, next)});
   }
   function stepSite(name, dir) {
     const {layout, rows} = siteRowsNow(), shown = arrangeSites(rows, layout).shown, at = shown.findIndex(r => siteKey(r.org) === siteKey(name));
     if (at < 0) return;
+    ui.focusSite = name; // 쓰기가 끝나 다시 그린 뒤 그 손잡이로 초점(키보드로 이어서 옮기기)
     setLayout('move', name, Math.max(0, at + dir));
-    requestAnimationFrame(() => [...slot.querySelectorAll('[data-reorder-id]')].find(n => n.dataset.reorderId === name)?.querySelector('[data-reorder-handle]')?.focus());
   }
   function onClick(b) {
     const d = b.dataset, li = b.closest('li'), pick = () => JSON.parse(li?.dataset.flowPick || 'null');
