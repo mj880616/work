@@ -1365,7 +1365,7 @@ test('[주간 정리] 환류: 개인본 바탕 + 칸 아래 확정본에서 바�
 // WEEKLY-환류학습 3·6·4: 처음 연 주는 AI 초안(weekly_draft)이 손대지 않은 칸에 들어가고, 이미 이번 주 개인본을 올린 주에도 [학습 시험]이
 // 저장 없이 AI 초안 ↔ 이번 주 개인본을 줄마다 견준다(이번 주 개인본 글은 AI에 보내지 않음). [확정] 뒤 환류 보고 한 장, 제안 [승인]은 그 주 행에,
 // [주간 정리] 맨 아래 '주간보고 규칙·환류'에서 규칙을 지우고 개발 후보를 본다. 가짜 서버·가짜 글만.
-test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시험] 결과 → [확정] 뒤 환류 보고 → 규칙·환류 목록',async({page})=>{
+test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 뒤 환류 보고 → 규칙·환류 목록',async({page})=>{
  const weekReport={summary:[
   {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 지난주 가-1 진행','- 가-1 목요일 기록(완료)'],owner:['가상 담당']}]},
   {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 이번 주 개인본에만 쓴 줄'],owner:['가상 담당']}]},
@@ -1385,22 +1385,17 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
   return r.fulfill({status:500,json:{}});
  });
  await openJournal(page,1280);await openWeekly(page);
- // 이번 주 개인본은 바탕이 아니다(보고일이 같음) → 팀 확정본이 바탕(안내문·버튼이 지금 그대로).
- await hwpx(page).locator('[data-hwpx-start]').click();
- await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주 팀 확정본을 바탕으로 내 칸만 고친 한글 파일을 만들어요. [확정]을 눌러야 자료실에 저장돼요.');
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(hwpx(page).getByText('바탕: 자료실 · 가상 상집보고')).toBeVisible();
- const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1'),b1=rowBox(page,'사업영역 나 › 세부 과제 나-1');
- // AI 초안: 손대지 않은 칸에 들어가고 한 줄 알림.
- await expect(b1.locator('textarea')).toHaveValue('- AI 나-1 줄');
- await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행\n- 가-1 목요일 기록');
+ // 이번 주 개인본은 바탕이 아니다(보고일이 같음) → 팀 확정본이 바탕. 그 주 처음 열 때 한 번 AI 초안이 손대지 않은 칸에 들어간다.
+ const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1'),b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await expect(cellLines(b1)).toHaveText(['- AI 나-1 줄']);
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록']);
+ await expect(topLine(page)).toContainText('바탕 팀 확정본');
  await expect(hwpx(page).locator('[data-hwpx-ai-draft]')).toContainText('AI 초안: 지난 1주 고침 기록·규칙 2줄을 보고 2칸을 고쳐 썼어요');
  const draftAsk=ai.find(x=>x.kind==='weekly_draft');
  expect(draftAsk.mode).toBe('draft');
  expect(draftAsk.cells.find(c=>c.where.includes('가-1'))).toMatchObject({lines:['- 지난주 가-1 진행'],material:expect.arrayContaining([expect.stringContaining('가-1 목요일 기록')])});
  // [학습 시험]: 이번 주 개인본과 줄마다. 재료에 이번 주 개인본 글이 없다. 칸·임시저장은 그대로.
- await b1.locator('textarea').fill('- AI 나-1 줄'); // 그대로
- await hwpx(page).locator('[data-hwpx-learn-test]').click();
+ await confirmMore(page,'[data-hwpx-learn-test]');
  const result=hwpx(page).locator('[data-hwpx-learn-result]');
  await expect(result.locator('[data-hwpx-learn-score]')).toHaveText('학습 시험 — 그대로 쓸 수 있는 줄 3/4(75%)');
  await expect(result.locator('[data-hwpx-learn-few]')).toHaveText('학습 기록이 아직 1주뿐이에요(지난 개인본·규칙 2줄로만 만들었어요).');
@@ -1413,10 +1408,10 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  expect(JSON.stringify(testAsk)).not.toContain('(완료)');
  expect(f.sent.open.map(o=>o.document_id)).toContain('doc-week');
  expect(f.sent.library).toHaveLength(0);
- await expect(b1.locator('textarea')).toHaveValue('- AI 나-1 줄');
- // [확정] → 고침 기록 저장 → 환류 보고 한 장(숫자·후보·제안). [승인]은 그 주 행에 남는다.
+ await expect(cellLines(b1)).toHaveText(['- AI 나-1 줄']);
+ // [확정하고 한글 파일 받기] → 고침 기록 저장 → 환류 보고 한 장(숫자·후보·제안). [승인]은 그 주 행에 남는다.
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
  const card=hwpx(page).locator('[data-hwpx-review] [data-learn-review]');
  await expect(card.locator('[data-learn-review-head]')).toHaveText('이번 주 환류 보고 — AI 초안 줄 4개 중 4개 그대로(100%)');
  await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 고침 0 · 뺌 0 · 더함 0');
@@ -1458,58 +1453,63 @@ test('[주간보고 한글 파일 만들기] 환류: AI 초안 → [학습 시�
  expect(f.errors).toEqual([]);
 });
 
-// WEEKLY-환류입력창 ②: 칸 줄을 고르면(누름) 잠시 뒤 그 칸 줄만 ai-assist weekly_line 에 묻고, 칸 바로 아래 작은 흐린 '이렇게 바꾸면?' 한 줄.
-// 누르면 그 줄만 바뀌고 자동저장(2초) 길로 서버 임시저장, [되돌리기]로 원래 줄. 제안이 없는 칸(null)은 아무것도 보이지 않는다. 가짜 서버·가짜 글만.
-for(const width of [412,1440])test(`[주간보고 한글 파일] 줄 옆 '이렇게 바꾸면?': 고르면 제안 → 누르면 그 줄만 바뀜·자동저장 → [되돌리기] ${width}`,async({page})=>{
+// WEEKLY-환류입력창 ② → WEEKLY-한흐름확정 ②: 칸 줄을 고르면(누름·초점) 잠시 뒤 그 칸 줄만 ai-assist weekly_line 에 묻고, 칸 아래 흐린 'AI 제안' 줄.
+// [수용]하면 그 줄만 바뀌고 서버 쓰기 한 번(rows + picks), ⋯ [빼기]면 그 제안은 접힌 '뺀 제안'으로. 제안이 없는 칸(null)은 아무것도 보이지 않는다. 가짜 서버·가짜 글만.
+for(const width of [412,1440])test(`[주간 정리] 줄 제안: 줄을 고르면 칸 아래 'AI 제안' → [수용]하면 그 줄만 바뀜·서버 저장, [빼기]는 접힘 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
  const ai=[];
  await page.route(SB+'/functions/v1/ai-assist',async r=>{
   const body=r.request().postDataJSON();ai.push(body);
   if(body.kind==='weekly_line')return r.fulfill({json:{ok:true,kind:'weekly_line',week_start:body.week_start,learned:{weeks:1,rules:1},
-   lines:body.lines.map(l=>({ref:l.ref,text:/가-1 진행/.test(l.text)?'- 지난주 가-1 진행(완료)':null}))}});
+   lines:body.lines.map(l=>({ref:l.ref,text:/가-1 진행/.test(l.text)?'- 지난주 가-1 진행(완료)':/나-1 진행/.test(l.text)?'- 지난주 나-1 진행(마무리)':null}))}});
   return r.fulfill({status:500,json:{}});
  });
  await openJournal(page,width);await openWeekly(page);
  await openDraft(page);
- const box=rowBox(page,'사업영역 가 › 세부 과제 가-1'),area=box.locator('textarea');
+ const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1');
  const lineAsks=()=>ai.filter(x=>x.kind==='weekly_line');
  expect(lineAsks()).toEqual([]); // 열기만 해서는 묻지 않는다
- await area.click();
- const apply=box.locator('[data-hwpx-suggest-apply]');
- await expect(apply).toHaveText('이렇게 바꾸면? - 지난주 가-1 진행(완료)');
- await expect(apply).toHaveAccessibleName('1번째 줄을 이렇게 바꾸기: - 지난주 가-1 진행(완료)');
+ await a1.locator('[data-flow-pick-line="0"]').click();
+ const hint=a1.locator('[data-flow-line-suggest]');
+ await expect(hint.locator('.weekly-flow-tag')).toHaveText('AI 제안');
+ await expect(hint.locator('.weekly-flow-text')).toHaveText('1번째 줄 → - 지난주 가-1 진행(완료)');
+ const take=hint.getByRole('button',{name:'1번째 줄을 이렇게 바꾸기: - 지난주 가-1 진행(완료)'});
+ await expect(take).toBeVisible();
  // 물은 것: 그 칸 줄만(다른 칸 글·이번 주 개인본 없음), 주·칸 이름.
  expect(lineAsks()).toHaveLength(1);
  expect(lineAsks()[0]).toMatchObject({week_start:'2026-10-05',lines:[{ref:'l1',text:'- 지난주 가-1 진행'}],cell:['- 지난주 가-1 진행']});
  expect(lineAsks()[0].where).toContain('가-1');
  expect(JSON.stringify(lineAsks()[0])).not.toContain('지난주 조직 소식');
  // 같은 줄을 다시 골라도 다시 묻지 않는다.
- await area.click();await page.waitForTimeout(1000);
+ await a1.locator('[data-flow-pick-line="0"]').click();await page.waitForTimeout(1000);
  expect(lineAsks()).toHaveLength(1);
- // 칸 바로 아래, 화면 밖으로 넘치지 않음.
- const [a,h]=await Promise.all([area.boundingBox(),box.locator('[data-hwpx-suggest]').boundingBox()]);
- expect(h.y).toBeGreaterThanOrEqual(a.y+a.height-1);
+ // 칸 줄 바로 아래, 화면 밖으로 넘치지 않음.
+ const [l,h]=await Promise.all([a1.locator('[data-flow-line="0"]').boundingBox(),hint.boundingBox()]);
+ expect(h.y).toBeGreaterThanOrEqual(l.y+l.height-1);
  expect(h.x+h.width).toBeLessThanOrEqual(width);
- // 누르면 그 줄만 바뀌고 서버 임시저장(자동저장 2초 길).
- await apply.click();
- await expect(area).toHaveValue('- 지난주 가-1 진행(완료)');
- const undo=box.locator('[data-hwpx-suggest-undo]');
- await expect(box.locator('[data-hwpx-suggest]')).toContainText('1번째 줄을 바꿨어요.');
- await expect(undo).toHaveAccessibleName('1번째 줄 되돌리기');
+ // [수용]: 그 줄만 바뀌고 서버 쓰기 한 번(rows + picks 'take' ai_line).
+ const before=f.exec.calls.filter(c=>c.method==='PATCH').length;
+ await take.click();
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행(완료)']);
+ expect(f.exec.calls.filter(c=>c.method==='PATCH').length).toBe(before+1);
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
- await expect.poll(()=>JSON.stringify(row()?.draft?.rows??[]),{timeout:15000}).toContain('- 지난주 가-1 진행(완료)');
- await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
- // [되돌리기]: 원래 줄로, 다시 자동저장.
- await undo.click();
- await expect(area).toHaveValue('- 지난주 가-1 진행');
- await expect.poll(()=>JSON.stringify(row()?.draft?.rows??[]),{timeout:15000}).not.toContain('(완료)');
+ expect(JSON.stringify(row().draft.rows)).toContain('- 지난주 가-1 진행(완료)');
+ expect(row().draft.picks.items.find(x=>x.kind==='ai_line')).toMatchObject({act:'take',from:'ai',text:'- 지난주 가-1 진행(완료)'});
+ await expect(a1.locator('[data-flow-line-suggest]')).toHaveCount(0);
+ // 다른 칸: ⋯ → [빼기]면 칸은 그대로, 접힌 '뺀 제안 1'.
+ const b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await b1.locator('[data-flow-pick-line="0"]').click();
+ await expect(b1.locator('[data-flow-line-suggest] .weekly-flow-text')).toHaveText('1번째 줄 → - 지난주 나-1 진행(마무리)');
+ await pressMore(b1.locator('[data-flow-line-suggest]'),'[data-flow-drop]');
+ await expect(b1.locator('[data-flow-gone]')).toHaveAttribute('data-flow-gone','1');
+ await expect(cellLines(b1)).toHaveText(['- 지난주 나-1 진행']);
  // 제안이 없는 칸(답 null): 아무것도 보이지 않고 글은 그대로.
- const org=orgRow(page,'가상 노동조합');
- await org.click();
- await expect.poll(()=>lineAsks().length).toBe(2);
+ const org=flowCell(page,'가상 노동조합');
+ await org.locator('[data-flow-pick-line="0"]').click();
+ await expect.poll(()=>lineAsks().length).toBe(3);
  await page.waitForTimeout(300);
- await expect(hwpx(page).locator('[data-hwpx-part="orgs"] [data-hwpx-suggest-apply]')).toHaveCount(0);
- await expect(org).toHaveValue('- 지난주 조직 소식');
+ await expect(org.locator('[data-flow-line-suggest]')).toHaveCount(0);
+ await expect(cellLines(org)).toHaveText(['- 지난주 조직 소식']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
