@@ -980,6 +980,10 @@ async function weeklyFixture(page,options={}){
 }
 const weekly=(page,key)=>page.locator(`#journalRoot [data-journal-weekly="${key}"]`);
 // WEEKLY-화면디자인정리: 줄마다의 [고치기]·[지우기/빼기]는 줄 끝 작은 ⋯ 안. scope 안에서 그 버튼이 든 ⋯ 를 열고 버튼을 누른다.
+// WEEKLY-한흐름확정 ②: 칸 밖 원래 기록(이번 주 기록·조직 소식)은 칸 아래 접힌 한 줄 — 그 안 줄을 누르려면 먼저 펼친다.
+async function openRecords(page,key){const d=page.locator(`#journalRoot [data-journal-weekly-records="${key}"]`);await expect(d).toHaveCount(1);if(!(await d.evaluate(e=>e.open)))await d.locator(':scope > summary').click();await expect(d).toHaveJSProperty('open',true);}
+// 그 주 처음 [주간 정리]를 열면 바탕을 한 번 열어 본다(없으면 칸 자리에 까닭 한 줄). 그 시도가 끝나 다시 그린 뒤에 ⋯ 메뉴를 연다.
+async function settleBase(page){const slot=page.locator('#journalRoot [data-weekly-flow-cells="summary"]');await expect(slot.locator('[data-flow-cell]').or(slot.locator('[data-flow-no-base]').filter({hasText:'바탕을 열지 못해'})).first()).toBeVisible();await expect(page.locator('#journalRoot [data-weekly-flow-top]')).not.toContainText('바탕 여는 중');}
 async function pressMore(scope,button){const m=scope.locator('details.row-more').filter({has:scope.page().locator(button)}).first();if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await expect(m).toHaveJSProperty('open',true);await m.locator(button).click();}
 async function openWeekly(page){
  await page.locator('#journalRoot [data-journal-mode="week"]').click();
@@ -2052,7 +2056,7 @@ test('[주간 정리] 회의 종류: 목록을 못 읽으면(옛 응답) 지금�
 
 test('[주간 정리] 회의 종류: 저장이 실패하면 안내하고 목록은 그대로, 이 주 회의가 모두 뺀 종류면 그렇게 알린다',async({page})=>{
  const f=await kindsFixture(page,{width:1280,patchStatus:500});
- await openJournal(page,1280);await openWeekly(page);
+ await openJournal(page,1280);await openWeekly(page);await settleBase(page);
  const line=kindLines(page).filter({hasText:'새 회의 종류'});
  await line.locator('summary').click();await line.locator('[data-journal-kind-toggle]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('저장하지 못했어요. 다시 시도해 주세요.');
@@ -2442,7 +2446,7 @@ async function orgSummaryFixture(page,{width,missing=false}={}){
 for(const width of [390,1280])test(`[주간 정리] 조직 요약: [요약 만들기]는 누를 때만·ID만, 요약 몇 줄+원문 접기, 고친 요약은 다시 만들어도 그대로, 복사도 요약 ${width}`,async({page},info)=>{
  const f=await orgSummaryFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
- await openJournal(page,width);await openWeekly(page);
+ await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs'),run=orgs.locator('[data-journal-org-ai-run]');
  await expect(run).toHaveText('요약 만들기');await expect(run).toHaveAccessibleName('조직별 요약 만들기(AI)');
  // 열기만 해서는 AI를 부르지 않는다. 요약이 없으면 원문 그대로.
@@ -2497,7 +2501,7 @@ test('[주간 정리] 조직 요약: 표가 아직 없으면(404) 버튼 없이 
 });
 test('[주간 정리] 조직 요약: 직접 쓴 요약은 edited로 새로 저장, Escape는 취소, 비우고 저장하면 지워지고 원문이 다시 보인다',async({page})=>{
  const f=await orgSummaryFixture(page,{width:390});
- await openJournal(page,390);await openWeekly(page);
+ await openJournal(page,390);await openWeekly(page);await openRecords(page,'orgs');
  const b=weekly(page,'orgs').locator('[data-journal-org="나 지역 모임"]');
  await pressMore(b,'[data-journal-org-edit-open]');
  await b.locator('[data-journal-org-edit-input]').fill('직접 쓴 요약.');
@@ -2601,7 +2605,7 @@ async function fileFixture(page,{width,briefFail=false,box=false}={}){
 for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 우선·프로젝트 줄·'자료' 꼬리표·같으면 접기·참고에서 빼기, 복사 글에는 꼬리표 없음 ${width}`,async({page})=>{
  const f=await fileFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
- await openJournal(page,width);await openWeekly(page);
+ await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs');
  const ga=orgs.locator('[data-journal-org="가상 노동조합"]');
  const file=ga.locator(`li[data-journal-weekly-file="${DOCID(1)}"]`);
@@ -2646,7 +2650,7 @@ async function openFileMenu(loc){const m=fileMenu(loc);if(!(await m.evaluate(e=>
 for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기·넣기: 그 주 임시저장 docs에 저장, 복사·한글 파일 후보에 반영, 다시 열면 복원 ${width}`,async({page})=>{
  const f=await fileFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
- await openJournal(page,width);await openWeekly(page);
+ await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');await openRecords(page,'summary');
  const orgs=weekly(page,'orgs'),ga=orgs.locator('[data-journal-org="가상 노동조합"]'),nb=orgs.locator('[data-journal-org="나 지역 모임"]');
  const file=ga.locator(`li[data-journal-weekly-file="${DOCID(1)}"]`);
  // [고치기]: 줄 자리의 한 줄 칸(처음 값 = 지금 줄), Enter 저장.
@@ -2736,7 +2740,7 @@ test('[주간 정리] 자료 줄 고침: 칸 줄 쓰기·[처음부터]가 docs�
 test('[주간 정리] 자료 줄 고침: 임시저장 칸이 없으면(DB 적용 전) ⋯·[넣기] 없이 지금처럼 1280',async({page})=>{
  const f=await fileFixture(page,{width:1280});
  f.exec.draftMissing=true;
- await openJournal(page,1280);await openWeekly(page);
+ await openJournal(page,1280);await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs');
  await expect(orgs.locator(`li[data-journal-weekly-file="${DOCID(1)}"]`)).toBeVisible();
  await expect(page.locator('#journalRoot [data-journal-file-more]')).toHaveCount(0);
@@ -2929,7 +2933,7 @@ const discussBox=page=>weekly(page,'discuss');
 // 묶음 제목 줄 오른쪽 [+ 추가], [3)으로 옮기기] 없음, '참고 — 보고서 칸 밖 재료'는 접힌 한 줄(제목 + 건수). 가짜 내용만.
 for(const width of [412,1440])test(`[주간 정리] 버튼 모양 하나: 줄 끝 ⋯ 메뉴·제목 줄 [+ 추가]·옮기기 없음·칸 밖 재료 접힘 ${width}`,async({page},info)=>{
  const f=await hwpxFixture(page,{width});
- await openJournal(page,width);await openWeekly(page);
+ await openJournal(page,width);await openWeekly(page);await openDraft(page); // 그 주 처음 바탕을 열어 칸을 만든 뒤(다시 그림이 끝난 뒤) 잰다
  const ask=weekly(page,'ask'),field=name=>ask.locator(`[data-journal-exec-field="${name}"]`);
  // [+ 추가]는 묶음 제목과 같은 줄(오른쪽), 작은 글자 버튼.
  for(const [key,add] of [['ask','[data-journal-exec-add]'],['hq-schedule','[data-journal-hq-add]'],['discuss','[data-journal-discuss-add]']]){
@@ -2943,7 +2947,7 @@ for(const width of [412,1440])test(`[주간 정리] 버튼 모양 하나: 줄 �
  await ask.locator('[data-journal-exec-save]').click();
  await expect(ask.locator('[data-journal-exec-status]')).toHaveText('요청 줄을 더했어요.');
  // 줄 = 날짜 줄 + 내용 줄(+ 줄 끝 ⋯)까지만: 버튼 때문에 생기는 빈 줄 없음.
- const row=ask.locator('tbody tr[data-journal-exec-row]').first(),rb=await row.boundingBox();
+ const row=ask.locator('tbody tr[data-journal-exec-row]').filter({hasText:'가상 토론회'}),rb=await row.boundingBox();
  expect(rb.height).toBeLessThanOrEqual(width<=760?72:48);
  const sum=row.locator('details.row-more > summary'),sb=await sum.boundingBox();
  expect(sb.height).toBeGreaterThanOrEqual(28);expect(sb.height).toBeLessThanOrEqual(32);
@@ -3068,6 +3072,7 @@ for(const width of [412,1440])test(`[주간 정리] 5. 주요 일정 칸 고치�
  expect(report.calendar.find(d=>d.day==='10.13.(화)').items).toEqual([]);
  expect(report.calendar.find(d=>d.day==='10.16.(금)').items).toEqual([{what:'11:00 / 가상 다음 주 회의 / 가상 회의실',who:['가상 담당','가상 임원']}]);
  // [주간 정리] 5. 주요 일정 화면도 같은 값(임시저장 뒤).
+ await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.titles?.length??0,{timeout:15000}).toBe(1);
  await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
  const saved=f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.titles;
  expect(saved).toEqual([{event:'c:next',title:'가상 다음 주 회의',place:'가상 회의실',day:'2026-10-16',time:'11:00',who:'가상 담당, 가상 임원'}]);
@@ -3184,7 +3189,7 @@ for(const width of [390,1280])test(`[주간 정리] 조직 참고 캘린더: 그
  await openJournal(page,width);
  // 하루 카드에는 참고 줄이 없다.
  await expect(page.locator('#journalRoot [data-journal-calref]')).toHaveCount(0);
- await openWeekly(page);
+ await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs'),a=orgs.locator('[data-journal-org="가상 노동조합"]');
  const recs=a.locator('[data-journal-org-ref]');
  await expect(recs).toHaveText(['캘린더 추천 · 10/7(수) 가상 총력결의대회 + ×','캘린더 추천 · 10/19(월) 가상 농성장 설치 + ×']);
