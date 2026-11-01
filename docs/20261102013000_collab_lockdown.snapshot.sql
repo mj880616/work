@@ -1,0 +1,8 @@
+-- SELECT only. Save before apply. System catalogs and the migration history only (no app table rows).
+-- 되돌릴 기준: 협업 함수 9개의 실행권(ACL)·DEFINER·search_path·본문 해시, 두 표의 RLS·FORCE·표 권한, 두 표의 정책 전부, 기록.
+select 'function' as kind,p.oid::regprocedure::text as name,p.prosecdef::text||':'||coalesce(p.proconfig::text,'none')||':'||coalesce(p.proacl::text,'none')||':'||md5(p.prosrc) as definition
+  from pg_proc p where p.oid in(to_regprocedure('public.app_create_invite(text,uuid,timestamptz)'),to_regprocedure('public.app_set_workspace_member_role(uuid,text)'),to_regprocedure('public.app_approve_access_request(uuid,text)'),to_regprocedure('public.app_reject_access_request(uuid)'),to_regprocedure('public.app_accept_invite(text)'),to_regprocedure('public.app_claim_owner(text,text)'),to_regprocedure('public.app_request_workspace_access(text)'),to_regprocedure('public.app_respond_project_invitation(uuid,boolean)'),to_regprocedure('public.app_join_default_team()'))
+union all select 'table',c.relname::text,c.relrowsecurity::text||':'||c.relforcerowsecurity::text||':'||coalesce(c.relacl::text,'none') from pg_class c where c.oid in(to_regclass('public.app_invites'),to_regclass('public.app_workspace_members'))
+union all select 'policy',c.relname::text||'.'||p.polname::text,p.polcmd::text||':'||p.polpermissive::text||':'||p.polroles::text||':'||coalesce(pg_get_expr(p.polqual,p.polrelid),'')||':'||coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'') from pg_policy p join pg_class c on c.oid=p.polrelid where p.polrelid in(to_regclass('public.app_invites'),to_regclass('public.app_workspace_members'))
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in('20261101233000','20261102013000')
+order by 1,2;
