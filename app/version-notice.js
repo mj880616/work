@@ -1,4 +1,5 @@
 import {parseReleaseNotes,newSince,noticeText} from './release-notes-model.mjs';
+import {putNotice,removeNotice} from './notice-bar.js';
 // Open tabs compare the deployed entry point with the app script they actually loaded.
 // Any deployed ?v= other than the running one is new (the Pages build makes it a content hash;
 // a rollback is a new deployment too). A dismissed value is not offered again in this tab.
@@ -62,27 +63,21 @@ export function startVersionNotice(scriptUrl){
   }
   // APP-당겨서새로고침: 폰 앱 '당겨서 새로고침'도 같은 확인을 쓴다(phone-pull-refresh.js). 확인 길을 하나로 둔다.
   window.KPTUReloadGuard={allow:allowReload};
-  function layout(){
-    document.body.style.setProperty('--kptu-version-notice-height',`${box?.getBoundingClientRect().height||0}px`);
-  }
-  const observer=new ResizeObserver(layout);
+  // UI-앱안알림 1단계: 자리·높이(body 여백, 폰 머리줄·PC 메뉴 보정)는 공용 알림 줄(notice-bar.js)이 맡는다. 업데이트 안내는 그 손님 하나(4절 순서 4).
   function remove(){
-    if(box)observer.unobserve(box);
-    box?.remove();box=null;
-    document.body.classList.remove('kptu-version-notice-open');
-    document.body.style.removeProperty('--kptu-version-notice-height');
+    if(box)removeNotice('version');
+    box=null;
   }
   function show(deployed){
     if(deployed===current||dismissed.has(deployed)||stopped)return;
     latest=deployed;
     if(box){void describe(deployed);return}
     // HOME-모바일정리①: 화면 맨 위 얇은 한 줄(아이콘 + 안내 + 글자 버튼 [새로고침] + ✕). PC·폰 같은 모양.
-    box=document.createElement('aside');box.id='versionNotice';box.setAttribute('aria-label','새 버전 안내');
-    box.innerHTML='<svg class="version-notice-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg><span role="status">새 버전이 있어요</span><button type="button" class="version-notice-reload" data-version-reload>새로고침</button><button type="button" class="version-notice-close" data-version-dismiss aria-label="닫기">✕</button>';
+    box=document.createElement('aside');box.id='versionNotice';box.className='kptu-notice-line';box.setAttribute('aria-label','새 버전 안내');
+    box.innerHTML='<svg class="kptu-notice-line-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg><span role="status">새 버전이 있어요</span><button type="button" class="kptu-notice-line-action" data-version-reload>새로고침</button><button type="button" class="kptu-notice-line-close" data-version-dismiss aria-label="닫기">✕</button>';
     box.querySelector('[data-version-dismiss]').onclick=()=>{dismissed.add(latest);remove()};
     box.querySelector('[data-version-reload]').onclick=()=>{if(!allowReload())return;try{window.KPTUAppShell?.postMessage?.('reopen:mark:version')}catch{}location.reload()};
-    document.body.prepend(box);document.body.classList.add('kptu-version-notice-open');
-    observer.observe(box);layout();
+    putNotice('version',{priority:40,element:box});
     void describe(deployed);
   }
   function deployedVersion(html){
@@ -120,7 +115,7 @@ export function startVersionNotice(scriptUrl){
   const owner=window.KPTURuntime.session.read()?.user?.id;
   function sessionChanged(event){
     if(owner&&event.detail?.session?.user?.id===owner)return;
-    stopped=true;clearInterval(timer);remove();observer.disconnect();drafts.clear();
+    stopped=true;clearInterval(timer);remove();drafts.clear();
     document.removeEventListener('visibilitychange',check);window.removeEventListener('focus',check);
     for(const type of events)document.removeEventListener(type,remember,true);
     window.removeEventListener('kptu:dialog-opened',opened);window.removeEventListener('kptu:dialog-closed',closed);

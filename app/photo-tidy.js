@@ -8,7 +8,7 @@
 //   [정리]를 다시 열면 지난 결과를 바로 보인다. 새로 찾기는 맨 위 [다시 찾기](또는 지우기 직전 10분 확인)만. 계정이 바뀌면 지운다(reset).
 import {matchIndex, placeItems, placeCounts, unbackedFolders, junkGroups, groupHidden, tidyCount, forgetIds, sizeText, PLACES, PLACE_TEXT, SCAN_MAX,
   spacePlan, dupGroups, dupTrashList, scanFresh, DUP_TEXT, copyPairs, goneText,
-  TIDY_SORTS, DUP_SORTS, paneSortDefault, sortTidy, sortDupGroups, totalBytes,
+  TIDY_SORTS, DUP_SORTS, paneSortDefault, sortTidy, sortDupGroups, totalBytes, dupStats, dupStatText, whereLines, copiesFinder, DUP_HOW,
   partlyBackedFolders, TIDY_HELP, JUNK_HELP, partlyText, foundText} from './photo-tidy-model.mjs';
 
 const PAGE = 200;
@@ -23,6 +23,28 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
   // 고른 정렬은 이 화면 메모리만(서버 view_prefs.photo_view에 칸이 없어 DB 변경이 있어야 저장할 수 있다).
   const panes = new Map(), sorts = new Map();
   const sortOf = key => sorts.get(key) || (key === 'dups' ? 'save' : paneSortDefault(key));
+  // S47-19B: 묶음 종류 칩('copy'·'burst', 있는 종류 먼저), 비교 칸의 오른쪽 사진 번호(묶음 id → 남길 것 말고 몇 번째). 이 화면 메모리만.
+  let dupKind = '';
+  const cmpAt = new Map();
+  const dupKindOf = () => (st?.dups.some(g => g.kind === dupKind) ? dupKind : st?.dups.some(g => g.kind === 'copy') ? 'copy' : 'burst');
+  const SHOWN_DUPS = 40;
+  const shownDups = () => sortDupGroups(st.dups.filter(g => g.kind === dupKindOf()), sortOf('dups')).slice(0, SHOWN_DUPS);
+  const keepOf = g => (g.items.some(p => p.id === keeps.get(g.id)) ? keeps.get(g.id) : g.keep);
+  let copies = null; // 원드라이브 같은 사진 찾기(읽은 뒤 한 번 만든다)
+  const where = p => whereLines(p, st.odOn ? (copies ||= copiesFinder(st.od))(p) : []);
+  const when = p => { const t = Date.parse(p.taken_at); if (!Number.isFinite(t)) return ''; const d = new Date(t + 9 * 3600e3).toISOString(); return `${d.slice(0, 10).replace(/-/g, '.')} ${d.slice(11, 19)}`; };
+  // 비교 칸: 왼쪽 = 남길 사진, 오른쪽 = 나머지 중 하나(‹ ›로 넘김). 사진마다 있는 곳·용량·찍은 시각, [이것 남기기].
+  function cmpHtml(g, keep) {
+    const left = g.items.find(p => p.id === keep), others = g.items.filter(p => p.id !== keep);
+    const i = Math.min(cmpAt.get(g.id) || 0, others.length - 1), right = others[i];
+    const slot = p => `<div class="photos-tidy-cmp-slot"><button type="button" class="photos-tidy-cmp-ph" data-photos-tidy-cmp-open="${esc(g.id)}|${esc(p.id)}" aria-label="크게 보기"><span class="photos-tidy-th" data-photos-tidy-th="${esc(p.id)}" data-size="large"></span></button>`
+      + where(p).map(w => `<span class="photos-tidy-where">${esc(w)}</span>`).join('')
+      + `<span class="photos-tidy-num">${[sizeText(p.size_bytes), when(p), p.width && p.height ? `${p.width}×${p.height}` : ''].filter(Boolean).join(' · ')}</span>`
+      + `<button type="button" class="mini" data-photos-tidy-keep="${esc(g.id)}|${esc(p.id)}" aria-pressed="${p.id === keep}">${p.id === keep ? '남길 사진' : '이것 남기기'}</button></div>`;
+    return `<div class="photos-tidy-cmp" data-photos-tidy-cmp="${esc(g.id)}"><div class="photos-tidy-cmp-pair">${slot(left)}${slot(right)}</div>`
+      + (others.length > 1 ? `<div class="photos-tidy-cmp-nav"><button type="button" class="mini" data-photos-tidy-cmp-step="${esc(g.id)}|-1" aria-label="앞 사진">‹</button><span class="photos-tidy-num">${i + 1} / ${others.length}</span><button type="button" class="mini" data-photos-tidy-cmp-step="${esc(g.id)}|1" aria-label="다음 사진">›</button></div>` : '')
+      + '</div>';
+  }
   const empty = () => ({running:false, done:false, partial:false, failed:'', odFailed:'', od:[], ph:[], odOn:false, index:null, unbacked:[], partly:[], junk:[], counts:null, space:null, dups:[], at:0, gone:0, stale:false});
   const changed = () => { try { onChange?.(); } catch { /* 화면 다시 그리기 실패가 읽기를 막지 않게 */ } };
   function derive() {
@@ -34,6 +56,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     st.counts = st.odOn ? placeCounts({odItems:st.od, phItems:st.ph, index:st.index, off:phoneOff()}) : null;
     st.space = st.odOn ? spacePlan(st.ph, st.index, {now:now(), isStarred}) : null;
     st.dups = dupGroups(st.ph);
+    copies = null;
   }
   async function scanPhone(t) {
     for (let offset = 0; st.ph.length < SCAN_MAX;) {
@@ -78,7 +101,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     // 처음 열 때만 읽는다(새로 찾기는 [다시 찾기]만). 지난 결과가 있으면 그대로 보인다.
     open() { if (!st) scan(); },
     rescan: () => scan(),
-    reset() { token++; st = null; keeps.clear(); panes.clear(); },
+    reset() { token++; st = null; keeps.clear(); panes.clear(); cmpAt.clear(); },
     // 찾은 뒤 폰 쪽이 바뀌었다(폰 폴더 옮기기·사진 접근 바꿈): 결과는 두고 맨 위 한 줄에만 알린다.
     stale() { if (st?.done && !st.stale) { st.stale = true; changed(); } },
     // 끈 폴더가 바뀌면 장수만 다시.
@@ -105,14 +128,14 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     toggle(key) {
       const k = String(key || '');
       if (k.startsWith('place:')) { const was = panes.has(k); for (const x of [...panes.keys()]) if (x.startsWith('place:')) panes.delete(x); if (!was && api.list(k)) panes.set(k, true); return; }
-      if (panes.has(k)) panes.delete(k); else if (api.list(k)) panes.set(k, true);
+      if (panes.has(k)) panes.delete(k); else if (api.list(k) || (k.startsWith('dup:') && st?.dups.some(g => g.id === k.slice(4)))) panes.set(k, true);
     },
     opened: key => panes.has(key),
     sortSet(key, s) { if ((key === 'dups' ? DUP_SORTS : TIDY_SORTS)[s]) sorts.set(key, s); },
     group(kind) {
       if (!ready()) return null;
       if (kind === 'space') return st.space?.items.length ? {kind, label:'원드라이브에 있는 폰 사진', items:st.space.items.slice(), folders:[]} : null;
-      if (kind === 'dups') { const items = dupTrashList(st.dups.slice(0, 40), keeps); /* 화면에 보인 묶음만 */ return items.length ? {kind, label:'같은 사진 묶음의 남기지 않을 사진', items, folders:[]} : null; }
+      if (kind === 'dups') { const items = dupTrashList(shownDups(), keeps); /* 화면에 보인 그 종류 묶음만 */ return items.length ? {kind, label:`${DUP_TEXT[dupKindOf()]} 묶음의 남기지 않을 사진`, items, folders:[]} : null; }
       if (kind.startsWith('dup|')) { const g = st.dups.find(x => x.id === kind.slice(4)); const items = g ? dupTrashList([g], keeps) : []; return items.length ? {kind, label:`${DUP_TEXT[g.kind]} 묶음의 남기지 않을 사진`, items, folders:[]} : null; }
       return st.junk.find(g => g.kind === kind) || null;
     },
@@ -120,7 +143,11 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     copyPairs: items => (ready() && st.odOn ? copyPairs(items, st.od) : null),
     goneSeen() { if (!st?.gone) return; st.gone = 0; changed(); seenTrash().catch(() => {}); },
     // ④ 남길 것 고르기.
-    keep(groupId, itemId) { const g = st?.dups.find(x => x.id === groupId); if (g && g.items.some(p => p.id === itemId)) keeps.set(groupId, itemId); },
+    keep(groupId, itemId) { const g = st?.dups.find(x => x.id === groupId); if (g && g.items.some(p => p.id === itemId)) { keeps.set(groupId, itemId); cmpAt.delete(groupId); } },
+    // S47-19B: 묶음 종류 칩·비교 칸 넘기기·묶음 사진(크게 보기 목록).
+    dupKind(k) { if (DUP_TEXT[k]) dupKind = k; },
+    cmpStep(groupId, d) { const g = st?.dups.find(x => x.id === groupId); if (!g) return; const n = g.items.length - 1; if (n > 0) cmpAt.set(groupId, (((cmpAt.get(groupId) || 0) + d) % n + n) % n); },
+    groupItems: groupId => st?.dups.find(x => x.id === groupId)?.items.slice() || null,
     // 지운 칸(폰 휴지통·원드라이브 휴지통 뒤)을 재료에서 뺀다.
     forget(ids) {
       if (!st || !ids?.length) return;
@@ -185,21 +212,29 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
             + (canTrash ? '<button type="button" class="mini photos-danger" data-photos-tidy-trash="space">폰에서만 지우기</button>' : '') + `</div>${pane('space')}</div></details>`
           : '<p class="photos-tidy-line">공간 비우기 · 후보 없음</p>');
       }
-      // ④ 같은 사진 묶음
+      // ④ 같은 사진·연사 묶음(S47-19B): 종류 칩으로 나눠 보고, 묶음을 열면(그 줄 안) 두 장씩 나란히 비교·남길 것 고르기.
       if (st.dups.length) {
-        const shown = sortDupGroups(st.dups.slice(0, 40), sortOf('dups')), bytes = st.dups.reduce((n, g) => n + g.bytes, 0);
-        rows.push(`<details class="photos-tidy-row" data-k="dups"><summary><span>같은 사진 묶음 <b>${st.dups.length}개</b>${bytes ? ' · ' + sizeText(bytes) : ''}${help(TIDY_HELP.dups)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">`
+        const kind = dupKindOf(), all = dupStats(st.dups), mine = st.dups.filter(g => g.kind === kind), shown = shownDups(), stat = dupStats(mine);
+        rows.push(`<details class="photos-tidy-row" data-k="dups"><summary><span>같은 사진·연사 <b>묶음 ${all.groups}개</b> · 지울 수 있는 ${all.extra}장${all.bytes ? ' · ' + sizeText(all.bytes) : ''}${help(TIDY_HELP.dups)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">`
+          + `<div class="photos-tidy-row photos-tidy-places" role="group" aria-label="묶음 종류">${Object.keys(DUP_TEXT).map(k => {
+            const n = st.dups.filter(g => g.kind === k).length;
+            return `<button type="button" class="photos-tidy-place" data-photos-tidy-dupkind="${k}" aria-pressed="${k === kind}"${n ? '' : ' disabled'}>${DUP_TEXT[k]} ${n}</button>`;
+          }).join('')}</div>`
+          + `<p class="photos-tidy-line">${DUP_HOW[kind]} · ${dupStatText(stat)}</p>`
           + doLine(dupTrash ? TIDY_HELP.dupsDo : '묶음마다 남길 한 장을 고를 수 있어요 · 지우기는 원드라이브 연결·폰 휴지통이 있을 때만')
           + `<div class="photos-tidy-pane-head"><span class="photos-tidy-num">묶음마다 남길 사진을 누르세요(테두리 = 남김)</span>${chips('dups', DUP_SORTS)}</div>`
           + shown.map(g => {
-            const keep = g.items.some(p => p.id === keeps.get(g.id)) ? keeps.get(g.id) : g.keep;
-            return `<div class="photos-tidy-dup" data-photos-tidy-dup="${esc(g.id)}"><span class="photos-tidy-num">${DUP_TEXT[g.kind]} ${g.items.length}장${g.bytes ? ' · ' + sizeText(g.bytes) : ''}</span><span class="photos-tidy-ths">`
+            const keep = keepOf(g), key = 'dup:' + g.id, open = panes.has(key);
+            return `<div class="photos-tidy-dup" data-photos-tidy-dup="${esc(g.id)}"><span class="photos-tidy-num">${DUP_TEXT[g.kind]} ${g.items.length}장${g.bytes ? ' · 아낄 ' + sizeText(g.bytes) : ''}</span>`
+              + `<button type="button" class="mini" data-photos-tidy-see="${esc(key)}" aria-expanded="${open}">비교</button>`
+              + (dupTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="dup|${esc(g.id)}">나머지 지우기</button>` : '')
+              + '<span class="photos-tidy-ths">'
               + g.items.slice(0, 8).map(p => `<button type="button" class="photos-tidy-pick" data-photos-tidy-keep="${esc(g.id)}|${esc(p.id)}" aria-pressed="${p.id === keep}" aria-label="${p.id === keep ? '남길 사진' : '이 사진 남기기'}"><span class="photos-tidy-th" data-photos-tidy-th="${esc(p.id)}"></span>${sizeText(p.size_bytes) ? `<span class="photos-tidy-size">${sizeText(p.size_bytes)}</span>` : ''}</button>`).join('')
               + `${g.items.length > 8 ? `<span class="photos-tidy-num">외 ${g.items.length - 8}장</span>` : ''}</span>`
-              + (dupTrash ? `<button type="button" class="mini photos-danger" data-photos-tidy-trash="dup|${esc(g.id)}">나머지 지우기</button>` : '') + '</div>';
+              + (open ? cmpHtml(g, keep) : '') + '</div>';
           }).join('')
-          + (st.dups.length > shown.length ? `<p class="photos-tidy-line">외 ${st.dups.length - shown.length}묶음(위 묶음을 정리하면 이어서 보여요)</p>` : '')
-          + (dupTrash ? '<div class="photos-tidy-junk"><span>모든 묶음에서 남길 사진만 두고</span><button type="button" class="mini photos-danger" data-photos-tidy-trash="dups">나머지 모두 지우기</button></div>' : '')
+          + (mine.length > shown.length ? `<p class="photos-tidy-line">외 ${mine.length - shown.length}묶음(위 묶음을 정리하면 이어서 보여요)</p>` : '')
+          + (dupTrash ? `<div class="photos-tidy-junk"><span>보이는 ${DUP_TEXT[kind]} 묶음에서 남길 사진만 두고</span><button type="button" class="mini photos-danger" data-photos-tidy-trash="dups">나머지 모두 지우기</button></div>` : '')
           + '</div></details>');
       }
       // ⑤ 잡동사니
