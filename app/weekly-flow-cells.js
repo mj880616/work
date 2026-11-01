@@ -182,7 +182,7 @@ export function paintFlowCells(slot, ctx) {
     head.append(name);
     // 이 주 기록이 없는 칸이 지난주 보고서 줄 그대로면 작은 '지난주에서'(1) 임원 배정 요청과 같은 표시, 화면에만).
     if (section === 'summary' && !list.length && c.lines.length && !touched.has(c.id) && baseLines.has(c.id)) {
-      const tag = el('span', 'journal-exec-carried', CARRIED_TAG); tag.dataset.flowCarried = ''; tag.title = '이 주 기록이 없어 지난주 보고서 줄 그대로예요'; name.append(' ', tag);
+      const tag = el('span', 'journal-exec-carried', CARRIED_TAG); tag.dataset.flowCarried = ''; tag.title = '이 주 기록이 없어 지난주 보고서 줄 그대로예요'; head.append(tag);
     }
     const busy = !!ui.busy;
     const add = btn('+ 추가', {flowAdd:c.id}, 'journal-part-add-button'); add.disabled = busy; add.setAttribute('aria-label', `${labelOf(section, c.key, c.n)} 칸에 줄 추가`);

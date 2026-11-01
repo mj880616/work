@@ -3271,3 +3271,46 @@ for(const width of [412,1440])test(`[주간 정리] 5. 주요 일정 칸 고치�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
+
+// WEEKLY-한흐름확정 ③(확정 규칙 '내 담당 사업은 사업 요약표에 모두 들어간다'): 바탕에 내 줄이 없는 내 사업영역도 2. 1) 요약에 빈 칸,
+// 이 주 기록 없는 칸은 지난주 줄 그대로 + 작은 '지난주에서', '이 주 기록 없는 사업영역: …' 한 줄 없음, 빈 칸에 쓴 줄은 한글 파일에 내 줄로. 글은 모두 가짜.
+for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 내 사업영역 칸 전부 — 바탕에 없던 사업영역 빈 칸·지난주에서·파일에 들어감 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ // 내 사업 목록에 바탕(팀 확정본)에 없는 사업영역 하나를 더하고, 나-1 의 이 주 기록은 없앤다(→ 지난주 줄 그대로).
+ const tree=[...weeklyTree,{id:'wc',name:'사업영역 다',parent_id:null,status:'active',sort_order:3,metadata:{project_system:'v2'}}];
+ f.more.spaces.push({id:'wc',workspace_id:'w',name:'사업영역 다'});
+ f.more.progress.splice(f.more.progress.findIndex(p=>p.id==='p2'),1);
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_spaces',async r=>{const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET'||q.get('select')!=='*')return r.fallback();return r.fulfill({json:tree.map(p=>({...p,workspace_id:'w',owner_id:'home-test',created_at:at}))});});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ const labels=page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-label');
+ await expect(labels).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1','사업영역 다 › —']);
+ const c=flowCell(page,'사업영역 다 › —');
+ await expect(c.locator('[data-flow-empty]')).toHaveText('빈 칸');
+ await expect(c.locator('[data-flow-orphan]')).toHaveCount(0);
+ // 이 주 기록이 있는 칸(가-1)·빈 칸에는 '지난주에서'가 없다.
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-flow-carried]')).toHaveCount(1);
+ await expect(page.locator('#journalRoot [data-journal-weekly-quiet]')).toHaveCount(0);
+ // 빈 칸 [+ 추가] → 서버 쓰기 한 번, 다시 그려도 같은 칸.
+ const before=f.exec.calls.filter(x=>x.method==='PATCH').length;
+ await c.getByRole('button',{name:'사업영역 다 › — 칸에 줄 추가'}).click();
+ await c.locator('input[data-flow-input]').fill('- 다 영역 손 줄');await c.getByRole('button',{name:'저장'}).click();
+ await expect(cellLines(c)).toHaveText(['- 다 영역 손 줄']);
+ expect(f.exec.calls.filter(x=>x.method==='PATCH').length).toBe(before+1);
+ expect(f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.rows).toContainEqual({section:'summary',key:'사업영역 다›',n:0,lines:['- 다 영역 손 줄']});
+ // 손댄 칸(나-1 줄 고치기)은 '지난주에서'가 사라진다.
+ const b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await expect(b1.locator('[data-flow-carried]')).toHaveText('지난주에서');
+ await pressMore(b1.locator('[data-flow-line="0"]'),'[data-flow-fix]');
+ await b1.locator('input[data-flow-input]').fill('- 지난주 나-1 진행(고침)');await b1.locator('input[data-flow-input]').press('Enter');
+ await expect(cellLines(b1)).toHaveText(['- 지난주 나-1 진행(고침)']);
+ await expect(b1.locator('[data-flow-carried]')).toHaveCount(0);
+ // 한글 파일: 바탕에 없던 사업영역이 표 맨 아래 내 줄로(담당 = 내 이름), 쓴 줄 그대로.
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(download);
+ expect(report.summary.map(a=>a.area.join(' '))).toEqual(['사업영역 가','사업영역 나','사업영역 다']);
+ expect(report.summary[2].rows.map(r=>[r.progress,r.owner])).toEqual([[['- 다 영역 손 줄'],['가상 담당']]]);
+ expect(report.summary[1].rows[0].progress).toEqual(['- 지난주 나-1 진행(고침)']);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
