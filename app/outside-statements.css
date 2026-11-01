@@ -2,6 +2,8 @@
    한 칸 목록(폰·PC 같음, PC는 읽기 좋은 폭까지). 칩 줄은 공용 chip-rows.js(두 줄 + [더보기 ▾]) — 접힘 모양은 ui-standard.css "UI-칩줄두줄". */
 #appView #outsideView .os{ display:flex; flex-direction:column; gap:4px; min-width:0; max-width:860px; font-size:var(--ds-text-row,14px); color:var(--kptu-ink); }
 #appView #outsideView .os[data-mode="list"] .os-sources,#appView #outsideView .os[data-mode="sources"] :is(.os-list,.os-bar){ display:none; }
+#appView #outsideView .os-when{ margin:0; padding:0 0 2px; font-size:var(--ds-text-meta,12px); line-height:1.4; color:var(--kptu-muted); }
+#appView #outsideView .os-when[hidden],#appView #outsideView .os[data-mode="sources"] .os-when{ display:none; }
 #appView #outsideView .os-bar{ display:flex; align-items:flex-start; gap:6px; min-width:0; padding:2px 0; }
 #appView #outsideView .os-chips{ display:flex; flex-wrap:wrap; flex:1 1 auto; gap:var(--ds-chip-row-gap,4px); min-width:0; }
 #appView #outsideView .os-chips[hidden]{ display:none; }
