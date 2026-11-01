@@ -4,7 +4,7 @@
   let active=null;
   const focusable='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   const resolve=(modal,value)=>typeof value==='string'?modal.querySelector(value):value;
-  const items=modal=>[...modal.querySelectorAll(focusable),...document.querySelectorAll('#versionNotice button')].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
+  const items=modal=>[...modal.querySelectorAll(focusable),...document.querySelectorAll('#noticeBar button')].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
 
   // UI-키보드하단바: the one phone keyboard detector for the whole app (popup footers, bottom tabs, docked inputs,
   // the full-screen editor). It sets body.kptu-mobile-keyboard (CSS hides the bottom tabs, --kptu-mobile-tab-height 0),
@@ -142,7 +142,7 @@
     if(!list.length){e.preventDefault();active.focus();return}
     const extra=[...state.get(active)?.companions?.()||[]].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
     if(extra.length){
-      const own=list.filter(el=>active.contains(el)),notice=list.filter(el=>el.closest('#versionNotice')&&!active.contains(el));
+      const own=list.filter(el=>active.contains(el)),notice=list.filter(el=>el.closest('#noticeBar')&&!active.contains(el));
       const rings=[own,extra,notice].filter(ring=>ring.length),at=document.activeElement,i=rings.findIndex(ring=>ring.includes(at));
       if(i>=0){
         const ring=rings[i];
@@ -152,7 +152,7 @@
       }
     }
     const first=list[0],last=list[list.length-1];
-    const noticeFirst=list.find(el=>el.closest('#versionNotice'));
+    const noticeFirst=list.find(el=>el.closest('#noticeBar'));
     const modalLast=list.filter(el=>active.contains(el)).at(-1);
     if(noticeFirst&&modalLast){
       if(!e.shiftKey&&document.activeElement===modalLast){e.preventDefault();noticeFirst.focus();return}

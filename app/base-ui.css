@@ -151,10 +151,10 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .result-box{margin-top:var(--kptu-space-3);background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);padding:var(--kptu-space-3);font-size:12px;word-break:break-all}
 .result-box a{color:var(--kptu-link)}
 /* UI-작은알림자리(2026-10-28 명진 결정 10:52): 작은 알림(#toast·.kptu-undo-notice·.kptu-notice)은 모두 화면 위쪽 가운데,
-   맨 위 줄(폰 머리줄·PC 상단 줄) 바로 아래·목록 위에 뜬다. 폰 하단바·손가락에 가리지 않게. 새 버전 알림 줄이 떠 있으면 그 아래로.
+   맨 위 줄(폰 머리줄·PC 상단 줄) 바로 아래·목록 위에 뜬다. 폰 하단바·손가락에 가리지 않게. 맨 위 알림 줄(notice-bar.js, 새 버전 안내 등)이 떠 있으면 그 아래로.
    자리는 --kptu-notice-top 하나로 정하고, 화면마다 bottom을 따로 올리던 덮어쓰기는 없앴다(docs/design-decisions.md '작은 알림 자리'). */
 :root{--kptu-notice-top:calc(env(safe-area-inset-top,0px) + 56px)}
-body.kptu-version-notice-open{--kptu-notice-top:calc(env(safe-area-inset-top,0px) + 56px + var(--kptu-version-notice-height,33px))}
+body.kptu-notice-bar-open{--kptu-notice-top:calc(env(safe-area-inset-top,0px) + 56px + var(--kptu-notice-bar-height,33px))}
 /* 되돌리기 알림이 떠 있는 동안 뒤에 뜬 작은 알림·#toast는 한 줄 아래로(겹쳐 [되돌리기]를 가리지 않게). */
 body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-top) + 44px)}
 /* 위쪽 알림 글 부분은 아래 목록(거르기 칩 등) 누르기를 막지 않는다. [되돌리기]·✕만 눌린다. */

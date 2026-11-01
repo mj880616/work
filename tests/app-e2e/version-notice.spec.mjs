@@ -244,3 +244,26 @@ test('late-created task modal connects its last control to the notice in both di
   await last.focus();await last.press('Tab');await expect(notice(page).locator('[data-version-reload]')).toBeFocused();
   await notice(page).locator('[data-version-reload]').press('Shift+Tab');await expect(last).toBeFocused();
 });
+// UI-앱안알림 1단계: 알림 줄 자리 주인(notice-bar.js)은 하나. 급한 손님이 오면 그 줄만 보이고, 빠지면 업데이트 안내가 다시 보인다.
+// 줄이 없어지면 body 여백·PC 메뉴 보정도 함께 풀린다. 폰(폴드 접음)·폴드 펼침·PC 세 폭.
+for(const width of [390,900,1280])test(`one notice bar owner shows the most urgent line only at ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:844});await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
+  const state=()=>page.evaluate(()=>{
+    const bar=document.getElementById('noticeBar'),nav=document.querySelector('#appView>.app-nav');
+    return {bars:document.querySelectorAll('#noticeBar').length,open:document.body.classList.contains('kptu-notice-bar-open'),
+      pad:parseFloat(getComputedStyle(document.body).paddingTop),height:bar?Math.round(bar.getBoundingClientRect().height):0,
+      shown:bar?[...bar.children].filter(el=>!el.hidden).map(el=>el.id):[],navTop:nav&&getComputedStyle(nav).position!=='static'&&nav.getClientRects().length?Math.round(nav.getBoundingClientRect().top):null};
+  });
+  const withVersion=await state();
+  expect(withVersion).toMatchObject({bars:1,open:true,shown:['versionNotice']});
+  expect(withVersion.pad).toBe(withVersion.height);
+  await page.evaluate(()=>{const el=document.createElement('aside');el.id='qaUrgentLine';el.className='kptu-notice-line';el.innerHTML='<span role="status">QA 급한 줄</span>';window.KPTUNoticeBar.put('qa',{priority:10,element:el})});
+  expect(await state()).toMatchObject({bars:1,open:true,shown:['qaUrgentLine']});
+  await expect(notice(page)).toBeHidden();
+  await page.evaluate(()=>window.KPTUNoticeBar.remove('qa'));
+  expect(await state()).toMatchObject({bars:1,shown:['versionNotice']});
+  await page.locator('[data-version-dismiss]').click();
+  const none=await state();
+  expect(none).toMatchObject({bars:0,open:false,pad:0,height:0});
+  if(width>760&&withVersion.navTop!==null)expect(withVersion.navTop-none.navTop).toBe(withVersion.height);
+});
