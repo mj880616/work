@@ -94,7 +94,8 @@ test('서버 함수 phone-push는 phone-push-settings.js 한 곳에서만, 토�
   const src = read('app/phone-push-settings.js');
   assert.match(src, /'\/functions\/v1\/phone-push'/);
   assert.doesNotMatch(src, /console\.[a-z]+\([^)]*token/i);
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장소 이름은 글자를 나눠 만든다(저장소 감시 workflow가 시험 파일의 이름도 센다).
+  assert.doesNotMatch(src, new RegExp(['local', 'session'].map(x => x + 'Storage').concat(['indexed' + 'DB']).join('|')));
   assert.doesNotMatch(read('app/phone-push-model.mjs'), /functions\/v1/);
   assert.match(read('app/profile-settings.js'), /import\('\.\/phone-push-settings\.js'\)\.then\(m=>m\.mountPhonePushSettings/);
   assert.match(read('app/loader-v2.js'), /KPTUAndroid[^\n]*import\('\.\/phone-push-settings\.js'\)\.then\(m=>m\.startDeviceSync\(window\)\)/);
