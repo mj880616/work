@@ -30,7 +30,7 @@ function paint(focusId = '') {
     + `<ol class="me-pv-main">${main.map(pv).join('')}</ol><span class="me-pv-gap" aria-hidden="true"></span>`
     + (tail.length ? `<ol class="me-pv-tail">${tail.map(pv).join('')}</ol>` : '')
     + `</div></figure></div>`
-    + `<p class="me-note" role="status" aria-live="polite">${esc(note || '⠿을 잡고 끌어 세 칸 사이로 옮겨요(폰은 줄을 길게 눌러서). 키보드는 위·아래 화살표.')}</p>`;
+    + `<p class="me-note" role="status" aria-live="polite">${esc(note || '폰은 줄을 길게 눌러 끌어요. 키보드는 위·아래 화살표.')}</p>`;
   if (focusId) body.querySelector(`[data-reorder-id="${CSS.escape(focusId)}"] [data-reorder-handle]`)?.focus({preventScroll: true});
 }
 function result(r, id) {

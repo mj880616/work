@@ -57,7 +57,7 @@ let selected = null, source = 'all', dayLayer = null;
 const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
 let od = {...OD_NONE}, odStatusFlight = null, odMonth = null, odMessage = '';
 // 원드라이브 설정 창: 사진 메뉴와 같은 공용 부품(od-settings.js, 명진 결정 4). 연결 상태·안내 한 줄·다시 읽기는 일기 것을 쓴다.
-const odSettings = createOdSettings({rt, layerName:'diary-od', hint:'켠 폴더의 사진만 달력에 보여요. 하위 폴더도 함께 읽어요.',
+const odSettings = createOdSettings({rt, layerName:'diary-od', hint:'하위 폴더도 함께 읽어요.',
   od:() => od, refresh:force => ensureOdStatus(force), paint:() => renderOdPanel(), message:text => { odMessage = text; }, fault:() => { odFault = true; },
   reload:() => loadMonth({force:true}), reset:({disconnected}) => { stopOdSync(); odSyncState.done = false; if (disconnected) odFault = false; }});
 // 설정 창(위 폴더 아래 스위치 목록)과 사진 목록 받기. 모두 메모리에만 둔다(진행 상태는 서버 색인에 있다).

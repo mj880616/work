@@ -281,7 +281,7 @@ for (const width of [390, 1280]) {
     const sheet = panel.locator('[data-od-modal] [role="dialog"]');
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText('원드라이브 · 카메라');
-    await expect(sheet).toContainText('켠 폴더의 사진만 달력에 보여요. 하위 폴더도 함께 읽어요.');
+    await expect(sheet).toContainText('하위 폴더도 함께 읽어요.');
     await expect(sheet.getByRole('button', { name: '위 폴더 바꾸기' })).toBeVisible();
     await expect(sheet.locator('.diary-od-toprow')).toHaveText('카메라 (이 폴더 바로 안)4장');
     const rows = sheet.locator('.diary-od-row');

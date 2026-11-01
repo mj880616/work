@@ -13,7 +13,7 @@ const folderCount = n => `${n}장`;
 // opts: rt, layerName(라우터 겹 이름), back(연결 뒤 돌아올 화면: 'photos'면 사진 메뉴, 없으면 일기),
 //   od() → 지금 연결 상태, refresh(force) → Promise(상태 다시 읽기), paint() → 화면 다시 그리기,
 //   message(text) → 안내 한 줄(빈 글 = 지움), fault() → 오류 표시, reload() → 바뀐 뒤 사진 다시 읽기, reset({disconnected}) → 폴더·연결이 바뀜(받기 멈춤 등)
-export function createOdSettings({rt, layerName, back = '', hint = '켠 폴더의 사진만 보여요. 하위 폴더도 함께 읽어요.', od, refresh, paint, message, fault = () => {}, reload = () => {}, reset = () => {}}) {
+export function createOdSettings({rt, layerName, back = '', hint = '하위 폴더도 함께 읽어요.', od, refresh, paint, message, fault = () => {}, reload = () => {}, reset = () => {}}) {
   let open = false, layer = null, browse = null, tree = null, busy = false, keep = null;
   const self = {
     get open() { return open; },
