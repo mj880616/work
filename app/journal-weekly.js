@@ -35,8 +35,9 @@ import {timeCell} from './time-input.js';
 import {scheduleItems} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
-import {docEdits, draftAreaSummaries, draftHq, draftDiscuss, draftDrops} from './weekly-draft-store.js';
+import {docEdits, draftAreaSummaries, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-draft-store.js';
 import {discussLines, DISCUSS_TITLE} from './weekly-discuss.mjs';
+import {withHandCalendar, handRows, HAND_TAG} from './weekly-hand.mjs';
 import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
@@ -347,9 +348,11 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   });
 
   // WEEKLY-주요일정칸: 그 주 임시저장의 칸별 고침(titles — 한글 파일 상자 5번과 [주간 정리] 2)이 같은 항목)을 화면·복사 글에도 넣는다(edit 표시).
+  // WEEKLY-한흐름확정 ⑤ 남은 부분: 손으로 더한 줄(draft.hand — 5. 주요 일정 줄은 표·복사·한글 파일에 달력 일정과 같은 줄로, 참고 메모는 화면·복사에만).
+  const hand = draftRead && !draftRead.missing ? draftHand(draftRead.row?.draft) : null;
   const titleEdits = new Map(draftRead && !draftRead.missing ? (draftRead.row?.draft?.titles ?? []).map(t => [t.event, titleFields(t)]) : []);
   const calendar = part('calendar', () => memory?.status === 'loading' ? {loading:true}
-    : annotateCalendar(upcomingSchedule(ok(m, 'upcoming'), start), memory?.status === 'ok' ? memory.list : null));
+    : withHandCalendar(annotateCalendar(upcomingSchedule(ok(m, 'upcoming'), start), memory?.status === 'ok' ? memory.list : null), handRows(hand, 'calendar'), lineWhat));
   // 화면·복사용(calendarView)만 고침을 넣는다. calendar는 달력·기억 그대로(한글 파일 상자가 바탕으로 쓰고, 고침은 상자가 scheduleForm에서 넣음).
   // WEEKLY-환류전칸 ⑤: 이번 주에 뺀 일정(draft.dropped — 5. 주요 일정 줄 ⋯ [빼기], 한글 파일과 같은 값)은 화면·복사 글에서도 뺀다(allRows 는 그대로).
   const drops = draftRead && !draftRead.missing ? draftDrops(draftRead.row?.draft) : new Map();
@@ -364,6 +367,9 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const discussRows = draftRead && !draftRead.missing ? draftDiscuss(draftRead.row?.draft) : [];
   const discuss = {loading:fileEdits.loading, editable:fileEdits.editable, missing:!!draftRead?.missing, failed:m.weekDraft?.status === 'failed', row:draftRead?.row ?? null,
     rows:discussRows, lines:discussLines(discussRows)};
+  // WEEKLY-한흐름확정 ⑤ 남은 부분: 손으로 더한 줄(5. 주요 일정·참고 [+ 추가] — weekly-hand-lines.js 가 그리고 씀).
+  const handModel = {loading:fileEdits.loading, editable:fileEdits.editable, missing:!!draftRead?.missing, failed:m.weekDraft?.status === 'failed', row:draftRead?.row ?? null,
+    calendar:handRows(hand, 'calendar'), notes:handRows(hand, 'notes')};
   // 주간보고 기억 목록(맨 아래 접힘): 일정 이름·일정 빼기(내 프로필 칸) + 회의 종류 빼기 전체(지금은 그 주에 걸린 것만 보이던 것).
   const remembered = {ready:memory?.status === 'ok', entries:memory?.status === 'ok' ? memory.list : [], kinds:kinds?.status === 'ok' ? kinds.list : null, today};
   // 1. 요청사항 › 1) 임원 배정 요청: the week's saved rows (weekly-exec-requests.js readExecRequests → {missing, row}).
@@ -398,7 +404,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   // 한글 파일 상자 그 조직 칸), 5. 주요 일정·참고·복사 글에는 넣지 않는다. 고르지 않았거나 못 읽으면 빈 값(추천 줄이 안 보일 뿐).
   const refRead = ok(m, 'orgRefs');
   const orgRefs = refRead?.configured ? {org:refRead.org, items:refRead.items || []} : {org:'', items:[]};
-  return {start, days, requests, summary, meetings, orgs, calendar, calendarView, calendarDrops:drops, hq, discuss, notes, remembered, fileEdits, overlap, overlapSource, orgRefs};
+  return {start, days, requests, summary, meetings, orgs, calendar, calendarView, calendarDrops:drops, hq, discuss, hand:handModel, notes, remembered, fileEdits, overlap, overlapSource, orgRefs};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
 
@@ -491,6 +497,7 @@ export function weeklyReportText(model) {
     for (const i of part.items) out.push(item(i));
     if (part.note) out.push(`※ ${part.note}`);
   }
+  if (model.hand?.notes?.length) { out.push(`◦ ${HAND_NOTES_LABEL}`); for (const r of model.hand.notes) out.push(`- ${r.text}`); }
   out.push('');
   if (missing.length) out.push(`※ ${[...new Set(missing)].join(', ')}은(는) 불러오지 못해 빠졌어요.`);
   const capped = [...[['summary', LABELS.summary], ['orgs', LABELS.orgs], ['meetings', LABELS.meetings]].map(([k, l]) => [model[k], l]), ...NOTE_PARTS.map(([k, l]) => [model.notes[k], l])]
@@ -501,6 +508,7 @@ export function weeklyReportText(model) {
 
 // ---- screen (called by journal.js only) ----
 export const FILE_TAG = '자료';
+export const HAND_NOTES_LABEL = '내 메모';
 export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸 할 일'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모']]);
 // 1. 2) 주요 일정: what goes there (its rule is not settled; nothing is filled in yet).
 // WEEKLY-주요일정칸(요청함 10/30 13:17): '자동 채우기는 나중에'는 지우고 안내 한 줄만 남긴다. 적는 칸은 그 아래 수기 표(weekly-hq-schedule.js).
@@ -840,7 +848,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   // 5. 주요 일정: the two weeks from the next Monday in the form's cells; vacations as one line under the table.
   const five = chapter('calendar', '5. 주요 일정');
   const c = model.calendarView ?? model.calendar;
-  const cal = block('calendar', c.days?.length ? rangeTitle(c) : '다음 주 월요일부터 2주');
+  const cal = block('calendar', c.days?.length ? rangeTitle(c) : '다음 주 월요일부터 2주', 'h5', true);
+  // 손으로 더한 줄 자리([+ 추가]·고치기 칸 — weekly-hand-lines.js, journal.js가 붙임). node 시험에서는 빈 자리.
+  const handSlot = el('div', 'journal-hand-slot journal-part-slot'); handSlot.dataset.journalHandSlot = 'calendar';
   if (!status(cal, c, '달력 일정') && !c.failed.length) {
     if (c.rows.length) {
       const table = el('table', 'journal-weekly-table journal-weekly-schedule');
@@ -851,14 +861,18 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         if (!index) { const th = el('th', 'journal-weekly-area', row.label); th.scope = 'rowgroup'; th.rowSpan = row.items.length; tr.append(th); }
         // HOME-줄누르기 ⑦: 칸의 글을 누르면 달력의 그 일정 수정 창(업무일지 그날 일정 줄과 같은 열기).
         const what = el('td', 'journal-weekly-what');
-        if (item.open?.id) { const b = el('button', 'journal-weekly-open', item.what); b.type = 'button'; b.dataset.journalWeeklyEvent = item.open.id; b.dataset.journalWeeklyCalendar = item.open.calendarId || 'primary'; b.setAttribute('aria-label', `${item.what} (일정 열기)`); what.append(b); }
+        if (item.hand) { what.append(item.what, ' '); const tag = el('span', 'journal-exec-carried', HAND_TAG); tag.title = '손으로 더한 줄 — 한글 파일 표에도 들어가요'; tag.dataset.journalScheduleHand = ''; what.append(tag); }
+        else if (item.open?.id) { const b = el('button', 'journal-weekly-open', item.what); b.type = 'button'; b.dataset.journalWeeklyEvent = item.open.id; b.dataset.journalWeeklyCalendar = item.open.calendarId || 'primary'; b.setAttribute('aria-label', `${item.what} (일정 열기)`); what.append(b); }
         else what.append(item.what);
         if (item.edited) { const tag = el('span', 'journal-exec-carried', '고침'); tag.title = `원래: ${item.title}${item.place ? ` / ${item.place}` : ''}`; tag.dataset.journalScheduleEdited = ''; what.append(' ', tag); }
         else if (item.memo?.title) { const tag = el('span', 'journal-exec-carried', MEMORY_TAG); tag.title = `원래 제목: ${item.title}`; tag.dataset.journalScheduleMemory = ''; what.append(' ', tag); }
         // WEEKLY-환류전칸 ⑤(요청함 11/01 01:20): 줄 끝 작은 ⋯ → [고치기](날짜·시간·제목·장소·참석 칸)·[빼기](이번 주 파일에서). 값은 한글 파일 칸 고치기와 같은 임시저장.
         //   ⋯ 는 줄 끝(참석자 칸 — 화면에서는 비어 있고 한글 파일에서 내 이름으로 채움) 오른쪽에 둔다.
         const owner = el('td', 'journal-weekly-owner');
-        if (item.key) owner.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
+        if (item.hand) owner.append(rowMore(doc, {label:`고치기·지우기: ${item.what}`, data:{journalHandMore:`calendar:${item.hand}`}, items:[
+          {text:'고치기', data:{journalHandFix:`calendar:${item.hand}`}, aria:`고치기: ${item.what}`},
+          {text:'지우기', data:{journalHandDelete:`calendar:${item.hand}`}, danger:true, aria:`지우기: ${item.what}`}]}));
+        else if (item.key) owner.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
           {text:'고치기', data:{journalScheduleFix:item.key}, aria:`일정 고치기: ${item.what}`},
           {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`}]}));
         tr.append(what, owner);
@@ -866,6 +880,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       });
       table.append(body); cal.append(table);
     } else cal.append(empty());
+    cal.append(handSlot);
     const off = vacationLine(c.vacations);
     if (off) { const p = el('p', 'journal-weekly-vacation', off); p.dataset.journalWeeklyVacation = ''; cal.append(p); }
     // 이번 주에 뺀 일정: 접힌 한 줄, 펼치면 일정마다 [다시 넣기].
@@ -903,6 +918,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     refItems += part.items?.length ?? 0;
     ref.append(box);
   }
+  // 손으로 더한 메모 줄(화면·복사 글에만 — 한글 파일 칸 밖). 그리기는 weekly-hand-lines.js(journal.js가 붙임).
+  const handNotes = block('note-hand', HAND_NOTES_LABEL, 'h5', true);
+  const notesSlot = el('div', 'journal-hand-slot journal-part-slot'); notesSlot.dataset.journalHandSlot = 'notes';
+  handNotes.append(notesSlot); ref.append(handNotes);
+  refItems += model.hand?.notes?.length ?? 0;
   refCount.textContent = `${refItems}건`;
   if (quiet.length) { const q = muted(`기록 없는 묶음: ${quiet.join(', ')}`); q.classList.add('journal-empty'); q.dataset.journalWeeklyQuietNotes = ''; ref.append(q); }
 

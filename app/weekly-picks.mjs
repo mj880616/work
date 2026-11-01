@@ -12,7 +12,7 @@
 // - 브라우저 저장소에 아무것도 두지 않는다. 글은 로그에 쓰지 않는다.
 
 export const PICK_KIND = Object.freeze({material:'칸 후보', calendar:'캘린더 추천', unmatched:'줄 못 찾은 기록', mismatch:'본문·일정표 다름', ai_line:'AI 줄 제안', review:'환류 규칙 후보',
-  doc:'자료 줄', org_ai:'조직 AI 요약', ai_draft:'AI 초안 줄', line:'보고서 줄'});
+  doc:'자료 줄', org_ai:'조직 AI 요약', ai_draft:'AI 초안 줄', line:'보고서 줄', carried:'지난주 줄'});
 export const PICK_FROM = Object.freeze({record:'기록', doc:'자료', calendar:'달력', ai:'AI', hand:'손'});
 export const PICK_ACTS = Object.freeze(['take', 'edit', 'drop', 'fix', 'cut', 'add', 'none']);
 export const ANSWER_ACTS = Object.freeze(['take', 'edit', 'drop']);     // 제안에 대한 답 — 학습 셈(learnPicks)에 들어감
@@ -49,7 +49,7 @@ export const pickKey = ({kind, cell = '', text = ''}) => `${kind}|${cut(cell, PI
 export const sigOf = ({kind, from = '', cell = ''}) => `${kind}|${from}|${cut(cell, PICK_CELL)}`;
 export function sigLabel(sig) {
   const [kind, from, ...rest] = String(sig).split('|'), cell = rest.join('|');
-  const where = cell.replace(/^(summary|orgs|sites):/, '').replace('›', ' › ');
+  const where = cell.replace(/^(summary|orgs|sites):/, '').replace(/^requests:(ask|hq|discuss)$/, (_, k) => ({ask:'1. 1) 임원 배정 요청', hq:'1. 2) 주요 일정', discuss:'1. 3) 상집 논의 요청'})[k]).replace(/^calendar$/, '5. 주요 일정').replace(/^notes$/, '참고').replace('›', ' › ');
   return [PICK_KIND[kind] ?? kind, PICK_FROM[from], where].filter(Boolean).join(' · ');
 }
 
@@ -75,7 +75,7 @@ function trimItems(list, fixed) {
 export function readPicks(raw) {
   if (!isObj(raw)) return null;
   const items = new Map();
-  for (const r of Array.isArray(raw.items) ? raw.items : []) { const x = readItem(r); if (x && (!items.has(x.key) || time(x.at) > time(items.get(x.key).at))) items.set(x.key, x); }
+  for (const r of Array.isArray(raw.items) ? raw.items : []) { const x = readItem(r); if (x && (!items.has(x.key) || time(x.at) >= time(items.get(x.key).at))) items.set(x.key, x); } // 같은 시각이면 뒤(합칠 때 나중 판)가 이김
   const released = new Map();
   for (const r of Array.isArray(raw.released) ? raw.released : []) {
     if (!isObj(r) || typeof r.sig !== 'string' || !r.sig || r.sig.length > 200 || !ISO.test(String(r.at ?? ''))) continue;
