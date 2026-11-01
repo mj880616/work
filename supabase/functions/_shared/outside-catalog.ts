@@ -24,6 +24,14 @@ export type OutsideSource = {
   listHref?: (href: string, base: URL) => string | null;
   // 목록 링크 안에 제목 칸이 따로 있는 단체: 이 class 이름을 가진 칸의 글자만 제목으로(좋아요 수·요약 같은 덧글자 빼기).
   titleClass?: RegExp;
+  // 목록 링크 안 title="…" 값을 제목으로(카드 제목 칸은 줄임표로 잘려 있고 그림 title에 제목 전체가 있는 단체).
+  titleAttr?: boolean;
+  // 목록 링크 안 날짜 칸(class 이름) — 글 쪽 머리의 '최종편집' 같은 다른 날짜를 게시일로 잘못 읽지 않게.
+  dateClass?: RegExp;
+  // 글 쪽 본문 칸(class 이름 또는 id). 맞는 칸의 안쪽만 본문으로 읽는다(없거나 비면 흔한 본문 칸·<article>·페이지 전체 순서).
+  bodyClass?: RegExp;
+  // robots.txt 예외(명진 결정 기록). 이 칸만으로는 효과가 없고, outside-feed handler의 ROBOTS_EXEMPT_KEYS에도 같은 키가 있어야 한다(둘 다 kptu 하나뿐 — 시험이 고정).
+  robotsException?: string;
   kindOf: (title: string, url: string) => Kind | null;
 };
 
@@ -33,10 +41,13 @@ export function prefixOf(title: string): string {
   const m = PREFIX.exec(title);
   return m ? m[1].replace(/\s+/g, "") : "";
 }
-function byPrefix(fallback: Kind | null, skip: RegExp | null = /취재요청|취재\s*요청|공지|안내|모집|초대|일정|부고|알림/) {
+// 머리말이 없어도 제목만 보면 성명이 아닌 안내 글(주간 홍보 일정·취재요청서 양식 등, 2026-11-01 목록 확인)은 넣지 않는다.
+const NOTICE_TITLE = /^\s*■|주간\s*홍보\s*일정|취재\s*요청서?\s*양식/;
+function byPrefix(fallback: Kind | null, skip: RegExp | null = /취재요청|취재\s*요청|공지|안내|모집|초대|일정|부고|알림|홍보/) {
   return (title: string): Kind | null => {
     const p = prefixOf(title);
     if (skip && p && skip.test(p)) return null;
+    if (skip && NOTICE_TITLE.test(title)) return null;
     if (/성명|입장/.test(p)) return "statement";
     if (/논평|브리핑|발언/.test(p)) return "comment";
     if (/보도자료|기자회견/.test(p)) return "press";
@@ -73,8 +84,13 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix("statement"),
   },
   {
+    // robots.txt가 모든 자동 읽기를 막지만(`User-agent: *` `Disallow: /`) 명진 결정 11/01 16:49로 이 단체만 읽는다:
+    // 명진이 소속된 노조의 공개 성명 게시판. 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
+    // 다른 단체의 robots 규칙은 그대로 지킨다. 2026-11-01 확인: 글 본문은 `div.publishList_write` 안(ASP.NET form 안쪽).
     key: "kptu", name: "공공운수노조", group: "kptu", lang: "ko", mode: "html",
+    robotsException: "명진 결정 11/01 16:49",
     lists: ["https://www.kptu.net/board/list.aspx?mid=F686C1F3"], hosts: ["www.kptu.net", "kptu.net"],
+    bodyClass: /^publishList_write$/,
     item: /^https:\/\/(www\.)?kptu\.net\/board\/detail\.aspx\?(?=[^#]*\bmid=F686C1F3\b)(?=[^#]*\bidx=\d+\b)/i,
     canon: keepQuery(["mid", "idx"]),
     kindOf: byPrefix("statement"),
@@ -103,6 +119,8 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     canon: keepQuery(["p", "b", "bn", "m", "idx", "no"]),
     listHref: jinboView,
     titleClass: /^(title|_tit)$/,
+    // 2026-11-01 글 쪽 확인: 본문은 `div.content_box` 안(앞 머리 칸에는 작성자·등록일·좋아요만 있다).
+    bodyClass: /^content_box$/,
     kindOf: (title, url) => byPrefix(/\bb=b_1_111\b/.test(url) ? "press" : "comment")(title),
   },
   {
@@ -143,9 +161,16 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
     key: "socialism", name: "사회주의를향한전진", group: "movement", lang: "ko", mode: "html",
     lists: ["https://socialism.jinbo.net/bbs/board.php?bo_table=news&me_id=11&me_code=20"], hosts: ["socialism.jinbo.net"],
-    item: /^https:\/\/socialism\.jinbo\.net\/bbs\/board\.php\?(?=[^#]*\bbo_table=news\b)(?=[^#]*\bwr_id=\d+\b)/,
+    // 2026-11-01 확인('건너뜀 8'의 까닭): 글 쪽 첫 <article>은 공유 단추 칸이라 본문을 0자로 읽었다 → 본문 칸 `#body_content`만 읽는다.
+    // 목록 쪽에는 메뉴(기본강령·대중투쟁강령)·옆 칸(다른 게시판 글) 링크도 같은 주소 모양이라, 성명/논평 게시판 링크(me_code=20)만 받는다.
+    // 카드 제목 칸은 줄임표로 잘려 있어 그림 title(제목 전체)을 쓰고, 날짜는 카드의 `li.date`(글 쪽 머리의 '최종편집' 날짜가 아님).
+    item: /^https:\/\/socialism\.jinbo\.net\/bbs\/board\.php\?(?=[^#]*\bbo_table=news\b)(?=[^#]*\bwr_id=\d+\b)(?=[^#]*\bme_code=20\b)/,
     canon: keepQuery(["bo_table", "wr_id"]),
-    kindOf: byPrefix("statement"),
+    titleAttr: true,
+    dateClass: /^date$/,
+    bodyClass: /^body_content$/,
+    // 옆 칸 '최신 기사'도 같은 게시판 주소(me_code=20)로 붙어 있어, 머리말([성명]·[논평]·[…입장…] 등)이 있는 글만 넣는다([번역]·[후기]·머리말 없는 기사는 뺌).
+    kindOf: byPrefix(null),
   },
   {
     // https 없이만 열린다(Q4 결정: 이 단체만 http 허용).
@@ -156,8 +181,10 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   },
   // 외국 매체(Q5): 제목·링크·한국어 요약·핵심 문장 3개까지만 저장한다(본문·전문 번역 저장 안 함, 2절).
   {
+    // 피드에 본문이 없고 소개 글만 있다. 글 쪽 본문은 `div.po-bo__content`(여러 칸으로 나뉨) — 첫 <article> 안에 다른 글 카드가 겹쳐 있어 그 칸만 읽는다(2026-11-01 확인).
     key: "jacobin", name: "Jacobin", group: "foreign", lang: "en", mode: "rss",
     lists: ["https://jacobin.com/rss"], hosts: ["jacobin.com", "www.jacobin.com"], canon: plain, kindOf: () => "article",
+    bodyClass: /^po-bo__content$/,
   },
   {
     key: "labornotes", name: "Labor Notes", group: "foreign", lang: "en", mode: "rss",

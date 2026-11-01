@@ -1,9 +1,9 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {fitChipRows} from './chip-rows.js';
 import {createAnchoredMenu} from './anchored-menu.js';
-import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState, feedWhen} from './outside-statements-model.mjs';
+import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, subChipsOf, chipPressed, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState, feedWhen} from './outside-statements-model.mjs';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절, 12:43 시안): '바깥 성명' 화면(?view=outside). #outsideView의 유일한 그리기 주인.
-// - [새로 온 것]: 칩 줄(전체·묶음·단체, 공용 chip-rows.js 두 줄 + [더보기 ▾]) → 날짜 묶음 → 글마다 '단체 · 종류 · 시각' / 제목 / 한 문장 요약(늘 보임)
+// - [새로 온 것]: 칩 첫 줄(전체·묶음, 공용 chip-rows.js) + 묶음을 고르면 둘째 줄(그 묶음 단체) → 날짜 묶음 → 글마다 '단체 · 종류 · 시각' / 제목 / 한 문장 요약(늘 보임)
 //   / 본문 접기(<details>, 국내는 펼칠 때 서버 문장 표에서 읽음, 외국은 한국어 요약 + 핵심 문장) / 작은 [원문](그 단체 페이지, 새 창).
 //   2년 지난 글은 제목·요약만(설계 2절, Q7).
 // - ⋯ → [단체 켜고 끄기]: 카탈로그(서버 outside-feed ?action=catalog) 단체마다 켬/끔 + 마지막으로 읽은 시각·실패 표시.
@@ -25,7 +25,8 @@ function install() {
 <h2 id="osTitle" class="screen-title">사회운동 Now</h2>
 <div id="outsideRoot" class="os" data-mode="list">
 <p class="os-when" data-os-when hidden></p>
-<div class="os-bar"><div class="os-chips" data-os-chips role="group" aria-label="단체 거르기"></div><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="사회운동 Now 메뉴">${MORE}</button></div>
+<div class="os-bar"><div class="os-chips" data-os-chips role="group" aria-label="묶음 거르기"></div><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="사회운동 Now 메뉴">${MORE}</button></div>
+<div class="os-chips os-subchips" data-os-subchips role="group" aria-label="단체 거르기" hidden></div>
 <div class="os-list" data-os-list aria-label="새로 온 글"></div>
 <div class="os-sources" data-os-sources aria-label="단체 켜고 끄기"></div>
 </div></section>`);
@@ -81,7 +82,7 @@ const nameOf = key => catalogOf(key)?.name || key;
 const enabledNow = () => enabledKeys([...state.sources.values()]);
 
 function chipsHtml(chips) {
-  return chips.map(c => `<button type="button" class="os-chip" data-os-chip="${esc(c.id)}" aria-pressed="${c.id === state.chip}">${esc(c.label)}</button>`).join('');
+  return chips.map(c => `<button type="button" class="os-chip" data-os-chip="${esc(c.id)}" aria-pressed="${chipPressed(c.id, state.chip, state.catalog)}">${esc(c.label)}</button>`).join('');
 }
 
 function bodyHtml(p, v) {
@@ -97,7 +98,7 @@ function bodyHtml(p, v) {
 function postHtml(p, now) {
   const v = postView(p, now);
   const isNew = state.seenRead && isFresh(p, state.seenAt);
-  const meta = `<p class="os-meta">${isNew ? '<span class="os-new" aria-label="새 글">새</span>' : ''}<span class="os-src">${esc(nameOf(p.source_key))}</span><span>${esc(v.kind)}</span><span class="os-time">${esc(v.time)}</span></p>`;
+  const meta = `<p class="os-meta">${isNew ? '<span class="os-new" aria-label="새 글">새</span>' : ''}<span class="os-src">${esc(nameOf(p.source_key))}</span>${v.kind ? `<span>${esc(v.kind)}</span>` : ''}<span class="os-time">${esc(v.time)}</span></p>`;
   const lead = v.lead ? `<p class="os-lead">${esc(v.lead)}</p>` : '';
   const link = v.url ? `<a class="os-link" href="${esc(v.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v.title)} 원문 (새 창)">원문</a>` : '';
   const open = v.body && state.open.has(p.id);
@@ -139,7 +140,8 @@ function paint() {
   if (!root) return;
   root.dataset.mode = state.mode;
   const chips = chipsOf(state.catalog || [], enabledNow());
-  state.chip = keepChip(state.chip, chips);
+  state.chip = keepChip(state.chip, [...chips, ...subChipsOf(state.catalog || [], enabledNow(), state.chip)]);
+  const subs = subChipsOf(state.catalog || [], enabledNow(), state.chip);
   const bar = $('[data-os-chips]');
   if (bar) {
     // 칩 줄은 [전체] 하나뿐이면 감춘다(켠 단체가 없을 때).
@@ -149,6 +151,13 @@ function paint() {
     bar.insertAdjacentHTML('afterbegin', html);
     bar.hidden = chips.length <= 1;
     if (!bar.hidden) fitChipRows(bar, {key: 'outside', keep: el => el.dataset.osChip === ALL || el.getAttribute('aria-pressed') === 'true'});
+  }
+  // 둘째 줄: 고른 묶음의 단체 낱개(묶음에 켠 단체가 둘 이상일 때만, 목록 칸에서만).
+  const sub = $('[data-os-subchips]');
+  if (sub) {
+    const show = state.mode === 'list' && chips.length > 1 && subs.length > 0;
+    sub.innerHTML = show ? chipsHtml(subs) : '';
+    sub.hidden = !show;
   }
   // 위쪽 작은 줄: 마지막으로 읽은 시각 · 다음 읽기(켠 단체가 있을 때만, 목록 칸에서만).
   const when = $('[data-os-when]');
@@ -279,7 +288,9 @@ async function readNow(key) {
   state.reading.add(key); paint();
   let note = '';
   try {
-    await readNowApi(key);
+    const r = await readNowApi(key);
+    // 공공운수노조는 하루 3번 예약 때만 읽는다(서버가 바로 읽기를 하지 않음, 명진 결정 11/01 16:49).
+    if (r?.status === 'scheduled_only') note = '예약 때 읽음';
   } catch (e) {
     note = e?.status === 429 ? '오늘 바로 읽기를 다 씀 · 예약 때 읽음' : '바로 읽기 실패 · 예약 때 읽음';
   }

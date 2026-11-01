@@ -64,22 +64,25 @@ export const photoStripCommit = () => commitPending();
 //  errorText(error), onError(text): 닫힌 뒤 실패 알림, onClose({starChanged, restore})
 //  (PHOTO-사진메뉴 2차, 선택) play(item) → Promise<주소>: item.video면 칸 위 ▶를 누를 때 받아 <video>로 재생(주소는 메모리에만, 닫으면 버림).
 //  (PHOTO-전체화면확대, 선택) hires(item) → Promise<주소 | {url, revoke}>: 확대할 때 받을 원본 해상도 그림 주소. revoke:true면 다 쓰고 놓는다(blob:).
+//  (PHOTO-갤러리편집, 선택) editable(item) → true면 [✎ 편집]을 보인다(폰 앱만, 부르는 쪽이 정함). edit(item, 단추)는 누를 때.
 //   original(item)이 {download:true}를 돌려주면 [ⓘ] 판 맨 아래가 [⤓ 원본 받기] 단추가 되고 download(item)을 부른다. badge(item): 칸 위 작은 글('▶ 0:42').
 // 크게 보기 받는 순서(작을수록 먼저): 보는 장 -2, 바로 앞뒤 -1, 두 장 건너 0. 격자 칸은 보이는 것 0·곧 보일 것 1(od-thumb-loader.js)이라 크게 보기가 앞선다.
 export const stripPrio = d => (d === 0 ? -2 : Math.abs(d) === 1 ? -1 : 0);
 export function openPhotoStrip(opts) {
   const {host, list, index, title, layerName = 'diary-photo', element, label, when, caption = () => '', info, original, isStarred, toggleStar,
-    deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose, play = null, download = null, badge = () => '', hires = null} = opts;
+    deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose, play = null, download = null, badge = () => '', hires = null,
+    editable = null, edit = null} = opts;
   const first = list();
   if (!first[index] || viewer) return null;
   let items = first.slice(), at = index, noteTimer = null;
   const trigger = document.activeElement, box = document.createElement('div');
   box.className = 'diary-viewer'; box.dataset.diaryViewer = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', title);
-  box.innerHTML = `<div class="diary-viewer-bar"><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">✕</button><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-when" data-diary-viewer-when></span></div><div class="diary-viewer-stage"><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><span class="diary-viewer-starfx" data-strip-starfx aria-hidden="true">★</span><span class="diary-viewer-finger" data-strip-finger aria-hidden="true" hidden></span></div><p class="diary-viewer-hint" data-diary-viewer-hint hidden>${HINT_TEXT}</p><p class="diary-viewer-caption" data-diary-viewer-caption></p><dl class="diary-viewer-info" data-diary-viewer-info hidden></dl><p class="diary-viewer-note" data-diary-viewer-note role="status"><span data-diary-viewer-note-text></span><button type="button" class="diary-viewer-undo" data-diary-undo hidden>되돌리기</button></p><div class="diary-viewer-actions" role="group" aria-label="사진 동작"><button type="button" data-diary-star aria-pressed="false"><span aria-hidden="true">☆</span> 별표</button><button type="button" data-diary-share><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-od-delete><span aria-hidden="true">🗑</span> 지우기</button><button type="button" data-diary-info aria-expanded="false"><span aria-hidden="true">ⓘ</span> 정보</button></div>`;
+  box.innerHTML = `<div class="diary-viewer-bar"><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">✕</button><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-when" data-diary-viewer-when></span></div><div class="diary-viewer-stage"><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><span class="diary-viewer-starfx" data-strip-starfx aria-hidden="true">★</span><span class="diary-viewer-finger" data-strip-finger aria-hidden="true" hidden></span></div><p class="diary-viewer-hint" data-diary-viewer-hint hidden>${HINT_TEXT}</p><p class="diary-viewer-caption" data-diary-viewer-caption></p><dl class="diary-viewer-info" data-diary-viewer-info hidden></dl><p class="diary-viewer-note" data-diary-viewer-note role="status"><span data-diary-viewer-note-text></span><button type="button" class="diary-viewer-undo" data-diary-undo hidden>되돌리기</button></p><div class="diary-viewer-actions" role="group" aria-label="사진 동작"><button type="button" data-diary-star aria-pressed="false"><span aria-hidden="true">☆</span> 별표</button><button type="button" data-diary-share><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-strip-edit hidden><span aria-hidden="true">✎</span> 편집</button><button type="button" data-od-delete><span aria-hidden="true">🗑</span> 지우기</button><button type="button" data-diary-info aria-expanded="false"><span aria-hidden="true">ⓘ</span> 정보</button></div>`;
   const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]'), captionEl = box.querySelector('[data-diary-viewer-caption]');
   const whenEl = box.querySelector('[data-diary-viewer-when]'), infoEl = box.querySelector('[data-diary-viewer-info]'), infoBtn = box.querySelector('[data-diary-info]');
   const starBtn = box.querySelector('[data-diary-star]'), delBtn = box.querySelector('[data-od-delete]'), undoBtn = box.querySelector('[data-diary-undo]');
+  const editBtn = box.querySelector('[data-strip-edit]');
   const noteText = text => paintPhotoNote(box.querySelector('[data-diary-viewer-note-text]'), text);
   const fx = box.querySelector('[data-strip-starfx]'), finger = box.querySelector('[data-strip-finger]'), hintEl = box.querySelector('[data-diary-viewer-hint]');
   const fill = i => {
@@ -140,6 +143,7 @@ export function openPhotoStrip(opts) {
     captionEl.textContent = caption(item) || '';
     const d = deletable(item);
     delBtn.disabled = !d.ok; delBtn.title = d.title;
+    editBtn.hidden = !(editable && edit && editable(item));
     for (const step of [0, 1, -1, 2, -2]) {
       // 이미 받기 시작한 장(앞서 앞뒤 장으로 미리 받던 것)은 지금 자리에 맞게 순서만 당긴다(PHOTO-속도). 그림 칸이 'photo-prio'를 듣는다.
       if (strip.children[at + step]?.dataset.filled) slidePhoto(at + step)?.dispatchEvent(new CustomEvent('photo-prio', {detail:stripPrio(step)}));
@@ -382,6 +386,7 @@ export function openPhotoStrip(opts) {
     if (event.target.closest('[data-diary-viewer-close]')) closePhotoStrip();
     else if (event.target.closest('[data-diary-star]')) toggleHere();
     else if (event.target.closest('[data-diary-share]')) shareCurrent(event.target.closest('[data-diary-share]'));
+    else if (event.target.closest('[data-strip-edit]')) { if (items[at] && editable?.(items[at])) edit?.(items[at], editBtn); }
     else if (event.target.closest('[data-diary-undo]')) undoPending();
     else if (event.target.closest('[data-od-delete]')) deleteCurrent();
     else if (event.target.closest('[data-strip-play]')) playAt(Number(event.target.closest('[data-strip-play]').dataset.stripPlay));
