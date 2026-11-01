@@ -1,5 +1,5 @@
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 날짜 줄 아래 요약 한 줄과 업데이트 입력줄.
-// - 요약 한 줄: '나한테 온 요청 n · 챙길 것 n · 정리 안 된 것 n ›'. 누르면 정리함. '나한테 온 요청'만 노란 주목 글씨(1건 이상일 때),
+// - 요약 한 줄: '나한테 온 요청 n · 챙길 것 n · 정리 안 된 것 n ›'. 누르면 정리함. 내일 약속이 있으면 끝에 ' · 내일 약속 n ›'(누르면 원장, UI-앱안알림 A5). '나한테 온 요청'만 노란 주목 글씨(1건 이상일 때),
 //   나머지는 흐린 글씨. 숫자는 정리함 숫자와 같은 한 곳(inbox-count.js readInboxCount)에서 센다:
 //   나한테 온 요청 = 텔레그램 ask_me 후보(asks), 챙길 것 = 처리 전 후보 중 나머지(todo - asks), 정리 안 된 것 = 업데이트 미분류(update).
 //   못 읽으면 줄을 숨긴다. 옛 폰 홈 요약('새 소식 n')과 놓친 약속·정리 안 된 것·내일 칸(home-fill.js)은 이 줄로 바꾸고 지웠다.
@@ -10,6 +10,8 @@ import {readInboxCount} from './inbox-count.js';
 import {readRecordPages} from './basket-link-records.js';
 import {mountQuick} from './home-quick.js';
 import {autoFindToday} from './todo-radar.js';
+import {setHomeAsks} from './home-asks.js';
+import {tomorrowCommitmentsPath, seoulDay} from './ledger-browse-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
@@ -21,25 +23,37 @@ export function summaryParts({update, todo, asks} = {}) {
   const ask = a || 0;
   return {asks: ask, todos: Math.max(0, t - ask), unsorted: u};
 }
+// '내일 약속 n': 원장 약속 중 대기 중·유효(current·needs_check)이고 후속확인일(없으면 끝난 날)이 내일(서울)인 것(폰 알림 '원장 약속 D-1'과 같은 기준,
+// docs/design/phone-notifications.md). 홈에 들어올 때 요약 숫자와 함께 한 번 센다. 못 읽으면 0(줄 끝에 붙이지 않음).
+export const tomorrowOf = (now = new Date()) => { const d = new Date(Date.parse(seoulDay(now) + 'T00:00:00Z') + 86400000); return d.toISOString().slice(0, 10); };
+async function readTomorrowPromises(rt) {
+  const ws = rt.context.read()?.workspace?.id;
+  if (!ws) return 0;
+  try { const rows = await rt.api(tomorrowCommitmentsPath(ws, tomorrowOf())); return Array.isArray(rows) ? rows.length : 0; } catch { return 0; }
+}
 
 export function mountHomeSummary({root, line, rt = window.KPTURuntime, onTasksChanged = () => {}}) {
   if (!root || !line) return null;
   let run = 0;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-  function paint(parts) {
+  // promises: 내일 약속 수(UI-앱안알림 A5). 0이면 줄 끝에 붙이지 않는다.
+  function paint(parts, promises = 0) {
+    // UI-앱안알림 3단계(A4): 같은 숫자로 메뉴 '홈' 표시(home-asks.js). 모르면 표시를 내린다.
+    setHomeAsks(parts ? parts.asks : null);
     if (!parts) { line.hidden = true; line.replaceChildren(); return; }
     line.hidden = false;
     const label = `나한테 온 요청 ${parts.asks}, 챙길 것 ${parts.todos}, 정리 안 된 것 ${parts.unsorted}. 정리함 열기`;
     line.innerHTML = `<button type="button" class="home-summary-open" data-goto="basket" aria-label="${esc(label)}">`
       + `<span class="home-summary-ask${parts.asks ? ' is-on' : ''}" data-home-summary-asks>나한테 온 요청 ${parts.asks}</span>`
-      + `<span class="home-summary-rest"> · 챙길 것 <span data-home-summary-todos>${parts.todos}</span> · 정리 안 된 것 <span data-home-summary-unsorted>${parts.unsorted}</span> ›</span></button>`;
+      + `<span class="home-summary-rest"> · 챙길 것 <span data-home-summary-todos>${parts.todos}</span> · 정리 안 된 것 <span data-home-summary-unsorted>${parts.unsorted}</span> ›</span></button>`
+      + (promises > 0 ? `<span class="home-summary-sep" aria-hidden="true"> · </span><button type="button" class="home-summary-open home-summary-promise" data-goto="ledger" data-home-summary-promises aria-label="${esc(`내일 약속 ${promises}. 원장 열기`)}">내일 약속 ${promises} ›</button>` : '');
   }
   async function refresh() {
     const mine = ++run, owner = scope();
     const titles = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
-    const out = await readInboxCount(rt, {taskTitles: titles});
+    const [out, promises] = await Promise.all([readInboxCount(rt, {taskTitles: titles}), readTomorrowPromises(rt)]);
     if (mine !== run || owner !== scope()) return;
-    paint(out?.ok ? summaryParts(out) : null);
+    paint(out?.ok ? summaryParts(out) : null, promises);
   }
   // 고르기 시트([업데이트 ▾]·[할 일]의 사업영역)가 쓰는 목록. 정리함·쓰기 창과 같은 읽기(update-places.js readPlaces).
   const flights = new Map();

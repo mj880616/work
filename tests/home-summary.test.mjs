@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 globalThis.window ??= {KPTURuntime: null, addEventListener() {}};
-const {summaryParts} = await import('../app/home-summary.js');
+const {summaryParts, tomorrowOf} = await import('../app/home-summary.js');
+const {tomorrowCommitmentsPath} = await import('../app/ledger-browse-model.mjs');
 const read = rel => readFileSync(new URL('../app/' + rel, import.meta.url), 'utf8');
 
 test('요약 줄: 나한테 온 요청 = asks, 챙길 것 = 나머지 처리 전, 정리 안 된 것 = 업데이트 미분류; 모르면 숨김', () => {
@@ -57,4 +58,14 @@ test('할 일 줄: 기한은 공용 dueLabel + .task-due-text(진회색, 노란�
   assert.match(rule, /color:var\(--kptu-muted\)/);
   assert.doesNotMatch(rule, /warning|yellow|basket/);
   assert.match(css, /\.task-meeting-text\{[^}]*color:var\(--kptu-faint\)/);
+});
+
+// UI-앱안알림 3단계(A5): '내일 약속 n'의 내일은 서울 날짜 기준, 원장 약속 D-1과 같은 조건(대기 중·유효·후속확인일, 없으면 끝난 날).
+test('내일 약속: 서울 날짜로 내일, 같은 조건으로 수만 센다', () => {
+  assert.equal(tomorrowOf(new Date('2026-10-06T14:59:00Z')), '2026-10-07'); // 서울 10/06 23:59
+  assert.equal(tomorrowOf(new Date('2026-10-06T15:00:00Z')), '2026-10-08'); // 서울 10/07 00:00
+  assert.equal(tomorrowOf(new Date('2026-12-31T03:00:00Z')), '2027-01-01');
+  const q = new URL('https://x' + tomorrowCommitmentsPath('w 1', '2026-10-07')).searchParams;
+  assert.deepEqual(Object.fromEntries(q), {workspace_id:'eq.w 1', kind:'eq.commitment', commitment_status:'eq.waiting', validity:'in.(current,needs_check)',
+    or:'(follow_up_on.eq.2026-10-07,and(follow_up_on.is.null,date_end.eq.2026-10-07))', select:'id', limit:'50'});
 });

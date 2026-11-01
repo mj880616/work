@@ -36,3 +36,9 @@
   html body #appView.nav-open>.app-nav :is(.sidebar-brand span,.nav-label){position:static;width:auto;height:auto;margin:0;overflow:hidden;clip:auto;text-overflow:ellipsis}
   html body #appView.nav-open>.app-nav .nav-quick-links{display:flex}
 }
+/* UI-앱안알림 3단계(A4): 메뉴 '홈' 옆 '나한테 온 요청' 숫자(모양 원본은 notice-bar.css). */
+@media (min-width:761px) and (max-width:1023px){
+  /* 폴드 펼침의 그림만 보이는 좁은 칸(접힘): 이름이 숨으므로 숫자는 그림 오른쪽 위에 작게. 펼친 메뉴(nav-open)에서는 이름 옆. */
+  html body #appView[data-home-asks]:not(.nav-open)>.app-nav .sidebar-brand{position:relative}
+  html body #appView[data-home-asks]:not(.nav-open)>.app-nav .sidebar-brand::after{position:absolute;top:0;right:2px;margin:0;padding:0;font-size:10px;line-height:1}
+}

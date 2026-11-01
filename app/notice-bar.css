@@ -25,3 +25,14 @@ body.kptu-notice-bar-open{padding-top:var(--kptu-notice-bar-height,33px)}
   body.kptu-notice-bar-open #appView{--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--kptu-notice-bar-height,33px))}
   body.kptu-notice-bar-open #appView>.app-nav{top:calc(12px + var(--kptu-notice-bar-height,33px));height:calc(100dvh - 24px - var(--kptu-notice-bar-height,33px))}
 }
+/* UI-앱안알림 3단계(A4): '나한테 온 요청'이 1건 이상이면 메뉴 '홈' 표시. 값은 home-asks.js가 #appView에 둔다(data-home-asks, --kptu-home-asks).
+   빨간 배지·종 모양 없음 — 홈 요약 줄의 '나한테 온 요청'과 같은 톤다운 주목색(--kptu-warning). */
+@media (max-width:760px){
+  /* 폰(폴드 접음): 하단바 '홈' 그림 오른쪽 위 작은 점, 숫자 없음. */
+  #appView[data-home-asks]>.mobile-tabs>button[data-view="home"]{position:relative}
+  #appView[data-home-asks]>.mobile-tabs>button[data-view="home"]::after{content:"";position:absolute;top:7px;left:calc(50% + 9px);width:6px;height:6px;border-radius:50%;background:var(--kptu-warning);pointer-events:none}
+}
+@media (min-width:761px){
+  /* 폴드 펼침·PC: 왼쪽 메뉴 맨 위 '홈' 줄 옆 옅은 숫자(글자, 배지 아님). */
+  #appView[data-home-asks]>.app-nav .sidebar-brand::after{content:var(--kptu-home-asks,"");margin-left:auto;padding-left:6px;color:var(--kptu-warning);font-size:11px;font-weight:400;font-variant-numeric:tabular-nums}
+}
