@@ -118,6 +118,7 @@ export function paintFlowCells(slot, ctx) {
   const opts = {dropped:droppedOf(picks), kept:keptOf(picks), learn:learnFor(ctx.start, picks, {rt:ctx.rt, redraw:ctx.redraw}).learn};
   const parts = [];
   const team = ctx.team instanceof Map ? ctx.team : null;
+  const inBase = new Set((proposed?.cells ?? []).map(x => cellId(x.section, x.key, x.n)));
   if (section === 'sites') {
     const list = el('div', 'weekly-flow-sites'); list.dataset.reorderList = 'sites';
     cells.forEach(c => list.append(cellBox(c, [])));
@@ -164,6 +165,8 @@ export function paintFlowCells(slot, ctx) {
       head.append(rowMore(doc, {label:`${c.key} 사업장 칸 메뉴`, data:{flowSiteMore:c.key}, items:[{text:'이번 주 보고에서 빼기', data:{flowSiteHide:c.key}, disabled:busy}]}));
     }
     box.append(head);
+    // 바탕이 바뀌어 이름이 맞는 칸이 없는 고친 칸: 버리지 않고 보이되, 한글 파일에는 들어가지 않는다고 한 줄.
+    if (proposed && section !== 'sites' && !inBase.has(c.id)) { const p = el('p', 'journal-muted weekly-flow-orphan', '바탕에 없는 칸 — 파일에는 안 들어가요'); p.dataset.flowOrphan = ''; box.append(p); }
     // 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 이 칸 글이 다르면 작은 '확정본에서 바뀜'(눌러 그 글 보기·[이 글로 바꾸기], 참고용).
     const theirs = team?.get(c.id);
     if (theirs && theirs.map(strip).filter(Boolean).join('\n') !== c.lines.map(strip).filter(Boolean).join('\n')) {
