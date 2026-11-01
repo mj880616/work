@@ -94,7 +94,7 @@ for (const width of [412, 1280]) {
       await openPhotos(page, width);
       const box = page.locator('#photosRoot [data-photos-tidy]');
       await page.locator('#photosRoot [data-photos-tidy-chip]').click();
-      await expect(box.locator('.photos-tidy-foot')).toContainText(`폰 ${PHONE.length}장 · 원드라이브 1장 확인`, { timeout: 30_000 });
+      await expect(box.locator('.photos-tidy-at')).toContainText(`폰 ${PHONE.length}장 · 원드라이브 1장 확인`, { timeout: 30_000 });
       const dups = box.locator('details[data-k="dups"]');
       await expect(dups.locator('summary')).toContainText('같은 사진·연사 묶음 2개 · 지울 수 있는 3장');
       await dups.locator('summary').click();
