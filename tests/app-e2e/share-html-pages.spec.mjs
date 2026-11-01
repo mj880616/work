@@ -110,7 +110,7 @@ for (const width of [412, 884, 1440]) test('HTML 공유 페이지: 올리기·�
   await expect(modal.locator('[data-sh-status]')).toHaveText('5MB까지 올릴 수 있어요.');
   await modal.locator('[data-sh-file]').setInputFiles({name:'graph.html', mimeType:'text/html', buffer:Buffer.from(FILE())});
   const frameEl = modal.locator('iframe[data-sh-frame]');
-  await expect(frameEl).toHaveAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms');
+  await expect(frameEl).toHaveAttribute('sandbox', 'allow-scripts allow-popups');
   expect(await frameEl.getAttribute('sandbox')).not.toContain('allow-same-origin');
   await expectSealed(page.frameLocator('#shareHtmlModal iframe[data-sh-frame]'));
   // Title from the file's <title>; the link name is typed (Korean title gives no name).
@@ -185,7 +185,7 @@ for (const width of [412, 1440]) test('공유 화면: 짧은 주소로 HTML 파�
   // ?s= moves after # at once (a reload does not send it again).
   await expect.poll(() => page.evaluate(() => location.search + '|' + location.hash)).toBe(`|#s=graph-test-${CODE}`);
   const frame = page.locator('iframe.sr-html-frame');
-  await expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms');
+  await expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-popups');
   await expectSealed(page.frameLocator('iframe.sr-html-frame'));
   await expect(page).toHaveTitle('민자철도 그래프 · 공유 페이지');
   expect(asked[0]).toEqual({slug:`graph-test-${CODE}`});

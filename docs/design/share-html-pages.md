@@ -66,7 +66,7 @@
 
 ## 5. 격리 칸(안전장치)
 
-- **Web2 안 미리 보기**: `<iframe sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms" srcdoc=…>`. allow-same-origin이 없어 칸 안은 '이름 없는 주소'(opaque origin)다: Web2의 localStorage(Supabase 로그인 정보)·쿠키·부모 문서에 손댈 수 없고, 부모 화면을 다른 곳으로 옮길 수도 없다(allow-top-navigation 없음). Web2에는 CSP가 없어 CDN 스크립트·인라인 스크립트(그래프)가 칸 안에서 돈다.
+- **Web2 안 미리 보기**: `<iframe sandbox="allow-scripts allow-popups" srcdoc=…>`. allow-same-origin이 없어 칸 안은 '이름 없는 주소'(opaque origin)다: Web2의 localStorage(Supabase 로그인 정보)·쿠키·부모 문서에 손댈 수 없고, 부모 화면을 다른 곳으로 옮길 수도 없다(allow-top-navigation 없음). Web2에는 CSP가 없어 CDN 스크립트·인라인 스크립트(그래프)가 칸 안에서 돈다.
 - **공유 화면**: 공유 화면은 엄격한 CSP라 srcdoc 칸은 그 CSP를 물려받아 CDN·인라인 스크립트가 막힌다. 그래서 **별도 주소** `share/frame.html`(CSP 없음)을 같은 sandbox 속성으로 띄우고, 받은 HTML을 postMessage로 넘겨 그 칸이 그린다. `frame.html`은 자기가 opaque origin(=sandbox 안)이고 부모가 있을 때만 그린다(누가 sandbox 없이 이 파일을 띄워 work 주소 권한으로 남의 HTML을 돌리는 것을 막음). 공유 화면 CSP에는 `frame-src 'self'`만 더한다.
 - 받는 사람이 링크로 여는 화면에는 로그인 정보가 없다. 그래도 같은 sandbox로 돌려 work 주소의 다른 저장값(옛 Web1 편집 로그인 등)에 닿지 않게 한다.
 - 자동 시험(화면 PR): 칸 안 HTML이 `localStorage`·`parent.localStorage`·`document.cookie`·`parent.document`를 읽으려 하면 모두 막히는지, 칸 속성에 allow-same-origin이 없는지, CDN 주소 스크립트·인라인 그래프가 도는지 Web2 미리 보기와 공유 화면 두 곳에서 본다.

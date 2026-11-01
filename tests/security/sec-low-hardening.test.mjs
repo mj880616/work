@@ -36,10 +36,10 @@ test('공유 HTML 격리 칸: 두 사본이 같고, 같은 주소 권한·위 �
   const copy = /export const HTML_SANDBOX = '([^']+)'/.exec(read('share/share.js'))?.[1];
   assert.equal(copy, HTML_SANDBOX);
   const flags = HTML_SANDBOX.split(/\s+/);
-  for (const banned of ['allow-same-origin', 'allow-top-navigation', 'allow-top-navigation-by-user-activation', 'allow-modals', 'allow-downloads'])
+  for (const banned of ['allow-same-origin', 'allow-top-navigation', 'allow-top-navigation-by-user-activation', 'allow-modals', 'allow-downloads', 'allow-popups-to-escape-sandbox', 'allow-forms'])
     assert.equal(flags.includes(banned), false, banned);
-  // 아래 둘은 확인 결과 필요해서 남긴다(PR 본문): 칸 밖 링크가 정상 탭으로 열리게(escape), 계산기·검색창 같은 form 제출 처리(forms).
-  assert.deepEqual(flags.sort(), ['allow-forms', 'allow-popups', 'allow-popups-to-escape-sandbox', 'allow-scripts']);
+  // SEC-보안헤더: 새 창이 칸막이를 벗어나는 권한(escape)과 form 제출(forms)은 뺐다. 링크는 새 창으로 열리되 그 창도 칸막이 안이다.
+  assert.deepEqual(flags.sort(), ['allow-popups', 'allow-scripts']);
 });
 
 test('Edge 함수는 Google·AI·DB 쪽 오류 원문을 그대로 throw해 응답에 싣지 않는다', () => {

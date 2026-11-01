@@ -15,7 +15,7 @@ const TOKEN = /^[0-9a-f]{64}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*-[a-km-np-z2-9]{8}$/;
 // An HTML file page runs only in this sandboxed frame (no allow-same-origin: an origin of its own) loaded from ./frame.html,
 // a page without this page's strict CSP (a srcdoc frame would inherit it and block the file's scripts and CDN libraries).
-export const HTML_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms';
+export const HTML_SANDBOX = 'allow-scripts allow-popups';
 const main = document.getElementById('srMain');
 
 export function tokenFromHash(hash) {

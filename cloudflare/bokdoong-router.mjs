@@ -1,4 +1,4 @@
-import { WEB2_CSP, WEB2_REFERRER_POLICY, web2CspPage } from './web2-csp.mjs';
+import { WEB2_CSP, WEB2_REFERRER_POLICY, WEB2_SECURITY_HEADERS, web2CspPage } from './web2-csp.mjs';
 
 const PAGES_ORIGIN = 'https://mj880616.github.io';
 const SERVICES = Object.freeze({
@@ -289,7 +289,12 @@ export default {
     const cacheKey = new Request(incoming.href);
     if (edgeCache) {
       const cached = await edgeCache.match(cacheKey);
-      if (cached) return cached;
+      if (cached) {
+        // 이 헤더를 붙이기 전에 저장된 판에도 같은 헤더를 붙여 돌려준다(저장본은 그대로).
+        const hit = new Response(cached.body, cached);
+        for (const [name, value] of WEB2_SECURITY_HEADERS) hit.headers.set(name, value);
+        return hit;
+      }
     }
     if (shareAsk && request.method === 'GET' && previewBot(request)) {
       // The bot gets the full page every time: no conditional or partial answers to rewrite.
@@ -341,6 +346,10 @@ export default {
     if (web2Path(host, incoming.pathname) && web2CspPage(incoming.pathname) && (upstream.status === 200 || upstream.status === 304)) {
       responseHeaders.set('Content-Security-Policy-Report-Only', WEB2_CSP);
       responseHeaders.set('Referrer-Policy', WEB2_REFERRER_POLICY);
+    }
+    // SEC-보안헤더: bokdoong.com의 Web2 응답(화면·파일·오류 모두)에 끼워 넣기 금지·형식 추측 금지를 붙인다.
+    if (web2Path(host, incoming.pathname)) {
+      for (const [name, value] of WEB2_SECURITY_HEADERS) responseHeaders.set(name, value);
     }
     const response = new Response(body, { status: upstream.status, headers: responseHeaders });
     if (immutableAsset && edgeCache) {
