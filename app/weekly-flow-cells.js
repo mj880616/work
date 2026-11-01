@@ -5,7 +5,7 @@
 // - 투쟁 사업장 칸 구성(이번 주 보고에서 빼기·다시 넣기)은 draft.site_layout(없으면 지난주 구성을 이어 씀)에 쓴다.
 // - 제안 거르기·학습 열쇠는 한글 파일 상자와 같다(weekly-picks.mjs sortPicks, 칸 이름 'section:key#n', 캘린더 추천 'orgref:조직 id').
 // - 칸 하나의 그리기 주인은 이 모듈 하나(journal.js는 자리만 주고 다시 그릴 때 부른다). AI 를 부르지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
-import {weekCells, parseCellId, cellId, changeWeekCell, changeWeekDocs, withSiteLayout, draftSiteLayout, readCarriedLayout, lineDone, lineKey, CELL_LINE_MAX} from './weekly-draft-store.js';
+import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, withSiteLayout, draftSiteLayout, readCarriedLayout, lineDone, lineKey, CELL_LINE_MAX} from './weekly-draft-store.js';
 import {sortPicks, droppedOf, keptOf, pickKey} from './weekly-picks.mjs';
 import {learnFor} from './weekly-picks.js';
 import {arrangeSites, siteHidden, siteShown, siteMoved, siteKey, readSiteLayout} from './weekly-schedule-rows.mjs';
@@ -17,6 +17,7 @@ import {readProposed} from './weekly-feedback.mjs';
 import {matchOrg} from './org-name-match.mjs';
 import {reportLine as orgRefLine, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {rowMore} from './row-more.js';
+import {CARRIED_TAG} from './weekly-exec-requests.js';
 import {shortDay} from './journal-data.js';
 import {emptyEl, waitEl} from './wait-state.js';
 
@@ -52,9 +53,23 @@ export function siteCells(draft, layout) {
   for (const name of l.order) { const k = siteKey(name); if (!have.has(k) && mine.has(k)) { have.add(k); cells.push({id:cellId('sites', mine.get(k), 0), section:'sites', key:mine.get(k), n:0, lines:[]}); } }
   return cells;
 }
+// WEEKLY-한흐름확정 ③(확정 규칙 '내 담당 사업은 사업 요약표에 모두 들어간다'): 내 사업영역(사업 목록 1단 이름, names) 가운데 칸이 하나도 없는
+// 사업영역은 빈 칸(사업영역 › —)을 뒤에 더한다. 칸 이름은 한글 파일 쪽(journal-hwpx.js withAreaRows 로 더한 줄)과 같은 summaryKey.
+const areaNorm = s => String(s ?? '').replace(/\s+/g, '').replace(/[‧·․]/g, '·');
+export const areaCellKey = name => summaryKey({area:name, task:''});
+export function summaryCells(draft, names = []) {
+  const cells = flowCells(draft, 'summary');
+  const have = new Set(cells.map(c => areaNorm(c.key.split('›')[0])));
+  for (const name of names ?? []) {
+    const n = areaNorm(name); if (!n || have.has(n)) continue;
+    have.add(n); const key = areaCellKey(name);
+    cells.push({id:cellId('summary', key, 0), section:'summary', key, n:0, lines:[], added:true});
+  }
+  return cells;
+}
 // 칸 줄 + 이번 주 재료 → 칸마다 제안(draft.mjs weekMaterial 과 같은 이름 맞춤). 이미 칸에 든 글은 빼다.
 export function flowMaterial(weekMaterial, model, draft) {
-  const summary = flowCells(draft, 'summary'), orgs = flowCells(draft, 'orgs');
+  const summary = summaryCells(draft, model?.summary?.names), orgs = flowCells(draft, 'orgs');
   const rows = summary.map((c, index) => { const [area, task = ''] = c.key.split('›'); return {index, area, task}; });
   const orgRows = orgs.map((c, index) => ({index, org:c.key}));
   const m = weekMaterial(model, rows, orgRows, {});
@@ -87,6 +102,7 @@ export function paintFlowCells(slot, ctx) {
   if (ctx.status === 'loading') { slot.replaceChildren(waitEl({rows:2})); return; }
   if (ctx.status === 'missing') { slot.replaceChildren(el('p', 'journal-muted', '임시저장 칸이 아직 준비 전이에요. 칸 줄은 한글 파일을 만들 때 바탕 그대로 들어가요.')); return; }
   if (ctx.status === 'failed') { const p = el('p', 'wait-fail journal-failed', '그 주 임시저장을 불러오지 못했어요. '); p.append(btn('다시', {flowReload:''}, 'wait-retry')); slot.replaceChildren(p); return; }
+  const areaNames = ctx.model?.summary?.names ?? [];
   let cells = flowCells(draft, section);
   if (!proposed && !cells.length) {
     // 그 주 처음: 바탕(지난주 개인본, 없으면 팀 확정본)을 한 번 열어 칸을 만든다(상자가 연다 — 한 번 열면 그다음은 draft 만 읽음).
@@ -94,6 +110,8 @@ export function paintFlowCells(slot, ctx) {
     const p = ctx.baseNote ? el('p', 'journal-muted', ctx.baseNote) : waitEl({rows:2}); p.dataset.flowNoBase = '';
     slot.replaceChildren(p); ctx.prepare?.(); return;
   }
+  // 2. 1) 요약: 내 사업영역 칸 전부(바탕에 내 줄이 없던 사업영역은 빈 칸으로 뒤에).
+  if (section === 'summary') cells = summaryCells(draft, areaNames);
   // 투쟁 사업장: 구성(이번 주 것, 없으면 지난주 구성)대로 들어간 사업장만, 뺀 사업장은 접힌 한 줄.
   let hiddenSites = [], siteOptions = [];
   if (section === 'sites') {
@@ -120,6 +138,11 @@ export function paintFlowCells(slot, ctx) {
   const parts = [];
   const team = ctx.team instanceof Map ? ctx.team : null;
   const inBase = new Set((proposed?.cells ?? []).map(x => cellId(x.section, x.key, x.n)));
+  // 내 사업영역 칸(빈 칸으로 더한 것)은 바탕에 없어도 한글 파일에 들어간다(journal-hwpx.js 가 내 줄을 더함).
+  const areaKeys = new Set(areaNames.map(areaCellKey));
+  // 바탕 칸 글(이번 주에 손대지 않은 칸 = 지난주 보고서 줄 그대로). AI 초안이 들어간 바탕이면 지난주 글인지 모르므로 표시하지 않는다.
+  const baseLines = new Map(proposed && !proposed.ai ? proposed.cells.map(x => [cellId(x.section, x.key, x.n), x.lines.filter(l => String(l).trim())]) : []);
+  const touched = new Set((draft?.rows ?? []).map(r => cellId(r.section, r.key, r.n)));
   if (section === 'sites') {
     const list = el('div', 'weekly-flow-sites'); list.dataset.reorderList = 'sites';
     cells.forEach(c => list.append(cellBox(c, [])));
@@ -157,6 +180,10 @@ export function paintFlowCells(slot, ctx) {
     if (section === 'summary') { const [area, task] = c.key.split('›'); name.append(el('b', null, area || '—'), ` › ${task || '—'}${c.n ? ` (${c.n + 1}번째)` : ''}`); }
     else name.append(el('b', null, labelOf(section, c.key, c.n)));
     head.append(name);
+    // 이 주 기록이 없는 칸이 지난주 보고서 줄 그대로면 작은 '지난주에서'(1) 임원 배정 요청과 같은 표시, 화면에만).
+    if (section === 'summary' && !list.length && c.lines.length && !touched.has(c.id) && baseLines.has(c.id)) {
+      const tag = el('span', 'journal-exec-carried', CARRIED_TAG); tag.dataset.flowCarried = ''; tag.title = '이 주 기록이 없어 지난주 보고서 줄 그대로예요'; name.append(' ', tag);
+    }
     const busy = !!ui.busy;
     const add = btn('+ 추가', {flowAdd:c.id}, 'journal-part-add-button'); add.disabled = busy; add.setAttribute('aria-label', `${labelOf(section, c.key, c.n)} 칸에 줄 추가`);
     head.append(add);
@@ -168,7 +195,7 @@ export function paintFlowCells(slot, ctx) {
     }
     box.append(head);
     // 바탕이 바뀌어 이름이 맞는 칸이 없는 고친 칸: 버리지 않고 보이되, 한글 파일에는 들어가지 않는다고 한 줄.
-    if (proposed && section !== 'sites' && !inBase.has(c.id)) { const p = el('p', 'journal-muted weekly-flow-orphan', '바탕에 없는 칸 — 파일에는 안 들어가요'); p.dataset.flowOrphan = ''; box.append(p); }
+    if (proposed && section !== 'sites' && !inBase.has(c.id) && !(section === 'summary' && areaKeys.has(c.key))) { const p = el('p', 'journal-muted weekly-flow-orphan', '바탕에 없는 칸 — 파일에는 안 들어가요'); p.dataset.flowOrphan = ''; box.append(p); }
     // 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 이 칸 글이 다르면 작은 '확정본에서 바뀜'(눌러 그 글 보기·[이 글로 바꾸기], 참고용).
     const theirs = team?.get(c.id);
     if (theirs && theirs.map(strip).filter(Boolean).join('\n') !== c.lines.map(strip).filter(Boolean).join('\n')) {
