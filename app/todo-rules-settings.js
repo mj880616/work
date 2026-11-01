@@ -8,7 +8,9 @@ import {waitInlineHtml, failHtml} from './wait-state.js';
 // TODO-쌓인후보건수(요청함 10/30): 그 줄에 지금 대기 중 후보 건수('쌓인 후보 12건 [새 기준으로 다시 거르기]'), 0건이면 '쌓인 후보 없음'만(버튼 없음).
 //   다시 거른 뒤에는 그 아래 결과 한 줄('12건 중 3건을 무시함으로 옮겼어요')과 새 건수. 건수를 못 읽으면 예전처럼 '쌓인 후보 [버튼]'.
 // 표가 아직 없거나(DB 적용 전) 텔레그램 방이 없으면 방 줄은 숨기고 다시 거르기만 보인다.
-import {readAskRooms, addAskRoom, removeAskRoom, recheckTodos, countOpenCandidates, ROOM_KEY} from './todo-radar-data.js';
+import {readAskRooms, addAskRoom, removeAskRoom, recheckTodos, countOpenCandidates, readFeedbackSince, ROOM_KEY} from './todo-radar-data.js';
+// TODO-이미함·환류 5절: 같은 칸 맨 아래에 '지난주 챙길 것 …' 비율 한 줄(정리함과 같은 계산). 결과 기록이 없으면 안 그린다.
+import {weekBounds, weeklySummary} from './todo-feedback-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const CHANGED = 'kptu:todo-radar-changed';
@@ -25,7 +27,7 @@ async function readRooms(rt) {
 }
 
 export function mountTodoRulesSettings(host, {rt}) {
-  let state = {phase: 'loading', keys: [], rooms: [], roomsOk: false, busy: false, note: '', pick: '', open: null, result: ''};
+  let state = {phase: 'loading', keys: [], rooms: [], roomsOk: false, busy: false, note: '', pick: '', open: null, result: '', week: ''};
   let run = 0;
 
   function render() {
@@ -36,7 +38,8 @@ export function mountTodoRulesSettings(host, {rt}) {
     const label = !known ? '쌓인 후보' : open.count === 0 && !open.more ? '쌓인 후보 없음' : `쌓인 후보 ${open.count}건${open.more ? ' 넘게' : ''}`;
     const button = known && open.count === 0 && !open.more ? '' : `<button type="button" class="ps-todo-btn" data-ps-todo-recheck${busy ? ' disabled aria-busy="true"' : ''}>새 기준으로 다시 거르기</button>`;
     const resultLine = result ? `<p class="ps-calref-line ps-todo-result" data-ps-todo-result>${esc(result)}</p>` : '';
-    const recheck = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-todo-open${known ? `="${open.count}"` : ''}>${esc(label)}</span>${button}</div>${resultLine}`;
+    const weekLine = state.week ? `<p class="ps-calref-line" data-ps-todo-week>${esc(state.week)}</p>` : '';
+    const recheck = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-todo-open${known ? `="${open.count}"` : ''}>${esc(label)}</span>${button}</div>${resultLine}${weekLine}`;
     if (phase === 'loading') { host.innerHTML = `${head}<div class="ps-calref">${waitInlineHtml()}</div>`; return; }
     if (phase === 'failed') { host.innerHTML = `${head}<div class="ps-calref">${failHtml()}${recheck}</div>`; return; }
     const groups = rooms.filter(r => r.kind !== 'user');
@@ -53,9 +56,9 @@ export function mountTodoRulesSettings(host, {rt}) {
   async function load() {
     const mine = ++run;
     state = {...state, phase: 'loading', note: '', result: ''}; render();
-    const [asked, rooms, open] = await Promise.all([readAskRooms(rt), readRooms(rt), countOpenCandidates(rt)]);
+    const [asked, rooms, open, fb] = await Promise.all([readAskRooms(rt), readRooms(rt), countOpenCandidates(rt), readFeedbackSince(weekBounds().prev, rt).catch(() => ({ok: false}))]);
     if (mine !== run) return;
-    state = {...state, open};
+    state = {...state, open, week: fb?.ok ? weeklySummary(fb.rows)?.text || '' : ''};
     if (asked.missing) { state = {...state, phase: 'no-table', keys: [], rooms: rooms.ok ? rooms.rooms : [], roomsOk: false}; render(); return; }
     if (!asked.ok) { state = {...state, phase: 'failed'}; render(); return; }
     state = {...state, phase: 'ready', keys: asked.keys, rooms: rooms.ok ? rooms.rooms : [], roomsOk: rooms.ok, pick: ''}; render();

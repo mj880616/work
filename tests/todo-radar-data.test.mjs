@@ -69,7 +69,9 @@ test('[할 일로] uses the existing Google task create once, links the source p
   assert.deepEqual(calls[0].opts.body,{action:'create',task_id:null,title:'자료 회신',notes:'',due:'2026-10-24',links:[{project_id:id(6)},{organization_id:id(7)},{meeting_id:id(5)}]});
   assert.equal(calls[0].opts.expectedSessionEpoch,1);
   assert.match(calls[1].path,/status=eq\.open/);assert.equal(calls[1].opts.body.status,'tasked');assert.equal(calls[1].opts.body.task_id,'g1');
-  assert.equal(calls.length,2,'a meeting source writes nothing else');
+  // TODO-이미함·환류: then one result row (tasked, with the edited title because it differs from the suggestion).
+  assert.equal(calls[2].path,'/rest/v1/app_todo_feedback?select=id');assert.equal(calls[2].opts.body.outcome,'tasked');assert.equal(calls[2].opts.body.edited,'자료 회신');
+  assert.equal(calls.length,3,'a meeting source writes nothing else');
 });
 
 test('[할 일로] from an update also lists the task on that update (existing metadata.tasks path)',async()=>{
