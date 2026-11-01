@@ -14,7 +14,7 @@ import {matchOrg} from './org-name-match.mjs';
 import {reportLine as orgRefLine, alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {rowMore} from './row-more.js';
 import {shortDay} from './journal-data.js';
-import {emptyEl} from './wait-state.js';
+import {emptyEl, waitEl} from './wait-state.js';
 
 export const FLOW_SECTIONS = Object.freeze(['summary', 'sites', 'orgs']);
 const TAG = Object.freeze({record:'기록', doc:'자료', ai:'AI 요약', calendar:'캘린더'});
@@ -66,13 +66,14 @@ export function paintFlowCells(slot, ctx) {
   const btn = (text, data, cls = 'mini') => { const b = el('button', cls, text); b.type = 'button'; Object.assign(b.dataset, data); return b; };
   const {section, row} = ctx, draft = row?.draft ?? null, proposed = readProposed(draft?.proposed);
   slot.dataset.flowSection = section;
-  if (ctx.status === 'loading') { slot.replaceChildren(emptyEl('불러오는 중', {attrs:'data-flow-wait'})); return; }
+  if (ctx.status === 'loading') { slot.replaceChildren(waitEl({rows:2})); return; }
   if (ctx.status === 'missing') { slot.replaceChildren(el('p', 'journal-muted', '임시저장 칸이 아직 준비 전이에요. 칸 줄은 한글 파일을 만들 때 바탕 그대로 들어가요.')); return; }
   if (ctx.status === 'failed') { const p = el('p', 'wait-fail journal-failed', '그 주 임시저장을 불러오지 못했어요. '); p.append(btn('다시', {flowReload:''}, 'wait-retry')); slot.replaceChildren(p); return; }
   let cells = flowCells(draft, section);
   if (!proposed && !cells.length) {
     // 그 주 처음: 바탕(지난주 개인본, 없으면 팀 확정본)을 한 번 열어 칸을 만든다(상자가 연다 — 한 번 열면 그다음은 draft 만 읽음).
-    const p = el('p', 'journal-muted', ctx.baseNote || '바탕을 여는 중이에요.'); p.dataset.flowNoBase = '';
+    // 바탕을 여는 동안은 공용 가는 줄(wait-state.js), 못 열었으면 까닭 한 줄.
+    const p = ctx.baseNote ? el('p', 'journal-muted', ctx.baseNote) : waitEl({rows:2}); p.dataset.flowNoBase = '';
     slot.replaceChildren(p); ctx.prepare?.(); return;
   }
   // 투쟁 사업장: 구성(이번 주 것, 없으면 지난주 구성)대로 들어간 사업장만, 뺀 사업장은 접힌 한 줄.
