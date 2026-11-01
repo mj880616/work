@@ -15,6 +15,8 @@ export const EXCEPTIONS = {
     '로컬 증명 전용(playwright·embedded-postgres·pg 필요). docs/web-session-testing.md 참고',
   'tests/outside-statements-model.test.mjs':
     'S47-9: 작업 세션은 .github/를 바꾸지 않아 아직 미등록. 같은 규칙은 E2E outside-statements.spec.mjs가 CI에서 본다. 커맨드센터가 app-smoke-check.yml에 등록한 뒤 이 줄을 지운다',
+  'tests/news-clipping-model.test.mjs':
+    'S47-48: 작업 세션은 .github/를 바꾸지 않아 아직 미등록. 같은 규칙은 E2E news-clipping.spec.mjs가 CI에서 본다. 커맨드센터가 app-smoke-check.yml에 등록한 뒤 이 줄을 지운다',
 };
 
 const TEST_FILE = /\.test\.(mjs|cjs|js)$/;

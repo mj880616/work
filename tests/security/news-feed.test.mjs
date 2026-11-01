@@ -39,6 +39,7 @@ function fakeWorld(opts={}){
     const id=u.searchParams.get('id'),state=u.searchParams.get('state');
     if(id)return res(items.filter(i=>`eq.${i.id}`===id));
     if(state)return res(items.filter(i=>i.state==='pending'&&i.lane==='channel'));
+    if(u.searchParams.get('lane')==='eq.keyword')return res(opts.todayKeyword??[]);
     return res([]);
    }
    if(p==='app_news_days'&&method==='GET')return res(days);
@@ -168,4 +169,20 @@ test('fill now and prune: daily limit counted on the server; prune via rpc',asyn
  const r=await call(p,cronReq('run',{step:'prune'}));
  assert.equal(r.body.removed,3);
  assert.ok(p.calls.some(c=>c.url.endsWith('/rest/v1/rpc/app_news_prune')&&c.body.p_limit===H.PRUNE_LIMIT));
+});
+
+test('keywords: daily cap per workspace (KEYWORD_ITEMS_DAILY) counted from today items; catalog shows the limits',async()=>{
+ assert.equal(H.KEYWORD_ITEMS_DAILY,30);
+ const rss=`<?xml version="1.0"?><rss><channel>${[1,2,3,4,5].map(i=>`<item><title>합성 키워드 기사 ${i} - 합성일보</title><link>https://news.google.com/rss/articles/synthetic-${i}</link><pubDate>Sun, 01 Nov 2026 02:00:00 GMT</pubDate><source url="https://example.org">합성일보</source></item>`).join('')}</channel></rss>`;
+ const sites={[C.googleNewsUrl('합성어')]:{body:rss,headers:{'content-type':'application/rss+xml'}},'https://news.google.com/robots.txt':{body:'User-agent: *\nAllow: /\n',headers:{'content-type':'text/plain'}}};
+ const near=fakeWorld({sites,keywords:[{workspace_id:WS,word:'합성어'}],todayKeyword:Array.from({length:28},()=>({workspace_id:WS}))});
+ const r=await call(near,cronReq('run',{step:'keywords'}));
+ assert.equal(r.status,200);assert.equal(r.body.inserted,2,'only the room left today');
+ const posted=near.writes().filter(c=>c.url.includes('/app_news_items')&&c.method==='POST');
+ assert.equal(posted.reduce((n,c)=>n+c.body.length,0),2);
+ const full=fakeWorld({sites,keywords:[{workspace_id:WS,word:'합성어'}],todayKeyword:Array.from({length:30},()=>({workspace_id:WS}))});
+ const r2=await call(full,cronReq('run',{step:'keywords'}));
+ assert.equal(r2.body.inserted,0);assert.equal(full.outbound().length,0,'full today → Google News not read');
+ const cat=await call(fakeWorld(),userReq('catalog'));
+ assert.equal(cat.body.limits.keyword_items,30);assert.equal(cat.body.limits.translate,20);
 });
