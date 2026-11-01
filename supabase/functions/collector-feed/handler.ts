@@ -46,8 +46,16 @@
 // - POST ?action=context(CALL-맥락문서·CALL-맥락사람): 읽기 전용. 몸통은 `{}`만. 담당조직(쓰지 않음 제외)·진행 중 프로젝트의 **이름 문자열**과
 //   "조직 — 이름 직함" 목록을 돌려준다(context.ts). 사람 목록은 읽기 전용 DB 함수 app_call_context_people(service_role 실행)만 부르고(표는 직접 읽지 않음),
 //   함수가 없으면(404) 지금처럼 이름만 돌려준다. DB에 쓰지 않는다. 하루 20회 상한은 인스턴스 메모리로만 센다. 번호·메모·통화 내용·ID는 응답에 없다.
-// 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·오류 원문은 넣지 않는다.
+// - POST ?action=scrap(NEWS-클리핑 B2, 설계 news-clipping.md 2.1): 앱 스크립트 tgScrap_run_이 명진이 구독하는 텔레그램 채널(Drive 수집 폴더)의
+//   새 줄 'YYYY-MM-DD HH:MM:SS URL'에서 뽑은 기사 주소를 보낸다. 몸통은 {items:[{url, at?}]}만(1~SCRAP_MAX_ITEMS개, 칸 추가·작업공간 칸 400).
+//   작업공간은 텔레그램과 같은 운영자 기능 확인(app_operator_feature_workspace 'telegram' — private.app_workspace_has_feature)으로 서버가 정한다.
+//   주소는 news-feed와 같은 규칙(_shared/news-url.ts): https만·기본 포트·사용자 정보 없음·내부 이름·IP 숫자·Supabase 아님(openArticleUrl),
+//   추적 값(utm_* 등)·조각(#) 떼기(cleanArticleUrl), 겹침 판정 url_key(urlKey). 규칙에 안 맞는 줄은 버리고 개수만 센다(rejected).
+//   app_news_items(lane 'channel', state 'pending')에 한 줄씩 넣고, 같은 작업공간에 같은 url_key가 이미 있으면(어느 칸이든) 무시한다(duplicate).
+//   AI·바깥 읽기 없음 — 제목·본문·요약은 news-feed가 나중에 채운다. 하루 상한 SCRAP_DAILY_REQUESTS회(인스턴스 메모리).
+// 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·주소·오류 원문은 넣지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { cleanArticleUrl, openArticleUrl, urlKey } from "../_shared/news-url.ts";
 import { aiConfigFrom, callOpenAi, estimateKrw, isIncomplete, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
 import { CALL_LIMITS, cleanLine, kstDay, type OrgRow, parseCall } from "./call-analysis.ts";
@@ -101,6 +109,12 @@ export const OPENAI_TIMEOUT_MS = 45000;
 export const RETRY_DELAY_MS = 1000;
 const OPENAI_RESPONSE_BYTES = 256 * 1024;
 const DB_RESPONSE_BYTES = 1024 * 1024;
+
+// NEWS-클리핑 B2: 채널 기사 입구(action=scrap) 상한. 한 번에 50줄, 하루 요청 100번(인스턴스 메모리, telegram_senders와 같은 방식).
+export const SCRAP_MAX_ITEMS = 50;
+export const SCRAP_DAILY_REQUESTS = 100;
+// 스크랩 시각(at)은 지금보다 10분 넘게 앞서거나 MAX_PAST_DAYS보다 오래되면 그 줄을 버린다.
+const SCRAP_FUTURE_MS = 10 * 60 * 1000;
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
@@ -769,6 +783,55 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   return callResult({ kept });
 }
 
+// ---- 채널 기사(NEWS-클리핑 B2) ------------------------------------------------------------------------------------
+
+type ScrapItem = { url: string; at: unknown };
+// 몸통 모양만 검사한다(칸·개수·글자 종류). 주소·시각 규칙에 안 맞는 줄은 runScrap이 버리고 센다(앱 스크립트가 위치를 넘길 수 있게).
+export function parseScrapBody(b: Record<string, unknown>): ScrapItem[] {
+  if (!exactKeys(b, ["items"]) || !Array.isArray(b.items) || b.items.length < 1 || b.items.length > SCRAP_MAX_ITEMS) throw new Fail(400, "INVALID_BODY");
+  return b.items.map((it) => {
+    if (!it || typeof it !== "object" || Array.isArray(it)) throw new Fail(400, "INVALID_BODY");
+    const o = it as Record<string, unknown>;
+    if (!exactKeys(o, ["url"], ["at"]) || typeof o.url !== "string" || o.url.length > 4000) throw new Fail(400, "INVALID_BODY");
+    if (o.at !== undefined && (typeof o.at !== "string" || o.at.length > 40)) throw new Fail(400, "INVALID_BODY");
+    return { url: o.url, at: o.at };
+  });
+}
+
+// 정리한 주소(https 원문) 또는 null. 읽을 수 있는 주소 규칙(openArticleUrl)을 지나야 news-feed가 나중에 원문을 읽을 수 있다.
+export function scrapUrl(raw: string): { url: string; url_key: string } | null {
+  const open = openArticleUrl(raw);
+  if (!open) return null;
+  const clean = cleanArticleUrl(open.href);
+  if (!clean || !openArticleUrl(clean)) return null;
+  return { url: clean, url_key: urlKey(clean) };
+}
+
+// 스크랩 시각: 시간대가 붙은 ISO만. 없으면 받은 시각. 너무 앞서거나 오래되면 null(그 줄을 버림).
+export function scrapAt(value: unknown, nowMs: number): string | null {
+  if (value === undefined) return new Date(nowMs).toISOString();
+  if (typeof value !== "string" || !ISO.test(value)) return null;
+  const t = Date.parse(value);
+  if (!Number.isFinite(t) || t > nowMs + SCRAP_FUTURE_MS || t < nowMs - (MAX_PAST_DAYS + 1) * 86400000) return null;
+  return new Date(t).toISOString();
+}
+
+async function runScrap(db: Db, ws: string, items: ScrapItem[], nowMs: number, log: Log) {
+  let inserted = 0, duplicate = 0, rejected = 0;
+  const seen = new Set<string>();
+  for (const it of items) {
+    const u = scrapUrl(it.url), at = scrapAt(it.at, nowMs);
+    if (!u || !at) { rejected++; continue; }
+    if (seen.has(u.url_key)) { duplicate++; continue; }
+    seen.add(u.url_key);
+    // 넣는 칸은 대기 줄 칸뿐(제목·본문·요약·번역·별표 없음). 같은 작업공간·같은 url_key는 유일 제약이 409로 막는다.
+    const r = await db.insert("app_news_items", { workspace_id: ws, lane: "channel", url: u.url, url_key: u.url_key, scrapped_at: at, state: "pending" });
+    if (r === "ok") inserted++; else duplicate++;
+  }
+  log("scrap_saved", { received: items.length, inserted, duplicate, rejected });
+  return { ok: true, received: items.length, inserted, duplicate, rejected };
+}
+
 // ---- 입구 ----------------------------------------------------------------------------------------------------------
 
 export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
@@ -778,6 +841,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
   const log: Log = deps.log ?? ((code, detail) => console.error(JSON.stringify({ fn: "collector-feed", code, ...(detail ?? {}) })));
   const contextUse = { day: "", n: 0 };
   const sendersUse = { day: "", n: 0 };
+  const scrapUse = { day: "", n: 0 };
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response(null, { status: 204 });
     if (req.method !== "POST") return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
@@ -789,7 +853,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      if (action !== "call" && action !== "call_skip" && action !== "telegram" && action !== "telegram_senders" && action !== "context") throw new Fail(400, "UNKNOWN_ACTION");
+      if (action !== "call" && action !== "call_skip" && action !== "telegram" && action !== "telegram_senders" && action !== "context" && action !== "scrap") throw new Fail(400, "UNKNOWN_ACTION");
       const length = Number(req.headers.get("content-length") || 0);
       if (length > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
@@ -819,6 +883,14 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
         sendersUse.n++;
         const sdb = makeDb(sb, key, doFetch);
         return json(await runTelegramSenders(sdb, await workspaceId(sdb, "telegram"), sin, log));
+      }
+      if (action === "scrap") {
+        const items = parseScrapBody(b);   // 몸통을 먼저 다 검사한 뒤에 센다·DB에 간다
+        if (scrapUse.day !== today) { scrapUse.day = today; scrapUse.n = 0; }
+        if (scrapUse.n >= SCRAP_DAILY_REQUESTS) throw new Fail(429, "DAILY_LIMIT");
+        scrapUse.n++;
+        const ndb = makeDb(sb, key, doFetch);
+        return json(await runScrap(ndb, await workspaceId(ndb, "telegram"), items, nowMs, log));
       }
       // 몸통을 먼저 다 검사한 뒤에 DB에 간다.
       const input = action === "call" ? parseCallBody(b) : action === "call_skip" ? parseSkipBody(b, today) : parseTelegramBody(b, today);
