@@ -25,7 +25,7 @@ with k as (select p.lang, p.key_sentences from public.app_outside_posts p
     and (regexp_replace(p.summary_ko, '\s+', ' ', 'g') ~ '요약할\s*수\s*(가\s*)?없|요약(이|은)?\s*(불가|어려)|(본문|원문|기사\s*본문|글\s*본문|기사|글의?\s*내용|본문\s*내용)(이|은|을|가)?\s*(제공되지\s*않|없(어|음|으므로|는|습)|비어\s*있|확인(할|되)\s*수\s*없|확인되지\s*않|포함되(어\s*있)?지\s*않)|제목만(으로는|\s*있|\s*제공)|(요약할|정리할)\s*(내용|재료|정보)(이|가)?\s*(없|부족)'
       or regexp_replace(p.summary_ko, '\s+', ' ', 'g') ~* '\y(cannot|can''t|unable to)\s+(be\s+)?summari[sz]|\yno\s+(article\s+)?(body|content|text)\s+(was\s+|is\s+)?(provided|available)'))
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261031230000' and name='outside_statements')=1 then '예' else '아니오' end as value
-union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261101210000') then '예' else '아니오' end
+union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261101230000') then '예' else '아니오' end
 union all select 'fix table absent',case when to_regclass('public.app_outside_summary_fixes') is null then '예' else '아니오' end
 union all select 'RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.app_outside_posts') and relrowsecurity) then '예' else '아니오' end
 union all select 'anon or public table privilege',case when has_table_privilege('anon','public.app_outside_posts','select,insert,update,delete')

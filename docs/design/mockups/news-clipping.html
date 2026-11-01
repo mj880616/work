@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>뉴스 클리핑 시안</title>
+<style>
+/* 기존 테마 토큰(app/base-ui.css)과 같은 값. 시안 전용 정적 파일 — 글은 모두 가짜. */
+:root{
+  --kptu-bg:#f5f6f7;--kptu-surface:#fff;--kptu-surface-subtle:#fafbfc;
+  --kptu-ink:#1f2933;--kptu-muted:#66727f;--kptu-faint:#8a949e;
+  --kptu-border:#dfe4e8;--kptu-border-strong:#cfd6dc;
+  --kptu-primary:#263f5f;--kptu-primary-soft:#eef2f6;--kptu-link:#355f86;
+  --kptu-warning:#8a6218;--kptu-warning-soft:#faf4e7;
+  --kptu-accent:#66508c;--chip-on:#eeeaf4;
+  --kptu-radius-sm:6px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#15191d;--kptu-surface:#1d2227;--kptu-surface-subtle:#242a30;
+  --kptu-ink:#e4e8ec;--kptu-muted:#a3adb7;--kptu-faint:#85909b;
+  --kptu-border:#313941;--kptu-border-strong:#3d4650;
+  --kptu-primary:#a9bfd9;--kptu-primary-soft:#26313d;--kptu-link:#9ebbd8;
+  --kptu-warning:#d9b56e;--kptu-warning-soft:#33291a;
+  --kptu-accent:#c0b0dc;--chip-on:#2f2a3a;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:15px;margin:0 0 4px}
+.note{margin:0 0 12px;color:var(--kptu-muted);font-size:12px}
+h2.cap{font-size:13px;font-weight:600;margin:20px 0 6px;color:var(--kptu-muted)}
+.scroll{overflow-x:auto;padding-bottom:6px}
+.frame{background:var(--kptu-surface);border:1px solid var(--kptu-border-strong);border-radius:10px;overflow:hidden}
+.phone{width:412px;max-width:100%;height:860px;display:flex;flex-direction:column}
+.pc{width:1440px;height:760px;display:flex}
+
+/* 머리줄 */
+.top{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:.5px solid var(--kptu-border)}
+.top .t{font-size:15px;font-weight:600}
+.top .when{font-size:12px;color:var(--kptu-muted);margin-left:4px}
+.more{margin-left:auto;width:32px;height:26px;border:0;background:none;color:var(--kptu-muted);font-size:16px;border-radius:var(--kptu-radius-sm)}
+.more:hover{background:var(--kptu-surface-subtle)}
+
+/* 폰 칸 이름 줄 */
+.lanes{display:flex;gap:14px;padding:0 12px;border-bottom:.5px solid var(--kptu-border)}
+.lanes button{border:0;background:none;padding:7px 0 6px;font:inherit;font-size:13px;color:var(--kptu-muted);border-bottom:2px solid transparent}
+.lanes button[aria-selected="true"]{color:var(--kptu-ink);border-bottom-color:var(--kptu-primary);font-weight:500}
+.lanes .n{font-size:11px;color:var(--kptu-faint);margin-left:3px}
+
+.body{flex:1;overflow:auto;padding:4px 12px 12px}
+
+/* 칩 줄 */
+.chips{display:flex;flex-wrap:wrap;gap:4px;padding:6px 0 2px}
+.chip{height:26px;padding:0 8px;border:.5px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:12px}
+.chip[aria-pressed="true"]{background:var(--chip-on);border-color:var(--chip-on);color:var(--kptu-accent)}
+.chip.add{color:var(--kptu-muted);width:28px;padding:0}
+.chip.more2{color:var(--kptu-muted)}
+
+/* 글 한 줄(사회운동 Now os-post 모양) */
+.day{margin:8px 0 0;padding:2px 0;font-size:12px;font-weight:500;color:var(--kptu-muted)}
+.post{display:flex;flex-direction:column;gap:1px;padding:6px 2px;border-bottom:.5px solid var(--kptu-border)}
+.meta{display:flex;flex-wrap:wrap;gap:0 6px;font-size:12px;color:var(--kptu-muted)}
+.meta span+span::before{content:"·";margin-right:6px}
+.title{margin:0;font-size:14px;font-weight:500;line-height:1.45}
+.lead{margin:0;font-size:13px;line-height:1.5;opacity:.86}
+.foot{display:flex;gap:10px;align-items:center;font-size:12px}
+.foot a{color:var(--kptu-muted);text-decoration:underline;text-underline-offset:2px}
+.tag{display:inline-grid;place-items:center;height:16px;padding:0 4px;font-size:11px;border-radius:4px;color:var(--kptu-accent);background:var(--chip-on)}
+.wait .title{color:var(--kptu-muted);font-weight:400}
+.state{font-size:12px;color:var(--kptu-warning)}
+
+/* PC 세 칸 */
+.pc .col{flex:1;min-width:0;display:flex;flex-direction:column;border-right:.5px solid var(--kptu-border)}
+.pc .col:last-child{border-right:0}
+.pc .colhead{display:flex;align-items:baseline;gap:6px;padding:8px 14px 2px}
+.pc .colhead b{font-size:13px;font-weight:600}
+.pc .colhead .n{font-size:12px;color:var(--kptu-faint)}
+.pc .side{width:176px;flex:none;border-right:.5px solid var(--kptu-border);padding:10px 8px;background:var(--kptu-surface-subtle);font-size:13px}
+.pc .side div{padding:5px 8px;border-radius:var(--kptu-radius-sm);color:var(--kptu-muted)}
+.pc .side .on{background:var(--kptu-primary-soft);color:var(--kptu-ink);font-weight:500}
+.pc .main{flex:1;display:flex;flex-direction:column;min-width:0}
+.pc .cols{flex:1;display:flex;min-height:0}
+.pc .body{padding:2px 14px 12px}
+
+/* ⋯ 메뉴 펼친 모습 */
+.menu{position:absolute;right:10px;top:38px;width:200px;background:var(--kptu-surface);border:.5px solid var(--kptu-border-strong);border-radius:8px;box-shadow:0 8px 24px rgba(20,33,48,.08);padding:4px;font-size:13px}
+.menu div{padding:6px 8px;border-radius:var(--kptu-radius-sm)}
+.menu div:hover{background:var(--kptu-surface-subtle)}
+.menu .sub{font-size:12px;color:var(--kptu-muted)}
+.rel{position:relative}
+
+/* 키워드 고치기 */
+.kw{display:flex;align-items:center;gap:8px;padding:5px 2px;border-bottom:.5px solid var(--kptu-border);font-size:13px}
+.kw input[type=checkbox]{margin:0}
+.kw .x{margin-left:auto;border:0;background:none;color:var(--kptu-faint);font-size:14px}
+.kwadd{display:flex;gap:6px;padding:8px 0}
+.kwadd input{flex:1;height:30px;border:.5px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);padding:0 8px;font:inherit;background:var(--kptu-surface);color:var(--kptu-ink)}
+.kwadd button{height:30px;padding:0 10px;border:.5px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:12px}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+@media (max-width:440px){body{padding:12px}}
+</style>
+</head>
+<body>
+<h1>뉴스 클리핑 시안</h1>
+<p class="note">설계 docs/design/news-clipping.md 6절. 글·매체 시각·요약은 모두 가짜이고 주소는 example.com입니다. 줄 모양은 사회운동 Now와 같습니다(제목 14 · 요약 13 · 꼬리 12px, 큰 카드·굵은 버튼 없음).</p>
+
+<h2 class="cap">(가) 폰 412 — ① 내 스크랩 칸 · (나) ② 키워드 칸 · (다) ⋯ → 키워드 고치기</h2>
+<div class="row">
+
+<!-- (가) 내 스크랩 -->
+<div class="frame phone" aria-label="폰 내 스크랩">
+ <div class="top"><span class="t">뉴스 클리핑</span><span class="when">13:07 읽음</span><button class="more" aria-label="뉴스 클리핑 메뉴">⋯</button></div>
+ <div class="lanes" role="tablist"><button role="tab" aria-selected="true">내 스크랩<span class="n">14</span></button><button role="tab">키워드<span class="n">37</span></button><button role="tab">매체<span class="n">120</span></button></div>
+ <div class="body">
+  <p class="day">오늘</p>
+  <div class="post wait"><div class="meta"><span>example.com</span><span>13:42 스크랩</span></div><p class="title">읽는 중 — 다음 읽기(18시)에 제목·요약이 붙습니다</p><div class="foot"><a href="#">원문</a></div></div>
+  <div class="post"><div class="meta"><span>가상일보</span><span>11:20</span></div><p class="title">가상시 도시철도, 심야 2인 1조 근무 확대 시범 운영</p><p class="lead">가상시가 심야 승강장 2인 1조 근무를 3개 역에서 시범 운영하고 내년 확대 여부를 정한다.</p><div class="foot"><a href="#">원문</a></div></div>
+  <div class="post"><div class="meta"><span>예시경제</span><span>09:05</span></div><p class="title">공공기관 총인건비 인상률 가이드라인 발표 앞두고 노정 협의</p><p class="lead">정부가 내년 공공기관 총인건비 인상률 발표를 앞두고 공공부문 노조와 실무 협의를 열었다.</p><div class="foot"><a href="#">원문</a></div></div>
+  <div class="post"><div class="meta"><span>sample.org</span><span>08:51 스크랩</span></div><p class="title">sample.org</p><p class="state">사이트가 자동 읽기를 막아 둠 — 제목 없이 링크만</p><div class="foot"><a href="#">원문</a></div></div>
+  <p class="day">어제</p>
+  <div class="post"><div class="meta"><span>가상뉴스</span><span>17:30</span></div><p class="title">민자철도 운영사 재정 지원 기준 개편안 공청회</p><p class="lead">민자철도 운영사 손실 보전 기준을 바꾸는 개편안이 공청회에서 처음 공개됐다.</p><div class="foot"><a href="#">원문</a></div></div>
+  <div class="post"><div class="meta"><span>Example Times</span><span>15:12</span></div><p class="title">Transit workers vote on new safety staffing deal</p><p class="lead">한 도시 대중교통 노동자들이 안전 인력 기준을 담은 새 합의안을 투표에 부쳤다.</p><div class="foot"><a href="#">원문</a></div></div>
+ </div>
+</div>
+
+<!-- (나) 키워드 -->
+<div class="frame phone" aria-label="폰 키워드">
+ <div class="top"><span class="t">뉴스 클리핑</span><span class="when">13:07 읽음</span><button class="more" aria-label="뉴스 클리핑 메뉴">⋯</button></div>
+ <div class="lanes" role="tablist"><button role="tab">내 스크랩<span class="n">14</span></button><button role="tab" aria-selected="true">키워드<span class="n">37</span></button><button role="tab">매체<span class="n">120</span></button></div>
+ <div class="body">
+  <div class="chips" role="group" aria-label="키워드 거르기"><button class="chip" aria-pressed="true">전체</button><button class="chip">2인1조</button><button class="chip">공공기관 총인건비</button><button class="chip">경영평가</button><button class="chip">민자철도</button><button class="chip">GTX</button><button class="chip">철도 파업</button><button class="chip more2">더보기 ▾</button><button class="chip add" aria-label="키워드 더하기">+</button></div>
+  <p class="day">오늘</p>
+  <div class="post"><div class="meta"><span>가상신문</span><span>12:40</span><span class="tag">GTX</span></div><p class="title">GTX 노선 운영 인력 위탁 구조 두고 논란</p><p class="lead">새 광역철도 노선의 운영 인력을 여러 단계 위탁하는 구조에 안전 우려가 나왔다.</p><div class="foot"><a href="#">원문</a></div></div>
+  <div class="post"><div class="meta"><span>예시일보</span><span>10:15</span><span class="tag">필수유지업무</span><span class="tag">철도 파업</span></div><p class="title">필수유지업무 비율 다시 정하는 조정 신청 접수</p><p class="lead">한 운수 사업장이 파업 때 남겨야 할 필수유지업무 비율 재조정을 신청했다.</p><div class="foot"><a href="#">원문</a></div></div>
+  <div class="post"><div class="meta"><span>가상경제</span><span>09:30</span><span class="tag">경영평가</span></div><p class="title">공공기관 경영평가 지표 일부 바뀐다</p><p class="foot" style="color:var(--kptu-faint)">요약 없음(제목만)</p><div class="foot"><a href="#">원문</a></div></div>
+  <div class="post"><div class="meta"><span>예시방송</span><span>08:02</span><span class="tag">지하철 노조</span></div><p class="title">지하철 노조, 인력 충원 요구 기자회견</p><p class="lead">한 도시 지하철 노조가 인력 충원과 안전 대책을 요구하는 기자회견을 열었다.</p><div class="foot"><a href="#">원문</a></div></div>
+ </div>
+</div>
+
+<!-- (다) ⋯ 메뉴 + 키워드 고치기 -->
+<div class="frame phone rel" aria-label="폰 키워드 고치기">
+ <div class="top"><span class="t">키워드 고치기</span><button class="more" aria-label="닫기">✕</button></div>
+ <div class="body">
+  <div class="kwadd"><input placeholder="키워드 더하기" aria-label="새 키워드"><button>더하기</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">2인1조<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">공공기관 총인건비<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">공공기관 경영평가<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">민자철도<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">GTX<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">철도 파업<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">지하철 노조<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">궤도협의회<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" checked aria-label="켬">필수유지업무<button class="x" aria-label="지우기">✕</button></div>
+  <div class="kw"><input type="checkbox" aria-label="켬">공공운수노조<button class="x" aria-label="지우기">✕</button></div>
+  <p class="note" style="margin-top:8px">하루 3번(08·13·18시 무렵) 이 키워드로 찾습니다. 내 스크랩에 있는 기사는 빠집니다. 30개까지.</p>
+ </div>
+ <div class="menu" style="top:auto;bottom:12px;right:12px" aria-label="⋯ 메뉴 펼친 모습(예)">
+  <div>키워드 고치기</div><div>매체 켜고 끄기</div><div class="sub">마지막 읽음 13:07 · 막힌 매체 1곳</div>
+ </div>
+</div>
+</div>
+
+<h2 class="cap">(라) PC 1440 — 세 칸 나란히(③ 매체 칸은 제목만)</h2>
+<div class="scroll">
+<div class="frame pc" aria-label="PC 세 칸">
+ <nav class="side" aria-label="메뉴(일부)"><div>홈</div><div>정리함</div><div>일정</div><div>자료실</div><div>텔레그램 소식</div><div>사회운동 Now</div><div class="on">뉴스 클리핑</div><div>원장</div></nav>
+ <div class="main rel">
+  <div class="top"><span class="t">뉴스 클리핑</span><span class="when">13:07 읽음 · 다음 18시</span><button class="more" aria-label="뉴스 클리핑 메뉴">⋯</button></div>
+  <div class="cols">
+   <section class="col" aria-label="내 스크랩">
+    <div class="colhead"><b>내 스크랩</b><span class="n">오늘 4 · 어제 10</span></div>
+    <div class="body">
+     <p class="day">오늘</p>
+     <div class="post wait"><div class="meta"><span>example.com</span><span>13:42 스크랩</span></div><p class="title">읽는 중 — 다음 읽기(18시)에 제목·요약이 붙습니다</p><div class="foot"><a href="#">원문</a></div></div>
+     <div class="post"><div class="meta"><span>가상일보</span><span>11:20</span></div><p class="title">가상시 도시철도, 심야 2인 1조 근무 확대 시범 운영</p><p class="lead">가상시가 심야 승강장 2인 1조 근무를 3개 역에서 시범 운영하고 내년 확대 여부를 정한다.</p><div class="foot"><a href="#">원문</a></div></div>
+     <div class="post"><div class="meta"><span>예시경제</span><span>09:05</span></div><p class="title">공공기관 총인건비 인상률 가이드라인 발표 앞두고 노정 협의</p><p class="lead">정부가 내년 공공기관 총인건비 인상률 발표를 앞두고 공공부문 노조와 실무 협의를 열었다.</p><div class="foot"><a href="#">원문</a></div></div>
+     <div class="post"><div class="meta"><span>sample.org</span><span>08:51 스크랩</span></div><p class="title">sample.org</p><p class="state">사이트가 자동 읽기를 막아 둠 — 제목 없이 링크만</p><div class="foot"><a href="#">원문</a></div></div>
+     <p class="day">어제</p>
+     <div class="post"><div class="meta"><span>가상뉴스</span><span>17:30</span></div><p class="title">민자철도 운영사 재정 지원 기준 개편안 공청회</p><p class="lead">민자철도 운영사 손실 보전 기준을 바꾸는 개편안이 공청회에서 처음 공개됐다.</p><div class="foot"><a href="#">원문</a></div></div>
+    </div>
+   </section>
+   <section class="col" aria-label="키워드">
+    <div class="colhead"><b>키워드</b><span class="n">오늘 37 · 요약 22</span></div>
+    <div class="body">
+     <div class="chips" role="group" aria-label="키워드 거르기"><button class="chip" aria-pressed="true">전체</button><button class="chip">2인1조</button><button class="chip">공공기관 총인건비</button><button class="chip">경영평가</button><button class="chip">민자철도</button><button class="chip">GTX</button><button class="chip">철도 파업</button><button class="chip">지하철 노조</button><button class="chip more2">더보기 ▾</button><button class="chip add" aria-label="키워드 더하기">+</button></div>
+     <p class="day">오늘</p>
+     <div class="post"><div class="meta"><span>가상신문</span><span>12:40</span><span class="tag">GTX</span></div><p class="title">GTX 노선 운영 인력 위탁 구조 두고 논란</p><p class="lead">새 광역철도 노선의 운영 인력을 여러 단계 위탁하는 구조에 안전 우려가 나왔다.</p><div class="foot"><a href="#">원문</a></div></div>
+     <div class="post"><div class="meta"><span>예시일보</span><span>10:15</span><span class="tag">필수유지업무</span><span class="tag">철도 파업</span></div><p class="title">필수유지업무 비율 다시 정하는 조정 신청 접수</p><p class="lead">한 운수 사업장이 파업 때 남겨야 할 필수유지업무 비율 재조정을 신청했다.</p><div class="foot"><a href="#">원문</a></div></div>
+     <div class="post"><div class="meta"><span>가상경제</span><span>09:30</span><span class="tag">경영평가</span></div><p class="title">공공기관 경영평가 지표 일부 바뀐다</p><div class="foot"><span style="color:var(--kptu-faint)">요약 없음(제목만)</span><a href="#">원문</a></div></div>
+     <div class="post"><div class="meta"><span>예시방송</span><span>08:02</span><span class="tag">지하철 노조</span></div><p class="title">지하철 노조, 인력 충원 요구 기자회견</p><p class="lead">한 도시 지하철 노조가 인력 충원과 안전 대책을 요구하는 기자회견을 열었다.</p><div class="foot"><a href="#">원문</a></div></div>
+    </div>
+   </section>
+   <section class="col" aria-label="매체별 새 글">
+    <div class="colhead"><b>매체</b><span class="n">오늘 120 · 켠 매체 11곳</span></div>
+    <div class="body">
+     <div class="chips" role="group" aria-label="매체 거르기"><button class="chip" aria-pressed="true">전체</button><button class="chip">국내</button><button class="chip">해외</button><button class="chip">매일노동뉴스</button><button class="chip">비마이너</button><button class="chip">프레시안</button><button class="chip">정책브리핑</button><button class="chip">PSI</button><button class="chip">ITF</button><button class="chip more2">더보기 ▾</button></div>
+     <p class="day">오늘</p>
+     <div class="post"><div class="meta"><span>가상노동뉴스</span><span>13:01</span></div><p class="title">가상 공단 노사, 임금 교섭 3차 회의도 결렬</p></div>
+     <div class="post"><div class="meta"><span>예시매체</span><span>12:48</span></div><p class="title">장애인 이동권 예산 삭감 두고 시민단체 반발</p></div>
+     <div class="post"><div class="meta"><span>정책브리핑(예)</span><span>12:30</span></div><p class="title">[보도자료] 가상 부처, 공공기관 혁신 지침 개정안 행정예고</p></div>
+     <div class="post"><div class="meta"><span>Example Union Intl</span><span>11:55</span></div><p class="title">Public service unions call for safe staffing in transport</p></div>
+     <div class="post"><div class="meta"><span>가상노동뉴스</span><span>11:20</span></div><p class="title">하청 노동자 산재 인정 범위 넓힌 판결</p></div>
+     <div class="post"><div class="meta"><span>예시매체</span><span>10:42</span></div><p class="title">지역 버스 준공영제 재정 부담 논쟁</p></div>
+     <div class="post"><div class="meta"><span>Example Transport Fed</span><span>09:10</span></div><p class="title">Rail workers mark safety day with joint action</p></div>
+    </div>
+   </section>
+  </div>
+ </div>
+</div>
+</div>
+
+<p class="note" style="margin-top:12px">폰: 칸 이름 줄을 누르거나 좌우로 밀어 칸 이동, 뒤로가기는 이전 화면. 줄 왼쪽으로 밀기 = 지우기(서버 저장). [원문]은 새 창. ⋯ = 키워드 고치기 · 매체 켜고 끄기 · 마지막 읽은 시각.</p>
+</body>
+</html>

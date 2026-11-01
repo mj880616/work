@@ -19,7 +19,7 @@ lock table public.app_outside_posts in share row exclusive mode;
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261101210000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261101230000')
      or to_regclass('public.app_outside_summary_fixes') is not null
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261031230000' and name = 'outside_statements') <> 1
      or (select count(*) from pg_attribute where attrelid = 'public.app_outside_posts'::regclass and not attisdropped
@@ -88,5 +88,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261101210000', 'outside_summary_fail_clear', array['OUTSIDE summary fail clear: private table app_outside_summary_fixes (RLS, no policy, all API privileges revoked) keeps id/old summary/old key sentences; app_outside_posts.summary_ko emptied (key_sentences to []) only where the summary is an AI no-material notice matching AI_NO_MATERIAL_PATTERNS (max 150 rows)']);
+values ('20261101230000', 'outside_summary_fail_clear', array['OUTSIDE summary fail clear: private table app_outside_summary_fixes (RLS, no policy, all API privileges revoked) keeps id/old summary/old key sentences; app_outside_posts.summary_ko emptied (key_sentences to []) only where the summary is an AI no-material notice matching AI_NO_MATERIAL_PATTERNS (max 150 rows)']);
 commit;

@@ -61,7 +61,8 @@ async function fixture(page,{width=1280}={}){
  });
  return {note,bundles,links,calls,writes,errors};
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+// 폰 폭은 손가락 누르기. locator.tap()은 누르는 순간 줄을 다시 찾는다(좌표를 먼저 재고 누르면 그 사이 줄이 바뀔 때 깨진다).
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 async function openNote(page,width){
  await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
  await tap(page,page.locator(`[data-basket-row="${n}"]`),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();
@@ -208,8 +209,12 @@ test('폰: 참고 묶음 목록 → 상세, 뒤로 가기 한 칸이면 목록�
  const f=await fixture(page,{width:390});
  f.links.push({id:'40000000-0000-4000-8000-000000000102',workspace_id:'w',note_id:n,status:'confirmed',summary:null,organization_id:null,project_id:null,bundle_id:b3,meeting_id:null,document_id:null});
  await page.evaluate(()=>window.KPTURouter.go('team'));
- // The list paints again when the organizations arrive; tap the entry once the list is drawn.
  await expect(page.locator(`#soOrganizationList [data-so-org="${o}"]`)).toBeVisible();
+ // 같은 담당조직을 다시 읽어도(들어올 때 두 번 읽음) 목록 줄을 새로 만들지 않는다: 누르려던 입구가 바뀌지 않는다.
+ const entry=page.locator('#soOrganizationList .so-reference-entry');
+ await entry.evaluate(el=>{el.dataset.probeKeep='1'});
+ await page.evaluate(()=>window.__KPTU_RELOAD_SUBORGANIZATIONS__());
+ await expect(entry).toHaveAttribute('data-probe-keep','1');
  await tap(page,page.locator('#soOrganizationList .so-reference-entry'),390);
  await expect(page.locator('#rbList')).toBeVisible();await expect(page.locator('#rbDetail')).toBeHidden();
  await expect(page.locator(`#rbList [data-rb-bundle="${b3}"] .rb-meta`)).toHaveText('1 · 10.6');

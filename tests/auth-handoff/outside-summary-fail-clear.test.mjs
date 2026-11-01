@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic (no real titles or summaries).
-// S47-42 OUTSIDE-요약실패정리 DB(20261101210000_outside_summary_fail_clear): 사회운동 Now 글 중 요약이 AI '재료 없음' 안내 문장인 글만 요약을 비운다.
+// S47-42 OUTSIDE-요약실패정리 DB(20261101230000_outside_summary_fail_clear): 사회운동 Now 글 중 요약이 AI '재료 없음' 안내 문장인 글만 요약을 비운다.
 // - 승인형 workflow 실행기(dry-run·apply)로 돌리고, 사전 확인의 비울 수가 규칙대로 나온다.
 // - 고르는 규칙이 수집기 검사 목록(_shared/ai-model.ts AI_NO_MATERIAL_PATTERNS)과 같은 판정이다(실제 요약은 그대로).
 // - 요약·핵심 문장 밖의 칸·문장 표·다른 작업공간 줄 수는 그대로. 옛 요약은 비공개 표에만. 150건 넘으면 멈춤. 되돌리기는 옛 요약 복원 + 표·기록 삭제.
@@ -17,7 +17,7 @@ import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
 const model=await import('../../supabase/functions/_shared/ai-model.ts');
-const version='20261101210000',name='outside_summary_fail_clear',stem=version+'_'+name;
+const version='20261101230000',name='outside_summary_fail_clear',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];

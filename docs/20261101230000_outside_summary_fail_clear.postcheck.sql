@@ -6,7 +6,7 @@ with k as (select p.id from public.app_outside_posts p
     and (regexp_replace(p.summary_ko, '\s+', ' ', 'g') ~ '요약할\s*수\s*(가\s*)?없|요약(이|은)?\s*(불가|어려)|(본문|원문|기사\s*본문|글\s*본문|기사|글의?\s*내용|본문\s*내용)(이|은|을|가)?\s*(제공되지\s*않|없(어|음|으므로|는|습)|비어\s*있|확인(할|되)\s*수\s*없|확인되지\s*않|포함되(어\s*있)?지\s*않)|제목만(으로는|\s*있|\s*제공)|(요약할|정리할)\s*(내용|재료|정보)(이|가)?\s*(없|부족)'
       or regexp_replace(p.summary_ko, '\s+', ' ', 'g') ~* '\y(cannot|can''t|unable to)\s+(be\s+)?summari[sz]|\yno\s+(article\s+)?(body|content|text)\s+(was\s+|is\s+)?(provided|available)')),
 t as (select to_regclass('public.app_outside_summary_fixes') as b),
-h as (select count(*) filter (where name='outside_summary_fail_clear') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261101210000')
+h as (select count(*) filter (where name='outside_summary_fail_clear') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261101230000')
 select 'clear agrees with history' as item,case
   when h.n=1 and h.named=1 and t.b is not null then case when exists(select 1 from k) then '아니오' else '예' end
   when h.n=0 and t.b is null then '예' else '아니오' end as value
