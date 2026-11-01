@@ -44,7 +44,7 @@ test('photos [폴더]: one switch per row (role=switch, server toggle), dim off 
   assert.match(src, /role="switch" class="diary-od-switch photos-fx-sw" data-photos-fx-sw=/);
   assert.match(src, /odFolderToggle\(rt, id, next\)/);
   assert.match(src, /is-off/);
-  assert.match(src, /스위치 켜짐 = 사진에 보임/);
+  assert.doesNotMatch(src, /스위치 켜짐 = 사진에 보임/, '안내 줄 삭제(명진 11/01 12:58)');
   assert.equal((src.match(/placeHtml\(/g) || []).length >= 3, true, 'od rows, phone rows, head line');
   assert.match(src, /어느 폴더로 옮길까요\?[\s\S]{0,400}photos-fx-place/);
   const css = readFileSync(new URL('../app/photos.css', import.meta.url), 'utf8');
