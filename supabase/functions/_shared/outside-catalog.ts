@@ -169,7 +169,8 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     titleAttr: true,
     dateClass: /^date$/,
     bodyClass: /^body_content$/,
-    kindOf: byPrefix("statement"),
+    // 옆 칸 '최신 기사'도 같은 게시판 주소(me_code=20)로 붙어 있어, 머리말([성명]·[논평]·[…입장…] 등)이 있는 글만 넣는다([번역]·[후기]·머리말 없는 기사는 뺌).
+    kindOf: byPrefix(null),
   },
   {
     // https 없이만 열린다(Q4 결정: 이 단체만 http 허용).
