@@ -144,6 +144,52 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
   return out;
 }
 
+// ---- 텔레그램 공개 채널 웹 미리보기(t.me/s/<채널>) ------------------------------------------------------------------
+// 로그인 없이 열리는 공개 페이지. 글마다 `data-post="<채널>/<번호>"` 칸, 본문 `div.tgme_widget_message_text`, 날짜 `<time datetime>`.
+// 제목은 본문 첫 줄(텔레그램 글엔 제목이 없다). 원문 주소는 글 칸 안 링크 가운데 카탈로그가 허용한 단체 사이트 글 주소(있으면) — 그 주소는 요청하지 않는다.
+// 없으면 채널 글 주소(t.me/<채널>/<번호>). 페이지는 옛 글 → 새 글 순이라 뒤집어 새 글부터.
+const TG_TITLE_MAX = 120;
+export function parseTelegram(source: OutsideSource, html: string, nowMs: number, limit = 30, stats?: ListStats): ListItem[] {
+  const ch = source.telegram;
+  if (!ch) return [];
+  const clean = html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ");
+  const marks = [...clean.matchAll(/\bdata-post\s*=\s*"([A-Za-z0-9_]{1,64})\/(\d{1,9})"/g)];
+  const posts: { n: string; seg: string }[] = [];
+  for (const [i, m] of marks.entries()) {
+    if (m[1].toLowerCase() !== ch.toLowerCase()) continue;
+    posts.push({ n: m[2], seg: clean.slice(m.index!, marks[i + 1]?.index ?? clean.length) });
+  }
+  const out: ListItem[] = [];
+  const seen = new Set<string>();
+  for (const { n, seg } of posts.reverse()) {
+    if (out.length >= limit) break;
+    if (stats) stats.candidates++;
+    // 본문 칸: 안에 <div>가 없는 칸이라 첫 </div>까지.
+    const textHtml = /<div\b[^>]*\bclass\s*=\s*"[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div\s*>/i.exec(seg)?.[1] ?? "";
+    const text = cut(htmlToText(textHtml), BODY_MAX_CHARS);
+    const first = text.split("\n").map((l) => oneLine(l)).find(Boolean) ?? "";
+    const title = first ? cleanTitle(cut(first, TG_TITLE_MAX)) : null;
+    if (!title) continue; // 사진·파일뿐인 글
+    let url: string | null = null;
+    for (const h of seg.matchAll(/<a\b[^>]*\bhref\s*=\s*"([^"]+)"/gi)) {
+      const raw = decodeEntities(h[1]);
+      let u: URL;
+      try { u = new URL(raw); } catch { continue; }
+      if (u.hostname.toLowerCase() === "t.me" || u.pathname === "/" || !u.pathname) continue;
+      url = canonicalUrl(source, raw);
+      if (url) break;
+    }
+    url = url ?? canonicalUrl(source, `https://t.me/${ch}/${n}`);
+    if (!url || seen.has(url)) continue;
+    const kind = source.kindOf(title, url);
+    if (!kind) continue;
+    seen.add(url);
+    const dt = /<time\b[^>]*\bdatetime\s*=\s*"([^"]+)"/i.exec(seg)?.[1] ?? null;
+    out.push({ url, title, kind, author: null, published_at: feedDate(dt, nowMs), summary: null, content: text || null });
+  }
+  return out;
+}
+
 // 피드·목록 대신 '사람인지 확인' 스크립트 쪽이 온 경우(무료 호스팅의 자바스크립트 쿠키 확인 등).
 // 이 쪽은 풀지 않는다(우회 금지) — 단체 상태를 bot_check(사이트가 자동 읽기를 막아 둠)로 남길 뿐이다.
 export function looksLikeBotCheck(text: string): boolean {
