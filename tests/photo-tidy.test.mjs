@@ -134,7 +134,7 @@ test('공간 비우기: 원드라이브에 확인된 것만, 1년 지난 사진�
   assert.ok(scanFresh(NOW - 1000, NOW) && !scanFresh(NOW - FRESH_MS - 1, NOW) && !scanFresh(0, NaN));
 });
 
-test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연사(같은 폴더 1초 안), 남길 것 고르기', () => {
+test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연사(카메라 폴더, 첫 장과 1초 안), 남길 것 고르기', () => {
   const list = [
     ph(20, 'a.jpg', 300e3, '2026-10-01T01:00:00.000Z', 'Pictures/KakaoTalk/', {width:100, height:80}),
     ph(21, 'IMG_a.jpg', 300e3, '2026-09-30T01:00:00.000Z', 'DCIM/Camera/', {width:100, height:80}),
@@ -147,14 +147,15 @@ test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연�
   ];
   const g = dupGroups(list);
   const burst = g.find(x => x.kind === 'burst'), copy = g.find(x => x.kind === 'copy');
-  assert.deepEqual(burst.items.map(x => x.id), ['ph:30', 'ph:31', 'ph:32']);
+  // S47-19B: 첫 장과 1초 안만(예전엔 0.6초 간격으로 줄줄이 엮어 ph:32까지 묶었다).
+  assert.deepEqual(burst.items.map(x => x.id), ['ph:30', 'ph:31']);
   assert.equal(burst.keep, 'ph:31', '연사는 가장 큰 파일');
   assert.deepEqual(copy.items.map(x => x.id), ['ph:21', 'ph:20']);
   assert.equal(copy.keep, 'ph:21', '같은 사진은 카메라 폴더 것');
   assert.equal(g.length, 2);
-  assert.deepEqual(dupTrashList(g).map(x => x.id).sort(), ['ph:20', 'ph:30', 'ph:32']);
-  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:30']])).map(x => x.id), ['ph:31', 'ph:32'], '명진이 고른 것이 남는다');
-  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:99']])).map(x => x.id), ['ph:30', 'ph:32'], '묶음 밖 id는 무시');
+  assert.deepEqual(dupTrashList(g).map(x => x.id).sort(), ['ph:20', 'ph:30']);
+  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:30']])).map(x => x.id), ['ph:31'], '명진이 고른 것이 남는다');
+  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:99']])).map(x => x.id), ['ph:30'], '묶음 밖 id는 무시');
   assert.equal(defaultKeep([list[0]], 'copy'), 'ph:20');
 });
 
@@ -169,7 +170,7 @@ test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누�
   const html = t.html({canTrash:true});
   assert.match(html, /폰에서만 지우면 <b>80MB<\/b> 비워져요/);
   assert.match(html, /data-photos-tidy-trash="space"/);
-  assert.match(html, /같은 사진 묶음 <b>1개<\/b>/);
+  assert.match(html, /같은 사진·연사 <b>묶음 1개<\/b> · 지울 수 있는 1장 · 2MB/);
   assert.match(html, /data-photos-tidy-keep="ph:30\|ph:31" aria-pressed="true"/);
   assert.match(html, /data-photos-tidy-keep="ph:30\|ph:30" aria-pressed="false"/);
   assert.deepEqual(t.group('dups').items.map(x => x.id), ['ph:30']);
@@ -284,8 +285,96 @@ test('정리 [보기] 펼치기: 잡동사니·백업 안 됨 폴더 줄 아래�
 test('사진 메뉴: 정리 목록이 아래 [사진] 목록을 바꾸던 길은 없고, 펼친 칸은 이어 그리기·크게 보기', () => {
   const src = read('app/photos.js'), css = read('app/photos.css');
   for (const gone of ['setTidyView', 'tidyFill', 'tidyView', 'tidyLayer', 'data-photos-tidy-top', 'data-photos-tidy-end', "'photos-tidy'"]) assert.ok(!src.includes(gone), gone);
+  assert.match(src, /openTidyViewer\(\(\) => tidyPaneList\(p\.dataset\.photosTidyPane\), Number\(b\.dataset\.photosTidyOpen\)\)/);
   assert.match(src, /const TIDY_STEP = 60;/);
   assert.match(src, /tidyIo\.unobserve\(foot\); tidyIo\.observe\(foot\);/);
-  assert.match(src, /openViewer\(index, \{\n    list:\(\) => tidyPaneList\(key\),/);
+  assert.match(src, /function openTidyViewer\(list, index\) \{\n  openViewer\(index, \{\n    list,/);
   assert.match(css, /\.photos-tidy-size\{ position:absolute;/);
+});
+
+// ---- S47-19B 같은 사진·연사 묶음 바로잡기 ----
+import {cameraFolder, dupStats, dupStatText, whereLines, copiesFinder, phonePath, BURST_MAX, DUP_HOW} from '../app/photo-tidy-model.mjs';
+test('연사 좁히기: 카메라 폴더·정확한 시각만, 받은 사진·스크린샷·approx 제외, 첫 장과 1초 안, 최대 장수', () => {
+  const t0 = Date.parse('2026-10-05T01:00:00.000Z'), at = ms => new Date(t0 + ms).toISOString();
+  const cam = (n, ms, extra = {}) => ph(n, `C${n}.jpg`, 1e6 + n, at(ms), 'DCIM/Camera/', extra);
+  // 받은 사진(같은 저장 시각) — 예전엔 수백 장이 한 묶음이 되던 것.
+  const got = [1, 2, 3].map(k => ph(100 + k, `k${k}.jpg`, 1e6 + k, at(0), 'Pictures/KakaoTalk/'));
+  const dl = [1, 2].map(k => ph(110 + k, `d${k}.jpg`, 1e6 + 10 + k, at(0), 'Download/'));
+  const tg = [1, 2].map(k => ph(120 + k, `t${k}.jpg`, 1e6 + 20 + k, at(0), 'DCIM/Telegram/'));
+  const approx = [cam(130, 0, {approx:true}), cam(131, 100, {approx:true})];
+  const chain = [0, 600, 1200, 1800].map((ms, i) => cam(140 + i, 10_000 + ms));
+  const many = Array.from({length:BURST_MAX + 5}, (_, i) => cam(200 + i, 100_000 + i * 10));
+  const g = dupGroups([...got, ...dl, ...tg, ...approx, ...chain, ...many]);
+  assert.ok(g.every(x => x.kind === 'burst'));
+  assert.ok(!g.some(x => x.items.some(p => !/^DCIM\/Camera\//.test(p.folder) || p.approx)), '받은 사진·approx는 연사가 아니다');
+  const ch = g.filter(x => x.items.some(p => p.id.startsWith('ph:14')));
+  assert.deepEqual(ch.map(x => x.items.map(p => p.id)).sort(), [['ph:140', 'ph:141'], ['ph:142', 'ph:143']], '사슬로 엮지 않고 첫 장과 1초 안');
+  const big = g.filter(x => x.items.some(p => p.id.startsWith('ph:2')));
+  assert.deepEqual(big.map(x => x.items.length).sort((a, b) => b - a), [BURST_MAX, 5], '한 묶음 최대 장수');
+  assert.ok(cameraFolder('DCIM/Camera/') && cameraFolder('DCIM/100ANDRO/') && !cameraFolder('DCIM/Screenshots/') && !cameraFolder('Pictures/') && !cameraFolder(''));
+  // 같은 사진 묶음에 든 사진은 연사로 다시 묶지 않는다.
+  const a = ph(300, 'A.jpg', 2e6, at(500_000), 'DCIM/Camera/', {width:10, height:10}), b = ph(301, 'A copy.jpg', 2e6, at(500_200), 'DCIM/Camera/', {width:10, height:10});
+  const g2 = dupGroups([a, b]);
+  assert.deepEqual(g2.map(x => [x.kind, x.items.length]), [['copy', 2]]);
+  assert.deepEqual(dupStats(g), {groups:g.length, extra:g.reduce((n, x) => n + x.items.length - 1, 0), bytes:g.reduce((n, x) => n + x.bytes, 0)});
+  assert.equal(dupStatText({groups:3, extra:7, bytes:12.5e6}), '묶음 3개 · 지울 수 있는 사진 7장 · 아낄 용량 13MB');
+  assert.equal(dupStatText({groups:1, extra:1, bytes:0}), '묶음 1개 · 지울 수 있는 사진 1장');
+  assert.ok(DUP_HOW.copy && DUP_HOW.burst);
+});
+test('묶음 사진이 있는 곳: 폰 폴더 + 원드라이브 사본마다 한 줄(경로 모르면 폴더 모름)', () => {
+  const p = ph(1, 'IMG_1.jpg', 100, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/');
+  const find = copiesFinder([...ODS, {...ODS[0], id:'A2'}]);
+  assert.deepEqual(find(p).map(o => o.id), ['A', 'A2']);
+  assert.deepEqual(whereLines(p, find(p)), ['폰 · DCIM/Camera', '원드라이브 · 폴더 모름', '원드라이브 · 폴더 모름']);
+  assert.deepEqual(whereLines(p, find(p), o => (o.id === 'A' ? '사진/2026' : '')), ['폰 · DCIM/Camera', '원드라이브 · 사진/2026', '원드라이브 · 폴더 모름']);
+  assert.deepEqual(whereLines(ODS[2], []), ['원드라이브 · 폴더 모름']);
+  assert.equal(phonePath(''), '폴더 모름');
+  assert.deepEqual(copiesFinder(ODS)({...p, size_bytes:null}), []);
+});
+test('묶음 칸: 종류 칩(같은 사진·연사)·뜻이 보이는 숫자·비교 칸(두 장 나란히, 넘기기, 이것 남기기)', async () => {
+  const t0 = Date.parse('2026-10-05T01:00:00.000Z'), at = ms => new Date(t0 + ms).toISOString();
+  const c1 = ph(50, 'IMG_1.jpg', 100e3, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/', {width:10, height:10});
+  const c2 = ph(51, 'IMG_1(1).jpg', 100e3, '2026-10-02T01:00:00.000Z', 'Pictures/KakaoTalk/', {width:10, height:10});
+  const big = n => ph(n, `B${n}.jpg`, 1e6, at(0), 'X/');
+  const cpy = [70, 71].map(n => ({...big(n), size_bytes:60e3, width:4, height:3}));
+  const b = [0, 300, 600].map((ms, i) => ph(60 + i, `S${i}.jpg`, (i + 1) * 1e6, at(ms), 'DCIM/Camera/'));
+  const t = createPhotoTidy({phone:{page:async () => ({items:[c1, c2, ...cpy, ...b], next:null})}, odReady:() => true, readOd:async () => ({items:[od('A', 'IMG_1.jpg', 100e3, '2026-10-01T01:00:00.000Z')], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW});
+  await t.rescan();
+  let html = t.html({canTrash:true});
+  assert.match(html, /data-photos-tidy-dupkind="copy" aria-pressed="true">같은 사진 2<\/button>/);
+  assert.match(html, /data-photos-tidy-dupkind="burst" aria-pressed="false">연사 1<\/button>/);
+  assert.match(html, /파일 크기·가로세로가 똑같은 사진 · 묶음 2개 · 지울 수 있는 사진 2장 · 아낄 용량 160KB/);
+  assert.doesNotMatch(html, /data-photos-tidy-dup="ph:60"/, '다른 종류 묶음은 칩을 바꿔야 보인다');
+  t.dupKind('burst');
+  html = t.html({canTrash:true});
+  assert.match(html, /data-photos-tidy-dup="ph:60"><span class="photos-tidy-num">연사 3장 · 아낄 3MB<\/span><button type="button" class="mini" data-photos-tidy-see="dup:ph:60" aria-expanded="false">비교<\/button>/);
+  assert.deepEqual(t.group('dups').items.map(x => x.id), ['ph:60', 'ph:61'], '[나머지 모두 지우기]는 보이는 종류만');
+  assert.match(html, /보이는 연사 묶음에서 남길 사진만 두고/);
+  // 비교: 왼쪽 = 남길 사진(가장 큰 ph:62), 오른쪽 = 나머지 1/2, ‹ ›로 넘김, [이것 남기기].
+  t.toggle('dup:ph:60');
+  html = t.html({canTrash:true});
+  const cmp = html.match(/<div class="photos-tidy-cmp" data-photos-tidy-cmp="ph:60">.*?<\/div><\/div><div class="photos-tidy-cmp-nav">.*?<\/div><\/div>/)?.[0] || '';
+  assert.ok(cmp, '비교 칸');
+  const slots = [...cmp.matchAll(/data-photos-tidy-cmp-open="ph:60\|(ph:\d+)"/g)].map(m => m[1]);
+  assert.deepEqual(slots, ['ph:62', 'ph:60']);
+  assert.match(cmp, /<span class="photos-tidy-where">폰 · DCIM\/Camera<\/span><span class="photos-tidy-num">3MB · 2026\.10\.05 10:00:00<\/span><button type="button" class="mini" data-photos-tidy-keep="ph:60\|ph:62" aria-pressed="true">남길 사진<\/button>/);
+  assert.match(cmp, /data-photos-tidy-keep="ph:60\|ph:60" aria-pressed="false">이것 남기기/);
+  assert.match(cmp, /<span class="photos-tidy-num">1 \/ 2<\/span>/);
+  assert.match(cmp, /data-size="large"/);
+  t.cmpStep('ph:60', 1);
+  assert.deepEqual([...t.html().matchAll(/data-photos-tidy-cmp-open="ph:60\|(ph:\d+)"/g)].map(m => m[1]), ['ph:62', 'ph:61']);
+  t.cmpStep('ph:60', 1);
+  assert.deepEqual([...t.html().matchAll(/data-photos-tidy-cmp-open="ph:60\|(ph:\d+)"/g)].map(m => m[1]), ['ph:62', 'ph:60'], '끝에서 처음으로');
+  t.keep('ph:60', 'ph:60');
+  assert.deepEqual([...t.html().matchAll(/data-photos-tidy-cmp-open="ph:60\|(ph:\d+)"/g)].map(m => m[1]), ['ph:60', 'ph:61']);
+  assert.deepEqual(t.groupItems('ph:60').map(x => x.id), ['ph:60', 'ph:61', 'ph:62']);
+  // 같은 사진 묶음 비교: 원드라이브 사본 줄.
+  t.dupKind('copy'); t.toggle('dup:ph:50');
+  assert.match(t.html(), /<span class="photos-tidy-where">폰 · DCIM\/Camera<\/span><span class="photos-tidy-where">원드라이브 · 폴더 모름<\/span>/);
+  assert.match(t.html(), /<span class="photos-tidy-where">폰 · Pictures\/KakaoTalk<\/span><span class="photos-tidy-num">/);
+  t.dupKind('nope'); assert.match(t.html(), /data-photos-tidy-dupkind="copy" aria-pressed="true"/);
+  const src = read('app/photos.js');
+  assert.match(src, /if \(b\.matches\('\[data-photos-tidy-dupkind\]'\)\)/);
+  assert.match(src, /el\.dataset\.size === 'large' \? 'large' : 'small'/);
 });

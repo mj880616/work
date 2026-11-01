@@ -148,36 +148,66 @@ export function spacePlan(phItems, index, {now = Date.now(), isStarred = () => f
 export const FRESH_MS = 10 * 60 * 1000;
 export const scanFresh = (at, now = Date.now()) => Number.isFinite(at) && now - at < FRESH_MS;
 
-// ④ 묶음: 같은 사진 여러 번 저장(같은 크기·같은 가로세로 — 가로세로를 알 때만, 50KB 이상) = 'copy', 연사(같은 폴더에서 1초 안에 이어 찍은 사진, 동영상·스크린샷 제외) = 'burst'.
-export const BURST_MS = 1000, COPY_MIN_BYTES = 50e3, GROUP_MAX = 500;
+// ④ 묶음(S47-19B 요청함 11/01 12:54·12:55에서 좁힘): 두 종류를 섞지 않는다.
+// - 'copy' 같은 사진 여러 번 저장: 같은 크기·같은 가로세로(가로세로를 알 때만, 50KB 이상)·같은 종류(사진/동영상).
+// - 'burst' 연사: 카메라 폴더(DCIM/… — 받은 사진·스크린샷 폴더 제외)에서 찍은 시각이 정확한(approx 아님) 사진만, 묶음 첫 장과 1초 안,
+//   한 묶음 최대 BURST_MAX장. 예전처럼 줄줄이 엮지 않는다(받은 사진처럼 저장 시각이 붙은 것들이 큰 묶음이 되던 것).
+//   같은 사진 묶음에 든 사진은 연사로 다시 묶지 않는다.
+// 종류마다 아낄 용량 큰 순 GROUP_MAX묶음까지.
+export const BURST_MS = 1000, BURST_MAX = 20, COPY_MIN_BYTES = 50e3, GROUP_MAX = 500;
+const RECEIVED_RE = /(^|\/)(kakaotalk|telegram[^/]*|whatsapp[^/]*|line|download|downloads|screenshots?|screen ?recordings?)(\/|$)/i;
+export const cameraFolder = f => /^DCIM\//i.test(f || '') && !RECEIVED_RE.test(f || '');
+const groupOf = (items, kind) => {
+  items.sort((a, b) => String(a.taken_at).localeCompare(String(b.taken_at)) || a.id.localeCompare(b.id));
+  const keep = defaultKeep(items, kind);
+  return {id:items[0].id, kind, items, keep, bytes:items.filter(p => p.id !== keep).reduce((n, p) => n + bytesOf(p), 0)};
+};
+const bigFirst = (a, b) => b.bytes - a.bytes || String(b.items[0].taken_at).localeCompare(String(a.items[0].taken_at));
 export function dupGroups(phItems) {
   const list = (phItems || []).filter(p => p && p.id);
-  const parent = new Map(list.map(p => [p.id, p.id]));
-  const find = id => { let r = id; while (parent.get(r) !== r) r = parent.get(r); for (let x = id; parent.get(x) !== r;) { const n = parent.get(x); parent.set(x, r); x = n; } return r; };
-  const kinds = new Map();
-  const join = (a, b, kind) => { const ra = find(a.id), rb = find(b.id); if (ra !== rb) parent.set(rb, ra); kinds.set(find(a.id), kinds.get(ra) === 'copy' || kinds.get(rb) === 'copy' || kind === 'copy' ? 'copy' : 'burst'); };
   // 같은 사진 여러 번 저장
   const bySize = new Map();
-  for (const p of list) if (bytesOf(p) >= COPY_MIN_BYTES && p.width > 0 && p.height > 0) { const k = `${p.video ? 'v' : 'p'}:${p.size_bytes}:${p.width ?? ''}x${p.height ?? ''}`; (bySize.get(k) || bySize.set(k, []).get(k)).push(p); }
-  for (const same of bySize.values()) for (let i = 1; i < same.length; i++) join(same[0], same[i], 'copy');
+  for (const p of list) if (bytesOf(p) >= COPY_MIN_BYTES && p.width > 0 && p.height > 0) { const k = `${p.video ? 'v' : 'p'}:${p.size_bytes}:${p.width}x${p.height}`; (bySize.get(k) || bySize.set(k, []).get(k)).push(p); }
+  const copies = [], inCopy = new Set();
+  for (const same of bySize.values()) if (same.length > 1) { copies.push(groupOf(same.slice(), 'copy')); for (const p of same) inCopy.add(p.id); }
   // 연사
-  const byFolder = new Map();
-  for (const p of list) if (!p.video && !p.screenshot && p.folder && Number.isFinite(Date.parse(p.taken_at))) (byFolder.get(p.folder) || byFolder.set(p.folder, []).get(p.folder)).push(p);
+  const byFolder = new Map(), at = p => Date.parse(p.taken_at);
+  for (const p of list) {
+    if (p.video || p.screenshot || p.approx === true || inCopy.has(p.id) || !cameraFolder(p.folder) || !Number.isFinite(at(p))) continue;
+    (byFolder.get(p.folder) || byFolder.set(p.folder, []).get(p.folder)).push(p);
+  }
+  const bursts = [];
   for (const f of byFolder.values()) {
-    f.sort((a, b) => Date.parse(a.taken_at) - Date.parse(b.taken_at) || a.id.localeCompare(b.id));
-    for (let i = 1; i < f.length; i++) if (Date.parse(f[i].taken_at) - Date.parse(f[i - 1].taken_at) <= BURST_MS) join(f[i - 1], f[i], 'burst');
+    f.sort((a, b) => at(a) - at(b) || a.id.localeCompare(b.id));
+    for (let i = 0; i < f.length;) {
+      let j = i + 1;
+      while (j < f.length && j - i < BURST_MAX && at(f[j]) - at(f[i]) <= BURST_MS) j++;
+      if (j - i > 1) bursts.push(groupOf(f.slice(i, j), 'burst'));
+      i = j;
+    }
   }
-  const groups = new Map();
-  for (const p of list) { const r = find(p.id); (groups.get(r) || groups.set(r, []).get(r)).push(p); }
+  return [...copies.sort(bigFirst).slice(0, GROUP_MAX), ...bursts.sort(bigFirst).slice(0, GROUP_MAX)].sort(bigFirst);
+}
+// 묶음 숫자(뜻이 보이게): 묶음 n개 · 지울 수 있는 사진 m장(남길 것 말고) · 아낄 용량.
+export function dupStats(groups) {
+  const list = groups || [];
+  return {groups:list.length, extra:list.reduce((n, g) => n + g.items.length - 1, 0), bytes:list.reduce((n, g) => n + g.bytes, 0)};
+}
+export const dupStatText = ({groups, extra, bytes}) => `묶음 ${groups}개 · 지울 수 있는 사진 ${extra}장${bytes ? ` · 아낄 용량 ${sizeText(bytes)}` : ''}`;
+// 사진이 있는 곳 한 줄씩: "폰 · DCIM/Camera", "원드라이브 · 사진/2024"(경로 모르면 '폴더 모름'). odCopies = 같은 사진인 원드라이브 칸들, odPath = 원드라이브 칸 → 폴더 경로(모르면 '').
+export const phonePath = f => String(f || '').replace(/\/+$/, '') || '폴더 모름';
+export function whereLines(item, odCopies = [], odPath = () => '') {
   const out = [];
-  for (const [r, items] of groups) {
-    if (items.length < 2) continue;
-    items.sort((a, b) => String(a.taken_at).localeCompare(String(b.taken_at)) || a.id.localeCompare(b.id));
-    const kind = kinds.get(find(r)) || 'burst';
-    out.push({id:r, kind, items, keep:defaultKeep(items, kind), bytes:0});
-  }
-  for (const g of out) g.bytes = g.items.filter(p => p.id !== g.keep).reduce((n, p) => n + bytesOf(p), 0);
-  return out.sort((a, b) => b.bytes - a.bytes || String(b.items[0].taken_at).localeCompare(String(a.items[0].taken_at))).slice(0, GROUP_MAX);
+  if (item?.kind === 'phone') out.push(`폰 · ${phonePath(item.folder)}`);
+  else if (item) out.push(`원드라이브 · ${odPath(item) || '폴더 모름'}`);
+  for (const o of odCopies || []) if (o && o.id !== item?.id) out.push(`원드라이브 · ${odPath(o) || '폴더 모름'}`);
+  return out;
+}
+// 같은 사진인 원드라이브 칸 모두(섞어 보기 같은 사진 규칙 sameMedia, 크기를 알 때만).
+export function copiesFinder(odItems) {
+  const bySize = new Map();
+  for (const o of odItems || []) if (o && bytesOf(o) > 0 && o.id) (bySize.get(o.size_bytes) || bySize.set(o.size_bytes, []).get(o.size_bytes)).push(o);
+  return p => (p && bytesOf(p) > 0 ? (bySize.get(p.size_bytes) || []).filter(o => sameMedia(p, o)) : []);
 }
 // 남길 것 기본값: 같은 사진은 카메라 폴더(DCIM) 것 → 가장 먼저 저장된 것, 연사는 가장 큰 파일(같으면 첫 장).
 export function defaultKeep(items, kind) {
@@ -191,6 +221,8 @@ export function dupTrashList(groups, keeps = new Map()) {
   return out;
 }
 export const DUP_TEXT = Object.freeze({copy:'같은 사진', burst:'연사'});
+// 묶는 기준 한 줄(명진 12:54 '어떤 원리로 같은 사진을 추리는지').
+export const DUP_HOW = Object.freeze({copy:'파일 크기·가로세로가 똑같은 사진', burst:'카메라로 1초 안에 이어 찍은 사진'});
 
 // ---- S47-16 PHOTO-폰지우기안전장치(요청함 10/31 22:52): [폰에서만 지우기]·[나머지 지우기] 전 원드라이브 사본 짝 ----
 // 폰 사진마다 원드라이브에서 같은 크기(그리고 같은 이름 또는 찍은 시각)인 사본을 찾는다. 크기를 모르면 짝이 없다(지우지 않음).

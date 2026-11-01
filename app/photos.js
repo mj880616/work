@@ -174,7 +174,7 @@ function paintTidy() {
   tidyBox.querySelectorAll('details[data-k]').forEach(d => { if (open.has(d.dataset.k)) d.open = true; });
   if (focusAttr) [...tidyBox.querySelectorAll(`[${focusAttr.name}]`)].find(x => x.getAttribute(focusAttr.name) === focusAttr.value)?.focus({preventScroll:true});
   // ④ 묶음 작은 그림(폰 앱에서만 읽음, 메모리만).
-  tidyBox.querySelectorAll('[data-photos-tidy-th]').forEach(el => { const it = tidy.item(el.dataset.photosTidyTh); if (it) el.append(phone.element(it, 'small', {label:''})); });
+  tidyBox.querySelectorAll('[data-photos-tidy-th]').forEach(el => { const it = tidy.item(el.dataset.photosTidyTh); if (it) el.append(phone.element(it, el.dataset.size === 'large' ? 'large' : 'small', {label:''})); });
   fillTidyPanes();
 }
 // <details>(공간 비우기 등)를 열 때 그 안 펼친 칸을 채운다.
@@ -211,9 +211,9 @@ function tidyCell(item, i) {
   return b;
 }
 // 펼친 칸의 사진 크게 보기: 그 칸 목록(고른 정렬) 그대로 넘기고, 지우면 그 칸·정리 재료·[사진] 목록에서 뺀다.
-function openTidyViewer(key, index) {
+function openTidyViewer(list, index) {
   openViewer(index, {
-    list:() => tidyPaneList(key),
+    list,
     take:item => { tidyGone.add(item.id); paintTidy(); return [{item, index:0}]; },
     restore:taken => { for (const t of taken) tidyGone.delete(t.item.id); paintTidy(); },
     commit:async (taken, opts) => {
@@ -288,7 +288,14 @@ function tidyClick(b) {
   if (b.matches('[data-photos-place]')) { tidy.toggle('place:' + b.dataset.photosPlace); paintTidy(); return true; }
   if (b.matches('[data-photos-tidy-see]')) { tidy.toggle(b.dataset.photosTidySee); paintTidy(); return true; }
   if (b.matches('[data-photos-tidy-sort]')) { const v = b.dataset.photosTidySort, at = v.lastIndexOf('|'), key = v.slice(0, at); tidy.sortSet(key, v.slice(at + 1)); tidyShown.delete(key); paintTidy(); return true; }
-  if (b.matches('[data-photos-tidy-open]')) { const p = b.closest('[data-photos-tidy-pane]'); if (p) openTidyViewer(p.dataset.photosTidyPane, Number(b.dataset.photosTidyOpen)); return true; }
+  if (b.matches('[data-photos-tidy-open]')) { const p = b.closest('[data-photos-tidy-pane]'); if (p) openTidyViewer(() => tidyPaneList(p.dataset.photosTidyPane), Number(b.dataset.photosTidyOpen)); return true; }
+  // S47-19B 같은 사진·연사: 종류 칩, 비교 칸 ‹ ›, 비교 사진 크게 보기(그 묶음 사진들).
+  if (b.matches('[data-photos-tidy-dupkind]')) { tidy.dupKind(b.dataset.photosTidyDupkind); paintTidy(); return true; }
+  if (b.matches('[data-photos-tidy-cmp-step]')) { const [g, d] = b.dataset.photosTidyCmpStep.split('|'); tidy.cmpStep(g, Number(d)); paintTidy(); return true; }
+  if (b.matches('[data-photos-tidy-cmp-open]')) {
+    const [g, id] = b.dataset.photosTidyCmpOpen.split('|'), list = () => (tidy.groupItems(g) || []).filter(x => !tidyGone.has(x.id));
+    const i = list().findIndex(x => x.id === id); if (i >= 0) openTidyViewer(list, i); return true;
+  }
   if (b.matches('[data-photos-tidy-more-btn]')) { const p = b.closest('[data-photos-tidy-pane]'); if (p) fillTidyPane(p, true); return true; }
   if (b.matches('[data-photos-tidy-keep]')) { const [g, id] = b.dataset.photosTidyKeep.split('|'); tidy.keep(g, id); paintTidy(); return true; }
   if (b.matches('[data-photos-tidy-rescan]')) { tidyShown.clear(); tidy.rescan(); return true; }
