@@ -235,3 +235,21 @@ test('an archived update leaves 연결하기 out of its row menu, as the detail 
   await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden();
   expect(f.errors).toEqual([]);
 });
+
+// UI-뒤로가기겹규칙(S47-4): 줄 ⋯ 메뉴는 뒤로가기 기록 하나 — 뒤로가기 = 메뉴만 닫기(정리함에 그대로), 고른 항목(수정)이 연 상세는 뒤로 한 번에 목록.
+test('업데이트 줄 ⋯ 메뉴: 뒤로가기 = 메뉴만 닫기, 메뉴로 연 상세는 뒤로 한 번 = 목록 412', async ({ page }) => {
+  const f = await fixture(page, 412);
+  await press(page, rowMore(page, A), 412);
+  await expect(menu(page)).toBeVisible();
+  await page.goBack();
+  await expect(menu(page)).toBeHidden();
+  await expect(page.locator(`[data-basket-row="${A}"]`)).toBeVisible();
+  await expect(page).toHaveURL(/view=basket/);
+  await choose(page, A, '수정', 412);
+  await expect(detail(page)).toBeVisible();
+  await page.goBack();
+  await expect(detail(page)).toBeHidden();
+  await expect(page.locator(`[data-basket-row="${A}"]`)).toBeVisible();
+  await expect(page).toHaveURL(/view=basket/);
+  expect(f.errors).toEqual([]);
+});
