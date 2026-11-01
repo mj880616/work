@@ -91,13 +91,13 @@ test('② 조직보고 순서: 13개 조직은 정해진 가나다순(공항철�
     '부산지하철노동조합', '서울교통공사9호선지부', '서울교통공사노동조합', '서해선지부', '신분당선지부', '용인경전철지부', '인천교통공사노동조합', '전국철도노동조합', '지티엑스에이운영지부']);
 });
 
-test('② 4. 산하조직 현황: 내 담당 조직은 확정본에 줄이 없어도 모두 조직보고 순서로, 내용이 없으면 조직명만·현황 칸 빈칸', () => {
+test('② 4. 산하조직 현황: 내 담당 조직은 바탕에 줄이 없어도 모두(바탕 순서 뒤 끝에), 내용이 없으면 조직명만·현황 칸 빈칸', () => {
   const team = readReport(fake());
   assert.deepEqual(team.orgs.map(o => o.org.join('')), ['가짜조직 갑', '가짜조직 을', '가짜조직 병']);
   const orgList = [{name: '가짜조직 병'}, {name: '가짜 새 조직'}, {name: '가짜조직 갑', aliases: []}, {name: '가짜조직 가'}];
   const mine = personalReportFromTeam(team, '가짜담당 갑', {myOrgs: orgList.map(o => o.name), orgList});
   assert.deepEqual(mine.orgs.map(o => [o.org.join(''), o.status.length > 0]), [
-    ['가짜 새 조직', false], ['가짜조직 가', false], ['가짜조직 갑', true], ['가짜조직 병', true]]);
+    ['가짜조직 갑', true], ['가짜조직 병', true], ['가짜 새 조직', false], ['가짜조직 가', false]]);
   // 내 담당이 아닌 조직(을)은 없다. 투쟁 사업장 표는 지금처럼 확정본의 내 담당 조직 줄만.
   assert.ok(!mine.orgs.some(o => o.org.join('') === '가짜조직 을'));
   assert.deepEqual(mine.sites.map(o => o.org.join('')), ['가짜조직 갑', '가짜조직 병']);
@@ -105,11 +105,26 @@ test('② 4. 산하조직 현황: 내 담당 조직은 확정본에 줄이 없�
   const {pkg} = buildReport(extractBlankTemplate(fake()), mine);
   assert.deepEqual(validateHwpx(packHwpx(pkg, zlib), zlib).errors, []);
   const org = findTables(pkg).org;
-  assert.deepEqual(org.rows.map(r => r[0].lines.join('')), ['가짜 새 조직', '가짜조직 가', '가짜조직 갑', '가짜조직 병']);
-  assert.deepEqual(org.rows.slice(0, 2).map(r => r[1].lines), [[''], ['']]);
+  assert.deepEqual(org.rows.map(r => r[0].lines.join('')), ['가짜조직 갑', '가짜조직 병', '가짜 새 조직', '가짜조직 가']);
+  assert.deepEqual(org.rows.slice(2).map(r => r[1].lines), [[''], ['']]);
   // 내용을 아무것도 찾지 못한 주에도 줄 수·순서가 같다.
   const quiet = personalReportFromTeam({...team, orgs: []}, '가짜담당 갑', {orgList});
   assert.deepEqual(quiet.orgs.map(o => [o.org.join(''), o.status]), [['가짜 새 조직', []], ['가짜조직 가', []], ['가짜조직 갑', []], ['가짜조직 병', []]]);
+});
+
+// WEEKLY-한흐름확정 ④(11/01 01:18): 4번 칸 순서 = 바탕(지난주 개인본) 순서. 가나다순으로 다시 세우지 않고, 바탕에 없는 조직만 끝에 빈 칸.
+test('④ 4. 산하조직 현황: 바탕 순서가 가나다순이 아니어도 그 순서 그대로, 소식 없는 조직도 자리 유지, 한글 파일도 같은 순서', () => {
+  const team = readReport(fake());
+  const base = {...team, orgs: [...team.orgs].reverse()}; // 바탕 순서: 병 → 을 → 갑
+  const orgList = [{name: '가짜조직 갑'}, {name: '가짜 새 조직'}, {name: '가짜조직 병'}];
+  const mine = personalReportFromTeam(base, '가짜담당 갑', {myOrgs: orgList.map(o => o.name), orgList});
+  assert.deepEqual(mine.orgs.map(o => [o.org.join(''), o.status.length > 0]), [['가짜조직 병', true], ['가짜조직 갑', true], ['가짜 새 조직', false]]);
+  const {pkg} = buildReport(extractBlankTemplate(fake()), mine);
+  assert.deepEqual(validateHwpx(packHwpx(pkg, zlib), zlib).errors, []);
+  assert.deepEqual(findTables(pkg).org.rows.map(r => r[0].lines.join('')), ['가짜조직 병', '가짜조직 갑', '가짜 새 조직']);
+  // 같은 바탕이면 이번 주 소식이 하나도 없어도 줄 수·순서가 같다(빈 칸으로 자리 유지).
+  const quiet = personalReportFromTeam({...base, orgs: base.orgs.map(r => ({...r, status: []}))}, '가짜담당 갑', {orgList});
+  assert.deepEqual(quiet.orgs.map(o => o.org.join('')), ['가짜조직 병', '가짜조직 갑', '가짜 새 조직']);
 });
 
 test('⑦ 5. 주요 일정 표: 일정 없는 날 줄은 시간/내용/장소·참석자 칸이 모두 비어 있다', () => {

@@ -180,6 +180,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const button = (text, data, cls = 'mini') => { const b = el('button', cls, text); b.type = 'button'; b.dataset[data] = ''; return b; };
   let state = null, engine = null, lib = null, run = 0, confirmed = undefined, sourceRun = 0, weekDraft = null, flight = null;
+  // [처음부터] 뒤 바탕을 다시 연 끝에 남길 상태 줄({week, text}). 다시 여는 동안의 '여는 중…' 줄이 지운 결과 안내를 연 뒤 되살린다(한 번만).
+  let reopenNote = null;
   // WEEKLY-한흐름확정 ②(명진 결정 ①: 위 상자 없앰): 이 모듈은 [주간 정리] 안 두 자리를 그린다.
   //   topLine — 맨 위 한 줄 '■ 일시 · 이름 · 바탕 … 임시저장 HH:MM ⋯'(⋯ = 이름 고치기·일시 고치기·바탕 바꾸기(기기 파일)·처음부터)
   //   host    — 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기](이 화면의 유일한 채운 버튼) + ⋯(HWP로 받기·확정 없이 파일만 받기·글로 복사·학습 시험)
@@ -220,6 +222,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
 
   // 바탕을 닫는다(주가 바뀜·처음부터). 고치던 것은 닫기와 같이 저장. 맨 위 한 줄·확정 버튼 줄은 그대로(draft 로 다시 그림).
   function close(message = '') {
+    reopenNote = null;
     if (state?.store?.dirty) void saveDraft(state);
     if (state?.store) clearTimeout(state.store.timer);
     run++; sourceRun++; state = null; weekDraft = null; flight = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true;
@@ -366,7 +369,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       await attachDraft(state, baseInfo, saved);
       if (mine !== run) return;
       carry(week);
-      say('');
+      say(reopenNote?.week === week.start ? reopenNote.text : ''); reopenNote = null;
       // 환류학습 3: 그 주 처음 초안이 아직 없으면(처음 연 주) AI 초안을 한 번 쓴다(기록을 다 읽은 뒤 — renderMaterial). 있으면 그대로.
       state.ai = {status:state.store?.extras?.proposed ? (state.store.extras.proposed.ai ? 'done' : 'base') : 'wait', note:''};
       if (state.store?.status === 'missing' || state.store?.status === 'readFailed') state.ai.status = 'base';
@@ -1443,7 +1446,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (state !== s) return;
     if (!saved && st?.dirty) void saveDraft(s); // 아직 못 쓴 받은 초안 기록(issued)만 있을 때
     // 칸이 비면 [주간 정리]가 바탕을 다시 열어 처음 초안부터 만든다(prepare → ensure).
-    close(saved ? '임시저장본을 지웠어요. 바탕부터 다시 만들어요.' : ''); onDraft?.(s.start, null); onFlow({restart:s.start});
+    const note = saved ? '임시저장본을 지웠어요. 바탕부터 다시 만들어요.' : '';
+    close(note); reopenNote = note ? {week:s.start, text:note} : null; onDraft?.(s.start, null); onFlow({restart:s.start});
   }
   doc.addEventListener('visibilitychange', () => {
     if (!state?.store) return;

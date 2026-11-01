@@ -75,23 +75,22 @@ function keepOrgRows(rows, myOrgs) {
   return kept.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), paras: [...(r.paras ?? [])], ...(r.borders ? {borders: [...r.borders]} : {}),
     ...(Number.isInteger(r.src) ? {src: r.src, cutAbove: i === 0 ? r.src !== 0 : kept[i - 1].src !== r.src - 1} : {})}));
 }
-// WEEKLY-출력정리 ②(2026-10-23 사용자 요청 12:25): 4. 산하조직 현황 표는 내 담당 조직(약속된 조직) 전부를 정해진 순서로 늘 둔다.
+// WEEKLY-출력정리 ②(2026-10-23 사용자 요청 12:25): 4. 산하조직 현황 표는 내 담당 조직(약속된 조직) 전부를 늘 둔다.
 // 확정본에 줄이 없는 조직도 조직명만 채우고 현황 칸은 빈 줄로 남긴다(취합 담당이 표를 그대로 복사해 모으므로 줄 수·순서가 매주 같아야 함).
-// 순서: 조직보고 순서(가나다순 — 공항철도지부, 김포도시철도지부, 대구교통공사노동조합 … 지티엑스에이운영지부, 이름 비교는 ko 정렬).
-// 확정본에 같은 조직 줄이 여럿이면 확정본 순서대로 모두 그 조직 자리에 둔다. orgList = [{name, aliases}](my-organizations.js 결과).
+// WEEKLY-한흐름확정 ④(2026-11-01 요청 01:18): 순서 = 바탕 순서. 바탕(지난주 개인본, 없으면 팀 확정본 = 양식 순서)에 있는 내 조직 줄은
+// 바탕에 놓인 차례 그대로 두고(같은 조직 줄이 여럿이면 각자 제자리), 바탕에 없는 내 담당 조직만 맨 끝에 빈 칸으로 더한다(그 끝 묶음은 가나다순).
+// 기록 건수·AI 판단으로 순서를 바꾸지 않는다. orgList = [{name, aliases}](my-organizations.js 결과).
 // 3. 2) 투쟁 사업장 현황은 투쟁 중인 사업장만 적는 표라 지금처럼 확정본에 있는 내 담당 조직 줄만 둔다.
 export const reportOrgOrder = orgList => [...orgList].sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'ko'));
 function allOrgRows(rows, orgList) {
-  const list = rows ?? [], used = new Set(), picked = [];
+  const list = rows ?? [];
   const orgs = reportOrgOrder(orgList);
   const text = r => [].concat(r.org).join('');
-  // 줄마다 맞는 조직이 정확히 하나일 때만 그 조직 자리에 둔다(정식 이름이 같으면 그 조직이 먼저). 둘 이상 맞으면(별칭이 겹침) 어느 쪽에도 잇지 않는다.
+  // 줄마다 맞는 조직이 정확히 하나일 때만 그 조직 줄로 본다(정식 이름이 같으면 그 조직이 먼저). 둘 이상 맞으면(별칭이 겹침) 어느 쪽에도 잇지 않는다.
   const owner = list.map(r => { const hits = matchOrgs(text(r), orgs); return hits.length === 1 ? hits[0] : null; });
-  for (const org of orgs) {
-    const hits = list.filter((r, i) => !used.has(i) && owner[i] === org);
-    for (const r of hits) used.add(list.indexOf(r));
-    if (hits.length) picked.push(...hits); else picked.push({org: [String(org.name ?? '').trim()], status: []});
-  }
+  const picked = list.filter((r, i) => owner[i]);
+  const have = new Set(owner.filter(Boolean));
+  for (const org of orgs) if (!have.has(org)) picked.push({org: [String(org.name ?? '').trim()], status: []});
   return picked.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), paras: [...(r.paras ?? [])], ...(r.borders ? {borders: [...r.borders]} : {}),
     ...(Number.isInteger(r.src) ? {src: r.src, cutAbove: i === 0 ? r.src !== 0 : picked[i - 1].src !== r.src - 1} : {})}));
 }
