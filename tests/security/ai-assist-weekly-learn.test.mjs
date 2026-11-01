@@ -234,3 +234,52 @@ test('weekly_line: bad requests never reach AI; untrusted answers cleaned',async
    assert.deepEqual(body.lines,[{ref:'l1',text:null},{ref:'l2',text:'가상 행사 끝'}]);}
   {const {handler}=harness({openai:()=>respond({status:'completed',output:[]})});await expectError(await post(handler,lineBody()),502,'ai_invalid_response');}
 });
+
+// WEEKLY-환류전칸 ⑤: 확정 전(고침 기록 없음)이라도 이 주 동작 기록(draft.picks)이 있으면 weekly_review 가 그것으로 정리한다.
+// 재료에는 묶음·제안 종류별 셈(그대로 넣은 비율)과 고친 예·뺀 예(이유)·손으로 더한 예가 간다. 후보는 규칙 칸에만(고침 기록 칸은 만들지 않음).
+// 앞 주들의 '빼면서 적은 이유'는 weekly_draft·weekly_line 재료(rejected_with_reason)로 간다. 기록에는 숫자만. 가짜 글만.
+const picks=(items)=>({at:'2026-10-29T01:00:00.000Z',items,released:[]});
+const pk=(o)=>({key:`k${Math.random()}`,kind:'material',from:'record',cell:'summary:가›가-1',org:'',at:'2026-10-29T01:00:00.000Z',text:'가상 제안 글',...o});
+test('weekly_review: no feedback yet but this week\'s actions → reviews the actions (reasons included), saves candidates only',async()=>{
+  const items=[pk({act:'take'}),pk({act:'take'}),pk({act:'drop',text:'가상 뺀 제안',why:'가상 지난주에 쓴 일'}),pk({act:'edit',text:'가상 고친 글',before:'가상 원래 제안'}),
+    pk({kind:'line',from:'calendar',cell:'calendar',act:'cut',text:'10:00 / 가상 일정'}),pk({kind:'review',from:'hand',cell:'개선 제안',act:'add',text:'가상 내 생각'}),pk({act:'none'}),{kind:'BAD KIND',act:'take',text:'x'},{kind:'material',act:'zap'}];
+  const rows=[{id:'r1',workspace_id:WS,week_start:WEEK,items:[],draft_saved_at:'2026-10-30T04:00:00.000Z',draft:{v:1,rows:[],titles:[],picks:picks(items)}},
+    {id:'r2',workspace_id:WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,feedback:fb('2026-10-19'),rules:{v:2,at:'2026-10-23T09:00:00Z',lines:[{text:'가상 확정 규칙',from:'added'}],candidates:[],retired:[]}}}];
+  const {handler,calls,db}=harness({rows,openai:()=>respond(answer({candidates:['가상 실시간 후보'],suggestions:[{area:'flow',text:'가상 흐름 제안'}]}))});
+  const res=await post(handler,{kind:'weekly_review',week_start:WEEK});
+  assert.equal(res.status,200);
+  const body=await res.json();
+  assert.equal(body.saved,true);assert.deepEqual(body.review.candidates,['가상 실시간 후보']);
+  const sent=JSON.parse(calls.openai[0].input[1].content);
+  assert.equal(sent.this_week,null);
+  assert.equal(sent.this_week_actions.total,6,'none·broken items are not counted');
+  assert.deepEqual(sent.this_week_actions.counts.find(c=>c.group==='2. 사업 요약'&&c.kind==='material'),{group:'2. 사업 요약',kind:'material',take:2,edit:1,drop:1,fix:0,cut:0,add:0,kept_percent:50});
+  assert.ok(sent.this_week_actions.counts.some(c=>c.group==='5. 주요 일정'&&c.cut===1));
+  assert.ok(sent.this_week_actions.examples.some(e=>e.how==='뺌'&&e.why==='가상 지난주에 쓴 일'&&e.before==='가상 뺀 제안'));
+  assert.ok(sent.this_week_actions.examples.some(e=>e.how==='고쳐서 넣음'&&e.before==='가상 원래 제안'&&e.after==='가상 고친 글'));
+  assert.ok(sent.this_week_actions.examples.some(e=>e.how==='손으로 더함'&&e.where==='개선 제안'&&e.after==='가상 내 생각'));
+  assert.match(calls.openai[0].input[0].content,/this_week_actions는/);
+  const row=db.app_weekly_exec_requests.find(r=>r.id==='r1');
+  assert.equal(row.draft.feedback,undefined,'no feedback cell is made before the confirm');
+  assert.deepEqual(row.draft.rules.candidates,[{text:'가상 실시간 후보'}]);
+  assert.deepEqual(row.draft.rules.lines,[{text:'가상 확정 규칙',from:'added'}]);
+  assert.equal(row.draft.picks.items.length,items.length,'actions kept as they were');
+  assert.ok(calls.logs.some(l=>l.code==='weekly_review_done'&&l.detail.actions===6&&l.detail.confirmed===false));
+  assert.ok(!/가상/.test(JSON.stringify(calls.logs)),'no text in logs');
+  // 동작이 'none'뿐이면(되돌린 것뿐) AI를 부르지 않는다.
+  {const {handler,calls}=harness({rows:[{id:'r1',workspace_id:WS,week_start:WEEK,items:[],draft_saved_at:null,draft:{v:1,picks:picks([pk({act:'none'})])}}]});await expectError(await post(handler,{kind:'weekly_review',week_start:WEEK}),404,'not_found');assert.equal(calls.openai.length,0);}
+});
+test('weekly_draft·weekly_line: earlier weeks\' drop reasons go as rejected_with_reason (this week never)',async()=>{
+  const rows=[{id:'r1',workspace_id:WS,week_start:WEEK,items:[],draft_saved_at:'x',draft:{v:1,picks:picks([pk({act:'drop',text:'THIS_WEEK_DROP',why:'THIS_WEEK_WHY'})])}},
+    {id:'r2',workspace_id:WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,feedback:fb('2026-10-19'),picks:picks([pk({act:'drop',cell:'orgs:가상 지부',text:'가상 뺀 조직 소식',why:'가상 이미 끝난 일'}),pk({act:'drop',text:'이유 없음'}),pk({act:'take'})])}},
+    {id:'r4',workspace_id:OTHER_WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,picks:picks([pk({act:'drop',why:'FOREIGN_WHY'})])}}];
+  const {handler,calls}=harness({rows});
+  assert.equal((await post(handler,draftBody())).status,200);
+  const material=calls.openai[0].input[1].content,sent=JSON.parse(material);
+  assert.deepEqual(sent.rejected_with_reason,[{where:'4. 산하 조직',text:'가상 뺀 조직 소식',why:'가상 이미 끝난 일'}]);
+  for(const hidden of ['THIS_WEEK_WHY','THIS_WEEK_DROP','FOREIGN_WHY'])assert.ok(!material.includes(hidden),hidden);
+  assert.match(calls.openai[0].input[0].content,/rejected_with_reason/);
+  assert.match(calls.rest.find(c=>c.table==='app_weekly_exec_requests').query,/picks:draft->picks/);
+  const pure=wl.dropReasons([{week_start:'2026-10-12',picks:picks([pk({act:'drop',why:'가'})])},{week_start:WEEK,picks:picks([pk({act:'drop',why:'나'})])}],WEEK);
+  assert.deepEqual(pure.map(x=>x.why),['가']);
+});
