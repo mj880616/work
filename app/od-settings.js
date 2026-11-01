@@ -47,7 +47,8 @@ export function createOdSettings({rt, layerName, back = '', hint = '켠 폴더�
   }
   function setOpen(next, {fromBack = false} = {}) {
     open = next;
-    if (next) { layer ||= window.KPTURouter?.layer?.open(layerName, {close:() => { close({fromBack:true}); return true; }}) || null; return; }
+    // UI-뒤로가기겹규칙: 폴더 고르기에서 하위 폴더로 들어가 있으면 뒤로가기 = 한 단계 위([위로]와 같음). 창의 기록 칸은 그대로 둔다(false).
+    if (next) { layer ||= window.KPTURouter?.layer?.open(layerName, {close:() => { if (browse?.stack.length > 1) { if (!busy) upOne(); return false; } close({fromBack:true}); return true; }}) || null; return; }
     const opened = layer; layer = null; if (!fromBack) opened?.close();
   }
   function close({fromBack = false} = {}) {
@@ -65,6 +66,7 @@ export function createOdSettings({rt, layerName, back = '', hint = '켠 폴더�
     browse.folders = null; paint();
     browse.folders = await odFolders(rt, parentId);
   }
+  function upOne() { browse.stack.pop(); const top = browse.stack.at(-1); run(() => browseFolders(top.id)); }
   function startBrowse() { setOpen(true); tree = null; browse = {stack:[{id:null, name:'맨 위'}], folders:null}; return browseFolders(null); }
   function refreshKeep() { odKeepCount(rt).then(n => { keep = n; if (open) paint(); }, () => {}); }
   async function openTree() {
@@ -117,7 +119,7 @@ export function createOdSettings({rt, layerName, back = '', hint = '켠 폴더�
       run(async () => { for (const c of changes) await odFolderToggle(rt, c.id, c.enabled); close(); }, {reload:true});
       return true;
     }
-    if (button.matches('[data-od-up]')) { browse.stack.pop(); const top = browse.stack.at(-1); run(() => browseFolders(top.id)); return true; }
+    if (button.matches('[data-od-up]')) { upOne(); return true; }
     if (button.matches('[data-od-enter]')) { browse.stack.push({id:button.dataset.odEnter, name:button.dataset.odName}); run(() => browseFolders(button.dataset.odEnter)); return true; }
     if (button.matches('[data-od-pick]')) {
       run(async () => { await odFolderSet(rt, button.dataset.odPick); await refresh(true); browse = null; tree = null; setOpen(false); reset({disconnected:false}); message(''); }, {reload:true});

@@ -1,0 +1,52 @@
+name: Phone push schedule
+
+# APP-폰알림(설계 docs/design/phone-notifications.md 2·4절): 예약 시각마다 서버(Edge phone-push ?action=run&slot=…)를 부른다.
+# 시각(KST): 15분마다(수집 멈춤 확인) · 매일 08:0x(아침 묶음·할 일 기한) · 매일 18:2x(저녁 묶음·원장 약속 D-1) · 금 15:2x(다음 주 준비).
+#   UTC로 23:03 · 09:22 · 금 06:23, 15분은 4·19·34·49분. 정각은 GitHub 예약이 몰려 늦어지므로 분을 흩뜨린다.
+# 켜기 스위치: 저장소 변수 PHONE_PUSH_ENABLED=true일 때만 돈다(함수 첫 배포·비밀값 등록 전에는 건너뜀).
+# 비밀값 PHONE_PUSH_CRON_SECRET은 GitHub Actions 비밀값과 Supabase Edge 비밀값 두 곳에 같은 값.
+# 되돌리기: 변수를 지우거나 false로 두면(또는 이 workflow를 끄면) 예약 호출이 멈춘다.
+on:
+  schedule:
+    - cron: '4,19,34,49 * * * *'
+    - cron: '3 23 * * *'
+    - cron: '22 9 * * *'
+    - cron: '23 6 * * 5'
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'quarter | morning | evening | friday'
+        required: true
+        default: quarter
+        type: choice
+        options: [quarter, morning, evening, friday]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phone-push
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: github.repository == 'mj880616/work' && vars.PHONE_PUSH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Call phone push
+        env:
+          PHONE_PUSH_CRON_SECRET: ${{ secrets.PHONE_PUSH_CRON_SECRET }}
+          PHONE_PUSH_SCHEDULE: ${{ github.event.schedule }}
+          PHONE_PUSH_SLOT_INPUT: ${{ inputs.slot }}
+        run: node scripts/ops/phone-push.mjs

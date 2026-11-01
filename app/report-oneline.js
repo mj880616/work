@@ -8,7 +8,10 @@ import {NEXT_PLAN_MAX} from './business-area-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {holdToast} from './small-notice.js';
 
-let dialog=null,state=null,seq=0;
+let dialog=null,state=null,seq=0,layer=null;
+// UI-뒤로가기겹규칙: 맨 <dialog>는 mobile-modal-history가 기록을 붙이지 않고 폰 앱 뒤로가기는 cancel을 거치지 않으므로,
+// 열 때 라우터 겹 하나를 연다(뒤로가기 = 이 창만 닫기, 저장 중에는 닫지 않음).
+function dropLayer(){const l=layer;layer=null;l?.close()}
 const $=sel=>dialog.querySelector(sel);
 function ensureDialog(){
   if(dialog)return dialog;
@@ -32,7 +35,7 @@ function ensureDialog(){
   return dialog;
 }
 const say=(text,error=false)=>{const el=$('[data-ol-status]');el.textContent=text||'';el.className='status'+(error?' error':'')};
-function close(){if(dialog?.open)dialog.close();const t=state?.trigger;state=null;if(t?.isConnected)t.focus({preventScroll:true})}
+function close(){dropLayer();if(dialog?.open)dialog.close();const t=state?.trigger;state=null;if(t?.isConnected)t.focus({preventScroll:true})}
 async function paintArea(){
   const b=$('[data-ol-area]'),id=state?.areaId;if(!id){b.textContent='사업영역 ▾';b.removeAttribute('title');return}
   const run=state.run;let name='사업영역';
@@ -87,5 +90,6 @@ export function openOneline(trigger,{areaId='',day='',onSaved=null}={}){
   $('[data-ol-day]').value=day||seoulDateKey();$('[data-ol-text]').value='';$('[data-ol-plan]').value='';$('[data-ol-plan-box]').open=false;
   const btn=$('[data-ol-save]');btn.disabled=false;btn.removeAttribute('aria-busy');say('');paintOrgs();void paintArea();
   if(!dialog.open)dialog.showModal();
+  if(!layer)layer=window.KPTURouter?.layer?.open('report-oneline',{close:()=>{if(state?.saving)return false;layer=null;close();return true}})||null;
   (state.areaId?$('[data-ol-text]'):$('[data-ol-area]')).focus({preventScroll:true});
 }

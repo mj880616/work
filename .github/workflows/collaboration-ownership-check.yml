@@ -1,4 +1,4 @@
-name: Notification removal check
+name: Notification boundary check
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Check notification and push removal
+      - name: Check notification boundary (old push stays removed, new phone push only in fixed files)
         shell: bash
         run: |
           set -euo pipefail
@@ -36,14 +36,39 @@ jobs:
           fi
           # 폰 앱 v2(Kotlin)로 바뀐 뒤에도 앱 소스 전체를 본다. 파일이 없으면 grep 오류(2)로 검사가 빠지지 않게 폴더를 지정한다.
           test -d android-app/app/src/main
-          if grep -rEq 'FirebaseMessaging|FirebaseApp|KPTUNativePush|MESSAGING_EVENT|firebase-messaging' android-app/app/src/main android-app/app/build.gradle; then
-            echo 'Android push integration returned'; exit 1
+          # 옛 다리 이름은 계속 금지.
+          if grep -rEq 'KPTUNativePush' android-app/app/src/main android-app/app/build.gradle; then
+            echo 'old native push bridge returned'; exit 1
           fi
-          # MTG-폰녹음(요청함 10/30 10:56 명진 결정): 녹음 중 알림줄(앞쪽 서비스 알림)만을 위한 알림 권한은 허용한다.
-          # 권한 선언(매니페스트)과 녹음 권한 묻기(MainActivity) 두 곳 밖에서 쓰면 푸시가 돌아온 것으로 보고 막는다.
-          other=$(grep -rlE 'POST_NOTIFICATIONS' android-app/app/src/main android-app/app/build.gradle | grep -vxE 'android-app/app/src/main/AndroidManifest.xml|android-app/app/src/main/java/kr/or/kptu/work/MainActivity.kt' || true)
+          # APP-폰알림(설계 docs/design/phone-notifications.md 5절, 명진 N-D6 2026-11-01 승인): 새 폰 알림은 아래 파일에서만.
+          # 이름마다 허용 파일을 못 박는다. 그 밖의 파일에 나오면 실패. 파일이 없으면 grep 오류(2)로 검사가 빠지지 않게 폴더를 지정한다.
+          P=android-app/app/src/main/java/kr/or/kptu/work
+          test -f android-app/app/build.gradle && test -f android-app/build.gradle && test -f android-app/settings.gradle && test -d app
+          only_in() {
+            local pattern="$1" allowed="$2" found
+            found=$(grep -rlE "$pattern" android-app/app/src/main android-app/app/build.gradle android-app/build.gradle android-app/settings.gradle | grep -vxE "$allowed" || true)
+            if [ -n "$found" ]; then
+              echo "phone push name '$pattern' outside its allowed files: $found"; exit 1
+            fi
+          }
+          only_in 'FirebaseMessaging' "$P/PushService.kt"
+          # 메시지 받는 서비스 선언(intent-filter)은 매니페스트에 있어야 하므로 매니페스트도 허용한다.
+          only_in 'MESSAGING_EVENT' "$P/PushService.kt|android-app/app/src/main/AndroidManifest.xml"
+          only_in 'FirebaseApp' "$P/PushSetup.kt"
+          only_in 'firebase-messaging' 'android-app/app/build.gradle'
+          # 알림 권한: 선언(매니페스트), 녹음 알림줄 권한 묻기(MTG-폰녹음, MainActivity), 폰 알림 권한 묻기(PushSetup)만.
+          only_in 'POST_NOTIFICATIONS' "android-app/app/src/main/AndroidManifest.xml|$P/MainActivity.kt|$P/PushSetup.kt"
+          # google-services.json·구글 서비스 Gradle 플러그인은 쓰지 않는다(Firebase 설정은 빌드 변수로만).
+          if find android-app -name 'google-services.json' | grep -q . || grep -rEq 'com\.google\.gms' android-app/build.gradle android-app/app/build.gradle android-app/settings.gradle; then
+            echo 'google-services file or plugin is not allowed'; exit 1
+          fi
+          # 웹: 기기 등록 호출(/functions/v1/phone-push)은 app/phone-push-settings.js 한 파일에서만. 옛 이름 push-notifications는 어디서도 부르지 않는다.
+          other=$(grep -rlE 'functions/v1/phone-push' app | grep -vxE 'app/phone-push-settings.js' || true)
           if [ -n "$other" ]; then
-            echo "notification permission used outside the recorder: $other"; exit 1
+            echo "phone-push called outside app/phone-push-settings.js: $other"; exit 1
+          fi
+          if grep -rEq 'push-notifications' app android-app/app/src/main; then
+            echo 'old push-notifications name returned'; exit 1
           fi
           if grep -Eq "addEventListener\('push'|addEventListener\('notificationclick'" app/sw.js; then
             echo 'service worker push handler returned'; exit 1
