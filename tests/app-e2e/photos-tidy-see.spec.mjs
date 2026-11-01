@@ -29,7 +29,7 @@ const PHONE = [
 ].sort((a, b) => b.taken_at.localeCompare(a.taken_at));
 
 async function fixture(page) {
-  const state = { errors: [] };
+  const state = { errors: [], tidyScans: 0 };
   page.on('pageerror', e => state.errors.push(e.message));
   await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
   await page.addInitScript(key => {
@@ -42,6 +42,8 @@ async function fixture(page) {
       },
       addEventListener(type, fn) { if (type === 'message') listeners.push(fn); prev?.addEventListener?.(type, fn); },
     };
+    // S47-20: 앱이 상태를 다시 알리는 것(앱이 다시 앞으로 옴·미디어 관리 허용 바꿈) 흉내.
+    window.__phoneState = extra => listeners.forEach(fn => fn({ data: `photos:state:${JSON.stringify({ access: 'full', key, trash: true, hide: true, ...extra })}` }));
   }, KEY);
   await installViewPrefsServer(page);
   await openHome(page, { beforeLoad: async () => {
@@ -68,6 +70,7 @@ async function fixture(page) {
       if (!u.pathname.includes(`/__phone/${KEY}/`)) return r.fulfill({ status: 404, body: '' });
       if (u.pathname.endsWith('/page')) {
         const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 120);
+        if (offset === 0 && limit === 200 && !u.searchParams.get('folder')) state.tidyScans++; // 정리 찾기 첫 쪽
         const items = PHONE.slice(offset, offset + limit);
         return r.fulfill({ json: { items, next: offset + limit < PHONE.length ? offset + limit : null, total: PHONE.length } });
       }
@@ -101,7 +104,7 @@ for (const width of [412, 1280]) {
       await openPhotos(page, width);
       const box = page.locator('#photosRoot [data-photos-tidy]');
       await page.locator('#photosRoot [data-photos-tidy-chip]').click();
-      await expect(box.locator('.photos-tidy-foot')).toContainText(`폰 ${N + 3}장 · 원드라이브 ${N + 2}장 확인`, { timeout: 30_000 });
+      await expect(box.locator('.photos-tidy-at')).toContainText(`폰 ${N + 3}장 · 원드라이브 ${N + 2}장 확인`, { timeout: 30_000 });
       const listBefore = await page.locator('#photosRoot [data-photos-list] [data-photos-open]').count();
 
       // ③ 공간 비우기: 줄을 열면 그 안에 바로 칸(별도 [보기] 없음), 기본 용량 큰 순, 처음 60칸만.
@@ -170,3 +173,48 @@ for (const width of [412, 1280]) {
     });
   });
 }
+
+// S47-20 정리 줄마다 쉬운 설명 + 대안 · 찾은 결과 남겨 두기(요청함 11/01 12:57).
+test.describe('폰 앱 412 정리 설명·결과 남겨 두기', () => {
+  test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
+  test('줄마다 설명이 접혀도 보이고, 다시 열거나 앱이 상태를 다시 알려도 다시 찾지 않으며, [다시 찾기]만 새로 찾는다', async ({ page }) => {
+    test.setTimeout(90_000);
+    const state = await fixture(page);
+    await openPhotos(page, 412);
+    const box = page.locator('#photosRoot [data-photos-tidy]'), chip = page.locator('#photosRoot [data-photos-tidy-chip]');
+    await chip.click();
+    const at = box.locator('.photos-tidy-at');
+    await expect(at).toContainText(`방금 찾음 · 폰 ${N + 3}장 · 원드라이브 ${N + 2}장 확인`, { timeout: 30_000 });
+    expect(state.tidyScans).toBe(1);
+    await expect(box.locator('[data-photos-tidy-rescan]')).toHaveCount(1);
+    await expect(box.locator('.photos-tidy-foot')).toHaveCount(0);
+    // 접힌 줄에도 쉬운 설명 한 줄.
+    const unb = box.locator('details[data-k="unbacked"]');
+    await expect(unb.locator('summary .photos-tidy-help')).toHaveText('이 폴더 사진은 원드라이브에서 한 장도 못 찾았어요. 폰을 잃어버리면 같이 사라져요');
+    await expect(box.locator('details[data-k="space"] summary .photos-tidy-help')).toContainText('폰에서만 지워도 안전한 사진');
+    await expect(box.locator('details[data-k="junk"] summary .photos-tidy-help')).toBeVisible();
+    await expect(box.getByText('폰 사진과 원드라이브 사진을 이름·크기(또는 크기·찍은 시각)로 맞춰 봤어요')).toBeVisible();
+    // 펼치면 대안 줄 + [폴더 끄기].
+    await unb.locator('summary').click();
+    await expect(unb.locator('.photos-tidy-do').first()).toContainText("동기화 앱(OneSync)에 이 폴더를 '업로드만'으로 추가하세요");
+    const offBtn = unb.locator('[data-photos-tidy-off="Pictures/KakaoTalk/"]');
+    await expect(offBtn).toHaveText('폴더 끄기');
+    await offBtn.click();
+    await expect(unb.locator('summary')).toContainText('꺼 둔 1개');
+    await expect(offBtn).toHaveText('다시 켜기');
+    // 정리 칸을 닫고, 앱이 상태를 다시 알린 뒤(미디어 관리 허용 바뀜) 다시 열어도 지난 결과 그대로.
+    await chip.click();
+    await expect(box).toBeHidden();
+    await page.evaluate(() => window.__phoneState({ manage: true }));
+    await chip.click();
+    await expect(at).toContainText(`폰 ${N + 3}장`);
+    await expect(box.getByRole('status')).toHaveCount(0);
+    expect(state.tidyScans).toBe(1);
+    await expect(at).not.toContainText('폰이 바뀌었어요');
+    // [다시 찾기]만 새로 찾는다.
+    await box.locator('[data-photos-tidy-rescan]').click();
+    await expect.poll(() => state.tidyScans).toBe(2);
+    await expect(at).toContainText(`방금 찾음 · 폰 ${N + 3}장`, { timeout: 30_000 });
+    expect(state.errors).toEqual([]);
+  });
+});

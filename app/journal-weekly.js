@@ -42,6 +42,7 @@ import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
 import {slashDay as nextSlashDay} from './next-week-sheet-model.mjs';
 import {renderPrepSheet} from './prep-sheet-view.js';
+import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 // 화면·복사용 '시간 / 제목 / 장소'(WEEKLY-장소칸: 한 줄 모양 제목은 나눠 읽음 — '종일 / 10:30 / …'가 되지 않게).
 const lineWhat = f => { const x = splitScheduleFields(f); return [x.time, x.title, x.place].filter(Boolean).join(' / '); };
 
@@ -543,14 +544,10 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (item.file.verdict === 'similar') { const n = el('span', 'journal-file-note', '비슷한 기록 있음'); n.dataset.journalFileSimilar = ''; li.append(' ', n); }
     if (item.file.kept) { const n = el('span', 'journal-file-note', '넣음'); n.dataset.journalFileKept = ''; li.append(' ', n); }
     if (!fe.editable || item.file.dropped || (item.file.verdict === 'same' && !item.file.kept)) return;
-    const more = el('details', 'journal-kind-more'); more.dataset.journalFileMore = item.file.id;
-    const sum = el('summary'); const sumDots = el('span', 'more-dots', '⋯'); sumDots.setAttribute('aria-hidden', 'true'); sum.append(sumDots); sum.setAttribute('aria-label', `${text} 자료 줄 고치기·빼기`);
-    const edit = el('button', 'mini', '고치기'); edit.type = 'button'; edit.dataset.journalFileEdit = item.file.id; edit.disabled = !canEdit;
-    const drop = el('button', 'mini', '빼기'); drop.type = 'button'; drop.dataset.journalFileDrop = item.file.id; drop.disabled = !canEdit;
-    drop.setAttribute('aria-label', `이번 주 보고에서 빼기: ${text}`);
-    more.append(sum, edit, drop);
-    if (item.file.kept) { const back = el('button', 'mini', '다시 접기'); back.type = 'button'; back.dataset.journalFileUnkeep = item.file.id; back.disabled = !canEdit; more.append(back); }
-    li.append(' ', more);
+    const items = [{text:'고치기', data:{journalFileEdit:item.file.id}, disabled:!canEdit},
+      {text:'빼기', data:{journalFileDrop:item.file.id}, disabled:!canEdit, aria:`이번 주 보고에서 빼기: ${text}`, danger:true}];
+    if (item.file.kept) items.push({text:'다시 접기', data:{journalFileUnkeep:item.file.id}, disabled:!canEdit});
+    li.append(' ', rowMore(doc, {label:`${text} 자료 줄 고치기·빼기`, data:{journalFileMore:item.file.id}, items}));
   }
   // [고치기]: 그 줄 자리의 한 줄 칸 + [저장][취소]([원래대로]는 고친 줄일 때). Enter 저장·Escape 취소는 journal.js.
   function fileEditForm(item) {
@@ -621,25 +618,25 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (part.capped) box.append(muted(`이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.`));
     return false;
   };
-  const block = (key, title, level = 'h5') => { const box = el('section', 'journal-weekly-part'); box.dataset.journalWeekly = key; box.append(el(level, 'journal-weekly-sub', title)); return box; };
+  const block = (key, title, level = 'h5', add = false) => { const box = el('section', add ? 'journal-weekly-part journal-part-has-add' : 'journal-weekly-part'); box.dataset.journalWeekly = key; box.append(el(level, 'journal-weekly-sub', title)); return box; };
   const chapter = (key, title) => { const box = el('section', 'journal-weekly-chapter'); box.dataset.journalWeeklyChapter = key; box.append(el('h4', 'journal-heading', title)); return box; };
   const empty = (text = '없음') => emptyEl(text, {attrs: 'data-journal-weekly-empty'});
 
   // ■ 일시: the report day (상집 보고일), the same date the .hwpx and the draft write.
   const when = el('p', 'journal-weekly-date', `■ 일시 : ${reportDateText(model.start)} (상집 보고일)`); when.dataset.journalWeeklyDate = '';
-  // 1. 요청사항: 1) the week's request rows (일 | 시간/내용/장소 | 참석 요청), each with a small [고치기]; one small [줄 추가] under the
-  // table opens the same edit row (date picker, time, text, place, attendees). 2) 주요 일정 only says what goes there.
+  // 1. 요청사항: 1) the week's request rows (일 | 시간/내용/장소 | 참석 요청), each with a small ⋯ at the line end ([고치기]·[지우기]);
+  // a small [+ 추가] on the heading line opens the same edit row (WEEKLY-화면디자인정리 11/01). 2)·3) the same shape.
   const one = chapter('requests', '1. 요청사항');
-  const ask = block('ask', REQUEST_TITLES.ask);
+  const ask = block('ask', REQUEST_TITLES.ask, 'h5', true);
   if (!status(ask, model.requests, '요청 표') && !model.requests.failed.length) ask.append(...execRequestsPart(doc, model, execUi, 'weekly'));
-  const hq = block('hq-schedule', REQUEST_TITLES.hq);
+  const hq = block('hq-schedule', REQUEST_TITLES.hq, 'h5', true);
   const guide = muted(HQ_SCHEDULE_GUIDE); guide.dataset.journalWeeklyGuide = '';
   // 수기 표 자리: 그리기는 weekly-hq-schedule.js 하나가 맡는다(journal.js가 이 자리에 붙임). node 시험에서는 빈 자리.
-  const hqSlot = el('div', 'journal-hq-slot'); hqSlot.dataset.journalWeeklyHqSlot = '';
+  const hqSlot = el('div', 'journal-hq-slot journal-part-slot'); hqSlot.dataset.journalWeeklyHqSlot = '';
   hq.append(guide, hqSlot);
   // S46-27 3) 상집 논의 요청: 그리기는 weekly-discuss-table.js 하나(journal.js가 이 자리에 붙임).
-  const discuss = block('discuss', REQUEST_TITLES.discuss);
-  const discussSlot = el('div', 'journal-discuss-slot'); discussSlot.dataset.journalWeeklyDiscussSlot = '';
+  const discuss = block('discuss', REQUEST_TITLES.discuss, 'h5', true);
+  const discussSlot = el('div', 'journal-discuss-slot journal-part-slot'); discussSlot.dataset.journalWeeklyDiscussSlot = '';
   discuss.append(discussSlot);
   one.append(ask, hq, discuss);
 
@@ -692,12 +689,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       // 주간보고에 올림 표시: a small ⋯ after the line opens one small text button for that line's kind (only when my list was read).
       if (mt.editable) [...list.children].forEach((li, i) => {
         const item = mt.items[i]; if (!validKindKey(item.kind)) return;
-        const more = el('details', 'journal-kind-more'); more.dataset.journalKindMore = item.kind;
-        const summaryEl = el('summary'); const summaryDots = el('span', 'more-dots', '⋯'); summaryDots.setAttribute('aria-hidden', 'true'); summaryEl.append(summaryDots); summaryEl.setAttribute('aria-label', `${item.kindName} 종류 설정`);
-        const toggle = el('button', 'mini', '주간보고에서 빼기'); toggle.type = 'button';
-        toggle.dataset.journalKindToggle = item.kind; toggle.dataset.journalKindHide = '1'; toggle.dataset.journalKindName = item.kindName;
-        toggle.setAttribute('aria-label', `${item.kindName} 종류를 주간보고에서 빼기`);
-        more.append(summaryEl, toggle); li.append(more);
+        li.append(rowMore(doc, {label:`${item.kindName} 종류 설정`, data:{journalKindMore:item.kind}, items:[
+          {text:'주간보고에서 빼기', data:{journalKindToggle:item.kind, journalKindHide:'1', journalKindName:item.kindName}, aria:`${item.kindName} 종류를 주간보고에서 빼기`}]}));
       });
       meet.append(list);
     } else meet.append(empty(off.length ? '이 주 회의·활동은 모두 주간보고에서 뺀 종류예요.' : '없음'));
@@ -721,25 +714,34 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
 
   // 4. 산하 조직 현황 (the form has no 3절 for one person's report — 투쟁 사업 is the team's)
   const four = chapter('orgs', '4. 산하 조직 현황');
-  const orgs = block('orgs', '1) 요약');
+  const orgs = block('orgs', '1) 요약', 'h5', true);
   if (!status(orgs, model.orgs, '조직 소식')) {
     const o = model.orgs, can = o.summaries === 'ok' && !o.failed.includes('orgUpdates');
     const named = (o.sections || []).filter(section => section.id);
     // JOURNAL-조직현황AI요약: one small [요약 만들기] for the shown organizations (only when pressed; edited summaries stay).
     if (can && named.length) {
-      const row = el('div', 'journal-org-ai'); row.dataset.journalOrgAi = '';
-      const run = el('button', 'mini', orgUi.busy ? '요약 만드는 중…' : '요약 만들기'); run.type = 'button'; run.dataset.journalOrgAiRun = '';
+      // WEEKLY-화면디자인정리: [요약 만들기]는 묶음 제목 줄 오른쪽 작은 글자 버튼, 결과 한 줄은 그 아래(빈 줄을 만들지 않게 글이 있을 때만 보임).
+      const run = el('button', 'journal-part-add-button', orgUi.busy ? '요약 만드는 중…' : '요약 만들기'); run.type = 'button'; run.dataset.journalOrgAiRun = '';
       run.setAttribute('aria-label', '조직별 요약 만들기(AI)');
       if (orgUi.busy) { run.disabled = true; run.setAttribute('aria-busy', 'true'); }
-      const say = el('span', 'journal-org-ai-status', orgUi.status || ''); say.dataset.journalOrgAiStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
+      const add = partAdd(doc, [run]); add.dataset.journalOrgAi = '';
+      const say = el('p', 'journal-line-status journal-org-ai-status', orgUi.status || ''); say.dataset.journalOrgAiStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
       if (orgUi.error) say.classList.add('journal-failed');
-      row.append(run, say); orgs.append(row);
+      orgs.append(add, say);
     }
     if (o.summaries === 'failed' && named.length) orgs.append(muted('저장한 조직 요약을 불러오지 못해 기록만 보여요.'));
     for (const section of o.sections || []) {
       const part = el('div', 'journal-org'); part.dataset.journalOrg = section.name;
       part.append(el('p', 'journal-org-name', section.name));
       const editing = can && section.id && orgUi.editing?.id === section.id ? orgUi.editing : null;
+      // WEEKLY-화면디자인정리: [요약 고치기]·[요약 쓰기]는 조직 이름 줄 오른쪽 끝 작은 ⋯ 안(따로 한 줄을 차지하지 않게). '고친 요약' 표시도 그 자리.
+      if (can && section.id && !editing) {
+        const tools = el('span', 'journal-org-tools');
+        if (section.summary?.edited) { const tag = el('span', 'journal-org-edited', '고친 요약'); tag.dataset.journalOrgEdited = ''; tools.append(tag); }
+        const label = section.summary ? '요약 고치기' : '요약 쓰기';
+        tools.append(rowMore(doc, {label:`${section.name} 요약 메뉴`, data:{journalOrgMore:section.id}, items:[{text:label, data:{journalOrgEditOpen:section.id}, aria:`${section.name} ${label}`}]}));
+        part.classList.add('journal-org-has-tools'); part.append(tools);
+      }
       if (editing) {
         const box = el('div', 'journal-org-edit'); box.dataset.journalOrgEdit = section.id;
         const id = `journalOrgEdit-${section.id}`;
@@ -801,13 +803,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         if (fold) part.append(fold);
       }
       if (picks?.status && section.id === model.orgRefs?.org) { const say = el('p', 'journal-line-status', picks.status); if (picks.error) say.classList.add('journal-failed'); part.append(say); }
-      if (can && section.id && !editing) {
-        const tools = el('div', 'journal-org-tools');
-        if (section.summary?.edited) { const tag = el('span', 'journal-org-edited', '고친 요약'); tag.dataset.journalOrgEdited = ''; tools.append(tag); }
-        const edit = el('button', 'mini', section.summary ? '요약 고치기' : '요약 쓰기'); edit.type = 'button'; edit.dataset.journalOrgEditOpen = section.id;
-        edit.setAttribute('aria-label', `${section.name} ${section.summary ? '요약 고치기' : '요약 쓰기'}`);
-        tools.append(edit); part.append(tools);
-      }
       orgs.append(part);
     }
     if (!o.sections.length && !o.failed.length) orgs.append(empty());
@@ -842,22 +837,29 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (off) { const p = el('p', 'journal-weekly-vacation', off); p.dataset.journalWeeklyVacation = ''; cal.append(p); }
     // 기억으로 뺀 일정은 늘 한 줄로 보인다(흔한 제목을 빼 다른 일정까지 빠지는 것을 알아보게, 설계 위험 2).
     const gone = memoryDroppedItems(c);
-    if (gone.length) { const p = muted(`기억으로 뺀 일정 ${gone.length}개: ${gone.map(i => `${i.label} ${i.title}`).join(', ')} — 맨 아래 '주간보고 기억'에서 지울 수 있어요.`); p.dataset.journalScheduleMemoryDropped = String(gone.length); cal.append(p); }
+    if (gone.length) { const p = muted(`기억으로 뺀 일정 ${gone.length}개: ${gone.map(i => `${i.label} ${i.title}`).join(', ')}`); p.dataset.journalScheduleMemoryDropped = String(gone.length); cal.append(p); }
     if (c.noCalendar) { const p = muted(`'${REPORT_CALENDAR}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     cal.append(muted(`참석자 칸은 한글 파일에서 내 이름으로 채워요. '${REPORT_CALENDAR}' 달력 일정만 넣고, 일기·비공개 표시 일정은 빼요.`));
   }
   five.append(cal);
 
   // 참고
-  const ref = chapter('notes', '참고 — 보고서 칸 밖 재료');
+  // WEEKLY-칸밖재료접기(11/01 01:21): '참고 — 보고서 칸 밖 재료'부터 아래(주간보고 기억·규칙·환류)는 기본 접힘, 눌러 펼침. 접힌 줄은 제목 + 건수.
+  // 펼침은 이 화면을 다시 그릴 때만 이어지고(같은 자리의 열림 값), 기기에 저장하지 않는다.
+  const wasOpen = !!host.querySelector?.('[data-journal-weekly-chapter="notes"]')?.open;
+  const ref = el('details', 'journal-weekly-chapter journal-weekly-fold'); ref.dataset.journalWeeklyChapter = 'notes'; ref.open = wasOpen;
+  const refSum = el('summary'), refCount = el('small', 'journal-others-count'); refSum.append(el('span', 'journal-heading', '참고 — 보고서 칸 밖 재료'), ' ', refCount); ref.append(refSum);
+  let refItems = 0;
   const quiet = [];
   for (const [key, label] of NOTE_PARTS) {
     const part = model.notes[key];
     if (!part.loading && !part.failed.length && !part.items.length && !part.note) { if (key !== 'memos') quiet.push(label); continue; }
     const box = block(`note-${key}`, label);
     if (!status(box, part, label) && !part.failed.length) { if (part.items.length) box.append(itemList(part.items)); if (part.note) box.append(muted(part.note)); }
+    refItems += part.items?.length ?? 0;
     ref.append(box);
   }
+  refCount.textContent = `${refItems}건`;
   if (quiet.length) { const q = muted(`기록 없는 묶음: ${quiet.join(', ')}`); q.classList.add('journal-empty'); q.dataset.journalWeeklyQuietNotes = ''; ref.append(q); }
 
   // WEEKLY-환류학습: '주간보고 규칙·환류' 자리 — 그림은 weekly-learn-panel.js 가 채운다(journal.js 가 그린 뒤 부름).
@@ -893,7 +895,7 @@ function memoryBox(doc, el, r_, ui = {}, picks = null) {
   if ((!r_ || (!r_.ready && !r_.kinds)) && !blocked.length) return [];
   const r = r_ && (r_.ready || r_.kinds) ? r_ : {ready:false, kinds:null, entries:[]};
   const names = r.entries.filter(e => e.title), drops = r.entries.filter(e => e.drop), kinds = r.kinds ?? [];
-  const box = el('details', 'journal-weekly-chapter journal-weekly-memory'); box.dataset.journalWeeklyMemory = '';
+  const box = el('details', 'journal-weekly-chapter journal-weekly-memory journal-weekly-fold'); box.dataset.journalWeeklyMemory = '';
   if (ui.open) box.open = true;
   const head = [r.ready ? `일정 이름 ${names.length}` : '', r.ready ? `일정 빼기 ${drops.length}` : '', r.kinds ? `회의 종류 빼기 ${kinds.length}` : '', picks?.ready ? `안 내는 제안 ${blocked.length}` : ''].filter(Boolean).join(' · ');
   const sum = el('summary'); sum.append(el('span', 'journal-heading', '주간보고 기억'), ' ', el('small', 'journal-others-count', head)); box.append(sum);
@@ -906,8 +908,8 @@ function memoryBox(doc, el, r_, ui = {}, picks = null) {
     for (const e of entries) {
       const li = el('li'); li.dataset.journalMemoryEntry = e.key;
       li.append(el('span', null, line(e)), ' ', el('small', 'journal-muted', used(e)));
-      const del = el('button', 'mini', '지우기'); del.type = 'button'; del.dataset.journalMemoryDelete = e.key; del.disabled = !!ui.busy;
-      del.setAttribute('aria-label', `기억 지우기: ${e.origin}`); li.append(del); ul.append(li);
+      li.append(rowMore(doc, {label:`${e.origin} 기억 메뉴`, items:[{text:'지우기', data:{journalMemoryDelete:e.key}, disabled:!!ui.busy, aria:`기억 지우기: ${e.origin}`, danger:true}]}));
+      ul.append(li);
     }
     part.append(ul); return part;
   };
@@ -934,7 +936,7 @@ function memoryBox(doc, el, r_, ui = {}, picks = null) {
   if (picks?.ready) {
     const part = el('section', 'journal-weekly-part'); part.dataset.journalMemoryPart = '거절해서 안 내는 것';
     part.append(el('h5', 'journal-weekly-sub', '거절해서 안 내는 것'));
-    if (!blocked.length) part.append(el('p', 'journal-muted', '없어요. 같은 종류 제안을 여러 주에 걸쳐 [×]로 빼면 여기에 올라와요.'));
+    if (!blocked.length) part.append(emptyEl());
     else {
       const ul = el('ul', 'journal-kinds-off-list');
       for (const b of blocked) {
@@ -991,10 +993,10 @@ function execTable(doc, el, items, ui) {
     if (item.carried) { const tag = el('span', 'journal-exec-carried', CARRIED_TAG); tag.title = '지난주 확정본에서 가져온 줄'; tag.dataset.journalExecCarried = ''; what.append(' ', tag); }
     const who = el('td', 'journal-exec-who', item.who);
     const cell = el('td', 'journal-exec-tools');
-    const edit = el('button', 'mini', '고치기'); edit.type = 'button'; edit.dataset.journalExecEdit = item.id;
-    edit.setAttribute('aria-label', `${dayLabel(item)} ${item.what} 고치기`);
-    if (busy || editing) edit.disabled = true;
-    cell.append(edit);
+    // WEEKLY-화면디자인정리: 줄 끝 작은 ⋯([고치기]·[지우기]). 고치는 중·저장 중에는 그리지 않는다(같은 버튼이 두 곳에 생기지 않게).
+    if (!busy && !editing) cell.append(rowMore(doc, {label:`${dayLabel(item)} ${item.what} 고치기·지우기`, data:{journalExecMore:item.id}, items:[
+      {text:'고치기', data:{journalExecEdit:item.id}, aria:`${dayLabel(item)} ${item.what} 고치기`},
+      {text:'지우기', data:{journalExecDelete:item.id}, aria:`${dayLabel(item)} ${item.what} 지우기`, danger:true}]}));
     tr.append(th, what, who, cell); body.append(tr);
   }
   if (editing === 'new') body.append(execEditRow(doc, el, ui, null));
@@ -1002,10 +1004,11 @@ function execTable(doc, el, items, ui) {
   const out = [table];
   if (!items.length && editing !== 'new') { out.push(emptyEl('없음', {attrs: 'data-journal-weekly-empty data-journal-exec-empty'})); }
   if (!editing) {
-    const add = el('button', 'mini', '+ 줄 추가'); add.type = 'button'; add.dataset.journalExecAdd = '';
+    // 묶음 제목 줄 오른쪽 작은 [+ 추가](묶음 section 의 journal-part-has-add 가 제목 줄에 둔다).
+    const add = el('button', 'journal-part-add-button', '+ 추가'); add.type = 'button'; add.dataset.journalExecAdd = '';
     add.setAttribute('aria-label', '요청 줄 추가');
     if (busy || items.length >= EXEC_MAX_ROWS) add.disabled = true;
-    const row = el('div', 'journal-exec-bar'); row.append(add); out.push(row);
+    out.unshift(partAdd(doc, [add]));
   }
   const say = el('p', 'journal-line-status', ui.status || ''); say.dataset.journalExecStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
   if (ui.error) say.classList.add('journal-failed');
@@ -1030,9 +1033,6 @@ function execEditRow(doc, el, ui, item) {
   const actions = el('div', 'journal-edit-actions save-row');
   const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalExecSave = key;
   const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalExecCancel = key;
-  if (item) { const del = el('button', 'mini journal-delete save-row-start', '삭제'); del.type = 'button'; del.dataset.journalExecDelete = item.id; actions.append(del); }
-  // S46-27: 지난주에서 가져온 논의 줄 등 — 이 줄을 3) 상집 논의 요청으로 옮긴다(안건 = 내용, 설명 = 일·시간·장소).
-  if (item) { const move = el('button', 'mini', '3)으로 옮기기'); move.type = 'button'; move.dataset.journalExecMove = item.id; move.setAttribute('aria-label', `${item.what} 줄을 3) 상집 논의 요청으로 옮기기`); actions.append(move); }
   actions.append(cancel, save);
   if (ui.saving) for (const b of actions.children) b.disabled = true;
   form.append(actions); td.append(form); tr.append(td);

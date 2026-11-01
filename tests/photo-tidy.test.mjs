@@ -85,7 +85,7 @@ test('정리 읽기: 폰(끈 폴더 포함)·원드라이브를 끝까지 쪽마
   const html = t.html({canHide:true, canTrash:true});
   assert.match(html, /data-photos-place="phone" aria-pressed="true"/);
   // S47-19: 어디에 있나 칩도 그 줄 아래 펼친 칸(합계·정렬 칩, 기본 찍은 날 최신).
-  assert.match(html, /<\/div><div class="photos-tidy-pane" data-photos-tidy-pane="place:phone"><div class="photos-tidy-pane-head"><span class="photos-tidy-num">6장 · 합계 1KB<\/span>/);
+  assert.match(html, /<\/div><p class="photos-tidy-line">[^<]+<\/p><div class="photos-tidy-pane" data-photos-tidy-pane="place:phone"><div class="photos-tidy-pane-head"><span class="photos-tidy-num">6장 · 합계 1KB<\/span>/);
   assert.match(html, /data-photos-tidy-sort="place:phone\|new" aria-pressed="true"/);
   assert.deepEqual(t.paneList('place:phone').map(x => x.id), ['ph:8', 'ph:3', 'ph:6', 'ph:5', 'ph:4', 'ph:7']);
   t.toggle('place:phone');
@@ -187,7 +187,7 @@ test('정리 칸 ②: 공간 비우기 줄·묶음 그림 줄·지우기는 누�
 });
 
 // ---- S47-16 PHOTO-폰지우기안전장치 ----
-import {copyPairs, keptText, goneText, SAFE_SYNC_TEXT} from '../app/photo-tidy-model.mjs';
+import {copyPairs, keptText, goneText, TIDY_HELP} from '../app/photo-tidy-model.mjs';
 test('지우기 전 사본 짝: 같은 크기 + (같은 이름 또는 찍은 시각)만, 크기를 모르면 짝 없음', () => {
   const noSize = ph(40, 'IMG_1.jpg', null, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/');
   const otherSize = ph(41, 'IMG_2.jpg', 201, '2026-10-02T01:00:00.000Z', 'DCIM/Camera/');
@@ -212,7 +212,7 @@ test('다음 사진 확인 때 사본 사라짐 경고 한 줄·[알았어요], 
   assert.equal(watched, 1);
   let html = t.html({canTrash:true});
   assert.match(html, /class="photos-tidy-line photos-tidy-warn" role="alert">폰에서 지운 3장이 원드라이브에서도 지워졌어요\..*<button type="button" class="mini" data-photos-tidy-gone-ok>알았어요<\/button>/);
-  assert.ok(html.includes(`<p class="photos-tidy-line">${SAFE_SYNC_TEXT}</p>`), '공간 비우기 설명 한 줄');
+  assert.ok(html.includes(`<span class="photos-tidy-help">${TIDY_HELP.space}</span>`), '공간 비우기 설명 한 줄(접혀도 보임)');
   assert.match(html, /data-photos-tidy-trash="dups"/);
   assert.deepEqual(t.copyPairs(t.group('space').items).pairs.map(x => x.copy.id), ['E']);
   t.goneSeen();
@@ -260,7 +260,7 @@ test('정리 펼친 칸 정렬: 용량 큰 순·찍은 날 최신·오래된(시
   assert.deepEqual(sortDupGroups([g1, g2, g3], 'old').map(g => g.id), ['g2', 'g1', 'g3']);
   assert.equal(sizeText(3.2e6), '3.2MB'); assert.equal(sizeText(3e6), '3MB'); assert.equal(sizeText(12.4e6), '12MB');
 });
-test('정리 [보기] 펼치기: 잡동사니·백업 안 됨 폴더 줄 아래에 칸, 정렬 바꾸기, 다시 확인하면 접힘', async () => {
+test('정리 [보기] 펼치기: 잡동사니·백업 안 됨 폴더 줄 아래에 칸, 정렬 바꾸기', async () => {
   const t = createPhotoTidy({phone:{page:async () => ({items:PHS, next:null})}, odReady:() => true, readOd:async () => ({items:ODS, next:null}),
     odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW});
   await t.rescan();
@@ -285,11 +285,101 @@ test('정리 [보기] 펼치기: 잡동사니·백업 안 됨 폴더 줄 아래�
 test('사진 메뉴: 정리 목록이 아래 [사진] 목록을 바꾸던 길은 없고, 펼친 칸은 이어 그리기·크게 보기', () => {
   const src = read('app/photos.js'), css = read('app/photos.css');
   for (const gone of ['setTidyView', 'tidyFill', 'tidyView', 'tidyLayer', 'data-photos-tidy-top', 'data-photos-tidy-end', "'photos-tidy'"]) assert.ok(!src.includes(gone), gone);
-  assert.match(src, /openTidyViewer\(\(\) => tidyPaneList\(p\.dataset\.photosTidyPane\), Number\(b\.dataset\.photosTidyOpen\)\)/);
   assert.match(src, /const TIDY_STEP = 60;/);
   assert.match(src, /tidyIo\.unobserve\(foot\); tidyIo\.observe\(foot\);/);
+  assert.match(src, /openTidyViewer\(\(\) => tidyPaneList\(p\.dataset\.photosTidyPane\), Number\(b\.dataset\.photosTidyOpen\)\)/);
   assert.match(src, /function openTidyViewer\(list, index\) \{\n  openViewer\(index, \{\n    list,/);
   assert.match(css, /\.photos-tidy-size\{ position:absolute;/);
+});
+
+// ---- S47-20 줄마다 쉬운 설명 + 대안 · 찾은 결과 남겨 두기 ----
+import {partlyBackedFolders, partlyText, foundText, JUNK_HELP} from '../app/photo-tidy-model.mjs';
+test('일부만 있음: 원드라이브에서 찾은 장수/전체, 못 찾은 장수 많은 순 · 찾은 지 글', () => {
+  const ix = matchIndex(ODS, PHS);
+  const partly = partlyBackedFolders(PHS, ix);
+  for (const f of partly) assert.ok(f.backed > 0 && f.backed < f.count, f.id);
+  const a = ph(50, 'a.jpg', 111, '2026-01-01T00:00:00.000Z', 'P/'), b = ph(51, 'b.jpg', 222, '2026-01-02T00:00:00.000Z', 'P/'), c = ph(52, 'c.jpg', 333, '2026-01-03T00:00:00.000Z', 'P/');
+  const q = ph(53, 'q.jpg', 444, '2026-01-01T00:00:00.000Z', 'Q/'), r = ph(54, 'r.jpg', 555, '2026-01-02T00:00:00.000Z', 'Q/');
+  const odx = [od('A1', 'a.jpg', 111, '2026-01-01T00:00:00.000Z'), od('Q1', 'q.jpg', 444, '2026-01-01T00:00:00.000Z')];
+  const list = partlyBackedFolders([a, b, c, q, r], matchIndex(odx, [a, b, c, q, r]));
+  assert.deepEqual(list.map(f => [f.id, f.backed, f.count]), [['P/', 1, 3], ['Q/', 1, 2]]);
+  assert.equal(partlyText(list[0]), '원드라이브에 일부만 있음 1/3장');
+  assert.equal(foundText(NOW - 20e3, NOW), '방금 찾음');
+  assert.equal(foundText(NOW - 7 * 60e3, NOW), '7분 전에 찾음');
+  assert.equal(foundText(NOW - 3 * 3600e3, NOW), '3시간 전에 찾음');
+  assert.equal(foundText(0, NOW), '');
+});
+test('정리 줄마다 설명(접혀도 보임)·대안 줄·[폴더 끄기]·일부만 있음 칸·[다시 찾기] 하나', async () => {
+  const a = ph(50, 'a.jpg', 111, '2026-01-01T00:00:00.000Z', 'P/'), b = ph(51, 'b.jpg', 222, '2026-01-02T00:00:00.000Z', 'P/');
+  const b1 = ph(30, 'B1.jpg', 2e6, '2026-10-05T01:00:00.000Z', 'DCIM/Camera/'), b2 = ph(31, 'B2.jpg', 3e6, '2026-10-05T01:00:00.600Z', 'DCIM/Camera/');
+  let off = new Set(), clock = NOW;
+  const oldPh = ph(55, 'old.jpg', 300, '2020-01-01T01:00:00.000Z', 'DCIM/Camera/');
+  const t = createPhotoTidy({phone:{page:async () => ({items:[...PHS, a, b, b1, b2, oldPh], next:null})}, odReady:() => true,
+    readOd:async () => ({items:[...ODS, od('A1', 'a.jpg', 111, '2026-01-01T00:00:00.000Z')], next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => off, now:() => clock});
+  await t.rescan();
+  let html = t.html({canHide:true, canTrash:true});
+  assert.equal((html.match(/data-photos-tidy-rescan/g) || []).length, 1, '[다시 찾기] 하나');
+  assert.match(html, /^<p class="photos-tidy-at">방금 찾음 · 폰 13장 · 원드라이브 4장 확인 <button type="button" class="mini" data-photos-tidy-rescan>다시 찾기<\/button><\/p>/);
+  assert.doesNotMatch(html, /photos-tidy-foot|>다시 확인</);
+  for (const k of ['all', 'unbacked', 'space', 'dups', 'junk']) assert.ok(html.includes(TIDY_HELP[k]), k);
+  for (const k of ['unbackedDo', 'partly', 'dupsDo', 'junkDo']) assert.ok(html.includes(TIDY_HELP[k].replace(/'/g, '&#39;')), k);
+  assert.ok(html.includes(JUNK_HELP.kakao) && html.includes(JUNK_HELP.telegram));
+  // 설명은 summary 안(접혀도 보임).
+  assert.match(html, /<summary><span>백업 안 됨 <b>3개 폴더<\/b> · 5장 · 일부만 2개<span class="photos-tidy-help">이 폴더 사진은 원드라이브에서 한 장도 못 찾았어요\./);
+  assert.match(html, /📁 P <span class="photos-tidy-num">원드라이브에 일부만 있음 1\/2장/);
+  assert.match(html, /data-photos-tidy-off="Pictures\/Telegram\/">폴더 끄기<\/button>/);
+  assert.doesNotMatch(t.html({canHide:false}), /data-photos-tidy-off/, '폴더 스위치 없는 앱이면 단추 없음');
+  // 어디에 있나 칩마다 설명이 바뀐다.
+  t.toggle('place:onedrive');
+  assert.ok(t.html().includes(TIDY_HELP.onedrive));
+  // 일부만 있음 [보기] = 못 찾은 사진만.
+  assert.deepEqual(t.paneList('partly:P/').map(x => x.id), ['ph:51']);
+  // [폴더 끄기]: 셈에서 빼고 [다시 켜기], 다시 찾지 않는다.
+  const scanned = t.state;
+  off = new Set(['Pictures/Telegram/']); t.offChanged();
+  html = t.html({canHide:true});
+  assert.match(html, /백업 안 됨 <b>2개 폴더<\/b> · 4장 · 꺼 둔 1개/);
+  assert.match(html, /data-photos-tidy-off="Pictures\/Telegram\/">다시 켜기<\/button>/);
+  assert.equal(t.state, scanned);
+  off = new Set(['Pictures/Telegram/', 'Pictures/KakaoTalk/', 'Pictures/Screenshots/']);
+  assert.equal(t.count() >= 1, true);
+  // 시간이 지나면 'n분 전에 찾음'.
+  clock = NOW + 12 * 60e3;
+  assert.match(t.html(), /^<p class="photos-tidy-at">12분 전에 찾음 /);
+});
+test('찾은 결과 남겨 두기: 다시 열기·stale·forget·폴더 바꿈은 다시 찾지 않고 [다시 찾기](rescan)만 새로, reset(계정 바뀜)은 지움', async () => {
+  let reads = 0;
+  const t = createPhotoTidy({phone:{page:async () => { reads++; return {items:PHS, next:null}; }}, odReady:() => true, readOd:async () => ({items:ODS, next:null}),
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW});
+  t.open(); await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0));
+  assert.equal(reads, 1); assert.ok(t.ready());
+  t.open(); t.open();
+  assert.equal(reads, 1, '다시 열어도 지난 결과');
+  t.stale();
+  assert.equal(reads, 1); assert.ok(t.ready());
+  assert.match(t.html(), /확인 · 그 뒤 폰이 바뀌었어요 <button type="button" class="mini" data-photos-tidy-rescan>다시 찾기/);
+  t.forget(['ph:4']);
+  assert.equal(reads, 1); assert.ok(!t.state.ph.some(p => p.id === 'ph:4'));
+  await t.rescan();
+  assert.equal(reads, 2); assert.ok(!t.state.stale, '새로 찾으면 알림 지움');
+  t.reset();
+  assert.equal(t.state, null);
+  t.open(); await new Promise(r => setTimeout(r, 0));
+  assert.equal(reads, 3);
+});
+test('사진 메뉴 연결: 폰 상태 알림·폴더 바꿈은 정리 결과를 지우지 않고, 계정이 바뀔 때만 지운다', () => {
+  const src = read('app/photos.js');
+  const onChange = src.slice(src.indexOf('phone.onChange(s => {'), src.indexOf('async function enter()'));
+  assert.ok(onChange.length > 20);
+  assert.doesNotMatch(onChange, /tidy\.reset\(\)/);
+  assert.match(onChange, /if \(tidyAccess && s\?\.access !== tidyAccess\) tidy\.stale\(\);/);
+  assert.match(src, /if \(res\.ok\) \{ pFolders = null; pFor = null; pItems = \[\]; tidy\.stale\(\); resetList\(\);/);
+  assert.equal((src.match(/tidy\.reset\(\)/g) || []).length, 1, '계정 바뀜(session-changed) 한 곳만');
+  assert.match(src, /tidy\.reset\(\); tidyOpen = false; tidyShown\.clear\(\); tidyGone\.clear\(\);/);
+  assert.match(src, /if \(b\.matches\('\[data-photos-tidy-off\]'\)\) \{ tidyFolderOff\(b\.dataset\.photosTidyOff\); return true; \}/);
+  // 지우기 직전 10분 확인(안전장치)은 그대로.
+  assert.match(src, /if \(needCopy && !tidy\.fresh\(\)\)/);
 });
 
 // ---- S47-19B 같은 사진·연사 묶음 바로잡기 ----
