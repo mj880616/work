@@ -73,6 +73,15 @@
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.NoDisplay" />
+        <!-- APP-폰알림 N4: 서버(phone-push)가 보낸 알림을 받는 서비스. 내보내지 않는다(구글 Play 서비스가 이 앱 안으로만 전달).
+             알림 권한(POST_NOTIFICATIONS)은 위 녹음 줄의 선언을 함께 쓴다. 내 프로필 '폰 알림'에서 [이 폰에서 받기]·[시험 알림] 때 한 번 묻는다. -->
+        <service
+            android:name=".PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <!-- MTG-폰녹음: 화면이 꺼져도 녹음을 잇는 앞쪽 서비스(마이크). 내보내지 않는다. -->
         <service
             android:name=".RecorderService"

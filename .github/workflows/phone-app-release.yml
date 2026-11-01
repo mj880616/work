@@ -144,6 +144,12 @@ jobs:
 
       # build.gradle에는 서명 설정이 없다. 서명 없는 release APK를 만든 뒤 아래에서 서명한다.
       - name: Build release APK (unsigned)
+        # APP-폰알림 N4: Firebase 앱 설정 4개(비밀값 아님, environment phone-app-release의 변수). 없으면 알림 기능 꺼진 채로 빌드된다. 값은 출력하지 않는다.
+        env:
+          WEB2_FCM_PROJECT_ID: ${{ vars.WEB2_FCM_PROJECT_ID }}
+          WEB2_FCM_APP_ID: ${{ vars.WEB2_FCM_APP_ID }}
+          WEB2_FCM_SENDER_ID: ${{ vars.WEB2_FCM_SENDER_ID }}
+          WEB2_FCM_API_KEY: ${{ vars.WEB2_FCM_API_KEY }}
         run: gradle -p android-app :app:assembleRelease --stacktrace
 
       - name: Sign the APK
