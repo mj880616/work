@@ -493,7 +493,8 @@ function prepareFlow() {
   if (flowBase.start === start) return;
   const week = start;
   Object.assign(flowBase, {start:week, status:'opening', note:''});
-  void hwpx.prepare().then(s => { if (flowBase.start !== week) return; flowBase.status = s ? 'open' : 'failed'; flowBase.note = s ? '' : '바탕을 열지 못해 칸을 만들지 못했어요. 아래 상태 줄과 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 봐 주세요.'; renderWeekly_({refreshBox:false}); },
+  // 그사이 다른 주로 갔으면(상자가 그 열기를 멈춤) 결과를 적지 않고 잊는다 — 그 주에 다시 오면 다시 연다.
+  void hwpx.prepare().then(s => { if (flowBase.start !== week) return; if (start !== week) { flowBase.start = ''; return; } flowBase.status = s ? 'open' : 'failed'; flowBase.note = s ? '' : '바탕을 열지 못해 칸을 만들지 못했어요. 아래 상태 줄과 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 봐 주세요.'; renderWeekly_({refreshBox:false}); },
     () => { if (flowBase.start === week) { flowBase.status = 'failed'; flowBase.note = '바탕을 열지 못했어요.'; renderWeekly_({refreshBox:false}); } });
 }
 function paintFlow(host, model) {
@@ -1426,6 +1427,10 @@ root.addEventListener('click', event => {
   // HOME-줄누르기 ⑦: [주간 정리]의 5. 주요 일정 칸·끝낸 할 일·할 일 예정 줄 → 하루 화면의 일정·할 일 줄과 같은 열기.
   if (button.matches('[data-journal-weekly-event]')) { void openOriginal({type:'event', id:button.dataset.journalWeeklyEvent, calendarId:button.dataset.journalWeeklyCalendar || 'primary'}, button); return; }
   if (button.matches('[data-journal-weekly-task]')) { void openOriginal({type:'task', id:button.dataset.journalWeeklyTask}, button); return; }
+  // WEEKLY-환류전칸 ⑤: 5. 주요 일정 줄 ⋯ [고치기]·[빼기]·[다시 넣기] — 값은 한글 파일 칸 고치기와 같은 임시저장(journal-hwpx.js 가 씀).
+  if (button.matches('[data-journal-schedule-fix]')) { hwpx?.schedule(button.dataset.journalScheduleFix, 'fix'); return; }
+  if (button.matches('[data-journal-schedule-drop]')) { hwpx?.schedule(button.dataset.journalScheduleDrop, 'drop'); return; }
+  if (button.matches('[data-journal-schedule-put]')) { hwpx?.schedule(button.dataset.journalSchedulePut, 'put'); return; }
   // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, '근거 ›' → 근거 묶음 하나만 열고 그 줄로(잠깐 옅게 칠함, 공용 jumpToPrepRef).
   if (button.matches('[data-journal-next-make]')) { void makeNextWeek('user'); return; }
   if (button.matches('[data-journal-next-open]')) { void openNextWeekLine(Number(button.dataset.journalNextOpen), button); return; }

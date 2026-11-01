@@ -4,13 +4,14 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { createTaskFiles } from '../../supabase/functions/google-tasks/task-files.ts';
 import { withOwner } from './helpers/owner-member.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // Runs the real google-tasks handler for the task link actions (TASK-구현 PR 3, docs/web2-task-impl-plan.md 4.2·4.3)
 // against a mocked Google Tasks API and a mocked Supabase. The caller-JWT client follows the app_record_links RLS policy
 // (owner of the workspace; project and organization in the same workspace) and its unique constraint. The service-role
 // client refuses app_record_links, so links can only be reached through RLS. No network calls.
 const SOURCE = stripTypeScriptTypes(
-  readFileSync(new URL('../../supabase/functions/google-tasks/index.ts', import.meta.url), 'utf8')
+  withEdgeShared(readFileSync(new URL('../../supabase/functions/google-tasks/index.ts', import.meta.url), 'utf8'))
     .replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );

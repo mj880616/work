@@ -1,3 +1,4 @@
+import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // DOMAIN-주소이전 ①-D1: Google 연결 뒤 돌아갈 Web2 화면은 새 주소(bokdoong.com). 허용 주소(ALLOWED_ORIGINS)는 옛 주소도 그대로 받는다.
@@ -34,9 +35,9 @@ async function sha256(s: string) {
   return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
-// SEC-정리묶음: DB 오류 원문은 서버 로그에만 남기고, 응답에는 상태 번호가 든 우리 글만 싣는다.
+// SEC-정리묶음·EDGE-서버함수정리: DB 오류 원문은 응답·로그 어디에도 싣지 않고, 상태 번호만 남긴다.
 async function serviceFail(r: Response) {
-  console.error('public-policy-drive db request failed', { status: r.status, detail: (await r.text().catch(() => '')).slice(0, 500) });
+  console.error('public-policy-drive db request failed', { status: r.status });
   return new Error(`DB 요청 실패 (${r.status})`);
 }
 
@@ -189,8 +190,8 @@ Deno.serve(async (req) => {
       try {
         return await startDriveAuth(req);
       } catch (e) {
-        console.error(e);
-        return json(req, { error: e instanceof Error ? e.message : String(e) }, 403);
+        console.error('public-policy-drive drive-start failed', safeErrorLog(e));
+        return json(req, { error: safeErrorMessage(e) }, 403);
       }
     }
   }
@@ -232,7 +233,7 @@ Deno.serve(async (req) => {
       body: tokenBody
     });
     if (!tokenRes.ok) {
-      console.error(await tokenRes.text());
+      console.error('public-policy-drive token exchange failed', { status: tokenRes.status });
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
       return Response.redirect(isDriveState ? driveRedirect('error', 'token_exchange_failed') : calendarRedirect('error', state), 302);
     }
@@ -248,7 +249,7 @@ Deno.serve(async (req) => {
         headers: { Authorization: `Bearer ${tokens.access_token}` }
       });
       if (!driveCheck.ok) {
-        console.error(await driveCheck.text());
+        console.error('public-policy-drive drive check failed', { status: driveCheck.status });
         await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
         return Response.redirect(driveRedirect('error', 'drive_scope_failed'), 302);
       }
@@ -269,7 +270,7 @@ Deno.serve(async (req) => {
           { headers: { Authorization: `Bearer ${tokens.access_token}` } }
         );
         if (!folderCheck.ok) {
-          console.error(await folderCheck.text());
+          console.error('public-policy-drive folder check failed', { status: folderCheck.status });
           await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
           return Response.redirect(driveRedirect('error', 'drive_folder_access_failed'), 302);
         }
@@ -317,7 +318,7 @@ Deno.serve(async (req) => {
     );
     return Response.redirect(calendarRedirect('connected', state), 302);
   } catch (e) {
-    console.error(e);
+    console.error('public-policy-drive callback failed', safeErrorLog(e));
     return Response.redirect(isDriveState ? driveRedirect('error', 'callback_failed') : calendarRedirect('error', state), 302);
   }
 });

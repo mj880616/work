@@ -24,6 +24,8 @@ const SENTENCES = { p1: [{ idx: 0, text: '가상 본문 첫 문장이다.' }, { 
 async function outsideServer(page) {
   const server = {
     sources: new Map([['kctu', true], ['laborparty', true], ['kgreens', true], ['jacobin', true]].map(([k, on]) => [k, { source_key: k, enabled: on, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }])),
+    // 같은 표의 뉴스 클리핑 매체 줄(news- 키): 사회운동 Now 계산에 섞이면 안 된다(흉내 서버는 조건을 무시하고 함께 돌려준다).
+    newsRows: [{ source_key: 'news-fake-en', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null }],
     seen: [{ seen_at: '2026-10-05T00:00:00Z' }], calls: [], extra: [],
   };
   // 바로 읽기(read_now)는 열어 줄 때까지 붙잡아 둔다('읽는 중…' 확인용).
@@ -65,7 +67,7 @@ async function outsideServer(page) {
       const key = (u.searchParams.get('source_key') || '').replace(/^eq\./, '');
       if (method === 'PATCH') { const row = server.sources.get(key); if (!row) return ok([]); row.enabled = body.enabled; return ok([row]); }
       if (method === 'POST') { const row = { source_key: body.source_key, enabled: body.enabled, last_ok_at: null, last_error: null }; server.sources.set(row.source_key, row); return ok([row], 201); }
-      return ok([...server.sources.values()]);
+      return ok([...server.sources.values(), ...server.newsRows]);
     }
     return ok([]);
   });
@@ -104,6 +106,7 @@ for (const width of [412, 1280]) {
     // 위쪽 작은 줄(OUTSIDE-이름·바로읽기): 마지막 읽음 10. 5. 18:07, 오늘 08:07 예약분이 아직 안 돌아 '다음 곧'.
     await expect(page.locator('#osTitle')).toHaveText('사회운동 Now');
     await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 어제 18:07 · 다음 곧(08:07 예정분)');
+    expect(server.calls.find(c => c.what === 'app_outside_sources' && c.method === 'GET').query).toContain('source_key=not.like.news-*');
 
     // 칩 첫 줄: 전체 + 켠 단체가 있는 묶음만(단체 낱개는 묶음을 고르면 둘째 줄에).
     await expect(chips(page)).toHaveText(['전체', '민주노총', '정당', '외국']);
@@ -182,6 +185,7 @@ for (const width of [412, 1280]) {
     await expect(posts(page)).toHaveCount(0);
     await expect(sw('kctu')).toHaveAttribute('aria-checked', 'true');
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'false');
+    await expect(root(page).locator('[data-os-on-count]')).toHaveText('켬 4');
     // 막힌 까닭을 단체 줄에 작은 글로(OUTSIDE-막힌단체): robots → 막아 둠, parse_empty → 사이트 구조 바뀜. 카탈로그 순서(노동당 → 녹색당).
     await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['못 읽음 · 사이트 구조 바뀜', '못 읽음 · 사이트가 자동 읽기 막음']);
     await expect(root(page).locator('.os-src-row:has([data-os-source="kctu"]) .os-src-note')).toHaveText('마지막 10. 5. (월) 18:07');

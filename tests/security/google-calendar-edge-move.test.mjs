@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import { withOwner } from './helpers/owner-member.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
-const source=stripTypeScriptTypes(readFileSync(new URL('../../supabase/functions/google-calendar/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''),{mode:'strip'});
+const source=stripTypeScriptTypes(withEdgeShared(readFileSync(new URL('../../supabase/functions/google-calendar/index.ts',import.meta.url),'utf8')).replace(/^import .*$/gm,''),{mode:'strip'});
 const event={id:'ev',summary:'Synthetic event',start:{date:'2026-10-15'},end:{date:'2026-10-16'},extendedProperties:{private:{kptu_suborg_ids:'["org-a"]',other:'keep'}}};
 const request={action:'update-event',calendar_id:'source',event_id:'ev',title:'Changed',memo:'',all_day:true,start_date:'2026-10-15',end_date:'2026-10-15'};
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status});

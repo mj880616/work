@@ -64,7 +64,7 @@ Deno.serve(async(req)=>{
       const {data,error}=await service.from("private_rail_bargaining_summary")
         .select("id,workplace,status_text,sort_order,updated_at")
         .order("sort_order",{ascending:true});
-      return new Response(JSON.stringify(error?{error:error.message}:data||[]),{status:error?500:200,headers:cors});
+      return new Response(JSON.stringify(error?{error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}:data||[]),{status:error?500:200,headers:cors});
     }
     if(req.method==="POST"){
       let body:any;try{body=await req.json()}catch{return new Response(JSON.stringify({error:"json"}),{status:400,headers:cors})}
@@ -74,7 +74,7 @@ Deno.serve(async(req)=>{
       if(!Number.isInteger(id)||id<1)return new Response(JSON.stringify({error:"id"}),{status:400,headers:cors});
       if(action==="check"){
         const {data,error}=await service.from("private_rail_bargaining_summary").select("id").eq("id",id).maybeSingle();
-        if(error)return new Response(JSON.stringify({error:error.message}),{status:500,headers:cors});
+        if(error)return new Response(JSON.stringify({error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}),{status:500,headers:cors});
         if(!data)return new Response(JSON.stringify({error:"not_found"}),{status:404,headers:cors});
         return new Response(JSON.stringify({ok:true}),{status:200,headers:cors});
       }
@@ -82,13 +82,13 @@ Deno.serve(async(req)=>{
         const status_text=String(body.status_text||"").trim();
         if(!status_text||status_text.length>1000)return new Response(JSON.stringify({error:"value"}),{status:400,headers:cors});
         const {data,error}=await service.from("private_rail_bargaining_summary").update({status_text,updated_at:new Date().toISOString()}).eq("id",id).select("id");
-        if(error)return new Response(JSON.stringify({error:error.message}),{status:500,headers:cors});
+        if(error)return new Response(JSON.stringify({error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}),{status:500,headers:cors});
         if(!data?.length)return new Response(JSON.stringify({error:"not_found"}),{status:404,headers:cors});
         return new Response(JSON.stringify({ok:true}),{status:200,headers:cors});
       }
       if(action==="delete"){
         const {data,error}=await service.from("private_rail_bargaining_summary").delete().eq("id",id).select("id");
-        if(error)return new Response(JSON.stringify({error:error.message}),{status:500,headers:cors});
+        if(error)return new Response(JSON.stringify({error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}),{status:500,headers:cors});
         if(!data?.length)return new Response(JSON.stringify({error:"not_found"}),{status:404,headers:cors});
         return new Response(JSON.stringify({ok:true}),{status:200,headers:cors});
       }
@@ -100,7 +100,7 @@ Deno.serve(async(req)=>{
   if(mode==="bargaining"){
     if(req.method==="GET"){
       const {data,error}=await service.from("private_rail_bargaining_updates").select("id,workplace,author,status_text,created_at").order("created_at",{ascending:false}).limit(100);
-      return new Response(JSON.stringify(error?{error:error.message}:data||[]),{status:error?500:200,headers:cors});
+      return new Response(JSON.stringify(error?{error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}:data||[]),{status:error?500:200,headers:cors});
     }
     if(req.method==="POST"){
       let body:any;try{body=await req.json()}catch{return new Response(JSON.stringify({error:"json"}),{status:400,headers:cors})}
@@ -111,7 +111,7 @@ Deno.serve(async(req)=>{
         const workplace=String(body.workplace||"").trim(),author=String(body.author||"").trim(),status_text=String(body.status_text||"").trim();
         if(!workplace||workplace.length>60||!status_text||status_text.length>1500||author.length>40)return new Response(JSON.stringify({error:"value"}),{status:400,headers:cors});
         const {error}=await anon.from("private_rail_bargaining_updates").insert({workplace,author:author||null,status_text});
-        return new Response(JSON.stringify(error?{error:error.message}:{ok:true}),{status:error?500:200,headers:cors});
+        return new Response(JSON.stringify(error?{error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}:{ok:true}),{status:error?500:200,headers:cors});
       }
       const id=Number(body.id);
       if(!Number.isInteger(id)||id<1)return new Response(JSON.stringify({error:"id"}),{status:400,headers:cors});
@@ -119,13 +119,13 @@ Deno.serve(async(req)=>{
         const workplace=String(body.workplace||"").trim(),author=String(body.author||"").trim(),status_text=String(body.status_text||"").trim();
         if(!workplace||workplace.length>60||!status_text||status_text.length>1500||author.length>40)return new Response(JSON.stringify({error:"value"}),{status:400,headers:cors});
         const {data,error}=await anon.from("private_rail_bargaining_updates").update({workplace,author:author||null,status_text}).eq("id",id).select("id");
-        if(error)return new Response(JSON.stringify({error:error.message}),{status:500,headers:cors});
+        if(error)return new Response(JSON.stringify({error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}),{status:500,headers:cors});
         if(!data?.length)return new Response(JSON.stringify({error:"password"}),{status:403,headers:cors});
         return new Response(JSON.stringify({ok:true}),{status:200,headers:cors});
       }
       if(action==="delete"){
         const {data,error}=await anon.from("private_rail_bargaining_updates").delete().eq("id",id).select("id");
-        if(error)return new Response(JSON.stringify({error:error.message}),{status:500,headers:cors});
+        if(error)return new Response(JSON.stringify({error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}),{status:500,headers:cors});
         if(!data?.length)return new Response(JSON.stringify({error:"password"}),{status:403,headers:cors});
         return new Response(JSON.stringify({ok:true}),{status:200,headers:cors});
       }
@@ -139,7 +139,7 @@ Deno.serve(async(req)=>{
   if(req.method==="GET"){
     const {data,error}=await service.from("board_state").select("item_key,value,updated_at").eq("board",board);
     const rows=(data||[]).map((x:any)=>({item_key:x.item_key,value:x.value,checked:typeof x.value==="boolean"?x.value:undefined,updated_at:x.updated_at}));
-    return new Response(JSON.stringify(error?{error:error.message}:rows),{status:error?500:200,headers:cors});
+    return new Response(JSON.stringify(error?{error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}:rows),{status:error?500:200,headers:cors});
   }
   if(req.method==="POST"){
     let body:any;try{body=await req.json()}catch{return new Response(JSON.stringify({error:"json"}),{status:400,headers:cors})}
@@ -163,7 +163,7 @@ Deno.serve(async(req)=>{
     if(k.startsWith("area_")&&!k.startsWith("area_hidden_")&&!(typeof v==="string"&&v.trim().length<=700))return new Response(JSON.stringify({error:"area"}),{status:400,headers:cors});
     if(k.startsWith("schedule_")&&!k.startsWith("schedule_hidden_")&&!(typeof v==="string"&&v.trim().length<=300))return new Response(JSON.stringify({error:"schedule"}),{status:400,headers:cors});
     const {error}=await service.from("board_state").upsert({board,item_key:k,value:v,updated_at:new Date().toISOString()},{onConflict:"board,item_key"});
-    return new Response(JSON.stringify(error?{error:error.message}:{ok:true}),{status:error?500:200,headers:cors});
+    return new Response(JSON.stringify(error?{error:'요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}:{ok:true}),{status:error?500:200,headers:cors});
   }
   return new Response(JSON.stringify({error:"method"}),{status:405,headers:cors});
 });

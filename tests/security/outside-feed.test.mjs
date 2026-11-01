@@ -666,7 +666,7 @@ test('docs 5절 table: outside-feed row is verify_jwt=false and 배포 대기; i
   const rows=doc.split('\n').filter(l=>/^\| \d+ \| `outside-feed` \|/.test(l));
   assert.equal(rows.length,1);assert.match(rows[0],/\| 배포 대기 \| 없음 \| false \|/);
   const idx=readFileSync('supabase/functions/outside-feed/index.ts','utf8');
-  assert.match(idx,/Deno\.serve\(createOutsideFeedHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\);/);
+  assert.match(idx,/Deno\.serve\(withWebCors\(createOutsideFeedHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\)\);/);
   const src=readFileSync('supabase/functions/outside-feed/handler.ts','utf8');
   assert.doesNotMatch(src,/console\.(log|info)\(/);
   assert.doesNotMatch(src,/"DELETE", `app_outside_posts/,'never deletes posts');

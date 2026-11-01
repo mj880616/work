@@ -25,7 +25,6 @@ const THUMB = { small: 480, large: 1600 } as const;
 export const TRASH_NOTE = "드라이브 휴지통에서 30일 안에 되살릴 수 있어요";
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Expose-Headers": "content-length, content-range, content-type",

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {ALL, normalizeCatalog, enabledKeys, chipsOf, subChipsOf, chipPressed, keysOf, keepChip, groupPosts, isOld, firstSentence, postView, safeUrl, bodyText, isFresh, sourceState, errorNote, FEED_SLOTS_KST, feedSlots, feedWhen} from '../app/outside-statements-model.mjs';
+import {ALL, normalizeCatalog, enabledKeys, chipsOf, subChipsOf, chipPressed, keysOf, keepChip, groupPosts, isOld, firstSentence, postView, safeUrl, bodyText, isFresh, sourceState, errorNote, FEED_SLOTS_KST, feedSlots, feedWhen, ownSourceRows} from '../app/outside-statements-model.mjs';
 import {readFileSync} from 'node:fs';
 
 // OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 2·4절): 화면 계산 규칙.
@@ -119,4 +119,19 @@ test('마지막으로 읽은 시각 · 다음 읽기 한 줄', () => {
   // 저녁 뒤 → 내일 08:07, 어제 읽은 것은 '어제'.
   assert.equal(feedWhen([{enabled: true, last_ok_at: '2026-11-01T09:20:00Z'}], Date.parse('2026-11-01T12:00:00Z')), '마지막으로 읽음 오늘 18:20 · 다음 내일 08:07쯤');
   assert.equal(feedWhen([{enabled: true, last_ok_at: '2026-10-31T09:20:00Z'}], Date.parse('2026-10-31T23:05:00Z')), '마지막으로 읽음 어제 18:20 · 다음 08:07쯤');
+});
+
+test('사회운동 Now는 자기 단체 줄만: 뉴스 클리핑 매체(news- 키)는 켬 수·마지막으로 읽음에 섞이지 않음', () => {
+  const now = Date.parse('2026-11-01T03:00:00Z');
+  const rows = [
+    {source_key: 'kctu', enabled: true, last_ok_at: '2026-10-31T09:07:00Z'},
+    {source_key: 'news-fake-en', enabled: true, last_ok_at: '2026-11-01T02:30:00Z'},
+    null, {source_key: ''}, {enabled: true},
+  ];
+  const own = ownSourceRows(rows);
+  assert.deepEqual(own.map(r => r.source_key), ['kctu']);
+  assert.deepEqual(enabledKeys(own), ['kctu']);
+  assert.equal(feedWhen(own, now), feedWhen([rows[0]], now));
+  assert.ok(feedWhen(own, now).startsWith('마지막으로 읽음 어제'), '뉴스 매체의 더 늦은 시각을 쓰지 않음');
+  assert.deepEqual(ownSourceRows(null), []);
 });

@@ -1,5 +1,5 @@
 // NEWS-클리핑 B: 하루 3번 예약 실행(.github/workflows/news-feed.yml)이 부르는 스크립트.
-// news-feed POST ?action=run_plan(켠 매체 키 목록) → 매체마다 run {step:'media',source} → run {step:'keywords'} → {step:'pending'} → {step:'prune'}.
+// news-feed POST ?action=run_plan(켠 매체 키 목록) → 매체마다 run {step:'media',source} → run {step:'keywords'} → {step:'pending'} → {step:'titles'}(외국어 제목만 한국어로) → {step:'prune'}.
 // 비밀값은 환경변수로만 받고 출력하지 않는다. 응답은 키·건수·단계 코드만 읽는다(제목·본문·주소·키워드는 받지도 찍지도 않음).
 export const FUNCTION_BASE = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/news-feed';
 const KEY = /^news-[a-z0-9-]{1,34}$/;
@@ -55,7 +55,7 @@ export async function runNewsFeed({ secret, fetcher = fetch, base = FUNCTION_BAS
   const plan = await call(options, 'run_plan', {});
   if (!Array.isArray(plan.media)) throw new FeedFailure('수집 계획 응답 모양이 다릅니다.');
   const steps = [...plan.media.filter(k => typeof k === 'string' && KEY.test(k)).slice(0, MAX_SOURCES).map(source => ({ step: 'media', source })),
-    { step: 'keywords' }, { step: 'pending' }, { step: 'prune' }];
+    { step: 'keywords' }, { step: 'pending' }, { step: 'titles' }, { step: 'prune' }];
   const results = [];
   for (const s of steps) {
     const name = s.source ?? s.step;

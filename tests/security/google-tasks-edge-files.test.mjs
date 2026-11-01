@@ -4,13 +4,14 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { createTaskFiles, notesWithFiles, fileLine, MAX_TASK_FILES, NOTES_MAX } from '../../supabase/functions/google-tasks/task-files.ts';
 import { withOwner } from './helpers/owner-member.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // TASK-파일붙이기: runs the real google-tasks handler (index.ts + task-files.ts + _shared/drive-upload.ts) for the file actions
 // against a mocked Google Tasks API, a mocked Drive API and a mocked Supabase. The caller-JWT client follows the
 // app_task_attachments owner RLS policy and its unique key; the service-role client refuses that table, so file links can only
 // be reached through RLS. Drive is modeled as drive.file (only app files are visible). No network calls.
 const SOURCE = stripTypeScriptTypes(
-  readFileSync(new URL('../../supabase/functions/google-tasks/index.ts', import.meta.url), 'utf8').replace(/^import .*$/gm, ''),
+  withEdgeShared(readFileSync(new URL('../../supabase/functions/google-tasks/index.ts', import.meta.url), 'utf8')).replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );
 const NOW = Date.parse('2026-10-21T14:00:00.000Z');

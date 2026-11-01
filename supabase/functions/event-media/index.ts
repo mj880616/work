@@ -1,10 +1,12 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { withWebCors } from "../_shared/web-cors.ts";
+import { safeErrorMessage } from "../_shared/safe-error.ts";
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
 const BUCKET='team-event-media';
-const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS'};
+const cors={'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS'};
 const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,'Content-Type':'application/json'}});
 async function currentUser(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new Error('로그인이 필요합니다.');const {data,error}=await admin.auth.getUser(token);if(error||!data.user)throw new Error('로그인 세션을 확인할 수 없습니다.');return data.user}
 async function eventAccess(eventId:string,userId:string){
@@ -14,7 +16,7 @@ async function eventAccess(eventId:string,userId:string){
  if(m?.role!=='owner')throw new Error('워크스페이스 소유자 권한이 필요합니다.');
  return e;
 }
-Deno.serve(async(req:Request)=>{
+Deno.serve(withWebCors(async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
  try{
   const user=await currentUser(req);const u=new URL(req.url);const action=u.searchParams.get('action')||'list';
@@ -42,5 +44,5 @@ Deno.serve(async(req:Request)=>{
     const id=u.searchParams.get('id');if(!id)throw new Error('id가 필요합니다.');const {data:p}=await admin.from('app_event_photos').select('*').eq('id',id).maybeSingle();if(!p)throw new Error('사진을 찾을 수 없습니다.');const e=await eventAccess(p.event_id,user.id);const {data:m}=await admin.from('app_workspace_members').select('role').eq('workspace_id',e.workspace_id).eq('user_id',user.id).maybeSingle();if(p.uploaded_by!==user.id&&!['owner','admin'].includes(m?.role||''))throw new Error('삭제 권한이 없습니다.');await admin.storage.from(BUCKET).remove([p.storage_path,p.thumb_path]);await admin.from('app_event_photos').delete().eq('id',id);return json({ok:true});
   }
   return json({error:'unknown action'},400);
- }catch(e){return json({error:e instanceof Error?e.message:String(e)},400)}
-});
+ }catch(e){return json({error:safeErrorMessage(e)},400)}
+}));

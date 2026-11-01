@@ -1,7 +1,7 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {fitChipRows} from './chip-rows.js';
 import {createAnchoredMenu} from './anchored-menu.js';
-import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, subChipsOf, chipPressed, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState, feedWhen} from './outside-statements-model.mjs';
+import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, ownSourceRows, chipsOf, subChipsOf, chipPressed, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState, feedWhen} from './outside-statements-model.mjs';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절, 12:43 시안): '바깥 성명' 화면(?view=outside). #outsideView의 유일한 그리기 주인.
 // - [새로 온 것]: 칩 첫 줄(전체·묶음, 공용 chip-rows.js) + 묶음을 고르면 둘째 줄(그 묶음 단체) → 날짜 묶음 → 글마다 '단체 · 종류 · 시각' / 제목 / 한 문장 요약(늘 보임)
 //   / 본문 접기(<details>, 국내는 펼칠 때 서버 문장 표에서 읽음, 외국은 한국어 요약 + 핵심 문장) / 작은 [원문](그 단체 페이지, 새 창).
@@ -9,6 +9,7 @@ import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, subChips
 // - ⋯ → [단체 켜고 끄기]: 카탈로그(서버 outside-feed ?action=catalog) 단체마다 켬/끔 + 마지막으로 읽은 시각·실패 표시.
 //   켬/끔은 서버 표 app_outside_sources에만 저장(기기 저장 없음). 폰·PC 모두 같은 화면 안 한 칸이고 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 들어오면 지난번 본 시각(app_outside_seen)을 읽어 그 뒤 받은 글에 작은 '새' 표시를 하고, 지금 시각으로 바꿔 둔다(서버 저장).
+// - ⋯ → [지금 채우기]: 켠 단체를 바로 읽기(readNow)로 하나씩 한 번 읽는다(NEWS-클리핑 C1).
 // - [문장 찾기]는 다음 PR(⑤) 몫이라 여기에는 없다. 글은 서버 수집기만 넣는다(화면은 읽기·켜고 끄기·본 시각만 쓴다).
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 글 제목·본문을 남기지 않는다.
 
@@ -49,7 +50,8 @@ async function readCatalog() {
   const data = await rt().api('/functions/v1/outside-feed?action=catalog', {method: 'POST', body: {}, singleFlight: false, timeoutMs: 20000});
   return normalizeCatalog(data);
 }
-const readSources = w => rt().api(`/rest/v1/app_outside_sources?workspace_id=eq.${q(w)}&select=${SOURCE_COLS}`, {singleFlight: false});
+// 뉴스 클리핑 매체(news- 키)는 같은 표에 있지만 이 화면 것이 아니다 → 서버에서 빼고 읽는다(화면 계산도 ownSourceRows로 한 번 더).
+const readSources = w => rt().api(`/rest/v1/app_outside_sources?workspace_id=eq.${q(w)}&source_key=not.like.news-*&select=${SOURCE_COLS}`, {singleFlight: false});
 const readSeen = w => rt().api(`/rest/v1/app_outside_seen?workspace_id=eq.${q(w)}&select=seen_at&limit=1`, {singleFlight: false});
 function readPosts(w, keys, offset) {
   if (keys && !keys.length) return Promise.resolve([]);
@@ -222,7 +224,7 @@ async function load() {
   if (scope !== state.scope) return;
   if (catalog.status === 'fulfilled') { state.catalog = catalog.value; state.catalogFailed = false; } else state.catalogFailed = true;
   if (sources.status === 'fulfilled' && Array.isArray(sources.value)) {
-    state.sources = new Map(sources.value.filter(r => r && r.source_key).map(r => [r.source_key, r]));
+    state.sources = new Map(ownSourceRows(sources.value).map(r => [r.source_key, r]));
     state.sourcesLoaded = true; state.sourcesFailed = false;
   } else if (!state.sourcesLoaded) state.sourcesFailed = true;
   if (!state.seenRead && seen.status === 'fulfilled') {
@@ -301,16 +303,32 @@ async function readNow(key) {
   try {
     const rows = w ? await readSources(w) : null;
     if (scope !== state.scope) return;
-    if (Array.isArray(rows)) state.sources = new Map(rows.filter(r => r && r.source_key).map(r => [r.source_key, r]));
+    if (Array.isArray(rows)) state.sources = new Map(ownSourceRows(rows).map(r => [r.source_key, r]));
   } catch { /* 단체 줄은 그대로 */ }
   if (scope !== state.scope) return;
   if (state.mode === 'list') { listDirty = false; loadPosts({keep: true}); } else { listDirty = true; paint(); }
 }
 
+// [지금 채우기](NEWS-클리핑 C1, 명진 11/01 22:34): 켠 단체를 하나씩 바로 읽는다. 읽는 일은 켤 때와 같은 readNow(서버 read_now)이고
+// 마지막으로 읽은 지 얼마 안 된 단체·하루 횟수는 서버가 거른다(새 읽기 길을 만들지 않음).
+let filling = false;
+async function fillNow() {
+  if (filling) return;
+  const scope = state.scope;
+  filling = true;
+  try {
+    if (!state.sourcesLoaded) await load().catch(() => {});
+    for (const key of enabledNow().filter(k => catalogOf(k))) { // news- 키(뉴스 클리핑 매체)는 같은 표에 있지만 이 화면 단체가 아님
+      if (scope !== state.scope) break;
+      await readNow(key);
+    }
+  } finally { filling = false; }
+}
+
 // ---------- 누르기 ----------
 const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: '사회운동 Now 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
-  render: () => '<button type="button" data-os-act="sources">단체 켜고 끄기</button>',
-  onAction: button => { if (button.dataset.osAct === 'sources') openSources(); }});
+  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button>`,
+  onAction: button => { if (button.dataset.osAct === 'sources') openSources(); else if (button.dataset.osAct === 'fill') fillNow(); }});
 
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');

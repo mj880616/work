@@ -257,6 +257,9 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-recent .nx-sec { min-height:22px; display:flex; align-items:center; padding:0 6px; font-size:12px; color:var(--kptu-muted); }
 #appView #basketView [data-note-list] .nx-recent-item + .nx-folder { border-top:var(--ds-line-width, .5px) solid var(--ds-line, var(--kptu-border)); }
 .note-meta-ai-off { font-size:12px; color:var(--kptu-muted); }
+/* NEWS-클리핑 C2: 기사 메모 노트의 [기사로 가기] — 메타 줄 안 작은 글자 링크(테두리 없음, 누르는 범위 44px). */
+#appView #basketView .basket-note-meta .note-meta-news{ position:relative; min-height:0; height:auto; margin:0; padding:0; font:inherit; font-size:12px; color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+#appView #basketView .basket-note-meta .note-meta-news::after{ content:""; position:absolute; inset:-14px -6px; }
 /* 17:45 ③: PC(마우스)는 노트·폴더 줄의 ⋯를 마우스를 올리거나 키보드로 갔을 때만 보인다(누르는 자리는 그대로). 손가락 기기는 그대로. */
 @media (hover:hover) and (pointer:fine) {
   #appView #basketView [data-note-list] .nx-row > button:is(.basket-row-more,.nx-more) { opacity:0; transition:opacity .12s; }

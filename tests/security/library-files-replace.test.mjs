@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { fileNameTitle, isMeaninglessName } from '../../supabase/functions/_shared/library-file-name.mjs';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 const { readMultipartForm } = await import('../../supabase/functions/_shared/multipart.ts');
 const { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } = await import('../../supabase/functions/_shared/ai-model.ts');
 const { outputText } = await import('../../supabase/functions/_shared/openai-responses.ts');
@@ -10,7 +11,7 @@ const { outputText } = await import('../../supabase/functions/_shared/openai-res
 // LIB-수정파일교체: the real library-files handler, replace branch (replace_document_id), with mocked Supabase, Google Drive and AI. No network.
 // The same document row gets the new file; title/category/links/marks stay; the old Drive file is never deleted and is recorded in previous_files.
 const SOURCE = stripTypeScriptTypes(
-  readFileSync(new URL('../../supabase/functions/library-files/index.ts', import.meta.url), 'utf8').replace(/^import .*$/gm, ''),
+  withEdgeShared(readFileSync(new URL('../../supabase/functions/library-files/index.ts', import.meta.url), 'utf8')).replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );
 const DOC = 'e0000000-0000-4000-8000-000000000001', OTHER = 'e0000000-0000-4000-8000-000000000002';

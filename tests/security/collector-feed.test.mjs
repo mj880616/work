@@ -618,7 +618,7 @@ test('소스: 비밀값·열쇠 값 없음, console에 원문 없음, tools 없�
   const logs=[...all.matchAll(/log\("([a-z_]+)"(?:,\s*(\{[^}]*\}))?\)/g)];
   for(const [,code,detail] of logs)if(detail)assert.doesNotMatch(detail,/text|summary|raw|title|name|material|label/,code);
   // 앱 화면·ai-assist 지침은 이 PR에서 고치지 않는다(공용 호출만 옮김)
-  assert.match(files[3],/Deno\.serve\(createCollectorFeedHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\);/);
+  assert.match(files[3],/Deno\.serve\(withWebCors\(createCollectorFeedHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\)\);/);
 });
 
 test('담당조직 이름 비교는 화면(app/org-name-match.mjs)과 같은 파일 사본을 쓴다',()=>{

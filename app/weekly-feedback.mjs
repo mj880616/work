@@ -179,7 +179,8 @@ const cleanStats = list => (Array.isArray(list) ? list : []).slice(0, CELL_STATS
 export function readReview(raw) {
   if (!isObj(raw) || !at40(raw.at)) return null;
   const candidates = (Array.isArray(raw.candidates) ? raw.candidates : []).map(t => line(t).slice(0, RULE_CHARS)).filter(Boolean).slice(0, 10);
-  const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).slice(0, SUGGESTIONS_MAX).map((s, i) => (isObj(s) && line(s.text) ? {id:typeof s.id === 'string' && /^s[1-4]$/.test(s.id) ? s.id : `s${i + 1}`, ...(Object.hasOwn(SUGGESTION_AREA, s.area) ? {area:s.area} : {}), text:line(s.text).slice(0, 200), ...(s.answer === 'yes' || s.answer === 'no' ? {answer:s.answer} : {})} : null)).filter(Boolean);
+  const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).slice(0, SUGGESTIONS_MAX).map((s, i) => (isObj(s) && line(s.text) ? {id:typeof s.id === 'string' && /^s[1-4]$/.test(s.id) ? s.id : `s${i + 1}`, ...(Object.hasOwn(SUGGESTION_AREA, s.area) ? {area:s.area} : {}), text:line(s.text).slice(0, 200), ...(s.answer === 'yes' || s.answer === 'no' ? {answer:s.answer} : {}),
+    ...(s.answer === 'yes' && line(s.before) ? {before:line(s.before).slice(0, 200)} : {}), ...(s.answer === 'no' && line(s.why) ? {why:line(s.why).slice(0, 100)} : {})} : null)).filter(Boolean);
   return {at:raw.at, candidates, suggestions, ...(raw.ai === false ? {ai:false} : {})};
 }
 export function readFeedback(raw) {
@@ -281,9 +282,14 @@ export function restoreRetired(rules, key, at) {
   if (!found) return r;
   return readRules({...r, at:stamp(r.at, at), retired:r.retired.filter(notKey(k)), candidates:[...r.candidates, {text:found.text}]});
 }
-// 환류 보고 개선 제안 하나에 승인/아니 답.
-export function withAnswer(feedback, id, answer) {
+// 환류 보고 개선 제안 하나에 답(WEEKLY-환류전칸 ⑤): 'yes'([넣기], text 를 주면 [고쳐서 넣기] — 고친 글이 text, 원래 글은 before) | 'no'([빼기], why = 이유 한 줄, 안 써도 됨).
+export function withAnswer(feedback, id, answer, {text = '', why = ''} = {}) {
   const f = readFeedback(feedback);
   if (!f?.review) return f;
-  return readFeedback({...f, review:{...f.review, suggestions:f.review.suggestions.map(s => (s.id === id ? {...s, answer} : s))}});
+  const put = s => {
+    const {before: _b, why: _w, ...rest} = s, fixed = answer === 'yes' ? line(text).slice(0, 200) : '';
+    if (answer === 'yes') return fixed && fixed !== s.text ? {...rest, answer, text:fixed, before:s.before ?? s.text} : {...rest, answer, ...(s.before ? {before:s.before} : {})};
+    return {...rest, answer, ...(line(why) ? {why:line(why)} : {})};
+  };
+  return readFeedback({...f, review:{...f.review, suggestions:f.review.suggestions.map(s => (s.id === id ? put(s) : s))}});
 }

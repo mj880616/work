@@ -11,6 +11,7 @@ import { runLibraryPrevPrune, PREV_PRUNE } from '../../supabase/functions/drive-
 import { createHandler } from '../../supabase/functions/drive-summary/core.mjs';
 import { inspectDriveFile, moveDriveFileToTrash, trashDriveFile } from '../../supabase/functions/_shared/drive-trash.ts';
 import { runPrune, PruneFailure } from '../../scripts/ops/library-prev-prune.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 const read = p => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const DAY = 86400000;
@@ -270,7 +271,7 @@ test('drive-trash: not-ours cases (other folder, not owned, folder item, 404) vs
 });
 
 // library-files [계속 보관]
-const SOURCE = stripTypeScriptTypes(read('../../supabase/functions/library-files/index.ts').replace(/^import .*$/gm, ''), { mode: 'strip' });
+const SOURCE = stripTypeScriptTypes(withEdgeShared(read('../../supabase/functions/library-files/index.ts')).replace(/^import .*$/gm, ''), { mode: 'strip' });
 function keepHarness({ doc: d, role = 'owner', readError = null, updateError = null, race = false } = {}) {
   const rows = [structuredClone(d)], updates = [];
   const documents = () => {

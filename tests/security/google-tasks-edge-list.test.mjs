@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { createTaskFiles } from '../../supabase/functions/google-tasks/task-files.ts';
 import { withOwner } from './helpers/owner-member.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // Runs the real google-tasks handler (action=tasks / action=overview) against a mocked Supabase and a mocked Google Tasks API.
 // The mock follows the list filters the handler relies on: showCompleted=false drops completed tasks,
@@ -15,7 +16,7 @@ import { withOwner } from './helpers/owner-member.mjs';
 // combined status+tasks request, count-only timing log), 묶음C-4 (overdue pending tasks are kept) and TASK-구현 PR 3
 // (only the default list is read, with no list lookup). No network calls.
 const SOURCE = stripTypeScriptTypes(
-  readFileSync(new URL('../../supabase/functions/google-tasks/index.ts', import.meta.url), 'utf8')
+  withEdgeShared(readFileSync(new URL('../../supabase/functions/google-tasks/index.ts', import.meta.url), 'utf8'))
     .replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );
