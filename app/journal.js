@@ -54,16 +54,17 @@ import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {paintFlowCells, FLOW_SECTIONS} from './weekly-flow-cells.js';
 import {paintHqSchedule} from './weekly-hq-schedule.js';
 import {paintDiscuss} from './weekly-discuss-table.js';
+import {paintHandLines} from './weekly-hand-lines.js';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
-import {readWeekDraft, changeWeekDocs, withDocEdit} from './weekly-draft-store.js';
+import {readWeekDraft, changeWeekDocs, withDocEdit, withLinePick} from './weekly-draft-store.js';
 import {mountHomeSummary} from './home-summary.js';
 import {paintWeeklyLearn} from './weekly-learn-panel.js'; // WEEKLY-환류학습
 import {droppedOf, keptOf} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {learnFor, markPick, releaseSig} from './weekly-picks.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
-import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
+import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord, requestLine} from './weekly-exec-requests.js';
 import {cellTime, TIME_HINT} from './time-input.js';
 import {readAutoPromises} from './journal-ledger.js';
 import {readOverlapRows, askPairs, reviveOverlaps} from './overlap-weekly-data.js';
@@ -471,6 +472,8 @@ function renderWeekly_({refreshBox = true} = {}) {
   paintHqSchedule(host.querySelector('[data-journal-weekly-hq-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // S46-27 3) 상집 논의 요청(weekly-discuss-table.js가 그 자리만 그림) — 2) 주요 일정과 같은 저장·같은 맞춤.
   paintDiscuss(host.querySelector('[data-journal-weekly-discuss-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  // WEEKLY-한흐름확정 ⑤ 남은 부분: 5. 주요 일정·참고 [+ 추가](손으로 더한 줄, weekly-hand-lines.js가 그 자리만 그림) — 같은 저장·같은 맞춤.
+  for (const part of ['calendar', 'notes']) paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
   // 맨 위 한 줄과 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 줄은 journal-hwpx.js 가 그리는 그대로의 마디를 그 자리로 옮겨 붙인다.
   paintFlow(host, weekModel);
@@ -1314,10 +1317,10 @@ async function saveExecEdit() {
   if (!execUi.editing || execUi.saving) return;
   execDraftFromScreen(root);
   const id = execUi.editing;
-  let item;
+  let item, before = null;
   try {
     // FORM-시간숫자: 시간 칸은 '' | HH:MM | 종일. 고치지 않은 옛 글(지난주에서 가져온 '10:00~12:00' 등)은 그대로 둔다.
-    const before = id === 'new' ? null : execRows().find(row => row.id === id), raw = String(execUi.draft.time ?? '').trim();
+    before = id === 'new' ? null : execRows().find(row => row.id === id) ?? null; const raw = String(execUi.draft.time ?? '').trim();
     const time = cellTime(raw, {allDay:true});
     if (time === null && raw !== (before?.time ?? '')) throw Object.assign(new Error(TIME_HINT), {code:'invalid', field:'time'});
     item = cleanItem({...execUi.draft, time:time ?? raw}, {id:id === 'new' ? undefined : id});
@@ -1329,10 +1332,23 @@ async function saveExecEdit() {
     const result = await writeExec(list => (id === 'new' ? [...list, item] : list.some(row => row.id === id) ? list.map(row => (row.id === id ? item : row)) : [...list, item]));
     if (result.stale) return;
     closeExecEdit(id === 'new' ? '요청 줄을 더했어요.' : '요청 줄을 고쳤어요.');
+    // 지난주에서 가져온 줄을 고치면 그 제안을 '고쳐서 넣음'(kind carried edit), 내 줄이면 줄 고침(fix), 새 줄은 손으로 더함(add).
+    void recordExecPick(before?.carried ? {kind:'carried', act:'edit', text:execLine(item), before:execLine(before)} : before ? {act:'fix', text:execLine(item), before:execLine(before)} : {act:'add', text:execLine(item)});
   } catch (error) {
     execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_();
     execPlace().querySelector('[data-journal-exec-field="what"]')?.focus();
   }
+}
+// WEEKLY-한흐름확정 ⑤ 남은 부분: 1) 요청 줄 동작도 그 주 동작 기록(draft.picks, 칸 'requests:ask')에 남긴다 — 요청 줄은 따로 칸(items)이라
+// 줄 저장이 끝난 뒤 같은 행의 임시저장에 한 번 더 쓴다(덤: 실패해도 요청 줄 저장은 그대로, 화면에 아무것도 띄우지 않음). 글은 로그에 쓰지 않는다.
+const execLine = item => requestLine(item).replace(/^-\s*/, '');
+async function recordExecPick(pick) {
+  const run = epoch, scope = owner, week = start;
+  try {
+    // 요청 줄을 막 쓴 행이라 다시 읽고 쓴다(그 주 행이 방금 생겼을 수 있음 — 옛 '행 없음' 판으로 새로 만들지 않게).
+    const r = await changeWeekDocs({start:week, known:null, change:draft => withLinePick(draft, {cell:'requests:ask', ...pick})}, rt);
+    if (r.ok && current(run, scope)) draftSaved(week)(r.row);
+  } catch { /* 동작 기록만 못 남김 */ }
 }
 // Removes the row right away and offers [되돌리기] for 5 seconds (the app's undo notice), like the journal lines.
 async function deleteExecRow(id) {
@@ -1345,12 +1361,14 @@ async function deleteExecRow(id) {
     if (result.stale) return;
   } catch (error) { execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_(); return; }
   closeExecEdit('');
+  void recordExecPick(removed.carried ? {kind:'carried', act:'drop', text:execLine(removed)} : {act:'cut', text:execLine(removed)});
   const scope = owner, week = start;
   offerUndoNotice({text:'요청 줄을 지웠어요.', onUndo:async () => {
     if (scope !== ownerScope(rt) || week !== start) return {status:'stale'};
     try {
       const back = await writeExec(list => (list.some(row => row.id === removed.id) ? null : [...list, removed]));
       if (back.stale) return {status:'stale'};
+      void recordExecPick({kind:removed.carried ? 'carried' : 'line', act:'none', text:execLine(removed)});
       renderWeekly_();
       return {status:'restored', message:'지운 요청 줄을 되돌렸어요.'};
     } catch (error) { return {status:'failed', message:execError(error)}; }

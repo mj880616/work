@@ -6,8 +6,8 @@
 // changeWeekDocs: 다시 읽고 그 칸만 바꿔 조건부 쓰기). 한글 파일 1. 2) 주요 일정 칸에도 같은 줄('- 11.6.(금) 13:00 / 내용 / 장소')이 들어간다.
 // 이 자리(data-journal-weekly-hq-slot)는 이 모듈 하나가 그린다. 브라우저 저장소에 아무것도 두지 않는다.
 // S46-27: 같은 표를 한글 파일 상자 1. 요청사항 안에도 그린다(place 'weekly' | 'box'). 고치기 상태·끌기는 자리마다 따로, 자료는 같은 그 주 행 하나.
-import {changeWeekDocs, withHq, withTitleEdit, draftHq} from './weekly-draft-store.js';
-import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, HQ_MAX, TITLE_MAX, PLACE_MAX} from './weekly-schedule-rows.mjs';
+import {changeWeekDocs, withHq, withTitleEdit, draftHq, withLinePick} from './weekly-draft-store.js';
+import {withHqRow, withoutHqRow, movedHqRow, withPicked, eventFields, editFrom, cleanTime, hqLine, HQ_MAX, TITLE_MAX, PLACE_MAX} from './weekly-schedule-rows.mjs';
 import {timeCell, TIME_HINT} from './time-input.js';
 import {scheduleItems} from './weekly-hwpx/schedule.mjs';
 import {formDay} from './weekly-exec-requests.js';
@@ -25,6 +25,8 @@ const TEXT = Object.freeze({
   noEvents:'이 2주 달력 일정이 없어요.',
 });
 const places = new Map(); // place → {ui, drag}
+// 동작 기록에 남길 줄 글(한글 파일 줄과 같은 모양, 앞 '- ' 뺌).
+const lineOf = f => hqLine({day:f.day ?? '', time:f.time ?? '', title:f.title ?? '', place:f.place ?? ''}).replace(/^-\s*/, '');
 function fresh(start) { return {start, editing:null, draft:{}, picking:false, picked:new Set(), saving:false, status:'', error:false}; }
 
 // slot: 자리, model: weeklySummary 결과(hq·calendar), start: 그 주 월요일, onSaved(row): 서버에 쓴 뒤(journal.js가 재료를 바꾸고 다시 그림).
@@ -91,22 +93,9 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   function editRow(row) {
     const tr = el('tr', 'journal-exec-edit-row'); tr.dataset.journalHqEditRow = row?.id ?? 'new';
     const td = el('td'); td.colSpan = 3;
-    const form = el('div', 'journal-exec-form'); form.dataset.journalHqForm = row?.id ?? 'new';
-    const d = ui.draft, key = row?.id ?? 'new';
-    for (const [name, label, type, max] of [['day', '일', 'date'], ['time', '시간', 'text', 5], ['title', '내용', 'text', TITLE_MAX], ['place', '장소', 'text', PLACE_MAX]]) {
-      const wrap = el('label', `journal-exec-field journal-exec-${name === 'title' ? 'what' : name}`); wrap.append(el('span', null, label));
-      const input = el('input'); input.type = type; input.value = d[name] ?? ''; input.dataset.journalHqField = name; input.id = `journalHq-${place}-${key}-${name}`;
-      if (max) { input.maxLength = max; input.autocomplete = 'off'; }
-      if (ui.invalid === name) input.setAttribute('aria-invalid', 'true');
-      if (busy) input.disabled = true;
-      // FORM-시간숫자: 숫자 자판 시간 칸 + 작은 [종일](공용 time-input.js). 틀린 시간은 칸 아래 안내, 저장 때 다시 거른다.
-      wrap.append(name === 'time' ? timeCell(input, {label:'시간', allDay:true}) : input); form.append(wrap);
-    }
-    const actions = el('div', 'journal-edit-actions save-row');
-    const cancel = btn('취소', 'journalHqCancel'), ok = btn('저장', 'journalHqSave', 'mini primary');
-    actions.append(cancel, ok);
-    if (busy) for (const b of actions.children) b.disabled = true;
-    form.append(actions); td.append(form); tr.append(td);
+    const form = dayRowForm(doc, {values:ui.draft, busy, invalid:ui.invalid, idBase:`journalHq-${place}-${row?.id ?? 'new'}`, field:'journalHqField', cancel:'journalHqCancel', save:'journalHqSave'});
+    form.dataset.journalHqForm = row?.id ?? 'new';
+    td.append(form); tr.append(td);
     return tr;
   }
   function picker() {
@@ -141,10 +130,14 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     else if (b.matches('[data-journal-hq-edit]')) { const row = rows.find(r => r.id === b.dataset.journalHqEdit); if (!row) return; setUi({...fresh(start), editing:row.id, draft:{day:row.day, time:row.time, title:row.title, place:row.place}, focus:'[data-journal-hq-field="title"]'}); redraw(); }
     else if (b.matches('[data-journal-hq-cancel]')) { const id = ui.editing; setUi(fresh(start)); ui.focus = id && id !== 'new' ? `[data-journal-hq-more="${id}"] > summary` : '[data-journal-hq-add]'; redraw(); }
     else if (b.matches('[data-journal-hq-save]')) void saveEdit();
-    else if (b.matches('[data-journal-hq-delete]')) { const id = b.dataset.journalHqDelete; void save(list => withoutHqRow(list, id), '줄을 뺐어요.', '[data-journal-hq-add]'); }
+    else if (b.matches('[data-journal-hq-delete]')) { const id = b.dataset.journalHqDelete, row = rows.find(r => r.id === id); void save(list => withoutHqRow(list, id), '줄을 뺐어요.', '[data-journal-hq-add]', null, row ? [{act:'cut', text:lineOf(row)}] : []); }
     else if (b.matches('[data-journal-hq-pick]')) { setUi({...fresh(start), picking:true}); redraw(); }
     else if (b.matches('[data-journal-hq-pick-cancel]')) { setUi(fresh(start)); redraw(); }
-    else if (b.matches('[data-journal-hq-pick-save]')) { const picked = events.filter(i => ui.picked.has(i.key)); void save(list => withPicked(list, picked, {titles:hq.titles}), `${picked.length}줄을 넣었어요.`); }
+    else if (b.matches('[data-journal-hq-pick-save]')) {
+      const picked = events.filter(i => ui.picked.has(i.key));
+      // 달력 일정 고르기 = 제안 [넣기](kind 'calendar' take) — 동작 기록에 일정마다 한 줄.
+      void save(list => withPicked(list, picked, {titles:hq.titles}), `${picked.length}줄을 넣었어요.`, '', null, picked.map(i => ({kind:'calendar', from:'calendar', act:'take', text:lineOf(eventFields(i, hq.titles.get(i.key)))})));
+    }
   }
   async function saveEdit() {
     const id = ui.editing, d = {...ui.draft};
@@ -160,18 +153,21 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
       let edit = editFrom(item, {...cur, ...fields, time:time || cur.time}, '');
       if (old?.who !== undefined) edit = {...(edit ?? {title:cur.title, place:cur.place}), who:old.who};
       const snap = eventFields(item, edit ?? undefined, '');
-      await save(list => withHqRow(list, {...row, day:snap.day, time:snap.time, title:snap.title, place:snap.place}), '저장했어요.', `[data-journal-hq-more="${id}"] > summary`, draft => withTitleEdit(draft, row.event, edit));
+      await save(list => withHqRow(list, {...row, day:snap.day, time:snap.time, title:snap.title, place:snap.place}), '저장했어요.', `[data-journal-hq-more="${id}"] > summary`, draft => withTitleEdit(draft, row.event, edit), [{act:'fix', text:lineOf(snap), before:lineOf(row)}]);
       return;
     }
-    await save(list => withHqRow(list, {...(row ?? {}), ...(row ? {id} : {}), ...fields, title:String(d.title).trim()}), '저장했어요.', id && id !== 'new' ? `[data-journal-hq-more="${id}"] > summary` : '[data-journal-hq-add]');
+    const next = {...fields, title:String(d.title).trim()};
+    await save(list => withHqRow(list, {...(row ?? {}), ...(row ? {id} : {}), ...next}), '저장했어요.', id && id !== 'new' ? `[data-journal-hq-more="${id}"] > summary` : '[data-journal-hq-add]', null,
+      [row ? {act:'fix', text:lineOf(next), before:lineOf(row)} : {act:'add', text:lineOf(next)}]);
   }
   // change(list) → 새 줄 목록(null이면 넘침). extra(draft) → 같은 쓰기에 실을 다른 칸 바꿈(일정 칸별 고침).
-  async function save(change, done, focus = '', extra = null) {
+  // picks: 같은 쓰기에 실을 동작 기록 [{act, text, before?, kind?, from?}](칸 'requests:hq', weekly-draft-store.js withLinePick). 순서 바꾸기는 남기지 않는다.
+  async function save(change, done, focus = '', extra = null, picks = []) {
     if (ui.saving) return;
     let full = false;
     ui.saving = true; ui.status = '저장하는 중…'; ui.error = false; redraw();
     try {
-      const r = await changeWeekDocs({start, known:hq.row, change:draft => { const next = change(draftHq(draft)); if (!next) { full = true; return draft; } const out = withHq(draft, next); return extra ? extra(out) : out; }}, rt);
+      const r = await changeWeekDocs({start, known:hq.row, change:draft => { const next = change(draftHq(draft)); if (!next) { full = true; return draft; } let out = withHq(draft, next); if (extra) out = extra(out); for (const p of picks) out = withLinePick(out, {cell:'requests:hq', ...p}); return out; }}, rt);
       if (r.missing) { setUi({...fresh(start), status:TEXT.missing, error:true}); redraw(); return; }
       setUi({...fresh(start), status:full ? TEXT.full : done, error:full});
       ui.focus = focus;
@@ -180,4 +176,26 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
       ui.saving = false; ui.status = TEXT.saveFailed; ui.error = true; redraw();
     }
   }
+}
+
+// 날짜·시간·내용·장소 한 줄 고치기 칸(2) 주요 일정 줄과 5. 주요 일정 손으로 더한 줄이 같은 부품 — weekly-hand-lines.js).
+// values: {day, time, title, place}, field·cancel·save: dataset 이름(칸·[취소]·[저장]), tag: [취소]·[저장]의 dataset 값. 날짜 칸은 공용 날짜 칸(date-field.js 가 붙음),
+// 시간 칸은 FORM-시간숫자(숫자 자판 + 작은 [종일], time-input.js). min·max: 고를 수 있는 날짜(주지 않으면 제한 없음).
+export function dayRowForm(doc, {values = {}, busy = false, invalid = '', idBase, field, cancel, save, tag = '', min = '', max = ''}) {
+  const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const form = el('div', 'journal-exec-form');
+  for (const [name, label, type, maxLen] of [['day', '일', 'date'], ['time', '시간', 'text', 5], ['title', '내용', 'text', TITLE_MAX], ['place', '장소', 'text', PLACE_MAX]]) {
+    const wrap = el('label', `journal-exec-field journal-exec-${name === 'title' ? 'what' : name}`); wrap.append(el('span', null, label));
+    const input = el('input'); input.type = type; input.value = values[name] ?? ''; input.dataset[field] = name; input.id = `${idBase}-${name}`;
+    if (maxLen) { input.maxLength = maxLen; input.autocomplete = 'off'; }
+    if (type === 'date') { if (min) input.min = min; if (max) input.max = max; }
+    if (invalid === name) input.setAttribute('aria-invalid', 'true');
+    if (busy) input.disabled = true;
+    wrap.append(name === 'time' ? timeCell(input, {label:'시간', allDay:true}) : input); form.append(wrap);
+  }
+  const actions = el('div', 'journal-edit-actions save-row');
+  const mk = (text, data, cls) => { const b = el('button', cls, text); b.type = 'button'; b.dataset[data] = tag; if (busy) b.disabled = true; return b; };
+  actions.append(mk('취소', cancel, 'mini'), mk('저장', save, 'mini primary')); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
+  form.append(actions);
+  return form;
 }

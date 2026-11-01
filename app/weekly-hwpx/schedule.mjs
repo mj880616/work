@@ -32,7 +32,8 @@ export function scheduleItems(calendar) {
   const out = [], seen = new Set();
   if (!calendar || calendar.loading || calendar.failed?.length) return out;
   for (const row of calendar.rows ?? []) for (const item of row.items ?? []) {
-    if (item.time === undefined || !item.key || seen.has(item.key)) continue;
+    // 손으로 더한 줄(item.hand — weekly-hand.mjs)은 달력 일정이 아니라 칸별 고침·기억·빼기·[달력에서] 대상 밖(표에는 들어감 — scheduleForm 은 rows 를 그대로 씀).
+    if (item.time === undefined || !item.key || item.hand || seen.has(item.key)) continue;
     seen.add(item.key);
     out.push({key: item.key, day: row.day, label: row.label, time: item.time, title: item.title, place: item.place, multi: !!item.multi, ...(item.memo ? {memo: item.memo} : {})});
   }

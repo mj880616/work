@@ -9,9 +9,10 @@
 
 import {readIssued, newerIssued} from './weekly-lines.mjs';
 import {readExtras, mergeExtras, EXTRA_KEYS, readProposed, FEEDBACK_LINE_CHARS} from './weekly-feedback.mjs';
-import {withPick, pickKey, PICK_KIND, ANSWER_ACTS} from './weekly-picks.mjs';
+import {withPick, pickKey, PICK_KIND, ANSWER_ACTS, LINE_ACTS} from './weekly-picks.mjs';
 import {cleanTitleEdit, titleFields, readHq, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {readDiscuss} from './weekly-discuss.mjs';
+import {readHand} from './weekly-hand.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,7 +61,7 @@ const sameLines = (a, b) => JSON.stringify(cleanLines(a)) === JSON.stringify(cle
 // me는 고친 이름일 때만(meFrom='typed'), date는 바탕(보고일)과 다를 때만 넘긴다(아니면 '').
 // keep: 이번 바탕에 넣지 못한 저장 칸(버리지 않고 다시 저장). titles: Map event → {title, place}.
 // drops(WEEKLY-환류, 설계 3.4): Map event → 'drop'(이번 주에 뺀 일정) | 'keep'(기억으로 빠지는 일정을 이번 주만 넣음) → dropped·kept.
-export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], areas = null, confirmed = null, issued = null, extras = null, hq = null, siteLayout = null, discuss = null} = {}) {
+export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], areas = null, confirmed = null, issued = null, extras = null, hq = null, siteLayout = null, discuss = null, hand = null} = {}) {
   const rows = [];
   for (const [id, lines] of cells) {
     if (initial.has(id) && sameLines(lines, initial.get(id))) continue;
@@ -75,6 +76,7 @@ export function makeDraft({base = null, me = '', meFrom = '', date = '', cells =
   putDocs(out, docs);
   putHq(out, hq);
   putDiscuss(out, discuss);
+  putHand(out, hand);
   putSiteLayout(out, siteLayout);
   putAreas(out, areas);
   putExtras(out, extras);
@@ -191,6 +193,26 @@ export function withHq(draft, list) { const out = draft ? {...draft} : emptyDraf
 export const draftDiscuss = draft => readDiscuss(draft?.discuss);
 function putDiscuss(out, list) { const rows = readDiscuss(list); if (rows.length) out.discuss = rows; else delete out.discuss; }
 export function withDiscuss(draft, list) { const out = draft ? {...draft} : emptyDraft(); putDiscuss(out, list); return out; }
+// ---- 손으로 더한 줄(hand — 5. 주요 일정·참고, weekly-hand.mjs) ----
+export const draftHand = draft => readHand(draft?.hand);
+function putHand(out, hand) { const h = readHand(hand); if (h) out.hand = h; else delete out.hand; }
+export function withHand(draft, hand) { const out = draft ? {...draft} : emptyDraft(); putHand(out, hand); return out; }
+// WEEKLY-한흐름확정 ⑤ 남은 부분: 칸 줄(rows) 밖 줄 — 1. 요청사항 1)2)3)·5. 주요 일정·참고 — 의 동작도 동작 기록(picks)에 남긴다.
+//   cell: 'requests:ask' | 'requests:hq' | 'requests:discuss' | 'calendar' | 'notes'. text = 지금 줄(지운 것이면 지운 줄), before = 고치기 전 줄.
+//   kind 'line'(기본): 보고서 줄 동작 act 'add'(손으로 더함) | 'fix' | 'cut'.
+//   kind 'carried'(1) 지난주에서 가져온 줄)·'calendar'(2) [달력에서] 골라 넣은 일정): 제안에 대한 답 act 'take' | 'edit'(before = 제안 글) | 'drop' — 학습 셈에 들어감.
+//   'none'(되돌리기): 같은 text 로 남긴 앞 기록을 지운 표시(같은 열쇠, 더 나중 것이 이김).
+//   같은 쓰기(changeWeekDocs)에 실어 한 PATCH 로 저장한다. 모양 밖(빈 글·모르는 칸)이면 draft 그대로.
+export const LINE_PICK_CELLS = Object.freeze(['requests:ask', 'requests:hq', 'requests:discuss', 'calendar', 'notes']);
+export function withLinePick(draft, {cell, act, text = '', before = '', kind = 'line', from = '', at = new Date().toISOString()} = {}) {
+  const answer = kind !== 'line';
+  if (!LINE_PICK_CELLS.includes(cell) || !PICK_KIND[kind] || ![...(answer ? ANSWER_ACTS : LINE_ACTS), 'none'].includes(act) || !lineText(text)) return draft;
+  if ((act === 'fix' || act === 'edit') && lineText(before) === lineText(text)) return draft;
+  const out = draft ? {...draft} : emptyDraft(), extras = readExtras(out);
+  const keyText = act === 'fix' || act === 'edit' ? before : text;
+  const pick = {kind, from:answer ? from : act === 'add' ? 'hand' : '', cell, org:'', text:act === 'none' ? '' : text, ...((act === 'fix' || act === 'edit') && before ? {before} : {}), key:pickKey({kind, cell, text:keyText})};
+  return putExtras(out, {...extras, picks:withPick(extras.picks ?? null, pick, act, at)});
+}
 export function withSiteLayout(draft, layout) { const out = draft ? {...draft} : emptyDraft(); putSiteLayout(out, layout); return out; }
 // 일정 하나의 칸별 고침을 바꾼다(fields가 null이면 지움 = 바탕 그대로).
 export function withTitleEdit(draft, event, fields) {
@@ -220,11 +242,12 @@ export function withDocEdit(draft, id, patch) {
 // [처음부터]: 상자에서 고친 것은 비우되 [주간 정리]의 자료 줄 고침은 남긴다(없으면 null = 임시저장 비움).
 // 받은 초안 기록(issued)·사업영역 한 줄 요약(area_summaries)도 남긴다 — 상자에서 고친 것이 아니다.
 export const keepDocsOnly = draft => {
-  const docs = draftDocs(draft), issued = readIssued(draft?.issued), areas = draftAreaSummaries(draft), extras = readExtras(draft), hq = draftHq(draft), layout = draftSiteLayout(draft), discuss = draftDiscuss(draft);
-  if (!docs.length && !issued && !Object.keys(areas).length && !Object.keys(extras).length && !hq.length && !discuss.length && !layout) return null;
+  const docs = draftDocs(draft), issued = readIssued(draft?.issued), areas = draftAreaSummaries(draft), extras = readExtras(draft), hq = draftHq(draft), layout = draftSiteLayout(draft), discuss = draftDiscuss(draft), hand = draftHand(draft);
+  if (!docs.length && !issued && !Object.keys(areas).length && !Object.keys(extras).length && !hq.length && !discuss.length && !hand && !layout) return null;
   const out = {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[], ...(docs.length ? {docs} : {})};
   putHq(out, hq);
   putDiscuss(out, discuss);
+  putHand(out, hand);
   putSiteLayout(out, layout);
   putAreas(out, areas);
   putExtras(out, extras);
@@ -291,6 +314,7 @@ export function readDraft(raw) {
   putDocs(out, raw.docs);
   putHq(out, raw.hq);
   putDiscuss(out, raw.discuss);
+  putHand(out, raw.hand);
   putSiteLayout(out, raw.site_layout);
   if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
   putAreas(out, raw.area_summaries);
@@ -328,6 +352,8 @@ export function draftCells(draft) {
   if (hq.length) out.set('hq', hq);
   const discuss = draftDiscuss(draft);
   if (discuss.length) out.set('discuss', discuss);
+  const hand = draftHand(draft);
+  if (hand) out.set('hand', hand);
   if (layout) out.set('sites_layout', {order:layout.order, hidden:layout.hidden});
   for (const [event, how] of draftDrops(draft)) out.set(`drop:${event}`, how);
   for (const {id, ...rest} of draftDocs(draft)) out.set(`doc:${id}`, rest);
@@ -357,6 +383,7 @@ export function merge3(base, mine, theirs) {
     else if (k.startsWith('title:')) { const t = cleanTitleEdit({...v, event:k.slice(6)}); if (t) out.titles.push(t); }
     else if (k === 'hq') putHq(out, v);
     else if (k === 'discuss') putDiscuss(out, v);
+    else if (k === 'hand') putHand(out, v);
     else if (k === 'sites_layout') putSiteLayout(out, {...v, at:[base, mine, theirs].map(d => draftSiteLayout(d)?.at ?? '').sort().at(-1)});
   }
   putDrops(out, new Map([...merged].filter(([k]) => k.startsWith('drop:')).map(([k, v]) => [k.slice(5), v])));

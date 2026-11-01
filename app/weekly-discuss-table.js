@@ -3,8 +3,8 @@
 // 같은 모양·같은 부품·같은 저장(그 주 주간보고 행 draft.discuss, weekly-draft-store.js changeWeekDocs: 다시 읽고 그 칸만 바꿔 조건부 쓰기).
 // 두 자리 — [주간 정리](place 'weekly')와 한글 파일 상자 1. 요청사항(place 'box') — 를 이 모듈 하나가 그린다. 고치기 상태는 자리마다, 자료는 하나.
 // 관련 조직은 내 담당조직(my-organizations.js 규칙)에서 고른다. 브라우저 저장소에 아무것도 두지 않는다(조직 이름 목록은 이 화면 메모리에만).
-import {changeWeekDocs, withDiscuss, draftDiscuss} from './weekly-draft-store.js';
-import {withDiscussRow, withoutDiscussRow, movedDiscussRow, DISCUSS_MAX, DISCUSS_LIMITS} from './weekly-discuss.mjs';
+import {changeWeekDocs, withDiscuss, draftDiscuss, withLinePick} from './weekly-draft-store.js';
+import {withDiscussRow, withoutDiscussRow, movedDiscussRow, discussText, cleanDiscussRow, DISCUSS_MAX, DISCUSS_LIMITS} from './weekly-discuss.mjs';
 import {pickMyOrganizations} from './my-organizations.js';
 import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
@@ -143,21 +143,23 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     else if (b.matches('[data-journal-discuss-edit]')) { const row = rows.find(r => r.id === b.dataset.journalDiscussEdit); if (!row) return; setUi({...fresh(start), editing:row.id, draft:{title:row.title, note:row.note ?? '', org:row.org ?? ''}, focus:'[data-journal-discuss-field="title"]'}); redraw(); }
     else if (b.matches('[data-journal-discuss-cancel]')) { const id = ui.editing; setUi(fresh(start)); ui.focus = id && id !== 'new' ? `[data-journal-discuss-more="${id}"] > summary` : '[data-journal-discuss-add]'; redraw(); }
     else if (b.matches('[data-journal-discuss-save]')) void saveEdit();
-    else if (b.matches('[data-journal-discuss-delete]')) { const id = b.dataset.journalDiscussDelete; void save(list => withoutDiscussRow(list, id), '줄을 뺐어요.', '[data-journal-discuss-add]'); }
+    else if (b.matches('[data-journal-discuss-delete]')) { const id = b.dataset.journalDiscussDelete, row = rows.find(r => r.id === id); void save(list => withoutDiscussRow(list, id), '줄을 뺐어요.', '[data-journal-discuss-add]', row ? [{act:'cut', text:discussText(row)}] : []); }
   }
   async function saveEdit() {
     const id = ui.editing, v = {...ui.draft};
     if (!String(v.title ?? '').trim()) { ui.status = TEXT.noTitle; ui.error = true; ui.invalid = 'title'; ui.focus = '[data-journal-discuss-field="title"]'; redraw(); return; }
     const fields = {title:v.title, note:v.note, org:v.org};
-    await save(list => withDiscussRow(list, {...(id && id !== 'new' ? {id} : {}), ...fields}), '저장했어요.', id && id !== 'new' ? `[data-journal-discuss-more="${id}"] > summary` : '[data-journal-discuss-add]');
+    const row = id && id !== 'new' ? rows.find(r => r.id === id) : null, now = cleanDiscussRow({id:'x', ...fields});
+    const picks = now ? [row ? {act:'fix', text:discussText(now), before:discussText(row)} : {act:'add', text:discussText(now)}] : [];
+    await save(list => withDiscussRow(list, {...(id && id !== 'new' ? {id} : {}), ...fields}), '저장했어요.', id && id !== 'new' ? `[data-journal-discuss-more="${id}"] > summary` : '[data-journal-discuss-add]', picks);
   }
-  // change(list) → 새 줄 목록(null이면 넘침).
-  async function save(change, done, focus = '') {
+  // change(list) → 새 줄 목록(null이면 넘침). picks: 같은 쓰기에 실을 동작 기록(칸 'requests:discuss', weekly-draft-store.js withLinePick). 순서 바꾸기는 남기지 않는다.
+  async function save(change, done, focus = '', picks = []) {
     if (ui.saving) return;
     let full = false;
     ui.saving = true; ui.status = '저장하는 중…'; ui.error = false; redraw();
     try {
-      const r = await changeWeekDocs({start, known:d.row, change:draft => { const next = change(draftDiscuss(draft)); if (!next) { full = true; return draft; } return withDiscuss(draft, next); }}, rt);
+      const r = await changeWeekDocs({start, known:d.row, change:draft => { const next = change(draftDiscuss(draft)); if (!next) { full = true; return draft; } let out = withDiscuss(draft, next); for (const p of picks) out = withLinePick(out, {cell:'requests:discuss', ...p}); return out; }}, rt);
       if (r.missing) { setUi({...fresh(start), status:TEXT.missing, error:true}); redraw(); return; }
       setUi({...fresh(start), status:full ? TEXT.full : done, error:full});
       ui.focus = focus;
