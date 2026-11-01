@@ -283,3 +283,22 @@ test('weekly_draft·weekly_line: earlier weeks\' drop reasons go as rejected_wit
   const pure=wl.dropReasons([{week_start:'2026-10-12',picks:picks([pk({act:'drop',why:'가'})])},{week_start:WEEK,picks:picks([pk({act:'drop',why:'나'})])}],WEEK);
   assert.deepEqual(pure.map(x=>x.why),['가']);
 });
+
+// WEEKLY-한흐름확정 ⑤ 남은 부분(S47-59): 칸 줄 밖 동작(1. 요청사항 1)2)3)·참고 내 메모)도 묶음 이름으로 센다(전에는 '기타').
+test('환류 정리 동작 요약: requests:*·notes 칸은 1. 요청사항·참고 묶음', () => {
+  const at = '2026-10-06T01:00:00.000Z';
+  const picks = wl.readPicksCell({items:[
+    {kind:'line', from:'hand', cell:'requests:ask', act:'add', text:'가상 요청 줄', at},
+    {kind:'carried', from:'', cell:'requests:ask', act:'drop', text:'가상 지난주 줄', at},
+    {kind:'calendar', from:'calendar', cell:'requests:hq', act:'take', text:'가상 일정', at},
+    {kind:'line', from:'hand', cell:'notes', act:'add', text:'가상 메모', at},
+    {kind:'line', from:'hand', cell:'calendar', act:'add', text:'가상 손 일정', at}]});
+  const d = wl.actionDigest(picks);
+  const group = (g, kind) => d.counts.find(c => c.group === g && c.kind === kind);
+  assert.equal(group('1. 요청사항', 'line').add, 1);
+  assert.equal(group('1. 요청사항', 'carried').drop, 1);
+  assert.equal(group('1. 요청사항', 'calendar').kept_percent, 100);
+  assert.equal(group('참고', 'line').add, 1);
+  assert.equal(group('5. 주요 일정', 'line').add, 1);
+  assert.equal(d.counts.some(c => c.group === '기타'), false);
+});
