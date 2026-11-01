@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {ALL, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, isOld, firstSentence, postView, safeUrl, bodyText, isFresh, sourceState} from '../app/outside-statements-model.mjs';
+import {ALL, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, isOld, firstSentence, postView, safeUrl, bodyText, isFresh, sourceState, FEED_SLOTS_KST, feedSlots, feedWhen} from '../app/outside-statements-model.mjs';
+import {readFileSync} from 'node:fs';
 
 // OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 2·4절): 화면 계산 규칙.
 const CATALOG = normalizeCatalog({ok: true, sources: [
@@ -60,4 +61,34 @@ test('작은 규칙: 첫 문장·원문 주소·본문 잇기·새 글·단체 �
   assert.equal(isFresh({fetched_at: '2026-10-31T00:00:00Z'}, null), false);
   assert.equal(sourceState({enabled: true, last_error: 'robots'}), '사이트가 자동 읽기를 막음');
   assert.equal(sourceState({enabled: true, last_ok_at: '2026-10-31T09:07:00Z'}), '마지막 10. 31. (토) 18:07');
+});
+
+// OUTSIDE-이름·바로읽기 ③: 목록 위 '마지막으로 읽음 … · 다음 …' 줄.
+test('예약 읽기 시각은 outside-feed.yml cron(UTC)과 같다', () => {
+  const yml = readFileSync(new URL('../.github/workflows/outside-feed.yml', import.meta.url), 'utf8');
+  const m = /cron:\s*'(\d+) ([\d,]+) \* \* \*'/.exec(yml);
+  assert.ok(m, 'cron 한 줄');
+  const kst = m[2].split(',').map(h => `${String((Number(h) + 9) % 24).padStart(2, '0')}:${m[1].padStart(2, '0')}`).sort();
+  assert.deepEqual(kst, [...FEED_SLOTS_KST]);
+});
+test('지난·다음 예약 시각(서울 기준, 날 넘김 포함)', () => {
+  const at = iso => Date.parse(iso);
+  assert.deepEqual(feedSlots(at('2026-11-01T04:42:00Z')), {prev: at('2026-11-01T04:07:00Z'), next: at('2026-11-01T09:07:00Z')});
+  // 서울 00:30 → 지난 것은 전날 18:07, 다음은 그날 08:07.
+  assert.deepEqual(feedSlots(at('2026-10-31T15:30:00Z')), {prev: at('2026-10-31T09:07:00Z'), next: at('2026-10-31T23:07:00Z')});
+  // 예약 시각 그 순간은 지난 것으로 본다.
+  assert.equal(feedSlots(at('2026-11-01T04:07:00Z')).prev, at('2026-11-01T04:07:00Z'));
+});
+test('마지막으로 읽은 시각 · 다음 읽기 한 줄', () => {
+  const now = Date.parse('2026-11-01T04:42:00Z'); // 서울 11. 1. 13:42
+  assert.equal(feedWhen([], now), '');
+  assert.equal(feedWhen([{source_key: 'kctu', enabled: false, last_ok_at: '2026-11-01T02:01:00Z'}], now), '', '켠 단체가 없으면 줄 없음');
+  // 13:07 예약이 아직 안 돌았다(마지막 11:01) → 다음 곧.
+  assert.equal(feedWhen([{enabled: true, last_ok_at: '2026-11-01T02:01:00Z'}, {enabled: true, last_ok_at: '2026-10-31T09:10:00Z'}], now), '마지막으로 읽음 오늘 11:01 · 다음 곧(13:07 예정분)');
+  // 13:07분이 돌았다 → 다음 18:07쯤. 꺼진 단체의 더 늦은 시각은 보지 않는다.
+  assert.equal(feedWhen([{enabled: true, last_ok_at: '2026-11-01T04:10:00Z'}, {enabled: false, last_ok_at: '2026-11-01T04:30:00Z'}], now), '마지막으로 읽음 오늘 13:10 · 다음 18:07쯤');
+  assert.equal(feedWhen([{enabled: true, last_ok_at: null}], now), '아직 읽지 않음 · 다음 18:07쯤');
+  // 저녁 뒤 → 내일 08:07, 어제 읽은 것은 '어제'.
+  assert.equal(feedWhen([{enabled: true, last_ok_at: '2026-11-01T09:20:00Z'}], Date.parse('2026-11-01T12:00:00Z')), '마지막으로 읽음 오늘 18:20 · 다음 내일 08:07쯤');
+  assert.equal(feedWhen([{enabled: true, last_ok_at: '2026-10-31T09:20:00Z'}], Date.parse('2026-10-31T23:05:00Z')), '마지막으로 읽음 어제 18:20 · 다음 08:07쯤');
 });

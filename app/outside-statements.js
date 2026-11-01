@@ -1,7 +1,7 @@
-import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {fitChipRows} from './chip-rows.js';
 import {createAnchoredMenu} from './anchored-menu.js';
-import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState} from './outside-statements-model.mjs';
+import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, chipsOf, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState, feedWhen} from './outside-statements-model.mjs';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절, 12:43 시안): '바깥 성명' 화면(?view=outside). #outsideView의 유일한 그리기 주인.
 // - [새로 온 것]: 칩 줄(전체·묶음·단체, 공용 chip-rows.js 두 줄 + [더보기 ▾]) → 날짜 묶음 → 글마다 '단체 · 종류 · 시각' / 제목 / 한 문장 요약(늘 보임)
 //   / 본문 접기(<details>, 국내는 펼칠 때 서버 문장 표에서 읽음, 외국은 한국어 요약 + 핵심 문장) / 작은 [원문](그 단체 페이지, 새 창).
@@ -22,9 +22,10 @@ const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 function install() {
   if (document.getElementById('outsideView')) return;
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="outsideView" class="view-panel hidden" aria-labelledby="osTitle">
-<h2 id="osTitle" class="screen-title">바깥 성명</h2>
+<h2 id="osTitle" class="screen-title">사회운동 Now</h2>
 <div id="outsideRoot" class="os" data-mode="list">
-<div class="os-bar"><div class="os-chips" data-os-chips role="group" aria-label="단체 거르기"></div><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="바깥 성명 메뉴">${MORE}</button></div>
+<p class="os-when" data-os-when hidden></p>
+<div class="os-bar"><div class="os-chips" data-os-chips role="group" aria-label="단체 거르기"></div><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="사회운동 Now 메뉴">${MORE}</button></div>
 <div class="os-list" data-os-list aria-label="새로 온 글"></div>
 <div class="os-sources" data-os-sources aria-label="단체 켜고 끄기"></div>
 </div></section>`);
@@ -38,7 +39,7 @@ const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const fresh = () => ({scope: '', catalog: null, catalogFailed: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   posts: [], postsLoaded: false, postsFailed: false, end: true, more: false, seenAt: null, seenRead: false, chip: ALL,
-  open: new Set(), bodies: new Map(), saving: new Set(), saveFailed: '', mode: 'list'});
+  open: new Set(), bodies: new Map(), saving: new Set(), saveFailed: '', mode: 'list', reading: new Set(), readNote: new Map()});
 let state = fresh(), loadSeq = 0, layer = null;
 
 // ---------- 서버 읽기·쓰기(모두 작업공간 소유자 RLS · Edge는 사용자 로그인 확인) ----------
@@ -55,6 +56,8 @@ function readPosts(w, keys, offset) {
   return rt().api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}${filter}&select=${POST_COLS}&order=published_at.desc.nullslast,fetched_at.desc,id.desc&limit=${PAGE_SIZE + 1}&offset=${offset}`, {singleFlight: false});
 }
 const readBody = (w, id) => rt().api(`/rest/v1/app_outside_sentences?post_id=eq.${q(id)}&workspace_id=eq.${q(w)}&select=idx,text&order=idx.asc&limit=3001`, {singleFlight: false});
+// 바로 읽기(OUTSIDE-이름·바로읽기): 켠 단체 하나를 서버가 지금 한 번 읽는다(사용자 로그인·owner·켬 확인·하루 횟수는 서버).
+const readNowApi = key => rt().api('/functions/v1/outside-feed?action=read_now', {method: 'POST', body: {source: key}, singleFlight: false, timeoutMs: 120000});
 // 본 시각: 줄이 있으면 고치고, 없으면 넣는다(화면 권한은 넣기 workspace_id·seen_at, 고치기 seen_at·updated_at뿐).
 async function writeSeen(w, at) {
   const rows = await rt().api(`/rest/v1/app_outside_seen?workspace_id=eq.${q(w)}&select=seen_at`, {method: 'PATCH', body: {seen_at: at, updated_at: at}, prefer: 'return=representation', singleFlight: false});
@@ -123,9 +126,10 @@ function sourcesHtml() {
     const members = state.catalog.filter(s => s.group === g.key);
     if (!members.length) return '';
     return `<section class="os-src-group" aria-label="${esc(g.label)}"><h3 class="os-src-group-head">${esc(g.label)}</h3>${members.map(s => {
-      const row = state.sources.get(s.key), on = row?.enabled === true, busy = state.saving.has(s.key), note = sourceState(row);
+      const row = state.sources.get(s.key), on = row?.enabled === true, busy = state.saving.has(s.key);
+      const reading = state.reading.has(s.key), note = reading ? '' : state.readNote.get(s.key) || sourceState(row);
       const bad = row?.last_error ? ' is-bad' : '';
-      return `<div class="os-src-row"><button type="button" class="os-switch" role="switch" data-os-source="${esc(s.key)}" aria-checked="${on}"${busy ? ' disabled' : ''}><span class="os-switch-dot" aria-hidden="true"></span><span class="os-src-name">${esc(s.name)}</span></button>${note ? `<span class="os-src-note${bad}">${esc(note)}</span>` : ''}</div>`;
+      return `<div class="os-src-row"><button type="button" class="os-switch" role="switch" data-os-source="${esc(s.key)}" aria-checked="${on}"${busy ? ' disabled' : ''}><span class="os-switch-dot" aria-hidden="true"></span><span class="os-src-name">${esc(s.name)}</span></button>${reading ? `<span class="os-src-note" data-os-reading>${waitInlineHtml()}</span>` : note ? `<span class="os-src-note${bad}">${esc(note)}</span>` : ''}</div>`;
     }).join('')}</section>`;
   }).join('');
   return head + (state.saveFailed ? failHtml({text: '저장하지 못했습니다', reason: state.saveFailed}) : '') + groups;
@@ -145,6 +149,16 @@ function paint() {
     bar.insertAdjacentHTML('afterbegin', html);
     bar.hidden = chips.length <= 1;
     if (!bar.hidden) fitChipRows(bar, {key: 'outside', keep: el => el.dataset.osChip === ALL || el.getAttribute('aria-pressed') === 'true'});
+  }
+  // 위쪽 작은 줄: 마지막으로 읽은 시각 · 다음 읽기(켠 단체가 있을 때만, 목록 칸에서만).
+  const when = $('[data-os-when]');
+  if (when) {
+    const reading = [...state.reading].map(nameOf).join(', ');
+    // 바로 읽는 동안은 단체 이름 + 공용 작은 기다림 표시(wait-state.js), 아니면 마지막·다음 읽기 글.
+    const text = state.mode !== 'list' || reading ? '' : state.sourcesLoaded ? feedWhen([...state.sources.values()]) : '';
+    if (state.mode === 'list' && reading) when.innerHTML = `<span class="os-reading">${esc(reading)}</span> ${waitInlineHtml()}`;
+    else when.textContent = text;
+    when.hidden = !(text || (state.mode === 'list' && reading));
   }
   const list = $('[data-os-list]'), sources = $('[data-os-sources]');
   if (state.mode === 'sources') { sources.innerHTML = sourcesHtml(); list.replaceChildren(); }
@@ -245,6 +259,8 @@ async function toggleSource(key) {
     const row = await writeSource(w, key, next);
     state.sources.set(key, row);
     listDirty = true;
+    state.readNote.delete(key);
+    if (next) readNow(key);
   } catch (e) {
     state.saveFailed = e?.status ? `HTTP ${e.status}` : '';
     if (!state.saveFailed) state.saveFailed = '잠시 뒤 다시';
@@ -255,8 +271,33 @@ async function toggleSource(key) {
   }
 }
 
+// 켜면 그 단체만 바로 한 번 읽는다. 기다리는 동안 공용 작은 기다림 표시, 끝나면 단체 줄(마지막 읽은 시각)과 목록을 다시 읽는다.
+// 실패해도 켬은 그대로이고 다음 예약 실행이 읽는다.
+async function readNow(key) {
+  if (state.reading.has(key)) return;
+  const scope = state.scope;
+  state.reading.add(key); paint();
+  let note = '';
+  try {
+    await readNowApi(key);
+  } catch (e) {
+    note = e?.status === 429 ? '오늘 바로 읽기를 다 씀 · 예약 때 읽음' : '바로 읽기 실패 · 예약 때 읽음';
+  }
+  if (scope !== state.scope) return;
+  state.reading.delete(key);
+  if (note) state.readNote.set(key, note);
+  const w = workspaceOf();
+  try {
+    const rows = w ? await readSources(w) : null;
+    if (scope !== state.scope) return;
+    if (Array.isArray(rows)) state.sources = new Map(rows.filter(r => r && r.source_key).map(r => [r.source_key, r]));
+  } catch { /* 단체 줄은 그대로 */ }
+  if (scope !== state.scope) return;
+  if (state.mode === 'list') { listDirty = false; loadPosts({keep: true}); } else { listDirty = true; paint(); }
+}
+
 // ---------- 누르기 ----------
-const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: '바깥 성명 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
+const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: '사회운동 Now 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
   render: () => '<button type="button" data-os-act="sources">단체 켜고 끄기</button>',
   onAction: button => { if (button.dataset.osAct === 'sources') openSources(); }});
 
