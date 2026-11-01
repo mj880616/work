@@ -1290,6 +1290,8 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  expect(report.calendar[1]).toEqual({day:'10.13.(화)',items:[{what:'10:30 / 가상 노동조합 다음 주 점검 회의 / 가상 회의실',who:['가상 담당']}]});
  expect(f.sent.library).toHaveLength(0);
  await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toHaveText('확정 전');
+ // 환류 정리(weekly_review)는 확정 전에는 부르지 않는다(확정 전 '30건·6시간' 정리는 다음 단계 ⑤ — 서버가 picks 를 읽게 된 뒤).
+ expect(f.sent.other.filter(x=>x.kind==='weekly_review')).toEqual([]);
  // [확정하고 한글 파일 받기]: 한 번 묻고 자료실 개인본 새 자료 + 내려받기. 이 화면의 채운 버튼은 이것 하나.
  const filled=await page.locator('#journalRoot [data-journal-weekly-root] button.primary:visible').count();
  expect(filled).toBe(1);
@@ -1311,7 +1313,10 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  await expect.poll(()=>f.sent.library.length).toBe(2);
  expect(Object.keys(f.sent.library[1]).sort()).toEqual(['file','replace_document_id']);
  expect(f.sent.library[1].replace_document_id).toBe('doc-new');
- // AI 는 처음 초안(weekly_draft)·처음 확정 뒤 환류 정리(weekly_review)만 저절로(여기선 서버 500).
+ // AI 는 처음 초안(weekly_draft)·처음 확정 뒤 환류 정리(weekly_review)만 저절로(여기선 서버 500). 다시 확정은 새 동작이 10건 넘을 때만 → 이 주 1번.
+ await expect.poll(()=>f.sent.other.filter(x=>x.kind==='weekly_review').length).toBe(1);
+ await page.waitForTimeout(500);
+ expect(f.sent.other.filter(x=>x.kind==='weekly_review')).toHaveLength(1);
  expect(f.sent.other.filter(x=>x.ai&&!['weekly_draft','weekly_review'].includes(x.kind))).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  // 주가 바뀌면 바탕을 닫고 그 주 것으로 다시.
