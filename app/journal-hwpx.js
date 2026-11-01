@@ -174,7 +174,7 @@ const latestBase = findBase;
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
 // draftDelay: how long typing must pause before the draft is saved (tests may pass a shorter one).
 // onMemory(list): [기억하기]로 내 프로필의 주간보고 기억을 쓴 뒤 저장된 목록을 알린다(journal.js가 [주간 정리]를 다시 그림).
-export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onRequestsSlot = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
+export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onFlow = () => {}, onRequestsSlot = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
   if (!host) return null;
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -385,29 +385,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       paintTeam();
     } catch { /* 참고 표시만 없음 */ }
   }
-  function paintTeam() {
-    const s = state;
-    if (!s?.teamDiff || panel.hidden) return;
-    for (const node of body.querySelectorAll('[data-hwpx-team]')) {
-      const [section, index] = node.dataset.hwpxTeam.split(':'), id = s.cellOf?.[section]?.get(Number(index)), lines = id && s.teamDiff.get(id);
-      node.hidden = !lines;
-      if (!lines) { node.replaceChildren(); continue; }
-      const fold = el('details', 'journal-hwpx-team-fold');
-      const mark = el('summary', 'journal-exec-carried', '확정본에서 바뀜'); mark.title = `팀 확정본(${s.teamTitle})에서 이 칸 글이 달라요`;
-      const use = button('이 글로 바꾸기', 'hwpxTeamUse'); use.dataset.hwpxTeamCell = node.dataset.hwpxTeam;
-      fold.append(mark, el('p', 'journal-muted', lines.join(' / ') || '(빈 칸)'), use);
-      node.replaceChildren(fold);
-    }
-  }
-  function useTeam(key) {
-    const s = state, [section, index] = key.split(':'), id = s?.cellOf?.[section]?.get(Number(index)), lines = id && s.teamDiff?.get(id);
-    if (!lines) return;
-    s.edits[section].set(Number(index), [...lines]); s.built = null;
-    const area = areas[key];
-    if (area) area.value = lines.join('\n');
-    typed(`row:${id}`);
-    say('팀 확정본 글로 바꿨어요. 칸에서 고칠 수 있어요.');
-  }
+  // '확정본에서 바뀜'은 칸 줄을 그리는 weekly-flow-cells.js 가 그 칸 아래에 그린다(team(start)로 읽음). 여기서는 다시 그리라고만 알린다.
+  function paintTeam() { if (state?.teamDiff) onFlow(); }
   // 환류학습 2: 그 주 처음 만든 초안 칸 글(proposed). 서버에 따로 쓰지 않고 다음 임시저장·[확정] 때 함께 실린다.
   const nowIso = () => new Date().toISOString();
   function cellsNow(s, from = 'edits') {
@@ -1622,7 +1601,6 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (b.matches('[data-hwpx-top-save]')) { saveTop(topLine.querySelector('[data-hwpx-top-input]')?.value); return; }
     if (b.matches('[data-hwpx-restart]')) { void restart(); return; }
     if (false) return;
-    else if (b.matches('[data-hwpx-team-use]') && state) useTeam(b.dataset.hwpxTeamCell);
     else if (b.matches('[data-hwpx-ai-again]') && state) void aiDraft(state, true);
     else if (b.matches('[data-learn-answer]') && state) void answerReview(state, b);
     else if (b.matches('[data-learn-rule-take], [data-learn-rule-drop], [data-learn-rule-fix], [data-learn-rule-fix-go], [data-learn-rule-cancel]') && state?.review) void ruleAnswer(state, b);
@@ -1652,6 +1630,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     paint() { if (!topEdit) paintTop(); paintConfirm(); },
     // 칸 줄이 아직 없을 때 [주간 정리]가 부른다: 바탕을 열어 처음 초안(proposed)을 만든다.
     prepare: () => ensure(),
+    // 그 주 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳(칸 id → 줄). 바탕을 연 판에서만.
+    team: start => (state && state.start === start && state.teamDiff ? {diff:state.teamDiff, title:state.teamTitle ?? ''} : null),
     topLine,
     // The week's reads landed: refresh only the candidates beside the rows (what was typed stays).
     refresh() { if (state) state.built = null; renderMaterial(); renderRequestNote(); paintHqNote(); },

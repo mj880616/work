@@ -493,8 +493,9 @@ function paintFlow(host, model) {
   const w = materials.weekDraft, status = !w || w.status === 'loading' ? 'loading' : w.status === 'failed' ? 'failed' : w.items?.missing ? 'missing' : 'ok';
   const row = status === 'ok' ? w.items.row : null;
   if (status === 'ok' && !row?.draft?.proposed && flowBase.start !== start) prepareFlow();
+  const team = hwpx.team(start);
   for (const section of FLOW_SECTIONS) {
-    paintFlowCells(host.querySelector(`[data-weekly-flow-cells="${section}"]`), {section, start, row, status, model, rt, onSaved:draftSaved(start), redraw:() => renderWeekly_({refreshBox:false}),
+    paintFlowCells(host.querySelector(`[data-weekly-flow-cells="${section}"]`), {section, start, row, status, model, rt, team:team?.diff ?? null, teamTitle:team?.title ?? '', onSaved:draftSaved(start), redraw:() => renderWeekly_({refreshBox:false}),
       reload:() => void loadGroup('weekDraft'), prepare:() => {}, baseNote:flowBase.start === start ? flowBase.note : ''});
   }
   host.querySelector('[data-weekly-flow-top]')?.replaceWith(hwpx.topLine);
@@ -523,6 +524,8 @@ const hwpx = mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft(), onCarry: 
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
   // WEEKLY-주요일정칸: 상자가 임시저장을 쓴 뒤(일정 칸별 고침 등) [주간 정리] 2) 주요 일정·5. 주요 일정 화면도 같은 판으로.
   onDraft: (week, row) => { if (week !== start || !row) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_({refreshBox:false}); },
+  // 바탕을 연 뒤 팀 확정본과 견준 결과('확정본에서 바뀜')가 왔다: 칸 줄만 다시.
+  onFlow: () => { if (mode === 'week') renderWeekly_({refreshBox:false}); },
   getWeek: () => ({start, row:weekRow(), projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory})})});
 function renderMode() {
   root.dataset.journalMode = mode;

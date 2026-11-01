@@ -668,6 +668,12 @@
 #appView #homeView .weekly-flow-edit{ display:flex; align-items:center; gap:4px; flex:1 1 auto; min-width:0; }
 #appView #homeView .weekly-flow-edit > input{ flex:1 1 auto; min-width:0; }
 #appView #homeView .weekly-flow-records{ margin-top:4px; }
+#appView #homeView .weekly-flow-sites{ display:flex; flex-direction:column; }
+#appView #homeView .weekly-flow-name > .journal-hwpx-grip{ flex:none; border-color:transparent; background:transparent; box-shadow:none; padding:0 2px; }
+#appView #homeView .weekly-flow-site-add{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding-top:4px; }
+#appView #homeView .weekly-flow-team{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #homeView .weekly-flow-text[data-flow-pick-line]{ cursor:text; border-radius:4px; }
+#appView #homeView .weekly-flow-text[data-flow-pick-line]:focus-visible{ outline:2px solid var(--kptu-focus, var(--kptu-primary-ink)); outline-offset:1px; }
 #appView #homeView .weekly-flow-confirm-slot > .journal-hwpx{ margin-top:8px; padding-top:8px; border-top:var(--ds-line-width) solid var(--kptu-border-strong); }
 #appView #homeView .weekly-flow-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 #appView #homeView .weekly-flow-confirm-state{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }

@@ -1321,33 +1321,34 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
 
 // WEEKLY-환류학습 1·2: 다음 주 바탕은 내가 올린 최신 '주간보고 개인본'(보고일 앞). 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳은 칸 옆 작은
 // '확정본에서 바뀜'(눌러 그 글 보기·[이 글로 바꾸기], 참고용). [확정]하면 처음 초안 ↔ 최종 줄 비교(남김·고침·뺌·더함)가 그 주 행 draft.feedback 에 남는다.
-test('[주간보고 한글 파일 만들기] 환류: 개인본 바탕 + 확정본에서 바뀜 표시 + [확정] 고침 기록',async({page})=>{
+test('[주간 정리] 환류: 개인본 바탕 + 칸 아래 확정본에서 바뀜 표시 + [확정하고 한글 파일 받기] 고침 기록',async({page})=>{
  const personalReport={summary:[
   {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 내가 쓴 가-1 진행'],owner:['가상 담당']}]},
   {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 지난주 나-1 진행'],owner:['가상 담당']}]},
  ],orgs:[{org:['가상 노동조합'],status:['- 지난주 조직 소식']}]};
  const f=await hwpxFixture(page,{width:1280,files:{'doc-mine':personalReport},personal:[{id:'doc-mine',title:'가상 개인본',file_name:'mine.hwpx',document_date:'2026-10-05',created_at:'2026-10-02T08:00:00Z'}]});
  await openJournal(page,1280);await openWeekly(page);
- await hwpx(page).locator('[data-hwpx-start]').click();
- await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주에 내가 올린 개인본을 바탕으로 만들어요. 팀 확정본에서 바뀐 칸은 옆에 작게 알려요. [확정]을 눌러야 자료실에 저장돼요.');
- const library=hwpx(page).locator('[data-hwpx-library]');
- await expect(library).toHaveText('자료실 최신 "주간보고 개인본" 쓰기');
+ // 그 주 처음 [주간 정리]를 열면 자료실 최신 개인본(보고일 앞)을 바탕으로 칸을 만든다(위 상자·[시작] 없음).
+ const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1'),b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
+ await expect(cellLines(a1)).toHaveText(['- 내가 쓴 가-1 진행']);
+ await expect(topLine(page)).toContainText('바탕 지난 개인본');
  expect(f.sent.personal[0]).toMatchObject({category:'in.("주간보고 개인본","주간보고›개인본")',workspace_id:'eq.w'});
- await library.click();
- const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1'),b1=rowBox(page,'사업영역 나 › 세부 과제 나-1');
- await expect(a1.locator('textarea')).toHaveValue('- 내가 쓴 가-1 진행');
- await expect(hwpx(page).getByText('바탕: 자료실 개인본 · 가상 개인본')).toBeVisible();
- // 바탕(개인본)을 연 뒤 팀 확정본도 열어 내 칸을 견준다. 바뀐 칸(가-1)에만 표시, 같은 칸(나-1)은 없음.
- await expect(a1.locator('[data-hwpx-team] summary')).toHaveText('확정본에서 바뀜');
- await expect(b1.locator('[data-hwpx-team]')).toBeHidden();
+ // 바탕(개인본)을 연 뒤 팀 확정본도 열어 내 칸을 견준다. 바뀐 칸(가-1)에만 칸 아래 작은 표시, 같은 칸(나-1)은 없음.
+ await expect(a1.locator('[data-flow-team] summary')).toHaveText('확정본에서 바뀜');
+ await expect(b1.locator('[data-flow-team]')).toHaveCount(0);
  expect(f.sent.open.map(o=>o.document_id)).toEqual(['doc-mine','doc-team']);
- await a1.locator('[data-hwpx-team] summary').click();
- await expect(a1.locator('[data-hwpx-team] p')).toHaveText('- 지난주 가-1 진행');
- await a1.locator('[data-hwpx-team-use]').click();
- await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행');
- await b1.locator('textarea').fill('- 지난주 나-1 진행\n- 새로 쓴 나-1 줄');
+ await a1.locator('[data-flow-team] summary').click();
+ await expect(a1.locator('[data-flow-team] p')).toHaveText('- 지난주 가-1 진행');
+ const before=f.exec.calls.filter(c=>c.method==='PATCH').length;
+ await a1.getByRole('button',{name:'이 글로 바꾸기'}).click();
+ await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행']);
+ expect(f.exec.calls.filter(c=>c.method==='PATCH').length).toBe(before+1); // 누름 한 번 = 서버 쓰기 한 번
+ await expect(a1.locator('[data-flow-team]')).toHaveCount(0); // 같아졌으니 표시도 없음
+ await b1.getByRole('button',{name:'사업영역 나 › 세부 과제 나-1 칸에 줄 추가'}).click();
+ await b1.locator('input[data-flow-input]').fill('- 새로 쓴 나-1 줄');await b1.locator('input[data-flow-input]').press('Enter');
+ await expect(cellLines(b1)).toHaveText(['- 지난주 나-1 진행','- 새로 쓴 나-1 줄']);
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  await expect.poll(()=>row()?.draft?.feedback?.counts,{timeout:15000}).toEqual({kept:2,changed:1,dropped:0,added:1,proposed:3,final:4});
