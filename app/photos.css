@@ -200,3 +200,16 @@
 #appView #photosView .photos-tidy-size{ position:absolute; left:3px; bottom:2px; z-index:1; padding:0 3px; border-radius:3px; font-size:10px; line-height:14px; font-variant-numeric:tabular-nums; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
 #appView #photosView .photos-tidy-pick .photos-tidy-size{ left:1px; bottom:1px; font-size:9px; line-height:12px; }
 #appView #photosView .photos-tidy-pane [data-photos-tidy-more]{ text-align:center; }
+/* S47-19B: 같은 사진·연사 묶음 비교 칸 — 두 장 나란히(폰 412도), 사진마다 있는 곳·용량·찍은 시각·[이것 남기기]. */
+#appView #photosView .photos-tidy-dup > .mini{ margin:0; }
+#appView #photosView .photos-tidy-dup > .photos-tidy-num{ flex:1 1 auto; }
+#appView #photosView .photos-tidy-cmp{ flex:1 1 100%; display:flex; flex-direction:column; gap:4px; padding:4px 0; }
+#appView #photosView .photos-tidy-cmp-pair{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px; }
+#appView #photosView .photos-tidy-cmp-slot{ display:flex; flex-direction:column; gap:2px; min-width:0; font-size:12px; }
+#appView #photosView .photos-tidy-cmp-ph{ display:block; width:100%; aspect-ratio:1/1; min-width:0; min-height:0; margin:0; padding:0; border:0; border-radius:4px; background:var(--ds-line); box-shadow:none; overflow:hidden; }
+#appView #photosView .photos-tidy-cmp-ph .diary-photo,#appView #photosView .photos-tidy-cmp-ph .photos-tidy-th{ display:block; width:100%; height:100%; }
+#appView #photosView .photos-tidy-cmp-ph img{ width:100%; height:100%; object-fit:contain; }
+#appView #photosView .photos-tidy-where{ color:var(--kptu-ink); overflow-wrap:anywhere; }
+#appView #photosView .photos-tidy-cmp-slot > .mini{ align-self:flex-start; }
+#appView #photosView .photos-tidy-cmp-slot > .mini[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView #photosView .photos-tidy-cmp-nav{ display:flex; align-items:center; justify-content:center; gap:8px; }

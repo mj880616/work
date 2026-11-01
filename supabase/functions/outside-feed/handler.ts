@@ -3,7 +3,10 @@
 // 입구 두 개(verify_jwt=false, 함수 코드가 막음 — collector-feed·drive-summary 예약과 같은 방식):
 // - 예약 입구(`run_plan`·`run`): `x-outside-feed-cron-secret` 헤더를 비밀값 OUTSIDE_FEED_CRON_SECRET(32자 이상)과 SHA-256 고정 길이 비교.
 //   비밀값이 없거나 짧거나 틀리면 401. 어느 작업공간에 넣을지는 서버가 app_outside_sources.enabled로 정한다(요청 값 안 받음).
-// - 화면 입구(`catalog`·`expand`): 사용자 로그인(Authorization)을 Auth 서버로 확인 + 그 사람이 작업공간 owner인지 서버에서 확인.
+// - 화면 입구(`catalog`·`expand`·`read_now`): 사용자 로그인(Authorization)을 Auth 서버로 확인 + 그 사람이 작업공간 owner인지 서버에서 확인.
+//   `read_now`(OUTSIDE-이름·바로읽기): 화면에서 단체를 켜면 그 단체 하나를 그 사람 작업공간에만 바로 한 번 읽는다. 단체 키 하나만 받고
+//   (주소 없음), 그 작업공간에서 켜져 있어야 하며, 마지막으로 읽은 지 READ_NOW_COOLDOWN_MS 안이면 다시 읽지 않고, 사람마다 하루
+//   READ_NOW_DAILY_PER_USER번까지. 읽는 일은 예약 입구와 같은 runSource(허용 호스트·robots·크기 상한 그대로)다.
 //   두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401. 열쇠가 하나도 없으면 401.
 // 읽는 주소: _shared/outside-catalog.ts 고정 목록의 허용 호스트만(요청 몸통·화면은 단체 키만 보냄 — SSRF 차단).
 //   리다이렉트도 같은 단체 허용 호스트만, 응답 2MB·10초 상한, GET만. robots.txt를 먼저 읽고 막힌 경로는 건너뛴다(last_error='robots').
@@ -35,6 +38,10 @@ export const RUN_BUDGET_MS = 100000;   // 한 번 실행 시간 예산(Edge 제�
 export const OLD_DAYS = 730;           // 2년 지난 글은 문장 없이(Q7)
 export const PRUNE_BATCH = 200;
 export const EXPAND_DAILY_PER_USER = 100;
+export const READ_NOW_DAILY_PER_USER = 30;         // 바로 읽기: 사람마다 하루 횟수
+export const READ_NOW_COOLDOWN_MS = 10 * 60000;    // 바로 읽기: 마지막으로 읽은 지 10분 안이면 다시 읽지 않음
+export const READ_NOW_BUDGET_MS = 60000;           // 바로 읽기: 화면이 기다리는 요청이라 예약보다 짧게
+export const READ_NOW_MAX_NEW = 5;                 // 바로 읽기: 새 글 상한(나머지는 다음 예약 실행)
 export const MAX_BODY_BYTES = 4096;
 const OPENAI_URL = "https://api.openai.com/v1/responses";
 const KEY_NAME = "WEB2_OPENAI_API_KEY";
@@ -329,9 +336,14 @@ async function markSources(db: Db, key: string, workspaces: string[], error: str
   await db.send("PATCH", `app_outside_sources?source_key=eq.${key}&workspace_id=in.(${workspaces.join(",")})`, body);
 }
 
-async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSource, nowMs: number, startMs: number, clock: () => number): Promise<RunOut> {
+type RunLimits = { onlyWorkspace?: string; budgetMs?: number; maxNew?: number };
+
+// onlyWorkspace: 바로 읽기는 요청한 사람 작업공간(서버가 owner로 확인한 값)에만 넣는다. 예약 실행은 켠 작업공간 모두.
+async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSource, nowMs: number, startMs: number, clock: () => number, limits: RunLimits = {}): Promise<RunOut> {
   const out: RunOut = { ok: true, source: source.key, status: "ok", workspaces: 0, listed: 0, fresh: 0, inserted: 0, skipped: 0, deferred: 0 };
-  const wsRows = await db.get(`app_outside_sources?source_key=eq.${source.key}&enabled=is.true&select=workspace_id`);
+  const budget = limits.budgetMs ?? RUN_BUDGET_MS, maxNew = limits.maxNew ?? MAX_NEW_PER_RUN;
+  const only = limits.onlyWorkspace && UUID.test(limits.onlyWorkspace) ? `&workspace_id=eq.${limits.onlyWorkspace}` : "";
+  const wsRows = await db.get(`app_outside_sources?source_key=eq.${source.key}&enabled=is.true${only}&select=workspace_id`);
   const workspaces = [...new Set(wsRows.map((r) => r.workspace_id).filter((w): w is string => typeof w === "string" && UUID.test(w)))];
   out.workspaces = workspaces.length;
   if (!workspaces.length) return { ...out, status: "no_workspace" };
@@ -364,7 +376,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
   // 3) 새 글마다 글 페이지 1번 + AI 1번 → 필요한 작업공간마다 넣기.
   const cutoff = nowMs - OLD_DAYS * 86400000;
   for (const [n, { it, ws }] of todo.entries()) {
-    if (n >= MAX_NEW_PER_RUN || clock() - startMs > RUN_BUDGET_MS) { out.deferred = todo.length - n; break; }
+    if (n >= maxNew || clock() - startMs > budget) { out.deferred = todo.length - n; break; }
     let body = it.content && chars(it.content) >= 200 ? it.content : "";
     let pageText = "";
     if (!body || source.lang === "en") {
@@ -435,6 +447,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const log: Log = deps.log ?? ((code, detail) => console.error(JSON.stringify({ fn: "outside-feed", code, ...(detail ?? {}) })));
   const expandUse = new Map<string, number>(); // `${day} ${user}` → 횟수(인스턴스 메모리)
+  const readNowUse = new Map<string, number>(); // 바로 읽기 `${day} ${user}` → 횟수(인스턴스 메모리, expand와 같은 방식)
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     try {
@@ -455,7 +468,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!m) throw new Fail(401, "UNAUTHORIZED");
       }
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
-      if (cron ? action !== "run_plan" && action !== "run" : action !== "catalog" && action !== "expand") throw new Fail(400, "UNKNOWN_ACTION");
+      if (cron ? action !== "run_plan" && action !== "run" : action !== "catalog" && action !== "expand" && action !== "read_now") throw new Fail(400, "UNKNOWN_ACTION");
       if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown = {};
       try { body = await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES }); } catch { throw new Fail(400, "INVALID_BODY"); }
@@ -482,6 +495,25 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
       if (action === "catalog") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
         return json({ ok: true, sources: publicCatalog() });
+      }
+      if (action === "read_now") {
+        // 단체 키 하나만(주소·작업공간 값 안 받음). 그 사람 작업공간에서 켜진 단체만.
+        if (!exactKeys(b, ["source"])) throw new Fail(400, "INVALID_BODY");
+        const source = sourceByKey(b.source);
+        if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
+        const mine = await db.get(`app_outside_sources?workspace_id=eq.${who.workspaceId}&source_key=eq.${source.key}&select=enabled,last_ok_at&limit=1`);
+        if (mine[0]?.enabled !== true) throw new Fail(409, "NOT_ENABLED");
+        const lastOk = Date.parse(String(mine[0]?.last_ok_at ?? ""));
+        if (Number.isFinite(lastOk) && nowMs - lastOk < READ_NOW_COOLDOWN_MS) return json({ ok: true, source: source.key, status: "recent", inserted: 0 });
+        const use = `${kstDay(nowMs)} ${who.userId}`;
+        for (const k of readNowUse.keys()) if (!k.startsWith(kstDay(nowMs))) readNowUse.delete(k);
+        const n = readNowUse.get(use) ?? 0;
+        if (n >= READ_NOW_DAILY_PER_USER) throw new Fail(429, "DAILY_LIMIT");
+        readNowUse.set(use, n + 1);
+        const reader = makeReader(doFetch, sleep, log);
+        const out = await runSource(db, reader, { doFetch, sleep, log, env: deps.env }, source, nowMs, now(), now,
+          { onlyWorkspace: who.workspaceId, budgetMs: READ_NOW_BUDGET_MS, maxNew: READ_NOW_MAX_NEW });
+        return json({ ok: true, source: out.source, status: out.status, inserted: out.inserted, deferred: out.deferred });
       }
       // expand: 찾는 말 하나 → 비슷한 말 3~6개(설계 3.3). 1~100자, 사람마다 하루 EXPAND_DAILY_PER_USER번.
       if (!exactKeys(b, ["query"]) || typeof b.query !== "string") throw new Fail(400, "INVALID_BODY");
