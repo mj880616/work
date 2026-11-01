@@ -143,6 +143,10 @@ test('규칙 상태(WEEKLY-규칙합의): 옛 줄은 후보, [ㅇ]·[고쳐서 �
   assert.equal(many.candidates[0].text, '후보 3');
   const fullRules = {v:2, at:'j', lines:Array.from({length:RULES_MAX}, (_, i) => ({text:`규칙 ${i}`})), candidates:[{text:'하나 더'}]};
   assert.throws(() => takeCandidate(fullRules, '하나 더', 'k'), {code:'too_many'});
+  // 기기 시계가 규칙 칸 시각보다 늦어도 고친 칸이 더 나중으로 잡힌다(합칠 때 사라지지 않게).
+  const late = dropCandidate({v:2, at:'2026-10-09T09:00:00.000Z', lines:[], candidates:['가상 후보']}, '가상 후보', '2026-10-06T01:00:00.000Z');
+  assert.equal(late.at, '2026-10-09T09:00:00.001Z');
+  assert.equal(mergeExtras({rules:late}, {rules:readRules({v:2, at:'2026-10-09T09:00:00.000Z', lines:[], candidates:['가상 후보']})}).rules.retired[0].text, '가상 후보');
 });
 
 test('개선 제안 승인/아니 답', () => {

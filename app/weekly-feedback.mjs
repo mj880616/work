@@ -234,6 +234,8 @@ export function mergeExtras(a = {}, b = {}) {
 // ---- 규칙 목록 고치기(확정·후보·폐기) ----
 // 사람이 직접 더하거나 고친 줄, 후보에 [ㅇ]한 줄은 확정이다. 확정 줄 [지우기]는 폐기로 옮긴다(AI가 같은 후보를 다시 내지 않게).
 const ruleBase = rules => readRules(rules) ?? {v:2, at:'', lines:[], candidates:[], retired:[]};
+// 고친 시각은 늘 앞 시각보다 뒤(기기 시계가 늦거나 같아도 합칠 때 더 나중 것으로 잡히게, mergeExtras).
+const stamp = (prev, at) => { const p = Date.parse(prev ?? ''), a = Date.parse(at ?? ''); return Number.isFinite(p) && !(Number.isFinite(a) && a > p) ? new Date(p + 1).toISOString() : at; };
 const tooMany = () => Object.assign(new Error(`확정 규칙은 ${RULES_MAX}줄까지예요.`), {code:'too_many'});
 const notKey = key => x => squashLine(x.text) !== key;
 export function withRuleText(rules, i, text, at) {
@@ -241,12 +243,12 @@ export function withRuleText(rules, i, text, at) {
   if (!r.lines[i]) return r;
   if (!t) return withoutRule(rules, i, at);
   const k = squashLine(t), lines = r.lines.map((x, j) => (j === i ? {text:t, from:'edited'} : x));
-  return readRules({...r, at, lines, candidates:r.candidates.filter(notKey(k)), retired:r.retired.filter(notKey(k))});
+  return readRules({...r, at:stamp(r.at, at), lines, candidates:r.candidates.filter(notKey(k)), retired:r.retired.filter(notKey(k))});
 }
 export function withoutRule(rules, i, at) {
   const r = ruleBase(rules), gone = r.lines[i];
   if (!gone) return r;
-  return readRules({...r, at, lines:r.lines.filter((_, j) => j !== i), retired:[{text:gone.text}, ...r.retired]});
+  return readRules({...r, at:stamp(r.at, at), lines:r.lines.filter((_, j) => j !== i), retired:[{text:gone.text}, ...r.retired]});
 }
 export function withRule(rules, text, at) {
   const r = ruleBase(rules), t = line(text).slice(0, RULE_CHARS);
@@ -254,7 +256,7 @@ export function withRule(rules, text, at) {
   const k = squashLine(t);
   if (r.lines.some(x => squashLine(x.text) === k)) return r;
   if (r.lines.length >= RULES_MAX) throw tooMany();
-  return readRules({...r, at, lines:[...r.lines, {text:t, from:'added'}], candidates:r.candidates.filter(notKey(k)), retired:r.retired.filter(notKey(k))});
+  return readRules({...r, at:stamp(r.at, at), lines:[...r.lines, {text:t, from:'added'}], candidates:r.candidates.filter(notKey(k)), retired:r.retired.filter(notKey(k))});
 }
 // 후보 [ㅇ](text 없음 → 그대로 확정) · [고쳐서 확정](text → 고친 글로 확정). key 는 후보 글(공백 무시로 찾음). 없는 후보면 그대로.
 export function takeCandidate(rules, key, at, text = null) {
@@ -265,19 +267,19 @@ export function takeCandidate(rules, key, at, text = null) {
   const k2 = squashLine(t), same = r.lines.some(x => squashLine(x.text) === k2);
   if (!same && r.lines.length >= RULES_MAX) throw tooMany();
   const lines = same ? r.lines : [...r.lines, {text:t, from:k2 === k ? 'auto' : 'edited'}];
-  return readRules({...r, at, lines, candidates:r.candidates.filter(x => ![k, k2].includes(squashLine(x.text))), retired:r.retired.filter(notKey(k2))});
+  return readRules({...r, at:stamp(r.at, at), lines, candidates:r.candidates.filter(x => ![k, k2].includes(squashLine(x.text))), retired:r.retired.filter(notKey(k2))});
 }
 // 후보 [×] → 폐기.
 export function dropCandidate(rules, key, at) {
   const r = ruleBase(rules), k = squashLine(line(key)), found = r.candidates.find(x => squashLine(x.text) === k);
   if (!found) return r;
-  return readRules({...r, at, candidates:r.candidates.filter(notKey(k)), retired:[{text:found.text}, ...r.retired]});
+  return readRules({...r, at:stamp(r.at, at), candidates:r.candidates.filter(notKey(k)), retired:[{text:found.text}, ...r.retired]});
 }
 // 폐기 줄 [다시 후보로].
 export function restoreRetired(rules, key, at) {
   const r = ruleBase(rules), k = squashLine(line(key)), found = r.retired.find(x => squashLine(x.text) === k);
   if (!found) return r;
-  return readRules({...r, at, retired:r.retired.filter(notKey(k)), candidates:[...r.candidates, {text:found.text}]});
+  return readRules({...r, at:stamp(r.at, at), retired:r.retired.filter(notKey(k)), candidates:[...r.candidates, {text:found.text}]});
 }
 // 환류 보고 개선 제안 하나에 승인/아니 답.
 export function withAnswer(feedback, id, answer) {
