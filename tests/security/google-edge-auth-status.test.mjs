@@ -4,13 +4,14 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { createTaskFiles } from '../../supabase/functions/google-tasks/task-files.ts';
 import { withOwner } from './helpers/owner-member.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // 일정 인증-1: google-calendar and google-tasks (both verify_jwt=false, auth in code) answer 401 when the caller is not
 // logged in (no token, malformed, forged, or expired), so runtime-client.js refreshes the session once and retries.
 // Everything else keeps its old status: bad requests and Google connection problems 400, missing Tasks scope 403,
 // and an auth server outage 400 (a second 401 would make the app drop the session). No network calls.
 const load = name => stripTypeScriptTypes(
-  readFileSync(new URL(`../../supabase/functions/${name}/index.ts`, import.meta.url), 'utf8').replace(/^import .*$/gm, ''),
+  withEdgeShared(readFileSync(new URL(`../../supabase/functions/${name}/index.ts`, import.meta.url), 'utf8')).replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );
 const SOURCES = { 'google-calendar': load('google-calendar'), 'google-tasks': load('google-tasks') };
@@ -79,7 +80,7 @@ function harness(name, { scope = 'openid https://www.googleapis.com/auth/tasks',
 async function send(h, name, { token = null, method = 'GET', action = '', body } = {}) {
   const u = new URL(`https://sb.example/functions/v1/${name}`);
   if (action) u.searchParams.set('action', action);
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 'Content-Type': 'application/json', Origin: 'https://bokdoong.com' };
   if (token !== null) headers.Authorization = 'Bearer ' + token;
   const response = await h.handler(new Request(u, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
   const text = await response.text();
@@ -110,7 +111,7 @@ for (const name of Object.keys(SOURCES)) {
         assert.equal(r.status, 401, `${JSON.stringify(req)} with token ${JSON.stringify(token)}`);
         // A bare "Bearer " reaches the handler trimmed to "Bearer" and fails the session check instead.
         assert.match(r.body.error, token === null ? /로그인이 필요합니다/ : /로그인/);
-        assert.equal(r.headers.get('Access-Control-Allow-Origin'), '*', 'CORS headers stay on the 401');
+        assert.equal(r.headers.get('Access-Control-Allow-Origin'), 'https://bokdoong.com', 'CORS headers stay on the 401');
         assert.deepEqual(h.calls, { db: [], google: [] });
       }
     }
@@ -142,7 +143,12 @@ for (const name of Object.keys(SOURCES)) {
     const h = harness(name);
     const r = await send(h, name, { method: 'OPTIONS' });
     assert.equal(r.status, 200);
-    assert.equal(r.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.equal(r.headers.get('Access-Control-Allow-Origin'), 'https://bokdoong.com');
+    assert.match(r.headers.get('Vary') || '', /Origin/);
+    // EDGE-서버함수정리: 허용 목록 밖 출처에는 허용 머리글을 붙이지 않는다(인증 경계는 그대로).
+    const foreign = await h.handler(new Request(`https://sb.example/functions/v1/${name}`, { method: 'OPTIONS', headers: { Origin: 'https://evil.example' } }));
+    assert.equal(foreign.status, 200);
+    assert.equal(foreign.headers.get('Access-Control-Allow-Origin'), null);
   });
 
   test(`${name}: a logged-in caller keeps the old answers (200, unknown action 400, Google reconnect 400)`, async () => {

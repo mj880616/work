@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createBasketHandler } from "./handler.ts";
+import { withWebCors } from "../_shared/web-cors.ts";
 
 const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -7,10 +8,10 @@ const admin = createClient(
   { auth: { persistSession: false } },
 );
 // verify_jwt=false; handler validates login JWT with Auth getUser and server-side owner membership.
-Deno.serve(createBasketHandler(admin,{
+Deno.serve(withWebCors(createBasketHandler(admin,{
   userClient:authorization=>{
     const key=Deno.env.get("SUPABASE_ANON_KEY");
     if(!key)throw new Error("OCR caller configuration unavailable");
     return createClient(Deno.env.get("SUPABASE_URL")!,key,{auth:{persistSession:false},global:{headers:{Authorization:authorization}}});
   },
-}));
+})));

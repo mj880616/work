@@ -50,7 +50,6 @@ const OPENAI_URL = "https://api.openai.com/v1/responses";
 const KEY_NAME = "WEB2_OPENAI_API_KEY";
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };

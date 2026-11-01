@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { withOwner } from './helpers/owner-member.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // Runs the real google-calendar handler with mocked Supabase and Google Calendar so the events/status
 // loading path can be checked for call count, bounded parallelism, partial failure, and owner scoping.
 // No network calls. Each harness() evaluates the source again, so the in-memory colors cache starts empty.
 const SOURCE = stripTypeScriptTypes(
-  readFileSync(new URL('../../supabase/functions/google-calendar/index.ts', import.meta.url), 'utf8')
+  withEdgeShared(readFileSync(new URL('../../supabase/functions/google-calendar/index.ts', import.meta.url), 'utf8'))
     .replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );

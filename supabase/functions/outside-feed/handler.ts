@@ -58,7 +58,6 @@ const AI_MATERIAL_CHARS = 12000;
 const KEY_SENTENCE_MAX = 300;
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };

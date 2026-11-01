@@ -34,6 +34,8 @@ import {
   pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
 } from './recording.mjs';
 import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
+import { withWebCors } from "../_shared/web-cors.ts";
+import { safeErrorLog } from "../_shared/safe-error.ts";
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -50,7 +52,6 @@ const REC_COLUMNS = 'id,workspace_id,created_by,session_id,segment_no,status,err
 const JOB_COLUMNS = 'id,workspace_id,created_by,status,error_code,drive_file_id,file_name,mime_type,size_bytes,duration_sec,model,meeting_id,started_at,finished_at,trashed_at,created_at,updated_at';
 
 const cors = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-workspace-id, x-file-name, x-duration-sec, x-recording-id, x-piece-seq',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
@@ -247,7 +248,7 @@ async function sweep(workspaceId: string) {
       if (result === 'trashed' || result === 'already_trashed' || result === 'not_ours') await setJob(job.id, { trashed_at: new Date().toISOString() });
     }
   } catch (e) {
-    console.warn('meeting-transcribe: sweep skipped', e instanceof Error ? e.message : 'error');
+    console.warn('meeting-transcribe: sweep skipped', safeErrorLog(e));
   }
 }
 
@@ -474,7 +475,7 @@ async function sweepRecordings(workspaceId: string) {
       await trashPieces(seg, token, folder, seg.status === 'failed' ? {} : { status: 'failed', error_code: 'expired', closed_at: seg.closed_at ?? new Date().toISOString() });
     }
   } catch (e) {
-    console.warn('meeting-transcribe: recording sweep skipped', e instanceof Error ? e.message : 'error');
+    console.warn('meeting-transcribe: recording sweep skipped', safeErrorLog(e));
   }
 }
 
@@ -676,7 +677,7 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
   return json({ ok: true, session_id: body.session_id, restored });
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(withWebCors(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ ok: false, error: 'POST only' }, 405);
   try {
@@ -703,7 +704,7 @@ Deno.serve(async (req: Request) => {
     if (e instanceof AuthError) return json({ ok: false, code: e.message, error: e.status === 401 ? '로그인이 필요합니다.' : '접근 권한이 없습니다.' }, e.status);
     if (e instanceof Fail) return fail(e.code);
     if (e instanceof RecFail) return json(recFailBody(e.code, e.extra), (REC_STATUS as Record<string, number>)[e.code] ?? 409);
-    console.error('meeting-transcribe: failed', e instanceof Error ? e.message : 'error');
+    console.error('meeting-transcribe: failed', safeErrorLog(e));
     return fail('failed');
   }
-});
+}));

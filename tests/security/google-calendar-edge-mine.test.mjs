@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { withOwner } from './helpers/owner-member.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // 원장 재료 C-2: google-calendar 일정에 `mine`(참/거짓 한 칸)이 붙고, `events`가 캘린더 하나만 읽을 수 있다.
 // 진짜 핸들러를 가짜 Supabase·Google로 돌린다(네트워크 없음). 주소·이름은 모두 지어낸 값이다.
 const SOURCE = stripTypeScriptTypes(
-  readFileSync(new URL('../../supabase/functions/google-calendar/index.ts', import.meta.url), 'utf8').replace(/^import .*$/gm, ''),
+  withEdgeShared(readFileSync(new URL('../../supabase/functions/google-calendar/index.ts', import.meta.url), 'utf8')).replace(/^import .*$/gm, ''),
   { mode: 'strip' }
 );
 const SECRETS = ['creator-secret@example.test', 'organizer-secret@example.test', 'guest-secret@example.test', 'Creator Secret Name', 'Guest Secret Name'];

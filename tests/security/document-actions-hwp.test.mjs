@@ -8,8 +8,9 @@ import { stripTypeScriptTypes } from 'node:module';
 import { readBoundedJson } from '../../supabase/functions/_shared/bounded-json.mjs';
 import { inspectBasketOriginal } from '../../supabase/functions/_shared/basket-file-origin.ts';
 import { createHwpEdit, HwpEditError, backupName, stamp } from '../../supabase/functions/_shared/hwp-edit.ts';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
-const source = stripTypeScriptTypes(readFileSync(new URL('../../supabase/functions/document-actions/index.ts', import.meta.url), 'utf8'), { mode: 'strip' })
+const source = stripTypeScriptTypes(withEdgeShared(readFileSync(new URL('../../supabase/functions/document-actions/index.ts', import.meta.url), 'utf8')), { mode: 'strip' })
   .replace(/^import .*$/gm, '');
 const DOC = '20000000-0000-4000-8000-000000000001', NOTE = '10000000-0000-4000-8000-000000000001', FILE = 'drive-hwp_1';
 const HWP = Uint8Array.from([0xd0, 0xcf, 0x11, 0xe0, 1, 2, 3, 4]), HWPX = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 9, 9]);

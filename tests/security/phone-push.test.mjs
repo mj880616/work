@@ -266,7 +266,7 @@ test('docs 5절 table: phone-push row is verify_jwt=false and 배포 대기; ind
  const rows=section.split('\n').filter(l=>/^\| \d+ \| `phone-push` \|/.test(l));
  assert.equal(rows.length,1);assert.match(rows[0],/\| 배포 대기 \| 없음 \| false \|/);
  const idx=readFileSync('supabase/functions/phone-push/index.ts','utf8');
- assert.match(idx,/Deno\.serve\(createPhonePushHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\);/);
+ assert.match(idx,/Deno\.serve\(withWebCors\(createPhonePushHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\)\);/);
  for(const f of ['supabase/functions/phone-push/handler.ts','supabase/functions/_shared/fcm-send.ts']){
   const src=readFileSync(f,'utf8');
   assert.doesNotMatch(src,/console\.(log|info|warn)\(/,f);

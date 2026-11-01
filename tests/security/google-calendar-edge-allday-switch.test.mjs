@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import { withOwner } from './helpers/owner-member.mjs';
+import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 // BUG-일정시간전환: Google Calendar PATCH merges nested objects (start/end) field by field and
 // clears a field only when it is sent as null. A start holding both date and dateTime is rejected
 // with "Invalid start time". This fake applies those documented rules to the production handler.
-const source=stripTypeScriptTypes(readFileSync(new URL('../../supabase/functions/google-calendar/index.ts',import.meta.url),'utf8').replace(/^import .*$/gm,''),{mode:'strip'});
+const source=stripTypeScriptTypes(withEdgeShared(readFileSync(new URL('../../supabase/functions/google-calendar/index.ts',import.meta.url),'utf8')).replace(/^import .*$/gm,''),{mode:'strip'});
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status});
 function merge(base,patch){
   const out={...base};

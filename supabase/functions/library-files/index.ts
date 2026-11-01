@@ -6,15 +6,17 @@ import { readMultipartForm } from '../_shared/multipart.ts';
 import { createLibraryPhotoHandler } from './photo.ts';
 import { setKeep } from '../_shared/library-prev-model.mjs';
 import { fileNameTitle, isMeaninglessName } from '../_shared/library-file-name.mjs';
+import { withWebCors } from "../_shared/web-cors.ts";
+import { safeErrorLog } from "../_shared/safe-error.ts";
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const OPENAI=Deno.env.get('OPENAI_API_KEY')||'';
 const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
-const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};
+const cors={'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};
 const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
 // SEC-정리묶음: Google·AI 쪽 오류 원문은 서버 로그에만 남기고, 응답에는 우리 글(단계)만 싣는다.
-const upstreamFail=(stage:string,message:string,status:number,detail:unknown)=>{console.error('library-files '+stage+' failed',{status,detail});return Object.assign(new Error(message),{stage})};
+const upstreamFail=(stage:string,message:string,status:number,detail:unknown)=>{console.error('library-files '+stage+' failed',{status});return Object.assign(new Error(message),{stage})};
 // 실패 응답은 기존 caller 호환을 위해 error를 유지하고 code/stage/retryable을 함께 싣는다.
 // 이 함수는 502/504를 직접 쓰지 않는다. 그 상태는 gateway 중단(결과 불명)으로 남겨 둔다.
 class UploadError extends Error{status:number;code:string;stage:string;retryable:boolean;constructor(message:string,{status=400,code='invalid_request',stage='request',retryable=false}:{status?:number,code?:string,stage?:string,retryable?:boolean}={}){super(message);this.status=status;this.code=code;this.stage=stage;this.retryable=retryable}}
@@ -30,7 +32,7 @@ async function workspaceFor(userId:string){const {data:wm}=await admin.from('app
 async function canEditProject(userId:string,projectId:string){const {data:p}=await admin.from('app_spaces').select('id,workspace_id,owner_id,created_by').eq('id',projectId).is('deleted_at',null).maybeSingle();if(!p)throw new UploadError('프로젝트를 찾을 수 없습니다.',{status:404,code:'project_not_found',stage:'project'});const {data:wm}=await admin.from('app_workspace_members').select('role').eq('workspace_id',p.workspace_id).eq('user_id',userId).maybeSingle();if(wm?.role!=='owner')throw new UploadError('워크스페이스 소유자 권한이 필요합니다.',{status:403,code:'forbidden',stage:'authorize'});return p}
 async function ensureRoot(workspaceId:string,token:string){const {data:s}=await admin.from('app_drive_settings').select('root_folder_id').eq('workspace_id',workspaceId).maybeSingle();if(s?.root_folder_id)return s.root_folder_id;const r=await driveFetch('drive_folder','drive_folder_failed','https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({name:'공공기관사업팀 Workspace',mimeType:'application/vnd.google-apps.folder'})});const d=await bodyJson(r);if(!r.ok||!d.id){console.error('library-files drive root folder failed',{status:r.status,error:d.error?.message||null});throw driveUnavailable('drive_folder','drive_folder_failed')}await admin.from('app_drive_settings').upsert({workspace_id:workspaceId,root_folder_id:d.id,updated_at:new Date().toISOString()});return d.id}
 async function ensureLibrary(workspaceId:string,token:string){const {data:s}=await admin.from('app_drive_settings').select('library_folder_id').eq('workspace_id',workspaceId).maybeSingle();if(s?.library_folder_id)return s.library_folder_id;const root=await ensureRoot(workspaceId,token);const r=await driveFetch('drive_folder','drive_folder_failed','https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({name:'자료실',mimeType:'application/vnd.google-apps.folder',parents:[root]})});const d=await bodyJson(r);if(!r.ok||!d.id){console.error('library-files drive library folder failed',{status:r.status,error:d.error?.message||null});throw driveUnavailable('drive_folder','drive_folder_failed')}await admin.from('app_drive_settings').upsert({workspace_id:workspaceId,library_folder_id:d.id,updated_at:new Date().toISOString()});return d.id}
-async function upload(file:File,folder:string,token:string){const init=await driveFetch('drive_upload_init','drive_upload_init_failed','https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,webViewLink,size',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':file.type||'application/octet-stream','X-Upload-Content-Length':String(file.size)},body:JSON.stringify({name:file.name,parents:[folder]})});const loc=init.ok?init.headers.get('location'):null;if(!loc){console.error('library-files drive upload init failed',{status:init.status,body:init.ok?'missing location':(await init.text()).slice(0,300)});throw driveUnavailable('drive_upload_init','drive_upload_init_failed')}const up=await driveFetch('drive_upload','drive_upload_failed',loc,{method:'PUT',headers:{'Content-Type':file.type||'application/octet-stream','Content-Length':String(file.size)},body:file});const d=await bodyJson(up);if(!up.ok||!d.id){console.error('library-files drive upload failed',{status:up.status,error:d.error?.message||null});throw driveUnavailable('drive_upload','drive_upload_failed')}return d}
+async function upload(file:File,folder:string,token:string){const init=await driveFetch('drive_upload_init','drive_upload_init_failed','https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,webViewLink,size',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':file.type||'application/octet-stream','X-Upload-Content-Length':String(file.size)},body:JSON.stringify({name:file.name,parents:[folder]})});const loc=init.ok?init.headers.get('location'):null;if(!loc){console.error('library-files drive upload init failed',{status:init.status,body:init.ok?'missing location':(await init.text()).slice(0,300)});throw driveUnavailable('drive_upload_init','drive_upload_init_failed')}const up=await driveFetch('drive_upload','drive_upload_failed',loc,{method:'PUT',headers:{'Content-Type':file.type||'application/octet-stream','Content-Length':String(file.size)},body:file});const d=await bodyJson(up);if(!up.ok||!d.id){console.error('library-files drive upload failed',{status:up.status});throw driveUnavailable('drive_upload','drive_upload_failed')}return d}
 // DB 기록 실패 시 이번 요청이 방금 만든 Drive 파일만 지운다. 정리 실패는 원래 오류를 가리지 않고 별도로 남긴다.
 async function discardUploadedFile(fileId:string,token:string){try{const r=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});if(!r.ok&&r.status!==404)console.error('library-files orphan cleanup failed',{file_id:fileId,status:r.status,body:(await r.text()).slice(0,300)})}catch(e){console.error('library-files orphan cleanup failed',{file_id:fileId,error:String(e)})}}
 
@@ -116,7 +118,7 @@ async function replaceDocument(workspaceId:string,file:File,documentId:string){
   q=doc.file_id?q.eq('file_id',doc.file_id):q.is('file_id',null);
   const {data:rows,error}=await q.select('*');
   if(error){
-    console.error('library-files replace update failed',{code:error.code,message:error.message,file_id:df.id});
+    console.error('library-files replace update failed',{code:error.code});
     await discardUploadedFile(df.id,token);
     throw new UploadError(GENERIC_FAILURE,{status:500,code:'document_record_failed',stage:'db_update',retryable:true});
   }
@@ -156,7 +158,7 @@ const photoView=(req:Request,workspaceId:string,authorization:string)=>createLib
   return createClient(SB,key,{auth:{persistSession:false},global:{headers:{Authorization:auth}}});
 }})(req,workspaceId,authorization);
 
-Deno.serve(async(req:Request)=>{
+Deno.serve(withWebCors(async(req:Request)=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
   try{
     const user=await getUser(req);
@@ -175,7 +177,7 @@ Deno.serve(async(req:Request)=>{
     }
     let form:FormData;
     // Not req.formData(): Deno cuts quoted file names at ';' and '=' (see _shared/multipart.ts).
-    try{form=await readMultipartForm(req)}catch(e){console.error('library-files form parse failed',e);throw new UploadError('업로드 요청을 읽지 못했습니다. 다시 시도해 주세요.',{code:'invalid_request',retryable:true})}
+    try{form=await readMultipartForm(req)}catch(e){console.error('library-files form parse failed',safeErrorLog(e));throw new UploadError('업로드 요청을 읽지 못했습니다. 다시 시도해 주세요.',{code:'invalid_request',retryable:true})}
     const file=form.get('file');
     if(!(file instanceof File))throw new UploadError('파일을 선택해 주세요.',{code:'file_missing',stage:'validate'});
     if(file.size<=0)throw new UploadError('빈 파일은 업로드할 수 없습니다.',{code:'file_empty',stage:'validate'});
@@ -207,7 +209,7 @@ Deno.serve(async(req:Request)=>{
         const model=await workspaceModel(wm.workspace_id);
         const inferred=await inferTitleFromFile(file,model);
         if(inferred){title=tidyFileTitle(inferred);titleSource='content'}
-      }catch(e){console.warn('content title inference skipped',e)}
+      }catch(e){console.warn('content title inference skipped',safeErrorLog(e))}
     }
     if(!title||(!(meaningfulName&&titleSource==='filename')&&weakTitle(title)))title=nameTitle();
 
@@ -235,14 +237,14 @@ Deno.serve(async(req:Request)=>{
       visibility:'private',uploaded_by:user.id,auto_classified:!userTitle,classification_note:classificationNote
     }).select('*').single();
     if(error){
-      console.error('library-files document insert failed',{code:error.code,message:error.message,file_id:df.id});
+      console.error('library-files document insert failed',{code:error.code});
       await discardUploadedFile(df.id,token);
       throw new UploadError(GENERIC_FAILURE,{status:500,code:'document_record_failed',stage:'db_insert',retryable:true});
     }
     return json({ok:true,document:doc,auto:{title,category,source,tags,document_date:documentDate,project_id:projectId,meeting_id:meetingId,title_source:titleSource}});
   }catch(e){
     if(e instanceof UploadError){if(e.status>=500)console.error('library-files failed',{code:e.code,stage:e.stage});return fail(e)}
-    console.error('library-files unexpected failure',e);
+    console.error('library-files unexpected failure',safeErrorLog(e));
     return fail(new UploadError(GENERIC_FAILURE,{status:500,code:'internal_error',stage:'unknown',retryable:true}));
   }
-});
+}));

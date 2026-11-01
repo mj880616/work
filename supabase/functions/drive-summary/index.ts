@@ -7,8 +7,9 @@
 import { createHandler } from './core.mjs';
 import { createDocumentText } from '../_shared/document-text.ts';
 import { inspectDriveFile, moveDriveFileToTrash } from '../_shared/drive-trash.ts';
+import { withWebCors } from "../_shared/web-cors.ts";
 
-Deno.serve(createHandler({
+Deno.serve(withWebCors(createHandler({
   env: {
     SUPABASE_URL: Deno.env.get('SUPABASE_URL'),
     SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
@@ -26,4 +27,4 @@ Deno.serve(createHandler({
   createTextReader: (driveToken: () => Promise<string>) => createDocumentText({
     driveToken, fetch, log: code => console.error(JSON.stringify({ fn: 'drive-summary', code })),
   }),
-}));
+})));
