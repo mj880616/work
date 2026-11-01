@@ -2702,7 +2702,7 @@ for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('[주간 정리] 자료 줄 고침: 한글 파일 상자 임시저장이 docs를 지우지 않고, 자료 고침은 상자의 붙일 기록에 반영된다 1280',async({page})=>{
+test('[주간 정리] 자료 줄 고침: 칸 줄 쓰기·[처음부터]가 docs를 지우지 않고, 자료 고침은 그 조직 칸 제안에 반영된다 1280',async({page})=>{
  const f=await fileFixture(page,{width:1280,box:true});
  // 다른 기기에서 이미 자료 줄을 고쳐 둔 주.
  f.exec.rows.push({id:'x0',workspace_id:'w',week_start:'2026-10-05',carried_at:null,updated_at:'2026-10-06T01:00:00Z',items:[],draft_saved_at:'2026-10-06T03:00:00.000Z',
@@ -2710,19 +2710,19 @@ test('[주간 정리] 자료 줄 고침: 한글 파일 상자 임시저장이 do
  await openJournal(page,1280);await openWeekly(page);
  const file=weekly(page,'orgs').locator(`li[data-journal-weekly-file="${DOCID(1)}"]`);
  await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 다른 기기에서 고친 자료 줄 고침');
- // 한글 파일 상자: 이 주 임시저장본(자료 고침만)은 [이어서 고치기]가 아니라 그냥 새로 연다 — 붙일 기록에 고친 자료 줄이 보인다.
- await hwpx(page).locator('[data-hwpx-start]').click();
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(rowBox(page,'가상 노동조합').locator('[data-hwpx-material] li').filter({hasText:'다른 기기에서 고친 자료 줄'})).toHaveCount(1);
- // 상자에서 칸을 고쳐 임시저장해도 docs는 그대로 남는다.
- await rowBox(page,'가상 노동조합').locator('textarea').fill('- 상자에서 고친 줄');
+ // 그 주 임시저장본(자료 고침만)이 있어도 칸 줄은 바탕에서 새로 — 그 조직 칸 아래 제안에 고친 자료 줄이 보인다.
+ const org=page.locator('#journalRoot [data-weekly-flow-cells="orgs"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:/^가상 노동조합$/})});
+ await expect(org.locator('[data-flow-suggest-item]').filter({hasText:'다른 기기에서 고친 자료 줄'})).toHaveCount(1);
+ // 칸 줄을 써도 docs는 그대로 남는다.
+ await org.getByRole('button',{name:'가상 노동조합 칸에 줄 추가'}).click();
+ await org.locator('input[data-flow-input]').fill('- 칸에서 더한 줄');await org.locator('input[data-flow-input]').press('Enter');
  const row=f.exec.rows[0];
  await expect.poll(()=>row.draft.rows?.length,{timeout:15000}).toBe(1);
  expect(row.draft.docs).toEqual([{id:DOCID(1),text:'다른 기기에서 고친 자료 줄'}]);
- // [처음부터]도 상자 칸만 비우고 자료 줄 고침은 남긴다.
+ // [처음부터]도 칸 줄만 비우고 자료 줄 고침은 남긴다.
  page.once('dialog',d=>d.accept());
- await hwpx(page).locator('[data-hwpx-restart]').click();
- await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요.');
+ await topMore(page,'[data-hwpx-restart]');
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요. 바탕부터 다시 만들어요.');
  expect(row.draft.rows).toEqual([]);
  expect(row.draft.docs).toEqual([{id:DOCID(1),text:'다른 기기에서 고친 자료 줄'}]);
  expect(f.errors).toEqual([]);
