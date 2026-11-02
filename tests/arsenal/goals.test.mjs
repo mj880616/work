@@ -9,7 +9,7 @@ runInNewContext(readFileSync(new URL('../../app/arsenal/matches.js', import.meta
 const matches = context.window.ARSENAL_MATCHES.filter(match => match.upcoming !== true);
 
 test('every archived score has one structured entry per goal, on the credited side', () => {
-  assert.equal(matches.length, 66);
+  assert.equal(matches.length, 67);
   for (const match of matches) {
     assert.ok(Array.isArray(match.goals), `${match.id}: goals missing`);
     assert.match(match.goalsSource, /^https:\/\//, `${match.id}: scoring source`);
