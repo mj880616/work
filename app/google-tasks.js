@@ -383,7 +383,7 @@ async function loadSourceNotes(owner,epoch){
 let taskPlaceRead=false;
 function taskPlace(task){if(window.KPTURouter?.current!=='tasks'||!tasksViewShown())return;window.KPTURouter.setPlace?.('tasks',{task:task?.id||null})}
 function openRequestedTask(){
-  const asked=takeTaskOpenRequest(rt),placed=taskPlaceRead||!tasksViewShown()?null:(window.KPTURouter?.place?.('tasks')||{}).task;if(tasksViewShown())taskPlaceRead=true;const id=asked||placed;if(!id||!tasksViewShown())return;
+  const asked=takeTaskOpenRequest(rt),placed=taskPlaceRead||!tasksViewShown()?null:((window.KPTURouter?.place?.('tasks')||{}).task||(new URLSearchParams(location.search).get('view')==='tasks'?new URLSearchParams(location.search).get('task'):null));if(tasksViewShown())taskPlaceRead=true;const id=asked||placed;if(!id||!tasksViewShown())return;
   const task=lastTasks.find(t=>t.id===id);
   if(!task&&!asked){taskPlace(null);return}
   if(task)openEditor(task,{docked:true});else setSync('이 할 일을 목록에서 찾지 못했습니다. 완료한 지 오래됐거나 삭제됐을 수 있습니다.',true);
