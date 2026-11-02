@@ -88,6 +88,7 @@
 - 지우기: `photos:trash:<번호들>` → 안드로이드 11+ `MediaStore.createTrashRequest`(시스템 확인 창, 폰 휴지통 30일) → `photos:trashed:{"ok":…,"count":…}`. 10은 지우기 없음.
 - 별표·앨범은 웹2 서버에 출처 'phone'·열쇠 `ms:<MediaStore 번호>`로만 둔다(사진 파일은 올리지 않음, DB 20261030230000). 사진 이름·내용은 로그에 쓰지 않는다.
 - 편집(0.4.6, PHOTO-갤러리편집): 크게 보기 [편집] → `photos:edit:{"id"}`(폰 사진) 또는 `photos:edit:{"name","size","taken"}`(원드라이브·구글 드라이브 사진 — 같은 사진이 폰에 있으면 그것). 앱이 `ACTION_EDIT`(content URI + 읽기·쓰기 허락, 앱이 쓰기 권한 없는 사진이면 읽기만)로 삼성 갤러리(`com.sec.android.gallery3d`)를 열고, 없으면 '편집할 앱' 고르기 창. 돌아오면 사진첩 세대 번호로 바뀌었는지 `photos:edited:{"ok","changed","error"}`로 알린다. 폰에 없으면 웹이 기존 '원본 받기' 길로 받은 바이트를 `photos:save:begin|part|end|cancel`로 넘겨 `Pictures/웹2`에 한 장 저장한 뒤 편집한다(60MB까지, 그림만). 규칙은 `PhotoEditRules`(JVM 시험). 다른 앱에서 들어오는 편집 의도는 받지 않는다(`<queries>`만 더함).
+- 공유(0.4.7, PHOTO-폰앱공유): 앱 화면(WebView)에는 `navigator.share`가 없어, 웹 [공유](`app/app-share.js`)가 다리 `out:*`로 넘긴다. `out:hello` → `out:state:{"v":1}`(답이 없으면 옛 앱). `out:start:{"count"}` → 장마다 `out:phone:<번호>`(폰 사진·동영상: 그 MediaStore content URI 그대로, 복사 없음) 또는 `out:begin:{"name","mime","size"}`·`out:part:<base64>`·`out:end`(원드라이브·구글 드라이브: 웹이 받은 그림 바이트를 앱 캐시 `share-out/`에 한 장씩, `FileProvider` `kr.or.kptu.work.shareout`로만 넘김) → 걸음마다 `out:ack:{"ok","step","error"}` → `out:go` = `ACTION_SEND`(한 장)·`ACTION_SEND_MULTIPLE`(여러 장, 20장·한 장 60MB·합계 200MB까지)을 고르기 창으로 → `out:sent:{"ok","error"}`. 받는 앱에는 그 URI의 임시 읽기 허락만 준다. 새 묶음을 시작하면 앞 묶음 캐시 파일을 지운다. 권한 추가 없음(provider는 내보내지 않음). 규칙은 `ShareOutRules`(JVM 시험).
 
 ## 녹음 (0.3.3, MTG-폰녹음)
 
@@ -135,7 +136,7 @@
 
 `.github/workflows/build-android-app.yml`이 단위 시험, debug APK(`web2-phone-<버전>-debug` artifact), 서명 없는 release 빌드 확인을 한다.
 
-새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36, 0.3.7=37, 0.3.8=38, 0.3.9=39, 0.4.0=40, 0.4.1=41, 0.4.2=42, 0.4.3=43, 0.4.4=44, 0.4.5=45, 0.4.6=46). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다. 폰 알림(APP-폰알림, 0.4.4+)의 Firebase 앱 설정 4개는 같은 environment의 **변수**(`WEB2_FCM_PROJECT_ID`, `WEB2_FCM_APP_ID`, `WEB2_FCM_SENDER_ID`, `WEB2_FCM_API_KEY`)로 release 빌드 때만 들어가고, 없으면 알림 기능이 꺼진 채로 빌드된다(`docs/design/phone-notifications.md` 4.3·4.4절).
+새 판 내기: `android-app/app/build.gradle`의 `versionName`·`versionCode`를 올려 main에 merge → 태그 `phone-app-v<versionName>`(또는 `phone-app-release.yml` 손 실행, `version` 입력) → 승인형 environment `phone-app-release` 승인 → 서명된 `web2-phone-<버전>.apk`가 GitHub 릴리스에 올라간다. `versionCode`는 판마다 1씩 올린다(0.3.0=30, 0.3.1=31, 0.3.2=32, 0.3.3=33, 0.3.4=34, 0.3.5=35, 0.3.6=36, 0.3.7=37, 0.3.8=38, 0.3.9=39, 0.4.0=40, 0.4.1=41, 0.4.2=42, 0.4.3=43, 0.4.4=44, 0.4.5=45, 0.4.6=46, 0.4.7=47). 서명 키·비밀번호는 그 environment 비밀값(`PHONE_APP_KEYSTORE_B64`, `PHONE_APP_KEYSTORE_PASSWORD`, `PHONE_APP_KEY_ALIAS`, `PHONE_APP_KEY_PASSWORD`)에만 있고 저장소에는 없다. 폰 알림(APP-폰알림, 0.4.4+)의 Firebase 앱 설정 4개는 같은 environment의 **변수**(`WEB2_FCM_PROJECT_ID`, `WEB2_FCM_APP_ID`, `WEB2_FCM_SENDER_ID`, `WEB2_FCM_API_KEY`)로 release 빌드 때만 들어가고, 없으면 알림 기능이 꺼진 채로 빌드된다(`docs/design/phone-notifications.md` 4.3·4.4절).
 
 ## 위젯 빈칸 고침 (FIX-위젯, 2026-10-30)
 

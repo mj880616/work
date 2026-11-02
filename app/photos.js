@@ -50,6 +50,7 @@ import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoSt
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
+import {appShare} from './app-share.js';
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {createOdSettings} from './od-settings.js';
 import {createSelectMode} from './select-mode.js';
@@ -1000,7 +1001,8 @@ async function gdPlay(item) {
 }
 
 // ---- 여러 장 고르기 ----
-const canShare = () => typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
+// PHOTO-폰앱공유: 폰 앱(0.4.7+)은 navigator.share가 없어도 앱 다리로 안드로이드 공유 창을 띄운다(app-share.js).
+const canShare = () => (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') || appShare().known();
 function paintSelect() {
   const on = select.active && tab !== 'calendar', inTrash = tab === 'trash';
   $('[data-photos-sel]').hidden = !on; $('[data-photos-act]').hidden = !on || inTrash; $('[data-photos-trash-act]').hidden = !on || !inTrash;
@@ -1078,6 +1080,7 @@ function shareButton(trigger) {
 async function sharePicked() {
   const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
   if (!list.length) { notify('공유할 사진이 없어요(동영상은 [⤓ 받기]로).'); return; }
+  if (appShare().known()) return sharePickedInApp(list);
   const files = await pickedFiles(list);
   if (!files.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true}); return; }
   if (!navigator.canShare?.({files})) { notify('이 기기는 여러 장 공유를 못 해요. [⤓ 받기]로 받아 주세요.'); return; }
@@ -1086,6 +1089,17 @@ async function sharePicked() {
     if (error?.name === 'NotAllowedError') notify('사진을 다 받았어요. [⇪ 공유]를 한 번 더 눌러 주세요.');
     else if (error?.name !== 'AbortError') notify('공유하지 못했어요.', {error:true});
   }
+}
+// 폰 앱: 폰 사진은 번호로(그 파일 그대로), 원드라이브·드라이브는 받은 큰 그림을 앱 다리로 넘겨 안드로이드 공유 창 하나로.
+async function sharePickedInApp(list) {
+  const phones = list.filter(x => x.kind === 'phone' && x.phoneId), rest = list.filter(x => !(x.kind === 'phone' && x.phoneId));
+  const files = rest.length ? await pickedFiles(rest) : [];
+  const entries = [...phones.map(x => ({phoneId:String(x.phoneId)})), ...files.map(file => ({file}))];
+  if (!entries.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true}); return; }
+  const r = await appShare().share(entries);
+  if (r === 'shared') { shareReady = null; notify(entries.length < list.length ? `${entries.length}장을 넘겼어요(${list.length - entries.length}장은 받지 못함)` : `${entries.length}장을 넘겼어요`); }
+  else if (r === 'busy') notify('앞 공유가 아직 끝나지 않았어요. 잠시 뒤 다시 눌러 주세요.');
+  else notify('공유하지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true});
 }
 let batch = null;
 async function commitBatch({keepalive = false} = {}) {

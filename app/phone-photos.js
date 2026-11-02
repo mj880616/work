@@ -12,6 +12,7 @@
 //   → 'photos:edited:{ok,changed,error}'. 폰에 없는 사진은 'photos:save:begin|part|end'로 원본 바이트를 Pictures/웹2에 한 장 저장한 뒤 그 번호로 편집.
 import {phoneToItem, phoneFailure} from './photo-sources-model.mjs';
 import {slotImg} from './img-slot.js';
+import {holdPhotoMaker} from './photo-share.js';
 
 const BRIDGE = 'KPTUAppShell';
 const HELLO_MS = 1500, TRASH_MS = 120000, OP_MS = 180000, HIDE_MAX = 80;
@@ -225,6 +226,9 @@ export function createPhonePhotos(win = globalThis.window) {
       if (size !== 'large') img.loading = 'lazy';
       const load = () => slotImg(box, img, api.thumbUrl(item, size), {retry:load});
       load();
+      // PHOTO-폰앱공유: 넓은 화면 메뉴([사진 복사]·[정리함에 넣기])·옛 앱이 쓸 그림 바이트. 필요할 때 한 번만 앱 가로채기(__phone)로 받는다(서버로 나가지 않음).
+      // 폰 앱 [공유]는 바이트 없이 번호만 넘긴다(app-share.js).
+      holdPhotoMaker(box, () => api.blob(item, size === 'large' ? 'large' : 'small'));
       return box;
     },
   };

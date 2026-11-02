@@ -160,6 +160,9 @@ class MainActivity : ComponentActivity() {
     private var photoSave: PhoneMedia.Save? = null
     private var savedPhoto: Pair<Long, PhoneMedia.Save>? = null
     private val saveWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+    /** PHOTO-폰앱공유(0.4.7): [공유] 다리(out:*). 묶음은 saveWorker에서만 만진다. */
+    private var outReply: JavaScriptReplyProxy? = null
+    private var outBatch: ShareOut.Batch? = null
 
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileCallback ?: return@registerForActivityResult
@@ -247,6 +250,7 @@ class MainActivity : ComponentActivity() {
                 else if (data.startsWith("widget:")) onWidgetMessage(data, reply)
                 else if (data.startsWith("rec:")) onRecordMessage(data, reply)
                 else if (data.startsWith("photos:")) onPhotoMessage(data, reply)
+                else if (data.startsWith("out:")) onShareOutMessage(data, reply)
                 else if (data.startsWith("push:")) onPushMessage(data, reply)
                 else if (data == "write:hello") writeReply = reply
                 else if (data == "pull:on" || data == "pull:off") pullOn = data == "pull:on"
@@ -292,6 +296,7 @@ class MainActivity : ComponentActivity() {
                 writeReply = null
                 photoReply = null
                 pushReply = null
+                outReply = null
                 // 당겨서 새로고침으로 다시 여는 중이면 동그란 표시를 거둔다. 새 화면의 손가락 판정은 처음부터.
                 if (::refresher.isInitialized) refresher.isRefreshing = false
                 pullOn = false
@@ -986,6 +991,87 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * PHOTO-폰앱공유(0.4.7): 웹2 [공유] → 안드로이드 공유 창. 폰 사진은 그 파일 그대로(MediaStore URI), 원드라이브·드라이브는
+     * 웹이 받은 그림 바이트를 앱 캐시에 써서 FileProvider URI로. 규칙은 ShareOutRules, 파일은 ShareOut. 이름·내용은 로그에 쓰지 않는다.
+     */
+    private fun onShareOutMessage(data: String, reply: JavaScriptReplyProxy) {
+        outReply = reply
+        val m = ShareOutRules.message(data)
+        if (m == null) {
+            postOut(ShareOutRules.ackMessage(false, "bad", "bad"))
+            return
+        }
+        val app = applicationContext
+        fun answer(text: String) = ui.post { if (alive) postOut(text) }
+        when (m) {
+            ShareOutRules.Message.Hello -> postOut(ShareOutRules.STATE)
+            is ShareOutRules.Message.Start -> saveWorker.execute {
+                outBatch?.let { ShareOut.drop(it) }
+                outBatch = try { ShareOut.start(app, m.count) } catch (_: Exception) { null }
+                answer(ShareOutRules.ackMessage(outBatch != null, "start", if (outBatch != null) "" else "failed"))
+            }
+            is ShareOutRules.Message.Phone -> saveWorker.execute {
+                val b = outBatch
+                val ok = b != null && ShareOut.addPhone(app, b, m.id)
+                answer(ShareOutRules.ackMessage(ok, "phone", if (ok) "" else "none"))
+            }
+            is ShareOutRules.Message.Begin -> saveWorker.execute {
+                val b = outBatch
+                val ok = b != null && ShareOut.begin(b, m)
+                answer(ShareOutRules.ackMessage(ok, "begin", if (ok) "" else "failed"))
+            }
+            is ShareOutRules.Message.Part -> saveWorker.execute {
+                val b = outBatch
+                val ok = b != null && try {
+                    ShareOut.part(b, java.util.Base64.getDecoder().decode(m.base64))
+                } catch (_: Exception) {
+                    false
+                }
+                if (!ok && b != null) ShareOut.drop(b)
+                answer(ShareOutRules.ackMessage(ok, "part", if (ok) "" else "failed"))
+            }
+            ShareOutRules.Message.End -> saveWorker.execute {
+                val b = outBatch
+                val ok = b != null && try { ShareOut.end(app, b) } catch (_: Exception) { false }
+                answer(ShareOutRules.ackMessage(ok, "end", if (ok) "" else "failed"))
+            }
+            ShareOutRules.Message.Go -> saveWorker.execute {
+                val b = outBatch
+                outBatch = null
+                val intent = b?.let { try { ShareOut.chooser(it) } catch (_: Exception) { null } }
+                ui.post {
+                    if (!alive) return@post
+                    if (intent == null) {
+                        postOut(ShareOutRules.sentMessage(false, "none"))
+                        return@post
+                    }
+                    try {
+                        startActivity(intent)
+                        postOut(ShareOutRules.sentMessage(true))
+                    } catch (_: ActivityNotFoundException) {
+                        postOut(ShareOutRules.sentMessage(false, "noapp"))
+                    } catch (_: Exception) {
+                        postOut(ShareOutRules.sentMessage(false, "failed"))
+                    }
+                }
+            }
+            ShareOutRules.Message.Cancel -> saveWorker.execute {
+                outBatch?.let { ShareOut.drop(it) }
+                outBatch = null
+            }
+        }
+    }
+
+    private fun postOut(message: String) {
+        val reply = outReply ?: return
+        try {
+            reply.postMessage(message)
+        } catch (_: Exception) {
+            outReply = null
+        }
+    }
+
     private fun postPhotos(message: String) {
         val reply = photoReply ?: return
         try {
@@ -1239,6 +1325,7 @@ class MainActivity : ComponentActivity() {
         writeReply = null
         photoReply = null
         pushReply = null
+        outReply = null
         // 받다 만 사진(Pictures/웹2의 숨긴 칸)은 지운다.
         saveCancel()
         saveWorker.shutdown()

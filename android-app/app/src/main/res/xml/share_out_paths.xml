@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PHOTO-폰앱공유(0.4.7): 공유 창에 넘길 그림(원드라이브·구글 드라이브에서 웹이 받은 바이트)만 앱 캐시 share-out/에 둔다. 다른 폴더는 내보내지 않는다. -->
+<paths>
+    <cache-path name="out" path="share-out/" />
+</paths>

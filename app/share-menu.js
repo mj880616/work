@@ -10,6 +10,7 @@
 import {createAnchoredMenu} from './anchored-menu.js';
 import {notify} from './small-notice.js';
 import {saveBlobFile} from './photo-share.js';
+import {appShare} from './app-share.js';
 
 export const WIDE_SHARE_QUERY = '(min-width:761px)';
 export const wideShare = (mm = globalThis.matchMedia) => !!(typeof mm === 'function' && mm(WIDE_SHARE_QUERY)?.matches);
@@ -113,9 +114,10 @@ async function runRow(id) {
 
 // [공유]를 눌렀을 때 하나의 입구. 넓은 화면이면 메뉴를 열고 'menu', 좁은 화면이면 native()를 그대로 부르고 'native'.
 // opts: {video, count, getFiles: () => Promise<File[]>, native: () => void, download?: () => void, note?: (text, ms) => void}
-export function shareFrom(trigger, opts = {}, {wide = wideShare(), nav = globalThis.navigator} = {}) {
+// PHOTO-폰앱공유: 폰 앱(0.4.7+)은 navigator.share 대신 앱 다리로 안드로이드 공유 창을 띄우므로, 펼친 폴드 메뉴에도 [다른 앱으로 공유…]가 있다.
+export function shareFrom(trigger, opts = {}, {wide = wideShare(), nav = globalThis.navigator, app = appShare()} = {}) {
   if (!wide || !trigger) { opts.native?.(); return 'native'; }
-  const canNative = typeof opts.native === 'function' && typeof nav?.share === 'function';
+  const canNative = typeof opts.native === 'function' && (typeof nav?.share === 'function' || app.known());
   ctx = {...opts, rows:shareRows({video:!!opts.video, count:opts.count ?? 1, native:canNative})};
   ensureMenu().open(trigger);
   return 'menu';

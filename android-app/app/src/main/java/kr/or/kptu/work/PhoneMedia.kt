@@ -228,6 +228,17 @@ object PhoneMedia {
         return ids.mapNotNull { byId[it] }.map(::uriOf)
     }
 
+    /** PHOTO-폰앱공유(0.4.7): 공유 창에 넘길 폰 사진·동영상 하나. 접근 허용이 없거나 지금 목록에 없으면 null. */
+    fun shareMedia(context: Context, id: Long): PhoneMediaRules.Media? {
+        if (access(context) == PhoneMediaRules.Access.NONE) return null
+        return try {
+            all(context).firstOrNull { it.id == id } ?: all(context, fresh = true).firstOrNull { it.id == id }
+        } catch (e: Exception) {
+            log(PhoneMediaRules.classify(e, PhoneMediaRules.Stage.LIST), PhoneMediaRules.detailOf(e), "share-find")
+            null
+        }
+    }
+
     // ── PHOTO-갤러리편집(0.4.6) ──
 
     /** 사진첩 세대 번호(안드로이드 11+). 편집기에서 돌아온 뒤 바뀌었는지 본다. 못 읽으면 -1. */

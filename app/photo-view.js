@@ -2,7 +2,7 @@
 // 화면 위를 덮는 전체 화면 보기에 ×, Esc, 폰 뒤로 가기(라우터 층 하나)가 있다. 사진은 basket-files photo(노트 번호 + 파일 번호)로 읽는다.
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
-import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement, photoFilesFor, paintPhotoNote} from './photo-share.js';
+import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote} from './photo-share.js';
 import {shareFrom} from './share-menu.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview} from './img-slot.js';
 
@@ -83,6 +83,7 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = n
     b.type = 'button'; b.className = 'basket-photo-step'; b.dataset.dir = String(dir); b.setAttribute('aria-label', label); b.textContent = text;
   }
   const noteEl = document.createElement('p'); noteEl.className = 'basket-photo-note'; noteEl.setAttribute('role', 'status');
+  quietNote(noteEl); // PHOTO-폰앱공유: 알림 줄을 눌러도 아래 단추(‹ ›)·바탕(닫기)으로 넘어가지 않게
   let noteTimer = null;
   const note = (text, ms = 0) => { clearTimeout(noteTimer); paintPhotoNote(noteEl, text); if (ms) noteTimer = setTimeout(() => { noteEl.textContent = ''; }, ms); };
   // [공유]: 화면에 뜬 그림을 바로 넘긴다(일기 크게 보기와 같은 photo-share.js). 아직 안 떴으면 '사진 받는 중…' 뒤에 넘긴다.
