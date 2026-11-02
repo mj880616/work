@@ -162,3 +162,45 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   assert.match(js, /action: kind === 'office' \? 'preview' : 'media'/);
   assert.doesNotMatch(js, /\/rest\/v1\/app_cloud_|method: '(PATCH|DELETE)'/);
 });
+
+// ---------- S48-45 쓰기 ----------
+test('write helpers: range pick, group by source, touched folders, move targets', async () => {
+  const m = await import('../app/files-model.mjs');
+  assert.deepEqual(m.pickRange(['a', 'b', 'c', 'd'], 'd', 'b'), ['b', 'c', 'd']);
+  assert.deepEqual(m.pickRange(['a', 'b'], '', 'b'), ['b']);
+  assert.deepEqual(m.pickRange(['a'], 'a', 'zz'), []);
+  const rows = [{source: 'gd', item_id: 'G1', parent_id: 'P'}, {source: 'od', item_id: 'O1', parent_id: null}, {source: 'gd', item_id: 'G2', parent_id: null}];
+  assert.deepEqual(m.groupBySource(rows).map(g => [g.source, g.rows.length]), [['od', 1], ['gd', 2]]);
+  const many = Array.from({length: 450}, (_, i) => ({source: 'od', item_id: 'X' + i}));
+  assert.deepEqual(m.groupBySource(many).map(g => g.rows.length), [200, 200, 50], 'server takes 200 at a time');
+  assert.deepEqual(m.touchedFolders(rows, {source: 'od', parent: 'F'}).sort(), ['gd:', 'gd:P', 'od:', 'od:F']);
+  const f = {source: 'od', item_id: 'F!1', parent_id: null, is_folder: true};
+  assert.equal(m.moveTargetOk([f], {source: 'od', parent: 'F!1'}), false, 'not into itself');
+  assert.equal(m.moveTargetOk([f], {source: 'od', parent: null}), false, 'already there');
+  assert.equal(m.moveTargetOk([f], {source: 'od', parent: 'Z!2'}), true);
+  assert.equal(m.moveTargetOk([rows[0]], {source: 'od', parent: null}), true, 'across clouds');
+  assert.equal(m.moveTargetOk([], {source: 'od', parent: null}), false);
+});
+
+test('write texts: trash confirm names the cloud trash (F1), across limits (F8), error lines', async () => {
+  const m = await import('../app/files-model.mjs');
+  const one = m.trashAsk([{name: '회의.docx', source: 'od'}]);
+  assert.match(one.text, /회의\.docx/);assert.equal(one.note, '되돌리기는 원드라이브 휴지통에서 합니다');
+  assert.equal(m.trashAsk([{name: 'a', source: 'od'}, {name: 'b', source: 'gd'}]).note, '되돌리기는 원드라이브·구글 드라이브 휴지통에서 합니다');
+  assert.equal(m.moveCheck([{size_bytes: 1}, {size_bytes: 1}], {across: true}).ok, false);
+  assert.equal(m.moveCheck([{size_bytes: m.MOVE_ACROSS_MAX_BYTES + 1}], {across: true}).ok, false);
+  assert.equal(m.moveCheck([{size_bytes: m.MOVE_ACROSS_MAX_BYTES}], {across: true}).ok, true);
+  assert.equal(m.writeDoneText('move', {done: 3}), '3개 옮겼습니다');
+  assert.equal(m.writeDoneText('trash', {done: 2, failed: 1}), '2개 휴지통으로 보냈습니다 · 1개 못 함');
+  assert.equal(m.writeDoneText('across', {kept: true}), '복사는 끝났지만 원본은 그대로 남았습니다');
+  assert.equal(m.writeErrorText('name_taken'), '같은 이름이 이미 있습니다');
+  assert.equal(m.writeErrorText('verify_failed'), '옮긴 파일이 원본과 달라 원본을 그대로 두었습니다');
+  assert.equal(m.writeErrorText('feature_required'), '이 작업공간에서는 쓰지 않는 기능입니다', 'falls back to read errors');
+});
+
+test('server and screen share the same across limit and batch size', async () => {
+  const m = await import('../app/files-model.mjs');
+  const h = await import('../supabase/functions/cloud-files/handler.ts');
+  assert.equal(m.MOVE_ACROSS_MAX_BYTES, h.ACROSS_MAX_BYTES);
+  assert.equal(m.MOVE_SAME_MAX, h.WRITE_MAX);
+});
