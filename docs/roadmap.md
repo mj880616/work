@@ -1050,6 +1050,7 @@ Codex 사용량 제한으로 Claude 커맨드센터가 이어받았다. 사용�
 | E2E-안정화 journal 임시저장 | tests/app-e2e/journal.spec.mjs:1739 [주간 정리] 임시저장 간헐 실패(#1694 390·#1703 1280 두 번) 원인 고치기 | 진행중(S47-58, #1718) | | 2026-11-02 CC: AGENTS 9절(같은 E2E 두 번 이상 간헐 실패). 같이 본 것: library-project-catalog.spec:357(1회), pc-anchored-popup.spec:33(#1716 1회) |
 | QA-드래그앤드롭빠짐 | 파일 넣는 곳 중 드래그앤드롭이 없는 곳: 일기 사진, HWP 파일 열기 | 대기 | | 2026-11-02 S47-54(#1716) 정적 점검 발견. 명진 화면 규칙(파일은 드래그앤드롭) |
 | QA-버튼규칙시험범위 | UI-버튼기준 시험이 덮지 않는 화면(사진·사회운동 Now·아스날·통화·텔레그램)에 시험 넓히기, 빈 시험 basket-button-compact.spec 채우기 | 대기 | | 2026-11-02 S47-54(#1716) 발견 |
+| OPS-요청함대기계산 | 재발 방지(11/02 사고: 요청함 '대기(CC 전달)' 30여 건·완료 뒤 빠짐 33건을 CC가 모름): 요청함 대기 목록을 기억 대신 계산(`scripts/ops/inbox-open.mjs`), CC 점검·정식 보고·인계서·새 방 첫 일에 그 숫자를 씀, 요청함 점검이 6시간 미착수면 명진에게 알림, 매주 월 완료 대조 예약 | 진행중(도구·규칙 PR, 예약 작업 2개 고침) | — | 명진 11/02 11:20 "재발 방지 대책이 먼저", 11:22 "다음 세션에서도 재발 방지되게 인계" |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
 
 비고: migration 버전 불일치 3건(enable_multiuser_personal_spaces, add_free_beta_controls, add_beta_access_status_rpc)은 RTW 작업(RTW-1~3) 소관이다. 읽생기 저장소 파일과 production 기록의 버전이 다르다. 대응은 [docs/migration-history.md](migration-history.md).
