@@ -13,5 +13,8 @@ test('Web2 app has no team-ai caller or generation controls', () => {
   assert.doesNotMatch(detail,/wdAiSlot|AI 초안/);
   const loader=readFileSync('app/view-loader.js','utf8');
   assert.doesNotMatch(loader,/workplace-ai-report\.js/);
-  assert.match(loader,/workplace-report\.js/);
+  // PERF-첫로딩 P5: 담당조직 상세 묶음(workplace-detail.js·workplace-report.js)은 목록이 보인 뒤 suborganizations.js가 받는다.
+  const list=readFileSync('app/suborganizations.js','utf8');
+  assert.doesNotMatch(list,/workplace-ai-report\.js/);
+  assert.match(list,/workplace-report\.js/);
 });
