@@ -62,7 +62,9 @@ export async function runNewsFeed({ secret, fetcher = fetch, base = FUNCTION_BAS
     try {
       const r = await call(options, 'run', s);
       results.push({ name, status: typeof r.status === 'string' && CODE.test(r.status) ? r.status : 'ok',
-        n: COUNT(r.inserted ?? r.done ?? r.removed), deferred: COUNT(r.deferred) });
+        n: COUNT(r.inserted ?? r.done ?? r.removed), deferred: COUNT(r.deferred),
+        // pending 단계만: 남은 대기 건수·그 가운데 3일 넘은 건수(옛 함수 판에는 없음 → null, 줄에 안 적음).
+        remaining: COUNT(r.remaining), stale: COUNT(r.stale) });
     } catch (error) {
       if (error instanceof FeedFailure && /비밀값/.test(error.message)) throw error;
       results.push({ name, status: 'call_failed', n: 0, deferred: 0 });
@@ -74,7 +76,7 @@ export async function runNewsFeed({ secret, fetcher = fetch, base = FUNCTION_BAS
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     const t = await runNewsFeed({ secret: process.env.NEWS_FEED_CRON_SECRET });
-    for (const r of t.results) console.log(`${r.name}: ${r.status} · ${r.n}건 · 다음으로 ${r.deferred}`);
+    for (const r of t.results) console.log(`${r.name}: ${r.status} · ${r.n}건 · 다음으로 ${r.deferred}${r.remaining === null || r.remaining === undefined ? '' : ` · 남은 ${r.remaining}건(3일 넘은 것 ${r.stale ?? 0})`}`);
     const failed = t.results.filter(r => r.status === 'call_failed');
     if (failed.length) console.log(`::warning title=뉴스 클리핑 수집::${failed.length}단계 호출 실패(${failed.map(r => r.name).join(', ')})`);
   } catch (error) {

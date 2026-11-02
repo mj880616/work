@@ -225,3 +225,42 @@ test('keywords: daily cap per workspace (KEYWORD_ITEMS_DAILY) counted from today
  const cat=await call(fakeWorld(),userReq('catalog'));
  assert.equal(cat.body.limits.keyword_items,30);assert.equal(cat.body.limits.translate,20);
 });
+
+// NEWS-채널밀림(11/02): 새 것부터, 남은 건수·3일 넘은 건수, 짧은 주소는 열린 주소 규칙 안에서 따라감, 영상은 제목만, 주소 제목은 바꿈.
+test('pending: 새 것부터 읽고 남은 대기 건수·3일 넘은 건수를 적는다(건수만)',async()=>{
+ const items=[{id:ITEM,workspace_id:WS,lane:'channel',state:'pending',url:'https://news.example.org/a/1',title:null,summary:null}];
+ const w=fakeWorld({items,sites:{'https://news.example.org/robots.txt':{body:''},'https://news.example.org/a/1':{body:ARTICLE}}});
+ const r=await call(w,cronReq('run',{step:'pending'}));
+ assert.equal(r.status,200);assert.equal(r.body.done,1);
+ assert.equal(typeof r.body.remaining,'number');assert.equal(typeof r.body.stale,'number');
+ const first=w.calls.find(c=>c.method==='GET'&&c.url.includes('app_news_items?state=eq.pending'));
+ assert.match(first.url,/order=created_at\.desc/);assert.match(first.url,new RegExp(`limit=${H.PENDING_PER_RUN}`));
+ assert.ok(w.calls.some(c=>c.method==='GET'&&/created_at=lt\./.test(c.url)),'3일 넘은 대기 줄을 셈');
+ assert.doesNotMatch(JSON.stringify(r.body),/example\.org|합성/,'응답은 건수만');
+});
+
+test('pending: 짧은 주소는 열린 주소 규칙 안에서 진짜 기사로 따라가 읽고, 내부 주소로 넘기면 따라가지 않는다',async()=>{
+ const items=[{id:ITEM,workspace_id:WS,lane:'channel',state:'pending',url:'https://naver.me/xAbC12',title:'naver.me/xAbC12',summary:null}];
+ const w=fakeWorld({items,sites:{'https://naver.me/robots.txt':{body:''},'https://naver.me/xAbC12':{status:302,headers:{location:'https://news.example.org/a/1'}},
+  'https://news.example.org/robots.txt':{body:''},'https://news.example.org/a/1':{body:ARTICLE}}});
+ await call(w,cronReq('run',{step:'pending'}));
+ const patch=w.writes().find(c=>c.body?.state).body;
+ assert.equal(patch.state,'ok');assert.equal(patch.title,'합성 기사 제목','주소 제목은 기사 제목으로 바꿈');assert.equal(patch.summary,'한 문장 요약.');
+});
+
+test('pending: 영상(youtu.be)은 기사로 읽지 않고 공개 oEmbed 제목만, 못 읽으면 제목 "영상"',async()=>{
+ const VID='https://youtu.be/AbCdEf12345';
+ const items=[{id:ITEM,workspace_id:WS,lane:'channel',state:'pending',url:VID,title:null,summary:null}];
+ const w=fakeWorld({items,sites:{'https://www.youtube.com/robots.txt':{body:''},'https://www.youtube.com/oembed':{body:JSON.stringify({title:'합성 영상 제목',author_name:'합성 채널'}),headers:{'content-type':'application/json'}}}});
+ await call(w,cronReq('run',{step:'pending'}));
+ const patch=w.writes().find(c=>c.body?.state).body;
+ assert.equal(patch.state,'ok');assert.equal(patch.title,'[영상] 합성 영상 제목');assert.equal(patch.publisher,'합성 채널');
+ assert.equal(patch.body,undefined);assert.equal(patch.summary,undefined);
+ assert.ok(!w.calls.some(c=>c.url.startsWith('https://youtu.be')),'영상 쪽은 요청하지 않음');
+ assert.ok(!w.calls.some(c=>c.url.startsWith('https://api.openai.com')),'AI 없음');
+ const w2=fakeWorld({items,sites:{'https://www.youtube.com/robots.txt':{body:'User-agent: *\nDisallow: /oembed'}}});
+ await call(w2,cronReq('run',{step:'pending'}));
+ assert.equal(w2.writes().find(c=>c.body?.state).body.title,'영상');
+ assert.ok(!w2.calls.some(c=>c.url.startsWith('https://www.youtube.com/oembed')),'robots가 막으면 읽지 않음');
+ assert.equal(H.videoId('https://www.youtube.com/watch?v=AbCdEf12345'),'AbCdEf12345');assert.equal(H.videoId('https://example.org/watch?v=x'),null);
+});

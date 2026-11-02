@@ -38,8 +38,12 @@ test('줄 보임: 요약 늘 보임, 외국어 제목은 미리 번역한 한국
   assert.equal(paid.note, '유료 기사 · 공개 요약만'); assert.equal(paid.canOpen, true); assert.equal(paid.url, 'https://example.org/p');
   const media = M.itemView({id: '3', lane: 'media', lang: 'ko', title: '매체 새 글', state: 'ok', body_kind: null, url: 'https://example.org/m'});
   assert.equal(media.summary, '');
-  const pending = M.itemView({id: '4', lane: 'channel', lang: 'ko', title: null, state: 'pending', url: 'https://www.example.org/x'});
-  assert.equal(pending.title, 'example.org'); assert.equal(pending.note, '아직 안 읽음'); assert.equal(pending.canOpen, false);
+  const pend = {id: '4', lane: 'channel', lang: 'ko', title: null, state: 'pending', url: 'https://www.example.org/x'};
+  const pending = M.itemView(pend);
+  assert.equal(pending.title, '기사 읽는 중 · example.org', '도메인을 제목으로 보이지 않음'); assert.equal(pending.note, '아직 안 읽음'); assert.equal(pending.canOpen, false);
+  assert.equal(M.itemView({...pend, title: 'naver.me/xAbC12'}).title, '기사 읽는 중 · example.org', '주소뿐인 제목도 제목으로 쓰지 않음');
+  assert.equal(M.itemView({...pend, state: 'failed', title: 'https://example.org/x'}).title, '제목 없음 · example.org');
+  assert.equal(M.itemView({...pend, title: '진짜 기사 제목'}).title, '진짜 기사 제목');
   assert.equal(M.itemView({id: '5', url: 'javascript:alert(1)', state: 'ok'}).url, '', '이상한 주소는 링크로 쓰지 않음');
 });
 
