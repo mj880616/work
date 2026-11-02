@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {servePagesCors,hwpPress} from './helpers/hwp-editor.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 // HWP-편집기 2단계: [편집] on an HWP/HWPX library document or basket attachment opens the sandboxed editor with the
 // Drive file (document-actions hwp-open). [새 파일로 저장] is the default (library-files / basket-files); [원본에 덮어쓰기]
 // is offered for HWP originals only, after one confirmation, and sends the revision seen at open. Unknown results are
@@ -120,24 +121,23 @@ test('overwrite asks once, says both sides change for a shared file, and sends t
   });
   await editLibraryDocument(page,390);
   await expect(status(page)).toHaveText(/이 파일은 정리함과 자료실이 같은 원본을 써요/,{timeout:60000});
-  const dialogs=[];
-  page.once('dialog',dialog=>{dialogs.push(dialog.message());void dialog.dismiss()});
   await press(page,'hwpDriveOverwrite',390);
-  await expect.poll(()=>dialogs.length).toBe(1);
-  expect(dialogs[0]).toContain('정리함과 자료실 양쪽에 반영돼요.');
-  expect(dialogs[0]).toContain('Web2 편집 백업');
+  const note=page.locator('.kptu-ask .kptu-ask-note');
+  await expect(note).toContainText('정리함과 자료실 양쪽에 반영돼요.');
+  await expect(note).toContainText('Web2 편집 백업');
+  expect(await answerAsk(page,false)).toContain('덮어쓸까요?');
   expect(f.sent.overwrite).toEqual([]);
 
-  page.once('dialog',dialog=>void dialog.accept());
   await press(page,'hwpDriveOverwrite',390);
+  await answerAsk(page,true);
   await expect(status(page)).toHaveText('원본에 덮어썼어요. 고치기 전 사본은 Drive "Web2 편집 백업" 폴더에 "주간보고 편집 전 백업 2026-10-06 1000.hwp"으로 보관했어요.',{timeout:30000});
   expect(f.sent.overwrite).toHaveLength(1);
   const {file,...fields}=f.sent.overwrite[0];
   expect(fields).toEqual({action:'hwp-overwrite',document_id:DOC,base_revision:'rev-1',base_md5:MD5A,confirm_shared:'1'});
   expect(file.bytes).toEqual([0xd0,0xcf,0x11,0xe0]);
   // The next overwrite builds on the revision the server returned.
-  page.once('dialog',dialog=>void dialog.accept());
   await press(page,'hwpDriveOverwrite',390);
+  await answerAsk(page,true);
   await expect.poll(()=>f.sent.overwrite.length).toBe(2);
   expect(f.sent.overwrite[1].base_revision).toBe('rev-2');
   expect(f.sent.overwrite[1].base_md5).toBe(MD5B);
@@ -187,8 +187,8 @@ test('unknown results are never sent again; a changed original keeps only [새 �
   await expect(page.locator('#hwpDriveNew')).toBeDisabled();
   expect(f.sent.library).toHaveLength(1);
 
-  page.once('dialog',dialog=>void dialog.accept());
   await page.locator('#hwpDriveOverwrite').click();
+  await answerAsk(page,true);
   await expect(status(page)).toHaveText('덮어쓰기 결과를 확인하지 못했어요. 다시 저장하지 말고 Drive에서 원본을 먼저 확인해 주세요.',{timeout:30000});
   await expect(page.locator('#hwpDriveOverwrite')).toBeDisabled();
   expect(f.sent.overwrite).toHaveLength(1);
@@ -199,17 +199,14 @@ test('a changed Drive original is not overwritten and unsaved edits are not drop
   await editLibraryDocument(page,390);
   await expect(status(page)).toHaveText(/1쪽을 열었어요/,{timeout:60000});
   await typeInEditor(page,390,'추가');
-  page.once('dialog',dialog=>void dialog.accept());
   await press(page,'hwpDriveOverwrite',390);
+  await answerAsk(page,true);
   await expect(status(page)).toHaveText('연 뒤에 Drive의 원본이 바뀌어 덮어쓰지 않았어요. [새 파일로 저장]을 써 주세요.',{timeout:30000});
   await expect(page.locator('#hwpDriveOverwrite')).toBeDisabled();
   await expect(page.locator('#hwpDriveNew')).toBeEnabled();
   // Leaving with unsaved edits asks first; staying keeps the editor.
-  const asked=[];
-  page.once('dialog',dialog=>{asked.push(dialog.message());void dialog.dismiss()});
   await press(page,page.locator('#hwpLabClose'),390);
-  await expect.poll(()=>asked.length).toBe(1);
-  expect(asked[0]).toContain('저장하지 않은 고친 내용');
+  expect(await answerAsk(page,false)).toContain('저장하지 않은 고친 내용');
   await expect(page.locator('#hwpView')).toBeVisible();
   expect(f.sent.overwrite).toHaveLength(1);
   expect(f.errors).toEqual([]);

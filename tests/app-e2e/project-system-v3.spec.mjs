@@ -9,6 +9,9 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
+// 작은 확인창의 질문과 작은 설명(note)을 함께 읽고 답한다(영구 삭제 확인창은 둘째 문장을 note로 보인다).
+async function askWithNote(page,accept){const ask=page.locator('.kptu-ask');await ask.waitFor({state:'visible'});const note=(await ask.locator('.kptu-ask-note').count())?((await ask.locator('.kptu-ask-note').textContent())||''):'';return [await answerAsk(page,accept),note]}
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -499,8 +502,7 @@ test('linked milestone delete uses stored Google ids without writing Web2 events
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
-  page.once('dialog',d=>d.accept());
-  await page.locator('#ps3MilestoneDelete').click();
+  await page.locator('#ps3MilestoneDelete').click();await answerAsk(page,true);
   await expect.poll(()=>state.milestones.some(x=>x.id==='mile-1')).toBe(false);
   expect(state.restCalls.filter(x=>x.name==='app_events')).toHaveLength(0);
   expect(state.googleCalls.find(x=>x.action==='delete-event')).toMatchObject({calendar_id:'primary',event_id:'google-existing'});
@@ -514,8 +516,7 @@ test('linked milestone local delete failure restores Google linkage and mileston
   state.restFailures['app_project_milestones:DELETE']=1;
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
-  page.once('dialog',d=>d.accept());
-  await page.locator('#ps3MilestoneDelete').click();
+  await page.locator('#ps3MilestoneDelete').click();await answerAsk(page,true);
   await expect(page.locator('#ps3MilestoneState')).toContainText('복원했습니다');
   const restored=state.milestones.find(x=>x.id==='mile-1');
   expect(restored).toBeTruthy();
@@ -994,7 +995,7 @@ test('V3 edits and deletes a key schedule and shows the five most recent documen
   await page.locator('#ps3MilestoneTitle').fill('9.29 민자철도 국회토론회 확정');await page.locator('#ps3MilestoneSave').click();
   await expect.poll(()=>state.milestones[0].title).toBe('9.29 민자철도 국회토론회 확정');
   await expect(page.locator('#ps3-milestones')).toHaveAttribute('open','');
-  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();page.once('dialog',d=>d.accept());await page.locator('#ps3MilestoneDelete').click();
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();await page.locator('#ps3MilestoneDelete').click();await answerAsk(page,true);
   await expect.poll(()=>state.milestones.length).toBe(0);
   const docs=page.locator('#ps3-documents');
   await expect(docs.locator('.ps3-section-head .ps3-count')).toHaveText('4');
@@ -1017,7 +1018,7 @@ test('V3 archives and restores without returning to a legacy project screen',asy
   const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
   await openMenu(page);
-  page.once('dialog',d=>d.accept());await page.locator('[data-ps3-archive-project]').click();
+  await page.locator('[data-ps3-archive-project]').click();await answerAsk(page,true);
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('archived');
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
   await clickView(page,'projects');
@@ -1088,13 +1089,13 @@ test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 
   // 영구 삭제: 확인창을 거치고, 취소하면 그대로다.
   const solo=page.locator('[data-ps3-trash-row="solo-1"]');
   await solo.locator('summary').click();
-  let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
   await solo.locator('[data-ps3-trash-purge]').click();
-  await expect.poll(()=>asked).toContain('영구 삭제할까요');
+  const asked=(await askWithNote(page,false)).join(' ');
+  expect(asked).toContain('영구 삭제할까요');
   expect(asked).toContain('사업영역 연결만 풀립니다');expect(asked).toContain('되돌릴 수 없습니다');
   expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
   await solo.locator('summary').click();
-  page.once('dialog',d=>d.accept());await solo.locator('[data-ps3-trash-purge]').click();
+  await solo.locator('[data-ps3-trash-purge]').click();await answerAsk(page,true);
   await expect.poll(()=>state.trash.items.some(x=>x.id==='solo-1')).toBe(false);
   expect(state.spaces.some(x=>x.id==='solo-1')).toBe(false);
   await expect(rows).toHaveCount(2);
@@ -1125,12 +1126,11 @@ test('TRASH-화면2: 휴지통 탭에 담당조직·사업 보고가 함께 보�
   await expect(rep).toContainText('합성 정례회의 4회');await expect(rep).toContainText('사업 보고');
   // 영구 삭제: 종류에 맞는 확인창, 취소하면 그대로, 확인하면 그 종류로 간다.
   await rep.locator('summary').click();
-  let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
   await rep.locator('[data-ps3-trash-purge]').click();
-  await expect.poll(()=>asked).toContain('사업 보고를 영구 삭제할까요');
+  expect(await answerAsk(page,false)).toContain('사업 보고를 영구 삭제할까요');
   expect(state.trash.others.report.length).toBe(1);
   await rep.locator('summary').click();
-  page.once('dialog',d=>d.accept());await rep.locator('[data-ps3-trash-purge]').click();
+  await rep.locator('[data-ps3-trash-purge]').click();await answerAsk(page,true);
   await expect.poll(()=>state.trash.others.report.length).toBe(0);
   await org.locator('[data-ps3-trash-restore]').click();
   await expect.poll(()=>state.trash.others.organization.length).toBe(0);
@@ -1160,9 +1160,9 @@ test('TRASH-다른삭제 3단계: 휴지통 탭에 자료실 폴더가 프로젝
   await expect(second).toContainText('상위 폴더를 먼저 되돌려 주세요');await expect(second.locator('[data-ps3-trash-restore]')).toBeDisabled();
   // 영구 삭제: 폴더만 지워지고 안의 것은 한 단 위로 올라간다고 알리는 확인창. 취소하면 그대로.
   await first.locator('summary').click();
-  let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
   await first.locator('[data-ps3-trash-purge]').click();
-  await expect.poll(()=>asked).toContain('“합성 폴더” 폴더를 영구 삭제할까요');
+  const asked=(await askWithNote(page,false)).join(' ');
+  expect(asked).toContain('“합성 폴더” 폴더를 영구 삭제할까요');
   expect(asked).toContain('아래 폴더 2개·자료 5개는 한 단 위로 올라갑니다');expect(asked).toContain('Drive 파일은 지우지 않으며');
   expect(state.trash.others.library_folder.length).toBe(2);
   await first.locator('summary').click();
@@ -1191,9 +1191,9 @@ test('TRASH-다른삭제 5단계: 휴지통에 노트·업데이트가 종류·�
   await expect(second).toContainText('합성 정리 노트');await expect(second).toContainText('노트');await expect(second.locator('[data-ps3-trash-restore]')).toBeEnabled();
   // 영구 삭제: 연결이 함께 지워지고 Drive 파일은 그대로라고 알리는 확인창. 취소하면 그대로.
   await first.locator('summary').click();
-  let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
   await first.locator('[data-ps3-trash-purge]').click();
-  await expect.poll(()=>asked).toContain('“합성 교섭 결과 공유” 업데이트를 영구 삭제할까요');
+  const asked=(await askWithNote(page,false)).join(' ');
+  expect(asked).toContain('“합성 교섭 결과 공유” 업데이트를 영구 삭제할까요');
   expect(asked).toContain('연결 2곳도 함께 지워지고');expect(asked).toContain('첨부 파일 1개는 Drive에 그대로 남습니다');
   expect(state.trash.others.note.length).toBe(2);
   await first.locator('summary').click();

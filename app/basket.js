@@ -1,5 +1,5 @@
 import {waitInlineHtml} from './wait-state.js';
-import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import {seoulInputValue, formatSeoulTime} from './meeting-time.js';
@@ -271,7 +271,7 @@ function applyOcrOutcome(value,action='read'){
   else if(value.updated_at&&value.updated_at!==selected.updated_at)detail.querySelector('[data-basket-reload]').hidden=false;
   renderList();paintAttachments();
 }
-async function runOcr(action,fileId){
+async function runOcr(action,fileId,anchor=null){
   if(busy||!selected||!guardOcrPrivacy()||!ocr.enabled)return;
   const id=selected.id,view=ocrViews.get(ocrKey(fileId));
   const recovery=['reconcile','cleanup'].includes(action);
@@ -303,7 +303,7 @@ async function runOcr(action,fileId){
       const view=ocrViews.get(ocrKey(fileId));
       if(!view?.checkedAttempt)return;
       if(view.stamp!==selected.updated_at||view.outcome?.code==='NOTE_CHANGED'){
-        if(!window.confirm('저장된 업데이트가 변경되었습니다. 수정 중인 글은 유지하고 현재 저장된 업데이트에 이 시도의 글자를 반영할까요?'))return;
+        if(!(await askConfirm(anchor,{text:'저장된 업데이트가 변경되었습니다. 수정 중인 글은 유지하고 현재 저장된 업데이트에 이 시도의 글자를 반영할까요?',ok:'반영'}))||!token.current())return;
         options={confirmCurrentNoteVersion:view.stamp};
       }
     }
@@ -436,11 +436,18 @@ function rowMenuAction(act,noteId){
   if(act==='journal'||act==='unjournal'){void keepInJournal(noteId,act==='journal');return;}
   if(act==='hold'||act==='unhold'){void holdFromList(noteId,act==='hold');return;}
   if(act==='to-report'){void moveToReport(note,rowMenuEl.querySelector('button')||root);return;}
-  if(act==='to-note'&&!window.confirm(`‘${[...suggestNoteTitle(note).replace(/[\r\n]+/g,' ').trim()||'이 업데이트'].slice(0,40).join('')}’을(를) 노트로 옮길까요?`))return;
+  if(act==='to-note'){void rowToNote(note);return;}
   openDetail(noteId,{edit:act==='edit'});
   if(selected?.id!==noteId)return;
-  if(act==='link'||act==='task'){const message=manual.open(act);detail.querySelector('[data-basket-status]').textContent=message||'';}
-  else if(act==='to-note')void saveToNote();
+  if(act==='link'||act==='task'){const id=noteId;void manual.open(act).then(message=>{if(selected?.id===id)detail.querySelector('[data-basket-status]').textContent=message||'';});}
+}
+// S48-28: [노트로 옮기기]는 공용 작은 확인창으로 한 번 묻는다(그 줄의 ⋯ 근처). 기다리는 사이 다른 일이 시작됐거나 줄이 없어졌으면 멈춘다.
+async function rowToNote(note){
+  const noteId=note.id,anchor=root.querySelector(`[data-basket-row-more="${CSS.escape(noteId)}"]`);
+  const text=`‘${[...suggestNoteTitle(note).replace(/[\r\n]+/g,' ').trim()||'이 업데이트'].slice(0,40).join('')}’을(를) 노트로 옮길까요?`;
+  if(!(await askConfirm(anchor,{text,ok:'옮기기'}))||busy||selected||window.KPTURouter?.current!=='basket'||!notes.some(n=>n.id===noteId))return;
+  openDetail(noteId,{edit:false});
+  if(selected?.id===noteId)void saveToNote();
 }
 // MTG-사업보고 7단계 [사업 보고로 옮기기]: 칸 고르기 → 일시=업데이트 날짜, 결과=업데이트 글이 채워진 사업 보고 입력 창. 저장되면 업데이트 → 사업 보고 연결 한 줄을
 // 소유자 RLS 아래 REST 로 더한다(새 DB 변경 없음). 업데이트는 지우지 않아 첨부도 그대로이고, 바구니에서는 '분류됨'으로 칩에 사업 보고 이름이 보인다.
@@ -592,9 +599,17 @@ function clearNoteAddress(){
   url.searchParams.delete('note');
   history.replaceState(history.state,'',url.pathname+url.search+url.hash);
 }
+const closeDetailText = () => dirty() ? '수정 중인 글을 버리고 목록으로 돌아갈까요?' : manualDraft() ? '작성 중인 연결·할 일 입력을 버리고 목록으로 돌아갈까요?' : '';
+// S48-28: 화면 안 버튼·Esc로 닫을 때는 공용 작은 확인창으로 묻는다. 기다리는 사이 다른 업데이트가 열렸거나 작업이 시작됐으면 그대로 둔다.
+async function askCloseDetail(anchor) {
+  const text = closeDetailText(), id = selected?.id;
+  if (!text) return closeDetail();
+  if (!(await askConfirm(anchor, {text, ok:'버리기', danger:true})) || busy || !selected || selected.id !== id) return false;
+  return closeDetail({force:true});
+}
+// 뒤로가기(겹 닫기)·화면 들어오기는 라우터가 그 자리에서 답을 받아야 해서 브라우저 기본 확인창을 그대로 쓴다(S48-28 예외).
 function closeDetail({focus = true, force = false, cleanAddress = true, fromBack = false} = {}) {
-  if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return false;
-  if (!force && !dirty() && manualDraft() && !window.confirm('작성 중인 연결·할 일 입력을 버리고 목록으로 돌아갈까요?')) return false;
+  if (!force) { const text = closeDetailText(); if (text && !window.confirm(text)) return false; }
   
   bigWriter?.close({silent:true}); closePhoto({restore:false});
   const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;sendMemoWhere(null);editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; paintListChrome();
@@ -841,9 +856,12 @@ function openDocEdit() {
   detail.querySelector('[data-basket-status]').textContent = '서식이 있는 글이에요. 큰 창에서 고쳐 주세요.';
   void openBigWriter();
 }
-function finishEdit({force = false} = {}) {
+async function finishEdit({force = false, anchor = null} = {}) {
   if (!selected || !editing) return;
-  if (!force && dirty() && !window.confirm('수정 중인 글과 첨부 선택을 버리고 읽기 화면으로 돌아갈까요?')) return;
+  if (!force && dirty()) {
+    const id = selected.id;
+    if (!(await askConfirm(anchor, {text:'수정 중인 글과 첨부 선택을 버리고 읽기 화면으로 돌아갈까요?', ok:'버리기', danger:true})) || busy || !editing || selected?.id !== id) return;
+  }
   editing = false; detail.querySelector('[data-basket-text]').value = selected.raw_text;
   // Cancelling discards the selection the same way leaving the note does.
   if (upload.blocked || upload.entries.some(e => e.kind !== 'success')) upload = createUploadBatch(selected.id, selected.attachments || []);
@@ -943,9 +961,9 @@ async function saveAttachments() {
   catch(e){if(isCurrent()){status.textContent='업데이트를 다시 불러오지 못했어요. 다시 시도해 주세요.';detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;}}
   finally{if(ocrFlight===token){ocrFlight=null;busy=false;}else if(!ocr.enabled)busy=false;if(isCurrent()&&!busy){detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles.render();paintOcrControls();}}
 }
-async function reloadDetail() {
+async function reloadDetail(anchor=detail.querySelector('[data-basket-reload]:not([hidden])')) {
   if(busy||!selected)return;
-  if(dirty()&&!window.confirm('저장된 업데이트를 다시 불러올까요? 수정 중인 글과 미완료 파일 선택은 비워집니다.'))return;
+  if(dirty()){const id=selected.id;if(!(await askConfirm(anchor,{text:'저장된 업데이트를 다시 불러올까요?',note:'수정 중인 글과 미완료 파일 선택은 비워집니다.',ok:'다시 불러오기',danger:true}))||busy||selected?.id!==id)return;}
   const id=selected.id,owner=scope(),run=++epoch;busy=true;
   detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=true);
   try{const result=await readBasket(undefined, {doc:true});if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;docs=result.docs;renderList();if(notes.some(n=>n.id===id))openDetail(id,{edit:editing});else closeDetail({force:true});}
@@ -995,23 +1013,23 @@ root.addEventListener('click', e => {
   else if(b.hasAttribute('data-basket-hwp-edit'))openHwpEditor(b.dataset.basketHwpEdit);
   else if(b.hasAttribute('data-basket-ocr-read'))void runOcr('read',b.dataset.basketOcrRead);
   else if(b.hasAttribute('data-basket-ocr-status'))void runOcr('status',b.dataset.basketOcrStatus);
-  else if(b.hasAttribute('data-basket-ocr-reconcile'))void runOcr('reconcile',b.dataset.basketOcrReconcile);
+  else if(b.hasAttribute('data-basket-ocr-reconcile'))void runOcr('reconcile',b.dataset.basketOcrReconcile,b);
   else if(b.hasAttribute('data-basket-ocr-cleanup'))void runOcr('cleanup',b.dataset.basketOcrCleanup);
   else if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
   else if (b.hasAttribute('data-basket-filter')) {filter = b.dataset.basketFilter; place = 'all'; sub = 'all'; renderList(); }
-  else if (b.hasAttribute('data-basket-close')) closeDetail();
+  else if (b.hasAttribute('data-basket-close')) void askCloseDetail(b);
   else if (b.hasAttribute('data-basket-edit')) startEdit();
   else if (b.hasAttribute('data-basket-to-note')) void saveToNote();
   else if (b.hasAttribute('data-basket-journal')) void keepInJournal(selected?.id, b.dataset.basketJournal === 'on');
   else if (b.hasAttribute('data-inbox-find')) void findAgain();
   else if (b.hasAttribute('data-basket-big-write')) openBigWriter();
-  else if (b.hasAttribute('data-basket-link-open')||b.hasAttribute('data-basket-task-open')) { const message = manual.open(b.hasAttribute('data-basket-link-open') ? 'link' : 'task'); detail.querySelector('[data-basket-status]').textContent = message || ''; }
-  else if (b.hasAttribute('data-basket-cancel')) finishEdit();
+  else if (b.hasAttribute('data-basket-link-open')||b.hasAttribute('data-basket-task-open')) { const id = selected?.id; void manual.open(b.hasAttribute('data-basket-link-open') ? 'link' : 'task', b).then(message => { if (selected?.id === id) detail.querySelector('[data-basket-status]').textContent = message || ''; }); }
+  else if (b.hasAttribute('data-basket-cancel')) void finishEdit({anchor:b});
   else if (b.hasAttribute('data-basket-retry')) void refresh();
   else if (b.hasAttribute('data-basket-note-task')) { requestTaskOpen(b.dataset.basketNoteTask, rt); window.KPTURouter.go('tasks', {source:'delegated'}); }
   else if (b.hasAttribute('data-basket-save')) void saveEdit();
   else if (b.hasAttribute('data-basket-upload')) void saveAttachments();
-  else if (b.hasAttribute('data-basket-reload')) void reloadDetail();
+  else if (b.hasAttribute('data-basket-reload')) void reloadDetail(b);
   else if (b.hasAttribute('data-basket-delete')) void deleteSelected();
   else if (b.hasAttribute('data-basket-archive')) void patch({archived_at:selected.archived_at ? null : new Date().toISOString()}, selected.archived_at ? '보류를 해제했어요.' : '보류로 보냈어요.');
 });
@@ -1115,7 +1133,7 @@ root.addEventListener('click', e => {
   requestLibraryDocument(a.dataset.basketLibraryOpen, rt); window.KPTURouter.go('library', {source:'delegated'});
 });
 window.addEventListener('storage',()=>guardOcrPrivacy());
-root.addEventListener('keydown', e => { if (noteHost.contains(e.target)) return; guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true}); else if (manual.isOpen()) manual.cancel(); else closeDetail(); } });
+root.addEventListener('keydown', e => { if (noteHost.contains(e.target)) return; guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true}); else if (manual.isOpen()) void manual.cancel({anchor:e.target instanceof Element ? e.target : null}); else void askCloseDetail(e.target instanceof Element ? e.target : null); } });
 window.addEventListener('kptu:before-reload', e => {
   if (busy||quick?.isBusy()||noteDocs.isBusy()) e.preventDefault();
   else if (quick?.hasDraft()||noteDocs.hasDraft()) e.detail.otherDraft=true;

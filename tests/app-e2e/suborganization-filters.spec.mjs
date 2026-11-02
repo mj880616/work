@@ -1,4 +1,5 @@
 import { appOrigin } from './helpers/test-origin.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
@@ -171,16 +172,14 @@ test('기록 삭제는 확인 후 해당 항목만 지우고, 취소하면 요�
   await page.locator('#wdInboxSave').click();
   const rows=page.locator('#wdUpdates .wd-log-row');
   await expect(rows).toHaveCount(2);
-  let asked='';
-  page.once('dialog',d=>{asked=d.message();d.dismiss()});
   // ORG-기록수정삭제: [삭제] sits in the record's ⋯ (no separate red button) and still asks once more.
   await expect(rows.nth(0).getByRole('button',{name:'기록 삭제'})).toHaveCount(0);
   await deleteRecord(page,rows.nth(0));
-  await expect.poll(()=>asked).toBe('이 기록을 삭제할까요?');
+  expect(await answerAsk(page,false)).toBe('이 기록을 삭제할까요?');
   await expect(rows).toHaveCount(2);
   expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
-  page.once('dialog',d=>d.accept());
   await deleteRecord(page,rows.nth(0));
+  await answerAsk(page,true);
   await expect(rows).toHaveCount(1);
   await expect(rows.nth(0).locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
   await expect(page.locator('#toast')).toHaveText('기록을 삭제했습니다.');
@@ -193,14 +192,12 @@ test('예전 메모는 읽기 전용이고 확인 후 삭제만 할 수 있다',
   await page.locator('#wdMore [data-wd-tab="recent"]').click();
   const memo=page.locator('#wdItems .wd-row');
   await expect(memo).toHaveCount(1);
-  page.once('dialog',d=>d.dismiss());
   await memo.getByRole('button',{name:'메모 삭제'}).click();
+  await answerAsk(page,false);
   await expect(memo).toHaveCount(1);
   expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
-  let asked='';
-  page.once('dialog',d=>{asked=d.message();d.accept()});
   await memo.getByRole('button',{name:'메모 삭제'}).click();
-  expect(asked).toBe('이 메모를 삭제할까요?');
+  expect(await answerAsk(page,true)).toBe('이 메모를 삭제할까요?');
   await expect(page.locator('#wdItems [data-wait-empty]')).toHaveText('없음');
   await expect(page.locator('#toast')).toHaveText('메모를 삭제했습니다.');
   const deletes=await page.evaluate(()=>window.__deletes);
@@ -212,21 +209,23 @@ test('예전 메모는 읽기 전용이고 확인 후 삭제만 할 수 있다',
 
 test('삭제 요청이 실패하거나 지워진 행이 없으면 항목을 그대로 두고 안내한다',async({page})=>{
   await openRail(page);
-  page.on('dialog',d=>d.accept());
   const row=page.locator('#wdUpdates .wd-log-row');
   const del=row.getByRole('button',{name:'기록 메뉴'});
   await page.evaluate(()=>{window.__failDelete=true});
   await deleteRecord(page,row);
+  await answerAsk(page,true);
   await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 네트워크 오류');
   await expect(row).toHaveCount(1);
   await expect(del).toBeEnabled();
   await page.evaluate(()=>{window.__failDelete=false;window.__deleteNoRows=true});
   await deleteRecord(page,row);
+  await answerAsk(page,true);
   await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 권한이 없거나 이미 없는 항목입니다.');
   await expect(row).toHaveCount(1);
   await expect(row.locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
   await page.locator('#wdMore [data-wd-tab="recent"]').click();
   await page.locator('#wdItems').getByRole('button',{name:'메모 삭제'}).click();
+  await answerAsk(page,true);
   await expect(page.locator('#toast')).toHaveText('메모를 삭제하지 못했습니다. 권한이 없거나 이미 없는 항목입니다.');
   await expect(page.locator('#wdItems .wd-row')).toHaveCount(1);
   expect(await page.evaluate(()=>window.__deletes.length)).toBe(3);
@@ -253,6 +252,7 @@ test('편집 권한이 없으면 기록·메모 삭제 버튼이 없고 삭제 �
   await page.locator('#forged-wdUpDel').click();
   await page.locator('#forged-wdMemoDel').click();
   expect(dialogs).toBe(0);
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
   expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
   await expect(page.locator('#wdUpdates .wd-log-row')).toHaveCount(1);
   await expect(page.locator('#wdItems .wd-row')).toHaveCount(1);

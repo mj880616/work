@@ -63,7 +63,7 @@ test('quick update with a chosen organization preserves multiline and saves with
  await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();await expect(q.locator('[data-quick-org]')).toBeFocused();let fail=true,bodies=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({status:fail?500:200,json:fail?{message:'QA error'}:[]});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('QA error');await expect(input).toHaveValue('첫 줄\n둘째 줄');
- fail=false;const before=requests.length;await q.locator('[data-quick-save]').click();await expect(input).toHaveValue('');expect(bodies[1]).toEqual({organization_id:'o',raw_text:'첫 줄\n둘째 줄',created_by:'home-test'});
+ fail=false;const before=requests.length;/* UI-빠른입력Ctrl엔터: 홈 [업데이트]도 Ctrl+엔터 = [추가] */await input.press('Control+Enter');await expect(input).toHaveValue('');expect(bodies[1]).toEqual({organization_id:'o',raw_text:'첫 줄\n둘째 줄',created_by:'home-test'});
  expect(requests.slice(before).filter(r=>r.path.endsWith('app_suborganization_updates'))).toHaveLength(0);
  expect(requests.slice(before).filter(r=>r.action==='overview'||r.path.includes('google-calendar'))).toHaveLength(0);
 });

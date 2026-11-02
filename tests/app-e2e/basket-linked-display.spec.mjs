@@ -2,6 +2,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-12T01:00:00Z';
 // UI-디자인기준 3/3: the organization list shows the last record only as the colored dot before the name; the dot keeps the
 // record time (data-so-at), read here as the KST month.day the list used to print on the right.
@@ -136,7 +137,7 @@ for(const width of [390,1280])test(`declined Back retains history position and c
  await page.setViewportSize({width,height:900});const f=await fixture(page);await historyStack(page);await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('history 원문 유지');const before=await historyProof(page);let prompts=0;page.on('dialog',()=>prompts++);
  let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.back());await expect.poll(()=>prompted).toBe(true);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);expect(prompts).toBe(1);await expect(page.locator('[data-basket-text]')).toHaveValue('history 원문 유지');
  const list={marker:'editor',unrelated:{value:3}};expect(before.state).toEqual({...list,kptuLayers:['basket-note']});
- page.once('dialog',d=>d.accept());await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-detail]')).toBeHidden();await expect.poll(()=>page.evaluate(()=>navigation.currentEntry.index)).toBe(before.index-1);expect(await page.evaluate(()=>history.state)).toEqual(list);
+ await page.locator('[data-basket-close]').click();await answerAsk(page,true);await expect(page.locator('[data-basket-detail]')).toBeHidden();await expect.poll(()=>page.evaluate(()=>navigation.currentEntry.index)).toBe(before.index-1);expect(await page.evaluate(()=>history.state)).toEqual(list);
  await page.evaluate(()=>history.back());await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#calendar/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'calendar',unrelated:{value:2}});expect(await page.evaluate(()=>navigation.currentEntry.index)).toBe(before.index-2);
  await page.evaluate(()=>history.forward());await expect(page.locator('#basketView')).toBeVisible();expect(await page.evaluate(()=>history.state)).toEqual(list);expect(new URL(page.url()).searchParams.has('note')).toBe(false);await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(f.errors).toEqual([]);
 });

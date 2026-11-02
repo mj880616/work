@@ -1,4 +1,5 @@
 import {waitHtml, emptyHtml} from './wait-state.js';
+import {askConfirm} from './small-notice.js';
 // OD-설정창 공용 부품(PHOTO-사진메뉴 2차, 명진 결정 4 · 2026-10-28 22:43): 원드라이브 설정 창 하나를 일기(diary.js)와 사진 메뉴(photos.js)가 함께 쓴다.
 // 일기 안에 있던 창(위 폴더 고르기·하위 폴더 켜고 끄기·연결 끊기·폰 보관 그림 비우기·연결 뒤 마무리)을 그대로 옮겨 왔다(모양·data-od-* 속성 같음).
 // 상태(창 열림·폴더 탐색·트리 초안·바쁨)는 이 부품이 갖고, 그리기는 부르는 화면이 html()을 제 자리에 넣어 한다(paint 콜백).
@@ -77,8 +78,9 @@ export function createOdSettings({rt, layerName, back = '', hint = '하위 폴�
     try { mine.data = await odFolderTree(rt); } catch (error) { mine.failed = true; throw error; }
   }
   function connect() { return run(async () => { window.location.assign(odAuthUrlBack(await odAuthStart(rt), back)); }); }
-  function disconnect() {
-    if (!window.confirm('원드라이브 연결을 끊을까요? 원드라이브 사진은 그대로예요. 별표 기록도 남아요.')) return;
+  async function disconnect(anchor = document.activeElement) {
+    if (busy) return;
+    if (!await askConfirm(anchor, {text:'원드라이브 연결을 끊을까요?', note:'원드라이브 사진은 그대로예요. 별표 기록도 남아요.', ok:'끊기', danger:true})) return;
     return run(async () => { await odDisconnect(rt); clearOdPhotoCache(); await odKeepClear(); await refresh(true); browse = null; tree = null; setOpen(false); reset({disconnected:true}); }, {reload:true});
   }
   // 마이크로소프트에서 돌아옴(takeOdReturn 값): 연결을 마치고 바로 폴더 고르기 창.
@@ -126,7 +128,7 @@ export function createOdSettings({rt, layerName, back = '', hint = '하위 폴�
       return true;
     }
     if (button.matches('[data-od-keep-clear]')) { run(async () => { await odKeepClear(); keep = 0; refreshKeep(); }); return true; }
-    if (button.matches('[data-od-disconnect]')) { disconnect(); return true; }
+    if (button.matches('[data-od-disconnect]')) { void disconnect(button); return true; }
     return false;
   }
   return self;

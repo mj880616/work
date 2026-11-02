@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {laidOutBox} from './helpers/laid-out.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 // TASK-바로처리통일 (2026-10-23 사용자 결정 00:06): 업무일지 할 일 / 한 일의 바로 처리(동그라미 완료 + 5초 [되돌리기], 줄 ⋯ = 내일로 · 기한 바꾸기 ·
 // 고치기 · 지우기 / 끝낸 줄 다시 할 일로 · 고치기, PC hover·초점 줄에만 ⋯, 폰은 늘)를 홈 할 일 칸(HOME-업무일지홈: 홈 = 업무일지)·담당조직·프로젝트 상세 연결 할 일에도 같은
 // 공용 부품(task-inline.js)으로. 담당조직·프로젝트의 [연결 해제]는 ⋯ 안에 그대로 남는다. 달력 날짜 목록은 task-ops-unify.spec.mjs, 업무일지는 journal.spec.mjs.
@@ -84,12 +85,11 @@ test('홈 할 일 칸 ⋯ 지우기: 확인 한 번, 취소하면 그대로, 확
  await page.setViewportSize({width:390,height:1000});
  const c=await openHome(page);const calls=await taskCalls(page,c);
  const row=page.locator('#homeView [data-journal-group="todo"] li[data-journal-task="today"]'),menu=page.locator('#journalTaskMenu');
- let accept=false;const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());void(accept?d.accept():d.dismiss());});
  await row.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'지우기'}).click();
- await expect.poll(()=>dialogs.length).toBe(1);expect(dialogs[0]).toBe('이 Google 할 일을 삭제할까요?');
+ expect(await answerAsk(page,false)).toBe('이 Google 할 일을 삭제할까요?');
  expect(calls.delete).toEqual([]);await expect(row).toBeVisible();
- accept=true;
  await row.locator('[data-journal-task-menu]').click();await menu.getByRole('button',{name:'지우기'}).click();
+ await answerAsk(page,true);
  await expect(row).toHaveCount(0);
  expect(calls.delete).toEqual([{action:'delete',task_list_id:'default',task_id:'today'}]);
  await expect(page.locator('#toast')).toHaveText('할 일을 삭제했어요.');
@@ -163,8 +163,8 @@ for(const width of [390,1280])test(`담당조직 상세 연결 할 일: 동그�
  await expect(done).toHaveCount(0);
  expect(state.calls.unlink).toEqual([{action:'unlink',task_id:'l-2',links:[{organization_id:'oa'}]}]);
  // 지우기: 확인 한 번
- page.once('dialog',d=>d.accept());
  await row.hover();await row.locator('[data-gt-linked-more]').click();await menu.getByRole('button',{name:'지우기'}).click();
+ await answerAsk(page,true);
  await expect.poll(()=>state.calls.delete.length).toBe(1);
  await expect(body.locator('[data-wait-empty]')).toHaveText('없음');
  expect(errors).toEqual([]);

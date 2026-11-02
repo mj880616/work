@@ -1,5 +1,6 @@
 // SHARE-현장공유 PR 2: Web2 "공유 페이지" editor (mock Supabase) and the Web1 reader (mock share-page-read).
 import {test, expect} from '@playwright/test';
+import {answerAsk} from './helpers/small-notice.mjs';
 import {existsSync, readFileSync} from 'node:fs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
@@ -155,8 +156,8 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://work.bokdoong.com/work/share/?t=' + TOKEN);
   expect(await page.content()).not.toContain(TOKEN);
   expect(logs.join('\n')).not.toContain(TOKEN);
-  page.once('dialog', d => d.accept());
   await editor.getByRole('button', {name:'○○지부 링크 끄기', exact:true}).click();
+  await answerAsk(page, true);
   await expect(editor.locator('[data-sp-link-status]')).toContainText('링크를 껐어요');
   expect(state.links[0].disabled_at).toBeTruthy();
   await expect(editor.locator('.sp-link')).toContainText('꺼짐');
@@ -244,9 +245,11 @@ test('unsaved editor asks before leaving and Back closes it first', async ({page
   await clickView(page, 'pages');
   await page.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
   await page.locator('[data-sp-title]').fill('쓰던 글');
-  page.once('dialog', d => d.dismiss());
   await page.locator('[data-sp-close]').click();
+  await answerAsk(page, false);
   await expect(page.locator('[data-sp-editor]')).toBeVisible();
+  // 작은 확인창이 자기 기록 칸을 걷어 낸 뒤에 뒤로가기(뒤로가기는 화면이 그 자리에서 정해야 해서 기본 확인창으로 묻는다).
+  await expect.poll(() => page.evaluate(() => !history.state?.kptuAsk)).toBe(true);
   page.once('dialog', d => d.accept());
   await page.goBack();
   await expect(page.locator('[data-sp-editor]')).toBeHidden();

@@ -171,8 +171,13 @@ function askPanel(anchor,{doc,none,maxHeight=220,build}){
       if(done)return;done=true;ask=null;
       doc.removeEventListener('keydown',onKey,true);doc.removeEventListener('pointerdown',onOutside,true);globalThis.removeEventListener?.('popstate',onPop);
       clearAnchored(panel);panel.remove();
-      if(!fromBack&&history.state?.kptuAsk===state.kptuAsk)history.back();
       if(back?.isConnected)back.focus({preventScroll:true});
+      // 자기 기록 칸을 걷어 낼 때는 그 뒤로가기(popstate)가 끝난 뒤에 답을 돌려준다: [예] 바로 다음에 화면이 겹을 닫거나
+      // 열어도(history.go·pushState) 뒤로가기가 두 번 겹치지 않게. popstate가 오지 않는 브라우저를 위해 0.4초 뒤에는 그냥 돌려준다.
+      if(!fromBack&&history.state?.kptuAsk===state.kptuAsk){
+        let settled=false;const settle=()=>{if(settled)return;settled=true;globalThis.removeEventListener?.('popstate',settle);clearTimeout(timer);resolve(value)};
+        const timer=setTimeout(settle,400);globalThis.addEventListener?.('popstate',settle);history.back();return;
+      }
       resolve(value);
     };
     const first=build(panel,finish);

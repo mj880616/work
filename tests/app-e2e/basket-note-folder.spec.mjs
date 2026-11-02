@@ -3,6 +3,14 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
+// S48-28: 폴더 이름은 공용 작은 글 입력창(.kptu-ask, app/small-notice.js askText)으로 묻는다. 글을 넣고 [확인]을 누른다.
+async function answerText(page, value) {
+  const ask = page.locator('.kptu-ask');
+  await ask.waitFor({state: 'visible'});
+  await ask.locator('.kptu-ask-field').fill(value);
+  await ask.locator('.kptu-ask-actions button').nth(1).click();
+  await ask.waitFor({state: 'detached'});
+}
 
 // NOTE-탐색기 (2026-10-28 09:24·10:34·11:01): the note list is a folder tree (app_note_folders, migration 20261028170000).
 // 10/28 17:45·17:55 화면 정리: PC = 왼쪽 폴더 나무(맨 아래 '폴더 없음' + [+ 새 폴더]) · 오른쪽은 고른 폴더의 노트만 한 줄씩(위에 '이름 · 장수').
@@ -153,9 +161,9 @@ for (const width of [390, 1280]) test(`select mode: [선택] → pick rows → m
 for (const width of [390, 1280]) test(`new folder inside a folder, delete moves its notes one level up, undo makes it again ${width}`, async ({ page }) => {
   const f = await fixture(page, width);
   // Folder ⋯ → [새 폴더] (inside), then move 나 노트 (old by-name folder) into the new one through the picker.
-  page.once('dialog', d => d.accept('하위'));
   await press(page, page.locator(`#noteRows [data-nx-folder-more="${U(1)}"], [data-nx-tree] [data-nx-folder-more="${U(1)}"]`).first(), width);
   await press(page, page.locator('#noteDocMenu [data-nx-new-in]'), width);
+  await answerText(page, '하위');
   await expect.poll(() => f.folders.map(x => x.name)).toEqual(['회의', '하위']);
   const sub = f.folders[1];
   expect(sub.parent_id).toBe(U(1));

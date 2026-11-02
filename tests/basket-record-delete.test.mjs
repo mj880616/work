@@ -7,13 +7,14 @@ globalThis.window={dispatchEvent:event=>events.push(event.type)};
 const mod=await import('../app/basket-record-delete.js');
 const ctx={user:{id:'owner'},workspace:{id:'ws 1'}};
 const rtFor=(api,state={ctx})=>({config:{url:'https://sb.invalid',key:'anon'},context:{read:()=>state.ctx},session:{epoch:()=>7,ensure:async()=>true,read:()=>({access_token:'jwt',user:state.ctx.user})},api});
-const withConfirm=async(answer,fn)=>{const calls=[];globalThis.confirm=text=>{calls.push(text);return answer;};try{return {result:await fn(),calls};}finally{delete globalThis.confirm;}};
+// S48-28: 확인은 공용 작은 확인창(ask 주입). 시험은 같은 자리에 기록하는 ask를 넘긴다.
+const withConfirm=async(answer,fn)=>{const calls=[];const ask=async text=>{calls.push(text);return answer;};return {result:await fn(ask),calls};};
 const q=path=>new URL(path,'http://fixture');
 
 test('disconnect deletes exactly that link id inside the signed-in workspace',async()=>{
   events.length=0;const calls=[];
   const rt=rtFor(async(path,options={})=>{calls.push({path,...options});return [{id:'link/1'}];});
-  const {result,calls:asked}=await withConfirm(true,()=>mod.disconnectRecordLink('link/1',{name:'합성 조직',rt}));
+  const {result,calls:asked}=await withConfirm(true,ask=>mod.disconnectRecordLink('link/1',{ask,name:'합성 조직',rt}));
   assert.equal(result.status,'deleted');
   // BUG-바구니연결해제: one wording on every screen, naming the place.
   assert.deepEqual(asked,['합성 조직 연결을 해제할까요? 업데이트는 남아요']);
@@ -30,10 +31,10 @@ test('disconnect deletes exactly that link id inside the signed-in workspace',as
 test('cancelled confirmation sends no write',async()=>{
   events.length=0;const calls=[];
   const rt=rtFor(async(path,options={})=>{calls.push({path,...options});return [];});
-  const {result}=await withConfirm(false,()=>mod.disconnectRecordLink('link',{kind:'project',rt}));
+  const {result}=await withConfirm(false,ask=>mod.disconnectRecordLink('link',{ask,kind:'project',rt}));
   assert.equal(result.status,'cancelled');assert.equal(calls.length,0);assert.deepEqual(events,[]);
   const note=rtFor(async(path,options={})=>{calls.push({path,...options});return path.includes('app_notes')?[{id:'note',attachments:[{},{}]}]:[{id:'l1',organization_id:'o'},{id:'l2',project_id:'p'}];});
-  const {result:noteResult,calls:asked}=await withConfirm(false,()=>mod.deleteNoteOriginal('note',{rt:note}));
+  const {result:noteResult,calls:asked}=await withConfirm(false,ask=>mod.deleteNoteOriginal('note',{ask,rt:note}));
   assert.equal(noteResult.status,'cancelled');
   assert.deepEqual(asked,['업데이트 원문을 지웁니다. 연결된 조직·사업영역 2곳에서도 사라집니다. 첨부 파일 2개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
   assert.ok(calls.every(call=>!call.method||call.method==='GET'));
@@ -42,7 +43,7 @@ test('cancelled confirmation sends no write',async()=>{
 test('note delete targets exactly that note id and workspace; links go by cascade',async()=>{
   events.length=0;const calls=[];
   const rt=rtFor(async(path,options={})=>{calls.push({path,...options});if(options.method==='DELETE')return [{id:'n1'}];return path.includes('app_notes')?[{id:'n1',attachments:[]}]:[{id:'l1',organization_id:'o'},{id:'l2',meeting_id:'m'}];});
-  const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt}));
+  const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt}));
   assert.equal(result.status,'deleted');assert.equal(result.message,'업데이트를 지웠어요.');
   assert.match(asked[0],/조직·사업영역 1곳/);assert.match(asked[0],/사업 보고·자료실 연결 1곳/);assert.doesNotMatch(asked[0],/첨부/);
   const writes=calls.filter(call=>call.method==='DELETE');
@@ -57,7 +58,7 @@ test('note delete targets exactly that note id and workspace; links go by cascad
 
 test('empty delete result is reported as missing, not as a success',async()=>{
   const rt=rtFor(async()=>[]);
-  const {result}=await withConfirm(true,()=>mod.disconnectRecordLink('gone',{rt}));
+  const {result}=await withConfirm(true,ask=>mod.disconnectRecordLink('gone',{ask,rt}));
   assert.equal(result.status,'missing');
 });
 
@@ -65,7 +66,7 @@ test('a thrown write is re-read: still present means failed, gone means deleted,
   for(const [present,readFails,expected] of [[true,false,'failed'],[false,false,'deleted'],[true,true,'unknown']]){
     events.length=0;
     const rt=rtFor(async(path,options={})=>{if(options.method==='DELETE')throw Object.assign(Error('network'),{status:0});if(readFails)throw Error('offline');return present?[{id:'l'}]:[];});
-    const {result}=await withConfirm(true,()=>mod.disconnectRecordLink('l',{rt}));
+    const {result}=await withConfirm(true,ask=>mod.disconnectRecordLink('l',{ask,rt}));
     assert.equal(result.status,expected);
     assert.deepEqual(events,expected==='failed'?[]:['kptu:basket-links-changed']);
   }
@@ -75,7 +76,7 @@ test('an account change during the request never reports to the old screen',asyn
   const state={ctx};
   const rt=rtFor(async(path,options={})=>{if(options.method==='DELETE'){state.ctx={user:{id:'other'},workspace:{id:'ws 2'}};return [{id:'l'}];}return [];},state);
   events.length=0;
-  const {result}=await withConfirm(true,()=>mod.disconnectRecordLink('l',{rt}));
+  const {result}=await withConfirm(true,ask=>mod.disconnectRecordLink('l',{ask,rt}));
   assert.equal(result.status,'stale');
   assert.deepEqual(events,[],'the other account screen is not told to refresh by the old request');
 });
@@ -83,19 +84,17 @@ test('an account change during the request never reports to the old screen',asyn
 test('concurrent requests for the same record send one write',async()=>{
   let release,writes=0;
   const rt=rtFor(async(path,options={})=>{if(options.method==='DELETE'){writes++;await new Promise(r=>release=r);return [{id:'l'}];}return [];});
-  globalThis.confirm=()=>true;
-  try{
-    const first=mod.disconnectRecordLink('l',{rt}),second=await mod.disconnectRecordLink('l',{rt});
-    assert.equal(second.status,'busy');
-    await new Promise(r=>setTimeout(r,0));release();assert.equal((await first).status,'deleted');
-  }finally{delete globalThis.confirm;}
+  const ask=()=>true;
+  const first=mod.disconnectRecordLink('l',{rt,ask}),second=await mod.disconnectRecordLink('l',{rt,ask});
+  assert.equal(second.status,'busy');
+  await new Promise(r=>setTimeout(r,0));release();assert.equal((await first).status,'deleted');
   assert.equal(writes,1);
 });
 
 test('missing note before confirmation does not ask or write',async()=>{
   const calls=[];
   const rt=rtFor(async(path,options={})=>{calls.push(options.method||'GET');return [];});
-  const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n',{rt}));
+  const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n',{ask,rt}));
   assert.equal(result.status,'missing');assert.deepEqual(asked,[]);assert.ok(!calls.includes('DELETE'));
 });
 
@@ -117,7 +116,7 @@ const body=(extra={})=>({action:'note-delete',note_id:'n1',attachments_total:2,t
 
 test('note with attachments posts once to basket-files note-delete with the user JWT and no REST delete',async()=>{
   events.length=0;const c=serverCase({reply:{status:200,body:body()}});
-  const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:c.rt,fetcher:c.fetcher}));
+  const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
   assert.deepEqual(asked,['업데이트 원문을 지웁니다. 연결된 조직·사업영역 1곳에서도 사라집니다. 첨부 파일 2개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
   assert.deepEqual(result,{status:'deleted',message:'업데이트를 지우고 첨부를 Drive 휴지통으로 옮겼어요.'});
   assert.equal(c.posts.length,1);
@@ -132,7 +131,7 @@ test('partial and unknown trash results are named in plain words',async()=>{
     [{trashed:0,failed:2},'업데이트를 지웠어요. 첨부 2개는 Drive에 남았어요.'],
     [{trashed:0,failed:1,unknown:1},'업데이트를 지웠어요. 첨부 1개는 Drive에 남았어요. 첨부 1개는 휴지통 이동 결과를 확인하지 못했어요. Drive에서 확인해 주세요.']]){
     const c=serverCase({reply:{status:200,body:body(extra)}});
-    const {result}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:c.rt,fetcher:c.fetcher}));
+    const {result}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
     assert.deepEqual(result,{status:'deleted',message});
   }
 });
@@ -140,7 +139,7 @@ test('partial and unknown trash results are named in plain words',async()=>{
 test('legacy server reply falls back to the owner-RLS REST delete and says attachments stay in Drive',async()=>{
   events.length=0;
   const c=serverCase({reply:{status:400,body:{ok:false,code:'OCR_REQUEST_INVALID',retryable:false,result_unknown:false,ocr_saved:false,text_changed:false}}});
-  const {result}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:c.rt,fetcher:c.fetcher}));
+  const {result}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
   assert.deepEqual(result,{status:'deleted',message:'업데이트를 지웠어요. 첨부 파일은 Drive에 남아 있어요.'});
   const writes=c.calls.filter(x=>x.method==='DELETE');assert.equal(writes.length,1);
   assert.equal(q(writes[0].path).pathname,'/rest/v1/app_notes');assert.equal(q(writes[0].path).searchParams.get('id'),'eq.n1');
@@ -156,7 +155,7 @@ test('only the exact legacy refusal falls back; other server failures never REST
     [{status:502,body:'<html>gateway</html>'},'deleted',null],
     [{status:401,body:{code:'session_required'}},'deleted',null]]){
     const c=serverCase({reply});
-    const {result}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:c.rt,fetcher:c.fetcher}));
+    const {result}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
     assert.equal(result.status,status,JSON.stringify(reply));if(message)assert.equal(result.message,message);
     assert.equal(c.calls.some(x=>x.method==='DELETE'),false,'no REST delete for '+JSON.stringify(reply));
   }
@@ -166,22 +165,22 @@ test('an unclear server outcome re-reads the note row and never resends',async()
   for(const [options,status] of [[{throws:true},'deleted'],[{throws:true,present:true},'failed'],[{throws:true,readFails:true},'unknown'],
     [{reply:{status:503,body:body({ok:false,note_deleted:false,code:'note_delete_result_unknown'})},present:true},'failed']]){
     const c=serverCase(options);
-    const {result}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:c.rt,fetcher:c.fetcher}));
+    const {result}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
     assert.equal(result.status,status,JSON.stringify(options));assert.equal(c.posts.length,1);
     assert.equal(c.calls.some(x=>x.method==='DELETE'),false);
   }
   const slow=serverCase({reply:{status:200,body:body()}});
   const hang=()=>new Promise(()=>{});
-  const {result}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:slow.rt,fetcher:hang,waitMs:5}));
+  const {result}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:slow.rt,fetcher:hang,waitMs:5}));
   assert.equal(result.status,'failed');
 });
 
 test('cancelled server-path confirmation sends nothing; missing session sends nothing',async()=>{
   const c=serverCase({reply:{status:200,body:body()}});
-  const {result}=await withConfirm(false,()=>mod.deleteNoteOriginal('n1',{rt:c.rt,fetcher:c.fetcher}));
+  const {result}=await withConfirm(false,ask=>mod.deleteNoteOriginal('n1',{ask,rt:c.rt,fetcher:c.fetcher}));
   assert.equal(result.status,'cancelled');assert.equal(c.posts.length,0);assert.equal(c.calls.some(x=>x.method==='DELETE'),false);
   const d=serverCase({reply:{status:200,body:body()}});d.rt.session.read=()=>null;
-  const {result:noSession}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:d.rt,fetcher:d.fetcher}));
+  const {result:noSession}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:d.rt,fetcher:d.fetcher}));
   assert.equal(noSession.status,'failed');assert.equal(d.posts.length,0);
 });
 
@@ -261,7 +260,7 @@ const writesOf=calls=>calls.filter(call=>call.method==='DELETE');
 test('trash: after the confirmation one owner-RLS delete is sent, the trash list proves it landed, and one undo line is offered',async()=>{
   events.length=0;mod.closeUndoNotice();
   const fake=trashApi();
-  const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(fake.api),trash:true}));
+  const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(fake.api),trash:true}));
   assert.equal(result.status,'deleted');assert.equal(result.message,'');
   assert.deepEqual(asked,['업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.']);
   const writes=writesOf(fake.calls);assert.equal(writes.length,1);
@@ -276,41 +275,41 @@ test('trash: after the confirmation one owner-RLS delete is sent, the trash list
 test('trash: before the database is ready nothing is asked or sent and the reason is in plain words',async()=>{
   events.length=0;
   const fake=trashApi({state:'missing'});
-  const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(fake.api),trash:true}));
+  const {result,calls:asked}=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(fake.api),trash:true}));
   assert.equal(result.status,'failed');assert.equal(result.message,'노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
   assert.deepEqual(asked,[]);assert.deepEqual(writesOf(fake.calls),[]);assert.deepEqual(events,[]);
   const failing=trashApi({state:'failed'});
-  const second=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(failing.api),trash:true}));
+  const second=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(failing.api),trash:true}));
   assert.equal(second.result.status,'failed');assert.match(second.result.message,/확인하지 못해 삭제하지 않았습니다/);
   assert.deepEqual(second.calls,[]);assert.deepEqual(writesOf(failing.calls),[]);
 });
 
 test('trash: cancelling sends nothing; a missing note does not ask',async()=>{
   const fake=trashApi();
-  const {result}=await withConfirm(false,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(fake.api),trash:true}));
+  const {result}=await withConfirm(false,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(fake.api),trash:true}));
   assert.equal(result.status,'cancelled');assert.deepEqual(writesOf(fake.calls),[]);
   const gone=rtFor(async(path)=>path.endsWith('app_trash_list')?[]:[]);
-  const second=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:gone,trash:true}));
+  const second=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:gone,trash:true}));
   assert.equal(second.result.status,'missing');assert.deepEqual(second.calls,[]);
 });
 
 test('trash: a refused delete is failed, and a delete that is neither in the trash nor readable is never called a success',async()=>{
   const refused=trashApi({deleteFails:true});
-  const first=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(refused.api),trash:true}));
+  const first=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(refused.api),trash:true}));
   assert.equal(first.result.status,'failed');assert.equal(first.result.message,'업데이트를 지우지 못했어요. 다시 시도해 주세요.');
   const lost=trashApi({lands:false});
   const base=lost.api;
   const api=async(path,options={})=>{if(!options.method&&path.includes('app_notes')&&lost.calls.some(c=>c.method==='DELETE'))return [];return base(path,options);};
-  const second=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(api),trash:true}));
+  const second=await withConfirm(true,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(api),trash:true}));
   assert.equal(second.result.status,'unknown');assert.equal(second.result.message,'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.');
 });
 
 test('trash: notes (kind note) use the note wording, and the default call without trash keeps the diary path',async()=>{
   const fake=trashApi({kind:'note',attachments:[]});
-  const {calls:asked}=await withConfirm(false,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(fake.api),trash:true}));
+  const {calls:asked}=await withConfirm(false,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(fake.api),trash:true}));
   assert.equal(asked[0],'노트를 휴지통으로 옮길까요?\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.');
   const diary=trashApi();
-  await withConfirm(false,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(diary.api),describe:()=>'일기를 지웁니다.'}));
+  await withConfirm(false,ask=>mod.deleteNoteOriginal('n1',{ask,rt:rtFor(diary.api),describe:()=>'일기를 지웁니다.'}));
   assert.ok(diary.calls.every(call=>!call.path.endsWith('app_trash_list')),'일기(trash 없음)는 휴지통 함수를 부르지 않는다');
 });
 

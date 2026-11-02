@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 
 // UI-할일조작통일: (1) a home task row (HOME-업무일지홈: the home is the work journal; its 할 일 칸) opens the task screen's editor and saves through the same Edge call,
 // (2) the calendar date list has a ⋯ menu per task — TASK-바로처리통일: the shared task line (내일로 · 기한 바꾸기 · 고치기 · 지우기,
@@ -182,17 +183,17 @@ for (const width of [412, 1280]) {
     const { calls } = await fixture(page, { width });
     await showDay(page);
     // Declined: nothing is sent and the row stays.
-    page.once('dialog', (d) => d.dismiss());
     await line(page, 'cell').hover();
     await menuButton(page, 'cell').click();
     await page.locator('#calendarTaskMenu').getByRole('button', { name: '지우기', exact: true }).click();
+    await answerAsk(page, false);
     await expect(chip(page, 'cell')).toBeVisible();
     expect(actions(calls, 'delete')).toHaveLength(0);
     // Accepted: one delete for that task, the row goes, the other stays, the list stays open.
-    page.once('dialog', (d) => { expect(d.message()).toContain('삭제'); d.accept(); });
     await line(page, 'cell').hover();
     await menuButton(page, 'cell').click();
     await page.locator('#calendarTaskMenu').getByRole('button', { name: '지우기', exact: true }).click();
+    expect(await answerAsk(page, true)).toContain('삭제');
     await expect(chip(page, 'cell')).toHaveCount(0);
     await expect(chip(page, 'other')).toBeVisible();
     await expect(page.locator('#calendarDayModal')).toBeVisible();
@@ -208,10 +209,10 @@ test('date list delete failure keeps the row and says so', async ({ page }) => {
   const onDelete = { fail: true };
   const { calls } = await fixture(page, { width: 412, onDelete });
   await showDay(page);
-  page.once('dialog', (d) => d.accept());
   await line(page, 'cell').hover();
   await menuButton(page, 'cell').click();
   await page.locator('#calendarTaskMenu').getByRole('button', { name: '지우기', exact: true }).click();
+  await answerAsk(page, true);
   await expect.poll(() => actions(calls, 'delete').length).toBe(1);
   await expect(page.locator('#toast')).toContainText('삭제하지 못했습니다');
   await expect(chip(page, 'cell')).toBeVisible();

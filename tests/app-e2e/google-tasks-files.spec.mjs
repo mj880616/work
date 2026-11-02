@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 
 // TASK-파일붙이기: ⋯ → 파일 붙이기 on the task screen. File names sit small under the task and open Drive; the dialog attaches
 // one file per request and detaches without touching Drive. Without the table (migration not applied) all of it stays hidden.
@@ -222,7 +223,7 @@ for(const viewport of [{width:412,height:915},{width:1440,height:900}]){
     await att.locator('[data-gt-att-add-input]').setInputFiles([txt('더할 자료.txt')]);
     await expect(att.locator('.gt-att-row.is-new .gt-att-name')).toHaveText('더할 자료.txt');
     if(viewport.width<761){await page.locator('[data-gt-close]').click();await expect(page.locator('#gtTaskModal')).toBeHidden()}
-    else{page.once('dialog',d=>d.accept());await row(page,'b').locator('[data-gt-edit]').click();await expect(page.locator('#gtEditTitle')).toHaveValue('b')}
+    else{await row(page,'b').locator('[data-gt-edit]').click();await answerAsk(page,true);await expect(page.locator('#gtEditTitle')).toHaveValue('b')}
     await open();
     await expect(att.locator('.gt-att-row .gt-att-name')).toHaveText(['기존 자료.pdf']);
     await expect(att.locator('.is-changed,.is-new')).toHaveCount(0);

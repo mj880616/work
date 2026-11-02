@@ -1,5 +1,5 @@
 import {requestNoteAiTitle} from './note-ai-title.js';
-import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
 import { waitInlineHtml } from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 import {basketOcrFor} from './basket-ocr-runtime.js';
@@ -88,7 +88,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     input.dispatchEvent(new Event('input',{bubbles:true}));
     status.textContent=toBasket()||noteOnly?'HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 정리함에 저장돼요.':'HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 고른 곳 자료로 넣어요.';
   });
-  box.querySelector('[data-quick-new-note]').onclick=()=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&!window.confirm('정리함에서 저장 여부를 확인한 후 새 업데이트를 입력할까요? 현재 입력과 파일 선택은 비워집니다.'))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
+  box.querySelector('[data-quick-new-note]').onclick=async e=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&(!(await askConfirm(e.currentTarget,{text:'정리함에서 저장 여부를 확인한 후 새 업데이트를 입력할까요?',note:'현재 입력과 파일 선택은 비워집니다.',ok:'비우기',danger:true}))||saving))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
   // UI-버튼크기: 홈은 세 모드 모두 한 줄 높이에서 시작해 글에 맞춰 늘고 5줄에서 멈춘다(그 뒤는 칸 안 스크롤). 바구니 화면은 CSS 높이 그대로.
   function size(){ input.style.height=''; if(basketOnly||taskOnly||noteOnly)return; const s=getComputedStyle(input),edge=parseFloat(s.paddingTop)+parseFloat(s.paddingBottom)+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth),line=parseFloat(s.lineHeight)||21,min=input.offsetHeight;input.style.height=Math.max(min,Math.min(line*5+edge,input.scrollHeight+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth)))+'px'; }
   function paint(){

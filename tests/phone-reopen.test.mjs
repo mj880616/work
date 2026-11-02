@@ -116,7 +116,7 @@ test('웹이 스스로 다시 열 때는 까닭을 앱에 먼저 알린다(로�
   // 조용한 시작 줄은 로그인 확인이 끝난 뒤, 같은 첫 화면 칸에만 붙는다.
   const shown = loader.indexOf("bootView.classList.add('boot-quiet')"), checked = loader.indexOf("startup?.mark('sessionCheckComplete'");
   assert.ok(checked > 0 && shown > checked);
-  assert.match(read('../app/version-notice.js'), /if\(!allowReload\(\)\)return;try\{window\.KPTUAppShell\?\.postMessage\?\.\('reopen:mark:version'\)\}catch\{\}location\.reload\(\)/);
+  assert.match(read('../app/version-notice.js'), /if\(!await reloadAllowed\(e\.currentTarget\)\)return;try\{window\.KPTUAppShell\?\.postMessage\?\.\('reopen:mark:version'\)\}catch\{\}location\.reload\(\)/);
   const team = read('../app/team.js');
   assert.match(team, /view\.classList\.remove\('boot-quiet'\);/, '오류면 큰 카드로 되돌려 [다시 시도]·[로그아웃]을 보인다');
   assert.match(team, /reopen:mark:retry/);

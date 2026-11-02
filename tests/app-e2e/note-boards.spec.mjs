@@ -3,6 +3,14 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
+// S48-28: 보드 이름은 공용 작은 글 입력창(.kptu-ask, app/small-notice.js askText)으로 묻는다. 글을 넣고 [확인]을 누른다.
+async function answerText(page, value) {
+  const ask = page.locator('.kptu-ask');
+  await ask.waitFor({state: 'visible'});
+  await ask.locator('.kptu-ask-field').fill(value);
+  await ask.locator('.kptu-ask-actions button').nth(1).click();
+  await ask.waitFor({state: 'detached'});
+}
 
 // NOTE-보드여러개 (요청함 10/30 05:48, 명진 결정 '위 추천안대로'): 포스트잇 보기 위 [전체] [보드…] [+ 새 보드].
 // PC: 왼쪽 폴더·노트 목록에서 끌어 놓기(또는 누르기)로 붙이기, 이미 붙은 노트는 흐리게, ×로 빼도 노트는 남음, 옮긴 자리는 metadata.boards[보드 id].
@@ -48,8 +56,8 @@ test('PC: 새 보드 → 왼쪽 목록에서 끌어 놓기·누르기로 붙이�
   await expect(page.locator('[data-nbb-side]')).toBeHidden();
   const bar = await page.locator('[data-nbb] [data-nbb-new]').boundingBox();
   expect(bar.height).toBeLessThanOrEqual(28);
-  page.once('dialog', d => d.accept('국회 대응'));
   await page.locator('[data-nbb] [data-nbb-new]').click();
+  await answerText(page, '국회 대응');
   await expect(chip(page, '국회 대응')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => boardId(server)).toMatch(/^b[0-9a-z]{8}$/);
   const id = boardId(server);
@@ -116,9 +124,9 @@ test('PC: 서버에 기억한 마지막 보드로 열리고, 보드 칸 우클�
   await page.locator('[data-nbb-side] [data-nbb-note="n2"]').click();
   await expect(cards(page)).toHaveCount(1);
   await expect.poll(() => rows[1].metadata.boards?.[id]).toBeTruthy();
-  page.once('dialog', d => d.accept('교섭 대응'));
   await chip(page, '교섭').click({ button: 'right' });
   await page.locator('[data-nbb-menu] [data-nbb-rename]').click();
+  await answerText(page, '교섭 대응');
   await expect(chip(page, '교섭 대응')).toBeVisible();
   await expect.poll(() => server.value?.note_boards?.[0]?.name).toBe('교섭 대응');
   await chip(page, '교섭 대응').click({ button: 'right' });

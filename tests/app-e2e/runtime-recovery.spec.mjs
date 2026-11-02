@@ -1,5 +1,6 @@
 import {closeMeetingResult,openMeetingResult} from './helpers/meeting-open.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
+import {noticeText} from './helpers/small-notice.mjs';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import { test, expect } from '@playwright/test';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
@@ -332,14 +333,29 @@ window.__fixtureDelete=id=>luDeleteDocument(id);`}));
   expect(await page.evaluate(()=>({owner:window.KPTURuntime.session.read()?.user?.id,token:!!window.KPTURuntime.session.read()?.access_token,ctx:window.KPTURuntime.context.read()?.workspace?.id,view:window.KPTURouter.current}))).toEqual({owner:'owner',token:true,ctx:'ws',view});
   return state;
 }
-function consumerDialogs(page,{reconnect=false}={}){
-  const seen=[];
-  page.on('dialog',async d=>{
-    seen.push({type:d.type(),message:d.message()});
-    if(d.type()==='confirm'){
-      expect(d.message()).toMatch(reconnect?/자료 등록을 삭제할까요\?|Google Drive 연결이 만료됐습니다/:/자료 등록을 삭제할까요\?/);
-      await d.accept();
-    }else{expect(d.type()).toBe('alert');await d.accept()}
+// 지우기·다시 연결 확인은 공용 작은 확인창(.kptu-ask)이다: 뜨면 글(text + 줄바꿈 + note)을 'confirm'으로 적고 [확인 쪽]을 누른다.
+// 결과 안내는 공용 작은 알림(#kptuNotice): 한 줄 글과 설명을 이어 붙여 consumerNotices에 적는다(브라우저 기본 창은 'seen'에 그대로 적힌다).
+const consumerNotices=new WeakMap();
+async function consumerDialogs(page,{reconnect=false}={}){
+  const seen=[],notices=[];consumerNotices.set(page,notices);
+  page.on('dialog',async d=>{seen.push({type:d.type(),message:d.message()});await d.accept()});
+  await page.exposeFunction('__consumerAsk',(text,note)=>{
+    const message=note?`${text}\n${note}`:text;seen.push({type:'confirm',message});
+    expect(message).toMatch(reconnect?/자료 등록을 삭제할까요\?|Google Drive 연결이 만료됐습니다/:/자료 등록을 삭제할까요\?/);
+  });
+  await page.exposeFunction('__consumerNotice',(text,note)=>{notices.push(note?`${text} ${note}`:text)});
+  await page.evaluate(()=>{
+    new MutationObserver(records=>{
+      for(const record of records)for(const node of record.addedNodes){
+        if(!(node instanceof Element))continue;
+        if(node.matches('.kptu-ask')&&!node.dataset.consumerSeen){
+          node.dataset.consumerSeen='1';
+          const text=node.querySelector('.kptu-ask-text')?.textContent||'',note=node.querySelector('.kptu-ask-note')?.textContent||'';
+          void window.__consumerAsk(text,note).then(()=>node.querySelectorAll('.kptu-ask-actions button')[1]?.click());
+        }
+        if(node.matches('.kptu-notice-text')){const note=node.parentElement?.querySelector('.kptu-notice-note')?.textContent||'';void window.__consumerNotice(node.textContent||'',note)}
+      }
+    }).observe(document.body,{childList:true,subtree:true});
   });
   return seen;
 }
@@ -379,16 +395,16 @@ async function actualAwayBack(page,view){
 
 for(const width of [390,1280])for(const view of ['library','meetings']){
   for(const changed of ['owner','null','empty token'])test(`delete lifecycle entry refuses actual ${changed} with unchanged context ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,view,width),seen=await consumerDialogs(page);
     await page.evaluate(changed=>{const rt=window.KPTURuntime,s=rt.session.read();if(changed==='null')localStorage.removeItem(rt.config.sessionKey);else localStorage.setItem(rt.config.sessionKey,JSON.stringify(changed==='owner'?{...s,user:{id:'other-owner'}}:{...s,access_token:''}))},changed);
     await startConsumerDelete(page,view);await settleConsumer(page);
     expect(state.calls).toEqual([]);expect(seen.some(d=>d.type==='confirm')).toBe(false);
     expect(await page.evaluate(()=>window.__deleteEvents)).toBe(0);
     if(view==='library'){expect(seen).toEqual([]);await expect(libraryNotice(page)).toHaveText(LIB_SESSION_NOTICE);await expect(page.locator('[data-lu-document="doc-0"]')).toHaveCount(1)}
-    else expect(seen.map(d=>d.message)).toEqual(['로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.']);
+    else{expect(seen).toEqual([]);expect(await noticeText(page)).toBe('로그인 세션을 확인하지 못했습니다.')}
   });
   for(const changed of ['owner','null','empty token','snapshot owner','snapshot null','snapshot empty token'])test(`delete lifecycle import observed ${changed} restoration stays cancelled ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=await consumerDialogs(page);
     await startConsumerDelete(page,view);await page.waitForFunction(()=>window.__helperImportStarted);
     const before=await page.evaluate(()=>({epoch:window.KPTURuntime.session.epoch(),ctx:window.KPTURuntime.context.read()}));
     await observedSession(page,changed);await releaseImport(page);
@@ -397,7 +413,7 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
     expect(await page.evaluate(()=>window.__deleteEvents)).toBe(0);
   });
   test(`delete lifecycle actual route away back during import stays cancelled ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=await consumerDialogs(page);
     await startConsumerDelete(page,view);await page.waitForFunction(()=>window.__helperImportStarted);
     await actualAwayBack(page,view);await releaseImport(page);
     // LIB-바로지우기: 자료실은 지우기를 누른 순간 사용자가 정한 일이라 화면을 떠나도 취소하지 않고 한 번만 보낸다(떠나면 바로 보냄). 확인·알림창은 없다.
@@ -405,18 +421,18 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
     expect(state.calls).toEqual([]);expect(seen).toEqual([]);expect(await page.evaluate(()=>window.__deleteEvents)).toBe(0);
   });
   test(`delete lifecycle same owner valid token rotation and session route preserve success ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=await consumerDialogs(page);
     await startConsumerDelete(page,view);await page.waitForFunction(()=>window.__helperImportStarted);
     const epoch=await page.evaluate(()=>window.KPTURuntime.session.epoch());
     await page.evaluate(()=>{const rt=window.KPTURuntime;rt.session.write({...rt.session.read(),access_token:'rotated-valid-token'});window.KPTURouter.go(window.KPTURouter.current,{source:'session',updateUrl:false})});
     await releaseImport(page);
     expect(state.calls).toEqual([{action:'delete',document_id:'doc-0'}]);
-    if(view==='library')expect(seen).toEqual([]);else{expect(seen.map(d=>d.type)).toEqual(['confirm','alert']);expect(seen[1].message).toBe(DELETE_LEGACY)}
+    if(view==='library')expect(seen).toEqual([]);else{expect(seen.map(d=>d.type)).toEqual(['confirm']);await expect.poll(()=>consumerNotices.get(page)).toContain(DELETE_LEGACY)}
     expect(await page.evaluate(()=>window.__deleteEvents)).toBe(1);
     expect(await page.evaluate(()=>window.__deleteOptions[0])).toMatchObject({expectedSessionEpoch:epoch,refreshSession:false});
   });
   for(const departure of ['session cycle','route cycle'])test(`delete lifecycle sent response ${departure} cannot publish stale success ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width),seen=consumerDialogs(page);state.deleteGate=gate();
+    const state=await deleteConsumerFixture(page,view,width),seen=await consumerDialogs(page);state.deleteGate=gate();
     await startConsumerDelete(page,view);await expect.poll(()=>state.calls.length).toBe(1);
     if(departure==='session cycle')await observedSession(page,'owner');else await actualAwayBack(page,view);
     state.deleteGate.release();await settleConsumer(page);
@@ -443,25 +459,25 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
 
 for(const width of [390,1280]){
   test(`delete lifecycle meeting a11y deactivate reactivate without close epoch revokes import ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'meetings',width,{holdImport:true}),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,'meetings',width,{holdImport:true}),seen=await consumerDialogs(page);
     await startConsumerDelete(page,'meetings');await page.waitForFunction(()=>window.__helperImportStarted);
     await page.evaluate(()=>{const m=document.querySelector('#meetingRoundDetailModal');window.KPTUA11y.dialog.deactivate(m,{restoreFocus:false});window.KPTUA11y.dialog.activate(m)});
     await releaseImport(page);expect(state.calls).toEqual([]);expect(seen).toEqual([]);
   });
   // LIB-바로지우기: 자료실은 화면이 들고 있는 자료만 지운다(서버에서 다시 찾아 지우는 길이 없어짐). 들고 있지 않은 자료·다른 업무공간 자료는 요청하지 않는다.
   test(`delete lifecycle library held lookup route return remains cancelled ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=consumerDialogs(page);state.lookupGate=gate();
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page);state.lookupGate=gate();
     await page.evaluate(()=>window.__clearDeleteCache());await page.evaluate(()=>window.__fixtureDelete('doc-0'));
     await actualAwayBack(page,'library');state.lookupGate.release();await settleConsumer(page);
     expect(state.lookupStarted).toBeFalsy();expect(state.calls).toEqual([]);expect(seen).toEqual([]);
   });
   test(`delete lifecycle library held lookup rejects returned registration workspace ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page);
     await page.evaluate(()=>{window.__fixtureLibraryRows().find(row=>row.id==='doc-0').workspace_id='other-workspace'});await startConsumerDelete(page,'library');await settleConsumer(page);
     expect(state.calls).toEqual([]);expect(seen.some(d=>d.type==='confirm')).toBe(false);
   });
   test(`delete lifecycle library guarded OAuth await cannot navigate after away return ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=consumerDialogs(page,{reconnect:true});
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page,{reconnect:true});
     state.status=400;state.result={error:'invalid_grant'};state.driveGate=gate();
     await startConsumerDelete(page,'library');await expect.poll(()=>state.driveCalls).toBe(1);
     // LIB-바로지우기: 결과 안내는 알림창 대신 작은 알림(줄 되살림), 그다음 Drive 다시 연결을 한 번 묻는다.
@@ -477,7 +493,7 @@ for(const width of [390,1280]){
 
 for(const width of [390,1280])for(const view of ['library','meetings']){
   for(const unavailable of ['api','epoch method','negative epoch','fractional epoch','context owner','context workspace'])test(`delete lifecycle unavailable shared runtime ${unavailable} cannot take fallback ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,view,width),seen=await consumerDialogs(page);
     await page.evaluate(unavailable=>{const rt=window.KPTURuntime;
       if(unavailable==='api')rt.api=null;
       else if(unavailable==='epoch method')rt.session.epoch=null;
@@ -487,17 +503,17 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
     },unavailable);await startConsumerDelete(page,view);await settleConsumer(page);
     expect(state.calls).toEqual([]);expect(seen.some(d=>d.type==='confirm')).toBe(false);
     if(view==='library'){expect(seen).toEqual([]);await expect(libraryNotice(page)).toHaveText(LIB_SESSION_NOTICE)}
-    else expect(seen.map(d=>d.message)).toEqual(['로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.']);
+    else{expect(seen).toEqual([]);expect(await noticeText(page)).toBe('로그인 세션을 확인하지 못했습니다.')}
   });
   test(`delete lifecycle stale failed import suppresses import error ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,view,width),seen=await consumerDialogs(page);
     await page.route('**/app/document-delete.js*',route=>route.fulfill({contentType:'text/javascript',body:'window.__helperImportStarted=true;await new Promise(resolve=>window.__releaseHelperImport=resolve);throw new Error("controlled import failure");'}));
     await startConsumerDelete(page,view);await page.waitForFunction(()=>window.__helperImportStarted);
     await actualAwayBack(page,view);await releaseImport(page);
     expect(state.calls).toEqual([]);expect(seen).toEqual([]);expect(state.pageErrors).toEqual([]);
   });
   test(`delete lifecycle rerender duplicate sends one request ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width),seen=consumerDialogs(page);state.deleteGate=gate();
+    const state=await deleteConsumerFixture(page,view,width),seen=await consumerDialogs(page);state.deleteGate=gate();
     await startConsumerDelete(page,view);await expect.poll(()=>state.calls.length).toBe(1);
     if(view==='library'){
       // LIB-바로지우기: 보내는 중에 다시 그려도 지운 줄은 돌아오지 않고, 같은 자료를 다시 지워도(같은 입구) 두 번째 요청은 없다.
@@ -509,11 +525,11 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
     }
     await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));await expect(page.locator('[data-mrd-delete-document="doc-0"]')).toBeEnabled();
     await startConsumerDelete(page,view);
-    state.deleteGate.release();await expect.poll(()=>seen.map(d=>d.type)).toEqual(['confirm','alert']);await settleConsumer(page);
-    expect(state.calls).toEqual([{action:'delete',document_id:'doc-0'}]);expect(seen.map(d=>d.type)).toEqual(['confirm','alert']);expect(seen[1].message).toBe(DELETE_LEGACY);
+    state.deleteGate.release();await expect.poll(()=>consumerNotices.get(page)).toContain(DELETE_LEGACY);await settleConsumer(page);
+    expect(state.calls).toEqual([{action:'delete',document_id:'doc-0'}]);expect(seen.map(d=>d.type)).toEqual(['confirm']);
   });
   test(`delete lifecycle sent revoked error after session return never starts OAuth ${view} ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,view,width),seen=consumerDialogs(page,{reconnect:true});state.deleteGate=gate();state.status=400;state.result={error:'invalid_grant'};
+    const state=await deleteConsumerFixture(page,view,width),seen=await consumerDialogs(page,{reconnect:true});state.deleteGate=gate();state.status=400;state.result={error:'invalid_grant'};
     await startConsumerDelete(page,view);await expect.poll(()=>state.calls.length).toBe(1);
     await observedSession(page,'null');state.deleteGate.release();await settleConsumer(page);
     expect(state.calls).toHaveLength(1);expect(state.driveCalls).toBe(0);expect(state.oauthRequests).toBe(0);expect(seen.map(d=>d.type)).toEqual(view==='library'?[]:['confirm']);
@@ -521,13 +537,13 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
 }
 for(const width of [390,1280]){
   test(`delete lifecycle library stale lookup failure cannot alert ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=consumerDialogs(page);state.lookupGate=gate();state.lookupStatus=400;
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page);state.lookupGate=gate();state.lookupStatus=400;
     await page.evaluate(()=>window.__clearDeleteCache());await page.evaluate(()=>window.__fixtureDelete('doc-0'));
     await actualAwayBack(page,'library');state.lookupGate.release();await settleConsumer(page);
     expect(state.lookupStarted).toBeFalsy();expect(state.calls).toEqual([]);expect(seen).toEqual([]);expect(state.pageErrors).toEqual([]);
   });
   test(`delete lifecycle library stale reconnect failure cannot alert ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=consumerDialogs(page,{reconnect:true});state.status=400;state.result={error:'invalid_grant'};state.driveGate=gate();state.driveStatus=400;
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page,{reconnect:true});state.status=400;state.result={error:'invalid_grant'};state.driveGate=gate();state.driveStatus=400;
     await startConsumerDelete(page,'library');await expect.poll(()=>state.driveCalls).toBe(1);
     const epoch=await page.evaluate(()=>window.KPTURuntime.session.epoch());
     expect(await page.evaluate(()=>window.__driveOptions[0])).toMatchObject({expectedSessionEpoch:epoch});
@@ -536,7 +552,7 @@ for(const width of [390,1280]){
     expect(state.calls).toHaveLength(1);expect(state.driveCalls).toBe(1);expect(state.refreshes).toBe(0);
   });
   test(`delete lifecycle current library reconnect navigates with captured epoch ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=consumerDialogs(page,{reconnect:true});state.status=400;state.result={error:'invalid_grant'};state.driveGate=gate();
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page,{reconnect:true});state.status=400;state.result={error:'invalid_grant'};state.driveGate=gate();
     const epoch=await page.evaluate(()=>window.KPTURuntime.session.epoch());
     await startConsumerDelete(page,'library');await expect.poll(()=>state.driveCalls).toBe(1);
     expect(await page.evaluate(()=>window.__driveOptions[0])).toMatchObject({expectedSessionEpoch:epoch});
@@ -545,8 +561,7 @@ for(const width of [390,1280]){
     expect(seen.map(d=>d.type)).toEqual(['confirm']);expect(seen[0].message).toContain('재연결 후 자료 목록과 원본 상태를 먼저 확인해 주세요.');
   });
   test(`library upload one argument reconnect keeps its existing navigation contract ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=[];
-    page.on('dialog',async d=>{seen.push({type:d.type(),message:d.message()});await d.accept()});
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page,{reconnect:true});
     await page.locator('#newDocumentBtn').click();
     // The runtime fixture excludes shell modal bindings; compose its actual
     // DOM/a11y dialog activation before exercising the consumer upload flow.
@@ -559,18 +574,18 @@ for(const width of [390,1280]){
     expect(seen).toEqual([{type:'confirm',message:'Google Drive 연결이 만료됐습니다. 지금 관리자 계정을 다시 연결할까요?\n재연결 후 같은 작업을 다시 실행하면 됩니다.'}]);
   });
   test(`delete lifecycle library held lookup session snapshot remains revoked ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=consumerDialogs(page);state.lookupGate=gate();
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page);state.lookupGate=gate();
     await page.evaluate(()=>window.__clearDeleteCache());await page.evaluate(()=>window.__fixtureDelete('doc-0'));
     await observedSession(page,'snapshot null');state.lookupGate.release();await settleConsumer(page);expect(state.lookupStarted).toBeFalsy();expect(state.calls).toEqual([]);expect(seen).toEqual([]);
   });
   test(`delete lifecycle meeting close reopen same ID invalidates held import ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'meetings',width,{holdImport:true}),seen=consumerDialogs(page);
+    const state=await deleteConsumerFixture(page,'meetings',width,{holdImport:true}),seen=await consumerDialogs(page);
     await startConsumerDelete(page,'meetings');await page.waitForFunction(()=>window.__helperImportStarted);
     await closeMeetingResult(page);await openMeetingResult(page,'meeting-1');await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     await releaseImport(page);expect(state.calls).toEqual([]);expect(seen).toEqual([]);
   });
   test(`delete lifecycle library OAuth session snapshot restoration cannot navigate ${width}`,async({page})=>{
-    const state=await deleteConsumerFixture(page,'library',width),seen=consumerDialogs(page,{reconnect:true});state.status=400;state.result={error:'invalid_grant'};state.driveGate=gate();
+    const state=await deleteConsumerFixture(page,'library',width),seen=await consumerDialogs(page,{reconnect:true});state.status=400;state.result={error:'invalid_grant'};state.driveGate=gate();
     await startConsumerDelete(page,'library');await expect.poll(()=>state.driveCalls).toBe(1);
     await observedSession(page,'snapshot owner');state.driveGate.release();await settleOrOAuth(page);
     await state.cdp.send('Page.getFrameTree');expect(state.oauthNavigations).toBe(0);expect(state.oauthRequests).toBe(0);expect(state.calls).toHaveLength(1);expect(state.driveCalls).toBe(1);expect(seen).toHaveLength(1);
@@ -578,12 +593,12 @@ for(const width of [390,1280]){
 }
 
 for(const width of [390,1280])for(const view of ['library','meetings'])test(`delete lifecycle initial registration ID stays immutable during held import ${view} ${width}`,async({page})=>{
-  const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=consumerDialogs(page);
+  const state=await deleteConsumerFixture(page,view,width,{holdImport:true}),seen=await consumerDialogs(page);
   await startConsumerDelete(page,view);await page.waitForFunction(()=>window.__helperImportStarted);
   // LIB-바로지우기: 자료실은 지울 줄을 붙잡을 때 사본으로 고정하고 목록에서 뺀다 — 남은 목록 값을 바꿔도 보낼 ID는 그대로.
   await page.evaluate(view=>{const rows=view==='library'?window.__fixtureLibraryRows():window.__fixtureMaterialRows;Object.assign(rows.find(row=>row.id===(view==='library'?'doc-1':'doc-0')),{id:view==='library'?'doc-0':'doc-1',title:'Changed after capture'})},view);
   await releaseImport(page);
   expect(state.calls).toEqual([{action:'delete',document_id:'doc-0'}]);
-  if(view==='library')expect(seen).toEqual([]);else{expect(seen.map(d=>d.type)).toEqual(['confirm','alert']);expect(seen[0].message).toContain('file-0.pdf')}
+  if(view==='library')expect(seen).toEqual([]);else{expect(seen.map(d=>d.type)).toEqual(['confirm']);expect(seen[0].message).toContain('file-0.pdf');await expect.poll(()=>consumerNotices.get(page)).toContain(DELETE_LEGACY)}
   expect(await page.evaluate(()=>window.__deleteEvents)).toBe(1);
 });

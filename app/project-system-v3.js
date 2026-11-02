@@ -1,6 +1,6 @@
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {swatchHtml} from './color-swatch.mjs'; // UI-색고르기통일: 프로젝트 색 칸도 공용 부품
-import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {holdToast as kptuHoldToast,askConfirm,askText} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {fileAttrs,menuItemsHtml,httpUrl} from './file-actions.js';
 import { renameHostAttrs, renameButtonHtml } from './file-rename.js'; // ATT-이름고치기: 보이는 이름이 파일 이름인 자료 줄만 그 자리에서 고치기
@@ -487,7 +487,7 @@ function resetProgressRecord(row){if(!row?.isConnected)return;const id=row.datas
 async function mutateProgressRecord(row,method,summary){
   if(!canEdit(current)||!row||row.dataset.saving==='1')return;
   const id=row.dataset.ps3Record,item=row.dataset.ps3RecordKind==='item',u=item?detail?.workstreams.find(x=>x.id===id):detail?.progress.find(x=>x.id===id);if(!u)return;
-  if(method==='DELETE'&&!confirm('이 기록을 삭제할까요?'))return;
+  if(method==='DELETE'){const before=current,anchor=row.contains(document.activeElement)?document.activeElement:(row.querySelector('[data-ps3-record-menu]')||row);if(!(await askConfirm(anchor,{text:'이 기록을 삭제할까요?',ok:'삭제',danger:true}))||current!==before||!row.isConnected||row.dataset.saving==='1')return}
   const projectId=current.id,epoch=projectEpoch;
   const active=()=>current?.id===projectId&&projectEpoch===epoch&&row.isConnected;
   row.dataset.saving='1';row.querySelectorAll('button,input').forEach(x=>x.disabled=true);
@@ -597,7 +597,7 @@ async function saveBlock(form){
 async function moveContent(kind,id,direction){if(!canEdit(current))return;const projectId=current.id,section=kind==='section',rows=ordered(section?detail.sections:detail.blocks.filter(x=>x.section_id===detail.blocks.find(y=>y.id===id)?.section_id)),index=rows.findIndex(x=>x.id===id),other=rows[index+direction];if(index<0||!other)return;const path=section?'app_project_sections':'app_project_blocks',a=rows[index];try{await api(`/rest/v1/${path}?id=eq.${encodeURIComponent(a.id)}&project_id=eq.${encodeURIComponent(projectId)}`,{method:'PATCH',body:{sort_order:other.sort_order}});await api(`/rest/v1/${path}?id=eq.${encodeURIComponent(other.id)}&project_id=eq.${encodeURIComponent(projectId)}`,{method:'PATCH',body:{sort_order:a.sort_order}});if(current?.id===projectId)await refreshDetail()}catch(e){toast('순서 저장 실패: 다시 확인해 주세요.');if(current?.id===projectId)await refreshDetail()}}
 function addSection(){if(!canEdit(current))return;const head=$('#ps3-content .ps3-section-head');if(!head)return;head.insertAdjacentHTML('afterend','<form class="ps3-content-editor ps3-new-form" data-ps3-new-section><label>섹션 이름<input required maxlength="160"></label><div class="ps3-content-actions"><span data-ps3-form-state role="status"></span><button class="mini" type="button" data-ps3-cancel-new>취소</button><button class="primary mini" type="submit">섹션 저장</button></div></form>');head.nextElementSibling.querySelector('input')?.focus()}
 async function saveNewSection(form){if(form.dataset.saving==='1'||!canEdit(current))return;const title=form.querySelector('input').value.trim(),state=form.querySelector('[data-ps3-form-state]');if(!title){state.textContent='이름을 입력해 주세요.';return}const button=form.querySelector('[type="submit"]');form.dataset.saving='1';button.disabled=true;state.textContent='저장 중…';try{await api('/rest/v1/app_project_sections',{method:'POST',body:{project_id:current.id,title,sort_order:Math.max(0,...detail.sections.map(x=>Number(x.sort_order)||0))+10,created_by:user.id,collapsed_default:false}});form.dataset.dirty='false';await refreshDetail()}catch(e){state.textContent=`저장 실패: ${e.message||e}`}finally{form.dataset.saving='0';button.disabled=false}}
-async function renameSection(id){if(!canEdit(current))return;const s=detail.sections.find(x=>x.id===id);if(!s)return;const title=prompt('섹션 이름',s.title);if(!title?.trim()||title.trim()===s.title)return;try{await api(`/rest/v1/app_project_sections?id=eq.${encodeURIComponent(id)}&project_id=eq.${encodeURIComponent(current.id)}`,{method:'PATCH',body:{title:title.trim()}});await refreshDetail()}catch(e){toast('섹션 이름을 저장하지 못했습니다.')}}
+async function renameSection(id){if(!canEdit(current))return;const s=detail.sections.find(x=>x.id===id);if(!s)return;const before=current,title=await askText(document.activeElement,{text:'섹션 이름',value:s.title});if(current!==before||!title?.trim()||title.trim()===s.title)return;try{await api(`/rest/v1/app_project_sections?id=eq.${encodeURIComponent(id)}&project_id=eq.${encodeURIComponent(current.id)}`,{method:'PATCH',body:{title:title.trim()}});await refreshDetail()}catch(e){toast('섹션 이름을 저장하지 못했습니다.')}}
 const newBlockContent=type=>type==='text'?{text:''}:type==='table'?{columns:['항목','내용'],rows:[['','']]}:{items:[type==='timeline'?{date:'',title:'',body:''}:type==='links'?{label:'',url:'',note:''}:{label:'',value:'',note:''}]};
 function addBlock(sectionId){if(!canEdit(current)||!detail.sections.some(x=>x.id===sectionId))return;const section=$(`[data-ps3-section="${sectionId}"]`),form=document.createElement('form');form.className='ps3-content-editor ps3-new-form';form.dataset.enterSave='';form.dataset.ps3NewBlock=sectionId;form._newBlock={block_type:'text',content:newBlockContent('text')};form.innerHTML=newBlockForm(form._newBlock);section.querySelector('.ps3-content-heading').insertAdjacentElement('afterend',form);form.querySelector('[data-ps3-block-title]')?.focus()}
 function newBlockForm(b,title=''){return `<label>내용 종류<select data-ps3-new-type>${Object.entries(CONTENT_TYPES).map(([key,label])=>`<option value="${key}" ${b.block_type===key?'selected':''}>${label}</option>`).join('')}</select></label><label>제목<input data-ps3-block-title required maxlength="160" value="${esc(title)}"></label>${blockFields(b)}<div class="ps3-content-actions"><span data-ps3-form-state role="status"></span><button type="button" class="mini" data-ps3-cancel-new>취소</button><button type="submit" class="primary mini">내용 저장</button></div>`}
@@ -743,7 +743,7 @@ async function saveWs(){
   const body=e.targetId||e.attempt?.knownId?{title,phase}:{project_id:e.projectId,title,description:null,phase,sort_order:(detail.workstreams.length+1)*10,created_by:e.owner},r=beginProjectSave(e,body);if(!r)return;
   try{await writeSaveBody(r);if(!projectSaveCurrent(r)){if(sameSaveSession(e))r.attempt.needsReview=true;return}if(JSON.stringify(readSaveDraft(e))!==r.draft){saveNotice(e,'제출한 항목은 저장했습니다. 추가 입력은 남겨 두었습니다.');return}forgetSave(r);const active=await closeSavedEditor(r);if(active&&active()&&current?.id===e.projectId)await refreshDetail()}catch(error){failedSave(r,error)}finally{finishProjectSave(r)}
 }
-async function delWs(){if(!editingWs||!confirm(`“${editingWs.title}” 진행상황을 삭제할까요?`))return;await api(`/rest/v1/app_project_workstreams?id=eq.${editingWs.id}`,{method:'DELETE'});closeModal('ps3WorkstreamModal');await refreshDetail()}
+async function delWs(){const ws=editingWs;if(!ws||!(await askConfirm(document.activeElement,{text:`“${ws.title}” 진행상황을 삭제할까요?`,ok:'삭제',danger:true}))||editingWs!==ws)return;await api(`/rest/v1/app_project_workstreams?id=eq.${ws.id}`,{method:'DELETE'});closeModal('ps3WorkstreamModal');await refreshDetail()}
 function openMilestone(id=''){
   editingMilestone=id?detail.milestones.find(x=>x.id===id):null;
   $('#ps3MilestoneHeading').textContent=editingMilestone?'주요 일정 수정':'주요 일정 추가';$('#ps3MilestoneTitle').value=editingMilestone?.title||'';$('#ps3MilestoneAt').value=localInput(editingMilestone?.start_at);$('#ps3MilestoneNotes').value=editingMilestone?.notes||'';$('#ps3MilestoneDelete').classList.toggle('hidden',!editingMilestone);$('#ps3MilestoneState').textContent='';openModal('ps3MilestoneModal');
@@ -828,7 +828,7 @@ async function recoverMilestone(e){
   finally{if(active()){e.reading=false;saveBusy(e,false)}}
 }
 async function delMilestone(){
-  if(!editingMilestone||!confirm('“'+editingMilestone.title+'” 주요 일정을 삭제할까요?'))return;
+  const asked=editingMilestone;if(!asked||!(await askConfirm($('#ps3MilestoneDelete'),{text:'“'+asked.title+'” 주요 일정을 삭제할까요?',ok:'삭제',danger:true}))||editingMilestone!==asked||$('#ps3MilestoneDelete')?.disabled)return;
   const snapshot={...editingMilestone},linked=milestoneGoogleLinked(snapshot),calendarId=snapshot.google_calendar_id,googleEventId=snapshot.google_event_id;
   const st=$('#ps3MilestoneState'),button=$('#ps3MilestoneDelete');button.disabled=true;st.textContent='삭제 중…';
   if(linked){
@@ -878,7 +878,7 @@ async function deleteProject(){
   else toast(TRASH_TEXT.DELETED)
  }catch(e){st.textContent=e.message||String(e);st.className='status error'}
 }
-async function archiveProject(){if(!current)return;const ch=descendants(current,{activeOnly:true});const note=ch.length?`\n하위 사업영역 ${ch.length}개는 함께 숨겨지고 상위 사업영역을 복구하면 다시 표시됩니다.`:'';if(!confirm(`“${current.name}” 사업영역을 보관할까요?${note}`))return;await api(`/rest/v1/app_spaces?id=eq.${current.id}`,{method:'PATCH',body:{status:'archived',updated_at:new Date().toISOString()}});closeDetail(true);await renderGrid();if(splitWanted())void resumeProjects();toast('사업영역을 보관했습니다.')}
+async function archiveProject(){if(!current)return;const ch=descendants(current,{activeOnly:true});const note=ch.length?`하위 사업영역 ${ch.length}개는 함께 숨겨지고 상위 사업영역을 복구하면 다시 표시됩니다.`:'';const target=current;if(!(await askConfirm(document.activeElement,{text:`“${target.name}” 사업영역을 보관할까요?`,ok:'보관',note}))||current!==target)return;await api(`/rest/v1/app_spaces?id=eq.${target.id}`,{method:'PATCH',body:{status:'archived',updated_at:new Date().toISOString()}});closeDetail(true);await renderGrid();if(splitWanted())void resumeProjects();toast('사업영역을 보관했습니다.')}
 async function toggleProjectDone(){if(!current||!canManage(current))return;const next=current.status==='done'?'active':'done';try{await api(`/rest/v1/app_spaces?id=eq.${encodeURIComponent(current.id)}`,{method:'PATCH',body:{status:next,updated_at:new Date().toISOString()}});await renderGrid();await refreshDetail();toast(next==='done'?'사업영역을 완료했습니다.':'사업영역을 다시 진행합니다.')}catch(e){console.error('project status update failed',e);toast('사업영역 상태를 변경하지 못했습니다.')}}
 async function renderArchiveList(){const box=$('#ps3ArchiveList'),rows=archived();if(!box)return;if(!rows.length){box.innerHTML=empty();return}const under=p=>descendants(p);box.innerHTML=`<div class="ps3-plist">${rows.map(p=>listRowHtml(p,under(p),{open:false,trail:`<button type="button" class="mini ps3-prow-restore" data-ps3-restore="${p.id}">복구</button>`})).join('')}</div>`;void loadListSummaries([...listedProjects(),...rows.flatMap(p=>[p,...under(p).map(x=>x.project)])])}
 // 보관 모달 하나가 보관 탭과 휴지통 탭을 가진다. 그리기는 paintArchive 하나가 맡는다.
@@ -942,7 +942,8 @@ async function restoreFromTrash(id){
 }
 async function purgeFromTrash(id){
  const row=trash.rows.find(x=>x.id===id);if(!row||trash.busy)return;
- if(!confirm(purgeConfirmText(row)))return;
+ const [ask,...rest]=purgeConfirmText(row).split('\n');
+ if(!(await askConfirm(document.activeElement,{text:ask,note:rest.join(' '),ok:'영구 삭제',danger:true}))||trash.busy||!trash.rows.includes(row))return;
  trash.busy=true;
  try{
   // 공유 페이지: 사진 파일(비공개 버킷)을 서버 함수가 먼저 지우고 페이지를 영구 삭제한다. 나머지 종류는 DB 함수 하나.
@@ -967,10 +968,10 @@ async function reportLink(trigger){
   catch(e){toast(e.message||'사업 보고 목록을 불러오지 못했습니다.')}
 }
 async function reportUnlink(id){
-  if(!current)return;const target={kind:'project',id:current.id};
+  if(!current)return;const target={kind:'project',id:current.id},anchor=document.activeElement;
   try{
     const now=await readReportTargets(id);const mine=now.find(t=>sameTarget(t,target));
-    if(mine?.hasSummary&&!confirm('이 연결에 보낸 기록이 있어요. 연결을 해제하면 그 기록도 함께 지워져요. 해제할까요?'))return;
+    if(mine?.hasSummary&&(!(await askConfirm(anchor,{text:'이 연결에 보낸 기록이 있어요. 연결을 해제하면 그 기록도 함께 지워져요. 해제할까요?',ok:'해제',danger:true}))||current?.id!==target.id))return;
     const r=await changeOneTarget(id,target,'remove');
     if(!r.ok){toast(r.message||'연결을 해제하지 못했습니다.');return}
     window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));await repaintReports();

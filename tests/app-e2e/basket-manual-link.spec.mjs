@@ -1,6 +1,7 @@
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00Z',changedStamp='2026-10-06T02:00:00Z';
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='30000000-0000-4000-8000-000000000001',o2='30000000-0000-4000-8000-000000000002';
@@ -152,11 +153,11 @@ test('cancel asks only when something was picked, and leaving the view asks abou
  await detail.getByRole('button',{name:'취소'}).click();await expect(detail.locator('[data-manual-link]')).toHaveCount(0);await expect(detail.locator('[data-basket-link-open]')).toBeFocused();
  page.removeAllListeners('dialog');
  await detail.getByRole('button',{name:'연결하기'}).click();await pick(page,detail,'organization','합성 한빛지부',1280);await summary(detail,o,'organization').fill('쓰던 요약');
- const asked=[];page.once('dialog',d=>{asked.push(d.message());d.dismiss();});await detail.getByRole('button',{name:'취소'}).click();
+ const asked=[];await detail.getByRole('button',{name:'취소'}).click();asked.push(await answerAsk(page,false));
  await expect(summary(detail,o,'organization')).toHaveValue('쓰던 요약');
  page.once('dialog',d=>{asked.push(d.message());d.dismiss();});await page.evaluate(()=>window.KPTURouter.go('home'));
  await expect(page.locator('#basketView')).toBeVisible();await expect(summary(detail,o,'organization')).toHaveValue('쓰던 요약');
- page.once('dialog',d=>{asked.push(d.message());d.accept();});await page.keyboard.press('Escape');await expect(detail.locator('[data-manual-link]')).toHaveCount(0);
+ await page.keyboard.press('Escape');asked.push(await answerAsk(page,true));await expect(detail.locator('[data-manual-link]')).toHaveCount(0);
  expect(asked).toEqual(['고른 곳과 쓰던 요약을 버리고 닫을까요?','작성 중인 연결·할 일 입력을 버리고 다른 화면으로 갈까요?','고른 곳과 쓰던 요약을 버리고 닫을까요?']);
  expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
