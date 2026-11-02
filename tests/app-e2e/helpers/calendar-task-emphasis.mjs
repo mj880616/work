@@ -69,7 +69,8 @@ export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks
   await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   await calendarEventsReady(page);
-  if(view==="month")await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
+  // PC는 날짜 옆 ✓n, 폰은 칸 안 할 일 제목 줄(S48-6c)로 할 일 읽기가 끝났음을 본다.
+  if(view==="month")await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count, #calendarGrid .cmv-cell-task[data-calendar-task="pending"]').first()).toBeVisible();
   if(view==="month")await expect(page.locator('#calendarGrid [data-google-event="blue-0"]')).toBeVisible();
   return {calls,external,prefs};
 }

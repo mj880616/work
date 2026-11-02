@@ -2,53 +2,54 @@ import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 const date='2026-10-20';
-async function renderFour(page,count=4){
-  await page.evaluate(count=>{
-    KPTUCalendarMonthView.setTasks([
+async function renderFour(page,count=4,withTasks=true){
+  await page.evaluate(({count,withTasks})=>{
+    KPTUCalendarMonthView.setTasks(withTasks?[
       {id:'pending',title:'QA',date:'2026-10-20',done:false},
       {id:'late',title:'QA',date:'2026-10-23',done:false,overdue:true},
       {id:'done',title:'QA',date:'2026-10-24',done:true,overdue:true}
-    ]);
+    ]:[]);
     KPTUCalendarMonthView.render({year:2026,month:9,googleEvents:Array.from({length:count},(_,i)=>({
       id:'four-'+i,calendarId:'qa-cal',title:'QA schedule '+i,start:'2026-10-20',end:'2026-10-21',allDay:true
     }))});
-  },count);
+  },{count,withTasks});
 }
 for(const [width,height] of [[360,640],[360,844],[390,640],[390,844],[686,820]]){
-  test(`available schedules, overflow and inline ✓1 (${width}x${height})`,async({page})=>{
+  test(`available schedules, overflow and task lines merged into +n (${width}x${height})`,async({page})=>{
     await page.setViewportSize({width,height});
     const {external}=await openEmphasisFixture(page);await renderFour(page,20);
     const cell=page.locator(`.cal-cell[data-date="${date}"]`),week=page.locator('.cmv-week').filter({has:cell});
-    const number=cell.locator('.cmv-date-list'),marker=number.locator('.cmv-task-count');
+    const number=cell.locator('.cmv-date-list');
     const slots=Number(await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots'));
     expect(slots).toBeGreaterThanOrEqual(4);
     await expect(week.locator('.cmv-event')).toHaveCount(slots-1);
-    await expect(week.locator('.kptu-day-more')).toHaveText('+'+(20-slots+1));
-    await expect(marker).toHaveText('1');await expect(marker).toHaveAccessibleName('할 일 1개');
-    await expect(marker).toHaveCSS('font-size','12px');expect(await marker.evaluate(el=>getComputedStyle(el).color)).toBe(await page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-muted)';document.body.append(el);const color=getComputedStyle(el).color;el.remove();return color}));
-    await expect(cell.locator('button.cmv-task-count')).toHaveCount(0);
+    // S48-6c: 폰은 ✓n 대신 칸 안 할 일 줄. 10/20은 일정 20 + 할 일 1이라 할 일은 '+n'에 합산된다.
+    await expect(week.locator('.kptu-day-more')).toHaveText('+'+(21-slots+1));
+    await expect(page.locator('#calendarGrid .cmv-task-count')).toHaveCount(0);
+    await expect(week.locator('.cmv-cell-task[data-calendar-task="pending"]')).toHaveCount(0);
     await expect(page.locator('#calendarGrid button button')).toHaveCount(0);
     await expect(page.locator('.cmv-footer-more,.cmv-footer-both')).toHaveCount(0);
     const metrics=await cell.evaluate(el=>{
       const w=el.closest('.cmv-week'),wb=w.getBoundingClientRect(),number=el.querySelector('.cmv-date-list'),nb=number.getBoundingClientRect();
       const bars=[...w.querySelectorAll('.cmv-event')].map(b=>({box:b.getBoundingClientRect(),font:getComputedStyle(b).fontSize,line:getComputedStyle(b).lineHeight}));
-      const more=w.querySelector('.kptu-day-more').getBoundingClientRect(),marker=el.querySelector('.cmv-task-count').getBoundingClientRect(),day=el.querySelector('.cal-day').getBoundingClientRect();
+      const more=w.querySelector('.kptu-day-more').getBoundingClientRect();
       return {week:wb.height,slots:Number(document.querySelector("#calendarGrid").dataset.cmvLaneSlots),numberWidth:nb.width,numberHeight:nb.height,moreWidth:more.width,moreHeight:more.height,
         barsFit:bars.every(b=>b.box.top>=nb.bottom&&b.box.bottom<=more.top&&b.box.bottom<=wb.bottom),
         font:bars.map(b=>b.font),line:bars.map(b=>b.line),moreFits:more.bottom<=wb.bottom,
-        markerRight:marker.right<=nb.right&&marker.left>=day.right,scroll:document.documentElement.scrollWidth,viewport:innerWidth};
+        scroll:document.documentElement.scrollWidth,viewport:innerWidth};
     });
     console.log('three lines',width,height,JSON.stringify(metrics));
     expect(metrics.numberWidth).toBeGreaterThanOrEqual(44);expect(metrics.numberHeight).toBe(20); // S46-23: 날짜 바로 아래 일정(누르는 범위는 ::after 44px)
     expect(await number.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
     expect(metrics.moreWidth).toBeGreaterThanOrEqual(44);expect(metrics.moreHeight).toBe(16);
-    expect(metrics.barsFit).toBe(true);expect(metrics.moreFits).toBe(true);expect(metrics.markerRight).toBe(true);
+    expect(metrics.barsFit).toBe(true);expect(metrics.moreFits).toBe(true);
     expect(metrics.font).toEqual(Array(slots-1).fill('11px'));expect(metrics.line).toEqual(Array(slots-1).fill('14px')); // S48-6: 폰 칸 글자 11px·막대 14px
     expect(metrics.scroll).toBeLessThanOrEqual(metrics.viewport);
     const only=page.locator('.cal-cell[data-date="2026-10-23"]');
-    await expect(only.locator('.cmv-task-count')).toHaveText('1');
-    await expect(only.locator('.cmv-task-count')).toHaveCSS('color','rgb(180, 35, 24)');
-    await expect(page.locator('.cal-cell[data-date="2026-10-24"] .cmv-task-count')).toHaveCount(0);
+    const late=week.locator('.cmv-cell-task[data-calendar-task="late"]');
+    await expect(late).toBeVisible();await expect(late).toHaveText('QA');
+    await expect(late).toHaveCSS('color','rgb(180, 35, 24)');
+    await expect(week.locator('.cmv-cell-task[data-calendar-task="done"]')).toHaveCount(0);
     await number.click();await expect(page.locator('#calendarDayModal')).toBeVisible();
     await expect(page.locator('#calendarDayEvents .cal-event')).toHaveCount(20);
     await expect(page.locator('#calendarDayTasks .cal-event')).toHaveCount(1);
@@ -105,14 +106,15 @@ for(const width of [360,390]){
         id:`font-${j}-${i}`,calendarId:'qa-cal',title:'QA',start:date,end:date,allDay:true
       })))});
     });
-    await expect(page.locator('.cmv-week').filter({has:page.locator('.cal-cell[data-date="2026-10-13"]')}).locator('.cmv-task-count')).toHaveCount(0);
-    await expect(page.locator('.cmv-week').filter({has:page.locator('.cal-cell[data-date="2026-10-20"]')}).locator('.cmv-task-count')).toHaveCount(1);
+    // S48-6c: 폰은 할 일도 칸 안 줄이라 10/20의 '+n'에 할 일 1이 더해진다.
+    await expect(page.locator('#calendarGrid .cmv-task-count')).toHaveCount(0);
     const linkColor=await page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-link)';document.body.append(el);const color=getComputedStyle(el).color;el.remove();return color});
     const markers=page.locator('.cmv-week-events .kptu-day-more');await expect(markers).toHaveCount(2);
     for(const more of await markers.all()){
       await more.scrollIntoViewIfNeeded();
       const slots=Number(await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots'));
-      await expect(more).toHaveText('+'+(12-slots+1));await expect(more).toHaveCSS('font-size','12px');
+      const extra=(await more.getAttribute('data-date'))==='2026-10-20'?1:0;
+      await expect(more).toHaveText('+'+(12+extra-slots+1));await expect(more).toHaveCSS('font-size','12px');
       await expect(more).toHaveCSS('font-weight','800');await expect(more).toHaveCSS('color',linkColor);
       const geometry=await more.evaluate(el=>{
         const box=el.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(el);const text=range.getBoundingClientRect();
@@ -127,7 +129,7 @@ for(const width of [360,390]){
 
 for(const [width,height] of [[360,640],[390,844],[686,820]]){
   test(`phone uses all slots before reserving overflow (${width}x${height})`,async({page})=>{
-    await page.setViewportSize({width,height});await openEmphasisFixture(page);await renderFour(page,5);
+    await page.setViewportSize({width,height});await openEmphasisFixture(page);await renderFour(page,5,false); // 일정 줄 수만 보는 시험(폰 칸 할 일 줄은 calendar-month-tasks)
     const slots=Number(await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots'));
     const week=page.locator('.cmv-week').filter({has:page.locator(`.cal-cell[data-date="${date}"]`)});
     await expect(week.locator('.cmv-event')).toHaveCount(5<=slots?5:slots-1);
