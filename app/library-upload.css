@@ -248,25 +248,27 @@
 #appView #libraryView .lu-folder-icon{flex:none;color:var(--kptu-muted)}
 #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px)}
 #appView #libraryView .lu-node-body > .lu-row:first-child{border-top:0}
-/* 'N건 더'·'모두 펴기/접기': 작은 글자 버튼(UI-버튼기준, 28px·12px·테두리 없음, 누르는 범위 44px). */
-#appView #libraryView :is(.lu-more-files,.lu-expand-all){position:relative;display:inline-flex;align-items:center;height:var(--ds-compact-height-sm,28px);min-height:0;margin:2px 0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;cursor:pointer}
-#appView #libraryView :is(.lu-more-files,.lu-expand-all)::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-#appView #libraryView :is(.lu-more-files,.lu-expand-all):hover{background:var(--kptu-surface-subtle)}
-#appView #libraryView :is(.lu-more-files,.lu-expand-all):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
-#appView #libraryView .lu-expand-all:disabled{color:var(--kptu-faint);cursor:default}
+/* 'N건 더': 작은 글자 버튼(UI-버튼기준, 28px·12px·테두리 없음, 누르는 범위 44px). */
+#appView #libraryView .lu-more-files{position:relative;display:inline-flex;align-items:center;height:var(--ds-compact-height-sm,28px);min-height:0;margin:2px 0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;cursor:pointer}
+#appView #libraryView .lu-more-files::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #libraryView .lu-more-files:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-more-files:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
 #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 16px)}
 #appView #libraryView .lu-filter-row[data-lu-filter-row="group"]{grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,max-content) auto;justify-content:start}
 #appView #libraryView .library-filter-toolbar #documentProject[hidden]{display:none}
 /* 첫 토글 머리의 누르는 범위(44px)가 위 [+ 자료 등록]의 누르는 범위를 덮지 않게 머리 줄을 위에 둔다. */
 #appView #libraryView #libraryListCard > .add-list-head{position:relative;z-index:2}
+/* LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 오른쪽 ⋯ 하나(새 폴더·여러 개 고르기·모두 펴기/접기). 폴더 줄 ⋯와 같은 크기, 누르는 범위 44px. */
+#appView #libraryView #libraryTopMenuBtn{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin-left:auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
+#appView #libraryView #libraryTopMenuBtn::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}
+#appView #libraryView #libraryTopMenuBtn:hover{color:var(--kptu-ink)}
 @media(max-width:760px){
   #appView #libraryView .lu-node-head{padding-left:calc(var(--lu-depth,0) * 12px)}
   #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 12px)}
   #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 12px)}
-  /* 폰(UI-칩줄두줄): 묶기 줄도 칩(두 줄 + [더보기]) | [모두 펴기]. 옆으로 밀지 않는다. */
+  /* 폰(UI-칩줄두줄): 묶기 줄도 칩(두 줄 + [더보기]). 옆으로 밀지 않는다. */
   #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:6px}
   #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .filter-chips{flex:1 1 0;min-width:0;max-width:100%}
-  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .lu-expand-all{flex:0 0 auto}
 }
 @media(prefers-reduced-motion:reduce){#appView #libraryView .lu-node-head::before{transition:none}}
 
@@ -300,12 +302,12 @@
 #appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
 
 /* LIB-여러개삭제: [선택] 모드. 버튼은 UI-버튼기준(글자 버튼·28px, 누르는 범위 44px), 전체 칩은 거르기 칩과 같은 모양. */
-#libraryListCard .lu-select-btn,#libraryListCard .lu-select-act{position:relative;flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);white-space:nowrap}
-#libraryListCard .lu-select-btn::after,#libraryListCard .lu-select-act::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-#libraryListCard .lu-select-btn:hover,#libraryListCard .lu-select-act:hover:not(:disabled){color:var(--kptu-ink)}
+#libraryListCard .lu-select-act{position:relative;flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);white-space:nowrap}
+#libraryListCard .lu-select-act::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#libraryListCard .lu-select-act:hover:not(:disabled){color:var(--kptu-ink)}
 #libraryListCard .lu-select-act:disabled{opacity:.45}
 #libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger);font-weight:700}
-#libraryListCard .lu-select-btn[hidden],#libraryView .lu-head-actions > [hidden]{display:none}
+#libraryView .lu-head-actions > [hidden]{display:none}
 .lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:0 4px;min-width:0;flex:1}
 :is(.lu-bulk-menu) button{padding-left:calc(var(--kptu-space-3,12px) + var(--lu-depth,0) * 12px)}
 :is(.lu-bulk-menu) button[aria-current="true"] .lu-menu-key{display:inline;color:var(--kptu-primary-ink);font-weight:700}
@@ -315,6 +317,8 @@
 .lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}
 .lu-select-count{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap;margin-right:4px}
 .lu-select-row{display:flex;align-items:center;justify-content:flex-end;min-height:var(--ds-compact-height-sm,28px);margin:0 0 4px}
+/* 빠짐9: 평소에는 선택 줄이 비어 있으니(⋯ 메뉴로 합침) 자리를 차지하지 않는다. */
+#libraryListCard:not(.lu-selecting) .lu-select-row{display:none}
 #appView #libraryView #documentList .lu-row.lu-row-picking{position:relative;padding-left:28px}
 #appView #libraryView #documentList .lu-pick{position:absolute;left:4px;top:50%;width:16px;height:16px;min-height:0;margin:-8px 0 0;padding:0;accent-color:var(--kptu-primary-ink)}
 #appView #libraryView #documentList .lu-pick.lu-pick-node{position:relative;z-index:1;top:auto;left:auto;flex:none;margin:0 2px 0 0}

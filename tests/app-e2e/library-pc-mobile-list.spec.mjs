@@ -193,10 +193,10 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(�
   const labelBoxes=await labels.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),right:r.right,mid:r.top+r.height/2}}));
   expect(new Set(labelBoxes.map(b=>b.x)).size).toBe(1);expect(Math.round(top.x)).toBe(Math.round(cat.x));expect(top.x).toBeGreaterThan(labelBoxes[0].right);
   expect(Math.abs(labelBoxes[0].mid-(top.y+top.height/2))).toBeLessThan(4);expect(Math.abs(labelBoxes[1].mid-(cat.y+cat.height/2))).toBeLessThan(4);
-  // [모두 펴기/접기]는 묶기 칩 오른쪽 같은 줄의 작은 글자 버튼(28px, 누르는 범위 44px).
-  const all=page.locator('#libraryExpandAll'),a=await box(all),lastChip=await box(group.getByRole('radio').last());
-  expect(a.x).toBeGreaterThanOrEqual(lastChip.x+lastChip.width-1);expect(Math.abs((a.y+a.height/2)-(top.y+top.height/2))).toBeLessThan(4);
-  expect(Math.round(a.height)).toBe(28);expect(await all.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBe(44);
+  // 빠짐9: [모두 펴기/접기]·[여러 개 고르기]·[새 폴더]는 자료실 칸 맨 위 오른쪽 ⋯ 하나(28px, 누르는 범위 44px). 따로 뜬 글자 버튼은 없다.
+  await expect(page.locator('#libraryExpandAll,#librarySelectBtn')).toHaveCount(0);
+  const more=page.locator('#libraryTopMenuBtn'),m=await box(more),head=await box(page.locator('#libraryListCard > .add-list-head'));
+  expect(m.x+m.width).toBeGreaterThan(head.x+head.width-40);expect(Math.round(m.height)).toBe(28);expect(await more.evaluate(n=>Math.round(parseFloat(getComputedStyle(n,'::after').height)))).toBe(44);
   // 칩 묶음의 이름(aria-label)은 그대로이고, 보이는 이름표는 읽기 도구에 겹쳐 읽히지 않는다.
   await expect(group).toHaveAttribute('aria-label','묶기');await expect(category).toHaveAttribute('aria-label','자료 분류 (여러 개 고르기)');
   expect(await page.locator('#libraryView .lu-filter-label').evaluateAll(els=>els.every(el=>el.getAttribute('aria-hidden')==='true'))).toBe(true);

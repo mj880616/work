@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {expandLibraryTree} from './helpers/library-tree.mjs';
+import {expandLibraryTree,libraryTopMenu} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,SB,press} from './helpers/library-folder-server.mjs';
 // LIB-폴더탐색기 화면 ③(docs/design/library-tree.md 12절): 선택 모드 일괄 수정 줄([프로젝트|담당조직|종류 바꾸기][폴더로 옮기기][삭제]),
 // 바꾼 칸은 칸별 기록 'user', '… 바꿨어요 · 되돌리기', 일부 실패, PC Ctrl/Shift+클릭 선택.
@@ -23,7 +23,7 @@ async function boot(page,width,{group='폴더',docs=DOCS}={}){
   return r;
 }
 async function pick(page,ids,width){
-  await press(page,page.locator('#librarySelectBtn'),width);
+  await libraryTopMenu(page,'select',{tap:width<761});
   for(const id of ids)await page.locator(`[data-lu-pick="${id}"]`).check();
   await expect(page.locator('#librarySelectCount')).toHaveText(`${ids.length}개 골랐음`);
 }
@@ -33,7 +33,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
   test.use({hasTouch:width<761});
   test(`한 줄 도구줄: 고른 것이 없으면 꺼져 있고, 고르면 켜진다 ${width}`,async({page})=>{
     const {errors}=await boot(page,width);
-    await press(page,page.locator('#librarySelectBtn'),width);
+    await libraryTopMenu(page,'select',{tap:width<761});
     const labels=['사업영역 바꾸기','담당조직 바꾸기','분류 바꾸기','폴더로 옮기기','삭제'];
     for(const name of labels){await expect(bar(page).getByRole('button',{name,exact:true})).toBeVisible();await expect(bar(page).getByRole('button',{name,exact:true})).toBeDisabled()}
     await page.locator('[data-lu-pick="a-2"]').check();
@@ -48,7 +48,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     await pick(page,['a-2'],width);
     await page.goBack();
     await expect(bar(page)).toBeHidden();
-    await expect(page.locator('#librarySelectBtn')).toBeVisible();
+    await expect(page.locator('#librarySelectBar')).toBeHidden();
     await expect(page.locator('#libraryView')).toBeVisible();
     await expect(page.locator('[data-lu-pick="a-2"]')).toHaveCount(0);
     await pick(page,['a-1'],width);
@@ -157,7 +157,7 @@ test.describe('PC Ctrl/Shift+클릭',()=>{
 test.describe('LIB-후속1 PC 선택',()=>{
   test('네모 칸·줄 어디를 눌러도 고르기·풀기, 열리지 않음',async({page})=>{
     const {errors}=await boot(page,1280);
-    await page.locator('#librarySelectBtn').click();
+    await libraryTopMenu(page,'select');
     const row=page.locator('[data-lu-document="a-2"]'),pick=page.locator('[data-lu-pick="a-2"]');
     const box=await pick.boundingBox(),rb=await row.boundingBox();
     const spots=[[box.x+1,box.y+box.height/2],[box.x+box.width/2,box.y+box.height/2],[box.x+box.width-1,box.y+box.height/2],[rb.x+1,rb.y+rb.height/2],[rb.x+rb.width*0.6,rb.y+rb.height/2]];

@@ -512,5 +512,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       trigger.click();
     });
   }
-  return {moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
+  // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 ⋯의 [새 폴더]. 폴더 묶기에서만 — 들어간 폴더가 있으면 그 안, 없으면 맨 위(폴더 밖 자리).
+  const createIn=(parentId,trigger)=>{const p=parentId?folder(parentId):null;if(parentId&&!p)return;if(p&&!canAddChild(s().folders,p.id)){status('여기에는 폴더를 더 만들 수 없어요.',true);return}
+    askName({title:p?'안에 폴더 만들기':'폴더 만들기',hint:p?pathName(p.id)+' 안에 만들어요.':'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(p?.project_id||null,p?.id||null,name)})};
+  return {createIn,moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
 }
