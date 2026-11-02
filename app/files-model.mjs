@@ -169,8 +169,10 @@ export function touchesCounts(rows, where, changed = [], removed = []) {
   if (!where || !Array.isArray(rows)) return false;
   const folders = new Set(rows.filter(r => r.is_folder && r.source === where.source).map(r => r.item_id));
   if (!folders.size) return false;
-  if ((removed || []).some(r => r.source === where.source)) return true;
-  return (changed || []).some(c => c && c.source === where.source && !c.is_folder);
+  // 지운 줄이 지금 목록에 없으면 하위 폴더 안의 것일 수 있다. 바뀐 파일이 보이는 폴더 안으로 들어갔으면 그 폴더 장수가 바뀐다.
+  const here = new Set(rows.map(rowKey));
+  if ((removed || []).some(r => r.source === where.source && !here.has(`${r.source}:${r.id}`))) return true;
+  return (changed || []).some(c => c && c.source === where.source && !c.is_folder && folders.has(c.parent_id));
 }
 
 // F8 옮기기 상한. across = 다른 클라우드로. 결과 {ok, reason}. 화면은 reason 글을 그대로 보인다.

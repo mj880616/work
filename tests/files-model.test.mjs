@@ -102,7 +102,10 @@ test('갱신(F2): 바뀐 줄만 지금 폴더에 입히고, 나간 줄·휴지�
   assert.equal(top.length, 1, '맨 위(parent null)도 맞춤');
   assert.equal(touchesCounts(rows, where, [row()], []), false, '보이는 폴더가 없으면 장수 다시 읽기 없음');
   const withFolder = [...rows, row({item_id: 'F!1', is_folder: true})];
-  assert.equal(touchesCounts(withFolder, where, [row({item_id: 'X!1', parent_id: 'F!1'})], []), true);
+  assert.equal(touchesCounts(withFolder, where, [row({item_id: 'X!1', parent_id: 'F!1'})], []), true, '보이는 폴더 안으로 들어온 파일');
+  assert.equal(touchesCounts(withFolder, where, [row({item_id: 'A!1', parent_id: 'P!1', name: '새'})], []), false, '지금 폴더 파일 이름만 바뀜');
+  assert.equal(touchesCounts(withFolder, where, [], [{source: 'od', id: 'A!2'}]), false, '보이는 파일을 지움');
+  assert.equal(touchesCounts(withFolder, where, [], [{source: 'od', id: 'Z!9'}]), true, '안 보이는 것(하위 폴더 안일 수 있음)을 지움');
 });
 
 test('위치 줄·나무 줄: 맨 위부터, 펼친 폴더만, 묶음 3개 먼저(최근·별표·큰 파일)', () => {

@@ -56,14 +56,14 @@ for(const width of [1440,884,412]){
     await expect(modal(page).locator('.me-pv-main li').last()).toHaveText('통화');
 
     // 서버 저장 모양은 {bar, rest}뿐이고 아래 칸은 rest 안 'bottom' 표시 뒤(DB 검사가 받는 모양 그대로).
-    const saved=['note','library','hwp','pages','ledger','outside','news','calls','bottom','photos','telegram','arsenal'];
+    const saved=['note','library','files','hwp','pages','ledger','outside','news','calls','bottom','photos','telegram','arsenal'];
     await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(saved);
     expect(Object.keys(prefs.value.menu_layout).sort()).toEqual(['bar','rest']);
     await modal(page).locator('[data-close="menuEditModal"]').click();
     await expect(modal(page)).toBeHidden();
 
     const check=async()=>{
-      await expect.poll(()=>sheetOrder(page)).toEqual(['note','library','hwp','pages','ledger','outside','news','calls','LINE','photos','telegram','arsenal']);
+      await expect.poll(()=>sheetOrder(page)).toEqual(['note','library','files','hwp','pages','ledger','outside','news','calls','LINE','photos','telegram','arsenal']);
       await expect.poll(()=>pcSide(page)).toEqual({photos:true,calls:false,feed:['photos','telegram','arsenal'],first:'photos'});
     };
     await check();
@@ -76,7 +76,7 @@ for(const width of [1440,884,412]){
     await openEdit(page,width);
     await modal(page).locator('[data-menu-edit-reset]').click();
     await expect.poll(()=>ids(page,'tail')).toEqual(['calls','telegram','arsenal']);
-    expect(await ids(page,'rest')).toEqual(['note','library','hwp','pages','ledger','photos','outside','news']);
+    expect(await ids(page,'rest')).toEqual(['note','library','files','hwp','pages','ledger','photos','outside','news']);
     await expect.poll(()=>prefs.value?.menu_layout??null).toBeNull();
     await modal(page).locator('[data-close="menuEditModal"]').click();
     await expect.poll(()=>pcSide(page)).toEqual({photos:false,calls:true,feed:['calls','telegram','arsenal'],first:'calls'});

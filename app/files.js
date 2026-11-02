@@ -81,7 +81,7 @@ async function loadStatus() {
   try {
     const d = await edge('status');
     if (state.scope !== scope) return;
-    state.status = d; state.statusFailed = '';
+    state.status = d && typeof d === 'object' ? d : {}; state.statusFailed = '';
     const times = SOURCES.map(s => Date.parse(d?.[s]?.synced_at || '')).filter(Number.isFinite);
     if (times.length) state.syncedAt = Math.min(...times);
   } catch (e) {
@@ -308,7 +308,7 @@ async function openPreview(r) {
       const blob = await bytes({action: kind === 'office' ? 'preview' : 'media', source: r.source, id: r.item_id});
       if (state.preview !== p) return;
       const lib = await pdfjs();
-      p.task = lib.getDocument({data: new Uint8Array(await blob.arrayBuffer()), cMapUrl: new URL('cmaps/', PDF_LIB).href, cMapPacked: true, isEvalSupported: false, disableFontFace: false, useSystemFonts: true});
+      p.task = lib.getDocument({data: new Uint8Array(await blob.arrayBuffer()), cMapUrl: new URL('cmaps/', PDF_LIB).href, cMapPacked: true, isEvalSupported: false, disableFontFace: false, useSystemFonts: true, verbosity: 0});
       p.doc = await p.task.promise;
       if (state.preview !== p) return;
       p.pages = p.doc.numPages;
