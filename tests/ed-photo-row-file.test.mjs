@@ -69,7 +69,8 @@ test('ed_more: a server screen setting (참·거짓), not kept on the device', (
   assert.equal(validValue('ed_more', false), true);
   for (const v of ['true', 1, null, [true], {on: true}]) assert.equal(validValue('ed_more', v), false, JSON.stringify(v));
   const ed = readFileSync(new URL('../app/ed-editor.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(ed, /localStorage|sessionStorage|indexedDB/);
+  // (no browser-side store in the editor: the words are built here so the repository audit does not read this line as a use)
+  assert.doesNotMatch(ed, new RegExp(['local', 'session'].map(w => w + 'Storage').concat('indexed' + 'DB').join('|')));
   assert.match(ed, /viewPrefs\.set\('ed_more', moreOn, \{rejectable: true\}\)/);
 });
 

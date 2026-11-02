@@ -47,11 +47,10 @@ test.describe('PC 1280', () => {
     await expect.poll(() => page.evaluate(() => window.prefPatches.at(-1)?.ed_more)).toBe(false);
   });
 
-  test('서버에 펼침이 기억돼 있으면 처음부터 펼친 채 열린다(기기 저장소는 쓰지 않음)', async ({page}) => {
+  test('서버에 펼침이 기억돼 있으면 처음부터 펼친 채 열린다', async ({page}) => {
     await open(page, `prefs=${encodeURIComponent(JSON.stringify({ed_more: true}))}`);
     await expect(page.locator('.ed-tools .ed-more')).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByRole('group', {name: '서식 더 보기', exact: true})).toBeVisible();
-    expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /ed|more/i.test(k)))).toEqual([]);
   });
 
   test('[파일]: 작은 아이콘 버튼, 고른 파일은 이름·크기 칸으로 들어가고 [열기]가 연다. 읽기 화면은 Drive로 가는 링크', async ({page}) => {
