@@ -113,3 +113,24 @@ export function noticeText(newer) {
 
 /** 목록의 날짜 표시(10/28). */
 export const shortDate = date => { const [, mm, dd] = date.split('-'); return `${Number(mm)}/${Number(dd)}`; };
+
+// UI-업데이트기록찾기(요청함 11/02): 업데이트 기록 화면 위 검색 칸. 화면 안에서만 거른다(서버·기기 저장 없음).
+export const SEARCH_MAX_WORDS = 6;
+/** 검색어를 낱말로(빈칸으로 나눔, 소문자, 6개까지). 빈 검색어면 []. */
+export const searchWords = query => String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean).slice(0, SEARCH_MAX_WORDS);
+/**
+ * 낱말이 모두 들어 있는 줄만 남긴다. 버전명·날짜(10/28)로도 찾을 수 있다(그 기록의 줄은 모두 남음).
+ * 돌려주는 값: 낱말이 없으면 null(전체 그대로), 있으면 최신 먼저 [{note, changes, checks}] — 맞는 줄이 하나도 없는 기록은 뺀다.
+ */
+export function searchNotes(notes, query) {
+  const words = searchWords(query);
+  if (!words.length) return null;
+  const found = [];
+  for (const note of notes || []) {
+    const label = `${note.v} ${shortDate(note.date)}`.toLowerCase();
+    const hit = line => { const text = line.toLowerCase(); return words.every(w => text.includes(w) || label.includes(w)); };
+    const changes = note.changes.filter(hit), checks = note.checks.filter(hit);
+    if (changes.length || checks.length) found.push({ note, changes, checks });
+  }
+  return found;
+}

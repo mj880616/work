@@ -16,3 +16,11 @@
 #updatesView .rn-check-label{color:var(--kptu-ink);font-weight:var(--ds-weight-medium,600)}
 #updatesView .rn-more{margin-top:6px}
 #updatesView .rn-more[hidden]{display:none}
+/* UI-업데이트기록찾기(요청함 11/02): 목록 위 검색 칸 하나 + 낱말 칠하기. 모양은 전체 검색 칸(.gs-input)·형광(.gs-mark)과 같게. */
+#updatesView .rn-search{box-sizing:border-box;display:block;width:100%;min-width:0;height:var(--ds-compact-height,32px);margin:0 0 6px;padding:0 10px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
+#updatesView .rn-search::placeholder{color:var(--kptu-muted)}
+#updatesView .rn-search:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-1px}
+#updatesView .rn-count{margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#updatesView .rn-count[hidden]{display:none}
+#updatesView .rn-mark{background:var(--ds-project-yellow-soft);color:inherit;border-radius:2px;padding:0 1px}
+@media(max-width:760px){#updatesView .rn-search{height:40px;font-size:16px}}
