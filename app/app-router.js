@@ -513,7 +513,15 @@
   }
 
   // syncNavigation: repaint the menu marks for the current view (menu-layout.js calls it after the menu order changes).
-  const api={current:null,sub:null,go,setSub,place,setPlace,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  // S48-30: 로그아웃·다른 사람으로 바뀔 때(loader-v2 handleIdentityChange) 화면 안 자리 칸을 주소에서 모두 지운다. 화면·쪽(?view=·?pane=)은 남기고,
+  // 열린 노트·할 일·고른 보고 같은 앞 사람의 자리는 다음 로그인·다시 읽기에서 되살리지 않는다(자리는 같은 로그인 안의 새로고침용).
+  function dropPlaces(){
+    const u=new URL(location.href);let changed=false;
+    for(const key of PLACE_KEYS)if(u.searchParams.has(key)){u.searchParams.delete(key);changed=true}
+    if(changed)history.replaceState(history.state,'',u.pathname+(u.search||'')+u.hash);
+    return changed;
+  }
+  const api={current:null,sub:null,go,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
   let moveQueued=false;
