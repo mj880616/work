@@ -37,6 +37,8 @@ export const keepTab = tab => (TABS.some(t => t.id === tab) ? tab : ALL);
 export function domainOf(url) {
   try { return new URL(String(url)).hostname.replace(/^www\./, ''); } catch { return ''; }
 }
+// 주소·도메인뿐인 제목('https://…', 'www.…', 'naver.me/abc', 'labortoday.co.kr').
+export const isAddressTitle = t => /^(?:(?:https?:\/\/|www\.)\S+|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/\S*)?)…?$/i.test(String(t ?? '').trim());
 export const isForeign = item => !!item && typeof item.lang === 'string' && item.lang !== 'ko';
 
 // 상태 글(제목 아래 작은 줄). 정상(ok)은 없음.
@@ -88,7 +90,10 @@ export function itemView(item, {showKo = false} = {}) {
   const ko = foreign && showKo;
   const t = whenOf(item);
   const koTitle = foreign && typeof item.title_ko === 'string' && item.title_ko.trim() ? item.title_ko : '';
-  const title = koTitle || item.title || domainOf(item.url) || '제목 없음';
+  // 제목이 없거나 주소·도메인뿐이면 도메인을 제목으로 보이지 않는다(NEWS-채널밀림 ②, 11/02): '제목 읽기 전 · 도메인' / '제목 없음 · 도메인'.
+  const own = typeof item.title === 'string' && item.title.trim() && !isAddressTitle(item.title) ? item.title : '';
+  const host = domainOf(item.url);
+  const title = koTitle || own || `${item.state === 'pending' ? '제목 읽기 전' : '제목 없음'}${host ? ` · ${host}` : ''}`;
   return {
     tag: tagOf(item),
     publisher: item.publisher || domainOf(item.url),
@@ -171,7 +176,7 @@ export function noteNewsItemId(note) {
 }
 // 메모 노트 제목: '기사 메모 · 기사 제목'(한 줄, 200자 안쪽). 노트 목록에서 어느 기사 메모인지 보이게.
 export function memoTitle(item) {
-  const t = String(item?.title_ko || item?.title || domainOf(item?.url) || '기사').replace(/\s+/g, ' ').trim();
+  const t = String(item?.title_ko || (item?.title && !isAddressTitle(item.title) ? item.title : '') || domainOf(item?.url) || '기사').replace(/\s+/g, ' ').trim();
   return [...`기사 메모 · ${t}`].slice(0, 200).join('');
 }
 // 기사 id 여러 개 → 메모 노트 묶음(기사마다 가장 최근에 고친 노트 하나).

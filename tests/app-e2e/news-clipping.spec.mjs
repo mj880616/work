@@ -33,7 +33,7 @@ for (const width of [412, 884, 1440]) {
     await expect(c1.locator('[data-nc-open="c1"]')).toHaveText('가짜 채널 기사');
     await expect(item(page, 'k1').locator('.nc-kw')).toHaveText('가짜어');
     // 대기 줄: 주소의 도메인 + '아직 안 읽음', 본문 칸 없음.
-    await expect(item(page, 'w1').locator('.nc-title')).toHaveText('example.org');
+    await expect(item(page, 'w1').locator('.nc-title')).toHaveText('제목 읽기 전 · example.org');
     await expect(item(page, 'w1').locator('.nc-note')).toHaveText('아직 안 읽음');
     await expect(item(page, 'w1').locator('details')).toHaveCount(0);
     // 유료: 공개 요약만 표시 + 펼치면 공개 앞부분만(Edge open을 부르지 않음).

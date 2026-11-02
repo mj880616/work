@@ -21,7 +21,7 @@ import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleU
 import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
-import { cut, oneLine, parseFeed } from "../outside-feed/parse.ts";
+import { cut, isUrlTitle, oneLine, parseFeed } from "../outside-feed/parse.ts";
 import { tidyTitle } from "../_shared/outside-tidy.ts";
 // 기사 제목도 사회운동 Now와 같은 정돈 함수를 거친다(11/02 00:19): 한 줄, 종류 꼬리표·매체명 꼬리·날짜 꼬리만 떼고 '제목 - 부제'는 나누지 않는다.
 const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: false }).title || raw;
@@ -42,7 +42,11 @@ export const KEYWORD_WORDS_PER_RUN = 60;
 // 기본값(명진이 바꿀 때 이 줄들만 고친다 — 화면은 catalog 응답의 limits로 같은 값을 보인다):
 // 자동 키워드 기사는 작업공간마다 하루 KEYWORD_ITEMS_DAILY개까지(넘는 기사는 넣지 않음). 매체 새 글은 제목만(AI 없음).
 export const KEYWORD_ITEMS_DAILY = 30;
-export const PENDING_PER_RUN = 20;
+// 채널 기사 채우기(NEWS-채널밀림 ①, 11/02): 새 것부터, 한 번에 PENDING_PER_RUN건까지 — 실제로는 시간 예산(RUN_BUDGET_MS) 안에서 멈춘다.
+// 남은 대기 건수는 PENDING_COUNT_CAP까지 세어 실행 기록에 적는다(그 이상은 'cap+1'로).
+export const PENDING_PER_RUN = 60;
+export const PENDING_COUNT_CAP = 1000;
+export const PENDING_STALE_DAYS = 3;
 export const FILL_DAILY = 10;
 export const FILL_MAX = 5;
 export const OPEN_DAILY = 60;
@@ -230,9 +234,45 @@ function makeReaders(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>
 const storedState = (code: string) => code === "robots" || code === "robots_denied" ? "robots" : code === "too_large" ? "too_big" : code === "url_outside" || code === "redirect_outside" ? "blocked" : "failed";
 
 // 기사 한 줄의 원문을 읽어 본문·메타·요약을 채운다. 줄의 url이 주어진 reader 규칙에 맞지 않으면 읽지 않는다.
+// 영상 주소(유튜브): 기사가 아니라 영상 — 본문·요약 없이 제목만. 공개 oEmbed(로그인 없이 열리는 제목·채널 이름 JSON)를 읽고,
+// 못 읽으면 제목 '영상'(NEWS-채널밀림 ③, 11/02). robots.txt·열린 주소 규칙은 다른 기사와 같다.
+const VIDEO_HOSTS = new Set(["youtu.be", "youtube.com", "www.youtube.com", "m.youtube.com"]);
+export function videoId(url: string): string | null {
+  let u: URL;
+  try { u = new URL(url); } catch { return null; }
+  const host = u.hostname.toLowerCase();
+  if (!VIDEO_HOSTS.has(host)) return null;
+  const id = host === "youtu.be" ? u.pathname.slice(1).split("/")[0]
+    : u.pathname === "/watch" ? u.searchParams.get("v")
+    : /^\/(shorts|live|embed)\/([^/]+)/.exec(u.pathname)?.[2] ?? null;
+  return id && /^[A-Za-z0-9_-]{6,20}$/.test(id) ? id : null;
+}
+async function fillVideo(db: Db, reader: FeedReader, item: Row, vid: string, nowMs: number): Promise<string> {
+  const ws = String(item.workspace_id), id = String(item.id);
+  const nowIso = new Date(nowMs).toISOString();
+  const watch = `https://www.youtube.com/watch?v=${vid}`;
+  const got = await reader.get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watch)}`, "application/json");
+  try { await addDay(db, ws, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ }
+  let title: string | null = null, author: string | null = null;
+  if (got.ok) {
+    try {
+      const v = JSON.parse(got.text) as Row;
+      if (typeof v.title === "string") title = cut(oneLine(v.title), 500) || null;
+      if (typeof v.author_name === "string") author = cut(oneLine(v.author_name), 200) || null;
+    } catch { /* 모양이 다르면 제목 '영상' */ }
+  }
+  const t = typeof item.title === "string" && item.title && !isUrlTitle(item.title) ? item.title : title ? `[영상] ${title}` : "영상";
+  const patch: Row = { state: "ok", fetched_at: nowIso, updated_at: nowIso, title: t, title_key: titleKey(t) };
+  if (!item.publisher) patch.publisher = author ?? "YouTube";
+  await db.send("PATCH", `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, patch, "return=minimal");
+  return "ok";
+}
+
 async function fillItem(db: Db, reader: FeedReader, ai: AiDeps, item: Row, nowMs: number): Promise<string> {
   const ws = String(item.workspace_id), id = String(item.id), url = String(item.url);
   const nowIso = new Date(nowMs).toISOString();
+  const vid = videoId(url);
+  if (vid) return await fillVideo(db, reader, item, vid, nowMs);
   const got = await reader.get(url, ACCEPT_HTML);
   try { await addDay(db, ws, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ }
   if (!got.ok) {
@@ -242,8 +282,10 @@ async function fillItem(db: Db, reader: FeedReader, ai: AiDeps, item: Row, nowMs
   const page = readArticlePage(got.text, nowMs);
   const patch: Row = { state: page.state, fetched_at: nowIso, updated_at: nowIso, lang: page.lang };
   if (page.state !== "bot_check") {
-    const title = (typeof item.title === "string" && item.title) || page.title;
-    if (!item.title && page.title) { const t = newsTitle(page.title); patch.title = t; patch.title_key = titleKey(t); }
+    // 줄에 든 제목이 주소뿐이면 없는 것으로 본다(도메인·주소가 제목으로 남지 않게, 11/02).
+    const own = typeof item.title === "string" && item.title && !isUrlTitle(item.title) ? item.title : "";
+    const title = own || page.title;
+    if (!own && page.title) { const t = newsTitle(page.title); patch.title = t; patch.title_key = titleKey(t); }
     if (!item.publisher && page.publisher) patch.publisher = page.publisher;
     if (!item.published_at && page.published_at) patch.published_at = page.published_at;
     if (page.body && page.body_kind) { patch.body = page.body; patch.body_kind = page.body_kind; }
@@ -375,7 +417,8 @@ async function runKeywords(db: Db, readers: Readers, nowMs: number, startMs: num
 
 async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, startMs: number, clock: () => number, log: FeedLog, onlyWs?: string, max = PENDING_PER_RUN) {
   const only = onlyWs ? `&workspace_id=eq.${onlyWs}` : "";
-  const rows = await db.get(`app_news_items?state=eq.pending&lane=eq.channel${only}&select=id,workspace_id,url,title,publisher,published_at,summary&order=created_at.asc&limit=${max}`);
+  // 새 것부터(오늘 들어온 채널 기사 먼저). 옛 대기 줄은 그 뒤에 — 옛 것부터 채우면 오늘 기사가 계속 밀린다(11/02).
+  const rows = await db.get(`app_news_items?state=eq.pending&lane=eq.channel${only}&select=id,workspace_id,url,title,publisher,published_at,summary&order=created_at.desc&limit=${max}`);
   const reader = readers.open();
   let done = 0, deferred = 0;
   const states: Record<string, number> = {};
@@ -385,8 +428,16 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
     states[s] = (states[s] ?? 0) + 1;
     done++;
   }
-  log("pending_done", { done, deferred, ...states });
-  return { ok: true, step: "pending", done, deferred, states };
+  // 남은 대기 건수(이번에 못 채운 것 포함)와 그 가운데 PENDING_STALE_DAYS일 넘은 것. 건수만 — 주소·제목은 적지 않는다.
+  let remaining = 0, stale = 0;
+  try {
+    const cap = PENDING_COUNT_CAP + 1;
+    remaining = (await db.get(`app_news_items?state=eq.pending&lane=eq.channel${only}&select=id&limit=${cap}`)).length;
+    const since = new Date(nowMs - PENDING_STALE_DAYS * 86400000).toISOString();
+    stale = (await db.get(`app_news_items?state=eq.pending&lane=eq.channel&created_at=lt.${encodeURIComponent(since)}${only}&select=id&limit=${cap}`)).length;
+  } catch { log("pending_count_failed"); }
+  log("pending_done", { done, deferred, remaining, stale, ...states });
+  return { ok: true, step: "pending", done, deferred, remaining, stale, states };
 }
 
 // 외국어 기사 제목만 한국어로(백그라운드). 작업공간마다 AI 한 번에 묶고, 하루 상한·이번 달 AI 한도 안에서만.
@@ -527,6 +578,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         if (!exactKeys(b, ["id"])) throw new Fail(400, "INVALID_BODY");
         const item = await ownItem(db, who.workspaceId, b.id);
         if (item.body_kind === "full") return json({ ok: true, status: "stored" });
+        if (videoId(String(item.url))) return json({ ok: true, status: "original_only" }); // 영상: 본문이 없다 — 원문(영상)에서 보기
         let reader: FeedReader;
         if (item.lane === "channel") reader = readers.open();
         else {
