@@ -8,7 +8,7 @@
 //   키보드는 ⠿ 에서 위·아래 — reorder-drag.js). 줄 ⋯ 의 [아래에 줄 추가]로 그 줄 바로 아래에 더한다. 줄 번호는 늘 보이는 줄 기준(weekly-draft-store.js visibleLines).
 // - 제안 거르기·학습 열쇠는 한글 파일 상자와 같다(weekly-picks.mjs sortPicks, 칸 이름 'section:key#n', 캘린더 추천 'orgref:조직 id').
 // - 칸 하나의 그리기 주인은 이 모듈 하나(journal.js는 자리만 주고 다시 그릴 때 부른다). AI 를 부르지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
-import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, changeWeekMove, withSiteLayout, draftSiteLayout, readCarriedLayout, lineDone, lineKey, visibleLines, CELL_LINE_MAX} from './weekly-draft-store.js';
+import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, changeWeekMove, withSiteLayout, draftSiteLayout, readCarriedLayout, readCarriedAreas, areaNameKey, lineDone, lineKey, visibleLines, CELL_LINE_MAX} from './weekly-draft-store.js';
 import {sortPicks, droppedOf, keptOf, pickKey, WHY_MAX} from './weekly-picks.mjs';
 import {learnFor} from './weekly-picks.js';
 import {arrangeSites, siteHidden, siteShown, siteMoved, siteKey, readSiteLayout} from './weekly-schedule-rows.mjs';
@@ -33,7 +33,7 @@ export const LINE_PER_OPEN = Math.min(8, PER_OPEN);
 const UNDO_MS = 5000;
 // 화면 상태(기기 메모리만): 고치는 줄·더하는 칸·고쳐서 넣는 제안·빼는 이유를 쓰는 제안·쓰는 중·실패·되돌리기.
 const uiOf = new WeakMap();
-const freshUi = start => ({start, editing:null, adding:null, addAt:-1, taking:null, dropping:null, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, mat:null, matFlight:null,
+const freshUi = start => ({start, editing:null, adding:null, addAt:-1, taking:null, dropping:null, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, prevAreas:null, mat:null, matFlight:null,
   line:{cache:new Map(), asked:0, off:false, flight:false, timer:0, focus:null}, siteNote:'', siteAdding:false});
 
 const particle = name => { const code = String(name).charCodeAt(String(name).length - 1); return code >= 0xAC00 && code <= 0xD7A3 ? ((code - 0xAC00) % 28 ? '을' : '를') : '을(를)'; };
@@ -88,7 +88,7 @@ export function flowMaterial(weekMaterial, model, draft) {
   }
   return out;
 }
-const describe = (c) => x => ({kind:x.orgRef ? 'calendar' : 'material', from:x.src ?? (x.summary ? 'ai' : 'record'), cell:x.orgRef ? `orgref:${x.orgId}` : cellName(c.section, c.key, c.n),
+const describe = (c) => x => ({kind:x.orgRef ? 'calendar' : x.carried ? 'carried' : 'material', from:x.src ?? (x.summary ? 'ai' : 'record'), cell:x.orgRef ? `orgref:${x.orgId}` : cellName(c.section, c.key, c.n),
   org:c.section === 'summary' ? '' : x.from ?? '', text:`${x.day ? `${shortDay(x.day)} ` : ''}${lineOf(x.text)}`});
 
 // slot: 그 칸 묶음 자리. ctx = {section, start, row(그 주 행 {exists, draft, saved_at} | null), status('ok'|'loading'|'missing'|'failed'),
@@ -115,6 +115,11 @@ export function paintFlowCells(slot, ctx) {
   }
   // 2. 1) 요약: 내 사업영역 칸 전부(바탕에 내 줄이 없던 사업영역은 빈 칸으로 뒤에).
   if (section === 'summary') cells = summaryCells(draft, areaNames);
+  // WEEKLY-사업영역칸 2)(S48-35): 바탕에 줄이 없는 사업영역 칸이 있으면 바로 앞 주 임시저장의 그 사업영역 줄을 한 번 읽어 '지난주에서' 제안으로.
+  if (section === 'summary' && cells.some(c => !c.lines.length) && ui.prevAreas?.start !== ctx.start) {
+    ui.prevAreas = {start:ctx.start, data:null};
+    readCarriedAreas(ctx.start, ctx.rt).then(d => { if (ui.prevAreas?.start === ctx.start) { ui.prevAreas = {start:ctx.start, data:d}; if (d?.areas?.size) ctx.redraw?.(); } });
+  }
   // 투쟁 사업장: 구성(이번 주 것, 없으면 지난주 구성)대로 들어간 사업장만(뺀 사업장은 목록 없이 [+ 사업장 추가]에서 다시 고름).
   let siteOptions = [];
   if (section === 'sites') {
@@ -134,6 +139,14 @@ export function paintFlowCells(slot, ctx) {
   // 제안 재료(draft.mjs weekMaterial — 무거워서 처음 쓸 때 한 번 가져옴).
   if (section !== 'sites' && !ui.mat && !ui.matFlight) ui.matFlight = import('./weekly-hwpx/draft.mjs').then(m => { ui.mat = m.weekMaterial; ui.matFlight = null; ctx.redraw?.(); }, () => { ui.matFlight = null; });
   const material = section !== 'sites' && ui.mat && ctx.model ? flowMaterial(ui.mat, ctx.model, draft) : new Map();
+  const prevAreas = section === 'summary' ? ui.prevAreas?.data?.areas : null;
+  if (prevAreas?.size) for (const c of cells) {
+    if (c.lines.length) continue;
+    const prev = prevAreas.get(areaNameKey(c.key.split('›')[0])) ?? [];
+    if (!prev.length) continue;
+    const list = material.get(c.id) ?? [], have = new Set(list.map(x => strip(x.text)));
+    material.set(c.id, [...prev.filter(l => !have.has(strip(l))).map(l => ({day:'', text:l, carried:true})), ...list]);
+  }
   const picks = draft?.picks ?? null;
   const opts = {dropped:droppedOf(picks), kept:keptOf(picks), learn:learnFor(ctx.start, picks, {rt:ctx.rt, redraw:ctx.redraw}).learn};
   const parts = [];
@@ -237,7 +250,7 @@ export function paintFlowCells(slot, ctx) {
         if (ui.taking?.key === x.key) { li.append(editForm(c.id, ui.taking.value ?? text, {flowEditSave:c.id}, '고쳐서 넣기')); sg.append(li); continue; }
         // [빼기]를 누르면 그 자리에 작은 한 줄 '이유(안 써도 돼요)' + [빼기 확인](요청함 11/01 23:42). 빈 칸이면 그냥 빠진다.
         if (ui.dropping?.key === x.key) { li.append(el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text), ' ', whyForm(c.id, x.text)); sg.append(li); continue; }
-        li.append(el('span', 'weekly-flow-tag', TAG[ai ? 'line' : x.raw.orgRef ? 'calendar' : x.from] ?? '기록'), el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text));
+        li.append(el('span', 'weekly-flow-tag', x.raw.carried ? CARRIED_TAG : TAG[ai ? 'line' : x.raw.orgRef ? 'calendar' : x.from] ?? '기록'), el('span', 'weekly-flow-text', ai ? `${x.raw.index + 1}번째 줄 → ${x.raw.text}` : x.text));
         const take = btn('넣기', {flowTake:c.id}, 'mini weekly-flow-take'); take.disabled = busy; take.setAttribute('aria-label', ai ? `${x.raw.index + 1}번째 줄을 이렇게 바꾸기: ${x.raw.text}` : `넣기: ${x.text}`);
         li.append(take, rowMore(doc, {label:`제안 고쳐서 넣기·빼기: ${x.text}`, data:{flowSuggestMore:''}, items:[
           {text:'고쳐서 넣기', data:{flowEdit:c.id}, disabled:busy}, {text:'빼기', data:{flowDrop:c.id}, disabled:busy, danger:true, aria:`제안 빼기: ${x.text}`}]}));

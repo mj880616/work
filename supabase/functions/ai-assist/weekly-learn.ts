@@ -151,7 +151,8 @@ export function readPicksCell(raw: unknown): WlPick[] {
 const ACT_NAME: Record<PickAct, string> = { take: "넣음", edit: "고쳐서 넣음", drop: "뺌", fix: "줄 고침", cut: "줄 뺌", add: "손으로 더함", none: "" };
 // 칸(cell)을 사람이 읽는 묶음 이름으로 — 칸 안 이름(사업영역·조직)은 일반화하지 않고 그대로 두되 AI 지시가 옮겨 쓰지 않게 한다.
 // WEEKLY-한흐름확정 ⑤ 남은 부분(S47-59): 칸 줄 밖 동작 — 1. 요청사항 1)2)3)('requests:ask'·'requests:hq'·'requests:discuss')·참고 내 메모('notes').
-const groupOf = (p: WlPick) => p.cell.startsWith("summary:") ? "2. 사업 요약" : p.cell.startsWith("orgs:") || p.cell.startsWith("orgref:") ? "4. 산하 조직" : p.cell.startsWith("sites:") ? "3. 투쟁 사업장"
+// S48-35: 2) 세부 내용 — 회의·활동 결과 줄('details', 앱 weekly-picks.mjs pickGroup 과 같은 이름).
+const groupOf = (p: WlPick) => p.cell.startsWith("summary:") ? "2. 사업 요약" : p.cell === "details" ? "2. 세부 내용" : p.cell.startsWith("orgs:") || p.cell.startsWith("orgref:") ? "4. 산하 조직" : p.cell.startsWith("sites:") ? "3. 투쟁 사업장"
   : p.cell.startsWith("requests:") ? "1. 요청사항" : p.cell === "calendar" ? "5. 주요 일정" : p.cell === "notes" || p.cell.startsWith("notes:") ? "참고" : p.cell === "규칙 후보" ? "새 규칙 후보" : p.cell === "개선 제안" ? "개선 제안" : "기타";
 // 이번 주 동작 요약: 묶음·제안 종류마다 넣음/고쳐서 넣음/뺌 수와 '그대로 넣은 비율', 고친 예·뺀 예(이유)·손으로 더한 예.
 export function actionDigest(picks: WlPick[]) {
