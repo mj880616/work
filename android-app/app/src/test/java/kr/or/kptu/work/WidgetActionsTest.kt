@@ -118,6 +118,10 @@ class WidgetActionsTest {
         assertEquals("true", attr(config, "exported"))
         val actions = children(config, "action").map { attr(it, "name") }
         assertEquals(listOf("android.appwidget.action.APPWIDGET_CONFIGURE"), actions)
+        // APP-위젯아스날맞춤 E: 아스날 '결과 가림' 고르기 창도 같은 모양(설정 동작 하나만).
+        val arsenalConfig = activities.getValue(".ArsenalWidgetConfigActivity")
+        assertEquals("true", attr(arsenalConfig, "exported"))
+        assertEquals(listOf("android.appwidget.action.APPWIDGET_CONFIGURE"), children(arsenalConfig, "action").map { attr(it, "name") })
         // 위젯은 권한을 늘리지 않았다(카메라 권한 없음). 설치 권한 둘은 앱 스스로 업데이트(0.3.8)용.
         // 사진·동영상 읽기 넷은 사진 메뉴 '폰 사진'(PHOTO-출처 ①, 0.3.9)용 — 저장소 쓰기·위치·카메라는 없다.
         // MANAGE_MEDIA는 사진 [폴더]의 폰 폴더 바꾸기(PHOTO-폴더스위치, 0.4.1)용 — 사용자가 설정에서 켜야만 쓰인다.
@@ -147,6 +151,35 @@ class WidgetActionsTest {
         assertEquals("reconfigurable", attr(one, "widgetFeatures"))
         assertEquals("home_screen", attr(one, "widgetCategory"))
         assertEquals("0", attr(one, "updatePeriodMillis"))
+    }
+
+    @Test
+    fun oneCellLooksLikeQuickWriteButton() {
+        // APP-한칸위젯디자인: 칸을 꽉 채우는 색 칠한 둥근 칸 + 26dp 이상 그림 + 글자(빈 바탕 없음).
+        val one = xml("src/main/res/layout/one_widget.xml")
+        assertEquals("@drawable/widget_btn", attr(one, "background"))
+        assertEquals("match_parent", attr(one, "layout_width"))
+        assertEquals("match_parent", attr(one, "layout_height"))
+        val icon = children(one, "ImageView").single()
+        assertTrue(attr(icon, "layout_width").removeSuffix("dp").toInt() >= 26)
+        assertEquals("@color/widget_btn_ink", attr(children(one, "TextView").single(), "textColor"))
+        // 기능마다 색(테마 토큰): 녹음만 주황 계열, 나머지는 빠른 쓰기와 같은 남색 계열.
+        assertEquals(WidgetActions.Tone.WARM, WidgetActions.tone(WidgetAction.RECORD))
+        for (a in WidgetActions.ONE_CHOICES.filter { it != WidgetAction.RECORD }) assertEquals(WidgetActions.Tone.PLAIN, WidgetActions.tone(a))
+        val warm = File("src/main/res/drawable/widget_btn_warm.xml").readText()
+        assertTrue(warm.contains("@color/widget_req_bg"))
+        assertTrue(File("src/main/res/values-night/colors.xml").readText().contains("name=\"widget_req_bg\""))
+    }
+
+    @Test
+    fun widgetNamesAreNeverRemoved() {
+        // 규칙(11/02): 위젯 받는 곳을 지우거나 이름을 바꾸면 홈 화면에 놓인 자리가 '위젯을 추가할 수 없습니다'로 남는다.
+        // 모양을 바꿀 때는 같은 이름으로. 이 목록은 늘릴 수만 있다(manifestListsTheWidgets와 함께 고정).
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        for (name in listOf(".NowWidget", ".QuickWidget", ".OneWidget", ".WeekWidget", ".ArsenalWidget")) {
+            assertTrue(name, manifest.contains("android:name=\"$name\""))
+        }
+        assertTrue(manifest.contains("위젯 받는 곳(receiver)은 지우거나 이름을 바꾸지 않는다"))
     }
 
     @Test

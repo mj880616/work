@@ -80,7 +80,7 @@ class QuickWidget : AppWidgetProvider() {
 }
 
 /**
- * 한 칸(1×1): 놓을 때 고른 기능 하나(OneWidgetConfigActivity). 같은 위젯을 여러 개 놓아 각각 다른 기능을 둔다.
+ * 한 칸(1×1): 놓을 때 고른 기능 하나(OneWidgetConfigActivity). 모양은 빠른 쓰기 큰 단추와 같다(APP-한칸위젯디자인). 같은 위젯을 여러 개 놓아 각각 다른 기능을 둔다.
  * 고른 기능은 앱 전용 설정 파일(백업 제외)에 위젯 번호별로 둔다. 위젯을 지우면 그 줄도 지운다.
  */
 class OneWidget : AppWidgetProvider() {
@@ -125,6 +125,10 @@ class OneWidget : AppWidgetProvider() {
             } else {
                 views.setImageViewResource(R.id.one_icon, WidgetIntents.icon(action))
                 views.setTextViewText(R.id.one_label, action.label)
+                // APP-한칸위젯디자인: 칸을 꽉 채우는 색 칠한 둥근 칸(빠른 쓰기 큰 단추와 같은 모양), 색은 기능마다 테마 토큰.
+                val warm = WidgetActions.tone(action) == WidgetActions.Tone.WARM
+                views.setInt(R.id.one_root, "setBackgroundResource", if (warm) R.drawable.widget_btn_warm else R.drawable.widget_btn)
+                views.setTextColor(R.id.one_label, context.getColor(if (warm) R.color.widget_req_ink else R.color.widget_btn_ink))
                 views.setContentDescription(R.id.one_root, action.label)
                 views.setOnClickPendingIntent(R.id.one_root, WidgetIntents.pending(context, WIDGET, action))
             }

@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WIDGET-여러개 ③: 아스날(2×1), 홈 화면 전용. 공개 자료를 같은 갱신 작업 안에서 6시간에 한 번만 받는다. -->
+<!-- APP-위젯아스날맞춤 C·E: 아스날(처음 4×2, 4×1·2×1로 줄일 수 있음), 홈 화면 전용. 같은 위젯 이름을 유지한다(옛 2×1 위젯도 그대로 이어짐).
+     놓을 때 '결과 보이기/가리기'를 고르고(ArsenalWidgetConfigActivity), 꾹 눌러 다시 고를 수 있다(reconfigurable).
+     공개 경기 자료는 같은 갱신 작업 안에서 6시간에 한 번, 내 일정은 위젯 로그인이 있을 때 그 하루만. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="kr.or.kptu.work.ArsenalWidgetConfigActivity"
     android:description="@string/arsenal_widget_description"
     android:initialLayout="@layout/arsenal_widget"
-    android:minWidth="110dp"
-    android:minHeight="40dp"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
     android:minResizeWidth="110dp"
     android:minResizeHeight="40dp"
-    android:targetCellWidth="2"
-    android:targetCellHeight="1"
-    android:resizeMode="horizontal"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
+    android:widgetFeatures="reconfigurable"
     android:widgetCategory="home_screen" />

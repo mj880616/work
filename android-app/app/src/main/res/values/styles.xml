@@ -24,4 +24,15 @@
     <style name="QuickWriteTheme" parent="android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar">
         <item name="android:windowCloseOnTouchOutside">false</item>
     </style>
+    <!-- APP-위젯아스날맞춤 C: 4×1 최근 다섯 경기 승·무·패 동그라미 한 개(바탕은 ArsenalWidget이 승·무·패 색으로). -->
+    <style name="WidgetFormDot">
+        <item name="android:layout_width">22dp</item>
+        <item name="android:layout_height">22dp</item>
+        <item name="android:layout_marginEnd">3dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/widget_form_draw</item>
+        <item name="android:textColor">@color/widget_ink</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
 </resources>
