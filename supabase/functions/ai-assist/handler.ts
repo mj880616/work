@@ -133,7 +133,7 @@ import {
 } from "./library-fill.ts";
 import {
   type OrgMaterial, ORG_SUMMARY_INSTRUCTIONS, ORG_SUMMARY_MAX_ORGS, ORG_SUMMARY_MAX_OUTPUT_TOKENS, ORG_SUMMARY_SCHEMA, orgSummaryMaterial,
-  packOrgs, parseOrgSummary,
+  packOrgs, parseOrgSummary, type OrgCalendarInput, parseOrgCalendar, calendarRecords,
 } from "./org-summary.ts";
 import {
   type BriefItem, briefPeople, packBriefItems, parsePeopleBrief, PEOPLE_BRIEF_DAYS, PEOPLE_BRIEF_INSTRUCTIONS, PEOPLE_BRIEF_MAX_OUTPUT_TOKENS,
@@ -509,7 +509,7 @@ type TodoRecheckInput = { kind: "todo_recheck" };
 type TodoRulesReviewInput = { kind: "todo_rules_review" };
 type LedgerAutoInput = { kind: "ledger_auto" };
 type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
-type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
+type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[]; calendar?: OrgCalendarInput };
 type OrgPeopleBriefInput = { kind: "org_people_brief"; organization_id: string };
 // DESK-현황표: 조직 ID 하나만. 서버는 저장하지 않고 줄 후보만 돌려준다(화면이 표에 넣음).
 type OrgStatusRowsInput = { kind: "org_status_rows"; organization_id: string };
@@ -538,8 +538,10 @@ type ShareDraftRequest = ShareInput;
 type AskWeb2Input = { kind: "ask_web2"; question: string };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
+// CAL-조직참고캘린더 ④: 조직 참고 캘린더 주요 일정(calendar: 조직 하나 + 날짜·제목 1~30개)을 함께 받을 수 있다(org-summary.ts parseOrgCalendar).
 function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
-  if (Object.keys(b).sort().join(",") !== "kind,organization_ids,week_start") throw new Fail(400, "invalid_request");
+  const keys = Object.keys(b).sort().join(",");
+  if (keys !== "kind,organization_ids,week_start" && keys !== "calendar,kind,organization_ids,week_start") throw new Fail(400, "invalid_request");
   const week = b.week_start, ids = b.organization_ids;
   if (typeof week !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(week)) throw new Fail(400, "invalid_request");
   const t = Date.parse(week + "T00:00:00Z");
@@ -549,7 +551,10 @@ function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
   }
   const unique = [...new Set((ids as string[]).map((id) => id.toLowerCase()))];
   if (unique.length !== ids.length) throw new Fail(400, "invalid_request");
-  return { kind: "org_summary", week_start: week, organization_ids: unique };
+  if (!("calendar" in b)) return { kind: "org_summary", week_start: week, organization_ids: unique };
+  const calendar = parseOrgCalendar(b.calendar, unique, week);
+  if (!calendar) throw new Fail(400, "invalid_request");
+  return { kind: "org_summary", week_start: week, organization_ids: unique, calendar };
 }
 type LibraryMode = "fill" | "propose" | "tidy";
 type LibraryFillInput = { kind: "library_fill"; mode: LibraryMode; document_ids: string[]; keep: LibraryField[] };
@@ -2946,6 +2951,23 @@ async function writeOrgSummary(ctx: Ctx, week: string, org: string, existing: Su
   return await patch(key);
 }
 
+// CAL-조직참고캘린더 ④: 조직 참고 캘린더가 어느 조직 것인지는 화면 말을 믿지 않고 내 프로필(app_profiles.ledger_calendar.org)로 확인한다.
+// 캘린더와 조직을 둘 다 골랐을 때만 그 조직 id, 못 읽거나 고르지 않았으면 ''(캘린더 일정 없이 요약).
+async function orgCalendarOrg(ctx: Ctx): Promise<string> {
+  try {
+    const rows = await rest(ctx, `app_profiles?user_id=eq.${encodeURIComponent(ctx.userId)}&select=user_id,ledger_calendar&limit=1`);
+    const row = Array.isArray(rows) ? (rows[0] as Record<string, unknown> | undefined) : undefined;
+    if (!row || String(row.user_id ?? "").toLowerCase() !== ctx.userId) return "";
+    const choice = row.ledger_calendar as Record<string, unknown> | null;
+    if (!choice || typeof choice !== "object" || typeof choice.calendar !== "string" || !choice.calendar || typeof choice.org !== "string") return "";
+    const org = choice.org.toLowerCase();
+    return isUuid(org) ? org : "";
+  } catch {
+    ctx.log("org_summary_calendar_unavailable");
+    return "";
+  }
+}
+
 async function runOrgSummary(ctx: Ctx, input: OrgSummaryInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
   const today = kstDay(started);
@@ -2978,6 +3000,8 @@ async function runOrgSummary(ctx: Ctx, input: OrgSummaryInput, deps: RadarDeps):
   }
   const budget = await checkBudget(ctx, "org_summary", started, config.price);
   const loaded = await loadOrgMaterial(ctx, week, targets);
+  const calendarOrg = input.calendar && targets.has(input.calendar.organization_id) ? await orgCalendarOrg(ctx) : "";
+  if (input.calendar && calendarOrg === input.calendar.organization_id) loaded.records.get(calendarOrg)?.push(...calendarRecords(input.calendar.events));
   const { packed, partial: cutShort } = packOrgs([...targets].map(([id, name]) => ({ id, name, previous: previous.get(id) ?? "", records: loaded.records.get(id) ?? [] })));
   const partial = loaded.partial || cutShort;
   const sent = new Set(packed.map((o) => o.id));
