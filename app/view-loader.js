@@ -242,28 +242,28 @@ function hint(rel,path,as){
   document.head.appendChild(link);
   return link
 }
-// PERF-첫로딩 P5-c(docs/design/first-load.md 11절): 화면마다 차례로 받는다 — 한 화면 사슬을 다 받은(또는 실패한) 뒤 다음 쉬는 틈에 다음 화면.
-// 한꺼번에(약 220개) 걸면 폰에서 받기·읽기(modulepreload는 받은 뒤 해석까지 함)가 겹쳐, 먼저 누를 화면(정리함·일정)의 사슬이 뒤 화면 사슬과 같이 밀린다.
-// 순서는 사슬이 짧은 화면부터(같으면 위 목록 순서) — 일정·할 일처럼 작은 화면이 먼저 준비되고, 정리함·사업 보고처럼 큰 사슬은 그 뒤에 받는다.
-// 그 화면을 이미 열었으면 건너뛴다. 화면을 누르면 prepare가 그 사슬을 바로 받으므로(같은 주소는 한 번만) 기다리지 않는다.
+// PERF-첫로딩 P5-c(docs/design/first-load.md 11절): 사업 보고 사슬(P5-b로 홈 앞에서 뺀 사업 보고 전용 묶음 포함, 약 70개)은 다른 화면 미리 받기를
+// 다 받은(또는 실패한) 뒤 다음 쉬는 틈에 받는다. 한꺼번에 걸면 폰에서 그 묶음의 받기·해석(modulepreload는 받은 뒤 해석까지 함)이 홈 바로 뒤로 옮겨 와
+// 먼저 누를 화면(일정 등)과 다툰다(S48-34 측정: 달력 첫 전환 775 → 1359ms). 나머지 화면은 전처럼 한꺼번에(메뉴 순서). 그 화면을 이미 열었으면 건너뛰고,
+// 화면을 누르면 prepare가 그 사슬을 바로 받는다(같은 주소는 한 번만).
+const warmLater=new Set(['meetings']);
 const settled=link=>new Promise(resolve=>{link.addEventListener('load',resolve,{once:true});link.addEventListener('error',resolve,{once:true})});
 const idle=fn=>window.requestIdleCallback?window.requestIdleCallback(fn,{timeout:2000}):setTimeout(fn,50);
+function warmViews(views,have){
+  const links=[];
+  for(const [view,paths] of views){
+    if(loaded.has(view))continue;
+    for(const path of paths){const link=hint('modulepreload',path);if(link)links.push(link)}
+    for(const path of routeStyles[view]||[])if(!have.has(new URL(path,location.href).href))hint('prefetch',path,'style');
+  }
+  return links
+}
 function warm(){
   if(navigator.connection?.saveData)return false;
   const have=new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map(link=>link.href));
-  const queue=Object.entries(warmModules).map((entry,at)=>({entry,at})).sort((a,b)=>a.entry[1].length-b.entry[1].length||a.at-b.at).map(x=>x.entry);
-  const next=()=>{
-    while(queue.length){
-      const [view,paths]=queue.shift();
-      if(loaded.has(view))continue;
-      const links=paths.map(path=>hint('modulepreload',path)).filter(Boolean);
-      for(const path of routeStyles[view]||[])if(!have.has(new URL(path,location.href).href))hint('prefetch',path,'style');
-      if(!links.length)continue;
-      void Promise.all(links.map(settled)).then(()=>idle(next));
-      return;
-    }
-  };
-  next();
+  const views=Object.entries(warmModules);
+  const first=warmViews(views.filter(([view])=>!warmLater.has(view)),have);
+  void Promise.all(first.map(settled)).then(()=>idle(()=>warmViews(views.filter(([view])=>warmLater.has(view)),have)));
   return true
 }
 // PERF-첫로딩 P5-c: 화면 안에서 뒤늦게 부르는 묶음(예: 홈의 [주간 정리] 묶음)도 같은 받기 도구로 사슬을 한꺼번에 받아만 둔다.

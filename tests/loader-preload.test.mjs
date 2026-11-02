@@ -87,3 +87,17 @@ test('P5-c: 홈 주간 정리 묶음은 부르기 직전에 정적 사슬을 한
   // 묶음은 여전히 홈 첫 화면 정적 사슬 밖(앱이 보인 뒤 부름).
   assert.ok(!closure('journal.js').has('journal-weekly-kit.js'));
 });
+
+// PERF-첫로딩 P5-c: 사업 보고 사슬(P5-b 묶음 포함)은 다른 화면 미리 받기를 다 받은 뒤 다음 쉬는 틈에. 나머지는 전처럼 한꺼번에.
+// 한꺼번에 걸면 폰에서 그 묶음의 받기·해석이 먼저 누를 화면과 다툰다(S48-34 측정: 달력 첫 전환 775 → 1359ms).
+test('P5-c: 사업 보고 미리 받기는 다른 화면 미리 받기 뒤 쉬는 틈에', () => {
+  const warm = views.slice(views.indexOf('const warmLater='), views.indexOf('// PERF-첫로딩 P5-c: 화면 안에서'));
+  assert.match(warm, /const warmLater=new Set\(\['meetings'\]\);/);
+  assert.match(warm, /const first=warmViews\(views\.filter\(\(\[view\]\)=>!warmLater\.has\(view\)\),have\);/);
+  assert.match(warm, /Promise\.all\(first\.map\(settled\)\)\.then\(\(\)=>idle\(\(\)=>warmViews\(views\.filter\(\(\[view\]\)=>warmLater\.has\(view\)\),have\)\)\)/);
+  assert.match(warm, /if\(loaded\.has\(view\)\)continue;/);
+  // 받기만(modulepreload·prefetch) — 실행·기기 저장 없음.
+  assert.doesNotMatch(warm, /import\(|localStorage|sessionStorage/);
+  // 사업 보고를 누르면 prepare가 같은 사슬을 바로 받는다.
+  assert.match(views, /if\(!loaded\.has\(key\)\)for\(const path of firstModules\[key\]\|\|warmModules\[key\]\|\|\[\]\)hint\('modulepreload',path\);/);
+});
