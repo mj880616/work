@@ -90,10 +90,10 @@ export function itemView(item, {showKo = false} = {}) {
   const ko = foreign && showKo;
   const t = whenOf(item);
   const koTitle = foreign && typeof item.title_ko === 'string' && item.title_ko.trim() ? item.title_ko : '';
-  // 제목이 없거나 주소·도메인뿐이면 도메인을 제목으로 보이지 않는다(NEWS-채널밀림 ②, 11/02): '기사 읽는 중 · 도메인' / '제목 없음 · 도메인'.
+  // 제목이 없거나 주소·도메인뿐이면 도메인을 제목으로 보이지 않는다(NEWS-채널밀림 ②, 11/02): '제목 읽기 전 · 도메인' / '제목 없음 · 도메인'.
   const own = typeof item.title === 'string' && item.title.trim() && !isAddressTitle(item.title) ? item.title : '';
   const host = domainOf(item.url);
-  const title = koTitle || own || `${item.state === 'pending' ? '기사 읽는 중' : '제목 없음'}${host ? ` · ${host}` : ''}`;
+  const title = koTitle || own || `${item.state === 'pending' ? '제목 읽기 전' : '제목 없음'}${host ? ` · ${host}` : ''}`;
   return {
     tag: tagOf(item),
     publisher: item.publisher || domainOf(item.url),
