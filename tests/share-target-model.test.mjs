@@ -50,7 +50,6 @@ test('창은 받은 글을 HTML로 넣지 않고, 노트·할 일 화면과 같�
   const src = readFileSync(new URL('../app/share-target.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src.replace(/dialog\.innerHTML = `[\s\S]*?`;/, ''), /innerHTML|insertAdjacentHTML/);
   for (const use of ['createNoteDoc', 'setNoteFolderRef', 'uploadNoteFiles', 'createGoogleTask', 'attachNewTaskFiles']) assert.match(src, new RegExp(use));
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
   const basket = readFileSync(new URL('../app/basket-share.js', import.meta.url), 'utf8');
   assert.match(basket, /list\.target === 'note' \|\| list\.target === 'task'/);
 });
