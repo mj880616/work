@@ -23,7 +23,7 @@ test('summary groups rounds, takes the median and flags spread over 10%', () => 
   const text = [
     'PERF_SHELL {"round":"1","profile":"local","view":"login","shownMs":100,"jsFiles":15,"jsKB":66}',
     'PERF_SHELL {"round":"2","profile":"local","view":"login","shownMs":105,"jsFiles":15,"jsKB":66}',
-    'PERF_SHELL {"round":"3","profile":"local","view":"login","shownMs":130,"jsFiles":15,"jsKB":66}',
+    'PERF_SHELL {"round":"3","profile":"local","view":"login","shownMs":200,"jsFiles":15,"jsKB":66}',
     'noise PERF {"round":"1","profile":"phone","view":"home","ready":8000,"jsBeforeReady":194}',
     'PERF_SWITCH {broken',
   ].join('\n');
@@ -33,9 +33,14 @@ test('summary groups rounds, takes the median and flags spread over 10%', () => 
   assert.equal(rows.switch.length, 0);
   const [g] = group(rows.shell, r => r.profile, ['shownMs', 'jsFiles']);
   assert.equal(g.metrics.shownMs.median, 105);
-  assert.ok(Math.abs(g.metrics.shownMs.spread - 30 / 105) < 1e-9);
+  assert.ok(Math.abs(g.metrics.shownMs.spread - 100 / 105) < 1e-9);
   assert.equal(g.metrics.jsFiles.spread, 0);
   const { markdown, over } = render(rows);
   assert.equal(over.length, 1);
-  assert.match(markdown, /105 \(100\/105\/130, ±29%\) ⚠/);
+  assert.match(markdown, /105 \(100\/105\/200, ±95%\) ⚠/);
+  // 시간 칸은 차이가 50ms 안이면 10%를 넘어도 한도 안이다(숫자 칸은 그대로 10%).
+  const small = parse(['PERF_SWITCH {"profile":"local","step":1,"view":"tasks","shownMs":26,"newJsKB":100}', 'PERF_SWITCH {"profile":"local","step":1,"view":"tasks","shownMs":51,"newJsKB":120}'].join('\n'));
+  const [s] = group(small.switch, r => r.view, ['shownMs', 'newJsKB']);
+  assert.equal(s.metrics.shownMs.over, false);
+  assert.equal(s.metrics.newJsKB.over, true);
 });

@@ -7,6 +7,7 @@ set -uo pipefail
 ORIGIN="${ORIGIN:-http://127.0.0.1:8125}"
 OUT="${OUT:-/tmp/perf-baseline}"
 ROUNDS="${ROUNDS:-3}"
+INNER="${INNER:-3}" # 한 회차 안에서 재는 횟수(가운데 값을 회차 값으로 쓴다)
 LOAD_PROFILES="${LOAD_PROFILES:-local,phone,phone-warm}"
 SWITCH_PROFILES="${SWITCH_PROFILES:-local,phone}"
 mkdir -p "$OUT"
@@ -14,10 +15,10 @@ mkdir -p "$OUT"
 export WEB2_TEST_ORIGIN="$ORIGIN" APP_E2E_ORIGIN="$ORIGIN"
 for round in $(seq 1 "$ROUNDS"); do
   echo "== round $round/$ROUNDS"
-  PERF_ROUND="$round" PERF_RUNS=1 PERF_PROFILES="$LOAD_PROFILES" \
+  PERF_ROUND="$round" PERF_RUNS="$INNER" PERF_PROFILES="$LOAD_PROFILES" \
     npx playwright test scripts/perf/first-load.spec.mjs --workers=1 --reporter=line > "$OUT/load-$round.log" 2>&1 \
     || echo "round $round first-load: 실패(기록은 $OUT/load-$round.log)"
-  PERF_ROUND="$round" PERF_PROFILES="$SWITCH_PROFILES" \
+  PERF_ROUND="$round" PERF_RUNS="$INNER" PERF_PROFILES="$SWITCH_PROFILES" \
     npx playwright test scripts/perf/tab-switch.spec.mjs --workers=1 --reporter=line > "$OUT/switch-$round.log" 2>&1 \
     || echo "round $round tab-switch: 실패(기록은 $OUT/switch-$round.log)"
   grep -hE '^(PERF|PERF_SHELL|PERF_SWITCH) \{' "$OUT/load-$round.log" "$OUT/switch-$round.log" >> "$OUT/perf.jsonl" || true

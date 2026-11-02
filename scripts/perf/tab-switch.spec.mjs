@@ -19,6 +19,8 @@ const profiles = Object.fromEntries((process.env.PERF_PROFILES || 'local,phone')
 // 메뉴 앞쪽 화면 순서. 마지막 home은 "갔던 화면으로 돌아오기".
 const route = (process.env.PERF_SWITCH_VIEWS || 'calendar,tasks,meetings,library,team,ledger,home').split(',');
 const round = process.env.PERF_ROUND || '1';
+const runs = Number(process.env.PERF_RUNS || 3); // 한 회차 안에서 재는 횟수(가운데 값)
+const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 const isJs = url => { try { const u = new URL(url); return u.origin === testOrigin && /\.m?js$/.test(u.pathname); } catch { return false; } };
 
 // CDP로 같은 출처 JS 요청을 센다(문서가 바뀌어도 이어서 센다). 크기는 풀린 크기(dataReceived 합).
@@ -34,18 +36,24 @@ async function jsMeter(page, profile) {
 }
 
 for (const [name, profile] of Object.entries(profiles)) {
-  test(`shell ${name}`, async ({ page }) => {
-    test.setTimeout(180000);
-    await page.setViewportSize(profile.viewport);
-    const meter = await jsMeter(page, profile);
-    const start = Date.now();
-    await page.goto(`${testOrigin}/app/`);
-    await page.waitForURL(url => url.pathname === '/app/login/', { timeout: 120000 });
-    await page.locator('#googleLoginBtn').waitFor({ state: 'visible', timeout: 120000 });
-    const shownMs = Date.now() - start;
-    await page.waitForLoadState('load');
-    const { files, kb } = meter.since(new Set());
-    console.log('PERF_SHELL ' + JSON.stringify({ round, profile: name, view: 'login', shownMs, jsFiles: files, jsKB: kb }));
+  test(`shell ${name}`, async ({ browser }) => {
+    test.setTimeout(300000);
+    const samples = [];
+    for (let rep = 0; rep < runs; rep++) { // 매번 새 브라우저 문맥(캐시 빈 첫 방문)
+      const context = await browser.newContext({ viewport: profile.viewport });
+      const page = await context.newPage();
+      const meter = await jsMeter(page, profile);
+      const start = Date.now();
+      await page.goto(`${testOrigin}/app/`);
+      await page.waitForURL(url => url.pathname === '/app/login/', { timeout: 120000 });
+      await page.locator('#googleLoginBtn').waitFor({ state: 'visible', timeout: 120000 });
+      const shownMs = Date.now() - start;
+      await page.waitForLoadState('load');
+      samples.push({ shownMs, ...meter.since(new Set()) });
+      await context.close();
+    }
+    const pick = key => median(samples.map(s => s[key]));
+    console.log('PERF_SHELL ' + JSON.stringify({ round, profile: name, view: 'login', shownMs: pick('shownMs'), jsFiles: pick('files'), jsKB: pick('kb') }));
   });
 
   test(`switch ${name}`, async ({ page }) => {
@@ -61,10 +69,13 @@ for (const [name, profile] of Object.entries(profiles)) {
     });
     await openHome(page);
     const meter = await jsMeter(page, profile);
+    const samples = [];
+    for (let rep = 0; rep < runs; rep++) { // 홈을 새로 열고 같은 순서로 runs번 눌러 가운데 값을 쓴다
     await page.goto(`${testOrigin}/app/?view=home`);
     await page.waitForFunction(() => document.querySelector('#appView.kptu-ui-ready'), null, { timeout: 120000 });
     await page.waitForTimeout(profile.net ? 6000 : 2000); // 쉬는 틈 미리 받기(view-loader.js warm)까지 끝난 상태에서 누른다
     const rows = [];
+    samples.push(rows);
     for (const [i, view] of route.entries()) {
       const before = meter.mark();
       await page.evaluate(v => { window.__perfSwitch.changed[v] = 0; window.__perfSwitch.click = 0; }, view);
@@ -83,6 +94,12 @@ for (const [name, profile] of Object.entries(profiles)) {
       rows.at(-1).newJsFilesIdle = late.files;
       rows.at(-1).newJsKBIdle = late.kb;
     }
-    for (const row of rows) console.log('PERF_SWITCH ' + JSON.stringify(row));
+    }
+    for (const [i, first] of samples[0].entries()) {
+      const pick = key => median(samples.map(rows => rows[i][key]));
+      const row = { ...first };
+      for (const key of ['shownMs', 'settledMs', 'newJsFiles', 'newJsKB', 'newJsFilesIdle', 'newJsKBIdle']) row[key] = pick(key);
+      console.log('PERF_SWITCH ' + JSON.stringify(row));
+    }
   });
 }
