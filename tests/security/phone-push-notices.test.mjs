@@ -18,7 +18,7 @@ const reply=(status,body)=>new Response(body===undefined?null:JSON.stringify(bod
 const eq=v=>v?.replace(/^eq\./,'');
 const inl=v=>v?.replace(/^in\.\(|\)$/g,'').split(',').map(x=>x.replace(/^"|"$/g,''));
 
-function harness({now=FRI_16,log=[],sheets={},env={},sheetFail=false}={}){
+function harness({now=FRI_16,log=[],sheets={},env={},sheetFail=false,jobs=[],jobFail=false}={}){
  const state={log:log.map(r=>({...r})),calls:[]};
  const fetcher=async(url,init={})=>{
   const u=new URL(url),method=init.method??'GET',q=u.searchParams;
@@ -35,6 +35,17 @@ function harness({now=FRI_16,log=[],sheets={},env={},sheetFail=false}={}){
    if(sheetFail)return reply(500,{});
    const ws=eq(q.get('workspace_id')),week=eq(q.get('week_start'));
    return reply(200,(sheets[ws]||[]).includes(week)?[{week_start:week}]:[]);
+  }
+  if(table==='app_meeting_transcribe_jobs'){
+   // S48-19 회의 요약: 사용자 로그인 그대로(owner RLS) 끝난 시각만 읽는다.
+   assert.equal(init.headers.apikey,ANON);assert.equal(method,'GET');
+   assert.ok([`Bearer ${JWT_OK}`,`Bearer ${JWT_STRANGER}`].includes(init.headers.Authorization));
+   assert.equal(q.get('select'),'finished_at');assert.equal(q.get('status'),'eq.done');assert.equal(q.get('meeting_id'),'is.null');assert.equal(q.get('trashed_at'),'is.null');
+   assert.equal(q.get('order'),'finished_at.desc');assert.equal(q.get('limit'),'1');
+   if(jobFail)return reply(500,{});
+   const ws=eq(q.get('workspace_id')),since=q.get('finished_at').replace(/^gte\./,'');
+   const rows=jobs.filter(j=>j.workspace_id===ws&&j.status==='done'&&!j.meeting_id&&!j.trashed_at&&j.finished_at>=since).sort((a,b)=>b.finished_at.localeCompare(a.finished_at)).slice(0,1);
+   return reply(200,rows.map(j=>({finished_at:j.finished_at})));
   }
   assert.equal(init.headers.apikey,SERVICE);
   assert.ok(['app_workspace_members','app_push_log'].includes(table),'only owner lookup + log: '+table);
@@ -169,4 +180,43 @@ test('source: done-items is the one list; handler logs no notice content; docs l
  assert.doesNotMatch(done,/console\.|title|body/);
  const doc=readFileSync(new URL('../../docs/web2-env6b-edge-source.md',import.meta.url),'utf8');
  assert.match(doc,/`notices`·`opened`·`recent`/);
+});
+
+// S48-19 회의 요약 끝남: 전사 작업이 끝났는데 아직 회의에 붙지 않은 것(지난 하루) → 그 서울 날짜 한 줄.
+const job=o=>({workspace_id:WS,status:'done',meeting_id:null,trashed_at:null,finished_at:'2026-11-06T06:40:00.000Z',...o});
+test('done-items: meeting done item from the latest finished time, one per Seoul day, only within a day',()=>{
+ assert.deepEqual(D.meetingDoneItem([{finished_at:'2026-11-06T06:40:00.000Z'}],FRI_16),{kind:'meeting_done',ref_key:'d2026-11-06',day:'2026-11-06',open:'/work/app/?view=reports&notice=meeting_done.d2026-11-06'});
+ // 서울 날짜: 11/05 15:30Z = 11/06 00:30 서울.
+ assert.equal(D.meetingDoneItem([{finished_at:'2026-11-05T15:30:00.000Z'}],FRI_16).ref_key,'d2026-11-06');
+ for(const bad of [null,[],[{}],[{finished_at:1}],[{finished_at:'x'}],[{finished_at:'2026-11-05T06:59:00.000Z'}],[{finished_at:'2026-11-06T08:00:00.000Z'}]])
+  assert.equal(D.meetingDoneItem(bad,FRI_14+2*3600000),null,JSON.stringify(bad));
+});
+
+test('notices: a finished recording not yet put into a meeting shows one meeting line; attached, failed, trashed, old or other workspace do not',async()=>{
+ const h=harness({now:MON,jobs:[job({finished_at:'2026-11-09T00:20:00.000Z'}),job({finished_at:'2026-11-09T00:10:00.000Z'}),
+  job({finished_at:'2026-11-09T00:50:00.000Z',meeting_id:'c0000000-0000-4000-8000-000000000001'}),job({finished_at:'2026-11-09T00:55:00.000Z',status:'failed'}),
+  job({finished_at:'2026-11-09T00:56:00.000Z',trashed_at:'2026-11-09T00:57:00.000Z'}),job({workspace_id:WS2,finished_at:'2026-11-09T00:58:00.000Z'})]});
+ const out=await (await h.user('notices')).json();
+ assert.deepEqual(out,{ok:true,items:[{kind:'meeting_done',ref_key:'d2026-11-09',open:'/work/app/?view=reports&notice=meeting_done.d2026-11-09'}]});
+ assert.equal(h.state.log.length,1);assert.equal(h.state.log[0].kind,'meeting_done');assert.equal(h.state.log[0].day,'2026-11-09');assert.equal(h.state.log[0].status,'shown');
+ // 같은 날 두 번째 부름·다른 구간: 한 줄 그대로. 열면(✕ 포함) 그날은 다시 안 뜬다.
+ assert.equal((await (await h.user('notices')).json()).items.length,1);assert.equal(h.state.log.length,1);
+ assert.deepEqual(await (await h.user('opened',{kind:'meeting_done',ref_key:'d2026-11-09'})).json(),{ok:true,opened:1});
+ assert.deepEqual((await (await h.user('notices')).json()).items,[]);
+ // 응답·기록에 파일 이름·회의 제목·전사 글 없음, 읽은 칸은 끝난 시각뿐.
+ assert.doesNotMatch(JSON.stringify(h.state.log),/title|file|transcript|회의/);
+ assert.ok(h.state.calls.filter(c=>c.table==='app_meeting_transcribe_jobs').every(c=>c.auth===`Bearer ${JWT_OK}`&&c.apikey===ANON&&/workspace_id=eq\.a0000000-0000-4000-8000-000000000001/.test(c.query)));
+});
+
+test('notices: next week and meeting lines together; no meeting line when nothing finished, the read fails, or it is older than a day',async()=>{
+ const both=await (await harness({jobs:[job({})]}).user('notices')).json();
+ assert.deepEqual(both.items.map(i=>i.kind),['next_week','meeting_done']);
+ for(const h of [harness({now:MON}),harness({now:MON,jobFail:true,jobs:[job({finished_at:'2026-11-09T00:20:00.000Z'})]}),harness({now:MON,jobs:[job({finished_at:'2026-11-07T23:00:00.000Z'})]})]){
+  const r=await h.user('notices');assert.equal(r.status,200);assert.deepEqual((await r.json()).items,[]);assert.equal(h.state.log.length,0);
+ }
+});
+
+test('notices: the stranger only sees their own workspace recordings',async()=>{
+ const h=harness({now:MON,jobs:[job({finished_at:'2026-11-09T00:20:00.000Z'})]});
+ assert.deepEqual((await (await h.user('notices',{},JWT_STRANGER)).json()).items,[]);
 });

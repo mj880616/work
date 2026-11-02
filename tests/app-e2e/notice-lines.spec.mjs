@@ -100,10 +100,44 @@ for(const width of [390,900,1280])test(`Google needs reconnect: link line first,
   await count.click();
   await expect(line(page,'collect')).toBeVisible();await expect(line(page,'link')).toBeHidden();
   await expect(count).toHaveText('2/2');
-  // 연결 끊김 ✕는 이 탭에서만(서버 기억은 DB 칸이 생긴 뒤). 수집 멈춤 줄은 그대로.
+  // 연결 끊김 ✕는 오늘 하루 숨김(서버 view_prefs.link_hidden_on — 아래 시험). 수집 멈춤 줄은 그대로.
   await count.click();await line(page,'link').getByRole('button',{name:'닫기'}).click();
   await expect(line(page,'link')).toHaveCount(0);await expect(line(page,'collect')).toBeVisible();
   await expect(count).toHaveCount(0);
+});
+
+test('link ✕ hides it for today on the server (view_prefs.link_hidden_on); other devices follow, the next day shows it again',async({page})=>{
+  const prefs=await installViewPrefsServer(page,{});
+  await fixture(page,{google:'broken',status:healthy});
+  await page.evaluate(()=>window.KPTURouter.go('tasks'));
+  await expect(line(page,'link')).toBeVisible();
+  await line(page,'link').getByRole('button',{name:'닫기'}).click();
+  await expect(line(page,'link')).toHaveCount(0);
+  await expect.poll(()=>prefs.patches.at(-1)?.link_hidden_on).toBe('2026-10-06');
+  expect(await leftoverDeviceKeys(page)).toEqual([]);
+  // 다른 기기·새로고침: 서버 값이 오늘이라 아직 끊겨 있어도 안 뜬다.
+  await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  await page.evaluate(()=>window.KPTURouter.go('tasks'));await page.waitForTimeout(800);
+  await expect(line(page,'link')).toHaveCount(0);
+});
+
+test('a link hidden date from an earlier day does not hide today',async({page})=>{
+  await fixture(page,{google:'broken',status:healthy,prefs:{link_hidden_on:'2026-10-05'}});
+  await page.evaluate(()=>window.KPTURouter.go('tasks'));
+  await expect(line(page,'link')).toBeVisible();
+});
+
+test('before the DB accepts link_hidden_on, ✕ still closes the line in this tab and other saved choices are kept',async({page})=>{
+  const prefs=await installViewPrefsServer(page,{theme:'navy'},{denyKeys:['link_hidden_on']});
+  await fixture(page,{google:'broken',status:healthy});
+  await page.evaluate(()=>window.KPTURouter.go('tasks'));
+  await line(page,'link').getByRole('button',{name:'닫기'}).click();
+  await expect(line(page,'link')).toHaveCount(0);
+  await page.waitForTimeout(1200);
+  expect(prefs.value?.link_hidden_on).toBeUndefined();
+  expect(prefs.value?.theme).toBe('navy');
+  await page.evaluate(()=>window.KPTURouter.go('home'));await page.evaluate(()=>window.KPTURouter.go('tasks'));await page.waitForTimeout(300);
+  await expect(line(page,'link')).toHaveCount(0);
 });
 
 test('Google reconnect starts the same connect flow as the tasks screen',async({page})=>{
