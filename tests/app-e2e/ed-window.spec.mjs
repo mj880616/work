@@ -189,26 +189,52 @@ for (const width of [390, 1280]) {
 test.describe('폰 390: 하단바', () => {
   test.use({hasTouch: true});
 
-  test('창과 작은 상자는 하단 탭을 가리지 않고, 자판이 열리면 탭이 숨고 창이 자판 위까지 씀', async ({page}) => {
+  // S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 5): 폰 쓰기 창이 열리면 하단 탭이 숨고 창이 화면 끝까지 쓴다(나가기는 ✕·뒤로 가기).
+  test('창이 열리면 하단 탭이 숨고 창이 화면 끝까지, 작은 상자는 창 안에, 닫으면 탭이 돌아옴', async ({page}) => {
     await start(page, {width: 390, text: LINES});
     const tabs = page.locator('.mobile-tabs');
-    await expect(tabs).toBeVisible();
-    const tabTop = (await tabs.boundingBox()).y;
+    await expect(tabs).toBeHidden();
     const box = await win(page).boundingBox();
-    expect(box.y + box.height).toBeLessThanOrEqual(tabTop + 1);
+    expect(Math.round(box.y + box.height)).toBe(844);
+    // The bottom [취소][저장] row is the window's lowest row, at the screen's end.
+    const actions = await win(page).locator('.ed-window-actions').boundingBox();
+    expect(Math.round(actions.y + actions.height)).toBe(844);
     await input(page).click();
     await openBox(page, 390);
     const pop = await win(page).locator('.ed-pop:visible').first().boundingBox();
-    expect(pop.y + pop.height).toBeLessThanOrEqual(tabTop);
+    expect(pop.y + pop.height).toBeLessThanOrEqual(box.y + box.height);
     expect(pop.x).toBeGreaterThanOrEqual(0);
     expect(pop.x + pop.width).toBeLessThanOrEqual(390);
+    await page.evaluate(() => window.__edw.close());
+    await expect(win(page)).toHaveCount(0);
+    await expect(tabs).toBeVisible();
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height').trim())).toBe('44px');
   });
 
-  test('하단 탭을 누르면 창이 먼저 닫히고 그 탭으로 감, 고친 글이 있으면 먼저 물음', async ({page}) => {
+  test('창 맨 아래(옛 하단 탭 자리)를 눌러도 다른 화면으로 가지 않음, 고친 글은 ✕가 먼저 물음', async ({page}) => {
     await start(page, {width: 390, text: LINES});
+    const before = await page.evaluate(() => window.KPTURouter.current);
+    expect(await page.evaluate(() => !!document.elementFromPoint(300, 844 - 10)?.closest('#edWindow'))).toBe(true);
     await win(page).locator('.ed-input').click();
     await page.keyboard.type('수정');
-    await page.locator('.mobile-tabs [data-view="basket"]').click();
+    await win(page).getByRole('button', {name: '닫기', exact: true}).click();
+    await expect(page.locator('#edwCloseSheet')).toBeVisible();
+    await expect(win(page)).toBeVisible();
+    await sheetPick(page, '#edwCloseSheet', '저장하지 않고 닫기');
+    await expect(win(page)).toHaveCount(0);
+    expect(await page.evaluate(() => window.KPTURouter.current)).toBe(before);
+    expect(await saves(page)).toEqual([]);
+    await expect(page.locator('.mobile-tabs')).toBeVisible();
+  });
+});
+
+// The leave-by-menu path stays for the PC menu beside the window (the phone tabs are hidden while it is open).
+test.describe('PC 1280: 앱 메뉴 누르기', () => {
+  test('메뉴를 누르면 창이 먼저 닫히고 그 화면으로 감, 고친 글이 있으면 먼저 물음', async ({page}) => {
+    await start(page, {width: 1280, text: LINES});
+    await win(page).locator('.ed-input').click();
+    await page.keyboard.type('수정');
+    await page.locator('#appView>.app-nav [data-view="basket"]').first().click();
     await expect(page.locator('#edwCloseSheet')).toBeVisible();
     await expect(win(page)).toBeVisible();
     await sheetPick(page, '#edwCloseSheet', '저장하지 않고 닫기');
@@ -217,9 +243,9 @@ test.describe('폰 390: 하단바', () => {
     expect(await saves(page)).toEqual([]);
   });
 
-  test('고치지 않았으면 묻지 않고 바로 그 탭으로 감', async ({page}) => {
-    await start(page, {width: 390, text: LINES});
-    await page.locator('.mobile-tabs [data-view="basket"]').click();
+  test('고치지 않았으면 묻지 않고 바로 그 화면으로 감', async ({page}) => {
+    await start(page, {width: 1280, text: LINES});
+    await page.locator('#appView>.app-nav [data-view="basket"]').first().click();
     await expect(win(page)).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => window.KPTURouter.current)).toBe('basket');
   });

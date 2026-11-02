@@ -863,7 +863,7 @@
 @media(max-width:760px){
   html:has(:where(#appView :is(#calendarView,#tasksView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
-  /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(창의 선택 창은 탭 바로 위에서). */
+  /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(하단 탭도 숨음, topbar-actions.css S48-6b). */
   html.ed-window-open{ --kptu-switch-dock:0px; }
 
   #appView .schedule-switch:not([hidden]){
