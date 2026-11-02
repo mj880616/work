@@ -16,7 +16,7 @@
 .tl-task-row:last-child{border-bottom:0}
 .tl-task-row.done .tl-task-title{color:var(--kptu-muted,#68737e);text-decoration:line-through}
 .tl-task-check-wrap{width:44px;height:44px;display:grid;place-items:center;cursor:pointer;margin:0;padding:0}
-.tl-task-check-wrap input{width:20px;height:20px;margin:0;accent-color:var(--kptu-primary,#176b67);cursor:pointer}
+/* 완료 체크칸 모양은 ui-standard.css 공용 규칙(16px·앱 기본색)이 정한다(UI-체크칸통일). 여기서는 누르는 범위(44px 칸)만 둔다. */
 .tl-task-main{min-width:0;width:100%;display:block;text-align:left;border:0;background:transparent;padding:5px 2px;color:inherit;font:inherit;cursor:pointer}
 .tl-task-main:hover .tl-task-title{text-decoration:underline}
 .tl-task-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;font-size:14px;font-weight:700;line-height:1.4;max-height:2.8em}
@@ -34,7 +34,7 @@
 .tl-menu-items button{display:block;width:100%;min-height:40px;text-align:left;border:0;border-radius:var(--kptu-radius-sm,6px);background:transparent;padding:8px 10px;color:inherit;font:inherit;font-size:12px;cursor:pointer}
 .tl-menu-items button:hover,.tl-menu-items button:focus-visible{background:var(--kptu-info-soft,#eef4f6)}
 .tl-menu-items [data-tl-delete],.tl-menu-items [data-pt-delete]{color:var(--kptu-danger,#a33b45)}
-.tl-task-main:focus-visible,.tl-menu-trigger:focus-visible,.tl-task-check-wrap input:focus-visible{outline:2px solid var(--kptu-info,#38677d);outline-offset:2px}
+.tl-task-main:focus-visible,.tl-menu-trigger:focus-visible{outline:2px solid var(--kptu-info,#38677d);outline-offset:2px}
 .tl-detail-actions{display:flex;align-items:center;gap:8px;margin:12px 0}
 /* UI-버튼통일(2026-10-28): 할 일 상세 줄 버튼도 작은 버튼(32px·누르는 범위 44px). */
 .tl-detail-actions button{position:relative;min-height:var(--ds-compact-height,32px)}

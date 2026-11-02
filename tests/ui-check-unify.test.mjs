@@ -36,8 +36,9 @@ test('한글 상자 "다음 주에도 쓸까요?" 목록은 공용 체크 목록
 });
 
 test('화면 CSS는 보이는 체크칸의 크기·색을 따로 정하지 않는다(공용 규칙 하나)', () => {
-  // 예외: 칩 위 투명 체크칸(ledger .lb-chip), 자료실 줄 위 겹친 고르기 칸(.lu-pick 위치), 할 일 완료 칸(task-layout, 별도 부품).
-  const allowed = new Set(['ui-standard.css', 'library-upload.css', 'task-layout.css']);
+  // 예외: 칩 위 투명 체크칸(ledger .lb-chip), 자료실 줄 위 겹친 고르기 칸(.lu-pick 위치).
+  // 할 일 완료 칸(task-layout)도 11/02 명진 결정으로 같은 공용 모양이다(예외 아님).
+  const allowed = new Set(['ui-standard.css', 'library-upload.css']);
   const bad = [];
   for (const name of readdirSync(app).filter(n => n.endsWith('.css'))) {
     if (allowed.has(name)) continue;
