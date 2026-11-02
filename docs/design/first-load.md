@@ -284,7 +284,8 @@ CC가 `perf-baseline.yml`을 main과 이 브랜치에서 돌린 값을 PR 마감
 ### 11-1. 측정 사실
 
 - CC 측정(PR #1777, 3회): P5-b 뒤 폰 홈 보임 5838 → 5132ms·홈 보이기 전 JS 151 → 130은 좋아졌지만, **폰 달력 첫 전환 775 → 1359ms, 보일 때까지 새 JS 11 → 24**. 피시(local)는 10 → 9로 회귀 없음.
-- 원인 찾기용으로 `scripts/perf/tab-switch.spec.mjs`가 클릭 뒤 새로 받은 JS **파일 이름**(내용 없음)을 `PERF_SWITCH_FILES` 줄로 남기고, `run-baseline.sh`가 회차 1 줄을 작업 기록에 보여 준다(요약표는 그대로).
+- 원인 찾기용으로 `scripts/perf/tab-switch.spec.mjs`가 화면 바꾸기 한 번마다 시간과(첫 번만) 클릭 뒤 새로 받은 JS **파일 이름**(내용 없음)을 `PERF_SWITCH_FILES` 줄로 남기고, `run-baseline.sh`가 회차 1 줄과 시험 끝 모양을 작업 기록에 보여 준다(요약표는 그대로).
+- 측정 도구 고침: Playwright line 보고기가 줄 앞에 커서 이동 글자(ESC[1A ESC[2K)를 붙여 `run-baseline.sh`의 `grep '^PERF…'`가 측정 줄 일부를 놓쳤다 — 그래서 지금까지 "메뉴 눌러 화면 바꾸기" 표에 달력 줄만(또는 아예 없이) 나왔다. 커서 글자를 걷어 낸 뒤 고르게 했다(측정 값 자체는 그대로).
 - 이 브랜치 1회 측정 결과, 폰에서 더 받은 13개는 사업 보고 묶음 모듈이 **아니라** 홈 [주간 정리] 묶음(`journal-weekly-kit.js`, P2에서 앱이 보인 뒤 부르게 뺀 것)의 사슬 끝(`weekly-*` 9개·`weekly-base`·`row-more`·`prep-sheet-text`·`org-name-match`·`weekly-hwpx/schedule` 등)과 달력 뒤 단계 모듈이었다. 달력 정적 사슬은 이미 쉬는 틈 미리 받기에 들어 있다.
 - 즉 달력이 그 파일을 쓰는 것이 아니라, 홈 뒤에 주간 정리 묶음을 `import()`가 단계마다 줄 서서(정적 import를 한 층씩 발견) 받는 동안 쉬는 틈 미리 받기(약 220개)와 같은 연결을 다투다 폰 조건(150ms·9Mbps·CPU 4배)에서 클릭 시점(홈 뒤 6초)까지 다 못 받았다. P5-b로 홈 앞에서 빠진 공용 모듈(`business-area-model`·`report-links` 등) 몇 개가 그 사슬과 쉬는 틈 목록에 더해져 끝이 클릭 뒤로 밀렸다.
 
