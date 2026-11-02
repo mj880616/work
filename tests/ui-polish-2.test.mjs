@@ -30,7 +30,8 @@ test('② 새로고침 제자리: 사업 보고 칸·고른 보고, 할 일 상�
   assert.match(team, /function restoreReportPlace\(\)/);
   assert.match(team, /setPlace\?\.\('meetings',\{chip:reportChip===DEFAULT_KIND\?null:reportChip,report:/);
   assert.match(team, /restoreReportPlace\(\);renderMeetings\(\);/);
-  assert.match(team, /;writeReportPlace\(\)\}/, 'renderMeetings가 그린 뒤 한 곳에서 적는다');
+  for (const fn of ['selectReportChip', 'selectMeetingKind', 'selectMeetingRound']) assert.match(team.match(new RegExp(`function ${fn}\\([^\\n]*`))[0], /renderMeetings\([^)]*\);writeReportPlace\(\)/, fn + '는 고른 뒤 적는다');
+  assert.doesNotMatch(team.match(/function renderMeetings\([^\n]*/)[0], /writeReportPlace/, '그릴 때마다 적지 않는다');
   const tasks = read('app/google-tasks.js');
   assert.match(tasks, /setPlace\?\.\('tasks',\{task:task\?\.id\|\|null\}\)/);
   assert.match(tasks, /function closeEditor\(\)\{[^}]*taskPlace\(null\)/);
