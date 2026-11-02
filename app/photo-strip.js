@@ -65,13 +65,14 @@ export const photoStripCommit = () => commitPending();
 //  (PHOTO-사진메뉴 2차, 선택) play(item) → Promise<주소>: item.video면 칸 위 ▶를 누를 때 받아 <video>로 재생(주소는 메모리에만, 닫으면 버림).
 //  (PHOTO-전체화면확대, 선택) hires(item) → Promise<주소 | {url, revoke}>: 확대할 때 받을 원본 해상도 그림 주소. revoke:true면 다 쓰고 놓는다(blob:).
 //  (PHOTO-갤러리편집, 선택) editable(item) → true면 [✎ 편집]을 보인다(폰 앱만, 부르는 쪽이 정함). edit(item, 단추)는 누를 때.
+//  (S48-32, 선택) choose(item, 단추, plain) → true면 부르는 쪽이 지우기를 맡는다(두 갈래 창 등). 두 갈래가 아니면 plain()으로 예전 지우기.
 //   original(item)이 {download:true}를 돌려주면 [ⓘ] 판 맨 아래가 [⤓ 원본 받기] 단추가 되고 download(item)을 부른다. badge(item): 칸 위 작은 글('▶ 0:42').
 // 크게 보기 받는 순서(작을수록 먼저): 보는 장 -2, 바로 앞뒤 -1, 두 장 건너 0. 격자 칸은 보이는 것 0·곧 보일 것 1(od-thumb-loader.js)이라 크게 보기가 앞선다.
 export const stripPrio = d => (d === 0 ? -2 : Math.abs(d) === 1 ? -1 : 0);
 export function openPhotoStrip(opts) {
   const {host, list, index, title, layerName = 'diary-photo', element, label, when, caption = () => '', info, original, isStarred, toggleStar,
     deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose, play = null, download = null, badge = () => '', hires = null,
-    editable = null, edit = null} = opts;
+    editable = null, edit = null, choose = null} = opts;
   const first = list();
   if (!first[index] || viewer) return null;
   let items = first.slice(), at = index, noteTimer = null;
@@ -174,6 +175,11 @@ export function openPhotoStrip(opts) {
     const item = items[at];
     const d = item ? deletable(item) : {ok:false, title:''};
     if (!d.ok) { note(d.title, 3000); return; }
+    if (choose && choose(item, delBtn, () => plainDelete(item))) return;
+    plainDelete(item);
+  }
+  function plainDelete(item) {
+    if (viewer?.box !== box || items[at] !== item) return; // 고르는 사이 다른 장으로 넘겼거나 닫았다
     if (pending) commitPending(); // 앞서 지운 사진은 지금 보낸다(되돌리기는 마지막 한 장만)
     const token = take(item);
     if (!token) return;

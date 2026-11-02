@@ -3,6 +3,7 @@
 //   폰 사진 목록(쪽으로 받음)에 원래 날짜 자리로 섞는다. 칸은 원드라이브 사진이고(작은 그림·크게 보기 = 원드라이브), kept 표시만 더한다.
 // - 지우기 두 갈래 계획: 고른 사진 → 폰 공간만 비우기(원드라이브에 원본이 확인된 폰 사진만) / 완전히 지우기(폰 + 원드라이브, 짝 사본까지).
 import {toItem} from './photos-model.mjs';
+import {copyFinder} from './photo-tidy-model.mjs';
 
 const pad = n => String(n).padStart(2, '0');
 // 이 기기 시간대의 날(폰 사진 칸의 day와 같은 기준).
@@ -35,15 +36,36 @@ export function keptMerge(phoneList, kept, ended, cmp) {
   return [...own, ...take].sort(cmp);
 }
 
-// 지우기 두 갈래 계획. picked = 고른 칸, pairs = 폰 사진의 원드라이브 사본 짝({pairs:[{item, copy}], noCopy}, 원드라이브를 못 읽었으면 null).
-// space = 폰 공간만 비우기 후보(원본이 있는 폰 사진, 서버가 한 번 더 확인), noCopy = 그 밖의 폰 사진 수,
-// full = 완전히 지우기 장수(고른 것 모두), phone·od·gd = 완전히 지우기의 나눔, copies = 폰 사진 짝 사본 id(원드라이브도 지움).
-export function deletePlan(picked, pairs) {
+// S48-32: 고른 원드라이브 칸(비운 사진 아님)의 폰 원본 짝. 사진 정리 짝 판정(copyFinder: 같은 크기 + 같은 사진)을 거꾸로 —
+// 폰 사진(phItems, 사진 정리가 읽은 전부)마다 고른 원드라이브 칸에서 사본을 찾는다. 원드라이브 칸 하나에 폰 짝 하나(먼저 찾은 것).
+// 답: [{item(폰 칸), copy(원드라이브 칸)}]. 폰 사진 목록을 못 읽었으면 null(부르는 쪽이 지우지 않음).
+export function twinPairs(phItems, odPicked) {
+  if (!Array.isArray(phItems)) return null;
+  const od = (odPicked || []).filter(x => x && x.kind !== 'phone' && x.kind !== 'gdrive' && !x.kept);
+  if (!od.length) return [];
+  const find = copyFinder(od), seen = new Set(), out = [];
+  for (const p of phItems) {
+    const o = p?.phoneId ? find(p) : null;
+    if (o && !seen.has(o.id)) { seen.add(o.id); out.push({item:p, copy:o}); }
+  }
+  return out;
+}
+// 지우기 두 갈래 계획. picked = 고른 칸, pairs = 폰 사진의 원드라이브 사본 짝({pairs:[{item, copy}], noCopy}, 원드라이브를 못 읽었으면 null),
+// twins = 고른 원드라이브 칸의 폰 원본 짝(twinPairs, 없으면 null·[]).
+// space = 폰 공간만 비우기 후보(원본이 있는 폰 사진 + 고른 원드라이브 칸의 폰 짝, 서버가 한 번 더 확인), noCopy = 그 밖의 고른 폰 사진 수,
+// full = 완전히 지우기 장수(고른 것 모두 — 짝은 같은 사진이라 따로 세지 않음), phone·od·gd = 완전히 지우기의 나눔(phone에 폰 짝 포함),
+// copies = 폰 사진 짝 사본 id(원드라이브도 지움, 고른 원드라이브 칸 제외).
+export function deletePlan(picked, pairs, twins = null) {
   const all = picked || [];
-  const phone = all.filter(x => x.kind === 'phone'), gd = all.filter(x => x.kind === 'gdrive'), od = all.filter(x => x.kind !== 'phone' && x.kind !== 'gdrive');
-  const space = (pairs?.pairs || []).filter(p => phone.some(x => x.id === p.item.id)).map(p => ({item:p.item, copyId:p.copy.id}));
-  const copies = [...new Set(space.map(p => p.copyId).filter(id => !od.some(x => x.id === id)))];
-  return {space, noCopy:phone.length - space.length, full:all.length, phone, od, gd, copies, twoWay:phone.length > 0 || od.some(x => x.kept)};
+  const own = all.filter(x => x.kind === 'phone'), gd = all.filter(x => x.kind === 'gdrive'), od = all.filter(x => x.kind !== 'phone' && x.kind !== 'gdrive');
+  const ownSpace = (pairs?.pairs || []).filter(p => own.some(x => x.id === p.item.id)).map(p => ({item:p.item, copyId:p.copy.id}));
+  const twin = (twins || []).filter(p => od.some(x => x.id === p.copy.id) && !own.some(x => x.id === p.item.id)).map(p => ({item:p.item, copyId:p.copy.id}));
+  const space = [...ownSpace, ...twin];
+  const copies = [...new Set(ownSpace.map(p => p.copyId).filter(id => !od.some(x => x.id === id)))];
+  const phone = [...own, ...twin.map(p => p.item)];
+  // twinOf: 원드라이브 칸 id → 폰 짝 칸 id(완전히 지우기에서 폰 짝을 못 지웠으면 그 원드라이브 칸도 남긴다).
+  return {space, noCopy:own.length - ownSpace.length, full:all.length, phone, od, gd, copies, twins:twin.length, twinOf:new Map(twin.map(p => [p.copyId, p.item.id])),
+    twoWay:own.length > 0 || twin.length > 0 || od.some(x => x.kept)};
 }
 // 고르기 창 글(시안 확정 00:27).
 export function deleteChoices(plan) {

@@ -31,7 +31,7 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
   odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, readPhoneStars, addStar, removeStar, starKey, takenLabel, takeOdReturn,
   odCopyCheck, odTrashLog, odTrashWatch, odTrashSeen, odKeptList, odKeptDrop} from './diary-onedrive.js';
-import {keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor} from './photo-keep-model.mjs';
+import {keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, twinPairs} from './photo-keep-model.mjs';
 import {phonePhotos} from './phone-photos.js';
 import {createPhotoTidy} from './photo-tidy.js';
 import {createThumbHasher} from './photo-hash.js';
@@ -47,7 +47,7 @@ import {myFeatures, gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRenam
 import {ownerScope} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
 import {SIZE_BUTTONS, WIDE_QUERY, attachPinch, createGridSizer, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
-import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
+import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh, photoStripReload} from './photo-strip.js';
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
@@ -1038,6 +1038,8 @@ function openViewer(index, own = null) {
       : item?.kind === 'gdrive' ? {ok:false, title:'구글 드라이브 사진은 길게 눌러 고른 뒤 [지우기]로(확인 한 번)'}
       : {ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요'}),
     take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
+    // S48-32: 폰 앱 크게 보기 한 장 [지우기]도 고른 사진 [지우기]와 같은 판단(두 갈래 창). 두 갈래가 아니면 plain(예전 5초 되돌리기).
+    choose:own ? null : (item, anchor, plain) => { if (!needTwoWay([item])) return false; chooseDelete(anchor, [item], () => plain()); return true; },
     errorText:error => (error?.message === 'phone_trash_refused' ? '폰에서 지우지 않았어요.' : `지우지 못했어요: ${odErrorText(error)}`), onError:note,
     onClose:({starChanged, restore}) => { if (!own && starChanged && filter === 'star' && restore && shown === 'all') { setListFor('all', items.filter(isStarred)); paintList({full:true}); } }});
 }
@@ -1197,24 +1199,36 @@ async function trashPhonePicked(list) {
 const CLOUD_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .4-5.6A3.8 3.8 0 0 0 4.8 6a3.3 3.3 0 0 0-.3 6.5z" fill="currentColor"/></svg>';
 const TRASH_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
 let deleting = false;
-async function chooseDelete(anchor, all) {
+// 크게 보기가 열려 있으면 그 안 한 줄로(밑 알림은 크게 보기에 가린다).
+const sayDel = (text, o) => (photoStripOpen() ? photoStripNote(text) : notify(text, o));
+// S48-32: 고른 원드라이브 칸(비운 사진 아님) — 폰 원본 짝이 있을 수 있어 폰 앱에서는 두 갈래 판단부터(사진 목록에서 폰·원드라이브 같은 사진은 원드라이브 칸으로 보임).
+const odPlain = all => all.filter(x => x.kind !== 'phone' && x.kind !== 'gdrive' && !x.kept);
+const needTwoWay = all => phone.usable && (deletePlan(all, null).twoWay || (odPlain(all).length > 0 && ready() && !!phone.state().trash));
+// plain = 두 갈래가 아닐 때(고른 원드라이브 칸에 폰 짝이 없음) 할 예전 지우기.
+async function chooseDelete(anchor, all, plain = null) {
   if (deleting) return;
   deleting = true;
   try {
-    const phonePart = all.filter(x => x.kind === 'phone');
-    let pairs = null;
-    if (phonePart.length && ready() && phone.state().trash) {
-      // 원드라이브에 원본이 있는지: 사진 정리와 같은 읽기(10분 안이면 그대로).
-      if (!tidy.fresh()) { notify('원드라이브에 원본이 있는지 확인하는 중…', {ms:180000, record:false}); await tidy.rescan(); notify('확인했어요', {ms:1500, record:false}); }
-      pairs = tidy.copyPairs(phonePart);
+    const phonePart = all.filter(x => x.kind === 'phone'), odPart = odPlain(all);
+    let pairs = null, twins = null;
+    if ((phonePart.length || odPart.length) && ready() && phone.state().trash) {
+      // 원드라이브에 원본이 있는지·폰에 같은 사진이 있는지: 사진 정리와 같은 읽기(10분 안이면 그대로).
+      if (!tidy.fresh()) { sayDel('원드라이브에 원본이 있는지 확인하는 중…', {ms:180000, record:false}); await tidy.rescan(); sayDel('확인했어요', {ms:1500, record:false}); }
+      pairs = phonePart.length ? tidy.copyPairs(phonePart) : null;
+      twins = odPart.length ? twinPairs(tidy.phoneItems(), odPart) : [];
+      // 폰 사진을 못 읽었으면 원드라이브만 지우지 않는다(폰 원본만 남고 백업이 사라질 수 있어서).
+      if (twins === null) { sayDel('폰에 같은 사진이 있는지 확인하지 못해 지우지 않았어요. 잠시 뒤 다시 눌러 주세요.', {error:true}); return; }
     }
-    const plan = deletePlan(all, pairs), text = deleteChoices(plan);
-    const pick = await askChoice(anchor?.isConnected ? anchor : $('[data-photos-act-delete]'), {choices:[
+    const plan = deletePlan(all, pairs, twins), text = deleteChoices(plan);
+    if (!plan.twoWay) { deleting = false; (plain || deleteDirect)(anchor, all); return; }
+    const where = anchor?.isConnected ? anchor : $('[data-photos-act-delete]');
+    const pick = await askChoice(where, {choices:[
       {value:'space', icon:CLOUD_ICON, ...text.space, disabled:!plan.space.length || !phone.state().trash},
       {value:'full', icon:TRASH_ICON, danger:true, ...text.full, disabled:(plan.phone.length > 0 && !phone.state().trash) || (!plan.phone.length && !plan.gd.length && !od.canDelete)}],
       foot:text.foot});
     if (pick === 'space') await spaceFree(plan);
     else if (pick === 'full') await fullDelete(plan, anchor);
+    if (pick && photoStripOpen()) photoStripReload(null);
   } finally { deleting = false; }
 }
 // 폰 공간만 비우기: 서버 사본 확인 → 폰 휴지통 → 비운 기록(keep) → 목록에서 폰 칸을 빼고 비운 사진 칸으로 다시 섞는다.
@@ -1245,7 +1259,9 @@ async function fullDelete(plan, anchor) {
   }
   const goneIds = new Set(phoneGone.map(x => x.id));
   const copies = plan.space.filter(p => goneIds.has(p.item.id)).map(p => p.copyId);
-  const odIds = [...new Set([...(od.canDelete ? plan.od.map(x => x.id) : []), ...(od.canDelete ? copies : [])])];
+  // 폰 짝이 있는 원드라이브 칸은 그 폰 짝을 지웠을 때만 지운다(폰 원본만 남고 백업이 사라지지 않게).
+  const odPick = plan.od.filter(x => !plan.twinOf?.has(x.id) || goneIds.has(plan.twinOf.get(x.id)));
+  const odIds = [...new Set([...(od.canDelete ? odPick.map(x => x.id) : []), ...(od.canDelete ? copies : [])])];
   const t0 = tab, t = takeItems(listFor(t0), [...goneIds, ...odIds]);
   setListFor(t0, t.rest); calData.clear(); monthsFor = ''; phStarItems = null;
   tidy.forget([...goneIds]);
@@ -1264,8 +1280,11 @@ async function fullDelete(plan, anchor) {
   const back = t.taken.filter(x => bad.includes(x.item.id));
   if (back.length) { setListFor(t0, putItems(listFor(t0), back)); if (tab === t0) repaintShown(); }
   if (tab === 'all') keptChanged();
-  const n = phoneGone.length + done.filter(id => !copies.includes(id)).length;
-  notify(bad.length ? `${bad.length}장은 원드라이브에서 지우지 못했어요.` : `${n}장을 지웠어요${copies.length ? ` (원드라이브 사본 ${copies.length}장 포함 휴지통으로)` : ''}${dropped ? '' : ' · 비운 기록을 다 지우지 못했어요'}`, {error:!!bad.length});
+  // 장수: 고른 원드라이브 칸의 폰 짝은 같은 사진이라 한 장으로 센다. 안내의 '사본'은 고르지 않은 짝 사본만.
+  const extra = copies.filter(id => !plan.od.some(x => x.id === id));
+  const twinGone = phoneGone.filter(x => [...(plan.twinOf?.values() || [])].includes(x.id)).length;
+  const n = phoneGone.length - twinGone + done.filter(id => !extra.includes(id)).length;
+  notify(bad.length ? `${bad.length}장은 원드라이브에서 지우지 못했어요.` : `${Math.max(0, n)}장을 지웠어요${extra.length ? ` (원드라이브 사본 ${extra.length}장 포함 휴지통으로)` : ''}${dropped ? '' : ' · 비운 기록을 다 지우지 못했어요'}`, {error:!!bad.length});
 }
 // [폰으로 되돌리기](폰 앱 0.4.11+): 비운 사진의 원드라이브 원본을 받아 원래 폰 폴더·원래 찍은 시각으로 사진첩에 넣고 기록을 지운다.
 // 먼저 한 장씩 시험(요청함: 날짜 자리·동기화 앱 중복 확인 뒤 여러 장).
@@ -1293,7 +1312,11 @@ async function restorePicked() {
 }
 function deletePicked(anchor = null) {
   const all = pickedItems();
-  if (phone.usable && deletePlan(all, null).twoWay) { chooseDelete(anchor, all); return; }
+  if (needTwoWay(all)) { chooseDelete(anchor, all); return; }
+  deleteDirect(anchor, all);
+}
+// 예전 지우기(두 갈래가 아님): 구글 드라이브(확인 한 번) · 폰 사진(폰 확인 창) · 원드라이브(5초 되돌리기).
+function deleteDirect(anchor, all) {
   const phonePart = all.filter(x => x.kind === 'phone'), gdPart = all.filter(x => x.kind === 'gdrive');
   if (gdPart.length) gdTrashPicked(anchor || $('[data-photos-act-delete]'), gdPart);
   if (phonePart.length) { select.stop(); paintSelect(); trashPhonePicked(phonePart.slice(0, SELECT_MAX)); }
