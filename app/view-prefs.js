@@ -25,7 +25,7 @@ export const QUICK_MODES = Object.freeze(['update', 'task']);
 // (migration 20261029010000_profile_view_prefs_split_screens. 적용 전에는 새 이름 쓰기가 400이라 이 화면은 그 DB 적용 뒤 merge).
 // UI-칸폭끌기전수(요청함 10/30 10:29): 사진 폴더·아스날·노트 폴더·노트 보드 넷을 더함(migration 20261031030000_profile_view_prefs_split_more).
 // 적용 전에는 새 이름 쓰기가 400이라 칸 폭은 rejectable로 보내 그 칸만 되돌린다(다른 화면 기억은 그대로 저장, 새로고침하면 기본 폭).
-export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard']);
+export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard', 'now']);
 const LEGACY_SPLIT_SCREENS = ['tasks', 'projects', 'team', 'reports']; // 옛 기기 저장 키가 있던 화면(새 이름은 기기에 쓴 적 없음)
 export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사업 보고 [목록|달력|사진] (ACT-사진 6단계). 일정 탭 calendar_view와 다른 칸
 // MENU-HOME-편집: menu_layout = {bar, rest} (하단바 칸·그 밖 메뉴의 순서, 항목 이름 목록), home_cards = 홈에 보이는 칸의 이름 순서. 항목 이름의 뜻(어느 메뉴·어느 칸인지)은
@@ -62,6 +62,8 @@ export const PHONE_FOLDERS_OFF_MAX = 80;
 // PHOTO-위쪽두줄앨범보기: album_view = 사진 [앨범] 탭 보기 크기 세 단계 'card'(큰 칸)·'thumb'(작은 그림 + 이름·장수·기간)·'line'(글자만 한 줄), 없으면 큰 칸.
 // migration 20261031235000. 뜻·단계 순서는 photos-model.mjs ALBUM_VIEWS. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
 export const ALBUM_VIEWS = Object.freeze(['card', 'thumb', 'line']);
+// OUTSIDE-글상세·관심환류 ③: now_tab = Now 메뉴의 마지막 탭(migration 20261102141000), 없으면 사회운동. split_ratio.now = 목록 | 상세 칸 비율.
+export const NOW_TABS = Object.freeze(['outside', 'news', 'saved', 'search']);
 // UI-앱안알림(S48-19): link_hidden_on = 맨 위 알림 줄 '연결 끊김' ✕를 누른 서울 날짜(오늘 하루 숨김, collect_hidden_on과 같은 모양).
 // migration 20261102170000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(알림 없음, 이 탭에서는 닫힌 채).
 // S48-21 쓰기 창 서식 줄: ed_more = 편집기 서식 줄 [⌄] 아래 줄을 펼쳐 둔 채인가(참·거짓, 없으면 접힘). 모든 편집기·기기가 같은 값.
@@ -71,7 +73,7 @@ export const ALBUM_VIEWS = Object.freeze(['card', 'thumb', 'line']);
 export const PHONE_FOLDERS_KNOWN_MAX = 120;
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -100,6 +102,7 @@ export function validValue(key, value) {
     case 'org_tab': return ORG_TABS.includes(value);
     case 'tg_view': return TG_VIEWS.includes(value);
     case 'album_view': return ALBUM_VIEWS.includes(value);
+    case 'now_tab': return NOW_TABS.includes(value);
     case 'note_boards': return Array.isArray(value) && value.length <= NOTE_BOARDS_MAX && value.every(b => !!b && typeof b === 'object' && !Array.isArray(b)
       && Object.keys(b).every(name => name === 'id' || name === 'name') && typeof b.id === 'string' && NOTE_BOARD_ID_RE.test(b.id) && noteBoardName(b.name));
     case 'note_board': return typeof value === 'string' && (value === 'all' || NOTE_BOARD_ID_RE.test(value));
@@ -170,7 +173,7 @@ const LEGACY = [
 ];
 
 // 고른 적 없을 때 화면이 보여 주는 값: 이 값으로 "바꾸는" 호출은 저장할 것이 없다.
-const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card', ed_more: false };
+const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card', ed_more: false, now_tab: 'outside' };
 const defaultStorage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : prefs[path];
 

@@ -199,7 +199,7 @@ function repaintHead(){const d=detail;if(d&&current&&d.p.id===current.id&&!$('#p
 // still opening, leaves the pane as it is (bind).
 function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;
 // UI-상단줄제목: the same project's name goes to the top line's place (kptu:where-item); null when nothing is open on the right.
-window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'projects',name:id?(current?.name||'이름 없음'):null}}));document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
+window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'projects',name:id?(current?.name||'이름 없음'):null,trail:id?ancestors(current).map(up=>({name:up.name||'이름 없음',step:'project:'+up.id})):[]}}));document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
 // UI-스와이프·주소(S47-54): 창을 열면 목록부터 보인다. PC에서도 사업영역을 고르기 전에는 오른쪽 칸이 비어 있고, 이 기기에 '마지막에 본 사업영역'을 따로 적어 두지 않는다.
 // Scroll of the detail and the list, kept when a 🧺 record opens its note and restored on return.
 function detailScroll(){const m=$('#ps3DetailModal');return {win:$('#areaWindow .area-window-body')?.scrollTop||0,pane:$('#ps3DetailPane')?.scrollTop||0,card:m?.querySelector('.modal-card')?.scrollTop||0,modal:m?.scrollTop||0,list:$('#projectGrid .ps3-plist')?.scrollTop||0,page:window.scrollY||0}}
@@ -1037,5 +1037,7 @@ async function boot(){ensureUi();bind();window.addEventListener('kptu:session-ch
 window.__KPTU_PROJECT_V3_READY__=boot().catch(err=>{console.error(err);return false});
 // 창 밖 화면 이동: 창 없이 다른 화면 위에 연 상세 창(옛 길)은 화면을 옮기면 닫는다(창이 떠 있으면 area-window.js가 창과 함께 닫음).
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.areas||areaOpen())return;orderMode=false;if(current)closeDetail();else{detailEpoch++;basketTargetId=null;disposeBasketEditor()}placeDetail()});
+// UI-상단줄중간단계(S48-30): 위쪽 줄 '사업영역 관리 › 상위 › 하위'의 상위를 누르면 그 사업영역을 연다(같은 여는 길).
+window.addEventListener('kptu:where-step',e=>{if(e.detail?.view!=='projects')return;const step=String(e.detail?.step||'');if(!step.startsWith('project:'))return;const id=step.slice(8);if(projects.some(p=>p.id===id))void openProject(id)});
 window.KPTUProjects={open:openProject,shown:onProjectsView,hide:hideProjects,place:placeDetail,back:onBack};
 })();

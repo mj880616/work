@@ -141,6 +141,7 @@ on:
       - 'tests/outside-search-model.test.mjs'
       - 'tests/notice-outside-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
+      - 'tests/now-model.test.mjs'
       - 'tests/files-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
@@ -284,6 +285,7 @@ on:
       - 'tests/outside-search-model.test.mjs'
       - 'tests/notice-outside-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
+      - 'tests/now-model.test.mjs'
       - 'tests/files-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
@@ -328,6 +330,8 @@ jobs:
         run: node --test tests/ui-cleanup-c.test.mjs
       - name: Check site audit fixes stay in the shared parts (UI-점검1030손질)
         run: node --test tests/ui-audit-1030.test.mjs
+      - name: Check S48-30 screen polish 2 (▾ after label, refresh same place, folder button not cut, 업무일지 names, top line steps)
+        run: node --test tests/ui-polish-2.test.mjs
       - name: Check chip rows wrap to two lines with a more button, no sideways scroll (UI-칩줄두줄)
         run: node --test tests/chip-rows.test.mjs
       - name: Check two screen widths only, phone and PC frame (UI-폴드PC틀)
@@ -369,7 +373,7 @@ jobs:
       - name: Check request inbox open-list calculator (OPS-요청함대기계산)
         run: node --test tests/ops-inbox-open.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
         run: node --test tests/files-model.test.mjs
 

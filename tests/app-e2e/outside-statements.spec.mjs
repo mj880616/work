@@ -49,6 +49,9 @@ async function outsideServer(page) {
       }
       return action === 'catalog' && method === 'POST' ? ok({ ok: true, sources: CATALOG }) : ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
     }
+    // S48-27 Now: 관심 주제·환류 기록·보관 표시는 비어 있음, 관심 후보 묻기는 '아직'(서버 규칙).
+    if (p.startsWith('/rest/v1/app_now_')) return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
+    if (p === '/functions/v1/ai-assist' && req.postDataJSON?.()?.kind === 'now_interests') return ok({ ok: true, kind: 'now_interests', ran: false, added: 0 });
     if (!p.startsWith('/rest/v1/app_outside_')) return route.fallback();
     const body = req.postDataJSON?.() ?? null;
     server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body });
@@ -86,8 +89,8 @@ async function start(page, width) {
 async function openOutside(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: '사회운동 Now' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '사회운동 Now', exact: true }).click();
+    await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
 }
@@ -104,7 +107,7 @@ for (const width of [412, 1280]) {
     await openOutside(page, width);
     await expect(posts(page)).toHaveCount(POSTS.length);
     // 위쪽 작은 줄(OUTSIDE-이름·바로읽기): 마지막 읽음 10. 5. 18:07, 오늘 08:07 예약분이 아직 안 돌아 '다음 곧'.
-    await expect(page.locator('#osTitle')).toHaveText('사회운동 Now');
+    await expect(page.locator('#osTitle')).toHaveText('Now');
     await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 어제 18:07 · 다음 곧(08:07 예정분)');
     expect(server.calls.find(c => c.what === 'app_outside_sources' && c.method === 'GET').query).toContain('source_key=not.like.news-*');
 
@@ -127,10 +130,9 @@ for (const width of [412, 1280]) {
     await expect(p1.locator('.os-lead')).toBeVisible();
     await expect(p1.locator('.os-lead')).toHaveText('가상 성명 한 문장 요약이다.');
     await expect(p1.locator('details.os-fold')).not.toHaveAttribute('open', '');
-    const link = p1.getByRole('link', { name: /원문/ });
-    await expect(link).toHaveAttribute('href', 'https://nodong.org/statement/101');
-    await expect(link).toHaveAttribute('target', '_blank');
-    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    // S48-27: [원문]은 상세 위로 옮겼다(줄에는 없음). 줄 전체는 제목 단추 하나가 덮는다.
+    await expect(p1.getByRole('link', { name: /원문/ })).toHaveCount(0);
+    await expect(p1.locator('[data-now-open="p1"]')).toHaveText('[성명] 가상 성명 하나');
     // 지난번 본 시각(10. 5. 09:00) 뒤 받은 글에만 작은 '새'.
     await expect(post(page, 'p1').locator('.os-new')).toHaveCount(1);
     await expect(post(page, 'p2').locator('.os-new')).toHaveCount(1);

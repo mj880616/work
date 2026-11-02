@@ -24,7 +24,9 @@ export function attachRow({id, getBatch, isBusy, say}) {
   const picker = mountBasketPicker(pickerHost, {id, filesHost: files, dropTarget: node, getBatch, isBusy, onChange: () => say(''), onError: say});
   return {node, picker, pending: () => getBatch().entries.filter(entry => entry.kind !== 'success').length};
 }
-function titleRow({value = '', folder = null, placeholder = '노트 제목(비우면 본문 첫 줄)'}) {
+// S48-30 잘림: 폴더 이름은 8글자까지 다 보이고 그보다 길면 뒤를 '…'로 줄인다(▾는 늘 보임). 버튼은 줄어들지 않고 제목 칸이 양보한다(ed-window.css).
+export const shortFolder = name => { const chars = [...String(name || '')]; return chars.length > 8 ? chars.slice(0, 8).join('') + '…' : chars.join(''); };
+function titleRow({value = '', folder = null, placeholder = '제목(비우면 첫 줄)'}) {
   const row = document.createElement('div'); row.className = 'edw-title-row';
   const label = document.createElement('label'); label.className = 'a11y-only'; label.htmlFor = 'edwNoteTitle'; label.textContent = '노트 제목';
   const input = document.createElement('input');
@@ -37,7 +39,7 @@ function titleRow({value = '', folder = null, placeholder = '노트 제목(비�
     button.addEventListener('click', () => folder.open(button));
     row.append(button);
   }
-  const paint = () => { if (button) { const name = folder.label?.() || '폴더 없음'; button.textContent = name + ' ▾'; button.title = '노트 폴더: ' + name; } };
+  const paint = () => { if (button) { const name = folder.label?.() || '폴더 없음'; button.textContent = shortFolder(name) + ' ▾'; button.title = '노트 폴더: ' + name; } };
   folder?.watch?.(paint);
   paint();
   return {row, input, paint};
@@ -99,7 +101,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
 // with the text and the folder when it changed. attach: {getBatch, isBusy} for [📎 첨부] (files saved with the text). onClose({value, saved, changed}).
 export function openNoteEditWindow({value, photos, files: edFiles = null, save, title = '', folder = null, attach = null, onClose = () => {}} = {}) {
   let handle = null, savedTitle = title, savedFolder = folder?.get?.() || null;
-  const head = titleRow({value: title, folder, placeholder: '노트 제목'});
+  const head = titleRow({value: title, folder, placeholder: '제목'});
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
   const files = attach ? attachRow({id: 'edwNoteEditAttach', getBatch: attach.getBatch, isBusy: attach.isBusy, say: message => handle?.say(message)}) : null;
   const extra = () => ({title: head.input.value, folder: folder ? (folder.get() || null) : undefined});

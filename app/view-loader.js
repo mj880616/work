@@ -39,8 +39,8 @@ const routeStyles={
   telegram:['./choice-sheet.css','./feed.css','./ui-standard.css'],
   photos:['./diary.css','./od-link.css','./photos.css','./folder-tree.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./ui-standard.css'],
-  outside:['./outside-statements.css','./ui-standard.css'],
-  news:['./news-clipping.css','./library-upload.css','./ui-standard.css'],
+  // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
+  outside:['./outside-statements.css','./news-clipping.css','./library-upload.css','./now.css','./ui-standard.css'],
   files:['./folder-tree.css','./files.css','./ui-standard.css'],
   updates:['./release-notes.css','./ui-standard.css']
 };
@@ -178,16 +178,15 @@ async function photos(){ await module('./photos.js'); return {ok:true} }
 // 주소 개편 ② E1: [아스날](?view=arsenal, 메뉴 창 맨 아래·사이드바 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #arsenalView를 만들고 경기 자료도 그때 불러온다).
 async function arsenal(){ await module('./arsenal.js'); return {ok:true} }
 // OUTSIDE-바깥성명 ④: [바깥 성명](?view=outside, 위 메뉴 사진 다음). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #outsideView를 만든다).
-async function outside(){ await module('./outside-statements.js'); return {ok:true} }
-// NEWS-클리핑 C1: [뉴스 클리핑](?view=news, 위 메뉴 사회운동 Now 다음). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #newsView를 만든다).
-async function news(){ await module('./news-clipping.js'); return {ok:true} }
+// OUTSIDE-글상세·관심환류 ③: Now 껍데기(outside-statements.js)가 #outsideView와 [뉴스] 탭 자리를 만든 뒤 뉴스 클리핑(news-clipping.js)이 그 자리에 들어간다.
+async function outside(){ await module('./outside-statements.js'); await module('./news-clipping.js'); return {ok:true} }
 // FILES-클라우드탐색기 ④: [파일](?view=files, 위 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #filesView를 만든다).
 async function files(){ await module('./files.js'); return {ok:true} }
 // UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
 async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,news,files,updates};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
-const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',journal:'home'};
+const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',journal:'home'};
 function normalize(view){
   view=VIEW_ALIAS[view]||view;
   return loaders[view]?view:'home'
@@ -230,8 +229,7 @@ const warmModules={
   calls:/*static-chain*/['./call-feed.js'],
   telegram:/*static-chain*/['./telegram-feed.js'],
   photos:/*static-chain*/['./photos.js'],
-  outside:/*static-chain*/['./outside-statements.js'],
-  news:/*static-chain*/['./news-clipping.js'],
+  outside:/*static-chain*/['./outside-statements.js','./news-clipping.js'],
   files:/*static-chain*/['./files.js']
 };
 const warmed=new Set();

@@ -28,7 +28,9 @@ for (const width of [412, 884, 1440]) {
     await expect(c1.locator('.nc-title')).toHaveText('가짜 채널 기사');
     await expect(c1.locator('.nc-sum')).toHaveText('가짜 채널 기사 한 문장 요약.');
     await expect(c1.locator('.nc-time')).toHaveText('09:20');
-    await expect(c1.getByRole('link', { name: /원문/ })).toHaveAttribute('href', 'https://example.org/c1');
+    // S48-27: [원문]은 상세 위로 옮겼다. 줄은 제목 단추 하나가 덮는다(누르면 공용 상세).
+    await expect(c1.getByRole('link', { name: /원문/ })).toHaveCount(0);
+    await expect(c1.locator('[data-nc-open="c1"]')).toHaveText('가짜 채널 기사');
     await expect(item(page, 'k1').locator('.nc-kw')).toHaveText('가짜어');
     // 대기 줄: 주소의 도메인 + '아직 안 읽음', 본문 칸 없음.
     await expect(item(page, 'w1').locator('.nc-title')).toHaveText('example.org');
@@ -116,7 +118,7 @@ for (const width of [412, 884, 1440]) {
   });
 }
 
-test('뉴스 클리핑 폰 412: 좌우로 밀어 칩 이동, ⋯ 메뉴는 하단바에 가리지 않음', async ({ page }) => {
+test('뉴스 클리핑 폰 412: 좌우로 밀면 Now 탭 이동(칩은 누르기), ⋯ 메뉴는 하단바에 가리지 않음', async ({ page }) => {
   test.setTimeout(60000);
   const { errors } = await start(page, 412);
   await openNews(page, 412);
@@ -128,13 +130,18 @@ test('뉴스 클리핑 폰 412: 좌우로 밀어 칩 이동, ⋯ 메뉴는 하�
     el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(x)], changedTouches: [t(x)] }));
     el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t(x + d)] }));
   }, dx);
+  // S48-27: 좌우 밀기는 Now 탭 줄([사회운동] [뉴스] [보관] [문장 찾기]) 이동. 칩(전체·채널·자동·별표)은 눌러서 고른다.
   await swipe(-120);
+  await expect(page.locator('#outsideRoot [data-os-tab="saved"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#nowPanelNews')).toBeHidden();
+  await page.evaluate(() => { const el = document.querySelector('#nowPanelSaved'), r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 60;
+    const t = cx => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
+    el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(x)], changedTouches: [t(x)] }));
+    el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t(x + 120)] })); });
+  await expect(page.locator('#outsideRoot [data-os-tab="news"]')).toHaveAttribute('aria-selected', 'true');
+  await root(page).locator('[data-nc-tab="channel"]').click();
   await expect(root(page).locator('[data-nc-tab="channel"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(items(page)).toHaveCount(3);
-  await swipe(-120);
-  await expect(root(page).locator('[data-nc-tab="auto"]')).toHaveAttribute('aria-pressed', 'true');
-  await swipe(120);
-  await expect(root(page).locator('[data-nc-tab="channel"]')).toHaveAttribute('aria-pressed', 'true');
   await root(page).locator('[data-nc-more]').click();
   const menu = page.locator('#ncMenu');
   await expect(menu).toBeVisible();
@@ -143,11 +150,11 @@ test('뉴스 클리핑 폰 412: 좌우로 밀어 칩 이동, ⋯ 메뉴는 하�
   expect(errors).toEqual([]);
 });
 
-test('사회운동 Now ⋯ [지금 채우기]: 켠 단체만 read_now로 하나씩(뉴스 클리핑 매체 키는 빼고)', async ({ page }) => {
+test('Now [사회운동] ⋯ [지금 채우기]: 켠 단체만 read_now로 하나씩(뉴스 클리핑 매체 키는 빼고)', async ({ page }) => {
   test.setTimeout(60000);
   const { errors, server } = await start(page, 1440);
   server.sources.set('kctu', { source_key: 'kctu', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null });
-  await page.locator('#appView>.app-nav').getByRole('button', { name: '사회운동 Now', exact: true }).click();
+  await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot [data-os-more]').click();
   await page.locator('#osMenu').getByRole('button', { name: '지금 채우기' }).click();

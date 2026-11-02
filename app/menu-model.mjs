@@ -26,9 +26,9 @@ export const ITEMS = Object.freeze([
   {id: 'ledger', label: '원장', view: 'ledger', icon: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM9 8h6M9 12h6M9 16h4'},
   {id: 'photos', label: '사진', view: 'photos', icon: 'M3 6h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01'},
   // OUTSIDE-바깥성명 ④: [바깥 성명]은 처음 자리가 위 메뉴 끝(사진 다음, 설계 docs/design/outside-statements.md 4절).
-  {id: 'outside', label: '사회운동 Now', view: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
-  // NEWS-클리핑 C1: [뉴스 클리핑]은 처음 자리가 사회운동 Now 바로 다음(위 메뉴 끝, 설계 docs/design/news-clipping.md 6절).
-  {id: 'news', label: '뉴스 클리핑', view: 'news', icon: 'M4 4h16v13a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3zM8 8h8M8 12h8M8 16h5'},
+  // OUTSIDE-글상세·관심환류 ③(명진 결정 11/01 23:16): 사회운동 Now와 뉴스 클리핑을 'Now' 한 칸으로 합쳤다(탭 [사회운동] [뉴스] [보관] [문장 찾기]).
+  // id는 outside 그대로라 저장된 메뉴 순서가 맞고, 옛 id news는 아래 OLD_IDS가 outside로 읽는다.
+  {id: 'outside', label: 'Now', view: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
   {id: 'calls', label: '통화', view: 'calls', feed: true, icon: 'M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z'},
   {id: 'telegram', label: '텔레그램 소식', view: 'telegram', feed: true, icon: 'M21 4 3 11l6 2 2 6 3-4 5 4z'},
   // 주소 개편 ② E1: [아스날]은 처음 자리가 [메뉴] 창 맨 아래(PC 사이드바도 맨 아래 묶음 끝, feed와 같은 자리). 메뉴 편집으로 옮길 수 있다.
@@ -41,7 +41,7 @@ export const BAR_MAX = 5;
 // MENU-세칸(명진 요청 2026-10-30 10:19): 메뉴는 세 칸이다. bar = 폰 하단바, rest = 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위),
 // tail = 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 어느 메뉴든 세 칸 사이를 옮길 수 있다.
 export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'meetings', 'team']);
-export const DEFAULT_REST = Object.freeze(['note', 'library', 'files', 'hwp', 'pages', 'ledger', 'photos', 'outside', 'news']);
+export const DEFAULT_REST = Object.freeze(['note', 'library', 'files', 'hwp', 'pages', 'ledger', 'photos', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
@@ -65,7 +65,9 @@ function placeMissing(list, missing, order) {
   }
   return out;
 }
-const known = list => Array.isArray(list) ? list.filter(id => typeof id === 'string' && KNOWN.has(id)) : [];
+// 합쳐진 옛 메뉴 id → 지금 id. 저장된 순서에 옛 id만 있으면 그 자리에 지금 메뉴가 선다(둘 다 있으면 먼저 나온 자리, unique가 뒤 것을 버림).
+export const OLD_IDS = Object.freeze({news: 'outside'});
+const known = list => Array.isArray(list) ? list.map(id => OLD_IDS[id] || id).filter(id => typeof id === 'string' && KNOWN.has(id)) : [];
 const unique = list => [...new Set(list)];
 
 // 저장된 값(또는 아무 값) → 언제나 올바른 {bar, rest, tail}. 홈은 맨 앞 고정, 하단바는 BAR_MAX칸까지(넘친 칸은 위 메뉴 맨 앞으로),

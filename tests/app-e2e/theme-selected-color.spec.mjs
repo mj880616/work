@@ -68,7 +68,7 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
 });
 
 for(const theme of ['olive','sky','lemon']){
- test(`폰 390 ${theme}: 하단 탭 지금 화면은 연한 동그라미 + 강조색 아이콘, 메뉴 화면에서는 [메뉴]`,async({page})=>{
+ test(`폰 390 ${theme}: 하단 탭 지금 화면은 연한 동그라미 + 강조색 아이콘, 메뉴 화면에서는 칠하지 않음`,async({page})=>{
   const errors=await open(page,390,theme);
   // 글자로 쓰는 강조색은 --kptu-primary-text(레몬은 진한 노랑, 나머지는 주 버튼 색과 같거나 읽히는 변형). 동그라미 바탕은 연한 선택 바탕.
   const soft=await rgb(page,'var(--ds-select-bg)'),text=await rgb(page,'var(--kptu-primary-text)');
@@ -77,11 +77,11 @@ for(const theme of ['olive','sky','lemon']){
   await expect(cur).toHaveCount(1);await expect(cur).toContainText('홈');
   expect(await bg(cur.locator('svg'))).toBe(soft);expect(await fg(cur.locator('svg'))).toBe(text);expect(await fg(cur)).toBe(text);
   expect(await bg(tabs.locator('button:not([aria-current]) svg').first())).toBe('rgba(0, 0, 0, 0)');
-  // 메뉴로 닿는 화면: [메뉴]만 지금 화면(MTG-프로젝트합치기 3단계: 사업 보고는 하단바 칸이라 여기서 빠진다).
+  // 메뉴로 닿는 화면: 하단바에 칸이 없으니 아무 칸도 칠하지 않는다(UI-화면정리 C5, S48-30 — 위쪽 제목이 지금 메뉴).
   for(const view of ['library','hwp','pages']){
    await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view}View`)).toBeVisible();
-   await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('#mobileMenuTab')).toHaveAttribute('aria-current','page');
-   expect(await bg(tabs.locator('#mobileMenuTab svg'))).toBe(soft);
+   await expect(tabs.locator('[aria-current="page"]')).toHaveCount(0);await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');
+   expect(await bg(tabs.locator('#mobileMenuTab svg'))).toBe('rgba(0, 0, 0, 0)');
   }
   // 사업 보고와 그 아래 사업영역 관리(라우터 이름 projects)는 하단바 [사업 보고] 칸.
   for(const view of ['meetings','projects']){
@@ -95,7 +95,7 @@ for(const theme of ['olive','sky','lemon']){
 test('폰 390: 메뉴 판 타일 열이 같은 모양이고 낮다(FILES-클라우드탐색기 ④: 파일 추가, OUTSIDE-바깥성명 ④: 바깥 성명 추가, CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가, MTG-프로젝트합치기 3단계: 사업 보고는 하단바로)',async({page})=>{
  const errors=await open(page,390);
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu .mobile-menu-panel')).toBeVisible();
- const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(12);
+ const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(11); // S48-27: 뉴스 클리핑은 Now 탭으로(한 칸 줄어 11)
  // S48-6b(#1708 질문 4): 메뉴 줄은 보이는 36px, 누르는 범위(::after) 44px.
  const look=await tiles.evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e),a=getComputedStyle(e,'::after'),h=e.getBoundingClientRect().height;return {bg:s.backgroundColor,color:s.color,border:s.borderTopColor,h:Math.round(h),touch:Math.round(h-parseFloat(a.top)-parseFloat(a.bottom))}}));
  for(const t of look){expect(t).toEqual(look[0]);expect(t.h).toBeLessThanOrEqual(60);expect(t.h).toBe(36);expect(t.touch).toBe(44)}

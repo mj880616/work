@@ -79,11 +79,11 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const tops=await page.evaluate(()=>['.gs-menu-entry','nav[aria-label="더 보기"]','#mobileAccountGroup'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
  expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
  { const acct=await rect(page.locator('#mobileAccountGroup')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-acct.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-acct.bottom).toBeLessThanOrEqual(24); }
- // 메뉴 줄 2열: 노트·자료실 / 파일·HWP 편집 / 공유 페이지·원장 / 사진·사회운동 Now / 뉴스 클리핑, 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 7줄.
+ // 메뉴 줄 2열: 노트·자료실 / 파일·HWP 편집 / 공유 페이지·원장 / 사진·Now, 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 6줄(S48-27 뉴스 클리핑이 Now 탭으로).
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','사회운동 Now','뉴스 클리핑','통화','텔레그램 소식','아스날']);
+ await expect(tiles).toHaveText(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','Now','통화','텔레그램 소식','아스날']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {x:Math.round(r.left),y:Math.round(r.top),h:r.height,touch:r.height-parseFloat(a.top)-parseFloat(a.bottom)};}));
- expect(new Set(boxes.map(b=>b.y)).size).toBe(7);expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
+ expect(new Set(boxes.map(b=>b.y)).size).toBe(6);expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
  // 보이는 줄 36px, 누르는 범위 44px(줄 사이 8px라 이웃 줄과 겹치지 않음).
  for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
  // 계정 한 줄: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
@@ -114,10 +114,11 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // A tile opens its screen; 자료실 shows that one name on top.
  await tab.click();await page.locator('#mobileMenu [data-view="library"]').click();
  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('자료실');
- await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
- // 메뉴 안 화면에서 창을 다시 열어도, 뒤로가기로 창을 닫아도 [메뉴] 하나만.
+ // UI-화면정리 C5(S48-30): 하단바에 칸이 없는 화면은 아무 칸도 칠하지 않는다(위쪽 제목 '자료실'이 지금 메뉴).
+ await expect(marks).toHaveCount(0);await expect(tab).not.toHaveAttribute('aria-current','page');
+ // 메뉴 안 화면에서 창을 다시 열면 [메뉴] 하나, 뒤로가기로 창을 닫으면 다시 칠하지 않음.
  await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
- await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#libraryView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
+ await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#libraryView')).toBeVisible();await expect(marks).toHaveCount(0);await expect(tab).not.toHaveAttribute('aria-current','page');
  // 하단바의 다른 칸으로 가면 그 칸 하나만.
  await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(marks).toContainText('홈');
  await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');await page.goBack();await expect(menu).toBeHidden();await expect(marks).toContainText('홈');await expect(marks).toHaveCount(1);
@@ -153,14 +154,14 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','일기']);
  // BASKET-PC메뉴: [정리함] 아래 [업데이트]·[챙길 것], [노트]는 [일정] 다음.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','일정','노트','사업 보고','자료실','파일','공유 페이지','담당조직','HWP 편집','원장','사진','사회운동 Now','뉴스 클리핑','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','일정','노트','사업 보고','자료실','파일','공유 페이지','담당조직','HWP 편집','원장','사진','Now','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();
- await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','사회운동 Now','뉴스 클리핑','통화','텔레그램 소식','아스날']);
+ await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','Now','통화','텔레그램 소식','아스날']);
  await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 

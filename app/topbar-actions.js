@@ -3,6 +3,7 @@ import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
 import {pcSplit,itemOf,isDefaultLayout} from './menu-model.mjs';
 import './menu-layout.js';
+import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
 (()=>{
 'use strict';
 if(window.__KPTU_TOPBAR_ACTIONS__)return;
@@ -52,7 +53,7 @@ const menuQuery=mobileQuery;
 const appNav=document.querySelector('#appView>.app-nav');
 // BASKET-정리함한화면: the order is the sidebar's: 홈 / 정리함 / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','calendar','note','meetings','library','files','pages','team','hwp','ledger','photos','outside','news','calls','telegram','arsenal'];
+const ALL_KEYS=['home','basket','calendar','note','meetings','library','files','pages','team','hwp','ledger','photos','outside','calls','telegram','arsenal'];
 const keyButton=key=>appNav?.querySelector(key==='note'?'.nav-btn[data-basket-kind-nav="note"]':`.nav-btn[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
 // UI-폴드PC틀: each left-menu row carries the same line picture as the phone tabs (menu-model.mjs icon). At 761~1023px the menu is a
@@ -185,7 +186,7 @@ menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
   // APP-위여백: 홈은 본문 맨 위 날짜가 제목이라 폰 머리줄에 쓸 이름이 없다. 이름이 없으면 머리줄 전체가 자리를 비운다(빈 44px+12px 칸이 남지 않게).
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'사회운동 Now',news:'뉴스 클리핑'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'담당조직',meetings:'사업 보고',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'Now'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -372,7 +373,7 @@ paintSteps();
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'team',projects:'reports'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'담당조직',view:'team'},reports:{name:'사업 보고',view:'meetings'}};
-const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'사회운동 Now',news:'뉴스 클리핑'};
+const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'Now'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 const whereItems=new Map();
@@ -387,15 +388,21 @@ function paintWhere(view=window.KPTURouter?.current){
   // The item open on the right of a left-list / right-detail screen goes last ("담당조직 › 조직명"); the screen word before it
   // is plain text (it would only go to the screen already shown).
   const itemKey=view==='basket'?`basket:${basketKind==='note'?'note':'memo'}`:view;
-  if(whereItems.has(itemKey))parts.push({name:whereItems.get(itemKey),item:true});
+  // UI-상단줄중간단계(S48-30, 요청 10/22 14:06 ③⑤): 화면이 준 중간 단계(trail)를 이름 앞에 둔다(사업 보고 › 회의 › 회의명, 사업영역 관리 › 상위 › 하위).
+  // 중간 단계를 누르면 그 화면에 kptu:where-step {view, step}을 보내 그 단계로 간다(그리는 주인은 각 화면).
+  const item=whereItems.get(itemKey);
+  if(item){for(const step of item.trail)parts.push({name:step.name,step:step.step,view});parts.push({name:item.name,item:true});}
   whereList.replaceChildren(...parts.map((part,i)=>{
     const li=document.createElement('li');
     if(i<parts.length-1&&part.go){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
+    else if(i<parts.length-1&&part.step){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineStep=part.step;b.dataset.toplineStepView=part.view;b.textContent=part.name;b.title=part.name;li.append(b)}
     else{const s=document.createElement('span');if(i===parts.length-1)s.setAttribute('aria-current','page');s.textContent=part.name;if(part.item)s.title=part.name;li.append(s)}
     return li;
   }));
 }
 whereList?.addEventListener('click',event=>{
+  const step=event.target.closest('[data-topline-step]');
+  if(step){window.dispatchEvent(new CustomEvent('kptu:where-step',{detail:{view:step.dataset.toplineStepView,step:step.dataset.toplineStep}}));return}
   const go=event.target.closest('[data-topline-go]')?.dataset.toplineGo;if(!go)return;
   window.KPTURouter?.go(go,{source:'delegated'});
 });
@@ -411,7 +418,8 @@ window.addEventListener('kptu:basket-kind',event=>{
 window.addEventListener('kptu:where-item',event=>{
   const view=event.detail?.view,name=String(event.detail?.name??'').trim(),key=event.detail?.kind?`${view}:${event.detail.kind}`:view;
   if(!view)return;
-  if(name){if(whereItems.get(key)===name)return;whereItems.set(key,name)}else if(!whereItems.delete(key))return;
+  const trail=(Array.isArray(event.detail?.trail)?event.detail.trail:[]).map(t=>({name:String(t?.name??'').trim(),step:String(t?.step??'')})).filter(t=>t.name).slice(0,3);
+  if(name){const was=whereItems.get(key);if(was&&was.name===name&&JSON.stringify(was.trail)===JSON.stringify(trail))return;whereItems.set(key,{name,trail})}else if(!whereItems.delete(key))return;
   paintWhere();
 });
 window.addEventListener('kptu:session-changed',()=>{if(whereItems.size){whereItems.clear();paintWhere()}});
@@ -493,9 +501,20 @@ function selected(){
 function closeTheme(){
   if(!modal||modal.classList.contains('hidden'))return;
   if(modal.dataset.kptuHistoryOpen!=='1')window.removeEventListener('popstate',restoreAfterBack);
+  unanchorTheme();
   modal?.classList.add('hidden');modal?.setAttribute('aria-hidden','true');
   window.KPTUA11y?.dialog.deactivate(modal);
 }
+// S48-30 ▾ 펼침(ED-서식줄펼침 사이트 공통 규칙): 넓은 화면(761px~)에서 [화면 색 ▾]는 가운데 창이 아니라 계정 버튼 바로 아래 작은 목록으로 뜬다.
+// 위치는 공용 anchored-popup.js 하나가 맡고(화면 밖으로 안 잘림, 스크롤·창 크기 따라감), 폰은 지금처럼 창.
+let themeAnchor=null,themeFollow=null;
+function anchorTheme(anchor){
+  const card=modal?.querySelector('.theme-panel');if(!card||!isWide()||!anchor?.getClientRects?.().length)return;
+  themeAnchor=card;modal.classList.add('theme-anchored');
+  const place=()=>placeAnchored(card,anchor,{maxWidth:280,maxHeight:520,minHeight:200});
+  place();themeFollow=followAnchor(card,anchor,{place,lost:()=>closeTheme()});
+}
+function unanchorTheme(){themeFollow?.();themeFollow=null;if(themeAnchor){clearAnchored(themeAnchor);themeAnchor=null;}modal?.classList.remove('theme-anchored');}
 themeButtons.forEach(button=>button.addEventListener('click',()=>closeAccount(()=>{
   const account=accounts.find(account=>account.theme===button);
   const focusTrigger=menuQuery.matches?menuButton():account.trigger;
@@ -507,6 +526,7 @@ themeButtons.forEach(button=>button.addEventListener('click',()=>closeAccount(()
   window.addEventListener('popstate',restoreAfterBack,{once:true});
   selected();modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
   window.KPTUA11y?.dialog.activate(modal,{trigger:focusTrigger,initialFocus:'[aria-pressed="true"]',onRequestClose:closeTheme});
+  anchorTheme(focusTrigger);
 })));
 modal?.addEventListener('click',event=>{
   if(event.target===modal||event.target.closest('[data-close="themeModal"]')){event.stopPropagation();closeTheme();return}

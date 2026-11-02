@@ -38,7 +38,7 @@ for(const width of [390,1280])test(`새 성명 줄 ${width}: 저녁에 본 시�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await line(page).getByRole('button',{name:'보기'}).click();
   await expect(page.locator('#outsideView')).toBeVisible();
-  await expect(page.locator('#outsideRoot').getByRole('tab',{name:'새로 온 것'})).toHaveAttribute('aria-selected','true');
+  await expect(page.locator('#outsideRoot').getByRole('tab',{name:'사회운동'})).toHaveAttribute('aria-selected','true');
   await expect(line(page)).toHaveCount(0);
   // 사회운동 Now가 본 시각을 지금으로 바꾼다 → 다른 화면으로 가도 줄이 다시 뜨지 않는다.
   await expect.poll(()=>s.calls.some(c=>c.p==='app_outside_seen'&&c.method==='PATCH')).toBe(true);
