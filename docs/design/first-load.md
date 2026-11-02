@@ -254,3 +254,27 @@ CC가 `perf-baseline.yml`을 main과 이 브랜치에서 돌린 값을 PR 마감
 - 홈 보이기 전 150개 중 `team.js` 정적 사슬 43개는 모든 화면의 바탕이다. 그중 사업 보고 화면·보고 창에만 쓰는 묶음(`report-views`·`report-photos`·`report-photo-row`·`meeting-columns`·`report-kind-sheet`·`record-text-write`·`business-area-fields` 등 약 20개)을 사업 보고 화면·창을 열 때 부르게 나누면 130개 아래로 갈 수 있다(추정). `team.js`(75KB, 사업 보고 화면 주인) 구조를 나누는 일이라 따로 세운다(P5-b 제안).
 - 홈 입력줄 첨부 사슬(`task-files.js` 아래 7개)은 할 일 화면·정리함과 상태(첨부 가능 여부 답)를 함께 써서, 첫 첨부 때 부르게 바꾸면 그 답을 받는 순서가 바뀐다 → 이 PR에서 건드리지 않음(P2-b 제안 유지).
 - 쉬는 틈 미리 받기가 앱 거의 전부(3.9MB)를 받는다. 데이터 아끼기(`saveData`) 켠 폰은 받지 않는다. 배포 때는 바뀐 파일만 다시 받는다(파일별 해시 그대로).
+
+## 10. P5-b — 사업 보고 전용 모듈을 화면·창을 열 때 부름 (S48-34)
+
+근거 main `42331e2`. 작업 세션 S48-34(Claude Code 웹 — 로컬 Playwright를 쓰지 않아 브라우저 수치는 CC가 `perf-baseline.yml`을 main·이 브랜치에서 돌려 PR에 붙인다).
+
+### 10-1. 한 일
+
+- `team.js`(로그인 확인·업무공간·달력·자료실·사업 보고를 함께 맡음)의 정적 import 가운데 **사업 보고 화면·입력 창에만 쓰는 18줄**(목록·달력·사진 보기, 세 칸, 칸 고르기 창, 연결·사업영역, 결과 크게 쓰기 등)을 `app/team-report-kit.js` 한 묶음(다시 내보내기만)으로 옮겼다. `team.js`는 같은 이름을 `let`으로 두고, 묶음이 오면 채운다(`reportKit()`, 부르는 곳은 그대로).
+- 부르는 때: 사업 보고 화면 자료를 읽을 때(`loadForView('meetings')`, 자료 읽기와 함께) · 연결 다시 읽기(`loadReportLinks`, 다른 화면의 보고 상세 창이 부름). `KPTUReportEntry.open`(달력·바구니·녹음 등에서 보고 창 열기)은 원래 `loadForView('meetings')`를 먼저 기다리므로 그대로 묶음이 온 뒤 창이 열린다. 실패하면 화면 불러오기 실패 줄의 [다시]로 다시 부른다(실패한 받기는 기억하지 않음).
+- 묶음이 오기 전에는 `renderMeetings`가 그리지 않고(그 화면은 묶음이 온 뒤 다시 그림), 보고 상세의 연결 이름(`reportLabel`)은 빈 값 → 상세 창이 원래대로 연결을 다시 읽은 뒤 다시 그린다. 모듈 맨 위에서 바로 하던 일 3가지(PC 너비 감지 `meetingPc`, [차수]·[짧은 이름] 줄 `createFieldRows`, 결과 원문·특이사항 [⤢] `mountBigWrite`)는 묶음이 온 때 한 번 한다.
+- 남긴 것: `time-input.js`(앱 전체 시간 칸을 맞추는 부작용 모듈), 다른 화면과 함께 쓰는 모듈(`wait-state`·`small-notice`·`meeting-time`·`meeting-compact`·`view-prefs`·`report-kinds`·`project-trash-model`).
+- `view-loader.js` 쉬는 틈 미리 받기·`prepare`의 meetings 목록 맨 앞에 `team-report-kit.js`를 더했다(빌드가 사슬을 채움) → 홈 뒤 쉬는 틈에 받아 두므로 사업 보고를 처음 눌러도 거의 새로 받지 않는다.
+- 시작 순서·화면 소유권은 그대로(사업 보고 화면의 그리는 주인은 여전히 `renderMeetings` 하나). 손 `?v=`·캐시 삭제·기기 저장 없음.
+
+### 10-2. 정적 수치 (빌드 결과에서 셈)
+
+| 목록 | 전 | 후 |
+| --- | --- | --- |
+| `team.js` 정적 사슬 | 44개 | 11개 |
+| 앱 바탕 미리 받기(loader-v2, 로그인 확인 뒤) | 51개 | 18개 |
+| 홈 보이기 전 정적 사슬에서 빠지는 파일(다른 바탕 모듈과 겹치는 `report-links` 2개 뺀 수) | — | 약 24개 |
+| 사업 보고 미리 받기(view-loader meetings) | — | 70개(묶음 사슬 포함) |
+
+- 추정: 홈 보이기 전 JS 151 → 약 127개(목표 130). 브라우저 수치는 9-3과 같이 CC 측정으로 확인한다.
