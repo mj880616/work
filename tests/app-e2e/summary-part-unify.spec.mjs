@@ -114,6 +114,20 @@ test('C·③: 한글 파일 하나가 이미 자료이고 올릴 때 만든 요�
  expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);
 });
 
+// 빠짐13(LIB-연결요약기본): 자료(파일만)를 조직에 [기록도 남기기]로 연결하면 올릴 때 만든 자료 요약이 요약 칸 기본값으로 바로 들어간다(누르기·AI 없음).
+test('빠짐13: 자료를 [기록도 남기기]로 연결하면 올릴 때 만든 요약이 기본값, 고쳐 쓸 수 있음',async({page})=>{
+ const doc='60000000-0000-4000-8000-000000000002';
+ const f=await fixture(page,{note:{raw_text:'',attachments:[{drive_file_id:'hwp2',file_name:'공문2.hwp',mime_type:'application/x-hwp',size_bytes:10}]},
+  docs:[{id:doc,workspace_id:'w',title:'공문2',project_id:null,organization_id:null,file_id:'hwp2',category:null}],
+  brief:[{document_id:doc,content_hash:'b1:'+'b'.repeat(32),summary:'올릴 때 만든 합성 요약.'}]}),detail=await openLink(page,1280);
+ await pick(page,detail,'organization','합성 한빛지부',1280);
+ await detail.locator(`[data-manual-record="organization:${o}"]`).click();
+ const box=detail.locator(`[data-manual-summary="organization:${o}"]`);
+ await expect(box).toHaveValue('올릴 때 만든 합성 요약.');
+ await box.fill('고친 요약');await expect(box).toHaveValue('고친 요약');
+ expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 test('C: 읽은 글자가 없다는 서버 답은 칸을 그대로 두고 한 줄 안내',async({page})=>{
  const f=await fixture(page,{note:{raw_text:'',attachments:[{drive_file_id:'pdf1',file_name:'스캔.pdf',mime_type:'application/pdf',size_bytes:10}]}}),detail=await openLink(page,1280);
  await pick(page,detail,'organization','합성 한빛지부',1280);
