@@ -34,6 +34,7 @@ import {
 import { QUICK_ACTIONS, QUICK_NOTE_MAX, menuPlan, quickRequest, quickDoneText, reopenPlan, fixErrorText } from './ledger-fix-model.mjs';
 import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
 import { offerUndoNotice } from './basket-record-delete.js';
+import { askConfirm } from './small-notice.js';
 import { fitChipRows, foldChipRows } from './chip-rows.js';
 
 const rt = window.KPTURuntime;
@@ -704,12 +705,14 @@ function bind() {
     else if (action === 'retire') {
       const row = state.details.get(button.dataset.lbId)?.record;
       const label = (RETIRE_REASONS.find(([k]) => k === button.dataset.lbReason) || [])[1];
-      button.closest('details.lb-kebab')?.removeAttribute('open');
-      if (row && label && window.confirm(`${row.ledger_id}을(를) 틀린 기록으로 표시할까요? (${label}) 지우지 않고 폐기로 남깁니다.`)) void retireRecord(row, button.dataset.lbReason);
+      const kebab = button.closest('details.lb-kebab'), anchor = kebab?.querySelector('summary') || button, reason = button.dataset.lbReason;
+      kebab?.removeAttribute('open');
+      if (row && label) void askConfirm(anchor, {text:`${row.ledger_id}을(를) 틀린 기록으로 표시할까요? (${label})`, note:'지우지 않고 폐기로 남깁니다.', ok:'폐기로 표시'}).then(ok => { if (ok) void retireRecord(row, reason); });
     }
     else if (action === 'undo-run') {
-      button.closest('details.lb-kebab')?.removeAttribute('open');
-      if (window.confirm('이번 자동 기록 전체를 취소할까요? 그때 들어온 기록은 폐기로 남고, 다른 기록에 붙인 근거는 뗍니다.')) void undoRun(button.dataset.lbRun);
+      const kebab = button.closest('details.lb-kebab'), anchor = kebab?.querySelector('summary') || button, runId = button.dataset.lbRun;
+      kebab?.removeAttribute('open');
+      void askConfirm(anchor, {text:'이번 자동 기록 전체를 취소할까요?', note:'그때 들어온 기록은 폐기로 남고, 다른 기록에 붙인 근거는 뗍니다.', ok:'전체 취소', danger:true}).then(ok => { if (ok) void undoRun(runId); });
     }
     else if (action === 'find') { state.filters = { ...freshFilters(), q: button.dataset.lbQ || '', inactive: true, scope: 'all' }; render(); run(); }
     else if (action === 'story') void openStory(button.dataset.lbType === 'topic' ? 'topic' : 'organization', button.dataset.lbSid || '');

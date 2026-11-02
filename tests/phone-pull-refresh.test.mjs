@@ -70,7 +70,9 @@ test('앱에서만 붙고, 손가락마다 pull:on/off를 보내고, 새로고�
 
 test('확인 길은 새 버전 안내와 하나이고 로더는 앱에서만 붙인다', () => {
   const notice = readFileSync(new URL('../app/version-notice.js', import.meta.url), 'utf8');
-  assert.match(notice, /window\.KPTUReloadGuard=\{allow:allowReload\};/);
+  // S48-28: 같은 allowReload를 쓰고, 물어야 하면 일단 막은 뒤 작은 확인창에서 [버리기]면 'pull' 표시로 새로고침한다.
+  assert.match(notice, /window\.KPTUReloadGuard=\{allow\(\)\{\n\s+const ok=allowReload\(\);if\(ok!=='ask'\)return ok;/);
+  assert.match(notice, /reopen:mark:pull'\)\}catch\{\}location\.reload\(\)\}\);\n\s+return false;/);
   const loader = readFileSync(new URL('../app/loader-v2.js', import.meta.url), 'utf8');
   assert.match(loader, /if\(\/KPTUAndroid\/i\.test\(navigator\.userAgent\|\|''\)\)import\('\.\/phone-pull-refresh\.js'\)/);
 });

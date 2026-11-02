@@ -6,6 +6,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
 import {openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
+import {noticeText,answerAsk} from './helpers/small-notice.mjs';
 // 회의 목록의 회의자료 표시: 폰은 줄의 "회의자료 있음", PC 3단(MEET-결과3단)은 가운데 줄에 표시가 없고 오른쪽 결과의 회의자료 줄 수로 본다.
 async function expectMeetingDocs(page,width,count){
   if(width<761){await expect(page.locator('#meetingList')).toContainText('회의자료 있음');return}
@@ -83,9 +84,9 @@ for(const width of [390,1280]){
       await showAllLibraryCategories(page);await expandLibraryTree(page);// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다. LIB-토글트리: 모두 편다.
       await page.locator('[data-lu-menu="doc-0"]').click();
     }
-    const alerts=[];page.on('dialog',async d=>{alerts.push(d.message());await d.accept()});
     await page.locator(view==='meetings'?'[data-mrd-delete-document="doc-0"]':'[data-lu-delete="doc-0"]').click();
-    await expect.poll(()=>alerts).toEqual(['자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.']);
+    expect(await noticeText(page)).toBe('자료를 삭제하지 못했습니다.');
+    await expect(page.locator('#kptuNotice .kptu-notice-note')).toHaveText('관리자에게 오류 확인을 요청해 주세요.');
     expect(state.deletes).toEqual([]);expect(state.docs).toHaveLength(2);expect(pageErrors).toEqual([]);
   });
   test(`meeting material deletion confirms, cancels and refreshes all three lists ${width}px`,async({page})=>{
@@ -94,17 +95,16 @@ for(const width of [390,1280]){
     await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     const remove=page.locator('[data-mrd-delete-document="doc-0"]');
-    let canceled=false;page.once('dialog',async d=>{expect(d.message()).toBe('“first.pdf” 자료 등록을 삭제할까요?\n파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.');await d.dismiss();canceled=true});
     await remove.click();
-    await expect.poll(()=>canceled).toBe(true);
+    await expect(page.locator('.kptu-ask .kptu-ask-note')).toHaveText('파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.');
+    expect(await answerAsk(page,false)).toBe('“first.pdf” 자료 등록을 삭제할까요?');
     await expect(remove).toBeEnabled();
     expect(state.deletes).toEqual([]);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
-    const confirmed=[];page.on('dialog',async d=>{confirmed.push({type:d.type(),message:d.message()});if(d.type()==='confirm')expect(d.message()).toBe(DELETE_CONFIRM);else expect(d.message()).toBe(DELETE_LEGACY);await d.accept()});
     await remove.click();
+    await answerDelete(page,DELETE_LEGACY);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(1);
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
-    expect(confirmed.map(d=>d.type)).toEqual(['confirm','alert']);
     await closeMeetingResult(page);
     await expectMeetingDocs(page,width,1);
     await clickView(page,'library');
@@ -117,10 +117,8 @@ for(const width of [390,1280]){
   test(`failed meeting material deletion uses library error guidance and keeps lists ${width}px`,async({page})=>{
     const state=await boot(page,width);state.error='permission denied';
     await openMeetingResult(page,'meeting-1');
-    const alerts=[];
-    page.on('dialog',async d=>{if(d.type()==='confirm')await d.accept();else{alerts.push(d.message());await d.accept()}});
     await page.locator('[data-mrd-delete-document="doc-0"]').click();
-    await expect.poll(()=>alerts).toEqual([DELETE_UNKNOWN]);
+    await answerDelete(page,DELETE_UNKNOWN);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     await closeMeetingResult(page);
     await expectMeetingDocs(page,width,2);
@@ -341,14 +339,17 @@ async function openDeleteControl(page,view){
   expect(await page.evaluate(()=>({owner:window.KPTURuntime.session.read()?.user?.id,token:!!window.KPTURuntime.session.read()?.access_token,workspace:window.KPTURuntime.context.read()?.workspace?.id,view:window.KPTURouter.current}))).toEqual({owner:'owner',token:true,workspace:'ws',view});
   return page.locator(view==='meetings'?'[data-mrd-delete-document="doc-0"]':'[data-lu-delete="doc-0"]');
 }
-function deleteDialogs(page,notice){
-  const dialogs=[];
-  page.on('dialog',async d=>{
-    dialogs.push({type:d.type(),message:d.message()});
-    if(d.type()==='confirm'){expect(d.message()).toBe(DELETE_CONFIRM);await d.accept()}
-    else{expect(d.type()).toBe('alert');expect(d.message()).toBe(notice);await d.accept()}
-  });
-  return dialogs;
+// 지우기 확인은 공용 작은 확인창(글 = 첫 줄, 설명 = 둘째 줄) → [지우기]. 결과 안내는 작은 알림 한 줄(첫 문장)과 그 아래 설명(나머지).
+// 브라우저 기본 창은 하나도 뜨지 않아야 한다.
+async function answerDelete(page,notice){
+  const native=[];const onDialog=async d=>{native.push(d.type());await d.dismiss()};page.on('dialog',onDialog);
+  const [text,note]=DELETE_CONFIRM.split('\n');
+  await expect(page.locator('.kptu-ask .kptu-ask-note')).toHaveText(note);
+  expect(await answerAsk(page,true)).toBe(text);
+  const at=notice.indexOf('. ');
+  expect(await noticeText(page)).toBe(at<0?notice:notice.slice(0,at+1));
+  if(at>=0)await expect(page.locator('#kptuNotice .kptu-notice-note')).toHaveText(notice.slice(at+2));
+  page.off('dialog',onDialog);expect(native).toEqual([]);
 }
 async function spyActualDeleteRuntime(page){
   await page.evaluate(()=>{
@@ -375,9 +376,8 @@ for(const width of [390,1280])for(const view of ['meetings']){// 자료실은 li
   for(const [payload,notice] of deleteResults)test(`delete integration confirmed ${payload.drive_result||'legacy'} ${view} ${width}px`,async({page})=>{
     const state=await boot(page,width);state.deletePayload=payload;
     const remove=await openDeleteControl(page,view);await spyActualDeleteRuntime(page);
-    const dialogs=deleteDialogs(page,notice);
     await remove.focus();await page.keyboard.press('Enter');
-    await expect.poll(()=>dialogs.map(d=>d.type)).toEqual(['confirm','alert']);
+    await answerDelete(page,notice);
     await expect(page.locator(view==='meetings'?'#mrdMaterials .mrd-file-row':'#documentList [data-lu-document]')).toHaveCount(1);
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
     expect(await page.evaluate(()=>window.__deleteEvents)).toBe(1);
@@ -391,9 +391,8 @@ for(const width of [390,1280])for(const view of ['meetings']){// 자료실은 li
     if(failure==='400 phases'){state.deleteStatus=400;state.deletePayload={error:'자료 등록 삭제 결과를 확인하지 못했습니다.',code:'RESULT_UNKNOWN',drive_result:'preserved',token_delete_result:'confirmed',document_delete_result:'unknown'}}
     if(failure==='malformed')state.deletePayload=null;
     if(failure==='network')await page.route(`${SB}/functions/v1/document-actions`,route=>{state.deletes.push(route.request().postDataJSON());return route.abort('failed')});
-    const dialogs=deleteDialogs(page,failure==='401'?DELETE_AUTH:DELETE_UNKNOWN);
     await remove.click();
-    await expect.poll(()=>dialogs.map(d=>d.type)).toEqual(['confirm','alert']);
+    await answerDelete(page,failure==='401'?DELETE_AUTH:DELETE_UNKNOWN);
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);expect(state.refreshes).toBe(0);
     expect(await page.evaluate(()=>window.__deleteEvents)).toBe(0);
     await expect(page.locator(view==='meetings'?'#mrdMaterials .mrd-file-row':'#documentList [data-lu-document]')).toHaveCount(2);

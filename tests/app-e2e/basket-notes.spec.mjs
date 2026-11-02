@@ -6,6 +6,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteField, edWin, edWinText, typeInto } from './helpers/note-editor.mjs';
 import { closeNote } from './helpers/note-close.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // MEMO-노트 PR 3: [메모 | 노트] in the basket tab. The mock keeps one app_notes store and honours the kind/id
 // filters, so every list and write is checked against the row kind the screen showed.
@@ -196,7 +197,10 @@ for(const width of [390,1280]){
   await expect(noteList(page)).toHaveCount(3);await expect(noteList(page).filter({hasText:'교섭 준비 메모'})).toHaveCount(1);
   await expect(page.locator('[data-note-detail]')).toBeHidden();
   // Several lines: the first line is the title, the whole text is the body.
-  await input.fill('둘째 노트 제목\n본문 둘째 줄');await add.click();
+  // UI-빠른입력Ctrl엔터: Enter = 새 줄(저장 안 함), Ctrl+Enter = [추가]. PC(고운 포인터)에서는 [추가]에 'Ctrl+↵' 안내.
+  await input.fill('둘째 노트 제목');await input.press('Enter');await input.pressSequentially('본문 둘째 줄');await expect(input).toHaveValue('둘째 노트 제목\n본문 둘째 줄');expect(f.writes).toHaveLength(1);
+  if(await page.evaluate(()=>matchMedia('(hover:hover) and (pointer:fine)').matches))await expect(add).toHaveAttribute('data-enter-hint','Ctrl+↵');
+  await input.press('Control+Enter');
   await expect(page.locator('#toast')).toContainText('노트를 추가했습니다.');
   expect(f.writes[1].body).toMatchObject({kind:'note',title:'둘째 노트 제목',raw_text:'둘째 노트 제목\n본문 둘째 줄',metadata:{markdown:false}});
   await chooseBasketKind(page,'memo');
@@ -303,7 +307,7 @@ test('note edit draft is protected when leaving with Escape',async({page})=>{
  await typeInto(page,noteField(page),'고치는 중');
  let asked=0;page.on('dialog',d=>{asked++;d.dismiss();});
  await page.keyboard.press('Escape');
- expect(asked).toBe(1);await expect(noteField(page)).toHaveText('고치는 중');
+ await answerAsk(page,false);expect(asked).toBe(0);await expect(noteField(page)).toHaveText('고치는 중');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -455,7 +459,7 @@ test('[닫기] in the big window asks once, then hands the text back to the edit
  await editor.locator('[data-close="edWindow"]').click();
  await ask.getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();
  await expect(edWin(page)).toHaveCount(0);await expect(noteField(page)).toHaveText('닫아도 남는 글');
- page.once('dialog',d=>d.accept());await detail.locator('[data-note-cancel]').click();
+ await detail.locator('[data-note-cancel]').click();await answerAsk(page,true);
  await closeNote(page);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

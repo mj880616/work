@@ -9,7 +9,7 @@
 import {confirmLinks} from './basket-classification.js';
 import {TRASH_STATE,TRASH_TEXT,otherDeleteText,otherDeleteBlockedText} from './project-trash-model.mjs';
 import {readTrashKind,restoreFromTrashKind} from './trash-rpc.js';
-import {holdTimer,recordUndo,dropUndo,hideSmallNotices,noticeHost,NOTICE_UNDO_MS} from './small-notice.js'; // UI-작은알림자리: 위쪽 2초·올려 두면 멈춤·Ctrl+Z 기록
+import {holdTimer,recordUndo,dropUndo,hideSmallNotices,noticeHost,NOTICE_UNDO_MS,askConfirm} from './small-notice.js'; // UI-작은알림자리: 위쪽 2초·올려 두면 멈춤·Ctrl+Z 기록
 
 const PAGE_SIZE=100;
 const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
@@ -135,7 +135,9 @@ export const isLegacyNoteDeleteReply=({data,status})=>status===400&&data?.code==
 
 // Shared outcome shape: deleted | missing | failed | unknown | cancelled | busy | stale.
 // A thrown write is never guessed: the row is read again to report the real state.
-async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false}){
+// S48-28: 확인은 공용 작은 확인창(anchor = 누른 버튼 근처, 기본은 부를 때 초점 둔 곳). ask(text)를 넘기면 그것으로 묻는다(Promise<boolean> 또는 boolean).
+const askFor=(kind,anchor)=>text=>askConfirm(anchor,{text,ok:kind==='link'?'해제':'지우기',danger:kind!=='link'});
+async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false,ask}){
   const key=`${kind}:${id}`;
   if(pending.has(key))return {status:'busy',message:RECORD_DELETE_TEXT.BUSY};
   pending.add(key);
@@ -148,7 +150,7 @@ async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false}){
     const message=await confirmText();
     if(!current())return {status:'stale'};
     if(message.status){if(message.status==='missing')notify();return message;}
-    if((!confirmed&&!globalThis.confirm(message.text))||!current())return {status:'cancelled'};
+    if((!confirmed&&!(await ask(message.text)))||!current())return {status:'cancelled'};
     let status,result;
     if(write){
       result=await write({message,expectedSessionEpoch,path});
@@ -170,8 +172,8 @@ async function remove(kind,id,{rt,isCurrent,confirmText,write,confirmed=false}){
   }finally{pending.delete(key);}
 }
 
-export function disconnectRecordLink(linkId,{name='',rt=window.KPTURuntime,isCurrent=()=>true}={}){
-  return remove('link',linkId,{rt,isCurrent,confirmText:async()=>({text:disconnectConfirmText(name)})});
+export function disconnectRecordLink(linkId,{name='',rt=window.KPTURuntime,isCurrent=()=>true,anchor=globalThis.document?.activeElement,ask=askFor('link',anchor)}={}){
+  return remove('link',linkId,{rt,isCurrent,ask,confirmText:async()=>({text:disconnectConfirmText(name)})});
 }
 
 // Undo re-links the same place with the same summary through the existing confirm-links RPC (owner RLS, INVOKER).
@@ -239,8 +241,8 @@ export const linkRestoreKind=link=>link?.organization_id?'organization':link?.bu
 export const linkRestoreTarget=link=>link?.organization_id||link?.bundle_id||link?.project_id||null;
 // The four screens' disconnect: one confirmation, one row delete, then 5 seconds to undo.
 // link = {id,note_id,organization_id|project_id|bundle_id,summary}; name = the place's name.
-export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isCurrent=()=>true,onRestored=()=>{}}={}){
-  const result=await disconnectRecordLink(link.id,{name,rt,isCurrent});
+export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isCurrent=()=>true,onRestored=()=>{},anchor=globalThis.document?.activeElement,ask=askFor('link',anchor)}={}){
+  const result=await disconnectRecordLink(link.id,{name,rt,isCurrent,ask});
   if(result.status==='deleted'){
     const owner=scope(rt),kind=linkRestoreKind(link);
     offerUndoNotice({text:`${String(name||'').trim()||'이'} 연결을 해제했어요. 업데이트는 남아요.`,onUndo:async()=>{
@@ -257,9 +259,9 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
 // 함수가 그 종류를 모르면(DB 적용 전) '준비 중'을 알리고 삭제 요청을 보내지 않는다(예전 note-delete 경로도 쓰지 않는다).
 // 서버 쪽 삭제 가로채기 트리거가 DELETE를 휴지통 표시로 바꾸므로 같은 owner-RLS DELETE 한 번을 보내고, 도착은 목록으로 확인한 뒤에만 알린다.
 // 연결·첨부(Drive)는 건드리지 않는다. 안내는 '휴지통으로 옮겼어요 · 되돌리기' 한 줄(offerUndoNotice)이라 결과 글은 비워 둔다.
-async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false}){
+async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false,ask}){
   const owner=scope(rt);
-  return remove('note',noteId,{rt,isCurrent,confirmed,confirmText:async()=>{
+  return remove('note',noteId,{rt,isCurrent,confirmed,ask,confirmText:async()=>{
     const first=await readTrashKind('note',rt);
     if(first.state!==TRASH_STATE.READY)return {status:'failed',message:otherDeleteBlockedText('note',first.state)};
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
@@ -288,9 +290,9 @@ async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false}){
 // keepFiles (a note): the owner-RLS REST delete only; the files stay in Drive (NOTE-파일붙이기).
 // confirmed(NOTE-탐색기 여러 개 지우기): 부른 쪽이 'n개를 지울까요?'를 한 번 물었으면 노트마다 다시 묻지 않는다.
 // 일기(UI-버튼통일 ①)는 묻지 않고 '되돌리기' 알림이 닫힌 뒤 보내므로 휴지통 길이 아닌 note-delete 길에서도 confirmed를 쓴다.
-export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false,trash=false,confirmed=false}={}){
-  if(trash)return deleteNoteToTrash(noteId,{rt,isCurrent,confirmed});
-  return remove('note',noteId,{rt,isCurrent,confirmed,confirmText:async()=>{
+export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false,trash=false,confirmed=false,anchor=globalThis.document?.activeElement,ask=askFor('note',anchor)}={}){
+  if(trash)return deleteNoteToTrash(noteId,{rt,isCurrent,confirmed,ask});
+  return remove('note',noteId,{rt,isCurrent,confirmed,ask,confirmText:async()=>{
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
     if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};
     return {text:describe(info),info};

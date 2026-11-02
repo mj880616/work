@@ -1,4 +1,6 @@
 // 자료실과 회의 상세는 같은 확인·요청·오류 안내를 사용한다.
+// 확인은 공용 작은 확인창(askConfirm), 결과·오류 안내는 공용 작은 알림(notify)으로 한다(S48-28). 부르는 쪽이 ask·tell을 넘기면 그것을 쓴다.
+import {askConfirm,notify} from './small-notice.js';
 const unknownDeleteMessage='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
 const pendingDeletes=new Map();
 const modernFields=['drive_result','drive_preserved','reason'];
@@ -36,9 +38,16 @@ export function luDeleteSuccessMessage(data){
   }
 }
 
-async function maybeReconnectDrive(e,api,role,{isCurrent,expectedSessionEpoch}){
+// 안내 한 줄: 첫 문장은 알림 글, 나머지 설명은 그 아래 작은 글(note).
+function tellNotice(message,{error=false}={}){
+  const text=String(message??''),at=text.indexOf('. ');
+  notify(at<0?text:text.slice(0,at+1),{error,note:at<0?'':text.slice(at+2)});
+}
+const defaultAsk=anchor=>options=>askConfirm(anchor,options);
+
+async function maybeReconnectDrive(e,api,role,{isCurrent,expectedSessionEpoch,ask,tell}){
   if(!isCurrent()||!driveAuthError(e)||!['owner','admin'].includes(role))return false;
-  if(!confirm('Google Drive 연결이 만료됐습니다. 지금 관리자 계정을 다시 연결할까요?\n재연결 후 자료 목록과 원본 상태를 먼저 확인해 주세요.')||!isCurrent())return false;
+  if(!(await ask({text:'Google Drive 연결이 만료됐습니다. 지금 관리자 계정을 다시 연결할까요?',note:'재연결 후 자료 목록과 원본 상태를 먼저 확인해 주세요.',ok:'다시 연결'}))||!isCurrent())return false;
   try{
     const d=await api('/functions/v1/public-policy-drive',{method:'POST',body:{action:'drive-start'},expectedSessionEpoch});
     if(!isCurrent())return false;
@@ -46,11 +55,12 @@ async function maybeReconnectDrive(e,api,role,{isCurrent,expectedSessionEpoch}){
     if(!url)throw new Error('Google Drive 연결 주소를 받지 못했습니다.');
     location.href=url;
     return true;
-  }catch(err){if(isCurrent())alert(luDeleteErrorMessage(err));return false}
+  }catch(err){if(isCurrent())tell(luDeleteErrorMessage(err),{error:true});return false}
 }
 
 // bulk에 {}를 넘기면(LIB-여러개삭제) 확인·안내 창 없이 같은 서버 요청만 보내고, 결과를 bulk.ok / bulk.stop(로그인·Drive 문제로 멈춰야 함)에 적는다.
-export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionEpoch=null,isCurrent=()=>true,bulk=null}={}){
+// anchor: 누른 버튼(확인창이 그 근처에 뜬다). ask({text,note,ok,danger}) → Promise<boolean>, tell(message,{error}) — 넘기지 않으면 공용 작은 확인창·알림.
+export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionEpoch=null,isCurrent=()=>true,bulk=null,anchor=globalThis.document?.activeElement,ask=defaultAsk(anchor),tell=tellNotice}={}){
   if(!d||!isCurrent())return false;
   const {id,project_id,meeting_id}=d;
   // Only concurrent calls share this lock; it is neither a retry record nor
@@ -61,7 +71,7 @@ export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionE
   const token={};
   documents.set(id,token);
   try{
-    if(!isCurrent()||(!bulk&&!confirm(`“${d.file_name||d.title}” 자료 등록을 삭제할까요?\n파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.`))||!isCurrent())return false;
+    if(!isCurrent()||(!bulk&&!(await ask({text:`“${d.file_name||d.title}” 자료 등록을 삭제할까요?`,note:'파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.',ok:'지우기',danger:true})))||!isCurrent())return false;
     let data;
     try{
       data=await api('/functions/v1/document-actions',{method:'POST',body:{action:'delete',document_id:id},refreshSession:false,expectedSessionEpoch});
@@ -76,12 +86,12 @@ export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionE
     }catch(e){
       if(!isCurrent())return false;
       if(bulk){bulk.stop=sessionError(e)||driveAuthError(e);if(bulk.stop)bulk.error=e;return false}
-      alert(luDeleteErrorMessage(e));
+      tell(luDeleteErrorMessage(e),{error:true});
       if(!isCurrent())return false;
       if(!unconfirmedOutcome(e)&&!sessionError(e)&&driveAuthError(e)){
         const scope={isCurrent,expectedSessionEpoch};
-        try{await (maybeReconnect?maybeReconnect(e,scope):maybeReconnectDrive(e,api,role,scope))}
-        catch(err){if(isCurrent())alert(luDeleteErrorMessage(err))}
+        try{await (maybeReconnect?maybeReconnect(e,scope):maybeReconnectDrive(e,api,role,{...scope,ask,tell}))}
+        catch(err){if(isCurrent())tell(luDeleteErrorMessage(err),{error:true})}
         if(!isCurrent())return false;
       }
       return false;
@@ -89,7 +99,7 @@ export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionE
     const message=luDeleteSuccessMessage(data);
     if(!isCurrent())return false;
     if(bulk){if(!message)return false;bulk.ok=true;return true}
-    alert(message||unknownDeleteMessage);
+    tell(message||unknownDeleteMessage,{error:!message});
     if(!message||!isCurrent())return false;
     window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:project_id||null,meeting_id:meeting_id||null}}));
     return isCurrent();

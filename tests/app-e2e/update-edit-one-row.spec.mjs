@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 
 // UI-업데이트편집한줄(2026-10-20 사용자 결정): 바구니 업데이트 수정 화면 아래 버튼은 노트처럼 한 줄 —
 // [📎 첨부] [큰 창에서 수정] [수정 저장] [취소](노트 [큰 창에서 수정][저장][취소] 순서). 공용 작은 버튼(보이는 32px, 누르는 범위 44px),
@@ -53,7 +54,7 @@ for (const width of [360, 390, 1280]) test(`update edit buttons [첨부][큰 창
   const tops = await bar.locator('button:visible').evaluateAll(list => list.map(b => Math.round(b.getBoundingClientRect().top)));
   expect(new Set(tops).size).toBe(1);
   // [취소] keeps its meaning: it asks before dropping the chosen file, and [큰 창에서 수정] still opens the big window.
-  page.once('dialog', d => d.dismiss());await bar.locator('[data-basket-cancel]').click();await expect(bar).toBeVisible();
+  await bar.locator('[data-basket-cancel]').click();await answerAsk(page, false);await expect(bar).toBeVisible();
   await bar.locator('[data-basket-big-write]').click();await expect(page.locator('#edWindow')).toBeVisible();
   expect(errors).toEqual([]);
 });

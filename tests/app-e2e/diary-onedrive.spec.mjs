@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 // JOURNAL-일기원드라이브 2단계: [일기]의 원드라이브 사진(날짜별 모아 보기)·스와이프 ☆ 별표·지우기(휴지통)·연결 한 줄.
 // 지어낸 Supabase: onedrive-photos(Edge)와 app_diary_stars(별표 표). 시계는 2026-10-06 KST. 사진 바이트는 1x1 그림 하나다.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -240,8 +241,9 @@ test('연결 전: 한 줄 안내 → 연결 버튼은 마이크로소프트 로�
   await expect(odIcon(page)).toHaveAttribute('aria-label', '원드라이브 · 연결됨 · 사진');
   await expect(odIcon(page)).toHaveAttribute('data-state', 'ok');
   expect(f.edge.find(b => b.action === 'folder-set')).toEqual({ action: 'folder-set', folder_id: 'F3' });
-  page.once('dialog', d => { expect(d.message()).toContain('별표 기록도 남아요'); d.accept(); });
   await odPick(page, '연결 끊기');
+  await expect(page.locator('.kptu-ask .kptu-ask-note')).toContainText('별표 기록도 남아요');
+  await answerAsk(page, true);
   await expect(odIcon(page)).toHaveAttribute('data-state', 'off');
   expect(f.edge.some(b => b.action === 'disconnect')).toBe(true);
   expect(f.errors).toEqual([]);

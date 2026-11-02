@@ -132,3 +132,5 @@
 .he-seg button { min-height:28px; margin:0; padding:0 7px; border:0; border-left:1px solid var(--kptu-border); background:transparent; color:var(--kptu-muted); font:inherit; font-size:12px; cursor:pointer; }
 .he-seg button:first-child { border-left:0; }
 .he-seg button[aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink,var(--kptu-primary)); }
+/* UI-빠른입력Ctrl엔터: [추가]의 'Ctrl+↵' 안내(enter-save.js)는 넓은 화면에서만. 좁은 폭에서는 입력칸을 좁히지 않게 그리지 않는다(단축키는 그대로). */
+@media (max-width:760px){.home-quick button[data-enter-hint]::before{content:none}}

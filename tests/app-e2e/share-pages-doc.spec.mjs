@@ -1,6 +1,7 @@
 // ED-통합편집기 ①b: share page 글(doc) block — edited in place with the new editor, [새 편집기로 바꾸기]·[바꾸기 취소],
 // and the Web1 reader drawing a doc block the same way (cleaned, text only, old-Samsung syntax). Mock Supabase only.
 import {test, expect} from '@playwright/test';
+import {answerAsk} from './helpers/small-notice.mjs';
 import {readFileSync} from 'node:fs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
@@ -151,11 +152,11 @@ test('[새 편집기로 바꾸기] turns the old blocks into one 글 block keepi
   await page.locator('.sp-row').first().click();
   const editor = page.locator('[data-sp-editor]');
   await expect(editor.locator('.sp-vblock')).toHaveCount(6);
-  page.once('dialog', d => d.dismiss());
   await editor.getByRole('button', {name:'새 편집기로 바꾸기', exact:true}).click();
+  await answerAsk(page, false);
   await expect(editor.locator('.sp-vblock')).toHaveCount(6);
-  page.once('dialog', d => d.accept());
   await editor.getByRole('button', {name:'새 편집기로 바꾸기', exact:true}).click();
+  await answerAsk(page, true);
   await expect(editor.locator('[data-sp-block]')).toHaveCount(1);
   const doc = editor.locator('[data-sp-block="0"] .ed-doc');
   for (const text of ['3차 교섭 결렬', '요구안', '교섭 (지금)', '조정', '다가오는 일정', '10/24', '조정 신청', '인력 충원', '2인 1조 보장', '요구안 PDF', '10/19', '교섭 결렬'])
@@ -170,8 +171,8 @@ test('[새 편집기로 바꾸기] turns the old blocks into one 글 block keepi
   expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(OLD.blocks.map(b => b.type));
   expect(state.writes).toEqual([]);
   // Convert again and save: one doc block is written.
-  page.once('dialog', d => d.accept());
   await editor.getByRole('button', {name:'새 편집기로 바꾸기', exact:true}).click();
+  await answerAsk(page, true);
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요');
   expect(state.pages[0].blocks.map(b => b.type)).toEqual(['doc']);

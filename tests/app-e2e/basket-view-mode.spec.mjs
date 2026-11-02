@@ -2,6 +2,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({hasTouch:true});
 const LONG='첫 줄 제목\n\n'+'아주 긴 둘째 문단입니다. '.repeat(20)+'\n마지막 줄';
@@ -71,7 +72,8 @@ for(const width of [390,1280]){
   // Taps use screen positions, so wait until the formatted text has replaced the plain text.
   await expect(read).toHaveClass(/md-body/);
   // Unchanged: cancel returns at once without a question.
-  const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());void(dialogs.accept?d.accept():d.dismiss());});
+  // S48-28: 버릴지 묻는 것은 공용 작은 확인창(asked). 브라우저 기본 창은 뜨지 않아야 한다(dialogs).
+  const dialogs=[],asked=[];page.on('dialog',d=>{dialogs.push(d.message());void d.dismiss();});
   await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});
   // UI-디자인기준 1/3 보완: with 46px buttons this page now ends with [수정 저장]·[취소] at the bottom of the scroll.
   // There the swipe module's touchstart (will-change on the panel) lets Chromium's scroll anchoring move the
@@ -79,17 +81,17 @@ for(const width of [390,1280]){
   // reported separately (UI-디자인기준-1보완 원장 행); keep this test about cancel semantics.
   if(width<761)await page.addStyleTag({content:'html,body{overflow-anchor:none}'});
   await press(page,detail.locator('[data-basket-cancel]'),width);
-  await expect(read).toBeVisible();expect(dialogs).toEqual([]);
+  await expect(read).toBeVisible();expect(dialogs).toEqual([]);await expect(page.locator('.kptu-ask')).toHaveCount(0);
   // Changed: the first answer keeps editing, the second discards.
   await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});await text.fill('버릴 글');
-  await press(page,detail.locator('[data-basket-cancel]'),width);expect(dialogs).toHaveLength(1);await expect(text).toBeVisible();await expect(text).toHaveValue('버릴 글');
-  dialogs.accept=true;await press(page,detail.locator('[data-basket-cancel]'),width);expect(dialogs).toHaveLength(2);
+  await press(page,detail.locator('[data-basket-cancel]'),width);asked.push(await answerAsk(page,false));expect(asked).toHaveLength(1);await expect(text).toBeVisible();await expect(text).toHaveValue('버릴 글');
+  await press(page,detail.locator('[data-basket-cancel]'),width);asked.push(await answerAsk(page,true));expect(asked).toHaveLength(2);
   await expect(read).toBeVisible();await expect.poll(()=>read.innerText()).toBe(SHOWN);await expect(text).toHaveValue(LONG);
   // Failure keeps the editor and the typed text.
   f.setDenied(true);await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});await text.fill('실패해도 남는 글');await press(page,detail.locator('[data-basket-save]'),width);
   await expect(detail.locator('[data-basket-status]')).toContainText('저장하지 못했어요');await expect(text).toBeVisible();await expect(text).toHaveValue('실패해도 남는 글');await expect(read).toBeHidden();
   // While editing, leaving the note still asks first.
-  dialogs.accept=false;await press(page,detail.locator('[data-basket-close]'),width);expect(dialogs).toHaveLength(3);await expect(text).toHaveValue('실패해도 남는 글');
+  await press(page,detail.locator('[data-basket-close]'),width);asked.push(await answerAsk(page,false));expect(asked).toHaveLength(3);expect(dialogs).toEqual([]);await expect(text).toHaveValue('실패해도 남는 글');
   expect(f.errors.filter(e=>!e.includes('403'))).toEqual([]);
  });
 
@@ -133,7 +135,7 @@ test('basket quick input explains a lock below the input and offers a new memo',
  expect(await input.evaluate(el=>el.readOnly)).toBe(true);
  // 8-9e-2: 폰 입력칸은 하단 탭 바로 위에 붙어 맨 아래에 있으므로 잠금 안내는 입력칸 바로 위에 붙는다.
  const inputBox=await input.boundingBox(),lockBox=await lock.boundingBox();expect(lockBox.y+lockBox.height).toBeLessThanOrEqual(inputBox.y);expect(inputBox.y-(lockBox.y+lockBox.height)).toBeLessThan(24);
- page.once('dialog',d=>d.accept());await press(page,q.locator('[data-quick-new-note]'),390);
+ await press(page,q.locator('[data-quick-new-note]'),390);await answerAsk(page,true);
  await expect(lock).toBeHidden();await expect(input).toBeFocused();await expect(input).toHaveValue('');expect(await input.evaluate(el=>el.readOnly)).toBe(false);
  await page.keyboard.type('새로 쓰는 메모');await expect(input).toHaveValue('새로 쓰는 메모');
  expect(f.errors.filter(e=>!e.includes('503'))).toEqual([]);

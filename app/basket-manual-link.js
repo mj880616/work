@@ -1,4 +1,4 @@
-import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {waitInlineHtml} from './wait-state.js';
 // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 const WAITING='\u0000wait';
@@ -310,9 +310,13 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     t.ai.proposal='';paint();
     host?.querySelector(use?`[data-manual-summary="${CSS.escape(key)}"]`:`[data-manual-ai-run="${CSS.escape(key)}"]`)?.focus();
   }
-  function open(next){
+  // S48-28: 쓰던 입력을 버릴지는 공용 작은 확인창으로 묻는다(Promise). 기다리는 사이 다른 업데이트로 바뀌었거나 작업이 시작됐으면 그대로 둔다.
+  async function open(next,anchor=globalThis.document?.activeElement){
     const n=getNote();if(!n||isBusy())return;
-    if(mode&&mode!==next&&hasDraft()&&!window.confirm(mode==='link'?'고른 곳과 쓰던 요약을 버릴까요?':'쓰던 할 일 입력을 버릴까요?'))return;
+    if(mode&&mode!==next&&hasDraft()){
+      const was=mode,yes=await askConfirm(anchor,{text:was==='link'?'고른 곳과 쓰던 요약을 버릴까요?':'쓰던 할 일 입력을 버릴까요?',ok:'버리기',danger:true});
+      if(!yes||isBusy()||getNote()?.id!==n.id||mode!==was)return;
+    }
     if(mode!==next||noteId!==n.id){reset();noteId=n.id;mode=next;}
     if(next==='link'&&(n.archived_at||n.ai_export_allowed!==true)){mode=null;onModeChange?.();return manualErrorText(n.archived_at?'NOTE_ARCHIVED':'AI_EXCLUDED');}
     if(next==='task'&&!task){const title=firstLine(n.raw_text);task={title,notes:n.raw_text||'',initial:{title,notes:n.raw_text||''},due:'',dateKind:'',project:'',status:'',unknown:null,recover:null};}
@@ -328,14 +332,17 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     if(mode==='task'&&task)return !!task.unknown||task.title!==task.initial.title||task.notes!==task.initial.notes||!!task.due||!!task.project||!!(taskFilesOn&&taskFilesPick?.files().length);
     return false;
   }
-  function cancel({force=false}={}){
+  async function cancel({force=false,anchor=globalThis.document?.activeElement}={}){
     if(!mode||isBusy())return false;
-    if(!force&&hasDraft()&&!window.confirm(mode==='link'?'고른 곳과 쓰던 요약을 버리고 닫을까요?':'쓰던 할 일 입력을 버리고 닫을까요?'))return false;
+    if(!force&&hasDraft()){
+      const was=mode,id=noteId,yes=await askConfirm(anchor,{text:was==='link'?'고른 곳과 쓰던 요약을 버리고 닫을까요?':'쓰던 할 일 입력을 버리고 닫을까요?',ok:'버리기',danger:true});
+      if(!yes||isBusy()||mode!==was||noteId!==id)return false;
+    }
     const was=mode;reset();paint();
     host?.ownerDocument.querySelector(was==='link'?'[data-basket-link-open]':'[data-basket-task-open]')?.focus();
     return true;
   }
-  async function confirm(){
+  async function confirmManual(){
     const n=note();if(mode!=='link'||!n||isBusy())return;
     const done=linked();link.targets=link.targets.filter(t=>!done.has(linkKey(t.kind,t.id)));
     const records=link.targets.filter(t=>t.record),into=fileTargets(),filing=into.project||into.organization;
@@ -459,8 +466,8 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       else if(b.dataset.manualFilesRun)void runFilesAi(b.dataset.manualFilesRun);
       else if(b.dataset.manualFilesApply)applyFilesAi(b.dataset.manualFilesApply,true);
       else if(b.dataset.manualFilesDismiss)applyFilesAi(b.dataset.manualFilesDismiss,false);
-      else if(b.hasAttribute('data-manual-confirm'))void confirm();
-      else if(b.hasAttribute('data-manual-cancel')||b.hasAttribute('data-manual-task-cancel'))cancel();
+      else if(b.hasAttribute('data-manual-confirm'))void confirmManual();
+      else if(b.hasAttribute('data-manual-cancel')||b.hasAttribute('data-manual-task-cancel'))void cancel({anchor:b});
       else if(b.hasAttribute('data-manual-task-save'))void saveTask();
       else if(b.hasAttribute('data-manual-task-project'))void sheet.open('task-project',b);
       else if(b.dataset.manualTaskDay&&task){
@@ -472,7 +479,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
         task.dateKind=kind;task.due=quickDueDay(kind==='tomorrow'?1:kind==='after'?2:0,dayKey(Date.now()));paint();
       }
       else if(b.dataset.manualTaskRecover==='check')void recoverTask();
-      else if(b.dataset.manualTaskRecover==='close')cancel({force:true});
+      else if(b.dataset.manualTaskRecover==='close')void cancel({force:true});
     });
     host.addEventListener('input',event=>{
       const el=event.target;

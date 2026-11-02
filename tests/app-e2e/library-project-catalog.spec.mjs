@@ -7,6 +7,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import { expectProjectDetail, projectDetailDocked } from './helpers/project-detail.mjs';
 import {expandLibraryTree,focusLibraryProject,libraryNode} from './helpers/library-tree.mjs';
 import {expectProjectTitle,toplineItem} from './helpers/screen-title.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -221,6 +222,8 @@ test('real runtime maps structured upload failures, keeps completed child upload
   ]);
   await page.locator('#docProject').selectOption('child-a1');
   await page.locator('#saveDocumentBtn').click();
+  // 관리자라 Drive 다시 연결을 공용 작은 확인창으로 한 번 묻는다 → 지금은 하지 않음.
+  expect(await answerAsk(page,false)).toContain('Google Drive 연결이 만료됐습니다');
   const status=page.locator('#documentStatus');
   await expect(status).toContainText('1개 완료 · 1개 미완료. Google Drive 연결이 만료됐습니다. 다시 연결한 뒤 시도해 주세요.');
   await expect(status).toHaveAttribute('role','alert');
@@ -342,7 +345,7 @@ test('project create, rename and archive refresh library selectors without reloa
 
   await page.locator('#ps3Menu .ps3-more > summary').click();
   const docked=await projectDetailDocked(page);
-  await page.locator('[data-ps3-archive-project]').click();
+  await page.locator('[data-ps3-archive-project]').click();await answerAsk(page,true);
   // UI-PC프로젝트좌우: the archived project's detail goes away — PC(≥1024) shows another project in the right pane, the dialog closes elsewhere.
   if(docked){await expect(page.locator('#ps3Body')).not.toHaveAttribute('data-project',created.id);await expect(toplineItem(page)).not.toHaveText('이름 바뀐 하위 프로젝트');await expect(page.locator(`#projectGrid .ps3-plist [data-ps3-project="${created.id}"]`)).toHaveCount(0)}
   else await expect(page.locator('#ps3DetailModal')).toBeHidden();

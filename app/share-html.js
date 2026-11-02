@@ -5,8 +5,9 @@
 // A row press: preview only. Everything is stored on the server (owner-RLS tables); nothing is kept in this browser.
 // The file is shown only in a sandboxed frame without allow-same-origin (HTML_SANDBOX): it cannot read this app's sign-in.
 // The short link (name + 8 letters the DB makes) is read from the DB when needed and is not kept in this module.
-import {HTML_SANDBOX, SHORT_BASE, CODE_LENGTH, fileProblem, textProblem, htmlTitle, nameFrom, nameProblem, shortUrl, expiryOf}
+import {HTML_SANDBOX, SHORT_BASE, CODE_LENGTH, NAME_MAX, fileProblem, textProblem, htmlTitle, nameFrom, nameProblem, shortUrl, expiryOf}
   from './share-html-model.mjs';
+import {askText} from './small-notice.js';
 import {copyText} from './copy-text.js';
 import {waitEl} from './wait-state.js';
 
@@ -267,13 +268,13 @@ export function createShareHtml({rt, workspaceId, onChanged}) {
       } catch (e) { return message(e, '링크를 끄지 못했어요. 다시 시도해 주세요.'); }
     },
     // ⋯ [링크 켜기]: the same short link again (or a new one when the save stopped before it; the name is asked once).
-    async linkOn(page) {
+    async linkOn(page, anchor = document.activeElement) {
       try {
         let link;
         try { link = await linkOn(page.id); }
         catch (e) {
           if (e?.code !== 'name_needed') throw e;
-          const name = window.prompt('링크 이름(영어 소문자·숫자·하이픈)', nameFrom(page.title) || '');
+          const name = await askText(anchor, {text:'링크 이름(영어 소문자·숫자·하이픈)', value:nameFrom(page.title) || '', max:NAME_MAX, ok:'켜기'});
           if (name === null) return '';
           const issue = nameProblem(name.trim());
           if (issue) return issue;

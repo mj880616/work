@@ -5,6 +5,7 @@ import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 
 // UI-바구니첨부메모 PR 3: 조직 쪽 ⑨⑩(조직에 자료로 넣기·조직 상세 [자료] 묶음·자료실을 조직으로 걸러 열기)와 분류 목록 편집.
 // Supabase REST·RPC·Edge 경계만 합성이고 화면은 실제 앱이다. 서버 함수(app_document_category_*)의 동작은 migration 문서대로 흉내 낸다.
@@ -271,8 +272,8 @@ test('leaving the library lifts the organization filter, and a document can be t
  // [조직에서 빼기] only unlinks: the document and its file stay in the library.
  const row=section.locator('[data-wd-doc="od2"]');
  await row.locator('summary').click();
- page.once('dialog',dialog=>{expect(dialog.message()).toContain('자료와 파일은 자료실에 그대로 있고');return dialog.accept();});
  await row.getByRole('button',{name:'조직에서 빼기'}).click();
+ await expect(page.locator('.kptu-ask .kptu-ask-note')).toContainText('자료와 파일은 자료실에 그대로 있고');await answerAsk(page,true);
  await expect(section.locator('.wd-doc-row')).toHaveCount(3);await expect(section.locator('[data-wd-doc-count]')).toHaveText('3');
  await expect(section.locator('[data-wd-doc-state]')).toHaveText('조직에서 뺐어요. 자료는 자료실에 그대로 있어요.');
  const patches=f.calls('app_documents','PATCH');
@@ -352,8 +353,8 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  await expect(editor.locator('[data-dce-row="정책·법령"] .dce-meta')).toHaveText('자료 3개');
  expect(f.tables.app_documents.filter(d=>['e1','e2','e3'].includes(d.id)).map(d=>d.category)).toEqual(['정책·법령','정책·법령','정책·법령']);
  // Delete: the confirm says the documents move to 기타 and nothing is erased.
- let message='';page.once('dialog',dialog=>{message=dialog.message();return dialog.accept();});
  await editor.getByRole('button',{name:'투쟁 지우기'}).click();
+ const message=await answerAsk(page,true);
  await expect(editor.locator('.dce-status')).toHaveText('‘투쟁’ 분류를 지웠어요. 자료 1개는 ‘기타’로 옮겼어요.');
  expect(message).toContain('‘투쟁’ 분류를 지울까요?');expect(message).toContain('자료 1개는 ‘기타’로 옮겨져요.');expect(message).toContain('자료와 파일은 지워지지 않아요');
  await expect(names(editor)).toHaveText(['교섭','교육','선전','정책·법령','회의','기타','홍보']);
@@ -471,8 +472,8 @@ for(const width of [412,1440])test(`subcategories: row under a sole category, pi
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'선전›소식지'}});
  await expect(editor.locator('.dce-row-sub .dce-name')).toHaveText(['투쟁속보','소식지']);
  // 소분류 지우기: 자료는 큰 분류(선전)에 그대로.
- let message='';page.once('dialog',dialog=>{message=dialog.message();return dialog.accept();});
  await editor.getByRole('button',{name:'선전 › 투쟁속보 지우기'}).click();
+ const message=await answerAsk(page,true);
  await expect(editor.locator('.dce-status')).toHaveText('‘선전 › 투쟁속보’ 소분류를 지웠어요. 자료 1개는 ‘선전’에 그대로 있어요.');
  expect(message).toContain('‘선전’에 그대로 남아요');
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_subcategory_delete',body:{p_name:'선전›투쟁속보'}});

@@ -3,6 +3,7 @@
 // No old block frames. Saving with [저장] or Ctrl/Cmd+S, '저장 안 됨', asking before leaving. Pages with old blocks keep the
 // block editor. Mock Supabase only.
 import {test, expect} from '@playwright/test';
+import {answerAsk} from './helpers/small-notice.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
@@ -167,11 +168,11 @@ test('저장: [저장], Ctrl+S and Cmd+S save in place; 저장 안 됨 shows onl
   await box.click();
   await page.keyboard.type(' 쓰는 중');
   expect(await page.evaluate(() => { const e = new Event('beforeunload', {cancelable:true}); window.dispatchEvent(e); return e.defaultPrevented; })).toBe(true);
-  page.once('dialog', d => { expect(d.message()).toContain('저장하지 않은 내용'); d.dismiss(); });
   await editor.getByRole('button', {name:'공유 페이지 목록으로', exact:true}).click();
+  expect(await answerAsk(page, false)).toContain('저장하지 않은 내용');
   await expect(editor).toBeVisible();
-  page.once('dialog', d => d.accept());
   await editor.getByRole('button', {name:'공유 페이지 목록으로', exact:true}).click();
+  await answerAsk(page, true);
   await expect(editor).toBeHidden();
   await expect(page.locator('#sharePagesRoot .sp-list-view')).toBeVisible();
   expect(state.writes).toHaveLength(3);

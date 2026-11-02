@@ -5,6 +5,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { closeNote } from './helpers/note-close.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 
 // UI-노트메뉴정리: every note row has [복사] and [⋯] on its right; the ⋯ (list row and open note alike) holds 고정/고정 풀기 · 수정 ·
 // (연결하기 · 바구니로 돌리기, open note only) · 삭제, and opens right under the pressed ⋯ (anchored-popup.js). The open note's head
@@ -122,13 +123,12 @@ for (const width of [390, 1280]) {
     await expect(page.locator('[data-note-editor]')).toBeVisible(); await expect(page.locator('[data-note-title-input]')).toHaveValue('정리 노트');
     await press(page, page.locator('[data-note-cancel]'), width); await closeNote(page);
     // 삭제 → a confirmation naming what goes with it; cancel keeps the note, accept removes it.
-    let asked = 0; page.once('dialog', d => { asked++; d.dismiss(); });
     await press(page, rowMore(page, 'n-plain'), width); await press(page, menu(page).getByRole('button', { name: '삭제', exact: true }), width);
-    await expect.poll(() => asked).toBe(1);
+    await answerAsk(page, false);
     await expect(page.locator('[data-note-row="n-plain"]')).toBeVisible(); expect(f.deletes).toEqual([]);
     await expect(rowMore(page, 'n-plain')).toBeFocused();
-    page.once('dialog', d => { expect(d.message()).toContain('노트를 휴지통으로 옮길까요?'); d.accept(); });
     await press(page, rowMore(page, 'n-plain'), width); await press(page, menu(page).getByRole('button', { name: '삭제', exact: true }), width);
+    expect(await answerAsk(page, true)).toContain('노트를 휴지통으로 옮길까요?');
     await expect(page.locator('[data-note-row="n-plain"]')).toHaveCount(0);
     expect(f.deletes).toHaveLength(1); expect(f.deletes[0]).toMatchObject({ id: 'eq.n-plain' });
     await expect(page.locator('[data-undo-notice]')).toContainText('노트를 휴지통으로 옮겼어요.');
@@ -170,8 +170,8 @@ for (const width of [390, 1280]) {
     await expect(detail.locator('[data-note-editor]')).toBeVisible(); await expect(detail.locator('[data-note-more]')).toBeHidden();
     await press(page, detail.locator('[data-note-cancel]'), width); await expect(detail.locator('[data-note-more]')).toBeVisible();
     // 삭제 from the open note goes back to the list.
-    page.once('dialog', d => d.accept());
     await press(page, detail.locator('[data-note-more]'), width); await press(page, menu(page).getByRole('button', { name: '삭제', exact: true }), width);
+    await answerAsk(page, true);
     await expect(detail).toBeHidden(); await expect(page.locator('[data-note-row="n-md"]')).toHaveCount(0);
     expect(f.deletes).toHaveLength(1);
     expect(f.errors).toEqual([]);

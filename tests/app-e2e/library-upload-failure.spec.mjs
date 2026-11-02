@@ -1,6 +1,7 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import { test, expect } from '@playwright/test';
+import {answerAsk} from './helpers/small-notice.mjs';
 
 const FIXTURE=`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`;
 const file=(name,body='data')=>({name,mimeType:'application/pdf',buffer:Buffer.from(body)});
@@ -47,18 +48,16 @@ test('library upload timeout is an unknown outcome, releases busy state and neve
   await page.waitForTimeout(300);
   expect(await calls(page)).toEqual(['test.txt']);
 
-  const dialogs=[];
-  page.once('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.dismiss()});
   await save.click();
-  await expect.poll(()=>dialogs.length).toBe(1);
-  expect(dialogs[0]).toContain('중복 등록');
+  await expect(page.locator('.kptu-ask .kptu-ask-note')).toContainText('중복 등록');
+  expect(await answerAsk(page,false)).toContain('업로드 결과를 확인하지 못한 파일 1개');
   await expect(page.locator('#documentStatus')).toContainText('결과를 확인하지 못한 파일은 다시 업로드하지 않았습니다');
   expect(await calls(page)).toEqual(['test.txt']);
   await expectFailureSettled(page);
 
   await page.evaluate(()=>{window.__libraryUploadMode='success'});
-  page.once('dialog',dialog=>dialog.accept());
   await save.click();
+  await answerAsk(page,true);
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
   expect(await calls(page)).toEqual(['test.txt','test.txt']);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(1);
@@ -128,13 +127,11 @@ test('expired Drive connection keeps completed files, marks untried files as wai
     'b.pdf':[{status:424,message:'Google Drive 토큰 갱신에 실패했습니다.'},{ok:true}],
     'c.pdf':[{ok:true}]
   });
-  const dialogs=[];
-  page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.dismiss()});
   await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file('b.pdf'),file('c.pdf')]);
   await page.locator('#saveDocumentBtn').click();
+  expect(await answerAsk(page,false)).toContain('Google Drive 연결이 만료됐습니다');
   await expect(page.locator('#documentStatus')).toContainText('1개 완료 · 2개 미완료. Google Drive 연결이 만료됐습니다. 다시 연결한 뒤 시도해 주세요.');
   await expectFailureSettled(page,{selected:3});
-  expect(dialogs[0]).toContain('Google Drive 연결이 만료됐습니다');
   expect(await page.evaluate(()=>window.__driveReconnectCalls.length)).toBe(0);
   expect(await states(page)).toEqual(['완료','실패 · 다시 시도','대기 · 업로드 전']);
   expect(await calls(page)).toEqual(['a.pdf','b.pdf']);
@@ -147,9 +144,9 @@ test('expired Drive connection keeps completed files, marks untried files as wai
 
 test('drive auth failure starts the existing reconnect flow when the owner accepts',async({page})=>{
   await openFixture(page,{'a.pdf':[{status:424,message:'Google Drive 토큰 갱신에 실패했습니다.'}]});
-  page.on('dialog',dialog=>dialog.accept());
   await page.locator('#libraryFileInput').setInputFiles(file('a.pdf'));
   await page.locator('#saveDocumentBtn').click();
+  await answerAsk(page,true);
   await expect.poll(()=>page.evaluate(()=>window.__driveReconnectCalls.at(-1))).toEqual({action:'drive-start'});
   await expect(page).toHaveURL(/#drive-auth$/);
 });
@@ -180,8 +177,8 @@ test('timeout in a multi-file batch stops before untried files and keeps the unk
   expect(await states(page)).toEqual(['완료','결과 확인 필요','대기 · 업로드 전']);
   expect(await calls(page)).toEqual(['a.pdf','b.pdf']);
 
-  page.once('dialog',dialog=>dialog.dismiss());
   await page.locator('#saveDocumentBtn').click();
+  await answerAsk(page,false);
   await expect(page.locator('#documentStatus')).toContainText('2개 완료 · 1개 미완료. 업로드 시간이 오래 걸려');
   expect(await calls(page)).toEqual(['a.pdf','b.pdf','c.pdf']);
   expect(await states(page)).toEqual(['완료','결과 확인 필요','완료']);
@@ -237,8 +234,9 @@ test('revoked Google Drive token starts reconnect through the canonical function
   expect(dialogs).toEqual([]);
   await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));delete document.hidden});
   // 서버가 Drive 만료로 거절 → 줄을 되살리고 작은 알림, 그다음 Drive 다시 연결을 한 번 묻는다(같은 공용 입구).
-  await expect.poll(()=>dialogs.length).toBe(1);
-  expect(dialogs[0]).toContain('Google Drive 연결이 만료됐습니다');
+  // 다시 연결은 공용 작은 확인창으로 묻는다(브라우저 기본 창은 끝까지 없음).
+  expect(await answerAsk(page,true)).toContain('Google Drive 연결이 만료됐습니다');
+  expect(dialogs).toEqual([]);
   await expect.poll(()=>page.evaluate(()=>window.__driveReconnectCalls.at(-1))).toEqual({action:'drive-start'});
   await expect(page).toHaveURL(/#drive-auth$/);
   await expect(page.locator('[data-lu-document="doc-1"]')).toBeVisible();

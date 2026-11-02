@@ -7,6 +7,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const app = testOrigin + '/app/';
@@ -102,19 +103,18 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   const menu = page.locator('#spRowMenu');
 
   // Cancel: nothing is sent.
-  let message = '';
-  page.once('dialog', d => { message = d.message(); void d.dismiss(); });
   await list.locator('[data-sp-row-menu="page-1"]').click();
   await expect(menu).toBeVisible();
   await expect(menu.getByRole('button')).toHaveText(['보관', '삭제']);
   await menu.getByRole('button', {name:'보관', exact:true}).click();
-  await expect.poll(() => message).toContain('링크로 보던 사람도 더 이상 볼 수 없어요');
+  await expect(page.locator('.kptu-ask .kptu-ask-note')).toContainText('링크로 보던 사람도 더 이상 볼 수 없어요');
+  expect(await answerAsk(page, false)).toContain('페이지를 보관할까요?');
   expect(state.requests.filter(r => r.method === 'PATCH')).toHaveLength(0);
 
   // Published page: confirm → archived (record kept), leaves the list, the 보관함 line shows 1, undo within 5 seconds.
-  page.once('dialog', d => void d.accept());
   await list.locator('[data-sp-row-menu="page-1"]').click();
   await menu.getByRole('button', {name:'보관', exact:true}).click();
+  await answerAsk(page, true);
   await expect(list.locator('li')).toHaveCount(1);
   await expect(boxLine.locator('summary')).toHaveText('보관함 1');
   expect(await boxLine.evaluate(n => n.open)).toBe(false);
@@ -132,10 +132,10 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   expect(state.pages.find(p => p.id === 'page-1')).toMatchObject({status:'published', updated_at:'2026-10-22T03:00:00.000Z'});
 
   // Keep it again (PC: right-click on the line opens the same menu), then 보관함 ⋯ → 되살리기 = draft, back in the list.
-  page.once('dialog', d => void d.accept());
   if (width >= 761) await list.locator('[data-sp-open="page-1"]').click({button:'right'});
   else await list.locator('[data-sp-row-menu="page-1"]').click();
   await menu.getByRole('button', {name:'보관', exact:true}).click();
+  await answerAsk(page, true);
   await expect(boxLine.locator('summary')).toHaveText('보관함 1');
   await boxLine.locator('summary').click();
   const kept = boxLine.locator('li');
@@ -166,16 +166,16 @@ for (const width of [390, 1280]) test('삭제: one confirmation, the page goes t
 
   // Cancel: nothing sent.
   let message = '';
-  page.once('dialog', d => { message = d.message(); void d.dismiss(); });
   await list.locator('[data-sp-row-menu="page-2"]').click();
   await menu.getByRole('button', {name:'삭제', exact:true}).click();
-  await expect.poll(() => message).toContain('공유 페이지를 휴지통으로 옮길까요');
+  message = await answerAsk(page, false);
+  expect(message).toContain('공유 페이지를 휴지통으로 옮길까요');
   expect(deletes()).toHaveLength(0);
 
   // Draft from the list: one confirmation, leaves the list, in the trash (not purged), 5 seconds of [되돌리기].
-  page.once('dialog', d => void d.accept());
   await list.locator('[data-sp-row-menu="page-2"]').click();
   await menu.getByRole('button', {name:'삭제', exact:true}).click();
+  await answerAsk(page, true);
   await expect(list.locator('li')).toHaveCount(1);
   expect(deletes()).toHaveLength(1);
   expect(deletes()[0].search).toContain('id=eq.page-2');
@@ -190,17 +190,17 @@ for (const width of [390, 1280]) test('삭제: one confirmation, the page goes t
   expect(state.pages.find(p => p.id === 'page-2')).toMatchObject({status:'draft'});
 
   // A published page: the question says the link stops and opens again on 되돌리기.
-  page.once('dialog', d => { message = d.message(); void d.accept(); });
   await list.locator('[data-sp-row-menu="page-1"]').click();
   await menu.getByRole('button', {name:'삭제', exact:true}).click();
-  await expect.poll(() => message).toContain('같은 링크가 다시 열립니다');
+  message = await answerAsk(page, true);
+  expect(message).toContain('같은 링크가 다시 열립니다');
   await expect(list.locator('li')).toHaveCount(1);
 
   // From the 보관함: also the trash, and the 보관함 line goes away.
   await boxLine.locator('summary').click();
-  page.once('dialog', d => void d.accept());
   await boxLine.locator('[data-sp-box-menu="page-3"]').click();
   await menu.getByRole('button', {name:'삭제', exact:true}).click();
+  await answerAsk(page, true);
   await expect(boxLine).toHaveCount(0);
   expect((state.trash || []).map(p => p.id).sort()).toEqual(['page-1', 'page-3']);
   expect(state.trash.find(p => p.id === 'page-3').deleted_status).toBe('archived');

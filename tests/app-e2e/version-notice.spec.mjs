@@ -3,6 +3,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import {serveBuiltShell,shellVersion} from './helpers/built-shell.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 
 const origin=appOrigin;
 const current=shellVersion;
@@ -70,14 +71,13 @@ test('reload without draft navigates; changed calendar input confirms first and 
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await page.locator('#newEventBtn').click();
   const field=page.locator('#eventTitle');await expect(field).toBeVisible();await field.fill('Unsaved QA');
-  const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss()});
-  let navigations=0;page.on('framenavigated',f=>{if(f===page.mainFrame())navigations++});
+  // S48-28: 확인은 공용 작은 확인창(.kptu-ask). 그 창이 쓰는 같은 문서 안 기록 이동은 새로고침이 아니므로 'load'만 센다.
+  let loads=0;page.on('load',()=>{loads++});
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
-  expect(dialogs).toHaveLength(1);expect(navigations).toBe(0);await expect(field).toHaveValue('Unsaved QA');
+  expect(await answerAsk(page,false)).toContain('저장하지 않은 내용');expect(loads).toBe(0);await expect(field).toHaveValue('Unsaved QA');
   await field.fill('');
-  const reloaded=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
+  const reloaded=page.waitForEvent('load');
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reloaded;
-  expect(dialogs).toHaveLength(1);
 });
 for(const mode of ['failure','malformed'])test(`${mode} index response is silent`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await boot(page);
@@ -204,14 +204,14 @@ test('cancelled linked summary edit reloads without confirmation',async({page})=
 test('calendar color-only draft confirms before reload',async({page})=>{
   await boot(page,{connected:true});await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await page.locator('#newEventBtn').click();
   const colors=page.locator('#eventGoogleColor [role="radio"]');await expect(colors.nth(1)).toBeVisible();await colors.nth(1).click();
-  const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();const d=await dialog;
-  expect(d.message()).toContain('저장하지 않은 내용');await d.dismiss();await click;await expect(colors.nth(1)).toHaveAttribute('aria-checked','true');
+  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
+  expect(await answerAsk(page,false)).toContain('저장하지 않은 내용');await expect(colors.nth(1)).toHaveAttribute('aria-checked','true');
 });
 test('file dropped into library upload confirms before reload',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await clickView(page,'library');await page.locator('#newDocumentBtn').click();
   await page.locator('#libraryDropzone').evaluate(el=>{const data=new DataTransfer();data.items.add(new File(['QA'],'qa.txt',{type:'text/plain'}));el.dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:data}))});
-  const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();const d=await dialog;
-  expect(d.message()).toContain('저장하지 않은 내용');await d.dismiss();await click;
+  await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
+  expect(await answerAsk(page,false)).toContain('저장하지 않은 내용');
 });
 
 test('notice participates in an open modal keyboard focus cycle',async({page})=>{

@@ -1,6 +1,7 @@
 // SHARE-보이는편집: the Web2 share page editor shows the blocks exactly as the Web1 reader draws them, and turns one
 // block at a time into its input fields in place. Mock Supabase only; storage path is the existing owner REST.
 import {test, expect} from '@playwright/test';
+import {answerAsk} from './helpers/small-notice.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
@@ -185,11 +186,13 @@ test('[+ 블록] between blocks, ⋯ move and delete, saved in the shown order',
   await expect(editor.getByLabel('3번째 블록 쟁점·요구 메뉴', {exact:true})).toBeFocused();
   // Delete a block with content asks first.
   await editor.getByLabel('6번째 블록 자료·링크 메뉴', {exact:true}).click();
-  page.once('dialog', d => d.dismiss());
   await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).click();
+  await answerAsk(page, false);
   await expect(editor.locator('[data-sp-block]')).toHaveCount(7);
-  page.once('dialog', d => d.accept());
+  // 작은 확인창을 누르면 ⋯ 메뉴는 닫힌다(바깥 누르기) — 다시 연다.
+  if (!await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).isVisible()) await editor.getByLabel('6번째 블록 자료·링크 메뉴', {exact:true}).click();
   await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).click();
+  await answerAsk(page, true);
   await expect(editor.locator('[data-sp-block]')).toHaveCount(6);
   await expect(editor.getByRole('button', {name:'6번째 블록 업데이트 기록 고치기', exact:true})).toBeFocused();
   // Add at the end with the bottom bar: opens there.

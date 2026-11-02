@@ -1,4 +1,4 @@
-import {noticeText} from './helpers/small-notice.mjs';
+import {noticeText,answerAsk} from './helpers/small-notice.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
@@ -913,9 +913,9 @@ test('meeting detail keeps completed Google follow-ups and supports create, edit
   await expect(page.locator('#mrdTasks [data-mrd-task="old-done"]')).toHaveClass(/pending/);
   await page.locator('#mrdTasks [data-mrd-task-toggle="old-done"]').click();
   await expect(page.locator('#mrdTasks [data-mrd-task="old-done"]')).toHaveClass(/completed/);
-  page.once('dialog',dialog=>dialog.accept());
   await page.locator('#mrdTasks [data-mrd-task-menu="new-google"]').click();
   await page.locator('#mrdTaskMenu [data-mrd-menu-action="delete"]').click();
+  await answerAsk(page,true);
   await expect(page.locator('#mrdTasks [data-mrd-task]')).toHaveCount(1);
   expect(deleted).toMatchObject({action:'delete',task_id:'new-google'});
   expect(legacyRequests).toBe(0);

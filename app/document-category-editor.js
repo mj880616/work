@@ -1,4 +1,5 @@
 import {waitHtml} from './wait-state.js';
+import {askConfirm} from './small-notice.js';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {
   LOCKED_CATEGORY,CATEGORY_NAME_LIMIT,documentCategories,documentCategoriesLoaded,loadDocumentCategories,categoryNameProblem,categoryErrorText,
@@ -28,7 +29,8 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
   const say=(text,error=false)=>{status={text,error};};
   const countOf=name=>documentCountOf(name,documents());
   const groupCountOf=name=>documentCountOf(name,documents(),{group:true});
-  const ask=text=>window.confirm(text);
+  // S48-28: 브라우저 기본 확인창 대신 공용 작은 확인창(누른 [지우기] 근처). 다시 그려져 버튼이 바뀌었으면 같은 이름의 새 버튼에 붙인다.
+  const ask=(text,name)=>askConfirm(host.querySelector(`[data-dce-delete="${CSS.escape(name)}"]`),{text,ok:'지우기',danger:true});
   const dis=busy=>busy?'disabled':'';
   // 큰 분류 줄의 [+ 소분류]: 그 줄 바로 아래(소분류들 뒤)에 이름 칸이 열린다.
   function subForm(parent){
@@ -140,7 +142,7 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     const text=sub?CATEGORY_EDITOR_TEXT.subDeleteConfirm(name,documentCountOf(name,docs))
       :subs?CATEGORY_EDITOR_TEXT.groupDeleteConfirm(name,documentCountOf(name,docs,{group:true}),subs)
       :CATEGORY_EDITOR_TEXT.deleteConfirm(name,documentCountOf(name,docs));
-    if(!ask(text))return;
+    if(!(await ask(text,name))||busy)return;
     if(sub){
       // 소분류 지우기: 목록에서만 빼고 그 자료는 큰 분류로 남는다.
       busy=true;say(CATEGORY_EDITOR_TEXT.saving);paint();

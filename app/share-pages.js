@@ -29,6 +29,7 @@ import {createDocEditor} from './ed-editor.js';
 import {createSharePhotos, shareIdOf, SHARE_PHOTO_MAX} from './share-photos.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
+import {askConfirm} from './small-notice.js';
 import {archiveFilter, boxFilter, archiveConfirmText, archivePatch, undoPatch, restorePatch, shortTitle} from './share-pages-archive.mjs';
 import {deleteToTrash} from './trash-actions.js';
 import {createShareHtml} from './share-html.js';
@@ -179,29 +180,32 @@ function ensureRowMenu() {
     onAction:(button, active) => {
       const id = active.id.slice(active.id.indexOf(':') + 1), action = button.dataset.spRowAction;
       const page = pages?.find(p => p.id === id);
-      if (page && ['copy', 'replace', 'link-off', 'link-on'].includes(action)) { void htmlAction(action, page); return; }
-      if (action === 'archive') void archivePage(id);
+      if (page && ['copy', 'replace', 'link-off', 'link-on'].includes(action)) { void htmlAction(action, page, active.trigger); return; }
+      if (action === 'archive') void archivePage(id, active.trigger);
       else if (action === 'restore') void restorePage(id);
       else if (action === 'trash') void trashPage(id);
     }});
 }
 const listNote = text => { const node = listView.querySelector('[data-sp-list-status]'); if (node) node.textContent = text; };
 const shareHtml = createShareHtml({rt, workspaceId, onChanged:() => { void loadList({force:true}); }});
-async function htmlAction(action, page) {
+async function htmlAction(action, page, anchor) {
   if (action === 'replace') { shareHtml.openReplace(page); return; }
   if (rowBusy) return;
   const owner = scope;
   rowBusy = true;
   listNote(action === 'copy' ? '링크를 복사하는 중…' : action === 'link-off' ? '링크를 끄는 중…' : '링크를 켜는 중…');
   try {
-    const text = action === 'copy' ? await shareHtml.copyLink(page) : action === 'link-off' ? await shareHtml.linkOff(page) : await shareHtml.linkOn(page);
+    const text = action === 'copy' ? await shareHtml.copyLink(page) : action === 'link-off' ? await shareHtml.linkOff(page) : await shareHtml.linkOn(page, anchor);
     if (owner === scope) listNote(text);
   } finally { rowBusy = false; }
 }
-async function archivePage(id) {
+async function archivePage(id, anchor = document.activeElement) {
   const page = pages?.find(p => p.id === id);
   if (!page || rowBusy) return;
-  if (!window.confirm(archiveConfirmText(page))) return;
+  const [text, ...rest] = archiveConfirmText(page).split('\n');
+  if (!await askConfirm(anchor, {text, note:rest.join(' '), ok:'보관'})) return;
+  // 묻는 동안 다른 줄 작업이 시작됐거나 목록이 바뀌었으면 하지 않는다.
+  if (rowBusy || pages?.find(p => p.id === id) !== page) return;
   const owner = scope, wasStatus = page.status, wasUpdated = page.updated_at;
   rowBusy = true; listNote('보관하는 중…');
   try {
@@ -618,10 +622,12 @@ function showEditor(page) {
   if (!focusDoc) editorView.querySelector('[data-sp-title]')?.focus();
   if (editing.id) void loadLinks();
 }
-function closeEditor({fromBack = false, force = false} = {}) {
+const CLOSE_TEXT = '저장하지 않은 내용이 있어요. 버리고 목록으로 돌아갈까요?';
+// 뒤로가기(fromBack)는 라우터가 그 자리에서 닫을지 정하므로 브라우저 기본 확인창으로 묻는다. [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻고 asked로 부른다.
+function closeEditor({fromBack = false, force = false, asked = false} = {}) {
   if (!editing) return true;
   if (busy && !force) return false;
-  if (!force && dirty() && !window.confirm('저장하지 않은 내용이 있어요. 버리고 목록으로 돌아갈까요?')) return false;
+  if (!force && !asked && dirty() && !window.confirm(CLOSE_TEXT)) return false;
   const closing = editing;
   dropDocEditor();
   // Changes are dropped here, so only the photos in the saved page stay (a photo put in and not saved is removed).
@@ -633,6 +639,13 @@ function closeEditor({fromBack = false, force = false} = {}) {
   void loadList({force:true});
   listView.querySelector('[data-sp-new]')?.focus({preventScroll:true});
   return true;
+}
+async function askCloseEditor(anchor) {
+  if (!editing || busy) return;
+  const page = editing;
+  if (dirty() && !await askConfirm(anchor, {text:CLOSE_TEXT, ok:'버리기', danger:true})) return;
+  if (editing !== page || busy) return;
+  closeEditor({asked:true});
 }
 async function openPage(id) {
   if (busy) return;
@@ -754,10 +767,11 @@ async function copyLink(id, button = null) {
     if (editing === page) linkStatus(message(e, '링크를 복사하지 못했어요.'));
   }
 }
-async function turnOff(id) {
+async function turnOff(id, anchor = document.activeElement) {
   if (!editing?.id || busy) return;
   const page = editing, link = page.links.find(x => x.id === id);
-  if (!link || !window.confirm(`"${link.label || '이름표 없음'}" 링크를 끌까요? 이 링크로는 바로 못 열게 돼요.`)) return;
+  if (!link || !await askConfirm(anchor, {text:`"${link.label || '이름표 없음'}" 링크를 끌까요?`, note:'이 링크로는 바로 못 열게 돼요.', ok:'끄기', danger:true})) return;
+  if (editing !== page || busy) return;
   busy = true; linkStatus('링크를 끄는 중…');
   try {
     const rows = await rt.api(`/rest/v1/app_share_page_links?id=eq.${q(id)}&page_id=eq.${q(page.id)}&workspace_id=eq.${q(workspaceId())}&select=${LINK_COLUMNS}`,
@@ -789,9 +803,11 @@ function paintConvert() {
     ? '바꿨어요. 저장하기 전에는 [바꾸기 취소]로 옛 블록으로 돌아가요.'
     : '진행 단계 막대 같은 칸 모양은 번호 목록·표로 바뀌고 글은 모두 남아요.';
 }
-function convertBlocks() {
+async function convertBlocks(anchor) {
   if (!editing || !editing.blocks.some(b => b.type !== 'doc')) return;
-  if (!window.confirm('모든 블록을 새 편집기 글 하나로 바꿀까요? 글은 모두 남고, 진행 단계 막대 같은 모양은 번호 목록·표로 바뀌어요. 저장하기 전에는 [바꾸기 취소]로 되돌릴 수 있어요.')) return;
+  const page = editing;
+  if (!await askConfirm(anchor, {text:'모든 블록을 새 편집기 글 하나로 바꿀까요?', note:'글은 모두 남고, 진행 단계 막대 같은 모양은 번호 목록·표로 바뀌어요. 저장하기 전에는 [바꾸기 취소]로 되돌릴 수 있어요.', ok:'바꾸기'})) return;
+  if (editing !== page || !editing.blocks.some(b => b.type !== 'doc')) return;
   if (docEditor && editing.blocks[editing.open]?.type === 'doc') editing.blocks[editing.open].doc = docEditor.getValue();
   editing.converted = JSON.parse(JSON.stringify(editing.blocks));
   editing.blocks = [blocksToDoc(editing.blocks)];
@@ -816,6 +832,18 @@ function focusAfterMove(index, delta) {
   const same = node?.querySelector(`[data-sp-move="${index}:${delta}"]`);
   (same && !same.disabled ? same : node?.querySelector(`[data-sp-move="${index}:${-delta}"]`))?.focus();
 }
+async function deleteBlock(index, anchor) {
+  const page = editing, block = page?.blocks[index];
+  if (!block) return;
+  if (hasContent(block) && !await askConfirm(anchor, {text:`${BLOCK_LABELS[block.type]} 블록을 지울까요?`, ok:'지우기', danger:true})) return;
+  // 묻는 동안 다른 페이지를 열었거나 블록 순서가 바뀌었으면 지우지 않는다.
+  if (editing !== page || page.blocks[index] !== block) return;
+  editing.blocks.splice(index, 1);
+  if (editing.open === index) { editing.open = -1; editing.openBefore = null; } else if (editing.open > index) editing.open--;
+  renderBlocks();
+  const near = editorView.querySelector(`[data-sp-block="${Math.min(index, editing.blocks.length - 1)}"]`);
+  (near?.querySelector('[data-sp-edit]') || near?.querySelector('[data-sp-block-del]') || editorView.querySelector('[data-sp-add-block]'))?.focus();
+}
 function closeMenus(except) {
   for (const menu of root.querySelectorAll('details.sp-more[open],details.sp-slot[open]')) if (menu !== except) menu.open = false;
 }
@@ -831,7 +859,7 @@ root.addEventListener('click', event => {
   if (d.spRowMenu || d.spBoxMenu) { ensureRowMenu().open(target); return; }
   if (d.spOpen) { void openPage(d.spOpen); return; }
   if (!editing) return;
-  if ('spClose' in d) { closeEditor(); return; }
+  if ('spClose' in d) { void askCloseEditor(target); return; }
   if ('spSave' in d) { void save(); return; }
   if (d.spSetStatus) { editing.status = d.spSetStatus === 'published' ? 'published' : 'draft'; paintStatusButtons(); paintDirty(); return; }
   if ('spTopMore' in d) { const open = target.getAttribute('aria-expanded') !== 'true'; closeTopPanels(); openTopPanel('extra', open); return; }
@@ -863,13 +891,7 @@ root.addEventListener('click', event => {
     return;
   }
   if (d.spBlockDel !== undefined) {
-    const index = Number(d.spBlockDel), block = editing.blocks[index];
-    if (!block || (hasContent(block) && !window.confirm(`${BLOCK_LABELS[block.type]} 블록을 지울까요?`))) return;
-    editing.blocks.splice(index, 1);
-    if (editing.open === index) { editing.open = -1; editing.openBefore = null; } else if (editing.open > index) editing.open--;
-    renderBlocks();
-    const near = editorView.querySelector(`[data-sp-block="${Math.min(index, editing.blocks.length - 1)}"]`);
-    (near?.querySelector('[data-sp-edit]') || near?.querySelector('[data-sp-block-del]') || editorView.querySelector('[data-sp-add-block]'))?.focus();
+    void deleteBlock(Number(d.spBlockDel), target);
     return;
   }
   if (d.spItemAdd !== undefined) {
@@ -888,12 +910,12 @@ root.addEventListener('click', event => {
     editorView.querySelector(`[data-sp-item-add="${b}"]`)?.focus();
     return;
   }
-  if ('spConvert' in d) { convertBlocks(); return; }
+  if ('spConvert' in d) { void convertBlocks(target); return; }
   if ('spConvertUndo' in d) { undoConvert(); return; }
   if ('spLinkCreate' in d) { void createLink(); return; }
   if ('spLinksReload' in d) { void loadLinks(); return; }
   if (d.spLinkCopy) { void copyLink(d.spLinkCopy, target); return; }
-  if (d.spLinkOff) { void turnOff(d.spLinkOff); return; }
+  if (d.spLinkOff) { void turnOff(d.spLinkOff, target); return; }
 });
 root.addEventListener('input', event => {
   if (!editing) return;

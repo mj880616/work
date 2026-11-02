@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 
 // 5-2 A: an update moved to a note ([노트로 옮기기]) keeps one mark on its row (metadata.moved_from_update_at, the other keys stay).
 // The work journal then shows that note as one "노트: (제목)" line on the update's own day, without its text; pressing the line opens
@@ -97,6 +98,7 @@ for (const width of [390, 1280]) {
     page.on('dialog', d => d.accept());
     await press(page, page.locator(`[data-basket-row-more="${A}"]`), width);
     await press(page, page.locator('#basketRowMenu').getByRole('button', { name: '노트로 옮기기', exact: true }), width);
+    await answerAsk(page, true);
     await expect(page.locator('#toast')).toHaveText('노트로 옮겼어요.');
     // ① one guarded write: kind and title change, the mark is added, every other key stays.
     expect(f.writes).toHaveLength(1);

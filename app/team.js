@@ -1,5 +1,5 @@
 import {waitHtml, emptyHtml} from './wait-state.js';
-import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
 import {defaultReportAt} from './report-default-at.mjs';
@@ -334,7 +334,7 @@ window.KPTUReportEntry={open:async(opts={})=>{
     // 같은 날·같은 이름의 사업 보고가 이미 있으면 먼저 묻는다(일정에서 [결과 남기기]를 두 번 눌렀을 때 중복 방지).
     const day=String(opts.at||opts.date).slice(0,10),key=meetingNameKey(opts.name);
     const same=meetings.find(m=>m.meeting_at&&seoulDateKey(new Date(m.meeting_at))===day&&meetingNameKey(meetingName(m))===key);
-    if(same&&confirm('같은 날 같은 이름의 사업 보고가 이미 있어요.\n[확인] 그 사업 보고를 열기 / [취소] 새로 만들기')){
+    if(same&&await askConfirm(trigger,{text:'같은 날 같은 이름의 사업 보고가 이미 있어요.',ok:'그 보고 열기',cancel:'새로 만들기'})){
       try{await window.KPTUViewLoader?.prepare?.('meetings');await import('./meeting-round-detail.js');if(await window.__KPTU_MEETING_ROUND_DETAIL_READY__){await window.KPTUMeetingRoundDetail.open(same.id);return true}}catch(e){console.error('open existing report',e)}
     }
   }
