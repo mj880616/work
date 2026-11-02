@@ -127,7 +127,7 @@ test.describe('PC 1440', () => {
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
     await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-name')).toHaveText('구글 드라이브');
     await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-num')).toHaveText('0');
-    await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .nx-name')).toHaveText(['카메라 백업', '업무']);
+    await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .nx-name')).toHaveText(['업무', '카메라 백업']); // 원드라이브와 같은 가나다순
     await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .nx-num')).toHaveText(['—', '—']);
     const sw = bodyEl.locator('[data-photos-gf-sw="GF1"]');
     await expect(sw).toHaveAttribute('aria-checked', 'false');
@@ -261,7 +261,7 @@ test.describe('폰 412', () => {
     await page.locator('#photosRoot [data-photos-tab="folders"]').click();
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
     await expect(bodyEl.locator('[data-photos-fx-group="gdrive"]')).toHaveText('구글 드라이브 3');
-    await expect(bodyEl.locator('[data-photos-gf] .nx-num')).toHaveText(['3', '—']);
+    await expect(bodyEl.locator('[data-photos-gf] .nx-num')).toHaveText(['—', '3']); // 업무(꺼짐) · 카메라 백업(켬), 가나다순
     await bodyEl.locator('[data-photos-gf-open="GF1"]').click();
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toContainText('카메라 백업');
     await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업 · 3장');
