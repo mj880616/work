@@ -361,7 +361,7 @@ test('run (domestic): reads list + new posts once, stores per enabled workspace,
     sites:kctuSites()});
   const r=await h.cron('run',{source:'kctu'});assert.equal(r.status,200);
   const out=await r.json();
-  assert.deepEqual(out,{ok:true,source:'kctu',status:'ok',workspaces:2,listed:2,fresh:2,inserted:3,skipped:0,deferred:0});
+  assert.deepEqual(out,{ok:true,source:'kctu',status:'ok',workspaces:2,listed:2,fresh:2,inserted:3,skipped:0,deferred:0,refilled:0});
   assert.doesNotMatch(JSON.stringify(out),/가상|nodong/,'response carries counts only');
   // 사이트 요청: robots 1번 + 목록 1번 + 글마다 1번(작업공간이 둘이어도 한 번).
   assert.deepEqual(h.calls.site,['https://nodong.org/robots.txt','https://nodong.org/statement','https://nodong.org/statement/310002','https://nodong.org/statement/310000']);
@@ -957,4 +957,70 @@ test('공대위 표시(L3): 민주노총·공공운수노조 글 중 제목·요
   assert.equal(v({source_key:'laborparty',title:'[논평] 가상 공대위'}),'');
   const js=readFileSync('app/outside-statements.js','utf8');
   assert.match(js,/<span class="os-tag">\$\{esc\(v\.tag\)\}<\/span>/);
+});
+
+// OUTSIDE-텔레그램미리보기제목(11/02): 본문이 주소뿐인 글은 링크 미리보기 제목을 제목으로, 설명을 요약 재료로. 주소는 제목이 되지 않는다.
+test('제목 판정: 주소·뜻 없는 한 낱말은 제목으로 쓰지 않는다', () => {
+  for(const t of['http://socialist.kr/special-issue-3-two-major-capitalist-…','https://nodong.org/statement/1','www.example.org/a','labortoday.co.kr','newscham.net/news/view.php','공지','[공지]','알림','제목 없음',P.NO_TITLE,''])
+    assert.equal(P.usableTitle(t),false,t);
+  for(const t of['[성명] 가상 노동법 개악을 멈춰라','공지 없이 바뀐 가상 근무표를 철회하라','가상 잡지 새 호가 나왔습니다'])
+    assert.equal(P.usableTitle(t),true,t);
+  assert.equal(P.isUrlTitle('http://socialist.kr/x'),true);assert.equal(P.isUrlTitle('공지'),false);
+});
+
+test('사회주의자: 주소뿐인 글 — 미리보기 제목 → 주소 아닌 다음 줄 → "제목 없음 · 원문 링크", 새 요청 없음', async () => {
+  const s=sourceByKey('socialist');
+  const items=P.parseTelegram(s,FX('socialist-telegram-preview.html'),NOW);
+  assert.deepEqual(items.map(i=>[i.url,i.title]),[
+    ['http://socialist.kr/second-line-fake/','가상 둘째 줄 제목입니다'],
+    ['http://socialist.kr/no-preview-fake/',P.NO_TITLE],
+    ['http://socialist.kr/special-issue-3-two-major-capitalist-fake/','[특집 3] 가상 두 자본가 진영의 대결과 가상 노동자 정치']]);
+  for(const i of items)assert.equal(P.isUrlTitle(i.title),false,'주소가 제목이 되지 않음');
+  const pv=items[2];
+  assert.match(pv.content,/가상 노동자 정치가 어디로 가야 하는지/,'미리보기 설명이 요약 재료');
+  assert.doesNotMatch(pv.content,/^https?:/m,'주소뿐인 줄은 재료에서 뺌');
+  assert.equal(items[1].content,null);
+  const h=harness({sources:[{workspace_id:WS,source_key:'socialist'}],sites:{'https://t.me/s/ksocialist':FX('socialist-telegram-preview.html')},robots:{'https://t.me':'User-agent: *\nDisallow: /admin\n'}});
+  const out=await (await h.cron('run',{source:'socialist'})).json();
+  assert.equal(out.inserted,3);
+  assert.deepEqual(h.calls.site,['https://t.me/robots.txt','https://t.me/s/ksocialist'],'socialist.kr는 요청하지 않음');
+  const row=h.db.app_outside_posts.find(p=>p.url==='http://socialist.kr/special-issue-3-two-major-capitalist-fake/');
+  assert.equal(row.title,'[특집 3] 가상 두 자본가 진영의 대결과 가상 노동자 정치');assert.ok(row.summary_ko,'미리보기 설명으로 요약');
+  assert.equal(h.db.app_outside_posts.find(p=>p.url==='http://socialist.kr/no-preview-fake/').summary_ko,null);
+});
+
+test('이미 들어간 주소 제목 글은 다음 수집 때 제목·요약만 다시 채운다(새 행·새 요청 없음, 건수 refilled)', async () => {
+  const id='c3000000-0000-4000-8000-000000000001',keep='c3000000-0000-4000-8000-000000000002';
+  const posts=[
+    {id,workspace_id:WS,source_key:'socialist',kind:'article',lang:'ko',title:'http://socialist.kr/special-issue-3-two-major-capitalist-…',url:'http://socialist.kr/special-issue-3-two-major-capitalist-fake/',summary_ko:null,has_body:false,fetched_at:'2026-10-31T01:10:00Z'},
+    {id:keep,workspace_id:WS,source_key:'socialist',kind:'article',lang:'ko',title:'가상 둘째 줄 제목입니다',url:'http://socialist.kr/second-line-fake/',summary_ko:null,has_body:false,fetched_at:'2026-10-31T02:40:00Z'}];
+  const h=harness({sources:[{workspace_id:WS,source_key:'socialist'}],posts,sites:{'https://t.me/s/ksocialist':FX('socialist-telegram-preview.html')},robots:{'https://t.me':'User-agent: *\nDisallow: /admin\n'}});
+  const out=await (await h.cron('run',{source:'socialist'})).json();
+  assert.equal(out.refilled,1);assert.equal(out.inserted,1,'새 글(미리보기 없음)만 넣음');
+  const row=h.db.app_outside_posts.find(p=>p.id===id);
+  assert.equal(row.title,'[특집 3] 가상 두 자본가 진영의 대결과 가상 노동자 정치');assert.ok(row.summary_ko);
+  assert.equal(h.db.app_outside_posts.filter(p=>p.url===row.url).length,1);
+  assert.equal(h.db.app_outside_posts.find(p=>p.id===keep).title,'가상 둘째 줄 제목입니다','좋은 제목 글은 그대로');
+  assert.deepEqual(h.calls.site,['https://t.me/robots.txt','https://t.me/s/ksocialist']);
+});
+
+test('목록 칸 첫 줄이 "공지"뿐이면 다음 줄이 제목, 글 쪽에서도 뜻 없는 제목이면 og:title', () => {
+  const s=sourceByKey('kgreens');
+  const html='<ul><li><a href="https://kgreens.org/statement/?bmode=view&idx=77"><span>공지</span><div>[논평] 가상 기후 정책을 다시 세워라</div></a></li></ul>';
+  const items=P.parseListHtml(s,html,'https://kgreens.org/statement',30,undefined,NOW);
+  assert.deepEqual(items.map(i=>i.title),['[논평] 가상 기후 정책을 다시 세워라']);
+});
+
+test('뜻 없는 제목("공지")은 글 쪽 og:title로, 주소 제목 글은 "제목 없음 · 원문 링크"로 넣는다(어느 단체든)', async () => {
+  const list='<ul><li><a href="https://kgreens.org/statement/?bmode=view&idx=78">공지</a></li><li><a href="https://kgreens.org/statement/?bmode=view&idx=79">https://kgreens.org/statement/?bmode=view&amp;idx=79</a></li></ul>';
+  const page='<html><head><meta property="og:title" content="[논평] 가상 녹색 전환 계획을 내놓아라"></head><body><article><p>가상 정부의 계획은 가상 기후 위기를 막기에 턱없이 모자라다. 우리는 가상 녹색 전환 계획을 다시 내놓으라고 요구한다.</p></article></body></html>';
+  const bare='<html><head><title>녹색당</title></head><body><article><p>짧음</p></article></body></html>';
+  const h=harness({sources:[{workspace_id:WS,source_key:'kgreens'}],robots:{'https://kgreens.org':'User-agent: *\nDisallow: /admin\n'},
+    sites:{'https://kgreens.org/statement':html(list),'https://kgreens.org/press':html('<ul></ul>'),
+      'https://kgreens.org/statement/?bmode=view&idx=78':html(page),'https://kgreens.org/statement/?bmode=view&idx=79':html(bare)}});
+  const out=await (await h.cron('run',{source:'kgreens'})).json();
+  assert.equal(out.inserted,2);
+  const t=Object.fromEntries(h.db.app_outside_posts.map(p=>[p.url.replace(/.*idx=/,''),p.title]));
+  assert.equal(t['78'],'가상 녹색 전환 계획을 내놓아라','종류 꼬리표는 정돈에서 뗌');
+  assert.equal(t['79'],P.NO_TITLE);
 });

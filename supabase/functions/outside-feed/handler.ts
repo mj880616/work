@@ -19,7 +19,7 @@ import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_sh
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { betterTitle, pageTitleFrom, tidySummary, tidyTitle } from "../_shared/outside-tidy.ts";
-import { cut, decodeBody, extractBody, looksLikeBotCheck, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, type ListItem, type ListStats } from "./parse.ts";
+import { cut, decodeBody, extractBody, isUrlTitle, looksLikeBotCheck, NO_TITLE, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, usableTitle, type ListItem, type ListStats } from "./parse.ts";
 
 export type OutsideFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: Log };
 
@@ -349,7 +349,7 @@ async function runPlan(db: Db, nowMs: number, log: Log) {
   return { ok: true, sources: OUTSIDE_CATALOG.filter((s) => on.has(s.key)).map((s) => s.key), pruned };
 }
 
-type RunOut = { ok: true; source: string; status: string; workspaces: number; listed: number; fresh: number; inserted: number; skipped: number; deferred: number };
+type RunOut = { ok: true; source: string; status: string; workspaces: number; listed: number; fresh: number; inserted: number; skipped: number; deferred: number; refilled: number };
 
 async function markSources(db: Db, key: string, workspaces: string[], error: string | null, nowIso: string) {
   const body = error ? { last_error: error, updated_at: nowIso } : { last_ok_at: nowIso, last_error: null, updated_at: nowIso };
@@ -360,7 +360,7 @@ type RunLimits = { onlyWorkspace?: string; budgetMs?: number; maxNew?: number };
 
 // onlyWorkspace: 바로 읽기는 요청한 사람 작업공간(서버가 owner로 확인한 값)에만 넣는다. 예약 실행은 켠 작업공간 모두.
 async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSource, nowMs: number, startMs: number, clock: () => number, limits: RunLimits = {}): Promise<RunOut> {
-  const out: RunOut = { ok: true, source: source.key, status: "ok", workspaces: 0, listed: 0, fresh: 0, inserted: 0, skipped: 0, deferred: 0 };
+  const out: RunOut = { ok: true, source: source.key, status: "ok", workspaces: 0, listed: 0, fresh: 0, inserted: 0, skipped: 0, deferred: 0, refilled: 0 };
   const budget = limits.budgetMs ?? RUN_BUDGET_MS, maxNew = limits.maxNew ?? MAX_NEW_PER_RUN;
   const only = limits.onlyWorkspace && UUID.test(limits.onlyWorkspace) ? `&workspace_id=eq.${limits.onlyWorkspace}` : "";
   const wsRows = await db.get(`app_outside_sources?source_key=eq.${source.key}&enabled=is.true${only}&select=workspace_id`);
@@ -398,15 +398,24 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     return { ...out, status: code };
   }
 
-  // 2) 작업공간마다 이미 있는 글 빼기.
-  const have = await db.get(`app_outside_posts?workspace_id=in.(${workspaces.join(",")})&url=in.${encodeURIComponent(quoteIn(items.map((i) => i.url)))}&select=workspace_id,url`);
+  // 2) 작업공간마다 이미 있는 글 빼기. 단, 이미 들어간 글 가운데 제목이 주소·뜻 없는 한 낱말인 글은 이번에 제목·요약을 다시 채운다
+  //    (OUTSIDE-텔레그램미리보기제목 ③, 11/02). '제목 없음 · 원문 링크'로 남은 글은 텔레그램만 다시 본다(목록 글자만 쓰므로 새 요청 없음).
+  const have = await db.get(`app_outside_posts?workspace_id=in.(${workspaces.join(",")})&url=in.${encodeURIComponent(quoteIn(items.map((i) => i.url)))}&select=id,workspace_id,url,title,summary_ko`);
   const has = new Set(have.map((r) => `${r.workspace_id} ${r.url}`));
-  const todo = items.map((it) => ({ it, ws: workspaces.filter((w) => !has.has(`${w} ${it.url}`)) })).filter((x) => x.ws.length);
-  out.fresh = todo.length;
+  const badOld = (t: unknown) => typeof t === "string" && (t === NO_TITLE ? source.mode === "telegram" : !usableTitle(t));
+  const refill = new Map<string, { id: string; summary: unknown }[]>();
+  for (const r of have) {
+    if (typeof r.id !== "string" || !badOld(r.title)) continue;
+    const k = String(r.url);
+    refill.set(k, [...(refill.get(k) ?? []), { id: r.id, summary: r.summary_ko }]);
+  }
+  const todo = items.map((it) => ({ it, ws: workspaces.filter((w) => !has.has(`${w} ${it.url}`)), again: refill.get(it.url) ?? [] }))
+    .filter((x) => x.ws.length || x.again.length);
+  out.fresh = todo.filter((x) => x.ws.length).length;
 
   // 3) 새 글마다 글 페이지 1번 + AI 1번 → 필요한 작업공간마다 넣기.
   const cutoff = nowMs - OLD_DAYS * 86400000;
-  for (const [n, { it, ws }] of todo.entries()) {
+  for (const [n, { it, ws, again }] of todo.entries()) {
     if (n >= maxNew || clock() - startMs > budget) { out.deferred = todo.length - n; break; }
     // 본문: 피드 본문(200자 이상)이 있으면 그것, 없으면 글 페이지 1번 읽어 본문 칸을 뽑는다(국내·외국 같음 — 외국 글은 본문을 AI 재료로만 쓰고 버림).
     let body = it.content && chars(it.content) >= 200 ? it.content : "";
@@ -432,8 +441,25 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     // 글 쪽 제목(og:title·<title>)이 목록 제목 안에 든 더 짧은 제목이면 그것을 쓴다(목록 칸에 부제·본문 앞부분이 붙은 단체).
     // 종류(kind)는 목록에서 떼기 전 제목으로 이미 정했다.
     const tidy = tidyTitle(betterTitle(it.title, pageText ? pageTitleFrom(pageText) : null, source.name) ?? it.title, source.name, { split: source.lang === "ko" });
-    const title = tidy.title || it.title;
+    let title = tidy.title || it.title;
     const subtitle = tidy.subtitle ?? it.subtitle ?? null;
+    // 제목이 주소·'공지'처럼 뜻 없는 한 낱말이면 글 쪽 제목(og:title·<title>, 단체 이름만인 것은 뺌) → 주소면 '제목 없음 · 원문 링크'(11/02).
+    if (!usableTitle(title)) {
+      const pt = pageText ? pageTitleFrom(pageText) : null;
+      const alt = pt ? tidyTitle(pt, source.name, { split: source.lang === "ko" }).title : "";
+      title = alt && usableTitle(alt) && alt.replace(/\s+/g, "") !== source.name.replace(/\s+/g, "") ? alt : isUrlTitle(title) ? NO_TITLE : title;
+    }
+    // 이미 들어간 글 다시 채우기: 더 나은 제목이 나왔을 때만 제목(+ 비어 있던 요약)만 고친다. 본문 문장·다른 칸은 건드리지 않는다.
+    if (again.length && usableTitle(title)) {
+      const needSummary = again.some((a) => a.summary == null);
+      const fresh = needSummary && body && source.lang === "ko" ? tidySummary(readKoSummary(await askAi(ai, "outside_ko_summary", KO_SUMMARY_INSTRUCTIONS,
+        `단체: ${source.name}\n제목: ${title}${subtitle ? `\n부제: ${subtitle}` : ""}\n\n본문:\n${cut(body, AI_MATERIAL_CHARS)}`, KO_SUMMARY_SCHEMA, 300))) : null;
+      for (const a of again) {
+        await db.send("PATCH", `app_outside_posts?id=eq.${a.id}`, a.summary == null && fresh ? { title, summary_ko: fresh } : { title });
+        out.refilled++;
+      }
+    }
+    if (!ws.length) continue;
     const rows: Record<string, unknown>[] = [];
     if (source.lang === "ko") {
       // 글 쪽은 읽었는데 본문 칸이 없으면 제목만 넣는다(요약 줄 비움 — AI에 빈 본문을 보내 '요약할 수 없음'을 받지 않는다).
@@ -469,7 +495,7 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
     }
   }
   await markSources(db, source.key, workspaces, null, nowIso);
-  ai.log("source_done", { source: source.key, listed: out.listed, fresh: out.fresh, inserted: out.inserted, skipped: out.skipped, deferred: out.deferred });
+  ai.log("source_done", { source: source.key, listed: out.listed, fresh: out.fresh, inserted: out.inserted, skipped: out.skipped, deferred: out.deferred, refilled: out.refilled });
   return out;
 }
 

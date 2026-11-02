@@ -88,6 +88,23 @@ export function canonicalUrl(source: OutsideSource, raw: string, base?: string):
   if (!/^https?:\/\/\S+$/.test(out) || out.length > URL_MAX_CHARS || !allowedUrl(source, out)) return null;
   return out;
 }
+// 제목으로 쓸 수 없는 글자(OUTSIDE-텔레그램미리보기제목 ②④, 11/02): 주소뿐인 줄('http://…', 'www.…', '도메인/경로'),
+// 뜻 없는 한 낱말('공지'·'알림'·'제목 없음' 등, 괄호 머리말만인 것 포함). 어느 단체든 이런 제목은 쓰지 않는다.
+const URL_ONLY = /^(?:(?:https?:\/\/|www\.)\S+|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/\S*)?)…?$/i;
+const EMPTY_WORD = /^[\[(【<〈「]?\s*(?:공지(?:사항)?|알림|안내|성명|논평|보도자료|브리핑|자료|게시물|글|제목\s*없음|무제|notice|untitled|no\s*title)\s*[\])】>〉」]?$/i;
+export const NO_TITLE = "제목 없음 · 원문 링크"; // 주소뿐이고 미리보기·글 쪽 제목도 없을 때(짧게)
+export function isUrlTitle(t: string | null | undefined): boolean {
+  const s = oneLine(t ?? "");
+  return !!s && URL_ONLY.test(s);
+}
+export function isEmptyTitle(t: string | null | undefined): boolean {
+  const s = oneLine(t ?? "");
+  return !s || EMPTY_WORD.test(s) || s === NO_TITLE;
+}
+// 제목으로 쓸 만한가(주소·뜻 없는 한 낱말·빈 글자가 아님).
+export function usableTitle(t: string | null | undefined): boolean {
+  return !isUrlTitle(t) && !isEmptyTitle(t);
+}
 export function cleanTitle(raw: string): string | null {
   // RSS·Atom(type="html") 제목은 한 번 더 이스케이프돼 오기도 해서 풀고 → 태그 걷고 → 다시 푼다.
   const t = cut(oneLine(decodeEntities(decodeEntities(raw).replace(/<[^>]*>/g, " "))), TITLE_MAX_CHARS);
@@ -151,6 +168,18 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
 // 제목은 본문 첫 줄(텔레그램 글엔 제목이 없다). 원문 주소는 글 칸 안 링크 가운데 카탈로그가 허용한 단체 사이트 글 주소(있으면) — 그 주소는 요청하지 않는다.
 // 없으면 채널 글 주소(t.me/<채널>/<번호>). 페이지는 옛 글 → 새 글 순이라 뒤집어 새 글부터.
 const TG_TITLE_MAX = 120;
+// 글 칸 안 링크 미리보기(`a.tgme_widget_message_link_preview` 안 `link_preview_title`·`link_preview_description`). 이미 받은 목록 페이지 글자일 뿐 — 새 요청 없음.
+export function telegramPreview(seg: string): { title: string | null; description: string | null } {
+  const box = /<a\b[^>]*\bclass\s*=\s*"[^"]*\btgme_widget_message_link_preview\b[^"]*"[^>]*>([\s\S]*?)<\/a\s*>/i.exec(seg)?.[1] ?? "";
+  if (!box) return { title: null, description: null };
+  const part = (name: string) => {
+    const m = new RegExp(`<div\\b[^>]*\\bclass\\s*=\\s*"[^"]*\\b${name}\\b[^"]*"[^>]*>([\\s\\S]*?)<\\/div\\s*>`, "i").exec(box);
+    return m ? htmlToText(m[1]) : "";
+  };
+  const title = cleanTitle(cut(part("link_preview_title"), TG_TITLE_MAX));
+  const description = cut(part("link_preview_description"), 4000).trim() || null;
+  return { title: title && usableTitle(title) ? title : null, description };
+}
 export function parseTelegram(source: OutsideSource, html: string, nowMs: number, limit = 30, stats?: ListStats): ListItem[] {
   const ch = source.telegram;
   if (!ch) return [];
@@ -169,9 +198,20 @@ export function parseTelegram(source: OutsideSource, html: string, nowMs: number
     // 본문 칸: 안에 <div>가 없는 칸이라 첫 </div>까지.
     const textHtml = /<div\b[^>]*\bclass\s*=\s*"[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div\s*>/i.exec(seg)?.[1] ?? "";
     const text = cut(htmlToText(textHtml), BODY_MAX_CHARS);
-    const first = text.split("\n").map((l) => oneLine(l)).find(Boolean) ?? "";
-    const title = first ? cleanTitle(cut(first, TG_TITLE_MAX)) : null;
-    if (!title) continue; // 사진·파일뿐인 글
+    const lines = text.split("\n").map((l) => oneLine(l)).filter(Boolean);
+    const first = lines[0] ?? "";
+    if (!first) continue; // 사진·파일뿐인 글
+    // 본문 첫 줄이 주소뿐이면(사회주의자처럼 기사 주소 하나만 올린 글, 11/02) 링크 미리보기 제목 → 주소 아닌 다음 줄 → '제목 없음 · 원문 링크'.
+    // 미리보기 설명은 요약 재료(본문)에 더하고, 주소뿐인 줄은 본문 재료에서 뺀다.
+    let title = cleanTitle(cut(first, TG_TITLE_MAX));
+    let content = text;
+    if (!title || isUrlTitle(title)) {
+      const pv = telegramPreview(seg);
+      const rest = lines.filter((l) => !isUrlTitle(l));
+      const next = rest.map((l) => cleanTitle(cut(l, TG_TITLE_MAX))).find((t) => t && usableTitle(t)) ?? null;
+      title = pv.title ?? next ?? NO_TITLE;
+      content = cut([...(pv.title && pv.title !== title ? [pv.title] : []), ...rest, ...(pv.description ? [pv.description] : [])].join("\n"), BODY_MAX_CHARS);
+    }
     let url: string | null = null;
     for (const h of seg.matchAll(/<a\b[^>]*\bhref\s*=\s*"([^"]+)"/gi)) {
       const raw = decodeEntities(h[1]);
@@ -187,7 +227,7 @@ export function parseTelegram(source: OutsideSource, html: string, nowMs: number
     if (!kind) continue;
     seen.add(url);
     const dt = /<time\b[^>]*\bdatetime\s*=\s*"([^"]+)"/i.exec(seg)?.[1] ?? null;
-    out.push({ url, title, kind, author: null, published_at: feedDate(dt, nowMs), summary: null, content: text || null });
+    out.push({ url, title, kind, author: null, published_at: feedDate(dt, nowMs), summary: null, content: content || null });
   }
   return out;
 }
@@ -228,7 +268,9 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     try { abs = new URL(decodeEntities(raw), base).href; } catch { continue; }
     if (!source.item.test(abs)) continue;
     const url = canonicalUrl(source, abs);
-    const lines = linkLines(m[2]);
+    let lines = linkLines(m[2]);
+    // 링크 칸 첫 줄이 '공지'처럼 뜻 없는 한 낱말(분류 칸)이고 다음 줄이 있으면 다음 줄부터 제목(11/02 녹색당 '공지' 캡처).
+    if (lines.length > 1 && isEmptyTitle(lines[0])) lines = lines.slice(1);
     const title = (source.titleAttr ? innerTitleAttr(m[2]) : null) ?? (source.titleClass ? innerTitle(m[2], source.titleClass) : null)
       ?? cleanTitle(lines[0] ?? "") ?? cleanTitle(/\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "");
     if (!url || !title) continue;
