@@ -1550,7 +1550,11 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(page.locator('#kptuNotice')).toContainText('후보를 뺐어요.');
  await expect.poll(()=>(row().draft.rules?.retired??[]).map(x=>x.text),{timeout:15000}).toEqual(['가상 규칙 후보']);
  expect(row().draft.rules.lines.map(l=>l.text)).toEqual(['가상 규칙 하나','가상 규칙 둘']);
- await expect.poll(()=>(row().draft.picks?.items??[]).map(i=>[i.kind,i.cell,i.act].join(',')).sort().join('|'),{timeout:15000}).toBe('review,개선 제안,take|review,규칙 후보,drop');
+ await expect.poll(()=>(row().draft.picks?.items??[]).filter(i=>i.cell!=='details').map(i=>[i.kind,i.cell,i.act].join(',')).sort().join('|'),{timeout:15000}).toBe('review,개선 제안,take|review,규칙 후보,drop');
+ // S48-35: [확정] 때 2) 세부 내용에서 고치지도 빼지도 않은 원래 기록 줄은 '그대로 넣음'(take, 원래 기록 = 제안)으로 남는다.
+ const detailTakes=row().draft.picks.items.filter(i=>i.cell==='details');
+ expect(detailTakes.length).toBeGreaterThan(0);
+ expect(detailTakes.every(i=>i.act==='take'&&i.kind==='material'&&i.from==='record')).toBe(true);
  expect(row().draft.picks.items.find(i=>i.cell==='규칙 후보').why).toBe('가상 빼는 이유');
  expect(row().draft.feedback.counts).toEqual({kept:4,changed:0,dropped:0,added:0,proposed:4,final:4});
  // [주간 정리] 맨 아래 '주간보고 규칙·환류': 확정 규칙 2줄, 이번 주 환류, 만들기로 보낸 것 1. [지우기]는 그 확정 줄을 뺀 규칙(폐기)으로 옮긴다.
@@ -1560,8 +1564,9 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(2);
  await expect(learn.locator('[data-journal-learn-dev] h5')).toHaveText('만들기로 보낸 것');
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안']);
- // 칸별 그대로 쓴 비율(S48-3b): 이번 주 동작(개선 제안·규칙 후보는 셈 밖)이 칸에 없으면 줄도 없다.
- await expect(learn.locator('[data-learn-cell-rates]')).toHaveCount(0);
+ // 칸별 그대로 쓴 비율(S48-3b): 개선 제안·규칙 후보는 셈 밖 — 이 주는 확정 때 그대로 넣은 2) 세부 내용 줄만 있어 그 묶음 하나(S48-35).
+ await expect(learn.locator('[data-learn-cell-rates]')).toHaveAttribute('data-learn-cell-rates','1');
+ await expect(learn.locator('[data-learn-cell-rates]')).toContainText('2. 세부 내용 100%');
  await pressMore(learn.locator('[data-journal-learn-rule="0"]'),'[data-journal-learn-delete]');
  await expect(page.locator('#kptuNotice')).toContainText('규칙을 지웠어요.');
  await expect(learn.locator('[data-journal-learn-status]')).toHaveText('');
@@ -2339,9 +2344,11 @@ for(const width of [412,1280])test(`[주간 정리] 2) 세부 내용 줄: ⋯ �
  const saved=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05')?.draft?.hand;
  await expect.poll(()=>saved()?.details_edits).toEqual([{ref:`meeting:${U1}`,text:'가상 정책 회의 2차 — 결과 요약'},{ref:`meeting:${U2}`,drop:true}]);
  expect(saved().details.map(r=>r.text)).toEqual(['가상 손 줄']);
- // 동작 기록(picks) 칸 'details'에 고치기·빼기·더하기가 남는다.
+ // 동작 기록(picks) 칸 'details': 원래 기록 줄은 제안 답(고치기 = 고쳐서 넣음 edit, 빼기 = 뺌 drop — S48-35 환류), 손 줄은 더함(add).
  const picks=f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.picks.items.filter(x=>x.cell==='details');
- expect(picks.map(x=>x.act).sort()).toEqual(['add','cut','fix']);
+ expect(picks.map(x=>x.act).sort()).toEqual(['add','drop','edit']);
+ expect(picks.find(x=>x.act==='edit')).toMatchObject({kind:'material',from:'record',text:'가상 정책 회의 2차 — 결과 요약'});
+ expect(picks.find(x=>x.act==='drop')).toMatchObject({kind:'material',from:'record'});
  // 초안 복사: 고친 글·손 줄은 들어가고, 뺀 줄·내부 정례 회의는 없다.
  await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
