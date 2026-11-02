@@ -170,6 +170,23 @@ object ShellRules {
 
     fun isShareId(value: String?): Boolean = value != null && SHARE_ID.matches(value)
 
+    /**
+     * APP-공유노트할일(요청함 11/02 00:22): 공유 창 세 칸 '웹2 정리함'(MainActivity)·'웹2 노트'·'웹2 할 일'(같은 화면의 activity-alias).
+     * 받기 길(ShareIntake)은 하나이고 들어갈 곳만 다르다. 알 수 없는 이름은 정리함(이전과 같음).
+     */
+    const val SHARE_TO_NOTE = "ShareToNote"
+    const val SHARE_TO_TASK = "ShareToTask"
+    val SHARE_TARGETS = setOf("basket", "note", "task")
+
+    fun shareTarget(className: String?): String {
+        val simple = className?.substringAfterLast('.') ?: return "basket"
+        return when (simple) {
+            SHARE_TO_NOTE -> "note"
+            SHARE_TO_TASK -> "task"
+            else -> "basket"
+        }
+    }
+
     /** 공유를 받으면 여는 주소. 웹 basket-share.js가 번호를 읽고 다리로 목록을 묻는다. */
     fun shareHome(id: String): String = HOME + "?view=basket&share=" + id
 
@@ -225,7 +242,7 @@ object ShellRules {
     data class ShareMeta(val name: String, val type: String, val size: Long)
 
     /** 'share:list:' 뒤에 붙는 JSON(org.json 없이 만들어 JVM 시험이 된다). 파일 내용·URI는 넣지 않는다. */
-    fun shareListJson(id: String, subject: String?, text: String?, items: List<ShareMeta>): String {
+    fun shareListJson(id: String, subject: String?, text: String?, items: List<ShareMeta>, target: String = "basket"): String {
         val sb = StringBuilder()
         sb.append("{\"id\":").append(jsonString(id))
         sb.append(",\"subject\":").append(jsonString((subject ?: "").take(1000)))
@@ -239,7 +256,10 @@ object ShellRules {
             sb.append(",\"size\":").append(if (item.size >= 0) item.size else -1)
             sb.append('}')
         }
-        sb.append("]}")
+        sb.append(']')
+        // 정리함은 이전과 같은 모양(칸 없음). 노트·할 일만 들어갈 곳을 적는다(정해진 두 낱말만).
+        if (target != "basket" && target in SHARE_TARGETS) sb.append(",\"target\":").append(jsonString(target))
+        sb.append('}')
         return sb.toString()
     }
 

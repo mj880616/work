@@ -23,9 +23,9 @@ import java.util.concurrent.ConcurrentHashMap
 object ShareIntake {
     class Item(val uri: Uri, val meta: ShellRules.ShareMeta)
 
-    class Pending(val id: String, val subject: String?, val text: String?, val items: List<Item>) {
+    class Pending(val id: String, val subject: String?, val text: String?, val items: List<Item>, val target: String = "basket") {
         val opened: MutableSet<Int> = ConcurrentHashMap.newKeySet()
-        val json: String = ShellRules.shareListJson(id, subject, text, items.map { it.meta })
+        val json: String = ShellRules.shareListJson(id, subject, text, items.map { it.meta }, target)
     }
 
     @Volatile private var pending: Pending? = null
@@ -34,7 +34,10 @@ object ShareIntake {
     fun isShare(intent: Intent?): Boolean =
         intent?.action == Intent.ACTION_SEND || intent?.action == Intent.ACTION_SEND_MULTIPLE
 
-    /** 공유 intent를 읽어 새 일회용 번호로 든다(앞의 공유는 버린다). 넣을 것이 없으면 null. */
+    /**
+     * 공유 intent를 읽어 새 일회용 번호로 든다(앞의 공유는 버린다). 넣을 것이 없으면 null.
+     * 들어갈 곳(정리함·노트·할 일)은 공유 창에서 고른 칸(이 앱 화면 이름)으로만 정한다. 보낸 앱이 intent에 적은 값은 보지 않는다.
+     */
     fun receive(intent: Intent, resolver: ContentResolver, ownPackage: String): Pending? {
         val uris = streams(intent)
             // content:// 만 받는다. file:// 등은 앱 자신의 파일을 가리킬 수 있어 버린다. 이 앱의 제공자(없음)도 버린다.
@@ -45,7 +48,8 @@ object ShareIntake {
         val subject = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString()?.take(1000)
         val items = uris.mapIndexed { i, uri -> Item(uri, meta(resolver, uri, intent.type, i)) }
         if (items.isEmpty() && text.isNullOrBlank() && subject.isNullOrBlank()) return null
-        val next = Pending(newId(), subject, text, items)
+        val target = if (intent.component?.packageName == ownPackage) ShellRules.shareTarget(intent.component?.className) else "basket"
+        val next = Pending(newId(), subject, text, items, target)
         pending = next
         return next
     }

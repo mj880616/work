@@ -1,7 +1,7 @@
 package kr.or.kptu.work
 
 /**
- * PHOTO-갤러리편집(요청함 11/01 19:00, A안): 사진 크게 보기 [편집] → 삼성 갤러리 편집기(없으면 안드로이드 '편집할 앱 고르기').
+ * PHOTO-갤러리편집(요청함 11/01 19:00, A안 + 21:38 다시 고침): 사진 크게 보기 [편집] → 삼성 편집기 또는 삼성 갤러리(없을 때만 고르기 창).
  * 안드로이드 API 없이 JVM 단위 시험으로 고정하는 규칙만 둔다(의도는 MainActivity가 이 계획대로 만든다).
  *
  * 다리(KPTUAppShell, 허용 Origin 최상위 화면만):
@@ -13,7 +13,7 @@ package kr.or.kptu.work
  * 넘기는 것은 content URI(+읽기·쓰기 허락 표시)뿐, 파일 경로는 앱 밖으로 내보내지 않는다. 사진 이름·내용은 로그에 쓰지 않는다.
  */
 object PhotoEditRules {
-    /** 삼성 갤러리(편집기). 설치돼 있고 ACTION_EDIT를 받으면 바로 그 앱으로, 아니면 고르기 창. */
+    /** 삼성 갤러리. ACTION_EDIT를 받으면 바로 편집, 아니면 ACTION_VIEW로 그 사진 보기(연필 한 번). */
     const val SAMSUNG_GALLERY = "com.sec.android.gallery3d"
     const val ACTION_EDIT = "android.intent.action.EDIT"
     /** Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION (값은 안드로이드 공개 상수와 같다). */
@@ -111,16 +111,38 @@ object PhotoEditRules {
     }
 
     /**
-     * 의도 계획: 삼성 갤러리가 받으면 그 앱으로(pkg), 아니면 고르기 창(chooser=true). content URI만(파일 경로 안 됨).
-     * 허락 표시는 읽기·쓰기. 다만 안드로이드는 앱이 가진 만큼만 넘기게 하므로, 이 앱이 쓰기 권한이 없는 사진(남이 만든 사진,
-     * '미디어 관리 허용' 꺼짐)이면 읽기만 넘긴다(갤러리는 제 권한으로 저장한다). canWrite=false 재시도도 같은 규칙.
+     * 의도 계획(11/01 21:38 다시 고침). 0.4.6은 ACTION_EDIT + 삼성 갤러리 패키지로 찾았으나 갤러리가 남의 ACTION_EDIT를 받지 않아
+     * 빈 결과 → 고르기 창(포토·OneDrive 등)이 떴다. 이제 순서:
+     *  ① 공개 ACTION_EDIT(image) 입구를 실제로 받는 삼성 앱(사진 편집기 → 갤러리 순)이 있으면 그 앱으로 바로 편집
+     *  ② 없으면 삼성 갤러리로 ACTION_VIEW(그 사진 보기 → 아래 연필 한 번이면 편집)
+     *  ③ 갤러리도 없을 때만 '편집할 앱' 고르기 창
+     * 비공개 내부 화면 이름(컴포넌트)은 부르지 않고 패키지만 지정한다(삼성 업데이트로 깨지지 않게).
+     * editPkgs = 이 사진의 ACTION_EDIT를 받는다고 안드로이드가 답한 앱 패키지들, galleryCanView = 갤러리가 ACTION_VIEW를 받음.
+     * 허락 표시: 편집은 읽기·쓰기(이 앱이 쓰기 권한이 없으면 읽기만), 보기는 읽기만(갤러리는 제 권한으로 저장한다).
+     * content URI만(파일 경로 안 됨).
      */
-    data class Plan(val action: String, val uri: String, val mime: String, val flags: Int, val pkg: String?, val chooser: Boolean)
+    data class Plan(val action: String, val uri: String, val mime: String, val flags: Int, val pkg: String?, val chooser: Boolean) {
+        val mode: String get() = when {
+            chooser -> "chooser"
+            action == ACTION_VIEW -> "gallery"
+            else -> "editor"
+        }
+    }
 
-    fun plan(uri: String, mime: String, samsungCanEdit: Boolean, canWrite: Boolean = true): Plan? {
+    const val ACTION_VIEW = "android.intent.action.VIEW"
+    /** 삼성 사진 편집기(공개 입구가 있으면 바로 편집 화면). 앞에 있을수록 먼저 고른다. */
+    const val SAMSUNG_EDITOR = "com.sec.android.mimage.photoretouching"
+    val EDITOR_ORDER = listOf(SAMSUNG_EDITOR, SAMSUNG_GALLERY)
+    /** 매니페스트 <queries><package>에 선언해야 하는 패키지(시험이 매니페스트와 대조한다). */
+    val QUERY_PACKAGES = EDITOR_ORDER
+
+    fun plan(uri: String, mime: String, editPkgs: Collection<String>, galleryCanView: Boolean, canWrite: Boolean = true): Plan? {
         if (!uri.startsWith("content://")) return null
         val type = if (mime.startsWith("image/")) mime else "image/*"
-        return Plan(ACTION_EDIT, uri, type, if (canWrite) GRANT_FLAGS else GRANT_READ, if (samsungCanEdit) SAMSUNG_GALLERY else null, !samsungCanEdit)
+        val editFlags = if (canWrite) GRANT_FLAGS else GRANT_READ
+        EDITOR_ORDER.firstOrNull { it in editPkgs }?.let { return Plan(ACTION_EDIT, uri, type, editFlags, it, false) }
+        if (galleryCanView) return Plan(ACTION_VIEW, uri, type, GRANT_READ, SAMSUNG_GALLERY, false)
+        return Plan(ACTION_EDIT, uri, type, editFlags, null, true)
     }
 
     /** 편집기에서 돌아온 뒤: 사진첩 세대 번호가 바뀌었으면 changed(새 사진·덮어쓰기). 번호를 못 읽으면(-1) 바뀐 것으로 본다. */

@@ -25,7 +25,9 @@ export function parseShareList(json) {
     const size = Number(raw?.size);
     items.push({index, name:fileName(raw?.name, index), type:MIME.test(type) ? type : 'application/octet-stream', size:Number.isFinite(size) && size >= 0 ? Math.floor(size) : -1});
   }
-  return {id:data.id, subject:clean(data.subject, 1000).trim(), text:clean(data.text, 100000), items};
+  // APP-공유노트할일: 공유 창에서 고른 칸(정리함·노트·할 일). 정해진 두 낱말 밖은 모두 정리함(이전과 같음).
+  const target = data.target === 'note' || data.target === 'task' ? data.target : 'basket';
+  return {id:data.id, subject:clean(data.subject, 1000).trim(), text:clean(data.text, 100000), items, target};
 }
 
 /** 서버 한도에 맞는 것만 고른다(빈 파일·100MB 넘는 파일·21번째부터는 뺀다). 크기를 모르면 받은 뒤 다시 본다. */

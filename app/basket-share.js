@@ -8,6 +8,8 @@
 // [메모 달기]는 방금 넣은 업데이트의 글 맨 앞에 한 줄을 붙이고(updateNote), [되돌리기]는 정리함 [지우기]와 같은 길(휴지통)로 뺀다.
 // 토큰은 웹 세션 그대로이고 앱은 보지 않는다. 폰에 보관하지 않는다: 실패하면 이 화면 메모리의 파일로 [다시]만 하고, 못 하면 다시 공유하도록 안내한다.
 // 받은 것은 내 정리함에만 들어간다. 밖으로 보내거나 공유하는 흐름은 없다.
+// APP-공유노트할일(요청함 11/02 00:22): 공유 창 '웹2 노트'·'웹2 할 일'로 온 공유(목록의 target)는 같은 받기 길로 받고,
+// 바로 넣지 않고 작은 창(share-target.js: 제목·폴더/기한·한 줄 더하기 → [저장])으로 노트·할 일에 넣는다.
 import {isShareId, parseShareList, pickShareItems, shareSummary, skippedText, shareRawText, withMemo, SHARE_MAX_BYTES, SHARE_MEMO_MAX} from './share-intake-model.mjs';
 import {notify} from './small-notice.js';
 
@@ -47,6 +49,7 @@ function start() {
 
   async function open(list) {
     const picked = pickShareItems(list.items);
+    if (list.target === 'note' || list.target === 'task') { await openTarget(list, picked); return; }
     share = {...list, keep:picked.keep, skipped:picked.skipped};
     files = null; batch = null; owner = scope();
     stripAddress();
@@ -57,13 +60,29 @@ function start() {
     await put();
   }
 
+  // 노트·할 일: 같은 공유를 두 번 열지 않게 done으로 남기고 작은 창을 연다. 창이 [저장] 때 receive로 파일을 받고, 닫히면 앱에 끝났다고 알린다.
+  async function openTarget(list, picked) {
+    const one = {...list, keep:picked.keep, skipped:picked.skipped, done:true};
+    share = one; files = null; batch = null; owner = scope();
+    stripAddress();
+    const who = owner, done = () => send('share:done:' + one.id);
+    try {
+      const {openShareTarget} = await import('./share-target.js');
+      openShareTarget({target:list.target, subject:list.subject, text:list.text, items:one.keep, skipped:one.skipped,
+        receive:() => receive(one), release:done, isCurrent:() => scope() === who});
+    } catch {
+      done();
+      notify('넣지 못했어요', {error:true, ms:FAILED_MS, note:'창을 열지 못했어요. 그 앱에서 다시 공유해 주세요.'});
+    }
+  }
+
   // 앱이 흘려주는 파일을 한 번씩 받는다. 받은 파일은 이 화면 메모리에만 있다. 다 받으면 앱에 끝났다고 알린다(앱이 번호·권한을 버림).
-  async function receive() {
+  async function receive(from = share) {
     const out = [];
     let failed = 0, large = 0, empty = 0;
-    for (const item of share.keep) {
+    for (const item of from.keep) {
       try {
-        const response = await fetch(new URL(`__share/${share.id}/${item.index}`, document.baseURI), {cache:'no-store', credentials:'omit'});
+        const response = await fetch(new URL(`__share/${from.id}/${item.index}`, document.baseURI), {cache:'no-store', credentials:'omit'});
         if (!response.ok) throw new Error('share_read_failed');
         const blob = await response.blob();
         if (!blob.size) { empty++; continue; }
@@ -71,7 +90,7 @@ function start() {
         out.push(new File([blob], item.name, {type:item.type || blob.type || 'application/octet-stream'}));
       } catch { failed++; }
     }
-    release();
+    send('share:done:' + from.id);
     return {out, failed, large, empty};
   }
 

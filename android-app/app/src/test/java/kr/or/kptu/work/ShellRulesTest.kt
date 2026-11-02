@@ -194,4 +194,34 @@ class ShellRulesTest {
         val many = ShellRules.shareListJson(shareId, null, null, List(60) { ShellRules.ShareMeta("f", "text/plain", 1) })
         assertEquals(ShellRules.SHARE_MAX_ITEMS, Regex("\"i\":").findAll(many).count())
     }
+
+    @Test
+    fun shareTargets() {
+        assertEquals("note", ShellRules.shareTarget("kr.or.kptu.work.ShareToNote"))
+        assertEquals("task", ShellRules.shareTarget("kr.or.kptu.work.ShareToTask"))
+        assertEquals("basket", ShellRules.shareTarget("kr.or.kptu.work.MainActivity"))
+        assertEquals("basket", ShellRules.shareTarget(null))
+        assertEquals("basket", ShellRules.shareTarget("x.ShareToTrash"))
+        val list = listOf(ShellRules.ShareMeta("a.png", "image/png", 3))
+        assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "note").endsWith("],\"target\":\"note\"}"))
+        assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "task").endsWith("],\"target\":\"task\"}"))
+        // 정리함·알 수 없는 값은 이전 모양 그대로(칸 없음).
+        assertFalse(ShellRules.shareListJson(shareId, null, "t", list, "basket").contains("target"))
+        assertFalse(ShellRules.shareListJson(shareId, null, "t", list, "\"evil").contains("target"))
+    }
+
+    @Test
+    fun manifestShareAliases() {
+        val manifest = java.io.File("src/main/AndroidManifest.xml").readText()
+        assertTrue(manifest.contains("android:label=\"웹2 정리함\""))
+        assertFalse(manifest.contains("웹2 바구니"))
+        for ((name, label) in listOf(ShellRules.SHARE_TO_NOTE to "웹2 노트", ShellRules.SHARE_TO_TASK to "웹2 할 일")) {
+            val block = manifest.substringAfter("android:name=\".$name\"").substringBefore("</activity-alias>")
+            assertTrue(name, block.contains("android:targetActivity=\".MainActivity\""))
+            assertTrue(name, block.contains("android:label=\"$label\""))
+            // 받는 것은 공유(SEND·SEND_MULTIPLE)뿐.
+            val actions = Regex("action android:name=\"([^\"]+)\"").findAll(block).map { it.groupValues[1] }.toSet()
+            assertEquals(setOf("android.intent.action.SEND", "android.intent.action.SEND_MULTIPLE"), actions)
+        }
+    }
 }
