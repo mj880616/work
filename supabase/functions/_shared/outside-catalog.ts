@@ -4,7 +4,7 @@
 // - httpHosts: http 주소를 허용하는 호스트(Q4 결정: socialist.kr 하나만 — 텔레그램 글 안 원문 링크용). 나머지 호스트는 https만.
 // - item: 목록 HTML에서 글 주소로 볼 링크(절대 주소 기준). canon: 같은 글의 주소를 하나로(쪽 번호 같은 군더더기 빼기).
 // - kindOf: 제목·주소로 종류(statement|comment|press|article)를 정한다. null이면 성명 게시판의 다른 글(공지·취재요청 등)이라 넣지 않는다.
-// 빠진 것(결정): 정의당(Q1, robots.txt가 막음 — 자동 수집 안 함), NLR(Q5, 유료), In These Times·The Nation·Tribune·Spectre(Q5).
+// 빠진 것(결정): 정의당 홈페이지(Q1, robots.txt가 막음 — 자동 수집 안 함, 대신 공개 텔레그램 채널을 읽음 S48-23), NLR(Q5, 유료), In These Times·The Nation·Tribune·Spectre(Q5).
 // 새 단체는 여기에 한 줄 더하는 작은 PR로만 넣는다(Edge 재배포 정지 지점).
 
 export type Kind = "statement" | "comment" | "press" | "article";
@@ -159,6 +159,17 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 2026-11-01 글 쪽 확인: 본문은 `div.content_box` 안(앞 머리 칸에는 작성자·등록일·좋아요만 있다).
     bodyClass: /^content_box$/,
     kindOf: (title, url) => byPrefix(/\bb=b_1_111\b/.test(url) ? "press" : "comment")(title),
+  },
+  {
+    // 정의당(10/31 12:45 Q1 '다른 길은 나중에 따로' → S48-23): 홈페이지(www.justice21.org·m.justice21.org)는 robots.txt가 자동 읽기를 막아
+    // 읽지 않는다(예외 없음 — 사이트 주소는 hosts에 넣지 않아 목록·글·robots 어느 요청도 가지 않는다).
+    // 대신 당의 공개 텔레그램 채널 '정의당 뉴스채널'(@justicekr, 글 안 원문 링크가 www.justice21.org/<번호>)의 웹 미리보기를 읽는다
+    // (사회주의자와 같은 방식, 2026-11-02 확인). t.me는 이 채널 경로만(목록 t.me/s/justicekr, 글 t.me/justicekr/<번호>), t.me의 robots.txt는 그대로 지킨다.
+    // 채널에는 생중계·행사 안내·카드뉴스 글도 섞여 있어 머리말([성명]·[논평]·[브리핑]·[보도자료] 등)이 있는 글만 넣는다.
+    // 원문 링크는 채널 글 주소(본문 안 justice21.org 주소는 허용 호스트가 아니라 원문으로 쓰지 않는다 — 요청도 하지 않는다).
+    key: "justice", name: "정의당", group: "party", lang: "ko", mode: "telegram", telegram: "justicekr",
+    lists: ["https://t.me/s/justicekr"], hosts: ["t.me"], canon: plain,
+    kindOf: byPrefix(null),
   },
   {
     key: "pssp", name: "사회진보연대", group: "movement", lang: "ko", mode: "html",

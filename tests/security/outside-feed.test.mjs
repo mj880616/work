@@ -21,7 +21,7 @@ const FN='https://synthetic.supabase.test/functions/v1/outside-feed';
 
 // 단체 키 → 목록 표본(카탈로그 lists 순서대로).
 const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
-  jinboparty:['jinboparty-comment.html','jinboparty-press.html'],pssp:['pssp.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html'],
+  jinboparty:['jinboparty-comment.html','jinboparty-press.html'],justice:['justice-telegram.html'],pssp:['pssp.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html'],
   socialism:['socialism.html'],socialist:['socialist-telegram.html'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
 // 단체별 기대: [정규화한 주소, 종류] 순서.
 const EXPECT={
@@ -33,6 +33,7 @@ const EXPECT={
   laborparty:[['https://laborparty.kr/?mod=document&page_id=13642&uid=5001','comment'],['https://laborparty.kr/?mod=document&page_id=13642&uid=5000','comment']],
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
   jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
+  justice:[['https://t.me/justicekr/9006','comment'],['https://t.me/justicekr/9005','comment'],['https://t.me/justicekr/9001','statement']],
   pssp:[['https://pssp.org/bbs/view.php?board=statement&nid=6001','statement']],
   ws:[['https://ws.or.kr/article/40001','statement'],['https://ws.or.kr/article/40000','article'],['https://ws.or.kr/article/39999','statement']],
   platformc:[['https://platformc.kr/2026/10/fake-reading-one','article']],
@@ -48,8 +49,8 @@ const itemsOf=s=>LISTS[s.key].flatMap((f,i)=>s.mode==='rss'?P.parseFeed(s,FX(f),
 
 // ---- 카탈로그 ------------------------------------------------------------------------------------------------------
 
-test('catalog = decided sources only (Q1·Q2·Q3·Q4·Q5): no 정의당, no NLR, kptu·leftall·socialist·4 foreign', () => {
-  assert.deepEqual(OUTSIDE_SOURCE_KEYS,['kctu','kptu','kmwu','kfsu','hakbi','laborparty','kgreens','jinboparty','pssp','ws','platformc','leftall','socialism','socialist','jacobin','labornotes','redpepper','socialistworker']);
+test('catalog = decided sources only (Q1·Q2·Q3·Q4·Q5): 정의당은 홈페이지 없이 텔레그램 채널만, no NLR, kptu·leftall·socialist·4 foreign', () => {
+  assert.deepEqual(OUTSIDE_SOURCE_KEYS,['kctu','kptu','kmwu','kfsu','hakbi','laborparty','kgreens','jinboparty','justice','pssp','ws','platformc','leftall','socialism','socialist','jacobin','labornotes','redpepper','socialistworker']);
   const all=JSON.stringify(OUTSIDE_CATALOG.map(s=>[s.lists,s.hosts]));
   assert.doesNotMatch(all,/justice21|newleftreview|inthesetimes|thenation|tribunemag|spectrejournal/);
   assert.deepEqual(sourceByKey('kptu').lists,['https://www.kptu.net/board/list.aspx?mid=F686C1F3']);
@@ -60,7 +61,8 @@ test('catalog = decided sources only (Q1·Q2·Q3·Q4·Q5): no 정의당, no NLR,
     for(const l of s.lists){assert.ok(allowedUrl(s,l),`${s.key} list inside its own hosts`);}
     assert.deepEqual(s.httpHosts??[],s.key==='socialist'?['socialist.kr','www.socialist.kr']:[],'http only for socialist.kr (Q4)');
     assert.equal('allowHttp' in s,false,'옛 칸(단체 전체 http 허용)은 없앰');
-    assert.equal(s.hosts.includes('t.me'),s.key==='socialist','t.me는 사회주의자 채널 하나만(명진 결정 11/01 21:13)');
+    assert.equal(s.hosts.includes('t.me'),['socialist','justice'].includes(s.key),'t.me는 사회주의자(명진 결정 11/01 21:13)·정의당(S48-23) 채널만');
+    assert.equal(s.mode==='telegram',['socialist','justice'].includes(s.key));
     if(s.mode==='html')assert.ok(s.item instanceof RegExp);
   }
   // 화면에 주는 모양에는 주소·규칙이 없다.
@@ -261,7 +263,7 @@ test('actions are split by entrance; body takes only a catalog key (no url) → 
   assert.equal((await h.cron('run',{source:'kctu',url:'http://169.254.169.254/'})).status,400);
   assert.equal((await h.cron('run',{url:'https://evil.example/'})).status,400);
   const unk=await h.cron('run',{source:'evil'});assert.equal(unk.status,400);assert.equal((await unk.json()).error,'UNKNOWN_SOURCE');
-  assert.equal((await h.cron('run',{source:'justice21'})).status,400,'정의당 is not in the catalog (Q1)');
+  assert.equal((await h.cron('run',{source:'justice21'})).status,400,'정의당 홈페이지 키는 카탈로그에 없다(Q1, 텔레그램 채널 키는 justice)');
   assert.equal((await h.cron('run_plan',{workspace_id:WS})).status,400,'no workspace from the caller');
   assert.equal(h.calls.site.length,0);
   const big=await h.cron('run',{source:'kctu',pad:'x'.repeat(5000)});assert.ok([400,413].includes(big.status),'body over 4 KB is refused');
@@ -554,6 +556,51 @@ test('사회주의자: 채널 목록 한 번만 읽고 글 쪽·단체 사이트
   assert.equal((await (await red.cron('run',{source:'socialist'})).json()).status,'redirect_outside');
 });
 
+// 정의당(S48-23): 홈페이지는 robots.txt가 막아 읽지 않고, 공개 텔레그램 채널 '정의당 뉴스채널'(@justicekr) 웹 미리보기를 읽는다.
+test('정의당: 홈페이지 주소는 허용 호스트에 없고 채널 경로만 — 다른 채널·홈페이지 주소는 거절', () => {
+  const s=sourceByKey('justice');
+  assert.equal(s.name,'정의당');assert.equal(s.group,'party');assert.equal(s.mode,'telegram');assert.equal(s.telegram,'justicekr');
+  assert.deepEqual(s.lists,['https://t.me/s/justicekr']);assert.deepEqual(s.hosts,['t.me']);assert.equal(H.robotsExempt(s),false,'robots 예외 아님');
+  assert.equal(s.robotsException,undefined);assert.ok(!H.ROBOTS_EXEMPT_KEYS.includes('justice'));
+  assert.ok(allowedUrl(s,'https://t.me/s/justicekr'));assert.ok(allowedUrl(s,'https://t.me/justicekr/9001'));
+  for(const bad of['https://www.justice21.org/robots.txt','http://www.justice21.org/900001','https://www.justice21.org/newhome/board/board.html?bbs_code=JS21',
+    'https://m.justice21.org/','https://t.me/s/ksocialist','https://t.me/ksocialist/1','http://t.me/s/justicekr','https://t.me/justicekr','https://t.me/s/justicekr/1'])
+    assert.equal(allowedUrl(s,bad),null,bad);
+});
+
+test('정의당: 머리말([성명]·[논평]·[브리핑]) 글만, 원문은 채널 글 주소(본문 안 justice21.org 주소는 쓰지 않음), 게시 시각은 채널 글 시각', () => {
+  const s=sourceByKey('justice');
+  const stats={candidates:0};
+  const items=P.parseTelegram(s,FX('justice-telegram.html'),NOW,30,stats);
+  assert.equal(stats.candidates,6,'이 채널 글 6개(다른 채널 글은 셈하지 않음)');
+  assert.deepEqual(items.map(i=>[i.url,i.kind,i.title,i.published_at]),[
+    ['https://t.me/justicekr/9006','comment','[브리핑] 가상 대변인, 가상 국정감사 관련','2026-10-31T02:30:00.000Z'],
+    ['https://t.me/justicekr/9005','comment','[논평] 가상 생명안전기본법, 시행령에서도 피해자의 권리를 지키십시오','2026-10-31T05:18:00.000Z'],
+    ['https://t.me/justicekr/9001','statement','[성명] 가상 공공임대 확대, 가상 정부 계획으로 내놓으십시오','2026-10-30T07:32:00.000Z']],
+    '생중계·머리말 없는 카드뉴스·사진뿐인 글·다른 채널 글은 뺀다');
+  assert.ok(items.every(i=>!/justice21/.test(i.url)));
+  assert.match(items[2].content,/가상 세입자의 삶은/);assert.doesNotMatch(items[2].content,/스크립트 안 글자/);
+  for(const k of['생중계','공지','안내'])assert.equal(s.kindOf(`[${k}] 가상`,''),null,k);
+  assert.equal(s.kindOf('가상 머리말 없는 글',''),null);assert.equal(s.kindOf('[보도자료] 가상',''),'press');
+});
+
+test('정의당: 채널 목록 한 번만 읽고 justice21.org는 한 번도 요청하지 않는다, 제목은 한 줄(머리말 뗌)·짧은 글은 제목만', async () => {
+  const h=harness({sources:[{workspace_id:WS,source_key:'justice'}],sites:{'https://t.me/s/justicekr':FX('justice-telegram.html')},robots:{'https://t.me':'User-agent: *\nDisallow: /admin\n'}});
+  const out=await (await h.cron('run',{source:'justice'})).json();
+  assert.equal(out.status,'ok');assert.equal(out.inserted,3);assert.equal(out.skipped,0);
+  assert.deepEqual(h.calls.site,['https://t.me/robots.txt','https://t.me/s/justicekr']);
+  assert.ok(!h.calls.site.some(u=>/justice21/.test(u)),'홈페이지(robots로 막힘) 요청 없음');
+  const st=h.db.app_outside_posts.find(p=>p.url==='https://t.me/justicekr/9001');
+  assert.equal(st.kind,'statement');assert.equal(st.has_body,true);assert.ok(st.summary_ko);
+  assert.equal(st.title,'가상 공공임대 확대, 가상 정부 계획으로 내놓으십시오');assert.doesNotMatch(st.title,/\n/);
+  assert.equal(st.published_at,'2026-10-30T07:32:00.000Z');
+  const short=h.db.app_outside_posts.find(p=>p.url==='https://t.me/justicekr/9006');
+  assert.equal(short.has_body,false);assert.equal(h.calls.ai.length,2,'짧은 글은 AI에 보내지 않음');
+  // t.me robots.txt가 채널 미리보기를 막으면 그대로 따른다.
+  const r=harness({sources:[{workspace_id:WS,source_key:'justice'}],sites:{'https://t.me/s/justicekr':FX('justice-telegram.html')},robots:{'https://t.me':'User-agent: *\nDisallow: /s/\n'}});
+  assert.equal((await (await r.cron('run',{source:'justice'})).json()).status,'robots');assert.deepEqual(r.calls.site,['https://t.me/robots.txt']);
+});
+
 test('노동자연대: 성명 머리말([노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명]·괄호 없는 \'노동자연대 성명:\')은 성명, 나머지 기사는 article(명진 결정 11/01 22:30)', () => {
   const k=sourceByKey('ws').kindOf;
   for(const t of['[노동자연대 성명] 가상','[성명] 가상','[노동자연대 학생그룹 성명] 가상','노동자연대 성명: 가상','노동자연대 학생그룹 성명 — 가상'])assert.equal(k(t,''),'statement',t);
@@ -636,7 +683,7 @@ test('노동당: robots.txt를 거절(403)해도 목록 한 쪽 + 새 글만 읽
 });
 
 test('robots 예외는 kptu·laborparty 열쇠에만: 다른 단체는 같은 robots(Disallow: /)면 그대로 막힘', async () => {
-  for(const key of ['kctu','leftall','socialism','pssp','kgreens','jinboparty','platformc','ws','socialist','jacobin']){
+  for(const key of ['kctu','leftall','socialism','pssp','kgreens','jinboparty','platformc','ws','socialist','justice','jacobin']){
     const s=sourceByKey(key);const origin=new URL(s.lists[0]).origin;
     const h=harness({sources:[{workspace_id:WS,source_key:key}],sites:{[s.lists[0]]:'<html></html>'},robots:{[origin]:KPTU_ROBOTS}});
     const out=await (await h.cron('run',{source:key})).json();
