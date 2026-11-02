@@ -1,16 +1,17 @@
 // OD-연결아이콘(2026-10-28 13:53 명진 요청): 원드라이브 연결 표시를 아이콘 하나 + 누르면 드롭다운으로.
 // 일기 [오늘] 오른쪽에 두고, 새 '사진' 메뉴도 이 부품을 그대로 쓴다(docs/design/photo-menu.md). 여기는 모양만 그리고, 연결·폴더·저장은 부르는 쪽이 한다.
-// - 아이콘: 원드라이브 구름 모양을 직접 그린 단색 SVG(currentColor, 상표 그림 파일 아님). 연결 안 됨 = 흐림, 오류 = 작은 빨간 점.
+// - 아이콘: 원드라이브 공식 제품 아이콘(brand-icons.js, PHOTO-실제아이콘 11/03). 연결 안 됨 = 회색조로 엷게, 오류 = 작은 빨간 점.
 // - 드롭다운: 공용 anchored-menu.js(뒤로가기·Esc·바깥 누름으로 닫힘, 위치 계산 공용). 항목 = 연결 상태 / 일기에서 사진 보이기 / 연결 끊기.
 //   PHOTO-폴더스위치(10/31): 원드라이브 전체 보기(od.whole)에서는 [폴더 바꾸기]·[하위 폴더 켜고 끄기]가 없다(사진 [폴더]의 폴더별 스위치가 대신함).
 //   서버가 아직 전체 보기를 모르는 동안(배포 전)만 두 항목을 예전처럼 보인다.
 // - 기기 저장 없음. '일기에서 사진 보이기'는 부르는 쪽이 서버(view_prefs.diary_onedrive)에 둔다.
 import {createAnchoredMenu} from './anchored-menu.js';
+import {brandIconSvg} from './brand-icons.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[ch]);
 
-// 구름 두 덩이가 겹친 단순한 모양(가로 24 × 세로 16 칸). 색은 글자색을 따른다.
-export const OD_CLOUD_SVG = '<svg class="od-link-cloud" viewBox="0 0 24 16" width="20" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9.6 2.2a5 5 0 0 1 4.6 2.1 4.2 4.2 0 0 1 5.5 3.6A3.6 3.6 0 0 1 19.4 15H5.2A4.2 4.2 0 0 1 4.6 6.6a5 5 0 0 1 5-4.4Z"/></svg>';
+// 원드라이브 공식 제품 아이콘(공용 부품 brand-icons.js, 원래 모양·색). 꺼짐은 CSS가 회색조로 엷게 한다.
+export const OD_CLOUD_SVG = brandIconSvg('onedrive', {size:20, cls:'od-link-cloud'});
 
 // 연결 상태 → 'hidden'(원드라이브 준비 안 된 서버) | 'off'(연결 안 됨·흐림) | 'error'(빨간 점) | 'ok'.
 // od = {configured, connected, folder, failed?}, fault = 이번 접속에서 원드라이브 요청이 실패했는지.

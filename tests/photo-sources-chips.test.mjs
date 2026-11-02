@@ -73,8 +73,9 @@ test('사진 메뉴: [폴더]·[휴지통]·[앨범]이 출처 켜기를 따른�
   const folders = s.slice(s.indexOf('function renderFolders()'), s.indexOf('function paintPhoneFolderGrid()'));
   assert.match(folders, /const g = listGate\(\);/);
   assert.ok(folders.indexOf('if (!u.onedrive)') < folders.indexOf('loadTree()'), '원드라이브가 꺼지면 원드라이브 나무를 읽지 않음');
-  assert.match(folders, /data-photos-fx-group="onedrive">원드라이브/);
-  assert.match(s, /data-photos-fx-group="phone">폰/);
+  // PHOTO-실제아이콘: 묶음 머리 앞에 출처 아이콘(공용 brand-icons.js·폰 폴더 모양).
+  assert.match(folders, /data-photos-fx-group="onedrive">\$\{MARK_SVG\.onedrive\}원드라이브/);
+  assert.match(s, /data-photos-fx-group="phone">\$\{MARK_SVG\.phone\}폰/);
   // 폰 폴더 줄: 끌기 없음, 원드라이브 ⋯·스위치와 섞이지 않음. ⋯·새 폴더는 앱 0.4.1+(phoneOps)만(PHOTO-폴더스위치).
   const row = s.slice(s.indexOf('function phoneFolderRowHtml'), s.indexOf('// 폰 묶음 줄들'));
   assert.doesNotMatch(row, /data-photos-fx-more|draggable/);

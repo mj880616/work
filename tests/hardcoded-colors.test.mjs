@@ -24,6 +24,7 @@ test('only approved exclusions skip colors',()=>{
 // calendar-month-view.js의 일정 대비 글자, calendar-day-overflow.js의 일정 색은 유지한다.
 // MEET-결과정리 ②: 회의 종류 색은 theme-tokens.css --ds-meeting-1~16으로 옮겼다(team.js에는 회의명 미지정 회색 하나만 남음).
 // base-ui.css의 rgba(18,26,35,.46)는 창 뒤 반투명 바탕이다.
+// PHOTO-실제아이콘(2026-11-03): brand-icons.js의 원드라이브·구글 드라이브 공식 아이콘 색 10개는 상표 원래 색이라 테마를 따르지 않는다.
 // page-design-core.js는 사용자 콘텐츠 색이므로 검사 제외를 유지한다.
 // base-ui.css의 #f3f0f7 보라 바탕은 지시서의 유지 대상이다.
 // D-3b 사용자 결정: 아래 색은 의도된 예외이며 검사 개수에는 계속 포함한다.

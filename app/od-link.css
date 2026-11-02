@@ -1,8 +1,9 @@
 /* OD-연결아이콘: 원드라이브 아이콘 하나 + 드롭다운(app/od-link.js). 일기·사진 메뉴 공용. 판은 body에 붙으므로 화면 이름으로 좁히지 않는다. */
 .od-link{position:relative;min-width:32px;padding:0 6px;color:var(--kptu-info)}
-.od-link .od-link-cloud{display:block;opacity:.85}
+/* PHOTO-실제아이콘: 공식 아이콘은 원래 색 그대로. 연결 안 됨은 같은 아이콘을 회색조로 엷게(공식 색을 바탕에 칠하지 않음). */
+.od-link .od-link-cloud{display:block}
 .od-link[data-state="off"]{color:var(--kptu-muted)}
-.od-link[data-state="off"] .od-link-cloud{opacity:.4}
+.od-link[data-state="off"] .od-link-cloud{filter:grayscale(1);opacity:.45}
 .od-link .od-link-dot{display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--kptu-danger);box-shadow:0 0 0 1.5px var(--kptu-surface)}
 .od-link[data-state="error"] .od-link-dot{display:block}
 .od-link[hidden]{display:none}

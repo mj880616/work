@@ -54,6 +54,7 @@ import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
 import {appShare} from './app-share.js';
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
+import {brandIconSvg} from './brand-icons.js';
 import {createOdSettings} from './od-settings.js';
 import {createSelectMode} from './select-mode.js';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -84,12 +85,12 @@ function install() {
 install();
 const root = document.getElementById('photosRoot');
 if (!root) return;
-// 출처 아이콘(구글 드라이브는 공식 로고 대신 일반 삼각 모양, 폰 사진은 폴더). 색은 CSS(currentColor).
-const GDRIVE_SVG = '<svg class="photos-src-ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8.6 3.5h6.8l6.1 10.6-3.4 5.9H5.9L2.5 14.1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.6 3.5l6 10.6M15.4 3.5l-6.1 10.6M2.5 14.1h19" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".7"/></svg>';
+// 출처 아이콘: 원드라이브·구글 드라이브는 공식 제품 아이콘(공용 부품 brand-icons.js, PHOTO-실제아이콘), 폰 사진은 폴더(색은 CSS currentColor).
+const GDRIVE_SVG = brandIconSvg('gdrive', {size:16, cls:'photos-src-ic'});
 const PHONE_SVG = '<svg class="photos-src-ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
-const MARK_SVG = {onedrive:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .4-5.6A3.8 3.8 0 0 0 4.8 6a3.3 3.3 0 0 0-.3 6.5z" fill="currentColor"/></svg>',
+const MARK_SVG = {onedrive:brandIconSvg('onedrive', {size:11}),
   phone:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 4.5A1 1 0 0 1 3 3.5h3l1.3 1.3H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" fill="currentColor"/></svg>',
-  gdrive:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M5.6 2.5h4.8l4.1 7.1-2.3 3.9H3.8L1.5 9.6z" fill="currentColor"/></svg>'};
+  gdrive:brandIconSvg('gdrive', {size:10})};
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
 root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><div class="photos-tools" data-photos-tools><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-sp"></span><span class="photos-srcs" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" aria-pressed="true" aria-label="폰 사진" title="폰 사진" hidden>${PHONE_SVG}</button></span><button type="button" class="secondary photos-al-new" data-photos-al-new hidden>+ 새 앨범</button></div></div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" data-photos-act-star><span aria-hidden="true">☆</span> 별표</button><button type="button" data-photos-act-share hidden><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-photos-act-down><span aria-hidden="true">⤓</span> 받기</button><button type="button" data-photos-act-rename hidden><span aria-hidden="true">✎</span> 이름</button><button type="button" data-photos-act-move aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">📁</span> 옮기기</button><button type="button" data-photos-act-tag aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">#</span> 앨범</button><button type="button" data-photos-act-untag hidden><span aria-hidden="true">−</span> 앨범에서 빼기</button><button type="button" data-photos-act-restore hidden><span aria-hidden="true">↩</span> 폰으로 되돌리기</button><button type="button" class="photos-danger" data-photos-act-delete><span aria-hidden="true">🗑</span> 지우기</button></div><div class="photos-act" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" data-photos-restore><span aria-hidden="true">↺</span> 되살리기</button><button type="button" class="photos-danger" data-photos-purge><span aria-hidden="true">🗑</span> 바로 지우기</button></div>`;
 const $ = sel => root.querySelector(sel);
@@ -1202,7 +1203,7 @@ async function trashPhonePicked(list) {
 // ---- S48-17 PHOTO-지우기두갈래(요청함 11/01 00:27, 시안 확정): 폰 앱에서 고른 사진에 폰 사진·비운 사진이 있으면 [지우기] = 작은 고르기 창 ----
 // ① 폰 공간만 비우기 · n장 — 원드라이브에 원본이 확인된 폰 사진만(서버가 한 번 더 확인). 폰 휴지통으로, 목록에는 남김(원래 폴더·찍은 시각 기록).
 // ② 완전히 지우기 · n장(빨간 글자) — 폰 휴지통 + 원드라이브(짝 사본까지) Web2 휴지통으로(30일 안 되살리기, 그 뒤 원드라이브 휴지통 30일). 목록에서 빠짐.
-const CLOUD_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .4-5.6A3.8 3.8 0 0 0 4.8 6a3.3 3.3 0 0 0-.3 6.5z" fill="currentColor"/></svg>';
+const CLOUD_ICON = brandIconSvg('onedrive', {size:16}); // 원드라이브 공식 아이콘(PHOTO-실제아이콘)
 const TRASH_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
 let deleting = false;
 // 크게 보기가 열려 있으면 그 안 한 줄로(밑 알림은 크게 보기에 가린다).
@@ -1583,7 +1584,7 @@ const phoneNewHtml = () => (phoneOps() ? '<button type="button" class="nx-new-fo
 // 폰 묶음 줄들. 옛 앱(folders 읽기 없음)이면 비운다(폰 폴더 묶음만 안 보임).
 function phoneGroupHtml({wide, head}) {
   if (pFolders === false) return '';
-  const title = head ? '<p class="photos-fx-group" data-photos-fx-group="phone">폰</p>' : '';
+  const title = head ? `<p class="photos-fx-group" data-photos-fx-group="phone">${MARK_SVG.phone}폰</p>` : '';
   if (!pFolders) {
     if (pFoldersFailed && !pFoldersLoading) return title + failHtml({retry:'data-photos-pf-retry', reason:pFoldersFailed});
     const r = run; loadPhoneFolders().then(() => { if (current(r) && tab === 'folders') renderFolders(); });
@@ -1635,7 +1636,7 @@ function renderFolders() {
   if (!at || !photoFolderById(tree, at)) at = tree.top.id;
   const here = photoFolderById(tree, at), both = u.phone, many = u.phone || u.gdrive;
   const pf = both && pAt !== null ? phoneFolderOf(pAt) : null, gdPane = wide && gdAt !== null;
-  const odHead = (many ? '<p class="photos-fx-group" data-photos-fx-group="onedrive">원드라이브</p>' : '');
+  const odHead = (many ? `<p class="photos-fx-group" data-photos-fx-group="onedrive">${MARK_SVG.onedrive}원드라이브</p>` : '');
   const path = `<nav class="fp-path photos-fx-path" aria-label="지금 위치">${folderPathHtml({rootLabel:'사진', trail:photoFolderTrail(tree, at), attr:'data-photos-fx-at', esc})}</nav>`;
   const head = `<p class="photos-fx-here${tree.whole ? ' has-sw' : ''}"><span><b>${esc(here.name)}</b>${placeHtml(here.id)} · ${here.count}장${here.enabled === false ? ' · 사진에 안 보임' : ''}</span>${tree.whole ? switchHtml(here.id, here.name, here.enabled !== false) : ''}</p>`;
   const grid = '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>';
@@ -2033,10 +2034,10 @@ function gdTreeHtml() {
 // 폴더 묶음. PC는 나무(맨 위 줄이 '구글 드라이브'라 묶음 이름 없음), 폰은 묶음 이름 '구글 드라이브 n' + 맨 위 층 폴더 줄.
 function gdGroupHtml({wide, head}) {
   if (!gdOn()) return '';
-  if (gd.problem) return (head || !wide ? '<p class="photos-fx-group" data-photos-fx-group="gdrive">구글 드라이브</p>' : '') + gdNoteHtml();
+  if (gd.problem) return (head || !wide ? `<p class="photos-fx-group" data-photos-fx-group="gdrive">${MARK_SVG.gdrive}구글 드라이브</p>` : '') + gdNoteHtml();
   if (wide) return gdTreeHtml();
   const n = gdTotal();
-  const title = `<p class="photos-fx-group" data-photos-fx-group="gdrive">구글 드라이브${n === null ? '' : ` <span class="photos-fx-n" aria-label="사진 ${n}장">${n}</span>`}</p>`;
+  const title = `<p class="photos-fx-group" data-photos-fx-group="gdrive">${MARK_SVG.gdrive}구글 드라이브${n === null ? '' : ` <span class="photos-fx-n" aria-label="사진 ${n}장">${n}</span>`}</p>`;
   return (head || n !== null ? title : '') + gdLevelHtml(GDRIVE_TOP, {wide:false});
 }
 // 고른 구글 드라이브 폴더 칸(PC 오른쪽 칸·폰 한 화면 같은 내용): 위치 줄 · 이름·장수·보임 여부·스위치 · (폰만) 하위 폴더 · 그 폴더 사진.
