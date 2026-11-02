@@ -1,34 +1,151 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WIDGET-여러개 ③: 아스날(2×1). 다음 경기·지난 경기 두 줄. 누르면 앱 아스날 화면. -->
+<!-- APP-위젯아스날맞춤 C: 아스날 4×2(처음 놓는 크기). 다음 경기 + '경기 끝나고 내 일정' + [달력에 넣기]·[FotMob로 보기].
+     줄이 없을 때(중계·잠 n시간·D-n)는 그 줄만 숨긴다(ArsenalWidget). 누르면 앱 아스날 화면. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/ars_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
-    android:gravity="center_vertical"
     android:orientation="vertical"
-    android:paddingStart="10dp"
-    android:paddingEnd="8dp">
+    android:paddingStart="12dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="8dp">
 
-    <TextView
-        android:id="@+id/ars_top"
-        android:text="아스날"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:singleLine="true"
-        android:ellipsize="end"
-        android:textColor="@color/widget_ink"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-    <TextView
-        android:id="@+id/ars_bottom"
-        android:text="불러오는 중"
+        <TextView
+            android:id="@+id/ars_circle"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/widget_circle"
+            android:gravity="center"
+            android:importantForAccessibility="no"
+            android:text="A"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/ars_top"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="아스날"
+                android:textColor="@color/widget_ink"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/ars_sub"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:textColor="@color/widget_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/ars_dday"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/widget_badge_todo"
+            android:paddingStart="7dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="7dp"
+            android:paddingBottom="2dp"
+            android:singleLine="true"
+            android:textColor="@color/widget_todo_ink"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ars_broadcast"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="@color/widget_muted"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/ars_bottom"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="불러오는 중"
+            android:textColor="@color/widget_ink"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/ars_sleep"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="@color/widget_req_ink"
+            android:textSize="11sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingTop="1dp"
-        android:singleLine="true"
-        android:ellipsize="end"
-        android:textColor="@color/widget_muted"
-        android:textSize="11sp" />
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/ars_cal"
+            android:layout_width="0dp"
+            android:layout_height="28dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_btn"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:singleLine="true"
+            android:text="달력에 넣기"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/ars_fotmob"
+            android:layout_width="0dp"
+            android:layout_height="28dp"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_btn"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:singleLine="true"
+            android:text="FotMob로 보기"
+            android:textColor="@color/widget_btn_ink"
+            android:textSize="12sp" />
+    </LinearLayout>
 </LinearLayout>

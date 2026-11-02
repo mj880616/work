@@ -79,6 +79,11 @@ object WidgetActions {
 
     fun prefKey(widgetId: Int): String = "one.$widgetId"
 
+    /** APP-한칸위젯디자인: 한 칸 단추 색(앱 테마 토큰, 톤다운). 쓰기·사진은 빠른 쓰기와 같은 남색 계열, 녹음은 주황 계열. */
+    enum class Tone { PLAIN, WARM }
+
+    fun tone(action: WidgetAction): Tone = if (action == WidgetAction.RECORD) Tone.WARM else Tone.PLAIN
+
     /** 한 칸 위젯 설정 창의 결과: 고른 기능만, 모르는 값은 null(위젯을 놓지 않음). */
     fun chosen(value: String?): WidgetAction? = fromId(value)?.takeIf { it in ONE_CHOICES }
 }

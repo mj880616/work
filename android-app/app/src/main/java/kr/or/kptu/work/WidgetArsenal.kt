@@ -184,4 +184,170 @@ object WidgetArsenal {
         val cp = t.codePointAt(0)
         return String(Character.toChars(Character.toUpperCase(cp)))
     }
+
+    // ── APP-위젯아스날맞춤 C·D·E(S48-2b): 크기별 모양·내 일정·[달력에 넣기]·결과 가림. 그리는 쪽은 ArsenalWidget. ──
+
+    /** 크기별 모양(결정 ①: 4×2·4×1·2×1, 2×2 없음). */
+    enum class Size { SMALL, WIDE, BIG }
+
+    /** 넓이·높이(dp) 기준. 폴드 바깥 화면 4칸이 250dp보다 좁을 수 있어 넓은 모양은 200dp부터. */
+    const val WIDE_FROM_DP = 200
+    const val BIG_FROM_DP = 100
+
+    /** 홈 화면 칸 크기(dp) → 모양. 4×2 = BIG, 4×1 = WIDE, 그보다 좁으면(2×1·2×2) SMALL. */
+    fun size(widthDp: Int, heightDp: Int): Size = when {
+        widthDp < WIDE_FROM_DP -> Size.SMALL
+        heightDp >= BIG_FROM_DP -> Size.BIG
+        else -> Size.WIDE
+    }
+
+    private val COMPETITIONS = mapOf(
+        "Premier League" to "프리미어리그",
+        "UEFA Champions League" to "챔피언스리그",
+        "Carabao Cup" to "카라바오컵",
+        "FA Cup" to "FA컵",
+    )
+
+    fun competitionName(match: Match): String {
+        val c = COMPETITIONS[match.competition] ?: match.competition
+        val r = match.round.takeUnless { it.isBlank() || it.startsWith("League Phase") } ?: ""
+        return listOf(c, r).filter { it.isNotBlank() }.joinToString(" ")
+    }
+
+    private fun clock(t: LocalDateTime): String = "%02d:%02d".format(t.hour, t.minute)
+
+    /** [달력에 넣기]로 폰 달력 '일정 추가' 화면에 미리 채울 내용(결정 ③, 서버 쓰기 없음). 시각은 epoch ms. */
+    data class Draft(val title: String, val beginMs: Long, val endMs: Long, val description: String)
+
+    fun draft(match: Match, zone: java.time.ZoneId = WidgetNow.ZONE): Draft? {
+        val start = kickoffAt(match) ?: return null
+        val end = endAt(match) ?: return null
+        val side = if (match.home) "홈" else "원정"
+        val desc = listOfNotNull(competitionName(match).ifBlank { null }, match.broadcast?.let { "중계 $it" }).joinToString(" · ")
+        return Draft(
+            "아스날 경기 · $side ${match.opponent}",
+            start.atZone(zone).toInstant().toEpochMilli(),
+            end.atZone(zone).toInstant().toEpochMilli(),
+            desc,
+        )
+    }
+
+    /** 폰 달력 '일정 추가' 화면(CalendarContract)이 읽는 이름 그대로: title·beginTime·endTime·description. */
+    fun calendarExtras(d: Draft): Map<String, Any> =
+        linkedMapOf("title" to d.title, "beginTime" to d.beginMs, "endTime" to d.endMs, "description" to d.description)
+
+    /** 폰 달력 앱 '일정 추가' 화면 주소(CalendarContract.Events.CONTENT_URI와 같은 글). */
+    const val CALENDAR_INSERT_URI = "content://com.android.calendar/events"
+
+    /** 다음 경기 뒤 '내 일정'을 볼 하루(서울 0시~다음 0시). 킥오프가 없으면 null. 위젯 로그인 허용 범위(calendarUrl) 안의 글로 낸다. */
+    fun wakeRange(match: Match?, zone: java.time.ZoneId = WidgetNow.ZONE): Pair<String, String>? {
+        val end = match?.let(::endAt) ?: return null
+        val day = wakeDay(end)
+        return day.atStartOfDay(zone).toInstant().toString() to day.plusDays(1).atStartOfDay(zone).toInstant().toString()
+    }
+
+    /** 끝난 뒤 첫 일정(시간 있는 일정만). [firstAfter]와 같은 규칙에 제목을 붙인다. */
+    fun firstEvent(end: LocalDateTime, events: List<WidgetNow.Ev>, zone: java.time.ZoneId = WidgetNow.ZONE): Pair<LocalDateTime, String>? {
+        val timed = events.filter { !it.allDay }.map {
+            java.time.Instant.ofEpochMilli(it.startMs).atZone(zone).toLocalDateTime() to it.title
+        }
+        val first = firstAfter(end, timed.map { it.first }) ?: return null
+        return timed.first { it.first == first }
+    }
+
+    /** 내 일정 상태: 위젯 로그인이 없음 / 읽지 못함 / 읽음(그 하루 일정). */
+    sealed class Mine {
+        object SignedOut : Mine()
+        object Failed : Mine()
+        data class Read(val events: List<WidgetNow.Ev>) : Mine()
+    }
+
+    /** 위젯 한 개가 그릴 글 전부. 빈 글이 없게 채운다(빈칸 없이). null인 줄은 그 줄을 생략. */
+    data class Card(
+        val initial: String,
+        val title: String,
+        val sub: String,
+        val dDay: String?,
+        val broadcast: String?,
+        val after: String,
+        val sleep: String?,
+        val form: List<String>,
+        val formNote: String?,
+        val wideTop: String,
+        val wideBottom: String,
+        val lastInitial: String,
+        val lastTop: String,
+        val lastBottom: String,
+        val draft: Draft?,
+    )
+
+    const val HIDDEN_LINE = "결과 가림 · 누르면 보기"
+    const val HIDDEN_FORM = "최근 결과 가림"
+    const val SIGNED_OUT_MINE = "위젯 로그인하면 경기 뒤 내 일정"
+
+    /** 자료가 아직 없거나 못 읽었을 때: 모든 줄을 같은 한 줄로(빈칸 없이). */
+    fun placeholder(text: String): Card = Card(
+        "A", ARSENAL, text, null, null, text, null, emptyList(), null, ARSENAL, text, "A", ARSENAL, text, null,
+    )
+
+    fun card(matches: List<Match>, today: LocalDate, mine: Mine, hide: Boolean): Card {
+        val nx = next(matches, today)
+        val last = matches.filter { it.score != null }.maxByOrNull { it.date }
+        val form = if (hide) emptyList() else form(matches)
+        val formNote = when {
+            hide -> HIDDEN_FORM
+            form.isEmpty() -> "지난 경기 없음"
+            else -> null
+        }
+        val lastTop = last?.let { "지난 ${day(it.date)} ${if (it.home) "홈" else "원정"} ${it.opponent}" } ?: "지난 경기 없음"
+        val lastBottom = when {
+            last == null -> "다음 경기를 기다려요"
+            hide -> HIDDEN_LINE
+            else -> "${last.score}${outcome(last)?.let { " $it" } ?: ""} · ${competitionName(last)}".trimEnd(' ', '·')
+        }
+        val lastInitial = last?.let { initial(it.opponent) } ?: "A"
+        if (nx == null) {
+            return Card(
+                "A", "다음 경기 자료 준비 중", lastTop, null, null,
+                if (hide || last == null) lastTop else "$lastTop ${last.score}", null, form, formNote,
+                "다음 경기 자료 준비 중", if (hide || last == null) lastTop else "$lastTop ${last.score}",
+                lastInitial, lastTop, lastBottom, null,
+            )
+        }
+        val side = if (nx.home) "홈" else "원정"
+        val whenText = "${day(nx.date)}${nx.kickoff?.let { " $it" } ?: ""}"
+        val comp = competitionName(nx)
+        val end = endAt(nx)
+        var sleep: String? = null
+        val after = when {
+            end == null -> "킥오프 시각 준비 중"
+            mine is Mine.SignedOut -> "끝 ${clock(end)} · $SIGNED_OUT_MINE"
+            mine is Mine.Failed -> "끝 ${clock(end)} · 내 일정 불러오지 못했어요"
+            else -> {
+                val label = if (wakeDay(end) == end.toLocalDate()) "아침" else "다음 날"
+                val first = firstEvent(end, (mine as Mine.Read).events)
+                sleep = sleepText(end, first?.first)
+                if (first == null) "끝 ${clock(end)} → $label 첫 일정 없음" else "끝 ${clock(end)} → $label 첫 일정 ${clock(first.first)} ${first.second}"
+            }
+        }
+        val dd = dDay(nx, today)
+        return Card(
+            initial(nx.opponent),
+            "$side ${nx.opponent}",
+            listOf(comp, whenText).filter { it.isNotBlank() }.joinToString(" · "),
+            dd,
+            nx.broadcast?.let { "중계 $it" },
+            after,
+            sleep,
+            form,
+            formNote,
+            listOfNotNull(dd, "$side ${nx.opponent}").joinToString(" "),
+            listOfNotNull(whenText, comp.ifBlank { null }, nx.broadcast).joinToString(" · "),
+            lastInitial,
+            lastTop,
+            lastBottom,
+            draft(nx),
+        )
+    }
 }
+

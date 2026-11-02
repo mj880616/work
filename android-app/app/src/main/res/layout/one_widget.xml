@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WIDGET-여러개 ①: 한 칸(1×1). 놓을 때 고른 기능 하나(그림 + 짧은 이름). 서버 요청 없음. -->
+<!-- APP-한칸위젯디자인: 한 칸(1×1). 빠른 쓰기 큰 단추와 같은 모양 — 칸을 꽉 채우는 색 칠한 둥근 칸 + 28dp 그림 + 글자(빈 바탕 없음).
+     놓을 때 고른 기능 하나. 서버 요청 없음. 색은 기능마다 앱 테마 토큰(WidgetActions.tone). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/one_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_tile_bg"
+    android:background="@drawable/widget_btn"
     android:clickable="true"
     android:focusable="true"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="4dp">
+    android:padding="2dp">
 
     <ImageView
         android:id="@+id/one_icon"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
         android:importantForAccessibility="no"
         android:src="@drawable/ic_w_update" />
 
@@ -25,6 +26,6 @@
         android:paddingTop="2dp"
         android:singleLine="true"
         android:ellipsize="end"
-        android:textColor="@color/widget_tile_ink"
+        android:textColor="@color/widget_btn_ink"
         android:textSize="12sp" />
 </LinearLayout>

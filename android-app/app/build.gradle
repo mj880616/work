@@ -18,8 +18,8 @@ android {
         applicationId 'kr.or.kptu.work'
         minSdk 29
         targetSdk 36
-        versionCode 47
-        versionName '0.4.7'
+        versionCode 49
+        versionName '0.4.9'
 
         // APP-폰알림 N4(설계 docs/design/phone-notifications.md 4.3절): Firebase 앱 설정 4개는 빌드 변수로만 받는다.
         // release workflow(phone-app-release.yml)가 environment phone-app-release의 변수(vars.WEB2_FCM_*)를 넘긴다.

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯아스날맞춤 C: 상대 팀 글자 동그라미(엠블럼 그림 안 씀). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/widget_btn_bg" />
+</shape>

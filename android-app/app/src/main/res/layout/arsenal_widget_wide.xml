@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯아스날맞춤 C: 아스날 4×1. 최근 다섯 경기 승·무·패 동그라미 + 다음 경기 한 줄. 결과 가림이면 동그라미 대신 '최근 결과 가림'. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/ars_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/ars_f0" style="@style/WidgetFormDot" android:visibility="gone" />
+        <TextView android:id="@+id/ars_f1" style="@style/WidgetFormDot" android:visibility="gone" />
+        <TextView android:id="@+id/ars_f2" style="@style/WidgetFormDot" android:visibility="gone" />
+        <TextView android:id="@+id/ars_f3" style="@style/WidgetFormDot" android:visibility="gone" />
+        <TextView android:id="@+id/ars_f4" style="@style/WidgetFormDot" android:visibility="gone" />
+        <TextView
+            android:id="@+id/ars_formnote"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:singleLine="true"
+            android:text="최근 경기"
+            android:textColor="@color/widget_muted"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ars_top"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="아스날"
+            android:textColor="@color/widget_ink"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/ars_bottom"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="불러오는 중"
+            android:textColor="@color/widget_muted"
+            android:textSize="11sp" />
+    </LinearLayout>
+</LinearLayout>
