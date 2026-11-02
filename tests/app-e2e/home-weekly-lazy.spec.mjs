@@ -65,7 +65,7 @@ test('[주간 정리] 첫 클릭 때 모듈이 아직 오는 중이면 기다림
   expect(errors).toEqual([]);
 });
 
-test('[주간 정리] 모듈 받기에 실패하면 안내와 [다시 시도], 누르면 다시 받아 그린다', async ({ page }) => {
+test('[주간 정리] 모듈 받기에 실패하면 안내와 [다시], 누르면 다시 열어(주소 그대로) 주간 정리를 그린다', async ({ page }) => {
   let fail = true;
   await page.route(KIT, route => (fail ? route.abort() : route.continue()));
   await openHome(page);
@@ -74,8 +74,11 @@ test('[주간 정리] 모듈 받기에 실패하면 안내와 [다시 시도], �
   const retry = weekly(page).locator('[data-journal-kit-retry]');
   await expect(retry).toBeVisible();
   await expect(weekly(page).locator('[data-wait-fail]')).toBeVisible();
+  await expect(page).toHaveURL(/mode=week/);
   fail = false;
   await retry.click();
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  await expect(page.locator('#journalRoot [data-journal-mode="week"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(chapters(page)).toHaveCount(5);
 });
 

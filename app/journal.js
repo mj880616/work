@@ -1492,7 +1492,8 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-schedule-drop]')) { hwpx?.schedule(button.dataset.journalScheduleDrop, 'drop'); return; }
   if (button.matches('[data-journal-schedule-put]')) { hwpx?.schedule(button.dataset.journalSchedulePut, 'put'); return; }
   // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, '근거 ›' → 근거 묶음 하나만 열고 그 줄로(잠깐 옅게 칠함, 공용 jumpToPrepRef).
-  if (button.matches('[data-journal-kit-retry]')) { renderWeekly_(); return; }
+  // 브라우저는 한 번 받기에 실패한 모듈을 같은 페이지에서 다시 받지 않는다 → 앱의 다른 화면 받기 실패와 같이 다시 연다(주소에 [주간 정리]가 남아 그 화면으로).
+  if (button.matches('[data-journal-kit-retry]')) { location.reload(); return; }
   if (button.matches('[data-journal-next-make]')) { void makeNextWeek('user'); return; }
   if (button.matches('[data-journal-next-open]')) { void openNextWeekLine(Number(button.dataset.journalNextOpen), button); return; }
   if (button.matches('[data-journal-next-ref]')) {
