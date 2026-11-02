@@ -37,8 +37,6 @@
 .mobile-menu-panel button{display:flex;align-items:center;width:100%;min-height:44px;border:0;background:transparent;color:var(--kptu-ink);padding:8px 10px;text-align:left;font:inherit;font-size:14px;cursor:pointer}
 .mobile-menu-panel button:hover,.mobile-menu-panel button:focus-visible{background:var(--kptu-primary-soft)}
 .mobile-menu-panel [data-kptu-logout]{color:var(--kptu-danger)}
-.mobile-menu-panel hr{border:0;border-top:1px solid var(--kptu-border);margin:12px 0}
-.mobile-menu-panel h2{font-size:14px;padding:0 10px;color:var(--kptu-muted)}
 .mobile-menu-head{display:flex;align-items:center;justify-content:space-between;padding:0 6px 8px 10px}.mobile-menu-head b{font-size:16px}.mobile-menu-head [data-mobile-menu-close]{position:relative;justify-content:center;flex:0 0 32px;width:32px;height:32px;min-height:32px;padding:0;color:var(--kptu-muted);font-size:22px;border-radius:var(--kptu-radius-sm)}.mobile-menu-head [data-mobile-menu-close]::before{content:"";position:absolute;inset:-6px}
 @keyframes kptu-menu-enter{from{transform:translateX(100%)}to{transform:translateX(0)}}
 @media(prefers-reduced-motion:reduce){.mobile-menu-panel{animation:none}}
