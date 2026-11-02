@@ -69,9 +69,10 @@ export function render({ load, shell, switch: sw }) {
   table('로그인 뒤 화면 새로 열기', ['조건', '화면', '회차', '보임(ms)', '보이기 전 JS 파일', '보이기 전 JS KB', '쉬는 틈까지 JS 파일', '쉬는 틈까지 JS KB'],
     group(load, r => [r.profile, r.view].join('\u0000'), ['ready', 'jsBeforeReady', 'jsKBBeforeReady', 'jsTotal', 'jsKBTotal']),
     [['ready'], ['jsBeforeReady'], ['jsKBBeforeReady'], ['jsTotal'], ['jsKBTotal']]);
-  table('메뉴 눌러 화면 바꾸기', ['조건', '단계·화면', '회차', '바뀜(ms)', '기다림 끝(ms)', '새 JS 파일', '새 JS KB', '다음 클릭 전까지 새 JS 파일'],
-    group(sw, r => [r.profile, `${r.step} ${r.view}`].join('\u0000'), ['shownMs', 'settledMs', 'newJsFiles', 'newJsKB', 'newJsFilesIdle']),
-    [['shownMs'], ['settledMs'], ['newJsFiles'], ['newJsKB'], ['newJsFilesIdle']]);
+  table('메뉴 눌러 화면 바꾸기', ['조건', '단계·화면', '회차', '바뀜(ms)', '기다림 끝(ms)', '보일 때까지 새 JS 파일', '다음 클릭 전까지 새 JS 파일', '다음 클릭 전까지 새 JS KB'],
+    group(sw, r => [r.profile, `${r.step} ${r.view}`].join('\u0000'), ['shownMs', 'settledMs', 'newJsFiles', 'newJsFilesIdle', 'newJsKBIdle']),
+    // 보이는 순간의 KB는 받는 중인 파일이 반쯤 잡혀 흔들린다 → 크기는 다음 클릭 전(받기 끝난 뒤) 값만 쓴다.
+    [['shownMs'], ['settledMs'], ['newJsFiles'], ['newJsFilesIdle'], ['newJsKBIdle']]);
   const over = all.filter(x => x.over);
   const head = [`## PERF 측정 요약`, '', `칸 읽는 법: 가운데 값 (회차별 값, ±흩어짐). 흩어짐 한도 ${Math.round(limit * 100)}%(시간 칸은 차이 ${msFloor}ms 안이면 한도 안).`, '',
     over.length ? `⚠ 한도를 넘은 칸 ${over.length}개 / 전체 ${all.length}개` : `✅ 모든 칸(${all.length}개)이 한도 안`, ''];
