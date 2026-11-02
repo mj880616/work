@@ -198,6 +198,8 @@ function load(view){
 }
 async function loadAll(){
   for(const view of ['home','basket','calendar','tasks','projects','library','meetings','pages','team'])await load(view);
+  // PERF-첫로딩 P5: 'team'은 목록만 기다리므로, 전부 받기에서는 조직 상세 묶음도 받아 둔다.
+  await window.KPTUWorkplace?.load?.();
   return true
 }
 // UI-기다림표시통일 ⑤: 메뉴 화면 프로그램 미리 받기. 앱을 켠 뒤 쉬는 틈에(loader-v2.js) 메뉴 화면의 첫 프로그램과 모양 파일을 받아만 둔다

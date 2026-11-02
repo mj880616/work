@@ -144,7 +144,7 @@ function loadDetail(){
 }
 const detailLoaded=()=>window.KPTUWorkplace&&window.KPTUWorkplace.open!==openBeforeDetail;
 async function openBeforeDetail(...args){await loadDetail();if(!detailLoaded())throw new Error('organization detail did not load');return window.KPTUWorkplace.open(...args)}
-if(!window.KPTUWorkplace)window.KPTUWorkplace={open:openBeforeDetail};
+if(!window.KPTUWorkplace)window.KPTUWorkplace={open:openBeforeDetail,load:loadDetail}; // workplace-detail.js가 {open:wdOpen}으로 바꾼다
 document.addEventListener('click',e=>{
  if(detailLoaded())return;
  const row=e.target.closest?.('[data-ps-workplace-org]');if(!row)return;
