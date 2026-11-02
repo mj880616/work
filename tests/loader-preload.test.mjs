@@ -55,3 +55,23 @@ test('첫 화면 프로그램 사슬은 화면을 처음 부를 때 받기 시�
   // loader-v2는 view-loader가 실행되는 즉시 첫 화면을 prepare한다(그 순간 사슬 받기 시작).
   assert.match(loader, /import\('\.\/view-loader\.js'\)\.then\(\(\)=>\{const v=window\.KPTUViewLoader;void v\.prepare\(startRoute\(v\)\.requested\)\}\)/);
 });
+
+// PERF-첫로딩 P5-b: 사업 보고 화면·입력 창 전용 모듈은 team.js 정적 사슬(홈 보이기 전 앱 바탕)에 들지 않고,
+// team-report-kit.js 한 묶음으로 사업 보고 자료를 읽을 때 부른다. 쉬는 틈 미리 받기(meetings)는 그 묶음 사슬을 받는다.
+test('P5-b: 사업 보고 전용 묶음은 team.js 정적 사슬 밖, 사업 보고를 열 때 부른다', () => {
+  const team = read('team.js');
+  const kitOnly = [...closure('team-report-kit.js')].filter(file => !closure('team.js').has(file));
+  for (const file of ['report-views.js', 'meeting-columns.js', 'report-kind-sheet.js', 'record-text-write.js', 'business-area-fields.js', 'split-resize.js', 'follow-pane.js', 'filter-chips.js', 'report-photo-row.js'])
+    assert.ok(kitOnly.includes(file), file + '이 아직 team.js 정적 사슬에 있음');
+  assert.ok(kitOnly.length >= 20, '빠진 모듈 수 ' + kitOnly.length);
+  assert.ok(!staticImports('team-report-kit.js').includes('time-input.js'), '앱 전체 시간 칸 모듈은 team.js에 남김');
+  assert.ok(staticImports('team.js').includes('time-input.js'));
+  assert.match(team, /import\('\.\/team-report-kit\.js'\)/);
+  // 사업 보고 자료 읽기와 함께 묶음을 기다린다(그리기 전), 연결 다시 읽기도 묶음을 먼저 부른다.
+  assert.match(team, /created_at\.desc'\),\s*reportKit\(\)\s*\]\);/);
+  assert.match(team, /async function loadReportLinks\(\)\{\s*try\{await reportKit\(\)\}/);
+  // 묶음 전에는 사업 보고 화면을 그리지 않는다(그리는 주인 renderMeetings 하나는 그대로).
+  assert.match(team, /function renderMeetings\(opts\)\{const box=\$\('#meetingList'\);if\(!box\|\|!reportKitLoaded\)return;/);
+  const warm = listsOf(views).find(({files}) => files.includes('meeting-round-detail.js'));
+  assert.equal(warm?.files[0], 'team-report-kit.js');
+});
