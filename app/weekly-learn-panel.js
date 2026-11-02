@@ -16,7 +16,7 @@ import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js'; // S46-22 
 import {emptyEl} from './wait-state.js';
 import {notify} from './small-notice.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 규칙 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
-import {readFeedback, readRules, withRuleText, withoutRule, withRule, takeCandidate, dropCandidate, withAnswer, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS, SUGGESTION_AREA} from './weekly-feedback.mjs';
+import {readFeedback, readRules, withRuleText, withoutRule, withRule, takeCandidate, dropCandidate, withAnswer, answerState, madeOf, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS, SUGGESTION_AREA} from './weekly-feedback.mjs';
 import {cellKeptRates} from './weekly-picks.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
@@ -177,7 +177,7 @@ export function reviewCard(doc, feedback, previous = [], {answerable = true, bus
       const id = `${f.week}:${s.id}`;
       if (answerable && sfix === s.id) { li.append(inlineForm(doc, {value:value ?? s.text, max:200, aria:'개선 제안 고쳐서 만들기', inputData:{learnAnswerFixInput:s.id}, goText:'만들기', goData:{learnAnswer:`${id}:yes`}, cancelData:{learnAnswerCancel:''}, busy})); ul.append(li); continue; }
       li.append(suggestionText(doc, s), ' ');
-      if (s.answer) { const st = el('small', 'journal-muted', s.answer === 'yes' ? (s.before ? '고쳐서 만들기로 보냄' : '만들기로 보냄') : `뺌${s.why ? ` — ${s.why}` : ''}`); st.dataset.learnAnswerState = s.answer; li.append(st); }
+      if (s.answer) { const st = el('small', 'journal-muted', answerState(s)); st.dataset.learnAnswerState = s.answer; if (madeOf(s.made)) st.dataset.learnMade = String(s.made); li.append(st); }
       if (answerable && sdrop === s.id) { li.append(' ', inlineForm(doc, {value:value ?? '', max:WHY_MAX, aria:`빼는 이유(안 써도 돼요): ${s.text}`, placeholder:'이유(안 써도 돼요)', inputData:{learnAnswerWhyInput:s.id}, goText:'빼기 확인', goData:{learnAnswer:`${id}:no`}, cancelData:{learnAnswerCancel:''}, busy})); ul.append(li); continue; }
       if (answerable) {
         const items = [{text:'고쳐서 만들기', data:{learnAnswerFix:id}, disabled:busy, aria:`고쳐서 만들기: ${s.text}`}];
@@ -285,7 +285,7 @@ function draw(slot, start, s, rt) {
   const rr = rulesRow(s.rows), rules = rr?.rules?.lines ?? [], cands = rr?.rules?.candidates ?? [];
   const mine = s.rows.find(r => r.week_start === start)?.feedback ?? null;
   const prev = s.rows.filter(r => r.week_start < start).map(r => r.feedback).filter(Boolean);
-  const dev = [...s.rows.flatMap(r => (r.feedback?.review?.suggestions ?? []).filter(x => x.answer === 'yes').map(x => ({week:r.week_start, text:x.text, how:x.how, area:x.area}))), ...handIdeas(s.rows)];
+  const dev = [...s.rows.flatMap(r => (r.feedback?.review?.suggestions ?? []).filter(x => x.answer === 'yes').map(x => ({week:r.week_start, text:x.text, how:x.how, area:x.area, made:madeOf(x.made)}))), ...handIdeas(s.rows)];
   const minePicks = s.rows.find(r => r.week_start === start)?.picks ?? null;
   const sum = el('summary');
   sum.append(el('span', 'journal-heading', '주간보고 규칙·환류'), ' ', el('small', 'journal-others-count', `확정 규칙 ${rules.length}줄${cands.length ? ` · 후보 ${cands.length}` : ''} · ${mine ? `이번 주 ${keptRate(mine.counts) ?? 0}% 그대로` : '이번 주 환류 없음'}${dev.length ? ` · 만들기로 보낸 것 ${dev.length}` : ''}`));
@@ -337,7 +337,7 @@ function draw(slot, start, s, rt) {
     // CC 전달 길(설계 25.2)이 생기기 전까지는 사실대로 한 줄(길이 생기면 이 줄을 지운다).
     const wait = el('p', 'journal-muted', 'CC에게 저절로 가는 길은 준비 중이에요.'); wait.dataset.journalLearnDevWait = ''; d.append(wait);
     const list = el('ul', 'journal-kinds-off-list');
-    for (const x of dev) { const li = el('li'); li.append(el('span', 'journal-weekly-day', slash(x.week)), ' '); if (x.area) li.append(el('small', 'journal-learn-area', SUGGESTION_AREA[x.area]), ' '); if (x.hand) li.append(el('small', 'journal-learn-area', '손'), ' '); li.append(suggestionText(doc, x)); list.append(li); }
+    for (const x of dev) { const li = el('li'); li.append(el('span', 'journal-weekly-day', slash(x.week)), ' '); if (x.area) li.append(el('small', 'journal-learn-area', SUGGESTION_AREA[x.area]), ' '); if (x.hand) li.append(el('small', 'journal-learn-area', '손'), ' '); li.append(suggestionText(doc, x)); if (x.made) { const m = el('small', 'journal-muted', `만듦 #${x.made}`); m.dataset.learnMade = String(x.made); li.append(' ', m); } list.append(li); }
     d.append(list); box.append(d);
   }
   const say = el('p', 'journal-line-status', s.ui.msg); say.dataset.journalLearnStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');

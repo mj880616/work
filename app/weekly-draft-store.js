@@ -13,6 +13,7 @@ import {withPick, pickKey, readPicks, PICK_KIND, ANSWER_ACTS, LINE_ACTS} from '.
 import {cleanTitleEdit, titleFields, readHq, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {readDiscuss} from './weekly-discuss.mjs';
 import {readHand} from './weekly-hand.mjs';
+import {requestLine} from './weekly-exec-requests.js';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -264,6 +265,24 @@ export function withDetailTakes(picks, items, at = new Date().toISOString()) {
     const p = detailPick('take', it), key = pickKey({kind:p.kind, cell:'details', text:p.text}), was = have.get(key);
     if (was && was !== 'none') continue;
     out = withPick(out, {...p, cell:'details', org:'', key}, 'take', at); have.set(key, 'take');
+  }
+  return out;
+}
+// WEEKLY-환류전칸(S48-43): 1) 임원 배정 요청 — 지난주에서 가져온 줄(carried)은 시스템이 낸 '제안'이다. 고치면 'carried' edit(그때 carried 표시가
+//   빠짐), 지우면 'carried' drop 이 이미 남는다(journal.js recordExecPick). [확정하고 한글 파일 받기] 때 아직 carried 로 남은 줄 = 손대지 않고
+//   그대로 넣은 줄이라 'carried' take 로 남긴다 — 칸별 '그대로 쓴 비율'(1. 요청사항)의 분자. 열쇠 글은 journal.js 와 같은 줄 글(앞 '- ' 뺌).
+//   이미 그 열쇠에 답(edit·drop·take)이 있으면 그대로 둔다(되돌림 'none' 은 덮어씀). items: 그 주 요청 표 줄(weekly-exec-requests.js 모양).
+export const requestPickText = item => requestLine(item).replace(/^-\s*/, '');
+export function withRequestTakes(picks, items, at = new Date().toISOString()) {
+  const have = new Map((readPicks(picks)?.items ?? []).map(x => [x.key, x.act]));
+  let out = picks ?? null;
+  for (const it of Array.isArray(items) ? items : []) {
+    if (it?.carried !== true) continue;
+    const text = requestPickText(it);
+    if (!lineText(text)) continue;
+    const key = pickKey({kind:'carried', cell:'requests:ask', text}), was = have.get(key);
+    if (was && was !== 'none') continue;
+    out = withPick(out, {kind:'carried', from:'', cell:'requests:ask', org:'', text, key}, 'take', at); have.set(key, 'take');
   }
   return out;
 }

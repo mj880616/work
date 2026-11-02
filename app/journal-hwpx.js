@@ -52,7 +52,7 @@ import {scheduleForm, reportDateText} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftSiteLayout, readCarriedLayout, changeWeekDocs, changeWeekCell, withDetailTakes} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftSiteLayout, readCarriedLayout, changeWeekDocs, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
 import {timeCell} from './time-input.js';
 import {discussLines} from './weekly-discuss.mjs';
 import {rowMore, partAdd} from './row-more.js';
@@ -921,6 +921,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
         // WEEKLY-환류전칸(S48-35): 2) 세부 내용에서 고치지도 빼지도 않은 원래 기록 줄 = 그대로 넣음(칸별 '그대로 쓴 비율'에 들어감).
         const taken = withDetailTakes(s.store.extras?.picks, getWeek().model?.meetings?.items);
         if (taken) s.store.extras = {...s.store.extras, picks:taken};
+        // WEEKLY-환류전칸(S48-43): 1) 임원 배정 요청에서 손대지 않고 남은 '지난주에서' 줄 = 그대로 넣음. 요청 표를 못 읽은 주(준비 전·실패)는 남기지 않는다.
+        const req = getWeek().model?.requests;
+        const reqTaken = req && !req.loading && !req.failed?.length && !req.missing ? withRequestTakes(s.store.extras?.picks, req.items) : null;
+        if (reqTaken) s.store.extras = {...s.store.extras, picks:reqTaken};
         const due = reviewDue(s.store.extras?.picks, {when:'confirm', confirmed:!!prev});
         if (due.due) s.store.extras = {...s.store.extras, picks:withReview(s.store.extras?.picks, new Date().toISOString())};
         s.store.dirty = true;
