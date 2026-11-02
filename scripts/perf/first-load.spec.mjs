@@ -93,7 +93,7 @@ for (const [name, profile] of Object.entries(profiles)) {
       const { files, url, ...numbers } = samples[0];
       // PERF_DUMP=1이면 첫 측정의 파일 목록(경로, KB, 요청 시작, 받기 끝 ms)을 따로 찍는다.
       if (process.env.PERF_DUMP) console.log('PERF_FILES ' + JSON.stringify({ profile: name, view, files }));
-      rows.push({ profile: name, view, url, ...Object.fromEntries(Object.keys(numbers).map(k => [k, pick(k)])) });
+      rows.push({ ...(process.env.PERF_ROUND ? { round: process.env.PERF_ROUND } : {}), profile: name, view, url, ...Object.fromEntries(Object.keys(numbers).map(k => [k, pick(k)])) });
     }
     for (const row of rows) console.log('PERF ' + JSON.stringify(row));
   });

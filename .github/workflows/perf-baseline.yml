@@ -1,0 +1,80 @@
+name: PERF baseline (manual)
+
+# PERF-첫로딩 P1(docs/design/first-load.md 7절): 이 커밋의 Pages 빌드 결과를 띄워 첫 화면 껍데기·화면 새로 열기·메뉴 눌러 화면 바꾸기를
+# 같은 조건으로 ROUNDS번 재고 요약표(가운데 값·흩어짐)를 summary에 남긴다. 수동 실행만, 비밀값 없음, 운영 접속 없음(자료는 흉내 서버).
+# 결과는 보고만 하고 실패로 막지 않는다. 다른 브랜치를 재려면 "Use workflow from"에서 그 브랜치를 고른다.
+on:
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: '같은 조건을 몇 번 잴지(1~5)'
+        type: choice
+        options: ['3', '1', '5']
+        default: '3'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-baseline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          package-manager-cache: false
+
+      - name: Install locked build parser
+        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+
+      - name: Install Playwright
+        uses: ./.github/actions/setup-playwright
+
+      - name: Build Pages output from this commit
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/perf-src
+          git archive HEAD | tar -x -C /tmp/perf-src
+          node scripts/build-pages.mjs /tmp/perf-src /tmp/perf-site
+
+      - name: Start cache-header static server
+        run: |
+          node scripts/perf/serve-built.mjs /tmp/perf-site 8125 >/tmp/perf-serve.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8125/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat /tmp/perf-serve.log
+          exit 1
+
+      - name: Measure
+        continue-on-error: true
+        env:
+          ORIGIN: http://127.0.0.1:8125
+          OUT: /tmp/perf-out
+          ROUNDS: ${{ inputs.rounds }}
+        run: |
+          bash scripts/perf/run-baseline.sh
+          {
+            echo "커밋 \`${GITHUB_SHA::7}\` · 러너 ubuntu-24.04 · 회차 ${ROUNDS}"
+            echo
+            cat /tmp/perf-out/summary.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload measurements
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-baseline
+          path: /tmp/perf-out/
+          if-no-files-found: ignore
+          retention-days: 30
