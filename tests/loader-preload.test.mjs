@@ -55,3 +55,49 @@ test('첫 화면 프로그램 사슬은 화면을 처음 부를 때 받기 시�
   // loader-v2는 view-loader가 실행되는 즉시 첫 화면을 prepare한다(그 순간 사슬 받기 시작).
   assert.match(loader, /import\('\.\/view-loader\.js'\)\.then\(\(\)=>\{const v=window\.KPTUViewLoader;void v\.prepare\(startRoute\(v\)\.requested\)\}\)/);
 });
+
+// PERF-첫로딩 P5-b: 사업 보고 화면·입력 창 전용 모듈은 team.js 정적 사슬(홈 보이기 전 앱 바탕)에 들지 않고,
+// team-report-kit.js 한 묶음으로 사업 보고 자료를 읽을 때 부른다. 쉬는 틈 미리 받기(meetings)는 그 묶음 사슬을 받는다.
+test('P5-b: 사업 보고 전용 묶음은 team.js 정적 사슬 밖, 사업 보고를 열 때 부른다', () => {
+  const team = read('team.js');
+  const kitOnly = [...closure('team-report-kit.js')].filter(file => !closure('team.js').has(file));
+  for (const file of ['report-views.js', 'meeting-columns.js', 'report-kind-sheet.js', 'record-text-write.js', 'business-area-fields.js', 'split-resize.js', 'follow-pane.js', 'filter-chips.js', 'report-photo-row.js'])
+    assert.ok(kitOnly.includes(file), file + '이 아직 team.js 정적 사슬에 있음');
+  assert.ok(kitOnly.length >= 20, '빠진 모듈 수 ' + kitOnly.length);
+  assert.ok(!staticImports('team-report-kit.js').includes('time-input.js'), '앱 전체 시간 칸 모듈은 team.js에 남김');
+  assert.ok(staticImports('team.js').includes('time-input.js'));
+  assert.match(team, /import\('\.\/team-report-kit\.js'\)/);
+  // 사업 보고 자료 읽기와 함께 묶음을 기다린다(그리기 전), 연결 다시 읽기도 묶음을 먼저 부른다.
+  assert.match(team, /created_at\.desc'\),\s*reportKit\(\)\s*\]\);/);
+  assert.match(team, /async function loadReportLinks\(\)\{\s*try\{await reportKit\(\)\}/);
+  // 묶음 전에는 사업 보고 화면을 그리지 않는다(그리는 주인 renderMeetings 하나는 그대로).
+  assert.match(team, /function renderMeetings\(opts\)\{const box=\$\('#meetingList'\);if\(!box\|\|!reportKitLoaded\)return;/);
+  const warm = listsOf(views).find(({files}) => files.includes('meeting-round-detail.js'));
+  assert.equal(warm?.files[0], 'team-report-kit.js');
+});
+
+// PERF-첫로딩 P5-c: 홈 [주간 정리] 묶음(journal-weekly-kit.js)은 앱이 보인 뒤 부르는데, 그 정적 사슬(약 75개)을 단계마다 줄 서서 받으면
+// 폰에서 홈 뒤 쉬는 틈 미리 받기·달력 첫 전환과 겹친다(S48-34 측정: 달력 첫 전환 새 JS 11 → 24, 늦게 온 것은 주간 정리 사슬).
+// 부르기 직전에 view-loader 받기 도구로 사슬 전체를 한꺼번에 받기 시작한다(뿌리만 적고 빌드가 사슬을 채움, 실행은 import() 그대로).
+test('P5-c: 홈 주간 정리 묶음은 부르기 직전에 정적 사슬을 한꺼번에 받기 시작한다', () => {
+  const journal = read('journal.js');
+  assert.match(views, /function preload\(paths\)\{for\(const path of paths\|\|\[\]\)hint\('modulepreload',path\)\}/);
+  assert.match(views, /window\.KPTUViewLoader=\{[^}]*\bpreload\b/);
+  assert.match(journal, /window\.KPTUViewLoader\?\.preload\?\.\(\/\*static-chain\*\/\['\.\/journal-weekly-kit\.js'\]\); return import\('\.\/journal-weekly-kit\.js'\);/);
+  // 묶음은 여전히 홈 첫 화면 정적 사슬 밖(앱이 보인 뒤 부름).
+  assert.ok(!closure('journal.js').has('journal-weekly-kit.js'));
+});
+
+// PERF-첫로딩 P5-c: 쉬는 틈 미리 받기는 화면마다 차례로(한 화면 사슬을 다 받은 뒤 다음 쉬는 틈에 다음 화면), 메뉴 순서.
+// 한꺼번에 걸면 폰에서 받기·해석이 몰려 먼저 누를 화면이 늦어진다(S48-34 측정: 달력 첫 전환 775 → 1359ms).
+test('P5-c: 쉬는 틈 미리 받기는 화면마다 차례로', () => {
+  const warm = views.slice(views.indexOf('function warm(){'), views.indexOf('// PERF-첫로딩 P5-c: 화면 안에서'));
+  assert.match(warm, /const queue=Object\.entries\(warmModules\);/);
+  assert.match(warm, /if\(loaded\.has\(view\)\)continue;/);
+  assert.match(warm, /Promise\.all\(links\.map\(settled\)\)\.then\(\(\)=>idle\(next\)\)/);
+  assert.match(views, /const settled=link=>new Promise\(resolve=>\{link\.addEventListener\('load',resolve,\{once:true\}\);link\.addEventListener\('error',resolve,\{once:true\}\)\}\);/);
+  // 받기만(modulepreload·prefetch) — 실행하지 않는다.
+  assert.doesNotMatch(warm, /import\(/);
+  // 화면을 누르면 prepare가 같은 사슬을 바로 받는다.
+  assert.match(views, /if\(!loaded\.has\(key\)\)for\(const path of firstModules\[key\]\|\|warmModules\[key\]\|\|\[\]\)hint\('modulepreload',path\);/);
+});

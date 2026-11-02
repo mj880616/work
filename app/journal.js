@@ -567,7 +567,9 @@ const mountHwpx = () => W.mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft
 function weeklyKit() {
   if (W) return Promise.resolve(W);
   if (!kitFlight) {
-    kitFlight = (mode === 'week' ? Promise.resolve() : appShown()).then(() => import('./journal-weekly-kit.js')).then(kit => {
+    // PERF-첫로딩 P5-c(docs/design/first-load.md 11절): 묶음(정적 사슬 약 75개)을 단계마다 줄 서서 받지 않게, 부르기 직전에 사슬 전체를
+    // 한꺼번에 받기 시작한다(view-loader 받기 도구, 빌드가 사슬을 채움). 그래야 홈 뒤 쉬는 틈 미리 받기·다른 메뉴 첫 전환과 겹치지 않는다.
+    kitFlight = (mode === 'week' ? Promise.resolve() : appShown()).then(() => { window.KPTUViewLoader?.preload?.(/*static-chain*/['./journal-weekly-kit.js']); return import('./journal-weekly-kit.js'); }).then(kit => {
       W = kit; hwpx = mountHwpx();
       if (mode === 'week') { renderWeekly_(); void checkOverlaps(); maybeNextWeek(); }
       return kit;
