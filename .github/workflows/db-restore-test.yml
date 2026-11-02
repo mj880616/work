@@ -1,0 +1,127 @@
+name: DB restore test monthly
+
+# OPS-DB백업 월 1회 되살리기 시험(설계 docs/design/db-backup.md 4절, 설정 docs/ops-db-backup-setup.md).
+# 매달 2일 KST 05:17, 비공개 백업 저장소의 가장 최근 백업을 받아 풀고, 이 runner 안의 빈 일회용 PostgreSQL 17에 되살려
+# 표마다 줄 수와 RLS 표·정책·함수 개수를 덤프 때 센 값과 비교한다. 운영 DB에는 접속하지 않는다.
+# 결과에는 개수만 쓰고 표 이름·행 값은 쓰지 않는다. 설정(저장소 변수 DB_BACKUP_REPO, db-restore 비밀값
+# DB_RESTORE_REPO_TOKEN·DB_BACKUP_AGE_IDENTITY)이 없으면 '설정 안 됨'으로 조용히 끝난다.
+on:
+  schedule:
+    - cron: '17 20 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-restore-test
+  cancel-in-progress: false
+
+jobs:
+  config:
+    if: github.repository == 'mj880616/work' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Check restore settings (names only)
+        id: check
+        env:
+          DB_BACKUP_REPO: ${{ vars.DB_BACKUP_REPO }}
+        run: node scripts/ops/backup-db.mjs check-config restore-repo-vars
+
+  restore:
+    needs: config
+    if: needs.config.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: db-restore
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Check secrets (names only)
+        id: check
+        env:
+          DB_BACKUP_REPO: ${{ vars.DB_BACKUP_REPO }}
+          DB_RESTORE_REPO_TOKEN: ${{ secrets.DB_RESTORE_REPO_TOKEN }}
+          DB_BACKUP_AGE_IDENTITY: ${{ secrets.DB_BACKUP_AGE_IDENTITY }}
+        run: node scripts/ops/backup-db.mjs check-config restore-env
+      - name: Install PostgreSQL 17 client and age
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq > /dev/null
+          sudo apt-get install -y -qq postgresql-common age > /dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq postgresql-client-17 > /dev/null
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Download the latest backup from the private repository
+        id: fetch
+        if: steps.check.outputs.ready == 'true'
+        env:
+          DB_BACKUP_REPO: ${{ vars.DB_BACKUP_REPO }}
+          DB_RESTORE_REPO_TOKEN: ${{ secrets.DB_RESTORE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/db-restore/x"
+          node scripts/ops/backup-db.mjs fetch-latest "$RUNNER_TEMP/db-restore/latest.tar.age"
+      - name: Unlock, restore into the throwaway database and compare counts
+        if: steps.check.outputs.ready == 'true'
+        env:
+          DB_BACKUP_AGE_IDENTITY: ${{ secrets.DB_BACKUP_AGE_IDENTITY }}
+          RESTORE_TAG: ${{ steps.fetch.outputs.tag }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/db-restore"
+          started="$(date +%s)"
+          trap 'rm -f "$work/identity.txt"' EXIT
+          node scripts/ops/backup-db.mjs write-identity "$work/identity.txt"
+          if ! age -d -i "$work/identity.txt" "$work/latest.tar.age" 2> "$work/age.err" | tar -C "$work/x" -xf - 2> "$work/tar.err"; then
+            echo "::error::백업 잠금 풀기 실패(열쇠가 맞지 않거나 파일이 깨짐). 오류 원문은 출력하지 않습니다."
+            exit 1
+          fi
+          rm -f "$work/identity.txt" "$work/latest.tar.age"
+          createdb -T template0 restore_test
+          psql -X -q -d restore_test -f scripts/ops/backup-db-restore-prep.sql > /dev/null 2> "$work/prep.err" || { echo "::error::시험 DB 준비 실패"; exit 1; }
+          pg_restore --no-owner --no-acl -d restore_test "$work/x/db.pgdump" > /dev/null 2> "$work/restore.err" || true
+          rc=0
+          psql -X -q -d restore_test -v ON_ERROR_STOP=1 -v out="$work/counts-restored.tsv" -f scripts/ops/backup-db-counts.sql > /dev/null 2> "$work/count.err" || rc=$?
+          if [ "$rc" != 0 ]; then echo "::error::되살린 DB 줄 수 세기 실패(종료 코드 $rc)"; exit 1; fi
+          export RESTORE_SECONDS="$(( $(date +%s) - started ))"
+          node scripts/ops/backup-db.mjs compare "$work/x/counts.tsv" "$work/counts-restored.tsv" "$work/restore.err"
+      - name: Remove local backup files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/db-restore"

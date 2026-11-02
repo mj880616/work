@@ -1,0 +1,121 @@
+name: DB backup daily
+
+# OPS-DB백업(설계 docs/design/db-backup.md, 설정 docs/ops-db-backup-setup.md).
+# 매일 KST 04:17 운영 DB(웹2 + 읽생기, 스키마 public·private·auth·storage·supabase_migrations)를 읽기 전용으로 떠서
+# age 공개 열쇠로 잠근 뒤 비공개 백업 저장소의 Release에만 올린다. 이 공개 저장소에는 아무것도 남기지 않는다
+# (artifact·cache 금지, 덤프·오류 원문·표 이름을 로그에 쓰지 않음). 최근 30개 + 최근 12개 달의 첫 백업만 남긴다.
+# 설정(저장소 변수 DB_BACKUP_REPO·DB_BACKUP_AGE_RECIPIENT, production-edge 비밀값 DB_BACKUP_REPO_TOKEN)이 없으면
+# '설정 안 됨'으로 조용히 끝난다.
+on:
+  schedule:
+    - cron: '17 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  config:
+    if: github.repository == 'mj880616/work' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Check backup settings (names only)
+        id: check
+        env:
+          DB_BACKUP_REPO: ${{ vars.DB_BACKUP_REPO }}
+          DB_BACKUP_AGE_RECIPIENT: ${{ vars.DB_BACKUP_AGE_RECIPIENT }}
+        run: node scripts/ops/backup-db.mjs check-config backup-repo-vars
+
+  backup:
+    needs: config
+    if: needs.config.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production-edge
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Check secrets (names only)
+        id: check
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          DB_BACKUP_REPO_TOKEN: ${{ secrets.DB_BACKUP_REPO_TOKEN }}
+        run: node scripts/ops/backup-db.mjs check-config backup-env
+      - name: Install PostgreSQL 17 client and age
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq > /dev/null
+          sudo apt-get install -y -qq postgresql-common age > /dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq postgresql-client-17 > /dev/null
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Find the pooler through temporary access
+        id: host
+        if: steps.check.outputs.ready == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          DB_BACKUP_POOLER_HOST: ${{ vars.DB_BACKUP_POOLER_HOST }}
+        run: node scripts/ops/backup-db.mjs resolve-host
+      - name: Dump in one read-only snapshot and lock with age
+        id: dump
+        if: steps.host.outputs.ready == 'true'
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          DB_BACKUP_AGE_RECIPIENT: ${{ vars.DB_BACKUP_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/db-backup"
+          mkdir -p "$work"
+          export BACKUP_WORK="$work" BACKUP_DUMP_SCRIPT="$PWD/scripts/ops/backup-db-dump.sh"
+          rc=0
+          psql -X -q -v ON_ERROR_STOP=1 -v out="$work/counts.tsv" -f scripts/ops/backup-db-snapshot.sql > "$work/psql.out" 2> "$work/psql.err" || rc=$?
+          dump_rc=missing
+          if [ -f "$work/dump.rc" ]; then dump_rc="$(< "$work/dump.rc")"; fi
+          if [ "$rc" != 0 ] || [ "$dump_rc" != 0 ]; then
+            kind="$(node scripts/ops/backup-db.mjs classify "$work/psql.err" "$work/pg_dump.err")"
+            rm -rf "$work"
+            echo "::error::DB 덤프 실패(psql $rc, pg_dump $dump_rc, 분류 $kind). 오류 원문은 runner 안에서만 보고 지웠습니다."
+            exit 1
+          fi
+          tar -C "$work" -cf - db.pgdump counts.tsv | age -r "$DB_BACKUP_AGE_RECIPIENT" -o "$work/backup.tar.age"
+          rm -f "$work/db.pgdump" "$work/psql.out" "$work/psql.err" "$work/pg_dump.err"
+          node scripts/ops/backup-db.mjs dump-summary "$work/counts.tsv" "$work/backup.tar.age"
+          rm -f "$work/counts.tsv"
+      - name: Upload to the private backup repository and prune old backups
+        if: steps.host.outputs.ready == 'true'
+        env:
+          DB_BACKUP_REPO: ${{ vars.DB_BACKUP_REPO }}
+          DB_BACKUP_REPO_TOKEN: ${{ secrets.DB_BACKUP_REPO_TOKEN }}
+          BACKUP_TABLES: ${{ steps.dump.outputs.tables }}
+          BACKUP_ROWS: ${{ steps.dump.outputs.rows }}
+          BACKUP_SIZE_MB: ${{ steps.dump.outputs.size_mb }}
+          BACKUP_SHA16: ${{ steps.dump.outputs.sha16 }}
+        run: node scripts/ops/backup-db.mjs upload "$RUNNER_TEMP/db-backup/backup.tar.age"
+      - name: Remove local backup files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/db-backup"
