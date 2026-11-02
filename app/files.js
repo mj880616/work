@@ -6,7 +6,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, S
   TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, previewKind, sizeText, countText, dayText, fullTime,
   recentGroups, syncText, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
   placeOf, whereOf, tabAt, cleanQuery, findSummary, errorText, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
-  trashAsk, writeDoneText, writeErrorText} from './files-model.mjs';
+  trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT} from './files-model.mjs';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
@@ -308,6 +308,7 @@ async function openPreview(r) {
   state.preview = p;
   if (!WIDE.matches) openLayer();
   paintPreview();
+  loadTwins(p);
   if (kind === 'none') return;
   try {
     if (kind === 'image') {
@@ -395,11 +396,13 @@ function paintPreview() {
   box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span></div>`
     + `<div class="fx-pv-view">${view}</div>`
     + `<dl class="fx-pv-meta"><dt>위치</dt><dd>${esc(where)}</dd><dt>크기</dt><dd>${esc(sizeText(r.size_bytes))}</dd><dt>바뀐 날</dt><dd>${esc(fullTime(r.modified_at))}</dd><dt>종류</dt><dd>${esc(kindLabel(r))}</dd></dl>`
+    + '<div class="fx-pv-twins" data-fx-twins hidden></div>'
     + `<div class="fx-pv-acts"><button type="button" class="fx-btn" data-fx-open>열기</button><button type="button" class="fx-btn" data-fx-down>받기</button>`
     + (canShare() ? '<button type="button" class="fx-btn fx-share" data-fx-share>공유</button>' : '')
     + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '')
     + `<button type="button" class="fx-btn" data-fx-rename-one>이름</button><button type="button" class="fx-btn" data-fx-cut-one>옮기기</button>`
     + `<button type="button" class="fx-btn fx-danger" data-fx-trash-one>휴지통</button></div>`;
+  paintTwins();
   if (p.doc) { p.host = null; drawPages(p, Math.max(PDF_FIRST_PAGES, p.want || 0)); }
   // 사진: 공용 그림 칸(img-slot.js) — 받는 중 회색, 못 받으면 ↻(그 사진만 다시 받기).
   const imgBox = box.querySelector('[data-fx-img]');
@@ -408,6 +411,27 @@ function paintPreview() {
     if (p.status === 'done' && p.url) { const img = document.createElement('img'); img.className = 'fx-pv-img'; img.alt = r.name; slotImg(imgBox, img, p.url); }
     else if (p.status === 'fail') slotFailed(imgBox, () => { if (state.preview === p) { dropPreview(); openPreview(r); } }, p.err);
   }
+}
+// ⑦ 같은 파일(같은 해시): 색인 표를 로그인 토큰으로 읽는다(owner + files일 때만 읽히는 RLS). 미리보기 아래 작은 줄, 누르면 그 폴더로.
+async function loadTwins(p) {
+  const r = p.row;
+  if (!r?.hash || r.is_folder) return;
+  try {
+    const q = `/rest/v1/app_cloud_items?hash=eq.${encodeURIComponent(r.hash)}&source=eq.${encodeURIComponent(r.source)}&trashed=eq.false`
+      + `&select=source,item_id,parent_id,name,hash,trashed&order=name.asc&limit=${TWIN_LIMIT + 1}`;
+    const rows = await rt().api(q, {singleFlight: false});
+    if (state.preview !== p) return;
+    p.twins = twinRows(Array.isArray(rows) ? rows : [], r);
+    paintTwins();
+  } catch { /* 같은 파일 보기는 덧붙임: 못 읽으면 줄을 보이지 않는다 */ }
+}
+function paintTwins() {
+  const box = $('[data-fx-twins]'), p = state.preview;
+  if (!box) return;
+  const list = p?.twins || [];
+  box.hidden = !list.length;
+  box.innerHTML = list.length ? `<span class="fx-pv-twins-t">같은 파일 ${list.length}</span>` + list.map(t =>
+    `<button type="button" class="fx-twin" data-fx-go="${esc(t.source)}" data-fx-id="${esc(t.parent_id || '')}" title="그 폴더 열기">${esc(t.name)}</button>`).join('') : '';
 }
 function note(text) { const n = $('[data-fx-note]'); if (n) { n.textContent = text; n.hidden = !text; } }
 // 열기: 클라우드 보기 화면 새 창. 창은 누른 순간 열어 두고(팝업 막힘 피함) 주소를 받으면 넣는다.

@@ -145,7 +145,7 @@ test('탭 밀기·찾기 글·오류 한 줄', () => {
   assert.equal(errorText('preview_unsupported'), '미리보기가 없는 파일입니다');
 });
 
-test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 열 때만 불러오고, 기기 저장·쓰기 없음', () => {
+test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 열 때만 불러오고, 기기 저장 없음, 쓰기는 Edge 다섯 가지만', () => {
   assert.ok(ITEMS.some(i => i.id === 'files' && i.view === 'files' && i.label === '파일'));
   const rest = defaultLayout().rest;
   assert.equal(rest[rest.indexOf('library') + 1], 'files');
@@ -156,11 +156,15 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   const js = read('app/files.js'), model = read('app/files-model.mjs');
   const deviceStores = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB'], ['caches', '\\.open']].map(p => p.join('')).join('|'));
   for (const [name, src] of [['files.js', js], ['files-model.mjs', model]]) assert.doesNotMatch(src, deviceStores, name);
-  // 읽기만: 색인 읽기 함수 3개와 Edge 읽기 동작만 부른다(쓰기 동작·표 직접 쓰기 없음).
+  // 읽기: 색인 읽기 함수 3개 + Edge 읽기 동작. 쓰기(S48-45): Edge write()로 다섯 가지만(confirm:true를 붙임). 표에 직접 쓰지 않는다.
   assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find', 'app_cloud_list', 'app_cloud_trail']);
   assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['media', 'open-url', 'preview', 'status', 'sync', 'thumb']);
+  assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['across', 'mkdir', 'move', 'rename', 'trash']);
+  assert.match(js, /body: \{action, \.\.\.body, confirm: true\}/);
   assert.match(js, /action: kind === 'office' \? 'preview' : 'media'/);
-  assert.doesNotMatch(js, /\/rest\/v1\/app_cloud_|method: '(PATCH|DELETE)'/);
+  // 표 직접 읽기는 같은 파일 보기(app_cloud_items GET) 하나뿐, 직접 쓰기 없음.
+  assert.deepEqual([...js.matchAll(/\/rest\/v1\/(app_cloud_\w+)/g)].map(m => m[1]), ['app_cloud_items']);
+  assert.doesNotMatch(js, /method: '(PATCH|DELETE|PUT)'/);
 });
 
 // ---------- S48-45 쓰기 ----------
@@ -203,4 +207,12 @@ test('server and screen share the same across limit and batch size', async () =>
   const h = await import('../supabase/functions/cloud-files/handler.ts');
   assert.equal(m.MOVE_ACROSS_MAX_BYTES, h.ACROSS_MAX_BYTES);
   assert.equal(m.MOVE_SAME_MAX, h.WRITE_MAX);
+});
+
+test('twins: same hash only, not itself, not trashed', async () => {
+  const m = await import('../app/files-model.mjs');
+  const me = {source: 'od', item_id: 'A', hash: 'sha1:x', name: 'a'};
+  const rows = [me, {source: 'od', item_id: 'B', hash: 'sha1:x', name: '나'}, {source: 'od', item_id: 'C', hash: 'sha1:x', name: '가', trashed: true}, {source: 'od', item_id: 'D', hash: 'sha1:y', name: '다'}];
+  assert.deepEqual(m.twinRows(rows, me).map(r => r.item_id), ['B']);
+  assert.deepEqual(m.twinRows(rows, {...me, hash: null}), []);
 });

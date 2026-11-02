@@ -130,3 +130,27 @@ test('폰 412: 꾹 눌러 고르기 → 막대에서 휴지통, 미리보기에�
   await expect(root(page).locator('[data-fx-prev] .fx-pv-nm')).toHaveText('가짜 폰 메모.txt');
   expect(errors).toEqual([]);
 });
+
+test('PC 1440: 같은 파일 보기(같은 해시) — 미리보기 아래 작은 줄, 누르면 그 폴더로', async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors, server } = await start(page, 1440);
+  for (const i of server.items) if (i.item_id === 'OD!13' || i.item_id === 'OD!20') i.hash = 'sha1:' + 'a'.repeat(40);
+  await intoDocs(page, 1440);
+  await row(page, 'od:OD!13').click();
+  const twins = root(page).locator('[data-fx-prev] [data-fx-twins]');
+  await expect(twins).toContainText('같은 파일 1');
+  await expect(twins.locator('.fx-twin')).toHaveText(['가짜 현장.jpg']);
+  expect(server.calls.find(c => c.what === 'app_cloud_items').auth).toMatch(/^Bearer /);
+  await twins.locator('.fx-twin').click();
+  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 사진함');
+  // 해시가 없는 파일은 읽지 않는다.
+  const n = server.calls.filter(c => c.what === 'app_cloud_items').length;
+  await row(page, 'od:OD!20').click();
+  await expect(root(page).locator('[data-fx-prev] [data-fx-twins] .fx-twin')).toHaveText(['가짜 메모.txt']);
+  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
+  await row(page, 'od:OD!1').click();
+  await row(page, 'od:OD!11').click();
+  await expect(root(page).locator('[data-fx-prev] .fx-pv-nm')).toHaveText('가짜 안내문.pdf');
+  expect(server.calls.filter(c => c.what === 'app_cloud_items').length).toBe(n + 1);
+  expect(errors).toEqual([]);
+});

@@ -73,6 +73,10 @@
 .fx-drop-on, .fx-row.fx-drop-on { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
 .fx-btn.fx-danger { color:var(--kptu-danger); }
 .fx-btn:disabled { opacity:.5; cursor:default; }
+.fx-pv-twins { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:6px 0; font-size:12px; }
+.fx-pv-twins[hidden] { display:none; }
+.fx-pv-twins-t { color:var(--kptu-muted); }
+.fx-twin { border:0; background:none; padding:0; color:var(--kptu-primary-text); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .fx-row { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
 
 /* 폴드 펼침·좁은 PC: 미리보기는 목록 자리를 덮는 칸(뒤로가기 한 번 = 닫힘) */

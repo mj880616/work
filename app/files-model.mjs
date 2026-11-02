@@ -333,3 +333,10 @@ export function writeErrorText(code) {
   if (c === 'not_owner') return '내 파일이 아니라 옮길 수 없습니다';
   return errorText(c);
 }
+// ⑦ 같은 파일 보기: 같은 해시(같은 클라우드 안 — 원드라이브 sha1·구글 md5라 클라우드 사이는 비교하지 않음)인 다른 줄. 자기 자신·휴지통 뺌.
+export const TWIN_LIMIT = 20;
+export function twinRows(rows, self) {
+  if (!self?.hash) return [];
+  return (rows || []).filter(r => r && r.hash === self.hash && !r.trashed && !(r.source === self.source && r.item_id === self.item_id))
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko') || String(a.item_id).localeCompare(String(b.item_id)));
+}

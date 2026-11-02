@@ -74,6 +74,12 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
       }
       return ok({ ok: false, error: 'action_invalid' }, 400);
     }
+    // S48-45 ⑦ 같은 파일 보기: 색인 표를 해시로 읽는다.
+    if (p === '/rest/v1/app_cloud_items' && method === 'GET') {
+      server.calls.push({ what: 'app_cloud_items', search: u.search, auth: req.headers().authorization || '' });
+      const hash = (u.searchParams.get('hash') || '').replace(/^eq\./, ''), src = (u.searchParams.get('source') || '').replace(/^eq\./, '');
+      return ok(server.items.filter(i => i.hash === hash && i.source === src && !i.trashed).map(i => ({ source: i.source, item_id: i.item_id, parent_id: i.parent_id, name: i.name, hash: i.hash, trashed: false })));
+    }
     if (!p.startsWith('/rest/v1/rpc/app_cloud_')) return route.fallback();
     const name = p.slice('/rest/v1/rpc/'.length);
     server.calls.push({ what: name, body, auth: req.headers().authorization || '' });
