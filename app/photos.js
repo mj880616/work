@@ -1374,6 +1374,7 @@ async function purgeAsk(anchor, ids) {
 
 // 길게 누르기(0.5초, 손가락이 10px 넘게 움직이면 취소)로 선택 모드를 켠다. 켠 뒤 바로 오는 누르기는 먹는다.
 // 선택 모드에서 칸을 누른 채 좌우로 끌면 처음 칸부터 지금 칸까지 함께 고른다(위아래로 가면 화면 끝에서 저절로 넘어감).
+// 꾹 눌러 선택 모드를 켠 그 손가락을 떼지 않고 끌어도 꾹 누른 칸부터 이어 고른다(위아래로 끌어도 고르기, PHOTO-꾹누르고끌기).
 // 두 번째 손가락이 닿으면(핀치) 꾹 누르기·끌어 고르기를 바로 취소하고, 손가락을 모두 뗄 때까지 다시 걸지 않는다(공용 지킴이 photo-grid-size.js).
 let hold = null, ateClick = false, drag = null, rowHold = null; // rowHold: 폴더 줄·앨범 카드 꾹 누르기(아래)
 const itemOf = b => shownList()[Number(b?.dataset.photosOpen)];
@@ -1385,7 +1386,12 @@ body.addEventListener('pointerdown', e => {
   // [폴더] PC: 고른 사진을 잡으면 끌어 놓기(옮기기)이고 여러 칸 고르기 끌기가 아니다(dragstart가 맡음).
   if (select.active && tab === 'folders' && treeWide() && b.draggable && select.has(item.id)) return;
   if (select.active) { drag = {anchor:item.id, x:e.clientX, y:e.clientY, base:new Set(select.items), add:!select.has(item.id), on:false, id:e.pointerId}; return; }
-  hold = {b, x:e.clientX, y:e.clientY, timer:setTimeout(() => { hold = null; ateClick = true; navigator.vibrate?.(15); startSelect(item); }, HOLD_MS)};
+  const pid = e.pointerId;
+  hold = {b, x:e.clientX, y:e.clientY, timer:setTimeout(() => {
+    const was = hold; hold = null; ateClick = true; navigator.vibrate?.(15); startSelect(item);
+    // 꾹 누른 손가락을 떼지 않고 끌면 그 칸부터 이어 고른다(삼성 갤러리처럼). 이때는 위아래로 끌어도 넘기기가 아니라 고르기.
+    if (was && !multiTouchActive()) drag = {anchor:item.id, x:was.x, y:was.y, base:new Set(select.items), add:true, on:false, id:pid, held:true};
+  }, HOLD_MS)};
 });
 const cancelHold = () => { if (hold) { clearTimeout(hold.timer); hold = null; } };
 // 핀치: 꾹 누르기·폴더 줄 꾹 누르기를 끄고, 이미 끌어 고르던 중이면 끌기 전 선택으로 되돌린다.
@@ -1411,7 +1417,7 @@ body.addEventListener('pointermove', e => {
   if (!drag) return;
   if (!drag.on) {
     const dx = Math.abs(e.clientX - drag.x), dy = Math.abs(e.clientY - drag.y);
-    if (dy > DRAG_START && dy > dx && e.pointerType !== 'mouse') { drag = null; return; } // 세로 = 넘기기
+    if (!drag.held && dy > DRAG_START && dy > dx && e.pointerType !== 'mouse') { drag = null; return; } // 세로 = 넘기기(꾹 누른 뒤 이어 끌기는 빼고)
     if (Math.max(dx, dy) < DRAG_START) return;
     drag.on = true; body.setPointerCapture?.(e.pointerId);
   }
@@ -1421,6 +1427,8 @@ body.addEventListener('pointermove', e => {
   if (dir && !scrollTimer) { const x = e.clientX; scrollTimer = setInterval(() => { if (!drag) return stopAuto(); window.scrollBy(0, dir * 24); dragTo(x, lastY); }, 50); }
   else if (!dir) stopAuto();
 });
+// 꾹 누른 뒤 이어 끌기: 격자는 touch-action:pan-y라 세로로 움직이면 브라우저가 넘기기를 시작하므로, 그 손가락의 touchmove만 막는다.
+body.addEventListener('touchmove', e => { if (drag?.held && e.touches.length === 1 && e.cancelable) e.preventDefault(); }, {passive:false});
 const endDrag = () => { drag = null; stopAuto(); cancelHold(); };
 for (const t of ['pointerup', 'pointercancel']) body.addEventListener(t, endDrag);
 body.addEventListener('pointerleave', cancelHold);
