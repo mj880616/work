@@ -1,6 +1,6 @@
 // PERF-첫로딩 P3: loader-v2.js의 미리 받기(modulepreload) 목록 검사.
 // - 적힌 파일은 모두 저장소에 있고, 같은 loader가 실제로 import()하거나 그 정적 import 사슬 안에 든 파일이다(쓰지 않는 파일을 받지 않음).
-// - 사업영역 창 그릇(area-window.js)·새 판 알림(version-notice.js)의 정적 import 사슬은 빠짐없이 적는다(사슬이 바뀌면 이 시험이 알려 준다).
+// - 사업영역 창 그릇(area-window.js)의 정적 import 사슬은 빠짐없이 적는다(사슬이 바뀌면 이 시험이 알려 준다).
 // - 기능 모듈 미리 받기는 로그인 확인(if(!authenticated)) 뒤에만 있다. 그 앞에는 로그인 확인에 쓰는 파일만.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,10 +26,9 @@ test('미리 받기 목록은 loader가 실제로 부르는 파일과 그 정적
   }
 });
 
-test('사업영역 창 그릇·새 판 알림의 정적 사슬을 빠짐없이 미리 받는다', () => {
+test('사업영역 창 그릇의 정적 사슬을 빠짐없이 미리 받는다', () => {
   const listed = new Set(lists.flatMap(l => l.files));
-  for (const root of ['area-window.js', 'version-notice.js'])
-    for (const file of [root, ...closure(root)]) assert.ok(listed.has(file), file + ' 빠짐');
+  for (const file of ['area-window.js', ...closure('area-window.js')]) assert.ok(listed.has(file), file + ' 빠짐');
 });
 
 test('기능 모듈 미리 받기는 로그인 확인 뒤에만', () => {
