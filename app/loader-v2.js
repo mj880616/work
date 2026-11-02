@@ -170,12 +170,6 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  // 원장 Drive 사본 자동 갱신(원장이 바뀌면 10분 묶어 한 번, 열 때 하루 넘었으면 한 번, LEDGER-자동기록). 기다리지 않는다.
-  import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
-  // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
-  import('./ledger-auto.js').catch(err=>console.warn('ledger auto load failed',err?.name||'Error'));
-  // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
-  import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
 
   const showFeatureError=(err,retry=null)=>{
     console.error('view feature load failed',err);
@@ -255,7 +249,14 @@
     catch(err){console.warn('area window open failed',err?.name||'Error')}
   }
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
-  // PERF-첫로딩 P3: 아래 기다리지 않는 부착(검색 입구·녹음·새 판 알림·알림 줄)은 첫 화면 공개 바로 뒤에 시작한다(공개를 기다리게 하지 않음).
+  // PERF-첫로딩 P3: 아래 기다리지 않는 부착(원장 사본·자동 기록·겹침 알림·검색 입구·녹음·새 판 알림·알림 줄)은 첫 화면 공개 바로 뒤에 시작한다
+  // (첫 화면 프로그램과 받기를 다투지 않게 — 모두 저장 뒤·쉬는 틈에 도는 것이라 공개 전에는 할 일이 없다).
+  // 원장 Drive 사본 자동 갱신(원장이 바뀌면 10분 묶어 한 번, 열 때 하루 넘었으면 한 번, LEDGER-자동기록). 기다리지 않는다.
+  import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
+  // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
+  import('./ledger-auto.js').catch(err=>console.warn('ledger auto load failed',err?.name||'Error'));
+  // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
+  import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
   // SEARCH-전체검색: 첫 화면을 그린 뒤 검색칸(PC 상단 줄)·메뉴 검색 입구를 붙인다. 기다리지 않는다.
   viewLoader.load('search').catch(err=>console.warn('search load failed',err?.name||'Error'));
   // MTG-노트북녹음: 노트북 [녹음]·녹음 띠의 주인(앱 껍데기 한 곳). 첫 화면 뒤 한 번 붙여 메뉴를 옮겨도 녹음이 이어진다. 기다리지 않는다.
