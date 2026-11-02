@@ -10,6 +10,8 @@ package kr.or.kptu.work
  *   → photos:edited:{"ok":bool,"changed":bool,"error":"none|old|busy|failed|noapp"}
  * - photos:save:begin:{"name","mime","size"} / photos:save:part:<base64> / photos:save:end / photos:save:cancel
  *   = 폰에 없는 사진의 원본(웹이 기존 '원본 받기' 길로 받은 바이트)을 Pictures/웹2에 한 장 저장 → photos:save:{"ok","step","got","id","error"}
+ * - S48-17 PHOTO-폰으로되돌리기(0.4.11): begin에 "dir"(원래 폰 폴더, MediaStore 상대 경로)·"taken"(원래 찍은 시각 ms)을 붙이면 되돌리기 저장이다.
+ *   그 폴더에 원래 찍은 시각(DATE_TAKEN)으로 넣는다. 동영상도 받는다(Video 모음). 폴더가 사진첩이 받지 않는 곳이면 Pictures/웹2(동영상은 Movies/웹2).
  * 넘기는 것은 content URI(+읽기·쓰기 허락 표시)뿐, 파일 경로는 앱 밖으로 내보내지 않는다. 사진 이름·내용은 로그에 쓰지 않는다.
  */
 object PhotoEditRules {
@@ -35,7 +37,10 @@ object PhotoEditRules {
 
     sealed class Message {
         data class Edit(val target: Target) : Message()
-        data class Begin(val name: String, val mime: String, val size: Long) : Message()
+        /** dir != null = S48-17 되돌리기 저장(원래 폴더·찍은 시각). */
+        data class Begin(val name: String, val mime: String, val size: Long, val dir: String? = null, val takenMs: Long = 0L) : Message() {
+            val video: Boolean get() = mime.startsWith("video/")
+        }
         data class Part(val base64: String) : Message()
         object End : Message()
         object Cancel : Message()
@@ -74,8 +79,35 @@ object PhotoEditRules {
         val o = try { MiniJson.obj(MiniJson.parse(raw)) } catch (_: Exception) { null } ?: return null
         val mime = MiniJson.str(o["mime"])?.lowercase() ?: return null
         val size = MiniJson.num(o["size"])?.takeIf { it == Math.floor(it) }?.toLong() ?: return null
-        if (mime !in MIMES || size !in 1..SAVE_MAX) return null
-        return Message.Begin(fileName(MiniJson.str(o["name"]), mime), mime, size)
+        val restore = o.containsKey("dir")
+        if (!restore) {
+            if (mime !in MIMES || size !in 1..SAVE_MAX) return null
+            return Message.Begin(fileName(MiniJson.str(o["name"]), mime), mime, size)
+        }
+        val dir = restoreDir(MiniJson.str(o["dir"]), mime.startsWith("video/")) ?: return null
+        val all = MIMES + VIDEO_MIMES
+        if (mime !in all || size !in 1..(if (mime in VIDEO_MIMES) RESTORE_VIDEO_MAX else SAVE_MAX)) return null
+        val taken = MiniJson.num(o["taken"])?.takeIf { it > 0 && it <= 1e15 && it == Math.floor(it) }?.toLong() ?: 0L
+        return Message.Begin(fileName(MiniJson.str(o["name"]), mime), mime, size, dir, taken)
+    }
+
+    /** S48-17 되돌리기: 받는 동영상 종류·한도(사진은 SAVE_MAX 그대로). */
+    val VIDEO_MIMES = mapOf("video/mp4" to "mp4", "video/quicktime" to "mov", "video/3gpp" to "3gp", "video/webm" to "webm", "video/x-matroska" to "mkv")
+    const val RESTORE_VIDEO_MAX = 500L * 1024 * 1024
+    private val IMAGE_TOPS = listOf("DCIM/", "Pictures/")
+    private val VIDEO_TOPS = listOf("DCIM/", "Movies/", "Pictures/")
+
+    /**
+     * 되돌릴 폴더. 웹이 보낸 원래 상대 경로(예 'DCIM/Camera/')를 끝 '/'로 맞추고, 앞 '/'·'..'·제어 글자·255자 넘음은 거절(null).
+     * 사진첩이 그 종류를 받지 않는 맨 위 폴더(Android/media·Download 등)면 Pictures/웹2/(동영상 Movies/웹2/)로 넣는다.
+     */
+    fun restoreDir(raw: String?, video: Boolean): String? {
+        if (raw == null) return null
+        val t = raw.trim()
+        if (t.isEmpty() || t.length > 255 || t.startsWith("/") || t.any { it.isISOControl() } || t.split('/').any { it == ".." || it == "." }) return null
+        val dir = if (t.endsWith("/")) t else "$t/"
+        val tops = if (video) VIDEO_TOPS else IMAGE_TOPS
+        return if (tops.any { dir.startsWith(it, ignoreCase = false) }) dir else if (video) "Movies/웹2/" else SAVE_DIR
     }
 
     /** 받는 그림 종류(편집기가 여는 사진만). 동영상은 받지 않는다. */
@@ -83,7 +115,7 @@ object PhotoEditRules {
 
     /** 저장 이름: 경로·제어 글자·앞 '.' 없이, 120자 안, 확장자를 그림 종류에 맞춘다. 비면 'web2-photo'. */
     fun fileName(raw: String?, mime: String): String {
-        val ext = MIMES[mime] ?: "jpg"
+        val ext = MIMES[mime] ?: VIDEO_MIMES[mime] ?: "jpg"
         var base = (raw ?: "").substringAfterLast('/').substringAfterLast('\\')
             .filter { !it.isISOControl() && it !in "<>:\"|?*" }.trim().trimStart('.')
         val dot = base.lastIndexOf('.')

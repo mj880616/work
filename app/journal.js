@@ -1240,7 +1240,7 @@ async function makeOrgSummaries() {
   if (orgUi.busy || !ids.length) return;
   const run = epoch, scope = owner, week = start;
   orgUi.busy = true; orgUi.status = ''; orgUi.error = false; renderWeekly_();
-  const result = await W.requestOrgSummaries({start:week, organizationIds:ids});
+  const result = await W.requestOrgSummaries({start:week, organizationIds:ids, calendar:W.summaryCalendar(model.orgRefs, ids)});
   if (!current(run, scope)) return;
   orgUi.busy = false; orgUi.status = W.resultMessage(result); orgUi.error = !result.ok;
   if (result.ok) await loadGroup('orgSummaries', run, scope); else renderWeekly_();

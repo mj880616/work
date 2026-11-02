@@ -270,6 +270,8 @@ object PhoneMediaRules {
         sb.append(",\"hide\":true,\"ops\":").append(sdk >= 30).append(",\"manage\":").append(manage)
         // PHOTO-갤러리편집(0.4.6): edit = 크게 보기 [편집](photos:edit·photos:save)을 안다.
         sb.append(",\"edit\":true")
+        // S48-17 PHOTO-폰으로되돌리기(0.4.11): restore = 원래 폴더·찍은 시각으로 되돌려 넣기(photos:save:begin의 dir·taken)를 안다.
+        sb.append(",\"restore\":true")
         return sb.append('}').toString()
     }
 

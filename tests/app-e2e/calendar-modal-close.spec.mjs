@@ -9,7 +9,7 @@ async function openList(page,width){
   await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_MOBILE_MODAL_HISTORY__)).toBe(true);
   const calendarUrl=page.url();
   await page.evaluate(()=>{window.qaModalPops=0;window.addEventListener('popstate',()=>window.qaModalPops++)});
-  await page.locator('.cal-cell[data-date="2026-10-21"] .cmv-task-count').click();
+  await page.locator('.cal-cell[data-date="2026-10-21"] .cmv-task-count, .cmv-date-list[data-date="2026-10-21"]').first().click(); // 폰은 날짜 줄(S48-6c)
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   if(width<=760)await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('calendarDayModal');
   return {...fixture,calendarUrl};

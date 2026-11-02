@@ -48,7 +48,7 @@ async function fixture(page,{width=390,onToggle}={}){
   await page.goto(loginEntry(ORIGIN+'/app/?view=calendar'));
   await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
-  await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
+  await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count, #calendarGrid .cmv-cell-task[data-calendar-task="cell"]').first()).toBeVisible(); // 폰은 칸 안 할 일 줄(S48-6c)
   return {calls,external};
 }
 const chip=(page,id,root='#calendarDayList')=>page.locator(`${root} [data-calendar-task="${id}"]`);

@@ -1,7 +1,7 @@
 // CAL-조직참고캘린더: 조직 참고 캘린더 규칙(순수)·서버 읽기(가짜 runtime)·주간 정리 모델. 가짜 캘린더·조직·일정만 쓴다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseChoice, serializeChoice, choiceReady, isOrgRefTitle, pickOrgRefs, orgRefRange, slashDay, reportLine, alreadyIn, materialLine, ORG_REF_WORDS, ORG_REF_SKIP } from '../app/calendar-ref-model.mjs';
+import { parseChoice, serializeChoice, choiceReady, isOrgRefTitle, pickOrgRefs, orgRefRange, slashDay, reportLine, alreadyIn, materialLine, summaryCalendar, ORG_REF_WORDS, ORG_REF_SKIP } from '../app/calendar-ref-model.mjs';
 import { readOrgRefs, saveChoice, readChoice } from '../app/calendar-ref-data.js';
 import { weeklySummary, weeklyReportText } from '../app/journal-weekly.js';
 
@@ -105,4 +105,14 @@ test('주간 정리 모델: 추천은 orgRefs로만 오고 5. 주요 일정·참
   assert.equal(weeklyReportText(withRefs), weeklyReportText(without));
   assert.ok(!('calRefs' in withRefs.notes));
   assert.deepEqual(weeklySummary({ ...base, materials: { ...base.materials, orgRefs: { status: 'failed' } } }).orgRefs, { org: '', items: [] });
+});
+
+test('조직 요약 재료(summaryCalendar): 고른 조직이 요약할 조직에 있고 추천 줄이 있을 때만 날짜·제목만', () => {
+  const items = pickOrgRefs([ev('a', '가상 총력 결의대회', '2026-11-04'), ev('b', '가상 조합원 총회', '2026-11-12')], choice, orgRefRange(WEEK));
+  const got = summaryCalendar({ org: ORG, items }, ['30000000-0000-4000-8000-0000000000AA', '30000000-0000-4000-8000-0000000000bb']);
+  assert.deepEqual(got, { organization_id: ORG, events: [{ day: '2026-11-04', title: '가상 총력 결의대회' }, { day: '2026-11-12', title: '가상 조합원 총회' }] });
+  assert.equal(summaryCalendar({ org: ORG, items }, ['30000000-0000-4000-8000-0000000000bb']), null);
+  assert.equal(summaryCalendar({ org: ORG, items: [] }, [ORG]), null);
+  assert.equal(summaryCalendar({ org: '', items }, [ORG]), null);
+  assert.equal(summaryCalendar(null, [ORG]), null);
 });

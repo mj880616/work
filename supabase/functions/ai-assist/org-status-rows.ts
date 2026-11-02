@@ -27,7 +27,7 @@ const chars = (s: string) => [...s].length;
 const cut = (s: string, n: number) => [...s].slice(0, n).join("");
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const TYPE_NAMES: Record<OrgRecord["type"], string> = { org_update: "조직 기록", update: "업데이트", link_summary: "연결 기록 요약", file_summary: "자료 요약" };
+const TYPE_NAMES: Record<OrgRecord["type"], string> = { org_update: "조직 기록", update: "업데이트", link_summary: "연결 기록 요약", file_summary: "자료 요약", calendar: "조직 캘린더 일정" };
 
 // 최근 것부터 넣는다. 너무 길면 뒤(오래된 것)를 버리고 partial.
 export function packStatusRecords(records: StatusRecord[]): { packed: PackedStatusRecord[]; partial: boolean } {
