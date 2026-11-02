@@ -8,13 +8,13 @@ begin;
 -- 안 하는 것: 권한·정책·함수·트리거 변경, 새 표, 기존 행 내용 변경, anon·PUBLIC 권한, 읽생기 표.
 -- 앞 단계: 20261101040000(phone_trash_log)이 먼저 적용돼 있어야 한다.
 -- 적용은 docs/ops-db-workflow.md "승인 한 번 흐름"(승인형 DB workflow)으로만 한다.
--- 짝: docs/20261102160000_phone_trash_keep.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261102163000_phone_trash_keep.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261102160000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261102163000')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261101040000' and name = 'phone_trash_log') <> 1
      or to_regclass('public.app_phone_trash_log') is null
      or exists (select 1 from pg_attribute where attrelid = to_regclass('public.app_phone_trash_log')
@@ -58,5 +58,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261102160000', 'phone_trash_keep', array['S48-17 PHOTO-지우기두갈래: app_phone_trash_log keep, rel_path, taken_at (space-freed photos stay listed; restore to original folder and date)']);
+values ('20261102163000', 'phone_trash_keep', array['S48-17 PHOTO-지우기두갈래: app_phone_trash_log keep, rel_path, taken_at (space-freed photos stay listed; restore to original folder and date)']);
 commit;

@@ -1,7 +1,7 @@
 -- SELECT only. pg_catalog만 읽는다. 적용 뒤 모두 예, 되돌린 뒤에도 모두 예(기록·칸이 함께 원래대로).
 with t as (select to_regclass('public.app_phone_trash_log') as l),
 cols as (select count(*) as n from pg_attribute where attrelid=(select l from t) and attname in ('keep','rel_path','taken_at') and not attisdropped),
-history as (select count(*) filter(where name='phone_trash_keep') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261102160000')
+history as (select count(*) filter(where name='phone_trash_keep') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261102163000')
 select 'columns and history agree' as item,case when
   (history.n=0 and cols.n=0 and to_regclass('public.app_phone_trash_log_keep_idx') is null)
   or (history.n=1 and history.named=1 and cols.n=3 and to_regclass('public.app_phone_trash_log_keep_idx') is not null

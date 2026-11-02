@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
-// S48-17 PHOTO-지우기두갈래 DB(20261102160000_phone_trash_keep): app_phone_trash_log keep·rel_path·taken_at — through the approved DB workflow runner.
+// S48-17 PHOTO-지우기두갈래 DB(20261102163000_phone_trash_keep): app_phone_trash_log keep·rel_path·taken_at — through the approved DB workflow runner.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
@@ -13,7 +13,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261102160000',name='phone_trash_keep',stem=version+'_'+name;
+const version='20261102163000',name='phone_trash_keep',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
