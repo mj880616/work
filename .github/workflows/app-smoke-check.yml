@@ -137,6 +137,7 @@ on:
       - 'tests/ops-inbox-open.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
+      - 'tests/files-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
@@ -275,6 +276,7 @@ on:
       - 'tests/ops-inbox-open.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
+      - 'tests/files-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
@@ -358,6 +360,8 @@ jobs:
         run: node --test tests/ops-inbox-open.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
         run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs
+      - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
+        run: node --test tests/files-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs

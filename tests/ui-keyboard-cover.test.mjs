@@ -27,7 +27,7 @@ const exempt=[
  [':is(.lu-more-panel,.lu-folder-menu)','메뉴'],['.lu-drop-overlay','끌어 놓기 표시'],['.lu-move-picker','고르기 시트'],
  ['.html-frame-full','전체 화면 보기'],['.od-link-menu','메뉴'],['.ps3-record-menu','메뉴'],['.rb-menu','메뉴'],
  ['.radar-row-menu','메뉴'],['.account-panel','계정 창'],['.mobile-menu','전체 메뉴'],
- ['.basket-photo-view','전체 화면 보기'],['.task-inline-menu','메뉴'],['.task-due-popup','달력 팝업'],['.basket-link-menu','메뉴'],
+ ['.basket-photo-view','전체 화면 보기'],['.fx-prev','파일 미리보기 칸(폰·폴드 전체 화면 보기, 뒤로가기 = 닫힘)'],['.task-inline-menu','메뉴'],['.task-due-popup','달력 팝업'],['.basket-link-menu','메뉴'],
 ];
 function bottomRules(){
  const out=[];

@@ -1,6 +1,7 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {claimedSince} from './row-swipe.js';
 import {requestLibraryDocument} from './basket-library-send.js';
+import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, SYNC_EVERY_MS, SHELF_LIMIT, FIND_LIMIT, FIND_WAIT_MS,
   TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, previewKind, sizeText, countText, dayText, fullTime,
   recentGroups, syncText, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
@@ -188,7 +189,7 @@ function paintTop() {
   if (crumb) {
     const w = state.where;
     let html;
-    if (state.query) html = `<span class="fx-crumb-now">${esc(state.found ? findSummary(state.found) : '찾는 중')}</span>`;
+    if (state.query) html = `<span class="fx-crumb-now">${esc(state.found ? findSummary(state.found) : `'${state.query}' 찾기`)}</span>`;
     else if (!w) html = '<span class="fx-crumb-now">파일</span>';
     else if (w.shelf) html = `<span class="fx-crumb-now">${esc(SHELF_NAME[w.shelf])}</span>`;
     else {
@@ -360,9 +361,9 @@ function paintPreview() {
   box.hidden = false;
   const r = p.row, where = state.where?.source === r.source && !state.query && !state.where?.shelf ? trailNames(r.source, state.trail).join(' › ') : pathText(r.source, r.folder_path);
   let view = '';
-  if (p.status === 'wait') view = waitInlineHtml();
+  if (p.kind === 'image') view = '<div class="fx-pv-imgbox" data-fx-img></div>';
+  else if (p.status === 'wait') view = waitInlineHtml();
   else if (p.status === 'fail') view = `<p class="fx-pv-note">${esc(errorText(p.err))}</p>`;
-  else if (p.kind === 'image' && p.url) view = `<img class="fx-pv-img" src="${esc(p.url)}" alt="${esc(r.name)}">`;
   else if (p.kind === 'text') view = `<pre class="fx-pv-text">${esc(p.text)}</pre>`;
   else if (p.kind === 'pdf' || p.kind === 'office') view = `<div class="fx-pages" data-fx-pages></div><button type="button" class="fx-btn" data-fx-more-pages hidden></button>`;
   const keepPages = p.doc && box.querySelector('[data-fx-pages]')?.childElementCount && box.dataset.fxKey === p.key;
@@ -374,6 +375,13 @@ function paintPreview() {
     + `<div class="fx-pv-acts"><button type="button" class="fx-btn" data-fx-open>열기</button><button type="button" class="fx-btn" data-fx-down>받기</button>`
     + (canShare() ? '<button type="button" class="fx-btn fx-share" data-fx-share>공유</button>' : '')
     + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '') + '</div>';
+  // 사진: 공용 그림 칸(img-slot.js) — 받는 중 회색, 못 받으면 ↻(그 사진만 다시 받기).
+  const imgBox = box.querySelector('[data-fx-img]');
+  if (imgBox) {
+    slotBox(imgBox);
+    if (p.status === 'done' && p.url) { const img = document.createElement('img'); img.className = 'fx-pv-img'; img.alt = r.name; slotImg(imgBox, img, p.url); }
+    else if (p.status === 'fail') slotFailed(imgBox, () => { if (state.preview === p) { dropPreview(); openPreview(r); } }, p.err);
+  }
 }
 function note(text) { const n = $('[data-fx-note]'); if (n) { n.textContent = text; n.hidden = !text; } }
 // 열기: 클라우드 보기 화면 새 창. 창은 누른 순간 열어 두고(팝업 막힘 피함) 주소를 받으면 넣는다.
