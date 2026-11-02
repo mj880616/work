@@ -1420,7 +1420,8 @@ body.addEventListener('pointermove', e => {
     const dx = Math.abs(e.clientX - drag.x), dy = Math.abs(e.clientY - drag.y);
     if (!drag.held && dy > DRAG_START && dy > dx && e.pointerType !== 'mouse') { drag = null; return; } // 세로 = 넘기기(꾹 누른 뒤 이어 끌기는 빼고)
     if (Math.max(dx, dy) < DRAG_START) return;
-    drag.on = true; body.setPointerCapture?.(e.pointerId);
+    drag.on = true;
+    try { body.setPointerCapture?.(e.pointerId); } catch { /* 이미 떨어진 손가락(또는 합성 포인터)은 붙잡을 수 없다 — 끌기는 그대로 */ }
   }
   e.preventDefault(); ateClick = true; lastY = e.clientY;
   dragTo(e.clientX, e.clientY);
