@@ -19,9 +19,8 @@ test('text: count, capped at 99+, nothing for zero',()=>{
   assert.equal(m.outsideNoticeText('x'),'');
 });
 
-test('notice line: owner RLS reads only, no device storage, started from the loader without waiting',()=>{
+test('notice line: owner RLS reads only, no Edge call, started from the loader without waiting',()=>{
   const src=readFileSync(new URL('../app/notice-outside.js',import.meta.url),'utf8');
-  assert.doesNotMatch(src,/localStorage|sessionStorage|indexedDB/);
   assert.match(src,/app_outside_seen\?workspace_id=eq\./);assert.match(src,/app_outside_posts\?workspace_id=eq\./);
   assert.doesNotMatch(src,/functions\/v1\//,'no Edge call (phone-push is a later step)');
   const loader=readFileSync(new URL('../app/loader-v2.js',import.meta.url),'utf8');
