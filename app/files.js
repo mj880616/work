@@ -506,6 +506,8 @@ async function applyWrite(d, touched = []) {
   const changed = Array.isArray(d?.changed) ? d.changed : [], removed = Array.isArray(d?.removed) ? d.removed : [];
   const gone = new Set(removed.map(x => `${x.source}:${x.id}`));
   for (const k of gone) state.picked.delete(k);
+  // 지운 줄은 고른 것에서도 빠진다 → 막대 숫자를 바로 고친다(write()의 마무리 그리기는 이보다 먼저 돈다).
+  paintBar();
   if (state.preview && gone.has(state.preview.key)) closePreview();
   else if (state.preview) { const c = changed.find(x => rowKey(x) === state.preview.key); if (c) { state.preview.row = {...state.preview.row, ...c}; paintPreview(); } }
   for (const key of touched) if (state.children.has(key)) { const [source, ...rest] = key.split(':'); loadChildren(source, rest.join(':') || null); }
