@@ -14,6 +14,9 @@ import {formDay} from './weekly-exec-requests.js';
 import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
+import {majorRule} from './weekly-major-schedule.mjs'; // WEEKLY-주요일정기준: 넣을 일정의 기준(한 곳)
+import {sortPicks, droppedOf, keptOf} from './weekly-picks.mjs';
+import {learnFor} from './weekly-picks.js';
 
 const TEXT = Object.freeze({
   missing:'2) 주요 일정 저장 칸이 아직 준비되지 않았어요(서버 적용 전).',
@@ -27,7 +30,15 @@ const TEXT = Object.freeze({
 const places = new Map(); // place → {ui, drag}
 // 동작 기록에 남길 줄 글(한글 파일 줄과 같은 모양, 앞 '- ' 뺌).
 const lineOf = f => hqLine({day:f.day ?? '', time:f.time ?? '', title:f.title ?? '', place:f.place ?? ''}).replace(/^-\s*/, '');
-function fresh(start) { return {start, editing:null, draft:{}, picking:false, picked:new Set(), saving:false, status:'', error:false}; }
+function fresh(start) { return {start, editing:null, draft:{}, picking:false, picked:new Set(), saving:false, status:'', error:false, undo:null}; }
+// WEEKLY-주요일정기준 ①: 2주 달력 일정 가운데 기준(weekly-major-schedule.mjs)에 맞고 아직 표에 없는 것 → 제안(명진이 [넣기]를 눌러야 들어감).
+// 제안 열쇠·학습은 [달력에서] 고르기와 같은 동작 기록(kind 'calendar', 칸 'requests:hq') — 뺀 제안은 다시 보이지 않고(목록 없음), 받은/뺀 셈이 다음 제안 순서·거르기에 쓰인다.
+export function hqSuggestions(events, rows, titles, picks, learn) {
+  const have = new Set((rows ?? []).map(r => r.event).filter(Boolean));
+  const list = (events ?? []).filter(item => !have.has(item.key)).map(item => ({item, f:eventFields(item, titles?.get?.(item.key))})).filter(x => majorRule(x.f.title));
+  const opts = {dropped:droppedOf(picks), kept:keptOf(picks), ...(learn ? {learn} : {})};
+  return sortPicks(list, x => ({kind:'calendar', from:'calendar', cell:'requests:hq', org:'', text:lineOf(x.f)}), opts).shown;
+}
 
 // slot: 자리, model: weeklySummary 결과(hq·calendar), start: 그 주 월요일, onSaved(row): 서버에 쓴 뒤(journal.js가 재료를 바꾸고 다시 그림).
 export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, onSaved = () => {}, redraw = () => {}, place = 'weekly'}) {
@@ -79,8 +90,26 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     parts.unshift(partAdd(doc, [pick, add]));
   }
   if (ui.picking) parts.push(picker());
+  // 기준에 맞는 달력 일정 제안(흐린 줄, 줄 끝 [넣기] · ⋯[빼기]). 고치는 중·고르는 중에는 그리지 않는다.
+  const picks = hq.row?.draft?.picks ?? null;
+  const suggested = !ui.editing && !ui.picking ? hqSuggestions(events, rows, hq.titles, picks, learnFor(start, picks, {rt, redraw}).learn) : [];
+  if (suggested.length) {
+    const sg = el('ul', 'weekly-flow-lines weekly-flow-suggest journal-hq-suggest'); sg.dataset.journalHqSuggest = '';
+    for (const x of suggested) {
+      const {item, f} = x.raw, text = x.text;
+      const li = el('li'); li.dataset.journalHqSuggestItem = item.key;
+      li.append(el('span', 'weekly-flow-tag', '캘린더'), el('span', 'weekly-flow-text', `${f.day ? formDay(f.day) : item.label} ${text}`));
+      const take = el('button', 'mini weekly-flow-take', '넣기'); take.type = 'button'; take.dataset.journalHqSuggestTake = item.key; take.disabled = busy || rows.length >= HQ_MAX;
+      take.setAttribute('aria-label', `2) 주요 일정에 넣기: ${text}`);
+      li.append(take, rowMore(doc, {label:`제안 빼기: ${text}`, data:{journalHqSuggestMore:item.key}, items:[{text:'빼기', data:{journalHqSuggestDrop:item.key}, disabled:busy, danger:true, aria:`제안 빼기: ${text}`}]}));
+      sg.append(li);
+    }
+    parts.push(sg);
+  }
   const say = el('p', 'journal-line-status', ui.status || ''); say.dataset.journalHqStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
   if (ui.error) say.classList.add('journal-failed');
+  // 뺀 직후에만 작은 [되돌리기](뺀 제안 목록은 두지 않음 — 요청함 11/01 01:16·23:43).
+  if (ui.undo && !busy) { const back = el('button', 'mini', '되돌리기'); back.type = 'button'; back.dataset.journalHqSuggestUndo = ''; say.append(' ', back); }
   parts.push(say);
   slot.replaceChildren(...parts);
   slot.onclick = onClick; slot.oninput = onInput;
@@ -131,6 +160,16 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     else if (b.matches('[data-journal-hq-cancel]')) { const id = ui.editing; setUi(fresh(start)); ui.focus = id && id !== 'new' ? `[data-journal-hq-more="${id}"] > summary` : '[data-journal-hq-add]'; redraw(); }
     else if (b.matches('[data-journal-hq-save]')) void saveEdit();
     else if (b.matches('[data-journal-hq-delete]')) { const id = b.dataset.journalHqDelete, row = rows.find(r => r.id === id); void save(list => withoutHqRow(list, id), '줄을 뺐어요.', '[data-journal-hq-add]', null, row ? [{act:'cut', text:lineOf(row)}] : []); }
+    else if (b.matches('[data-journal-hq-suggest-take]')) {
+      const item = events.find(i => i.key === b.dataset.journalHqSuggestTake); if (!item) return;
+      void save(list => withPicked(list, [item], {titles:hq.titles}), '넣었어요.', '', null, [{kind:'calendar', from:'calendar', act:'take', text:lineOf(eventFields(item, hq.titles.get(item.key)))}]);
+    }
+    else if (b.matches('[data-journal-hq-suggest-drop]')) {
+      const item = events.find(i => i.key === b.dataset.journalHqSuggestDrop); if (!item) return;
+      const text = lineOf(eventFields(item, hq.titles.get(item.key)));
+      void save(list => list, '제안을 뺐어요.', '', null, [{kind:'calendar', from:'calendar', act:'drop', text}], {undo:text});
+    }
+    else if (b.matches('[data-journal-hq-suggest-undo]')) { const text = ui.undo?.text; if (text) void save(list => list, '되돌렸어요.', '', null, [{kind:'calendar', from:'calendar', act:'none', text}]); }
     else if (b.matches('[data-journal-hq-pick]')) { setUi({...fresh(start), picking:true}); redraw(); }
     else if (b.matches('[data-journal-hq-pick-cancel]')) { setUi(fresh(start)); redraw(); }
     else if (b.matches('[data-journal-hq-pick-save]')) {
@@ -162,14 +201,14 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   }
   // change(list) → 새 줄 목록(null이면 넘침). extra(draft) → 같은 쓰기에 실을 다른 칸 바꿈(일정 칸별 고침).
   // picks: 같은 쓰기에 실을 동작 기록 [{act, text, before?, kind?, from?}](칸 'requests:hq', weekly-draft-store.js withLinePick). 순서 바꾸기는 남기지 않는다.
-  async function save(change, done, focus = '', extra = null, picks = []) {
+  async function save(change, done, focus = '', extra = null, picks = [], {undo = ''} = {}) {
     if (ui.saving) return;
     let full = false;
     ui.saving = true; ui.status = '저장하는 중…'; ui.error = false; redraw();
     try {
       const r = await changeWeekDocs({start, known:hq.row, change:draft => { const next = change(draftHq(draft)); if (!next) { full = true; return draft; } let out = withHq(draft, next); if (extra) out = extra(out); for (const p of picks) out = withLinePick(out, {cell:'requests:hq', ...p}); return out; }}, rt);
       if (r.missing) { setUi({...fresh(start), status:TEXT.missing, error:true}); redraw(); return; }
-      setUi({...fresh(start), status:full ? TEXT.full : done, error:full});
+      setUi({...fresh(start), status:full ? TEXT.full : done, error:full, undo:undo ? {text:undo} : null});
       ui.focus = focus;
       onSaved(r.row);
     } catch {

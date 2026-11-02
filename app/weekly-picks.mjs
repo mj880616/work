@@ -49,7 +49,7 @@ export const pickKey = ({kind, cell = '', text = ''}) => `${kind}|${cut(cell, PI
 export const sigOf = ({kind, from = '', cell = ''}) => `${kind}|${from}|${cut(cell, PICK_CELL)}`;
 export function sigLabel(sig) {
   const [kind, from, ...rest] = String(sig).split('|'), cell = rest.join('|');
-  const where = cell.replace(/^(summary|orgs|sites):/, '').replace(/^requests:(ask|hq|discuss)$/, (_, k) => ({ask:'1. 1) 임원 배정 요청', hq:'1. 2) 주요 일정', discuss:'1. 3) 상집 논의 요청'})[k]).replace(/^calendar$/, '5. 주요 일정').replace(/^notes$/, '참고').replace('›', ' › ');
+  const where = cell.replace(/^(summary|orgs|sites):/, '').replace(/^requests:(ask|hq|discuss)$/, (_, k) => ({ask:'1. 1) 임원 배정 요청', hq:'1. 2) 주요 일정', discuss:'1. 3) 상집 논의 요청'})[k]).replace(/^calendar$/, '5. 주요 일정').replace(/^notes$/, '참고').replace(/^details$/, '2. 2) 세부 내용').replace('›', ' › ');
   return [PICK_KIND[kind] ?? kind, PICK_FROM[from], where].filter(Boolean).join(' · ');
 }
 

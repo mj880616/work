@@ -37,7 +37,8 @@ import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
 import {docEdits, draftAreaSummaries, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-draft-store.js';
 import {discussLines, DISCUSS_TITLE} from './weekly-discuss.mjs';
-import {withHandCalendar, handRows, HAND_TAG} from './weekly-hand.mjs';
+import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.mjs';
+import {isInternalMeeting} from './weekly-major-schedule.mjs';
 import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
@@ -287,7 +288,9 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     // 사업 보고 읽기는 ③의 재료라 ② 출처 목록(WEEKLY_SOURCES.summary)에는 넣지 않는다: 읽히면 함께 놓이고, 못 읽으면 ③이 실패를 알린다.
     // 사업영역 AI 한 줄(설계 13절): 그 주 임시저장 area_summaries에 줄이 있는 사업영역은 보고 줄들 대신 그 한 줄(고친 줄 우선 — 서버·화면이 같은 칸에 하나만 둔다).
     const areaLines = draftRead && !draftRead.missing ? draftAreaSummaries(draftRead.row?.draft) : {};
-    const areaRecords = ok(m, 'meetings') ? summarizeAreaRecords(days.flatMap(day => weeklyAreaRecords(ok(m, 'meetings'), day, areaLine).map(r => ({...r, day}))), ok(m, 'meetings'), areaLines) : [];
+    // WEEKLY-주요일정기준 ④: 내부 정례 회의(노조 상집 등)의 사업 보고는 요약 재료에도 넣지 않는다.
+    const areaMeetings = ok(m, 'meetings') ? ok(m, 'meetings').filter(x => !isInternalMeeting(meetingKindName(x))) : null;
+    const areaRecords = areaMeetings ? summarizeAreaRecords(days.flatMap(day => weeklyAreaRecords(areaMeetings, day, areaLine).map(r => ({...r, day}))), areaMeetings, areaLines) : [];
     const all = [...rawRecords, ...areaRecords], records = all.filter(r => keep(r, 'summary'));
     const tree = ok(m, 'catalog');
     // WEEKLY-자료요약: 프로젝트에만 연결된 자료 → 그 프로젝트 줄(placeRecords가 자리를 찾음). 같은 프로젝트의 그 주 기록과 비교한다.
@@ -304,9 +307,18 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   // 회의·활동 결과: a meeting whose kind (series name, else title, without spaces, lower-case) is in my "not reported" list is left out
   // here, in the draft copy and wherever else this grouping is used. Items carry their kind so the screen can offer the switch;
   // `hidden` = the kinds left out this week (name, count) so they can be put back; `editable` only when the list was read.
+  // WEEKLY-사업영역세부줄: 그 주 임시저장 draft.hand 의 세부 줄 고침(details_edits: 고친 글·뺀 줄)과 손으로 더한 줄(details)을 여기서 한 번 입힌다 —
+  // 화면·복사 글이 같은 모델을 쓴다. 원래 기록(회의·사업 보고)은 바꾸지 않는다. rows: 화면이 고치기·빼기에 쓰는 원래 줄(뺀 줄 제외).
+  const detailHand = draftRead && !draftRead.missing ? draftHand(draftRead.row?.draft) : null;
   const meetings = part('meetings', () => {
     if (kinds?.status === 'loading') return {loading:true, items:[], hidden:[], editable:false};
-    return {items:rawMeetings.items.map(({targets, ref, ...item}) => ref ? {...item, ref} : item), hidden:rawMeetings.off, editable:kinds?.status === 'ok' && !!kinds.list};
+    const edits = detailEdits(detailHand);
+    const items = rawMeetings.items.map(({targets, ref, ...item}) => ref ? {...item, ref} : item)
+      .filter(item => !(item.ref && edits.get(item.ref)?.drop))
+      .map(item => { const e = item.ref ? edits.get(item.ref) : null; return e?.text ? {...item, text:e.text, edited:true, original:item.text} : item; });
+    const added = handRows(detailHand, 'details').map(r => ({day:'', text:r.text, hand:r.id}));
+    return {items:[...items, ...added], hidden:rawMeetings.off, editable:kinds?.status === 'ok' && !!kinds.list,
+      detailEditable:fileEdits.editable, row:draftRead?.row ?? null};
   });
 
   // JOURNAL-조직현황AI요약: a named organization section (its id found by name in the organization read) carries the week's
@@ -456,8 +468,9 @@ export function weeklyReportText(model) {
   if (!note('requests', r)) { for (const i of r.items) out.push(requestLine(i)); if (!r.items.length) out.push(r.missing ? '(요청 표 저장 칸 준비 전)' : '(요청 없음)'); }
   // WEEKLY-주요일정칸: 2) 주요 일정은 [주간 정리] 수기 표 줄('- 11.6.(금) 13:00 / 내용 / 장소', 한글 파일과 같은 줄).
   const hqLinesNow = model.hq?.lines ?? [];
-  if (hqLinesNow.length) out.push(`2) 주요 일정 (${HQ_SCHEDULE_GUIDE})`, ...hqLinesNow, '');
-  else out.push(`2) 주요 일정: (비워 둠) ${HQ_SCHEDULE_GUIDE}`, '');
+  // WEEKLY-주요일정기준 ③: 옛 안내 문구는 없앴다(기준은 weekly-major-schedule.mjs 한 곳 — 제안이 그 기준으로 뜬다).
+  if (hqLinesNow.length) out.push('2) 주요 일정', ...hqLinesNow, '');
+  else out.push('2) 주요 일정: (비워 둠)', '');
   // S46-27: 3) 상집 논의 요청('- 안건 — 설명 (관련 조직)', 한글 파일과 같은 줄). 없으면 (비워 둠).
   const discussNow = model.discuss?.lines ?? [];
   if (discussNow.length) out.splice(out.length - 1, 1, DISCUSS_TITLE, ...discussNow, '');
@@ -470,7 +483,7 @@ export function weeklyReportText(model) {
     if (!s.count && !s.failed.some(k => k !== 'catalog')) out.push('(이 주 사업영역 기록 없음)');
   }
   out.push('2) 세부 내용 — 회의·활동 결과');
-  if (!note('meetings', model.meetings)) { for (const i of model.meetings.items) out.push(item(i)); if (!model.meetings.items.length) out.push('(이 주 회의·활동 없음)'); }
+  if (!note('meetings', model.meetings)) { for (const i of model.meetings.items) out.push(i.day ? item(i) : `- ${i.text}`); if (!model.meetings.items.length) out.push('(이 주 회의·활동 없음)'); }
   out.push('', '4. 산하 조직 현황', '1) 요약');
   // An organization with a summary (JOURNAL-조직현황AI요약) gives its summary lines (no day); the others give their records.
   if (!note('orgs', model.orgs)) {
@@ -510,9 +523,8 @@ export function weeklyReportText(model) {
 export const FILE_TAG = '자료';
 export const HAND_NOTES_LABEL = '내 메모';
 export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸 할 일'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모']]);
-// 1. 2) 주요 일정: what goes there (its rule is not settled; nothing is filled in yet).
-// WEEKLY-주요일정칸(요청함 10/30 13:17): '자동 채우기는 나중에'는 지우고 안내 한 줄만 남긴다. 적는 칸은 그 아래 수기 표(weekly-hq-schedule.js).
-export const HQ_SCHEDULE_GUIDE = '본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외.';
+// 1. 2) 주요 일정: 기준은 weekly-major-schedule.mjs 한 곳(WEEKLY-주요일정기준, 명진 11/01 확정). 화면 안내 문구는 두지 않는다 — 적는 칸·기준 제안은
+// 수기 표(weekly-hq-schedule.js)가 그린다.
 const rangeTitle = calendar => `${shortDay(calendar.days[0])} ~ ${shortDay(calendar.days.at(-1))} · 다음 주 월요일부터 2주`;
 // orgUi (JOURNAL-조직현황AI요약, journal.js keeps it): {busy, status, error, editing:{id, value, status, invalid, saving}, open:Set(names)}.
 export const ORG_EDIT_MAX_LINES = 8;
@@ -660,10 +672,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const ask = block('ask', REQUEST_TITLES.ask, 'h5', true);
   if (!status(ask, model.requests, '요청 표') && !model.requests.failed.length) ask.append(...execRequestsPart(doc, model, execUi, 'weekly'));
   const hq = block('hq-schedule', REQUEST_TITLES.hq, 'h5', true);
-  const guide = muted(HQ_SCHEDULE_GUIDE); guide.dataset.journalWeeklyGuide = '';
   // 수기 표 자리: 그리기는 weekly-hq-schedule.js 하나가 맡는다(journal.js가 이 자리에 붙임). node 시험에서는 빈 자리.
   const hqSlot = el('div', 'journal-hq-slot journal-part-slot'); hqSlot.dataset.journalWeeklyHqSlot = '';
-  hq.append(guide, hqSlot);
+  hq.append(hqSlot);
   // S46-27 3) 상집 논의 요청: 그리기는 weekly-discuss-table.js 하나(journal.js가 이 자리에 붙임).
   const discuss = block('discuss', REQUEST_TITLES.discuss, 'h5', true);
   const discussSlot = el('div', 'journal-discuss-slot journal-part-slot'); discussSlot.dataset.journalWeeklyDiscussSlot = '';
@@ -712,34 +723,13 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     const sGone = overlapFold(s.overlapped, 'summary'); if (sGone) summary.append(sGone);
   }
   foldRecords(summary, 'summary', '이번 주 기록', s.count ?? 0);
-  const meet = block('meetings', '2) 세부 내용 — 회의·활동 결과');
+  // WEEKLY-사업영역세부줄(빠짐1, 명진 11/02 결정 '넣는다'): 줄마다 ⋯ [고치기]·[빼기](+ 이 종류 늘 빼기), 묶음 제목 줄 오른쪽 [+ 추가].
+  // 목록·고치기 칸 그리기는 weekly-detail-lines.js 하나(journal.js가 이 자리에 붙임) — 여기서는 자리와 불러오기·실패 줄만. node 시험에서는 빈 자리.
+  // WEEKLY-뺀목록삭제(빠짐2): 이 주에 빠진 회의 종류 목록과 되살리기 버튼은 화면·코드에서 없앴다(뺀 종류는 조용히 빠짐, 서버 목록은 그대로).
+  const meet = block('meetings', '2) 세부 내용 — 회의·활동 결과', 'h5', true);
   if (!status(meet, model.meetings, '회의·활동 결과') && !model.meetings.failed.length) {
-    const mt = model.meetings, off = mt.hidden || [];
-    if (mt.items.length) {
-      const list = itemList(mt.items);
-      // 주간보고에 올림 표시: a small ⋯ after the line opens one small text button for that line's kind (only when my list was read).
-      if (mt.editable) [...list.children].forEach((li, i) => {
-        const item = mt.items[i]; if (!validKindKey(item.kind)) return;
-        li.append(rowMore(doc, {label:`${item.kindName} 종류 설정`, data:{journalKindMore:item.kind}, items:[
-          {text:'주간보고에서 빼기', data:{journalKindToggle:item.kind, journalKindHide:'1', journalKindName:item.kindName}, aria:`${item.kindName} 종류를 주간보고에서 빼기`}]}));
-      });
-      meet.append(list);
-    } else meet.append(empty(off.length ? '이 주 회의·활동은 모두 주간보고에서 뺀 종류예요.' : '없음'));
-    if (off.length) {
-      const box = el('div', 'journal-kinds-off'); box.dataset.journalKindsOff = '';
-      box.append(el('p', 'journal-muted', '주간보고에서 뺀 회의 종류(이 주)'));
-      const ul = el('ul', 'journal-kinds-off-list');
-      for (const k of off) {
-        const li = el('li'); li.dataset.journalKindOff = k.key; li.append(el('span', null, `${k.name} · ${k.count}건`));
-        if (mt.editable) {
-          const back = el('button', 'mini', '다시 올리기'); back.type = 'button';
-          back.dataset.journalKindToggle = k.key; back.dataset.journalKindHide = '0'; back.dataset.journalKindName = k.name;
-          back.setAttribute('aria-label', `${k.name} 종류를 주간보고에 다시 올리기`); li.append(back);
-        }
-        ul.append(li);
-      }
-      box.append(ul); meet.append(box);
-    }
+    const detailSlot = el('div', 'journal-detail-slot journal-part-slot'); detailSlot.dataset.journalWeeklyDetailSlot = '';
+    meet.append(detailSlot);
   }
   two.append(summary, meet);
 
@@ -949,19 +939,20 @@ function goneFold(doc, el, gone, picks) {
   return box;
 }
 
-// WEEKLY-환류 (설계 3.7, Q6 ①): [주간 정리] 맨 아래 접힌 '주간보고 기억' — 일정 이름·일정 빼기(지우기)·회의 종류 빼기 전체(다시 올리기).
+// WEEKLY-환류 (설계 3.7, Q6 ①): [주간 정리] 맨 아래 접힌 '주간보고 기억' — 일정 이름·일정 빼기(지우기)·거절해서 안 내는 제안.
+// WEEKLY-뺀목록삭제: 회의 종류 빼기 목록·되살리기 버튼은 없앴다(명진 11/01 01:16 "다시 올릴 일 없음, 다 보여주지마").
 // memoryUi (journal.js keeps it): {open, busy, status, error, undo:{entry}}. 기억 칸을 읽지 못했으면 일정 기억 줄은 없다.
 export const MEMORY_TAG = '기억';
 const memoryDroppedItems = c => (c?.allRows ?? []).flatMap(row => row.items.filter(i => i.memo?.drop).map(i => ({label:row.label, title:i.title})));
 const slash = day => { const [, m, d] = String(day ?? '').split('-'); return m ? `${Number(m)}/${Number(d)}` : ''; };
 function memoryBox(doc, el, r_, ui = {}, picks = null) {
   const blocked = picks?.learn?.blocked ?? [];
-  if ((!r_ || (!r_.ready && !r_.kinds)) && !blocked.length) return [];
-  const r = r_ && (r_.ready || r_.kinds) ? r_ : {ready:false, kinds:null, entries:[]};
-  const names = r.entries.filter(e => e.title), drops = r.entries.filter(e => e.drop), kinds = r.kinds ?? [];
+  if ((!r_ || !r_.ready) && !blocked.length) return [];
+  const r = r_ && r_.ready ? r_ : {ready:false, entries:[]};
+  const names = r.entries.filter(e => e.title), drops = r.entries.filter(e => e.drop);
   const box = el('details', 'journal-weekly-chapter journal-weekly-memory journal-weekly-fold'); box.dataset.journalWeeklyMemory = '';
   if (ui.open) box.open = true;
-  const head = [r.ready ? `일정 이름 ${names.length}` : '', r.ready ? `일정 빼기 ${drops.length}` : '', r.kinds ? `회의 종류 빼기 ${kinds.length}` : '', picks?.ready ? `안 내는 제안 ${blocked.length}` : ''].filter(Boolean).join(' · ');
+  const head = [r.ready ? `일정 이름 ${names.length}` : '', r.ready ? `일정 빼기 ${drops.length}` : '', picks?.ready ? `안 내는 제안 ${blocked.length}` : ''].filter(Boolean).join(' · ');
   const sum = el('summary'); sum.append(el('span', 'journal-heading', '주간보고 기억'), ' ', el('small', 'journal-others-count', head)); box.append(sum);
   const used = e => `${e.used ? `마지막 적용 ${slash(e.used)}` : '아직 적용 안 됨'}${idleWeeks(e, r.today) >= 1 ? ` · ${idleWeeks(e, r.today)}주 안 쓰임` : ''}`;
   const list = (title, entries, line) => {
@@ -980,22 +971,6 @@ function memoryBox(doc, el, r_, ui = {}, picks = null) {
   if (r.ready) {
     box.append(list('일정 이름', names, e => `${e.origin} → ${e.title}${e.place ? `(${e.place})` : ''}`), list('일정 빼기', drops, e => e.origin));
   } else if (r_) box.append(el('p', 'journal-muted', '일정 기억을 읽지 못했어요(준비 중이면 기억 없이 달력 제목 그대로 써요).'));
-  if (r.kinds) {
-    const part = el('section', 'journal-weekly-part'); part.dataset.journalMemoryPart = '회의 종류 빼기';
-    part.append(el('h5', 'journal-weekly-sub', '회의 종류 빼기'));
-    if (!kinds.length) part.append(emptyEl());
-    else {
-      const ul = el('ul', 'journal-kinds-off-list');
-      for (const k of kinds) {
-        const li = el('li'); li.dataset.journalMemoryKind = k; li.append(el('span', null, k));
-        const back = el('button', 'mini', '다시 올리기'); back.type = 'button';
-        back.dataset.journalKindToggle = k; back.dataset.journalKindHide = '0'; back.dataset.journalKindName = k;
-        back.setAttribute('aria-label', `${k} 종류를 주간보고에 다시 올리기`); li.append(back); ul.append(li);
-      }
-      part.append(ul);
-    }
-    box.append(part);
-  }
   // S46-22 ③: 여러 주에 걸쳐 계속 [×]로 거절한 제안 종류 — 다음 제안에서 빠진다. [풀기]로 다시 낸다(지난 셈을 지움).
   if (picks?.ready) {
     const part = el('section', 'journal-weekly-part'); part.dataset.journalMemoryPart = '거절해서 안 내는 것';

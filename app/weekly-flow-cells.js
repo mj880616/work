@@ -2,10 +2,13 @@
 // '보고서 칸'을 그 주 임시저장(draft) 한 벌에서 그린다. 보이는 줄 = 한글 파일에 들어갈 줄(weekly-draft-store.js weekCells: 바탕 proposed 위에 고친 rows).
 // - 줄 끝 작은 ⋯ → [고치기]·[빼기], 칸 이름 줄 오른쪽 작은 [+ 추가], 칸 아래 흐린 '제안'(이번 주 기록·자료·조직 AI 요약·캘린더 추천) → [넣기]·⋯([고쳐서 넣기]·[빼기] — 빼기는 이유 한 줄, 안 써도 됨).
 // - 누름 한 번 = 서버 쓰기 한 번(changeWeekCell: rows + picks 를 한 PATCH). 실패하면 그 칸에 "저장 못 함 [다시]", 화면 값은 그대로.
-// - 투쟁 사업장 칸 구성(이번 주 보고에서 빼기·다시 넣기)은 draft.site_layout(없으면 지난주 구성을 이어 씀)에 쓴다.
+// - 투쟁 사업장 칸 구성(이번 주 보고에서 빼기·[+ 사업장 추가])은 draft.site_layout(없으면 지난주 구성을 이어 씀)에 쓴다.
+//   WEEKLY-뺀목록삭제(빠짐2·요청함 11/01 23:43): 뺀 사업장 접힌 목록과 [다시 넣기]는 없앴다 — 뺀 사업장은 [+ 사업장 추가] 고르기 목록에 나온다.
+// - WEEKLY-줄끌기(요청함 11/01 23:39): 2. 1) 요약·4. 산하 조직 칸 줄은 줄 앞 ⠿ 로 끌어 같은 칸 안 다른 자리나 같은 묶음의 다른 칸으로 옮긴다(폰은 줄을 길게 눌러,
+//   키보드는 ⠿ 에서 위·아래 — reorder-drag.js). 줄 ⋯ 의 [아래에 줄 추가]로 그 줄 바로 아래에 더한다. 줄 번호는 늘 보이는 줄 기준(weekly-draft-store.js visibleLines).
 // - 제안 거르기·학습 열쇠는 한글 파일 상자와 같다(weekly-picks.mjs sortPicks, 칸 이름 'section:key#n', 캘린더 추천 'orgref:조직 id').
 // - 칸 하나의 그리기 주인은 이 모듈 하나(journal.js는 자리만 주고 다시 그릴 때 부른다). AI 를 부르지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
-import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, withSiteLayout, draftSiteLayout, readCarriedLayout, lineDone, lineKey, CELL_LINE_MAX} from './weekly-draft-store.js';
+import {weekCells, parseCellId, cellId, summaryKey, changeWeekCell, changeWeekDocs, changeWeekMove, withSiteLayout, draftSiteLayout, readCarriedLayout, lineDone, lineKey, visibleLines, CELL_LINE_MAX} from './weekly-draft-store.js';
 import {sortPicks, droppedOf, keptOf, pickKey, WHY_MAX} from './weekly-picks.mjs';
 import {learnFor} from './weekly-picks.js';
 import {arrangeSites, siteHidden, siteShown, siteMoved, siteKey, readSiteLayout} from './weekly-schedule-rows.mjs';
@@ -30,7 +33,7 @@ export const LINE_PER_OPEN = Math.min(8, PER_OPEN);
 const UNDO_MS = 5000;
 // 화면 상태(기기 메모리만): 고치는 줄·더하는 칸·고쳐서 넣는 제안·빼는 이유를 쓰는 제안·쓰는 중·실패·되돌리기.
 const uiOf = new WeakMap();
-const freshUi = start => ({start, editing:null, adding:null, taking:null, dropping:null, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, mat:null, matFlight:null,
+const freshUi = start => ({start, editing:null, adding:null, addAt:-1, taking:null, dropping:null, busy:'', failed:null, undo:null, carried:{start:'', status:'', layout:null}, mat:null, matFlight:null,
   line:{cache:new Map(), asked:0, off:false, flight:false, timer:0, focus:null}, siteNote:'', siteAdding:false});
 
 const particle = name => { const code = String(name).charCodeAt(String(name).length - 1); return code >= 0xAC00 && code <= 0xD7A3 ? ((code - 0xAC00) % 28 ? '을' : '를') : '을(를)'; };
@@ -42,7 +45,7 @@ const labelOf = (section, key, n) => `${section === 'summary' ? key.split('›')
 // 그 주 draft 의 칸 목록(바탕 순서, 고친 칸만 있는 칸은 뒤에). [{id, section, key, n, lines}]
 export function flowCells(draft, section) {
   const out = [];
-  for (const [id, lines] of weekCells(draft)) { const c = parseCellId(id); if (c.section === section) out.push({id, ...c, lines:lines.filter(l => String(l).trim())}); }
+  for (const [id, lines] of weekCells(draft)) { const c = parseCellId(id); if (c.section === section) out.push({id, ...c, lines:visibleLines(lines)}); }
   return out;
 }
 // 투쟁 사업장: 바탕에 없지만 구성(order)에 넣은 사업장(내 담당 조직 = 4번 칸 이름만)은 빈 칸으로 더한다(한글 파일 상자 missingSites 와 같은 규칙).
@@ -112,8 +115,8 @@ export function paintFlowCells(slot, ctx) {
   }
   // 2. 1) 요약: 내 사업영역 칸 전부(바탕에 내 줄이 없던 사업영역은 빈 칸으로 뒤에).
   if (section === 'summary') cells = summaryCells(draft, areaNames);
-  // 투쟁 사업장: 구성(이번 주 것, 없으면 지난주 구성)대로 들어간 사업장만, 뺀 사업장은 접힌 한 줄.
-  let hiddenSites = [], siteOptions = [];
+  // 투쟁 사업장: 구성(이번 주 것, 없으면 지난주 구성)대로 들어간 사업장만(뺀 사업장은 목록 없이 [+ 사업장 추가]에서 다시 고름).
+  let siteOptions = [];
   if (section === 'sites') {
     const own = draftSiteLayout(draft);
     if (!own && ui.carried.start !== ctx.start) {
@@ -123,9 +126,7 @@ export function paintFlowCells(slot, ctx) {
     const layout = own ?? ui.carried.layout;
     cells = siteCells(draft, layout);
     const rows = cells.map((c, index) => ({index, org:c.key}));
-    const {shown, hidden} = arrangeSites(rows, layout);
-    hiddenSites = hidden.map(r => cells[r.index]);
-    cells = shown.map(r => cells[r.index]);
+    cells = arrangeSites(rows, layout).shown.map(r => cells[r.index]);
     // [+ 사업장 추가]: 내 담당 조직(4번 칸 이름) 가운데 지금 칸에 없는 것(뺀 사업장 포함 — 넣으면 적어 둔 글이 돌아옴).
     const taken = new Set(cells.map(c => siteKey(c.key)));
     siteOptions = flowCells(draft, 'orgs').map(c => c.key).filter(n => !taken.has(siteKey(n)));
@@ -162,15 +163,9 @@ export function paintFlowCells(slot, ctx) {
     }
     parts.push(bar);
   }
-  if (hiddenSites.length) {
-    const fold = el('details', 'journal-org-raw weekly-flow-hidden'); fold.dataset.flowHiddenSites = String(hiddenSites.length);
-    fold.append(el('summary', null, `이번 주 보고에서 뺀 사업장 ${hiddenSites.length}`));
-    const ul = el('ul', 'weekly-flow-lines');
-    for (const c of hiddenSites) { const li = el('li'); li.append(el('span', 'weekly-flow-text', c.key), ' ', btn('다시 넣기', {flowSiteShow:c.key})); ul.append(li); }
-    fold.append(ul); parts.push(fold);
-  }
   slot.replaceChildren(...parts);
   if (!slot.dataset.flowWired) wire();
+  if (ui.focusLine && !ui.busy && section !== 'sites') { const k = ui.focusLine; ui.focusLine = null; [...slot.querySelectorAll('li[data-flow-line-id]')].find(n => n.dataset.flowLineId === k)?.querySelector('[data-flow-line-grip]')?.focus(); }
   if (ui.focusSite && !ui.busy && section === 'sites') { const name = ui.focusSite; ui.focusSite = null; [...slot.querySelectorAll('[data-reorder-id]')].find(n => n.dataset.reorderId === name)?.querySelector('[data-reorder-handle]')?.focus(); }
 
   function cellBox(c, list) {
@@ -206,18 +201,26 @@ export function paintFlowCells(slot, ctx) {
       box.append(fold);
     }
     const ul = el('ul', 'weekly-flow-lines');
+    // 끌기(2. 1) 요약·4. 산하 조직): 칸마다 목록 하나(data-flow-line-list = 칸), 줄마다 열쇠 '칸 id\u0001번호'. 투쟁 사업장은 칸째 옮기므로 줄 끌기 없음.
+    const canMove = section !== 'sites';
+    if (canMove) ul.dataset.flowLineList = c.id;
+    const addRow = () => { const li = el('li'); li.dataset.flowAddRow = ''; li.append(editForm(c.id, ui.addValue ?? '', {flowAddSave:c.id}, ui.addAt >= 0 ? '아래에 줄 추가' : '줄 추가')); return li; };
     c.lines.forEach((text, i) => {
       const li = el('li'); li.dataset.flowLine = String(i);
+      if (canMove) li.dataset.flowLineId = li.dataset.reorderId = `${c.id}\u0001${i}`; // reorder-drag.js 는 data-reorder-id 로 줄을 안다
       if (ui.editing?.cell === c.id && ui.editing.index === i) { li.append(editForm(c.id, ui.editing.value ?? text, {flowFixSave:c.id}, '줄 고치기')); ul.append(li); return; }
+      if (canMove) { const grip = btn('⠿', {flowLineGrip:'', reorderHandle:''}, 'mini journal-hwpx-grip weekly-flow-grip'); grip.setAttribute('aria-label', `줄 옮기기(위·아래 화살표): ${text}`); grip.disabled = busy || !!ui.editing || !!ui.adding; li.append(grip); }
       // 줄을 고르면(누름·초점) 잠시 뒤 그 칸 줄만 AI 에 묻고 칸 아래 흐린 'AI 제안' 줄(weekly_line). 고르기만 해서는 아무것도 바뀌지 않는다.
       const t = el('span', 'weekly-flow-text', text); t.tabIndex = 0; t.dataset.flowPickLine = String(i); li.append(t);
       li.append(rowMore(doc, {label:`줄 고치기·빼기: ${text}`, data:{flowLineMore:''}, items:[
         {text:'고치기', data:{flowFix:c.id, flowIndex:String(i)}, disabled:busy},
+        {text:'아래에 줄 추가', data:{flowAddBelow:c.id, flowIndex:String(i)}, disabled:busy, aria:`이 줄 아래에 줄 추가: ${text}`},
         {text:'빼기', data:{flowCut:c.id, flowIndex:String(i)}, disabled:busy, danger:true, aria:`이번 주 보고에서 빼기: ${text}`}]}));
       ul.append(li);
+      if (ui.adding === c.id && ui.addAt === i + 1) ul.append(addRow());
     });
     if (!c.lines.length) { const li = el('li', 'weekly-flow-empty', '빈 칸'); li.dataset.flowEmpty = ''; ul.append(li); }
-    if (ui.adding === c.id) { const li = el('li'); li.append(editForm(c.id, ui.addValue ?? '', {flowAddSave:c.id}, '줄 추가')); ul.append(li); }
+    if (ui.adding === c.id && !(ui.addAt >= 1 && ui.addAt <= c.lines.length)) ul.append(addRow());
     box.append(ul);
     // 제안: 받은 종류부터, 뺀 것은 접힌 '뺀 제안 n개'에서 다시 넣기. 고른 줄의 AI 줄 제안이 있으면 맨 앞.
     const sorted = sortPicks([...lineSuggestions(c), ...list], x => x.lineAi ? {kind:'ai_line', from:'ai', cell:cellName(c.section, c.key, c.n), org:'', text:`${x.before}→${x.text}`} : describe(c)(x), opts);
@@ -282,6 +285,9 @@ export function paintFlowCells(slot, ctx) {
     slot.addEventListener('focusin', pickLine);
     slot.addEventListener('click', pickLine);
     if (section === 'sites') slot.__drag = mountReorder(slot, {onDrop:({id, index}) => slot.__flow?.moveSite(id, index), onStep:(id, dir) => slot.__flow?.stepSite(id, dir), canDrag:() => !slot.__flow?.ui.busy});
+    else slot.__lineDrag = mountReorder(slot, {listSelector:'ul[data-flow-line-list]', itemSelector:'li[data-flow-line-id]', handleSelector:'[data-flow-line-grip]',
+      onDrop:({id, list, index}) => slot.__flow?.moveLine(id, list, index), onStep:(id, dir) => slot.__flow?.stepLine(id, dir),
+      canDrag:() => { const u = slot.__flow?.ui; return !!u && !u.busy && !u.editing && !u.adding && !u.taking && !u.dropping; }});
     slot.addEventListener('change', event => { const sel = event.target.closest?.('select[data-flow-site-pick]'); if (sel?.value) slot.__flow?.addSite(sel.value); });
     slot.addEventListener('click', event => {
       const b = event.target.closest('button');
@@ -306,14 +312,17 @@ export function paintFlowCells(slot, ctx) {
     });
   }
   // 누르기 처리는 이번 그림의 ctx 로(그릴 때마다 바꿔 끼움).
-  slot.__flow = {ui, click:b => onClick(b), pickLine:t => pickLine(t), moveSite:(name, index) => setLayout('move', name, index), stepSite:(name, dir) => stepSite(name, dir), addSite:name => setLayout('show', name)};
+  slot.__flow = {ui, click:b => onClick(b), pickLine:t => pickLine(t), moveSite:(name, index) => setLayout('move', name, index), stepSite:(name, dir) => stepSite(name, dir), addSite:name => setLayout('show', name),
+    moveLine:(id, list, index) => moveLine(id, list, index), stepLine:(id, dir) => stepLine(id, dir)};
   const focusInput = id => requestAnimationFrame(() => slot.querySelector(`input[data-flow-input="${CSS.escape(id)}"]`)?.focus());
   function cellOf(id) { const c = parseCellId(id); return {section:c.section, key:c.key, n:c.n, lines:flowCells(draft, c.section).find(x => x.id === id)?.lines ?? []}; }
   async function write(id, op, {after} = {}) {
     const c = cellOf(id);
     ui.busy = id; ui.failed = null; ctx.redraw?.();
     try {
-      const r = op.site ? await changeWeekDocs({start:ctx.start, known:row, change:op.site}, ctx.rt) : await changeWeekCell({start:ctx.start, known:row, section:c.section, key:c.key, n:c.n, ...op}, ctx.rt);
+      const r = op.site ? await changeWeekDocs({start:ctx.start, known:row, change:op.site}, ctx.rt)
+        : op.move ? await changeWeekMove({start:ctx.start, known:row, ...op.move}, ctx.rt)
+        : await changeWeekCell({start:ctx.start, known:row, section:c.section, key:c.key, n:c.n, ...op}, ctx.rt);
       ui.busy = '';
       if (r.missing) { ui.failed = {cell:id, text:'임시저장 칸이 아직 준비 전이에요.', op}; ctx.redraw?.(); return; }
       after?.(r.row);
@@ -352,7 +361,27 @@ export function paintFlowCells(slot, ctx) {
     for (const [k, v] of readAnswer(r.data, refs, c.lines, id)) g.cache.set(k, v);
     ctx.redraw?.();
   }
-  // ---- 투쟁 사업장 구성(⠿ 순서·[+ 사업장 추가]·빼기·다시 넣기) — 모두 draft.site_layout 한 번 쓰기 ----
+  // ---- 줄 끌기(WEEKLY-줄끌기): 같은 칸 안·같은 묶음 다른 칸. 쓰기 한 번(changeWeekMove — 두 칸을 한 draft 로) ----
+  function lineRef(id) { const at = String(id).lastIndexOf('\u0001'); return at < 0 ? null : {cell:id.slice(0, at), index:Number(id.slice(at + 1))}; }
+  function moveLine(id, toCell, index) {
+    const from = lineRef(id);
+    if (!from || !toCell || ui.busy || !Number.isInteger(from.index)) return;
+    const a = parseCellId(from.cell), b = parseCellId(toCell);
+    if (a.section !== section || b.section !== section) return;
+    ui.focusLine = `${toCell}\u0001${index}`; // 다시 그린 뒤 옮긴 줄의 손잡이로 초점(키보드로 이어서 옮기기)
+    void write(from.cell, {move:{from:{...a, index:from.index}, to:{...b, index}}});
+  }
+  // 키보드: 위·아래 한 칸. 칸 맨 위에서 위로 → 앞 칸 끝, 맨 아래에서 아래로 → 다음 칸 맨 앞.
+  function stepLine(id, dir) {
+    const from = lineRef(id); if (!from) return;
+    const list = cells.map(c => c.id), at = list.indexOf(from.cell), count = cells[at]?.lines.length ?? 0;
+    if (at < 0) return;
+    const next = from.index + dir;
+    if (next >= 0 && next < count) { moveLine(id, from.cell, next); return; }
+    const other = cells[at + dir]; if (!other) return;
+    moveLine(id, other.id, dir < 0 ? other.lines.length : 0);
+  }
+  // ---- 투쟁 사업장 구성(⠿ 순서·[+ 사업장 추가]·빼기) — 모두 draft.site_layout 한 번 쓰기 ----
   function siteRowsNow() { const layout = draftSiteLayout(draft) ?? ui.carried.layout, all = siteCells(draft, layout); return {all, layout, rows:all.map((c, index) => ({index, org:c.key}))}; }
   function setLayout(how, name, index = Infinity) {
     if (ui.busy) return;
@@ -362,7 +391,7 @@ export function paintFlowCells(slot, ctx) {
     const next = how === 'hide' ? siteHidden(withName, layout, name, at) : how === 'show' ? siteShown(withName, layout, name, at, index) : siteMoved(withName, layout, name, index, at);
     const id = all.find(c => siteKey(c.key) === siteKey(name))?.id ?? cellId('sites', name, 0);
     ui.siteAdding = false;
-    ui.siteNote = how === 'show' ? `${name}${particle(name)} 넣었어요.` : how === 'hide' ? `${name}${particle(name)} 뺐어요. 아래 접힌 줄에서 다시 넣을 수 있어요.` : '';
+    ui.siteNote = how === 'show' ? `${name}${particle(name)} 넣었어요.` : how === 'hide' ? `${name}${particle(name)} 뺐어요. [+ 사업장 추가]에서 다시 넣을 수 있어요.` : '';
     void write(id, {site:dr => withSiteLayout(dr, next)});
   }
   function stepSite(name, dir) {
@@ -376,13 +405,14 @@ export function paintFlowCells(slot, ctx) {
     if (d.flowReload !== undefined) { ctx.reload?.(); return; }
     if (d.flowSiteAdd !== undefined) { ui.siteAdding = !ui.siteAdding; ctx.redraw?.(); if (ui.siteAdding) requestAnimationFrame(() => slot.querySelector('select[data-flow-site-pick]')?.focus()); return; }
     if (d.flowTeamUse) { const lines = team?.get(d.flowTeamUse); if (lines) void write(d.flowTeamUse, {act:'none', lines:[...lines]}); return; }
-    if (d.flowCancel !== undefined) { ui.editing = null; ui.adding = null; ui.addValue = ''; ui.taking = null; ui.dropping = null; ctx.redraw?.(); return; }
+    if (d.flowCancel !== undefined) { ui.editing = null; ui.adding = null; ui.addAt = -1; ui.addValue = ''; ui.taking = null; ui.dropping = null; ctx.redraw?.(); return; }
     if (d.flowFix) { ui.editing = {cell:d.flowFix, index:Number(d.flowIndex), value:null}; ui.adding = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowFix); return; }
-    if (d.flowAdd) { ui.adding = d.flowAdd; ui.addValue = ''; ui.editing = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowAdd); return; }
+    if (d.flowAdd) { ui.adding = d.flowAdd; ui.addAt = -1; ui.addValue = ''; ui.editing = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowAdd); return; }
+    if (d.flowAddBelow) { ui.adding = d.flowAddBelow; ui.addAt = Number(d.flowIndex) + 1; ui.addValue = ''; ui.editing = null; ui.taking = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowAddBelow); return; }
     if (d.flowEdit) { const it = pick(); ui.taking = {cell:d.flowEdit, key:it.key, value:null}; ui.editing = null; ui.adding = null; ui.dropping = null; ctx.redraw?.(); focusInput(d.flowEdit); return; }
     const value = () => String(b.parentElement.querySelector('input[data-flow-input]')?.value ?? '').trim();
     if (d.flowFixSave) { const v = value(); if (!v) return; const index = ui.editing.index; void write(d.flowFixSave, {act:'fix', index, text:v}, {after:() => { ui.editing = null; }}); return; }
-    if (d.flowAddSave) { const v = value(); if (!v) return; void write(d.flowAddSave, {act:'add', text:v.startsWith('-') ? v : `- ${v}`}, {after:() => { ui.adding = null; ui.addValue = ''; }}); return; }
+    if (d.flowAddSave) { const v = value(); if (!v) return; const at = ui.addAt; void write(d.flowAddSave, {act:'add', text:v.startsWith('-') ? v : `- ${v}`, ...(at >= 0 ? {insertAt:at} : {})}, {after:() => { ui.adding = null; ui.addAt = -1; ui.addValue = ''; }}); return; }
     if (d.flowEditSave) { const v = value(); if (!v) return; const it = pick(), index = li?.dataset.flowIndex != null ? Number(li.dataset.flowIndex) : -1; void write(d.flowEditSave, {act:'edit', text:v.startsWith('-') ? v : `- ${v}`, item:it, index}, {after:() => { ui.taking = null; }}); return; }
     if (d.flowTake) {
       const it = pick(), index = li.dataset.flowIndex != null ? Number(li.dataset.flowIndex) : -1;
@@ -409,8 +439,7 @@ export function paintFlowCells(slot, ctx) {
     }
     if (d.flowUndo) { const u = ui.undo; if (!u) return; clearTimeout(u.timer); ui.undo = null; void write(d.flowUndo, {act:'none', lines:u.lines, item:u.item}); return; }
     if (d.flowRetry) { const f = ui.failed; if (f?.op) void write(f.cell, f.op); return; }
-    if (d.flowSiteHide !== undefined) { setLayout('hide', d.flowSiteHide); return; }
-    if (d.flowSiteShow !== undefined) setLayout('show', d.flowSiteShow);
+    if (d.flowSiteHide !== undefined) setLayout('hide', d.flowSiteHide);
   }
 }
 export {pickKey};
