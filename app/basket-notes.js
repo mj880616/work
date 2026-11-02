@@ -532,8 +532,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!selected) return true;
     if (!force && textDirty() && !window.confirm('고치던 노트를 버리고 목록으로 돌아갈까요?')) return false;
     if (!force && !textDirty() && manual.hasDraft() && !window.confirm('작성 중인 연결 입력을 버리고 목록으로 돌아갈까요?')) return false;
-    if (!force && !textDirty() && !manual.hasDraft() && noteComments.hasDraft() && !window.confirm('쓰던 댓글을 버리고 목록으로 돌아갈까요?')) return false;
-    noteComments.detach();
+    noteComments.detach(); // 쓰던 댓글은 이 화면 메모리에 남아 같은 노트를 다시 열면 그대로 보인다(묻지 않음).
     bigWriter?.close({silent:true}); bigWriter = null; dropField();
     closeMenu(); const id = selected.id; ++epoch; selected = null; editing = false; manual.reset();
     detail.replaceChildren(); detail.hidden = true; list.hidden = false; sendWhere(null); onOpenChange(false); renderList();
