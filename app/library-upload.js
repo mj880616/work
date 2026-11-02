@@ -1022,7 +1022,7 @@ function luTopMenuHtml(){
     +`<button type="button" data-lu-top="expand"${luExpandNow.count?'':' disabled'}>${luExpandNow.open?'모두 접기':'모두 펴기'}</button>`;
 }
 function luTopMenuOpen(trigger){
-  luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-more-panel lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
+  luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
     onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger)}});
   luTopMenu.open(trigger);
 }
