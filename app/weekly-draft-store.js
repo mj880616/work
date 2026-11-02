@@ -549,3 +549,27 @@ export async function readCarriedLayout(start, rt = window.KPTURuntime) {
     return null;
   } catch { return null; }
 }
+// WEEKLY-사업영역칸 2)(요청함 11/01 01:12, S48-35): 이번 주 바탕(지난 개인본, 없으면 팀 확정본)에 줄이 없는 내 사업영역 칸에는
+// 바로 앞 주 임시저장(그 주 바탕 + 고친 칸)의 그 사업영역 줄을 '지난주에서' 제안으로 먼저 보여 준다(바탕에 없으니 칸에 저절로 넣지 않음 — 한 벌 유지).
+// 반환 {week, areas: Map(사업영역 이름(띄어쓰기·가운뎃점 맞춤) → 줄[])} | null(앞 주 임시저장 없음·읽기 실패). 글은 로그에 쓰지 않는다.
+export const areaNameKey = s => String(s ?? '').replace(/\s+/g, '').replace(/[‧·․]/g, '·');
+export function carriedAreaLines(draft) {
+  const areas = new Map();
+  for (const [id, lines] of weekCells(draft)) {
+    const c = parseCellId(id); if (c.section !== 'summary') continue;
+    const area = areaNameKey(String(c.key).split('›')[0]); if (!area) continue;
+    const list = areas.get(area) ?? [];
+    for (const l of visibleLines(lines)) if (!list.some(x => lineText(x) === lineText(l))) list.push(l);
+    areas.set(area, list);
+  }
+  return areas;
+}
+export async function readCarriedAreas(start, rt = window.KPTURuntime) {
+  if (!DAY.test(String(start))) return null;
+  try {
+    const rows = await rt.api(`${TABLE}?workspace_id=eq.${encode(workspaceOf(rt))}&week_start=lt.${start}&draft=not.is.null&select=week_start,rows:draft->rows,proposed:draft->proposed&order=week_start.desc&limit=1`, {singleFlight:false});
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row || !DAY.test(String(row.week_start ?? ''))) return null;
+    return {week:row.week_start, areas:carriedAreaLines({rows:Array.isArray(row.rows) ? row.rows : [], proposed:row.proposed ?? null})};
+  } catch { return null; }
+}

@@ -44,3 +44,32 @@ test('묶음 이름: 앱 PICK_GROUPS 순서와 서버 groupOf 가 2. 세부 내�
   const src = readFileSync(new URL('../supabase/functions/ai-assist/weekly-learn.ts', import.meta.url), 'utf8');
   assert.match(src, /p\.cell === "details" \? "2\. 세부 내용"/);
 });
+
+// WEEKLY-사업영역칸 2): 바탕에 줄이 없는 사업영역 칸 → 바로 앞 주 임시저장의 그 사업영역 줄(바탕 + 고친 칸)을 '지난주에서' 제안으로.
+import {carriedAreaLines, readCarriedAreas, areaNameKey} from '../app/weekly-draft-store.js';
+const prevDraft = {proposed:{at:AT, base:{from:'personal', document_id:'d0'}, cells:[
+  {section:'summary', key:'가 영역›가-1', n:0, lines:['- 가상 바탕 줄']},
+  {section:'summary', key:'2인 1조 법제화›', n:0, lines:['- 가상 옛 줄']},
+  {section:'orgs', key:'A 지부', n:0, lines:['- 조직 줄']}]},
+  rows:[{section:'summary', key:'2인 1조 법제화›', n:0, lines:['- 가상 고친 줄', '']}, {section:'summary', key:'2인 1조 법제화›입법', n:0, lines:['- 가상 입법 줄', '- 가상 고친 줄']}]};
+
+test('carriedAreaLines: 사업영역마다 앞 주 칸 줄(고친 칸이 바탕 위), 빈 줄·같은 줄·다른 묶음은 빼고', () => {
+  const a = carriedAreaLines(prevDraft);
+  assert.deepEqual([...a.keys()], ['가영역', '2인1조법제화']);
+  assert.deepEqual(a.get(areaNameKey('2인 1조  법제화')), ['- 가상 고친 줄', '- 가상 입법 줄']);
+  assert.deepEqual(carriedAreaLines(null).size, 0);
+});
+
+test('readCarriedAreas: 이번 주 앞 주 한 행만 읽고(select 는 rows·proposed), 실패·없음은 null', async () => {
+  const asked = [];
+  const rt = {context:{read:() => ({workspace:{id:'w1'}})}, api:async url => { asked.push(url); return [{week_start:'2026-10-26', rows:prevDraft.rows, proposed:prevDraft.proposed}]; }};
+  const r = await readCarriedAreas('2026-11-02', rt);
+  assert.equal(r.week, '2026-10-26');
+  assert.deepEqual(r.areas.get('2인1조법제화'), ['- 가상 고친 줄', '- 가상 입법 줄']);
+  assert.match(asked[0], /week_start=lt\.2026-11-02/);
+  assert.match(asked[0], /select=week_start,rows:draft->rows,proposed:draft->proposed/);
+  assert.match(asked[0], /order=week_start\.desc&limit=1/);
+  assert.equal(await readCarriedAreas('2026-11-02', {...rt, api:async () => { throw new Error('x'); }}), null);
+  assert.equal(await readCarriedAreas('2026-11-02', {...rt, api:async () => []}), null);
+  assert.equal(await readCarriedAreas('nope', rt), null);
+});

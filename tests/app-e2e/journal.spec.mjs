@@ -3772,3 +3772,37 @@ for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 내 사업영�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
+
+// WEEKLY-사업영역칸 2)(S48-35, 요청함 11/01 01:12): 바탕에 줄이 없는 사업영역 칸에는 바로 앞 주 임시저장의 그 사업영역 줄을 '지난주에서' 제안으로
+// 먼저 보여 준다(칸에 저절로 넣지 않음 — 한 벌). [넣기]하면 칸 줄이 되고 동작 기록은 '지난주 줄' 넣음(carried take). 글은 모두 가짜.
+for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 바탕에 없던 사업영역 빈 칸에 앞 주 임시저장 줄 '지난주에서' 제안 → [넣기] ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ const tree=[...weeklyTree,{id:'wc',name:'사업영역 다',parent_id:null,status:'active',sort_order:3,metadata:{project_system:'v2'}}];
+ f.more.spaces.push({id:'wc',workspace_id:'w',name:'사업영역 다'});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_spaces',async r=>{const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET'||q.get('select')!=='*')return r.fallback();return r.fulfill({json:tree.map(p=>({...p,workspace_id:'w',owner_id:'home-test',created_at:at}))});});
+ // 앞 주(9/28) 임시저장: 사업영역 다 칸을 손으로 썼고(확정은 안 함 → 개인본 없음), 빈 줄은 빠진다.
+ f.exec.rows.push({id:'xp',workspace_id:'w',week_start:'2026-09-28',carried_at:null,updated_at:'2026-10-01T01:00:00Z',items:[],draft_saved_at:'2026-10-01T01:00:00.000Z',
+  draft:{v:1,base:null,me:'',me_from:'',date:'',titles:[],rows:[{section:'summary',key:'사업영역 다›',n:0,lines:['- 다 영역 지난주 줄','']}]}});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ const c=flowCell(page,'사업영역 다 › —');
+ await expect(c.locator('[data-flow-empty]')).toHaveText('빈 칸');
+ const sg=c.locator('[data-flow-suggest] li');
+ await expect(sg).toHaveCount(1);
+ await expect(sg.locator('.weekly-flow-tag')).toHaveText('지난주에서');
+ await expect(sg.locator('.weekly-flow-text')).toHaveText('다 영역 지난주 줄');
+ // 줄이 있는 칸에는 앞 주 줄 제안이 붙지 않는다.
+ await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-tag',{hasText:'지난주에서'})).toHaveCount(1);
+ const before=f.exec.calls.filter(x=>x.method==='PATCH').length;
+ await sg.locator('[data-flow-take]').click();
+ await expect(cellLines(c)).toHaveText(['- 다 영역 지난주 줄']);
+ await expect(c.locator('[data-flow-suggest] li')).toHaveCount(0);
+ expect(f.exec.calls.filter(x=>x.method==='PATCH').length).toBe(before+1);
+ const row=f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ expect(row.draft.rows).toContainEqual({section:'summary',key:'사업영역 다›',n:0,lines:['- 다 영역 지난주 줄']});
+ expect(row.draft.picks.items.find(x=>x.kind==='carried')).toMatchObject({act:'take',from:'record',cell:'summary:사업영역 다›'});
+ // 앞 주 행은 그대로(읽기만).
+ expect(f.exec.rows.find(r=>r.week_start==='2026-09-28').draft.rows[0].lines).toEqual(['- 다 영역 지난주 줄','']);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
