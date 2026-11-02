@@ -79,10 +79,15 @@ export function paintAreaView(host,meeting,{tasks=[],onMessage=()=>{},onTaskMade
   if(!host)return;
   const has=meeting&&Object.hasOwn(meeting,'business_area_id'),shown=has?shownArea(meeting):{id:''},lines=has?nextPlanLines(meeting.next_plan):[];
   host.hidden=!has||(!shown.id&&!shown.none&&!lines.length);if(host.hidden){host.replaceChildren();return}
-  const titles=new Set((tasks||[]).map(t=>String(t?.title||'').trim()));
-  host.innerHTML=`<p class="biz-area-line${shown.none?' is-none':''}" data-biz-area-line>${shown.id?'사업영역 <span data-biz-area-name>…</span>':shown.none?'사업영역 없음':''}</p>${lines.length?`<details class="biz-next-plan" open><summary>다음 할 일 <span class="optional">${lines.length}줄</span></summary><ul class="biz-plan-list">${lines.map((line,i)=>`<li><span>${esc(line)}</span>${titles.has(line)?'<span class="optional">할 일에 있음</span>':`<button type="button" class="mini" data-biz-plan-task="${i}">할 일로</button>`}</li>`).join('')}</ul></details>`:''}`;
+  // S48-30 줄 누르기(요청함 10/28 19:16 ⑦, 사업 보고 화면): '사업영역 ○○'은 그 사업영역 상세로, '할 일에 있음'은 그 할 일 수정 창으로 간다(새 창 없음, 공용 여는 길).
+  const byTitle=new Map((tasks||[]).filter(t=>t?.id).map(t=>[String(t.title||'').trim(),t])),titles=new Set(byTitle.keys());
+  host.innerHTML=`<p class="biz-area-line${shown.none?' is-none':''}" data-biz-area-line>${shown.id?`<button type="button" class="biz-area-open" data-biz-area-open title="사업영역 상세 열기">사업영역 <span data-biz-area-name>…</span></button>`:shown.none?'사업영역 없음':''}</p>${lines.length?`<details class="biz-next-plan" open><summary>다음 할 일 <span class="optional">${lines.length}줄</span></summary><ul class="biz-plan-list">${lines.map((line,i)=>`<li><span>${esc(line)}</span>${titles.has(line)?`<button type="button" class="biz-plan-open optional" data-biz-plan-open="${i}" title="할 일 수정 창 열기">할 일에 있음</button>`:`<button type="button" class="mini" data-biz-plan-task="${i}">할 일로</button>`}</li>`).join('')}</ul></details>`:''}`;
   if(shown.id)void areaName(shown.id).then(name=>{const el=host.querySelector('[data-biz-area-name]');if(el)el.textContent=name+(shown.legacy?' (연결에서)':'')});
   host.onclick=async e=>{
+    const area=e.target.closest('[data-biz-area-open]');
+    if(area){if(shown.id)void window.KPTUAreaWindow?.open?.({id:shown.id,trigger:area});return}
+    const go=e.target.closest('[data-biz-plan-open]');
+    if(go){const task=byTitle.get(lines[Number(go.dataset.bizPlanOpen)]);if(task)void window.KPTUGoogleTasks?.openEditor?.(task);return}
     const b=e.target.closest('[data-biz-plan-task]');if(!b||b.disabled)return;
     const title=lines[Number(b.dataset.bizPlanTask)];if(!title)return;b.disabled=true;b.textContent='넣는 중…';
     try{

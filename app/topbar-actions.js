@@ -388,15 +388,21 @@ function paintWhere(view=window.KPTURouter?.current){
   // The item open on the right of a left-list / right-detail screen goes last ("담당조직 › 조직명"); the screen word before it
   // is plain text (it would only go to the screen already shown).
   const itemKey=view==='basket'?`basket:${basketKind==='note'?'note':'memo'}`:view;
-  if(whereItems.has(itemKey))parts.push({name:whereItems.get(itemKey),item:true});
+  // UI-상단줄중간단계(S48-30, 요청 10/22 14:06 ③⑤): 화면이 준 중간 단계(trail)를 이름 앞에 둔다(사업 보고 › 회의 › 회의명, 사업영역 관리 › 상위 › 하위).
+  // 중간 단계를 누르면 그 화면에 kptu:where-step {view, step}을 보내 그 단계로 간다(그리는 주인은 각 화면).
+  const item=whereItems.get(itemKey);
+  if(item){for(const step of item.trail)parts.push({name:step.name,step:step.step,view});parts.push({name:item.name,item:true});}
   whereList.replaceChildren(...parts.map((part,i)=>{
     const li=document.createElement('li');
     if(i<parts.length-1&&part.go){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
+    else if(i<parts.length-1&&part.step){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineStep=part.step;b.dataset.toplineStepView=part.view;b.textContent=part.name;b.title=part.name;li.append(b)}
     else{const s=document.createElement('span');if(i===parts.length-1)s.setAttribute('aria-current','page');s.textContent=part.name;if(part.item)s.title=part.name;li.append(s)}
     return li;
   }));
 }
 whereList?.addEventListener('click',event=>{
+  const step=event.target.closest('[data-topline-step]');
+  if(step){window.dispatchEvent(new CustomEvent('kptu:where-step',{detail:{view:step.dataset.toplineStepView,step:step.dataset.toplineStep}}));return}
   const go=event.target.closest('[data-topline-go]')?.dataset.toplineGo;if(!go)return;
   window.KPTURouter?.go(go,{source:'delegated'});
 });
@@ -412,7 +418,8 @@ window.addEventListener('kptu:basket-kind',event=>{
 window.addEventListener('kptu:where-item',event=>{
   const view=event.detail?.view,name=String(event.detail?.name??'').trim(),key=event.detail?.kind?`${view}:${event.detail.kind}`:view;
   if(!view)return;
-  if(name){if(whereItems.get(key)===name)return;whereItems.set(key,name)}else if(!whereItems.delete(key))return;
+  const trail=(Array.isArray(event.detail?.trail)?event.detail.trail:[]).map(t=>({name:String(t?.name??'').trim(),step:String(t?.step??'')})).filter(t=>t.name).slice(0,3);
+  if(name){const was=whereItems.get(key);if(was&&was.name===name&&JSON.stringify(was.trail)===JSON.stringify(trail))return;whereItems.set(key,{name,trail})}else if(!whereItems.delete(key))return;
   paintWhere();
 });
 window.addEventListener('kptu:session-changed',()=>{if(whereItems.size){whereItems.clear();paintWhere()}});

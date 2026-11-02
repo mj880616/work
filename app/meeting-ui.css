@@ -333,6 +333,10 @@
 .biz-plan-list{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:2px}
 .biz-plan-list li{display:flex;align-items:center;gap:var(--kptu-space-2);justify-content:space-between;font-size:13px}
 .biz-plan-list li>span:first-child{min-width:0;overflow-wrap:anywhere}
+/* S48-30 줄 누르기: '사업영역 ○○'·'할 일에 있음'은 글자 모양 그대로 누르는 버튼(누르는 범위 44px은 ::after). */
+.biz-area-open,.biz-plan-open{position:relative;display:inline;margin:0;padding:0;min-height:0;height:auto;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--kptu-border-strong,var(--kptu-border));text-underline-offset:2px}
+.biz-area-open::after,.biz-plan-open::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.biz-area-open:hover,.biz-plan-open:hover{color:var(--kptu-ink)}
 /* BIZ-버튼줄정리(10/29 시안 B): 위쪽 줄은 [목록|달력|사진] ……… [+ 사업 보고][⋯]. 오른쪽 묶음(.report-head-actions)에 버튼을 더 넣어도 ⋯가 늘 맨 끝이다.
    ⋯ 메뉴(사업요약표 미리보기·사업영역 관리)는 공용 메뉴 부품(anchored-menu.js)과 공용 글자 줄 모양(.topline-add-menu)이고, ⋯ 바로 아래 오른쪽 맞춤으로 열린다.
    [+ 사업 보고]는 작고 낮은 채운 버튼(32px, 누르는 범위 44px은 ::after). 폰(~760px)에서는 이 버튼이 하단 동그란 [+]로 가므로 줄 끝은 ⋯다. */
