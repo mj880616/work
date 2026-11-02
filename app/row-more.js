@@ -26,7 +26,7 @@ function wire(doc) {
   }, true);
 }
 
-// label: ⋯ 의 읽기 이름(예: '가상 안건 고치기·빼기'). items: [{text, data:{datasetKey:value}, aria, disabled, danger}].
+// label: ⋯ 의 읽기 이름(예: '가상 안건 고치기·빼기'). items: [{text, data:{datasetKey:value}, aria, disabled, danger, onClick}].
 // data: <details> 자신에게 붙일 data-*. 반환 <details class="journal-kind-more row-more">.
 export function rowMore(doc, {label, items, data = {}}) {
   wire(doc);
@@ -42,6 +42,7 @@ export function rowMore(doc, {label, items, data = {}}) {
     for (const [key, value] of Object.entries(item.data ?? {})) b.dataset[key] = value;
     if (item.aria) b.setAttribute('aria-label', item.aria);
     if (item.disabled) b.disabled = true;
+    if (typeof item.onClick === 'function') b.addEventListener('click', item.onClick); // 화면 메모리만 바꾸는 곁 처리(쓰기는 원래 data-* 처리 그대로)
     menu.append(b);
   }
   box.append(sum, menu);
