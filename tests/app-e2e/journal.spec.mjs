@@ -2216,7 +2216,7 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 내부 정례
  await more.locator('summary').click();
  const toggle=kindLines(page).nth(1).locator('[data-journal-kind-toggle]');
  await expect(toggle).toBeVisible();await expect(toggle).toHaveText('이 종류 늘 빼기');
- expect((await toggle.boundingBox()).height).toBeLessThanOrEqual(32.5);
+ await expect.poll(async()=>(await toggle.boundingBox())?.height??99).toBeLessThanOrEqual(32.5);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`meeting-kinds-open-${width}.png`),fullPage:true});
  await toggle.click();
@@ -2233,6 +2233,35 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 내부 정례
  await expect(itemTexts(page,'activities')).toHaveText(['10:00 궤도 집행국 회의 12차 보고 안 함']);
  await expect(group(page,'activities').locator('li[data-journal-report-off]')).toHaveCount(1);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+// QA-주간정리메뉴간헐: 늦게 도착한 읽기가 [주간 정리]를 다시 그려도 열어 둔 줄 끝 ⋯ 는 열린 채(새로 그린 ⋯), 그 안 버튼을 바로 누를 수 있다.
+// (예전에는 다시 그린 ⋯ 가 닫힌 채 그려져 메뉴가 사용자가 누르기 전에 닫혔다 — CI에서 :2198·:1097 간헐 실패.) 가짜 내용만.
+test('[주간 정리] 열어 둔 줄 끝 ⋯ 는 늦은 읽기로 다시 그려도 열린 채, 다른 곳을 누르면 닫힘',async({page})=>{
+ const f=await kindsFixture(page,{width:1280});
+ // 끝낸 할 일 읽기를 붙잡아 둔다: ⋯ 를 연 뒤에 놓아 주면 그 읽기가 도착해 [주간 정리]를 다시 그린다.
+ let release;const gate=new Promise(r=>{release=r;});
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-tasks',async r=>{
+  if(new URL(r.request().url()).searchParams.get('action')!=='tasks')return r.fallback();
+  await gate;return r.fallback();
+ });
+ await openJournal(page,1280);await openWeekly(page);
+ await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견','10월 8일(목)10:00 운영위원회 3차','10월 9일(금)10:00 새 회의 종류']);
+ const more=kindLines(page).nth(1).locator('details.row-more');
+ await more.locator('summary').click();
+ await expect(more).toHaveJSProperty('open',true);
+ await more.evaluate(e=>{e.__beforeRedraw=true;});
+ release();
+ // 다시 그려졌다(⋯ 가 새 마디) — 그래도 열린 채.
+ await expect.poll(()=>more.evaluate(e=>e.__beforeRedraw===true)).toBe(false);
+ await expect(more).toHaveJSProperty('open',true);
+ await expect(page.locator('#journalRoot details.row-more[open]')).toHaveCount(1);
+ const toggle=kindLines(page).nth(1).locator('[data-journal-kind-toggle]');
+ await expect(toggle).toBeVisible();
+ // 다른 곳을 누르면 닫히고, 다음 다시 그리기에서 혼자 열리지 않는다.
+ await page.locator('#journalRoot [data-journal-weekly-title]').click();
+ await expect(more).toHaveJSProperty('open',false);
+ await expect(page.locator('#journalRoot details.row-more[open]')).toHaveCount(0);
+ expect(f.errors).toEqual([]);
 });
 
 test('[주간 정리] 회의 종류: 목록을 못 읽어도(옛 응답) 내부 정례 회의는 빠지고 나머지는 올라간다, ⋯ 종류 빼기는 없다',async({page})=>{
@@ -2712,7 +2741,8 @@ for(const width of [390,1280])test(`[주간 정리] 조직 요약: [요약 만�
  await expect(orgs.locator('[data-journal-org="가상 노동조합"] > .journal-weekly-list li')).toHaveCount(1);
  expect(f.ai).toEqual([]);
  // UI-버튼기준: 묶음 제목 줄 오른쪽 작은 버튼(32px) — 큰 primary가 아니다. 누르는 범위는 44px.
- const box=await run.boundingBox();expect(Math.round(box.height)).toBe(32);
+ // 늦은 읽기가 이 묶음을 다시 그리면 재던 마디가 바뀔 수 있어, 한 번 재기 대신 지금 보이는 버튼을 다시 잰다(QA-주간정리메뉴간헐).
+ await expect.poll(async()=>Math.round((await run.boundingBox())?.height??0)).toBe(32);
  await expect(run).not.toHaveClass(/primary/);
  await run.click();
  await expect(orgs.locator('[data-journal-org-ai-status]')).toHaveText('조직 2곳 요약을 만들었어요.');
