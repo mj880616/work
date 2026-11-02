@@ -54,7 +54,7 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
     }
     // 그 회의 종류를 앞으로 늘 빼기(서버 '빼는 회의 종류' 목록, journal.js toggleKind) — 목록을 읽었을 때만.
     if (mt.editable && validKindKey(item.kind)) menu.push({text:'이 종류 늘 빼기', data:{journalKindToggle:item.kind, journalKindHide:'1', journalKindName:item.kindName}, aria:`${item.kindName} 종류를 주간보고에서 늘 빼기`});
-    if (menu.length) li.append(' ', rowMore(doc, {label:`줄 고치기·빼기: ${item.text}`, data:{journalDetailMore:key || item.kind || ''}, items:menu}));
+    if (menu.length) li.append(rowMore(doc, {label:`줄 고치기·빼기: ${item.text}`, data:{journalDetailMore:key || item.kind || ''}, items:menu}));
     ul.append(li);
   }
   if (ui.editing === 'new') { const li = el('li'); li.dataset.journalDetailNew = ''; li.append(form(ui.value ?? '', '줄 추가')); ul.append(li); }

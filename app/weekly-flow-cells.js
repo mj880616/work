@@ -209,7 +209,7 @@ export function paintFlowCells(slot, ctx) {
       const li = el('li'); li.dataset.flowLine = String(i);
       if (canMove) li.dataset.flowLineId = li.dataset.reorderId = `${c.id}\u0001${i}`; // reorder-drag.js 는 data-reorder-id 로 줄을 안다
       if (ui.editing?.cell === c.id && ui.editing.index === i) { li.append(editForm(c.id, ui.editing.value ?? text, {flowFixSave:c.id}, '줄 고치기')); ul.append(li); return; }
-      if (canMove) { const grip = btn('⠿', {flowLineGrip:'', reorderHandle:''}, 'mini journal-hwpx-grip weekly-flow-grip'); grip.setAttribute('aria-label', `줄 옮기기(위·아래 화살표): ${text}`); grip.disabled = busy || !!ui.editing || !!ui.adding; li.append(grip); }
+      if (canMove) { const grip = btn('⠿', {flowLineGrip:'', reorderHandle:''}, 'mini journal-hwpx-grip weekly-flow-grip'); grip.setAttribute("aria-label", `줄 자리 바꾸기(끌기·위아래 화살표): ${text}`); grip.disabled = busy || !!ui.editing || !!ui.adding; li.append(grip); }
       // 줄을 고르면(누름·초점) 잠시 뒤 그 칸 줄만 AI 에 묻고 칸 아래 흐린 'AI 제안' 줄(weekly_line). 고르기만 해서는 아무것도 바뀌지 않는다.
       const t = el('span', 'weekly-flow-text', text); t.tabIndex = 0; t.dataset.flowPickLine = String(i); li.append(t);
       li.append(rowMore(doc, {label:`줄 고치기·빼기: ${text}`, data:{flowLineMore:''}, items:[

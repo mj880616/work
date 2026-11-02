@@ -98,7 +98,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     for (const x of suggested) {
       const {item, f} = x.raw, text = x.text;
       const li = el('li'); li.dataset.journalHqSuggestItem = item.key;
-      li.append(el('span', 'weekly-flow-tag', '캘린더'), el('span', 'weekly-flow-text', `${f.day ? formDay(f.day) : item.label} ${text}`));
+      li.append(el('span', 'weekly-flow-tag', '캘린더'), el('span', 'weekly-flow-text', f.day ? text : `${item.label} ${text}`)); // 줄 글에 날짜가 들어 있다(hqLine)
       const take = el('button', 'mini weekly-flow-take', '넣기'); take.type = 'button'; take.dataset.journalHqSuggestTake = item.key; take.disabled = busy || rows.length >= HQ_MAX;
       take.setAttribute('aria-label', `2) 주요 일정에 넣기: ${text}`);
       li.append(take, rowMore(doc, {label:`제안 빼기: ${text}`, data:{journalHqSuggestMore:item.key}, items:[{text:'빼기', data:{journalHqSuggestDrop:item.key}, disabled:busy, danger:true, aria:`제안 빼기: ${text}`}]}));
