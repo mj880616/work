@@ -59,12 +59,12 @@ export async function runFeed({ secret, fetcher = fetch, base = FUNCTION_BASE, t
   for (const source of keys) {
     try {
       const r = await call(options, 'run', { source });
-      const counts = { listed: COUNT(r.listed), fresh: COUNT(r.fresh), inserted: COUNT(r.inserted), skipped: COUNT(r.skipped), deferred: COUNT(r.deferred) };
+      const counts = { listed: COUNT(r.listed), fresh: COUNT(r.fresh), inserted: COUNT(r.inserted), skipped: COUNT(r.skipped), deferred: COUNT(r.deferred), refilled: COUNT(r.refilled ?? 0) }; // refilled: 옛 함수 판에는 없음(0으로 봄)
       if (r.source !== source || Object.values(counts).some(v => v === null)) throw new FeedFailure('수집 응답에 건수가 없습니다.');
       results.push({ source, status: typeof r.status === 'string' && CODE.test(r.status) ? r.status : 'unknown', ...counts });
     } catch (error) {
       if (error instanceof FeedFailure && /비밀값/.test(error.message)) throw error;
-      results.push({ source, status: 'call_failed', listed: 0, fresh: 0, inserted: 0, skipped: 0, deferred: 0 });
+      results.push({ source, status: 'call_failed', listed: 0, fresh: 0, inserted: 0, skipped: 0, deferred: 0, refilled: 0 });
     }
   }
   return { pruned: plan.pruned, results };
@@ -74,7 +74,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     const t = await runFeed({ secret: process.env.OUTSIDE_FEED_CRON_SECRET });
     if (!t.results.length) console.log('켠 단체 없음(화면에서 단체를 켜면 다음 실행부터 읽음).');
-    for (const r of t.results) console.log(`${r.source}: ${r.status} · 목록 ${r.listed} · 새 글 ${r.fresh} · 넣음 ${r.inserted} · 건너뜀 ${r.skipped} · 다음으로 ${r.deferred}`);
+    for (const r of t.results) console.log(`${r.source}: ${r.status} · 목록 ${r.listed} · 새 글 ${r.fresh} · 넣음 ${r.inserted} · 건너뜀 ${r.skipped} · 다음으로 ${r.deferred} · 제목 다시 채움 ${r.refilled}`);
     if (t.pruned) console.log(`2년 지난 글 문장 정리: ${t.pruned}건`);
     const failed = t.results.filter(r => r.status === 'call_failed');
     if (failed.length) console.log(`::warning title=바깥 성명 수집::단체 ${failed.length}곳 호출 실패(${failed.map(r => r.source).join(', ')})`);
