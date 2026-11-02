@@ -869,8 +869,15 @@ class MainActivity : ComponentActivity() {
 
     private fun launchEdit(uri: Uri, mime: String) {
         val type = if (mime.startsWith("image/")) mime else "image/*"
-        val samsung = try {
-            packageManager.queryIntentActivities(Intent(PhotoEditRules.ACTION_EDIT).setDataAndType(uri, type).setPackage(PhotoEditRules.SAMSUNG_GALLERY), 0).isNotEmpty()
+        // 이 사진의 공개 ACTION_EDIT를 받는 앱 패키지(패키지 지정 없이 물어 삼성 편집기·갤러리가 있는지 본다).
+        val editPkgs = try {
+            packageManager.queryIntentActivities(Intent(PhotoEditRules.ACTION_EDIT).setDataAndType(uri, type), 0)
+                .mapNotNull { it.activityInfo?.packageName }.toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
+        val galleryView = try {
+            packageManager.queryIntentActivities(Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).setPackage(PhotoEditRules.SAMSUNG_GALLERY), 0).isNotEmpty()
         } catch (_: Exception) {
             false
         }
@@ -884,7 +891,7 @@ class MainActivity : ComponentActivity() {
         editGen = PhoneMedia.generation(this).let { if (it == EDIT_IDLE) -1L else it }
         editReturned = false
         for (write in if (canWrite) listOf(true, false) else listOf(false)) {
-            val plan = PhotoEditRules.plan(uri.toString(), type, samsung, write) ?: break
+            val plan = PhotoEditRules.plan(uri.toString(), type, editPkgs, galleryView, write) ?: break
             try {
                 photoEdit.launch(intentOf(plan))
                 return

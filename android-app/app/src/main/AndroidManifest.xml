@@ -26,6 +26,13 @@
             <action android:name="android.intent.action.EDIT" />
             <data android:mimeType="image/*" />
         </intent>
+        <!-- PHOTO-갤러리편집: 삼성 갤러리로 그 사진 보기(편집 입구가 없을 때). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <package android:name="com.sec.android.mimage.photoretouching" />
+        <package android:name="com.sec.android.gallery3d" />
     </queries>
     <application
         android:allowBackup="false"

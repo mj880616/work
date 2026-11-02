@@ -74,21 +74,49 @@ class PhotoEditRulesTest {
     @Test
     fun editIntentPlan() {
         val uri = "content://media/external/images/media/7"
-        val samsung = PhotoEditRules.plan(uri, "image/jpeg", samsungCanEdit = true)!!
-        assertEquals("android.intent.action.EDIT", samsung.action)
-        assertEquals(PhotoEditRules.SAMSUNG_GALLERY, samsung.pkg)
-        assertFalse(samsung.chooser)
-        assertEquals(PhotoEditRules.GRANT_READ or PhotoEditRules.GRANT_WRITE, samsung.flags)
-        assertEquals(0x3, samsung.flags)
-        val other = PhotoEditRules.plan(uri, "", samsungCanEdit = false)!!
+        val ed = PhotoEditRules.SAMSUNG_EDITOR
+        val gal = PhotoEditRules.SAMSUNG_GALLERY
+        // ① 삼성 편집기가 공개 편집 입구를 받으면 그 앱으로 바로 편집(갤러리보다 먼저).
+        val editor = PhotoEditRules.plan(uri, "image/jpeg", setOf("com.google.android.apps.photos", gal, ed), galleryCanView = true)!!
+        assertEquals("android.intent.action.EDIT", editor.action)
+        assertEquals(ed, editor.pkg)
+        assertFalse(editor.chooser)
+        assertEquals("editor", editor.mode)
+        assertEquals(0x3, editor.flags)
+        // 갤러리 자체가 편집을 받으면 갤러리 편집.
+        assertEquals(gal, PhotoEditRules.plan(uri, "image/jpeg", setOf(gal), true)!!.pkg)
+        // ② 편집 입구가 없으면(0.4.6 실기기: 포토·OneDrive만 받음) 갤러리 보기, 읽기 허락만.
+        val view = PhotoEditRules.plan(uri, "image/jpeg", setOf("com.google.android.apps.photos", "com.microsoft.skydrive"), galleryCanView = true)!!
+        assertEquals("android.intent.action.VIEW", view.action)
+        assertEquals(gal, view.pkg)
+        assertFalse(view.chooser)
+        assertEquals("gallery", view.mode)
+        assertEquals(PhotoEditRules.GRANT_READ, view.flags)
+        // ③ 갤러리도 없을 때만 고르기 창.
+        val other = PhotoEditRules.plan(uri, "", setOf("com.google.android.apps.photos"), galleryCanView = false)!!
         assertNull(other.pkg)
         assertTrue(other.chooser)
+        assertEquals("chooser", other.mode)
         assertEquals("image/*", other.mime)
+        assertTrue(PhotoEditRules.plan(uri, "image/png", emptySet(), false)!!.chooser)
         // 쓰기 권한이 없는 사진은 읽기만 넘긴다.
-        assertEquals(PhotoEditRules.GRANT_READ, PhotoEditRules.plan(uri, "image/jpeg", true, canWrite = false)!!.flags)
+        assertEquals(PhotoEditRules.GRANT_READ, PhotoEditRules.plan(uri, "image/jpeg", setOf(ed), true, canWrite = false)!!.flags)
         // 파일 경로는 넘기지 않는다.
-        assertNull(PhotoEditRules.plan("file:///storage/emulated/0/DCIM/a.jpg", "image/jpeg", true))
-        assertNull(PhotoEditRules.plan("/storage/emulated/0/a.jpg", "image/jpeg", true))
+        assertNull(PhotoEditRules.plan("file:///storage/emulated/0/DCIM/a.jpg", "image/jpeg", setOf(ed), true))
+        assertNull(PhotoEditRules.plan("/storage/emulated/0/a.jpg", "image/jpeg", setOf(ed), true))
+    }
+
+    @Test
+    fun manifestDeclaresQueries() {
+        val manifest = listOf(java.io.File("src/main/AndroidManifest.xml"), java.io.File("app/src/main/AndroidManifest.xml")).first { it.exists() }.readText()
+        val queries = manifest.substringAfter("<queries>").substringBefore("</queries>")
+        for (p in PhotoEditRules.QUERY_PACKAGES) assertTrue(p, queries.contains("<package android:name=\"$p\""))
+        assertTrue(queries.contains("android.intent.action.EDIT"))
+        assertTrue(queries.contains("android.intent.action.VIEW"))
+        // 비공개 내부 화면 이름은 부르지 않는다(패키지만 지정).
+        val main = listOf(java.io.File("src/main/java/kr/or/kptu/work/MainActivity.kt"), java.io.File("app/src/main/java/kr/or/kptu/work/MainActivity.kt")).first { it.exists() }.readText()
+        assertFalse(main.contains("setClassName(PhotoEditRules"))
+        assertFalse(main.contains("ComponentName(PhotoEditRules"))
     }
 
     @Test
