@@ -285,6 +285,8 @@ import {eventColor} from './home-read-model.js';
           }else{create.classList.add('cmv-date-create-pc');create.appendChild(day);cell.append(create)}
           cell.removeAttribute('aria-label');
         }else cell.appendChild(day);
+        // 폰 날짜 줄의 읽어 주는 이름에는 그날 할 일 수를 남긴다(칸에 다 안 보일 때도 알 수 있게).
+        if(pending.length&&phone){const list=cell.querySelector('.cmv-date-list');list.setAttribute('aria-label',`${list.getAttribute('aria-label')}, 할 일 ${pending.length}개`+(pending.some(t=>t.overdue)?', 기한 지남 포함':''))}
         if(pending.length&&!phone){
           cell.classList.add('cmv-cell-tasks');
           const count=document.createElement('button');count.type='button';

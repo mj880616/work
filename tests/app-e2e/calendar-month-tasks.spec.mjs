@@ -55,8 +55,8 @@ test('phone cells show task titles after events, merge overflow into +n and open
   await page.evaluate(()=>KPTUCalendarMonthView.setExpanded(true));
   await expect(page.locator('#calendarGrid')).toHaveAttribute('data-cmv-expanded','1');
   await expect(week.locator('.kptu-day-more')).toHaveCount(0);
-  const all21=await week.locator('.cmv-cell-task').evaluateAll(els=>els.filter(el=>el.style.gridColumnStart==='4').map(el=>{const r=el.getBoundingClientRect(),w=el.closest('.cmv-week').getBoundingClientRect();return r.height>0&&r.bottom<=w.bottom+.5}));
-  expect(all21).toEqual(Array(17).fill(true));
+  // 펼침은 주 높이가 부드럽게 바뀌므로(0.22초) 다 커질 때까지 기다린다.
+  await expect.poll(()=>week.locator('.cmv-cell-task').evaluateAll(els=>els.filter(el=>el.style.gridColumnStart==='4').map(el=>{const r=el.getBoundingClientRect(),w=el.closest('.cmv-week').getBoundingClientRect();return r.height>0&&r.bottom<=w.bottom+.5}))).toEqual(Array(17).fill(true));
   await page.evaluate(()=>KPTUCalendarMonthView.setExpanded(false));
   await expect(page.locator('#calendarGrid')).toHaveAttribute('data-cmv-expanded','0');
   // '+n'은 그날 목록(일정 1 + 할 일 18, 완료 포함)을 연다.
