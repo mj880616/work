@@ -533,6 +533,9 @@ export const ORG_EDIT_MAX_LINES = 8;
 export const EXEC_FIELDS = Object.freeze([['day', '일', 'date'], ['until', '끝 날(여러 날이면)', 'date'], ['time', '시간', 'text'], ['what', '내용', 'text'], ['place', '장소', 'text'], ['who', '참석 요청', 'text']]);
 // fileUi (WEEKLY-자료요약 화면 ②, journal.js keeps it): {editing:자료 id | null, value, saving, status, error}.
 export const FILE_EDIT_MAX = 200;
+// 방금 [빼기]한 자료 줄 id(탭 메모리뿐) — 그 줄 자리에만 [되돌리기]를 보인다.
+let lastFileDrop = '';
+let lastScheduleDrop = ''; // 방금 [빼기]한 5. 주요 일정 줄 열쇠(탭 메모리뿐)
 export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}, overlapUi = {}) {
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
@@ -569,7 +572,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (item.file.kept) { const n = el('span', 'journal-file-note', '넣음'); n.dataset.journalFileKept = ''; li.append(' ', n); }
     if (!fe.editable || item.file.dropped || (item.file.verdict === 'same' && !item.file.kept)) return;
     const items = [{text:'고치기', data:{journalFileEdit:item.file.id}, disabled:!canEdit},
-      {text:'빼기', data:{journalFileDrop:item.file.id}, disabled:!canEdit, aria:`이번 주 보고에서 빼기: ${text}`, danger:true}];
+      {text:'빼기', data:{journalFileDrop:item.file.id}, disabled:!canEdit, aria:`이번 주 보고에서 빼기: ${text}`, danger:true, onClick:() => { lastFileDrop = item.file.id; }}];
     if (item.file.kept) items.push({text:'다시 접기', data:{journalFileUnkeep:item.file.id}, disabled:!canEdit});
     li.append(' ', rowMore(doc, {label:`${text} 자료 줄 고치기·빼기`, data:{journalFileMore:item.file.id}, items}));
   }
@@ -586,25 +589,36 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     return box;
   }
   // 기록과 같아 접은 자료: 칸 맨 아래 늘 보이는 접힘 한 줄("기록과 같아 뺀 자료 N"). 펼치면 그 자료 줄과 [넣기](화면 ②).
-  const fileFold = (items, kind) => {
+  // WEEKLY-뺀목록삭제(S48-3b): [빼기]한 자료 줄('뺀 자료' 접힘)은 두지 않는다 — 데이터(draft.docs)는 그대로. 방금 뺀 줄 하나만 그 자리에
+  // '자료 줄을 뺐어요 [되돌리기]'(누르기 처리는 journal.js 의 기존 data-journal-file-undrop).
+  const justDropped = items => {
+    const item = (items ?? []).find(i => i.file?.id === lastFileDrop);
+    if (!item) return null;
+    const p = el('p', 'journal-line-status'); p.dataset.journalFileDropUndo = item.file.id; p.setAttribute('role', 'status');
+    const b = el('button', 'mini', '되돌리기'); b.type = 'button'; b.dataset.journalFileUndrop = item.file.id; b.disabled = !canEdit;
+    b.setAttribute('aria-label', `다시 넣기: ${item.text}`); b.addEventListener('click', () => { lastFileDrop = ''; });
+    p.append('자료 줄을 뺐어요 ', b);
+    return p;
+  };
+  const droppedFiles = justDropped;
+  const foldedFiles = items => {
     if (!items?.length) return null;
+    const key = `folded:${items.map(i => i.file.id).join(',')}`;
     const box = el('details', 'journal-org-raw journal-file-folded');
-    box.dataset[kind === 'dropped' ? 'journalFileDropped' : 'journalFileFolded'] = String(items.length);
-    if (fileUi.open?.has(`${kind}:${items.map(i => i.file.id).join(',')}`)) box.open = true;
-    box.dataset.journalFileFoldKey = `${kind}:${items.map(i => i.file.id).join(',')}`;
-    box.append(el('summary', null, `${kind === 'dropped' ? '뺀 자료' : '기록과 같아 뺀 자료'} ${items.length}`));
+    box.dataset.journalFileFolded = String(items.length);
+    if (fileUi.open?.has(key)) box.open = true;
+    box.dataset.journalFileFoldKey = key;
+    box.append(el('summary', null, `기록과 같아 뺀 자료 ${items.length}`));
     const list = itemList(items);
     if (fe.editable) [...list.children].forEach((li, i) => {
-      const b = el('button', 'mini', kind === 'dropped' ? '다시 넣기' : '넣기'); b.type = 'button'; b.disabled = !canEdit;
-      b.dataset[kind === 'dropped' ? 'journalFileUndrop' : 'journalFileKeep'] = items[i].file.id;
-      b.setAttribute('aria-label', `${kind === 'dropped' ? '다시 넣기' : '이번 주 보고에 넣기'}: ${items[i].text}`);
+      const b = el('button', 'mini', '넣기'); b.type = 'button'; b.disabled = !canEdit;
+      b.dataset.journalFileKeep = items[i].file.id;
+      b.setAttribute('aria-label', `이번 주 보고에 넣기: ${items[i].text}`);
       li.append(' ', b);
     });
     box.append(list);
     return box;
   };
-  const foldedFiles = items => fileFold(items, 'folded');
-  const droppedFiles = items => fileFold(items, 'dropped');
   // MTG-기록겹침거르기 4단계: 겹쳐서 뺀 줄은 그 묶음 맨 아래 접힘 한 줄("겹쳐서 n건 뺐어요 · 보기"). 펼치면 뺀 줄·남긴 사업 보고·AI 이유 한 줄과 줄마다 [되살리기]
   // (사용자 판정 '같은 일 아님'으로 서버에 저장). 아무것도 지우지 않는다.
   const overlapFold = (items, part) => {
@@ -794,11 +808,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       // 이미 요약(또는 고치는 칸)에 든 일정은 다시 보이지 않는다.
       const all = can && section.id && section.id === model.orgRefs?.org
         ? model.orgRefs.items.filter(item => !orgRefIn(editing ? editing.value : section.summary?.text ?? '', item)) : [];
-      // S46-22: 추천마다 작은 [×](이번 주 제안에서 빠짐 — 한글 파일 상자 그 조직 칸 추천과 같은 열쇠), 뺀 것은 접힌 '뺀 제안 n개'에서 다시 넣기.
+      // S46-22: 추천마다 작은 [×](이번 주 제안에서 빠짐 — 한글 파일 상자 그 조직 칸 추천과 같은 열쇠), 뺀 것은 목록에 남기지 않는다(WEEKLY-뺀목록삭제 — 방금 뺀 것만 [되돌리기], 데이터는 picks 에 그대로).
       const picks = model.picks?.ready ? model.picks : null;
       const sorted = picks ? sortPicks(all, item => ({kind:'calendar', from:'calendar', cell:`orgref:${section.id}`, org:section.name, text:item.label}), picks) : {shown:all.map(raw => ({raw})), gone:[]};
       const undo = picks?.undo && picks.undo.cell === `orgref:${section.id}` ? picks.undo : null;
-      if (sorted.shown.length || sorted.gone.length || undo) {
+      if (sorted.shown.length || undo) {
         const ul = el('ul', 'journal-weekly-list journal-org-refs'); ul.dataset.journalOrgRefs = section.id;
         for (const x of sorted.shown) {
           const item = x.raw, pick = x.key ? JSON.stringify({kind:x.kind, from:x.from, cell:x.cell, org:x.org, text:x.text, key:x.key}) : '';
@@ -820,8 +834,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
           const back = el('button', 'mini', '되돌리기'); back.type = 'button'; back.dataset.journalPickUndo = ''; back.dataset.journalPick = JSON.stringify(undo); back.disabled = !!picks.busy;
           say.append('제안을 뺐어요 ', back); part.append(say);
         }
-        const fold = goneFold(doc, el, sorted.gone, picks);
-        if (fold) part.append(fold);
       }
       if (picks?.status && section.id === model.orgRefs?.org) { const say = el('p', 'journal-line-status', picks.status); if (picks.error) say.classList.add('journal-failed'); part.append(say); }
       orgs.append(part);
@@ -864,7 +876,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
           {text:'지우기', data:{journalHandDelete:`calendar:${item.hand}`}, danger:true, aria:`지우기: ${item.what}`}]}));
         else if (item.key) owner.append(rowMore(doc, {label:`일정 고치기·빼기: ${item.what}`, data:{journalScheduleMore:''}, items:[
           {text:'고치기', data:{journalScheduleFix:item.key}, aria:`일정 고치기: ${item.what}`},
-          {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`}]}));
+          {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`, onClick:() => { lastScheduleDrop = item.key; }}]}));
         tr.append(what, owner);
         body.append(tr);
       });
@@ -873,18 +885,16 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     cal.append(handSlot);
     const off = vacationLine(c.vacations);
     if (off) { const p = el('p', 'journal-weekly-vacation', off); p.dataset.journalWeeklyVacation = ''; cal.append(p); }
-    // 이번 주에 뺀 일정: 접힌 한 줄, 펼치면 일정마다 [다시 넣기].
-    const cut = (c.allRows ?? []).flatMap(row => row.items.filter(i => model.calendarDrops?.get?.(i.key) === 'drop').map(i => ({label:row.label, title:i.title, key:i.key})));
-    if (cut.length) {
-      const fold = el('details', 'journal-weekly-gone'); fold.dataset.journalScheduleCut = String(cut.length);
-      fold.append(el('summary', null, `이번 주 뺀 일정 ${cut.length}개`));
-      const ul = el('ul', 'journal-kinds-off-list');
-      for (const i of cut) { const li = el('li', null, `${i.label} ${i.title} `); const b = el('button', 'mini', '다시 넣기'); b.type = 'button'; b.dataset.journalSchedulePut = i.key; b.setAttribute('aria-label', `다시 넣기: ${i.label} ${i.title}`); li.append(b); ul.append(li); }
-      fold.append(ul); cal.append(fold);
+    // WEEKLY-뺀목록삭제(S48-3b): '이번 주 뺀 일정 [다시 넣기]' 접힘·'기억으로 뺀 일정 n개' 줄은 두지 않는다(데이터 draft.dropped·기억 칸은 그대로).
+    // 방금 뺀 일정 하나만 '일정을 뺐어요 [되돌리기]'(누르기 처리는 journal.js 의 기존 data-journal-schedule-put).
+    const cut = lastScheduleDrop && model.calendarDrops?.get?.(lastScheduleDrop) === 'drop'
+      ? (c.allRows ?? []).flatMap(row => row.items.filter(i => i.key === lastScheduleDrop).map(i => ({label:row.label, title:i.title, key:i.key})))[0] : null;
+    if (cut) {
+      const p = el('p', 'journal-line-status'); p.dataset.journalScheduleCut = cut.key; p.setAttribute('role', 'status');
+      const b = el('button', 'mini', '되돌리기'); b.type = 'button'; b.dataset.journalSchedulePut = cut.key; b.setAttribute('aria-label', `다시 넣기: ${cut.label} ${cut.title}`);
+      b.addEventListener('click', () => { lastScheduleDrop = ''; });
+      p.append('일정을 뺐어요 ', b); cal.append(p);
     }
-    // 기억으로 뺀 일정은 늘 한 줄로 보인다(흔한 제목을 빼 다른 일정까지 빠지는 것을 알아보게, 설계 위험 2).
-    const gone = memoryDroppedItems(c);
-    if (gone.length) { const p = muted(`기억으로 뺀 일정 ${gone.length}개: ${gone.map(i => `${i.label} ${i.title}`).join(', ')}`); p.dataset.journalScheduleMemoryDropped = String(gone.length); cal.append(p); }
     if (c.noCalendar) { const p = muted(`'${REPORT_CALENDAR}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     cal.append(muted(`참석자 칸은 한글 파일에서 내 이름으로 채워요. '${REPORT_CALENDAR}' 달력 일정만 넣고, 일기·비공개 표시 일정은 빼요.`));
   }
@@ -921,29 +931,10 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   host.replaceChildren(when, one, two, three, four, five, ref, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks), learn);
 }
 
-// S46-22: 뺀 제안 접기(다시 넣기). gone = sortPicks 의 gone.
-function goneFold(doc, el, gone, picks) {
-  if (!gone?.length) return null;
-  const box = el('details', 'journal-weekly-gone'); box.dataset.journalPickGone = '';
-  const learned = gone.filter(g => g.why === 'learn').length;
-  box.append(el('summary', null, `뺀 제안 ${gone.length}개${learned ? `(주간보고 기억으로 ${learned}개)` : ''}`));
-  const ul = el('ul', 'journal-weekly-list');
-  for (const g of gone) {
-    const li = el('li'); li.dataset.journalPickGoneItem = g.key; li.append(`${g.text} `);
-    if (g.why === 'learn') li.append(el('small', 'journal-muted', '기억 '));
-    const put = el('button', 'mini', '다시 넣기'); put.type = 'button'; put.dataset.journalPickPut = ''; put.disabled = !!picks?.busy;
-    put.dataset.journalPick = JSON.stringify({kind:g.kind, from:g.from, cell:g.cell, org:g.org, text:g.text, key:g.key});
-    put.setAttribute('aria-label', `다시 넣기: ${g.text}`); li.append(put); ul.append(li);
-  }
-  box.append(ul);
-  return box;
-}
-
 // WEEKLY-환류 (설계 3.7, Q6 ①): [주간 정리] 맨 아래 접힌 '주간보고 기억' — 일정 이름·일정 빼기(지우기)·거절해서 안 내는 제안.
 // WEEKLY-뺀목록삭제: 회의 종류 빼기 목록·되살리기 버튼은 없앴다(명진 11/01 01:16 "다시 올릴 일 없음, 다 보여주지마").
 // memoryUi (journal.js keeps it): {open, busy, status, error, undo:{entry}}. 기억 칸을 읽지 못했으면 일정 기억 줄은 없다.
 export const MEMORY_TAG = '기억';
-const memoryDroppedItems = c => (c?.allRows ?? []).flatMap(row => row.items.filter(i => i.memo?.drop).map(i => ({label:row.label, title:i.title})));
 const slash = day => { const [, m, d] = String(day ?? '').split('-'); return m ? `${Number(m)}/${Number(d)}` : ''; };
 function memoryBox(doc, el, r_, ui = {}, picks = null) {
   const blocked = picks?.learn?.blocked ?? [];

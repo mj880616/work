@@ -541,23 +541,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     x.title = '이 제안 빼기'; x.setAttribute('aria-label', `제안 빼기: ${label ?? item.text}`);
     return x;
   };
-  // 칸·목록 아래 접힌 '뺀 제안 n개' — 다시 넣기(이번 주에만, 기억으로 빠진 종류도).
-  function goneFold(s, gone) {
-    if (!gone?.length) return null;
-    const box = el('details', 'journal-hwpx-gone'); box.dataset.hwpxGone = '';
-    const learned = gone.filter(g => g.why === 'learn').length;
-    box.append(el('summary', '', `뺀 제안 ${gone.length}개${learned ? `(주간보고 기억으로 ${learned}개)` : ''}`));
-    const ul = el('ul', 'journal-hwpx-material');
-    for (const g of gone) {
-      const li = el('li'); li.dataset.hwpxGoneItem = g.key;
-      li.append(doc.createTextNode(`${g.text} `));
-      if (g.why === 'learn') li.append(el('small', 'journal-muted', '기억 '));
-      const put = button('다시 넣기', 'hwpxPickPut'); put.dataset.hwpxPickKey = indexPick(s, g); put.setAttribute('aria-label', `다시 넣기: ${g.text}`);
-      li.append(put); ul.append(li);
-    }
-    box.append(ul);
-    return box;
-  }
+  // WEEKLY-뺀목록삭제(S48-3b): 칸·목록 아래 '뺀 제안 n개' 접힘은 두지 않는다 — 방금 뺀 것만 [되돌리기](pickUndo), picks 데이터는 그대로.
+  const goneFold = () => null;
   function pickUndo(item) {
     undoLine.replaceChildren(doc.createTextNode('제안을 뺐어요 '));
     const back = button('되돌리기', 'hwpxPickUndo'); back.dataset.hwpxPickKey = item.key; back.setAttribute('aria-label', `되돌리기: ${item.text}`);
