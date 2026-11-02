@@ -432,6 +432,79 @@
             android:layout_weight="1"
             android:paddingStart="8dp" />
     </LinearLayout>
+    <!-- APP-위젯날짜고르기: 요일 칸을 눌러 고른 날(머리 줄 + [열기] + 줄 셋). 고르지 않으면 숨기고 위 세 줄을 보인다. -->
+    <LinearLayout
+        android:id="@+id/week_sel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="2dp"
+        android:visibility="gone">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/week_sel_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_ink"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_weight="1" />
+            <TextView
+                android:id="@+id/week_sel_open"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/widget_badge_todo"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:singleLine="true"
+                android:text="열기 ›"
+                android:textColor="@color/widget_todo_ink"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/week_sel_i0"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="18dp"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_ink"
+            android:textSize="12sp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/week_sel_i1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="18dp"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_ink"
+            android:textSize="12sp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/week_sel_i2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="18dp"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/widget_ink"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </LinearLayout>
     <TextView
         android:id="@+id/week_note"
         android:layout_width="match_parent"
