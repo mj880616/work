@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>파일 탐색기 시안</title>
+<style>
+/* 기존 테마 토큰(app/base-ui.css)과 같은 값. 시안 전용 정적 파일 — 파일·폴더 이름은 모두 가짜. */
+:root{
+  --kptu-bg:#f5f6f7;--kptu-surface:#fff;--kptu-surface-subtle:#fafbfc;
+  --kptu-ink:#1f2933;--kptu-muted:#66727f;--kptu-faint:#8a949e;
+  --kptu-border:#dfe4e8;--kptu-border-strong:#cfd6dc;
+  --kptu-primary:#263f5f;--kptu-primary-soft:#eef2f6;--kptu-link:#355f86;
+  --kptu-accent:#66508c;--sel:#e9eef4;
+  --kptu-radius-sm:6px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#15191d;--kptu-surface:#1d2227;--kptu-surface-subtle:#242a30;
+  --kptu-ink:#e4e8ec;--kptu-muted:#a3adb7;--kptu-faint:#85909b;
+  --kptu-border:#313941;--kptu-border-strong:#3d4650;
+  --kptu-primary:#a9bfd9;--kptu-primary-soft:#26313d;--kptu-link:#9ebbd8;
+  --kptu-accent:#c0b0dc;--sel:#27313b;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:15px;margin:0 0 4px}
+.note{margin:0 0 12px;color:var(--kptu-muted);font-size:12px}
+h2.cap{font-size:13px;font-weight:600;margin:20px 0 6px;color:var(--kptu-muted)}
+.scroll{overflow-x:auto;padding-bottom:6px}
+.frame{background:var(--kptu-surface);border:1px solid var(--kptu-border-strong);border-radius:10px;overflow:hidden}
+.pc{width:1440px;height:560px;display:flex;flex-direction:column}
+.phone{width:412px;max-width:100%;height:700px;display:flex;flex-direction:column}
+button{font:inherit;color:inherit}
+.ic{display:inline-block;width:16px;text-align:center;color:var(--kptu-faint);font-size:12px}
+.faint{color:var(--kptu-faint)}
+.muted{color:var(--kptu-muted)}
+
+/* 머리줄 */
+.top{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:.5px solid var(--kptu-border);min-height:38px}
+.top .t{font-size:15px;font-weight:600}
+.crumb{font-size:12px;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb b{color:var(--kptu-ink);font-weight:500}
+.search{height:26px;border:.5px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface-subtle);padding:0 8px;font:inherit;font-size:12px;color:var(--kptu-ink);width:260px}
+.tb{height:26px;padding:0 8px;border:0;background:none;border-radius:var(--kptu-radius-sm);color:var(--kptu-muted);font-size:12px}
+.tb:hover{background:var(--kptu-surface-subtle)}
+.sync{font-size:11px;color:var(--kptu-faint);margin-left:auto;white-space:nowrap}
+
+/* 세 칸 */
+.cols{flex:1;display:flex;min-height:0}
+.tree{width:240px;border-right:.5px solid var(--kptu-border);overflow:auto;padding:4px 0}
+.list{flex:1;overflow:auto;min-width:0}
+.prev{width:320px;border-left:.5px solid var(--kptu-border);overflow:auto;padding:10px 12px}
+
+/* 나무 (사진 폴더 나무와 같은 모양) */
+.tr{display:flex;align-items:center;gap:2px;height:26px;padding:0 8px 0 calc(6px + var(--d,0)*14px);font-size:12.5px;cursor:default;white-space:nowrap}
+.tr:hover{background:var(--kptu-surface-subtle)}
+.tr[aria-current="true"]{background:var(--sel);font-weight:500}
+.tr .tw{width:14px;color:var(--kptu-faint);font-size:10px;text-align:center}
+.tr .nm{flex:1;overflow:hidden;text-overflow:ellipsis}
+.tr .n{font-size:11px;color:var(--kptu-faint);margin-left:6px}
+.tr .n.z{opacity:.55}
+.tsep{height:.5px;background:var(--kptu-border);margin:4px 8px}
+.troot{font-weight:600}
+
+/* 목록 */
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--kptu-surface);text-align:left;font-weight:500;color:var(--kptu-muted);font-size:11.5px;height:26px;padding:0 8px;border-bottom:.5px solid var(--kptu-border)}
+td{height:28px;padding:0 8px;border-bottom:.5px solid var(--kptu-border);white-space:nowrap}
+tr.row:hover td{background:var(--kptu-surface-subtle)}
+tr.row[aria-selected="true"] td{background:var(--sel)}
+td.nm{max-width:520px;overflow:hidden;text-overflow:ellipsis}
+td.r{text-align:right;color:var(--kptu-muted)}
+td.d{color:var(--kptu-muted)}
+.tag{font-size:10.5px;color:var(--kptu-accent);margin-left:6px}
+.cb{width:14px;height:14px;margin:0 6px 0 0;vertical-align:-2px;accent-color:var(--kptu-primary)}
+
+/* 고른 줄 머리 */
+.selbar{display:flex;align-items:center;gap:4px;padding:4px 12px;border-bottom:.5px solid var(--kptu-border);background:var(--kptu-primary-soft);font-size:12px;min-height:32px}
+.selbar b{font-weight:500;margin-right:6px}
+
+/* 미리보기 */
+.pv-img{height:180px;border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:repeating-linear-gradient(0deg,var(--kptu-surface-subtle) 0 10px,var(--kptu-surface) 10px 20px);display:flex;align-items:center;justify-content:center;color:var(--kptu-faint);font-size:12px}
+.pv-nm{font-weight:500;margin:8px 0 2px;word-break:break-all}
+dl{display:grid;grid-template-columns:60px 1fr;gap:2px 8px;margin:6px 0;font-size:12px}
+dt{color:var(--kptu-faint)}dd{margin:0;color:var(--kptu-muted)}
+.acts{display:flex;gap:2px;flex-wrap:wrap;margin-top:6px}
+.acts .tb{border:.5px solid var(--kptu-border-strong);color:var(--kptu-ink)}
+
+/* 폰 */
+.ptabs{display:flex;gap:14px;padding:0 12px;border-bottom:.5px solid var(--kptu-border)}
+.ptabs button{border:0;background:none;padding:7px 0 6px;font-size:13px;color:var(--kptu-muted);border-bottom:2px solid transparent}
+.ptabs button[aria-selected="true"]{color:var(--kptu-ink);border-bottom-color:var(--kptu-primary);font-weight:500}
+.pbody{flex:1;overflow:auto}
+.prow{display:flex;align-items:center;gap:8px;padding:0 12px;height:44px;border-bottom:.5px solid var(--kptu-border)}
+.prow .ic{font-size:14px}
+.prow .m{flex:1;min-width:0}
+.prow .a{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.prow .b{font-size:11px;color:var(--kptu-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pday{font-size:11.5px;color:var(--kptu-muted);padding:6px 12px 2px;font-weight:500}
+.bar{display:flex;justify-content:space-around;border-top:.5px solid var(--kptu-border);height:48px;align-items:center;font-size:11px;color:var(--kptu-faint)}
+.bar .on{color:var(--kptu-primary);font-weight:500}
+.pv-sheet{border-top:.5px solid var(--kptu-border-strong);padding:8px 12px;background:var(--kptu-surface-subtle)}
+.pairs{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+</style>
+</head>
+<body>
+<h1>파일 — 시안</h1>
+<p class="note">설계: docs/design/files-explorer.md · 사진 폴더 나무와 같은 부품 · 이름·숫자는 가짜</p>
+
+<h2 class="cap">PC 1440 — 나무 · 목록 · 미리보기 (두 줄 고른 상태)</h2>
+<div class="scroll"><div class="frame pc">
+  <div class="top">
+    <span class="t">파일</span>
+    <span class="crumb">원드라이브 › 문서 › <b>2026 사업</b></span>
+    <input class="search" placeholder="이름·자료실 글자 찾기  /" aria-label="찾기">
+    <button class="tb">정렬: 바뀐 날 ▾</button>
+    <button class="tb" aria-label="보기 바꾸기">☰</button>
+    <button class="tb">↑ 올리기</button>
+    <button class="tb">+ 폴더</button>
+    <span class="sync">1분 전 맞춤</span>
+    <button class="tb" aria-label="더보기">⋯</button>
+  </div>
+  <div class="selbar"><b>2개 골라짐</b>
+    <button class="tb">옮기기</button><button class="tb">이름</button><button class="tb">별표</button><button class="tb">휴지통으로</button>
+    <button class="tb" style="margin-left:auto" aria-label="고르기 끝">✕</button>
+  </div>
+  <div class="cols">
+    <nav class="tree" aria-label="폴더">
+      <div class="tr"><span class="tw"></span><span class="ic">◷</span><span class="nm">최근</span></div>
+      <div class="tr"><span class="tw"></span><span class="ic">☆</span><span class="nm">별표</span><span class="n">12</span></div>
+      <div class="tr"><span class="tw"></span><span class="ic">▤</span><span class="nm">큰 파일</span></div>
+      <div class="tsep"></div>
+      <div class="tr troot"><span class="tw">▾</span><span class="nm">원드라이브</span><span class="n">8,412</span></div>
+      <div class="tr" style="--d:1"><span class="tw">▾</span><span class="nm">문서</span><span class="n">36</span></div>
+      <div class="tr" style="--d:2" aria-current="true"><span class="tw">▸</span><span class="nm">2026 사업</span><span class="n">14</span></div>
+      <div class="tr" style="--d:2"><span class="tw">▸</span><span class="nm">교육 자료</span><span class="n">58</span></div>
+      <div class="tr" style="--d:2"><span class="tw"></span><span class="nm">빈 폴더 예시</span><span class="n z">0</span></div>
+      <div class="tr" style="--d:1"><span class="tw">▸</span><span class="nm">바탕 화면</span><span class="n z">0</span></div>
+      <div class="tr" style="--d:1"><span class="tw">▸</span><span class="nm">사진</span><span class="n">2,104</span></div>
+      <div class="tr troot"><span class="tw">▾</span><span class="nm">구글 드라이브</span><span class="n">3,960</span></div>
+      <div class="tr" style="--d:1"><span class="tw">▾</span><span class="nm">업무 공간</span><span class="n">9</span></div>
+      <div class="tr" style="--d:2"><span class="tw">▸</span><span class="nm">자료실</span><span class="n">412</span></div>
+      <div class="tr" style="--d:2"><span class="tw">▸</span><span class="nm">정리함</span><span class="n">87</span></div>
+      <div class="tr" style="--d:1"><span class="tw">▸</span><span class="nm">개인 보관</span><span class="n">140</span></div>
+    </nav>
+    <section class="list" aria-label="파일 목록">
+      <table>
+        <thead><tr><th style="width:55%">이름</th><th>바뀐 날</th><th style="text-align:right">크기</th><th>종류</th></tr></thead>
+        <tbody>
+          <tr class="row"><td class="nm"><span class="ic">▸</span> 회의 자료</td><td class="d">11/01</td><td class="r">—</td><td class="d">폴더</td></tr>
+          <tr class="row"><td class="nm"><span class="ic">▸</span> 사진 모음</td><td class="d">10/28</td><td class="r">—</td><td class="d">폴더</td></tr>
+          <tr class="row" aria-selected="true"><td class="nm"><input type="checkbox" class="cb" checked aria-label="고름">하반기 계획안 최종.hwpx</td><td class="d">오늘 09:12</td><td class="r">184KB</td><td class="d">한글</td></tr>
+          <tr class="row" aria-selected="true"><td class="nm"><input type="checkbox" class="cb" checked aria-label="고름">예산표 정리.xlsx</td><td class="d">어제</td><td class="r">62KB</td><td class="d">엑셀</td></tr>
+          <tr class="row"><td class="nm">설명회 안내문.pdf</td><td class="d">10/30</td><td class="r">1.2MB</td><td class="d">PDF</td></tr>
+          <tr class="row"><td class="nm">현장 사진 01.jpg</td><td class="d">10/29</td><td class="r">3.4MB</td><td class="d">사진</td></tr>
+          <tr class="row"><td class="nm">발표 순서.pptx</td><td class="d">10/27</td><td class="r">2.1MB</td><td class="d">발표</td></tr>
+          <tr class="row"><td class="nm">참고 메모.txt</td><td class="d">10/20</td><td class="r">3KB</td><td class="d">글</td></tr>
+          <tr class="row"><td class="nm">설명 녹음.m4a</td><td class="d">10/18</td><td class="r">18MB</td><td class="d">소리</td></tr>
+          <tr class="row"><td class="nm">지난 계획안.hwp</td><td class="d">09/30</td><td class="r">96KB</td><td class="d">한글</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <aside class="prev" aria-label="미리보기">
+      <div class="pv-img">한글 문서 첫 쪽 미리보기</div>
+      <div class="pv-nm">하반기 계획안 최종.hwpx</div>
+      <dl>
+        <dt>위치</dt><dd>원드라이브 › 문서 › 2026 사업</dd>
+        <dt>크기</dt><dd>184KB</dd>
+        <dt>바뀐 날</dt><dd>2026-11-02 09:12</dd>
+        <dt>같은 파일</dt><dd>구글 드라이브 › 자료실에 1개</dd>
+      </dl>
+      <div class="acts"><button class="tb">열기</button><button class="tb">받기</button><button class="tb">자료실에 넣기</button><button class="tb">⋯</button></div>
+    </aside>
+  </div>
+</div></div>
+
+<h2 class="cap">PC — 찾기 결과 (두 클라우드 함께, 경로 줄)</h2>
+<div class="scroll"><div class="frame" style="width:1440px">
+  <div class="top"><span class="t">파일</span><input class="search" value="계획안" aria-label="찾기"><span class="crumb">찾은 것 4 · 이름 3 · 자료실 글자 1</span></div>
+  <table>
+    <thead><tr><th style="width:40%">이름</th><th>위치</th><th>바뀐 날</th><th style="text-align:right">크기</th></tr></thead>
+    <tbody>
+      <tr class="row"><td class="nm">하반기 계획안 최종.hwpx</td><td class="d">원드라이브 › 문서 › 2026 사업</td><td class="d">오늘</td><td class="r">184KB</td></tr>
+      <tr class="row"><td class="nm">하반기 계획안 최종.hwpx<span class="tag">자료실</span></td><td class="d">구글 드라이브 › 업무 공간 › 자료실</td><td class="d">10/31</td><td class="r">184KB</td></tr>
+      <tr class="row"><td class="nm">지난 계획안.hwp</td><td class="d">원드라이브 › 문서 › 2026 사업</td><td class="d">09/30</td><td class="r">96KB</td></tr>
+      <tr class="row"><td class="nm">설명회 결과 정리.pdf<span class="tag">자료실 · 글자 맞음</span></td><td class="d">구글 드라이브 › 업무 공간 › 자료실</td><td class="d">10/12</td><td class="r">640KB</td></tr>
+    </tbody>
+  </table>
+</div></div>
+
+<h2 class="cap">폰 412 — 최근 · 폴더 · 미리보기</h2>
+<div class="pairs">
+  <div class="frame phone">
+    <div class="top"><span class="t">파일</span><span class="sync">방금 맞춤</span><button class="tb" aria-label="더보기">⋯</button></div>
+    <div style="padding:6px 12px"><input class="search" style="width:100%" placeholder="이름·자료실 글자 찾기" aria-label="찾기"></div>
+    <div class="ptabs" role="tablist"><button aria-selected="true">최근</button><button>폴더</button><button>별표</button></div>
+    <div class="pbody">
+      <div class="pday">오늘</div>
+      <div class="prow"><span class="ic">한</span><div class="m"><div class="a">하반기 계획안 최종.hwpx</div><div class="b">원드라이브 › 2026 사업 · 184KB</div></div></div>
+      <div class="pday">어제</div>
+      <div class="prow"><span class="ic">표</span><div class="m"><div class="a">예산표 정리.xlsx</div><div class="b">원드라이브 › 2026 사업 · 62KB</div></div></div>
+      <div class="prow"><span class="ic">P</span><div class="m"><div class="a">설명회 결과 정리.pdf <span class="tag">자료실</span></div><div class="b">구글 드라이브 › 자료실 · 640KB</div></div></div>
+      <div class="pday">10/30</div>
+      <div class="prow"><span class="ic">P</span><div class="m"><div class="a">설명회 안내문.pdf</div><div class="b">원드라이브 › 2026 사업 · 1.2MB</div></div></div>
+      <div class="prow"><span class="ic">▣</span><div class="m"><div class="a">현장 사진 01.jpg</div><div class="b">원드라이브 › 2026 사업 · 3.4MB</div></div></div>
+    </div>
+  </div>
+
+  <div class="frame phone">
+    <div class="top"><button class="tb" aria-label="위 폴더">‹</button><span class="crumb">원드라이브 › <b>2026 사업</b></span><span class="sync">14</span></div>
+    <div class="ptabs" role="tablist"><button>최근</button><button aria-selected="true">폴더</button><button>별표</button></div>
+    <div class="pbody">
+      <div class="prow"><span class="ic">▸</span><div class="m"><div class="a">회의 자료</div><div class="b">6개</div></div></div>
+      <div class="prow"><span class="ic">▸</span><div class="m"><div class="a">사진 모음</div><div class="b">22개</div></div></div>
+      <div class="prow"><span class="ic">한</span><div class="m"><div class="a">하반기 계획안 최종.hwpx</div><div class="b">오늘 · 184KB</div></div></div>
+      <div class="prow"><span class="ic">표</span><div class="m"><div class="a">예산표 정리.xlsx</div><div class="b">어제 · 62KB</div></div></div>
+      <div class="prow"><span class="ic">P</span><div class="m"><div class="a">설명회 안내문.pdf</div><div class="b">10/30 · 1.2MB</div></div></div>
+      <div class="prow"><span class="ic">▣</span><div class="m"><div class="a">현장 사진 01.jpg</div><div class="b">10/29 · 3.4MB</div></div></div>
+      <div class="prow"><span class="ic">♪</span><div class="m"><div class="a">설명 녹음.m4a</div><div class="b">10/18 · 18MB</div></div></div>
+    </div>
+  </div>
+
+  <div class="frame phone">
+    <div class="top"><button class="tb" aria-label="뒤로">‹</button><span class="crumb"><b>설명회 안내문.pdf</b></span></div>
+    <div class="pbody" style="padding:10px 12px">
+      <div class="pv-img" style="height:440px">PDF 1쪽 / 3쪽</div>
+    </div>
+    <div class="pv-sheet">
+      <div class="b muted" style="font-size:11.5px">원드라이브 › 2026 사업 · 1.2MB · 10/30</div>
+      <div class="acts"><button class="tb">열기</button><button class="tb">공유</button><button class="tb">☆</button><button class="tb">⋯</button></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
