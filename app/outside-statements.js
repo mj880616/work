@@ -413,8 +413,12 @@ function enter() {
   resetIfOwnerChanged();
   // 처음 들어올 때 탭: 노트 [기사로 가기]·옛 ?view=news 주소면 [뉴스], 아니면 서버에 기억한 마지막 탭(없으면 사회운동).
   const entry = window.KPTURouter?.takeEntry?.('outside');
-  const want = hasNewsItem() || entry?.tab === 'news' ? 'news' : !state.tabSet ? keepNowTab(viewPrefs.get('now_tab')) : '';
-  if (want && (want !== state.tab || want === 'news')) { state.tab = ''; setTab(want, {save: false}); }
+  if (hasNewsItem() || entry?.tab === 'news') { state.tab = ''; setTab('news', {save: false}); }
+  else if (!state.tabSet) {
+    setTab(keepNowTab(viewPrefs.get('now_tab')), {save: false});
+    // 화면 기억을 아직 서버에서 못 읽었으면(첫 로딩) 읽은 뒤 한 번 더 — 그사이 사용자가 탭을 고르면 그대로 둔다.
+    if (viewPrefs.status?.() !== 'ok') state.tabSet = false;
+  }
   if (!interests.loaded()) interests.load().then(() => { if (state.mode === 'list') paintList(); });
   askInterests();
   paint();
@@ -589,6 +593,10 @@ window.addEventListener('kptu:view-changed', event => {
   if (detail.current()) { detail.close(); if (root) root.dataset.detail = 'closed'; }
 });
 window.KPTURouter?.on?.('outside', () => { enter(); });
+window.addEventListener('kptu:view-prefs-ready', () => {
+  if (state.tabSet || window.KPTURouter?.current !== 'outside') return;
+  setTab(keepNowTab(viewPrefs.get('now_tab')), {save: false});
+});
 window.KPTUOutside = {refresh: () => load(), showNew: () => setTab('outside')}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js)
 // [뉴스] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭.
 window.KPTUNow = {
