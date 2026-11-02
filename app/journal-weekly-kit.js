@@ -20,6 +20,7 @@ export {cellTime, TIME_HINT} from './time-input.js';
 export {readOverlapRows, askPairs, reviveOverlaps} from './overlap-weekly-data.js';
 export {weekCandidates, reviveEdges, WEEK_BACK_WEEKS} from './overlap-weekly.mjs';
 export {readOrgRefs} from './calendar-ref-data.js';
+export {summaryCalendar} from './calendar-ref-model.mjs';
 export {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
 export {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
 export {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord, requestLine} from './weekly-exec-requests.js';

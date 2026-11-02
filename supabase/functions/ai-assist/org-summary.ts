@@ -19,7 +19,7 @@ export const ORG_SUMMARY_ORG_CHARS = 8000;
 export const ORG_SUMMARY_ITEM_CHARS = 2000;
 export const ORG_SUMMARY_MAX_OUTPUT_TOKENS = 3000;
 
-export type OrgRecord = { day: string; at: number; type: "org_update" | "update" | "link_summary" | "file_summary"; text: string; files?: string[] };
+export type OrgRecord = { day: string; at: number; type: "org_update" | "update" | "link_summary" | "file_summary" | "calendar"; text: string; files?: string[] };
 export type OrgMaterial = { id: string; name: string; previous: string; records: OrgRecord[] };
 export type PackedOrg = OrgMaterial & { ref: string };
 
@@ -80,7 +80,7 @@ export function packOrgs(orgs: OrgMaterial[], { total = ORG_SUMMARY_INPUT_CHARS,
   return { packed, partial };
 }
 
-const TYPE_NAMES: Record<OrgRecord["type"], string> = { org_update: "조직 기록", update: "업데이트", link_summary: "연결 기록 요약", file_summary: "자료 요약" };
+const TYPE_NAMES: Record<OrgRecord["type"], string> = { org_update: "조직 기록", update: "업데이트", link_summary: "연결 기록 요약", file_summary: "자료 요약", calendar: "조직 캘린더 일정" };
 const WEEKDAY = "일월화수목금토";
 export const reportDay = (day: string) => {
   const [y, m, d] = day.split("-").map(Number);
@@ -112,6 +112,7 @@ export const ORG_SUMMARY_INSTRUCTIONS = [
   "개인 이름·연락처·인사말·사적인 내용(건강·가족·개인 감정 등)은 쓰지 않는다. 사람은 직책이나 조직으로 쓴다(예: \"지부장\", \"사측\").",
   "files는 첨부 파일 이름일 뿐이다. 내용을 짐작하지 말고, 필요할 때만 \"○○ 자료 공유.\"처럼 이름만 쓴다.",
   "type이 '자료 요약'인 기록은 그 조직에 올린 자료의 '제목 — 이미 요약된 글'이다. 요약에 쓰인 사실·숫자·날짜·진행 상태(예정·검토 등)를 바꾸지 말고, 다른 기록과 같은 사안이면 한 줄로 합친다.",
+  "type이 '조직 캘린더 일정'인 기록은 그 조직 캘린더에 잡힌 주요 일정의 제목뿐이다(이번 주와 앞으로 2주). 최근·다가오는 주요 일정을 먼저 쓰되, 날짜가 이번 주 뒤면 \"M.D.(요일) ○○ 예정.\"으로 쓰고, 제목에 없는 결과·장소·규모를 만들지 않는다. 같은 일이 다른 기록에도 있으면 한 줄로 합친다.",
   "앞에 기호(-, •, ○, 1.)를 붙이지 않는다. HTML·링크·마크다운을 쓰지 않는다. 재료에 없는 사실·숫자·날짜·이름을 만들지 않는다.",
   "org는 organizations의 ref 값을 그대로 쓴다. 조직마다 한 항목이다.",
   "답은 정해진 JSON 형식 {\"items\": [{\"org\": 참조, \"lines\": [문자열]}]} 하나뿐이다.",
@@ -206,3 +207,44 @@ export function parseOrgSummary(raw: unknown, packed: PackedOrg[]): { items: Org
   }
   return { items, dropped };
 }
+
+// CAL-조직참고캘린더 ④(요청함 10/30 16:03 '조직 참고 캘린더 일정도 그 조직 재료로'): [요약 만들기]가 함께 보내는 조직 참고 캘린더 주요 일정.
+// 화면은 내 프로필에서 고른 캘린더의 일정을 그때그때 읽어(저장하지 않음) 날짜·제목만 보낸다. 서버는 모양만 다시 검사하고,
+// 어느 조직 재료인지는 서버가 내 프로필(app_profiles.ledger_calendar.org)로 다시 확인한다(handler). 고르는 낱말 규칙은 화면 한 곳(calendar-ref-model.mjs).
+export const ORG_CALENDAR_MAX_EVENTS = 30;
+export const ORG_CALENDAR_TITLE_CHARS = 80;
+export const ORG_CALENDAR_DAYS = 21;
+export type OrgCalendarEvent = { day: string; title: string };
+export type OrgCalendarInput = { organization_id: string; events: OrgCalendarEvent[] };
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const ORG_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const validDay = (day: string) => ISO_DAY.test(day) && new Date(Date.parse(day + "T00:00:00Z")).toISOString().slice(0, 10) === day;
+// 요청의 calendar 칸: 모양이 틀리면 null(요청 전체를 거절). 조직은 요청한 조직 가운데 하나, 일정 1~30개, 날짜는 그 주부터 3주 안,
+// 제목 1~80자(제어 문자 없음). 같은 날 같은 제목은 한 번만.
+export function parseOrgCalendar(raw: unknown, organizationIds: string[], week: string): OrgCalendarInput | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  if (Object.keys(r).sort().join(",") !== "events,organization_id") return null;
+  const org = typeof r.organization_id === "string" ? r.organization_id.toLowerCase() : "";
+  if (!ORG_UUID.test(org) || !organizationIds.includes(org)) return null;
+  if (!Array.isArray(r.events) || r.events.length < 1 || r.events.length > ORG_CALENDAR_MAX_EVENTS) return null;
+  const end = new Date(Date.parse(week + "T00:00:00Z") + ORG_CALENDAR_DAYS * 86400000).toISOString().slice(0, 10);
+  const seen = new Set<string>(), events: OrgCalendarEvent[] = [];
+  for (const e of r.events) {
+    if (!e || typeof e !== "object" || Array.isArray(e)) return null;
+    const x = e as Record<string, unknown>;
+    if (Object.keys(x).sort().join(",") !== "day,title" || typeof x.day !== "string" || typeof x.title !== "string") return null;
+    if (!validDay(x.day) || x.day < week || x.day >= end) return null;
+    if (/[\u0000-\u001f\u007f-\u009f]/.test(x.title) || (x.title as unknown as { isWellFormed?: () => boolean }).isWellFormed?.() === false) return null;
+    const title = x.title.replace(/\s+/g, " ").trim();
+    if (!title || chars(title) > ORG_CALENDAR_TITLE_CHARS) return null;
+    const key = `${x.day}|${title}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    events.push({ day: x.day, title });
+  }
+  return { organization_id: org, events };
+}
+// 조직 재료 기록으로: 날짜는 그 일정 날, 시각은 그날 0시(한국). 글은 제목만.
+export const calendarRecords = (events: OrgCalendarEvent[]): OrgRecord[] =>
+  events.map((e) => ({ day: e.day, at: Date.parse(e.day + "T00:00:00Z") - 9 * 3600 * 1000, type: "calendar" as const, text: e.title }));

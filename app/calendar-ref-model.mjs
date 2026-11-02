@@ -92,3 +92,15 @@ export function alreadyIn(lines, item) {
 }
 // AI 재료 한 줄(주간보고 초안·줄 제안의 그 칸 옆 기록): 캘린더 일정이라는 것을 글에 적는다.
 export const materialLine = item => `(조직 캘린더 일정) ${item.label}`;
+// CAL-조직참고캘린더 ④(요청함 10/30 16:03 '조직 참고 캘린더 일정도 그 조직 재료로'): 4. 산하 조직 현황 [요약 만들기]에 함께 보내는 재료.
+// 고른 조직이 이번에 요약할 조직에 들어 있고 추천 줄이 있을 때만 {organization_id, events:[{day, title}]}, 아니면 null.
+// 서버(ai-assist org_summary)는 모양을 다시 검사하고 조직은 내 프로필로 다시 확인한다. 일정은 저장하지 않는다.
+export function summaryCalendar(orgRefs, organizationIds) {
+  const org = String(orgRefs?.org ?? '').toLowerCase();
+  const ids = (Array.isArray(organizationIds) ? organizationIds : []).map(id => String(id).toLowerCase());
+  if (!UUID.test(org) || !ids.includes(org)) return null;
+  const events = (Array.isArray(orgRefs?.items) ? orgRefs.items : [])
+    .filter(item => /^\d{4}-\d{2}-\d{2}$/.test(String(item?.day)) && cleanTitle(item?.title))
+    .slice(0, ORG_REF_MAX).map(item => ({day:item.day, title:cleanTitle(item.title)}));
+  return events.length ? {organization_id:org, events} : null;
+}

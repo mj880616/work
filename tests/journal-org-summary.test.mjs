@@ -72,6 +72,20 @@ test('requestOrgSummaries: sends only kind, week and organization ids; reads the
   assert.equal(body.organization_ids.length, 20); assert.equal(r2.more, 2);
 });
 
+test('requestOrgSummaries: the organization reference calendar goes along only when its organization is sent', async () => {
+  const m = await sum;
+  let body = null;
+  const fetcher = async (url, init) => { body = JSON.parse(init.body); return new Response(JSON.stringify({ok:true, kind:'org_summary', week_start:'2026-10-05', kept:[], items:[], empty:[]}), {status:200}); };
+  const rt = fakeRt(() => []);
+  const calendar = {organization_id:OB, events:[{day:'2026-10-07', title:'가상 결의대회'}]};
+  await m.requestOrgSummaries({start:'2026-10-05', organizationIds:[OA, OB], calendar}, {rt, fetcher});
+  assert.deepEqual(body, {kind:'org_summary', week_start:'2026-10-05', organization_ids:[OA, OB], calendar});
+  await m.requestOrgSummaries({start:'2026-10-05', organizationIds:[OA], calendar}, {rt, fetcher});
+  assert.deepEqual(body, {kind:'org_summary', week_start:'2026-10-05', organization_ids:[OA]});
+  await m.requestOrgSummaries({start:'2026-10-05', organizationIds:[OA, OB], calendar:null}, {rt, fetcher});
+  assert.deepEqual(Object.keys(body).sort(), ['kind', 'organization_ids', 'week_start']);
+});
+
 const basket = {notes:[{id:'b1', raw_text:'안녕하세요\n가 조직 소식', occurred_at:'2026-10-06T00:30:00Z'}],
   links:[{note_id:'b1', status:'confirmed', organization_id:OA, organization:{name:'가 조직'}}], docs:[]};
 const orgUpdates = Object.assign([{id:'u1', organization_id:OB, organization:{name:'나 조직'}, occurred_at:'2026-10-07T01:00:00Z', raw_text:'나 조직 기록'}],
