@@ -489,6 +489,9 @@ jobs:
       - name: Check photo share shared part (OD-공유고침, share the shown photo, synthetic)
         run: node --test tests/photo-share.test.mjs
 
+      - name: Check phone app share bridge (PHOTO-폰앱공유, Android share sheet, quiet notice row, synthetic)
+        run: node --test tests/app-share.test.mjs
+
       - name: Check OneDrive small-picture copies on the phone (OD-폰보관, cache key·limits·cleanup·one audit allowance, synthetic)
         run: node --test tests/od-thumb-cache.test.mjs
 

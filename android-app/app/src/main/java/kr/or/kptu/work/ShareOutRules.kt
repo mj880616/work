@@ -70,7 +70,7 @@ object ShareOutRules {
         return Message.Begin(PhotoEditRules.fileName(MiniJson.str(o["name"]), mime), mime, size)
     }
 
-    /** 공유 창 의도: 한 장이면 SEND, 여러 장이면 SEND_MULTIPLE. 종류는 모두 같으면 그것, 모두 그림이면 image/*, 모두 동영상이면 video/*, 섞이면 * / *. */
+    /** 공유 창 의도: 한 장이면 SEND, 여러 장이면 SEND_MULTIPLE. 종류는 모두 같으면 그것, 모두 그림이면 "image/(별)", 모두 동영상이면 "video/(별)", 섞이면 "(별)/(별)". */
     data class Plan(val action: String, val mime: String)
 
     fun plan(mimes: List<String>): Plan? {
