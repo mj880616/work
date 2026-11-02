@@ -278,4 +278,5 @@ test('source: the service key is read only in now-detail.ts svc() for three tabl
   for(const f of ['handler.ts','index.ts'])assert.doesNotMatch(readFileSync(`supabase/functions/ai-assist/${f}`,'utf8'),/SERVICE_ROLE/);
   assert.match(nd,/store: false/);assert.doesNotMatch(nd,/tools\s*:/);
   assert.equal(N.NOW_DETAIL_DAILY,40);
+  for(const t of [N.NOW_DETAIL_INSTRUCTIONS,N.NOW_BASIC_INSTRUCTIONS,N.NOW_CONTEXT_INSTRUCTIONS])assert.ok(t.includes("말투: 요약·정리 문장은"),'shared tone rule');
 });

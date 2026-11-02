@@ -65,10 +65,12 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   ask_secret:'비밀번호·키처럼 보이는 글은 물어볼 수 없어요.',
   text_pending:'글자 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.',
   no_file_text:'요약할 글자가 없어요. 직접 써 주세요.',
+  now_not_ready:'글 상세 기능이 아직 준비되지 않았어요.',
+  now_unavailable:'글 상세를 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   internal_error:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
 });
 // 잠깐의 문제라 같은 버튼을 [다시 시도]로 보여 줄 코드.
-const RETRYABLE=new Set(['offline','text_pending','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','ledger_unavailable','ledger_busy','org_summary_unavailable','org_people_unavailable','org_status_unavailable','internal_error']);
+const RETRYABLE=new Set(['offline','text_pending','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','ledger_unavailable','ledger_busy','org_summary_unavailable','org_people_unavailable','org_status_unavailable','now_unavailable','internal_error']);
 export const aiSummaryRetryable=code=>RETRYABLE.has(code);
 
 // 서버가 거절하는 메모(일기·보관·AI 제외·빈 글)에서는 버튼을 보이지 않는다(서버가 다시 확인한다).
