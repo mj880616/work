@@ -219,6 +219,10 @@
 #appView #homeView .journal-hwpx-suggest button.mini.journal-hwpx-suggest-apply:hover:not(:disabled){ color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
 #appView #homeView .journal-hwpx-suggest-mark{ font-weight:600; }
 #appView #homeView .journal-learn-area{ display:inline-block; padding:0 4px; border:1px solid currentColor; border-radius:4px; font-size:11px; line-height:1.4; color:var(--kptu-muted); }
+/* S48-3b 개선 제안 두 줄: 굵게 '무엇이 좋아지나' + 엷게 '어떻게'(줄 아래 작게). 칸별 그대로 쓴 비율 한 줄. */
+#appView #homeView .journal-learn-gain{ font-weight:600; }
+#appView #homeView .journal-learn-how{ display:block; color:var(--kptu-muted); font-size:12px; line-height:1.4; }
+#appView #homeView .journal-learn-cell-rates{ font-size:12px; }
 #appView #homeView .journal-hwpx-material li > .mini,
 #appView #homeView .journal-hwpx-material li > select{ margin-left:4px; vertical-align:middle; }
 /* WEEKLY-한글파일다듬기 ①(2026-10-23 사용자 요청 11:35): 이 상자의 모든 버튼(위 줄 [주간보고 한글 파일 만들기]·[복사], 바탕 고르기 줄,

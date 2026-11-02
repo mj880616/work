@@ -245,14 +245,8 @@ export function paintFlowCells(slot, ctx) {
       }
       box.append(sg);
     }
-    if (sorted.gone.length) {
-      const fold = el('details', 'journal-org-raw weekly-flow-gone'); fold.dataset.flowGone = String(sorted.gone.length);
-      fold.append(el('summary', null, `뺀 제안 ${sorted.gone.length}`));
-      const gl = el('ul', 'weekly-flow-lines');
-      for (const g of sorted.gone) { const li = el('li'); li.dataset.flowPick = JSON.stringify({kind:g.kind, from:g.from, cell:g.cell, org:g.org, text:g.text, key:g.key}); li.append(el('span', 'weekly-flow-text', g.text), ' ', btn('다시 넣기', {flowPut:c.id})); gl.append(li); }
-      fold.append(gl); box.append(fold);
-    }
-    if (ui.undo?.cell === c.id) { const p = el('p', 'journal-line-status'); p.dataset.flowUndo = ''; p.setAttribute('role', 'status'); p.append('줄을 뺐어요 ', btn('되돌리기', {flowUndo:c.id})); box.append(p); }
+    // WEEKLY-뺀목록삭제(S48-3b): '뺀 제안 n' 접힘은 두지 않는다 — 방금 뺀 것만 아래 [되돌리기](picks 데이터는 그대로).
+    if (ui.undo?.cell === c.id) { const p = el('p', 'journal-line-status'); p.dataset.flowUndo = ''; p.setAttribute('role', 'status'); p.append(ui.undo.pick ? '제안을 뺐어요 ' : '줄을 뺐어요 ', btn('되돌리기', {flowUndo:c.id})); box.append(p); }
     if (ui.failed?.cell === c.id) { const p = el('p', 'journal-line-status journal-failed', `저장 못 함 — ${ui.failed.text} `); p.dataset.flowFailed = ''; p.setAttribute('role', 'alert'); p.append(btn('다시', {flowRetry:c.id})); box.append(p); }
     return box;
   }
@@ -426,7 +420,12 @@ export function paintFlowCells(slot, ctx) {
     if (d.flowDropGo) {
       const u = ui.dropping; if (!u) return;
       const why = String(b.parentElement.querySelector('input[data-flow-why]')?.value ?? '').trim();
-      void write(d.flowDropGo, {act:'drop', item:{...u.item, ...(why ? {why} : {})}}, {after:() => { ui.dropping = null; }});
+      const id = d.flowDropGo;
+      void write(id, {act:'drop', item:{...u.item, ...(why ? {why} : {})}}, {after:() => {
+        ui.dropping = null; clearTimeout(ui.undo?.timer);
+        // 뺀 제안 목록은 두지 않으므로(WEEKLY-뺀목록삭제) 방금 뺀 제안 하나만 잠깐 [되돌리기] — 되돌리면 'none'(picks 데이터는 남음).
+        ui.undo = {cell:id, pick:true, item:u.item, timer:setTimeout(() => { if (ui.undo?.cell === id) { ui.undo = null; ctx.redraw?.(); } }, UNDO_MS)};
+      }});
       return;
     }
     if (d.flowPut) { void write(d.flowPut, {act:'none', item:pick()}); return; }
@@ -440,7 +439,7 @@ export function paintFlowCells(slot, ctx) {
       }});
       return;
     }
-    if (d.flowUndo) { const u = ui.undo; if (!u) return; clearTimeout(u.timer); ui.undo = null; void write(d.flowUndo, {act:'none', lines:u.lines, item:u.item}); return; }
+    if (d.flowUndo) { const u = ui.undo; if (!u) return; clearTimeout(u.timer); ui.undo = null; void write(d.flowUndo, u.pick ? {act:'none', item:u.item} : {act:'none', lines:u.lines, item:u.item}); return; }
     if (d.flowRetry) { const f = ui.failed; if (f?.op) void write(f.cell, f.op); return; }
     if (d.flowSiteHide !== undefined) setLayout('hide', d.flowSiteHide);
   }

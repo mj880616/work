@@ -25,8 +25,10 @@ export const RETIRED_MAX = 40;          // 폐기(서버 WL_RETIRED_MAX 와 같�
 export const RULE_CHARS = 120;
 export const SUGGESTIONS_MAX = 4;       // 입력창 1~3 + 재료·흐름(서버 WL_SUGGESTIONS 와 같음)
 export const CELL_STATS_MAX = 120;      // 고침 기록의 칸별 숫자(입력창 모양 제안 재료)
-// 개선 제안 분류(서버 weekly-learn.ts SUGGESTION_AREAS 와 같음). 입력창 = 한글 파일 상자 칸 모양·칸 구성.
-export const SUGGESTION_AREA = Object.freeze({input:'입력창', material:'재료', flow:'흐름'});
+// 개선 제안 분류(서버 weekly-learn.ts SUGGESTION_AREAS 와 같음). 꼬리표는 쉬운 말(WEEKLY-개발후보연결 3·5): input = 한글 파일 상자 칸 모양·칸 구성,
+// material = AI가 읽는 자료, flow = 화면·버튼 순서.
+export const SUGGESTION_AREA = Object.freeze({input:'입력 화면', material:'AI 자료', flow:'일 순서'});
+export const SUGGESTION_HOW_MAX = 120; // '어떻게' 엷은 줄(서버 WL_HOW_CHARS 와 같음)
 export const EXTRA_MAX_BYTES = 60000;     // 칸 하나 상한(draft 전체 200 KiB 안에서)
 export const LEARN_WEEKS = 4;             // 학습 재료로 보는 지난 주 수
 export const SIMILAR = 0.75;              // 이 이상이면 '비슷'(그대로 쓸 수 있는 줄로 셈)
@@ -179,7 +181,7 @@ const cleanStats = list => (Array.isArray(list) ? list : []).slice(0, CELL_STATS
 export function readReview(raw) {
   if (!isObj(raw) || !at40(raw.at)) return null;
   const candidates = (Array.isArray(raw.candidates) ? raw.candidates : []).map(t => line(t).slice(0, RULE_CHARS)).filter(Boolean).slice(0, 10);
-  const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).slice(0, SUGGESTIONS_MAX).map((s, i) => (isObj(s) && line(s.text) ? {id:typeof s.id === 'string' && /^s[1-4]$/.test(s.id) ? s.id : `s${i + 1}`, ...(Object.hasOwn(SUGGESTION_AREA, s.area) ? {area:s.area} : {}), text:line(s.text).slice(0, 200), ...(s.answer === 'yes' || s.answer === 'no' ? {answer:s.answer} : {}),
+  const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).slice(0, SUGGESTIONS_MAX).map((s, i) => (isObj(s) && line(s.text) ? {id:typeof s.id === 'string' && /^s[1-4]$/.test(s.id) ? s.id : `s${i + 1}`, ...(Object.hasOwn(SUGGESTION_AREA, s.area) ? {area:s.area} : {}), text:line(s.text).slice(0, 200), ...(line(s.how) ? {how:line(s.how).slice(0, SUGGESTION_HOW_MAX)} : {}), ...(s.answer === 'yes' || s.answer === 'no' ? {answer:s.answer} : {}),
     ...(s.answer === 'yes' && line(s.before) ? {before:line(s.before).slice(0, 200)} : {}), ...(s.answer === 'no' && line(s.why) ? {why:line(s.why).slice(0, 100)} : {})} : null)).filter(Boolean);
   return {at:raw.at, candidates, suggestions, ...(raw.ai === false ? {ai:false} : {})};
 }

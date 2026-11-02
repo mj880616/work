@@ -63,6 +63,8 @@ import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback, readRules} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys} from './weekly-learn-panel.js';
+import {notify} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)
+import {materialLine} from './weekly-ai-material.mjs';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 import {matchOrg} from './org-name-match.mjs';
 import {weeklyCategoryFilter} from './document-categories.js'; // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾기
@@ -541,23 +543,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     x.title = '이 제안 빼기'; x.setAttribute('aria-label', `제안 빼기: ${label ?? item.text}`);
     return x;
   };
-  // 칸·목록 아래 접힌 '뺀 제안 n개' — 다시 넣기(이번 주에만, 기억으로 빠진 종류도).
-  function goneFold(s, gone) {
-    if (!gone?.length) return null;
-    const box = el('details', 'journal-hwpx-gone'); box.dataset.hwpxGone = '';
-    const learned = gone.filter(g => g.why === 'learn').length;
-    box.append(el('summary', '', `뺀 제안 ${gone.length}개${learned ? `(주간보고 기억으로 ${learned}개)` : ''}`));
-    const ul = el('ul', 'journal-hwpx-material');
-    for (const g of gone) {
-      const li = el('li'); li.dataset.hwpxGoneItem = g.key;
-      li.append(doc.createTextNode(`${g.text} `));
-      if (g.why === 'learn') li.append(el('small', 'journal-muted', '기억 '));
-      const put = button('다시 넣기', 'hwpxPickPut'); put.dataset.hwpxPickKey = indexPick(s, g); put.setAttribute('aria-label', `다시 넣기: ${g.text}`);
-      li.append(put); ul.append(li);
-    }
-    box.append(ul);
-    return box;
-  }
+  // WEEKLY-뺀목록삭제(S48-3b): 칸·목록 아래 '뺀 제안 n개' 접힘은 두지 않는다 — 방금 뺀 것만 [되돌리기](pickUndo), picks 데이터는 그대로.
+  const goneFold = () => null;
   function pickUndo(item) {
     undoLine.replaceChildren(doc.createTextNode('제안을 뺐어요 '));
     const back = button('되돌리기', 'hwpxPickUndo'); back.dataset.hwpxPickKey = item.key; back.setAttribute('aria-label', `되돌리기: ${item.text}`);
@@ -572,7 +559,6 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     } else { markPick(s, item, 'none'); item.onPut?.(); undoLine.hidden = true; say('다시 넣었어요.'); }
     renderMaterial();
   }
-  const aiLine = x => x.ai ?? `${x.day ? `${shortDay(x.day)} ` : ''}${x.text}`;
   function append(key, text) {
     const [section, index] = key.split(':');
     if (!state?.edits?.[section]?.has(Number(index))) return;
@@ -1017,16 +1003,16 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 칸마다 바탕 줄(처음 바탕 initial — 고친 칸 글이 아님)과 그 칸 옆 이번 주 기록 줄을 보낸다. 서버는 그 주 '앞' 주들의 고침 기록·규칙만 읽는다.
   const sendLine = (v, max) => [...String(v ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]+/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim()].slice(0, max).join('');
   function aiRequest(s, mode) {
-    const m = materialOf(s);
+    const m = materialOf(s), report = reportDay(s.start); // 기록마다 '날짜 [끝남|오늘|예정]'(WEEKLY-개발후보연결 1)
     const refs = new Map(), cells = [];
     for (const [id, at] of s.cellAt) {
       if (cells.length >= 80) break;
       const ref = `c${cells.length + 1}`; refs.set(ref, id);
       const material = at.section === 'summary' ? m.byRow.get(at.index) : at.section === 'orgs' ? m.byOrg.get(at.index) : [];
       cells.push({ref, where:sendLine(whereOf(id), 120) || '칸', lines:(s.initial.get(id) ?? []).map(l => sendLine(l, 300)).filter(Boolean).slice(0, 20),
-        material:(material ?? []).map(x => sendLine(aiLine(x), 400)).filter(Boolean).slice(0, 20)});
+        material:(material ?? []).map(x => sendLine(materialLine(x, report, shortDay), 400)).filter(Boolean).slice(0, 20)});
     }
-    const unmatched = [...(m.unmatched ?? []), ...(m.orgUnmatched ?? [])].map(x => sendLine(`${x.from ? `${x.from}: ` : ''}${x.text}`, 400)).filter(Boolean).slice(0, 40);
+    const unmatched = [...(m.unmatched ?? []), ...(m.orgUnmatched ?? [])].map(x => sendLine(`${x.from ? `${x.from}: ` : ''}${materialLine(x, report, shortDay)}`, 400)).filter(Boolean).slice(0, 40);
     const request = {kind:'weekly_draft', week_start:s.start, mode, cells, unmatched};
     // 몸통이 크면 기록 줄을 뒤에서부터 덜어 낸다(칸 글은 그대로).
     const size = () => new TextEncoder().encode(JSON.stringify(request)).length;
@@ -1165,7 +1151,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (typing) v.value = typing.value; // 다시 그려도 쓰던 글(고치는 후보·이유·내 생각)은 그대로
     // 새 규칙 후보는 이 주 행 규칙 칸(환류 보고가 거기에 더함)에서 [넣기]·⋯[고쳐서 넣기]·[빼기]. 칸을 아직 못 읽었으면 글만.
     const rules = state.store?.extras?.rules ? {week:state.start, rules:state.store.extras.rules} : null;
-    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, dropping:v.dropping ?? null, value:v.value ?? null, sfix:v.sfix ?? null, sdrop:v.sdrop ?? null, sadd:!!v.sadd});
+    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, dropping:v.dropping ?? null, value:v.value ?? null, sfix:v.sfix ?? null, sdrop:v.sdrop ?? null, sadd:!!v.sadd, picks:state.store?.extras?.picks ?? null});
     const parts = card ? [card] : [];
     if (v.status === 'running') { const p = el('p', 'journal-muted', '규칙 후보·개선 제안을 정리하는 중…'); p.dataset.hwpxReviewNote = 'running'; parts.push(p); }
     if (v.status === 'failed') { const p = el('p', 'journal-muted', `규칙 후보·개선 제안은 만들지 못했어요(${v.note}). 고침 기록은 저장했어요.`); p.dataset.hwpxReviewNote = 'failed'; parts.push(p); }
@@ -1189,7 +1175,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (r.missing) throw new Error('missing');
       if (s.store) s.store.extras = {...(s.store.extras ?? {}), rules:readRules(r.row?.draft?.rules) ?? s.store.extras?.rules};
       v.feedback = readFeedback(r.row?.draft?.feedback) ?? v.feedback;
-      v.fixing = null; v.dropping = null; v.sfix = null; v.sdrop = null; v.sadd = false; v.value = null; v.msg = rc.done;
+      // 성공 알림은 화면에 남기지 않고 작은 알림 부품으로(2초 뒤 사라짐, WEEKLY-개발후보연결 4). 오류만 그 자리에 남는다.
+      v.fixing = null; v.dropping = null; v.sfix = null; v.sdrop = null; v.sadd = false; v.value = null; v.msg = ''; notify(rc.done);
       void syncDraft(s);
       try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:s.start}})); } catch { /* 다시 그리기만 못 함 */ }
     } catch (error) { v.msg = error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 눌러 주세요.'; }

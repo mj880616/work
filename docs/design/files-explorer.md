@@ -67,7 +67,7 @@
 ### 4.2 처음 훑기와 따라가기
 
 - **원드라이브**: `/me/drive/root/delta`를 쪽마다 받아 넣고, 끝나면 deltaLink를 커서로 둔다. 이후 커서로 바뀐 것만 [사실: 사진 쪽이 같은 API를 씀].
-- **구글**: 처음은 `changes.getStartPageToken`을 먼저 받아 두고 `files.list`(q `trashed=false`, 필요한 칸만, pageSize 1000)로 끝까지 훑은 뒤, 그 토큰으로 `changes.list`를 따라간다 [추정: Drive v3 문서].
+- **구글**: 처음은 `changes.getStartPageToken`을 먼저 받아 두고 `files.list`(q `'me' in owners and trashed=false`, 필요한 칸만, pageSize 1000)로 끝까지 훑은 뒤, 그 토큰으로 `changes.list`(`restrictToMyDrive=true`·`includeRemoved=true`)를 따라간다 [사실: Drive v3 `changes.list` 문서 2026-11-02 확인 — pageSize 최대 1000, `nextPageToken`·`newStartPageToken`은 만료되지 않음, `restrictToMyDrive`는 내 드라이브 나무만]. 토큰이 거절되면(400·410) 그 출처만 처음부터 다시 훑는다(③ `cloud-files` 구현).
 - 한 번 부를 때 시간 상한(8초)·쪽 상한, `lock_until`로 겹침 막기, 남으면 `next_page`에 이어 받기 — 사진 색인과 같은 틀.
 
 ### 4.3 화면이 최신을 아는 길
@@ -98,12 +98,12 @@
 | 사진·동영상 | 기존 `photo-view` 부품. 받기는 `cloud-files` 중계 |
 | PDF | 1단계: 클라우드 보기 화면 새 창(지금 자료실과 같음). 2단계: 앱 안 PDF 보기(고정 버전 라이브러리, 저장소 안 폴더로 둠 — 외부 주소 부르지 않음) |
 | HWP·HWPX | 기존 rhwp 보기(`hwp-frame.js`) 읽기 전용 |
-| 오피스(docx·xlsx·pptx) | 원드라이브: Graph `?format=pdf` 변환 받기 [추정], 구글: 구글 문서류는 PDF 내보내기, 업로드된 오피스 파일은 클라우드 보기 새 창(Q4) |
+| 오피스(docx·xlsx·pptx) | 원드라이브: Graph `/content?format=pdf` 변환 받기 [사실: Graph `driveitem-get-content-format` 문서 2026-11-02 확인 — 개인 계정 위임 권한 `Files.Read` 이상(이미 받은 `Files.ReadWrite`로 됨), 302로 몇 분짜리 사전 인증 주소를 줌, 원본 확장자 doc·docx·dot·dotx·dotm·ppt·pptx·pps·ppsx·xls·xlsx·xlsm·odt·odp·ods·rtf 등]. 구글: 구글 문서류는 `files.export` PDF(내보내기 상한 10MB), 업로드된 오피스 파일은 클라우드 보기 새 창(Q4·F4) |
 | 글·CSV·HTML | 앞 200KB를 받아 글로 보임(HTML은 기존 칸막이 sandbox) |
 | 그 밖 | 이름·크기·바뀐 날·경로만, [열기]·[받기] |
 
 - **열기**: 클라우드 보기 주소(원드라이브 webUrl, 구글 webViewLink)를 함수가 그때 받아 새 창. 
-- **올리기(PC 끌어 놓기)**: 함수가 그 클라우드의 이어 올리기 자리(원드라이브 createUploadSession, 구글 resumable)를 열어 주고, 화면이 파일을 조각으로 직접 보낸다(Edge 요청 크기 한계를 피함) [추정]. 끝나면 함수가 색인에 넣음. 같은 이름이 있으면 '이름 (2)'로.
+- **올리기(PC 끌어 놓기)**: 함수가 그 클라우드의 이어 올리기 자리(원드라이브 createUploadSession, 구글 resumable)를 열어 주고, 화면이 파일을 조각으로 직접 보낸다(Edge 요청 크기 한계를 피함) [추정 — ③ 세션에서도 확인 못 함. 특히 구글 resumable 주소를 서버가 열면 브라우저 조각 보내기가 CORS로 막힐 수 있다. ⑥ 세션이 실제로 시험하고, 막히면 대안: (1) 서버가 세션을 열 때 `Origin`에 Web2 주소를 넣어 연다, (2) 그래도 막히면 조각을 Edge가 중계(조각 하나는 Edge 요청 한계 안, 느림)]. 끝나면 함수가 색인에 넣음. 같은 이름이 있으면 '이름 (2)'로.
 - **옮기기**: 같은 클라우드 안은 부모 바꾸기(빠름). 클라우드 사이(⑦)는 서버가 받아 보내고 크기·해시를 맞춘 뒤 원본을 휴지통으로 — 한 번에 1개·최대 크기 상한(Q8).
 
 ## 6. 화면 구성
@@ -144,6 +144,16 @@
 | Q7 | 파일 안 글자 검색 | ★ 자료실이 이미 읽은 글자만 / 파일 메뉴도 새로 읽어 저장(AI·저장 비용 늘어남) |
 | Q8 | 클라우드 사이 옮기기 크기 상한 | ★ 한 번에 1개, 200MB까지 / 상한 없이(오래 걸리면 실패할 수 있음) |
 | Q9 | 폰 첫 화면 | ★ 최근 파일 / 맨 위 폴더 |
+
+## 8.1 명진 결정 (11/02 16:26, 모두 ★)
+
+F1 원드라이브 자체 휴지통 / F2 열 때 + 2분마다 바뀐 것만 + 밤 한 번 / F3 바로 든 파일 수 / F4 오피스는 PDF로 오른쪽 칸 / F5 자료실 바로 아래 / F6 1단계 내 드라이브만 / F7 자료실이 이미 읽은 글자만 / F8 클라우드 사이 한 번에 1개·200MB / F9 폰 첫 화면 최근 파일.
+
+## 8.2 구현 기록 (S48-12b, ②·③)
+
+- ② DB `20261102160000_cloud_files_index`: 기능 키 `files`(gdrive_photos = calls 작업공간에만 1행), 표 `app_cloud_sync`(화면 못 읽음, 상태는 Edge `status`)·`app_cloud_items`·`app_cloud_stars`(owner + files일 때 authenticated select만, 쓰기 service_role만), 읽기 함수 `app_cloud_list(source, parent_id)`(폴더 옆 숫자 = 바로 든 파일 수)·`app_cloud_trail(source, item_id)`(위치 줄)·`app_cloud_find(query, shelf, limit)`(이름 + 자료실 ready 글자 / recent·big·starred). 모두 SECURITY INVOKER. 내 드라이브 맨 위에 바로 든 항목은 `parent_id` null(뿌리 폴더 자체는 넣지 않음).
+- ③ Edge `cloud-files`(verify_jwt=true, 첫 배포 전): `status`·`sync`·`thumb`·`media`·`preview`·`open-url`. 원드라이브는 delta 하나로 처음 훑기·따라가기(410이면 다시 훑기), 지운 폴더는 아래까지 색인에서 뺌. 구글은 휴지통이면 `trashed` 표시, 내 것이 아니게 되거나 지워지면 뺌. 중계는 그림·동영상·소리·PDF·글만 그 종류로, 나머지(HTML 등)는 받기(attachment)로만.
+- 토큰 코드: 사진 함수(`onedrive-photos`·`gdrive-photos`)를 다시 배포하지 않도록 이번에는 `_shared`로 옮기지 않고, 상수·검사 함수만 두 사진 함수에서 import했다(복사 없음). 토큰 받기 몇 줄은 `cloud-files`에 따로 있다 — 사진 함수를 고칠 다음 기회에 `_shared`로 모은다(발견사항).
 
 ## 9. 범위 밖 발견사항
 

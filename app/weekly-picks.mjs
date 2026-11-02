@@ -12,7 +12,7 @@
 // - 브라우저 저장소에 아무것도 두지 않는다. 글은 로그에 쓰지 않는다.
 
 export const PICK_KIND = Object.freeze({material:'칸 후보', calendar:'캘린더 추천', unmatched:'줄 못 찾은 기록', mismatch:'본문·일정표 다름', ai_line:'AI 줄 제안', review:'환류 규칙 후보',
-  doc:'자료 줄', org_ai:'조직 AI 요약', ai_draft:'AI 초안 줄', line:'보고서 줄', carried:'지난주 줄'});
+  doc:'자료 줄', org_ai:'조직 AI 요약', ai_draft:'AI 초안 줄', line:'보고서 줄', carried:'지난주 줄', work_line:'오늘 한 일 줄'});
 export const PICK_FROM = Object.freeze({record:'기록', doc:'자료', calendar:'달력', ai:'AI', hand:'손'});
 export const PICK_ACTS = Object.freeze(['take', 'edit', 'drop', 'fix', 'cut', 'add', 'none']);
 export const ANSWER_ACTS = Object.freeze(['take', 'edit', 'drop']);     // 제안에 대한 답 — 학습 셈(learnPicks)에 들어감
@@ -115,6 +115,22 @@ export function mergePicks(a, b) {
 export const droppedOf = picks => new Map((readPicks(picks)?.items ?? []).filter(x => x.act === 'drop').map(x => [x.key, x]));
 // 이번 주에 '다시 넣기'·받은 제안 열쇠(기억으로 빠지는 종류라도 이번 주엔 보임). 보고서 줄 동작(fix·cut·add)은 제안이 아니라 넣지 않는다.
 export const keptOf = picks => new Set((readPicks(picks)?.items ?? []).filter(x => x.act === 'take' || x.act === 'edit' || x.act === 'none').map(x => x.key));
+
+// ---- 칸별 '그대로 쓴 비율'(WEEKLY-환류전칸 3) ----
+// 서버 weekly-learn.ts actionDigest 와 같은 묶음·같은 셈: 묶음마다 넣음 / (넣음 + 고쳐서 넣음 + 뺌). 규칙 후보·개선 제안·기타는 칸이 아니라 뺀다.
+// 반환 [{group, percent(0~100 | null), answered(답한 제안 수)}] — 보고서 칸 순서(1→5, 참고).
+export const PICK_GROUPS = Object.freeze(['1. 요청사항', '2. 사업 요약', '3. 투쟁 사업장', '4. 산하 조직', '5. 주요 일정', '참고']);
+export const pickGroup = ({cell = ''}) => cell.startsWith('summary:') ? '2. 사업 요약' : cell.startsWith('orgs:') || cell.startsWith('orgref:') ? '4. 산하 조직' : cell.startsWith('sites:') ? '3. 투쟁 사업장'
+  : cell.startsWith('requests:') ? '1. 요청사항' : cell === 'calendar' ? '5. 주요 일정' : cell === 'notes' || cell.startsWith('notes:') ? '참고' : cell === '규칙 후보' ? '새 규칙 후보' : cell === '개선 제안' ? '개선 제안' : '기타';
+export function cellKeptRates(picks) {
+  const by = new Map();
+  for (const x of readPicks(picks)?.items ?? []) {
+    const g = pickGroup(x);
+    if (!PICK_GROUPS.includes(g) || !ANSWER_ACTS.includes(x.act)) continue;
+    const c = by.get(g) ?? {take:0, edit:0, drop:0}; c[x.act]++; by.set(g, c);
+  }
+  return PICK_GROUPS.filter(g => by.has(g)).map(g => { const c = by.get(g), n = c.take + c.edit + c.drop; return {group:g, percent:n ? Math.round((c.take / n) * 100) : null, answered:n}; });
+}
 
 // ---- 환류 정리 시점 ----
 // 마지막 정리 뒤에 쌓인 동작 수('none' 제외). since 가 ''이면 이 주 전부.
