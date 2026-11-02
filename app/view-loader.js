@@ -41,6 +41,7 @@ const routeStyles={
   arsenal:['./arsenal.css','./ui-standard.css'],
   outside:['./outside-statements.css','./ui-standard.css'],
   news:['./news-clipping.css','./library-upload.css','./ui-standard.css'],
+  files:['./folder-tree.css','./files.css','./ui-standard.css'],
   updates:['./release-notes.css','./ui-standard.css']
 };
 async function prepare(view){
@@ -175,9 +176,11 @@ async function arsenal(){ await module('./arsenal.js'); return {ok:true} }
 async function outside(){ await module('./outside-statements.js'); return {ok:true} }
 // NEWS-클리핑 C1: [뉴스 클리핑](?view=news, 위 메뉴 사회운동 Now 다음). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #newsView를 만든다).
 async function news(){ await module('./news-clipping.js'); return {ok:true} }
+// FILES-클라우드탐색기 ④: [파일](?view=files, 위 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #filesView를 만든다).
+async function files(){ await module('./files.js'); return {ok:true} }
 // UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
 async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,news,updates};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,news,files,updates};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',journal:'home'};
 function normalize(view){
@@ -222,7 +225,8 @@ const warmModules={
   telegram:['./telegram-feed.js'],
   photos:['./photos.js'],
   outside:['./outside-statements.js'],
-  news:['./news-clipping.js']
+  news:['./news-clipping.js'],
+  files:['./files.js']
 };
 const warmed=new Set();
 function hint(rel,path,as){

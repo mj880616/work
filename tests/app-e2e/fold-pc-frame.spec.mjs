@@ -42,6 +42,7 @@ const MENU=[
   ['노트','.nav-btn[data-basket-kind-nav="note"]','basket',true],
   ['사업 보고','.nav-btn[data-view="meetings"]','meetings'],
   ['자료실','.nav-btn[data-view="library"]','library'],
+  ['파일','.nav-btn[data-view="files"]','files'],
   ['공유 페이지','.nav-btn[data-view="pages"]','pages'],
   ['담당조직','.nav-btn[data-view="team"]','team'],
   ['HWP 편집','.nav-btn[data-view="hwp"]','hwp'],

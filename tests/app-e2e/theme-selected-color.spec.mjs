@@ -92,10 +92,10 @@ for(const theme of ['olive','sky','lemon']){
  });
 }
 
-test('폰 390: 메뉴 판 타일 열이 같은 모양이고 낮다(OUTSIDE-바깥성명 ④: 바깥 성명 추가, CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가, MTG-프로젝트합치기 3단계: 사업 보고는 하단바로)',async({page})=>{
+test('폰 390: 메뉴 판 타일 열이 같은 모양이고 낮다(FILES-클라우드탐색기 ④: 파일 추가, OUTSIDE-바깥성명 ④: 바깥 성명 추가, CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가, MTG-프로젝트합치기 3단계: 사업 보고는 하단바로)',async({page})=>{
  const errors=await open(page,390);
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu .mobile-menu-panel')).toBeVisible();
- const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(11);
+ const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(12);
  // S48-6b(#1708 질문 4): 메뉴 줄은 보이는 36px, 누르는 범위(::after) 44px.
  const look=await tiles.evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e),a=getComputedStyle(e,'::after'),h=e.getBoundingClientRect().height;return {bg:s.backgroundColor,color:s.color,border:s.borderTopColor,h:Math.round(h),touch:Math.round(h-parseFloat(a.top)-parseFloat(a.bottom))}}));
  for(const t of look){expect(t).toEqual(look[0]);expect(t.h).toBeLessThanOrEqual(60);expect(t.h).toBe(36);expect(t.touch).toBe(44)}
