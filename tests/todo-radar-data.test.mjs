@@ -169,6 +169,11 @@ test('the 사업 보고 window uses the 정리함 list part and the existing tas
   assert.match(box,/kptu:todo-radar-changed/);
   assert.match(detail,/id="mrdMakeTodos"/);assert.match(detail,/mountMeetingTodos\(/);assert.match(detail,/mrdTodos\?\.open\(\)/);assert.match(detail,/mrdTodos\?\.close\(\)/);
   assert.match(css,/\.mrd-make-todos\{/);
+  // 11/02 명진 결정 '고쳐서 넣기 둠': 이 창 후보 줄도 정리함과 같은 ⋯ [고쳐서 할 일로](제목·기한 고쳐 넣기)를 쓴다 — 창 안에서 메뉴가 열리고 입력 줄 모양이 있다.
+  assert.doesNotMatch(box,/menu\s*:\s*false|noEdit|withEdit/);
+  assert.match(inbox,/data-inbox-todo-menu="edit">고쳐서 할 일로</);assert.match(inbox,/parent:trigger => trigger\.closest\('dialog,\.modal'\)/);
+  assert.match(inbox,/data-inbox-todo-more="\$\{id\}"/);
+  assert.match(css,/#meetingRoundDetailModal \.mrd-todo-cand \.inbox-todo-edit\{/);
   const store=['local','Storage'].join(''),session=['session','Storage'].join(''),idb=['indexed','DB'].join('');
   for(const text of [box,inbox])assert.doesNotMatch(text,new RegExp([store,session,idb].join('|')));
   assert.doesNotMatch(css.slice(css.indexOf('MTG-후속할일후보')),/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
