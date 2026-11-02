@@ -260,6 +260,8 @@
   import('./notice-lines.js').then(m=>m.startNoticeLines()).catch(err=>console.warn('notice lines load failed',err?.name||'Error'));
   // UI-앱안알림 4단계: 뒤에서 끝난 일(다음 주 준비 한 장 등)도 같은 알림 줄에(notice-done.js, 폰 알림과 같은 서버 목록). 기다리지 않는다.
   import('./notice-done.js').then(m=>m.startDoneNotices()).catch(err=>console.warn('done notices load failed',err?.name||'Error'));
+  // S48-18: 저녁 '새 성명 n건'(사회운동 Now 본 시각 뒤 들어온 글, notice-outside.js). 기다리지 않는다.
+  import('./notice-outside.js').then(m=>m.startOutsideNotice()).catch(err=>console.warn('outside notice load failed',err?.name||'Error'));
   // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창과 그 목록(·주소의 사업영역)까지 다 그린 뒤에 첫 화면을 드러낸다
   // (드러낸 뒤에 창이 늦게 덮거나 목록이 다시 그려져 줄이 밀리지 않게 — 시작 순서: 필요한 자료 → 한 번 드러내기).
   if(areasAtStart&&result?.ok){

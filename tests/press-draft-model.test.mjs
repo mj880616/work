@@ -37,3 +37,31 @@ test('pick line: series name + round, kind and date (Seoul)',()=>{
   assert.deepEqual(m.meetingPickLine({id:id(2),title:'',series_name:null,round_no:null,meeting_at:null}),{id:id(2),name:'사업 보고',meta:''});
   assert.equal(m.PRESS_FOLDER_NAME,'성명 초안');
 });
+
+// S48-18 바깥 문장(사회운동 Now [초안에 쓰기]): 글 id + 문장 번호만 보내고, 답의 근거에 바깥 인용이 섞여도 받는다.
+const pid=n=>`f0000000-0000-4000-8000-00000000000${n}`;
+test('quotes: request sends post id + index only (0~5, unique), meetings may be empty; answer keeps quote sources; note lists them',()=>{
+  assert.deepEqual(m.pressRequest('statement',[],'',[{post_id:pid(1).toUpperCase(),idx:2,text:'문장 글',source:'단체'},{post_id:pid(1),idx:2},{post_id:'x',idx:0},{post_id:pid(2),idx:-1},{post_id:pid(3),idx:0}]),
+    {kind:'press_draft',type:'statement',meeting_ids:[],quotes:[{post_id:pid(1),idx:2},{post_id:pid(3),idx:0}]});
+  assert.equal(m.pressRequest('statement',[],'',Array.from({length:7},(_,i)=>({post_id:pid(1),idx:i}))).quotes.length,5);
+  assert.ok(!('quotes' in m.pressRequest('statement',[id(1)],'',[])),'no quotes key when none chosen');
+  const d=m.parsePressAnswer(answer({paragraphs:[{text:'인용 문단.',refs:[2]}],sources:[{ref:1,meeting_id:id(1),title:'회의',day:'2026-10-02'},{ref:2,post_id:pid(1),idx:0,title:'바깥 인용 · 민주노총 · 가상 성명',day:''},{ref:3,post_id:pid(2),title:'번호 없음',day:''}]}));
+  assert.deepEqual(d.sources.map(s=>s.ref),[1,2]);
+  assert.deepEqual(d.sources[1],{ref:2,post_id:pid(1),idx:0,title:'바깥 인용 · 민주노총 · 가상 성명',day:''});
+  assert.match(m.pressNote(d).raw_text,/근거\n1\. 사업 보고 · 회의 · 10\.2\n2\. 바깥 인용 · 민주노총 · 가상 성명$/);
+});
+
+test('quote store: up to 5, no duplicates, memory only, cleared on demand',async()=>{
+  const q=await import('../app/press-quotes.mjs');
+  q.clearPressQuotes();
+  let seen=0;const off=q.onPressQuotes(()=>seen++);
+  assert.equal(q.addPressQuote({post_id:pid(1),idx:0,text:' 가 \n 나 ',source:'민주노총',title:'제목',day:'2026-10-28'}),'added');
+  assert.equal(q.addPressQuote({post_id:pid(1).toUpperCase(),idx:0}),'have');
+  assert.equal(q.addPressQuote({post_id:'x',idx:0}),'bad');
+  for(let i=1;i<5;i++)assert.equal(q.addPressQuote({post_id:pid(2),idx:i}),'added');
+  assert.equal(q.addPressQuote({post_id:pid(3),idx:0}),'full');
+  assert.equal(q.pressQuotes()[0].text,'가 나');assert.equal(q.pressQuotes().length,q.PRESS_QUOTE_MAX);
+  q.removePressQuote(pid(2),1);assert.equal(q.hasPressQuote(pid(2),1),false);assert.equal(q.pressQuotes().length,4);
+  q.clearPressQuotes();assert.equal(q.pressQuotes().length,0);
+  off();assert.equal(seen,7);
+});
