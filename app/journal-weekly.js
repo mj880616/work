@@ -902,6 +902,20 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const confirmSlot = el('div', 'weekly-flow-confirm-slot'); confirmSlot.dataset.weeklyFlowConfirm = '';
   five.append(cal, confirmSlot);
 
+  // S48-3b: 참고 '한 줄' 줄 끝 ⋯ [빼기] = 개인 줄이라 이번 주 업무 재료에서 빼고 다음 가르기에 배우게(work-line-drop.js — 누를 때 불러옴).
+  // 그 주 임시저장 칸을 쓸 수 있을 때만. 하루 화면·달력·일기의 줄은 지우지 않는다.
+  function workLineList(items) {
+    const list = itemList(items);
+    if (!fe.editable) return list;
+    [...list.children].forEach((li, i) => {
+      const item = items[i];
+      li.dataset.journalWorkLine = item.day;
+      li.append(' ', rowMore(doc, {label:`한 줄 빼기: ${item.text}`, data:{journalWorkLineMore:''}, items:[
+        {text:'빼기', data:{journalWorkLineDrop:item.day}, danger:true, aria:`개인 줄이라 빼기: ${item.text}`,
+          onClick:() => { void import('./work-line-drop.js').then(m => m.dropWorkLine({start:model.start, day:item.day, text:item.text, li})); }}]}));
+    });
+    return list;
+  }
   // 참고
   // WEEKLY-칸밖재료접기(11/01 01:21): '참고 — 보고서 칸 밖 재료'부터 아래(주간보고 기억·규칙·환류)는 기본 접힘, 눌러 펼침. 접힌 줄은 제목 + 건수.
   // 펼침은 이 화면을 다시 그릴 때만 이어지고(같은 자리의 열림 값), 기기에 저장하지 않는다.
@@ -914,7 +928,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     const part = model.notes[key];
     if (!part.loading && !part.failed.length && !part.items.length && !part.note) { if (key !== 'memos') quiet.push(label); continue; }
     const box = block(`note-${key}`, label);
-    if (!status(box, part, label) && !part.failed.length) { if (part.items.length) box.append(itemList(part.items)); if (part.note) box.append(muted(part.note)); }
+    if (!status(box, part, label) && !part.failed.length) { if (part.items.length) box.append(key === 'lines' ? workLineList(part.items) : itemList(part.items)); if (part.note) box.append(muted(part.note)); }
     refItems += part.items?.length ?? 0;
     ref.append(box);
   }

@@ -56,8 +56,39 @@ export function workScopeLines(rows: unknown, monday: string, workspaceId: strin
   return { lines, all: every, skipped };
 }
 
-export const workScopeMaterial = (lines: WorkScopeLine[]) =>
-  JSON.stringify({ lines: lines.map((l) => ({ ref: l.ref, date: l.day, text: l.text.replace(CONTROL, " ") })) });
+// ---- 사람이 [빼기]한 줄(S48-3b, JOURNAL-오늘한일업무개인 남은 일 — WEEKLY-환류전칸과 같은 길) ----
+// [주간 정리] 참고 '한 줄' 줄 ⋯ [빼기] = 그 주 요청 표 행 draft.picks 에 {kind:'work_line', cell:'notes:lines:<날짜>', act:'drop', text}.
+// 되돌리면 같은 열쇠가 act 'none'. 그 주 것은 AI 답과 상관없이 뺄 줄에 더하고(사람이 정한 값), 앞 주들 것은 '개인 줄로 뺀 예'로 AI에 준다.
+export const WORK_SCOPE_EXAMPLES = 20;
+const LINE_CELL = /^notes:lines:(\d{4}-\d{2}-\d{2})$/;
+export function userLineDrops(rows: unknown, monday: string): { thisWeek: { day: string; text: string }[]; examples: string[] } {
+  const thisWeek: { day: string; text: string }[] = [], examples: string[] = [], seen = new Set<string>();
+  const list = (Array.isArray(rows) ? rows : []).filter((r) => r && typeof r === "object") as Record<string, unknown>[];
+  for (const r of [...list].sort((a, b) => String(b.week_start).localeCompare(String(a.week_start)))) {
+    const items = r.picks && typeof r.picks === "object" && Array.isArray((r.picks as Record<string, unknown>).items) ? (r.picks as { items: unknown[] }).items : [];
+    for (const x of items) {
+      if (!x || typeof x !== "object") continue;
+      const it = x as Record<string, unknown>, m = LINE_CELL.exec(String(it.cell ?? ""));
+      if (it.kind !== "work_line" || it.act !== "drop" || !m || typeof it.text !== "string") continue;
+      const text = it.text.replace(CONTROL, " ").trim();
+      if (!text || [...text].length > WORK_SCOPE_LINE_CHARS) continue;
+      if (r.week_start === monday) thisWeek.push({ day: m[1], text });
+      else if (!looksSecret(text) && examples.length < WORK_SCOPE_EXAMPLES && !seen.has(text)) { seen.add(text); examples.push(text); }
+    }
+  }
+  return { thisWeek, examples };
+}
+// 사람이 이번 주에 뺀 줄을 AI 답의 뺄 줄에 더한다(같은 날·같은 글이면 그 글 줄 모두 — 화면도 날짜·글로 맞춤).
+// 동작 기록 글은 화면에서 PICK_TEXT(100자)로 잘려 저장되므로, 100자 이상 기록 글은 앞부분이 같은 줄로 맞춘다.
+export const PICK_TEXT_CHARS = 100;
+export function withUserDrops(drop: { day: string; text: string }[], all: { day: string; text: string }[], mine: { day: string; text: string }[]) {
+  const key = (l: { day: string; text: string }) => `${l.day}\u0000${l.text}`, have = new Set(drop.map(key));
+  const hit = (l: { day: string; text: string }) => mine.some((m) => m.day === l.day && (m.text === l.text || ([...m.text].length >= PICK_TEXT_CHARS && l.text.startsWith(m.text))));
+  return [...drop, ...all.filter((l) => !have.has(key(l)) && hit(l))];
+}
+
+export const workScopeMaterial = (lines: WorkScopeLine[], personalExamples: string[] = []) =>
+  JSON.stringify({ lines: lines.map((l) => ({ ref: l.ref, date: l.day, text: l.text.replace(CONTROL, " ") })), ...(personalExamples.length ? { personal_examples: personalExamples } : {}) });
 
 export const WORK_SCOPE_INSTRUCTIONS = [
   "너는 노동조합 상근자의 '오늘 한 일' 줄을 업무 줄과 개인 줄로 가르는 도우미다. 사용자는 업무·개인을 나누지 않고 그날 한 일을 적는다.",
@@ -65,6 +96,7 @@ export const WORK_SCOPE_INSTRUCTIONS = [
   "work: 노동조합 일(교섭·회의·조직·지부·조합원 상담·집회·기자회견·성명·보고·자료 작성·출장·통화·행정 등)과 일터에서 한 일.",
   "personal: 업무와 상관없는 개인 생활(취미·학원·운동·병원·가족·친구·장보기·여가·여행·집안일·식사 약속 등).",
   "애매하면 personal로 둔다. 한 줄에 업무와 개인이 섞였으면 업무 내용이 분명할 때만 work.",
+  "personal_examples(있으면)는 이 사람이 지난 주간보고에서 개인 줄이라며 직접 뺀 줄이다. 같은 일·비슷한 줄은 personal로 둔다.",
   "ref는 lines의 ref 값을 그대로 쓰고 줄마다 한 항목이다. 목록에 없는 ref를 만들지 않는다.",
   "답은 정해진 JSON 형식 {\"items\": [{\"ref\": 참조, \"scope\": \"work\" 또는 \"personal\"}]} 하나뿐이다.",
 ].join("\n");

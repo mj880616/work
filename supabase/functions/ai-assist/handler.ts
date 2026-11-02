@@ -76,7 +76,7 @@ import {
   JOURNAL_DRAFT_BODY_BYTES, JOURNAL_DRAFT_HOUR, JOURNAL_DRAFT_INSTRUCTIONS, JOURNAL_DRAFT_MAX_OUTPUT_TOKENS, JOURNAL_DRAFT_SCHEMA,
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
 } from "./journal-draft.ts";
-import { parseWorkScope, parseWorkScopeRequest, WORK_SCOPE_INSTRUCTIONS, WORK_SCOPE_MAX_OUTPUT_TOKENS, WORK_SCOPE_SCHEMA, weekDayKeys, workScopeLines, workScopeMaterial } from "./work-scope.ts";
+import { parseWorkScope, parseWorkScopeRequest, WORK_SCOPE_INSTRUCTIONS, WORK_SCOPE_MAX_OUTPUT_TOKENS, WORK_SCOPE_SCHEMA, weekDayKeys, userLineDrops, withUserDrops, workScopeLines, workScopeMaterial } from "./work-scope.ts";
 import {
   autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
   nextWeekSheetMaterial, parseNextWeekSheet, parseNextWeekSheetRequest, addDays as addSheetDays, seoulClock, sentIndexes, type NextWeekItem, type NextWeekTopLine,
@@ -3852,12 +3852,17 @@ async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): P
     throw new Fail(503, "read_unavailable");
   }
   if (!Array.isArray(rows) || rows.length > 7) throw new Fail(503, "read_unavailable");
-  const { lines, all, skipped } = workScopeLines(rows, input.week_start, ctx.workspaceId);
+  const { lines: sent, all, skipped } = workScopeLines(rows, input.week_start, ctx.workspaceId);
+  // S48-3b: 사람이 [주간 정리] '한 줄'에서 뺀 줄(그 주·앞 주들 draft.picks, owner RLS 읽기). 읽지 못해도 가르기는 그대로 한다.
+  let picked: unknown = [];
+  try { picked = await rest(ctx, `${WEEKLY_REQUESTS_TABLE}?workspace_id=eq.${ws}&week_start=lte.${input.week_start}&select=week_start,picks:draft->picks&order=week_start.desc&limit=8`); } catch { picked = []; }
+  const mine = userLineDrops(picked, input.week_start);
+  const lines = sent.filter((l) => !withUserDrops([], [l], mine.thisWeek).length); // 이미 뺀 줄은 AI에 보내지 않는다
   if (!lines.length) {
     deps.log("work_scope_skipped", { reason: "no_lines", skipped });
     return json({ ok: true, kind: "work_scope", week_start: input.week_start, drop: all, personal: 0, skipped });
   }
-  const material = workScopeMaterial(lines);
+  const material = workScopeMaterial(lines, mine.examples);
   const config = aiConfig(deps.env);
   if (!config) {
     deps.log("ai_not_configured");
@@ -3894,8 +3899,8 @@ async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): P
   }
   const parsed = parseWorkScope(outputText(result.raw, 64 * 1024) ?? "", lines, all);
   if (!parsed) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
-  deps.log("work_scope_done", { lines: lines.length, work: parsed.work, personal: parsed.personal, skipped });
-  return json({ ok: true, kind: "work_scope", week_start: input.week_start, drop: parsed.drop, personal: parsed.personal, skipped });
+  deps.log("work_scope_done", { lines: lines.length, work: parsed.work, personal: parsed.personal, skipped, mine: mine.thisWeek.length, examples: mine.examples.length });
+  return json({ ok: true, kind: "work_scope", week_start: input.week_start, drop: withUserDrops(parsed.drop, all, mine.thisWeek), personal: parsed.personal, skipped });
 }
 
 // ---- 쓰임 next_week_sheet: 다음 주 준비 한 장(JOURNAL-다음주준비, next-week-sheet.ts) ---------------------------------------
