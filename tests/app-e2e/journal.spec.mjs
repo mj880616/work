@@ -1055,7 +1055,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(cal.locator('tbody th')).toHaveText(['10.13.(화)','10.14.(수) ~ 10.15.(목)']);
  await expect(cal.locator('tbody .journal-weekly-what')).toHaveText(['10:30 / 가상 다음 주 회의 / 가상 회의실','종일 / 가상 수련회']);
  await expect(cal.locator('[data-journal-weekly-vacation]')).toHaveText('※ 휴가: 10/23(금) 연차');
- await expect(cal).not.toContainText('가상 개인 약속');await expect(cal).not.toContainText('가상 아스날 경기');await expect(cal).toContainText("'공공운수노조' 달력 일정만");await expect(cal).not.toContainText('가상 생일 모임');await expect(cal).not.toContainText('일기 쓰는 날');await expect(cal).not.toContainText('가상 셋째 주 집회');
+ await expect(cal).not.toContainText('가상 개인 약속');await expect(cal).not.toContainText('가상 아스날 경기');await expect(cal).not.toContainText("'공공운수노조' 달력 일정만"); /* 늘 보이던 안내 한 줄 삭제(S48-33) */await expect(cal).not.toContainText('가상 생일 모임');await expect(cal).not.toContainText('일기 쓰는 날');await expect(cal).not.toContainText('가상 셋째 주 집회');
  // 참고: 한 줄·끝낸 할 일·할 일 예정·자료실·공유 페이지(기록 있는 것만 상자), 이번 주 일정·옮긴 노트·일기는 없다.
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"] [data-journal-weekly] > h5')).toHaveText(['한 줄','끝낸 할 일','할 일 예정','자료실 새 자료','공유 페이지','내 메모']);
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"]')).not.toContainText('오전 일정');
