@@ -221,7 +221,7 @@ const warmModules={
   diary:/*static-chain*/['./diary.js'],
   projects:/*static-chain*/['./project-system-v3.js'],
   library:/*static-chain*/['./library-upload.js'],
-  meetings:/*static-chain*/['./task-workflow.js','./meeting-round-detail.js'],
+  meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js'],
   pages:/*static-chain*/['./share-pages.js'],
   team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
   ledger:/*static-chain*/['./ledger-browse.js'],
