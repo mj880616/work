@@ -165,8 +165,9 @@ import {
   overlapMaterial, pairKey, parseOverlap, parseOverlapRequest, refId, refKind, type OverlapPair, type OverlapRecord, type OverlapRow,
 } from "./overlap.ts";
 import {
-  parsePressBody, parsePressDraft, pressInstructions, pressMaterial, pressSources, PRESS_DRAFT_SCHEMA, PRESS_LIMITS, type PressInput,
+  parsePressBody, parsePressDraft, pressInstructions, pressMaterial, pressSources, quoteSources, PRESS_DRAFT_SCHEMA, PRESS_LIMITS, type PressInput, type PressQuote,
 } from "./press-draft.ts";
+import { sourceByKey } from "../_shared/outside-catalog.ts";
 import {
   parseShareBody, parseShareDraft, shareMaterial, shareSources, SHARE_DRAFT_INSTRUCTIONS, SHARE_DRAFT_SCHEMA, SHARE_LIMITS, type ShareInput, type ShareRow,
 } from "./share-draft.ts";
@@ -3243,7 +3244,7 @@ async function runOrgStatusRows(ctx: Ctx, input: OrgStatusRowsInput, deps: Radar
 async function runPressDraft(ctx: Ctx, input: PressInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now(), today = kstDay(started);
   const ws = encodeURIComponent(ctx.workspaceId);
-  const rows = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&id=in.(${input.meeting_ids.join(",")})&select=id,workspace_id,title,series_name,round_no,meeting_at,transcript_text,decisions&limit=${PRESS_LIMITS.refs}`);
+  const rows = input.meeting_ids.length ? await readList(ctx, `app_meetings?workspace_id=eq.${ws}&id=in.(${input.meeting_ids.join(",")})&select=id,workspace_id,title,series_name,round_no,meeting_at,transcript_text,decisions&limit=${PRESS_LIMITS.refs}`) : [];
   const byId = new Map(rows.filter((m) => isUuid(m.id) && String(m.workspace_id).toLowerCase() === ctx.workspaceId).map((m) => [String(m.id).toLowerCase(), m]));
   // 고른 것 중 하나라도 없으면(남의 것·지운 것) 404. 고른 순서대로 근거 번호를 매긴다.
   if (input.meeting_ids.some((id) => !byId.has(id))) throw new Fail(404, "not_found");
@@ -3256,7 +3257,10 @@ async function runPressDraft(ctx: Ctx, input: PressInput, deps: RadarDeps): Prom
     const when = timeOf(m.meeting_at);
     return { id, label: name + (m.round_no != null && Number.isFinite(round) ? ` ${round}차` : ""), day: Number.isFinite(when) ? kstDay(when) : "", text };
   });
-  const { sources, partial } = pressSources(picked);
+  const { sources: meetingSources, partial } = pressSources(picked);
+  // 바깥 문장(S48-18): 글 id + 문장 번호만 받아 그 사람 로그인으로 다시 읽는다(owner RLS + 작업공간 확인). 하나라도 없으면 404.
+  const quotes = await readPressQuotes(ctx, input.quotes);
+  const sources = [...meetingSources, ...quoteSources(quotes, meetingSources.length)];
   if (!sources.length) throw new Fail(422, "press_no_source");
 
   const config = aiConfig(deps.env);
@@ -3300,10 +3304,34 @@ async function runPressDraft(ctx: Ctx, input: PressInput, deps: RadarDeps): Prom
     deps.log("ai_invalid_response");
     throw new Fail(502, "ai_invalid_response");
   }
-  deps.log("press_draft_done", { type: input.type, sources: sources.length, paragraphs: draft.paragraphs.length, demands: draft.demands.length, checks: draft.checks.length, partial });
+  deps.log("press_draft_done", { type: input.type, sources: sources.length, quotes: quotes.length, paragraphs: draft.paragraphs.length, demands: draft.demands.length, checks: draft.checks.length, partial });
   return json({
     ok: true, kind: "press_draft", type: input.type, ...draft, partial,
-    sources: sources.map((s, i) => ({ ref: i + 1, meeting_id: s.id, title: s.title, day: s.day })),
+    sources: sources.map((s, i) => s.quote
+      ? { ref: i + 1, post_id: s.quote.post_id, idx: s.quote.idx, title: s.title, day: s.day }
+      : { ref: i + 1, meeting_id: s.id, title: s.title, day: s.day }),
+  });
+}
+
+// 바깥 문장 읽기: 문장 표(국내 글만 있음)와 글 표를 그 사람 로그인으로 읽는다. 단체 이름은 서버 카탈로그 이름(없으면 키).
+// 날짜는 게시 시각(서울 날짜), 모르면 빈 글. 고른 순서대로 돌려준다.
+async function readPressQuotes(ctx: Ctx, quotes: PressQuote[]) {
+  if (!quotes.length) return [];
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const postIds = [...new Set(quotes.map((q) => q.post_id))];
+  const [posts, lines] = await Promise.all([
+    readList(ctx, `app_outside_posts?workspace_id=eq.${ws}&id=in.(${postIds.join(",")})&select=id,workspace_id,source_key,title,title_ko,published_at&limit=${PRESS_LIMITS.quotes}`),
+    readList(ctx, `app_outside_sentences?workspace_id=eq.${ws}&post_id=in.(${postIds.join(",")})&idx=in.(${[...new Set(quotes.map((q) => q.idx))].join(",")})&select=post_id,workspace_id,idx,text&limit=${PRESS_LIMITS.quotes * PRESS_LIMITS.quotes}`),
+  ]);
+  const postBy = new Map(posts.filter((p) => isUuid(p.id) && String(p.workspace_id).toLowerCase() === ctx.workspaceId).map((p) => [String(p.id).toLowerCase(), p]));
+  const lineBy = new Map(lines.filter((l) => isUuid(l.post_id) && String(l.workspace_id).toLowerCase() === ctx.workspaceId && typeof l.text === "string")
+    .map((l) => [`${String(l.post_id).toLowerCase()} ${Number(l.idx)}`, String(l.text)]));
+  if (quotes.some((q) => !postBy.has(q.post_id) || !lineBy.has(`${q.post_id} ${q.idx}`))) throw new Fail(404, "not_found");
+  return quotes.map((q) => {
+    const p = postBy.get(q.post_id)!;
+    const when = timeOf(p.published_at);
+    const title = typeof p.title_ko === "string" && p.title_ko.trim() ? p.title_ko : String(p.title ?? "");
+    return { post_id: q.post_id, idx: q.idx, source: sourceByKey(p.source_key)?.name ?? String(p.source_key ?? ""), title, day: Number.isFinite(when) ? kstDay(when) : "", text: lineBy.get(`${q.post_id} ${q.idx}`)! };
   });
 }
 
