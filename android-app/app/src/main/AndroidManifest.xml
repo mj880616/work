@@ -176,6 +176,17 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <!-- PHOTO-폰앱공유(0.4.7): 웹2 [공유]가 넘기는 그림(앱 캐시 share-out/ 한 곳)을 공유 창으로 받은 앱이 읽게 하는 통로.
+             내보내지 않고, 공유할 때 그 파일에만 임시 읽기 허락을 준다. 권한 추가 없음. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="kr.or.kptu.work.shareout"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_out_paths" />
+        </provider>
         <!-- APP-위젯다시 ①: 홈 화면 '웹2 지금' 위젯(4×2·2×2, 홈 화면 전용). 지난 '오늘'·'텔레그램' 위젯을 합쳐 바꿨다. 권한은 그대로 인터넷 하나. -->
         <receiver
             android:name=".NowWidget"

@@ -16,7 +16,7 @@ import {swipeKind, shareFileName, UNDO_MS, dragAxis, dragEnd, dragOffset, starFi
   ZOOM_ONE, isZoomed, clampPan, zoomAt, pinchTo, panBy, zoomToggle, wheelScale, isTap, isDoubleTap, settleZoom, zoomTransform} from './photo-viewer-model.mjs';
 import {slotTimingOf} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
-import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, PHOTO_WAIT} from './photo-share.js';
+import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
 import {shareFrom} from './share-menu.js';
 
 let viewer = null, pending = null;
@@ -84,6 +84,9 @@ export function openPhotoStrip(opts) {
   const starBtn = box.querySelector('[data-diary-star]'), delBtn = box.querySelector('[data-od-delete]'), undoBtn = box.querySelector('[data-diary-undo]');
   const editBtn = box.querySelector('[data-strip-edit]');
   const noteText = text => paintPhotoNote(box.querySelector('[data-diary-viewer-note-text]'), text);
+  // PHOTO-폰앱공유(요청함 11/01 21:26): 알림 줄(공유 기다림 회색 칸·안내 글)을 눌러도 아무 일 없게. 줄 안 [되돌리기]만 받는다.
+  // 예전에는 줄이 누름을 받지 않아 폰이 바로 아래 [🗑 지우기]로 옮겨 눌렀다(누르는 곳 보정) → '휴지통으로 옮겼어요'.
+  quietNote(box.querySelector('[data-diary-viewer-note]'), '[data-diary-undo]');
   const fx = box.querySelector('[data-strip-starfx]'), finger = box.querySelector('[data-strip-finger]'), hintEl = box.querySelector('[data-diary-viewer-hint]');
   const fill = i => {
     const slide = strip.children[i];
