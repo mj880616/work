@@ -5,11 +5,17 @@ import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../ap
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
-test('허용 칸 스물다섯 개가 DB 검사(마지막 migration, album_view 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261031235000_profile_view_prefs_album_view.sql');
+// DB에는 있지만 화면 허용 목록에는 아직 없는 칸: now_tab(S48-14 Now 탭, DB 20261102141000만 먼저 들어감 — 그 화면 PR이 KEYS에 더하면 여기서 뺀다).
+const DB_ONLY = ['now_tab'];
+test('허용 칸 스물일곱 개가 DB 검사(마지막 migration, S48-21 ed_more 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261102190000_profile_view_prefs_ed_more.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
-  assert.deepEqual([...KEYS].sort(), listed.sort());
-  assert.equal(KEYS.length, 25);
+  assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
+  assert.equal(KEYS.length, 27);
+});
+test('link_hidden_on은 YYYY-MM-DD 글자만(UI-앱안알림, DB 검사와 같음)', () => {
+  for (const v of ['2026-11-02', '1999-12-31']) assert.equal(validValue('link_hidden_on', v), true, v);
+  for (const v of ['', '2026-11-2', '2026-11-02T00:00', 20261102, true, null, ['2026-11-02']]) assert.equal(validValue('link_hidden_on', v), false, JSON.stringify(v));
 });
 test('album_view는 card·thumb·line 글자만(PHOTO-위쪽두줄앨범보기, DB 검사와 같음)', () => {
   for (const v of ['card', 'thumb', 'line']) assert.equal(validValue('album_view', v), true, v);

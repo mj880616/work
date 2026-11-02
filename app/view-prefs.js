@@ -62,11 +62,13 @@ export const PHONE_FOLDERS_OFF_MAX = 80;
 // PHOTO-위쪽두줄앨범보기: album_view = 사진 [앨범] 탭 보기 크기 세 단계 'card'(큰 칸)·'thumb'(작은 그림 + 이름·장수·기간)·'line'(글자만 한 줄), 없으면 큰 칸.
 // migration 20261031235000. 뜻·단계 순서는 photos-model.mjs ALBUM_VIEWS. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
 export const ALBUM_VIEWS = Object.freeze(['card', 'thumb', 'line']);
+// UI-앱안알림(S48-19): link_hidden_on = 맨 위 알림 줄 '연결 끊김' ✕를 누른 서울 날짜(오늘 하루 숨김, collect_hidden_on과 같은 모양).
+// migration 20261102170000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(알림 없음, 이 탭에서는 닫힌 채).
 // S48-21 쓰기 창 서식 줄: ed_more = 편집기 서식 줄 [⌄] 아래 줄을 펼쳐 둔 채인가(참·거짓, 없으면 접힘). 모든 편집기·기기가 같은 값.
 // migration 20261102190000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(이번 접속만 기억, 알림 없음).
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'ed_more']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -83,7 +85,8 @@ export function validValue(key, value) {
     case 'home_quick_mode': return QUICK_MODES.includes(value);
     case 'report_view': return REPORT_VIEWS.includes(value);
     case 'note_folder': return typeof value === 'string' && FOLDER_RE.test(value);
-    case 'collect_hidden_on': return typeof value === 'string' && DATE_RE.test(value);
+    case 'collect_hidden_on':
+    case 'link_hidden_on': return typeof value === 'string' && DATE_RE.test(value);
     case 'menu_layout': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => name === 'bar' || name === 'rest') && idList(value.bar, MENU_BAR_MAX) && idList(value.rest, MENU_REST_MAX);
     case 'home_cards': return idList(value, HOME_CARDS_MAX);
