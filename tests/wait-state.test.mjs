@@ -58,7 +58,9 @@ test('메뉴 화면 처음 열기: 민트 상자 없이 가는 줄, 실패는 �
   const loader = read('loader-v2.js'), views = read('view-loader.js');
   assert.doesNotMatch(loader, /기능을 불러오는 중/);
   assert.doesNotMatch(loader, /className='notice'/);
-  assert.match(loader, /const wait=await import\('\.\/wait-state\.js'\);\n  await import\('\.\/view-loader\.js'\);/, '화면 파일보다 먼저 부품을 불러온다');
+  // PERF-첫로딩 P3: 부품(wait-state)과 화면 불러오기 도구(view-loader)는 로그인 확인 뒤 한 단계에서 함께 부르고, 둘 다 끝난 뒤 화면 파일을 부른다.
+  assert.match(loader, /const viewToolsReady=Promise\.all\(\[import\('\.\/wait-state\.js'\),import\('\.\/view-loader\.js'\)\]\);/, '화면 파일보다 먼저 부품을 불러온다');
+  assert.ok(loader.indexOf('const [wait]=await viewToolsReady;') < loader.indexOf('result=await viewLoader.load(requested)'), '부품을 다 받은 뒤 화면 파일');
   assert.match(loader, /wait\.barHtml\(\)/);
   assert.match(loader, /wait\.failEl\(/);
   assert.match(loader, /defer\(\(\)=>viewLoader\.warm\?\.\(\),\{timeout:8000\}\);/);
