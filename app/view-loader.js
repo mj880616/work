@@ -251,5 +251,8 @@ function warm(){
   }
   return true
 }
-window.KPTUViewLoader={load,loadAll,prepare,normalize,warm,isLoaded:view=>loaded.has(normalize(view))};
+// PERF-첫로딩 P5-c: 화면 안에서 뒤늦게 부르는 묶음(예: 홈의 [주간 정리] 묶음)도 같은 받기 도구로 사슬을 한꺼번에 받아만 둔다.
+// 부르는 쪽은 /*static-chain*/ 목록(뿌리만, 빌드가 사슬을 채움)을 넘긴다. 받기만 하고 실행은 부르는 쪽 import() 그대로.
+function preload(paths){for(const path of paths||[])hint('modulepreload',path)}
+window.KPTUViewLoader={load,loadAll,prepare,normalize,warm,preload,isLoaded:view=>loaded.has(normalize(view))};
 })();

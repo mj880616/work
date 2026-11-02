@@ -278,3 +278,23 @@ CC가 `perf-baseline.yml`을 main과 이 브랜치에서 돌린 값을 PR 마감
 | 사업 보고 미리 받기(view-loader meetings) | — | 70개(묶음 사슬 포함) |
 
 - 추정: 홈 보이기 전 JS 151 → 약 127개(목표 130). 브라우저 수치는 9-3과 같이 CC 측정으로 확인한다.
+
+## 11. P5-c — 달력 첫 전환 회귀 원인과 홈 [주간 정리] 묶음 사슬 한꺼번에 받기 (S48-34b)
+
+### 11-1. 측정 사실
+
+- CC 측정(PR #1777, 3회): P5-b 뒤 폰 홈 보임 5838 → 5132ms·홈 보이기 전 JS 151 → 130은 좋아졌지만, **폰 달력 첫 전환 775 → 1359ms, 보일 때까지 새 JS 11 → 24**. 피시(local)는 10 → 9로 회귀 없음.
+- 원인 찾기용으로 `scripts/perf/tab-switch.spec.mjs`가 클릭 뒤 새로 받은 JS **파일 이름**(내용 없음)을 `PERF_SWITCH_FILES` 줄로 남기고, `run-baseline.sh`가 회차 1 줄을 작업 기록에 보여 준다(요약표는 그대로).
+- 이 브랜치 1회 측정 결과, 폰에서 더 받은 13개는 사업 보고 묶음 모듈이 **아니라** 홈 [주간 정리] 묶음(`journal-weekly-kit.js`, P2에서 앱이 보인 뒤 부르게 뺀 것)의 사슬 끝(`weekly-*` 9개·`weekly-base`·`row-more`·`prep-sheet-text`·`org-name-match`·`weekly-hwpx/schedule` 등)과 달력 뒤 단계 모듈이었다. 달력 정적 사슬은 이미 쉬는 틈 미리 받기에 들어 있다.
+- 즉 달력이 그 파일을 쓰는 것이 아니라, 홈 뒤에 주간 정리 묶음을 `import()`가 단계마다 줄 서서(정적 import를 한 층씩 발견) 받는 동안 쉬는 틈 미리 받기(약 220개)와 같은 연결을 다투다 폰 조건(150ms·9Mbps·CPU 4배)에서 클릭 시점(홈 뒤 6초)까지 다 못 받았다. P5-b로 홈 앞에서 빠진 공용 모듈(`business-area-model`·`report-links` 등) 몇 개가 그 사슬과 쉬는 틈 목록에 더해져 끝이 클릭 뒤로 밀렸다.
+
+### 11-2. 한 일
+
+- `view-loader.js`에 받기 도구 `KPTUViewLoader.preload(paths)`(쉬는 틈 미리 받기와 같은 `hint`, 같은 주소 중복 없음)를 내놨다.
+- `journal.js`가 주간 정리 묶음을 부르기 직전에 `preload(/*static-chain*/['./journal-weekly-kit.js'])` — 빌드가 사슬 전체를 채워 한꺼번에 받기 시작한다(P4 static-chain과 같은 방식, 받기만, 실행은 `import()` 그대로). 하루 화면이면 여전히 앱이 보인 뒤에만 부른다(홈 보이기 전 수 변화 없음).
+- 사업 보고 묶음·달력 사슬·쉬는 틈 목록 순서는 그대로. 손 `?v=`·캐시 삭제·기기 저장 없음. 시작 순서·화면 소유권 그대로.
+- 시험: `tests/loader-preload.test.mjs` P5-c. 빌드 결과 사슬 검사는 기존 `check-pages-build` (e)가 이 목록도 본다.
+
+### 11-3. 확인
+
+- CC가 `perf-baseline.yml`을 main·이 브랜치에서 다시 돌려 폰 달력 첫 전환(새 JS ≤ 11, ≈ 800ms)·홈 보이기 전 JS(≤ 130)를 본다.

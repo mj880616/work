@@ -75,3 +75,15 @@ test('P5-b: 사업 보고 전용 묶음은 team.js 정적 사슬 밖, 사업 보
   const warm = listsOf(views).find(({files}) => files.includes('meeting-round-detail.js'));
   assert.equal(warm?.files[0], 'team-report-kit.js');
 });
+
+// PERF-첫로딩 P5-c: 홈 [주간 정리] 묶음(journal-weekly-kit.js)은 앱이 보인 뒤 부르는데, 그 정적 사슬(약 75개)을 단계마다 줄 서서 받으면
+// 폰에서 홈 뒤 쉬는 틈 미리 받기·달력 첫 전환과 겹친다(S48-34 측정: 달력 첫 전환 새 JS 11 → 24, 늦게 온 것은 주간 정리 사슬).
+// 부르기 직전에 view-loader 받기 도구로 사슬 전체를 한꺼번에 받기 시작한다(뿌리만 적고 빌드가 사슬을 채움, 실행은 import() 그대로).
+test('P5-c: 홈 주간 정리 묶음은 부르기 직전에 정적 사슬을 한꺼번에 받기 시작한다', () => {
+  const journal = read('journal.js');
+  assert.match(views, /function preload\(paths\)\{for\(const path of paths\|\|\[\]\)hint\('modulepreload',path\)\}/);
+  assert.match(views, /window\.KPTUViewLoader=\{[^}]*\bpreload\b/);
+  assert.match(journal, /window\.KPTUViewLoader\?\.preload\?\.\(\/\*static-chain\*\/\['\.\/journal-weekly-kit\.js'\]\); return import\('\.\/journal-weekly-kit\.js'\);/);
+  // 묶음은 여전히 홈 첫 화면 정적 사슬 밖(앱이 보인 뒤 부름).
+  assert.ok(!closure('journal.js').has('journal-weekly-kit.js'));
+});
