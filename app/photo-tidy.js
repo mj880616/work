@@ -177,6 +177,8 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
     },
     // S47-16: 지울 폰 사진의 원드라이브 사본 짝({pairs, noCopy}). 원드라이브를 읽지 못했으면 null(지우지 않음).
     copyPairs: items => (ready() && st.odOn ? copyPairs(items, st.od) : null),
+    // S48-32: 사진 정리가 읽은 폰 사진 전부(고른 원드라이브 칸의 폰 원본 짝 찾기). 읽지 못했으면 null.
+    phoneItems: () => (ready() ? st.ph : null),
     goneSeen() { if (!st?.gone) return; st.gone = 0; changed(); seenTrash().catch(() => {}); },
     // ④ 남길 것 고르기.
     keep(groupId, itemId) { const g = st?.dups.find(x => x.id === groupId); if (g && g.items.some(p => p.id === itemId)) { keeps.set(groupId, itemId); cmpAt.delete(groupId); } },

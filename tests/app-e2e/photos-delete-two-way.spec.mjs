@@ -203,6 +203,96 @@ test.describe('폰 앱 412', () => {
   });
 });
 
+// S48-32(명진 실기기 11/03 00:03): 원드라이브 칩을 켠 보통 목록에서는 폰·원드라이브 같은 사진이 원드라이브 칸(O1)으로 보인다.
+// 그 칸만 골라도 폰 원본 짝(사진 정리와 같은 짝 판정)이 있으면 두 갈래 창. 짝 없는 원드라이브 칸만이면 예전 그대로. 크게 보기 한 장도 같은 판단.
+test.describe('폰 앱 412 · 원드라이브 칸', () => {
+  test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
+
+  test('폰 짝 있는 원드라이브 칸 [지우기] → 두 갈래 창 → 폰 공간만 비우기: 폰 짝만 폰 휴지통, 원드라이브는 그대로', async ({ page }) => {
+    const { state } = await fixture(page, { app: true });
+    await openPhotos(page, 412);
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
+    await hold(page, cellOf(page, 'O1'));
+    await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+    await root(page).locator('[data-photos-act-delete]').click();
+    await expect(choice(page)).toBeVisible();
+    const picks = choice(page).locator('[data-ask-pick]');
+    await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장');
+    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장');
+    await picks.nth(0).click();
+    await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
+    expect(state.bodies.find(b => b.action === 'copy-check').pairs).toEqual([{ id: 'O1', size: 10 }]);
+    await expect.poll(() => state.bodies.find(b => b.action === 'trash-log')?.pairs).toEqual([{ phone_id: '1', copy_id: 'O1', keep: true, rel_path: 'DCIM/Camera/', taken_at: '2026-10-31T03:00:00.000Z' }]);
+    await expect(page.locator('.kptu-notice')).toContainText('폰 공간을 비웠어요');
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
+    expect(state.edge).not.toContain('photo-delete');
+    expect(state.errors).toEqual([]);
+  });
+
+  test('폰 짝 있는 원드라이브 칸 [완전히 지우기]: 폰 짝 + 원드라이브 둘 다', async ({ page }) => {
+    const { state } = await fixture(page, { app: true });
+    await openPhotos(page, 412);
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
+    await hold(page, cellOf(page, 'O1'));
+    await root(page).locator('[data-photos-act-delete]').click();
+    await choice(page).locator('[data-ask-pick]').nth(1).click();
+    await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
+    await expect.poll(() => state.bodies.filter(b => b.action === 'photo-delete').flatMap(b => b.ids)).toEqual(['O1']);
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'K9']);
+    await expect(page.locator('.kptu-notice')).toContainText('1장을 지웠어요');
+    expect(state.edge).not.toContain('trash-log');
+    expect(state.errors).toEqual([]);
+  });
+
+  test('폰 짝 없는 원드라이브 칸만 [지우기]: 고르기 창 없이 예전처럼 바로 빠지고 [되돌리기]', async ({ page }) => {
+    const { state } = await fixture(page, { app: true });
+    await openPhotos(page, 412);
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
+    await hold(page, cellOf(page, 'K9'));
+    await root(page).locator('[data-photos-act-delete]').click();
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1']);
+    await expect(choice(page)).toHaveCount(0);
+    await expect(page.locator('.kptu-notice')).toContainText('휴지통으로 옮겼어요');
+    expect(await sentOf(page, /^photos:trash:/)).toEqual([]);
+    expect(state.errors).toEqual([]);
+  });
+
+  test('크게 보기 한 장 [지우기]: 폰 짝 있으면 같은 두 갈래 창(크게 보기 위에), 완전히 지우기', async ({ page }) => {
+    const { state } = await fixture(page, { app: true });
+    await openPhotos(page, 412);
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
+    await cellOf(page, 'O1').click();
+    const viewer = page.locator('[data-diary-viewer]');
+    await expect(viewer).toBeVisible();
+    await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('2 / 3');
+    await viewer.locator('[data-od-delete]').click();
+    await expect(choice(page)).toBeVisible();
+    const picks = choice(page).locator('[data-ask-pick]');
+    await expect(picks.nth(0)).toContainText('폰 공간만 비우기 · 1장');
+    await expect(picks.nth(1)).toContainText('완전히 지우기 · 1장');
+    await picks.nth(1).click();
+    await expect.poll(() => sentOf(page, /^photos:trash:/)).toEqual(['photos:trash:1']);
+    await expect.poll(() => state.bodies.filter(b => b.action === 'photo-delete').flatMap(b => b.ids)).toEqual(['O1']);
+    await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText(/\/ 2$/);
+    expect(state.errors).toEqual([]);
+  });
+
+  test('크게 보기 한 장 [지우기]: 폰 짝 없는 원드라이브 사진은 예전처럼 바로 [되돌리기]', async ({ page }) => {
+    const { state } = await fixture(page, { app: true });
+    await openPhotos(page, 412);
+    await expect.poll(() => ids(page)).toEqual(['ph:2', 'O1', 'K9']);
+    await cellOf(page, 'K9').click();
+    const viewer = page.locator('[data-diary-viewer]');
+    await expect(viewer).toBeVisible();
+    await viewer.locator('[data-od-delete]').click();
+    await expect(viewer.locator('[data-diary-viewer-note]')).toContainText('휴지통으로 옮겼어요');
+    await expect(viewer.locator('[data-diary-undo]')).toBeVisible();
+    await expect(choice(page)).toHaveCount(0);
+    expect(await sentOf(page, /^photos:trash:/)).toEqual([]);
+    expect(state.errors).toEqual([]);
+  });
+});
+
 test.describe('PC 1280', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
   test('원드라이브 사진 [지우기]는 고르기 창 없이 예전처럼 바로 빠지고 [되돌리기]', async ({ page }) => {

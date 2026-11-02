@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {keptItem, keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, folderKey} from '../app/photo-keep-model.mjs';
+import {keptItem, keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, folderKey, twinPairs} from '../app/photo-keep-model.mjs';
 import {createPhonePhotos, restoreType} from '../app/phone-photos.js';
 import {sortCompare} from '../app/photos-model.mjs';
 
@@ -61,6 +61,30 @@ test('지우기 두 갈래 계획: 공간만 비우기 = 원본 짝 있는 폰 �
   assert.equal(deleteChoices(deletePlan([p1], {pairs:[{item:p1, copy:{id:'C1'}}]})).foot, '');
 });
 
+test('S48-32 고른 원드라이브 칸의 폰 원본 짝: 같은 크기 + 같은 사진만, 칸 하나에 짝 하나, 두 갈래·완전히 지우기에 폰 짝 포함', () => {
+  const o1 = od('O1', '2026-10-31T03:00:00.000Z', {name:'IMG_1.jpg', size_bytes:10}), o2 = od('O2', '2026-10-30T03:00:00.000Z', {name:'IMG_2.jpg', size_bytes:20});
+  const k = keptItem({logId:L(1), phoneId:'9', photo:od('K1', '2026-10-01T00:00:00.000Z')});
+  const p1 = ph(1, '2026-10-31T03:00:00.000Z'), p1b = ph(11, '2026-10-31T03:00:00.000Z', {name:'IMG_1.jpg'}), p3 = ph(3, '2026-10-29T00:00:00.000Z', {size_bytes:30});
+  // 크기가 다르면(p3) 짝이 아니다. 같은 사진이 폰에 두 장이어도 짝은 하나(먼저 찾은 것). 비운 사진(K1)은 찾지 않는다.
+  const tw = twinPairs([p1, p1b, p3], [o1, o2, k]);
+  assert.deepEqual(tw.map(x => [x.item.id, x.copy.id]), [['ph:1', 'O1']]);
+  assert.equal(twinPairs(null, [o1]), null);
+  assert.deepEqual(twinPairs([p1], []), []);
+  // 짝 있는 원드라이브 칸만 고름 → 두 갈래(예전엔 원드라이브만 지우는 길이었음).
+  const plan = deletePlan([o1, o2], null, tw);
+  assert.equal(plan.twoWay, true);
+  assert.deepEqual(plan.space.map(x => [x.item.id, x.copyId]), [['ph:1', 'O1']]);
+  assert.deepEqual(plan.phone.map(x => x.id), ['ph:1']); assert.deepEqual(plan.od.map(x => x.id), ['O1', 'O2']);
+  assert.equal(plan.full, 2); assert.equal(plan.noCopy, 0); assert.deepEqual(plan.copies, []); assert.equal(plan.twins, 1);
+  assert.equal(plan.twinOf.get('O1'), 'ph:1');
+  assert.equal(deleteChoices(plan).space.label, '폰 공간만 비우기 · 1장'); assert.equal(deleteChoices(plan).foot, '');
+  // 짝 없는 원드라이브 칸만 → 두 갈래 아님(예전 지우기).
+  assert.equal(deletePlan([o2], null, twinPairs([p1], [o2])).twoWay, false);
+  // 폰 칸을 직접 고른 사진과 겹치는 짝은 두 번 넣지 않는다.
+  const both = deletePlan([p1, o1], {pairs:[{item:p1, copy:o1}], noCopy:[]}, tw);
+  assert.deepEqual(both.phone.map(x => x.id), ['ph:1']); assert.equal(both.space.length, 1); assert.equal(both.twins, 0);
+});
+
 test('비운 기록 줄: 폰 번호·사본 id·원래 폴더·찍은 시각만(이름·크기 없음), keep=false면 폴더·시각도 없음', () => {
   const p1 = ph(1, '2026-10-31T00:00:00.000Z'), p2 = ph(2, '2026-10-30T00:00:00.000Z', {folder:null}), p3 = ph(3, '2026-10-29T00:00:00.000Z');
   const copyOf = new Map([['ph:1', 'C1'], ['ph:2', 'C2']]);
@@ -115,7 +139,9 @@ test('[폰으로 되돌리기] 다리 말: 0.4.11(restore)만, 원래 폴더·�
 
 test('화면 연결: [지우기] 두 갈래 창·[폰으로 되돌리기] 단추·비운 사진 섞기·비운 기록 지우기', () => {
   const src = read('app/photos.js'), notice = read('app/small-notice.js'), css = read('app/base-ui.css');
-  assert.match(src, /if \(phone\.usable && deletePlan\(all, null\)\.twoWay\) \{ chooseDelete\(anchor, all\); return; \}/);
+  assert.match(src, /if \(needTwoWay\(all\)\) \{ chooseDelete\(anchor, all\); return; \}/);
+  assert.match(src, /const needTwoWay = all => phone\.usable && \(deletePlan\(all, null\)\.twoWay \|\| \(odPlain\(all\)\.length > 0 && ready\(\) && !!phone\.state\(\)\.trash\)\);/);
+  assert.match(src, /choose:own \? null : \(item, anchor, plain\) => \{ if \(!needTwoWay\(\[item\]\)\) return false;/);
   assert.match(src, /data-photos-act-restore hidden>/);
   assert.match(src, /if \(u\.phone && !u\.onedrive && kept\?\.length\)/);
   assert.match(src, /void dropKept\(keptIdsFor\(kept, b\.taken/);
