@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
+// S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 5): while the write window is open on a phone the bottom tabs are hidden and
+// the window (and its sheets) reach the screen's end, so a press where a tab used to be lands in the window, never on a tab.
 // BUG-내보내기탭이동: on a phone the shared bottom choice sheet (choice-sheet.js) rises from just above the bottom tabs, not
 // over them. Before, its lowest row ([HWP 파일로 받기]) lay on the tabs, so a press there followed by one more press at the
 // same spot (the sheet already closed) went to the tab under the finger — 담당조직 for a right thumb.
@@ -41,6 +43,13 @@ async function expectAboveTabs(page,sheet){
  expect(Math.round(box.y+box.height)).toBe(Math.round(bar.y));
  for(const row of await sheet.locator('[data-sheet-value]').all()){const r=await row.boundingBox();expect(r.y+r.height).toBeLessThanOrEqual(bar.y);}
 }
+// The write window's own sheets: the tabs are hidden while the window is open, the sheet sits on the screen's end, every row on screen.
+async function expectAtScreenEnd(page,sheet){
+ await expect(page.locator('.mobile-tabs')).toBeHidden();
+ const box=await sheet.boundingBox(),h=page.viewportSize().height;
+ expect(Math.round(box.y+box.height)).toBe(h);
+ for(const row of await sheet.locator('[data-sheet-value]').all()){const r=await row.boundingBox();expect(r.y+r.height).toBeLessThanOrEqual(h);}
+}
 
 const EXPORTS=[['텔레그램용 복사','텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.'],['한글용 복사','한글용 글을 복사했어요. 한글에 붙여 넣으세요.'],['HWP 파일로 받기','HWP 파일로 받기는 준비 중이에요.']];
 for(const [item,status] of EXPORTS)test(`내보내기 [${item}]: 탭 이동 없이 동작하고 쓰기 창이 남음, 같은 자리를 또 눌러도 탭으로 가지 않음 390`,async({page})=>{
@@ -48,7 +57,7 @@ for(const [item,status] of EXPORTS)test(`내보내기 [${item}]: 탭 이동 없�
  await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};navigator.clipboard.write=async items=>{window.__copied=await (await items[0].getType('text/plain')).text();};});
  const {editor,area}=await openWriter(page,'쓰던 글');
  const sheet=await openExport(page,editor);
- await expectAboveTabs(page,sheet);
+ await expectAtScreenEnd(page,sheet);
  // The lowest point of the row, where the right thumb lands (the tab under it was 담당조직).
  const row=await sheet.getByRole('button',{name:item,exact:true}).boundingBox(),x=row.x+row.width*0.75,y=row.y+row.height-4;
  await touch(page,x,y);
@@ -56,7 +65,7 @@ for(const [item,status] of EXPORTS)test(`내보내기 [${item}]: 탭 이동 없�
  await expect(editor.locator('.ed-window-status')).toHaveText(status);
  if(item!=='HWP 파일로 받기')expect(await page.evaluate(()=>window.__copied)).toBe('쓰던 글');
  // A second press at the same spot lands in the write window, not on a tab.
- // UI-저장자리(2026-10-27): 쓰기 창 맨 아래 줄([취소][저장])이 탭 바로 위라 그 자리를 누르면 창의 버튼이 받는다(탭이 아님). 취소면 닫기 확인창이 뜰 수 있어 닫고 이어간다.
+ // UI-저장자리(2026-10-27)·S48-6b: 쓰기 창 맨 아래 줄([취소][저장])이 화면 끝까지라 그 자리를 누르면 창의 버튼이 받는다(탭이 아님). 취소면 닫기 확인창이 뜰 수 있어 닫고 이어간다.
  expect(await page.evaluate(([px,py])=>!!document.elementFromPoint(px,py)?.closest('#edWindow'),[x,y])).toBe(true);
  await touch(page,x,y);
  if(await page.locator('#edwCloseSheet[open]').count())await page.keyboard.press('Escape');
@@ -78,21 +87,27 @@ test('내보내기 시트 바깥(어두운 곳)을 누르면 시트만 닫히고
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('시트가 닫힌 뒤 아래 탭을 직접 누르면 기존대로 "저장 안 하고 닫을까요?" → 이동 (#658) 390',async({page})=>{
+test('시트가 닫힌 뒤 [취소]를 누르면 기존대로 "저장 안 하고 닫을까요?" → 닫히고 하단 탭이 돌아와 탭으로 이동 (#658) 390',async({page})=>{
  const f=await fixture(page);
  const {editor}=await openWriter(page,'아직 저장 안 한 글');
  const sheet=await openExport(page,editor);
  await touch(page,(await sheet.getByRole('button',{name:'한글용 복사',exact:true}).boundingBox()).x+40,(await sheet.getByRole('button',{name:'한글용 복사',exact:true}).boundingBox()).y+20);
  await expect(sheet).not.toHaveAttribute('open','');
- const team=await page.locator('.mobile-tabs [data-view="team"]').boundingBox();
- await touch(page,team.x+team.width/2,team.y+team.height/2);
+ // The tabs stay hidden while the window is open; the window's own [취소] (bottom row, where the tabs were) asks first.
+ await expect(page.locator('.mobile-tabs')).toBeHidden();
+ const cancel=await editor.getByRole('button',{name:'취소',exact:true}).boundingBox();
+ await touch(page,cancel.x+cancel.width/2,cancel.y+cancel.height/2);
  const leave=page.locator('#edwCloseSheet');await expect(leave).toHaveAttribute('open','');await settle(leave);
- // The question sheet sits above the tabs too.
- await expectAboveTabs(page,leave);
+ // The question sheet sits on the screen's end too.
+ await expectAtScreenEnd(page,leave);
  expect(await current(page)).toBe('basket');
  const go=await leave.getByRole('button',{name:'저장하지 않고 닫기',exact:true}).boundingBox();
  await touch(page,go.x+go.width/2,go.y+go.height/2);
  await expect(page.locator('#edWindow')).toHaveCount(0);
+ await expect(page.locator('.mobile-tabs')).toBeVisible();
+ expect(await current(page)).toBe('basket');
+ const team=await page.locator('.mobile-tabs [data-view="team"]').boundingBox();
+ await touch(page,team.x+team.width/2,team.y+team.height/2);
  await expect.poll(()=>current(page)).toBe('team');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
