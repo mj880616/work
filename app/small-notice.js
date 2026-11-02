@@ -159,29 +159,14 @@ export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리
 
 // 작은 확인창. anchor 근처에 뜨고(없으면 화면 가운데 아래), 하단바 위로 자리를 잡는다.
 let ask=null;
-export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false,note='',doc=globalThis.document}={}){
-  if(!doc)return Promise.resolve(false);
-  ask?.finish(false);
+// 확인창·고르기창 공용 틀: build(panel, finish)가 안을 채우고 처음 누를 곳을 돌려준다. 밖 누르기·Esc·뒤로가기 = finish(none).
+function askPanel(anchor,{doc,none,maxHeight=220,build}){
+  if(!doc)return Promise.resolve(none);
+  ask?.finish(ask.none);
   return new Promise(resolve=>{
     const panel=doc.createElement('div');panel.className='kptu-ask';panel.setAttribute('role','alertdialog');panel.setAttribute('aria-modal','false');
-    const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg);
-    if(note){const n=doc.createElement('small');n.className='kptu-ask-note';n.textContent=noticeText(note);panel.append(n)}
-    const row=doc.createElement('div');row.className='kptu-ask-actions';
-    const no=doc.createElement('button');no.type='button';no.className='secondary';no.textContent=cancel;
-    const yes=doc.createElement('button');yes.type='button';yes.className=danger?'danger':'primary';yes.textContent=ok;
-    row.append(no,yes);panel.append(row);doc.body.append(panel);
+    let done=false,state=null,onKey=null,onOutside=null,onPop=null;
     const back=anchor instanceof Element&&anchor.isConnected?anchor:null;
-    const place=()=>{
-      if(!back){panel.classList.add('kptu-ask-center');return}
-      placeAnchored(panel,back,{maxWidth:300,maxHeight:220,minHeight:0});
-      // 폰 하단바 위로: 확인창 아래 끝이 하단바에 걸리면 그만큼 올린다.
-      const bar=doc.querySelector('.mobile-tabs'),barTop=bar&&bar.getClientRects().length?bar.getBoundingClientRect().top:innerHeight;
-      const r=panel.getBoundingClientRect(),limit=Math.min(innerHeight,barTop)-8;
-      if(r.bottom>limit)Object.assign(panel.style,{top:Math.max(8,limit-r.height)+'px',bottom:'auto'});
-    };
-    place();
-    const state={kptuAsk:++seq};history.pushState({...(history.state||{}),...state},'',location.href);
-    let done=false;
     const finish=(value,fromBack=false)=>{
       if(done)return;done=true;ask=null;
       doc.removeEventListener('keydown',onKey,true);doc.removeEventListener('pointerdown',onOutside,true);globalThis.removeEventListener?.('popstate',onPop);
@@ -190,12 +175,57 @@ export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false
       if(back?.isConnected)back.focus({preventScroll:true});
       resolve(value);
     };
-    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();finish(false)}};
-    const onOutside=e=>{if(!panel.contains(e.target))finish(false)};
-    const onPop=e=>{if(e.state?.kptuAsk!==state.kptuAsk)finish(false,true)};
+    const first=build(panel,finish);
+    doc.body.append(panel);
+    const place=()=>{
+      if(!back){panel.classList.add('kptu-ask-center');return}
+      placeAnchored(panel,back,{maxWidth:300,maxHeight,minHeight:0});
+      // 폰 하단바 위로: 확인창 아래 끝이 하단바에 걸리면 그만큼 올린다.
+      const bar=doc.querySelector('.mobile-tabs'),barTop=bar&&bar.getClientRects().length?bar.getBoundingClientRect().top:innerHeight;
+      const r=panel.getBoundingClientRect(),limit=Math.min(innerHeight,barTop)-8;
+      if(r.bottom>limit)Object.assign(panel.style,{top:Math.max(8,limit-r.height)+'px',bottom:'auto'});
+    };
+    place();
+    state={kptuAsk:++seq};history.pushState({...(history.state||{}),...state},'',location.href);
+    onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();finish(none)}};
+    onOutside=e=>{if(!panel.contains(e.target))finish(none)};
+    onPop=e=>{if(e.state?.kptuAsk!==state.kptuAsk)finish(none,true)};
     doc.addEventListener('keydown',onKey,true);doc.addEventListener('pointerdown',onOutside,true);globalThis.addEventListener?.('popstate',onPop);
-    no.addEventListener('click',()=>finish(false));yes.addEventListener('click',()=>finish(true));
-    ask={finish};
-    (danger?no:yes).focus({preventScroll:true});
+    ask={finish,none};
+    first?.focus({preventScroll:true});
   });
+}
+export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false,note='',doc=globalThis.document}={}){
+  return askPanel(anchor,{doc,none:false,build:(panel,finish)=>{
+    const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg);
+    if(note){const n=doc.createElement('small');n.className='kptu-ask-note';n.textContent=noticeText(note);panel.append(n)}
+    const row=doc.createElement('div');row.className='kptu-ask-actions';
+    const no=doc.createElement('button');no.type='button';no.className='secondary';no.textContent=cancel;
+    const yes=doc.createElement('button');yes.type='button';yes.className=danger?'danger':'primary';yes.textContent=ok;
+    row.append(no,yes);panel.append(row);
+    no.addEventListener('click',()=>finish(false));yes.addEventListener('click',()=>finish(true));
+    return danger?no:yes;
+  }});
+}
+// S48-17 작은 고르기창: 줄마다 [아이콘 + 굵은 글 + 작은 설명] 버튼, 맨 아래 흐린 글자 한 줄. 고른 값(value) 또는 null(닫음).
+// choices = [{value, label, note, icon(SVG 글), danger, disabled}]. 아이콘은 이 파일을 부르는 쪽이 만든 고정 SVG만 넣는다(사용자 글은 textContent).
+export function askChoice(anchor,{text='',choices=[],foot='',doc=globalThis.document}={}){
+  return askPanel(anchor,{doc,none:null,maxHeight:320,build:(panel,finish)=>{
+    panel.classList.add('kptu-ask-choice');
+    if(text){const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text).trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg)}
+    else panel.setAttribute('aria-label','고르기');
+    let first=null;
+    for(const c of choices){
+      const b=doc.createElement('button');b.type='button';b.className='kptu-ask-pick'+(c.danger?' is-danger':'');b.dataset.askPick=String(c.value);b.disabled=!!c.disabled;
+      if(c.icon){const i=doc.createElement('span');i.className='kptu-ask-pick-ic';i.setAttribute('aria-hidden','true');i.innerHTML=c.icon;b.append(i)}
+      const t=doc.createElement('span');t.className='kptu-ask-pick-t';
+      const l=doc.createElement('b');l.textContent=String(c.label??'');t.append(l);
+      if(c.note){const n=doc.createElement('small');n.textContent=String(c.note);t.append(n)}
+      b.append(t);panel.append(b);
+      b.addEventListener('click',()=>finish(c.value));
+      if(!first&&!b.disabled)first=b;
+    }
+    if(foot){const f=doc.createElement('small');f.className='kptu-ask-note kptu-ask-foot';f.textContent=String(foot);panel.append(f)}
+    return first;
+  }});
 }

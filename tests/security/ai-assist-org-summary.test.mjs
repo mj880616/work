@@ -20,7 +20,7 @@ const answer=items=>({status:'completed',output:[{type:'message',content:[{type:
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 const refOf=(o,name)=>JSON.parse(o.input[1].content).organizations.find(x=>x.name===name).ref;
 
-function harness({openai=null,summaries=[],usage=[],missing=false,fail={},docs=[],briefs=[]}={}){
+function harness({openai=null,summaries=[],usage=[],missing=false,fail={},docs=[],briefs=[],profiles=[]}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -51,12 +51,13 @@ function harness({openai=null,summaries=[],usage=[],missing=false,fail={},docs=[
     app_document_ai_index:structuredClone(briefs),
     app_ai_daily_usage:structuredClone(usage),
     app_weekly_org_summaries:structuredClone(summaries),
+    app_profiles:structuredClone(profiles),
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
   const wsOwner={[WS]:OWNER,[OTHER_WS]:STRANGER};
   const orgWs=Object.fromEntries(db.app_suborganizations.map(o=>[o.id,o.workspace_id]));
   const visible=(table,row,uid)=>table==='app_suborganization_updates'?wsOwner[orgWs[row.organization_id]]===uid
-    :table==='app_workspace_members'?row.user_id===uid:wsOwner[row.workspace_id]===uid;
+    :table==='app_workspace_members'||table==='app_profiles'?row.user_id===uid:wsOwner[row.workspace_id]===uid;
   const cmp=(cell,op,val)=>{
     if(op==='eq')return String(cell)===val;
     if(op==='gte')return cell!=null&&String(cell)>=val; if(op==='lt')return cell!=null&&String(cell)<val; if(op==='lte')return cell!=null&&String(cell)<=val;
@@ -318,4 +319,56 @@ test('file summaries: an unreadable summary table leaves the organization summar
   const {handler,calls}=harness({fail:{app_document_ai_index:true},docs:[{id:id(40),workspace_id:WS,organization_id:ORG_A,title:'자료',file_name:'x',created_at:TUE,meeting_id:null}]});
   assert.equal((await post(handler,run())).status,200);
   assert.equal(calls.openai.length,1);assert.ok(calls.logs.some(l=>l.code==='org_summary_briefs_unavailable'));
+});
+
+// CAL-조직참고캘린더 ④: 조직 참고 캘린더 주요 일정(날짜·제목)을 그 조직 재료로. 어느 조직인지는 서버가 내 프로필로 다시 확인한다.
+const CAL_PROFILE={user_id:OWNER,ledger_calendar:{calendar:'cal-fake',org:ORG_C}};
+const calRun=(calendar,ids=[ORG_A,ORG_B,ORG_C])=>({...run(ids),calendar});
+const calEvents=[{day:'2026-10-21',title:'가상 총력 결의대회'},{day:'2026-11-03',title:'가상 조합원 총회'},{day:'2026-11-03',title:'가상 조합원 총회'}];
+
+test('calendar: the profile\'s organization gets its calendar events as material (dated titles only, deduped), other organizations do not',async()=>{
+  const {handler,calls}=harness({profiles:[CAL_PROFILE]});
+  const res=await post(handler,calRun({organization_id:ORG_C,events:calEvents}));
+  assert.equal(res.status,200);
+  const body=await res.json();
+  // 다 분회 has no record this week, but its calendar events now make it summarizable.
+  assert.ok(body.items.some(i=>i.organization_id===ORG_C));
+  const sent=JSON.parse(calls.openai[0].input[1].content).organizations;
+  const c=sent.find(o=>o.name==='다 분회');
+  assert.deepEqual(c.records,[{type:'조직 캘린더 일정',date:'10.21.(수)',text:'가상 총력 결의대회'},{type:'조직 캘린더 일정',date:'11.3.(화)',text:'가상 조합원 총회'}]);
+  for(const o of sent.filter(o=>o.name!=='다 분회'))assert.ok(o.records.every(r=>r.type!=='조직 캘린더 일정'));
+  assert.match(calls.openai[0].input[0].content,/조직 캘린더 일정/);
+  assert.ok(calls.rest.some(r=>r.table==='app_profiles'&&r.method==='GET'&&r.query.includes(`user_id=eq.${OWNER}`)));
+  assert.ok(!calls.rest.some(r=>r.method!=='GET'&&r.body&&r.body.includes('가상 조합원 총회')&&r.table!=='app_weekly_org_summaries'),'calendar titles are never stored elsewhere');
+});
+
+test('calendar: ignored when the profile picked another organization, no calendar, or cannot be read',async()=>{
+  for(const profiles of [[{user_id:OWNER,ledger_calendar:{calendar:'cal-fake',org:ORG_A}}],[{user_id:OWNER,ledger_calendar:{org:ORG_C}}],[],[{user_id:STRANGER,ledger_calendar:{calendar:'cal-fake',org:ORG_C}}]]){
+    const {handler,calls}=harness({profiles});
+    const res=await post(handler,calRun({organization_id:ORG_C,events:calEvents}));
+    assert.equal(res.status,200);
+    const sent=calls.openai.length?JSON.parse(calls.openai[0].input[1].content).organizations:[];
+    assert.ok(sent.every(o=>o.records.every(r=>r.type!=='조직 캘린더 일정')),JSON.stringify(profiles));
+    assert.ok(!sent.some(o=>o.name==='다 분회'));
+  }
+  const {handler,calls}=harness({profiles:[CAL_PROFILE],fail:{app_profiles:true}});
+  const res=await post(handler,calRun({organization_id:ORG_C,events:calEvents}));
+  assert.equal(res.status,200);
+  assert.ok(calls.logs.some(l=>l.code==='org_summary_calendar_unavailable'));
+});
+
+test('calendar: wrong shapes are refused before anything is read',async()=>{
+  const bad=[
+    null,[],{organization_id:ORG_C},{organization_id:ORG_C,events:[]},{organization_id:ORG_C,events:calEvents,extra:1},
+    {organization_id:FOREIGN_ORG,events:calEvents},{organization_id:'nope',events:calEvents},
+    {organization_id:ORG_C,events:[{day:'2026-10-18',title:'지난 주 일'}]},{organization_id:ORG_C,events:[{day:'2026-11-09',title:'3주 뒤'}]},
+    {organization_id:ORG_C,events:[{day:'2026-02-30',title:'없는 날'}]},{organization_id:ORG_C,events:[{day:'2026-10-21',title:''}]},
+    {organization_id:ORG_C,events:[{day:'2026-10-21',title:'가'.repeat(81)}]},{organization_id:ORG_C,events:[{day:'2026-10-21',title:'줄\n바꿈'}]},
+    {organization_id:ORG_C,events:[{day:'2026-10-21',title:'x',at:1}]},{organization_id:ORG_C,events:Array.from({length:31},(_,i)=>({day:'2026-10-21',title:`집회 ${i}`}))},
+  ];
+  for(const calendar of bad){
+    const {handler,calls}=harness({profiles:[CAL_PROFILE]});
+    await expectError(await post(handler,calRun(calendar)),400,'invalid_request');
+    assert.equal(calls.openai.length,0);assert.ok(!calls.rest.some(r=>r.table!=='app_workspace_members'),JSON.stringify(calendar));
+  }
 });

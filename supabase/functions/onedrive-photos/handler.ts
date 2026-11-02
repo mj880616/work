@@ -44,6 +44,12 @@ const CONN = "app_onedrive_connections", FOLDERS = "app_onedrive_folders", PHOTO
 // S47-16: 폰에서 지운 사진 기록(20261101040000_phone_trash_log). 사본 확인은 한 번에 100장, 다음 확인 때 다시 보는 기록은 30일 안 최근 200개.
 const TRASH_LOG = "app_phone_trash_log";
 const COPY_CHECK_MAX = 100, TRASH_LOG_MAX = 100, WATCH_MAX = 200, WATCH_DAYS = 30, LOG_KEEP_DAYS = 60;
+// S48-17 PHOTO-지우기두갈래: '폰 공간만 비우기'로 비운 사진(keep) 목록은 최근 찍은 것부터 KEPT_MAX개, 지우기는 한 번에 100개.
+//   keep 기록은 60일이 지나도 지우지 않는다(사진이 원드라이브에 있는 동안 목록에 남는다). 원래 폴더(rel_path)는 MediaStore 상대 경로 모양만 받는다.
+const KEPT_MAX = 2000, KEPT_DROP_MAX = 100;
+const LOG_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// deno-lint-ignore no-control-regex
+const validRelPath = (v: unknown) => typeof v === "string" && v.length >= 1 && v.length <= 255 && !/[\u0000-\u001f\u007f]/.test(v) && !/(^|\/)\.\.(\/|$)/.test(v) && !v.startsWith("/");
 const DB_PAGE = 1000, UPSERT_CHUNK = 500, IN_CHUNK = 100;
 type FolderRow = { item_id: string; parent_id: string | null; name: string; enabled: boolean; role?: string | null };
 type PhotoRow = { item_id: string; parent_id: string; name: string; taken_at: string; approx: boolean; taken_day: string };
@@ -1213,19 +1219,63 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       return json({ ok: [...ok.keys()], missing, unsure, ...(retryAfter ? { retry_after: retryAfter } : {}) });
     },
 
-    // 폰 휴지통으로 옮긴 뒤(앱 다리 성공) 화면이 부른다: [{phone_id, copy_id}] ≤ 100.
+    // 폰 휴지통으로 옮긴 뒤(앱 다리 성공) 화면이 부른다: [{phone_id, copy_id, keep?, rel_path?, taken_at?}] ≤ 100.
+    // S48-17: keep=true = '폰 공간만 비우기'(목록에 남김) — 원래 폰 폴더(rel_path)·찍은 시각(taken_at)을 함께 남긴다. 사진 이름·내용·크기는 받지 않는다.
     async "trash-log"({ workspaceId, body }) {
       const pairs = body.pairs;
       if (!Array.isArray(pairs) || !pairs.length || pairs.length > TRASH_LOG_MAX) throw new Fail(400, "onedrive_request_invalid");
       const stamp = new Date(now()).toISOString();
       const rows = pairs.map((x) => {
-        const phone = (x as Record<string, unknown>)?.phone_id, copy = (x as Record<string, unknown>)?.copy_id;
+        const o = (x ?? {}) as Record<string, unknown>;
+        const phone = o.phone_id, copy = o.copy_id;
         if (typeof phone !== "string" || !/^[0-9]{1,18}$/.test(phone) || !validItemId(copy)) throw new Fail(400, "onedrive_request_invalid");
-        return { workspace_id: workspaceId, phone_id: phone, source: "onedrive", copy_id: copy, trashed_at: stamp };
+        const row: Record<string, unknown> = { workspace_id: workspaceId, phone_id: phone, source: "onedrive", copy_id: copy, trashed_at: stamp };
+        if (o.keep !== undefined) {
+          if (typeof o.keep !== "boolean") throw new Fail(400, "onedrive_request_invalid");
+          const path = o.rel_path ?? null, taken = o.taken_at ?? null;
+          if (path !== null && !validRelPath(path)) throw new Fail(400, "onedrive_request_invalid");
+          if (taken !== null && (typeof taken !== "string" || taken.length > 40 || !Number.isFinite(Date.parse(taken)))) throw new Fail(400, "onedrive_request_invalid");
+          Object.assign(row, { keep: o.keep, rel_path: path, taken_at: taken === null ? null : iso(taken) });
+        }
+        return row;
       });
       const { error } = await admin.from(TRASH_LOG).insert(rows);
       if (error) dbFail("onedrive_trash_log_failed", error);
       return json({ saved: rows.length });
+    },
+
+    // S48-17: 폰에서 비운 사진 목록(keep, 사본이 사라졌다고 본 것은 뺌). 사본이 지금 색인에 있고 Web2 휴지통이 아닌 것만, 그 원드라이브 칸과 함께.
+    // 답 items = [{log_id, phone_id, rel_path, taken_at(원래 찍은 시각), photo(library와 같은 모양)}]. 연결이 없으면 빈 목록.
+    async "kept-list"({ workspaceId }) {
+      const conn = await readConnection(workspaceId);
+      if (!conn?.folder_id || !conn.folder_path) return json({ items: [] });
+      const { data, error } = await admin.from(TRASH_LOG).select("id,phone_id,copy_id,rel_path,taken_at").eq("workspace_id", workspaceId)
+        .eq("source", "onedrive").eq("keep", true).is("gone_at", null).order("taken_at", { ascending: false }).range(0, KEPT_MAX - 1);
+      if (error) dbFail("onedrive_trash_log_failed:kept", error);
+      const logs = ((data || []) as { id: string; phone_id: string; copy_id: string; rel_path: string | null; taken_at: string | null }[])
+        .filter((r) => validItemId(r.copy_id));
+      const ids = [...new Set(logs.map((r) => r.copy_id))], media = new Map<string, MediaRow>();
+      for (let i = 0; i < ids.length; i += IN_CHUNK) {
+        const { data: got, error: e } = await admin.from(PHOTOS).select(MEDIA_COLS).eq("workspace_id", workspaceId).is("trashed_at", null)
+          .in("item_id", ids.slice(i, i + IN_CHUNK));
+        if (e) dbFail("onedrive_index_read_failed:kept", e);
+        for (const r of (got || []) as MediaRow[]) media.set(r.item_id, r);
+      }
+      const items = logs.filter((r) => media.has(r.copy_id)).map((r) => ({
+        log_id: r.id, phone_id: r.phone_id, rel_path: r.rel_path ?? null, taken_at: r.taken_at ? iso(r.taken_at) : null, photo: itemOut(media.get(r.copy_id)!),
+      }));
+      return json({ items });
+    },
+
+    // S48-17: 비운 사진 기록 지우기 — [폰으로 되돌리기]로 폰에 다시 넣었거나, '완전히 지우기'로 원드라이브 사본까지 지울 때. {ids: [기록 id]} ≤ 100.
+    async "kept-drop"({ workspaceId, body }) {
+      const ids = body.ids;
+      if (!Array.isArray(ids) || !ids.length || ids.length > KEPT_DROP_MAX || !ids.every((x) => typeof x === "string" && LOG_ID.test(x))) {
+        throw new Fail(400, "onedrive_request_invalid");
+      }
+      const { error } = await admin.from(TRASH_LOG).delete().eq("workspace_id", workspaceId).eq("keep", true).in("id", [...new Set(ids as string[])]);
+      if (error) dbFail("onedrive_trash_log_failed:drop", error);
+      return json({ dropped: true });
     },
 
     // 다음 사진 확인 때: 30일 안에 폰에서 지운 기록 중 아직 사라짐을 못 본 것(최근 것부터 WATCH_MAX개)의 사본이 지금도 있는지 Graph에 묻고,
@@ -1233,13 +1283,24 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     // 답 gone = 사라졌는데 아직 확인(trash-seen)하지 않은 30일 안 기록 수.
     async "trash-watch"({ workspaceId }) {
       const nowIso = new Date(now()).toISOString(), since = new Date(now() - WATCH_DAYS * 86400000).toISOString();
-      const { error: oldError } = await admin.from(TRASH_LOG).delete().eq("workspace_id", workspaceId).lt("trashed_at", new Date(now() - LOG_KEEP_DAYS * 86400000).toISOString());
-      if (oldError) dbFail("onedrive_trash_log_failed:clean", oldError);
+      // 60일 지난 기록은 지운다. 단 S48-17 '폰 공간만 비우기'(keep)로 비운 사진은 사본이 사라졌다고 보기 전까지 남긴다(목록에 남김).
+      const { data: old, error: oldReadError } = await admin.from(TRASH_LOG).select("id,keep,gone_at").eq("workspace_id", workspaceId)
+        .lt("trashed_at", new Date(now() - LOG_KEEP_DAYS * 86400000).toISOString()).range(0, 9999);
+      if (oldReadError) dbFail("onedrive_trash_log_failed:clean", oldReadError);
+      const drop = ((old || []) as { id: string; keep?: boolean | null; gone_at: string | null }[]).filter((r) => !(r.keep === true && r.gone_at == null)).map((r) => r.id);
+      for (let i = 0; i < drop.length; i += IN_CHUNK) {
+        const { error: oldError } = await admin.from(TRASH_LOG).delete().eq("workspace_id", workspaceId).in("id", drop.slice(i, i + IN_CHUNK));
+        if (oldError) dbFail("onedrive_trash_log_failed:clean", oldError);
+      }
       const { data: open, error } = await admin.from(TRASH_LOG).select("id,copy_id").eq("workspace_id", workspaceId).eq("source", "onedrive")
         .is("gone_at", null).gte("trashed_at", since).order("trashed_at", { ascending: false }).range(0, WATCH_MAX - 1);
       if (error) dbFail("onedrive_trash_log_failed:read", error);
+      // S48-17: 목록에 남긴(keep) 비운 사진은 30일이 지나도 다시 본다(사라졌으면 목록에서 빼고 경고).
+      const { data: kept, error: keptError } = await admin.from(TRASH_LOG).select("id,copy_id").eq("workspace_id", workspaceId).eq("source", "onedrive")
+        .eq("keep", true).is("gone_at", null).lt("trashed_at", since).order("trashed_at", { ascending: false }).range(0, WATCH_MAX - 1);
+      if (keptError) dbFail("onedrive_trash_log_failed:read", keptError);
       let checked = 0, unsure = 0;
-      const rows = ((open || []) as { id: string; copy_id: string }[]).filter((r) => validItemId(r.copy_id));
+      const rows = ([...(open || []), ...(kept || [])] as { id: string; copy_id: string }[]).filter((r) => validItemId(r.copy_id));
       const conn = rows.length ? await readConnection(workspaceId) : null;
       if (rows.length && conn?.folder_id && conn.folder_path) {
         const folder = folderOf(conn);

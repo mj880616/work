@@ -17,6 +17,15 @@ const LEGACY_GROUP = Object.freeze({kctu: 'labor', kptu: 'labor'});
 // 종류 칸: 성명·논평·보도자료만. article(외국 매체 글·사회운동 글처럼 보도·논설 등을 가릴 수 없는 글)은 종류 칸을 비운다(11/01 요청 5).
 export const KIND_LABEL = Object.freeze({statement: '성명', comment: '논평', press: '보도자료', article: ''});
 export const PAGE_SIZE = 40;
+// 공대위 표시(명진 결정 11/02 16:26 L3): 공대위(양대노총 공공기관 노동조합 공동대책위원회)는 따로 사이트가 없어,
+// [노동] 안 민주노총·공공운수노조 글 가운데 제목이나 요약(본문에서 만든 것)에 '공대위'·'공동대책위원회'가 든 글에 표시만 한다.
+// 본문 문장은 펼칠 때만 읽으므로 본문에만 있는 글은 표시되지 않는다(서버 저장 칸을 새로 만들지 않음).
+export const GONGDAEWI_SOURCES = Object.freeze(['kctu', 'kptu']);
+const GONGDAEWI = /공대위|공동\s*대책\s*위원회/;
+export function isGongdaewi(p) {
+  if (!GONGDAEWI_SOURCES.includes(p?.source_key)) return false;
+  return GONGDAEWI.test(String(p?.title || '')) || GONGDAEWI.test(String(p?.summary_ko || ''));
+}
 const KEY = /^[a-z0-9][a-z0-9-]{1,39}$/;
 
 // 서버 카탈로그 → [{key, name, group, lang}] (모양이 틀린 줄은 버린다).
@@ -147,6 +156,7 @@ export function postView(p, now = Date.now()) {
     title,
     origTitle: foreign && p?.title_ko && p.title_ko.trim() !== String(p?.title || '').trim() ? String(p.title || '').trim() : '',
     kind: Object.hasOwn(KIND_LABEL, p?.kind) ? KIND_LABEL[p.kind] : '',
+    tag: isGongdaewi(p) ? '공대위' : '',
     time: timeText(p),
     lead, summary, keys, body, old,
     url: safeUrl(p?.url),

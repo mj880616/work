@@ -1,6 +1,6 @@
 // JOURNAL-조직현황AI요약: [주간 정리] '4. 산하 조직 현황 > 1) 요약'의 조직별 요약(주간보고 문체, 몇 줄).
 // - 저장소: owner RLS 표 app_weekly_org_summaries(migration 20261022140000) — 주(월요일)·조직마다 1행, 요약 글과 "고친 요약"(edited) 표시만.
-// - [요약 만들기]를 누를 때만 서버 ai-assist(kind=org_summary)에 주와 조직 ID만 보낸다. 재료는 서버가 로그인으로 읽고,
+// - [요약 만들기]를 누를 때만 서버 ai-assist(kind=org_summary)에 주와 조직 ID만 보낸다(조직 참고 캘린더를 골랐으면 그 조직의 주요 일정 날짜·제목도 함께). 재료는 서버가 로그인으로 읽고,
 //   고친 요약(edited=true)은 서버가 보내지도 덮어쓰지도 않는다. 화면은 응답 뒤 표를 다시 읽는다.
 // - 고친 요약은 여기서 edited=true로 저장한다(빈 글이면 행을 지워 다음 [요약 만들기]에서 다시 생김).
 // - 표가 아직 없으면(REST 404) 'missing' — 화면은 버튼과 요약을 숨기고 예전처럼 원문만 보인다.
@@ -94,12 +94,14 @@ export async function saveEditedSummary({start, organizationId, row = null, text
 
 // [요약 만들기]: one call for the week and the organizations (ids only). Never throws.
 // Returns {ok:true, written, kept, empty, partial, more} or {ok:false, code, message, retry}.
-export async function requestOrgSummaries({start, organizationIds}, options = {}) {
+// calendar: 조직 참고 캘린더 주요 일정(calendar-ref-model.mjs summaryCalendar 값, 없으면 null) — 그 조직이 이번에 보내는 조직일 때만 함께 보낸다.
+export async function requestOrgSummaries({start, organizationIds, calendar = null}, options = {}) {
   const ids = [...new Set((organizationIds || []).map(id => String(id).toLowerCase()))].filter(id => UUID.test(id));
   const fail = code => ({ok:false, code, message:ORG_AI_TEXT[code] || ORG_AI_TEXT.internal_error, retry:aiSummaryRetryable(code)});
   if (!DAY.test(String(start)) || !ids.length) return fail('invalid_request');
   const sent = ids.slice(0, ORG_SUMMARY_MAX_ORGS);
-  const r = await callAiAssist({kind:'org_summary', week_start:start, organization_ids:sent}, options, ORG_AI_TEXT);
+  const withCalendar = calendar && sent.includes(String(calendar.organization_id).toLowerCase()) && Array.isArray(calendar.events) && calendar.events.length;
+  const r = await callAiAssist({kind:'org_summary', week_start:start, organization_ids:sent, ...(withCalendar ? {calendar} : {})}, options, ORG_AI_TEXT);
   if (!r.ok) return fail(r.code);
   const d = r.data, list = value => (Array.isArray(value) ? value.filter(id => typeof id === 'string') : []);
   if (d.week_start !== start || !Array.isArray(d.items)) return fail('ai_invalid_response');

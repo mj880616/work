@@ -1259,3 +1259,62 @@ test('trash-watch marks copies gone (deleted or in the Web2 trash), keeps unsure
   const off=make({admin:fakeAdmin({index:{app_phone_trash_log:[{...log[1]}]}})});
   assert.deepEqual(await read(await post(off.handler,{action:'trash-watch'})),{gone:0,checked:0});
 });
+
+// ---- S48-17 PHOTO-지우기두갈래: trash-log keep · kept-list · kept-drop · keep 기록은 60일이 지나도 남김 ----
+const LID=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+test('trash-log keep: original folder and taken time saved with keep; bad folder or time refused; old shape still works',async()=>{
+  const ctx=make({ms:fakeMicrosoft({itemById:copyGraph()})});
+  assert.deepEqual(await read(await post(ctx.handler,{action:'trash-log',pairs:[{phone_id:'101',copy_id:'C1',keep:true,rel_path:'DCIM/Camera/',taken_at:'2026-10-01T01:02:03+09:00'},{phone_id:'102',copy_id:'C2'}]})),{saved:2});
+  const rows=ctx.admin.state.mem.tables.app_phone_trash_log;
+  assert.equal(rows[0].keep,true);assert.equal(rows[0].rel_path,'DCIM/Camera/');assert.equal(rows[0].taken_at,'2026-09-30T16:02:03.000Z');
+  assert.equal(rows[1].keep,undefined,'old shape inserts no new columns');
+  assert.deepEqual(Object.keys(rows[0]).sort(),['copy_id','gone_at','id','keep','phone_id','rel_path','seen_at','source','taken_at','trashed_at','workspace_id']);
+  for(const extra of [{keep:'yes'},{keep:true,rel_path:'/DCIM/'},{keep:true,rel_path:'DCIM/../x/'},{keep:true,rel_path:'a\nb'},{keep:true,rel_path:'x'.repeat(256)},{keep:true,rel_path:''},{keep:true,taken_at:'soon'},{keep:true,taken_at:5}])
+    assert.equal((await post(ctx.handler,{action:'trash-log',pairs:[{phone_id:'9',copy_id:'C1',...extra}]})).status,400,JSON.stringify(extra).slice(0,40));
+  assert.equal(rows.length,2);
+});
+test('kept-list: only keep rows not seen gone, whose copy is in the index outside the Web2 trash, this workspace only; newest taken first',async()=>{
+  const log=[
+    {id:LID(1),workspace_id:WS,phone_id:'1',source:'onedrive',copy_id:'K1',trashed_at:'2026-10-20T00:00:00Z',gone_at:null,seen_at:null,keep:true,rel_path:'DCIM/Camera/',taken_at:'2026-09-01T00:00:00Z'},
+    {id:LID(2),workspace_id:WS,phone_id:'2',source:'onedrive',copy_id:'K2',trashed_at:'2026-10-20T00:00:00Z',gone_at:null,seen_at:null,keep:true,rel_path:'DCIM/Screenshots/',taken_at:'2026-09-05T00:00:00Z'},
+    {id:LID(3),workspace_id:WS,phone_id:'3',source:'onedrive',copy_id:'K3',trashed_at:'2026-10-20T00:00:00Z',gone_at:'2026-10-21T00:00:00Z',seen_at:null,keep:true,rel_path:'DCIM/Camera/',taken_at:null},
+    {id:LID(4),workspace_id:WS,phone_id:'4',source:'onedrive',copy_id:'K4',trashed_at:'2026-10-20T00:00:00Z',gone_at:null,seen_at:null,keep:false,rel_path:null,taken_at:null},
+    {id:LID(5),workspace_id:WS,phone_id:'5',source:'onedrive',copy_id:'KTR',trashed_at:'2026-10-20T00:00:00Z',gone_at:null,seen_at:null,keep:true,rel_path:'DCIM/Camera/',taken_at:null},
+    {id:LID(6),workspace_id:WS,phone_id:'6',source:'onedrive',copy_id:'NOIDX',trashed_at:'2026-10-20T00:00:00Z',gone_at:null,seen_at:null,keep:true,rel_path:'DCIM/Camera/',taken_at:null},
+    {id:LID(7),workspace_id:'other-ws',phone_id:'7',source:'onedrive',copy_id:'K1',trashed_at:'2026-10-20T00:00:00Z',gone_at:null,seen_at:null,keep:true,rel_path:'DCIM/x/',taken_at:null},
+  ];
+  const photos=[prow('K1','F1!100','2026-09-01T00:00:00Z'),prow('K2','F1!100','2026-09-05T00:00:00Z',{kind:'video',mime:'video/mp4',duration_ms:4000}),prow('K3','F1!100','2026-09-02T00:00:00Z'),
+    prow('K4','F1!100','2026-09-03T00:00:00Z'),prow('KTR',TRASH,'2026-09-04T00:00:00Z',{trashed_at:'2026-10-22T00:00:00Z'})];
+  const ctx=make({admin:fakeAdmin({row:{...connected},index:{app_onedrive_photos:photos,app_phone_trash_log:log}}),ms:fakeMicrosoft({itemById:{}})});
+  const out=await read(await post(ctx.handler,{action:'kept-list'}));
+  assert.deepEqual(out.items.map(x=>[x.log_id,x.phone_id,x.rel_path,x.photo.id]),[[LID(2),'2','DCIM/Screenshots/','K2'],[LID(1),'1','DCIM/Camera/','K1']]);
+  assert.equal(out.items[0].photo.kind,'video');assert.equal(out.items[0].taken_at,'2026-09-05T00:00:00.000Z');
+  assert.equal(ctx.ms.calls.length,0,'no Graph call');
+  assert.equal((await post(ctx.handler,{action:'kept-list'},{jwt:'other'})).status,403);
+  assert.deepEqual(await read(await post(make().handler,{action:'kept-list'})),{items:[]});
+});
+test('kept-drop: removes only this workspace keep rows by id; bad ids refused',async()=>{
+  const row=(n,ws,keep)=>({id:LID(n),workspace_id:ws,phone_id:String(n),source:'onedrive',copy_id:'K'+n,trashed_at:'2026-10-20T00:00:00Z',gone_at:null,seen_at:null,keep,rel_path:null,taken_at:null});
+  const ctx=make({admin:fakeAdmin({row:{...connected},index:{app_phone_trash_log:[row(1,WS,true),row(2,WS,false),row(3,'other-ws',true),row(4,WS,true)]}})});
+  assert.deepEqual(await read(await post(ctx.handler,{action:'kept-drop',ids:[LID(1),LID(2),LID(3)]})),{dropped:true});
+  assert.deepEqual(ctx.admin.state.mem.tables.app_phone_trash_log.map(r=>r.id),[LID(2),LID(3),LID(4)]);
+  for(const ids of [[],['x'],[1],Array.from({length:101},(_,i)=>LID(i)),'x'])
+    assert.equal((await post(ctx.handler,{action:'kept-drop',ids})).status,400,JSON.stringify(ids).slice(0,30));
+  assert.equal((await post(ctx.handler,{action:'kept-drop',ids:[LID(4)]},{jwt:'other'})).status,403);
+});
+test('trash-watch keeps old keep rows (still listed) and checks them; removes old others',async()=>{
+  const itemById=copyGraph();
+  const d=n=>new Date(NOW-n*86400000).toISOString();
+  const log=[
+    {id:'k1',workspace_id:WS,phone_id:'1',source:'onedrive',copy_id:'C1',trashed_at:d(90),gone_at:null,seen_at:null,keep:true},
+    {id:'k2',workspace_id:WS,phone_id:'2',source:'onedrive',copy_id:'GONE',trashed_at:d(90),gone_at:null,seen_at:null,keep:true},
+    {id:'k3',workspace_id:WS,phone_id:'3',source:'onedrive',copy_id:'C2',trashed_at:d(90),gone_at:d(80),seen_at:d(80),keep:true},
+    {id:'k4',workspace_id:WS,phone_id:'4',source:'onedrive',copy_id:'C2',trashed_at:d(90),gone_at:null,seen_at:null,keep:false},
+  ];
+  const ctx=make({admin:fakeAdmin({row:{...connected},index:{app_onedrive_folders:[trashFolderRow],app_phone_trash_log:log}}),ms:fakeMicrosoft({itemById})});
+  const out=await read(await post(ctx.handler,{action:'trash-watch'}));
+  const rows=Object.fromEntries(ctx.admin.state.mem.tables.app_phone_trash_log.map(r=>[r.id,r]));
+  assert.deepEqual(Object.keys(rows).sort(),['k1','k2']);
+  assert.equal(rows.k1.gone_at,null);assert.ok(rows.k2.gone_at,'old keep row still checked');
+  assert.equal(out.checked,2);
+});
