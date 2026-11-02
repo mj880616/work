@@ -7,6 +7,7 @@ on:
       - 'app/workplace-detail.js'
       - 'app/workplace-detail.css'
       - 'app/workplace-report.js'
+      - 'app/suborganizations.js'
       - 'app/styles.css'
       - 'app/loader-v2.js'
       - 'app/view-loader.js'
@@ -17,6 +18,7 @@ on:
       - 'app/workplace-detail.js'
       - 'app/workplace-detail.css'
       - 'app/workplace-report.js'
+      - 'app/suborganizations.js'
       - 'app/styles.css'
       - 'app/loader-v2.js'
       - 'app/view-loader.js'
@@ -36,12 +38,12 @@ jobs:
           test -f app/workplace-detail.js
           test -f app/workplace-detail.css
           grep -Fq "@import url('./workplace-detail.css');" app/styles.css
-          grep -Fq "module('./workplace-detail.js')" app/view-loader.js
+          grep -Fq "import('./workplace-detail.js')" app/suborganizations.js # PERF-첫로딩 P5: 담당조직 목록이 보인 뒤 suborganizations.js가 받는다
           grep -q "data-wd-close" app/workplace-detail.js
           grep -q "data-wd-time-edit" app/workplace-detail.js
           grep -q "id=\"wdInboxText\"" app/workplace-detail.js
           grep -q "id=\"wdInboxSave\"" app/workplace-detail.js
-          grep -Fq "import('./workplace-report.js')" app/view-loader.js
+          grep -Fq "import('./workplace-report.js')" app/suborganizations.js
           if grep -Eq "wdUpdateCurrent|wdCurrentModal|wdAddItem|wdItemModal" app/workplace-detail.js; then
             echo 'removed current-status/memo input returned to workplace detail'; exit 1
           fi

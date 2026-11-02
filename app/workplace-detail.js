@@ -436,4 +436,6 @@ window.KPTURouter?.on?.('team',()=>{void wdResume()});
 window.KPTUWorkplace={open:wdOpen};
 // NAV-새로고침제자리: on a reload of 담당조직 the screen is shown before this module loads, so its view hook does not run and the list may
 // already be drawn: the organization written in the address is opened here. A list drawn later opens it through kptu:suborganizations-rendered.
-if(wdPlaced&&window.KPTURouter?.current==='team'){wdPlace();wdOpenFirst()}
+// PERF-첫로딩 P5: this module now loads after the list is shown (suborganizations.js), so on 담당조직 it also does what the missed
+// view hook would have done (PC: the last-seen or first organization on the right).
+if(window.KPTURouter?.current==='team'){if(wdPlaced){wdPlace();wdOpenFirst()}else void wdResume()}

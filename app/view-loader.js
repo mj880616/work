@@ -144,12 +144,9 @@ async function pages(){
 }
 async function organizations(){
   await organizationOrder();
+  // The organization detail (workplace-detail.js, with its linked Google tasks — TASK-조직상세) is loaded by suborganizations.js
+  // after the list is shown (PERF-첫로딩 P5); until then its KPTUWorkplace.open and row clicks load it first.
   await module('./suborganizations.js','__KPTU_SUBORGANIZATIONS_READY__');
-  // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
-  await module('./project-catalog.js');
-  await module('./google-tasks.js');
-  await module('./workplace-detail.js');
-  import('./workplace-report.js').catch(console.error);
   return {ok:true}
 }
 // HOME-업무일지홈: 홈은 업무일지 화면이다(journal.js가 #homeView 안 #journalRoot의 유일한 renderer). 옛 홈 칸 화면은 코드째 삭제.
@@ -201,6 +198,8 @@ function load(view){
 }
 async function loadAll(){
   for(const view of ['home','basket','calendar','tasks','projects','library','meetings','pages','team'])await load(view);
+  // PERF-첫로딩 P5: 'team'은 목록만 기다리므로, 전부 받기에서는 조직 상세 묶음도 받아 둔다.
+  await window.KPTUWorkplace?.load?.();
   return true
 }
 // UI-기다림표시통일 ⑤: 메뉴 화면 프로그램 미리 받기. 앱을 켠 뒤 쉬는 틈에(loader-v2.js) 메뉴 화면의 첫 프로그램과 모양 파일을 받아만 둔다

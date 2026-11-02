@@ -61,7 +61,7 @@ jobs:
           test ! -f app/suborganization-planned-assignee.js
           grep -Fq "module('./suborganizations.js'" app/view-loader.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/view-loader.js
-          grep -Fq "module('./workplace-detail.js')" app/view-loader.js
+          grep -Fq "import('./workplace-detail.js')" app/suborganizations.js # PERF-첫로딩 P5: 상세는 목록이 보인 뒤 받는다
           grep -Fq "@import url('./suborganizations.css');" app/styles.css
           grep -Fq "@import url('./workplace-detail.css');" app/styles.css
           if grep -q "suborganization-filters.js" app/loader-v2.js app/view-loader.js; then echo 'removed assigned-organization filter module returned'; exit 1; fi
