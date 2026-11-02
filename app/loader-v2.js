@@ -70,7 +70,8 @@
     return;
   }
   // 로그인 확인 뒤: 다음 묶음(앱 바탕·사업 공간 확인)은 받아만 두고, 실행해도 아무 일 없는 화면 불러오기 도구(view-loader)·기다림 표시는 첫 묶음과 함께 부른다.
-  preload(['./topbar-actions.js','./context-menu.js','./select-menu.js','./date-field.js','./team.js','./area-window.js','./drive-summary.js']);
+  // 사업영역 창 그릇(area-window)은 그 정적 import 사슬(basket-note-tasks → update-requests·update-journal)까지 적는다(tests/loader-preload.test.mjs가 사슬과 맞춰 본다).
+  preload(['./topbar-actions.js','./context-menu.js','./select-menu.js','./date-field.js','./team.js','./drive-summary.js','./area-window.js','./basket-note-tasks.js','./update-requests.js','./update-journal.js']);
   const viewToolsReady=Promise.all([import('./wait-state.js'),import('./view-loader.js')]);
 
   const bootSession=window.KPTURuntime.session.read();
