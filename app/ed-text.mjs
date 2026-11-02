@@ -4,7 +4,7 @@
 //   toTelegram(doc) — the same, lists "• ", a blank line after a heading (md-telegram.mjs look).
 //   toHangul(doc)   — {text, html} for 한글: text/plain (tables tab-separated) + text/html (heading·bold·underline·table·center).
 // Typed marks such as "1." or "-" are never read as format: they are letters in a paragraph.
-import {cleanDoc, bulletGlyph, orderedLabel} from './ed-schema.mjs';
+import {cleanDoc, bulletGlyph, orderedLabel, fileSizeText} from './ed-schema.mjs';
 
 export const RULE_TEXT = '────';
 export const TELEGRAM_RULE = '──────────';
@@ -16,6 +16,8 @@ const textOf = node => {
   return (node.content || []).map(textOf).join('');
 };
 const photoText = node => `[사진${node.attrs?.alt ? ': ' + node.attrs.alt : ''}]`;
+// S48-21: a file card as letters "[파일: 이름 (크기)]"; a photo row is its photos, one line each.
+const fileText = node => { const size = fileSizeText(node.attrs?.size); return `[파일: ${node.attrs?.name || '이름 없음'}${size ? ` (${size})` : ''}]`; };
 
 // The text before one list item (ED-서식줄펼침). 'plain' (raw_text for search and AI) keeps the old "- " and "1. " unless the
 // list has a marker saved on it; 'telegram' and 'hangul' always show the shape the editor shows (• ◦ ▪ / 1. 1) (1) ① 가.),
@@ -39,6 +41,8 @@ function linesOf(blocks, style, indent = '', depth = {bullet: 0, ordered: 0}) {
       case 'code_block': push(textOf(node).split('\n').map(l => indent + l)); break;
       case 'horizontal_rule': push([indent + (style === 'telegram' ? TELEGRAM_RULE : RULE_TEXT)]); break;
       case 'image': push([indent + photoText(node)]); break;
+      case 'photo_row': push((node.content || []).map(p => indent + photoText(p))); break;
+      case 'file': push([indent + fileText(node)]); break;
       case 'blockquote': push(flat(linesOf(node.content, style, indent, depth))); break;
       case 'bullet_list': case 'ordered_list': {
         const start = node.type === 'ordered_list' ? (node.attrs?.order ?? 1) : 0;
@@ -109,6 +113,8 @@ function blocksHtml(blocks, pad = '', depth = {bullet: 0, ordered: 0}) {
       case 'code_block': return textOf(node).split('\n').map(l => `<p style="${P}">${pad}${esc(l) || '<br>'}</p>`).join('');
       case 'horizontal_rule': return `<p style="${P}">${pad}${RULE_TEXT}</p>`;
       case 'image': return `<p style="${P};text-align:center">${esc(photoText(node))}</p>`;
+      case 'photo_row': return `<p style="${P};text-align:center">${esc((node.content || []).map(photoText).join(' '))}</p>`;
+      case 'file': return `<p style="${P}">${pad}${esc(fileText(node))}</p>`;
       case 'blockquote': return blocksHtml(node.content, pad + '&nbsp;&nbsp;', depth);
       case 'bullet_list': case 'ordered_list': {
         const start = node.type === 'ordered_list' ? (node.attrs?.order ?? 1) : 0;

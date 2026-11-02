@@ -6,7 +6,7 @@
 // one it stays a place with its description. Nothing else is ever fetched.
 // The Web1 reader imports this file, so it keeps to syntax older Samsung Internet parses: no ?. ?? replaceChildren
 // structuredClone .at( (BUG-공유페이지삼성). Class and id names never contain "share".
-import {cleanDoc, safeHref, widthsOfRow, tableLayout, pagePhotoId} from './ed-schema.mjs';
+import {cleanDoc, safeHref, widthsOfRow, tableLayout, pagePhotoId, fileHref, fileSizeText} from './ed-schema.mjs';
 
 function make(tag, className, text) {
   var node = document.createElement(tag);
@@ -97,6 +97,23 @@ function block(n) {
       fig.appendChild(make('span', 'ed-photo-mark', '사진'));
       if (a.alt) fig.appendChild(make('figcaption', 'ed-photo-cap', a.alt));
       return fig;
+    }
+    // S48-21 사진 나란히: the photos of one row side by side, as high as each other (ed-doc.css; a phone wraps them).
+    case 'photo_row': {
+      var line = make('div', 'ed-photo-row');
+      line.setAttribute('data-count', String((n.content || []).length));
+      return blocks(line, n.content);
+    }
+    // S48-21 [파일]: a small card (name · size). A note's own file opens its Drive page (the owner's Drive login decides who sees it);
+    // any other src stays a card with no link.
+    case 'file': {
+      var href = fileHref(a.src), card = make(href ? 'a' : 'div', 'ed-file');
+      if (href) { card.setAttribute('href', href); card.setAttribute('target', '_blank'); card.setAttribute('rel', 'noopener noreferrer'); }
+      card.appendChild(make('span', 'ed-file-mark', '파일'));
+      card.appendChild(make('span', 'ed-file-name', a.name || '파일'));
+      var size = fileSizeText(a.size);
+      if (size) card.appendChild(make('span', 'ed-file-size', size));
+      return card;
     }
     case 'table': {
       var wrap = make('div', 'ed-table-wrap'), table = make('table', 'ed-table'), body = make('tbody');

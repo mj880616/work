@@ -28,13 +28,31 @@ const COLOR_NAMES = {red:1, orange:1, green:1, blue:1, purple:1, gray:1};
 const HIGHLIGHT_NAMES = {yellow:1, green:1, blue:1, pink:1, orange:1};
 // Block nodes and what they hold. Inline: text, hard_break.
 export const BLOCK_NODES = ['paragraph', 'heading', 'blockquote', 'bullet_list', 'ordered_list', 'list_item', 'horizontal_rule',
-  'code_block', 'image', 'table', 'table_row', 'table_cell', 'table_header'];
+  'code_block', 'image', 'photo_row', 'file', 'table', 'table_row', 'table_cell', 'table_header'];
 // Photo src is our own id, never an address: drive:<Drive file id> (notes·diary·updates, ③) or share:<photo id> (share pages, ②).
 // Until ② a photo is a place only (src null) with its description.
 export const PHOTO_SRC = /^(drive|share):[A-Za-z0-9_-]{1,200}$/;
 // The id inside a share-page photo src ("share:<id>"), or '' for any other src (a drive: photo is not a share-page photo).
 export function pagePhotoId(src) {
   return typeof src === 'string' && src.indexOf('share:') === 0 && PHOTO_SRC.test(src) ? src.slice(6) : '';
+}
+// S48-21 사진 나란히: photo_row holds 2 to PHOTO_ROW_MAX photos side by side (one line; a phone wraps them, ed-doc.css).
+// A row left with one photo is that photo again (cleanDoc and the editor both unwrap it).
+export const PHOTO_ROW_MAX = 4;
+// S48-21 [파일]: a file card in the text. src is our own id (drive:<Drive file id>, a note's own attachment), never an address.
+export const FILE_SRC = /^drive:[A-Za-z0-9_-]{1,200}$/;
+export const FILE_SIZE_MAX = 1099511627776; // 1 TiB: any real size fits; a bigger or odd number is dropped (no size shown)
+// The size as people read it (KB·MB, 1024 steps, as the attachment cards), or '' when unknown.
+export function fileSizeText(size) {
+  if (typeof size !== 'number' || !(size > 0)) return '';
+  if (size >= 1073741824) return (size / 1073741824).toFixed(1) + ' GB';
+  if (size >= 1048576) return (size / 1048576).toFixed(1) + ' MB';
+  if (size >= 1024) return (size / 1024).toFixed(1) + ' KB';
+  return size + ' B';
+}
+// The Drive page of a file card's file (opens or downloads it with the owner's own Drive login), or '' for any other src.
+export function fileHref(src) {
+  return typeof src === 'string' && FILE_SRC.test(src) ? 'https://drive.google.com/file/d/' + src.slice(6) + '/view' : '';
 }
 // colWidth: one table column's width in px (dragging a column edge; the table's width is the sum of its columns).
 export const LIMITS = {depth:24, nodes:20000, text:200000, alt:200, href:2000, tableCols:20, indent:8, colWidth:2000};
@@ -80,9 +98,9 @@ const HOLDS = {
   doc:'block', blockquote:'block', list_item:'block', table_cell:'block', table_header:'block',
   paragraph:'inline', heading:'inline', code_block:'text',
   bullet_list:'list_item', ordered_list:'list_item', table:'table_row', table_row:'cell',
-  horizontal_rule:'none', image:'none',
+  horizontal_rule:'none', image:'none', file:'none', photo_row:'image',
 };
-const TOP_BLOCKS = {paragraph:1, heading:1, blockquote:1, bullet_list:1, ordered_list:1, horizontal_rule:1, code_block:1, image:1, table:1};
+const TOP_BLOCKS = {paragraph:1, heading:1, blockquote:1, bullet_list:1, ordered_list:1, horizontal_rule:1, code_block:1, image:1, photo_row:1, file:1, table:1};
 
 function attrsOf(type, a) {
   a = isObject(a) ? a : {};
@@ -108,6 +126,11 @@ function attrsOf(type, a) {
     var img = {src:typeof a.src === 'string' && PHOTO_SRC.test(a.src) ? a.src : null, alt:cleanString(a.alt).slice(0, LIMITS.alt)};
     var ia = alignOf(a.align); if (ia) img.align = ia;
     return img;
+  }
+  if (type === 'file') {
+    var file = {src:typeof a.src === 'string' && FILE_SRC.test(a.src) ? a.src : null, name:cleanString(a.name).replace(/[\r\n\t]+/g, ' ').slice(0, LIMITS.alt)};
+    if (intIn(a.size, 1, FILE_SIZE_MAX, 0)) file.size = a.size;
+    return file;
   }
   if (type === 'table_cell' || type === 'table_header') {
     var cell = {colspan:intIn(a.colspan, 1, LIMITS.tableCols, 1), rowspan:intIn(a.rowspan, 1, 500, 1)};
@@ -178,13 +201,24 @@ function cleanChildren(parentType, list, depth, budget) {
     var n = list[i];
     if (!isObject(n)) continue;
     if (holds === 'block') {
-      if (TOP_BLOCKS[n.type]) { var b = cleanNode(n, depth, budget); if (b) out.push(b); }
+      if (TOP_BLOCKS[n.type]) {
+        var b = cleanNode(n, depth, budget);
+        // A photo row keeps 2..PHOTO_ROW_MAX photos; one photo is that photo again, and photos past the limit start the next row.
+        if (b && b.type === 'photo_row') {
+          var pics = b.content || [];
+          for (var k = 0; k < pics.length; k += PHOTO_ROW_MAX) {
+            var part = pics.slice(k, k + PHOTO_ROW_MAX);
+            if (part.length === 1) out.push(part[0]); else out.push({type:'photo_row', content:part});
+          }
+        } else if (b) out.push(b);
+      }
       else {
         // An unknown block keeps its letters as a paragraph.
         var t = textOfAny(n, depth);
         if (t) out.push({type:'paragraph', attrs:{style:DEFAULT_BODY}, content:cleanInline([{type:'text', text:t}], budget, false)});
       }
-    } else if (holds === 'list_item' && n.type === 'list_item') { var li = cleanNode(n, depth, budget); if (li) out.push(li); }
+    } else if (holds === 'image' && n.type === 'image') { var im = cleanNode(n, depth, budget); if (im) out.push(im); }
+    else if (holds === 'list_item' && n.type === 'list_item') { var li = cleanNode(n, depth, budget); if (li) out.push(li); }
     else if (holds === 'table_row' && n.type === 'table_row') { var tr = cleanNode(n, depth, budget); if (tr) out.push(tr); }
     else if (holds === 'cell' && (n.type === 'table_cell' || n.type === 'table_header')) { var td = cleanNode(n, depth, budget); if (td) out.push(td); }
   }
@@ -204,7 +238,7 @@ function cleanNode(n, depth, budget) {
   // Containers that must hold something get an empty paragraph (list item, quote, cell) or are dropped (list, table, row).
   if (!content.length) {
     if (type === 'list_item' || type === 'blockquote' || type === 'table_cell' || type === 'table_header') content = [emptyParagraph()];
-    else if (type === 'bullet_list' || type === 'ordered_list' || type === 'table' || type === 'table_row') return null;
+    else if (type === 'bullet_list' || type === 'ordered_list' || type === 'table' || type === 'table_row' || type === 'photo_row') return null;
   }
   if (type === 'list_item' && content[0].type !== 'paragraph') content.unshift(emptyParagraph());
   if (content.length) node.content = content;

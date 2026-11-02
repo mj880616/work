@@ -30,18 +30,31 @@
 // formatted copy (text/html) that only wraps the same letters, signs and all, and a keyboard's clipboard row puts the letters in
 // as typed text with no paste at all: both count as a markdown paste. A text that is only plain lines looking like markdown (one
 // pasted as letters before) gets a small [서식으로 바꾸기] that converts the whole text once (undo puts it back). [①] opens ①~⑩ (the next number after the nearest one is marked).
+// S48-21 (요청함 10/22 09:33·19:27, 10/23 11:08):
+//   - [⌄] row open or closed is remembered on the server (view-prefs.js ed_more, the same for every editor and device): it stays as it
+//     was left — a press outside or Esc closes only the small popovers, never the row; only [⌄]/[⌃] opens or closes it. (A phone has no
+//     [⌄]: its row is grouped, see above.)
+//   - [파일] exists only where the opener passes `files` (notes: the note's own attachments). A file goes in as a small card
+//     (name · size); its [열기] opens it (files.open). A dropped or pasted file that is not a picture goes the same way.
+//   - 사진 나란히: a photo dragged onto another photo's left or right half joins it on one line (photo_row, up to PHOTO_ROW_MAX); a chosen
+//     photo shows a small row [옆 사진과 나란히] [따로 놓기]; several photos picked at once ask [나란히] [한 장씩] before going in.
+//     The row's photos are as high as each other; a phone wraps a row of three or four (ed-doc.css).
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
 // the box first (that ends the composition), then runs and puts focus back.
-import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, cleanDoc, emptyDoc, safeHref, nextCircled,
+import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, PHOTO_ROW_MAX, fileSizeText, cleanDoc, emptyDoc, safeHref, nextCircled,
   circled, widthsOfRow, tableLayout, scaleWidths, stepWidths, evenWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
 import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc, markdownLettersOf} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
 import {slotLoading, slotShown, slotFailed} from './img-slot.js';
+import {viewPrefs} from './view-prefs.js';
 
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
 let pmPromise = null, mdPromise = null;
+// S48-21: the [⌄] row as last left in this visit (null = not pressed yet: the server's remembered value). Every editor opened later in
+// the visit starts the same, also before the server accepts the setting (its DB change not applied yet: the write is refused, this stays).
+let sessionMore = null;
 export const loadEditorLib = () => (pmPromise ||= import(LIB));
 // The editor's markdown-it (html off, safe links only). Exported for ED③ 노트: an old markdown note opens through the same conversion.
 export const loadMarkdownIt = () => (mdPromise ||= import(MARKDOWN_IT).then(({default: MarkdownIt}) => {
@@ -88,11 +101,18 @@ function buildSchema(pm) {
       code_block: {group: 'block', content: 'text*', marks: '', code: true, defining: true,
         parseDOM: [{tag: 'pre', preserveWhitespace: 'full'}], toDOM: () => ['pre', {class: 'ed-code'}, ['code', 0]]},
       // Our own photo (a place until ②). Pasted <img> never becomes one: transformPastedHTML turns it into letters first.
-      image: {group: 'block', atom: true, selectable: true, draggable: false,
+      // S48-21: a photo drags (to set it beside another photo: handleDrop).
+      image: {group: 'block', atom: true, selectable: true, draggable: true,
         attrs: {src: {default: null}, alt: {default: ''}, align: {default: null}},
         parseDOM: [{tag: 'figure.ed-photo', getAttrs: el => ({src: null, alt: el.getAttribute('data-alt') || ''})}],
         toDOM: n => ['figure', {class: 'ed-photo is-place ed-center', 'data-alt': n.attrs.alt, contenteditable: 'false'},
           ['span', {class: 'ed-photo-mark'}, '사진 자리'], ['figcaption', {class: 'ed-photo-cap'}, n.attrs.alt || '사진은 다음 단계부터 넣을 수 있어요']]},
+      // S48-21 사진 나란히: 2..PHOTO_ROW_MAX photos on one line (rowsPlugin unwraps a row left with one photo).
+      photo_row: {group: 'block', content: 'image+', parseDOM: [{tag: 'div.ed-photo-row'}], toDOM: () => ['div', {class: 'ed-photo-row'}, 0]},
+      // S48-21 [파일]: a file card (our own id, name and size). Pasted HTML never makes one (no parseDOM).
+      file: {group: 'block', atom: true, selectable: true, draggable: false,
+        attrs: {src: {default: null}, name: {default: ''}, size: {default: null}},
+        toDOM: n => ['div', {class: 'ed-file', contenteditable: 'false'}, ['span', {class: 'ed-file-name'}, n.attrs.name || '파일']]},
       ...tables,
       text: {group: 'inline'},
       hard_break: {group: 'inline', inline: true, selectable: false, leafText: () => '\n', parseDOM: [{tag: 'br'}], toDOM: () => ['br']},
@@ -148,7 +168,7 @@ const BUTTONS = [
   ['color', '글자색 ▾', '글자색 고르기', 'paint'], ['highlight', '형광펜 ▾', '형광펜 고르기', 'paint'],
   ['align', '왼쪽 ▾', '정렬 고르기', 'align'],
   ['bullet', '목록 ▾', '글머리 목록 고르기', 'list'], ['ordered', '번호 ▾', '번호 목록 고르기', 'list'],
-  ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
+  ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['file', '파일', '파일 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
   ['symDot', '· ▾', '점 기호 고르기', 'sym'], ['symNote', '※ ▾', '참고 기호 고르기', 'sym'], ['symArrow', '→ ▾', '화살표 고르기', 'sym'], ['symCircled', '① ▾', '동그라미 번호 고르기', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
 ];
@@ -178,7 +198,7 @@ const GRID = {rows: 6, cols: 8};
 const GROUPS = [
   ['gText', '글자 ▾', '글자 서식 고르기', ['em', 'underline', 'strike', 'color', 'highlight', 'clear']],
   ['gPara', '문단 ▾', '문단 서식 고르기', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule']],
-  ['gInsert', '넣기 ▾', '넣을 것 고르기', ['table', 'photo', 'link', 'plainPaste']],
+  ['gInsert', '넣기 ▾', '넣을 것 고르기', ['table', 'photo', 'file', 'link', 'plainPaste']],
   ['gSym', '기호 ▾', '기호 고르기', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
@@ -217,6 +237,8 @@ const chevron = () => { const svg = svgEl('svg', {viewBox: '0 0 12 12', width: '
 const ICON_PATHS = {
   photo: [['path', {d: 'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5'}], ['circle', {cx: '9', cy: '9.5', r: '1.3'}]],
   link: [['path', {d: 'M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'}]],
+  // S48-21 [파일]: a paper clip.
+  file: [['path', {d: 'M20 11.5 12 19.5a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.6 1.6 0 0 1-2.3-2.3l7.8-7.8'}]],
 };
 const toolIcon = key => {
   const svg = svgEl('svg', {viewBox: '0 0 24 24', width: '16', height: '16', 'aria-hidden': 'true', focusable: 'false', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'});
@@ -233,13 +255,14 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
 // photos: null, or {add(file) -> {src}, url(src) -> address|null, max} (share pages, ED-②).
+// files: null, or {add(file) -> {src, name, size}, open(src)} (S48-21 [파일]; notes).
 // onBox(open): ED③-창 — told (once per change, after the current event) when a small box (a button row panel, the 글자색·표 크기 list, the table cell menu)
 // opens or the last one closes, so a window can give the phone's back button to the box first. closeBoxes() closes them all and returns true when one was open.
 // shortcuts: ED③ 노트 (2026-10-24 명진 결정 2) — true turns on the engine's own markdown shortcuts (prosemirror-inputrules) at the start of a
 // line: "## " "### " → 제목 2·3, "- " "* " → 목록, "1. " → 번호 목록, "> " → 인용, and **글자** → 굵게. One undo (Backspace right after, or ↶)
 // puts the typed marks back. The engine does not run a rule while a 한글 composition is going on (it waits for the composed text). Off
 // by default: the share page editor stays as before (결정 2 가 there: no format while typing).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null, onBox = null, shortcuts = false} = {}) {
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null, files = null, onBox = null, shortcuts = false} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -260,6 +283,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   let lastGroup = null;
   for (const [key, text, aria, group] of BUTTONS) {
     if (key === 'photo' && !photos) continue;
+    if (key === 'file' && !files) continue;
     const b = btn(text, {edCmd: key, edGroup: group}, aria);
     if (lastGroup && group !== lastGroup) b.classList.add('ed-gap');
     lastGroup = group;
@@ -344,6 +368,13 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const linkOk = btn('넣기', {edLinkOk: ''}, '링크 넣기 확인'), linkOff = btn('링크 빼기', {edLinkOff: ''});
   const tableRow = panel('ed-table-tools', '표 고치기');
   for (const [key, text, aria] of TABLE_TOOLS) tableRow.append(btn(text, {edTable: key}, aria));
+  // S48-21 사진 나란히: shown while one photo is chosen (like the table tools row). And the question when several photos come at once.
+  const photoTools = panel('ed-photo-tools', '사진 놓기');
+  const photoJoin = btn('옆 사진과 나란히', {edPhoto: 'join'}), photoApart = btn('따로 놓기', {edPhoto: 'apart'});
+  photoTools.append(photoJoin, photoApart);
+  const photoAsk = panel('ed-photo-ask', '여러 장 놓기');
+  const photoAskText = document.createElement('span');
+  photoAsk.append(photoAskText, btn('나란히', {edPhotoAsk: 'row'}), btn('한 장씩', {edPhotoAsk: 'single'}));
   const suggest = document.createElement('div');
   suggest.className = 'ed-suggest'; suggest.hidden = true; suggest.setAttribute('role', 'status');
   const suggestText = document.createElement('span'); suggestText.textContent = '마크다운 기호가 보여요.';
@@ -355,7 +386,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   status.className = 'ed-status a11y-only'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const PANEL_ORDER = ['more', ...GROUP_KEYS, 'style', 'color', 'highlight', 'align', 'bullet', 'ordered', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
   // The full-width rows (the [⌄] row, table tools, offers, notes) sit in the flow; popovers are placed on the screen.
-  bar.append(tools, panels.more, tableRow, suggest, note, ...PANEL_ORDER.filter(k => k !== 'more').map(k => panels[k]));
+  bar.append(tools, panels.more, tableRow, photoTools, photoAsk, suggest, note, ...PANEL_ORDER.filter(k => k !== 'more').map(k => panels[k]));
   const box = document.createElement('div');
   box.className = 'ed-box';
   // The table cell menu (right click, a phone's long press): a small floating list, closed by Esc or a press outside.
@@ -402,6 +433,23 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     appendTransaction(trs, old, st) {
       if (!trs.some(tr => tr.docChanged) || endsOpen(st.doc)) return null;
       return st.tr.insert(st.doc.content.size, N.paragraph.create({style: DEFAULT_BODY}));
+    },
+  });
+  // S48-21: a photo row holds 2..PHOTO_ROW_MAX photos. One left (the others were taken out or deleted) is that photo again; an empty one goes.
+  const rowsPlugin = new pm.Plugin({
+    appendTransaction(trs, old, st) {
+      if (!trs.some(tr => tr.docChanged)) return null;
+      const bad = [];
+      st.doc.descendants((node, pos) => { if (node.type === N.photo_row) { if (node.childCount < 2 || node.childCount > PHOTO_ROW_MAX) bad.push({node, pos}); return false; } return true; });
+      if (!bad.length) return null;
+      const tr = st.tr;
+      for (const {node, pos} of bad.reverse()) {
+        const pics = []; node.forEach(p => pics.push(p));
+        const parts = [];
+        for (let i = 0; i < pics.length; i += PHOTO_ROW_MAX) { const part = pics.slice(i, i + PHOTO_ROW_MAX); parts.push(part.length === 1 ? part[0] : N.photo_row.create(null, part)); }
+        tr.replaceWith(pos, pos + node.nodeSize, parts);
+      }
+      return tr;
     },
   });
   // Column widths: before a column edge drag starts, every column gets its shown width (so nothing jumps), and when it
@@ -626,7 +674,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (!parent.isTextblock || (dir < 0 ? $c.parentOffset !== 0 : $c.parentOffset !== parent.content.size)) return false;
     const $edge = state.doc.resolve(dir < 0 ? $c.before() : $c.after());
     const other = dir < 0 ? $edge.nodeBefore : $edge.nodeAfter;
-    if (!other || !(other.type === N.table || other.type === N.image || other.type === N.horizontal_rule)) return false;
+    if (!other || !(other.type === N.table || other.type === N.image || other.type === N.photo_row || other.type === N.file || other.type === N.horizontal_rule)) return false;
     if (!dispatch) return true;
     // An empty line between a block and the end goes first only when it is not the last line (the end line always stays).
     const at = dir < 0 ? $edge.pos - other.nodeSize : $edge.pos;
@@ -693,7 +741,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const shortcutKeys = shortcuts ? {Backspace: pm.undoInputRule, 'Mod-z': pm.chainCommands(pm.undoInputRule, pm.undo)} : null;
   const plugins = [resizePlugin, pm.columnResizing({handleWidth: 6, cellMinWidth: 32, defaultCellMinWidth: 48, View: TableView}),
     pm.history(), ...(shortcuts ? [pm.inputRules({rules: shortcutRules}), pm.keymap(shortcutKeys)] : []),
-    pm.keymap(keys), pm.keymap(pm.baseKeymap), pm.gapCursor(), pm.tableEditing(), pastePlugin, endLinePlugin];
+    pm.keymap(keys), pm.keymap(pm.baseKeymap), pm.gapCursor(), pm.tableEditing(), pastePlugin, endLinePlugin, rowsPlugin];
   let state = pm.EditorState.create({doc, plugins});
   const fix = pm.fixTables(state);
   if (fix) state = state.apply(fix.setMeta('addToHistory', false));
@@ -703,7 +751,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const isFileTransfer = data => !!data && ([...(data.types || [])].includes('Files') || (data.files && data.files.length > 0));
   const view = new pm.EditorView(box, {
     state,
-    nodeViews: {image: node => photoView(node)},
+    nodeViews: {image: node => photoView(node), file: node => fileView(node)},
     attributes: {class: 'ed-doc ed-input', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label, spellcheck: 'false',
       ...(placeholder ? {'data-placeholder': placeholder} : {})},
     transformPastedHTML: cleanPastedHtml,
@@ -726,8 +774,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const data = event.clipboardData;
       const text = data?.getData('text/plain') || '';
       const html = data?.getData('text/html') || '';
-      // A copied picture or file (no letters with it) is not put in until ② (공유 사진 보관).
-      if (isFileTransfer(data) && !text && !html) { photosFrom(data.files); return true; }
+      // A copied picture or file (no letters with it): photos go to [사진], other files to [파일] (where the opener gives them).
+      if (isFileTransfer(data) && !text && !html) { void filesFrom(data.files); return true; }
       if (pastingLetters) return false;
       // Decide after the paste lands: mark its range when the letters look like markdown and no formatted copy came with them,
       // or the formatted copy only wraps the same letters (signs and all; a phone's copy). Then those letters are pasted.
@@ -737,9 +785,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       return false;
     },
     handleDrop(v, event, slice, moved) {
-      if (moved || !isFileTransfer(event.dataTransfer)) return false;
+      // S48-21: a photo of this text dropped on another photo's left or right half goes beside it (one line).
+      if (moved) return dropBeside(v, event, slice);
+      if (!isFileTransfer(event.dataTransfer)) return false;
       event.preventDefault();
-      photosFrom(event.dataTransfer.files);
+      void filesFrom(event.dataTransfer.files, v.posAtCoords({left: event.clientX, top: event.clientY})?.pos);
       return true;
     },
     handleDOMEvents: {
@@ -887,7 +937,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const emptyLine = $from.parent.type === N.paragraph && $from.parent.content.size === 0 && $from.depth > 0;
     const tr = st.tr;
     let at;
-    if (emptyLine) { at = $from.before(); tr.replaceWith(at, $from.after(), node); }
+    // A photo chosen inside a photo row: the new block goes after the row (a row holds photos only).
+    if ($from.parent.type === N.photo_row) { at = $from.after(); tr.insert(at, node); }
+    else if (emptyLine) { at = $from.before(); tr.replaceWith(at, $from.after(), node); }
     else {
       if ($from.parent.isTextblock && $from.parentOffset > 0 && $from.parentOffset < $from.parent.content.size) tr.split($from.pos);
       const $p = tr.doc.resolve(tr.mapping.map($from.pos));
@@ -1094,7 +1146,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     note.textContent = text; note.hidden = false;
     clearTimeout(noteTimer); noteTimer = setTimeout(() => { note.hidden = true; }, 5000);
   }
-  const notePhotoLater = () => showNote(photos ? '사진 파일만 넣을 수 있어요.' : '이 글에는 사진·파일을 넣을 수 없어요. 공유 페이지 글쓰기에서 사진을 넣을 수 있어요.');
+  const notePhotoLater = () => showNote(photos && !files ? '사진 파일만 넣을 수 있어요.' : !photos && files ? '이 글에는 사진을 넣을 수 없어요. [파일]로 넣어 주세요.'
+    : '이 글에는 사진·파일을 넣을 수 없어요. 공유 페이지·노트 글쓰기에서 넣을 수 있어요.');
   // A photo in the text: our own id only. A saved place (no src) or a photo without an address shows as a place.
   function photoView(node) {
     const dom = document.createElement('figure');
@@ -1128,35 +1181,183 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return {dom, destroy() { gone = true; }};
   }
   const photoCount = () => { let n = 0; view.state.doc.descendants(x => { if (x.type === N.image && x.attrs.src) n++; }); return n; };
-  // Photos one at a time, each put in after the one before. A failure stops the rest and says why; the ones in stay.
-  async function photosFrom(list) {
-    const files = [...(list || [])];
-    if (!photos) { notePhotoLater(); return; }
-    const pictures = files.filter(f => /^image\//.test(f.type || ''));
-    if (!pictures.length) { notePhotoLater(); return; }
+  // S48-21 [파일]: a small card in the text (name · size, [열기]). Pressing the card chooses it (Backspace/Delete remove it); [열기] opens it.
+  function fileView(node) {
+    const dom = document.createElement('div');
+    dom.className = 'ed-file'; dom.contentEditable = 'false';
+    const mark = document.createElement('span'); mark.className = 'ed-file-mark'; mark.setAttribute('aria-hidden', 'true'); mark.append(toolIcon('file'));
+    const name = document.createElement('span'); name.className = 'ed-file-name'; name.textContent = node.attrs.name || '파일';
+    dom.append(mark, name);
+    const size = fileSizeText(node.attrs.size);
+    if (size) { const s0 = document.createElement('span'); s0.className = 'ed-file-size'; s0.textContent = size; dom.append(s0); }
+    if (files && node.attrs.src) {
+      const open = document.createElement('button');
+      open.type = 'button'; open.className = 'ed-file-open'; open.textContent = '열기'; open.setAttribute('aria-label', `${node.attrs.name || '파일'} 열기`);
+      open.addEventListener('mousedown', e => e.preventDefault());
+      open.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); try { files.open(node.attrs.src); } catch { showNote('파일을 열지 못했어요.'); } });
+      dom.append(open);
+    }
+    return {dom, stopEvent: e => !!e.target.closest?.('.ed-file-open'), ignoreMutation: () => true};
+  }
+  // Puts a block in at the given document position (a drop), else at the cursor.
+  const moveCursorTo = at => {
+    if (typeof at !== 'number' || at < 0 || at > view.state.doc.content.size) return;
+    try { view.dispatch(view.state.tr.setSelection(pm.TextSelection.near(view.state.doc.resolve(at)))); } catch { /* the cursor stays */ }
+  };
+  // Several photos at once: [나란히] or [한 장씩] (a short question under the button row; Esc or a press elsewhere = 한 장씩).
+  let askDone = null;
+  function askLayout(count) {
+    askDone?.('single');
+    photoAskText.textContent = `사진 ${count}장 · `;
+    photoAsk.hidden = false;
+    photoAsk.querySelector('[data-ed-photo-ask="row"]').focus({preventScroll: true});
+    return new Promise(resolve => { askDone = choice => { askDone = null; photoAsk.hidden = true; resolve(choice); }; });
+  }
+  // Files dropped, pasted or picked: pictures go to [사진] (when the opener gives photos), the rest to [파일] (when it gives files).
+  // One at a time, each put in after the one before. A failure stops the rest and says why; the ones in stay.
+  async function filesFrom(list, at) {
+    const all = [...(list || [])];
+    const isPicture = f => /^image\//.test(f.type || '');
+    const pictures = photos ? all.filter(isPicture) : [];
+    const others = files ? all.filter(f => !pictures.includes(f)) : [];
+    if (!pictures.length && !others.length) { notePhotoLater(); return; }
+    if (all.length > pictures.length + others.length) notePhotoLater();
+    moveCursorTo(at);
+    if (pictures.length) await photosIn(pictures);
+    if (others.length && !view.isDestroyed) await filesIn(others);
+  }
+  async function photosIn(pictures) {
     const room = (photos.max || 40) - photoCount();
     if (pictures.length > room) { showNote(`사진은 한 페이지에 ${photos.max || 40}장까지 넣을 수 있어요.`); if (room <= 0) return; pictures.length = room; }
-    let done = 0;
+    const layout = pictures.length > 1 ? await askLayout(pictures.length) : 'single';
+    if (view.isDestroyed) return;
+    const made = [];
     try {
       for (const file of pictures) {
-        say(`사진 올리는 중… (${done + 1}/${pictures.length})`);
+        say(`사진 올리는 중… (${made.length + 1}/${pictures.length})`);
         const {src} = await photos.add(file);
         if (view.isDestroyed) return;
-        insertBlock(N.image.create({src, alt: ''}));
-        done++;
+        made.push(N.image.create({src, alt: ''}));
+        if (layout === 'single') insertBlock(made.at(-1));
       }
-      say(`사진 ${done}장을 넣었어요. 저장해야 받는 사람에게 보여요.`);
+      say(`사진 ${made.length}장을 넣었어요.${photos.url && !files ? ' 저장해야 받는 사람에게 보여요.' : ''}`);
     } catch (e) {
       say(''); showNote((e && e.message) || '사진을 올리지 못했어요.');
     }
+    // 나란히: the photos that went up, in rows of PHOTO_ROW_MAX (one left over is a photo of its own).
+    if (layout === 'row' && made.length && !view.isDestroyed) {
+      for (let i = 0; i < made.length; i += PHOTO_ROW_MAX) {
+        const part = made.slice(i, i + PHOTO_ROW_MAX);
+        insertBlock(part.length === 1 ? part[0] : N.photo_row.create(null, part));
+      }
+    }
   }
-  const pickPhotos = () => {
+  async function filesIn(list) {
+    let done = 0;
+    try {
+      for (const file of list) {
+        say(`파일 올리는 중… (${done + 1}/${list.length})`);
+        const made = await files.add(file);
+        if (view.isDestroyed) return;
+        insertBlock(N.file.create({src: made.src, name: String(made.name || file.name || '').slice(0, LIMITS.alt), size: made.size > 0 ? made.size : (file.size || null)}));
+        done++;
+      }
+      say(`파일 ${done}개를 넣었어요.`);
+    } catch (e) {
+      say(''); showNote((e && e.message) || '파일을 올리지 못했어요.');
+    }
+  }
+  const pickFrom = (accept, take) => {
     const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.hidden = true;
-    input.addEventListener('change', () => { const files = [...input.files]; input.remove(); void photosFrom(files); }, {once: true});
+    input.type = 'file'; if (accept) input.accept = accept; input.multiple = true; input.hidden = true;
+    input.addEventListener('change', () => { const chosen = [...input.files]; input.remove(); void take(chosen); }, {once: true});
     input.addEventListener('cancel', () => input.remove(), {once: true});
     root.append(input); input.click();
   };
+  const pickPhotos = () => pickFrom('image/*', chosen => filesFrom(chosen.filter(f => /^image\//.test(f.type || ''))));
+  const pickFiles = () => pickFrom('', chosen => filesIn(chosen));
+
+  // ── 사진 나란히 ──
+  // The photo chosen now: {node, pos, row: {node, pos} | null}, or null.
+  function chosenPhoto(st = view.state) {
+    const sel = st.selection;
+    if (!(sel instanceof pm.NodeSelection) || sel.node.type !== N.image) return null;
+    const $p = st.doc.resolve(sel.from);
+    const row = $p.parent.type === N.photo_row ? {node: $p.parent, pos: $p.before()} : null;
+    return {node: sel.node, pos: sel.from, row};
+  }
+  // The photo or row right before (dir -1) or after (+1) the block at pos..end, in the same parent.
+  function photoNeighbour(doc, pos, end, dir) {
+    const $p = doc.resolve(dir < 0 ? pos : end), other = dir < 0 ? $p.nodeBefore : $p.nodeAfter;
+    if (!other) return null;
+    if (other.type === N.image) return {node: other, pos: dir < 0 ? pos - other.nodeSize : end};
+    if (other.type === N.photo_row && other.childCount < PHOTO_ROW_MAX) return {node: other, pos: dir < 0 ? pos - other.nodeSize : end};
+    return null;
+  }
+  // Puts photo (a node) beside the photo or row at target ({node, pos}), on its left (side -1) or right (+1). Returns the tr.
+  function joinInto(tr, target, photo, side, before = null) {
+    if (target.node.type === N.image) {
+      const pair = side < 0 ? [photo, target.node] : [target.node, photo];
+      return tr.replaceWith(target.pos, target.pos + target.node.nodeSize, N.photo_row.create(null, pair));
+    }
+    // A row: at its start or end, or next to one photo in it (before: that photo's index).
+    const at = before !== null ? target.pos + 1 + offsetOf(target.node, before + (side > 0 ? 1 : 0)) : side < 0 ? target.pos + 1 : target.pos + target.node.nodeSize - 1;
+    return tr.insert(at, photo);
+  }
+  const offsetOf = (node, index) => { let off = 0; for (let i = 0; i < index && i < node.childCount; i++) off += node.child(i).nodeSize; return off; };
+  function canJoin(st) {
+    const c = chosenPhoto(st);
+    if (!c || c.row) return false;
+    return !!(photoNeighbour(st.doc, c.pos, c.pos + c.node.nodeSize, -1) || photoNeighbour(st.doc, c.pos, c.pos + c.node.nodeSize, 1));
+  }
+  function joinPhoto() {
+    const st = view.state, c = chosenPhoto(st);
+    if (!c || c.row) return;
+    const end = c.pos + c.node.nodeSize;
+    const before = photoNeighbour(st.doc, c.pos, end, -1), after = before ? null : photoNeighbour(st.doc, c.pos, end, 1);
+    const target = before || after;
+    if (!target) { showNote('바로 위나 아래에 사진이 있어야 나란히 놓을 수 있어요.'); return; }
+    const tr = st.tr.delete(c.pos, end);
+    const mapped = {node: target.node, pos: tr.mapping.map(target.pos)};
+    joinInto(tr, mapped, c.node, before ? 1 : -1);
+    view.dispatch(tr.scrollIntoView());
+    say('사진을 나란히 놓았어요.');
+  }
+  function apartPhoto() {
+    const st = view.state, c = chosenPhoto(st);
+    if (!c || !c.row) return;
+    const rowEnd = c.row.pos + c.row.node.nodeSize;
+    const tr = st.tr.insert(rowEnd, c.node).delete(c.pos, c.pos + c.node.nodeSize);
+    const at = tr.mapping.map(rowEnd, 1) - c.node.nodeSize;
+    try { tr.setSelection(pm.NodeSelection.create(tr.doc, Math.max(0, at))); } catch { /* the plugin may unwrap the row */ }
+    view.dispatch(tr.scrollIntoView());
+    say('사진을 따로 놓았어요.');
+  }
+  // A photo of this text dropped on another photo: beside it, on the half it was dropped on. Anything else drops as before.
+  function dropBeside(v, event, slice) {
+    const only = slice.content.childCount === 1 && slice.content.firstChild;
+    const sel = v.state.selection;
+    if (!only || only.type !== N.image || !(sel instanceof pm.NodeSelection) || sel.node.type !== N.image) return false;
+    const fig = event.target?.closest?.('.ed-photo');
+    if (!fig || !v.dom.contains(fig)) return false;
+    let pos;
+    try { pos = v.posAtDOM(fig, 0); } catch { return false; }
+    const node = v.state.doc.nodeAt(pos);
+    if (!node || node.type !== N.image || pos === sel.from) return false;
+    const $t = v.state.doc.resolve(pos), inRow = $t.parent.type === N.photo_row;
+    if (inRow && $t.parent.childCount >= PHOTO_ROW_MAX && $t.parent !== v.state.doc.resolve(sel.from).parent) { showNote(`한 줄에는 사진 ${PHOTO_ROW_MAX}장까지 놓을 수 있어요.`); event.preventDefault(); return true; }
+    const r = fig.getBoundingClientRect(), side = event.clientX < r.left + r.width / 2 ? -1 : 1;
+    event.preventDefault();
+    const tr = v.state.tr.delete(sel.from, sel.from + sel.node.nodeSize);
+    const tpos = tr.mapping.map(pos);
+    if (inRow) {
+      const $r = tr.doc.resolve(tpos), row = {node: $r.parent, pos: $r.before()};
+      joinInto(tr, row, sel.node, side, $r.index());
+    } else joinInto(tr, {node, pos: tpos}, sel.node, side);
+    v.dispatch(tr.scrollIntoView());
+    say('사진을 나란히 놓았어요.');
+    return true;
+  }
 
   const RUN = {
     strong: () => pm.toggleMark(M.strong)(view.state, view.dispatch),
@@ -1166,6 +1367,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     quote: toggleQuote,
     rule: () => insertBlock(N.horizontal_rule.create()),
     photo: () => pickPhotos(),
+    file: () => pickFiles(),
     indent: () => pm.chainCommands(pm.sinkListItem(N.list_item), indentBy(1))(view.state, view.dispatch),
     outdent: () => pm.chainCommands(pm.liftListItem(N.list_item), indentBy(-1))(view.state, view.dispatch),
     clear: () => clearFormat(view.state, view.dispatch),
@@ -1223,12 +1425,31 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (Math.abs(drawn.top - top) > 1) pop.style.top = `${Math.round(top - (drawn.top - top))}px`;
   }
   const followPop = e => { if (openName && !(e && e.target && e.target.closest && e.target.closest('.ed-pop'))) placeOpen(); };
+  // S48-21: the [⌄] row is not a box: open or closed as it was left (remembered on the server), only [⌄]/[⌃] changes it.
+  // openPanel('more') (a popover inside the row closed back to its host) means: close the popovers, the row stays.
+  const rememberedMore = () => sessionMore ?? (viewPrefs.get('ed_more') === true);
+  let moreOn = rememberedMore();
+  function paintMore() {
+    panels.more.hidden = grouped || !moreOn;
+    more.setAttribute('aria-expanded', String(!grouped && moreOn));
+  }
+  function setMore(on) {
+    moreOn = !!on; sessionMore = moreOn;
+    closePanels();
+    paintMore();
+    viewPrefs.set('ed_more', moreOn, {rejectable: true});
+  }
+  // The remembered value may arrive after this editor opened (the first screen of a visit): it is taken once, unless [⌄] was pressed.
+  const takeMore = () => { if (sessionMore !== null || view.isDestroyed) return; moreOn = rememberedMore(); paintMore(); };
+  window.addEventListener('kptu:view-prefs-ready', takeMore);
   function openPanel(name) {
+    if (name === 'more') name = null;
     const was = openName;
     // The panels that hold the pressed panel's button stay open ([⌄] row or a group popover).
     const hosts = new Set();
     for (let h = name && hostOf(name); h && !hosts.has(h); h = hostOf(h)) hosts.add(h);
     for (const key of PANEL_ORDER) {
+      if (key === 'more') continue;
       const on = key === name || hosts.has(key);
       panels[key].hidden = !on;
       triggerOf(key)?.setAttribute('aria-expanded', String(on));
@@ -1321,6 +1542,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const outside = e => {
     if (!ctx.hidden && !ctx.contains(e.target)) closeCtx(false);
     if (openName && !bar.contains(e.target)) closePanels();
+    if (askDone && !photoAsk.contains(e.target)) askDone('single');
   };
   document.addEventListener('pointerdown', outside, true);
   // Esc closes it even when the focus is not in the text box or on a button.
@@ -1401,7 +1623,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const b = e.target.closest('button');
     if (!b || !bar.contains(b) || b.disabled) return;
     const d = b.dataset;
-    if ('edMore' in d) { openPanel(openName === 'more' ? null : 'more'); return; }
+    if ('edMore' in d) { setMore(!moreOn); return; }
+    if (d.edPhotoAsk) { askDone?.(d.edPhotoAsk === 'row' ? 'row' : 'single'); view.focus(); return; }
+    if (d.edPhoto) { run(d.edPhoto === 'join' ? joinPhoto : apartPhoto); return; }
     if (d.edCmd && OPENS[d.edCmd]) { const name = OPENS[d.edCmd]; openPanel(openName === name ? hostOf(name) : name); return; }
     if (d.edStyle) { run(() => setTextStyle(d.edStyle)); closePanels(); return; }
     if (d.edListMarker) { const kind = d.edListKind, marker = d.edListMarker; closePanels(); run(() => setListStyle(kind, marker)); return; }
@@ -1414,7 +1638,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if ('edLinkOk' in d) { if (applyLink()) { closePanels(); view.focus(); } return; }
     if ('edLinkOff' in d) { closePanels(); run(removeLink); return; }
     if (d.edCmd === 'plainPaste') { closePanels(); void plainPaste(); return; }
-    if (d.edCmd && RUN[d.edCmd]) { if (!b.closest('.ed-tools') || openName !== 'more') closePanels(); run(RUN[d.edCmd]); return; }
+    if (d.edCmd && RUN[d.edCmd]) { closePanels(); run(RUN[d.edCmd]); return; }
     if (d.edTable) { run(() => tableCmd(d.edTable)); return; }
     if ('edConvert' in d) { void (pasteKey.getState(view.state) ? convertPasted() : convertWhole()); return; }
     if ('edDismiss' in d) {
@@ -1423,6 +1647,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     }
   });
   bar.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && askDone) { e.preventDefault(); askDone('single'); view.focus(); return; }
     if (e.key !== 'Escape' || !openName) return;
     e.preventDefault();
     const name = openName, trigger = triggerOf(name);
@@ -1467,7 +1692,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       for (const key of GROUP_KEYS) panels[key].replaceChildren();
     }
     more.hidden = on;
-    paint(); queueFit();
+    paintMore(); paint(); queueFit();
   }
   const syncLayout = () => setGrouped(!!phone?.matches);
   phone?.addEventListener?.('change', syncLayout);
@@ -1520,6 +1745,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     // The table tools row shows or hides only when no mouse button is held: appearing in the middle of a press would push
     // the text down under the pointer (a drag across cells would land on the wrong row).
     if (!pointerHeld) tableRow.hidden = !inTable;
+    // S48-21: the photo row tools while one photo is chosen ([옆 사진과 나란히] only when a photo is right above or below).
+    // (Only where photos can be put in: a saved photo place in a text without [사진] gets no tools.)
+    const pic = photos ? chosenPhoto(st) : null;
+    photoTools.hidden = !pic;
+    if (pic) { photoJoin.hidden = !!pic.row; photoJoin.disabled = !pic.row && !canJoin(st); photoApart.hidden = !pic.row; }
     buttons.table.disabled = inTable;
     if (inTable) {
       const can = {merge: pm.mergeCells(st), split: pm.splitCell(st), rowDel: pm.deleteRow(st), colDel: pm.deleteColumn(st)};
@@ -1544,6 +1774,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return d.childCount === 1 && d.firstChild.type === N.paragraph && d.firstChild.content.size === 0;
   }
   syncLayout();
+  paintMore();
   paint();
   fitTools();
   return {
@@ -1560,6 +1791,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     focus: () => view.focus(),
     destroy() {
       resize?.disconnect(); phone?.removeEventListener?.('change', syncLayout); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
+      askDone?.('single');
+      window.removeEventListener('kptu:view-prefs-ready', takeMore);
       document.removeEventListener('pointerdown', outside, true);
       document.removeEventListener('keydown', escape);
       window.removeEventListener('pointerup', syncSelection, true);

@@ -32,7 +32,7 @@ import { copyText } from './copy-text.js';
 import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
 import { bigWindowOpen } from './big-window-open.js';
 // ED③ 노트: the note's body is the new editor (note-body.js); its big window is note-window.js.
-import { paintDoc, docCopy, mountEditField, notePhotos } from './note-body.js';
+import { paintDoc, docCopy, mountEditField, notePhotos, noteFiles } from './note-body.js';
 import { prepareSave } from './ed-window-model.mjs';
 import { mountQuick } from './home-quick.js';
 import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles } from './basket-upload.js';
@@ -551,7 +551,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     paintMode(); f.title.focus();
     const host = detail.querySelector('[data-note-body-field]');
     try {
-      const made = await mountEditField(host, selected, {photos:photosFor(id)});
+      const made = await mountEditField(host, selected, {photos:photosFor(id), files:filesFor(id)});
       if (run !== epoch || !editing || selected?.id !== id || !host.isConnected) { made.destroy(); return; }
       field?.destroy(); field = made;
     } catch { if (run === epoch && editing) say('편집기를 열지 못했어요. 다시 눌러 주세요.'); }
@@ -566,9 +566,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // Photos in the text (사진·링크 넣기): a picture goes up as one of this note's attachments (Drive "노트 첨부", owner only) and is put in
   // as drive:<file id>. The note is read again afterwards so its cards and the editor see the new file.
-  function photosFor(id) {
-    return notePhotos({rt, getNote:() => selected?.id === id ? selected : null, upload: async files => {
-      const note = selected?.id === id ? selected : null; if (!note) throw new Error('노트가 바뀌어 사진을 넣지 못했어요.');
+  // S48-21 [파일]: the same upload for a file card in the text (filesFor).
+  const photosFor = id => notePhotos({rt, getNote:() => selected?.id === id ? selected : null, upload:noteUpload(id)});
+  const filesFor = id => noteFiles({getNote:() => selected?.id === id ? selected : null, upload:noteUpload(id)});
+  function noteUpload(id) {
+    return async files => {
+      const note = selected?.id === id ? selected : null; if (!note) throw new Error('노트가 바뀌어 넣지 못했어요.');
       const batch = createUploadBatch(id, note.attachments || []);
       batch.entries = [...files].map(file => ({file, kind:'pending', label:'대기'}));
       await uploadNoteFiles(id, batch, {rt, isCurrent:() => selected?.id === id});
@@ -579,7 +582,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         notes = notes.map(n => n.id === id ? row : n); selected = row; renderList(); paintMeta();
       }
       return row?.attachments || batch.attachments;
-    }});
+    };
   }
   // [큰 창에서 수정] (NOTE-큰창저장유지): the same edit in the new big window (note-window.js). Its save icon is this view's own save
   // (stay: the window stays and says 저장했어요); ✕ closes it (asking once when something changed after the last save). Closed right
@@ -597,7 +600,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // The window shows the note's title and [폴더 ▾] (the folder now, changeable); a changed title goes with the text save, a changed folder
     // is written after it (setNoteFolder, as [폴더로 옮기기]).
     const folder = windowFolderPick(folderOf(selected));
-    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id), title:fields().title.value, folder,
+    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id), files:filesFor(id), title:fields().title.value, folder,
       attach:{getBatch:() => bigFiles, isBusy:() => busy},
       save: async (value, text, extra) => {
         if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'};

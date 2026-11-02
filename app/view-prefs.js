@@ -64,9 +64,11 @@ export const PHONE_FOLDERS_OFF_MAX = 80;
 export const ALBUM_VIEWS = Object.freeze(['card', 'thumb', 'line']);
 // UI-앱안알림(S48-19): link_hidden_on = 맨 위 알림 줄 '연결 끊김' ✕를 누른 서울 날짜(오늘 하루 숨김, collect_hidden_on과 같은 모양).
 // migration 20261102170000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(알림 없음, 이 탭에서는 닫힌 채).
+// S48-21 쓰기 창 서식 줄: ed_more = 편집기 서식 줄 [⌄] 아래 줄을 펼쳐 둔 채인가(참·거짓, 없으면 접힘). 모든 편집기·기기가 같은 값.
+// migration 20261102190000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(이번 접속만 기억, 알림 없음).
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -98,7 +100,8 @@ export function validValue(key, value) {
     case 'note_boards': return Array.isArray(value) && value.length <= NOTE_BOARDS_MAX && value.every(b => !!b && typeof b === 'object' && !Array.isArray(b)
       && Object.keys(b).every(name => name === 'id' || name === 'name') && typeof b.id === 'string' && NOTE_BOARD_ID_RE.test(b.id) && noteBoardName(b.name));
     case 'note_board': return typeof value === 'string' && (value === 'all' || NOTE_BOARD_ID_RE.test(value));
-    case 'diary_onedrive': return typeof value === 'boolean';
+    case 'diary_onedrive':
+    case 'ed_more': return typeof value === 'boolean';
     case 'quiet_weeks': return Number.isInteger(value) && value >= 0 && value <= 12;
     case 'photo_hint': return Number.isInteger(value) && value >= 0 && value <= 9;
     case 'phone_folders_off': return Array.isArray(value) && value.length <= PHONE_FOLDERS_OFF_MAX
@@ -163,7 +166,7 @@ const LEGACY = [
 ];
 
 // 고른 적 없을 때 화면이 보여 주는 값: 이 값으로 "바꾸는" 호출은 저장할 것이 없다.
-const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card' };
+const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card', ed_more: false };
 const defaultStorage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : prefs[path];
 

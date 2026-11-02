@@ -8,6 +8,7 @@
 //     (basket-files?action=photo) like the attachment cards. A photo of another note, or one taken off the attachments, shows as a place.
 //   - Copies: a note with doc copies ed-text (toTelegram·toHangul); without, the old md-* conversions (note-preview.mjs).
 import {renderDoc} from './ed-render.mjs';
+import {fileHref} from './ed-schema.mjs';
 import {toTelegram as docTelegram, toHangul} from './ed-text.mjs';
 import {hasDoc, needsMarkdown, noteStartDoc} from './note-doc.mjs';
 import {diaryPhotoUrl} from './diary-data.js';
@@ -98,8 +99,28 @@ export function notePhotos({getNote, upload, rt = window.KPTURuntime}) {
   };
 }
 
+// S48-21 files option for the editor ([파일]): the same upload as the photos (a file of this note's attachments, Drive "노트 첨부"), put in
+// as a card drive:<file id> with its name and size; [열기] opens its Drive page in a new tab (the owner's Drive login decides who sees it).
+export function noteFiles({getNote, upload, open = url => window.open(url, '_blank', 'noopener,noreferrer')}) {
+  return {
+    async add(file) {
+      const note = getNote();
+      if (!note?.id) throw new Error('파일은 노트를 한 번 저장한 뒤 넣을 수 있어요.');
+      const before = new Set((note.attachments || []).map(f => f.drive_file_id));
+      const after = await upload([file]);
+      const made = (after || []).find(f => f?.drive_file_id && !before.has(f.drive_file_id));
+      if (!made) throw new Error('파일을 올리지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+      return {src: 'drive:' + made.drive_file_id, name: attachmentName(made, file.name || '파일'), size: Number(made.size_bytes || made.size || file.size) || null};
+    },
+    open(src) {
+      const href = fileHref(src);
+      if (href) open(href);
+    },
+  };
+}
+
 // The edit field: the new editor in the note's detail, on the note's text. Returns {getValue, isChanged, setValue, focus, destroy}.
-export async function mountEditField(host, note, {photos = null, label = '본문'} = {}) {
+export async function mountEditField(host, note, {photos = null, files = null, label = '본문'} = {}) {
   const [{createDocEditor}, start] = await Promise.all([editorModule(), startValue(note)]);
   // UI-뒤로가기겹규칙: 편집기 안의 작은 상자(글자색 목록·표 칸 메뉴·버튼 줄 판)가 열리면 라우터 겹 하나 — 뒤로가기 = 상자만 닫기(일기·창과 같은 onBox 계약).
   let editor = null, boxLayer = null;
@@ -108,7 +129,7 @@ export async function mountEditField(host, note, {photos = null, label = '본문
     if (open) boxLayer ||= window.KPTURouter?.layer?.open('note-edit-box', {close:() => { boxLayer = null; editor?.closeBoxes(); return true; }}) || null;
     else dropBox();
   };
-  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, shortcuts: true, onBox});
+  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox});
   let base = JSON.stringify(editor.getValue());
   return {
     editor,
