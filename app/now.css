@@ -19,9 +19,10 @@
 /* 글 줄 전체가 눌린다: 제목 단추의 ::after가 줄을 덮고, 줄 안 다른 단추·접기·칩은 그 위에 둔다(키보드는 제목 단추 하나에 Enter). */
 #appView #outsideView .now-row{ position:relative; }
 #appView #outsideView .now-open{ all:unset; box-sizing:border-box; display:inline; font:inherit; color:inherit; cursor:pointer; overflow-wrap:anywhere; }
-#appView #outsideView .now-open::after{ content:""; position:absolute; inset:0; z-index:0; }
+/* 덮개는 z-index 1: 흐림(opacity)을 쓴 요약 줄처럼 쌓임 맥락을 만드는 글자보다 위에 있어야 그 글자를 눌러도 열린다. */
+#appView #outsideView .now-open::after{ content:""; position:absolute; inset:0; z-index:1; }
 #appView #outsideView .now-open:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:2px; border-radius:2px; }
-#appView #outsideView .now-row :is(details,summary,button:not(.now-open),a,form,textarea,input,.nc-memo-text){ position:relative; z-index:1; }
+#appView #outsideView .now-row :is(details,summary,button:not(.now-open),a,form,textarea,input,.nc-memo-text){ position:relative; z-index:2; }
 #appView #outsideView .now-row:hover{ background:var(--kptu-surface-subtle); }
 #appView #outsideView .now-row.is-open{ background:var(--ds-select-bg); }
 #appView #outsideView .now-hit{ display:inline-grid; place-items:center; height:16px; padding:0 5px; font-size:11px; line-height:1; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-radius:var(--ds-radius-control,6px); }
