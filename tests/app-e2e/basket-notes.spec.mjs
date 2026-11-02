@@ -201,6 +201,11 @@ for(const width of [390,1280]){
   await input.fill('둘째 노트 제목');await input.press('Enter');await input.pressSequentially('본문 둘째 줄');await expect(input).toHaveValue('둘째 노트 제목\n본문 둘째 줄');expect(f.writes).toHaveLength(1);
   if(await page.evaluate(()=>matchMedia('(hover:hover) and (pointer:fine)').matches))await expect(add).toHaveAttribute('data-enter-hint','Ctrl+↵');
   await input.press('Control+Enter');
+  // QA-노트추가간헐: #toast keeps the first add's '노트를 추가했습니다.' (hiding only adds .hidden), so it cannot tell that the
+  // second add finished. Wait for what only the second save does: the box empties, the POST lands, the list grows to 4.
+  await expect(input).toHaveValue('');
+  await expect.poll(()=>f.writes.length).toBe(2);
+  await expect(noteList(page)).toHaveCount(4);
   await expect(page.locator('#toast')).toContainText('노트를 추가했습니다.');
   expect(f.writes[1].body).toMatchObject({kind:'note',title:'둘째 노트 제목',raw_text:'둘째 노트 제목\n본문 둘째 줄',metadata:{markdown:false}});
   await chooseBasketKind(page,'memo');
