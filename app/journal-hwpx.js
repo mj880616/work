@@ -674,9 +674,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const titleList = el('ul', 'journal-hwpx-titles'); titleList.dataset.hwpxTitles = '';
     const diff = el('details', 'journal-hwpx-plans'); diff.dataset.hwpxMismatch = ''; diff.hidden = true; diff.open = true;
     diff.append(el('summary', ''), el('ul', 'journal-hwpx-material'));
-    const memoryFold = el('details', 'journal-hwpx-plans'); memoryFold.dataset.hwpxMemoryDropped = ''; memoryFold.hidden = true;
-    memoryFold.append(el('summary', ''), el('ul', 'journal-hwpx-material'));
-    sched.append(schedHead, partAdd(doc, [button('AI로 다듬기', 'hwpxTitlesAi', 'journal-part-add-button')]), titleStatus, titleList, memoryFold);
+    // S48-33(요청함 11/01 23:43 '뺀 것 목록 두지 않기'): '기억으로 뺀 일정 n개 [이번 주만 넣기]' 접힘은 없앴다(기억 칸·draft 값은 그대로).
+    sched.append(schedHead, partAdd(doc, [button('AI로 다듬기', 'hwpxTitlesAi', 'journal-part-add-button')]), titleStatus, titleList);
     parts.push(sched, diff);
     const rest = el('section', 'journal-hwpx-part'); rest.dataset.hwpxUnmatched = ''; rest.hidden = true;
     rest.append(el('h5', 'journal-weekly-sub', '줄을 찾지 못한 이번 주 기록'), el('p', 'journal-muted', '이름이 바탕 칸과 달라요. 붙일 칸을 골라 주세요.'), el('ul', 'journal-hwpx-material'));
@@ -698,9 +697,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     paintConfirm();
   }
 
-  // 일정 줄마다: 날짜·시각 · 원래 제목(늘 보임) · 고칠 제목 칸 · 장소 칸(비우면 '미정') · [빼기]. 칸 값은 state.titles(일정 키 → {title, place}),
-  // 뺀 일정은 state.drops(일정 키 → 'drop' | 'keep')에 두고 임시저장한다. 칸의 바탕은 기억(있으면) 아니면 달력 제목.
-  // 기억으로 뺀 일정은 맨 아래 접힌 목록에만. 같은 일정 목록이면 다시 그리지 않아 쓰던 칸이 그대로다.
+  // 5. 주요 일정 칸 고치기 목록. 칸 값은 state.titles(일정 키 → {title, place, …}), 뺀 일정은 state.drops(일정 키 → 'drop' | 'keep')에 두고
+  // 임시저장한다. 칸의 바탕은 기억(있으면) 아니면 달력 제목. 같은 일정 목록이면 다시 그리지 않아 쓰던 칸이 그대로다.
   function renderTitles(calendar) {
     const part = body.querySelector('[data-hwpx-part="schedule"]');
     if (!part || !state) return;
@@ -719,24 +717,14 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (keys === state.titleKeys && list.dataset.drawn === keys) return;
     state.titleKeys = keys; list.dataset.drawn = keys;
     state.titleItems = items.filter(i => !isDropped(i, state.drops));
-    const remembered = items.filter(i => i.memo?.drop && state.drops.get(i.key) !== 'keep');
-    list.replaceChildren(...items.filter(i => !remembered.includes(i)).map((item, n) => titleRow(item, n)));
-    const fold = part.querySelector('[data-hwpx-memory-dropped]');
-    fold.hidden = !remembered.length;
-    if (remembered.length) {
-      fold.querySelector('summary').textContent = `기억으로 뺀 일정 ${remembered.length}개`;
-      fold.querySelector('ul').replaceChildren(...remembered.map(item => {
-        const li = el('li'); li.dataset.hwpxMemoryDroppedItem = item.key;
-        li.append(el('span', 'journal-weekly-day', `${item.label} ${item.time}`), doc.createTextNode(`${item.title} `));
-        const back = button('이번 주만 넣기', 'hwpxTitleKeep'); back.dataset.hwpxEvent = item.key; back.setAttribute('aria-label', `이번 주만 넣기: ${item.title}`);
-        li.append(back); return li;
-      }));
-    }
+    // S48-33: 뺀 일정(이번 주 [빼기]·기억으로 빠짐)은 칸 고치기 목록에도 두지 않는다 — 빼기·되돌리기는 [주간 정리] 5. 주요 일정 줄 ⋯ 한 곳.
+    list.replaceChildren(...state.titleItems.map((item, n) => titleRow(item, n)));
   }
-  // WEEKLY-주요일정칸: 줄마다 '원래:' 줄 아래 [날짜][시간][제목][장소][참석][빼기]. 칸의 바탕은 기억(제목·장소) 아니면 달력, 참석은 내 이름.
+
+  // 일정 줄마다: 날짜·시각 · 원래 제목(늘 보임) · 날짜·시간·제목·장소·참석 칸. [빼기]는 [주간 정리] 표 줄 ⋯ 에만 있다(같은 버튼 두 곳 금지, S48-33).
   function titleRow(item, n) {
     const li = el('li', 'journal-hwpx-title'); li.dataset.hwpxTitle = item.key;
-    const o = state.titles.get(item.key), id = `journalHwpxTitle-${n}`, out = isDropped(item, state.drops);
+    const o = state.titles.get(item.key), id = `journalHwpxTitle-${n}`;
     const f = eventFields(item, o, state.me);
     const when = el('span', 'journal-weekly-day', `${item.label} ${item.time}`);
     const origin = el('span', 'journal-hwpx-origin', `원래: ${item.title}${item.place ? ` / ${item.place}` : ''}`); origin.dataset.hwpxOrigin = '';
@@ -746,10 +734,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (!o) { const back = button('이번 주만 원래대로', 'hwpxTitleOrigin'); back.dataset.hwpxEvent = item.key; back.setAttribute('aria-label', `이번 주만 원래 제목으로: ${item.title}`); head.append(' ', back); }
     }
     if (item.memo?.drop) { const tag = el('span', 'journal-exec-carried', '기억'); tag.title = '기억으로 빼는 일정 — 이번 주만 넣었어요'; tag.dataset.hwpxMemoryTag = ''; head.append(' ', tag); }
-    const drop = button(out ? '다시 넣기' : '빼기', out ? 'hwpxTitlePut' : 'hwpxTitleDrop'); drop.dataset.hwpxEvent = item.key;
-    drop.setAttribute('aria-label', `${out ? '다시 넣기' : '이번 주 파일에서 빼기'}: ${item.label} ${item.time} ${item.title}`);
     const label = `${item.label} ${item.time}`;
-    const input = (cls, data, value, aria, type = 'text') => { const x = el('input', cls); x.type = type; x.value = value ?? ''; x.dataset[data] = ''; x.setAttribute('aria-label', `${label} ${aria}`); x.disabled = out; return x; };
+    const input = (cls, data, value, aria, type = 'text') => { const x = el('input', cls); x.type = type; x.value = value ?? ''; x.dataset[data] = ''; x.setAttribute('aria-label', `${label} ${aria}`); return x; };
     const days = getWeek().model?.calendar?.days ?? [];
     const day = input('journal-hwpx-day-input', 'hwpxDayInput', f.day, '날짜', 'date');
     if (days.length) { day.min = days[0]; day.max = days.at(-1); }
@@ -764,10 +750,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     day.addEventListener('change', save);
     // 시간 모양 맞춤·틀린 시간 안내는 공용 칸이 한다(1030 → 10:30). 틀린 시간은 저장하지 않는다(editFrom이 바탕 시간을 둠).
     time.addEventListener('change', save);
-    const fields = el('div', 'journal-hwpx-title-fields'); fields.append(day, timeBox, title, place, who, drop);
+    const fields = el('div', 'journal-hwpx-title-fields'); fields.append(day, timeBox, title, place, who);
     li.append(head, fields);
     li.dataset.changed = o ? 'true' : 'false';
-    if (out) li.dataset.dropped = 'true';
     return li;
   }
   // 5. 주요 일정 줄 동작 기록 하나(일정마다 열쇠 하나 — 같은 일정을 여러 번 고치면 마지막 것만 남음). 글은 서버에만.
@@ -1495,9 +1480,6 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     else if (b.matches('[data-hwpx-pick-drop], [data-hwpx-pick-put], [data-hwpx-pick-undo]') && state) onPick(b);
     else if (!state) return;
     else if (b.matches('[data-hwpx-titles-ai]')) aiTitles(b);
-    else if (b.matches('[data-hwpx-title-drop]')) setDrop(b.dataset.hwpxEvent, 'drop');
-    else if (b.matches('[data-hwpx-title-put]')) setDrop(b.dataset.hwpxEvent, 'put');
-    else if (b.matches('[data-hwpx-title-keep]')) setDrop(b.dataset.hwpxEvent, 'keep');
     else if (b.matches('[data-hwpx-title-origin]')) setDrop(b.dataset.hwpxEvent, 'origin');
     else if (b.matches('[data-hwpx-remember-go]') && state?.remember) void writeMemory(state, state.remember.candidates.filter(c => c.checked));
   };

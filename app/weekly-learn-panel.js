@@ -16,7 +16,7 @@ import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js'; // S46-22 
 import {emptyEl} from './wait-state.js';
 import {notify} from './small-notice.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 규칙 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
-import {readFeedback, readRules, withRuleText, withoutRule, withRule, takeCandidate, dropCandidate, restoreRetired, withAnswer, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS, SUGGESTION_AREA} from './weekly-feedback.mjs';
+import {readFeedback, readRules, withRuleText, withoutRule, withRule, takeCandidate, dropCandidate, withAnswer, feedbackTrend, keptRate, RULES_MAX, RULE_CHARS, SUGGESTION_AREA} from './weekly-feedback.mjs';
 import {cellKeptRates} from './weekly-picks.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
@@ -100,7 +100,6 @@ export function ruleChange(button, root, at = nowIso()) {
     // 고쳐서 넣기 = 'edit'(before = 후보 글) — 학습 셈에서는 받은 것.
     return {week:d.learnRuleFixGo, done:'고쳐서 넣었어요. 다음 초안부터 반영돼요.', change:x => ({...(x ?? emptyDraft()), rules:takeCandidate(x?.rules, key, at, text), picks:withPick(x?.picks, {...candidatePick(key), key:pickKey(candidatePick(key)), text, before:key}, text === key ? 'take' : 'edit', at)})};
   }
-  if (d.learnRuleRestore != null) return {week:d.learnRuleRestore, done:'다시 후보로 올렸어요.', change:x => ({...(x ?? emptyDraft()), rules:restoreRetired(x?.rules, key, at)})};
   return null;
 }
 // 개선 제안 단추 하나 → {week, change, done} · {ui:'sfix'|'sdrop', week, id} · {ui:'sadd'} · {ui:'cancel'} · null.
@@ -283,7 +282,7 @@ function draw(slot, start, s, rt) {
   const box = el('details', 'journal-weekly-chapter journal-weekly-memory journal-weekly-fold'); box.dataset.journalWeeklyLearn = start; box.open = open;
   box.addEventListener('toggle', () => { s.ui.open = box.open; });
   if (s.status === 'failed') { box.append(el('summary', null, '주간보고 규칙·환류'), el('p', 'journal-muted', '읽지 못했어요. 업무일지를 다시 열면 다시 읽어요.')); slot.replaceChildren(box); return; }
-  const rr = rulesRow(s.rows), rules = rr?.rules?.lines ?? [], cands = rr?.rules?.candidates ?? [], retired = rr?.rules?.retired ?? [];
+  const rr = rulesRow(s.rows), rules = rr?.rules?.lines ?? [], cands = rr?.rules?.candidates ?? [];
   const mine = s.rows.find(r => r.week_start === start)?.feedback ?? null;
   const prev = s.rows.filter(r => r.week_start < start).map(r => r.feedback).filter(Boolean);
   const dev = [...s.rows.flatMap(r => (r.feedback?.review?.suggestions ?? []).filter(x => x.answer === 'yes').map(x => ({week:r.week_start, text:x.text, how:x.how, area:x.area}))), ...handIdeas(s.rows)];
@@ -321,14 +320,7 @@ function draw(slot, start, s, rt) {
     const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalLearnCancel = '';
     row.append(input, ' ', go, ' ', cancel); part.append(row);
   }
-  // 뺀 규칙(폐기): AI 초안에도 후보에도 쓰지 않는다. 접어 두고 [다시 후보로].
-  if (retired.length) {
-    const fold = el('details', 'journal-weekly-gone'); fold.dataset.journalLearnRetired = '';
-    fold.append(el('summary', null, `뺀 규칙 ${retired.length}개`));
-    const list = el('ul', 'journal-kinds-off-list');
-    for (const g of retired) { const li = el('li', null, `${g.text} `); const b = el('button', 'mini', '다시 후보로'); b.type = 'button'; b.dataset.learnRuleRestore = rr.week_start; b.dataset.learnRule = g.text; b.disabled = s.ui.busy; b.setAttribute('aria-label', `다시 후보로: ${g.text}`); li.append(b); list.append(li); }
-    fold.append(list); part.append(fold);
-  }
+  // S48-33(요청함 11/01 23:43 '뺀 것 목록 두지 않기'): 뺀 규칙(폐기, rules.retired)은 AI 초안·후보에 쓰지 않고 화면에도 목록을 두지 않는다(데이터는 그대로).
   box.append(part);
   // 이번 주 환류 보고(새 규칙 후보 포함) · 개발 후보. 이번 주 보고가 없으면 후보만 따로.
   const ruleOpt = rr ? {week:rr.week_start, rules:rr.rules} : null, fix = {fixing:s.ui.fixing, dropping:s.ui.dropping, value:s.ui.value, sfix:s.ui.sfix, sdrop:s.ui.sdrop, sadd:s.ui.sadd};
