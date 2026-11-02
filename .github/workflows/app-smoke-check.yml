@@ -537,6 +537,9 @@ jobs:
       - name: Check OneDrive link icon and dropdown (OD-연결아이콘, one icon·dim·red dot·shared menu·diary photo switch, synthetic)
         run: node --test tests/od-link.test.mjs
 
+      - name: Check official OneDrive·Google Drive icons as one shared part (PHOTO-실제아이콘, original colors·no external URL, synthetic)
+        run: node --test tests/brand-icons.test.mjs
+
       - name: Check photo grid size and full-screen photo gestures (OD-사진크기·OD-크게보기, steps·pinch·server save·swipe·undo, synthetic)
         run: node --test tests/photo-grid-size.test.mjs
 

@@ -110,7 +110,8 @@
 #appView #photosView button.photos-fx-new:hover{ color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
 #appView #photosView .photos-fx-list{ display:flex; flex-direction:column; }
 /* PHOTO-출처모든칩: 두 출처면 '원드라이브'·'폰' 묶음 이름(작은 회색 글자 한 줄). */
-#appView #photosView .photos-fx-group{ margin:6px 0 0; padding:0 6px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #photosView .photos-fx-group{ display:flex; align-items:center; gap:4px; margin:6px 0 0; padding:0 6px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #photosView .photos-fx-group > svg{ flex:none; }
 #appView #photosView .photos-fx-group:first-child{ margin-top:0; }
 #appView #photosView .diary-grid-item.nx-dragging{ opacity:.55; }
 /* [앨범]: 카드 2칸(폰)·5칸(PC). 대표 사진 + #이름 + 장수. [+ 새 앨범]은 위쪽 둘째 줄 오른쪽 끝. */
@@ -145,9 +146,11 @@
 #appView #photosView .photos-srcs [data-photos-src]{ min-width:32px; padding:0 6px; border-radius:6px; }
 #appView #photosView .photos-src-btn{ display:inline-grid; place-items:center; color:var(--kptu-muted); }
 #appView #photosView .photos-src-btn[hidden]{ display:none; }
-#appView #photosView .photos-srcs [data-photos-src][aria-pressed="true"]{ background:var(--kptu-primary-soft); color:var(--kptu-primary-text); }
+/* PHOTO-실제아이콘(11/03): 원드라이브·구글 드라이브는 공식 아이콘 원래 색 그대로(공식 색을 바탕에 칠하지 않음).
+   꺼짐 = 같은 아이콘을 회색조로 엷게. 바탕색으로 켜짐을 칠하지 않는다(색 아이콘 ↔ 회색 아이콘이 켜고 꺼짐). 폰 폴더 칩은 모양 그대로 글자색만 맞춘다. */
+#appView #photosView .photos-srcs [data-photos-src][aria-pressed="true"]{ background:transparent; color:var(--kptu-ink); }
 #appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"]{ background:transparent; color:var(--kptu-faint); }
-#appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"] svg{ opacity:.55; }
+#appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"] svg{ filter:grayscale(1); opacity:.45; }
 #appView #photosView .photos-srcs [data-photos-src][aria-disabled="true"]{ opacity:.45; cursor:default; }
 /* S46-24 ④: 구글 드라이브 칩이 권한 없음·못 읽음이면 오른쪽 위 작은 빨간 점(원드라이브 아이콘과 같은 모양). 이유는 작은 글자.
    S46-29: 점은 ::before. button.mini의 ::after는 base-ui.css가 누르는 영역(44px)으로 쓰므로 표시를 그리지 않는다. */
@@ -156,6 +159,8 @@
 #appView #photosView .photos-gd-why{ color:var(--kptu-muted); font-size:11px; }
 /* 칸 오른쪽 아래 작은 출처 표시(출처가 둘 이상 켜졌을 때만). 동영상 길이는 그 왼쪽으로. */
 #appView #photosView .photos-src-mark{ position:absolute; right:3px; bottom:3px; z-index:1; display:grid; place-items:center; width:14px; height:14px; border-radius:3px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
+/* 원드라이브·구글 드라이브 표시는 공식 아이콘이라 어두운 막 대신 화면 바탕 위에 둔다(다크 모드에서도 아이콘 색은 그대로). */
+#appView #photosView .photos-src-mark:is([data-src="onedrive"],[data-src="gdrive"]){ background:var(--kptu-surface); }
 #appView #photosView .has-src .photos-dur{ right:20px; }
 /* PHOTO-폴더스위치(10/31): 폴더 줄 오른쪽 작은 스위치(일기 설정 창과 같은 .diary-od-switch), 꺼진 줄은 흐림, 같은 이름 폴더는 위치 이름을 흐리게. */
 #appView #photosView .photos-fx-row .photos-fx-sw,#appView #photosView .photos-fx-here .photos-fx-sw{ height:32px; }

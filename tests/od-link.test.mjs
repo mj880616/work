@@ -40,15 +40,15 @@ test('드롭다운 항목: 연결 상태 / 폴더 바꾸기 / 하위 폴더 켜�
   assert.match(bad, /data-state="error"/);
 });
 
-test('아이콘: 직접 그린 단색 SVG(글자색), 그림 파일·외부 주소 없음, 작은 버튼', () => {
-  assert.match(OD_CLOUD_SVG, /^<svg [^>]*viewBox="0 0 24 16"[^>]*aria-hidden="true"/);
-  assert.match(OD_CLOUD_SVG, /fill="currentColor"/);
-  assert.doesNotMatch(OD_CLOUD_SVG, /href|url\(|<image|#[0-9a-f]{3,6}\b/i);
+test('아이콘: 원드라이브 공식 아이콘(공용 brand-icons.js, 원래 색), 그림 파일·외부 주소 없음, 작은 버튼', () => {
+  assert.match(OD_CLOUD_SVG, /^<svg class="brand-ic brand-ic-onedrive od-link-cloud" [^>]*aria-hidden="true"/);
+  assert.match(OD_CLOUD_SVG, /fill="#0078d4"/);
+  assert.doesNotMatch(OD_CLOUD_SVG, /href|url\(|<image|currentColor/i);
   const btn = odLinkButtonHtml();
   assert.match(btn, /^<button type="button" class="mini od-link" data-od-link data-state="off" aria-haspopup="true" aria-expanded="false"/);
   assert.match(btn, /<span class="od-link-dot" aria-hidden="true"><\/span><\/button>$/);
   const css = read('app/od-link.css');
-  assert.match(css, /\.od-link\[data-state="off"\] \.od-link-cloud\{opacity:\.4\}/);
+  assert.match(css, /\.od-link\[data-state="off"\] \.od-link-cloud\{filter:grayscale\(1\);opacity:\.45\}/);
   assert.match(css, /\.od-link\[data-state="error"\] \.od-link-dot\{display:block\}/);
   assert.doesNotMatch(css, /#[0-9a-f]{3,6}\b/i, '색은 테마 변수만');
   assert.match(read('app/view-loader.js'), /diary:\['\.\/diary\.css','\.\/od-link\.css'/);
