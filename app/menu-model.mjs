@@ -18,6 +18,8 @@ export const ITEMS = Object.freeze([
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.
   {id: 'meetings', label: '사업 보고', view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},
   {id: 'library', label: '자료실', view: 'library', icon: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4'},
+  // FILES-클라우드탐색기 ④: [파일](원드라이브·구글 드라이브 탐색기)은 처음 자리가 자료실 바로 아래(명진 결정 F5, 설계 docs/design/files-explorer.md).
+  {id: 'files', label: '파일', view: 'files', icon: 'M3 6h7l2 2h9v11H3zM3 10h18'},
   {id: 'pages', label: '공유 페이지', view: 'pages', icon: 'M4 4h16v16H4zM4 10h16M10 10v10'},
   {id: 'team', label: '담당조직', view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
   {id: 'hwp', label: 'HWP 편집', view: 'hwp', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7'},
@@ -39,7 +41,7 @@ export const BAR_MAX = 5;
 // MENU-세칸(명진 요청 2026-10-30 10:19): 메뉴는 세 칸이다. bar = 폰 하단바, rest = 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위),
 // tail = 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 어느 메뉴든 세 칸 사이를 옮길 수 있다.
 export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'meetings', 'team']);
-export const DEFAULT_REST = Object.freeze(['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'outside', 'news']);
+export const DEFAULT_REST = Object.freeze(['note', 'library', 'files', 'hwp', 'pages', 'ledger', 'photos', 'outside', 'news']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
@@ -50,6 +52,19 @@ export const itemOf = id => KNOWN.get(id) || null;
 export const labelOf = id => KNOWN.get(id)?.label || '';
 export const defaultLayout = () => ({bar: [...DEFAULT_BAR], rest: [...DEFAULT_REST], tail: [...DEFAULT_TAIL]});
 
+// 저장된 순서에 없는 새 항목(예: 파일)은 기본 순서에서 바로 앞 항목 뒤에 넣는다(그 앞 항목이 같은 칸에 있을 때). 없으면 칸 끝.
+// 그래서 메뉴를 처음대로 쓰지 않던 사람도 새 메뉴를 정해진 자리(파일 = 자료실 바로 아래)에서 본다.
+function placeMissing(list, missing, order) {
+  const out = [...list];
+  for (const id of missing) {
+    const at = order.indexOf(id);
+    let pos = out.length;
+    for (let i = at - 1; i >= 0; i--) { const j = out.indexOf(order[i]); if (j >= 0) { pos = j + 1; break; } }
+    if (at < 0) pos = out.length;
+    out.splice(pos, 0, id);
+  }
+  return out;
+}
 const known = list => Array.isArray(list) ? list.filter(id => typeof id === 'string' && KNOWN.has(id)) : [];
 const unique = list => [...new Set(list)];
 
@@ -74,14 +89,14 @@ export function normalizeLayout(raw) {
     const listed = [...spill, ...rest], missing = ITEMS.map(item => item.id).filter(id => !have.has(id));
     let end = listed.length;
     while (end > 0 && KNOWN.get(listed[end - 1])?.feed) end--;
-    return {bar: [FIXED_ID, ...bar], rest: [...listed.slice(0, end), ...missing.filter(id => !DEFAULT_TAIL.includes(id))], tail: [...listed.slice(end), ...missing.filter(id => DEFAULT_TAIL.includes(id))]};
+    return {bar: [FIXED_ID, ...bar], rest: placeMissing(listed.slice(0, end), missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...listed.slice(end), ...missing.filter(id => DEFAULT_TAIL.includes(id))]};
   }
   const inRest = new Set(rest);
   const tail = unique(known(rawTail)).filter(id => id !== FIXED_ID && !inBar.has(id) && !inRest.has(id));
   const have = new Set([FIXED_ID, ...bar, ...spill, ...rest, ...tail]);
   const missing = ITEMS.map(item => item.id).filter(id => !have.has(id));
   // 빠진 항목은 기본에서 하단바 칸이던 것도 위 메뉴에 둔다: 사용자가 고른 하단바를 새 항목이 밀어내지 않게.
-  return {bar: [FIXED_ID, ...bar], rest: [...spill, ...rest, ...missing.filter(id => !DEFAULT_TAIL.includes(id))], tail: [...tail, ...missing.filter(id => DEFAULT_TAIL.includes(id))]};
+  return {bar: [FIXED_ID, ...bar], rest: placeMissing([...spill, ...rest], missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...tail, ...missing.filter(id => DEFAULT_TAIL.includes(id))]};
 }
 const sameList = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
 export const sameLayout = (a, b) => sameList(a.bar, b.bar) && sameList(a.rest, b.rest) && sameList(a.tail || [], b.tail || []);

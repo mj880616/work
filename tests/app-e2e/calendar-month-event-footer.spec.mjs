@@ -35,7 +35,10 @@ for(const [width,height] of sizes){
       expect(bars).toBeGreaterThanOrEqual(1);
       const cell=page.locator(`.cal-cell[data-date="2026-10-${19+index}"]`);
       const more=week.locator(`.cmv-week-events > .kptu-day-more[data-date="2026-10-${19+index}"]`);
-      expect(bars+(await more.count()?Number((await more.textContent()).slice(1)):0)).toBe(total);
+      // S48-6c: 폰은 그날 할 일도 칸 안 줄(일정 다음)이라 보이는 할 일 줄과 '+n'에 할 일이 더해진다.
+      const phone=width<=760,tasksIn=index===3?17:1;
+      const lines=phone?await week.locator('.cmv-cell-task').evaluateAll((els,col)=>els.filter(e=>e.style.gridColumnStart===String(col)).length,2+index):0;
+      expect(bars+lines+(await more.count()?Number((await more.textContent()).slice(1)):0)).toBe(total+(phone?tasksIn:0));
       if(await more.count()){
         await more.scrollIntoViewIfNeeded();
         const geometry=await more.evaluate(el=>{
@@ -105,7 +108,8 @@ for(const [width,height] of sizes){
     const oldSlots=await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots');
     const oldWeekHeight=await week.evaluate(el=>el.getBoundingClientRect().height);
     await page.evaluate(()=>KPTUCalendarMonthView.setTasks([{id:'only-one',title:'QA',date:'2026-10-22',done:false}]));
-    await expect(page.locator('.cmv-task-count')).toHaveCount(1);
+    // 폰은 10/22(일정 24)의 할 일이 칸에 안 들어가 '+n'에 합쳐진다.
+    await expect(page.locator('.cmv-task-count')).toHaveCount(width<=760?0:1);
     await expect(week).toHaveAttribute('data-lane-cap',oldCap);
     if(width<=760){
       await expect(page.locator('#calendarGrid')).toHaveAttribute('data-cmv-lane-slots',oldSlots);
