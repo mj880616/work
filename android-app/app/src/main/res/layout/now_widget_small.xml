@@ -109,7 +109,7 @@
                 android:textSize="10sp" />
         </LinearLayout>
 
-        <Space
+        <TextView
             android:layout_width="6dp"
             android:layout_height="1dp" />
         <LinearLayout

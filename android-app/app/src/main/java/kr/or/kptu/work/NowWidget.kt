@@ -128,6 +128,32 @@ object HomeWidgets {
     /** 갱신 작업이 필요한 위젯이 하나라도 있는지(아스날 포함). */
     fun anyRefreshed(context: Context): Boolean = any(context) || ArsenalWidget.hasWidgets(context)
 
+    /** 홈 화면 위젯 전부(5종). 새 판 설치 뒤 다시 그릴 때 쓴다. */
+    val PROVIDERS: List<Class<out AppWidgetProvider>> = listOf(
+        NowWidget::class.java, QuickWidget::class.java, OneWidget::class.java, WeekWidget::class.java, ArsenalWidget::class.java,
+    )
+
+    /**
+     * APP-죽은위젯: 새 판으로 바뀐 뒤(MY_PACKAGE_REPLACED) 홈에 놓인 위젯마다 onUpdate를 다시 불러 새 화면 틀로 그린다.
+     * 옛 판에서 그리기에 실패해 '위젯을 추가할 수 없습니다'로 남은 자리도 지우지 않고 살아나게 한다.
+     */
+    fun repaintAll(context: Context) {
+        val app = context.applicationContext
+        val manager = AppWidgetManager.getInstance(app)
+        for (provider in PROVIDERS) {
+            WidgetGuard.run {
+                val ids = manager.getAppWidgetIds(ComponentName(app, provider))
+                if (ids.isNotEmpty()) {
+                    app.sendBroadcast(
+                        Intent(app, provider)
+                            .setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids),
+                    )
+                }
+            }
+        }
+    }
+
     /** 위젯 로그인이 없을 때 두 위젯 모두 같은 한 줄. */
     const val SIGNED_OUT_LINE = "위젯 로그인 필요 · 누르면 로그인"
 
