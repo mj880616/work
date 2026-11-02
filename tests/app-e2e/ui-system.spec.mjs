@@ -56,7 +56,8 @@ test('calendar uses 32px and text actions use 36px with mobile content above the
 
   // UI-디자인기준 3/3 2부(8-9e-2): 폰의 일정·할 일·프로젝트·자료실 추가 버튼은 하단 탭 위 동그란 [+](보이는 36px)로 한 크기.
   const round=[];
-  round.push(await buttonHeight(page,'calendar','#newEventBtn'));
+  // S48-6 UI-폰달력월보기 결정 6: 달력 [+]는 전환 줄 안 작은 단추(32px)라 동그란 [+] 묶음에서 뺀다.
+  expect(await buttonHeight(page,'calendar','#newEventBtn')).toBeCloseTo(32,0);
   // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작은 [+](32px)라 이 둥근 [+] 묶음에서 뺀다.
   expect(await buttonHeight(page,'projects','#newProjectBtn')).toBeCloseTo(32,0);
   round.push(await buttonHeight(page,'library','#newDocumentBtn'));
