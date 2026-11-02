@@ -182,7 +182,8 @@ export function readReview(raw) {
   if (!isObj(raw) || !at40(raw.at)) return null;
   const candidates = (Array.isArray(raw.candidates) ? raw.candidates : []).map(t => line(t).slice(0, RULE_CHARS)).filter(Boolean).slice(0, 10);
   const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).slice(0, SUGGESTIONS_MAX).map((s, i) => (isObj(s) && line(s.text) ? {id:typeof s.id === 'string' && /^s[1-4]$/.test(s.id) ? s.id : `s${i + 1}`, ...(Object.hasOwn(SUGGESTION_AREA, s.area) ? {area:s.area} : {}), text:line(s.text).slice(0, 200), ...(line(s.how) ? {how:line(s.how).slice(0, SUGGESTION_HOW_MAX)} : {}), ...(s.answer === 'yes' || s.answer === 'no' ? {answer:s.answer} : {}),
-    ...(s.answer === 'yes' && line(s.before) ? {before:line(s.before).slice(0, 200)} : {}), ...(s.answer === 'no' && line(s.why) ? {why:line(s.why).slice(0, 100)} : {})} : null)).filter(Boolean);
+    ...(s.answer === 'yes' && line(s.before) ? {before:line(s.before).slice(0, 200)} : {}), ...(s.answer === 'no' && line(s.why) ? {why:line(s.why).slice(0, 100)} : {}),
+    ...(s.answer === 'yes' && madeOf(s.made) ? {made:madeOf(s.made)} : {})} : null)).filter(Boolean);
   return {at:raw.at, candidates, suggestions, ...(raw.ai === false ? {ai:false} : {})};
 }
 export function readFeedback(raw) {
@@ -284,12 +285,22 @@ export function restoreRetired(rules, key, at) {
   if (!found) return r;
   return readRules({...r, at:stamp(r.at, at), retired:r.retired.filter(notKey(k)), candidates:[...r.candidates, {text:found.text}]});
 }
+// WEEKLY-개발후보CC(S48-43): [만들기]로 보낸 제안이 실제로 만들어지면 그 PR 번호(made, 양의 정수)를 그 제안에 둔다. 글은 없고 번호만.
+//   쓰는 쪽은 서버(docs/design/weekly-draft-feedback.md 25.3 — 요청함 '→ 대조: 완료 #NNN' 줄을 서버가 읽어 남김, 정지 지점)이고 화면은 읽기만 한다.
+//   'yes' 답에만 붙고, [빼기]로 바꾸면 지운다.
+export const madeOf = v => (Number.isInteger(v) && v > 0 && v < 1e6 ? v : null);
+// 답한 제안 줄 끝 작은 상태 글: '만들기로 보냄' · '고쳐서 만들기로 보냄' (+ ' · 만듦 #NNN') | '뺌 — 이유'.
+export function answerState(s) {
+  if (s?.answer === 'yes') return `${s.before ? '고쳐서 만들기로 보냄' : '만들기로 보냄'}${madeOf(s.made) ? ` · 만듦 #${s.made}` : ''}`;
+  if (s?.answer === 'no') return `뺌${s.why ? ` — ${s.why}` : ''}`;
+  return '';
+}
 // 환류 보고 개선 제안 하나에 답(WEEKLY-환류전칸 ⑤): 'yes'([넣기], text 를 주면 [고쳐서 넣기] — 고친 글이 text, 원래 글은 before) | 'no'([빼기], why = 이유 한 줄, 안 써도 됨).
 export function withAnswer(feedback, id, answer, {text = '', why = ''} = {}) {
   const f = readFeedback(feedback);
   if (!f?.review) return f;
   const put = s => {
-    const {before: _b, why: _w, ...rest} = s, fixed = answer === 'yes' ? line(text).slice(0, 200) : '';
+    const {before: _b, why: _w, ...keep} = s, {made: _m, ...plain} = keep, rest = answer === 'yes' ? keep : plain, fixed = answer === 'yes' ? line(text).slice(0, 200) : '';
     if (answer === 'yes') return fixed && fixed !== s.text ? {...rest, answer, text:fixed, before:s.before ?? s.text} : {...rest, answer, ...(s.before ? {before:s.before} : {})};
     return {...rest, answer, ...(line(why) ? {why:line(why)} : {})};
   };

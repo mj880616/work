@@ -1036,6 +1036,9 @@ jobs:
       - name: Check weekly detail line feedback and last-week area lines (S48-35)
         run: node --test tests/weekly-s48-35.test.mjs
 
+      - name: Check weekly request carried takes and made PR mark (S48-43)
+        run: node --test tests/weekly-s48-43.test.mjs
+
       - name: Check notification removal
         run: |
           set -e
