@@ -1481,6 +1481,8 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
   {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 이번 주 개인본에만 쓴 줄'],owner:['가상 담당']}]},
  ],orgs:[{org:['가상 노동조합'],status:['- 지난주 조직 소식']}]};
  const f=await hwpxFixture(page,{width:1280,files:{'doc-week':weekReport},personal:[{id:'doc-week',title:'가상 이번 주 개인본',file_name:'doc-week.hwpx',document_date:'2026-10-12',created_at:'2026-10-09T08:00:00Z'}]});
+ // S48-35: 2) 세부 내용 줄 고침·그대로 넣음은 원래 기록 열쇠(meeting:<uuid>)가 있는 회의만 — 진짜 모양의 id 회의 하나.
+ f.more.meetings.push({id:'00000000-0000-4000-8000-0000000000b1',workspace_id:'w',title:'가상 정책 회의',series_name:'가상 정책 회의',round_no:2,meeting_at:'2026-10-07T01:00:00Z'});
  const ai=[];
  await page.route(SB+'/functions/v1/ai-assist',async r=>{
   const body=r.request().postDataJSON();if(body.kind==='work_scope')return r.fallback();ai.push(body);
@@ -1553,7 +1555,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect.poll(()=>(row().draft.picks?.items??[]).filter(i=>i.cell!=='details').map(i=>[i.kind,i.cell,i.act].join(',')).sort().join('|'),{timeout:15000}).toBe('review,개선 제안,take|review,규칙 후보,drop');
  // S48-35: [확정] 때 2) 세부 내용에서 고치지도 빼지도 않은 원래 기록 줄은 '그대로 넣음'(take, 원래 기록 = 제안)으로 남는다.
  const detailTakes=row().draft.picks.items.filter(i=>i.cell==='details');
- expect(detailTakes.length).toBeGreaterThan(0);
+ expect(detailTakes.map(i=>i.text)).toEqual(['10:00 가상 정책 회의 2차']);
  expect(detailTakes.every(i=>i.act==='take'&&i.kind==='material'&&i.from==='record')).toBe(true);
  expect(row().draft.picks.items.find(i=>i.cell==='규칙 후보').why).toBe('가상 빼는 이유');
  expect(row().draft.feedback.counts).toEqual({kept:4,changed:0,dropped:0,added:0,proposed:4,final:4});
@@ -1566,7 +1568,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안']);
  // 칸별 그대로 쓴 비율(S48-3b): 개선 제안·규칙 후보는 셈 밖 — 이 주는 확정 때 그대로 넣은 2) 세부 내용 줄만 있어 그 묶음 하나(S48-35).
  await expect(learn.locator('[data-learn-cell-rates]')).toHaveAttribute('data-learn-cell-rates','1');
- await expect(learn.locator('[data-learn-cell-rates]')).toContainText('2. 세부 내용 100%');
+ await expect(learn.locator('[data-learn-cell-rates]')).toContainText('2. 세부 내용 100%(1)');
  await pressMore(learn.locator('[data-journal-learn-rule="0"]'),'[data-journal-learn-delete]');
  await expect(page.locator('#kptuNotice')).toContainText('규칙을 지웠어요.');
  await expect(learn.locator('[data-journal-learn-status]')).toHaveText('');
