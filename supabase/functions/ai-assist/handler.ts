@@ -3841,7 +3841,7 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
 
 // ---- 쓰임 work_scope: '오늘 한 일' 줄 업무·개인 가르기(JOURNAL-오늘한일업무개인, work-scope.ts) ---------------------------------
 // 그 주 업무일지 줄(노트 표 kind=work)을 로그인 토큰으로 읽어 AI가 줄마다 업무·개인을 가른다. 저장하지 않는다(쓰는 화면이 메모리에만 둠).
-// 업무라고 답한 줄만 돌려준다(애매·답 없음·보내지 않은 줄은 빠짐). 줄이 없으면 AI를 부르지 않는다. 기록에는 숫자만.
+// 업무라고 답하지 않은 줄(개인·애매·답 없음·보내지 않은 줄)을 '뺄 줄'(drop)로 돌려준다. 줄이 없으면 AI를 부르지 않는다. 기록에는 숫자만.
 async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
   const ws = encodeURIComponent(ctx.workspaceId), days = weekDayKeys(input.week_start);
@@ -3852,10 +3852,10 @@ async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): P
     throw new Fail(503, "read_unavailable");
   }
   if (!Array.isArray(rows) || rows.length > 7) throw new Fail(503, "read_unavailable");
-  const { lines, skipped } = workScopeLines(rows, input.week_start, ctx.workspaceId);
+  const { lines, all, skipped } = workScopeLines(rows, input.week_start, ctx.workspaceId);
   if (!lines.length) {
     deps.log("work_scope_skipped", { reason: "no_lines", skipped });
-    return json({ ok: true, kind: "work_scope", week_start: input.week_start, work: [], personal: 0, skipped });
+    return json({ ok: true, kind: "work_scope", week_start: input.week_start, drop: all, personal: 0, skipped });
   }
   const material = workScopeMaterial(lines);
   const config = aiConfig(deps.env);
@@ -3892,10 +3892,10 @@ async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): P
     const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
     throw new Fail(status, result.code);
   }
-  const parsed = parseWorkScope(outputText(result.raw, 64 * 1024) ?? "", lines);
+  const parsed = parseWorkScope(outputText(result.raw, 64 * 1024) ?? "", lines, all);
   if (!parsed) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
-  deps.log("work_scope_done", { lines: lines.length, work: parsed.work.length, personal: parsed.personal, skipped });
-  return json({ ok: true, kind: "work_scope", week_start: input.week_start, work: parsed.work, personal: parsed.personal, skipped });
+  deps.log("work_scope_done", { lines: lines.length, work: parsed.work, personal: parsed.personal, skipped });
+  return json({ ok: true, kind: "work_scope", week_start: input.week_start, drop: parsed.drop, personal: parsed.personal, skipped });
 }
 
 // ---- 쓰임 next_week_sheet: 다음 주 준비 한 장(JOURNAL-다음주준비, next-week-sheet.ts) ---------------------------------------
