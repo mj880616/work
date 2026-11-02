@@ -187,8 +187,8 @@ async function openRelated(r) {
 function mountSplit() {
   if (!root) return;
   mountSplitResize({container: root, name: 'now', label: '목록과 상세 칸 폭 조절', columns: [
-    {el: mainBox, varName: '--ds-split-list', minVar: '--ds-split-list-min', minFallback: 320, share: 3, id: 'nowMain'},
-    {el: detailBox, varName: '--ds-split-detail', minVar: '--ds-split-detail-min', minFallback: 320, share: 2},
+    {el: () => mainBox, varName: '--ds-split-list', minVar: '--ds-split-list-min', minFallback: 320, share: 3, id: 'nowMain'},
+    {el: () => detailBox, varName: '--ds-split-detail', minVar: '--ds-split-detail-min', minFallback: 320, share: 2},
   ], active: () => PC.matches && root.isConnected && !document.getElementById('outsideView')?.classList.contains('hidden')});
 }
 
