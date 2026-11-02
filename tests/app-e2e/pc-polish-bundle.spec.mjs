@@ -89,9 +89,10 @@ for(const width of [1024,1280,1440,1920])test(`UI-PC다듬기묶음 ② PC ${wid
  await tb.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
 });
 
-test('UI-PC다듬기묶음 ② 폰 390·중간 폭 900: [+ 일정 등록]은 폰 동그란 [+] 36, 중간 폭 32(UI-버튼전수조사)',async({page})=>{
+// S48-6 UI-폰달력월보기 결정 6: 폰 달력 [+]는 전환 줄 안 작은 단추 32px.
+test('UI-PC다듬기묶음 ② 폰 390·중간 폭 900: [+ 일정 등록]은 폰 전환 줄 작은 [+] 32, 중간 폭 32(UI-버튼전수조사)',async({page})=>{
  await boot(page,390,`${appOrigin}/app/?view=calendar`);
- const phone=await box(page.locator('#newEventBtn'));expect([phone.width,phone.height]).toEqual([36,36]);
+ const phone=await box(page.locator('#newEventBtn'));expect([phone.width,phone.height]).toEqual([32,32]);
  await page.setViewportSize({width:900,height:900});
  const mid=await box(page.locator('#newEventBtn'));expect(mid.height).toBe(32);
 });
