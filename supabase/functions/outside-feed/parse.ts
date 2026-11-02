@@ -1,6 +1,7 @@
 // outside-feed 읽기 도구(순수 함수, 네트워크 없음): RSS·목록 HTML 해석, 글 본문 글자 뽑기, 문장 나누기, robots.txt 판정.
 // 받은 HTML은 글자만 뽑는다(태그·스크립트는 버림). 화면도 글자로만 그린다(설계 6절).
 import { allowedUrl, type Kind, type OutsideSource } from "../_shared/outside-catalog.ts";
+import { isNoiseLine } from "../_shared/outside-tidy.ts";
 
 export const BODY_MAX_CHARS = 60000;      // 글 한 건 본문 상한(설계 3.1)
 export const SENTENCE_MAX_CHARS = 500;    // DB 검사와 같음
@@ -11,7 +12,8 @@ export const URL_MAX_CHARS = 2000;
 
 // 목록에서 찾은 글 수(종류 거르기 전). 0이면 목록을 못 뽑은 것(parse_empty), 1 이상인데 넣을 글이 0이면 '이번엔 해당 글 없음'(no_match).
 export type ListStats = { candidates: number };
-export type ListItem = { url: string; title: string; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null };
+// title은 목록 칸의 첫 줄(종류 판정용 머리말 포함 — 꼬리표 떼기는 저장 직전 _shared/outside-tidy.ts가 한다). subtitle은 목록 칸 둘째 줄(부제, 없으면 null).
+export type ListItem = { url: string; title: string; subtitle?: string | null; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null };
 
 // ---- 글자 다듬기 ----------------------------------------------------------------------------------------------------
 
@@ -200,12 +202,17 @@ export function looksLikeBotCheck(text: string): boolean {
 // ---- 목록 HTML -----------------------------------------------------------------------------------------------------
 
 // 목록 페이지의 <a href> 가운데 카탈로그 글 주소 규칙(item)에 맞는 것만. 같은 글에 링크가 여럿이면 가장 긴 글자를 제목으로.
+// 제목은 링크 칸 글자의 첫 줄만(노동당처럼 링크 하나에 제목·부제·본문 앞부분이 함께 든 목록, 11/02 00:17) — 둘째 줄은 부제.
+// 게시 날짜: 링크 안 날짜 칸(dateClass) → 같은 줄(<tr>·<li> 등, 앞뒤 글 링크 사이) 날짜 → 링크 안 나머지 글자의 날짜. 못 찾으면 null(글 쪽에서 다시 찾음).
 export function parseListHtml(source: OutsideSource, html: string, base: string, limit = 30, stats?: ListStats, nowMs = Date.now()): ListItem[] {
   if (!source.item) return [];
   const best = new Map<string, string>();
+  const subs = new Map<string, string>();
   const dates = new Map<string, string>();
   const order: string[] = [];
   const body = html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ");
+  type Hit = { url: string; title: string; sub: string | null; inner: string; start: number; end: number };
+  const hits: Hit[] = [];
   for (const m of body.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
     const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m[1]);
     let raw = href?.[1] ?? href?.[2] ?? href?.[3];
@@ -221,16 +228,34 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     try { abs = new URL(decodeEntities(raw), base).href; } catch { continue; }
     if (!source.item.test(abs)) continue;
     const url = canonicalUrl(source, abs);
+    const lines = linkLines(m[2]);
     const title = (source.titleAttr ? innerTitleAttr(m[2]) : null) ?? (source.titleClass ? innerTitle(m[2], source.titleClass) : null)
-      ?? cleanTitle(m[2]) ?? cleanTitle(/\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "");
+      ?? cleanTitle(lines[0] ?? "") ?? cleanTitle(/\btitle\s*=\s*"([^"]*)"/i.exec(m[1])?.[1] ?? "");
     if (!url || !title) continue;
+    const sub = !source.titleAttr && !source.titleClass && lines.length > 1 ? cleanTitle(lines[1]) : null;
+    hits.push({ url, title, sub, inner: m[2], start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+  }
+  for (const [i, h] of hits.entries()) {
+    const { url, title } = h;
     if (!best.has(url)) order.push(url);
-    if (len(title) > len(best.get(url) ?? "")) best.set(url, title);
-    if (source.dateClass && !dates.has(url)) {
-      const d = innerTitle(m[2], source.dateClass);
-      const t = d ? textDate(d, nowMs) : null;
-      if (t) dates.set(url, t);
+    if (len(title) > len(best.get(url) ?? "")) { best.set(url, title); if (h.sub) subs.set(url, h.sub); else subs.delete(url); }
+    if (dates.has(url)) continue;
+    let d: string | null = null;
+    if (source.dateClass) { const t = innerTitle(h.inner, source.dateClass); d = t ? textDate(t, nowMs) : null; }
+    if (!d && !source.dateClass) {
+      // 같은 줄: 앞 글 링크 끝 ~ 다음 글 링크 시작 사이에서, 줄 칸(<tr>·<li>·<article>·<dl>) 안쪽만.
+      const prevEnd = hits.slice(0, i).reverse().find((x) => x.url !== url)?.end ?? Math.max(0, h.start - 4000);
+      const nextStart = hits.slice(i + 1).find((x) => x.url !== url)?.start ?? Math.min(body.length, h.end + 4000);
+      const before = body.slice(Math.max(prevEnd, h.start - 4000), h.start);
+      const open = [...before.matchAll(/<(tr|li|article|dl)\b/gi)].at(-1);
+      const pre = open ? before.slice(open.index ?? 0) : "";
+      let after = body.slice(h.end, Math.min(nextStart, h.end + 4000));
+      const close = /<\/(tr|li|article|dl)\s*>/i.exec(after);
+      after = close ? after.slice(0, close.index) : after.slice(0, 600);
+      d = textDate(htmlToText(pre.replace(/<a\b[\s\S]*?<\/a\s*>/gi, " ") + "\n" + after), nowMs)
+        ?? textDate(linkLines(h.inner).slice(1).join("\n"), nowMs);
     }
+    if (d) dates.set(url, d);
   }
   if (stats) stats.candidates += order.length;
   const out: ListItem[] = [];
@@ -239,9 +264,14 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     const title = best.get(url)!;
     const kind = source.kindOf(title, url);
     if (!kind) continue;
-    out.push({ url, title, kind, published_at: dates.get(url) ?? null, author: null, summary: null, content: null });
+    out.push({ url, title, subtitle: subs.get(url) ?? null, kind, published_at: dates.get(url) ?? null, author: null, summary: null, content: null });
   }
   return out;
+}
+
+// 링크 칸 글자를 줄(문단·칸 단위)로. 빈 줄은 뺀다.
+function linkLines(inner: string): string[] {
+  return htmlToText(inner).split("\n").map((l) => oneLine(l)).filter(Boolean);
 }
 
 // 링크 안 첫 title="…" 값(목록 카드의 그림 title처럼 줄임표 없이 제목 전체가 든 경우, 단체 규칙 titleAttr). 없으면 null.
@@ -305,7 +335,7 @@ export function extractBody(html: string, title: string, bodyClass?: RegExp): st
   const own = bodyClass ? bodyBlocks(html, bodyClass) : "";
   const scoped = (own.trim() ? own : null)
     ?? /<article\b[^>]*>([\s\S]*?)<\/article\s*>/i.exec(html)?.[1]
-    ?? /<(?:div|section)\b[^>]*\b(?:class|id)\s*=\s*["'][^"']*\b(?:entry-content|post-content|article-body|article_body|view_content|view-content|board_view|bbs_view|xe_content|rd_body|content_view|viewContent|bo_v_con)\b[^"']*["'][^>]*>([\s\S]*)/i.exec(html)?.[1]
+    ?? /<(?:div|section)\b[^>]*\b(?:class|id)\s*=\s*["'][^"']*\b(?:entry-content|post-content|article-body|article_body|view_content|view-content|board_view|bbs_view|xe_content|rd_body|content_view|viewContent|bo_v_con|kboard-content)\b[^"']*["'][^>]*>([\s\S]*)/i.exec(html)?.[1]
     ?? (/<body\b[^>]*>([\s\S]*)<\/body\s*>/i.exec(html)?.[1] ?? html);
   const cleaned = scoped.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1\s*>/gi, " ");
   const lines = htmlToText(cleaned).split("\n");
@@ -314,7 +344,7 @@ export function extractBody(html: string, title: string, bodyClass?: RegExp): st
   const body: string[] = [];
   for (const l of lines.slice(start)) {
     if (END_MARK.test(l)) break;
-    if (DATE_ONLY.test(l) || FILE_LINE.test(l)) continue; // 글 머리의 날짜·시각 줄, 첨부 파일 이름 줄은 본문이 아니다
+    if (DATE_ONLY.test(l) || FILE_LINE.test(l) || isNoiseLine(l)) continue; // 글 머리의 날짜·시각 줄, 첨부 파일 이름 줄, 메뉴·공유·조회수 같은 짧은 덧줄은 본문이 아니다
     body.push(l);
   }
   return cut(body.join("\n").trim(), BODY_MAX_CHARS);
@@ -326,11 +356,28 @@ function afterTitle(lines: string[], title: string): number {
   const i = key ? lines.findIndex((l) => l.includes(key)) : -1;
   return i < 0 ? 0 : i + 1;
 }
-// 글 페이지의 게시 날짜: 제목 줄 뒤 15줄 안에서 처음 나오는 날짜(제목을 못 찾으면 페이지 앞에서).
+// 글 페이지의 게시 날짜: ① 글 쪽 메타(article:published_time·datePublished·첫 <time datetime>) ② 제목 줄 뒤 15줄 안에서 처음 나오는 날짜
+// (제목을 못 찾으면 페이지 앞에서). 못 읽으면 null — 읽은 시각을 게시 시각으로 쓰지 않는다(화면은 '날짜 모름').
+export function metaDate(html: string, nowMs: number): string | null {
+  const metas = [
+    /<meta\b[^>]*\b(?:property|name|itemprop)\s*=\s*["'](?:article:published_time|og:article:published_time|datePublished|pubdate|publishdate)["'][^>]*>/i,
+  ];
+  for (const re of metas) {
+    const tagText = re.exec(html)?.[0];
+    const v = tagText ? /\bcontent\s*=\s*["']([^"']{4,64})["']/i.exec(tagText)?.[1] : null;
+    const d = v ? feedDate(v, nowMs) : null;
+    if (d) return d;
+  }
+  const ld = /"datePublished"\s*:\s*"([^"]{4,64})"/.exec(html)?.[1];
+  return ld ? feedDate(ld, nowMs) : null;
+}
 export function pageDate(html: string, title: string, nowMs: number): string | null {
+  const meta = metaDate(html, nowMs);
+  if (meta) return meta;
   const lines = htmlToText(html).split("\n");
   const start = afterTitle(lines, title);
-  return textDate(lines.slice(start, start + 15).join("\n"), nowMs);
+  const t = /<time\b[^>]*\bdatetime\s*=\s*["']([^"']{4,64})["']/i.exec(html)?.[1];
+  return textDate(lines.slice(start, start + 15).join("\n"), nowMs) ?? (t ? feedDate(t, nowMs) : null);
 }
 
 // 문장 나누기: 문단(줄) → 문장 끝(. ! ? … 。 다음 빈칸)으로. 500자 넘는 문장은 잘라 여러 줄로. 3001개까지.

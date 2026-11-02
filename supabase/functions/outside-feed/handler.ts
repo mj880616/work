@@ -18,6 +18,7 @@ import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSo
 import { aiConfigFrom, callOpenAi, outputText, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { betterTitle, pageTitleFrom, tidySummary, tidyTitle } from "../_shared/outside-tidy.ts";
 import { cut, decodeBody, extractBody, looksLikeBotCheck, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, type ListItem, type ListStats } from "./parse.ts";
 
 export type OutsideFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: Log };
@@ -420,28 +421,36 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
       if (page.ok) {
         pageRead = true;
         pageText = page.text;
-        const got = extractBody(page.text, it.title, source.bodyClass);
+        // 글 쪽 제목이 목록 제목보다 정확하면(목록 칸에 부제·본문 앞부분이 붙은 단체) 그 제목 줄 뒤부터 본문을 읽는다.
+        const got = extractBody(page.text, betterTitle(it.title, pageTitleFrom(page.text), source.name) ?? it.title, source.bodyClass);
         body = chars(got) >= MIN_BODY_CHARS ? got : "";
       } else if (!it.summary && !it.content) { out.skipped++; continue; } // 글 쪽을 못 읽음(일시 오류·robots) — 다음 실행에 다시
     }
+    // 게시 날짜: 목록 → 글 쪽(메타·제목 뒤 날짜). 못 읽으면 null('날짜 모름') — 읽은 시각을 게시 시각으로 쓰지 않는다(11/02 00:17).
     const published = it.published_at ?? (pageText ? pageDate(pageText, it.title, nowMs) : null);
+    // 정돈 한 번(11/02 00:19, 공용 _shared/outside-tidy.ts): 제목 한 줄(종류 꼬리표·단체명·날짜 꼬리 떼기, 길면 부제 떼기).
+    // 글 쪽 제목(og:title·<title>)이 목록 제목 안에 든 더 짧은 제목이면 그것을 쓴다(목록 칸에 부제·본문 앞부분이 붙은 단체).
+    // 종류(kind)는 목록에서 떼기 전 제목으로 이미 정했다.
+    const tidy = tidyTitle(betterTitle(it.title, pageText ? pageTitleFrom(pageText) : null, source.name) ?? it.title, source.name, { split: source.lang === "ko" });
+    const title = tidy.title || it.title;
+    const subtitle = tidy.subtitle ?? it.subtitle ?? null;
     const rows: Record<string, unknown>[] = [];
     if (source.lang === "ko") {
       // 글 쪽은 읽었는데 본문 칸이 없으면 제목만 넣는다(요약 줄 비움 — AI에 빈 본문을 보내 '요약할 수 없음'을 받지 않는다).
       if (!body && !pageRead) { out.skipped++; continue; }
       const old = published !== null && Date.parse(published) < cutoff;
       const sentences = old || !body ? [] : splitSentences(body);
-      const summary = body ? readKoSummary(await askAi(ai, "outside_ko_summary", KO_SUMMARY_INSTRUCTIONS,
-        `단체: ${source.name}\n제목: ${it.title}\n\n본문:\n${cut(body, AI_MATERIAL_CHARS)}`, KO_SUMMARY_SCHEMA, 300)) : null;
-      for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: it.kind, lang: "ko", title: it.title, author: it.author, url: it.url, published_at: published, summary_ko: summary, has_body: sentences.length > 0, _sentences: sentences });
+      const summary = body ? tidySummary(readKoSummary(await askAi(ai, "outside_ko_summary", KO_SUMMARY_INSTRUCTIONS,
+        `단체: ${source.name}\n제목: ${title}${subtitle ? `\n부제: ${subtitle}` : ""}\n\n본문:\n${cut(body, AI_MATERIAL_CHARS)}`, KO_SUMMARY_SCHEMA, 300))) : null;
+      for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: it.kind, lang: "ko", title, author: it.author, url: it.url, published_at: published, summary_ko: summary, has_body: sentences.length > 0, _sentences: sentences });
     } else {
       // 재료: 본문(피드 또는 글 쪽 앞부분) → 없으면 피드 본문·소개 글. 하나도 없으면 제목만 넣는다(요약 줄 비움).
       const material = cut(body || it.content || it.summary || "", AI_MATERIAL_CHARS);
       const intro = material
-        ? readEnIntro(await askAi(ai, "outside_en_intro", EN_INSTRUCTIONS, `Title: ${it.title}\n\n${material}`, EN_SCHEMA, 1200), material)
+        ? readEnIntro(await askAi(ai, "outside_en_intro", EN_INSTRUCTIONS, `Title: ${title}\n\n${material}`, EN_SCHEMA, 1200), material)
         : { title_ko: null, summary_ko: null, key_sentences: [] };
       if (!intro) { out.skipped++; continue; } // AI가 없거나 답 모양이 틀림 — 넣지 않고 다음 실행에 다시 본다.
-      for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: "article", lang: "en", title: it.title, title_ko: intro.title_ko, author: it.author, url: it.url, published_at: published, summary_ko: intro.summary_ko, key_sentences: intro.key_sentences, has_body: false, _sentences: [] });
+      for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: "article", lang: "en", title, title_ko: intro.title_ko, author: it.author, url: it.url, published_at: published, summary_ko: intro.summary_ko, key_sentences: intro.key_sentences, has_body: false, _sentences: [] });
     }
     for (const row of rows) {
       const { _sentences, ...post } = row as Record<string, unknown> & { _sentences: string[] };

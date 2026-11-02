@@ -8,7 +8,8 @@
 // 새 단체는 여기에 한 줄 더하는 작은 PR로만 넣는다(Edge 재배포 정지 지점).
 
 export type Kind = "statement" | "comment" | "press" | "article";
-export type Group = "kctu" | "kptu" | "party" | "movement" | "foreign";
+// 묶음 칩(11/02 00:19 명진 요청): [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안 단체 칩.
+export type Group = "labor" | "party" | "movement" | "foreign";
 export type OutsideSource = {
   key: string;
   name: string;
@@ -82,7 +83,7 @@ function jinboView(href: string, base: URL): string | null {
 
 export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   {
-    key: "kctu", name: "민주노총", group: "kctu", lang: "ko", mode: "html",
+    key: "kctu", name: "민주노총", group: "labor", lang: "ko", mode: "html",
     lists: ["https://nodong.org/statement"], hosts: ["nodong.org", "www.nodong.org"],
     item: /^https:\/\/(www\.)?nodong\.org\/statement\/\d+\/?$/, canon: plain,
     kindOf: byPrefix("statement"),
@@ -91,7 +92,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // robots.txt가 모든 자동 읽기를 막지만(`User-agent: *` `Disallow: /`) 명진 결정 11/01 16:49로 이 단체만 읽는다:
     // 명진이 소속된 노조의 공개 성명 게시판. 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
     // 다른 단체의 robots 규칙은 그대로 지킨다. 2026-11-01 확인: 글 본문은 `div.publishList_write` 안(ASP.NET form 안쪽).
-    key: "kptu", name: "공공운수노조", group: "kptu", lang: "ko", mode: "html",
+    key: "kptu", name: "공공운수노조", group: "labor", lang: "ko", mode: "html",
     robotsException: "명진 결정 11/01 16:49",
     lists: ["https://www.kptu.net/board/list.aspx?mid=F686C1F3"], hosts: ["www.kptu.net", "kptu.net"],
     bodyClass: /^publishList_write$/,

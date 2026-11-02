@@ -753,3 +753,99 @@ test('안내 글은 넣지 않음: \'■ … 주간 홍보 일정\'·\'취재요
     assert.equal(s.kindOf('[성명] 가상 성명',s.lists[0]),'statement');
   }
 });
+
+// ---- OUTSIDE-노동묶음·정돈 1단계(S48-4, 요청 11/02 00:17·00:19): 제목 한 줄·진짜 게시 날짜·공용 정돈 함수 ------------------------
+
+const T=await import('../../supabase/functions/_shared/outside-tidy.ts');
+
+test('정돈 함수: 제목 한 줄 — 종류 꼬리표·단체명·날짜 꼬리 떼기, 긴 제목만 부제 나누기, 다른 머리말은 그대로', () => {
+  assert.deepEqual(T.tidyTitle('[성명] 가상 노동법 개악 규탄','민주노총'),{title:'가상 노동법 개악 규탄',subtitle:null});
+  assert.equal(T.tidyTitle('【보도자료】 가상 지부 출범 (2026.10.31)','공공운수노조').title,'가상 지부 출범');
+  assert.equal(T.tidyTitle('[노동자연대 성명] 가상 파업을 지지한다','노동자연대').title,'가상 파업을 지지한다');
+  assert.equal(T.tidyTitle('노동자연대 학생그룹 성명: 가상 등록금 인상 반대','노동자연대').title,'가상 등록금 인상 반대');
+  assert.equal(T.tidyTitle('[성명] 가상 지역 공공의료를 지켜라 – 노동당','노동당').title,'가상 지역 공공의료를 지켜라','글 쪽 제목의 \' – 단체명\' 꼬리');
+  assert.equal(T.tidyTitle('가상 공공부문 구조조정 반대 2026-10-31','').title,'가상 공공부문 구조조정 반대');
+  assert.equal(T.tidyTitle('[단독] 가상 기사','').title,'[단독] 가상 기사','종류가 아닌 머리말은 둔다');
+  assert.equal(T.tidyTitle('[주간홍보] 가상 일정','').title,'[주간홍보] 가상 일정');
+  assert.equal(T.tidyTitle('가상 A - B','').title,'가상 A - B','짧은 제목의 \' - \'는 제목의 일부');
+  const long=T.tidyTitle('[성명] 가상 지역 공공의료를 지켜라 - 가상 병원 폐업 결정을 철회하라 - 가상 시민의 건강권은 시장에 맡길 수 없다.','노동당');
+  assert.deepEqual(long,{title:'가상 지역 공공의료를 지켜라',subtitle:'가상 병원 폐업 결정을 철회하라 - 가상 시민의 건강권은 시장에 맡길 수 없다.'});
+  assert.deepEqual(T.tidyTitle('가상 제목\n가상 부제 줄\n본문','').subtitle,'가상 부제 줄');
+  const noSplit=T.tidyTitle('가상 아주 긴 기사 제목이 여기에 길게 이어지고 또 이어진다 - 가상 부제처럼 보이는 말','',{split:false});
+  assert.match(noSplit.title,/ - 가상 부제처럼/,'뉴스 기사 제목은 나누지 않음');
+  const cutT=T.tidyTitle('가'.repeat(300),'');assert.equal([...cutT.title].length,100);assert.match(cutT.title,/…$/);
+  assert.equal(T.tidyTitle('[성명]','x').title,'[성명]','꼬리표뿐이면 그대로(빈 제목 금지)');
+  assert.equal(T.betterTitle('[성명] 가상 지역 공공의료를 지켜라 - 가상 병원 폐업 결정을 철회하라 - 본문',T.pageTitleFrom(FX('laborparty-article.html')),'노동당'),'가상 지역 공공의료를 지켜라');
+  assert.equal(T.betterTitle('[성명] 가상 제목','노동당','노동당'),null,'사이트 이름뿐인 글 쪽 제목은 쓰지 않음');
+  assert.equal(T.betterTitle('[성명] 가상 제목','다른 글 제목',''),null);
+  assert.equal(T.isNoiseLine('조회 123'),true);assert.equal(T.isNoiseLine('공유하기'),true);assert.equal(T.isNoiseLine('첨부파일'),true);
+  assert.equal(T.isNoiseLine('공유경제는 노동자를 보호하지 않는다는 점에서 우리는 이 법안을 반대한다.'),false,'긴 문장은 건드리지 않음');
+  assert.equal(T.tidySummary('  요약: 가상 단체가\n반대함. '),'가상 단체가 반대함.');assert.equal(T.tidySummary(''),null);
+  assert.equal([...T.tidySummary('가 '.repeat(300))].length<=200,true);
+});
+
+test('노동당 목록: 링크 하나에 제목·부제·본문 앞부분이 함께 있어도 제목은 첫 줄, 같은 줄 날짜 칸을 게시 날짜로(11/02 00:17)', () => {
+  const s=sourceByKey('laborparty');
+  const items=P.parseListHtml(s,FX('laborparty-list-2026-11.html'),s.lists[0],30,undefined,NOW);
+  assert.deepEqual(items.map(i=>[i.url,i.kind,i.title,i.subtitle,i.published_at]),[
+    ['https://laborparty.kr/?mod=document&page_id=13642&uid=6002','comment','[논평] 가상 노동시간 개악을 멈춰라','가상 부제: 장시간 노동은 답이 아니다','2026-10-30T15:00:00.000Z'],
+    ['https://laborparty.kr/?mod=document&page_id=13642&uid=6001','statement','[성명] 가상 지역 공공의료를 지켜라 - 가상 병원 폐업 결정을 철회하라 - 가상 시민의 건강권은 시장에 맡길 수 없다. 가상 지자체는 지금 당장 폐업 결정을 거두고 공공의료 확충 계획을 내놓아야 한다.',null,null]]);
+  assert.doesNotMatch(items[0].title,/개편안|2019/,'본문 앞부분이 제목에 들어가지 않음');
+});
+
+test('노동당 저장: 제목 한 줄(꼬리표 떼고, 글 쪽 og:title로 부제·본문 앞부분 떼기), 날짜는 목록 → 글 쪽, 본문에 첨부·공유 덧줄 없음', async () => {
+  const s=sourceByKey('laborparty');
+  const sites={[s.lists[0]]:FX('laborparty-list-2026-11.html'),
+    'https://laborparty.kr/?mod=document&page_id=13642&uid=6002':FX('laborparty-article.html').replace(/지역 공공의료를 지켜라/g,'노동시간 개악을 멈춰라').replace('[성명]','[논평]'),
+    'https://laborparty.kr/?mod=document&page_id=13642&uid=6001':FX('laborparty-article.html')};
+  const h=harness({sources:[{workspace_id:WS,source_key:'laborparty'}],sites});
+  const out=await (await h.cron('run',{source:'laborparty'})).json();
+  assert.equal(out.status,'ok');assert.equal(out.inserted,2);
+  const byUid=uid=>h.db.app_outside_posts.find(p=>p.url.endsWith(`uid=${uid}`));
+  assert.equal(byUid(6002).title,'가상 노동시간 개악을 멈춰라');assert.equal(byUid(6002).kind,'comment');
+  assert.equal(byUid(6002).published_at,'2026-10-30T15:00:00.000Z','목록 줄 날짜');
+  assert.equal(byUid(6001).title,'가상 지역 공공의료를 지켜라');assert.equal(byUid(6001).kind,'statement');
+  assert.equal(byUid(6001).published_at,'2026-10-26T15:00:00.000Z','목록에 날짜가 없으면 글 쪽 작성일');
+  const text=h.db.app_outside_sentences.filter(x=>x.post_id===byUid(6001).id).map(x=>x.text).join(' ');
+  assert.match(text,/가상 시민의 건강권은/);assert.doesNotMatch(text,/첨부파일|공유하기|페이스북|조회|\.hwp/);
+  // AI 재료에도 정돈한 제목(꼬리표 없음)이 간다.
+  assert.ok(h.calls.ai.every(a=>/^단체: 노동당\n제목: 가상 /.test(a.input)));
+});
+
+test('녹색당 목록: 줄마다 날짜 — 옛 선거 때 글은 그 날짜로(오늘로 묶이지 않음), 날짜 없는 글은 글 쪽에도 없으면 \'날짜 모름\'(null)', async () => {
+  const s=sourceByKey('kgreens');
+  const items=P.parseListHtml(s,FX('kgreens-list-2026-11.html'),s.lists[0],30,undefined,NOW);
+  assert.deepEqual(items.map(i=>[i.url.replace(/^.*idx=/,''),i.published_at]),[['501','2022-02-09T15:00:00.000Z'],['903','2026-10-29T15:00:00.000Z'],['902',null]]);
+  const sites={'https://kgreens.org/statement':FX('kgreens-list-2026-11.html'),'https://kgreens.org/press':'<html><body></body></html>',
+    'https://kgreens.org/statement/?bmode=view&idx=501':FX('article-ko.html'),'https://kgreens.org/statement/?bmode=view&idx=903':FX('article-ko.html'),
+    'https://kgreens.org/statement/?bmode=view&idx=902':FX('article-nodate.html')};
+  const h=harness({sources:[{workspace_id:WS,source_key:'kgreens'}],sites});
+  const out=await (await h.cron('run',{source:'kgreens'})).json();
+  assert.equal(out.inserted,3);
+  const at=idx=>h.db.app_outside_posts.find(p=>p.url.endsWith(`idx=${idx}`));
+  assert.equal(at(501).published_at,'2022-02-09T15:00:00.000Z');
+  assert.equal(at(902).published_at,null,'읽은 시각을 게시 시각으로 쓰지 않음');assert.equal(at(902).title,'가상 날짜 없는 글');
+  // 화면: 날짜 모름 글은 '오늘'이 아니라 '날짜 모름' 묶음, 시각 칸도 '날짜 모름'.
+  const M=await import('../../app/outside-statements-model.mjs');
+  const rows=h.db.app_outside_posts.map(p=>({...p})).sort((a,b)=>(b.published_at??'').localeCompare(a.published_at??''));
+  const groups=M.groupPosts(rows,NOW);
+  assert.equal(groups.at(-1).label,'날짜 모름');assert.ok(!groups.some(g=>g.label==='오늘'));
+  assert.equal(M.postView(at(902),NOW).time,'날짜 모름');
+});
+
+test('글 쪽 날짜: 메타(article:published_time) → 제목 뒤 날짜 → <time datetime>, 없으면 null', () => {
+  assert.equal(P.pageDate('<meta property="article:published_time" content="2026-10-28T09:10:00+09:00"><h1>가상</h1><p>2020-01-01</p>','가상',NOW),'2026-10-28T00:10:00.000Z');
+  assert.equal(P.pageDate('<h1>가상</h1><p>등록일 2026.10.27</p>','가상',NOW),'2026-10-26T15:00:00.000Z');
+  assert.equal(P.pageDate('<h1>가상</h1><p>본문</p><time datetime="2026-10-25T01:00:00Z">어제</time>','가상',NOW),'2026-10-25T01:00:00.000Z');
+  assert.equal(P.pageDate(FX('article-nodate.html'),'[논평] 가상 날짜 없는 글',NOW),null);
+});
+
+test('묶음: 민주노총·공공운수노조는 [노동](labor) 묶음, 묶음은 노동·정당·사회운동·외국 넷뿐', () => {
+  assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.group==='labor').map(s=>s.key),['kctu','kptu']);
+  assert.deepEqual([...new Set(OUTSIDE_CATALOG.map(s=>s.group))].sort(),['foreign','labor','movement','party']);
+  // 뉴스 클리핑도 같은 정돈 함수만 부른다(다른 동작은 그대로).
+  const news=readFileSync('supabase/functions/news-feed/handler.ts','utf8');
+  assert.match(news,/from "\.\.\/_shared\/outside-tidy\.ts"/);
+  const feed=readFileSync('supabase/functions/outside-feed/handler.ts','utf8');
+  assert.match(feed,/tidyTitle\(/);assert.match(feed,/tidySummary\(/);
+});

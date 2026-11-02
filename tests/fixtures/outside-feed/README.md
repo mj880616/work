@@ -9,3 +9,5 @@ OUTSIDE-바깥성명 ③(`supabase/functions/outside-feed`)의 단체별 목록 
 2026-11-01(OUTSIDE-읽기고침·요약·순서): 실제 글 쪽 모양에 맞춘 표본을 더했다(글자는 모두 지어낸 것) — `socialism-list-2026-11.html`·`socialism-article.html`(메뉴·옆 칸 링크, 첫 `<article>`이 공유 단추 칸), `kptu-list-2026-11.html`·`kptu-article.html`·`kptu-article-image-only.html`(ASP.NET form 안 `publishList_write`, 첨부 이름·수정·삭제 줄), `jinboparty-article.html`(머리 칸 + `content_box`), `jacobin-article.html`(겹친 `<article>` + `po-bo__content` 여러 칸).
 
 2026-11-01(OUTSIDE-막힌단체, 노동당·노동자연대·사회주의자): 사회주의자는 사이트 피드 대신 공개 텔레그램 채널 웹 미리보기를 읽으므로 `socialist.xml`을 빼고 `socialist-telegram.html`(t.me/s/<채널> 칸 모양만 맞춘 지어낸 글: 사이트 글 주소가 든 글·사진뿐인 글·다른 채널 글·공지 글)을 더했다.
+
+2026-11-02(OUTSIDE-노동묶음·정돈 1단계): 제목·게시 날짜 표본을 더했다(글자는 모두 지어낸 것) — `laborparty-list-2026-11.html`(링크 하나에 제목·부제·본문 앞부분이 함께 든 목록, 같은 줄 날짜 칸, 한 줄짜리 '제목 - 부제 - 본문' 링크), `laborparty-article.html`(og:title에 ' – 노동당' 꼬리, 작성일·조회·첨부·공유 덧줄), `kgreens-list-2026-11.html`(줄마다 날짜 칸, 옛 선거 때 글, 날짜 없는 글), `article-nodate.html`(글 쪽에도 날짜 없음 → '날짜 모름'). `kctu.html` 줄 날짜는 글 쪽 날짜와 같게 2026.10.30으로 맞췄다(목록 줄 날짜를 먼저 읽게 되어서).

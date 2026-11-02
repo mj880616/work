@@ -21,8 +21,8 @@ test('real outside-feed graph checks/bundles with functions-only sources',{timeo
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  // 카탈로그(_shared/outside-catalog.ts)와 기존 AI 공용 모듈만 쓴다(새 AI 경로·바깥 라이브러리 없음).
-  assert.deepEqual(local.sort(),['_shared/ai-model.ts','_shared/bounded-json.mjs','_shared/openai-responses.ts','_shared/outside-catalog.ts','_shared/web-cors.ts','outside-feed/handler.ts','outside-feed/index.ts','outside-feed/parse.ts']);
+  // 카탈로그(_shared/outside-catalog.ts)·정돈 함수(_shared/outside-tidy.ts, 순수 함수)와 기존 AI 공용 모듈만 쓴다(새 AI 경로·바깥 라이브러리 없음).
+  assert.deepEqual(local.sort(),['_shared/ai-model.ts','_shared/bounded-json.mjs','_shared/openai-responses.ts','_shared/outside-catalog.ts','_shared/outside-tidy.ts','_shared/web-cors.ts','outside-feed/handler.ts','outside-feed/index.ts','outside-feed/parse.ts']);
   assert.ok(graph.modules.every(m=>m.specifier.startsWith('file:')),'no remote or npm imports');
   run(['check','--no-config',entry]);const bundle=join(isolated,'outside-feed.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}

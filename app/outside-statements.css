@@ -28,7 +28,8 @@
 #appView #outsideView .os-time{ font-variant-numeric:tabular-nums; }
 #appView #outsideView .os-new{ display:inline-grid; place-items:center; height:16px; padding:0 4px; font-size:11px; line-height:1; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-radius:var(--ds-radius-control,6px); }
 #appView #outsideView .os-new + .os-src::before{ content:none; }
-#appView #outsideView .os-title{ margin:0; font-size:14px; line-height:1.45; font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); overflow-wrap:anywhere; }
+/* 제목은 최대 두 줄, 넘치면 …(11/02 00:17). 한 문장 요약(.os-lead)은 늘 보인다. */
+#appView #outsideView .os-title{ margin:0; font-size:14px; line-height:1.45; font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; overflow:hidden; }
 #appView #outsideView .os-lead{ margin:0; font-size:13px; line-height:1.5; color:var(--kptu-ink); opacity:.86; overflow-wrap:anywhere; }
 #appView #outsideView .os-foot{ display:flex; flex-wrap:wrap; align-items:flex-start; gap:0 12px; min-width:0; font-size:var(--ds-text-meta,12px); }
 #appView #outsideView .os-fold{ flex:1 1 100%; order:2; min-width:0; }

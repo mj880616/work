@@ -5,8 +5,8 @@ import {readFileSync} from 'node:fs';
 
 // OUTSIDE-바깥성명 ④ 화면 1(docs/design/outside-statements.md 2·4절): 화면 계산 규칙.
 const CATALOG = normalizeCatalog({ok: true, sources: [
-  {key: 'kctu', name: '민주노총', group: 'kctu', lang: 'ko'},
-  {key: 'kptu', name: '공공운수노조', group: 'kptu', lang: 'ko'},
+  {key: 'kctu', name: '민주노총', group: 'labor', lang: 'ko'},
+  {key: 'kptu', name: '공공운수노조', group: 'kptu', lang: 'ko'}, // 옛 서버 카탈로그 묶음 이름도 [노동]으로
   {key: 'laborparty', name: '노동당', group: 'party', lang: 'ko'},
   {key: 'kgreens', name: '녹색당', group: 'party', lang: 'ko'},
   {key: 'jacobin', name: 'Jacobin', group: 'foreign', lang: 'en'},
@@ -17,18 +17,22 @@ const NOW = Date.parse('2026-10-31T03:00:00Z'); // 서울 10. 31. 12:00
 test('카탈로그는 모양이 맞는 단체만 받는다', () => {
   assert.deepEqual(CATALOG.map(s => s.key), ['kctu', 'kptu', 'laborparty', 'kgreens', 'jacobin']);
   assert.deepEqual(normalizeCatalog(null), []);
+  assert.deepEqual(CATALOG.filter(s => s.group === 'labor').map(s => s.key), ['kctu', 'kptu'], '민주노총·공공운수노조는 [노동] 묶음(11/02 00:19)');
 });
 
 test('칩 줄: 첫 줄은 전체 + 켠 단체가 있는 묶음만, 단체 낱개는 묶음을 고르면 둘째 줄에(둘 이상 켜진 묶음만)', () => {
   const on = enabledKeys([{source_key: 'kctu', enabled: true}, {source_key: 'laborparty', enabled: true}, {source_key: 'kgreens', enabled: true}, {source_key: 'jacobin', enabled: false}]);
   const chips = chipsOf(CATALOG, on);
-  assert.deepEqual(chips.map(c => c.label), ['전체', '민주노총', '정당'], '첫 줄에 단체 낱개가 섞이지 않음');
+  assert.deepEqual(chips.map(c => c.label), ['전체', '노동', '정당'], '첫 줄에 단체 낱개가 섞이지 않음');
   assert.deepEqual(subChipsOf(CATALOG, on, ALL), [], '묶음을 안 고르면 둘째 줄 없음');
-  assert.deepEqual(subChipsOf(CATALOG, on, 'g:kctu'), [], '단체가 하나뿐인 묶음은 둘째 줄 없음');
+  assert.deepEqual(subChipsOf(CATALOG, on, 'g:labor'), [], '단체가 하나뿐인 묶음은 둘째 줄 없음');
+  const both = [...on, 'kptu'];
+  assert.deepEqual(subChipsOf(CATALOG, both, 'g:labor').map(c => [c.id, c.label]), [['s:kctu', '민주노총'], ['s:kptu', '공공운수노조']], '[노동] 안 단체 칩');
+  assert.deepEqual(chipsOf(CATALOG, both).map(c => c.label), ['전체', '노동', '정당']);
   assert.deepEqual(subChipsOf(CATALOG, on, 'g:party').map(c => [c.id, c.label]), [['s:laborparty', '노동당'], ['s:kgreens', '녹색당']]);
   assert.deepEqual(subChipsOf(CATALOG, on, 's:kgreens').map(c => c.id), ['s:laborparty', 's:kgreens'], '단체를 골라도 둘째 줄 유지');
   assert.equal(chipPressed('g:party', 's:kgreens', CATALOG), true, '단체를 고르면 그 묶음 칩도 눌린 모양');
-  assert.equal(chipPressed('g:kctu', 's:kgreens', CATALOG), false);
+  assert.equal(chipPressed('g:labor', 's:kgreens', CATALOG), false);
   assert.equal(chipPressed('s:kgreens', 's:kgreens', CATALOG), true);
   assert.equal(keepChip('s:kgreens', [...chips, ...subChipsOf(CATALOG, on, 's:kgreens')]), 's:kgreens');
   assert.equal(keysOf(ALL, CATALOG, on), null);
@@ -38,14 +42,19 @@ test('칩 줄: 첫 줄은 전체 + 켠 단체가 있는 묶음만, 단체 낱개
   assert.deepEqual(chipsOf(CATALOG, []).map(c => c.id), [ALL]);
 });
 
-test('날짜 묶음: 오늘·어제·그 밖 날짜, 서버 순서 유지', () => {
+test('날짜 묶음: 오늘·어제·그 밖 날짜, 서버 순서 유지, 게시 시각 모르는 글은 받은 시각이 아니라 \'날짜 모름\'(11/02 00:17)', () => {
   const posts = [
     {id: 'a', published_at: '2026-10-31T01:00:00Z'},
-    {id: 'b', published_at: null, fetched_at: '2026-10-30T14:00:00Z'},
+    {id: 'b', published_at: '2026-10-30T14:00:00Z'},
     {id: 'c', published_at: '2026-10-29T05:00:00Z'},
     {id: 'd', published_at: '2025-12-29T05:00:00Z'},
+    {id: 'e', published_at: null, fetched_at: '2026-10-31T02:23:00Z'},
+    {id: 'f', published_at: null, fetched_at: '2026-10-31T02:23:00Z'},
   ];
-  assert.deepEqual(groupPosts(posts, NOW).map(g => [g.label, g.items.map(p => p.id).join('')]), [['오늘', 'a'], ['어제', 'b'], ['10. 29. (목)', 'c'], ['2025. 12. 29. (월)', 'd']]);
+  assert.deepEqual(groupPosts(posts, NOW).map(g => [g.label, g.items.map(p => p.id).join('')]), [['오늘', 'a'], ['어제', 'b'], ['10. 29. (목)', 'c'], ['2025. 12. 29. (월)', 'd'], ['날짜 모름', 'ef']]);
+  const unknown = postView({lang: 'ko', kind: 'comment', title: 't', published_at: null, fetched_at: '2026-10-31T13:23:00Z'}, NOW);
+  assert.equal(unknown.time, '날짜 모름', '읽은 시각(22:23)을 게시 시각처럼 보이지 않음');
+  assert.equal(postView({lang: 'ko', title: 't', published_at: '2026-10-29T15:00:00.000Z'}, NOW).time, '', '날짜만 아는 글은 시각 칸 비움(00:00이라고 쓰지 않음)');
 });
 
 test('글 모양: 국내는 본문 펼치기, 외국은 요약·핵심 문장, 2년 지난 글은 제목·요약만', () => {
