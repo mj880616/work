@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>폰 하단·메뉴 판·쓰기 창 시안</title>
+<style>
+/* Web2 기본 테마(olive) 변수 이름·값을 그대로 씀 (app/theme-tokens.css). 글자는 모두 가짜. */
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+  --kptu-danger:#9a4048;
+  --ds-line:var(--kptu-border-strong);--ds-radius-control:8px;--ds-radius-box:12px;
+  --sel:#e7e5dc;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+  --kptu-danger:#e3a59c;--sel:#3a3933;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+h2{font-size:13px;font-weight:500;margin:0 0 4px;color:var(--kptu-primary-ink)}
+.lead{font-size:12px;color:var(--kptu-faint);margin:0 0 14px;max-width:860px}
+.section{margin-bottom:30px}
+.cap{font-size:12px;color:var(--kptu-muted);margin:0 0 8px;max-width:860px}
+.row{display:flex;gap:16px;align-items:flex-start;overflow-x:auto;padding-bottom:6px}
+.frame{flex:none}.frame>.w{font-size:11px;color:var(--kptu-faint);margin:0 0 3px;max-width:300px}
+.rec{color:var(--kptu-primary-ink);font-weight:600}
+.phone{position:relative;width:300px;height:620px;background:var(--kptu-bg);border:.5px solid var(--ds-line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;font-size:12px}
+.body{flex:1;min-height:0;overflow:hidden;padding:8px 10px;position:relative}
+.tabs{flex:none;height:44px;display:grid;grid-template-columns:repeat(6,1fr);border-top:.5px solid var(--ds-line);background:var(--kptu-bg);font-size:9px;color:var(--kptu-muted)}
+.tabs span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.tabs i{display:block;width:16px;height:16px;border:1.4px solid currentColor;border-radius:4px;opacity:.7}
+.tabs .on{color:var(--kptu-primary-ink);font-weight:700}
+.tabs .plus i{border-radius:50%;background:var(--kptu-primary);border-color:var(--kptu-primary);position:relative;opacity:1}
+.tabs .plus i::after{content:"+";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:13px;line-height:1;font-style:normal}
+.h{font-size:12px;color:var(--kptu-muted);margin:0 0 6px;display:flex;justify-content:space-between}
+.item{background:var(--kptu-surface);border-bottom:.5px solid var(--kptu-border);padding:6px 8px;font-size:12px}
+.item small{display:block;color:var(--kptu-faint);font-size:11px}
+.measure{position:absolute;left:4px;font-size:10px;color:var(--kptu-danger);background:var(--kptu-surface);border:.5px solid var(--kptu-danger);border-radius:4px;padding:0 4px;z-index:5}
+.seg{display:inline-flex;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);overflow:hidden;font-size:11px}
+.seg span{padding:3px 8px;background:var(--kptu-surface);color:var(--kptu-muted)}.seg span.on{background:var(--sel);color:var(--kptu-ink)}
+/* 빠른 입력 */
+.qnow{flex:none;background:var(--kptu-surface);border-top:.5px solid var(--ds-line);padding:6px 8px;display:grid;gap:5px;height:72px}
+.qin{display:flex;gap:6px;align-items:center}
+.qin .f{flex:1;height:34px;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);padding:0 8px;display:flex;align-items:center;color:var(--kptu-faint);background:var(--kptu-surface)}
+.qin .add{height:34px;padding:0 12px;border-radius:var(--ds-radius-control);background:var(--kptu-primary);color:#fff;display:flex;align-items:center}
+.qa{flex:none;height:40px;background:var(--kptu-bg);padding:4px 8px;display:flex;align-items:center;gap:6px;border-top:.5px solid var(--kptu-border)}
+.qa .f{flex:1;height:32px;border:.5px solid var(--ds-line);border-radius:16px;padding:0 10px;display:flex;align-items:center;gap:6px;color:var(--kptu-faint);background:var(--kptu-surface)}
+.qa .mode{color:var(--kptu-primary-ink);font-size:11px;flex:none}
+.qa .ex{color:var(--kptu-muted);font-size:13px;width:28px;text-align:center}
+.sheet{position:absolute;left:0;right:0;bottom:44px;background:var(--kptu-surface);border-top:.5px solid var(--ds-line);border-radius:12px 12px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,.08);padding:6px 10px 10px;z-index:4}
+.grab{width:32px;height:4px;border-radius:2px;background:var(--kptu-border-strong);margin:0 auto 8px}
+.dim{position:absolute;inset:0 0 44px 0;background:rgba(0,0,0,.18);z-index:3}
+/* 메뉴 판 */
+.mp{position:absolute;left:0;right:0;bottom:44px;top:40px;background:var(--kptu-surface);border-top:.5px solid var(--ds-line);border-radius:12px 12px 0 0;z-index:4;overflow:hidden;padding:4px 10px 8px;display:flex;flex-direction:column}
+.search{height:32px;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);display:flex;align-items:center;padding:0 10px;color:var(--kptu-faint);gap:6px;flex:none}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tiles span{height:56px;border:.5px solid var(--ds-line);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px}
+.tiles i{width:18px;height:18px;border:1.4px solid var(--kptu-muted);border-radius:4px}
+.acct{border:.5px solid var(--ds-line);border-radius:12px;overflow:hidden}
+.acct div{height:36px;display:flex;align-items:center;padding:0 10px;border-top:.5px solid var(--ds-line)}.acct div:first-child{border-top:0}
+.mlist{display:grid;grid-template-columns:1fr 1fr;column-gap:10px}
+.mlist span{height:36px;display:flex;align-items:center;gap:8px;border-bottom:.5px solid var(--kptu-border);font-size:13px}
+.mlist i{width:16px;height:16px;border:1.3px solid var(--kptu-muted);border-radius:4px;flex:none}
+.mlist .cur{color:var(--kptu-primary-ink);font-weight:600}
+.line{border-top:.5px solid var(--ds-line);margin:6px 0}
+.afoot{margin-top:auto;display:flex;align-items:center;gap:4px;height:36px;border-top:.5px solid var(--ds-line);font-size:12px;color:var(--kptu-muted)}
+.afoot b{font-weight:500;color:var(--kptu-ink);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.afoot u{text-decoration:none;padding:0 6px}.afoot .out{color:var(--kptu-danger)}
+.cut{position:absolute;left:0;right:0;top:40px;height:16px;background:linear-gradient(var(--kptu-bg),transparent);z-index:5}
+/* 쓰기 창 */
+.ed{position:absolute;inset:0;background:var(--kptu-surface);z-index:6;display:flex;flex-direction:column}
+.ed .eh{height:40px;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:.5px solid var(--kptu-border)}
+.ed .eh b{flex:1;font-weight:500}
+.ed .eb{flex:1;padding:10px;color:var(--kptu-ink);line-height:1.6}
+.ed .tool{height:36px;display:flex;justify-content:space-between;align-items:center;padding:0 10px;border-top:.5px solid var(--kptu-border);color:var(--kptu-muted);font-size:12px}
+.ed .save{height:44px;display:flex;align-items:center;gap:8px;padding:0 10px;border-top:.5px solid var(--kptu-border)}
+.ed .save .sp{flex:1}
+.btn{height:32px;padding:0 12px;border-radius:var(--ds-radius-control);display:inline-flex;align-items:center;border:.5px solid var(--ds-line);background:var(--kptu-surface)}
+.btn.p{background:var(--kptu-primary);border-color:var(--kptu-primary);color:#fff}
+/* 달력 + */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);background:var(--kptu-surface)}
+.cal span{min-height:52px;border-right:.5px solid var(--kptu-border);border-bottom:.5px solid var(--kptu-border);font-size:10px;padding:2px}
+.dock{flex:none;height:40px;display:flex;align-items:center;justify-content:center;position:relative;background:var(--kptu-bg)}
+.fab{position:absolute;width:36px;height:36px;border-radius:50%;background:var(--kptu-primary);color:#fff;display:grid;place-items:center;font-size:20px;box-shadow:0 1px 4px rgba(0,0,0,.18);z-index:2}
+.small-plus{position:absolute;right:10px;top:4px;width:32px;height:32px;border-radius:var(--ds-radius-control);border:.5px solid var(--ds-line);background:var(--kptu-surface);display:grid;place-items:center;font-size:17px;color:var(--kptu-primary-ink)}
+/* ⋯ */
+.lrow{display:grid;grid-template-columns:1fr auto;align-items:center;background:var(--kptu-surface);border-bottom:.5px solid var(--kptu-border);padding:4px 4px 4px 10px;position:relative}
+.lrow small{display:block;color:var(--kptu-faint);font-size:11px}
+.dots{position:relative;width:32px;height:32px;display:grid;place-items:center;color:var(--kptu-muted);font-size:16px}
+.dots.s22{height:22px}
+.dots::after{content:"";position:absolute;inset:-6px;border:1.2px dashed var(--kptu-danger);border-radius:4px}
+.dots.s22::after{inset:-11px -6px}
+.tbl{border-collapse:collapse;font-size:12px;margin-top:6px;max-width:860px}
+.tbl th,.tbl td{border:.5px solid var(--ds-line);padding:4px 8px;text-align:left;vertical-align:top}
+.tbl th{font-weight:500;color:var(--kptu-muted);background:var(--kptu-surface-subtle)}
+</style>
+</head>
+<body>
+<h1>폰 하단·메뉴 판·쓰기 창 시안 · UI-폰하단고정 · UI-메뉴판쓰기창</h1>
+<p class="lead">폰 화면을 300px 폭으로 줄여 그렸다(실제 412px, 비율 같음). 색은 Web2 기본 테마, 글자는 모두 가짜. 빨간 상자는 높이 실측값.</p>
+
+<!-- 1. 하단 고정 -->
+<div class="section">
+<h2>1. 홈 아래쪽 고정 줄 — 빠른 입력 + 하단바</h2>
+<p class="cap">지금은 빠른 입력(93px)과 하단바(56px)가 늘 붙어 있어 412×915 화면의 약 21%를 차지한다.</p>
+<div class="row">
+ <div class="frame"><p class="w">지금</p><div class="phone">
+  <div class="body"><p class="h">업무일지 · 11월 1일 <span>‹ ›</span></p>
+   <div class="item">주간 회의 준비<small>10:00 · 회의</small></div><div class="item">현장 방문 결과 정리<small>업데이트</small></div><div class="item">교육 자료 초안<small>노트</small></div><div class="item">대표자 회의 안건<small>할 일 · 오늘</small></div>
+  </div>
+  <div class="qnow"><div><span class="seg"><span class="on">바구니</span><span>할 일</span><span>업데이트 ▾</span></span></div><div class="qin"><span class="f">바구니에 넣기</span><span class="add">추가</span></div></div>
+  <span class="measure" style="bottom:46px">93px + 56px ≈ 21%</span>
+  <div class="tabs"><span class="on"><i></i>홈</span><span><i></i>바구니</span><span><i></i>일정</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span><i></i>메뉴</span></div>
+ </div></div>
+
+ <div class="frame"><p class="w"><b class="rec">안 A (추천)</b> 빠른 입력을 한 줄(40px)로 접기. 종류는 칸 안 왼쪽 작은 글자 [바구니 ▾], 누르면 고르기 시트. 칸을 누르면 지금처럼 펼쳐짐.</p><div class="phone">
+  <div class="body"><p class="h">업무일지 · 11월 1일 <span>‹ ›</span></p>
+   <div class="item">주간 회의 준비<small>10:00 · 회의</small></div><div class="item">현장 방문 결과 정리<small>업데이트</small></div><div class="item">교육 자료 초안<small>노트</small></div><div class="item">대표자 회의 안건<small>할 일 · 오늘</small></div><div class="item">회계 점검 메모<small>바구니</small></div>
+  </div>
+  <div class="qa"><span class="f"><span class="mode">바구니 ▾</span>한 줄 넣기</span><span class="ex">⤢</span></div>
+  <span class="measure" style="bottom:46px">40px + 44px ≈ 13%</span>
+  <div class="tabs"><span class="on"><i></i>홈</span><span><i></i>바구니</span><span><i></i>일정</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span><i></i>메뉴</span></div>
+ </div></div>
+
+ <div class="frame"><p class="w">안 B — 빠른 입력을 없애고 하단바 가운데 [+]. 누르면 아래에서 입력 시트가 올라옴(모든 화면 공통). 칸이 6개 → 7개라 한 칸이 좁아짐.</p><div class="phone">
+  <div class="body"><p class="h">업무일지 · 11월 1일 <span>‹ ›</span></p>
+   <div class="item">주간 회의 준비<small>10:00 · 회의</small></div><div class="item">현장 방문 결과 정리<small>업데이트</small></div><div class="item">교육 자료 초안<small>노트</small></div><div class="item">대표자 회의 안건<small>할 일 · 오늘</small></div>
+  </div>
+  <div class="dim"></div>
+  <div class="sheet"><div class="grab"></div><div style="margin-bottom:6px"><span class="seg"><span class="on">바구니</span><span>할 일</span><span>업데이트 ▾</span></span></div><div class="qin"><span class="f">바구니에 넣기</span><span class="add">추가</span></div></div>
+  <div class="tabs" style="grid-template-columns:repeat(7,1fr)"><span class="on"><i></i>홈</span><span><i></i>바구니</span><span><i></i>일정</span><span class="plus"><i></i>추가</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span><i></i>메뉴</span></div>
+ </div></div>
+</div>
+<p class="cap">두 안 모두 하단바 높이를 56px → 44px(그림 22px·글자 10px 유지, 위아래 여백만 줄임)로 함께 낮추는 것을 제안. 누르는 범위 44px은 지킴.</p>
+</div>
+
+<!-- 2. 메뉴 판 -->
+<div class="section">
+<h2>2. 메뉴 판</h2>
+<div class="row">
+ <div class="frame"><p class="w">지금 — 판이 화면보다 길어 맨 아래로 스크롤된 채 열림: 검색칸이 반쯤 잘리고, 계정·로그아웃이 메뉴보다 위, 메뉴는 큰 칸(56px) 3열.</p><div class="phone">
+  <div class="body"></div>
+  <div class="dim" style="background:rgba(0,0,0,.25)"></div>
+  <div class="mp" style="top:20px;padding-top:0">
+   <div class="search" style="margin-top:-18px">🔍 전체 검색</div>
+   <p style="font-size:11px;color:var(--kptu-faint);margin:6px 2px">마지막 수집 00:07</p>
+   <p style="margin:4px 2px;color:var(--kptu-primary-ink)">계정</p>
+   <div class="acct"><div>내 프로필</div><div>화면 색</div><div style="color:var(--kptu-danger)">로그아웃</div></div>
+   <div class="tiles" style="margin-top:10px"><span><i></i>노트</span><span><i></i>사업 보고</span><span><i></i>자료실</span><span><i></i>HWP 편집</span><span><i></i>공유 페이지</span><span><i></i>원장</span><span><i></i>회의</span><span><i></i>통화</span><span><i></i>텔레그램</span></div>
+  </div>
+  <div class="cut" style="top:20px"></div>
+  <span class="measure" style="top:22px;left:auto;right:4px">검색칸 반쯤 잘림</span>
+  <div class="tabs"><span><i></i>홈</span><span><i></i>바구니</span><span><i></i>일정</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span class="on"><i></i>메뉴</span></div>
+ </div></div>
+
+ <div class="frame"><p class="w"><b class="rec">제안</b> — 판 높이를 내용만큼(화면을 넘지 않음), 위에서부터 손잡이 → 검색 → 메뉴 줄 목록(2열, 줄 36px) → 선 아래 붙는 메뉴 → 맨 아래 계정 한 줄(이름 · 화면 색 · 로그아웃).</p><div class="phone">
+  <div class="body"></div>
+  <div class="dim" style="background:rgba(0,0,0,.25)"></div>
+  <div class="mp" style="top:auto;height:330px">
+   <div class="grab"></div>
+   <div class="search">🔍 전체 검색</div>
+   <div class="mlist" style="margin-top:4px"><span><i></i>노트</span><span><i></i>회의</span><span class="cur"><i></i>사업 보고</span><span><i></i>자료실</span><span><i></i>HWP 편집</span><span><i></i>공유 페이지</span><span><i></i>원장</span><span></span></div>
+   <div class="line"></div>
+   <div class="mlist"><span><i></i>통화</span><span><i></i>텔레그램</span></div>
+   <div class="afoot"><b>내 프로필</b><u>화면 색</u><u>메뉴 편집</u><u class="out">로그아웃</u></div>
+   <p style="margin:2px 0 0;font-size:11px;color:var(--kptu-faint)">마지막 수집 00:07</p>
+  </div>
+  <div class="tabs"><span><i></i>홈</span><span><i></i>바구니</span><span><i></i>일정</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span class="on"><i></i>메뉴</span></div>
+ </div></div>
+</div>
+<p class="cap">메뉴 항목 이름·순서는 [메뉴 편집]에서 정한 그대로(menu-model.mjs) 쓰고, 모양만 바뀐다. 줄을 누르는 범위는 44px(보이는 줄 36px + 위아래 여유).</p>
+</div>
+
+<!-- 3. 쓰기 창 -->
+<div class="section">
+<h2>3. 폰 쓰기 창</h2>
+<div class="row">
+ <div class="frame"><p class="w">지금 — 창이 하단바 위에서 끝나 하단바가 계속 보임(56px 줄어듦). 잘못 누르면 다른 화면으로 감(글이 있으면 "저장 안 하고 닫을까요?").</p><div class="phone">
+  <div class="body" style="padding:0"><div class="ed" style="bottom:44px;position:absolute;inset:0 0 44px 0">
+   <div class="eh"><span>✕</span><b>업데이트</b><span class="btn">조직 ▾</span></div>
+   <div class="eb">현장 방문 결과<br>· 참석 12명<br>· 다음 일정 확인</div>
+   <div class="tool"><span>B</span><span>• 목록</span><span>1. 번호</span><span>링크</span><span>첨부</span></div>
+   <div class="save"><span class="sp"></span><span class="btn p">저장</span></div>
+  </div></div>
+  <span class="measure" style="bottom:46px">하단바 계속 보임</span>
+  <div class="tabs"><span class="on"><i></i>홈</span><span><i></i>바구니</span><span><i></i>일정</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span><i></i>메뉴</span></div>
+ </div></div>
+
+ <div class="frame"><p class="w"><b class="rec">제안</b> — 쓰기 창이 열리면 하단바를 숨기고 창이 화면 끝까지. 나가기는 왼쪽 위 ✕와 뒤로 가기(지금과 같음).</p><div class="phone">
+  <div class="ed">
+   <div class="eh"><span>✕</span><b>업데이트</b><span class="btn">조직 ▾</span></div>
+   <div class="eb">현장 방문 결과<br>· 참석 12명<br>· 다음 일정 확인</div>
+   <div class="tool"><span>B</span><span>• 목록</span><span>1. 번호</span><span>링크</span><span>첨부</span></div>
+   <div class="save"><span class="sp"></span><span class="btn p">저장</span></div>
+  </div>
+ </div></div>
+</div>
+</div>
+
+<!-- 4. 달력 + -->
+<div class="section">
+<h2>4. 달력 [+] 단추 자리</h2>
+<div class="row">
+ <div class="frame"><p class="w">지금 — 떠 있는 동그란 [+]가 마지막 주 오른쪽 칸 일부를 가림.</p><div class="phone" style="height:400px">
+  <div class="body" style="padding:0"><div class="cal"></div></div>
+  <div class="fab" style="right:12px;bottom:92px;outline:2px dashed var(--kptu-danger);outline-offset:3px">+</div>
+  <div class="dock"><span class="seg"><span class="on">달력</span><span>할 일</span></span></div>
+  <div class="tabs"><span><i></i>홈</span><span><i></i>바구니</span><span class="on"><i></i>일정</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span><i></i>메뉴</span></div>
+ </div></div>
+ <div class="frame"><p class="w"><b class="rec">안 a (추천)</b> — 달력·할 일 화면에서는 [+]를 이미 있는 [달력|할 일] 줄 오른쪽 끝 작은 단추(32px)로. 칸을 가리지 않고 높이도 늘지 않음.</p><div class="phone" style="height:400px">
+  <div class="body" style="padding:0"><div class="cal"></div></div>
+  <div class="dock"><span class="seg"><span class="on">달력</span><span>할 일</span></span><span class="small-plus">+</span></div>
+  <div class="tabs"><span><i></i>홈</span><span><i></i>바구니</span><span class="on"><i></i>일정</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span><i></i>메뉴</span></div>
+ </div></div>
+ <div class="frame"><p class="w">안 b — 동그란 [+]는 그대로 두고, 달력 높이를 [+] 높이만큼 줄여 마지막 주 아래에 빈 띠를 둠.</p><div class="phone" style="height:400px">
+  <div class="body" style="padding:0"><div class="cal" style="grid-auto-rows:52px"></div><div style="height:46px"></div></div>
+  <div class="fab" style="right:12px;bottom:92px">+</div>
+  <div class="dock"><span class="seg"><span class="on">달력</span><span>할 일</span></span></div>
+  <div class="tabs"><span><i></i>홈</span><span><i></i>바구니</span><span class="on"><i></i>일정</span><span><i></i>프로젝트</span><span><i></i>담당조직</span><span><i></i>메뉴</span></div>
+ </div></div>
+</div>
+</div>
+
+<!-- 5. ⋯ -->
+<div class="section">
+<h2>5. 자료실 줄 끝 ⋯ 누르는 칸</h2>
+<p class="cap">코드 확인 결과: 폰은 ⋯가 보이는 크기 32px, PC(761px~)만 22px. 둘 다 누르는 범위 44px을 공용 규칙(::after)이 이미 지킴(점선이 누르는 범위). 바꿀 것 없음 — 확인만.</p>
+<div class="row">
+ <div class="frame"><p class="w">폰 (32px, 누름 44px)</p><div style="width:300px">
+  <div class="lrow"><span>2026 교육 계획안.hwp<small>양식 · 교육 · 10.30</small></span><span class="dots">⋯</span></div>
+  <div class="lrow"><span>현장 방문 사진 정리<small>사진 · 10.28</small></span><span class="dots">⋯</span></div>
+ </div></div>
+ <div class="frame"><p class="w">PC (22px, 누름 44px)</p><div style="width:420px">
+  <div class="lrow" style="padding:2px 4px 2px 10px"><span>2026 교육 계획안.hwp <small style="display:inline;margin-left:8px">양식 · 10.30</small></span><span class="dots s22">⋯</span></div>
+ </div></div>
+</div>
+</div>
+
+<div class="section">
+<h2>정리</h2>
+<table class="tbl">
+<tr><th>항목</th><th>추천</th><th>다른 안</th></tr>
+<tr><td>홈 아래 고정</td><td>A: 빠른 입력 한 줄(40px) + 하단바 44px → 약 21% → 13%</td><td>B: 하단바 가운데 [+] → 입력 시트</td></tr>
+<tr><td>메뉴 판</td><td>검색 → 줄 목록(2열 36px) → 선 아래 메뉴 → 계정 한 줄 맨 아래, 판 높이는 내용만큼</td><td>—</td></tr>
+<tr><td>쓰기 창</td><td>열리면 하단바 숨김</td><td>—</td></tr>
+<tr><td>달력 [+]</td><td>a: [달력|할 일] 줄 오른쪽 작은 [+]</td><td>b: 달력 아래 빈 띠</td></tr>
+<tr><td>자료실 ⋯</td><td>바꿀 것 없음(이미 44px)</td><td>—</td></tr>
+</table>
+</div>
+<script>
+// 달력 칸(35칸) 채우기 — 가짜 날짜만
+document.querySelectorAll('.cal').forEach(g=>{let h='';for(let i=1;i<=35;i++)h+=`<span>${i<=30?i:i-30}</span>`;g.innerHTML=h;});
+</script>
+</body>
+</html>
