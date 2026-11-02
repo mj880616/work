@@ -4,11 +4,14 @@
 // ② [초안 만들기] → 서버 ai-assist kind=press_draft(고른 ID만 보냄, 근거 글은 서버가 다시 읽음) → 미리보기만(저장 안 됨).
 // ③ [노트로 저장] → 노트 한 건(app_notes kind=note, ai_export_allowed=false: AI 재료에서 뺌, 결정 4-④). '성명 초안' 폴더가 있으면 그 폴더에
 //    (자동으로 만들지 않음), 근거 사업 보고와는 기존 연결(app_record_links note_id + meeting_id)로 잇는다. 그 뒤 노트 편집기로 연다.
+// S48-18 바깥 문장: 사회운동 Now [문장 찾기]에서 [초안에 쓰기]로 고른 문장(press-quotes.mjs, 이 탭 메모리만, 최대 5개)이 있으면
+//    고르기 칸에 접힌 칸 '바깥 문장'으로 보이고(기본 모두 체크), 요청에는 글 id + 문장 번호만 간다. 노트로 저장하면 고른 문장 목록은 비운다.
 // 닫으면 아무것도 남지 않는다. 공개·발송·사실 확인은 명진이 직접. 기기 저장 없음(이 창 메모리만).
 // PC(761px~)는 근거(왼쪽)·미리보기(오른쪽) 한 창, 폰은 고르기 → 미리보기 한 칸씩(뒤로 한 번 = 고르기, 한 번 더 = 닫기).
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {pickFoldHtml, readPickState, bindPickFold} from './pick-fold.mjs'; // UI-고른것접기: 근거 고르기 = 고른 것 + 접힌 '최근 사업 보고'(맨 위 찾기·초성)
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
+import {pressQuotes, clearPressQuotes} from './press-quotes.mjs';
 import {PRESS_TYPES, PRESS_MAX_PICK, PRESS_DIRECTION_MAX, PRESS_FOLDER_NAME, typeLabel, shortDay, pressRequest, parsePressAnswer, pressNote, meetingPickLine} from './press-draft-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -19,7 +22,7 @@ export const PRESS_TEXT = Object.freeze({
   ...AI_SUMMARY_TEXT,
   not_ready:'성명·보도자료 초안은 아직 준비 중이에요.',
   invalid_request:'성명·보도자료 초안은 아직 준비 중이에요.',
-  not_found:'고른 사업 보고를 찾지 못했어요. 목록을 다시 확인해 주세요.',
+  not_found:'고른 근거(사업 보고·바깥 문장)를 찾지 못했어요. 목록을 다시 확인해 주세요.',
   press_no_source:'고른 기록에 초안에 쓸 글이 없어요.',
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요.',
   monthly_limit:'이번 달 AI 한도에 닿았어요.',
@@ -59,10 +62,14 @@ async function loadMeetings(preselect) {
   return list.map(m => meetingPickLine(m, kind)).filter(m => m.id);
 }
 
-export async function openPressDraft({trigger = null, preselect = ''} = {}) {
+const quoteKey = q => `${q.post_id} ${q.idx}`;
+const chosenQuotes = s => s.quotes.filter(q => s.quotePicked.has(quoteKey(q)));
+export async function openPressDraft({trigger = null, preselect = '', fromQuotes = false} = {}) {
   ensureStyles(); ensureDialog();
   const pre = String(preselect || '').toLowerCase();
-  state = {trigger, type:'statement', direction:'', picked:pre ? [pre] : [], pick:{open:true, othersOpen:!pre, query:''}, meetings:null, failed:false, busy:false, draft:null, message:'', saving:false, saved:null, step:'pick', run:0, layer:null, stepLayer:null};
+  const quotes = pressQuotes();
+  state = {trigger, type:'statement', direction:'', picked:pre ? [pre] : [], pick:{open:true, othersOpen:!pre && !fromQuotes, query:''},
+    quotes, quotePicked:new Set(quotes.map(quoteKey)), quotesOpen:fromQuotes, meetings:null, failed:false, busy:false, draft:null, message:'', saving:false, saved:null, step:'pick', run:0, layer:null, stepLayer:null};
   paint();
   if (!dialog.open) dialog.showModal();
   state.layer = window.KPTURouter?.layer?.open?.('press-draft', {close:() => { if (state) { state.layer = null; close({fromBack:true}); } return true; }}) || null;
@@ -95,6 +102,8 @@ function showPreview() {
 
 function onChange(e) {
   if (!state) return;
+  const qbox = e.target.closest('[data-pd-quote]');
+  if (qbox) { if (qbox.checked) state.quotePicked.add(qbox.dataset.pdQuote); else state.quotePicked.delete(qbox.dataset.pdQuote); state.message = ''; paint(); return; }
   const box = e.target.closest('[data-pd-pick]'); if (!box) return;
   const id = box.dataset.pdPick;
   if (box.checked) { if (state.picked.length >= PRESS_MAX_PICK) { box.checked = false; state.message = `근거는 ${PRESS_MAX_PICK}건까지 고를 수 있어요.`; paint(); return; } if (!state.picked.includes(id)) state.picked.push(id); }
@@ -116,10 +125,10 @@ async function onClick(e) {
 }
 
 async function make() {
-  if (!state.picked.length || state.busy) return;
+  if ((!state.picked.length && !chosenQuotes(state).length) || state.busy) return;
   const mine = state, run = ++mine.run;
   mine.busy = true; mine.draft = null; mine.saved = null; mine.message = ''; showPreview(); paint();
-  const r = await callAiAssist(pressRequest(mine.type, mine.picked, mine.direction), {timeoutMs:TIMEOUT_MS}, PRESS_TEXT);
+  const r = await callAiAssist(pressRequest(mine.type, mine.picked, mine.direction, chosenQuotes(mine)), {timeoutMs:TIMEOUT_MS}, PRESS_TEXT);
   if (state !== mine || run !== mine.run) return;
   mine.busy = false;
   const draft = r.ok ? parsePressAnswer(r.data) : null;
@@ -149,11 +158,14 @@ async function save() {
     const folder = folders.ready ? folders.folders.find(f => !f.parent_id && f.name === PRESS_FOLDER_NAME) || folders.folders.find(f => f.name === PRESS_FOLDER_NAME) : null;
     if (folder) { await setNoteFolderRef({id:saved.id}, folder, rt()); extra = ` '${PRESS_FOLDER_NAME}' 폴더에 넣었어요.`; }
   } catch { extra = ' 폴더에는 넣지 못했어요.'; }
+  // 기록 연결은 사업 보고 근거만(바깥 문장은 노트 본문 '근거' 목록에 출처로만 남는다 — 연결 표에 바깥 글 칸이 없다).
+  const meetingSources = mine.draft.sources.filter(s => s.meeting_id);
   let linked = 0;
-  for (const s of mine.draft.sources) {
+  for (const s of meetingSources) {
     try { await rt().api('/rest/v1/app_record_links', {method:'POST', body:{workspace_id:ws(), note_id:saved.id, meeting_id:s.meeting_id, status:'confirmed'}}); linked++; } catch { /* the note stays */ }
   }
-  if (linked < mine.draft.sources.length) extra += ' 근거 사업 보고 연결 일부를 못 했어요.';
+  if (linked < meetingSources.length) extra += ' 근거 사업 보고 연결 일부를 못 했어요.';
+  if (mine.draft.sources.some(s => s.post_id)) clearPressQuotes();
   window.dispatchEvent(new Event('kptu:basket-links-changed'));
   if (state !== mine) return;
   mine.saving = false; mine.saved = saved; mine.message = `노트로 저장했어요.${extra}`;
@@ -173,6 +185,13 @@ function pickRow(m) {
   const s = state;
   return `<label class="pd-pick"><input type="checkbox" data-pd-pick="${esc(m.id)}"${s.picked.includes(m.id) ? ' checked' : ''}${s.busy ? ' disabled' : ''}><span class="pd-pick-text"><span class="pd-pick-name">${esc(m.name)}</span><span class="pd-muted">${esc(['사업 보고', m.meta].filter(Boolean).join(' · '))}</span></span></label>`;
 }
+// 바깥 문장(S48-18): 접힌 칸 하나. 줄마다 체크 + 문장 + '단체 · 제목 · 날짜'. 고른 문장이 없으면 칸을 그리지 않는다.
+function quotesHtml() {
+  const s = state;
+  if (!s.quotes.length) return '';
+  const rows = s.quotes.map(q => `<label class="pd-pick pd-quote"><input type="checkbox" data-pd-quote="${esc(quoteKey(q))}"${s.quotePicked.has(quoteKey(q)) ? ' checked' : ''}${s.busy ? ' disabled' : ''}><span class="pd-pick-text"><span class="pd-pick-name">${esc(q.text)}</span><span class="pd-muted">${esc([q.source, q.title, shortDay(q.day)].filter(Boolean).join(' · '))}</span></span></label>`).join('');
+  return `<details class="pd-quotes" data-pd-quotes${s.quotesOpen ? ' open' : ''}><summary>바깥 문장 <span class="pd-muted">${chosenQuotes(s).length}/${s.quotes.length}</span></summary>${rows}</details>`;
+}
 function pickHtml() {
   const s = state;
   const chips = PRESS_TYPES.map(t => `<button type="button" class="pd-chip" data-pd-type="${t.value}" aria-pressed="${s.type === t.value}">${t.label}</button>`).join('');
@@ -186,8 +205,9 @@ function pickHtml() {
 <div class="pd-types" role="group" aria-label="종류">${chips}</div>
 <label class="pd-direction"><span class="a11y-only">한 줄 방향(선택)</span><input type="text" data-pd-direction maxlength="${PRESS_DIRECTION_MAX}" placeholder="한 줄 방향(선택)" value="${esc(s.direction)}"></label>
 <p class="pd-muted pd-count">근거 고르기 (최대 ${PRESS_MAX_PICK}건) · <span data-pd-count>${s.picked.length}</span>건 고름</p>
+${quotesHtml()}
 ${list}
-<div class="pd-bar"><button type="button" class="primary" data-pd-make${!s.picked.length || s.busy ? ' disabled' : ''}${s.busy ? ' aria-busy="true"' : ''}>${s.draft ? '다시 만들기' : '초안 만들기'}</button></div>
+<div class="pd-bar"><button type="button" class="primary" data-pd-make${(!s.picked.length && !chosenQuotes(s).length) || s.busy ? ' disabled' : ''}${s.busy ? ' aria-busy="true"' : ''}>${s.draft ? '다시 만들기' : '초안 만들기'}</button></div>
 </section>`;
 }
 function previewHtml() {
@@ -209,7 +229,8 @@ ${s.saved ? '<div class="pd-bar"><button type="button" data-pd-open-note>노트 
 function paint() {
   if (!dialog || !state) return;
   const s = state, two = wide();
-  const fold = s.painted ? readPickState(dialog).pd : null; if (fold) s.pick = fold; s.painted = true; // 다시 그려도 '최근 사업 보고' 펼침·찾기 글은 이어 간다(고르기 칸이 없던 때는 그대로)
+  const fold = s.painted ? readPickState(dialog).pd : null; if (fold) s.pick = fold; s.painted = true;
+  const qd = dialog.querySelector('[data-pd-quotes]'); if (qd) s.quotesOpen = qd.open; // 바깥 문장 칸 펼침도 이어 간다 // 다시 그려도 '최근 사업 보고' 펼침·찾기 글은 이어 간다(고르기 칸이 없던 때는 그대로)
   const focusKey = dialog.contains(document.activeElement) ? [...(document.activeElement?.attributes || [])].find(a => a.name.startsWith('data-pd-')) : null;
   const panes = two ? pickHtml() + previewHtml() : s.step === 'preview' ? previewHtml() : pickHtml();
   dialog.classList.toggle('pd-two', two);

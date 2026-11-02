@@ -20,13 +20,16 @@ const JWT_OK='synthetic.user.jwt-owner-0001',JWT_STRANGER='synthetic.user.jwt-st
 const FN='https://synthetic.supabase.test/functions/v1/outside-feed';
 
 // 단체 키 → 목록 표본(카탈로그 lists 순서대로).
-const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
+const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
   jinboparty:['jinboparty-comment.html','jinboparty-press.html'],pssp:['pssp.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html'],
   socialism:['socialism.html'],socialist:['socialist-telegram.html'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
 // 단체별 기대: [정규화한 주소, 종류] 순서.
 const EXPECT={
   kctu:[['https://nodong.org/statement/310002','statement'],['https://nodong.org/statement/310000','press']],
   kptu:[['https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=9001','statement'],['https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=9000','press']],
+  kmwu:[['https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=8102','statement'],['https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=8101','press']],
+  kfsu:[['https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/?mod=document&uid=3302','press'],['https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/?mod=document&uid=3301','statement']],
+  hakbi:[['https://www.hakbi.org/board/media_reports/read/1205','statement'],['https://www.hakbi.org/board/media_reports/read/1203','press']],
   laborparty:[['https://laborparty.kr/?mod=document&page_id=13642&uid=5001','comment'],['https://laborparty.kr/?mod=document&page_id=13642&uid=5000','comment']],
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
   jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
@@ -46,7 +49,7 @@ const itemsOf=s=>LISTS[s.key].flatMap((f,i)=>s.mode==='rss'?P.parseFeed(s,FX(f),
 // ---- 카탈로그 ------------------------------------------------------------------------------------------------------
 
 test('catalog = decided sources only (Q1·Q2·Q3·Q4·Q5): no 정의당, no NLR, kptu·leftall·socialist·4 foreign', () => {
-  assert.deepEqual(OUTSIDE_SOURCE_KEYS,['kctu','kptu','laborparty','kgreens','jinboparty','pssp','ws','platformc','leftall','socialism','socialist','jacobin','labornotes','redpepper','socialistworker']);
+  assert.deepEqual(OUTSIDE_SOURCE_KEYS,['kctu','kptu','kmwu','kfsu','hakbi','laborparty','kgreens','jinboparty','pssp','ws','platformc','leftall','socialism','socialist','jacobin','labornotes','redpepper','socialistworker']);
   const all=JSON.stringify(OUTSIDE_CATALOG.map(s=>[s.lists,s.hosts]));
   assert.doesNotMatch(all,/justice21|newleftreview|inthesetimes|thenation|tribunemag|spectrejournal/);
   assert.deepEqual(sourceByKey('kptu').lists,['https://www.kptu.net/board/list.aspx?mid=F686C1F3']);
@@ -840,12 +843,71 @@ test('글 쪽 날짜: 메타(article:published_time) → 제목 뒤 날짜 → <
   assert.equal(P.pageDate(FX('article-nodate.html'),'[논평] 가상 날짜 없는 글',NOW),null);
 });
 
-test('묶음: 민주노총·공공운수노조는 [노동](labor) 묶음, 묶음은 노동·정당·사회운동·외국 넷뿐', () => {
-  assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.group==='labor').map(s=>s.key),['kctu','kptu']);
+test('묶음: [노동](labor)은 민주노총·공공운수노조·금속노조·서비스연맹·학비노조(L1), 묶음은 노동·정당·사회운동·외국 넷뿐', () => {
+  assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.group==='labor').map(s=>s.key),['kctu','kptu','kmwu','kfsu','hakbi']);
   assert.deepEqual([...new Set(OUTSIDE_CATALOG.map(s=>s.group))].sort(),['foreign','labor','movement','party']);
   // 뉴스 클리핑도 같은 정돈 함수만 부른다(다른 동작은 그대로).
   const news=readFileSync('supabase/functions/news-feed/handler.ts','utf8');
   assert.match(news,/from "\.\.\/_shared\/outside-tidy\.ts"/);
   const feed=readFileSync('supabase/functions/outside-feed/handler.ts','utf8');
   assert.match(feed,/tidyTitle\(/);assert.match(feed,/tidySummary\(/);
+});
+
+// ---- OUTSIDE-노동묶음·정돈 2단계(S48-4b'): [노동] 단체 추가(L1)·넣지 않은 단체(L2·L4)·공대위 표시(L3) ----------------------------
+
+test('[노동] 추가 단체 목록 표본: 고정 공지·다른 게시판·http·쪽 번호 링크는 거르고, 줄 날짜를 게시 날짜로', () => {
+  const rows=(key,file)=>{const s=sourceByKey(key);return P.parseListHtml(s,FX(file),s.lists[0],30,undefined,NOW).map(i=>[i.url,i.kind,i.title,i.published_at]);};
+  assert.deepEqual(rows('kmwu','kmwu.html'),[
+    ['https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=8102','statement','[성명] 가상 하청노동자 교섭 거부 규탄 - 금속노조','2026-10-29T15:00:00.000Z'],
+    ['https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=8101','press','[보도자료] 가상 완성차 공동투쟁 결과','2026-10-28T15:00:00.000Z']]);
+  assert.deepEqual(rows('kfsu','kfsu.html'),[
+    ['https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/?mod=document&uid=3302','press','[보도자료] 가상 돌봄노동자 처우개선 기자회견','2026-10-30T15:00:00.000Z'],
+    ['https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/?mod=document&uid=3301','statement','[성명] 가상 유통업 의무휴업 폐지 반대','2026-10-27T15:00:00.000Z']]);
+  // 학비노조: 머리말 없는 '기자회견 개최 알림'·[취재요청]은 넣지 않는다.
+  assert.deepEqual(rows('hakbi','hakbi.html'),[
+    ['https://www.hakbi.org/board/media_reports/read/1205','statement','[성명] 가상 학교급식 노동자 산재 대책 촉구','2026-10-29T15:00:00.000Z'],
+    ['https://www.hakbi.org/board/media_reports/read/1203','press','[보도자료] 가상 집단교섭 결렬 기자회견','2026-10-26T15:00:00.000Z']]);
+});
+
+test('[노동] 추가 단체 저장: 정돈 함수를 거쳐 제목 한 줄(꼬리표·단체명 꼬리 떼기), 목록 날짜 — robots.txt는 그대로 먼저 읽는다', async () => {
+  for(const [key,file,want] of [['kmwu','kmwu.html',['가상 하청노동자 교섭 거부 규탄','가상 완성차 공동투쟁 결과']],
+    ['kfsu','kfsu.html',['가상 돌봄노동자 처우개선 기자회견','가상 유통업 의무휴업 폐지 반대']],
+    ['hakbi','hakbi.html',['가상 학교급식 노동자 산재 대책 촉구','가상 집단교섭 결렬 기자회견']]]){
+    const s=sourceByKey(key);
+    const sites={[s.lists[0]]:FX(file)};for(const [u] of EXPECT[key])sites[u]=FX('article-ko.html');
+    const h=harness({sources:[{workspace_id:WS,source_key:key}],sites});
+    const out=await (await h.cron('run',{source:key})).json();
+    assert.equal(out.status,'ok',key);assert.equal(out.inserted,2,key);
+    assert.deepEqual(EXPECT[key].map(([u])=>h.db.app_outside_posts.find(p=>p.url===u).title),want,key);
+    assert.ok(h.calls.site.some(u=>new URL(u).pathname==='/robots.txt'),`${key}: robots 예외 아님 — robots.txt를 읽는다`);
+  }
+});
+
+test('[노동] 추가 단체도 robots.txt가 막으면(Disallow: /) 읽지 않는다 — robots 예외는 늘리지 않음(L1·L2)', async () => {
+  assert.deepEqual(H.ROBOTS_EXEMPT_KEYS,['kptu','laborparty']);
+  for(const key of ['kmwu','kfsu','hakbi']){
+    const s=sourceByKey(key);assert.equal(s.robotsException,undefined,key);
+    const origin=new URL(s.lists[0]).origin;
+    const h=harness({sources:[{workspace_id:WS,source_key:key}],sites:{[s.lists[0]]:FX(`${key}.html`)},robots:{[origin]:'User-agent: *\nDisallow: /\n'}});
+    const out=await (await h.cron('run',{source:key})).json();
+    assert.equal(out.status,'robots',key);assert.deepEqual(h.calls.site,[`${origin}/robots.txt`],`${key}: 목록도 읽지 않음`);
+    assert.equal(h.db.app_outside_posts.length,0,key);
+  }
+});
+
+test('넣지 않은 단체(L2 robots 미확인·L4): 전국공무원노조·전교조·건설노조·한국노총·공공연맹·보건의료노조·사무금융·공공노련 주소 없음', () => {
+  const all=JSON.stringify(OUTSIDE_CATALOG.map(s=>[s.lists,s.hosts]));
+  assert.doesNotMatch(all,/kgeu\.org|eduhope\.net|kcwu\.or\.kr|inochong\.org|publicunion\.kr|bogun\.nodong\.org|kfiu\.org/);
+});
+
+test('공대위 표시(L3): 민주노총·공공운수노조 글 중 제목·요약에 \'공대위\'·\'공동대책위원회\'가 든 글만', async () => {
+  const M=await import('../../app/outside-statements-model.mjs');
+  const v=p=>M.postView({lang:'ko',kind:'statement',url:'https://nodong.org/statement/1',published_at:'2026-10-30T00:00:00Z',...p},NOW).tag;
+  assert.equal(v({source_key:'kctu',title:'[성명] 가상 공대위 공동성명'}),'공대위');
+  assert.equal(v({source_key:'kptu',title:'[보도자료] 가상 기자회견',summary_ko:'양대노총 공공기관 노동조합 공동대책위원회가 가상 기자회견을 열었다.'}),'공대위');
+  assert.equal(v({source_key:'kptu',title:'[성명] 가상 공공기관 성명',summary_ko:'가상 요약이다.'}),'');
+  assert.equal(v({source_key:'kmwu',title:'[성명] 가상 공대위 이름이 든 다른 단체 글'}),'','민주노총·공공운수노조 글만');
+  assert.equal(v({source_key:'laborparty',title:'[논평] 가상 공대위'}),'');
+  const js=readFileSync('app/outside-statements.js','utf8');
+  assert.match(js,/<span class="os-tag">\$\{esc\(v\.tag\)\}<\/span>/);
 });

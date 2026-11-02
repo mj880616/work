@@ -1,6 +1,8 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {fitChipRows} from './chip-rows.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {claimedSince} from './row-swipe.js';
+import {createOutsideSearch} from './outside-search.js';
 import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, ownSourceRows, chipsOf, subChipsOf, chipPressed, keysOf, keepChip, groupPosts, postView, bodyText, isFresh, sourceState, feedWhen} from './outside-statements-model.mjs';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절, 12:43 시안): '바깥 성명' 화면(?view=outside). #outsideView의 유일한 그리기 주인.
 // - [새로 온 것]: 칩 첫 줄(전체·묶음, 공용 chip-rows.js) + 묶음을 고르면 둘째 줄(그 묶음 단체) → 날짜 묶음 → 글마다 '단체 · 종류 · 시각' / 제목 / 한 문장 요약(늘 보임)
@@ -10,7 +12,8 @@ import {ALL, GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, ownSourceRows, ch
 //   켬/끔은 서버 표 app_outside_sources에만 저장(기기 저장 없음). 폰·PC 모두 같은 화면 안 한 칸이고 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 들어오면 지난번 본 시각(app_outside_seen)을 읽어 그 뒤 받은 글에 작은 '새' 표시를 하고, 지금 시각으로 바꿔 둔다(서버 저장).
 // - ⋯ → [지금 채우기]: 켠 단체를 바로 읽기(readNow)로 하나씩 한 번 읽는다(NEWS-클리핑 C1).
-// - [문장 찾기]는 다음 PR(⑤) 몫이라 여기에는 없다. 글은 서버 수집기만 넣는다(화면은 읽기·켜고 끄기·본 시각만 쓴다).
+// - 탭 [새로 온 것]·[문장 찾기](S48-18): 탭 줄과 탭 상태는 이 모듈이 갖고(이 탭 메모리만), [문장 찾기] 칸 안은 outside-search.js가 그린다.
+//   폰은 좌우 밀기로 탭 이동. 글은 서버 수집기만 넣는다(화면은 읽기·켜고 끄기·본 시각만 쓴다).
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 글 제목·본문을 남기지 않는다.
 
 (() => {
@@ -24,12 +27,16 @@ function install() {
   if (document.getElementById('outsideView')) return;
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="outsideView" class="view-panel hidden" aria-labelledby="osTitle">
 <h2 id="osTitle" class="screen-title">사회운동 Now</h2>
-<div id="outsideRoot" class="os" data-mode="list">
+<div id="outsideRoot" class="os" data-mode="list" data-tab="new">
+<div class="os-tabs" role="tablist" aria-label="사회운동 Now 보기" data-os-tabs><button type="button" role="tab" id="osTabNew" data-os-tab="new" aria-selected="true" aria-controls="osPanelNew">새로 온 것</button><button type="button" role="tab" id="osTabSearch" data-os-tab="search" aria-selected="false" aria-controls="osPanelSearch" tabindex="-1">문장 찾기</button></div>
+<div id="osPanelNew" role="tabpanel" aria-labelledby="osTabNew" data-os-panel-new>
 <p class="os-when" data-os-when hidden></p>
 <div class="os-bar"><div class="os-chips" data-os-chips role="group" aria-label="묶음 거르기"></div><button type="button" class="os-more" data-os-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="사회운동 Now 메뉴">${MORE}</button></div>
 <div class="os-chips os-subchips" data-os-subchips role="group" aria-label="단체 거르기" hidden></div>
 <div class="os-list" data-os-list aria-label="새로 온 글"></div>
 <div class="os-sources" data-os-sources aria-label="단체 켜고 끄기"></div>
+</div>
+<div id="osPanelSearch" class="osq" role="tabpanel" aria-labelledby="osTabSearch" data-os-search hidden></div>
 </div></section>`);
 }
 install();
@@ -41,7 +48,7 @@ const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const fresh = () => ({scope: '', catalog: null, catalogFailed: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   posts: [], postsLoaded: false, postsFailed: false, end: true, more: false, seenAt: null, seenRead: false, chip: ALL,
-  open: new Set(), bodies: new Map(), saving: new Set(), saveFailed: '', mode: 'list', reading: new Set(), readNote: new Map()});
+  open: new Set(), bodies: new Map(), saving: new Set(), saveFailed: '', mode: 'list', reading: new Set(), readNote: new Map(), tab: 'new'});
 let state = fresh(), loadSeq = 0, layer = null;
 
 // ---------- 서버 읽기·쓰기(모두 작업공간 소유자 RLS · Edge는 사용자 로그인 확인) ----------
@@ -82,6 +89,8 @@ async function writeSource(w, key, enabled) {
 const catalogOf = key => state.catalog?.find(s => s.key === key) || null;
 const nameOf = key => catalogOf(key)?.name || key;
 const enabledNow = () => enabledKeys([...state.sources.values()]);
+const search = createOutsideSearch({box: $('[data-os-search]'), nameOf, workspaceOf,
+  chipsOf: () => chipsOf(state.catalog || [], enabledNow()), keysOf: chip => keysOf(chip, state.catalog || [], enabledNow())});
 
 function chipsHtml(chips) {
   return chips.map(c => `<button type="button" class="os-chip" data-os-chip="${esc(c.id)}" aria-pressed="${chipPressed(c.id, state.chip, state.catalog)}">${esc(c.label)}</button>`).join('');
@@ -100,7 +109,7 @@ function bodyHtml(p, v) {
 function postHtml(p, now) {
   const v = postView(p, now);
   const isNew = state.seenRead && isFresh(p, state.seenAt);
-  const meta = `<p class="os-meta">${isNew ? '<span class="os-new" aria-label="새 글">새</span>' : ''}<span class="os-src">${esc(nameOf(p.source_key))}</span>${v.kind ? `<span>${esc(v.kind)}</span>` : ''}${v.time ? `<span class="os-time">${esc(v.time)}</span>` : ''}</p>`;
+  const meta = `<p class="os-meta">${isNew ? '<span class="os-new" aria-label="새 글">새</span>' : ''}<span class="os-src">${esc(nameOf(p.source_key))}</span>${v.tag ? `<span class="os-tag">${esc(v.tag)}</span>` : ''}${v.kind ? `<span>${esc(v.kind)}</span>` : ''}${v.time ? `<span class="os-time">${esc(v.time)}</span>` : ''}</p>`;
   const lead = v.lead ? `<p class="os-lead">${esc(v.lead)}</p>` : '';
   const link = v.url ? `<a class="os-link" href="${esc(v.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v.title)} 원문 (새 창)">원문</a>` : '';
   const open = v.body && state.open.has(p.id);
@@ -138,9 +147,29 @@ function sourcesHtml() {
   return head + (state.saveFailed ? failHtml({text: '저장하지 못했습니다', reason: state.saveFailed}) : '') + groups;
 }
 
+// 탭 줄과 두 칸 보이기(단체 켜고 끄기 칸에서는 탭 줄을 감춘다). [문장 찾기] 칸 안은 outside-search.js가 그린다.
+function paintTabs() {
+  if (!root) return;
+  root.dataset.tab = state.tab;
+  const tabs = $('[data-os-tabs]'), panelNew = $('[data-os-panel-new]'), panelSearch = $('[data-os-search]');
+  if (tabs) tabs.hidden = state.mode !== 'list';
+  root.querySelectorAll('[data-os-tab]').forEach(b => { const on = b.dataset.osTab === state.tab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
+  if (panelNew) panelNew.hidden = state.tab !== 'new' && state.mode === 'list';
+  if (panelSearch) panelSearch.hidden = state.tab !== 'search' || state.mode !== 'list';
+}
+function setTab(tab, {focus = false} = {}) {
+  if (tab !== 'new' && tab !== 'search') return;
+  const changed = state.tab !== tab;
+  state.tab = tab;
+  paintTabs();
+  if (tab === 'search' && changed) search.paint();
+  if (focus) root?.querySelector(`[data-os-tab="${tab}"]`)?.focus({preventScroll: true});
+}
+
 function paint() {
   if (!root) return;
   root.dataset.mode = state.mode;
+  paintTabs();
   const chips = chipsOf(state.catalog || [], enabledNow());
   state.chip = keepChip(state.chip, [...chips, ...subChipsOf(state.catalog || [], enabledNow(), state.chip)]);
   const subs = subChipsOf(state.catalog || [], enabledNow(), state.chip);
@@ -187,6 +216,7 @@ function resetIfOwnerChanged() {
   if (state.scope === scope) return;
   closeLayer();
   state = fresh(); state.scope = scope;
+  search.reset();
 }
 
 async function loadPosts({append = false, keep = false} = {}) {
@@ -233,6 +263,7 @@ async function load() {
     // 지금 본 것으로 둔다(새 표시는 이번에 연 동안 그대로 남는다). 실패해도 화면은 그대로.
     writeSeen(w, new Date().toISOString()).catch(() => {});
   }
+  if (state.tab === 'search') search.paint(); // 단체 칩(카탈로그·켠 단체)이 늦게 오면 거르기 줄을 다시
   await loadPosts({keep: true});
 }
 function enter() {
@@ -333,6 +364,7 @@ const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-m
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (!b || !root.contains(b)) return;
+  if (b.matches('[data-os-tab]')) { setTab(b.dataset.osTab); return; }
   if (b.matches('[data-os-chip]')) {
     if (state.chip === b.dataset.osChip) return;
     state.chip = b.dataset.osChip; state.open.clear();
@@ -371,6 +403,29 @@ root?.addEventListener('toggle', event => {
   if (d.open) { state.open.add(id); openBody(id); } else state.open.delete(id);
 }, true);
 
+// 탭 줄: 왼쪽·오른쪽 화살표로 탭 이동(WAI tablist).
+root?.addEventListener('keydown', event => {
+  if (!event.target.matches?.('[data-os-tab]') || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  setTab(event.key === 'ArrowLeft' || event.key === 'Home' ? 'new' : 'search', {focus: true});
+});
+// 폰: 좌우로 밀어 탭 이동. 다른 부품이 잡은 줄 밀기·입력 칸·칩 줄은 빼고, 가로로 충분히 민 것만(뉴스 클리핑과 같은 기준).
+const PHONE = window.matchMedia('(max-width:760px)');
+let swipe = null;
+root?.addEventListener('touchstart', e => {
+  swipe = null;
+  if (!PHONE.matches || state.mode !== 'list' || e.touches.length !== 1 || e.target.closest('input,textarea,select,[contenteditable],.os-chips,.osq-row')) return;
+  const p = e.touches[0]; swipe = {x: p.clientX, y: p.clientY, t: Date.now()};
+}, {passive: true});
+root?.addEventListener('touchend', e => {
+  const s = swipe; swipe = null;
+  if (!s || !e.changedTouches.length || claimedSince(s.t)) return;
+  const p = e.changedTouches[0], dx = p.clientX - s.x, dy = p.clientY - s.y;
+  if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - s.t > 800) return;
+  setTab(dx < 0 ? 'search' : 'new');
+}, {passive: true});
+root?.addEventListener('touchcancel', () => { swipe = null; }, {passive: true});
+
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'outside') return;
   // 다른 화면으로 가면 켜고 끄기 칸은 닫힌 것으로(라우터가 그 화면의 겹을 정리한다). 다음에 들어오면 목록부터, 새 표시는 다시 읽는다.
@@ -379,6 +434,6 @@ window.addEventListener('kptu:view-changed', event => {
   state.seenRead = false; state.open.clear();
 });
 window.KPTURouter?.on?.('outside', () => { enter(); });
-window.KPTUOutside = {refresh: () => load()};
+window.KPTUOutside = {refresh: () => load(), showNew: () => setTab('new')}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js)
 if (window.KPTURouter?.current === 'outside') enter();
 })();

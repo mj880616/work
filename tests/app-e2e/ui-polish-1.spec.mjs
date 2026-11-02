@@ -75,24 +75,26 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // The sheet sits right on top of the tab bar, full width, rounded top.
  await expect.poll(async()=>{const [sheet,tabs]=await Promise.all([rect(panel),rect(page.locator('.mobile-tabs'))]);return Math.abs(sheet.bottom-tabs.top)<=1&&sheet.left===0&&Math.round(sheet.right)===390;}).toBe(true);
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
- // UI-모바일메뉴순서: 위에서부터 전체 검색 → 계정 → 메뉴 칸, 메뉴 칸이 하단바 바로 위(엄지 가까이).
- const tops=await page.evaluate(()=>['.gs-menu-entry','#mobileAccountGroup','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
+ // S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 4): 위에서부터 전체 검색 → 메뉴 줄 → 계정 한 줄(맨 아래, 하단바 바로 위).
+ const tops=await page.evaluate(()=>['.gs-menu-entry','nav[aria-label="더 보기"]','#mobileAccountGroup'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
  expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
- { const nav=await rect(page.locator('#mobileMenu nav[aria-label="더 보기"]')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-nav.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-nav.bottom).toBeLessThanOrEqual(20); }
- // 큰 칸 3열(4줄): 노트·자료실·HWP 편집 / 공유 페이지·원장·사진 / 바깥 성명(OUTSIDE-바깥성명 ④) / 통화·텔레그램 소식·아스날(MTG-프로젝트합치기 3단계: 사업 보고는 하단바로, 주소 개편 ②: 아스날은 맨 아래).
+ { const acct=await rect(page.locator('#mobileAccountGroup')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-acct.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-acct.bottom).toBeLessThanOrEqual(24); }
+ // 메뉴 줄 2열: 노트·자료실 / HWP 편집·공유 페이지 / 원장·사진 / 사회운동 Now·뉴스 클리핑, 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail).
  const tiles=page.locator('#mobileMenu nav button:visible');
  await expect(tiles).toHaveText(['노트','자료실','HWP 편집','공유 페이지','원장','사진','사회운동 Now','뉴스 클리핑','통화','텔레그램 소식','아스날']);
- const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),h:r.height};}));
- expect(new Set(boxes.map(b=>b.y)).size).toBe(4);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
- for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
- // 계정 상자: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
+ const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {x:Math.round(r.left),y:Math.round(r.top),h:r.height,touch:r.height-parseFloat(a.top)-parseFloat(a.bottom)};}));
+ expect(new Set(boxes.map(b=>b.y)).size).toBe(6);expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
+ // 보이는 줄 36px, 누르는 범위 44px(줄 사이 8px라 이웃 줄과 겹치지 않음).
+ for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
+ // 계정 한 줄: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
  const account=page.locator('#mobileAccountGroup');
  await expect(account.locator('button')).toHaveText(['내 프로필','업데이트 기록','메뉴 편집','화면 색','로그아웃']);
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
- // Keyboard: Tab moves from the grip to the search field at the top (SEARCH-전체검색), then into the tiles; Esc closes and returns to the [메뉴] tab.
+ await expect(account).toHaveAttribute('aria-label','계정');await expect(page.locator('#mobileMenu h2')).toHaveCount(0);
+ // Keyboard: Tab moves from the grip to the search field at the top (SEARCH-전체검색), then into the menu rows (same order as on screen); Esc closes and returns to the [메뉴] tab.
  await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
- await page.keyboard.press('Tab');await expect(page.locator('#mobileAccountGroup button:visible').first()).toBeFocused();
+ await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(tab).toBeFocused();await expect(tab).toHaveAttribute('aria-expanded','false');
  // 닫으면 지금 보는 화면(담당조직) 하나만 진하다.
  await expect(marks).toHaveCount(1);await expect(marks).toContainText('담당조직');await expect(tab).not.toHaveAttribute('aria-current','page');
@@ -122,17 +124,24 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  expect(errors).toEqual([]);
 });
 
-test('메뉴 판(폰): 화면이 낮아 판이 길면 위쪽이 잘리고 열자마자 메뉴 칸이 하단바 바로 위에 스크롤 없이 보인다',async({page})=>{
+test('메뉴 판(폰): 화면이 낮아 판이 길면 맨 위(검색칸 전부)부터 열리고, 판 안을 밀면 아래 계정 줄까지 닿는다',async({page})=>{
  const {errors}=await boot(page,390);
  await page.setViewportSize({width:390,height:460});
  const tab=page.locator('#mobileMenuTab'),panel=page.locator('.mobile-menu-panel');
  await tab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect.poll(()=>panel.evaluate(el=>el.getAnimations().length)).toBe(0);
- const m=await panel.evaluate(el=>({over:el.scrollHeight>el.clientHeight+1,gap:el.scrollHeight-el.scrollTop-el.clientHeight}));
- expect(m.over).toBe(true);expect(m.gap).toBeLessThanOrEqual(2);
- const last=await rect(page.locator('#mobileMenu nav button:visible').last()),bar=await rect(page.locator('.mobile-tabs')),grip=await rect(page.locator('#mobileMenu [data-mobile-menu-close]'));
- expect(last.bottom).toBeLessThanOrEqual(bar.top);expect(bar.top-last.bottom).toBeLessThanOrEqual(24);
+ const m=await panel.evaluate(el=>({over:el.scrollHeight>el.clientHeight+1,top:el.scrollTop}));
+ expect(m.over).toBe(true);expect(m.top).toBe(0);
+ // S48-6b(#1708 질문 4): 검색칸이 잘리지 않고 판 위쪽에 다 보인다.
+ const p=await rect(panel),search=await rect(page.locator('#mobileMenu .gs-menu-entry')),bar=await rect(page.locator('.mobile-tabs'));
+ expect(search.top).toBeGreaterThanOrEqual(p.top);expect(search.bottom).toBeLessThanOrEqual(bar.top);
+ // 판 안을 끝까지 밀면 계정 줄이 하단바 위에 보인다.
+ await panel.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+ const acct=await rect(page.locator('#mobileAccountGroup'));expect(acct.bottom).toBeLessThanOrEqual(bar.top);
  // 손잡이는 위에 붙어 남아 닫을 수 있다.
+ const grip=await rect(page.locator('#mobileMenu [data-mobile-menu-close]'));
  expect(grip.top).toBeGreaterThanOrEqual(0);await page.locator('#mobileMenu [data-mobile-menu-close]').click();await expect(page.locator('#mobileMenu')).toBeHidden();
+ // 다시 열면 또 맨 위부터.
+ await tab.click();await expect(page.locator('#mobileMenu')).toBeVisible();expect(await panel.evaluate(el=>el.scrollTop)).toBe(0);
  expect(errors).toEqual([]);
 });
 

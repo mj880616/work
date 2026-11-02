@@ -1,6 +1,6 @@
 /* ED③-창: 새 쓰기 창(ed-window.js). 껍데기 규칙은 옛 큰 창(ED③ 순서 6에서 삭제)의 것을 옮겼고(색은 테마 토큰만), 글 칸은 새 편집기(ed-doc.css)가 맡는다.
-   머리줄 한 줄: [× 닫기] … [내보내기 아이콘]. [저장]은 창 맨 아래 오른쪽 [취소][저장] 줄(UI-저장자리). 폰(760px 이하)은 앱 공용 하단 탭 위에서 끝나고, 자판이 열리면 탭이 숨고
-   자판 바로 위까지 쓴다. 넓은 화면(761px~)은 앱 메뉴 옆(ed-window.js placeBesideNav가 --ed-window-left/top을 정함). */
+   머리줄 한 줄: [× 닫기] … [내보내기 아이콘]. [저장]은 창 맨 아래 오른쪽 [취소][저장] 줄(UI-저장자리). 폰(760px 이하)은 창이 열린 동안 하단 탭이 숨어
+   (html.ed-window-open → --kptu-mobile-tab-height 0, topbar-actions.css, S48-6b) 화면 끝까지 쓰고, 자판이 열리면 자판 바로 위까지 쓴다. 넓은 화면(761px~)은 앱 메뉴 옆(ed-window.js placeBesideNav가 --ed-window-left/top을 정함). */
 html.ed-window-open, html.ed-window-open body { overflow:hidden; }
 @media (min-width:761px) {
   html.ed-window-open body { overflow:visible; }
@@ -13,7 +13,7 @@ html.ed-window-open, html.ed-window-open body { overflow:hidden; }
 .modal.ed-window.hidden { display:none; }
 .modal.ed-window[data-ed-nav="side"] { border-left:1px solid var(--kptu-border); }
 html .modal.ed-window { align-items:stretch !important; overflow:hidden !important; padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left) !important; }
-/* 폰에서 하단 탭이 보이는 동안(자판 없음)은 탭 바로 위에서 끝난다. 자판이 열리면 탭이 숨고 위 기본값(자판 위)으로 돌아간다. */
+/* 폰: 하단 탭 높이(창이 열린 동안 0) + 안전 여백 위에서 끝난다. 자판이 열리면 위 기본값(자판 위)으로 돌아간다. */
 @media (max-width:760px) {
   html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .modal.ed-window { bottom:calc(var(--kptu-mobile-tab-height, 0px) + env(safe-area-inset-bottom)); }
 }

@@ -204,9 +204,10 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
     }
   }
 
-  // ── leaving: the ✕ button, Escape, a bottom tab or the PC menu ──
-  // UI-키보드하단바: a tab press closes the window first and then goes on as that tab (the window's own history entry steps back
-  // before the tab moves). With changes not saved it asks first; the back button never asks (it hands the text to onClose).
+  // ── leaving: the ✕ button, Escape, the back button or the PC menu ──
+  // On a phone the bottom tabs are hidden while the window is open (S48-6b, html.ed-window-open in topbar-actions.css), so a tab press
+  // reaches here only from the PC menu (or a tab shown again by another screen). UI-키보드하단바: a tab press closes the window first and
+  // then goes on as that tab (the window's own history entry steps back before the tab moves). With changes not saved it asks first; the back button never asks (it hands the text to onClose).
   function leaveTo(tab) {
     if (closed) return;
     const waitBack = history.state?.kptuOverlay === ID;

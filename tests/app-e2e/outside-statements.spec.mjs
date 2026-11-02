@@ -17,7 +17,7 @@ const POSTS = [
   { id: 'p2', source_key: 'laborparty', kind: 'comment', lang: 'ko', title: '[논평] 가상 논평 둘', title_ko: null, url: 'https://laborparty.kr/?mod=document&page_id=13642&uid=7', published_at: '2026-10-05T03:00:00Z', fetched_at: '2026-10-05T09:07:00Z', summary_ko: '가상 논평 요약이다.', key_sentences: [], has_body: true },
   { id: 'p3', source_key: 'jacobin', kind: 'article', lang: 'en', title: 'An Imaginary Article', title_ko: '가상의 외국 글', url: 'https://jacobin.com/2026/10/imaginary', published_at: '2026-10-05T01:00:00Z', fetched_at: '2026-10-04T09:07:00Z', summary_ko: '첫 요약 문장임. 둘째 요약 문장임.', key_sentences: [{ orig: 'An imaginary key line.', ko: '가상의 핵심 문장.' }], has_body: false },
   { id: 'p4', source_key: 'kgreens', kind: 'press', lang: 'ko', title: '[보도자료] 가상 보도자료', title_ko: null, url: 'https://kgreens.org/press/?bmode=view&idx=3', published_at: '2026-10-01T05:00:00Z', fetched_at: '2026-10-01T09:07:00Z', summary_ko: '가상 보도자료 요약이다.', key_sentences: [], has_body: true },
-  { id: 'p5', source_key: 'kctu', kind: 'statement', lang: 'ko', title: '[성명] 오래된 가상 성명', title_ko: null, url: 'https://nodong.org/statement/1', published_at: '2023-03-02T01:00:00Z', fetched_at: '2026-10-01T09:07:00Z', summary_ko: '오래된 성명 요약이다.', key_sentences: [], has_body: false },
+  { id: 'p5', source_key: 'kctu', kind: 'statement', lang: 'ko', title: '[성명] 오래된 가상 성명', title_ko: null, url: 'https://nodong.org/statement/1', published_at: '2023-03-02T01:00:00Z', fetched_at: '2026-10-01T09:07:00Z', summary_ko: '오래된 성명 요약이다. 가상 공대위 공동 입장이다.', key_sentences: [], has_body: false },
 ];
 const SENTENCES = { p1: [{ idx: 0, text: '가상 본문 첫 문장이다.' }, { idx: 1, text: '가상 본문 둘째 문장이다.' }] };
 
@@ -156,6 +156,9 @@ for (const width of [412, 1280]) {
     // 2년 지난 글은 제목·요약만(펼칠 본문 없음).
     await expect(post(page, 'p5').locator('details')).toHaveCount(0);
     await expect(post(page, 'p5').locator('.os-lead')).toHaveText('오래된 성명 요약이다.');
+    // 공대위 표시(L3): 민주노총·공공운수노조 글 중 제목·요약에 '공대위'가 든 글만, 단체 이름 바로 뒤.
+    await expect(post(page, 'p5').locator('.os-meta > span:nth-child(-n+3)')).toHaveText(['민주노총', '공대위', '성명']);
+    await expect(post(page, 'p1').locator('.os-tag')).toHaveCount(0);
     expect(await noWideScroll(page)).toBe(true);
 
     // 칩 '정당' → 서버에 그 묶음 단체만 묻는다.
