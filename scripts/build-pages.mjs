@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, copyFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, posix } from 'node:path';
+import { parse } from 'acorn';
 import { fileURLToPath } from 'node:url';
 import { graph, vendored } from './check-loader-cache.mjs';
 import { isNoteFile, buildReleaseNotes, OUTPUT_PATH as releaseNotesPath } from '../app/release-notes-model.mjs';
@@ -95,9 +96,74 @@ export function rewriteVersions(input) {
   return { files, versions };
 }
 
+// PERF-첫로딩 P4(docs/design/first-load.md 9절): 미리 받기(modulepreload) 목록은 적힌 파일만 받고 그 파일의 정적 import는
+// 받지 않는다(Chromium). 소스에는 뿌리 파일만 `/*static-chain*/['./a.js']`처럼 적고, 빌드가 같은 목록 끝에 정적 import 사슬
+// 전체(가까운 것부터, 중복 없이)를 채운다. 채운 글자도 번호 없는 경로라 아래 rewriteVersions가 import와 같은 ?v=를 붙인다.
+// 소스(시험이 띄우는 판)는 뿌리만 받으므로 동작은 같고 받기 순서만 다르다. 손 목록·손 ?v=는 없다.
+export const chainMark = '/*static-chain*/';
+const chainList = /\/\*static-chain\*\/\[([^\]]*)\]/g;
+const scriptFile = /\.m?js$/i;
+
+/** Relative static import / export-from targets of one module in the tree (dynamic import() excluded). */
+export function staticImports(files, file) {
+  const source = files[file];
+  if (typeof source !== 'string' || !scriptFile.test(file)) return [];
+  let ast;
+  try { ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module' }); }
+  catch (error) { throw new Error(`${file}: 정적 import를 읽지 못했습니다(${error.message}).`); }
+  const out = [];
+  for (const node of ast.body) {
+    if (!['ImportDeclaration', 'ExportAllDeclaration', 'ExportNamedDeclaration'].includes(node.type) || !node.source) continue;
+    const raw = String(node.source.value).split(/[?#]/)[0];
+    if (!/^\.\.?\//.test(raw)) continue;
+    const target = posix.normalize(posix.join(posix.dirname(file), raw));
+    if (Object.hasOwn(files, target) && !vendored.test(target)) out.push(target);
+  }
+  return out;
+}
+
+/** Breadth-first static import closure of roots (roots excluded), nearest first. */
+export function staticChain(files, roots, imports = file => staticImports(files, file)) {
+  const seen = new Set(roots), order = [];
+  const queue = [...roots];
+  while (queue.length) {
+    for (const dep of imports(queue.shift())) {
+      if (seen.has(dep)) continue;
+      seen.add(dep); order.push(dep); queue.push(dep);
+    }
+  }
+  return order;
+}
+
+const relativeTo = (file, target) => { const rel = posix.relative(posix.dirname(file), target); return rel.startsWith('.') ? rel : `./${rel}`; };
+
+/** Fills every marked list in the Web2 scripts (app/) with the static chain of its entries. */
+export function fillStaticChains(input) {
+  const files = { ...input }, memo = new Map();
+  const imports = file => { if (!memo.has(file)) memo.set(file, staticImports(input, file)); return memo.get(file); };
+  for (const file of Object.keys(files).sort()) {
+    const source = files[file];
+    if (typeof source !== 'string' || !file.startsWith('app/') || !scriptFile.test(file) || !source.includes(chainMark)) continue;
+    files[file] = source.replace(chainList, (whole, body) => {
+      const entries = [...body.matchAll(/(['"])(\.\.?\/[^'"]+)\1/g)].map(m => m[2]);
+      const roots = entries.map(raw => {
+        const target = posix.normalize(posix.join(posix.dirname(file), raw.split(/[?#]/)[0]));
+        if (!Object.hasOwn(input, target)) throw new Error(`${file}: 미리 받기 목록의 ${raw} 파일이 없습니다.`);
+        return target;
+      });
+      const extra = staticChain(input, roots, imports).filter(target => target !== file);
+      if (!extra.length) return whole;
+      const quote = /"/.test(body) && !/'/.test(body) ? '"' : "'";
+      const added = extra.map(target => `${quote}${relativeTo(file, target)}${quote}`).join(',');
+      return `${chainMark}[${body.trim() ? `${body.replace(/[\s,]+$/, '')},` : ''}${added}]`;
+    });
+  }
+  return files;
+}
+
 /** Full build on an in-memory tree: rewritten files plus the regenerated manifest. */
 export function buildPages(input) {
-  const { files } = rewriteVersions(input);
+  const { files } = rewriteVersions(fillStaticChains(input));
   // UI-업데이트안내: app/release-notes/*.json(PR마다 1개) → 버전명을 붙인 app/release-notes.json(배포물에만). 기록 파일이 없으면 만들지 않는다.
   const notes = Object.keys(files).filter(isNoteFile).map(file => [file, files[file]]);
   if (notes.length) files[releaseNotesPath] = buildReleaseNotes(notes);

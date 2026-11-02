@@ -139,3 +139,30 @@ test('JSON linked from HTML is versioned; JSON named in a script is run-time dat
   assert.ok(out['app/index.html'].includes(`./m.json?v=${versionOf(Buffer.from('{}'))}`));
   assert.equal(out['app/press.js'], "fetch(new URL('../press/archive.json',location.href));");
 });
+
+// PERF-첫로딩 P4: /*static-chain*/ 목록은 빌드가 정적 import 사슬(가까운 것부터, 중복 없이)로 채우고, 채운 글자도 같은 ?v=를 받는다.
+test('a marked preload list gets the static import chain of its entries, versioned like import()', async () => {
+  const { fillStaticChains, staticChain } = await import('./build-pages.mjs');
+  const input = {
+    'app/index.html': '<script src="./loader.js" defer></script>',
+    'app/loader.js': "preload(/*static-chain*/['./view.js']);import('./view.js');import('./lazy.js');",
+    'app/view.js': "import {a} from './a.js';export * from './sub/b.js';const later=()=>import('./lazy.js');export const view=a;",
+    'app/a.js': "import './sub/b.js';import './rhwp-0.8.7/x.js';export const a=1;",
+    'app/sub/b.js': "export {c} from '../c.mjs';",
+    'app/c.mjs': 'export const c=1;',
+    'app/lazy.js': "import './a.js';export const lazy=1;",
+    'app/rhwp-0.8.7/x.js': 'export const x=1;'
+  };
+  // 동적 import(lazy.js)와 외부 라이브러리 폴더(rhwp-0.8.7/)는 넣지 않는다.
+  assert.deepEqual(staticChain(input, ['app/view.js']), ['app/a.js', 'app/sub/b.js', 'app/c.mjs']);
+  const filled = fillStaticChains(input);
+  assert.equal(filled['app/loader.js'], "preload(/*static-chain*/['./view.js','./a.js','./sub/b.js','./c.mjs']);import('./view.js');import('./lazy.js');");
+  assert.equal(filled['app/view.js'], input['app/view.js'], '표시 없는 파일은 그대로');
+  const out = buildPages(input);
+  for (const file of ['view.js', 'a.js', 'sub/b.js', 'c.mjs']) {
+    const version = versionOf(Buffer.from(out[`app/${file}`]));
+    assert.ok(out['app/loader.js'].includes(`'./${file}?v=${version}'`), file);
+  }
+  assert.throws(() => fillStaticChains({ 'app/l.js': "p(/*static-chain*/['./none.js'])" }), /none\.js 파일이 없습니다/);
+  assert.deepEqual(fillStaticChains({ 'scripts/s.mjs': "/*static-chain*/['./none.js']" })['scripts/s.mjs'], "/*static-chain*/['./none.js']", 'app/ 밖은 손대지 않는다');
+});
