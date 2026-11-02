@@ -11,7 +11,7 @@ const SCREENS={
   // 입력창이 늦게 나타나면 아래 칸이 밀리므로, 배치를 재기 전에 입력창부터 기다린다.
   await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
  }},
- projects:{container:'#projectGrid',list:'#projectGrid>.ps3-plist',pane:'#ps3DetailPane',ready:async page=>{await expect(page.locator('#ps3DetailPane #ps3DetailModal')).toBeVisible()}},
+ projects:{container:'#projectGrid',list:'#projectGrid>.ps3-plist',pane:'#ps3DetailPane',ready:async page=>{await expect(page.locator('#projectGrid>.ps3-plist [data-ps3-project]').first()).toBeVisible();await expect(page.locator('#ps3DetailPane')).toBeVisible()}}, // UI-스와이프·주소: 목록부터(오른쪽 칸은 비어 있음)
  team:{container:'#soTeamSection',list:'#soOrganizationList',pane:'#wdDetailPane',ready:async page=>{await expect(page.locator('#wdDetailPane #wdModal')).toBeVisible()}},
 };
 // 서버를 흉내 낸 상태(open()이 시험마다 새로 만든다). 쓰기는 0.4초 모아 가므로 바뀐 뒤의 값은 expect.poll로 본다.

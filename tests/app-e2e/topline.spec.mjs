@@ -123,7 +123,8 @@ test('PC: 사업영역 창 안 고르기는 기록이 아니고, ‹ 는 창부�
  // 창 밑의 사업 보고가 보이던 주(창을 연 순간).
  const week=await label.textContent();
  const row=id=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);
- await expect(row('p')).toHaveAttribute('aria-current','true');
+ // UI-스와이프·주소: 목록부터 — 사업영역을 고르면 오른쪽 칸(고르기는 기록을 남기지 않음).
+ await row('p').click();await expect(row('p')).toHaveAttribute('aria-current','true');
  const length=await page.evaluate(()=>history.length);
  await row('child').click();
  await expect(row('child')).toHaveAttribute('aria-current','true');
@@ -236,7 +237,8 @@ for(const vw of [1280,1440,1920]){
   await expect(page.locator('#ps3DetailPane')).toBeVisible();await expect(page.locator('#projectGrid .ps3-plist')).toBeVisible();
   // STAB-분할시험: 두 칸을 화면 안에서 한 번에 잰다. 프로젝트 목록은 첫 항목을 열 때 한 번 더 교체되므로(renderGrid), locator.boundingBox()로
   // 요소를 찾은 뒤 따로 자리를 물으면 그 사이에 사라져 null이 된다. 오른쪽 상세 칸도 다 그려진 뒤에 잰다.
-  await expect(page.locator('#ps3DetailPane #ps3DetailModal')).toBeVisible();
+  // UI-스와이프·주소: 목록부터라 오른쪽 칸은 빈 칸(안내 한 줄) 그대로 잰다.
+  await expect(page.locator('#ps3DetailPane .ps3-pane-empty')).toBeVisible();
   const {list,detail}=await page.evaluate(()=>{const w=s=>document.querySelector(s).getBoundingClientRect().width;return {list:{width:w('#projectGrid .ps3-plist')},detail:{width:w('#ps3DetailPane')}}});
   expect(detail.width/list.width).toBeGreaterThan(1.6);expect(detail.width/list.width).toBeLessThan(2.4);
   // Basket stays left-aligned next to where the sidebar was.

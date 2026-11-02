@@ -1,5 +1,5 @@
 // UI-PC프로젝트좌우 / ORG-PC좌우: the one "last item seen on this device" memory of the PC left-list / right-detail screens
-// (projects, 담당조직). One id per screen and owner, no names or content. The key sits under the per-owner cache prefix
+// (담당조직; 사업영역은 S47-54부터 목록부터 열어 쓰지 않음). One id per screen and owner, no names or content. The key sits under the per-owner cache prefix
 // (kptu_owner_cache:<name>-last-v1:<owner id>) that KPTURuntime clears on sign-out and owner change. A blocked or
 // missing storage only means the screen opens its first item.
 const PREFIX='kptu_owner_cache:';

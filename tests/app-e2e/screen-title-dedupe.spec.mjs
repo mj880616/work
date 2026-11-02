@@ -50,6 +50,7 @@ for (const width of [1280, 1440]) {
     // 프로젝트: docked on the right - the top line names it; the head keeps the summary line with the colour dot, no title.
     // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이라, 이름은 위쪽 줄 대신 창 머리줄 '사업영역 관리 › 이름'에 있다.
     await go(page, 'projects');
+    await page.locator('#projectGrid [data-ps3-project]').first().click(); // UI-스와이프·주소: 목록부터, 고르면 상세
     await expectProjectDetail(page);
     await expect(page.locator('#areaWindow [data-area-window-item]')).toHaveText('테스트 프로젝트');
     await expect(page.locator('#ps3Title')).toHaveCount(0);
@@ -121,6 +122,7 @@ test('760/761px를 넘나들면 열려 있는 화면의 제목 줄이 새로고�
 test('프로젝트: 760/761px를 넘나들면 붙인 상세(제목 줄 없음)와 창(제목 줄 있음)이 바뀐다', async ({ page }) => {
   const errors = await fixture(page, 900);
   await go(page, 'projects');
+  await page.locator('#projectGrid [data-ps3-project]').first().click(); // UI-스와이프·주소: 목록부터, 고르면 상세
   await expectProjectDetail(page);
   await expect(page.locator('#ps3Title')).toHaveCount(0);
   await page.setViewportSize({ width: 760, height: 900 });

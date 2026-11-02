@@ -1,5 +1,5 @@
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const SESSION_KEY='kptu_collab_session_v1';
+// 로그인 세션 저장은 runtime-client.js(KPTURuntime.session) 한 곳이 맡는다. 로그인 화면·loader-v2 모두 runtime을 먼저 불러온다.
 
 function decodeJwt(token){
   try{
@@ -32,7 +32,7 @@ function parseOAuthHash(){
       user_metadata:payload.user_metadata||{}
     }
   };
-  localStorage.setItem(SESSION_KEY,JSON.stringify(session));
+  window.KPTURuntime.session.write(session);
   history.replaceState({},'',location.pathname+location.search);
   return true;
 }
@@ -45,7 +45,7 @@ window.fetch=async function(input,init){
   const url=typeof input==='string'?input:(input?.url||'');
   if(response.status===403 && url.includes('/auth/v1/user')){
     try{
-      const session=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+      const session=window.KPTURuntime?.session?.read?.()||null;
       const payload=decodeJwt(session?.access_token||'');
       if(payload?.sub){
         const user={

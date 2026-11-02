@@ -27,7 +27,6 @@ import {mountBigWrite} from './record-text-write.js'; // MTG-결과마크다운:
 import {untaggedInWeek,NO_AREA,AREA_NONE,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,undatedCount,reportWeekLabel,reportDay as reportDayOf,weekOf,shiftDays} from './business-area-model.mjs'; // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 + 다음 할 일 칸
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
-const SESSION_KEY='kptu_collab_session_v1';
 const GOOGLE_FN=SB+'/functions/v1/google-calendar';
 const STATUS_LABEL={draft:'초안',review:'검토중',published:'게시',archived:'보관'};
 let session=null,user=null,membership=null,workspace=null;
@@ -46,8 +45,9 @@ const todayKey=()=>dateKey(new Date());
 function setStatus(el,msg,type=''){if(!el)return;el.textContent=msg||'';el.className='status'+(type?' '+type:'');if(type==='error'){el.setAttribute('role','alert');el.removeAttribute('aria-live')}else{el.setAttribute('role','status');el.setAttribute('aria-live','polite')}}
 function setBusy(button,busy){if(!button)return;button.disabled=!!busy;if(busy)button.setAttribute('aria-busy','true');else button.removeAttribute('aria-busy')}
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
-function saveSession(s){session=s;if(window.KPTURuntime?.session){window.KPTURuntime.session.write(s);return}if(s)localStorage.setItem(SESSION_KEY,JSON.stringify(s));else localStorage.removeItem(SESSION_KEY)}
-function loadSession(){if(window.KPTURuntime?.session)return window.KPTURuntime.session.read();try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
+// 로그인 세션 저장은 runtime-client.js(KPTURuntime.session) 한 곳이 맡는다(loader-v2가 runtime을 먼저 불러온다).
+function saveSession(s){session=s;window.KPTURuntime?.session?.write(s)}
+function loadSession(){return window.KPTURuntime?.session?.read?.()||null}
 async function refreshSession(){if(window.KPTURuntime?.session){const next=await window.KPTURuntime.session.refresh();session=next||null;return !!next}if(!session?.refresh_token)return false;const r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});if(!r.ok){saveSession(null);return false}const d=await r.json();d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);saveSession(d);return true}
 async function ensureSession(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();session=window.KPTURuntime.session.read();return ok}if(!session)return false;if((session.expires_at||0)<Math.floor(Date.now()/1000)+60)return refreshSession();return true}
 async function api(path,{method='GET',body=null,auth=true,prefer=''}={}){if(auth&&!(await ensureSession()))throw new Error('로그인이 필요합니다.');const isForm=typeof FormData!=='undefined'&&body instanceof FormData;const headers={apikey:KEY};if(!isForm)headers['Content-Type']='application/json';headers.Authorization='Bearer '+(auth?session.access_token:KEY);if(prefer)headers.Prefer=prefer;const started=performance.now();let r;

@@ -58,7 +58,7 @@ const noteRead=page=>(page.viewportSize()?.width||0)>=761?page.locator('[data-to
 
 for(const width of [1280,390])test(`project ${width}: a linked note joins the record list with the note icon; the update has the update icon and no 🧺 is left`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
- await clickView(page,'projects');if(width<761)await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
  await expectProjectTitle(page,'합성 정책 사업');
  const records=page.locator('#ps3-progress [data-ps3-records]'),up=records.locator('[data-basket-link="l-up"]'),nt=records.locator('[data-basket-link="l-note"]');
  await expect(nt).toBeVisible();await expect(up).toBeVisible();
@@ -80,7 +80,7 @@ for(const width of [1280,390])test(`project ${width}: a linked note joins the re
 
 for(const width of [1280,390])test(`project ${width}: a note line opens the note's read view with the return line; the button and back return to the same project and scroll`,async({page})=>{
  const {errors}=await fixture(page,{width,fill:24});
- await clickView(page,'projects');if(width<761)await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
  await expectProjectTitle(page,'합성 정책 사업');
  const line=page.locator('#ps3Body [data-basket-link="l-note"] a[data-ps3-basket-note]');
  const before=await scrollToRecord(page,line);
@@ -131,7 +131,7 @@ for(const width of [1280,390])test(`project ${width}: record lines show plain le
  const {state,errors}=await fixture(page,{width});
  state.links[0].summary='### 합성 결과 | 일시 | 장소 |\n|---|---|\n| 2026\\.&#x20;10\\.&#x20;21\\. | **합성 본사** |';
  state.progress[0].summary='## 합성 진행 | 항목 | **굵게**';
- await clickView(page,'projects');if(width<761)await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
+ await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
  await expectProjectTitle(page,'합성 정책 사업');
  const up=page.locator('#ps3-progress [data-ps3-records] [data-basket-link="l-up"] .ps3-rec-text');
  await expect(up).toContainText('합성 결과 · 일시 · 장소 2026. 10. 21. · 합성 본사');
