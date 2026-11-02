@@ -179,6 +179,33 @@ import {eventColor} from './home-read-model.js';
     b.title=label;b.setAttribute('aria-label',label);
     return b;
   }
+  // S48-6c 폰 월 보기(2026-11-02 명진 결정): 기한이 그날인 할 일도 칸 안에 제목 줄로. 일정 막대와 구별되게 바탕색 없이 글자만,
+  // 앞에 작은 체크 네모. 완료한 할 일은 칸에 넣지 않는다(그날 목록에는 그대로). 누르면 calendar-tasks.js가 할 일 상세 창을 연다.
+  function cellTaskButton(seg){
+    const ev=seg.ev,b=document.createElement('button');
+    b.type='button';
+    b.className='cmv-cell-task'+(ev.overdue?' cmv-cell-task-overdue':'');
+    b.dataset.calendarTask=ev.id;
+    b.style.gridColumn=`${seg.startCol+1} / span 1`;
+    b.style.gridRow=String(seg.lane+1);
+    b.innerHTML=`<span class="cmv-cell-task-box" aria-hidden="true"></span><span class="cmv-event-title">${esc(ev.title)}</span>`;
+    const label=taskLabel(ev);
+    b.title=label;b.setAttribute('aria-label',label);
+    return b;
+  }
+  // 할 일은 하루짜리라 그 날짜 칸의 일정 줄 아래에 차례로 붙인다(같은 칸에서 일정 먼저, 할 일 다음). 줄 수(laneCount)에 더해져
+  // 칸에 안 들어가는 만큼은 일정과 함께 '+n'으로 합쳐지고, 밀어서 펼치면 할 일 제목도 다 보인다.
+  function addCellTasks(week,pendingByDate){
+    const byCol=Array.from({length:7},(_,col)=>pendingByDate.get(key(addSeoulDays(week.start,col)))||[]);
+    byCol.forEach((list,col)=>{
+      if(!list.length)return;
+      let lane=Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1));
+      [...list].sort((a,b)=>(b.overdue?1:0)-(a.overdue?1:0)||String(a.title).localeCompare(String(b.title),'ko')).forEach(t=>{
+        week.segments.push({ev:normalizeTask(t),startCol:col,endCol:col,span:1,continuesLeft:false,continuesRight:false,lane:lane++});
+      });
+      week.laneCount=Math.max(week.laneCount,lane);
+    });
+  }
   function timeLabel(ev){
     if(ev.allDay)return '';
     return seoulClock(ev.start);
@@ -222,6 +249,8 @@ import {eventColor} from './home-read-model.js';
     const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range);
     const pendingByDate=new Map();
     tasks.forEach(t=>{if(t.done||t.date<key(range.start)||t.date>=key(range.end))return;const group=pendingByDate.get(t.date)||[];group.push(t);pendingByDate.set(t.date,group)});
+    // 폰은 할 일을 칸 안 제목 줄로(S48-6c), PC는 지금처럼 날짜 옆 ✓n 표시.
+    if(phone)weeks.forEach(week=>addCellTasks(week,pendingByDate));
 
     grid.replaceChildren();
     grid.dataset.monthView='1';
@@ -256,21 +285,14 @@ import {eventColor} from './home-read-model.js';
           }else{create.classList.add('cmv-date-create-pc');create.appendChild(day);cell.append(create)}
           cell.removeAttribute('aria-label');
         }else cell.appendChild(day);
-        if(pending.length){
+        if(pending.length&&!phone){
           cell.classList.add('cmv-cell-tasks');
-          const count=document.createElement(mq760.matches?'span':'button');
-          if(mq760.matches)count.setAttribute('role','img');else count.type='button';
+          const count=document.createElement('button');count.type='button';
           count.className='cmv-task-count';
           const overdue=pending.some(t=>t.overdue);count.classList.toggle('cmv-task-count-overdue',overdue);
           count.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg><span>${pending.length}</span>`;count.setAttribute('aria-label',`할 일 ${pending.length}개`+(overdue?', 기한 지남 포함':''));
-          if(mq760.matches){
-            const list=cell.querySelector('.cmv-date-list');
-            list.setAttribute('aria-label',list.getAttribute('aria-label')+', '+count.getAttribute('aria-label'));
-            list.appendChild(count);
-          }else{
-            count.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
-            cell.appendChild(count);
-          }
+          count.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
+          cell.appendChild(count);
         }
         dayGrid.appendChild(cell);
       }
@@ -285,7 +307,7 @@ import {eventColor} from './home-read-model.js';
         }
         // Keep weekly lanes; only clip pieces hidden by this date's unchanged slot limit.
         let run=null;
-        const appendRun=()=>{if(run)layer.appendChild(eventButton(run));run=null};
+        const appendRun=()=>{if(run)layer.appendChild(run.ev.source==='task'?cellTaskButton(run):eventButton(run));run=null};
         for(let col=seg.startCol;col<=seg.endCol;col++){
           if(seg.lane>=dayCaps[col]){appendRun();hidden[col]++;continue}
           if(run){run.endCol=col;run.span++}

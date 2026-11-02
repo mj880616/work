@@ -64,6 +64,12 @@
 .cal-event.cmv-task-done .cmv-event-title{text-decoration:line-through}
 .cal-event.cmv-task-done .cmv-task-mark{background:var(--kptu-muted);border-color:var(--kptu-muted);color:var(--kptu-surface);font-size:.75em;width:1.35em;height:1.35em}
 .kptu-day-list .cmv-task-mark{margin-right:8px;font-size:12px}
+/* S48-6c 폰 월 보기 칸 안 할 일 줄: 일정 막대와 구별되게 바탕색 없이 글자만, 앞에 작은 체크 네모. 기한 지난 것은 경고색. */
+.cmv-cell-task{pointer-events:auto;display:flex;align-items:center;gap:2px;min-width:0;min-height:0;height:14px;line-height:14px;margin:0 1px;padding:0 1px;border:0;border-radius:0;background:transparent;color:var(--kptu-ink);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-align:left;cursor:pointer}
+.cmv-cell-task-box{flex:0 0 auto;width:8px;height:8px;box-sizing:border-box;border:1px solid var(--kptu-muted);border-radius:1px}
+.cmv-cell-task-overdue{color:var(--kptu-danger)}
+.cmv-cell-task-overdue .cmv-cell-task-box{border-color:currentColor}
+.cmv-cell-task:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 .kptu-day-card{width:min(100%,520px)!important}
 
 .cm-google-options{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--kptu-space-3);padding:var(--kptu-space-3) 0}
