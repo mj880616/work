@@ -52,6 +52,9 @@ import {viewPrefs} from './view-prefs.js';
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
 let pmPromise = null, mdPromise = null;
+// S48-21: the [⌄] row as last left in this visit (null = not pressed yet: the server's remembered value). Every editor opened later in
+// the visit starts the same, also before the server accepts the setting (its DB change not applied yet: the write is refused, this stays).
+let sessionMore = null;
 export const loadEditorLib = () => (pmPromise ||= import(LIB));
 // The editor's markdown-it (html off, safe links only). Exported for ED③ 노트: an old markdown note opens through the same conversion.
 export const loadMarkdownIt = () => (mdPromise ||= import(MARKDOWN_IT).then(({default: MarkdownIt}) => {
@@ -1424,23 +1427,21 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const followPop = e => { if (openName && !(e && e.target && e.target.closest && e.target.closest('.ed-pop'))) placeOpen(); };
   // S48-21: the [⌄] row is not a box: open or closed as it was left (remembered on the server), only [⌄]/[⌃] changes it.
   // openPanel('more') (a popover inside the row closed back to its host) means: close the popovers, the row stays.
-  let moreOn = viewPrefs.get('ed_more') === true;
+  const rememberedMore = () => sessionMore ?? (viewPrefs.get('ed_more') === true);
+  let moreOn = rememberedMore();
   function paintMore() {
     panels.more.hidden = grouped || !moreOn;
     more.setAttribute('aria-expanded', String(!grouped && moreOn));
   }
   function setMore(on) {
-    moreOn = !!on;
+    moreOn = !!on; sessionMore = moreOn;
     closePanels();
     paintMore();
     viewPrefs.set('ed_more', moreOn, {rejectable: true});
   }
   // The remembered value may arrive after this editor opened (the first screen of a visit): it is taken once, unless [⌄] was pressed.
-  let morePressed = false;
-  const takeMore = () => { if (morePressed || view.isDestroyed) return; moreOn = viewPrefs.get('ed_more') === true; paintMore(); };
-  const moreRejected = e => { if ((e.detail?.paths || []).includes('ed_more')) { moreOn = viewPrefs.get('ed_more') === true; paintMore(); } };
+  const takeMore = () => { if (sessionMore !== null || view.isDestroyed) return; moreOn = rememberedMore(); paintMore(); };
   window.addEventListener('kptu:view-prefs-ready', takeMore);
-  window.addEventListener('kptu:view-prefs-rejected', moreRejected);
   function openPanel(name) {
     if (name === 'more') name = null;
     const was = openName;
@@ -1622,7 +1623,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const b = e.target.closest('button');
     if (!b || !bar.contains(b) || b.disabled) return;
     const d = b.dataset;
-    if ('edMore' in d) { morePressed = true; setMore(!moreOn); return; }
+    if ('edMore' in d) { setMore(!moreOn); return; }
     if (d.edPhotoAsk) { askDone?.(d.edPhotoAsk === 'row' ? 'row' : 'single'); view.focus(); return; }
     if (d.edPhoto) { run(d.edPhoto === 'join' ? joinPhoto : apartPhoto); return; }
     if (d.edCmd && OPENS[d.edCmd]) { const name = OPENS[d.edCmd]; openPanel(openName === name ? hostOf(name) : name); return; }
@@ -1791,7 +1792,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       resize?.disconnect(); phone?.removeEventListener?.('change', syncLayout); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
       askDone?.('single');
       window.removeEventListener('kptu:view-prefs-ready', takeMore);
-      window.removeEventListener('kptu:view-prefs-rejected', moreRejected);
       document.removeEventListener('pointerdown', outside, true);
       document.removeEventListener('keydown', escape);
       window.removeEventListener('pointerup', syncSelection, true);

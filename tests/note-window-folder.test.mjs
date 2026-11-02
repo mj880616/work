@@ -40,7 +40,7 @@ test('an existing note writes its folder only when the chosen one differs', () =
 
 test('all three big-window entrances pass a folder; the source wires the shared pick, the server view setting and the existing folder write', () => {
   const win = readFileSync('app/note-window.js', 'utf8');
-  assert.match(win, /export function openNoteEditWindow\(\{value, photos, save, title = '', folder = null/);
+  assert.match(win, /export function openNoteEditWindow\(\{value, photos, files: edFiles = null, save, title = '', folder = null/); // S48-21 [파일]
   assert.match(win, /await noteFolder\.put\(\{id: note\.id\}\)/);
   const top = readFileSync('app/topbar-actions.js', 'utf8');
   assert.match(top, /createNoteFolderPick\(\{initial:lastViewedFolder\(\)/);

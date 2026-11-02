@@ -217,7 +217,8 @@ function cleanChildren(parentType, list, depth, budget) {
         var t = textOfAny(n, depth);
         if (t) out.push({type:'paragraph', attrs:{style:DEFAULT_BODY}, content:cleanInline([{type:'text', text:t}], budget, false)});
       }
-    } else if (holds === 'list_item' && n.type === 'list_item') { var li = cleanNode(n, depth, budget); if (li) out.push(li); }
+    } else if (holds === 'image' && n.type === 'image') { var im = cleanNode(n, depth, budget); if (im) out.push(im); }
+    else if (holds === 'list_item' && n.type === 'list_item') { var li = cleanNode(n, depth, budget); if (li) out.push(li); }
     else if (holds === 'table_row' && n.type === 'table_row') { var tr = cleanNode(n, depth, budget); if (tr) out.push(tr); }
     else if (holds === 'cell' && (n.type === 'table_cell' || n.type === 'table_header')) { var td = cleanNode(n, depth, budget); if (td) out.push(td); }
   }

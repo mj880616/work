@@ -370,7 +370,8 @@ test('narrow PC width: buttons that do not fit go under [⋯], no sideways scrol
   await menu.getByRole('button', {name: '되돌리기', exact: true}).click();
   await expect(box).toBeFocused();
   expect((await value(page)).doc.content[0].content).toBeUndefined();
-  await expect(menu).toBeHidden();
+  // S48-21: the [⌄] row stays open after one of its buttons (only [⌃] closes it; remembered on the server).
+  await expect(menu).toBeVisible();
   // Wide again: every row button back on the row ([⋯] keeps only its own buttons).
   await page.evaluate(() => { document.querySelector('.ed-editor').parentElement.style.width = ''; });
   await page.setViewportSize({width: 1280, height: 700});

@@ -16,10 +16,32 @@
 import {createDocEditor} from '/app/ed-editor.js';
 import {renderDoc} from '/app/ed-render.mjs';
 import {toPlain} from '/app/ed-text.mjs';
-const start = new URLSearchParams(location.search).get('doc');
+import {viewPrefs} from '/app/view-prefs.js';
+const params = new URLSearchParams(location.search);
+const start = params.get('doc');
 window.changes = 0;
+// S48-21: ?prefs=<json> — a stand-in server for the screen settings (view_prefs read and PATCH, kept in this page; patches in window.prefPatches).
+if (params.has('prefs')) {
+  let saved = JSON.parse(params.get('prefs') || 'null');
+  window.prefPatches = [];
+  window.KPTURuntime = {context: {read: () => ({user: {id: 'fixture-user'}})},
+    api: async (path, options = {}) => {
+      if (options.method === 'PATCH') { saved = options.body.view_prefs; window.prefPatches.push(saved); return [{user_id: 'fixture-user'}]; }
+      return [{view_prefs: saved}];
+    }};
+  await viewPrefs.load();
+}
+window.viewPrefs = viewPrefs;
+// ?photos=1 / ?files=1 — stand-ins for the opener's [사진] (a grey picture) and [파일] (opened addresses in window.opened).
+const PIXEL = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30"><rect width="40" height="30" fill="#bbb"/></svg>');
+let n = 0;
+const photos = params.has('photos') ? {max: 40, add: async () => ({src: `share:p${++n}`}), url: async () => PIXEL} : null;
+window.opened = [];
+const files = params.has('files') ? {add: async file => ({src: `drive:f${++n}`, name: file.name, size: file.size}), open: src => { window.opened.push(src); }} : null;
 window.ed = await createDocEditor({host: document.getElementById('host'), value: start ? JSON.parse(start) : null,
-  label: '본문', placeholder: '여기에 쓰세요', onChange: () => { window.changes++; }});
+  label: '본문', placeholder: '여기에 쓰세요', photos, files, onChange: () => { window.changes++; }});
+// A second editor in the same visit (S48-21: it starts with the [⌄] row as the first one left it).
+window.makeSecond = async () => { const host = document.createElement('div'); host.id = 'host2'; document.body.append(host); window.ed2 = await createDocEditor({host, label: '둘째'}); };
 window.renderOut = () => { const out = document.getElementById('out'); out.textContent = ''; out.append(renderDoc(window.ed.getValue())); out.style.display = 'block'; return out.innerHTML; };
 window.plain = () => toPlain(window.ed.getValue());
 document.body.dataset.ready = '1';
