@@ -6,8 +6,8 @@ import { openHome } from './helpers/home-entry.mjs';
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글은 모두 가상의 글.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const CATALOG = [
-  { key: 'kctu', name: '민주노총', group: 'kctu', lang: 'ko' },
-  { key: 'kptu', name: '공공운수노조', group: 'kptu', lang: 'ko' },
+  { key: 'kctu', name: '민주노총', group: 'labor', lang: 'ko' },
+  { key: 'kptu', name: '공공운수노조', group: 'labor', lang: 'ko' },
   { key: 'laborparty', name: '노동당', group: 'party', lang: 'ko' },
   { key: 'kgreens', name: '녹색당', group: 'party', lang: 'ko' },
   { key: 'jacobin', name: 'Jacobin', group: 'foreign', lang: 'en' },
@@ -109,7 +109,7 @@ for (const width of [412, 1280]) {
     expect(server.calls.find(c => c.what === 'app_outside_sources' && c.method === 'GET').query).toContain('source_key=not.like.news-*');
 
     // 칩 첫 줄: 전체 + 켠 단체가 있는 묶음만(단체 낱개는 묶음을 고르면 둘째 줄에).
-    await expect(chips(page)).toHaveText(['전체', '민주노총', '정당', '외국']);
+    await expect(chips(page)).toHaveText(['전체', '노동', '정당', '외국']);
     await expect(root(page).locator('[data-os-subchips]')).toBeHidden();
     await expect(root(page).locator('[data-os-chip="all"]')).toHaveAttribute('aria-pressed', 'true');
     // 카탈로그는 사용자 로그인으로 Edge에서, 목록은 자기 작업공간만 묻는다.
@@ -216,13 +216,13 @@ for (const width of [412, 1280]) {
     await expect(post(page, 'n-kptu').locator('.os-title')).toHaveText('[성명] 바로 읽은 가상 성명');
     await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 오늘 10:00 · 다음 13:07쯤');
     await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
-    await expect(chips(page)).toHaveText(['전체', '민주노총', '공공운수노조', '정당']);
+    await expect(chips(page)).toHaveText(['전체', '노동', '정당']);
 
     // 새로고침해도 켜고 끈 값은 서버에서 다시 읽는다(기기 저장 없음).
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await expect(page.locator('#outsideView')).toBeVisible();
-    await expect(chips(page)).toHaveText(['전체', '민주노총', '공공운수노조', '정당']);
+    await expect(chips(page)).toHaveText(['전체', '노동', '정당']);
     expect(errors).toEqual([]);
   });
 }

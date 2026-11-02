@@ -4,14 +4,16 @@ import {kstDay, addDays, dayLabel, hhmm} from './feed-model.mjs';
 
 export const ALL = 'all';
 // 칩 묶음(카탈로그 group 값과 같은 이름). 단체 이름·묶음은 서버 카탈로그(outside-feed ?action=catalog)에서만 받는다.
+// 11/02 00:19 명진 요청: [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안 단체 칩(둘째 줄).
 export const GROUPS = Object.freeze([
-  {key: 'kctu', label: '민주노총'},
-  {key: 'kptu', label: '공공운수노조'},
+  {key: 'labor', label: '노동'},
   {key: 'party', label: '정당'},
   {key: 'movement', label: '사회운동'},
   {key: 'foreign', label: '외국'},
 ]);
 const GROUP_KEYS = new Set(GROUPS.map(g => g.key));
+// 옛 서버 카탈로그(묶음 kctu·kptu)가 아직 배포돼 있을 때도 [노동]으로 묶는다(Edge 재배포 전후 어느 쪽이든 같은 화면).
+const LEGACY_GROUP = Object.freeze({kctu: 'labor', kptu: 'labor'});
 // 종류 칸: 성명·논평·보도자료만. article(외국 매체 글·사회운동 글처럼 보도·논설 등을 가릴 수 없는 글)은 종류 칸을 비운다(11/01 요청 5).
 export const KIND_LABEL = Object.freeze({statement: '성명', comment: '논평', press: '보도자료', article: ''});
 export const PAGE_SIZE = 40;
@@ -24,7 +26,8 @@ export function normalizeCatalog(raw) {
   for (const s of list) {
     if (!s || typeof s !== 'object' || !KEY.test(String(s.key || '')) || seen.has(s.key)) continue;
     const name = typeof s.name === 'string' && s.name.trim() ? s.name.trim().slice(0, 40) : s.key;
-    out.push({key: s.key, name, group: GROUP_KEYS.has(s.group) ? s.group : 'movement', lang: s.lang === 'en' ? 'en' : 'ko'});
+    const group = Object.hasOwn(LEGACY_GROUP, s.group) ? LEGACY_GROUP[s.group] : s.group;
+    out.push({key: s.key, name, group: GROUP_KEYS.has(group) ? group : 'movement', lang: s.lang === 'en' ? 'en' : 'ko'});
     seen.add(s.key);
   }
   return out;
@@ -33,7 +36,7 @@ export function normalizeCatalog(raw) {
 // 켠 단체(enabled 줄) 열쇠 목록.
 export const enabledKeys = rows => (rows || []).filter(r => r && r.enabled === true && KEY.test(String(r.source_key || ''))).map(r => r.source_key);
 
-// 칩 첫 줄: [전체] + 켠 단체가 있는 묶음만(민주노총·공공운수노조·정당·사회운동·외국). 단체 낱개는 둘째 줄(subChipsOf)로(11/01 요청 4).
+// 칩 첫 줄: [전체] + 켠 단체가 있는 묶음만(노동·정당·사회운동·외국). 단체 낱개는 둘째 줄(subChipsOf)로(11/01 요청 4).
 export function chipsOf(catalog, enabled) {
   const on = new Set(enabled || []);
   const chips = [{id: ALL, label: '전체'}];
@@ -71,9 +74,16 @@ export function keysOf(chip, catalog, enabled) {
 // 칩 줄이 바뀌어 고른 칩이 없어졌으면 [전체]로(chips = 첫 줄 + 둘째 줄).
 export const keepChip = (chip, chips) => (chips || []).some(c => c.id === chip) ? chip : ALL;
 
-// 글 시각: 게시 시각, 없으면 받은 시각.
-export const postTime = p => p?.published_at || p?.fetched_at || '';
-export const timeText = p => hhmm(postTime(p));
+// 글 시각: 게시 시각만(11/02 00:17). 게시 시각을 모르면 ''(받은 시각을 게시 시각처럼 쓰지 않는다 — 옛 글이 '오늘'로 쏟아지지 않게).
+export const NO_DATE = '날짜 모름';
+export const postTime = p => p?.published_at || '';
+// 시각 칸: 'HH:MM'. 날짜만 아는 글(서울 자정으로 저장된 날짜)은 시각을 비우고, 게시 시각을 모르면 '날짜 모름'.
+export function timeText(p) {
+  const at = postTime(p);
+  if (!at || !Number.isFinite(Date.parse(at))) return NO_DATE;
+  const t = hhmm(at);
+  return t === '00:00' ? '' : t;
+}
 
 // 날짜 머리: 오늘 · 어제 · '10. 29. (목)'(올해가 아니면 '2025. 10. 29. (목)').
 export function dayHead(day, today) {
@@ -83,14 +93,15 @@ export function dayHead(day, today) {
   const label = dayLabel(day);
   return day.slice(0, 4) === String(today).slice(0, 4) ? label : `${day.slice(0, 4)}. ${label}`;
 }
-// 서버가 준 순서(최신 먼저)를 지키며 날짜로 묶는다.
+// 서버가 준 순서(최신 먼저, 게시 시각 모르는 글은 맨 뒤)를 지키며 날짜로 묶는다. 게시 시각 모르는 글은 '날짜 모름' 묶음.
 export function groupPosts(posts, now = Date.now()) {
   const today = kstDay(now), out = [];
   for (const p of posts || []) {
-    const day = kstDay(postTime(p));
+    const at = postTime(p);
+    const day = at ? kstDay(at) : '';
     const last = out.at(-1);
     if (last && last.day === day) last.items.push(p);
-    else out.push({day, label: dayHead(day, today), items: [p]});
+    else out.push({day, label: day ? dayHead(day, today) : NO_DATE, items: [p]});
   }
   return out;
 }

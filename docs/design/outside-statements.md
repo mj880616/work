@@ -217,3 +217,19 @@ robots.txt를 5xx·연결 실패로 못 읽으면 `robots_unreachable`(일시 �
 ## 10. 확인에 쓴 주소
 
 nodong.org/statement · laborparty.kr/?page_id=13642 · kgreens.org · jinboparty.com/pages/?b=b_1_2 · justice21.org(robots로 거절) · kptu.net/board/list.aspx?mid=F686C1F3(robots로 거절, 글 주소·제목은 검색 결과로) · leftall.com · pssp.org/bbs/view.php?board=statement · ws.or.kr/article/37334 · platformc.kr · socialism.jinbo.net · socialist.kr(http 전용, 못 엶) · jacobin.com · jacobin.com/rss · jacobin.com/contact · labornotes.org/rss-feed · inthesetimes.com/rss · thenation.com/all-rss · tribunemag.co.uk/about · redpepper.org.uk FAQ · socialistworker.co.uk · spectrejournal.com/feed · newleftreview.org/pages/about
+
+## 11. 정돈 한 번 (2026-11-02, OUTSIDE-노동묶음·정돈 1단계 — 요청 11/02 00:17·00:19)
+
+- **공용 정돈 함수** `supabase/functions/_shared/outside-tidy.ts`(순수 함수). 저장 직전 한 곳에서 단체마다 다른 목록·글 쪽 모양을 같은 글 모양으로 맞춘다. outside-feed(사회운동 Now)와 news-feed(뉴스 클리핑, 제목만 — '제목 - 부제' 나누기는 하지 않음)가 같은 함수를 부른다.
+  - 제목: 한 줄. '[성명]'·'【보도자료】' 같은 **종류 꼬리표**, 맨 앞 '단체명 성명:', 맨 뒤 ' – 단체명'·날짜 꼬리를 뗀다. 종류가 아닌 머리말([단독]·[주간홍보] 등)은 그대로. 40자 넘는 제목만 '제목 - 부제'에서 부제를 떼어 AI 요약 재료로 돌린다(DB에 부제 칸은 없다 — 저장하지 않음). 100자 넘으면 낱말 경계에서 자르고 '…'.
+  - 종류(kind)는 꼬리표를 떼기 **전** 제목으로 카탈로그 `kindOf`가 정한다(바뀌지 않음).
+  - 목록 칸에 제목·부제·본문 앞부분이 한 덩어리로 든 단체(노동당): 목록 칸의 **첫 줄**만 제목, 둘째 줄은 부제. 글 쪽 `og:title`·`<title>`이 목록 제목 안에 든 더 짧은 제목이면 그것을 쓴다.
+  - 본문: 메뉴·공유 단추·첨부 안내·조회수·'작성자 … 작성일 …' 같은 짧은 덧줄은 뺀다(30자·80자 안쪽 줄만 — 긴 문장은 건드리지 않음). 흔한 본문 칸에 `kboard-content`(워드프레스 KBoard)를 더했다.
+  - 한 문장 요약: 한 줄, '요약:' 머리 떼기, 200자 상한.
+  - 단체명: 화면은 카탈로그 `name` 하나로만 보인다(단체마다 이미 하나로 통일).
+- **게시 날짜**: 목록 링크 안 날짜 칸(dateClass) → 같은 줄(`<tr>`·`<li>`·`<article>`·`<dl>`, 앞뒤 글 링크 사이) 날짜 → 글 쪽 메타(`article:published_time`·`datePublished`) → 제목 뒤 15줄 안 날짜 → 글 쪽 `<time datetime>`. 못 읽으면 `published_at = null`. **읽은 시각을 게시 시각으로 쓰지 않는다**.
+- **화면**: 날짜 묶음·시각 칸은 게시 시각만 쓴다. 게시 시각을 모르면 시각 칸 '날짜 모름', 목록 맨 아래 '날짜 모름' 묶음(서버 순서 `published_at.desc.nullslast`). 날짜만 아는 글(서울 자정)은 시각 칸을 비운다. 제목은 최대 두 줄, 넘치면 '…'(한 문장 요약은 늘 보임).
+- **묶음 칩**: [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안 단체 칩(카탈로그 group `labor`). 화면은 옛 카탈로그 묶음 이름(`kctu`·`kptu`)도 [노동]으로 읽는다(Edge 재배포 전후 같은 화면).
+- **2단계(다음 PR)**: [노동]에 더할 단체는 조사표 `docs/design/outside-labor-catalog.md`에서 명진이 고른 뒤 넣는다. 공대위 글 표시도 그때.
+- **이미 들어간 글**: `docs/design/outside-retidy-2026-11-02.md`(데이터 고침, 실행 직전 정지 — 커맨드센터가 Edge 재배포 뒤 실행).
+- 남은 것(제안만, 이번에 바꾸지 않음): 찾기 함수 `app_outside_search`는 날짜 범위에 `coalesce(published_at, fetched_at)`을 쓴다 — 날짜 모름 글이 받은 날짜로 걸린다. 바꾸려면 DB 함수 변경(정지 지점)이 필요하다.

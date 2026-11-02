@@ -22,6 +22,9 @@ import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount, type Env
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cut, oneLine, parseFeed } from "../outside-feed/parse.ts";
+import { tidyTitle } from "../_shared/outside-tidy.ts";
+// 기사 제목도 사회운동 Now와 같은 정돈 함수를 거친다(11/02 00:19): 한 줄, 종류 꼬리표·매체명 꼬리·날짜 꼬리만 떼고 '제목 - 부제'는 나누지 않는다.
+const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: false }).title || raw;
 import { secretMatches } from "../outside-feed/handler.ts";
 import { readArticlePage, splitGoogleTitle, titleKey } from "./page.ts";
 
@@ -240,7 +243,7 @@ async function fillItem(db: Db, reader: FeedReader, ai: AiDeps, item: Row, nowMs
   const patch: Row = { state: page.state, fetched_at: nowIso, updated_at: nowIso, lang: page.lang };
   if (page.state !== "bot_check") {
     const title = (typeof item.title === "string" && item.title) || page.title;
-    if (!item.title && page.title) { patch.title = page.title; patch.title_key = titleKey(page.title); }
+    if (!item.title && page.title) { const t = newsTitle(page.title); patch.title = t; patch.title_key = titleKey(t); }
     if (!item.publisher && page.publisher) patch.publisher = page.publisher;
     if (!item.published_at && page.published_at) patch.published_at = page.published_at;
     if (page.body && page.body_kind) { patch.body = page.body; patch.body_kind = page.body_kind; }
@@ -314,7 +317,8 @@ async function runMedia(db: Db, readers: Readers, source: NewsSource, nowMs: num
       const clean = cleanArticleUrl(it.url);
       if (!clean) continue;
       const full = it.content && chars(it.content) >= 200 ? it.content : null;
-      for (const w of ws) rows.push({ workspace_id: w, lane: "media", url: clean, url_key: urlKey(clean), title: it.title, title_key: titleKey(it.title),
+      const title = newsTitle(it.title, source.name);
+      for (const w of ws) rows.push({ workspace_id: w, lane: "media", url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
         lang: source.lang, publisher: source.name, source_key: source.key, keywords: [], published_at: it.published_at, fetched_at: nowIso, state: "ok",
         summary: oneLineLead(it.summary), body: full ?? (it.summary ? cut(it.summary, 1200) : null), body_kind: full ? "full" : it.summary ? "lead" : null });
     }
@@ -358,7 +362,7 @@ async function runKeywords(db: Db, readers: Readers, nowMs: number, startMs: num
     if (!got.ok) { log("keyword_read_failed", { code: got.code }); if (got.code === "robots" || got.code === "robots_denied") break; continue; }
     const out: NewRow[] = [];
     for (const it of parseFeed(GOOGLE_NEWS, got.text, nowMs, LIST_LIMIT)) {
-      const { title, publisher } = splitGoogleTitle(it.title);
+      const split = splitGoogleTitle(it.title), publisher = split.publisher, title = newsTitle(split.title);
       for (const ws of wss) out.push({ workspace_id: ws, lane: "keyword", url: it.url, url_key: urlKey(it.url), title, title_key: titleKey(title),
         lang: "ko", publisher, source_key: null, keywords: [word], published_at: it.published_at, fetched_at: nowIso, state: "ok",
         summary: null, body: null, body_kind: null });
