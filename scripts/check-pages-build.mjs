@@ -1,13 +1,15 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { graph } from './check-loader-cache.mjs';
-import { readTree, versionOf, hashLength, buildManifest, manifestPath, versionable } from './build-pages.mjs';
+import { readTree, versionOf, hashLength, buildManifest, manifestPath, versionable, chainMark, staticChain } from './build-pages.mjs';
+import { posix } from 'node:path';
 import router, { resetManifestMemo } from '../cloudflare/bokdoong-router.mjs';
 import { isNoteFile, collectNotes, buildReleaseNotes, OUTPUT_PATH as releaseNotesPath } from '../app/release-notes-model.mjs';
 
 // Checks a build-pages.mjs output: (a) every reference the build versions carries the content
 // hash of its target, (b) app/asset-manifest.json is exactly what the output files give, (c) the
-// Cloudflare router marks every listed Web2 asset immutable when GitHub Pages serves these bytes.
+// Cloudflare router marks every listed Web2 asset immutable when GitHub Pages serves these bytes,
+// (e) every /*static-chain*/ preload list holds the full static import chain of its entries.
 const bytesOf = (files, file) => typeof files[file] === 'string' ? Buffer.from(files[file], 'utf8') : files[file];
 const hashed = new RegExp(`^[0-9a-f]{${hashLength}}$`);
 
@@ -34,6 +36,13 @@ export async function checkBuild(files) {
   const notes = Object.keys(files).filter(isNoteFile).map(file => [file, files[file]]);
   for (const error of collectNotes(notes).errors) errors.push(`(d) ${error}`);
   if (notes.length && String(files[releaseNotesPath] ?? '') !== buildReleaseNotes(notes)) errors.push(`(d) ${releaseNotesPath}가 기록 파일과 다릅니다.`);
+  // (e) PERF-첫로딩 P4: /*static-chain*/ 미리 받기 목록마다 적힌 파일의 정적 import 사슬이 빠짐없이 들어 있다(빌드가 채움).
+  for (const file of Object.keys(files).filter(f => f.startsWith('app/') && /\.m?js$/i.test(f) && typeof files[f] === 'string' && files[f].includes(chainMark))) {
+    for (const match of files[file].matchAll(/\/\*static-chain\*\/\[([^\]]*)\]/g)) {
+      const listed = [...match[1].matchAll(/(['"])(\.\.?\/[^'"]+)\1/g)].map(m => posix.normalize(posix.join(posix.dirname(file), m[2].split(/[?#]/)[0])));
+      for (const target of staticChain(files, listed)) if (!listed.includes(target)) errors.push(`(e) ${file}: 미리 받기 목록에 ${target} 빠짐`);
+    }
+  }
   const assets = JSON.parse(manifest).assets;
   const urls = [];
   for (const [file, entry] of Object.entries(assets)) {

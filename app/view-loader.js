@@ -44,8 +44,13 @@ const routeStyles={
   files:['./folder-tree.css','./files.css','./ui-standard.css'],
   updates:['./release-notes.css','./ui-standard.css']
 };
+// PERF-첫로딩 P4: 화면 프로그램을 처음 부를 때(첫 화면은 이 도구가 실행되는 즉시 — loader-v2.js) 그 화면 첫 프로그램의 정적 사슬 전체를
+// 받기만 먼저 걸어 둔다(실행 순서는 아래 loaders 그대로). 사슬은 Pages 빌드가 채운다(/*static-chain*/, scripts/build-pages.mjs).
+// 담당조직은 목록만 — 조직 상세는 목록이 보인 뒤 받는다(P5, organization-detail-deferred 시험).
+const firstModules={team:/*static-chain*/['./suborganizations.js']};
 async function prepare(view){
   const key=normalize(view);
+  if(!loaded.has(key))for(const path of firstModules[key]||warmModules[key]||[])hint('modulepreload',path);
   await Promise.all((routeStyles[key]||[]).map(style));
   return key
 }
@@ -208,25 +213,26 @@ async function loadAll(){
 // UI-기다림표시통일 ⑤: 메뉴 화면 프로그램 미리 받기. 앱을 켠 뒤 쉬는 틈에(loader-v2.js) 메뉴 화면의 첫 프로그램과 모양 파일을 받아만 둔다
 // (modulepreload·prefetch: 실행·적용하지 않음 → 화면·자료에 영향 없음). 처음 눌러도 '불러오는 중'이 거의 안 보이게 한다. 기기 저장 없이 브라우저 기본 캐시만.
 // HWP 편집기(약 20MB)·아스날은 받지 않는다. 주소는 위 화면별 불러오기와 같은 글자(Pages 빌드가 같은 해시 번호를 붙인다).
+// PERF-첫로딩 P4: 목록에는 화면 첫 프로그램(뿌리)만 적고, 그 정적 import 사슬은 Pages 빌드가 채운다(/*static-chain*/) — 미리 받은 뒤 눌러도 사슬을 다시 받지 않게.
 const warmModules={
-  basket:['./basket.js'],
-  calendar:['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js'],
-  tasks:['./project-catalog.js','./organization-order.js','./google-tasks.js'],
-  home:['./journal.js'],
-  diary:['./diary.js'],
-  projects:['./project-system-v3.js'],
-  library:['./library-upload.js'],
-  meetings:['./task-workflow.js','./meeting-round-detail.js'],
-  pages:['./share-pages.js'],
-  team:['./suborganizations.js','./workplace-detail.js'],
-  ledger:['./ledger-browse.js'],
-  reference:['./reference-bundles.js'],
-  calls:['./call-feed.js'],
-  telegram:['./telegram-feed.js'],
-  photos:['./photos.js'],
-  outside:['./outside-statements.js'],
-  news:['./news-clipping.js'],
-  files:['./files.js']
+  basket:/*static-chain*/['./basket.js'],
+  calendar:/*static-chain*/['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js'],
+  tasks:/*static-chain*/['./project-catalog.js','./organization-order.js','./google-tasks.js'],
+  home:/*static-chain*/['./journal.js'],
+  diary:/*static-chain*/['./diary.js'],
+  projects:/*static-chain*/['./project-system-v3.js'],
+  library:/*static-chain*/['./library-upload.js'],
+  meetings:/*static-chain*/['./task-workflow.js','./meeting-round-detail.js'],
+  pages:/*static-chain*/['./share-pages.js'],
+  team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
+  ledger:/*static-chain*/['./ledger-browse.js'],
+  reference:/*static-chain*/['./reference-bundles.js'],
+  calls:/*static-chain*/['./call-feed.js'],
+  telegram:/*static-chain*/['./telegram-feed.js'],
+  photos:/*static-chain*/['./photos.js'],
+  outside:/*static-chain*/['./outside-statements.js'],
+  news:/*static-chain*/['./news-clipping.js'],
+  files:/*static-chain*/['./files.js']
 };
 const warmed=new Set();
 function hint(rel,path,as){
