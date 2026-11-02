@@ -1,5 +1,6 @@
 // LIB-여러개삭제: 가짜 서버와 시나리오. @playwright/test에 의존하지 않아(검사는 check로 받음) 크롬 실측 스크립트도 같은 시나리오를 쓴다.
 import {signInWithSession} from './session-login.mjs';
+import {libraryTopMenu,libraryExpandItem} from './library-tree.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const project={id:'p1',workspace_id:'ws',owner_id:'owner',name:'교섭 준비',status:'active',sort_order:1,metadata:{project_system:'v2'}};
 const doc=(id,project_id,i)=>({id,workspace_id:'ws',project_id,file_name:id+'.pdf',title:id+'.pdf',category:'교섭',tags:[],mime_type:'application/pdf',created_at:`2026-10-0${i+1}T00:00:00Z`,document_date:`2026-10-0${i+1}`});
@@ -37,8 +38,8 @@ export async function openLibrary(page,base){
   // 분류 칩은 모두 켜고 트리는 모두 편다.
   await page.waitForSelector('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])');
   for(const chip of await page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])').all())if(await chip.getAttribute('aria-pressed')!=='true')await chip.click();
-  const all=page.locator('#libraryExpandAll');
-  if(await all.isEnabled()&&await all.getAttribute('data-lu-expand')!=='close')await all.click();
+  const now=await libraryExpandItem(page);
+  if(!now.disabled&&now.text==='모두 펴기')await libraryTopMenu(page,'expand');
   await page.waitForFunction(()=>document.querySelectorAll('#documentList [data-lu-document]').length>0&&!document.querySelector('#documentList details[data-lu-node]:not([open])'));
 }
 const count=page=>page.locator('#librarySelectCount').textContent();
@@ -48,7 +49,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   const rows=()=>page.locator('#documentList [data-lu-document]').count();
   check(await rows(),5,'rows');
   check(await page.locator('#documentList .lu-pick').count(),0,'no boxes before select');
-  await page.locator('#librarySelectBtn').click();
+  await libraryTopMenu(page,'select');
   check(await page.locator('#documentList [data-lu-pick]').count(),5,'row boxes');
   check(await page.locator('#librarySelectBar').isVisible(),true,'bar visible');
   check(await count(page),'0개 골랐음','count zero');
@@ -83,7 +84,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   await page.waitForTimeout(7000);
   check(state.deletes.length,0,'undo sends nothing');
   // 다시 고르고 지우기: 알림이 사라진 뒤 차례로 보내고 a2만 실패해 되살아난다
-  await page.locator('#librarySelectBtn').click();
+  await libraryTopMenu(page,'select');
   await page.locator('#librarySelectAll').click();
   await page.locator('#librarySelectDelete').click();
   check(await rows(),0,'rows leave again');
@@ -96,7 +97,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   check(dialogs,[],'no browser dialogs');
   check(await page.locator('#documentList .lu-pick').count(),0,'select mode ends after delete');
   check(await page.locator('#librarySelectBar').isVisible(),false,'bar hidden');
-  check(await page.locator('#librarySelectBtn').isVisible(),true,'select button back');
+  check(await page.locator('#libraryTopMenuBtn').isVisible(),true,'top menu still there');
   check(state.errors,[],'no page errors');
   return state;
 }

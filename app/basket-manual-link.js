@@ -209,6 +209,17 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     t.files.proposal='';paint();
     host?.querySelector(use?`[data-manual-summary="${CSS.escape(key)}"]`:`[data-manual-files-run="${CSS.escape(key)}"]`)?.focus();
   }
+  // LIB-연결요약기본(빠짐13, 요청 10/24 13:07 ③): 자료(글 없이 파일만)를 담당조직·사업영역에 [기록도 남기기]로 연결할 때, 파일이 자료실 자료 하나이고
+  // 올릴 때 만든 자료 요약('b1:')이 있으면 요약 칸 기본값으로 바로 넣는다(AI를 부르지 않음, 고쳐 쓸 수 있음). 없으면 지금처럼 [요약해서 기록으로]·[AI 요약].
+  async function prefillBrief(t){
+    const n=note();if(mode!=='link'||!n||!t||t.kind==='reference'||!t.record||!filesOnly(n)||!isBlankLinkSummary(t.summary)||t.files.busy)return;
+    const files=fileState().files;if(files.length!==1)return;
+    const doc=fileState().docs.get(files[0].drive_file_id);if(!doc?.id)return;
+    const cacheKey='brief|'+doc.id;let brief=filesCache.get(cacheKey);
+    if(brief===undefined){brief=await readDocumentBrief(doc.id,{rt});filesCache.set(cacheKey,brief||'');}
+    if(!brief||mode!=='link'||note()?.id!==n.id||!link.targets.includes(t)||!t.record||!isBlankLinkSummary(t.summary))return;
+    t.summary=brief;t.files.status='올릴 때 만든 자료 요약을 넣었어요. 고쳐 써도 돼요.';paint();
+  }
   function confirmLabel(n){return filesOnly(n)&&link.targets.every(t=>!t.record)?'자료로 넣기':'연결';}
   function linkMarkup(n){
     const done=[...linked().keys()].length,only=filesOnly(n);
@@ -441,7 +452,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       const b=event.target.closest('button');if(!b||b.disabled||isBusy())return;
       if(b.dataset.manualPick)void sheet.open(b.dataset.manualPick,b);
       else if(b.dataset.manualRemove){link.targets=link.targets.filter(t=>linkKey(t.kind,t.id)!==b.dataset.manualRemove);link.status='';paint();host.querySelector('[data-manual-pick="organization"]')?.focus();}
-      else if(b.dataset.manualRecord){const t=link.targets.find(x=>linkKey(x.kind,x.id)===b.dataset.manualRecord);if(t){t.record=!t.record;paint();if(t.record)host.querySelector(`[data-manual-summary="${CSS.escape(b.dataset.manualRecord)}"]`)?.focus();}}
+      else if(b.dataset.manualRecord){const t=link.targets.find(x=>linkKey(x.kind,x.id)===b.dataset.manualRecord);if(t){t.record=!t.record;paint();if(t.record){host.querySelector(`[data-manual-summary="${CSS.escape(b.dataset.manualRecord)}"]`)?.focus();void prefillBrief(t);}}}
       else if(b.dataset.manualAiRun)void runAi(b.dataset.manualAiRun);
       else if(b.dataset.manualAiApply)applyAi(b.dataset.manualAiApply,true);
       else if(b.dataset.manualAiDismiss)applyAi(b.dataset.manualAiDismiss,false);

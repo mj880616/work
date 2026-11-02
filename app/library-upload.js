@@ -7,6 +7,7 @@ import {renderCategoryChips,toggleCategoryOff,hiddenCategories,activeSubcategory
 import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially} from './library-select.js';
 import {isLibraryPhoto,hydrateLibraryThumbs} from './library-photo.js';
 import {foldPhotoSets,isPhotoSet,photoMeetingChunks} from './library-photoset.mjs';
+import {twinPlan,withTwins,pickCountText} from './library-twins.mjs';
 import {reportPhotosHtml,mountReportPhotos} from './report-photos.js';
 import {GROUP_BY,GROUP_LABELS,fileKindOf,buildTree,treeHtml,folderSuggestions,keys as luTreeKeys,walk as luTreeWalk,matchedKeys,pathTo,documentsInTrashedFolders} from './library-tree.js';
 import {mountLibraryFolders} from './library-folders.js';
@@ -28,7 +29,8 @@ import {pickMyOrganizations} from './my-organizations.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {visibleEntries,entryState,deleteLabel,isKept} from './library-prev-model.mjs';
 import {documentCategories,topDocumentCategories,orderedDocumentCategories,categoryOf,topCategoryOf,categoryLabel,categoryOptions,categoryTag,loadDocumentCategories} from './document-categories.js';
-import {renameBody,undoSnapshot,undoBody,rowMatches} from './library-rename.js';
+import {renameBody,undoSnapshot,undoBody,rowMatches,fileNameShown} from './library-rename.js';
+import {markRenameHost,openRenameEditor} from './file-rename.js';
 import {mountCategoryEditor} from './document-category-editor.js';
 import {startAutoTextRead} from './document-text-read.js';
 import {fillLibraryDocument,keptFields,originAfterEdit,autoTidyLibrary,reclassifyLibraryDocument} from './library-ai-fill.js';
@@ -444,8 +446,10 @@ function luMoveGroupChip(id,index){
 }
 function luFiltering(q,pid){const names=topDocumentCategories(),off=names.filter(n=>luCategoryOff.has(n)),base=names.filter(n=>luBaselineOff.has(n)),categories=off.length>0&&!(off.length===base.length&&off.every(n=>base.includes(n)));return !!(q||luOrganization||(pid&&pid!=='all')||categories||activeSubcategory(names,luCategoryOff,luCategorySub))}
 function luIsOpen(key,filtering,matched){return filtering?(luFilterOpen.has(key)?luFilterOpen.get(key):matched.has(key)):luOpened.has(key)}
-function luRenderExpandAll(filtering,matched){const b=document.querySelector('#libraryExpandAll');if(!b)return;const all=luTreeKeys(luLastTree),open=all.length>0&&all.every(k=>luIsOpen(k,filtering,matched));b.textContent=open?'모두 접기':'모두 펴기';b.dataset.luExpand=open?'close':'open';b.disabled=!all.length}
-function luExpandAll(){const all=luTreeKeys(luLastTree),open=document.querySelector('#libraryExpandAll')?.dataset.luExpand!=='close';if(luFilterSignature&&luFilterSignature!=='-')for(const k of all)luFilterOpen.set(k,open);else{luOpened.clear();if(open)all.forEach(k=>luOpened.add(k))}luRenderLibrary()}
+// LIB-맨위메뉴하나(빠짐9, 요청 10/28 08:25 ①): [모두 펴기·접기]는 자료실 칸 맨 위 ⋯ 메뉴 한 줄. 지금 상태(토글 수·모두 열림)는 메모리에만 둔다.
+let luExpandNow={count:0,open:false};
+function luRenderExpandAll(filtering,matched){const all=luTreeKeys(luLastTree);luExpandNow={count:all.length,open:all.length>0&&all.every(k=>luIsOpen(k,filtering,matched))}}
+function luExpandAll(){const all=luTreeKeys(luLastTree),open=!luExpandNow.open;if(luFilterSignature&&luFilterSignature!=='-')for(const k of all)luFilterOpen.set(k,open);else{luOpened.clear();if(open)all.forEach(k=>luOpened.add(k))}luRenderLibrary()}
 // LIB-폴더100단 ②(2026-10-28 10:34): 깊은 폴더는 '들어가기'로 그 폴더만 본다(탐색기 방식, PC·폰 같게). 상태 주인은 luInFolder(폴더 id, 화면 메모리만).
 // 들어가면 목록은 그 폴더 하나(열린 채, 들여쓰기는 그 폴더 기준 0단부터)이고, 목록 위 위치 줄 '자료실 › 조직 › 민자도시철도'의 칸을 누르면 그 단계로 간다.
 // 폴더 묶기에서만 쓰고, 묶기를 바꾸거나 폴더가 사라지면(지움·휴지통) 저절로 '자료실'로 돌아온다. 검색·분류 칩 거르기는 들어간 폴더 안에서 그대로 걸린다.
@@ -519,7 +523,7 @@ const filtering=luFiltering(q,pid),signature=filtering?JSON.stringify([q,[...luC
 if(luGroupBy==='organization'&&!luOrganizations)luLoadOrganizations();
 const tree=buildTree({groupBy:luGroupBy,docs:matches,filtering,tree:luCatalog()?.tree||[],folders:luFolders_,items:luFolderItems,organizations:luOrganizations||[],categories:orderedDocumentCategories(),categoryOf,categoryLabel,projectName:luProjectName,colorOf:luProjectColor,kindOf:d=>luFileKind(d.file_name,d.mime_type),sortKey:luSortKey,monthLabel:luMonthLabel});
 const shown=luFolderScope(tree),inKey=luInFolder?'f:'+luInFolder:'';
-luLastTree=shown;const matched=filtering?matchedKeys(shown):new Set();
+luLastTree=shown;luTwins=twinPlan(shown);const matched=filtering?matchedKeys(shown):new Set();
 // LIB-정리보충 ③: 폴더 묶기의 '폴더 밖' 자료마다 작게 '📁 ○○?' 추천(AI 없음, 고르는 중에는 숨김). 누르면 그 폴더로 옮기고 '옮겼어요 · 되돌리기'.
 luSuggest=luGroupBy==='folder'&&!luPick.items?folderSuggestions(tree.find(n=>n.key==='x:out')?.files||[],{docs:luDocuments,items:luFolderItems,folders:luFolders_,categoryOf}):new Map();
 const html=(inKey?shown.length>0:(matches.length||tree.some(n=>n.children.length)||(luGroupBy==='folder'&&!filtering)))?treeHtml(shown,{isOpen:k=>k===inKey||luIsOpen(k,filtering,matched),showAll:k=>luShowAll.has(k),fileHtml:luDragRowHtml,esc:luEsc,kindKey:luKindKey,menu:luNodeMenuLabel,canDrag:n=>luCanDrag()&&n.kind==='folder',pick:luNodePick,emoji:luGroupBy==='folder'}):'';
@@ -565,7 +569,7 @@ function luBindRecent(){
   box.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-recent]')){e.preventDefault();luGoToRecent(e.target.dataset.luRecent)}});
 }
 // LIB-폴더로옮기기: 자료 ⋯·우클릭 메뉴의 [폴더로 옮기기 ›]. 선택 모드에서 이 줄이 고른 자료 가운데 하나면 고른 자료 모두, 아니면 이 줄만 옮긴다.
-function luMoveDocs(id){const set=luPhotoSetKey(id);if(set!==null)return luPhotoSetMembers(set);const d=luDocuments.find(x=>x.id===id);if(!d)return [];return luPick.items&&luPick.items.size>1&&luPick.items.has(id)?luSelectedDocs():[d]}
+function luMoveDocs(id){const set=luPhotoSetKey(id);if(set!==null)return luPhotoSetMembers(set);const d=luDocuments.find(x=>x.id===id);if(!d)return [];return luPick.items&&luPick.items.size>1&&luPick.items.has(id)?luSelectedDocs():(luTwinDocs(id)||[d])}
 function luToggleMove(button,forceOpen=false){
   const ui=luFolders(),same=ui.moveOpen&&button.getAttribute('aria-expanded')==='true';
   if(ui.moveOpen){void ui.closeMove();button.setAttribute('aria-expanded','false');if(same&&!forceOpen)return}
@@ -573,7 +577,7 @@ function luToggleMove(button,forceOpen=false){
   if(opened)button.setAttribute('aria-expanded','true');
 }
 // 사용자가 토글을 여닫으면 그 상태만 기억한다(다시 그려도 유지). 그리기 중 생기는 toggle 이벤트도 같은 값이라 무해하다.
-function luOnToggle(e){const d=e.target;if(!(d instanceof HTMLDetailsElement)||!d.dataset.luNode)return;const key=d.dataset.luNode;if(luFilterSignature!=='-')luFilterOpen.set(key,d.open);else if(d.open)luOpened.add(key);else luOpened.delete(key);const all=luTreeKeys(luLastTree),b=document.querySelector('#libraryExpandAll');if(b&&all.length){const open=[...document.querySelectorAll('#documentList details[data-lu-node]')].every(x=>x.open);b.textContent=open?'모두 접기':'모두 펴기';b.dataset.luExpand=open?'close':'open'}}
+function luOnToggle(e){const d=e.target;if(!(d instanceof HTMLDetailsElement)||!d.dataset.luNode)return;const key=d.dataset.luNode;if(luFilterSignature!=='-')luFilterOpen.set(key,d.open);else if(d.open)luOpened.add(key);else luOpened.delete(key);const all=luTreeKeys(luLastTree);if(all.length)luExpandNow={count:all.length,open:[...document.querySelectorAll('#documentList details[data-lu-node]')].every(x=>x.open)}}
 // LIB-토글트리 ③: 폴더 편집은 프로젝트 묶기에서만, 폴더 표를 읽었을 때만(표가 없으면 편집 없음). 활성 프로젝트(1~3단 모두)·'프로젝트 없음'·폴더 머리에 ⋯.
 // 보관·옛 공간·확인 불가 연결 토글에는 두지 않는다(그 프로젝트는 프로젝트 화면에서 정리). 프로젝트 자체의 추가·이름·순서는 자료실에서 못 바꾼다(요구 ②).
 let luFoldersReady=false,luFolderUi=null;
@@ -590,7 +594,18 @@ let luSuggest=new Map();
 function luSelectNode(key,go=false){const ids=nodeDocumentIds(luTreeNode(key));if(!go||!ids.length||luSelBusy)return ids.length;luPick.stop();luPick.start(ids);luRenderLibrary();return ids.length}
 function luSuggestHtml(d,node){const fid=node?.key==='x:out'?luSuggest.get(d.id):null,f=fid&&luFolders_.find(x=>x.id===fid);if(!f)return '';return `<button type="button" class="lu-suggest" data-lu-suggest="${luEsc(d.id)}" data-lu-suggest-folder="${luEsc(f.id)}" aria-label="${luEsc(f.name)} 폴더로 옮기기">📁 ${luEsc(f.name)}?</button>`}
 document.addEventListener('click',e=>{const b=e.target.closest?.('#documentList [data-lu-suggest]');if(!b)return;e.preventDefault();e.stopPropagation();void luFolders().moveDocsTo([b.dataset.luSuggest],b.dataset.luSuggestFolder)},true);
-function luDragRowHtml(d,node){const html=luAddSuggest(luRowHtml(d,node),d,node);if((isPhotoSet(d)&&luGroupBy!=='folder')||!luCanDrag()||!(luGroupBy==='folder'||luGroupBy==='category'||luFolders_.some(f=>(f.project_id||null)===(d.project_id||null))))return html;return html.replace('<article class="lu-row','<article draggable="true" class="lu-row')}
+// 빠짐10(LIB-정리보충 ⑤): 같은 글의 원본 두 개(웹 + PDF/HWP)는 한 줄(대표 = 웹이 아닌 원본)로 묶고 줄 오른쪽 작은 [원본 n]으로 펼친다.
+// 화면에서만 묶는다(자료 행은 그대로). 상태 주인: luTwins(이번 그리기의 묶음 계획)·luTwinOpen(펼친 대표 id, 화면 메모리만).
+let luTwins=new Map();const luTwinOpen=new Set();
+const luTwinFolded=id=>{const t=luTwins.get(id);return !!t&&!luTwinOpen.has(t.primary)};
+const luTwinIds=ids=>withTwins(ids,luTwins,id=>luTwinOpen.has(id));
+function luTwinDocs(id){const t=luTwins.get(id);if(!t||!t.isPrimary||luTwinOpen.has(t.primary))return null;return t.members.map(m=>luDocuments.find(x=>x.id===m)).filter(Boolean)}
+function luDragRowHtml(d,node){const t=luTwins.get(d.id);if(t&&!t.isPrimary&&!luTwinOpen.has(t.primary))return '';let html=luDragRowHtml0(d,node);if(!t)return html;
+  if(!t.isPrimary)return html.replace(/^<article (draggable="true" )?class="lu-row/,(m,drag)=>`<article ${drag||''}class="lu-row lu-row-twin`);
+  const open=luTwinOpen.has(d.id),n=t.members.length;
+  return html.replace('<button class="icon-btn lu-expand"',`<button type="button" class="lu-twin-btn" data-lu-twin="${luEsc(d.id)}" aria-expanded="${open}" aria-label="같은 글 원본 ${n}개 ${open?'접기':'펼치기'}">원본 ${n}</button><button class="icon-btn lu-expand"`);
+}
+function luDragRowHtml0(d,node){const html=luAddSuggest(luRowHtml(d,node),d,node);if((isPhotoSet(d)&&luGroupBy!=='folder')||!luCanDrag()||!(luGroupBy==='folder'||luGroupBy==='category'||luFolders_.some(f=>(f.project_id||null)===(d.project_id||null))))return html;return html.replace('<article class="lu-row','<article draggable="true" class="lu-row')}
 // LIB-줄안이름바꾸기: 줄 우클릭·⋯ 메뉴의 [이름 바꾸기] 또는 줄을 고른 채 F2 → 창 없이 그 줄 제목이 입력칸이 된다(글자 전체 선택).
 // Enter·바깥 누르기=저장, Esc=취소. 저장하면 줄 위 한 줄에 '이름을 바꿨어요 · 되돌리기'. 바꾸는 것은 Web2 제목뿐(Drive 원본 파일 이름 그대로).
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH)이고 제목 칸을 사용자 값('user')으로 남긴다(library-rename.js). 브라우저 저장소는 쓰지 않는다.
@@ -607,6 +622,8 @@ function luStartRename(id){
   if(luRename){if(luRename.id===id){luRename.input.focus();return}luRename.finish(true)}
   const d=luDocuments.find(x=>x.id===id),row=[...document.querySelectorAll('#documentList [data-lu-document]')].find(x=>x.dataset.luDocument===id),title=row?.querySelector('.lu-row-title');
   if(!d||!title)return;
+  // 빠짐12: 보이는 이름이 파일 이름이면 첨부 공용 부품(Drive 원본 이름도 같이·[AI 이름]). 저장되면 kptu:documents-changed로 목록을 다시 읽는다.
+  if(fileNameShown(d)){row.removeAttribute('draggable');markRenameHost(title,{target:'document',id:d.id,driveId:d.file_id,name:d.file_name});openRenameEditor(title);for(const k of ['frHost','frTarget','frId','frDrive','frName'])delete title.dataset[k];return}
   const before=d.title||d.file_name||'',input=document.createElement('input'),wasDraggable=row.getAttribute('draggable');
   input.type='text';input.className='lu-rename-input';input.value=before;input.setAttribute('aria-label','자료 이름');input.autocomplete='off';
   let done=false;
@@ -666,7 +683,7 @@ async function luRenameUndo(id,renamed,snapshot){
   finally{luRenameBusy=false}
 }
 function luFolderStatus(text,error=false){const el=document.querySelector('#libraryFolderStatusLine');if(!el)return;el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error)}
-function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({selectNode:luSelectNode,enter:luEnterFolder,photoSetDocs:luPhotoSetMembers,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',inFolder:!!luInFolder,treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luPick.items?[...luPick.items]:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luPick.items&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luPick.items&&ids.every(id=>luPick.items.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luPick.items&&[...done,...failed].some(id=>luPick.items.has(id));luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder}});return luFolderUi}
+function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({selectNode:luSelectNode,enter:luEnterFolder,photoSetDocs:luPhotoSetMembers,twinDocs:luTwinDocs,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',inFolder:!!luInFolder,treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luPick.items?[...luPick.items]:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luPick.items&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luPick.items&&ids.every(id=>luPick.items.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luPick.items&&[...done,...failed].some(id=>luPick.items.has(id));luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder}});return luFolderUi}
 // 토글 하나를 접거나 편다(폴더 ⋯ 메뉴의 [접기·펼치기]). 상태는 머리를 눌렀을 때와 같은 곳(luOpened·luFilterOpen)에 적는다.
 const luNodeEl=key=>[...document.querySelectorAll('#documentList details[data-lu-node]')].find(x=>x.dataset.luNode===key);
 const luNodeOpen=key=>!!luNodeEl(key)?.open;
@@ -971,30 +988,44 @@ function luAfterRender(){
   luSyncPicks();
 }
 function luSyncPicks(){
-  const bar=document.querySelector('#librarySelectBar'),btn=document.querySelector('#librarySelectBtn'),on=!!luPick.items;
+  const bar=document.querySelector('#librarySelectBar'),on=!!luPick.items;
   if(bar)bar.hidden=!on;
   // LIB-선택모드(08:29~08:30 ②): 들어갈 때 줄들이 한 번 아주 짧게(0.2초) 살짝 흔들리고 멈춤(계속 흔들지 않음, 움직임 줄이기면 없음),
   // 위 줄은 강조색 띠, 목록 칸 테두리는 연한 강조색(CSS .lu-selecting). 나올 때는 조용히 원래대로.
   const card=document.querySelector('#libraryListCard');
   if(card){const was=card.classList.contains('lu-selecting');card.classList.toggle('lu-selecting',on);
     if(on&&!was){card.classList.remove('lu-sel-enter');void card.offsetWidth;card.classList.add('lu-sel-enter')}else if(!on)card.classList.remove('lu-sel-enter')}
-  if(btn)btn.hidden=on;
   const barEl=document.querySelector('#librarySelectBar');
   if(!on){barEl?.querySelector('.filter-chips')?.remove();return}
   // 전체 칩은 거르기 칩과 같은 공용 모양(.filter-chips)이라 선택 모드일 때만 그린다.
   if(barEl&&!barEl.querySelector('#librarySelectAll')){barEl.insertAdjacentHTML('afterbegin','<div class="filter-chips filter-chips-small quick-mode-group" role="group" aria-label="전체 선택"><button id="librarySelectAll" class="quick-pill-button" type="button" role="checkbox" aria-checked="false" aria-controls="documentList">전체</button></div>')}
   const ids=luVisibleIds(),list=document.querySelector('#documentList');
-  for(const c of list?.querySelectorAll('[data-lu-pick]')||[])c.checked=luPick.items.has(c.dataset.luPick);
+  for(const c of list?.querySelectorAll('[data-lu-pick]')||[]){const ids=luTwinIds([c.dataset.luPick]);c.checked=ids.every(x=>luPick.items.has(x));c.indeterminate=ids.length>1&&!c.checked&&ids.some(x=>luPick.items.has(x))}
   for(const c of list?.querySelectorAll('[data-lu-pick-node]')||[]){const nodeIds=nodeDocumentIds(luTreeNode(c.dataset.luPickNode));c.checked=allSelected(luPick.items,nodeIds);c.indeterminate=someSelected(luPick.items,nodeIds)}
   const all=document.querySelector('#librarySelectAll'),count=document.querySelector('#librarySelectCount'),del=document.querySelector('#librarySelectDelete'),cancel=document.querySelector('#librarySelectCancel');
   if(all){all.setAttribute('aria-checked',String(allSelected(luPick.items,ids)));all.disabled=luSelBusy||!ids.length}
-  if(count&&!luSelBusy)count.textContent=`${luPick.items.size}개 골랐음`;
+  // 빠짐10: 고른 것 중 지금 줄로 보이지 않는 것(접힌 토글·'n건 더'·접힌 같은 글)이 있으면 '— 접힌 n개 포함'.
+  if(count&&!luSelBusy){const seen=new Set([...(list?.querySelectorAll('[data-lu-document]')||[])].filter(x=>x.checkVisibility?.()!==false).map(x=>x.dataset.luDocument));let hidden=0;for(const id of luPick.items)if(!seen.has(id))hidden++;count.textContent=pickCountText(luPick.items.size,hidden)}
   if(del)del.disabled=luSelBusy||!luPick.items.size;
   for(const b of barEl.querySelectorAll('[data-lu-bulk],#librarySelectFolder'))b.disabled=luSelBusy||!luPick.items.size;
   const fb=barEl.querySelector('#librarySelectFolder');if(fb)fb.hidden=!luFoldersReady;
   if(cancel)cancel.disabled=luSelBusy;
 }
 function luSelStart(){if(luPick.active)return;luPick.start();luRenderLibrary()}
+// LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 오른쪽 ⋯ 하나에 [새 폴더](폴더 묶기일 때)·[여러 개 고르기]·[모두 펴기·접기]를 모은다.
+// 따로 떠 있던 '선택' 글자와 '모두 펴기' 글자는 이 메뉴로 합쳤다. 폴더마다 이름 바꾸기·지우기는 지금처럼 그 폴더 줄 우클릭·꾹 누르기.
+let luTopMenu=null;
+function luTopMenuHtml(){
+  const folder=luFoldersReady&&luGroupBy==='folder';
+  return (folder?`<button type="button" data-lu-top="folder">${luInFolder?'이 폴더 안에 새 폴더':'새 폴더'}</button>`:'')
+    +(luPick.active?'<button type="button" data-lu-top="select-stop">고르기 끝내기</button>':'<button type="button" data-lu-top="select">여러 개 고르기</button>')
+    +`<button type="button" data-lu-top="expand"${luExpandNow.count?'':' disabled'}>${luExpandNow.open?'모두 접기':'모두 펴기'}</button>`;
+}
+function luTopMenuOpen(trigger){
+  luTopMenu||=createAnchoredMenu({id:'luTopMenu',className:'lu-folder-menu lu-top-menu',label:'자료실 메뉴',historyKey:'kptuLibraryTopMenu',key:()=>'top',render:luTopMenuHtml,
+    onAction:(b,active)=>{const act=b.dataset.luTop;if(act==='select')luSelStart();else if(act==='select-stop')luSelStop();else if(act==='expand')luExpandAll();else if(act==='folder')luFolders().createIn(luInFolder||null,active.trigger)}});
+  luTopMenu.open(trigger);
+}
 function luSelStop(){if(!luPick.active||luSelBusy)return;luPick.stop();luRenderLibrary()}
 // 메뉴 맨 위 [선택]: 선택 모드를 켜고 그 자료를 고른 채로(최근 올린 파일 칸에서 눌러도 아래 목록과 한 선택 모드).
 function luSelStartWith(id){if(luSelBusy||!luDocuments.some(d=>d.id===id))return;luPick.start([id],id);luRenderLibrary()}
@@ -1005,17 +1036,18 @@ function luOnSelEscape(e){
   if(e.target?.closest?.('input:not([type=checkbox]),textarea,select,[contenteditable]'))return;
   e.preventDefault();luSelStop();
 }
-function luPickToggle(ids){luPick.toggle(ids,{anchor:false});luSyncPicks()}
+function luPickToggle(ids){luPick.toggle(luTwinIds(ids),{anchor:false});luSyncPicks()}
 // PC: Ctrl/Cmd+클릭 = 그 줄만 더하고 빼기(선택 모드가 아니면 켜면서), Shift+클릭 = 마지막으로 고른 줄부터 이 줄까지 보이는 줄을 모두 더하기.
 function luPickAt(e,id){
   if(e.shiftKey&&luPick.anchor!=null){
     const order=[...document.querySelectorAll('#documentList [data-lu-document]')].filter(x=>x.checkVisibility?.()!==false).map(x=>x.dataset.luDocument);
-    luPick.range(order,id);luSyncPicks();return;
+    luPick.range(order,id);const extra=luTwinIds(order).filter(x=>!order.includes(x)&&!luPick.items.has(x)&&luPick.items.has(luTwins.get(x)?.primary));if(extra.length)luPick.toggle(extra,{anchor:false});luSyncPicks();return;
   }
-  luPick.toggle([id]);luSyncPicks();
+  const ids=luTwinIds([id]);if(ids.length>1){luPick.toggle(ids,{anchor:false});luPick.anchor=id}else luPick.toggle([id]);luSyncPicks();
 }
 // 목록 안 클릭·키보드: 선택 모드에서는 줄을 눌러도 자료를 열지 않고 고르기만 한다(캡처 단계에서 먼저 처리).
 function luOnPickClick(e){
+  if(e.target.closest?.('[data-lu-twin]'))return; // 빠짐10: [원본 n]은 펼치기만(고르기·열기 없음)
   if(!luPick.items){
     if(!(e.ctrlKey||e.metaKey||e.shiftKey)||!LU_FINE?.matches)return;
     const row=e.target.closest?.('[data-lu-document]');if(!row||e.target.closest('button,input,a,[contenteditable]'))return;
@@ -1102,7 +1134,7 @@ function luBindSelect(){
   const list=document.querySelector('#documentList');
   if(!list||list.dataset.luSelBound)return;list.dataset.luSelBound='1';
   list.addEventListener('click',luOnPickClick,true);list.addEventListener('keydown',luOnPickKey,true);
-  document.querySelector('#librarySelectBtn')?.addEventListener('click',luSelStart);
+  document.querySelector('#libraryTopMenuBtn')?.addEventListener('click',e=>luTopMenuOpen(e.currentTarget));
   document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectAll'))luSelAll()});
   document.querySelector('#librarySelectDelete')?.addEventListener('click',luSelDelete);
   document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{
@@ -1164,6 +1196,6 @@ function luRevealRequested(){if(luSelectRequested())return;const id=takeLibraryD
 const luTruncated=el=>!!el&&(el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1);
 function luMarkLongNames(box){const phone=luPhone();box?.querySelectorAll('.lu-row').forEach(row=>{const button=row.querySelector('[data-lu-expand]');if(phone)row.classList.remove('lu-expanded');if(button){button.hidden=phone||!row.classList.contains('lu-expanded')&&!luTruncated(row.querySelector('.lu-row-title'));if(button.hidden)button.setAttribute('aria-expanded','false')}})}
 function luToggleName(button){const row=button.closest('.lu-row'),open=!row.classList.contains('lu-expanded');row.classList.toggle('lu-expanded',open);button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',open?'이름 접기':'전체 이름 보기');if(!open)luMarkLongNames(row.parentElement)}
-function luBindList(){luBindRecent();const list=document.querySelector('#documentList');if(!list||list.dataset.luBound)return;list.dataset.luBound='1';window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='library')luFolderLayer=null});document.querySelector('#libraryListCard')?.addEventListener('animationend',e=>{if(e.animationName==='lu-sel-nudge')e.currentTarget.classList.remove('lu-sel-enter')});luBindSelect();luBindMenu();luBindRename(list);luFolders().bindKeys(list);list.addEventListener('toggle',luOnToggle,true);list.addEventListener('click',luOnHeadClick);luFolders().bindDrag(list);LU_FINE?.addEventListener?.('change',luRenderLibrary);list.addEventListener('click',e=>{const b=e.target.closest('[data-lu-node-menu]');if(!b)return;e.preventDefault();e.stopPropagation();luCloseMenu(()=>luFolders().open(b))});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-node-menu]')){e.preventDefault();e.stopPropagation();luCloseMenu(()=>luFolders().open(e.target))}},true);list.addEventListener('click',e=>{const more=e.target.closest('[data-lu-more]');if(!more)return;e.stopPropagation();const key=more.dataset.luMore;luShowAll.add(key);luRenderLibrary();const node=[...list.querySelectorAll('[data-lu-node]')].find(n=>n.dataset.luNode===key);const rows=node?.querySelectorAll(':scope > .lu-node-body > .lu-row');rows?.[Math.min(rows.length-1,20)]?.focus({preventScroll:true})});document.querySelector('#libraryExpandAll')?.addEventListener('click',luExpandAll);list.addEventListener('click',e=>{const show=e.target.closest('[data-lu-show-off]');if(!show)return;let names=[];try{names=JSON.parse(show.dataset.luShowOff)}catch{}names.forEach(n=>luCategoryOff.delete(n));luCategorySub='';luRenderLibrary()});if(typeof ResizeObserver==='function')new ResizeObserver(()=>luMarkLongNames(list)).observe(list);LU_PHONE?.addEventListener?.('change',luRenderLibrary);list.addEventListener('click',async e=>{const expand=e.target.closest('[data-lu-expand]');if(expand){e.stopPropagation();luToggleName(expand);return}const menu=e.target.closest('[data-lu-menu]');if(menu){e.stopPropagation();luOpenMenu(menu);return}const set=e.target.closest('[data-lu-photoset]');if(set){if(!luPick.items)await luOpenPhotoSet(set.dataset.luPhotoset);return}const card=e.target.closest('[data-lu-document]');if(card)await luOpenDocument(card.dataset.luDocument)});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-photoset]')){e.preventDefault();if(!luPick.items)void luOpenPhotoSet(e.target.dataset.luPhotoset);return}if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-document]')){e.preventDefault();luOpenDocument(e.target.dataset.luDocument)}})}
+function luBindList(){luBindRecent();const list=document.querySelector('#documentList');if(!list||list.dataset.luBound)return;list.dataset.luBound='1';window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='library')luFolderLayer=null});document.querySelector('#libraryListCard')?.addEventListener('animationend',e=>{if(e.animationName==='lu-sel-nudge')e.currentTarget.classList.remove('lu-sel-enter')});luBindSelect();luBindMenu();luBindRename(list);luFolders().bindKeys(list);list.addEventListener('toggle',luOnToggle,true);list.addEventListener('click',luOnHeadClick);luFolders().bindDrag(list);LU_FINE?.addEventListener?.('change',luRenderLibrary);list.addEventListener('click',e=>{const b=e.target.closest('[data-lu-node-menu]');if(!b)return;e.preventDefault();e.stopPropagation();luCloseMenu(()=>luFolders().open(b))});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-node-menu]')){e.preventDefault();e.stopPropagation();luCloseMenu(()=>luFolders().open(e.target))}},true);list.addEventListener('click',e=>{const more=e.target.closest('[data-lu-more]');if(!more)return;e.stopPropagation();const key=more.dataset.luMore;luShowAll.add(key);luRenderLibrary();const node=[...list.querySelectorAll('[data-lu-node]')].find(n=>n.dataset.luNode===key);const rows=node?.querySelectorAll(':scope > .lu-node-body > .lu-row');rows?.[Math.min(rows.length-1,20)]?.focus({preventScroll:true})});list.addEventListener('click',e=>{const show=e.target.closest('[data-lu-show-off]');if(!show)return;let names=[];try{names=JSON.parse(show.dataset.luShowOff)}catch{}names.forEach(n=>luCategoryOff.delete(n));luCategorySub='';luRenderLibrary()});if(typeof ResizeObserver==='function')new ResizeObserver(()=>luMarkLongNames(list)).observe(list);LU_PHONE?.addEventListener?.('change',luRenderLibrary);list.addEventListener('click',e=>{const tw=e.target.closest('[data-lu-twin]');if(!tw)return;e.stopPropagation();e.preventDefault();const id=tw.dataset.luTwin;if(luTwinOpen.has(id))luTwinOpen.delete(id);else luTwinOpen.add(id);luRenderLibrary();list.querySelector(`[data-lu-twin="${CSS.escape(id)}"]`)?.focus({preventScroll:true})},true);list.addEventListener('click',async e=>{const expand=e.target.closest('[data-lu-expand]');if(expand){e.stopPropagation();luToggleName(expand);return}const menu=e.target.closest('[data-lu-menu]');if(menu){e.stopPropagation();luOpenMenu(menu);return}const set=e.target.closest('[data-lu-photoset]');if(set){if(!luPick.items)await luOpenPhotoSet(set.dataset.luPhotoset);return}const card=e.target.closest('[data-lu-document]');if(card)await luOpenDocument(card.dataset.luDocument)});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-photoset]')){e.preventDefault();if(!luPick.items)void luOpenPhotoSet(e.target.dataset.luPhotoset);return}if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-document]')){e.preventDefault();luOpenDocument(e.target.dataset.luDocument)}})}
 async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null)},true);luRenderUploadProject('');const manage=document.querySelector('#manageLibraryBtn');if(manage)manage.onclick=()=>luManage();const search=document.querySelector('#documentSearch');if(search)search.oninput=luRenderLibrary;window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luRefreshView();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead()}
 window.__KPTU_LIBRARY_UPLOAD_READY__=Promise.resolve().then(luInit).then(()=>true).catch(err=>{console.error('library upload init',err);return false});

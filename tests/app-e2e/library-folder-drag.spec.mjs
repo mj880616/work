@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {expandLibraryTree,libraryNodeHead} from './helpers/library-tree.mjs';
+import {expandLibraryTree,libraryNodeHead,libraryTopMenu} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,childrenOf} from './helpers/library-folder-server.mjs';
 // LIB-폴더탐색기 화면 ②(docs/design/library-tree.md 12절): 끌어 옮기기(폴더 보기는 프로젝트 틀과 무관), 놓을 곳 점선 표시,
 // '옮겼어요 · 되돌리기', 여러 자료 한꺼번에 끌기, 화면 가장자리 자동 스크롤, 폰 길게 누르기(잡아 옮기기·떼면 메뉴·세로 스크롤과 구분).
@@ -71,7 +71,7 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
   test('고른 자료 여러 개를 한꺼번에 끌어 폴더로 옮기고 한 번에 되돌린다',async({page})=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     await expandLibraryTree(page);
-    await page.locator('#librarySelectBtn').click();
+    await libraryTopMenu(page,'select');
     await page.locator('[data-lu-pick="a-2"]').check();await page.locator('[data-lu-pick="a1-1"]').check();
     const r=await dragTo(page,row('a-2'),head('f:fn'));expect(r.allowed).toBe(true);
     await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').map(x=>x.document_id).sort()).toEqual(['a-2','a1-1']);

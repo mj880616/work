@@ -4,10 +4,10 @@ import {expect} from '@playwright/test';
 export async function expandLibraryTree(page){
   await page.waitForFunction(()=>window.__KPTU_LIBRARY_UPLOAD_READY__);
   await page.evaluate(()=>window.__KPTU_LIBRARY_UPLOAD_READY__);
-  const button=page.locator('#libraryExpandAll');
-  await expect(button).toBeVisible();
+  await expect(page.locator('#libraryTopMenuBtn')).toBeVisible();
   await expect(page.locator('#documentList > *').first()).toBeAttached();
-  if(await button.isEnabled()&&await button.getAttribute('data-lu-expand')!=='close')await button.click();
+  const now=await libraryExpandItem(page);
+  if(!now.disabled&&now.text==='모두 펴기')await libraryTopMenu(page,'expand');
   await expect.poll(()=>page.locator('#documentList details[data-lu-node]:not([open])').count()).toBe(0);
 }
 // 한 자료 줄이 보이도록 그 자료가 든 토글만 연다(사용자가 토글 머리를 누르는 것과 같음).
@@ -31,4 +31,25 @@ export async function focusLibraryProject(page,id){
   if(id==='all'){const all=page.locator('#documentProject [data-filter-value="all"]');if(await all.isVisible())await all.click();await expect(page.locator('#documentProject')).toBeHidden();return}
   await page.evaluate(id=>{document.querySelector('#documentProject').value=id;window.KPTULibrary.render()},id);
   await expect(page.locator('#documentProject')).toBeVisible();
+}
+
+// LIB-맨위메뉴하나(빠짐9): [새 폴더]·[여러 개 고르기]·[모두 펴기·접기]는 자료실 칸 맨 위 ⋯ 메뉴 하나에 있다.
+// act: 'folder' | 'select' | 'select-stop' | 'expand'. tap=true면 손가락 누르기.
+export async function libraryTopMenu(page,act,{tap=false}={}){
+  const button=page.locator('#libraryTopMenuBtn');
+  if(tap)await button.tap();else await button.click();
+  const item=page.locator(`#luTopMenu [data-lu-top="${act}"]`);
+  await expect(item).toBeVisible();
+  if(tap)await item.tap();else await item.click();
+  await expect(page.locator('#luTopMenu')).toBeHidden();
+}
+// 메뉴의 [모두 펴기·접기] 줄 글자와 눌림 여부를 읽고 메뉴를 닫는다(Esc).
+export async function libraryExpandItem(page){
+  await page.locator('#libraryTopMenuBtn').click();
+  const item=page.locator('#luTopMenu [data-lu-top="expand"]');
+  await expect(item).toBeVisible();
+  const out={text:(await item.textContent()).trim(),disabled:await item.isDisabled()};
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#luTopMenu')).toBeHidden();
+  return out;
 }
