@@ -153,7 +153,9 @@ document.addEventListener('click',e=>{
  loadDetail().then(()=>{row.removeAttribute('aria-busy');if(row.isConnected&&detailLoaded())row.click()}).catch(err=>{row.removeAttribute('aria-busy');console.error('organization detail load',err);notify('조직 상세를 불러오지 못했습니다. 다시 눌러 주세요.',{error:true})});
 },true);
 function afterReveal(){return new Promise(resolve=>{const next=()=>requestAnimationFrame(()=>setTimeout(resolve,0));if(document.querySelector('#appView')?.classList.contains('kptu-ui-ready'))return next();window.addEventListener('kptu:app-ui-ready',next,{once:true})})}
-// 앱 화면 안에서만(KPTUViewLoader가 있을 때) 미리 받는다. 상세를 따로 띄운 시험 틀은 자기가 고른 모듈을 그대로 쓴다.
-if(window.KPTUViewLoader)void afterReveal().then(loadDetail).catch(err=>console.error('organization detail load',err));
+// 담당조직 화면에 들어왔을 때만 미리 받는다(달력 일정 칸 등 목록 모듈만 쓰는 화면에서는 받지 않음). 앱 화면 안에서만(KPTUViewLoader가 있을 때)
+// — 상세를 따로 띄운 시험 틀은 자기가 고른 모듈을 그대로 쓴다.
+function preloadDetail(){void afterReveal().then(loadDetail).catch(err=>console.error('organization detail load',err))}
+if(window.KPTUViewLoader){if(window.KPTURouter?.current==='team')preloadDetail();window.KPTURouter?.on?.('team',preloadDetail)}
 window.__KPTU_SUBORGANIZATIONS_READY__=boot().catch(err=>{console.error('suborganizations init',err);return false});
 })();
