@@ -189,6 +189,8 @@ test('[+ 블록] between blocks, ⋯ move and delete, saved in the shown order',
   await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).click();
   await answerAsk(page, false);
   await expect(editor.locator('[data-sp-block]')).toHaveCount(7);
+  // 작은 확인창을 누르면 ⋯ 메뉴는 닫힌다(바깥 누르기) — 다시 연다.
+  if (!await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).isVisible()) await editor.getByLabel('6번째 블록 자료·링크 메뉴', {exact:true}).click();
   await editor.getByRole('button', {name:'6번째 블록 자료·링크 지우기', exact:true}).click();
   await answerAsk(page, true);
   await expect(editor.locator('[data-sp-block]')).toHaveCount(6);

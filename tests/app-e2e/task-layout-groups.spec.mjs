@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import {answerAsk} from './helpers/small-notice.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 test('task screen renders one personal task list with pending count',async({page})=>{
@@ -122,13 +123,13 @@ test('checkbox reverses completion and delete keeps confirmation',async({page})=
   await completed.locator('[data-tl-task-row="self-open"] [data-tl-toggle]').click();
   await expect(row.locator('[data-tl-toggle]')).not.toBeChecked();
   await row.locator('[data-tl-menu]').click();
-  page.once('dialog',dialog=>dialog.dismiss());
   await row.locator('[data-tl-delete]').click();
+  await answerAsk(page,false);
   await expect(row).toBeVisible();
   await expect(row.locator('[data-tl-menu]')).toBeFocused();
   await row.locator('[data-tl-menu]').click();
-  page.once('dialog',dialog=>dialog.accept());
   await row.locator('[data-tl-delete]').click();
+  await answerAsk(page,true);
   await expect(row).toHaveCount(0);
 });
 
