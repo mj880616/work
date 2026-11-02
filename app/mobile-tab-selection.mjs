@@ -1,6 +1,7 @@
 // UI-모바일메뉴순서: 폰 하단바의 선택 표시를 정하는 곳은 여기 하나다.
-// 규칙: 하단바에서 진하게 켜지는 칸은 언제나 하나. [메뉴] 창이 열려 있으면 [메뉴], 닫혀 있으면 지금 보는 화면의 칸.
-// 메뉴 창으로 들어가는 화면(사업 보고·자료실 …)과 노트는 하단바에 칸이 없으므로 [메뉴] 칸이 지금 화면이다.
+// 규칙: 하단바에서 진하게 켜지는 칸은 많아야 하나. [메뉴] 창이 열려 있으면 [메뉴], 닫혀 있으면 지금 보는 화면의 칸.
+// UI-화면정리 C5(요청함 10/28 20:03, S48-30): 메뉴 창으로 들어가는 화면(자료실·통화·원장 …)과 노트는 하단바에 칸이 없으므로 아무 칸도 칠하지 않는다.
+// 지금 메뉴는 위쪽 머리줄 제목이 알려 준다([메뉴]가 고른 것처럼 칠해지던 것을 그만, 펼친 폭의 위쪽 탭 줄도 같은 하단바 부품이라 같다).
 // 진하게 보이는 모양은 CSS가 aria-current="page" 하나만 보고 그린다(aria-expanded는 접근성 표시일 뿐 모양을 켜지 않는다).
 // MENU-HOME-편집: 하단바 칸 구성은 사용자가 정하므로(menu-model.mjs) 어느 화면이 어느 칸인지도 그 구성(layout)에서 읽는다. layout을 안 주면 기본 구성이다.
 import {defaultLayout, barItemForView, menuSheetViews} from './menu-model.mjs';
@@ -12,7 +13,6 @@ export function selectedMobileTab({view = null, noteMode = false, menuOpen = fal
   if (menuOpen) return 'menu';
   const own = barItemForView(shape, view, noteMode);
   if (own) return own === 'calendar' ? 'schedule' : own;
-  if (noteMode || menuSheetViews(shape).includes(view)) return 'menu';
   return null;
 }
 

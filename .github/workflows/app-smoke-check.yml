@@ -330,6 +330,8 @@ jobs:
         run: node --test tests/ui-cleanup-c.test.mjs
       - name: Check site audit fixes stay in the shared parts (UI-점검1030손질)
         run: node --test tests/ui-audit-1030.test.mjs
+      - name: Check S48-30 screen polish 2 (▾ after label, refresh same place, folder button not cut, 업무일지 names, top line steps)
+        run: node --test tests/ui-polish-2.test.mjs
       - name: Check chip rows wrap to two lines with a more button, no sideways scroll (UI-칩줄두줄)
         run: node --test tests/chip-rows.test.mjs
       - name: Check two screen widths only, phone and PC frame (UI-폴드PC틀)

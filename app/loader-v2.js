@@ -83,6 +83,7 @@
     const nextOwner=sessionOwner(next);
     if(next&&nextOwner&&nextOwner===bootOwner)return;
     lockPrivateUi();
+    try{window.KPTURouter?.dropPlaces?.()}catch{}
     if(next&&nextOwner){markReopen('session');location.reload()}
     else location.replace(loginUrl());
   };

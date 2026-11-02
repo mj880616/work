@@ -114,10 +114,11 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // A tile opens its screen; 자료실 shows that one name on top.
  await tab.click();await page.locator('#mobileMenu [data-view="library"]').click();
  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('자료실');
- await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
- // 메뉴 안 화면에서 창을 다시 열어도, 뒤로가기로 창을 닫아도 [메뉴] 하나만.
+ // UI-화면정리 C5(S48-30): 하단바에 칸이 없는 화면은 아무 칸도 칠하지 않는다(위쪽 제목 '자료실'이 지금 메뉴).
+ await expect(marks).toHaveCount(0);await expect(tab).not.toHaveAttribute('aria-current','page');
+ // 메뉴 안 화면에서 창을 다시 열면 [메뉴] 하나, 뒤로가기로 창을 닫으면 다시 칠하지 않음.
  await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
- await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#libraryView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
+ await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#libraryView')).toBeVisible();await expect(marks).toHaveCount(0);await expect(tab).not.toHaveAttribute('aria-current','page');
  // 하단바의 다른 칸으로 가면 그 칸 하나만.
  await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(marks).toContainText('홈');
  await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');await page.goBack();await expect(menu).toBeHidden();await expect(marks).toContainText('홈');await expect(marks).toHaveCount(1);

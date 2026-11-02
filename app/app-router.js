@@ -31,7 +31,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={meetings:['areas'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],team:['org'],calls:['box','call'],photos:['tab'],telegram:['by','room'],files:['at','shelf']};
+  const PLACE_PARAMS={meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab'],telegram:['by','room'],files:['at','shelf']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -514,7 +514,17 @@
   }
 
   // syncNavigation: repaint the menu marks for the current view (menu-layout.js calls it after the menu order changes).
-  const api={current:null,sub:null,go,setSub,place,setPlace,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  // S48-30: 로그아웃·다른 사람으로 바뀔 때(loader-v2 handleIdentityChange) 앞 사람의 '열린 항목' 칸(그 사람의 자료 id)을 주소에서 지운다.
+  // 화면·쪽·창·보기 방식·날짜 칸(?view=·?pane=·areas·chip·day·mode·date·box·tab·by·shelf)은 남긴다 — 다음 로그인·다시 읽기에서 같은 화면은 열되
+  // 앞 사람의 열린 노트·할 일·보고·조직·폴더는 되살리지 않는다(자리는 같은 로그인 안의 새로고침용).
+  const ITEM_KEYS=['note','doc','folder','org','call','task','report','room','at'];
+  function dropPlaces(){
+    const u=new URL(location.href);let changed=false;
+    for(const key of ITEM_KEYS)if(u.searchParams.has(key)){u.searchParams.delete(key);changed=true}
+    if(changed)history.replaceState(history.state,'',u.pathname+(u.search||'')+u.hash);
+    return changed;
+  }
+  const api={current:null,sub:null,go,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
   let moveQueued=false;
