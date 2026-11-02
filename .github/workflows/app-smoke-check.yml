@@ -998,6 +998,9 @@ jobs:
       - name: Check weekly major schedule, detail lines, line move and cut index (S48-3)
         run: node --test tests/weekly-s48-3.test.mjs
 
+      - name: Check weekly cell kept rates, AI material dates, work line drop, two-line suggestions (S48-3b)
+        run: node --test tests/weekly-s48-3b.test.mjs
+
       - name: Check notification removal
         run: |
           set -e

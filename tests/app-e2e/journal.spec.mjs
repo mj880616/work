@@ -1503,7 +1503,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  expect(f.sent.open.map(o=>o.document_id)).toContain('doc-week');
  expect(f.sent.library).toHaveLength(0);
  await expect(cellLines(b1)).toHaveText(['- AI 나-1 줄']);
- // [확정하고 한글 파일 받기] → 고침 기록 저장 → 환류 보고 한 장(숫자·후보·제안). 개선 제안 [넣기]는 그 주 행에 남는다.
+ // [확정하고 한글 파일 받기] → 고침 기록 저장 → 환류 보고 한 장(숫자·후보·제안). 개선 제안 [만들기]는 그 주 행에 남는다(S48-3b: [넣기] → [만들기]).
  page.once('dialog',d=>d.accept());
  await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click()]);
  const card=hwpx(page).locator('[data-hwpx-review] [data-learn-review]');
@@ -1511,14 +1511,17 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 고침 0 · 뺌 0 · 더함 0');
  await expect(card.locator('[data-learn-candidates] li')).toHaveCount(1);
  await expect(card.locator('[data-learn-candidates] li').first()).toContainText('가상 규칙 후보');
- // WEEKLY-환류입력창 ①: 개선 제안은 분류 표시(입력창)와 함께.
- await expect(card.locator('[data-learn-suggestion="s1"] [data-learn-area="input"]')).toHaveText('입력창');
+ // WEEKLY-환류입력창 ①: 개선 제안은 분류 표시와 함께 — 꼬리표는 쉬운 말(S48-3b: 입력창 → 입력 화면).
+ await expect(card.locator('[data-learn-suggestion="s1"] [data-learn-area="input"]')).toHaveText('입력 화면');
+ await expect(card.locator('[data-learn-suggestion="s1"] .journal-learn-gain')).toHaveText('가상 개선 제안');
  const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
  expect(row().draft.proposed.ai).toBe(true);
  expect(ai.find(x=>x.kind==='weekly_review')).toEqual({kind:'weekly_review',week_start:'2026-10-05'});
- await card.locator('[data-learn-suggestion="s1"]').getByRole('button',{name:/^넣기/}).click();
+ await card.locator('[data-learn-suggestion="s1"]').getByRole('button',{name:/^만들기로 보내기/}).click();
  await expect.poll(()=>row().draft.feedback.review.suggestions[0].answer,{timeout:15000}).toBe('yes');
- await expect(hwpx(page).locator('[data-hwpx-review]')).toContainText('넣었어요. 개발 후보에 올렸어요.');
+ await expect(page.locator('#kptuNotice')).toContainText('만들기로 보냈어요.');
+ await expect(card.locator('[data-learn-suggestion="s1"] [data-learn-answer-state="yes"]')).toHaveText('만들기로 보냄');
+ await expect(hwpx(page).locator('[data-hwpx-review]')).not.toContainText('만들기로 보냈어요.'); // 성공 알림은 화면에 남지 않는다
  // WEEKLY-규칙합의 + 환류 전 칸 ⑤: 새 규칙 후보는 줄 끝 [넣기] · ⋯([고쳐서 넣기]·[빼기]). [빼기]는 그 자리 이유 한 줄(안 써도 됨) → [빼기 확인].
  // 뺀 후보는 폐기(그 행 rules.retired)로, 학습 기록(picks)에는 이유와 함께 거절로 남는다.
  const cand=card.locator('[data-learn-candidates] li').first();
@@ -1529,32 +1532,36 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(why).toBeFocused();await expect(why).toHaveAttribute('placeholder','이유(안 써도 돼요)');
  await why.fill('가상 빼는 이유');await why.press('Enter');
  await expect(card.locator('[data-learn-candidates] li')).toHaveCount(0);
- await expect(hwpx(page).locator('[data-hwpx-review]')).toContainText('후보를 뺐어요.');
+ await expect(page.locator('#kptuNotice')).toContainText('후보를 뺐어요.');
  await expect.poll(()=>(row().draft.rules?.retired??[]).map(x=>x.text),{timeout:15000}).toEqual(['가상 규칙 후보']);
  expect(row().draft.rules.lines.map(l=>l.text)).toEqual(['가상 규칙 하나','가상 규칙 둘']);
  await expect.poll(()=>(row().draft.picks?.items??[]).map(i=>[i.kind,i.cell,i.act].join(',')).sort().join('|'),{timeout:15000}).toBe('review,개선 제안,take|review,규칙 후보,drop');
  expect(row().draft.picks.items.find(i=>i.cell==='규칙 후보').why).toBe('가상 빼는 이유');
  expect(row().draft.feedback.counts).toEqual({kept:4,changed:0,dropped:0,added:0,proposed:4,final:4});
- // [주간 정리] 맨 아래 '주간보고 규칙·환류': 확정 규칙 2줄, 이번 주 환류, 개발 후보 1. [지우기]는 그 확정 줄을 뺀 규칙(폐기)으로 옮긴다.
+ // [주간 정리] 맨 아래 '주간보고 규칙·환류': 확정 규칙 2줄, 이번 주 환류, 만들기로 보낸 것 1. [지우기]는 그 확정 줄을 뺀 규칙(폐기)으로 옮긴다.
  const learn=page.locator('#journalRoot [data-journal-weekly-learn]');
- await expect(learn.locator('summary').first()).toContainText('확정 규칙 2줄 · 이번 주 100% 그대로 · 개발 후보 1');
+ await expect(learn.locator('summary').first()).toContainText('확정 규칙 2줄 · 이번 주 100% 그대로 · 만들기로 보낸 것 1');
  await learn.locator('summary').first().click();
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(2);
+ await expect(learn.locator('[data-journal-learn-dev] h5')).toHaveText('만들기로 보낸 것');
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안']);
+ // 칸별 그대로 쓴 비율(S48-3b): 이번 주 동작(개선 제안·규칙 후보는 셈 밖)이 칸에 없으면 줄도 없다.
+ await expect(learn.locator('[data-learn-cell-rates]')).toHaveCount(0);
  await pressMore(learn.locator('[data-journal-learn-rule="0"]'),'[data-journal-learn-delete]');
- await expect(learn.locator('[data-journal-learn-status]')).toHaveText('규칙을 지웠어요.');
+ await expect(page.locator('#kptuNotice')).toContainText('규칙을 지웠어요.');
+ await expect(learn.locator('[data-journal-learn-status]')).toHaveText('');
  await expect.poll(()=>row().draft.rules.lines.map(l=>l.text)).toEqual(['가상 규칙 둘']);
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(1);
  expect(row().draft.rules.retired.map(x=>x.text)).toEqual(['가상 규칙 하나','가상 규칙 후보']);
  await expect(learn.locator('[data-journal-learn-retired] summary')).toHaveText('뺀 규칙 2개');
- // ③ 개선 제안 묶음 [+ 추가]: 내 개선 생각 한 줄 → 동작 기록('add', 손) → 개발 후보에 '손'으로.
+ // ③ 개선 제안 묶음 [+ 추가]: 내 개선 생각 한 줄 → 동작 기록('add', 손) → '만들기로 보낸 것'에 '손'으로.
  await learn.locator('[data-learn-idea-add]').click();
  const idea=learn.locator('input[data-learn-idea-input]');
  await expect(idea).toBeFocused();await idea.fill('가상 내 개선 생각');await idea.press('Enter');
- await expect(learn.locator('[data-journal-learn-status]')).toHaveText('내 개선 생각을 더했어요. 개발 후보에 올라가요.');
+ await expect(page.locator('#kptuNotice')).toContainText('내 개선 생각을 만들기로 보낸 것에 더했어요.');
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안','가상 내 개선 생각']);
  expect(row().draft.picks.items.find(i=>i.act==='add'&&i.cell==='개선 제안')).toMatchObject({kind:'review',from:'hand',text:'가상 내 개선 생각'});
- // 넣은 개선 제안도 ⋯ [고쳐서 넣기]: 고친 글로 바뀌고 원래 글은 before, 동작 기록은 'edit'.
+ // 보낸 개선 제안도 ⋯ [고쳐서 만들기]: 고친 글로 바뀌고 원래 글은 before, 동작 기록은 'edit'.
  const sug=learn.locator('[data-learn-suggestion="s1"]');
  await pressMore(sug,'[data-learn-answer-fix]');
  const fixIn=sug.locator('input[data-learn-answer-fix-input]');
