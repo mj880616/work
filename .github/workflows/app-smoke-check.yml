@@ -136,6 +136,8 @@ on:
       - 'scripts/ops/inbox-open.mjs'
       - 'tests/ops-inbox-open.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
+      - 'tests/outside-search-model.test.mjs'
+      - 'tests/notice-outside-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
@@ -274,6 +276,8 @@ on:
       - 'scripts/ops/inbox-open.mjs'
       - 'tests/ops-inbox-open.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
+      - 'tests/outside-search-model.test.mjs'
+      - 'tests/notice-outside-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
@@ -357,7 +361,7 @@ jobs:
       - name: Check request inbox open-list calculator (OPS-요청함대기계산)
         run: node --test tests/ops-inbox-open.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
@@ -637,7 +641,7 @@ jobs:
         run: node --test tests/notice-sweep.test.mjs
 
       - name: Check library, project, share and upload units (STAB-단위시험등록)
-        run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
+        run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/share-ai-draft-model.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
 
       - name: Check business report area tag and next plan (MTG-프로젝트합치기 2단계)
         run: node --test tests/business-area-model.test.mjs
@@ -1002,6 +1006,9 @@ jobs:
 
       - name: Check weekly major schedule, detail lines, line move and cut index (S48-3)
         run: node --test tests/weekly-s48-3.test.mjs
+
+      - name: Check weekly cell kept rates, AI material dates, work line drop, two-line suggestions (S48-3b)
+        run: node --test tests/weekly-s48-3b.test.mjs
 
       - name: Check notification removal
         run: |
