@@ -100,7 +100,7 @@ function bodyHtml(p, v) {
 function postHtml(p, now) {
   const v = postView(p, now);
   const isNew = state.seenRead && isFresh(p, state.seenAt);
-  const meta = `<p class="os-meta">${isNew ? '<span class="os-new" aria-label="새 글">새</span>' : ''}<span class="os-src">${esc(nameOf(p.source_key))}</span>${v.kind ? `<span>${esc(v.kind)}</span>` : ''}${v.time ? `<span class="os-time">${esc(v.time)}</span>` : ''}</p>`;
+  const meta = `<p class="os-meta">${isNew ? '<span class="os-new" aria-label="새 글">새</span>' : ''}<span class="os-src">${esc(nameOf(p.source_key))}</span>${v.tag ? `<span class="os-tag">${esc(v.tag)}</span>` : ''}${v.kind ? `<span>${esc(v.kind)}</span>` : ''}${v.time ? `<span class="os-time">${esc(v.time)}</span>` : ''}</p>`;
   const lead = v.lead ? `<p class="os-lead">${esc(v.lead)}</p>` : '';
   const link = v.url ? `<a class="os-link" href="${esc(v.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v.title)} 원문 (새 창)">원문</a>` : '';
   const open = v.body && state.open.has(p.id);

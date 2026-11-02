@@ -11,3 +11,5 @@ OUTSIDE-바깥성명 ③(`supabase/functions/outside-feed`)의 단체별 목록 
 2026-11-01(OUTSIDE-막힌단체, 노동당·노동자연대·사회주의자): 사회주의자는 사이트 피드 대신 공개 텔레그램 채널 웹 미리보기를 읽으므로 `socialist.xml`을 빼고 `socialist-telegram.html`(t.me/s/<채널> 칸 모양만 맞춘 지어낸 글: 사이트 글 주소가 든 글·사진뿐인 글·다른 채널 글·공지 글)을 더했다.
 
 2026-11-02(OUTSIDE-노동묶음·정돈 1단계): 제목·게시 날짜 표본을 더했다(글자는 모두 지어낸 것) — `laborparty-list-2026-11.html`(링크 하나에 제목·부제·본문 앞부분이 함께 든 목록, 같은 줄 날짜 칸, 한 줄짜리 '제목 - 부제 - 본문' 링크), `laborparty-article.html`(og:title에 ' – 노동당' 꼬리, 작성일·조회·첨부·공유 덧줄), `kgreens-list-2026-11.html`(줄마다 날짜 칸, 옛 선거 때 글, 날짜 없는 글), `article-nodate.html`(글 쪽에도 날짜 없음 → '날짜 모름'). `kctu.html` 줄 날짜는 글 쪽 날짜와 같게 2026.10.30으로 맞췄다(목록 줄 날짜를 먼저 읽게 되어서).
+
+2026-11-02(OUTSIDE-노동묶음·정돈 2단계, [노동] 단체 추가): `kmwu.html`(그누보드: 고정 공지·쪽 번호·댓글 수 링크·다른 게시판·http 링크), `kfsu.html`(KBoard: 한글 쪽 주소를 퍼센트 부호로, 줄 날짜 YYYY.MM.DD), `hakbi.html`(머리말 없는 '기자회견 개최 알림'·[취재요청]이 섞인 목록)을 더했다. 링크 모양은 조사표(`docs/design/outside-labor-catalog.md` 1절)에 맞췄고 제목·번호·날짜는 모두 지어낸 것이다. 실제 사이트 HTML과 다르면 첫 실행의 `parse_empty`로 드러난다.
