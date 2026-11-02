@@ -233,6 +233,20 @@ export function createGdriveHandler(options: GdriveOptions) {
   async function folderRows(workspaceId: string) {
     return await rows("folders", `app_gdrive_folders?workspace_id=eq.${workspaceId}&select=item_id,parent_id,name,enabled&order=name.asc&limit=1000`);
   }
+  // PHOTO-드라이브폴더통일: 색인에 든 사진 장수(PostgREST count=exact, 본문 1행만). 세지 못하면 null(화면은 '—'). 폴더 목록 응답은 막지 않는다.
+  async function countPhotos(workspaceId: string, parentFilter: string) {
+    const r = await call("db_photo_count", `${SB}/rest/v1/app_gdrive_photos?workspace_id=eq.${workspaceId}&parent_id=${parentFilter}&select=item_id&limit=1`, {
+      headers: svcHeaders({ Prefer: "count=exact" }),
+    }).catch(() => null);
+    if (!r) return null;
+    try { await r.body?.cancel(); } catch { /* ignore */ }
+    if (!r.ok) {
+      log("db_photo_count_" + r.status);
+      return null;
+    }
+    const m = /\/(\d+)$/.exec(r.headers.get("content-range") || "");
+    return m ? Number(m[1]) : null;
+  }
   async function enabledIds(workspaceId: string) {
     return (await folderRows(workspaceId)).filter((f) => f.enabled === true).map((f) => f.item_id as string);
   }
@@ -307,10 +321,18 @@ export function createGdriveHandler(options: GdriveOptions) {
       const { files, complete } = await listAll(token, `'${q(parent as string)}' in parents and mimeType='${FOLDER_MIME}' and trashed=false`,
         "id,name", 3);
       const on = new Map((await folderRows(workspaceId)).map((f) => [f.item_id as string, f.enabled === true]));
-      const folders = files.filter((f) => isDriveId(f.id) && typeof f.name === "string")
+      const list = files.filter((f) => isDriveId(f.id) && typeof f.name === "string")
         .map((f) => ({ id: f.id as string, name: f.name as string, enabled: on.get(f.id as string) === true }))
         .sort((a, b2) => a.name.localeCompare(b2.name, "ko"));
-      return json({ ok: true, parent, name: here.name || "", up: Array.isArray(here.parents) && isDriveId(here.parents[0]) ? here.parents[0] : null, folders, complete });
+      // PHOTO-드라이브폴더통일: 켠 폴더마다 색인에 든 바로 안 사진 장수(count), 끈 폴더는 색인이 없어 null. total = 켠 폴더 전체 장수.
+      // 장수는 색인(app_gdrive_photos)만 센다 — Drive를 더 부르지 않는다.
+      const onIds = [...on].filter(([, v]) => v).map(([id]) => id);
+      const [counts, total] = await Promise.all([
+        Promise.all(list.map((f) => (f.enabled ? countPhotos(workspaceId, `eq.${f.id}`) : Promise.resolve(null)))),
+        onIds.length ? countPhotos(workspaceId, inList(onIds)) : Promise.resolve(0),
+      ]);
+      const folders = list.map((f, i) => ({ ...f, count: counts[i] }));
+      return json({ ok: true, parent, name: here.name || "", up: Array.isArray(here.parents) && isDriveId(here.parents[0]) ? here.parents[0] : null, folders, complete, total });
     },
     // 폴더 켜기·끄기. 켜면 그 폴더 바로 안 사진·동영상만 목록에 넣고, 끄면 그 폴더 사진을 목록에서 뺀다(Drive 파일은 그대로).
     async "folder-toggle"({ workspaceId, body: b }) {

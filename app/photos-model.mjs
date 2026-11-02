@@ -237,7 +237,8 @@ export function putItems(list, taken) {
 }
 
 // ---- 사진 메뉴 ②: 폴더 보기(원드라이브 폴더 그대로, 서버 folders-tree) ----
-// tree = {top:{id,name,count,total}, folders:[{id,name,parent_id,enabled,count,total}]}. 폴더 순서는 이름(가나다), 같으면 id.
+// tree = {top:{id,name,count,total}, folders:[{id,name,parent_id,enabled,count,total,more?}]}. 폴더 순서는 이름(가나다), 같으면 id.
+// 원드라이브(서버 folders-tree)와 구글 드라이브(gdriveFolderTree, 연 층만) 모두 이 모양 하나로 나무를 그린다(PHOTO-드라이브폴더통일).
 const byName = (a, b) => a.name.localeCompare(b.name, 'ko') || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 export function photoSubfolders(tree, id) {
   return (tree?.folders || []).filter(f => f.parent_id === id).sort(byName);
@@ -255,7 +256,8 @@ export function photoFolderRows(tree, isOpen = () => false) {
     for (const f of photoSubfolders(tree, id)) {
       if (seen.has(f.id) || depth > 200) continue;
       seen.add(f.id);
-      const kids = photoSubfolders(tree, f.id).length > 0, open = kids && isOpen(f.id);
+      // more = 아직 안 읽은 층(구글 드라이브는 펼칠 때 한 층씩 읽음) — 하위 폴더가 있을 수 있어 ▸를 둔다.
+      const kids = photoSubfolders(tree, f.id).length > 0 || f.more === true, open = kids && isOpen(f.id);
       rows.push({id: f.id, name: f.name, depth, indent: folderIndent(depth), count: f.count, total: f.total, enabled: f.enabled !== false, kids, open, top: false});
       if (open) walk(f.id, depth + 1);
     }
@@ -385,3 +387,27 @@ export function folderPlaceLabels(list, placeOf) {
 }
 // 원드라이브 폴더 위치 이름 = 부모 폴더 이름(맨 위 폴더 바로 안이면 맨 위 이름).
 export const odFolderPlace = (tree, f) => (f?.parent_id ? photoFolderById(tree, f.parent_id)?.name || '' : '');
+
+// PHOTO-드라이브폴더통일(요청함 11/01 23:16): 구글 드라이브 폴더 층(부모 id → {folders:[{id,name,enabled,count}]}, 'root' = 맨 위)을
+// 원드라이브와 같은 나무 모양으로. 장수는 서버 색인 장수(켠 폴더만), 모르면 null(화면 '—'). 아직 안 읽은 층은 more:true(▸).
+// total(맨 위 줄 '구글 드라이브 n')은 서버가 준 켠 폴더 전체 장수, 모르면 null.
+export const GDRIVE_TOP = 'root';
+export function gdriveFolderTree(levels, {name = '구글 드라이브', total = null} = {}) {
+  const num = v => (Number.isInteger(v) && v >= 0 ? v : null);
+  const folders = [], seen = new Set([GDRIVE_TOP]);
+  const walk = (parent, depth) => {
+    if (depth > 200) return;
+    for (const f of levels?.get?.(parent)?.folders || []) {
+      if (!f || typeof f.id !== 'string' || seen.has(f.id)) continue;
+      seen.add(f.id);
+      const n = f.enabled ? num(f.count) : null;
+      folders.push({id: f.id, name: String(f.name || ''), parent_id: parent, enabled: f.enabled === true, count: n, total: n, more: !levels.has(f.id)});
+      walk(f.id, depth + 1);
+    }
+  };
+  walk(GDRIVE_TOP, 1);
+  const t = num(total);
+  return {top: {id: GDRIVE_TOP, name, count: null, total: t, enabled: true}, folders, whole: true};
+}
+// 장수 글자: 모르면 '—'.
+export const folderCountText = n => (Number.isInteger(n) && n >= 0 ? String(n) : '—');
