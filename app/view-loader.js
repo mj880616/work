@@ -244,13 +244,14 @@ function hint(rel,path,as){
 }
 // PERF-첫로딩 P5-c(docs/design/first-load.md 11절): 화면마다 차례로 받는다 — 한 화면 사슬을 다 받은(또는 실패한) 뒤 다음 쉬는 틈에 다음 화면.
 // 한꺼번에(약 220개) 걸면 폰에서 받기·읽기(modulepreload는 받은 뒤 해석까지 함)가 겹쳐, 먼저 누를 화면(정리함·일정)의 사슬이 뒤 화면 사슬과 같이 밀린다.
-// 순서는 위 목록 그대로(메뉴 순서). 그 화면을 이미 열었으면 건너뛴다. 화면을 누르면 prepare가 그 사슬을 바로 받으므로(같은 주소는 한 번만) 기다리지 않는다.
+// 순서는 사슬이 짧은 화면부터(같으면 위 목록 순서) — 일정·할 일처럼 작은 화면이 먼저 준비되고, 정리함·사업 보고처럼 큰 사슬은 그 뒤에 받는다.
+// 그 화면을 이미 열었으면 건너뛴다. 화면을 누르면 prepare가 그 사슬을 바로 받으므로(같은 주소는 한 번만) 기다리지 않는다.
 const settled=link=>new Promise(resolve=>{link.addEventListener('load',resolve,{once:true});link.addEventListener('error',resolve,{once:true})});
 const idle=fn=>window.requestIdleCallback?window.requestIdleCallback(fn,{timeout:2000}):setTimeout(fn,50);
 function warm(){
   if(navigator.connection?.saveData)return false;
   const have=new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map(link=>link.href));
-  const queue=Object.entries(warmModules);
+  const queue=Object.entries(warmModules).map((entry,at)=>({entry,at})).sort((a,b)=>a.entry[1].length-b.entry[1].length||a.at-b.at).map(x=>x.entry);
   const next=()=>{
     while(queue.length){
       const [view,paths]=queue.shift();
