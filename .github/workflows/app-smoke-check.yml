@@ -530,6 +530,8 @@ jobs:
         run: node --test tests/phone-folders.test.mjs
       - name: "Photo tidy (S46-20 정리 제안 ①: 어디에 있나 거르기·백업 안 됨 폴더·잡동사니, synthetic)"
         run: node --test tests/photo-tidy.test.mjs
+      - name: "Photo delete two ways (S48-17 PHOTO-지우기두갈래: 폰 공간만 비우기·완전히 지우기·비운 사진 목록·폰으로 되돌리기, synthetic)"
+        run: node --test tests/photo-keep.test.mjs
       - name: "Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)"
         run: node --test tests/photo-sources.test.mjs
       - name: "Phone photo read errors (PHOTO-폰사진못읽음: 앱 실패 종류·이유 글·공용 실패 표시 이유, synthetic)"

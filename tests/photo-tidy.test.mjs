@@ -232,14 +232,18 @@ test('다음 사진 확인 때 사본 사라짐 경고 한 줄·[알았어요], 
 test('사진 메뉴 지우기 연결: 사본 확인된 것만 폰 휴지통, 지운 뒤 서버 기록, 경고 [알았어요]', () => {
   const src = read('app/photos.js'), od = read('app/diary-onedrive.js');
   assert.match(src, /const needCopy = kind === 'space' \|\| kind\.startsWith\('dup'\);/);
-  assert.match(src, /odCopyCheck\(rt, part\.map\(x => \(\{id:x\.copy\.id, size:x\.item\.size_bytes\}\)\)\)/);
-  assert.match(src, /list = g\.items\.filter\(x => copyOf\.has\(x\.id\)\);/);
+  // S48-17: 사본 확인은 고른 사진 [지우기]와 같이 쓰는 copyChecked(짝 {item, copyId}), 기록 줄은 photo-keep-model.mjs keepLogRows.
+  const keep = read('app/photo-keep-model.mjs');
+  assert.match(src, /odCopyCheck\(rt, part\.map\(x => \(\{id:x\.copyId, size:x\.item\.size_bytes\}\)\)\)/);
+  assert.match(src, /copyChecked\(pl\.pairs\.map\(x => \(\{item:x\.item, copyId:x\.copy\.id\}\)\), pl\.noCopy\.length\)/);
+  assert.match(src, /list:pairs\.map\(x => x\.item\)\.filter\(x => copyOf\.has\(x\.id\)\)/);
   // 확인 실패(네트워크)는 지우지 않음(확인 못 함).
-  assert.match(src, /catch \{ res = \{ok:\[\], missing:\[\], unsure:part\.map\(x => x\.copy\.id\)\}; \}/);
-  assert.match(src, /phone_id:x\.phoneId, copy_id:copyOf\.get\(x\.id\)/);
+  assert.match(src, /catch \{ res = \{ok:\[\], missing:\[\], unsure:part\.map\(x => x\.copyId\)\}; \}/);
+  assert.match(keep, /phone_id:String\(x\.phoneId\), copy_id:copyOf\.get\(x\.id\), keep/);
+  assert.match(src, /trashLogged\(list, copyOf, \{keep:kind === 'space'\}\)/);
   assert.match(src, /if \(b\.matches\('\[data-photos-tidy-gone-ok\]'\)\) \{ tidy\.goneSeen\(\); return true; \}/);
   assert.match(src, /watchTrash:\(\) => odTrashWatch\(rt\), seenTrash:\(\) => odTrashSeen\(rt\)/);
-  for (const a of ['copy-check', 'trash-log', 'trash-watch', 'trash-seen']) assert.ok(od.includes(`action: '${a}'`), a);
+  for (const a of ['copy-check', 'trash-log', 'trash-watch', 'trash-seen', 'kept-list', 'kept-drop']) assert.ok(od.includes(`action: '${a}'`), a);
 });
 
 // ---- S47-19 정리 [보기] 그 줄 안 펼침·용량·정렬 ----

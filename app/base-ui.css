@@ -290,6 +290,17 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-ask-note{display:block;margin:0 0 6px;font-size:11px;color:var(--kptu-muted)}
 .kptu-ask-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
 .kptu-ask-actions button{min-height:var(--kptu-action-compact-height)}
+/* S48-17 작은 고르기창(askChoice): 줄마다 [아이콘 | 굵은 글 + 작은 설명]. 위험한 줄은 빨간 글자. 맨 아래 흐린 글자 한 줄. */
+.kptu-ask.kptu-ask-choice{padding:6px}
+.kptu-ask-pick{display:flex;align-items:flex-start;gap:8px;width:100%;margin:0;padding:6px;border:0;border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font:inherit;text-align:left;cursor:pointer}
+.kptu-ask-pick:hover:not(:disabled),.kptu-ask-pick:focus-visible{background:var(--kptu-surface-muted,rgba(127,127,127,.12))}
+.kptu-ask-pick:disabled{opacity:.45;cursor:default}
+.kptu-ask-pick-ic{flex:0 0 18px;display:grid;place-items:center;height:18px;color:var(--kptu-primary)}
+.kptu-ask-pick.is-danger,.kptu-ask-pick.is-danger .kptu-ask-pick-ic{color:var(--kptu-danger,#c0392b)}
+.kptu-ask-pick-t{display:flex;flex-direction:column;gap:1px;min-width:0}
+.kptu-ask-pick-t b{font-weight:600;font-size:13px}
+.kptu-ask-pick-t small{font-size:11px;line-height:1.35;color:var(--kptu-muted)}
+.kptu-ask-foot{margin:4px 6px 2px}
 /* 폴더 위치 줄 공용 모양(NOTE-탐색기 후속 ⑧): 자료실 '자료실 › … '·노트 '노트 › … ' 들어가기 위 한 줄. 작고 낮게, 길면 가로로 넘김(folder-path.mjs). */
 .fp-path{display:flex;align-items:center;gap:2px;margin:2px 0 4px;overflow-x:auto;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);scrollbar-width:none}
 .fp-path[hidden]{display:none}
