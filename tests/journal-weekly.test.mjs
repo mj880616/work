@@ -226,7 +226,8 @@ test('[주간보고 초안 복사]: the tab as text in the form order (1 → 2 �
   const rows = text.split('\n');
   const heads = rows.filter(r => /^(\d\. |참고$)/.test(r));
   assert.deepEqual(heads, ['1. 요청사항', '2. 기본·영역·의제 사업', '4. 산하 조직 현황', '5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))', '참고']);
-  assert.ok(rows.includes(`2) 주요 일정: (비워 둠) ${m.HQ_SCHEDULE_GUIDE}`));
+  assert.ok(rows.includes('2) 주요 일정: (비워 둠)'));
+  assert.equal(m.HQ_SCHEDULE_GUIDE, undefined); // WEEKLY-주요일정기준 ③: 옛 안내 문구 없음(기준은 weekly-major-schedule.mjs 한 곳)
   // 요약 in the project tree order with the record's day.
   const sum = rows.indexOf('1) 요약');
   assert.deepEqual(rows.slice(sum + 1, sum + 4), ['◦ 사업영역 A', '- 10월 6일(화) 영역 전체 기록', '- 10월 8일(목) 세부 과제 A-1: A-1 기록']);

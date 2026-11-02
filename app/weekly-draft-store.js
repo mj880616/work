@@ -125,6 +125,11 @@ export function weekCells(draft) {
   return out;
 }
 export const cellLinesOf = (draft, {section, key, n = 0}) => weekCells(draft).get(cellId(section, key, n)) ?? [];
+// 화면에 보이는 줄(빈 줄 뺌). [주간 정리] 칸 줄의 번호(index)는 늘 이 목록의 번호다 — 고치기·빼기·끌기·아래에 줄 추가가 모두 이것을 쓴다.
+// WEEKLY-줄끌기·지우기버그(요청함 11/01 23:39): 전에는 화면은 빈 줄을 뺀 번호, 저장은 빈 줄을 포함한 번호를 써서, 칸에 빈 줄(상자에서 고친 칸 등)이
+// 앞에 있으면 [빼기]가 보이는 줄 대신 빈 줄을 지워 '지워도 안 없어지는' 일이 생겼다.
+export const visibleLines = lines => (Array.isArray(lines) ? lines : []).map(l => String(l ?? '')).filter(l => l.trim());
+export const cellVisibleLines = (draft, cell) => visibleLines(cellLinesOf(draft, cell));
 // 그 칸의 바탕(proposed) 줄. proposed 가 없으면 null(바탕을 모름).
 const proposedCell = (draft, id) => { const p = proposedOf(draft); if (!p) return null; const c = p.cells.find(x => cellId(x.section, x.key, x.n) === id); return c ? [...c.lines] : []; };
 // 이 주 처음 연 바탕 칸 글을 싣는다(이미 있으면 그대로 — 처음 것이 환류 비교의 기준).
@@ -145,10 +150,11 @@ const badLine = code => Object.assign(new Error(code === 'too_long' ? `한 줄�
 //   item: 제안 동작(take·edit·drop)의 제안 {key?, kind, from, cell, org, text}. 보고서 줄 동작(fix·cut·add)은 item 없이 kind 'line'으로 남긴다.
 //   'none'(되돌리기)은 앞 동작의 기록 항목(제안이면 그 제안, 줄 동작이면 lineDone 이 돌려준 항목)을 item 으로 넘겨 그 기록을 지운다.
 // 반환 draft. 칸 글이 바탕(proposed)과 같아지면 rows 에서 그 칸을 뺀다(바탕을 모르면 빈 칸이라도 남김 — 상자가 바탕 글로 되살리지 않게).
-export function withCellLine(draft, {section, key, n = 0, act, index = -1, text = '', item = null, lines = null, at = new Date().toISOString()} = {}) {
+export function withCellLine(draft, {section, key, n = 0, act, index = -1, insertAt = -1, text = '', item = null, lines = null, at = new Date().toISOString()} = {}) {
   if (!SECTIONS.includes(section) || typeof key !== 'string' || !Number.isInteger(n) || n < 0) throw badLine('cell');
   if (!['take', 'edit', 'add', 'fix', 'cut', 'drop', 'none'].includes(act)) throw badLine('act');
-  const id = cellId(section, key, n), now = cellLinesOf(draft, {section, key, n}), line = lineText(text);
+  // 번호는 보이는 줄(빈 줄 뺌) 기준 — 화면과 같은 목록(visibleLines). 고쳐 쓰면 빈 줄은 없어진다(한글 파일 칸에도 빈 줄이 들어가지 않음).
+  const id = cellId(section, key, n), now = cellVisibleLines(draft, {section, key, n}), line = lineText(text);
   if (['take', 'edit', 'add', 'fix'].includes(act)) { if (!line) throw badLine('empty'); if ([...line].length > CELL_LINE_MAX) throw badLine('too_long'); }
   if (['fix', 'cut'].includes(act) && !(Number.isInteger(index) && index >= 0 && index < now.length)) throw badLine('index');
   if (ANSWER_ACTS.includes(act) && !(item && PICK_KIND[item.kind])) throw badLine('item');
@@ -157,13 +163,12 @@ export function withCellLine(draft, {section, key, n = 0, act, index = -1, text 
   if ((act === 'take' || act === 'edit') && index >= 0) {
     if (!(Number.isInteger(index) && index < now.length) || (item?.line != null && lineText(now[index]) !== lineText(item.line))) throw badLine('index');
     next = now.map((x, i) => (i === index ? line : x));
-  } else if (act === 'take' || act === 'edit' || act === 'add') next = [...now, line];
+  } else if (act === 'add' && Number.isInteger(insertAt) && insertAt >= 0 && insertAt <= now.length) next = [...now.slice(0, insertAt), line, ...now.slice(insertAt)]; // ⋯ [아래에 줄 추가]
+  else if (act === 'take' || act === 'edit' || act === 'add') next = [...now, line];
   else if (act === 'fix') next = now.map((x, i) => (i === index ? line : x));
   else if (act === 'cut') next = now.filter((_, i) => i !== index);
   else if (act === 'none' && Array.isArray(lines)) next = cleanLines(lines).map(lineText).filter(Boolean);
-  const out = draft ? {...draft} : emptyDraft();
-  const base = proposedCell(out, id), rows = (Array.isArray(out.rows) ? out.rows : []).filter(r => cellId(r.section, r.key, r.n) !== id);
-  out.rows = base && sameLines(next, base) ? rows : [...rows, {section, key, n, lines:next}];
+  const out = putCellLines(draft ? {...draft} : emptyDraft(), {section, key, n}, next);
   // 동작 기록(picks) — 같은 draft 안이라 한 PATCH 로 함께 저장된다.
   const where = `${section}:${key}${n ? `#${n}` : ''}`;
   let pick;
@@ -175,6 +180,32 @@ export function withCellLine(draft, {section, key, n = 0, act, index = -1, text 
   const extras = readExtras(out);
   return putExtras(out, {...extras, picks:withPick(extras.picks ?? null, pick, act, at)});
 }
+// 칸 하나의 줄을 next 로 둔다(바탕과 같아지면 rows 에서 그 칸을 뺌 — 바탕을 모르면 빈 칸이라도 남김). out 을 바꿔 돌려준다.
+function putCellLines(out, {section, key, n}, next) {
+  const id = cellId(section, key, n), base = proposedCell(out, id), rows = (Array.isArray(out.rows) ? out.rows : []).filter(r => cellId(r.section, r.key, r.n) !== id);
+  out.rows = base && sameLines(next, base) ? rows : [...rows, {section, key, n, lines:next}];
+  return out;
+}
+// WEEKLY-줄끌기(요청함 11/01 23:39 할 것 2): 줄 하나를 끌어 같은 칸 안 다른 자리, 또는 같은 묶음(section)의 다른 칸으로 옮긴다.
+// from·to: {section, key, n, index} — index 는 보이는 줄 번호(to.index 는 옮기는 줄을 뺀 뒤의 자리, reorder-drag.js onDrop 과 같은 약속).
+// 묶음이 다르면 거절(사업영역 줄을 조직 칸으로 옮기지 않음). 반환 draft(같은 자리면 그대로). 동작 기록은 남기지 않는다(줄 글이 바뀌지 않음).
+export function withLineMove(draft, {from, to} = {}) {
+  const ok = c => c && SECTIONS.includes(c.section) && typeof c.key === 'string' && Number.isInteger(c.n ?? 0) && (c.n ?? 0) >= 0;
+  if (!ok(from) || !ok(to) || from.section !== to.section) throw badLine('cell');
+  const a = {section:from.section, key:from.key, n:from.n ?? 0}, b = {section:to.section, key:to.key, n:to.n ?? 0};
+  const src = cellVisibleLines(draft, a);
+  if (!(Number.isInteger(from.index) && from.index >= 0 && from.index < src.length)) throw badLine('index');
+  const line = src[from.index], rest = src.filter((_, i) => i !== from.index);
+  const same = cellId(a.section, a.key, a.n) === cellId(b.section, b.key, b.n);
+  const dst = same ? rest : cellVisibleLines(draft, b);
+  const at = Math.max(0, Math.min(Number.isInteger(to.index) ? to.index : dst.length, dst.length));
+  if (same && at === from.index) return draft;
+  const out = draft ? {...draft} : emptyDraft();
+  if (same) return putCellLines(out, a, [...rest.slice(0, at), line, ...rest.slice(at)]);
+  putCellLines(out, a, rest);
+  return putCellLines(out, b, [...dst.slice(0, at), line, ...dst.slice(at)]);
+}
+export const changeWeekMove = ({start, known = null, from, to}, rt = window.KPTURuntime) => changeWeekDocs({start, known, change:draft => withLineMove(draft, {from, to})}, rt);
 // [주간 정리] 누름 하나 쓰기: 그 주 행을 다시 읽고 withCellLine 한 번(rows + picks)을 draft_saved_at 조건 PATCH 한 번으로. 반환 changeWeekDocs 결과.
 // 줄 동작(fix·cut·add) 하나가 남긴 기록 항목(되돌리기 때 item 으로 넘김). draft 는 동작 뒤 판.
 export const lineDone = (draft, key) => readExtras(draft).picks?.items.find(x => x.key === key) ?? null;
@@ -203,7 +234,8 @@ export function withHand(draft, hand) { const out = draft ? {...draft} : emptyDr
 //   kind 'carried'(1) 지난주에서 가져온 줄)·'calendar'(2) [달력에서] 골라 넣은 일정): 제안에 대한 답 act 'take' | 'edit'(before = 제안 글) | 'drop' — 학습 셈에 들어감.
 //   'none'(되돌리기): 같은 text 로 남긴 앞 기록을 지운 표시(같은 열쇠, 더 나중 것이 이김).
 //   같은 쓰기(changeWeekDocs)에 실어 한 PATCH 로 저장한다. 모양 밖(빈 글·모르는 칸)이면 draft 그대로.
-export const LINE_PICK_CELLS = Object.freeze(['requests:ask', 'requests:hq', 'requests:discuss', 'calendar', 'notes']);
+// 'details' = 2) 세부 내용 — 회의·활동 결과 줄(WEEKLY-사업영역세부줄).
+export const LINE_PICK_CELLS = Object.freeze(['requests:ask', 'requests:hq', 'requests:discuss', 'calendar', 'notes', 'details']);
 export function withLinePick(draft, {cell, act, text = '', before = '', kind = 'line', from = '', at = new Date().toISOString()} = {}) {
   const answer = kind !== 'line';
   if (!LINE_PICK_CELLS.includes(cell) || !PICK_KIND[kind] || ![...(answer ? ANSWER_ACTS : LINE_ACTS), 'none'].includes(act) || !lineText(text)) return draft;

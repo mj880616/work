@@ -26,11 +26,17 @@ test('올림 판단: 목록에 든 종류만 빠지고, 새 종류·행사·이�
   const meeting = (series_name, title = '') => ({series_name, title});
   assert.equal(m.reportsMeeting(meeting('궤도 집행국 회의'), hidden), false);
   assert.equal(m.reportsMeeting(meeting(null, '본부 집행위'), hidden), false);
-  assert.equal(m.reportsMeeting(meeting('BON부집행위'), hidden), true);
+  assert.equal(m.reportsMeeting(meeting('BON부집행위'), hidden), false); // '집행위'가 든 이름은 내부 정례 회의(WEEKLY-주요일정기준 ④)
   assert.equal(m.reportsMeeting(meeting('가상 기자회견'), hidden), true);
   assert.equal(m.reportsMeeting(meeting('새 회의 종류'), hidden), true);
   assert.equal(m.reportsMeeting(meeting('', ''), hidden), true);
-  for (const none of [null, undefined, []]) assert.equal(m.reportsMeeting(meeting('궤도 집행국 회의'), none), true);
+  // WEEKLY-주요일정기준 ④: 내부 정례 회의(노조 상집·중집, 본부 집행위, 궤도 집행국)는 목록을 못 읽어도·비어도 늘 빠진다. 다른 종류는 전부 올라간다.
+  for (const none of [null, undefined, []]) {
+    assert.equal(m.reportsMeeting(meeting('궤도 집행국 회의'), none), false);
+    assert.equal(m.reportsMeeting(meeting('운영위원회'), none), true);
+  }
+  for (const name of ['노조 상집', '노조 중집', null]) assert.equal(m.reportsMeeting(meeting(name, name ? '' : '노조 상집 44차'), []), false, String(name));
+  assert.equal(m.reportsMeeting(meeting('궤도협의회 대표자회의'), []), true);
 });
 
 test('목록 읽기 검사: 데이터베이스 CHECK와 같은 모양만 받고, 아니면 null(= 전부 올림)', async () => {
@@ -118,10 +124,11 @@ test('주간 정리: 두 정기 회의(띄어쓰기·표기 달라도)는 빠지
 
 test('주간 정리: 목록이 비면 전부, 목록을 못 읽거나 주지 않으면 전부 올리고 바꾸기 표시는 없다, 읽는 중이면 불러오는 중', async () => {
   const {weeklySummary, weeklyReportText} = await weekly;
-  assert.equal(weeklySummary({...base, kinds:{status:'ok', list:[]}}).meetings.items.length, 5);
+  // 내부 정례 회의(집행국·집행위)는 목록과 상관없이 빠지고 나머지 둘은 남는다(WEEKLY-주요일정기준 ④).
+  assert.equal(weeklySummary({...base, kinds:{status:'ok', list:[]}}).meetings.items.length, 2);
   for (const kinds of [undefined, null, {status:'unknown'}]) {
     const w = weeklySummary({...base, kinds}).meetings;
-    assert.equal(w.items.length, 5); assert.deepEqual(w.hidden, []); assert.equal(w.editable, false);
+    assert.equal(w.items.length, 2); assert.equal(w.editable, false);
   }
   const loading = weeklySummary({...base, kinds:{status:'loading'}});
   assert.equal(loading.meetings.loading, true);
@@ -133,7 +140,7 @@ test('주간보고 초안 복사: 뺀 종류의 회의는 글에도 없다', asy
   const text = weeklyReportText(weeklySummary({...base, kinds:DEFAULT}));
   assert.match(text, /운영위원회 3차/); assert.match(text, /가상 기자회견/);
   assert.doesNotMatch(text, /집행국|집행위/);
-  assert.match(weeklyReportText(weeklySummary({...base, kinds:null})), /궤도 집행국 회의 12차/);
+  assert.doesNotMatch(weeklyReportText(weeklySummary({...base, kinds:null})), /궤도 집행국 회의 12차/);
   const none = weeklySummary({...base, materials:{...sources, meetings:ok([meetings[0], meetings[1]])}, kinds:DEFAULT});
   assert.deepEqual(none.meetings.items, []); assert.equal(none.meetings.hidden.length, 2);
 });

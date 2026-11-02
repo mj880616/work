@@ -988,6 +988,9 @@ jobs:
       - name: Check weekly one-flow screen cells (WEEKLY-한흐름확정 ②)
         run: node --test tests/weekly-flow-cells.test.mjs
 
+      - name: Check weekly major schedule, detail lines, line move and cut index (S48-3)
+        run: node --test tests/weekly-s48-3.test.mjs
+
       - name: Check notification removal
         run: |
           set -e

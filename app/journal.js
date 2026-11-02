@@ -55,6 +55,7 @@ import {paintFlowCells, FLOW_SECTIONS} from './weekly-flow-cells.js';
 import {paintHqSchedule} from './weekly-hq-schedule.js';
 import {paintDiscuss} from './weekly-discuss-table.js';
 import {paintHandLines} from './weekly-hand-lines.js';
+import {paintDetailLines} from './weekly-detail-lines.js'; // WEEKLY-사업영역세부줄: 2) 세부 내용 줄 ⋯·[+ 추가]
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
@@ -473,6 +474,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   // S46-27 3) 상집 논의 요청(weekly-discuss-table.js가 그 자리만 그림) — 2) 주요 일정과 같은 저장·같은 맞춤.
   paintDiscuss(host.querySelector('[data-journal-weekly-discuss-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // WEEKLY-한흐름확정 ⑤ 남은 부분: 5. 주요 일정·참고 [+ 추가](손으로 더한 줄, weekly-hand-lines.js가 그 자리만 그림) — 같은 저장·같은 맞춤.
+  paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   for (const part of ['calendar', 'notes']) paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
   // 맨 위 한 줄과 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 줄은 journal-hwpx.js 가 그리는 그대로의 마디를 그 자리로 옮겨 붙인다.
