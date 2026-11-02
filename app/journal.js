@@ -102,7 +102,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 const $ = selector => root.querySelector(selector);
 // HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
 // FEAT-1029묶음 ③ 연락 없는 조직: 홈 맨 아래 한 줄(org-quiet.js가 유일한 renderer, 무거운 읽기라 나중에 불러온다). 기준은 내 프로필 '수집·사용량' 칸.
-void import('./org-quiet.js').then(({mountOrgQuiet}) => mountOrgQuiet(root.querySelector('[data-home-quiet]'))?.refresh()).catch(error => console.warn('org quiet load', error?.message || error));
+void appShown().then(() => import('./org-quiet.js')).then(({mountOrgQuiet}) => mountOrgQuiet(root.querySelector('[data-home-quiet]'))?.refresh()).catch(error => console.warn('org quiet load', error?.message || error));
 const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, line:root.querySelector('[data-home-summary]'), rt, onTasksChanged:() => refreshTasks()});
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 
