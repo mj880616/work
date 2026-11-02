@@ -1292,7 +1292,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  const why=a1.locator('input[data-flow-why]');
  await expect(why).toBeFocused();await expect(why).toHaveAttribute('placeholder','이유(안 써도 돼요)');
  await why.fill('지난주에 이미 쓴 일');await why.press('Enter');
- await expect(a1.locator('[data-flow-undo]')).toContainText('제안을 뺐어요');
+ await expect(a1.locator('p[data-flow-undo]')).toContainText('제안을 뺐어요');
  await expect(a1.locator('[data-flow-gone]')).toHaveCount(0);
  expect(row().draft.picks.items.find(x=>x.act==='drop'&&x.kind==='material')).toMatchObject({why:'지난주에 이미 쓴 일'});
  await expect(cellLines(a1)).toHaveCount(2);
@@ -1621,7 +1621,7 @@ for(const width of [412,1440])test(`[주간 정리] 줄 제안: 줄을 고르면
  await expect(b1.locator('[data-flow-line-suggest] .weekly-flow-text')).toHaveText('1번째 줄 → - 지난주 나-1 진행(마무리)');
  await pressMore(b1.locator('[data-flow-line-suggest]'),'[data-flow-drop]');
  await b1.getByRole('button',{name:'빼기 확인'}).click();
- await expect(b1.locator('[data-flow-undo]')).toContainText('제안을 뺐어요');
+ await expect(b1.locator('p[data-flow-undo]')).toContainText('제안을 뺐어요');
  await expect(b1.locator('[data-flow-gone]')).toHaveCount(0);
  expect(row().draft.picks.items.find(x=>x.act==='drop'&&x.kind==='ai_line')?.why).toBeUndefined();
  await expect(cellLines(b1)).toHaveText(['- 지난주 나-1 진행']);
