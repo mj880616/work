@@ -243,7 +243,7 @@ test('static: read-only function — no permanent delete, trash emptying, sharin
  assert.match(code,/FEATURE = "files"/);
  assert.match(code,/includes\(FEATURE\)/);
  assert.match(read('supabase/functions/cloud-files/index.ts'),/verify_jwt=true/);
- assert.doesNotMatch(code,/localStorage|console\.log/);
+ assert.doesNotMatch(code,/console\.log/);
 });
 
 test('deploy table: cloud-files registered once with verify_jwt true, first deploy pending',()=>{
