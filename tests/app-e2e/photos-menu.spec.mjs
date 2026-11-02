@@ -256,6 +256,72 @@ test('사진 메뉴: 핀치로 칸 수를 바꿔도 선택 모드·크게 보기
   expect(f.errors).toEqual([]);
 });
 
+// PHOTO-꾹누르고끌기(요청함 11/03 00:04): 꾹 눌러 선택 모드를 켠 손가락을 떼지 않고 아래로 끌면 그 사이 사진이 모두 골라진다(위아래도 고르기).
+// 선택 모드에서 새로 눌러 옆으로 끌어 고르기는 지금처럼, 새로 눌러 위아래로 끌면 넘기기(고르기 아님). 손 뗀 뒤 누르기는 크게 보기를 열지 않는다.
+test('사진 메뉴: 꾹 누른 손가락 그대로 아래로 끌면 이어 고르기, 선택 모드 새 누르기 옆 끌기는 그대로 412', async ({ page }) => {
+  const f = await fixture(page, { width: 412 });
+  await openPhotos(page, 412);
+  await expect(items(page)).toHaveCount(7);
+  // 보이는 차례: A3 A2 A1 | B1 | V1 | C2 C1 (날짜마다 줄이 나뉨). 터치 포인터·터치 이벤트를 같은 손가락으로 보낸다.
+  const finger = (type, index, { id = 5, dx = 0.5, dy = 0.5 } = {}) => page.evaluate(([type, index, id, dx, dy]) => {
+    const el = document.querySelectorAll('#photosRoot [data-photos-open]')[index], r = el.getBoundingClientRect();
+    const x = r.left + r.width * dx, y = r.top + r.height * dy;
+    const target = document.elementFromPoint(x, y) || el;
+    target.dispatchEvent(new PointerEvent(type, { pointerId: id, isPrimary: true, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, cancelable: true }));
+    if (type === 'pointermove') {
+      const t = new Touch({ identifier: id, target, clientX: x, clientY: y });
+      const ev = new TouchEvent('touchmove', { touches: [t], changedTouches: [t], bubbles: true, cancelable: true });
+      target.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    }
+    if (type === 'pointerup') target.click();
+    return null;
+  }, [type, index, id, dx, dy]);
+  await finger('pointerdown', 0);
+  await page.waitForTimeout(700); // 꾹 누르기 0.5초
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
+  // 떼지 않고 아래로: A3 → B1(아래 줄). 이 손가락의 touchmove는 막혀 화면 넘기기가 아니다.
+  expect(await finger('pointermove', 0, { dy: 0.9 })).toBe(true);
+  expect(await finger('pointermove', 3, { dy: 0.3 })).toBe(true);
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 골랐음');
+  for (const i of [0, 1, 2, 3]) await expect(items(page).nth(i)).toHaveAttribute('aria-pressed', 'true');
+  await expect(items(page).nth(4)).toHaveAttribute('aria-pressed', 'false');
+  await finger('pointerup', 3);
+  await expect(root(page).locator('[data-diary-viewer]')).toHaveCount(0);
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 골랐음');
+  // 선택 모드에서 새로 눌러 위아래로 끌면 넘기기: 고르기는 그대로, touchmove도 막지 않는다.
+  await finger('pointerdown', 4, { id: 6 });
+  expect(await finger('pointermove', 4, { id: 6, dy: 0.95 })).toBe(false);
+  expect(await finger('pointermove', 5, { id: 6, dy: 0.5 })).toBe(false);
+  await finger('pointercancel', 5, { id: 6 });
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('4개 골랐음');
+  // 선택 모드에서 새로 눌러 옆으로 끌기 = 지금처럼 이어 고르기(C2 → C1).
+  await finger('pointerdown', 5, { id: 7, dx: 0.2 });
+  await finger('pointermove', 5, { id: 7, dx: 0.9 });
+  await finger('pointermove', 6, { id: 7, dx: 0.5 });
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('6개 골랐음');
+  await finger('pointerup', 6, { id: 7 });
+  await expect(root(page).locator('[data-diary-viewer]')).toHaveCount(0);
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('6개 골랐음');
+  expect(f.errors).toEqual([]);
+});
+
+// PHOTO-실제아이콘(요청함 11/03 00:28): 원드라이브 아이콘은 공식 아이콘 원래 색, 꺼지면 같은 아이콘을 회색조로 엷게(바탕에 색을 칠하지 않음).
+test('사진 메뉴: 원드라이브 아이콘은 공식 아이콘 원래 색, 바탕은 칠하지 않음 412', async ({ page }) => {
+  const f = await fixture(page, { width: 412 });
+  await openPhotos(page, 412);
+  await expect(items(page)).toHaveCount(7);
+  const link = root(page).locator('[data-od-link]');
+  await expect(link).toBeVisible();
+  await expect(link.locator('svg.brand-ic-onedrive path')).toHaveCount(4);
+  await expect(link.locator('svg.brand-ic-onedrive path').nth(1)).toHaveAttribute('fill', '#0078d4');
+  const look = () => link.evaluate(el => ({ bg: getComputedStyle(el).backgroundColor, filter: getComputedStyle(el.querySelector('svg')).filter }));
+  const on = await look();
+  expect(on.filter).toBe('none');
+  expect(on.bg).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+  expect(f.errors).toEqual([]);
+});
+
 test('사진 메뉴: 원드라이브 설정 창(하위 폴더)을 일기로 넘어가지 않고 이 화면 안에서 연다 390', async ({ page }) => {
   const f = await fixture(page, { width: 390 });
   await openPhotos(page, 390);
