@@ -41,7 +41,7 @@ export const NOW_OUTSIDE_UA = "Web2OutsideFeed/1.0 (+https://github.com/mj880616
 const DETAIL_OUT = 1600, BASIC_OUT = 900, CONTEXT_OUT = 700, INTERESTS_OUT = 600;
 const DAY_MS = 86400000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009fâ-ââª-â®â¨â©â -â©]/g;
+const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]/g;
 const WORD = /^[0-9A-Za-z가-힣]{2,20}$/;
 const SERVICE_TABLES = Object.freeze({
   app_now_details: ["POST", "PATCH"],
