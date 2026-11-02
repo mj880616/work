@@ -2053,7 +2053,7 @@ function paintGdFolderGrid() {
 function goGdFolder(id) {
   if (id !== GDRIVE_TOP && !gdFolderInfo(id)) return;
   select.stop();
-  for (const f of photoFolderTrail(gdTree(), id)) if (f.id !== id) gdOpen.add(f.id);
+  for (const f of photoFolderTrail(gdTree(), id)) gdOpen.add(f.id); // 위 폴더들과 그 폴더를 펼친다(원드라이브 goFolder와 같음).
   gdAt = id; pAt = null;
   renderFolders(); window.scrollTo?.(0, 0);
 }
