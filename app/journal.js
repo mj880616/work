@@ -37,7 +37,6 @@ import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, chan
 import {dueLabel} from './task-due.mjs';
 import {openGoogleEvent, eventAttrs} from './event-open.js';
 import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs';
-import {readOrgRefs} from './calendar-ref-data.js';
 import {createTaskInline, objectParticle} from './task-inline.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
@@ -49,10 +48,7 @@ import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketRe
 import {scopeKey, hasLines, keepLines} from './work-scope-model.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
-import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
 import {mountHomeSummary} from './home-summary.js';
-import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
-import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord, requestLine} from './weekly-exec-requests.js';
 import {readAutoPromises} from './journal-ledger.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
@@ -549,9 +545,9 @@ const projectNames = () => (materials.catalog?.status === 'ok' ? materials.catal
 const ok_ = key => (materials[key]?.status === 'ok' ? materials[key].items : null);
 function execRecordTexts() {
   const out = [];
-  for (const note of ok_('basket')?.notes ?? []) if (isExecRecord({text:note?.raw_text, requests:noteRequests(note)})) out.push(String(note.raw_text ?? ''));
-  for (const row of ok_('orgUpdates') ?? []) if (isExecRecord({text:row?.raw_text})) out.push(String(row.raw_text));
-  for (const row of ok_('projectUpdates') ?? []) if (isExecRecord({text:row?.summary})) out.push(String(row.summary));
+  for (const note of ok_('basket')?.notes ?? []) if (W.isExecRecord({text:note?.raw_text, requests:noteRequests(note)})) out.push(String(note.raw_text ?? ''));
+  for (const row of ok_('orgUpdates') ?? []) if (W.isExecRecord({text:row?.raw_text})) out.push(String(row.raw_text));
+  for (const row of ok_('projectUpdates') ?? []) if (W.isExecRecord({text:row?.summary})) out.push(String(row.summary));
   return out;
 }
 // 한글 파일 마디(확정 버튼 줄·바탕 연 뒤 보이는 것)는 이 화면이 한 번 만들고, [주간 정리]를 다시 그릴 때마다 5. 주요 일정 맨 아래 자리로 옮겨 붙인다.
@@ -681,16 +677,16 @@ const readers = {
   documents: () => { void loadDocumentCategories({rt}).catch(() => {}); return readWeekDocuments(start, rt); },
   sharePages: () => readWeekSharePages(start, rt),
   // JOURNAL-조직현황AI요약: the week's saved organization summaries (a missing table reads as {missing:true}).
-  orgSummaries: () => readOrgSummaries(start, rt),
+  orgSummaries: async () => { const week = start; return (await weeklyKit()).readOrgSummaries(week, rt); },
   // WEEKLY-임원요청정리: the week's request rows ({missing:true} before the table exists).
-  execRequests: () => readExecRequests(start, rt),
+  execRequests: async () => { const week = start; return (await weeklyKit()).readExecRequests(week, rt); },
   // WEEKLY-자료요약 화면 ②: 그 주 임시저장 행(자료 줄 고침 docs). 칸이 없으면 {missing:true} — 고침 버튼 없이 지금처럼.
   weekDraft: async () => { const week = start; return (await weeklyKit()).readWeekDraft(week, rt); },
   // LEDGER-자동기록: 이 주에 자동으로 원장에 들어온 약속 수(날별). 표가 없으면 빈 값.
   ledgerPromises: () => readAutoPromises(start, rt),
   // CAL-조직참고캘린더: 내 프로필에서 고른 조직 참고 캘린더의 그 주·앞으로 2주 주요 일정(고르지 않았으면 달력을 읽지 않음). 저장하지 않고,
   // [주간 정리] 4. 산하 조직 현황의 그 조직 칸·한글 파일 상자의 그 조직 칸 추천 줄로만 쓴다(5. 주요 일정·하루 카드·원장에는 넣지 않음).
-  orgRefs: () => readOrgRefs(rt, start),
+  orgRefs: async () => { const week = start; return (await weeklyKit()).readOrgRefs(rt, week); },
   // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
   catalog: async () => {
     const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
@@ -715,7 +711,7 @@ async function loadTaskMeetings(run, scope) {
 const SHARED_KEYS = new Set(['tasks', 'basket', 'movedNotes', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
-const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft']);
+const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'orgSummaries', 'execRequests', 'orgRefs']);
 const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
 async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner) {
   materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_();
@@ -758,7 +754,7 @@ async function loadKinds(run, scope) {
 }
 async function loadMemory(run, scope) {
   memory = {status:'loading'};
-  const read = await readMemory(rt);
+  const read = await weeklyKit().then(kit => kit.readMemory(rt), () => ({status:'unknown'}));
   if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
   memory = read; renderWeekly_(); hwpx?.refresh();
 }
@@ -1216,7 +1212,7 @@ async function changeMemoryFromList(change, done) {
   if (memoryUi.busy || memory.status !== 'ok') return;
   const scope = ownerScope(rt); memoryUi.busy = true; memoryUi.status = ''; memoryUi.error = false; renderWeekly_();
   try {
-    const result = await changeMemory(change, rt);
+    const result = await W.changeMemory(change, rt);
     if (scope !== ownerScope(rt)) return;
     if (result.ok) { memory = {status:'ok', list:result.list}; done(); }
     else { memoryUi.status = '저장하지 못했어요. 다시 시도해 주세요.'; memoryUi.error = true; memoryUi.undo = null; }
@@ -1225,7 +1221,7 @@ async function changeMemoryFromList(change, done) {
 function deleteMemory(key) {
   const entry = memory.status === 'ok' ? memory.list.find(e => e.key === key) : null;
   if (!entry) return;
-  return changeMemoryFromList(list => withoutKey(list, key), () => {
+  return changeMemoryFromList(list => W.withoutKey(list, key), () => {
     memoryUi.status = `‘${entry.origin}’ 기억을 지웠어요.`; memoryUi.undo = {entry};
     clearTimeout(undoTimer); undoTimer = setTimeout(() => { if (memoryUi.undo?.entry === entry) { memoryUi.undo = null; memoryUi.status = ''; renderWeekly_(); } }, 8000);
   });
@@ -1234,7 +1230,7 @@ function undoMemory() {
   const entry = memoryUi.undo?.entry;
   if (!entry) return;
   clearTimeout(undoTimer);
-  return changeMemoryFromList(list => withRestored(list, entry), () => { memoryUi.status = `‘${entry.origin}’ 기억을 되돌렸어요.`; memoryUi.undo = null; });
+  return changeMemoryFromList(list => W.withRestored(list, entry), () => { memoryUi.status = `‘${entry.origin}’ 기억을 되돌렸어요.`; memoryUi.undo = null; });
 }
 // JOURNAL-조직현황AI요약 ----
 // [요약 만들기]: one ai-assist call with the week and the shown organizations' ids; then the saved summaries are read again.
@@ -1244,9 +1240,9 @@ async function makeOrgSummaries() {
   if (orgUi.busy || !ids.length) return;
   const run = epoch, scope = owner, week = start;
   orgUi.busy = true; orgUi.status = ''; orgUi.error = false; renderWeekly_();
-  const result = await requestOrgSummaries({start:week, organizationIds:ids});
+  const result = await W.requestOrgSummaries({start:week, organizationIds:ids});
   if (!current(run, scope)) return;
-  orgUi.busy = false; orgUi.status = resultMessage(result); orgUi.error = !result.ok;
+  orgUi.busy = false; orgUi.status = W.resultMessage(result); orgUi.error = !result.ok;
   if (result.ok) await loadGroup('orgSummaries', run, scope); else renderWeekly_();
   root.querySelector('[data-journal-org-ai-run]')?.focus();
 }
@@ -1288,11 +1284,11 @@ function closeOrgEdit() {
 async function saveOrgEdit() {
   const edit = orgUi.editing; if (!edit || edit.saving) return;
   const box = root.querySelector('[data-journal-org-edit-input]'); if (box) edit.value = box.value;
-  try { cleanEdited(edit.value); } catch (error) { edit.status = error.message; edit.invalid = true; renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus(); return; }
+  try { W.cleanEdited(edit.value); } catch (error) { edit.status = error.message; edit.invalid = true; renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus(); return; }
   const run = epoch, scope = owner, week = start, saved = materials.orgSummaries?.items?.get?.(edit.id) || null;
   edit.saving = true; edit.invalid = false; edit.status = '저장하는 중…'; renderWeekly_();
   try {
-    await saveEditedSummary({start:week, organizationId:edit.id, row:saved, text:edit.value}, rt);
+    await W.saveEditedSummary({start:week, organizationId:edit.id, row:saved, text:edit.value}, rt);
     if (!current(run, scope)) return;
     orgUi.editing = null; orgUi.status = `${edit.name} 요약을 저장했어요. 다시 만들어도 이 요약은 그대로예요.`; orgUi.error = false;
     await loadGroup('orgSummaries', run, scope);
@@ -1353,7 +1349,7 @@ const execError = error => error?.status === 401 ? '로그인이 필요해요. �
 // One change of the week's rows; the screen then shows the saved row the server sent back.
 async function writeExec(change, {carry = false} = {}) {
   const run = epoch, scope = owner, week = start, read = execRead();
-  const result = await changeExecRequests({start:week, row:read?.row ?? null, change, carry}, rt);
+  const result = await W.changeExecRequests({start:week, row:read?.row ?? null, change, carry}, rt);
   if (!current(run, scope)) return {stale:true};
   materials.execRequests = {status:'ok', items:{missing:false, row:result.row}};
   return result;
@@ -1368,7 +1364,7 @@ async function saveExecEdit() {
     before = id === 'new' ? null : execRows().find(row => row.id === id) ?? null; const raw = String(execUi.draft.time ?? '').trim();
     const time = W.cellTime(raw, {allDay:true});
     if (time === null && raw !== (before?.time ?? '')) throw Object.assign(new Error(W.TIME_HINT), {code:'invalid', field:'time'});
-    item = cleanItem({...execUi.draft, time:time ?? raw}, {id:id === 'new' ? undefined : id});
+    item = W.cleanItem({...execUi.draft, time:time ?? raw}, {id:id === 'new' ? undefined : id});
   }
   catch (error) { execUi.status = error.message; execUi.error = true; execUi.invalid = error.field || ''; renderWeekly_(); execPlace().querySelector(`[data-journal-exec-field="${execUi.invalid || 'day'}"]`)?.focus(); return; }
   execUi.saving = true; execUi.status = '저장하는 중…'; execUi.error = false; renderWeekly_();
@@ -1386,7 +1382,7 @@ async function saveExecEdit() {
 }
 // WEEKLY-한흐름확정 ⑤ 남은 부분: 1) 요청 줄 동작도 그 주 동작 기록(draft.picks, 칸 'requests:ask')에 남긴다 — 요청 줄은 따로 칸(items)이라
 // 줄 저장이 끝난 뒤 같은 행의 임시저장에 한 번 더 쓴다(덤: 실패해도 요청 줄 저장은 그대로, 화면에 아무것도 띄우지 않음). 글은 로그에 쓰지 않는다.
-const execLine = item => requestLine(item).replace(/^-\s*/, '');
+const execLine = item => W.requestLine(item).replace(/^-\s*/, '');
 async function recordExecPick(pick) {
   const run = epoch, scope = owner, week = start;
   try {
@@ -1432,7 +1428,7 @@ async function carryRequests(week, items) {
   if (!items.length) return {status:'saved', added:0};
   try {
     let added = 0;
-    const result = await writeExec((list, row) => { if (row?.carried_at) return null; const next = mergeCarried(list, items); added = next.length - list.length; return next; }, {carry:true});
+    const result = await writeExec((list, row) => { if (row?.carried_at) return null; const next = W.mergeCarried(list, items); added = next.length - list.length; return next; }, {carry:true});
     if (result.stale) return {status:'stale', added:0};
     renderWeekly_();
     return {status:result.skipped ? 'before' : 'saved', added:result.skipped ? 0 : added};

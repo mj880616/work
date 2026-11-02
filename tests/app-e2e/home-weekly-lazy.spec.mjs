@@ -77,7 +77,7 @@ test('[주간 정리] 모듈 받기에 실패하면 안내와 [다시], 누르�
   await expect(page).toHaveURL(/mode=week/);
   fail = false;
   await retry.click();
-  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 }); // openHome과 같은 첫 화면 기다림
   await expect(page.locator('#journalRoot [data-journal-mode="week"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(chapters(page)).toHaveCount(5);
 });
@@ -89,7 +89,7 @@ test('주소가 [주간 정리](?mode=week)면 새로고침 뒤에도 바로 그
   await expect(chapters(page)).toHaveCount(5);
   await expect(page).toHaveURL(/mode=week/);
   await page.reload();
-  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 }); // openHome과 같은 첫 화면 기다림
   await expect(page.locator('#journalRoot [data-journal-mode="week"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(chapters(page)).toHaveCount(5);
   expect(seen.length).toBeGreaterThan(0);
