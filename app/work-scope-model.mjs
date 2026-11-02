@@ -16,13 +16,21 @@ export function dropSet(drop) {
   if (!Array.isArray(drop) || !drop.every(w => w && typeof w.day === 'string' && typeof w.text === 'string')) return null;
   return new Set(drop.map(w => lineKey(w.day, w.text)));
 }
+// S48-3b: 사람이 [주간 정리] 참고 '한 줄'에서 ⋯ [빼기]한 줄(탭 메모리 — 서버 원본은 그 주 draft.picks, 다음에 열면 서버 work_scope 가
+// 뺄 줄에 더해 돌려준다). keepLines 가 AI 판단과 함께 뺀다. 되돌리면 지운다. 로그인이 바뀌면 비운다(clearUserDrops).
+const userDrops = new Set();
+export const markUserDrop = (day, text, on = true) => { const k = lineKey(day, text); if (on) userDrops.add(k); else userDrops.delete(k); };
+export const clearUserDrops = () => userDrops.clear();
+export const isUserDrop = (day, text) => userDrops.has(lineKey(day, text));
+// 동작 기록(weekly-picks.mjs) 한 줄 모양: 칸 'notes:lines:<날짜>'(서버 work-scope.ts userLineDrops 와 같음).
+export const workLinePick = (day, text) => ({kind:'work_line', from:'record', cell:`notes:lines:${day}`, org:'', text:String(text ?? '').trim()});
 // 그 주 줄 Map(날짜 → 업무일지 행)에서 뺄 줄을 뺀 새 Map. 남은 줄이 없는 날은 뺀다. 원래 행은 바꾸지 않는다.
 // 판정 뒤 바뀐 줄은 scopeKey가 바뀌어 다시 묻는다(부르는 쪽이 열쇠가 같을 때만 이 함수를 씀).
 export function keepLines(lines, drop) {
   const out = new Map();
   if (!(lines instanceof Map) || !(drop instanceof Set)) return out;
   for (const [day, row] of lines) {
-    const kept = linesOf(row).filter(text => !drop.has(lineKey(day, text)));
+    const kept = linesOf(row).filter(text => !drop.has(lineKey(day, text)) && !userDrops.has(lineKey(day, text)));
     if (kept.length) out.set(day, {...row, raw_text:kept.join('\n')});
   }
   return out;
