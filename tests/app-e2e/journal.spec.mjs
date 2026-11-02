@@ -1109,6 +1109,9 @@ test('[주간 정리] 한 줄: 개인 줄(미술 학원)은 빠지고 업무 줄
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('미술 학원');
  expect(asked).toEqual([{kind:'work_scope',week_start:'2026-10-05'}]);
  // S48-3b: 줄 끝 ⋯ [빼기] → 그 줄이 바로 빠지고, 그 주 행 picks 에 work_line drop(다음 가르기 학습). 작은 알림 + Ctrl+Z 되돌리기면 다시.
+ const ref=page.locator('#journalRoot [data-journal-weekly-chapter="notes"]'); // '참고'는 기본 접힘 — 펼친다
+ if(!(await ref.evaluate(e=>e.open)))await ref.locator(':scope > summary').click();
+ await expect(ref).toHaveJSProperty('open',true);
  const talk=weekly(page,'note-lines').locator('li').filter({hasText:'가상 교섭 준비'});
  await pressMore(talk,'[data-journal-work-line-drop]');
  await expect(weekly(page,'note-lines').locator('li')).toHaveCount(1);
