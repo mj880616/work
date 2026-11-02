@@ -59,6 +59,8 @@ function byPrefix(fallback: Kind | null, skip: RegExp | null = /취재요청|취
 }
 // 노동자연대: 괄호 없는 머리말('노동자연대 성명:', '노동자연대 학생그룹 성명 —').
 const WS_BARE_STATEMENT = /^\s*노동자\s?연대(\s?학생그룹)?\s?성명\s*[:：\-–—|]/;
+// 학비노조: 머리말 없이 올라오는 기자회견 알림 글('… 기자회견 개최 알림', '… 기자회견 안내').
+const HAKBI_NOTICE = /기자회견\s*(개최\s*)?(알림|안내)\s*$|취재\s*요청/;
 // 쿼리 값 몇 개만 남긴 주소(같은 글이 쪽 번호만 달라 두 번 들어오지 않게).
 function keepQuery(keys: string[]) {
   return (u: URL) => {
@@ -99,6 +101,32 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     item: /^https:\/\/(www\.)?kptu\.net\/board\/detail\.aspx\?(?=[^#]*\bmid=F686C1F3\b)(?=[^#]*\bidx=\d+\b)/i,
     canon: keepQuery(["mid", "idx"]),
     kindOf: byPrefix("statement"),
+  },
+  // [노동] 2단계(명진 결정 11/02 16:26 L1, docs/design/outside-labor-catalog.md 3절): 금속노조·서비스연맹·학비노조.
+  // robots 예외 없음 — 다른 단체처럼 실행마다 robots.txt를 먼저 읽고 막힌 경로는 읽지 않는다(last_error='robots'·'robots_denied').
+  // 전국공무원노조·전교조·건설노조(L2)는 robots 원문을 확인하지 못했고 앞 조사에서 읽기 도구가 robots에 막혀 넣지 않았다.
+  {
+    // 그누보드 보도자료/성명 게시판(ce_B12). 맨 위 고정 공지도 같은 주소 모양이라 머리말(공지·안내 등)로 거른다.
+    key: "kmwu", name: "금속노조", group: "labor", lang: "ko", mode: "html",
+    lists: ["https://kmwu.kr/bbs/board.php?bo_table=ce_B12"], hosts: ["kmwu.kr", "www.kmwu.kr"],
+    item: /^https:\/\/(www\.)?kmwu\.kr\/bbs\/board\.php\?(?=[^#]*\bbo_table=ce_B12\b)(?=[^#]*\bwr_id=\d+\b)/,
+    canon: keepQuery(["bo_table", "wr_id"]),
+    kindOf: byPrefix("statement"),
+  },
+  {
+    // 워드프레스 + KBoard 성명·보도자료 쪽(/성명-보도자료/). 글 주소는 같은 쪽 + ?mod=document&uid=번호(노동당과 같은 모양).
+    key: "kfsu", name: "서비스연맹", group: "labor", lang: "ko", mode: "html",
+    lists: ["https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/"], hosts: ["kfsu.kr", "www.kfsu.kr"],
+    item: /^https:\/\/(www\.)?kfsu\.kr\/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C\/?\?(?=[^#]*\bmod=document\b)(?=[^#]*\buid=\d+\b)/i,
+    canon: keepQuery(["mod", "uid"]),
+    kindOf: byPrefix("statement"),
+  },
+  {
+    // 성명·보도자료 게시판에 기자회견 알림 글이 섞여 있다: '[알림]'·'[취재요청]' 머리말과 머리말 없는 '… 기자회견 (개최) 알림·안내'는 넣지 않는다.
+    key: "hakbi", name: "학비노조", group: "labor", lang: "ko", mode: "html",
+    lists: ["https://www.hakbi.org/board/media_reports"], hosts: ["www.hakbi.org", "hakbi.org"],
+    item: /^https:\/\/(www\.)?hakbi\.org\/board\/media_reports\/read\/\d+\/?$/, canon: plain,
+    kindOf: (title) => (HAKBI_NOTICE.test(title) ? null : byPrefix("statement")(title)),
   },
   {
     // robots.txt 요청을 사이트가 거절해(401·403 → robots_denied, 2026-11-01 20:3x 운영 실행) 명진 결정 11/01 21:08로 이 단체도 읽는다:
