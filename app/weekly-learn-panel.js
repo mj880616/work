@@ -342,6 +342,8 @@ function draw(slot, start, s, rt) {
   if (dev.length) {
     const d = el('section', 'journal-weekly-part'); d.dataset.journalLearnDev = '';
     d.append(el('h5', 'journal-weekly-sub', '만들기로 보낸 것'));
+    // CC 전달 길(설계 25.2)이 생기기 전까지는 사실대로 한 줄(길이 생기면 이 줄을 지운다).
+    const wait = el('p', 'journal-muted', 'CC에게 저절로 가는 길은 준비 중이에요.'); wait.dataset.journalLearnDevWait = ''; d.append(wait);
     const list = el('ul', 'journal-kinds-off-list');
     for (const x of dev) { const li = el('li'); li.append(el('span', 'journal-weekly-day', slash(x.week)), ' '); if (x.area) li.append(el('small', 'journal-learn-area', SUGGESTION_AREA[x.area]), ' '); if (x.hand) li.append(el('small', 'journal-learn-area', '손'), ' '); li.append(suggestionText(doc, x)); list.append(li); }
     d.append(list); box.append(d);
