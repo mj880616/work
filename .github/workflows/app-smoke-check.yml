@@ -130,6 +130,10 @@ on:
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
+      - 'scripts/ops/inbox-open.mjs'
+      - 'tests/ops-inbox-open.test.mjs'
+      - 'tests/outside-statements-model.test.mjs'
+      - 'tests/news-clipping-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
@@ -261,6 +265,10 @@ on:
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
+      - 'scripts/ops/inbox-open.mjs'
+      - 'tests/ops-inbox-open.test.mjs'
+      - 'tests/outside-statements-model.test.mjs'
+      - 'tests/news-clipping-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
@@ -337,6 +345,10 @@ jobs:
 
       - name: Check ledger decision history (FEAT-1029묶음 ⑥)
         run: node --test tests/ledger-decision-history.test.mjs
+      - name: Check request inbox open-list calculator (OPS-요청함대기계산)
+        run: node --test tests/ops-inbox-open.test.mjs
+      - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
