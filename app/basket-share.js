@@ -46,6 +46,7 @@ function start() {
   }
 
   async function open(list) {
+    if (list.target === 'note' || list.target === 'task') { await openTarget(list); return; }
     const picked = pickShareItems(list.items);
     share = {...list, keep:picked.keep, skipped:picked.skipped};
     files = null; batch = null; owner = scope();
@@ -55,6 +56,32 @@ function start() {
       await window.KPTUViewLoader?.load?.('basket');
     } catch { /* 정리함 화면을 못 열어도 저장은 같은 길로 한다. */ }
     await put();
+  }
+
+  // APP-공유노트할일(앱 0.4.8): '웹2 노트'·'웹2 할 일' 칸. 받기는 정리함과 같은 길(목록 → 파일 한 번씩 → done)이고,
+  // 받은 글·파일을 작은 저장 창(share-target.js)에 넘긴다. 저장은 그 창의 [저장]이 노트·할 일의 기존 저장 길로 한다.
+  async function openTarget(list) {
+    const picked = pickShareItems(list.items);
+    share = {...list, keep:picked.keep, skipped:picked.skipped};
+    files = null; batch = null; owner = scope();
+    stripAddress();
+    busy = true;
+    let got = {out:[], failed:0, large:0, empty:0}, view = null;
+    try {
+      if (share.keep.length) got = await receive(); else release();
+      view = await import('./share-target.js');
+    } catch {
+      view = null;
+    } finally {
+      busy = false;
+    }
+    const s = share.skipped || {}, hasText = !!(share.text.trim() || share.subject);
+    share = {...share, done:true, keep:[]};
+    if (picked.keep.length && !got.out.length && !hasText) { failed('공유한 파일을 읽지 못했어요. 그 앱에서 다시 공유해 주세요.', false); return; }
+    if (!got.out.length && !hasText) { failed('넣을 것이 없어요.', false); return; }
+    if (!view) { failed('저장 창을 열지 못했어요. 다시 공유해 주세요.', false); return; }
+    const status = skippedText({...s, failed:got.failed, large:(s.large || 0) + got.large, empty:(s.empty || 0) + got.empty});
+    view.openShareTarget({target:list.target, subject:list.subject, text:list.text, files:got.out, status, owner, scope});
   }
 
   // 앱이 흘려주는 파일을 한 번씩 받는다. 받은 파일은 이 화면 메모리에만 있다. 다 받으면 앱에 끝났다고 알린다(앱이 번호·권한을 버림).

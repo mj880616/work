@@ -170,8 +170,27 @@ object ShellRules {
 
     fun isShareId(value: String?): Boolean = value != null && SHARE_ID.matches(value)
 
-    /** 공유를 받으면 여는 주소. 웹 basket-share.js가 번호를 읽고 다리로 목록을 묻는다. */
-    fun shareHome(id: String): String = HOME + "?view=basket&share=" + id
+    /**
+     * APP-공유노트할일(0.4.8): 공유 창의 세 칸. 정리함은 MainActivity 자신, 노트·할 일은 MainActivity를 가리키는 별칭(activity-alias)이다.
+     * 어느 칸으로 들어왔는지는 intent의 component 이름(별칭 이름)으로만 안다. 모르는 이름은 정리함(지금과 같은 길).
+     */
+    enum class ShareTarget(val id: String) { BASKET("basket"), NOTE("note"), TASK("task") }
+
+    const val SHARE_NOTE_ALIAS = "kr.or.kptu.work.ShareNoteTarget"
+    const val SHARE_TASK_ALIAS = "kr.or.kptu.work.ShareTaskTarget"
+
+    fun shareTarget(className: String?): ShareTarget = when (className) {
+        SHARE_NOTE_ALIAS -> ShareTarget.NOTE
+        SHARE_TASK_ALIAS -> ShareTarget.TASK
+        else -> ShareTarget.BASKET
+    }
+
+    /**
+     * 공유를 받으면 여는 주소. 웹 basket-share.js가 번호를 읽고 다리로 목록을 묻는다.
+     * 정리함은 정리함 화면, 노트·할 일은 첫 화면 위에 작은 저장 창(share-target.js)이 뜬다(들어갈 곳은 목록 JSON의 target).
+     */
+    fun shareHome(id: String, target: ShareTarget = ShareTarget.BASKET): String =
+        if (target == ShareTarget.BASKET) HOME + "?view=basket&share=" + id else HOME + "?share=" + id
 
     /**
      * 웹이 파일 내용을 받으려고 부르는 주소(https://<허용 호스트>/work/app/__share/<번호>/<순번>)인지.
@@ -225,7 +244,7 @@ object ShellRules {
     data class ShareMeta(val name: String, val type: String, val size: Long)
 
     /** 'share:list:' 뒤에 붙는 JSON(org.json 없이 만들어 JVM 시험이 된다). 파일 내용·URI는 넣지 않는다. */
-    fun shareListJson(id: String, subject: String?, text: String?, items: List<ShareMeta>): String {
+    fun shareListJson(id: String, subject: String?, text: String?, items: List<ShareMeta>, target: ShareTarget = ShareTarget.BASKET): String {
         val sb = StringBuilder()
         sb.append("{\"id\":").append(jsonString(id))
         sb.append(",\"subject\":").append(jsonString((subject ?: "").take(1000)))
@@ -239,7 +258,7 @@ object ShellRules {
             sb.append(",\"size\":").append(if (item.size >= 0) item.size else -1)
             sb.append('}')
         }
-        sb.append("]}")
+        sb.append("],\"target\":").append(jsonString(target.id)).append('}')
         return sb.toString()
     }
 

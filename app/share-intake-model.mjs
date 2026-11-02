@@ -25,7 +25,68 @@ export function parseShareList(json) {
     const size = Number(raw?.size);
     items.push({index, name:fileName(raw?.name, index), type:MIME.test(type) ? type : 'application/octet-stream', size:Number.isFinite(size) && size >= 0 ? Math.floor(size) : -1});
   }
-  return {id:data.id, subject:clean(data.subject, 1000).trim(), text:clean(data.text, 100000), items};
+  return {id:data.id, subject:clean(data.subject, 1000).trim(), text:clean(data.text, 100000), items, target:shareTarget(data.target)};
+}
+
+// ── APP-공유노트할일(앱 0.4.8): 공유 창의 세 칸 '웹2 정리함'·'웹2 노트'·'웹2 할 일'. 받기 길은 같고 들어갈 곳만 다르다. ──
+export const SHARE_TARGETS = Object.freeze(['basket', 'note', 'task']);
+/** 앱이 알려 준 들어갈 곳. 모르는 값·없음(0.4.7 이하 앱)은 정리함. */
+export const shareTarget = value => SHARE_TARGETS.includes(value) ? value : 'basket';
+export const SHARE_NOTE_TITLE_MAX = 200;
+export const SHARE_NOTE_MAX = 100000;
+export const SHARE_TASK_TITLE_MAX = 1024;
+export const SHARE_TASK_NOTES_MAX = 8192;
+export const SHARE_TASK_FILES_MAX = 10;
+const LINK = /https?:\/\/[^\s<>"']+/gi;
+const cut = (value, max) => [...String(value ?? '')].slice(0, max).join('');
+const oneLine = value => clean(value, SHARE_MEMO_MAX).replace(/\s*\n+\s*/g, ' ').trim();
+const linesOf = value => String(value ?? '').split('\n').map(line => line.trim()).filter(Boolean);
+
+/** 글 속 링크(같은 것은 한 번, 20개까지). 끝에 붙은 문장부호는 뺀다. */
+export function shareLinks(text) {
+  const out = [];
+  for (const raw of String(text ?? '').match(LINK) || []) {
+    const link = raw.replace(/[).,!?;:'"\]]+$/, '');
+    if (link && !out.includes(link)) out.push(link);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+/** 글이 링크뿐인가(브라우저 [공유]: 글 = 주소, 제목 = 페이지 제목). */
+const onlyLinks = text => !!String(text ?? '').trim() && !String(text).replace(LINK, ' ').trim();
+
+/**
+ * 노트로 넣을 제목·본문. 제목 = 받은 글의 첫 줄, 글이 링크뿐이면 링크 제목(subject), 둘 다 없으면 한 줄 더하기 → 첫 파일 이름.
+ * 본문 = 한 줄 더하기 → 링크 제목(본문에 없을 때) → 받은 글. 노트 한도(본문 100,000자·제목 200자) 안으로 자른다.
+ */
+export function shareNoteDraft({subject = '', text = '', items = [], extra = ''} = {}) {
+  const body = String(text ?? '').trim(), line = oneLine(extra), head = String(subject ?? '').trim();
+  const first = (linesOf(body)[0] || '').replace(/^#{1,6}\s+/, '');
+  const title = ((onlyLinks(body) || !body) && head ? head : first || head || line || String(items[0]?.name || '')).trim();
+  const raw = [line, head && !body.includes(head) ? head : '', body].filter(Boolean).join('\n');
+  const fit = fitText(raw, SHARE_NOTE_MAX);
+  return {title:cut(title.replace(/[\r\n]+/g, ' '), SHARE_NOTE_TITLE_MAX).trim(), raw_text:fit.text, cut:fit.cut};
+}
+
+/**
+ * 할 일로 넣을 제목·메모. 제목 = 받은 글(링크를 뺀 첫 줄) 또는 링크 제목, 없으면 첫 링크 → 첫 파일 이름.
+ * 메모 = 링크 제목(제목으로 쓰지 않았을 때) → 나머지 글 줄 → 링크. 구글 할 일 한도(제목 1,024자·메모 8,192자) 안으로 자른다.
+ * title(사용자가 작은 창에서 고친 제목)이 있으면 그것을 제목으로 쓴다.
+ */
+export function shareTaskDraft({subject = '', text = '', items = [], title = null} = {}) {
+  const body = String(text ?? '').trim(), head = String(subject ?? '').trim(), links = shareLinks(body);
+  const rest = linesOf(body.replace(LINK, ' ')).map(line => line.replace(/\s{2,}/g, ' ').trim()).filter(Boolean);
+  const auto = rest[0] || head || links[0] || String(items[0]?.name || '').trim();
+  const chosen = typeof title === 'string' && title.trim() ? oneLine(title) || title.trim() : auto;
+  const notes = [head && head !== chosen && !body.includes(head) ? head : '', ...rest.filter((line, i) => !(i === 0 && line === chosen)), ...links.filter(link => link !== chosen)];
+  return {title:cut(chosen.replace(/[\r\n]+/g, ' '), SHARE_TASK_TITLE_MAX).trim(), notes:cut(notes.filter(Boolean).join('\n'), SHARE_TASK_NOTES_MAX), auto:cut(auto, SHARE_TASK_TITLE_MAX)};
+}
+
+/** 할 일에 붙일 파일(구글 할 일 첨부 한도 10개). 넘는 것은 뺀 수로 알린다. */
+export function shareTaskFiles(files = []) {
+  const list = Array.from(files || []);
+  return {keep:list.slice(0, SHARE_TASK_FILES_MAX), over:Math.max(0, list.length - SHARE_TASK_FILES_MAX)};
 }
 
 /** 서버 한도에 맞는 것만 고른다(빈 파일·100MB 넘는 파일·21번째부터는 뺀다). 크기를 모르면 받은 뒤 다시 본다. */

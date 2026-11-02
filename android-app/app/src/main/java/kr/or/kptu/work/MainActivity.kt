@@ -594,7 +594,7 @@ class MainActivity : ComponentActivity() {
             if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
             return
         }
-        val target = ShellRules.shareHome(share.id)
+        val target = ShellRules.shareHome(share.id, share.target)
         if (!ShellRules.isInternalApp(webView.url)) {
             load(target, "share")
             return
@@ -869,11 +869,17 @@ class MainActivity : ComponentActivity() {
 
     private fun launchEdit(uri: Uri, mime: String) {
         val type = if (mime.startsWith("image/")) mime else "image/*"
-        val samsung = try {
-            packageManager.queryIntentActivities(Intent(PhotoEditRules.ACTION_EDIT).setDataAndType(uri, type).setPackage(PhotoEditRules.SAMSUNG_GALLERY), 0).isNotEmpty()
+        fun takes(action: String, pkg: String): Boolean = try {
+            packageManager.queryIntentActivities(Intent(action).setDataAndType(uri, type).setPackage(pkg), 0).isNotEmpty()
         } catch (_: Exception) {
             false
         }
+        // PHOTO-갤러리편집(0.4.8): 편집기 → 갤러리 편집 → 갤러리 보기 → 고르기 창 순서(PhotoEditRules.openers). 실기기마다 실행 중에 묻는다.
+        val openers = PhotoEditRules.openers(
+            retouchEdit = takes(PhotoEditRules.ACTION_EDIT, PhotoEditRules.SAMSUNG_RETOUCH),
+            galleryEdit = takes(PhotoEditRules.ACTION_EDIT, PhotoEditRules.SAMSUNG_GALLERY),
+            galleryView = takes(PhotoEditRules.ACTION_VIEW, PhotoEditRules.SAMSUNG_GALLERY),
+        )
         val canWrite = checkCallingOrSelfUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == PackageManager.PERMISSION_GRANTED
         fun intentOf(plan: PhotoEditRules.Plan): Intent {
             val edit = Intent(plan.action).setDataAndType(uri, plan.mime).addFlags(plan.flags)
@@ -883,17 +889,19 @@ class MainActivity : ComponentActivity() {
         }
         editGen = PhoneMedia.generation(this).let { if (it == EDIT_IDLE) -1L else it }
         editReturned = false
-        for (write in if (canWrite) listOf(true, false) else listOf(false)) {
-            val plan = PhotoEditRules.plan(uri.toString(), type, samsung, write) ?: break
-            try {
-                photoEdit.launch(intentOf(plan))
-                return
-            } catch (_: SecurityException) {
-                // 쓰기 허락을 넘길 수 없으면 읽기만으로 한 번 더(갤러리는 제 권한으로 저장).
-            } catch (_: ActivityNotFoundException) {
-                break
-            } catch (_: Exception) {
-                break
+        for (opener in openers) {
+            for (write in if (canWrite) listOf(true, false) else listOf(false)) {
+                val plan = PhotoEditRules.plan(uri.toString(), type, opener, write) ?: break
+                try {
+                    photoEdit.launch(intentOf(plan))
+                    return
+                } catch (_: SecurityException) {
+                    // 쓰기 허락을 넘길 수 없으면 읽기만으로 한 번 더(갤러리는 제 권한으로 저장).
+                } catch (_: ActivityNotFoundException) {
+                    break // 이 입구가 없으면 다음 입구.
+                } catch (_: Exception) {
+                    break
+                }
             }
         }
         editGen = EDIT_IDLE

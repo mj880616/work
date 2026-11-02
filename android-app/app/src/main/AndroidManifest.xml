@@ -20,10 +20,17 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- PHOTO-갤러리편집(0.4.6): 크게 보기 [편집]이 삼성 갤러리 편집기가 있는지 묻는다(안드로이드 11+ 앱 보기 제한). 다른 앱에서 들어오는 의도는 받지 않는다. -->
+    <!-- PHOTO-갤러리편집(0.4.6·0.4.8): 크게 보기 [편집]이 삼성 사진 편집기·삼성 갤러리가 편집(EDIT)·보기(VIEW)를 받는지 묻는다(안드로이드 11+ 앱 보기 제한).
+         보이게 하는 것은 이 두 앱과 그림 편집·보기 입구뿐이다. 다른 앱에서 들어오는 의도는 받지 않는다. -->
     <queries>
+        <package android:name="com.sec.android.mimage.photoretouching" />
+        <package android:name="com.sec.android.gallery3d" />
         <intent>
             <action android:name="android.intent.action.EDIT" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="image/*" />
         </intent>
     </queries>
@@ -53,18 +60,53 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="kptuwork" android:host="auth" />
             </intent-filter>
-            <!-- 단계 ②: 다른 앱의 [공유]에 "웹2 바구니"로 보인다. 글·링크·사진·파일. 받은 항목의 임시 읽기 권한만 쓴다(저장소 권한 없음). -->
-            <intent-filter android:label="웹2 바구니">
+            <!-- 단계 ②: 다른 앱의 [공유]에 "웹2 정리함"으로 보인다(0.4.8에서 앱 안 이름에 맞춰 '바구니' → '정리함'). 글·링크·사진·파일. 받은 항목의 임시 읽기 권한만 쓴다(저장소 권한 없음). -->
+            <intent-filter android:label="웹2 정리함">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-            <intent-filter android:label="웹2 바구니">
+            <intent-filter android:label="웹2 정리함">
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+        <!-- APP-공유노트할일(0.4.8): 공유 창의 '웹2 노트'·'웹2 할 일' 칸. 새 화면이 아니라 MainActivity를 가리키는 별칭이고,
+             받는 것은 공유(SEND·SEND_MULTIPLE)뿐이다(실행기·주소 열기 없음). 들어온 별칭 이름으로 들어갈 곳만 고르고(ShellRules.shareTarget),
+             받기 길(ShareIntake: 메모리·임시 읽기 권한)·저장(웹2 로그인으로 기존 노트·할 일 저장 길)은 정리함과 같다. 권한 추가 없음. -->
+        <activity-alias
+            android:name=".ShareNoteTarget"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="웹2 노트">
+            <intent-filter android:label="웹2 노트">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter android:label="웹2 노트">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".ShareTaskTarget"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="웹2 할 일">
+            <intent-filter android:label="웹2 할 일">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter android:label="웹2 할 일">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity-alias>
         <!-- 단계 ③: 위젯 [로그인] 줄만 여는 화면. 내보내지 않아 다른 앱은 열 수 없다. 그리지 않고 바로 닫는다. -->
         <activity
             android:name=".WidgetLoginActivity"

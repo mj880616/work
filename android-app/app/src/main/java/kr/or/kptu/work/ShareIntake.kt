@@ -23,9 +23,9 @@ import java.util.concurrent.ConcurrentHashMap
 object ShareIntake {
     class Item(val uri: Uri, val meta: ShellRules.ShareMeta)
 
-    class Pending(val id: String, val subject: String?, val text: String?, val items: List<Item>) {
+    class Pending(val id: String, val subject: String?, val text: String?, val items: List<Item>, val target: ShellRules.ShareTarget = ShellRules.ShareTarget.BASKET) {
         val opened: MutableSet<Int> = ConcurrentHashMap.newKeySet()
-        val json: String = ShellRules.shareListJson(id, subject, text, items.map { it.meta })
+        val json: String = ShellRules.shareListJson(id, subject, text, items.map { it.meta }, target)
     }
 
     @Volatile private var pending: Pending? = null
@@ -45,7 +45,8 @@ object ShareIntake {
         val subject = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString()?.take(1000)
         val items = uris.mapIndexed { i, uri -> Item(uri, meta(resolver, uri, intent.type, i)) }
         if (items.isEmpty() && text.isNullOrBlank() && subject.isNullOrBlank()) return null
-        val next = Pending(newId(), subject, text, items)
+        // APP-공유노트할일: 공유 창의 어느 칸(정리함·노트·할 일)으로 들어왔는지. 별칭 이름만 보고, 들어갈 곳만 다르다(받기 길은 같음).
+        val next = Pending(newId(), subject, text, items, ShellRules.shareTarget(intent.component?.className))
         pending = next
         return next
     }

@@ -13,9 +13,12 @@ package kr.or.kptu.work
  * 넘기는 것은 content URI(+읽기·쓰기 허락 표시)뿐, 파일 경로는 앱 밖으로 내보내지 않는다. 사진 이름·내용은 로그에 쓰지 않는다.
  */
 object PhotoEditRules {
-    /** 삼성 갤러리(편집기). 설치돼 있고 ACTION_EDIT를 받으면 바로 그 앱으로, 아니면 고르기 창. */
+    /** 삼성 갤러리. 열 곳 순서는 아래 openers. */
     const val SAMSUNG_GALLERY = "com.sec.android.gallery3d"
+    /** 삼성 사진 편집기(갤러리의 자르기·기울기·자동 보정). 공개 ACTION_EDIT를 받는지 실행 중에 묻는다. */
+    const val SAMSUNG_RETOUCH = "com.sec.android.mimage.photoretouching"
     const val ACTION_EDIT = "android.intent.action.EDIT"
+    const val ACTION_VIEW = "android.intent.action.VIEW"
     /** Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION (값은 안드로이드 공개 상수와 같다). */
     const val GRANT_READ = 0x00000001
     const val GRANT_WRITE = 0x00000002
@@ -111,16 +114,40 @@ object PhotoEditRules {
     }
 
     /**
-     * 의도 계획: 삼성 갤러리가 받으면 그 앱으로(pkg), 아니면 고르기 창(chooser=true). content URI만(파일 경로 안 됨).
+     * 열 곳(11/01 21:38 명진: 0.4.6에서 고르기 창에 갤러리가 없었다 — 삼성 갤러리는 남의 ACTION_EDIT(image/*)를 받지 않는 것으로 보임).
+     * 실기기가 없어 앱이 실행 중에 확인한 순서대로 고른다(비공개 내부 화면 이름은 부르지 않는다, 삼성 업데이트로 깨짐):
+     * 1) 삼성 사진 편집기(photoretouching)가 공개 ACTION_EDIT를 받으면 그 편집기 바로
+     * 2) 삼성 갤러리가 ACTION_EDIT를 받으면 갤러리 편집
+     * 3) 삼성 갤러리 보기(ACTION_VIEW) — 갤러리 아래 연필을 한 번 더 누르면 편집
+     * 4) 삼성 앱이 하나도 없는 폰만 안드로이드 '편집할 앱 고르기'
+     */
+    enum class Opener(val action: String, val pkg: String?) {
+        RETOUCH_EDIT(ACTION_EDIT, SAMSUNG_RETOUCH),
+        GALLERY_EDIT(ACTION_EDIT, SAMSUNG_GALLERY),
+        GALLERY_VIEW(ACTION_VIEW, SAMSUNG_GALLERY),
+        CHOOSER(ACTION_EDIT, null),
+    }
+
+    /** 실행 중에 물어 본 결과(각 입구가 받는가) → 고를 순서. 앞의 것이 열리지 않으면(ActivityNotFound) 다음 것. 고르기 창은 늘 맨 끝. */
+    fun openers(retouchEdit: Boolean, galleryEdit: Boolean, galleryView: Boolean): List<Opener> = buildList {
+        if (retouchEdit) add(Opener.RETOUCH_EDIT)
+        if (galleryEdit) add(Opener.GALLERY_EDIT)
+        if (galleryView) add(Opener.GALLERY_VIEW)
+        add(Opener.CHOOSER)
+    }
+
+    /**
+     * 의도 계획: 고른 입구(opener)로, content URI만(파일 경로 안 됨). 고르기 창이면 chooser=true.
      * 허락 표시는 읽기·쓰기. 다만 안드로이드는 앱이 가진 만큼만 넘기게 하므로, 이 앱이 쓰기 권한이 없는 사진(남이 만든 사진,
-     * '미디어 관리 허용' 꺼짐)이면 읽기만 넘긴다(갤러리는 제 권한으로 저장한다). canWrite=false 재시도도 같은 규칙.
+     * '미디어 관리 허용' 꺼짐)이면 읽기만 넘긴다(갤러리는 제 권한으로 저장한다). 보기(VIEW)는 늘 읽기만 넘긴다.
      */
     data class Plan(val action: String, val uri: String, val mime: String, val flags: Int, val pkg: String?, val chooser: Boolean)
 
-    fun plan(uri: String, mime: String, samsungCanEdit: Boolean, canWrite: Boolean = true): Plan? {
+    fun plan(uri: String, mime: String, opener: Opener, canWrite: Boolean = true): Plan? {
         if (!uri.startsWith("content://")) return null
         val type = if (mime.startsWith("image/")) mime else "image/*"
-        return Plan(ACTION_EDIT, uri, type, if (canWrite) GRANT_FLAGS else GRANT_READ, if (samsungCanEdit) SAMSUNG_GALLERY else null, !samsungCanEdit)
+        val flags = if (canWrite && opener.action == ACTION_EDIT) GRANT_FLAGS else GRANT_READ
+        return Plan(opener.action, uri, type, flags, opener.pkg, opener == Opener.CHOOSER)
     }
 
     /** 편집기에서 돌아온 뒤: 사진첩 세대 번호가 바뀌었으면 changed(새 사진·덮어쓰기). 번호를 못 읽으면(-1) 바뀐 것으로 본다. */

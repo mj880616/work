@@ -1,0 +1,12 @@
+/* APP-공유노트할일: 폰 공유 '웹2 노트'·'웹2 할 일' 작은 저장 창(share-target.js). 콤팩트하게, 하단바에 가리지 않게 기본 .modal 자리를 쓴다. */
+.share-target-card{display:flex;flex-direction:column;gap:var(--kptu-space-2,8px)}
+.share-target-what{margin:0;font-size:.85rem;color:var(--muted,#6b6a65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-target-note{display:flex;gap:6px;align-items:center}
+.share-target-note input{flex:1 1 auto;min-width:0}
+.share-target-folder{flex:0 0 auto;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-target-task{display:flex;flex-direction:column;gap:6px}
+.share-target-dues{display:flex;flex-wrap:wrap;gap:4px}
+.share-target-dues button{min-height:32px;padding:2px 10px;font-size:.85rem}
+.share-target-dues button[aria-pressed="true"]{background:var(--accent-soft,#e6e3d8);border-color:var(--accent,#7a7461);font-weight:600}
+.share-target .modal-action-footer{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.share-target .modal-action-footer .status{flex:1 1 auto;font-size:.82rem}

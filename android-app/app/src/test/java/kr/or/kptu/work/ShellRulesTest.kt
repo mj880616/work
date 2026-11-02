@@ -163,6 +163,22 @@ class ShellRulesTest {
         assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/x/__share/$shareId/0"))
         assertNull(ShellRules.shareRequest(null))
         assertEquals("https://bokdoong.com/work/app/?view=basket&share=$shareId", ShellRules.shareHome(shareId))
+        assertEquals("https://bokdoong.com/work/app/?view=basket&share=$shareId", ShellRules.shareHome(shareId, ShellRules.ShareTarget.BASKET))
+        assertEquals("https://bokdoong.com/work/app/?share=$shareId", ShellRules.shareHome(shareId, ShellRules.ShareTarget.NOTE))
+        assertEquals("https://bokdoong.com/work/app/?share=$shareId", ShellRules.shareHome(shareId, ShellRules.ShareTarget.TASK))
+    }
+
+    @Test
+    fun shareTargets() {
+        // 공유 창 세 칸: 별칭 이름으로만 들어갈 곳을 고른다. 모르는 이름·없음은 정리함(지금 길).
+        assertEquals(ShellRules.ShareTarget.NOTE, ShellRules.shareTarget("kr.or.kptu.work.ShareNoteTarget"))
+        assertEquals(ShellRules.ShareTarget.TASK, ShellRules.shareTarget("kr.or.kptu.work.ShareTaskTarget"))
+        assertEquals(ShellRules.ShareTarget.BASKET, ShellRules.shareTarget("kr.or.kptu.work.MainActivity"))
+        assertEquals(ShellRules.ShareTarget.BASKET, ShellRules.shareTarget(null))
+        assertEquals(ShellRules.ShareTarget.BASKET, ShellRules.shareTarget("ShareNoteTarget"))
+        assertEquals(ShellRules.ShareTarget.BASKET, ShellRules.shareTarget("com.other.ShareTaskTarget"))
+        val json = ShellRules.shareListJson(shareId, "", "글", emptyList(), ShellRules.ShareTarget.TASK)
+        assertTrue(json.endsWith(",\"items\":[],\"target\":\"task\"}"))
     }
 
     @Test
@@ -188,7 +204,7 @@ class ShellRulesTest {
         assertEquals("\"a\\\"b\\\\c\\u003c\\u000a\"", ShellRules.jsonString("a\"b\\c<\n"))
         val json = ShellRules.shareListJson(shareId, "제목", "글", listOf(ShellRules.ShareMeta("사진.jpg", "image/jpeg", 10), ShellRules.ShareMeta("x", "application/pdf", -7)))
         assertEquals(
-            "{\"id\":\"$shareId\",\"subject\":\"제목\",\"text\":\"글\",\"items\":[{\"i\":0,\"name\":\"사진.jpg\",\"type\":\"image/jpeg\",\"size\":10},{\"i\":1,\"name\":\"x\",\"type\":\"application/pdf\",\"size\":-1}]}",
+            "{\"id\":\"$shareId\",\"subject\":\"제목\",\"text\":\"글\",\"items\":[{\"i\":0,\"name\":\"사진.jpg\",\"type\":\"image/jpeg\",\"size\":10},{\"i\":1,\"name\":\"x\",\"type\":\"application/pdf\",\"size\":-1}],\"target\":\"basket\"}",
             json,
         )
         val many = ShellRules.shareListJson(shareId, null, null, List(60) { ShellRules.ShareMeta("f", "text/plain", 1) })

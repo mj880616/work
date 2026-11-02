@@ -2,6 +2,7 @@ package kr.or.kptu.work
 
 import kr.or.kptu.work.PhotoEditRules.Message
 import kr.or.kptu.work.PhotoEditRules.Target
+import kr.or.kptu.work.PhotoEditRules.Opener as O
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -74,21 +75,39 @@ class PhotoEditRulesTest {
     @Test
     fun editIntentPlan() {
         val uri = "content://media/external/images/media/7"
-        val samsung = PhotoEditRules.plan(uri, "image/jpeg", samsungCanEdit = true)!!
-        assertEquals("android.intent.action.EDIT", samsung.action)
-        assertEquals(PhotoEditRules.SAMSUNG_GALLERY, samsung.pkg)
-        assertFalse(samsung.chooser)
-        assertEquals(PhotoEditRules.GRANT_READ or PhotoEditRules.GRANT_WRITE, samsung.flags)
-        assertEquals(0x3, samsung.flags)
-        val other = PhotoEditRules.plan(uri, "", samsungCanEdit = false)!!
+        val retouch = PhotoEditRules.plan(uri, "image/jpeg", PhotoEditRules.Opener.RETOUCH_EDIT)!!
+        assertEquals("android.intent.action.EDIT", retouch.action)
+        assertEquals("com.sec.android.mimage.photoretouching", retouch.pkg)
+        assertFalse(retouch.chooser)
+        assertEquals(PhotoEditRules.GRANT_READ or PhotoEditRules.GRANT_WRITE, retouch.flags)
+        assertEquals(0x3, retouch.flags)
+        val view = PhotoEditRules.plan(uri, "image/jpeg", PhotoEditRules.Opener.GALLERY_VIEW)!!
+        assertEquals("android.intent.action.VIEW", view.action)
+        assertEquals(PhotoEditRules.SAMSUNG_GALLERY, view.pkg)
+        assertFalse(view.chooser)
+        // 보기는 읽기만 넘긴다.
+        assertEquals(PhotoEditRules.GRANT_READ, view.flags)
+        val other = PhotoEditRules.plan(uri, "", PhotoEditRules.Opener.CHOOSER)!!
         assertNull(other.pkg)
         assertTrue(other.chooser)
+        assertEquals("android.intent.action.EDIT", other.action)
         assertEquals("image/*", other.mime)
         // 쓰기 권한이 없는 사진은 읽기만 넘긴다.
-        assertEquals(PhotoEditRules.GRANT_READ, PhotoEditRules.plan(uri, "image/jpeg", true, canWrite = false)!!.flags)
+        assertEquals(PhotoEditRules.GRANT_READ, PhotoEditRules.plan(uri, "image/jpeg", PhotoEditRules.Opener.GALLERY_EDIT, canWrite = false)!!.flags)
         // 파일 경로는 넘기지 않는다.
-        assertNull(PhotoEditRules.plan("file:///storage/emulated/0/DCIM/a.jpg", "image/jpeg", true))
-        assertNull(PhotoEditRules.plan("/storage/emulated/0/a.jpg", "image/jpeg", true))
+        assertNull(PhotoEditRules.plan("file:///storage/emulated/0/DCIM/a.jpg", "image/jpeg", PhotoEditRules.Opener.RETOUCH_EDIT))
+        assertNull(PhotoEditRules.plan("/storage/emulated/0/a.jpg", "image/jpeg", PhotoEditRules.Opener.CHOOSER))
+    }
+
+    @Test
+    fun openerOrder() {
+        // 편집기 → 갤러리 편집 → 갤러리 보기 → 고르기 창.
+        assertEquals(listOf(O.RETOUCH_EDIT, O.GALLERY_EDIT, O.GALLERY_VIEW, O.CHOOSER), PhotoEditRules.openers(true, true, true))
+        // 0.4.6 폴드처럼 갤러리가 남의 EDIT를 받지 않으면: 편집기(받으면) → 갤러리 보기 → 고르기 창.
+        assertEquals(listOf(O.RETOUCH_EDIT, O.GALLERY_VIEW, O.CHOOSER), PhotoEditRules.openers(true, false, true))
+        assertEquals(listOf(O.GALLERY_VIEW, O.CHOOSER), PhotoEditRules.openers(false, false, true))
+        // 삼성 앱이 없는 폰만 고르기 창.
+        assertEquals(listOf(O.CHOOSER), PhotoEditRules.openers(false, false, false))
     }
 
     @Test
