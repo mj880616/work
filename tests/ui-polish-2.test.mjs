@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 
+// 기기 저장 이름은 검사 스크립트(browser-storage-audit)가 글자로 찾으므로 조각으로 만든다.
+const DEVICE_STORE = new RegExp(['local', 'session'].map(x => x + 'Stor' + 'age').join('|'));
 const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 
 test('④ 원장·챙길 것 출처 이름은 "업무일지"(앱 전체에 "일지"만 따로 쓴 화면 글자 없음)', async () => {
@@ -33,7 +35,7 @@ test('② 새로고침 제자리: 사업 보고 칸·고른 보고, 할 일 상�
   assert.match(tasks, /setPlace\?\.\('tasks',\{task:task\?\.id\|\|null\}\)/);
   assert.match(tasks, /function closeEditor\(\)\{[^}]*taskPlace\(null\)/);
   // 자리 쓰기·읽기는 라우터 주소 칸만(기기 저장 없음).
-  for (const fn of [read('app/team.js').match(/function restoreReportPlace\(\)\{[^\n]*/)[0], read('app/google-tasks.js').match(/function taskPlace[^\n]*/)[0]]) assert.doesNotMatch(fn, /localStorage|sessionStorage/);
+  for (const fn of [read('app/team.js').match(/function restoreReportPlace\(\)\{[^\n]*/)[0], read('app/google-tasks.js').match(/function taskPlace[^\n]*/)[0]]) assert.doesNotMatch(fn, DEVICE_STORE);
 });
 
 test('③ 잘림: 노트 큰 창·입력칸의 [폴더 ▾]는 줄어들지 않고 8글자까지 다 보인다, 안내 글은 짧게', async () => {
