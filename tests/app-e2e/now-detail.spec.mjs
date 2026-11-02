@@ -111,7 +111,9 @@ for (const width of [412, 1280]) {
     } else await expect(detail(page)).toBeHidden();
 
     // 글 줄 전체가 눌린다(요약 글자를 눌러도 상세). 서버에는 글 id만 보낸다.
-    await root(page).locator(`[data-os-post="${P1}"] .os-lead`).click();
+    // 요약 글자 자리를 누르면 그 위를 덮은 제목 단추가 받는다(Playwright 직접 클릭은 덮개 때문에 거절하므로 그 자리를 마우스로 누름).
+    const lead = await root(page).locator(`[data-os-post="${P1}"] .os-lead`).boundingBox();
+    await page.mouse.click(lead.x + lead.width / 2, lead.y + lead.height / 2);
     const nd = detail(page).locator('.nd');
     await expect(nd).toBeVisible();
     await expect.poll(() => server.calls.filter(c => c.what === 'ai' && c.body?.kind === 'now_detail').length).toBe(1);
