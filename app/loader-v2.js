@@ -138,6 +138,14 @@
     import('./date-field.js'),
     import('./team.js')
   ]);
+  // 시작 주소 → 첫 화면 이름(주소만 읽음, 부작용 없음). CSS 미리 받기와 아래 시작 순서가 같은 결과를 쓴다.
+  const startRoute=viewLoader=>{
+    const params=new URLSearchParams(location.search);
+    const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
+    // MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다. 옛 주소(?view=projects, ?project=)는 사업 보고를 열고 창을 띄운다.
+    const areasAtStart=viewLoader.normalize(rawRequested)==='projects'||(viewLoader.normalize(rawRequested)==='meetings'&&params.get('areas')==='1');
+    return {params,rawRequested,areasAtStart,requested:areasAtStart?'meetings':viewLoader.normalize(rawRequested)};
+  };
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
   delete window.__KPTU_BOOT_MEMBERSHIP_PROMISE__;
@@ -152,7 +160,8 @@
   const [viewPrefs,wait]=await Promise.all([
     import('./view-prefs.js').then(async m=>{await m.viewPrefs.load();return m.viewPrefs}).catch(()=>null),
     import('./wait-state.js'),
-    import('./view-loader.js'),
+    // 화면 불러오기 도구가 실행되는 즉시 첫 화면의 모양 파일(CSS, 자료 없음)을 받기 시작한다 — 아래 await viewLoader.prepare(requested)는 같은 받기를 기다린다.
+    import('./view-loader.js').then(()=>{const v=window.KPTUViewLoader;void v.prepare(startRoute(v).requested)}),
     // MTG-프로젝트합치기 ①: 창 그릇의 popstate·kptu:view-changed가 화면 프로그램·첫 화면 이동보다 먼저 붙는다.
     import('./area-window.js'),
     // ORG-사본자동갱신: 저장 뒤 Drive 읽기용 사본 자동 갱신(화면 표시 없음).
@@ -175,11 +184,7 @@
   };
 
   const viewLoader=window.KPTUViewLoader;
-  const params=new URLSearchParams(location.search);
-  const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
-  // MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다. 옛 주소(?view=projects, ?project=)는 사업 보고를 열고 창을 띄운다.
-  const areasAtStart=viewLoader.normalize(rawRequested)==='projects'||(viewLoader.normalize(rawRequested)==='meetings'&&params.get('areas')==='1');
-  const requested=areasAtStart?'meetings':viewLoader.normalize(rawRequested);
+  const {params,rawRequested,areasAtStart,requested}=startRoute(viewLoader);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
   const staticShellViews=new Set(['home','basket','calendar','tasks','diary','library','meetings','pages','team']);
