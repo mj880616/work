@@ -23,7 +23,7 @@ const SA=JSON.stringify({type:'service_account',project_id:'web2-phone-test',cli
 
 const reply=(status,body)=>new Response(body===undefined?null:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({devices=[],env={},fcm=()=>reply(200,{name:'projects/x/messages/1'}),oauth=()=>reply(200,{access_token:'ya29.synthetic-access-token'})}={}){
+function harness({devices=[],now={},env={},fcm=()=>reply(200,{name:'projects/x/messages/1'}),oauth=()=>reply(200,{access_token:'ya29.synthetic-access-token'})}={}){
  const state={devices:devices.map(d=>({...d})),log:[],calls:{rest:[],auth:0,oauth:[],fcm:[],other:[]}};
  const fetcher=async(url,init={})=>{
   const u=new URL(url),method=init.method??'GET';
@@ -39,7 +39,17 @@ function harness({devices=[],env={},fcm=()=>reply(200,{name:'projects/x/messages
    assert.equal(init.headers.apikey,SERVICE);
    const table=u.pathname.slice('/rest/v1/'.length),q=u.searchParams,body=init.body?JSON.parse(init.body):undefined;
    state.calls.rest.push({method,table,query:u.search,body});
-   assert.ok(['app_workspace_members','app_push_devices','app_push_log'].includes(table),'only its own tables + owner lookup: '+table);
+   assert.ok(['app_workspace_members','app_push_devices','app_push_log','app_outside_seen','app_outside_posts','app_news_items'].includes(table),'only its own tables + owner lookup + Now counts: '+table);
+   // 저녁 Now 한 줄: 세 표는 읽기만, id·본 시각만(제목·본문 안 읽음), 작업공간으로 거름.
+   if(['app_outside_seen','app_outside_posts','app_news_items'].includes(table)){
+    assert.equal(method,'GET');
+    assert.equal(q.get('select'),table==='app_outside_seen'?'seen_at':'id');
+    const ws=q.get('workspace_id').replace('eq.','');
+    const rows=(now[table]??[]).filter(r=>r.workspace_id===ws);
+    const since=(q.get('fetched_at')??q.get('created_at')??'').replace('gt.','');
+    const col=table==='app_outside_posts'?'fetched_at':'created_at';
+    return reply(200,table==='app_outside_seen'?rows:rows.filter(r=>r[col]>since&&(table!=='app_news_items'||!r.hidden_at)).map(r=>({id:r.id})));
+   }
    if(table==='app_workspace_members'){
     assert.equal(method,'GET');
     const uid=q.get('user_id').replace('eq.','');
@@ -241,11 +251,37 @@ test('cron run: slot required, body must be {}, prunes 30-day log, counts worksp
  assert.equal((await h.cron('quarter','[]')).status,400);
  for(const slot of H.SLOTS){
   const r=await h.cron(slot);assert.equal(r.status,200);
-  assert.deepEqual(await r.json(),{ok:true,slot,workspaces:2,sent:0,pruned:2});
+  assert.deepEqual(await r.json(),slot==='evening'?{ok:true,slot,workspaces:2,sent:0,pruned:2,now_lines:0}:{ok:true,slot,workspaces:2,sent:0,pruned:2});
  }
  assert.equal(h.state.calls.auth,0,'cron entrance never reads user logins');
  assert.equal(h.state.calls.fcm.length+h.state.calls.oauth.length,0);
  assert.ok(h.state.calls.rest.every(c=>c.table!=='app_workspace_members'));
+});
+
+test('evening Now line: one combined line, zero side dropped, counts only (no titles), seen_at base with 24h/7d bounds',async()=>{
+ const L=await import('../../supabase/functions/phone-push/now-line.ts');
+ assert.equal(L.nowEveningLine({statements:3,articles:5}),'새 성명 3 · 새 기사 5');
+ assert.equal(L.nowEveningLine({statements:0,articles:2}),'새 기사 2');
+ assert.equal(L.nowEveningLine({statements:4,articles:0}),'새 성명 4');
+ assert.equal(L.nowEveningLine({statements:0,articles:0}),null);
+ assert.equal(L.nowEveningLine({statements:100,articles:1}),'새 성명 99+ · 새 기사 1');
+ assert.equal(L.nowSince(null,NOW),'2026-10-31T03:00:00.000Z');
+ assert.equal(L.nowSince('2026-10-01T00:00:00Z',NOW),'2026-10-25T03:00:00.000Z');
+ assert.equal(L.nowSince('2026-11-01T01:00:00Z',NOW),'2026-11-01T01:00:00.000Z');
+ const P=n=>`e0000000-0000-4000-8000-00000000000${n}`;
+ const h=harness({devices:[dev(D1,WS,TOKEN_A),dev(D2,WS2,TOKEN_B)],now:{
+  app_outside_seen:[{workspace_id:WS,seen_at:'2026-11-01T01:00:00Z'}],
+  app_outside_posts:[{id:P(1),workspace_id:WS,fetched_at:'2026-11-01T02:00:00Z'},{id:P(2),workspace_id:WS,fetched_at:'2026-11-01T00:30:00Z'},{id:P(3),workspace_id:WS2,fetched_at:'2026-10-30T00:00:00Z'}],
+  app_news_items:[{id:P(4),workspace_id:WS,created_at:'2026-11-01T02:30:00Z',hidden_at:'2026-11-01T02:40:00Z'},{id:P(5),workspace_id:WS2,created_at:'2026-10-30T00:00:00Z'}],
+ }});
+ const r=await h.cron('evening');assert.equal(r.status,200);
+ const out=await r.json();
+ // WS: 본 뒤 새 글 1·숨긴 기사 0 → 줄 있음. WS2: 본 기록 없음 → 24시간 안 새것 없음 → 줄 없음.
+ assert.equal(out.now_lines,1);
+ assert.ok(!JSON.stringify(out).includes('새 성명'),'line text never in the response');
+ const g=await L.nowEveningCounts(async p=>{const u=new URL('https://x/rest/v1/'+p);assert.equal(u.searchParams.get('select')==='seen_at'||u.searchParams.get('select')==='id',true);return [];},'bad-id',NOW);
+ assert.deepEqual(g,{statements:0,articles:0});
+ assert.equal(h.state.calls.fcm.length,0);
 });
 
 test('server errors are codes only; store failure 503',async()=>{

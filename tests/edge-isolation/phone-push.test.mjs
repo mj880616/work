@@ -22,7 +22,7 @@ test('real phone-push graph checks/bundles with functions-only sources',{timeout
    local.push(relative(functions,file).split(sep).join('/'));
   }
   // FCM 보내기 공용 모듈과 몸통 읽기 상한 모듈만 쓴다(바깥 라이브러리 없음).
-  assert.deepEqual(local.sort(),['_shared/bounded-json.mjs','_shared/fcm-send.ts','_shared/web-cors.ts','phone-push/done-items.ts','phone-push/handler.ts','phone-push/index.ts']);
+  assert.deepEqual(local.sort(),['_shared/bounded-json.mjs','_shared/fcm-send.ts','_shared/web-cors.ts','phone-push/done-items.ts','phone-push/handler.ts','phone-push/index.ts','phone-push/now-line.ts']);
   assert.ok(graph.modules.every(m=>m.specifier.startsWith('file:')),'no remote or npm imports');
   run(['check','--no-config',entry]);const bundle=join(isolated,'phone-push.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}

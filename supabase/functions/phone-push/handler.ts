@@ -15,9 +15,11 @@
 // - `notices`: 뒤에서 끝난 일(done-items.ts 공용 목록) 중 아직 열지 않은 것 → 맨 위 알림 줄. 처음 뜬 것은 app_push_log에 shown_at을 남긴다.
 // - `opened` {kind, ref_key}: 폰 알림·알림 줄을 눌러 연 것 → 같은 종류·열쇠 기록에 opened_at(한 번 열면 끝).
 // - `recent`: 최근 알림 7일(폰으로 보낸 것·알림 줄에 뜬 것) — 내 프로필 '폰 알림' 아래 목록. 종류·열쇠·시각·여는 주소만.
+// 저녁 'Now' 한 줄(now-line.ts, OUTSIDE-글상세·관심환류): 사회운동 글·뉴스 기사·본 시각 표를 service_role select로 건수만 센다.
 // 재료 표 중 service_role 권한이 없는 것(다음 주 준비 한 장)은 그 사용자 로그인 그대로(owner RLS) 읽는다(SUPABASE_ANON_KEY).
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
+import { nowEveningCounts, nowEveningLine } from "./now-line.ts";
 import { doneItems, NOTICE_LOG_KINDS, RECENT_LIMIT, recentRows, recentSince, REF_KEY, type DoneItem } from "./done-items.ts";
 
 type Env = (name: string) => string | undefined;
@@ -244,9 +246,15 @@ async function runSlot(db: Db, slot: string, nowMs: number) {
   const pruned = await db.send("DELETE", `app_push_log?sent_at=lt.${encodeURIComponent(cutoff)}&select=day`, undefined, "return=representation");
   // 받을 작업공간: 살아 있는 기기가 있는 곳. 기기 주인이 지금도 그 작업공간 owner인지는 보낼 때(N5) 다시 본다.
   const rows = await db.get("app_push_devices?revoked_at=is.null&select=workspace_id&limit=1000");
-  const workspaces = new Set(rows.map((r) => r.workspace_id).filter((v) => typeof v === "string")).size;
+  const ids = [...new Set(rows.map((r) => r.workspace_id).filter((v): v is string => typeof v === "string"))];
   // 종류 판단·보내기는 N5(설계 6절)에서 더한다. 지금은 보내지 않는다.
-  return { ok: true, slot, workspaces, sent: 0, pruned: pruned.length };
+  if (slot !== "evening") return { ok: true, slot, workspaces: ids.length, sent: 0, pruned: pruned.length };
+  // 저녁: Now 한 줄('새 성명 n · 새 기사 n', now-line.ts)이 생길 작업공간 수만 센다(줄 글은 응답·로그에 싣지 않음). 보내기는 N5 저녁 묶음.
+  let nowLines = 0;
+  for (const ws of ids.slice(0, 50)) {
+    try { if (nowEveningLine(await nowEveningCounts(db.get, ws, nowMs))) nowLines++; } catch { /* 이 재료만 건너뜀 */ }
+  }
+  return { ok: true, slot, workspaces: ids.length, sent: 0, pruned: pruned.length, now_lines: nowLines };
 }
 
 // ---- 입구 ----------------------------------------------------------------------------------------------------------
