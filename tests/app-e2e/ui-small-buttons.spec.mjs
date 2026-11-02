@@ -136,8 +136,8 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
   row=await dock(`#${view}View .schedule-switch`,['달력','할 일','일기'],label);
   if(fabOf[view]){const b=await page.locator(fabOf[view]).boundingBox();expect({x:Math.round(b.x),y:Math.round(b.y)}).toEqual({x:Math.round(spot.x),y:Math.round(spot.y)});}
  }
- // 달력 끝 여백(::after)이 탭 + 전환 줄 + 8(56 + 44 + 8, S48-6: [+]가 전환 줄 안이라 [+] 몫 없음): 끝까지 내려도 마지막 줄이 가리지 않는다.
- expect(await page.locator('#calendarView').evaluate(el=>getComputedStyle(el,'::after').height)).toBe('108px');
+ // 달력 끝 여백(::after)이 탭 + 전환 줄 + 8(44 + 44 + 8, S48-6: [+]가 전환 줄 안이라 [+] 몫 없음, 하단바 44px): 끝까지 내려도 마지막 줄이 가리지 않는다.
+ expect(await page.locator('#calendarView').evaluate(el=>getComputedStyle(el,'::after').height)).toBe('96px');
  // 할 일 목록 끝 여백: [+] 대신 늘 보이는 입력 칸(UI-할일입력) 높이 + 전환 줄 + 16.
  await go(page,'tasks');const quickH=await page.locator('#tasksView .home-quick').evaluate(el=>Math.ceil(el.getBoundingClientRect().height));
  expect(await page.locator('#tasksView').evaluate(el=>getComputedStyle(el).paddingBottom)).toBe(`${quickH+44+16}px`);
