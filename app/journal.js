@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
@@ -463,15 +463,15 @@ function renderDay() {
 // [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
 function renderWeekly_({refreshBox = true} = {}) {
   if (mode !== 'week') return;
+  const list = weekDays(start);
+  $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
   if (!W) {
     const host = $('[data-journal-weekly]');
-    if (host && !host.querySelector('[data-journal-kit-wait]')) host.innerHTML = `<div data-journal-kit-wait>${waitHtml('주간 정리를 불러오는 중…')}</div>`;
+    if (host && !host.querySelector('[data-journal-kit-wait]')) host.innerHTML = `<div data-journal-kit-wait>${waitHtml({rows:3})}</div>`;
     void weeklyKit().catch(kitFailed);
     return;
   }
   askScope();
-  const list = weekDays(start);
-  $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
   const host = $('[data-journal-weekly]');
   // 다시 그려도 초점이 있던 칸(id 가 있는 입력칸)은 그 칸으로 돌아간다 — 바탕을 여는 동안·저장 뒤 다시 그릴 때 2)·3) 표 입력 초점이 빠지지 않게.
   const was = document.activeElement, keep = was && was.id && host.contains(was) && /^(INPUT|TEXTAREA|SELECT)$/.test(was.tagName) ? {id:was.id, at:[was.selectionStart, was.selectionEnd]} : null;
@@ -579,7 +579,7 @@ function weeklyKit() {
   }
   return kitFlight;
 }
-const kitFailed = () => { const host = $('[data-journal-weekly]'); if (mode === 'week' && !W && host) host.innerHTML = `<p class="journal-muted" role="status">주간 정리를 불러오지 못했어요. <button type="button" class="mini" data-journal-kit-retry>다시 시도</button></p>`; };
+const kitFailed = () => { const host = $('[data-journal-weekly]'); if (mode === 'week' && !W && host) host.innerHTML = failHtml({retry:'data-journal-kit-retry'}); };
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
