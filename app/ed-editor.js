@@ -1746,7 +1746,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     // the text down under the pointer (a drag across cells would land on the wrong row).
     if (!pointerHeld) tableRow.hidden = !inTable;
     // S48-21: the photo row tools while one photo is chosen ([옆 사진과 나란히] only when a photo is right above or below).
-    const pic = chosenPhoto(st);
+    // (Only where photos can be put in: a saved photo place in a text without [사진] gets no tools.)
+    const pic = photos ? chosenPhoto(st) : null;
     photoTools.hidden = !pic;
     if (pic) { photoJoin.hidden = !!pic.row; photoJoin.disabled = !pic.row && !canJoin(st); photoApart.hidden = !pic.row; }
     buttons.table.disabled = inTable;
