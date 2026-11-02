@@ -269,3 +269,74 @@ export function errorText(code) {
   if (c === 'not_in_index' || c === 'not_found' || c === 'http_404') return '목록에 없는 파일입니다. 잠시 뒤 다시 보세요';
   return '불러오지 못했습니다';
 }
+
+// ---------- 쓰기(S48-45 ⑤·⑦) ----------
+// 여러 개 고르기: Shift 누르고 고르면 보이는 순서에서 앞에 고른 줄부터 이 줄까지.
+export function pickRange(keys, fromKey, toKey) {
+  const list = Array.isArray(keys) ? keys : [];
+  const a = list.indexOf(fromKey), b = list.indexOf(toKey);
+  if (b < 0) return [];
+  if (a < 0) return [toKey];
+  return list.slice(Math.min(a, b), Math.max(a, b) + 1);
+}
+// 휴지통은 클라우드마다 따로 부른다(서버는 한 번에 한 클라우드·200개까지).
+export function groupBySource(rows) {
+  const out = [];
+  for (const source of SOURCES) {
+    const list = (rows || []).filter(r => r && r.source === source);
+    for (let i = 0; i < list.length; i += MOVE_SAME_MAX) out.push({source, rows: list.slice(i, i + MOVE_SAME_MAX)});
+  }
+  return out;
+}
+// 쓰기 뒤 다시 읽을 나무 칸: 옮기기 전 부모들 + 옮길 곳.
+export function touchedFolders(rows, dest = null) {
+  const keys = new Set((rows || []).filter(Boolean).map(r => folderKey(r.source, r.parent_id ?? null)));
+  if (dest?.source) keys.add(folderKey(dest.source, dest.parent ?? null));
+  return [...keys];
+}
+// 끌어 놓기·붙여 넣기로 옮길 수 있는지: 같은 자리·자기 자신 폴더로는 아니다(아래로 들어가는 것은 서버가 다시 막음).
+export function moveTargetOk(rows, dest) {
+  const list = (rows || []).filter(Boolean);
+  if (!list.length || !dest?.source) return false;
+  if (list.some(r => r.source === dest.source && r.is_folder && r.item_id === (dest.parent ?? null))) return false;
+  return !list.every(r => r.source === dest.source && (r.parent_id ?? null) === (dest.parent ?? null));
+}
+// 휴지통 확인 창 한 줄 + 되돌리는 곳(F1: 그 클라우드 휴지통).
+export function trashAsk(rows) {
+  const list = (rows || []).filter(Boolean);
+  const text = list.length === 1 ? `'${list[0].name}'을(를) 휴지통으로 보낼까요?` : `${list.length}개를 휴지통으로 보낼까요?`;
+  const where = [...new Set(list.map(r => r.source))].map(s => SOURCE_NAME[s]).join('·');
+  return {text, note: `되돌리기는 ${where} 휴지통에서 합니다`};
+}
+// 쓰기 결과 한 줄.
+export function writeDoneText(action, {done = 0, failed = 0, kept = false} = {}) {
+  const verb = {rename: '이름을 바꿨습니다', mkdir: '폴더를 만들었습니다', move: '옮겼습니다', trash: '휴지통으로 보냈습니다', across: '다른 클라우드로 옮겼습니다'}[action] || '했습니다';
+  if (action === 'across' && kept) return '복사는 끝났지만 원본은 그대로 남았습니다';
+  if (failed && done) return `${done}개 ${verb} · ${failed}개 못 함`;
+  if (failed) return `${failed}개 못 했습니다`;
+  return action === 'move' || action === 'trash' ? `${done}개 ${verb}` : verb;
+}
+// 쓰기 오류 코드 → 한 줄(읽기 오류는 errorText).
+export function writeErrorText(code) {
+  const c = String(code || '');
+  if (c === 'name_taken') return '같은 이름이 이미 있습니다';
+  if (c === 'name_invalid') return '쓸 수 없는 이름입니다';
+  if (c === 'move_into_self') return '폴더를 자기 안으로 옮길 수 없습니다';
+  if (c === 'dest_invalid') return '옮길 곳이 맞지 않습니다';
+  if (c === 'too_large') return '다른 클라우드로는 200MB까지 옮깁니다';
+  if (c === 'across_folder') return '다른 클라우드로는 폴더를 옮기지 않습니다';
+  if (c === 'across_unsupported') return '구글 문서는 다른 클라우드로 옮기지 않습니다';
+  if (c === 'size_unknown') return '크기를 모르는 파일은 다른 클라우드로 옮기지 않습니다';
+  if (c === 'changed_since_index' || c === 'size_mismatch') return '그사이 파일이 바뀌었습니다. 맞춘 뒤 다시 해 보세요';
+  if (c === 'verify_failed') return '옮긴 파일이 원본과 달라 원본을 그대로 두었습니다';
+  if (c === 'upload_failed') return '보내지 못했습니다. 원본은 그대로입니다';
+  if (c === 'not_owner') return '내 파일이 아니라 옮길 수 없습니다';
+  return errorText(c);
+}
+// ⑦ 같은 파일 보기: 같은 해시(같은 클라우드 안 — 원드라이브 sha1·구글 md5라 클라우드 사이는 비교하지 않음)인 다른 줄. 자기 자신·휴지통 뺌.
+export const TWIN_LIMIT = 20;
+export function twinRows(rows, self) {
+  if (!self?.hash) return [];
+  return (rows || []).filter(r => r && r.hash === self.hash && !r.trashed && !(r.source === self.source && r.item_id === self.item_id))
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko') || String(a.item_id).localeCompare(String(b.item_id)));
+}

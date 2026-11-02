@@ -64,6 +64,20 @@
 .fx-pv-acts { display:flex; gap:4px; flex-wrap:wrap; }
 .fx-btn { height:26px; padding:0 8px; border:.5px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-sm); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:12px; cursor:pointer; }
 .fx-btn:hover { background:var(--kptu-surface-subtle); }
+/* S48-45 쓰기: 고른 것 한 줄 막대 · 고른 줄 · 옮기는 중인 줄(흐리게) · 끌어 놓을 폴더 · 휴지통 버튼 */
+.fx-bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:32px; padding:3px 0; border-bottom:.5px solid var(--kptu-border); font-size:12px; }
+.fx-bar[hidden] { display:none; }
+.fx-bar-t { color:var(--kptu-muted); margin-right:auto; }
+.fx-row.fx-picked { background:var(--kptu-primary-soft); box-shadow:inset 2px 0 0 var(--kptu-primary); }
+.fx-row.fx-cut { opacity:.55; }
+.fx-drop-on, .fx-row.fx-drop-on { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
+.fx-btn.fx-danger { color:var(--kptu-danger); }
+.fx-btn:disabled { opacity:.5; cursor:default; }
+.fx-pv-twins { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:6px 0; font-size:12px; }
+.fx-pv-twins[hidden] { display:none; }
+.fx-pv-twins-t { color:var(--kptu-muted); }
+.fx-twin { border:0; background:none; padding:0; color:var(--kptu-primary-text); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.fx-row { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
 
 /* 폴드 펼침·좁은 PC: 미리보기는 목록 자리를 덮는 칸(뒤로가기 한 번 = 닫힘) */
 @media (max-width:1199px) {
