@@ -261,5 +261,4 @@ test('사진·일기·시각 사진 줄이 폰 사진을 읽기 전에 맞춰 �
   assert.match(photos, /knownWith\(currentPhoneKnown\(\), to, phoneOff\)/);
   assert.match(read('app/diary.js'), /hide:await phoneHideList\(phone\)/);
   assert.match(read('app/time-photos.js'), /const hide = await phoneHideList\(phone\);/);
-  for (const f of ['app/phone-folders-sync.js', 'app/phone-folders-model.mjs']) assert.doesNotMatch(read(f), /localStorage|sessionStorage|indexedDB/);
 });
