@@ -1645,3 +1645,8 @@ body.kptu-mobile-keyboard .modal:not(.ed-window) > .modal-card{ max-height:100% 
 .work-day-done-list{ margin:0; padding:0; list-style:none; display:grid; gap:2px; }
 .work-day-done-list > li{ margin:0; font-size:var(--kptu-text-body); line-height:1.45; color:var(--kptu-ink); overflow-wrap:anywhere; }
 .work-day-done-list > li::before{ content:'· '; color:var(--kptu-muted); }
+
+/* UI-펼침표시(S48-30, 요청함 10/23 11:09 사이트 공통 규칙 ②): 고를 거리를 여는 버튼은 이름 뒤(오른쪽)에 작은 ▾ 하나.
+   글자로 ▾를 쓴 버튼(사업영역 ▾·폴더 ▾ 등)과 같은 자리이며, 이름(글자·읽어 주는 이름)은 그대로 두고 그림 글자만 더한다(`/ ""`).
+   ::after는 누르는 범위(44px)가 쓰는 버튼이 많아 ::before에 둔다(flex 버튼은 order, 그 밖은 float로 글자 뒤). */
+:is(#libraryListCard .lu-select-act[aria-haspopup], button[data-quick-day="week"], button[data-manual-task-day="week"], button[data-task-due-quick="week"], button[data-gt-due-quick="week"])::before{ content:"▾"; content:"▾" / ""; float:right; order:2; margin-left:4px; font-size:.85em; opacity:.7; }

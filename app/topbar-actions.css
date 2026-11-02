@@ -110,5 +110,5 @@
 /* S48-30 ▾ 펼침: 넓은 화면의 [화면 색 ▾]는 계정 버튼 바로 아래 작은 목록(자리는 anchored-popup.js). 바탕을 어둡게 하지 않는다. */
 #themeModal.theme-anchored{background:transparent}
 /* 고를 거리를 여는 버튼의 작은 ▾(줄 오른쪽 끝, 이름은 그대로 '화면 색'). ::after는 폰 메뉴에서 누르는 범위가 쓰므로 ::before. */
-.account-action[data-theme-open]::before{content:"▾";float:right;order:2;margin-left:6px;font-size:.85em;color:var(--kptu-muted)}
+.account-action[data-theme-open]::before{content:"▾";content:"▾" / "";float:right;order:2;margin-left:6px;font-size:.85em;color:var(--kptu-muted)}
 #themeModal.theme-anchored .theme-panel{position:fixed;overflow:auto;padding:var(--kptu-space-2,8px);box-shadow:0 8px 24px color-mix(in srgb,var(--kptu-ink) 22%,transparent)}
