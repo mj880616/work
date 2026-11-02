@@ -43,7 +43,7 @@ for(const [width,height] of [[360,640],[360,844],[390,640],[390,844],[686,820]])
     expect(await number.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
     expect(metrics.moreWidth).toBeGreaterThanOrEqual(44);expect(metrics.moreHeight).toBe(16);
     expect(metrics.barsFit).toBe(true);expect(metrics.moreFits).toBe(true);expect(metrics.markerRight).toBe(true);
-    expect(metrics.font).toEqual(Array(slots-1).fill('8px'));expect(metrics.line).toEqual(Array(slots-1).fill('13px'));
+    expect(metrics.font).toEqual(Array(slots-1).fill('11px'));expect(metrics.line).toEqual(Array(slots-1).fill('14px')); // S48-6: 폰 칸 글자 11px·막대 14px
     expect(metrics.scroll).toBeLessThanOrEqual(metrics.viewport);
     const only=page.locator('.cal-cell[data-date="2026-10-23"]');
     await expect(only.locator('.cmv-task-count')).toHaveText('1');

@@ -123,7 +123,8 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
   return b;
  }
  const fabOf={calendar:'#calendarView .calendar-toolbar #newEventBtn',diary:'#diaryRoot #newDiaryBtn'};
- const fabAbove=async(sel,row)=>{const b=await page.locator(sel).boundingBox();expect(Math.round(row.y-(b.y+b.height))).toBe(6+12+4);};
+ // S48-6 UI-폰달력월보기 결정 6: 달력·일기 [+]는 전환 줄 안 오른쪽 끝(알약과 같은 줄, 같은 높이 32px).
+ const fabAbove=async(sel,row)=>{const b=await page.locator(sel).boundingBox();expect(Math.round(b.y)).toBe(Math.round(row.y));expect(Math.round(b.height)).toBe(32);expect(b.x).toBeGreaterThan(row.x+row.width);};
  // 일정: [달력] → [할 일] → [일기] (HOME-업무일지홈: 업무일지는 홈), each choice changes the screen; the [+] stays at one spot above the row.
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  await expect(page.locator('#calendarView')).toBeVisible();
@@ -135,8 +136,8 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
   row=await dock(`#${view}View .schedule-switch`,['달력','할 일','일기'],label);
   if(fabOf[view]){const b=await page.locator(fabOf[view]).boundingBox();expect({x:Math.round(b.x),y:Math.round(b.y)}).toEqual({x:Math.round(spot.x),y:Math.round(spot.y)});}
  }
- // 달력 끝 여백(::after)이 탭 + 전환 줄 + [+] 만큼(56 + 44 + 12 + 44 + 8): 끝까지 내려도 마지막 줄이 가리지 않는다.
- expect(await page.locator('#calendarView').evaluate(el=>getComputedStyle(el,'::after').height)).toBe('164px');
+ // 달력 끝 여백(::after)이 탭 + 전환 줄 + 8(44 + 44 + 8, S48-6: [+]가 전환 줄 안이라 [+] 몫 없음, 하단바 44px): 끝까지 내려도 마지막 줄이 가리지 않는다.
+ expect(await page.locator('#calendarView').evaluate(el=>getComputedStyle(el,'::after').height)).toBe('96px');
  // 할 일 목록 끝 여백: [+] 대신 늘 보이는 입력 칸(UI-할일입력) 높이 + 전환 줄 + 16.
  await go(page,'tasks');const quickH=await page.locator('#tasksView .home-quick').evaluate(el=>Math.ceil(el.getBoundingClientRect().height));
  expect(await page.locator('#tasksView').evaluate(el=>getComputedStyle(el).paddingBottom)).toBe(`${quickH+44+16}px`);

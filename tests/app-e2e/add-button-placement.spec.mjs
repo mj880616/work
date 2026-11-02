@@ -80,7 +80,16 @@ async function assertFloating(page,button){
   const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch');return sw&&sw.getClientRects().length?44:0;});
   expect(b.width).toBe(36);expect(b.height).toBe(36);const el=control;const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-dock-t.bottom)).toBe(12);
 }
-async function assertPlaced(page,width,spec){if(width===390)await assertFloating(page,spec.button);else await assertInHeader(page,spec);}
+// S48-6 UI-폰달력월보기 결정 6: 달력 [+]는 전환 줄(44px, 탭 바로 위) 안 오른쪽 끝 작은 단추 — 보이는 32px, 누르는 범위 44px이 전환 줄에 꼭 맞음.
+async function assertInSwitchRow(page,button){
+  const control=page.locator(button),b=await control.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
+  expect(await control.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+  expect(b.width).toBe(32);expect(b.height).toBe(32);
+  const t=await control.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});
+  expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-t.bottom)).toBe(0);
+  expect(Math.round(b.x+b.width)).toBe(390-12);
+}
+async function assertPlaced(page,width,spec){if(width===390)await (spec.button==='#newEventBtn'?assertInSwitchRow:assertFloating)(page,spec.button);else await assertInHeader(page,spec);}
 
 for(const width of [390,1440]){
   test.describe(`${width}px`,()=>{

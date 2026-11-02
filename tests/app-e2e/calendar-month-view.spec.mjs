@@ -534,7 +534,8 @@ test('desktop month view enlarges typography, bars and lane capacity across supp
   }
 });
 
-test('mobile month density remains unchanged at 360, 390, 412 and 430 pixels',async({page})=>{
+// S48-6 UI-폰달력월보기(2026-11-02 명진 결정, #1708 질문 1): 폰 칸 글자를 읽히게 키운다 — 날짜 11px, 제목 11px, 시각 10px, 줄 15px(막대 14px).
+test('mobile month density stays compact but readable at 360, 390, 412 and 430 pixels',async({page})=>{
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:844});
     await page.goto(url);
@@ -542,11 +543,11 @@ test('mobile month density remains unchanged at 360, 390, 412 and 430 pixels',as
       const event=el.querySelector('.cmv-event'),day=el.querySelector('.cal-day'),time=el.querySelector('.cmv-event-time'),css=getComputedStyle(el);
       return {laneStep:parseFloat(css.getPropertyValue('--cmv-lane-step')),bar:event.getBoundingClientRect().height,day:parseFloat(getComputedStyle(day).fontSize),event:parseFloat(getComputedStyle(event).fontSize),time:parseFloat(getComputedStyle(time).fontSize)};
     });
-    expect(metrics.laneStep).toBe(14);
-    expect(metrics.bar).toBeLessThanOrEqual(13.5);
-    expect(metrics.day).toBeLessThanOrEqual(10);
-    expect(metrics.event).toBeLessThanOrEqual(8.5);
-    expect(metrics.time).toBeLessThanOrEqual(7.5);
+    expect(metrics.laneStep).toBe(15);
+    expect(metrics.bar).toBe(14);
+    expect(metrics.day).toBe(11);
+    expect(metrics.event).toBe(11);
+    expect(metrics.time).toBe(10);
   }
 });
 

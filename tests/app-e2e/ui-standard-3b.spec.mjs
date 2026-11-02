@@ -130,15 +130,19 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
   await page.evaluate(v=>KPTURouter.go(v),view);await loaded(page,view);
   const button=page.locator(id);await expect(button).toBeVisible();await expect(button).toHaveAttribute('aria-label',label);
   // 보이는 원은 버튼 자체 36px, 누르는 범위는 ::after 44px(앱의 다른 버튼과 같은 방식). 누르는 범위가 탭 위 12px·오른쪽 16px.
-  const b=await box(button);expect(b.width).toBe(36);expect(b.height).toBe(36);expect(await button.evaluate(el=>getComputedStyle(el).borderRadius)).toBe('50%');
+  // S48-6 UI-폰달력월보기 결정 6: 달력 [+]만 전환 줄 안 오른쪽 끝 작은 단추(보이는 32px·모서리 8px, 누르는 범위 44px이 전환 줄에 꼭 맞음).
+  const inRow=view==='calendar',size=inRow?32:36;
+  const b=await box(button);expect(b.width).toBe(size);expect(b.height).toBe(size);expect(await button.evaluate(el=>getComputedStyle(el).borderRadius)).toBe(inRow?'8px':'50%');
   const t=await button.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after');const left=r.left+parseFloat(p.left),top=r.top+parseFloat(p.top),w=parseFloat(p.width),h=parseFloat(p.height);
    return {w,h,bottom:top+h,right:left+w,hits:[[left+1,top+h/2],[left+w-1,top+h/2],[left+w/2,top+1],[left+w/2,top+h-1]].map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)};});
   // UI-버튼작게 ③: 일정·할 일은 아래 탭 위에 전환 줄(44px)이 있어 [+]는 그 줄 위 12px.
   const dock=view==='calendar'||view==='tasks'?44:0;
-  expect(t.w).toBe(44);expect(t.h).toBe(44);expect(t.hits).toEqual([true,true,true,true]);expect(Math.round(tabsTop-dock-t.bottom)).toBe(12);expect(Math.round(390-t.right)).toBe(16);
+  expect(t.w).toBe(44);expect(t.h).toBe(44);expect(t.hits).toEqual([true,true,true,true]);
+  if(inRow){expect(Math.round(tabsTop-t.bottom)).toBe(0);expect(Math.round(390-t.right)).toBe(6);}
+  else{expect(Math.round(tabsTop-dock-t.bottom)).toBe(12);expect(Math.round(390-t.right)).toBe(16);}
   // 8-9e-3: + 는 글자가 아닌 선으로 그린 SVG 아이콘(장식), 원의 가로·세로 정가운데.
   const plus=await button.evaluate(el=>{const p=getComputedStyle(el,'::before');return {content:p.content,mask:p.maskImage||p.webkitMaskImage,w:p.width,h:p.height};});
-  expect(plus.content).toBe('""');expect(plus.mask).toContain('svg');expect([plus.w,plus.h]).toEqual(['20px','20px']);
+  expect(plus.content).toBe('""');expect(plus.mask).toContain('svg');expect([plus.w,plus.h]).toEqual(inRow?['18px','18px']:['20px','20px']);
   // 그려진 + 의 픽셀 상자(원 안에서 원 바탕색과 다른 픽셀) 가운데가 원 가운데와 1px 안(위로 치우치지 않음). 밝은·어두운 화면 모두.
   for(const scheme of ['light','dark']){
    await page.emulateMedia({colorScheme:scheme});await page.waitForTimeout(100);

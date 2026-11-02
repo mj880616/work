@@ -117,8 +117,11 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
     return {runway,scrollHeight:document.documentElement.scrollHeight,viewport:innerHeight};
   });
   expect(scrollRoom.runway).toBeGreaterThanOrEqual(56);
-  // S46-23: 처음 월 보기는 한 화면(화면 끝 여백 = 하단바·전환 줄·[+] 자리까지 화면 안), 세로 스크롤 없음.
-  expect(scrollRoom.scrollHeight-scrollRoom.viewport).toBeLessThanOrEqual(2);
+  // S46-23: 처음 월 보기는 한 화면(화면 끝 여백 = 하단바·전환 줄까지 화면 안), 세로 스크롤 없음.
+  // S48-6 안정화: 달력 위 칸(새로 고친 시각 줄 등)이 그린 뒤에 나타나면 달력이 다시 재어 그려진다(calendar-month-view.js watchTop).
+  // 그 다시 그림이 끝난 상태를 기다린다 — 다시 그리지 않으면 이 값은 끝내 2px 안으로 들어오지 않아 실패한다.
+  expect(scrollRoom.viewport).toBeGreaterThan(0);
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollHeight-innerHeight),{timeout:5000}).toBeLessThanOrEqual(2);
   const more=page.locator('.kptu-day-more').first();
   await expect(more).toBeVisible({timeout:10000});
   const busyWeek=page.locator(`.cal-cell[data-date="${today}"]`).locator('..').locator('..');

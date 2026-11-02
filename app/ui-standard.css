@@ -361,8 +361,9 @@
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn,#ledgerView button.lb-add,#pagesView .sp-root button.primary[data-sp-new]):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
   /* 목록 마지막 줄이 [+]에 가리지 않게 아래 여백(누르는 범위 + 간격 + 여유). */
   #appView :is(#projectsView,#libraryView,#meetingsView,#diaryView,#ledgerView,#pagesView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
-  /* 일정은 달력 칸이 화면 아래까지 차도록 높이를 재므로(calendar-month-view.js) 여백 대신 기존 끝 여백(::after)을 [+]·전환 줄만큼 늘린다. */
-  #appView #calendarView:not(.hidden)::after{ height:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--ds-fab-gap) + var(--kptu-touch-target,44px) + 8px); }
+  /* 일정은 달력 칸이 화면 아래까지 차도록 높이를 재므로(calendar-month-view.js) 여백 대신 기존 끝 여백(::after)을 탭·전환 줄만큼 둔다.
+     S48-6: [+]는 전환 줄 안(아래 'UI-폰달력월보기 결정 6')이라 [+] 몫은 더하지 않는다 — 달력 아래끝이 전환 줄 바로 위(8px 띄움). */
+  #appView #calendarView:not(.hidden)::after{ height:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + 8px); }
 
   /* 홈·바구니 빠른 입력: 하단 탭 바로 위에 붙인다(입력칸·[추가]가 맨 아래, 그 위로 [바구니·할 일·업데이트] 탭과 날짜·프로젝트 버튼).
      자판이 열리면 탭이 사라지고(--kptu-mobile-tab-height 0) 자판 바로 위로 올라온다(--kptu-keyboard-inset, topbar-actions.js).
@@ -889,6 +890,21 @@
   #appView .schedule-switch button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
   #appView .schedule-switch button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
   #appView .schedule-switch button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+
+  /* S48-6 UI-폰달력월보기 결정 6(2026-11-02 명진, #1708 시안 안 a): 전환 줄이 있는 일정 화면(달력·일기)의 [+]는 떠 있는 동그란 단추 대신
+     전환 줄 오른쪽 끝 작은 단추(보이는 32px·0.5px 선, 누르는 범위 44px). 달력 칸·목록을 가리지 않고 높이도 늘지 않는다.
+     같은 버튼(같은 창)의 자리·모양만 바꾼다. 자판이 열리면 숨는 규칙은 맨 아래 UI-자판가림 그대로. */
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#diaryView #newDiaryBtn){
+    z-index:29; right:calc(12px + env(safe-area-inset-right));
+    bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + (var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2);
+    width:var(--ds-compact-height); min-width:var(--ds-compact-height); height:var(--ds-compact-height); min-height:var(--ds-compact-height);
+    /* 선은 테두리 대신 안쪽 그림자: 테두리 두께만큼 누르는 범위(::after 44px)가 밀려 아래 탭에 걸치지 않게(전환 줄 44px 안에 꼭 맞음). */
+    border:0; border-radius:var(--ds-radius-control); background:var(--kptu-surface); box-shadow:inset 0 0 0 var(--ds-line-width) var(--ds-line);
+  }
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#diaryView #newDiaryBtn)::before{ width:18px; height:18px; background:var(--kptu-primary-ink); -webkit-mask-size:18px 18px; mask-size:18px 18px; }
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#diaryView #newDiaryBtn)::after{ inset:calc((var(--ds-compact-height) - var(--kptu-touch-target,44px)) / 2); border-radius:var(--ds-radius-control); }
+  /* 일기 목록 끝 여백: [+]가 전환 줄 안이라 전환 줄 + 16px만. */
+  #appView #diaryView.view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
 
   /* 바구니 위쪽 줄에는 필터 [미분류·분류·보류]만 남는다. 필터가 숨으면(노트 목록) 줄도 자리를 차지하지 않는다. */
   #appView #basketView:has(> [data-basket-list][hidden]) > .basket-switch-row{ min-height:0; margin:0; }
