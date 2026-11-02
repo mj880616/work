@@ -46,3 +46,4 @@
 
 ## 5. 결정 필요
 - 안 A / 안 B 중 무엇으로 할지(추천 A). 안 B라면 4표가 어느 것인지.
+- 적용: 안 A, PR #1730 (명진 11/02 결정, migration `20261102030000_todo_feature_guard`). 트리거가 이번 파일에서 만들지 않은 기존 가드 함수를 쓰므로 승인형 DB workflow 확장 규칙(`trigger-shape`)에 걸린다 → SQL Editor(폰 경로 C)로 적용.
