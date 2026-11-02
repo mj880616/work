@@ -287,3 +287,6 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 .diary-lv-menu button{ display:block; width:100%; height:var(--kptu-touch-target); min-height:var(--kptu-touch-target); padding:0 12px; text-align:left; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); cursor:pointer; }
 .diary-lv-menu button:hover{ background:var(--kptu-surface-subtle); }
 .diary-lv-menu button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+/* JOURNAL-오늘한일업무개인: 그날 '오늘 한 일' 줄 자리(work-day-lines.js가 채움). 줄이 없으면 자리도 차지하지 않는다. */
+#appView #diaryView .diary-done:empty{ display:none; }
+#appView #diaryView .diary-done > .work-day-done{ padding:0 0 8px; border-top:0; border-bottom:var(--ds-line-width) solid var(--ds-line); }

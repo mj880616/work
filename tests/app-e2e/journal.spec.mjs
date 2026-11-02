@@ -1092,6 +1092,33 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
+// JOURNAL-오늘한일업무개인: '오늘 한 일'은 업무·개인을 나눠 적지 않는다. [주간 정리]·[글로 복사]의 '한 줄'에는 서버 AI(work_scope)가 '뺄 줄'로
+// 돌려준 개인 줄이 빠진다(화면은 주 월요일만 보냄). 가르지 못하면 '한 줄'을 넣지 않는다(애매하면 빼기 — tests/work-scope-model.test.mjs). 가짜 내용만.
+test('[주간 정리] 한 줄: 개인 줄(미술 학원)은 빠지고 업무 줄만, 복사에도 없음, 같은 줄이면 다시 묻지 않음',async({page})=>{
+ const f=await weeklyFixture(page,{width:1280});
+ f.rows.push({id:'k7',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-07',raw_text:'미술 학원 다녀 옴\n가상 교섭 준비',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
+ const asked=[];
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{
+  const body=r.request().postDataJSON();if(body.kind!=='work_scope')return r.fallback();
+  asked.push(body);
+  return r.fulfill({json:{ok:true,kind:'work_scope',week_start:body.week_start,drop:[{day:'2026-10-07',text:'미술 학원 다녀 옴'}],personal:1,skipped:0}});
+ });
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,1280);await openWeekly(page);
+ await expect(weekly(page,'note-lines').locator('li')).toHaveText(['10월 5일(월)월요일 한 줄','10월 7일(수)가상 교섭 준비']);
+ await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('미술 학원');
+ expect(asked).toEqual([{kind:'work_scope',week_start:'2026-10-05'}]);
+ await page.locator('#journalRoot [data-weekly-flow-confirm] details.row-more summary').click();
+ await page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-copy]').click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
+ const text=await page.evaluate(()=>navigator.clipboard.readText());
+ expect(text).toContain('- 10월 7일(수) 가상 교섭 준비');expect(text).not.toContain('미술 학원');
+ // 다시 그려도 같은 줄이면 다시 묻지 않는다.
+ await page.locator('#journalRoot [data-journal-mode="day"]').click();await openWeekly(page);
+ await expect(weekly(page,'note-lines').locator('li')).toHaveCount(2);expect(asked).toHaveLength(1);
+ expect(f.errors).toEqual([]);
+});
+
 test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 주]로 돌아오면 다시 채워진다',async({page})=>{
  const f=await weeklyFixture(page,{width:1280});await openJournal(page,1280);
  await openWeekly(page);
@@ -1216,7 +1243,7 @@ async function hwpxFixture(page,options={}){
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
  await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
- await page.route(SB+'/functions/v1/ai-assist',r=>{sent.other.push({ai:true,kind:r.request().postDataJSON()?.kind});return r.fulfill({status:500,json:{}});});
+ await page.route(SB+'/functions/v1/ai-assist',r=>{if(r.request().postDataJSON()?.kind==='work_scope')return r.fallback();sent.other.push({ai:true,kind:r.request().postDataJSON()?.kind});return r.fulfill({status:500,json:{}});});
  return {...f,sent};
 }
 const hwpx=page=>page.locator('#journalRoot [data-journal-hwpx]');
@@ -1408,7 +1435,7 @@ for(const width of [412,1280])test(`[주간 정리] 확정 전 환류 정리: �
   draft:{v:1,base:null,me:'',me_from:'',date:'',rows:[],titles:[],picks:{at:'2026-10-06T01:30:00.000Z',items,released:[]}}});
  const ai=[];
  await page.route(SB+'/functions/v1/ai-assist',async r=>{
-  const body=r.request().postDataJSON();ai.push(body.kind);
+  const body=r.request().postDataJSON();if(body.kind==='work_scope')return r.fallback();ai.push(body.kind);
   if(body.kind!=='weekly_review')return r.fulfill({status:500,json:{}});
   const row=f.exec.rows.find(x=>x.week_start===body.week_start),at='2026-10-06T04:00:00.000Z';
   row.draft={...row.draft,rules:{v:2,at,week:body.week_start,lines:[],candidates:[{text:'가상 실시간 규칙 후보'}],retired:[]}};row.draft_saved_at=at;
@@ -1439,7 +1466,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  const f=await hwpxFixture(page,{width:1280,files:{'doc-week':weekReport},personal:[{id:'doc-week',title:'가상 이번 주 개인본',file_name:'doc-week.hwpx',document_date:'2026-10-12',created_at:'2026-10-09T08:00:00Z'}]});
  const ai=[];
  await page.route(SB+'/functions/v1/ai-assist',async r=>{
-  const body=r.request().postDataJSON();ai.push(body);
+  const body=r.request().postDataJSON();if(body.kind==='work_scope')return r.fallback();ai.push(body);
   if(body.kind==='weekly_draft')return r.fulfill({json:{ok:true,kind:'weekly_draft',week_start:body.week_start,mode:body.mode,learned:{weeks:1,rules:2},
    cells:body.cells.map(c=>({ref:c.ref,lines:c.where.includes('가-1')?['- 지난주 가-1 진행','- 가-1 목요일 기록']:c.where.includes('나-1')?['- AI 나-1 줄']:c.lines}))}});
   if(body.kind==='weekly_review'){
@@ -1543,7 +1570,7 @@ for(const width of [412,1440])test(`[주간 정리] 줄 제안: 줄을 고르면
  const f=await hwpxFixture(page,{width});
  const ai=[];
  await page.route(SB+'/functions/v1/ai-assist',async r=>{
-  const body=r.request().postDataJSON();ai.push(body);
+  const body=r.request().postDataJSON();if(body.kind==='work_scope')return r.fallback();ai.push(body);
   if(body.kind==='weekly_line')return r.fulfill({json:{ok:true,kind:'weekly_line',week_start:body.week_start,learned:{weeks:1,rules:1},
    lines:body.lines.map(l=>({ref:l.ref,text:/가-1 진행/.test(l.text)?'- 지난주 가-1 진행(완료)':/나-1 진행/.test(l.text)?'- 지난주 나-1 진행(마무리)':null}))}});
   return r.fulfill({status:500,json:{}});

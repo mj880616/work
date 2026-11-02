@@ -126,7 +126,13 @@ export async function openHome(
       });
     // JOURNAL-챙길것: by default nothing is found (no candidate; the server already looked today), so the home 챙길 것 card
     // folds away and the other home tests see the home as before. tests/app-e2e/todo-radar.spec.mjs routes these itself.
-    if (p.endsWith("/functions/v1/ai-assist")) return ok({ ok: true, kind: "todo_radar", skipped: true, checked_at: null, partial: false });
+    // JOURNAL-오늘한일업무개인: 오늘 한 일 업무·개인 가르기(work_scope)는 기본으로 뺄 줄 없음(모두 업무) — [주간 정리]의 '한 줄'이 전과 같다.
+    // 개인 줄 빼기는 tests/app-e2e/work-day-done.spec.mjs 가 자기 경로로 다시 가로챈다.
+    if (p.endsWith("/functions/v1/ai-assist")) {
+      let body = null; try { body = req.postDataJSON(); } catch { body = null; }
+      if (body?.kind === "work_scope") return ok({ ok: true, kind: "work_scope", week_start: body.week_start, drop: [], personal: 0, skipped: 0 });
+      return ok({ ok: true, kind: "todo_radar", skipped: true, checked_at: null, partial: false });
+    }
     if (p.endsWith("google-tasks")) {
       if(a==='create'){const body=req.postDataJSON(),d=createdTaskReply(body,{id:'home-created-'+tasks.length});tasks.push(d.task);links.push(...d.links.map(link=>({...link,google_task_id:d.task.id})));return ok(d)}
       if(a==='tasks')return ok({tasks:connected?tasks:[],needs_reconnect:!connected,pending_scope:'all'});

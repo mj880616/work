@@ -413,6 +413,48 @@ test('[달력] 날짜 목록 맨 위에 그날 일기 첫 사진 작게, 누르�
  expect(f.errors).toEqual([]);
 });
 
+// JOURNAL-오늘한일업무개인: 홈에서 넣은 '오늘 한 일' 줄(노트 표 kind=work)이 달력 날짜 창·일기 그날 보기·쓰기 창에도 읽기만으로 보인다 — 일기를
+// 안 쓴 날도. 업무·개인을 가르지 않고 그대로(가르기는 주간보고 재료로 쓸 때만). 두 벌 저장 없음(쓰기 없음). 가짜 내용만.
+const workRow=(day,raw_text)=>({id:'w-'+day,workspace_id:'w',kind:'work',title:null,journal_day:day,raw_text,occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
+test('[달력] 날짜 창: 일기 없는 날도 그날 한 일 줄, 일기 있는 날은 일기와 함께, 줄 없는 날은 칸 없음',async({page})=>{
+ const rows=[...store(),workRow('2026-10-05','가상 교섭 준비회의\n미술 학원 다녀 옴'),workRow('2026-10-03','산책 전 가상 회의')];
+ const f=await fixture(page,{rows});
+ await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();await expect(page.locator('#calendarView')).toBeVisible();
+ await page.locator('#calendarView [data-calendar-view="month"]').click();
+ await page.locator('#calendarGrid .cmv-date-list[data-date="2026-10-05"]').click();
+ const done=page.locator('#calendarDayList #calendarDayDone');
+ await expect(done).toBeVisible();await expect(done.locator('h3')).toHaveText('그날 한 일');
+ await expect(done.locator('li')).toHaveText(['가상 교섭 준비회의','미술 학원 다녀 옴']);
+ await expect(page.locator('#calendarDayDiary')).toHaveCount(0);
+ await page.locator('[data-close="calendarDayModal"]').click();await expect(page.locator('#calendarDayModal')).toBeHidden();
+ await page.locator('#calendarGrid .cmv-date-list[data-date="2026-10-03"]').click();
+ await expect(page.locator('#calendarDayList #calendarDayDiary [data-diary-preview="2026-10-03"]')).toBeVisible();
+ await expect(page.locator('#calendarDayList #calendarDayDone li')).toHaveText(['산책 전 가상 회의']);
+ await page.locator('[data-close="calendarDayModal"]').click();await expect(page.locator('#calendarDayModal')).toBeHidden();
+ await page.locator('#calendarGrid .cmv-date-list[data-date="2026-10-04"]').click();
+ await expect(page.locator('#calendarDayModal')).toBeVisible();await expect(page.locator('#calendarDayDiary [data-diary-preview="2026-10-04"]')).toBeVisible();
+ await expect(page.locator('#calendarDayDone')).toHaveCount(0);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`[일기] 그날 보기·쓰기 창에 그날 한 일 줄(읽기만, 일기 없는 날도) ${width}`,async({page})=>{
+ const rows=[...store(),workRow('2026-10-05','가상 교섭 준비회의\n미술 학원 다녀 옴'),workRow('2026-10-03','산책 전 가상 회의')];
+ const f=await fixture(page,{rows,width});await openDiary(page,width);
+ const detail=page.locator('#diaryRoot [data-diary-detail]');
+ await cell(page,'2026-10-05').click();
+ await expect(detail.locator('[data-diary-done] li')).toHaveText(['가상 교섭 준비회의','미술 학원 다녀 옴']);
+ await expect(detail).toContainText('일기 없음');
+ await page.locator('#diaryRoot #newDiaryBtn').click();
+ const ed=page.locator('#diaryRoot [data-diary-editor]');await expect(ed).toBeVisible();
+ await expect(ed.locator('[data-diary-done] li')).toHaveText(['가상 교섭 준비회의','미술 학원 다녀 옴']);
+ await ed.locator('[data-diary-editor-close]').first().click();await expect(ed).toBeHidden();
+ await cell(page,'2026-10-03').click();
+ await expect(detail.locator('[data-diary-done] li')).toHaveText(['산책 전 가상 회의']);await expect(detail).toContainText('가을 산책');
+ await cell(page,'2026-10-04').click();
+ await expect(detail).toContainText('글만 쓴 날');await expect(detail.locator('[data-diary-done] .work-day-done')).toHaveCount(0);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 // BUG-오늘버튼: [오늘] goes to this month and chooses today (its detail opens), like tapping the day.
 for(const width of [390,1280]){
  test(`[일기] [오늘]: 이번 달에서 다른 날을 골랐어도, 다른 달에서도 오늘이 골라지고 상세가 열린다 ${width}`,async({page})=>{

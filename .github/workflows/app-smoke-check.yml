@@ -369,6 +369,9 @@ jobs:
       - name: Check journal evening AI draft rules (today line draft, work calls only)
         run: node --test tests/journal-draft-model.test.mjs
 
+      - name: Check today-done work/personal split for the weekly report (drop personal lines, re-ask when lines change)
+        run: node --test tests/work-scope-model.test.mjs
+
       - name: Check next-week sheet rules (work calendar only, read-only materials, auto after Friday 15:00)
         run: node --test tests/next-week-sheet-model.test.mjs
 
