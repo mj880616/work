@@ -71,3 +71,74 @@ export function phoneOpText(res, done) {
   if (e === 'busy') return '앞의 바꾸기가 끝난 뒤 다시 해 주세요.';
   return '폰 폴더를 바꾸지 못했어요.';
 }
+
+// S48-31 새 폰 폴더는 꺼진 채(요청함 10/31 11:04 사진 폴더 [사용자 결정] '새로 생긴 폴더는 꺼진 채로 시작'을 폰 폴더까지).
+// - 아는 폴더 view_prefs.phone_folders_known = 보이는(끈 목록에 없는) 폰 폴더 경로의 지문(FNV-1a 32비트, 소문자 16진수 8자) 배열, 120개까지.
+//   경로 원문 대신 지문만 둔다(화면 기억 전체 4000바이트 상한 안에 들게). 서버 저장, 기기 저장 없음.
+// - 아는 폴더가 없으면(처음 한 번) 지금 보이는 폰 폴더를 모두 넣는다 — 끈 목록은 그대로라 지금 보이는 상태가 바뀌지 않는다.
+// - 그 뒤 아는 폴더에도 끈 목록에도 없는 폴더 = 새 폴더 → 끈 목록에 더한다(80개 넘게는 더하지 않음 — 그 폴더는 다음에 다시 본다).
+// - 스위치를 켜면 아는 폴더에 더하고, 끄면 뺀다. 이름 바꾸기·옮기기는 아는 폴더도 새 경로를 따라간다(스스로 바꾼 폴더가 새 폴더로 꺼지지 않게).
+export const PHONE_KNOWN_MAX = 120;
+const KEY_RE = /^[0-9a-f]{8}$/;
+export function phoneFolderKey(path) {
+  let h = 0x811c9dc5;
+  for (const ch of String(path)) {
+    const c = ch.codePointAt(0);
+    for (const b of c < 0x80 ? [c] : new TextEncoder().encode(ch)) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+  }
+  return h.toString(16).padStart(8, '0');
+}
+// 서버 값 → 지문 Set. 칸이 없거나 모양이 틀리면 null(아직 모름 = 처음 한 번 채운다).
+export function parsePhoneKnown(value) {
+  if (!Array.isArray(value) || value.length > PHONE_KNOWN_MAX || !value.every(v => typeof v === 'string' && KEY_RE.test(v))) return null;
+  return new Set(value);
+}
+// Set → 서버 값(정렬). 120개를 넘으면 지금 있는 폴더(alive 지문)만 남기고, 그래도 넘치면 null(저장하지 않음).
+export function phoneKnownValue(set, alive = null) {
+  let list = [...set].filter(v => KEY_RE.test(v));
+  if (list.length > PHONE_KNOWN_MAX && alive) list = list.filter(v => alive.has(v));
+  return list.length <= PHONE_KNOWN_MAX ? list.sort() : null;
+}
+const sameList = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+// 폰 폴더 목록(f.id = 경로)·끈 목록(Set)·아는 폴더(Set|null) → {off, known(서버 값 또는 null), offChanged, knownChanged, added(새로 끈 경로)}.
+export function reconcilePhoneFolders({folders, off, known}) {
+  const paths = (folders || []).map(f => f?.id).filter(p => typeof p === 'string' && p.length <= 255 && !CC.test(p));
+  const alive = new Set(paths.map(phoneFolderKey));
+  const offSet = new Set(off || []);
+  if (!known) {
+    const value = phoneKnownValue(new Set(paths.filter(p => !offSet.has(p)).map(phoneFolderKey)), alive);
+    return {off:offSet, known:value, offChanged:false, knownChanged:!!value, added:[]};
+  }
+  const fresh = paths.filter(p => !offSet.has(p) && !known.has(phoneFolderKey(p))).sort();
+  const added = fresh.slice(0, Math.max(0, PHONE_OFF_MAX - offSet.size));
+  for (const p of added) offSet.add(p);
+  return {off:offSet, known:[...known].sort(), offChanged:added.length > 0, knownChanged:false, added};
+}
+// 스위치를 바꾼 뒤: 켠 폴더(prev에 있고 next에 없음)는 아는 폴더에 더하고, 끈 폴더는 뺀다. known이 null이면 null(아직 모름).
+export function knownAfterOff(known, prevOff, nextOff, folders = null) {
+  if (!known) return null;
+  const out = new Set(known);
+  for (const p of prevOff) if (!nextOff.has(p)) out.add(phoneFolderKey(p));
+  for (const p of nextOff) if (!prevOff.has(p)) out.delete(phoneFolderKey(p));
+  const alive = folders ? new Set(folders.map(f => phoneFolderKey(f.id))) : null;
+  return phoneKnownValue(out, alive);
+}
+// 이름 바꾸기·옮기기(to)·지우기(to = null) 뒤: from(과 그 아래) 폴더 중 아는 것은 새 경로로 옮겨 적는다. folders = 바꾸기 전 폰 폴더 목록.
+export function remapPhoneKnown(known, folders, from, to) {
+  if (!known) return null;
+  const out = new Set(known);
+  const paths = new Set([from, ...(folders || []).map(f => f?.id).filter(p => typeof p === 'string' && under(p, from))]);
+  for (const p of paths) {
+    const k = phoneFolderKey(p);
+    if (!out.has(k)) continue;
+    out.delete(k);
+    if (to) out.add(phoneFolderKey(to + p.slice(from.length)));
+  }
+  return phoneKnownValue(out);
+}
+// 고른 사진을 옮겨 넣은 폴더(새로 만든 폴더 포함)는 끈 목록에 없으면 아는 폴더로.
+export function knownWith(known, path, off) {
+  if (!known || off?.has(path)) return known ? phoneKnownValue(known) : null;
+  return phoneKnownValue(new Set([...known, phoneFolderKey(path)]));
+}
+export const sameKnown = (a, b) => Array.isArray(a) && Array.isArray(b) && sameList([...a].sort(), [...b].sort());

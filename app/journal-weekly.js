@@ -896,7 +896,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       p.append('일정을 뺐어요 ', b); cal.append(p);
     }
     if (c.noCalendar) { const p = muted(`'${REPORT_CALENDAR}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
-    cal.append(muted(`참석자 칸은 한글 파일에서 내 이름으로 채워요. '${REPORT_CALENDAR}' 달력 일정만 넣고, 일기·비공개 표시 일정은 빼요.`));
+    // S48-33(WEEKLY-화면디자인정리 2): 늘 보이던 안내 한 줄('참석자 칸은 한글 파일에서…')은 없앴다 — 당연한 안내 문구 삭제.
   }
   // [확정하고 한글 파일 받기] 줄 자리(journal-hwpx.js 마디를 journal.js 가 붙임).
   const confirmSlot = el('div', 'weekly-flow-confirm-slot'); confirmSlot.dataset.weeklyFlowConfirm = '';
@@ -986,8 +986,8 @@ function memoryBox(doc, el, r_, ui = {}, picks = null) {
       for (const b of blocked) {
         const li = el('li'); li.dataset.journalPickBlocked = b.sig;
         li.append(el('span', null, b.label), ' ', el('small', 'journal-muted', `거절 ${b.drops}${b.takes ? ` · 받음 ${b.takes}` : ''}`));
-        const free = el('button', 'mini', '풀기'); free.type = 'button'; free.dataset.journalPickRelease = b.sig; free.disabled = !!picks.busy;
-        free.setAttribute('aria-label', `다시 내기: ${b.label}`); li.append(' ', free); ul.append(li);
+        // S48-33: 줄 끝 작은 ⋯ 하나([풀기]) — 다른 기억 줄의 ⋯ [지우기]와 같은 모양(WEEKLY-화면디자인정리).
+        li.append(rowMore(doc, {label:`${b.label} 메뉴`, items:[{text:'풀기', data:{journalPickRelease:b.sig}, disabled:!!picks.busy, aria:`다시 내기: ${b.label}`}]})); ul.append(li);
       }
       part.append(ul);
     }

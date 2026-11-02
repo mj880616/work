@@ -413,11 +413,8 @@
 #appView #homeView .journal-file-open:hover{ text-decoration:underline; }
 #appView #homeView .journal-file-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #homeView .journal-file-note{ color:var(--kptu-muted); font-size:var(--ds-text-meta); white-space:nowrap; }
-/* WEEKLY-환류: 5. 주요 일정 줄 머리(날짜·원래 제목·기억·[빼기]), 뺀 줄은 흐리게, [확정] 뒤 기억 후보, [주간 정리] 맨 아래 '주간보고 기억'. */
+/* WEEKLY-환류: 5. 주요 일정 칸 고치기 줄 머리(날짜·원래 제목·기억), [주간 정리] 맨 아래 '주간보고 기억'. 뺀 줄은 목록에 없다(S48-33). */
 #appView #homeView .journal-hwpx-title-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 6px; }
-#appView #homeView .journal-hwpx-title[data-dropped="true"] > .journal-hwpx-title-fields,
-#appView #homeView .journal-hwpx-title[data-dropped="true"] .journal-hwpx-origin{ opacity:.5; }
-#appView #homeView .journal-hwpx-title[data-dropped="true"] .journal-hwpx-origin{ text-decoration:line-through; }
 #appView #homeView .journal-weekly-memory > summary{ cursor:pointer; }
 #appView #homeView .journal-weekly-memory .journal-kinds-off-list li{ overflow-wrap:anywhere; }
 /* WEEKLY-자료요약 화면 ②: 자료 줄 [고치기] 한 줄 칸(줄 자리에서), ⋯ 안 작은 버튼은 회의 종류 ⋯와 같은 모양. */

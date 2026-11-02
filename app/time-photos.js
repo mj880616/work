@@ -4,11 +4,11 @@
 // - 칸을 눌러 고르고 [붙이기 n]을 누르면 고른 사진만 파일로 만들어 부르는 쪽(onPick)에 넘긴다. 부르는 쪽은 기존 사진 첨부와 같은 길
 //   (새 보고 = 저장할 때 차례로 올림, 상세 = 바로 올림 — 둘 다 library-upload.js uploadFileForMeeting, Drive 첨부 app_documents.meeting_id)을 쓴다.
 //   고르지 않은 사진은 어디에도 올리지 않고, 목록·그림·고른 것은 이 창 메모리에만 있다(기기·서버 저장 없음).
-// - 출처는 사진 메뉴 출처 켜기/끄기(view_prefs.photo_sources)와 끈 폰 폴더(view_prefs.phone_folders_off)를 따른다. 쓸 출처가 없으면 줄을 그리지 않는다.
+// - 출처는 사진 메뉴 출처 켜기/끄기(view_prefs.photo_sources)와 끈 폰 폴더(view_prefs.phone_folders_off, 새 폰 폴더는 꺼진 채 — phone-folders-sync.js)를 따른다. 쓸 출처가 없으면 줄을 그리지 않는다.
 import {phonePhotos} from './phone-photos.js';
 import {odStatusCached, odStatusIfWarm, odPhotos, odPhotoElement, odMediaUrl, odPhotoBlob, odErrorText} from './diary-onedrive.js';
 import {parseSources, phoneErrorText} from './photo-sources-model.mjs';
-import {parsePhoneOff} from './phone-folders-model.mjs';
+import {phoneHideList} from './phone-folders-sync.js';
 import {viewPrefs} from './view-prefs.js';
 import {waitInlineHtml} from './wait-state.js';
 import {reportAtMs, nearWindow, windowMonths, odMonthItems, nearPhotos, attachName, nearHead, pickLabel, PICK_MAX} from './time-photos-model.mjs';
@@ -31,7 +31,7 @@ export async function timePhotoSources({rt = globalThis.window?.KPTURuntime, pho
 
 // 폰: 그 시각 창 안에서 찍은 것(찍은 날 최근 먼저로 창 끝부터 읽는다). 끈 폰 폴더는 빼고 읽는다.
 async function phoneNear(phone, win) {
-  const hide = [...parsePhoneOff(viewPrefs.get('phone_folders_off'))];
+  const hide = await phoneHideList(phone);
   const page = await phone.page({sort:'taken_desc', filter:'all', before:win.to + 1, limit:PHONE_READ, hide});
   return page.items.filter(it => Date.parse(it.taken_at) >= win.from);
 }

@@ -29,7 +29,7 @@ import {createOdSettings} from './od-settings.js';
 // S46-20 사진 정리 ⑥(명진 11/01 01:04): 그날 폰 사진도 같은 격자에 '보여 주기만'(앱 다리로 폰 안에서만 읽음, 서버 저장 없음).
 import {phonePhotos} from './phone-photos.js';
 import {parseSources} from './photo-sources-model.mjs';
-import {parsePhoneOff} from './phone-folders-model.mjs';
+import {phoneHideList} from './phone-folders-sync.js';
 import {dayEndMs, phoneDayItems} from './time-photos-model.mjs';
 
 (() => {
@@ -271,7 +271,7 @@ async function loadPhoneDay(day) {
     const s = await phone.hello();
     if (phoneDay.day !== day) return;
     if (s.access === 'none' || !s.key) { phoneDay = {day, items:[], state:'off'}; return; }
-    const page = await phone.page({sort:'taken_desc', filter:'all', before:dayEndMs(day), limit:200, hide:[...parsePhoneOff(viewPrefs.get('phone_folders_off'))]});
+    const page = await phone.page({sort:'taken_desc', filter:'all', before:dayEndMs(day), limit:200, hide:await phoneHideList(phone)});
     if (phoneDay.day !== day) return;
     phoneDay = {day, items:page.items.filter(it => it.day === day), state:'ready'};
   } catch { if (phoneDay.day === day) phoneDay = {day, items:[], state:'failed'}; return; }

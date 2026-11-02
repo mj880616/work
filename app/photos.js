@@ -36,7 +36,8 @@ import {phonePhotos} from './phone-photos.js';
 import {createPhotoTidy} from './photo-tidy.js';
 import {createThumbHasher} from './photo-hash.js';
 import {keptText, sizeText, COPY_BATCH, LOG_BATCH} from './photo-tidy-model.mjs';
-import {parsePhoneOff, phoneOffValue, remapPhoneOff, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
+import {parsePhoneOff, phoneOffValue, remapPhoneOff, knownAfterOff, remapPhoneKnown, knownWith, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
+import {syncPhoneFolders, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
   gdriveAllowed, gdriveToItem, gdriveBefore, gdriveFrom, gdriveKey, gdriveErrorText, gdriveCode, gdriveNeedsReconnect, gdriveState, GDRIVE_RECONNECT} from './photo-sources-model.mjs';
 // S46-24 ④ 구글 드라이브 칸(운영자 기능 gdrive_photos가 있는 작업공간만, 서버가 네 겹으로 다시 막음). 같은 사진 한 장 규칙·출처 표시는 원드라이브·폰과 같다.
@@ -148,7 +149,12 @@ const gdFilterOk = () => filter === 'all' || filter === 'video';
 // PHOTO-출처모든칩: 폰 사진 출처가 켜졌나(앱이 폰 사진을 지원할 때만, PC는 늘 꺼짐). 모두 꺼지면 모든 칩이 한 줄 안내.
 const phoneOn = () => sources.phone && phone.available();
 // 끈 폰 폴더를 읽기에 붙인다(옛 앱은 phone-photos.js가 붙이지 않음).
-const hideArg = () => ({hide:[...phoneOff]});
+// S48-31: 읽기 전에 폰 폴더를 아는 폴더와 맞춰 본다(새 폰 폴더는 꺼진 채, phone-folders-sync.js). 5분에 한 번만 폴더를 다시 읽는다.
+async function hideArg() {
+  const s = await syncPhoneFolders(phone);
+  if (s.added.length) phoneOff = new Set(s.off);
+  return {hide:[...phoneOff]};
+}
 const phoneSw = () => phone.state().hide === true;
 const phoneOps = () => phone.state().ops === true;
 const noSource = () => !sources.onedrive && !phoneOn() && !gdOn();
@@ -450,7 +456,7 @@ const readErrorText = error => (error?.phone || error?.message === 'phone_no_acc
 // 폰 사진 별표 칸(★ 거르기 목록·달력·막대). 별표가 바뀌면 버린다.
 async function phoneStarList(r) {
   await ensureStars(r);
-  if (!phStarItems) phStarItems = (await phone.byIds(phoneStarIds(), hideArg())).sort(sortCompare(listSort()));
+  if (!phStarItems) phStarItems = (await phone.byIds(phoneStarIds(), await hideArg())).sort(sortCompare(listSort()));
   return phStarItems;
 }
 // 원드라이브에서 바뀐 것을 서버 색인에 이어 받는다(일기와 같은 서버 동작 'sync'). 새로 받은 것이 있으면 처음부터 다시 그린다.
@@ -516,7 +522,7 @@ async function loadStream(source, r) {
     if (all) { gdItems = gdItems.slice().sort(sortCompare(listSort())); gdEnded = true; }
     return;
   }
-  const page = await phone.page({sort:listSort(), filter, offset:phNext, limit:PAGE_SIZE, before:from ? Date.parse(from.cursor.t) : null, ...hideArg()});
+  const page = await phone.page({sort:listSort(), filter, offset:phNext, limit:PAGE_SIZE, before:from ? Date.parse(from.cursor.t) : null, ...(await hideArg())});
   if (!current(r)) return;
   phList = appendItems(phList, page.items); phNext = page.next ?? phNext; phEnded = page.next === null;
 }
@@ -588,7 +594,7 @@ async function loadBar(r) {
     }
     if (u.phone) {
       if (want === 'star') { const m = {}; for (const it of await phoneStarList(r)) m[it.day.slice(0, 7)] = (m[it.day.slice(0, 7)] || 0) + 1; parts.push(m); }
-      else parts.push(await phone.months(want, hideArg()));
+      else parts.push(await phone.months(want, await hideArg()));
     }
     if (!current(r) || filter !== want) return;
     bar = monthBar(mergeMonths(...parts)); paintRail();
@@ -720,7 +726,7 @@ async function renderCalendar() {
       }
       if (u.phone) {
         if (want === 'star') phD = daysFromItems(await phoneStarList(r), key);
-        else phD = await phone.days(key, {filter:want, prefer:phoneStarIds(), ...hideArg()});
+        else phD = await phone.days(key, {filter:want, prefer:phoneStarIds(), ...(await hideArg())});
       }
       days = mergeDays(odD, phD);
       calData.set(cacheKey, days);
@@ -1525,7 +1531,11 @@ function loadPhoneFolders(force = false) {
   if (pFoldersLoading) return pFoldersLoading;
   if (pFolders !== null && !force) return Promise.resolve(pFolders);
   const r = run;
-  pFoldersLoading = phone.folders().then(list => { if (current(r)) { pFolders = list === null ? false : list; pFoldersFailed = ''; if (list) pPending = pPending.filter(x => !list.some(f => f.id === x.id)); } return pFolders; },
+  // S48-31: 읽은 폴더 목록으로 아는 폴더와 맞춰 본다(새 폰 폴더는 끈 목록에 더해 스위치가 꺼진 채 그려진다).
+  pFoldersLoading = phone.folders().then(async list => {
+    if (Array.isArray(list)) { const s = await syncPhoneFolders(phone, {folders:list}); if (s.added.length && current(r)) { phoneOff = new Set(s.off); phoneOffChanged(); } }
+    return list;
+  }).then(list => { if (current(r)) { pFolders = list === null ? false : list; pFoldersFailed = ''; if (list) pPending = pPending.filter(x => !list.some(f => f.id === x.id)); } return pFolders; },
     error => { if (current(r)) pFoldersFailed = phoneErrorText(error); return null; }).finally(() => { pFoldersLoading = null; });
   return pFoldersLoading;
 }
@@ -1725,10 +1735,13 @@ async function toggleFolder(id) {
 }
 // PHOTO-폴더스위치 ②: 폰 폴더 스위치 = 끈 폴더 목록(view_prefs.phone_folders_off) 저장. 바로 칠하고, 서버가 거절하면 되돌리고 알린다.
 function phoneOffChanged() { resetList(); calData.clear(); phStarItems = null; aFor = null; monthsFor = ''; tidy.offChanged(); }
-function savePhoneOff(next) {
+// S48-31: 아는 폴더(phone_folders_known)도 함께 — 켠 폴더는 더하고 끈 폴더는 뺀다(known을 주면 그 값). 켠 폴더가 새 폴더로 다시 꺼지지 않게.
+function savePhoneOff(next, known) {
   const value = phoneOffValue(next);
   if (!value) { notify('끈 폰 폴더가 너무 많아요(80개까지).', {error:true}); return false; }
+  const k = known !== undefined ? known : knownAfterOff(currentPhoneKnown(), phoneOff, next, Array.isArray(pFolders) ? pFolders : null);
   phoneOff = next; viewPrefs.set('phone_folders_off', value, {rejectable:true});
+  if (k) savePhoneKnown(k);
   phoneOffChanged();
   return true;
 }
@@ -1770,7 +1783,9 @@ async function newPhoneFolder(within = pAt) {
 // 이름 바꾸기·옮기기·지우기 뒤: 보던 폴더와 끈 폴더 목록이 새 경로를 따라간다(지우기면 뺀다).
 function followPhone(from, to) {
   if (pAt !== null && pAt.startsWith(from)) pAt = to ? to + pAt.slice(from.length) : null;
-  if ([...phoneOff].some(p => p.startsWith(from))) savePhoneOff(remapPhoneOff(phoneOff, from, to));
+  const known = remapPhoneKnown(currentPhoneKnown(), Array.isArray(pFolders) ? pFolders : [], from, to);
+  if ([...phoneOff].some(p => p.startsWith(from))) savePhoneOff(remapPhoneOff(phoneOff, from, to), known);
+  else if (known) savePhoneKnown(known);
 }
 async function renamePhoneFolder(anchor, id) {
   const f = phoneFolderOf(id); if (!f || !isPhoneMovable(id)) return notify('이 폴더는 이름을 바꿀 수 없어요(DCIM·Pictures 아래만).', {error:true});
@@ -1795,7 +1810,7 @@ async function trashPhoneFolder(anchor, id) {
 async function movePhonePhotos(anchor, list, to) {
   const ids = list.map(x => x.phoneId).filter(Boolean); if (!ids.length || !to) return;
   select.stop();
-  await phoneOpGo(anchor, {op:'move', ids, to}, r => `${r.count}장을 옮겼어요`, () => { pPending = pPending.filter(x => x.id !== to); });
+  await phoneOpGo(anchor, {op:'move', ids, to}, r => `${r.count}장을 옮겼어요`, () => { pPending = pPending.filter(x => x.id !== to); const k = knownWith(currentPhoneKnown(), to, phoneOff); if (k) savePhoneKnown(k); });
 }
 async function newFolder(parentId) {
   if (busy || !tree) return;
@@ -2200,7 +2215,7 @@ async function loadAlbum(id) {
         }
       }
       // 폰 사진(이 폰에 있는 것만 — 다른 폰·지운 사진은 빠진다).
-      const ph = phoneUsable() && c.phoneKeys.length ? await phone.byIds(c.phoneKeys.map(phoneIdOfKey), hideArg()) : [];
+      const ph = phoneUsable() && c.phoneKeys.length ? await phone.byIds(c.phoneKeys.map(phoneIdOfKey), await hideArg()) : [];
       if (!current(r) || aFor !== id) return;
       aItems = [...all.map(toItem), ...ph].sort(sortCompare(sort));
     } catch (error) { if (current(r) && aFor === id) aFailed = readErrorText(error); }

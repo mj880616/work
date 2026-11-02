@@ -68,9 +68,12 @@ export const NOW_TABS = Object.freeze(['outside', 'news', 'saved', 'search']);
 // migration 20261102170000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(알림 없음, 이 탭에서는 닫힌 채).
 // S48-21 쓰기 창 서식 줄: ed_more = 편집기 서식 줄 [⌄] 아래 줄을 펼쳐 둔 채인가(참·거짓, 없으면 접힘). 모든 편집기·기기가 같은 값.
 // migration 20261102190000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(이번 접속만 기억, 알림 없음).
+// S48-31 새 폰 폴더는 꺼진 채: phone_folders_known = 이미 본(보이는) 폰 폴더 경로의 지문(소문자 16진수 8자) 배열, 120개까지. 경로 원문은 담지 않는다.
+// migration 20261102213000. 뜻·계산은 phone-folders-model.mjs(phoneFolderKey·reconcilePhoneFolders). 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(알림 없음, 새 폴더는 지금처럼 켜진 채).
+export const PHONE_FOLDERS_KNOWN_MAX = 120;
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'now_tab']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -109,6 +112,7 @@ export function validValue(key, value) {
     case 'photo_hint': return Number.isInteger(value) && value >= 0 && value <= 9;
     case 'phone_folders_off': return Array.isArray(value) && value.length <= PHONE_FOLDERS_OFF_MAX
       && value.every(v => typeof v === 'string' && v.length <= 255 && !/[\p{Cc}]/u.test(v));
+    case 'phone_folders_known': return Array.isArray(value) && value.length <= PHONE_FOLDERS_KNOWN_MAX && value.every(v => typeof v === 'string' && /^[0-9a-f]{8}$/.test(v));
     case 'photo_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => PHOTO_SOURCE_NAMES.includes(name) && typeof value[name] === 'boolean');
     case 'photo_view': return !!value && typeof value === 'object' && !Array.isArray(value)
