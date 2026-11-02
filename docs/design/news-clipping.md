@@ -10,7 +10,7 @@
 
 ## 0. 요약과 추천
 
-1. **메뉴**: 사회운동 Now 바로 아래(폰은 더보기 메뉴 같은 자리)에 '뉴스 클리핑' 한 칸. 화면 하나 = 모듈 하나(`app/news-clipping.js`)가 상태를 갖고 그린다(AGENTS §5). 칸은 ① 내 스크랩 ② 키워드 ③ 매체별 새 글, 폰은 좌우 밀기로 칸 이동.
+1. **메뉴**(바뀜 2026-11-02 — 13절): ~~사회운동 Now 바로 아래에 '뉴스 클리핑' 한 칸~~ → 사회운동 Now와 합친 **'Now' 메뉴의 [뉴스] 탭**. 아래는 처음 설계(S47-39) 기록: 사회운동 Now 바로 아래(폰은 더보기 메뉴 같은 자리)에 '뉴스 클리핑' 한 칸. 화면 하나 = 모듈 하나(`app/news-clipping.js`)가 상태를 갖고 그린다(AGENTS §5). 칸은 ① 내 스크랩 ② 키워드 ③ 매체별 새 글, 폰은 좌우 밀기로 칸 이동.
 2. **① 내 스크랩은 기존 텔레그램 수집 길을 그대로 탄다**: 회사 PC 수집기 → Drive → 앱 스크립트(매시) → Edge `collector-feed`. 앱 스크립트에 스크립트 속성 `TG_SCRAP_ROOMS`(스크랩 방 지정, 저장소에 값 없음) 하나와 작은 함수 하나를 더하고, `collector-feed`에 입구 `?action=scrap`(같은 비밀값)을 더한다. `collector-feed`는 **링크 검사·저장만** 하고 AI·바깥 읽기는 하지 않는다. 링크의 매체·제목·요약은 아래 새 수집기가 하루 3번 붙인다.
 3. **수집기는 새 Edge 함수 `news-feed`** 하나(예약 입구 + 화면 입구, `verify_jwt=false` + 함수 코드 인증 — `outside-feed`와 같은 두 입구). 읽기·robots·크기 상한·RSS 해석·AI 부르기 코드는 **`outside-feed`의 것을 `_shared/`로 옮겨 함께 쓴다**(복사 금지). `outside-feed`를 넓히지 않는 까닭: 그 함수는 "카탈로그 허용 호스트만 읽는다"가 보안 경계인데, 스크랩은 아무 매체 주소나 오므로 경계가 다르다(3.2).
 4. **저장**: 새 표 `app_news_items`(세 칸 글 한 표, `lane`으로 구분)·`app_news_keywords`(키워드)·`app_news_days`(하루 AI 사용량). 매체 켜고 끄기는 **기존 `app_outside_sources`를 다시 쓴다**(키 앞에 `news-`). 기사 본문은 저장하지 않는다(제목·매체·시각·주소·AI 한 줄 요약만).
@@ -182,7 +182,7 @@
 
 ## 6. 화면 (시안: [mockups/news-clipping.html](mockups/news-clipping.html))
 
-- 메뉴: `app/menu-model.mjs`에 `{id:'news', label:'뉴스 클리핑'}`를 `outside` 바로 다음에, `index.html` 두 메뉴·`topbar-actions.js` 화면 이름 두 표에 같이(사회운동 Now가 더해진 자리와 같음).
+- 메뉴: ~~`app/menu-model.mjs`에 `{id:'news', label:'뉴스 클리핑'}`를 `outside` 바로 다음에~~ → **바뀜(2026-11-02, 13절)**: 독립 메뉴 `news`는 빼고 'Now' 메뉴(`id:'outside'`)의 [뉴스] 탭으로. 세 칸(내 스크랩·키워드·매체)은 탭 안 칩 한 줄로.
 - 한 화면에 세 칸(PC 1440은 세 칸 나란히, 폰 412는 칸 이름 줄 [내 스크랩 · 키워드 · 매체] + 좌우 밀기):
   - ① 내 스크랩: 날짜 묶음 머리 → 줄마다 `매체 · 시각`(작게) / 제목 / 한 줄 요약 / [원문]. 대기 줄은 도메인 + '읽는 중'. robots 막힘은 도메인 + '사이트가 자동 읽기를 막아 둠'.
   - ② 키워드: 키워드 칩 줄(공용 `chip-rows.js`, 두 줄 + 더보기, 끝에 작은 [+]) — 칩을 누르면 그 키워드만. 줄마다 꼬리에 걸린 키워드 작은 꼬리표.
@@ -252,3 +252,13 @@
 ## 12. 확인에 쓴 주소
 
 labortoday.co.kr/rssIndex.html · laborplus.co.kr(하단 RSS 링크) · beminor.com/rss/allArticle.xml · worknworld.kctu.org · newscham.net · mediatoday.co.kr · pressian.com(하단 RSS 링크) · khan.co.kr/rss/rssdata/english_news.xml · moel.go.kr/site/rss/rssList.do · korea.kr/etc/ministry.do · korea.kr 공지(RSS 중단, 검색 결과) · publicservices.international · itfglobal.org/en/news · equaltimes.org · labourstart.org/lnwnews.shtml · feeder.co 안내(Guardian·AP·Reuters) · metawatch.iptc.org(NHK) · newscatcherapi.com·codewords.ai(구글 뉴스 RSS 검색 변수). 열지 못한 주소: 각 사이트 `/robots.txt`, news.google.com/robots.txt, pressian.com/rss, labortoday.co.kr/rss/allArticle.xml, itfglobal.org/en/rss/feed, publicservices.international/feed.xml.
+
+## 13. Now 메뉴로 합침 · 같은 글 상세 · 같은 관심사 (2026-11-02, S48-14 — 명진 결정 11/01 23:16)
+
+- **메뉴**: 이 설계의 독립 메뉴 '뉴스 클리핑'(0절 1·6절)은 명진 결정으로 바뀌었다 — 사회운동 Now와 **한 메뉴 'Now' + 소탭** [사회운동] [뉴스] [보관] [문장 찾기]. 뉴스 클리핑 화면은 [뉴스] 탭이 되고, ① 내 스크랩(구독 채널)·② 키워드·③ 매체는 탭 안 **칩**(지금의 세 칸 → 칩 한 줄). 폰은 좌우 밀기로 탭 이동, 마지막 탭은 서버 기억(`view_prefs.now_tab`). 자세한 것: [outside-statements.md](outside-statements.md) 12.1.
+- **[보관] 탭**: 뉴스 별표(`starred_at`)·별표 폴더(= 보관)는 사회운동 글의 별표·보관과 한곳에 보인다. 뉴스 쪽 저장 칸은 그대로(새 칸 없음).
+- **글 상세**: 뉴스 기사도 사회운동 글과 **같은 상세 부품**(`app/now-detail.js`)·같은 상세 저장(`app_now_details.news_item_id`)·같은 만들기 길(`ai-assist` kind `now_detail`)을 쓴다. 재료는 `app_news_items.body`(공개 본문 또는 리드)·요약·제목. 외국어 기사의 주요 문장 번역은 문장 3개까지 짧은 인용만(전문 번역은 지금처럼 [번역]을 누를 때만 — 10절 '외국어 번역').
+- **관심사 하나**: 별표·보관·메모·관심 없음·원문 열기 기록(`app_now_signals.news_item_id`)과 관심 주제(`app_now_interests`)는 사회운동과 **같은 표 하나**를 쓴다(두 벌 안 만듦). 키워드(찾아올 낱말)와 관심 주제(나에게 중요한 쟁점)는 따로다.
+- **저녁 알림**: 한 줄로 합침 '새 성명 n · 새 기사 n'.
+- **목록 순서**: 시간순 그대로, 확정 관심 주제에 걸린 기사에만 작은 표시.
+- PR 순서·DB·보안은 outside-statements.md 12.5~12.8.
