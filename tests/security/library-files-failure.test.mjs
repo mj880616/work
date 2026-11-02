@@ -274,7 +274,7 @@ test('title AI usage is added to app_ai_daily_usage; a usage write failure never
     assert.equal(row.workspace_id, 'workspace-1');
     assert.equal(row.user_id, 'user-1');
     assert.match(row.day, /^\d{4}-\d{2}-\d{2}$/);
-    assert.deepEqual([row.requests, row.input_tokens, row.output_tokens, row.advanced_requests], [1, 321, 12, 0]);
+    assert.deepEqual([row.requests, row.input_tokens, row.output_tokens, row.advanced_requests], [0, 321, 12, 0]);
     assert.deepEqual(Object.keys(row).sort(), ['advanced_requests', 'day', 'input_tokens', 'output_tokens', 'requests', 'updated_at', 'user_id', 'workspace_id']);
   }
   {

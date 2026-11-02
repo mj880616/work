@@ -39,7 +39,7 @@ test('seoul day matches ai-assist (UTC+9)', () => {
   assert.equal(seoulDay(Date.UTC(2026, 10, 1, 14, 59)), '2026-11-01');
 });
 
-test('adds to the existing day row of the same workspace and user, keeping advanced_requests', async () => {
+test('adds to the existing day row of the same workspace and user, keeping requests and advanced_requests (tokens only, so the ai-assist daily request limit is not used up)', async () => {
   const { admin, calls } = fakeAdmin({ old: { requests: 4, advanced_requests: 2, input_tokens: 1000, output_tokens: 50 } });
   const meter = createAiUsageMeter();
   meter.add({ usage: { input_tokens: 300, output_tokens: 7 } });
@@ -53,7 +53,7 @@ test('adds to the existing day row of the same workspace and user, keeping advan
   assert.equal(opts.onConflict, 'workspace_id,user_id,day');
   assert.deepEqual(row, {
     workspace_id: 'ws-1', user_id: 'u-1', day: '2026-11-02',
-    requests: 6, advanced_requests: 2, input_tokens: 1500, output_tokens: 60,
+    requests: 4, advanced_requests: 2, input_tokens: 1500, output_tokens: 60,
     updated_at: new Date(nowMs).toISOString(),
   });
 });

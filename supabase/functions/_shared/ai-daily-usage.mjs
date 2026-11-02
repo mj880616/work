@@ -1,6 +1,8 @@
 // S48-15(빠짐31): AI를 부르는 서버 함수가 쓴 토큰을 홈 'AI 사용량' 줄이 세는 기존 표(app_ai_daily_usage)에 더한다.
 // - 표·칸·행 단위(작업공간·사용자·날짜 1행)는 ai-assist(writeUsage)·page-ai-draft·meeting-ai-draft와 같다. 새 표·새 권한 없음.
 // - 날짜는 ai-assist와 같은 서울 날짜(seoulDays)라 같은 날 같은 행에 더해진다. advanced_requests는 그대로 둔다.
+// - 횟수(requests)는 더하지 않고 토큰만 더한다(CC 11/02): ai-assist는 requests를 하루 80회 한도(DAILY_TOTAL_LIMIT)·자료 요약 채우기 상한으로 쓰므로,
+//   자료를 많이 올린 날 다른 AI 기능이 막히지 않게 한다. 월 비용 한도·홈 사용량 표시는 토큰으로 센다.
 // - 숫자만 넣는다(재료 글·AI 답·파일 이름은 넣지 않음). 기록 실패는 본 작업을 막지 않는다: 던지지 않고 오류 코드만 남긴다.
 // - Node 시험·Deno 배포 양쪽에서 읽으므로 .mjs로 둔다(ai-prices.mjs와 같은 방식).
 
@@ -51,7 +53,7 @@ export async function recordAiDailyUsage(admin, { workspaceId, userId, meter, no
       workspace_id: workspaceId,
       user_id: userId,
       day,
-      requests: tok(old?.requests) + meter.calls,
+      requests: tok(old?.requests),
       advanced_requests: tok(old?.advanced_requests),
       input_tokens: tok(old?.input_tokens) + meter.input,
       output_tokens: tok(old?.output_tokens) + meter.output,
