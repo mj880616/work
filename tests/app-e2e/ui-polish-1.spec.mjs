@@ -79,11 +79,11 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const tops=await page.evaluate(()=>['.gs-menu-entry','nav[aria-label="더 보기"]','#mobileAccountGroup'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
  expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
  { const acct=await rect(page.locator('#mobileAccountGroup')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-acct.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-acct.bottom).toBeLessThanOrEqual(24); }
- // 메뉴 줄 2열: 노트·자료실 / HWP 편집·공유 페이지 / 원장·사진 / 사회운동 Now·뉴스 클리핑, 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail).
+ // 메뉴 줄 2열: 노트·자료실 / 파일·HWP 편집 / 공유 페이지·원장 / 사진·사회운동 Now / 뉴스 클리핑, 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 7줄.
  const tiles=page.locator('#mobileMenu nav button:visible');
  await expect(tiles).toHaveText(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','사회운동 Now','뉴스 클리핑','통화','텔레그램 소식','아스날']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {x:Math.round(r.left),y:Math.round(r.top),h:r.height,touch:r.height-parseFloat(a.top)-parseFloat(a.bottom)};}));
- expect(new Set(boxes.map(b=>b.y)).size).toBe(6);expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
+ expect(new Set(boxes.map(b=>b.y)).size).toBe(7);expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
  // 보이는 줄 36px, 누르는 범위 44px(줄 사이 8px라 이웃 줄과 겹치지 않음).
  for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
  // 계정 한 줄: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
