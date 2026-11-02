@@ -245,6 +245,19 @@ export async function odCopyCheck(rt, pairs) {
 export async function odTrashLog(rt, pairs) { const d = await odCall(rt, {action: 'trash-log', pairs}); return Number.isInteger(d?.saved) ? d.saved : 0; }
 export async function odTrashWatch(rt) { const d = await odCall(rt, {action: 'trash-watch'}); return Number.isInteger(d?.gone) && d.gone > 0 ? d.gone : 0; }
 export async function odTrashSeen(rt) { await odCall(rt, {action: 'trash-seen'}); }
+// S48-17 PHOTO-지우기두갈래: '폰 공간만 비우기'로 비운 사진 목록 [{logId, phoneId, relPath, takenAt, photo(library 모양)}] · 기록 지우기(100개씩).
+const LOG_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export async function odKeptList(rt) {
+  const d = await odCall(rt, {action: 'kept-list'});
+  return (Array.isArray(d?.items) ? d.items : []).filter(x => LOG_ID.test(x?.log_id || '') && x?.photo && typeof x.photo.id === 'string')
+    .map(x => ({logId: x.log_id, phoneId: /^\d{1,18}$/.test(x.phone_id || '') ? x.phone_id : '', relPath: typeof x.rel_path === 'string' ? x.rel_path : null,
+      takenAt: typeof x.taken_at === 'string' ? x.taken_at : null, photo: x.photo}));
+}
+export async function odKeptDrop(rt, ids) {
+  const list = [...new Set((ids || []).filter(id => LOG_ID.test(id)))];
+  for (let i = 0; i < list.length; i += 100) await odCall(rt, {action: 'kept-drop', ids: list.slice(i, i + 100)});
+  return list.length;
+}
 // 연결 뒤 돌아올 화면(명진 결정 5): 마이크로소프트가 그대로 돌려주는 state 끝에 '~photos'를 붙인다. 돌아오는 페이지가 떼어 내고 그 화면으로 보낸다
 // (서버가 확인하는 서명 부분은 그대로, 저장 없음). 일기는 붙이지 않는다(예전 그대로).
 export const OD_BACK_VIEWS = Object.freeze(['photos']);

@@ -83,8 +83,8 @@ const BASELINE = {
   //   서버 답 '글자 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.'(basket-ai-summary.js)·'챙길 것을 찾는 중이에요…'(todo-radar-data.js),
   //   아직 안 열린 기능을 누를 때 작은 알림(task-inline.js), 편집기가 열리기 전 저장을 누를 때 거절 안내(basket-notes.js).
   'basket.js': 1, 'basket-manual-link.js': 1, 'basket-ai-summary.js': 1, 'todo-radar-data.js': 1, 'task-inline.js': 1, 'basket-notes.js': 1,
-  // - 사진 내려받기 작은 알림(장수·한 번에 받는 한도, photos.js): 알림 부품은 글자만 받는다.
-  'photos.js': 2,
+  // - 사진 내려받기 작은 알림(장수·한 번에 받는 한도, photos.js)·S48-17 지우기 전 원드라이브 원본 확인(수십 초 걸릴 수 있음): 알림 부품은 글자만 받는다.
+  'photos.js': 3,
   // - 주간보고 복사 글의 '(불러오는 중)'(journal-weekly.js, journal-meeting-kinds 시험): 화면이 아니라 붙여 넣을 글이라 글자가 필요하다.
   'journal-weekly.js': 1,
   // - 한글 편집기(약 20MB)·한글 파일 열기의 단계 안내(파일 받음·편집기 준비 중, hwp-drive-edit 시험): 수십 초 걸리는 일이라 단계 글자를 둔다.

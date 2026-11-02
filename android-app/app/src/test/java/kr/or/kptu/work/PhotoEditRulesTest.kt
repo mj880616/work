@@ -134,4 +134,35 @@ class PhotoEditRulesTest {
         assertTrue(s.add(4))
         assertTrue(s.complete)
     }
+
+    // S48-17 PHOTO-폰으로되돌리기: dir·taken이 있으면 원래 폴더·찍은 시각으로 넣는 저장(동영상도).
+    @Test
+    fun restoreBeginKeepsFolderAndTakenTime() {
+        assertEquals(Message.Begin("IMG_1.jpg", "image/jpeg", 10, "DCIM/Camera/", 1700000000000L),
+            PhotoEditRules.message("photos:save:begin:{\"name\":\"IMG_1.jpg\",\"mime\":\"image/jpeg\",\"size\":10,\"dir\":\"DCIM/Camera\",\"taken\":1700000000000}"))
+        val v = PhotoEditRules.message("photos:save:begin:{\"name\":\"VID_1.mp4\",\"mime\":\"video/mp4\",\"size\":${PhotoEditRules.SAVE_MAX + 1},\"dir\":\"DCIM/Camera/\"}") as Message.Begin
+        assertTrue(v.video); assertEquals("VID_1.mp4", v.name); assertEquals("DCIM/Camera/", v.dir); assertEquals(0L, v.takenMs)
+        // 동영상 한도, 사진 한도는 그대로, 모르는 종류는 거절.
+        assertNull(PhotoEditRules.message("photos:save:begin:{\"name\":\"a.mp4\",\"mime\":\"video/mp4\",\"size\":${PhotoEditRules.RESTORE_VIDEO_MAX + 1},\"dir\":\"DCIM/\"}"))
+        assertNull(PhotoEditRules.message("photos:save:begin:{\"name\":\"a.jpg\",\"mime\":\"image/jpeg\",\"size\":${PhotoEditRules.SAVE_MAX + 1},\"dir\":\"DCIM/\"}"))
+        assertNull(PhotoEditRules.message("photos:save:begin:{\"name\":\"a.exe\",\"mime\":\"application/x-msdownload\",\"size\":5,\"dir\":\"DCIM/\"}"))
+        // 나쁜 폴더는 거절.
+        for (bad in listOf("", "/DCIM/", "DCIM/../x/", "DCIM/./x", "a\\nb"))
+            assertNull(bad, PhotoEditRules.message("photos:save:begin:{\"name\":\"a.jpg\",\"mime\":\"image/jpeg\",\"size\":5,\"dir\":\"$bad\"}"))
+        // 되돌리기가 아닌 저장은 예전처럼 동영상을 받지 않는다.
+        assertNull(PhotoEditRules.message("photos:save:begin:{\"name\":\"a.mp4\",\"mime\":\"video/mp4\",\"size\":10}"))
+    }
+
+    @Test
+    fun restoreDirFallsBackWhenGalleryRefusesTheTopFolder() {
+        assertEquals("DCIM/Camera/", PhotoEditRules.restoreDir("DCIM/Camera", false))
+        assertEquals("Pictures/Screenshots/", PhotoEditRules.restoreDir("Pictures/Screenshots/", false))
+        assertEquals(PhotoEditRules.SAVE_DIR, PhotoEditRules.restoreDir("Android/media/com.kakao.talk/KakaoTalk/", false))
+        assertEquals(PhotoEditRules.SAVE_DIR, PhotoEditRules.restoreDir("Movies/x/", false))
+        assertEquals("Movies/x/", PhotoEditRules.restoreDir("Movies/x/", true))
+        assertEquals("Movies/웹2/", PhotoEditRules.restoreDir("Download/", true))
+        assertNull(PhotoEditRules.restoreDir(null, false))
+        assertNull(PhotoEditRules.restoreDir("x".repeat(256), false))
+        assertEquals("VID_1.mp4", PhotoEditRules.fileName("VID_1.mp4", "video/mp4"))
+    }
 }

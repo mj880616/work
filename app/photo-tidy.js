@@ -245,7 +245,7 @@ export function createPhotoTidy({phone, readOd, odReady, odError, phoneError, ph
         const sp = st.space;
         rows.push(sp.items.length
           ? `<details class="photos-tidy-row" data-k="space"><summary><span>공간 비우기 · 폰에서만 지우면 <b>${sizeText(sp.bytes) || sp.items.length + '장'}</b> 비워져요${help(TIDY_HELP.space)}</span><span class="photos-tidy-see">보기</span></summary><div class="photos-tidy-list">${doLine(TIDY_HELP.spaceDo)}<div class="photos-tidy-junk"><span>원드라이브에 있는 1년 지난 사진 ${sp.photos}장 · 큰 동영상 ${sp.videos}개(별표 뺌)</span>`
-            + (canTrash ? '<button type="button" class="mini photos-danger" data-photos-tidy-trash="space">폰에서만 지우기</button>' : '') + `</div>${pane('space')}</div></details>`
+            + (canTrash ? '<button type="button" class="mini photos-danger" data-photos-tidy-trash="space">폰 공간만 비우기</button>' : '') + `</div>${pane('space')}</div></details>`
           : '<p class="photos-tidy-line">공간 비우기 · 후보 없음</p>');
       }
       // ④ 같은 사진·연사 묶음(S47-19B): 종류 칩으로 나눠 보고, 묶음을 열면(그 줄 안) 두 장씩 나란히 비교·남길 것 고르기.

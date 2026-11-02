@@ -260,25 +260,28 @@ object PhoneMedia {
     }
 
     /** 폰에 없는 사진 한 장 저장 시작: Pictures/웹2에 숨긴 칸(IS_PENDING)을 만들고 쓰기 통로를 연다. */
-    class Save(val uri: Uri, val out: java.io.OutputStream, val rules: PhotoEditRules.Saving, val mime: String)
+    class Save(val uri: Uri, val out: java.io.OutputStream, val rules: PhotoEditRules.Saving, val mime: String, val takenMs: Long = 0L)
 
     fun saveBegin(context: Context, begin: PhotoEditRules.Message.Begin): Save {
+        // S48-17 되돌리기(dir 있음): 원래 폴더·찍은 시각, 동영상은 Video 모음. 아니면 예전처럼 Pictures/웹2 사진.
         val values = android.content.ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, begin.name)
             put(MediaStore.MediaColumns.MIME_TYPE, begin.mime)
-            put(MediaStore.MediaColumns.RELATIVE_PATH, PhotoEditRules.SAVE_DIR)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, begin.dir ?: PhotoEditRules.SAVE_DIR)
             put(MediaStore.MediaColumns.IS_PENDING, 1)
+            if (begin.takenMs > 0) put(MediaStore.MediaColumns.DATE_TAKEN, begin.takenMs)
         }
         val resolver = context.contentResolver
-        val uri = resolver.insert(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)
-            ?: throw IllegalStateException("insert")
+        val collection = if (begin.video) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            else MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = resolver.insert(collection, values) ?: throw IllegalStateException("insert")
         val out = try {
             resolver.openOutputStream(uri, "w") ?: throw IllegalStateException("open")
         } catch (e: Exception) {
             try { resolver.delete(uri, null, null) } catch (_: Exception) {}
             throw e
         }
-        return Save(uri, out, PhotoEditRules.Saving(begin.size), begin.mime)
+        return Save(uri, out, PhotoEditRules.Saving(begin.size), begin.mime, begin.takenMs)
     }
 
     /** 조각 하나 쓰기. 선언한 크기를 넘으면 false. */
@@ -297,6 +300,15 @@ object PhoneMedia {
         }
         val values = android.content.ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
         context.contentResolver.update(save.uri, values, null, null)
+        // S48-17: 보이게 할 때 사진첩이 파일을 다시 읽어 찍은 시각을 바꿀 수 있어(동영상은 파일에 없을 수 있음) 한 번 더 적는다.
+        if (save.takenMs > 0) {
+            try {
+                val t = android.content.ContentValues().apply { put(MediaStore.MediaColumns.DATE_TAKEN, save.takenMs) }
+                context.contentResolver.update(save.uri, t, null, null)
+            } catch (e: Exception) {
+                logEdit("save-taken", e)
+            }
+        }
         forget()
         return ContentUris.parseId(save.uri)
     }

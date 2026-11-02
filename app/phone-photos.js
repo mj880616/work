@@ -10,6 +10,7 @@
 //   'photos:manage' = '미디어 관리 허용' 설정 화면(켜 두면 바꿀 때 매번 묻지 않음). 옛 앱(0.4.0 이하)은 hide를 모르므로 붙이지 않는다(400).
 // - PHOTO-갤러리편집(앱 0.4.6+, 상태에 edit): 'photos:edit:{id}|{name,size,taken}' = 삼성 갤러리 편집기(없으면 고르기 창)로 넘김
 //   → 'photos:edited:{ok,changed,error}'. 폰에 없는 사진은 'photos:save:begin|part|end'로 원본 바이트를 Pictures/웹2에 한 장 저장한 뒤 그 번호로 편집.
+// - S48-17 [폰으로 되돌리기](앱 0.4.11+, 상태에 restore): 같은 save 길의 begin에 dir(원래 폰 폴더)·taken(원래 찍은 시각 ms)을 붙인다(동영상도).
 import {phoneToItem, phoneFailure} from './photo-sources-model.mjs';
 import {slotImg} from './img-slot.js';
 import {holdPhotoMaker} from './photo-share.js';
@@ -19,12 +20,14 @@ const HELLO_MS = 1500, TRASH_MS = 120000, OP_MS = 180000, HIDE_MAX = 80;
 // 편집기에 머무는 시간(넉넉히 2시간), 받기 한 걸음 대기, 한 조각 바이트(base64로 512KB — 앱 한도 안), 받는 사진 한도(앱과 같게).
 const EDIT_MS = 2 * 60 * 60 * 1000, SAVE_STEP_MS = 30000, SAVE_PART = 384 * 1024, SAVE_MAX = 60 * 1024 * 1024;
 const SAVE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
+// S48-17 [폰으로 되돌리기](앱 0.4.11+, 상태에 restore): 동영상도(앱과 같은 종류·한도).
+const RESTORE_VIDEO = ['video/mp4', 'video/quicktime', 'video/3gpp', 'video/webm', 'video/x-matroska'], RESTORE_VIDEO_MAX = 500 * 1024 * 1024;
 
 export function createPhonePhotos(win = globalThis.window) {
   const ua = /KPTUAndroid/i.test(win?.navigator?.userAgent || '');
   const bridge = win?.[BRIDGE];
   const usable = ua && !!bridge && typeof bridge.postMessage === 'function' && typeof bridge.addEventListener === 'function';
-  let state = {known:false, access:'none', key:'', trash:false, hide:false, ops:false, manage:false, edit:false};
+  let state = {known:false, access:'none', key:'', trash:false, hide:false, ops:false, manage:false, edit:false, restore:false};
   let helloWait = null, trashWait = null, opWait = null, editWait = null, saveWait = null;
   const listeners = new Set();
   const send = t => { try { bridge.postMessage(t); return true; } catch { return false; } };
@@ -36,7 +39,7 @@ export function createPhonePhotos(win = globalThis.window) {
         const access = ['full', 'partial', 'none'].includes(v?.access) ? v.access : 'none';
         const key = access !== 'none' && /^[A-Za-z0-9_-]{22,64}$/.test(v?.key || '') ? v.key : '';
         const changed = !state.known || state.access !== access || state.key !== key || state.manage !== (v?.manage === true);
-        state = {known:true, access:key ? access : 'none', key, trash:v?.trash === true, hide:v?.hide === true, ops:v?.hide === true && v?.ops === true, manage:v?.manage === true, edit:v?.edit === true};
+        state = {known:true, access:key ? access : 'none', key, trash:v?.trash === true, hide:v?.hide === true, ops:v?.hide === true && v?.ops === true, manage:v?.manage === true, edit:v?.edit === true, restore:v?.restore === true};
         helloWait?.(state); helloWait = null;
         if (changed) listeners.forEach(fn => { try { fn(state); } catch { /* 한 곳 실패가 다른 곳을 막지 않게 */ } });
       } else if (d.startsWith('photos:trashed:')) {
@@ -84,6 +87,27 @@ export function createPhonePhotos(win = globalThis.window) {
   // 끈 폰 폴더(앱 0.4.1+만). 빈 목록이면 붙이지 않는다.
   const hideOf = hide => (state.hide && Array.isArray(hide) ? hide.filter(x => typeof x === 'string' && x.length <= 255).slice(0, HIDE_MAX) : []);
   const withHide = (q, hide) => { const h = hideOf(hide); if (h.length) q.set('hide', JSON.stringify(h)); return q; };
+  // 앱 다리로 한 장 넘기기: begin(모양) → part(384KB씩 base64) → end. 걸음마다 30초 안에 답이 없으면 실패.
+  async function saveBytes(blob, head) {
+    const step = text => new Promise(resolve => {
+      let timer = null;
+      const ok = v => { clearTimeout(timer); resolve(v); };
+      saveWait?.({ok:false, step:'', id:'', error:'busy'});
+      saveWait = ok;
+      timer = setTimeout(() => { if (saveWait === ok) { saveWait = null; ok({ok:false, step:'', id:'', error:'failed'}); } }, SAVE_STEP_MS);
+      if (!send(text)) { saveWait = null; ok({ok:false, step:'', id:'', error:'failed'}); }
+    });
+    let r = await step('photos:save:begin:' + JSON.stringify(head));
+    if (!r.ok) return {ok:false, id:'', error:r.error || 'failed'};
+    for (let at = 0; at < blob.size; at += SAVE_PART) {
+      let part = '';
+      try { part = base64(new Uint8Array(await blob.slice(at, at + SAVE_PART).arrayBuffer())); } catch { part = ''; }
+      r = part ? await step('photos:save:part:' + part) : {ok:false, error:'failed'};
+      if (!r.ok) { send('photos:save:cancel'); return {ok:false, id:'', error:r.error || 'failed'}; }
+    }
+    r = await step('photos:save:end');
+    return r.ok && r.id ? {ok:true, id:r.id, error:''} : {ok:false, id:'', error:r.error || 'failed'};
+  }
   const api = {
     get usable() { return usable; },
     // 앱이 답했다(0.3.9+) = 폰 사진 아이콘을 그린다.
@@ -192,27 +216,21 @@ export function createPhonePhotos(win = globalThis.window) {
       });
     },
     // 폰에 없는 사진의 원본(Blob)을 폰 사진첩 Pictures/웹2에 한 장 저장 → {ok, id(폰 사진 번호), error}. 바이트는 앱 다리로만(서버 안 거침).
-    async save(blob, name = '') {
+    save(blob, name = '') {
       const type = saveType(blob?.type, name);
-      if (!api.canEdit() || !blob || !SAVE_MIMES.includes(type) || !(blob.size > 0) || blob.size > SAVE_MAX) return {ok:false, id:'', error:blob?.size > SAVE_MAX ? 'big' : 'type'};
-      const step = text => new Promise(resolve => {
-        let timer = null;
-        const ok = v => { clearTimeout(timer); resolve(v); };
-        saveWait?.({ok:false, step:'', id:'', error:'busy'});
-        saveWait = ok;
-        timer = setTimeout(() => { if (saveWait === ok) { saveWait = null; ok({ok:false, step:'', id:'', error:'failed'}); } }, SAVE_STEP_MS);
-        if (!send(text)) { saveWait = null; ok({ok:false, step:'', id:'', error:'failed'}); }
-      });
-      let r = await step('photos:save:begin:' + JSON.stringify({name:String(name || '').slice(0, 255), mime:type, size:blob.size}));
-      if (!r.ok) return {ok:false, id:'', error:r.error || 'failed'};
-      for (let at = 0; at < blob.size; at += SAVE_PART) {
-        let part = '';
-        try { part = base64(new Uint8Array(await blob.slice(at, at + SAVE_PART).arrayBuffer())); } catch { part = ''; }
-        r = part ? await step('photos:save:part:' + part) : {ok:false, error:'failed'};
-        if (!r.ok) { send('photos:save:cancel'); return {ok:false, id:'', error:r.error || 'failed'}; }
-      }
-      r = await step('photos:save:end');
-      return r.ok && r.id ? {ok:true, id:r.id, error:''} : {ok:false, id:'', error:r.error || 'failed'};
+      if (!api.canEdit() || !blob || !SAVE_MIMES.includes(type) || !(blob.size > 0) || blob.size > SAVE_MAX) return Promise.resolve({ok:false, id:'', error:blob?.size > SAVE_MAX ? 'big' : 'type'});
+      return saveBytes(blob, {name:String(name || '').slice(0, 255), mime:type, size:blob.size});
+    },
+    // S48-17: 이 앱이 [폰으로 되돌리기]를 안다(0.4.11+). PC·브라우저·옛 앱은 false.
+    canRestore: () => usable && state.known && state.restore,
+    // 원드라이브 원본(Blob)을 원래 폰 폴더(dir)·원래 찍은 시각(taken, ISO)으로 사진첩에 넣기 → {ok, id, error: type·big·failed·busy}.
+    restore(blob, {name = '', dir = '', taken = ''} = {}) {
+      const type = restoreType(blob?.type, name);
+      const max = RESTORE_VIDEO.includes(type) ? RESTORE_VIDEO_MAX : SAVE_MAX;
+      if (!api.canRestore() || !blob || !(SAVE_MIMES.includes(type) || RESTORE_VIDEO.includes(type)) || !(blob.size > 0)) return Promise.resolve({ok:false, id:'', error:'type'});
+      if (blob.size > max) return Promise.resolve({ok:false, id:'', error:'big'});
+      const t = Date.parse(taken || '');
+      return saveBytes(blob, {name:String(name || '').slice(0, 255), mime:type, size:blob.size, dir:String(dir || '').slice(0, 255), ...(Number.isFinite(t) && t > 0 ? {taken:t} : {})});
     },
     // '미디어 관리 허용' 설정 화면 열기(돌아오면 앱이 상태를 다시 알린다).
     manage: () => (usable && state.ops ? send('photos:manage') : false),
@@ -240,6 +258,14 @@ export function saveType(type, name) {
   const t = String(type || '').toLowerCase().split(';')[0].trim();
   if (SAVE_MIMES.includes(t)) return t;
   return EXT_MIME[(/\.([A-Za-z0-9]{1,5})$/.exec(String(name || '')) || [])[1]?.toLowerCase()] || t;
+}
+// S48-17 되돌리기 종류: 그림 종류 판정 + 동영상(이름 끝으로도).
+const VIDEO_EXT = {mp4:'video/mp4', mov:'video/quicktime', '3gp':'video/3gpp', webm:'video/webm', mkv:'video/x-matroska', m4v:'video/mp4'};
+export function restoreType(type, name) {
+  const t = String(type || '').toLowerCase().split(';')[0].trim();
+  if (RESTORE_VIDEO.includes(t)) return t;
+  const v = VIDEO_EXT[(/\.([A-Za-z0-9]{1,5})$/.exec(String(name || '')) || [])[1]?.toLowerCase()];
+  return v && !SAVE_MIMES.includes(t) ? v : saveType(type, name);
 }
 // 바이트 → base64(32KB씩 글자로 바꿔 btoa).
 export function base64(bytes) {
