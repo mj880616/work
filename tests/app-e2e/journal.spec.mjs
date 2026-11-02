@@ -1058,7 +1058,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  // 참고: 한 줄·끝낸 할 일·할 일 예정·자료실·공유 페이지(기록 있는 것만 상자), 이번 주 일정·옮긴 노트·일기는 없다.
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"] [data-journal-weekly] > h5')).toHaveText(['한 줄','끝낸 할 일','할 일 예정','자료실 새 자료','공유 페이지','내 메모']);
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"]')).not.toContainText('오전 일정');
- await expect(weekly(page,'note-lines').locator('li')).toHaveText(['10월 5일(월)월요일 한 줄']);
+ await expect(weekly(page,'note-lines').locator('li')).toHaveText([/^10월 5일\(월\)월요일 한 줄( ⋯빼기)?$/]); // 줄 끝 ⋯ [빼기](S48-3b)
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('옮긴 합성 노트');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('JOURNAL_SECRET');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('다음 주 자료');
@@ -1105,9 +1105,20 @@ test('[주간 정리] 한 줄: 개인 줄(미술 학원)은 빠지고 업무 줄
  });
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,1280);await openWeekly(page);
- await expect(weekly(page,'note-lines').locator('li')).toHaveText(['10월 5일(월)월요일 한 줄','10월 7일(수)가상 교섭 준비']);
+ await expect(weekly(page,'note-lines').locator('li')).toHaveText([/^10월 5일\(월\)월요일 한 줄 ⋯빼기$/,/^10월 7일\(수\)가상 교섭 준비 ⋯빼기$/]);
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('미술 학원');
  expect(asked).toEqual([{kind:'work_scope',week_start:'2026-10-05'}]);
+ // S48-3b: 줄 끝 ⋯ [빼기] → 그 줄이 바로 빠지고, 그 주 행 picks 에 work_line drop(다음 가르기 학습). 작은 알림 + Ctrl+Z 되돌리기면 다시.
+ const talk=weekly(page,'note-lines').locator('li').filter({hasText:'가상 교섭 준비'});
+ await pressMore(talk,'[data-journal-work-line-drop]');
+ await expect(weekly(page,'note-lines').locator('li')).toHaveCount(1);
+ const wk=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ await expect.poll(()=>wk()?.draft?.picks?.items?.find(i=>i.kind==='work_line')?.act,{timeout:15000}).toBe('drop');
+ expect(wk().draft.picks.items.find(i=>i.kind==='work_line')).toMatchObject({cell:'notes:lines:2026-10-07',text:'가상 교섭 준비',from:'record'});
+ await expect(page.locator('#kptuNotice')).toContainText('개인 줄로 뺐어요');
+ await page.locator('body').press('Control+z');
+ await expect.poll(()=>wk().draft.picks.items.find(i=>i.kind==='work_line').act,{timeout:15000}).toBe('none');
+ await expect(weekly(page,'note-lines').locator('li')).toHaveCount(2);
  await page.locator('#journalRoot [data-weekly-flow-confirm] details.row-more summary').click();
  await page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-copy]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
@@ -1144,7 +1155,7 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await page.locator('#journalRoot [data-journal-prev]').click();await page.locator('#journalRoot [data-journal-prev]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('9월 28일 ~ 10월 4일');
  await expect(weekly(page,'orgs').locator('[data-journal-org="미분류"] li')).toHaveText(['9월 29일(화)지난주 메모']);
- await expect(weekly(page,'note-lines').locator('li')).toHaveText(['9월 30일(수)지난주 수요일']);
+ await expect(weekly(page,'note-lines').locator('li')).toHaveText([/^9월 30일\(수\)지난주 수요일( ⋯빼기)?$/]);
  await page.locator('#journalRoot [data-journal-today]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
  await expect(weekly(page,'summary').locator('tbody tr')).toHaveCount(3);
