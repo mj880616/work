@@ -163,7 +163,10 @@ export function paintFlowCells(slot, ctx) {
     }
     parts.push(bar);
   }
+  // 줄 ⠿ 에 초점이 있는 채로 다시 그려지면(재료·학습을 늦게 읽어 다시 그림) 같은 줄 손잡이로 초점을 돌려준다 — 키보드로 옮기던 중 초점이 사라지지 않게.
+  const active = doc.activeElement, held = active && slot.contains(active) && active.matches?.('[data-flow-line-grip]') ? active.closest('li[data-flow-line-id]')?.dataset.flowLineId : null;
   slot.replaceChildren(...parts);
+  if (held && !ui.focusLine) [...slot.querySelectorAll('li[data-flow-line-id]')].find(n => n.dataset.flowLineId === held)?.querySelector('[data-flow-line-grip]:not(:disabled)')?.focus();
   if (!slot.dataset.flowWired) wire();
   if (ui.focusLine && !ui.busy && section !== 'sites') { const k = ui.focusLine; ui.focusLine = null; [...slot.querySelectorAll('li[data-flow-line-id]')].find(n => n.dataset.flowLineId === k)?.querySelector('[data-flow-line-grip]')?.focus(); }
   if (ui.focusSite && !ui.busy && section === 'sites') { const name = ui.focusSite; ui.focusSite = null; [...slot.querySelectorAll('[data-reorder-id]')].find(n => n.dataset.reorderId === name)?.querySelector('[data-reorder-handle]')?.focus(); }

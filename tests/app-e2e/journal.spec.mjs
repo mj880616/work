@@ -3431,6 +3431,7 @@ for(const width of [412,1440])test(`[주간 정리] 칸 줄: 빈 줄 섞인 칸�
  await page.reload();
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible({timeout:20000});
  await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가운데 줄']);
+ await expect(a1.locator('[data-flow-suggest-item]').first()).toBeVisible(); // 제안 재료를 다 읽어 다시 그린 뒤
  // ⠿ 키보드: 위 화살표로 한 칸 위, 초점은 옮긴 줄 손잡이에 남는다. 칸 맨 아래에서 아래 화살표 → 다음 칸 맨 앞.
  const grip=(cell,i)=>cell.locator(`[data-flow-line="${i}"] [data-flow-line-grip]`);
  await expect(grip(a1,1)).toHaveAccessibleName(/^줄 자리 바꾸기/);
