@@ -380,10 +380,12 @@ async function loadSourceNotes(owner,epoch){
 }
 // A task opened from its source note's list: open its editor once this load has the task.
 // NAV-새로고침제자리(S48-30): 열린 할 일 상세는 주소 ?task=로 적고(라우터 setPlace, 할 일 화면일 때만), 새로고침 뒤 처음 읽기에서 한 번 다시 연다.
+// 되살릴 값은 이 모듈을 처음 읽을 때의 주소에서 한 번만 잡는다(이번 방문 중 사용자가 연 할 일이 적은 값을 다시 열지 않게).
+const TASK_AT_LOAD=(()=>{try{const q=new URLSearchParams(location.search);const id=q.get('view')==='tasks'?q.get('task'):null;return id&&/^[A-Za-z0-9_.:-]{1,80}$/.test(id)?id:null}catch{return null}})();
 let taskPlaceRead=false;
-function taskPlace(task){if(window.KPTURouter?.current!=='tasks'||!tasksViewShown())return;window.KPTURouter.setPlace?.('tasks',{task:task?.id||null})}
+function taskPlace(task){if(task)taskPlaceRead=true;if(window.KPTURouter?.current!=='tasks'||!tasksViewShown())return;window.KPTURouter.setPlace?.('tasks',{task:task?.id||null})}
 function openRequestedTask(){
-  const asked=takeTaskOpenRequest(rt),placed=taskPlaceRead||!tasksViewShown()?null:((window.KPTURouter?.place?.('tasks')||{}).task||(new URLSearchParams(location.search).get('view')==='tasks'?new URLSearchParams(location.search).get('task'):null));if(tasksViewShown())taskPlaceRead=true;const id=asked||placed;if(!id||!tasksViewShown())return;
+  const asked=takeTaskOpenRequest(rt),placed=taskPlaceRead||!tasksViewShown()?null:TASK_AT_LOAD;if(tasksViewShown())taskPlaceRead=true;const id=asked||placed;if(!id||!tasksViewShown())return;
   const task=lastTasks.find(t=>t.id===id);
   if(!task&&!asked){taskPlace(null);return}
   if(task)openEditor(task,{docked:true});else setSync('이 할 일을 목록에서 찾지 못했습니다. 완료한 지 오래됐거나 삭제됐을 수 있습니다.',true);
