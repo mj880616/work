@@ -123,6 +123,77 @@ class WidgetWeekTest {
     }
 
     @Test
+    fun pickedDayTogglesAndResetsOnNewDay() {
+        val c = WidgetWeek.content(200, body(), now)
+        val fri = LocalDate.of(2026, 10, 30)
+        val today = LocalDate.of(2026, 10, 30)
+        // 누르면 그 날, 같은 날을 다시 누르면 풀림, 다른 날이면 그 날로.
+        assertEquals(fri, WidgetWeek.toggle(null, fri))
+        assertNull(WidgetWeek.toggle(fri, fri))
+        assertEquals(LocalDate.of(2026, 10, 27), WidgetWeek.toggle(fri, LocalDate.of(2026, 10, 27)))
+        assertEquals(fri, WidgetWeek.active(fri, today, now, c.days))
+        // 날이 바뀌면(고른 날짜가 오늘이 아님) 주간 요약으로.
+        assertNull(WidgetWeek.active(fri, today, at(2026, 10, 31, 0, 1), c.days))
+        // 보이는 주 밖의 날은 무시.
+        assertNull(WidgetWeek.active(LocalDate.of(2026, 11, 3), today, now, c.days))
+        assertNull(WidgetWeek.active(null, today, now, c.days))
+    }
+
+    @Test
+    fun dayDetailListsEventsThenDueTasks() {
+        val tasks = MiniJson.parse(
+            """{"connected":true,"needs_reconnect":false,"tasks":[
+            {"title":"보고서","due":"2026-10-29T00:00:00.000Z","status":"needsAction"},
+            {"title":"끝낸 일","due":"2026-10-29T00:00:00.000Z","status":"completed"},
+            {"title":"기한 없음","status":"needsAction"},
+            {"title":"이상한 기한","due":"x","status":"needsAction"}]}""",
+        )
+        val c = WidgetWeek.content(
+            200,
+            body(
+                allDay("출장", "2026-10-29", "2026-10-31"),
+                timed("회의 2", "2026-10-29T13:00:00+09:00", "2026-10-29T14:00:00+09:00"),
+                timed("회의 1", "2026-10-29T09:00:00+09:00", "2026-10-29T10:00:00+09:00"),
+            ),
+            now,
+            tasksStatus = 200,
+            tasks = tasks,
+        )
+        val thu = c.details.getValue(LocalDate.of(2026, 10, 29))
+        assertEquals(listOf(WidgetWeek.Item("종일", "출장"), WidgetWeek.Item("09:00", "회의 1"), WidgetWeek.Item("13:00", "회의 2"), WidgetWeek.Item("할 일", "보고서")), thu.items)
+        assertEquals("10/29(목) 일정 3 · 할 일 1", WidgetWeek.detailHead(thu))
+        // 칸 숫자(일정 수)와 머리 줄 일정 수가 같다.
+        assertEquals(c.days.first { it.day == thu.day }.count, thu.events)
+        assertEquals(listOf("종일  출장", "09:00  회의 1", "외 2"), WidgetWeek.detailRows(thu))
+        assertEquals(7, c.details.size)
+        // 할 일 연결이 없거나 다시 연결이 필요하면 할 일 수는 '읽지 못함'(null), 일정은 그대로.
+        val off = WidgetWeek.content(200, body(), now, tasksStatus = 200, tasks = MiniJson.parse("""{"connected":false,"tasks":[]}"""))
+        assertNull(off.details.getValue(LocalDate.of(2026, 10, 29)).tasks)
+        val again = WidgetWeek.content(200, body(), now, tasksStatus = 200, tasks = MiniJson.parse("""{"connected":true,"needs_reconnect":true,"tasks":[]}"""))
+        assertNull(again.details.getValue(LocalDate.of(2026, 10, 29)).tasks)
+        assertNull(WidgetWeek.content(200, body(), now).details.getValue(LocalDate.of(2026, 10, 29)).tasks)
+    }
+
+    @Test
+    fun bigWidgetPicksInsideWidgetSmallOpensApp() {
+        val src = java.io.File("src/main/java/kr/or/kptu/work/WeekWidget.kt").readText()
+        // 4×2 요일 칸은 이 위젯에만 가는 방송(앱을 열지 않음), 4×1은 지금처럼 앱 그 날. [열기]만 앱 그 날.
+        assertTrue(src.contains("if (small) day(context, d.day, i + 1) else pickIntent(context, d.day, i)"))
+        assertTrue(src.contains("Intent(context, WeekWidget::class.java).setAction(ACTION_PICK)"))
+        assertTrue(src.contains("views.setOnClickPendingIntent(R.id.week_sel_open, day(context, d.day, 11))"))
+        // 고른 날짜는 메모리에만(폰 저장 없음, W-D2).
+        assertFalse(src.contains("SharedPreferences") || src.contains("getSharedPreferences") || src.contains("openFileOutput"))
+        // 요일 칸 바탕은 모두 누를 때 물결, 고른 날 칸은 옅은 테마색.
+        for (n in listOf("plain", "busy", "hot", "pick")) {
+            val xml = java.io.File("src/main/res/drawable/widget_day_$n.xml").readText()
+            assertTrue(n, xml.contains("<ripple") && xml.contains("@color/widget_press"))
+        }
+        assertTrue(java.io.File("src/main/res/drawable/widget_day_pick.xml").readText().contains("@color/widget_todo_bg"))
+        val big = java.io.File("src/main/res/layout/week_widget.xml").readText()
+        for (id in listOf("week_sel", "week_sel_title", "week_sel_open", "week_sel_i0", "week_sel_i1", "week_sel_i2")) assertTrue(id, big.contains("@+id/$id\""))
+    }
+
+    @Test
     fun dayAddressAndMessage() {
         val d = LocalDate.of(2026, 11, 1)
         assertEquals("https://bokdoong.com/work/app/?view=calendar&day=2026-11-01", WidgetWeek.dayUrl(d))

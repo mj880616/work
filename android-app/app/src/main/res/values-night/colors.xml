@@ -22,4 +22,5 @@
     <color name="widget_btn_bg">#2A3340</color>
     <color name="widget_btn_ink">#C9D6E8</color>
     <color name="widget_day_busy">#2A2824</color>
+    <color name="widget_press">#408FB3D9</color>
 </resources>

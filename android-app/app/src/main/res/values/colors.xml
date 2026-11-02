@@ -23,4 +23,6 @@
     <color name="widget_btn_bg">#E7ECF2</color>
     <color name="widget_btn_ink">#23486D</color>
     <color name="widget_day_busy">#F3EEE6</color>
+    <!-- APP-위젯날짜고르기: 위젯 칸 누를 때 물결 색. -->
+    <color name="widget_press">#332F5E8E</color>
 </resources>
