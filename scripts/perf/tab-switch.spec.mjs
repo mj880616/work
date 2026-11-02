@@ -88,9 +88,9 @@ for (const [name, profile] of Object.entries(profiles)) {
       }, view, { timeout: 30000 }).catch(() => {});
       const t = await page.evaluate(v => ({ click: window.__perfSwitch.click, changed: window.__perfSwitch.changed[v], settled: window.__perfSwitch.now() }), view);
       const { files, kb, names } = meter.since(before);
-      // 어떤 파일이 클릭 뒤에 새로 받아졌는지(파일 이름만, 내용 없음). 요약표에는 들어가지 않고 run-baseline.sh가 회차 1 첫 측정만 보여 준다.
-      if (rep === 0) console.log('PERF_SWITCH_FILES ' + JSON.stringify({ round, profile: name, step: i + 1, view, names }));
       rows.push({ round, profile: name, step: i + 1, view, shownMs: Math.round(t.changed - t.click), settledMs: Math.round(t.settled - t.click), newJsFiles: files, newJsKB: kb });
+      // 어떤 파일이 클릭 뒤에 새로 받아졌는지(파일 이름만, 내용 없음)와 이 한 번의 시간. 요약표에는 들어가지 않고 run-baseline.sh가 회차 1 줄을 보여 준다.
+      console.log('PERF_SWITCH_FILES ' + JSON.stringify({ rep: rep + 1, profile: name, step: i + 1, view, shownMs: rows.at(-1).shownMs, settledMs: rows.at(-1).settledMs, names: rep === 0 ? names : undefined }));
       await page.waitForTimeout(profile.net ? 2500 : 800); // 다음 클릭 전에 늦게 오는 요청을 이 화면 몫으로 모은다
       const late = meter.since(before);
       rows.at(-1).newJsFilesIdle = late.files;

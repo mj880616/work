@@ -25,6 +25,8 @@ for round in $(seq 1 "$ROUNDS"); do
 done
 # 화면 바꾸기 때 클릭 뒤 새로 받은 JS 파일 이름(회차 1, 첫 측정). 회귀 원인 찾기용.
 grep -h '^PERF_SWITCH_FILES ' "$OUT/switch-1.log" || true
+# 화면 바꾸기 시험이 끝난 모양(통과·실패 줄, 오류 첫 줄). 표에 화면 바꾸기 칸이 빠졌을 때 까닭을 본다.
+grep -hE '(passed|failed|flaky|Error|Timeout)' "$OUT/switch-1.log" | head -n 12 || true
 node scripts/perf/summarize.mjs "$OUT/perf.jsonl" > "$OUT/summary.md"
 cat "$OUT/summary.md"
 exit 0
