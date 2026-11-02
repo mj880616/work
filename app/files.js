@@ -319,7 +319,6 @@ async function openPreview(r) {
     p.status = 'fail'; p.err = codeOf(e);
   }
   paintPreview();
-  if (p.doc && state.preview === p) drawPages(p, PDF_FIRST_PAGES);
 }
 let pdfFlight = null;
 function pdfjs() {
@@ -329,24 +328,34 @@ function pdfjs() {
   }).catch(err => { pdfFlight = null; throw err; });
   return pdfFlight;
 }
+// PDF 쪽 그리기. 한 번에 하나만 돈다(p.drawing). 그리는 칸(data-fx-pages)이 다시 만들어지면 처음 쪽부터 그 칸에 다시 그린다.
 async function drawPages(p, upto) {
-  const host = $('[data-fx-pages]');
-  if (!host || !p.doc) return;
-  const width = Math.max(200, host.clientWidth || 300);
-  for (let n = p.shown + 1; n <= Math.min(upto, p.pages); n++) {
-    const page = await p.doc.getPage(n);
-    if (state.preview !== p) return;
-    const base = page.getViewport({scale: 1}), scale = width / base.width, ratio = Math.min(2, window.devicePixelRatio || 1);
-    const vp = page.getViewport({scale: scale * ratio});
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
-    canvas.style.width = '100%'; canvas.className = 'fx-page'; canvas.setAttribute('aria-label', `${n}쪽`);
-    host.append(canvas);
-    await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
-    p.shown = n;
-  }
+  if (!p.doc || p.drawing) { if (p.doc) p.want = Math.max(p.want || 0, upto); return; }
+  p.drawing = true;
+  try {
+    for (;;) {
+      const host = $('[data-fx-pages]');
+      if (!host || state.preview !== p) return;
+      if (host !== p.host) { p.host = host; p.shown = 0; host.replaceChildren(); }
+      const goal = Math.min(Math.max(upto, p.want || 0), p.pages);
+      if (p.shown >= goal) break;
+      const n = p.shown + 1, page = await p.doc.getPage(n);
+      if (state.preview !== p || p.host !== $('[data-fx-pages]')) continue;
+      const width = Math.max(200, host.clientWidth || 300);
+      const base = page.getViewport({scale: 1}), ratio = Math.min(2, window.devicePixelRatio || 1);
+      const vp = page.getViewport({scale: (width / base.width) * ratio});
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
+      canvas.style.width = '100%'; canvas.className = 'fx-page'; canvas.setAttribute('aria-label', `${n}쪽`);
+      await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+      if (state.preview !== p || p.host !== host) continue;
+      host.append(canvas);
+      p.shown = n;
+    }
+  } catch { /* 그리기 실패는 그 쪽까지만 보인다 */ }
+  finally { p.drawing = false; }
   const more = $('[data-fx-more-pages]');
-  if (more) { more.hidden = p.shown >= p.pages; more.textContent = `다음 쪽 (${p.shown}/${p.pages})`; }
+  if (more && state.preview === p) { more.hidden = p.shown >= p.pages; more.textContent = `다음 쪽 (${p.shown}/${p.pages})`; }
 }
 function openLayer() {
   root.dataset.fxPreview = 'open';
@@ -366,8 +375,8 @@ function paintPreview() {
   else if (p.status === 'fail') view = `<p class="fx-pv-note">${esc(errorText(p.err))}</p>`;
   else if (p.kind === 'text') view = `<pre class="fx-pv-text">${esc(p.text)}</pre>`;
   else if (p.kind === 'pdf' || p.kind === 'office') view = `<div class="fx-pages" data-fx-pages></div><button type="button" class="fx-btn" data-fx-more-pages hidden></button>`;
-  const keepPages = p.doc && box.querySelector('[data-fx-pages]')?.childElementCount && box.dataset.fxKey === p.key;
-  if (keepPages) return;
+  // 그리고 있는 PDF 칸은 그대로 둔다(다시 그리면 쪽을 처음부터 다시 그려야 함).
+  if (p.doc && p.host && p.host.isConnected && box.contains(p.host) && box.dataset.fxKey === p.key) return;
   box.dataset.fxKey = p.key;
   box.innerHTML = `<div class="fx-pv-head"><button type="button" class="fx-back" data-fx-close aria-label="미리보기 닫기">‹</button><span class="fx-pv-nm">${esc(r.name)}</span></div>`
     + `<div class="fx-pv-view">${view}</div>`
@@ -375,6 +384,7 @@ function paintPreview() {
     + `<div class="fx-pv-acts"><button type="button" class="fx-btn" data-fx-open>열기</button><button type="button" class="fx-btn" data-fx-down>받기</button>`
     + (canShare() ? '<button type="button" class="fx-btn fx-share" data-fx-share>공유</button>' : '')
     + (r.library_doc_id ? `<button type="button" class="fx-btn" data-fx-library="${esc(r.library_doc_id)}">자료실에서 보기</button>` : '') + '</div>';
+  if (p.doc) { p.host = null; drawPages(p, Math.max(PDF_FIRST_PAGES, p.want || 0)); }
   // 사진: 공용 그림 칸(img-slot.js) — 받는 중 회색, 못 받으면 ↻(그 사진만 다시 받기).
   const imgBox = box.querySelector('[data-fx-img]');
   if (imgBox) {
