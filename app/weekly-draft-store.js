@@ -9,7 +9,7 @@
 
 import {readIssued, newerIssued} from './weekly-lines.mjs';
 import {readExtras, mergeExtras, EXTRA_KEYS, readProposed, FEEDBACK_LINE_CHARS} from './weekly-feedback.mjs';
-import {withPick, pickKey, PICK_KIND, ANSWER_ACTS, LINE_ACTS} from './weekly-picks.mjs';
+import {withPick, pickKey, readPicks, PICK_KIND, ANSWER_ACTS, LINE_ACTS} from './weekly-picks.mjs';
 import {cleanTitleEdit, titleFields, readHq, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {readDiscuss} from './weekly-discuss.mjs';
 import {readHand} from './weekly-hand.mjs';
@@ -244,6 +244,28 @@ export function withLinePick(draft, {cell, act, text = '', before = '', kind = '
   const keyText = act === 'fix' || act === 'edit' ? before : text;
   const pick = {kind, from:answer ? from : act === 'add' ? 'hand' : '', cell, org:'', text:act === 'none' ? '' : text, ...((act === 'fix' || act === 'edit') && before ? {before} : {}), key:pickKey({kind, cell, text:keyText})};
   return putExtras(out, {...extras, picks:withPick(extras.picks ?? null, pick, act, at)});
+}
+// WEEKLY-환류전칸(S48-35): 2) 세부 내용 — 원래 기록(회의·사업 보고)에서 끌어온 줄은 시스템이 낸 '제안'이라 답(take·edit·drop)으로 남긴다.
+//   item: weekly 모델의 세부 줄 {text, ref, original?, edited?, hand?}. 열쇠 글은 늘 원래 기록 글(고친 줄이면 original)이라
+//   한 줄의 고침·뺌·그대로 넣음이 한 열쇠에 모인다. 손으로 더한 줄(hand)은 보고서 줄 동작 그대로라 여기서 다루지 않는다.
+//   act: 'take' | 'edit'(text = 고친 글) | 'drop' | 'none'(되돌림). 반환은 withLinePick 에 cell 'details' 와 함께 넘길 동작.
+export const DETAIL_PICK = Object.freeze({kind:'material', from:'record'});
+export function detailPick(act, item, text = '') {
+  const original = String(item?.original ?? item?.text ?? '');
+  return act === 'edit' ? {...DETAIL_PICK, act, text, before:original} : {...DETAIL_PICK, act, text:original};
+}
+// [확정하고 한글 파일 받기] 때: 고치지도 빼지도 않고 남은 원래 기록 줄을 '그대로 넣음'(take)으로 남긴다 — 칸별 '그대로 쓴 비율'의 분자.
+//   이미 그 열쇠에 답(edit·drop·take)이 있으면 그대로 둔다(되돌림 'none' 은 덮어씀). items: 세부 줄 목록(뺀 줄은 이미 빠져 있음).
+export function withDetailTakes(picks, items, at = new Date().toISOString()) {
+  const have = new Map((readPicks(picks)?.items ?? []).map(x => [x.key, x.act]));
+  let out = picks ?? null;
+  for (const it of Array.isArray(items) ? items : []) {
+    if (!it?.ref || it.hand || it.edited || !lineText(it.text)) continue;
+    const p = detailPick('take', it), key = pickKey({kind:p.kind, cell:'details', text:p.text}), was = have.get(key);
+    if (was && was !== 'none') continue;
+    out = withPick(out, {...p, cell:'details', org:'', key}, 'take', at); have.set(key, 'take');
+  }
+  return out;
 }
 export function withSiteLayout(draft, layout) { const out = draft ? {...draft} : emptyDraft(); putSiteLayout(out, layout); return out; }
 // 일정 하나의 칸별 고침을 바꾼다(fields가 null이면 지움 = 바탕 그대로).

@@ -119,8 +119,9 @@ export const keptOf = picks => new Set((readPicks(picks)?.items ?? []).filter(x 
 // ---- 칸별 '그대로 쓴 비율'(WEEKLY-환류전칸 3) ----
 // 서버 weekly-learn.ts actionDigest 와 같은 묶음·같은 셈: 묶음마다 넣음 / (넣음 + 고쳐서 넣음 + 뺌). 규칙 후보·개선 제안·기타는 칸이 아니라 뺀다.
 // 반환 [{group, percent(0~100 | null), answered(답한 제안 수)}] — 보고서 칸 순서(1→5, 참고).
-export const PICK_GROUPS = Object.freeze(['1. 요청사항', '2. 사업 요약', '3. 투쟁 사업장', '4. 산하 조직', '5. 주요 일정', '참고']);
-export const pickGroup = ({cell = ''}) => cell.startsWith('summary:') ? '2. 사업 요약' : cell.startsWith('orgs:') || cell.startsWith('orgref:') ? '4. 산하 조직' : cell.startsWith('sites:') ? '3. 투쟁 사업장'
+export const PICK_GROUPS = Object.freeze(['1. 요청사항', '2. 사업 요약', '2. 세부 내용', '3. 투쟁 사업장', '4. 산하 조직', '5. 주요 일정', '참고']);
+// 'details' = 2) 세부 내용 — 회의·활동 결과 줄(WEEKLY-환류전칸 S48-35, 서버 weekly-learn.ts groupOf 와 같은 이름).
+export const pickGroup = ({cell = ''}) => cell.startsWith('summary:') ? '2. 사업 요약' : cell === 'details' ? '2. 세부 내용' : cell.startsWith('orgs:') || cell.startsWith('orgref:') ? '4. 산하 조직' : cell.startsWith('sites:') ? '3. 투쟁 사업장'
   : cell.startsWith('requests:') ? '1. 요청사항' : cell === 'calendar' ? '5. 주요 일정' : cell === 'notes' || cell.startsWith('notes:') ? '참고' : cell === '규칙 후보' ? '새 규칙 후보' : cell === '개선 제안' ? '개선 제안' : '기타';
 export function cellKeptRates(picks) {
   const by = new Map();

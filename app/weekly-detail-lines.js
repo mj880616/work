@@ -6,7 +6,7 @@
 //   동작 기록(picks, 칸 'details')을 같은 쓰기에. 원래 기록(회의·사업 보고)은 바꾸지 않는다(데이터 보존). 뺀 줄은 목록으로 남기지 않고
 //   뺀 직후 작은 [되돌리기]만(명진 11/01 01:16 '다 보여주지마').
 // 자리 하나의 그리기 주인은 이 모듈 하나(journal.js 는 자리만 찾아 부른다). 브라우저 저장소에 아무것도 두지 않는다. 글은 로그에 쓰지 않는다.
-import {changeWeekDocs, draftHand, withHand, withLinePick} from './weekly-draft-store.js';
+import {changeWeekDocs, draftHand, withHand, withLinePick, detailPick} from './weekly-draft-store.js';
 import {withHandRow, withoutHandRow, withDetailEdit, detailEdits, handMax, HAND_NOTE_MAX, HAND_TAG} from './weekly-hand.mjs';
 import {validKindKey} from './journal-meeting-kinds.js';
 import {shortDay} from './task-due.mjs';
@@ -91,15 +91,15 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
     if (d.journalDetailCancel !== undefined) { cancel(); return; }
     if (d.journalDetailSave !== undefined) { void saveEdit(); return; }
     if (d.journalDetailFix) { const it = find(d.journalDetailFix); if (!it) return; set({...fresh(start), editing:d.journalDetailFix, value:it.text, focus:'[data-journal-detail-input]'}); redraw(); return; }
-    if (d.journalDetailReset) { const it = find(d.journalDetailReset); if (!it?.ref) return; void save(h => withDetailEdit(h, it.ref, null), {act:'fix', text:it.original, before:it.text}, '원래대로 했어요.'); return; }
+    if (d.journalDetailReset) { const it = find(d.journalDetailReset); if (!it?.ref) return; void save(h => withDetailEdit(h, it.ref, null), detailPick('none', it), '원래대로 했어요.'); return; }
     if (d.journalDetailDrop) {
       const it = find(d.journalDetailDrop); if (!it) return;
       if (it.hand) { void save(h => withoutHandRow(h, 'details', it.hand), {act:'cut', text:it.text}, '줄을 지웠어요.'); return; }
       const prev = detailEdits(draftHand(mt.row?.draft)).get(it.ref) ?? null;
-      void save(h => withDetailEdit(h, it.ref, {drop:true}), {act:'cut', text:it.text}, '줄을 뺐어요.', {undo:{ref:it.ref, prev, text:it.text}});
+      void save(h => withDetailEdit(h, it.ref, {drop:true}), detailPick('drop', it), '줄을 뺐어요.', {undo:{ref:it.ref, prev, item:it}});
       return;
     }
-    if (d.journalDetailUndo !== undefined) { const u = ui.undo; if (!u) return; void save(h => withDetailEdit(h, u.ref, u.prev), {act:'none', text:u.text}, '되돌렸어요.'); }
+    if (d.journalDetailUndo !== undefined) { const u = ui.undo; if (!u) return; void save(h => withDetailEdit(h, u.ref, u.prev), (u.prev?.text ? detailPick('edit', u.item, u.prev.text) : detailPick('none', u.item)), '되돌렸어요.'); }
   }
   async function saveEdit() {
     if (!ui.editing || ui.saving) return;
@@ -109,9 +109,12 @@ export function paintDetailLines(slot, {model, start, rt = window.KPTURuntime, o
     if (k === 'new') { await save(h => withHandRow(h, 'details', {text}), {act:'add', text}, '줄을 더했어요.'); return; }
     const it = items.find(i => keyOf(i) === k); if (!it) return;
     if (it.hand) { await save(h => withHandRow(h, 'details', {id:it.hand, text}), {act:'fix', text, before:it.text}, '고쳤어요.'); return; }
-    // 원래 글과 같게 고치면 고침을 지운다(원래대로).
-    await save(h => withDetailEdit(h, it.ref, text === (it.original ?? it.text) && it.edited ? null : {text}), {act:'fix', text, before:it.text}, '고쳤어요.');
+    // 원래 글과 같게 고치면 고침을 지운다(원래대로 — 동작 기록도 '고쳐서 넣음'을 지운 표시).
+    const back = text === (it.original ?? it.text);
+    await save(h => withDetailEdit(h, it.ref, back && it.edited ? null : {text}), back ? detailPick('none', it) : detailPick('edit', it, text), '고쳤어요.');
   }
+  // WEEKLY-환류전칸(S48-35): 원래 기록에서 끌어온 줄은 '제안'이다 — 고치기 = 고쳐서 넣음(edit), 빼기 = 뺌(drop), 되돌리기·원래대로 = 지운 표시(none).
+  // 열쇠는 늘 원래 기록 글(detailPick)이라 같은 줄의 고침·뺌·확정 때 그대로 넣음(take, journal-hwpx.js)이 한 열쇠로 모인다. 손으로 더한 줄은 보고서 줄 동작(add·fix·cut) 그대로.
   // change(hand) → {hand} | null(넘침·모양 밖). pick: 같은 쓰기에 실을 동작 기록 {act, text, before?}.
   async function save(change, pick, done, {undo = null} = {}) {
     if (ui.saving) return;
