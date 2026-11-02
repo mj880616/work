@@ -14,7 +14,7 @@
 //   지우기   → one confirmation, then KPTUGoogleTasks.deleteTask.
 // State stays with each screen: the screen passes find(id, el) to read its own task and optional hooks to draw its own change
 // (apply / saved / removed); this module keeps only which tasks are being saved now (in memory) and nothing in browser storage.
-import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {placeAnchored, followAnchor} from './anchored-popup.js';
@@ -156,7 +156,9 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
   async function remove(id, el = null) {
     const task = look(id, el), api = tasksApi() || missing();
     if (!task || !api?.deleteTask || busy.has(id)) return;
-    if (!window.confirm('이 Google 할 일을 삭제할까요?')) return;
+    const asker = ownerNow();
+    if (!(await askConfirm(el?.isConnected ? el : document.activeElement, {text: '이 Google 할 일을 삭제할까요?', ok: '삭제', danger: true}))) return;
+    if (busy.has(id) || asker !== ownerNow()) return;
     const owner = ownerNow();
     start(id);
     let result;

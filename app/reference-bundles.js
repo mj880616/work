@@ -95,8 +95,8 @@ function paintDetail(){
 }
 
 // ---------- actions
-function select(id,{focus=true}={}){
-  if(state.mode||state.order){if(!confirmDrop())return;}
+async function select(id,{focus=true,anchor=document.activeElement}={}){
+  if(state.mode||state.order){if(!(await confirmDrop(anchor)))return;}
   state.selected=id;state.detailStatus='';
   if(!pc.matches&&id)layer||=window.KPTURouter?.layer?.open('reference-bundle',{reopen:()=>select(id),close:()=>{layer=null;closeDetail({fromBack:true});return true;}})||null;
   paint();
@@ -107,7 +107,8 @@ function closeDetail({fromBack=false}={}){
   const l=layer;layer=null;if(!fromBack)l?.close();
   paint();$(`#rbList [data-rb-bundle="${CSS.escape(id||'')}"]`)?.focus({preventScroll:true});
 }
-function confirmDrop(){const changed=state.order||(state.mode&&state.draft.trim());if(changed&&!window.confirm('바꾸던 내용을 버릴까요?'))return false;state.mode='';state.draft='';state.order=null;return true;}
+// S48-28: 바꾸던 이름·순서를 버릴지는 공용 작은 확인창으로 묻는다(누른 묶음 근처).
+async function confirmDrop(anchor){const changed=state.order||(state.mode&&state.draft.trim());if(changed&&!(await askConfirm(anchor,{text:'바꾸던 내용을 버릴까요?',ok:'버리기',danger:true})))return false;state.mode='';state.draft='';state.order=null;return true;}
 const say=(text,detail=false)=>{if(detail)state.detailStatus=text;else state.status=text;const el=$(detail?'#rbDetail [data-rb-detail-status]':'#rbList [data-rb-status]');if(el)el.textContent=text;};
 
 async function guarded(fn){
@@ -201,7 +202,7 @@ function bind(){
   root.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b||b.disabled||!root.contains(b))return;
     const d=b.dataset;
-    if(d.rbBundle)select(d.rbBundle);
+    if(d.rbBundle)void select(d.rbBundle);
     else if(b.hasAttribute('data-rb-back'))closeDetail();
     else if(b.hasAttribute('data-rb-retry'))void load();
     else if(b.hasAttribute('data-rb-list-more')||b.hasAttribute('data-rb-detail-more')||d.rbItemMore)menu.open(b);

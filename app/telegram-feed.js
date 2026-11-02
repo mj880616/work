@@ -19,6 +19,7 @@ import {summaryCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {copyText} from './copy-text.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
+import {askConfirm} from './small-notice.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
@@ -544,7 +545,7 @@ function saveSelf(id, self) {
 // ---------- actions
 // 방 상세 열기. item: 열자마자 원문을 펼칠 소식. 폰은 router layer 한 칸(뒤로가기 = 목록).
 function select(room, day, item = '') {
-  if (state.link && !dropLink()) return;
+  if (state.link && !dropLink(() => select(room, day, item))) return;
   if (state.sedit?.kind === 'raw') endEdit();
   state.rsel = ''; state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); state.more = new Set(); undo = null; markSeen(room, day);
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-day', {reopen:() => select(room, day), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
@@ -560,7 +561,7 @@ function closeDetail({fromBack = false, quiet = false} = {}) {
 // TG-방별보기: 방 상세(방별) 열기. 폰은 router layer 한 칸(뒤로가기 = 방 목록). 주소에 방을 남겨 새로고침해도 그 방이 열린다.
 function openRoom(room) {
   if (!room) return;
-  if (state.link && !dropLink()) return;
+  if (state.link && !dropLink(() => openRoom(room))) return;
   if (state.sedit?.kind === 'raw') endEdit();
   state.sel = null; state.rsel = room; state.rshown = ROOM_DAY_PAGE; state.rstop = false; state.status = ''; state.note = ''; state.open = new Set(); state.more = new Set(); undo = null;
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-room', {reopen:() => openRoom(room), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
@@ -571,7 +572,7 @@ function openRoom(room) {
 // [날짜별 | 방별] 바꾸기: 열린 상세는 닫고, 고른 보기는 서버 화면 기억에 남긴다(DB 적용 전에는 거절되어 이번 접속만 기억).
 function setBy(by) {
   if (byNow() === by || state.busy) return;
-  if (state.link && !dropLink()) return;
+  if (state.link && !dropLink(() => setBy(by))) return;
   if (state.sel || state.rsel) closeDetail({quiet:true});
   state.by = by; state.swipe = null; state.fedit = null; state.status = '';
   viewPrefs.set('tg_view', by, {rejectable:true}); void viewPrefs.flush?.();
@@ -581,7 +582,7 @@ function setBy(by) {
 // ‹ ›: 그 방의 앞뒤 날. 더 오래된 날이 아직 안 읽혔으면 이전 창을 읽어 가며 찾는다(한계 120일).
 async function navDay(dir) {
   const sel = state.sel; if (!sel || state.busy) return;
-  if (state.link && !dropLink()) return;
+  if (state.link && !dropLink(() => void navDay(dir))) return;
   let nb = neighborDays(state.lines, sel.room, sel.day);
   if (dir === 'prev' && !nb.prev) {
     state.busy = true; state.status = TG_WAIT; paintDetail();
@@ -596,7 +597,8 @@ async function navDay(dir) {
   state.sel = {room:sel.room, day}; state.open = new Set(); state.more = new Set(); state.link = null; state.note = ''; state.status = ''; markSeen(sel.room, day);
   paint(); void ensureDetail();
 }
-function dropLink() { const r = itemOf(state.link?.rowId), changed = state.link && r && state.link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed && !window.confirm('쓰던 요약을 버릴까요?')) return false; state.link = null; return true; }
+// 쓰던 요약이 있으면 작은 확인창으로 묻는다. 화면을 멈추지 않으므로 일단 false(닫지 않음)를 돌려주고, [버리기]면 버린 뒤 again()으로 같은 동작을 다시 한다.
+function dropLink(again) { const link = state.link, r = itemOf(link?.rowId), changed = link && r && link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed) { void askConfirm(document.activeElement, {text:'쓰던 요약을 버릴까요?', ok:'버리기', danger:true}).then(ok => { if (!ok || state.link !== link) return; state.link = null; if (again) again(); else paintDetail(); }); return false; } state.link = null; return true; }
 const replaceRow = saved => {
   for (const d of state.dcache.values()) if (d.items) d.items = d.items.map(r => r.id === saved.id ? {...r, ...saved} : r);
   state.pins = state.pins.map(r => r.id === saved.id ? {...r, ...saved} : r);
@@ -743,7 +745,7 @@ function saveFolder() {
 }
 // 휴지통·보낸 사람 이름 보기 (폰 뒤로가기는 소식 목록으로: router layer 한 칸).
 function enterShelf(mode) {
-  if (state.link && !dropLink()) return;
+  if (state.link && !dropLink(() => enterShelf(mode))) return;
   if (state.sel) closeDetail({quiet:true});
   state.mode = mode; state.status = ''; state.sedit = null; state.sman = null;
   shelfLayer ||= window.KPTURouter?.layer?.open('telegram-shelf', {close:() => { shelfLayer = null; state.mode = 'live'; state.sedit = null; state.sman = null; paint(); return true; }}) || null;
@@ -779,7 +781,7 @@ async function openByCopy() {
 // ---------- TG-요약고치기: 열기 · 저장 · AI 원래 요약으로. 저장은 서버(app_feed_summary_edit)뿐이고 이 기기에만 남기는 저장은 없다.
 function startSumEdit(kind, target) {
   if (!editsOn() || state.busy || state.se?.busy) return;
-  if (state.link && !dropLink()) return;
+  if (state.link && !dropLink(() => startSumEdit(kind, target))) return;
   if (kind === 'item') {
     const r = target; if (!r?.id) return;
     state.se = {kind, id:r.id, value:sumOf(r), edited:isItemEdited(r, state.edits), status:''};
@@ -985,7 +987,7 @@ function bind() {
     else if (b.hasAttribute('data-tg-older')) { b.disabled = true; void extend().then(() => { paintList(); if (state.rsel) paintDetail(); }).catch(() => { state.status = '이전 날을 불러오지 못했어요.'; paintList(); }); }
     else if (b.hasAttribute('data-tg-shelf-back')) { leaveShelf(); paint(); }
     else if (d.tgRtMore) { const k = d.tgRtMore; if (state.more.has(k)) state.more.delete(k); else state.more.add(k); paintDetail(); $(`#tgDetail [data-tg-rt-more="${CSS.escape(k)}"]`)?.focus({preventScroll:true}); }
-    else if (d.tgOpen) { const id = d.tgOpen; if (state.open.has(id)) { state.open.delete(id); if (state.link?.rowId === id && !dropLink()) { state.open.add(id); return; } if (state.sedit?.rowId === id) endEdit(); } else { state.open.add(id); void loadRaw(id); } paintDetail(); }
+    else if (d.tgOpen) { const id = d.tgOpen; if (state.open.has(id)) { state.open.delete(id); if (state.link?.rowId === id && !dropLink(() => { if (!state.open.delete(id)) return; if (state.sedit?.rowId === id) endEdit(); paintDetail(); })) { state.open.add(id); return; } if (state.sedit?.rowId === id) endEdit(); } else { state.open.add(id); void loadRaw(id); } paintDetail(); }
     else if (d.tgMore) menu.open(b);
     else if (b.hasAttribute('data-tg-head-more')) menu.open(b);
     else if (d.tgPersonMore) pmenu.open(b);
@@ -1001,7 +1003,7 @@ function bind() {
     else if (b.hasAttribute('data-tg-se-save')) void saveSumEdit();
     else if (b.hasAttribute('data-tg-se-orig')) void resetSumEdit();
     else if (b.hasAttribute('data-tg-opencopy')) void openByCopy();
-    else if (b.hasAttribute('data-tg-back')) { if (!state.link || dropLink()) closeDetail(); }
+    else if (b.hasAttribute('data-tg-back')) { if (!state.link || dropLink(() => closeDetail())) closeDetail(); }
     else if (b.hasAttribute('data-tg-retry')) void load();
     else if (b.hasAttribute('data-tg-undo')) void restore();
     else if (b.hasAttribute('data-tg-link-pick')) { const box = state.link; if (box) void openOrgPicker(b, {orgs:state.orgs, mine:state.mine, selected:box.orgId, onPick:id => { box.orgId = id; paintDetail(); $('#tgDetail [data-tg-link-pick]')?.focus({preventScroll:true}); }}); }

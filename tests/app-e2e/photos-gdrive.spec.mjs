@@ -21,7 +21,7 @@ const GD = [
   { id: 'G3', folder: 'GF1', name: 'IMG_3.jpg', day: '2026-10-27', taken_at: '2026-10-27T03:00:00+00:00', size_bytes: 30 },
 ].map(m => ({ ...m, video: false, approx: false }));
 
-async function fixture(page, { features = ['calls', 'gdrive_photos'], status = { ok: true, scope: true, folders_on: 0, synced_at: null }, statusCode = 200, prefs = null } = {}) {
+async function fixture(page, { features = ['calls', 'gdrive_photos'], status = { ok: true, scope: true, folders_on: 0, synced_at: null }, statusCode = 200, prefs = null, counts = true, od = true } = {}) {
   const state = { errors: [], gd: [], od: [], folders: { root: [{ id: 'GF1', name: '카메라 백업', enabled: false }, { id: 'GF2', name: '업무', enabled: false }], GF1: [{ id: 'GF11', name: '2026', enabled: false }] }, photos: GD.slice() };
   page.on('pageerror', e => state.errors.push(e.message));
   await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
@@ -35,7 +35,7 @@ async function fixture(page, { features = ['calls', 'gdrive_photos'], status = {
     await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', async r => {
       const body = r.request().postDataJSON();
       state.od.push(body.action);
-      if (body.action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true, whole: true } });
+      if (body.action === 'status') return r.fulfill({ json: od ? { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true, whole: true } : { configured: true, connected: false } });
       if (body.action === 'sync') return r.fulfill({ json: { more: false, indexing: false, changed: 0 } });
       if (body.action === 'photo-urls') return r.fulfill({ json: { urls: Object.fromEntries(body.ids.map(id => [id, `${CDN}/${body.size}/${id}.png`])), failed: {} } });
       if (body.action === 'library') return r.fulfill({ json: { items: body.folder_id ? [] : OD, next_cursor: null, indexing: false } });
@@ -51,7 +51,11 @@ async function fixture(page, { features = ['calls', 'gdrive_photos'], status = {
       if (body.action === 'sync') return r.fulfill({ json: { ok: true, photos: 0, partial: 0 } });
       if (body.action === 'folders') {
         const parent = body.parent || 'root';
-        return r.fulfill({ json: { ok: true, parent, name: parent === 'root' ? '' : '카메라 백업', up: null, folders: state.folders[parent] || [], complete: true } });
+        // 서버 새 판: 켠 폴더는 색인 장수(count), 끈 폴더 null, total = 켠 폴더 전체. counts:false = 옛 서버(장수 없음).
+        const n = id => state.photos.filter(p => p.folder === id).length;
+        const folders = (state.folders[parent] || []).map(f => (counts ? { ...f, count: f.enabled ? n(f.id) : null } : { ...f }));
+        const total = [...on()].reduce((a, id) => a + n(id), 0);
+        return r.fulfill({ json: { ok: true, parent, name: parent === 'root' ? '' : '카메라 백업', up: null, folders, complete: true, ...(counts ? { total } : {}) } });
       }
       if (body.action === 'folder-toggle') {
         for (const f of Object.values(state.folders).flat()) if (f.id === body.id) f.enabled = body.enabled;
@@ -118,20 +122,26 @@ test.describe('PC 1440', () => {
     await gdBtn(page).click();
     await expect(gdBtn(page)).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => server.patches.at(-1)?.photo_sources?.gdrive).toBe(true);
-    // [폴더]: '구글 드라이브' 묶음, 맨 위 층 폴더(처음엔 꺼짐) → 스위치 켜기.
+    // [폴더]: 원드라이브와 같은 나무 — 맨 위 줄 '구글 드라이브 n', 맨 위 층 폴더(처음엔 꺼짐, 장수 '—') → 스위치 켜기.
     await page.locator('#photosRoot [data-photos-tab="folders"]').click();
     const bodyEl = page.locator('#photosRoot [data-photos-body]');
-    await expect(bodyEl.locator('[data-photos-fx-group="gdrive"]')).toHaveText('구글 드라이브');
-    await expect(bodyEl.locator('[data-photos-gf-open]')).toHaveText(['📁카메라 백업', '📁업무']);
+    await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-name')).toHaveText('구글 드라이브');
+    await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-num')).toHaveText('0');
+    await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .nx-name')).toHaveText(['업무', '카메라 백업']); // 원드라이브와 같은 가나다순
+    await expect(bodyEl.locator('[data-photos-gf]:not([data-photos-gf="root"]) .nx-num')).toHaveText(['—', '—']);
     const sw = bodyEl.locator('[data-photos-gf-sw="GF1"]');
     await expect(sw).toHaveAttribute('aria-checked', 'false');
     await sw.click();
     await expect(bodyEl.locator('[data-photos-gf-sw="GF1"]')).toHaveAttribute('aria-checked', 'true');
     expect(state.gd.find(b => b.action === 'folder-toggle')).toEqual({ action: 'folder-toggle', id: 'GF1', enabled: true });
-    // 폴더 안으로: 하위 폴더 줄과 그 폴더 사진.
+    await expect(bodyEl.locator('[data-photos-gf="GF1"] .nx-num')).toHaveText('3');
+    await expect(bodyEl.locator('[data-photos-gf-open="root"] .nx-num')).toHaveText('3');
+    // 폴더를 누르면 나무는 그대로, 오른쪽 칸에 위치 줄·장수·그 폴더 사진, 나무에서 하위 폴더가 펼쳐짐.
     await bodyEl.locator('[data-photos-gf-open="GF1"]').click();
-    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업');
-    await expect(bodyEl.locator('[data-photos-gf-open="GF11"]')).toBeVisible();
+    await expect(bodyEl.locator('[data-photos-fx-tree] [data-photos-gf="GF1"]')).toHaveClass(/nx-current/);
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toContainText('구글 드라이브');
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업 · 3장');
+    await expect(bodyEl.locator('[data-photos-fx-tree] [data-photos-gf-open="GF11"]')).toBeVisible();
     await expect.poll(() => bodyEl.locator('[data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId))).toEqual(['gd:G1', 'gd:G2', 'gd:G3']);
     // [사진]: 찍은 날 순서로 섞이고 G2(원드라이브 O1과 같은 사진)는 빠짐, 출처 표시.
     await page.locator('#photosRoot [data-photos-tab="all"]').click();
@@ -155,6 +165,53 @@ test.describe('PC 1440', () => {
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'gd:G3', 'O3']);
     expect(state.errors).toEqual([]);
   });
+  test('구글 드라이브만: 원드라이브와 같은 나무 — ▸ 펼침(한 층씩 읽음)·장수·꺼진 폴더 흐림·오른쪽 칸(위치 줄·보임 여부·빈 폴더 안내)', async ({ page }) => {
+    const { state } = await fixture(page, { od: false, prefs: { photo_sources: { onedrive: false, gdrive: true, phone: false } } });
+    state.folders.GF1[0].enabled = true; // 2026 폴더는 켜져 있고 사진이 없다
+    await openPhotos(page, 1440);
+    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    const bodyEl = page.locator('#photosRoot [data-photos-body]');
+    const tree = bodyEl.locator('[data-photos-fx-tree]');
+    // 처음엔 맨 위를 고른 채: 오른쪽 칸 '구글 드라이브 · n장'.
+    await expect(tree.locator('[data-photos-gf="root"]')).toHaveClass(/nx-current/);
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toHaveText('구글 드라이브 · 0장');
+    await expect(tree.locator('[data-photos-gf="GF1"]')).toHaveClass(/is-off/);
+    await expect(tree.locator('[data-photos-gf="GF1"] .nx-num')).toHaveClass(/is-zero/);
+    expect(state.gd.filter(b => b.action === 'folders').map(b => b.parent)).toEqual(['root']);
+    // ▸ 펼치기 = 그 층만 읽고 들여쓴 하위 폴더(장수 0, 흐림). 다시 누르면 접힘.
+    await tree.locator('[data-photos-gf-tog="GF1"]').click();
+    await expect(tree.locator('[data-photos-gf="GF11"]')).toBeVisible();
+    await expect(tree.locator('[data-photos-gf="GF11"]')).toHaveAttribute('style', /--nx-indent:2/);
+    await expect(tree.locator('[data-photos-gf="GF11"] .nx-num')).toHaveText('0');
+    await expect(tree.locator('[data-photos-gf="GF1"]')).toHaveAttribute('aria-expanded', 'true');
+    expect(state.gd.filter(b => b.action === 'folders').map(b => b.parent)).toEqual(['root', 'GF1']);
+    // 하위 폴더(켜짐, 사진 없음) → '이 폴더에 바로 든 사진이 없어요.'
+    await tree.locator('[data-photos-gf-open="GF11"]').click();
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toHaveText(/사진›구글 드라이브›카메라 백업›2026/);
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('2026 · 0장');
+    await expect(bodyEl.locator('[data-photos-fx-foot]')).toHaveText('이 폴더에 바로 든 사진이 없어요.');
+    // 꺼진 폴더 → '사진에 안 보임', 사진 칸 없음(색인이 없어 부르지 않음).
+    await tree.locator('[data-photos-gf-open="GF2"]').click();
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('업무 · —장 · 사진에 안 보임');
+    await expect(bodyEl.locator('[data-photos-gd-folder] [data-photos-open]')).toHaveCount(0);
+    // 위치 줄 '구글 드라이브' = 맨 위 칸.
+    await tree.locator('[data-photos-gf-tog="GF1"]').click();
+    await expect(tree.locator('[data-photos-gf="GF11"]')).toHaveCount(0);
+    expect(state.errors).toEqual([]);
+  });
+
+  test('옛 서버(장수 없음): 폴더·맨 위 장수는 —, 장수를 따로 부르지 않음', async ({ page }) => {
+    const { state } = await fixture(page, { od: false, counts: false, prefs: { photo_sources: { onedrive: false, gdrive: true, phone: false } } });
+    state.folders.root[0].enabled = true;
+    await openPhotos(page, 1440);
+    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    const tree = page.locator('#photosRoot [data-photos-fx-tree]');
+    await expect(tree.locator('[data-photos-gf="GF1"] .nx-num')).toHaveText('—');
+    await expect(tree.locator('[data-photos-gf="root"] .nx-num')).toHaveText('—');
+    expect(state.gd.map(b => b.action).filter(a => !['status', 'folders', 'sync', 'list', 'thumb'].includes(a))).toEqual([]);
+    expect(state.errors).toEqual([]);
+  });
+
 });
 
 test.describe('폰 412', () => {
@@ -195,6 +252,28 @@ test.describe('폰 412', () => {
       await expect(gdBtn(page)).toBeVisible();
       await expectSmallDot(page);
     }
+    expect(state.errors).toEqual([]);
+  });
+  test('폰: 묶음 이름 ‘구글 드라이브 n’ + 폴더 줄(장수) → 들어가면 위치 줄·하위 폴더·사진, 뒤로가기 한 단계씩', async ({ page }) => {
+    const { state } = await fixture(page, { od: false, prefs: { photo_sources: { onedrive: false, gdrive: true, phone: false } } });
+    state.folders.root[0].enabled = true;
+    await openPhotos(page, 412);
+    await page.locator('#photosRoot [data-photos-tab="folders"]').click();
+    const bodyEl = page.locator('#photosRoot [data-photos-body]');
+    await expect(bodyEl.locator('[data-photos-fx-group="gdrive"]')).toHaveText('구글 드라이브 3');
+    await expect(bodyEl.locator('[data-photos-gf] .nx-num')).toHaveText(['—', '3']); // 업무(꺼짐) · 카메라 백업(켬), 가나다순
+    await bodyEl.locator('[data-photos-gf-open="GF1"]').click();
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-path')).toContainText('카메라 백업');
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업 · 3장');
+    await expect(bodyEl.locator('[data-photos-gf-open="GF11"]')).toBeVisible();
+    await expect.poll(() => bodyEl.locator('[data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId))).toEqual(['gd:G1', 'gd:G2', 'gd:G3']);
+    await bodyEl.locator('[data-photos-gf-open="GF11"]').click();
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('2026 · —장 · 사진에 안 보임');
+    await page.goBack();
+    await expect(bodyEl.locator('[data-photos-gd-folder] .photos-fx-here')).toContainText('카메라 백업');
+    await page.goBack();
+    await expect(bodyEl.locator('[data-photos-fx-group="gdrive"]')).toBeVisible();
+    await expect(page.locator('#photosView')).toBeVisible();
     expect(state.errors).toEqual([]);
   });
 });

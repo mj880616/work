@@ -2,7 +2,7 @@
 // ① notify(text,{undo,label}) — 화면 위쪽(맨 위 줄 바로 아래, 목록 위) 가운데 작은 알림 한 줄. 폰 하단바·손가락에 가리지 않는다.
 //    2초 뒤 저절로 사라지고, 알림 위에 마우스·손가락이 있거나 키보드 초점이 안에 있는 동안은 사라지지 않는다(오류는 5초).
 //    한 번에 하나만 보인다(새 알림이 앞 알림을 갈아 끼움). 되돌릴 수 있는 일이면 [되돌리기]를 같이 두고, 되돌리기 기록(③)에도 올린다.
-// ② askConfirm(anchor,{text,ok}) — 되돌릴 수 없는 일만 묻는 작은 확인창. 누른 자리 근처에 뜨고 하단바에 가리지 않는다. Promise<boolean>.
+// ② askConfirm(anchor,{text,ok}) — 되돌릴 수 없는 일만 묻는 작은 확인창. askText(anchor,{text,value})는 같은 틀의 한 줄 글 입력창(prompt 대신). 누른 자리 근처에 뜨고 하단바에 가리지 않는다. Promise<boolean>.
 //    Esc·바깥 누르기·폰 뒤로가기 = 취소. 브라우저 기본 confirm과 달리 화면을 멈추지 않는다.
 // ③ 되돌리기 기록(UNDO_LIMIT=10개) + PC Ctrl+Z(맥 ⌘Z). 가장 최근 것부터 하나씩 되돌리고 '되돌렸어요: 폴더 옮기기 3개'처럼 한 줄 알린다.
 //    글 쓰는 칸(input·textarea·select·contenteditable·노트 편집기 .ed-editor·[data-own-undo] 안)에서는 건드리지 않아 글자 되돌리기가 그대로다.
@@ -171,8 +171,13 @@ function askPanel(anchor,{doc,none,maxHeight=220,build}){
       if(done)return;done=true;ask=null;
       doc.removeEventListener('keydown',onKey,true);doc.removeEventListener('pointerdown',onOutside,true);globalThis.removeEventListener?.('popstate',onPop);
       clearAnchored(panel);panel.remove();
-      if(!fromBack&&history.state?.kptuAsk===state.kptuAsk)history.back();
       if(back?.isConnected)back.focus({preventScroll:true});
+      // 자기 기록 칸을 걷어 낼 때는 그 뒤로가기(popstate)가 끝난 뒤에 답을 돌려준다: [예] 바로 다음에 화면이 겹을 닫거나
+      // 열어도(history.go·pushState) 뒤로가기가 두 번 겹치지 않게. popstate가 오지 않는 브라우저를 위해 0.4초 뒤에는 그냥 돌려준다.
+      if(!fromBack&&history.state?.kptuAsk===state.kptuAsk){
+        let settled=false;const settle=()=>{if(settled)return;settled=true;globalThis.removeEventListener?.('popstate',settle);clearTimeout(timer);resolve(value)};
+        const timer=setTimeout(settle,400);globalThis.addEventListener?.('popstate',settle);history.back();return;
+      }
       resolve(value);
     };
     const first=build(panel,finish);
@@ -205,6 +210,25 @@ export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false
     row.append(no,yes);panel.append(row);
     no.addEventListener('click',()=>finish(false));yes.addEventListener('click',()=>finish(true));
     return danger?no:yes;
+  }});
+}
+// S48-28 작은 글 입력창: 브라우저 기본 prompt 대신. 누른 자리 근처, 하단바 위. 엔터 = [확인](한글 조합 중 엔터는 제외), Esc·바깥·뒤로가기 = 취소.
+// 반환: 쓴 글(앞뒤 빈칸 그대로) 또는 null(취소). max가 있으면 그 글자 수까지만 받는다.
+export function askText(anchor,{text='',value='',ok='확인',cancel='취소',placeholder='',max=0,doc=globalThis.document}={}){
+  return askPanel(anchor,{doc,none:null,build:(panel,finish)=>{
+    panel.classList.add('kptu-ask-input');
+    const msg=doc.createElement('label');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);
+    const field=doc.createElement('input');field.type='text';field.className='kptu-ask-field';field.value=String(value??'');field.setAttribute('data-enter-field','off');
+    if(placeholder)field.placeholder=String(placeholder);if(max>0)field.maxLength=max;msg.htmlFor=field.id='kptuAskField';
+    panel.append(msg,field);
+    const row=doc.createElement('div');row.className='kptu-ask-actions';
+    const no=doc.createElement('button');no.type='button';no.className='secondary';no.textContent=cancel;
+    const yes=doc.createElement('button');yes.type='button';yes.className='primary';yes.textContent=ok;
+    row.append(no,yes);panel.append(row);
+    no.addEventListener('click',()=>finish(null));yes.addEventListener('click',()=>finish(field.value));
+    field.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();finish(field.value)}});
+    queueMicrotask(()=>field.select?.());
+    return field;
   }});
 }
 // S48-17 작은 고르기창: 줄마다 [아이콘 + 굵은 글 + 작은 설명] 버튼, 맨 아래 흐린 글자 한 줄. 고른 값(value) 또는 null(닫음).

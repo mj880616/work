@@ -301,6 +301,7 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-ask-pick-t b{font-weight:600;font-size:13px}
 .kptu-ask-pick-t small{font-size:11px;line-height:1.35;color:var(--kptu-muted)}
 .kptu-ask-foot{margin:4px 6px 2px}
+.kptu-ask-field{display:block;box-sizing:border-box;width:100%;min-height:var(--kptu-action-compact-height);margin:4px 0 0;font:inherit}
 /* 폴더 위치 줄 공용 모양(NOTE-탐색기 후속 ⑧): 자료실 '자료실 › … '·노트 '노트 › … ' 들어가기 위 한 줄. 작고 낮게, 길면 가로로 넘김(folder-path.mjs). */
 .fp-path{display:flex;align-items:center;gap:2px;margin:2px 0 4px;overflow-x:auto;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);scrollbar-width:none}
 .fp-path[hidden]{display:none}

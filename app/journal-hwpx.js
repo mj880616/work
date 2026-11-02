@@ -63,7 +63,7 @@ import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback, readRules} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys} from './weekly-learn-panel.js';
-import {notify} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)
+import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
 import {materialLine} from './weekly-ai-material.mjs';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 import {matchOrg} from './org-name-match.mjs';
@@ -915,8 +915,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     let b;
     try { b = await build(); } catch (error) { say(error?.code ? error.message : '한글 파일을 만들지 못했어요.', 'error'); return; }
     const prev = s.store?.confirmed?.document_id || getWeek().row?.draft?.confirmed?.document_id || '';
-    const ask = prev ? '이 주 개인본을 새 판으로 바꿀까요? 옛 판은 30일 동안 자료실 [이전 파일]에 남아요.' : `"${b.name}"을(를) 자료실 개인본으로 저장하고 받을까요?`;
-    if (!window.confirm(ask)) return;
+    const ask = prev ? {text:'이 주 개인본을 새 판으로 바꿀까요?', note:'옛 판은 30일 동안 자료실 [이전 파일]에 남아요.', ok:'바꾸기'} : {text:`"${b.name}"을(를) 자료실 개인본으로 저장하고 받을까요?`, ok:'저장'};
+    if (!await askConfirm(trigger, ask)) return;
+    // 묻는 동안 다른 주로 바뀌었거나 이미 확정이 시작됐으면 하지 않는다.
+    if (mine !== run || state !== s || s.confirming) return;
     const {drive} = await lazy();
     s.confirming = true; paintConfirm(); trigger.setAttribute('aria-busy', 'true');
     say(prev ? '자료실 개인본을 새 판으로 바꾸는 중…' : '자료실에 저장하는 중…');
@@ -1427,12 +1429,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     return box;
   }
   // [처음부터] in the box: with a saved draft, ask first and empty it on the server.
-  async function restart() {
+  async function restart(trigger) {
     if (!await ensure()) return;
     const s = state, st = s?.store;
     const saved = st && st.status !== 'missing' && (hasContent(st.last) || (st.dirty && hasContent(currentDraft(s))));
     if (saved) {
-      if (!window.confirm('이 주 임시저장본을 지우고 처음부터 할까요?')) return;
+      if (!await askConfirm(trigger, {text:'이 주 임시저장본을 지우고 처음부터 할까요?', ok:'지우기', danger:true})) return;
+      if (state !== s) return;
       clearTimeout(st.timer); st.dirty = false;
       await st.flight;
       try {
@@ -1481,7 +1484,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (b.matches('[data-hwpx-top-date]')) { void editTop('date'); return; }
     if (b.matches('[data-hwpx-top-cancel]')) { topEdit = null; paintTop(); return; }
     if (b.matches('[data-hwpx-top-save]')) { saveTop(topLine.querySelector('[data-hwpx-top-input]')?.value); return; }
-    if (b.matches('[data-hwpx-restart]')) { void restart(); return; }
+    if (b.matches('[data-hwpx-restart]')) { void restart(b); return; }
     if (false) return;
     else if (b.matches('[data-hwpx-ai-again]') && state) void aiDraft(state, true);
     else if (b.closest('[data-hwpx-review]') && state?.review) void learnAnswer(state, b);

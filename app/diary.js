@@ -13,7 +13,7 @@ import {putBack} from './photo-viewer-model.mjs';
 // OD-크게보기: 크게 보기는 공용 부품(사진 메뉴와 같은 것).
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh} from './photo-strip.js';
 import {deleteNoteOriginal, offerUndoNotice} from './basket-record-delete.js';
-import {notify as notifySmall} from './small-notice.js';
+import {notify as notifySmall, askConfirm} from './small-notice.js';
 import {odStatusCached, odTakeWarmMonth, odDelete, odPhotos, odPhotoElement, odPrefetchMonth, clearOdPhotoCache, forgetOdPhoto, odKeepReconcile, odStartPrefetch, odStopPrefetch, odKeepCount, odKeepClear, odKeepForOwner,
   odErrorText, odMediaUrl, odSync, odSyncDelay, odFolderTree, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
@@ -595,15 +595,25 @@ function renderEditor(message = '') {
 }
 const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (!line) return; if (message === EDITOR_LOADING) line.innerHTML = waitInlineHtml(); else line.textContent = message; line.dataset.diaryEditorWait = message === EDITOR_LOADING ? '1' : ''; };
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
+// 뒤로가기(fromBack)는 라우터가 그 자리에서 닫을지 정하므로 브라우저 기본 확인창으로 묻는다. [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻는다.
+const CLOSE_TEXT = '쓰던 일기를 저장하지 않고 닫을까요?';
 function closeEditor({fromBack = false, force = false} = {}) {
   if (!edit) return true;
   if (edit.busy) return false;
-  if (!force && dirty() && !window.confirm('쓰던 일기를 저장하지 않고 닫을까요?')) return false;
+  if (!force && dirty() && !window.confirm(CLOSE_TEXT)) return false;
   releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren(); listDirty = true;
   cal.hidden = false; renderList(); renderOdPanel(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
   const opened = editLayer; editLayer = null; if (!fromBack) opened?.close();
   if (selected) renderDetail();
   return true;
+}
+async function askCloseEditor(anchor) {
+  if (!edit || edit.busy) return;
+  const open = edit;
+  if (dirty() && !await askConfirm(anchor, {text:CLOSE_TEXT, ok:'닫기', danger:true})) return;
+  // 묻는 동안 저장이 시작됐거나 다른 일기로 바뀌었으면 닫지 않는다.
+  if (edit !== open || edit.busy) return;
+  closeEditor({force:true});
 }
 function pick(files) {
   const have = diaryPhotos(edit.row).length + edit.pending.length, room = Math.max(0, DIARY_MAX_PHOTOS - have);
@@ -705,9 +715,11 @@ async function save() {
 const pruneNote = pruned => !pruned ? '사진을 뺐어요. Drive 원본은 나중에 정리해요.'
   : pruned.trashed ? '사진을 뺐어요. Drive 원본은 휴지통으로 보냈어요.'
   : pruned.kept ? '사진을 뺐어요. 다른 기록이 같은 파일을 쓰고 있어 Drive 원본은 남겨요.' : '사진을 뺐어요. Drive 원본은 나중에 정리해요.';
-async function removePhoto(fileId) {
+async function removePhoto(fileId, anchor) {
   if (!edit?.row || edit.busy) return;
-  if (!window.confirm('이 사진을 일기에서 뺄까요? Drive 원본은 휴지통으로 보내요(30일 안에 복구 가능).')) return;
+  const open = edit, day = edit.row;
+  if (!await askConfirm(anchor, {text:'이 사진을 일기에서 뺄까요?', note:'Drive 원본은 휴지통으로 보내요(30일 안에 복구 가능).', ok:'빼기', danger:true})) return;
+  if (edit !== open || edit.row !== day || edit.busy) return;
   edit.busy = true; renderEditor('사진을 빼는 중…');
   let row;
   try {
@@ -807,10 +819,10 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-edit]')) return openEditor(selected);
   if (button.matches('[data-diary-editor-more]')) return toggleEditorMenu(button);
   if (button.matches('[data-diary-delete]')) return removeDiary(edit ? edit.row : rows.get(selected));
-  if (button.matches('[data-diary-editor-close]')) return closeEditor();
+  if (button.matches('[data-diary-editor-close]')) return askCloseEditor(button);
   if (button.matches('[data-diary-pick]')) return editor.querySelector('[data-diary-input]')?.click();
   if (button.matches('[data-diary-unpick]')) { const [entry] = edit.pending.splice(Number(button.dataset.diaryUnpick), 1); if (entry) URL.revokeObjectURL(entry.url); renderEditor(); return; }
-  if (button.matches('[data-diary-remove]')) return removePhoto(button.dataset.diaryRemove);
+  if (button.matches('[data-diary-remove]')) return removePhoto(button.dataset.diaryRemove, button);
   if (button.matches('[data-diary-save]')) return save();
 });
 root.addEventListener('input', event => {
@@ -825,6 +837,7 @@ root.addEventListener('change', event => {
 
 window.addEventListener('kptu:before-view-change', event => {
   if (window.KPTURouter?.current !== 'diary' || event.detail?.view === 'diary' || !edit) return;
+  // 라우터가 이 자리에서 막을지 정하므로 브라우저 기본 확인창으로 묻는다(작은 확인창은 기다려야 해서 쓸 수 없음).
   if (edit.busy || (dirty() && !window.confirm('쓰던 일기를 저장하지 않고 나갈까요?'))) { event.preventDefault(); return; }
   closeEditor({force:true, fromBack:true});
 });

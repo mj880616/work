@@ -3,10 +3,12 @@
   startup?.mark('loaderStart');
   // PERF-첫로딩 P3(시작 사슬 펴기): 뒤 단계에서 부를 파일을 앞 단계에서 받아만 둔다(modulepreload — 실행하지 않음, 실행 순서는 아래 await 그대로).
   // 주소는 import()와 같은 글자라 Pages 빌드가 같은 해시 번호를 붙인다. 기능 모듈은 로그인 확인 뒤에만 이 목록에 넣는다.
+  // PERF-첫로딩 P4: /*static-chain*/ 목록에는 뿌리 파일만 적는다. Pages 빌드(scripts/build-pages.mjs fillStaticChains)가 그 정적 import 사슬 전체를 채운다
+  // (modulepreload는 적힌 파일만 받으므로, 사슬을 단계마다 줄 서서 받지 않게).
   const preload=paths=>{for(const path of paths){const link=document.createElement('link');link.rel='modulepreload';link.href=path;document.head.appendChild(link)}};
   const runtimeReady=import('./runtime-client.js');
   // 로그인 확인에 쓰는 파일(기능 모듈 아님): 차례로 실행하되 받기는 처음에 한꺼번에.
-  preload(['./auth-handoff-client.js','./auth-bootstrap.js','./auth-service.js']);
+  preload(/*static-chain*/['./auth-handoff-client.js','./auth-bootstrap.js','./auth-service.js']);
   await Promise.all([
     import('./native-auth-bridge.js'),
     import('./calendar-return-bridge.js')
@@ -71,7 +73,7 @@
   }
   // 로그인 확인 뒤: 다음 묶음(앱 바탕·사업 공간 확인 — 로그인한 누구나 받는 것)은 첫 묶음과 함께 받아만 둔다.
   // 화면 기능 모듈(view-loader·창 그릇 등)은 사업 공간 소유자로 확인된 뒤에만 받는다(비구성원은 거절 화면만, nonmember-access 시험).
-  preload(['./topbar-actions.js','./context-menu.js','./select-menu.js','./date-field.js','./team.js']);
+  preload(/*static-chain*/['./topbar-actions.js','./context-menu.js','./select-menu.js','./date-field.js','./team.js']);
 
   const bootSession=window.KPTURuntime.session.read();
   const bootOwner=sessionOwner(bootSession);
@@ -154,9 +156,9 @@
   // SET-보기선택서버저장: 화면 선택(테마·메뉴 접힘 등)은 서버 프로필에서 한 번 읽는다. 업무공간 소유자로 확인된 뒤에만 읽고(비구성원은 데이터 요청 없음),
   // 앱 화면을 공개(kptu-shell-ready)하기 전에 기다려 테마를 한 번 적용한다. 실패·지연이면 기본값(올리브)으로 연다. 늦게 온 값으로 다시 덮지 않는다.
   // PERF-첫로딩 P3: 소유자 확인 뒤 화면을 그리기 전에 필요한 것(보기 설정·기다림 표시·화면 불러오기 도구·사업영역 창 그릇·Drive 사본 갱신)을 한 단계에서 함께 부른다.
-  // 정적 import 사슬이 있는 창 그릇은 그 사슬(basket-note-tasks → update-requests·update-journal)도 같은 순간 받기 시작한다.
-  // tests/loader-preload.test.mjs가 이 목록을 실제 사슬과 맞춰 본다.
-  preload(['./area-window.js','./basket-note-tasks.js','./update-requests.js','./update-journal.js']);
+  // 창 그릇의 정적 import 사슬(basket-note-tasks → update-requests·update-journal 등)은 Pages 빌드가 채운다(P4). 첫 화면 프로그램 사슬은 view-loader의 prepare가 받기 시작한다.
+  // tests/loader-preload.test.mjs가 이 목록과 빌드 결과를 실제 사슬과 맞춰 본다.
+  preload(/*static-chain*/['./area-window.js']);
   const [viewPrefs,wait]=await Promise.all([
     import('./view-prefs.js').then(async m=>{await m.viewPrefs.load();return m.viewPrefs}).catch(()=>null),
     import('./wait-state.js'),

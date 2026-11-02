@@ -3,6 +3,7 @@
 // 서버 쪽 삭제 가로채기 트리거가 DELETE를 휴지통 표시로 바꾼다. 화면은 그 결과를 app_trash_list로 확인한 뒤에만 안내한다. 브라우저 저장소는 쓰지 않는다.
 import {TRASH_STATE, TRASH_TEXT, otherDeleteText, otherDeleteBlockedText} from './project-trash-model.mjs';
 import {offerUndoNotice} from './basket-record-delete.js';
+import {askConfirm} from './small-notice.js';
 
 // 휴지통 목록·되돌리기 호출은 trash-rpc.js 한 곳에 있다(basket-record-delete.js도 쓰는데, 이 파일이 그쪽을 불러오므로 서로 불러오지 않게 따로 뒀다).
 import {readTrashKind, restoreFromTrashKind} from './trash-rpc.js';
@@ -11,14 +12,14 @@ export {readTrashKind, restoreFromTrashKind};
 // kind: 'organization' | 'report' | 'library_folder'.  id: 지울 행.  name: 확인창에 보일 이름.  detail: 확인창 글에 쓸 덧붙임(폴더: {folders, files}).
 // remove(): 기존 [삭제] 요청(DELETE) 그대로. afterChange(): 목록 다시 읽기. 화면이 이미 바뀌었으면 isCurrent()가 false.
 // 반환 status: 'moved'(목록으로 확인) | 'cancelled' | 'blocked'(준비 중·확인 실패, 삭제 요청 없음) | 'unconfirmed' | 'failed'
-export async function deleteToTrash({kind, id, name, detail = null, remove, afterChange = async () => {}, notify = () => {}, closeBefore = () => {}, rt = window.KPTURuntime, ask = (text) => window.confirm(text)}) {
+export async function deleteToTrash({kind, id, name, detail = null, remove, afterChange = async () => {}, notify = () => {}, closeBefore = () => {}, rt = window.KPTURuntime, anchor = globalThis.document?.activeElement, ask = (text) => askConfirm(anchor, {text, ok: '휴지통으로'})}) {
   const first = await readTrashKind(kind, rt);
   if (first.state !== TRASH_STATE.READY) {
     notify(otherDeleteBlockedText(kind, first.state));
     return {status: 'blocked', state: first.state};
   }
   const text = otherDeleteText(kind, name, detail);
-  if (!ask(text.confirm)) return {status: 'cancelled'};
+  if (!(await ask(text.confirm))) return {status: 'cancelled'};
   try {
     await remove();
   } catch (error) {

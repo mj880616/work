@@ -2,6 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 // LIB-토글트리 ③(docs/design/library-tree.md 6절): 자료실 전용 폴더 편집 — ⋯ 메뉴, 만들기·이름·위로/아래로·옮기기·지우기, 자료 폴더로/밖으로.
 // 저장은 소유자 RLS 표(app_library_folders·_items) REST뿐. 아래 가짜 서버는 DB 트리거와 같은 규칙(100단, 같은 틀)과 휴지통(TRASH-다른삭제 3단계: 지우면 그 폴더와 아래 폴더가 함께 휴지통으로, 자료 연결은 그대로)을 흉내 낸다.
 import {test,expect} from '@playwright/test';
+import {answerAsk} from './helpers/small-notice.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree,libraryNode,libraryNodeHead,libraryTopMenu,libraryExpandItem} from './helpers/library-tree.mjs';
 import {moveEnabledNames,moveFolder,openMove as openMoveWith} from './helpers/library-folder-server.mjs';
@@ -134,9 +135,9 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await press(page,menuOf(page,'f:00000000-0000-4000-8000-0000000000b1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(1);await page.keyboard.press('Escape');
     // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
-    page.once('dialog',d=>{message=d.message();d.dismiss()});await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
-    await expect.poll(()=>message).toContain('“가상 B” 폴더를 휴지통으로 옮길까요?');expect(message).toContain('아래 폴더 1개·자료 1개도 함께 들어가고');expect(message).toContain('자료와 Drive 파일은 지워지지 않고, 휴지통에서 되돌리면 원래대로');expect(message).not.toContain('한 단 위');expect(s.writes.length).toBe(before);
-    page.once('dialog',d=>d.accept());await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
+    await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);message=await answerAsk(page,false);
+    expect(message).toContain('“가상 B” 폴더를 휴지통으로 옮길까요?');expect(message).toContain('아래 폴더 1개·자료 1개도 함께 들어가고');expect(message).toContain('자료와 Drive 파일은 지워지지 않고, 휴지통에서 되돌리면 원래대로');expect(message).not.toContain('한 단 위');expect(s.writes.length).toBe(before);
+    await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);await answerAsk(page,true);
     await expect(libraryNode(page,'f:fb')).toHaveCount(0);
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'DELETE',id:'fb',body:null});
     // 아래 폴더(00000000-0000-4000-8000-0000000000b1)도 함께 빠지고, 그 안의 자료(a-2)는 '폴더 없음' 자리에 나오지 않고 자료실 목록에서 함께 숨는다. 자료 연결은 그대로.

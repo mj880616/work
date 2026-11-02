@@ -1,6 +1,6 @@
 import { markRenameHost, renameButtonHtml } from './file-rename.js'; // ATT-이름고치기
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
-import {notify} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
+import {notify,askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js';
 import {formatMeetingWhen} from './meeting-when.js';
@@ -107,7 +107,7 @@ async function mrdTaskClick(e){
     return;
   }
 }
-async function mrdDeleteTask(t,trigger){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting||!confirm(`“${t.title}” Google 할 일을 삭제할까요?`))return;if(trigger)trigger.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdReload(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){notify(err.message||String(err),{error:true});if(trigger)trigger.disabled=false}}}
+async function mrdDeleteTask(t,trigger){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting)return;if(!(await askConfirm(trigger||document.activeElement,{text:`“${t.title}” Google 할 일을 삭제할까요?`,ok:'삭제',danger:true}))||epoch!==mrdRequestEpoch||mrdCurrent?.id!==meeting.id||trigger?.disabled)return;if(trigger)trigger.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdReload(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){notify(err.message||String(err),{error:true});if(trigger)trigger.disabled=false}}}
 // FILE-누르면동작: 자료 줄을 누르면 종류별 동작(file-actions.js). docs는 이 창이 그린 자료 목록.
 async function mrdDownload(id,docs=[]){const d=docs.find(x=>x.id===id);if(!d)return;await pressFile(meetingFileFile(d),{api:mrdApi,onError:m=>notify(m,{error:true})})}
 const mrdRename=d=>d?.file_id&&d.file_name?renameButtonHtml({target:'document',id:d.id,driveId:d.file_id,name:d.file_name}):'';
@@ -129,7 +129,7 @@ async function mrdDeleteMaterial(button,docs){
 async function mrdDeleteDocumentById(id,docs,button=null){
   const scope=mrdDeleteScope(),meetingId=mrdCurrent?.id;
   if(typeof id!=='string'||!id.trim())return false;
-  if(!scope){alert('로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.');return false}
+  if(!scope){notify('로그인 세션을 확인하지 못했습니다.',{error:true,note:'다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.'});return false}
   const token=Object.freeze({id,scope:Object.freeze(scope),meetingId,requestEpoch:mrdRequestEpoch});
   mrdDeleteTokens.add(token);
   const isCurrent=()=>mrdDeleteCurrent(token);
@@ -140,7 +140,7 @@ async function mrdDeleteDocumentById(id,docs,button=null){
     const registration=Object.freeze({...d});
     let helper;
     try{helper=await import('./document-delete.js')}
-    catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return false}
+    catch{if(isCurrent())notify('자료를 삭제하지 못했습니다.',{error:true,note:'관리자에게 오류 확인을 요청해 주세요.'});return false}
     return isCurrent()?(await helper.deleteDocument(registration,{api:mrdApi,role:mrdRole,expectedSessionEpoch:scope.epoch,isCurrent}))===true:false;
   }finally{mrdDeleteTokens.delete(token);if(button)button.disabled=false}
 }

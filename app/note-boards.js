@@ -14,7 +14,7 @@ import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs'
 import { setNoteBoardPlace } from './basket-data.js';
 import { NOTE_DRAG } from './note-board.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
-import { askConfirm } from './small-notice.js';
+import { askConfirm, askText } from './small-notice.js';
 import { emptyHtml } from './wait-state.js';
 import { fitChipRows } from './chip-rows.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
@@ -135,14 +135,15 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
   }
 
   // 보드 만들기·이름·지우기(이름은 노트 폴더와 같은 창).
-  const askBoardName = (text, value = '') => window.prompt(`${text} (${BOARD_LIMITS.name}자까지)`, value);
-  function create() {
-    const typed = askBoardName('새 보드 이름'); if (typed === null) return;
+  // S48-28: 이름은 공용 작은 글 입력창(누른 칸 근처)으로 묻는다. 취소 = null.
+  const askBoardName = (anchor, text, value = '') => askText(anchor || bar, {text:`${text} (${BOARD_LIMITS.name}자까지)`, value, max:BOARD_LIMITS.name});
+  async function create(anchor) {
+    const typed = await askBoardName(anchor, '새 보드 이름'); if (typed === null) return;
     try { const r = addBoard(boards, typed); boards = r.boards; saveBoards(); select(r.board.id); if (current !== r.board.id) rerender(); }
     catch (e) { toast(e.message); }
   }
-  function rename(id) {
-    const typed = askBoardName('보드 이름 바꾸기', boardName(id)); if (typed === null || typed.trim() === boardName(id)) return;
+  async function rename(id, anchor) {
+    const typed = await askBoardName(anchor, '보드 이름 바꾸기', boardName(id)); if (typed === null || !boards.some(b => b.id === id) || typed.trim() === boardName(id)) return;
     try { boards = renameBoard(boards, id, typed); saveBoards(); rerender(); } catch (e) { toast(e.message); }
   }
   async function remove(id, trigger) {
@@ -183,11 +184,11 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
   bar.parentElement.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const inMenu = b.closest('[data-nbb-menu]');
-    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; if (b.hasAttribute('data-nbb-rename')) rename(m.id); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); return; }
+    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); return; }
     if (!bar.contains(b)) return;
     if (Date.now() < suppress) { e.preventDefault(); return; }
     if (b.dataset.nbbBoard) select(b.dataset.nbbBoard);
-    else if (b.hasAttribute('data-nbb-new')) create();
+    else if (b.hasAttribute('data-nbb-new')) void create(b);
     else if (b.hasAttribute('data-nbb-pick')) openPicker(b);
   });
   document.addEventListener('click', e => { if (menu && !menuEl().contains(e.target) && !menu.chip.contains(e.target)) closeMenu(); });
@@ -195,7 +196,7 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
     if (e.key === 'Escape' && menu) { e.preventDefault(); e.stopPropagation(); closeMenu({focus:true}); return; }
     const chip = e.target.closest?.('[data-nbb-board]');
     if (chip && (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) { e.preventDefault(); openMenu(chip); }
-    if (chip && e.key === 'F2' && chip.dataset.nbbBoard !== ALL) { e.preventDefault(); rename(chip.dataset.nbbBoard); }
+    if (chip && e.key === 'F2' && chip.dataset.nbbBoard !== ALL) { e.preventDefault(); void rename(chip.dataset.nbbBoard, chip); }
   });
   // PC 우클릭: 이 칸의 메뉴(공용 context-menu.js보다 먼저, 브라우저 메뉴 대신).
   bar.addEventListener('contextmenu', e => { const chip = e.target.closest('[data-nbb-board]'); if (!chip || chip.dataset.nbbBoard === ALL) return; e.preventDefault(); e.stopPropagation(); openMenu(chip); });

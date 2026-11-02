@@ -4,6 +4,7 @@ import { noteMenuAction } from './helpers/note-menu.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 // NOTE-파일붙이기 (2026-10-22 사용자 결정): files on notes.
 // - The note input bar has the clip ([📎]); [추가] makes the note first, then its files go up with its id (basket-files, which puts
 //   them in Drive "노트 첨부"). A note of files only is titled by the first file's name.
@@ -128,18 +129,17 @@ for (const width of [390, 1280]) {
     expect(await noFrameWidth(page)).toBe(true);
     if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-file-cards-${width}.png`});
     // Cancel keeps it.
-    page.once('dialog', d => d.dismiss());
     await press(page, more, width); await press(page, page.locator('#noteDocMenu [data-note-file-detach]'), width);
+    await answerAsk(page, false);
     await expect(cards).toHaveCount(2); expect(f.writes).toEqual([]);
     await expect(more).toBeFocused();
-    let asked = '';
-    page.once('dialog', d => { asked = d.message(); d.accept(); });
     await press(page, more, width);
     await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기']);
     await expect(page.locator('#noteDocMenu [data-note-file-detach]')).toHaveText('빼기');
     await press(page, page.locator('#noteDocMenu [data-note-file-detach]'), width);
+    const asked = await answerAsk(page, true);
     await expect(page.locator('#toast')).toHaveText('파일을 노트에서 뺐어요. Drive에는 그대로 있어요.');
-    expect(asked).toBe("'교섭 요구안.pdf' 파일을 이 노트에서 뺄까요? Drive의 파일은 그대로 남아요.");
+    expect(asked).toBe("'교섭 요구안.pdf' 파일을 이 노트에서 뺄까요?");
     await expect(cards).toHaveCount(1); await expect(cards.nth(0)).toContainText('회의록.hwp');
     expect(f.writes).toHaveLength(1);
     expect(f.writes[0].method).toBe('PATCH');
@@ -149,8 +149,8 @@ for (const width of [390, 1280]) {
     // The link only: no Edge, no Drive request.
     expect(f.functions).toEqual([]);
     // Last file off: the note still shows no "no body" box until the files are gone; then it says so.
-    page.once('dialog', d => d.accept());
     await press(page, cards.nth(0).getByRole('button', {name: '회의록.hwp 메뉴'}), width); await press(page, page.locator('#noteDocMenu [data-note-file-detach]'), width);
+    await answerAsk(page, true);
     await expect(cards).toHaveCount(0);
     await expect(detail.locator('[data-basket-read-text]')).toHaveText('본문이 없는 노트입니다.');
     expect(f.errors).toEqual([]);
@@ -193,9 +193,8 @@ for (const width of [390, 1280]) {
   test(`deleting a note moves it to the trash and keeps its files in Drive: owner-RLS delete only, the confirmation says so ${width}`, async ({page}) => {
     const f = await fixture(page, width);
     await press(page, page.locator('[data-note-row="n-files"]'), width);
-    let asked = '';
-    page.once('dialog', d => { asked = d.message(); d.accept(); });
     await noteMenuAction(page, 'data-note-delete', {width});
+    const asked = await answerAsk(page, true);
     await expect(page.locator('[data-note-row="n-files"]')).toHaveCount(0);
     expect(asked).toBe('노트를 휴지통으로 옮길까요?\n첨부 파일 2개는 Drive에 그대로 남습니다.\n휴지통에서 되돌릴 수 있습니다.');
     await expect(page.locator('[data-undo-notice]')).toContainText('노트를 휴지통으로 옮겼어요.');

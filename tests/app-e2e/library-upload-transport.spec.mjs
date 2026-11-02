@@ -1,4 +1,5 @@
 import {test,expect,devices} from '@playwright/test';
+import {answerAsk} from './helpers/small-notice.mjs';
 import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
@@ -109,6 +110,8 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
    for(const baseline of [true,false]){
     const page=await browser.newPage(width===390?{...phone,viewport:{width,height:900}}:{viewport:{width,height:900}});await open(page,{width,baseline,shortTimeout:failure==='timeout'});
     mode=failure;await select(page);await page.locator('#saveDocumentBtn').click();
+    // 424(Drive 만료)면 지금 화면은 관리자에게 다시 연결을 공용 작은 확인창으로 묻는다(옛 화면은 기본 창이라 저절로 닫힘) → 하지 않음.
+    if(failure==='424'&&!baseline)await page.locator('.kptu-ask').waitFor({state:'visible',timeout:5000}).then(()=>answerAsk(page,false),()=>{});
     await expect(page.locator('#documentStatus')).toHaveAttribute('role','alert');
     await expect(page.locator('#saveDocumentBtn')).toBeEnabled();
     await expect(page.locator('#saveDocumentBtn')).not.toHaveAttribute('aria-busy','true');

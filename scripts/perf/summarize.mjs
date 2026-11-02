@@ -66,9 +66,9 @@ export function render({ load, shell, switch: sw }) {
   table('첫 화면 껍데기(로그인 안 함 → 로그인 화면)', ['조건', '화면', '회차', '보임(ms)', 'JS 파일', 'JS KB'],
     group(shell, r => [r.profile, r.view].join('\u0000'), ['shownMs', 'jsFiles', 'jsKB']),
     [['shownMs'], ['jsFiles'], ['jsKB']]);
-  table('로그인 뒤 화면 새로 열기', ['조건', '화면', '회차', '보임(ms)', '보이기 전 JS 파일', '보이기 전 JS KB', '쉬는 틈까지 JS 파일', '쉬는 틈까지 JS KB'],
-    group(load, r => [r.profile, r.view].join('\u0000'), ['ready', 'jsBeforeReady', 'jsKBBeforeReady', 'jsTotal', 'jsKBTotal']),
-    [['ready'], ['jsBeforeReady'], ['jsKBBeforeReady'], ['jsTotal'], ['jsKBTotal']]);
+  table('로그인 뒤 화면 새로 열기', ['조건', '화면', '회차', '보임(ms)', '보이기 전 JS 파일', '보이기 전 JS KB', '시작 단계 수', '쉬는 틈까지 JS 파일', '쉬는 틈까지 JS KB'],
+    group(load, r => [r.profile, r.view].join('\u0000'), ['ready', 'jsBeforeReady', 'jsKBBeforeReady', 'jsStages', 'jsTotal', 'jsKBTotal']),
+    [['ready'], ['jsBeforeReady'], ['jsKBBeforeReady'], ['jsStages'], ['jsTotal'], ['jsKBTotal']]);
   table('메뉴 눌러 화면 바꾸기', ['조건', '단계·화면', '회차', '바뀜(ms)', '기다림 끝(ms)', '보일 때까지 새 JS 파일', '다음 클릭 전까지 새 JS 파일', '다음 클릭 전까지 새 JS KB'],
     group(sw, r => [r.profile, `${r.step} ${r.view}`].join('\u0000'), ['shownMs', 'settledMs', 'newJsFiles', 'newJsFilesIdle', 'newJsKBIdle']),
     // 보이는 순간의 KB는 받는 중인 파일이 반쯤 잡혀 흔들린다 → 크기는 다음 클릭 전(받기 끝난 뒤) 값만 쓴다.

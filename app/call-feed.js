@@ -24,6 +24,7 @@ import {callCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {callLedgerRecords, retireCallRecords} from './call-ledger.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
+import {askConfirm} from './small-notice.js';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -247,7 +248,7 @@ function openLayer(id) {
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('call-detail', {reopen:() => select(id), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
 }
 function select(id) {
-  if (!dropBoxes()) return;
+  if (!dropBoxes(() => select(id))) return;
   state.selected = id; state.rawOpen = false; state.status = ''; undo = null; state.confirm = null; ledgerAsk = null;
   openLayer(id); paint(); void loadRaw(id);
   (pc.matches ? $(`#cfList [data-cf-row="${CSS.escape(id)}"]`) : $('#cfDetail [data-cf-back]'))?.focus({preventScroll:true});
@@ -269,7 +270,7 @@ function closeDetail({fromBack = false, quiet = false} = {}) {
 // 업무 통화함 ⇄ 개인 통화함. 폰은 개인 통화함을 router layer 한 칸으로 열어 뒤로가기 한 번이 '‹ 업무 통화'다.
 function setBox(next, {fromBack = false} = {}) {
   if (state.box === next) return;
-  if (!dropBoxes()) return;
+  if (!dropBoxes(() => setBox(next, {fromBack}))) return;
   if (state.selected) closeDetail({quiet:true});
   state.box = next; state.confirm = null; state.status = ''; undo = null;
   if (next === 'personal') { if (!pc.matches) boxLayer ||= window.KPTURouter?.layer?.open('call-box', {close:() => { boxLayer = null; setBox('work', {fromBack:true}); return true; }}) || null; }
@@ -279,14 +280,20 @@ function setBox(next, {fromBack = false} = {}) {
   $(next === 'personal' ? '#cfList [data-cf-box="work"]' : '#cfList [data-cf-box="personal"]')?.focus({preventScroll:true});
 }
 // 열려 있는 고치기 박스(조직 연결·조직/이름·핵심내용)를 닫는다. 쓰던 내용이 있으면 한 번 묻는다. false면 닫지 않는다.
-function dropBoxes() {
-  if (state.link && !dropLink()) return false;
-  const dirtyWho = state.who && (state.who.busy || state.who.orgId !== state.who.start.orgId || joinPerson(state.who.name, state.who.role) !== state.who.start.person);
-  const dirtySum = state.sum && (state.sum.busy || !samePoints(cleanPointLines(state.sum.lines), state.sum.start));
-  if ((dirtyWho || dirtySum) && !window.confirm('쓰던 내용을 버릴까요?')) return false;
+// 작은 확인창은 화면을 멈추지 않으므로 쓰던 내용이 있으면 일단 false(닫지 않음)를 돌려주고, [버리기]면 버린 뒤 again()으로 같은 동작을 다시 한다.
+function dropBoxes(again) {
+  if (state.link && !dropLink(again)) return false;
+  const who = state.who, sum = state.sum;
+  const dirtyWho = who && (who.busy || who.orgId !== who.start.orgId || joinPerson(who.name, who.role) !== who.start.person);
+  const dirtySum = sum && (sum.busy || !samePoints(cleanPointLines(sum.lines), sum.start));
+  if (dirtyWho || dirtySum) { askDrop('쓰던 내용을 버릴까요?', () => state.who === who && state.sum === sum, () => { state.who = null; state.sum = null; }, again); return false; }
   state.who = null; state.sum = null; return true;
 }
-function dropLink() { const r = rowOf(state.link?.rowId), changed = state.link && r && state.link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed && !window.confirm('쓰던 요약을 버릴까요?')) return false; state.link = null; return true; }
+function dropLink(again) { const link = state.link, r = rowOf(link?.rowId), changed = link && r && link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed) { askDrop('쓰던 요약을 버릴까요?', () => state.link === link, () => { state.link = null; }, again); return false; } state.link = null; return true; }
+// 묻는 사이 박스가 바뀌었으면(저장·다른 통화) 아무것도 하지 않는다.
+function askDrop(text, same, drop, again) {
+  void askConfirm(document.activeElement, {text, ok:'버리기', danger:true}).then(ok => { if (!ok || !same()) return; drop(); if (again) again(); else paintDetail(); });
+}
 const say = text => { state.status = text; for (const el of view()?.querySelectorAll('[data-cf-status],[data-cf-detail-status]') || []) el.innerHTML = statusHtml(); };
 // 서버에서 새로 읽은 줄(AI 값)을 넣을 때도 손으로 고친 값을 다시 덧씌운다.
 const rebase = (r, saved) => applyCallEdit({...r, ...saved, _ai:undefined}, state.edits.get(r.id));
@@ -423,7 +430,7 @@ function saveEdit(r, patch, doneText) {
 }
 // 1) 제목: 줄 안(폰 상세는 상세 제목)이 바로 입력칸. Enter·바깥 누르기 = 저장, Esc = 취소.
 function startTitle(r, hint = 'list') {
-  if (!r || state.editMissing || state.busy || state.edit || !dropBoxes()) return;
+  if (!r || state.editMissing || state.busy || state.edit || !dropBoxes(() => startTitle(rowOf(r.id), hint))) return;
   const where = pc.matches ? 'list' : hint === 'detail' ? 'detail' : 'list', value = topicOf(r);
   state.edit = {id:r.id, where, value, start:value, touched:false, done:false};
   paint();
@@ -453,7 +460,8 @@ async function commitTitle({refocus = true} = {}) {
 // 2) 조직·이름: 상세 안 작은 박스. 조직은 기존 담당조직 목록에서 고르고 이름·직함은 직접 쓴다.
 function startWho(r) {
   if (!r || state.editMissing || state.busy) return;
-  if (state.selected !== r.id) select(r.id); else if (!dropBoxes()) return;
+  if (!dropBoxes(() => startWho(rowOf(r.id)))) return;
+  if (state.selected !== r.id) select(r.id);
   if (state.selected !== r.id) return;
   state.who = newWhoBox(r); paintDetail(); $('#cfDetail [data-cf-who-name]')?.focus({preventScroll:true});
 }
@@ -474,7 +482,8 @@ function resetEdit(r, fields, box) {
 // 3) 핵심내용: 상세에서 줄마다 고치기·지우기·더하기.
 function startSum(r) {
   if (!r || state.editMissing || state.busy) return;
-  if (state.selected !== r.id) select(r.id); else if (!dropBoxes()) return;
+  if (!dropBoxes(() => startSum(rowOf(r.id)))) return;
+  if (state.selected !== r.id) select(r.id);
   if (state.selected !== r.id) return;
   state.sum = newSumBox(r); if (!state.sum.lines.length) state.sum.lines.push('');
   state.sum.focus = 0; paintDetail(); focusSum();
@@ -523,7 +532,7 @@ function bind() {
     else if (d.cfDecide) { const r = rowOf(d.cfId); if (r) void moveRow(r, d.cfDecide); }
     else if (b.hasAttribute('data-cf-confirm-go')) { const r = rowOf(state.confirm?.id); if (r) void moveRow(r, 'personal', {confirmed:true}); }
     else if (b.hasAttribute('data-cf-confirm-cancel')) { state.confirm = null; paintDetail(); $('#cfDetail [data-cf-more]')?.focus({preventScroll:true}); }
-    else if (b.hasAttribute('data-cf-back')) { if (!state.link || dropLink()) closeDetail(); }
+    else if (b.hasAttribute('data-cf-back')) { if (!state.link || dropLink(() => closeDetail())) closeDetail(); }
     else if (b.hasAttribute('data-cf-copy')) { const r = rowOf(state.selected); if (r) void copyCall(r, b); }
     else if (b.hasAttribute('data-cf-retry')) void load();
     else if (b.hasAttribute('data-cf-undo')) void restore();

@@ -5,6 +5,7 @@ test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 
 const ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const NOW='2026-10-15T03:00:00.000Z';
@@ -226,8 +227,8 @@ for(const completed of [false,true]){
 test('delete request locks the new toggle button',async({page})=>{
   const {calls}=await fixture(page),hold=gate();
   await page.route('**/functions/v1/google-tasks?action=delete',async route=>{await hold.wait;await route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'QA delete failure'})})});
-  await open(page,'cell');page.once('dialog',d=>d.accept());
-  await page.locator('#gtDeleteBtn').click();
+  await open(page,'cell');
+  await page.locator('#gtDeleteBtn').click();await answerAsk(page,true);
   await expect(page.locator('#gtToggleBtn')).toBeDisabled();
   hold.release();
   await expect(page.locator('#gtEditStatus')).toContainText('QA delete failure');

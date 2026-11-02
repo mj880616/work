@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 
 // LEDGER-자동기록 3단계(앱): 재료 저장 → 10분 묶어 ai-assist {kind:"ledger_auto"} 한 번(모의 서버) → 원장 목록에 '자동' 꼬리표·확인필요
 // → 근거 ‹원문› → 상세 ⋯ [이번 자동 기록 취소](app_auto_ledger_undo). 맨 위 Claude용 사본 상태 한 줄, [지금 Drive로 내보내기] 버튼 없음.
@@ -129,8 +130,8 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   expect(await noSideScroll(page)).toBe(true);
 
   await row.locator('summary[aria-label^="기록 관리"]').click();
-  page.once('dialog',d=>d.accept());
   await row.getByRole('menuitem',{name:'이번 자동 기록 취소'}).click();
+  await answerAsk(page,true);
   await expect.poll(()=>db.undo.length).toBe(1);
   expect(db.undo[0]).toEqual({p_run_id:RUN});
   await expect(page.locator('[data-lb-notice]')).toContainText('이번 자동 기록을 취소했어요');

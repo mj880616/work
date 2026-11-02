@@ -14,6 +14,8 @@ import java.time.temporal.ChronoUnit
  * - 요일 칸 7개: 일정 수. 3개 이상 몰린 날·가장 큰 일이 있는 날은 옅은 색.
  * - 아래 줄(4×2만): '가장 큰 일 D-n'(고르는 기준은 docs/design/phone-widget-auth.md 14절), '월 상집 보고일', '일정 몰린 날'.
  * 칸·줄을 누르면 앱 달력의 그 날(웹 ?view=calendar&day=). 만든 내용은 폰에 저장하지 않는다(결정 W-D2).
+ * APP-위젯날짜고르기: 4×2에서 요일 칸을 누르면 앱을 열지 않고 아래 칸이 그 날 일정·기한 할 일로 바뀐다(dayDetail).
+ * 할 일은 '지금' 위젯이 이미 읽는 google-tasks overview(허용 주소 그대로)를 함께 받는다. 새 주소·새 권한은 없다.
  */
 object WidgetWeek {
     private val HHMM = DateTimeFormatter.ofPattern("HH:mm")
@@ -31,7 +33,72 @@ object WidgetWeek {
     /** 아래 줄 하나: 앞 표(D-2·월·금)와 글, 누르면 열 날. */
     data class Pick(val day: LocalDate, val tag: String, val text: String)
 
-    data class Content(val title: String, val total: Int, val days: List<Day>, val big: Pick?, val report: Pick?, val busy: Pick?, val note: String?)
+    /** 고른 날 아래 칸 한 줄: 시각('종일'·'HH:mm'·'할 일')과 제목. */
+    data class Item(val time: String, val title: String)
+
+    /** 고른 날의 내용. tasks가 null이면 할 일을 읽지 못함. items는 일정(종일 먼저·시각 순) 다음 할 일. */
+    data class Detail(val day: LocalDate, val events: Int, val tasks: Int?, val items: List<Item>)
+
+    data class Content(
+        val title: String,
+        val total: Int,
+        val days: List<Day>,
+        val big: Pick?,
+        val report: Pick?,
+        val busy: Pick?,
+        val note: String?,
+        val details: Map<LocalDate, Detail> = emptyMap(),
+    )
+
+    /** 4×2 아래 칸에 보일 줄 수(머리 줄 제외). */
+    const val DETAIL_ROWS = 3
+
+    /** 같은 날을 다시 누르면 고르기를 풀고(주간 요약으로), 다른 날이면 그 날. */
+    fun toggle(current: LocalDate?, tapped: LocalDate): LocalDate? = if (current == tapped) null else tapped
+
+    /**
+     * 지금 보일 고른 날. 고른 날짜가 바뀌었거나(pickedOn이 오늘이 아님) 보이는 주 밖이면 null(주간 요약으로 돌아감).
+     */
+    fun active(picked: LocalDate?, pickedOn: LocalDate?, nowMs: Long, days: List<Day>, zone: ZoneId = WidgetNow.ZONE): LocalDate? {
+        if (picked == null || pickedOn == null) return null
+        val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
+        if (pickedOn != today) return null
+        return picked.takeIf { p -> days.any { it.day == p } }
+    }
+
+    /** 머리 줄: '11/6(금) 일정 4 · 할 일 2'. 할 일을 읽지 못하면 '할 일 읽지 못함'. */
+    fun detailHead(d: Detail): String {
+        val tasks = d.tasks?.let { "할 일 $it" } ?: "할 일 읽지 못함"
+        return "${d.day.monthValue}/${d.day.dayOfMonth}(${weekday(d.day)}) 일정 ${d.events} · $tasks"
+    }
+
+    /** 아래 칸 줄(최대 rows). 넘치면 마지막 줄을 '외 n'으로. 아무것도 없으면 '일정·할 일 없음'. */
+    fun detailRows(d: Detail, rows: Int = DETAIL_ROWS): List<String> {
+        val all = d.items.map { "${it.time}  ${it.title}" }
+        if (all.isEmpty()) return listOf("일정·할 일 없음")
+        if (all.size <= rows) return all
+        return all.take(rows - 1) + "외 ${all.size - (rows - 1)}"
+    }
+
+    /** 끝내지 않은 할 일 → 기한 날짜별 제목(받은 차례 그대로). 모양이 다르거나 기한 없는 것은 뺀다. */
+    fun tasksByDay(body: Any?): Map<LocalDate, List<String>> {
+        val list = MiniJson.list(MiniJson.obj(body)?.get("tasks")) ?: return emptyMap()
+        val out = LinkedHashMap<LocalDate, MutableList<String>>()
+        for (item in list) {
+            val t = MiniJson.obj(item) ?: continue
+            if (MiniJson.str(t["status"]) == "completed") continue
+            val d = MiniJson.str(t["due"])?.takeIf { it.length >= 10 }?.let { parseDay(it.substring(0, 10)) } ?: continue
+            out.getOrPut(d) { ArrayList() }.add(WidgetNow.cleanTitle(MiniJson.str(t["title"])))
+        }
+        return out
+    }
+
+    /** 할 일 답이 읽을 수 있는 모양인지(연결 없음·다시 연결 필요·실패면 false). */
+    fun tasksReadable(status: Int, body: Any?): Boolean {
+        if (status != 200) return false
+        val o = MiniJson.obj(body) ?: return false
+        return o["connected"] != false && o["needs_reconnect"] != true && MiniJson.list(o["tasks"]) != null
+    }
 
     fun weekday(d: LocalDate): String = DAYS[d.dayOfWeek.value - 1]
 
@@ -104,7 +171,14 @@ object WidgetWeek {
         return if (n <= 0) "오늘" else "D-$n"
     }
 
-    fun content(status: Int, body: Any?, nowMs: Long, zone: ZoneId = WidgetNow.ZONE): Content {
+    fun content(
+        status: Int,
+        body: Any?,
+        nowMs: Long,
+        zone: ZoneId = WidgetNow.ZONE,
+        tasksStatus: Int = 0,
+        tasks: Any? = null,
+    ): Content {
         val title = header(nowMs, zone)
         val monday = start(nowMs, zone)
         val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
@@ -128,6 +202,13 @@ object WidgetWeek {
             Pick(d.day, d.week, "일정 ${d.count}개 몰림$tail")
         }
         val note = if (evs.isEmpty() && MiniJson.obj(body)?.get("warning") != null) "일정을 읽지 못했어요" else null
-        return Content(title, evs.size, days, bigPick, reportPick, busyPick, note)
+        val byTask = if (tasksReadable(tasksStatus, tasks)) tasksByDay(tasks) else null
+        val details = days.associate { d ->
+            val dayEvs = evs.filter { it.day == d.day }
+            val dayTasks = byTask?.get(d.day).orEmpty()
+            val items = dayEvs.map { Item(clock(it, zone), it.title) } + dayTasks.map { Item("할 일", it) }
+            d.day to Detail(d.day, dayEvs.size, byTask?.let { dayTasks.size }, items)
+        }
+        return Content(title, evs.size, days, bigPick, reportPick, busyPick, note, details)
     }
 }

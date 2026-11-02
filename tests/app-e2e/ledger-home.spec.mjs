@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 
 // LEDGER-화면정리·LEDGER-수정요청(명진 요청 2026-10-24 07:17): [원장] 첫 화면과 고치기.
 // 위에서부터 검색 / 조직·주제 칩(두 줄, LEDGER-첫화면정리) / 상대가 안 지킨 약속 / 지금 추적 중인 일 / 최근 자동으로 기록됨. 모든 목록은 처음 6건 + [더보기 n ▾]. 칩 → 이야기(시간순 타임라인), 줄 → 근거·출처.
@@ -321,8 +322,8 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await menu.locator('summary[data-lb-sub]').click();
   await expect(menu.getByRole('menuitem').filter({hasText:/사실과 달라요|같은 기록이 이미 있어요|원장에 둘 일이 아니에요/})).toHaveCount(3);
   expect(await noSideScroll(page)).toBe(true);
-  page.once('dialog',d=>d.accept());
   await menu.getByRole('menuitem',{name:'사실과 달라요'}).click();
+  await answerAsk(page,true);
   await expect.poll(()=>db.fix.length).toBe(1);
   expect(db.fix[0].p_request.items).toEqual([{target:'COM-0901',do:'retire',reason:'사실과 달라요'}]);
   await expect(browse.locator('[data-lb-sec="overdue"]')).toHaveCount(0,{timeout:10000});

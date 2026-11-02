@@ -2,6 +2,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 // BUG-바구니연결해제: the same disconnect on four screens — organization detail, project detail, basket list, note screen.
 // One confirmation ("○○ 연결을 해제할까요? 메모는 남아요"), one owner-RLS row delete, then 5 seconds of [되돌리기]
 // that re-links through the existing app_basket_confirm_links RPC.
@@ -10,7 +11,8 @@ const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='ht
 // Report captures go to CAPTURE_DIR when it is set (docs/review/basket-disconnect), else the test output folder.
 const shot=(info,name)=>process.env.CAPTURE_DIR?`${process.env.CAPTURE_DIR}/${name}`:info.outputPath(name);
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
-const accept=page=>{const messages=[];page.once('dialog',d=>{messages.push(d.message());d.accept();});return messages;};
+// S48-28: 확인은 공용 작은 확인창. 누른 뒤 [해제]를 누르고 확인창 글을 돌려준다.
+const accept=async page=>[await answerAsk(page,true)];
 const undo=page=>page.locator('[data-undo-notice]');
 
 // ---- organization and project detail (shared detail fixture) ----
@@ -34,7 +36,7 @@ for(const width of [390,1280])test(`organization detail: line opens the note, �
  await tap(page,more,width);await expect(page.locator('#basketLinkMenu')).toBeVisible();
  expect(await menuItems(page,'basketLinkMenu')).toEqual(['업데이트 열기','연결 해제','요약 수정','원문 삭제']);
  if(width===390)await page.screenshot({path:info.outputPath('org-menu-390.png')});
- const messages=accept(page);await tap(page,page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}),width);
+ await tap(page,page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}),width);const messages=await accept(page);
  await expect(row).toHaveCount(0);expect(messages).toEqual(['합성 담당조직 연결을 해제할까요? 업데이트는 남아요']);
  expect(await deletes(page)).toEqual([{table:'app_record_links',params:{id:'eq.'+ids.link,workspace_id:'eq.detail-workspace',select:'id'}}]);
  expect(await page.evaluate(n=>window.__detailState.notes.some(x=>x.id===n),ids.note)).toBe(true);
@@ -59,7 +61,7 @@ test('organization detail: tapping the line (or [메모 열기]) opens the origi
 
 test('organization detail: cancelling the confirmation changes nothing and returns focus to ⋯',async({page})=>{
  const {errors,host,ids}=await ready(page,'organization'),row=host.locator(`[data-basket-link="${ids.link}"]`),more=row.getByRole('button',{name:'정리함 기록 메뉴'});
- page.once('dialog',d=>d.dismiss());await more.click();await page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}).click();
+ await more.click();await page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}).click();await answerAsk(page,false);
  await expect(more).toBeFocused();await expect(more).toBeEnabled();await expect(host.locator('[data-basket-link]')).toHaveCount(2);await expect(undo(page)).toHaveCount(0);
  expect(await deletes(page)).toEqual([]);expect(await page.evaluate(()=>window.__linkEvents)).toBe(0);expect(errors).toEqual([]);
 });
@@ -72,7 +74,7 @@ for(const width of [390,1280])test(`project detail: 🧺 ⋯ holds [업데이트
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await tap(page,more,width);await expect(page.locator('#ps3RecordMenu')).toBeVisible();expect(await menuItems(page,'ps3RecordMenu')).toEqual(['업데이트 열기','연결 해제','요약 수정']);
  if(width===390)await page.screenshot({path:info.outputPath('project-menu-390.png')});
- const messages=accept(page);await tap(page,page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}),width);
+ await tap(page,page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}),width);const messages=await accept(page);
  await expect(row).toHaveCount(0);expect(messages).toEqual(['합성 프로젝트 연결을 해제할까요? 업데이트는 남아요']);await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  expect(await deletes(page)).toEqual([{table:'app_record_links',params:{id:'eq.'+ids.link,workspace_id:'eq.detail-workspace',select:'id'}}]);
  const notice=page.locator('#ps3DetailModal [data-undo-notice]');await expect(notice).toBeVisible();await expect(notice).toContainText('합성 프로젝트 연결을 해제했어요.');
@@ -83,15 +85,15 @@ for(const width of [390,1280])test(`project detail: 🧺 ⋯ holds [업데이트
 
 test('project detail: [되돌리기] re-links the same project with its summary; a cancelled confirmation sends nothing',async({page})=>{
  const {errors,host,ids}=await ready(page,'project'),row=host.locator(`[data-basket-link="${ids.link}"]`),more=row.getByRole('button',{name:'정리함 기록 메뉴'});
- page.once('dialog',d=>d.dismiss());await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();
+ await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await answerAsk(page,false);
  await expect(more).toBeFocused();expect(await deletes(page)).toEqual([]);await expect(undo(page)).toHaveCount(0);
- accept(page);await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await expect(row).toHaveCount(0);
+ await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(row).toHaveCount(0);
  await page.locator('#ps3DetailModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toContainText('연결을 되돌렸어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(2);await expect(host).toContainText('연결 요약');
  expect(await confirms(page)).toEqual([{p_note_id:ids.note,p_note_updated_at:'2026-10-11T01:30:00Z',p_targets:[{kind:'project',target_id:ids.project,reason:'직접 연결',summary:'연결 요약'}]}]);
  // A refused undo (here: the note was archived meanwhile) is said plainly and changes nothing.
  await page.evaluate(()=>{window.__detailState.confirmError='NOTE_ARCHIVED'});const again=host.locator('[data-basket-link]').first();
- accept(page);await again.getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await expect(host.locator('[data-basket-link]')).toHaveCount(1);
+ await again.getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  await page.locator('#ps3DetailModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toContainText('보류한 업데이트라 연결을 되돌리지 못했어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  await host.locator('a[data-ps3-basket-note]').first().click();await expect(page.locator('#ps3DetailModal')).toBeHidden();expect(await page.evaluate(()=>window.__went)).toEqual([['basket',{source:'delegated'}]]);
@@ -128,7 +130,7 @@ for(const scheme of ['light','dark'])for(const width of [390,1280])test(`basket 
  await expect(orgX).toBeVisible();await expect(projectX).toBeVisible();await expect(row.locator('[data-chip-kind="meeting"] button')).toHaveCount(0);await expect(row).toContainText('합성 회의');
  expect(await hitArea(orgX)).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  if(width===390)await page.screenshot({path:shot(info,`basket-list-390-${scheme}.png`)});
- const messages=accept(page);await tap(page,orgX,width);
+ await tap(page,orgX,width);const messages=await accept(page);
  await expect(orgX).toHaveCount(0);expect(messages).toEqual(['합성 조직 연결을 해제할까요? 업데이트는 남아요']);await expect(projectX).toBeVisible();
  expect(f.deleted).toEqual([{id:'eq.l1',workspace_id:expect.any(String),select:'id'}]);
  const notice=undo(page);await expect(notice).toBeVisible();await expect(notice).toContainText('합성 조직 연결을 해제했어요. 업데이트는 남아요.');
@@ -140,7 +142,7 @@ for(const scheme of ['light','dark'])for(const width of [390,1280])test(`basket 
 
 test('basket list: cancelling the confirmation keeps the chip and focus on ×',async({page})=>{
  const f=await basket(page),row=await openList(page,1280),orgX=row.getByRole('button',{name:'합성 조직 연결 해제'});
- page.once('dialog',d=>d.dismiss());await orgX.click();await expect(orgX).toBeFocused();await expect(orgX).toBeEnabled();await expect(undo(page)).toHaveCount(0);
+ await orgX.click();await answerAsk(page,false);await expect(orgX).toBeFocused();await expect(orgX).toBeEnabled();await expect(undo(page)).toHaveCount(0);
  expect(f.deleted).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -151,7 +153,7 @@ for(const scheme of ['light','dark'])for(const width of [390,1280])test(`note sc
  await expect(state.getByRole('button',{name:/테스트 프로젝트$/})).toBeVisible();expect(await hitArea(projectX)).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  if(width===390)await page.screenshot({path:shot(info,`note-chips-390-${scheme}.png`)});
- const messages=accept(page);await tap(page,projectX,width);
+ await tap(page,projectX,width);const messages=await accept(page);
  await expect(projectX).toHaveCount(0);expect(messages).toEqual(['테스트 프로젝트 연결을 해제할까요? 업데이트는 남아요']);expect(f.deleted.map(d=>d.id)).toEqual(['eq.l2']);
  await expect(undo(page)).toBeVisible();await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  if(width===390)await page.screenshot({path:shot(info,`note-undo-390-${scheme}.png`)});
@@ -179,7 +181,7 @@ for(const scheme of ['light','dark'])test(`detail screens in the app: ⋯ menu a
  const org=page.locator('#wdUpdates [data-basket-link="l1"]');await expect(org).toBeVisible();await expect(org).toContainText('조직 요약');
  await org.getByRole('button',{name:'정리함 기록 메뉴'}).click();await expect(page.locator('#basketLinkMenu')).toBeVisible();
  await page.screenshot({path:shot(info,`org-menu-390-${scheme}.png`)});
- accept(page);await page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}).click();await expect(org).toHaveCount(0);
+ await page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(org).toHaveCount(0);
  await expect(page.locator('#wdModal [data-undo-notice]')).toBeVisible();await page.screenshot({path:shot(info,`org-undo-390-${scheme}.png`)});
  await page.locator('#wdModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();await expect(page.locator('#wdUpdates [data-basket-link]')).toHaveCount(1);
  await page.locator('[data-wd-close="wdModal"]').click();await expect(page.locator('#wdModal')).toBeHidden();
@@ -187,7 +189,7 @@ for(const scheme of ['light','dark'])test(`detail screens in the app: ⋯ menu a
  const project=page.locator('#ps3-progress [data-basket-link="l2"]');await expect(project).toBeVisible();
  await project.getByRole('button',{name:'정리함 기록 메뉴'}).click();await expect(page.locator('#ps3RecordMenu')).toBeVisible();
  await page.screenshot({path:shot(info,`project-menu-390-${scheme}.png`)});
- accept(page);await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await expect(project).toHaveCount(0);
+ await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await accept(page);await expect(project).toHaveCount(0);
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toBeVisible();await page.screenshot({path:shot(info,`project-undo-390-${scheme}.png`)});
  expect(f.deleted.map(d=>d.id)).toEqual(['eq.l1','eq.l2']);expect(f.confirmed).toHaveLength(1);expect(f.errors).toEqual([]);
 });

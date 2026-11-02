@@ -63,14 +63,17 @@ class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long) {
     /** 위젯 세션으로 한 번에 읽을 주소(겹치는 주소는 한 번). */
     val urls: List<String> = LinkedHashSet<String>().apply {
         if (now) addAll(listOf(nowCal, WidgetRules.TASKS, WidgetRules.CANDIDATES))
-        if (week) add(weekCal)
+        // APP-위젯날짜고르기: 이번 주 위젯은 고른 날 기한 할 일을 위해 '지금' 위젯과 같은 할 일 주소를 함께 읽는다(겹치면 한 번).
+        if (week) addAll(listOf(weekCal, WidgetRules.TASKS))
     }.toList()
 
     /** 받은 답(readList 결과) → 위젯마다 그릴 것. 내용 만들기는 시험에서 바꿔 끼울 수 있다. */
     fun result(
         outcome: WidgetSession.Outcome<List<WidgetSession.Reply>>,
         nowContent: (WidgetSession.Raw, Long) -> WidgetNow.Content = { raw, t -> WidgetNow.content(raw, t) },
-        weekContent: (Int, Any?, Long) -> WidgetWeek.Content = { status, body, t -> WidgetWeek.content(status, body, t) },
+        weekContent: (WidgetSession.Reply, WidgetSession.Reply, Long) -> WidgetWeek.Content = { cal, tasks, t ->
+            WidgetWeek.content(cal.status, cal.body, t, tasksStatus = tasks.status, tasks = tasks.body)
+        },
     ): Result {
         val replies = when (outcome) {
             is WidgetSession.Outcome.Ok -> outcome.value
@@ -85,8 +88,7 @@ class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long) {
             nowContent(WidgetSession.Raw(c.status, c.body, t.status, t.body, k.status, k.body), nowMs)
         }
         val weekPaint = if (!week) null else paint {
-            val w = got.getValue(weekCal)
-            weekContent(w.status, w.body, nowMs)
+            weekContent(got.getValue(weekCal), got.getValue(WidgetRules.TASKS), nowMs)
         }
         return Result(nowPaint, weekPaint)
     }

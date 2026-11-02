@@ -4,6 +4,7 @@ import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { closeNote } from './helpers/note-close.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 
 // UI-업데이트목록메뉴: every update row has [복사] and [⋯] at its top right (same look and behavior as the note rows, UI-노트메뉴정리).
 // The ⋯ holds 수정 · 연결하기 · 할 일 만들기 · 노트로 옮기기 · 삭제 (삭제 last, danger color) and opens right under the pressed ⋯.
@@ -154,18 +155,16 @@ for (const width of [390, 1280]) {
 
   test(`update row ⋯: 노트로 옮기기 asks first, 삭제 uses the detail's confirmation and server delete ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
-    // Each native confirm takes the next planned answer; every message is kept.
-    const asked = [], answers = [];
-    page.on('dialog', d => { asked.push(d.message()); return answers.shift() ? d.accept() : d.dismiss(); });
+    // S48-28: each question is the shared small confirm (.kptu-ask); every message is kept.
+    const asked = [];
     // 노트로 옮기기: one question; cancel changes nothing and stays on the list.
-    answers.push(false);
     await choose(page, B, '노트로 옮기기', width);
-    await expect.poll(() => asked.length).toBe(1);
+    asked.push(await answerAsk(page, false));
     expect(asked[0]).toBe('‘합성 둘째 업데이트’을(를) 노트로 옮길까요?');
     await expect(detail(page)).toBeHidden(); await expect(rowMore(page, B)).toBeFocused(); expect(f.writes).toEqual([]);
     // Accept: the detail's own move (first line as the title), then the note opens.
-    answers.push(true);
     await choose(page, B, '노트로 옮기기', width);
+    asked.push(await answerAsk(page, true));
     await expect(page.locator('#toast')).toHaveText('노트로 옮겼어요.');
     await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
     await expectNoteTitle(page,'합성 둘째 업데이트');
@@ -175,13 +174,12 @@ for (const width of [390, 1280]) {
     await press(page, basketKindButton(page,'memo'), width);
     await expect(page.locator(`[data-basket-row="${B}"]`)).toHaveCount(0);
     // 삭제: cancel keeps everything and returns focus to the ⋯.
-    answers.push(false);
     await choose(page, A, '삭제', width);
-    await expect.poll(() => asked.length).toBe(3);
+    asked.push(await answerAsk(page, false));
     await expect(rowMore(page, A)).toBeFocused(); expect(f.posts).toEqual([]);
     // Accept: the same wording as the detail's 삭제 (to the trash), one owner-RLS delete, the row leaves the list.
-    answers.push(true);
     await choose(page, A, '삭제', width);
+    asked.push(await answerAsk(page, true));
     await expect(page.locator(`[data-basket-row="${A}"]`)).toHaveCount(0);
     const DELETE = '업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n휴지통에서 되돌릴 수 있습니다.';
     expect(asked).toEqual(['‘합성 둘째 업데이트’을(를) 노트로 옮길까요?', '‘합성 둘째 업데이트’을(를) 노트로 옮길까요?', DELETE, DELETE]);
@@ -218,10 +216,8 @@ for (const width of [390, 1280]) test(`a list re-read that lands while the ⋯ m
   await expect(menu(page)).toBeVisible();
   await expect(rowMore(page, A)).toHaveAttribute('aria-expanded', 'true');
   await expect(first).toBeFocused();
-  const asked = [];
-  page.on('dialog', d => { asked.push(d.message()); return d.dismiss(); });
   await press(page, menu(page).getByRole('button', { name: '삭제', exact: true }), width);
-  await expect.poll(() => asked.length).toBe(1);
+  await answerAsk(page, false);
   await expect(menu(page)).toBeHidden(); await expect(rowMore(page, A)).toBeFocused();
   expect(f.writes).toEqual([]); expect(f.posts).toEqual([]); expect(f.errors).toEqual([]);
 });

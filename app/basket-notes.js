@@ -23,7 +23,7 @@ import { pickerRows } from './library-move.mjs';
 import { createMovePicker } from './library-move-picker.js';
 import { folderPathHtml } from './folder-path.mjs';
 import { createSelectMode } from './select-mode.js';
-import { notify, askConfirm } from './small-notice.js';
+import { notify, askConfirm, askText } from './small-notice.js';
 import { requestNewsItem } from './news-request.mjs';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
@@ -528,10 +528,19 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (open) pendingOpen = saved.id;
     void refresh();
   }
+  const closeText = () => textDirty() ? '고치던 노트를 버리고 목록으로 돌아갈까요?' : manual.hasDraft() ? '작성 중인 연결 입력을 버리고 목록으로 돌아갈까요?' : '';
+  // S48-28: 화면 안 버튼·Esc로 닫을 때는 공용 작은 확인창으로 묻는다. 기다리는 사이 다른 노트가 열렸거나 작업이 시작됐으면 그대로 둔다.
+  async function askClose(anchor) {
+    if (!selected) return true;
+    const text = closeText(), id = selected.id;
+    if (!text) return close();
+    if (!(await askConfirm(anchor, {text, ok:'버리기', danger:true})) || busy || selected?.id !== id) return false;
+    return close({force:true});
+  }
+  // 뒤로가기(겹 닫기)는 라우터가 그 자리에서 답을 받아야 해서 브라우저 기본 확인창을 그대로 쓴다(S48-28 예외).
   function close({focus = true, force = false, fromBack = false} = {}) {
     if (!selected) return true;
-    if (!force && textDirty() && !window.confirm('고치던 노트를 버리고 목록으로 돌아갈까요?')) return false;
-    if (!force && !textDirty() && manual.hasDraft() && !window.confirm('작성 중인 연결 입력을 버리고 목록으로 돌아갈까요?')) return false;
+    if (!force) { const text = closeText(); if (text && !window.confirm(text)) return false; }
     noteComments.detach(); // 쓰던 댓글은 이 화면 메모리에 남아 같은 노트를 다시 열면 그대로 보인다(묻지 않음).
     bigWriter?.close({silent:true}); bigWriter = null; dropField();
     closeMenu(); const id = selected.id; ++epoch; selected = null; editing = false; manual.reset();
@@ -557,9 +566,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     } catch { if (run === epoch && editing) say('편집기를 열지 못했어요. 다시 눌러 주세요.'); }
   }
   const dropField = () => { field?.destroy(); field = null; fieldBase = null; };
-  function finishEdit({force = false} = {}) {
+  async function finishEdit({force = false, anchor = null} = {}) {
     if (!selected || !editing) return;
-    if (!force && textDirty() && !window.confirm('고치던 내용을 버리고 읽기 화면으로 돌아갈까요?')) return;
+    if (!force && textDirty()) {
+      const id = selected.id;
+      if (!(await askConfirm(anchor, {text:'고치던 내용을 버리고 읽기 화면으로 돌아갈까요?', ok:'버리기', danger:true})) || busy || !editing || selected?.id !== id) return;
+    }
     bigWriter?.close({silent:true}); bigWriter = null;
     dropField();
     editing = false; if (!force) say(''); paintRead(); paintMode(); readFocus().focus();
@@ -682,7 +694,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!note || busy) return;
     const file = (note.attachments || []).find(f => f?.drive_file_id === fileId); if (!file) return;
     const trigger = () => detail.querySelector(`[data-note-file-more="${CSS.escape(fileId)}"]`);
-    if (!window.confirm(`'${attachmentName(file)}' 파일을 이 노트에서 뺄까요? Drive의 파일은 그대로 남아요.`)) { trigger()?.focus({preventScroll:true}); return; }
+    const yes = await askConfirm(trigger(), {text:`'${attachmentName(file)}' 파일을 이 노트에서 뺄까요?`, note:'Drive의 파일은 그대로 남아요.', ok:'빼기'});
+    if (!yes) { trigger()?.focus({preventScroll:true}); return; }
+    if (busy || selected?.id !== note.id) return;
     const id = note.id, run = ++epoch, owner = scope(); lock(true); say('');
     try {
       const {row} = await detachNoteFile(id, fileId, rt);
@@ -824,11 +838,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }});
   }
   const flash = done => requestAnimationFrame(() => { for (const d of done.notes) host.querySelector(`[data-nx-note="${CSS.escape(d.id)}"]`)?.classList.add('nx-flash'); for (const d of done.folders) host.querySelector(`[data-nx-folder="${CSS.escape(d.id)}"]`)?.classList.add('nx-flash'); });
-  const askName = (text, value = '') => { const typed = window.prompt(`${text} (40자까지)`, value); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { folderSay('폴더 이름은 1~40자로 써 주세요.'); return null; } return name; };
+  // S48-28: 폴더 이름은 공용 작은 글 입력창으로 묻는다(누른 곳 근처). 취소 = null.
+  const askName = async (text, value = '') => { const typed = await askText(document.activeElement, {text:`${text} (40자까지)`, value, max:40}); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { folderSay('폴더 이름은 1~40자로 써 주세요.'); return null; } return name; };
   async function newFolder(parentId, {quiet = false} = {}) {
     if (!canEditFolders()) { notReady(); return null; }
     if (parentId && folderPath(folders, parentId).length >= FOLDER_DEPTH_LIMIT) { folderSay(`폴더는 ${FOLDER_DEPTH_LIMIT}단까지만 만들 수 있어요.`); return null; }
-    const name = askName('새 폴더 이름'); if (!name) return null;
+    const name = await askName('새 폴더 이름'); if (!name || !canEditFolders()) return null;
     try {
       const row = await createNoteFolder({name, parent_id:parentId || null, sort_order:nextSortOrder(folderSiblings(folders, {free:true, parentId:parentId || null}))}, rt);
       folders = [...folders, row]; if (parentId) openSet.add(parentId); folderSay(''); renderList();
@@ -838,7 +853,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   async function renameFolder(id) {
     const f = folderById(id); if (!f || busy || !canEditFolders()) return;
-    const name = askName('폴더 이름 바꾸기', f.name); if (!name || name === f.name) return;
+    const name = await askName('폴더 이름 바꾸기', f.name); if (!name || name === f.name || busy || !folderById(id)) return;
     busy = true;
     try { if (!f.parent_id) await adopt(id); const row = await updateNoteFolder(id, {name}, rt); folders = folders.map(x => x.id === id ? {...x, ...row} : x); folderSay('');
       notify(`폴더 이름을 '${name}'(으)로 바꿨어요.`, {label:'폴더 이름 바꾸기', undo:async () => { const back = await updateNoteFolder(id, {name:f.name}, rt); folders = folders.map(x => x.id === id ? {...x, ...back} : x); renderList(); return true; }}); }
@@ -1059,7 +1074,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nx-select')) startSelect('n:' + note.id);
     else if (b.hasAttribute('data-note-folder-move')) openMovePicker(from.trigger, {notes:[note.id], folders:[]});
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
-    else if (b.hasAttribute('data-basket-link-open')) say(manual.open('link') || '');
+    else if (b.hasAttribute('data-basket-link-open')) { const id = selected?.id; void manual.open('link', b).then(message => { if (selected?.id === id) say(message || ''); }); }
     else if (b.hasAttribute('data-note-to-basket')) void toBasket();
     else if (b.hasAttribute('data-note-delete')) void remove(note.id);
   }
@@ -1085,16 +1100,16 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nx-sel-all')) selectAll();
     else if (b.hasAttribute('data-nx-sel-close')) endSelect();
     else if (b.hasAttribute('data-note-retry')) void refresh();
-    else if (b.hasAttribute('data-note-cancel')) finishEdit();
+    else if (b.hasAttribute('data-note-cancel')) void finishEdit({anchor:b});
     else if (b.hasAttribute('data-note-save')) void save();
     else if (b.hasAttribute('data-note-big-write')) openBigWriter();
     else if (b.hasAttribute('data-note-telegram')) void telegram(selected, b);
-    else if (b.hasAttribute('data-note-back')) close(); // UI-화면정리 C: 폰 노트 읽기·수정의 '‹ 노트'(정리함 상세의 '‹ 정리함'과 같은 모양)
+    else if (b.hasAttribute('data-note-back')) void askClose(b); // UI-화면정리 C: 폰 노트 읽기·수정의 '‹ 노트'(정리함 상세의 '‹ 정리함'과 같은 모양)
     else if (b.hasAttribute('data-note-reload')) void reload();
     else if (b.hasAttribute('data-nt-tag')) { tagAt = b.dataset.ntTag; renderList(); }
     else if (b.hasAttribute('data-nt-kind')) { cmKind = b.dataset.ntKind || null; renderList(); }
     else if (b.hasAttribute('data-nt-cm-open')) open(b.dataset.ntCmOpen);
-    else if (b.hasAttribute('data-note-tag')) { const key = b.dataset.noteTag; if (close()) { tagAt = key; if (view === 'tag') renderList(); else setView('tag'); } }
+    else if (b.hasAttribute('data-note-tag')) { const key = b.dataset.noteTag; void askClose(b).then(ok => { if (!ok) return; tagAt = key; if (view === 'tag') renderList(); else setView('tag'); }); }
   });
   // 폴더 줄: 선택 모드면 고르기. PC는 오른쪽에 그 폴더 노트(왼쪽 나무에서 열림, 고른 폴더를 다시 누르면 접기·펴기),
   // 폰(17:55 한 화면씩)은 그 폴더 화면으로 들어간다('폴더 없음'도 한 화면).
@@ -1130,9 +1145,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (pick.active && !selected) { e.preventDefault(); e.stopPropagation(); endSelect(); return; }
     if (!selected || busy) return;
     e.preventDefault(); e.stopPropagation();
-    if (manual.isOpen()) manual.cancel();
-    else if (editing) finishEdit();
-    else close();
+    if (manual.isOpen()) void manual.cancel({anchor:e.target instanceof Element ? e.target : null});
+    else if (editing) void finishEdit({anchor:e.target instanceof Element ? e.target : null});
+    else void askClose(e.target instanceof Element ? e.target : null);
   });
   // NOTE-보기3가지 ①: 폰은 좌우로 밀어 세 보기 전환(왼쪽으로 밀면 폴더 → 목록 → 포스트잇). 포스트잇 보드 위는 보드 이동이라 빼고,
   // 보드에서는 위쪽 줄(검색 칸 줄·보드 칸 줄)에서 밀거나 전환 단추를 누른다. 꾹 눌러 잡은 줄·선택 모드·열린 노트·글 칸에서는 밀기를 보지 않는다.

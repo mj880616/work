@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { answerAsk } from './helpers/small-notice.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -236,8 +237,7 @@ test('Google Tasks can be created, edited, completed, reopened and deleted',asyn
   await expect.poll(()=>calls.some(x=>x.action==='toggle'&&x.body.completed===false)).toBeTruthy();
   await expect(page.locator('[data-google-task="g1"]')).toHaveClass(/pending/);
   await page.locator('[data-gt-edit="g1"]').click();
-  page.once('dialog',d=>d.accept());
-  await page.locator('#gtDeleteBtn').click();
+  await page.locator('#gtDeleteBtn').click();await answerAsk(page,true);
   await expect.poll(()=>calls.some(x=>x.action==='delete')).toBeTruthy();
 });
 

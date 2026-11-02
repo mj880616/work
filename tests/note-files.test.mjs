@@ -80,11 +80,11 @@ test('deleting a note removes the row with the owner-RLS delete and never asks t
     }};
   const fetched = [];
   const asked = [];
-  globalThis.confirm = text => { asked.push(text); return true; };
+  const ask = async text => { asked.push(text); return true; };
   try {
-    const result = await deleteNoteOriginal('n1', {rt, keepFiles: true, describe: noteDocDeleteConfirmText, fetcher: async (...args) => { fetched.push(args); throw new Error('no server call'); }});
+    const result = await deleteNoteOriginal('n1', {rt, ask, keepFiles: true, describe: noteDocDeleteConfirmText, fetcher: async (...args) => { fetched.push(args); throw new Error('no server call'); }});
     assert.deepEqual(result, {status: 'deleted', message: '노트를 지웠어요. 첨부 파일은 Drive에 그대로 남아 있어요.'});
-  } finally { delete globalThis.confirm; }
+  } finally { /* 확인은 ask 주입(S48-28) */ }
   assert.deepEqual(asked, ['노트 원문을 지웁니다. 연결된 조직·사업영역 1곳에서도 사라집니다. 첨부 파일 2개는 노트에서만 빠지고 Drive에는 그대로 남아요.']);
   assert.deepEqual(fetched, []);
   assert.deepEqual(calls.filter(c => c.method !== 'GET').map(c => c.method), ['DELETE']);

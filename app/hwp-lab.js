@@ -18,6 +18,7 @@ import {requestLibraryDocument} from './basket-library-send.js';
 import {requestBasketNote} from './basket-note-tasks.js';
 import {requestLibraryUpload} from './library-upload-request.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {askConfirm,askText} from './small-notice.js';
 (()=>{
 'use strict';
 if(window.__KPTU_HWP_LAB_READY__)return;
@@ -154,8 +155,9 @@ function mount(){
     if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
     event.preventDefault();
     if(busy||!drive?.created)return;
-    void refreshDirty().then(()=>{
-      if(!drive?.created||busy||!leaveOk())return;
+    const link=event.currentTarget;
+    void refreshDirty().then(async()=>{
+      if(!drive?.created||busy||!(await askLeave(link))||!drive?.created||busy)return;
       requestLibraryDocument(drive.created,rt);leaving=true;window.KPTURouter.go('library',{source:'delegated'});
     });
   });
@@ -213,7 +215,8 @@ async function open(file){
   if(!file||busy||drive)return;
   if(file.size>MAX_BYTES){status('30MB보다 큰 파일은 편집기에서 열지 않습니다.','error');return}
   await refreshDirty();
-  if(busy||drive||(dirty()&&!window.confirm('저장하지 않은 고친 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?')))return;
+  if(busy||drive)return;
+  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabPick'),'저장하지 않은 고친 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?','열기'))||busy||drive))return;
   busy=true;sync();
   let opening=true;
   const stopElapsed=trackElapsed(()=>opening&&!drive);
@@ -324,7 +327,8 @@ async function openDrive(target){
 async function openTemplate(){
   if(busy||drive)return;
   await refreshDirty();
-  if(busy||drive||(dirty()&&!window.confirm('저장하지 않은 고친 내용이 있어요. 양식을 열면 사라져요. 열까요?')))return;
+  if(busy||drive)return;
+  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabTemplate'),'저장하지 않은 고친 내용이 있어요. 양식을 열면 사라져요. 열까요?','열기'))||busy||drive))return;
   busy=true;sync();
   try{
     status('자료실에서 노조 양식을 찾는 중…');
@@ -353,7 +357,8 @@ function requestTemplate(row){
 async function startConvert(){
   if(busy)return;
   await refreshDirty();
-  if(busy||(dirty()&&!window.confirm('저장하지 않은 고친 내용이 있어요. 노조 서식으로 새로 만들면 사라져요. 계속할까요?')))return;
+  if(busy)return;
+  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabConvert'),'저장하지 않은 고친 내용이 있어요. 노조 서식으로 새로 만들면 사라져요. 계속할까요?','계속'))||busy))return;
   openConvertDialog({onMake:runConvert});
 }
 async function runConvert({docType,text,progress,cancelled}){
@@ -501,8 +506,8 @@ async function saveNew(){
   if(!shown?.info||busy||shown.lockNew)return;
   let newTitle;
   if(shown.target.template){
-    newTitle=window.prompt('새 문서 제목을 입력하세요. 양식 원본은 그대로 두고 자료실에 새 문서로 저장해요.','');
-    if(newTitle==null)return;
+    newTitle=await askText(anchorFor('hwpDriveNew'),{text:'새 문서 제목을 입력하세요. 양식 원본은 그대로 두고 자료실에 새 문서로 저장해요.',value:'',ok:'저장'});
+    if(newTitle==null||drive!==shown||busy||shown.lockNew)return;
     newTitle=newTitle.trim();
     if(!newTitle){status('제목을 입력해야 저장해요. 아무것도 바뀌지 않았어요.','error');return}
   }
@@ -527,9 +532,10 @@ async function saveNew(){
 async function overwrite(){
   const shown=drive;
   if(!shown?.info?.can_overwrite||busy||shown.lockOverwrite)return;
-  const lines=[`원본 "${shown.info.file_name}"을 지금 고친 내용으로 바꿔요.`,'바꾸기 전 원본 사본을 Drive "Web2 편집 백업" 폴더에 보관해요.'];
-  if(shown.info.shared)lines.push('정리함과 자료실 양쪽에 반영돼요.');
-  if(!window.confirm([...lines,'덮어쓸까요?'].join('\n')))return;
+  const notes=['바꾸기 전 원본 사본을 Drive "Web2 편집 백업" 폴더에 보관해요.'];
+  if(shown.info.shared)notes.push('정리함과 자료실 양쪽에 반영돼요.');
+  if(!(await askConfirm(anchorFor('hwpDriveOverwrite'),{text:`원본 "${shown.info.file_name}"을 지금 고친 내용으로 바꿔요. 덮어쓸까요?`,note:notes.join(' '),ok:'덮어쓰기',danger:true})))return;
+  if(drive!==shown||busy||shown.lockOverwrite)return;
   busy=true;sync();
   try{
     status('원본 사본을 보관하고 덮어쓰는 중…');
@@ -549,13 +555,27 @@ async function overwrite(){
   }finally{if(drive===shown){busy=false;sync()}}
 }
 
+const LEAVE_TEXT='저장하지 않은 고친 내용이 있어요. 나가면 사라져요. 나갈까요?';
+// 화면 이동(kptu:before-view-change)은 라우터가 그 자리에서 막을지 정하므로 브라우저 기본 확인창으로 묻는다(작은 확인창은 기다려야 해서 쓸 수 없음).
 function leaveOk(){
-  return !dirty()||window.confirm('저장하지 않은 고친 내용이 있어요. 나가면 사라져요. 나갈까요?');
+  return !dirty()||window.confirm(LEAVE_TEXT);
+}
+// 이 화면 안의 [돌아가기]·[자료실에서 보기]는 작은 확인창으로 묻는다.
+async function askLeave(anchor){
+  return !dirty()||askDiscard(anchor,LEAVE_TEXT,'나가기');
+}
+// 버튼이 메뉴 안에 접혀 보이지 않으면(폰 폭) 지금 초점 둔 곳 근처에 띄운다.
+function anchorFor(id){
+  const el=$(id);
+  return el?.getClientRects?.().length?el:document.activeElement;
+}
+function askDiscard(anchor,text,ok){
+  return askConfirm(anchor,{text,ok,danger:true});
 }
 async function back(){
   if(!drive||busy)return;
   await refreshDirty();
-  if(!drive||busy||!leaveOk())return;
+  if(!drive||busy||!(await askLeave(anchorFor('hwpDriveBack')))||!drive||busy)return;
   if(drive.target.template){resetToDevice();showMode();status('편집기가 준비됐습니다. [파일 선택]으로 HWP·HWPX 파일을 열거나 [노조 양식으로 새 문서]를 누르세요.');editor().catch(()=>{});return}
   leaving=true;
   if(drive.target.kind==='library'){requestLibraryDocument(drive.target.document.id,rt);window.KPTURouter.go('library',{source:'delegated'})}
@@ -580,7 +600,7 @@ function resetToDevice(){
   $('hwpLabEditor')?.replaceChildren();
 }
 
-function start(){
+async function start(){
   const input=$('hwpLabFile');
   if(!input)return;
   mount();
@@ -600,12 +620,13 @@ function start(){
   const returning=away;away=false;
   const target=takeHwpEditRequest(rt);
   if(target&&!busy){
-    if(dirty()&&!window.confirm('저장하지 않은 고친 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?')){showMode();watchEdits();return}
+    // 다른 화면에서 넘어온 것이라 누른 버튼이 없다: 화면 가운데 아래에 묻는다. 기다리는 사이 다른 화면으로 갔거나 다른 작업이 시작됐으면 열지 않는다.
+    if(dirty()&&(!(await askDiscard(null,'저장하지 않은 고친 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?','열기'))||busy||!here())){showMode();watchEdits();return}
     void openDrive(target);
     return;
   }
   if(drive&&!busy){
-    if(!returning&&dirty()&&!window.confirm('저장하지 않은 고친 내용이 있어요. 내 기기 파일 편집으로 바꾸면 사라져요. 바꿀까요?')){showMode();watchEdits();return}
+    if(!returning&&dirty()&&(!(await askDiscard(null,'저장하지 않은 고친 내용이 있어요. 내 기기 파일 편집으로 바꾸면 사라져요. 바꿀까요?','바꾸기'))||!drive||busy||!here())){showMode();watchEdits();return}
     resetToDevice();
   }
   showMode();
@@ -615,6 +636,6 @@ function start(){
 }
 
 window.KPTURouter?.on?.(VIEW,start);
-start();
+void start();
 window.__KPTU_HWP_LAB_READY__=Promise.resolve(true);
 })();

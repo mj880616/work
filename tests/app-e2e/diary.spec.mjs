@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import {expectDiaryDay} from './helpers/screen-title.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 // ED③ 일기: the day's text is the new editor ([data-diary-text] .ProseMirror). Typing goes through the editor like a person (select all, type).
 const field=ed=>ed.locator('[data-diary-text] .ProseMirror');
 const plain={useInnerText:true};
@@ -297,7 +298,7 @@ test('같은 날은 하나: [+]는 있는 날을 고치기로, 날짜를 있는 
  await typeInto(page,field(ed),'덧붙일 말');await ed.locator('[data-diary-date]').fill('2026-10-04');
  await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(ed.locator('[data-diary-editor-status]')).toHaveText('이 날 일기가 이미 있어 수정으로 열었어요.');
  await expect(field(ed)).toHaveText('글만 쓴 날 덧붙일 말',plain);
- page.once('dialog',d=>d.accept());await ed.locator('.diary-actions [data-diary-editor-close]').click();
+ await ed.locator('.diary-actions [data-diary-editor-close]').click();await answerAsk(page,true);
  // 다른 곳에서 먼저 같은 날을 만들었으면(409) 저장하지 않고 고치기로 연다.
  await page.locator('#diaryRoot #newDiaryBtn').click();await typeInto(page,field(ed),'늦게 쓴 글');
  f.rows.push({id:'d6',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-06',raw_text:'다른 기기에서 쓴 글',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}});
@@ -332,14 +333,14 @@ test('고치기에서 사진 하나 빼기, 글 없는 일기의 마지막 사�
  const f=await fixture(page,{rows});await openDiary(page,390);
  await cell(page,'2026-10-03').click();await page.locator('#diaryRoot [data-diary-edit]').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');
- page.once('dialog',d=>{expect(d.message()).toContain('Drive 원본은 휴지통으로 보내요');d.accept();});
  await ed.locator('[data-diary-remove="pa"]').click();
+ await expect(page.locator('.kptu-ask .kptu-ask-note')).toContainText('Drive 원본은 휴지통으로 보내요');await answerAsk(page,true);
  await expect(ed.locator('[data-diary-thumb]')).toHaveCount(1);await expect(ed.locator('[data-diary-editor-status]')).toHaveText('사진을 뺐어요. Drive 원본은 휴지통으로 보냈어요.');
  expect(f.prunes).toEqual([{action:'photo-prune',file_ids:['pa'],auth:true}]);
  expect(f.writes.at(-1)).toMatchObject({method:'PATCH',query:{id:'eq.d3',kind:'eq.diary',updated_at:'eq.'+at},body:{attachments:[photo('pb')]}});
  await ed.locator('.diary-actions [data-diary-editor-close]').click();
  await cell(page,'2026-10-05').click();await page.locator('#diaryRoot [data-diary-edit]').click();
- page.once('dialog',d=>d.accept());await ed.locator('[data-diary-remove="only"]').click();
+ await ed.locator('[data-diary-remove="only"]').click();await answerAsk(page,true);
  await expect(ed.locator('[data-diary-editor-status]')).toContainText('사진 한 장만 있는 일기라 이 사진은 뺄 수 없어요');
  expect(f.rows.find(r=>r.id==='d5').attachments).toHaveLength(1);
  // UI-버튼통일 ①: [일기 지우기]는 ⋯ 안. 묻지 않고 바로 빠지고 위쪽 '일기를 지웠어요 · [되돌리기]'. 되돌리면 아무것도 보내지 않는다.
@@ -578,7 +579,7 @@ for(const width of [390,1280]){
   expect(f.rows.find(r=>r.id==='d3').metadata.photo_comments).toEqual({pa:'단풍 길',up1:'새로 올린 사진'});
   // 사진을 빼면 그 사진의 코멘트도 같은 저장에서 빠진다.
   await openEditor(page);
-  page.once('dialog',d=>d.accept());await ed.locator('[data-diary-remove="pa"]').click();
+  await ed.locator('[data-diary-remove="pa"]').click();await answerAsk(page,true);
   await expect(ed.locator('[data-diary-editor-status]')).toHaveText('사진을 뺐어요. Drive 원본은 휴지통으로 보냈어요.');
   expect(f.prunes).toEqual([{action:'photo-prune',file_ids:['pa'],auth:true}]);
   const removal=f.writes.at(-1);

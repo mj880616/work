@@ -5,6 +5,7 @@
 //    and the detail stays open where it was. A wide screen keeps the full open (basket view).
 import {test,expect} from '@playwright/test';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html';
 const shots=process.env.KPTU_SHOT_DIR||'';
 async function ready(page,query=''){await page.goto(fixture+query);await expect.poll(()=>page.evaluate(()=>window.__detailReady===true)).toBe(true);await page.evaluate(()=>{window.__went=[];window.KPTURouter.go=(view,o)=>window.__went.push(view)})}
@@ -63,12 +64,11 @@ test('organization record edit: an empty text is not saved and leaving with an u
 
 test('organization record delete asks once more and only deletes after yes',async({page})=>{
  await ready(page);await openOrg(page);const row=page.locator('#wdUpdates [data-wd-up="old-log"]');
- let message='';page.once('dialog',d=>{message=d.message();d.dismiss()});
  await row.locator('[data-wd-up-menu]').click();await menu(page).getByRole('button',{name:'삭제'}).click();
- await expect.poll(()=>message).toBe('이 기록을 삭제할까요?');await expect(row).toBeVisible();
+ expect(await answerAsk(page,false)).toBe('이 기록을 삭제할까요?');await expect(row).toBeVisible();
  expect(await page.evaluate(()=>window.__detailState.calls.filter(c=>c.method==='DELETE').length)).toBe(0);
- page.once('dialog',d=>d.accept());
  await row.locator('[data-wd-up-menu]').click();await menu(page).getByRole('button',{name:'삭제'}).click();
+ await answerAsk(page,true);
  await expect(page.locator('#wdUpdates [data-wd-up]')).toHaveCount(0);
  const del=await page.evaluate(()=>window.__detailState.calls.filter(c=>c.method==='DELETE').map(c=>c.path));expect(del).toHaveLength(1);expect(del[0]).toContain('app_suborganization_updates?id=eq.old-log');
 });

@@ -190,8 +190,8 @@ test('참고 묶음 화면: 담당조직 목록 맨 아래 입구, 묶음 더하
  await page.keyboard.press('Escape');
  await page.locator('#rbDetail [data-rb-item-more]').click();
  await expect(page.locator('#rbMenu button')).toHaveText(['업데이트 열기','연결 해제']);
- page.once('dialog',d=>d.accept());
  await page.locator('#rbMenu [data-rb-act="disconnect"]').click();
+ await answerAsk(page,true);
  await expect(page.locator('#rbDetail .rb-item')).toHaveCount(0);
  await page.locator('[data-undo-action]').click();
  await expect(page.locator('[data-undo-text]')).toHaveText('연결을 되돌렸어요.');

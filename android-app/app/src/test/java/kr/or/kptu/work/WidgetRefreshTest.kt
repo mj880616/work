@@ -99,6 +99,30 @@ class WidgetRefreshTest {
         assertEquals(WidgetWeek.Pick(java.time.LocalDate.of(2026, 10, 30), "금", "일정 3개 몰림 · 운영위 회의 10:00부터"), wk.busy)
         assertEquals(listOf(false, false, false, false, false, false, true), wk.days.map { it.hot })
         assertEquals(listOf(false, false, false, false, true, false, false), wk.days.map { it.busy })
+        // APP-위젯날짜고르기: 금요일을 고르면 그 날 일정(종일 먼저·시각 순) 다음 기한 할 일. 지난 할 일(10/28)은 그 날에.
+        val fri = wk.details.getValue(java.time.LocalDate.of(2026, 10, 30))
+        assertEquals(3, fri.events)
+        assertEquals(1, fri.tasks)
+        assertEquals("10/30(금) 일정 3 · 할 일 1", WidgetWeek.detailHead(fri))
+        assertEquals(listOf("종일  창립 기념일", "10:00  운영위 회의", "외 2"), WidgetWeek.detailRows(fri))
+        assertEquals(listOf("종일  창립 기념일", "10:00  운영위 회의", "20:30  평가회의", "할 일  보고서 보내기"), WidgetWeek.detailRows(fri, 4))
+        assertEquals(listOf("할 일  지난 일"), WidgetWeek.detailRows(wk.details.getValue(java.time.LocalDate.of(2026, 10, 28))))
+        assertEquals(listOf("일정·할 일 없음"), WidgetWeek.detailRows(wk.details.getValue(java.time.LocalDate.of(2026, 10, 27))))
+    }
+
+    @Test
+    fun weekAloneReadsOnlyCalendarAndExistingTasksAddress() {
+        // 이번 주 위젯만 있어도 새 주소는 없다: 일정 + '지금' 위젯과 같은 할 일 주소(허용 목록 그대로).
+        val plan = WidgetRefresh(now = false, week = true, nowMs = now)
+        assertEquals(listOf(plan.weekCal, WidgetRules.TASKS), plan.urls)
+        plan.urls.forEach { assertTrue(it, WidgetRules.allowed("GET", it)) }
+        val wk = (plan.result(WidgetSession.Outcome.Ok(serverReplies(plan))).week as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content
+        assertEquals(1, wk.details.getValue(java.time.LocalDate.of(2026, 10, 30)).tasks)
+        // 할 일을 읽지 못해도 일정은 그린다(그 날 머리 줄에 '할 일 읽지 못함').
+        val down = plan.result(WidgetSession.Outcome.Ok(listOf(reply(200, week), reply(500, null))))
+        val fri = (down.week as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content.details.getValue(java.time.LocalDate.of(2026, 10, 30))
+        assertNull(fri.tasks)
+        assertEquals("10/30(금) 일정 3 · 할 일 읽지 못함", WidgetWeek.detailHead(fri))
     }
 
     @Test

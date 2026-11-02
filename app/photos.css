@@ -217,3 +217,10 @@
 #appView #photosView .photos-tidy-cmp-slot > .mini{ align-self:flex-start; }
 #appView #photosView .photos-tidy-cmp-slot > .mini[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #appView #photosView .photos-tidy-cmp-nav{ display:flex; align-items:center; justify-content:center; gap:8px; }
+/* PHOTO-빈곳핀치(요청함 11/01 21:40): 본문 어디서든 두 손가락 = 보기 크기(photos.js bodyPinch). 목록이 짧아도 화면 아래까지 손가락을 받도록
+   손가락 화면에서만 본문 칸을 화면 아래까지 채운다(위쪽 두 줄·하단바 몫은 뺌 — 스크롤이 생기지 않는 높이). 위치 줄처럼 가로로 넘기는 칸은 제 스크롤을 그대로 쓴다. */
+#appView #photosView .photos-body[data-photos-pinch]{ touch-action:pan-y; }
+@media (pointer:coarse){ #appView #photosView .photos-body[data-photos-pinch]{ min-height:calc(100svh - 240px); } }
+/* PHOTO-드라이브폴더통일: 폴더 줄 장수는 0·모름('—')이면 흐리게(원드라이브·구글 드라이브 같음). 폰 묶음 이름 옆 전체 장수. */
+#appView #photosView .photos-fx-row .nx-num.is-zero{ opacity:.55; }
+#appView #photosView .photos-fx-n{ margin-left:4px; font-variant-numeric:tabular-nums; }
