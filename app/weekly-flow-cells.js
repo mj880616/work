@@ -203,7 +203,7 @@ export function paintFlowCells(slot, ctx) {
     const ul = el('ul', 'weekly-flow-lines');
     // 끌기(2. 1) 요약·4. 산하 조직): 칸마다 목록 하나(data-flow-line-list = 칸), 줄마다 열쇠 '칸 id\u0001번호'. 투쟁 사업장은 칸째 옮기므로 줄 끌기 없음.
     const canMove = section !== 'sites';
-    if (canMove) ul.dataset.flowLineList = c.id;
+    if (canMove) ul.dataset.flowLineList = ul.dataset.reorderList = c.id; // reorder-drag.js 는 놓은 칸을 data-reorder-list 로 알린다
     const addRow = () => { const li = el('li'); li.dataset.flowAddRow = ''; li.append(editForm(c.id, ui.addValue ?? '', {flowAddSave:c.id}, ui.addAt >= 0 ? '아래에 줄 추가' : '줄 추가')); return li; };
     c.lines.forEach((text, i) => {
       const li = el('li'); li.dataset.flowLine = String(i);
