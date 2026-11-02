@@ -1,7 +1,12 @@
 (async()=>{
   const startup=window.__KPTU_STARTUP__;
   startup?.mark('loaderStart');
+  // PERF-첫로딩 P3(시작 사슬 펴기): 뒤 단계에서 부를 파일을 앞 단계에서 받아만 둔다(modulepreload — 실행하지 않음, 실행 순서는 아래 await 그대로).
+  // 주소는 import()와 같은 글자라 Pages 빌드가 같은 해시 번호를 붙인다. 기능 모듈은 로그인 확인 뒤에만 이 목록에 넣는다.
+  const preload=paths=>{for(const path of paths){const link=document.createElement('link');link.rel='modulepreload';link.href=path;document.head.appendChild(link)}};
   const runtimeReady=import('./runtime-client.js');
+  // 로그인 확인에 쓰는 파일(기능 모듈 아님): 차례로 실행하되 받기는 처음에 한꺼번에.
+  preload(['./auth-handoff-client.js','./auth-bootstrap.js','./auth-service.js']);
   await Promise.all([
     import('./native-auth-bridge.js'),
     import('./calendar-return-bridge.js')
@@ -64,6 +69,9 @@
     redirectToLogin();
     return;
   }
+  // 로그인 확인 뒤: 다음 묶음(앱 바탕·사업 공간 확인 — 로그인한 누구나 받는 것)은 첫 묶음과 함께 받아만 둔다.
+  // 화면 기능 모듈(view-loader·창 그릇 등)은 사업 공간 소유자로 확인된 뒤에만 받는다(비구성원은 거절 화면만, nonmember-access 시험).
+  preload(['./topbar-actions.js','./context-menu.js','./select-menu.js','./date-field.js','./team.js']);
 
   const bootSession=window.KPTURuntime.session.read();
   const bootOwner=sessionOwner(bootSession);
@@ -130,6 +138,14 @@
     import('./date-field.js'),
     import('./team.js')
   ]);
+  // 시작 주소 → 첫 화면 이름(주소만 읽음, 부작용 없음). CSS 미리 받기와 아래 시작 순서가 같은 결과를 쓴다.
+  const startRoute=viewLoader=>{
+    const params=new URLSearchParams(location.search);
+    const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
+    // MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다. 옛 주소(?view=projects, ?project=)는 사업 보고를 열고 창을 띄운다.
+    const areasAtStart=viewLoader.normalize(rawRequested)==='projects'||(viewLoader.normalize(rawRequested)==='meetings'&&params.get('areas')==='1');
+    return {params,rawRequested,areasAtStart,requested:areasAtStart?'meetings':viewLoader.normalize(rawRequested)};
+  };
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
   delete window.__KPTU_BOOT_MEMBERSHIP_PROMISE__;
@@ -137,14 +153,25 @@
 
   // SET-보기선택서버저장: 화면 선택(테마·메뉴 접힘 등)은 서버 프로필에서 한 번 읽는다. 업무공간 소유자로 확인된 뒤에만 읽고(비구성원은 데이터 요청 없음),
   // 앱 화면을 공개(kptu-shell-ready)하기 전에 기다려 테마를 한 번 적용한다. 실패·지연이면 기본값(올리브)으로 연다. 늦게 온 값으로 다시 덮지 않는다.
-  const viewPrefs=await import('./view-prefs.js').then(async m=>{await m.viewPrefs.load();return m.viewPrefs}).catch(()=>null);
+  // PERF-첫로딩 P3: 소유자 확인 뒤 화면을 그리기 전에 필요한 것(보기 설정·기다림 표시·화면 불러오기 도구·사업영역 창 그릇·Drive 사본 갱신)을 한 단계에서 함께 부른다.
+  // 정적 import 사슬이 있는 창 그릇은 그 사슬(basket-note-tasks → update-requests·update-journal)도 같은 순간 받기 시작한다.
+  // tests/loader-preload.test.mjs가 이 목록을 실제 사슬과 맞춰 본다.
+  preload(['./area-window.js','./basket-note-tasks.js','./update-requests.js','./update-journal.js']);
+  const [viewPrefs,wait]=await Promise.all([
+    import('./view-prefs.js').then(async m=>{await m.viewPrefs.load();return m.viewPrefs}).catch(()=>null),
+    import('./wait-state.js'),
+    // 화면 불러오기 도구가 실행되는 즉시 첫 화면의 모양 파일(CSS, 자료 없음)을 받기 시작한다 — 아래 await viewLoader.prepare(requested)는 같은 받기를 기다린다.
+    import('./view-loader.js').then(()=>{const v=window.KPTUViewLoader;void v.prepare(startRoute(v).requested)}),
+    // MTG-프로젝트합치기 ①: 창 그릇의 popstate·kptu:view-changed가 화면 프로그램·첫 화면 이동보다 먼저 붙는다.
+    import('./area-window.js'),
+    // ORG-사본자동갱신: 저장 뒤 Drive 읽기용 사본 자동 갱신(화면 표시 없음).
+    import('./drive-summary.js').catch(err=>console.warn('drive summary refresh load failed',err?.name||'Error'))
+  ]);
   const savedTheme=viewPrefs?.get('theme');
   if(savedTheme){document.documentElement.setAttribute('data-theme',savedTheme);window.dispatchEvent(new CustomEvent('kptu:theme-applied'))}
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  // ORG-사본자동갱신: 저장 뒤 Drive 읽기용 사본 자동 갱신(화면 표시 없음).
-  await import('./drive-summary.js').catch(err=>console.warn('drive summary refresh load failed',err?.name||'Error'));
   // 원장 Drive 사본 자동 갱신(원장이 바뀌면 10분 묶어 한 번, 열 때 하루 넘었으면 한 번, LEDGER-자동기록). 기다리지 않는다.
   import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
   // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
@@ -162,15 +189,8 @@
     box.firstElementChild?.removeAttribute('role');
   };
 
-  const wait=await import('./wait-state.js');
-  await import('./view-loader.js');
   const viewLoader=window.KPTUViewLoader;
-  const params=new URLSearchParams(location.search);
-  const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
-  // MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다. 옛 주소(?view=projects, ?project=)는 사업 보고를 열고 창을 띄운다.
-  await import('./area-window.js');
-  const areasAtStart=viewLoader.normalize(rawRequested)==='projects'||(viewLoader.normalize(rawRequested)==='meetings'&&params.get('areas')==='1');
-  const requested=areasAtStart?'meetings':viewLoader.normalize(rawRequested);
+  const {params,rawRequested,areasAtStart,requested}=startRoute(viewLoader);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
   const staticShellViews=new Set(['home','basket','calendar','tasks','diary','library','meetings','pages','team']);
