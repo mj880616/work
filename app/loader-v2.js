@@ -147,6 +147,9 @@
     import('./date-field.js'),
     import('./team.js')
   ]);
+  // MTG-프로젝트합치기 ①: 사업영역 창 그릇은 바탕(위 묶음) 다음에 실행되고(뒤로가기 듣는 순서 그대로), 사업 공간 확인을 기다리는 동안 받는다.
+  // 창 그릇의 popstate·kptu:view-changed가 화면 프로그램·첫 화면 이동보다 먼저 붙도록 아래에서 화면을 그리기 전에 기다린다.
+  const areaWindowReady=import('./area-window.js');
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
   delete window.__KPTU_BOOT_MEMBERSHIP_PROMISE__;
@@ -157,8 +160,7 @@
   // 사업영역 창 그릇(area-window)·Drive 사본 갱신(drive-summary)은 보기 설정 읽기와 같은 단계에서 부른다(셋 다 화면을 그리기 전에 끝남 — 전과 같은 순서 보장).
   const [viewPrefs]=await Promise.all([
     import('./view-prefs.js').then(async m=>{await m.viewPrefs.load();return m.viewPrefs}).catch(()=>null),
-    // MTG-프로젝트합치기 ①: 창 그릇의 popstate가 화면 프로그램보다 먼저 붙는다.
-    import('./area-window.js'),
+    areaWindowReady,
     // ORG-사본자동갱신: 저장 뒤 Drive 읽기용 사본 자동 갱신(화면 표시 없음).
     import('./drive-summary.js').catch(err=>console.warn('drive summary refresh load failed',err?.name||'Error'))
   ]);
@@ -243,6 +245,16 @@
     showFeatureError(err);
     startup?.mark('requestedViewFailed',{view:requested});
   }
+  // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창과 그 목록(·주소의 사업영역)까지 다 그린 뒤에 첫 화면을 드러낸다
+  // (드러낸 뒤에 창이 늦게 덮거나 목록이 다시 그려져 줄이 밀리지 않게 — 시작 순서: 필요한 자료 → 한 번 드러내기).
+  if(areasAtStart&&result?.ok){
+    // 폰 뒤로가기 기록(창 → 상세)을 창이 뜨기 전에 붙인다(상세가 따로 주소 기록을 쌓지 않게).
+    await import('./mobile-modal-history.js').catch(()=>{});
+    try{await viewLoader.load('projects');await window.KPTUAreaWindow?.open({id:params.get('project')||null})}
+    catch(err){console.warn('area window open failed',err?.name||'Error')}
+  }
+  window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
+  // PERF-첫로딩 P3: 아래 기다리지 않는 부착(검색 입구·녹음·새 판 알림·알림 줄)은 첫 화면 공개 바로 뒤에 시작한다(공개를 기다리게 하지 않음).
   // SEARCH-전체검색: 첫 화면을 그린 뒤 검색칸(PC 상단 줄)·메뉴 검색 입구를 붙인다. 기다리지 않는다.
   viewLoader.load('search').catch(err=>console.warn('search load failed',err?.name||'Error'));
   // MTG-노트북녹음: 노트북 [녹음]·녹음 띠의 주인(앱 껍데기 한 곳). 첫 화면 뒤 한 번 붙여 메뉴를 옮겨도 녹음이 이어진다. 기다리지 않는다.
@@ -253,15 +265,6 @@
   import('./notice-lines.js').then(m=>m.startNoticeLines()).catch(err=>console.warn('notice lines load failed',err?.name||'Error'));
   // UI-앱안알림 4단계: 뒤에서 끝난 일(다음 주 준비 한 장 등)도 같은 알림 줄에(notice-done.js, 폰 알림과 같은 서버 목록). 기다리지 않는다.
   import('./notice-done.js').then(m=>m.startDoneNotices()).catch(err=>console.warn('done notices load failed',err?.name||'Error'));
-  // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창과 그 목록(·주소의 사업영역)까지 다 그린 뒤에 첫 화면을 드러낸다
-  // (드러낸 뒤에 창이 늦게 덮거나 목록이 다시 그려져 줄이 밀리지 않게 — 시작 순서: 필요한 자료 → 한 번 드러내기).
-  if(areasAtStart&&result?.ok){
-    // 폰 뒤로가기 기록(창 → 상세)을 창이 뜨기 전에 붙인다(상세가 따로 주소 기록을 쌓지 않게).
-    await import('./mobile-modal-history.js').catch(()=>{});
-    try{await viewLoader.load('projects');await window.KPTUAreaWindow?.open({id:params.get('project')||null})}
-    catch(err){console.warn('area window open failed',err?.name||'Error')}
-  }
-  window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js').catch(()=>{});
   // APP-폰앱새로 ②: 폰 앱(KPTUAndroid)의 [공유]로 받은 것을 정리함 확인 줄로 넣는다. 앱이 아니면 아무것도 하지 않는다. 첫 화면이 뜬 뒤 붙인다(시작 화면 이동과 겹치지 않게). 기다리지 않는다.
   import('./basket-share.js').catch(err=>console.warn('share intake load failed',err?.name||'Error'));
