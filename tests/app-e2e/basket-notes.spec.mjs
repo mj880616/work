@@ -255,7 +255,7 @@ test('an empty new note is not saved; a body-only note takes its first line as t
  expect(f.errors).toEqual([]);
 });
 
-test('phone back closes the new-note window and hands its text back to the note input; a bottom tab with text asks before leaving',async({page})=>{
+test('phone back closes the new-note window and hands its text back to the note input; × with text asks before leaving (the tabs are hidden while it is open)',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  await chooseBasketKind(page,'note');
  const add=noteBig(page),editor=edWin(page);
@@ -264,7 +264,9 @@ test('phone back closes the new-note window and hands its text back to the note 
  await expect(edWin(page)).toHaveCount(0);await expect(page.locator('[data-note-list]')).toBeVisible();await expect(noteInput(page)).toBeFocused();
  await add.click();
  await typeInto(page,edWinText(page),'쓰던 글');
- await page.locator('.mobile-tabs [data-view="meetings"]').click();
+ // S48-6b(#1708 질문 5): the bottom tabs are hidden while the write window is open; leaving is × or back.
+ await expect(page.locator('.mobile-tabs')).toBeHidden();
+ await editor.locator('[data-close="edWindow"]').click();
  const leave=page.locator('#edwCloseSheet');await expect(leave).toHaveAttribute('open','');
  await leave.getByRole('button',{name:'계속 쓰기',exact:true}).click();
  await expect(edWinText(page)).toHaveText('쓰던 글');

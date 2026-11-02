@@ -136,6 +136,8 @@ on:
       - 'scripts/ops/inbox-open.mjs'
       - 'tests/ops-inbox-open.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
+      - 'tests/outside-search-model.test.mjs'
+      - 'tests/notice-outside-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
@@ -274,6 +276,8 @@ on:
       - 'scripts/ops/inbox-open.mjs'
       - 'tests/ops-inbox-open.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
+      - 'tests/outside-search-model.test.mjs'
+      - 'tests/notice-outside-model.test.mjs'
       - 'tests/news-clipping-model.test.mjs'
       - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
@@ -357,7 +361,7 @@ jobs:
       - name: Check request inbox open-list calculator (OPS-요청함대기계산)
         run: node --test tests/ops-inbox-open.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs

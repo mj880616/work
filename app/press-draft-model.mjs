@@ -10,18 +10,31 @@ const str = (v, max) => typeof v === 'string' && v.trim() && [...v].length <= ma
 export const typeLabel = type => PRESS_TYPES.find(t => t.value === type)?.label || '성명';
 export const shortDay = day => { const m = String(day || '').match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? `${Number(m[1])}.${Number(m[2])}` : ''; };
 
-// 요청 몸통: 종류·고른 ID(1~5, 고른 순서)·한 줄 방향(빈 글이면 보내지 않음). 근거 글은 보내지 않는다.
-export function pressRequest(type, ids, direction) {
+// 요청 몸통: 종류·고른 사업 보고 ID(0~5, 고른 순서)·바깥 문장(S48-18, 글 id + 문장 번호 0~5개, 있을 때만)·한 줄 방향(빈 글이면 보내지 않음).
+// 근거 글(사업 보고 본문·바깥 문장 글자·단체·제목)은 보내지 않는다 — 서버가 다시 읽는다.
+export function pressRequest(type, ids, direction, quotes = []) {
   const picked = [...new Set((ids || []).map(id => String(id).toLowerCase()))].filter(id => UUID.test(id)).slice(0, PRESS_MAX_PICK);
   const dir = String(direction ?? '').replace(/\s+/g, ' ').trim().slice(0, PRESS_DIRECTION_MAX);
-  return {kind:'press_draft', type:type === 'release' ? 'release' : 'statement', meeting_ids:picked, ...(dir ? {direction:dir} : {})};
+  const seen = new Set(), qs = [];
+  for (const q of quotes || []) {
+    const post = String(q?.post_id || '').toLowerCase(), idx = Number(q?.idx);
+    if (!UUID.test(post) || !Number.isSafeInteger(idx) || idx < 0 || idx > 3000 || seen.has(`${post} ${idx}`) || qs.length >= PRESS_MAX_PICK) continue;
+    seen.add(`${post} ${idx}`); qs.push({post_id:post, idx});
+  }
+  return {kind:'press_draft', type:type === 'release' ? 'release' : 'statement', meeting_ids:picked, ...(qs.length ? {quotes:qs} : {}), ...(dir ? {direction:dir} : {})};
+}
+// 근거 한 건(서버 답): 사업 보고 {ref, meeting_id, title, day} 또는 바깥 문장 {ref, post_id, idx, title, day}.
+function cleanSource(s) {
+  if (!s || !Number.isSafeInteger(s.ref) || s.ref < 1 || s.ref > PRESS_MAX_PICK * 2 || typeof s.title !== 'string' || !(s.day === '' || DAY.test(String(s.day)))) return null;
+  if (UUID.test(String(s.meeting_id))) return {ref:s.ref, meeting_id:String(s.meeting_id).toLowerCase(), title:s.title.trim().slice(0, 120) || '사업 보고', day:s.day};
+  if (UUID.test(String(s.post_id)) && Number.isSafeInteger(s.idx) && s.idx >= 0) return {ref:s.ref, post_id:String(s.post_id).toLowerCase(), idx:s.idx, title:s.title.trim().slice(0, 200) || '바깥 인용', day:s.day};
+  return null;
 }
 
 // 서버 답 검사. 모양이 틀리면 null. 근거 번호는 돌려받은 근거 목록 안의 것만 남긴다(밖이면 그 번호만 버림).
 export function parsePressAnswer(data) {
   if (!data || typeof data !== 'object' || data.kind !== 'press_draft') return null;
-  const sources = Array.isArray(data.sources) ? data.sources.filter(s => s && Number.isSafeInteger(s.ref) && s.ref >= 1 && s.ref <= PRESS_MAX_PICK
-    && UUID.test(String(s.meeting_id)) && typeof s.title === 'string' && (s.day === '' || DAY.test(String(s.day)))).map(s => ({ref:s.ref, meeting_id:String(s.meeting_id).toLowerCase(), title:s.title.trim().slice(0, 120) || '사업 보고', day:s.day})) : [];
+  const sources = Array.isArray(data.sources) ? data.sources.map(cleanSource).filter(Boolean) : [];
   const known = new Set(sources.map(s => s.ref));
   const lines = (list, max) => (Array.isArray(list) ? list : []).map(p => ({text:str(p?.text, max), refs:[...new Set((Array.isArray(p?.refs) ? p.refs : []).filter(r => known.has(r)))]}))
     .filter(p => p.text && p.refs.length);
@@ -40,7 +53,8 @@ export function pressNote(draft) {
   if (draft.demands.length) { out.push('요구'); for (const d of draft.demands) out.push(`- ${d.text} ${refTag(d.refs)}`); out.push(''); }
   if (draft.checks.length) { out.push('확인할 것'); draft.checks.forEach((c, i) => out.push(`${i + 1}. ${c}`)); out.push(''); }
   out.push('근거');
-  for (const s of draft.sources) out.push(`${s.ref}. 사업 보고 · ${s.title}${s.day ? ` · ${shortDay(s.day)}` : ''}`);
+  // 바깥 문장의 제목은 서버가 '바깥 인용 · 단체 · 글 제목'으로 준다.
+  for (const s of draft.sources) out.push(`${s.ref}. ${s.post_id ? '' : '사업 보고 · '}${s.title}${s.day ? ` · ${shortDay(s.day)}` : ''}`);
   return {title:[...draft.title].slice(0, 200).join(''), raw_text:out.join('\n')};
 }
 

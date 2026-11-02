@@ -1,6 +1,8 @@
 // 성명·보도자료 초안(kind=press_draft, FEAT-1029묶음 ④, docs/design/feature-bundle-1029.md 4절, 명진 결정 10/29 4-①~④).
 // 순수 함수만 둔다(요청 검사, 재료 만들기, 지시문, 답 형식, 답 검사). 입출력(사업 보고 읽기·AI 부르기·기록)은 handler.ts.
-// - 근거는 사업 보고·회의 기록(app_meetings)만(4-①). 화면은 고른 ID만 보내고, 서버가 호출한 사람의 로그인으로 다시 읽는다(owner RLS).
+// - 근거는 사업 보고·회의 기록(app_meetings)(4-①) + 바깥 문장(S48-18, 설계 docs/design/outside-statements.md 5절: 사회운동 Now
+//   [문장 찾기]에서 [초안에 쓰기]로 고른 문장, 최대 5개). 화면은 고른 ID(바깥 문장은 글 id + 문장 번호)만 보내고,
+//   서버가 호출한 사람의 로그인으로 다시 읽는다(owner RLS). 문장 글·단체·제목은 화면이 보내지 못한다.
 // - 종류는 성명·보도자료 둘(4-②). 문체는 press-style.ts의 고정 2편(4-③).
 // - 근거 번호 검사는 공용 함수(evidence.ts, '물어보기'와 같은 꼬리표 s1…)를 쓴다. 근거 없는 문단·요구는 버린다.
 // - 서버는 아무것도 저장하지 않는다. 화면이 미리보기를 보여 주고, 명진이 [노트로 저장]을 누를 때만 노트가 된다(AI 재료 제외, 4-④).
@@ -11,7 +13,9 @@ import { RELEASE_EXAMPLE, RELEASE_STYLE, STATEMENT_EXAMPLE, STATEMENT_STYLE } fr
 export type PressType = "statement" | "release";
 export const PRESS_TYPE_LABEL: Readonly<Record<PressType, string>> = Object.freeze({ statement: "성명", release: "보도자료" });
 export const PRESS_LIMITS = Object.freeze({
-  refs: 5, // 고르는 근거 최대 수(화면과 같음)
+  refs: 5, // 고르는 근거(사업 보고) 최대 수(화면과 같음)
+  quotes: 5, // 바깥 문장 최대 수(화면과 같음)
+  quoteChars: 500, // 바깥 문장 하나(문장 표 상한과 같음)
   meetingChars: 6000, // 회의마다 앞 6,000자
   totalChars: 20000, // 근거 합계 2만 자
   direction: 80, // 한 줄 방향(선택)
@@ -31,13 +35,29 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]/;
 const chars = (s: string) => [...s].length;
 
-export type PressInput = { kind: "press_draft"; type: PressType; meeting_ids: string[]; direction: string };
-// 요청 몸통 검사: {kind, type, meeting_ids(1~5개, 겹침 없음), direction?}. 그 밖의 칸은 거절(근거 글을 화면이 보내지 못하게).
+export type PressQuote = { post_id: string; idx: number };
+export type PressInput = { kind: "press_draft"; type: PressType; meeting_ids: string[]; quotes: PressQuote[]; direction: string };
+// 요청 몸통 검사: {kind, type, meeting_ids(0~5개, 겹침 없음), quotes?(0~5개 {post_id, idx}, 겹침 없음), direction?}.
+// 사업 보고와 바깥 문장을 합쳐 1개 이상. 그 밖의 칸은 거절(근거 글을 화면이 보내지 못하게).
 export function parsePressBody(b: Record<string, unknown>): PressInput | null {
   const keys = Object.keys(b);
-  if (keys.some((k) => !["kind", "type", "meeting_ids", "direction"].includes(k))) return null;
+  if (keys.some((k) => !["kind", "type", "meeting_ids", "quotes", "direction"].includes(k))) return null;
   if (b.type !== "statement" && b.type !== "release") return null;
-  if (!Array.isArray(b.meeting_ids) || b.meeting_ids.length < 1 || b.meeting_ids.length > PRESS_LIMITS.refs) return null;
+  if (!Array.isArray(b.meeting_ids) || b.meeting_ids.length > PRESS_LIMITS.refs) return null;
+  const quotes: PressQuote[] = [];
+  if (b.quotes !== undefined) {
+    if (!Array.isArray(b.quotes) || b.quotes.length > PRESS_LIMITS.quotes) return null;
+    for (const q of b.quotes) {
+      if (!q || typeof q !== "object" || Array.isArray(q)) return null;
+      const o = q as Record<string, unknown>;
+      if (Object.keys(o).some((k) => k !== "post_id" && k !== "idx")) return null;
+      if (typeof o.post_id !== "string" || !UUID.test(o.post_id) || !Number.isSafeInteger(o.idx) || (o.idx as number) < 0 || (o.idx as number) > 3000) return null;
+      const one = { post_id: o.post_id.toLowerCase(), idx: o.idx as number };
+      if (quotes.some((x) => x.post_id === one.post_id && x.idx === one.idx)) return null;
+      quotes.push(one);
+    }
+  }
+  if (b.meeting_ids.length + quotes.length < 1) return null;
   const ids: string[] = [];
   for (const v of b.meeting_ids) {
     if (typeof v !== "string" || !UUID.test(v)) return null;
@@ -51,11 +71,11 @@ export function parsePressBody(b: Record<string, unknown>): PressInput | null {
     direction = b.direction.replace(/\s+/g, " ").trim();
     if (chars(direction) > PRESS_LIMITS.direction) return null;
   }
-  return { kind: "press_draft", type: b.type, meeting_ids: ids, direction };
+  return { kind: "press_draft", type: b.type, meeting_ids: ids, quotes, direction };
 }
 
 // 재료 한 건: 서버가 다시 읽은 사업 보고. ref는 s1… (화면·DB id는 AI에 가지 않는다).
-export type PressSource = { ref: string; id: string; title: string; day: string; text: string };
+export type PressSource = { ref: string; id: string; title: string; day: string; text: string; quote?: { post_id: string; idx: number; source: string } };
 const oneLine = (s: string) => s.replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").replace(/\s+/g, " ").trim();
 
 // 회의 줄 → 근거 글. 고른 순서대로 s1, s2 …. 글 없는 회의는 근거에서 빠진다. 회의마다 6,000자, 합계 2만 자에서 자른다(연락처는 가림).
@@ -75,6 +95,19 @@ export function pressSources(rows: { id: string; label: string; day: string; tex
   return { sources: out, partial };
 }
 
+// 바깥 문장 → 근거 글(사업 보고 뒤 번호를 이어 s(n+1)…). 고른 순서대로, 서버가 다시 읽은 문장만. 문장마다 500자(연락처는 가림).
+// title은 '바깥 인용 · 단체 · 글 제목'(단체 이름은 카탈로그 이름, 글 제목은 120자).
+export function quoteSources(rows: { post_id: string; idx: number; source: string; title: string; day: string; text: string }[], start: number): PressSource[] {
+  const out: PressSource[] = [];
+  for (const r of rows) {
+    const text = maskEvidenceText(oneLine(r.text), PRESS_LIMITS.quoteChars);
+    if (!text) continue;
+    const title = [...oneLine(r.title)].slice(0, 120).join("") || "글";
+    out.push({ ref: `s${start + out.length + 1}`, id: r.post_id, title: `바깥 인용 · ${r.source} · ${title}`, day: r.day, text: `「${text}」`, quote: { post_id: r.post_id, idx: r.idx, source: r.source } });
+  }
+  return out;
+}
+
 export const PRESS_DRAFT_INSTRUCTIONS = [
   "너는 공공운수노조 공공기관사업팀 부팀장의 성명·보도자료 초안 도우미다. 초안은 명진이 사실을 확인하고 고친 뒤에만 바깥에 나간다.",
   "입력은 종류(성명 또는 보도자료), 한 줄 방향(없을 수 있음), 근거 목록(sources: s1, s2 …마다 날짜·제목·사업 보고 원문)이다.",
@@ -86,6 +119,7 @@ export const PRESS_DRAFT_INSTRUCTIONS = [
   "title은 제목 한 줄(40자 안쪽), subtitle은 부제 한 줄(60자 안쪽)이다. 둘 다 근거에 있는 사실로만 쓴다.",
   "checks에는 명진이 내보내기 전에 사실 확인할 곳을 짧게 적는다(숫자·날짜·이름·인용·'[확인 필요]'로 남긴 곳). 10개 안쪽.",
   "한 줄 방향은 글의 초점일 뿐이다. 방향에 맞는 근거가 없으면 방향을 따르려고 사실을 지어내지 않는다.",
+  "제목이 '바깥 인용'으로 시작하는 근거는 다른 단체 글의 한 문장이다. 쓸 때는 그 단체 이름을 밝히고 짧게 그대로 인용하며(고쳐 쓰지 않음), 우리 단체의 주장처럼 쓰지 않는다. 바깥 인용을 쓰면 checks에 '인용 출처 확인: 단체 · 글 제목 · 날짜'를 넣는다.",
   "아래 예시는 문체만 참고한다. 예시 속 사실·이름·숫자를 초안에 쓰지 않는다.",
 ].join("\n");
 
