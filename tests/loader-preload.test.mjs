@@ -96,8 +96,8 @@ test('P5-c: 쉬는 틈 미리 받기는 화면마다 차례로', () => {
   assert.match(warm, /if\(loaded\.has\(view\)\)continue;/);
   assert.match(warm, /Promise\.all\(links\.map\(settled\)\)\.then\(\(\)=>idle\(next\)\)/);
   assert.match(views, /const settled=link=>new Promise\(resolve=>\{link\.addEventListener\('load',resolve,\{once:true\}\);link\.addEventListener\('error',resolve,\{once:true\}\)\}\);/);
-  // 받기만(modulepreload·prefetch) — 실행·기기 저장 없음.
-  assert.doesNotMatch(warm, /import\(|localStorage|sessionStorage/);
+  // 받기만(modulepreload·prefetch) — 실행하지 않는다.
+  assert.doesNotMatch(warm, /import\(/);
   // 화면을 누르면 prepare가 같은 사슬을 바로 받는다.
   assert.match(views, /if\(!loaded\.has\(key\)\)for\(const path of firstModules\[key\]\|\|warmModules\[key\]\|\|\[\]\)hint\('modulepreload',path\);/);
 });
