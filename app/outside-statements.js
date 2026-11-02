@@ -419,6 +419,9 @@ function enter() {
     // 화면 기억을 아직 서버에서 못 읽었으면(첫 로딩) 읽은 뒤 한 번 더 — 그사이 사용자가 탭을 고르면 그대로 둔다.
     if (viewPrefs.status?.() !== 'ok') state.tabSet = false;
   }
+  // 다시 들어온 때도 보이는 탭 칸을 새로 읽는다([뉴스]는 그 모듈이, [보관]은 이 화면이).
+  else if (state.tab === 'news') window.KPTUNews?.enter?.();
+  else if (state.tab === 'saved') saved.load();
   if (!interests.loaded()) interests.load().then(() => { if (state.mode === 'list') paintList(); });
   askInterests();
   paint();
