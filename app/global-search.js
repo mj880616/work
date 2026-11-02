@@ -597,7 +597,8 @@ function gsRowMenu() {
       if (isNoteDoc(key)) {
         return `<button type="button" data-gs-act="note-move">폴더로 옮기기 ›</button>${notes.length > 1 ? `<button type="button" data-gs-act="note-all">노트 결과 ${notes.length}개 폴더로 옮기기 ›</button>` : ''}${docs.length ? `<button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
       }
-      return `<button type="button" data-gs-act="pick">선택</button>${docs.length > 1 ? `<button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
+      // 빠짐11: 자료실 자료도 검색 결과 안에서 바로 폴더로(자료실 화면으로 넘어가지 않음) — 이 자료 하나, 또는 자료실 결과 모두.
+      return `<button type="button" data-gs-act="pick">선택</button><button type="button" data-gs-act="doc-move">폴더로 옮기기 ›</button>${docs.length > 1 ? `<button type="button" data-gs-act="doc-all">자료실 결과 ${docs.length}개 폴더로 옮기기 ›</button><button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
     },
     onAction: (button, active) => {
       const act = button.dataset.gsAct, option = active.trigger, item = rowsByKey.get(active.id);
@@ -607,6 +608,11 @@ function gsRowMenu() {
       if (act === 'note-move' || act === 'note-all') {
         const keys = act === 'note-all' ? noteKeys(host) : [active.id];
         void moveNoteResults(option, keys.map(k => rowsByKey.get(k)?.id).filter(Boolean));
+        return;
+      }
+      if (act === 'doc-move' || act === 'doc-all') {
+        const keys = act === 'doc-all' ? docKeys(host) : [active.id];
+        void moveDocResults(option, keys.map(k => rowsByKey.get(k)?.id).filter(Boolean));
         return;
       }
       const keys = act === 'all' ? docKeys(host) : [active.id];
@@ -630,6 +636,26 @@ async function moveNoteResults(anchor, ids) {
     window.dispatchEvent(new CustomEvent('kptu:basket-notes-restored'));
     notify(`옮겼어요 노트 ${n}개 → ${result.place}${result.failed.length ? ` · ${result.failed.length}개는 못 옮김` : ''}`, {label: `노트 폴더 옮기기 ${n}개`,
       undo: result.undo ? async () => { const ok = await result.undo(); window.dispatchEvent(new CustomEvent('kptu:basket-notes-restored')); return ok; } : null});
+  }});
+}
+// 자료실 결과를 자료실 폴더로(그 자리에서). 옮긴 뒤 결과 줄의 '📁 이름'이 바로 바뀌고 자료실 화면도 새 폴더 자리로 다시 그린다.
+async function moveDocResults(anchor, ids) {
+  if (!ids.length) return;
+  const rt = window.KPTURuntime, owner = rt?.session?.read?.()?.user?.id;
+  const {loadLibraryFolders, openLibraryFolderPicker, moveLibraryDocsToFolder} = await import('./library-folder-pick.js');
+  const loaded = await loadLibraryFolders(ids, rt);
+  if (owner !== rt?.session?.read?.()?.user?.id || !anchor.isConnected) return;
+  if (!loaded.ready) { notify('자료실 폴더를 읽지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true}); return; }
+  const changed = () => { window.dispatchEvent(new CustomEvent('kptu:library-folders-changed')); window.dispatchEvent(new CustomEvent('kptu:documents-changed')); };
+  openLibraryFolderPicker({anchor, folders: loaded.folders, itemFolder: loaded.itemFolder, docs: ids, onPick: async folder => {
+    const result = await moveLibraryDocsToFolder(ids, folder, {rt, loaded});
+    if (owner !== rt?.session?.read?.()?.user?.id) return;
+    const n = result.done.length;
+    if (!n && !result.failed.length) { notify(`이미 ${result.place}에 있어요.`); return; }
+    if (!n) { notify('자료를 옮기지 못했어요. 다시 해 주세요.', {error: true}); return; }
+    changed();
+    notify(`옮겼어요 ${n}개 → ${result.place}${result.failed.length ? ` · ${result.failed.length}개는 못 옮김` : ''}`, {label: `자료 폴더 옮기기 ${n}개`,
+      undo: result.undo ? async () => { const ok = await result.undo(); changed(); return ok; } : null});
   }});
 }
 async function selectInLibrary(ids) {
