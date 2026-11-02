@@ -714,8 +714,11 @@ async function loadTaskMeetings(run, scope) {
 }
 const SHARED_KEYS = new Set(['tasks', 'basket', 'movedNotes', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
+// PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
+const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft']);
+const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
 async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner) {
-  materials[key] = {status:'loading'}; renderDay(); renderWeekly_();
+  materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_();
   try {
     const items = await readers[key]();
     if (!liveRun(key, run, scope)) return;
@@ -724,7 +727,7 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
     if (!liveRun(key, run, scope)) return;
     materials[key] = {status:'failed'};
   }
-  renderDay(); renderWeekly_();
+  renderDayFor(key); renderWeekly_();
   if (key === 'tasks' && materials.tasks?.status === 'ok') void loadTaskMeetings(run, scope);
   void checkOverlaps();
   void maybeDraft();
