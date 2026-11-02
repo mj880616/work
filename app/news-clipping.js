@@ -12,7 +12,7 @@ import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {takeNewsItem} from './news-request.mjs';
 import {interestHit, signalBody} from './now-model.mjs';
 import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
-// NEWS-클리핑 화면 C1(설계 docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑'(?view=news). #newsView의 유일한 그리기 주인.
+// NEWS-클리핑 화면 C1(설계 docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑'(지금은 Now [뉴스] 탭, #nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(꼬리표 '채널'/'자동'). 칩 [전체·채널·자동], 폰은 좌우로 밀어 칩 이동.
 // - 줄: '꼬리표 · 매체 · 시각' / 제목 / 한 문장 요약(늘 보임) / 본문 접기(<details>, 펼칠 때 서버 줄에서 읽고 없으면 [본문 열기]=news-feed open)
 //   / 외국어 제목은 서버가 미리 번역한 한국어 제목 + 원제 작게. 본문은 [번역](news-feed translate, 본문 번역 저장본이 있으면 다시 부르지 않고

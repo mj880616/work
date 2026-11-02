@@ -1,0 +1,80 @@
+/* OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 껍데기(탭 넷 · 목록 | 상세 두 칸) + 글 상세(now-detail.js)
+   + [보관] 탭(now-saved.js) + 관심 주제 칸(now-interests.js). 콤팩트·톤다운(색은 theme-tokens.css 토큰만), 제목 16px·본문 13~14px·꼬리 12px. */
+
+/* 껍데기: 폰·중간 폭은 한 칸(상세가 열리면 목록 대신 상세 전체 화면), PC(761px~)는 목록 | 상세 두 칸(split-resize.js가 --ds-split-* fr 값). */
+#appView #outsideView .os.now{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px; max-width:none; align-items:start; }
+#appView #outsideView .now-main{ display:flex; flex-direction:column; gap:4px; min-width:0; max-width:860px; }
+#appView #outsideView .now-detail{ display:none; min-width:0; }
+#appView #outsideView .os.now[data-detail="open"] > .now-detail{ display:block; }
+#appView #outsideView .os.now[data-detail="open"] > .now-main{ display:none; }
+@media (min-width:761px){
+  #appView #outsideView .os.now{ grid-template-columns:minmax(0,var(--ds-split-list,3fr)) minmax(0,var(--ds-split-detail,2fr)); }
+  #appView #outsideView .now-main,#appView #outsideView .os.now[data-detail="open"] > .now-main{ display:flex; max-width:none; }
+  #appView #outsideView .now-detail{ display:block; position:sticky; top:8px; max-height:calc(100vh - 16px); overflow:auto; padding-left:12px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
+  #appView #outsideView .nd-back{ display:none; }
+}
+#appView #outsideView [data-now-panel-news][hidden],#appView #outsideView [data-now-panel-saved][hidden],#appView #outsideView .now-interests[hidden],#appView #outsideView .now-cand[hidden]{ display:none; }
+#appView #outsideView .now-cand{ display:flex; align-items:center; gap:8px; margin:2px 0 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+
+/* 글 줄 전체가 눌린다: 제목 단추의 ::after가 줄을 덮고, 줄 안 다른 단추·접기·칩은 그 위에 둔다(키보드는 제목 단추 하나에 Enter). */
+#appView #outsideView .now-row{ position:relative; }
+#appView #outsideView .now-open{ all:unset; box-sizing:border-box; display:inline; font:inherit; color:inherit; cursor:pointer; overflow-wrap:anywhere; }
+#appView #outsideView .now-open::after{ content:""; position:absolute; inset:0; z-index:0; }
+#appView #outsideView .now-open:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:2px; border-radius:2px; }
+#appView #outsideView .now-row :is(details,summary,button:not(.now-open),a,form,textarea,input,.nc-memo-text){ position:relative; z-index:1; }
+#appView #outsideView .now-row:hover{ background:var(--kptu-surface-subtle); }
+#appView #outsideView .now-row.is-open{ background:var(--ds-select-bg); }
+#appView #outsideView .now-hit{ display:inline-grid; place-items:center; height:16px; padding:0 5px; font-size:11px; line-height:1; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-radius:var(--ds-radius-control,6px); }
+
+/* [보관] 탭 */
+#appView #outsideView .now-saved{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+#appView #outsideView .now-saved-chips{ display:flex; flex-wrap:wrap; gap:var(--ds-chip-row-gap,4px); padding:4px 0 2px; }
+#appView #outsideView .ns-row{ display:flex; flex-direction:column; gap:1px; min-width:0; padding:6px 2px; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .ns-side{ color:var(--kptu-ink); }
+#appView #outsideView .ns-mark{ font-size:11px; color:var(--ds-kind-other-ink); }
+
+/* 관심 주제 칸 */
+#appView #outsideView .now-interests{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+#appView #outsideView .ni-help,#appView #outsideView .ni-note{ margin:0; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }
+#appView #outsideView .ni-h{ margin:6px 0 2px; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); }
+#appView #outsideView .ni-row{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-height:32px; padding:2px 0; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .ni-topic{ font-size:14px; color:var(--kptu-ink); }
+#appView #outsideView .ni-reason{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .ni-acts{ display:flex; gap:4px; margin-left:auto; }
+#appView #outsideView .ni-btn,#appView #outsideView .nd-act{ min-height:0; height:26px; padding:0 8px; font:inherit; font-size:var(--ds-text-meta,12px); color:var(--kptu-ink); background:transparent;
+  border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
+#appView #outsideView .ni-row input,#appView #outsideView .ni-add input{ flex:1 1 auto; min-width:0; max-width:20em; height:var(--ds-compact-height,32px); box-sizing:border-box; font-size:var(--ds-text-row,14px); }
+#appView #outsideView .ni-add{ display:flex; gap:6px; align-items:center; padding-top:4px; }
+
+/* 글 상세 */
+#appView #outsideView .nd{ display:flex; flex-direction:column; gap:6px; min-width:0; padding:4px 0 16px; }
+#appView #outsideView .nd-empty{ margin:12px 0; font-size:13px; color:var(--kptu-muted); }
+#appView #outsideView .nd-top{ display:flex; align-items:center; gap:6px; min-width:0; }
+#appView #outsideView .nd-back{ flex:none; display:inline-grid; place-items:center; width:32px; height:32px; min-height:0; padding:0; font-size:20px; color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; cursor:pointer; }
+#appView #outsideView .nd-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:0 6px; flex:1 1 auto; min-width:0; margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .nd-meta > span + span:not(.now-hit)::before{ content:"·"; margin-right:6px; }
+#appView #outsideView .nd-link{ flex:none; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); text-decoration:underline; text-underline-offset:2px; }
+#appView #outsideView .nd-link:hover{ color:var(--kptu-ink); }
+#appView #outsideView .nd-title{ margin:0; font-size:16px; line-height:1.45; font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); overflow-wrap:anywhere; outline:none; }
+#appView #outsideView .nd-orig{ margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #outsideView .nd-sec{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+#appView #outsideView .nd-h{ margin:6px 0 0; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); }
+#appView #outsideView .nd-sum,#appView #outsideView .nd-reason,#appView #outsideView .nd-imp{ margin:0; font-size:14px; line-height:1.6; color:var(--kptu-ink); overflow-wrap:anywhere; }
+#appView #outsideView .nd-imp b{ font-weight:var(--ds-weight-medium,500); margin-right:4px; }
+#appView #outsideView .nd-sents{ display:flex; flex-direction:column; gap:6px; margin:0; padding:0 0 0 14px; font-size:13px; line-height:1.55; }
+#appView #outsideView .nd-sents li{ display:flex; flex-direction:column; gap:1px; }
+#appView #outsideView .nd-ko{ color:var(--kptu-muted); }
+#appView #outsideView .nd-topics{ display:flex; flex-wrap:wrap; gap:4px; margin:0; }
+#appView #outsideView .nd-topic{ display:inline-grid; place-items:center; height:20px; padding:0 6px; font-size:12px; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-radius:var(--ds-radius-control,6px); }
+#appView #outsideView .nd-related{ display:flex; flex-direction:column; margin:0; padding:0; list-style:none; }
+#appView #outsideView .nd-rel{ all:unset; box-sizing:border-box; display:flex; gap:6px; align-items:baseline; width:100%; min-height:28px; padding:3px 0; font-size:13px; color:var(--kptu-ink); cursor:pointer; overflow-wrap:anywhere; }
+#appView #outsideView .nd-rel:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
+#appView #outsideView .nd-rel-kind{ flex:none; font-size:11px; color:var(--kptu-muted); }
+#appView #outsideView .nd-faint{ margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #outsideView .nd-acts{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .nd-act[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView #outsideView .nd-memo{ display:flex; flex-direction:column; gap:4px; }
+#appView #outsideView .nd-memo textarea{ width:100%; box-sizing:border-box; font:inherit; font-size:14px; }
+#appView #outsideView .nd-memo-row{ display:flex; justify-content:flex-end; align-items:center; gap:6px; }
+#appView #outsideView .nd-memo-text{ margin:0; font-size:13px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+#appView #outsideView .nd-memo-label{ margin-right:6px; font-size:11px; color:var(--kptu-muted); }

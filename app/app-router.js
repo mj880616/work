@@ -9,7 +9,7 @@
   // kptu:view-changed의 detail.areas로 창(area-window.js)을 띄운다.
   // HOME-업무일지홈: 업무일지 화면이 홈이다(#homeView, 라우터 이름 home). 옛 ?view=journal·go('journal')은 홈을 연다(날짜 주소 day는 그대로).
   // OUTSIDE-글상세·관심환류 ③: [뉴스 클리핑]은 Now 메뉴의 [뉴스] 탭이 되었다(명진 결정 11/01 23:16). 옛 ?view=news·go('news')는 Now(outside)를 연다.
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',journal:'home',news:'outside'};
+  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',journal:'home'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
   const ALIAS_ENTRY={media:{view:'library',category:'성명·보도자료'},news:{view:'outside',tab:'news'}};

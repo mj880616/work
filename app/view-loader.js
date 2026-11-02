@@ -181,7 +181,7 @@ async function files(){ await module('./files.js'); return {ok:true} }
 async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
-const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',journal:'home',news:'outside'};
+const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',journal:'home'};
 function normalize(view){
   view=VIEW_ALIAS[view]||view;
   return loaders[view]?view:'home'

@@ -39,7 +39,7 @@ export function createNowInterests({box, onChanged} = {}) {
     try { await fn(); } catch (e) { note = saveFailNote(e); }
     busy.delete(id); paint(); onChanged?.();
   }
-  const confirm = id => act(id, () => patch(id, {state: 'confirmed', decided_at: new Date().toISOString()}));
+  const accept = id => act(id, () => patch(id, {state: 'confirmed', decided_at: new Date().toISOString()}));
   const drop = id => act(id, () => patch(id, {state: 'dropped', decided_at: new Date().toISOString()}));
   function rename(id, raw) {
     const row = rows.find(r => r.id === id);
@@ -57,7 +57,7 @@ export function createNowInterests({box, onChanged} = {}) {
     if (!w) return;
     if (!c.ok) { draft = String(raw ?? ''); note = c.reason; paint(); box?.querySelector('[data-ni-add-input]')?.focus(); return; }
     const old = rows.find(r => r.state === 'dropped' && r.topic === c.topic);
-    if (old) { draft = ''; await confirm(old.id); return; }
+    if (old) { draft = ''; await accept(old.id); return; }
     busy.add('add'); note = ''; draft = ''; paint();
     try {
       const got = await rt().api(`/rest/v1/app_now_interests?select=${COLS}`, {method: 'POST', body: {workspace_id: w, topic: c.topic, state: 'confirmed', decided_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
@@ -89,7 +89,7 @@ export function createNowInterests({box, onChanged} = {}) {
     const b = event.target.closest('button');
     if (!b || !box.contains(b)) return;
     if (b.matches('[data-ni-retry]')) { failed = false; paint(); load(); return; }
-    if (b.matches('[data-ni-confirm]')) { confirm(b.dataset.niConfirm); return; }
+    if (b.matches('[data-ni-confirm]')) { accept(b.dataset.niConfirm); return; }
     if (b.matches('[data-ni-drop]')) { drop(b.dataset.niDrop); return; }
     if (b.matches('[data-ni-edit]')) { editing = b.dataset.niEdit; note = ''; paint(); box.querySelector('[data-ni-edit-input]')?.focus(); return; }
     if (b.matches('[data-ni-edit-cancel]')) { editing = ''; paint(); }
