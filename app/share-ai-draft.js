@@ -176,12 +176,12 @@ function previewHtml() {
   const head = `<div class="pd-preview-head">${wide() ? '' : '<button type="button" class="pd-icon" data-sa-back aria-label="재료 고르기로">‹</button>'}<span class="pd-preview-name" data-sa-preview-name tabindex="-1">미리보기</span><span class="pd-muted">${d ? `AI 초안 · 근거 ${d.sources.length}건 · 넣기 전` : ''}</span>${put}</div>`;
   let body;
   if (s.busy) body = waitHtml({rows:6});
-  else if (!d) body = s.message ? '' : '<p class="pd-muted">재료를 고르고 [초안 만들기]를 누르면 여기에 칸별 미리보기가 나와요. [넣기]를 누르기 전에는 페이지에 아무것도 들어가지 않아요.</p>';
+  else if (!d) body = s.message ? '' : '';
   else body = `<article class="pd-doc">${SHARE_AI_SECTIONS.filter(sec => d.sections[sec.key].length).map(sec => `<label class="pd-pick"><input type="checkbox" data-sa-section="${sec.key}"${s.keys.includes(sec.key) ? ' checked' : ''}><span class="pd-pick-text"><b>${esc(sec.label)}</b></span></label>
 <ul class="pd-demands">${d.sections[sec.key].map(l => `<li>${esc(l.text)} ${tag(l.refs)}</li>`).join('')}</ul>`).join('')}</article>
 ${d.checks.length ? `<div class="pd-checks"><b>넣기 전에 확인할 것 ${d.checks.length}</b><ol>${d.checks.map(c => `<li>${esc(c)}</li>`).join('')}</ol></div>` : ''}
 <div class="pd-sources"><p class="pd-muted">근거${d.partial ? ' · 길어서 앞부분만 봄' : ''}${d.skipped ? ` · AI에 보내지 않는 노트 ${d.skipped}건은 뺌` : ''}</p><ol>${d.sources.map(x => `<li>${esc(x.label)} · ${esc(x.title || x.label)}${x.day ? ` · ${esc(shortDay(x.day))}` : ''}</li>`).join('')}</ol></div>
-<p class="pd-muted">근거 번호와 확인할 것은 본문에 들어가지 않아요. 넣은 뒤 고치고 [저장]을 눌러야 페이지가 바뀌어요.</p>`;
+`;
   return `<section class="pd-pane pd-preview-pane" aria-label="미리보기">${head}${body}</section>`;
 }
 function paint() {

@@ -197,7 +197,7 @@ test('보관함: 방 단위로 모아 보여 주고 [꺼내기]로 되돌리며,
  await view.locator('[data-tg-shelf="archive"]').tap();
  await expect(view.locator('.feed-head-title')).toHaveText('보관함 1');
  const row=view.locator('[data-tg-arow="-1001234567"]');await expect(row).toContainText('가상 채널');await expect(row.getByRole('button',{name:'꺼내기'})).toBeVisible();
- await expect(view.locator('[data-tg-archive-note]')).toContainText('수집·요약은 계속돼요');
+ await expect(view.locator('[data-tg-archive-note]')).toHaveCount(0); // UI-당연한안내삭제
  await row.locator('.feed-rdb').tap();
  await expect(page.locator('#tgDetail [data-tg-daybox]')).toBeVisible();
  await page.goBack();

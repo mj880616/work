@@ -107,7 +107,7 @@ function paint() {
   if (!rows.length && editing !== 'new') html += emptyHtml('없음', {attrs: 'data-st-empty'});
   if (older.length) html += `<details class="wd-st-older" data-st-older${olderOpen ? ' open' : ''}><summary>지난 줄 ${older.length} 펼치기</summary><table class="wd-st-table"><tbody data-reorder-list="st-older">${body(older)}</tbody></table></details>`;
   if (canEdit && !editing) html += `<div class="wd-st-bar"><button type="button" class="wd-st-btn" data-st-add${busy || rows.length >= ROWS_MAX ? ' disabled' : ''}>+ 줄 추가</button><button type="button" class="wd-st-btn" data-st-refill${busy ? ' disabled' : ''}>기록에서 다시 채우기 (AI)</button></div>`;
-  html += `<p class="wd-st-hint">주간보고 투쟁 사업장 현황에 그대로 들어감</p><p class="wd-st-status${msg.error ? ' is-error' : ''}" role="status" aria-live="polite" data-st-status>${esc(msg.text)}</p>`;
+  html += `<p class="wd-st-status${msg.error ? ' is-error' : ''}" role="status" aria-live="polite" data-st-status>${esc(msg.text)}</p>`;
   host.innerHTML = html;
   if (canEdit && !dis && rows.length > 1) drag = mountReorder(host, {listSelector: '[data-reorder-list]', itemSelector: 'tr[data-reorder-id]',
     onDrop: ({id, index}) => { const all = sortRows(ui.rows), from = all.findIndex(r => r.id === id); if (from < 0) return; const [it] = all.splice(from, 1); all.splice(Math.min(index, all.length), 0, it); void saveOrder(all.map((r, k) => ({...r, sort_order: k})), id); },

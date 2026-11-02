@@ -665,7 +665,7 @@ test('top-level project creates a task directly on the current project',async({p
   await signIn(page);
   await page.locator('[data-ps3-global="task"]').click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
-  await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toContainText('내 할 일');
+  await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toHaveCount(0); // UI-당연한안내삭제
   await expect(page.locator('#gtEditList')).toHaveCount(0);
   await expect(page.locator('#gtEditLinkBody input[value="p:main-1"]')).toBeChecked();
   await expect(page.locator('#gtEditLinkBody input[value="p:child-1"]')).not.toBeChecked();

@@ -36,7 +36,7 @@
 
 /* 관심 주제 칸 */
 #appView #outsideView .now-interests{ display:flex; flex-direction:column; gap:6px; min-width:0; }
-#appView #outsideView .ni-help,#appView #outsideView .ni-note{ margin:0; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }
+#appView #outsideView .ni-note{ margin:0; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }
 #appView #outsideView .ni-h{ margin:6px 0 2px; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); }
 #appView #outsideView .ni-row{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-height:32px; padding:2px 0; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
 #appView #outsideView .ni-topic{ font-size:14px; color:var(--kptu-ink); }

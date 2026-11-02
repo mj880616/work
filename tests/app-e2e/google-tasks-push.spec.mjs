@@ -361,7 +361,7 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await page.locator('[data-gt-scope-close]').click();
   await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtEditList')).toHaveCount(0);
-  await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toContainText('"내 할 일" 목록에 저장');
+  await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toHaveCount(0); // UI-당연한안내삭제
   const links=page.locator('#gtEditLinkBody');
   await expect(links.locator('[data-gt-link]')).toHaveCount(17);
   await expect(links.locator('input[value="p:p3"]')).toHaveCount(0);

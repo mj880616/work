@@ -65,7 +65,7 @@ for(const width of [412,1440])test(`[현황 표] 처음 AI 채움·줄 추가·�
  await expect(table.locator('tbody tr').first()).toContainText('10.5.(월)');
  await expect(table.locator('tbody tr').first()).toContainText('합성 지노위 2차 조정회의 — 조정 종료(쟁의권 확보)');
  expect(db.posts.every(p=>p.source==='ai'&&p.workspace_id==='w'&&p.organization_id==='oa')).toBe(true);
- await expect(page.locator('#wdStatusTable')).toContainText('주간보고 투쟁 사업장 현황에 그대로 들어감');
+ await expect(page.locator('#wdStatusTable')).not.toContainText('그대로 들어감'); // UI-당연한안내삭제
  // 줄 추가(날짜는 달력 칸).
  await page.locator('#wdStatusTable [data-st-add]').click();
  await page.locator('#wdStatusTable [data-st-field="day"]').fill('2026-10-06');

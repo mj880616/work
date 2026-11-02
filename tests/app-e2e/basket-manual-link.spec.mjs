@@ -169,7 +169,7 @@ for(const width of [390,1280])test(`a Google task is made from the note with the
  await detail.locator('[data-manual-task-title]').fill('기자회견 장소 확정');
  await tap(page,detail.locator('[data-manual-task-day="tomorrow"]'),width);await expect(detail.locator('[data-manual-task-day="tomorrow"]')).toHaveAttribute('aria-pressed','true');
  await tap(page,detail.locator('[data-manual-task-project]'),width);const sheet=page.locator('#basketLinkChoiceSheet');await tap(page,sheet.getByRole('button',{name:'합성 기자회견 준비'}),width);await expect(sheet).toBeHidden();
- await expect(detail.locator('[data-manual-task-project]')).toHaveText('합성 기자회견 준비 ▾');await expect(detail).toContainText('만든 할 일은 이 업데이트의 ‘이 업데이트로 만든 할 일’에 기록돼요.');
+ await expect(detail.locator('[data-manual-task-project]')).toHaveText('합성 기자회견 준비 ▾');await expect(detail).not.toContainText('에 기록돼요');
  expect(await noWideScroll(page)).toBe(true);
  if(width===390)await page.screenshot({path:info.outputPath('manual-task-form-390.png'),fullPage:true});
  await tap(page,detail.getByRole('button',{name:'할 일 만들기',exact:true}),width);

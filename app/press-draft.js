@@ -217,7 +217,7 @@ function previewHtml() {
   const head = `<div class="pd-preview-head">${wide() ? '' : '<button type="button" class="pd-icon" data-pd-back aria-label="근거 고르기로">‹</button>'}<span class="pd-preview-name">미리보기</span><span class="pd-muted">${d ? `AI 초안 · 근거 ${d.sources.length}건 · 사실 확인 전` : ''}</span>${save}</div>`;
   let body;
   if (s.busy) body = waitHtml({rows:6});
-  else if (!d) body = s.message ? '' : '<p class="pd-muted">근거를 고르고 [초안 만들기]를 누르면 여기에 미리보기가 나와요.</p>';
+  else if (!d) body = s.message ? '' : '';
   else body = `<article class="pd-doc"><p class="pd-muted">${esc(typeLabel(d.type))}</p><h3 class="pd-doc-title" data-pd-doc-title tabindex="-1">${esc(d.title)}</h3>${d.subtitle ? `<p class="pd-doc-sub">${esc(d.subtitle)}</p>` : ''}
 ${d.paragraphs.map(p => `<p>${esc(p.text)} ${tag(p.refs)}</p>`).join('')}
 ${d.demands.length ? `<ul class="pd-demands">${d.demands.map(x => `<li>${esc(x.text)} ${tag(x.refs)}</li>`).join('')}</ul>` : ''}</article>

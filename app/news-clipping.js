@@ -201,7 +201,7 @@ function sourcesHtml() {
       return `<div class="nc-row">${switchHtml('data-nc-source', s.key, row?.enabled === true, s.name, state.saving.has('src:' + s.key))}${note ? `<span class="nc-faint${row?.last_error ? ' is-bad' : ''}">${esc(note)}</span>` : ''}</div>`;
     }).join('')}</section>`;
   }).join('');
-  return head + panelFail() + `<p class="nc-faint">매체 새 글은 제목만 받습니다</p>` + groups;
+  return head + panelFail() + groups;
 }
 
 function paint() {

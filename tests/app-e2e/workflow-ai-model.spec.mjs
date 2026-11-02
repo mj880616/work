@@ -140,8 +140,8 @@ test('meeting materials keep multiple upload and the existing 100MB per-file ser
   const html=readFileSync('app/index.html','utf8');
   const edge=readFileSync('supabase/functions/meeting-files/index.ts','utf8');
   expect(html).toContain('id="meetingFiles" type="file" multiple');
-  // UI-회의결과창정리: 창 설명은 "자료실에도 자동 등록"만 남기고, 100MB 제한은 고를 때·저장할 때 안내한다.
-  expect(html).toContain('자료실에도 자동 등록');
+  // UI-당연한안내삭제: 창 설명("자료실에도 자동 등록")은 지웠고, 100MB 제한은 고를 때·저장할 때 안내한다.
+  expect(html).not.toContain('자료실에도 자동 등록');
   // MTG-사업보고말바꾸기: 새 사업 보고 창의 안내는 칸 글자(회의 칸 '회의자료', 다른 칸 '자료') + '는 파일당 100MB…'로 조립된다.
   expect(readFileSync('app/team.js','utf8')).toContain("+'는 파일당 100MB까지 첨부할 수 있습니다.'");
   expect(readFileSync('app/report-words.mjs','utf8')).toContain("materials:'회의자료'");
