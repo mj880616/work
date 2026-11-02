@@ -42,6 +42,7 @@ on:
       - 'tests/ui-audit-1030.test.mjs'
       - 'tests/chip-rows.test.mjs'
       - 'tests/wait-state.test.mjs'
+      - 'tests/loader-preload.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/schedule-line-split.test.mjs'
       - 'tests/meeting-compact.test.mjs'
@@ -177,6 +178,7 @@ on:
       - 'tests/ui-audit-1030.test.mjs'
       - 'tests/chip-rows.test.mjs'
       - 'tests/wait-state.test.mjs'
+      - 'tests/loader-preload.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/schedule-line-split.test.mjs'
       - 'tests/meeting-compact.test.mjs'
@@ -318,6 +320,9 @@ jobs:
         run: node --test tests/fold-pc-frame.test.mjs
       - name: Check one shared loading/failed/empty part (UI-기다림표시통일)
         run: node --test tests/wait-state.test.mjs
+
+      - name: Check loader preload lists (PERF-첫로딩 P3)
+        run: node --test tests/loader-preload.test.mjs
 
       - name: Check Web2 app icon files (UI-앱아이콘 메모+체크)
         run: node --test tests/app-icon.test.mjs
