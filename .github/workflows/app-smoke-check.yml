@@ -556,6 +556,8 @@ jobs:
         run: node --test tests/photo-sources-chips.test.mjs
       - name: "Google Drive photo source screen (S46-24 ④: 칩은 운영자 기능만·쓰기 confirm·썸네일 4장씩·지우기 확인 창, synthetic)"
         run: node --test tests/gdrive-photos-ui.test.mjs
+      - name: "Google Drive folder tree like OneDrive (PHOTO-드라이브폴더통일: 같은 나무 부품·색인 장수·빈 곳 핀치, synthetic)"
+        run: node --test tests/photos-gdrive-tree.test.mjs
       - name: "Outside statements DB (S46-32 바깥 성명 ①: 짝 파일·확장 규칙·owner RLS·외국 글 문장 금지·찾기 함수 INVOKER, migration text only)"
         run: node --test tests/outside-statements-db.test.mjs
 

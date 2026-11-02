@@ -47,7 +47,9 @@ function world({features=['calls','gdrive_photos'],allowed=WS,driveWs=WS,scope=`
    if(name==='app_workspaces')return ok(driveWs?[{id:driveWs}]:[]);
    if(name==='public_policy_drive_config')return ok([{google_client_id:'c',google_client_secret:'s',google_refresh_token:'synthetic-refresh'}]);
    const t=tableOf(name);assert.ok(t,name);const list=db[t];
-   if(method==='GET'){let r=list.filter(x=>match(x,p));if(t==='photos')r=r.sort((a,b)=>a.taken_at<b.taken_at?1:-1);return ok(r);}
+   if(method==='GET'){let r=list.filter(x=>match(x,p));if(t==='photos')r=r.sort((a,b)=>a.taken_at<b.taken_at?1:-1);
+    if(/count=exact/.test(h.Prefer||'')){const n=r.length,lim=Number(p.get('limit')||n);return ok(r.slice(0,lim),200,{'content-range':n?`0-${Math.min(n,lim)-1}/${n}`:'*/0'});}
+    return ok(r);}
    if(method==='POST'){const rows=[].concat(JSON.parse(init.body));const ignore=/ignore-duplicates/.test(h.Prefer||'');
     for(const r of rows){const i=list.findIndex(x=>x.workspace_id===r.workspace_id&&(t==='sync'||x.item_id===r.item_id));if(i<0)list.push({...r});else if(!ignore)Object.assign(list[i],r);}return ok(null,201);}
    if(method==='PATCH'){const v=JSON.parse(init.body);const hit=list.filter(x=>match(x,p));hit.forEach(x=>Object.assign(x,v));return ok(/representation/.test(h.Prefer||'')?hit:null,/representation/.test(h.Prefer||'')?200:204);}
@@ -176,4 +178,20 @@ test('sync: re-lists switched-on folders, drops photos gone from Drive, turns of
  await w.call({action:'sync'});assert.equal(w.db.folders.find(f=>f.item_id==='F2').enabled,false);
  w.db.sync[0].index_lock_until='2026-11-01T00:00:00.000Z';
  assert.equal((await w.call({action:'sync'})).body.busy,true);
+});
+
+// PHOTO-드라이브폴더통일: 폴더 목록은 켠 폴더마다 색인 장수(count), 끈 폴더는 null, total = 켠 폴더 전체. Drive를 더 부르지 않는다.
+test('folders: switched-on folders carry their indexed photo count, off folders null, plus total; counting adds no Drive calls',async()=>{
+ const w=world();
+ const before=await w.call({action:'folders'});
+ assert.deepEqual(before.body.folders.map(x=>[x.id,x.count]).sort(),[['F1',null],['F2',null]]);assert.equal(before.body.total,0);
+ await w.call({action:'folder-toggle',id:'F1',enabled:true});
+ const driveBefore=w.calls.filter(c=>c.host==='www.googleapis.com').length;
+ const f=await w.call({action:'folders'});
+ assert.deepEqual(f.body.folders.map(x=>[x.id,x.enabled,x.count]).sort(),[['F1',true,2],['F2',false,null]]);
+ assert.equal(f.body.total,2);
+ const driveCalls=w.calls.filter(c=>c.host==='www.googleapis.com').length-driveBefore;
+ assert.equal(driveCalls,1,'only the folder listing reaches Drive (root needs no folder read)');
+ const counts=w.calls.filter(c=>c.path==='/rest/v1/app_gdrive_photos'&&/limit=1/.test(c.search));
+ assert.ok(counts.length>=2&&counts.every(c=>c.method==='GET'&&/workspace_id=eq\./.test(c.search)),'counts are scoped to the workspace');
 });

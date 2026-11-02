@@ -153,3 +153,61 @@ for (const width of [412, 1280]) {
     expect(f.errors).toEqual([]);
   });
 }
+
+// PHOTO-빈곳핀치(요청함 11/01 21:40 보완): 앨범이 적어 아래가 비어도 본문 빈 곳에서 시작한 두 손가락으로 보기가 바뀐다.
+// [사진] 탭도 같은 규칙(격자 밖 빈 곳 = 같은 칸 수 핀치). 손가락 화면(폰)에서는 본문 칸이 화면 아래까지 채워져 빈 곳도 본문이다.
+test.describe('빈 곳 핀치 폰 412', () => {
+  test.use({ hasTouch: true, isMobile: true });
+  // (x, y)를 가운데로 두 손가락(좌우 from px)을 대고 to px로 옮긴 뒤 모두 뗀다. 닿은 요소를 돌려준다.
+  const pinchAt = (page, x, y, from, to) => page.evaluate(([x, y, from, to]) => {
+    const at = d => [{ x: x - d, y }, { x: x + d, y }];
+    const p0 = at(from), target = document.elementFromPoint(p0[0].x, p0[0].y);
+    const T = (id, p) => new Touch({ identifier: id, target, clientX: p.x, clientY: p.y });
+    const TE = (t, list, changed) => target.dispatchEvent(new TouchEvent(t, { touches: list, changedTouches: changed, bubbles: true, cancelable: true }));
+    TE('touchstart', [T(1, p0[0])], [T(1, p0[0])]);
+    TE('touchstart', [T(1, p0[0]), T(2, p0[1])], [T(2, p0[1])]);
+    const p1 = at(to);
+    TE('touchmove', [T(1, p1[0]), T(2, p1[1])], [T(1, p1[0]), T(2, p1[1])]);
+    TE('touchend', [T(1, p1[0])], [T(2, p1[1])]);
+    TE('touchend', [], [T(1, p1[0])]);
+    return { inBody: !!target.closest('[data-photos-body]'), inList: !!target.closest('[data-photos-albums],[data-diary-grid]') };
+  }, [x, y, from, to]);
+
+  test('앨범 탭: 목록 아래 빈 곳 핀치로 보기 크기, 본문이 화면 아래까지 채워짐', async ({ page }) => {
+    const f = await fixture(page, 412);
+    await openAlbums(page, 412);
+    const list = root(page).locator('[data-photos-albums]');
+    await expect(list).toHaveAttribute('data-view', 'card');
+    // 카드 보기 → 작은 보기로 줄여 목록 아래 빈 곳을 만든다.
+    await root(page).locator('[data-photo-size="-1"]').click();
+    await root(page).locator('[data-photo-size="-1"]').click();
+    await expect(list).toHaveAttribute('data-view', 'line');
+    const lb = await list.boundingBox(), body = await root(page).locator('[data-photos-body]').boundingBox(), vh = page.viewportSize().height;
+    expect(body.y + body.height).toBeGreaterThan(vh - 260); // 본문 칸이 화면 아래(하단바 위)까지
+    const y = Math.min(lb.y + lb.height + 80, body.y + body.height - 20);
+    expect(y).toBeGreaterThan(lb.y + lb.height);
+    const hit = await pinchAt(page, 206, y, 30, 80); // 빈 곳에서 펼치기
+    expect(hit).toEqual({ inBody: true, inList: false });
+    await expect(list).toHaveAttribute('data-view', 'thumb');
+    await expect.poll(() => f.server.value?.album_view).toBe('thumb');
+    expect(f.errors).toEqual([]);
+  });
+
+  test('사진 탭: 격자 아래 빈 곳 핀치로 칸 수(격자 위와 같은 값)', async ({ page }) => {
+    const f = await fixture(page, 412);
+    await page.locator('#mobileMenuTab').click();
+    await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
+    const grid = root(page).locator('[data-photos-list] [data-diary-grid]').first();
+    await expect(root(page).locator('[data-photos-list] [data-photos-open]')).toHaveCount(2);
+    const cols = () => grid.evaluate(g => g.style.getPropertyValue('--photo-cols'));
+    const before = Number(await cols());
+    const body = await root(page).locator('[data-photos-body]').boundingBox(), gb = await root(page).locator('[data-photos-list]').boundingBox();
+    const y = Math.min(gb.y + gb.height + 80, body.y + body.height - 20);
+    const hit = await pinchAt(page, 206, y, 30, 80); // 펼치기 = 칸 수 하나 줄임(크게)
+    expect(hit.inBody).toBe(true);
+    expect(hit.inList).toBe(false);
+    await expect.poll(async () => Number(await cols())).toBe(before - 1);
+    await expect.poll(() => f.server.value?.photo_view?.cols).toBeTruthy();
+    expect(f.errors).toEqual([]);
+  });
+});
