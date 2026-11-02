@@ -66,10 +66,10 @@ for (const width of [412, 1280]) {
     const s = await server(page);
     if (width <= 760) {
       await page.locator('#mobileMenuTab').click();
-      await page.locator('#mobileMenu nav button:visible', { hasText: '사회운동 Now' }).click();
-    } else await page.locator('#appView>.app-nav').getByRole('button', { name: '사회운동 Now', exact: true }).click();
+      await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
+    } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
     const root = page.locator('#outsideRoot');
-    await expect(root.getByRole('tab', { name: '새로 온 것' })).toHaveAttribute('aria-selected', 'true');
+    await expect(root.getByRole('tab', { name: '사회운동' })).toHaveAttribute('aria-selected', 'true');
     await expect(root.locator('[data-os-search]')).toBeHidden();
 
     // 탭 [문장 찾기]: [새로 온 것] 칸은 감추고 찾기 칸만. 찾기 전에는 서버를 부르지 않는다.
@@ -135,7 +135,7 @@ for (const width of [412, 1280]) {
     await expect(dialog.locator('.pd-sources li')).toHaveText(['바깥 인용 · 민주노총 · [성명] 가상 구조조정 중단하라 · 10.5']);
     await dialog.locator('[data-pd-close]').click();
 
-    // 폰은 좌우 밀기로 탭 이동(오른쪽으로 밀면 [새로 온 것]). PC는 화살표 키.
+    // 폰은 좌우 밀기로 탭 이동(오른쪽으로 밀면 바로 앞 탭 [보관], S48-27 Now 탭 넷). PC는 화살표 키.
     if (width <= 760) {
       await box.locator('.osq-outside .osq-head').evaluate(el => {
         const t = (type, x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 });
@@ -146,7 +146,7 @@ for (const width of [412, 1280]) {
       await root.getByRole('tab', { name: '문장 찾기' }).focus();
       await page.keyboard.press('ArrowLeft');
     }
-    await expect(root.getByRole('tab', { name: '새로 온 것' })).toHaveAttribute('aria-selected', 'true');
+    await expect(root.getByRole('tab', { name: '보관' })).toHaveAttribute('aria-selected', 'true');
     await expect(box).toBeHidden();
     // 다시 [문장 찾기]로 오면 찾은 것·고른 문장이 그대로(이 탭 메모리).
     await root.getByRole('tab', { name: '문장 찾기' }).click();

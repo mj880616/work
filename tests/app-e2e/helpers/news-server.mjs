@@ -39,6 +39,9 @@ export async function newsServer(page) {
       return ok({ ok: false }, 400);
     }
     if (p.startsWith('/rest/v1/app_outside_') && !p.endsWith('app_outside_sources')) return ok([]);
+    // S48-27 Now: 관심 주제·환류 기록은 비어 있음, 관심 후보 묻기는 '아직'(서버 규칙).
+    if (p.startsWith('/rest/v1/app_now_')) { server.calls.push({ what: p.slice('/rest/v1/'.length), method, body }); return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]); }
+    if (p === '/functions/v1/ai-assist' && body?.kind === 'now_interests') return ok({ ok: true, kind: 'now_interests', ran: false, added: 0 });
     if (p === '/rest/v1/app_notes') {
       const memoQuery = u.searchParams.get('metadata->>news_item_id');
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
@@ -107,11 +110,14 @@ export async function start(page, width) {
   const server = await newsServer(page);
   return { errors, server };
 }
+// S48-27: 뉴스 클리핑은 Now 메뉴의 [뉴스] 탭(라우터 화면 이름 outside).
 export async function openNews(page, width) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav button:visible', { hasText: '뉴스 클리핑' }).click();
-  } else await page.locator('#appView>.app-nav').getByRole('button', { name: '뉴스 클리핑', exact: true }).click();
-  await expect(page.locator('#newsView')).toBeVisible();
-  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('news');
+    await page.locator('#mobileMenu nav button:visible', { hasText: 'Now' }).click();
+  } else await page.locator('#appView>.app-nav').getByRole('button', { name: 'Now', exact: true }).click();
+  await expect(page.locator('#outsideView')).toBeVisible();
+  await page.locator('#outsideRoot [data-os-tab="news"]').click();
+  await expect(page.locator('#nowPanelNews')).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('outside');
 }
