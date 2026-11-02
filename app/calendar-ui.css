@@ -112,7 +112,9 @@
 @media(max-width:760px){
   /* S46-23 폰 월 보기: 날짜 숫자 바로 아래부터 일정 줄(날짜 줄 20px), '+n'도 일정 줄 한 칸 높이. 주 높이는 calendar-month-view.js가
      '한 화면'(남은 높이 ÷ 주 수) 또는 '펼침'(그 주 일정이 모두 들어가는 높이)으로 --cmv-week-h에 넣는다. */
-  #calendarView .calendar-grid{--cmv-date-header-height:20px;--cmv-min-week-height:36px;--cmv-more-font-size:12px;--cmv-more-line-height:16px;--cmv-more-height:16px}
+  /* S48-6 UI-폰달력월보기(2026-11-02 명진 결정, #1708 시안 질문 1): 칸 안 글자를 읽히게 — 날짜 12px, 일정 제목 11px·시각 10px,
+     일정 줄 16px 간격(막대 15px). 한 화면·밀어서 펼침(S46-23)과 '+n'·날짜 줄 44px 누르는 범위는 그대로. */
+  #calendarView .calendar-grid{--cmv-date-header-height:20px;--cmv-lane-step:16px;--cmv-min-week-height:36px;--cmv-more-font-size:12px;--cmv-more-line-height:16px;--cmv-more-height:16px}
   #calendarView .cmv-weeks{display:flex;flex-direction:column}
   #calendarView .cmv-week{flex:0 0 auto;box-sizing:border-box;height:var(--cmv-week-h,auto);min-height:0;overflow:hidden}
   #calendarView .cmv-week-days{min-height:0}
@@ -145,9 +147,9 @@
   .google-cal-list{gap:5px 8px;padding-bottom:5px}
   .toggle-line span{max-width:118px}
   .cal-cell{padding-left:1px;padding-right:1px}
-  .cal-day{width:19px;height:19px;font-size:9.5px}
-  .cal-event.cmv-event{margin-left:1px;margin-right:1px;padding-left:2px;padding-right:2px;font-size:8px}
-  .cmv-event-time{font-size:7px}
+  .cal-day{width:20px;height:20px;font-size:12px}
+  .cal-event.cmv-event{height:15px;line-height:15px;margin-left:1px;margin-right:1px;padding-left:2px;padding-right:2px;font-size:11px}
+  .cmv-event-time{margin-right:1px;font-size:10px}
   .view-panel>.section-head{align-items:flex-start;gap:var(--kptu-space-2)}
   .view-panel>.section-head>div:first-child{min-width:0;flex:1}
   .view-panel>.section-head>.primary,.view-panel>.section-head>.secondary{flex:0 0 auto;width:auto;min-width:0;white-space:nowrap;margin-top:1px}

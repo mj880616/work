@@ -316,6 +316,7 @@ import {eventColor} from './home-read-model.js';
       if(!expandable)expanded=false;
     }else expandable=false;
     paintExpand(grid);
+    watchTop(grid);
     if(phone&&animateFrom)playExpand(weeksBox,animateFrom);
     animateFrom=null;
     paintDrag(grid);
@@ -369,6 +370,24 @@ import {eventColor} from './home-read-model.js';
       }
     });
     hideWatch.observe(grid);
+  }
+  // S48-6 안정화: 달력 높이는 그릴 때 잰 달력 윗끝(gridTop)으로 정한다. 그 뒤 달력 위 칸(새로 고친 시각 줄 #calendarFreshness,
+  // 구글 캘린더 접는 칸, 제목 줄)의 높이가 바뀌면 달력이 밀려 한 화면을 넘거나 모자랐다(창 크기는 그대로라 resize가 오지 않음).
+  // 카드 안 달력 위 칸들의 크기를 지켜보다가 달력 윗끝이 실제로 움직였을 때만 다시 그린다(같은 자리면 그리지 않아 되풀이 없음).
+  let topWatch=null,lastTop=null;
+  const gridTop=grid=>grid.getBoundingClientRect().top+window.scrollY;
+  function watchTop(grid){
+    lastTop=gridTop(grid);
+    const card=grid.closest('.calendar-card');
+    if(!card||typeof ResizeObserver!=='function')return;
+    if(!topWatch)topWatch=new ResizeObserver(()=>{
+      const g=document.querySelector('#calendarGrid');
+      if(!last||!g||g.dataset.monthView!=='1'||document.querySelector('#calendarView')?.classList.contains('hidden'))return;
+      if(window.KPTUCalendarView&&window.KPTUCalendarView.current()!=='month')return;
+      if(lastTop!==null&&Math.abs(gridTop(g)-lastTop)<1)return;
+      forceRerender();
+    });
+    for(const el of card.children)if(el!==grid)topWatch.observe(el);
   }
   function paintDrag(grid){
     grid.querySelectorAll('.cmv-drop').forEach(el=>el.classList.remove('cmv-drop','cmv-drop-blocked'));

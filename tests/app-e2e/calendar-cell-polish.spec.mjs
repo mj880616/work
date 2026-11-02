@@ -9,7 +9,7 @@ for(const width of [390,1023,1024,1280]){
     await page.setViewportSize({width,height:844});await page.goto(fixture);
     const desktop=width>=761;
     for(const id of ['app-1','recurring'])await expectGoogleDisplay(page.locator('[data-google-event="'+id+'"]'),{stripe:desktop?4:0,tint:desktop?.08:.15});
-    await expect(page.locator('[data-google-event="app-1"]')).toHaveCSS('height',desktop?'18px':'13px');
+    await expect(page.locator('[data-google-event="app-1"]')).toHaveCSS('height',desktop?'18px':width<=760?'15px':'13px'); // S48-6: 폰(≤760) 막대 15px
     const multi=page.locator('[data-google-event="multi"]');await expect(multi).toHaveCount(2);
     await expect(multi.first()).toHaveClass(/cmv-continues-right/);await expect(multi.nth(1)).toHaveClass(/cmv-continues-left/);
     await expect(multi.first()).toHaveCSS('border-top-right-radius','0px');
