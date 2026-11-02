@@ -7,6 +7,7 @@ import { withEdgeShared } from './helpers/edge-shared.mjs';
 const { readMultipartForm } = await import('../../supabase/functions/_shared/multipart.ts');
 const { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } = await import('../../supabase/functions/_shared/ai-model.ts');
 const { outputText } = await import('../../supabase/functions/_shared/openai-responses.ts');
+const { createAiUsageMeter, recordAiDailyUsage } = await import('../../supabase/functions/_shared/ai-daily-usage.mjs');
 
 // Runs the real library-files handler with mocked Supabase, Google Drive, and AI so each failure stage
 // can be checked for its status, structured error body, and Drive orphan cleanup. No network calls.
@@ -20,7 +21,7 @@ function query(result) {
   const builder = {
     select: () => builder, eq: () => builder, neq: () => builder,
     is: (col, val) => { (builder.isCalls ||= []).push([col, val]); return builder; },
-    upsert: async () => ({ error: null }),
+    upsert: async (row, opts) => { builder.upserted = [row, opts]; return result(builder) ?? { error: null }; },
     insert: payload => { builder.inserted = payload; return builder; },
     maybeSingle: async () => result(builder),
     single: async () => result(builder),
@@ -39,9 +40,10 @@ function harness({
   driveToken = () => json({ access_token: 'drive-token' }),
   uploadPut = () => json({ id: 'drive-file-1', webViewLink: 'https://drive.example/file' }),
   driveDelete = () => new Response(null, { status: 204 }),
-  openaiFetch = () => json({ output: [] })
+  openaiFetch = () => json({ output: [] }),
+  usageError = null
 } = {}) {
-  const calls = { fetch: [], inserts: [], errors: [], spaceIs: [] };
+  const calls = { fetch: [], inserts: [], errors: [], spaceIs: [], usage: [] };
   const tables = {
     app_workspace_members: () => ({ data: role ? { workspace_id: 'workspace-1', role } : null }),
     app_spaces: b => {
@@ -52,6 +54,7 @@ function harness({
     public_policy_drive_config: () => ({ data: { google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }, error: null }),
     app_drive_settings: () => ({ data: { library_folder_id: 'folder-1', root_folder_id: 'root-1' } }),
     app_ai_workspace_settings: () => ({ data: null }),
+    app_ai_daily_usage: b => { if (b.upserted) { calls.usage.push(b.upserted); return { error: usageError }; } return { data: null, error: null }; },
     app_documents: b => { calls.inserts.push(b.inserted); return insert; }
   };
   const admin = {
@@ -79,8 +82,8 @@ function harness({
   };
   const quietConsole = { ...console, error: (...a) => calls.errors.push(a), warn: () => {}, log: () => {} };
   const fastSignal = { timeout: () => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('timed out', 'TimeoutError')), 30); return c.signal; } };
-  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', 'AbortSignal', 'fileNameTitle', 'isMeaninglessName', SOURCE)(
-    Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole, fastSignal, fileNameTitle, isMeaninglessName
+  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', 'AbortSignal', 'fileNameTitle', 'isMeaninglessName', 'createAiUsageMeter', 'recordAiDailyUsage', SOURCE)(
+    Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole, fastSignal, fileNameTitle, isMeaninglessName, createAiUsageMeter, recordAiDailyUsage
   );
   return { handler, calls };
 }
@@ -254,5 +257,36 @@ test('meaningful file names keep their own title and date; only meaningless name
     const { status } = await send(h, { file: new File(['첫 줄 제목\n본문'], name, { type: 'text/plain' }) });
     assert.equal(status, 200, name);
     assert.equal(h.calls.fetch.filter(c => c.includes('api.openai.com')).length, 1, `${name}: AI title is allowed`);
+  }
+});
+
+// S48-15(빠짐31): 제목 찾기에 부른 AI 토큰은 홈 'AI 사용량' 줄의 기존 표(app_ai_daily_usage)에 작업공간·로그인 사용자로 더한다.
+// AI를 부르지 않으면 기록하지 않고, 기록이 실패해도 올리기는 그대로 된다.
+test('title AI usage is added to app_ai_daily_usage; a usage write failure never blocks the upload', async () => {
+  const ai = () => json({ output: [{ type: 'message', content: [{ type: 'output_text', text: '{"title":"본문 제목"}' }] }], usage: { input_tokens: 321, output_tokens: 12 } });
+  {
+    const h = harness({ openai: 'test-key', openaiFetch: ai });
+    const { status } = await send(h, { file: new File(['첫 줄 제목\n본문'], 'scan001.txt', { type: 'text/plain' }) });
+    assert.equal(status, 200);
+    assert.equal(h.calls.usage.length, 1);
+    const [row, opts] = h.calls.usage[0];
+    assert.equal(opts.onConflict, 'workspace_id,user_id,day');
+    assert.equal(row.workspace_id, 'workspace-1');
+    assert.equal(row.user_id, 'user-1');
+    assert.match(row.day, /^\d{4}-\d{2}-\d{2}$/);
+    assert.deepEqual([row.requests, row.input_tokens, row.output_tokens, row.advanced_requests], [1, 321, 12, 0]);
+    assert.deepEqual(Object.keys(row).sort(), ['advanced_requests', 'day', 'input_tokens', 'output_tokens', 'requests', 'updated_at', 'user_id', 'workspace_id']);
+  }
+  {
+    const h = harness({ openai: 'test-key', openaiFetch: ai, usageError: { code: '42501', message: 'denied' } });
+    const { status, body } = await send(h, { file: new File(['첫 줄 제목\n본문'], 'scan001.txt', { type: 'text/plain' }) });
+    assert.equal(status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(h.calls.inserts.length, 1);
+  }
+  {
+    const h = harness({ openai: 'test-key', openaiFetch: ai });
+    await send(h, { file: new File(['본문'], '주간보고_20261102.txt', { type: 'text/plain' }) });
+    assert.equal(h.calls.usage.length, 0, 'no AI call, no usage row');
   }
 });
