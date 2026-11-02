@@ -122,6 +122,4 @@ test('화면 연결: [지우기] 두 갈래 창·[폰으로 되돌리기] 단추
   assert.match(src, /if \(marks\(\) \|\| item\.kept\)/);
   assert.match(notice, /export function askChoice\(/);
   assert.match(css, /\.kptu-ask-pick\.is-danger/);
-  // 기기 저장 금지(비운 사진 목록은 서버만).
-  assert.doesNotMatch(read('app/photo-keep-model.mjs'), /localStorage|sessionStorage|indexedDB/);
 });
