@@ -88,7 +88,7 @@ test('기사 메모 = 노트: 메모 쓰기(노트 하나, metadata.news_item_id
   await it.getByRole('button', { name: '노트에서 열기' }).click();
   await expect(page.locator('[data-note-news]')).toBeVisible();
   await page.locator('[data-note-news]').click();
-  await expect(page.locator('#newsView')).toBeVisible();
+  await expect(page.locator('#nowPanelNews')).toBeVisible();
   await expect(item(page, UID)).toHaveClass(/is-focus/);
   await expect(item(page, UID).locator('.nc-text')).toHaveText('가짜 본문.');
   expect(errors).toEqual([]);
