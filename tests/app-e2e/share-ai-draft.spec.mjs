@@ -122,7 +122,7 @@ for (const width of [412, 1440]) test('share AI draft: pick records, preview by 
 
   // 넣은 뒤: 처음 글 아래에 고른 칸 제목·줄, 뺀 칸·근거 번호·확인할 것은 없음. 저장은 아직 안 됨.
   await expect(box).toContainText('처음 쓴 글');
-  await expect(box.locator('h2')).toHaveText(['한 줄 현황', '진행 단계', '쟁점·요구']);
+  await expect(box.locator('.ed-h2')).toHaveText(['한 줄 현황', '진행 단계', '쟁점·요구']);
   await expect(box).toContainText('10월 2일 사측이 단체협약 해지를 통보했다.');
   await expect(box).not.toContainText('기자회견');
   await expect(box).not.toContainText('[근거');
@@ -130,10 +130,10 @@ for (const width of [412, 1440]) test('share AI draft: pick records, preview by 
   expect(state.writes).toEqual([]);
   // ↶ 한 번이면 넣은 것만 빠진다.
   await editor.getByRole('button', {name:'되돌리기', exact:true}).click();
-  await expect(box.locator('h2')).toHaveCount(0);
+  await expect(box.locator('.ed-h2')).toHaveCount(0);
   await expect(box).toContainText('처음 쓴 글');
   await editor.getByRole('button', {name:'다시하기', exact:true}).click();
-  await expect(box.locator('h2')).toHaveCount(3);
+  await expect(box.locator('.ed-h2')).toHaveCount(3);
 
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect.poll(() => state.writes.length).toBe(1);
@@ -155,7 +155,7 @@ test('share AI draft: closing without [넣기] leaves the text as it was', async
   await expect(d.locator('[data-sa-insert]')).toBeVisible();
   await d.getByRole('button', {name:'닫기', exact:true}).click();
   await expect(d).toBeHidden();
-  await expect(box.locator('h2')).toHaveCount(0);
+  await expect(box.locator('.ed-h2')).toHaveCount(0);
   await expect(box).not.toContainText('단체협약');
   expect(state.writes).toEqual([]);
   expect(errors).toEqual([]);
