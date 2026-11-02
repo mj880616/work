@@ -8,7 +8,7 @@ import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림
 import {openEdWindow} from './ed-window.js';
 import {createNoteDoc, noteTitleFromText} from './basket-data.js';
 import {createUploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle} from './basket-upload.js';
-import {notePhotos} from './note-body.js';
+import {notePhotos, noteFiles} from './note-body.js';
 import {NOTE_TEXT_MAX} from './note-doc.mjs';
 import {requestNoteAiTitle} from './note-ai-title.js';
 
@@ -85,7 +85,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
   }
   handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files.node, shortcuts: true,
     dirty: () => !!head.input.value.trim() || files.pending() > 0,
-    photos: notePhotos({getNote: () => null, upload: async () => [], rt}),
+    photos: notePhotos({getNote: () => null, upload: async () => [], rt}), files: noteFiles({getNote: () => null, upload: async () => []}),
     placeholder: '노트 본문을 쓰세요', save: {aria: '새 노트로 저장', run},
     onClose: ({text: letters}) => { noteFolder?.close?.(); onClose({saved, text: letters}); }});
   if (handle) { handle.paintFolder = head.paint; queueMicrotask(() => head.input.focus()); }
@@ -97,13 +97,13 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
 // (note-folder-pick.js) with the note's folder now, shown as [폴더 ▾] right of the title box.
 // save(value, text, {title, folder}) → Promise<{ok, message}> is the note screen's own save (it keeps the window open: keepOpen); it writes the title
 // with the text and the folder when it changed. attach: {getBatch, isBusy} for [📎 첨부] (files saved with the text). onClose({value, saved, changed}).
-export function openNoteEditWindow({value, photos, save, title = '', folder = null, attach = null, onClose = () => {}} = {}) {
+export function openNoteEditWindow({value, photos, files: edFiles = null, save, title = '', folder = null, attach = null, onClose = () => {}} = {}) {
   let handle = null, savedTitle = title, savedFolder = folder?.get?.() || null;
   const head = titleRow({value: title, folder, placeholder: '노트 제목'});
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
   const files = attach ? attachRow({id: 'edwNoteEditAttach', getBatch: attach.getBatch, isBusy: attach.isBusy, say: message => handle?.say(message)}) : null;
   const extra = () => ({title: head.input.value, folder: folder ? (folder.get() || null) : undefined});
-  handle = openEdWindow({title: '큰 창에서 수정', doc: value, keepOpen: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files?.node || null, shortcuts: true, photos,
+  handle = openEdWindow({title: '큰 창에서 수정', doc: value, keepOpen: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files?.node || null, shortcuts: true, photos, files: edFiles,
     dirty: () => (files?.pending() || 0) > 0 || head.input.value !== savedTitle || (!!folder && (folder.get() || null) !== savedFolder), placeholder: '노트 본문을 쓰세요',
     save: {aria: '노트 저장', run: async ({value: next, text}) => {
       const sent = extra(), result = await save(next, text, sent);

@@ -85,6 +85,8 @@ function blocks(list, depth = 0) {
         break;
       }
       case 'image': out.push([escapeLineStart(escapeInline(`[사진${node.attrs?.alt ? ': ' + node.attrs.alt : ''}]`))]); break;
+      case 'photo_row': out.push((node.content || []).map(p => escapeLineStart(escapeInline(`[사진${p.attrs?.alt ? ': ' + p.attrs.alt : ''}]`)))); break;
+      case 'file': out.push([escapeLineStart(escapeInline(`[파일: ${node.attrs?.name || '이름 없음'}]`))]); break;
       case 'table': {
         const rows = (node.content || []).map(row => (row.content || []).map(cell => (cell.content || []).map(p => inline(p.content, {cell: true})).join(' ').trim()));
         if (!rows.length) break;

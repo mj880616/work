@@ -201,3 +201,21 @@
 .ed-group-menu .ed-gap{margin-left:0}
 .ed-bar .ed-group-menu button{justify-content:flex-start}
 .ed-bar .ed-group-menu button[aria-pressed="true"]::before{content:"✓";color:var(--kptu-primary-ink);margin-right:2px}
+/* S48-21 사진 나란히: 한 줄 사진은 같은 높이(4:3로 맞춰 자름)·4px 간격. 폰(480px 이하)은 한 줄에 두 장씩 내려간다. */
+.ed-doc .ed-photo-row{display:flex;gap:4px;margin:.6em 0 .9em;align-items:flex-start}
+.ed-doc .ed-photo-row>.ed-photo{flex:1 1 0;min-width:0;max-width:none;margin:0}
+.ed-doc .ed-photo-row>.ed-photo.is-place{align-self:stretch;padding:12px 6px}
+.ed-doc .ed-photo-row>.ed-photo:not(.is-place) .ed-photo-img{width:100%;aspect-ratio:4/3;object-fit:cover}
+@media(max-width:480px){.ed-doc .ed-photo-row{flex-wrap:wrap}.ed-doc .ed-photo-row>.ed-photo{flex:0 0 calc(50% - 2px)}}
+.ed-input .ed-photo-row>.ed-photo{cursor:grab}
+/* S48-21 [파일]: 본문 안 작은 파일 칸(이름 · 크기). 읽기 화면은 누르면 Drive에서 열기·내려받기. */
+.ed-doc .ed-file{display:flex;align-items:center;gap:6px;box-sizing:border-box;max-width:420px;margin:.4em 0;padding:3px 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle);color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.4;text-decoration:none}
+.ed-doc a.ed-file:hover{border-color:var(--kptu-border-strong)}
+.ed-doc .ed-file-mark{flex:0 0 auto;display:inline-flex;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+.ed-doc .ed-file-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-doc .ed-file-size{flex:0 0 auto;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+.ed-doc .ed-file-open{flex:0 0 auto;height:24px;padding:0 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
+.ed-input .ed-file.ProseMirror-selectednode,.ed-input .ed-photo-row.ProseMirror-selectednode{outline:2px solid var(--kptu-primary);outline-offset:2px}
+/* 사진을 고르면 뜨는 [옆 사진과 나란히]/[따로 놓기] 줄과 여러 장 [나란히]/[한 장씩] 물음 줄(표 도구 줄과 같은 작은 줄) */
+.ed-photo-ask>span{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.ed-photo-ask [data-ed-photo-ask="row"]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}

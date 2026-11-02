@@ -20,7 +20,7 @@
 //   placeholder, label — the editor's hint and accessible name.
 //   head, foot   — ED③ 노트: the opener's own nodes above the text (a title row with [폴더 ▾]) and under it (the [📎 첨부] row). The opener owns them.
 //   dirty()      — ED③ 노트: the opener's own fields changed (title, chosen files). Counts as a change for saving and for the leave check.
-//   photos, shortcuts — passed to the editor (ed-editor.js createDocEditor): [사진] for this text, and the markdown line shortcuts.
+//   photos, files, shortcuts — passed to the editor (ed-editor.js createDocEditor): [사진]·[파일] for this text, and the markdown line shortcuts.
 //   onClose({saved, changed, value, text}) — when it closes (not when silent): saved = the last save is still the latest, changed = there
 //                  are edits not saved, value/text = what was written, so the opener can keep an unsaved draft in this tab's memory.
 // Opening and closing without a change never calls save (설계 결정 D). One check for "a big window is open": big-window-open.js.
@@ -98,7 +98,7 @@ function closeChoices() {
 }
 
 export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false, saveUnchanged = false,
-  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, shortcuts = false, onClose = () => {}} = {}) {
+  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, shortcuts = false, onClose = () => {}} = {}) {
   // One big window at a time: this one is replaced when another opens.
   current?.close({silent: true});
   if (bigWindowOpen()) return null;
@@ -307,7 +307,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   handle.ready = (async () => {
     await ensureStyles();
     if (closed) return handle;
-    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, shortcuts});
+    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, shortcuts});
     if (closed) { made.destroy(); return handle; }
     editor = made;
     // The editor's own first value is the baseline (its cleaning may differ in small ways from the converted one), so opening alone is "not changed".
