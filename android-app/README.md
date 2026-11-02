@@ -10,7 +10,7 @@
 
 ## 공유로 바구니 넣기 (단계 ②)
 
-- 다른 앱 [공유] → "웹2 바구니". 글·링크(`text/plain`), 사진·파일 1개·여러 개(`SEND`/`SEND_MULTIPLE`).
+- 다른 앱 [공유] → "웹2 정리함"·"웹2 노트"·"웹2 할 일"(노트·할 일은 같은 화면의 activity-alias, 받기 길 하나). 글·링크(`text/plain`), 사진·파일 1개·여러 개(`SEND`/`SEND_MULTIPLE`).
 - 앱은 받은 항목을 메모리에만 든다(`ShareIntake.kt`). 폰 저장소에 복사하지 않고, 앱을 닫으면 버린다. `content://`만 받는다.
 - 웹을 `?view=basket&share=<일회용 번호>`로 열거나(이미 웹2 화면이면 `window.KPTUShareIntake.arrive`로 알림) → 웹 `basket-share.js`가 바 색 다리(`KPTUAppShell`, 허용 Origin 최상위 화면만)로 `share:get:<번호>`를 보내 목록(이름·종류·크기·글)만 받는다.
 - 파일 내용은 웹이 `__share/<번호>/<순번>`을 fetch하면 앱이 `shouldInterceptRequest`(서비스 워커 요청 포함)로 가로채 흘려준다. 서버로 나가지 않는다. 항목마다 한 번만 열리고, 다 열리거나 `share:done`이면 번호를 버린다.

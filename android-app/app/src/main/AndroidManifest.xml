@@ -60,18 +60,52 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="kptuwork" android:host="auth" />
             </intent-filter>
-            <!-- 단계 ②: 다른 앱의 [공유]에 "웹2 바구니"로 보인다. 글·링크·사진·파일. 받은 항목의 임시 읽기 권한만 쓴다(저장소 권한 없음). -->
-            <intent-filter android:label="웹2 바구니">
+            <!-- 단계 ②: 다른 앱의 [공유]에 "웹2 정리함"으로 보인다(APP-공유노트할일: 이름을 앱 안 이름 '정리함'으로 맞춤). 글·링크·사진·파일. 받은 항목의 임시 읽기 권한만 쓴다(저장소 권한 없음). -->
+            <intent-filter android:label="웹2 정리함">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-            <intent-filter android:label="웹2 바구니">
+            <intent-filter android:label="웹2 정리함">
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+        <!-- APP-공유노트할일(요청함 11/02 00:22): 공유 창에 '웹2 노트'·'웹2 할 일' 두 칸 더. 새 화면이 아니라 MainActivity의 다른 이름(activity-alias)이고,
+             받기 길(ShareIntake)은 정리함과 같다. 받는 것은 SEND·SEND_MULTIPLE뿐, 새 권한 없음. 들어갈 곳은 이 이름으로만 정한다. -->
+        <activity-alias
+            android:name=".ShareToNote"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="웹2 노트">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".ShareToTask"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="웹2 할 일">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity-alias>
         <!-- 단계 ③: 위젯 [로그인] 줄만 여는 화면. 내보내지 않아 다른 앱은 열 수 없다. 그리지 않고 바로 닫는다. -->
         <activity
             android:name=".WidgetLoginActivity"
