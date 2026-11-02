@@ -52,6 +52,10 @@ jobs:
       - name: Check regex on ICU
         run: python3 android-app/scripts/check-icu-regex.py
 
+      # APP-죽은위젯: 위젯 화면 틀에 RemoteViews가 못 그리는 부품(<View>·<Space> 등)이 있으면 기기에서만 '위젯을 추가할 수 없습니다'. 빌드로는 안 잡혀 따로 본다.
+      - name: Check widget layouts
+        run: python3 android-app/scripts/check-widget-layouts.py
+
       - name: Render Android launcher icon
         run: |
           mkdir -p android-app/app/src/main/res/drawable-nodpi

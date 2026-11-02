@@ -289,6 +289,7 @@ object AppUpdater {
         val app = context.applicationContext
         File(app.noBackupFilesDir, DIR).deleteRecursively()
         WorkManager.getInstance(app).cancelUniqueWork(WORK)
+        WidgetGuard.run { HomeWidgets.repaintAll(app) }
         if (!canNotify(app)) return
         channel(app)
         val open = PendingIntent.getActivity(app, 0, Intent(app, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
