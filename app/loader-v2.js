@@ -146,8 +146,9 @@
   // SET-보기선택서버저장: 화면 선택(테마·메뉴 접힘 등)은 서버 프로필에서 한 번 읽는다. 업무공간 소유자로 확인된 뒤에만 읽고(비구성원은 데이터 요청 없음),
   // 앱 화면을 공개(kptu-shell-ready)하기 전에 기다려 테마를 한 번 적용한다. 실패·지연이면 기본값(올리브)으로 연다. 늦게 온 값으로 다시 덮지 않는다.
   // PERF-첫로딩 P3: 소유자 확인 뒤 화면을 그리기 전에 필요한 것(보기 설정·기다림 표시·화면 불러오기 도구·사업영역 창 그릇·Drive 사본 갱신)을 한 단계에서 함께 부른다.
-  // 정적 import 사슬이 있는 창 그릇은 그 사슬(basket-note-tasks → update-requests·update-journal)도 같은 순간 받기 시작한다(tests/loader-preload.test.mjs가 사슬과 맞춰 본다).
-  preload(['./area-window.js','./basket-note-tasks.js','./update-requests.js','./update-journal.js']);
+  // 정적 import 사슬이 있는 창 그릇은 그 사슬(basket-note-tasks → update-requests·update-journal)도 같은 순간 받기 시작한다.
+  // 새 판 알림(아래 첫 화면 공개 직전에 시작)도 사슬째 여기서 받아만 둔다. 두 목록 모두 tests/loader-preload.test.mjs가 실제 사슬과 맞춰 본다.
+  preload(['./area-window.js','./basket-note-tasks.js','./update-requests.js','./update-journal.js','./version-notice.js','./release-notes-model.mjs','./notice-bar.js']);
   const [viewPrefs,wait]=await Promise.all([
     import('./view-prefs.js').then(async m=>{await m.viewPrefs.load();return m.viewPrefs}).catch(()=>null),
     import('./wait-state.js'),
@@ -227,7 +228,7 @@
   window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load,openView,withView};
   startup?.mark('requestedViewLoadStart',{view:requested});
   let result={ok:false,view:requested};
-  // 새 판 알림은 첫 화면 프로그램과 같이 받기 시작하고, 시작(startVersionNotice)은 전처럼 첫 화면 공개 직전에 한다.
+  // 새 판 알림(위에서 받아 둠)은 실행만 하고, 시작(startVersionNotice)은 전처럼 첫 화면 공개 직전에 한다.
   const versionNoticeReady=import('./version-notice.js');
   try{
     result=await viewLoader.load(requested);
