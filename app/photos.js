@@ -909,7 +909,7 @@ async function downloadOne(item) {
     return false;
   }
 }
-// PHOTO-갤러리편집(요청함 11/01 19:00, A안): 크게 보기 [✎ 편집] = 폰 앱(0.4.6+)이 삼성 갤러리 편집기로 넘긴다(웹2 자체 편집기 없음).
+// PHOTO-갤러리편집(요청함 11/01 19:00, A안): 크게 보기 [✎ 편집] = 폰 앱이 삼성 편집기(공개 편집 입구가 있을 때) 또는 삼성 갤러리 보기(0.4.10+)로 넘긴다(웹2 자체 편집기 없음).
 // 원드라이브·구글 드라이브 사진은 같은 사진이 폰에 있으면 그것을 열고, 없으면 한 번 더 누를 때(한 줄 확인) 원본을
 // 기존 '원본 받기' 길로 받아 폰 사진첩 Pictures/웹2에 저장한 뒤 연다. 돌아와 사진첩이 바뀌었으면 사진 목록만 다시 읽는다(앱 화면은 다시 열지 않음).
 const EDIT_ASK_MS = 8000;
@@ -937,11 +937,11 @@ async function editOne(item) {
       catch (error) { if (item.kind === 'gdrive') gdProblemFrom(error); say(`원본을 받지 못했어요: ${item.kind === 'gdrive' ? gdriveErrorText(error) : odErrorText(error)}`); return; }
       const saved = await phone.save(blob, item.name || '');
       if (!saved.ok) { say(saved.error === 'big' || saved.error === 'type' ? editText(saved.error) : '폰에 저장하지 못했어요.'); return; }
-      say('갤러리 편집기를 열어요…');
+      say('갤러리를 열어요… 보기 화면이면 아래 연필로 편집해요.');
       res = await phone.edit({kind:'phone', phoneId:saved.id});
     } else {
       editAsk = null;
-      say('갤러리 편집기를 열어요…');
+      say('갤러리를 열어요… 보기 화면이면 아래 연필로 편집해요.');
       res = await phone.edit(item);
       if (!res.ok && res.error === 'none' && item.kind !== 'phone') {
         editAsk = {id:item.id, at:Date.now()};

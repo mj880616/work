@@ -346,3 +346,17 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
    '더 있음'을 보인다(anchored-popup.js markScrollMore가 data-scroll-below를 단다. 끝까지 내리면 사라짐). 지우기 같은 위험 항목은 메뉴 맨 끝에 두고 위에 가는 선으로 나눈다. */
 [data-scroll-below]{-webkit-mask-image:linear-gradient(to bottom,currentColor calc(100% - 28px),transparent);mask-image:linear-gradient(to bottom,currentColor calc(100% - 28px),transparent)}
 [role="group"]>button:is(.basket-menu-danger,.feed-menu-danger,.gt-menu-danger,.lu-menu-danger,.rb-menu-danger,.diary-menu-danger,.ql-menu-danger,.ci-menu-danger,.task-inline-danger,.ps3-record-danger,.od-link-danger,.basket-link-danger):last-child:not(:first-child){box-shadow:inset 0 var(--ds-line-width,1px) 0 var(--ds-line,var(--kptu-border))}
+/* APP-공유노트할일: 폰 공유 '웹2 노트'·'웹2 할 일' 작은 창(share-target.js). 한 줄 업데이트 창과 같은 모양(위쪽에 뜸, 하단바에 안 가림), 기한은 낮은 칩 한 줄. */
+.share-target-dialog{width:min(520px,calc(100vw - 16px));padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.share-target-dialog::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
+.share-target-head,.share-target-foot{display:flex;align-items:center;gap:var(--kptu-space-2);padding:6px var(--kptu-space-3)}
+.share-target-head h2{margin:0;font-size:15px;flex:1}
+.share-target-body{display:grid;gap:var(--kptu-space-2);padding:0 var(--kptu-space-3) var(--kptu-space-2)}
+.share-target-foot{justify-content:space-between;border-top:1px solid var(--kptu-border)}
+.share-target-foot .status{margin:0;font-size:12px;flex:1;min-width:0}
+.share-target-dialog input[type="text"],.share-target-dialog select{width:100%;box-sizing:border-box;font-size:14px}
+.share-target-dues{display:flex;flex-wrap:wrap;gap:4px}
+.share-target-dialog [hidden]{display:none}
+.share-target-dues button[aria-pressed="true"]{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:700}
+.share-target-what{margin:0;font-size:12px;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:760px){.share-target-dialog{margin:12px auto auto}}

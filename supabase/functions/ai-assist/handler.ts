@@ -59,6 +59,7 @@
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { NOW_DETAIL_DAILY, NOW_INTERESTS_DAILY, parseNowRequest, runNow, type NowInput, type NowKit } from "./now-detail.ts";
 import {
   AREA_SUGGEST_BODY_BYTES, AREA_SUGGEST_INSTRUCTIONS, AREA_SUGGEST_MAX_OUTPUT_TOKENS, AREA_SUGGEST_SCHEMA, AREA_SUMMARY_INSTRUCTIONS,
   AREA_SUMMARY_MAX_OUTPUT_TOKENS, AREA_SUMMARY_READ_LIMIT, AREA_SUMMARY_SCHEMA, areaOptions, areaPath, areaSuggestMaterial, areaSummaryMaterial,
@@ -191,7 +192,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -271,6 +272,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   ask_secret: "비밀번호·키처럼 보이는 글은 물어볼 수 없어요.",
   text_pending: "글자를 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.",
   no_file_text: "요약할 글자가 없어요.",
+  now_not_ready: "글 상세 기능이 아직 준비되지 않았어요.",
+  now_unavailable: "글 상세를 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   internal_error: "AI 요청을 처리하지 못했어요.",
 });
 
@@ -576,7 +579,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -728,6 +731,11 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     const parsed = parseWeeklyLineRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "weekly_line", ...parsed };
+  }
+  if (b.kind === "now_detail" || b.kind === "now_interests") {
+    const parsed = parseNowRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return parsed;
   }
   if (b.kind !== "link_summary") throw new Fail(400, "unsupported_kind");
   return parseLinkSummaryRequest(b);
@@ -5054,6 +5062,18 @@ async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   return await readBoundedJson(r, { maxBytes: 64 * 1024 });
 }
 
+// Now 글 상세·관심 주제(now-detail.ts)가 쓰는 이 파일의 공용 길(로그인 읽기·한도·사용량·AI 호출) — 등록만.
+function nowKit(ctx: Ctx, d: RadarDeps): NowKit {
+  return {
+    ctx, env: d.env, now: d.now, sleep: d.sleep,
+    rest: (path) => rest(ctx, path), rpc: (name, args) => askRpc(ctx, name, args), aiConfig: () => aiConfig(d.env),
+    budget: (kind, price) => checkBudget(ctx, kind, d.now(), price),
+    usage: (day, requests, input, output) => writeUsage(ctx, day, requests, input, output, d.now()),
+    ai: (key, body) => callOpenAi({ doFetch: ctx.doFetch, sleep: d.sleep, log: d.log }, key, body),
+    fail: (status, code) => new Fail(status, code), failCode: (e) => e instanceof Fail ? e.code : null,
+  };
+}
+
 export function createAiAssistHandler(deps: AiAssistDeps) {
   const doFetch = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
@@ -5104,6 +5124,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "press_draft") return await runPressDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "share_draft") return await runShareDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ask_web2") return await runAskWeb2(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "now_detail" || input.kind === "now_interests") return json(await runNow(nowKit(ctx, { env: deps.env, now, sleep, log, doFetch }), input));
       const material = await loadLinkSummaryMaterial(ctx, input);
 
       const config = aiConfig(deps.env);

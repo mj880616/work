@@ -95,5 +95,5 @@ test('앱(0.4.0+): 폰 폴더 읽기 하나 추가(서버로 보내지 않음)',
   assert.match(rules, /\(page\|ids\|months\|days\|folders\|thumb/);
   assert.match(rules, /fun foldersJson\(/);
   assert.match(read('android-app/app/src/main/java/kr/or/kptu/work/PhoneMedia.kt'), /PhoneMediaRules\.Request\.Folders -> json\(PhoneMediaRules\.foldersJson\(all\(context\)\)\)/);
-  assert.match(read('android-app/app/build.gradle'), /versionName '0\.4\.[1-9]'/);
+  assert.match(read('android-app/app/build.gradle'), /versionName '0\.4\.(?:[1-9]|[1-9][0-9])'/);
 });

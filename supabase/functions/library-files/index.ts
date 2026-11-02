@@ -1,6 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
 import { outputText } from '../_shared/openai-responses.ts';
+// S48-15: 제목 찾기에 부른 AI 토큰을 홈 'AI 사용량' 줄의 기존 표(app_ai_daily_usage)에 더한다. 기록 실패는 올리기를 막지 않는다.
+import { createAiUsageMeter, recordAiDailyUsage } from '../_shared/ai-daily-usage.mjs';
+type AiMeter={add:(raw:unknown)=>void};
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 import { readMultipartForm } from '../_shared/multipart.ts';
 import { createLibraryPhotoHandler } from './photo.ts';
@@ -68,26 +71,26 @@ function norm(s:string){return s.toLowerCase().replace(/\s+/g,'').replace(/[^0-9
 function bytesToDataUrl(bytes:Uint8Array,mime:string){let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+0x8000,bytes.length)));return `data:${mime||'application/octet-stream'};base64,${btoa(bin)}`}
 // 본문 기반 제목은 best-effort다. 응답이 늦으면 파일명 제목으로 계속 진행한다.
 const TITLE_AI_TIMEOUT_MS=20000;
-async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body)),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw upstreamFail('ai_request','AI 요청에 실패했습니다.',r.status,d?.error?.message||null);return d}
+async function openAI(body:any,meter:AiMeter){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body)),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw upstreamFail('ai_request','AI 요청에 실패했습니다.',r.status,d?.error?.message||null);meter.add(d);return d}
 async function workspaceModel(workspaceId:string){const {data}=await admin.from('app_ai_workspace_settings').select('default_model').eq('workspace_id',workspaceId).maybeSingle();return data?.default_model||DEFAULT_AI_MODEL}
 async function extractHwpText(bytes:Uint8Array,name:string){if(ext(name)==='hwp')return String(await hwpToText(bytes)).slice(0,18000);const reader=new HwpxReader();const ab=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);await reader.loadFromArrayBuffer(ab as ArrayBuffer);return String(await reader.extractText()).slice(0,18000)}
 function firstLikelyTitle(text:string){const lines=String(text||'').replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(x=>x.length>=4&&x.length<=120);return lines.find(x=>/[가-힣A-Za-z]/.test(x)&&!/^[-–—•·※*\d\s.()]+$/.test(x))||null}
-async function inferTitleFromText(text:string,fileName:string,model:string){
+async function inferTitleFromText(text:string,fileName:string,model:string,meter:AiMeter){
   const fallback=firstLikelyTitle(text);
   if(!OPENAI)return fallback;
   const schema={type:'object',properties:{title:{type:'string'}},required:['title'],additionalProperties:false};
-  const r=await openAI({model,store:false,max_output_tokens:180+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지·문서 머리말에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:`파일명: ${fileName}\n\n문서 앞부분:\n${String(text).slice(0,18000)}`}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
+  const r=await openAI({model,store:false,max_output_tokens:180+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지·문서 머리말에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:`파일명: ${fileName}\n\n문서 앞부분:\n${String(text).slice(0,18000)}`}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}},meter);
   try{const p=JSON.parse(outputText(r)??'');return String(p.title||'').trim()||fallback}catch{return fallback}
 }
-async function inferTitleFromFile(file:File,model:string){
+async function inferTitleFromFile(file:File,model:string,meter:AiMeter){
   if(file.size>25*1024*1024)return null;
   const e=ext(file.name),mime=file.type||'application/octet-stream';
   const bytes=new Uint8Array(await file.arrayBuffer());
-  if(/^text\//.test(mime)||['txt','md','csv','json','log','xml'].includes(e))return await inferTitleFromText(new TextDecoder().decode(bytes),file.name,model);
-  if(['hwp','hwpx'].includes(e)){try{return await inferTitleFromText(await extractHwpText(bytes,file.name),file.name,model)}catch{return null}}
+  if(/^text\//.test(mime)||['txt','md','csv','json','log','xml'].includes(e))return await inferTitleFromText(new TextDecoder().decode(bytes),file.name,model,meter);
+  if(['hwp','hwpx'].includes(e)){try{return await inferTitleFromText(await extractHwpText(bytes,file.name),file.name,model,meter)}catch{return null}}
   if(!OPENAI||!(e==='pdf'||mime==='application/pdf'||['doc','docx','ppt','pptx'].includes(e)))return null;
   const schema={type:'object',properties:{title:{type:'string'}},required:['title'],additionalProperties:false};
-  const r=await openAI({model,store:false,max_output_tokens:180+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:[{type:'input_text',text:`파일명: ${file.name}\n문서의 실제 제목을 찾아라.`},{type:'input_file',filename:file.name,file_data:bytesToDataUrl(bytes,mime),detail:'auto'}]}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
+  const r=await openAI({model,store:false,max_output_tokens:180+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:[{type:'input_text',text:`파일명: ${file.name}\n문서의 실제 제목을 찾아라.`},{type:'input_file',filename:file.name,file_data:bytesToDataUrl(bytes,mime),detail:'auto'}]}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}},meter);
   try{const p=JSON.parse(outputText(r)??'');return String(p.title||'').trim()||null}catch{return null}
 }
 
@@ -205,11 +208,13 @@ Deno.serve(withWebCors(async(req:Request)=>{
     let title=userTitle||nameTitle();
     let titleSource=userTitle?'user':'filename';
     if(!userTitle&&!meaningfulName){
+      const meter=createAiUsageMeter();
       try{
         const model=await workspaceModel(wm.workspace_id);
-        const inferred=await inferTitleFromFile(file,model);
+        const inferred=await inferTitleFromFile(file,model,meter);
         if(inferred){title=tidyFileTitle(inferred);titleSource='content'}
       }catch(e){console.warn('content title inference skipped',safeErrorLog(e))}
+      await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,meter});
     }
     if(!title||(!(meaningfulName&&titleSource==='filename')&&weakTitle(title)))title=nameTitle();
 
