@@ -235,20 +235,34 @@ const warmModules={
 const warmed=new Set();
 function hint(rel,path,as){
   const href=new URL(path,location.href).href;
-  if(warmed.has(href))return;
+  if(warmed.has(href))return null;
   warmed.add(href);
   const link=document.createElement('link');
   link.rel=rel;link.href=path;if(as)link.as=as;link.dataset.kptuWarm='1';
   document.head.appendChild(link);
+  return link
 }
+// PERF-첫로딩 P5-c(docs/design/first-load.md 11절): 화면마다 차례로 받는다 — 한 화면 사슬을 다 받은(또는 실패한) 뒤 다음 쉬는 틈에 다음 화면.
+// 한꺼번에(약 220개) 걸면 폰에서 받기·읽기(modulepreload는 받은 뒤 해석까지 함)가 겹쳐, 먼저 누를 화면(정리함·일정)의 사슬이 뒤 화면 사슬과 같이 밀린다.
+// 순서는 위 목록 그대로(메뉴 순서). 그 화면을 이미 열었으면 건너뛴다. 화면을 누르면 prepare가 그 사슬을 바로 받으므로(같은 주소는 한 번만) 기다리지 않는다.
+const settled=link=>new Promise(resolve=>{link.addEventListener('load',resolve,{once:true});link.addEventListener('error',resolve,{once:true})});
+const idle=fn=>window.requestIdleCallback?window.requestIdleCallback(fn,{timeout:2000}):setTimeout(fn,50);
 function warm(){
   if(navigator.connection?.saveData)return false;
   const have=new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map(link=>link.href));
-  for(const [view,paths] of Object.entries(warmModules)){
-    if(loaded.has(view))continue;
-    for(const path of paths)hint('modulepreload',path);
-    for(const path of routeStyles[view]||[])if(!have.has(new URL(path,location.href).href))hint('prefetch',path,'style');
-  }
+  const queue=Object.entries(warmModules);
+  const next=()=>{
+    while(queue.length){
+      const [view,paths]=queue.shift();
+      if(loaded.has(view))continue;
+      const links=paths.map(path=>hint('modulepreload',path)).filter(Boolean);
+      for(const path of routeStyles[view]||[])if(!have.has(new URL(path,location.href).href))hint('prefetch',path,'style');
+      if(!links.length)continue;
+      void Promise.all(links.map(settled)).then(()=>idle(next));
+      return;
+    }
+  };
+  next();
   return true
 }
 // PERF-첫로딩 P5-c: 화면 안에서 뒤늦게 부르는 묶음(예: 홈의 [주간 정리] 묶음)도 같은 받기 도구로 사슬을 한꺼번에 받아만 둔다.
