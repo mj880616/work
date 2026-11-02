@@ -468,3 +468,6 @@
   #appView #libraryView #documentList .lu-row{grid-template-areas:"title title title title menu" "kind tag date twin menu"}
   #appView #libraryView #documentList .lu-twin-btn{grid-area:twin;justify-self:start}
 }
+/* 빠짐12: 파일 이름 그대로인 자료 줄의 [이름 바꾸기]는 첨부 공용 고치는 칸(file-rename.css .fr-box)이 제목 자리에 들어온다. */
+#appView #libraryView #documentList .lu-row > .fr-box{flex:1 1 auto;min-width:0}
+@media(max-width:760px){#appView #libraryView #documentList .lu-row > .fr-box{grid-area:title}}

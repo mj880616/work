@@ -2,6 +2,7 @@
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH, 소유자 RLS)이고, 제목 칸은 사용자 값('user')으로 기록해
 // AI 자동 정리(ai-assist library_fill/tidy)가 다시 바꾸지 않게 한다. Drive 원본 파일 이름은 건드리지 않는다.
 import {originAfterEdit} from './library-ai-fill.js';
+import {splitFileName} from './file-rename-name.mjs';
 
 export const RENAME_NOTE='사용자 수정';
 
@@ -27,4 +28,12 @@ export function undoBody(snapshot,now=new Date().toISOString()){return {...snaps
 // 저장 응답이 보낸 값과 같은지(updated_at은 서버가 정함).
 export function rowMatches(row,body){
   return Object.entries(body).every(([key,value])=>key==='updated_at'||value===undefined||JSON.stringify(row?.[key])===JSON.stringify(value));
+}
+
+// ATT-이름고치기 자료실(빠짐12): 줄에 보이는 이름이 파일 이름 그대로인 자료(제목이 없거나 파일 이름과 같음)는 첨부 공용 부품(file-rename.js)으로
+// 고친다 — Drive 원본 이름과 Web2 줄을 함께 바꾸고 [AI 이름] 추천이 있다. 제목을 따로 붙인 자료는 지금처럼 Web2 제목만 바꾼다.
+export function fileNameShown(doc){
+  if(!doc?.file_id||!doc.file_name)return false;
+  const title=String(doc.title??'').trim();
+  return !title||title===doc.file_name||title===splitFileName(doc.file_name).base;
 }

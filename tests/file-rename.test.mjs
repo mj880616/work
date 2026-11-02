@@ -184,6 +184,8 @@ test('첨부 파일 줄이 있는 화면마다 같은 부품을 쓴다', () => {
     'meeting-round-detail.js': /markRenameHost\(row\.querySelector\('\.file-line-main b'\)/,
     'workplace-detail.js': /renameButtonHtml\(rn\)/,
     'project-system-v3.js': /renameButtonHtml\(rn\)/,
+    // 빠짐12: 자료실 [이름 바꾸기]·F2 — 보이는 이름이 파일 이름인 줄은 같은 부품(target document).
+    'library-upload.js': /fileNameShown\(d\)\)\{[^}]*markRenameHost\(title,\{target:'document',id:d\.id,driveId:d\.file_id,name:d\.file_name\}\);openRenameEditor\(title\)/,
   };
   for (const [file, re] of Object.entries(uses)) {
     const src = read('../app/' + file);

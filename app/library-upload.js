@@ -29,7 +29,8 @@ import {pickMyOrganizations} from './my-organizations.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {visibleEntries,entryState,deleteLabel,isKept} from './library-prev-model.mjs';
 import {documentCategories,topDocumentCategories,orderedDocumentCategories,categoryOf,topCategoryOf,categoryLabel,categoryOptions,categoryTag,loadDocumentCategories} from './document-categories.js';
-import {renameBody,undoSnapshot,undoBody,rowMatches} from './library-rename.js';
+import {renameBody,undoSnapshot,undoBody,rowMatches,fileNameShown} from './library-rename.js';
+import {markRenameHost,openRenameEditor} from './file-rename.js';
 import {mountCategoryEditor} from './document-category-editor.js';
 import {startAutoTextRead} from './document-text-read.js';
 import {fillLibraryDocument,keptFields,originAfterEdit,autoTidyLibrary,reclassifyLibraryDocument} from './library-ai-fill.js';
@@ -621,6 +622,8 @@ function luStartRename(id){
   if(luRename){if(luRename.id===id){luRename.input.focus();return}luRename.finish(true)}
   const d=luDocuments.find(x=>x.id===id),row=[...document.querySelectorAll('#documentList [data-lu-document]')].find(x=>x.dataset.luDocument===id),title=row?.querySelector('.lu-row-title');
   if(!d||!title)return;
+  // 빠짐12: 보이는 이름이 파일 이름이면 첨부 공용 부품(Drive 원본 이름도 같이·[AI 이름]). 저장되면 kptu:documents-changed로 목록을 다시 읽는다.
+  if(fileNameShown(d)){row.removeAttribute('draggable');markRenameHost(title,{target:'document',id:d.id,driveId:d.file_id,name:d.file_name});openRenameEditor(title);for(const k of ['frHost','frTarget','frId','frDrive','frName'])delete title.dataset[k];return}
   const before=d.title||d.file_name||'',input=document.createElement('input'),wasDraggable=row.getAttribute('draggable');
   input.type='text';input.className='lu-rename-input';input.value=before;input.setAttribute('aria-label','자료 이름');input.autocomplete='off';
   let done=false;
