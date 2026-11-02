@@ -132,5 +132,26 @@ window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__=()=>[...soGoogleHiddenOrgIds,...[...do
 function resetCreate(){document.querySelectorAll('[data-event-org]').forEach(x=>x.checked=false)}
 function bind(){if(soBound)return;soBound=true;window.addEventListener('kptu:workplace-selection',e=>{soSelected=e.detail?.id||null;paintSelection()});window.addEventListener('kptu:basket-links-changed',()=>{void loadSummaries()});window.addEventListener('kptu:dispute-stages-changed',paintStageTags);window.addEventListener('kptu:api-saved',e=>{if(e.detail?.path?.includes('/app_suborganization_updates'))void loadSummaries()});document.querySelector('#soSaveOrg')?.addEventListener('click',saveOrg);document.querySelector('#soSaveAssignees')?.addEventListener('click',saveAssignees);document.addEventListener('keydown',e=>{const card=e.target.closest?.('[data-ps-workplace-org]');if(card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();card.click()}});document.addEventListener('click',e=>{const more=e.target.closest('#soTeamMore');if(more){void installStageMenu(more).catch(err=>console.error('stage menu',err));return}const closeBtn=e.target.closest('[data-so-close]');if(closeBtn){close(closeBtn.dataset.soClose);return}const edit=e.target.closest('[data-so-edit]');if(edit){openEdit(edit.dataset.soEdit);return}const del=e.target.closest('[data-so-delete]');if(del){removeOrg(del.dataset.soDelete);return}const assign=e.target.closest('[data-so-assign]');if(assign){openAssign(assign.dataset.soAssign);return}if(e.target.closest('#newEventBtn,#homeAddEvent,#calendarQuickAdd'))resetCreate();},true);window.addEventListener('kptu:view-changed',e=>{summaryRun++;summaryFlight=null;summaryDirty=false;if(e.detail?.view==='team')load().catch(console.error)});window.addEventListener('kptu:session-changed',()=>{summaryRun++;summaryFlight=null;summaryDirty=false;clearRecency();context().then(ok=>ok&&load()).catch(console.error)})}
 async function boot(){if(!rt)return false;if(!(await context()))return false;installTeam();installModals();installEventCreate();installGoogleEditSelector();bind();await load();if(document.querySelector('#ciGoogleModal:not(.hidden)'))window.__KPTU_EDIT_GOOGLE_ORGS__(window.__KPTU_GOOGLE_EDIT_ORGS_PENDING__||[]);window.__KPTU_RELOAD_SUBORGANIZATIONS__=()=>load();return true}
+// PERF-첫로딩 P5: 조직 상세(workplace-detail.js)와 그 할 일 칸(project-catalog.js·google-tasks.js)은 목록이 보인 뒤 받는다(첫 화면 앞에 받던 JS 약 40개).
+// 순서는 옛 view-loader.js organizations()와 같다. 다 받기 전의 열기 길: KPTUWorkplace.open(다른 화면·검색에서 여는 곳)은 받은 뒤 진짜 open으로 넘기고,
+// 목록·프로필의 조직 줄([data-ps-workplace-org]) 클릭은 받은 뒤 같은 줄을 다시 누른다(첫 클릭만 잠깐 늦을 수 있음 — 명진 결정 11/02).
+let detailFlight=null;
+function loadDetail(){
+ detailFlight||=(async()=>{await import('./project-catalog.js');await import('./google-tasks.js');await import('./workplace-detail.js');import('./workplace-report.js').catch(console.error)})();
+ detailFlight.catch(()=>{detailFlight=null});
+ return detailFlight;
+}
+const detailLoaded=()=>window.KPTUWorkplace&&window.KPTUWorkplace.open!==openBeforeDetail;
+async function openBeforeDetail(...args){await loadDetail();if(!detailLoaded())throw new Error('organization detail did not load');return window.KPTUWorkplace.open(...args)}
+if(!window.KPTUWorkplace)window.KPTUWorkplace={open:openBeforeDetail};
+document.addEventListener('click',e=>{
+ if(detailLoaded())return;
+ const row=e.target.closest?.('[data-ps-workplace-org]');if(!row)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ row.setAttribute('aria-busy','true');
+ loadDetail().then(()=>{row.removeAttribute('aria-busy');if(row.isConnected&&detailLoaded())row.click()}).catch(err=>{row.removeAttribute('aria-busy');console.error('organization detail load',err);notify('조직 상세를 불러오지 못했습니다. 다시 눌러 주세요.',{error:true})});
+},true);
+function afterReveal(){return new Promise(resolve=>{const next=()=>requestAnimationFrame(()=>setTimeout(resolve,0));if(document.querySelector('#appView')?.classList.contains('kptu-ui-ready'))return next();window.addEventListener('kptu:app-ui-ready',next,{once:true})})}
+void afterReveal().then(loadDetail).catch(err=>console.error('organization detail load',err));
 window.__KPTU_SUBORGANIZATIONS_READY__=boot().catch(err=>{console.error('suborganizations init',err);return false});
 })();
