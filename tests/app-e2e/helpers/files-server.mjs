@@ -1,5 +1,6 @@
 // FILES-클라우드탐색기 ④ E2E 공용 흉내 서버(파일 화면). 파일·폴더 이름과 id는 모두 가짜.
-// 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find)와 Edge cloud-files(status·sync·thumb·media·preview·open-url)를 흉내 낸다.
+// 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find)와 Edge cloud-files(status·sync·thumb·media·preview·open-url,
+// S48-45 쓰기 rename·mkdir·move·trash·across)를 흉내 낸다.
 import { expect } from '@playwright/test';
 import { openHome } from './home-entry.mjs';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -61,6 +62,16 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
         return route.fulfill({ status: 200, contentType: 'application/pdf', body: fakePdf() });
       }
       if (a === 'open-url') return ok({ ok: true, url: 'https://example.org/fake-open' });
+      // S48-45 쓰기: confirm:true 없으면 거절(서버와 같음). 결과는 바뀐 줄·지운 줄.
+      if (['rename', 'mkdir', 'move', 'trash', 'across'].includes(a)) {
+        if (body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
+        const find = (src, id) => server.items.find(i => i.source === src && i.item_id === id && !i.trashed);
+        if (a === 'rename') { const it = find(body.source, body.id); if (server.items.some(i => i !== it && i.source === it.source && i.parent_id === it.parent_id && i.name === body.name)) return ok({ ok: false, error: 'name_taken' }, 409); it.name = body.name; return ok({ ok: true, changed: [view(it)], removed: [] }); }
+        if (a === 'mkdir') { const it = item({ source: body.source, item_id: body.source === 'od' ? 'OD!90' : 'gdNew90', parent_id: body.parent ?? null, name: body.name, is_folder: true, size_bytes: null }); server.items.push(it); return ok({ ok: true, changed: [view(it)], removed: [] }); }
+        if (a === 'move') { const changed = body.ids.map(id => { const it = find(body.source, id); it.parent_id = body.to ?? null; return view(it); }); return ok({ ok: true, changed, removed: [], failed: [], left: [] }); }
+        if (a === 'trash') { for (const id of body.ids) find(body.source, id).trashed = true; return ok({ ok: true, changed: [], removed: body.ids.map(id => ({ source: body.source, id })), failed: [], left: [] }); }
+        if (a === 'across') { const it = find(body.source, body.id); it.trashed = true; const copy = item({ ...view(it), source: body.to_source, item_id: body.to_source === 'od' ? 'OD!91' : 'gdNew91', parent_id: body.to ?? null, trashed: false }); server.items.push(copy); return ok({ ok: true, changed: [view(copy)], removed: [{ source: body.source, id: body.id }], kept_original: false }); }
+      }
       return ok({ ok: false, error: 'action_invalid' }, 400);
     }
     if (!p.startsWith('/rest/v1/rpc/app_cloud_')) return route.fallback();
