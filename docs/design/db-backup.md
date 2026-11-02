@@ -1,6 +1,8 @@
 # 정기 DB 백업 설계 (OPS-DB백업)
 
-📱 **폰 가능(설계만).** 이 문서는 설계다. workflow·스크립트·비밀값·DB는 바꾸지 않았다. 구현은 명진 결정(8절) 뒤 6절 순서로 한다.
+📱 **폰 가능(설계).** 이 문서는 설계다. 구현 상태는 아래 "구현 상태" 절을 본다.
+
+**구현 상태(2026-11-02, S48-8).** 명진 결정(11/02): 8절 추천대로 Q1 가·Q2 가(K1 임시 접속)·Q3 가·Q4 가·Q5 가·Q6 가. 6절 PR 2·3을 한 PR로 구현했다: `.github/workflows/db-backup-daily.yml`, `.github/workflows/db-restore-test.yml`, `scripts/ops/backup-db*.{mjs,sh,sql}`, `tests/security/db-backup-workflow.test.mjs`. 명진 설정 순서는 [../ops-db-backup-setup.md](../ops-db-backup-setup.md). 설계와 달라진 점: ① 접속은 공용 pooler(세션 방식, 5432)로 한다 — Supabase 직접 접속 주소는 IPv6 전용이라 GitHub runner에서 닿지 않을 수 있음(추정) ② 덤프 snapshot은 psql 한 거래 안에서 `\!`로 `pg_dump --snapshot`을 불러 줄 수와 같은 시점을 맞춘다 ③ 되살리기 시험은 `supabase/postgres` 대신 공식 `postgres:17` 이미지에 Supabase 기본 역할 이름만 만들어 쓴다(이미지 판 고정 위험 회피) ④ 받기 토큰을 쓰기 토큰과 나눠 db-restore에는 읽기 토큰만 둔다 ⑤ K2 읽기 역할 migration은 만들지 않았다(K1로 충분, 안 되면 별도 PR). 6절 PR 4(되살리기 절차서 `docs/ops-db-restore.md`)는 남음.
 
 - 작성: 2026-11-01, 작업 세션 S47-55(Claude Code 웹). 기준 `origin/main` `2787ca5`(#1699). 점검 근거는 원장 OPS-DB백업 행(main `156a4f5` 실사용 전수점검).
 - production은 조회하지 않았다(웹 세션 규칙). "사실"은 저장소 파일, "공식 문서"는 Supabase 공개 문서(9절 링크, 2026-11-01 확인), "추정"·"확인 필요"는 그 밖이다.
