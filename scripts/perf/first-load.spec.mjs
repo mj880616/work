@@ -85,6 +85,8 @@ for (const [name, profile] of Object.entries(profiles)) {
             jsKBBeforeReady: Math.round(sum(before.filter(js), 'decodedBodySize') / 1024),
             jsTotal: res.filter(js).length, jsKBTotal: Math.round(sum(res.filter(js), 'decodedBodySize') / 1024),
             lastJsBeforeReady: Math.round(Math.max(0, ...before.filter(js).map(r => r.responseEnd))),
+            // 시작 단계 수(2-1절 셈법): 보이기 전 JS 요청 시작 시각을 줄 세워 100ms 넘게 쉬면 새 단계로 센다(PERF-첫로딩 P4).
+            jsStages: before.filter(js).map(r => r.startTime).sort((a, b) => a - b).reduce((n, t, i, all) => n + (i === 0 || t - all[i - 1] > 100 ? 1 : 0), 0),
             files: before.filter(js).map(r => [new URL(r.name).pathname, Math.round(r.decodedBodySize / 1024), Math.round(r.startTime), Math.round(r.responseEnd)]),
           };
         }, { viewAt }));
