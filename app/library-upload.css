@@ -15,7 +15,6 @@
 .library-selected-file.error .library-upload-state{color:var(--kptu-danger)}
 .library-selected-file.unknown{border-color:var(--kptu-warning);background:var(--kptu-warning-soft)}
 .library-selected-file.unknown .library-upload-state{color:var(--kptu-warning)}
-.library-multi-note{font-size:10.5px;color:var(--kptu-muted);line-height:1.4}
 .library-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 /* LIB-수정파일교체: [수정] 창의 파일 줄(현재 파일 + 작은 [파일 교체]) · 이전 파일 ▾. 새 큰 버튼 없음(UI-버튼기준: 보조 버튼 32px·누르는 범위 44px). */
 .library-edit-file{display:grid;gap:2px;margin:0 0 6px}

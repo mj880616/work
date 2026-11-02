@@ -79,7 +79,7 @@ export function createNowInterests({box, onChanged} = {}) {
     if (!box) return;
     if (!loaded) { box.innerHTML = failed ? failHtml({retry: 'data-ni-retry'}) : waitHtml({rows: 4}); return; }
     const cand = candidateRows(rows), conf = rows.filter(r => r.state === 'confirmed');
-    const head = '<p class="ni-help">AI가 별표·보관·메모·관심 없음·원문 열기를 보고 후보를 만들어요. 확정한 주제만 상세의 \'나와의 연관\'과 목록 표시에 써요.</p>';
+    const head = '';
     const candHtml = cand.length ? `<section class="ni-sec" aria-label="관심 주제 후보"><h3 class="ni-h">후보 ${cand.length}</h3>${cand.map(r => rowHtml(r, 'candidate')).join('')}</section>` : '';
     const confHtml = `<section class="ni-sec" aria-label="확정한 관심 주제"><h3 class="ni-h">확정</h3>${conf.length ? conf.map(r => rowHtml(r, 'confirmed')).join('') : emptyHtml('확정한 주제 없음')}</section>`;
     const addHtml = `<form class="ni-add" data-ni-add-form><input type="text" data-ni-add-input maxlength="30" placeholder="주제 더하기" aria-label="관심 주제 더하기" value="${esc(draft)}"><button type="submit" class="secondary"${busy.has('add') ? ' disabled' : ''}>+ 더하기</button></form>`;

@@ -230,7 +230,6 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 .wd-st-ev ul{margin:2px 0 0;padding-left:14px}
 .wd-st-older{margin-top:4px}.wd-st-older>summary{cursor:pointer;padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .wd-st-bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.wd-st-hint{margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .wd-st-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .wd-st-status{margin:2px 0 0;min-height:1em;color:var(--kptu-muted);font-size:var(--ds-text-meta)}.wd-st-status:empty{display:none}.wd-st-status.is-error{color:var(--kptu-danger)}
 .wd-st-form{display:grid;grid-template-columns:9.5em minmax(0,1fr);gap:6px 8px;align-items:end}

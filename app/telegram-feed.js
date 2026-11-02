@@ -243,7 +243,7 @@ function headHtml() {
     return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">보낸 사람 이름${state.senders ? ` · ${n}명` : ''}</span></div>`;
   }
   if (state.mode === 'archive') {
-    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">보관함 ${archivedRooms(state.rooms, state.lines).length}</span></div><p class="feed-note" data-tg-archive-note>방 단위로 보관해요. 보관한 방도 수집·요약은 계속돼요.</p>`;
+    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">보관함 ${archivedRooms(state.rooms, state.lines).length}</span></div>`;
   }
   if (state.mode === 'trash') {
     return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">휴지통 ${trashCount()}</span></div><p class="feed-note" data-tg-trash-note>Web2 목록에서만 뺀 것이에요. 원문은 Drive에 그대로 있어요. 직접 비우기 전까지 남아요.</p>`;

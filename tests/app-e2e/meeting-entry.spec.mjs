@@ -78,8 +78,7 @@ test('meeting create modal exposes the task 9 fields only',async({page})=>{
   await expect(page.locator('#meetingActionLine .due-chip')).toHaveText('기한 ▾');
   await expect(page.locator('.meeting-action-row')).toHaveCount(0);
   await expect(page.locator('#meetingActionList [data-wait-empty]')).toHaveText('없음');
-  await expect(page.locator('#meetingMaterialsBlock .mtg-note')).toHaveText('자료실에도 자동 등록');
-  await expect(page.locator('#meetingMaterialsBlock .mtg-note')).toHaveCSS('font-size','12px');
+  await expect(page.locator('#meetingMaterialsBlock .mtg-note')).toHaveCount(0); // UI-당연한안내삭제: 자동 처리 안내 줄 없음
   await expect(page.locator('#meetingActionList [data-wait-empty]')).toHaveCSS('font-size','12px');
   for(const el of [page.locator('#addMeetingAction'),page.locator('#meetingPickFiles')]){const b=await el.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44)}
   expect((await page.locator('#meetingActionAdd').boundingBox()).height).toBe(32);
