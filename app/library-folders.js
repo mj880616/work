@@ -13,7 +13,7 @@ import {createMovePicker} from './library-move-picker.js';
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],enter=null,selectNode=null}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 누르기를 켤 화면인지.
@@ -221,7 +221,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(row?.dataset.luPhotoset){if(!s().free)return null;const docs=photoSetDocs(row.dataset.luPhotoset);if(!docs.length)return null;return {kind:'file',id:'photoset:'+row.dataset.luPhotoset,docs,els:[row],set:true}}
     if(row){
       const doc=docById(row.dataset.luDocument);if(!doc)return null;
-      const picked=selected(),many=picked.length>1&&picked.includes(doc.id),docs=(many?picked.map(docById).filter(Boolean):[doc]);
+      const picked=selected(),many=picked.length>1&&picked.includes(doc.id),docs=(many?picked.map(docById).filter(Boolean):(twinDocs(doc.id)||[doc]));
       return {kind:'file',id:doc.id,docs,els:docs.map(d=>rowOf(d.id)).filter(Boolean)};
     }
     return null;
@@ -512,5 +512,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       trigger.click();
     });
   }
-  return {moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
+  // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 ⋯의 [새 폴더]. 폴더 묶기에서만 — 들어간 폴더가 있으면 그 안, 없으면 맨 위(폴더 밖 자리).
+  const createIn=(parentId,trigger)=>{const p=parentId?folder(parentId):null;if(parentId&&!p)return;if(p&&!canAddChild(s().folders,p.id)){status('여기에는 폴더를 더 만들 수 없어요.',true);return}
+    askName({title:p?'안에 폴더 만들기':'폴더 만들기',hint:p?pathName(p.id)+' 안에 만들어요.':'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(p?.project_id||null,p?.id||null,name)})};
+  return {createIn,moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
 }

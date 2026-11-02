@@ -48,6 +48,12 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
       if(!preview||seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
       const section=document.createElement('section');section.id='calendarDayDiary';section.append(preview);list.prepend(section);
     }).catch(()=>{});
+    // JOURNAL-오늘한일업무개인: 그날 '오늘 한 일' 줄(홈에서 넣은 같은 자료, 읽기만) — 일기가 없는 날도. 목록 맨 아래.
+    import('./work-day-lines.js').then(async done=>{
+      const day=seoulDateKey(date),lines=await done.readDayDone(day);
+      if(seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
+      const section=done.dayDoneSection(day,lines,{heading:'h3',id:'calendarDayDone'});if(section)list.append(section);
+    }).catch(()=>{});
     const modal=document.querySelector('#calendarDayModal');modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog.activate?.(modal,{trigger:document.activeElement,initialFocus:'#calendarDayList .cal-event',onRequestClose:()=>{modal.classList.add('hidden');modal.setAttribute('aria-hidden','true')}});
   }

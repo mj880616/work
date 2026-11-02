@@ -84,7 +84,8 @@ async function openUpdates(page,width){
 // 계정 메뉴: [내 프로필] 바로 아래 [업데이트 기록](오른쪽에 지금 판 이름) → 누르면 기록 화면, 뒤로가기 = 이전 화면. 하단 탭은 만들지 않는다.
 for(const width of [1440,412])test(`계정 메뉴 [내 프로필] 아래 [업데이트 기록]이 기록 화면을 열고 뒤로가기로 돌아온다 (${width}px)`,async({page})=>{
   test.setTimeout(60000);
-  await page.setViewportSize({width,height:900});
+  // 목록 끝 [이전 기록 더 보기]가 화면에 들어오면 저절로 더 그리므로, 첫 20개를 확인하도록 낮은 창으로 연다.
+  await page.setViewportSize({width,height:500});
   const notes=Array.from({length:23},(_,i)=>note(`10/${30-Math.floor(i/3)}-${23-i}`,[`바뀐 점 ${i+1}`],i===0?['메뉴 → 계정 → 업데이트 기록 열어 보기']:[]));
   await boot(page,{view:'calendar',notes:()=>list(notes)});
   await expect(page.locator('#calendarView')).toBeVisible();
@@ -115,7 +116,8 @@ for(const width of [1440,412])test(`계정 메뉴 [내 프로필] 아래 [업데
   await expect(list20.nth(1).locator('.rn-one')).toHaveText('바뀐 점 2');
   await list20.nth(1).locator('summary').focus();await page.keyboard.press('Enter');
   await expect(list20.nth(1)).toHaveAttribute('open','');
-  await view.getByRole('button',{name:'이전 기록 더 보기'}).click();
+  // UI-업데이트기록찾기: 아래로 내려 [이전 기록 더 보기]가 보이면 다음 기록을 더 그린다.
+  await view.getByRole('button',{name:'이전 기록 더 보기'}).scrollIntoViewIfNeeded();
   await expect(list20).toHaveCount(23);
   await expect(view.getByRole('button',{name:'이전 기록 더 보기'})).toBeHidden();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
@@ -177,4 +179,63 @@ for(const width of [412,884,1440])test(`업데이트 기록 긴 줄이 폰 폭�
 test('기록이 하나도 없으면 기록 화면은 없음 한 줄',async({page})=>{
   await boot(page,{view:'updates',notes:()=>list([])});
   await expect(page.locator('#updatesView [data-wait-empty]')).toHaveText('없음',{timeout:15000});
+});
+
+// UI-업데이트기록찾기(요청함 11/02): 목록 위 검색 칸 — 치는 대로 이 화면 안에서만 거르고 낱말을 칠한다(서버 호출 없음).
+for(const width of [412,1440])test(`업데이트 기록 검색 칸: '사진'이면 관련 줄만 남고 칠해진다 (${width}px)`,async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width,height:900});
+  const notes=[
+    note('10/30-3',['노트 폴더가 생겼어요'],['노트 열어 보기']),
+    {v:'10/29-2',date:'2026-10-29',changes:['사진 메뉴가 빨라졌어요','일정 색을 고를 수 있어요'],checks:['사진 탭 열어 보기']},
+    {v:'9/12-1',date:'2026-09-12',changes:['Google 캘린더 일정이 보여요'],checks:[]},
+    ...Array.from({length:30},(_,i)=>({v:`9/11-${30-i}`,date:'2026-09-11',changes:[`옛 변경 ${i+1}`],checks:[]}))
+  ];
+  await boot(page,{view:'updates',notes:()=>list(notes)});
+  const view=page.locator('#updatesView'),rows=view.locator('.rn-note'),search=view.getByRole('searchbox',{name:'업데이트 기록 찾기'});
+  await expect(view).toBeVisible({timeout:15000});
+  await expect(search).toBeVisible();
+  // 검색 칸이 목록 위
+  const order=await view.evaluate(v=>{const s=v.querySelector('.rn-search').getBoundingClientRect(),r=v.querySelector('.rn-note').getBoundingClientRect();return s.bottom<=r.top+1});
+  expect(order).toBe(true);
+  // 찾는 동안 서버로 가는 요청이 없다
+  const sent=[];page.on('request',r=>{if(/search/i.test(r.url()))sent.push(r.url())});
+  await search.fill('사진');
+  await expect(rows).toHaveCount(1);
+  const hit=rows.first();
+  await expect(hit).toHaveAttribute('open','');
+  await expect(hit.locator('.rn-ver')).toHaveText('10/29-2');
+  await expect(hit.locator('.rn-changes li')).toHaveText(['사진 메뉴가 빨라졌어요']);
+  await expect(hit.locator('.rn-check')).toContainText('사진 탭 열어 보기');
+  await expect(hit.locator('mark.rn-mark').first()).toHaveText('사진');
+  expect(await hit.locator('mark.rn-mark').count()).toBeGreaterThanOrEqual(2);
+  await expect(view.locator('.rn-count')).toHaveText('찾은 기록 1개');
+  // 낱말 여럿 = 모두 든 줄만, 날짜로도 찾는다
+  await search.fill('사진 탭');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().locator('.rn-changes')).toHaveCount(0);
+  await search.fill('9/12');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().locator('.rn-changes li')).toHaveText(['Google 캘린더 일정이 보여요']);
+  await search.fill('일정');
+  await expect(rows).toHaveCount(2);
+  // 없는 낱말
+  await search.fill('없는낱말');
+  await expect(rows).toHaveCount(0);
+  await expect(view.locator('.rn-count')).toHaveText('찾는 기록이 없어요');
+  await expect(view.getByRole('button',{name:'이전 기록 더 보기'})).toBeHidden();
+  expect(sent).toEqual([]);
+  await page.screenshot({path:`test-results/release-notes-search-${width}.png`,fullPage:true});
+  // 비우면 처음 그대로(20개부터, 맨 위 지금 판만 펼침, 칠하기 없음)
+  await search.fill('');
+  await expect(view.locator('.rn-count')).toBeHidden();
+  await expect(view.locator('mark')).toHaveCount(0);
+  expect(await rows.count()).toBeGreaterThanOrEqual(20);
+  await expect(rows.first()).toHaveAttribute('open','');
+  await expect(rows.nth(1)).not.toHaveAttribute('open','');
+  // 글자는 실행되지 않는다(검색어를 꺾쇠로 넣어도 글자로만)
+  await search.fill('<img src=x onerror="window.__pwned=1">');
+  await expect(rows).toHaveCount(0);
+  expect(await page.evaluate(()=>window.__pwned)).toBeUndefined();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
 });

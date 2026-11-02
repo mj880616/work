@@ -289,7 +289,8 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
     ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);
   // Without my list (unknown) nothing is dimmed.
-  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'unknown'}}).report[0].items.map(i => i.hidden), [false, false, false]);
+  // 목록을 못 읽어도 내부 정례 회의(본부 집행위)는 늘 '보고 안 함'(WEEKLY-주요일정기준 ④).
+  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'unknown'}}).report[0].items.map(i => i.hidden), [false, false, true]);
   // 그날 일정 is its own part above 오늘 한 줄 (not in 그 밖의 기록): time + title, the calendar color, and where it opens (the calendar's edit window).
   assert.deepEqual(card.events.items.map(i => i.text), ['종일 종일', '00:30 새벽', '14:00 오후']);
   assert.deepEqual(card.events.items.map(i => [i.id, i.open]).slice(0, 1), [[card.events.items[0].id, {type:'event', id:card.events.items[0].id, calendarId:'primary'}]]);
@@ -439,7 +440,7 @@ test('weekly draft: the form order (1 → 2 → 4 → 5 → 참고); lines in sa
   assert.deepEqual(rows.filter(r => r.startsWith('■ ')), ['■ 일시 : 2026년 10월 12일(월)']);
   assert.deepEqual(partOf(text, '1. 요청사항'), ['1) 임원 배정 요청 (일 | 시간/내용/장소 | 참석 요청)',
     '- 10.13.(화) 10:30 / 가상 결의대회 / 가상 광장 — 참석 요청: 가상 임원 갑, 가상 임원 을', '- 10.15.(목) 가상 토론회',
-    '2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외.', '3) 상집 논의 요청: (비워 둠)']);
+    '2) 주요 일정: (비워 둠)', '3) 상집 논의 요청: (비워 둠)']);
   const ref = partOf(text, '참고');
   assert.deepEqual(ref.slice(0, 5), ['◦ 한 줄', '- 10월 6일(화) 현장 회의 정리', '- 10월 7일(수) 첫 줄', '- 10월 7일(수) 둘째 줄', '- 10월 7일(수) 셋째 줄']);
   // This week's events are the day card's 일정, not draft material (5. 주요 일정 is the two weeks after).

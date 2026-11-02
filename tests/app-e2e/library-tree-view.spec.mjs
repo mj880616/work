@@ -2,7 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 // LIB-토글트리 ②(docs/design/library-tree.md 5절): 자료실 토글 트리 보기. 폴더 표는 읽기만(편집은 다음 단계).
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
-import {libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
+import {libraryNode,libraryNodeHead,libraryTopMenu,libraryExpandItem} from './helpers/library-tree.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const doc=(id,project_id,extra={})=>({id,workspace_id:'workspace-1',project_id,title:'자료 '+id,file_name:id+'.pdf',category:'정책자료',tags:[],document_date:null,created_at:'2026-10-01T00:00:00Z',...extra});
@@ -77,10 +77,10 @@ for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 
   await b.locator(':scope > .lu-more-files').click();await expect(b.locator(':scope > .lu-row')).toHaveCount(23);await expect(b.locator('.lu-more-files')).toHaveCount(0);
   // 펼침 상태는 다시 그려도 남는다.
   await page.evaluate(()=>window.KPTULibrary.render());await expect(libraryNode(page,'p:child-a1')).toHaveAttribute('open','');await expect(b.locator(':scope > .lu-row')).toHaveCount(23);
-  // 모두 펴기 ↔ 모두 접기(작은 글자 버튼).
-  const all=page.locator('#libraryExpandAll');await expect(all).toHaveText('모두 펴기');
-  await all.click();await expect(page.locator('#documentList details:not([open])')).toHaveCount(0);await expect(all).toHaveText('모두 접기');
-  await all.click();await expect(page.locator('#documentList details[open]')).toHaveCount(0);await expect(all).toHaveText('모두 펴기');
+  // 모두 펴기 ↔ 모두 접기(빠짐9: 자료실 칸 맨 위 ⋯ 메뉴 한 줄).
+  expect((await libraryExpandItem(page)).text).toBe('모두 펴기');
+  await libraryTopMenu(page,'expand');await expect(page.locator('#documentList details:not([open])')).toHaveCount(0);expect((await libraryExpandItem(page)).text).toBe('모두 접기');
+  await libraryTopMenu(page,'expand');await expect(page.locator('#documentList details[open]')).toHaveCount(0);expect((await libraryExpandItem(page)).text).toBe('모두 펴기');
   // 키보드: 토글 머리에 초점 → Enter로 펴기, 다시 Enter로 접기.
   await a.focus();await page.keyboard.press('Enter');await expect(libraryNode(page,'p:top-a')).toHaveAttribute('open','');
   await page.keyboard.press('Enter');await expect(libraryNode(page,'p:top-a')).not.toHaveAttribute('open','');
@@ -117,7 +117,7 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   // 맞는 자료가 없으면 빈 안내.
-  await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');await expect(page.locator('#libraryExpandAll')).toBeDisabled();
+  await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('#documentList [data-wait-empty]')).toHaveText('없음');expect((await libraryExpandItem(page)).disabled).toBe(true);
   expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
 });
 
@@ -154,7 +154,7 @@ for(const width of [390,1280])test(`폴더(읽기만): 프로젝트 안 3단 폴
   ];
   const items=[{document_id:'a-1',folder_id:'f-a-1-1'},{document_id:'none-1',folder_id:'f-n'},{document_id:'a1-1',folder_id:'f-a'}];
   const {s,errors}=await boot(page,width,{folders,items});
-  await page.locator('#libraryExpandAll').click();
+  await libraryTopMenu(page,'expand');
   // 폴더는 하위 프로젝트 다음, 파일 앞. 같은 상위 안 차례는 sort_order.
   expect(await page.locator('#documentList details[data-lu-node="p:top-a"] > .lu-node-body > *').evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument))).toEqual(['p:child-a1','f:f-a0','f:f-a']);
   await expect(page.locator('#documentList details[data-lu-node="f:f-a"] details[data-lu-node="f:f-a-1"] details[data-lu-node="f:f-a-1-1"] [data-lu-document="a-1"]')).toBeVisible();

@@ -232,7 +232,7 @@ test('PC 1280: 자료실 결과 우클릭 메뉴 [선택]·[열기], [선택]은
   await panel(page).locator('[data-gs-group="document"] .gs-row').first().click({button:'right'});
   const menu=page.locator('#gsRowMenu');
   await expect(menu).toBeVisible();await expect(panel(page)).toBeVisible();
-  await expect(menu.getByRole('button')).toHaveText(['선택','열기']);
+  await expect(menu.getByRole('button')).toHaveText(['선택','폴더로 옮기기 ›','열기']);
   await menu.getByRole('button',{name:'선택',exact:true}).click();
   await expect(page.locator('#libraryView')).toBeVisible();
   await expect(panel(page)).toBeHidden();
@@ -262,6 +262,50 @@ test('PC 1280: 자료실 결과 줄에 지금 폴더 표시, 옮기면 바뀜',a
   await expect(row.locator('.gs-row-folder')).toHaveText('📁 교섭 자료');
   // 다른 종류 결과 줄에는 폴더 표시가 없다.
   await expect(panel(page).locator('[data-gs-group="update"] .gs-row-folder')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+// 빠짐11(SEARCH-선택옮기기 남은 일): 자료실 결과도 검색 결과 안에서 바로 폴더로 — 자료실 화면으로 넘어가지 않고, 자료실과 같은 고르기 창·같은 쓰기 길.
+// 옮긴 뒤 결과 줄의 '📁 이름'이 바로 바뀌고 '되돌리기'는 원래 폴더로.
+test('PC 1280: 자료실 결과 우클릭 [폴더로 옮기기 ›] → 그 자리에서 옮기기·되돌리기',async({page})=>{
+  await page.setViewportSize({width:1280,height:860});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const calls=[],writes=[];
+  const D='00000000-0000-4000-8000-0000000000d1',F1='00000000-0000-4000-8000-0000000000f1',F2='00000000-0000-4000-8000-0000000000f2';
+  let items=[{document_id:D,folder_id:F1}];
+  await openHome(page,{beforeLoad:async()=>{
+    await page.route(SB+'/rest/v1/rpc/app_search_records',route=>{const body=route.request().postDataJSON();calls.push(body);const data=reply(body);
+      for(const g of data.groups)for(const it of g.items)if(it.source==='document')it.id=D;
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})});
+    await page.route(SB+'/rest/v1/app_library_folder_items*',route=>{const req=route.request(),m=req.method();
+      if(m==='GET')return route.fulfill({json:items});
+      const body=m==='DELETE'?null:req.postDataJSON();writes.push({method:m,body});
+      if(m==='PATCH')items=items.map(x=>({...x,...body}));else if(m==='POST')items=[...items,body];else items=[];
+      return route.fulfill({status:m==='POST'?201:204,body:''})});
+    await page.route(SB+'/rest/v1/app_library_folders*',route=>route.fulfill({json:[{id:F1,parent_id:null,name:'회의자료',sort_order:1024},{id:F2,parent_id:null,name:'교섭 자료',sort_order:2048}]}));
+  }});
+  await top(page).click();await top(page).fill('교섭');
+  const row=panel(page).locator('[data-gs-group="document"] .gs-row').first();
+  await expect(row.locator('.gs-row-folder')).toHaveText('📁 회의자료');
+  await row.click({button:'right'});
+  const menu=page.locator('#gsRowMenu');
+  await menu.getByRole('button',{name:'폴더로 옮기기 ›'}).click();
+  const picker=page.locator('.lu-move-picker:visible');
+  await expect(picker).toBeVisible();
+  // 지금 든 폴더는 고를 수 없고, 폴더 밖으로 뺄 수 있다.
+  await expect(picker.locator('.lu-move-item:not([aria-disabled="true"])')).toHaveText(['교섭 자료']);
+  await expect(picker.getByRole('button',{name:'폴더 밖으로'})).toBeVisible();
+  await picker.locator('.lu-move-item',{hasText:'교섭 자료'}).click();
+  await expect.poll(()=>writes.length).toBe(1);
+  expect(writes[0]).toEqual({method:'PATCH',body:{folder_id:F2}});
+  // 자료실 화면으로 넘어가지 않는다. 결과 줄 폴더 표시가 바로 바뀐다.
+  await expect(page.locator('#libraryView')).toBeHidden();
+  await expect(row.locator('.gs-row-folder')).toHaveText('📁 교섭 자료');
+  const notice=page.locator('#kptuNotice');
+  await expect(notice).toContainText('옮겼어요 1개 → 📁 교섭 자료');
+  await notice.locator('.kptu-notice-undo').click();
+  await expect.poll(()=>writes.length).toBe(2);
+  expect(writes[1]).toEqual({method:'PATCH',body:{folder_id:F1}});
   expect(errors).toEqual([]);
 });
 

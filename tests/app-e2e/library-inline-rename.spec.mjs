@@ -49,9 +49,9 @@ async function mockApp(page,state){
     return ok({});
   });
 }
-async function boot(page,width){
+async function boot(page,width,{edit=null,before=null}={}){
   await page.setViewportSize({width,height:900});
-  const state=baseState();await mockApp(page,state);
+  const state=baseState();edit?.(state);await mockApp(page,state);await before?.(state);
   // 입력칸을 눌러도 줄의 '열기'(Drive 새 탭)가 일어나지 않는지 본다.
   page.context().on('page',()=>{state.opened++});
   await page.goto(`${appOrigin}/app/?view=library`);
@@ -63,6 +63,31 @@ async function boot(page,width){
 const row=(page,n)=>page.locator(`[data-lu-document="${DOC(n)}"]`);
 
 for(const width of [390,1280])test.describe(`줄 안 이름 바꾸기 ${width}`,()=>{
+  // 빠짐12(ATT-이름고치기 자료실): 보이는 이름이 파일 이름 그대로인 자료는 첨부 공용 고치는 칸 — 확장자 따로, [AI 이름] 추천, 저장은 Drive 원본 이름도 같이.
+  test('파일 이름 그대로인 자료: 공용 고치는 칸·[AI 이름]·Drive 원본 이름 같이',async({page})=>{
+    const calls=[];
+    const state=await boot(page,width,{edit:s=>{s.docs[1]=doc(2,{title:'',file_name:'216079.pdf',mime_type:'application/pdf'})},before:async s=>{
+      await page.route(`${SB}/functions/v1/ai-assist`,route=>{calls.push(route.request().postDataJSON());return route.fulfill({json:{ok:true,name:'교섭 위원 명단'}})});
+      await page.route(`${SB}/functions/v1/document-actions`,route=>{const b=route.request().postDataJSON();calls.push(b);const d=s.docs[1];d.file_name=b.base+'.pdf';
+        return route.fulfill({json:{ok:true,drive_file_id:d.file_id,name:d.file_name,notes:[],updated:{documents:1}}})});
+    }});
+    await revealLibraryRow(page,DOC(2));
+    await row(page,2).locator('.lu-more-trigger').click();
+    await page.locator('#luMorePanel [data-lu-rename]').click();
+    const input=row(page,2).locator('.fr-input');
+    await expect(input).toBeFocused();await expect(input).toHaveValue('216079');
+    await expect(row(page,2).locator('.fr-ext')).toHaveText('.pdf');
+    await row(page,2).locator('[data-fr-ai]').click();
+    await expect(input).toHaveValue('교섭 위원 명단');
+    expect(calls[0]).toEqual({kind:'file_name',target:'document',id:DOC(2),drive_file_id:'driveFile2'});
+    await input.press('Enter');
+    await expect.poll(()=>calls.length).toBe(2);
+    expect(calls[1]).toEqual({action:'rename-file',target:'document',id:DOC(2),drive_file_id:'driveFile2',base:'교섭 위원 명단'});
+    await expect(row(page,2).locator('.lu-row-title')).toHaveText(/교섭 위원 명단/);
+    expect(state.patches).toHaveLength(0);expect(state.opened).toBe(0);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  });
+
   test('메뉴: 맨 위 [이름 바꾸기] → Enter 저장(사용자 값) → 되돌리기',async({page})=>{
     const state=await boot(page,width);
     await revealLibraryRow(page,DOC(1));

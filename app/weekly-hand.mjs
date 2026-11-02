@@ -5,6 +5,9 @@
 //     달력 일정 키 event 는 두지 않음). 날짜는 그 표의 2주 안 날만 표에 들어간다(밖이면 보이지 않고 남음).
 //     화면 표·복사 글·한글 파일 5. 주요 일정 표에 달력 일정과 같은 줄로 들어간다(withHandCalendar). 달력 일정이 아니라서 칸별 고침·기억·빼기 대상이 아니다.
 //   - notes: '참고 — 보고서 칸 밖 재료'에 손으로 더한 메모 줄 [{id, text}] — 화면·복사 글에만(한글 파일 칸 밖).
+//   - details(WEEKLY-사업영역세부줄, 명진 11/02): '2) 세부 내용 — 회의·활동 결과'에 손으로 더한 줄 [{id, text}] — notes 와 같은 모양.
+//   - details_edits: 같은 묶음의 원래 줄(회의·사업 보고, 열쇠 = 겹침 참조 'meeting:…') 고침 [{ref, text}] · 빼기 [{ref, drop:true}].
+//     원래 기록은 그대로 두고 이 주 보고 글만 바뀐다(데이터 보존). 화면·복사 글에 입힌다(한글 파일은 세부 내용 칸을 비우므로 영향 없음).
 // - 동작 기록: 더하기·고치기·지우기는 같은 쓰기에 draft.picks 항목(kind 'line', 칸 'calendar'·'notes', act add·fix·cut — weekly-draft-store.js withLinePick).
 // 브라우저 저장소에 아무것도 두지 않는다. 내용은 업무 글이라 로그에 쓰지 않는다.
 import {readHq, withHqRow, withoutHqRow, hqLine} from './weekly-schedule-rows.mjs';
@@ -13,7 +16,9 @@ import {newId, formDay} from './weekly-exec-requests.js';
 export const HAND_CALENDAR_MAX = 30;
 export const HAND_NOTES_MAX = 30;
 export const HAND_NOTE_MAX = 200;
-export const HAND_PARTS = Object.freeze(['calendar', 'notes']);
+export const HAND_DETAILS_MAX = 30;
+export const DETAIL_EDITS_MAX = 60;
+export const HAND_PARTS = Object.freeze(['calendar', 'notes', 'details']);
 // 화면 표의 작은 표시(달력 일정이 아니라 손으로 더한 줄).
 export const HAND_TAG = '손';
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
@@ -27,26 +32,49 @@ export function cleanNote(r) {
   const text = cut(r.text, HAND_NOTE_MAX);
   return text ? {id:r.id, text} : null;
 }
-function readNotes(list) {
+function readNotes(list, max = HAND_NOTES_MAX) {
   const seen = new Set(), out = [];
-  for (const r of Array.isArray(list) ? list : []) { const c = cleanNote(r); if (c && !seen.has(c.id) && out.length < HAND_NOTES_MAX) { seen.add(c.id); out.push(c); } }
+  for (const r of Array.isArray(list) ? list : []) { const c = cleanNote(r); if (c && !seen.has(c.id) && out.length < max) { seen.add(c.id); out.push(c); } }
+  return out;
+}
+const REF = /^[a-z_]{1,20}:[a-z0-9_-]{1,64}$/;
+export function cleanDetailEdit(r) {
+  if (!r || typeof r !== 'object' || Array.isArray(r) || typeof r.ref !== 'string' || !REF.test(r.ref)) return null;
+  if (r.drop === true) return {ref:r.ref, drop:true};
+  const text = cut(r.text, HAND_NOTE_MAX);
+  return text ? {ref:r.ref, text} : null;
+}
+function readDetailEdits(list) {
+  const seen = new Set(), out = [];
+  for (const r of Array.isArray(list) ? list : []) { const c = cleanDetailEdit(r); if (c && !seen.has(c.ref) && out.length < DETAIL_EDITS_MAX) { seen.add(c.ref); out.push(c); } }
   return out;
 }
 // 서버에서 읽은 값(믿지 않는 입력) → 모양대로만. 둘 다 비면 null(칸을 두지 않음).
 export function readHand(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const calendar = readCalendar(raw.calendar), notes = readNotes(raw.notes);
-  if (!calendar.length && !notes.length) return null;
-  return {...(calendar.length ? {calendar} : {}), ...(notes.length ? {notes} : {})};
+  const calendar = readCalendar(raw.calendar), notes = readNotes(raw.notes), details = readNotes(raw.details, HAND_DETAILS_MAX), edits = readDetailEdits(raw.details_edits);
+  if (!calendar.length && !notes.length && !details.length && !edits.length) return null;
+  return {...(calendar.length ? {calendar} : {}), ...(notes.length ? {notes} : {}), ...(details.length ? {details} : {}), ...(edits.length ? {details_edits:edits} : {})};
 }
-export const handRows = (hand, part) => (part === 'calendar' ? readCalendar(hand?.calendar) : part === 'notes' ? readNotes(hand?.notes) : []);
+const maxOf = part => (part === 'calendar' ? HAND_CALENDAR_MAX : part === 'details' ? HAND_DETAILS_MAX : HAND_NOTES_MAX);
+export const handMax = maxOf;
+export const handRows = (hand, part) => (part === 'calendar' ? readCalendar(hand?.calendar) : part === 'notes' ? readNotes(hand?.notes) : part === 'details' ? readNotes(hand?.details, HAND_DETAILS_MAX) : []);
+// 세부 줄 고침: Map(ref → {text} | {drop:true}).
+export const detailEdits = hand => new Map(readDetailEdits(hand?.details_edits).map(({ref, ...rest}) => [ref, rest]));
+// 원래 줄 하나 고치기({text}) · 빼기({drop:true}) · 원래대로(null). 반환 {hand}(다 비면 hand null) — 넘치거나 모양 밖이면 null.
+export function withDetailEdit(hand, ref, edit) {
+  if (typeof ref !== 'string' || !REF.test(ref)) return null;
+  const list = readDetailEdits(readHand(hand)?.details_edits).filter(e => e.ref !== ref);
+  if (edit) { const c = cleanDetailEdit({ref, ...edit}); if (!c) return null; if (list.length >= DETAIL_EDITS_MAX) return null; list.push(c); }
+  return {hand:readHand({...(readHand(hand) ?? {}), details_edits:list})};
+}
 const withPart = (hand, part, rows) => readHand({...(readHand(hand) ?? {}), [part]:rows});
 
 // 줄 더하기·바꾸기(순수). 반환 {hand, row, before} — 비었거나 넘치면 null. before = 고치기 전 줄(고치기일 때).
 export function withHandRow(hand, part, row) {
   if (!HAND_PARTS.includes(part)) return null;
   const rows = handRows(hand, part), id = row?.id && ID.test(row.id) ? row.id : makeId(), before = rows.find(r => r.id === id) ?? null;
-  if (!before && rows.length >= (part === 'calendar' ? HAND_CALENDAR_MAX : HAND_NOTES_MAX)) return null;
+  if (!before && rows.length >= maxOf(part)) return null;
   if (part === 'calendar') {
     const next = withHqRow(rows, {id, day:row.day, time:row.time, title:row.title, place:row.place});
     const c = next?.find(r => r.id === id);

@@ -1620,3 +1620,10 @@ body.kptu-mobile-keyboard .modal:not(.ed-window){ bottom:var(--kptu-keyboard-ins
 /* 폰 팝업 카드 높이(workspace-ui.css, 100dvh 기준 !important)를 자판 위 창 높이 안으로. */
 body.kptu-mobile-keyboard .modal:not(.ed-window) > .modal-card{ max-height:100% !important; }
 /* 칸을 누르면 그 칸이 위쪽 머리줄 아래·자판 위 1~2줄 여유 자리로 올라온다: accessibility-dialog.js revealField가 그때그때 잰다(CSS 규칙 없음). */
+
+/* JOURNAL-오늘한일업무개인: 달력 날짜 창·일기 화면의 '오늘 한 일' 줄(읽기만, work-day-lines.js). 작은 제목 + 줄마다 앞에 작은 점, 촘촘하게. */
+.work-day-done{ display:grid; gap:4px; margin:0; padding:8px 0 0; border-top:var(--ds-line-width) solid var(--ds-line); }
+.work-day-done > .work-day-done-title{ margin:0; font-size:var(--kptu-text-body); font-weight:700; color:var(--kptu-muted); }
+.work-day-done-list{ margin:0; padding:0; list-style:none; display:grid; gap:2px; }
+.work-day-done-list > li{ margin:0; font-size:var(--kptu-text-body); line-height:1.45; color:var(--kptu-ink); overflow-wrap:anywhere; }
+.work-day-done-list > li::before{ content:'· '; color:var(--kptu-muted); }

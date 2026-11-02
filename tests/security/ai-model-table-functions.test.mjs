@@ -78,9 +78,9 @@ test('ai-assist: 모든 OpenAI 호출이 여유를 더하는 한 곳(자체 call
   assert.doesNotMatch(h,/fetch\(OPENAI_URL/);
   const calls=[...h.matchAll(/max_output_tokens: [A-Z_]+/g)].length;
   const viaWrapper=[...h.matchAll(/await callOpenAi\(/g)].length;
-  assert.equal(calls,25);assert.equal(viaWrapper,26);assert.match(h,/max_output_tokens: maxTokens,/); // WEEKLY-환류학습 weekly_draft·weekly_review는 한 래퍼(callWeeklyAi, 상한은 WL_*_OUTPUT_TOKENS 인자)로 하나 더, TODO-내일만 todo_recheck, ORG-주요인물 org_people_brief, JOURNAL-다음주준비 next_week_sheet, FEAT-1029묶음 ① ask_web2, FEAT-1029② pre_meeting_sheet, FEAT-1029 ④ press_draft, 빠짐32 share_draft, DESK-현황표 org_status_rows, ATT-이름고치기 file_name, TODO-이미함·환류 todo_rules_review 하나씩 더
+  assert.equal(calls,26);assert.equal(viaWrapper,27);assert.match(h,/max_output_tokens: maxTokens,/); // WEEKLY-환류학습 weekly_draft·weekly_review는 한 래퍼(callWeeklyAi, 상한은 WL_*_OUTPUT_TOKENS 인자)로 하나 더, TODO-내일만 todo_recheck, ORG-주요인물 org_people_brief, JOURNAL-다음주준비 next_week_sheet, FEAT-1029묶음 ① ask_web2, FEAT-1029② pre_meeting_sheet, FEAT-1029 ④ press_draft, 빠짐32 share_draft, DESK-현황표 org_status_rows, ATT-이름고치기 file_name, TODO-이미함·환류 todo_rules_review, JOURNAL-오늘한일업무개인 work_scope 하나씩 더
   // ai-assist 폴더의 다른 파일이 OpenAI를 직접 부르지 않는다.
-  for(const f of ['call-refill','ledger-auto','ledger-candidates','ledger-fix','library-fill','org-summary','overlap','schedule-titles','todo-radar','note-title','business-area','journal-draft','org-people-brief','next-week-sheet','press-draft','share-draft','press-style','evidence','web2-ask','pre-meeting-sheet','weekly-learn','org-status-rows','file-name','todo-rules']){
+  for(const f of ['call-refill','ledger-auto','ledger-candidates','ledger-fix','library-fill','org-summary','overlap','schedule-titles','todo-radar','note-title','business-area','journal-draft','org-people-brief','next-week-sheet','press-draft','share-draft','press-style','evidence','web2-ask','pre-meeting-sheet','weekly-learn','org-status-rows','file-name','todo-rules','work-scope']){
     assert.doesNotMatch(read(AI_ASSIST_DIR+f+'.ts'),/api\.openai\.com|max_output_tokens:/,f);
   }
 });

@@ -5,6 +5,8 @@
 // 20261022090000; default 궤도집행국회의·본부집행위). Anything not in the list is reported, so a new kind is reported by itself,
 // and a list that cannot be read (an older answer, a failed read) means "report everything" — the screen never hides on a guess.
 // Reads and writes go through the existing owner-RLS REST path (my profile row, this one column only).
+import {isInternalMeeting} from './weekly-major-schedule.mjs';
+
 export const KIND_MAX = 100;
 export const KIND_LIST_MAX = 100;
 const encode = encodeURIComponent;
@@ -18,8 +20,11 @@ export function parseKinds(value) {
   if (!Array.isArray(value) || value.length > KIND_LIST_MAX) return null;
   return value.every(validKindKey) && new Set(value).size === value.length ? [...value] : null;
 }
-// Whether a meeting goes into the weekly report. hidden = parseKinds() result; null → everything goes in.
+// Whether a meeting goes into the weekly report. hidden = parseKinds() result; null → only the fixed rule below applies.
+// WEEKLY-주요일정기준 ④(명진 11/01 01:15): 내부 정례 회의(노조 상집·중집, 본부 집행위, 궤도 집행국 — weekly-major-schedule.mjs 한 곳)는
+// 서버 목록과 상관없이 늘 빠진다(추측이 아니라 정한 규칙이라 목록을 못 읽어도 뺀다).
 export function reportsMeeting(meeting, hidden) {
+  if (isInternalMeeting(meetingKindName(meeting))) return false;
   if (!hidden?.length) return true;
   const key = meetingKindKey(meetingKindName(meeting));
   return !key || !hidden.includes(key);

@@ -49,3 +49,12 @@ test('자료실 연결: 메뉴 맨 위 [이름 바꾸기 F2] → [폴더로 옮�
   // 한글 입력 중 Enter(조합 확정)는 저장하지 않는다.
   assert.match(block,/isComposing/);
 });
+
+test('빠짐12: 보이는 이름이 파일 이름인 자료만 첨부 공용 부품(Drive 원본 이름 같이), 따로 붙인 제목은 Web2 제목만',async()=>{
+  const {fileNameShown}=await import('../app/library-rename.js');
+  assert.equal(fileNameShown({file_id:'f',file_name:'가상 216079.jpg',title:''}),true);
+  assert.equal(fileNameShown({file_id:'f',file_name:'가상 216079.jpg',title:'가상 216079'}),true);
+  assert.equal(fileNameShown({file_id:'f',file_name:'가상 216079.jpg',title:'가상 216079.jpg'}),true);
+  assert.equal(fileNameShown({file_id:'f',file_name:'가상.pdf',title:'교섭 위원 명단'}),false);
+  assert.equal(fileNameShown({file_id:'',file_name:'가상.pdf',title:''}),false);
+});

@@ -46,6 +46,8 @@ import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
+import {requestWorkScope} from './work-scope.js'; // JOURNAL-오늘한일업무개인
+import {scopeKey, hasLines, keepLines} from './work-scope-model.mjs';
 import {weeklySummary, renderWeekly, weeklyReportText, renderNextWeekSheet, NEXT_WEEK_SKIN, execRequestsPart, REQUEST_TITLES} from './journal-weekly.js';
 import {jumpToPrepRef} from './prep-sheet-view.js';
 import {readNextWeekSheet, makeNextWeekSheet} from './next-week-sheet-data.js';
@@ -55,6 +57,7 @@ import {paintFlowCells, FLOW_SECTIONS} from './weekly-flow-cells.js';
 import {paintHqSchedule} from './weekly-hq-schedule.js';
 import {paintDiscuss} from './weekly-discuss-table.js';
 import {paintHandLines} from './weekly-hand-lines.js';
+import {paintDetailLines} from './weekly-detail-lines.js'; // WEEKLY-사업영역세부줄: 2) 세부 내용 줄 ⋯·[+ 추가]
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
@@ -115,6 +118,30 @@ const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineSt
 let owner = ownerScope(rt), epoch = 0, sharedEpoch = 0;
 let start = weekStart(todayKey()), selected = todayKey();
 let lines = new Map(), linesState = 'loading';
+// JOURNAL-오늘한일업무개인: [주간 정리](화면·초안 복사·한글 파일 상자)에 넣는 '한 줄'은 업무 줄만. 서버 AI(ai-assist work_scope)가 그 주 줄을
+// 가르고 업무라고 답한 줄만 남긴다(애매하면 빼기). 판단은 저장하지 않고 이 메모리에만 둔다 — 줄이 바뀌면(열쇠가 바뀜) 다시 묻는다.
+// 하루 화면·달력·일기는 줄을 그대로 보인다(lines). 묻는 동안은 '불러오는 중', 묻지 못하면 '불러오지 못함'([다시 시도]).
+let lineScope = {key:'', status:'idle', drop:null};
+function reportLines() {
+  if (linesState !== 'ok' || !hasLines(lines)) return {lines, linesState};
+  const key = scopeKey(owner, start, lines);
+  if (lineScope.key !== key || lineScope.status === 'loading' || lineScope.status === 'idle') return {lines:new Map(), linesState:'loading'};
+  if (lineScope.status === 'failed') return {lines:new Map(), linesState:'failed'};
+  return {lines:keepLines(lines, lineScope.drop), linesState:'ok'};
+}
+function askScope() {
+  if (mode !== 'week' || linesState !== 'ok' || !hasLines(lines)) return;
+  const key = scopeKey(owner, start, lines);
+  if (lineScope.key === key && lineScope.status !== 'idle') return;
+  const asked = requestWorkScope(start, rt).then(r => r, () => ({ok:false})).then(r => {
+    if (lineScope.key !== key) return;
+    lineScope = r.ok ? {key, status:'ok', drop:r.drop} : {key, status:'failed', drop:null};
+    renderWeekly_();
+  });
+  lineScope = {key, status:'loading', drop:null, asked};
+}
+// [글로 복사]는 가르기가 끝난 뒤의 줄로 복사한다(묻는 중이면 3초까지 기다림 — 넘기면 '불러오는 중'으로 복사).
+const scopeSettled = () => lineScope.status === 'loading' && lineScope.asked ? Promise.race([lineScope.asked, new Promise(ok => setTimeout(ok, 3000))]) : Promise.resolve();
 let materials = {};
 // JOURNAL-회의종류표시: my list of meeting kinds left out of the weekly report ({status:'loading'|'ok'|'unknown', list}); read once per visit.
 let kinds = {status:'loading'}, kindsBusy = false;
@@ -445,6 +472,7 @@ function renderDay() {
 // [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
 function renderWeekly_({refreshBox = true} = {}) {
   if (mode !== 'week') return;
+  askScope();
   const list = weekDays(start);
   $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
   const host = $('[data-journal-weekly]');
@@ -463,7 +491,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   for (const d of host.querySelectorAll('[data-journal-overlap-fold]')) { if (d.open) overlapUi.open.add(d.dataset.journalOverlapFold); else overlapUi.open.delete(d.dataset.journalOverlapFold); }
   const fileInput = host.querySelector('[data-journal-file-edit-input]'), fileFocus = fileInput && fileInput === document.activeElement;
   if (fileInput && fileUi.editing === fileInput.dataset.journalFileEditInput) fileUi.value = fileInput.value;
-  const weekModel = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory});
+  const weekModel = weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory});
   weekModel.picks = picksModel(start);
   lastWeekModel = weekModel;
   renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
@@ -473,6 +501,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   // S46-27 3) 상집 논의 요청(weekly-discuss-table.js가 그 자리만 그림) — 2) 주요 일정과 같은 저장·같은 맞춤.
   paintDiscuss(host.querySelector('[data-journal-weekly-discuss-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // WEEKLY-한흐름확정 ⑤ 남은 부분: 5. 주요 일정·참고 [+ 추가](손으로 더한 줄, weekly-hand-lines.js가 그 자리만 그림) — 같은 저장·같은 맞춤.
+  paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   for (const part of ['calendar', 'notes']) paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
   // 맨 위 한 줄과 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 줄은 journal-hwpx.js 가 그리는 그대로의 마디를 그 자리로 옮겨 붙인다.
@@ -539,7 +568,7 @@ const hwpx = mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft(), onCarry: 
   // 바탕을 연 뒤 팀 확정본과 견준 결과('확정본에서 바뀜')가 왔다: 칸 줄만 다시.
   // [처음부터]: 그 주 임시저장을 지웠으니 그 주 행을 다시 읽고, 칸이 비면 바탕을 다시 연다(prepareFlow 를 그 주에 한 번 더).
   onFlow: ({restart = ''} = {}) => { if (restart && restart === start) { flowBase.start = ''; prepareFlow(); void loadGroup('weekDraft'); return; } redrawFlow(); },
-  getWeek: () => ({start, row:weekRow(), projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory})})});
+  getWeek: () => ({start, row:weekRow(), projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory})})});
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
@@ -1045,7 +1074,8 @@ async function refreshTasks() {
 window.addEventListener('kptu:google-tasks-changed', () => { if (!selfBusy && window.KPTURouter?.current === 'home') void refreshTasks(); });
 
 async function copyDraft() {
-  const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}));
+  await scopeSettled();
+  const text = weeklyReportText(weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
   const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
@@ -1061,7 +1091,7 @@ async function checkOverlaps() {
   if (['basket', 'projectUpdates', 'orgUpdates', 'meetings'].some(key => !materials[key] || materials[key].status === 'loading') || kinds?.status === 'loading') return;
   const run = epoch, scope = owner;
   overlapFor = run;
-  const source = weeklySummary({start, lines, linesState, materials: {...materials, overlaps: undefined}, doneDays, kinds, memory}).overlapSource;
+  const source = weeklySummary({start, ...reportLines(), materials: {...materials, overlaps: undefined}, doneDays, kinds, memory}).overlapSource;
   materials.overlaps = {status:'loading'}; renderWeekly_();
   try {
     let read = await readOverlapRows(source.refs, rt);
@@ -1082,7 +1112,7 @@ async function checkOverlaps() {
 async function reviveOverlap(ref) {
   const read = materials.overlaps?.status === 'ok' ? materials.overlaps.items : null;
   if (overlapUi.busy || !read || read.missing) return;
-  const source = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}).overlapSource;
+  const source = weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}).overlapSource;
   const pairs = reviveEdges(ref, new Set(source.refs), read.rows);
   const run = epoch, scope = owner;
   overlapUi.busy = ref; overlapUi.status = ''; overlapUi.error = false; renderWeekly_();
@@ -1195,7 +1225,7 @@ function undoMemory() {
 // JOURNAL-조직현황AI요약 ----
 // [요약 만들기]: one ai-assist call with the week and the shown organizations' ids; then the saved summaries are read again.
 async function makeOrgSummaries() {
-  const model = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory});
+  const model = weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory});
   const ids = (model.orgs.sections || []).map(section => section.id).filter(Boolean);
   if (orgUi.busy || !ids.length) return;
   const run = epoch, scope = owner, week = start;
@@ -1207,7 +1237,7 @@ async function makeOrgSummaries() {
   root.querySelector('[data-journal-org-ai-run]')?.focus();
 }
 function openOrgEdit(id) {
-  const section = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}).orgs.sections?.find(s => s.id === id);
+  const section = weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}).orgs.sections?.find(s => s.id === id);
   if (!section || orgUi.editing?.saving) return;
   orgUi.editing = {id, name:section.name, value:section.summary?.text || '', status:'', invalid:false, saving:false};
   renderWeekly_();
@@ -1221,7 +1251,7 @@ function addOrgRef(id, line) {
   if (!text || orgUi.editing?.saving) return;
   if (orgUi.editing?.id !== id) {
     const box = root.querySelector('[data-journal-org-edit-input]'); if (box && orgUi.editing) orgUi.editing.value = box.value;
-    const section = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}).orgs.sections?.find(s => s.id === id);
+    const section = weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}).orgs.sections?.find(s => s.id === id);
     if (!section) return;
     orgUi.editing = {id, name:section.name, value:section.summary?.text || '', status:'', invalid:false, saving:false};
   } else {
@@ -1400,7 +1430,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-mode]')) return setMode(button.dataset.journalMode);
   if (button.matches('[data-journal-weekly-retry]')) {
     for (const key of button.dataset.journalWeeklyRetry.split(' ')) {
-      if (key === 'lines') { if (linesState === 'failed') loadLines(epoch, owner); }
+      if (key === 'lines') { if (linesState === 'failed') loadLines(epoch, owner); else if (lineScope.status === 'failed') { lineScope = {key:'', status:'idle', drop:null}; renderWeekly_(); } }
       else if (readers[key] && materials[key]?.status === 'failed') loadGroup(key);
     }
     return;
@@ -1502,7 +1532,7 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++; sharedEpoch++;
-  kinds = {status:'loading'}; memory = {status:'loading'}; memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; pickUi = {busy:false, undo:null, status:'', error:false}; fileUi = freshFileUi(); overlapUi = freshOverlapUi(); overlapFor = -1; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
+  kinds = {status:'loading'}; memory = {status:'loading'}; memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; pickUi = {busy:false, undo:null, status:'', error:false}; fileUi = freshFileUi(); overlapUi = freshOverlapUi(); overlapFor = -1; drafts = new Map(); lines = new Map(); lineScope = {key:'', status:'idle', drop:null}; materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   pendingReturn = null; taskLine.close(); selfBusy = 0; othersOpen = false; taskMeetings = new Map();
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'home') enter();

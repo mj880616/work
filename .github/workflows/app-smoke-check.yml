@@ -52,6 +52,8 @@ on:
       - 'tests/file-actions.test.mjs'
       - 'tests/library-photo.test.mjs'
       - 'tests/library-photoset.test.mjs'
+      - 'tests/library-twins.test.mjs'
+      - 'tests/library-folder-pick.test.mjs'
       - 'tests/library-prev-model.test.mjs'
       - 'tests/activity-photo.test.mjs'
       - 'tests/report-views.test.mjs'
@@ -187,6 +189,8 @@ on:
       - 'tests/file-actions.test.mjs'
       - 'tests/library-photo.test.mjs'
       - 'tests/library-photoset.test.mjs'
+      - 'tests/library-twins.test.mjs'
+      - 'tests/library-folder-pick.test.mjs'
       - 'tests/library-prev-model.test.mjs'
       - 'tests/activity-photo.test.mjs'
       - 'tests/report-views.test.mjs'
@@ -365,6 +369,9 @@ jobs:
       - name: Check journal evening AI draft rules (today line draft, work calls only)
         run: node --test tests/journal-draft-model.test.mjs
 
+      - name: Check today-done work/personal split for the weekly report (drop personal lines, re-ask when lines change)
+        run: node --test tests/work-scope-model.test.mjs
+
       - name: Check next-week sheet rules (work calendar only, read-only materials, auto after Friday 15:00)
         run: node --test tests/next-week-sheet-model.test.mjs
 
@@ -406,7 +413,7 @@ jobs:
         run: node --test tests/origin-redirect.test.mjs
 
       - name: Check library toggle tree model
-        run: node --test tests/library-tree.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
+        run: node --test tests/library-tree.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
 
       - name: Check split-resize column math
         run: node --test tests/split-resize-math.test.mjs
@@ -987,6 +994,9 @@ jobs:
 
       - name: Check weekly one-flow screen cells (WEEKLY-한흐름확정 ②)
         run: node --test tests/weekly-flow-cells.test.mjs
+
+      - name: Check weekly major schedule, detail lines, line move and cut index (S48-3)
+        run: node --test tests/weekly-s48-3.test.mjs
 
       - name: Check notification removal
         run: |

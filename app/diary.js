@@ -186,7 +186,22 @@ function writePlace() {
   const t = seoulParts(new Date()), month = `${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}`;
   window.KPTURouter?.setPlace?.('diary', {day:selected || (t.year === cursor.year && t.month === cursor.month ? null : month)});
 }
+// JOURNAL-오늘한일업무개인: 그날 '오늘 한 일' 줄을 그날 보기·쓰기 창에도 보인다(홈에서 넣은 같은 자료를 읽기만, work-day-lines.js —
+// 두 벌 저장 없음, 일기가 없는 날도). 날짜를 고를 때·쓰기 창을 열 때 한 번 읽고, 다시 그릴 때는 읽은 것을 쓴다(메모리에만).
+let doneRead = {key:'', p:null};
+function paintDone(slot, day, {fresh = false} = {}) {
+  if (!slot || !day) return;
+  const key = `${owner}|${day}`;
+  if (fresh || doneRead.key !== key || !doneRead.p) doneRead = {key, p:import('./work-day-lines.js').then(m => m.readDayDone(day, rt).then(lines => ({m, lines})))};
+  const p = doneRead.p;
+  p.then(({m, lines}) => {
+    if (!slot.isConnected || doneRead.p !== p) return;
+    const section = m.dayDoneSection(day, lines);
+    slot.replaceChildren(...(section ? [section] : []));
+  }).catch(() => {});
+}
 function selectDay(day, {focus = false} = {}) {
+  doneRead = {key:'', p:null};
   selected = day; source = 'all';
   days.querySelectorAll('[data-diary-day]').forEach(cell => { const on = cell.dataset.diaryDay === day; cell.setAttribute('aria-pressed', String(on)); cell.classList.toggle('ds-day-sel', on); });
   renderDetail();
@@ -230,8 +245,9 @@ function renderDetail() {
   sendWhere(longDay(selected));
   const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odShown()).length + phoneShown(selected).length > 0;
   detail.hidden = false; list.hidden = true; if (!allHost.hidden) listView.hide();
-  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : emptyHtml('일기 없음')}`;
+  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div><div class="diary-done" data-diary-done></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : emptyHtml('일기 없음')}`;
   syncDetailTitle();
+  paintDone(detail.querySelector('[data-diary-done]'), selected);
   const view = detail.querySelector('[data-diary-text-view]');
   if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
   renderPhotos();
@@ -541,11 +557,13 @@ function renderEditor(message = '') {
   // 그 옆에 작은 [📷 사진 0/20]. 글 칸도 이름표 없이 편집기만. 아래 줄은 오른쪽에 [취소](작은 버튼)·[저장](진한 버튼 하나).
   editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><span class="diary-head-ends">${row ? '<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-editor-more aria-haspopup="true" aria-expanded="false" aria-controls="diaryEditorMenu" aria-label="일기 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryEditorMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="일기 관리" data-diary-editor-menu hidden><button type="button" class="diary-menu-danger" data-diary-delete>일기 지우기</button></span></span>' : ''}<button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></span></div>
 <div class="diary-edit-top"><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31" aria-label="일기 날짜"${row ? ' disabled' : ''}><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary diary-photo-pick" data-diary-pick aria-controls="diaryPhotoInput" aria-label="사진 고르기, ${count}장 / 최대 ${DIARY_MAX_PHOTOS}장"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}><span aria-hidden="true">📷</span> 사진 <span data-diary-count>${count}/${DIARY_MAX_PHOTOS}</span></button></div>
+<div class="diary-done" data-diary-done></div>
 <div class="diary-thumbs" data-diary-thumbs></div>
 <div class="diary-doc"><div data-diary-doc-slot></div></div>
 <p class="diary-editor-status" data-diary-editor-status role="status" aria-live="polite"></p>
 <div class="diary-actions save-row save-row-sticky"><button type="button" class="secondary" data-diary-editor-close>취소</button><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button></div>`;
   editor.querySelector('[data-diary-doc-slot]').replaceWith(edit.host);
+  paintDone(editor.querySelector('[data-diary-done]'), day);
   const thumbs = editor.querySelector('[data-diary-thumbs]');
   // Each photo has a one-line optional comment under it (max 200 chars), typed text kept in edit state across redraws.
   const commentInput = (value, label, attribute, key) => {
@@ -600,6 +618,7 @@ function pick(files) {
 async function changeDay(day) {
   if (!edit || edit.row || !day) return;
   edit.day = day;
+  paintDone(editor.querySelector('[data-diary-done]'), day);
   let existing = rows.get(day) || null;
   if (!existing) { try { existing = await readDiaryDay(day, rt); } catch { existing = null; } }
   if (!edit || edit.day !== day) return;

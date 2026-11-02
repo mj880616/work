@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 // UPD-요약부품통일·UPD-사진요약기록: 화면 요약 부품의 순수 규칙(요청 몸통·첨부 글자 상태·기본값 넣기)과 사업 보고 연결 요약 보내기.
 const A=await import('../app/basket-ai-summary.js');
 const M=await import('../app/report-links-model.mjs');
@@ -68,4 +69,12 @@ test('사업 보고 연결: written summaries go only for places with text; an e
   assert.equal(M.summariesChanged([P],new Map([['project:p','']]),new Map([['project:p','프로젝트 요약']])),false);
   const t=M.targetsFromLinkRows([{id:'l',project_id:'p',summary:'보낸 요약'}]);assert.equal(t[0].summary,'보낸 요약');
   const rows=M.linkedReportRows([{id:'l',summary:'줄 요약',report:{id:'m',meeting_at:'2026-10-01T00:00:00Z'}}]);assert.equal(rows[0].linkSummary,'줄 요약');
+});
+
+test('빠짐13: 자료 연결 [기록도 남기기]는 올릴 때 만든 요약을 기본값으로(AI 부르지 않음, 빈 칸일 때만)',()=>{
+  const src=readFileSync(new URL('../app/basket-manual-link.js',import.meta.url),'utf8');
+  const fn=src.slice(src.indexOf('async function prefillBrief'),src.indexOf('function confirmLabel'));
+  assert.match(fn,/filesOnly\(n\)/);assert.match(fn,/isBlankLinkSummary\(t\.summary\)/);assert.match(fn,/readDocumentBrief\(doc\.id/);
+  assert.doesNotMatch(fn,/requestLinkSummary/);
+  assert.match(src,/if\(t\.record\)\{[^}]*\}?[^]*?void prefillBrief\(t\)/);
 });

@@ -3,7 +3,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 // 저장은 소유자 RLS 표(app_library_folders·_items) REST뿐. 아래 가짜 서버는 DB 트리거와 같은 규칙(100단, 같은 틀)과 휴지통(TRASH-다른삭제 3단계: 지우면 그 폴더와 아래 폴더가 함께 휴지통으로, 자료 연결은 그대로)을 흉내 낸다.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
-import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
+import {expandLibraryTree,libraryNode,libraryNodeHead,libraryTopMenu,libraryExpandItem} from './helpers/library-tree.mjs';
 import {moveEnabledNames,moveFolder,openMove as openMoveWith} from './helpers/library-folder-server.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -98,14 +98,14 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     // LIB-폴더100단: 안에 새 폴더 → 3단을 넘어 5단까지 만든다. 5단 폴더 메뉴에도 '안에 새 폴더'가 있고, 들여쓰기는 4단에서 멈춘다.
     let parent=f1;
     for(const name of ['2단','3단','4단','5단']){await press(page,menuOf(page,'f:'+parent),width);await press(page,action(page,'안에 새 폴더'),width);await page.locator('#libraryFolderName').fill(name);await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();parent=s.folders.at(-1).id;expect(s.folders.at(-1).parent_id).not.toBeNull()}
-    await page.locator('#libraryExpandAll').click();
+    await libraryTopMenu(page,'expand');
     await expect(libraryNode(page,'f:'+parent)).toHaveAttribute('style',/--lu-depth:4(;|$)/);
     await expect(libraryNode(page,'f:'+s.folders.at(-2).id)).toHaveAttribute('style',/--lu-depth:4(;|$)/);
     await press(page,menuOf(page,'f:'+parent),width);await expect(action(page,'안에 새 폴더')).toHaveCount(1);await page.keyboard.press('Escape');await expect(page.locator('#luFolderMenu')).toBeHidden();
     // '프로젝트 없음' 안에도 폴더를 만든다. 보관·확인 불가 토글에는 ⋯가 없다.
     await press(page,menuOf(page,'p:none'),width);await press(page,action(page,'새 폴더'),width);await page.locator('#libraryFolderName').fill('가상 정리함');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.folders.at(-1)).toMatchObject({project_id:null,parent_id:null,name:'가상 정리함'});
-    await page.locator('#libraryExpandAll').click();await page.locator('#libraryExpandAll').click();
+    await libraryTopMenu(page,'expand');await libraryTopMenu(page,'expand');
     await expect(page.locator('#documentList summary [data-lu-node-menu]')).not.toHaveCount(0);
     // 다른 묶기에서는 폴더 편집이 없다.
     await page.locator('#libraryGroupBy').getByRole('radio',{name:'월별'}).click();await expect(page.locator('#documentList [data-lu-node-menu]')).toHaveCount(0);
@@ -119,7 +119,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
   test(`옮기기(같은 틀만·자기 아래 안 됨)·지우기(휴지통으로)·되돌리기·자료를 폴더로/밖으로 ${width}`,async({page})=>{
     const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'00000000-0000-4000-8000-0000000000b1',project_id:'top-a',parent_id:'fb',name:'가상 B-1',sort_order:0},{id:'fn',project_id:null,name:'가상 없음 폴더',sort_order:0}];
     const {s,errors}=await boot(page,width,{folders,items:[{document_id:'a-2',folder_id:'00000000-0000-4000-8000-0000000000b1'}]});
-    await page.locator('#libraryExpandAll').click();
+    await libraryTopMenu(page,'expand');
     // 옮기기: 같은 프로젝트 틀의 폴더만, 자기·자기 아래는 없다. 다른 틀('프로젝트 없음'의 폴더)은 없다.
     await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'옮기기…'),width);
     const targets=page.locator('#libraryFolderTargets [data-lu-target]');await expect(targets).toHaveText(['가상 A']);
@@ -130,7 +130,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     expect(s.writes.at(-1)).toMatchObject({table:'folders',method:'PATCH',id:'fb',body:{parent_id:'fa'}});
     await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-2"]')).toBeAttached();
     // LIB-폴더100단: 00000000-0000-4000-8000-0000000000b1은 이제 3단이지만 100단 안이라 메뉴에 '안에 새 폴더'가 있다.
-    await page.locator('#libraryExpandAll').click();await page.locator('#libraryExpandAll').click();
+    await libraryTopMenu(page,'expand');await libraryTopMenu(page,'expand');
     await press(page,menuOf(page,'f:00000000-0000-4000-8000-0000000000b1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(1);await page.keyboard.press('Escape');
     // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
@@ -149,7 +149,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await expect.poll(()=>s.trash.length).toBe(0);expect(s.rpc.at(-1)).toEqual({fn:'app_trash_restore',kind:'library_folder',id:'fb'});
     await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-2"]')).toBeAttached();
     // 자료 ⋯ → 폴더로 옮기기 ›(이름 바꾸기 바로 아래): 같은 프로젝트 틀의 폴더를 고를 수 있고, 하위는 들여쓴다.
-    await page.locator('#libraryExpandAll').click();if(await page.locator('#libraryExpandAll').getAttribute('data-lu-expand')!=='close')await page.locator('#libraryExpandAll').click();
+    await libraryTopMenu(page,'expand');if((await libraryExpandItem(page)).text!=='모두 접기')await libraryTopMenu(page,'expand');
     await press(page,page.locator('[data-lu-menu="a-1"]'),width);
     expect(await page.locator('#luMorePanel button').evaluateAll(xs=>xs.slice(0,4).map(x=>x.textContent.trim()))).toEqual(['선택','이름 바꾸기F2','폴더로 옮기기›','분류 바꾸기›']);
     await press(page,page.locator('#luMorePanel [data-lu-move-open="a-1"]'),width);await expect(page.locator('#luMovePicker')).toBeVisible();
@@ -159,7 +159,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-1',folder_id:'00000000-0000-4000-8000-0000000000b1',workspace_id:'workspace-1'}});
     await expect(page.locator('#documentList details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-1"]')).toBeAttached();
     // 폴더 밖으로: 연결만 지운다(자료는 프로젝트 바로 아래).
-    await page.locator('#libraryExpandAll').click();if(await page.locator('#libraryExpandAll').getAttribute('data-lu-expand')!=='close')await page.locator('#libraryExpandAll').click();
+    await libraryTopMenu(page,'expand');if((await libraryExpandItem(page)).text!=='모두 접기')await libraryTopMenu(page,'expand');
     await openMove(page,'a-1',width);
     // 방금 넣은 폴더가 '최근 넣은 폴더' 맨 위에 보이고, 지금 있는 폴더는 고를 수 없다.
     await expect(page.locator('#luMovePicker .lu-move-sec').first()).toHaveText('최근 넣은 폴더');
@@ -178,7 +178,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
   });
   test(`휴지통이 아직 준비 중이면(DB 적용 전) 폴더 지우기는 '준비 중'만 알리고 확인 창도 삭제 요청도 없다 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024}],items:[{document_id:'a-1',folder_id:'fa'}],trashMode:'missing'});
-    let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await page.locator('#libraryExpandAll').click();
+    let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await libraryTopMenu(page,'expand');
     await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 지우기'),width);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('자료실 폴더 휴지통은 준비 중입니다');
     expect(asked).toBe(0);expect(s.writes.filter(w=>w.method==='DELETE')).toEqual([]);expect(s.rpc.map(r=>r.fn)).toEqual(['app_trash_list']);
@@ -187,7 +187,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
   });
   test(`휴지통 상태를 읽지 못하면(일시 실패) 지우지 않고 다시 해 보라고 알린다 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024}],trashMode:'failed'});
-    let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await page.locator('#libraryExpandAll').click();
+    let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await libraryTopMenu(page,'expand');
     await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 지우기'),width);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('휴지통 상태를 확인하지 못해 삭제하지 않았습니다');
     expect(asked).toBe(0);expect(s.writes.filter(w=>w.method==='DELETE')).toEqual([]);
@@ -200,7 +200,7 @@ test('DB가 거절하면(DB 적용 전 3단 규칙) 일상어 한 줄로 알리�
   const {s,errors}=await boot(page,1280,{folders});
   // 화면이 모르는 사이 서버에서 3단이 이미 찼다고 하자: 2단 아래로 새 폴더를 시도 → 거절.
   s.folders.push({id:'x',workspace_id:'workspace-1',project_id:'top-a',parent_id:'f3',name:'숨은 4단',sort_order:0});
-  await page.locator('#libraryExpandAll').click();
+  await libraryTopMenu(page,'expand');
   await menuOf(page,'f:f2').click();await action(page,'안에 새 폴더').click();
   // 화면 규칙상 2단 아래는 허용이므로 요청은 가고, 가짜 서버가 3단 초과로 막는다(f3 아래 x가 생겨 f2의 깊이 판단과 무관하게 거절하게 함).
   await page.route(`${SB}/rest/v1/app_library_folders`,route=>route.request().method()==='POST'?route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'LIB_FOLDER_DEPTH: folders are limited to 3 levels'})}):route.fallback());
@@ -228,7 +228,7 @@ const head=key=>`#documentList details[data-lu-node="${key}"] > summary`;
 test('PC 1280 끌어 놓기: 같은 틀 안 폴더 안으로·앞뒤로·맨 위로, 파일 폴더로·밖으로, 다른 틀은 놓을 수 없음',async({page})=>{
   const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'fc',project_id:'top-a',name:'가상 C',sort_order:3072},{id:'fn',project_id:null,name:'가상 없음',sort_order:0}];
   const {s,errors}=await boot(page,1280,{folders});
-  await page.locator('#libraryExpandAll').click();
+  await libraryTopMenu(page,'expand');
   await expect(page.locator(head('f:fa'))).toHaveAttribute('draggable','true');await expect(page.locator('[data-lu-document="a-1"]')).toHaveAttribute('draggable','true');
   // child-a1 틀에는 폴더가 없어 그 자료는 끌 수 없다. 프로젝트 토글은 끌 수 없다.
   await expect(page.locator('[data-lu-document="a1-1"]')).not.toHaveAttribute('draggable','true');await expect(page.locator(head('p:top-a'))).not.toHaveAttribute('draggable','true');
@@ -265,7 +265,7 @@ test.describe('폰 390 끌기 없음',()=>{
   test.use({hasTouch:true,isMobile:true});
   test('폰 390: 끌 수 있는 줄이 없고 ⋯ 메뉴의 위로·아래로가 같은 일을 한다',async({page})=>{
     const {s,errors}=await boot(page,390,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048}]});
-    await page.locator('#libraryExpandAll').tap();
+    await libraryTopMenu(page,'expand',{tap:true});
     await expect(page.locator('#documentList [draggable="true"]')).toHaveCount(0);
     await menuOf(page,'f:fb').tap();await action(page,'위로').tap();
     await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:fb','f:fa','a-1','a-2']);

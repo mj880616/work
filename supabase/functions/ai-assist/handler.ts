@@ -76,6 +76,7 @@ import {
   JOURNAL_DRAFT_BODY_BYTES, JOURNAL_DRAFT_HOUR, JOURNAL_DRAFT_INSTRUCTIONS, JOURNAL_DRAFT_MAX_OUTPUT_TOKENS, JOURNAL_DRAFT_SCHEMA,
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
 } from "./journal-draft.ts";
+import { parseWorkScope, parseWorkScopeRequest, WORK_SCOPE_INSTRUCTIONS, WORK_SCOPE_MAX_OUTPUT_TOKENS, WORK_SCOPE_SCHEMA, weekDayKeys, workScopeLines, workScopeMaterial } from "./work-scope.ts";
 import {
   autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
   nextWeekSheetMaterial, parseNextWeekSheet, parseNextWeekSheetRequest, addDays as addSheetDays, seoulClock, sentIndexes, type NextWeekItem, type NextWeekTopLine,
@@ -190,7 +191,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -519,6 +520,8 @@ type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
 type FileNameInput = { kind: "file_name" } & FileNameRequest;
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
+// JOURNAL-오늘한일업무개인: 그 주 월요일만. 그 주 업무일지 줄은 서버가 로그인 토큰으로 읽는다(판단은 저장하지 않음).
+type WorkScopeInput = { kind: "work_scope"; week_start: string };
 type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "auto" | "user"; items: NextWeekItem[] };
 type PreMeetingSheetInput = { kind: "pre_meeting_sheet"; mode: "auto" | "user"; event: PreMeetingEvent; organization_id: string };
 type HwpConvertInput = { kind: "hwp_convert"; doc_type: HwpConvertDocType; text: string };
@@ -573,7 +576,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -634,6 +637,11 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     return { kind: "journal_draft", ...parsed };
   }
   // 다음 주 준비 한 장(next_week_sheet): 다음 주 월요일·만든 방식·재료 줄(150줄까지)만 받는다. 이미 있는 장은 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "work_scope") {
+    const parsed = parseWorkScopeRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "work_scope", ...parsed };
+  }
   if (b.kind === "next_week_sheet") {
     const parsed = parseNextWeekSheetRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
@@ -3932,6 +3940,65 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
   return json({ ok: true, kind: "journal_draft", day, draft: saved });
 }
 
+// ---- 쓰임 work_scope: '오늘 한 일' 줄 업무·개인 가르기(JOURNAL-오늘한일업무개인, work-scope.ts) ---------------------------------
+// 그 주 업무일지 줄(노트 표 kind=work)을 로그인 토큰으로 읽어 AI가 줄마다 업무·개인을 가른다. 저장하지 않는다(쓰는 화면이 메모리에만 둠).
+// 업무라고 답하지 않은 줄(개인·애매·답 없음·보내지 않은 줄)을 '뺄 줄'(drop)로 돌려준다. 줄이 없으면 AI를 부르지 않는다. 기록에는 숫자만.
+async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId), days = weekDayKeys(input.week_start);
+  let rows: unknown;
+  try {
+    rows = await rest(ctx, `app_notes?workspace_id=eq.${ws}&kind=eq.work&journal_day=gte.${days[0]}&journal_day=lte.${days[6]}&select=id,workspace_id,kind,title,raw_text,metadata,journal_day,archived_at,ai_export_allowed&order=journal_day.asc&limit=8`);
+  } catch {
+    throw new Fail(503, "read_unavailable");
+  }
+  if (!Array.isArray(rows) || rows.length > 7) throw new Fail(503, "read_unavailable");
+  const { lines, all, skipped } = workScopeLines(rows, input.week_start, ctx.workspaceId);
+  if (!lines.length) {
+    deps.log("work_scope_skipped", { reason: "no_lines", skipped });
+    return json({ ok: true, kind: "work_scope", week_start: input.week_start, drop: all, personal: 0, skipped });
+  }
+  const material = workScopeMaterial(lines);
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "work_scope", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: WORK_SCOPE_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: WORK_SCOPE_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "work_scope", strict: true, schema: WORK_SCOPE_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: WORK_SCOPE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseWorkScope(outputText(result.raw, 64 * 1024) ?? "", lines, all);
+  if (!parsed) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
+  deps.log("work_scope_done", { lines: lines.length, work: parsed.work, personal: parsed.personal, skipped });
+  return json({ ok: true, kind: "work_scope", week_start: input.week_start, drop: parsed.drop, personal: parsed.personal, skipped });
+}
+
 // ---- 쓰임 next_week_sheet: 다음 주 준비 한 장(JOURNAL-다음주준비, next-week-sheet.ts) ---------------------------------------
 // mode=auto: 금요일 15시(서울) 뒤나 토·일에, 다음 주 장이 아직 없을 때만 만든다(이미 있으면 그 장을 돌려줌 — 다른 기기·[지금 만들기]를 덮지 않음).
 // mode=user: [지금 만들기]·[다시 만들기]. 다음 주(또는 이번 주) 장을 새로 만들어 덮는다.
@@ -5028,6 +5095,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "file_name") return await runFileName(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "work_scope") return await runWorkScope(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "next_week_sheet") return await runNextWeekSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "pre_meeting_sheet") return await runPreMeetingSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
