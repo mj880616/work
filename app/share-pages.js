@@ -532,11 +532,12 @@ function renderFull() {
     el('div', {class:'sp-seg', role:'group', 'aria-label':'상태'},
       el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
       el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'})),
-    el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':'사업영역·링크', 'data-ctx':'off', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
+    el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':'사업영역·링크·AI 초안', 'data-ctx':'off', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
       el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'})),
     el('div', {class:'sp-top-extra', id:'spTopExtra', dataset:{spTopExtra:''}},
       el('label', {class:'sp-top-project'}, el('span', {text:'사업영역'}), el('select', {class:'sp-top-select', dataset:{spProject:''}})),
-      el('button', {type:'button', class:'sp-tool', 'aria-expanded':'false', 'aria-controls':'spLinksPanel', dataset:{spLinksOpen:''}, text:'링크'})),
+      el('button', {type:'button', class:'sp-tool', 'aria-expanded':'false', 'aria-controls':'spLinksPanel', dataset:{spLinksOpen:''}, text:'링크'}),
+      el('button', {type:'button', class:'sp-tool', 'aria-haspopup':'dialog', dataset:{spAiDraft:''}, text:'AI 초안'})),
     el('span', {class:'sp-top-gap', 'aria-hidden':'true'}),
     el('p', {class:'sp-status sp-top-status', role:'status', 'aria-live':'polite', dataset:{spStatusLine:''}}),
     el('span', {class:'sp-dirty', hidden:true, dataset:{spDirty:''}, text:'저장 안 됨'}),
@@ -565,6 +566,19 @@ function renderFull() {
     if (mount !== docMount || !host.isConnected) return;
     host.querySelector('.sp-hint')?.replaceWith(el('p', {class:'sp-hint', role:'alert', text:'편집기를 열지 못했어요. 목록으로 나갔다가 다시 열어 주세요.'}));
   });
+}
+// 빠짐32: AI 초안 창의 [넣기] — 받은 블록(ed1)을 지금 연 글 칸의 끝(마지막 빈 줄 앞)에 넣는다. 한 번의 ↶로 되돌릴 수 있고,
+// 편집기의 onChange가 block.doc을 바꿔 '저장 안 됨'이 켜진다. 페이지 저장은 [저장]을 누를 때만.
+function insertAiDraft(nodes) {
+  if (!editing || editing.mode !== 'full' || !docEditor?.view || !Array.isArray(nodes) || !nodes.length) return false;
+  const view = docEditor.view, st = view.state, doc = st.doc;
+  let list;
+  try { list = nodes.map(n => st.schema.nodeFromJSON(n)); list.forEach(n => n.check()); } catch { return false; }
+  const last = doc.lastChild;
+  const at = last && last.type.name === 'paragraph' && last.content.size === 0 && doc.childCount > 1 ? doc.content.size - last.nodeSize : doc.content.size;
+  view.dispatch(st.tr.insert(at, list).scrollIntoView());
+  const ed = docEditor; requestAnimationFrame(() => { if (ed === docEditor) ed.focus(); }); // after the draft window has closed and given focus back
+  return true;
 }
 function openTopPanel(which, open) {
   const button = editorView.querySelector(which === 'links' ? '[data-sp-links-open]' : '[data-sp-top-more]');
@@ -828,6 +842,13 @@ root.addEventListener('click', event => {
     return;
   }
   if ('spLinksClose' in d) { closeTopPanels({focus:true}); return; }
+  // 빠짐32 공유 페이지 AI 초안: 고른 Web2 기록으로 칸별 초안 → 미리보기 → [넣기]를 누를 때만 본문 끝에 들어간다(share-ai-draft.js). 저장은 여기 [저장].
+  if ('spAiDraft' in d) {
+    closeTopPanels();
+    const trigger = editorView.querySelector('[data-sp-top-more]') || target;
+    void import('./share-ai-draft.js').then(m => m.openShareAiDraft({trigger, onInsert:insertAiDraft}));
+    return;
+  }
   if (d.spAddBlock) { addBlock(d.spAddBlock, editing.blocks.length); return; }
   if (d.spInsert) { const [at, type] = d.spInsert.split(':'); addBlock(type, Number(at)); return; }
   if (d.spEdit !== undefined) { openBlock(Number(d.spEdit)); return; }

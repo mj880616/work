@@ -167,6 +167,9 @@ import {
 import {
   parsePressBody, parsePressDraft, pressInstructions, pressMaterial, pressSources, PRESS_DRAFT_SCHEMA, PRESS_LIMITS, type PressInput,
 } from "./press-draft.ts";
+import {
+  parseShareBody, parseShareDraft, shareMaterial, shareSources, SHARE_DRAFT_INSTRUCTIONS, SHARE_DRAFT_SCHEMA, SHARE_LIMITS, type ShareInput, type ShareRow,
+} from "./share-draft.ts";
 
 export type Env = (name: string) => string | undefined;
 export type Log = (code: string, detail?: Record<string, unknown>) => void;
@@ -189,7 +192,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -529,6 +532,8 @@ type AreaWeekSummaryInput = { kind: "area_week_summary"; week_start: string; are
 type AreaSuggestInput = { kind: "area_suggest"; title: string; text: string };
 // 성명·보도자료 초안(press-draft.ts): 종류·고른 사업 보고 ID(1~5)·한 줄 방향만. 근거 글은 서버가 다시 읽는다.
 type PressDraftRequest = PressInput;
+// 공유 페이지 AI 초안(share-draft.ts): 고른 기록(사업 보고·노트, 종류+ID 1~6)·한 줄 초점만. 기록 글은 서버가 다시 읽는다.
+type ShareDraftRequest = ShareInput;
 type AskWeb2Input = { kind: "ask_web2"; question: string };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
@@ -574,7 +579,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | OrgPeopleBriefInput | OrgStatusRowsInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FileNameInput | JournalDraftInput | NextWeekSheetInput | AreaWeekSummaryInput | AreaSuggestInput | PreMeetingSheetInput | PressDraftRequest | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WeeklyLineInput | WorkScopeInput | NowInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -668,6 +673,11 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
   if (b.kind === "press_draft") {
     const parsed = parsePressBody(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return parsed;
+  }
+  if (b.kind === "share_draft") {
+    const parsed = parseShareBody(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return parsed;
   }
@@ -3297,6 +3307,97 @@ async function runPressDraft(ctx: Ctx, input: PressInput, deps: RadarDeps): Prom
   });
 }
 
+// ---- 쓰임: 공유 페이지 AI 초안(share_draft, 원장 빠짐32, share-draft.ts) -------------------------------------------
+// 화면이 고른 기록(사업 보고·노트, 1~6)을 호출한 사람의 로그인으로 다시 읽어(owner RLS + 작업공간 확인) 근거로 쓴다.
+// 노트는 kind note|basket만, 보관·AI 내보내기 끔·(노트만) [AI에 보내지 않기]·비밀 모양이면 근거에서 빼고 skipped로 센다(일기·업무일지 줄은 읽지 않는다).
+// 서버는 아무것도 저장하지 않는다(사용량 숫자만). 미리보기를 돌려주고, 본문에 넣기·저장은 화면에서 명진이 누를 때만. 기록에는 숫자만 남긴다.
+async function runShareDraft(ctx: Ctx, input: ShareInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now(), today = kstDay(started);
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const want = (type: string) => input.sources.filter((s) => s.type === type).map((s) => s.id);
+  const meetingIds = want("meeting"), noteIds = want("note");
+  const mine = (r: Record<string, unknown>) => isUuid(r.id) && String(r.workspace_id).toLowerCase() === ctx.workspaceId;
+  const meetings = meetingIds.length
+    ? await readList(ctx, `app_meetings?workspace_id=eq.${ws}&id=in.(${meetingIds.join(",")})&deleted_at=is.null&select=id,workspace_id,title,series_name,round_no,meeting_at,transcript_text,decisions&limit=${SHARE_LIMITS.refs}`)
+    : [];
+  const notes = noteIds.length
+    ? await readList(ctx, `app_notes?workspace_id=eq.${ws}&id=in.(${noteIds.join(",")})&kind=in.(note,basket)&select=id,workspace_id,kind,title,raw_text,metadata,occurred_at,updated_at,archived_at,ai_export_allowed&limit=${SHARE_LIMITS.refs}`)
+    : [];
+  const byKey = new Map<string, Record<string, unknown>>();
+  for (const m of meetings) if (mine(m)) byKey.set(`meeting:${String(m.id).toLowerCase()}`, m);
+  for (const n of notes) if (mine(n) && (n.kind === "note" || n.kind === "basket")) byKey.set(`note:${String(n.id).toLowerCase()}`, n);
+  // 고른 것 중 하나라도 없으면(남의 것·지운 것) 404. 고른 순서대로 근거 번호를 매긴다.
+  if (input.sources.some((s) => !byKey.has(`${s.type}:${s.id}`))) throw new Fail(404, "not_found");
+  const dayOf = (v: unknown) => { const t = timeOf(v); return Number.isFinite(t) ? kstDay(t) : ""; };
+  let skipped = 0;
+  const rows: ShareRow[] = [];
+  for (const s of input.sources) {
+    const r = byKey.get(`${s.type}:${s.id}`)!;
+    if (s.type === "meeting") {
+      const text = typeof r.transcript_text === "string" && !ONLY_WHITESPACE.test(r.transcript_text) ? r.transcript_text
+        : typeof r.decisions === "string" && !ONLY_WHITESPACE.test(r.decisions) ? r.decisions : "";
+      const name = String((typeof r.series_name === "string" && r.series_name.trim()) ? r.series_name : r.title ?? "").trim();
+      const round = Number(r.round_no);
+      rows.push({ type: "meeting", id: s.id, label: "사업 보고", title: name + (r.round_no != null && Number.isFinite(round) ? ` ${round}차` : ""), day: dayOf(r.meeting_at), text });
+      continue;
+    }
+    if (r.archived_at != null || r.ai_export_allowed !== true || noteRowAiBlocked(r)) { skipped++; continue; }
+    const body = typeof r.raw_text === "string" ? r.raw_text : "";
+    const title = typeof r.title === "string" ? r.title.trim() : "";
+    rows.push({ type: "note", id: s.id, label: r.kind === "basket" ? "업데이트" : "노트", title, day: dayOf(r.occurred_at ?? r.updated_at), text: body });
+  }
+  const { sources, partial } = shareSources(rows);
+  if (!sources.length) throw new Fail(422, "share_no_source");
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "share_draft", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = shareMaterial(input, sources, today);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: SHARE_LIMITS.maxOutputTokens,
+    input: [
+      { role: "developer", content: SHARE_DRAFT_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "share_draft", strict: true, schema: SHARE_DRAFT_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: SHARE_LIMITS.maxOutputTokens } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const text = outputText(result.raw);
+  const draft = text === null ? null : parseShareDraft(text, new Set(sources.map((s) => s.ref)));
+  if (!draft) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  const counts = Object.fromEntries(Object.entries(draft.sections).map(([k, v]) => [k, v.length]));
+  deps.log("share_draft_done", { sources: sources.length, skipped, ...counts, checks: draft.checks.length, partial });
+  return json({
+    ok: true, kind: "share_draft", ...draft, partial, skipped,
+    sources: sources.map((s, i) => ({ ref: i + 1, type: s.type, id: s.id, label: s.label, title: s.title, day: s.day })),
+  });
+}
+
 // ---- 쓰임 6: 주요 일정 제목 다듬기(schedule_titles, WEEKLY-일정다듬기) ---------------------------------------------
 
 // 재료: 그 주 월요일부터 일정 마지막 날까지의 조직 기록·업데이트(바구니)·업무일지 한 줄·사업 기록(내 프로젝트) + 담당조직·프로젝트 이름.
@@ -5021,6 +5122,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "area_week_summary") return await runAreaWeekSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_suggest") return await runAreaSuggest(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "press_draft") return await runPressDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "share_draft") return await runShareDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ask_web2") return await runAskWeb2(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "now_detail" || input.kind === "now_interests") return json(await runNow(nowKit(ctx, { env: deps.env, now, sleep, log, doFetch }), input));
       const material = await loadLinkSummaryMaterial(ctx, input);
