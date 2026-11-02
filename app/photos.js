@@ -1098,7 +1098,7 @@ async function sharePickedInApp(list) {
   if (!entries.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true}); return; }
   const r = await appShare().share(entries);
   if (r === 'shared') { shareReady = null; notify(entries.length < list.length ? `${entries.length}장을 넘겼어요(${list.length - entries.length}장은 받지 못함)` : `${entries.length}장을 넘겼어요`); }
-  else if (r === 'busy') notify('앞 공유를 준비하는 중이에요. 잠시 뒤 다시 눌러 주세요.');
+  else if (r === 'busy') notify('앞 공유가 아직 끝나지 않았어요. 잠시 뒤 다시 눌러 주세요.');
   else notify('공유하지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true});
 }
 let batch = null;
