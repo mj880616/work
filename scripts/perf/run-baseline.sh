@@ -23,6 +23,8 @@ for round in $(seq 1 "$ROUNDS"); do
     || echo "round $round tab-switch: 실패(기록은 $OUT/switch-$round.log)"
   grep -hE '^(PERF|PERF_SHELL|PERF_SWITCH) \{' "$OUT/load-$round.log" "$OUT/switch-$round.log" >> "$OUT/perf.jsonl" || true
 done
+# 화면 바꾸기 때 클릭 뒤 새로 받은 JS 파일 이름(회차 1, 첫 측정). 회귀 원인 찾기용.
+grep -h '^PERF_SWITCH_FILES ' "$OUT/switch-1.log" || true
 node scripts/perf/summarize.mjs "$OUT/perf.jsonl" > "$OUT/summary.md"
 cat "$OUT/summary.md"
 exit 0

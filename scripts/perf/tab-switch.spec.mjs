@@ -29,10 +29,10 @@ async function jsMeter(page, profile) {
   await cdp.send('Network.enable');
   if (profile.net) await cdp.send('Network.emulateNetworkConditions', { offline: false, ...profile.net });
   if (profile.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: profile.cpu });
-  const seen = new Map();
-  cdp.on('Network.requestWillBeSent', e => { if (isJs(e.request.url) && !seen.has(e.requestId)) seen.set(e.requestId, 0); });
+  const seen = new Map(), names = new Map();
+  cdp.on('Network.requestWillBeSent', e => { if (isJs(e.request.url) && !seen.has(e.requestId)) { seen.set(e.requestId, 0); names.set(e.requestId, new URL(e.request.url).pathname.split('/').pop()); } });
   cdp.on('Network.dataReceived', e => { if (seen.has(e.requestId)) seen.set(e.requestId, seen.get(e.requestId) + e.dataLength); });
-  return { mark: () => new Set(seen.keys()), since: before => { const ids = [...seen.keys()].filter(id => !before.has(id)); return { files: ids.length, kb: Math.round(ids.reduce((n, id) => n + seen.get(id), 0) / 1024) }; } };
+  return { mark: () => new Set(seen.keys()), since: before => { const ids = [...seen.keys()].filter(id => !before.has(id)); return { files: ids.length, kb: Math.round(ids.reduce((n, id) => n + seen.get(id), 0) / 1024), names: ids.map(id => names.get(id)).sort() }; } };
 }
 
 for (const [name, profile] of Object.entries(profiles)) {
@@ -87,7 +87,9 @@ for (const [name, profile] of Object.entries(profiles)) {
         return !panel || ![...panel.querySelectorAll('[data-wait]')].some(n => n.offsetParent);
       }, view, { timeout: 30000 }).catch(() => {});
       const t = await page.evaluate(v => ({ click: window.__perfSwitch.click, changed: window.__perfSwitch.changed[v], settled: window.__perfSwitch.now() }), view);
-      const { files, kb } = meter.since(before);
+      const { files, kb, names } = meter.since(before);
+      // 어떤 파일이 클릭 뒤에 새로 받아졌는지(파일 이름만, 내용 없음). 요약표에는 들어가지 않고 run-baseline.sh가 회차 1 첫 측정만 보여 준다.
+      if (rep === 0) console.log('PERF_SWITCH_FILES ' + JSON.stringify({ round, profile: name, step: i + 1, view, names }));
       rows.push({ round, profile: name, step: i + 1, view, shownMs: Math.round(t.changed - t.click), settledMs: Math.round(t.settled - t.click), newJsFiles: files, newJsKB: kb });
       await page.waitForTimeout(profile.net ? 2500 : 800); // 다음 클릭 전에 늦게 오는 요청을 이 화면 몫으로 모은다
       const late = meter.since(before);
