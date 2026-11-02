@@ -1,7 +1,6 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {fitChipRows} from './chip-rows.js';
 import {createAnchoredMenu} from './anchored-menu.js';
-import {claimedSince} from './row-swipe.js';
 import {createMovePicker} from './library-move-picker.js';
 import {pickerRows} from './library-move.mjs';
 import {folderSiblings, nextSortOrder, cleanFolderName, folderErrorText} from './library-tree.js';
@@ -11,7 +10,8 @@ import {askConfirm} from './small-notice.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {takeNewsItem} from './news-request.mjs';
-import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, tabAt, keepTab, groupItems, itemView, openResult, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
+import {interestHit, signalBody} from './now-model.mjs';
+import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1(설계 docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑'(?view=news). #newsView의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(꼬리표 '채널'/'자동'). 칩 [전체·채널·자동], 폰은 좌우로 밀어 칩 이동.
 // - 줄: '꼬리표 · 매체 · 시각' / 제목 / 한 문장 요약(늘 보임) / 본문 접기(<details>, 펼칠 때 서버 줄에서 읽고 없으면 [본문 열기]=news-feed open)
@@ -25,6 +25,9 @@ import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, 
 //   [메모]: 기사마다 메모 = 노트(app_notes kind='note', metadata.news_item_id, 기존 노트 저장 길 createNoteDoc·saveNoteDoc). 노트 화면에도
 //   같은 노트로 보이고, 그쪽 [기사로 가기]가 이 화면에 그 기사를 연다(news-request.mjs). 새 서식으로 고친 메모는 노트에서 고친다.
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 기사 제목·본문·주소를 남기지 않는다.
+// OUTSIDE-글상세·관심환류 ③(명진 결정 11/01 23:16): 이 화면은 Now 메뉴의 [뉴스] 탭 칸(#nowPanelNews, Now 껍데기 outside-statements.js가 만듦)
+//   안에 들어간다. 탭 줄·좌우 밀기·상세 칸은 껍데기가 갖고, 이 모듈은 [뉴스] 칸 안(칩·목록·키워드·매체 칸)만 그린다.
+//   기사 줄 전체를 누르면 공용 상세(now-detail.js)가 열린다(KPTUNow.open). [원문]은 상세 위로 옮겼다. 별표·메모는 환류 기록 한 줄을 남긴다.
 
 (() => {
 if (window.KPTUNews) return;
@@ -37,17 +40,16 @@ const KEYWORD_COLS = 'word,enabled,created_at';
 const FOLDER_COLS = 'id,parent_id,name,sort_order';
 const MEMO_COLS = 'id,title,raw_text,metadata,updated_at,doc_type:doc->>type';
 const PHONE = window.matchMedia('(max-width:760px)');
+const now = () => window.KPTUNow;
 
 function install() {
-  if (document.getElementById('newsView')) return;
-  document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="newsView" class="view-panel hidden" aria-labelledby="ncTitle">
-<h2 id="ncTitle" class="screen-title">뉴스 클리핑</h2>
-<div id="newsRoot" class="nc" data-mode="list">
-<div class="nc-bar"><div class="nc-chips" data-nc-chips role="group" aria-label="기사 거르기"></div><button type="button" class="nc-more" data-nc-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="뉴스 클리핑 메뉴">${MORE}</button></div>
+  if (document.getElementById('newsRoot')) return;
+  document.getElementById('nowPanelNews')?.insertAdjacentHTML('beforeend', `<div id="newsRoot" class="nc" data-mode="list">
+<div class="nc-bar"><div class="nc-chips" data-nc-chips role="group" aria-label="기사 거르기"></div><button type="button" class="nc-more" data-nc-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="뉴스 메뉴">${MORE}</button></div>
 <p class="nc-when" data-nc-when role="status" hidden></p>
 <div class="nc-list" data-nc-list aria-label="스크랩"></div>
 <div class="nc-panel" data-nc-panel></div>
-</div></section>`);
+</div>`);
 }
 install();
 
@@ -80,6 +82,13 @@ async function patchItem(w, id, body) {
   const row = Array.isArray(rows) ? rows[0] : null;
   if (!row || row.id !== id) throw new Error('save');
   return row;
+}
+// 환류 기록 한 줄(app_now_signals, 화면은 더하기만). 실패해도 누른 일은 그대로.
+function signal(id, action) {
+  const w = workspaceOf();
+  if (!w) return;
+  rt().api('/rest/v1/app_now_signals', {method: 'POST', body: signalBody(w, {type: 'news', id}, action), prefer: 'return=minimal', singleFlight: false})
+    .then(() => now()?.signaled?.()).catch(() => {});
 }
 async function writeSource(w, key, enabled) {
   const at = new Date().toISOString();
@@ -117,7 +126,6 @@ function itemHtml(it) {
   const fold = v.canOpen ? `<details class="nc-fold" data-nc-fold="${esc(it.id)}"${open ? ' open' : ''}><summary>본문</summary><div class="nc-body" data-nc-body="${esc(it.id)}">${open ? bodyHtml(it, v) : ''}</div></details>` : '';
   const busy = state.busy.has(it.id);
   const tr = v.foreign && v.canOpen ? `<button type="button" class="nc-act" data-nc-translate="${esc(it.id)}"${busy ? ' disabled aria-busy="true"' : ''}>${busy ? '번역 중' : v.showingKo ? '원문 보기' : '번역'}</button>` : '';
-  const link = v.url ? `<a class="nc-link" href="${esc(v.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v.title)} 원문 (새 창)">원문</a>` : '';
   const actNote = !open && state.notes.get(it.id) ? `<span class="nc-faint">${esc(state.notes.get(it.id))}</span>` : '';
   const starred = !!it.starred_at;
   const star = `<button type="button" class="nc-star" data-nc-star="${esc(it.id)}" aria-pressed="${starred}" aria-label="${starred ? '별표 빼기' : '별표'}" title="${starred ? '별표 빼기' : '별표'}"><span aria-hidden="true">${starred ? '★' : '☆'}</span></button>`;
@@ -125,7 +133,10 @@ function itemHtml(it) {
   const folder = starred ? `<button type="button" class="nc-act" data-nc-folder="${esc(it.id)}">${esc(fid ? folderPath(state.folders, fid).map(f => f.name).join(' › ') : '폴더')}</button>` : '';
   const memo = state.memos.get(it.id);
   const memoBtn = state.memoEdit === it.id ? '' : `<button type="button" class="nc-act" data-nc-memo="${esc(it.id)}">${memo ? '메모 고치기' : '메모'}</button>`;
-  return `<article class="nc-item${it.id === state.focus ? ' is-focus' : ''}" data-nc-item="${esc(it.id)}"><div class="nc-head">${meta}${star}</div><h4 class="nc-title"${v.titleLang ? ` lang="${esc(v.titleLang)}"` : ''}>${esc(v.title)}</h4>${v.origTitle ? `<p class="nc-orig" lang="${esc(it.lang)}">${esc(v.origTitle)}</p>` : ''}${sum}${note}${memoHtml(it, memo)}<div class="nc-foot">${fold}${tr}${folder}${memoBtn}${link}${actNote}</div></article>`;
+  // 확정 관심 주제에 걸린 기사만 작은 표시(Now 12.2, 시간순 그대로). 줄 전체 = 제목 단추(공용 상세 열기).
+  const hit = interestHit([v.title, v.origTitle, v.summary], now()?.topics?.() || []);
+  const open_ = now()?.selected?.() === `news:${it.id}`;
+  return `<article class="nc-item now-row${it.id === state.focus ? ' is-focus' : ''}${open_ ? ' is-open' : ''}" data-nc-item="${esc(it.id)}"><div class="nc-head">${meta}${star}</div><h4 class="nc-title"${v.titleLang ? ` lang="${esc(v.titleLang)}"` : ''}><button type="button" class="now-open" data-nc-open="${esc(it.id)}">${esc(v.title)}</button></h4>${v.origTitle ? `<p class="nc-orig" lang="${esc(it.lang)}">${esc(v.origTitle)}</p>` : ''}${sum}${note}${memoHtml(it, memo)}<div class="nc-foot">${fold}${tr}${folder}${memoBtn}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}${actNote}</div></article>`;
 }
 // 내 메모(= 노트). 고치는 중이면 글 칸 + [취소][저장]. 새 서식(doc)으로 고친 메모는 여기서 글자만 보이고 노트에서 고친다.
 function memoHtml(it, memo) {
@@ -471,6 +482,7 @@ async function toggleStar(id, trigger) {
     const row = await patchItem(w, id, on ? {starred_at: new Date().toISOString()} : {starred_at: null, folder_id: null});
     if (scope !== state.scope) return;
     Object.assign(it, row);
+    signal(id, on ? 'star' : 'unstar');
     if (state.tab === STAR && !on) state.items = state.items.filter(x => x.id !== id);
   } catch (e) { if (scope === state.scope) state.notes.set(id, saveFailNote(e)); }
   finally { state.busy.delete('star:' + id); }
@@ -553,6 +565,7 @@ async function saveMemo(id, text) {
     const saved = memo ? await saveNoteDoc(memo.id, {title: memo.title || memoTitle(it), raw_text: value}, rt()) : await createNoteDoc({title: memoTitle(it), raw_text: value, news_item_id: id}, rt());
     if (scope !== state.scope) return;
     state.memos.set(id, {...memo, ...saved, doc_type: memo?.doc_type || null});
+    signal(id, 'memo');
     state.memoBusy = false; closeMemo();
   } catch (e) {
     if (scope !== state.scope) return;
@@ -566,9 +579,9 @@ function openMemoNote(noteId) {
 }
 
 // ---------- 누르기·밀기 ----------
-const menu = createAnchoredMenu({id: 'ncMenu', className: 'topline-add-menu nc-menu', label: '뉴스 클리핑 메뉴', historyKey: 'kptuNewsMenu', key: () => 'head',
-  render: () => `<button type="button" data-nc-act="fill"${state.filling ? ' disabled' : ''}>지금 채우기 <span class="nc-faint">하루 ${state.limits.fill}번</span></button><button type="button" data-nc-act="keywords">키워드 고치기</button><button type="button" data-nc-act="sources">매체 켜고 끄기</button>`,
-  onAction: button => { const a = button.dataset.ncAct; if (a === 'fill') fillNow(); else if (a === 'keywords' || a === 'sources') openPanel(a); }});
+const menu = createAnchoredMenu({id: 'ncMenu', className: 'topline-add-menu nc-menu', label: '뉴스 메뉴', historyKey: 'kptuNewsMenu', key: () => 'head',
+  render: () => `<button type="button" data-nc-act="fill"${state.filling ? ' disabled' : ''}>지금 채우기 <span class="nc-faint">하루 ${state.limits.fill}번</span></button><button type="button" data-nc-act="keywords">키워드 고치기</button><button type="button" data-nc-act="sources">매체 켜고 끄기</button><button type="button" data-nc-act="interests">관심 주제</button>`,
+  onAction: button => { const a = button.dataset.ncAct; if (a === 'fill') fillNow(); else if (a === 'keywords' || a === 'sources') openPanel(a); else if (a === 'interests') now()?.openInterests?.(); }});
 
 function setTab(tab) {
   const next = keepTab(tab);
@@ -581,6 +594,7 @@ root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (!b || !root.contains(b)) return;
   if (b.matches('[data-nc-tab]')) { setTab(b.dataset.ncTab); return; }
+  if (b.matches('[data-nc-open]')) { const it = state.items.find(x => x.id === b.dataset.ncOpen); if (it && now()) now().open({type: 'news', id: it.id}, now().describe('news', it)); return; }
   if (b.matches('[data-nc-more]')) { menu.open(b); return; }
   if (b.matches('[data-nc-back]')) { closeLayer(); backToList(); return; }
   if (b.matches('[data-nc-translate]')) { translate(b.dataset.ncTranslate); return; }
@@ -614,31 +628,16 @@ root?.addEventListener('toggle', event => {
   if (d.open) { if (!state.open.has(id)) { state.open.add(id); openBody(id); } }
   else state.open.delete(id);
 }, true);
-// 폰: 목록에서 좌우로 밀어 칩(전체·채널·자동) 이동. 다른 부품이 잡은 줄 밀기·입력 칸·펼친 본문 글은 빼고, 가로로 충분히 민 것만.
-let swipe = null;
-root?.addEventListener('touchstart', e => {
-  swipe = null;
-  if (!PHONE.matches || state.mode !== 'list' || e.touches.length !== 1 || e.target.closest('input,textarea,[contenteditable],.nc-chips,[data-nc-memo-form]')) return;
-  const p = e.touches[0]; swipe = {x: p.clientX, y: p.clientY, t: Date.now()};
-}, {passive: true});
-root?.addEventListener('touchend', e => {
-  const s = swipe; swipe = null;
-  if (!s || !e.changedTouches.length || claimedSince(s.t)) return;
-  const p = e.changedTouches[0], dx = p.clientX - s.x, dy = p.clientY - s.y;
-  if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - s.t > 800) return;
-  const next = tabAt(state.tab, dx < 0 ? 1 : -1);
-  if (next) setTab(next);
-}, {passive: true});
-root?.addEventListener('touchcancel', () => { swipe = null; }, {passive: true});
+// 좌우 밀기는 Now 탭 이동(껍데기 outside-statements.js)이 갖는다. 칩(전체·채널·자동·별표)은 누르기로 고른다.
 
 window.addEventListener('kptu:view-changed', event => {
-  if (event.detail?.view === 'news') return;
+  if (event.detail?.view === 'outside') return;
   // 다른 화면으로 가면 키워드·매체 칸은 닫힌 것으로(라우터가 그 화면의 겹을 정리한다). 다음에 들어오면 목록부터.
   layer = null;
   if (state.mode !== 'list') { state.mode = 'list'; listDirty = true; }
   state.fillNote = ''; state.memoEdit = ''; state.focus = '';
 });
-window.KPTURouter?.on?.('news', () => { enter(); });
-window.KPTUNews = {refresh: () => load()};
-if (window.KPTURouter?.current === 'news') enter();
+// Now 껍데기가 [뉴스] 탭을 보일 때 enter()를 부른다(라우터 화면 이름은 outside). 이 모듈이 늦게 불러와졌으면 지금 들어간다.
+window.KPTUNews = {refresh: () => load(), enter: () => enter()};
+if (window.KPTURouter?.current === 'outside' && now()?.tab?.() === 'news') enter();
 })();
