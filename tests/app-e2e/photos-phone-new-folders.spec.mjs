@@ -102,8 +102,10 @@ test.describe('폰 앱 412', () => {
     await expect.poll(() => prefs.value?.phone_folders_off).toEqual([OLD]);
     await expect.poll(() => prefs.value?.phone_folders_known).toEqual([phoneFolderKey(CAM), phoneFolderKey(TG)].sort());
     // 새로고침해도 켠 폴더는 다시 꺼지지 않는다(서버 기억).
+    // 새로고침은 보던 [폴더] 탭으로 돌아오므로(새로고침 뒤 같은 화면) [사진] 탭을 눌러 본다.
     await page.reload();
-    await openPhotos(page);
+    await expect(page.locator('#photosView')).toBeVisible();
+    await page.locator('#photosRoot [data-photos-tab="all"]').click();
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'ph:2']);
     expect(prefs.value.phone_folders_off).toEqual([OLD]);
     expect(state.errors).toEqual([]);
