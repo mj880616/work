@@ -137,7 +137,8 @@ async function boot(){if(!rt)return false;if(!(await context()))return false;ins
 // 목록·프로필의 조직 줄([data-ps-workplace-org]) 클릭은 받은 뒤 같은 줄을 다시 누른다(첫 클릭만 잠깐 늦을 수 있음 — 명진 결정 11/02).
 let detailFlight=null;
 function loadDetail(){
- detailFlight||=(async()=>{await import('./project-catalog.js');await import('./google-tasks.js');await import('./workplace-detail.js');import('./workplace-report.js').catch(console.error)})();
+ // 이미 받은 것(할 일 화면이 먼저 받은 google-tasks.js 등)은 건너뛴다.
+ detailFlight||=(async()=>{if(!window.KPTUProjectCatalog)await import('./project-catalog.js');if(!window.KPTUGoogleTasks)await import('./google-tasks.js');if(!detailLoaded()){await import('./workplace-detail.js');import('./workplace-report.js').catch(console.error)}})();
  detailFlight.catch(()=>{detailFlight=null});
  return detailFlight;
 }
@@ -152,6 +153,7 @@ document.addEventListener('click',e=>{
  loadDetail().then(()=>{row.removeAttribute('aria-busy');if(row.isConnected&&detailLoaded())row.click()}).catch(err=>{row.removeAttribute('aria-busy');console.error('organization detail load',err);notify('조직 상세를 불러오지 못했습니다. 다시 눌러 주세요.',{error:true})});
 },true);
 function afterReveal(){return new Promise(resolve=>{const next=()=>requestAnimationFrame(()=>setTimeout(resolve,0));if(document.querySelector('#appView')?.classList.contains('kptu-ui-ready'))return next();window.addEventListener('kptu:app-ui-ready',next,{once:true})})}
-void afterReveal().then(loadDetail).catch(err=>console.error('organization detail load',err));
+// 앱 화면 안에서만(KPTUViewLoader가 있을 때) 미리 받는다. 상세를 따로 띄운 시험 틀은 자기가 고른 모듈을 그대로 쓴다.
+if(window.KPTUViewLoader)void afterReveal().then(loadDetail).catch(err=>console.error('organization detail load',err));
 window.__KPTU_SUBORGANIZATIONS_READY__=boot().catch(err=>{console.error('suborganizations init',err);return false});
 })();
