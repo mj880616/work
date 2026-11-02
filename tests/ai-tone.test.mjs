@@ -90,6 +90,7 @@ const EXCLUDED = new Map([
   ['ai-assist/business-area.ts', '사업요약표 진행 칸 한 줄(명사형 끝맺음, 주간보고 문체)과 사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관'],
   ['ai-assist/note-title.ts', '노트 목록의 짧은 명사형 제목(제목, 문장 아님 — 10/28 09:24 말투 규칙과 무관)'],
   ['ai-assist/file-name.ts', '첨부 파일 이름 추천(명사형 파일 이름, 문장 아님 — ATT-이름고치기)'],
+  ['ai-assist/work-scope.ts', '오늘 한 일 줄마다 업무·개인 판정(ref·work|personal만 답함, 문장 아님 — JOURNAL-오늘한일업무개인)'],
   ['library-files/index.ts', '자료 제목 찾기(제목, 문장 아님)'],
   ['document-ai-index/index.ts', '검색용 색인 요약: 화면에 보이지 않고 AI 재료로만 쓰임. 화면에 보이게 되면 적용으로 옮길 것'],
   ['news-feed/handler.ts', '뉴스 클리핑 기사 한 줄 요약은 기사와 같은 언어(영어 기사는 영어)로 쓰고, [번역]은 요약 없이 원문 그대로 옮긴다 — 한국어 문장 말투 규칙과 무관(NEWS-클리핑)'],
