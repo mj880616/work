@@ -3,6 +3,7 @@ import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
 import {pcSplit,itemOf,isDefaultLayout} from './menu-model.mjs';
 import './menu-layout.js';
+import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
 (()=>{
 'use strict';
 if(window.__KPTU_TOPBAR_ACTIONS__)return;
@@ -493,9 +494,20 @@ function selected(){
 function closeTheme(){
   if(!modal||modal.classList.contains('hidden'))return;
   if(modal.dataset.kptuHistoryOpen!=='1')window.removeEventListener('popstate',restoreAfterBack);
+  unanchorTheme();
   modal?.classList.add('hidden');modal?.setAttribute('aria-hidden','true');
   window.KPTUA11y?.dialog.deactivate(modal);
 }
+// S48-30 ▾ 펼침(ED-서식줄펼침 사이트 공통 규칙): 넓은 화면(761px~)에서 [화면 색 ▾]는 가운데 창이 아니라 계정 버튼 바로 아래 작은 목록으로 뜬다.
+// 위치는 공용 anchored-popup.js 하나가 맡고(화면 밖으로 안 잘림, 스크롤·창 크기 따라감), 폰은 지금처럼 창.
+let themeAnchor=null,themeFollow=null;
+function anchorTheme(anchor){
+  const card=modal?.querySelector('.theme-panel');if(!card||!isWide()||!anchor?.getClientRects?.().length)return;
+  themeAnchor=card;modal.classList.add('theme-anchored');
+  const place=()=>placeAnchored(card,anchor,{maxWidth:280,maxHeight:520,minHeight:200});
+  place();themeFollow=followAnchor(card,anchor,{place,lost:()=>closeTheme()});
+}
+function unanchorTheme(){themeFollow?.();themeFollow=null;if(themeAnchor){clearAnchored(themeAnchor);themeAnchor=null;}modal?.classList.remove('theme-anchored');}
 themeButtons.forEach(button=>button.addEventListener('click',()=>closeAccount(()=>{
   const account=accounts.find(account=>account.theme===button);
   const focusTrigger=menuQuery.matches?menuButton():account.trigger;
@@ -507,6 +519,7 @@ themeButtons.forEach(button=>button.addEventListener('click',()=>closeAccount(()
   window.addEventListener('popstate',restoreAfterBack,{once:true});
   selected();modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
   window.KPTUA11y?.dialog.activate(modal,{trigger:focusTrigger,initialFocus:'[aria-pressed="true"]',onRequestClose:closeTheme});
+  anchorTheme(focusTrigger);
 })));
 modal?.addEventListener('click',event=>{
   if(event.target===modal||event.target.closest('[data-close="themeModal"]')){event.stopPropagation();closeTheme();return}

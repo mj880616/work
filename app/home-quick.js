@@ -97,7 +97,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     // A note's files are always settled by its own save (the batch is emptied after it), so the note input never locks.
     const locked=mode==='update'&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 정리함 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
-    if(noteOnly){const f=box.querySelector('[data-quick-folder]'),label=folderName||'폴더 없음';f.hidden=false;f.textContent=label+' ▾';f.title='노트를 넣을 폴더: '+label;f.setAttribute('aria-label','노트를 넣을 폴더: '+label+'. 누르면 다른 폴더를 고릅니다');}
+    if(noteOnly){const f=box.querySelector('[data-quick-folder]'),label=folderName||'폴더 없음';f.hidden=false;f.textContent=([...label].length>8?[...label].slice(0,8).join('')+'…':label)+' ▾';f.title='노트를 넣을 폴더: '+label;f.setAttribute('aria-label','노트를 넣을 폴더: '+label+'. 누르면 다른 폴더를 고릅니다');}
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel(placeChoices(),places);
     input.placeholder=noteOnly?(folderName?`${folderName}에 노트 추가`:'노트를 입력하세요'):mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(정리함에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
     const filesWait=!takesFiles()&&taskFilesWait&&mode==='task';
