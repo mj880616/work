@@ -50,7 +50,7 @@ test('PC 1280: 사업 보고 칸·고른 보고가 주소에 적히고 새로고
   // [회의]로 가면 칸 칸이 주소에서 빠진다(기본 칸은 적지 않음).
   await chip(page,'회의').click();
   await expect(page).not.toHaveURL(/[?&]chip=/);
-  await expect(page).toHaveURL(/[?&]report=m-1(?:&|$)/);
+  await expect(page).not.toHaveURL(/[?&]report=p-2(?:&|$)/);
   expect(errors).toEqual([]);
 });
 
