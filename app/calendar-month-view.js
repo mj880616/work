@@ -283,7 +283,10 @@ import {eventColor} from './home-read-model.js';
         list.setAttribute('aria-label',`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 목록 보기`+(pending.length?`, 할 일 ${pending.length}개`+(pending.some(t=>t.overdue)?', 기한 지남 포함':''):''));
         list.appendChild(day);
         list.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
-        cell.append(create,list);
+        // 일정·할 일 줄 사이 빈 곳도 같은 길(보조 칸: 화면 읽기·Tab에서는 빼고, 날짜 숫자 버튼이 대표).
+        const fill=document.createElement('button');fill.type='button';fill.className='cmv-date-fill';fill.tabIndex=-1;fill.setAttribute('aria-hidden','true');
+        fill.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
+        cell.append(create,fill,list);
         dayGrid.appendChild(cell);
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';

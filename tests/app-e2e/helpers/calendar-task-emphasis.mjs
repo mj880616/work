@@ -86,6 +86,6 @@ export async function openTaskDay(page,date='2026-10-20'){
     await expect(modal).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
   }
-  await page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count, .cmv-date-list[data-date="${date}"]`).first().click();
+  await page.locator(`.cal-cell[data-date="${date}"] .cal-day`).first().click();
   await expect(modal).toBeVisible();
 }

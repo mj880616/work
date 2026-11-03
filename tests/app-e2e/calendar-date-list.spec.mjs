@@ -68,7 +68,7 @@ test('blank creates on its date; event and overflow retain their editors and lis
   await expect(page.locator('#ciGoogleSave')).toBeEnabled();
   await page.locator('#ciGoogleClose').click();
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
-  await page.locator('.cal-cell[data-date="2026-10-21"] .cmv-task-count, .cmv-date-list[data-date="2026-10-21"]').first().click(); // 폰은 날짜 줄(S48-6c)
+  await page.locator('.cal-cell[data-date="2026-10-21"] .cal-day').first().click(); // 폰은 날짜 줄(S48-6c)
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(19);
 });

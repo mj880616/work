@@ -337,11 +337,12 @@
 .clv-empty>.wait-empty{margin:0}
 
 /* S49-6 CAL-날칸누르기·CAL-PC할일보이기 — 날짜 칸 나누기(폰·폴드·PC 공통).
-   위쪽 .cmv-date-list: 날짜 숫자 + 맨 위 여백 + 그 날짜에 보이는 줄(--cmv-used, render가 칸마다 넣음)까지 = 누르면 그 날 창.
+   위쪽 .cmv-date-list(날짜 숫자 + 맨 위 여백) + .cmv-date-fill(그 날짜에 보이는 줄 --cmv-used 높이만큼의 빈 곳, render가 칸마다 넣음) = 누르면 그 날 창.
    아래쪽 .cmv-date-create: 나머지 빈 곳 = 누르면 일정 추가. 일정·할 일 줄은 그 위(.cmv-week-events)라 줄을 누르면 그 줄이 먼저 받는다. */
 .cal-cell{position:relative}
-.cmv-date-list,.cmv-date-create{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer}
-.cmv-date-list{top:0;height:calc(var(--cmv-date-header-height) + var(--cmv-used,0) * var(--cmv-lane-step));text-align:left;display:flex;align-items:flex-start}
+.cmv-date-list,.cmv-date-create,.cmv-date-fill{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer}
+.cmv-date-list{top:0;height:var(--cmv-date-header-height);text-align:left;display:flex;align-items:flex-start}
+.cmv-date-fill{top:var(--cmv-date-header-height);height:calc(var(--cmv-used,0) * var(--cmv-lane-step));padding:0}
 .cmv-date-list .cal-day{flex-shrink:1;min-width:0}
 .cmv-date-create{top:calc(var(--cmv-date-header-height) + var(--cmv-used,0) * var(--cmv-lane-step));bottom:0;padding:0}
 .cmv-date-list:focus-visible,.cmv-date-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
