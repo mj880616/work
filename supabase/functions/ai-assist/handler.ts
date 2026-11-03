@@ -77,6 +77,10 @@ import {
   JOURNAL_DRAFT_BODY_BYTES, JOURNAL_DRAFT_HOUR, JOURNAL_DRAFT_INSTRUCTIONS, JOURNAL_DRAFT_MAX_OUTPUT_TOKENS, JOURNAL_DRAFT_SCHEMA,
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
 } from "./journal-draft.ts";
+import {
+  MEMORABLE_INSTRUCTIONS, MEMORABLE_MAX_ITEMS, MEMORABLE_MAX_OUTPUT_TOKENS, MEMORABLE_SCHEMA, memorableDayInRange, memorableDue,
+  memorableMaterial, parseJournalMemorableRequest, parseMemorable, toFeedRow,
+} from "./journal-memorable.ts";
 import { parseWorkScope, parseWorkScopeRequest, WORK_SCOPE_INSTRUCTIONS, WORK_SCOPE_MAX_OUTPUT_TOKENS, WORK_SCOPE_SCHEMA, weekDayKeys, userLineDrops, withUserDrops, workScopeLines, workScopeMaterial } from "./work-scope.ts";
 import {
   autoTime, NEXT_WEEK_SHEET_BODY_BYTES, NEXT_WEEK_SHEET_INSTRUCTIONS, NEXT_WEEK_SHEET_MAX_OUTPUT_TOKENS, NEXT_WEEK_SHEET_SCHEMA,
@@ -193,7 +197,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, file_name: 60, journal_draft: 3, journal_memorable: 24, next_week_sheet: 5, press_draft: 10, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_week_summary: 30, area_suggest: 60, org_people_brief: 60, org_status_rows: 30, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, weekly_line: 20, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -258,6 +262,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   note_title_unavailable: "노트 제목을 저장하지 못했어요.",
   journal_draft_not_ready: "오늘 한 줄 초안 기능이 아직 준비되지 않았어요.",
   journal_draft_unavailable: "오늘 한 줄 초안을 읽거나 저장하지 못했어요.",
+  journal_memorable_not_ready: "기억할 통화·텔레그램 기능이 아직 준비되지 않았어요.",
+  journal_memorable_unavailable: "기억할 통화·텔레그램을 읽거나 저장하지 못했어요.",
   next_week_sheet_not_ready: "다음 주 준비 기능이 아직 준비되지 않았어요.",
   next_week_sheet_unavailable: "다음 주 준비 한 장을 읽거나 저장하지 못했어요.",
   pre_meeting_sheet_not_ready: "교섭 전 한 장 기능이 아직 준비되지 않았어요.",
@@ -524,6 +530,7 @@ type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
 type FileNameInput = { kind: "file_name" } & FileNameRequest;
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
+type JournalMemorableInput = { kind: "journal_memorable"; day: string };
 // JOURNAL-오늘한일업무개인: 그 주 월요일만. 그 주 업무일지 줄은 서버가 로그인 토큰으로 읽는다(판단은 저장하지 않음).
 type WorkScopeInput = { kind: "work_scope"; week_start: string };
 type NextWeekSheetInput = { kind: "next_week_sheet"; week_start: string; mode: "auto" | "user"; items: NextWeekItem[] };
@@ -644,6 +651,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     const parsed = parseJournalDraftRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "journal_draft", ...parsed };
+  }
+  // 기억할 통화·텔레그램(journal_memorable, S49-13): 날짜만 받는다. 재료(그날 통화·텔레그램)는 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "journal_memorable") {
+    const parsed = parseJournalMemorableRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "journal_memorable", ...parsed };
   }
   // 다음 주 준비 한 장(next_week_sheet): 다음 주 월요일·만든 방식·재료 줄(150줄까지)만 받는다. 이미 있는 장은 서버가 로그인 토큰으로 읽는다.
   if (b.kind === "work_scope") {
@@ -4009,6 +4022,131 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
   return json({ ok: true, kind: "journal_draft", day, draft: saved });
 }
 
+// ---- 쓰임 journal_memorable: 업무일지 [하루] '기억할 통화·텔레그램'(S49-13, journal-memorable.ts, 설계 docs/design/journal-memorable.md) ----------
+// 화면을 열 때 부른다. 그날 마지막 실행(app_journal_memorable_runs)에서 1시간이 지났고 그 뒤 새로 들어오거나 바뀐 기록이 있을 때만 새 것만 AI에 보낸다.
+// 운영자 기능(calls·telegram)은 서버 허용 표로 판정하고 허용된 출처만 읽는다(표 restrictive 정책이 한 번 더 막는다). 결과는 owner RLS 표
+// app_journal_memorable에 넣기만 한다(같은 기록은 한 번만). 두 기기가 동시에 열어도 한 쪽만 AI를 부르도록 실행 시각을 먼저 차지(claim)한다.
+// AI를 부르지 않는 경우(skipped)는 사용량에 잡지 않는다. 부르면 월 AI 상한·하루 횟수 안에서 기존 사용량 길(checkBudget·writeUsage)로 더한다.
+async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId), day = input.day;
+  const skip = (reason: string) => {
+    deps.log("journal_memorable_skipped", { reason });
+    return json({ ok: true, kind: "journal_memorable", day, skipped: reason });
+  };
+  if (!memorableDayInRange(day, seoulDays(started).day)) return skip("out_of_range");
+  const features = await myFeatures(ctx);
+  if (features === "missing") throw new Fail(503, "journal_memorable_not_ready");
+  if (features === "error") throw new Fail(503, "journal_memorable_unavailable");
+  const sources = [features.has("calls") ? "call" : "", features.has("telegram") ? "telegram" : ""].filter(Boolean);
+  if (!sources.length) return skip("not_allowed");
+  const readRows = async (path: string): Promise<unknown[]> => {
+    let rows: unknown;
+    try {
+      rows = await rest(ctx, path);
+    } catch (e) {
+      // 표가 없으면(DB 적용 전) PostgREST가 404를 준다.
+      throw new Fail(503, e instanceof Error && e.message === "rest_404" ? "journal_memorable_not_ready" : "journal_memorable_unavailable");
+    }
+    if (!Array.isArray(rows)) throw new Fail(503, "journal_memorable_unavailable");
+    return rows;
+  };
+  const readRun = async (): Promise<string | null> => {
+    const rows = await readRows(`app_journal_memorable_runs?workspace_id=eq.${ws}&day=eq.${day}&select=workspace_id,day,last_run_at&limit=2`);
+    if (rows.length > 1) throw new Fail(503, "journal_memorable_unavailable");
+    const row = rows[0] as Record<string, unknown> | undefined;
+    if (!row) return null;
+    if (String(row.workspace_id).toLowerCase() !== ctx.workspaceId || row.day !== day || typeof row.last_run_at !== "string" || !Number.isFinite(Date.parse(row.last_run_at))) throw new Fail(503, "journal_memorable_unavailable");
+    return row.last_run_at;
+  };
+  const last = await readRun();
+  if (!memorableDue(last, started)) return skip("fresh");
+
+  const since = last ? `&updated_at=gt.${encodeURIComponent(last)}` : "";
+  const feed = await readRows(`app_feed_items?workspace_id=eq.${ws}&day=eq.${day}&hidden_at=is.null&source=in.(${sources.join(",")})${since}&select=id,workspace_id,source,title,summary,points,room_label&order=updated_at.asc&limit=100`);
+  const done = new Set((await readRows(`app_journal_memorable?workspace_id=eq.${ws}&day=eq.${day}&select=feed_item_id&limit=200`))
+    .map((r) => String((r as Record<string, unknown>)?.feed_item_id ?? "").toLowerCase()));
+  const rows = feed
+    .filter((r) => String((r as Record<string, unknown>)?.workspace_id).toLowerCase() === ctx.workspaceId && sources.includes(String((r as Record<string, unknown>)?.source)))
+    .map(toFeedRow).filter((r): r is NonNullable<typeof r> => !!r && !done.has(r.id)).slice(0, MEMORABLE_MAX_ITEMS);
+  const material = memorableMaterial(day, rows);
+  if (!material) return skip("no_new");
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+
+  // 실행 시각 차지: 내 시각으로 바꾼 뒤 다시 읽어 내 시각이면 내가 차지한 것. 다른 기기가 먼저 했으면 부르지 않는다.
+  const mine = new Date(started).toISOString();
+  try {
+    if (last) await rest(ctx, `app_journal_memorable_runs?workspace_id=eq.${ws}&day=eq.${day}&last_run_at=eq.${encodeURIComponent(last)}`, { method: "PATCH", prefer: "return=minimal", body: { last_run_at: mine } });
+    else await rest(ctx, "app_journal_memorable_runs?on_conflict=workspace_id,day", { method: "POST", prefer: "resolution=ignore-duplicates,return=minimal", body: { workspace_id: ctx.workspaceId, day, last_run_at: mine } });
+  } catch {
+    throw new Fail(503, "journal_memorable_unavailable");
+  }
+  const claimed = await readRun();
+  if (!claimed || Date.parse(claimed) !== started) return skip("fresh");
+  // 실패하면 차지를 되돌려 다음에 열 때 다시 시도한다(되돌릴 값: 이전 시각, 처음이면 아주 옛날).
+  const release = async () => {
+    try {
+      await rest(ctx, `app_journal_memorable_runs?workspace_id=eq.${ws}&day=eq.${day}&last_run_at=eq.${encodeURIComponent(mine)}`, { method: "PATCH", prefer: "return=minimal", body: { last_run_at: last ?? "1970-01-01T00:00:00Z" } });
+    } catch { deps.log("journal_memorable_release_failed"); }
+  };
+
+  let budget: Awaited<ReturnType<typeof checkBudget>>;
+  try {
+    budget = await checkBudget(ctx, "journal_memorable", started, config.price);
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch (e) {
+    await release();
+    throw e instanceof Fail ? e : new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: MEMORABLE_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: MEMORABLE_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "journal_memorable", strict: true, schema: MEMORABLE_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: MEMORABLE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    await release();
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const picks = parseMemorable(outputText(result.raw, 16 * 1024) ?? "", rows);
+  if (!picks) {
+    await release();
+    return skip("bad_answer");
+  }
+  if (picks.length) {
+    try {
+      await rest(ctx, "app_journal_memorable?on_conflict=workspace_id,feed_item_id", {
+        method: "POST", prefer: "resolution=ignore-duplicates,return=minimal",
+        body: picks.map((p) => ({ workspace_id: ctx.workspaceId, day, source: p.source, feed_item_id: p.feed_item_id, org_name: p.org_name, line: p.line })),
+      });
+    } catch {
+      await release();
+      throw new Fail(503, "journal_memorable_unavailable");
+    }
+  }
+  const sentChars = chars(material);
+  deps.log("journal_memorable_done", { sent: rows.length, size: sentChars, picked: picks.length });
+  return json({ ok: true, kind: "journal_memorable", day, sent: rows.length, picked: picks.length });
+}
+
 // ---- 쓰임 work_scope: '오늘 한 일' 줄 업무·개인 가르기(JOURNAL-오늘한일업무개인, work-scope.ts) ---------------------------------
 // 그 주 업무일지 줄(노트 표 kind=work)을 로그인 토큰으로 읽어 AI가 줄마다 업무·개인을 가른다. 저장하지 않는다(쓰는 화면이 메모리에만 둠).
 // 업무라고 답하지 않은 줄(개인·애매·답 없음·보내지 않은 줄)을 '뺄 줄'(drop)로 돌려준다. 줄이 없으면 AI를 부르지 않는다. 기록에는 숫자만.
@@ -5181,6 +5319,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "file_name") return await runFileName(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "journal_memorable") return await runJournalMemorable(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "work_scope") return await runWorkScope(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "next_week_sheet") return await runNextWeekSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "pre_meeting_sheet") return await runPreMeetingSheet(ctx, input, { env: deps.env, now, sleep, log, doFetch });

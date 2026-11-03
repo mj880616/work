@@ -692,3 +692,8 @@
 #appView #homeView .weekly-flow-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 #appView #homeView .weekly-flow-confirm-state{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #homeView .weekly-flow-confirm-slot .journal-hwpx-panel{ padding:0; border:0; background:transparent; }
+#appView #homeView .journal-memorable-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:0 0 4px; }
+#appView #homeView .journal-memorable-actions .journal-item-more{ display:inline-flex; gap:4px; align-items:center; }
+#appView #homeView .journal-memorable-org{ font-weight:var(--ds-weight-medium); }
+#appView #homeView .journal-memorable-edit{ display:flex; gap:4px; width:100%; }
+#appView #homeView .journal-memorable-edit input{ flex:1; min-width:0; }

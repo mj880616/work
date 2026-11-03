@@ -3848,3 +3848,64 @@ test('[업무일지] 연 화면 유지: 탭을 갔다 오면 기다림 표시 �
  await page.unroute(rest,hold);
  expect(f.errors).toEqual([]);
 });
+
+// S49-13 JOURNAL-기억할통화텔레그램: 하루 카드 주간보고 재료의 네 번째 묶음. 서버가 고른 줄(표 app_journal_memorable)이 보이고,
+// 넣기·고쳐서 넣기·빼기(이유 선택)는 서버 표에 저장되며, 운영자 기능이 없으면 묶음이 없고, 화면을 열 때마다 AI를 부르는 것은 서버가 1시간으로 막는다.
+test('[하루] 기억할 통화·텔레그램: 줄·"10:00 기준"이 보이고, 넣기·고쳐서 넣기·빼기가 서버 표에 저장된다',async({page})=>{
+ await fixture(page,{width:1280});
+ const table=[
+  {id:'m1',source:'call',feed_item_id:'f1',org_name:'가상지부',line:'교섭 일정 확정함.',status:'suggested',final_line:null},
+  {id:'m2',source:'telegram',feed_item_id:'f2',org_name:null,line:'파업 찬반투표 일정 공유됨.',status:'suggested',final_line:null},
+ ];
+ const patches=[],asked=[];
+ await page.route(SB+'/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['calls','telegram']}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_journal_memorable',async r=>{
+  if(r.request().method()==='PATCH'){
+   const id=new URL(r.request().url()).searchParams.get('id').replace(/^eq\./,''),body=r.request().postDataJSON();
+   patches.push({id,body});Object.assign(table.find(x=>x.id===id),body);
+   return r.fulfill({json:[]});
+  }
+  return r.fulfill({json:table});
+ });
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_journal_memorable_runs',r=>r.fulfill({json:[{last_run_at:'2026-10-06T01:00:00Z'}]}));
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{
+  const body=r.request().postDataJSON();if(body.kind!=='journal_memorable')return r.fallback();
+  asked.push(body);return r.fulfill({json:{ok:true,kind:'journal_memorable',day:body.day,skipped:'fresh'}});
+ });
+ await openJournal(page,1280);
+ const box=group(page,'memorable');
+ await expect(box).toBeVisible();
+ await expect(box.locator('h5')).toContainText('기억할 통화·텔레그램');
+ await expect(box.locator('[data-journal-memorable-asof]')).toHaveText('10:00 기준');
+ await expect(box.locator('[data-journal-memorable]')).toHaveCount(2);
+ await expect(box.locator('[data-journal-memorable="m1"]')).toContainText('가상지부 교섭 일정 확정함.');
+ expect(asked).toEqual([{kind:'journal_memorable',day:'2026-10-06'}]);
+ // 넣기 → 서버 표 status=kept.
+ await box.locator('[data-memorable-keep="m1"]').click();
+ await expect.poll(()=>patches.length).toBe(1);
+ expect(patches[0]).toMatchObject({id:'m1',body:{status:'kept',final_line:null,drop_reason:null}});
+ await expect(box.locator('[data-journal-memorable="m1"] [data-memorable-kept]')).toBeVisible();
+ // 고쳐서 넣기 → 고친 글이 final_line.
+ await box.locator('[data-memorable-fix="m2"]').click();
+ await box.locator('[data-memorable-input]').fill('파업 찬반투표 일정 공유함.');
+ await box.locator('[data-memorable-edit] button[type="submit"]').click();
+ await expect.poll(()=>patches.length).toBe(2);
+ expect(patches[1]).toMatchObject({id:'m2',body:{status:'kept',final_line:'파업 찬반투표 일정 공유함.'}});
+ await expect(box.locator('[data-journal-memorable="m2"]')).toContainText('파업 찬반투표 일정 공유함.');
+ // 빼기(이유 선택) → 그 줄이 사라진다.
+ await box.locator('[data-journal-memorable="m1"] summary').click();
+ await box.locator('[data-memorable-drop="m1"][data-reason="중복"]').click();
+ await expect.poll(()=>patches.length).toBe(3);
+ expect(patches[2]).toMatchObject({id:'m1',body:{status:'dropped',drop_reason:'중복'}});
+ await expect(box.locator('[data-journal-memorable]')).toHaveCount(1);
+});
+test('[하루] 기억할 통화·텔레그램: 운영자 기능이 없는 작업공간에는 묶음도 AI 요청도 없다',async({page})=>{
+ await fixture(page,{width:1280});
+ const asked=[];
+ await page.route(SB+'/rest/v1/rpc/app_my_features',r=>r.fulfill({json:[]}));
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{const body=r.request().postDataJSON();if(body.kind!=='journal_memorable')return r.fallback();asked.push(body);return r.fulfill({json:{ok:true,kind:'journal_memorable',day:body.day,skipped:'not_allowed'}});});
+ await openJournal(page,1280);
+ await expect(page.locator('#journalRoot [data-journal-report]')).toBeVisible();
+ await expect(group(page,'memorable')).toHaveCount(0);
+ expect(asked).toEqual([]);
+});
