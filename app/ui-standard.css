@@ -487,7 +487,7 @@
 .account-panel .account-action{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
 .account-panel [data-kptu-logout]{ color:var(--kptu-danger); }
 /* S49-8 UI-로그아웃자리: PC 계정 메뉴에서도 [로그아웃]은 맨 끝·오른쪽·작게(폭 가득 줄 아님). */
-.account-panel > [data-kptu-logout]{ width:fit-content; min-height:32px; margin-left:auto; padding:4px 10px; }
+.account-panel > [data-kptu-logout]{ width:fit-content; margin-left:auto; padding:4px 10px; }
 
 /* 메뉴 판(폰 [메뉴] 탭): 제목 18px, 항목은 메뉴 줄(44px·13px·400, 줄 사이 0.5px), "계정"은 섹션 이름. */
 #appView .mobile-menu-panel .mobile-menu-head b{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
