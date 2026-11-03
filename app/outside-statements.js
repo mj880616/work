@@ -311,6 +311,7 @@ function setTab(tab, {focus = false, save = true} = {}) {
   if (changed && tab === 'saved') { saved.paint(); saved.load(); }
   if (save && viewPrefs.get('now_tab') !== tab) { viewPrefs.set('now_tab', tab, {rejectable: true}); void viewPrefs.flush?.(); }
   if (focus) root?.querySelector(`[data-os-tab="${tab}"]`)?.focus({preventScroll: true});
+  autoOpenTop();
 }
 
 function paint() {

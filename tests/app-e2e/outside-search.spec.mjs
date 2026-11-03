@@ -138,7 +138,7 @@ for (const width of [412, 1280]) {
 
     // 폰은 좌우 밀기로 탭 이동(오른쪽으로 밀면 바로 앞 탭 [보관], S48-27 Now 탭 넷). PC는 화살표 키.
     if (width <= 760) {
-      await box.locator('.osq-outside .osq-head').evaluate(el => {
+      await root.locator('[data-os-tabs]').evaluate(el => { // 탭 이동 밀기는 탭 줄 위에서만(NOW-줄밀기)
         const t = (type, x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 });
         el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t('touchstart', 60)], changedTouches: [t('touchstart', 60)] }));
         el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t('touchend', 300)] }));
