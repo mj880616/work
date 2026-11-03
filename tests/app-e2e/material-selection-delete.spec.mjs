@@ -27,7 +27,7 @@ const meeting={id:'meeting-1',workspace_id:'ws',title:'자료 확인 회의',ser
 
 async function boot(page,width){
   await page.setViewportSize({width,height:900});
-  const state={docs:['first.pdf','second.pdf'].map((name,i)=>({id:'doc-'+i,workspace_id:'ws',meeting_id:meeting.id,file_name:name,title:name,category:'회의자료',tags:[],created_at:'2026-10-10T00:00:00Z'})),deletes:[],uploads:[],error:null,hold:false,release:null,errors:[],refreshes:0,deleteStatus:200,deletePayload:{ok:true}};
+  const state={docs:['first.pdf','second.pdf'].map((name,i)=>({id:'doc-'+i,workspace_id:'ws',meeting_id:meeting.id,file_name:name,title:name,category:'회의자료',tags:[],created_at:'2026-10-10T00:00:00Z'})),deletes:[],uploads:[],error:null,hold:false,release:null,errors:[],refreshes:0,deleteStatus:200,deletePayload:{ok:true},meetingPatches:[]};
   page.on('pageerror',e=>state.errors.push(e.message));
   page.on('console',m=>{if(m.type()==='error')state.errors.push(m.text())});
   await page.route(`${SB}/**`,async route=>{
@@ -37,7 +37,7 @@ async function boot(page,width){
     if(path==='/auth/v1/user')return ok({id:'owner',email:'owner@example.org'});
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'ws',user_id:'owner',role:'owner',workspace:{id:'ws',name:'테스트'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'ws',name:'테스트'}]);
-    if(path==='/rest/v1/app_meetings')return ok([{...meeting,...(req.method()==='POST'?req.postDataJSON():{})}]);
+    if(path==='/rest/v1/app_meetings'){if(req.method()==='PATCH')state.meetingPatches.push(req.postDataJSON());return ok([{...meeting,...(['POST','PATCH'].includes(req.method())?req.postDataJSON():{})}]);}
     if(path==='/rest/v1/app_documents'){
       const id=url.searchParams.get('id')?.replace(/^eq\./,''),mid=url.searchParams.get('meeting_id')?.replace(/^eq\./,'');
       return ok(state.docs.filter(d=>(!id||d.id===id)&&(!mid||d.meeting_id===mid)));
@@ -187,6 +187,38 @@ for(const width of [390,1280]){
     expect(state.uploads[0].raw).toContain('name="meeting_id"');
     expect(state.uploads[0].raw).toContain('keep.pdf');
     expect(state.uploads[0].raw).not.toContain('remove.pdf');
+    expect(state.errors).toEqual([]);
+  });
+
+  // HOTFIX-회의첨부칸(S48-51): ⋯ [수정]으로 고치는 화면이 되어도 사진·회의자료 첨부 칸이 그대로 보이고, 거기서 올린 파일은 수정 저장 뒤 보는 화면에 남는다.
+  test(`meeting edit screen keeps the attach area: pick file → save → file shows in view ${width}px`,async({page})=>{
+    const state=await boot(page,width);
+    await openMeetingResult(page,'meeting-1');
+    const modal=page.locator('#meetingRoundDetailModal');
+    await expect(modal.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
+    await modal.locator('#mrdMore').click();
+    await modal.locator('#mrdMoreMenu [data-mrd-more="edit"]').click();
+    await expect(modal.locator('#mrdEditor')).toBeVisible();await expect(modal.locator('#mrdView')).toBeHidden();
+    const attach=modal.locator('#mrdEditor #mrdEditAttach');
+    await expect(attach).toBeVisible();
+    await expect(attach.locator('#mrdPickFiles')).toBeVisible();await expect(attach.locator('#mrdPickPhotos')).toBeVisible();
+    await expect(attach.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
+    await attach.locator('#mrdPickFiles').click();
+    await expect(page.locator('#documentModal')).toBeVisible();
+    await page.locator('#libraryFileInput').setInputFiles([file('edit-added.pdf')]);
+    await page.locator('#saveDocumentBtn').click();
+    await expect(page.locator('#documentModal')).toBeHidden();
+    await expect.poll(()=>state.uploads.length).toBe(1);
+    expect(state.uploads[0].raw).toContain('name="meeting_id"');expect(state.uploads[0].raw).toContain('edit-added.pdf');
+    await expect(modal.locator('#mrdEditor')).toBeVisible();
+    await expect(attach.locator('#mrdMaterials .mrd-file-row')).toHaveCount(3);
+    await modal.locator('#mrdEditTitle').fill('자료 확인 회의 고침');
+    await modal.locator('#mrdSaveEdit').click();
+    await expect.poll(()=>state.meetingPatches.length).toBe(1);
+    await expect(modal.locator('#mrdEditor')).toBeHidden();await expect(modal.locator('#mrdView')).toBeVisible();
+    await expect(modal.locator('#mrdView #mrdMaterials .mrd-file-row')).toHaveCount(3);
+    await expect(modal.locator('#mrdView #mrdMaterials')).toContainText('edit-added.pdf');
+    await expect(modal.locator('#mrdEditAttach #mrdMaterials')).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
 

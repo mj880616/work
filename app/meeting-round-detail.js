@@ -71,7 +71,7 @@ function mrdEnsureMoreMenu(){
 }
 function mrdSetEdit(on){if(!on){mrdEditSequence++;mrdEditor=null;mrdSummaries?.clear();mrdLeaveClear();mrdEditHistoryEnd()}document.querySelector('#mrdView')?.classList.toggle('hidden',on);document.querySelector('#mrdEditor')?.classList.toggle('hidden',!on);mrdPaintMore(on);mrdPlaceActions(on);mrdPlaceAttach(on)}
 // HOTFIX-회의첨부칸(S48-51): 사진·회의자료 줄(+ 올리기·목록)은 보는 화면(#mrdView) 안에만 있어서, [수정]으로 보는 화면이 고치는 화면(#mrdEditor)으로
-// 바뀌면 첨부 칸이 통째로 안 보였다(#1351 이후 PC 칸에서 그 자리 고치기). 요소 한 벌을 고치는 동안만 #mrdEditAttach로 옮기고 끝나면 제자리(#mrdView 끝)로 돌린다.
+// 바뀌면 첨부 칸이 통째로 안 보였다(PR 1351 MTG-고치기바로 이후 PC 칸에서 그 자리 고치기). 요소 한 벌을 고치는 동안만 #mrdEditAttach로 옮기고 끝나면 제자리(#mrdView 끝)로 돌린다.
 // 그리는 곳·올리는 길(mrdAddFiles·mrdAddPhotos)·저장은 그대로이며, 옮길 때만 건드린다(mrdPlaceActions와 같은 방식).
 let mrdAttachInEditor=false;
 function mrdPlaceAttach(on){
