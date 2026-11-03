@@ -1,4 +1,4 @@
-import {waitHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // BASKET-정리함이름: the 정리함's [챙길 것] side (basket.js owns the screen, this module owns what is inside the side).
 // One list of the "챙길 것" candidates the server found in the Web2 records (todo-radar-data.js, table app_todo_candidates, the
 // owner's own rows only). Chips narrow it: 처리 전 / 할 일로 보냄 / 무시함. Each open row has the source on the left (a small button that
@@ -89,7 +89,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     else if (linking.has(c.id)) {
       // ⋯ [이미 할 일에 있음]: 제목이 비슷한 열린 할 일 몇 개를 보여 주고 하나를 고르면 그 할 일과 이어 두고 챙길 것에서 뺀다. 새 할 일은 만들지 않는다.
       const l = linking.get(c.id), dis = isBusy ? ' disabled' : '';
-      const picks = l.tasks === null ? '<span class="inbox-todo-status">할 일 목록 읽는 중…</span>'
+      const picks = l.tasks === null ? waitInlineHtml()
         : l.tasks.length ? `<ul class="inbox-todo-link-list" aria-label="비슷한 할 일">${l.tasks.map(t => `<li><button type="button" class="inbox-todo-btn inbox-todo-link-pick" data-inbox-todo-link-task="${esc(t.id)}" data-inbox-todo-link-for="${id}"${dis}>${esc(t.title)}</button></li>`).join('')}</ul>`
         : `<span class="inbox-todo-status">${l.failed ? '할 일 목록을 읽지 못했어요.' : '비슷한 할 일을 못 찾았어요.'}</span>`;
       below = `<div class="inbox-todo-link" data-inbox-todo-link="${id}"><p class="inbox-todo-link-head">이미 있는 할 일 고르기</p>${picks}<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-link-cancel="${id}"${dis}>취소</button></span></div>`;
