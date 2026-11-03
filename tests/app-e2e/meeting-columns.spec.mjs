@@ -180,7 +180,7 @@ test('PC: 차수·종류·결과 글이 길어도 칸 안 스크롤 없이 화�
   // 화면(문서)만 세로로 넘어가고, 가로 넘김은 없다. 문서 밖 스크롤 틀은 사이드바뿐이다.
   const doc=await page.evaluate(()=>({w:document.documentElement.scrollWidth-innerWidth,h:document.documentElement.scrollHeight-innerHeight}));
   expect(doc.w).toBeLessThanOrEqual(0);expect(doc.h).toBeGreaterThan(200);
-  expect(await page.evaluate(()=>[...document.querySelectorAll('#meetingsView *')].filter(e=>/(auto|scroll)/.test(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+4&&e.getClientRects().length).map(e=>e.className))).toEqual([]);
+  expect(await page.evaluate(()=>[...document.querySelectorAll('#meetingsView *')].filter(e=>/(auto|scroll)/.test(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+4&&e.getClientRects().length&&!e.classList.contains('kptu-follow-pane')).map(e=>e.className))).toEqual([]);
   // 결과 칸은 화면에 붙어 따라온다: 화면을 내려도 결과 칸 일부가 늘 화면 안에 있다.
   await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
   await expect(page.locator('#meetingList .mcol-result')).toBeInViewport();
@@ -202,7 +202,9 @@ test('PC 1440: 사업 보고 결과 칸(mrd-docked)은 따로 스크롤 없이 �
   const body=page.locator('#meetingList #meetingRoundDetailModal.mrd-docked');await expect(body).toBeVisible();
   expect(await innerScrollers(page,'#meetingsView')).toEqual([]);
   await expect(body).toHaveCSS('overflow-y','visible');await expect(page.locator('#meetingList .mcol-result')).toHaveCSS('position','sticky');
-  const d=await docScroll(page);expect(d.over).toBeGreaterThan(500);expect(d.wide).toBeLessThanOrEqual(0);
+  // UI-상세칸고정(2026-11-03): 결과가 길면 문서가 아니라 결과 칸(.mcol-result)만 따로 넘어간다.
+  const pm=await page.locator('#meetingList .mcol-result').evaluate(e=>({over:e.scrollHeight-e.clientHeight,oy:getComputedStyle(e).overflowY}));expect(pm.oy).toBe('auto');expect(pm.over).toBeGreaterThan(300);
+  const d=await docScroll(page);expect(d.wide).toBeLessThanOrEqual(0);
   // 끝까지 내려도 결과 칸 머리줄(제목·⋯)은 화면 위에 붙어 보인다.
   await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
   await expect(body.locator('.modal-head')).toBeInViewport();

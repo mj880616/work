@@ -119,7 +119,7 @@ test('PC 1280: a record opens the update with "‹ (organization)" in the head; 
  await row(page,'ob').click();await expect(title(page)).toHaveText('합성 나 지부');
  await row(page,'oa').click();await expect(title(page)).toHaveText('합성 가 지부');
  const line=page.locator('#wdModal [data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
- const before=await scrollToRecord(page,line);/* UI-칸안스크롤하나로: 화면 스크롤 하나(상세 칸은 따로 스크롤 없음) */expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(100);expect(await pane(page).evaluate(el=>el.scrollTop)).toBe(0);
+ const before=await scrollToRecord(page,line);/* UI-상세칸고정: 긴 상세는 그 칸만 스크롤한다 */expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
  for(const how of ['button','back','browser']){
   await line.click();
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
@@ -211,10 +211,11 @@ test('PC 1440: 담당조직 목록·상세 칸 안에 따로 스크롤이 없고
  expect(await innerScrollers(page,'#teamView')).toEqual([]);
  await expect(page.locator('#soOrganizationList')).toHaveCSS('overflow-y','visible');
  await expect(pane(page)).toHaveCSS('overflow-y','auto');await expect(pane(page)).toHaveCSS('position','sticky');// UI-상세칸고정: 상세 칸은 제자리, 길면 칸만 스크롤
- const d=await docScroll(page);expect(d.over).toBeGreaterThan(100);expect(d.wide).toBeLessThanOrEqual(0);
+ const d=await docScroll(page);expect(d.wide).toBeLessThanOrEqual(0);
+ const y0=(await pane(page).boundingBox()).y;
  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
- expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(100);await expect(pane(page)).toBeInViewport();
- // UI-상세칸고정(2026-11-03): 목록을 끝까지 내려도 상세 칸은 화면 위쪽(12px)에 제자리다.
- const bb=await pane(page).boundingBox();expect(bb.y).toBeGreaterThanOrEqual(0);expect(bb.y).toBeLessThanOrEqual(16);
+ await expect(pane(page)).toBeInViewport();
+ // UI-상세칸고정(2026-11-03): 목록을 끝까지 내려도 상세 칸은 처음 자리보다 내려가지 않고 화면 안에 제자리다.
+ const bb=await pane(page).boundingBox();expect(bb.y).toBeGreaterThanOrEqual(0);expect(bb.y).toBeLessThanOrEqual(y0+1);
  expect(errors).toEqual([]);
 });
