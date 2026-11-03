@@ -100,7 +100,7 @@ function renderList() {
     // UI-전수디자인점검 F12: the phone head line and the PC top line already name the screen; the body title is the shared
     // .screen-title (screen readers only, every width). No count beside it (the list itself shows the rows).
     el('h2', {class:'screen-title'}, '공유 페이지'),
-    el('div', {class:'sp-head-actions'},
+    el('div', {class:'sp-head-actions btn-row'},
       el('button', {type:'button', class:'secondary', 'aria-label':'새 HTML 공유 페이지', dataset:{spNewHtml:''}, text:'+ HTML'}),
       el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'})));
   const body = [];

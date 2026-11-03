@@ -11,7 +11,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const user = {id:'census-user', email:'census@example.org', user_metadata:{display_name:'버튼 전수'}};
 const WS = 'census-workspace';
-const REPORT_ONLY = true; // 첫 수집용. 기준 확정 뒤 false로.
+const REPORT_ONLY = false;
 const VIEWS = ['home', 'calendar', 'tasks', 'basket', 'library', 'meetings', 'team', 'pages', 'files', 'photos', 'ledger', 'arsenal', 'diary'];
 
 function mockApp(page) {
@@ -75,12 +75,14 @@ for (const width of [390, 1280]) test('버튼 전수 수집 ' + width, async ({p
   console.log('[census] ' + width + ' skipped=' + skipped.join(',') + ' total=' + all.length);
   expect(errors).toEqual([]);
   if (REPORT_ONLY) return;
+  // 단추 모양(모서리가 둥근 것)만 잰다. 줄 전체를 누르는 목록 줄(모서리 0)·첨부 클립은 버튼 모양이 아니다.
+  const shaped = b => !b.icon && b.br !== '0px' && b.br !== '50%' && !/basket-clip/.test(b.cls);
   // 규칙 1: 글자 버튼 굵기는 400·500만(굵은 700 버튼 없음), 글자는 14px 이하.
-  const heavy = all.filter(b => !b.icon && (Number(b.fw) > 500 || parseFloat(b.fs) > 14));
+  const heavy = all.filter(b => shaped(b) && (Number(b.fw) > 500 || parseFloat(b.fs) > 14));
   expect(heavy.map(b => `${b.view} ${b.label} ${b.fs}/${b.fw}`), '굵거나 큰 글자 버튼').toEqual([]);
   // 규칙 2: 같은 줄의 글자 버튼은 높이·글자 크기·굵기·모서리가 하나.
   const rows = new Map();
-  for (const b of all.filter(b => !b.icon)) { const k = b.view + '|' + b.row; if (!rows.has(k)) rows.set(k, []); rows.get(k).push(b); }
+  for (const b of all.filter(shaped)) { const k = b.view + '|' + b.row; if (!rows.has(k)) rows.set(k, []); rows.get(k).push(b); }
   const odd = [];
   for (const [k, list] of rows) {
     if (list.length < 2) continue;
