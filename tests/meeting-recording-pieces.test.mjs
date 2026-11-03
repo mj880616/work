@@ -166,3 +166,19 @@ test('Edge: 조각 길이를 고정으로 쓰는 곳 없음, 공용 이어 붙�
   assert.doesNotMatch(js,/rec\.start\(PIECE_SECONDS/);
   assert.match(js,/shouldRoll\(segSec,SEGMENT_SECONDS,current\.seg\.seq,rollPieces\)/);
 });
+
+test('liveSessions(S49-7): 열린 구간이 7분 안쪽이면 live로 따로 주고(새로고침 직후 이어 녹음), 조용해지면 pendingSessions로 넘어간다',()=>{
+  const now=new Date('2026-11-03T05:00:00Z');
+  const mk=(mins,extra={})=>({session_id:'S',segment_no:1,status:'recording',duration_sec:3000,created_at:'2026-11-03T04:00:00Z',updated_at:new Date(now.getTime()-mins*60000).toISOString(),...extra});
+  const fresh=r.liveSessions([mk(1)],now);
+  assert.equal(fresh.length,1);
+  assert.equal(fresh[0].session_id,'S');assert.equal(fresh[0].idle_sec,60);assert.equal(fresh[0].duration_sec,3000);
+  assert.equal(r.pendingSessions([mk(1)],[],now).length,0);
+  assert.deepEqual(r.liveSessions([mk(8)],now),[]);
+  assert.equal(r.pendingSessions([mk(8)],[],now).length,1);
+  assert.deepEqual(r.liveSessions([mk(1,{status:'closed'})],now),[]);
+  assert.deepEqual(r.liveSessions([mk(1,{status:'failed'})],now),[]);
+  assert.deepEqual(r.liveSessions(null,now),[]);
+  const index=readFileSync(new URL('../supabase/functions/meeting-transcribe/index.ts',import.meta.url),'utf8');
+  assert.match(index,/sessions: pendingSessions\(rows \|\| \[\], jobs, now\), live: liveSessions\(rows \|\| \[\], now\)/);
+});
