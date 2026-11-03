@@ -17,6 +17,7 @@
    │              └► 기존 전사 작업 표 app_meeting_transcribe_jobs 한 행(uploaded) ── 조각은 Drive 휴지통
    ├─ 구간마다 기존 ?action=transcribe(이미 있는 길, 명진 Gemini 키, 사용량 기록 포함)
    ├─ 화면이 구간 글을 순서대로 합침 → 기존 '전사 글 → 회의 기록 초안'(meeting-ai-draft 새 회의 길)
+   ├─ (S48-64) 합친 전사 전문은 입력 창 '회의록 전문' 칸(app_meetings.notes)에 먼저 들어가고, 긴 글은 나눠 요약(meeting-ai-draft stage part·merge)
    └─ 사업 보고 › 회의 입력 창이 초안을 채운 채 열림 → 명진이 보고 [사업 보고 저장] → (기존) 녹음 링크 붙이기
 ```
 

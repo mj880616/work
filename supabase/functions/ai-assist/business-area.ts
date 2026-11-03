@@ -127,7 +127,8 @@ export function areaOptions(rows: unknown): AreaOption[] {
 export type AreaReport = { id: string; day: string; at: number; kind: string; title: string; text: string; updated: string };
 const ACTIVITY = new Set(["meeting", "policy", "negotiation", "press", "assembly", "struggle", "education", "other"]);
 const field = (v: unknown) => (typeof v === "string" ? v : "");
-// app_meetings 행 하나 → 보낼 모양(글은 연락처를 지우고 1200자). 날짜는 한국 날짜.
+const AREA_REPORT_NOTES_CHARS = 300;
+// app_meetings 행 하나 → 보낼 모양(글은 연락처를 지우고 1200자, 특이사항·회의록 전문은 그중 300자까지). 날짜는 한국 날짜.
 export function reportOf(row: Record<string, unknown>, kstDay: (ms: number) => string): AreaReport | null {
   const at = typeof row.meeting_at === "string" ? Date.parse(row.meeting_at) : NaN;
   if (!UUID.test(String(row.id ?? "")) || !Number.isFinite(at)) return null;
@@ -135,8 +136,9 @@ export function reportOf(row: Record<string, unknown>, kstDay: (ms: number) => s
   const parts = [
     field(row.transcript_text).trim() && `결과: ${field(row.transcript_text).trim()}`,
     field(row.decisions).trim() && `결정: ${field(row.decisions).trim()}`,
-    field(row.notes).trim() && `특이사항: ${field(row.notes).trim()}`,
     field(row.next_plan).trim() && `다음 할 일: ${field(row.next_plan).trim()}`,
+    // S48-64: [회의] 칸의 이 칸은 '회의록 전문'(전사 전문)이 된다. 맨 뒤에 짧게만 붙여 결과·결정·다음 할 일을 밀어내지 않는다.
+    field(row.notes).trim() && `특이사항: ${cut(field(row.notes).trim(), AREA_REPORT_NOTES_CHARS)}`,
   ].filter(Boolean) as string[];
   const text = cut(scrub(parts.join("\n")).replace(CONTROL_ALL, " "), AREA_SUMMARY_REPORT_CHARS).trim();
   const kind = typeof row.activity_kind === "string" && ACTIVITY.has(row.activity_kind) ? row.activity_kind : "other";

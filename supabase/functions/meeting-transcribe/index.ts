@@ -6,7 +6,8 @@
 //   upload     몸통 = 녹음 파일 그대로     → 명진 Drive '웹2/회의자료/회의 녹음' 폴더에 올리고 작업 한 행(uploaded). 머리글
 //              x-workspace-id, x-file-name(encodeURIComponent), x-duration-sec(화면이 잰 길이, 없을 수 있음), Content-Length 필수.
 //   transcribe {job_id}                  → Drive에서 읽어 Gemini Files에 올리고 전사(통화 전사와 같은 설정) → 글을 이 응답으로만 돌려준다.
-//              작업 행은 진행 중 → 끝/실패. 전사 글은 어디에도 저장하지 않는다(화면이 회의 기록 초안 흐름으로 넣는다).
+//              작업 행은 진행 중 → 끝/실패. 이 함수는 전사 글을 저장하지 않는다. 화면이 그 글을 회의 입력 창의 '회의록 전문' 칸
+//              (app_meetings.notes)에 넣어 [사업 보고 저장] 때 회의와 함께 남긴다(S48-64, 명진 11/03 지시 '전사 전문 저장 허용').
 //              사용량은 기존 app_ai_external_usage에 ref 'mtg-…'로 넣는다(홈 AI 사용량 줄·월 상한이 같은 기록을 셈).
 //   attach     {job_id, meeting_id}      → 끝난 녹음을 그 회의 자료로 링크(app_documents 한 행, 원본은 Drive 그대로).
 // MTG-노트북녹음 1단계(노트북 Web2 [녹음], 설계 docs/design/laptop-recording.md, 표 app_meeting_recordings):

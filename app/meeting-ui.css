@@ -462,3 +462,12 @@ button.record-raw-toggle,button.record-big-write{display:inline-flex;align-items
 button.record-raw-toggle[aria-pressed="true"]{color:var(--kptu-ink);background:var(--kptu-surface-subtle);border-color:var(--kptu-border)}
 button.record-big-write{margin-left:4px;vertical-align:middle}
 :is(button.record-raw-toggle,button.record-big-write):hover{color:var(--kptu-ink)}
+/* S48-64: [원문]/[서식]은 아이콘 대신 작은 글자 버튼(무슨 일인지 보이게). */
+button.record-raw-toggle{font-size:12px;font-weight:500;line-height:1}
+/* S48-64: '회의록 전문'([회의] 칸)·특이사항 접기. 머리줄 한 줄 = 이름 · 글자 수 · [원문]. 펼침 표시는 이름 앞 작은 ▸/▾. */
+.mrd-special-fold>summary{cursor:pointer;list-style:none}
+.mrd-special-fold>summary::-webkit-details-marker{display:none}
+.mrd-special-fold>summary h3::before{content:'▸';display:inline-block;width:1em;color:var(--kptu-muted);font-size:.8em}
+.mrd-special-fold[open]>summary h3::before{content:'▾'}
+.mrd-special-fold:not([open])>summary{margin-bottom:0}
+.mrd-special-size{margin-right:auto;margin-left:var(--kptu-space-2,8px);color:var(--kptu-muted);font-size:12px}

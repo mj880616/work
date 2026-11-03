@@ -1,11 +1,12 @@
 // MTG-녹음초안(2026-10-29 사용자 결정): 사업 보고 › [회의] 입력 창의 [녹음·전사 넣기].
 // 녹음은 각 기기 앱으로 자유롭게 하고, 끝난 전사 글(붙여 넣기·txt 등 파일)을 넣으면 AI가 회의 기록 초안을 채운다.
-// - 요약은 기존 Edge meeting-ai-draft의 '새 회의' 길(meeting_id 없음 = 서버에 저장하지 않음)을 그대로 쓴다. DB·Edge 변경 없음.
+// - 요약은 기존 Edge meeting-ai-draft의 '새 회의' 길(meeting_id 없음 = 서버에 저장하지 않음)을 쓴다. 긴 글은 나눠 요약(stage part·merge, S48-64).
+// - 전사 전문은 '회의록 전문' 칸(app_meetings.notes)에 넣어 [사업 보고 저장] 때 회의와 함께 남긴다(S48-64, 명진 지시 '전사 전문 저장 허용').
 // - 채우는 곳은 입력 창의 기존 칸뿐이다: 일시(#meetingAt), 회의 결과 원문(#meetingTranscript: 참석·결정·공유),
 //   후속 할 일(task-workflow.js의 입력 줄 + [추가]를 그대로 눌러 같은 주인이 줄을 그린다). 저장은 명진이 [사업 보고 저장]으로 한다(자동 저장 없음).
 // - 이 모듈은 #mtdBar·#mtdPanel 두 곳만 그린다.
 // - 2단계(녹음 파일 → 전사): 녹음 파일을 고르면 [전사] → Edge meeting-transcribe가 명진 Drive에 올리고 Gemini로 전사해 글을 돌려준다.
-//   글은 전사 칸(#mtdText)에 넣고 바로 위 [초안 채우기]와 같은 흐름을 이어 부른다. 서버는 전사 글을 저장하지 않는다.
+//   글은 전사 칸(#mtdText)에 넣고 바로 위 [초안 채우기]와 같은 흐름을 이어 부른다. 전사 서버는 글을 저장하지 않고, 화면이 회의록 전문 칸에 넣는다.
 //   [이 회의에 녹음 붙이기]를 켜 두면 [사업 보고 저장] 뒤(kptu:record-saved) 그 회의 자료로 녹음 링크를 붙인다.
 //   붙이지 않은 녹음은 서버가 30일 뒤 Drive 휴지통으로 옮긴다(기기에는 아무것도 남기지 않음).
 // - MTG-노트북녹음 2단계: 노트북 [녹음](meeting-recorder.js)이 [멈추고 정리] 뒤 window.KPTUMeetingTranscriptDraft.fill로 합친 전사 글과
@@ -15,7 +16,7 @@ import {bindDropTarget} from './meeting-compact.js';
 import {waitInlineHtml} from './wait-state.js';
 import {toMeetingISO} from './meeting-time.js';
 import {isMeetingKind} from './report-words.mjs';
-import {MAX_TRANSCRIPT_FILE,MAX_TRANSCRIPT_CHARS,isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,pickMeetingAt,audioCheck,durationText,sizeText,transcribeFailText} from './meeting-transcript-model.mjs';
+import {MAX_TRANSCRIPT_FILE,MAX_TRANSCRIPT_CHARS,DRAFT_TIMEOUT_MS,splitTranscript,partsText,keepTranscript,draftFailText,isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,pickMeetingAt,audioCheck,durationText,sizeText,transcribeFailText} from './meeting-transcript-model.mjs';
 
 (()=>{
 'use strict';
@@ -175,6 +176,25 @@ function addAction(row){
   return true;
 }
 
+// S48-64(REC-전사원문저장): 전사 글은 요약 전에 '회의록 전문' 칸(#meetingNotes = app_meetings.notes)에 먼저 넣는다.
+// 요약이 실패해도 [사업 보고 저장]을 누르면 전문이 회의와 함께 남는다. 이미 쓴 글은 지우지 않고 아래에 덧붙인다.
+function keepFull(text){
+  const notes=$('#meetingNotes');if(!notes||!text)return;
+  const next=keepTranscript(notes.value,text);
+  if(next!==notes.value){notes.value=next;notes.dispatchEvent(new Event('input',{bubbles:true}))}
+}
+// 서버 요약 한 번. stage: ''(한 번에) | 'part'(긴 글의 한 조각) | 'merge'(조각 요약 합치기).
+function askDraft(rt,workspaceId,{text,stage='',part=0,parts=0}){
+  const at=$('#meetingAt')?.value||'';
+  return rt.api('/functions/v1/meeting-ai-draft',{method:'POST',singleFlight:false,timeoutMs:DRAFT_TIMEOUT_MS,body:{
+    workspace_id:workspaceId,project_id:null,
+    title:$('#meetingTitle')?.value.trim()||'회의',
+    meeting_at:at?toMeetingISO(at):new Date().toISOString(),
+    transcript_text:text,
+    ...(stage?{stage,part_no:part,part_count:parts}:{})
+  }});
+}
+
 async function run(){
   if(busy)return false;
   let ok=false;
@@ -184,18 +204,32 @@ async function run(){
   const workspaceId=context?.workspace?.id;
   if(!rt?.api||!workspaceId){status('로그인 상태를 확인하지 못했어요.','error');return false}
   const mine=++epoch,btn=$('#mtdRun');
+  keepFull(text);
   busy=true;if(btn){btn.disabled=true;btn.textContent='요약 중…'}
-  status(text.length>MAX_TRANSCRIPT_CHARS?`글이 길어 앞 ${MAX_TRANSCRIPT_CHARS.toLocaleString('ko-KR')}자만 요약해요. 요약 중…`:'요약 중… 1분쯤 걸릴 수 있어요.');
+  const pieces=splitTranscript(text);
+  const cutNote=text.length>MAX_TRANSCRIPT_CHARS?` 글이 길어 앞 ${MAX_TRANSCRIPT_CHARS.toLocaleString('ko-KR')}자만 요약해요.`:'';
   const at=$('#meetingAt')?.value||'';
+  const gone=()=>mine!==epoch||$('#meetingModal')?.classList.contains('hidden');
   try{
-    const data=await rt.api('/functions/v1/meeting-ai-draft',{method:'POST',body:{
-      workspace_id:workspaceId,project_id:null,
-      title:$('#meetingTitle')?.value.trim()||'회의',
-      meeting_at:at?toMeetingISO(at):new Date().toISOString(),
-      transcript_text:text.slice(0,MAX_TRANSCRIPT_CHARS)
-    }});
+    let data;
+    if(pieces.length<=1){
+      status(`요약 중… 1분쯤 걸릴 수 있어요.${cutNote}`);
+      data=await askDraft(rt,workspaceId,{text:pieces[0]||text});
+    }else{
+      // 긴 전사본: 조각마다 요약 → 조각 요약을 합쳐 한 번 더 요약. 조각 하나가 실패하면 멈춘다(넣은 글·전문 칸은 그대로).
+      const drafts=[];
+      for(let i=0;i<pieces.length;i++){
+        status(`긴 녹음이라 나눠 요약하는 중… ${i+1}/${pieces.length}${cutNote}`);
+        const part=normalizeDraft(await askDraft(rt,workspaceId,{text:pieces[i],stage:'part',part:i+1,parts:pieces.length}));
+        if(gone())return false;
+        if(part)drafts.push(part);
+      }
+      if(!drafts.length)throw new Error('invalid_meeting_draft');
+      status('나눠 요약한 것을 합치는 중…');
+      data=await askDraft(rt,workspaceId,{text:partsText(drafts),stage:'merge',parts:pieces.length});
+    }
     // 창을 닫았거나 다시 연 뒤에 온 답은 버린다.
-    if(mine!==epoch||$('#meetingModal')?.classList.contains('hidden'))return false;
+    if(gone())return false;
     const draft=normalizeDraft(data);
     if(!draft)throw new Error('invalid_meeting_draft');
     const next=pickMeetingAt({current:at,file:fileInfo,aiDate:draft.meetingDate,textDate:dateFromText(text)});
@@ -205,13 +239,13 @@ async function run(){
     const rows=actionRows(draft);let added=0;
     for(const row of rows)if(addAction(row))added++;
     const warn=(data?.warnings||[]).length;
-    status(`초안을 채웠어요${added?` · 후속 할 일 ${added}개`:''}${warn?` · 확인할 것 ${warn}건`:''}. 고친 뒤 [사업 보고 저장]을 누르세요.`,'ok');
+    status(`초안을 채웠어요${added?` · 후속 할 일 ${added}개`:''}${warn?` · 확인할 것 ${warn}건`:''} · 전사 전문은 '회의록 전문' 칸에. 고친 뒤 [사업 보고 저장]을 누르세요.`,'ok');
     toggle(false);
     ok=true;
   }catch(e){
     if(mine!==epoch)return false;
-    console.error('meeting transcript draft failed',e);
-    status(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':'초안을 만들지 못했어요. 넣은 글은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.','error');
+    console.error('meeting transcript draft failed',e?.code||e?.status||'');
+    status(`${draftFailText(e)} 전사 전문은 '회의록 전문' 칸에 들어 있어요.`,'error');
   }finally{
     if(mine===epoch){busy=false;if(btn){btn.disabled=false;btn.textContent='초안 채우기'}}
   }
