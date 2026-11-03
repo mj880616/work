@@ -311,7 +311,8 @@
 :is(.lu-bulk-menu) button[aria-current="true"] .lu-menu-key{display:inline;color:var(--kptu-primary-ink);font-weight:700}
 :is(.lu-bulk-menu) button:disabled{opacity:.55;cursor:default}
 #libraryListCard .lu-select-bar > *{flex:none;margin:0}
-#libraryListCard .lu-select-bar > .lu-select-acts{flex:1 1 auto;min-width:0}
+/* 자료실 바꾸기 칸은 펼침 표시(▾)가 붙어 낱말이 길다 — 같은 칸 최소 폭을 76px로(좁은 폰은 다음 줄도 같은 칸). */
+#libraryListCard .lu-select-bar > .lu-select-acts{flex:1 1 auto;min-width:0;--kptu-act-min:76px}
 .lu-select-bar[hidden]{display:none}
 .lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}
 .lu-select-count{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap;margin-right:4px}
