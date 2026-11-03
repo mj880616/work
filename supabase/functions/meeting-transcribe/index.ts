@@ -31,7 +31,7 @@ import {
 } from './model.mjs';
 import {
   PIECE_FOLDER, REC_DRIVE_PARALLEL, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_ROLL_PIECES, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
-  appendPatch, closePatch, combineWithin, discardPatch, discardPlan, joinPieces, mapLimit, nextSegment, ownRows, parsePiece, pendingSessions, pendingSince, pieceDecision,
+  appendPatch, closePatch, combineWithin, discardPatch, discardPlan, joinPieces, mapLimit, nextSegment, ownRows, parsePiece, liveSessions, pendingSessions, pendingSince, pieceDecision,
   pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
 } from './recording.mjs';
 import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
@@ -598,7 +598,7 @@ async function recPending(user: { id: string }, body: Record<string, unknown>) {
     if (jobError) throw new Fail('failed');
     jobs = data || [];
   }
-  return json({ ok: true, sessions: pendingSessions(rows || [], jobs, now) });
+  return json({ ok: true, sessions: pendingSessions(rows || [], jobs, now), live: liveSessions(rows || [], now) });
 }
 
 // ---- 버리기·되돌리기 ----

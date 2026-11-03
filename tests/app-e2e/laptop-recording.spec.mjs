@@ -30,7 +30,7 @@ async function fakeRecorder(page){
   });
 }
 
-async function mock(page,{pending=[],pieceFails=1,rec=null,server=false}={}){
+async function mock(page,{pending=[],live=[],pieceFails=1,rec=null,server=false}={}){
   const calls=[],meetingPosts=calls.meetingPosts=[];
   let pendingServed=false;
   await page.route(`${SB}/**`,async route=>{
@@ -48,7 +48,7 @@ async function mock(page,{pending=[],pieceFails=1,rec=null,server=false}={}){
       const headers=req.headers();
       const body=action==='rec_piece'?null:(()=>{try{return JSON.parse(req.postData()||'{}')}catch{return {}}})();
       calls.push({action,body,seq:headers['x-piece-seq']||'',rid:headers['x-recording-id']||'',type:headers['content-type']||''});
-      if(action==='rec_pending'){const sessions=typeof pending==='function'?pending(calls):pendingServed?[]:pending;pendingServed=true;return ok({ok:true,sessions})}
+      if(action==='rec_pending'){const sessions=typeof pending==='function'?pending(calls):pendingServed?[]:pending;pendingServed=true;return ok({ok:true,sessions,live:typeof live==='function'?live(calls):live})}
       if(action==='rec_discard')return ok({ok:true,session_id:body.session_id,discarded:1,trashed:true});
       if(action==='rec_restore')return ok({ok:true,session_id:body.session_id,restored:1});
       if(action==='rec_start'){
@@ -338,4 +338,81 @@ test('PC: 서버 정리(S49-2) — [멈추고 정리] 뒤 서버가 합치기·�
   expect(recCalls(calls,'transcribe').length).toBe(0);
   expect(calls.some(c=>c.action==='draft')).toBe(false);
   await expect.poll(()=>recCalls(calls,'job_opened').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000b1'}]);
+});
+
+// REC-새로고침(S49-7): 새로고침·창 닫기로 끊긴 녹음은 서버에 조각이 남아 있고(rec_pending의 live), 어느 화면에서든 맨 위 띠에서 이어 녹음·이어서 정리할 수 있다.
+// 브라우저 한계: 마이크는 새로고침에서 꺼진다. 되살리지 않고 같은 녹음(session)의 다음 구간으로 새 녹음기를 켠다.
+const minutesAgo=m=>new Date(Date.now()-m*60000).toISOString();
+test('PC: 새로고침 직후 어느 화면이든 맨 위 띠에 \'하던 녹음\' → [이어서 녹음]은 같은 녹음의 다음 구간으로, 띠 시간은 앞 길이에서 이어 센다',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1440,height:900});
+  const live=calls=>recCalls(calls,'rec_start').length?[]:[{session_id:LIVE,started_at:minutesAgo(52),duration_sec:3000,idle_sec:20,
+    segments:[{segment_no:1,status:'recording',job_id:null,job_status:null,duration_sec:3000}]}];
+  const calls=await signIn(page,{live,pieceFails:0,rec:{piece_seconds:60,segment_seconds:3540,max_pieces:60}});
+  // 사업 보고가 아닌 화면에서도 보인다.
+  await clickView(page,'library');
+  await expect(page.locator('#libraryView')).toBeVisible();
+  const band=page.locator('#recBand');
+  await expect(band).toBeVisible();
+  await expect(band.locator('.rec-label')).toHaveText('하던 녹음');
+  await expect(band).toContainText('50분');
+  const names=await band.getByRole('button').allTextContents();
+  expect(names).toEqual(['이어서 녹음','이어서 정리','버리기']);
+  const b=await band.boundingBox();
+  expect(b.y).toBe(0);expect(b.height).toBeLessThanOrEqual(32);
+  // 방금 끊긴 것인지 다른 곳에서 녹음 중인지 모르므로(idle 20초) 이어받기 전에 띠에서 한 번 묻는다(브라우저 확인창 없음). [취소]하면 그대로.
+  let dialogs=0;
+  page.on('dialog',async d=>{dialogs++;await d.dismiss()});
+  await band.getByRole('button',{name:'이어서 녹음'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('확인');
+  await expect(band).toContainText('다른 곳에서 지금 녹음 중이면 그쪽 녹음은 멈춰요');
+  expect(recCalls(calls,'rec_start').length).toBe(0);
+  await band.getByRole('button',{name:'취소'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('하던 녹음');
+  await band.getByRole('button',{name:'이어서 녹음'}).click();
+  await band.getByRole('button',{name:'계속'}).click();
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  expect(dialogs).toBe(0);
+  expect(recCalls(calls,'rec_start')[0].body).toEqual({workspace_id:'rec-ws',mime:'audio/webm',session_id:LIVE});
+  expect(recCalls(calls,'rec_finish').length).toBe(0);
+  await expect(band.locator('.rec-time')).toHaveText(/^50:0\d$/);
+  // 새 구간의 조각은 새 녹음 id로 올라가고, 길이는 구간 시작부터 잰다(앞 녹음 길이를 더하지 않음).
+  await page.evaluate(()=>window.__fakeRec.emit());
+  await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(1);
+  // 멈추고 정리: 같은 session 전체를 서버 정리로(끊긴 앞 구간 포함).
+  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
+});
+
+test('PC: 하던 녹음이 오래 조용하면(idle 5분) [이어서 정리]도 묻지 않고 바로 한다',async({page})=>{
+  test.setTimeout(45000);
+  await page.setViewportSize({width:1440,height:900});
+  const calls=await signIn(page,{live:[{session_id:LIVE,started_at:minutesAgo(10),duration_sec:300,idle_sec:300,
+    segments:[{segment_no:1,status:'recording',job_id:null,job_status:null,duration_sec:300}]}],pieceFails:0});
+  const band=page.locator('#recBand');
+  await expect(band.locator('.rec-label')).toHaveText('하던 녹음');
+  await band.getByRole('button',{name:'이어서 정리'}).click();
+  await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
+  expect(recCalls(calls,'rec_start').length).toBe(0);
+});
+
+test('PC: 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 없고 사업 보고 위 한 줄에만 있다',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await signIn(page,{pending:[{session_id:'s-old',started_at:minutesAgo(3*24*60),duration_sec:600,segments:[]}]});
+  await expect(page.locator('#recPendingLine')).toBeVisible();
+  await expect(page.locator('#recPendingLine').getByRole('button').allTextContents()).resolves.toEqual(['이어서 녹음','이어서 정리','버리기']);
+  await expect(page.locator('#recBand')).toBeHidden();
+});
+
+test('PC: 녹음 중 새로고침·창 닫기는 먼저 \'나가시겠어요?\' 확인(beforeunload)을 요청하고, 녹음 중이 아니면 요청하지 않는다',async({page})=>{
+  test.setTimeout(45000);
+  await page.setViewportSize({width:1440,height:900});
+  await signIn(page,{pieceFails:0});
+  const asks=()=>page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented});
+  expect(await asks()).toBe(false);
+  await page.locator('#reportRecordBtn').click();
+  await expect(page.locator('#recBand .rec-label')).toHaveText('녹음 중');
+  expect(await asks()).toBe(true);
+  await page.locator('#recBand').getByRole('button',{name:'일시정지'}).click();
+  expect(await asks()).toBe(true);
 });

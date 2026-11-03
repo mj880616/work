@@ -10,7 +10,7 @@
 // - 59분마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
 // - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [초안 채우기]
 //   (meeting-transcript-draft.js). 저장은 명진이 [사업 보고 저장]으로 하고, 그 뒤 구간마다 attach(기존 [이 회의에 녹음 붙이기]).
-import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan} from './meeting-recorder-model.mjs';
+import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
 import {notify} from './small-notice.js';
 import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry} from './meeting-server-job.mjs';
@@ -31,7 +31,7 @@ if(!document.querySelector('link[data-rec-style]')){const l=document.createEleme
 let state='idle',step='',note='',errorText='',canRetry=false;
 let stream=null,current=null,segments=[],sessionId='',workspaceId='',startedAt='';
 let rollingStops=[],accum=0,runSince=0,ticker=0,pumping=false,fails=0,retryTimer=0,drainWaiters=[],stopReason='';
-let pending=[],pendingFor='',pendingFlight=null,discarding=false;
+let takeover=null,pending=[],live=[],pendingFor='',pendingFlight=null,discarding=false,livePolls=0,livePollTimer=0;
 // REC-서버정리(S49-2): 지켜보는 서버 정리 작업 id·끝난 결과(띠 [초안 열기]), 지켜보기 세대(다른 정리를 시작하면 앞 것은 그만 봄).
 let jobId='',readyJob=null,watchEpoch=0,jobsLoadedFor='';
 let pieceMs=PIECE_SECONDS*1000,rollPieces=rollPiecesOf(null); // 이 녹음의 조각 간격·구간 조각 한도(rec_start 답, 녹음 내내 같음)
@@ -59,15 +59,27 @@ function band(){
   document.body.prepend(el);
   return el;
 }
+// REC-새로고침(S49-7): 녹음 중이 아닐 때 끝나지 않은 녹음(방금 새로고침·창 닫기로 끊긴 것 포함)이 있으면 어느 화면에서든 맨 위 띠에 보인다.
+function bandList(){return PC?.matches&&supported()&&state==='idle'&&!discarding?resumables(pending,live,sessionId):{top:[],old:[]}}
 function paint(){
-  const el=band(),on=state!=='idle';
+  const el=band(),list=bandList().top,showPending=!!list.length,on=state!=='idle'||showPending;
   el.hidden=!on;
   document.body.classList.toggle('rec-on',on);
-  el.dataset.state=state;
+  el.dataset.state=showPending?'pending':state;
   const label=el.querySelector('.rec-label'),time=el.querySelector('.rec-time'),msg=el.querySelector('.rec-note'),act=el.querySelector('.rec-actions');
   const sec=elapsed()/1000;
   let l='',t='',m='',a='';
-  if(state==='starting'){l='녹음 준비 중';m=escapeText('마이크를 허락해 주세요.')}
+  if(showPending&&takeover&&list.some(s=>s.session_id===takeover.id)){
+    l='확인';
+    m=escapeText('다른 곳에서 지금 녹음 중이면 그쪽 녹음은 멈춰요.');
+    a='<button type="button" class="rec-btn" data-rec-takeover="go">계속</button><button type="button" class="rec-btn" data-rec-takeover="cancel">취소</button>';
+  }else if(showPending){
+    takeover=null;
+    const first=list[0],id=escapeText(first.session_id);
+    l=first.live?'하던 녹음':'끝나지 않은 녹음';
+    m=escapeText(`${pendingText(first)}${list.length>1?` 외 ${list.length-1}건`:''}`);
+    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어서 녹음</button><button type="button" class="rec-btn" data-rec-resume="${id}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">버리기</button>`;
+  }else if(state==='starting'){l='녹음 준비 중';m=escapeText('마이크를 허락해 주세요.')}
   else if(state==='recording'||state==='paused'){
     l=state==='paused'?'일시정지':'녹음 중';
     t=clockText(sec);
@@ -90,7 +102,7 @@ function paint(){
   }
   setText(label,l);setText(time,t);setHtml(msg,m);setHtml(act,a);
   paintButton();
-  paintPending();
+  paintOldLine();
 }
 const escapeText=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 function paintButton(){
@@ -100,13 +112,14 @@ function paintButton(){
   btn.textContent=active()?'녹음 중':'녹음';
   btn.setAttribute('aria-pressed',String(active()));
 }
-function paintPending(){
+// 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 두지 않고 사업 보고 목록 위 한 줄에만 남긴다.
+function paintOldLine(){
   const line=$('#recPendingLine');if(!line)return;
-  const list=PC?.matches&&state==='idle'&&!discarding?pendingOthers(pending,sessionId):[];
+  const list=bandList().old;
   line.hidden=!list.length;
   if(!list.length){setHtml(line,'');return}
   const first=list[0];
-  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">버리기</button>`);
+  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어서 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">버리기</button>`);
 }
 function onBandClick(e){
   const b=e.target.closest('[data-rec]');if(!b)return;
@@ -118,7 +131,7 @@ function onBandClick(e){
   else if(what==='open')void openReady();
   else if(what==='close')closeBand();
 }
-function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';accum=0;runSince=0;readyJob=null;paint();paintPending()}
+function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';accum=0;runSince=0;readyJob=null;paint()}
 function startTicker(){clearInterval(ticker);ticker=setInterval(tick,1000)}
 function tick(){
   if(state==='recording'&&current&&!current.rolling){
@@ -155,12 +168,15 @@ function roll(){
   rollingStops.push(old.stopped);
   try{old.rec.stop()}catch{old.end()}
 }
-async function start(){
+// from = 끝나지 않은 녹음(rec_pending/live 한 건)이면 [이어서 녹음]: 같은 session_id의 다음 구간으로 새로 녹음한다(REC-새로고침, S49-7).
+// 새로고침·창 닫기로 끊긴 마이크는 되살릴 수 없으므로(브라우저 한계) 이미 올라간 조각은 그대로 두고 마이크만 다시 켠다. 띠 시간은 앞 녹음 길이에서 이어 센다.
+async function start(from=null){
   if(state!=='idle'&&state!=='done'&&state!=='error')return;
   if(!supported()||discarding)return;
   workspaceId=ws();
   if(!rt()?.api||!workspaceId){fail('로그인 상태를 확인하지 못했어요.',false);return}
-  state='starting';step='';note='';errorText='';accum=0;runSince=0;segments=[];rollingStops=[];sessionId='';fails=0;stopReason='';doneTexts.clear();paint();
+  const before=from?Math.max(0,Number(from.duration_sec)||0)*1000:0;
+  state='starting';step='';note='';errorText='';accum=before;runSince=0;segments=[];rollingStops=[];sessionId=from?.session_id||'';if(from)startedAt=from.started_at||new Date().toISOString();fails=0;stopReason='';doneTexts.clear();paint();
   try{
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
   }catch(e){
@@ -168,20 +184,22 @@ async function start(){
     fail(e?.name==='NotAllowedError'?'마이크를 쓸 수 없어요. 주소창 왼쪽 표시를 눌러 마이크를 허용해 주세요.':'마이크를 찾지 못했어요.',false);return;
   }
   try{
-    const r=await call('rec_start',{workspace_id:workspaceId,mime:baseMime(MIME)});
+    const r=await call('rec_start',{workspace_id:workspaceId,mime:baseMime(MIME),...(from?{session_id:from.session_id}:{})});
     if(!r?.recording_id||!r?.session_id)throw new Error('');
     sessionId=r.session_id;
     pieceMs=pieceSecondsOf(r)*1000;rollPieces=rollPiecesOf(r);
-    const seg={no:r.segment_no||1,id:r.recording_id,ended:false,stopped:false,seq:0,pieces:[],base:0};
+    const seg={no:r.segment_no||1,id:r.recording_id,ended:false,stopped:false,seq:0,pieces:[],base:before};
     segments=[seg];
     current=makeRecorder(seg);
     current.rec.start(pieceMs);
-    startedAt=new Date().toISOString();
-    state='recording';runSince=performance.now();startTicker();paint();paintPending();
+    if(!from)startedAt=new Date().toISOString();
+    state='recording';runSince=performance.now();startTicker();paint();
   }catch(e){
     console.warn('recording start failed',e?.status||'',e?.code||'');
     releaseStream();
-    fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':'녹음을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.',false);
+    sessionId='';accum=0;
+    fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':from?'이어서 녹음하지 못했어요. 올린 소리는 그대로 있어요. [이어서 정리]로 정리할 수 있어요.':'녹음을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.',false);
+    if(from)void loadPending(true);
   }
 }
 function togglePause(){
@@ -286,11 +304,13 @@ async function discardSession(sid){
     return {status:'restored'};
   }});
 }
+// 끝나지 않은 녹음 [버리기]: 버린 뒤 10초 [되돌리기]가 있어 확인창은 없다(앞 결정). 다른 곳에서 지금 녹음 중일 수 있는 것만 띠에서 한 번 더 묻는다.
 function discardPending(id){
   if(active()||state==='finishing'||discarding)return;
-  if(!pending.some(s=>s.session_id===id))return;
+  if(!allResumable().some(s=>s.session_id===id))return;
   void discardSession(id);
 }
+const allResumable=()=>{const r=resumables(pending,live,sessionId);return [...r.top,...r.old]};
 
 // 정리 흐름(멈추고 정리·이어서 정리·[다시] 공통). REC-서버정리(S49-2): 서버 작업(job_start)으로 맡기고 진행만 본다.
 // 화면을 닫거나 다른 앱으로 가도 서버가 끝까지 하고 폰 알림을 보낸다. 서버가 아직 이 길을 모르면 아래 화면 정리 길로 간다.
@@ -465,27 +485,60 @@ async function loadPending(force=false,tries=0){
   if(!id||!rt()?.api){if(tries<5)setTimeout(()=>void loadPending(force,tries+1),1000);return}
   if(!force&&(pendingFor===id||pendingFlight))return;
   pendingFor=id;
-  const flight=call('rec_pending',{workspace_id:id}).then(r=>{if(ws()===id){pending=Array.isArray(r?.sessions)?r.sessions:[];paintPending()}})
+  const flight=call('rec_pending',{workspace_id:id}).then(r=>{if(ws()===id){
+      pending=Array.isArray(r?.sessions)?r.sessions:[];
+      const at=Date.now();live=(Array.isArray(r?.live)?r.live:[]).map(s=>({...s,fetched:at}));
+      paint();watchLive();
+    }})
     .catch(e=>{console.warn('recording pending failed',e?.status||'');if(pendingFor===id)pendingFor=''});
   pendingFlight=flight;
   try{await flight}finally{if(pendingFlight===flight)pendingFlight=null}
 }
+// 방금 끊긴 것일 수도, 다른 창·기기에서 지금 녹음 중일 수도 있다(live, 마지막 조각 뒤 100초 안쪽). 후자면 이어받거나 버리는 순간 그쪽이 멈추므로
+// 띠에서 [계속][취소]로 한 번 묻는다(브라우저 확인창은 쓰지 않는다).
+function askTakeOver(kind,id){
+  const item=allResumable().find(s=>s.session_id===id);if(!item)return;
+  if(!takeOverRisk(item)){runTakeOver(kind,id);return}
+  takeover={kind,id};paint();
+}
+function runTakeOver(kind,id){
+  takeover=null;
+  if(kind==='continue')continueRecording(id);
+  else if(kind==='resume')resume(id);
+  else discardPending(id);
+  paint();
+}
+// 이어서 보이는 live가 있는 동안 30초마다 다시 물어 다른 곳에서 끝난 녹음을 정리한다(최대 10번).
+function watchLive(){
+  clearTimeout(livePollTimer);
+  if(!live.length||state!=='idle'||livePolls>=10){if(!live.length)livePolls=0;return}
+  livePollTimer=setTimeout(()=>{livePolls++;void loadPending(true)},30000);
+}
+function continueRecording(id){
+  if(active()||state==='finishing'||discarding)return;
+  const item=allResumable().find(s=>s.session_id===id);if(!item)return;
+  void start(item);
+}
 function resume(id){
   if(active()||state==='finishing')return;
-  const session=pending.find(s=>s.session_id===id);if(!session)return;
+  const session=allResumable().find(s=>s.session_id===id);if(!session)return;
   sessionId=session.session_id;startedAt=session.started_at||new Date().toISOString();workspaceId=ws();
   accum=(Number(session.duration_sec)||0)*1000;runSince=0;doneTexts.clear();
-  paintPending();
+  paint();
   void finishSession(session);
 }
 
 // ---- 연결 ----
 document.addEventListener('click',e=>{
   if(e.target.closest('#reportRecordBtn')){e.preventDefault();void start();return}
+  const t=e.target.closest('[data-rec-takeover]');
+  if(t){e.preventDefault();const w=takeover;if(t.dataset.recTakeover==='go'&&w)runTakeOver(w.kind,w.id);else{takeover=null;paint()}return}
+  const c=e.target.closest('[data-rec-continue]');
+  if(c){e.preventDefault();askTakeOver('continue',c.dataset.recContinue);return}
   const r=e.target.closest('[data-rec-resume]');
-  if(r){e.preventDefault();resume(r.dataset.recResume);return}
+  if(r){e.preventDefault();askTakeOver('resume',r.dataset.recResume);return}
   const d=e.target.closest('[data-rec-discard]');
-  if(d){e.preventDefault();discardPending(d.dataset.recDiscard)}
+  if(d){e.preventDefault();askTakeOver('discard',d.dataset.recDiscard)}
 });
 // 녹음 중(아직 올리지 못한 조각이 있을 때 포함)에만 창 닫기 경고.
 window.addEventListener('beforeunload',e=>{
@@ -496,11 +549,11 @@ window.addEventListener('kptu:session-changed',e=>{
   if(e.detail?.session){void loadServerJobs();return}
   // 로그아웃: 녹음을 멈추고 메모리의 조각을 버린다(서버에 올린 것은 다음 로그인 때 '이어서 정리').
   if(current){try{current.rec.stop()}catch{}}
-  current=null;releaseStream();clearInterval(ticker);clearTimeout(retryTimer);retryTimer=0;segments=[];pending=[];pendingFor='';
-  state='idle';sessionId='';jobId='';readyJob=null;watchEpoch++;jobsLoadedFor='';paint();paintPending();
+  current=null;releaseStream();clearInterval(ticker);clearTimeout(retryTimer);retryTimer=0;segments=[];pending=[];live=[];clearTimeout(livePollTimer);pendingFor='';
+  state='idle';sessionId='';jobId='';readyJob=null;watchEpoch++;jobsLoadedFor='';paint();
 });
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){paintButton();void loadPending()}});
-PC?.addEventListener?.('change',()=>{paintButton();paintPending();if(PC.matches&&onMeetings())void loadPending()});
+PC?.addEventListener?.('change',()=>{paintButton();paint();if(PC.matches&&onMeetings())void loadPending()});
 
 // MTG-첨부녹음전사(S49-2): 회의 결과 창의 회의자료 소리 파일 ⋯ [전사해서 결과에 넣기]. 서버 정리(kind attached)로 맡기고 같은 띠로 진행을 보인다.
 // 같은 파일을 전에 정리했으면 서버가 앞 결과를 바로 돌려준다(비용 없음).
@@ -525,6 +578,6 @@ window.KPTUMeetingRecorder={state:()=>state,mime:MIME,watch,transcribeAttached};
 paint();
 // 첫 화면 요청과 겹치지 않게 조금 뒤에 한 번 묻는다(서버 정리 중·끝난 녹음이 있을 때만 띠가 뜬다).
 setTimeout(()=>void loadServerJobs(),2500);
-// '이어서 정리' 줄은 사업 보고 화면에만 있으므로, 그 화면을 열 때만 서버에 묻는다(다른 화면의 첫 요청을 늘리지 않음).
-if(onMeetings())void loadPending();
+// 끝나지 않은 녹음 띠는 어느 화면에서든 보이므로(새로고침 직후 PC에서 바로 이어 녹음), 서버 정리 확인 뒤 한 번 묻는다. 폰 폭에서는 부르지 않는다.
+setTimeout(()=>void loadPending(),3500);
 })();
