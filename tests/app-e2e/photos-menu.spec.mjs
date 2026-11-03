@@ -422,7 +422,8 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 �
   else expect(Math.abs(sel.leftGap - sel.rightGap), '양 끝 여백 같음').toBeLessThanOrEqual(2);
   expect(sel.rows, '한 줄').toBe(1);
   expect(sel.minHeight, '누르는 높이').toBeGreaterThanOrEqual(32);
-  expect(sel.svgCount, '버튼마다 선 아이콘').toBe(sel.n);
+  expect(sel.svgCount, '선 아이콘 버튼(옮기기·지우기 포함)').toBeGreaterThanOrEqual(2);
+  await expect(bar.locator('[data-photos-act-delete] .kptu-act-ic svg')).toHaveCount(1);
   expect(sel.iconColors.length, '아이콘 색 하나').toBe(1);
   expect(sel.dangerText, '지우기 글자도 다른 버튼과 같은 색(빨강 아님)').toBe(sel.dangerIcon);
   await expect(bar.locator('[data-photos-act-delete] .kptu-act-tx')).toHaveText('지우기');
