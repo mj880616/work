@@ -96,7 +96,7 @@ for(const width of [390,1280]){
  test(`업무일지·공유 페이지·HWP 버튼 ${width}`,async({page})=>{
   const errors=await boot(page,width);
   await go(page,'home');await check(page.locator('#homeView [data-journal-save]'),36,'업무일지 [저장]');
-  await go(page,'pages');await check(page.locator('#pagesView [data-sp-new]'),36,'[새 공유 페이지]');
+  await go(page,'pages');await check(page.locator('#pagesView [data-sp-new]'),width<761?36:32,'[새 공유 페이지]');
   await go(page,'hwp');
   if(width<761){
    // HWP-화면가득: 폰은 위 얇은 줄의 [파일 ▾]·[저장 ▾]만 작은 버튼(32px)으로 보인다.

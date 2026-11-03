@@ -113,7 +113,7 @@ test('PC 1280: 공유 페이지 채운 버튼은 36px, 보조 버튼([다시 불
  });
  await open(page,'pages');
  const root=page.locator('#sharePagesRoot');
- await pcButton(root.locator('[data-sp-new]'),'새 공유 페이지');await pcButton(root.locator('[data-sp-reload]'),'목록 다시 불러오기',32);
+ await pcButton(root.locator('[data-sp-new]'),'새 공유 페이지',32);/* UI-버튼크기전수: [+ HTML]과 같은 줄이라 같은 32px */await pcButton(root.locator('[data-sp-reload]'),'목록 다시 불러오기',32);
  listFails=false;await root.locator('[data-sp-reload]').click();
  await root.locator('[data-sp-open="sp-fixture"]').click();
  await pcButton(root.locator('[data-sp-save]'),'공유 페이지 저장',await root.locator('[data-sp-save]').evaluate(el=>el.matches('.primary')?36:32));await pcButton(root.locator('[data-sp-link-create]'),'링크 만들기',await root.locator('[data-sp-link-create]').evaluate(el=>el.matches('.primary')?36:32));

@@ -1088,6 +1088,8 @@
   #appView #basketView .note-list-head .note-search input{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* SHARE-현장공유 PR 2: 공유 페이지 화면의 큰 버튼([새 공유 페이지]·[저장]·[링크 만들기]·[다시 불러오기])도 같은 36px. 작은 보조 버튼(.sp-tool)은 그대로. */
   #appView #pagesView .sp-root button.primary:not(.icon-btn){ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  /* UI-버튼크기전수: 머리줄의 [+ HTML]과 [+ 새 공유 페이지]는 한 줄이라 같은 작은 버튼 높이(.btn-row). 이 묶음은 PC 폭(761px~)이고 폰은 동그란 [+](FAB 규칙). */
+  #appView #pagesView .sp-root .sp-head-actions.btn-row > button.primary:not(.icon-btn){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); }
   #appView #pagesView .sp-root button.secondary:not(.icon-btn){ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); }
   #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
@@ -1282,9 +1284,8 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 /* ⑤ HWP 편집: [파일 선택]·[자료실에 올리기]는 보조(32px), [내 기기에 저장]은 주 동작(36px). */
 #appView #hwpView :is(#hwpLabPick,#hwpLabUpload,#hwpLabTemplate){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 #appView #hwpView #hwpLabSave{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
-/* ⑥ 업무일지 [저장]·공유 페이지 [새 공유 페이지]: PC와 같이 폰도 36px. */
-#appView #homeView .journal-line-row button[data-journal-save],
-#appView #pagesView .sp-root button[data-sp-new]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+/* ⑥ 업무일지 [저장]: PC와 같이 폰도 36px. (공유 페이지 [새 공유 페이지]는 [+ HTML]과 같은 줄이라 .btn-row의 32px, UI-버튼크기전수) */
+#appView #homeView .journal-line-row button[data-journal-save]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ⑦ 폰 빠른 입력 [추가] 46 → 36px(입력칸 첫 줄 가운데), 입력칸 안 [큰 창에서 쓰기]는 보이는 32px. 누르는 범위 44px. */
 @media(max-width:760px){
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save{
@@ -1497,6 +1498,11 @@ button:is(.secondary,.ghost,.danger):not(.icon-btn){
   border-width:var(--ds-line-width); border-radius:var(--ds-radius-control);
 }
 button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
+/* UI-버튼크기전수(S49-16, 요청함 11/03 10:38): 같은 줄의 버튼은 높이·글자 크기·굵기가 하나다. 주 버튼도 크기·굵기는 같고 색으로만 구분한다.
+   공용 버튼 줄 .btn-row 안의 버튼은 모두 작은 버튼(--ds-compact-height, 13px/500). 한 줄에 주 버튼과 보조 버튼이 함께 놓이는 곳은 이 클래스를 붙인다.
+   (.primary·.mini의 기본 글자도 base-ui.css에서 13px/500으로 맞췄다. 재발 방지: tests/button-unify.test.mjs, tests/app-e2e/button-census.spec.mjs) */
+.btn-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+:root .btn-row > button:not(.icon-btn){ box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; border-radius:var(--ds-radius-control); }
 :where(button:not([class])){
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
   background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-text-button); line-height:1.3;
