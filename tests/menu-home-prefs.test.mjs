@@ -7,11 +7,11 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
 // DB에는 있지만 화면 허용 목록에는 아직 없는 칸: 없음(now_tab은 S48-27 Now 화면이 KEYS에 더함).
 const DB_ONLY = [];
-test('허용 칸 서른 개가 DB 검사(마지막 migration, S49-4 col_widths 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261103160000_profile_view_prefs_files_cols.sql');
+test('허용 칸 서른세 개가 DB 검사(마지막 migration, S49-4 col_widths 위에 S49-5 photo_sources_phone·photo_sources_pc·photo_level 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261103190000_profile_view_prefs_photo_device.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 30);
+  assert.equal(KEYS.length, 33);
 });
 test('phone_folders_known은 16진수 8자 글자 배열 120개까지(S48-31, DB 검사와 같음)', () => {
   for (const v of [[], ['0a1b2c3d'], ['00000000', 'ffffffff'], Array.from({length:120}, (_, i) => i.toString(16).padStart(8, '0'))]) assert.equal(validValue('phone_folders_known', v), true, JSON.stringify(v).slice(0, 40));

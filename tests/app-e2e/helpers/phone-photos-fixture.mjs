@@ -42,7 +42,8 @@ export async function phonePhotosFixture(page, { app = false } = {}) {
       };
     }, KEY);
   }
-  const prefs = await installViewPrefsServer(page);
+  // PHOTO-기기별출처(S49-5): 폰 앱 기본은 폰 폴더만이므로, 이 도우미를 쓰는 시험(원드라이브·폰 사진이 함께 보이는 목록)은 둘 다 켠 채 시작한다.
+  const prefs = await installViewPrefsServer(page, app ? { photo_sources_phone: { onedrive: true, gdrive: false, phone: true } } : null);
   await openHome(page, { beforeLoad: async () => {
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', r => r.fulfill({ json: [] }));
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_photo_tags', r => r.fulfill({ json: [] }));

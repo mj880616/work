@@ -16,7 +16,7 @@ const LINKS = [{ tag_id: 't1', source: 'onedrive', item_key: 'O1', taken_day: '2
   { tag_id: 't2', source: 'onedrive', item_key: 'O2', taken_day: '2026-10-02' }];
 const TABS = ['all', 'calendar', 'folders', 'albums', 'trash'];
 
-async function fixture(page, width, prefs = { photo_sources: { onedrive: true, gdrive: true } }) {
+async function fixture(page, width, prefs = { photo_sources_pc: { onedrive: true, gdrive: true } }) {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width, height: 900 });

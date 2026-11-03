@@ -9,8 +9,9 @@
 // - 출처는 사진 메뉴 출처 켜기/끄기(view_prefs.photo_sources)와 끈 폰 폴더(view_prefs.phone_folders_off, 새 폰 폴더는 꺼진 채 — phone-folders-sync.js)를 따른다. 쓸 출처가 없으면 줄을 그리지 않는다.
 import {phonePhotos} from './phone-photos.js';
 import {odStatusCached, odStatusIfWarm, odPhotos, odPhotoElement, odMediaUrl, odPhotoBlob, odErrorText} from './diary-onedrive.js';
-import {parseSources, phoneErrorText} from './photo-sources-model.mjs';
+import {phoneErrorText} from './photo-sources-model.mjs';
 import {phoneHideList} from './phone-folders-sync.js';
+import {readDeviceSources} from './photo-sources-device.js';
 import {viewPrefs} from './view-prefs.js';
 import {waitInlineHtml} from './wait-state.js';
 import {reportAtMs, suggestRange, windowMonths, odMonthItems, suggestPhotos, attachName, nearHead, pickLabel, PICK_MAX} from './time-photos-model.mjs';
@@ -23,7 +24,7 @@ const PHONE_PAGES = 2;   // 그 장소 사진은 그날 하루를 보므로 많�
 // 쓸 수 있는 출처: 폰(앱 안·사진 접근 허용·출처 켜짐), 원드라이브(연결·폴더·출처 켜짐).
 // quiet: 서버에 묻지 않는다(원드라이브는 받아 둔 연결 상태만 본다). 줄을 보일지 정할 때 쓰고, [골라 붙이기]를 누르면 다시 확인한다.
 export async function timePhotoSources({rt = globalThis.window?.KPTURuntime, phone = phonePhotos(), quiet = false} = {}) {
-  const on = parseSources(viewPrefs.get('photo_sources'));
+  const on = readDeviceSources();
   const out = {phone:false, onedrive:false};
   const jobs = [];
   if (on.phone && phone.usable) jobs.push(phone.hello().then(s => { out.phone = s.access !== 'none' && !!s.key; }, () => {}));

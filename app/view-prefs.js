@@ -55,6 +55,9 @@ export const ORG_TABS = Object.freeze(['log', 'table']);
 // TG-방별보기: tg_view = 텔레그램 소식 [날짜별|방별] 중 마지막에 고른 보기('day'·'room', 없으면 날짜별). migration 20261031010000.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
 export const TG_VIEWS = Object.freeze(['day', 'room']);
+// PHOTO-기기별출처+연월이동(S49-5): photo_sources_phone / photo_sources_pc = 폰 앱 / 그 밖 기기의 사진 출처 켜기·끄기(photo_sources와 같은 모양, 옛 photo_sources는 더는 읽지 않음),
+// photo_level = 사진 보기 단계 'year'·'month'·'day'(없으면 일). migration 20261103190000. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(출처는 기본값, 보기 단계는 이번 접속만).
+export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
 export const NOTE_BOARDS_MAX = 12;
 // PHOTO-폴더스위치: phone_folders_off = 사진 [폴더]에서 끈 폰 폴더(안드로이드 사진첩 relative_path) 글자 배열, 80개까지·칸마다 0~255자·제어문자 없음.
 // migration 20261031060000. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(스위치가 켜짐으로 돌아감).
@@ -78,7 +81,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'col_widths']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -118,6 +121,9 @@ export function validValue(key, value) {
     case 'phone_folders_off': return Array.isArray(value) && value.length <= PHONE_FOLDERS_OFF_MAX
       && value.every(v => typeof v === 'string' && v.length <= 255 && !/[\p{Cc}]/u.test(v));
     case 'phone_folders_known': return Array.isArray(value) && value.length <= PHONE_FOLDERS_KNOWN_MAX && value.every(v => typeof v === 'string' && /^[0-9a-f]{8}$/.test(v));
+    case 'photo_level': return PHOTO_LEVELS.includes(value);
+    case 'photo_sources_phone':
+    case 'photo_sources_pc':
     case 'photo_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => PHOTO_SOURCE_NAMES.includes(name) && typeof value[name] === 'boolean');
     case 'photo_view': return !!value && typeof value === 'object' && !Array.isArray(value)
