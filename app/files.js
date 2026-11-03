@@ -3,7 +3,7 @@ import {claimedSince} from './row-swipe.js';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, SYNC_EVERY_MS, SHELF_LIMIT, FIND_LIMIT, FIND_WAIT_MS,
-  TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, previewKind, sizeText, countText, dayText, fullTime,
+  TEXT_PREVIEW_BYTES, PDF_FIRST_PAGES, SORTS, SORT_NAME, kindOf, kindLabel, kindIcon, previewKind, sizeText, folderCountText, isLockedItem, dayText, fullTime,
   recentGroups, syncText, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
   placeOf, whereOf, tabAt, cleanQuery, findSummary, errorText, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT} from './files-model.mjs';
@@ -127,6 +127,7 @@ async function loadList({quiet = false} = {}) {
     }
     if (seq !== listSeq || state.scope !== scope) return;
     state.rows = Array.isArray(rows) ? rows : []; state.trail = Array.isArray(trail) ? trail : []; state.loaded = true; state.failed = '';
+    recordCounts(where, scope);
     if (where.source) {
       state.children.set(folderKey(where.source, where.parent), state.rows.filter(r => r.is_folder));
       // 위치 줄의 폴더(맨 위부터 지금 폴더까지)는 나무에서 펼쳐 둔다.
@@ -141,14 +142,25 @@ async function loadList({quiet = false} = {}) {
 }
 // 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색인에 합친다(폴더마다 이 화면이 열려 있는 동안 한 번). 색인이 덜 찼어도 빈 화면이 되지 않게.
 const directDone = new Set();
+// 폴더 줄 개수: 그 폴더를 클라우드에서 실제로 읽은 뒤(directRead 성공) 보이는 줄로 센 값만 쓴다. 안 읽은 폴더는 비워 둔다(색인 장수는 모름을 0으로 보임).
+const readOk = new Set(), counts = new Map();
+const countKey = (scope, source, id) => scope + '|' + folderKey(source, id);
+function recordCounts(where, scope) {
+  if (!where?.source || where.shelf || !readOk.has(countKey(scope, where.source, where.parent))) return;
+  const rows = state.rows.filter(r => !isLockedItem(r));
+  counts.set(countKey(scope, where.source, where.parent), {folders: rows.filter(r => r.is_folder).length, files: rows.filter(r => !r.is_folder).length});
+}
+const countOf = (source, id) => folderCountText(counts.get(countKey(state.scope, source, id)));
 async function directRead(where, scope) {
   const key = scope + '|' + folderKey(where.source, where.parent);
   if (directDone.has(key) || !connected().includes(where.source)) return;
   directDone.add(key);
   try {
     const d = await edge('folder', {source: where.source, ...(where.parent ? {id: where.parent} : {})});
+    readOk.add(key);
     if (state.scope !== scope || state.where !== where) return;
     if (d?.added > 0 || d?.reload) await loadList({quiet: true});
+    else { recordCounts(where, scope); paint(); }
   } catch { /* 이번엔 색인 그대로. 다음 갱신이 이어 맞춘다 */ }
 }
 async function loadChildren(source, parent) {
@@ -199,7 +211,7 @@ async function sync({force = false} = {}) {
     if (!changed.length && !removed.length) return;
     if (touchesCounts(state.rows, where, changed, removed)) { await loadList({quiet: true}); return; }
     const next = applyChanges(state.rows, where, changed, removed);
-    if (next !== state.rows) { state.rows = next; state.children.set(folderKey(where.source, where.parent), next.filter(r => r.is_folder)); paintList(); paintTree(); }
+    if (next !== state.rows) { state.rows = next; state.children.set(folderKey(where.source, where.parent), next.filter(r => r.is_folder)); recordCounts(where, scope); paintList(); paintTree(); }
   } catch { /* 맞추기 실패는 다음 차례에 다시. 목록은 색인 그대로 */ }
   finally { if (state.scope === scope) { state.syncing = false; paintTop(); if (!shown().length) paintList(); } }
 }
@@ -207,7 +219,7 @@ function startTimer() { clearInterval(syncTimer); syncTimer = setInterval(() => 
 const visible = () => window.KPTURouter?.current === 'files' && document.visibilityState === 'visible';
 
 // ---------- 그리기(이 화면의 유일한 그리기 주인) ----------
-const shown = () => state.query ? (state.found || []) : sortRows(state.rows, state.sort, state.dir);
+const shown = () => state.query ? (state.found || []).filter(r => !isLockedItem(r)) : sortRows(state.rows.filter(r => !isLockedItem(r)), state.sort, state.dir);
 function paint() { paintTop(); paintBar(); paintTree(); paintList(); paintPreview(); }
 function paintTop() {
   const crumb = $('[data-fx-crumb]');
@@ -257,7 +269,7 @@ function paintTree() {
     if (r.type === 'shelf') return `<div class="nx-row fx-shelf${cur}"><button type="button" class="nx-main" data-fx-shelf="${r.shelf}"${cur ? ' aria-current="true"' : ''}><span class="nx-name">${esc(SHELF_NAME[r.shelf])}</span></button></div>`;
     const twist = r.hasKids ? `<button type="button" class="fx-twist" data-fx-twist="${esc(r.key)}" aria-expanded="${r.open}" aria-label="${r.open ? '접기' : '펼치기'}">${r.open ? '▾' : '▸'}</button>` : '<span class="fx-twist" aria-hidden="true"></span>';
     const name = r.type === 'root' ? SOURCE_NAME[r.source] : r.name;
-    const num = r.type === 'folder' && Number.isFinite(Number(r.count)) ? `<span class="nx-num${Number(r.count) ? '' : ' fx-zero'}">${esc(countText(r.count))}</span>` : '';
+    const cnt = r.type === 'folder' ? countOf(r.source, r.id) : '', num = cnt ? `<span class="nx-num${/^0개$/.test(cnt) ? ' fx-zero' : ''}">${esc(cnt)}</span>` : '';
     return `<div class="nx-row nx-folder${r.type === 'root' ? ' fx-root' : ''}${cur}" style="--nx-indent:${r.depth}" data-fx-drop="${esc(folderKey(r.source, r.id))}">${twist}<button type="button" class="nx-main" data-fx-go="${esc(r.source)}" data-fx-id="${esc(r.id || '')}"${cur ? ' aria-current="true"' : ''}><span class="nx-name">${esc(name)}</span>${num}</button></div>`;
   }).join('');
 }
@@ -269,7 +281,7 @@ function rowHtml(r, {withPath = false} = {}) {
   const tag = tags ? `<span class="fx-tag">${tags}</span>` : '';
   const star = r.starred ? '<span class="fx-star" aria-label="별표">★</span>' : '';
   const where = withPath ? pathText(r.source, r.folder_path) : '';
-  const size = r.is_folder ? (Number.isFinite(Number(r.child_count)) && r.child_count !== null ? `${countText(r.child_count)}개` : '') : sizeText(r.size_bytes);
+  const size = r.is_folder ? countOf(r.source, r.item_id) : sizeText(r.size_bytes);
   const day = dayText(r.modified_at);
   return `<button type="button" class="fx-row${r.is_folder ? ' fx-folder' : ''}${picked}${cut}" data-fx-row="${esc(key)}" aria-selected="${sel}"${drag}${drop}>`
     + `<span class="fx-ico" data-kind="${kind}" aria-hidden="true">${esc(kindIcon(r))}</span>`

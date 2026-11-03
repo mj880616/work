@@ -96,11 +96,12 @@
 @media (min-width:761px) and (max-width:1199px) { .fx-prev { left:max(0px, calc(100vw - 560px)); border-left:.5px solid var(--kptu-border); } }
 /* 폰: 한 칸 + 탭, 나무 없음(폴더 탭이 목록에서 들어가기), 두 줄 줄 */
 /* 정렬 기준은 작은 칩(PC): 칸 머리에서 따로 상자처럼 보이지 않게 */
-@media (min-width:761px) { .fx-sort { height:24px; max-width:96px; padding:0 8px; font-size:11.5px; border-color:transparent; border-radius:999px; background:var(--kptu-surface-subtle); } }
+/* 정렬 기준 칩: 공용 select(폭 100%·높이 큼)가 폰에서 폭 가득 빈 칸처럼 보이던 것을 폰·PC 모두 같은 작은 칩으로. */
+.fx-sort { flex:none; width:auto; min-height:0; height:24px; max-width:96px; padding:0 8px; font-size:11.5px; border-color:transparent; border-radius:999px; background:var(--kptu-surface-subtle); }
 @media (max-width:760px) {
   .fx-top { flex-wrap:wrap; }
   .fx-search { flex:1 1 100%; width:auto; order:3; height:32px; }
-  .fx-sort { order:2; }
+  .fx-sort { order:2; height:28px; }
   .fx-tabs { display:flex; }
   .fx-tree { display:none; }
   .fx-head { display:none; }

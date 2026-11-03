@@ -216,3 +216,17 @@ test('twins: same hash only, not itself, not trashed', async () => {
   assert.deepEqual(m.twinRows(rows, me).map(r => r.item_id), ['B']);
   assert.deepEqual(m.twinRows(rows, {...me, hash: null}), []);
 });
+
+test('S49-17 폴더 개수: 읽은 값이 있을 때만 글, 모르면 빈 글 · 잠긴 보관소(종류 없는 0B)만 걸러 낸다', async () => {
+  const {folderCountText, isLockedItem} = await import('../app/files-model.mjs');
+  assert.equal(folderCountText(undefined), '');
+  assert.equal(folderCountText({folders: 0, files: 0}), '0개');
+  assert.equal(folderCountText({folders: 0, files: 3}), '3개');
+  assert.equal(folderCountText({folders: 1, files: 3}), '폴더 1 · 파일 3');
+  assert.equal(folderCountText({folders: 2, files: 0}), '폴더 2');
+  assert.equal(isLockedItem(row({mime: null, size_bytes: 0})), true);
+  assert.equal(isLockedItem(row({mime: 'text/plain', size_bytes: 0})), false);
+  assert.equal(isLockedItem(row({mime: null, size_bytes: 12})), false);
+  assert.equal(isLockedItem(row({is_folder: true, mime: null, size_bytes: 0})), false);
+  assert.equal(isLockedItem(row({source: 'gd', mime: null, size_bytes: 0})), false);
+});
