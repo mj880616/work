@@ -343,7 +343,9 @@ async function openServerResult(job){
   }
   try{
     step='초안 열림';note='';paint();
-    await openEntry(job.created_at);
+    // 회의 시각 = 녹음을 시작한 때(이 창에서 녹음했으면 그 시각, 아니면 정리를 맡긴 때에서 녹음 길이만큼 앞).
+    const began=startedAt&&job.session_id===sessionId?startedAt:new Date((Date.parse(job.created_at)||Date.now())-(Number(job.seconds)||0)*1000).toISOString();
+    await openEntry(began);
     const draft=window.KPTUMeetingTranscriptDraft;
     if(!draft?.fillResult)throw stopError('초안 칸을 찾지 못했어요. [다시]를 누르세요.',true);
     const minutes=Math.round((Number(job.seconds)||elapsed()/1000)/60);
@@ -521,7 +523,8 @@ function watch(job){
 }
 window.KPTUMeetingRecorder={state:()=>state,mime:MIME,watch,transcribeAttached};
 paint();
-void loadServerJobs();
+// 첫 화면 요청과 겹치지 않게 조금 뒤에 한 번 묻는다(서버 정리 중·끝난 녹음이 있을 때만 띠가 뜬다).
+setTimeout(()=>void loadServerJobs(),2500);
 // '이어서 정리' 줄은 사업 보고 화면에만 있으므로, 그 화면을 열 때만 서버에 묻는다(다른 화면의 첫 요청을 늘리지 않음).
 if(onMeetings())void loadPending();
 })();
