@@ -57,7 +57,7 @@ async function ready(page){
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
 }
 const chip=(page,id)=>page.locator(`#calendarDayTasks [data-calendar-task="${id}"]`);
-const badge=(page,date)=>page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count`);
+const badge=(page,date)=>page.locator(`.cal-cell[data-date="${date}"] .cmv-date-list`);
 const cellOf=(page,id)=>page.evaluate(id=>{
   for(const cell of document.querySelectorAll('#calendarGrid .cal-cell')){
     if(KPTUCalendarMonthView.dayEvents(cell.dataset.date).some(t=>t.source==='task'&&t.id===id))return cell.dataset.date;
@@ -173,7 +173,7 @@ test('this device\'s copy shows first and an equal fresh copy does not redraw',a
   hold=true;
   await page.goto(`${TEST_ORIGIN}/app/?view=calendar`);await ready(page);
   await expect(badge(page,'2026-10-20')).toBeVisible();
-  await page.evaluate(()=>{document.querySelector('.cal-cell[data-date="2026-10-20"] .cmv-task-count').dataset.qaMark='kept'});
+  await page.evaluate(()=>{document.querySelector('.cal-cell[data-date="2026-10-20"] .cmv-date-list').dataset.qaMark='kept'});
   release();
   // Same data: the drawn chip stays (no redraw, no flicker).
   await page.waitForTimeout(300);
