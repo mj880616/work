@@ -114,10 +114,10 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     const busy = state.busy ? ' disabled' : '';
     let text = '', button = '';
     switch (phone.state) {
-      case 'on': text = phone.error ? `등록 못 함 · ${errorText(phone.error)}` : '켜짐'; button = `<button type="button" class="ps-todo-btn" data-ps-push-forget${busy}>이 폰 끊기</button>`; break;
-      case 'off': text = '꺼짐'; button = `<button type="button" class="ps-todo-btn" data-ps-push-enable${busy}>이 폰에서 받기</button>`; break;
-      case 'denied': text = '알림 허용 꺼짐 · 폰 설정 › 애플리케이션 › 웹2 › 알림'; button = `<button type="button" class="ps-todo-btn" data-ps-push-enable${busy}>다시 묻기</button>`; break;
-      case 'fail': text = '폰 주소를 받지 못했어요'; button = `<button type="button" class="ps-todo-btn" data-ps-push-enable${busy}>다시 받기</button>`; break;
+      case 'on': text = phone.error ? `등록 못 함 · ${errorText(phone.error)}` : '켜짐'; button = `<button type="button" class="row-act" data-ps-push-forget${busy}>이 폰 끊기</button>`; break;
+      case 'off': text = '꺼짐'; button = `<button type="button" class="row-act" data-ps-push-enable${busy}>이 폰에서 받기</button>`; break;
+      case 'denied': text = '알림 허용 꺼짐 · 폰 설정 › 애플리케이션 › 웹2 › 알림'; button = `<button type="button" class="row-act" data-ps-push-enable${busy}>다시 묻기</button>`; break;
+      case 'fail': text = '폰 주소를 받지 못했어요'; button = `<button type="button" class="row-act" data-ps-push-enable${busy}>다시 받기</button>`; break;
       case 'none': text = '이 앱 판은 알림을 받지 못해요 · 새 판으로 업데이트해 주세요'; break;
       default: return '';
     }
@@ -130,7 +130,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     const rows = state.devices.map(d => {
       const mine = inApp && phone.deviceId && d.id === phone.deviceId;
       const label = deviceLabel(d) + (mine ? ' · 이 폰' : '');
-      return `<li class="ps-todo-room"><span class="ps-todo-room-name">${esc(label)}</span><button type="button" class="ps-todo-btn" data-ps-push-remove="${esc(d.id)}" aria-label="${esc(label)} 끊기"${busy}>끊기</button></li>`;
+      return `<li class="ps-todo-room"><span class="ps-todo-room-name">${esc(label)}</span><button type="button" class="row-act" data-ps-push-remove="${esc(d.id)}" aria-label="${esc(label)} 끊기"${busy}>끊기</button></li>`;
     }).join('');
     const head = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-push-devices="${state.devices.length}">${state.devices.length ? `등록된 폰 ${state.devices.length}대` : '등록된 폰 없음'}</span></div>`;
     return head + (rows ? `<ul class="ps-todo-rooms">${rows}</ul>` : '');
@@ -152,7 +152,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     const {prefs} = state;
     const chips = KINDS.map(([key, label]) => `<button type="button" class="ps-push-kind" data-ps-push-kind="${key}" aria-pressed="${prefs.kinds[key] ? 'true' : 'false'}"${busy}>${esc(label)}</button>`).join('');
     const time = (end, label) => `<input type="time" class="ps-push-time" data-ps-push-quiet="${end}" value="${esc(prefs.quiet[end])}" aria-label="${label}" step="300"${busy}>`;
-    const quiet = `<div class="ps-calref-row"><span class="ps-calref-label">조용한 시간</span>${time('from', '조용한 시간 시작')}<span class="ps-calref-line">~</span>${time('to', '조용한 시간 끝')}<button type="button" class="ps-todo-btn" data-ps-push-test${state.busy ? ' disabled aria-busy="true"' : ''}>시험 알림</button></div>`;
+    const quiet = `<div class="ps-calref-row"><span class="ps-calref-label">조용한 시간</span>${time('from', '조용한 시간 시작')}<span class="ps-calref-line">~</span>${time('to', '조용한 시간 끝')}<button type="button" class="row-act" data-ps-push-test${state.busy ? ' disabled aria-busy="true"' : ''}>시험 알림</button></div>`;
     const result = state.result ? `<p class="ps-calref-line ps-todo-result" data-ps-push-result>${esc(state.result)}</p>` : '';
     host.innerHTML = `${head}<div class="ps-calref"><div class="ps-push-kinds" role="group" aria-label="받을 알림 종류">${chips}</div>${quiet}${result}${phoneLine()}${devicesPart()}${recentPart()}</div>`;
   }

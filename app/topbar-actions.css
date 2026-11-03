@@ -73,15 +73,14 @@
 .me-group h3{margin:8px 0 4px;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
 .me-group h3 small{font-weight:400;margin-left:4px}
 .me-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);overflow:hidden}
-.me-row{display:flex;align-items:center;gap:6px;min-height:32px;padding:0 8px 0 2px;border-top:1px solid var(--kptu-border);background:transparent}
+.me-row{display:flex;align-items:center;gap:6px;min-height:28px;padding:0 8px 0 2px;border-top:1px solid var(--kptu-border);background:transparent}
 .me-row:first-child{border-top:0}
 .me-list:empty,.me-list:not(:has(.me-row)){min-height:32px}
-.me-handle{display:inline-flex;align-items:center;justify-content:center;width:30px;min-height:30px;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:15px;line-height:1;cursor:grab;touch-action:pan-y}
+.me-handle{display:inline-flex;align-items:center;justify-content:center;width:30px;min-height:26px;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:15px;line-height:1;cursor:grab;touch-action:pan-y}
 .me-handle.me-fixed{cursor:default;opacity:.45}
 .me-handle:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .me-name{flex:1;min-width:0;font-size:var(--ds-text-row,13px)}
 .me-tag{color:var(--kptu-muted);font-size:11px}
-.me-toggle{min-height:24px;padding:0 8px;font-size:11px;color:var(--kptu-muted)}
 .me-pv-hidden{margin:0;padding:2px 8px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 /* MENU-숨김: 숨긴 메뉴는 접힌 한 줄('숨긴 메뉴 n')에서만 열린다 — PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래. */
 #appView>.app-nav .nav-hidden-group{flex:0 0 auto}

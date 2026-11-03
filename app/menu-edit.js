@@ -15,8 +15,8 @@ function rowHtml(id, list) {
   const handle = fixed ? '<span class="me-handle me-fixed" aria-hidden="true">⠿</span>'
     : `<button type="button" class="me-handle" data-reorder-handle aria-label="${esc(item.label)} 옮기기 (끌거나 위·아래 화살표)">⠿</button>`;
   return `<li class="me-row" data-reorder-id="${esc(id)}">${handle}<span class="me-name">${esc(item.label)}</span>${fixed ? '<small class="me-tag">고정</small>'
-    : list === 'hidden' ? `<button type="button" class="ghost me-toggle" data-menu-edit-show="${esc(id)}" aria-label="${esc(item.label)} 다시 꺼내기">꺼내기</button>`
-    : `<button type="button" class="ghost me-toggle" data-menu-edit-hide="${esc(id)}" aria-label="${esc(item.label)} 숨기기">숨기기</button>`}</li>`;
+    : list === 'hidden' ? `<button type="button" class="row-act me-toggle" data-menu-edit-show="${esc(id)}" aria-label="${esc(item.label)} 다시 꺼내기">꺼내기</button>`
+    : `<button type="button" class="row-act me-toggle" data-menu-edit-hide="${esc(id)}" aria-label="${esc(item.label)} 숨기기">숨기기</button>`}</li>`;
 }
 function paint(focusId = '') {
   const body = modal()?.querySelector('[data-menu-edit-body]');
