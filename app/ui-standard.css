@@ -494,11 +494,6 @@
 #appView .mobile-menu-panel > nav{ margin-top:12px; }
 /* MENU-세칸: [메뉴] 창 맨 아래 '아래 붙는 메뉴' 앞 가는 선 하나(PC 왼쪽 맨 아래 묶음과 같은 규칙). */
 #appView .mobile-menu-panel nav .mobile-menu-tail-line{ display:block; grid-column:1 / -1; height:0; margin:4px 0; border-top:var(--ds-line-width) solid var(--ds-line); }
-/* UI-화면정리 C6(요청함 10/28 20:03 C-6, S48-46): 펼친 폭(761~1023px) 오른쪽 서랍의 구분선은 한 가지 — 줄마다 선을 긋지 않고(PC 사이드바와 같음)
-   묶음 사이에만 가는 선 하나(메뉴 줄 / 선 아래 붙는 메뉴, .mobile-menu-tail-line). 전에는 줄마다 선이 있어 묶음 선과 겹쳐 두 줄로 보였다.
-   이 폭의 계정 항목은 서랍이 아니라 위쪽 계정 메뉴에 있다(topbar-actions.js, 폰만 서랍 맨 아래). 폰(≤760) 메뉴 판은 아래 폰 규칙 그대로. */
-@media(min-width:761px){
-  #appView .mobile-menu-panel nav button:not([hidden]) ~ button:not([hidden]){ border-top:0; border-radius:var(--ds-radius-control); }
 }
 
 /* PC 사이드바: 0.5px 상자·모서리 12px·그림자 없음, 메뉴 줄 13px(고른 화면만 500, 연한 계정 색 바탕). */

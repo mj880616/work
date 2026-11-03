@@ -118,8 +118,3 @@ test('C5 폰 하단바: 하단바에 칸이 없는 화면에서는 아무 칸도
   assert.equal(selectedMobileTab({view: 'ledger'}), null);
   assert.equal(selectedMobileTab({view: 'library', menuOpen: true}), 'menu');
 });
-
-test('C6 펼친 폭(761px~) 서랍은 줄마다 선을 긋지 않는다(묶음 사이 선 하나)', () => {
-  const ui = noComments(read('ui-standard.css'));
-  assert.match(ui, /@media\(min-width:761px\)\{\s*#appView \.mobile-menu-panel nav button:not\(\[hidden\]\) ~ button:not\(\[hidden\]\)\{ border-top:0;/);
-});

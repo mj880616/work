@@ -4,10 +4,11 @@
 import {test, expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {baseState, mockApp, signIn} from './helpers/filter-chip-fixture.mjs';
+import {clickView} from './helpers/shell-navigation.mjs';
 
 const WIDTHS = [[412, 915], [884, 1000], [1440, 900]];
 const DIR = 'test-results/ui-audit';
-const go = async (page, view) => { await page.evaluate(v => window.KPTURouter?.go?.(v), view); await expect(page.locator(`#${view}View`)).toBeVisible(); await page.waitForTimeout(600); await page.evaluate(() => window.scrollTo(0, 0)); };
+const go = async (page, view) => { await clickView(page, view); await expect(page.locator(`#${view}View`)).toBeVisible(); await page.waitForTimeout(600); await page.evaluate(() => window.scrollTo(0, 0)); };
 
 for (const [width, height] of WIDTHS) {
   test(`UI-화면정리 C 세 폭 비교 ${width}px`, async ({page}) => {
@@ -52,24 +53,21 @@ for (const [width, height] of WIDTHS) {
       expect(out.tabCurrent).toBe(0);
     }
 
-    // C6 메뉴 창: 폰은 메뉴 줄 → 계정(맨 아래), 펼친 폭 서랍은 줄마다 선 없음.
-    if (width < 1024) {
-      await page.locator('#mobileMenuTab:visible, [data-mobile-menu-open]:visible, .topline-menu-btn:visible').first().click({timeout: 3000}).catch(() => {});
-      const menuOpen = await page.locator('#mobileMenu').isVisible();
-      if (menuOpen) {
-        const m = await page.evaluate(() => {
-          const btns = [...document.querySelectorAll('#mobileMenu .mobile-menu-panel nav button')].filter(b => b.getClientRects().length);
-          const lines = btns.filter(b => parseFloat(getComputedStyle(b).borderTopWidth) > 0).length;
-          const nav = document.querySelector('#mobileMenu .mobile-menu-panel nav').getBoundingClientRect(), acc = document.querySelector('#mobileAccountGroup');
-          const accTop = acc && acc.children.length ? acc.getBoundingClientRect().top : null;
-          return {lines, accountBelow: accTop === null ? null : accTop >= nav.bottom - 1};
-        });
-        out.menuRowLines = m.lines; out.menuAccountBelow = m.accountBelow;
-        expect(m.lines, '메뉴 줄마다 그은 선').toBe(0);
-        if (m.accountBelow !== null) expect(m.accountBelow, '계정은 메뉴 줄 아래').toBe(true);
-        await page.screenshot({path: `${DIR}/c-menu-${width}.png`});
-        await page.keyboard.press('Escape');
-      } else out.menu = 'not-opened';
+    // C6 메뉴 창(폰): 메뉴 줄 → 계정(맨 아래), 줄마다 그은 선 없음. 761px~는 서랍 없이 PC 틀(왼쪽 메뉴, UI-폴드PC틀 #1548).
+    if (width <= 760) {
+      await page.locator('#mobileMenuTab').click();
+      await expect(page.locator('#mobileMenu')).toBeVisible();
+      const m = await page.evaluate(() => {
+        const btns = [...document.querySelectorAll('#mobileMenu .mobile-menu-panel nav button')].filter(b => b.getClientRects().length);
+        const lines = btns.filter(b => parseFloat(getComputedStyle(b).borderTopWidth) > 0).length;
+        const nav = document.querySelector('#mobileMenu .mobile-menu-panel nav').getBoundingClientRect(), acc = document.querySelector('#mobileAccountGroup');
+        return {lines, accountBelow: acc.getBoundingClientRect().top >= nav.bottom - 1};
+      });
+      out.menuRowLines = m.lines; out.menuAccountBelow = m.accountBelow;
+      expect(m.lines, '메뉴 줄마다 그은 선').toBe(0);
+      expect(m.accountBelow, '계정은 메뉴 줄 아래').toBe(true);
+      await page.screenshot({path: `${DIR}/c-menu-${width}.png`});
+      await page.keyboard.press('Escape');
     }
 
     const esc = t => t.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
