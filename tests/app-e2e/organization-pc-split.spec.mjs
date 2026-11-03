@@ -215,7 +215,7 @@ test('PC 1440: 담당조직 목록·상세 칸 안에 따로 스크롤이 없고
  const y0=(await pane(page).boundingBox()).y;
  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
  await expect(pane(page)).toBeInViewport();
- // UI-상세칸고정(2026-11-03): 목록을 끝까지 내려도 상세 칸은 처음 자리보다 내려가지 않고 화면 안에 제자리다.
- const bb=await pane(page).boundingBox();expect(bb.y).toBeGreaterThanOrEqual(0);expect(bb.y).toBeLessThanOrEqual(y0+1);
+ // UI-상세칸고정(2026-11-03): 상세 칸은 처음 자리보다 내려가지 않는다(화면 끝에서 칸을 품은 줄이 끝나면 줄과 함께 올라가는 것은 sticky의 한계). 목록 긴 화면의 제자리 고정은 tasks-pc-columns가 본다.
+ const bb=await pane(page).boundingBox();expect(bb.y).toBeLessThanOrEqual(y0+1);
  expect(errors).toEqual([]);
 });

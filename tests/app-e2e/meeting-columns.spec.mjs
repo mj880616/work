@@ -205,9 +205,10 @@ test('PC 1440: 사업 보고 결과 칸(mrd-docked)은 따로 스크롤 없이 �
   // UI-상세칸고정(2026-11-03): 결과가 길면 문서가 아니라 결과 칸(.mcol-result)만 따로 넘어간다.
   const pm=await page.locator('#meetingList .mcol-result').evaluate(e=>({over:e.scrollHeight-e.clientHeight,oy:getComputedStyle(e).overflowY}));expect(pm.oy).toBe('auto');expect(pm.over).toBeGreaterThan(300);
   const d=await docScroll(page);expect(d.wide).toBeLessThanOrEqual(0);
-  // 끝까지 내려도 결과 칸 머리줄(제목·⋯)은 화면 위에 붙어 보인다.
-  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
-  await expect(body.locator('.modal-head')).toBeInViewport();
+  // UI-상세칸고정: 결과 칸을 끝까지 넘겨도 머리줄(제목·⋯)은 그 칸 맨 위에 붙어 보인다(칸 안 스크롤의 머리줄 고정).
+  await page.locator('#meetingList .mcol-result').evaluate(e=>{e.scrollTop=e.scrollHeight});
+  const hb=await body.locator('.modal-head').boundingBox(),pb=await page.locator('#meetingList .mcol-result').boundingBox();
+  expect(Math.abs(hb.y-pb.y)).toBeLessThanOrEqual(4);
 });
 
 test('PC ④: [+ 회의 결과]는 화면에 하나, 왼쪽에서 고른 종류를 미리 고른 기존 만들기 창(회의명 미지정은 비운 채)',async({page})=>{
