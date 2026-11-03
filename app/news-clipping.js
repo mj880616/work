@@ -11,6 +11,7 @@ import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {takeNewsItem} from './news-request.mjs';
 import {interestHit, signalBody} from './now-model.mjs';
+import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {ALL, STAR, TABS, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, keepTab, groupItems, itemView, openResult, errorNote, fillResult, cleanWord, normalizeCatalog, normalizeLimits, sourceNote, itemFolderId, memoTitle, memoIndex} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1(설계 docs/design/news-clipping.md, 명진 11/01 22:34): '뉴스 클리핑'(지금은 Now [뉴스] 탭, #nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩(꼬리표 '채널'/'자동'). 칩 [전체·채널·자동], 폰은 좌우로 밀어 칩 이동.
@@ -136,7 +137,7 @@ function itemHtml(it) {
   // 확정 관심 주제에 걸린 기사만 작은 표시(Now 12.2, 시간순 그대로). 줄 전체 = 제목 단추(공용 상세 열기).
   const hit = interestHit([v.title, v.origTitle, v.summary], now()?.topics?.() || []);
   const open_ = now()?.selected?.() === `news:${it.id}`;
-  return `<article class="nc-item now-row${it.id === state.focus ? ' is-focus' : ''}${open_ ? ' is-open' : ''}" data-nc-item="${esc(it.id)}"><div class="nc-head">${meta}${star}</div><h4 class="nc-title"${v.titleLang ? ` lang="${esc(v.titleLang)}"` : ''}><button type="button" class="now-open" data-nc-open="${esc(it.id)}">${esc(v.title)}</button></h4>${v.origTitle ? `<p class="nc-orig" lang="${esc(it.lang)}">${esc(v.origTitle)}</p>` : ''}${sum}${note}${memoHtml(it, memo)}<div class="nc-foot">${fold}${tr}${folder}${memoBtn}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}${actNote}</div></article>`;
+  return `<article class="nc-item now-row${it.id === state.focus ? ' is-focus' : ''}${open_ ? ' is-open' : ''}" data-nc-item="${esc(it.id)}"><div class="nc-head">${meta}${star}</div><h4 class="nc-title"${v.titleLang ? ` lang="${esc(v.titleLang)}"` : ''}><button type="button" class="now-open" data-nc-open="${esc(it.id)}">${esc(v.title)}</button></h4>${v.origTitle ? `<p class="nc-orig" lang="${esc(it.lang)}">${esc(v.origTitle)}</p>` : ''}${sum}${note}${memoHtml(it, memo)}<div class="nc-foot">${fold}${tr}${folder}${memoBtn}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}${actNote}</div>${hoverActsHtml({isSaved: starred})}</article>`;
 }
 // 내 메모(= 노트). 고치는 중이면 글 칸 + [취소][저장]. 새 서식(doc)으로 고친 메모는 여기서 글자만 보이고 노트에서 고친다.
 function memoHtml(it, memo) {
@@ -223,7 +224,7 @@ function paint() {
   const list = $('[data-nc-list]'), panel = $('[data-nc-panel]');
   if (state.mode === 'keywords') { panel.innerHTML = keywordsHtml(); list.replaceChildren(); }
   else if (state.mode === 'sources') { panel.innerHTML = sourcesHtml(); list.replaceChildren(); }
-  else { list.innerHTML = listHtml(); panel.replaceChildren(); }
+  else { list.innerHTML = listHtml(); panel.replaceChildren(); now()?.listed?.(); }
 }
 // 기사 한 줄만 다시 그린다(다른 줄의 펼침·스크롤은 그대로).
 function paintItem(id) {
@@ -492,6 +493,17 @@ async function toggleStar(id, trigger) {
   if (on && it.starred_at) { await ensureFolders(); if (scope === state.scope) pickFolder(id, root?.querySelector(`[data-nc-star="${CSS.escape(id)}"]`) || trigger); }
   else root?.querySelector(`[data-nc-star="${CSS.escape(id)}"]`)?.focus({preventScroll: true});
 }
+// 글 줄 밀기·마우스 단추(NOW-줄밀기): 왼쪽 = 숨기기(hidden_at), 오른쪽 = 보관(= 별표, 다시 밀면 풀기). 사회운동·[보관] 탭과 같은 부품(now-row-acts.js).
+bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemOf: el => (el.dataset.ncItem ? {type: 'news', id: el.dataset.ncItem} : null),
+  enabled: () => state.mode === 'list',
+  isSaved: item => !!state.items.find(x => x.id === item.id)?.starred_at,
+  changed: (item, kind, on) => {
+    const it = state.items.find(x => x.id === item.id);
+    if (kind === 'hide') { if (on) state.items = state.items.filter(x => x.id !== item.id); else load().catch(() => {}); }
+    else if (it) { it.starred_at = on ? new Date().toISOString() : null; if (!on) it.folder_id = null; if (state.tab === STAR && !on) state.items = state.items.filter(x => x.id !== item.id); }
+    else load().catch(() => {});
+    paint();
+  }});
 async function putInFolder(id, folderId) {
   const w = workspaceOf(), it = state.items.find(x => x.id === id), scope = state.scope;
   if (!w || !it || !it.starred_at) return;

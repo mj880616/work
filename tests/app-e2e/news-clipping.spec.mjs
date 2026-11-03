@@ -124,8 +124,8 @@ test('뉴스 클리핑 폰 412: 좌우로 밀면 Now 탭 이동(칩은 누르기
   await openNews(page, 412);
   await expect(items(page)).toHaveCount(5);
   const swipe = async dx => page.evaluate(async d => {
-    const el = document.querySelector('#newsRoot [data-nc-list]'), r = el.getBoundingClientRect();
-    const x = r.left + r.width / 2, y = r.top + 40;
+    const el = document.querySelector('#outsideRoot [data-os-tabs]'), r = el.getBoundingClientRect(); // 탭 이동 밀기는 탭 줄 위에서만(NOW-줄밀기: 글 줄 밀기는 숨기기·보관)
+    const x = r.left + r.width / 2, y = r.top + 12;
     const t = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
     el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(x)], changedTouches: [t(x)] }));
     el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t(x + d)] }));
@@ -134,7 +134,7 @@ test('뉴스 클리핑 폰 412: 좌우로 밀면 Now 탭 이동(칩은 누르기
   await swipe(-120);
   await expect(page.locator('#outsideRoot [data-os-tab="saved"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#nowPanelNews')).toBeHidden();
-  await page.evaluate(() => { const el = document.querySelector('#nowPanelSaved'), r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 60;
+  await page.evaluate(() => { const el = document.querySelector('#outsideRoot [data-os-tabs]'), r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 12;
     const t = cx => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
     el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(x)], changedTouches: [t(x)] }));
     el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t(x + 120)] })); });
@@ -171,8 +171,8 @@ for (const width of [412, 1440]) {
     test.setTimeout(60000);
     const { errors, server } = await start(page, width);
     const order = [];
-    await page.route('**/functions/v1/ai-assist', async route => { if (route.request().postDataJSON()?.kind !== 'now_detail') return route.fallback(); order.push('detail'); await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
-    page.on('request', r => { if (/news-feed\?action=open/.test(r.url())) order.push('open'); });
+    await page.route('**/functions/v1/ai-assist', async route => { if (route.request().postDataJSON()?.kind !== 'now_detail') return route.fallback(); if (route.request().postDataJSON()?.news_item_id === 'w1') order.push('detail'); await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
+    page.on('request', r => { if (/news-feed\?action=open/.test(r.url()) && r.postDataJSON()?.id === 'w1') order.push('open'); });
     await openNews(page, width);
     await item(page, 'w1').locator('[data-nc-open="w1"]').click();
     await expect(page.locator('[data-nd-summary]')).toContainText('가짜 기사 한 줄 요약입니다.');
@@ -185,7 +185,7 @@ for (const width of [412, 1440]) {
     test.setTimeout(60000);
     const { errors } = await start(page, width);
     let detailCalls = 0;
-    await page.route('**/functions/v1/ai-assist', async route => { if (route.request().postDataJSON()?.kind !== 'now_detail') return route.fallback(); detailCalls++; await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
+    await page.route('**/functions/v1/ai-assist', async route => { if (route.request().postDataJSON()?.kind !== 'now_detail') return route.fallback(); if (route.request().postDataJSON()?.news_item_id === 'w1') detailCalls++; await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
     await page.route('**/functions/v1/news-feed?action=open', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: 'robots' }) }));
     await openNews(page, width);
     await item(page, 'w1').locator('[data-nc-open="w1"]').click();

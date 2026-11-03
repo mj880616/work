@@ -77,7 +77,8 @@ for (const width of [412, 1280]) {
     await expect(root.getByRole('tab', { name: '문장 찾기' })).toHaveAttribute('aria-selected', 'true');
     await expect(root.locator('[data-os-panel-new]')).toBeHidden();
     const box = root.locator('[data-os-search]');
-    await expect(box.locator('[data-osq-empty="start"]')).toBeVisible();
+    await expect(box.locator('[data-osq-empty="start"]')).toHaveCount(0); // 안내 문구는 입력칸 흐린 글자와 같아 뺐다
+    await expect(box.locator('[data-osq-input]')).toHaveAttribute('placeholder', '찾을 낱말·문장');
     await expect(box.locator('[data-osq-period]')).toHaveText(['1달', '6달', '1년', '전체', '날짜']);
     await expect(box.locator('[data-osq-chip]')).toHaveText(['전체', '노동', '정당']);
     expect(s.calls.filter(c => c.what === 'search')).toHaveLength(0);
@@ -137,7 +138,7 @@ for (const width of [412, 1280]) {
 
     // 폰은 좌우 밀기로 탭 이동(오른쪽으로 밀면 바로 앞 탭 [보관], S48-27 Now 탭 넷). PC는 화살표 키.
     if (width <= 760) {
-      await box.locator('.osq-outside .osq-head').evaluate(el => {
+      await root.locator('[data-os-tabs]').evaluate(el => { // 탭 이동 밀기는 탭 줄 위에서만(NOW-줄밀기)
         const t = (type, x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 });
         el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t('touchstart', 60)], changedTouches: [t('touchstart', 60)] }));
         el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t('touchend', 300)] }));
