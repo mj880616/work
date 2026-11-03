@@ -114,7 +114,6 @@
 .ql-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-meta,12px);font-weight:600;cursor:pointer}
 .ql-menu button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
 .ql-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-.ql-menu .ql-menu-danger{color:var(--kptu-danger)}
 .ql-menu .ql-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--kptu-border)}
 @media (min-width:761px){
   /* UI-상단줄제목: 열린 노트 머리줄은 제목 줄이 없어 [복사]·[⋯]를 오른쪽 끝에 둔다. */
