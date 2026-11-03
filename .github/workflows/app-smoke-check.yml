@@ -560,6 +560,8 @@ jobs:
         run: node --test tests/photo-tidy.test.mjs
       - name: "Photo delete two ways (S48-17 PHOTO-지우기두갈래: 폰 공간만 비우기·완전히 지우기·비운 사진 목록·폰으로 되돌리기, synthetic)"
         run: node --test tests/photo-keep.test.mjs
+      - name: "Photo info edit (S48-60 PHOTO-정보고치기: 시각 밀기·이 날짜로·이 장소로·되돌리기·폰 다리 meta, synthetic)"
+        run: node --test tests/photo-info.test.mjs
       - name: "Select bars (S48-54 UI-고르기줄: 사진·크게 보기·노트·자료실 고르기 줄 공용 부품, 같은 칸·선 아이콘)"
         run: node --test tests/act-bar.test.mjs
       - name: "Photo sources (PHOTO-출처: 섞기·중복 판정·출처 상태·폰 다리)"

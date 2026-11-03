@@ -137,6 +137,35 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * S48-60 PHOTO-정보고치기(0.4.15): 찍은 시각·위치 고치기. 읽기 전 '사진 위치 정보' 허락(대화창 없이 사진 권한에 딸림)을 한 번 묻고,
+     * 쓰기는 수정 허락 창 한 번(여러 장 묶음) → PhotoMeta.write. 한 번에 하나.
+     */
+    private var metaRead: List<Long>? = null
+    private val metaLocation = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+        val ids = metaRead
+        metaRead = null
+        if (ids != null) readMeta(ids)
+    }
+    private var metaChanges: List<PhotoMetaRules.Change>? = null
+    private var metaList: List<PhoneMediaRules.Media> = emptyList()
+    private val metaWrite = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val changes = metaChanges
+        val list = metaList
+        metaChanges = null
+        metaList = emptyList()
+        if (changes == null) return@registerForActivityResult
+        if (result.resultCode != android.app.Activity.RESULT_OK) {
+            postPhotos(PhotoMetaRules.doneMessage(false, 0, error = "refused"))
+            return@registerForActivityResult
+        }
+        val app = applicationContext
+        Thread {
+            val (done, failed) = try { PhotoMeta.write(app, list, changes) } catch (_: Exception) { emptyList<Long>() to changes.map { it.id } }
+            ui.post { postPhotos(PhotoMetaRules.doneMessage(done.isNotEmpty(), done.size, failed, if (done.isNotEmpty()) "" else "failed")) }
+        }.start()
+    }
+
+    /**
      * PHOTO-갤러리편집(0.4.6): 크게 보기 [편집] → 삼성 갤러리 편집기(없으면 고르기 창). 돌아오면 사진첩 세대 번호로 바뀌었는지 알린다
      * (갤러리는 저장해도 결과를 RESULT_OK로 주지 않을 수 있어 번호로 본다). 화면을 다시 열지 않는다(APP-다시열림 규칙).
      */
@@ -794,6 +823,11 @@ class MainActivity : ComponentActivity() {
      * trash:<번호들> = 폰 휴지통으로(안드로이드 11+, 시스템 확인 창). 목록·그림은 __phone 가로채기(PhoneMedia.serve)로만 준다.
      */
     private fun onPhotoMessage(data: String, reply: JavaScriptReplyProxy) {
+        if (data.startsWith("photos:meta:")) {
+            photoReply = reply
+            onMetaMessage(data)
+            return
+        }
         if (data.startsWith("photos:edit:") || data.startsWith("photos:save:")) {
             photoReply = reply
             val e = PhotoEditRules.message(data)
@@ -963,6 +997,65 @@ class MainActivity : ComponentActivity() {
                 photoSave = null
             }
         } catch (_: Exception) {
+        }
+    }
+
+    /** S48-60 PHOTO-정보고치기: 읽기(위치 허락 한 번 묻고) · 쓰기(수정 허락 창 한 번). */
+    private fun onMetaMessage(data: String) {
+        when (val m = PhotoMetaRules.message(data)) {
+            is PhotoMetaRules.Message.Read -> {
+                if (PhoneMedia.access(this) == PhoneMediaRules.Access.NONE) {
+                    postPhotos(PhotoMetaRules.metaMessage(false, emptyList(), "none"))
+                } else if (!PhotoMeta.locationAllowed(this) && metaRead == null) {
+                    metaRead = m.ids
+                    try {
+                        metaLocation.launch(android.Manifest.permission.ACCESS_MEDIA_LOCATION)
+                    } catch (_: Exception) {
+                        metaRead = null
+                        readMeta(m.ids)
+                    }
+                } else readMeta(m.ids)
+            }
+            is PhotoMetaRules.Message.Write -> startMetaWrite(m.changes)
+            else -> postPhotos(PhotoMetaRules.doneMessage(false, 0, error = "bad"))
+        }
+    }
+
+    private fun readMeta(ids: List<Long>) {
+        val app = applicationContext
+        Thread {
+            val text = try {
+                PhotoMetaRules.metaMessage(true, PhotoMeta.read(app, ids))
+            } catch (_: Exception) {
+                PhotoMetaRules.metaMessage(false, emptyList(), "failed")
+            }
+            ui.post { if (alive) postPhotos(text) }
+        }.start()
+    }
+
+    private fun startMetaWrite(changes: List<PhotoMetaRules.Change>) {
+        if (Build.VERSION.SDK_INT < 30) {
+            postPhotos(PhotoMetaRules.doneMessage(false, 0, error = "old"))
+            return
+        }
+        if (metaChanges != null) {
+            postPhotos(PhotoMetaRules.doneMessage(false, 0, error = "busy"))
+            return
+        }
+        try {
+            val list = PhotoMeta.targets(this, changes.map { it.id }).filter { PhotoMetaRules.canWrite(it.mime, it.video) }
+            if (list.isEmpty()) {
+                postPhotos(PhotoMetaRules.doneMessage(false, 0, changes.map { it.id }, "none"))
+                return
+            }
+            val sender = android.provider.MediaStore.createWriteRequest(contentResolver, list.map(PhoneMedia::uriOf)).intentSender
+            metaChanges = changes
+            metaList = list
+            metaWrite.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
+        } catch (_: Exception) {
+            metaChanges = null
+            metaList = emptyList()
+            postPhotos(PhotoMetaRules.doneMessage(false, 0, error = "failed"))
         }
     }
 

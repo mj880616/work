@@ -224,3 +224,29 @@
 /* PHOTO-드라이브폴더통일: 폴더 줄 장수는 0·모름('—')이면 흐리게(원드라이브·구글 드라이브 같음). 폰 묶음 이름 옆 전체 장수. */
 #appView #photosView .photos-fx-row .nx-num.is-zero{ opacity:.55; }
 #appView #photosView .photos-fx-n{ margin-left:4px; font-variant-numeric:tabular-nums; }
+/* S48-60 PHOTO-정보고치기: 사진 ⋯ [정보 고치기…] 창(촘촘하게, 표는 창 안에서만 내림, 폰 하단바에 가리지 않게 위쪽에). */
+.photo-info-dialog{width:min(560px,calc(100vw - 16px));max-height:calc(100dvh - var(--kptu-mobile-tab-height,56px) - 24px);padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-ink);display:none;flex-direction:column}
+.photo-info-dialog[open]{display:flex}
+.photo-info-dialog::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}
+.photo-info-dialog .pi-head,.photo-info-dialog .pi-foot{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.photo-info-dialog .pi-head h2{margin:0;font-size:15px;flex:1}
+.photo-info-dialog .pi-head h2 span{font-weight:400;color:var(--kptu-muted);font-size:13px}
+.photo-info-dialog .pi-body{display:flex;flex-direction:column;gap:6px;padding:0 12px 6px;min-height:0;overflow:auto}
+.photo-info-dialog .pi-cam{margin:0;font-size:12px;color:var(--kptu-muted)}
+.photo-info-dialog .pi-cam:empty{display:none}
+.photo-info-dialog .pi-how{border:0;margin:0;padding:0;display:grid;gap:4px}
+.photo-info-dialog .pi-opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:13px}
+.photo-info-dialog .pi-opt input[type=number]{width:4.2em}
+.photo-info-dialog .pi-opt input[type=text]{flex:1;min-width:10em}
+.photo-info-dialog .pi-opt select,.photo-info-dialog .pi-opt input:not([type=radio]){font-size:13px;padding:2px 4px;min-height:28px}
+.photo-info-dialog .pi-table-wrap{overflow:auto;max-height:40vh;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
+.photo-info-dialog .pi-table{width:100%;border-collapse:collapse;font-size:12px}
+.photo-info-dialog .pi-table th,.photo-info-dialog .pi-table td{padding:3px 6px;text-align:left;vertical-align:top;border-bottom:1px solid var(--kptu-border)}
+.photo-info-dialog .pi-table tbody th{font-weight:400;max-width:10em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.photo-info-dialog .pi-table thead th{position:sticky;top:0;background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-weight:500}
+.photo-info-dialog .pi-changed td:last-child{color:var(--kptu-primary-ink,var(--kptu-primary))}
+.photo-info-dialog .pi-no{color:var(--kptu-muted)}
+.photo-info-dialog .pi-last{margin:0;font-size:12px;color:var(--kptu-muted)}
+.photo-info-dialog .pi-foot{justify-content:space-between;border-top:1px solid var(--kptu-border)}
+.photo-info-dialog .pi-foot .status{margin:0;font-size:12px;flex:1;min-width:0}
+@media (max-width:760px){.photo-info-dialog{margin:12px auto auto}}

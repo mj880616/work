@@ -65,9 +65,9 @@ class PhoneMediaRulesTest {
 
     @Test
     fun stateMessageGivesKeyOnlyWithAccess() {
-        assertEquals("photos:state:{\"access\":\"none\",\"trash\":true,\"hide\":true,\"ops\":true,\"manage\":false,\"edit\":true,\"restore\":true}", PhoneMediaRules.stateMessage(Access.NONE, key, 34))
-        assertEquals("photos:state:{\"access\":\"partial\",\"key\":\"$key\",\"trash\":false,\"hide\":true,\"ops\":false,\"manage\":false,\"edit\":true,\"restore\":true}", PhoneMediaRules.stateMessage(Access.PARTIAL, key, 29))
-        assertTrue(PhoneMediaRules.stateMessage(Access.FULL, key, 34, manage = true).endsWith("\"manage\":true,\"edit\":true,\"restore\":true}"))
+        assertEquals("photos:state:{\"access\":\"none\",\"trash\":true,\"hide\":true,\"ops\":true,\"manage\":false,\"edit\":true,\"restore\":true,\"meta\":true}", PhoneMediaRules.stateMessage(Access.NONE, key, 34))
+        assertEquals("photos:state:{\"access\":\"partial\",\"key\":\"$key\",\"trash\":false,\"hide\":true,\"ops\":false,\"manage\":false,\"edit\":true,\"restore\":true,\"meta\":true}", PhoneMediaRules.stateMessage(Access.PARTIAL, key, 29))
+        assertTrue(PhoneMediaRules.stateMessage(Access.FULL, key, 34, manage = true).endsWith("\"manage\":true,\"edit\":true,\"restore\":true,\"meta\":true}"))
     }
 
     @Test
