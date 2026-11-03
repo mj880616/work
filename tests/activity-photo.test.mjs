@@ -113,3 +113,64 @@ test('그 시각 사진 줄: 고른 사진만 기존 첨부 길로, 서버에 �
   const diary=readFileSync(new URL('../app/diary.js',import.meta.url),'utf8');
   assert.doesNotMatch(diary.slice(diary.indexOf('let phoneDay'),diary.indexOf('const phoneShown')),/uploadDiaryPhotos|rt\.api|addStar/);
 });
+
+// S48-58 사진 정리 ⑥ 남은 일: '그날·그 장소에서 찍은' 사진도 추천(위치는 원드라이브 색인에서만, 지도 서비스 없음).
+import {suggestPhotos,placeAnchor,lendPlaces,distanceM,suggestRange,placeOf,nearHead,PLACE_M} from '../app/time-photos-model.mjs';
+const HALL={lat:37.52971,lon:126.96499},FAR={lat:37.5665,lon:126.9780}; // 약 4km 떨어진 두 곳(가짜)
+const at2=reportAtMs('2026-11-03T14:00');
+const t=h=>new Date(at2+h*3600e3).toISOString();
+
+test('그 장소: 거리·기준점·짝 위치 빌리기·범위', () => {
+  assert.ok(distanceM(HALL,FAR)>3000&&distanceM(HALL,FAR)<6000);
+  assert.ok(distanceM(HALL,{lat:HALL.lat+0.001,lon:HALL.lon})<PLACE_M);
+  // 기준점: 앞뒤 3시간 안 위치 있는 사진들의 가운데 값(한 장이 멀어도 흔들리지 않음), 3시간 밖·추정 시각은 빼고, 없으면 null.
+  const a=placeAnchor([odi('A',t(0.2)),{...odi('B',t(-0.5)),...HALL},{...odi('C',t(1)),...HALL},{...odi('D',t(2)),...FAR},{...odi('E',t(-5)),...FAR},{...odi('F',t(0.1)),...FAR,approx:true}],at2);
+  assert.deepEqual(a,HALL);
+  assert.equal(placeAnchor([odi('A',t(0))],at2),null);
+  assert.equal(placeAnchor([{...odi('A',t(0)),...HALL}],NaN),null);
+  // 폰 사진은 원드라이브 짝(같은 사진)의 위치를 빌린다. 짝이 없으면 그대로.
+  const lent=lendPlaces([ph(1,t(0)),ph(2,t(1))],[{...odi('X',new Date(Date.parse(t(0))+1000).toISOString(),'img_1.jpg'),...HALL}]);
+  assert.deepEqual([lent[0].lat,lent[0].lon,'lat' in lent[1]],[HALL.lat,HALL.lon,false]);
+  // 범위 = 앞뒤 3시간 + 그 서울 날 하루.
+  const r=suggestRange(at2);
+  assert.equal(r.from,Date.parse('2026-11-02T15:00:00Z'));assert.equal(r.to,Date.parse('2026-11-03T15:00:00Z')-1);
+  const late=suggestRange(reportAtMs('2026-11-03T23:00'));assert.equal(late.to,reportAtMs('2026-11-04T02:00'));
+  assert.deepEqual(placeOf({lat:1,lon:2}),{lat:1,lon:2});assert.deepEqual(placeOf({lat:'1',lon:2}),{});assert.deepEqual(placeOf({lat:95,lon:2}),{});
+  // 원드라이브 달 목록의 위치가 칸까지 그대로 온다.
+  assert.deepEqual(odMonthItems({days:{'2026-11-03':[{id:'A',name:'a.jpg',taken_at:t(0),...HALL}]}}).map(x=>[x.lat,x.lon]),[[HALL.lat,HALL.lon]]);
+});
+
+test('그 장소 사진: 그날 기준점 근처면 3시간 밖이어도 더하고 📍, 다른 날·먼 곳·추정 시각은 빼기', () => {
+  const od=[
+    {...odi('N1',t(0.5)),...HALL},            // 3시간 안·그 장소 → here
+    {...odi('N2',t(-1)),...FAR},              // 3시간 안·다른 곳 → 들어오되 here 없음
+    odi('N3',t(1)),                           // 3시간 안·위치 없음
+    {...odi('P1',t(-4.5)),...HALL},           // 3시간 밖·그날·그 장소(09:30) → here
+    {...odi('P2',t(5)),...HALL,approx:true},  // 추정 시각 → 빼기
+    {...odi('P3',t(4.5)),...FAR},             // 3시간 밖·다른 곳 → 빼기
+    {...odi('P4',t(-24)),...HALL},            // 전날 그 장소 → 빼기
+  ];
+  const phone=[ph(7,t(-5),{name:'IMG_7.jpg'})]; // 폰 사진: 짝 위치를 빌려 그 장소 → here
+  od.push({...odi('T7',new Date(Date.parse(t(-5))+500).toISOString(),'img_7.JPG'),...HALL});
+  const got=suggestPhotos({phone,od,atMs:at2});
+  assert.deepEqual(got.items.map(x=>[x.id,x.here===true]),[['ph:7',true],['P1',true],['N2',false],['N1',true],['N3',false]]);
+  assert.equal(got.here,3);assert.deepEqual(got.anchor,HALL);
+  // 기준점이 없으면 지금처럼 시각만(nearPhotos와 같은 결과).
+  const plain=od.map(({lat,lon,...x})=>x);
+  assert.deepEqual(suggestPhotos({phone:[],od:plain,atMs:at2}).items.map(x=>x.id),nearPhotos({phone:[],od:plain,atMs:at2}).map(x=>x.id));
+  // 많으면 그 장소 사진을 먼저 남긴다.
+  const capped=suggestPhotos({phone:[],od,atMs:at2,max:2});
+  assert.deepEqual(capped.items.map(x=>x.id),['P1','N1']);
+  assert.deepEqual(suggestPhotos({phone,od,atMs:NaN}),{items:[],here:0,anchor:null});
+  assert.equal(nearHead(5,3),'그 시각 사진 5장 · 📍그 장소 3장');assert.equal(nearHead(2),'그 시각 사진 2장');
+});
+
+test('그 장소: 지도 서비스·새 외부 주소·기기 저장 없음', () => {
+  for(const f of ['time-photos.js','time-photos-model.mjs']){
+    const src=readFileSync(new URL('../app/'+f,import.meta.url),'utf8');
+    assert.doesNotMatch(src,/https?:\/\/|localStorage|sessionStorage|indexedDB|geocod|kakao|naver|maps\./i,f);
+  }
+  const ui=readFileSync(new URL('../app/time-photos.js',import.meta.url),'utf8');
+  assert.match(ui,/suggestPhotos\(\{phone:ph, od, atMs\}\)/);
+  assert.match(ui,/tp-here/);
+});

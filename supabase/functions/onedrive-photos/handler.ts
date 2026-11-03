@@ -52,7 +52,14 @@ const LOG_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const validRelPath = (v: unknown) => typeof v === "string" && v.length >= 1 && v.length <= 255 && !/[\u0000-\u001f\u007f]/.test(v) && !/(^|\/)\.\.(\/|$)/.test(v) && !v.startsWith("/");
 const DB_PAGE = 1000, UPSERT_CHUNK = 500, IN_CHUNK = 100;
 type FolderRow = { item_id: string; parent_id: string | null; name: string; enabled: boolean; role?: string | null };
-type PhotoRow = { item_id: string; parent_id: string; name: string; taken_at: string; approx: boolean; taken_day: string };
+type PhotoRow = { item_id: string; parent_id: string; name: string; taken_at: string; approx: boolean; taken_day: string; lat?: number | null; lon?: number | null };
+// 색인의 찍은 곳 → {lat, lon}(둘 다 있고 범위 안일 때만, 소수 다섯째 자리). 없으면 빈 객체.
+const round5 = (v: number) => Math.round(v * 1e5) / 1e5;
+export function placeOf(r: { lat?: unknown; lon?: unknown }): { lat?: number; lon?: number } {
+  const lat = typeof r.lat === "number" ? r.lat : Number.NaN, lon = typeof r.lon === "number" ? r.lon : Number.NaN;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return {};
+  return { lat: round5(lat), lon: round5(lon) };
+}
 type MediaRow = PhotoRow & {
   kind: string; mime: string | null; width: number | null; height: number | null; duration_ms: number | null; screenshot: boolean;
   trashed_at?: string | null; orig_parent_id?: string | null; size_bytes?: number | null; uploaded_at?: string | null;
@@ -789,14 +796,17 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const end = monthEnd(month);
       const { reach } = folderTree(await readFolders(workspaceId), folder.id, folder.whole);
       const rows = await readAll<PhotoRow>("onedrive_index_read_failed:photos", () =>
-        admin.from(PHOTOS).select("item_id,parent_id,name,taken_at,approx,taken_day").eq("workspace_id", workspaceId).eq("kind", "photo")
+        admin.from(PHOTOS).select("item_id,parent_id,name,taken_at,approx,taken_day,lat,lon").eq("workspace_id", workspaceId).eq("kind", "photo")
           .is("trashed_at", null).gte("taken_day", `${month}-01`).lt("taken_day", end).order("item_id"));
-      const days: Record<string, { id: string; name: string; taken_at: string; approx: boolean }[]> = {};
+      // S48-58 그 장소 사진: 찍은 곳(색인 lat·lon, 원드라이브가 준 사진 자체의 위치)이 있으면 소수 다섯째 자리(약 1m)로 함께 준다.
+      // 소유자 본인 요청에만 답하는 기존 경로 그대로다(새 저장·외부 호출 없음).
+      const days: Record<string, { id: string; name: string; taken_at: string; approx: boolean; lat?: number; lon?: number }[]> = {};
       for (const r of rows) {
         if (!reach.get(r.parent_id)?.visible) continue;
         const day = String(r.taken_day).slice(0, 10);
         if (!day.startsWith(month + "-")) continue;
-        (days[day] ||= []).push({ id: r.item_id, name: r.name, taken_at: new Date(r.taken_at).toISOString(), approx: r.approx === true });
+        const at = placeOf(r);
+        (days[day] ||= []).push({ id: r.item_id, name: r.name, taken_at: new Date(r.taken_at).toISOString(), approx: r.approx === true, ...at });
       }
       for (const list of Object.values(days)) list.sort((a, b) => a.taken_at.localeCompare(b.taken_at) || a.id.localeCompare(b.id));
       return json({ month, days, truncated: false, indexing });
