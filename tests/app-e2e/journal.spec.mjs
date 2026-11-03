@@ -3813,3 +3813,32 @@ for(const width of [390,1280])test(`[주간 정리] 2. 1) 요약: 바탕에 없�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
+
+// PERF-첫로딩 '연 화면 유지'(요청함 11/02 00:13 2)): 다른 탭에 갔다 같은 주의 홈으로 돌아오면 기다림 표시 없이 보던 화면을 바로 보이고
+// (입력칸도 바로 쓸 수 있음), 뒤에서 새로 읽은 자료(다른 기기에서 쓴 한 줄)는 읽기가 끝나면 그 칸만 바뀐다.
+test('[업무일지] 연 화면 유지: 탭을 갔다 오면 기다림 표시 없이 그대로, 새 자료는 뒤에서 바뀐다 390',async({page})=>{
+ const f=await fixture(page,{width:390});await openJournal(page,390);
+ await expect(itemTexts(page,'activities')).toHaveText(['14:00 가상 기자회견']);
+ await expect(lineTexts(page)).toHaveCount(0);
+ await expect(page.locator('#journalRoot [data-journal-input]')).toBeEnabled();
+ const waits=page.locator('#journalRoot [data-wait]');
+ await expect.poll(()=>waits.count()).toBe(0);
+ await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();await expect(page.locator('#calendarView')).toBeVisible();
+ // 자리를 비운 사이 다른 기기에서 오늘 한 줄을 썼다. 돌아온 뒤의 다시 읽기는 붙잡아 둔다.
+ f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'다른 기기 한 줄',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
+ let release;const held=new Promise(resolve=>{release=resolve;});
+ const rest=u=>u.origin===SB&&u.pathname.startsWith('/rest/v1/'),hold=async r=>{await held;await r.fallback();};
+ await page.route(rest,hold);
+ await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();
+ // 읽기가 붙잡혀 있는 동안에도 보던 화면 그대로: 재료·입력칸, 기다림 표시 없음.
+ await expect(itemTexts(page,'activities')).toHaveText(['14:00 가상 기자회견']);
+ await expect(page.locator('#journalRoot [data-journal-input]')).toBeEnabled();
+ expect(await waits.count()).toBe(0);
+ await expect(lineTexts(page)).toHaveCount(0);
+ release();
+ await expect(lineTexts(page)).toHaveText(['다른 기기 한 줄']);
+ await expect(itemTexts(page,'activities')).toHaveText(['14:00 가상 기자회견']);
+ expect(await waits.count()).toBe(0);
+ await page.unroute(rest,hold);
+ expect(f.errors).toEqual([]);
+});
