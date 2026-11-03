@@ -227,6 +227,8 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 /* 버튼 크기 통일(요청함 11/03 07:49): 빼기·취소·저장·+ 줄 추가·다시 채우기가 모두 같은 높이·같은 글자. 저장만 색으로 구분한다. */
 .wd-st-btn,.wd-st-btn.primary{box-sizing:border-box;position:relative;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta);font-weight:500;line-height:1}
 .wd-st-btn::after{content:"";position:absolute;inset:-8px -2px}
+/* 화면 공용 채운 버튼 규칙(ui-standard.css '#appView :is(#teamView,…) button.primary')이 [저장]만 더 키우므로, 담당조직 안에서는 이 표의 버튼 높이로 맞춘다. */
+#appView #teamView .wd-st button.wd-st-btn,#appView #teamView .wd-st button.wd-st-btn.primary{box-sizing:border-box;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;line-height:1}
 .wd-st-btn.primary{background:var(--kptu-ink);border-color:var(--kptu-ink);color:var(--kptu-on-primary)}
 .wd-st-tag{margin-left:6px;padding:0 4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);color:var(--kptu-muted);font-size:10.5px;vertical-align:1px}
 .wd-st-ev{margin-top:2px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
