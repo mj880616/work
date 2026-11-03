@@ -262,6 +262,10 @@ jobs:
           check_redirect 'https://desk.bokdoong.com/work/app/?view=library&drive=connected' 'https://bokdoong.com/work/app/?view=library&drive=connected'
           check_redirect 'https://desk.bokdoong.com/work/app/onedrive-return.html?probe=1' 'https://bokdoong.com/work/app/onedrive-return.html?probe=1'
           check_redirect 'https://work.bokdoong.com/work/app/?view=calendar' 'https://bokdoong.com/work/app/?view=calendar'
+          # DOMAIN-아스날주소: every arsenal address goes to the Web2 아스날 menu; the old ?query is dropped.
+          check_redirect 'https://arsenal.bokdoong.com/' 'https://bokdoong.com/work/app/?view=arsenal'
+          check_redirect 'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/?season=x' 'https://bokdoong.com/work/app/?view=arsenal'
+          check_redirect 'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js' 'https://bokdoong.com/work/app/?view=arsenal'
 
           for url in \
             https://bokdoong.com/ \
@@ -327,7 +331,7 @@ jobs:
             https://bokdoong.com/work/app/ \
             https://work.bokdoong.com/work/assets/web1-design-lite.css \
             "$SW_URL" \
-            https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/app.js
+            https://work.bokdoong.com/work/share/
           do
             headers="$(curl \
               --silent \
