@@ -71,6 +71,9 @@ test('편집기를 두 번째 열 때 큰 편집기 부품을 다시 받지 않�
       console.log('  새로 받은 파일: '+r.fresh.join(', '));
       test.info().annotations.push({type:'measure',description:line});
     }
+    // 처음에는 엔진 파일을 받고, 두 번째에는 Web2 창의 캐시로 넘겨받아 서버에서 다시 받지 않는다.
+    expect(rounds[0].wasmBytes).toBeGreaterThan(10*1048576);
+    expect(rounds[1].wasmBytes).toBe(0);
   }finally{
     server.closeAllConnections();
     await new Promise(done=>server.close(done));
