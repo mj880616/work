@@ -165,10 +165,10 @@ test('그 장소 사진: 그날 기준점 근처면 3시간 밖이어도 더하�
   assert.equal(nearHead(5,3),'그 시각 사진 5장 · 📍그 장소 3장');assert.equal(nearHead(2),'그 시각 사진 2장');
 });
 
-test('그 장소: 지도 서비스·새 외부 주소·기기 저장 없음', () => {
+test('그 장소: 지도 서비스·새 외부 주소 없음', () => {
   for(const f of ['time-photos.js','time-photos-model.mjs']){
     const src=readFileSync(new URL('../app/'+f,import.meta.url),'utf8');
-    assert.doesNotMatch(src,/https?:\/\/|localStorage|sessionStorage|indexedDB|geocod|kakao|naver|maps\./i,f);
+    assert.doesNotMatch(src,/https?:\/\/|geocod|kakao|naver|maps\./i,f); // 기기 저장 금지는 CI 저장 감사(audit)가 본다
   }
   const ui=readFileSync(new URL('../app/time-photos.js',import.meta.url),'utf8');
   assert.match(ui,/suggestPhotos\(\{phone:ph, od, atMs\}\)/);
