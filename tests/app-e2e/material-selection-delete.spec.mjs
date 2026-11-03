@@ -212,7 +212,7 @@ for(const width of [390,1280]){
     expect(state.uploads[0].raw).toContain('name="meeting_id"');expect(state.uploads[0].raw).toContain('edit-added.pdf');
     await expect(modal.locator('#mrdEditor')).toBeVisible();
     await expect(attach.locator('#mrdMaterials .mrd-file-row')).toHaveCount(3);
-    await modal.locator('#mrdEditTitle').fill('자료 확인 회의 고침');
+    await modal.locator('#mrdEditNotes').fill('첨부 뒤 고친 특이사항');
     await modal.locator('#mrdSaveEdit').click();
     await expect.poll(()=>state.meetingPatches.length).toBe(1);
     await expect(modal.locator('#mrdEditor')).toBeHidden();await expect(modal.locator('#mrdView')).toBeVisible();
