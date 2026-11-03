@@ -4,7 +4,8 @@ import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-�
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatSeoulTime} from './meeting-time.js';
 import {dueGroup, dueLabel} from './task-due.mjs'; // TASK-내일칸: 기한 묶음(지남·오늘·내일·일주일 안·나중·기한 없음) 하나
-import {QUICK_DUES} from './task-due.mjs'; // S46-30 빠른 기한 줄 하나
+import {QUICK_DUES, moveTaskToDay, tomorrowKey, dueDay, shortDay} from './task-due.mjs'; // S46-30 빠른 기한 줄 하나 + S49-6 기한 빠른 버튼 알림
+import {offerUndoNotice} from './basket-record-delete.js';
 import {openWeekPick} from './task-week-pick.js'; // S46-30 [다음주] 요일 목록
 import { createAnchoredMenu } from './anchored-menu.js';
 import { dayKey } from './home-read-model.js';
@@ -72,7 +73,7 @@ function openScope(){
   modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');window.KPTUA11y?.dialog.activate(modal,{trigger:document.activeElement,initialFocus:'[data-gt-scope-close]',onRequestClose:closeScope});
 }
 
-function ensureModal(){let m=document.querySelector('#gtTaskModal');if(m)return m;document.body.insertAdjacentHTML('beforeend',`<div id="gtTaskModal" class="modal hidden" data-enter-save role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gtTaskHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="gtTaskHeading">Google 할 일</h2></div><button class="icon-btn" data-gt-close type="button" aria-label="닫기">×</button></div><label>할 일<input id="gtEditTitle" type="text"></label><div id="gtEditAttach" class="gt-att hidden"><span class="gt-att-label">첨부</span><div class="gt-att-list" data-gt-att-list></div></div><div class="gt-due-row"><label>기한<input id="gtEditDue" type="date"></label><div class="gt-due-quick" role="group" aria-label="기한 빠른 선택">${QUICK_DUES.map(([k,label])=>`<button type="button" class="ghost" data-gt-due-quick="${k}">${label}</button>`).join('')}</div></div><label>메모<textarea id="gtEditNotes" rows="4"></textarea></label><div id="gtNewFiles"></div><p class="gt-scope-note hidden" id="gtMeetingLinks"></p><p class="gt-scope-note hidden" id="gtSourceNote"></p><fieldset class="gt-links"><legend class="gt-links-legend">연결할 사업영역·조직</legend><div id="gtEditLinkBody" class="gt-link-body"></div></fieldset><div class="modal-action-footer"><div id="gtEditStatus" class="status"></div><div class="gt-modal-actions"><button id="gtDeleteBtn" class="ghost tl-danger hidden" type="button">삭제</button><button id="gtToggleBtn" class="ghost hidden" type="button">완료</button><button id="gtSaveBtn" data-enter-save-submit class="primary" type="button">저장</button></div></div></div></div>`);m=document.querySelector('#gtTaskModal');m.querySelector('[data-gt-close]').onclick=closeEditor;document.querySelector('#gtSaveBtn').onclick=saveEditor;m.querySelectorAll('[data-gt-due-quick]').forEach(q=>q.onclick=()=>{if(!editing||editorSaving||!editorReady)return;const n=q.dataset.gtDueQuick,field=document.querySelector('#gtEditDue'),put=day=>{if(!editing||editorSaving||!editorReady)return;field.value=day;saveEditor()};
+function ensureModal(){let m=document.querySelector('#gtTaskModal');if(m)return m;document.body.insertAdjacentHTML('beforeend',`<div id="gtTaskModal" class="modal hidden" data-enter-save role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gtTaskHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="gtTaskHeading">Google 할 일</h2></div><button class="icon-btn" data-gt-close type="button" aria-label="닫기">×</button></div><label>할 일<input id="gtEditTitle" type="text"></label><div id="gtEditAttach" class="gt-att hidden"><span class="gt-att-label">첨부</span><div class="gt-att-list" data-gt-att-list></div></div><div class="gt-due-row"><label>기한<input id="gtEditDue" type="date"></label><div class="gt-due-quick" role="group" aria-label="기한 빠른 선택">${QUICK_DUES.map(([k,label])=>`<button type="button" class="ghost" data-gt-due-quick="${k}">${label}</button>`).join('')}</div></div><label>메모<textarea id="gtEditNotes" rows="4"></textarea></label><div id="gtNewFiles"></div><p class="gt-scope-note hidden" id="gtMeetingLinks"></p><p class="gt-scope-note hidden" id="gtSourceNote"></p><fieldset class="gt-links"><legend class="gt-links-legend">연결할 사업영역·조직</legend><div id="gtEditLinkBody" class="gt-link-body"></div></fieldset><div class="modal-action-footer"><div id="gtEditStatus" class="status"></div><div class="gt-modal-actions"><button id="gtDeleteBtn" class="ghost tl-danger hidden" type="button">삭제</button><button id="gtToggleBtn" class="ghost hidden" type="button">완료</button><button id="gtSaveBtn" data-enter-save-submit class="primary" type="button">저장</button></div></div></div></div>`);m=document.querySelector('#gtTaskModal');m.querySelector('[data-gt-close]').onclick=closeEditor;document.querySelector('#gtSaveBtn').onclick=saveEditor;m.querySelectorAll('[data-gt-due-quick]').forEach(q=>q.onclick=()=>{if(!editing||editorSaving||!editorReady)return;const n=q.dataset.gtDueQuick,field=document.querySelector('#gtEditDue'),put=day=>{if(!editing||editorSaving||!editorReady)return;const prev=dueDay(editing);field.value=day;saveEditor({quick:{day,prev}})};
   // S46-30: [다음주]는 다음 주 월~일 작은 목록(task-week-pick.js)을 열고, 고른 날로 바로 저장한다. 목록 밖·뒤로가기는 저장 없이 닫힘.
   if(n==='week')return openWeekPick(q,{selected:field.value,onPick:put});put(n===''?'':kstDateKey(Number(n)))});document.querySelector('#gtDeleteBtn').onclick=deleteEditor;document.querySelector('#gtToggleBtn').onclick=toggleEditor;newFiles=mountNewTaskFilePick(m.querySelector('#gtNewFiles'),{isBusy:()=>editorSaving,onError:text=>{document.querySelector('#gtEditStatus').textContent=text}});attach=mountTaskAttach(m.querySelector('#gtEditAttach'),{isBusy:()=>editorSaving,onError:text=>{document.querySelector('#gtEditStatus').textContent=text}});return m}
 // TASK-추가창파일: [파일 붙이기] in the editor while it adds a new task, once the link table answers (as ⋯ → 파일 붙이기).
@@ -199,7 +200,21 @@ async function applyAttachEdits(r){
   const notice=taskAttachNotice(result);if(notice&&!editorActive(r))toast(notice);
   return {notice,noteOnly,notes:joinTaskNotes(JSON.parse(r.text)[2],keep)};
 }
-async function saveEditor(){
+// S49-6 TODO-기한버튼닫기: [오늘][내일][모레][다음주 ▾][기한 없음]으로 저장되면(수정 중이던 제목·메모·연결도 같은 저장에 함께 실림) PC에 붙인 칸이든 폰 창이든
+// 상세를 닫고 고른 줄 표시를 푼다(closeEditor). 결과는 위쪽 작은 알림 '○○ 기한을 11월 5일(목)로 바꿨어요 [되돌리기]'. 다시 눌러 같은 날이면 닫기만 한다.
+function announceQuickDue(task,{day,prev}){
+  if(!task?.id||day===prev)return;
+  const title=String(task.title||'제목 없음').trim(),name=title.length>14?title.slice(0,14)+'…':title;
+  const text=!day?`'${name}' 기한을 없앴어요.`:day===tomorrowKey()?`'${name}' 기한을 내일로 옮겼어요.`:`'${name}' 기한을 ${shortDay(day)}로 바꿨어요.`;
+  const owner=currentOwner();
+  offerUndoNotice({text,onUndo:async()=>{
+    if(owner!==currentOwner())return {status:'stale'};
+    try{const next=await moveTaskToDay(task,prev);if(owner===currentOwner()){taskSaved(next)}return {status:'restored',message:'기한을 되돌려 놨어요.'}}
+    catch{return {status:'failed',message:'기한을 되돌리지 못했어요.'}}
+  }});
+}
+async function saveEditor(opt){
+  const quick=opt&&typeof opt==='object'&&opt.quick&&typeof opt.quick==='object'?opt.quick:null;
   if(editorSaving||!editorReady)return;
   const title=document.querySelector('#gtEditTitle').value.trim();if(!title)return editorNotice('할 일을 입력해 주세요.');
   const chosen=chosenLinks();if(chosen&&[...chosen].filter(k=>!k.startsWith('m:')).length>MAX_LINKS)return editorNotice(`연결은 ${MAX_LINKS}개까지 고를 수 있습니다.`);
@@ -261,7 +276,7 @@ async function saveEditor(){
     if(createAttempt===attempt||(createAttempt?.task?.id===r.task?.id))createAttempt=null;
     const current=chosenLinks(),unchanged=readEditorDraft()===r.text&&(!r.chosen||!!current&&sameKeys(current,r.chosen));
     if(filesNotice)editorNotice(filesNotice);
-    else if(unchanged){if(isDocked())editorNotice('저장했습니다.');else closeEditor()}else editorNotice('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
+    else if(unchanged){if(quick){const saved=r.task;closeEditor();announceQuickDue(saved,quick)}else if(isDocked())editorNotice('저장했어요.');else closeEditor()}else editorNotice('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
     tasksChanged();
   }catch(e){
     if(attempt)attempt.pending=false;

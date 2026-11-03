@@ -57,7 +57,8 @@ async function ready(page){
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
 }
 const chip=(page,id)=>page.locator(`#calendarDayTasks [data-calendar-task="${id}"]`);
-const badge=(page,date)=>page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count`);
+// 날짜 숫자 버튼의 이름에 '할 일 n개'가 붙는 것 = 그 날짜에 할 일이 그려졌다는 표시(S49-6: 목록 버튼은 할 일이 없어도 항상 있다).
+const badge=(page,date)=>page.locator(`.cal-cell[data-date="${date}"] .cmv-date-list[aria-label*="할 일"]`);
 const cellOf=(page,id)=>page.evaluate(id=>{
   for(const cell of document.querySelectorAll('#calendarGrid .cal-cell')){
     if(KPTUCalendarMonthView.dayEvents(cell.dataset.date).some(t=>t.source==='task'&&t.id===id))return cell.dataset.date;
@@ -173,7 +174,7 @@ test('this device\'s copy shows first and an equal fresh copy does not redraw',a
   hold=true;
   await page.goto(`${TEST_ORIGIN}/app/?view=calendar`);await ready(page);
   await expect(badge(page,'2026-10-20')).toBeVisible();
-  await page.evaluate(()=>{document.querySelector('.cal-cell[data-date="2026-10-20"] .cmv-task-count').dataset.qaMark='kept'});
+  await page.evaluate(()=>{document.querySelector('.cal-cell[data-date="2026-10-20"] .cmv-date-list').dataset.qaMark='kept'});
   release();
   // Same data: the drawn chip stays (no redraw, no flicker).
   await page.waitForTimeout(300);
@@ -185,7 +186,7 @@ test('this device\'s copy shows first and an equal fresh copy does not redraw',a
   await openDay(page,'2026-10-20');
   await expect(chip(page,'p1')).toHaveAttribute('aria-label','할 일: 새 제목');
   await expect(page.locator('#calendarDayTasks [data-calendar-task]')).toHaveCount(1);
-  await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(0);
+  await expect(page.locator('#calendarGrid .cmv-task-count')).toHaveCount(0); // S49-6: 월 보기 칸 안에는 할 일 제목 줄(폰·PC 같음), ✓n은 없음
 });
 
 // Google stores a due date as midnight UTC of that date. The calendar uses its date part as it is, so neither Korean midnight

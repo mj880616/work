@@ -181,11 +181,11 @@ for(const width of [1280,1440]){
     // 지금 수정 창과 같은 항목: 할 일·기한·메모·프로젝트·조직 연결.
     await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-08');await expect(page.locator('#gtEditNotes')).toHaveValue('첫 메모');
     await expect(pane.locator('[data-gt-link][value="p:p1"]')).toBeChecked();await expect(pane.locator('[data-gt-link][value="o:o1"]')).not.toBeChecked();
-    // 바로 수정 → 저장(같은 update·link·unlink 경로). 칸은 열린 채 "저장했습니다."
+    // 바로 수정 → 저장(같은 update·link·unlink 경로). 칸은 열린 채 "저장했어요."
     await page.locator('#gtEditDue').fill('2026-10-12');await page.locator('#gtEditNotes').fill('고친 메모');
     await pane.locator('[data-gt-link][value="o:o1"]').check();await pane.locator('[data-gt-link][value="p:p1"]').uncheck();
     await pane.locator('#gtSaveBtn').click();
-    await expect(page.locator('#gtEditStatus')).toHaveText('저장했습니다.');
+    await expect(page.locator('#gtEditStatus')).toHaveText('저장했어요.');
     const update=calls.find(c=>c.action==='update');
     expect(update.body).toMatchObject({action:'update',task_id:'a',title:'할 일 a',notes:'고친 메모',due:'2026-10-12'});
     expect(calls.find(c=>c.action==='link').body.links).toEqual([{organization_id:'o1'}]);
@@ -249,7 +249,7 @@ for(const width of [1280,1440]){
     // 스크롤한 채로 저장 → 같은 update 경로, 안내("저장했습니다.")도 아래 줄 안에서 보인다.
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='고친 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
     await save.click();
-    await expect(status).toHaveText('저장했습니다.');await expect(status).toBeInViewport();
+    await expect(status).toHaveText('저장했어요.');await expect(status).toBeInViewport();
     expect(await status.evaluate(e=>e.parentElement.classList.contains('modal-action-footer'))).toBe(true);
     expect(calls.find(c=>c.action==='update').body).toMatchObject({task_id:'a',title:'고친 제목'});
     expect(errors).toEqual([]);
@@ -269,7 +269,7 @@ for(const width of [1280,1440]){
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='바꾼 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
     await pane.locator('#gtSaveBtn').click();
     const status=pane.locator('#gtEditStatus');
-    await expect(status).not.toBeEmpty();await expect(status).not.toHaveText('저장했습니다.');await expect(status).toBeInViewport();
+    await expect(status).not.toBeEmpty();await expect(status).not.toHaveText('저장했어요.');await expect(status).toBeInViewport();
     const [p,st]=[await pane.boundingBox(),await status.boundingBox()];expect(p.y+p.height-(st.y+st.height)).toBeLessThan(120);
     await expect(pane.locator('#gtEditTitle')).toHaveValue('바꾼 제목');await expect(pane.locator('#gtSaveBtn')).toBeEnabled();
   });

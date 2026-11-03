@@ -130,13 +130,9 @@
   #calendarView .cal-cell{position:relative;border-right:0}
   #calendarView .cal-cell::after{content:'';position:absolute;right:0;top:0;bottom:0;border-right:1px solid var(--kptu-border);pointer-events:none}
   #calendarView .cal-cell:last-child::after{display:none}
-  .cmv-date-list,.cmv-date-create{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer}
-  .cmv-date-list{top:0;height:var(--cmv-date-header-height);padding:0;text-align:left;display:flex;align-items:flex-start}
-  /* 보이는 날짜 줄은 20px, 누르는 범위는 공용 기준 44px(일정 줄 위는 일정 버튼이 먼저 받는다). */
+  /* 날짜 칸 위쪽(그 날 창)·아래쪽(일정 추가) 나누기는 폰·PC 공통 — 아래 '날짜 칸 나누기' 절. 폰은 날짜 줄 20px 안에 숫자를 두고 누르는 범위만 44px. */
+  .cmv-date-list{padding:0}
   .cmv-date-list::after{content:'';position:absolute;left:0;right:0;top:0;height:var(--kptu-touch-target,44px)}
-  .cmv-date-list .cal-day{flex-shrink:1;min-width:0}
-  .cmv-date-create{top:var(--cmv-date-header-height);bottom:0;padding:0}
-  .cmv-date-list:focus-visible,.cmv-date-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
   .calendar-toolbar-add{width:36px;padding:0}
   .calendar-add-label{display:none}
   #calendarView .calendar-card .calendar-grid{margin-left:0;margin-right:0;border-left:1px solid var(--kptu-border);border-right:1px solid var(--kptu-border)}
@@ -276,12 +272,11 @@
 
 /* D-월간3줄: counts share the date header, never reserve an event footer. */
 #calendarView .cal-cell{position:relative}
-#calendarView .cmv-date-create-pc{position:absolute;inset:0;width:100%;min-width:0;min-height:0;padding:4px 5px;background:transparent;border:0;color:inherit;text-align:left;display:flex;align-items:flex-start;border-radius:var(--kptu-radius-sm);clip-path:polygon(0 0,calc(100% - 44px) 0,calc(100% - 44px) 44px,100% 44px,100% 100%,0 100%)}
 #calendarView .cmv-task-count{box-sizing:border-box;color:var(--kptu-muted);font-size:12px;line-height:16px;white-space:nowrap}
 #calendarView button.cmv-task-count{position:absolute;top:0;right:0;width:44px;height:44px;min-height:0;min-width:0;padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;text-align:center;cursor:pointer}
 #calendarView .cmv-date-list .cmv-task-count{margin-left:auto;margin-top:2px;pointer-events:none}
 #calendarView .cmv-task-count-overdue{color:var(--kptu-danger)}
-#calendarView .cmv-task-count:focus-visible,#calendarView .cmv-date-create-pc:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
+#calendarView .cmv-task-count:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 
 /* Registration modes share title, date and notes; event-only fields retain their layout. */
 #eventModal [hidden] { display:none; }
@@ -340,3 +335,23 @@
 }
 /* UI-기다림표시통일 3차: 일정 없는 날 줄 안의 공용 '없음'은 줄(.clv-empty) 높이를 그대로 따른다. */
 .clv-empty>.wait-empty{margin:0}
+
+/* S49-6 CAL-날칸누르기·CAL-PC할일보이기 — 날짜 칸 나누기(폰·폴드·PC 공통).
+   위쪽 .cmv-date-list(날짜 숫자 + 맨 위 여백) + .cmv-date-fill(그 날짜에 보이는 줄 --cmv-used 높이만큼의 빈 곳, render가 칸마다 넣음) = 누르면 그 날 창.
+   아래쪽 .cmv-date-create: 나머지 빈 곳 = 누르면 일정 추가. 일정·할 일 줄은 그 위(.cmv-week-events)라 줄을 누르면 그 줄이 먼저 받는다. */
+.cal-cell{position:relative}
+.cmv-date-list,.cmv-date-create,.cmv-date-fill{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer}
+.cmv-date-list{top:0;height:var(--cmv-date-header-height);text-align:left;display:flex;align-items:flex-start}
+.cmv-date-fill{top:var(--cmv-date-header-height);height:calc(var(--cmv-used,0) * var(--cmv-lane-step));padding:0}
+.cmv-date-list .cal-day{flex-shrink:1;min-width:0}
+.cmv-date-create{top:calc(var(--cmv-date-header-height) + var(--cmv-used,0) * var(--cmv-lane-step));bottom:0;padding:0}
+.cmv-date-list:focus-visible,.cmv-date-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
+.cmv-head-row .cal-head[role=button]{cursor:pointer}
+.cmv-head-row .cal-head[role=button]:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
+@media(min-width:761px){
+  #calendarView .cmv-date-list{padding:4px 5px}
+  #calendarView .cmv-date-list::after{display:none}
+  /* PC·폴드 칸 안 할 일 줄: 폰과 같은 부품(.cmv-cell-task), 일정 막대 높이에 맞춤. */
+  #calendarView .cmv-cell-task{height:calc(var(--cmv-lane-step) - 2px);line-height:calc(var(--cmv-lane-step) - 2px);margin:0 2px;padding:0 clamp(4px,.5vw,7px);gap:4px;font-size:clamp(10.5px,.7vw,12.5px)}
+  #calendarView .cmv-cell-task-box{width:9px;height:9px}
+}

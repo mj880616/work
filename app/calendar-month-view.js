@@ -249,15 +249,18 @@ import {eventColor} from './home-read-model.js';
     const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range);
     const pendingByDate=new Map();
     tasks.forEach(t=>{if(t.done||t.date<key(range.start)||t.date>=key(range.end))return;const group=pendingByDate.get(t.date)||[];group.push(t);pendingByDate.set(t.date,group)});
-    // 폰은 할 일을 칸 안 제목 줄로(S48-6c), PC는 지금처럼 날짜 옆 ✓n 표시.
-    if(phone)weeks.forEach(week=>addCellTasks(week,pendingByDate));
+    // 할 일은 폰·PC·폴드 모두 같은 부품(cellTaskButton)으로 칸 안 제목 줄로(S48-6c 폰, S49-6 CAL-PC할일보이기 PC). 날짜 옆 ✓n 표시는 없앴다.
+    weeks.forEach(week=>addCellTasks(week,pendingByDate));
 
     grid.replaceChildren();
     grid.dataset.monthView='1';
     grid.style.setProperty('--cmv-week-count',String(range.weeks));
 
     const heads=document.createElement('div');heads.className='cmv-head-row';
-    ['일','월','화','수','목','금','토'].forEach((name,i)=>{const h=document.createElement('div');h.className='cal-head'+(i===0?' sunday':i===6?' saturday':'');h.textContent=name;heads.appendChild(h)});
+    ['일','월','화','수','목','금','토'].forEach((name,i)=>{const h=document.createElement('div');h.className='cal-head'+(i===0?' sunday':i===6?' saturday':'');h.textContent=name;
+      // S49-6 CAL-날칸누르기: 요일 줄을 눌러도 이번 주(오늘이 든 주) 그 요일의 날 창이 열린다(명진 답 전 기본).
+      h.dataset.weekday=String(i);h.setAttribute('role','button');h.tabIndex=0;h.setAttribute('aria-label',`이번 주 ${name}요일 보기`);
+      heads.appendChild(h)});
     grid.appendChild(heads);
     const layout=viewportLayout(grid,range.weeks,heads,Math.max(...weeks.map(w=>w.laneCount)));
 
@@ -269,33 +272,21 @@ import {eventColor} from './home-read-model.js';
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
         const date=addSeoulDays(week.start,i);
-        const dkey=key(date),pending=pendingByDate.get(dkey)||[],split=mq760.matches||pending.length>0,cell=document.createElement(split?'div':'button');
-        if(!split)cell.type='button';
+        const dkey=key(date),pending=pendingByDate.get(dkey)||[],cell=document.createElement('div');
         cell.className='cal-cell'+(seoulParts(date).month===month?'':' other')+(dkey===key(new Date())?' today ds-today':'');
-        cell.dataset.date=dkey;cell.setAttribute('aria-label',formatSeoulTime(date,{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
+        cell.dataset.date=dkey;
         const day=document.createElement('span');day.className='cal-day'+(cell.classList.contains('ds-today')?' ds-today-num':'');day.textContent=String(seoulParts(date).day);
-        if(split){
-          const create=document.createElement('button');create.type='button';create.className='cmv-date-create';create.setAttribute('aria-label',cell.getAttribute('aria-label'));
-          if(mq760.matches){
-            const list=document.createElement('button');list.type='button';list.className='cmv-date-list';list.dataset.date=dkey;
-            list.setAttribute('aria-label',`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 목록 보기`);
-            list.appendChild(day);
-            list.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
-            cell.append(create,list);
-          }else{create.classList.add('cmv-date-create-pc');create.appendChild(day);cell.append(create)}
-          cell.removeAttribute('aria-label');
-        }else cell.appendChild(day);
-        // 폰 날짜 줄의 읽어 주는 이름에는 그날 할 일 수를 남긴다(칸에 다 안 보일 때도 알 수 있게).
-        if(pending.length&&phone){const list=cell.querySelector('.cmv-date-list');list.setAttribute('aria-label',`${list.getAttribute('aria-label')}, 할 일 ${pending.length}개`+(pending.some(t=>t.overdue)?', 기한 지남 포함':''))}
-        if(pending.length&&!phone){
-          cell.classList.add('cmv-cell-tasks');
-          const count=document.createElement('button');count.type='button';
-          count.className='cmv-task-count';
-          const overdue=pending.some(t=>t.overdue);count.classList.toggle('cmv-task-count-overdue',overdue);
-          count.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg><span>${pending.length}</span>`;count.setAttribute('aria-label',`할 일 ${pending.length}개`+(overdue?', 기한 지남 포함':''));
-          count.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
-          cell.appendChild(count);
-        }
+        // S49-6 CAL-날칸누르기: 폰·PC 모두 칸을 둘로 나눈다. 위쪽(날짜 숫자·맨 위 여백·일정/할 일 줄 사이 빈 곳, --cmv-used 줄까지)은 그 날 창 열기,
+        // 그 아래 빈 곳은 일정 추가. 일정·할 일 줄을 누르면 그 줄(줄이 먼저 받는다).
+        const create=document.createElement('button');create.type='button';create.className='cmv-date-create';create.setAttribute('aria-label',formatSeoulTime(date,{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
+        const list=document.createElement('button');list.type='button';list.className='cmv-date-list';list.dataset.date=dkey;
+        list.setAttribute('aria-label',`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 목록 보기`+(pending.length?`, 할 일 ${pending.length}개`+(pending.some(t=>t.overdue)?', 기한 지남 포함':''):''));
+        list.appendChild(day);
+        list.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
+        // 일정·할 일 줄 사이 빈 곳도 같은 길(보조 칸: 화면 읽기·Tab에서는 빼고, 날짜 숫자 버튼이 대표).
+        const fill=document.createElement('button');fill.type='button';fill.className='cmv-date-fill';fill.tabIndex=-1;fill.setAttribute('aria-hidden','true');
+        fill.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
+        cell.append(create,fill,list);
         dayGrid.appendChild(cell);
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';
@@ -303,7 +294,7 @@ import {eventColor} from './home-read-model.js';
       const dayCaps=phone&&expanded?Array(7).fill(Infinity):mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
       week.segments.forEach(seg=>{
         if(!mq760.matches){
-          if(seg.lane<lanes){const button=eventButton(seg);if(mqPc.matches&&canDrag(seg.ev.calendarId,options.googleState))button.dataset.drag='day';layer.appendChild(button)}
+          if(seg.lane<lanes){const button=seg.ev.source==='task'?cellTaskButton(seg):eventButton(seg);if(seg.ev.source!=='task'&&mqPc.matches&&canDrag(seg.ev.calendarId,options.googleState))button.dataset.drag='day';layer.appendChild(button)}
           else for(let col=seg.startCol;col<=seg.endCol;col++)hidden[col]++;
           return;
         }
@@ -318,6 +309,14 @@ import {eventColor} from './home-read-model.js';
         }
         appendRun();
       });
+      // 칸 위쪽 '그 날 창 열기' 범위: 그 날짜에 보이는 줄 수(+n 줄 포함)까지.
+      for(let col=0;col<7;col++){
+        const cap=mq760.matches?dayCaps[col]:lanes;
+        let used=0;
+        week.segments.forEach(seg=>{if(seg.startCol<=col&&seg.endCol>=col&&seg.lane<cap)used=Math.max(used,seg.lane+1)});
+        if(hidden[col])used=cap+1;
+        dayGrid.children[col]?.style.setProperty('--cmv-used',String(used));
+      }
       if(phone){
         // 한 화면: 주마다 같은 높이. 펼침: 그 주의 일정 줄이 모두 들어가는 높이(한 화면 높이보다 작아지지 않음).
         const full=layout.dateHeaderHeight+week.laneCount*layout.laneStep+4;
@@ -473,6 +472,14 @@ import {eventColor} from './home-read-model.js';
   // Compatibility with team.js: month navigation is disabled; buttons own month changes.
   function setNavigate(){bindTouchGuard()}
   function suppressClick(){return Date.now()<suppressUntil}
+  // S49-6 요일 줄([일]~[토])을 누르면 이번 주(오늘이 든 주) 그 요일의 날 창. 키보드는 Enter·Space.
+  function openWeekdayDay(h){
+    const i=Number(h.dataset.weekday);if(!Number.isInteger(i)||!last)return;
+    const date=addSeoulDays(dayStart(new Date()),i-seoulParts(new Date()).weekday);
+    window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(allEvents(last),date));
+  }
+  document.addEventListener('click',e=>{const h=e.target.closest?.('#calendarGrid .cmv-head-row .cal-head[data-weekday]');if(!h||suppressClick())return;e.preventDefault();openWeekdayDay(h)});
+  document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const h=e.target.closest?.('#calendarGrid .cmv-head-row .cal-head[data-weekday]');if(!h)return;e.preventDefault();openWeekdayDay(h)});
   document.addEventListener('click',e=>{if(suppressClick()&&e.target.closest?.('#calendarGrid')){e.preventDefault();e.stopImmediatePropagation()}},true);
   const rerender=()=>{if(last)render(last);bindTouchGuard()};
   // Unchanged tasks (e.g. a fresh copy equal to this device's copy) do not redraw. While the calendar is hidden the list is only

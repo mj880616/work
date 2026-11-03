@@ -70,7 +70,7 @@ for(const width of [390,1280]){
 test('the task-count day list keeps pending and completed task styles',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const {calls}=await openEmphasisFixture(page);
-  await page.locator('.cal-cell[data-date="2026-10-21"] .cmv-task-count, .cmv-date-list[data-date="2026-10-21"]').first().click(); // 폰은 날짜 줄(S48-6c)
+  await page.locator('.cal-cell[data-date="2026-10-21"] .cal-day').first().click(); // 폰은 날짜 줄(S48-6c)
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expectPending(taskChip(page,'overflow-pending','#calendarDayList'));
   await expectDone(taskChip(page,'overflow-done','#calendarDayList'));
