@@ -4063,7 +4063,13 @@ async function runJournalMemorable(ctx: Ctx, input: JournalMemorableInput, deps:
   if (!memorableDue(last, started)) return skip("fresh");
 
   const since = last ? `&updated_at=gt.${encodeURIComponent(last)}` : "";
-  const feed = await readRows(`app_feed_items?workspace_id=eq.${ws}&day=eq.${day}&hidden_at=is.null&source=in.(${sources.join(",")})${since}&select=id,workspace_id,source,title,summary,points,room_label&order=updated_at.asc&limit=100`);
+  // 출처마다 따로 읽는다(source=eq.call / source=eq.telegram — 읽는 곳마다 출처를 못 박는 보안 시험 규칙).
+  const feed: unknown[] = [];
+  for (const src of sources) {
+    feed.push(...(src === "call"
+      ? await readRows(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&day=eq.${day}&hidden_at=is.null${since}&select=id,workspace_id,source,title,summary,points,room_label&order=updated_at.asc&limit=100`)
+      : await readRows(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&day=eq.${day}&hidden_at=is.null${since}&select=id,workspace_id,source,title,summary,points,room_label&order=updated_at.asc&limit=100`)));
+  }
   const done = new Set((await readRows(`app_journal_memorable?workspace_id=eq.${ws}&day=eq.${day}&select=feed_item_id&limit=200`))
     .map((r) => String((r as Record<string, unknown>)?.feed_item_id ?? "").toLowerCase()));
   const rows = feed

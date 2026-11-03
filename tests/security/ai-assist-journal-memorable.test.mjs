@@ -107,7 +107,8 @@ test('operator feature is checked on the server: no feature, no read, no AI',asy
   assert.equal(h.calls.openai.length,0);assert.ok(!h.calls.rest.some(c=>c.table==='app_feed_items'));
   const t=harness({features:['telegram'],feeds:[feed(F1,'call','통화 기록','2026-11-03T03:00:00Z'),feed(F2,'telegram','텔레그램 기록','2026-11-03T03:00:00Z')]});
   await post(t.handler,ask);
-  assert.match(t.calls.rest.find(c=>c.table==='app_feed_items').query,/source=in\.\(telegram\)/);
+  const reads=t.calls.rest.filter(c=>c.table==='app_feed_items');
+  assert.equal(reads.length,1);assert.match(reads[0].query,/[?&]source=eq\.telegram&/);
   assert.ok(!/통화 기록/.test(t.calls.openai[0].input[1].content));
 });
 
