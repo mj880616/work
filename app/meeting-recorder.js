@@ -13,6 +13,7 @@
 import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
 import {notify} from './small-notice.js';
+import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry} from './meeting-server-job.mjs';
 
 (()=>{
 'use strict';
@@ -31,6 +32,8 @@ let state='idle',step='',note='',errorText='',canRetry=false;
 let stream=null,current=null,segments=[],sessionId='',workspaceId='',startedAt='';
 let rollingStops=[],accum=0,runSince=0,ticker=0,pumping=false,fails=0,retryTimer=0,drainWaiters=[],stopReason='';
 let pending=[],pendingFor='',pendingFlight=null,discarding=false;
+// REC-서버정리(S49-2): 지켜보는 서버 정리 작업 id·끝난 결과(띠 [초안 열기]), 지켜보기 세대(다른 정리를 시작하면 앞 것은 그만 봄).
+let jobId='',readyJob=null,watchEpoch=0,jobsLoadedFor='';
 let pieceMs=PIECE_SECONDS*1000,rollPieces=rollPiecesOf(null); // 이 녹음의 조각 간격·구간 조각 한도(rec_start 답, 녹음 내내 같음)
 const DISCARD_DRAIN_MS=20000,DISCARD_NOTICE_MS=10000;
 const doneTexts=new Map(); // 이 창에서 전사가 끝난 구간 글(job id → 글). 서버는 전사 글을 저장하지 않으므로 다시 시도할 때 쓴다(메모리에만).
@@ -76,6 +79,10 @@ function paint(){
     t=sec?clockText(sec):'';
     m=stepParts(step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(note?` <span class="rec-sub">${escapeText(note)}</span>`:'');
     a=state==='done'?'<button type="button" class="rec-btn" data-rec="close">닫기</button>':'';
+  }else if(state==='ready'){
+    l='정리 끝';
+    m=escapeText('회의 요약이 준비됐어요.');
+    a='<button type="button" class="rec-btn" data-rec="open">초안 열기</button><button type="button" class="rec-btn" data-rec="close">닫기</button>';
   }else if(state==='error'){
     l='녹음 정리 멈춤';
     m=escapeText(errorText);
@@ -107,10 +114,11 @@ function onBandClick(e){
   if(what==='pause')togglePause();
   else if(what==='stop')void stopAndFinish();
   else if(what==='discard')void discardLive();
-  else if(what==='retry')void finishSession();
+  else if(what==='retry')void retryFinish();
+  else if(what==='open')void openReady();
   else if(what==='close')closeBand();
 }
-function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';accum=0;runSince=0;paint();paintPending()}
+function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';accum=0;runSince=0;readyJob=null;paint();paintPending()}
 function startTicker(){clearInterval(ticker);ticker=setInterval(tick,1000)}
 function tick(){
   if(state==='recording'&&current&&!current.rolling){
@@ -284,8 +292,93 @@ function discardPending(id){
   void discardSession(id);
 }
 
-// 정리 흐름(멈추고 정리·이어서 정리·[다시] 공통). sessionId·startedAt은 이 창의 녹음 또는 '이어서 정리'로 고른 녹음.
+// 정리 흐름(멈추고 정리·이어서 정리·[다시] 공통). REC-서버정리(S49-2): 서버 작업(job_start)으로 맡기고 진행만 본다.
+// 화면을 닫거나 다른 앱으로 가도 서버가 끝까지 하고 폰 알림을 보낸다. 서버가 아직 이 길을 모르면 아래 화면 정리 길로 간다.
 async function finishSession(known=null){
+  if(!sessionId)return;
+  state='finishing';step='올림';errorText='';canRetry=false;note='';paint();
+  await serverFinish({start:{workspace_id:workspaceId||ws(),kind:'recording',session_id:sessionId}},known);
+}
+// [다시]: 서버 작업이 멈췄으면 그 작업을 멈춘 단계부터, 아니면 처음부터.
+function retryFinish(){
+  if(jobId){state='finishing';step='';errorText='';canRetry=false;paint();void serverFinish({jobId,retry:true});return}
+  void finishSession();
+}
+async function serverFinish(opts,known=null){
+  const mine=++watchEpoch;
+  try{
+    const r=await watchServerJob({
+      call,alive:()=>mine===watchEpoch,hidden:()=>document.visibilityState==='hidden',
+      onProgress:job=>{jobId=job.id;step=STAGE_STEP[job.stage]||step;note=progressNote(job)||'화면을 닫아도 서버에서 계속 정리해요';paint()},
+    },opts);
+    if(r.kind==='gone')return;
+    if(r.kind==='unavailable'){await finishOnScreen(known);return}
+    if(r.kind==='failed'){fail(serverFailText(r.job?.error_code),serverCanRetry(r.job?.error_code));return}
+    await openServerResult(r.job);
+  }catch(e){
+    if(mine!==watchEpoch)return;
+    console.warn('recording server finish failed',e?.status||'',e?.code||'');
+    fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [다시]를 눌러 주세요.':'정리 상태를 확인하지 못했어요. 서버는 계속 정리 중일 수 있어요. [다시]를 누르세요.',true);
+  }
+}
+// 서버가 끝낸 결과 → 사업 보고 › 회의 입력 창(전문·요약을 채운 채). 저장은 명진이 [사업 보고 저장].
+async function openServerResult(job){
+  try{
+    step='초안 열림';note='';paint();
+    // 회의 시각 = 녹음을 시작한 때(이 창에서 녹음했으면 그 시각, 아니면 정리를 맡긴 때에서 녹음 길이만큼 앞).
+    const began=startedAt&&job.session_id===sessionId?startedAt:new Date((Date.parse(job.created_at)||Date.now())-(Number(job.seconds)||0)*1000).toISOString();
+    await openEntry(began);
+    const draft=window.KPTUMeetingTranscriptDraft;
+    if(!draft?.fillResult)throw stopError('초안 칸을 찾지 못했어요. [다시]를 누르세요.',true);
+    const minutes=Math.round((Number(job.seconds)||elapsed()/1000)/60);
+    draft.fillResult({text:job.transcript_text,draft:job.draft,jobs:job.jobs,name:`녹음${minutes?` · ${minutes}분`:''}`});
+    void call('job_opened',{job_id:job.id}).catch(()=>{});
+    readyJob=null;jobId='';state='done';paint();
+    setTimeout(()=>{if(state==='done')closeBand()},8000);
+    pending=pending.filter(s=>s.session_id!==job.session_id);
+    void loadPending(true);
+  }catch(e){
+    console.warn('recording open result failed',e?.status||'',e?.code||'');
+    readyJob=job;state='ready';paint();
+  }
+}
+async function openEntry(at){
+  const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
+  if(loader)await loader('meetings');
+  const entry=window.KPTUReportEntry;
+  if(!entry?.open)throw stopError('사업 보고 화면을 열지 못했어요. [다시]를 누르세요.',true);
+  const opened=await entry.open({kind:'meeting',at:seoulLocal(at||startedAt||new Date().toISOString()),trigger:$('#reportRecordBtn')||document.activeElement});
+  if(opened===false)throw stopError('사업 보고 창을 열지 못했어요. [다시]를 누르세요.',true);
+}
+// 띠 [초안 열기]: 끝난 작업의 결과(전문·요약)를 읽어 입력 창을 연다.
+async function openReady(){
+  const id=readyJob?.id;if(!id)return;
+  try{const r=await call('job_read',{job_id:id},{timeoutMs:30000});if(r?.job?.status==='done')await openServerResult(r.job)}
+  catch(e){console.warn('recording ready read failed',e?.status||'');notify('정리 결과를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',{error:true})}
+}
+// 앱을 다시 열 때: 서버 정리 중인 녹음은 띠를 이어 그리고, 끝났는데 아직 열지 않은 것은 '정리 끝 [초안 열기]'.
+// 폰 알림을 눌러 연 주소(?rec_job=…)면 그 결과를 바로 연다.
+async function loadServerJobs(tries=0){
+  const id=ws();
+  if(!id||!rt()?.api){if(tries<5)setTimeout(()=>void loadServerJobs(tries+1),1000);return}
+  if(jobsLoadedFor===id)return;
+  jobsLoadedFor=id;
+  let wanted='';
+  try{const u=new URL(location.href);wanted=u.searchParams.get('rec_job')||'';if(wanted){u.searchParams.delete('rec_job');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}
+  let jobs=[];
+  try{jobs=(await call('job_list',{workspace_id:id}))?.jobs||[]}catch{return}
+  if(state!=='idle')return;
+  const live=jobs.find(j=>j.status==='queued'||j.status==='running');
+  const done=jobs.find(j=>j.status==='done'&&(!wanted||j.id===wanted))||jobs.find(j=>j.status==='done');
+  if(wanted&&done?.id===wanted){readyJob=done;state='ready';paint();await openReady();return}
+  if(live){jobId=live.id;sessionId=live.session_id||'';state='finishing';step=STAGE_STEP[live.stage]||'올림';note='화면을 닫아도 서버에서 계속 정리해요';paint();void serverFinish({jobId:live.id});return}
+  if(done){readyJob=done;state='ready';paint();return}
+  const failed=jobs.find(j=>j.status==='failed');
+  if(failed){jobId=failed.id;sessionId=failed.session_id||'';fail(serverFailText(failed.error_code),serverCanRetry(failed.error_code))}
+}
+
+// 서버가 서버 정리를 아직 모를 때(옛 Edge·표 적용 전)의 화면 정리 길(S49-2 전과 같음).
+async function finishOnScreen(known=null){
   if(!sessionId)return;
   state='finishing';step='올림';errorText='';canRetry=false;paint();
   try{
@@ -378,21 +471,31 @@ document.addEventListener('click',e=>{
 });
 // 녹음 중(아직 올리지 못한 조각이 있을 때 포함)에만 창 닫기 경고.
 window.addEventListener('beforeunload',e=>{
-  if(!(active()||(state==='finishing'&&step==='올림')))return;
+  if(!(active()||(state==='finishing'&&step==='올림'&&!jobId)))return;
   e.preventDefault();e.returnValue='';
 });
 window.addEventListener('kptu:session-changed',e=>{
-  if(e.detail?.session)return;
+  if(e.detail?.session){void loadServerJobs();return}
   // 로그아웃: 녹음을 멈추고 메모리의 조각을 버린다(서버에 올린 것은 다음 로그인 때 '이어서 정리').
   if(current){try{current.rec.stop()}catch{}}
   current=null;releaseStream();clearInterval(ticker);clearTimeout(retryTimer);retryTimer=0;segments=[];pending=[];pendingFor='';
-  state='idle';sessionId='';paint();paintPending();
+  state='idle';sessionId='';jobId='';readyJob=null;watchEpoch++;jobsLoadedFor='';paint();paintPending();
 });
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){paintButton();void loadPending()}});
 PC?.addEventListener?.('change',()=>{paintButton();paintPending();if(PC.matches&&onMeetings())void loadPending()});
 
-window.KPTUMeetingRecorder={state:()=>state,mime:MIME};
+// 폰 녹음(phone-recorder.js)이 서버에 정리를 맡긴 뒤 진행 띠를 넘긴다(띠·알림·[초안 열기]의 주인은 이 모듈 하나).
+function watch(job){
+  if(!job?.id||active()||discarding)return false;
+  jobId=job.id;sessionId=job.session_id||sessionId;readyJob=null;
+  state='finishing';step=STAGE_STEP[job.stage]||'올림';note='화면을 닫아도 서버에서 계속 정리해요';errorText='';canRetry=false;paint();
+  void serverFinish({jobId:job.id});
+  return true;
+}
+window.KPTUMeetingRecorder={state:()=>state,mime:MIME,watch};
 paint();
+// 첫 화면 요청과 겹치지 않게 조금 뒤에 한 번 묻는다(서버 정리 중·끝난 녹음이 있을 때만 띠가 뜬다).
+setTimeout(()=>void loadServerJobs(),2500);
 // '이어서 정리' 줄은 사업 보고 화면에만 있으므로, 그 화면을 열 때만 서버에 묻는다(다른 화면의 첫 요청을 늘리지 않음).
 if(onMeetings())void loadPending();
 })();

@@ -26,7 +26,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import {
   Fail, GEMINI_KEY_NAME, MAX_BYTES, MAX_SECONDS, MONTHLY_LIMIT_KRW, STATUS, SWEEP_LIMIT, TRANSCRIBE_MODEL, USAGE_REF_PREFIX,
-  attachDocument, canStart, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
+  attachDocument, audioMime, canStart, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
   seoulDay, transcriptionRequest, trashBefore, usageRef, wantsDiarize,
 } from './model.mjs';
 import {
@@ -37,6 +37,15 @@ import {
 import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { safeErrorLog } from "../_shared/safe-error.ts";
+import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
+import { outputText } from '../_shared/openai-responses.ts';
+import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-send.ts';
+import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, normalizeDraft, partsText } from '../_shared/meeting-draft-prompt.mjs';
+import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
+import {
+  ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
+  audioDocument, cleanText, doneParts, hasWords, jobView, joinParts, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, summaryPlan, tickCheck, tickSign,
+} from './server-job.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -305,6 +314,22 @@ async function transcribe(user: { id: string }, userDb: ReturnType<typeof userCl
     .eq('id', job.id).in('status', ['uploaded', 'failed']).select('id');
   if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
   if (!started?.length) throw new Fail('busy');
+  try {
+    const out = await runTranscription(key, job);
+    const model = out.model;
+    await setJob(job.id, { status: 'done', error_code: null, model, finished_at: new Date().toISOString() });
+    return json({ ok: true, job_id: job.id, text: out.text, speaker_split: out.speakerSplit, model });
+  } catch (e) {
+    const code = failCode(e);
+    await setJob(job.id, { status: 'failed', error_code: code, finished_at: new Date().toISOString() }).catch(() => undefined);
+    throw e instanceof Fail ? e : new Fail(code);
+  }
+}
+const failCode = (e: unknown) => e instanceof Fail ? e.code : (e instanceof DOMException && e.name === 'TimeoutError' ? 'gemini_timeout' : 'failed');
+
+// Drive의 소리 → Gemini 전사 → 글. 쓴 만큼 사용량 기록(화면 transcribe·서버 정리 공용). job: 파일 id·형식·크기·이름·길이·작업공간.
+// Gemini에 올린 임시 파일은 끝나면 지운다. 작업 행 상태는 부른 쪽이 정한다.
+async function runTranscription(key: string, job: Job) {
   let geminiFile: string | null = null;
   try {
     const token = await driveToken();
@@ -323,12 +348,7 @@ async function transcribe(user: { id: string }, userDb: ReturnType<typeof userCl
     });
     if (usageError) console.warn('meeting-transcribe: usage not recorded', usageError.code);
     const result = readTranscript(response);
-    await setJob(job.id, { status: 'done', error_code: null, model: usage.model, finished_at: new Date().toISOString() });
-    return json({ ok: true, job_id: job.id, text: result.text, speaker_split: result.speakerSplit, model: usage.model });
-  } catch (e) {
-    const code = e instanceof Fail ? e.code : (e instanceof DOMException && e.name === 'TimeoutError' ? 'gemini_timeout' : 'failed');
-    await setJob(job.id, { status: 'failed', error_code: code, finished_at: new Date().toISOString() }).catch(() => undefined);
-    throw e instanceof Fail ? e : new Fail(code);
+    return { text: result.text as string, speakerSplit: result.speakerSplit, model: usage.model as string };
   } finally {
     if (geminiFile) await geminiDelete(key, geminiFile);
   }
@@ -536,13 +556,14 @@ async function recPiece(req: Request, user: { id: string }) {
   return json({ ok: true, pieces: patch.piece_ids.length, size_bytes: patch.size_bytes });
 }
 
-async function recFinish(user: { id: string }, body: Record<string, unknown>) {
+// 열린 구간 닫기 → 닫힌 구간 합치기(시간이 모자라면 more). 화면 rec_finish와 서버 정리 combine 단계 공용.
+async function finishSegments(userId: string, sessionId: unknown) {
   const started = Date.now();
-  let rows = await ownSession(user.id, body.session_id);
+  let rows = await ownSession(userId, sessionId);
   const ws = rows[0].workspace_id as string;
   const now = new Date();
   for (const r of rows) if (r.status === 'recording') await setRec(r.id, closePatch(r, now), { status: 'recording' });
-  rows = await ownSession(user.id, body.session_id);
+  rows = await ownSession(userId, sessionId);
   let more = false;
   const pending = toCombine(rows);
   if (pending.length) {
@@ -550,9 +571,14 @@ async function recFinish(user: { id: string }, body: Record<string, unknown>) {
     const pieces = await pieceFolder(ws, token, false);
     const target = await recordingFolder(ws, token, true);
     if (!target) throw new Fail('drive_failed');
-    ({ more } = await combineWithin(pending, (seg: Job) => combineSegment(user.id, seg, token, pieces, target), started));
-    rows = await ownSession(user.id, body.session_id);
+    ({ more } = await combineWithin(pending, (seg: Job) => combineSegment(userId, seg, token, pieces, target), started));
+    rows = await ownSession(userId, sessionId);
   }
+  return { more, rows };
+}
+
+async function recFinish(user: { id: string }, body: Record<string, unknown>) {
+  const { more, rows } = await finishSegments(user.id, body.session_id);
   return json({ ok: true, session_id: body.session_id, more, segments: rows.filter(r => r.status !== 'empty').map(segmentView) });
 }
 
@@ -678,13 +704,356 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
   return json({ ok: true, session_id: body.session_id, restored });
 }
 
+// ---- REC-서버정리 · MTG-첨부녹음전사(S49-2): 서버 정리 작업(app_meeting_server_jobs, 설계 meeting-transcript-server.md 8절) ----
+// 화면을 닫아도 서버가 합치기 → 구간(파일) 전사 → 요약을 한 단계씩 이어 간다. 한 번 호출 = 한 단계, 끝나면 같은 함수 job_tick을 다시 부른다.
+// job_tick은 사용자 로그인이 없다: 게이트(verify_jwt)는 SUPABASE_ANON_KEY로 지나고, 이 코드가 서버 키 HMAC(작업 id·기한)을 확인한다.
+// 작업 행은 owner만 읽고(RLS), 쓰기는 이 함수(service_role)만 한다. 전사·요약은 명진이 누른 job_start로만 시작한다.
+const OPENAI = () => (Deno.env.get('OPENAI_API_KEY') || '').trim();
+// deno-lint-ignore no-explicit-any
+const edgeRuntime = () => (globalThis as any).EdgeRuntime as { waitUntil?: (p: Promise<unknown>) => void } | undefined;
+// 응답을 돌려준 뒤에도 이어서 돌린다(EdgeRuntime.waitUntil). 없으면(시험) 그냥 돌린다.
+function inBackground(p: Promise<unknown>) {
+  const q = p.catch((e) => console.warn('meeting-transcribe: job background', safeErrorLog(e)));
+  const rt = edgeRuntime();
+  if (rt?.waitUntil) rt.waitUntil(q);
+}
+const jobsFail = (error: { code?: string } | null) =>
+  new Fail(error?.code === '42P01' || error?.code === 'PGRST205' || error?.code === 'PGRST204' ? 'jobs_unavailable' : 'failed');
+async function readServerJob(id: string): Promise<Job | null> {
+  const { data, error } = await admin.from(SERVER_JOB_TABLE).select(SERVER_JOB_COLUMNS).eq('id', id).maybeSingle();
+  if (error) throw jobsFail(error);
+  return (data as Job) ?? null;
+}
+async function ownServerJob(userId: string, id: unknown): Promise<Job> {
+  if (!isUuid(id)) throw new Fail('bad_request');
+  const job = await readServerJob(id as string);
+  if (!job) throw new Fail('not_found');
+  await requireOwner(userId, job.workspace_id);
+  if (job.created_by !== userId) throw new Fail('not_found');
+  return job;
+}
+async function patchServerJob(id: string, patch: Record<string, unknown>) {
+  const { error } = await admin.from(SERVER_JOB_TABLE).update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw jobsFail(error);
+}
+
+// 같은 함수의 job_tick을 부른다(다음 단계). 받는 쪽은 바로 202를 주고 뒤에서 단계를 돌린다.
+async function kickTick(id: string) {
+  const exp = Date.now() + TICK_TTL_MS;
+  try {
+    const sig = await tickSign(SERVICE, id, exp);
+    const r = await fetch(`${SB}/functions/v1/meeting-transcribe?action=job_tick`, {
+      method: 'POST', headers: { Authorization: `Bearer ${ANON}`, apikey: ANON, 'Content-Type': 'application/json', [TICK_HEADER]: sig },
+      body: JSON.stringify({ job_id: id, exp }), signal: AbortSignal.timeout(20000),
+    });
+    await r.body?.cancel().catch(() => undefined);
+    if (!r.ok) console.warn('meeting-transcribe: job tick not accepted', r.status);
+  } catch {
+    console.warn('meeting-transcribe: job tick not sent'); // 화면 확인(job_read)·다시 열기(job_list)가 다시 깨운다
+  }
+}
+
+// 단계 하나. 잡기(lease) → 한 단계 → 결과 저장 → 다음 부르기. 다른 호출이 잡고 있으면 아무것도 안 한다.
+async function runStep(id: string) {
+  const now = new Date();
+  const { data, error } = await admin.from(SERVER_JOB_TABLE)
+    .update({ status: 'running', lease_until: new Date(now.getTime() + LEASE_MS).toISOString(), updated_at: now.toISOString() })
+    .eq('id', id).in('status', [...ACTIVE]).or(`lease_until.is.null,lease_until.lt."${now.toISOString()}"`).select(SERVER_JOB_COLUMNS);
+  if (error) { console.warn('meeting-transcribe: job lease failed', error.code); return; }
+  const job = (data?.[0] as Job) ?? null;
+  if (!job) return;
+  let next: Record<string, unknown>;
+  try {
+    if (job.attempts >= MAX_ATTEMPTS) throw new Fail('too_many_steps');
+    next = await stepOnce(job);
+  } catch (e) {
+    const code = failCode(e);
+    console.warn('meeting-transcribe: job step failed', job.stage, code);
+    await patchServerJob(id, { status: 'failed', error_code: code, lease_until: null, attempts: job.attempts + 1, finished_at: new Date().toISOString() }).catch(() => undefined);
+    return;
+  }
+  await patchServerJob(id, { ...next, error_code: null, lease_until: null, attempts: job.attempts + 1 });
+  if (next.status === 'done') { await notifyDone(job).catch(() => console.warn('meeting-transcribe: job push skipped')); return; }
+  await kickTick(id);
+}
+
+async function stepOnce(job: Job): Promise<Record<string, unknown>> {
+  const started = job.started_at ? {} : { started_at: new Date().toISOString() };
+  if (job.stage === 'combine') {
+    const { more, rows } = await finishSegments(job.created_by, job.session_id);
+    if (more) return { ...started, status: 'queued' };
+    const parts = recordingParts(rows.map(segmentView));
+    if (!partTotal(parts)) throw new Fail('empty_transcript');
+    return { ...started, status: 'queued', stage: 'transcribe', parts, step_no: 0, step_total: partTotal(parts) };
+  }
+  if (job.stage === 'transcribe') {
+    const parts = Array.isArray(job.parts) ? [...job.parts] : [];
+    const i = nextPart(parts);
+    if (i >= 0) {
+      const key = GEMINI();
+      if (!key) throw new Fail('not_ready');
+      const p = parts[i];
+      const text = p.file ? await transcribeFile(key, job, p.file) : await transcribeSegment(key, p.job);
+      parts[i] = { ...p, text: cleanText(text) };
+      if (nextPart(parts) >= 0) return { ...started, status: 'queued', parts, step_no: doneParts(parts) };
+    }
+    const transcript = joinParts(parts);
+    if (!hasWords(transcript)) throw new Fail('empty_transcript');
+    const plan = summaryPlan(transcript, []);
+    return { ...started, status: 'queued', stage: 'summary', parts, transcript_text: transcript, summary_parts: [], step_no: 0, step_total: plan.total };
+  }
+  if (job.stage === 'summary') {
+    const done = Array.isArray(job.summary_parts) ? job.summary_parts : [];
+    const plan = summaryPlan(job.transcript_text, done);
+    const count = plan.pieces.length;
+    if (plan.kind === 'part') {
+      const raw = await serverDraft(job, plan.pieces[plan.next], { kind: 'part', no: plan.next + 1, count });
+      return { ...started, status: 'queued', summary_parts: [...done, normalizeDraft(raw)], step_no: plan.next + 1 };
+    }
+    let raw;
+    if (plan.kind === 'one') raw = await serverDraft(job, plan.pieces[0] || '', { kind: '', no: 0, count: 0 });
+    else {
+      const drafts = done.filter(Boolean);
+      if (!drafts.length) throw new Fail('draft_failed');
+      raw = await serverDraft(job, partsText(drafts), { kind: 'merge', no: 0, count });
+    }
+    return { ...started, status: 'done', stage: 'done', draft: raw, step_no: plan.total, finished_at: new Date().toISOString() };
+  }
+  throw new Fail('failed');
+}
+
+// 녹음 구간 전사(서버 정리). 화면 transcribe와 같은 길이지만, 이미 끝난(done) 구간도 다시 전사한다(옛 화면 정리가 글을 남기지 않았음).
+async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
+  if (!isUuid(jobId)) throw new Fail('not_found');
+  const { data: job, error } = await admin.from(TABLE).select(JOB_COLUMNS).eq('id', jobId as string).maybeSingle();
+  if (error) throw new Fail('failed');
+  if (!job || job.trashed_at) throw new Fail('not_found');
+  if (job.duration_sec && job.duration_sec > MAX_SECONDS) throw new Fail('too_long');
+  const now = new Date();
+  if (job.status === 'running' && !isStale(job, now)) throw new Fail('busy');
+  if (job.status === 'running') await setJob(job.id, { status: 'failed', error_code: 'interrupted' });
+  const { data: started, error: startError } = await admin.from(TABLE).update({ status: 'running', error_code: null, model: TRANSCRIBE_MODEL, started_at: now.toISOString(), finished_at: null, updated_at: now.toISOString() })
+    .eq('id', job.id).in('status', ['uploaded', 'failed', 'done']).select('id');
+  if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
+  if (!started?.length) throw new Fail('busy');
+  try {
+    const out = await runTranscription(key, job);
+    const model = out.model;
+    await setJob(job.id, { status: 'done', error_code: null, model, finished_at: new Date().toISOString() });
+    return out.text;
+  } catch (e) {
+    await setJob(job.id, { status: 'failed', error_code: failCode(e), finished_at: new Date().toISOString() }).catch(() => undefined);
+    throw e;
+  }
+}
+// 회의자료에 붙은 소리 파일 전사(B). 전사 작업 표에는 넣지 않는다(그 표의 30일 휴지통 정리가 회의자료 원본을 건드리지 않게).
+// 사용량 열쇠는 서버 작업 id로 남긴다.
+async function transcribeFile(key: string, job: Job, file: Record<string, unknown>): Promise<string> {
+  const result = await runTranscription(key, {
+    id: job.id, workspace_id: job.workspace_id, drive_file_id: file.id, file_name: file.name, mime_type: file.mime,
+    size_bytes: file.size, duration_sec: null,
+  });
+  return result.text;
+}
+
+// 서버 요약 한 번(meeting-ai-draft '새 회의' 길과 같은 지시문·한도·사용량 기록). 명진 이름 목록은 읽을 수 있을 때만 넣는다.
+async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'part' | 'merge'; no: number; count: number }) {
+  const key = OPENAI();
+  if (!key) throw new Fail('draft_failed');
+  const { data: set, error: setError } = await admin.from('app_ai_workspace_settings').select('*').eq('workspace_id', job.workspace_id).maybeSingle();
+  if (setError || !set) throw new Fail('draft_failed');
+  const day = new Date().toISOString().slice(0, 10);
+  const { data: used } = await admin.from('app_ai_daily_usage').select('*').eq('workspace_id', job.workspace_id).eq('user_id', job.created_by).eq('day', day).maybeSingle();
+  if ((used?.requests || 0) >= set.daily_request_limit) throw new Fail('daily_limit');
+  let names = '';
+  try {
+    const { data: me } = await admin.from('app_profiles').select('display_name').eq('user_id', job.created_by).maybeSingle();
+    names = typeof me?.display_name === 'string' ? me.display_name : '';
+  } catch { names = ''; }
+  const meeting = { title: '회의', meeting_at: job.created_at, location: null, attendee_count: null };
+  const prompt = meetingDraftPrompt({ meeting, names, projectContext: null, materialText: '', transcript: cut(transcript, DRAFT_INPUT_CHARS), stage });
+  const body = meetingDraftRequest({ model: set.default_model || DEFAULT_AI_MODEL, maxOutput: set.max_output_tokens, headroom: AI_REASONING_TOKEN_HEADROOM, developer: meetingDraftDeveloper(AI_TONE_RULE), prompt });
+  let d;
+  try {
+    const r = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(withReasoning(body)), signal: AbortSignal.timeout(300000),
+    });
+    d = await r.json().catch(() => null);
+    if (!r.ok || !d) { console.warn('meeting-transcribe: draft request', r.status); throw new Fail('draft_failed'); }
+  } catch (e) {
+    throw e instanceof Fail ? e : new Fail('draft_failed');
+  }
+  const u = d.usage || {};
+  await admin.from('app_ai_daily_usage').upsert({
+    workspace_id: job.workspace_id, user_id: job.created_by, day, requests: (used?.requests || 0) + 1, advanced_requests: used?.advanced_requests || 0,
+    input_tokens: (used?.input_tokens || 0) + (u.input_tokens || 0), output_tokens: (used?.output_tokens || 0) + (u.output_tokens || 0), updated_at: new Date().toISOString(),
+  }, { onConflict: 'workspace_id,user_id,day' }).then(({ error }) => { if (error) console.warn('meeting-transcribe: draft usage not recorded', error.code); });
+  const text = outputText(d, 256 * 1024);
+  if (!text) throw new Fail('draft_failed');
+  try { return parseMeetingDraft(text).draft; } catch { throw new Fail('draft_failed'); }
+}
+
+// 끝 알림: 폰 앱(살아 있는 기기, FCM 비밀값이 있을 때) '회의 요약이 준비됐어요'. 알림 줄과 같은 기록(app_push_log) 한 줄.
+// 싣는 것은 종류·짧은 제목·누르면 열 앱 안 경로뿐(전사 글·제목 없음).
+async function notifyDone(job: Job) {
+  const cfg = readFcmConfig(Deno.env.get(FCM_SECRET_NAME));
+  if (!cfg) return;
+  const { data: devices } = await admin.from('app_push_devices').select('id,fcm_token').eq('workspace_id', job.workspace_id).is('revoked_at', null).limit(10);
+  if (!devices?.length) return;
+  const at = new Date(), day = seoulDay(at), ref = `d${day}`;
+  // 내 프로필 '폰 알림' 설정(회의 요약 끔·조용한 시간)을 따른다. 읽지 못하면 기본값(켬, 22:00~07:00 조용).
+  let prefs: unknown = null;
+  try { const { data: me } = await admin.from('app_profiles').select('notify_prefs').eq('user_id', job.created_by).maybeSingle(); prefs = me?.notify_prefs ?? null; } catch { prefs = null; }
+  const decision = pushDecision(prefs, at.getTime());
+  if (decision !== 'send') {
+    await admin.from('app_push_log').upsert({ workspace_id: job.workspace_id, kind: 'meeting_done', ref_key: ref, day, status: decision },
+      { onConflict: 'workspace_id,kind,ref_key,day', ignoreDuplicates: true });
+    return;
+  }
+  const open = `/work/app/?view=reports&rec_job=${job.id}&notice=meeting_done.${ref}`;
+  const sender = makeFcmSender(cfg, fetch, Date.now);
+  let sent = 0;
+  for (const d of devices) {
+    if (typeof d.fcm_token !== 'string') continue;
+    const r = await sender.send(d.fcm_token, { kind: 'meeting_done', title: '회의 요약이 준비됐어요', open, urgent: true });
+    if (r === 'sent') sent++;
+    else if (r === 'unregistered') await admin.from('app_push_devices').update({ revoked_at: at.toISOString() }).eq('id', d.id);
+  }
+  await admin.from('app_push_log').upsert({ workspace_id: job.workspace_id, kind: 'meeting_done', ref_key: ref, day, status: sent ? 'sent' : 'failed' },
+    { onConflict: 'workspace_id,kind,ref_key,day' });
+}
+
+// ---- 사용자 입구 ----
+async function jobStart(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
+  const start = parseStart(body);
+  if (!start) throw new Fail('bad_request');
+  await requireOwner(user.id, start.workspaceId);
+  if (!GEMINI()) throw new Fail('not_ready');
+  if (overLimit(await monthUsed(userDb, start.workspaceId))) throw new Fail('monthly_limit');
+  let row: Record<string, unknown>;
+  if (start.kind === 'recording') {
+    const rows = await ownSession(user.id, start.sessionId);
+    if (rows[0].workspace_id !== start.workspaceId) throw new Fail('not_found');
+    const { data: open, error } = await admin.from(SERVER_JOB_TABLE).select(SERVER_JOB_COLUMNS).eq('session_id', start.sessionId).in('status', [...ACTIVE]).limit(1);
+    if (error) throw jobsFail(error);
+    if (open?.length) return await jobAnswer(open[0] as Job);
+    row = { workspace_id: start.workspaceId, created_by: user.id, kind: 'recording', session_id: start.sessionId, status: 'queued', stage: 'combine' };
+  } else {
+    // 회의자료 행은 부른 사람 로그인(owner RLS)으로 읽는다. 같은 작업공간·회의에 붙은 자료만.
+    const { data: doc, error } = await userDb.from('app_documents').select('id,workspace_id,meeting_id,file_id,file_name,title,mime_type,file_size')
+      .eq('id', start.documentId).maybeSingle();
+    if (error) throw new Fail('failed');
+    if (!doc || doc.workspace_id !== start.workspaceId || !doc.meeting_id) throw new Fail('not_found');
+    const checked = audioDocument(doc, MAX_BYTES);
+    if (!checked.ok) throw new Fail(checked.code as string);
+    const audio = { fileId: checked.fileId as string, name: checked.name as string };
+    const token = await driveToken();
+    const r = await fetch(`${DRIVE}/${encodeURIComponent(audio.fileId)}?fields=id,name,mimeType,size,md5Checksum,trashed`, { headers: { Authorization: `Bearer ${token}` } });
+    const meta = await r.json().catch(() => null);
+    if (!r.ok || meta?.id !== audio.fileId || meta?.trashed) throw new Fail(r.status === 404 ? 'not_found' : 'drive_failed');
+    const size = Number(meta.size);
+    if (!Number.isSafeInteger(size) || size <= 0) throw new Fail('drive_failed');
+    if (size > MAX_BYTES) throw new Fail('too_large');
+    // 형식은 이름(확장자)을 먼저 본다(Drive가 m4a를 audio/x-m4a 등으로 줄 수 있음). 모르면 Drive·자료 행의 형식.
+    const mime = audioMime(audio.name, '') || audioMime(audio.name, meta.mimeType) || audioMime(audio.name, doc.mime_type);
+    if (!mime) throw new Fail('bad_type');
+    const md5 = /^[0-9a-f]{32}$/.test(String(meta.md5Checksum || '')) ? meta.md5Checksum : null;
+    const base = { workspace_id: start.workspaceId, created_by: user.id, kind: 'attached', document_id: doc.id, meeting_id: doc.meeting_id, source_file_id: audio.fileId, source_md5: md5 };
+    // 같은 파일(같은 내용)을 전에 정리했으면 그 결과를 다시 쓴다(전사·요약 비용 없음).
+    if (md5) {
+      const { data: prev, error: prevError } = await admin.from(SERVER_JOB_TABLE).select('transcript_text,draft,parts').eq('workspace_id', start.workspaceId)
+        .eq('kind', 'attached').eq('source_file_id', audio.fileId).eq('source_md5', md5).eq('status', 'done').order('finished_at', { ascending: false }).limit(1);
+      if (prevError) throw jobsFail(prevError);
+      if (prev?.length && prev[0].transcript_text) {
+        const { data: copy, error: copyError } = await admin.from(SERVER_JOB_TABLE).insert({
+          ...base, status: 'done', stage: 'done', parts: prev[0].parts, transcript_text: prev[0].transcript_text, draft: prev[0].draft,
+          step_no: 1, step_total: 1, finished_at: new Date().toISOString(),
+        }).select(SERVER_JOB_COLUMNS).single();
+        if (copyError || !copy) throw jobsFail(copyError);
+        return json({ ok: true, reused: true, job: jobView(copy, true) });
+      }
+    }
+    const { data: open, error: openError } = await admin.from(SERVER_JOB_TABLE).select(SERVER_JOB_COLUMNS).eq('workspace_id', start.workspaceId)
+      .eq('kind', 'attached').eq('source_file_id', audio.fileId).in('status', [...ACTIVE]).limit(1);
+    if (openError) throw jobsFail(openError);
+    if (open?.length) return await jobAnswer(open[0] as Job);
+    row = { ...base, status: 'queued', stage: 'transcribe', step_total: 1, parts: [{ no: 1, seconds: 0, file: { id: audio.fileId, name: audio.name, mime, size }, text: null }] };
+  }
+  const { data, error } = await admin.from(SERVER_JOB_TABLE).insert(row).select(SERVER_JOB_COLUMNS).single();
+  if (error?.code === '23505') throw new Fail('busy');
+  if (error || !data) throw jobsFail(error);
+  inBackground(runStep(data.id));
+  return json({ ok: true, job: jobView(data) });
+}
+// 진행 중이면 모양만, 끝났으면 결과까지. 멈춘 것처럼 보이면 다시 깨운다.
+function jobAnswer(job: Job) {
+  if (needsKick(job, Date.now())) inBackground(runStep(job.id));
+  return json({ ok: true, job: jobView(job, true) });
+}
+async function jobRead(user: { id: string }, body: Record<string, unknown>) {
+  return await jobAnswer(await ownServerJob(user.id, body.job_id));
+}
+// 지난 이틀 동안의 내 작업 중 진행 중·끝나고 아직 열지 않은 것·실패(화면이 띠를 다시 그림). 결과 글은 싣지 않는다.
+async function jobList(user: { id: string }, body: Record<string, unknown>) {
+  const workspaceId = String(body.workspace_id || '');
+  await requireOwner(user.id, workspaceId);
+  const since = new Date(Date.now() - LIST_HOURS * 3600000).toISOString();
+  const { data, error } = await admin.from(SERVER_JOB_TABLE).select(SERVER_JOB_COLUMNS).eq('workspace_id', workspaceId).eq('created_by', user.id)
+    .gte('created_at', since).is('opened_at', null).order('created_at', { ascending: false }).limit(20);
+  if (error) throw jobsFail(error);
+  const nowMs = Date.now();
+  for (const j of data || []) if (needsKick(j, nowMs)) inBackground(runStep(j.id));
+  return json({ ok: true, jobs: (data || []).map((j) => jobView(j)) });
+}
+// 초안을 열었음(다시 띠에 뜨지 않게). 회의에 저장했으면 그 회의 id도.
+async function jobOpened(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
+  const job = await ownServerJob(user.id, body.job_id);
+  const patch: Record<string, unknown> = { opened_at: job.opened_at ?? new Date().toISOString() };
+  if (body.meeting_id !== undefined && body.meeting_id !== null) {
+    if (!isUuid(body.meeting_id)) throw new Fail('bad_request');
+    const { data: meeting, error } = await userDb.from('app_meetings').select('id,workspace_id').eq('id', body.meeting_id as string).maybeSingle();
+    if (error) throw new Fail('failed');
+    if (!meeting || meeting.workspace_id !== job.workspace_id) throw new Fail('not_found');
+    patch.meeting_id = meeting.id;
+  }
+  await patchServerJob(job.id, patch);
+  return json({ ok: true });
+}
+// 실패한 작업 다시: 끝난 단계(합친 구간·전사한 글·조각 요약)는 그대로 두고 멈춘 단계부터.
+async function jobRetry(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
+  const job = await ownServerJob(user.id, body.job_id);
+  if (job.status !== 'failed') return await jobAnswer(job);
+  if (!GEMINI()) throw new Fail('not_ready');
+  if (overLimit(await monthUsed(userDb, job.workspace_id))) throw new Fail('monthly_limit');
+  const { data, error } = await admin.from(SERVER_JOB_TABLE).update({ status: 'queued', error_code: null, finished_at: null, lease_until: null, attempts: 0, updated_at: new Date().toISOString() })
+    .eq('id', job.id).eq('status', 'failed').select(SERVER_JOB_COLUMNS);
+  if (error?.code === '23505') throw new Fail('busy');
+  if (error) throw jobsFail(error);
+  const row = (data?.[0] as Job) ?? job;
+  inBackground(runStep(row.id));
+  return json({ ok: true, job: jobView(row) });
+}
+// 서버 안 입구: 다음 단계. 열쇠가 맞을 때만 받고, 바로 202를 준 뒤 뒤에서 돌린다.
+async function jobTick(req: Request) {
+  const raw = await req.text();
+  if (raw.length > 512) return json({ ok: false }, 401);
+  let body: Record<string, unknown> | null = null;
+  try { body = JSON.parse(raw); } catch { body = null; }
+  if (!body || !(await tickCheck(SERVICE, body, req.headers.get(TICK_HEADER), Date.now()))) return json({ ok: false }, 401);
+  inBackground(runStep(body.job_id as string));
+  return json({ ok: true }, 202);
+}
+
 Deno.serve(withWebCors(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ ok: false, error: 'POST only' }, 405);
   try {
+    const action = new URL(req.url).searchParams.get('action') || '';
+    // 서버 안 입구(다음 단계)는 사용자 로그인이 아니라 서버 키 HMAC으로만 받는다(맨 앞에서 가름).
+    if (action === 'job_tick') return await jobTick(req);
     const user = await userOf(req);
     const userDb = userClient(req);
-    const action = new URL(req.url).searchParams.get('action') || '';
     if (action === 'upload') return await upload(req, user, userDb);
     if (action === 'rec_piece') return await recPiece(req, user);
     const raw = await req.text();
@@ -700,6 +1069,11 @@ Deno.serve(withWebCors(async (req: Request) => {
     if (action === 'rec_pending') return await recPending(user, body);
     if (action === 'rec_discard') return await recDiscard(user, body);
     if (action === 'rec_restore') return await recRestore(user, body);
+    if (action === 'job_start') return await jobStart(user, userDb, body);
+    if (action === 'job_read') return await jobRead(user, body);
+    if (action === 'job_list') return await jobList(user, body);
+    if (action === 'job_opened') return await jobOpened(user, userDb, body);
+    if (action === 'job_retry') return await jobRetry(user, userDb, body);
     throw new Fail('bad_request');
   } catch (e) {
     if (e instanceof AuthError) return json({ ok: false, code: e.message, error: e.status === 401 ? '로그인이 필요합니다.' : '접근 권한이 없습니다.' }, e.status);

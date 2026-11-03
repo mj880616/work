@@ -6,6 +6,7 @@
 //   규칙(meeting-recorder-model.mjs)을 쓴다. 노트북 모듈은 고치지 않는다(같은 시간 다른 작업과 겹치지 않게, PR 본문 참고).
 import {retryDelay,pieceOutcome,transcribePlan,joinSegmentTexts,seoulLocal,pendingOthers} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
+import {unavailable as serverUnavailable} from './meeting-server-job.mjs';
 
 export const MIME='audio/ogg';
 export const DISCARD_DRAIN_MS=20000;
@@ -45,6 +46,7 @@ export const pieceHeaders=p=>({'Content-Type':MIME,'x-recording-id':p.id,'x-piec
 
 /**
  * deps: {send(text), call(action,body,extra), fetchPiece(token)→Blob, openDraft({text,jobs,startedAt,minutes}), notify(text,opts),
+ *        watchServer(job)(서버 정리를 맡긴 뒤 진행 띠를 넘겨받는 쪽, REC-서버정리),
  *        workspace()→id, sleep(ms, wake?)→Promise, paint(view), now()}
  * 앱이 보낸 글은 receive(text)로 넣는다.
  */
@@ -199,9 +201,32 @@ export function createPhoneRecorder(deps){
     await finishSession(null,true);
   }
 
-  // 서버 정리(노트북 finishSession과 같은 순서). clearLocal: rec_finish가 끝나면 앱의 임시 파일·상태를 지운다.
+  // REC-서버정리(S49-2): 정리는 서버 작업(job_start)에 맡긴다. 조각은 이미 다 올렸으므로 앱의 임시 파일·상태를 지우고,
+  // 진행 띠·끝 알림·[초안 열기]는 노트북과 같은 주인(watchServer = meeting-recorder.js)이 그린다. 화면·앱을 닫아도 서버가 끝까지 한다.
+  // 서버가 아직 이 길을 모르면(옛 Edge·표 적용 전) 아래 화면 정리 길로 간다.
   async function finishSession(known=null,clearLocal=false){
     if(!sessionId)return;
+    view.state='finishing';view.step='올림';view.error='';view.canRetry=false;paint();
+    let job=null;
+    try{
+      if(deps.watchServer)job=(await deps.call('job_start',{workspace_id:deps.workspace(),kind:'recording',session_id:sessionId},{timeoutMs:60000}))?.job||null;
+    }catch(e){
+      if(!serverUnavailable(e)){
+        fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':'서버에 정리를 맡기지 못했어요. 올린 소리는 Drive에 남아 있어요. [다시]를 누르세요.',true);
+        return;
+      }
+    }
+    if(job){
+      if(clearLocal&&view.native?.session_id===sessionId)deps.send('rec:clear');
+      view.state='idle';view.step='';view.note='';paint();
+      serverPending=serverPending.filter(s=>s.session_id!==sessionId);
+      deps.watchServer(job);
+      return;
+    }
+    await finishOnScreen(known,clearLocal);
+  }
+  // 화면 정리 길(S49-2 전과 같음). clearLocal: rec_finish가 끝나면 앱의 임시 파일·상태를 지운다.
+  async function finishOnScreen(known=null,clearLocal=false){
     view.state='finishing';view.step='올림';view.error='';view.canRetry=false;paint();
     try{
       let res=null;

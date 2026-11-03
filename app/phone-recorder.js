@@ -39,6 +39,8 @@ export function mountPhoneRecorder(win=window){
       if(!r.ok)throw new Error('piece_read_failed');
       return r.blob();
     },
+    // REC-서버정리(S49-2): 서버가 정리를 맡은 뒤의 진행 띠·끝 알림·[초안 열기]는 노트북과 같은 주인(meeting-recorder.js)이 그린다.
+    watchServer:job=>win.KPTUMeetingRecorder?.watch?.(job),
     openDraft:async({text,jobs,startedAt,minutes})=>{
       const loader=win.KPTUDeferredFeatures?.loadView||win.KPTUViewLoader?.load;
       if(loader)await loader('meetings');

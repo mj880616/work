@@ -50,11 +50,17 @@ export const MESSAGES = Object.freeze({
   empty_transcript: '녹음에서 글을 찾지 못했어요.',
   usage_unavailable: '이번 달 사용량을 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   failed: '처리하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
+  // REC-서버정리(S49-2)
+  draft_failed: '전사는 끝났는데 요약을 만들지 못했어요. [다시]를 누르세요.',
+  daily_limit: '오늘의 AI 사용 한도에 닿아 요약을 만들지 못했어요. 전사 전문은 남아 있어요.',
+  jobs_unavailable: '서버 정리를 아직 쓸 수 없어요.',
+  too_many_steps: '정리가 너무 오래 걸려 멈췄어요. [다시]를 누르세요.',
 });
 export const STATUS = Object.freeze({
   not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
   not_found: 404, not_done: 409, drive_failed: 502, gemini_failed: 502,
   gemini_upload: 502, gemini_timeout: 504, gemini_file_failed: 422, gemini_rejected: 422, bad_format: 422, empty_transcript: 422, usage_unavailable: 503, failed: 500,
+  draft_failed: 502, daily_limit: 429, jobs_unavailable: 503, too_many_steps: 409,
 });
 // 실패 코드 → 화면 갈래. 'gemini'(전사 서비스) · 'format'(파일 형식). 연결 끊김은 화면이 받은 오류(시간 초과·네트워크)로 가른다.
 export const FAIL_KIND = Object.freeze({
@@ -76,6 +82,13 @@ export const failBody = code => ({ ok: false, code, error: MESSAGES[code] ?? MES
 export const isUuid = v => typeof v === 'string' && UUID.test(v);
 export const isDriveId = v => typeof v === 'string' && DRIVE_ID.test(v);
 export function extOf(name) { const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)$/); return m ? m[1] : ''; }
+
+// 파일 이름·형식 → Gemini에 알릴 소리 형식(서버 정리의 회의자료 파일, S49-2). 모르면 null.
+export function audioMime(name, type) {
+  const raw = String(type || '').toLowerCase().split(';')[0].trim();
+  if (MIME.test(raw)) return raw;
+  return EXT_MIME[extOf(name)] ?? null;
+}
 
 // 올리기 머리글 검사. 몸통(녹음)은 검사하지 않고 길이만 본다. 틀리면 Fail.
 // name: encodeURIComponent 된 파일 이름, length: Content-Length, type: Content-Type, seconds: 화면이 잰 길이(초, 없을 수 있음).

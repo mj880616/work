@@ -38,3 +38,6 @@ body.rec-on{padding-top:var(--rec-band-height,32px)}
 .rec-pending-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* [버리기](녹음 띠·'이어서 정리' 줄): 위험 동작이라 빨강 글자. 크기는 다른 .rec-btn과 같다. */
 .rec-btn.rec-discard{color:var(--kptu-danger)}
+/* REC-서버정리 ⑤(S49-2): 멈춘 이유가 '올린 소리는 Driv…'로 잘리지 않게, 멈춤 띠만 두 줄까지 보이고 띠 높이도 그만큼(노트북·폰 띠 같은 변수). */
+body:has(.rec-band[data-state="error"]:not([hidden])){--rec-band-height:44px}
+.rec-band[data-state="error"] .rec-note{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25}
