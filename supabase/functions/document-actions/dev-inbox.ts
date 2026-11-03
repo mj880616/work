@@ -142,3 +142,93 @@ export async function sendDevInbox(body: any, deps: DevInboxDeps) {
   const marked = await markSent(deps, workspaceId, week, id, new Date(now).toISOString());
   return { ok: true, result: 'sent', ...(marked ? {} : { marked: false }) };
 }
+
+// ---- WEEKLY-개발후보CC 2단계 '만듦 #PR'(docs/design/weekly-draft-feedback.md 25.3 3.·25.5, S48-57) ----
+// CC가 요청함 그 덩어리 아래에 '→ 접수: … 완료 #NNN'(또는 '→ 대조: 완료 #NNN')을 적으면, [주간 정리]를 열 때 화면이 {week_start}만 보낸다.
+// 서버 순서(하나라도 아니면 아무것도 쓰지 않음): ① 로그인 → ② owner 작업공간 하나 → ③ 운영자 기능 dev_inbox(보내기와 같은 확인)
+//   → ④ 요청함 문서 id(없으면 not_ready) → ⑤ 그 주 행을 내 로그인 토큰으로 다시 읽어 '보냈고(sent) 아직 번호 없는' 만들기 제안이 있을 때만
+//   → ⑥ 요청함 문서를 읽어 그 주 열쇠 (w:<주>/<id>) 덩어리마다 '→'로 시작하고 '완료'가 든 줄의 마지막 #번호만 뽑는다
+//   → ⑦ 그 제안이 지금도 answer='yes'이고 sent가 있고 made가 없을 때만 made=번호(draft_saved_at 조건, 다른 칸 손대지 않음).
+// 화면이 보낸 번호·글은 받지 않는다(번호는 서버가 문서에서만 읽음). 응답은 {updated:n} 숫자뿐이고, 문서 글은 로그·응답에 쓰지 않는다.
+const STAMP_HEAD = /^\[(?:\d{4}-\d{2}-\d{2} \d{2}:\d{2}|\d{2}\/\d{2} \d{2}:\d{2})\]/;
+const DEV_HEAD = /^\[\d{2}\/\d{2} \d{2}:\d{2}\] 주간보고 개발 후보 \(w:(\d{4}-\d{2}-\d{2})\/(s[1-4])\) — /;
+const DOC_TEXT_MAX = 20_000_000;
+
+export function parseDevMadeRequest(body: any) {
+  const keys = Object.keys(body || {}).sort().join(',');
+  if (keys !== 'action,week_start') throw fail('읽을 주를 확인할 수 없습니다.', 'INVALID_REQUEST');
+  const week = String(body.week_start), day = new Date(`${week}T00:00:00Z`);
+  if (!DAY.test(week) || Number.isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== week || day.getUTCDay() !== 1) throw fail('읽을 주를 확인할 수 없습니다.', 'INVALID_REQUEST');
+  return { week };
+}
+
+// 요청함 글 → 그 주 제안 id별 PR 번호. 덩어리는 다음 '[날짜 시각]' 머리줄에서 끝난다('[10/30 14:07 사용자 추가]' 같은 덧붙임 줄은 덩어리 안).
+// 제안 글은 보낼 때 '→'·줄바꿈을 지웠으므로 '→'로 시작하는 줄은 CC가 적은 줄뿐이다.
+export function madeFromInbox(text: string, week: string) {
+  const out = new Map<string, number>();
+  let cur: string | null = null;
+  for (const raw of String(text ?? '').split(/\r\n|[\n\r\v]/)) {
+    const line = raw.trim();
+    const head = DEV_HEAD.exec(line);
+    if (head) { cur = head[1] === week ? head[2] : null; continue; }
+    if (STAMP_HEAD.test(line)) { cur = null; continue; }
+    if (!cur || !line.startsWith('→') || !line.includes('완료')) continue;
+    const nums = [...line.matchAll(/#(\d{1,6})(?!\d)/g)].map(m => Number(m[1])).filter(n => n > 0 && n < 1e6);
+    if (nums.length) out.set(cur, nums[nums.length - 1]);
+  }
+  return out;
+}
+
+const pendingMade = (s: any) => isObj(s) && s.answer === 'yes' && typeof s.sent === 'string' && !(Number.isInteger(s.made) && s.made > 0);
+
+async function writeMade(deps: DevInboxDeps, workspaceId: string, week: string, found: Map<string, number>) {
+  for (let i = 0; i < 2; i++) {
+    const row = await readWeek(deps, workspaceId, week);
+    const list = suggestionsOf(row.draft);
+    let n = 0;
+    const next = list.map(s => (pendingMade(s) && found.has(s.id) ? (n++, { ...s, made: found.get(s.id) }) : s));
+    if (!n) return 0;
+    const draft = { ...row.draft, feedback: { ...row.draft.feedback, review: { ...row.draft.feedback.review, suggestions: next } } };
+    const prev = Date.parse(row.savedAt ?? ''), nowMs = deps.now();
+    const savedAt = Number.isFinite(prev) && !(nowMs > prev) ? new Date(prev + 1).toISOString() : new Date(nowMs).toISOString();
+    const cond = row.savedAt ? `draft_saved_at=eq.${enc(row.savedAt)}` : 'draft_saved_at=is.null';
+    let out: unknown;
+    try { out = await deps.userDb(`${TABLE}?workspace_id=eq.${enc(workspaceId)}&week_start=eq.${week}&${cond}&select=week_start`, { method: 'PATCH', body: { draft, draft_saved_at: savedAt }, prefer: 'return=representation' }); }
+    catch { throw fail('번호를 남기지 못했습니다.', 'WRITE_FAILED', 503); }
+    if (Array.isArray(out) && out.length === 1) return n;
+  }
+  throw fail('번호를 남기지 못했습니다.', 'WRITE_FAILED', 503);
+}
+
+export async function readDevMade(body: any, deps: DevInboxDeps) {
+  const { week } = parseDevMadeRequest(body);
+  const workspaceId = await ownerWorkspace(deps);
+  await assertFeature(deps, workspaceId);
+  const docId = String(deps.docId ?? '').trim();
+  if (!DOC_ID.test(docId)) return { ok: true, result: 'not_ready', updated: 0 };
+  const row = await readWeek(deps, workspaceId, week);
+  if (!suggestionsOf(row.draft).some(pendingMade)) return { ok: true, result: 'none', updated: 0 };
+  const token = await deps.driveToken();
+  let r: Response;
+  try {
+    r = await deps.fetch(`https://docs.googleapis.com/v1/documents/${enc(docId)}?fields=${enc('body/content/paragraph/elements/textRun/content')}`, {
+      method: 'GET', redirect: 'error', headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch { throw fail('요청함 문서를 읽지 못했습니다.', 'DOC_UNAVAILABLE', 503); }
+  if (!r.ok) { try { await r.body?.cancel(); } catch { /* 본문은 읽지 않는다 */ } throw fail('요청함 문서를 읽지 못했습니다.', 'DOC_UNAVAILABLE', 503); }
+  const len = Number(r.headers.get('content-length') || 0);
+  if (len > DOC_TEXT_MAX) { try { await r.body?.cancel(); } catch { /* 크면 읽지 않음 */ } throw fail('요청함 문서를 읽지 못했습니다.', 'DOC_UNAVAILABLE', 503); }
+  let doc: any;
+  try { const raw = await r.text(); if (raw.length > DOC_TEXT_MAX) throw new Error('big'); doc = JSON.parse(raw); }
+  catch { throw fail('요청함 문서를 읽지 못했습니다.', 'DOC_UNAVAILABLE', 503); }
+  const parts: string[] = [];
+  for (const c of Array.isArray(doc?.body?.content) ? doc.body.content : []) {
+    for (const e of Array.isArray(c?.paragraph?.elements) ? c.paragraph.elements : []) {
+      if (typeof e?.textRun?.content === 'string') parts.push(e.textRun.content);
+    }
+  }
+  const found = madeFromInbox(parts.join(''), week);
+  if (!found.size) return { ok: true, result: 'ok', updated: 0 };
+  const updated = await writeMade(deps, workspaceId, week, found);
+  return { ok: true, result: 'ok', updated };
+}
