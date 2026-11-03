@@ -189,7 +189,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-outside .nx-name { color:var(--kptu-muted); }
 #appView #basketView .nx-note .note-row { display:flex; align-items:center; gap:6px; min-height:36px; }
 #appView #basketView .nx-note .note-row .basket-title { flex:1 1 auto; min-width:0; font-weight:500; }
-.nx-path { flex:0 1 auto; min-width:0; max-width:40%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; color:var(--kptu-muted); }
+.nx-path { font-size:12px; color:var(--kptu-muted); } /* 늘 온전히 보이는 꼬리표 규칙은 공용 .row-tail(ui-standard.css) */
 .nx-clip { flex:none; font-size:12px; }
 #appView #basketView .nx-note .note-row time { flex:none; font-size:12px; color:var(--kptu-muted); }
 .nx-pick { flex:none; display:inline-grid; place-items:center; width:16px; height:16px; border:1px solid var(--kptu-border-strong); border-radius:4px; font-size:11px; line-height:1; color:var(--kptu-on-primary); }
@@ -304,7 +304,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 :is(.nb-card,.nx-path)[data-tone="5"] { --nb-paper:var(--ds-note-paper-5); } /* 연분홍 */
 :is(.nb-card,.nx-path)[data-tone="6"] { --nb-paper:var(--ds-note-paper-6); } /* 쑥 */
 :is(.nb-card,.nx-path)[data-tone="7"] { --nb-paper:var(--ds-note-paper-7); } /* 회청 */
-#appView #basketView [data-note-list][data-notes-view="list"] .nx-path[data-tone] { flex:0 1 auto; padding:1px 6px; border-radius:var(--ds-chip-radius,10px); background:var(--nb-paper); color:var(--ds-note-ink); font-size:11px; }
+#appView #basketView [data-note-list][data-notes-view="list"] .nx-path[data-tone] { padding:1px 6px; border-radius:var(--ds-chip-radius,10px); background:var(--nb-paper); color:var(--ds-note-ink); font-size:11px; }
 /* 보드: 화면보다 넓은 판을 밀어서 이동(브라우저 스크롤), 핀치·[＋][－]는 note-board.js. 칸 위에서는 끌기(touch-action:none), 빈 곳에서는 밀기. */
 /* 목록·포스트잇 보기는 PC에서도 왼쪽 나무 칸 없이 한 칸. */
 [data-note-list].nx-wide:not([data-notes-view="folder"]) .nx-body { display:block; }

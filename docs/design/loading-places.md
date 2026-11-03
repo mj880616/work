@@ -36,7 +36,6 @@
 |  `calendar-day-items.js` | 1 | 1 | - | 맞음 |
 |  `calendar-day-overflow.js` | 1 | 1 | - | 맞음 |
 |  `calendar-list-view.js` | 1 | 0 | - | 맞음 |
-| 설정(참고 캘린더) `calendar-ref-settings.js` | 1 | 0 | - | 맞음 |
 |  `calendar-tasks.js` | 0 | 1 | 81 | 그리기 함수(호출한 쪽이 읽은 뒤에만 부름) 검토 끝 |
 | 통화 `call-feed.js` | 2 | 4 | - | 맞음 |
 |  `choice-sheet.js` | 0 | 1 | - | 맞음 |
@@ -100,7 +99,6 @@
 | 담당조직·사업 보고 `team.js` | 1 | 3 | 252 | 그리기 함수(호출한 쪽이 읽은 뒤에만 부름) 검토 끝 |
 | 텔레그램 소식 `telegram-feed.js` | 5 | 7 | - | 맞음 |
 | 사진(시간대) `time-photos.js` | 1 | 0 | - | 맞음 |
-| 설정(챙길 것 규칙) `todo-rules-settings.js` | 1 | 0 | - | 맞음 |
 |  `weekly-detail-lines.js` | 0 | 1 | - | 맞음 |
 |  `weekly-discuss-table.js` | 1 | 1 | - | 맞음 |
 |  `weekly-flow-cells.js` | 2 | 1 | - | 맞음 |

@@ -38,6 +38,11 @@ for(const width of [1440,412]){
     expect(now.sheetShown).toEqual(expect.arrayContaining(['ledger','pages']));
 
     await openEdit(page,width);
+    // UI-줄버튼: 줄 안 [숨기기]는 테두리·바탕 없는 작은 회색 글자, 누르는 범위는 44px.
+    const toggle=modal(page).locator('[data-reorder-id="ledger"] [data-menu-edit-hide]');
+    const look=await toggle.evaluate(el=>{const cs=getComputedStyle(el),tag=getComputedStyle(document.querySelector('#menuEditModal .me-tag')),after=getComputedStyle(el,'::after');return {border:cs.borderTopWidth,bg:cs.backgroundColor,size:cs.fontSize,tagSize:tag.fontSize,hit:after.height,row:el.closest('.me-row').getBoundingClientRect().height}});
+    expect(look.border).toBe('0px');expect(look.bg).toBe('rgba(0, 0, 0, 0)');expect(look.size).toBe(look.tagSize);expect(look.hit).toBe('44px');expect(look.row).toBeLessThanOrEqual(29);
+    await modal(page).screenshot({path:`test-results/menu-edit-${width}.png`});
     await expect(modal(page).locator('.me-group h3')).toHaveText([/^폰 하단바/,/^위 메뉴/,/^아래 붙는 메뉴/,/^숨긴 메뉴/]);
     await expect(modal(page).locator('[data-reorder-id="home"] [data-menu-edit-hide]')).toHaveCount(0);
     await modal(page).locator('[data-reorder-id="ledger"] [data-menu-edit-hide]').click();

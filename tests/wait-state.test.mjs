@@ -225,7 +225,7 @@ test('로딩 줄 자리 규칙: 칸 폭 가득(글줄 안 한 칸만 예외), �
   assert.match(css, /\.wait:not\(\.wait-inline\)\{[^}]*width:100%[^}]*align-self:stretch[^}]*justify-self:stretch/);
   assert.match(css, /\.wait:not\(\.wait-inline\)>\.wait-bar\{width:100%\}/);
   // 칸(목록·미리보기·설정 칸) 자리의 기다림은 칸 맨 위 줄(waitHtml·barHtml)이고, 글줄 안 작은 막대(waitInline)가 아니다.
-  for (const rel of ['files.js', 'todo-rules-settings.js', 'phone-push-settings.js']) assert.doesNotMatch(read(rel), /waitInline(Html|El)\(/, `${rel}: 칸 자리에 글줄용 작은 막대를 쓰지 않는다`);
+  for (const rel of ['files.js', 'phone-push-settings.js']) assert.doesNotMatch(read(rel), /waitInline(Html|El)\(/, `${rel}: 칸 자리에 글줄용 작은 막대를 쓰지 않는다`);
   assert.match(read('files.js'), /view = barHtml\(\)/, '[파일] 미리보기 기다림은 칸 맨 위 줄');
 });
 

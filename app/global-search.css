@@ -82,7 +82,7 @@
 .gs-row-menu button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
 .gs-row-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 /* SEARCH-선택옮기기 ③: 자료실 결과 줄의 지금 폴더 '📁 이름' — 작은 흐린 글자, 길면 말줄임. */
-.gs-row-folder{flex:0 1 auto;min-width:0;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-muted);font-size:11px}
+.gs-row-folder{color:var(--kptu-muted);font-size:11px}
 
 /* FEAT-1029묶음 ① Web2에 물어보기: 물어보기 줄·답 상자·근거 꼬리표·최근 물어본 것. 콤팩트, 톤다운(색 상자 없음). */
 .gs-ask-line{display:flex;align-items:center;gap:6px;min-height:36px;box-sizing:border-box;padding:6px 12px;border-bottom:var(--ds-line-width,.5px) solid var(--ds-line);cursor:pointer;font-size:var(--ds-text-row,13px);color:var(--kptu-link,var(--kptu-primary-ink))}
