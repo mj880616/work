@@ -50,6 +50,8 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·기한
   expect(first.height).toBeLessThanOrEqual(34);
   // S49-6 TODO-기한버튼닫기: 빠른 버튼으로 저장되면 칸이 닫히고 고른 줄 표시가 풀리며 '되돌리기' 알림이 뜬다 → 다음 버튼은 줄을 다시 눌러 연다.
   const reopen=async()=>{
+    // 기한이 바뀐 줄은 다른 묶음(접힌 곳일 수 있음)으로 옮겨 가므로 묶음을 펼치고 누른다.
+    await page.locator('[data-gt-edit="a"]').evaluate(el=>{for(let p=el.closest('details');p;p=p.parentElement?.closest('details'))p.open=true});
     await page.locator('[data-gt-edit="a"]').click();
     await expect(page.locator('#gtSaveBtn')).toBeEnabled(); // 연결 정보 읽기가 끝난 뒤에만 빠른 버튼을 받는다.
   };

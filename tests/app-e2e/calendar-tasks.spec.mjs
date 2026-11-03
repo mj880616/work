@@ -186,7 +186,7 @@ test('this device\'s copy shows first and an equal fresh copy does not redraw',a
   await openDay(page,'2026-10-20');
   await expect(chip(page,'p1')).toHaveAttribute('aria-label','할 일: 새 제목');
   await expect(page.locator('#calendarDayTasks [data-calendar-task]')).toHaveCount(1);
-  await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(0);
+  await expect(page.locator('#calendarGrid .cmv-task-count')).toHaveCount(0); // S49-6: 월 보기 칸 안에는 할 일 제목 줄(폰·PC 같음), ✓n은 없음
 });
 
 // Google stores a due date as midnight UTC of that date. The calendar uses its date part as it is, so neither Korean midnight

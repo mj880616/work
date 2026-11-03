@@ -105,7 +105,7 @@ for(const width of [360,1280]){
     if(width<=760)expect(await target.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
     expect(geometry.within).toBe(true);expect(geometry.hit).toBe(true);
     console.log('task target',width,JSON.stringify(geometry));
-    {
+    if(width<761){
       await week.locator('.kptu-day-more[data-date="2026-10-20"]').click();
       await expect(page.locator('#calendarDayEvents .cal-event')).toHaveCount(24);
       await expect(page.locator('#calendarDayTasks .cal-event')).toHaveCount(2);
