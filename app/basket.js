@@ -431,7 +431,7 @@ function showKind(next,{openId=null,folder=null,address='replace'}={}){
 // detail's own move; 삭제 is the detail's delete (same confirmation from basket-record-delete.js), reported on the list.
 function rowMenuAction(act,noteId){
   const note=notes.find(n=>n.id===noteId);if(!note||busy||selected)return;
-  if(act==='copy'){void copyNote(note,()=>root.querySelector(`[data-basket-row-more="${CSS.escape(noteId)}"]`));return;}
+  if(act==='copy'){void copyNote(note);return;} // 메뉴 안 [복사]: 알림('복사했습니다')만 — ⋯ 글자를 '✓'로 바꾸지 않는다(⋯ 모양 그대로).
   
   if(act==='delete'){void deleteFromList(noteId);return;}
   if(act==='journal'||act==='unjournal'){void keepInJournal(noteId,act==='journal');return;}
