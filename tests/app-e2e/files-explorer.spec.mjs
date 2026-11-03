@@ -152,7 +152,9 @@ test('1440: 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색�
   await row(page, 'od:OD!1').click();
   await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
   await expect.poll(() => names(page)).toContain('가짜 직접읽기.docx');
-  expect(server.calls.filter(c => c.action === 'folder')).toHaveLength(1);
-  expect(server.calls.find(c => c.action === 'folder').body).toMatchObject({ source: 'od', id: 'OD!1' });
+  // 맨 위(id 없음)와 가짜 문서함, 폴더마다 한 번씩만.
+  const asked = server.calls.filter(c => c.action === 'folder').map(c => `${c.body.source}:${c.body.id ?? ''}`);
+  expect(asked.filter(k => k === 'od:OD!1')).toHaveLength(1);
+  expect(new Set(asked).size).toBe(asked.length);
   expect(errors).toEqual([]);
 });
