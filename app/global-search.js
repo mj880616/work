@@ -355,7 +355,7 @@ function rowNode(item, key, where) {
   const secret = item.source === 'note' && item.kind === 'note' && looksSecret(`${item.title || ''}\n${item.snippet || ''}`);
   head.append(secret ? el('span', 'gs-row-title', SECRET_TITLE) : marked(item.title, state.words, 'gs-row-title'));
   if (item.state && STATE_LABEL[item.state]) head.append(el('span', `gs-state gs-state-${item.state}`, STATE_LABEL[item.state]));
-  if (item.source === 'document') { const f = docFolder.get(item.id); if (f) head.append(el('span', 'gs-row-folder', `📁 ${f}`)); else if (f === undefined) folderAsk.add(item.id); }
+  if (item.source === 'document') { const f = docFolder.get(item.id); if (f) head.append(el('span', 'row-tail gs-row-folder', `📁 ${f}`)); else if (f === undefined) folderAsk.add(item.id); }
   main.append(head);
   const meta = [dateLabel(item), placeLabel(item)].filter(Boolean).join(' · ');
   if (meta) main.append(el('span', 'gs-row-meta', meta));

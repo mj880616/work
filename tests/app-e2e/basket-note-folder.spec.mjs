@@ -21,7 +21,7 @@ async function answerText(page, value) {
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-async function fixture(page, width, {table = true, more = []} = {}) {
+async function fixture(page, width, {table = true, more = [], longRow = false} = {}) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -32,6 +32,7 @@ async function fixture(page, width, {table = true, more = []} = {}) {
     row('n2', '나 노트', '2026-10-12T01:00:00Z', { folder: '회의' }),
     row('n3', '다 노트', '2026-10-10T01:00:00Z'),
   ];
+  if (longRow) rows[0] = row('n1', '아주 긴 제목의 노트입니다 '.repeat(10), '2026-10-16T01:00:00Z', { folder: '회의' });
   const folders = [{ id: U(1), workspace_id: 'w', parent_id: null, name: '회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }, ...more];
   let seq = 10;
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
@@ -319,3 +320,24 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 노트 고르기 �
   await page.keyboard.press('Escape');
   expect(f.errors).toEqual([]);
 });
+
+// UI-줄꼬리표(요청함 11/04 00:17): '최근' 노트 줄 오른쪽 폴더 이름은 제목이 아주 길어도 줄어들지 않고 온전히 보이며, 제목만 …로 줄어든다.
+for (const width of [412, 840, 1280]) {
+  test(`노트 최근 줄: 긴 제목에서도 오른쪽 폴더 이름이 다 보인다 (${width}px)`, async ({ page }) => {
+    const { errors } = await fixture(page, width, { longRow: true });
+    await chooseBasketKind(page, 'note');
+    const scope = width < 761 ? '[data-nx-recent]' : '#noteRows';
+    const tail = page.locator(`${scope} [data-nx-note="n1"] [data-nx-recent-folder]`);
+    await expect(tail).toBeVisible({ timeout: 15000 });
+    const m = await page.evaluate(() => {
+      const row = document.querySelector('[data-nx-recent] [data-nx-note="n1"], #noteRows [data-nx-note="n1"]');
+      const path = row.querySelector('[data-nx-recent-folder]'), title = row.querySelector('.basket-title-text'), time = row.querySelector('time');
+      return { pathFull: path.scrollWidth <= path.clientWidth, pathW: path.getBoundingClientRect().width, timeFull: time.scrollWidth <= time.clientWidth,
+        titleCut: title.scrollWidth > title.clientWidth || getComputedStyle(title).textOverflow === 'ellipsis', over: document.documentElement.scrollWidth > innerWidth };
+    });
+    expect(m.pathFull).toBe(true); expect(m.pathW).toBeGreaterThan(20); expect(m.timeFull).toBe(true); expect(m.over).toBe(false);
+    await expect(tail).toContainText('회의');
+    await page.locator(scope).first().screenshot({ path: `test-results/note-recent-tail-${width}.png` });
+    expect(errors).toEqual([]);
+  });
+}
