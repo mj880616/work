@@ -27,7 +27,8 @@ test('기다림은 칸 안에 막대 없이 회색 빈 줄만, 화면 읽기에�
   assert.equal(waitHtml({rows: 0}).match(/class="wait-row"/g).length, 1);
   assert.match(waitHtml({h: 34}), /style="--wait-h:34px"/, '실제 줄 높이');
   assert.doesNotMatch(waitHtml({h: 'x;color:red'}), /style=/);
-  assert.equal(text(waitInlineHtml()), '…', '글줄 안은 움직임 없이 … 한 글자');
+  assert.equal(text(waitInlineHtml()), '');
+  assert.match(read('base-ui.css'), /\.wait\.wait-inline::after\{content:"…"\}/, '글줄 안은 움직임 없이 … 한 글자(CSS)');
   assert.match(waitInlineHtml(), /aria-label="불러오는 중"/);
   assert.equal(text(barHtml()), '');
   assert.equal(WAIT_LABEL, '불러오는 중');

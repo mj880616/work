@@ -27,7 +27,7 @@ export function waitHtml({rows = 3, h = 0} = {}) {
 }
 // 기다림(글줄 안 한 칸: 건수·한 줄 요약 자리). 움직이는 표시 없이 '…' 한 글자.
 export function waitInlineHtml() {
-  return `<kptu-wait class="wait wait-inline" data-wait role="status" aria-label="${WAIT_LABEL}"><span aria-hidden="true">…</span></kptu-wait>`;
+  return `<kptu-wait class="wait wait-inline" data-wait role="status" aria-label="${WAIT_LABEL}"></kptu-wait>`; // '…'는 base-ui.css ::after 가 그린다(글자 없는 요소 — 화면 읽기·글자 검사에 섞이지 않음)
 }
 // 실패. retry: [다시] 버튼에 붙일 속성 이름(그 화면의 기존 다시 받기 처리기가 받는다, 예 'data-diary-retry'). 없으면 [다시] 없음.
 // reason(PHOTO-폰사진못읽음): 그 화면이 만든 실제 이유 글. 있으면 '불러오지 못했습니다 · 이유'로 같은 빨간 작은 글자에 붙인다(200자까지).

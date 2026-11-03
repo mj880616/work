@@ -357,11 +357,12 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 .wait-only-bar{display:block}
 /* UI-로딩맨위(2026-11-04 명진 결정): 움직이는 로딩 막대는 화면 맨 위 끝 한 곳뿐(wait-state.js 공용 카운터). 아래로 내려도 보이게 fixed, 눌림은 막지 않는다. */
 .top-wait{position:fixed;top:0;left:0;right:0;height:3px;z-index:120;overflow:hidden;pointer-events:none;animation:wait-show 0s linear .4s both}
-.top-wait-run{position:absolute;top:0;bottom:0;left:0;width:30%;background:var(--kptu-muted);opacity:.55;animation:wait-run 1.2s ease-in-out infinite}
+.top-wait-run{position:absolute;top:0;bottom:0;left:0;width:30%;background:var(--kptu-muted);opacity:.75;animation:wait-run 1.2s ease-in-out infinite}
 @keyframes wait-run{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
 .wait-row{display:block;height:var(--wait-h,20px);border-radius:4px;background:color-mix(in srgb,var(--kptu-border) 55%,transparent)}
 .wait-row:nth-child(3n+3){width:72%}
 .wait.wait-inline{display:inline;padding:0;color:var(--kptu-muted)}
+.wait.wait-inline::after{content:"…"}
 .wait.wait-only-bar{padding:0;gap:0;display:block;height:0}
 .wait-fail{margin:4px 0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-danger);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .wait-fail .wait-retry{min-height:24px;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta,12px);font-weight:400;cursor:pointer}
