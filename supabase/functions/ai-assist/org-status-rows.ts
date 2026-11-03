@@ -7,7 +7,6 @@
 //   전화번호·이메일 같은 개인 연락처가 든 줄은 버린다.
 // - 서버는 아무것도 저장하지 않는다. 화면이 [현황 표]에 넣으며, 사람이 넣거나 고친 줄(source=user)은 덮어쓰지 않는다.
 import { outputText } from "../_shared/openai-responses.ts";
-import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { cleanOrgText, type OrgRecord } from "./org-summary.ts";
 
 export const STATUS_ROWS_DAYS = 60;
@@ -45,10 +44,33 @@ export function packStatusRecords(records: StatusRecord[]): { packed: PackedStat
   return { packed, partial };
 }
 
-export function statusRowsMaterial(orgName: string, packed: PackedStatusRecord[], today: string): string {
+export type ExistingRow = { day: string; text: string };
+
+// 같은 줄 판정(DESK-전체현황표 ⑩). 화면(app/org-status-model.mjs similarBody·sameLine)과 같은 규칙이다: 날짜 하루 안쪽 + 내용이 비슷함.
+const squash = (t: string) => t.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+const pairs = (t: string) => { const out = new Set<string>(); for (let i = 0; i + 1 < t.length; i++) out.add(t.slice(i, i + 2)); return out; };
+export function similarBody(a: string, b: string): boolean {
+  const x = squash(a), y = squash(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  if (short.length >= 4 && long.includes(short)) return true;
+  const p = pairs(x), q = pairs(y);
+  if (p.size < 3 || q.size < 3) return false;
+  let both = 0;
+  for (const k of p) if (q.has(k)) both++;
+  return both / (p.size + q.size - both) >= 0.6;
+}
+const dayGap = (a: string, b: string) => (validDay(a) && validDay(b) ? Math.abs(Date.parse(a + "T00:00:00Z") - Date.parse(b + "T00:00:00Z")) / 86400000 : Infinity);
+export const sameLine = (x: { day: string; text: string }, y: { day: string; text: string }) => dayGap(x.day, y.day) <= 1 && similarBody(x.text, y.text);
+// 표에 이미 있는 줄(사람이 넣거나 고친 줄 포함)과 같은 일인 줄은 버린다.
+export const dropExisting = (rows: StatusRow[], existing: ExistingRow[]): StatusRow[] => rows.filter((r) => !existing.some((e) => sameLine(r, e)));
+
+export function statusRowsMaterial(orgName: string, packed: PackedStatusRecord[], today: string, existing: ExistingRow[] = []): string {
   return JSON.stringify({
     today,
     organization: cut(orgName, 80),
+    existing_rows: existing.slice(0, 40).map((e) => ({ day: e.day, text: cut(e.text, STATUS_ROWS_TEXT_CHARS) })),
     records: packed.map((r) => ({ ref: r.key, day: r.day, kind: TYPE_NAMES[r.type], text: r.text })),
   });
 }
@@ -56,10 +78,11 @@ export function statusRowsMaterial(orgName: string, packed: PackedStatusRecord[]
 export const STATUS_ROWS_INSTRUCTIONS = [
   "너는 노동조합 담당자의 업무 비서다. 한 담당조직의 최근 기록(조직 기록·업데이트·연결 기록 요약·자료 요약)을 받는다.",
   `rows: 그 조직의 최근 주요 일정·현황을 최신 순으로 ${STATUS_ROWS_MAX}줄 이하로 뽑는다. 교섭·조정·쟁의·집회·결의대회·투표·협약처럼 상황이 바뀐 일을 먼저 고르고, 일상 연락·인사는 고르지 않는다.`,
-  `줄마다 day(그 일이 있었던 날, YYYY-MM-DD, 기록의 날짜나 기록에 적힌 날짜), text(한국어 한 줄 ${STATUS_ROWS_TEXT_CHARS}자 이내, 날짜는 넣지 않음. 예: 지노위 2차 조정회의 — 조정 종료(쟁의권 확보)), refs(근거가 된 기록의 ref 목록)를 쓴다.`,
+  `줄마다 day(그 일이 있었던 날, YYYY-MM-DD, 기록의 날짜나 기록에 적힌 날짜), text(한국어 한 줄 ${STATUS_ROWS_TEXT_CHARS}자 이내, 날짜는 넣지 않음), refs(근거가 된 기록의 ref 목록)를 쓴다.`,
   "기록에 없는 일은 쓰지 않는다. 같은 일을 두 줄로 쓰지 않는다. 기록이 거의 없으면 rows는 빈 목록.",
   "전화번호·이메일·주민번호 같은 개인 연락처·식별 정보와 개인 이름은 쓰지 않는다. 추측·평가·감정 표현을 하지 않는다.",
-  AI_TONE_RULE,
+  "existing_rows는 표에 이미 있는 줄이다. 같은 날(하루 앞뒤 포함)의 같은 일은 말을 바꿔도 다시 뽑지 않는다.",
+  "문장 끝맺음(보고서 명사형): 마침표 없이 명사로 맺는다. '~함'·'~임'·'~했다'·'~합니다'로 끝내지 않는다. 예: 하반기 임단협 투쟁계획 승인 / 중노위 조정 신청 / 출력결의대회 개최 / 지노위 2차 조정회의 — 조정 종료(쟁의권 확보).",
 ].join("\n");
 
 export const STATUS_ROWS_SCHEMA = {
@@ -83,6 +106,8 @@ const PHONE = /(?:\+?82[-\s]?)?0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}/;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 const CTRL = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩]/g;
 const TAGS = /<[^>]*>/g;
+// 보고서 명사형(DESK-전체현황표 ⑨): 끝의 마침표는 지운다. '함'·'임'은 '선임'·'해임' 같은 낱말을 깨뜨릴 수 있어 지우지 않고 지시문(예시 포함)으로 맺게 한다.
+const NOUN_END = /[.。]+\s*$/u;
 const LEAD = /^(?:[-•·*>#]+|\d+[.)])\s*/;
 
 const validDay = (d: string) => DAY.test(d) && !Number.isNaN(Date.parse(d + "T00:00:00Z")) && new Date(d + "T00:00:00Z").toISOString().slice(0, 10) === d;
@@ -107,7 +132,7 @@ export function parseStatusRows(raw: unknown, packed: PackedStatusRecord[], toda
     if (typeof o.day !== "string" || typeof o.text !== "string" || !Array.isArray(o.refs)) continue;
     const day = o.day.trim();
     if (!validDay(day) || day < lo || day > hi) continue;
-    const body = cut(o.text.replace(TAGS, "").replace(CTRL, " ").replace(/\s+/g, " ").trim().replace(LEAD, "").trim(), STATUS_ROWS_TEXT_CHARS).trim();
+    const body = cut(o.text.replace(TAGS, "").replace(CTRL, " ").replace(/\s+/g, " ").trim().replace(LEAD, "").trim().replace(NOUN_END, "").trim(), STATUS_ROWS_TEXT_CHARS).trim();
     if (!body || PHONE.test(body) || EMAIL.test(body)) continue;
     const refs = o.refs.filter((k): k is string => typeof k === "string").map((k) => byKey.get(k.trim())).filter((r): r is PackedStatusRecord => !!r);
     if (!refs.length) continue;

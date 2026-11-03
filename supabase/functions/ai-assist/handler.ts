@@ -140,7 +140,7 @@ import {
   PEOPLE_BRIEF_MAX_PEOPLE, PEOPLE_BRIEF_READ_LIMIT, PEOPLE_BRIEF_SCHEMA, peopleBriefMaterial, whoIn as briefWhoIn,
 } from "./org-people-brief.ts";
 import {
-  packStatusRecords, parseStatusRows, type StatusRecord, STATUS_ROWS_DAYS, STATUS_ROWS_INSTRUCTIONS, STATUS_ROWS_MAX_OUTPUT_TOKENS, STATUS_ROWS_SCHEMA,
+  packStatusRecords, parseStatusRows, dropExisting, type ExistingRow, type StatusRecord, STATUS_ROWS_DAYS, STATUS_ROWS_INSTRUCTIONS, STATUS_ROWS_MAX_OUTPUT_TOKENS, STATUS_ROWS_SCHEMA,
   statusRowsMaterial,
 } from "./org-status-rows.ts";
 import {
@@ -3227,7 +3227,15 @@ async function runOrgStatusRows(ctx: Ctx, input: OrgStatusRowsInput, deps: Radar
     throw new Fail(503, "usage_unavailable");
   }
   const orgName = typeof orgRow.name === "string" ? [...orgRow.name.trim()].slice(0, MAX_TARGET_NAME_CHARS).join("") : "";
-  const material = statusRowsMaterial(orgName, packed, today);
+  // 표에 이미 있는 줄(사람이 넣거나 고친 줄 포함)을 읽어 AI에게 알리고, 답에서도 같은 일은 한 번 더 거른다(DESK-전체현황표 ⑩). 못 읽으면 없는 것으로.
+  let existing: ExistingRow[] = [];
+  try {
+    const have = await readList(ctx, `app_org_status_rows?workspace_id=eq.${ws}&organization_id=eq.${org}&select=day,body&order=day.desc&limit=60`);
+    existing = have.filter((r) => typeof r.day === "string" && typeof r.body === "string").map((r) => ({ day: String(r.day), text: String(r.body) }));
+  } catch {
+    deps.log("org_status_existing_unavailable");
+  }
+  const material = statusRowsMaterial(orgName, packed, today, existing);
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
     model: config.model,
     store: false,
@@ -3251,13 +3259,14 @@ async function runOrgStatusRows(ctx: Ctx, input: OrgStatusRowsInput, deps: Radar
     const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
     throw new Fail(status, result.code);
   }
-  const rows = parseStatusRows(result.raw, packed, today);
-  if (!rows) {
+  const parsed = parseStatusRows(result.raw, packed, today);
+  if (!parsed) {
     deps.log("ai_invalid_response");
     throw new Fail(502, "ai_invalid_response");
   }
+  const rows = dropExisting(parsed, existing);
   // 기록에는 숫자만 남긴다(재료·줄 없음).
-  deps.log("org_status_rows_done", { records: packed.length, rows: rows.length, partial });
+  deps.log("org_status_rows_done", { records: packed.length, rows: rows.length, existing: existing.length, partial });
   return json({ ...base, rows, partial });
 }
 

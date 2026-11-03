@@ -4,11 +4,15 @@
 // AI 줄(source=ai)만 바꾸고, 명진이 넣거나 고친 줄(source=user)은 덮어쓰지 않는다(판정은 org-status-model.mjs). 표가 비었고 기록이 있으면 처음 열 때 한 번 채운다.
 // 자료는 app_org_status_rows(migration 20261030234000) 한 곳 — 주간보고 '3. 2) 투쟁 사업장 현황' 그 조직 칸이 같은 줄을 읽는다(journal-hwpx.js).
 // 표가 없으면(DB 적용 전) '준비 중' 한 줄. 이 자리(#wdStatusTable)는 이 모듈 하나가 그린다. 브라우저 저장소에 아무것도 두지 않는다.
+// DESK-전체현황표: 줄 쓰기(넣기·고치기·빼기)와 AI 채우기는 아래 export 함수 한 곳이고, 담당조직 [전체 표](org-overview.js)도 같은 함수를 쓴다(새 저장 자리 없음).
+// 줄 모양: '일 | 주요 일정·현황' 두 칸. 고치기 버튼 칸은 없다 — 줄(글)을 누르면 여러 줄 칸으로 열린다. 순서는 일 칸 손잡이(PC)·줄 길게 누르기(폰)·일 칸 위아래 화살표(키보드).
+// 일 칸 폭은 끌어 바꾸고 서버에 기억한다(view_prefs.col_widths.orgst, S49-4 공용 col-resize.js).
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {missingTable} from './feed-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 import {seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {mountReorder} from './reorder-drag.js';
+import {mountColResize, gripHtml} from './col-resize.js';
 import {sortRows, splitRows, dayLabel, cleanBody, validDay, refillPlan, insertRow, moveRow, orderChanges, ROWS_MAX, BODY_MAX} from './org-status-model.mjs';
 
 const TABLE = '/rest/v1/app_org_status_rows';
@@ -81,16 +85,29 @@ function evidenceHtml(row) {
 }
 function rowHtml(r, disabled) {
   const label = esc(cleanBody(r.body));
-  const tools = ui.canEdit ? `<td class="wd-st-tools"><button type="button" class="wd-st-btn wd-st-grip" data-reorder-handle aria-label="${label} 순서 옮기기(위·아래 화살표)"${disabled ? ' disabled' : ''}>⠿</button><button type="button" class="wd-st-btn" data-st-edit="${esc(r.id)}" aria-label="${label} 고치기"${disabled ? ' disabled' : ''}>고치기</button></td>` : '';
-  return `<tr data-st-row="${esc(r.id)}" data-reorder-id="${esc(r.id)}"><th scope="row" class="wd-st-day">${esc(dayLabel(r.day) || '—')}</th><td class="wd-st-body">${label}${r.source === 'ai' ? '<span class="wd-st-tag" title="AI가 기록에서 뽑은 줄 — 고치면 내 줄이 돼요">AI</span>' : ''}${evidenceHtml(r)}</td>${tools}</tr>`;
+  const day = esc(dayLabel(r.day) || '—');
+  const dayCell = ui.canEdit && !disabled
+    ? `<th scope="row" class="wd-st-day" data-reorder-handle tabindex="0" role="button" aria-label="${label} 순서 옮기기(위·아래 화살표)"><span class="wd-st-day-text">${day}</span></th>`
+    : `<th scope="row" class="wd-st-day"><span class="wd-st-day-text">${day}</span></th>`;
+  const text = ui.canEdit && !disabled
+    ? `<span class="wd-st-text" role="button" tabindex="0" data-st-edit="${esc(r.id)}" aria-label="${label} 고치기">${label}</span>`
+    : `<span class="wd-st-text">${label}</span>`;
+  return `<tr data-st-row="${esc(r.id)}" data-reorder-id="${esc(r.id)}">${dayCell}<td class="wd-st-body">${text}${r.source === 'ai' ? '<span class="wd-st-tag" title="AI가 기록에서 뽑은 줄 — 고치면 내 줄이 돼요">AI</span>' : ''}${evidenceHtml(r)}</td></tr>`;
 }
+// 고치기·넣기 칸(상세 표와 전체 표가 함께 씀): 일(달력) + 주요 일정·현황(글 길이만큼 늘어나는 여러 줄 칸) + [빼기][취소][저장](같은 크기, 저장만 색).
+export function editFormHtml({key, draft = {}, invalid = '', busy = false, canDelete = false, deleteId = ''}) {
+  const d = draft, dis = busy ? ' disabled' : '';
+  return `<div class="wd-st-form" data-st-form="${esc(key)}">`
+    + `<label class="wd-st-f-day"><span>일</span><input type="date" data-st-field="day" value="${esc(d.day || '')}"${invalid === 'day' ? ' aria-invalid="true"' : ''}${dis}></label>`
+    + `<label class="wd-st-f-body"><span>주요 일정·현황</span><textarea data-st-field="body" rows="2" maxlength="${BODY_MAX}" autocomplete="off"${invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body || '')}</textarea></label>`
+    + `<div class="wd-st-actions">${canDelete ? `<button type="button" class="wd-st-btn wd-st-del" data-st-delete="${esc(deleteId)}"${dis}>빼기</button>` : ''}<button type="button" class="wd-st-btn" data-st-cancel${dis}>취소</button><button type="button" class="wd-st-btn primary" data-st-save${dis}>저장</button></div>`
+    + `</div>`;
+}
+// 글 길이만큼 높이를 늘린다(열 때 전체가 보이고, 쓰면서 늘어남).
+export function fitTextarea(el) { if (!el) return; el.style.height = 'auto'; el.style.height = `${el.scrollHeight + 2}px`; }
 function editHtml(row) {
-  const d = ui.draft || {}, key = row?.id ?? 'new', busy = ui.busy;
-  return `<tr class="wd-st-edit" data-st-edit-row="${esc(key)}"><td colspan="3"><div class="wd-st-form">`
-    + `<label class="wd-st-f-day"><span>일</span><input type="date" data-st-field="day" value="${esc(d.day || '')}"${ui.invalid === 'day' ? ' aria-invalid="true"' : ''}${busy ? ' disabled' : ''}></label>`
-    + `<label class="wd-st-f-body"><span>주요 일정·현황</span><input type="text" data-st-field="body" maxlength="${BODY_MAX}" autocomplete="off" value="${esc(d.body || '')}"${ui.invalid === 'body' ? ' aria-invalid="true"' : ''}${busy ? ' disabled' : ''}></label>`
-    + `<div class="wd-st-actions">${row ? `<button type="button" class="wd-st-btn wd-st-del" data-st-delete="${esc(row.id)}"${busy ? ' disabled' : ''}>빼기</button>` : ''}<button type="button" class="wd-st-btn" data-st-cancel${busy ? ' disabled' : ''}>취소</button><button type="button" class="wd-st-btn primary" data-st-save${busy ? ' disabled' : ''}>저장</button></div>`
-    + `</div></td></tr>`;
+  const key = row?.id ?? 'new';
+  return `<tr class="wd-st-edit" data-st-edit-row="${esc(key)}"><td colspan="2">${editFormHtml({key, draft: ui.draft || {}, invalid: ui.invalid, busy: ui.busy, canDelete: !!row, deleteId: row?.id || ''})}</td></tr>`;
 }
 function paint() {
   if (!ui) return;
@@ -101,7 +118,7 @@ function paint() {
   if (status === 'error') { host.innerHTML = `<p class="wd-st-note" role="alert">${TEXT.failed} <button type="button" class="wd-st-btn" data-st-retry>다시 시도</button></p>`; return; }
   const {shown, older} = splitRows(rows), dis = busy || !!editing;
   const body = list => list.map(r => editing === r.id ? editHtml(r) : rowHtml(r, dis)).join('');
-  const head = `<thead><tr><th scope="col" class="wd-st-day">일</th><th scope="col">주요 일정·현황</th>${canEdit ? '<th scope="col" class="wd-st-tools" aria-label="고치기"></th>' : ''}</tr></thead>`;
+  const head = `<thead><tr><th scope="col" class="wd-st-day">일${gripHtml('day', '일', 1)}</th><th scope="col">주요 일정·현황</th></tr></thead>`;
   const olderOpen = older.some(r => r.id === editing);
   let html = `<table class="wd-st-table" data-st-table>${head}<tbody data-reorder-list="st">${body(shown)}${editing === 'new' ? editHtml(null) : ''}</tbody></table>`;
   if (!rows.length && editing !== 'new') html += emptyHtml('없음', {attrs: 'data-st-empty'});
@@ -112,18 +129,26 @@ function paint() {
   if (canEdit && !dis && rows.length > 1) drag = mountReorder(host, {listSelector: '[data-reorder-list]', itemSelector: 'tr[data-reorder-id]',
     onDrop: ({id, index}) => { const all = sortRows(ui.rows), from = all.findIndex(r => r.id === id); if (from < 0) return; const [it] = all.splice(from, 1); all.splice(Math.min(index, all.length), 0, it); void saveOrder(all.map((r, k) => ({...r, sort_order: k})), id); },
     onStep: (id, dir) => { const next = moveRow(ui.rows, id, dir); if (next) void saveOrder(next, id); }});
-  if (ui.focus) { host.querySelector(ui.focus)?.focus({preventScroll: true}); ui.focus = ''; }
+  mountColResize({host, name: 'orgst', vars: {day: '--st-w-day'}, dir: 1, labels: {day: '일'}, fit: key => Math.ceil(Math.max(0, ...[...host.querySelectorAll('.wd-st-day-text')].map(el => el.getBoundingClientRect().width)))});
+  host.querySelectorAll('textarea[data-st-field]').forEach(fitTextarea);
+  if (ui.focus) {
+    const el = host.querySelector(ui.focus);
+    el?.focus({preventScroll: true});
+    // 폰 키보드가 올라와도 입력칸·[저장]이 가려지지 않게: 열린 칸 전체를 화면 안으로(CSS scroll-margin이 키보드 높이만큼 여백).
+    if (el && el.matches('textarea,input')) host.querySelector('.wd-st-edit')?.scrollIntoView({block: 'nearest'});
+    ui.focus = '';
+  }
 }
 function say(text, error = false) { if (!ui) return; ui.msg = {text, error}; const el = ui.host.querySelector('[data-st-status]'); if (el) { el.textContent = text; el.classList.toggle('is-error', error); } }
 
 function bind(host) {
   if (host.dataset.stBound) return;
   host.dataset.stBound = '1';
-  host.addEventListener('input', e => { const t = e.target; if (!ui || ui.host !== host || !t.matches?.('[data-st-field]')) return; ui.draft = {...(ui.draft || {}), [t.dataset.stField]: t.value}; if (ui.invalid === t.dataset.stField) { ui.invalid = ''; t.removeAttribute('aria-invalid'); } });
+  host.addEventListener('input', e => { const t = e.target; if (!ui || ui.host !== host || !t.matches?.('[data-st-field]')) return; if (t.tagName === 'TEXTAREA') fitTextarea(t); ui.draft = {...(ui.draft || {}), [t.dataset.stField]: t.value}; if (ui.invalid === t.dataset.stField) { ui.invalid = ''; t.removeAttribute('aria-invalid'); } });
   host.addEventListener('change', e => { const t = e.target; if (ui && ui.host === host && t.matches?.('[data-st-field]')) ui.draft = {...(ui.draft || {}), [t.dataset.stField]: t.value}; });
-  host.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.target.matches?.('[data-st-field]')) { e.preventDefault(); void saveEdit(); } else if (e.key === 'Escape' && ui?.editing) { e.preventDefault(); cancel(); } });
+  host.addEventListener('keydown', e => { const sp = e.target.closest?.('[data-st-edit]'); if (sp && ui && ui.host === host && !ui.busy && !ui.editing && (e.key === 'Enter' || e.key === ' ') && e.target === sp) { e.preventDefault(); sp.click(); return; } if (e.key === 'Enter' && !e.isComposing && !e.shiftKey && e.target.matches?.('[data-st-field]')) { e.preventDefault(); void saveEdit(); } else if (e.key === 'Escape' && ui?.editing) { e.preventDefault(); cancel(); } });
   host.addEventListener('click', e => {
-    const b = e.target.closest?.('button'); if (!b || !ui || ui.host !== host || b.disabled) return;
+    const b = e.target.closest?.('button,[data-st-edit]'); if (!b || !ui || ui.host !== host || b.disabled) return;
     if ('stRetry' in b.dataset) { ui.status = 'loading'; paint(); void load(ui.run); }
     else if ('stAdd' in b.dataset) { ui.editing = 'new'; ui.draft = {day: seoulDateKey(Date.now()), body: ''}; ui.focus = '[data-st-field="body"]'; ui.msg = {text: '', error: false}; paint(); }
     else if (b.dataset.stEdit) { const r = ui.rows.find(x => x.id === b.dataset.stEdit); if (!r) return; ui.editing = r.id; ui.draft = {day: r.day, body: r.body}; ui.focus = '[data-st-field="body"]'; ui.msg = {text: '', error: false}; paint(); }
@@ -135,8 +160,40 @@ function bind(host) {
 }
 function cancel() { const id = ui.editing; ui.editing = null; ui.draft = null; ui.invalid = ''; ui.focus = id && id !== 'new' ? `[data-st-edit="${id}"]` : '[data-st-add]'; paint(); }
 
-const scope = () => `workspace_id=eq.${enc(ui.workspaceId)}&organization_id=eq.${enc(ui.orgId)}`;
-function changed() { window.dispatchEvent(new CustomEvent('kptu:org-status-changed', {detail: {organization_id: ui?.orgId}})); }
+const scope = c => `workspace_id=eq.${enc(c.workspaceId)}&organization_id=eq.${enc(c.orgId)}`;
+const ctxOf = () => ({rt: ui.rt, workspaceId: ui.workspaceId, orgId: ui.orgId});
+function changed(orgId = ui?.orgId) { window.dispatchEvent(new CustomEvent('kptu:org-status-changed', {detail: {organization_id: orgId}})); }
+
+// ---- 줄 쓰기·AI 채우기(상세 표와 담당조직 [전체 표]가 함께 씀). c = {rt, workspaceId, orgId}. 실패하면 throw — 부르는 쪽이 다시 읽어 서버 판을 보인다. ----
+export async function patchStatusRow(c, id, body) {
+  const rows = await c.rt.api(`${TABLE}?id=eq.${enc(id)}&${scope(c)}&select=id`, {method: 'PATCH', body, prefer: 'return=representation', singleFlight: false});
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('patch');
+}
+export async function deleteStatusRow(c, id) {
+  const rows = await c.rt.api(`${TABLE}?id=eq.${enc(id)}&${scope(c)}&select=id`, {method: 'DELETE', prefer: 'return=representation', singleFlight: false});
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('delete');
+}
+// 내 줄 하나 넣기(날짜 순서 자리에 끼우고 순서를 다시 붙인다). rows = 그 조직의 지금 줄들.
+export async function createStatusRow(c, rows, {day, body}) {
+  const next = insertRow(rows, {id: null, day, body, source: 'user', evidence: []}), at = next.findIndex(r => !r.id);
+  await c.rt.api(`${TABLE}?select=id`, {method: 'POST', body: {workspace_id: c.workspaceId, organization_id: c.orgId, day, body, sort_order: at, source: 'user', evidence: []}, prefer: 'return=representation', singleFlight: false});
+  for (const ch of orderChanges(next.filter(r => r.id), rows)) await patchStatusRow(c, ch.id, {sort_order: ch.sort_order});
+}
+// 서버 AI(ai-assist org_status_rows)에게 그 조직 줄 후보를 받는다. 서버는 표에 이미 있는 줄과 같은 일을 걸러서 준다. 반환 {ok, rows}.
+export async function fetchAiRows(c) {
+  const r = await callAiAssist({kind: 'org_status_rows', organization_id: c.orgId}, {rt: c.rt}).catch(() => ({ok: false}));
+  return r?.ok ? {ok: true, rows: Array.isArray(r.data?.rows) ? r.data.rows : []} : {ok: false, rows: []};
+}
+// 다시 채우기 계획(org-status-model.mjs refillPlan)을 표에 적용: AI 줄만 지우고, 새 줄을 넣고, 순서를 맞춘다.
+export async function applyRefillPlan(c, plan) {
+  if (plan.remove.length) {
+    const gone = await c.rt.api(`${TABLE}?id=in.(${plan.remove.map(enc).join(',')})&${scope(c)}&source=eq.ai&select=id`, {method: 'DELETE', prefer: 'return=representation', singleFlight: false});
+    if (!Array.isArray(gone)) throw new Error('delete');
+  }
+  if (plan.add.length) await c.rt.api(`${TABLE}?select=id`, {method: 'POST', body: plan.add.map(a => ({workspace_id: c.workspaceId, organization_id: c.orgId, day: a.day, body: a.body, sort_order: a.sort_order, source: 'ai', evidence: a.evidence})), prefer: 'return=representation', singleFlight: false});
+  for (const ch of plan.order) await patchStatusRow(c, ch.id, {sort_order: ch.sort_order});
+}
+
 // 쓰기 하나를 감싼다: 바쁨 표시 → work() → 다시 읽기 → 알림. 실패해도 다시 읽어 서버 판을 보인다.
 async function write(work, done, focus = '') {
   if (!ui || ui.busy) return false;
@@ -158,52 +215,35 @@ async function saveEdit() {
   const d = ui.draft || {}, body = cleanBody(d.body), day = d.day, id = ui.editing;
   if (!validDay(day)) { ui.invalid = 'day'; ui.msg = {text: TEXT.noDay, error: true}; paint(); return; }
   if (!body) { ui.invalid = 'body'; ui.msg = {text: TEXT.noBody, error: true}; paint(); return; }
-  const {rt} = ui;
+  const c = ctxOf();
   if (id === 'new') {
     if (ui.rows.length >= ROWS_MAX) { ui.msg = {text: TEXT.full, error: true}; paint(); return; }
-    const next = insertRow(ui.rows, {id: null, day, body, source: 'user', evidence: []}), at = next.findIndex(r => !r.id), prev = ui.rows;
-    await write(async () => {
-      await rt.api(`${TABLE}?select=id`, {method: 'POST', body: {workspace_id: ui.workspaceId, organization_id: ui.orgId, day, body, sort_order: at, source: 'user', evidence: []}, prefer: 'return=representation', singleFlight: false});
-      for (const c of orderChanges(next.filter(r => r.id), prev)) await patchRow(c.id, {sort_order: c.sort_order});
-    }, '줄을 넣었어요.', '[data-st-add]');
+    const prev = ui.rows;
+    await write(() => createStatusRow(c, prev, {day, body}), '줄을 넣었어요.', '[data-st-add]');
     return;
   }
   // 고친 줄은 내 줄(source=user)이 된다 — 다시 채우기가 덮어쓰지 않는다.
-  await write(() => patchRow(id, {day, body, source: 'user', updated_at: new Date().toISOString()}), '저장했어요.', `[data-st-edit="${id}"]`);
-}
-async function patchRow(id, body) {
-  const rows = await ui.rt.api(`${TABLE}?id=eq.${enc(id)}&${scope()}&select=id`, {method: 'PATCH', body, prefer: 'return=representation', singleFlight: false});
-  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('patch');
+  await write(() => patchStatusRow(c, id, {day, body, source: 'user', updated_at: new Date().toISOString()}), '저장했어요.', `[data-st-edit="${id}"]`);
 }
 async function removeRow(id) {
-  await write(async () => {
-    const rows = await ui.rt.api(`${TABLE}?id=eq.${enc(id)}&${scope()}&select=id`, {method: 'DELETE', prefer: 'return=representation', singleFlight: false});
-    if (!Array.isArray(rows) || rows.length !== 1) throw new Error('delete');
-  }, '줄을 뺐어요.', '[data-st-add]');
+  const c = ctxOf();
+  await write(() => deleteStatusRow(c, id), '줄을 뺐어요.', '[data-st-add]');
 }
 async function saveOrder(next, id) {
-  const changes = orderChanges(next, ui.rows);
+  const changes = orderChanges(next, ui.rows), c = ctxOf();
   if (!changes.length) return;
-  await write(async () => { for (const c of changes) await patchRow(c.id, {sort_order: c.sort_order}); }, '순서를 바꿨어요.', `tr[data-reorder-id="${id}"] [data-reorder-handle]`);
+  await write(async () => { for (const ch of changes) await patchStatusRow(c, ch.id, {sort_order: ch.sort_order}); }, '순서를 바꿨어요.', `tr[data-reorder-id="${id}"] [data-reorder-handle]`);
 }
 // [기록에서 다시 채우기 (AI)] — 서버는 줄 후보만 돌려주고, 표에 넣는 것은 여기(내 로그인, owner RLS).
 async function refill(first) {
   if (!ui || ui.busy || !ui.canEdit) return;
-  const me = ui, run = ui.run;
+  const me = ui, run = ui.run, c = ctxOf();
   me.busy = true; say(TEXT.aiRun); paint();
-  const r = await callAiAssist({kind: 'org_status_rows', organization_id: me.orgId}, {rt: me.rt}).catch(() => ({ok: false}));
+  const r = await fetchAiRows(c);
   if (ui !== me || ui.run !== run) return;
   me.busy = false;
-  if (!r?.ok) { me.msg = {text: first ? '' : TEXT.aiFail, error: !first}; paint(); return; }
-  const ai = Array.isArray(r.data?.rows) ? r.data.rows : [];
-  const plan = refillPlan(me.rows, ai);
+  if (!r.ok) { me.msg = {text: first ? '' : TEXT.aiFail, error: !first}; paint(); return; }
+  const plan = refillPlan(me.rows, r.rows);
   if (!plan.add.length && !plan.remove.length) { me.msg = {text: first ? '' : TEXT.aiNone, error: false}; paint(); return; }
-  await write(async () => {
-    if (plan.remove.length) {
-      const gone = await me.rt.api(`${TABLE}?id=in.(${plan.remove.map(enc).join(',')})&${scope()}&source=eq.ai&select=id`, {method: 'DELETE', prefer: 'return=representation', singleFlight: false});
-      if (!Array.isArray(gone)) throw new Error('delete');
-    }
-    if (plan.add.length) await me.rt.api(`${TABLE}?select=id`, {method: 'POST', body: plan.add.map(a => ({workspace_id: me.workspaceId, organization_id: me.orgId, day: a.day, body: a.body, sort_order: a.sort_order, source: 'ai', evidence: a.evidence})), prefer: 'return=representation', singleFlight: false});
-    for (const c of plan.order) await patchRow(c.id, {sort_order: c.sort_order});
-  }, plan.add.length ? `기록에서 ${plan.add.length}줄을 채웠어요.` : TEXT.aiNone, '[data-st-refill]');
+  await write(() => applyRefillPlan(c, plan), plan.add.length ? `기록에서 ${plan.add.length}줄을 채웠어요.` : TEXT.aiNone, '[data-st-refill]');
 }

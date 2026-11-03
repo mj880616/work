@@ -47,6 +47,7 @@ function harness({openai=null}={}){
     app_record_links:[{workspace_id:WS,note_id:N1,organization_id:ORG_A,summary:'',status:'confirmed'}],
     app_documents:[],
     app_document_ai_index:[],
+    app_org_status_rows:[{workspace_id:WS,organization_id:ORG_A,day:'2026-10-26',body:'11.14 조합원 총력 결의대회 개최 예정',source:'user'}],
     app_ai_daily_usage:[],
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
@@ -104,12 +105,14 @@ test('owner: one AI call with the last 60 days of that organization; at most 4 c
   assert.equal(body.ok,true);assert.equal(body.kind,'org_status_rows');
   assert.deepEqual(body.rows,[
     {day:'2026-10-29',text:'지노위 2차 조정회의 — 조정 종료(쟁의권 확보)',evidence:[U1]},
-    {day:'2026-10-26',text:'조합원 총력 결의대회',evidence:[U2]},
     {day:'2026-10-24',text:'업데이트 공지',evidence:[N1]},
-  ],'phone rows, unknown refs, far dates, duplicates and tags are dropped; lead marks removed');
+  ],'phone rows, unknown refs, far dates, duplicates and tags are dropped; lead marks removed; a line the table already has (even one the user typed, worded differently) is not offered again');
   assert.equal(calls.openai.length,1);assert.equal(calls.openai[0].store,false);
   const sent=calls.openai[0].input[1].content;
   assert.match(sent,/UPDATE_ONE/);assert.match(sent,/NOTE_ONE/);
+  assert.match(sent,/existing_rows/);assert.match(sent,/총력 결의대회 개최 예정/);
+  const rules=calls.openai[0].input[0].content;
+  assert.match(rules,/보고서 명사형/);assert.match(rules,/승인/);assert.doesNotMatch(rules,/'~함\.'/,'no summary tone rule: report lines end in a noun');
   for(const no of ['OLD_RECORD','FOREIGN_RECORD','DIARY_SECRET','010-1111-2222',U1,N1])assert.doesNotMatch(sent,new RegExp(no),no);
   assert.ok(!calls.rest.some(r=>r.method!=='GET'&&r.table!=='app_ai_daily_usage'),'no writes except the usage counter');
   assert.ok(!calls.logs.some(l=>JSON.stringify(l).includes('지노위')),'logs carry counts only');
@@ -148,4 +151,13 @@ test('pure rules: packing order, material refs only, answer cleanup',()=>{
   const many=sr.parseStatusRows(JSON.stringify({rows:Array.from({length:8},(_,i)=>({day:`2026-10-${String(10+i)}`,text:'줄'+i,refs:['r1']}))}),packed,TODAY);
   assert.equal(many.length,4);assert.deepEqual(many.map(r=>r.day),['2026-10-13','2026-10-12','2026-10-11','2026-10-10']);
   assert.equal(sr.parseStatusRows(JSON.stringify({rows:[{day:'2026-10-29',text:'가'.repeat(120),refs:['r1']}]}),packed,TODAY)[0].text.length,80);
+});
+
+test('pure rules: same-line check (day within 1, similar words) and trailing period removal',()=>{
+  const L=(day,text)=>({day,text});
+  assert.equal(sr.sameLine(L('2026-10-29','총력결의대회 개최'),L('2026-10-30','11.14 총력결의대회 개최 예정')),true);
+  assert.equal(sr.sameLine(L('2026-10-29','하반기 임단협 투쟁계획 승인'),L('2026-10-29','하반기 임단협 투쟁계획 승인함')),true);
+  assert.equal(sr.sameLine(L('2026-10-29','중노위 조정 신청'),L('2026-10-29','중노위 조정 결정')),false);
+  assert.equal(sr.sameLine(L('2026-10-29','중노위 조정 신청'),L('2026-11-29','중노위 조정 신청')),false);
+  assert.deepEqual(sr.dropExisting([L('2026-10-29','출력결의대회 개최'),L('2026-10-20','쟁의 찬반투표 가결')],[L('2026-10-29','출력 결의대회 개최')]),[L('2026-10-20','쟁의 찬반투표 가결')]);
 });
