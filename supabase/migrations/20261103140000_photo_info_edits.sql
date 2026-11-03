@@ -42,10 +42,10 @@ create table public.app_photo_info_edits (
   constraint app_photo_info_edits_key_check check (char_length(item_key) between 1 and 300),
   constraint app_photo_info_edits_before_loc_check check (
     (before_lat is null and before_lon is null)
-    or (before_lat between -90 and 90 and before_lon between -180 and 180)),
+    or (before_lat is not null and before_lon is not null and before_lat between -90 and 90 and before_lon between -180 and 180)),
   constraint app_photo_info_edits_after_loc_check check (
     (after_lat is null and after_lon is null)
-    or (after_lat between -90 and 90 and after_lon between -180 and 180)),
+    or (after_lat is not null and after_lon is not null and after_lat between -90 and 90 and after_lon between -180 and 180)),
   constraint app_photo_info_edits_changed_check check (
     loc_changed or (after_taken is not null and before_taken is distinct from after_taken)),
   constraint app_photo_info_edits_loc_check check (
