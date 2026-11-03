@@ -81,6 +81,19 @@
 .me-handle:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .me-name{flex:1;min-width:0;font-size:var(--ds-text-row,13px)}
 .me-tag{color:var(--kptu-muted);font-size:11px}
+.me-toggle{min-height:24px;padding:0 8px;font-size:11px;color:var(--kptu-muted)}
+.me-pv-hidden{margin:0;padding:2px 8px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+/* MENU-숨김: 숨긴 메뉴는 접힌 한 줄('숨긴 메뉴 n')에서만 열린다 — PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래. */
+#appView>.app-nav .nav-hidden-group{flex:0 0 auto}
+#appView>.app-nav .nav-hidden-group>summary{display:flex;align-items:center;min-height:28px;padding:0 10px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);cursor:pointer;list-style:none}
+#appView>.app-nav .nav-hidden-group>summary::-webkit-details-marker{display:none}
+#appView>.app-nav .nav-hidden-group>summary::after{content:"▸";margin-left:4px}
+#appView>.app-nav .nav-hidden-group[open]>summary::after{content:"▾"}
+#appView>.app-nav .nav-hidden-group>summary:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+}
+#appView .mobile-menu-panel nav .mobile-menu-hidden{grid-column:1 / -1;margin-top:4px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#appView .mobile-menu-panel nav .mobile-menu-hidden>summary{min-height:30px;display:flex;align-items:center;padding:0 4px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);cursor:pointer}
+#appView .mobile-menu-panel nav .mobile-menu-hidden-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .me-cols{display:flex;flex-direction:column;gap:8px}
 .me-lists{flex:1 1 auto;min-width:0}
 /* MENU-세칸: PC 왼쪽 메뉴 미리보기. 위 메뉴 … 빈 공간 … 선 … 아래 붙는 메뉴. 작고 흐리게. */

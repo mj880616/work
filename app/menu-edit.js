@@ -3,32 +3,37 @@
 // 키보드 위·아래도 칸 사이를 넘는다. 홈은 맨 앞 고정. 오른쪽(폰은 아래)에 PC 왼쪽 메뉴 미리보기(pcSplit, 실제 왼쪽 메뉴와 같은 규칙).
 // 바꾸면 그 자리에서 메뉴에 반영되고 서버에 저장된다(menu-layout.js). [처음대로]는 기본 순서로, [완료]는 창을 닫는다.
 import {mountReorder} from './reorder-drag.js';
-import {BAR_MAX, FIXED_ID, itemOf, normalizeLayout, pcSplit} from './menu-model.mjs';
+import {BAR_MAX, FIXED_ID, itemOf, normalizeLayout, pcSplit, hideItem, showItem} from './menu-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const modal = () => document.getElementById('menuEditModal');
 let drag = null, note = '';
 
-function rowHtml(id) {
+// MENU-숨김: 숨긴 메뉴는 명진이 고르는 개인 표시이고 기능을 숨기는 것이 아니다(docs/design-decisions.md). 줄마다 [숨기기]/[꺼내기] 작은 글자 버튼, 끌어서 숨김 칸에 놓아도 된다.
+function rowHtml(id, list) {
   const item = itemOf(id), fixed = id === FIXED_ID;
   const handle = fixed ? '<span class="me-handle me-fixed" aria-hidden="true">⠿</span>'
     : `<button type="button" class="me-handle" data-reorder-handle aria-label="${esc(item.label)} 옮기기 (끌거나 위·아래 화살표)">⠿</button>`;
-  return `<li class="me-row" data-reorder-id="${esc(id)}">${handle}<span class="me-name">${esc(item.label)}</span>${fixed ? '<small class="me-tag">고정</small>' : ''}</li>`;
+  return `<li class="me-row" data-reorder-id="${esc(id)}">${handle}<span class="me-name">${esc(item.label)}</span>${fixed ? '<small class="me-tag">고정</small>'
+    : list === 'hidden' ? `<button type="button" class="ghost me-toggle" data-menu-edit-show="${esc(id)}" aria-label="${esc(item.label)} 다시 꺼내기">꺼내기</button>`
+    : `<button type="button" class="ghost me-toggle" data-menu-edit-hide="${esc(id)}" aria-label="${esc(item.label)} 숨기기">숨기기</button>`}</li>`;
 }
 function paint(focusId = '') {
   const body = modal()?.querySelector('[data-menu-edit-body]');
   if (!body) return;
   const layout = normalizeLayout(window.KPTUMenuLayout?.current?.());
-  const group = (list, label, head) => `<section class="me-group" aria-label="${esc(label)}"><h3>${head}</h3><ol class="me-list" data-reorder-list="${list}">${layout[list].map(rowHtml).join('')}</ol></section>`;
-  const {main, tail} = pcSplit(layout);
+  const group = (list, label, head) => `<section class="me-group" aria-label="${esc(label)}"><h3>${head}</h3><ol class="me-list" data-reorder-list="${list}">${layout[list].map(id => rowHtml(id, list)).join('')}</ol></section>`;
+  const {main, tail, hidden} = pcSplit(layout);
   const pv = id => `<li>${esc(itemOf(id)?.label)}</li>`;
   body.innerHTML = `<div class="me-cols"><div class="me-lists">`
     + group('bar', '폰 하단바', `폰 하단바 <small>${layout.bar.length}/${BAR_MAX}칸</small>`)
     + group('rest', '위 메뉴', '위 메뉴 <small>폰 [메뉴] 창 · PC 왼쪽 위</small>')
     + group('tail', '아래 붙는 메뉴', '아래 붙는 메뉴 <small>PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래</small>')
+    + group('hidden', '숨긴 메뉴', `숨긴 메뉴 <small>${hidden.length}개 · 메뉴에서 빠지고 접힌 칸에서만 열려요</small>`)
     + `</div><figure class="me-preview" aria-label="PC 왼쪽 메뉴 미리보기"><figcaption>PC 왼쪽 메뉴</figcaption><div class="me-pv-box" data-menu-edit-preview>`
     + `<ol class="me-pv-main">${main.map(pv).join('')}</ol><span class="me-pv-gap" aria-hidden="true"></span>`
     + (tail.length ? `<ol class="me-pv-tail">${tail.map(pv).join('')}</ol>` : '')
+    + (hidden.length ? `<p class="me-pv-hidden">숨긴 메뉴 ${hidden.length} ▸</p>` : '')
     + `</div></figure></div>`
     + `<p class="me-note" role="status" aria-live="polite">${esc(note || '폰은 줄을 길게 눌러 끌어요. 키보드는 위·아래 화살표.')}</p>`;
   if (focusId) body.querySelector(`[data-reorder-id="${CSS.escape(focusId)}"] [data-reorder-handle]`)?.focus({preventScroll: true});
@@ -52,6 +57,14 @@ export function openMenuEdit({trigger} = {}) {
     el.dataset.menuEditBound = '1';
     el.addEventListener('click', event => {
       if (event.target === el || event.target.closest('[data-close="menuEditModal"]')) { event.stopPropagation(); close(); return; }
+      const hide = event.target.closest('[data-menu-edit-hide]'), show = event.target.closest('[data-menu-edit-show]');
+      if (hide || show) {
+        const id = (hide || show).dataset.menuEditHide || (hide || show).dataset.menuEditShow;
+        const r = (hide ? hideItem : showItem)(window.KPTUMenuLayout.current(), id);
+        if (r.ok && r.changed !== false) window.KPTUMenuLayout.setLayout(r.layout);
+        note = hide ? `${itemOf(id)?.label}을(를) 숨겼어요. 아래 '숨긴 메뉴'에서 다시 꺼낼 수 있어요.` : `${itemOf(id)?.label}을(를) 위 메뉴로 꺼냈어요.`;
+        paint(id); return;
+      }
       if (event.target.closest('[data-menu-edit-reset]')) { window.KPTUMenuLayout.resetLayout(); note = '처음 순서로 되돌렸어요.'; paint(); }
     });
     // 서버가 순서를 받지 못해 되돌렸을 때 창 안도 같은 순서로 다시 그린다.
