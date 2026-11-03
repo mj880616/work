@@ -141,8 +141,9 @@ test('화면 연결: [지우기] 두 갈래 창·[폰으로 되돌리기] 단추
   const src = read('app/photos.js'), notice = read('app/small-notice.js'), css = read('app/base-ui.css');
   assert.match(src, /if \(needTwoWay\(all\)\) \{ chooseDelete\(anchor, all\); return; \}/);
   assert.match(src, /const needTwoWay = all => phone\.usable && \(deletePlan\(all, null\)\.twoWay \|\| \(odPlain\(all\)\.length > 0 && ready\(\) && !!phone\.state\(\)\.trash\)\);/);
-  assert.match(src, /choose:own \? null : \(item, anchor, plain\) => \{ if \(!needTwoWay\(\[item\]\)\) return false;/);
-  assert.match(src, /data-photos-act-restore hidden>/);
+  assert.match(src, /choose:own \? null : \(item, anchor, plain\) => \{/);
+  assert.match(src, /if \(!needTwoWay\(\[item\]\)\) return false; chooseDelete\(anchor, \[item\], \(\) => plain\(\)\); return true;/);
+  assert.match(read('app/photo-act-bar.mjs'), /restore: \{icon: '↩', hidden: true\}/);
   assert.match(src, /if \(u\.phone && !u\.onedrive && kept\?\.length\)/);
   assert.match(src, /void dropKept\(keptIdsFor\(kept, b\.taken/);
   assert.match(src, /if \(marks\(\) \|\| item\.kept\)/);
