@@ -12,8 +12,8 @@ for (const width of [390, 900, 1440]) {
     server.items.push(VAULT);
     await openFiles(page, width);
     const phone = width <= 760;
-    if (phone) await root(page).locator('[data-fx-tab="folders"]').click();
-    else await root(page).locator('[data-fx-tree] [data-fx-go="od"]').first().click();
+    if (phone) await root(page).locator('[data-fx-tab="folders"]').click(); // S49-21: 폰 [폴더] 탭 첫 화면은 나무 → 원드라이브 이름을 눌러 맨 위 목록으로
+    await root(page).locator('[data-fx-tree] [data-fx-go="od"]').first().click();
     const list = root(page).locator('[data-fx-list]');
     await expect(list.locator('[data-fx-row]').first()).toBeVisible();
     // 정렬 칸: 폭 가득이 아니다.

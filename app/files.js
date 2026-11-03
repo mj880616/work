@@ -189,7 +189,7 @@ async function loadChildren(source, parent) {
   paintTree();
 }
 
-// 나무에서 폴더를 펼칠 때: 색인에서 하위 폴더를 읽고(아직 모르면), 그 폴더를 클라우드에서 바로 한 번 읽어 채운다(#1810 directRead와 같은 길·같은 directDone — 읽은 폴더는 다시 부르지 않음).
+// 나무에서 폴더를 펼칠 때: 색인에서 하위 폴더를 읽고(아직 모르면), 그 폴더를 클라우드에서 바로 한 번 읽어 채운다(directRead와 같은 길·같은 directDone — 읽은 폴더는 다시 부르지 않음).
 async function fillFolder(source, parent) {
   const key = folderKey(source, parent), scope = state.scope, dk = scope + '|' + key;
   if (!state.children.has(key)) await loadChildren(source, parent);
@@ -339,6 +339,8 @@ function sourcesChanged() {
 function paintTree() {
   const tree = $('[data-fx-tree]');
   if (!tree) return;
+  // 폰 [폴더] 탭의 나무가 첫 화면인데 켜진 출처가 없으면 빈 칸 대신 안내 한 줄(PC·폴드는 목록 칸이 안내를 보인다).
+  if (nothingOn() && treePane()) { tree.innerHTML = emptyHtml(SOURCES_OFF_TEXT); return; }
   const rows = treeRows({sources: onSources(), children: state.children, open: state.open});
   const w = state.where, curKey = !state.query && w ? (w.shelf ? 'shelf:' + w.shelf : folderKey(w.source, w.parent)) : '';
   tree.innerHTML = rows.map(r => {
