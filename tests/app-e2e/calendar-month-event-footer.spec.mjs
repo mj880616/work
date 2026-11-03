@@ -111,7 +111,7 @@ for(const [width,height] of sizes){
     // 폰은 10/22(일정 24)의 할 일이 칸에 안 들어가 '+n'에 합쳐진다.
     await expect(page.locator('.cmv-task-count')).toHaveCount(0);
     // S49-6: PC도 할 일이 칸 안 줄이라 10/22(일정 24)의 줄 수가 하나 늘어난다(PC는 줄이 모두 보임).
-    await expect(week).toHaveAttribute('data-lane-cap',width<=760?oldCap:String(Number(oldCap)+1));
+    await expect(week).toHaveAttribute('data-lane-cap',width<=760?oldCap:'25');
     if(width<=760){
       await expect(page.locator('#calendarGrid')).toHaveAttribute('data-cmv-lane-slots',oldSlots);
       expect(await week.evaluate(el=>el.getBoundingClientRect().height)).toBeCloseTo(oldWeekHeight,2);

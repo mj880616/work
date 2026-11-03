@@ -89,7 +89,8 @@ for(const width of [360,1280]){
     // S48-6c: 폰은 할 일도 칸 안 줄이라 10/20의 미완료 할 일 1이 일정 24 아래 한 줄을 더한다.
     await expect(week).toHaveAttribute('data-lane-count','25');
     const cap=Number(await week.getAttribute('data-lane-cap'));
-    await expect(week.locator('.kptu-day-more[data-date="2026-10-20"]')).toHaveText('+'+(25-cap));
+    if(width<761)await expect(week.locator('.kptu-day-more[data-date="2026-10-20"]')).toHaveText('+'+(25-cap));
+    else await expect(week.locator('.kptu-day-more')).toHaveCount(0); // PC는 줄이 모두 보인다
     // S49-6: 폰·PC 모두 날짜 줄 위쪽 목록 버튼 하나(폰 20px·PC 44px + 할 일 줄 높이만큼).
     const target=page.locator('.cmv-date-list[data-date="2026-10-10"]');
     await target.scrollIntoViewIfNeeded();

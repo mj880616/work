@@ -88,4 +88,5 @@ export async function openTaskDay(page,date='2026-10-20'){
   }
   await page.locator(`.cal-cell[data-date="${date}"] .cal-day`).first().click();
   await expect(modal).toBeVisible();
+  await page.mouse.move(1,1); // 누른 자리가 열린 목록의 줄 위라 마우스가 올려 둔 모양이 되지 않게
 }

@@ -57,7 +57,8 @@ async function ready(page){
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
 }
 const chip=(page,id)=>page.locator(`#calendarDayTasks [data-calendar-task="${id}"]`);
-const badge=(page,date)=>page.locator(`.cal-cell[data-date="${date}"] .cmv-date-list`);
+// 날짜 숫자 버튼의 이름에 '할 일 n개'가 붙는 것 = 그 날짜에 할 일이 그려졌다는 표시(S49-6: 목록 버튼은 할 일이 없어도 항상 있다).
+const badge=(page,date)=>page.locator(`.cal-cell[data-date="${date}"] .cmv-date-list[aria-label*="할 일"]`);
 const cellOf=(page,id)=>page.evaluate(id=>{
   for(const cell of document.querySelectorAll('#calendarGrid .cal-cell')){
     if(KPTUCalendarMonthView.dayEvents(cell.dataset.date).some(t=>t.source==='task'&&t.id===id))return cell.dataset.date;
