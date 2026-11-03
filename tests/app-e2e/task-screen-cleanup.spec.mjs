@@ -96,3 +96,31 @@ for(const width of [360,390])test(`long calendar task stays inside dialog and me
  await checkGap(row);
  if(process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:`/workspace/artifacts/task-calendar-day-${width}.png`});
 });
+
+// PERF-첫로딩 '연 화면 유지'(S48-50, first-load.md 12절): 할 일을 보다 다른 화면에 갔다 뒤로 가기로 돌아오면 기다림 칸 없이 보던 목록과
+// 펼친 [완료] 접힘을 그대로 두고, 뒤에서 다시 읽은 새 할 일은 읽기가 끝나면 나타난다. 메뉴로 다시 들어오면 접힘은 전처럼 닫힌다.
+test('할 일 연 화면 유지: 뒤로 가기로 돌아오면 보던 목록·펼친 완료 그대로, 새 할 일은 뒤에서 바뀐다 390',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ const tasks=[task('today','2026-10-08T00:00:00Z'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
+ await open(page,tasks);
+ const body=page.locator('#gtTaskBody'),waits=body.locator('[data-wait]');
+ await page.locator('#gtCompleted summary').click();await expect(page.locator('#gtCompleted')).toHaveAttribute('open','');
+ await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'delegated'}));await expect(page.locator('#calendarView')).toBeVisible();
+ tasks.push(task('fresh','2026-10-08T00:00:00Z'));
+ let release;const held=new Promise(resolve=>{release=resolve;});
+ const gt=u=>u.pathname==='/functions/v1/google-tasks',hold=async r=>{await held;await r.fallback();};
+ await page.route(gt,hold);
+ await page.goBack();await expect(page.locator('#tasksView')).toBeVisible();
+ // 읽기가 붙잡혀 있는 동안에도 보던 목록·펼친 완료 그대로, 기다림 칸 없음.
+ await expect(page.locator('[data-google-task="today"]')).toBeVisible();
+ await expect(page.locator('#gtCompleted')).toHaveAttribute('open','');
+ expect(await waits.count()).toBe(0);
+ release();
+ await expect(page.locator('[data-google-task="fresh"]')).toBeVisible();
+ await expect(page.locator('#gtCompleted')).toHaveAttribute('open','');
+ expect(await waits.count()).toBe(0);
+ await page.unroute(gt,hold);
+ // 메뉴로 다시 들어오면 접힘은 닫힌 첫 모습.
+ await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'delegated'}));await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'delegated'}));
+ await expect(page.locator('#gtCompleted')).not.toHaveAttribute('open','');
+});
