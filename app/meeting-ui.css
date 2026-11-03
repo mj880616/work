@@ -45,6 +45,9 @@
    넣은 할 일은 할 일 화면과 같은 줄(동그라미·이름·기한·⋯), 빈 상태는 흐린 글자 한 줄, 설명은 "자료실에도 자동 등록"만 작게.
    크기는 UI-버튼크기 공용 토큰(--ds-compact-*)을 쓰고 누르는 범위 44px을 지킨다. 파일 한 줄·끌어다 놓기 테두리는 ui-standard.css. */
 .mtg-group{min-width:0;margin:0 0 var(--kptu-space-3)}
+/* 첨부 칸(사진·회의자료): 보기·고치기 옆에 한 곳, 틀·테두리 없음 */
+.mrd-attach{min-width:0;margin:0;padding:0;border:0}
+.mrd-attach>.mtg-group:first-child{margin-top:var(--kptu-space-2)}
 .mrd-followup-section.mtg-group{margin-top:var(--kptu-space-4)}
 .mrd-material-section.mtg-group{margin-top:var(--kptu-space-2)}
 /* HOTFIX-회의첨부칸 ②(S48-53): PC에서 파일을 끌고 있는 동안 놓일 자리(결과 칸·회의자료 줄·사진 줄, 없으면 지금 면)에만 점선 테두리와 '여기에 놓기'. 판단은 meeting-drop-attach.js. */
@@ -195,6 +198,9 @@
   #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked>.modal-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0 var(--kptu-space-4) var(--kptu-space-4);border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
   #meetingList .mrd-docked .modal-head{position:sticky;top:0;z-index:3;flex-wrap:wrap;align-items:center;gap:var(--kptu-space-2);margin:0 calc(var(--kptu-space-4) * -1) var(--kptu-space-3);padding:var(--kptu-space-3) var(--kptu-space-4) var(--kptu-space-2);background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);box-shadow:none}
   #meetingList .mrd-docked .modal-head>div:first-child{flex:1 1 0;min-width:0}
+  /* HOTFIX2-회의칸깨짐: 머리줄은 자기 칸 폭(카드 안쪽 여백 포함) 밖으로 나가지 않는다 — 긴 이름·장소는 줄을 바꾼다. */
+  #meetingList .mrd-docked .modal-head{box-sizing:border-box;max-width:calc(100% + var(--kptu-space-4) * 2);min-width:0}
+  #meetingList .mrd-docked .modal-head :is(#mrdTitle,#mrdMeta){min-width:0;max-width:100%;overflow-wrap:anywhere}
   #meetingList .mrd-docked #mrdMeta{margin:0;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted);font-variant-numeric:tabular-nums}
   #meetingList .mrd-docked .mrd-head-ends{align-items:center}
   #meetingList .mrd-docked .modal-head>.status{order:9;flex:0 0 100%;margin:0;font-size:var(--ds-text-meta);overflow-wrap:anywhere}
@@ -458,7 +464,9 @@
 .mrd-text.record-text-raw{white-space:pre-wrap;overflow-wrap:anywhere}
 .mrd-text.md-body :is(td,th){overflow-wrap:normal;word-break:keep-all}
 .mrd-text.md-body table{display:block;max-width:100%;overflow-x:auto}
-button.record-raw-toggle,button.record-big-write{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:32px;height:var(--ds-compact-height,32px);min-height:0;padding:0 8px;color:var(--kptu-muted);background:transparent;border-color:transparent}
+button.record-raw-toggle{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:32px;height:var(--ds-compact-height,32px);min-height:0;padding:0 8px;color:var(--kptu-muted);background:transparent;border-color:transparent}
 button.record-raw-toggle[aria-pressed="true"]{color:var(--kptu-ink);background:var(--kptu-surface-subtle);border-color:var(--kptu-border)}
-button.record-big-write{margin-left:4px;vertical-align:middle}
+/* 큰 창 ⤢: 칸 이름 줄 끝의 글자 높이 아이콘(모든 글 칸 공통, record-text-write.js). 줄 높이를 늘리지 않는다. */
+.record-big-head{display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}
+button.record-big-write,:is(#meetingModal,#meetingRoundDetailModal) .record-big-head button.record-big-write{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;width:22px;min-width:22px;height:22px;min-height:22px;margin:0 0 0 2px;padding:0;color:var(--kptu-muted);background:transparent;border-color:transparent;border-radius:var(--kptu-radius-sm,6px)}
 :is(button.record-raw-toggle,button.record-big-write):hover{color:var(--kptu-ink)}

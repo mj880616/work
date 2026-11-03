@@ -92,12 +92,12 @@ test('PC 수정 화면: 결과 칸에 결과 파일을 끌어 놓으면 본문�
   await expect.poll(()=>state.uploads.length).toBe(1);
   expect(state.uploads[0].path).toBe('/functions/v1/library-files');
   expect(state.uploads[0].raw).toContain('name="meeting_id"');expect(state.uploads[0].raw).toContain('drop-result.pdf');
-  await expect(modal.locator('#mrdEditAttach #mrdMaterials .mrd-file-row')).toHaveCount(3);
+  await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(3);
   await modal.locator('#mrdSaveEdit').click();
   await expect.poll(()=>state.patches.length).toBe(1);
   expect(state.patches[0].transcript_text).toContain('Dropped result body');
   await expect(modal.locator('#mrdView')).toBeVisible();
-  await expect(modal.locator('#mrdView #mrdMaterials')).toContainText('drop-result.pdf');
+  await expect(modal.locator('#mrdAttach #mrdMaterials')).toContainText('drop-result.pdf');
   await expect(modal.locator('#mrdResult')).toContainText('Dropped result body');
   expect(state.errors).toEqual([]);
 });
@@ -106,7 +106,7 @@ test('PC 보기 화면(회의 결과 창): 회의자료 줄에 놓으면 묻지 
   const state=await boot(page);
   await openMeetingResult(page,'meeting-1');
   const modal=page.locator('#meetingRoundDetailModal');
-  await expect(modal.locator('#mrdView #mrdMaterials .mrd-file-row')).toHaveCount(2);
+  await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(2);
   // ① 회의자료 줄 → 묻지 않고 올리기 창.
   await dropOn(page,'#mrdMaterials',[pdf('drop-agenda.pdf')]);
   await expect(page.locator('#documentModal')).toBeVisible();
@@ -115,7 +115,7 @@ test('PC 보기 화면(회의 결과 창): 회의자료 줄에 놓으면 묻지 
   await expect(page.locator('#documentModal')).toBeHidden();
   await expect.poll(()=>state.uploads.length).toBe(1);
   expect(state.uploads[0].raw).toContain('name="meeting_id"');expect(state.uploads[0].raw).toContain('drop-agenda.pdf');
-  await expect(modal.locator('#mrdView #mrdMaterials .mrd-file-row')).toHaveCount(3);
+  await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(3);
   expect(state.patches).toEqual([]);
   // ② 이름으로 모르는 파일을 후속 할 일 쪽(정해진 자리 없음)에 놓으면 면 전체가 '여기에 놓기', 결과/회의자료를 고른다 → 결과 → 본문 넣기 → 서버에 저장.
   await drag(page,'#mrdTasksHead',[pdf('scan-0001.pdf',['View drop body'])],['dragenter','dragover']);
@@ -130,6 +130,6 @@ test('PC 보기 화면(회의 결과 창): 회의자료 줄에 놓으면 묻지 
   await page.locator('#saveDocumentBtn').click();
   await expect.poll(()=>state.uploads.length).toBe(2);
   expect(state.uploads[1].raw).toContain('scan-0001.pdf');
-  await expect(modal.locator('#mrdView #mrdMaterials .mrd-file-row')).toHaveCount(4);
+  await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(4);
   expect(state.errors).toEqual([]);
 });
