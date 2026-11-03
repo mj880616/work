@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- S48-60 PHOTO-정보고치기: 사진 위치(EXIF GPS)를 가리지 않고 읽고 고치기. -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <!-- PHOTO-폴더스위치(0.4.1): 사진 [폴더]의 폰 폴더 바꾸기·지우기. 사용자가 설정에서 '미디어 관리 허용'을 켜면 매번 확인 창을 띄우지 않는다(안 켜면 바꿀 때마다 시스템이 묻는다). -->
     <uses-permission android:name="android.permission.MANAGE_MEDIA" tools:ignore="ProtectedPermissions" />
     <!-- APP-스스로업데이트(0.3.8): 이 앱 자신의 새 판(같은 서명, 공개 릴리스)만 설치한다. 처음 한 번 '이 앱에서 설치 허용'을 사용자가 켠다.
