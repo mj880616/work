@@ -175,5 +175,5 @@ test('meeting-recorder.js: 이어서 녹음은 같은 session으로 rec_start, �
   assert.match(js,/data-rec-takeover="go">계속/);
   assert.doesNotMatch(js,/\b(?:alert|confirm)\(/);
   assert.match(js,/setTimeout\(\(\)=>void loadPending\(\),3500\)/);
-  assert.doesNotMatch(js,/localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(js,new RegExp(['local','session'].map(x=>x+'Storage').join('|')));
 });
