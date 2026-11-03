@@ -23,17 +23,16 @@ function paint(focusId = '') {
   if (!body) return;
   const layout = normalizeLayout(window.KPTUMenuLayout?.current?.());
   const group = (list, label, head) => `<section class="me-group" aria-label="${esc(label)}"><h3>${head}</h3><ol class="me-list" data-reorder-list="${list}">${layout[list].map(id => rowHtml(id, list)).join('')}</ol></section>`;
-  const {main, tail, hidden} = pcSplit(layout);
+  const {main, tail} = pcSplit(layout), {hidden} = layout;
   const pv = id => `<li>${esc(itemOf(id)?.label)}</li>`;
   body.innerHTML = `<div class="me-cols"><div class="me-lists">`
     + group('bar', '폰 하단바', `폰 하단바 <small>${layout.bar.length}/${BAR_MAX}칸</small>`)
     + group('rest', '위 메뉴', '위 메뉴 <small>폰 [메뉴] 창 · PC 왼쪽 위</small>')
     + group('tail', '아래 붙는 메뉴', '아래 붙는 메뉴 <small>PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래</small>')
-    + group('hidden', '숨긴 메뉴', `숨긴 메뉴 <small>${hidden.length}개 · 메뉴에서 빠지고 접힌 칸에서만 열려요</small>`)
+    + group('hidden', '숨긴 메뉴', `숨긴 메뉴 <small>${hidden.length}개 · 메뉴에서 빠져요. [꺼내기]로 되돌려요</small>`)
     + `</div><figure class="me-preview" aria-label="PC 왼쪽 메뉴 미리보기"><figcaption>PC 왼쪽 메뉴</figcaption><div class="me-pv-box" data-menu-edit-preview>`
     + `<ol class="me-pv-main">${main.map(pv).join('')}</ol><span class="me-pv-gap" aria-hidden="true"></span>`
     + (tail.length ? `<ol class="me-pv-tail">${tail.map(pv).join('')}</ol>` : '')
-    + (hidden.length ? `<p class="me-pv-hidden">숨긴 메뉴 ${hidden.length} ▸</p>` : '')
     + `</div></figure></div>`
     + `<p class="me-note" role="status" aria-live="polite">${esc(note || '폰은 줄을 길게 눌러 끌어요. 키보드는 위·아래 화살표.')}</p>`;
   if (focusId) body.querySelector(`[data-reorder-id="${CSS.escape(focusId)}"] [data-reorder-handle]`)?.focus({preventScroll: true});
@@ -62,7 +61,7 @@ export function openMenuEdit({trigger} = {}) {
         const id = (hide || show).dataset.menuEditHide || (hide || show).dataset.menuEditShow;
         const r = (hide ? hideItem : showItem)(window.KPTUMenuLayout.current(), id);
         if (r.ok && r.changed !== false) window.KPTUMenuLayout.setLayout(r.layout);
-        note = hide ? `${itemOf(id)?.label}을(를) 숨겼어요. 아래 '숨긴 메뉴'에서 다시 꺼낼 수 있어요.` : `${itemOf(id)?.label}을(를) 위 메뉴로 꺼냈어요.`;
+        note = hide ? `${itemOf(id)?.label}을(를) 숨겼어요. 메뉴 편집에서 다시 꺼낼 수 있어요.` : `${itemOf(id)?.label}을(를) 위 메뉴로 꺼냈어요.`;
         paint(id); return;
       }
       if (event.target.closest('[data-menu-edit-reset]')) { window.KPTUMenuLayout.resetLayout(); note = '처음 순서로 되돌렸어요.'; paint(); }
