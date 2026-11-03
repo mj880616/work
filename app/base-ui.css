@@ -274,10 +274,14 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-select-opt[aria-disabled="true"]{color:var(--kptu-muted);cursor:default}
 .kptu-select-group{padding:6px 8px 2px;font-size:12px;color:var(--kptu-muted)}
 /* UI-작은알림 (2026-10-28): 브라우저 기본 알림창 대신 쓰는 공용 작은 알림(small-notice.js notify)·작은 확인창(askConfirm). 하단바 위, 톤다운. */
-.kptu-notice{position:fixed;z-index:110;left:50%;transform:translateX(-50%);top:var(--kptu-notice-top);bottom:auto;max-width:min(92vw,520px);display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;padding:7px 8px 7px 12px;border-radius:var(--kptu-radius-md);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:1.4;box-shadow:var(--kptu-shadow-float)}
+.kptu-notice{position:fixed;z-index:110;left:50%;transform:translateX(-50%);top:var(--kptu-notice-top);bottom:auto;box-sizing:border-box;width:max-content;max-width:min(calc(100vw - 32px),520px);display:flex;align-items:center;flex-wrap:nowrap;gap:4px 10px;padding:7px 8px 7px 12px;border-radius:var(--kptu-radius-md);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:1.4;box-shadow:var(--kptu-shadow-float)}
 .kptu-notice[hidden]{display:none}
 .kptu-notice.error{background:var(--kptu-danger)}
-.kptu-notice-text{flex:1 1 auto;min-width:0}
+/* S48-52(요청함 11/03 07:43·07:44 ①): 글과 버튼·[✕]는 한 줄(글 왼쪽, 버튼 오른쪽). 글이 길면 글 칸 안에서 낱말 단위로 줄바꿈(한글 keep-all).
+   작은 설명(note)·입력칸이 있는 알림만 다음 줄로 내린다. 폭은 폰 양쪽 16px까지. */
+.kptu-notice:has(.kptu-notice-note,.kptu-notice-input){flex-wrap:wrap}
+.kptu-notice-text{flex:1 1 auto;min-width:0;word-break:keep-all;overflow-wrap:anywhere}
+.kptu-notice>button{flex:0 0 auto;white-space:nowrap}
 .kptu-notice-undo,.kptu-notice-close{border:0;background:transparent;color:inherit;font:inherit;font-weight:700;padding:2px 4px;min-height:24px;cursor:pointer}
 .kptu-notice-undo{text-decoration:underline;text-underline-offset:2px}
 .kptu-notice-close{opacity:.7;font-weight:400}

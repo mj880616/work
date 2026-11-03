@@ -149,3 +149,56 @@ test('화면 연결: [지우기] 두 갈래 창·[폰으로 되돌리기] 단추
   assert.match(notice, /export function askChoice\(/);
   assert.match(css, /\.kptu-ask-pick\.is-danger/);
 });
+
+// S48-52 PHOTO-지우기멈춤(요청함 11/03 07:41 ★급★): 고른 사진의 찍은 시각 근처만 읽는다(전체 다시 읽기 없음), 15초 제한.
+test('지우기 짝 확인: 찍은 시각 ±2초 창, 가까운 창은 합치고 시각 없는 칸은 뺀다', async () => {
+  const {nearWindows, readNear, DEL_CHECK_MS} = await import('../app/photo-keep-model.mjs');
+  assert.equal(DEL_CHECK_MS, 15000);
+  const at = s => ({taken_at:s});
+  const w = nearWindows([at('2026-10-31T03:00:00Z'), at('2026-10-31T03:05:00Z'), at('2026-10-01T00:00:00Z'), at('')]);
+  assert.deepEqual(w, [
+    {lo:Date.parse('2026-10-01T00:00:00Z') - 2000, hi:Date.parse('2026-10-01T00:00:00Z') + 2000},
+    {lo:Date.parse('2026-10-31T03:00:00Z') - 2000, hi:Date.parse('2026-10-31T03:05:00Z') + 2000}]);
+  assert.deepEqual(nearWindows([]), []);
+});
+
+test('지우기 짝 확인: 창 안 칸만 모으고, 창 아래로 내려가면 그 창은 끝, 다 못 읽거나 멈추면 null', async () => {
+  const {nearWindows, readNear} = await import('../app/photo-keep-model.mjs');
+  const t0 = Date.parse('2026-10-31T03:00:00Z');
+  const it = (id, ms) => ({id, taken_at:new Date(ms).toISOString()});
+  // 폰 사진 5000장(1분 간격, 최근 먼저). 읽기 함수는 before 자리부터 200장씩.
+  const all = Array.from({length:5000}, (_, i) => it('p' + i, t0 - i * 60000));
+  const calls = [];
+  const read = async (w, offset) => {
+    calls.push(offset || 0);
+    const from = all.findIndex(x => Date.parse(x.taken_at) < w.hi + 1), start = from + (offset || 0);
+    const items = all.slice(start, start + 200);
+    return {items, next:start + 200 < all.length ? (offset || 0) + 200 : null};
+  };
+  const near = await readNear(nearWindows([it('o', t0 - 100 * 60000)]), read);
+  assert.deepEqual(near.map(x => x.id), ['p100']);
+  assert.equal(calls.length, 1); // 5000장 전부가 아니라 한 쪽만
+  // 쪽 수 한도를 넘으면 null(확인 못 함).
+  const dense = async () => ({items:[it('x', t0)], next:1});
+  assert.equal(await readNear([{lo:t0 - 2000, hi:t0 + 2000}], dense, {pages:3}), null);
+  // 멈춤(시간 넘김·취소)이면 null.
+  assert.equal(await readNear([{lo:t0 - 2000, hi:t0 + 2000}], read, {alive:() => false}), null);
+  // 창이 없으면 빈 목록(읽지 않음).
+  assert.deepEqual(await readNear([], () => { throw new Error('no'); }), []);
+});
+
+test('화면 연결: [지우기]는 사진 전체 다시 읽기를 하지 않고, 15초 제한·확인 중 안내·[다시]', () => {
+  const src = read('app/photos.js');
+  const body = src.slice(src.indexOf('async function chooseDelete('), src.indexOf('// 폰 공간만 비우기: 서버 사본 확인'));
+  assert.doesNotMatch(body, /tidy\.rescan\(/);
+  assert.doesNotMatch(body, /ms:180000/);
+  assert.match(body, /if \(deleting\) \{ if \(cancelCheck\) sayDel\('확인 중이에요'/);
+  assert.match(body, /setTimeout\(\(\) => \{ stop \|\|= 'slow'; ok\(\); \}, DEL_CHECK_MS\)/);
+  assert.match(body, /확인이 오래 걸려 지우지 않았어요/);
+  assert.match(body, /label:'다시'/);
+  // 보호 장치 그대로: 폰을 못 읽으면 원드라이브만 지우지 않음.
+  assert.match(body, /if \(twins === null\) \{ sayDel\('폰에 같은 사진이 있는지 확인하지 못해 지우지 않았어요/);
+  const pc = src.slice(src.indexOf('async function pairCheck('), src.indexOf('async function chooseDelete('));
+  assert.match(pc, /readNear\(nearWindows\(phonePart\)/);
+  assert.match(pc, /readNear\(nearWindows\(odPart\)/);
+});

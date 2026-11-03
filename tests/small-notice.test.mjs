@@ -42,3 +42,12 @@ test('작은 알림 자리: 열린 창 안, 밑의 화면에 붙인 칸은 건�
   assert.equal(noticeHost(doc([wd, mrd])).id, 'mrd');
   assert.equal(noticeHost(doc([])), 'body');
 });
+
+// S48-52(요청함 11/03 07:46): 알림 바로 뒤에 확인·고르기 창이 떠도 알림은 정한 시간에 닫히고, 화면을 옮기면 닫힌다.
+test('작은 알림 차례 번호(seq)는 확인창이 올리지 않는다 · 화면을 옮기면 알림을 닫는다', () => {
+  const js = readFileSync(new URL('../app/small-notice.js', import.meta.url), 'utf8');
+  assert.match(js, /state=\{kptuAsk:\+\+askSeq\}/);
+  assert.doesNotMatch(js, /kptuAsk:\+\+seq/);
+  assert.equal((js.match(/\+\+seq/g) || []).length, 1); // notify만
+  assert.match(js, /addEventListener\('kptu:view-changed',e=>\{if\(e\.detail\?\.view!==noticeView&&Date\.now\(\)-noticeAt>=VIEW_GRACE_MS\)closeNotice\(\)\}\)/);
+});
