@@ -23,11 +23,10 @@ import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
 import {noteRequests} from './update-requests.js';
-import {noteJournalAt, MOVED_KEY} from './update-journal.js';
+import {noteJournalAt} from './update-journal.js';
 import {dueDay, shortDay, tomorrowKey, moveTaskToDay} from './task-due.mjs';
 import {reportsMeeting, meetingKindKey, meetingKindName} from './journal-meeting-kinds.js';
 import {reportKindOf, reportKindLabel, DEFAULT_KIND} from './report-kinds.mjs';
-import {callLine} from './journal-draft-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 
 export const WORK_LINE_MAX = 300;
@@ -154,9 +153,6 @@ export async function readWeekCalls(start, rt = window.KPTURuntime) {
   if (!Array.isArray(rows)) throw new Error('calls');
   return Object.assign(rows.filter(r => r?.id && dayKey.test(r.day || '')), rows.length >= WEEK_READ_CAP ? {capped:true} : {});
 }
-const callItemsOn = (calls, day) => (calls || []).filter(row => row.day === day)
-  .map(row => ({text:callLine(row, row.occurred_at ? seoulClock(row.occurred_at) : ''), ...(row.summary ? {callSummary:String(row.summary)} : {})}))
-  .filter(item => item.text);
 
 // Materials of one week. Each reader fails on its own; the screen shows the rest and names the group that failed.
 // Google Calendar events from the first day (Korea time) up to, not including, the end day — the same google-calendar read
@@ -228,12 +224,6 @@ export const doneCoverFrom = (days = DONE_TASK_DAYS, today = todayKey()) => seou
 export async function readBasketUpdates(rt = window.KPTURuntime) {
   const {notes, links, docs} = await readBasket(rt);
   return {notes, links, docs};
-}
-// A note that was moved here from the basket ([노트로 옮기기]) carries metadata.moved_from_update_at (basket-data.js moveToNote).
-// Only those notes are read, and only id, title, the update's day (occurred_at) and that mark: never the text (raw_text) or the
-// other metadata. A failed read hides just these lines; the rest of the journal is unaffected.
-export async function readMovedNotes(rt = window.KPTURuntime) {
-  return pages(`/rest/v1/app_notes?workspace_id=eq.${encode(workspace(rt))}&kind=eq.note&metadata->>${MOVED_KEY}=not.is.null&select=id,title,occurred_at,moved_at:metadata->>${MOVED_KEY}&order=occurred_at.asc,id.asc`, rt);
 }
 const PAGE = 100;
 async function pages(path, rt) {
@@ -518,13 +508,6 @@ export const unsentUpdatesOn = (basket, day) => basketPlaces(basket, day)
 export const referenceItemsOn = (basket, day) => basketPlaces(basket, day)
   .filter(({orgs, projects, refs}) => refs.length && !orgs.length && !projects.length)
   .flatMap(({memo, refs, line, requests}) => refs.map(ref => ({text:`${ref.name} · ${ref.summary || line}`, requests, open:{type:'note', note:memo.id}})));
-// Moved notes of one day (the day the update sat on: occurred_at, Korea time, as memosOn): [{id, line}] oldest first, line =
-// "노트: (title)" cut like the other update lines. A row without the mark is not shown. Not part of GROUPS, so the weekly draft
-// does not carry it (a note is not weekly-report material).
-export const movedNotesOn = (notes, day) => (notes || [])
-  .filter(note => note?.id && typeof note.moved_at === 'string' && onDay(note.occurred_at, day))
-  .sort((a, b) => byTime(a.occurred_at, b.occurred_at) || String(a.id).localeCompare(String(b.id)))
-  .map(note => ({id:note.id, line:`노트: ${firstLine(note.title) || '(제목 없음)'}`}));
 // 회의·행사 결과 of one day: every meeting row of this workspace whose meeting_at falls on that day (Korea time). Press
 // conferences and forums are meeting rows too (their series name says so), so no kind is filtered out.
 export const meetingsOn = (meetings, day) => (meetings || []).filter(meeting => onDay(meeting?.meeting_at, day)).sort((a, b) => byTime(a.meeting_at, b.meeting_at));
@@ -585,23 +568,21 @@ const okItems = (materials, source) => materials?.[source]?.status === 'ok' ? ma
 // The parts of the day card and their reads (journal.js [다시 시도] uses these keys).
 export const DAY_SOURCES = Object.freeze({
   tasks:['tasks'], activities:ACTIVITY_SOURCES, business:['basket', 'projectUpdates'], orgs:['basket', 'orgUpdates'],
-  events:['events'], docs:['documents'], shares:['sharePages'], movedNotes:['movedNotes'], memos:['basket'], refs:['basket'], unsent:['basket'], calls:['calls'],
+  events:['events'], docs:['documents'], shares:['sharePages'], memos:['basket'], refs:['basket'], unsent:['basket'], calls:['calls'],
 });
 export const REPORT_PARTS = Object.freeze([['activities', '회의·활동 결과'], ['business', '사업 소식'], ['orgs', '조직 소식']]);
-export const OTHER_PARTS = Object.freeze([['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['movedNotes', '노트로 옮긴 것'],
-  ['memos', '기타 메모'], ['refs', '참고'], ['unsent', '어디에도 안 보낸 업데이트'],
-  // JOURNAL-오늘한줄초안 ②: 그날 업무 통화(업무 통화함만, 개인 통화 제외). 주간보고 재료가 아니라 그 밖의 기록에 두고, 오늘 한 줄 초안 재료로 쓴다.
-  ['calls', '업무 통화']]);
+export const OTHER_PARTS = Object.freeze([['docs', '자료실 새 자료'], ['shares', '공유 페이지'],
+  ['memos', '기타 메모'], ['refs', '참고'], ['unsent', '어디에도 안 보낸 업데이트']]);
+// S49-12: '노트로 옮긴 것'(노트에 이미 있어 중복)과 '업무 통화'(주간보고 재료의 '기억할 통화·텔레그램'으로 옮김)는 그 밖의 기록에서 뺐다.
+// 'calls' 읽기(DAY_SOURCES)는 오늘 한 줄 초안 재료로 그대로 쓴다.
 // The whole day card: {tasks:{todo, overdue, done, ...state}, events:part, report:[part], others:[part]}; a part is {key, label, loading, failed,
 // capped, items:[{text, open, ...}], sections:[{name, items, opens, tags?}]}. kinds: journal-meeting-kinds readKinds() result.
 export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
   const part = (key, label, build) => {
     const s = stateOf(materials, DAY_SOURCES[key]);
     if (s.loading) return {key, label, loading:true, items:[], sections:[]};
-    // A failed read gives nothing (okItems → null), so build() shows what the other reads gave. 노트로 옮긴 것 stays quiet when its
-    // read fails (as before, journal-moved-note): it is not report material and its failure must not alarm the rest of the card.
-    const failed = key === 'movedNotes' ? [] : s.failed;
-    return {key, label, items:[], sections:[], ...build(), ...(failed.length ? {failed} : {}), ...(s.capped ? {capped:true} : {})};
+    // A failed read gives nothing (okItems → null), so build() shows what the other reads gave.
+    return {key, label, items:[], sections:[], ...build(), ...(s.failed.length ? {failed:s.failed} : {}), ...(s.capped ? {capped:true} : {})};
   };
   const basket = okItems(materials, 'basket');
   // JOURNAL-하루일정다시: 그날 일정 sits above 오늘 한 줄 (it was a group of the day card before JOURNAL-하루개편, then only a count in
@@ -619,10 +600,8 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
     part('orgs', '조직 소식', () => (basket || okItems(materials, 'orgUpdates')) ? sectioned(orgNewsOn({basket, orgUpdates:okItems(materials, 'orgUpdates')}, day, {open:true, unsorted:false})) : {}),
   ];
   const others = OTHER_PARTS.map(([key, label]) => part(key, label, () => {
-    if (key === 'calls') return {items:callItemsOn(okItems(materials, 'calls'), day)};
     if (key === 'docs') return {items:(okItems(materials, 'documents') || []).filter(doc => onDay(doc?.created_at, day)).map(doc => ({text:documentLine(doc), open:{type:'library'}}))};
     if (key === 'shares') return {items:(okItems(materials, 'sharePages') || []).filter(page => onDay(page?.updated_at, day)).map(page => ({text:sharePageLine(page), open:{type:'pages'}}))};
-    if (key === 'movedNotes') return {items:movedNotesOn(okItems(materials, 'movedNotes'), day).map(note => ({text:note.line, open:{type:'notedoc', note:note.id}, noteMark:true}))};
     if (key === 'memos') return {items:journalMemoItemsOn(basket, day)};
     if (key === 'refs') return {items:referenceItemsOn(basket, day)};
     return {items:unsentUpdatesOn(basket, day)};

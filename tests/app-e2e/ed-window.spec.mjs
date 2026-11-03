@@ -208,7 +208,7 @@ test.describe('폰 390: 하단바', () => {
     await page.evaluate(() => window.__edw.close());
     await expect(win(page)).toHaveCount(0);
     await expect(tabs).toBeVisible();
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height').trim())).toBe('44px');
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--kptu-mobile-tab-height').trim())).toBe('48px');
   });
 
   test('창 맨 아래(옛 하단 탭 자리)를 눌러도 다른 화면으로 가지 않음, 고친 글은 ✕가 먼저 물음', async ({page}) => {

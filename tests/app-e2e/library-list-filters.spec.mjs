@@ -88,11 +88,11 @@ for(const width of [1280,390])test(`LIB-거르기전체: [전체] 칩 세 상태
   // 처음: [회의]만 꺼져 일부 → 반쯤 찬 모양(mixed), 안 켜진 칩은 [회의]뿐.
   await expect(all).toHaveAttribute('aria-pressed','mixed');await expect(group.locator('[aria-pressed="false"]')).toHaveText(['회의']);
   expect(await ids(page)).not.toContain('d5');
-  // 반쯤 찬 칩은 눈으로도 다르다: 왼쪽 절반만 칠한 배경(그라데이션), 모두 켜짐·없음과 다른 모양.
-  const bg=el=>el.evaluate(e=>getComputedStyle(e).backgroundImage);
-  expect(await bg(all)).toContain('linear-gradient');
+  // UI-자료실걸러줄: 반쯤 찬 칩은 반쪽 칠 없이 '고르지 않은 칩'과 같은 흰 바탕, 모두 켜짐과는 바탕색이 다르다.
+  const bg=el=>el.evaluate(e=>getComputedStyle(e).backgroundImage),fill=el=>el.evaluate(e=>getComputedStyle(e).backgroundColor);
+  expect(await bg(all)).toBe('none');const mixedFill=await fill(all);
   // 일부 → 누르면 모두 켬.
-  await all.click();await expect(all).toHaveAttribute('aria-pressed','true');await expect(group.locator('[aria-pressed="false"]')).toHaveCount(0);expect(await bg(all)).toBe('none');
+  await all.click();await expect(all).toHaveAttribute('aria-pressed','true');await expect(group.locator('[aria-pressed="false"]')).toHaveCount(0);expect(await bg(all)).toBe('none');expect(await fill(all)).not.toBe(mixedFill);
   expect(await ids(page)).toContain('d5');
   // 모두 켜짐 → 누르면 모두 끔 → 목록 자리에 한 줄만.
   await all.click();await expect(all).toHaveAttribute('aria-pressed','false');

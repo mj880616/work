@@ -398,10 +398,10 @@ test('new meeting suggests the next round from loaded names without extra reques
     {...meeting,id:'other',series_name:'다른 회의',round_no:null}
   ];
   await showMeetings(page,rows);
-  let requests=0;
-  page.on('request',request=>{if(request.url().startsWith(SB))requests++});
+  let requests=0;const seen=[];
+  page.on('request',request=>{if(request.url().startsWith(SB)){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
   await page.locator('#newMeetingBtn').click();
-  expect(requests).toBe(0);
+  expect(requests,seen.join(' | ')).toBe(0);
   const title=page.locator('#meetingTitle'),round=page.locator('#meetingRoundNo'),select=page.locator('#meetingNameSelect');
   await select.selectOption('Alpha  Team');
   await expect(round).toHaveValue('8');
@@ -425,7 +425,7 @@ test('new meeting suggests the next round from loaded names without extra reques
   await page.locator('#newMeetingBtn').click();
   await select.selectOption('Alpha  Team');
   await expect(round).toHaveValue('8');
-  expect(requests).toBe(0);
+  expect(requests,seen.join(" | ")).toBe(0);
 });
 
 test('name choices group whitespace variants by latest spelling and suggest their shared round without requests',async({page})=>{

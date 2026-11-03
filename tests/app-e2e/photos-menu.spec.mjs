@@ -195,6 +195,9 @@ test('사진 메뉴: 길게 눌러 여러 장 고르기 → [☆ 별표]·[🗑 
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('3개 골랐음');
   await root(page).locator('[data-photos-act-star]').click();
   await expect.poll(() => f.stars.map(s => s.item_key).sort()).toEqual(['A1', 'A2', 'A3']);
+  // S49-9 PHOTO-보낸뒤선택풀기: 별표는 그 자리 표시만 바뀌어 고른 채 둔다. 풀기는 ✕.
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('3개 골랐음');
+  await root(page).locator('[data-photos-sel-off]').click();
   await expect(root(page).locator('[data-photos-sel]')).toBeHidden();
   // 다시 고르고 지우기: 바로 목록에서 빠지고, 되돌리기 시간(5초) 뒤 한 번에(ids) 서버로 간다.
   await hold(items(page).nth(3));

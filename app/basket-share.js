@@ -1,6 +1,7 @@
 // APP-폰앱새로 ② 공유로 바구니 넣기(설계 docs/design/phone-app-v2.md 4절, PR 1327 댓글 D5·D6).
 // SHARE-바로넣기(2026-10-30 명진 결정): 확인 줄·메모 칸·[넣기]·[취소] 없이 공유가 들어오면 바로 정리함에 넣는다(D4 바뀜).
-// 결과는 위쪽 공용 작은 알림(small-notice.js) 한 줄: "정리함에 넣었어요 [메모 달기] [되돌리기]", 실패면 "넣지 못했어요 [다시]".
+// 결과는 위쪽 공용 작은 알림(small-notice.js) 한 줄: "업데이트로 보냈어요 [메모 달기] [되돌리기]", 실패면 "넣지 못했어요 [다시]".
+// S49-9 UI-업데이트로보내기(요청함 11/03 17:04): 이름·알림은 사진 메뉴와 같은 공용 목록(photo-menu-items.mjs)에서 읽는다.
 // 폰 앱(KPTUAndroid)에서만 동작한다. 앱은 다른 앱의 [공유]로 받은 항목을 메모리에만 들고 있고,
 // 이 화면은 PR 1414의 바 색 다리(KPTUAppShell, 허용 Origin의 최상위 화면에만 보임)로 목록(이름·종류·크기·글)만 묻는다.
 // 파일 내용은 ./__share/<일회용 번호>/<순번>을 fetch하면 앱이 WebView 안에서 가로채 흘려준다(서버로 나가지 않음).
@@ -12,10 +13,11 @@
 // 바로 넣지 않고 작은 창(share-target.js: 제목·폴더/기한·한 줄 더하기 → [저장])으로 노트·할 일에 넣는다.
 import {isShareId, parseShareList, pickShareItems, shareSummary, skippedText, shareRawText, withMemo, SHARE_MAX_BYTES, SHARE_MEMO_MAX} from './share-intake-model.mjs';
 import {notify} from './small-notice.js';
+import {PHOTO_ACT_TEXT, SEND_NOTE} from './photo-menu-items.mjs';
 
 const BRIDGE = 'KPTUAppShell';
 export const SAVED_MS = 6000, FAILED_MS = 20000, WORKING_MS = 600000;
-const LABEL = '정리함에 넣기';
+const LABEL = PHOTO_ACT_TEXT.basket;
 const REFRESH = 'kptu:basket-note-created';
 
 function start() {
@@ -99,7 +101,7 @@ function start() {
     if (scope() !== owner) { failed('로그인 계정이 바뀌어 넣지 않았어요. 다시 공유해 주세요.', false); return; }
     const raw = shareRawText({subject:share.subject, text:share.text});
     busy = true;
-    notify(`정리함에 넣는 중 · ${shareSummary({items:share.keep, text:share.text, subject:share.subject})}`, {ms:WORKING_MS});
+    notify(`${SEND_NOTE.basketBusy} · ${shareSummary({items:share.keep, text:share.text, subject:share.subject})}`, {ms:WORKING_MS});
     let status = skippedText(share.skipped), noteId = '', error = null;
     try {
       const [{createUploadBatch, uploadBatch}, {createNote, validateNoteText}] = await Promise.all([import('./basket-upload.js'), import('./basket-data.js')]);
@@ -144,7 +146,7 @@ function start() {
 
   function saved(noteId, status, who) {
     const actions = noteId ? [{label:'메모 달기', run:({box, close}) => memoForm(box, close, noteId, who)}] : [];
-    notify('정리함에 넣었어요', {ms:SAVED_MS, note:status, label:LABEL, actions, undo:noteId ? () => takeOut(noteId, who) : null});
+    notify(SEND_NOTE.basketDone, {ms:SAVED_MS, note:status, label:LABEL, actions, undo:noteId ? () => takeOut(noteId, who) : null});
   }
 
   // [되돌리기]: 정리함 [지우기]와 같은 길(휴지통). 이미 한 번 눌렀으므로 다시 묻지 않는다. 휴지통 알림(되살리기)은 그 길이 띄운다.

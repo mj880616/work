@@ -45,13 +45,14 @@ import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, 
 //   사진 이름 바꾸기·옮기기·지우기(드라이브 휴지통)는 사진 ⋯(PC 우클릭)·고른 사진 아래 줄에서, 지우기는 확인 창 한 번. 권한이 없으면 칩·목록 위에 '권한 없음 · [Drive 다시 연결]'.
 import {myFeatures, gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRename, gdMove, gdTrash, gdFolderCreate, gdFolderRename, gdFolderTrash, gdReconnect,
   gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear} from './gdrive-photos.js';
-import {ownerScope} from './diary-data.js';
+import {ownerScope, requestDiaryDay} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
 import {SIZE_BUTTONS, WIDE_QUERY, attachPinch, createGridSizer, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
 import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoStripRefresh, photoStripReload} from './photo-strip.js';
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
+import {PHOTO_ACT_TEXT, PHOTO_ACT_SHORT, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter} from './photo-menu-items.mjs';
 import {appShare} from './app-share.js';
 import {odLinkButtonHtml, paintOdLink, createOdLinkMenu} from './od-link.js';
 import {brandIconSvg} from './brand-icons.js';
@@ -96,8 +97,11 @@ const MARK_SVG = {onedrive:brandIconSvg('onedrive', {size:11}),
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
 root.innerHTML = `<div class="photos-bar" data-photos-bar><div class="photos-chips" role="group" aria-label="사진 보기"><button type="button" class="photos-chip" data-photos-tab="all" aria-pressed="true">사진</button><button type="button" class="photos-chip" data-photos-tab="calendar" aria-pressed="false">달력</button><button type="button" class="photos-chip" data-photos-tab="folders" aria-pressed="false">폴더</button><button type="button" class="photos-chip" data-photos-tab="albums" aria-pressed="false">앨범</button><button type="button" class="photos-chip" data-photos-tab="trash" aria-pressed="false">휴지통</button></div><div class="photos-tools" data-photos-tools><button type="button" class="photos-chip photos-tidy-chip" data-photos-tidy-chip aria-expanded="false" aria-controls="photosTidy" hidden>정리</button><select class="photos-filter" data-photos-filter aria-label="거르기">${filterOptions}</select><button type="button" class="photos-sort" data-photos-sort aria-haspopup="true" aria-expanded="false"></button>${SIZE_BUTTONS}<span class="photos-sp"></span><span class="photos-srcs" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" aria-pressed="true" aria-label="폰 폴더" title="폰 폴더" hidden>${PHONE_SVG}</button></span><button type="button" class="secondary photos-al-new" data-photos-al-new hidden>+ 새 앨범</button></div></div><div class="photos-sel" data-photos-sel hidden><button type="button" class="photos-sel-x" data-photos-sel-off aria-label="선택 끝내기">✕</button><span data-photos-sel-count>0개 골랐음</span></div><form class="photos-name" data-photos-name hidden><input type="text" data-photos-name-input autocomplete="off" enterkeyhint="done" maxlength="200"><button type="submit" class="mini" data-photos-name-ok>만들기</button><button type="button" class="mini photos-name-x" data-photos-name-cancel aria-label="닫기">×</button></form><p class="photos-note" data-photos-note role="status"></p><div class="photos-tidy" id="photosTidy" data-photos-tidy hidden></div><div class="photos-od" data-photos-od></div><div class="photos-body" data-photos-body></div><div class="photos-rail" data-photos-rail role="slider" tabindex="0" aria-label="달 빠른 이동" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="" hidden><span class="photos-rail-thumb" data-photos-rail-thumb></span><span class="photos-rail-bubble" data-photos-rail-bubble hidden></span></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act role="group" aria-label="고른 사진" hidden><button type="button" class="kptu-act" data-photos-act-star>${actInner(ACT_ICON.star,'별표')}</button><button type="button" class="kptu-act" data-photos-act-share hidden>${actInner(ACT_ICON.share,'공유')}</button><button type="button" class="kptu-act" data-photos-act-down>${actInner(ACT_ICON.download,'받기')}</button><button type="button" class="kptu-act" data-photos-act-rename hidden>${actInner(ACT_ICON.edit,'이름')}</button><button type="button" class="kptu-act" data-photos-act-move aria-haspopup="true" aria-expanded="false">${actInner(ACT_ICON.move,'옮기기')}</button><button type="button" class="kptu-act" data-photos-act-tag aria-haspopup="true" aria-expanded="false">${actInner('#','앨범')}</button><button type="button" class="kptu-act" data-photos-act-untag hidden>${actInner('−','앨범에서 빼기')}</button><button type="button" class="kptu-act" data-photos-act-restore hidden>${actInner('↩','폰으로 되돌리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-act-delete>${actInner(ACT_ICON.delete,'지우기')}</button></div><div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-trash-act role="group" aria-label="고른 휴지통 사진" hidden><button type="button" class="kptu-act" data-photos-restore>${actInner(ACT_ICON.restore,'되살리기')}</button><button type="button" class="kptu-act kptu-act-danger" data-photos-purge>${actInner(ACT_ICON.delete,'바로 지우기')}</button></div>`;
 const $ = sel => root.querySelector(sel);
-// S48-56: 고른 사진 아래 줄에 [일기로]·[업데이트]를 [받기] 다음에 끼운다(줄 모양은 그 줄의 공용 규칙을 따른다. 폰 412에서 일곱 칸이 같은 폭이 되게 글자는 4자까지).
-root.querySelector('[data-photos-act-down]')?.insertAdjacentHTML('afterend', '<button type="button" class="kptu-act" data-photos-act-diary><span class="kptu-act-ic" aria-hidden="true">✚</span> <span class="kptu-act-tx">일기로</span></button><button type="button" class="kptu-act" data-photos-act-basket><span class="kptu-act-ic" aria-hidden="true">↥</span> <span class="kptu-act-tx">업데이트</span></button>');
+// S48-56: 고른 사진 아래 줄에 [일기에 넣기]·[업데이트로 보내기]를 [받기] 다음에 끼운다(줄 모양은 그 줄의 공용 규칙을 따른다).
+// S49-9 PHOTO-메뉴항목통일: 이름은 공용 목록(photo-menu-items.mjs) 그대로. 아이콘 줄은 칸이 좁아(폰 412에서 여덟 칸, 칸 최대 120px) 같은 이름의
+// 앞부분(PHOTO_ACT_SHORT: '일기'·'업데이트')만 보이고, 읽어 주는 이름·마우스를 올렸을 때 이름은 온이름이다.
+const sendBtn = (attr, icon, id) => `<button type="button" class="kptu-act" ${attr} aria-label="${PHOTO_ACT_TEXT[id]}" title="${PHOTO_ACT_TEXT[id]}"><span class="kptu-act-ic" aria-hidden="true">${icon}</span> <span class="kptu-act-tx">${PHOTO_ACT_SHORT[id]}</span></button>`;
+root.querySelector('[data-photos-act-down]')?.insertAdjacentHTML('afterend', sendBtn('data-photos-act-diary', '✚', 'diary') + sendBtn('data-photos-act-basket', '↥', 'basket'));
 const body = $('[data-photos-body]'), noteEl = $('[data-photos-note]'), linkBtn = $('[data-od-link]'), odHost = $('[data-photos-od]');
 const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), thumb = $('[data-photos-rail-thumb]');
 
@@ -1092,6 +1096,8 @@ function openViewer(index, own = null) {
     // PHOTO-전체화면확대: 확대할 때 원본 해상도(폰 = 앱 다리 원본, 구글 = 서버 중계 원본, 원드라이브 = 받기 주소). 못 받으면 큰 그림 그대로.
     hires:hiresOf,
     editable, edit:item => editOne(item),
+    // S49-9 PHOTO-메뉴항목통일: 크게 보기 [공유] 메뉴에도 [일기에 넣기](그 사진 찍은 날 일기). 고르기와 상관없이 그 한 장.
+    diary:(item, trigger) => sendItemsTo('diary', [item], trigger),
     play:async item => (item.kind === 'phone' ? phone.mediaUrl(item) : item.kind === 'gdrive' ? gdPlay(item) : (await odMediaUrl(rt, item.id, 'play')).url), badge:item => durationLabel(item.duration_ms),
     isStarred, toggleStar:item => { starsChanged(); return toggleStar(item); },
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : '이 폰은 여기서 지우지 못해요'}
@@ -1168,7 +1174,9 @@ async function starPicked() {
   paintStars(); starsChanged();
   const bad = results.filter(ok => !ok).length;
   notify(bad ? `별표를 ${bad}장 저장하지 못했어요.` : plan.on ? `${plan.items.length}장 별표했어요` : `${plan.items.length}장 별표를 풀었어요`, {error:!!bad});
-  select.stop(); paintSelect();
+  // S49-9 PHOTO-보낸뒤선택풀기 규칙: 별표는 그 자리 표시만 바뀌므로 고른 채 둔다(이어서 보내기·옮기기 가능). 풀기는 ✕·Esc.
+  if (releaseAfter('star', !bad)) select.stop();
+  paintSelect();
   if (filter === 'star') { setListFor('all', items.filter(isStarred)); paintList({full:true}); }
 }
 // 여러 장 받기: 원본 주소를 하나씩 받아 차례로(한 번에 20장까지).
@@ -1200,48 +1208,68 @@ async function itemFile(item) {
   const blob = item.kind === 'phone' ? await phone.blob(item, 'large') : item.kind === 'gdrive' ? await gdThumbBlob(rt, item.gdId, 'large') : await odPhotoBlob(rt, item.id, 'large');
   return blob ? photoFile(blob, shareFileName(item, blob.type)) : null;
 }
-// S48-56 PHOTO-업데이트·일기로(요청함 11/03 00:36·10:46): 고른 사진(동영상 빼고 20장까지) → [일기로] 찍은 날 일기(여러 날이면 날별로, 먼저 표로 묻기)
-// 또는 [업데이트로] 사진만 든 업데이트 하나. 사진 원본·이 화면은 그대로(복사). 저장 길은 일기(diary-send.js)·정리함(share-menu.js putInBasket) 것 그대로.
+// S48-56 PHOTO-업데이트·일기로(요청함 11/03 00:36·10:46): 사진(동영상 빼고 20장까지) → [일기에 넣기] 찍은 날 일기(여러 날이면 날별로, 먼저 표로 묻기)
+// 또는 [업데이트로 보내기] 사진만 든 업데이트 하나. 사진 원본·이 화면은 그대로(복사). 저장 길은 일기(diary-send.js)·정리함(share-menu.js putInBasket) 것 그대로.
+// S49-9 PHOTO-보낸뒤선택풀기(요청함 11/03 17:07): 고른 사진에서 보냈으면(fromPick) 다 들어간 뒤 고르기를 끝내고 알림 한 줄
+// ('11.3 일기에 넣었어요 [일기 보기]' / '업데이트로 보냈어요'). 하나라도 못 넣으면 고른 것을 그대로 두고 [다시](못 넣은 장만 다시).
+// 크게 보기 한 장의 [공유] 메뉴도 같은 함수(그 한 장, 고르기와 상관없음).
 let sendBusy = false;
-async function sendPickedTo(where, trigger) {
-  const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
+const sendablePicked = () => pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
+function sendPickedTo(where, trigger) { return sendItemsTo(where, sendablePicked(), trigger, {fromPick:true}); }
+function openDiaryDay(day) {
+  if (!day) return;
+  requestDiaryDay(day);
+  if (photoStripOpen()) closePhotoStrip({restore:false});
+  window.KPTURouter?.go?.('diary', {source:'delegated'});
+}
+async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} = {}) {
+  list = (list || []).filter(x => x && !x.video).slice(0, SHARE_MAX);
   if (!list.length) { notify('보낼 사진이 없어요(동영상은 보낼 수 없어요).'); return; }
   if (sendBusy) { notify('앞에서 보내는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return; }
   const {putPhotosInDiary, dayLabel, diaryDayGroups} = await import('./diary-send.js');
   const groups = where === 'diary' ? diaryDayGroups(list, seoulDateKey(new Date())) : [];
-  if (where === 'diary' && !(await askConfirm(trigger, {text:`사진 ${list.length}장을 찍은 날 일기에 넣을까요?`, note:groups.map(g => `${dayLabel(g.day)} ${g.items.length}장`).join(' · '), ok:'넣기'}))) return;
+  if (where === 'diary' && ask && !(await askConfirm(trigger, {text:`사진 ${list.length}장을 찍은 날 일기에 넣을까요?`, note:groups.map(g => `${dayLabel(g.day)} ${g.items.length}장`).join(' · '), ok:'넣기'}))) return;
+  const retry = missedItems => ({label:SEND_NOTE.retry, run:({close}) => { close(); sendItemsTo(where, missedItems, trigger, {fromPick, ask:false}); }});
+  const release = () => { if (fromPick && releaseAfter(where, true) && select.active) { select.stop(); paintSelect(); } };
   sendBusy = true;
   try {
     notify('사진 받는 중…', {ms:30000});
     if (where === 'basket') {
-      const files = (await Promise.all(list.map(item => itemFile(item).catch(() => null)))).filter(Boolean);
-      if (!files.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true}); return; }
-      notify('정리함에 넣는 중…', {ms:30000});
+      const got = await Promise.all(list.map(item => itemFile(item).catch(() => null)));
+      const files = got.filter(Boolean), missed = list.filter((_, i) => !got[i]);
+      if (!files.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true, actions:[retry(list)]}); return; }
+      notify(SEND_NOTE.basketBusy, {ms:30000});
       const {putInBasket} = await import('./share-menu.js');
-      await putInBasket(files);
-      notify(files.length < list.length ? `업데이트로 ${files.length}장을 넣었어요(${list.length - files.length}장은 받지 못함)` : `업데이트로 ${files.length}장을 넣었어요`);
+      try { await putInBasket(files); }
+      catch (error) { notify(error?.message || SEND_NOTE.basketFail, {error:true, ms:8000, actions:[retry(list)]}); return; }
+      if (missed.length) { notify(basketDoneText(files.length, list.length), {error:true, ms:8000, actions:[retry(missed)]}); return; }
+      release();
+      notify(basketDoneText(files.length));
       return;
     }
-    const done = [], missed = [];
+    const done = [], missed = [], failedItems = [];
     for (const g of groups) {
-      const files = (await Promise.all(g.items.map(item => itemFile(item).catch(() => null)))).filter(Boolean);
-      if (files.length < g.items.length) missed.push(`${dayLabel(g.day)} ${g.items.length - files.length}장(받지 못함)`);
+      const got = await Promise.all(g.items.map(item => itemFile(item).catch(() => null)));
+      const files = got.filter(Boolean);
+      if (files.length < g.items.length) { missed.push(`${dayLabel(g.day)} ${g.items.length - files.length}장(받지 못함)`); failedItems.push(...g.items.filter((_, i) => !got[i])); }
       if (!files.length) continue;
-      notify(`${dayLabel(g.day)} 일기에 넣는 중…`, {ms:30000});
+      notify(`${dayLabel(g.day)} ${SEND_NOTE.diaryBusy}`, {ms:30000});
       const r = await putPhotosInDiary(files, {rt, day:g.day});
-      if (r.count) done.push(`${dayLabel(g.day)} ${r.count}장`);
-      if (!r.ok) missed.push(`${dayLabel(g.day)}: ${r.message || '넣지 못함'}`);
+      if (r.count) done.push(g.day);
+      if (!r.ok) { missed.push(`${dayLabel(g.day)}: ${r.message || '넣지 못함'}`); failedItems.push(...g.items.filter((_, i) => got[i])); }
     }
-    if (missed.length) notify(`${done.length ? `일기에 넣었어요: ${done.join(' · ')}. ` : ''}못 넣은 것: ${missed.join(' · ')}`, {error:true, ms:8000});
-    else notify(`일기에 넣었어요: ${done.join(' · ')}`);
-  } catch (error) { notify(error?.message || '보내지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true}); }
+    const openDay = done.length ? [{label:SEND_NOTE.diaryOpen, run:({close}) => { close(); openDiaryDay(done[0]); }}] : [];
+    if (missed.length) notify(`${done.length ? `${diaryDoneText(done)}. ` : ''}못 넣은 것: ${missed.join(' · ')}`, {error:true, ms:8000, actions:[...openDay, retry(failedItems)]});
+    else { release(); notify(diaryDoneText(done), {ms:5000, actions:openDay}); }
+  } catch (error) { notify(error?.message || '보내지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true, actions:[retry(list)]}); }
   finally { sendBusy = false; }
 }
 // [⇪ 공유]: 넓은 화면은 누른 자리 작은 메뉴(share-menu.js — 한 장이면 [사진 복사]도), 좁은 화면은 지금처럼 기기 공유 창.
 function shareButton(trigger) {
-  const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
+  const list = sendablePicked();
   if (!list.length) { notify('공유할 사진이 없어요(동영상은 [⤓ 받기]로).'); return; }
-  shareFrom(trigger, {count:list.length, getFiles:() => pickedFiles(list), native:canShare() ? sharePicked : null, download:downloadPicked, diary:() => sendPickedTo('diary', trigger)});
+  shareFrom(trigger, {count:list.length, getFiles:() => pickedFiles(list), native:canShare() ? sharePicked : null, download:downloadPicked,
+    diary:() => sendItemsTo('diary', list, trigger, {fromPick:true}), basket:() => sendItemsTo('basket', list, trigger, {fromPick:true})});
 }
 async function sharePicked() {
   const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
@@ -2547,22 +2575,22 @@ const gdMenu = createAnchoredMenu({id:'photosGdMenu', className:'od-link-menu', 
     if (b.matches('[data-gdm-retry]')) return gdRetry();
     if (b.matches('[data-gdm-off]')) return toggleSourceName('gdrive');
   }});
-// S48-56: 사진 우클릭 메뉴의 [별표]·[공유]·[일기에 넣기]·[업데이트로](휴지통·동영상은 없음). 크게 보기 아래 줄과 같은 이름.
+// S48-56: 사진 우클릭 메뉴의 [별표]·[공유]·[일기에 넣기]·[업데이트로 보내기](휴지통·동영상은 없음). 이름은 공용 목록(photo-menu-items.mjs) 하나.
 function sendMenuBtns(id) {
   const it = (shownList() || []).find(x => x.id === id);
   if (tab === 'trash' || !it || it.video) return [];
-  return [String(id).startsWith('gd:') ? '' : menuBtn('data-pm-star', '별표'), canShare() || wideShare() ? menuBtn('data-pm-share', '공유') : '', menuBtn('data-pm-diary', '일기에 넣기'), menuBtn('data-pm-basket', '업데이트로')];
+  return [String(id).startsWith('gd:') ? '' : menuBtn('data-pm-star', PHOTO_ACT_TEXT.star), canShare() || wideShare() ? menuBtn('data-pm-share', PHOTO_ACT_TEXT.share) : '', menuBtn('data-pm-diary', PHOTO_ACT_TEXT.diary), menuBtn('data-pm-basket', PHOTO_ACT_TEXT.basket)];
 }
 const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
   key:t => t.dataset.photosId || '',
-  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', '선택'), ...sendMenuBtns(id), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', '선택'), ...sendMenuBtns(id), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'), String(id).startsWith('ph:') && phone.canMeta() && tab !== 'trash' ? menuBtn('data-pm-info', '정보 고치기…') : '',
+  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', PHOTO_ACT_TEXT.select), ...sendMenuBtns(id), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'), String(id).startsWith('ph:') && phone.canMeta() && tab !== 'trash' ? menuBtn('data-pm-info', '정보 고치기…') : '',
     od.canDelete || phone.state().trash ? menuBtn('data-pm-delete', '지우기', 'od-link-danger') : ''].join(''),
   onAction:(b, {trigger}) => {
     const it = itemOf(trigger); if (!it) return;
     // 고른 사진 위에서 연 메뉴는 고른 것 모두, 아니면 그 사진 하나.
     const group = select.active && select.has(it.id) ? pickedItems() : [it];
     if (b.matches('[data-pm-select]')) { if (!select.active) startSelect(it); else { select.add(it.id); paintSelect(); } return; }
-    // S48-56: 우클릭 [별표]·[공유]·[일기에 넣기]·[업데이트로] = 고른 사진 아래 줄과 같은 동작(고르지 않은 사진이면 그 한 장만 골라서).
+    // S48-56: 우클릭 [별표]·[공유]·[일기에 넣기]·[업데이트로 보내기] = 고른 사진 아래 줄과 같은 동작(고르지 않은 사진이면 그 한 장만 골라서).
     if (b.matches('[data-pm-star],[data-pm-share],[data-pm-diary],[data-pm-basket]')) {
       if (!select.active || !select.has(it.id)) { select.stop(); select.start([it.id], it.id); paintSelect(); }
       if (b.matches('[data-pm-star]')) return starPicked();

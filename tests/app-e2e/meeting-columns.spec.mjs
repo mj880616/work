@@ -180,7 +180,7 @@ test('PC: 차수·종류·결과 글이 길어도 칸 안 스크롤 없이 화�
   // 화면(문서)만 세로로 넘어가고, 가로 넘김은 없다. 문서 밖 스크롤 틀은 사이드바뿐이다.
   const doc=await page.evaluate(()=>({w:document.documentElement.scrollWidth-innerWidth,h:document.documentElement.scrollHeight-innerHeight}));
   expect(doc.w).toBeLessThanOrEqual(0);expect(doc.h).toBeGreaterThan(200);
-  expect(await page.evaluate(()=>[...document.querySelectorAll('#meetingsView *')].filter(e=>/(auto|scroll)/.test(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+4&&e.getClientRects().length).map(e=>e.className))).toEqual([]);
+  expect(await page.evaluate(()=>[...document.querySelectorAll('#meetingsView *')].filter(e=>/(auto|scroll)/.test(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+4&&e.getClientRects().length&&!e.classList.contains('kptu-follow-pane')).map(e=>e.className))).toEqual([]);
   // 결과 칸은 화면에 붙어 따라온다: 화면을 내려도 결과 칸 일부가 늘 화면 안에 있다.
   await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
   await expect(page.locator('#meetingList .mcol-result')).toBeInViewport();
@@ -202,10 +202,13 @@ test('PC 1440: 사업 보고 결과 칸(mrd-docked)은 따로 스크롤 없이 �
   const body=page.locator('#meetingList #meetingRoundDetailModal.mrd-docked');await expect(body).toBeVisible();
   expect(await innerScrollers(page,'#meetingsView')).toEqual([]);
   await expect(body).toHaveCSS('overflow-y','visible');await expect(page.locator('#meetingList .mcol-result')).toHaveCSS('position','sticky');
-  const d=await docScroll(page);expect(d.over).toBeGreaterThan(500);expect(d.wide).toBeLessThanOrEqual(0);
-  // 끝까지 내려도 결과 칸 머리줄(제목·⋯)은 화면 위에 붙어 보인다.
-  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
-  await expect(body.locator('.modal-head')).toBeInViewport();
+  // UI-상세칸고정(2026-11-03): 결과가 길면 문서가 아니라 결과 칸(.mcol-result)만 따로 넘어간다.
+  const pm=await page.locator('#meetingList .mcol-result').evaluate(e=>({over:e.scrollHeight-e.clientHeight,oy:getComputedStyle(e).overflowY}));expect(pm.oy).toBe('auto');expect(pm.over).toBeGreaterThan(300);
+  const d=await docScroll(page);expect(d.wide).toBeLessThanOrEqual(0);
+  // UI-상세칸고정: 결과 칸을 끝까지 넘겨도 머리줄(제목·⋯)은 그 칸 맨 위에 붙어 보인다(칸 안 스크롤의 머리줄 고정).
+  await page.locator('#meetingList .mcol-result').evaluate(e=>{e.scrollTop=e.scrollHeight});
+  const hb=await body.locator('.modal-head').boundingBox(),pb=await page.locator('#meetingList .mcol-result').boundingBox();
+  expect(Math.abs(hb.y-pb.y)).toBeLessThanOrEqual(4);
 });
 
 test('PC ④: [+ 회의 결과]는 화면에 하나, 왼쪽에서 고른 종류를 미리 고른 기존 만들기 창(회의명 미지정은 비운 채)',async({page})=>{
@@ -424,10 +427,12 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   // 주 줄: 칩 줄 아래, ‹ 라벨(n건) › [전체] 한 줄.
   await expect(bar).toBeVisible();await expect(page.locator('#reportWeekFilter')).toHaveAttribute('role','group');
   await expect(prev).toHaveAttribute('aria-label','이전 주');await expect(next).toHaveAttribute('aria-label','다음 주');
-  await expect(all).toHaveText('전체');await expect(all).toHaveAttribute('aria-pressed','false');
+  await expect(all).toHaveText('전체');await expect(all).toHaveAttribute('aria-checked','false');
+  await expect(reportWeekButton(page,'week')).toHaveText('주간 보기');await expect(reportWeekButton(page,'week')).toHaveAttribute('aria-checked','true');await expect(reportWeekButton(page,'range')).toHaveText('기간 설정');
   const kindBar=await page.locator('#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);
-  const tops=await page.locator('#reportWeekFilter > *').evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
-  expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2);
+  // REPORT-기간고르기: 칩 세 개는 폰에서도 한 줄. 주 넘기기(‹ 라벨 ›)도 자기들끼리 한 줄.
+  for(const sel of ['#reportWeekFilter .report-period-chips > *','#reportWeekFilter .report-week-nav > *']){const tops=await page.locator(sel).evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
+    expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2)}
   // 처음: 최근 주(10.19~10.25)의 보고만.
   await expect(label).toHaveText('10.19(월)~10.25(일) 1건');
   await expect.poll(shown).toEqual(['week-new']);
@@ -443,15 +448,15 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   await next.click();await next.click();
   await expect(label).toHaveText('10.19(월)~10.25(일) 1건');await expect.poll(shown).toEqual(['week-new']);
   await prev.click();await expect.poll(shown).toEqual(['week-old']);
-  // [전체]: 모든 주(최신 위). 주 넘기기는 잠기고 라벨은 '모든 주'.
+  // [전체]: 모든 주(최신 위). ‹ ›는 없어지고 라벨은 '전체 n건'.
   await all.click();
-  await expect(all).toHaveAttribute('aria-pressed','true');await expect(label).toHaveText('모든 주');
-  await expect(prev).toBeDisabled();await expect(next).toBeDisabled();
+  await expect(all).toHaveAttribute('aria-checked','true');await expect(label).toHaveText('전체 2건');
+  await expect(prev).toHaveCount(0);await expect(next).toHaveCount(0);
   await expect.poll(shown).toEqual(['week-new','week-old']);
   if(pc)await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('2');
-  // 다시 누르면 보던 주(10.12~10.18)로.
-  await all.click();
-  await expect(all).toHaveAttribute('aria-pressed','false');await expect(label).toHaveText('10.12(월)~10.18(일) 1건');
+  // [주간 보기]를 누르면 보던 주(10.12~10.18)로.
+  await reportWeekButton(page,'week').click();
+  await expect(all).toHaveAttribute('aria-checked','false');await expect(label).toHaveText('10.12(월)~10.18(일) 1건');
   await expect.poll(shown).toEqual(['week-old']);
   // 다른 곳에서 고른 보고(KPTUMeetingColumns.select)가 지금 주에 없으면 그 보고의 주로 옮긴다.
   await page.evaluate(()=>window.KPTUMeetingColumns.select({id:'week-new'}));
