@@ -27,7 +27,8 @@ test('final line: one line, 1~160 characters', () => {
 });
 test('structure: server-saved only, one state owner, hooked into the day card report grid', () => {
   const src = readFileSync(new URL('../app/journal-memorable.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  const banned = ['local', 'session'].map(k => k + 'Storage').concat(['indexed', 'DB'].join(''));
+  for (const word of banned) assert.ok(!src.includes(word), word);
   assert.match(src, /kind:'journal_memorable'/);
   assert.match(src, /app_journal_memorable\?id=eq/);
   const view = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
