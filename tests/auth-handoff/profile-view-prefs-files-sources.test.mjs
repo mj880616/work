@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
-// S49-21 FILES-출처켜고끄기: app_profiles_view_prefs_check accepts files_sources ({od, gd} booleans) through the approved DB workflow runner.
+// S49-21 FILES-출처켜고끄기 + S49-26 기기마다 따로(H-8): app_profiles_view_prefs_check accepts files_sources ({app|phone|pc: {od, gd} booleans}) through the approved DB workflow runner.
 // - 다른 칸 규칙 그대로(앞선 서른네 칸(S49-11 files_sources 포함)을 그대로 받고, 전에 거절하던 값은 계속 거절).
 // - 권한 그대로: 프로필은 내 행만, anon은 못 읽는다. 표 권한·정책 수 그대로.
 // - 승인형 workflow의 plan·dry-run·apply가 통과하고, rollback은 files_sources가 저장돼 있으면 멈춘 뒤 비우면 원래 모양으로 돌아간다.
@@ -82,9 +82,17 @@ test('view prefs files sources: plan, dry-run, apply, own-row writes, CHECK and 
   const before=(await pool.query(snapshot)).rows,beforeCheck=(await pool.query(precheck)).rows;
   const base={theme:'lemon',split_ratio:{tasks:0.4,telegram:0.3,reports3:0.25,photos:0.3,noteboard:0.2},home_cards:['quiet','todo'],diary_view:'list',photo_view:{filter:'star',cols:4,sort:'name_asc'},quiet_weeks:3,note_view:'board',note_boards:[{id:'b1a2b3c4',name:'보드'}],note_board:'b1a2b3c4',photo_hint:2,photo_sources:{onedrive:true,phone:false},org_tab:'table',tg_view:'room',phone_folders_off:['DCIM/Camera/'],album_view:'thumb',now_tab:'news',collect_hidden_on:'2026-11-01',link_hidden_on:'2026-11-01',ed_more:true};
 
-  const RANGE={files_sources:{od:true,gd:false}};
-  const GOOD=[{files_sources:{}},{files_sources:{od:false}},{files_sources:{gd:true}},RANGE,{files_sources:{od:false,gd:false}},{files_sources:{mode:'range',from:'2026-10-01',to:'2026-10-31'},files_sources:{od:true,gd:true}}];
-  const BAD=[{files_sources:'od'},{files_sources:[]},{files_sources:null},{files_sources:true},{files_sources:{onedrive:true}},{files_sources:{od:'yes'}},{files_sources:{od:1}},{files_sources:{od:true,phone:true}},{files_sources:{od:null}},{files_sources:{od:{on:true}}}];
+  // 앞 판(20261103200000)까지 받던 서른네 칸을 모두 담은 값: 적용 뒤에도 통째로 받아야 한다(앞 판 키가 다 남는지).
+  const ALL_OLD={...base,nav_collapsed:true,calendar_view:'week',home_quick_mode:'task',note_folder:'all',report_view:'calendar',menu_layout:{bar:['home','tasks'],rest:['notes']},photo_cols:4,photo_cols_wide:8,diary_onedrive:false,
+   phone_folders_known:['0123abcd'],col_widths:{files:{name:240,day:90}},photo_sources_phone:{phone:true,onedrive:false},photo_sources_pc:{onedrive:true,gdrive:false},photo_level:'month',report_period:{mode:'range',from:'2026-10-01',to:'2026-10-31'}};
+  const RANGE={files_sources:{pc:{od:true,gd:false}}};
+  const GOOD=[{files_sources:{}},{files_sources:{app:{}}},{files_sources:{app:{od:false}}},{files_sources:{phone:{gd:true}}},RANGE,
+   {files_sources:{app:{od:false,gd:true},phone:{od:true,gd:false},pc:{od:false,gd:false}}}];
+  const BAD=[{files_sources:'od'},{files_sources:[]},{files_sources:null},{files_sources:true},
+   {files_sources:{od:true,gd:false}},// 옛 한 칸 모양(기기 칸 없음)은 받지 않는다
+   {files_sources:{tablet:{od:true}}},{files_sources:{app:true}},{files_sources:{app:[]}},{files_sources:{app:null}},{files_sources:{pc:'od'}},
+   {files_sources:{pc:{onedrive:true}}},{files_sources:{pc:{od:'yes'}}},{files_sources:{pc:{od:1}}},{files_sources:{phone:{od:true,ph:true}}},{files_sources:{pc:{od:null}}},{files_sources:{pc:{od:{on:true}}}},
+   {files_sources:{app:{od:true},pc:{gd:'x'}}}];
 
   await t.test('before apply the CHECK refuses files_sources and accepts the old keys (photo device included)',async()=>{
    assert.equal(beforeCheck.find(r=>r.item==='prerequisite recorded').value,'예');
@@ -92,7 +100,7 @@ test('view prefs files sources: plan, dry-run, apply, own-row writes, CHECK and 
    assert.equal(beforeCheck.find(r=>r.item==='view prefs check without files sources').value,'예');
    assert.equal(beforeCheck.find(r=>r.item==='saved files sources').value,'0');
    await assert.rejects(write(OWNER,OWNER,RANGE),{code:'23514'});
-   assert.equal((await write(OWNER,OWNER,{...base,photo_level:'month',photo_sources_pc:{onedrive:true}})).rowCount,1,'the old keys are accepted before');
+   assert.equal((await write(OWNER,OWNER,ALL_OLD)).rowCount,1,'every previous key is accepted before');
    await write(OWNER,OWNER,null);
   });
   await t.test('plan accepts the migration and its companion files',()=>{
@@ -111,7 +119,9 @@ test('view prefs files sources: plan, dry-run, apply, own-row writes, CHECK and 
    assert.equal((await pool.query("select count(*)::int n from pg_policy where polrelid='public.app_profiles'::regclass")).rows[0].n,2);
   });
   await t.test('the owner saves files_sources together with the old keys; other rows, outsiders and anon cannot',async()=>{
-   for(const v of GOOD){assert.equal((await write(OWNER,OWNER,v)).rowCount,1,JSON.stringify(v));assert.deepEqual(await saved_(OWNER),v);assert.equal((await write(OWNER,OWNER,{...base,photo_level:'day',...v})).rowCount,1)}
+   assert.equal(Object.keys(ALL_OLD).length,34,'all keys of the previous check');
+   assert.equal((await write(OWNER,OWNER,ALL_OLD)).rowCount,1,'every previous key is still accepted');assert.deepEqual(await saved_(OWNER),ALL_OLD);
+   for(const v of GOOD){assert.equal((await write(OWNER,OWNER,v)).rowCount,1,JSON.stringify(v));assert.deepEqual(await saved_(OWNER),v);assert.equal((await write(OWNER,OWNER,{...ALL_OLD,...v})).rowCount,1,JSON.stringify(v))}
    assert.equal((await write(OWNER,STRANGER,RANGE)).rowCount,0,'another profile row is not writable');
    assert.equal((await write(OUTSIDER,OUTSIDER,RANGE)).rowCount,0,'a non-owner member cannot write even the own row');
    assert.equal(await saved_(OUTSIDER),null);

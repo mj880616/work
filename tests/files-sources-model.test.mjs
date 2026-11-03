@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parseFlags, toggleFlag, SOURCES_OFF_TEXT} from '../app/source-flags.mjs';
 import {parseSources, toggleSource, sourcesValue} from '../app/photo-sources-model.mjs';
-import {FILES_SOURCES_KEY, FILES_SRC, parseFilesSources, filesSourcesValue, toggleFilesSource, visibleSources, filterBySource, chipInfo} from '../app/files-sources-model.mjs';
-import {KEYS, validValue, parsePrefs} from '../app/view-prefs.js';
+import {FILES_SOURCES_KEY, FILES_SRC, parseFilesSources, filesSourcesValue, toggleFilesSource, visibleSources, filterBySource, chipInfo, FILES_DEVICES, filesDeviceKind, PHONE_WIDTH_QUERY} from '../app/files-sources-model.mjs';
+import {KEYS, validValue, parsePrefs, applyChanges, createViewPrefs} from '../app/view-prefs.js';
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 // FILES-출처켜고끄기(S49-21): 켜기/끄기 규칙은 사진 화면과 공용(source-flags.mjs). 화면 없이 규칙만 본다.
 
@@ -44,18 +44,44 @@ test('[파일] 줄 거르기와 아이콘 상태(눌림 = 연결됨 + 켜짐)', 
   assert.deepEqual(chipInfo(null, ['od'], 'gd'), {name: 'gd', on: true, linked: false, pressed: false});
   assert.deepEqual(chipInfo(null, ['od', 'gd'], 'od'), {name: 'od', on: true, linked: true, pressed: true});
 });
-test('files_sources는 서버 칸(view_prefs): od·gd 참·거짓만, 그 밖은 버림', () => {
+test('files_sources는 서버 칸(view_prefs): 기기 칸(app·phone·pc)마다 od·gd 참·거짓만, 그 밖은 그 기기 칸만 버림', () => {
   assert.equal(FILES_SOURCES_KEY, 'files_sources');
   assert.ok(KEYS.includes('files_sources'));
-  for (const v of [{}, {od: true}, {gd: false}, {od: false, gd: true}]) assert.equal(validValue('files_sources', v), true, JSON.stringify(v));
-  for (const v of [null, [], 'od', true, {onedrive: true}, {od: 'yes'}, {od: 1}, {phone: true}, {od: null}]) assert.equal(validValue('files_sources', v), false, JSON.stringify(v));
-  assert.deepEqual(parsePrefs({files_sources: {od: false}}), {files_sources: {od: false}});
-  assert.deepEqual(parsePrefs({files_sources: {od: 'x'}}), {});
+  for (const v of [{}, {app: {}}, {pc: {od: true}}, {phone: {gd: false}}, {app: {od: false, gd: true}, phone: {od: true}, pc: {gd: false}}]) assert.equal(validValue('files_sources', v), true, JSON.stringify(v));
+  for (const v of [null, [], 'od', true, {od: true}, {od: false, gd: true}, {tablet: {od: true}}, {app: true}, {app: []}, {pc: {onedrive: true}}, {pc: {od: 'yes'}}, {pc: {od: 1}}, {pc: {ph: true}}, {pc: {od: null}}]) assert.equal(validValue('files_sources', v), false, JSON.stringify(v));
+  assert.deepEqual(parsePrefs({files_sources: {pc: {od: false}}}), {files_sources: {pc: {od: false}}});
+  assert.deepEqual(parsePrefs({files_sources: {pc: {od: 'x'}, app: {gd: false}}}), {files_sources: {app: {gd: false}}});
+  assert.deepEqual(parsePrefs({files_sources: {od: false}}), {}, '옛 한 칸 모양은 읽지 않는다');
+});
+test('기기 종류: 폰 앱(KPTUAndroid) / 폰 브라우저(폭 760 이하) / PC, 공용 판별 그대로', () => {
+  assert.deepEqual(FILES_DEVICES, ['app', 'phone', 'pc']);
+  assert.equal(PHONE_WIDTH_QUERY, '(max-width:760px)');
+  assert.equal(filesDeviceKind({ua: 'Mozilla/5.0 (Linux; Android 14) KPTUAndroid/0.4.15', narrow: true}), 'app');
+  assert.equal(filesDeviceKind({ua: 'Mozilla/5.0 (Linux; Android 14) KPTUAndroid/0.4.15', narrow: false}), 'app');
+  assert.equal(filesDeviceKind({ua: 'Mozilla/5.0 (Linux; Android 14) SamsungBrowser/27', narrow: true}), 'phone');
+  assert.equal(filesDeviceKind({ua: 'Mozilla/5.0 (Windows NT 10.0)', narrow: false}), 'pc');
+  assert.equal(filesDeviceKind(), 'pc');
+  assert.match(read('app/files-sources-model.mjs'), /import \{isPhoneApp\} from '\.\/phone-push-model\.mjs'/);
+});
+test('기기 칸 쓰기는 그 칸만 바꾸고 다른 기기 칸은 그대로(서버 값과 합침)', () => {
+  const server = {theme: 'navy', files_sources: {app: {od: false, gd: true}, pc: {od: true, gd: true}}};
+  assert.deepEqual(applyChanges(server, {'files_sources.pc': {od: true, gd: false}}).files_sources, {app: {od: false, gd: true}, pc: {od: true, gd: false}});
+  assert.deepEqual(applyChanges(server, {'files_sources.phone': {od: false, gd: false}}).files_sources, {app: {od: false, gd: true}, phone: {od: false, gd: false}, pc: {od: true, gd: true}});
+  assert.deepEqual(applyChanges({files_sources: {pc: {od: true}}}, {'files_sources.pc': null}), {});
+  const vp = createViewPrefs({runtime: () => null, storage: () => null});
+  assert.equal(vp.setFilesSources('tablet', {od: true}), false);
+  assert.equal(vp.setFilesSources('pc', {od: 'x'}), false);
+  assert.equal(vp.setFilesSources('pc', {od: true, gd: false}), true);
+  assert.deepEqual(vp.getFilesSources('pc'), {od: true, gd: false});
+  assert.equal(vp.getFilesSources('app'), undefined);
+  assert.equal(vp.get('files_sources'), undefined, '통째 읽기·쓰기는 없음(기기 칸으로만)');
+  assert.equal(vp.set('files_sources', {pc: {od: true}}), false);
 });
 test('화면은 서버 저장만(기기 저장 없음)·같은 부품·같은 나무 부품을 쓴다', () => {
   const js = read('app/files.js').replace(/\/\/.*$/gm, '');
   assert.doesNotMatch(js, new RegExp(['local', 'session'].map(k => k + 'Stor' + 'age').concat('indexed' + 'DB').join('|')));
-  assert.match(js, /viewPrefs\.set\(FILES_SOURCES_KEY, filesSourcesValue\(toggleFilesSource\(srcState\(\), name\)\), \{rejectable: true\}\)/);
+  assert.match(js, /viewPrefs\.setFilesSources\(DEVICE, filesSourcesValue\(toggleFilesSource\(srcState\(\), name\)\)\)/);
+  assert.match(js, /const DEVICE = filesDeviceKind\(\{ua: navigator\.userAgent \|\| '', narrow: PHONE\.matches\}\)/);
   assert.match(js, /import \{odLinkButtonHtml, paintOdLink\} from '\.\/od-link\.js'/);
   assert.match(js, /brandIconSvg\('gdrive'/);
   assert.match(js, /treeRows\(\{sources: onSources\(\)/);

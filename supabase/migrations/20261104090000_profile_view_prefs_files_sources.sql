@@ -3,7 +3,8 @@ begin;
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"으로만 한다(이 브랜치는 적용 직전 정지).
 --
 -- 무엇: app_profiles_view_prefs_check 하나만 바꾼다(지우고 같은 이름으로 다시 만듦). 받는 칸 서른네 개에 files_sources 하나를 더해 서른다섯 개로.
---   files_sources = {od, gd} 중 일부, 값은 참·거짓(photo_sources와 같은 모양). 다른 칸 규칙·전체 4000바이트 상한은 글자 그대로 같다. 기존 행은 건드리지 않는다.
+--   files_sources = 기기 종류별 칸 {app(폰 앱), phone(폰 브라우저), pc(그 밖)} 중 일부, 칸마다 {od, gd} 중 일부이고 값은 참·거짓
+--   (S49-26 명진 결정 H-8: 켜고 끄기 기억은 기기마다 따로). 다른 칸 규칙·전체 4000바이트 상한은 글자 그대로 같다. 기존 행은 건드리지 않는다.
 -- 권한: 표 grant·정책·RLS·함수·트리거 변경 없음, 새 칸(열) 없음. 화면은 기존처럼 내 행만 PATCH한다(task12a owner 정책 그대로).
 -- 앞 단계: 20261103200000_profile_view_prefs_report_period(S49-11) 기록이 있어야 한다(없으면 멈춘다). 이 검사는 그 단계의 report_period까지 그대로 담고 있다.
 set local lock_timeout = '5s';
@@ -206,12 +207,15 @@ alter table public.app_profiles
                       and coalesce(view_prefs -> 'report_period' ->> 'to' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$', false)
                       and (view_prefs -> 'report_period' ->> 'from') <= (view_prefs -> 'report_period' ->> 'to')
                      else not (view_prefs -> 'report_period' ? 'from') and not (view_prefs -> 'report_period' ? 'to') end end
-        -- [파일] 출처 켜기·끄기(S49-21 FILES-출처켜고끄기): 객체, 칸은 od(원드라이브)·gd(구글 드라이브) 둘뿐이고 값은 모두 참·거짓(photo_sources와 같은 모양).
-        -- 없는 칸은 화면이 기본(둘 다 켜짐)으로 본다. 끄기는 보기에서만 빠지고 연결·색인은 그대로.
+        -- [파일] 출처 켜기·끄기(S49-21 FILES-출처켜고끄기, S49-26 기기마다 따로): 객체, 칸은 기기 종류 app(폰 앱)·phone(폰 브라우저)·pc(그 밖) 셋뿐이고
+        -- 각 칸은 객체, 그 안 칸은 od(원드라이브)·gd(구글 드라이브) 둘뿐이며 값은 모두 참·거짓. 없는 칸은 화면이 기본(둘 다 켜짐)으로 본다.
+        -- 기기 칸이 객체인지 먼저 따진 뒤(case 순서) 안쪽 칸을 본다(strict 경로가 객체 아닌 값에서 오류를 내지 않게).
         and case when not (view_prefs ? 'files_sources') then true
               when jsonb_typeof(view_prefs -> 'files_sources') <> 'object' then false
-              else not jsonb_path_exists(view_prefs, 'strict $.files_sources.keyvalue() ? (!(@.key == "od" || @.key == "gd"))')
-               and not jsonb_path_exists(view_prefs, 'strict $.files_sources.* ? (@.type() != "boolean")') end
+              when jsonb_path_exists(view_prefs, 'strict $.files_sources.keyvalue() ? (!(@.key == "app" || @.key == "phone" || @.key == "pc"))') then false
+              when jsonb_path_exists(view_prefs, 'strict $.files_sources.* ? (@.type() != "object")') then false
+              else not jsonb_path_exists(view_prefs, 'strict $.files_sources.*.keyvalue() ? (!(@.key == "od" || @.key == "gd"))')
+               and not jsonb_path_exists(view_prefs, 'strict $.files_sources.*.* ? (@.type() != "boolean")') end
     end
   );
 
@@ -232,5 +236,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261104090000', 'profile_view_prefs_files_sources', array['S49-21 FILES-출처켜고끄기: app_profiles_view_prefs_check also accepts files_sources (object: od and gd booleans); no new column, grants, policies or functions']);
+values ('20261104090000', 'profile_view_prefs_files_sources', array['S49-21 FILES-출처켜고끄기: app_profiles_view_prefs_check also accepts files_sources (object per device kind app/phone/pc, each od and gd booleans); no new column, grants, policies or functions']);
 commit;

@@ -13,7 +13,7 @@ import {askConfirm, askText, notify} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
 import {brandIconSvg} from './brand-icons.js';
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
-import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, filterBySource, chipInfo} from './files-sources-model.mjs';
+import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, filterBySource, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
 import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
@@ -30,7 +30,7 @@ import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mj
 //   PC 단축키: F2 이름 · Delete 휴지통 · Ctrl+A 모두 고르기 · Ctrl+X 옮기기 · Ctrl+V 여기로 옮기기 · Esc 고르기 풀기.
 //   결과는 서버가 돌려준 바뀐 줄로 지금 목록을 고친다(sync와 같은 applyChanges, 다시 그리기 주인은 이 파일 하나).
 // FILES-출처켜고끄기·두드라이브나무(S49-21, 요청함 11/04 07:34): 위 줄 오른쪽 출처 아이콘 [원드라이브][구글 드라이브](사진 화면과 같은 부품: od-link.js·brand-icons.js·source-chips.css)로
-//   켜기/끄기(서버 view_prefs.files_sources, files-sources-model.mjs). 켜진(연결된 것 중) 출처만 [최근]·[폴더]·[별표]·찾기·나무에 보인다. 모두 끄면 '위 출처 아이콘을 켜 주세요' 한 줄.
+//   켜기/끄기(서버 view_prefs.files_sources의 이 기기 칸 — 폰 앱·폰 브라우저·PC 따로, files-sources-model.mjs). 켜진(연결된 것 중) 출처만 [최근]·[폴더]·[별표]·찾기·나무에 보인다. 모두 끄면 '위 출처 아이콘을 켜 주세요' 한 줄.
 //   끄기는 보기에서만 빠진다(연결·색인·밤 예약은 그대로). 연결 안 된 출처는 누르면 연결 안내 한 줄.
 //   나무: 켜진 드라이브가 맨 위 줄(▸)로 나란히, 아래로 폴더를 펼치고 접는다. 폰(≤760)도 [폴더] 탭에서 같은 나무(한 화면에 두 드라이브, 여러 단계 펼치기),
 //   폴더 이름을 누르면 그 폴더 안 목록(pane 'list'), 목록 맨 위 ‹ 로 나무(pane 'tree')로 돌아온다. 펼친 폴더는 그 폴더를 바로 읽어(Edge folder) 채우고 한 번 읽은 폴더는 다시 부르지 않는다(directDone).
@@ -42,7 +42,9 @@ import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mj
 if (window.KPTUFiles) return;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const FN = '/functions/v1/cloud-files';
-const PHONE = window.matchMedia('(max-width:760px)');
+const PHONE = window.matchMedia(PHONE_WIDTH_QUERY);
+// 출처 켜기/끄기를 기억하는 기기 칸(폰 앱·폰 브라우저·PC, 명진 결정 H-8). 화면을 연 때 한 번 정한다.
+const DEVICE = filesDeviceKind({ua: navigator.userAgent || '', narrow: PHONE.matches});
 const WIDE = window.matchMedia('(min-width:1200px)');
 const GDRIVE_SVG = brandIconSvg('gdrive', {size: 16, cls: 'fx-src-ic'});
 const PDF_LIB = new URL('./pdf-lib/pdfjs-dist-6.3.289/', import.meta.url);
@@ -100,7 +102,7 @@ function resetIfOwnerChanged() {
 }
 const connected = () => SOURCES.filter(s => state.status?.[s]?.connected);
 // 켜진 출처(연결된 것 중 아이콘으로 켠 것). 보기 전부(최근·폴더·별표·찾기·나무)가 이 목록만 본다.
-const srcState = () => viewPrefs.get(FILES_SOURCES_KEY);
+const srcState = () => viewPrefs.getFilesSources?.(DEVICE);
 const onSources = () => visibleSources(srcState(), connected());
 const nothingOn = () => !!state.status && connected().length > 0 && !onSources().length;
 async function loadStatus() {
@@ -323,7 +325,7 @@ function srcClick(name) {
     paintTop();
     return;
   }
-  viewPrefs.set(FILES_SOURCES_KEY, filesSourcesValue(toggleFilesSource(srcState(), name)), {rejectable: true});
+  viewPrefs.setFilesSources(DEVICE, filesSourcesValue(toggleFilesSource(srcState(), name)));
   sourcesChanged();
 }
 // 켜기/끄기가 바뀐 뒤: 보던 출처가 꺼졌으면 최근으로, 새로 켠 출처의 나무 맨 위를 읽고, 다시 그린다. 끄기는 보기에서만 빠진다(색인·연결은 그대로).
@@ -946,7 +948,7 @@ window.addEventListener('kptu:view-changed', event => {
   layer = null; dropPreview(); delete root?.dataset.fxPreview; clearInterval(syncTimer);
 });
 window.addEventListener('kptu:view-prefs-rejected', e => {
-  if (!(e.detail?.paths || []).includes(FILES_SOURCES_KEY)) return;
+  if (!(e.detail?.paths || []).includes(`${FILES_SOURCES_KEY}.${DEVICE}`)) return;
   notify('출처 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true, record: false});
   if (state.status) sourcesChanged();
 });
