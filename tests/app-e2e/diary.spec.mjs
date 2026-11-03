@@ -797,7 +797,9 @@ test('[일기] 연 화면 유지: 탭을 갔다 오면 보던 달 그대로, 새
  let release;const held=new Promise(resolve=>{release=resolve;});
  const notes=u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',hold=async r=>{await held;await r.fallback();};
  await page.route(notes,hold);
- await openDiary(page,390);
+ // [일정] 탭은 마지막에 본 쪽(일기)을 바로 연다.
+ await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();await expect(page.locator('#diaryView')).toBeVisible();
+ await expect(page.locator('#diaryRoot [data-diary-title]')).toHaveText('2026년 10월');
  // 읽기가 붙잡혀 있는 동안에도 보던 목록 그대로, 기다림 표시 없음.
  await expect(items).toHaveCount(2);
  expect(await waits.count()).toBe(0);
