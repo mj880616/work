@@ -400,7 +400,7 @@ test('사진 메뉴: 달력 → 날짜 → 뒤로가기 = 같은 달 달력(폴�
 });
 
 // UI-고르기줄(S48-54, 요청함 11/03 07:43·07:44 ②③④): 여러 장 고르기 아래 줄·크게 보기 아래 줄은 공용 부품(.kptu-actbar) 하나.
-// 칸은 같은 너비로 줄 폭을 나누고(넓은 화면은 칸 최대 120px), 간격이 같고, 글자가 잘리지 않는다. 옮기기·지우기는 선 아이콘(📁·🗑 없음), 지우기는 글자만 빨강.
+// 칸은 같은 너비로 줄 폭을 나누고(넓은 화면은 칸 최대 120px), 간격이 같고, 글자가 잘리지 않는다. 버튼마다 선 아이콘(📁·🗑 없음), 지우기도 다른 버튼과 같은 색.
 // 세 폭(폰 412·폴드 펼침 768·PC 1280) 사진은 test-results/ui-audit/s48-54-*.png, 잰 값은 '::notice title=s48-54'.
 for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 줄·크게 보기 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
   const { measureActBar, checkActBar } = await import('./helpers/act-bar-measure.mjs');
@@ -422,9 +422,9 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 �
   else expect(Math.abs(sel.leftGap - sel.rightGap), '양 끝 여백 같음').toBeLessThanOrEqual(2);
   expect(sel.rows, '한 줄').toBe(1);
   expect(sel.minHeight, '누르는 높이').toBeGreaterThanOrEqual(32);
-  expect(sel.svgCount, '옮기기·지우기 선 아이콘').toBe(2);
+  expect(sel.svgCount, '버튼마다 선 아이콘').toBe(sel.n);
   expect(sel.iconColors.length, '아이콘 색 하나').toBe(1);
-  expect(sel.dangerText, '지우기 글자 빨강').not.toBe(sel.dangerIcon);
+  expect(sel.dangerText, '지우기 글자도 다른 버튼과 같은 색(빨강 아님)').toBe(sel.dangerIcon);
   await expect(bar.locator('[data-photos-act-delete] .kptu-act-tx')).toHaveText('지우기');
   await page.screenshot({ path: `${DIR}/s48-54-photos-select-${width}.png` });
   await root(page).locator('[data-photos-sel-off]').click();
@@ -437,7 +437,7 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 �
   checkActBar(act, check, `크게 보기 줄 ${width}`);
   if (act.maxWidth < 119.5) { expect(act.leftGap).toBeLessThanOrEqual(6); expect(act.rightGap).toBeLessThanOrEqual(6); }
   else expect(Math.abs(act.leftGap - act.rightGap)).toBeLessThanOrEqual(2);
-  expect(act.svgCount, '지우기 선 아이콘').toBe(1);
+  expect(act.svgCount, '버튼마다 선 아이콘').toBe(act.n);
   await page.screenshot({ path: `${DIR}/s48-54-photos-viewer-${width}.png` });
   const esc = t => t.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
   process.stdout.write(`::notice title=s48-54 photos ${width}::${esc(JSON.stringify({select: {n: sel.n, widths: sel.widths, left: Math.round(sel.leftGap), right: Math.round(sel.rightGap), bar: sel.barWidth}, viewer: {n: act.n, widths: act.widths, left: Math.round(act.leftGap), right: Math.round(act.rightGap)}}))}\n`);

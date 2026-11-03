@@ -116,7 +116,7 @@ for (const width of [412, 1440]) {
       await expect(viewer(page).locator('[data-strip-starfx]')).toHaveAttribute('data-anim', 'drag');
     });
     await expect(starBtn).toHaveAttribute('aria-pressed', 'true');
-    await expect(starBtn.locator('span').first()).toHaveText('★');
+    await expect(starBtn.locator('svg').first()).toBeVisible();
     await expect.poll(() => f.starWrites).toEqual([{ method: 'POST', key: 'P005' }]);
     await expect.poll(() => viewer(page).locator('[data-strip-starfx]').getAttribute('data-anim'), { timeout: 3000 }).toBeNull();
     await expect.poll(() => transformOf(slide(page))).toBe('');
