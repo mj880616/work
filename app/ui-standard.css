@@ -991,6 +991,7 @@
   box-sizing:border-box; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px);
   margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); box-shadow:none; cursor:pointer;
 }
+#appView #basketView button.basket-icon-button[data-basket-read-raw]{ font-size:12px; font-weight:500; line-height:1; } /* S48-64: [원문]/[서식] 글자 */
 #appView #basketView button.basket-icon-button:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
 #appView #basketView button.basket-icon-button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 #appView #basketView button.basket-icon-button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }

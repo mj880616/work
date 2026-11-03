@@ -31,7 +31,7 @@ async function fakeRecorder(page){
 }
 
 async function mock(page,{pending=[],pieceFails=1,rec=null}={}){
-  const calls=[];
+  const calls=[],meetingPosts=calls.meetingPosts=[];
   let pendingServed=false;
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
@@ -42,7 +42,7 @@ async function mock(page,{pending=[],pieceFails=1,rec=null}={}){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'rec-ws',user_id:'rec-user',role:'owner',email:'rec@example.org',workspace:{id:'rec-ws',name:'QA Workspace'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'rec-ws',name:'QA Workspace'}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:'rec-user',display_name:'녹음 QA'}]);
-    if(path==='/rest/v1/app_meetings'){if(method==='POST')return ok([{id:'meeting-new',workspace_id:'rec-ws',title:'운영위',series_name:'운영위',meeting_at:'2026-10-29T05:30:00Z',activity_kind:'meeting'}]);return ok([])}
+    if(path==='/rest/v1/app_meetings'){if(method==='POST'){try{const b=JSON.parse(req.postData()||'{}');meetingPosts.push(Array.isArray(b)?b[0]:b)}catch{}return ok([{id:'meeting-new',workspace_id:'rec-ws',title:'운영위',series_name:'운영위',meeting_at:'2026-10-29T05:30:00Z',activity_kind:'meeting'}])}return ok([])}
     if(path==='/functions/v1/meeting-transcribe'){
       const action=url.searchParams.get('action');
       const headers=req.headers();
@@ -150,6 +150,9 @@ test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 �
   const draft=calls.find(c=>c.action==='draft');
   expect(draft.body.transcript_text).toContain('다음 주 화요일 교섭 일정');
   await expect(page.locator('#mtdStatus')).toContainText('초안을 채웠어요');
+  // S48-64: 전사 전문은 '회의록 전문' 칸(notes)에 들어가 저장 때 함께 남는다. 요약 호출은 15초가 아닌 긴 기다림으로.
+  await expect(page.locator('#meetingNotesLabel')).toHaveText('회의록 전문');
+  await expect(page.locator('#meetingNotes')).toHaveValue(/다음 주 화요일 교섭 일정/);
   await expect(band.locator('.rec-note strong')).toHaveText('초안 열림');
   expect(await page.evaluate(()=>window.__fakeRec.track.stopped)).toBe(true);
   await expect(page.locator('#mtdAttach')).toBeChecked();
@@ -160,6 +163,7 @@ test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 �
   await page.locator('#meetingTitle').fill('운영위');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>recCalls(calls,'attach').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000j1',meeting_id:'meeting-new'}]);
+  await expect.poll(()=>calls.meetingPosts.at(-1)?.notes||'').toContain('다음 주 화요일 교섭 일정');
 });
 
 test('PC: 다시 열면 사업 보고 위 \'이어서 정리\' 한 줄 → 전사 → 초안 창',async({page})=>{

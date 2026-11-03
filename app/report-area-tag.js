@@ -59,7 +59,8 @@ async function suggestAll(mine){
   const left=active.list.filter(m=>!preset(m));let asked=0;
   for(const m of left){
     if(mine!==run||!active||asked>=AI_ROWS)return;
-    const title=titleOf(m),text=[m.transcript_text,m.decisions,m.notes,String(m.next_plan||'').trim()&&`다음 할 일: ${m.next_plan}`].map(x=>String(x||'').trim()).filter(Boolean).join('\n').slice(0,3000);
+    // S48-64: 특이사항(=[회의] 칸 '회의록 전문')은 맨 뒤 300자만(전사 전문이 추천 재료를 밀어내지 않게).
+    const title=titleOf(m),text=[m.transcript_text,m.decisions,String(m.next_plan||'').trim()&&`다음 할 일: ${m.next_plan}`,String(m.notes||'').slice(0,300)].map(x=>String(x||'').trim()).filter(Boolean).join('\n').slice(0,3000);
     if(!text&&title==='제목 없음')continue;
     asked++;
     let r;try{const {callAiAssist}=await import('./basket-ai-summary.js');r=await callAiAssist({kind:'area_suggest',title:title.slice(0,200),text})}catch{r={ok:false,code:'internal_error'}}

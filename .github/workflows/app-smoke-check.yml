@@ -76,6 +76,7 @@ on:
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-transcript-model.test.mjs'
+      - 'tests/meeting-transcript-long.test.mjs'
       - 'tests/meeting-recorder-model.test.mjs'
       - 'tests/phone-recorder.test.mjs'
       - 'tests/phone-widget-write.test.mjs'
@@ -221,6 +222,7 @@ on:
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-transcript-model.test.mjs'
+      - 'tests/meeting-transcript-long.test.mjs'
       - 'tests/meeting-recorder-model.test.mjs'
       - 'tests/phone-recorder.test.mjs'
       - 'tests/phone-widget-write.test.mjs'
@@ -465,7 +467,7 @@ jobs:
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
       - name: Meeting transcript → meeting record draft (MTG-녹음초안)
-        run: node --test tests/meeting-transcript-model.test.mjs
+        run: node --test tests/meeting-transcript-model.test.mjs tests/meeting-transcript-long.test.mjs
 
       - name: Laptop recording rules (MTG-노트북녹음 2단계, segment roll·piece retry·text join·band words)
         run: node --test tests/meeting-recorder-model.test.mjs
