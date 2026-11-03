@@ -62,7 +62,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // ---------- 그리기 ----------
   function aiHtml() {
     if (cur.unread) return `<div class="nd-unread" data-nd-unread role="status"><p class="nd-reason">기사를 읽지 못했어요 · ${esc(cur.unread)}</p><p class="nd-unread-acts"><button type="button" class="secondary" data-nd-retry>다시</button>${cur.head.url ? `<a class="nd-link" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" aria-label="원문 (새 창)">원문 ↗</a>` : ''}</p></div>`;
-    if (!cur.detail && cur.reading) return '<div class="nd-wait" data-nd-wait><p class="nd-faint">기사 읽는 중 · 처음 한 번만</p>' + waitHtml({rows: 3}) + '</div>';
+    if (!cur.detail && cur.reading) return '<div class="nd-wait" data-nd-wait><p class="nd-faint">기사 가져오는 중 · 처음 한 번만</p>' + waitHtml({rows: 3}) + '</div>';
     if (!cur.detail) return cur.failed ? `${failHtml({text: cur.failed, retry: 'data-nd-retry'})}` : `<div class="nd-wait" data-nd-wait><p class="nd-faint">상세를 만드는 중 · 처음 한 번만</p>${waitHtml({rows: 5})}</div>`;
     const v = detailView(cur.detail);
     const sec = (title, inner, attr) => (inner ? `<section class="nd-sec"${attr ? ` ${attr}` : ''}><h4 class="nd-h">${title}</h4>${inner}</section>` : '');
