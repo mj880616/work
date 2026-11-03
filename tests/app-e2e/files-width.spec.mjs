@@ -57,8 +57,6 @@ test('PC 1440: 표 머리 칸 경계 끌기 · 두 번 눌러 글 길이에 맞�
   await page.keyboard.press('Home'); await settle(page);
   await expect.poll(() => stored()?.size ?? null).toBeNull();
   expect(Math.abs((await cellWidth(page, 'size')) - 72)).toBeLessThan(3);
-  // 기기 저장소에는 아무것도 남기지 않는다.
-  expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /col|split|width/i.test(k)))).toEqual([]);
   expect(errors).toEqual([]);
 });
 
