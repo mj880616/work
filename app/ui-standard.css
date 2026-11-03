@@ -1088,6 +1088,8 @@
   #appView #basketView .note-list-head .note-search input{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* SHARE-현장공유 PR 2: 공유 페이지 화면의 큰 버튼([새 공유 페이지]·[저장]·[링크 만들기]·[다시 불러오기])도 같은 36px. 작은 보조 버튼(.sp-tool)은 그대로. */
   #appView #pagesView .sp-root button.primary:not(.icon-btn){ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  /* UI-버튼크기전수: 머리줄의 [+ HTML]과 [+ 새 공유 페이지]는 한 줄이라 같은 작은 버튼 높이(.btn-row). 이 묶음은 PC 폭(761px~)이고 폰은 동그란 [+](FAB 규칙). */
+  #appView #pagesView .sp-root .sp-head-actions.btn-row > button.primary:not(.icon-btn){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); }
   #appView #pagesView .sp-root button.secondary:not(.icon-btn){ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); }
   #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
