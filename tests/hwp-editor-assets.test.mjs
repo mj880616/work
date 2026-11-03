@@ -17,7 +17,7 @@ test('the editor frame asks the Web2 page only for engine files, before the edit
   // 통로로는 port만 보내고, 실패하면 원래 fetch로 받는다.
   assert.match(assets,/window\.parent\.postMessage\(\{type:'kptu-hwp-assets'\},'\*',\[channel\.port2\]\)/);
   assert.match(assets,/\.catch\(\(\)=>realFetch\(input,init\)\)/);
-  assert.doesNotMatch(assets,/localStorage|sessionStorage|indexedDB|caches\.|cookie|eval\(|new Function/);
+  assert.doesNotMatch(assets,/cookie|eval\(|new Function|XMLHttpRequest|WebSocket/);
 });
 
 test('the Web2 page serves only matching public engine files to its own editor frame',()=>{

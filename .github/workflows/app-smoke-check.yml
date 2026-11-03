@@ -69,6 +69,7 @@ on:
       - 'tests/basket-ocr.test.mjs'
       - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
+      - 'tests/hwp-editor-assets.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-fill-screen.test.mjs'
@@ -213,6 +214,7 @@ on:
       - 'tests/basket-ocr.test.mjs'
       - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
+      - 'tests/hwp-editor-assets.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
       - 'tests/hwp-fill-screen.test.mjs'
@@ -449,6 +451,9 @@ jobs:
 
       - name: Check pinned HWP editor files
         run: node --test tests/hwp-lab-pin.test.mjs
+
+      - name: Check HWP editor engine files come from the Web2 page cache
+        run: node --test tests/hwp-editor-assets.test.mjs
 
       - name: Check HWP union-style template and style shortcuts
         run: node --test tests/hwp-union-style.test.mjs

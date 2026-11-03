@@ -67,8 +67,8 @@ test('편집기를 두 번째 열 때 큰 편집기 부품을 다시 받지 않�
     }
     for(const r of rounds){
       const line=`[LIB-편집열기느림 실측] ${r.round}번째 열기: 편집기 준비 ${r.readyMs}ms, 파일 펼치기 ${r.openMs}ms, 편집기 부품 받은 양 ${mib(r.editorBytes)}(WASM ${mib(r.wasmBytes)}), 요청 ${r.requests}개`;
-      console.log(line);
-      console.log('  새로 받은 파일: '+r.fresh.join(', '));
+      // GitHub Actions 기록 위에 한 줄 알림으로도 남긴다(전후 비교 근거).
+      console.log(`::notice title=LIB-편집열기느림 실측::${line} / 새로 받은 파일: ${r.fresh.join(', ')||'없음'}`);
       test.info().annotations.push({type:'measure',description:line});
     }
     // 처음에는 엔진 파일을 받고, 두 번째에는 Web2 창의 캐시로 넘겨받아 서버에서 다시 받지 않는다.
