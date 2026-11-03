@@ -566,3 +566,38 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   expect(await noSideScroll(page)).toBe(true);
  });
 }
+
+// PERF-첫로딩 '연 화면 유지'(S48-50, first-load.md 12절): 원장에서 조직 이야기를 보다가 다른 화면에 갔다 오면 기다림 칸 없이
+// 보던 이야기·자동 꼬리표를 그대로 보이고, 뒤에서 다시 읽은 새 기록(자리를 비운 사이 생긴 것)은 읽기가 끝나면 그 자리에 나타난다.
+test('원장 연 화면 유지: 다른 화면에 갔다 오면 보던 이야기 그대로, 새 기록은 뒤에서 바뀐다 390',async({page})=>{
+ test.setTimeout(90000);
+ await page.setViewportSize({width:390,height:900});
+ const db=await mockApp(page);
+ await signIn(page);
+ const browse=page.locator('#ledgerBrowseRoot');
+ await expect(browse.locator('[data-lb-sec="overdue"]')).toBeVisible({timeout:15000});
+ await browse.locator('[data-lb-type="organization"]').first().click();
+ const story=browse.locator('[data-lb-story="organization"] .lb-head');
+ await expect(story).toHaveCount(3);
+ const waits=browse.locator('[data-wait]');
+ await expect.poll(()=>waits.count()).toBe(0);
+ await page.evaluate(()=>window.KPTURouter.go('home',{source:'keep-test'}));
+ await expect(page.locator('#homeView')).toBeVisible();
+ // 자리를 비운 사이 같은 조직에 기록이 하나 생겼다. 돌아온 뒤의 다시 읽기는 붙잡아 둔다.
+ db.records.push({...records()[1],id:u(4000),ledger_id:'CHG-0999',title:'가상 나 지부 새 기록',date_start:'2026-10-20'});
+ db.links.push({record_id:u(4000),target_organization_id:ORG});
+ let release;const held=new Promise(resolve=>{release=resolve;});
+ const rest=x=>x.origin===SB&&x.pathname.startsWith('/rest/v1/'),hold=async r=>{await held;await r.fallback();};
+ await page.route(rest,hold);
+ await page.evaluate(()=>window.KPTURouter.go('ledger',{source:'keep-test'}));
+ await expect(page.locator('#ledgerView')).toBeVisible();
+ // 읽기가 붙잡혀 있는 동안에도 보던 이야기 그대로, 기다림 칸 없음.
+ await expect(story).toHaveCount(3);
+ await expect(browse.locator('#lbStoryTitle')).toHaveText('나 지부');
+ expect(await waits.count()).toBe(0);
+ release();
+ await expect(story).toHaveCount(4);
+ await expect(browse.locator('[data-lb-story="organization"]')).toContainText('가상 나 지부 새 기록');
+ expect(await waits.count()).toBe(0);
+ await page.unroute(rest,hold);
+});

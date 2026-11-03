@@ -156,8 +156,10 @@ function renderList() {
     item.append(date, line); return item;
   }));
 }
-async function loadMonth({force = false} = {}) {
-  if (!force && loadedMonth === monthKey()) return renderMonth();
+// quiet = 연 화면 유지(PERF-첫로딩, first-load.md 12절): 다 그린 같은 달로 돌아오면 보던 달력·열린 날을 그대로 두고,
+// 뒤에서 이 달 일기를 다시 읽어 바뀐 것이 있을 때만 다시 그린다(기다림 표시 없음). 탭 메모리뿐.
+async function loadMonth({force = false, quiet = false} = {}) {
+  if (!force && loadedMonth === monthKey()) { renderMonth(); if (quiet) void refreshMonth(); return; }
   const run = ++epoch, key = monthKey();
   status.innerHTML = waitInlineHtml(); $('[data-diary-retry]').hidden = true;
   rows = new Map(); odMonth = null; starSet = new Set(); starsState = 'loading'; renderMonth();
@@ -173,6 +175,23 @@ async function loadMonth({force = false} = {}) {
     if (!current(run)) return;
     status.textContent = '일기를 불러오지 못했어요. 다시 시도해 주세요.'; $('[data-diary-retry]').hidden = false;
   }
+}
+let refreshSeq = 0;
+const rowsSign = list => JSON.stringify([...list].map(row => [row.journal_day, row.id, row.updated_at]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
+async function refreshMonth() {
+  const run = epoch, key = monthKey(), mine = ++refreshSeq;
+  // 쓰는 중·지우기 알림이 떠 있는 동안은 다시 읽지 않는다(고치던 글·되돌릴 날을 덮지 않게).
+  const busy = () => edit || pendingDelete;
+  if (busy()) return;
+  let list;
+  try { list = await readDiaryMonth(cursor.year, cursor.month, rt); } catch { return; } // 못 읽으면 보던 화면 그대로
+  if (mine !== refreshSeq || !current(run) || key !== monthKey() || loadedMonth !== key || busy()) return;
+  const next = Array.isArray(list) ? list : [];
+  if (rowsSign(next) === rowsSign([...rows.values()])) return;
+  rows = new Map(next.map(row => [row.journal_day, row])); listDirty = true;
+  status.textContent = rows.size ? '' : '이 달에는 아직 일기가 없어요. [+]로 사진이나 글을 남겨 보세요.';
+  renderMonth();
+  if (selected && monthOf(selected) === key) renderDetail();
 }
 function moveMonth(step) {
   const next = new Date(Date.UTC(cursor.year, cursor.month + step, 1));
@@ -875,7 +894,7 @@ function enter() {
     loadMonth().then(() => selectDay(day, {focus:true}));
     return;
   }
-  writePlace(); loadMonth();
+  writePlace(); loadMonth({quiet:true});
 }
 window.KPTURouter?.on?.('diary', enter);
 window.KPTUDiary = {refresh:() => loadMonth({force:true})};

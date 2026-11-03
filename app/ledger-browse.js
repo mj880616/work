@@ -100,11 +100,13 @@ async function loadHome() {
 }
 
 // ---------- 이야기(칩 → 시간순 타임라인) ----------
-async function openStory(type, id, { keepOpen = false } = {}) {
+async function openStory(type, id, { keepOpen = false, quiet = false } = {}) {
   const list = type === 'organization' ? state.organizations : state.topics;
   const item = list.find(x => String(x.id) === id);
   if (!item) return;
-  state.story = { type, id, name: item.name, rows: null, error: '' };
+  // 연 화면 유지: 같은 이야기를 다시 읽을 때는 보던 줄을 두고(기다림 칸 없이) 새 줄이 오면 바꾼다.
+  const shown = quiet && state.story?.type === type && state.story?.id === id && Array.isArray(state.story.rows) ? state.story.rows : null;
+  state.story = { type, id, name: item.name, rows: shown, error: '' };
   if (!keepOpen) { state.openId = null; state.more.delete('story'); }
   const mine = ++seq;
   render();
@@ -113,21 +115,24 @@ async function openStory(type, id, { keepOpen = false } = {}) {
       p_query: '', p_kinds: null, p_organization_id: type === 'organization' ? id : null, p_topic_id: type === 'topic' ? id : null,
       p_date_from: null, p_date_to: null, p_scope: null, p_include_inactive: false, p_limit: MAX_LIMIT } });
     if (mine !== seq || !state.story) return;
-    state.story.rows = storySort((Array.isArray(rows) ? rows : []).filter(validResult));
-    const changes = await readChanges(state.story.rows.map(r => r.id));
+    const next = storySort((Array.isArray(rows) ? rows : []).filter(validResult));
+    const changes = await readChanges(next.map(r => r.id));
+    if (mine !== seq || !state.story) return;
     for (const [k, v] of changes) state.changes.set(k, v);
+    state.story.rows = next;
   } catch { if (mine === seq && state.story) state.story.error = '이야기를 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.'; }
   if (mine === seq) render();
   document.querySelector('#lbStoryTitle')?.focus?.({ preventScroll: true });
 }
 
-async function search() {
-  state.story = null;
+// quiet = 연 화면 유지(이미 다 그린 원장을 다시 열 때·바뀜 알림): 보던 이야기·목록을 그대로 두고, 찾는 중 표시 없이 뒤에서 다시 읽는다.
+async function search({ quiet = false } = {}) {
+  if (!quiet) state.story = null;
   if (!isSearching(state.filters)) { state.rows = []; state.phase = 'ready'; ++seq; await loadHome(); return; }
   const built = searchArgs(state.filters, state.limit);
   if (built.error) { state.error = built.error; render(); return; }
   const mine = ++seq;
-  state.busy = true; state.error = ''; render();
+  state.busy = !quiet; state.error = ''; if (!quiet) render();
   try {
     const rows = await rt.api('/rest/v1/rpc/app_ledger_search', { method: 'POST', body: built.args, singleFlight: false });
     if (mine !== seq) return;
@@ -182,15 +187,20 @@ function load() {
 }
 async function loadOnce() {
   const open = state.openId, keep = open ? state.details.get(open) : null;
-  if (state.phase !== 'ready') { state.phase = 'loading'; render(); }
+  // PERF-첫로딩 '연 화면 유지'(first-load.md 12절): 이미 다 그린 원장을 다시 열면 기다림 칸 없이 보던 화면(이야기·목록·꼬리표·펼친 상세)을
+  // 그대로 두고, 뒤에서 다시 읽어 온 칸만 바꾼다. 처음·주인이 바뀐 뒤(state = fresh())는 전처럼 기다림 칸부터. 탭 메모리뿐.
+  const quiet = state.phase === 'ready';
+  if (!quiet) { state.phase = 'loading'; render(); }
   try { await loadLists(); }
   catch (e) { state.phase = isMissing(e) ? 'hidden' : 'error'; render(); return; }
-  state.details.clear(); state.changes.clear();
+  state.details.clear();
+  // 꼬리표(자동·수정 요청)는 다시 읽는 동안 보던 것을 두고 새로 읽은 기록 것으로 덮는다(잠깐 사라졌다 나타나지 않게).
+  if (!quiet) state.changes.clear();
   // 다시 읽는 동안에는 펼친 기록의 옛 상세를 그대로 둔다(상세가 비어 빨간 오류가 잠깐 뜨지 않게). 곧 새로 읽어 바꾼다.
   if (keep) state.details.set(open, keep);
   const story = state.story;
-  await search();
-  if (story) await openStory(story.type, story.id, { keepOpen: true });
+  await search({ quiet });
+  if (story) await openStory(story.type, story.id, { keepOpen: true, quiet });
   await settleOpen(open);
 }
 // 다시 읽은 목록에 펼친 기록이 아직 있으면 상세를 새로 읽고, 없으면(대체·폐기·추적 종료) 접는다.
