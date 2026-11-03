@@ -18,4 +18,3 @@
 .od-link-menu button:hover{background:var(--kptu-surface-subtle)}
 .od-link-menu button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .od-link-menu .od-link-check{flex:0 0 12px;width:12px;color:var(--kptu-info)}
-.od-link-menu .od-link-danger{color:var(--kptu-danger)}

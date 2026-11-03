@@ -71,7 +71,6 @@
 .fx-row.fx-picked { background:var(--kptu-primary-soft); box-shadow:inset 2px 0 0 var(--kptu-primary); }
 .fx-row.fx-cut { opacity:.55; }
 .fx-drop-on, .fx-row.fx-drop-on { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
-.fx-btn.fx-danger { color:var(--kptu-danger); }
 .fx-btn:disabled { opacity:.5; cursor:default; }
 .fx-pv-twins { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:6px 0; font-size:12px; }
 .fx-pv-twins[hidden] { display:none; }

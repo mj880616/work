@@ -146,6 +146,9 @@
 #appView #photosView .photos-srcs [data-photos-src][aria-pressed="true"]{ background:transparent; color:var(--kptu-ink); }
 #appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"]{ background:transparent; color:var(--kptu-faint); }
 #appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"] svg{ filter:grayscale(1); opacity:.45; }
+/* PHOTO-폴더출처컬러(S49-5, 요청함 11/03 15:02): 폰 폴더 칩도 원드라이브·구글 드라이브와 같은 규칙 — 켜짐 = 색(노란 폴더, 안을 칠함), 꺼짐 = 회색·엷게(위 규칙). */
+#appView #photosView .photos-srcs [data-photos-src="phone"][aria-pressed="true"]{ color:var(--photos-folder-on,#c9961f); }
+#appView #photosView .photos-srcs [data-photos-src="phone"][aria-pressed="true"] .photos-src-ic path{ fill:currentColor; fill-opacity:.35; }
 #appView #photosView .photos-srcs [data-photos-src][aria-disabled="true"]{ opacity:.45; cursor:default; }
 /* S46-24 ④: 구글 드라이브 칩이 권한 없음·못 읽음이면 오른쪽 위 작은 빨간 점(원드라이브 아이콘과 같은 모양). 이유는 작은 글자.
    S46-29: 점은 ::before. button.mini의 ::after는 base-ui.css가 누르는 영역(44px)으로 쓰므로 표시를 그리지 않는다. */

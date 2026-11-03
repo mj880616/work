@@ -113,7 +113,7 @@ test.describe('폰 앱 412', () => {
     await page.locator('#photosRoot [data-photos-id="ph:1"]').click();
     await expect(viewer(page)).toBeVisible();
     await expect(editBtn(page)).toBeVisible();
-    await expect(editBtn(page)).toHaveText('✎ 편집');
+    await expect(editBtn(page)).toHaveText('편집');
     const pages = state.phoneReads.filter(p => p.startsWith(`${KEY}/page?`)).length;
     await editBtn(page).click();
     await expect.poll(() => sent(page)).toEqual(['photos:edit:{"id":"1"}']);

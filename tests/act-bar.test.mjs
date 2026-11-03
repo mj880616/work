@@ -17,7 +17,7 @@ test('공용 규칙 한 곳: 같은 너비 칸·최대 120px·같은 간격·낱
   const css = noComments(read('base-ui.css'));
   assert.match(css, /\.kptu-actbar\{display:flex;align-items:center;justify-content:space-evenly;/);
   assert.match(css, /#appView \.kptu-actbar>button\.kptu-act\{[^}]*flex:1 1 0;min-width:min-content;max-width:120px;[^}]*word-break:keep-all/);
-  assert.match(css, /\.kptu-act-danger:not\(:disabled\) \.kptu-act-tx[^{]*\{color:var\(--kptu-danger\)\}/);
+  assert.doesNotMatch(css, /\.kptu-act-danger[^{]*\{[^}]*color:var\(--kptu-danger\)/, 'UI-지우기빨강빼기: 줄의 지우기도 다른 버튼과 같은 색');
   assert.match(css, /\.kptu-actbar-text\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(var\(--kptu-act-min,56px\),1fr\)\)/);
   assert.match(css, /#appView \.kptu-actbar-text>button\.kptu-act\{[^}]*width:100%/);
 });
@@ -33,7 +33,7 @@ test('전수: 사진 고르기·휴지통 고르기·크게 보기·노트·자�
   for (const [src, start] of [[photos, '<div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act '], [photos, 'data-photos-trash-act'], [strip, '<div class="diary-viewer-actions']]) assert.doesNotMatch(bar(src, start), /📁|🗑/, start);
   for (const attr of ['data-photos-act-move', 'data-photos-act-delete', 'data-photos-purge']) assert.match(photos, new RegExp(`${attr}[^>]*>\\$\\{actInner\\(ACT_ICON\\.(move|delete)`));
   assert.match(strip, /data-od-delete>\$\{actInner\(ACT_ICON\.delete, '지우기'\)\}/);
-  // 지우기는 모두 kptu-act-danger(글자만 빨강).
+  // 지우기는 모두 kptu-act-danger(표시만, 색은 같음).
   for (const attr of ['data-photos-act-delete', 'data-photos-purge']) assert.match(photos, new RegExp(`class="kptu-act kptu-act-danger" ${attr}`));
   assert.match(notes, /class="kptu-act kptu-act-danger" data-nx-sel-delete/);
   assert.match(html, /id="librarySelectDelete" class="lu-select-act kptu-act kptu-act-danger"/);
