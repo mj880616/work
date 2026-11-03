@@ -97,14 +97,16 @@ test('UI-PC다듬기묶음 ② 폰 390·중간 폭 900: [+ 일정 등록]은 폰
  const mid=await box(page.locator('#newEventBtn'));expect(mid.height).toBe(32);
 });
 
-for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 정리함 업데이트·노트 본문이 사이드바 바로 옆 왼쪽에서 시작, 최대 폭 1100`,async({page})=>{
+for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 정리함 업데이트·노트 본문이 사이드바 바로 옆 왼쪽에서 시작, 본문 칸을 꽉 씀(UI-화면정리 C2)`,async({page})=>{
  await boot(page,width);
  await open(page,'basket');
  const nav=await box(page.locator('#appView>.app-nav'));
  const check=async label=>{
   const root=await box(page.locator('#basketView'));
   expect(root.left-nav.right,label+' 본문 시작').toBeGreaterThanOrEqual(0);expect(root.left-nav.right,label+' 본문 시작').toBeLessThanOrEqual(48);
-  expect(root.width,label+' 폭').toBeLessThanOrEqual(1100.5);
+  // UI-화면정리 C2(S48-46): 예전 최대 폭 1100px을 풀었다 — 다른 PC 화면처럼 본문 칸(main 안쪽, 사이드바 오른쪽) 끝까지 쓴다.
+  const end=await page.evaluate(()=>{const a=document.querySelector('#appView'),cs=getComputedStyle(a);return a.getBoundingClientRect().right-parseFloat(cs.paddingRight)-parseFloat(cs.borderRightWidth)});
+  expect(Math.abs(root.right-end),label+' 폭(본문 칸 끝까지)').toBeLessThanOrEqual(2);
   return root;
  };
  // 업데이트: 탭·입력창

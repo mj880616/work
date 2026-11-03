@@ -46,11 +46,8 @@
 #appView #photosView .photos-sel{ position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:8px; min-height:40px; padding:0 8px; color:var(--kptu-on-primary); background:var(--kptu-primary); border-radius:var(--kptu-radius-sm,6px); font-size:var(--ds-compact-text,13px); }
 #appView #photosView .photos-sel[hidden],#appView #photosView .photos-act[hidden]{ display:none; }
 #appView #photosView .photos-sel-x{ position:relative; width:32px; min-width:0; height:32px; min-height:0; margin:0; padding:0; color:inherit; background:transparent; border:0; box-shadow:none; font-size:16px; }
-#appView #photosView .photos-act{ position:sticky; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); z-index:3; display:flex; justify-content:space-around; gap:2px; padding:4px; background:var(--kptu-surface); border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
-#appView #photosView .photos-act button{ position:relative; display:inline-flex; align-items:center; gap:4px; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 10px; color:var(--kptu-ink); background:transparent; border:0; box-shadow:none; font-size:var(--ds-compact-text,13px); }
-#appView #photosView .photos-act button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-#appView #photosView .photos-act button:disabled{ opacity:.45; }
-#appView #photosView .photos-act .photos-danger{ color:var(--kptu-danger); }
+/* UI-고르기줄(S48-54): 버튼 칸 나누기·아이콘·글자 모양은 공용 부품(base-ui.css .kptu-actbar). 여기는 줄 자리(아래 붙기)·바탕만. */
+#appView #photosView .photos-act{ position:sticky; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); z-index:3; flex-wrap:nowrap; padding:2px 4px; color:var(--kptu-ink); background:var(--kptu-surface); border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
 /* 달력: 일기 달력처럼 7칸. 칸마다 그날 대표 사진 1장(작게)과 장수. */
 #appView #photosView .photos-cal-head{ display:flex; align-items:center; justify-content:center; gap:12px; padding:4px 0; font-size:var(--ds-text-row,14px); }
 #appView #photosView .photos-cal-head b{ font-weight:var(--ds-weight-medium,500); }
@@ -81,10 +78,8 @@
 #appView #photosView .photos-od button.secondary{ align-self:flex-start; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 #appView #photosView .photos-od .diary-danger{ color:var(--kptu-danger); }
 #appView #photosView .photos-od:empty{ display:none; }
-#appView #photosView .photos-act button[hidden]{ display:none; }
-/* 사진 메뉴 ②: 아래 작업 줄에 [📁 옮기기]·[# 앨범]이 더해져 폰 412px에서는 한 줄 가로 넘김(줄바꿈 없음). */
+/* 사진 메뉴 ②: 아래 작업 줄에 [옮기기]·[앨범]이 더해졌다. 칸은 같은 너비로 줄 폭을 나눈다(공용 .kptu-actbar). 아주 좁아 칸이 모자랄 때만 가로 넘김(잘림 없음). */
 #appView #photosView .photos-act{ overflow-x:auto; scrollbar-width:none; }
-@media (max-width:760px){ #appView #photosView .photos-act{ justify-content:flex-start; } #appView #photosView .photos-act button{ flex:none; padding:0 7px; } }
 /* 이름 넣기 줄(새 폴더·이름 바꾸기·새 앨범) — S47-26: 카드·제목 없이 한 줄 [입력칸][만들기][×]. 입력칸 높이는 앱 입력칸(--kptu-control-height),
    버튼은 작은 버튼(--ds-compact-height), 누르는 범위 44px. 공용 label 기본(세로 쌓기·굵은 글자)을 쓰지 않으려고 label을 없앴다(이름은 엷은 글자·aria-label). */
 #appView #photosView .photos-name{ display:flex; align-items:center; gap:4px; margin:0; padding:0; border:0; background:none; font-size:var(--ds-compact-text,13px); }

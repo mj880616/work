@@ -266,7 +266,7 @@ async function load(start, rt) {
   try { const rows = await readLearnRows(start, rt); s.status = rows ? 'ok' : 'missing'; s.rows = rows ?? []; }
   catch { s.status = 'failed'; }
   if (last?.start === start && last.slot.isConnected) draw(last.slot, start, s, rt);
-  if (s.status === 'ok') void reviewOnOpen(start, s, rt);
+  if (s.status === 'ok') { void reviewOnOpen(start, s, rt); void madeOnOpen(start, s, rt); }
 }
 // ---- 확정 전 환류 정리(명진 결정 11/01 ③, 설계 3.2절 ②) ----
 // [주간 정리]를 열 때 이 주 동작 기록이 마지막 정리 뒤 30건 넘게 모이고 6시간이 지났으면 weekly_review 를 한 번 부른다(주 3회 상한, 이 화면을 연 동안 주마다 한 번만 시도).
@@ -284,6 +284,31 @@ async function reviewOnOpen(start, s, rt) {
   if (!r?.ok || r.data?.kind !== 'weekly_review' || r.data.week_start !== start) return;
   try { await changeWeekDocs({start, change:d => ({...(d ?? emptyDraft()), picks:withReview(d?.picks ?? null, nowIso())})}, rt); } catch { /* 시각만 못 남김 — 다음에 다시 셈 */ }
   s.ui.msg = ''; s.ui.error = false; notify('고친 것을 모아 새 규칙 후보를 정리했어요.');
+  const rows = await readLearnRows(start, rt).catch(() => null);
+  if (rows) s.rows = rows;
+  if (last?.start === start && last.slot.isConnected) draw(last.slot, start, s, rt);
+}
+// ---- '만듦 #PR' 번호 읽기(WEEKLY-개발후보CC 2단계, 설계 25.3 3.·4.·25.5, S48-57) ----
+// 요청함에 보냈는데(sent) 아직 번호(made)가 없는 만들기 제안이 있는 주만, 이 화면을 연 동안 주마다 한 번 서버에 {week_start}만 보낸다(최근 4주까지).
+// 서버(document-actions dev-made)가 요청함 문서에서 CC가 적은 '완료 #NNN'을 읽어 그 주 행에 번호를 남긴다 — 화면은 번호를 쓰지 않는다.
+// 운영자 아님·함수 배포 전·문서 설정 전·실패는 모두 조용히 넘어간다(다음에 화면을 다시 열면 다시 셈). 브라우저 저장소 없음.
+const madeTried = new Set();
+export const madePendingWeeks = (rows = [], max = 4) => rows
+  .filter(r => (r?.feedback?.review?.suggestions ?? []).some(x => x?.answer === 'yes' && typeof x.sent === 'string' && !madeOf(x.made)))
+  .map(r => r.week_start).filter(w => /^\d{4}-\d{2}-\d{2}$/.test(String(w ?? ''))).sort().reverse().slice(0, max);
+export async function askDevMade(week, rt = window.KPTURuntime) {
+  try {
+    const data = await rt.api('/functions/v1/document-actions', {method:'POST', body:{action:'dev-made', week_start:week}, refreshSession:false, singleFlight:false});
+    return data?.ok === true && Number.isInteger(data.updated) && data.updated > 0 ? data.updated : 0;
+  } catch { return 0; }
+}
+async function madeOnOpen(start, s, rt) {
+  const weeks = madePendingWeeks(s.rows).filter(w => !madeTried.has(w));
+  if (!weeks.length) return;
+  weeks.forEach(w => madeTried.add(w));
+  let n = 0;
+  for (const w of weeks) n += await askDevMade(w, rt);
+  if (!n) return;
   const rows = await readLearnRows(start, rt).catch(() => null);
   if (rows) s.rows = rows;
   if (last?.start === start && last.slot.isConnected) draw(last.slot, start, s, rt);

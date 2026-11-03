@@ -87,14 +87,29 @@ for (const [name, profile] of Object.entries(profiles)) {
             lastJsBeforeReady: Math.round(Math.max(0, ...before.filter(js).map(r => r.responseEnd))),
             // 시작 단계 수(2-1절 셈법): 보이기 전 JS 요청 시작 시각을 줄 세워 100ms 넘게 쉬면 새 단계로 센다(PERF-첫로딩 P4).
             jsStages: before.filter(js).map(r => r.startTime).sort((a, b) => a - b).reduce((n, t, i, all) => n + (i === 0 || t - all[i - 1] > 100 ? 1 : 0), 0),
+            // 자료 요청(Supabase REST·RPC·Edge·Auth) 수(PERF-첫로딩 요청 합치기, S48-59). 주소 경로만 세고 값·내용은 남기지 않는다.
+            // 흉내 서버가 즉시 답하므로 시간은 빼고 "몇 번 보내는가"만 본다. 같은 주소(경로+조건)를 두 번 넘게 보내면 겹침으로 센다.
+            ...(() => {
+              const sb = r => /\.supabase\.co$/.test(new URL(r.name).hostname);
+              const kind = u => (u.pathname.match(/^\/(rest|functions|auth|storage)\/v1\/(rpc\/)?([^/?]+)/) || []).slice(1).filter(Boolean).join(':') || u.pathname;
+              const count = list => {
+                const byKind = {}, byUrl = {};
+                for (const r of list) { const u = new URL(r.name); byKind[kind(u)] = (byKind[kind(u)] || 0) + 1; byUrl[u.pathname + u.search] = (byUrl[u.pathname + u.search] || 0) + 1; }
+                return { n: list.length, dup: Object.values(byUrl).reduce((n, c) => n + c - 1, 0), byKind };
+              };
+              const pre = count(before.filter(sb)), all = count(res.filter(sb));
+              return { dataBeforeReady: pre.n, dataDupBeforeReady: pre.dup, dataTotal: all.n, dataDupTotal: all.dup, dataKinds: all.byKind, dataKindsBeforeReady: pre.byKind };
+            })(),
             files: before.filter(js).map(r => [new URL(r.name).pathname, Math.round(r.decodedBodySize / 1024), Math.round(r.startTime), Math.round(r.responseEnd)]),
           };
         }, { viewAt }));
       }
       const pick = key => median(samples.map(s => s[key]));
-      const { files, url, ...numbers } = samples[0];
+      const { files, url, dataKinds, dataKindsBeforeReady, ...numbers } = samples[0];
       // PERF_DUMP=1이면 첫 측정의 파일 목록(경로, KB, 요청 시작, 받기 끝 ms)을 따로 찍는다.
       if (process.env.PERF_DUMP) console.log('PERF_FILES ' + JSON.stringify({ profile: name, view, files }));
+      // 자료 요청 종류별 수(첫 측정, 경로 이름만). 요청 합치기 전후 비교용.
+      console.log('PERF_DATA ' + JSON.stringify({ ...(process.env.PERF_ROUND ? { round: process.env.PERF_ROUND } : {}), profile: name, view, beforeReady: dataKindsBeforeReady, total: dataKinds }));
       rows.push({ ...(process.env.PERF_ROUND ? { round: process.env.PERF_ROUND } : {}), profile: name, view, url, ...Object.fromEntries(Object.keys(numbers).map(k => [k, pick(k)])) });
     }
     for (const row of rows) console.log('PERF ' + JSON.stringify(row));
