@@ -25,7 +25,7 @@ async function hmac(key, text) {
   const k = await crypto.subtle.importKey('raw', enc.encode(`meeting-job-tick:${key}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return hex(await crypto.subtle.sign('HMAC', k, enc.encode(text)));
 }
-export async function tickSign(key, jobId, exp) {
+export function tickSign(key, jobId, exp) {
   if (!key || !isUuid(jobId) || !Number.isSafeInteger(exp)) throw new Error('tick_sign');
   return hmac(key, `${jobId}.${exp}`);
 }
@@ -96,7 +96,7 @@ export function joinParts(parts) {
   return out.join('\n\n');
 }
 // 전사 글 정리(화면 cleanTranscript와 같은 규칙, 자막 파일 줄 빼기는 없음).
-export const cleanText = (text) => String(text || '').replace(/\r\n?/g, '\n').replace(/\u0000/g, '').split('\n').map((l) => l.replace(/\s+$/, '')).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+export const cleanText = (text) => String(text || '').replace(/\r\n?/g, '\n').split('\0').join('').split('\n').map((l) => l.replace(/\s+$/, '')).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 export const hasWords = (text) => !!String(text || '').replace(/^―.*―$/gm, '').trim();
 
 // 요약 단계 계획: 조각이 하나면 한 번, 아니면 조각마다 + 합치기 한 번.
