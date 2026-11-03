@@ -191,12 +191,9 @@ object HomeWidgets {
         return PendingIntent.getActivity(context, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
-    /** 아스날 위젯 지난 경기 줄(APP-아스날위젯알차게): 앱 아스날 화면에서 그 경기 리뷰를 바로 연다. id 모양이 아니면 아스날 화면만. */
-    fun arsenalMatchUrl(id: String?): String =
-        ShellRules.HOME + "?view=arsenal" + (id?.takeIf { WidgetArsenal.ID.matches(it) }?.let { "&match=$it" } ?: "")
-
+    /** 아스날 위젯 지난 경기 줄(APP-아스날위젯알차게): 앱 아스날 화면에서 그 경기 리뷰를 바로 연다(주소는 WidgetArsenal.matchUrl). */
     fun openArsenalMatch(context: Context, id: String?, code: Int): PendingIntent {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(arsenalMatchUrl(id)), context, MainActivity::class.java)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(WidgetArsenal.matchUrl(id)), context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return PendingIntent.getActivity(context, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }

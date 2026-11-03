@@ -169,3 +169,35 @@ test('아스날 PC 1440: 목록 | 리뷰 경계 끌기·키보드·새로고침 
   await checkSplit(page, { container: '#arsenalRoot .ars-body', left: ':scope>.ars-list', right: ':scope>.ars-detail', name: 'arsenal', share: 1 / 3, server, reopen: open });
   expect(f.errors).toEqual([]);
 });
+
+// APP-아스날위젯알차게(S48-55): 폰 위젯 '지난 경기' 줄 → ?view=arsenal&match=<id>로 그 경기 리뷰가 바로 열리고, 새로고침해도 같은 리뷰(자리 기억).
+const OLD = ALL.find(m => m.title === '크리스털 팰리스 1-2 아스날');
+test('아스날 폰 390: 주소의 match로 그 경기 리뷰가 바로 열리고, 뒤로가기 = 목록', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.setViewportSize({ width: 390, height: 900 });
+  await openHome(page, { query: `?view=arsenal&match=${OLD.id}` });
+  await expect(review(page)).toBeVisible();
+  await expect(review(page).locator('.ars-score-num')).toHaveText('1–2');
+  await expect.poll(() => new URL(page.url()).searchParams.get('match')).toBe(OLD.id);
+  await page.reload();
+  await expect(review(page)).toBeVisible();
+  await expect(review(page).locator('.ars-score-num')).toHaveText('1–2');
+  await page.locator('#arsenalRoot [data-ars-back]').click();
+  await expect(rows(page).first()).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get('match')).toBe(null);
+  expect(errors).toEqual([]);
+});
+
+test('아스날 PC 1280: 주소의 match 경기가 골라져 있고, 다른 경기를 누르면 주소도 바뀌고, 없는 id는 맨 위 경기', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openHome(page, { query: `?view=arsenal&match=${OLD.id}` });
+  await expect(page.locator(`#arsenalRoot [data-ars-row="${OLD.id}"]`)).toHaveAttribute('aria-pressed', 'true');
+  await expect(review(page).locator('.ars-score-num')).toHaveText('1–2');
+  await page.locator(`#arsenalRoot [data-ars-row="${newest.id}"]`).click();
+  await expect.poll(() => new URL(page.url()).searchParams.get('match')).toBe(newest.id);
+  await page.evaluate(() => { const u = new URL(location.href); u.searchParams.set('match', 'no-such-match'); history.replaceState(history.state, '', u); });
+  await page.reload();
+  await expect(page.locator('#arsenalView')).toBeVisible();
+  await expect(page.locator(`#arsenalRoot [data-ars-row="${newest.id}"]`)).toHaveAttribute('aria-pressed', 'true');
+});

@@ -427,13 +427,13 @@ object WidgetArsenal {
     /** 홈/원정 표시(글자 안 아이콘). */
     fun side(match: Match): String = if (match.home) "⌂홈" else "✈원정"
 
-    /** 골 넣은 선수 한 줄: 'Havertz 16\', Saka 12\' 71\''. 같은 선수는 한 번만 쓰고 분을 잇는다. 페널티는 (PK), 자책골은 '자책골'. */
+    /** 골 넣은 선수 한 줄: 예) Havertz 16′, Saka 12′ 71′ (실제 글은 ' 기호). 같은 선수는 한 번만 쓰고 분을 잇는다. 페널티는 (PK), 자책골은 '자책골'. */
     fun scorers(match: Match): String? {
         if (match.goals.isEmpty()) return null
         val order = LinkedHashMap<String, MutableList<String>>()
         for (g in match.goals) {
             val name = if (g.type == "own-goal") "자책골" else g.scorer.split(' ').lastOrNull { it.isNotBlank() } ?: "?"
-            order.getOrPut(name) { mutableListOf() }.add(g.minute + "'" + if (g.type == "penalty") "(PK)" else "")
+            order.getOrPut(name) { mutableListOf() }.add(g.minute + "'" + (if (g.type == "penalty") "(PK)" else ""))
         }
         return order.entries.joinToString(", ") { (name, mins) -> "$name ${mins.joinToString(" ")}" }
     }
@@ -447,6 +447,10 @@ object WidgetArsenal {
         if (now.isBefore(last.date.atStartOfDay()) || now.isAfter(resultUntil(last))) return null
         return last
     }
+
+    /** 지난 경기 줄을 눌렀을 때 열 주소: 앱 아스날 화면 + 그 경기(?match=, 웹 app-router 자리 기억). id 모양이 아니면 아스날 화면만. */
+    fun matchUrl(id: String?): String =
+        ShellRules.HOME + "?view=arsenal" + (id?.takeIf { ID.matches(it) }?.let { "&match=$it" } ?: "")
 
     /** 다음 경기 작은 칸(⑤). */
     data class Mini(val whenText: String, val tag: String, val side: String, val code: String, val name: String)
@@ -510,7 +514,7 @@ object WidgetArsenal {
                 listOf(competitionName(done), day(done.date)).filter { it.isNotBlank() }.joinToString(" · "),
                 "결과", "⚽ $goals", null,
                 nextShort ?: "다음 경기 자료 준비 중",
-                reviewText, reviewId, ups.take(3).map(::mini),
+                reviewText, reviewId, ups.take(3).map { mini(it) },
                 headline, "⚽ $goals",
                 "${done.opponent} ${done.score}${o?.let { " $it" } ?: ""}", "⚽ $goals",
             )
@@ -519,7 +523,7 @@ object WidgetArsenal {
             c, false, nx?.let(::code), nx?.let(::tag), nx?.let(::side), c.title, c.sub, c.dDay,
             listOfNotNull(c.after, c.broadcast).joinToString(" · "), c.sleep,
             lastShort ?: "지난 경기 없음",
-            reviewText, reviewId, ups.drop(1).take(3).map(::mini),
+            reviewText, reviewId, ups.drop(1).take(3).map { mini(it) },
             c.wideTop, c.wideBottom, c.lastTop, c.lastBottom,
         )
     }
