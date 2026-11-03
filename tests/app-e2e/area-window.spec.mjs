@@ -113,7 +113,7 @@ for(const width of [390,1280])test(`${width}: '사업영역 안 단 보고 n건 
   await reportWeekButton(page,'prev').click();await expect(weekLabel(page)).toContainText(WEEK_B);await expect(line).toBeHidden();
   await reportWeekButton(page,'next').click();await expect(weekLabel(page)).toContainText(WEEK_A);await expect(line).toBeVisible();
   await reportWeekButton(page,'all').click();await expect(line).toBeHidden();
-  await reportWeekButton(page,'all').click();await expect(line).toBeVisible();
+  await reportWeekButton(page,'week').click();await expect(line).toBeVisible();
   // 줄은 얇고 버튼은 작다.
   const btn=line.locator('[data-area-untagged]');
   expect((await line.boundingBox()).height).toBeLessThanOrEqual(36);expect((await btn.boundingBox()).height).toBeLessThanOrEqual(28);

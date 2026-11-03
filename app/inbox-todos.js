@@ -11,7 +11,9 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
 import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, markNotMine, undoNotMine, markTasked, candidateToTask, validateTaskDraft, notPlanned,
-  quickDue, dotDay, radarScope, ledgerRequestText, sourceText, RADAR_SOURCE_LABEL, markDone, logFeedback, dropFeedback, readFeedbackSince, TASK_TITLE_MAX} from './todo-radar-data.js';
+  quickDue, dotDay, radarScope, ledgerRequestText, sourceText, RADAR_SOURCE_LABEL, markDone, logFeedback, dropFeedback, readFeedbackSince, TASK_TITLE_MAX,
+  linkCandidateToTask, unlinkCandidate, dropCandidateOnly} from './todo-radar-data.js';
+import {similarTasks} from './todo-link-model.mjs'; // TODO-이미할일있음
 import {weekBounds, weeklySummary, recentByOutcome} from './todo-feedback-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {dueLabel} from './task-due.mjs';
@@ -38,20 +40,22 @@ function inboxRowMenu() {
   rowMenu ||= createAnchoredMenu({id:'inboxTodoRowMenu', className:'radar-row-menu', label:'챙길 것 줄 메뉴', historyKey:'kptuInboxTodoRowMenu',
     parent:trigger => trigger.closest('dialog,.modal') || document.body,
     key:trigger => trigger.dataset.inboxTodoMore, canOpen:trigger => !trigger.disabled && !!listOf(trigger),
-    render:() => '<button type="button" data-inbox-todo-menu="edit">고쳐서 할 일로</button><button type="button" data-inbox-todo-menu="not-mine">내 일 아님</button>',
+    render:() => '<button type="button" data-inbox-todo-menu="edit">고쳐서 할 일로</button><button type="button" data-inbox-todo-menu="already">이미 할 일에 있음</button><button type="button" data-inbox-todo-menu="not-mine">내 일 아님</button>',
     onAction:(button, active) => { const list = listOf(active.trigger); if (list) menuLists.get(list)?.(active.id, button.dataset.inboxTodoMenu); }});
   return rowMenu;
 }
 export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read, quietEmpty = false, hideSource = false, withPromises = true, openSource = () => {}, radarPromises = () => []}) {
   const readInboxCandidates = read || readAllInbox;
   let rows = [], state = 'loading', chip = 'open', run = 0, scope = radarScope(rt), status = '';
-  const copied = new Set(), busy = new Set(), unknown = new Map(), unmarked = new Map(), dues = new Map(), rowStatus = new Map(), editing = new Map();
+  const copied = new Set(), busy = new Set(), unknown = new Map(), unmarked = new Map(), dues = new Map(), rowStatus = new Map(), editing = new Map(), linking = new Map();
   // TODO-이미함·환류 5절: 정리함 본 목록(남의 read 없음)의 처리 전 칩 위에 '지난주 챙길 것 …' 한 줄. 결과 기록이 없거나 못 읽으면 안 그린다.
   let week = null;
   host.hidden = true;
 
   const openRows = () => notPlanned(rows.filter(r => r.status === 'open'), taskTitles());
-  const handledRows = which => rows.filter(r => r.status === which).sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || '')));
+  // TODO-이미할일있음: 이어 둘 할 일이 없어 그냥 뺀 '이미 할 일에 있음'(무시 상태)도 [할 일로 보냄] 칩에 함께 보인다.
+  const alreadyDropped = r => r.status === 'dismissed' && r.outcome === 'already_tasked';
+  const handledRows = which => rows.filter(r => which === 'tasked' ? (r.status === 'tasked' || alreadyDropped(r)) : which === 'dismissed' ? r.status === 'dismissed' && !alreadyDropped(r) : r.status === which).sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || '')));
   const shownRows = () => chip === 'open' ? openRows() : handledRows(chip);
   const count = () => state === 'ok' ? openRows().length : null;
   let told;
@@ -67,6 +71,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (number) number.textContent = count() === null ? '' : ' ' + count();
   }
   function doneLabel(c) {
+    if (c.outcome === 'already_tasked' && (c.status === 'tasked' || c.status === 'dismissed')) { const day = c.decided_at && Number.isFinite(Date.parse(c.decided_at)) ? dotDay(seoulDateKey(new Date(c.decided_at))) : ''; return day ? `이미 할 일에 있음 · ${day}` : '이미 할 일에 있음'; }
     if (c.status === 'dismissed') return c.outcome === 'not_mine' ? '내 일 아님' : '무시함';
     if (c.status === 'done') { const day = c.decided_at && Number.isFinite(Date.parse(c.decided_at)) ? dotDay(seoulDateKey(new Date(c.decided_at))) : ''; return day ? `이미 함 · ${day}` : '이미 함'; }
     const task = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).find(t => t?.id === c.task_id);
@@ -81,7 +86,14 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (!open) right = `<span class="inbox-todo-done">${esc(doneLabel(c))}</span>`;
     else if (unknown.has(c.id)) below = `<button type="button" class="inbox-todo-btn" data-inbox-todo-tasks>할 일 화면에서 확인</button>`;
     else if (unmarked.has(c.id)) below = `<button type="button" class="inbox-todo-btn" data-inbox-todo-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button>`;
-    else if (editing.has(c.id)) {
+    else if (linking.has(c.id)) {
+      // ⋯ [이미 할 일에 있음]: 제목이 비슷한 열린 할 일 몇 개를 보여 주고 하나를 고르면 그 할 일과 이어 두고 챙길 것에서 뺀다. 새 할 일은 만들지 않는다.
+      const l = linking.get(c.id), dis = isBusy ? ' disabled' : '';
+      const picks = l.tasks === null ? '<span class="inbox-todo-status">할 일 목록 읽는 중…</span>'
+        : l.tasks.length ? `<ul class="inbox-todo-link-list" aria-label="비슷한 할 일">${l.tasks.map(t => `<li><button type="button" class="inbox-todo-btn inbox-todo-link-pick" data-inbox-todo-link-task="${esc(t.id)}" data-inbox-todo-link-for="${id}"${dis}>${esc(t.title)}</button></li>`).join('')}</ul>`
+        : `<span class="inbox-todo-status">${l.failed ? '할 일 목록을 읽지 못했어요.' : '비슷한 할 일을 못 찾았어요.'}</span>`;
+      below = `<div class="inbox-todo-link" data-inbox-todo-link="${id}"><p class="inbox-todo-link-head">이미 있는 할 일 고르기</p>${picks}<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-link-cancel="${id}"${dis}>취소</button></span></div>`;
+    } else if (editing.has(c.id)) {
       // ⋯ [고쳐서 할 일로]: 제목·기한을 고쳐 넣는다. 고친 제목은 결과 기록에 남아 다음 찾기의 말투 예시가 된다.
       const e = editing.get(c.id), dis = isBusy ? ' disabled' : '';
       below = `<form class="inbox-todo-edit" data-inbox-todo-edit="${id}"><input type="text" class="inbox-todo-edit-title" data-inbox-todo-edit-title maxlength="${TASK_TITLE_MAX}" value="${esc(e.title)}" aria-label="할 일 제목"${dis}><input type="date" class="inbox-todo-edit-due" data-inbox-todo-edit-due value="${esc(e.due)}" aria-label="기한"${dis}><button type="submit" class="inbox-todo-btn"${dis}>넣기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-edit-cancel="${id}"${dis}>취소</button></form>`;
@@ -185,10 +197,60 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
       return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
     }});
   }
+  // TODO-이미할일있음: 열린 할 일(이미 이 기기에 읽어 둔 목록, 없으면 한 번 읽음) 중 제목이 비슷한 것을 먼저 보여 준다.
+  async function openTasks() {
+    const gt = window.KPTUGoogleTasks;
+    try {
+      const copy = gt?.peekTasks?.();
+      if (copy && Array.isArray(copy.tasks)) return {ok: true, tasks: copy.tasks};
+      const r = await gt?.listTasks?.();
+      return r?.status === 'ok' ? {ok: true, tasks: r.tasks} : {ok: false, tasks: []};
+    } catch { return {ok: false, tasks: []}; }
+  }
+  async function startLinking(c) {
+    linking.set(c.id, {tasks: null}); rowStatus.delete(c.id); editing.delete(c.id); paint();
+    const mine = radarScope(rt), got = await openTasks();
+    if (mine !== radarScope(rt) || !linking.has(c.id)) return;
+    linking.set(c.id, {tasks: similarTasks(c.summary, got.tasks), failed: !got.ok}); paint();
+  }
+  async function linkTask(c, task) {
+    busy.add(c.id); paint();
+    const due = /^\d{4}-\d{2}-\d{2}/.test(String(task.due || '')) ? String(task.due).slice(0, 10) : null;
+    let ok = false;
+    try { ok = await linkCandidateToTask(c.id, task.id, due, rt); } catch { ok = false; }
+    busy.delete(c.id);
+    if (!ok) { rowStatus.set(c.id, '이어 두지 못했어요. 다시 눌러 주세요.'); paint(); return; }
+    linking.delete(c.id); rowStatus.delete(c.id);
+    c.status = 'tasked'; c.task_id = task.id; c.task_due = due; c.outcome = 'already_tasked'; c.decided_at = new Date().toISOString(); paint(); changed();
+    const feedbackId = await logFeedback(c, 'already_tasked', {rt});
+    offerUndoNotice({text: '이미 있는 할 일로 묶었어요.', onUndo: async () => {
+      let back = false;
+      try { back = await unlinkCandidate(c.id, rt); } catch { back = false; }
+      if (back) { if (feedbackId) await dropFeedback(feedbackId, rt); c.status = 'open'; c.task_id = null; c.task_due = null; c.decided_at = null; delete c.outcome; paint(); changed(); return {status: 'done', message: '다시 보이게 했어요.'}; }
+      return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
+    }});
+  }
+  // 이어 둘 할 일이 없을 때: 새 할 일 없이 챙길 것에서만 뺀다(결과 기록은 같은 'already_tasked').
+  async function dropAlready(c) {
+    busy.add(c.id); paint();
+    let ok = false;
+    try { ok = await dropCandidateOnly(c.id, rt); } catch { ok = false; }
+    busy.delete(c.id);
+    if (!ok) { rowStatus.set(c.id, '빼지 못했어요. 다시 눌러 주세요.'); paint(); return; }
+    linking.delete(c.id); rowStatus.delete(c.id); c.status = 'dismissed'; c.outcome = 'already_tasked'; c.decided_at = new Date().toISOString(); paint(); changed();
+    const feedbackId = await logFeedback(c, 'already_tasked', {rt});
+    offerUndoNotice({text: '이미 할 일에 있는 것으로 뺐어요.', onUndo: async () => {
+      let back = false;
+      try { back = await reopenCandidate(c.id, rt); } catch { back = false; }
+      if (back) { if (feedbackId) await dropFeedback(feedbackId, rt); c.status = 'open'; c.decided_at = null; delete c.outcome; paint(); changed(); return {status: 'done', message: '다시 보이게 했어요.'}; }
+      return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
+    }});
+  }
   menuLists.set(host, (id, action) => {
     const c = byId(id); if (!c || c.status !== 'open' || busy.has(c.id)) return;
     status = '';
     if (action === 'not-mine') void notMine(c);
+    else if (action === 'already') void startLinking(c);
     else if (action === 'edit') {
       editing.set(c.id, {title: c.summary, due: quickDue(c, seoulDateKey())}); rowStatus.delete(c.id); paint();
       host.querySelector(`[data-inbox-todo-edit="${CSS.escape(c.id)}"] [data-inbox-todo-edit-title]`)?.focus();
@@ -229,6 +291,9 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (d.inboxTodoSource) { const c = byId(d.inboxTodoSource); if (c) openSource(c); return; }
     if (d.inboxTodoDismiss) { const c = byId(d.inboxTodoDismiss); if (c && !busy.has(c.id)) { status = ''; await dismiss(c); } return; }
     if (d.inboxTodoDone) { const c = byId(d.inboxTodoDone); if (c && c.status === 'open' && !busy.has(c.id)) { status = ''; await done(c); } return; }
+    if (d.inboxTodoLinkTask) { const c = byId(d.inboxTodoLinkFor), t = c && linking.get(c.id)?.tasks?.find(x => x.id === d.inboxTodoLinkTask); if (c && t && c.status === 'open' && !busy.has(c.id)) { status = ''; await linkTask(c, t); } return; }
+    if (d.inboxTodoLinkNone) { const c = byId(d.inboxTodoLinkNone); if (c && c.status === 'open' && !busy.has(c.id)) { status = ''; await dropAlready(c); } return; }
+    if (d.inboxTodoLinkCancel) { linking.delete(d.inboxTodoLinkCancel); rowStatus.delete(d.inboxTodoLinkCancel); paint(); return; }
     if (d.inboxTodoEditCancel) { editing.delete(d.inboxTodoEditCancel); rowStatus.delete(d.inboxTodoEditCancel); paint(); return; }
     if (d.inboxTodoMore) { if (!busy.has(d.inboxTodoMore)) inboxRowMenu().open(b); return; }
     if (d.inboxTodoTask) { const c = byId(d.inboxTodoTask); if (c && !busy.has(c.id)) { status = ''; rowStatus.delete(c.id); await toTask(c); } return; }
@@ -270,7 +335,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   for (const name of ['kptu:google-tasks-changed']) window.addEventListener(name, () => { if (state === 'ok') paint(); });
   window.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; rows = []; state = 'loading'; chip = 'open'; status = ''; week = null; copied.clear(); busy.clear(); unknown.clear(); unmarked.clear(); rowStatus.clear(); editing.clear(); told = undefined; scope = radarScope(rt);
+    run++; rows = []; state = 'loading'; chip = 'open'; status = ''; week = null; copied.clear(); busy.clear(); unknown.clear(); unmarked.clear(); rowStatus.clear(); editing.clear(); linking.clear(); told = undefined; scope = radarScope(rt);
     host.replaceChildren(); paint();
   });
 

@@ -166,7 +166,7 @@ export async function findMeetingTodos(meetingId, options = {}) {
 // ---- TODO-이미함·환류: 누른 결과 기록(app_todo_feedback, migration 20261101180000, 소유자 RLS) ---------------------------
 // 후보마다 결과 한 줄(할 일로·이미 함·무시·내 일 아님)과 제안 당시 문장·고친 문장. 다음 찾기의 예시와 주간 비율에 쓰인다.
 // 기록은 덧붙이는 것이라 실패해도 후보 처리는 그대로다(표가 없으면 조용히 건너뜀). 기기에는 아무것도 남기지 않는다.
-export const FEEDBACK_OUTCOMES = Object.freeze(['tasked', 'done', 'dismissed', 'not_mine']);
+export const FEEDBACK_OUTCOMES = Object.freeze(['tasked', 'already_tasked', 'done', 'dismissed', 'not_mine']);
 const oneLine = (v, n) => { const t = String(v ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim(); return t && [...t].length <= n ? t : ''; };
 export function feedbackBody(candidate, outcome, edited, ws) {
   if (!candidate || !UUID.test(String(candidate.id)) || !FEEDBACK_OUTCOMES.includes(outcome)) return null;
@@ -225,6 +225,12 @@ export const markDone = (id, rt = window.KPTURuntime, now = new Date()) => patch
 // JOURNAL-챙길것화면 후속: the due the task was put in with is saved on the candidate (task_due; null = no due), so the handled row can always show it.
 export const markTasked = (id, taskId, rt = window.KPTURuntime, now = new Date(), due = null) =>
   patch(id, 'open', {status:'tasked', task_id:String(taskId), decided_at:now.toISOString(), task_due:due && DAY.test(String(due)) ? String(due) : null}, rt);
+
+// TODO-이미할일있음: [이미 할 일에 있음] — 새 할 일은 만들지 않는다. 고른 기존 할 일(taskId)과 이어 두면 후보는 'tasked'(task_id = 그 할 일)로 챙길 것에서 빠지고,
+// 고를 게 없으면 'dismissed'로만 뺀다. 어느 쪽이든 결과 기록은 'already_tasked'(다음 찾기에서 같은 일을 다시 올리지 않고 AI 예시로 씀).
+export const linkCandidateToTask = (id, taskId, due, rt = window.KPTURuntime, now = new Date()) => markTasked(id, taskId, rt, now, due);
+export const unlinkCandidate = (id, rt = window.KPTURuntime) => patch(id, 'tasked', {status:'open', task_id:null, task_due:null, decided_at:null}, rt);
+export const dropCandidateOnly = (id, rt = window.KPTURuntime, now = new Date()) => dismissCandidate(id, rt, now);
 
 // The same targets the Google task create path takes (google-tasks Edge parseTargets): the candidate's project or
 // organization, and the meeting when the source is a meeting result.

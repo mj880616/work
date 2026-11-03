@@ -424,10 +424,12 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   // 주 줄: 칩 줄 아래, ‹ 라벨(n건) › [전체] 한 줄.
   await expect(bar).toBeVisible();await expect(page.locator('#reportWeekFilter')).toHaveAttribute('role','group');
   await expect(prev).toHaveAttribute('aria-label','이전 주');await expect(next).toHaveAttribute('aria-label','다음 주');
-  await expect(all).toHaveText('전체');await expect(all).toHaveAttribute('aria-pressed','false');
+  await expect(all).toHaveText('전체');await expect(all).toHaveAttribute('aria-checked','false');
+  await expect(reportWeekButton(page,'week')).toHaveText('주간 보기');await expect(reportWeekButton(page,'week')).toHaveAttribute('aria-checked','true');await expect(reportWeekButton(page,'range')).toHaveText('기간 설정');
   const kindBar=await page.locator('#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);
-  const tops=await page.locator('#reportWeekFilter > *').evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
-  expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2);
+  // REPORT-기간고르기: 칩 세 개는 폰에서도 한 줄. 주 넘기기(‹ 라벨 ›)도 자기들끼리 한 줄.
+  for(const sel of ['#reportWeekFilter .report-period-chips > *','#reportWeekFilter .report-week-nav > *']){const tops=await page.locator(sel).evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
+    expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2)}
   // 처음: 최근 주(10.19~10.25)의 보고만.
   await expect(label).toHaveText('10.19(월)~10.25(일) 1건');
   await expect.poll(shown).toEqual(['week-new']);
@@ -443,15 +445,15 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   await next.click();await next.click();
   await expect(label).toHaveText('10.19(월)~10.25(일) 1건');await expect.poll(shown).toEqual(['week-new']);
   await prev.click();await expect.poll(shown).toEqual(['week-old']);
-  // [전체]: 모든 주(최신 위). 주 넘기기는 잠기고 라벨은 '모든 주'.
+  // [전체]: 모든 주(최신 위). ‹ ›는 없어지고 라벨은 '전체 n건'.
   await all.click();
-  await expect(all).toHaveAttribute('aria-pressed','true');await expect(label).toHaveText('모든 주');
-  await expect(prev).toBeDisabled();await expect(next).toBeDisabled();
+  await expect(all).toHaveAttribute('aria-checked','true');await expect(label).toHaveText('전체 2건');
+  await expect(prev).toHaveCount(0);await expect(next).toHaveCount(0);
   await expect.poll(shown).toEqual(['week-new','week-old']);
   if(pc)await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('2');
-  // 다시 누르면 보던 주(10.12~10.18)로.
-  await all.click();
-  await expect(all).toHaveAttribute('aria-pressed','false');await expect(label).toHaveText('10.12(월)~10.18(일) 1건');
+  // [주간 보기]를 누르면 보던 주(10.12~10.18)로.
+  await reportWeekButton(page,'week').click();
+  await expect(all).toHaveAttribute('aria-checked','false');await expect(label).toHaveText('10.12(월)~10.18(일) 1건');
   await expect.poll(shown).toEqual(['week-old']);
   // 다른 곳에서 고른 보고(KPTUMeetingColumns.select)가 지금 주에 없으면 그 보고의 주로 옮긴다.
   await page.evaluate(()=>window.KPTUMeetingColumns.select({id:'week-new'}));

@@ -90,7 +90,7 @@ export const RADAR_RULE_CHARS = 120;
 export const RADAR_EDITED_CHARS = 200;
 export type RadarFeedback = { notMine: string[]; dismissed: string[]; taken: { suggested: string; final?: string }[]; done: string[]; rules: string[] };
 export type FeedbackRow = { outcome?: unknown; summary?: unknown; edited?: unknown };
-const FEEDBACK_OUTCOMES = new Set(["tasked", "done", "dismissed", "not_mine"]);
+const FEEDBACK_OUTCOMES = new Set(["tasked", "done", "dismissed", "not_mine", "already_tasked"]);
 
 // 결과 기록(최근 것부터)을 결과별 예시로 나누고, 같은 일 다시 안 올리기에 쓸 열쇠(요약·고친 문장의 normalizeTitle)를 모은다.
 // [내 일 아님] 예시는 지금처럼 app_todo_not_mine에서 따로 읽으므로 여기서는 열쇠만 더한다.
@@ -104,6 +104,8 @@ export function splitFeedback(rows: FeedbackRow[]): { dismissed: string[]; taken
     for (const k of [summary, edited]) { const key = k ? normalizeTitle(k) : ""; if (key) seen.add(key); }
     if (r.outcome === "dismissed" && dismissed.length < RADAR_FEEDBACK_MAX) dismissed.push(summary);
     else if (r.outcome === "done" && done.length < RADAR_FEEDBACK_MAX) done.push(summary);
+    // TODO-이미할일있음: 이미 할 일 목록에 있어 이어 둔 후보는 '좋은 제안이었다'(고친 문장 없음)로 같이 예시에 쓴다. 열쇠(seen)는 위에서 이미 더했다.
+    else if (r.outcome === "already_tasked" && taken.length < RADAR_FEEDBACK_MAX) taken.push({ suggested: summary });
     else if (r.outcome === "tasked" && taken.length < RADAR_FEEDBACK_MAX) taken.push(edited && normalizeTitle(edited) !== normalizeTitle(summary) ? { suggested: summary, final: edited } : { suggested: summary });
   }
   return { dismissed, taken, done, seen };

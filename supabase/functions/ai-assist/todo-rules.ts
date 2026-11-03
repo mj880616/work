@@ -11,7 +11,7 @@ export const RULES_REVIEW_MAX = 3;
 export const RULES_CANDIDATES_MAX = 10;
 export const RULE_CHARS = 120;
 export const RULES_REVIEW_OUTPUT_TOKENS = 800;
-const OUTCOME_WORDS: Record<string, string> = { tasked: "할 일로 받음", done: "이미 함", dismissed: "무시", not_mine: "내 일 아님" };
+const OUTCOME_WORDS: Record<string, string> = { tasked: "할 일로 받음", done: "이미 함", dismissed: "무시", not_mine: "내 일 아님", already_tasked: "이미 할 일에 있음" };
 
 export type ReviewRow = { outcome?: unknown; summary?: unknown; edited?: unknown; source_kind?: unknown; kind?: unknown };
 export type ExistingRule = { text?: unknown; state?: unknown };

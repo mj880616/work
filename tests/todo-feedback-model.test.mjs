@@ -93,3 +93,13 @@ test('recentByOutcome: last week only, newest first, at most n per outcome, edit
     {outcome: 'done', summary: '가상 한 일', created_at: '2026-10-20T01:00:00Z'}];
   assert.deepEqual(model.recentByOutcome(rows, now), [{outcome: 'tasked', label: '할 일로', lines: ['가상 제안 → 가상 고친 것']}]);
 });
+
+// TODO-이미할일있음: 결과 말과 비슷한 할 일 고르기(가상 문장).
+test('already_tasked is an accepted outcome and similarTasks ranks open tasks', async () => {
+  assert.ok(radar.FEEDBACK_OUTCOMES.includes('already_tasked'));
+  const {similarTasks} = await import('../app/todo-link-model.mjs');
+  const tasks = [{id: 'a', title: '가상 자료 회신 보내기', status: 'needsAction'}, {id: 'b', title: '전혀 다른 일', status: 'needsAction'}, {id: 'c', title: '가상 자료 회신', status: 'completed'}];
+  const got = similarTasks('가상 자료 회신.', tasks);
+  assert.deepEqual(got.map(t => t.id), ['a']);
+  assert.deepEqual(similarTasks('가상 자료 회신.', null), []);
+});

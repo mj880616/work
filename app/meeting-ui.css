@@ -393,7 +393,14 @@
 
 /* MTG-프로젝트합치기 3단계: 사업 보고 [목록]의 주 넘기기 줄(‹ 10.26(월)~11.1(일) n건 › [전체]). 작고 낮은 버튼, 한 줄. */
 #meetingsView .report-week-bar{flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0;margin-bottom:var(--kptu-space-1)}
-#meetingsView #reportWeekFilter{display:flex;align-items:center;gap:8px;min-width:0}
+#meetingsView #reportWeekFilter{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0}
+/* REPORT-기간고르기: 칩 세 개([전체][주간 보기][기간 설정])는 폰에서도 한 줄, 주 넘기기·기간 표시는 그 옆(좁으면 다음 줄). 기간 설정 창은 줄 아래 한 칸. */
+#meetingsView #reportWeekFilter .report-period-chips{flex:0 0 auto;flex-wrap:nowrap}
+#meetingsView #reportWeekFilter .report-week-nav{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:nowrap}
+#meetingsView #reportWeekFilter .report-period-panel{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;font-size:var(--ds-text-meta,13px)}
+#meetingsView #reportWeekFilter .report-period-panel label{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+#meetingsView #reportWeekFilter .report-period-panel input[type="date"]{height:var(--ds-compact-height-sm,28px);min-height:0;font-size:inherit;padding:0 6px}
+#meetingsView #reportWeekFilter .report-period-quick{display:inline-flex;gap:6px;flex-wrap:wrap}
 #meetingsView .report-week-bar[hidden]{display:none}
 #meetingsView #reportWeekFilter button{width:auto;min-width:32px;max-width:none;padding-inline:8px;white-space:nowrap}
 /* 누르는 범위 44px은 위아래로만 넓힌다(일지 ‹ › 줄과 같은 방식). 공용 ::after의 좌우 확장은 32px 버튼 밖으로 넘쳐 목록 넘침 검사에 걸린다. */
