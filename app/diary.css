@@ -34,12 +34,16 @@
 #appView #diaryView .diary-cell:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #diaryView .diary-cell:not(.diary-blank):not(.ds-day-sel):hover{ background:var(--kptu-surface-subtle); } }
 /* UI-전수디자인점검 F10(PC): 날마다 둥근 상자 31개 대신 가는 격자선 한 겹(칸 사이 0, 선 0.5px). 빈 날은 높이 56px,
-   사진 있는 날만 4:3 칸(같은 줄 다른 칸은 그 높이로 늘어나 선이 이어진다). 폰은 위 정사각 칸 그대로. */
+   사진 있는 날만 4:3 칸(같은 줄 다른 칸은 그 높이로 늘어나 선이 이어진다).
+   UI-화면정리 C3(요청함 10/28 20:03 C-3, S48-46): 폰도 둥근 상자 대신 같은 격자선 한 겹(칸 사이 0). 폰 칸은 정사각 그대로라
+   한 달 높이는 칸 사이 4px만큼씩 줄고, 그 아래 이 달 일기 목록이 첫 화면에 더 올라온다. */
+#appView #diaryView .diary-week-head{ gap:0; }
+#appView #diaryView .diary-days{ gap:0; border-top:var(--ds-line-width) solid var(--ds-line); border-left:var(--ds-line-width) solid var(--ds-line); }
+#appView #diaryView .diary-cell{ border:0; border-right:var(--ds-line-width) solid var(--ds-line); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
+#appView #diaryView .diary-blank{ border-color:var(--ds-line); background:var(--kptu-surface-subtle); }
 @media(min-width:761px){
-  #appView #diaryView .diary-days{ gap:0; border-top:var(--ds-line-width) solid var(--ds-line); border-left:var(--ds-line-width) solid var(--ds-line); }
-  #appView #diaryView .diary-cell{ aspect-ratio:auto; min-height:56px; border:0; border-right:var(--ds-line-width) solid var(--ds-line); border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
+  #appView #diaryView .diary-cell{ aspect-ratio:auto; min-height:56px; }
   #appView #diaryView .diary-cell.has-photo{ aspect-ratio:4/3; }
-  #appView #diaryView .diary-blank{ border-color:var(--ds-line); background:var(--kptu-surface-subtle); }
 }
 
 /* 이 달 일기 목록: 달력 아래, 최신 날짜 먼저. 날짜를 고르면 같은 자리에 그날 일기가 나온다. */

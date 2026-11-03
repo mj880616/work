@@ -36,7 +36,7 @@ import { attachmentName } from './attachment-name.mjs';
 import { renameHostAttrs, renameButtonHtml, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(공용 부품)
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
-import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
+import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 import { bindRowSwipe } from './row-swipe.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
@@ -100,9 +100,10 @@ document.addEventListener('click',e=>{const wrap=root.querySelector('[data-baske
 // Each item reuses the detail's own path (openDetail and its buttons); an item the detail would refuse is left out.
 const rowMenuEl=root.querySelector('#basketRowMenu');
 let rowMenu=null;
-// UI-모바일노트복사메뉴: on a phone the row has no [복사] button; [복사] is the first item of this menu (PC keeps the button).
+// UI-모바일노트복사메뉴: on a phone the row has no [복사] button; [복사] is the first item of this menu.
+// UI-화면정리 C4(요청함 10/28 20:03, S48-46): PC도 같다 — 줄마다 늘 보이던 복사 아이콘을 없애고 [복사]는 ⋯·우클릭 메뉴 맨 위(노트 줄 17:45 ③과 같게).
 function rowMenuItems(note){
-  return [...(!isWide()&&String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일 만들기'],['to-note','노트로 옮기기'],['to-report','사업 보고로 옮기기'],...journalItem(note),note.archived_at?['unhold','보류 해제']:['hold','보류로'],['delete','삭제','basket-menu-danger']];
+  return [...(String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일 만들기'],['to-note','노트로 옮기기'],['to-report','사업 보고로 옮기기'],...journalItem(note),note.archived_at?['unhold','보류 해제']:['hold','보류로'],['delete','삭제','basket-menu-danger']];
 }
 // BASKET-일지로남기기: [업무일지에 남기기] for an update that went to no organization and no project; [업무일지에서 빼기] once kept.
 function journalItem(note){
@@ -430,7 +431,7 @@ function showKind(next,{openId=null,folder=null,address='replace'}={}){
 // detail's own move; 삭제 is the detail's delete (same confirmation from basket-record-delete.js), reported on the list.
 function rowMenuAction(act,noteId){
   const note=notes.find(n=>n.id===noteId);if(!note||busy||selected)return;
-  if(act==='copy'){void copyNote(note,()=>root.querySelector(`[data-basket-row-copy="${CSS.escape(noteId)}"]`));return;}
+  if(act==='copy'){void copyNote(note);return;} // 메뉴 안 [복사]: 알림('복사했습니다')만 — ⋯ 글자를 '✓'로 바꾸지 않는다(⋯ 모양 그대로).
   
   if(act==='delete'){void deleteFromList(noteId);return;}
   if(act==='journal'||act==='unjournal'){void keepInJournal(noteId,act==='journal');return;}
@@ -579,7 +580,9 @@ function renderList() {
     const lines=memoLines(note),title=memoTitle(note);
     // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
-    return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span class="more-dots" aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span class="basket-row-state">${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${requestTagsHtml(noteRequests(note), esc)}</button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
+    // UI-화면정리 C4: 위 칩 [미분류]를 고른 동안은 줄마다 '미분류'를 또 쓰지 않는다(첨부 수 등 다른 표시는 그대로). 줄의 복사 아이콘은 없고 [복사]는 ⋯ 메뉴 안.
+    const label = rowState(note, state), stateText = [filter === 'unclassified' && label === '미분류' ? '' : label, note.attachments?.length ? '첨부 ' + note.attachments.length + '개' : ''].filter(Boolean).join(' · ');
+    return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span class="more-dots" aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time>${stateText ? `<span class="basket-row-state">${esc(stateText)}</span>` : ''}${requestTagsHtml(noteRequests(note), esc)}</button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
   }).join('');
   if (!visible.length && loadingRun) listStatus.innerHTML = waitInlineHtml(); else listStatus.textContent = visible.length ? '' : '업데이트 없음'; // UI-전수디자인점검 F03: no 'N개 업데이트' line (the count is beside the box title)
   listStatus.toggleAttribute('data-basket-empty', !visible.length && !loadingRun);
@@ -1003,7 +1006,6 @@ root.addEventListener('click', e => {
   }
   const fromNoteMenu = !!noteMenu()?.contains(b); if (fromNoteMenu) setNoteMenu(false, {focus:true});
   if (b.hasAttribute('data-basket-read-raw')) { rawView = !rawView; paintReadText(); return; }
-  if (b.hasAttribute('data-basket-row-copy')) { void copyNote(notes.find(n => n.id === b.dataset.basketRowCopy), b); return; }
   if (b.hasAttribute('data-basket-copy')) { void copyNote(selected, b); return; }
   if (b.hasAttribute('data-basket-photo')) { openPhoto(b.dataset.basketPhoto, b); return; }
   if (busy) return;
