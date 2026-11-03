@@ -167,6 +167,8 @@ const current = (run, scope) => run === epoch && scope === ownerScope(rt);
 // 새 자료가 다 온 뒤에만 한다. 탭 메모리뿐(기기 저장 없음).
 let refreshing = new Set();
 const waiting = key => !materials[key] || materials[key].status === 'loading' || refreshing.has(key);
+// 조용히 다시 읽는 칸이 남아 있는 동안 #journalRoot[data-journal-refreshing](글자·모양 없음). 다시 읽은 칸을 다 그린 뒤 사라진다 — 시험·수치 잴 때의 '다 왔다' 신호.
+const markRefreshing = () => root?.toggleAttribute('data-journal-refreshing', refreshing.size > 0);
 
 function renderWeek() {
   const list = weekDays(start), today = todayKey(), last = list[6];
@@ -726,7 +728,7 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
   try { read = {status:'ok', items:await readers[key]()}; } catch { read = {status:'failed'}; }
   if (!liveRun(key, run, scope)) return;
   materials[key] = read; refreshing.delete(key);
-  renderDayFor(key); renderWeekly_();
+  renderDayFor(key); renderWeekly_(); markRefreshing();
   if (key === 'tasks' && materials.tasks?.status === 'ok') void loadTaskMeetings(run, scope);
   void checkOverlaps();
   void maybeDraft();
@@ -744,7 +746,7 @@ async function loadLines(run, scope, quiet = false) {
     lines = new Map(); linesState = 'failed';
   }
   refreshing.delete('lines');
-  renderWeek(); renderLine(); renderWeekly_();
+  renderWeek(); renderLine(); renderWeekly_(); markRefreshing();
   void maybeDraft();
 }
 // A new week reads its lines and that week's events (and the two weeks after it, 5. 주요 일정), organization/project records,
@@ -753,7 +755,7 @@ async function loadKinds(run, scope, quiet = false) {
   if (!quiet) kinds = {status:'loading'};
   const read = await readKinds(rt);
   if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
-  kinds = read; refreshing.delete('kinds'); renderDay(); renderWeekly_();
+  kinds = read; refreshing.delete('kinds'); renderDay(); renderWeekly_(); markRefreshing();
   void checkOverlaps();
 }
 async function loadMemory(run, scope, quiet = false) {
@@ -774,7 +776,7 @@ function loadWeek({shared = false, quiet = false} = {}) {
   }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
   const keys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
-  refreshing = quiet ? new Set([...keys, 'lines', ...(shared ? ['kinds'] : [])]) : new Set();
+  refreshing = quiet ? new Set([...keys, 'lines', ...(shared ? ['kinds'] : [])]) : new Set(); markRefreshing();
   if (!quiet) {
     for (const key of keys) materials[key] = {status:'loading'};
     delete materials.overlaps;

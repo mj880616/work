@@ -2398,7 +2398,8 @@ async function originals(page,f){
 }
 const flashed=(page,sel)=>expect.poll(()=>page.evaluate(s=>{const e=document.querySelector(s);if(!e||!e.getClientRects().length)return 'none';const b=e.getBoundingClientRect();return e.hasAttribute('data-journal-flash')&&b.top>=0&&b.top<innerHeight-24?'lit':'dark';},sel)).toBe('lit');
 // 하루 카드가 다 읽힌 뒤(불러오는 중 없음)에 누른다.
-const settled=async page=>{await expect(page.locator('#journalRoot [data-journal-day] [data-wait]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-journal-others-count] [data-wait]')).toHaveCount(0);};
+// 연 화면 유지(S48-47): 이미 열린 홈을 다시 누르면 기다림 표시 없이 뒤에서 다시 읽으므로, 그 다시 읽기가 끝난(data-journal-refreshing 없음) 뒤에 잰다.
+const settled=async page=>{await expect(page.locator('#journalRoot[data-journal-refreshing]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-journal-day] [data-wait]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-journal-others-count] [data-wait]')).toHaveCount(0);};
 const backToJournal=async(page,{pressed,scroll})=>{
  await expect(page.locator('#homeView')).toBeVisible();await expectJournalDay(page,'10월 6일 화요일');
  await expect(page.locator('#wdModal:not(.hidden),#ps3DetailModal:not(.hidden)')).toHaveCount(0);
