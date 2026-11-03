@@ -740,3 +740,15 @@ test('JOURNAL-하루일정다시: 그날 일정 = the calendar read with the cal
   const card = m.dayCard({events:{status:'ok', items:ok}}, '2026-10-06');
   assert.deepEqual(card.events.items.map(i => [i.time, i.title, i.color]), [['10:00', '가', '#445566'], ['12:00', '나', '#112233']]);
 });
+
+// S49-12 JOURNAL-기억할통화텔레그램: migration 짝 파일 5개와 보호 장치(운영자 기능 restrictive 정책, 지우기·anon 권한 없음)가 있다.
+test('S49-12: journal_memorable migration has its 5 pair files and the operator-feature guard', async () => {
+  const {readFileSync, existsSync} = await import('node:fs');
+  const stem = '20261103230000_journal_memorable';
+  for (const kind of ['precheck.sql', 'snapshot.sql', 'postcheck.sql', 'rollback.sql', 'summary.md']) assert.ok(existsSync(new URL(`../docs/${stem}.${kind}`, import.meta.url)), kind);
+  const sql = readFileSync(new URL(`../supabase/migrations/${stem}.sql`, import.meta.url), 'utf8');
+  assert.match(sql, /as restrictive for all to authenticated/);
+  assert.match(sql, /app_workspace_has_feature/);
+  assert.doesNotMatch(sql, /grant[^;]* to [^;]*\b(anon|public|service_role)\b/i);
+  assert.doesNotMatch(sql, /grant\s+[^;]*\bdelete\b/i);
+});

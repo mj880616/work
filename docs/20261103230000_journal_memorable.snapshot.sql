@@ -1,0 +1,10 @@
+-- SELECT only. Save before apply. pg_catalog만 읽고 행 값은 읽지 않는다.
+-- 새 표 둘이 아직 없음과 이번 기록이 없음을 기록한다(되돌린 뒤 같은지 대조). 기존 표는 바꾸지 않으므로 정의를 읽지 않는다.
+select 'table' as kind,n as name,coalesce(to_regclass(n)::text,'absent') as definition
+  from unnest(array['public.app_journal_memorable','public.app_journal_memorable_runs']) n
+union all select 'owner function',p.oid::regprocedure::text,p.prosecdef::text
+  from pg_proc p where p.oid=to_regprocedure('private.app_is_workspace_owner(uuid)')
+union all select 'feature function',p.oid::regprocedure::text,p.prosecdef::text
+  from pg_proc p where p.oid=to_regprocedure('private.app_workspace_has_feature(uuid,text)')
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261103230000'
+order by 1,2;
