@@ -955,7 +955,8 @@ async function jobStart(user: { id: string }, userDb: ReturnType<typeof userClie
     const size = Number(meta.size);
     if (!Number.isSafeInteger(size) || size <= 0) throw new Fail('drive_failed');
     if (size > MAX_BYTES) throw new Fail('too_large');
-    const mime = audioMime(audio.name, meta.mimeType) || audioMime(audio.name, doc.mime_type);
+    // 형식은 이름(확장자)을 먼저 본다(Drive가 m4a를 audio/x-m4a 등으로 줄 수 있음). 모르면 Drive·자료 행의 형식.
+    const mime = audioMime(audio.name, '') || audioMime(audio.name, meta.mimeType) || audioMime(audio.name, doc.mime_type);
     if (!mime) throw new Fail('bad_type');
     const md5 = /^[0-9a-f]{32}$/.test(String(meta.md5Checksum || '')) ? meta.md5Checksum : null;
     const base = { workspace_id: start.workspaceId, created_by: user.id, kind: 'attached', document_id: doc.id, meeting_id: doc.meeting_id, source_file_id: audio.fileId, source_md5: md5 };
