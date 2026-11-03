@@ -30,7 +30,7 @@ async function fakeRecorder(page){
   });
 }
 
-async function mock(page,{pending=[],pieceFails=1,rec=null}={}){
+async function mock(page,{pending=[],pieceFails=1,rec=null,server=false}={}){
   const calls=[],meetingPosts=calls.meetingPosts=[];
   let pendingServed=false;
   await page.route(`${SB}/**`,async route=>{
@@ -63,6 +63,13 @@ async function mock(page,{pending=[],pieceFails=1,rec=null}={}){
       if(action==='transcribe')return ok({ok:true,text:'김위원장: 다음 주 화요일 교섭 일정을 확정합니다.\n박간사: 자료는 금요일까지 돌립니다.'});
       if(action==='attach')return ok({ok:true});
       if(action==='config')return ok({ok:true,ready:true});
+      // REC-서버정리(S49-2): server=true면 서버가 정리를 맡는다(job_start → job_read 끝). 아니면 옛 서버처럼 모르는 action에 {ok:true}만.
+      if(server&&action==='job_start')return ok({ok:true,job:{id:'00000000-0000-4000-8000-0000000000b1',kind:'recording',status:'queued',stage:'combine',session_id:body.session_id,parts_done:0,parts_total:0,step_no:0,step_total:0,jobs:[]}});
+      if(server&&action==='job_read')return ok({ok:true,job:{id:body.job_id,kind:'recording',status:'done',stage:'done',session_id:'00000000-0000-4000-8000-0000000000aa',
+        created_at:'2026-10-29T06:10:00Z',seconds:600,jobs:['00000000-0000-4000-8000-0000000000j1'],parts_done:1,parts_total:1,step_no:1,step_total:1,
+        transcript_text:'김위원장: 서버가 정리한 전사 전문입니다.\n박간사: 자료는 금요일까지 돌립니다.',
+        draft:{decisions:'서버 요약 결정',information:'서버 요약 공유',actions:[{task:'자료 돌리기',assignee:'박간사',due:'2026-11-06'}],meeting_date:'',attendees:['김위원장']}}});
+      if(server&&action==='job_list')return ok({ok:true,jobs:[]});
       return ok({ok:true});
     }
     if(path==='/functions/v1/meeting-ai-draft'){calls.push({action:'draft',body:JSON.parse(req.postData()||'{}')});return ok({draft:{decisions:'다음 주 화요일 교섭 일정 확정',information:'자료는 금요일까지 공유',actions:[],attendees:['김위원장','박간사']}})}
@@ -307,4 +314,28 @@ test('PC: \'이어서 정리\' 줄 [버리기] → 줄이 빠지고 서버에 �
   expect(recCalls(calls,'rec_finish').length).toBe(0);
   expect(recCalls(calls,'rec_start').length).toBe(0);
   await expect(page.locator('#recBand')).toBeHidden();
+});
+
+test('PC: 서버 정리(S49-2) — [멈추고 정리] 뒤 서버가 합치기·전사·요약을 맡고, 끝난 결과가 회의 입력 창에 채워진다(화면 전사·요약 호출 없음)',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1440,height:900});
+  const calls=await signIn(page,{server:true,pieceFails:0});
+  await page.locator('#reportRecordBtn').click();
+  const band=page.locator('#recBand');
+  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
+  await page.evaluate(()=>window.__fakeRec.emit());
+  await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(1);
+  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await expect.poll(()=>recCalls(calls,'job_start').map(c=>c.body)).toEqual([{workspace_id:'rec-ws',kind:'recording',session_id:'00000000-0000-4000-8000-0000000000aa'}]);
+  await expect(band.locator('.rec-label')).toHaveText('정리 중');
+  await expect(band.locator('.rec-note')).toContainText('화면을 닫아도 서버에서 계속 정리해요');
+  await expect(page.locator('#meetingModal')).toBeVisible({timeout:20000});
+  await expect(page.locator('#meetingTranscript')).toHaveValue(/결정\n- 서버 요약 결정/);
+  await expect(page.locator('#meetingNotes')).toHaveValue(/서버가 정리한 전사 전문입니다/);
+  await expect(page.locator('#mtdStatus')).toContainText('초안을 채웠어요');
+  await expect(page.locator('#mtdAttach')).toBeChecked();
+  expect(recCalls(calls,'rec_finish').length).toBe(0);
+  expect(recCalls(calls,'transcribe').length).toBe(0);
+  expect(calls.some(c=>c.action==='draft')).toBe(false);
+  await expect.poll(()=>recCalls(calls,'job_opened').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000b1'}]);
 });
