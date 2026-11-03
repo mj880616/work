@@ -62,13 +62,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="kptuwork" android:host="auth" />
             </intent-filter>
-            <!-- 단계 ②: 다른 앱의 [공유]에 "웹2 정리함"으로 보인다(APP-공유노트할일: 이름을 앱 안 이름 '정리함'으로 맞춤). 글·링크·사진·파일. 받은 항목의 임시 읽기 권한만 쓴다(저장소 권한 없음). -->
-            <intent-filter android:label="웹2 정리함">
+            <!-- 단계 ②: 다른 앱의 [공유]에 "웹2 업데이트로 보내기"로 보인다(S49-9 UI-업데이트로보내기: 웹 사진 메뉴와 같은 이름, 하는 일은 정리함 업데이트 만들기 그대로). 글·링크·사진·파일. 받은 항목의 임시 읽기 권한만 쓴다(저장소 권한 없음). -->
+            <intent-filter android:label="웹2 업데이트로 보내기">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-            <intent-filter android:label="웹2 정리함">
+            <intent-filter android:label="웹2 업데이트로 보내기">
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />

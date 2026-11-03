@@ -9,7 +9,7 @@ const blob = (type = 'image/jpeg') => new Blob([new Uint8Array([1, 2, 3])], {typ
 
 test('메뉴 줄: 사진 4줄, 동영상은 복사·정리함 없음, 여러 장은 복사 없음, 기기 공유 창이 없으면 그 줄 없음', () => {
   assert.deepEqual(shareRows({native: true}), ['copy', 'basket', 'download', 'native']);
-  assert.deepEqual(shareRows({native: true}).map(r => SHARE_ROW_TEXT[r]), ['사진 복사', '정리함에 넣기', '다운로드', '다른 앱으로 공유…']);
+  assert.deepEqual(shareRows({native: true}).map(r => SHARE_ROW_TEXT[r]), ['사진 복사', '업데이트로 보내기', '다운로드', '다른 앱으로 공유…']);
   assert.deepEqual(shareRows({video: true, native: true}), ['download', 'native']);
   assert.deepEqual(shareRows({count: 3, native: true}), ['basket', 'download', 'native']);
   assert.deepEqual(shareRows({native: false}), ['copy', 'basket', 'download']);
@@ -39,7 +39,7 @@ test('사진 복사: clipboard.write에 image/png 한 장, PNG가 아니면 바�
   assert.equal(await copyImage(async () => blob(), {nav: {clipboard: {write: async () => { throw new Error('denied'); }}}, Item, toPng}), 'failed');
 });
 
-test('정리함에 넣기: 기존 basket-upload uploadBatch 한 번(파일마다 대기 줄), 끝나면 정리함 새로고침 알림', async () => {
+test('업데이트로 보내기: 기존 basket-upload uploadBatch 한 번(파일마다 대기 줄), 끝나면 정리함 새로고침 알림', async () => {
   const calls = [], events = [];
   const load = async () => ({createUploadBatch: () => ({note_id: null, attachments: [], entries: [], blocked: null}),
     uploadBatch: async (batch, opts) => { calls.push({n: batch.entries.length, kinds: batch.entries.map(e => e.kind), raw: opts.raw_text}); batch.note_id = 'n1'; return {ok: true}; }});
@@ -67,6 +67,6 @@ test('화면 연결: [공유]가 있는 곳 모두(사진 크게 보기·문서 
 
 test('S48-56: [일기에 넣기]는 부르는 쪽이 diary()를 줄 때만, 동영상은 없음', async () => {
   const {shareRows, SHARE_ROW_TEXT} = await import('../app/share-menu.js');
-  assert.deepEqual(shareRows({count:2, diary:true}).map(r => SHARE_ROW_TEXT[r]), ['정리함에 넣기', '일기에 넣기', '다운로드']);
+  assert.deepEqual(shareRows({count:2, diary:true}).map(r => SHARE_ROW_TEXT[r]), ['일기에 넣기', '업데이트로 보내기', '다운로드']);
   assert.deepEqual(shareRows({video:true, diary:true}), ['download']);
 });

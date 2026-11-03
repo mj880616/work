@@ -129,7 +129,7 @@ for(const width of [1280,390])test.describe(`할 일 수정 ${width}px`,()=>{
     await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(1);
     expect(calls.find(c=>c.action==='update').body).toMatchObject({task_id:'a',title:'고친 할 일',notes:'첫 줄\n둘째 줄'});
     if(!phone){
-      await expect(page.locator('#gtEditStatus')).toHaveText('저장했습니다.');
+      await expect(page.locator('#gtEditStatus')).toHaveText('저장했어요.');
       await notes.fill('Ctrl 저장');await notes.press('Control+Enter');
       await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(2);
       expect(calls.filter(c=>c.action==='update')[1].body).toMatchObject({notes:'Ctrl 저장'});

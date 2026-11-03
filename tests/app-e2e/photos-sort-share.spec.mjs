@@ -4,8 +4,9 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 // PHOTO-정렬(요청함 10/30 10:29): 사진 메뉴 오른쪽 위 [찍은 날 ↓ ▾] → 누른 자리 작은 메뉴(기준 6줄, 고른 줄 ✓). 고른 기준은 서버 view_prefs.photo_view.sort 하나,
 //   서버 쪽 읽기(library)에 sort를 보내 그 순서로 받는다. 날짜 머리줄은 찍은 날 기준일 때만, 달력에는 정렬 버튼 없음. 새로고침 뒤 같은 기준.
-// PC공유메뉴(요청함 10/30 10:27): 넓은 화면(761px~)의 [공유] → Web2 작은 메뉴 4줄([사진 복사] [정리함에 넣기] [다운로드] [다른 앱으로 공유…]).
-//   [사진 복사]는 clipboard.write(image/png), [정리함에 넣기]는 정리함 기존 저장 길(basket-files). 폰(≤760px)은 지금처럼 기기 공유 창.
+// PC공유메뉴(요청함 10/30 10:27): 넓은 화면(761px~)의 [공유] → Web2 작은 메뉴([사진 복사] [일기에 넣기] [업데이트로 보내기] [다운로드] [다른 앱으로 공유…]).
+//   S49-9: 이름은 공용 목록(photo-menu-items.mjs), 크게 보기에도 [일기에 넣기]. 고른 사진을 보낸 뒤에는 고르기가 저절로 풀린다.
+//   [사진 복사]는 clipboard.write(image/png), [업데이트로 보내기]는 정리함 기존 저장 길(basket-files). 폰(≤760px)은 지금처럼 기기 공유 창.
 // 지어낸 Supabase: onedrive-photos(Edge)·app_diary_stars·프로필 view_prefs·basket-files. 시계는 2026-10-06 KST.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
@@ -138,7 +139,7 @@ for (const width of [1440, 884, 412]) {
   });
 }
 
-test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 4줄, 사진 복사는 image/png 클립보드, 정리함 넣기는 기존 저장 길, 동영상은 복사·정리함 없음 1440', async ({ page }) => {
+test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 5줄(일기에 넣기 포함), 사진 복사는 image/png 클립보드, 업데이트로 보내기는 기존 저장 길, 동영상은 복사·보내기 없음 1440', async ({ page }) => {
   const f = await fixture(page, 1440);
   await openPhotos(page, 1440);
   await expect.poll(() => order(page)).toEqual(EXPECT.taken_desc);
@@ -149,22 +150,22 @@ test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 4줄, 사진 복사는 i
   const shareMenu = page.locator('#shareMenu');
   await viewer.locator('[data-diary-share]').click();
   await expect(shareMenu).toBeVisible();
-  await expect(shareMenu.locator('button')).toHaveText(['사진 복사', '정리함에 넣기', '다운로드', '다른 앱으로 공유…']);
+  await expect(shareMenu.locator('button')).toHaveText(['사진 복사', '일기에 넣기', '업데이트로 보내기', '다운로드', '다른 앱으로 공유…']);
   expect(await page.evaluate(() => window.__shared)).toBe(0);
   await shareMenu.getByRole('button', { name: '사진 복사' }).click();
   await expect.poll(() => page.evaluate(() => window.__clip)).toEqual([{ types: ['image/png'], type: 'image/png', size: PNG.length }]);
   await expect(viewer.locator('[data-diary-viewer-note-text]')).toHaveText('복사했어요');
   await expect(viewer).toBeVisible();
-  // [정리함에 넣기]: basket-files 한 번(새 저장 경로 없음).
+  // [업데이트로 보내기]: basket-files 한 번(새 저장 경로 없음).
   await viewer.locator('[data-diary-share]').click();
-  await shareMenu.getByRole('button', { name: '정리함에 넣기' }).click();
+  await shareMenu.getByRole('button', { name: '업데이트로 보내기' }).click();
   await expect.poll(() => f.uploads).toEqual(['POST']);
-  await expect(viewer.locator('[data-diary-viewer-note-text]')).toHaveText('정리함에 넣었어요');
+  await expect(viewer.locator('[data-diary-viewer-note-text]')).toHaveText('업데이트로 보냈어요');
   // [다른 앱으로 공유…] = 지금의 기기 공유 창.
   await viewer.locator('[data-diary-share]').click();
   await shareMenu.getByRole('button', { name: '다른 앱으로 공유…' }).click();
   await expect.poll(() => page.evaluate(() => window.__shared)).toBe(1);
-  // 동영상: [사진 복사]·[정리함에 넣기] 없음.
+  // 동영상: [사진 복사]·[일기에 넣기]·[업데이트로 보내기] 없음.
   await viewer.locator('[data-diary-viewer-strip]').focus();
   for (let k = 2; k <= 5; k++) { await page.keyboard.press('ArrowRight'); await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText(`${k} / 7`); }
   await viewer.locator('[data-diary-share]').click();
@@ -186,3 +187,41 @@ test('폰 공유: 좁은 화면(412) [공유]는 메뉴 없이 기기 공유 창
   await expect(page.locator('#shareMenu')).toBeHidden();
   expect(await page.evaluate(() => window.__clip.length)).toBe(0);
 });
+
+// S49-9 PHOTO-보낸뒤선택풀기(요청함 11/03 17:07): 고른 사진 [업데이트로 보내기]가 다 들어가면 고르기가 풀리고 알림 한 줄.
+// [별표]는 그 자리 표시만 바뀌므로 고른 채 둔다. 우클릭·고르기 줄·공유 메뉴의 이름은 공용 목록과 같다.
+test('고른 사진 업데이트로 보내기 → 고르기 풀림·알림 한 줄, 이름은 모든 메뉴에서 같음 1440', async ({ page }) => {
+  const f = await fixture(page, 1440);
+  await openPhotos(page, 1440);
+  await expect.poll(() => order(page)).toEqual(EXPECT.taken_desc);
+  const item = id => root(page).locator(`[data-photos-id="${id}"]`);
+  // 우클릭 메뉴 이름.
+  await item('A3').click({ button: 'right' });
+  const pm = page.locator('#photosPhotoMenu');
+  await expect(pm).toBeVisible();
+  await expect(pm.getByRole('button', { name: '일기에 넣기' })).toBeVisible();
+  await expect(pm.getByRole('button', { name: '업데이트로 보내기' })).toBeVisible();
+  await pm.getByRole('button', { name: '선택' }).click();
+  await item('A2').click();
+  const sel = root(page).locator('[data-photos-sel]'), bar = root(page).locator('[data-photos-act]');
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+  // 고르기 줄 이름(PC 1440 = 온이름).
+  await expect(bar.locator('[data-photos-act-diary]')).toHaveAccessibleName('일기에 넣기');
+  await expect(bar.locator('[data-photos-act-basket]')).toHaveAccessibleName('업데이트로 보내기');
+  // 여러 장 [공유] 메뉴: 복사 없이 일기에 넣기 · 업데이트로 보내기 · 다운로드 · 다른 앱으로 공유….
+  await bar.locator('[data-photos-act-share]').click();
+  await expect(page.locator('#shareMenu button')).toHaveText(['일기에 넣기', '업데이트로 보내기', '다운로드', '다른 앱으로 공유…']);
+  await page.keyboard.press('Escape');
+  // [별표]: 고른 채 둔다.
+  await bar.locator('[data-photos-act-star]').click();
+  await expect(page.locator('.kptu-notice-text')).toContainText('별표');
+  await expect(sel).toBeVisible();
+  await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('2개 골랐음');
+  // [업데이트로 보내기]: 기존 저장 길(basket-files) → 다 들어가면 고르기가 풀린다.
+  await bar.locator('[data-photos-act-basket]').click();
+  await expect.poll(() => f.uploads.length).toBeGreaterThan(0);
+  await expect(page.locator('.kptu-notice-text')).toHaveText('업데이트로 보냈어요(2장)');
+  await expect(sel).toBeHidden();
+  await expect(bar).toBeHidden();
+});
+

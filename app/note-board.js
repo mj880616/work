@@ -16,7 +16,7 @@ const EDGE = 40, KEY_STEP = 10;
 export const NOTE_DRAG = 'application/x-kptu-note';
 
 // moreIcon: 노트 줄과 같은 ⋯ 그림(basket-notes.js의 것을 받아 같은 메뉴 단추 모양을 쓴다).
-export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onMove = () => {}, onDrop = null}) {
+export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {}, onBackgroundMenu = null, onMove = () => {}, onDrop = null}) {
   box.innerHTML = `<div class="nb-tools" role="group" aria-label="보드 크기"><button type="button" data-nb-zoom="-1" aria-label="작게">－</button><button type="button" data-nb-zoom="1" aria-label="크게">＋</button></div><div class="nb-scroll" data-nb-scroll><div class="nb-sizer" data-nb-sizer><div class="nb-board" data-nb-board role="group" aria-label="포스트잇 보드"></div></div><p class="nb-empty" data-nb-empty hidden></p></div>`;
   const empty = box.querySelector('[data-nb-empty]'), scroll = box.querySelector('[data-nb-scroll]'), sizer = box.querySelector('[data-nb-sizer]'), board = box.querySelector('[data-nb-board]');
   let zoom = globalThis.matchMedia?.('(min-width:761px)')?.matches ? 1 : 0.8;
@@ -141,6 +141,13 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   // 막는 것은 칸 열기(.nb-open)뿐: 칸의 ×(보드에서 빼기)·⋯(메뉴)는 끈 바로 뒤에도 누를 수 있다.
   box.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nb-card] .nb-open')) { e.preventDefault(); e.stopPropagation(); } }, true);
   box.addEventListener('contextmenu', e => { if (drag?.touch || Date.now() < suppressUntil) e.preventDefault(); }, true);
+  // UI-우클릭전수(2026-11-03): PC에서 빈 보드(칸·도구 줄·글자 칸 밖)를 우클릭하면 브라우저 메뉴 대신 웹2 메뉴(onBackgroundMenu). 칸 위는 공용 context-menu.js가 칸의 ⋯를 연다.
+  box.addEventListener('contextmenu', e => {
+    if (!onBackgroundMenu || e.defaultPrevented || e.pointerType === 'touch' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t || t.closest('[data-nb-card],.nb-tools,input,textarea,select,[contenteditable],a[href]')) return;
+    e.preventDefault(); onBackgroundMenu(e.clientX, e.clientY);
+  });
   box.addEventListener('click', e => { const b = e.target.closest?.('[data-nb-zoom]'); if (b && !b.disabled) setZoom(stepZoom(zoom, Number(b.dataset.nbZoom))); });
   // 키보드: 칸에 초점을 두고 화살표로 옮긴다(Shift = 4배). 0.5초 멈추면 저장.
   box.addEventListener('keydown', e => {

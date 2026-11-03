@@ -68,7 +68,7 @@ test('blank creates on its date; event and overflow retain their editors and lis
   await expect(page.locator('#ciGoogleSave')).toBeEnabled();
   await page.locator('#ciGoogleClose').click();
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
-  await page.locator('.cal-cell[data-date="2026-10-21"] .cmv-task-count, .cmv-date-list[data-date="2026-10-21"]').first().click(); // 폰은 날짜 줄(S48-6c)
+  await page.locator('.cal-cell[data-date="2026-10-21"] .cal-day').first().click(); // 폰은 날짜 줄(S48-6c)
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(19);
 });
@@ -136,12 +136,17 @@ test('number buttons support keyboard activation without nested buttons',async({
   await expect(page.locator('#calendarDayModal')).toBeVisible();
 });
 for(const width of [761,1280]){
-  test(`desktop keeps numbers inside the existing create button (${width}px)`,async({page})=>{
+  // S49-6: PC도 날짜 숫자·칸 위쪽은 그 날 창, 아래 빈 곳은 일정 추가.
+  test(`desktop number opens the day and the lower blank creates (${width}px)`,async({page})=>{
     await open(page,width);
-    await expect(page.locator('.cmv-date-list')).toHaveCount(0);
-    await page.locator('.cal-cell[data-date="2026-10-23"] .cal-day').click();
+    await expect(page.locator('.cmv-date-list').first()).toBeVisible();
+    await page.locator('.cal-cell[data-date="2026-10-23"] .cmv-date-create').click();
     await expect(page.locator('#eventModal')).toBeVisible();
     await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-23');
+    await page.locator('[data-close="eventModal"]').click();
+    await page.locator('.cal-cell[data-date="2026-10-23"] .cal-day').click();
+    await expect(page.locator('#calendarDayModal')).toBeVisible();
+    await expect(page.locator('#eventModal')).toBeHidden();
   });
 }
 for(const kind of ['task','google']){
