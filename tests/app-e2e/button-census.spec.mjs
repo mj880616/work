@@ -63,13 +63,14 @@ for (const width of [390, 1280]) test('버튼 전수 수집 ' + width, async ({p
   await page.goto(loginEntry(testOrigin + '/app/'));
   await signInWithSession(page, user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout:20000});
+  page.setDefaultTimeout(10000);
   const all = [], skipped = [];
   for (const view of VIEWS) {
     try {
       await clickView(page, view);
       await page.waitForTimeout(700);
       all.push(...await collect(page, view));
-    } catch (e) { skipped.push(view); }
+    } catch (e) { skipped.push(view); await page.keyboard.press('Escape').catch(() => {}); }
   }
   for (const b of all) console.log('[census] ' + width + ' ' + [b.view, JSON.stringify(b.label), b.cls, 'h' + b.h, 'w' + b.w, b.fs, b.fw, b.br, b.icon ? 'icon' : 'text', b.filled ? 'filled' : '', 'row' + b.row].join(' '));
   console.log('[census] ' + width + ' skipped=' + skipped.join(',') + ' total=' + all.length);

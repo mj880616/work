@@ -1282,9 +1282,8 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 /* ⑤ HWP 편집: [파일 선택]·[자료실에 올리기]는 보조(32px), [내 기기에 저장]은 주 동작(36px). */
 #appView #hwpView :is(#hwpLabPick,#hwpLabUpload,#hwpLabTemplate){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 #appView #hwpView #hwpLabSave{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
-/* ⑥ 업무일지 [저장]·공유 페이지 [새 공유 페이지]: PC와 같이 폰도 36px. */
-#appView #homeView .journal-line-row button[data-journal-save],
-#appView #pagesView .sp-root button[data-sp-new]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+/* ⑥ 업무일지 [저장]: PC와 같이 폰도 36px. (공유 페이지 [새 공유 페이지]는 [+ HTML]과 같은 줄이라 .btn-row의 32px, UI-버튼크기전수) */
+#appView #homeView .journal-line-row button[data-journal-save]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ⑦ 폰 빠른 입력 [추가] 46 → 36px(입력칸 첫 줄 가운데), 입력칸 안 [큰 창에서 쓰기]는 보이는 32px. 누르는 범위 44px. */
 @media(max-width:760px){
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save{
