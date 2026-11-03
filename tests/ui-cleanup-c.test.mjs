@@ -89,3 +89,37 @@ test('③ 사업 보고 후속 할 일: 머리의 추가 단추는 [+] 하나, A
   assert.match(form[0], /id="mrdMakeTodos"[^>]*>AI로 후보 찾기</);
   assert.doesNotMatch(t, /후속 할 일 만들기<\/button>/);
 });
+
+// UI-화면정리 C '구성 개선'(요청함 10/28 20:03 C-1~6, S48-46). 기록은 docs/design/ui-abc-c-status.md·docs/design-decisions.md "UI-화면정리 C 구성 개선".
+test('C2 정리함은 PC에서 다른 화면처럼 본문 칸을 꽉 쓴다(예전 최대 폭 1100px 없음)', () => {
+  const css = noComments(read('basket.css'));
+  assert.doesNotMatch(css, /#basketView\s*\{[^}]*max-width:\s*1100px/);
+  assert.match(css, /@media\(min-width:761px\)\{\s*#basketView\s*\{\s*max-width:none;/);
+});
+
+test('C4 업데이트 줄: 복사 아이콘 없이 ⋯ 하나, [복사]는 폰·PC 모두 ⋯ 메뉴 맨 위, [미분류]를 고른 동안 줄에 미분류를 또 쓰지 않음', () => {
+  const js = read('basket.js');
+  assert.doesNotMatch(js, /data-basket-row-copy/);
+  assert.match(js, /function rowMenuItems\(note\)\{\s*return \[\.\.\.\(String\(note\.raw_text\|\|''\)\.trim\(\)\?\[\['copy','복사'\]\]:\[\]\)/);
+  assert.match(js, /filter === 'unclassified' && label === '미분류' \? '' : label/);
+  const ui = noComments(read('ui-standard.css'));
+  assert.match(ui, /@media \(hover:hover\) and \(pointer:fine\)\{\s*#appView #basketView #basketRows \.basket-row-item > button\.basket-row-more\{ opacity:0;/);
+});
+
+test('C3 일기 달력은 폰·PC 모두 둥근 상자 대신 격자선 한 겹(칸 사이 0)', () => {
+  const css = noComments(read('diary.css'));
+  assert.match(css, /^#appView #diaryView \.diary-days\{ gap:0;/m);
+  assert.match(css, /^#appView #diaryView \.diary-cell\{ border:0; border-right:[^}]*border-radius:0; \}/m);
+});
+
+test('C5 폰 하단바: 하단바에 칸이 없는 화면에서는 아무 칸도 칠하지 않는다(메뉴 창이 열려 있을 때만 [메뉴])', async () => {
+  const {selectedMobileTab} = await import('../app/mobile-tab-selection.mjs');
+  assert.equal(selectedMobileTab({view: 'library'}), null);
+  assert.equal(selectedMobileTab({view: 'ledger'}), null);
+  assert.equal(selectedMobileTab({view: 'library', menuOpen: true}), 'menu');
+});
+
+test('C6 펼친 폭(761px~) 서랍은 줄마다 선을 긋지 않는다(묶음 사이 선 하나)', () => {
+  const ui = noComments(read('ui-standard.css'));
+  assert.match(ui, /@media\(min-width:761px\)\{\s*#appView \.mobile-menu-panel nav button:not\(\[hidden\]\) ~ button:not\(\[hidden\]\)\{ border-top:0;/);
+});
