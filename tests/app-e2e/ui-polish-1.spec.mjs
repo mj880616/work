@@ -232,12 +232,13 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  await expect(meta.locator('.basket-chip')).toHaveText(['사업영역: 2026 임금교섭','담당조직: 전국철도노동조합']);
  await expect(meta.locator('.basket-chip-dot')).toHaveCount(2);await expect(meta.locator('time')).toHaveText(/2026\. 10\. 16\./);
  const [textBox,metaBox]=await Promise.all([rect(detail.locator('[data-basket-read-text]')),rect(meta)]);expect(metaBox.top).toBeGreaterThan(textBox.bottom);
- // [⋯] = 수정·보관·삭제(빨강), keyboard and Esc. 원문 보기 is the small toggle icon near the text.
+ // [⋯] = 수정·보관·삭제(같은 색), keyboard and Esc. 원문 보기 is the small toggle icon near the text.
  const more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(menu).toBeHidden();await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
  await expect(menu.locator('button')).toHaveText(['수정','보류로','일기로 보내기','삭제']);
  await expect(menu.locator('[data-basket-edit]')).toBeFocused();
- expect(await menu.locator('[data-basket-delete]').evaluate(el=>getComputedStyle(el).color)).toBe(await token('--kptu-danger'));
+ const menuColor=sel=>menu.locator(sel).evaluate(el=>getComputedStyle(el).color);
+ expect(await menuColor('[data-basket-delete]')).toBe(await menuColor('[data-basket-edit]'));expect(await menuColor('[data-basket-delete]')).not.toBe(await token('--kptu-danger'));
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
  const raw=detail.locator('[data-basket-read-raw]');await expect(raw).toHaveAccessibleName('원문 그대로 보기');await raw.click();
  await expect(detail.locator('[data-basket-read-text]')).toContainText('- 장소: 국회');
