@@ -55,7 +55,7 @@ export function infoRows(items, info) {
     const loc = v && validLoc(v.lat, v.lon) ? {lat: v.lat, lon: v.lon} : null;
     const taken = Number.isFinite(v?.taken) ? v.taken : Date.parse(it.taken_at || '');
     return {id: String(it.phoneId), name: String(it.name || ''), taken: Number.isFinite(taken) ? taken : null, loc,
-      can: !!v && v.can === true && !it.video, why: !v ? '폰에 없음' : it.video ? '동영상' : v.can !== true ? '이 종류는 못 고침' : '',
+      can: !!v && v.can === true && !it.video, why: !v ? '폰에서 못 찾음' : it.video ? '동영상' : v.can !== true ? '이 종류는 못 고침' : '',
       make: v?.make || '', model: v?.model || '', lens: v?.lens || ''};
   });
 }
@@ -118,7 +118,7 @@ export function recordRows(plan, {workspaceId, batchId, failed = []} = {}) {
   });
 }
 // 앱 답 오류 → 화면 글.
-const WRITE_ERRORS = {refused: '폰에서 허락하지 않았어요', none: '고칠 수 있는 사진이 없어요', old: '안드로이드 11 이상에서만 고칠 수 있어요', busy: '다른 고치기가 진행 중이에요',
+const WRITE_ERRORS = {refused: '폰에서 허락하지 않았어요', none: '고칠 수 있는 사진을 찾지 못했어요', old: '안드로이드 11 이상에서만 고칠 수 있어요', busy: '다른 고치기가 진행 중이에요',
   bad: '앱이 요청 모양을 받지 않았어요', failed: '고치지 못했어요'};
 export const writeErrorText = e => WRITE_ERRORS[e] || WRITE_ERRORS.failed;
 export function doneText({count = 0, failed = []} = {}, verb = '고쳤어요') {

@@ -8,6 +8,7 @@
 import {INFO_MAX, infoRows, cameraLine, planRows, writeItems, undoItems, recordRows, writeErrorText, doneText, takenText, placeText, parsePlace,
   localValue, fromLocalValue, shiftMs} from './photo-info-model.mjs';
 import {notify} from './small-notice.js';
+import {waitInlineHtml} from './wait-state.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const TABLE = '/rest/v1/app_photo_info_edits';
@@ -161,7 +162,7 @@ export async function openPhotoInfo(trigger, items, {phone, rt = window.KPTURunt
   state = {trigger, phone, rt, onDone, run: ++seq, saving: false, rows: null, plan: null, last: null};
   $('[data-pi-count]').textContent = `${list.length}장`;
   $('[data-pi-cam]').textContent = '';
-  $('[data-pi-rows]').innerHTML = '<tr><td colspan="3">읽는 중…</td></tr>';
+  $('[data-pi-rows]').innerHTML = `<tr><td colspan="3">${waitInlineHtml()}</td></tr>`;
   $('[data-pi-h]').value = '0'; $('[data-pi-m]').value = '0'; $('[data-pi-place]').value = '';
   dialog.querySelector('input[name=piHow][value=shift]').checked = true;
   $('[data-pi-save]').disabled = true; say('');

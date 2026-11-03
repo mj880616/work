@@ -68,7 +68,7 @@ test('이 장소로·위치 지우기: 위치만 보내고, 기록은 앞 위치
 test('못 고치는 사진(동영상·HEIC·폰에 없음)은 표에 남고 빠진다 · 카메라 줄은 보기만', () => {
   const list = [item(1), item(2, undefined, {video:true}), item(3), item(4)];
   const rows = rowsOf(list, [info(1), info(2), info(3, undefined, {can:false, model:'SM-F946N', make:'samsung', lens:''})]);
-  assert.deepEqual(rows.map(r => [r.can, r.why]), [[true, ''], [false, '동영상'], [false, '이 종류는 못 고침'], [false, '폰에 없음']]);
+  assert.deepEqual(rows.map(r => [r.can, r.why]), [[true, ''], [false, '동영상'], [false, '이 종류는 못 고침'], [false, '폰에서 못 찾음']]);
   assert.deepEqual(writeItems(planRows(rows, {kind:'shift', ms:H})), [{id:'1', taken:T0 + 60000 + H}]);
   assert.equal(cameraLine(rows.slice(0, 1)), '카메라 SONY ILCE-7M4 · 렌즈 FE 24-70mm');
   assert.equal(cameraLine(rows), '카메라 여러 가지 · 렌즈 FE 24-70mm');
