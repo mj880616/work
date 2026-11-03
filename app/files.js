@@ -135,6 +135,19 @@ async function loadList({quiet = false} = {}) {
     if (!quiet || !state.loaded) { state.failed = codeOf(e); state.loaded = false; }
   }
   paint();
+  if (where.source && !where.shelf) directRead(where, scope);
+}
+// 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색인에 합친다(폴더마다 이 화면이 열려 있는 동안 한 번). 색인이 덜 찼어도 빈 화면이 되지 않게.
+const directDone = new Set();
+async function directRead(where, scope) {
+  const key = scope + '|' + folderKey(where.source, where.parent);
+  if (directDone.has(key) || !connected().includes(where.source)) return;
+  directDone.add(key);
+  try {
+    const d = await edge('folder', {source: where.source, ...(where.parent ? {id: where.parent} : {})});
+    if (state.scope !== scope || state.where !== where) return;
+    if (d?.added > 0 || d?.reload) await loadList({quiet: true});
+  } catch { /* 이번엔 색인 그대로. 다음 갱신이 이어 맞춘다 */ }
 }
 async function loadChildren(source, parent) {
   const key = folderKey(source, parent), scope = state.scope;

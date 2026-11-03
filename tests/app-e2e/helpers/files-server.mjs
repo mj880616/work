@@ -1,5 +1,5 @@
 // FILES-클라우드탐색기 ④ E2E 공용 흉내 서버(파일 화면). 파일·폴더 이름과 id는 모두 가짜.
-// 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find)와 Edge cloud-files(status·sync·thumb·media·preview·open-url,
+// 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find)와 Edge cloud-files(status·sync·folder·thumb·media·preview·open-url,
 // S48-45 쓰기 rename·mkdir·move·trash·across)를 흉내 낸다.
 import { expect } from '@playwright/test';
 import { openHome } from './home-entry.mjs';
@@ -36,7 +36,7 @@ export function fakePdf() {
 }
 
 export async function filesServer(page, { connected = { od: true, gd: true } } = {}) {
-  const server = { items: ITEMS(), calls: [], pendingSync: null };
+  const server = { items: ITEMS(), calls: [], pendingSync: null, directItems: [] };
   const trail = (source, id) => {
     const out = [];
     let cur = server.items.find(i => i.source === source && i.item_id === id), depth = 0;
@@ -54,6 +54,13 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
       const a = body?.action;
       if (a === 'status') return ok({ ok: true, od: { connected: connected.od, scanning: false, synced_at: '2026-10-06T00:59:00Z', index_done_at: '2026-10-01T00:00:00Z', error: null }, gd: { connected: connected.gd, scanning: false, synced_at: '2026-10-06T00:58:00Z', index_done_at: '2026-10-01T00:00:00Z', error: null } });
       if (a === 'sync') { const d = server.pendingSync || { changed: [], removed: [] }; server.pendingSync = null; return ok({ ok: true, od: { fresh: true }, gd: { fresh: true }, reload: false, ...d }); }
+      // S48-65 폴더 바로 읽기: 색인에 없는 줄(server.directItems 중 그 폴더 것)을 색인에 합치고 새로 찾은 수를 돌려준다.
+      if (a === 'folder') {
+        const here = server.directItems.filter(i => i.source === body.source && (i.parent_id ?? null) === (body.id ?? null));
+        const fresh = here.filter(i => !server.items.some(x => x.source === i.source && x.item_id === i.item_id));
+        server.items.push(...fresh);
+        return ok({ ok: true, found: here.length, added: fresh.length, truncated: false, changed: fresh.map(view), reload: false });
+      }
       if (a === 'thumb') return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
       if (a === 'preview') return route.fulfill({ status: 200, contentType: 'application/pdf', body: fakePdf() });
       if (a === 'media') {

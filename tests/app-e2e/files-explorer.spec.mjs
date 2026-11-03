@@ -141,3 +141,18 @@ test('412: 연결된 클라우드가 없으면 한 줄만, 맞추기를 부르�
   expect(server.calls.filter(c => c.action === 'sync')).toHaveLength(0);
   expect(errors).toEqual([]);
 });
+
+test('1440: 폴더를 열면 그 폴더만 클라우드에서 바로 읽어 색인에 없던 파일도 보임(한 폴더에 한 번)', async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors, server } = await start(page, 1440);
+  server.directItems = [{ source: 'od', item_id: 'OD!15', parent_id: 'OD!1', name: '가짜 직접읽기.docx', is_folder: false, mime: null, size_bytes: 2048,
+    modified_at: '2026-10-02T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null }];
+  await openFiles(page, 1440);
+  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
+  await row(page, 'od:OD!1').click();
+  await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
+  await expect.poll(() => names(page)).toContain('가짜 직접읽기.docx');
+  expect(server.calls.filter(c => c.action === 'folder')).toHaveLength(1);
+  expect(server.calls.find(c => c.action === 'folder').body).toMatchObject({ source: 'od', id: 'OD!1' });
+  expect(errors).toEqual([]);
+});
