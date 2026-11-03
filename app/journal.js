@@ -595,6 +595,7 @@ function renderMode() {
 function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;
   mode = next; editing = null;
+  startWeekReads();
   writePlace(); renderMode();
   if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); maybeNextWeek(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }
 }
@@ -764,6 +765,20 @@ async function loadMemory(run, scope, quiet = false) {
   if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
   memory = read; renderWeekly_(); hwpx?.refresh();
 }
+// PERF-첫로딩 요청 합치기(S48-59, docs/design/first-load.md 14절): [주간 정리]에만 쓰는 읽기(다음 주 장·5. 주요 일정 두 주·조직 요약·
+// 임원 요청·임시저장·조직 참고 캘린더·주간보고 기억)는 하루 화면에서는 보내지 않고, 그 주 [주간 정리]를 처음 열 때 보낸다.
+// 묶음 프로그램은 전처럼 앱이 보인 뒤 미리 받아 두므로(맨 아래 weeklyKit), 열 때는 읽기만 기다린다(칸마다 기다림 표시 → 채움).
+const WEEK_READS = ['nextWeek', 'upcoming', 'orgSummaries', 'execRequests', 'weekDraft', 'orgRefs'];
+let weekReads = null; // 미룬 읽기 {run, sharedRun, scope, quiet, memory}; 탭 메모리만
+function startWeekReads() {
+  const wait = weekReads;
+  if (!wait || mode !== 'week') return;
+  weekReads = null;
+  if (wait.run !== epoch || wait.scope !== ownerScope(rt)) return;
+  if (wait.memory) loadMemory(wait.sharedRun, wait.scope, wait.quiet);
+  if (wait.quiet) { for (const key of WEEK_READS) refreshing.add(key); markRefreshing(); }
+  for (const key of WEEK_READS) loadGroup(key, SHARED_KEYS.has(key) ? wait.sharedRun : wait.run, wait.scope, wait.quiet);
+}
 // quiet = 연 화면 유지(같은 주인·같은 주를 다 그린 뒤 다시 열 때만): 보던 자료·펼침 상태를 그대로 그리고, 칸마다 새 자료가 오면 그 칸만 다시 그린다.
 function loadWeek({shared = false, quiet = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
@@ -775,13 +790,21 @@ function loadWeek({shared = false, quiet = false} = {}) {
     lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
+  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
+  // 하루 화면: [주간 정리] 전용 읽기는 미뤄 둔다(startWeekReads). 주를 넘겨도 기억 읽기는 방문(sharedEpoch)에 묶여 있으므로 함께 넘긴다.
+  const defer = mode !== 'week', memoryRead = shared || changedOwner || (!!weekReads?.memory && weekReads.sharedRun === sharedRun);
+  const keys = defer ? allKeys.filter(key => !WEEK_READS.includes(key)) : allKeys;
+  weekReads = defer ? {run, sharedRun, scope, quiet, memory:memoryRead} : null;
   refreshing = quiet ? new Set([...keys, 'lines', ...(shared ? ['kinds'] : [])]) : new Set(); markRefreshing();
   if (!quiet) {
-    for (const key of keys) materials[key] = {status:'loading'};
+    for (const key of allKeys) materials[key] = {status:'loading'};
     delete materials.overlaps;
   }
-  if (shared || changedOwner) { loadKinds(sharedRun, scope, quiet); loadMemory(sharedRun, scope, quiet); if (!quiet) memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
+  if (shared || changedOwner) {
+    loadKinds(sharedRun, scope, quiet);
+    if (!defer) loadMemory(sharedRun, scope, quiet); else if (!quiet) memory = {status:'loading'};
+    if (!quiet) memoryUi = {open:false, busy:false, status:'', error:false, undo:null};
+  }
   render();
   loadLines(run, scope, quiet);
   for (const key of keys) loadGroup(key, SHARED_KEYS.has(key) ? sharedRun : run, scope, quiet);
