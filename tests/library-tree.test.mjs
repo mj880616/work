@@ -207,3 +207,23 @@ test('종류 묶기: 소분류 묶음 이름과 값',()=>{
   const cat=m.buildTree(base({groupBy:'category',docs,categoryOf:c=>c,categories:['선전','선전›투쟁속보','기타'],categoryLabel:n=>n.split('›').join(' › ')}));
   assert.deepEqual(cat.map(n=>[n.label,n.category,n.count]),[['선전','선전',1],['선전 › 투쟁속보','선전›투쟁속보',1]]);
 });
+
+// SEARCH-선택옮기기 ⑦(10/28 명진 요청): 자료 없이 폴더 하나만 든 외줄 폴더는 접힌 줄에서 '공공팀 › 회의 › 집행위' 한 줄로.
+test('외줄 폴더: 접힌 줄에 이어진 경로, 펼치면 CSS가 뒤 경로를 숨기고 이어진 폴더 열쇠를 data-lu-chain에 둔다',()=>{
+  const folders=[{id:'g1',project_id:null,parent_id:null,name:'공공팀',sort_order:0},{id:'g2',project_id:null,parent_id:'g1',name:'회의',sort_order:0},{id:'g3',project_id:null,parent_id:'g2',name:'집행위<',sort_order:0},{id:'h1',project_id:null,parent_id:null,name:'갈래',sort_order:1},{id:'h2',project_id:null,parent_id:'h1',name:'가',sort_order:0},{id:'h3',project_id:null,parent_id:'h1',name:'나',sort_order:1}];
+  const docs=[doc('d1','a'),doc('d2','a')];
+  const items=[{document_id:'d1',folder_id:'g3'},{document_id:'d2',folder_id:'h2'}];
+  const out=m.buildTree({...base({docs,folders,items}),groupBy:'folder'});
+  const g1=out.find(n=>n.key==='f:g1'),h1=out.find(n=>n.key==='f:h1');
+  assert.deepEqual(m.folderChain(g1).map(n=>n.key),['f:g2','f:g3']);
+  assert.deepEqual(m.folderChain(h1),[],'폴더가 둘이면 줄이지 않음');
+  assert.deepEqual(m.folderChain(g1.children[0].children[0]),[],'맨 아래(자료 있음)는 줄일 것 없음');
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const html=m.treeHtml([g1,h1],{isOpen:()=>false,showAll:()=>false,fileHtml:()=>'',esc,kindKey:k=>k,emoji:true});
+  assert.match(html,/data-lu-node="f:g1" data-lu-node-kind="folder" data-lu-chain="f:g2 f:g3" style=/);
+  assert.match(html,/<span class="lu-node-name">공공팀<span class="lu-chain-rest"> › 회의 › 집행위&lt;<\/span><\/span>/);
+  assert.match(html,/data-lu-node="f:g2" data-lu-node-kind="folder" data-lu-chain="f:g3" style=/,'중간 폴더도 자기 줄(위를 펼쳤을 때), 그 아래만 이어 보임');
+  assert.match(html,/data-lu-node="f:g3" data-lu-node-kind="folder" style=/);
+  assert.doesNotMatch(html,/data-lu-node="f:h1"[^>]*data-lu-chain/);
+  assert.equal((html.match(/lu-chain-rest/g)||[]).length,2);
+});

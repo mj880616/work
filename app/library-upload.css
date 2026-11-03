@@ -424,6 +424,9 @@
 #appView #libraryView .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-closed{display:none}
 #appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-open{display:inline}
 #appView #libraryView .lu-node-out .lu-node-name{color:var(--kptu-muted)}
+/* SEARCH-선택옮기기 ⑦: 외줄 폴더는 접힌 줄에서만 '공공팀 › 회의 › 집행위'(뒤 경로는 엷게), 펼치면 맨 위 이름만 — 아래 단은 자기 줄로 보인다. */
+#appView #libraryView .lu-chain-rest{color:var(--kptu-muted)}
+#appView #libraryView .lu-node[open] > .lu-node-head .lu-chain-rest{display:none}
 
 /* LIB-후속1 ① PC 선택 오류: 줄(role=button)이 누르는 동안 공용 눌림 규칙(ui-standard.css UI-눌림느낌)으로 1.5~3% 작아지면서
    넓은 줄의 왼쪽 끝이 7~13px 오른쪽으로 밀려, 네모 칸 왼쪽·가운데를 누르면 손을 뗄 때 포인터가 줄 밖(목록)에 있어 클릭이 줄에 닿지 않았다.
