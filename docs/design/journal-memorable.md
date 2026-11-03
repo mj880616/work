@@ -45,6 +45,12 @@
 - `app/journal-data.js` REPORT_PARTS에 네 번째 묶음, `app/journal.js` 그리기(주간보고 재료 안, 다른 묶음과 같은 줄 모양).
 - 줄 버튼은 기존 환류 부품을 재사용(새 상태 저장소 만들지 않음). [넣기]/[고쳐서 넣기]는 주간보고 조직 칸 후보로 연결.
 
+## 6-1. 구현 메모 (S49-13)
+
+- 서버: `supabase/functions/ai-assist/journal-memorable.ts`(순수 규칙) + `handler.ts` `runJournalMemorable`. 화면은 날짜만 보내고, 서버가 운영자 기능(`app_my_features`)·1시간 판정·새 기록 읽기·AI 호출·표 저장을 한다. 두 기기가 동시에 열어도 실행 시각을 먼저 차지한 쪽만 AI를 부른다. 실패하면 차지를 되돌려 다음에 열 때 다시 한다.
+- 화면: `app/journal-memorable.js`가 묶음의 상태·그리기를 맡고 `journal.js renderDay()`가 자리만 준다. 저장은 표 PATCH(결과 칸 4개)뿐이다.
+- 하루 AI 횟수 한도 24(`DAILY_LIMITS.journal_memorable`), 사용량은 기존 `checkBudget`·`writeUsage` 길.
+
 ## 7. 순서·복구
 
 1. 이 PR(설계 + migration + 짝 파일 5개) merge → 커맨드센터가 시험 적용 → 적용 → 사후 확인. 표만 생기고 화면·Edge는 아직 안 쓰므로 영향 없음.

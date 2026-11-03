@@ -29,6 +29,7 @@ import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // screen (one history entry, so one back or the top line's ← returns here); on the phone it opens over this screen as the app's
 // usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
 // and the same scroll and focus.
+import {createMemorable} from './journal-memorable.js';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
@@ -427,8 +428,21 @@ function ddayLine() {
   line.innerHTML = '<small class="journal-dday-label">다가오는 일</small>' + read.items.map(m => `<button type="button" class="journal-dday-chip${m.days <= 3 ? ' is-soon' : ''}" data-journal-dday-project="${esc(m.project_id)}" ${m.google_event_id ? eventAttrs(m.google_event_id, m.google_calendar_id) : ''}>${m.days === 0 ? 'D-day' : 'D-' + m.days} ${esc(m.title)}</button>`).join('');
   return line;
 }
+// S49-13 기억할 통화·텔레그램(journal-memorable.js): 이 묶음의 상태는 그 모듈이 갖고, 여기서는 자리만 준다.
+const memorable = createMemorable({onChange: () => { if (mode !== 'week') renderDay(); }});
+// 원본 열기: 통화는 통화 화면에서 그 통화를, 텔레그램은 그 방·날짜를 연다(방 구분값은 눌렀을 때 읽는다).
+async function openMemorable(row) {
+  try {
+    if (row.source === 'call') { goView('calls'); await window.KPTUCallFeed?.open?.(row.feedItemId); return; }
+    const found = await rt.api(`/rest/v1/app_feed_items?id=eq.${encodeURIComponent(row.feedItemId)}&select=room_key,day&limit=1`);
+    const item = Array.isArray(found) ? found[0] : null;
+    if (!item) return;
+    goView('telegram'); await window.KPTUTelegramFeed?.show?.(item.room_key, item.day, row.feedItemId);
+  } catch { status.textContent = '원본을 열지 못했어요. 다시 시도해 주세요.'; }
+}
 function renderDay() {
   opens = new Map(); openSeq = 0;
+  void memorable.ensure(selected, rt);
   const card = dayCard(materials, selected, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
   renderSchedule(card);
   renderTasks(card);
@@ -438,7 +452,8 @@ function renderDay() {
   report.className = 'journal-report'; report.dataset.journalReport = '';
   report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
   const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
-  if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
+  const memorableBox = memorable.render(selected, rt, {open: openMemorable});
+  if (parts.length || memorableBox) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'})), ...(memorableBox ? [memorableBox] : [])); report.append(grid); }
   else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
   // ⑤ 그 밖의 기록: folded by default; the summary line counts what is inside.
   const shown = card.others.filter(part => part.loading || part.failed || part.items.length);
