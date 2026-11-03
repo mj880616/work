@@ -21,7 +21,7 @@ GitHub Pages custom domain을 설정하지 않음. 기존 github.io URL을 계�
 | `work.bokdoong.com` | `/work/`로 호스트 내부 이동 | `/work/**` |
 | `desk.bokdoong.com` | `/work/app/`로 호스트 내부 이동 | `/work/app/**` |
 | `read.bokdoong.com` | (이 Worker 소관 아님) 2026-09-28 읽생기 전용 rtw-router로 이전 | 해당 없음 |
-| `arsenal.bokdoong.com` | `/work/personal/arsenal-match-archive/`로 호스트 내부 이동 | 해당 아카이브 경로만 |
+| `arsenal.bokdoong.com` | 모든 주소를 `bokdoong.com/work/app/?view=arsenal`(Web2 아스날 메뉴)로 302. 옛 `?쿼리`는 버림, `#`은 브라우저가 유지 | 없음(넘김 전용, favicon만 C1까지 응답) |
 
 기존 경로를 유지하므로 CSS, JS, Web2 Service Worker 범위, 읽생기 SPA 경로를 일괄 변경하지 않아도 됨. `desk`의 Web1 공개 페이지 링크는 `work.bokdoong.com`의 같은 경로로 이동시켜 인증 앱과 공개 페이지의 새 Origin을 분리함. `lab`·`archive`를 추가하려면 Worker의 호스트별 경로 매핑과 Wrangler Custom Domain을 하나씩 추가하면 됨.
 
