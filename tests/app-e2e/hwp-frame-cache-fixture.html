@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>HWP 편집기 열기 시간 시험</title>
+</head>
+<body>
+<div id="host" style="width:900px;height:640px"></div>
+<script type="module">
+// LIB-편집열기느림: 앱 화면 없이 칸막이 편집기(hwp-frame.js)만 띄워 "편집기 준비"와 "파일 펼치기" 시간을 잰다.
+import {createSandboxedEditor} from '/app/hwp-frame.js';
+window.openEditorOnce=async base64=>{
+  const t0=performance.now();
+  const editor=await createSandboxedEditor(document.getElementById('host'));
+  const t1=performance.now();
+  const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+  const result=await editor.loadFile(bytes,'sample.hwpx',{skipUnsavedGuard:true});
+  const t2=performance.now();
+  return {readyMs:Math.round(t1-t0),openMs:Math.round(t2-t1),pages:result?.pageCount??null};
+};
+window.fixtureReady=true;
+</script>
+</body>
+</html>
