@@ -101,7 +101,7 @@ async function addToDiary(day, text, files, {rt, isCurrent = () => true, onProgr
 //   {status:'partial', day, message}       — 일기에 일부만 들어감(원래 기록은 그대로)
 //   {status:'missing'|'stale'}
 export async function sendRecordToDiary(id, {rt = window.KPTURuntime, day = '', isCurrent = () => true, onProgress = () => {}, fetcher = globalThis.fetch,
-  trash = noteId => import('./basket-record-delete.js').then(m => m.deleteNoteOriginal(noteId, {rt, trash:true, confirmed:true}))} = {}) {
+  trash = (noteId, movedText) => import('./basket-record-delete.js').then(m => m.deleteNoteOriginal(noteId, {rt, trash:true, confirmed:true, movedText}))} = {}) {
   const row = await readSendRecord(id, rt);
   if (!row) return {status:'missing', message:'노트를 찾지 못했어요. 다시 불러와 주세요.'};
   const target = day || recordDay(row);
@@ -120,7 +120,7 @@ export async function sendRecordToDiary(id, {rt = window.KPTURuntime, day = '', 
   if (result.failed || result.done < files.length) {
     return {status:'partial', day:target, message:`${dayLabel(target)} 일기에 ${text ? '글과 ' : ''}사진 ${result.done}장까지 넣었어요. '${result.failed || '남은 사진'}'부터 넣지 못해 원래 기록은 그대로 두었어요.`};
   }
-  const removed = await trash(row.id).catch(() => ({status:'unknown'}));
+  const removed = await trash(row.id, `${dayLabel(target)} 일기로 보냈어요`).catch(() => ({status:'unknown'}));
   return {status:'sent', day:target, trash:removed?.status || 'unknown'};
 }
 
@@ -133,4 +133,24 @@ export async function putPhotosInDiary(files, {rt = window.KPTURuntime, day = to
   const result = await addToDiary(day, '', list, {rt, isCurrent});
   if (result.failed) return {ok:false, day, count:result.done, message:result.message};
   return {ok:true, day, count:result.done};
+}
+
+// 노트 ⋯·업데이트 ⋯ [일기로 보내기] 한 곳: 날짜를 묻고(기본 = 그 기록을 쓴 날, 달력) 보낸다. 결과 알림까지 여기서 한다.
+// 돌려주는 값: sendRecordToDiary 결과, 또는 {status:'cancelled'}. 다 들어가면 휴지통 알림('M월 D일 일기로 보냈어요 · 되돌리기')이 뜬다.
+export async function askSendToDiary(anchor, id, {rt = window.KPTURuntime, kind = 'note', isCurrent = () => true} = {}) {
+  const {askDate, notify} = await import('./small-notice.js');
+  let row;
+  try { row = await readSendRecord(id, rt); } catch { notify('기록을 읽지 못했어요. 다시 눌러 주세요.', {error:true}); return {status:'failed'}; }
+  if (!row) { notify('기록을 찾지 못했어요. 다시 불러와 주세요.', {error:true}); return {status:'missing'}; }
+  const what = row.kind === 'note' ? '노트' : '업데이트';
+  const day = await askDate(anchor, {text:'어느 날 일기로 보낼까요?', value:recordDay(row), ok:'보내기',
+    note:`그날 일기 끝에 글·사진을 더하고, 이 ${what}는 휴지통으로 가요(30일 안에 되살리기).`});
+  if (!day || !isCurrent()) return {status:'cancelled'};
+  notify('일기로 보내는 중…', {ms:30000});
+  let result;
+  try { result = await sendRecordToDiary(id, {rt, day, isCurrent, onProgress:({done, total}) => total && notify(`사진 넣는 중… ${done}/${total}장`, {ms:30000})}); }
+  catch (error) { result = {status:'partial', message:error?.message || '일기로 보내지 못했어요.'}; }
+  if (result.status === 'sent') { if (result.trash !== 'deleted') notify(`${dayLabel(result.day)} 일기에 넣었어요. ${what}는 지우지 못해 그대로 있어요.`, {ms:6000}); }
+  else if (result.status !== 'stale') notify(result.message || '일기로 보내지 못했어요.', {error:true, ms:7000});
+  return result;
 }
