@@ -611,7 +611,6 @@
 #appView #basketView .basket-note-more{ position:relative; }
 #appView #basketView .basket-note-more[hidden]{ display:none; }
 #appView #basketView button:is([data-basket-note-more],[data-note-more]){ width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:22px; line-height:1; }
-#appView #basketView .basket-more-menu button.basket-menu-danger{ color:var(--kptu-danger); }
 #appView #basketView .basket-note-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin:0 0 12px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #basketView .basket-note-meta time{ margin-left:auto; }
 #appView #basketView .basket-note-state{ display:contents; }

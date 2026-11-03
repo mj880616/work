@@ -36,7 +36,7 @@ export function sourceButtons(state, {phone = false, gdrive = false, gdriveProbl
   const out = [{name:'onedrive', on:s.onedrive, ready:true}];
   if (gdrive && GDRIVE_READY) out.push({name:'gdrive', on:s.gdrive, ready:!gdriveProblem, problem:gdriveProblem || ''});
   if (phone) out.push({name:'phone', on:s.phone, ready:true});
-  return out.map(b => ({...b, label:`${SOURCE_TEXT[b.name]}${b.problem ? (GDRIVE_RECONNECT.includes(b.problem) ? ' · 권한 없음' : ' · 못 읽음') : b.on ? ' 켜짐' : ' 꺼짐'}`}));
+  return out.map(b => ({...b, label:`${b.name === 'phone' ? '폰 폴더' : SOURCE_TEXT[b.name]}${b.problem ? (GDRIVE_RECONNECT.includes(b.problem) ? ' · 권한 없음' : ' · 못 읽음') : b.on ? ' 켜짐' : ' 꺼짐'}`}));
 }
 // 이번 화면에서 실제로 읽을 출처. gdrive = 칩이 보이고 권한이 있음.
 export function activeSources(state, {onedrive = false, phone = false, gdrive = false} = {}) {

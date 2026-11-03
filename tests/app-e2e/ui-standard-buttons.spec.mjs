@@ -108,7 +108,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  expect(move.bg).toBe(await token(page,'--kptu-surface'));
  for(const b of [link,task])for(const k of ['bg','fg','border','fontWeight','shadow','image'])expect(b[k]).toBe(move[k]);
  await detail.locator('[data-basket-note-more]').click();
- const del=await look(detail.locator('[data-basket-delete]'));expect(del.fg).toBe(await token(page,'--kptu-danger'));
+ const del=await look(detail.locator('[data-basket-delete]')),edit=await look(detail.locator('[data-basket-edit]'));expect(del.fg,'삭제 글자도 다른 메뉴 칸과 같은 색').toBe(edit.fg);expect(del.fg).not.toBe(await token(page,'--kptu-danger'));
  // Edit view: [수정 저장] is the one filled button.
  await detail.locator('[data-basket-edit]').click();await expect(detail.locator('[data-basket-save]')).toBeVisible();
  await sameButtons(detail,height);

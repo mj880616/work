@@ -35,7 +35,6 @@
 .basket-link-menu[hidden]{display:none}
 .basket-link-menu button{display:block;width:100%;height:44px;min-height:44px;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:400;cursor:pointer}/* BIZ-버튼줄정리 4번: 메뉴 항목은 다른 화면 메뉴와 같은 보통 굵기 글자 줄 */
 .basket-link-menu button:hover{background:var(--kptu-surface-subtle)}
-.basket-link-menu .basket-link-danger{color:var(--kptu-danger)}
 .basket-link-menu button:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 /* UI-버튼통일(2026-10-28): 담당조직 창의 연결·수정 줄 버튼은 작은 버튼(32px), 누르는 범위 44px은 ::after. */
 #wdUpdates .basket-link-actions :is(button,a),#wdUpdates [data-link-summary-current],#wdUpdates [data-wd-link-retry]{position:relative;min-height:var(--ds-compact-height,32px);display:inline-flex;align-items:center;padding:0 10px;box-sizing:border-box}

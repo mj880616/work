@@ -162,7 +162,6 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-edit-top input[type="date"]{ box-sizing:border-box; width:auto; min-width:9.5em; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 10px; }
 #appView #diaryView .diary-photo-pick{ gap:4px; }
 #appView #diaryView .diary-doc{ min-width:0; }
-.diary-lv-menu .diary-menu-danger{ color:var(--kptu-danger); }
 #appView #diaryView .diary-head-menu-wrap{ position:relative; display:inline-flex; }
 #appView #diaryView .diary-head-menu{ position:absolute; top:calc(100% + 4px); right:0; left:auto; bottom:auto; z-index:30; min-width:8.5em; }
 #appView #diaryView .diary-head-menu[hidden]{ display:none; }
