@@ -50,6 +50,6 @@ export function bindDropTarget(target,onFiles,canDrop=()=>true){
     const files=Array.from(e.dataTransfer?.files||[]);
     if(!files.length)return;
     e.preventDefault();e.stopPropagation();
-    if(canDrop())onFiles(files);
+    if(canDrop())onFiles(files,e);
   });
 }
