@@ -304,13 +304,14 @@
 
 /* LIB-여러개삭제: [선택] 모드. 버튼은 UI-버튼기준(글자 버튼·28px, 누르는 범위 44px), 전체 칩은 거르기 칩과 같은 모양. */
 /* UI-고르기줄(S48-54): 버튼 칸(같은 너비·같은 간격·최대 120px)·글자 모양·누르는 범위 44px는 공용 부품(base-ui.css .kptu-actbar-text, 노트 고르기 줄과 같음). */
-#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger);font-weight:700}
+#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger)}
 #libraryView .lu-head-actions > [hidden]{display:none}
 .lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;min-width:0;flex:1}
 :is(.lu-bulk-menu) button{padding-left:calc(var(--kptu-space-3,12px) + var(--lu-depth,0) * 12px)}
 :is(.lu-bulk-menu) button[aria-current="true"] .lu-menu-key{display:inline;color:var(--kptu-primary-ink);font-weight:700}
 :is(.lu-bulk-menu) button:disabled{opacity:.55;cursor:default}
 #libraryListCard .lu-select-bar > *{flex:none;margin:0}
+#libraryListCard .lu-select-bar > .lu-select-acts{flex:1 1 auto;min-width:0}
 .lu-select-bar[hidden]{display:none}
 .lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}
 .lu-select-count{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap;margin-right:4px}
