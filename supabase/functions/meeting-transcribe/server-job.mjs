@@ -132,3 +132,17 @@ export function needsKick(row, nowMs) {
   const changed = Date.parse(row.updated_at || row.created_at || '') || 0;
   return nowMs - changed > STALE_MS;
 }
+
+// 끝 알림을 보낼지: 내 프로필 '폰 알림'(app_profiles.notify_prefs, 화면 phone-push-model.mjs parsePrefs와 같은 모양)을 따른다.
+// '회의 요약'을 끈 사람 = skipped_off, 조용한 시간(기본 22:00~07:00 서울) = held_quiet(폰으로 보내지 않고 알림 줄에만), 그 밖 = send.
+const HM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+export function pushDecision(prefs, nowMs) {
+  const p = prefs && typeof prefs === 'object' && !Array.isArray(prefs) ? prefs : {};
+  if (p.kinds && typeof p.kinds === 'object' && p.kinds.meeting_done === false) return 'skipped_off';
+  const q = p.quiet && typeof p.quiet === 'object' && HM.test(p.quiet.from) && HM.test(p.quiet.to) ? p.quiet : { from: '22:00', to: '07:00' };
+  const kst = new Date(nowMs + 9 * 3600000), m = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+  const toMin = (s) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
+  const from = toMin(q.from), to = toMin(q.to);
+  const quiet = from === to ? false : from < to ? m >= from && m < to : m >= from || m < to;
+  return quiet ? 'held_quiet' : 'send';
+}

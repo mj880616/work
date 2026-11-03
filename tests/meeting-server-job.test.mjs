@@ -153,3 +153,13 @@ test('폰 녹음: 서버에 정리를 맡기면 rec_finish·transcribe를 부르
   assert.ok(sent.includes('rec:clear'));
   assert.equal(core.view.state,'idle');
 });
+
+test('끝 알림은 내 폰 알림 설정을 따른다(회의 요약 끔·조용한 시간)',()=>{
+  const at=h=>Date.UTC(2026,10,3,h-9,30); // 서울 h시 30분
+  assert.equal(sj.pushDecision(null,at(14)),'send');
+  assert.equal(sj.pushDecision(null,at(23)),'held_quiet');
+  assert.equal(sj.pushDecision(null,at(6)),'held_quiet');
+  assert.equal(sj.pushDecision({kinds:{meeting_done:false}},at(14)),'skipped_off');
+  assert.equal(sj.pushDecision({quiet:{from:'12:00',to:'13:00'}},at(12)),'held_quiet');
+  assert.equal(sj.pushDecision({quiet:{from:'12:00',to:'13:00'}},at(23)),'send');
+});

@@ -44,7 +44,7 @@ import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meet
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  audioDocument, cleanText, doneParts, hasWords, jobView, joinParts, needsKick, nextPart, parseStart, partTotal, recordingParts, summaryPlan, tickCheck, tickSign,
+  audioDocument, cleanText, doneParts, hasWords, jobView, joinParts, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
@@ -902,6 +902,15 @@ async function notifyDone(job: Job) {
   const { data: devices } = await admin.from('app_push_devices').select('id,fcm_token').eq('workspace_id', job.workspace_id).is('revoked_at', null).limit(10);
   if (!devices?.length) return;
   const at = new Date(), day = seoulDay(at), ref = `d${day}`;
+  // 내 프로필 '폰 알림' 설정(회의 요약 끔·조용한 시간)을 따른다. 읽지 못하면 기본값(켬, 22:00~07:00 조용).
+  let prefs: unknown = null;
+  try { const { data: me } = await admin.from('app_profiles').select('notify_prefs').eq('user_id', job.created_by).maybeSingle(); prefs = me?.notify_prefs ?? null; } catch { prefs = null; }
+  const decision = pushDecision(prefs, at.getTime());
+  if (decision !== 'send') {
+    await admin.from('app_push_log').upsert({ workspace_id: job.workspace_id, kind: 'meeting_done', ref_key: ref, day, status: decision },
+      { onConflict: 'workspace_id,kind,ref_key,day', ignoreDuplicates: true });
+    return;
+  }
   const open = `/work/app/?view=reports&rec_job=${job.id}&notice=meeting_done.${ref}`;
   const sender = makeFcmSender(cfg, fetch, Date.now);
   let sent = 0;
