@@ -352,6 +352,7 @@ function paint() {
   if (state.mode === 'sources') { sources.innerHTML = sourcesHtml(); list.replaceChildren(); }
   else { list.innerHTML = state.mode === 'list' ? listHtml() : ''; sources.replaceChildren(); }
   mountSplit();
+  autoOpenTop();
 }
 function paintList() { const list = $('[data-os-list]'); if (list && state.mode === 'list') { list.innerHTML = listHtml(); autoOpenTop(); } }
 // UI-Now PC정돈(명진 11/03 09:39): PC·폴드 펼침에서 상세 칸이 비어 안내문만 있지 않게 — 목록이 보이면 맨 위 글을 바로 연다(탭마다 이 화면에 들어온 뒤 한 번,
