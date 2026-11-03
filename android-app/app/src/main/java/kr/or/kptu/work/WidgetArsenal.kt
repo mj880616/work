@@ -17,6 +17,9 @@ object WidgetArsenal {
     private val DAYS = arrayOf("월", "화", "수", "목", "금", "토", "일")
     private val HHMM = Regex("^([01]\\d|2[0-3]):[0-5]\\d$")
 
+    /** 앱 주소 ?match= 에 넣을 수 있는 경기 id 모양(웹 app-router PLACE_VALUE 안쪽 글자이면서 폰 앱 화면 안 이동 주소에 들어가는 글자, 80자까지). */
+    val ID = Regex("^[A-Za-z0-9_.-]{1,80}$")
+
     data class Match(
         val date: LocalDate,
         val home: Boolean,
@@ -27,7 +30,13 @@ object WidgetArsenal {
         val result: String?,
         val round: String = "",
         val broadcast: String? = null,
+        val id: String = "",
+        val review: String? = null,
+        val goals: List<Goal> = emptyList(),
     )
+
+    /** 아스날이 넣은 골 한 개(APP-아스날위젯알차게 ④). 자책골은 상대 선수 이름이라 '자책골'로만 적는다. */
+    data class Goal(val minute: String, val scorer: String, val type: String)
 
     data class Content(val top: String, val bottom: String)
 
@@ -51,10 +60,19 @@ object WidgetArsenal {
             val score = if (hs != null && aw != null) (if (isHome) "$hs-$aw" else "$aw-$hs") else null
             val kickoff = MiniJson.str(m["kickoff"])?.takeIf { HHMM.matches(it) }
             val broadcast = MiniJson.str(m["broadcast"])?.trim()?.takeIf { it.isNotEmpty() && it.length <= 40 }
+            val id = MiniJson.str(m["id"])?.takeIf { ID.matches(it) } ?: ""
+            val review = firstSentence(MiniJson.str(m["subtitle"]) ?: MiniJson.str(m["verdict"]))
+            val ourSide = if (isHome) "home" else "away"
+            val goals = MiniJson.list(m["goals"]).orEmpty().mapNotNull { g ->
+                val o = MiniJson.obj(g) ?: return@mapNotNull null
+                if (MiniJson.str(o["side"]) != ourSide) return@mapNotNull null
+                val minute = MiniJson.str(o["minute"])?.trim()?.takeIf { it.isNotEmpty() && it.length <= 8 } ?: return@mapNotNull null
+                Goal(minute, MiniJson.str(o["scorer"])?.trim().orEmpty(), MiniJson.str(o["type"]) ?: "goal")
+            }
             out.add(
                 Match(
                     date, isHome, if (isHome) away else home, MiniJson.str(m["competition"]) ?: "", kickoff, score,
-                    MiniJson.str(m["result"]), MiniJson.str(m["round"]) ?: "", broadcast,
+                    MiniJson.str(m["result"]), MiniJson.str(m["round"]) ?: "", broadcast, id, review, goals,
                 ),
             )
         }
@@ -193,6 +211,16 @@ object WidgetArsenal {
     /** 넓이·높이(dp) 기준. 폴드 바깥 화면 4칸이 250dp보다 좁을 수 있어 넓은 모양은 200dp부터. */
     const val WIDE_FROM_DP = 200
     const val BIG_FROM_DP = 100
+
+    /** 4×2에서 리뷰 첫 문장 줄까지 넣을 높이(APP-아스날위젯알차게). 그보다 낮으면 리뷰 줄만 뺀다. */
+    const val TALL_FROM_DP = 140
+
+    /** 같은 모양 안에서 '높은 칸'인지: 2×2(작은 모양 100dp 이상)는 최근 5경기 칸을, 4×2 140dp 이상은 리뷰 줄을 더한다. */
+    fun tall(size: Size, heightDp: Int): Boolean = when (size) {
+        Size.SMALL -> heightDp >= BIG_FROM_DP
+        Size.BIG -> heightDp >= TALL_FROM_DP
+        Size.WIDE -> false
+    }
 
     /** 홈 화면 칸 크기(dp) → 모양. 4×2 = BIG, 4×1 = WIDE, 그보다 좁으면(2×1·2×2) SMALL. */
     fun size(widthDp: Int, heightDp: Int): Size = when {
@@ -349,5 +377,150 @@ object WidgetArsenal {
             draft(nx),
         )
     }
-}
 
+    // ── APP-아스날위젯알차게(S48-55): 4×2를 빈칸 없이 — ① 최근 5경기 칸 ③ 지난 경기 + 리뷰 첫 문장(누르면 그 리뷰)
+    //    ④ 경기 끝나면 다음 날 저녁까지 결과·골 넣은 선수 ⑤ 다음 3경기 ⑥ 팀 줄임 글자 동그라미·대회 표·홈/원정 표시.
+    //    ② 리그 순위는 새 외부 자료처가 필요해 이번 판에서 뺐다(새 외부 주소 추가 금지). 엠블럼 그림도 자료(matches.js)에 주소가
+    //    없고 새 외부 주소를 부를 수 없어, 요청함이 정한 대체안인 줄임 글자 동그라미(ARS·LIV)로 그린다(폰에 그림 저장 없음).
+
+    /** 리뷰 첫 문장: 마침표·물음표·느낌표 뒤 빈칸에서 끊는다(2.5 같은 숫자는 안 끊김). 너무 길면 120자에서 자른다. */
+    fun firstSentence(text: String?): String? {
+        val t = text?.trim()?.replace(Regex("\\s+"), " ") ?: return null
+        if (t.isEmpty()) return null
+        val m = Regex("[.!?](\\s|$)").find(t)
+        val one = if (m != null) t.substring(0, m.range.first + 1) else t
+        return if (one.length > 120) one.take(119) + "…" else one
+    }
+
+    const val ARS_CODE = "ARS"
+
+    /** 자주 만나는 팀의 줄임 글자(방송·순위표에서 쓰는 세 글자). 없는 팀은 경기 id의 영문 이름 앞 세 글자, 그것도 없으면 첫 글자. */
+    private val CODES = mapOf(
+        "리버풀" to "LIV", "첼시" to "CHE", "맨체스터 시티" to "MCI", "맨체스터 유나이티드" to "MUN", "토트넘 홋스퍼" to "TOT",
+        "뉴캐슬 유나이티드" to "NEW", "아스톤 빌라" to "AVL", "웨스트햄 유나이티드" to "WHU", "크리스털 팰리스" to "CRY",
+        "노팅엄 포리스트" to "NFO", "브라이튼" to "BHA", "브라이튼 앤 호브 앨비언" to "BHA", "브라이턴 앤드 호브 앨비언" to "BHA",
+        "울버햄프턴" to "WOL", "울버햄프턴 원더러스" to "WOL", "본머스" to "BOU", "브렌트퍼드" to "BRE", "풀럼" to "FUL",
+        "에버턴" to "EVE", "리즈 유나이티드" to "LEE", "선덜랜드" to "SUN", "번리" to "BUR", "헐 시티" to "HUL",
+        "입스위치 타운" to "IPS", "코번트리" to "COV", "플리트우드 타운" to "FLE", "슬라비아 프라하" to "SLA",
+        "바이에른 뮌헨" to "BAY", "파리 생제르맹" to "PSG", "인터 밀란" to "INT", "아틀레티코 마드리드" to "ATM",
+        "아틀레틱 클루브" to "ATH", "바이어 레버쿠젠" to "LEV", "스포르팅 CP" to "SCP", "클뤼프 브뤼허" to "BRU",
+        "나폴리" to "NAP", "올림피아코스" to "OLY", "카이라트 알마티" to "KAI", "릴" to "LIL",
+    )
+    private val DATED_ID = Regex("^\\d{4}-\\d{2}-\\d{2}-([a-z]+)")
+
+    fun code(match: Match): String {
+        CODES[match.opponent.trim()]?.let { return it }
+        val word = DATED_ID.find(match.id)?.groupValues?.get(1)
+        if (word != null && word.length >= 3) return word.take(3).uppercase()
+        return initial(match.opponent)
+    }
+
+    /** 대회 작은 표: 프리미어리그 PL · 챔피언스리그 UCL · 카라바오컵 EFL · FA컵 FA. 모르는 대회는 앞 세 글자. */
+    fun tag(match: Match): String = when (match.competition) {
+        "Premier League" -> "PL"
+        "UEFA Champions League" -> "UCL"
+        "Carabao Cup" -> "EFL"
+        "FA Cup" -> "FA"
+        else -> match.competition.trim().take(3).uppercase().ifEmpty { "-" }
+    }
+
+    /** 홈/원정 표시(글자 안 아이콘). */
+    fun side(match: Match): String = if (match.home) "⌂홈" else "✈원정"
+
+    /** 골 넣은 선수 한 줄: 'Havertz 16\', Saka 12\' 71\''. 같은 선수는 한 번만 쓰고 분을 잇는다. 페널티는 (PK), 자책골은 '자책골'. */
+    fun scorers(match: Match): String? {
+        if (match.goals.isEmpty()) return null
+        val order = LinkedHashMap<String, MutableList<String>>()
+        for (g in match.goals) {
+            val name = if (g.type == "own-goal") "자책골" else g.scorer.split(' ').lastOrNull { it.isNotBlank() } ?: "?"
+            order.getOrPut(name) { mutableListOf() }.add(g.minute + "'" + if (g.type == "penalty") "(PK)" else "")
+        }
+        return order.entries.joinToString(", ") { (name, mins) -> "$name ${mins.joinToString(" ")}" }
+    }
+
+    /** ④ 결과를 먼저 보여 줄 마지막 시각: 경기 날(서울) 다음 날 저녁 9시. */
+    fun resultUntil(match: Match): LocalDateTime = LocalDateTime.of(match.date.plusDays(1), LocalTime.of(21, 0))
+
+    /** 방금 끝난 경기(④): 가장 최근 끝난 경기가 경기 날 0시 ~ 다음 날 21시 안이면 그 경기. */
+    fun justFinished(matches: List<Match>, now: LocalDateTime): Match? {
+        val last = matches.filter { it.score != null }.maxByOrNull { it.date } ?: return null
+        if (now.isBefore(last.date.atStartOfDay()) || now.isAfter(resultUntil(last))) return null
+        return last
+    }
+
+    /** 다음 경기 작은 칸(⑤). */
+    data class Mini(val whenText: String, val tag: String, val side: String, val code: String, val name: String)
+
+    private fun mini(m: Match): Mini =
+        Mini("${m.date.monthValue}.${m.date.dayOfMonth}${m.kickoff?.let { " $it" } ?: "(${DAYS[m.date.dayOfWeek.value - 1]})"}", tag(m), if (m.home) "⌂" else "✈", code(m), m.opponent)
+
+    /** 점수 없는 오늘 이후 경기, 가까운 순. */
+    fun upcoming(matches: List<Match>, today: LocalDate): List<Match> =
+        matches.filter { it.score == null && !it.date.isBefore(today) }
+            .sortedWith(compareBy<Match>({ it.date }, { it.kickoff ?: "99:99" }))
+
+    /**
+     * 4×2(큰 칸)·4×1·2×1이 그릴 내용 전부. 기존 [Card](다음 경기·내 일정·[달력에 넣기])에 이번 과제의 줄을 더한다.
+     * post = 방금 끝난 경기 결과를 맨 위에(결과 가림이면 절대 켜지 않음).
+     */
+    data class Rich(
+        val card: Card,
+        val post: Boolean,
+        val headCode: String?,
+        val headTag: String?,
+        val headSide: String?,
+        val title: String,
+        val sub: String,
+        val badge: String?,
+        val line2: String,
+        val sleep: String?,
+        val formLine: String,
+        val review: String?,
+        val reviewId: String?,
+        val next3: List<Mini>,
+        val wideTop: String,
+        val wideBottom: String,
+        val smallTop: String,
+        val smallBottom: String,
+    )
+
+    /** 자료가 아직 없거나 못 읽었을 때(빈칸 없이 같은 한 줄). */
+    fun richPlaceholder(text: String): Rich {
+        val c = placeholder(text)
+        return Rich(c, false, null, null, null, ARSENAL, text, null, text, null, text, null, null, emptyList(), ARSENAL, text, ARSENAL, text)
+    }
+
+    fun rich(matches: List<Match>, now: LocalDateTime, mine: Mine, hide: Boolean): Rich {
+        val today = now.toLocalDate()
+        val c = card(matches, today, mine, hide)
+        val ups = upcoming(matches, today)
+        val nx = ups.firstOrNull()
+        val last = matches.filter { it.score != null }.maxByOrNull { it.date }
+        val done = if (hide) null else justFinished(matches, now)
+        val reviewText = last?.review?.let { if (hide) HIDDEN_LINE else "“$it”" }
+        val reviewId = last?.id?.takeIf { it.isNotEmpty() }
+        val lastShort = last?.let { "지난 ${it.date.monthValue}.${it.date.dayOfMonth} ${tag(it)} ${if (it.home) "홈" else "원정"} ${it.opponent}" + if (hide) "" else " ${it.score}" }
+        val nextShort = nx?.let { listOfNotNull("다음", dDay(it, today), "${if (it.home) "홈" else "원정"} ${it.opponent}", it.kickoff?.let { k -> "${day(it.date)} $k" } ?: day(it.date)).joinToString(" ") }
+        if (done != null) {
+            val o = outcome(done)
+            val goals = scorers(done) ?: if (done.score?.startsWith("0-") == true) "아스날 득점 없음" else "골 기록 준비 중"
+            val headline = "${if (done.home) "홈" else "원정"} ${done.opponent} ${done.score}${o?.let { " $it" } ?: ""}"
+            return Rich(
+                c, true, code(done), tag(done), side(done), headline,
+                listOf(competitionName(done), day(done.date)).filter { it.isNotBlank() }.joinToString(" · "),
+                "결과", "⚽ $goals", null,
+                nextShort ?: "다음 경기 자료 준비 중",
+                reviewText, reviewId, ups.take(3).map(::mini),
+                headline, "⚽ $goals",
+                "${done.opponent} ${done.score}${o?.let { " $it" } ?: ""}", "⚽ $goals",
+            )
+        }
+        return Rich(
+            c, false, nx?.let(::code), nx?.let(::tag), nx?.let(::side), c.title, c.sub, c.dDay,
+            listOfNotNull(c.after, c.broadcast).joinToString(" · "), c.sleep,
+            lastShort ?: "지난 경기 없음",
+            reviewText, reviewId, ups.drop(1).take(3).map(::mini),
+            c.wideTop, c.wideBottom, c.lastTop, c.lastBottom,
+        )
+    }
+}

@@ -191,6 +191,16 @@ object HomeWidgets {
         return PendingIntent.getActivity(context, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
+    /** 아스날 위젯 지난 경기 줄(APP-아스날위젯알차게): 앱 아스날 화면에서 그 경기 리뷰를 바로 연다. id 모양이 아니면 아스날 화면만. */
+    fun arsenalMatchUrl(id: String?): String =
+        ShellRules.HOME + "?view=arsenal" + (id?.takeIf { WidgetArsenal.ID.matches(it) }?.let { "&match=$it" } ?: "")
+
+    fun openArsenalMatch(context: Context, id: String?, code: Int): PendingIntent {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(arsenalMatchUrl(id)), context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return PendingIntent.getActivity(context, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
     /**
      * 크기별 그림(APP-위젯다시): 안드로이드 12(API 31)부터는 작은·큰 그림을 함께 주고 홈 화면이 칸 크기에 맞는 것을 고른다.
      * 그 아래는 큰 그림 하나. fill(views, small)이 두 그림을 같은 내용으로 채운다(없는 칸에 대한 설정은 홈 화면이 건너뜀).

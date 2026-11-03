@@ -65,6 +65,8 @@ class ArsenalWidget : AppWidgetProvider() {
         private val SMALL = SizeF(110f, 40f)
         private val WIDE = SizeF(WidgetArsenal.WIDE_FROM_DP.toFloat(), 40f)
         private val BIG = SizeF(WidgetArsenal.WIDE_FROM_DP.toFloat(), WidgetArsenal.BIG_FROM_DP.toFloat())
+        private val SMALL_TALL = SizeF(110f, WidgetArsenal.BIG_FROM_DP.toFloat())
+        private val TALL = SizeF(WidgetArsenal.WIDE_FROM_DP.toFloat(), WidgetArsenal.TALL_FROM_DP.toFloat())
 
         @Volatile private var matches: List<WidgetArsenal.Match>? = null
         @Volatile private var fetchedAt = 0L
@@ -133,27 +135,29 @@ class ArsenalWidget : AppWidgetProvider() {
         }
 
         /** 지금 그릴 글(메모리의 마지막 자료). 내용 만들기가 실패해도 빈칸 대신 '불러오지 못했어요'. */
-        private fun card(hide: Boolean): WidgetArsenal.Card {
+        private fun rich(hide: Boolean): WidgetArsenal.Rich {
             val list = matches
             return WidgetGuard.get {
-                val today = java.time.LocalDate.now(WidgetNow.ZONE)
+                val now = java.time.LocalDateTime.now(WidgetNow.ZONE)
                 when {
-                    list != null -> WidgetArsenal.card(list, today, mine, hide)
-                    failed -> WidgetArsenal.placeholder("불러오지 못했어요")
-                    else -> WidgetArsenal.placeholder("불러오는 중")
+                    list != null -> WidgetArsenal.rich(list, now, mine, hide)
+                    failed -> WidgetArsenal.richPlaceholder("불러오지 못했어요")
+                    else -> WidgetArsenal.richPlaceholder("불러오는 중")
                 }
-            } ?: WidgetArsenal.placeholder("불러오지 못했어요")
+            } ?: WidgetArsenal.richPlaceholder("불러오지 못했어요")
         }
 
         private fun draw(context: Context, manager: AppWidgetManager, ids: IntArray) {
             for (id in ids) {
-                val c = card(WidgetGuard.get { hidden(context, id) } == true)
+                val r = rich(WidgetGuard.get { hidden(context, id) } == true)
                 val views = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     RemoteViews(
                         mapOf(
-                            SMALL to build(context, WidgetArsenal.Size.SMALL, c),
-                            WIDE to build(context, WidgetArsenal.Size.WIDE, c),
-                            BIG to build(context, WidgetArsenal.Size.BIG, c),
+                            SMALL to build(context, WidgetArsenal.Size.SMALL, false, r),
+                            SMALL_TALL to build(context, WidgetArsenal.Size.SMALL, true, r),
+                            WIDE to build(context, WidgetArsenal.Size.WIDE, false, r),
+                            BIG to build(context, WidgetArsenal.Size.BIG, false, r),
+                            TALL to build(context, WidgetArsenal.Size.BIG, true, r),
                         ),
                     )
                 } else {
@@ -161,13 +165,19 @@ class ArsenalWidget : AppWidgetProvider() {
                     val w = o?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) ?: 0
                     val h = o?.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT) ?: 0
                     // 크기를 모르면(0) 처음 놓는 크기 4×2.
-                    build(context, if (w <= 0 || h <= 0) WidgetArsenal.Size.BIG else WidgetArsenal.size(w, h), c)
+                    if (w <= 0 || h <= 0) {
+                        build(context, WidgetArsenal.Size.BIG, false, r)
+                    } else {
+                        val size = WidgetArsenal.size(w, h)
+                        build(context, size, WidgetArsenal.tall(size, h), r)
+                    }
                 }
                 manager.updateAppWidget(id, views)
             }
         }
 
-        private fun build(context: Context, size: WidgetArsenal.Size, c: WidgetArsenal.Card): RemoteViews {
+        private fun build(context: Context, size: WidgetArsenal.Size, tall: Boolean, r: WidgetArsenal.Rich): RemoteViews {
+            val c = r.card
             val layout = when (size) {
                 WidgetArsenal.Size.SMALL -> R.layout.arsenal_widget_small
                 WidgetArsenal.Size.WIDE -> R.layout.arsenal_widget_wide
@@ -176,35 +186,49 @@ class ArsenalWidget : AppWidgetProvider() {
             val v = RemoteViews(context.packageName, layout)
             when (size) {
                 WidgetArsenal.Size.SMALL -> {
-                    v.setTextViewText(R.id.ars_circle, c.lastInitial)
-                    v.setTextViewText(R.id.ars_top, c.lastTop)
-                    v.setTextViewText(R.id.ars_bottom, c.lastBottom)
+                    v.setTextViewText(R.id.ars_circle, if (r.post) r.headCode ?: c.lastInitial else c.lastInitial)
+                    v.setTextViewText(R.id.ars_top, r.smallTop)
+                    v.setTextViewText(R.id.ars_bottom, r.smallBottom)
+                    v.setViewVisibility(R.id.ars_formrow, if (tall) View.VISIBLE else View.GONE)
+                    if (tall) form(v, c)
                 }
                 WidgetArsenal.Size.WIDE -> {
-                    val cells = intArrayOf(R.id.ars_f0, R.id.ars_f1, R.id.ars_f2, R.id.ars_f3, R.id.ars_f4)
-                    cells.forEachIndexed { i, cell ->
-                        val o = c.form.getOrNull(i)
-                        if (o == null) {
-                            v.setViewVisibility(cell, View.GONE)
-                        } else {
-                            v.setViewVisibility(cell, View.VISIBLE)
-                            v.setTextViewText(cell, o)
-                            v.setInt(cell, "setBackgroundResource", formBg(o))
-                        }
-                    }
-                    v.setTextViewText(R.id.ars_formnote, c.formNote ?: "")
-                    v.setViewVisibility(R.id.ars_formnote, if (c.formNote == null) View.GONE else View.VISIBLE)
-                    v.setTextViewText(R.id.ars_top, c.wideTop)
-                    v.setTextViewText(R.id.ars_bottom, c.wideBottom)
+                    form(v, c)
+                    v.setTextViewText(R.id.ars_top, r.wideTop)
+                    v.setTextViewText(R.id.ars_bottom, r.wideBottom)
                 }
                 WidgetArsenal.Size.BIG -> {
-                    v.setTextViewText(R.id.ars_circle, c.initial)
-                    v.setTextViewText(R.id.ars_top, c.title)
-                    v.setTextViewText(R.id.ars_sub, c.sub)
-                    line(v, R.id.ars_dday, c.dDay)
-                    line(v, R.id.ars_broadcast, c.broadcast)
-                    v.setTextViewText(R.id.ars_bottom, c.after)
-                    line(v, R.id.ars_sleep, c.sleep)
+                    v.setTextViewText(R.id.ars_circle, r.headCode ?: c.initial)
+                    v.setTextViewText(R.id.ars_top, r.title)
+                    v.setTextViewText(R.id.ars_sub, r.sub)
+                    line(v, R.id.ars_tag, r.headTag)
+                    line(v, R.id.ars_side, r.headSide)
+                    line(v, R.id.ars_dday, r.badge)
+                    v.setTextViewText(R.id.ars_bottom, r.line2)
+                    line(v, R.id.ars_sleep, r.sleep)
+                    form(v, c)
+                    v.setTextViewText(R.id.ars_last, r.formLine)
+                    // 리뷰 첫 문장은 높은 칸(4×3 가까이)에서만. 누르면 앱에서 그 경기 리뷰.
+                    line(v, R.id.ars_review, if (tall) r.review else null)
+                    val reviewOpen = HomeWidgets.openArsenalMatch(context, r.reviewId, 332)
+                    v.setOnClickPendingIntent(R.id.ars_review, reviewOpen)
+                    v.setOnClickPendingIntent(R.id.ars_last, reviewOpen)
+                    v.setViewVisibility(R.id.ars_next, if (r.next3.isEmpty()) View.GONE else View.VISIBLE)
+                    val cells = intArrayOf(R.id.ars_n0, R.id.ars_n1, R.id.ars_n2)
+                    val tags = intArrayOf(R.id.ars_n0_tag, R.id.ars_n1_tag, R.id.ars_n2_tag)
+                    val texts = intArrayOf(R.id.ars_n0_text, R.id.ars_n1_text, R.id.ars_n2_text)
+                    v.setTextViewText(R.id.ars_next_label, if (r.post) "다음" else "이후")
+                    for (i in cells.indices) {
+                        val m = r.next3.getOrNull(i)
+                        if (m == null) {
+                            v.setViewVisibility(cells[i], View.GONE)
+                        } else {
+                            v.setViewVisibility(cells[i], View.VISIBLE)
+                            v.setTextViewText(tags[i], m.tag)
+                            v.setTextViewText(texts[i], "${m.whenText} ${m.side}${m.code}")
+                            v.setContentDescription(cells[i], "${m.whenText} ${m.tag} ${if (m.side == "⌂") "홈" else "원정"} ${m.name}")
+                        }
+                    }
                     val d = c.draft
                     if (d == null) {
                         v.setViewVisibility(R.id.ars_cal, View.GONE)
@@ -218,6 +242,21 @@ class ArsenalWidget : AppWidgetProvider() {
             }
             v.setOnClickPendingIntent(R.id.ars_root, HomeWidgets.openApp(context, "arsenal", 320))
             return v
+        }
+
+        private fun form(v: RemoteViews, c: WidgetArsenal.Card) {
+            val cells = intArrayOf(R.id.ars_f0, R.id.ars_f1, R.id.ars_f2, R.id.ars_f3, R.id.ars_f4)
+            cells.forEachIndexed { i, cell ->
+                val o = c.form.getOrNull(i)
+                if (o == null) {
+                    v.setViewVisibility(cell, View.GONE)
+                } else {
+                    v.setViewVisibility(cell, View.VISIBLE)
+                    v.setTextViewText(cell, o)
+                    v.setInt(cell, "setBackgroundResource", formBg(o))
+                }
+            }
+            line(v, R.id.ars_formnote, c.formNote)
         }
 
         private fun line(v: RemoteViews, id: Int, text: String?) {

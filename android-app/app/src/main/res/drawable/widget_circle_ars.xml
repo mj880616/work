@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 아스날 줄임 글자 동그라미(엠블럼 그림 대신, 톤다운 붉은 바탕). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/widget_req_bg" />
+</shape>

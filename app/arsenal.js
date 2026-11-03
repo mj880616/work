@@ -137,9 +137,11 @@ function closeLayer() {
 }
 function openMatch(id) {
   selected = id;
+  // APP-아스날위젯알차게: 고른 경기를 주소(?match=)에 적어 새로고침·폰 위젯 '지난 경기' 줄에서 같은 리뷰가 열리게 한다(기존 자리 기억 길).
+  window.KPTURouter?.setPlace?.('arsenal', {match:id});
   if (!pc.matches) {
     detailOpen = true;
-    layer ||= window.KPTURouter?.layer?.open('arsenal-review', {reopen:() => openMatch(id), close:() => { layer = null; detailOpen = false; paint(); $(`[data-ars-row="${CSS.escape(selected || '')}"]`)?.focus({preventScroll:true}); return true; }}) || null;
+    layer ||= window.KPTURouter?.layer?.open('arsenal-review', {reopen:() => openMatch(id), close:() => { layer = null; detailOpen = false; window.KPTURouter?.setPlace?.('arsenal', {match:null}); paint(); $(`[data-ars-row="${CSS.escape(selected || '')}"]`)?.focus({preventScroll:true}); return true; }}) || null;
   }
   paint();
   if (pc.matches) $(`[data-ars-row="${CSS.escape(id)}"]`)?.focus({preventScroll:true});
@@ -150,7 +152,7 @@ root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (!b || !root.contains(b)) return;
   if (b.matches('[data-ars-row]')) return openMatch(b.dataset.arsRow);
-  if (b.matches('[data-ars-back]')) { const id = selected; closeLayer(); paint(); $(`[data-ars-row="${CSS.escape(id || '')}"]`)?.focus({preventScroll:true}); return; }
+  if (b.matches('[data-ars-back]')) { const id = selected; closeLayer(); window.KPTURouter?.setPlace?.('arsenal', {match:null}); paint(); $(`[data-ars-row="${CSS.escape(id || '')}"]`)?.focus({preventScroll:true}); return; }
   if (b.matches('[data-ars-retry]')) { paint(); loadData().then(paint, paint); }
 });
 root?.addEventListener('change', event => {
@@ -165,9 +167,19 @@ root?.addEventListener('input', event => {
 });
 pc.addEventListener('change', () => { if (pc.matches) closeLayer(); if (window.KPTURouter?.current === 'arsenal') paint(); });
 
+// 주소에 적힌 경기(?match=, 폰 위젯·새로고침)가 있으면 거르기를 풀고 그 리뷰를 연다. 없는 id면 지금처럼 목록만.
+function openWritten(want) {
+  if (!want || !matches?.some(m => m.id === want)) return;
+  filters.season = ALL; filters.competition = ALL; filters.query = '';
+  fillFilters();
+  const search = $('[data-ars-search]'); if (search) search.value = '';
+  openMatch(want);
+}
 function enter() {
+  const want = window.KPTURouter?.place?.('arsenal')?.match || null;
   paint();
-  if (!matches) loadData().then(paint, paint);
+  if (!matches) loadData().then(() => { paint(); openWritten(want); }, paint);
+  else openWritten(want);
 }
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'arsenal') return;

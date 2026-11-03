@@ -35,4 +35,46 @@
         <item name="android:textSize">11sp</item>
         <item name="android:textStyle">bold</item>
     </style>
+    <!-- APP-아스날위젯알차게: 4×2 최근 다섯 경기 칸(조금 작게). 바탕은 ArsenalWidget이 승·무·패 색으로. -->
+    <style name="WidgetFormCell" parent="WidgetFormDot">
+        <item name="android:layout_width">18dp</item>
+        <item name="android:layout_height">18dp</item>
+        <item name="android:layout_marginEnd">2dp</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+    <!-- 팀 줄임 글자 동그라미(엠블럼 그림 대신). -->
+    <style name="WidgetTeamCode">
+        <item name="android:layout_width">26dp</item>
+        <item name="android:layout_height">26dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:background">@drawable/widget_circle</item>
+        <item name="android:textColor">@color/widget_btn_ink</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:importantForAccessibility">no</item>
+    </style>
+    <!-- 대회 작은 표(PL·UCL·EFL·FA). -->
+    <style name="WidgetTag">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/widget_tag</item>
+        <item name="android:paddingStart">3dp</item>
+        <item name="android:paddingEnd">3dp</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:textColor">@color/widget_zero_ink</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <!-- 다음 3경기 한 칸 글(작게). -->
+    <style name="WidgetMini">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginStart">3dp</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:textColor">@color/widget_muted</item>
+        <item name="android:textSize">10sp</item>
+    </style>
 </resources>
