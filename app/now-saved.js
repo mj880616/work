@@ -1,4 +1,5 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
+import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {SAVED_CHIPS, keepSavedChip, savedRows, filterSaved, itemKey, interestHit} from './now-model.mjs';
 // OUTSIDE-글상세·관심환류 ④(설계 docs/design/outside-statements.md 12.1절): Now [보관] 탭.
 // 두 쪽의 별표·보관을 한곳에: 사회운동 글(app_outside_marks의 starred_at·archived_at) + 뉴스 기사(app_news_items.starred_at, 보관 = 별표 폴더).
@@ -13,7 +14,7 @@ const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetch
 const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id';
 
 // describe(type, row) → {meta, title, ...} 상세 머리(Now 껍데기가 준다). onOpen(item, head).
-export function createNowSaved({box, describe, topics = () => [], onOpen, selected = () => ''} = {}) {
+export function createNowSaved({box, describe, topics = () => [], onOpen, selected = () => '', onChanged} = {}) {
   let rows = [], loaded = false, failed = false, chip = 'all', seq = 0;
   async function load() {
     const w = workspaceOf(), my = ++seq;
@@ -39,7 +40,7 @@ export function createNowSaved({box, describe, topics = () => [], onOpen, select
       const h = describe(r.type, r.row);
       const hit = interestHit([h.title, h.lead], topics());
       const marks = `${r.star ? '<span class="ns-mark">★</span>' : ''}${r.archive ? '<span class="ns-mark">보관</span>' : ''}`;
-      return `<article class="now-row ns-row${sel === itemKey(r) ? ' is-open' : ''}" data-ns-row="${esc(itemKey(r))}"><p class="os-meta"><span class="ns-side">${r.type === 'news' ? '뉴스' : '사회운동'}</span>${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${marks}</p><h4 class="os-title"><button type="button" class="now-open" data-ns-open="${esc(itemKey(r))}">${esc(h.title)}</button></h4>${h.lead ? `<p class="os-lead">${esc(h.lead)}</p>` : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</article>`;
+      return `<article class="now-row ns-row${sel === itemKey(r) ? ' is-open' : ''}" data-ns-row="${esc(itemKey(r))}"><p class="os-meta"><span class="ns-side">${r.type === 'news' ? '뉴스' : '사회운동'}</span>${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${marks}</p><h4 class="os-title"><button type="button" class="now-open" data-ns-open="${esc(itemKey(r))}">${esc(h.title)}</button></h4>${h.lead ? `<p class="os-lead">${esc(h.lead)}</p>` : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}${hoverActsHtml({saved: true})}</article>`;
     }).join('')}</div>`;
   }
   box?.addEventListener('click', event => {
@@ -52,5 +53,11 @@ export function createNowSaved({box, describe, topics = () => [], onOpen, select
       if (r) onOpen?.({type: r.type, id: r.id}, describe(r.type, r.row));
     }
   });
+  // 줄 밀기·마우스 단추: [보관] 탭의 오른쪽 밀기 = 보관 풀기(now-row-acts.js). 풀면 이 탭에서 빠지고, 되돌리면 다시 읽는다.
+  bindNowRows(box, {row: '[data-ns-row]', saved: true, itemOf: el => { const [type, id] = String(el.dataset.nsRow || '').split(':'); return (type === 'outside' || type === 'news') && id ? {type, id} : null; },
+    changed: (item, kind, on) => {
+      if (kind === 'release') rows = rows.filter(r => !(r.type === item.type && r.id === item.id));
+      paint(); load(); onChanged?.(item, kind, on);
+    }});
   return {load, paint, reset: () => { rows = []; loaded = false; failed = false; chip = 'all'; seq++; }};
 }

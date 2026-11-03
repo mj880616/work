@@ -12,6 +12,8 @@ import {NOW_TABS, keepNowTab, nowTabAt, itemKey, interestHit, dateText} from './
 import {createNowDetail} from './now-detail.js';
 import {createNowSaved} from './now-saved.js';
 import {createNowInterests} from './now-interests.js';
+import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
+import {readOutsideMarks} from './now-marks.js';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절, 12:43 시안): '바깥 성명' 화면(?view=outside). #outsideView의 유일한 그리기 주인.
 // - [새로 온 것]: 칩 첫 줄(전체·묶음, 공용 chip-rows.js) + 묶음을 고르면 둘째 줄(그 묶음 단체) → 날짜 묶음 → 글마다 '단체 · 종류 · 시각' / 제목 / 한 문장 요약(늘 보임)
 //   / 본문 접기(<details>, 국내는 펼칠 때 서버 문장 표에서 읽음, 외국은 한국어 요약 + 핵심 문장) / 작은 [원문](그 단체 페이지, 새 창).
@@ -69,7 +71,7 @@ const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const fresh = () => ({scope: '', catalog: null, catalogFailed: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   posts: [], postsLoaded: false, postsFailed: false, end: true, more: false, seenAt: null, seenRead: false, chip: ALL,
-  open: new Set(), bodies: new Map(), saving: new Set(), saveFailed: '', mode: 'list', reading: new Set(), readNote: new Map(), tab: '', tabSet: false});
+  open: new Set(), bodies: new Map(), saving: new Set(), saveFailed: '', mode: 'list', reading: new Set(), readNote: new Map(), tab: '', tabSet: false, marks: new Map()});
 let state = fresh(), loadSeq = 0, layer = null;
 
 // ---------- 서버 읽기·쓰기(모두 작업공간 소유자 RLS · Edge는 사용자 로그인 확인) ----------
@@ -131,13 +133,15 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
   onChanged: (item, act) => {
     // 뉴스 별표·관심 없음은 뉴스 목록 줄과 같은 칸이라 그 목록을 다시 읽는다. 보관 탭은 늘 다시.
     if (item.type === 'news' && act !== 'memo') window.KPTUNews?.refresh?.();
+    if (item.type === 'outside' && act !== 'memo' && act !== 'star') loadMarks().then(() => { if (state.mode === 'list' && state.tab === 'outside') paintList(); });
     if (state.tab === 'saved') saved.load();
   },
   onSignal: () => askInterests(),
   onRead: (item, row) => { const c = detail.current(); if (c && itemKey(c) === itemKey(item)) detail.setHead(describe('news', row)); window.KPTUNews?.refresh?.(); },
   onRelated: r => openRelated(r)});
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, topics: () => interests.topics(),
-  onOpen: (item, head) => openDetail(item, head), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; }});
+  onOpen: (item, head) => openDetail(item, head), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
+  onChanged: item => { if (item.type === 'news') window.KPTUNews?.refresh?.(); else loadMarks().then(() => { if (state.mode === 'list' && state.tab === 'outside') paintList(); }); }});
 const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { paintCand(); if (state.mode === 'list' && state.tab === 'outside') paintList(); detail.paint(); }});
 // 환류 기록이 쌓이면 서버가 후보를 만들지 정한다(10건 또는 저녁 6시 뒤 그날 처음 — 서버 규칙, AI를 안 부르면 한도도 안 씀). 화면은 1분에 한 번만 묻는다.
 function askInterests() {
@@ -234,7 +238,7 @@ function postHtml(p, now) {
   // 확정 관심 주제에 걸린 글만 줄 끝 작은 표시(12.2 결정 ②, 순서는 시간순 그대로).
   const hit = interestHit([v.title, v.origTitle, v.summary], interests.topics());
   const sel = detail.current(), on = sel && itemKey(sel) === `outside:${p.id}`;
-  return `<article class="os-post now-row${p.lang === 'en' ? ' is-foreign' : ''}${on ? ' is-open' : ''}" data-os-post="${esc(p.id)}">${meta}<h4 class="os-title"${p.lang === 'en' && !p.title_ko ? ' lang="en"' : ''}><button type="button" class="now-open" data-now-open="${esc(p.id)}">${esc(v.title)}</button></h4>${lead}${body || hit ? `<div class="os-foot">${body}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</div>` : ''}</article>`;
+  return `<article class="os-post now-row${p.lang === 'en' ? ' is-foreign' : ''}${on ? ' is-open' : ''}" data-os-post="${esc(p.id)}">${meta}<h4 class="os-title"${p.lang === 'en' && !p.title_ko ? ' lang="en"' : ''}><button type="button" class="now-open" data-now-open="${esc(p.id)}">${esc(v.title)}</button></h4>${lead}${body || hit ? `<div class="os-foot">${body}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</div>` : ''}${hoverActsHtml({isSaved: markOf(p.id).archived})}</article>`;
 }
 
 function listHtml() {
@@ -244,8 +248,9 @@ function listHtml() {
     if (!enabledNow().length) return `${emptyHtml('켠 단체 없음', {attrs: 'data-os-empty="none"'})}<button type="button" class="os-text-btn" data-os-open-sources>단체 켜고 끄기</button>`;
     return emptyHtml('새 글 없음', {attrs: 'data-os-empty="posts"'});
   }
-  const now = Date.now();
-  const days = groupPosts(state.posts, now).map(g => `<section class="os-day" aria-label="${esc(g.label)}"><h3 class="os-day-head">${esc(g.label)}</h3>${g.items.map(p => postHtml(p, now)).join('')}</section>`).join('');
+  const now = Date.now(), shown = state.posts.filter(p => !markOf(p.id).dismissed);
+  if (!shown.length) return `${emptyHtml('새 글 없음', {attrs: 'data-os-empty="posts"'})}${state.end ? '' : '<button type="button" class="os-text-btn os-more-posts" data-os-more-posts>더 보기</button>'}`;
+  const days = groupPosts(shown, now).map(g => `<section class="os-day" aria-label="${esc(g.label)}"><h3 class="os-day-head">${esc(g.label)}</h3>${g.items.map(p => postHtml(p, now)).join('')}</section>`).join('');
   const more = state.end ? '' : `<button type="button" class="os-text-btn os-more-posts" data-os-more-posts${state.more ? ' disabled aria-busy="true"' : ''}>더 보기</button>`;
   return days + more;
 }
@@ -363,6 +368,16 @@ function resetIfOwnerChanged() {
   if (root) root.dataset.detail = 'closed';
 }
 
+// 숨기거나 보관한 사회운동 글 표시(줄 밀기·상세 단추가 같은 서버 표시를 쓴다). 숨긴 글은 목록에서 감추고, 보관한 글은 오른쪽 밀기가 '보관 풀기'가 된다.
+async function loadMarks() {
+  const scope = state.scope;
+  try {
+    const rows = await readOutsideMarks();
+    if (scope !== state.scope || !Array.isArray(rows)) return;
+    state.marks = new Map(rows.map(r => [r.post_id, {archived: !!r.archived_at, dismissed: !!r.dismissed_at}]));
+  } catch { /* 표시를 못 읽으면 목록은 그대로 */ }
+}
+const markOf = id => state.marks.get(id) || {archived: false, dismissed: false};
 async function loadPosts({append = false, keep = false} = {}) {
   const w = workspaceOf(), seq = ++loadSeq;
   if (!w) return;
@@ -370,6 +385,7 @@ async function loadPosts({append = false, keep = false} = {}) {
   if (append) { state.more = true; paint(); }
   else { state.postsFailed = false; if (!keep || !state.postsLoaded) { state.postsLoaded = false; state.posts = []; } paint(); }
   try {
+    if (!append) await loadMarks();
     const rows = await readPosts(w, keys, append ? state.posts.length : 0);
     if (seq !== loadSeq) return;
     const got = Array.isArray(rows) ? rows : [];
@@ -570,12 +586,12 @@ root?.addEventListener('keydown', event => {
   const next = event.key === 'Home' ? NOW_TABS[0].id : event.key === 'End' ? NOW_TABS.at(-1).id : nowTabAt(state.tab, event.key === 'ArrowLeft' ? -1 : 1);
   if (next) setTab(next, {focus: true});
 });
-// 폰: 좌우로 밀어 탭 이동. 다른 부품이 잡은 줄 밀기·입력 칸·칩 줄은 빼고, 가로로 충분히 민 것만(뉴스 클리핑과 같은 기준).
+// 폰: 탭 줄 위에서만 좌우로 밀어 탭 이동(NOW-줄밀기, 명진 11/03: 글 줄 좌우 밀기는 숨기기·보관이 갖는다. 탭은 누르기로도 이동). 가로로 충분히 민 것만.
 const PHONE = window.matchMedia('(max-width:760px)');
 let swipe = null;
 root?.addEventListener('touchstart', e => {
   swipe = null;
-  if (!PHONE.matches || state.mode !== 'list' || root.dataset.detail === 'open' || e.touches.length !== 1 || e.target.closest('input,textarea,select,[contenteditable],.os-chips,.osq-row,.nc-chips,.now-saved-chips,[data-nc-memo-form],[data-now-detail]')) return;
+  if (!PHONE.matches || state.mode !== 'list' || root.dataset.detail === 'open' || e.touches.length !== 1 || !e.target.closest('[data-os-tabs]')) return;
   const p = e.touches[0]; swipe = {x: p.clientX, y: p.clientY, t: Date.now()};
 }, {passive: true});
 root?.addEventListener('touchend', e => {
@@ -588,6 +604,16 @@ root?.addEventListener('touchend', e => {
 }, {passive: true});
 root?.addEventListener('touchcancel', () => { swipe = null; }, {passive: true});
 
+// 글 줄 밀기·마우스 단추(왼쪽 = 숨기기, 오른쪽 = 보관). 사회운동 목록은 여기서, 뉴스 목록은 news-clipping.js, 보관 탭은 now-saved.js가 같은 부품(now-row-acts.js)을 붙인다.
+bindNowRows(root?.querySelector('[data-os-list]'), {row: '[data-os-post]', itemOf: el => (el.dataset.osPost ? {type: 'outside', id: el.dataset.osPost} : null),
+  isSaved: item => markOf(item.id).archived,
+  changed: (item, kind, on) => {
+    const m = {...markOf(item.id)};
+    if (kind === 'hide') m.dismissed = on; else m.archived = on;
+    state.marks.set(item.id, m);
+    if (state.tab === 'saved') saved.load();
+    paintList();
+  }});
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'outside') return;
   // 다른 화면으로 가면 켜고 끄기 칸은 닫힌 것으로(라우터가 그 화면의 겹을 정리한다). 다음에 들어오면 목록부터, 새 표시는 다시 읽는다.

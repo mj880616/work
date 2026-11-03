@@ -79,3 +79,11 @@
 #appView #outsideView .nd-memo-row{ display:flex; justify-content:flex-end; align-items:center; gap:6px; }
 #appView #outsideView .nd-memo-text{ margin:0; font-size:13px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
 #appView #outsideView .nd-memo-label{ margin-right:6px; font-size:11px; color:var(--kptu-muted); }
+
+/* NOW-줄밀기(S49-3): PC·중간 폭은 글 줄에 마우스를 올리면(또는 키보드 초점) 줄 끝에 작은 [보관][숨기기]. 폰 폭은 줄 밀기(row-swipe.js)라 감춘다. */
+#appView #outsideView .now-row{ position:relative; }
+#appView #outsideView .now-hov{ position:absolute; right:6px; bottom:4px; display:none; gap:2px; }
+#appView #outsideView .now-row:hover > .now-hov,#appView #outsideView .now-row:focus-within > .now-hov{ display:inline-flex; }
+#appView #outsideView .now-hov-btn{ min-height:0; height:20px; padding:0 6px; font-size:11px; line-height:1; color:var(--kptu-muted); background:var(--kptu-surface); border:1px solid var(--kptu-line,currentColor); border-radius:var(--ds-radius-control,6px); cursor:pointer; }
+#appView #outsideView .now-hov-btn:hover{ color:var(--kptu-ink); }
+@media(max-width:760px){ #appView #outsideView .now-hov{ display:none !important; } }

@@ -1,6 +1,7 @@
 import {waitHtml, failHtml} from './wait-state.js';
+import {sendSignal, setMark} from './now-marks.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
-import {detailBody, detailView, detailError, itemKey, signalBody, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason} from './now-model.mjs';
 // OUTSIDE-글상세·관심환류 ③(설계 docs/design/outside-statements.md 12.3·12.4·12.5·12.6절): 글 상세 공용 부품.
 // 사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다(두 벌 안 만듦). 상세 칸(box)의 유일한 그리기 주인이다.
 // - 위: 꼬리 줄(단체·매체 · 국내/외국 · 종류 · 글쓴이 · 날짜) + 오른쪽 [원문 ↗] / 제목(외국어면 원제 작게)
@@ -39,25 +40,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     return {star: !!r?.starred_at, archive: !!r?.archived_at, dismiss: !!r?.dismissed_at, has: !!r};
   }
   const readMemo = item => rt().api(`/rest/v1/app_notes?workspace_id=eq.${q(workspaceOf())}&kind=eq.note&archived_at=is.null&metadata->>${item.type === 'news' ? 'news_item_id' : 'outside_post_id'}=eq.${q(item.id)}&select=${MEMO_COLS}&order=updated_at.desc&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
-  // 사회운동 글 표시: 줄이 있으면 그 칸만 고치고, 없으면 넣는다(화면 권한: 넣기 post_id·workspace_id·세 시각, 고치기 세 시각·updated_at).
-  async function writeMark(item, field, on) {
-    const w = workspaceOf(), at = new Date().toISOString(), value = on ? at : null;
-    const rows = await rt().api(`/rest/v1/app_outside_marks?workspace_id=eq.${q(w)}&post_id=eq.${q(item.id)}&select=post_id`, {method: 'PATCH', body: {[field]: value, updated_at: at}, prefer: 'return=representation', singleFlight: false});
-    if (Array.isArray(rows) && rows.length) return;
-    if (!on) return;
-    await rt().api('/rest/v1/app_outside_marks', {method: 'POST', body: {post_id: item.id, workspace_id: w, [field]: value}, prefer: 'return=minimal', singleFlight: false});
-  }
-  async function writeNews(item, body) {
-    const rows = await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=id`, {method: 'PATCH', body: {...body, updated_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
-    if (!Array.isArray(rows) || !rows.length) throw new Error('save');
-  }
-  // 환류 기록 한 줄. 실패해도 누른 일은 그대로(기록은 관심 주제 후보 재료일 뿐).
-  function signal(item, action) {
-    const w = workspaceOf();
-    if (!w) return;
-    rt().api('/rest/v1/app_now_signals', {method: 'POST', body: signalBody(w, item, action), prefer: 'return=minimal', singleFlight: false})
-      .then(() => onSignal?.(action)).catch(() => {});
-  }
+  const signal = (item, action) => sendSignal(item, action, onSignal);
 
   // ---------- 그리기 ----------
   function aiHtml() {
@@ -171,10 +154,7 @@ ${actsHtml()}${memoHtml()}</article>`;
     const c = cur, item = c.item, m = c.marks || {}, on = !m[act];
     c.busy = true; c.note = ''; paint();
     try {
-      if (item.type === 'news') {
-        if (act === 'star') await writeNews(item, on ? {starred_at: new Date().toISOString()} : {starred_at: null, folder_id: null});
-        else if (act === 'dismiss') await writeNews(item, {hidden_at: on ? new Date().toISOString() : null});
-      } else await writeMark(item, {star: 'starred_at', archive: 'archived_at', dismiss: 'dismissed_at'}[act], on);
+      await setMark(item, act, on);
       c.marks = {...m, [act]: on, ...(item.type === 'news' && act === 'star' && !on ? {archive: false} : {})};
       signal(item, on ? act : 'un' + act);
       onChanged?.(item, act, on);
