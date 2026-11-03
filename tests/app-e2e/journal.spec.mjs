@@ -720,6 +720,8 @@ for(const width of [1024,1279,1280,1920]){
  test(`PC 업무일지 폭: 일기와 같은 바깥 폭, 날짜 줄·카드가 끝까지(위 줄 복사 버튼 없음), 하루 카드 2칸씩 줄 ${width}`,async({page})=>{
   const f=await fixture(page,{width});await openJournal(page,width);
   await expect(itemTexts(page,'activities')).toHaveCount(1);
+  // 연 화면 유지(S48-47): 이미 열린 홈을 다시 누르면 보던 화면을 두고 뒤에서 다시 읽으므로, 잴 칸(주간보고 재료 세 칸)이 다 온 뒤에 잰다.
+  await expect(page.locator('#journalRoot [data-journal-report] [data-journal-group]')).toHaveCount(3);
   const j=await journalBox(page);
   expect(j.doc).toBeLessThanOrEqual(j.vw);
   expect(Math.abs(j.root-j.panel)).toBeLessThan(2);expect(Math.abs(j.days-j.root)).toBeLessThan(2);expect(j.copies).toBe(0);
