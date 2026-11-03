@@ -149,11 +149,11 @@ test.describe('PC 1440', () => {
     await expect(page.locator('#photosRoot [data-photos-id="gd:G1"] .photos-src-mark')).toHaveAttribute('data-src', 'gdrive');
     await expect(page.locator('#photosRoot [data-photos-id="gd:G1"] .diary-photo')).toHaveAttribute('data-img-state', 'shown');
     expect(state.gd.some(b => b.action === 'thumb' && b.id === 'G1' && b.size === 'small')).toBe(true);
-    // 사진 우클릭 ⋯: 이름 바꾸기·옮기기·지우기(앨범 없음).
+    // 사진 우클릭 ⋯: (S48-56 공유·일기에 넣기·업데이트로, 별표는 아직 없음) 이름 바꾸기·옮기기·지우기(앨범 없음).
     await page.locator('#photosRoot [data-photos-id="gd:G1"]').click({ button: 'right' });
     const menu = page.locator('#photosPhotoMenu');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('button')).toHaveText(['선택', '이름 바꾸기…', '폴더로 옮기기…', '지우기']);
+    await expect(menu.locator('button')).toHaveText(['선택', '공유', '일기에 넣기', '업데이트로', '이름 바꾸기…', '폴더로 옮기기…', '지우기']);
     await menu.getByRole('button', { name: '지우기' }).click();
     const ask = page.locator('.kptu-ask');
     await expect(ask).toBeVisible();

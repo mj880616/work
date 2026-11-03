@@ -280,3 +280,10 @@ test('source: the service key is read only in now-detail.ts svc() for three tabl
   assert.equal(N.NOW_DETAIL_DAILY,40);
   for(const t of [N.NOW_DETAIL_INSTRUCTIONS,N.NOW_BASIC_INSTRUCTIONS,N.NOW_CONTEXT_INSTRUCTIONS])assert.ok(t.includes("말투: 요약·정리 문장은"),'shared tone rule');
 });
+
+// S48-66: AI가 재료 없이 쓴 '내용 없음' 문장은 요약이 아니다(저장·표시 안 함).
+test('내용 없음 문장은 요약으로 받지 않는다',()=>{
+  assert.equal(N.isNoContentSummary('자료에 글의 제목과 본문이 제공되지 않아 요약할 내용이 없음.'),true);
+  assert.equal(N.isNoContentSummary('정부가 철도 분할을 추진하자 노조가 총파업을 예고했다.'),false);
+  assert.equal(N.cleanCore({summary:'요약할 내용이 없음',key_sentences:[]},'본문',false),null);
+});

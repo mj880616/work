@@ -19,8 +19,8 @@ function ensureDialog(){
   dialog.innerHTML=`<header class="oneline-head"><h2 id="reportOnelineTitle">한 줄 업데이트</h2><button type="button" class="icon-btn" data-ol-close aria-label="닫기">×</button></header>
 <div class="oneline-body"><div class="oneline-row"><button type="button" class="secondary field-btn oneline-area" data-ol-area aria-haspopup="dialog" aria-label="사업영역 고르기">사업영역 ▾</button><input type="date" class="oneline-day" data-ol-day aria-label="날짜" required></div>
 <textarea rows="2" maxlength="${ONELINE_MAX}" data-ol-text aria-label="한 줄" placeholder="진행 상황 한 줄 — 주간보고 사업 요약 표 '진행' 칸에 그대로 들어가요"></textarea>
-<details class="biz-next-plan" data-ol-plan-box><summary>+ 다음 할 일 <span class="optional">선택</span></summary><textarea rows="2" maxlength="${NEXT_PLAN_MAX}" data-ol-plan aria-label="다음 할 일" placeholder="한 줄에 하나 — '이후 계획'에 들어가요"></textarea></details>
-<button type="button" class="mini secondary oneline-orgs" data-ol-orgs aria-haspopup="dialog">+ 담당조직 연결 <span class="optional">선택</span></button></div>
+<details class="biz-next-plan" data-ol-plan-box><summary>+ 다음 할 일 <span class="optional">안 써도 됨</span></summary><textarea rows="2" maxlength="${NEXT_PLAN_MAX}" data-ol-plan aria-label="다음 할 일" placeholder="한 줄에 하나 — '이후 계획'에 들어가요"></textarea></details>
+<button type="button" class="mini secondary oneline-orgs" data-ol-orgs aria-haspopup="dialog">+ 담당조직 연결 <span class="optional">안 써도 됨</span></button></div>
 <footer class="oneline-foot"><p class="status" data-ol-status role="status" aria-live="polite"></p><button type="button" class="primary" data-ol-save data-enter-save-submit>저장</button></footer>`;
   document.body.append(dialog);
   dialog.addEventListener('cancel',e=>{e.preventDefault();if(!state?.saving)close()});
@@ -49,7 +49,7 @@ async function pickArea(){
   catch(e){say(e?.message||'사업영역을 불러오지 못했어요.',true)}
 }
 // 담당조직 연결(선택): 쓰기 창 [연결할 곳]과 같은 고르기 창. 담당조직만 남긴다(사업영역은 위 꼬리표가 연결된다) — 담당조직 상세의 사업 보고 목록에 보인다.
-function paintOrgs(){const b=$('[data-ol-orgs]'),n=state?.orgs?.length||0;b.innerHTML=n?`담당조직 ${n}곳 연결 <span class="optional">바꾸기</span>`:'+ 담당조직 연결 <span class="optional">선택</span>'}
+function paintOrgs(){const b=$('[data-ol-orgs]'),n=state?.orgs?.length||0;b.innerHTML=n?`담당조직 ${n}곳 연결 <span class="optional">바꾸기</span>`:'+ 담당조직 연결 <span class="optional">안 써도 됨</span>'}
 async function pickOrgs(){
   if(!state||state.saving)return;
   const b=$('[data-ol-orgs]');

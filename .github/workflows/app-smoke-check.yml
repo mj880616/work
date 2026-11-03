@@ -517,6 +517,9 @@ jobs:
       - name: Check wide-screen share menu (PC공유메뉴, synthetic)
         run: node --test tests/share-menu.test.mjs
 
+      - name: Check send to diary (S48-56 노트·업데이트·사진 → 일기, synthetic)
+        run: node --test tests/diary-send.test.mjs
+
       - name: Check OneDrive photo queue (OD-속도, visible first, limited at once, synthetic)
         run: node --test tests/od-thumb-loader.test.mjs
 

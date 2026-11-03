@@ -134,6 +134,7 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
     if (state.tab === 'saved') saved.load();
   },
   onSignal: () => askInterests(),
+  onRead: (item, row) => { const c = detail.current(); if (c && itemKey(c) === itemKey(item)) detail.setHead(describe('news', row)); window.KPTUNews?.refresh?.(); },
   onRelated: r => openRelated(r)});
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, topics: () => interests.topics(),
   onOpen: (item, head) => openDetail(item, head), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; }});
