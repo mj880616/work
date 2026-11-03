@@ -21,9 +21,7 @@ export function itemButtonHtml(item, where) {
   if (where === 'sheet') attrs.push('data-sheet-item');
   return `<button type="button" ${attrs.join(' ')}>${svg(item.icon)}<span>${esc(item.label)}</span></button>`;
 }
-// MENU-숨김: 숨긴 메뉴는 [메뉴] 창 맨 아래 접힌 '숨긴 메뉴 n'(기본 접힘) 안에서만 열린다. 비면 이 줄도 없다.
-export const hiddenGroupHtml = ids => ids.length
-  ? `<details class="mobile-menu-hidden" data-menu-hidden-group><summary>숨긴 메뉴 ${ids.length}</summary><div class="mobile-menu-hidden-list">${ids.map(id => itemButtonHtml(itemOf(id), 'sheet')).join('')}</div></details>` : '';
+// MENU-숨김: 숨긴 메뉴는 [메뉴] 창에 그리지 않는다(접힌 줄도 없음, 2026-11-04 명진). 메뉴 편집의 '숨긴 메뉴' 칸에서만 꺼낸다.
 export const SHEET_TAIL_LINE = '<span class="mobile-menu-tail-line" role="separator" data-menu-tail-line></span>';
 const toNodes = html => { const tpl = document.createElement('template'); tpl.innerHTML = html; return [...tpl.content.children]; };
 
@@ -36,14 +34,11 @@ function paintPhone() {
   }
   const nav = document.querySelector('#mobileMenu .mobile-menu-panel nav[aria-label="더 보기"]');
   if (nav) {
-    const wasOpen = nav.querySelector('[data-menu-hidden-group]')?.open;
     [...nav.children].forEach(el => el.remove());
     // MENU-세칸: 아래 붙는 메뉴(tail)는 [메뉴] 창 맨 아래, 선 하나 아래에(PC 왼쪽 맨 아래 묶음과 같은 규칙). 비면 선도 없다.
     const html = layout.rest.map(id => itemButtonHtml(itemOf(id), 'sheet')).join('')
-      + (layout.tail.length ? SHEET_TAIL_LINE + layout.tail.map(id => itemButtonHtml(itemOf(id), 'sheet')).join('') : '')
-      + hiddenGroupHtml(layout.hidden);
+      + (layout.tail.length ? SHEET_TAIL_LINE + layout.tail.map(id => itemButtonHtml(itemOf(id), 'sheet')).join('') : '');
     nav.prepend(...toNodes(html));
-    if (wasOpen) { const group = nav.querySelector('[data-menu-hidden-group]'); if (group) group.open = true; }
   }
 }
 
