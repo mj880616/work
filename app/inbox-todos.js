@@ -91,7 +91,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
       const l = linking.get(c.id), dis = isBusy ? ' disabled' : '';
       const picks = l.tasks === null ? waitInlineHtml()
         : l.tasks.length ? `<ul class="inbox-todo-link-list" aria-label="비슷한 할 일">${l.tasks.map(t => `<li><button type="button" class="inbox-todo-btn inbox-todo-link-pick" data-inbox-todo-link-task="${esc(t.id)}" data-inbox-todo-link-for="${id}"${dis}>${esc(t.title)}</button></li>`).join('')}</ul>`
-        : `<span class="inbox-todo-status">${l.failed ? '할 일 목록을 읽지 못했어요.' : '비슷한 할 일을 못 찾았어요.'}</span>`;
+        : `<span class="inbox-todo-status">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="inbox-todo-btn" data-inbox-todo-link-retry="${id}"${dis}>다시</button>` : ''}`;
       below = `<div class="inbox-todo-link" data-inbox-todo-link="${id}"><p class="inbox-todo-link-head">이미 있는 할 일 고르기</p>${picks}<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-link-cancel="${id}"${dis}>취소</button></span></div>`;
     } else if (editing.has(c.id)) {
       // ⋯ [고쳐서 할 일로]: 제목·기한을 고쳐 넣는다. 고친 제목은 결과 기록에 남아 다음 찾기의 말투 예시가 된다.
@@ -199,8 +199,10 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   }
   // TODO-이미할일있음: 열린 할 일(이미 이 기기에 읽어 둔 목록, 없으면 한 번 읽음) 중 제목이 비슷한 것을 먼저 보여 준다.
   async function openTasks() {
-    const gt = window.KPTUGoogleTasks;
     try {
+      // 할 일 모듈(google-tasks.js)은 첫 화면 뒤에 불러오므로, 앱을 막 열었을 때는 아직 없을 수 있다. 없으면 그 자리에서 불러온다(기존 읽기 길 그대로).
+      if (!window.KPTUGoogleTasks) await import('./google-tasks.js');
+      const gt = window.KPTUGoogleTasks;
       const copy = gt?.peekTasks?.();
       if (copy && Array.isArray(copy.tasks)) return {ok: true, tasks: copy.tasks};
       const r = await gt?.listTasks?.();
@@ -293,6 +295,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (d.inboxTodoDone) { const c = byId(d.inboxTodoDone); if (c && c.status === 'open' && !busy.has(c.id)) { status = ''; await done(c); } return; }
     if (d.inboxTodoLinkTask) { const c = byId(d.inboxTodoLinkFor), t = c && linking.get(c.id)?.tasks?.find(x => x.id === d.inboxTodoLinkTask); if (c && t && c.status === 'open' && !busy.has(c.id)) { status = ''; await linkTask(c, t); } return; }
     if (d.inboxTodoLinkNone) { const c = byId(d.inboxTodoLinkNone); if (c && c.status === 'open' && !busy.has(c.id)) { status = ''; await dropAlready(c); } return; }
+    if (d.inboxTodoLinkRetry) { const c = byId(d.inboxTodoLinkRetry); if (c && c.status === 'open' && !busy.has(c.id) && linking.has(c.id)) await startLinking(c); return; }
     if (d.inboxTodoLinkCancel) { linking.delete(d.inboxTodoLinkCancel); rowStatus.delete(d.inboxTodoLinkCancel); paint(); return; }
     if (d.inboxTodoEditCancel) { editing.delete(d.inboxTodoEditCancel); rowStatus.delete(d.inboxTodoEditCancel); paint(); return; }
     if (d.inboxTodoMore) { if (!busy.has(d.inboxTodoMore)) inboxRowMenu().open(b); return; }
