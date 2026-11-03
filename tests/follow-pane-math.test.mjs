@@ -11,11 +11,20 @@ const rule = css.match(/\.kptu-follow-pane\{[^}]*\}/)?.[0] ?? '';
 test('붙은 칸은 위쪽에 sticky, 화면보다 길면 칸 안에서만 스크롤', () => {
   assert.match(rule, /position:sticky/);
   assert.match(rule, /top:var\(--follow-top,12px\)/);
-  assert.match(rule, /max-height:calc\(100dvh - var\(--follow-top,12px\) - 12px\)/);
+  assert.match(rule, /max-height:var\(--follow-max,calc\(100dvh - var\(--follow-top,12px\) - 12px\)\)/);
   assert.match(rule, /overflow-y:auto/);
 });
-test('follow-pane.js는 스크롤을 듣지 않고 이름과 위 자리만 정한다', () => {
-  assert.doesNotMatch(js, /addEventListener\(/);
+test('follow-pane.js는 칸 이름·위 자리·최대 높이 값만 정한다(칸 위치를 옮기는 계산 없음)', () => {
+  assert.doesNotMatch(js, /scrollBy\(.*top: *over[^)]*\)[\s\S]*scrollTo/);
+  assert.match(js, /--follow-max/);
   assert.match(js, /classList\.add\('kptu-follow-pane'\)/);
   assert.match(js, /--follow-top/);
+});
+
+import {followMax} from '../app/follow-pane.js';
+test('followMax: 붙기 전에는 칸이 있는 자리 아래로, 붙은 뒤에는 위 자리 기준', () => {
+  assert.equal(followMax({view: 800, top: 12, rectTop: 140}), 648);
+  assert.equal(followMax({view: 800, top: 12, rectTop: 12}), 776);
+  assert.equal(followMax({view: 800, top: 12, rectTop: -300}), 776);
+  assert.equal(followMax({view: 300, top: 12, rectTop: 280}), 160);
 });

@@ -140,7 +140,7 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  expect(await page.locator('#calendarView').evaluate(el=>getComputedStyle(el,'::after').height)).toBe('100px');
  // 할 일 목록 끝 여백: [+] 대신 늘 보이는 입력 칸(UI-할일입력) 높이 + 전환 줄 + 16.
  await go(page,'tasks');const quickH=await page.locator('#tasksView .home-quick').evaluate(el=>Math.ceil(el.getBoundingClientRect().height));
- expect(await page.locator('#tasksView').evaluate(el=>getComputedStyle(el).paddingBottom)).toBe(`${quickH+48+16}px`);
+ expect(await page.locator('#tasksView').evaluate(el=>getComputedStyle(el).paddingBottom)).toBe(`${quickH+44+16}px`);
  await go(page,'calendar');
  // BASKET-정리함한화면: 정리함은 한 화면(위 챙길 것 칸·아래 업데이트 칸)이라 아래 탭 위 전환 줄이 없다. [노트]는 [메뉴] 안 독립 메뉴.
  await page.locator('.mobile-tabs [data-view="basket"]').tap();

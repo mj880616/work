@@ -172,6 +172,6 @@
    UI-상세칸고정(2026-11-03 명진, S49-8): 단, follow-pane.js가 이름을 붙인 옆 칸(오른쪽 상세·왼쪽 폴더 나무)은 화면 위쪽에 붙어 제자리에 있고
    내용이 화면보다 길면 그 칸만 따로 스크롤한다. 칸 안 고정 머리줄·[저장] 줄은 칸 끝(0)에 붙는다. */
 @media (min-width:761px){
-  .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:calc(100vh - var(--follow-top,12px) - 12px);max-height:calc(100dvh - var(--follow-top,12px) - 12px);overflow-y:auto;overscroll-behavior:contain}
+  .kptu-follow-pane{position:sticky;top:var(--follow-top,12px);align-self:start;max-height:calc(100vh - var(--follow-top,12px) - 12px);max-height:var(--follow-max,calc(100dvh - var(--follow-top,12px) - 12px));overflow-y:auto;overscroll-behavior:contain}
   .kptu-follow-pane .modal-action-footer{bottom:0}
 }
