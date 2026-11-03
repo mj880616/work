@@ -47,7 +47,7 @@ export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
 // 지금까지 보이던 모양 그대로 옮겨 담는다. 'bottom'은 메뉴 항목 이름이 아니라서 옛 화면은 그냥 버리고 읽는다.
 export const TAIL_MARK = 'bottom';
-// MENU-숨김(명진 요청 2026-11-03 10:38): 메뉴를 '숨겨 두기'. 숨긴 메뉴는 폰 하단바·[메뉴] 창 위쪽·PC 왼쪽 메뉴 줄에서 빠지고, 접힌 '숨긴 메뉴 n' 안에서만 열린다.
+// MENU-숨김(명진 요청 2026-11-03 10:38): 메뉴를 '숨겨 두기'. 숨긴 메뉴는 폰 하단바·[메뉴] 창·PC 왼쪽 메뉴 어디에도 그리지 않고, 메뉴 편집의 '숨긴 메뉴' 칸에서만 꺼낸다(2026-11-04 접힌 '숨긴 메뉴 n' 줄 없앰).
 // 기능·주소·데이터는 그대로(다른 화면 링크·전체 검색으로는 계속 열림). 메뉴 모델에서 빠지는 것이라 화면에서 가리는 땜질이 아니다.
 // 저장은 같은 방식: DB 검사는 bar·rest 둘만 받으므로 rest = [...위 메뉴, 'bottom', ...아래 칸, 'hidden', ...숨긴 메뉴]. 'hidden'도 항목 이름이 아니라 표시다.
 // 이 표시를 모르는 옛 화면은 표시를 버리고 숨긴 메뉴를 아래 칸으로 읽어 지금처럼 보인다(DB 변경 없음).
@@ -158,11 +158,11 @@ export function stepItem(layout, id, dir) {
 // PC 왼쪽 메뉴 순서: 하단바 칸 메뉴가 위, 그 아래 위 메뉴, 맨 아래 묶음은 아래 칸.
 // 한 번도 바꾸지 않았으면(기본) 지금까지의 PC 순서(ITEMS 순서)를 그대로 둔다. 바꾼 뒤부터 하단바 칸이 위로 올라온다.
 export const pcOrder = layout => { const next = normalizeLayout(layout); return sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id) : [...next.bar, ...next.rest, ...next.tail, ...next.hidden]; };
-// PC 왼쪽 메뉴의 위 줄(main)과 빈 공간 아래 맨 아래 묶음(tail), 그 아래 접힌 '숨긴 메뉴'(hidden). 맨 아래 묶음은 저장된 아래 칸 그대로이고, 비면 묶음도 없다.
+// PC 왼쪽 메뉴의 위 줄(main)과 빈 공간 아래 맨 아래 묶음(tail), 숨긴 메뉴는 여기에 없다. 맨 아래 묶음은 저장된 아래 칸 그대로이고, 비면 묶음도 없다.
 export function pcSplit(layout) {
-  const next = normalizeLayout(layout), tail = [...next.tail], hidden = [...next.hidden];
+  const next = normalizeLayout(layout), tail = [...next.tail];
   const main = sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id).filter(id => !tail.includes(id)) : [...next.bar, ...next.rest];
-  return {main, tail, hidden};
+  return {main, tail};
 }
 // 폰 하단바에서 이 화면이 어느 칸의 것인가. 칸 이름은 항목 id. 하단바에 없는 화면은 null([메뉴] 칸이 지금 화면).
 export function barItemForView(layout, view, noteMode = false) {

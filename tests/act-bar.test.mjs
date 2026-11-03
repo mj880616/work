@@ -31,10 +31,16 @@ test('전수: 사진 고르기·휴지통 고르기·크게 보기·노트·자�
   assert.match(html, /<span class="kptu-actbar kptu-actbar-text lu-select-acts" /);
   const bar = (src, start) => { const i = src.indexOf(start); assert.ok(i >= 0, start); return src.slice(i, src.indexOf('</div>', i)); };
   for (const [src, start] of [[photos, '<div class="photos-act kptu-actbar kptu-actbar-icon" data-photos-act '], [photos, 'data-photos-trash-act'], [strip, '<div class="diary-viewer-actions']]) assert.doesNotMatch(bar(src, start), /📁|🗑/, start);
-  for (const attr of ['data-photos-act-move', 'data-photos-act-delete', 'data-photos-purge']) assert.match(photos, new RegExp(`${attr}[^>]*>\\$\\{actInner\\(ACT_ICON\\.(move|delete)`));
-  assert.match(strip, /data-od-delete>\$\{actInner\(ACT_ICON\.delete, '지우기'\)\}/);
-  // 지우기는 모두 kptu-act-danger(표시만, 색은 같음).
-  for (const attr of ['data-photos-act-delete', 'data-photos-purge']) assert.match(photos, new RegExp(`class="kptu-act kptu-act-danger" ${attr}`));
+  // PHOTO-크게보기메뉴통일(S49-23): 사진 고르기 줄·크게 보기 줄은 버튼 그리는 코드 하나(photo-act-bar.mjs)를 같은 목록으로 쓴다.
+  const actBar = read('photo-act-bar.mjs');
+  assert.match(photos, /\$\{photoActButtons\(PHOTO_MENUS\.selectBar, id => `data-photos-act-\$\{id\}`\)\}/);
+  assert.match(strip, /\$\{photoActButtons\(barIds, barAttr\)\}/);
+  assert.match(actBar, /move: \{icon: ACT_ICON\.move, popup: true\}/);
+  assert.match(actBar, /delete: \{icon: ACT_ICON\.delete, danger: true\}/);
+  assert.match(actBar, /kptu-act\$\{d\.danger \? ' kptu-act-danger' : ''\}/);
+  assert.match(photos, /class="kptu-act kptu-act-danger" data-photos-purge/);
+  assert.match(photos, /data-photos-purge>\$\{actInner\(ACT_ICON\.delete/);
+  assert.match(strip, /delete:'data-od-delete'/);
   assert.match(notes, /class="kptu-act kptu-act-danger" data-nx-sel-delete/);
   assert.match(html, /id="librarySelectDelete" class="lu-select-act kptu-act kptu-act-danger"/);
 });

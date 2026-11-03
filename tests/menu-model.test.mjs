@@ -93,7 +93,7 @@ test('PC 왼쪽 메뉴: 하단바·위 메뉴가 위, 맨 아래 묶음은 저�
   const l = moveItem(defaultLayout(), 'team', 'rest', 0).layout;
   assert.deepEqual(pcOrder(l), [...l.bar, ...l.rest, ...l.tail]);
   assert.deepEqual(pcOrder(defaultLayout()), ITEMS.map(item => item.id), '바꾸지 않았으면 지금까지의 PC 순서 그대로');
-  assert.deepEqual(pcSplit(defaultLayout()), {main: pcOrder(defaultLayout()).slice(0, -3), tail: ['calls', 'telegram', 'arsenal'], hidden: []});
+  assert.deepEqual(pcSplit(defaultLayout()), {main: pcOrder(defaultLayout()).slice(0, -3), tail: ['calls', 'telegram', 'arsenal']});
   const moved = moveItem(defaultLayout(), 'calls', 'rest', 0).layout;
   assert.deepEqual(pcSplit(moved).tail, ['telegram', 'arsenal']);
   assert.ok(pcSplit(moved).main.includes('calls'));
@@ -216,11 +216,11 @@ test('MENU-숨김: 이상한 저장값·옛 저장값·표시를 모르는 옛 �
   assert.deepEqual(legacyRead.tail, ['calls', 'ledger', 'pages', 'telegram', 'arsenal']);
 });
 
-test('MENU-숨김: PC 왼쪽 메뉴는 위 줄·맨 아래 묶음에서 숨긴 메뉴가 빠지고 hidden으로 따로 나온다', () => {
+test('MENU-숨김: PC 왼쪽 메뉴는 위 줄·맨 아래 묶음에서 숨긴 메뉴가 빠지고 어디에도 나오지 않는다(접힌 줄 없음)', () => {
   const l = hideItem(hideItem(defaultLayout(), 'ledger').layout, 'pages').layout;
   const s = pcSplit(l);
-  assert.deepEqual(s.hidden, ['ledger', 'pages']);
+  assert.equal('hidden' in s, false, 'pcSplit은 숨긴 묶음을 돌려주지 않는다');
   assert.ok(!s.main.includes('ledger') && !s.main.includes('pages') && !s.tail.includes('ledger'));
-  assert.deepEqual([...s.main, ...s.tail, ...s.hidden].sort(), ALL());
+  assert.deepEqual([...s.main, ...s.tail, ...l.hidden].sort(), ALL());
   assert.ok(menuSheetViews(l).includes('ledger'), '숨긴 메뉴 화면도 [메뉴] 칸이 지금 화면(하단바 칸 아님)');
 });

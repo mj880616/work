@@ -69,7 +69,9 @@ test('사진 화면: 칩은 운영자 기능이 있을 때만, 지우기는 확�
   assert.match(s, /data-photos-gd-reconnect>Drive 다시 연결<\/button>/);
   assert.match(s, /menuBtn\('data-gdm-reconnect', 'Drive 다시 연결'\)/);
   // 크게 보기에서 묻지 않고 지우는 길은 구글 드라이브에 쓰지 않는다.
-  assert.match(s, /item\?\.kind === 'gdrive' \? \{ok:false,/);
+  // S49-23 PHOTO-크게보기메뉴통일: 크게 보기 [지우기]도 고르기 줄과 같은 규칙(권한 있으면 확인 한 번 뒤 드라이브 휴지통으로).
+  assert.match(s, /item\?\.kind === 'gdrive' \? \{ok:gdUsable\(\) && !busy,/);
+  assert.match(s, /if \(item\.kind === 'gdrive'\) \{ void gdTrashPicked\(anchor, \[item\]\)/);
   // 구글 드라이브 사진은 별표·앨범에 넣지 않는다(표가 원드라이브·폰만 안다).
   assert.match(s, /구글 드라이브 사진은 아직 앨범에 못 넣어요/);
   assert.match(s, /if \(item\.kind === 'gdrive'\) \{ photoStripNote\('구글 드라이브 사진은 아직 별표를 못 해요\.'\); return; \}/);

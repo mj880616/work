@@ -173,7 +173,7 @@ test('정보수정: 이름 하나, ⋯ 없음, 선 아이콘 공용 부품에 �
   assert.ok(PHOTO_MENUS.selectBar.includes('info') && PHOTO_MENUS.context.includes('info'));
   assert.match(ACT_ICON.infoEdit, /<svg[^>]*stroke="currentColor"/);
   const photos = read('app/photos.js');
-  assert.match(photos, /data-photos-act-info hidden>\$\{actInner\(ACT_ICON\.infoEdit,PHOTO_ACT_TEXT\.info\)\}/);
-  assert.match(photos, /infoBtn\.hidden = !\(on && canInfo\(pickedItems\(\)\)\)/);
+  assert.match(read('app/photo-act-bar.mjs'), /info: \{icon: ACT_ICON\.infoEdit, hidden: true\}/);
+  assert.match(photos, /case 'info': return \{hidden: !\(on && canInfo\(group\)\)/);
   assert.doesNotMatch(photos, /photosSelMenu|data-photos-act-more|정보 고치기…/);
 });
