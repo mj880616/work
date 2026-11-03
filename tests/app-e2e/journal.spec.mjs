@@ -621,9 +621,11 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  const input=page.locator('#journalRoot [data-journal-input]');
  await input.fill('화요일 첫 줄');await input.press('Enter');await expect(items(page)).toHaveCount(1);
  await input.fill('화요일 둘째 줄');await input.press('Enter');await expect(items(page)).toHaveCount(2);
- // 5. 주요 일정은 다음 주 월요일부터 2주(10/12~10/25)를 따로 읽는다.
- await expect.poll(()=>f.calendarReads.some(([min,max])=>min===new Date('2026-10-12T00:00:00+09:00').toISOString()&&max===new Date('2026-10-26T00:00:00+09:00').toISOString())).toBe(true);
+ // 5. 주요 일정은 다음 주 월요일부터 2주(10/12~10/25)를 따로 읽는다 — 하루 화면에서는 읽지 않고 [주간 정리]를 열 때(PERF-첫로딩 요청 합치기, S48-59).
+ const upcomingRead=()=>f.calendarReads.some(([min,max])=>min===new Date('2026-10-12T00:00:00+09:00').toISOString()&&max===new Date('2026-10-26T00:00:00+09:00').toISOString());
+ expect(upcomingRead()).toBe(false);
  await copyDraft(page);
+ expect(upcomingRead()).toBe(true);
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  const lines=text.split('\n');

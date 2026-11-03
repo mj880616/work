@@ -770,14 +770,16 @@ async function loadMemory(run, scope, quiet = false) {
 // 묶음 프로그램은 전처럼 앱이 보인 뒤 미리 받아 두므로(맨 아래 weeklyKit), 열 때는 읽기만 기다린다(칸마다 기다림 표시 → 채움).
 const WEEK_READS = ['nextWeek', 'upcoming', 'orgSummaries', 'execRequests', 'weekDraft', 'orgRefs'];
 let weekReads = null; // 미룬 읽기 {run, sharedRun, scope, quiet, memory}; 탭 메모리만
+let weekReadsFlight = Promise.resolve(); // 그 읽기들이 다 끝나면 풀림([주간보고 초안 복사]가 기다림)
 function startWeekReads() {
   const wait = weekReads;
   if (!wait || mode !== 'week') return;
   weekReads = null;
   if (wait.run !== epoch || wait.scope !== ownerScope(rt)) return;
-  if (wait.memory) loadMemory(wait.sharedRun, wait.scope, wait.quiet);
+  const reads = wait.memory ? [loadMemory(wait.sharedRun, wait.scope, wait.quiet)] : [];
   if (wait.quiet) { for (const key of WEEK_READS) refreshing.add(key); markRefreshing(); }
-  for (const key of WEEK_READS) loadGroup(key, SHARED_KEYS.has(key) ? wait.sharedRun : wait.run, wait.scope, wait.quiet);
+  for (const key of WEEK_READS) reads.push(loadGroup(key, SHARED_KEYS.has(key) ? wait.sharedRun : wait.run, wait.scope, wait.quiet));
+  weekReadsFlight = Promise.allSettled(reads);
 }
 // quiet = 연 화면 유지(같은 주인·같은 주를 다 그린 뒤 다시 열 때만): 보던 자료·펼침 상태를 그대로 그리고, 칸마다 새 자료가 오면 그 칸만 다시 그린다.
 function loadWeek({shared = false, quiet = false} = {}) {
@@ -1121,6 +1123,8 @@ window.addEventListener('kptu:google-tasks-changed', () => { if (!selfBusy && wi
 
 async function copyDraft() {
   await scopeSettled();
+  // [주간 정리]를 막 열어 미룬 읽기(5. 주요 일정 등)가 오는 중이면 끝날 때까지(길어도 5초) 기다린 뒤 복사한다.
+  await Promise.race([weekReadsFlight, new Promise(ok => setTimeout(ok, 5000))]);
   const text = W.weeklyReportText(W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
