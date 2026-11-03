@@ -27,10 +27,10 @@ test('폰 412: 첫 화면은 최근 파일(F9)·날짜 묶음, 탭 폴더로 들
   // 화면에 들어오면 바로 맞추기(sync)를 한 번 부른다(F2).
   await expect.poll(() => server.calls.filter(c => c.action === 'sync').length).toBeGreaterThan(0);
 
-  // [폴더] 탭 → 원드라이브 맨 위 → 폴더 들어가기(폴더 옆 숫자 = 바로 든 파일 수, F3).
+  // [폴더] 탭 → 원드라이브 맨 위 → 폴더 들어가기(S49-17: 폴더 옆 개수는 그 폴더를 실제로 읽은 뒤에만, 안 읽었으면 빈칸).
   await root(page).locator('[data-fx-tab="folders"]').click();
   await expect(row(page, 'od:OD!1')).toBeVisible();
-  await expect(row(page, 'od:OD!1').locator('.fx-sub')).toContainText('3개');
+  await expect(row(page, 'od:OD!1').locator('.fx-sub')).not.toContainText('개');
   await row(page, 'od:OD!1').click();
   await expect(root(page).locator('.fx-crumb-now')).toHaveText('가짜 문서함');
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
@@ -69,7 +69,7 @@ for (const width of [884, 1440]) {
     // 원드라이브 뿌리 → 폴더 → 하위 폴더.
     await tree.locator('[data-fx-go="od"][data-fx-id=""]').click();
     await expect(row(page, 'od:OD!1')).toBeVisible();
-    await expect(tree.locator('[data-fx-go="od"][data-fx-id="OD!1"] .nx-num')).toHaveText('3');
+    await expect(tree.locator('[data-fx-go="od"][data-fx-id="OD!1"] .nx-num')).toHaveCount(0);
     await row(page, 'od:OD!1').click();
     await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
     await expect(root(page).locator('.fx-crumb-step')).toHaveText(['원드라이브']);

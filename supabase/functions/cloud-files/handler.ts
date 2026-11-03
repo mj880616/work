@@ -97,6 +97,8 @@ export function odRow(ws: string, rootId: string, it: Record<string, unknown>, s
   const qx = typeof hashes.quickXorHash === "string" ? hashes.quickXorHash : "";
   const hash = /^[0-9a-f]{40}$/.test(sha1) ? "sha1:" + sha1 : /^[A-Za-z0-9+/=]{1,100}$/.test(qx) ? "qx:" + qx : null;
   const folder = !!it.folder && !file;
+  // 폴더도 파일도 아닌 항목(개인 중요 보관소 vault·OneNote 묶음 등)은 색인에 넣지 않는다. 넣으면 종류 없는 0B 파일로 보인다(열어서 읽지도 않음).
+  if (!folder && !file) return null;
   return {
     workspace_id: ws, source: "od", item_id: it.id, parent_id: parent === rootId ? null : parent, name, is_folder: folder,
     mime: folder ? null : mimeOrNull(file?.mimeType), size_bytes: folder ? null : sizeOrNull(it.size),

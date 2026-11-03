@@ -44,7 +44,7 @@ export const KIND = Object.freeze({
   audio: {label: '소리', icon: '♪'}, pdf: {label: 'PDF', icon: 'P'}, hwp: {label: '한글', icon: '한'},
   word: {label: '워드', icon: 'W'}, excel: {label: '표', icon: '표'}, slide: {label: '발표', icon: '슬'},
   text: {label: '글', icon: '글'}, web: {label: '웹', icon: '<>'}, zip: {label: '압축', icon: '압'},
-  gdoc: {label: '구글 문서', icon: 'G'}, file: {label: '파일', icon: '·'},
+  gdoc: {label: '구글 문서', icon: 'G'}, file: {label: '파일', icon: '📄'},
 });
 // 종류: 폴더 → 구글 문서류(mime) → 확장자 → mime 앞부분 → 파일.
 export function kindOf(row) {
@@ -85,6 +85,14 @@ export function sizeText(bytes) {
   let v = n / 1024, i = 0;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   return `${v >= 10 || i === 0 ? Math.round(v) : Math.round(v * 10) / 10}${units[i]}`;
+}
+// 원드라이브 개인 중요 보관소처럼 폴더도 파일도 아닌 잠긴 항목이 옛 색인에 '종류 없는 0B 파일'로 남아 있다. 서버는 이제 넣지 않고(Edge odRow),
+// 화면은 옛 줄도 목록에서 뺀다(열어서 읽지 않음). 진짜 파일은 원드라이브가 늘 종류(mime)를 준다.
+export const isLockedItem = r => !!r && r.source === 'od' && !r.is_folder && !r.mime && Number(r.size_bytes) === 0;
+// 폴더 줄 개수: 그 폴더를 실제로 읽어 센 값(counts)이 있을 때만 글을 준다. 모르면 빈 글(색인 장수는 아직 안 읽은 폴더에서 0으로 나와 틀린다).
+export function folderCountText(c) {
+  if (!c || !Number.isFinite(c.files) || !Number.isFinite(c.folders)) return '';
+  return c.folders > 0 ? (c.files > 0 ? `폴더 ${countText(c.folders)} · 파일 ${countText(c.files)}` : `폴더 ${countText(c.folders)}`) : `${countText(c.files)}개`;
 }
 export const countText = n => Number.isFinite(Number(n)) ? Number(n).toLocaleString('ko-KR') : '';
 

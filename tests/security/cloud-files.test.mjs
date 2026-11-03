@@ -275,6 +275,10 @@ test('thumb, media, preview, open-url: only indexed items; risky types become do
 test('helpers: rows, open url hosts, served types',()=>{
  assert.equal(odRow(WS,'R',{id:'R',root:{}},'t'),null);
  assert.equal(odRow(WS,'R',{id:'a b',name:'x',parentReference:{id:'R'}},'t'),null);
+ // 폴더도 파일도 아닌 항목(개인 중요 보관소 등)은 색인에 넣지 않는다.
+ assert.equal(odRow(WS,'R',{id:'V1',name:'개인 중요 보관소',specialFolder:{name:'vault'},parentReference:{id:'R'}},'t'),null);
+ assert.equal(odRow(WS,'R',{id:'F1',name:'a',folder:{childCount:1},parentReference:{id:'R'}},'t').is_folder,true);
+ assert.equal(odRow(WS,'R',{id:'F2',name:'a.txt',file:{mimeType:'text/plain'},parentReference:{id:'R'}},'t').is_folder,false);
  assert.equal(gdRow(WS,'R',{id:'X',name:'n',ownedByMe:false},'t'),null);
  assert.equal(gdRow(WS,'R',{id:'X',name:'',ownedByMe:true},'t'),null);
  assert.equal(safeOpenUrl('gd','https://evil.example/x'),null);
