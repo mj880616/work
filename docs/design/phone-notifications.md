@@ -191,3 +191,7 @@ PC 크롬에서 한다. 비밀번호·키·JSON 내용은 채팅에 보내지 �
 ## 부록. 읽은 파일
 
 요청함 [10/29 01:28] 4건(폰 알림, 오늘한줄초안, 회의 녹음 초안, 다음 주 준비), `docs/design/phone-app-v2.md`, `docs/design/next-week-sheet.md` 2·4·5절, `docs/web2-env6b-edge-source.md`, `.github/workflows/{collaboration-ownership-check,drive-summary-refresh}.yml`, `supabase/functions/push-notifications/index.ts`, `supabase/functions/collector-feed/handler.ts`(비밀값 비교 방식), `supabase/functions/google-tasks/index.ts`(action), `app/collection-status.js`, `supabase/migrations/20261029014500_journal_ai_drafts.sql`, `…/20261023180000_profile_view_prefs.sql`, `android-app/README.md`, PR #1414 본문.
+
+## 다시 연 기록 화면 삭제 (S49-20, 요청함 11/04)
+
+내 프로필의 '다시 연 기록' 칸은 화면에서 뺐다. 이 기록은 폰 앱 메모리에만 있고 서버에는 쌓이지 않는다(app/phone-reopen.js 머리 설명). 앱 쪽 `reopen:list` 응답 길은 남아 있으나 화면이 없어 지금은 아무도 읽지 못한다. 서버에 쌓아 CC가 읽게 하려면 앱 변경이 필요한 별도 작업이다.

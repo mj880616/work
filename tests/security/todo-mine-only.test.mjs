@@ -83,10 +83,9 @@ test('screen: ⋯ menu with [내 일 아님] on the candidate list, shared ancho
     assert.match(src,/import \{createAnchoredMenu\} from '\.\/anchored-menu\.js'/,f);
     assert.match(src,/>내 일 아님<\/button>/,f);assert.match(src,/aria-label="더 보기"/,f);assert.match(src,/markNotMine\(c, rt\)/,f);
   }
-  const settings=readFileSync('app/todo-rules-settings.js','utf8');
-  assert.match(readFileSync('app/profile-settings.js','utf8'),/import\('\.\/todo-rules-settings\.js'\)/);
+  assert.doesNotMatch(readFileSync('app/profile-settings.js','utf8'),/todo-rules-settings|calendar-ref-settings|phone-reopen/,'프로필에 챙길 것 기준·참고 캘린더·다시 연 기록 칸이 없다(요청함 11/04)');
   // 공개 저장소: 실제 방 이름·사람 이름을 코드·시험에 쓰지 않는다.
-  for(const f of ['app/todo-rules-settings.js','supabase/functions/ai-assist/todo-recheck.ts','supabase/functions/collector-feed/telegram.ts','docs/ops/todo-candidates-source-count.sql'])
+  for(const f of ['supabase/functions/ai-assist/todo-recheck.ts','supabase/functions/collector-feed/telegram.ts','docs/ops/todo-candidates-source-count.sql'])
     assert.doesNotMatch(readFileSync(f,'utf8'),new RegExp(['궤도'+' 집행','본부'+' 자료방','김'+'명진'].join('|')),f);
   const sql=readFileSync('docs/ops/todo-candidates-source-count.sql','utf8').replace(/--.*$/gm,'');
   assert.doesNotMatch(sql,/\b(insert|update|delete|alter|drop|create|grant|truncate)\b|information_schema|summary|evidence|room_label|\bname\b/i,'select only, counts only');
