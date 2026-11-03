@@ -130,6 +130,7 @@ test('화면 지켜보기: 옛 서버(모르는 action)·표 없음이면 화면
   const fail=e=>async()=>{throw e};
   assert.equal((await watchServerJob({call:fail({status:400,code:'bad_request'}),sleep:async()=>{}},{start:{}})).kind,'unavailable');
   assert.equal((await watchServerJob({call:fail({status:503,code:'jobs_unavailable'}),sleep:async()=>{}},{start:{}})).kind,'unavailable');
+  assert.equal((await watchServerJob({call:async()=>({ok:true}),sleep:async()=>{}},{start:{}})).kind,'unavailable','작업 없이 {ok:true}만 = 모르는 서버');
   await assert.rejects(watchServerJob({call:fail({status:429,code:'monthly_limit'}),sleep:async()=>{}},{start:{}}));
   const r=await watchServerJob({call:async()=>({job:{id:ID,status:'failed',error_code:'draft_failed'}}),sleep:async()=>{}},{jobId:ID,retry:true});
   assert.equal(r.kind,'failed');

@@ -58,6 +58,8 @@ export async function watchServerJob(deps,{start=null,jobId='',retry=false}={}){
     if(start&&unavailable(e))return {kind:'unavailable'};
     throw e;
   }
+  // 시작했는데 작업이 없다 = 서버 정리를 모르는 서버(옛 판이 모르는 action에 {ok:true}만 준 경우 등).
+  if(start&&!job?.id)return {kind:'unavailable'};
   const id=job?.id||jobId;
   if(!id)throw new Error('');
   let misses=0;
