@@ -93,6 +93,12 @@ object ShareOut {
         batch.file = null
     }
 
+    /** 클립보드에 넣을 그림 한 장(PHOTO-꾹누르기메뉴). 한 장짜리 묶음이 다 찼을 때만, 아니면 null. */
+    fun clip(batch: Batch): ClipData? {
+        if (!batch.rules.ready || batch.items.size != 1) return null
+        return ClipData.newUri(null, "photo", batch.items[0].uri)
+    }
+
     /** 공유 창 의도(고르기 창으로 감쌈). 묶음이 다 차지 않았으면 null. */
     fun chooser(batch: Batch): Intent? {
         if (!batch.rules.ready || batch.items.isEmpty()) return null

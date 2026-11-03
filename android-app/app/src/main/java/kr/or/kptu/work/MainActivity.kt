@@ -1156,6 +1156,24 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            ShareOutRules.Message.Clip -> saveWorker.execute {
+                val b = outBatch
+                outBatch = null
+                val clip = b?.let { try { ShareOut.clip(it) } catch (_: Exception) { null } }
+                ui.post {
+                    if (!alive) return@post
+                    if (clip == null) {
+                        postOut(ShareOutRules.sentMessage(false, "none"))
+                        return@post
+                    }
+                    try {
+                        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(clip)
+                        postOut(ShareOutRules.sentMessage(true))
+                    } catch (_: Exception) {
+                        postOut(ShareOutRules.sentMessage(false, "failed"))
+                    }
+                }
+            }
             ShareOutRules.Message.Cancel -> saveWorker.execute {
                 outBatch?.let { ShareOut.drop(it) }
                 outBatch = null

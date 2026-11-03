@@ -11,6 +11,7 @@ package kr.or.kptu.work
  * - out:begin:{"name","mime","size"}        → out:ack step begin       원드라이브·구글 드라이브: 웹이 이미 받은 그림 바이트
  *   out:part:<base64> → step part, out:end → step end                   (앱 캐시 share-out/에 한 장씩, FileProvider content URI로만 넘김)
  * - out:go                                  → out:sent:{"ok","error"}  공유 창을 띄웠음(ok) 또는 none·noapp·failed
+ * - out:clip                                                            PHOTO-꾹누르기메뉴(S49-18): out:go 대신. 받은 그림 한 장을 안드로이드 클립보드에 그림으로 넣음 → out:sent:{"ok","error"}
  * - out:cancel                                                          받다 만 묶음 버림
  * 파일 경로는 앱 밖으로 내보내지 않는다(content URI + 읽기 허락만). 사진 이름·내용은 로그에 쓰지 않는다.
  */
@@ -32,6 +33,7 @@ object ShareOutRules {
         data class Part(val base64: String) : Message()
         object End : Message()
         object Go : Message()
+        object Clip : Message()
         object Cancel : Message()
     }
 
@@ -49,6 +51,7 @@ object ShareOutRules {
                 .takeIf { it.isNotEmpty() && it.length <= PART_MAX && it.length % 4 == 0 && B64.matches(it) }?.let { Message.Part(it) }
             data == "out:end" -> Message.End
             data == "out:go" -> Message.Go
+            data == "out:clip" -> Message.Clip
             data == "out:cancel" -> Message.Cancel
             else -> null
         }

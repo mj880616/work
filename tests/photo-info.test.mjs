@@ -118,7 +118,9 @@ test('다리 말: 0.4.15(meta)만, 읽기·고치기 모양, 이상한 답 버�
 
 test('연결: 사진 ⋯ 메뉴에 [정보 고치기…](폰 사진·앱 meta), 폰 앱 0.4.15, 위치 허락·EXIF 의존, DB 표 owner 전용', () => {
   const photos = readFileSync(new URL('../app/photos.js', import.meta.url), 'utf8');
-  assert.match(photos, /phone\.canMeta\(\) && tab !== 'trash' \? menuBtn\('data-pm-info', '정보 고치기…'\)/);
+  assert.match(photos, /phone\.canMeta\(\) && tab !== 'trash' \? menuBtn\('data-pm-info', PHOTO_ACT_TEXT\.info\)/);
+  assert.doesNotMatch(photos, /photosSelMenu|data-photos-act-more/);
+  assert.match(photos, /data-photos-act-info/);
   assert.match(photos, /import\('\.\/photo-info-edit\.js'\)/);
   const gradle = readFileSync(new URL('../android-app/app/build.gradle', import.meta.url), 'utf8');
   assert.match(gradle, /versionCode 55/);

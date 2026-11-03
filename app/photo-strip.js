@@ -17,6 +17,7 @@ import {swipeKind, shareFileName, UNDO_MS, dragAxis, dragEnd, dragOffset, starFi
 import {slotTimingOf} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
 import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
+import {attachPhotoLongPress, pointAnchor} from './photo-longpress.js';
 import {shareFrom} from './share-menu.js';
 import {ACT_ICON, actInner} from './action-bar.mjs'; // UI-고르기줄(S48-54): 아래 줄 공용 부품
 
@@ -191,7 +192,7 @@ export function openPhotoStrip(opts) {
   // OD-공유고침: [공유]는 화면에 이미 뜬 그림의 바이트를 바로 넘긴다(photo-share.js). 아직 안 떴을 때만 '사진 받는 중…'을 띄우고 뜨면 넘긴다.
   // 원드라이브 그림 주소는 로그인 없이 열리는 임시 주소라 링크로 넘기지 않는다.
   // PC공유메뉴: 넓은 화면은 누른 자리 작은 메뉴(share-menu.js), 좁은 화면은 지금처럼 바로 기기 공유 창.
-  function shareCurrent(trigger) {
+  function shareCurrent(trigger, {menu = false} = {}) {
     const item = items[at], el = slidePhoto(at); if (!item || !el) return;
     const nameOf = blob => shareFileName(item, blob.type), alive = () => viewer?.box === box && items[at] === item;
     shareFrom(trigger, {video:!!item.video, count:1, note,
@@ -199,7 +200,7 @@ export function openPhotoStrip(opts) {
       native:() => sharePhotoElement(el, nameOf, {alive, note}),
       download:item.video && download ? () => download(item) : null,
       // S49-9 PHOTO-메뉴항목통일: 부르는 화면이 diary(item, trigger)를 주면 [일기에 넣기](그 사진 찍은 날 일기)도 보인다.
-      diary:diary && !item.video ? () => diary(item, trigger) : undefined});
+      diary:diary && !item.video ? () => diary(item, trigger) : undefined}, menu ? {wide:true} : {});
   }
   const star = item => { if (!item) return; if (viewer) viewer.starChanged = true; return toggleStar(item); };
   // 별 움직임: on = 지금 별표됨. 큰 별이 '톡' 커졌다가 [별표] 버튼 자리로 날아가 작아지며 사라진다 / 풀면 빈 별이 흐려진다.
@@ -276,6 +277,11 @@ export function openPhotoStrip(opts) {
     }
   }, {passive:true});
   strip.addEventListener('touchcancel', () => { touch = null; settle(); }, {passive:true});
+  // PHOTO-꾹누르기메뉴(S49-18): 사진을 꾹 누르면(PC는 우클릭) 기본 이미지 메뉴 대신 Web2 작은 메뉴 하나([사진 복사][공유][다운로드][일기에 넣기][업데이트로 보내기]).
+  // 세로 밀기·넘기기·두 손가락 확대는 손가락이 움직이면 꾹 누르기를 취소하므로 겹치지 않는다. 동영상은 메뉴 없음(바이트가 이 화면에 없음).
+  attachPhotoLongPress(box, {
+    photoAt:target => !!items[at] && !items[at].video && !!target?.closest?.('.diary-slide .diary-photo') && !onControl(target) && !pinch,
+    open:(x, y) => { if (viewer?.box === box && items[at] && !items[at].video) shareCurrent(pointAnchor(box, x, y), {menu:true}); }});
   // ---- PHOTO-전체화면확대: 사진 안 확대·축소 ----
   // zoom = 보는 장의 배율·옮긴 거리(메모리만). 변형은 그 장의 .diary-photo(그림 칸)에 건다(세로 밀기는 바깥 .diary-slide라 서로 겹치지 않음).
   let zoom = {...ZOOM_ONE}, zoomEl = null, pinch = null, pan = null, tapStart = null, lastTap = null, lastTouchAt = -Infinity, mouse = null;
