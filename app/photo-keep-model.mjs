@@ -4,6 +4,7 @@
 // - 지우기 두 갈래 계획: 고른 사진 → 폰 공간만 비우기(원드라이브에 원본이 확인된 폰 사진만) / 완전히 지우기(폰 + 원드라이브, 짝 사본까지).
 import {toItem} from './photos-model.mjs';
 import {copyFinder} from './photo-tidy-model.mjs';
+import {SAME_MS} from './photo-sources-model.mjs';
 
 const pad = n => String(n).padStart(2, '0');
 // 이 기기 시간대의 날(폰 사진 칸의 day와 같은 기준).
@@ -49,6 +50,45 @@ export function twinPairs(phItems, odPicked) {
     if (o && !seen.has(o.id)) { seen.add(o.id); out.push({item:p, copy:o}); }
   }
   return out;
+}
+// S48-52 PHOTO-지우기멈춤(요청함 11/03 07:41 ★급★): [지우기]는 사진 전체를 다시 읽지 않고, 고른 사진의 찍은 시각 근처만 읽어 짝을 찾는다.
+// 짝 판정(copyFinder: 같은 크기 + 같은 이름 또는 2초 안 찍은 시각)은 그대로 — 크기가 같고 2초 안이면 짝이므로 찍은 시각 ±2초만 읽으면 된다.
+// 확인은 DEL_CHECK_MS(15초) 안에 끝나야 하고, 넘으면 지우지 않는다(부르는 쪽).
+export const DEL_CHECK_MS = 15000, NEAR_GAP_MS = 10 * 60 * 1000, NEAR_PAGES = 10, NEAR_POOL = 4;
+// 고른 칸들의 찍은 시각 ±pad 창. 서로 gap 안이면 한 창으로 합친다(읽기 횟수를 줄이려고). 찍은 시각이 없는 칸은 창이 없다(시각으로 짝을 찾을 수 없음).
+export function nearWindows(items, {pad = SAME_MS, gap = NEAR_GAP_MS} = {}) {
+  const ts = (items || []).map(x => Date.parse(x?.taken_at || '')).filter(Number.isFinite).sort((a, b) => a - b);
+  const out = [];
+  for (const t of ts) {
+    const last = out[out.length - 1];
+    if (last && t - pad <= last.hi + gap) last.hi = Math.max(last.hi, t + pad);
+    else out.push({lo:t - pad, hi:t + pad});
+  }
+  return out;
+}
+// 창마다 찍은 시각 최근 먼저로 쪽을 읽어(readPage(창, 다음 자리) → {items, next}, 첫 쪽은 창.hi 이하부터) 창 안의 칸만 모은다.
+// 창 하나라도 pages쪽 안에 다 못 읽으면 null(확인 못 함 — 부르는 쪽이 지우지 않음). alive()가 false가 되면(시간 넘김·취소) 멈추고 null.
+export async function readNear(windows, readPage, {pages = NEAR_PAGES, pool = NEAR_POOL, alive = () => true} = {}) {
+  const found = [], list = windows || [];
+  let next = 0, failed = false;
+  const one = async w => {
+    let cursor = null;
+    for (let i = 0; i < pages; i++) {
+      if (!alive()) return false;
+      const page = await readPage(w, cursor);
+      const items = Array.isArray(page?.items) ? page.items : [];
+      for (const it of items) { const t = Date.parse(it?.taken_at || ''); if (Number.isFinite(t) && t >= w.lo && t <= w.hi) found.push(it); }
+      const last = items[items.length - 1], lt = Date.parse(last?.taken_at || '');
+      if (page?.next === null || page?.next === undefined || !last || (Number.isFinite(lt) && lt < w.lo)) return true;
+      cursor = page.next;
+    }
+    return false;
+  };
+  const worker = async () => { while (!failed && next < list.length) { if (!(await one(list[next++]))) failed = true; } };
+  await Promise.all(Array.from({length:Math.min(pool, list.length)}, worker));
+  if (failed || !alive()) return null;
+  const seen = new Set();
+  return found.filter(it => (seen.has(it.id) ? false : (seen.add(it.id), true)));
 }
 // 지우기 두 갈래 계획. picked = 고른 칸, pairs = 폰 사진의 원드라이브 사본 짝({pairs:[{item, copy}], noCopy}, 원드라이브를 못 읽었으면 null),
 // twins = 고른 원드라이브 칸의 폰 원본 짝(twinPairs, 없으면 null·[]).

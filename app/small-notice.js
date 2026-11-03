@@ -117,7 +117,11 @@ export function noticeHost(doc=globalThis.document){
   return open.at(-1)||doc.body;
 }
 
-let host=null,clock=null,seq=0;
+// S48-52(요청함 11/03 07:46): seq는 작은 알림 차례만 센다. 예전에는 확인창(askPanel)도 같은 seq를 올려서, 알림 바로 뒤에 고르기 창이 뜨면
+// 알림의 시계(close)가 '내 차례가 아님'으로 보고 닫지 않아 다른 화면까지 따라왔다(사진 지우기 '확인했어요' 뒤 두 갈래 창). 확인창은 askSeq를 쓴다.
+// 화면을 옮기면(kptu:view-changed) 떠 있던 작은 알림은 닫는다(그 화면의 알림이라서). 로그인이 바뀌어도 닫는다.
+// 단, 막 띄운 알림(VIEW_GRACE_MS 안)은 화면을 옮기게 한 그 일의 결과라 남긴다(예: 저장했어요 → 다른 화면으로).
+let host=null,clock=null,seq=0,askSeq=0;
 // 되돌리기 알림(offerUndoNotice)이 뜰 때 앞서 떠 있던 작은 알림·#toast를 내린다(같은 자리라 [되돌리기]를 가리지 않게). 뒤에 뜨는 것은 CSS가 한 줄 아래로.
 export function hideSmallNotices(doc=globalThis.document){
   const shared=doc?.getElementById?.('toast');if(shared&&!shared.classList.contains('hidden')){toastClock?.stop();toastClock=null;shared.classList.add('hidden')}
@@ -129,12 +133,20 @@ function ensureHost(doc){
   host.setAttribute('role','status');host.setAttribute('aria-live','polite');
   doc.body.append(host);return host;
 }
+const VIEW_GRACE_MS=500;
+let noticeView=null,noticeAt=0;
+function closeNotice(){if(host&&!host.hidden){clock?.stop();clock=null;host.hidden=true;host.replaceChildren()}}
+if(typeof globalThis.addEventListener==='function'&&!globalThis.__kptuNoticeViewBound){
+  globalThis.__kptuNoticeViewBound=true;
+  globalThis.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==noticeView&&Date.now()-noticeAt>=VIEW_GRACE_MS)closeNotice()});
+  globalThis.addEventListener('kptu:session-changed',closeNotice);
+}
 // {undo:async()=>…, label, undoLabel, note, error, ms}. 반환: {close} — 화면이 먼저 알림을 거둘 때.
 // undo가 있으면 되돌리기 기록에도 올린다(record:false면 올리지 않음). label은 '되돌렸어요: …'에 쓰는 말(없으면 알림 글 첫 문장).
 // [되돌리기]를 누르든 Ctrl+Z든 undo는 한 번만 돌고, 끝나면 결과 한 줄(되돌렸어요/되돌리지 못했어요/다른 곳에서 바뀜)을 이 부품이 알린다.
 export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리기',actions=[],note='',error=false,ms,record=true,doc=globalThis.document}={}){
   const line=noticeText(text);if(!doc||!line)return {close(){}};
-  const box=ensureHost(doc),token=++seq;clock?.stop();clock=null;
+  const box=ensureHost(doc),token=++seq;clock?.stop();clock=null;noticeView=routerView();noticeAt=Date.now();
   const shared=doc.getElementById?.('toast');if(shared&&!shared.classList.contains('hidden')){toastClock?.stop();toastClock=null;shared.classList.add('hidden')}
   box.replaceChildren();box.classList.toggle('error',!!error);
   if(error){box.setAttribute('role','alert');box.removeAttribute('aria-live')}else{box.setAttribute('role','status');box.setAttribute('aria-live','polite')}
@@ -191,7 +203,7 @@ function askPanel(anchor,{doc,none,maxHeight=220,build}){
       if(r.bottom>limit)Object.assign(panel.style,{top:Math.max(8,limit-r.height)+'px',bottom:'auto'});
     };
     place();
-    state={kptuAsk:++seq};history.pushState({...(history.state||{}),...state},'',location.href);
+    state={kptuAsk:++askSeq};history.pushState({...(history.state||{}),...state},'',location.href);
     onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();finish(none)}};
     onOutside=e=>{if(!panel.contains(e.target))finish(none)};
     onPop=e=>{if(e.state?.kptuAsk!==state.kptuAsk)finish(none,true)};
