@@ -1100,6 +1100,7 @@ function paintSelect() {
   // PC공유메뉴: 넓은 화면은 기기 공유 창이 없어도 [⇪ 공유] 메뉴(복사·정리함·다운로드)를 쓴다.
   const share = $('[data-photos-act-share]'); share.hidden = !canShare() && !wideShare(); share.disabled = none;
   $('[data-photos-act-move]').disabled = none || busy || !pickedItems().some(x => (x.kind === 'phone' ? phoneOps() : x.kind === 'gdrive' ? canGd(x) : od.canDelete)); $('[data-photos-act-tag]').disabled = none || busy;
+  const infoMore = $('[data-photos-act-more]'); if (infoMore) { infoMore.hidden = !(on && canInfo(pickedItems())); infoMore.disabled = none || busy; }
   const untag = $('[data-photos-act-untag]'); untag.hidden = !(tab === 'albums' && album); untag.disabled = none || busy;
   $('[data-photos-restore]').disabled = none || !od.canDelete; $('[data-photos-purge]').disabled = none || !od.canDelete;
   if (rail) paintRail();
@@ -2454,7 +2455,7 @@ const gdMenu = createAnchoredMenu({id:'photosGdMenu', className:'od-link-menu', 
   }});
 const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
   key:t => t.dataset.photosId || '',
-  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', '선택'), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', '선택'), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'),
+  render:id => String(id).startsWith('gd:') ? [menuBtn('data-pm-select', '선택'), gdUsable() && tab !== 'trash' ? [menuBtn('data-pm-rename', '이름 바꾸기…'), menuBtn('data-pm-move', '폴더로 옮기기…'), menuBtn('data-pm-delete', '지우기', 'od-link-danger')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>'].join('') : [menuBtn('data-pm-select', '선택'), (String(id).startsWith('ph:') ? phoneOps() : od.canDelete) && tab !== 'trash' ? menuBtn('data-pm-move', '폴더로 옮기기…') : '', menuBtn('data-pm-tag', '앨범에 넣기…'), String(id).startsWith('ph:') && phone.canMeta() && tab !== 'trash' ? menuBtn('data-pm-info', '정보 고치기…') : '',
     od.canDelete || phone.state().trash ? menuBtn('data-pm-delete', '지우기', 'od-link-danger') : ''].join(''),
   onAction:(b, {trigger}) => {
     const it = itemOf(trigger); if (!it) return;
@@ -2464,8 +2465,29 @@ const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-m
     if (b.matches('[data-pm-rename]')) return gdRenamePhoto(it);
     if (b.matches('[data-pm-move]')) return openPick(trigger, {kind:'photos', ids:group.map(x => x.id)});
     if (b.matches('[data-pm-tag]')) return openPick(trigger, {kind:'tag', items:group});
+    // S48-60 PHOTO-정보고치기: 찍은 시각·위치(폰 사진, 앱 0.4.15+). 고친 뒤 폰 목록을 새로 읽는다(순서가 바뀜).
+    if (b.matches('[data-pm-info]')) return openInfo(trigger, group);
     if (b.matches('[data-pm-delete]')) { if (!select.active || !select.has(it.id)) { select.stop(); select.start([it.id], it.id); } return deletePicked(trigger); }
   }});
+// S48-60 PHOTO-정보고치기: 고른 사진 아래 줄 ⋯ = [정보 고치기…](폰 사진, 앱 0.4.15+). PC 우클릭 사진 메뉴에도 같은 항목.
+// 고친 뒤 폰 목록을 새로 읽는다(찍은 시각이 바뀌면 순서가 바뀜).
+const canInfo = list => phone.canMeta() && tab !== 'trash' && list.some(x => x.kind === 'phone');
+function openInfo(trigger, group) {
+  return void import('./photo-info-edit.js').then(m => m.openPhotoInfo(trigger, group, {phone, rt, onDone:() => {
+    select.stop(); pFor = null; pItems = []; tidy.stale(); resetList(); calData.clear(); phStarItems = null; aFor = null; if (tab === 'folders') renderFolders(); else render();
+  }}));
+}
+{
+  const more = document.createElement('button');
+  more.type = 'button'; more.className = 'photos-act-more'; more.dataset.photosActMore = ''; more.hidden = true;
+  more.setAttribute('aria-label', '고른 사진 메뉴'); more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
+  more.innerHTML = '<span class="more-dots" aria-hidden="true">⋯</span>';
+  $('[data-photos-act]').insertBefore(more, $('[data-photos-act-delete]'));
+}
+const selMenu = createAnchoredMenu({id:'photosSelMenu', className:'od-link-menu', label:'고른 사진 메뉴', historyKey:'kptuPhotosSelMenu',
+  key:() => 'sel',
+  render:() => menuBtn('data-sm-info', '정보 고치기…'),
+  onAction:(b, {trigger}) => { if (b.matches('[data-sm-info]')) return openInfo(trigger, pickedItems()); }});
 const albumMenu = createAnchoredMenu({id:'photosAlbumMenu', className:'od-link-menu', label:'앨범 메뉴', historyKey:'kptuPhotosAlbumMenu',
   key:t => t.dataset.photosAlMore || '',
   render:() => [menuBtn('data-am-rename', '이름 바꾸기'), menuBtn('data-am-delete', '지우기(사진은 그대로)', 'od-link-danger')].join(''),
@@ -2671,6 +2693,7 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-act-move]')) return openPick(b, {kind:'photos', ids:pickedItems().map(x => x.id)});
   if (b.matches('[data-photos-act-tag]')) return openPick(b, {kind:'tag', items:pickedItems()});
   if (b.matches('[data-photos-act-untag]')) return untagPicked();
+  if (b.matches('[data-photos-act-more]')) return selMenu.open(b);
   if (tidyClick(b)) return;
   if (folderClick(b)) return;
   if (albumClick(b)) return;
