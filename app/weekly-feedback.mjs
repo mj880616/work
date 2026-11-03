@@ -183,7 +183,7 @@ export function readReview(raw) {
   const candidates = (Array.isArray(raw.candidates) ? raw.candidates : []).map(t => line(t).slice(0, RULE_CHARS)).filter(Boolean).slice(0, 10);
   const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).slice(0, SUGGESTIONS_MAX).map((s, i) => (isObj(s) && line(s.text) ? {id:typeof s.id === 'string' && /^s[1-4]$/.test(s.id) ? s.id : `s${i + 1}`, ...(Object.hasOwn(SUGGESTION_AREA, s.area) ? {area:s.area} : {}), text:line(s.text).slice(0, 200), ...(line(s.how) ? {how:line(s.how).slice(0, SUGGESTION_HOW_MAX)} : {}), ...(s.answer === 'yes' || s.answer === 'no' ? {answer:s.answer} : {}),
     ...(s.answer === 'yes' && line(s.before) ? {before:line(s.before).slice(0, 200)} : {}), ...(s.answer === 'no' && line(s.why) ? {why:line(s.why).slice(0, 100)} : {}),
-    ...(s.answer === 'yes' && madeOf(s.made) ? {made:madeOf(s.made)} : {})} : null)).filter(Boolean);
+    ...(s.answer === 'yes' && madeOf(s.made) ? {made:madeOf(s.made)} : {}), ...(at40(s.sent) ? {sent:s.sent} : {})} : null)).filter(Boolean);
   return {at:raw.at, candidates, suggestions, ...(raw.ai === false ? {ai:false} : {})};
 }
 export function readFeedback(raw) {
@@ -285,6 +285,8 @@ export function restoreRetired(rules, key, at) {
   if (!found) return r;
   return readRules({...r, at:stamp(r.at, at), retired:r.retired.filter(notKey(k)), candidates:[...r.candidates, {text:found.text}]});
 }
+// WEEKLY-개발후보연결(S48-49): sent = 서버(document-actions dev-inbox)가 그 제안을 'Web2 요청함' 문서에 더한 시각. 서버만 쓰고 화면은 읽은 그대로 다시 실어 보낸다
+//   (같은 제안은 한 번만 — 답을 바꿔도 지우지 않음).
 // WEEKLY-개발후보CC(S48-43): [만들기]로 보낸 제안이 실제로 만들어지면 그 PR 번호(made, 양의 정수)를 그 제안에 둔다. 글은 없고 번호만.
 //   쓰는 쪽은 서버(docs/design/weekly-draft-feedback.md 25.3 — 요청함 '→ 대조: 완료 #NNN' 줄을 서버가 읽어 남김, 정지 지점)이고 화면은 읽기만 한다.
 //   'yes' 답에만 붙고, [빼기]로 바꾸면 지운다.

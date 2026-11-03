@@ -19,7 +19,7 @@ const source = withEdgeShared(stripTypeScriptTypes(
     "utf8",
   ),
   { mode: "strip" },
-).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "").replace(/^import .*hwp-edit\.ts.*;\s*$/m, "").replace(/^import .*document-text\.ts.*;\s*$/m, "").replace(/^import .*file-rename\.ts.*;\s*$/m, ""));
+).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "").replace(/^import .*hwp-edit\.ts.*;\s*$/m, "").replace(/^import .*document-text\.ts.*;\s*$/m, "").replace(/^import .*file-rename\.ts.*;\s*$/m, "").replace(/^import .*dev-inbox\.ts.*;\s*$/m, ""));
 export const folder = (id = "basket-1") => ({
   id,
   name: "Web2 바구니",

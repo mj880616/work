@@ -10,7 +10,7 @@ import { createHwpEdit, HwpEditError } from '../../supabase/functions/_shared/hw
 import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 const source = stripTypeScriptTypes(withEdgeShared(readFileSync(new URL('../../supabase/functions/document-actions/index.ts', import.meta.url), 'utf8')), { mode: 'strip' })
-  .replace(/^import .*basket-file-origin\.ts.*;\s*$/m, '').replace(/^import .*bounded-json\.mjs.*;\s*$/m, '').replace(/^import .*hwp-edit\.ts.*;\s*$/m, '').replace(/^import .*document-text\.ts.*;\s*$/m, '').replace(/^import .*file-rename\.ts.*;\s*$/m, '');
+  .replace(/^import .*basket-file-origin\.ts.*;\s*$/m, '').replace(/^import .*bounded-json\.mjs.*;\s*$/m, '').replace(/^import .*hwp-edit\.ts.*;\s*$/m, '').replace(/^import .*document-text\.ts.*;\s*$/m, '').replace(/^import .*file-rename\.ts.*;\s*$/m, '').replace(/^import .*dev-inbox\.ts.*;\s*$/m, '');
 const NOTE = '10000000-0000-4000-8000-000000000001', FILE = 'drive-file_1';
 const attachment = { drive_file_id: FILE, file_name: '회의 사진.jpg', mime_type: 'image/jpeg', size_bytes: 1234 };
 

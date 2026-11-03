@@ -204,6 +204,28 @@ export function answerChange(d, id, answer, at = nowIso(), {text: fixed = '', wh
   out.picks = withPick(d?.picks, edited ? {...base, key:pickKey(base), text:fixed, before:text} : {...base, ...(answer === 'no' && why ? {why} : {})}, answer === 'yes' ? (edited ? 'edit' : 'take') : 'drop', at);
   return out;
 }
+// WEEKLY-개발후보연결(S48-49, 설계 25.2 (가)): [만들기]·[고쳐서 만들기] 저장이 성공한 뒤에만 그 제안 한 건을 서버에 알린다({week_start, id}만, 글은 보내지 않음).
+//   서버(document-actions dev-inbox)가 로그인·owner·운영자 기능·그 주 행의 answer='yes'를 다시 확인한 뒤 'Web2 요청함' 문서 끝에 한 덩어리를 더한다.
+//   저절로·여러 건을 한꺼번에 보내지 않는다. 다시 보내지 않는다(실패해도 재시도 없음 — 같은 제안은 서버가 한 번만 받음).
+//   반환: 'sent' | 'already' | 'not_ready'(요청함 문서 설정 전) | 'quiet'(운영자 아님·함수 배포 전 — 조용히) | 'failed'.
+export const DEV_INBOX_TEXT = Object.freeze({sent:'요청함에 전했어요.', not_ready:'요청함 전달 준비 중', failed:'요청함 전달은 못 했어요.'});
+export async function sendDevInbox(week, id, rt = window.KPTURuntime) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(week ?? '')) || !/^s[1-4]$/.test(String(id ?? ''))) return 'quiet';
+  try {
+    const data = await rt.api('/functions/v1/document-actions', {method:'POST', body:{action:'dev-inbox', week_start:week, id}, refreshSession:false, singleFlight:false});
+    const r = data?.ok === true ? data.result : '';
+    return r === 'sent' || r === 'already' || r === 'not_ready' ? r : 'failed';
+  } catch (error) {
+    const status = Number(error?.status) || 0;
+    return [400, 401, 403, 404, 405].includes(status) ? 'quiet' : 'failed';
+  }
+}
+// 저장 성공 알림 글 + 요청함 전달 결과(보냈으면 한 마디, 준비 중이면 '요청함 전달 준비 중', 실패면 한 마디). 'yes' 답이 아니면 그대로.
+export async function devInboxNotice(rc, rt = window.KPTURuntime) {
+  if (!rc || rc.answer !== 'yes' || !rc.id) return rc?.done ?? '';
+  const r = await sendDevInbox(rc.week, rc.id, rt);
+  return DEV_INBOX_TEXT[r] ? `${rc.done} ${DEV_INBOX_TEXT[r]}` : rc.done;
+}
 export const answerSuggestion = (week, id, answer, rt = window.KPTURuntime, fix = {}) =>
   changeWeekDocs({start:week, change:d => answerChange(d, id, answer, nowIso(), fix)}, rt);
 // [+ 추가]로 더한 내 개선 생각(동작 기록 'add', 개선 제안 칸) — 개발 후보 목록에 '손'으로.
@@ -375,6 +397,7 @@ async function act(b, start, s, rt) {
   try {
     const r = await changeWeekDocs({start:week, change}, rt);
     if (r.missing) throw new Error('missing');
+    if (rc?.answer === 'yes') done = await devInboxNotice(rc, rt); // 저장이 성공한 뒤에만 요청함 전달(S48-49)
     s.ui.msg = ''; notify(done); s.ui.editing = -1; s.ui.adding = false; s.ui.fixing = null; s.ui.dropping = null; s.ui.sfix = null; s.ui.sdrop = null; s.ui.sadd = false; s.ui.value = null;
     const rows = await readLearnRows(start, rt).catch(() => null);
     if (rows) s.rows = rows;

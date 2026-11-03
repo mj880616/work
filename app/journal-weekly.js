@@ -41,7 +41,7 @@ import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.m
 import {isInternalMeeting} from './weekly-major-schedule.mjs';
 import {alreadyIn as orgRefIn} from './calendar-ref-model.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
-import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
+import {refOfOpen, meetingRef, planOverlaps, reasonOf} from './overlap-weekly.mjs';
 import {slashDay as nextSlashDay} from './next-week-sheet-model.mjs';
 import {renderPrepSheet} from './prep-sheet-view.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
@@ -573,7 +573,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (!fe.editable || item.file.dropped || (item.file.verdict === 'same' && !item.file.kept)) return;
     const items = [{text:'고치기', data:{journalFileEdit:item.file.id}, disabled:!canEdit},
       {text:'빼기', data:{journalFileDrop:item.file.id}, disabled:!canEdit, aria:`이번 주 보고에서 빼기: ${text}`, danger:true, onClick:() => { lastFileDrop = item.file.id; }}];
-    if (item.file.kept) items.push({text:'다시 접기', data:{journalFileUnkeep:item.file.id}, disabled:!canEdit});
+    // S48-49 A: '기록과 같아 뺀 자료' 접힘이 없어져 [다시 접기]도 두지 않는다(접으면 화면에서 되돌릴 자리가 없음).
     li.append(' ', rowMore(doc, {label:`${text} 자료 줄 고치기·빼기`, data:{journalFileMore:item.file.id}, items}));
   }
   // [고치기]: 그 줄 자리의 한 줄 칸 + [저장][취소]([원래대로]는 고친 줄일 때). Enter 저장·Escape 취소는 journal.js.
@@ -588,7 +588,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     box.append(cancel, save); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
     return box;
   }
-  // 기록과 같아 접은 자료: 칸 맨 아래 늘 보이는 접힘 한 줄("기록과 같아 뺀 자료 N"). 펼치면 그 자료 줄과 [넣기](화면 ②).
+  // S48-49 A(명진 11/03 "자동 처리 안내 빼기"): '기록과 같아 뺀 자료 n [넣기]'·'겹쳐서 n건 뺐어요 [되살리기]' 접힘은 화면에서 없앴다.
+  // 데이터(자료 줄 file.verdict·kept, 겹침 판정 표, draft.dropped)는 그대로 — 기록과 같은 자료·겹친 줄은 조용히 빠진다.
   // WEEKLY-뺀목록삭제(S48-3b): [빼기]한 자료 줄('뺀 자료' 접힘)은 두지 않는다 — 데이터(draft.docs)는 그대로. 방금 뺀 줄 하나만 그 자리에
   // '자료 줄을 뺐어요 [되돌리기]'(누르기 처리는 journal.js 의 기존 data-journal-file-undrop).
   const justDropped = items => {
@@ -601,48 +602,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     return p;
   };
   const droppedFiles = justDropped;
-  const foldedFiles = items => {
-    if (!items?.length) return null;
-    const key = `folded:${items.map(i => i.file.id).join(',')}`;
-    const box = el('details', 'journal-org-raw journal-file-folded');
-    box.dataset.journalFileFolded = String(items.length);
-    if (fileUi.open?.has(key)) box.open = true;
-    box.dataset.journalFileFoldKey = key;
-    box.append(el('summary', null, `기록과 같아 뺀 자료 ${items.length}`));
-    const list = itemList(items);
-    if (fe.editable) [...list.children].forEach((li, i) => {
-      const b = el('button', 'mini', '넣기'); b.type = 'button'; b.disabled = !canEdit;
-      b.dataset.journalFileKeep = items[i].file.id;
-      b.setAttribute('aria-label', `이번 주 보고에 넣기: ${items[i].text}`);
-      li.append(' ', b);
-    });
-    box.append(list);
-    return box;
-  };
-  // MTG-기록겹침거르기 4단계: 겹쳐서 뺀 줄은 그 묶음 맨 아래 접힘 한 줄("겹쳐서 n건 뺐어요 · 보기"). 펼치면 뺀 줄·남긴 사업 보고·AI 이유 한 줄과 줄마다 [되살리기]
-  // (사용자 판정 '같은 일 아님'으로 서버에 저장). 아무것도 지우지 않는다.
-  const overlapFold = (items, part) => {
-    if (!items?.length) return null;
-    const box = el('details', 'journal-org-raw journal-overlap-folded');
-    box.dataset.journalOverlapFold = part; box.dataset.journalOverlapCount = String(items.length);
-    if (overlapUi.open?.has(part)) box.open = true;
-    box.append(el('summary', null, `${OV.count(items.length)} · ${OV.show}`));
-    const list = el('ul', 'journal-weekly-list');
-    for (const item of items) {
-      const li = el('li'); li.dataset.journalOverlapItem = item.ref;
-      li.append(dayTag(item.day));
-      if (item.label) li.append(el('span', 'journal-weekly-label', `${item.label}: `));
-      li.append(doc.createTextNode(item.text));
-      for (const k of item.kept) { const n = el('span', 'journal-file-note', `${OV.kept}: ${shortDay(k.day)} ${k.text}`); n.dataset.journalOverlapKept = ''; li.append(' ', n); }
-      if (item.reason) { const n = el('span', 'journal-file-note', item.reason); n.dataset.journalOverlapReason = ''; li.append(' ', n); }
-      const back = el('button', 'mini', overlapUi.busy === item.ref ? OV.reviving : OV.revive); back.type = 'button'; back.dataset.journalOverlapRevive = item.ref;
-      back.disabled = !!overlapUi.busy; back.setAttribute('aria-label', `같은 일 아님, 이번 주 보고에 되살리기: ${item.text}`);
-      li.append(' ', back); list.append(li);
-    }
-    box.append(list);
-    if (overlapUi.status) { const say = el('p', 'journal-line-status', overlapUi.status); say.dataset.journalOverlapStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite'); if (overlapUi.error) say.classList.add('journal-failed'); box.append(say); }
-    return box;
-  };
   // A part's own loading / failure line ([다시 시도] reads only what failed); the other parts are unaffected.
   const status = (box, part, label) => {
     if (part.loading) { box.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return true; }
@@ -713,7 +672,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         if (!index) { const th = el('th', 'journal-weekly-area', area.name); th.scope = 'rowgroup'; th.rowSpan = area.rows.length; tr.append(th); }
         tr.append(el('td', 'journal-weekly-task', row.task?.name || '—'));
         const cell = el('td', 'journal-weekly-progress'); cell.append(itemList(row.items, true));
-        const fold = foldedFiles(row.folded); if (fold) cell.append(fold);
         const gone = droppedFiles(row.dropped); if (gone) cell.append(gone);
         tr.append(cell);
         body.append(tr);
@@ -726,7 +684,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       for (const section of s.others) {
         const part = el('div', 'journal-org'); part.dataset.journalOrg = section.name;
         part.append(el('p', 'journal-org-name', section.name), itemList(section.items));
-        const fold = foldedFiles(section.folded); if (fold) part.append(fold);
         const gone = droppedFiles(section.dropped); if (gone) part.append(gone);
         rest.append(part);
       }
@@ -734,7 +691,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     }
     if (!s.count && !s.failed.some(k => k !== 'catalog')) summary.append(empty());
     // WEEKLY-한흐름확정 ③: '이 주 기록 없는 사업영역: …' 한 줄은 없앴다 — 기록 없는 사업영역도 위 보고서 칸에 지난주 줄 그대로 칸이 있다.
-    const sGone = overlapFold(s.overlapped, 'summary'); if (sGone) summary.append(sGone);
   }
   foldRecords(summary, 'summary', '이번 주 기록', s.count ?? 0);
   // WEEKLY-사업영역세부줄(빠짐1, 명진 11/02 결정 '넣는다'): 줄마다 ⋯ [고치기]·[빼기](+ 이 종류 늘 빼기), 묶음 제목 줄 오른쪽 [+ 추가].
@@ -802,7 +758,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         raw.append(el('summary', null, `원문 ${section.items.length}건`), itemList(section.items));
         part.append(raw);
       } else part.append(itemList(section.items));
-      const fold = foldedFiles(section.folded); if (fold) part.append(fold);
       const gone = droppedFiles(section.dropped); if (gone) part.append(gone);
       // CAL-조직참고캘린더: 그 조직 칸에만 조직 참고 캘린더 추천 줄. [+]를 누르면 요약 고치기 칸 끝에 그 줄이 들어가고, [저장]하면 보고에 들어간다.
       // 이미 요약(또는 고치는 칸)에 든 일정은 다시 보이지 않는다.
@@ -839,7 +794,6 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       orgs.append(part);
     }
     if (!o.sections.length && !o.failed.length) orgs.append(empty());
-    const oGone = overlapFold(o.overlapped, 'orgs'); if (oGone) orgs.append(oGone);
   }
   foldRecords(orgs, 'orgs', '조직 소식', (model.orgs.sections ?? []).reduce((n, x) => n + (x.items?.length ?? 0), 0));
   four.append(orgs);

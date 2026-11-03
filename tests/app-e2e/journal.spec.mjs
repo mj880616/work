@@ -1246,7 +1246,7 @@ function multipartBody(request){
  return parts;
 }
 async function hwpxFixture(page,options={}){
- const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[],personal:[]},bytes=teamHwpx(options.team);
+ const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[],personal:[],inbox:[]},bytes=teamHwpx(options.team);
  // WEEKLY-환류학습 1: 자료실 '주간보고 개인본'(내가 올린 것). 없으면 [] — 그때는 지금처럼 팀 확정본이 바탕이다. files: 자료 id → 가짜 보고서(그 id로 열면 그 파일).
  const files=Object.fromEntries(Object.entries(options.files??{}).map(([id,report])=>[id,teamHwpx(report)]));
  const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};
@@ -1255,7 +1255,10 @@ async function hwpxFixture(page,options={}){
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();if(q.get('category')==='in.("주간보고 개인본","주간보고›개인본")'){sent.personal.push(Object.fromEntries(q));return r.fulfill({json:(options.personal??[]).filter(d=>!q.has('document_date')||q.get('document_date')===`eq.${d.document_date}`)});}sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
  await page.route(SB+'/functions/v1/document-actions',r=>{
   if(r.request().method()==='OPTIONS')return r.fulfill({status:200,headers:cors});
-  const body=r.request().postDataJSON();sent.open.push(body);
+  const body=r.request().postDataJSON();
+  // S48-49: [만들기] 뒤 요청함 전달(dev-inbox)은 따로 모은다. 기본 답은 '요청함 문서 설정 전'(not_ready).
+  if(body?.action==='dev-inbox'){sent.inbox.push(body);return r.fulfill({headers:cors,json:options.devInbox??{ok:true,result:'not_ready'}});}
+  sent.open.push(body);
   const file=files[body.document_id]??bytes,fileName=file===bytes?'team.hwpx':`${body.document_id}.hwpx`;
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
@@ -1538,7 +1541,9 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  expect(ai.find(x=>x.kind==='weekly_review')).toEqual({kind:'weekly_review',week_start:'2026-10-05'});
  await card.locator('[data-learn-suggestion="s1"]').getByRole('button',{name:/^만들기로 보내기/}).click();
  await expect.poll(()=>row().draft.feedback.review.suggestions[0].answer,{timeout:15000}).toBe('yes');
- await expect(page.locator('#kptuNotice')).toContainText('만들기로 보냈어요.');
+ // S48-49: 저장이 성공한 뒤에만 그 제안 한 건을 요청함 전달로({week_start, id}만, 글 없음). 문서 설정 전이면 '요청함 전달 준비 중'.
+ await expect(page.locator('#kptuNotice')).toContainText('만들기로 보냈어요. 요청함 전달 준비 중');
+ expect(f.sent.inbox).toEqual([{action:'dev-inbox',week_start:'2026-10-05',id:'s1'}]);
  await expect(card.locator('[data-learn-suggestion="s1"] [data-learn-answer-state="yes"]')).toHaveText('만들기로 보냄');
  await expect(hwpx(page).locator('[data-hwpx-review]')).not.toContainText('만들기로 보냈어요.'); // 성공 알림은 화면에 남지 않는다
  // WEEKLY-규칙합의 + 환류 전 칸 ⑤: 새 규칙 후보는 줄 끝 [넣기] · ⋯([고쳐서 넣기]·[빼기]). [빼기]는 그 자리 이유 한 줄(안 써도 됨) → [빼기 확인].
@@ -1591,12 +1596,18 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안','가상 내 개선 생각']);
  expect(row().draft.picks.items.find(i=>i.act==='add'&&i.cell==='개선 제안')).toMatchObject({kind:'review',from:'hand',text:'가상 내 개선 생각'});
  // 보낸 개선 제안도 ⋯ [고쳐서 만들기]: 고친 글로 바뀌고 원래 글은 before, 동작 기록은 'edit'.
+ // S48-49: 요청함 전달이 되면 알림에 한 마디. 규칙·후보·내 생각 저장은 전달을 부르지 않는다(지금까지 1건).
+ expect(f.sent.inbox).toHaveLength(1);
+ await page.route(SB+'/functions/v1/document-actions',r=>r.request().method()==='POST'&&r.request().postDataJSON()?.action==='dev-inbox'
+  ?(f.sent.inbox.push(r.request().postDataJSON()),r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,result:'sent'}})):r.fallback());
  const sug=learn.locator('[data-learn-suggestion="s1"]');
  await pressMore(sug,'[data-learn-answer-fix]');
  const fixIn=sug.locator('input[data-learn-answer-fix-input]');
  await expect(fixIn).toBeFocused();await fixIn.fill('가상 개선 제안(고침)');await fixIn.press('Enter');
  await expect.poll(()=>row().draft.feedback.review.suggestions[0]).toMatchObject({answer:'yes',text:'가상 개선 제안(고침)',before:'가상 개선 제안'});
  expect(row().draft.picks.items.find(i=>i.cell==='개선 제안'&&i.from==='ai')).toMatchObject({act:'edit',text:'가상 개선 제안(고침)',before:'가상 개선 제안'});
+ await expect(page.locator('#kptuNotice')).toContainText('고쳐서 만들기로 보냈어요. 요청함에 전했어요.');
+ expect(f.sent.inbox).toEqual([{action:'dev-inbox',week_start:'2026-10-05',id:'s1'},{action:'dev-inbox',week_start:'2026-10-05',id:'s1'}]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
@@ -2878,7 +2889,7 @@ test('[주간 정리] 투쟁 사업장: 단계를 읽지 못하면 직전 확정
 });
 
 // WEEKLY-자료요약 화면 ① (docs/design/weekly-file-summary.md 4·5절): 그 주 자료가 조직 칸·프로젝트 줄에 '자료' 꼬리표 + "제목 — 요약"으로,
-// 조직·프로젝트 둘 다 연결이면 조직 칸에만, 기록과 같으면 "기록과 같아 뺀 자료 N"으로 접히고, 회의자료는 '참고'에 남는다. 요약 표를 못 읽으면 제목만.
+// 조직·프로젝트 둘 다 연결이면 조직 칸에만, 기록과 같으면 조용히 빠지고(S48-49 A: '기록과 같아 뺀 자료 N' 안내 없음), 회의자료는 '참고'에 남는다. 요약 표를 못 읽으면 제목만.
 const HASH=c=>'b1:'+c.repeat(32);
 const lineText=loc=>loc.evaluate(li=>{const c=li.cloneNode(true);c.querySelectorAll('details').forEach(d=>d.remove());return c.textContent.trim();});
 const DOCID=n=>`f0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -2904,7 +2915,7 @@ async function fileFixture(page,{width,briefFail=false,box=false}={}){
  });
  return {...f,briefReads:reads};
 }
-for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 우선·프로젝트 줄·'자료' 꼬리표·같으면 접기·참고에서 빼기, 복사 글에는 꼬리표 없음 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 우선·프로젝트 줄·'자료' 꼬리표·같으면 안내 없이 빼기·참고에서 빼기, 복사 글에는 꼬리표 없음 ${width}`,async({page})=>{
  const f=await fileFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');
@@ -2919,14 +2930,11 @@ for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 �
  const summary=weekly(page,'summary');
  await expect(summary).not.toContainText('가상 요구안');
  await expect.poll(()=>lineText(summary.locator(`tr[data-journal-task="세부 과제 가-2"] li[data-journal-weekly-file="${DOCID(2)}"]`))).toBe('10월 7일(수)자료 가-2 참고 자료');
- // 기록과 같은 자료는 그 칸 맨 아래 접힘 한 줄(늘 보임). 펼치면 그 자료 줄.
+ // 기록과 같은 자료는 조용히 빠진다 — 접힘·[넣기] 안내 없음(S48-49 A). 데이터(자료 줄)는 그대로.
  const nb=orgs.locator('[data-journal-org="나 지역 모임"]');
- await expect(nb.locator(':scope > .journal-weekly-list li[data-journal-weekly-file]')).toHaveCount(0);
- const fold=nb.locator('[data-journal-file-folded]');
- await expect(fold.locator('summary')).toHaveText('기록과 같아 뺀 자료 1');
- await expect(fold.locator('li')).toBeHidden();
- await fold.locator('summary').click();
- await expect(fold.locator(`li[data-journal-weekly-file="${DOCID(3)}"]`)).toBeVisible();
+ await expect(nb.locator(`li[data-journal-weekly-file="${DOCID(3)}"]`)).toHaveCount(0);
+ await expect(page.locator('#journalRoot [data-journal-file-folded], #journalRoot [data-journal-overlap-fold]')).toHaveCount(0);
+ await expect(page.locator('#journalRoot')).not.toContainText('기록과 같아 뺀 자료');
  // '참고 › 자료실 새 자료': 조직·프로젝트로 간 자료는 빠지고, 연결 없는 자료·회의자료는 그대로.
  await expect(weekly(page,'note-docs').locator('li')).toHaveText(['10월 6일(화)[교섭] 가상 교섭 요구안','10월 8일(목)[회의] 운영위 3차 자료 · 회의자료']);
  // 요약 읽기는 이 주 자료 id로, 'b1:' 행만, 요약·지문 칸만(글자 없음).
@@ -2945,11 +2953,11 @@ for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 �
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// WEEKLY-자료요약 화면 ② (설계 6절): 자료 줄 ⋯ [고치기]·[빼기], 접힌 자료 [넣기] → 그 주 임시저장 draft.docs(draft_saved_at 조건, updated_at 안 바꿈).
+// WEEKLY-자료요약 화면 ② (설계 6절): 자료 줄 ⋯ [고치기]·[빼기] → 그 주 임시저장 draft.docs(draft_saved_at 조건, updated_at 안 바꿈).
 // 화면·[복사]·한글 파일 후보에 같이 적용되고, 다시 열어도(다시 읽기) 돌아온다. 자료 요약(요약 표)은 쓰지 않는다. 칸이 없으면 버튼 없음.
 const fileMenu=(loc)=>loc.locator('[data-journal-file-more]');
 async function openFileMenu(loc){const m=fileMenu(loc);if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await expect(m).toHaveJSProperty('open',true);}
-for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기·넣기: 그 주 임시저장 docs에 저장, 복사·한글 파일 후보에 반영, 다시 열면 복원 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기: 그 주 임시저장 docs에 저장, 복사·한글 파일 후보에 반영, 다시 열면 복원 ${width}`,async({page})=>{
  const f=await fileFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,width);await openWeekly(page);await openRecords(page,'orgs');await openRecords(page,'summary');
@@ -2975,25 +2983,22 @@ for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기
  await expect(proj.locator(`td > .journal-weekly-list > li[data-journal-weekly-file="${DOCID(2)}"]`)).toHaveCount(0);
  await expect(proj.locator('[data-journal-file-drop-undo]')).toContainText('자료 줄을 뺐어요');
  await expect(proj.locator('[data-journal-file-dropped]')).toHaveCount(0);
- // [넣기]: 기록과 같아 접힌 자료를 이번 주 보고에 넣는다.
- const fold=nb.locator('[data-journal-file-folded]');
- await fold.locator('summary').click();
- await fold.locator(`[data-journal-file-keep="${DOCID(3)}"]`).click();
- await expect(nb.locator('[data-journal-file-folded]')).toHaveCount(0);
- await expect(nb.locator(`li[data-journal-weekly-file="${DOCID(3)}"] [data-journal-file-kept]`)).toHaveText('넣음');
- await expect.poll(()=>row().draft.docs).toEqual([{id:DOCID(1),text:'가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)'},{id:DOCID(2),drop:true},{id:DOCID(3),keep:true}]);
+ // 기록과 같아 빠진 자료는 [넣기] 안내 없이 조용히 빠져 있다(S48-49 A).
+ await expect(nb.locator('[data-journal-file-folded], [data-journal-file-keep]')).toHaveCount(0);
+ await expect(nb.locator(`li[data-journal-weekly-file="${DOCID(3)}"]`)).toHaveCount(0);
+ await expect.poll(()=>row().draft.docs).toEqual([{id:DOCID(1),text:'가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)'},{id:DOCID(2),drop:true}]);
  // 쓰기는 draft_saved_at 조건, updated_at·요청 줄은 보내지 않는다. 자료 요약 표에는 쓰지 않는다.
  const writes=f.exec.calls.filter(c=>c.method!=='GET');
- expect(writes.length).toBe(3);
+ expect(writes.length).toBe(2);
  for(const c of writes){expect(Object.keys(c.body).filter(k=>!['draft','draft_saved_at','workspace_id','week_start','items'].includes(k))).toEqual([]);expect('updated_at' in c.body).toBe(false);}
  expect(writes.slice(1).every(c=>c.method==='PATCH'&&/^eq\./.test(c.query.draft_saved_at))).toBe(true);
  expect(f.briefReads.every(q=>!q.method)).toBe(true);
- // [복사]: 고친 줄·넣은 자료는 들어가고 뺀 자료는 빠진다.
+ // [복사]: 고친 줄은 들어가고 뺀 자료·기록과 같은 자료는 빠진다.
  await confirmMore(page,'[data-hwpx-copy]');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  expect(text).toContain('- 10월 6일(화) 가상 요구안 확정 — 기본급 5% 인상, 1차 교섭 10.28.(화)\n');
  expect(text).not.toContain('가-2 참고 자료');
- expect(text).toContain('나 모임 기록 사본');
+ expect(text).not.toContain('나 모임 기록 사본');
  // 다시 열기(주를 넘겼다 돌아오기 = 다시 읽기): 고침이 그대로.
  await page.locator('#journalRoot [data-journal-next]').click();
  await page.locator('#journalRoot [data-journal-prev]').click();
@@ -3006,7 +3011,7 @@ for(const width of [390,1280])test(`[주간 정리] 자료 줄 고치기·빼기
  await fileMenu(file).locator('[data-journal-file-edit]').click();
  await ga.locator('[data-journal-file-edit-reset]').click();
  await expect.poll(()=>lineText(file)).toBe('10월 6일(화)자료 가상 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정');
- await expect.poll(()=>row().draft.docs).toEqual([{id:DOCID(3),keep:true}]);
+ await expect.poll(()=>row().draft.docs??[]).toEqual([]);
  // 버튼은 작게(UI-버튼기준): 보이는 고침 버튼 높이 32px 이하.
  await openFileMenu(file);
  for(const b of await fileMenu(file).locator('button').all())expect((await b.boundingBox()).height).toBeLessThanOrEqual(32.5);
@@ -3038,15 +3043,14 @@ test('[주간 정리] 자료 줄 고침: 칸 줄 쓰기·[처음부터]가 docs�
  expect(row.draft.docs).toEqual([{id:DOCID(1),text:'다른 기기에서 고친 자료 줄'}]);
  expect(f.errors).toEqual([]);
 });
-test('[주간 정리] 자료 줄 고침: 임시저장 칸이 없으면(DB 적용 전) ⋯·[넣기] 없이 지금처럼 1280',async({page})=>{
+test('[주간 정리] 자료 줄 고침: 임시저장 칸이 없으면(DB 적용 전) ⋯ 없이 지금처럼 1280',async({page})=>{
  const f=await fileFixture(page,{width:1280});
  f.exec.draftMissing=true;
  await openJournal(page,1280);await openWeekly(page);await openRecords(page,'orgs');
  const orgs=weekly(page,'orgs');
  await expect(orgs.locator(`li[data-journal-weekly-file="${DOCID(1)}"]`)).toBeVisible();
  await expect(page.locator('#journalRoot [data-journal-file-more]')).toHaveCount(0);
- await orgs.locator('[data-journal-file-folded] summary').click();
- await expect(page.locator('#journalRoot [data-journal-file-keep]')).toHaveCount(0);
+ await expect(page.locator('#journalRoot [data-journal-file-folded], #journalRoot [data-journal-file-keep]')).toHaveCount(0);
  expect(f.exec.calls.filter(c=>c.method!=='GET')).toEqual([]);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
