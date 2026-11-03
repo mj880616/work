@@ -65,15 +65,16 @@ for(const [width,height] of [[360,640],[360,844],[390,640],[390,844],[686,820]])
   });
 }
 for(const width of [761,884,1280]){
-  test(`desktop cell creates and ✓1 opens the day (${width}px)`,async({page})=>{
+  // S49-6: PC도 칸 위쪽(날짜 숫자·줄 사이)은 그 날 창, 아래 빈 곳은 일정 추가. 할 일은 ✓1 대신 칸 안 제목 줄.
+  test(`desktop cell bottom creates and the top opens the day (${width}px)`,async({page})=>{
     await page.setViewportSize({width,height:844});await openEmphasisFixture(page);await renderFour(page);
-    const cell=page.locator(`.cal-cell[data-date="${date}"]`),marker=cell.locator('button.cmv-task-count');
-    await expect(marker).toHaveText('1');await expect(marker).toHaveAccessibleName('할 일 1개');
-    const box=await marker.boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
-    await cell.locator('.cal-day').click();await expect(page.locator('#eventModal')).toBeVisible();
+    const cell=page.locator(`.cal-cell[data-date="${date}"]`);
+    await expect(cell.locator('.cmv-task-count')).toHaveCount(0);
+    await expect(page.locator('#calendarGrid .cmv-task-count')).toHaveCount(0);
+    await cell.locator('.cmv-date-create').click();await expect(page.locator('#eventModal')).toBeVisible();
     await expect(page.locator('#eventStartDate')).toHaveValue(date);
     await page.locator('[data-close="eventModal"]').click();await expect(page.locator('#eventModal')).toBeHidden();
-    await marker.click();await expect(page.locator('#calendarDayModal')).toBeVisible();
+    await cell.locator('.cal-day').click();await expect(page.locator('#calendarDayModal')).toBeVisible();
     await expect(page.locator('#calendarDayEvents .cal-event')).toHaveCount(4);
     await expect(page.locator('#calendarDayTasks .cal-event')).toHaveCount(1);
     await expect(page.locator('#eventModal')).toBeHidden();

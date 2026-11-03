@@ -2,24 +2,31 @@ import {test,expect} from '@playwright/test';
 import {THEMES} from './helpers/theme-list.mjs';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 test.use({timezoneId:'Asia/Seoul'});
-test('month task counts and day route (1280px)',async({page})=>{
+// S49-6 CAL-PC할일보이기: PC(1280)도 폰처럼 칸 안에 '☐ 제목' 줄. ✓n 표시는 없고, 줄을 누르면 그 할 일, 칸 위쪽을 누르면 그 날 창.
+test('PC month cells show task titles like the phone and open the day from the top (1280px)',async({page})=>{
   const width=1280;
   await page.setViewportSize({width,height:844});
   await openEmphasisFixture(page);
-  await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(0);
-  const badge=date=>page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count`);
-  await expect(badge('2026-10-20')).toHaveText('1');
-  await expect(badge('2026-10-21')).toHaveText('17');
-  for(const date of ['2026-10-20','2026-10-21','2026-10-10']){await expect(badge(date).locator('svg')).toHaveCount(1);await expect(badge(date).locator('svg')).toHaveAttribute('aria-hidden','true');expect(await badge(date).locator('svg').evaluate(el=>getComputedStyle(el).stroke)).toBe(await badge(date).evaluate(el=>getComputedStyle(el).color));}
-  await expect(badge('2026-10-20')).toHaveAccessibleName('할 일 1개');
-  await expect(badge('2026-10-10')).toHaveAccessibleName('할 일 1개, 기한 지남 포함');
-  await expect(badge('2026-10-10')).toHaveCSS('color','rgb(180, 35, 24)');
-  await expect(badge('2026-10-20')).toHaveCSS('font-size','12px');
+  await expect(page.locator('#calendarGrid .cmv-task-count')).toHaveCount(0);
+  const cellTask=id=>page.locator(`#calendarGrid .cmv-cell-task[data-calendar-task="${id}"]`);
+  await expect(cellTask('pending')).toBeVisible();
+  await expect(cellTask('pending')).toHaveText('미완료 시험 항목');
+  await expect(cellTask('done')).toHaveCount(0);
+  await expect(cellTask('overdue')).toHaveCSS('color','rgb(180, 35, 24)');
   await page.screenshot({path:`.qa-month-${width}.png`,fullPage:true});
-  await badge('2026-10-20').click();
+  // 칸 위쪽(날짜 숫자)을 누르면 그 날 창, 일정 추가 창은 열리지 않는다.
+  await page.locator('.cmv-date-list[data-date="2026-10-20"]').click();
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayTasks [data-calendar-task]')).toHaveCount(2);
   await expect(page.locator('#eventModal')).toBeHidden();
+  // 창 바깥(어둡게 가려진 자리)을 한 번 누르면 닫히고 아래 달력 칸은 눌리지 않는다.
+  await page.mouse.click(8,8);
+  await expect(page.locator('#calendarDayModal')).toBeHidden();
+  await expect(page.locator('#eventModal')).toBeHidden();
+  // 할 일 줄을 누르면 그 할 일 상세.
+  await cellTask('pending').click();
+  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await expect(page.locator('#calendarDayModal')).toBeHidden();
 });
 
 // S48-6c(2026-11-02 명진 결정): 폰 월 보기는 ✓n 대신 기한이 그날인 할 일 제목을 칸 안 줄로 보인다. 일정 먼저·할 일 다음,
@@ -80,12 +87,11 @@ for(const width of [360,1280]){
     await openEmphasisFixture(page,{events:[{...events[0],id:'blue-0'},...events.slice(1)]});
     const week=page.locator('.cmv-week').filter({has:page.locator('.cal-cell[data-date="2026-10-20"]')});
     // S48-6c: 폰은 할 일도 칸 안 줄이라 10/20의 미완료 할 일 1이 일정 24 아래 한 줄을 더한다.
-    await expect(week).toHaveAttribute('data-lane-count',width<761?'25':'24');
+    await expect(week).toHaveAttribute('data-lane-count','25');
     const cap=Number(await week.getAttribute('data-lane-cap'));
-    if(width<761){await expect(week.locator('.kptu-day-more[data-date="2026-10-20"]')).toHaveText('+'+(25-cap));}
-    else await expect(week.locator('.kptu-day-more')).toHaveCount(0);
-    // Mobile has one date-row target; desktop has an independent 44px task target.
-    const target=width<=760?page.locator('.cmv-date-list[data-date="2026-10-10"]'):page.locator('.cal-cell[data-date="2026-10-10"] .cmv-task-count');
+    await expect(week.locator('.kptu-day-more[data-date="2026-10-20"]')).toHaveText('+'+(25-cap));
+    // S49-6: 폰·PC 모두 날짜 줄 위쪽 목록 버튼 하나(폰 20px·PC 44px + 할 일 줄 높이만큼).
+    const target=page.locator('.cmv-date-list[data-date="2026-10-10"]');
     await target.scrollIntoViewIfNeeded();
     const geometry=await target.evaluate(el=>{
       const r=el.getBoundingClientRect(),cell=el.closest('.cal-cell'),week=el.closest('.cmv-week'),c=cell.getBoundingClientRect();
@@ -94,11 +100,11 @@ for(const width of [360,1280]){
         overlaps:others.map(x=>{const b=x.getBoundingClientRect();return {name:x.className,overlap:r.left<b.right-.1&&r.right>b.left+.1&&r.top<b.bottom-.1&&r.bottom>b.top+.1}}),
         hit:el.contains(document.elementFromPoint(r.right-2,r.top+2))};
     });
-    expect(geometry.height).toBe(width<=760?20:44);expect(geometry.width).toBeGreaterThanOrEqual(44); // S46-23: 폰 날짜 줄 20px(누르는 범위 ::after 44px)
+    expect(geometry.height).toBeGreaterThanOrEqual(width<=760?20:44);expect(geometry.width).toBeGreaterThanOrEqual(44); // S46-23: 폰 날짜 줄 20px(누르는 범위 ::after 44px)
     if(width<=760)expect(await target.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
-    expect(geometry.within).toBe(true);expect(geometry.overlaps.filter(x=>x.overlap)).toEqual([]);expect(geometry.hit).toBe(true);
+    expect(geometry.within).toBe(true);expect(geometry.hit).toBe(true);
     console.log('task target',width,JSON.stringify(geometry));
-    if(width<761){
+    {
       await week.locator('.kptu-day-more[data-date="2026-10-20"]').click();
       await expect(page.locator('#calendarDayEvents .cal-event')).toHaveCount(24);
       await expect(page.locator('#calendarDayTasks .cal-event')).toHaveCount(2);
