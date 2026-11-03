@@ -171,7 +171,7 @@ object ShellRules {
     fun isShareId(value: String?): Boolean = value != null && SHARE_ID.matches(value)
 
     /**
-     * APP-공유노트할일(요청함 11/02 00:22): 공유 창 세 칸 '웹2 정리함'(MainActivity)·'웹2 노트'·'웹2 할 일'(같은 화면의 activity-alias).
+     * APP-공유노트할일(요청함 11/02 00:22): 공유 창 세 칸 '웹2 업데이트로 보내기'(MainActivity, S49-9 옛 '웹2 정리함')·'웹2 노트'·'웹2 할 일'(같은 화면의 activity-alias).
      * 받기 길(ShareIntake)은 하나이고 들어갈 곳만 다르다. 알 수 없는 이름은 정리함(이전과 같음).
      */
     const val SHARE_TO_NOTE = "ShareToNote"

@@ -25,7 +25,9 @@ test('공유 받기 화면에는 확인 줄·메모 칸·[넣기]·[취소]가 �
   const src = read('../app/basket-share.js');
   for (const gone of ['data-share-put', 'data-share-cancel', 'data-share-memo]', 'share-intake-memo', "'넣기'", "'취소'", '>취소<']) assert.equal(src.includes(gone), false, gone);
   assert.match(src, /import \{notify\} from '\.\/small-notice\.js'/);
-  assert.match(src, /'정리함에 넣었어요'/);
+  // S49-9 UI-업데이트로보내기: 알림 글은 공용 목록(photo-menu-items.mjs) '업데이트로 보냈어요'.
+  assert.match(src, /notify\(SEND_NOTE\.basketDone,/);
+  assert.match(read('../app/photo-menu-items.mjs'), /basketDone: '업데이트로 보냈어요'/);
   assert.match(src, /label:'메모 달기'/);
   assert.match(src, /'넣지 못했어요'/);
   assert.match(src, /label:'다시'/);
