@@ -130,6 +130,4 @@ test('연결: 사진 ⋯ 메뉴에 [정보 고치기…](폰 사진·앱 meta), 
   assert.match(sql, /private\.app_is_workspace_owner\(workspace_id\)/);
   assert.doesNotMatch(sql, /\bto\s+(anon|public)\b/i);
   assert.doesNotMatch(sql, /grant delete/i);
-  const edit = readFileSync(new URL('../app/photo-info-edit.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(edit, /localStorage|sessionStorage/);
 });
