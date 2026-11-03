@@ -468,5 +468,5 @@ button.record-raw-toggle{display:inline-flex;align-items:center;justify-content:
 button.record-raw-toggle[aria-pressed="true"]{color:var(--kptu-ink);background:var(--kptu-surface-subtle);border-color:var(--kptu-border)}
 /* 큰 창 ⤢: 칸 이름 줄 끝의 글자 높이 아이콘(모든 글 칸 공통, record-text-write.js). 줄 높이를 늘리지 않는다. */
 .record-big-head{display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}
-button.record-big-write{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;width:22px;min-width:0;height:22px;min-height:0;margin:0 0 0 2px;padding:0;color:var(--kptu-muted);background:transparent;border-color:transparent;border-radius:var(--kptu-radius-sm,6px)}
+button.record-big-write,:is(#meetingModal,#meetingRoundDetailModal) .record-big-head button.record-big-write{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;width:22px;min-width:22px;height:22px;min-height:22px;margin:0 0 0 2px;padding:0;color:var(--kptu-muted);background:transparent;border-color:transparent;border-radius:var(--kptu-radius-sm,6px)}
 :is(button.record-raw-toggle,button.record-big-write):hover{color:var(--kptu-ink)}
