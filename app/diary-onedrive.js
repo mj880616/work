@@ -8,6 +8,7 @@ import './od-thumb-cache.js';
 import {reportLink} from './link-state.js';
 import {ownerScope, diaryPhotos, todayKey} from './diary-data.js';
 import {seoulDateKey} from './meeting-time.js';
+import {placeOf} from './time-photos-model.mjs'; // S48-58: 찍은 곳(lat·lon)은 모양이 맞을 때만 받는다(메모리에서만 씀)
 import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE, GATHER_MS} from './od-thumb-loader.js';
 import {holdPhotoBlob, holdPhotoMaker, forgetPhotoBlob, localImageBlob, readyPhotoBlob} from './photo-share.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview, slotTiming} from './img-slot.js';
@@ -271,13 +272,13 @@ export function odAuthUrlBack(url, back) {
   } catch { return url; }
 }
 
-// 한 달치 사진: {days:{'YYYY-MM-DD':[{id,name,taken_at,approx}]}, truncated}. 모양이 맞는 것만 받는다.
+// 한 달치 사진: {days:{'YYYY-MM-DD':[{id,name,taken_at,approx,lat?,lon?}]}, truncated}. 모양이 맞는 것만 받는다.
 export async function odPhotos(rt, year, month) {
   const d = await odCall(rt, {action: 'photos', month: monthParam(year, month)});
   const days = {};
   for (const [day, list] of Object.entries(d?.days && typeof d.days === 'object' ? d.days : {})) {
     if (!dayRe.test(day) || !Array.isArray(list)) continue;
-    const clean = list.filter(p => p && typeof p.id === 'string' && p.id).map(p => ({id: p.id, name: String(p.name || ''), taken_at: String(p.taken_at || ''), approx: p.approx === true}));
+    const clean = list.filter(p => p && typeof p.id === 'string' && p.id).map(p => ({id: p.id, name: String(p.name || ''), taken_at: String(p.taken_at || ''), approx: p.approx === true, ...placeOf(p)}));
     if (clean.length) days[day] = clean;
   }
   return {days, truncated: d?.truncated === true};

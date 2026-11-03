@@ -1,5 +1,7 @@
 // S46-20 사진 정리 ⑥(명진 11/01 01:04 추천대로): 사업 보고 쓰기·상세 창 사진 줄 안 한 줄 '그 시각 사진 [골라 붙이기]'.
-// - 누르면 그 보고 시각 앞뒤 3시간에 찍은 폰·원드라이브 사진을 작은 칸 한 줄로 보인다(시각만으로 추천, 위치는 쓰지 않음).
+// - 누르면 그 보고 시각 앞뒤 3시간에 찍은 폰·원드라이브 사진을 작은 칸 한 줄로 보인다.
+// - S48-58: 같은 날 그 장소(앞뒤 3시간 사진들이 찍힌 곳, 사진 자체 위치)에서 찍은 사진도 더하고 칸에 '📍'를 단다(time-photos-model.mjs suggestPhotos).
+//   위치는 원드라이브 색인에서만 온다. 지도 서비스는 부르지 않고, 위치를 따로 저장하지도 않는다(이 창 메모리에서만 씀).
 //   폰 사진은 앱 다리(phone-photos.js, 폰 안에서만 읽음), 원드라이브 사진은 일기·사진 메뉴와 같은 목록·그림(diary-onedrive.js).
 // - 칸을 눌러 고르고 [붙이기 n]을 누르면 고른 사진만 파일로 만들어 부르는 쪽(onPick)에 넘긴다. 부르는 쪽은 기존 사진 첨부와 같은 길
 //   (새 보고 = 저장할 때 차례로 올림, 상세 = 바로 올림 — 둘 다 library-upload.js uploadFileForMeeting, Drive 첨부 app_documents.meeting_id)을 쓴다.
@@ -11,11 +13,12 @@ import {parseSources, phoneErrorText} from './photo-sources-model.mjs';
 import {phoneHideList} from './phone-folders-sync.js';
 import {viewPrefs} from './view-prefs.js';
 import {waitInlineHtml} from './wait-state.js';
-import {reportAtMs, nearWindow, windowMonths, odMonthItems, nearPhotos, attachName, nearHead, pickLabel, PICK_MAX} from './time-photos-model.mjs';
+import {reportAtMs, suggestRange, windowMonths, odMonthItems, suggestPhotos, attachName, nearHead, pickLabel, PICK_MAX} from './time-photos-model.mjs';
 import {isPhotoFile} from './activity-photo-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
-const PHONE_READ = 200;
+const PHONE_READ = 200;  // 한 쪽(폰 앱 한도 PAGE_MAX 200)
+const PHONE_PAGES = 2;   // 그 장소 사진은 그날 하루를 보므로 많아야 두 쪽(400장)까지 읽는다
 
 // 쓸 수 있는 출처: 폰(앱 안·사진 접근 허용·출처 켜짐), 원드라이브(연결·폴더·출처 켜짐).
 // quiet: 서버에 묻지 않는다(원드라이브는 받아 둔 연결 상태만 본다). 줄을 보일지 정할 때 쓰고, [골라 붙이기]를 누르면 다시 확인한다.
@@ -29,11 +32,19 @@ export async function timePhotoSources({rt = globalThis.window?.KPTURuntime, pho
   return out;
 }
 
-// 폰: 그 시각 창 안에서 찍은 것(찍은 날 최근 먼저로 창 끝부터 읽는다). 끈 폰 폴더는 빼고 읽는다.
+// 폰: 범위(앞뒤 3시간 + 그날 하루) 안에서 찍은 것(찍은 날 최근 먼저로 범위 끝부터 읽는다). 끈 폰 폴더는 빼고 읽는다.
 async function phoneNear(phone, win) {
   const hide = await phoneHideList(phone);
-  const page = await phone.page({sort:'taken_desc', filter:'all', before:win.to + 1, limit:PHONE_READ, hide});
-  return page.items.filter(it => Date.parse(it.taken_at) >= win.from);
+  const out = [];
+  let offset = 0;
+  for (let i = 0; i < PHONE_PAGES; i++) {
+    const page = await phone.page({sort:'taken_desc', filter:'all', before:win.to + 1, offset, limit:PHONE_READ, hide});
+    const list = page.items || [];
+    out.push(...list.filter(it => Date.parse(it.taken_at) >= win.from));
+    if (!Number.isInteger(page.next) || list.some(it => Date.parse(it.taken_at) < win.from)) break;
+    offset = page.next;
+  }
+  return out;
 }
 async function odNear(rt, win) {
   const out = [];
@@ -93,8 +104,9 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
       b.type = 'button'; b.className = 'tp-item'; b.dataset.tpItem = it.id;
       b.setAttribute('aria-pressed', String(picked.has(it.id)));
       const hhmm = new Date(Date.parse(it.taken_at) + 9 * 3600 * 1000).toISOString().slice(11, 16);
-      b.setAttribute('aria-label', `사진 ${i + 1} ${hhmm}${it.kind === 'phone' ? ' 폰' : ' 원드라이브'}`);
+      b.setAttribute('aria-label', `사진 ${i + 1} ${hhmm}${it.here ? ' 그 장소' : ''}${it.kind === 'phone' ? ' 폰' : ' 원드라이브'}`);
       b.append(element(it));
+      if (it.here) { const pin = document.createElement('span'); pin.className = 'tp-here'; pin.setAttribute('aria-hidden', 'true'); pin.textContent = '📍'; b.append(pin); }
       const t = document.createElement('span'); t.className = 'tp-time'; t.setAttribute('aria-hidden', 'true'); t.textContent = hhmm;
       b.append(t);
       return b;
@@ -110,14 +122,15 @@ export function mountTimePhotos(host, {at, onPick, busy = () => false, allowed =
     // 누른 때 출처를 다시 확인한다(조용히 정한 줄이면 원드라이브 연결을 이때 서버에 묻는다).
     try { src = await timePhotoSources({rt, phone}); } catch { /* 이전 값 그대로 */ }
     if (mine !== run || !open) return;
-    const win = nearWindow(atMs), fails = [];
+    const range = suggestRange(atMs), fails = [];
     const [ph, od] = await Promise.all([
-      src.phone ? phoneNear(phone, win).catch(e => { fails.push(phoneErrorText(e)); return []; }) : [],
-      src.onedrive ? odNear(rt, win).catch(e => { fails.push(`원드라이브 사진을 읽지 못했어요: ${odErrorText(e)}`); return []; }) : [],
+      src.phone ? phoneNear(phone, range).catch(e => { fails.push(phoneErrorText(e)); return []; }) : [],
+      src.onedrive ? odNear(rt, range).catch(e => { fails.push(`원드라이브 사진을 읽지 못했어요: ${odErrorText(e)}`); return []; }) : [],
     ]);
     if (mine !== run || !open) return;
-    items = nearPhotos({phone:ph, od, atMs});
-    $('[data-tp-head]').textContent = nearHead(items.length);
+    const got = suggestPhotos({phone:ph, od, atMs});
+    items = got.items;
+    $('[data-tp-head]').textContent = nearHead(items.length, got.here);
     paintStrip();
     note(fails.join(' · '));
   }

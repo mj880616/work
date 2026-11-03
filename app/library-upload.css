@@ -303,17 +303,16 @@
 #appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
 
 /* LIB-여러개삭제: [선택] 모드. 버튼은 UI-버튼기준(글자 버튼·28px, 누르는 범위 44px), 전체 칩은 거르기 칩과 같은 모양. */
-#libraryListCard .lu-select-act{position:relative;flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);white-space:nowrap}
-#libraryListCard .lu-select-act::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-#libraryListCard .lu-select-act:hover:not(:disabled){color:var(--kptu-ink)}
-#libraryListCard .lu-select-act:disabled{opacity:.45}
-#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger);font-weight:700}
+/* UI-고르기줄(S48-54): 버튼 칸(같은 너비·같은 간격·최대 120px)·글자 모양·누르는 범위 44px는 공용 부품(base-ui.css .kptu-actbar-text, 노트 고르기 줄과 같음). */
+#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger)}
 #libraryView .lu-head-actions > [hidden]{display:none}
-.lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:0 4px;min-width:0;flex:1}
+.lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;min-width:0;flex:1}
 :is(.lu-bulk-menu) button{padding-left:calc(var(--kptu-space-3,12px) + var(--lu-depth,0) * 12px)}
 :is(.lu-bulk-menu) button[aria-current="true"] .lu-menu-key{display:inline;color:var(--kptu-primary-ink);font-weight:700}
 :is(.lu-bulk-menu) button:disabled{opacity:.55;cursor:default}
 #libraryListCard .lu-select-bar > *{flex:none;margin:0}
+/* 자료실 바꾸기 칸은 펼침 표시(▾)가 붙어 낱말이 길다 — 같은 칸 최소 폭을 76px로(좁은 폰은 다음 줄도 같은 칸). */
+#libraryListCard .lu-select-bar > .lu-select-acts{flex:1 1 auto;min-width:0;--kptu-act-min:76px}
 .lu-select-bar[hidden]{display:none}
 .lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}
 .lu-select-count{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap;margin-right:4px}
@@ -424,6 +423,9 @@
 #appView #libraryView .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-closed{display:none}
 #appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-open{display:inline}
 #appView #libraryView .lu-node-out .lu-node-name{color:var(--kptu-muted)}
+/* SEARCH-선택옮기기 ⑦: 외줄 폴더는 접힌 줄에서만 '공공팀 › 회의 › 집행위'(뒤 경로는 엷게), 펼치면 맨 위 이름만 — 아래 단은 자기 줄로 보인다. */
+#appView #libraryView .lu-chain-rest{color:var(--kptu-muted)}
+#appView #libraryView .lu-node[open] > .lu-node-head .lu-chain-rest{display:none}
 
 /* LIB-후속1 ① PC 선택 오류: 줄(role=button)이 누르는 동안 공용 눌림 규칙(ui-standard.css UI-눌림느낌)으로 1.5~3% 작아지면서
    넓은 줄의 왼쪽 끝이 7~13px 오른쪽으로 밀려, 네모 칸 왼쪽·가운데를 누르면 손을 뗄 때 포인터가 줄 밖(목록)에 있어 클릭이 줄에 닿지 않았다.

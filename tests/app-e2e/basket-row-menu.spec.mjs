@@ -59,7 +59,7 @@ async function choose(page, id, label, width) {
 }
 
 for (const width of [390, 1280]) {
-  test(`update row ⋯: beside [복사], items and order, opens under the ⋯, Esc·outside press close, one at a time ${width}`, async ({ page }, info) => {
+  test(`update row ⋯: one ⋯ ([복사] inside), items and order, opens under the ⋯, Esc·outside press close, one at a time ${width}`, async ({ page }, info) => {
     const f = await fixture(page, width);
     const more = rowMore(page, A), copy = page.locator(`[data-basket-row-copy="${A}"]`), row = page.locator(`[data-basket-row="${A}"]`);
     await expect(more).toHaveAccessibleName('합성 교섭 결과 공유 메뉴');
@@ -67,25 +67,20 @@ for (const width of [390, 1280]) {
     expect(mb.width).toBeGreaterThanOrEqual(44); expect(mb.height).toBeGreaterThanOrEqual(44);
     expect(mb.x + mb.width).toBeGreaterThan(rb.x + rb.width - 8);
     const title = await row.locator('.basket-title').boundingBox();
-    if (width >= 761) {
-      // [복사] sits left of [⋯] on the same line, both on the right side of the row; the title does not run under them.
-      const cb = await copy.boundingBox(); expect(cb.width).toBeGreaterThanOrEqual(44); expect(cb.height).toBeGreaterThanOrEqual(44);
-      expect(cb.x + cb.width).toBeLessThanOrEqual(mb.x + 1); expect(Math.round(cb.y)).toBe(Math.round(mb.y));
-      expect(title.x + title.width).toBeLessThanOrEqual(cb.x + 1);
-    } else {
-      // Phone: no [복사] button; the title, preview and date run to the ⋯ (the old [복사] place is used) and nothing sits under the ⋯.
-      await expect(copy).toBeHidden(); await expect(page.locator('[data-basket-row-copy]:visible')).toHaveCount(0);
-      expect(title.x + title.width).toBeLessThanOrEqual(mb.x + 1); expect(title.x + title.width).toBeGreaterThan(mb.x - 8);
+    // UI-화면정리 C4(S48-46): 폰·PC 모두 줄에 [복사] 버튼이 없다([복사]는 ⋯ 메뉴 맨 위). 제목은 ⋯ 바로 왼쪽까지 쓰고 ⋯ 아래로 들어가지 않는다.
+    await expect(copy).toHaveCount(0); await expect(page.locator('[data-basket-row-copy]')).toHaveCount(0);
+    expect(title.x + title.width).toBeLessThanOrEqual(mb.x + 1);
+    if (width < 761) {
+      expect(title.x + title.width).toBeGreaterThan(mb.x - 8);
       expect(title.width).toBeGreaterThanOrEqual(rb.width - 48 - 16 - 2);
       for (const sel of ['time']) { const b = await row.locator(sel).first().boundingBox(); expect(b.x + b.width).toBeLessThanOrEqual(mb.x + 1); }
     }
     // A row with nothing to copy keeps only the ⋯, in the same place.
-    await expect(page.locator(`[data-basket-row-copy="${C}"]`)).toBeHidden();
     const mc = await rowMore(page, C).boundingBox(); expect(Math.round(mc.x)).toBe(Math.round(mb.x));
-    if (width < 761) { await press(page, rowMore(page, C), width); await expect(menu(page).getByRole('button', { name: '복사', exact: true })).toHaveCount(0); await expect(menu(page).locator('button').first()).toHaveText('수정'); await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden(); }
+    { await press(page, rowMore(page, C), width); await expect(menu(page).getByRole('button', { name: '복사', exact: true })).toHaveCount(0); await expect(menu(page).locator('button').first()).toHaveText('수정'); await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden(); }
     await press(page, more, width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '업무일지에 남기기', '보류로', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '업무일지에 남기기', '보류로', '삭제']);
     await expect(menu(page).locator('button').last()).toHaveClass(/basket-menu-danger/);
     for (const b of await menu(page).locator('button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
     const m = await menu(page).boundingBox();
@@ -116,9 +111,8 @@ for (const width of [390, 1280]) {
     // An outside press closes it without opening anything.
     await press(page, page.locator('#inboxUpdateTitle'), width);
     await expect(menu(page)).toBeHidden(); await expect(detail(page)).toBeHidden();
-    // [복사] copies without opening the update or the menu (a phone: the menu's first item, which closes the menu).
-    if (width >= 761) await press(page, copy, width);
-    else { await press(page, more, width); await press(page, menu(page).getByRole('button', { name: '복사', exact: true }), width); await expect(more).toBeFocused(); }
+    // [복사] (the menu's first item, phone and PC) copies without opening the update, and closes the menu.
+    { await press(page, more, width); await press(page, menu(page).getByRole('button', { name: '복사', exact: true }), width); await expect(more).toBeFocused(); }
     await expect(page.locator('#toast')).toHaveText('복사했습니다'); await expect(detail(page)).toBeHidden(); await expect(menu(page)).toBeHidden();
     expect(await page.evaluate(() => window.__copied.at(-1))).toBe('합성 교섭 결과 공유\n다음 회의 10/27');
     expect(await page.evaluate(() => window.__copied.length)).toBe(1);
@@ -227,7 +221,7 @@ test('an archived update leaves 연결하기 out of its row menu, as the detail 
   await page.locator('[data-basket-filter="archived"]').click();
   await expect(rowMore(page, B)).toBeVisible();
   await rowMore(page, B).click();
-  await expect(menu(page).locator('button')).toHaveText(['수정', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);
+  await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '할 일 만들기', '노트로 옮기기', '일기로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);
   await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden();
   expect(f.errors).toEqual([]);
 });

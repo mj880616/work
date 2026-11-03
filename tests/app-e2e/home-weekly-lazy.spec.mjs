@@ -94,3 +94,46 @@ test('주소가 [주간 정리](?mode=week)면 새로고침 뒤에도 바로 그
   await expect(chapters(page)).toHaveCount(5);
   expect(seen.length).toBeGreaterThan(0);
 });
+
+// PERF-첫로딩 요청 합치기(S48-59, docs/design/first-load.md 14절): [주간 정리]에만 쓰는 읽기는 하루 화면에서 보내지 않고,
+// [주간 정리]를 처음 열 때 보낸다(묶음 프로그램은 전처럼 쉬는 틈에 미리 받는다).
+const WEEK_ONLY = [
+  /app_journal_next_week_sheets/, /app_weekly_org_summaries/, /app_weekly_exec_requests/,
+  /app_profiles\?.*select=weekly_schedule_memory/, /app_profiles\?.*select=ledger_calendar/,
+];
+test('하루 화면은 [주간 정리] 전용 자료를 읽지 않고, [주간 정리]를 열 때 읽어 채운다', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  const weekOnly = [], events = [];
+  page.on('request', request => {
+    const url = decodeURIComponent(request.url());
+    if (request.method() === 'GET' && WEEK_ONLY.some(re => re.test(url))) weekOnly.push(url);
+    if (/google-calendar\?action=events/.test(url)) events.push(url);
+  });
+  const kit = page.waitForRequest(KIT);
+  await openHome(page);
+  await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
+  await kit;
+  await page.waitForFunction(() => window.KPTUJournal);
+  await page.waitForTimeout(1500); // 쉬는 틈 읽기까지 기다린다
+  expect(weekOnly).toEqual([]);
+  const dayEvents = events.length;
+  expect(dayEvents).toBe(1); // 그 주 일정만(5. 주요 일정 두 주는 [주간 정리] 몫)
+  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await expect(chapters(page)).toHaveCount(5);
+  await expect.poll(() => weekOnly.filter(u => /app_weekly_exec_requests/.test(u)).length).toBeGreaterThan(0);
+  await expect.poll(() => weekOnly.filter(u => /app_journal_next_week_sheets/.test(u)).length).toBeGreaterThan(0);
+  await expect.poll(() => events.length).toBe(dayEvents + 1);
+  await expect(page.locator('#journalRoot [data-journal-next-week]')).not.toBeEmpty();
+  // 하루로 돌아갔다 다시 열어도 같은 주는 업무일지가 다시 읽지 않는다(미룬 읽기는 한 번). 임원 요청 표는 한글 파일 상자도 제 몫으로 읽으므로 뺀다.
+  const mine = () => weekOnly.filter(u => /app_journal_next_week_sheets|app_weekly_org_summaries|select=weekly_schedule_memory|select=ledger_calendar/.test(u)).length;
+  await page.waitForTimeout(1000);
+  const after = mine(), eventsAfter = events.length;
+  await page.locator('#journalRoot [data-journal-mode="day"]').click();
+  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await expect(chapters(page)).toHaveCount(5);
+  await page.waitForTimeout(800);
+  expect(mine()).toBe(after);
+  expect(events.length).toBe(eventsAfter);
+  expect(errors).toEqual([]);
+});

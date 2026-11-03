@@ -113,14 +113,9 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     // List row: [복사] copies the 텔레그램 conversion without opening the update.
     const rowCopy = page.locator(`[data-basket-row-copy="${U}"]`);
-    await expect(rowCopy).toHaveAttribute('aria-label', /복사$/);
-    if (width >= 761) {
-      await expect(rowCopy).toHaveAccessibleName(/복사$/);
-      const rb = await rowCopy.boundingBox(); expect(rb.width).toBeGreaterThanOrEqual(44); expect(rb.height).toBeGreaterThanOrEqual(44);
-      await press(page, rowCopy, width);
-    } else {
-      // UI-모바일노트복사메뉴: on a phone the row's [복사] is the first item of its ⋯ menu.
-      await expect(rowCopy).toBeHidden();
+    {
+      // UI-모바일노트복사메뉴 · UI-화면정리 C4(S48-46): 폰·PC 모두 줄의 [복사]는 ⋯ 메뉴 맨 위(줄에 복사 아이콘 없음).
+      await expect(rowCopy).toHaveCount(0);
       await press(page, page.locator(`[data-basket-row-more="${U}"]`), width);
       await expect(page.locator('#basketRowMenu button').first()).toHaveText('복사');
       await press(page, page.locator('#basketRowMenu').getByRole('button', { name: '복사', exact: true }), width);

@@ -2,9 +2,10 @@
 
 #basketView { box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; }
 /* UI-PC다듬기묶음 ③(2026-10-20 요청함 16:33): PC(≥761)는 [업데이트]·[노트] 본문을 가운데(900px) 대신 사이드바 바로 옆 왼쪽에서 시작한다.
-   다른 PC 화면은 본문 칸 왼쪽부터 쓴다. 다만 이 화면은 글 목록이라 아주 넓은 창에서 한 줄이 너무 길어지므로 최대 폭만 1100px로 두고 왼쪽 정렬(다른 화면처럼 끝까지 넓히지 않음).
-   폰은 그대로. */
-@media(min-width:761px){ #basketView { max-width:1100px; margin:0; } }
+   폰은 그대로.
+   UI-화면정리 C2(요청함 10/28 20:03 C-2 '넓은 화면 여백', S48-46): 예전의 최대 폭 1100px(넓은 창에서 오른쪽이 비던 '챙길 것'·업데이트)을 풀어
+   다른 PC 화면처럼 본문 칸을 꽉 쓴다(바깥 폭은 desktop-ui.css main 규칙 하나, UI-전수디자인점검 F21). PC 업데이트 줄은 한 줄 말줄임(F04)이라 줄이 길어지지 않는다. */
+@media(min-width:761px){ #basketView { max-width:none; margin:0; } }
 #basketView [hidden] { display:none; }
 /* UI-화면정리 C(B④ 편집 도구줄 하나로): 이 화면의 기본 버튼 모양은 글 편집 칸(.ed-editor, 노트 편집기) 안에는 쓰지 않는다.
    편집 도구줄은 어디서나(노트·일기·창 편집·공유 페이지) ed-doc.css 한 곳의 모양(테두리 없는 작은 글자 버튼)이다. */

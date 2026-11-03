@@ -115,7 +115,7 @@ for (const width of [390, 1280]) {
     const viewer = root(page).locator('[data-diary-viewer]');
     await expect(viewer).toBeVisible();
     await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('1 / 7');
-    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['☆ 별표', '⇪ 공유', '🗑 지우기', 'ⓘ 정보']);
+    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['☆ 별표', '⇪ 공유', '지우기', 'ⓘ 정보']);
     await viewer.locator('[data-diary-info]').click();
     await expect(viewer.locator('[data-strip-original]')).toHaveText('⤓ 원본 받기');
     await page.keyboard.press('s');
@@ -396,5 +396,50 @@ test('사진 메뉴: 달력 → 날짜 → 뒤로가기 = 같은 달 달력(폴�
   await page.goBack();
   await expect(root(page).locator('[data-photos-tab="all"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#photosView')).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
+// UI-고르기줄(S48-54, 요청함 11/03 07:43·07:44 ②③④): 여러 장 고르기 아래 줄·크게 보기 아래 줄은 공용 부품(.kptu-actbar) 하나.
+// 칸은 같은 너비로 줄 폭을 나누고(넓은 화면은 칸 최대 120px), 간격이 같고, 글자가 잘리지 않는다. 옮기기·지우기는 선 아이콘(📁·🗑 없음), 지우기는 글자만 빨강.
+// 세 폭(폰 412·폴드 펼침 768·PC 1280) 사진은 test-results/ui-audit/s48-54-*.png, 잰 값은 '::notice title=s48-54'.
+for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 줄·크게 보기 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
+  const { measureActBar, checkActBar } = await import('./helpers/act-bar-measure.mjs');
+  const { mkdirSync } = await import('node:fs');
+  const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
+  const check = (a, e, l) => expect(a, l).toEqual(e);
+  const f = await fixture(page, { width });
+  await openPhotos(page, width);
+  await expect(items(page)).toHaveCount(7);
+  const b = await items(page).nth(0).boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
+  await expect(root(page).locator('[data-photos-sel]')).toBeVisible();
+  const bar = root(page).locator('[data-photos-act]');
+  await expect(bar).toBeVisible();
+  const sel = await measureActBar(page, '#photosRoot [data-photos-act]');
+  checkActBar(sel, check, `고르기 줄 ${width}`);
+  // 폭을 꽉 쓴다: 칸이 120px보다 좁으면 양 끝 여백은 줄 안쪽 여백(4px)뿐, 120px이면 양 끝 여백이 같다(가운데 정렬·같은 간격).
+  if (sel.maxWidth < 119.5) { expect(sel.leftGap, '왼쪽 여백').toBeLessThanOrEqual(2); expect(sel.rightGap, '오른쪽 여백').toBeLessThanOrEqual(2); }
+  else expect(Math.abs(sel.leftGap - sel.rightGap), '양 끝 여백 같음').toBeLessThanOrEqual(2);
+  expect(sel.rows, '한 줄').toBe(1);
+  expect(sel.minHeight, '누르는 높이').toBeGreaterThanOrEqual(32);
+  expect(sel.svgCount, '옮기기·지우기 선 아이콘').toBe(2);
+  expect(sel.iconColors.length, '아이콘 색 하나').toBe(1);
+  expect(sel.dangerText, '지우기 글자 빨강').not.toBe(sel.dangerIcon);
+  await expect(bar.locator('[data-photos-act-delete] .kptu-act-tx')).toHaveText('지우기');
+  await page.screenshot({ path: `${DIR}/s48-54-photos-select-${width}.png` });
+  await root(page).locator('[data-photos-sel-off]').click();
+  await expect(bar).toBeHidden();
+  // 크게 보기 아래 줄
+  await items(page).first().click();
+  const viewer = root(page).locator('[data-diary-viewer]');
+  await expect(viewer).toBeVisible();
+  const act = await measureActBar(page, '#photosRoot [data-diary-viewer] .diary-viewer-actions');
+  checkActBar(act, check, `크게 보기 줄 ${width}`);
+  if (act.maxWidth < 119.5) { expect(act.leftGap).toBeLessThanOrEqual(6); expect(act.rightGap).toBeLessThanOrEqual(6); }
+  else expect(Math.abs(act.leftGap - act.rightGap)).toBeLessThanOrEqual(2);
+  expect(act.svgCount, '지우기 선 아이콘').toBe(1);
+  await page.screenshot({ path: `${DIR}/s48-54-photos-viewer-${width}.png` });
+  const esc = t => t.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  process.stdout.write(`::notice title=s48-54 photos ${width}::${esc(JSON.stringify({select: {n: sel.n, widths: sel.widths, left: Math.round(sel.leftGap), right: Math.round(sel.rightGap), bar: sel.barWidth}, viewer: {n: act.n, widths: act.widths, left: Math.round(act.leftGap), right: Math.round(act.rightGap)}}))}\n`);
   expect(f.errors).toEqual([]);
 });

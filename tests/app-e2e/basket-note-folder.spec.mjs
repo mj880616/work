@@ -298,3 +298,24 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
   await checkSplit(page, { container: '[data-note-list] [data-nx-body]', left: ':scope>[data-nx-tree]', right: ':scope>.nx-pane', name: 'notes', share: 0.3, server, reopen: open });
   expect(errors).toEqual([]);
 });
+
+// UI-고르기줄(S48-54, 요청함 11/03 07:44 ③): 노트 고르기 줄도 사진과 같은 공용 부품(.kptu-actbar-text) — 칸 같은 너비·같은 간격·최대 120px·글자 잘림 없음, 지우기 글자 빨강.
+for (const width of [412, 768, 1280]) test(`UI-고르기줄: 노트 고르기 줄 같은 칸·같은 간격 ${width}`, async ({ page }) => {
+  const { measureActBar, checkActBar } = await import('./helpers/act-bar-measure.mjs');
+  const { mkdirSync } = await import('node:fs');
+  const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
+  const f = await fixture(page, width);
+  await showOutside(page, width);
+  await press(page, page.locator('[data-note-row-more="n1"]'), width);
+  await press(page, page.locator('#noteDocMenu [data-nx-select]'), width);
+  await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
+  const m = await measureActBar(page, '[data-nx-select-bar] .nx-sel-acts');
+  checkActBar(m, (a, e, l) => expect(a, l).toEqual(e), `노트 고르기 줄 ${width}`);
+  expect(m.n).toBe(3);
+  expect(m.dangerText, '지우기 글자 빨강').not.toBe(await page.locator('[data-nx-sel-move]').evaluate(b => getComputedStyle(b).color));
+  for (const b of await page.locator('[data-nx-select-bar] .kptu-act').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(26);
+  await page.screenshot({ path: `${DIR}/s48-54-notes-select-${width}.png` });
+  process.stdout.write(`::notice title=s48-54 notes ${width}::${JSON.stringify({n: m.n, widths: m.widths, rows: m.rows, bar: m.barWidth})}\n`);
+  await page.keyboard.press('Escape');
+  expect(f.errors).toEqual([]);
+});
