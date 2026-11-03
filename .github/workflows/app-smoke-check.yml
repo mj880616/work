@@ -93,6 +93,7 @@ on:
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
+      - 'tests/meeting-drop-attach.test.mjs'
       - 'tests/report-kinds.test.mjs'
       - 'tests/pdf-lib-pin.test.mjs'
       - 'tests/markdown-view.test.mjs'
@@ -237,6 +238,7 @@ on:
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
+      - 'tests/meeting-drop-attach.test.mjs'
       - 'tests/report-kinds.test.mjs'
       - 'tests/pdf-lib-pin.test.mjs'
       - 'tests/markdown-view.test.mjs'
@@ -478,7 +480,7 @@ jobs:
         run: node --test tests/meeting-recording-ogg.test.mjs
 
       - name: Meeting card time, kind colors and PC layout
-        run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
+        run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/meeting-drop-attach.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
 
       - name: Markdown display pin and safety unit tests
         run: node --test tests/markdown-view.test.mjs tests/md-telegram.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs tests/basket-notes-data.test.mjs tests/number-shape.test.mjs

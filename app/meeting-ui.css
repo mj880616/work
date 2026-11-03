@@ -47,6 +47,9 @@
 .mtg-group{min-width:0;margin:0 0 var(--kptu-space-3)}
 .mrd-followup-section.mtg-group{margin-top:var(--kptu-space-4)}
 .mrd-material-section.mtg-group{margin-top:var(--kptu-space-2)}
+/* HOTFIX-회의첨부칸 ②(S48-53): PC에서 파일을 끌고 있는 동안 놓일 자리(결과 칸·회의자료 줄·사진 줄, 없으면 지금 면)에만 점선 테두리와 '여기에 놓기'. 판단은 meeting-drop-attach.js. */
+.meeting-round-detail-card .drop-zone-active{position:relative;outline:2px dashed var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-sm)}
+.meeting-round-detail-card .drop-zone-active::after{content:'여기에 놓기';position:absolute;top:2px;right:4px;z-index:2;padding:0 6px;font-size:12px;line-height:20px;color:var(--kptu-info);background:var(--kptu-surface);border-radius:var(--kptu-radius-sm);pointer-events:none}
 .mtg-group-head{display:flex;align-items:center;gap:2px;min-height:var(--kptu-touch-target,44px)}
 .mtg-group-head h3{margin:0;line-height:1.4}
 .mtg-add-plus{position:relative;flex:0 0 auto;display:inline-grid;place-items:center;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:var(--kptu-touch-target,44px);margin:-8px 0;padding:0;border:0;border-radius:999px;background:transparent;box-shadow:none;color:var(--kptu-link);font-size:22px;font-weight:400;line-height:1;cursor:pointer}
