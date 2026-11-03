@@ -60,9 +60,16 @@ export function createAppShare(win = globalThis.window, {helloMs = OUT_HELLO_MS,
       if (!send('out:hello')) { hello = null; ok(false); }
       return promise;
     },
+    // [사진 복사] 폰 앱 길: 그림 파일 하나를 앱 다리로 넘겨 안드로이드 클립보드에 그림으로 넣는다(WebView에는 clipboard.write가 없음).
+    // 'copied' · 'none' · 'busy' · 'failed'(옛 앱 포함).
+    async copy(file, {alive = () => true} = {}) {
+      if (!file || !(file.size > 0)) return 'none';
+      const r = await api.share([{file}], {alive, clip:true});
+      return r === 'shared' ? 'copied' : r;
+    },
     // entries: [{phoneId:'123'} | {file: File|Blob(name 있음)}] (20장까지).
     // 돌려주는 값: 'shared'(공유 창을 띄움) · 'none'(넘길 것 없음·앱이 사진을 못 찾음) · 'busy'(앞 공유가 아직) · 'failed'.
-    async share(entries, {alive = () => true} = {}) {
+    async share(entries, {alive = () => true, clip = false} = {}) {
       if (!usable || !known) return 'failed';
       const list = (entries || []).filter(e => (e?.phoneId && /^\d{1,18}$/.test(String(e.phoneId))) || (e?.file && e.file.size > 0)).slice(0, OUT_MAX);
       if (!list.length) return 'none';
@@ -89,7 +96,8 @@ export function createAppShare(win = globalThis.window, {helloMs = OUT_HELLO_MS,
           if (!r.ok) return fail(r);
         }
         if (!alive()) { send('out:cancel'); return 'failed'; }
-        r = await step('out:go', 'sent');
+        // PHOTO-꾹누르기메뉴: clip이면 공유 창 대신 안드로이드 클립보드에 그림으로 넣는다(앱 0.4.17+, 옛 앱은 'bad'로 실패).
+        r = await step(clip ? 'out:clip' : 'out:go', 'sent');
         return r.ok ? 'shared' : r.error === 'none' ? 'none' : 'failed';
       } finally { busy = false; }
     },

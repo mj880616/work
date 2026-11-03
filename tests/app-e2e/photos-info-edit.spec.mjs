@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S48-60 PHOTO-정보고치기(요청함 11/03 00:29, 명진 결정 E1·E2): 폰 앱 412(앱 다리 흉내 0.4.15 = 상태에 meta).
-// 완료 기준: 사진 12장을 골라 ⋯ [정보 고치기…] → '모두 −8시간' → 앞→뒤 표 → [저장] = 앱에 시각만 한 번(photos:meta:write) →
+// 완료 기준: 사진 12장을 골라 [정보수정] → '모두 −8시간' → 앞→뒤 표 → [저장] = 앱에 시각만 한 번(photos:meta:write) →
 // 목록을 새로 읽어 순서가 바뀜 + 서버에 되돌리기 기록 12줄 → 알림 [되돌리기] = 앞 시각으로 다시 고치고 undone_at.
 // 네트워크 없음(지어낸 서버·지어낸 앱), 사진은 1×1 그림. 앱 흉내는 고친 시각을 자기 목록에 반영한다(실제 앱의 EXIF + DATE_TAKEN 자리).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -99,10 +99,20 @@ test("12장 '모두 −8시간' → 앱에 한 번, 순서 바뀜, 기록 12줄 
   await hold(page, cellOf(page, 'ph:12'));
   for (const id of SONY.slice(1)) await cellOf(page, id).click();
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('12개 골랐음');
-  const more = root(page).locator('[data-photos-act-more]');
-  await expect(more).toBeVisible();
-  await more.click();
-  await page.locator('#photosSelMenu').getByRole('button', { name: '정보 고치기…' }).click();
+  // PHOTO-정보수정버튼(S49-18): ⋯ 없이 아래 줄 [정보수정] 한 번에 창이 열린다.
+  await expect(root(page).locator('[data-photos-act-more]')).toHaveCount(0);
+  const infoBtn = root(page).locator('[data-photos-act-info]');
+  await expect(infoBtn).toBeVisible();
+  await expect(infoBtn).toContainText('정보수정');
+  // 폰 폭에서 버튼이 한 줄에 다 들어가거나(글자 안 잘림) 줄이 옆으로 밀린다(칸이 찌그러지지 않음).
+  const fit = await root(page).locator('[data-photos-act]').evaluate(bar => {
+    const btns = [...bar.querySelectorAll('button.kptu-act')].filter(b => !b.hidden && getComputedStyle(b).display !== 'none');
+    return {n: btns.length, clipped: btns.filter(b => { const t = b.querySelector('.kptu-act-tx'); return t && t.scrollWidth > t.clientWidth + 1; }).length, scrolls: bar.scrollWidth > bar.clientWidth, onePerRow: new Set(btns.map(b => Math.round(b.getBoundingClientRect().top))).size};
+  });
+  expect(fit.clipped).toBe(0);
+  expect(fit.onePerRow).toBe(1);
+  console.log('act-bar fit', JSON.stringify(fit));
+  await infoBtn.click();
   const dlg = page.locator('#photoInfoDialog');
   await expect(dlg).toBeVisible();
   await expect(dlg.locator('[data-pi-count]')).toHaveText('12장');

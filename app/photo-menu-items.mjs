@@ -12,6 +12,8 @@ export const PHOTO_ACT_TEXT = Object.freeze({
   basket: '업데이트로 보내기',
   download: '다운로드',
   native: '다른 앱으로 공유…',
+  // PHOTO-정보수정버튼(S49-18): 사진 정보(찍은 시각·위치) 고치기 — 아래 줄·우클릭 메뉴·크게 보기 모두 이 이름 하나.
+  info: '정보수정',
 });
 
 // 아이콘 줄(여러 장 고르기 줄)처럼 칸이 좁은 곳에서 보이는 앞부분(같은 이름의 앞). 읽어 주는 이름·마우스 올림 이름은 PHOTO_ACT_TEXT 온이름.
@@ -48,6 +50,6 @@ export const releaseAfter = (act, ok) => !!ok && RELEASE_AFTER[act] === true;
 //  - selectBar: 여러 장 고르기 아래 줄(photos.js). 폰은 꾹 눌러 고르면 이 줄이 뜬다.
 export const PHOTO_MENUS = Object.freeze({
   viewerShare: Object.freeze(['copy', ...SEND_ROWS, 'download', 'native']),
-  context: Object.freeze(['star', 'share', ...SEND_ROWS]),
-  selectBar: Object.freeze(['star', 'share', 'download', ...SEND_ROWS]),
+  context: Object.freeze(['star', 'share', ...SEND_ROWS, 'info']),
+  selectBar: Object.freeze(['star', 'share', 'download', ...SEND_ROWS, 'info']),
 });

@@ -31,6 +31,7 @@ class ShareOutRulesTest {
         assertEquals(Message.End, ShareOutRules.message("out:end"))
         assertEquals(Message.Go, ShareOutRules.message("out:go"))
         assertEquals(Message.Cancel, ShareOutRules.message("out:cancel"))
+        assertEquals(Message.Clip, ShareOutRules.message("out:clip"))
         assertNull(ShareOutRules.message("out:send"))
         assertNull(ShareOutRules.message("share:get:1"))
         assertNull(ShareOutRules.message(null))

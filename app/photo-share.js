@@ -56,11 +56,16 @@ export async function sharePhotoElement(el, nameOf, {alive = () => true, note = 
   if (!el) return 'none';
   if (await app.ready()) return shareInApp(el, nameOf, {alive, note, app});
   let blob = readyPhotoBlob(el);
+  let waited = false;
   if (!blob) {
+    waited = true;
     note(SHARE_TEXT.waiting, 0);
     blob = await waitPhotoBlob(el, {alive});
     if (!alive()) return 'gone';
   }
+  // PHOTO-삼성공유(S49-18): 바이트를 기다리느라 누른 효력(사용자 동작)이 끝났으면(삼성 인터넷·크롬은 몇 초) share()를 부르면 막혀
+  // 조용히 실패한다. 부르지 말고, 바이트가 준비된 지금 "한 번 더 눌러 주세요"로 알린다(두 번째 누름은 기다림 없이 바로 넘어간다).
+  if (blob && waited && gestureExpired(nav)) { note(SHARE_TEXT.again, 6000); return 'again'; }
   // 그림은 떴는데 바이트를 못 받음(다른 사이트 주소로 뜬 그림·서버 실패) → unreadable, 아직 안 뜸 → none
   const result = blob ? await shareBlob(blob, nameOf(blob), {nav, doc}) : held.has(el) ? 'unreadable' : 'none';
   if (!alive()) return result;
@@ -93,6 +98,8 @@ export async function photoFilesFor(el, nameOf, {alive = () => true, note = () =
   const file = blob && alive() ? photoFile(blob, nameOf(blob)) : null;
   return file ? [file] : [];
 }
+// 누른 효력이 끝났는지. userActivation을 모르는 브라우저는 false(일단 share()를 불러 NotAllowedError로 판단).
+export const gestureExpired = (nav = globalThis.navigator) => nav?.userActivation?.isActive === false;
 const isImage = blob => !!blob && typeof blob.size === 'number' && blob.size > 0 && /^image\//.test(blob.type || '');
 
 // 이 화면이 만든 그림 주소(blob:)의 바이트. 다른 사이트 주소는 읽지 않는다(null).
@@ -125,6 +132,8 @@ export async function shareBlob(blob, name, {nav = globalThis.navigator, doc = g
     catch (error) {
       if (error?.name === 'AbortError') return 'cancel';
       if (error?.name === 'NotAllowedError') return 'again';
+      // 그 밖의 오류(공유 창을 열지 못함 등)는 조용히 파일로 저장하지 말고 실패로 알린다.
+      return 'failed';
     }
   }
   // 폰 앱 화면(옛 앱, 공유 창 길 없음)은 파일 저장도 되지 않는다(WebView는 blob 내려받기를 받지 않음). 틀린 '저장했어요' 대신 업데이트 안내.

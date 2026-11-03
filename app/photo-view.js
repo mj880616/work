@@ -2,12 +2,15 @@
 // 화면 위를 덮는 전체 화면 보기에 ×, Esc, 폰 뒤로 가기(라우터 층 하나)가 있다. 사진은 basket-files photo(노트 번호 + 파일 번호)로 읽는다.
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
-import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote} from './photo-share.js';
+import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
 import {shareFrom} from './share-menu.js';
+import {attachPhotoLongPress, pointAnchor} from './photo-longpress.js';
+import {notify} from './small-notice.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview} from './img-slot.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null;
+const PHOTO_WAIT_MARK = PHOTO_WAIT; // 기다림 표시는 공용 부품 몫이라 작은 알림으로 따로 띄우지 않는다
 
 // 크게 보기 껍데기 하나(노트 사진·자료실 사진 공용). content는 .basket-photo-stage 안에 들어갈 요소.
 function showPhotoBox(shown, content, trigger) {
@@ -21,6 +24,22 @@ function showPhotoBox(shown, content, trigger) {
   box.addEventListener('click', e => { if (e.target.closest('[data-basket-photo-close]') || e.target === box.querySelector('.basket-photo-stage')) closePhotoView(); });
   box.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePhotoView(); } });
   document.body.append(box);
+  // PHOTO-삼성공유(S49-18): 크게 보기 그림이 뜨면 그 바이트를 미리 받아 둔다(이 화면 메모리만) — [공유]를 누르자마자 기다림 없이 넘기려고.
+  const stage = box.querySelector('.basket-photo-stage');
+  const prepare = () => { const el = stage.querySelector('.diary-photo'); if (el) preparePhotoBlob(el); };
+  stage.addEventListener('load', () => setTimeout(prepare, 0), true);
+  prepare();
+  // PHOTO-꾹누르기메뉴(S49-18): 사진을 꾹 누르면(PC는 우클릭) Web2 작은 메뉴 하나(strip과 같은 부품).
+  attachPhotoLongPress(box, {
+    photoAt:target => !!target?.closest?.('.basket-photo-stage .diary-photo') && !target.closest('button,a'),
+    open:(x, y) => {
+      const el = stage.querySelector('.diary-photo'), name = String(box.querySelector('.basket-photo-name')?.textContent || '');
+      if (!el || current?.box !== box) return;
+      const nameOf = blob => (/\.(jpe?g|png|gif|webp)$/i.test(name) ? name : `사진.${/png/.test(blob.type) ? 'png' : /webp/.test(blob.type) ? 'webp' : /gif/.test(blob.type) ? 'gif' : 'jpg'}`);
+      const alive = () => current?.box === box && stage.querySelector('.diary-photo') === el;
+      const note = (text, ms = 0) => { if (text && text !== PHOTO_WAIT_MARK) notify(text, {ms}); };
+      shareFrom(pointAnchor(box, x, y), {count:1, note, getFiles:() => photoFilesFor(el, nameOf, {alive, note}), native:() => sharePhotoElement(el, nameOf, {alive, note})}, {wide:true});
+    }});
   current = {box, trigger, layer: window.KPTURouter?.layer?.open('basket-photo', {close: () => { closePhotoView({fromBack: true}); return true; }}) || null};
   box.querySelector('[data-basket-photo-close]').focus();
   return true;

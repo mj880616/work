@@ -52,7 +52,15 @@ export async function pngBlob(blob, {createBitmap = globalThis.createImageBitmap
 }
 
 // [사진 복사] 한 번. 돌려주는 값: 'copied' · 'unsupported'(클립보드 쓰기 없음) · 'none'(바이트 없음) · 'failed'(브라우저가 거절).
-export async function copyImage(getBlob, {nav = globalThis.navigator, Item = globalThis.ClipboardItem, toPng = pngBlob} = {}) {
+export async function copyImage(getBlob, {nav = globalThis.navigator, Item = globalThis.ClipboardItem, toPng = pngBlob, app = appShare()} = {}) {
+  // PHOTO-꾹누르기메뉴(S49-18): 폰 앱(WebView)은 clipboard.write가 없거나 막혀 있어 앱 다리로 안드로이드 클립보드에 그림을 넣는다.
+  if (app?.known?.()) {
+    let file = null;
+    try { file = await getBlob(); } catch { file = null; }
+    if (!file) return 'none';
+    const r = await app.copy(file);
+    return r === 'copied' ? 'copied' : r === 'none' ? 'none' : 'failed';
+  }
   if (typeof nav?.clipboard?.write !== 'function' || typeof Item !== 'function') return 'unsupported';
   let empty = false;
   const png = Promise.resolve().then(getBlob).then(blob => { if (!blob) { empty = true; throw new Error('none'); } return toPng(blob); })
