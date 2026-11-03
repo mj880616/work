@@ -36,6 +36,8 @@ export const SYNC_BUDGET_MS = 8000;
 export const SYNC_MAX_PAGES = 15;
 // 응답에 싣는 바뀐 줄 상한. 넘으면 reload:true(화면이 지금 폴더를 다시 읽음).
 export const CHANGED_MAX = 1000;
+// 폴더 직접 읽기: 클라우드 쪽 상한(원드라이브 200개×쪽, 구글 1000개×쪽).
+const FOLDER_MAX_PAGES = 10;
 const UPSERT_CHUNK = 500, IN_CHUNK = 100, MAX_DELETE_DEPTH = 40;
 const OD_SELECT = "id,name,size,file,folder,root,deleted,parentReference,lastModifiedDateTime,createdDateTime";
 const GD_FIELDS = "id,name,mimeType,parents,size,modifiedTime,createdTime,md5Checksum,trashed,ownedByMe";
@@ -897,6 +899,71 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       const bytes = r.ok ? new Uint8Array(await r.arrayBuffer()) : new Uint8Array();
       if (!/^image\/(jpeg|png|webp|gif)$/.test(type) || !bytes.length || bytes.length > MAX_IMAGE) throw new Fail(502, "thumb_unavailable");
       return new Response(bytes, { headers: { ...cors, "Content-Type": type, "Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff" } });
+    },
+    // 폴더 하나를 클라우드에서 바로 읽어 색인에 합친다(S48-65). 색인이 덜 찼거나 놓친 파일이 있어도 폴더를 열면 빈 화면이 되지 않게.
+    // 읽기만 한다(클라우드에 쓰지 않음). 지우지도 않는다(지워진 것은 따라가기·처음 훑기가 뺌). 폴더는 색인 안 폴더이거나 맨 위(id 없음)만.
+    async folder({ workspaceId: ws, body: b }) {
+      if (!isSource(b.source)) throw new Fail(400, "source_invalid");
+      const source = b.source;
+      const parent = b.id === undefined || b.id === null ? null : b.id;
+      if (parent !== null && (!isItemId(parent) || (source === "gd" && !isGdId(parent)))) throw new Fail(400, "id_invalid");
+      if (parent !== null) await indexed(ws, source, parent as string, true);
+      const token = await tokenFor(ws, source);
+      const stamp = at();
+      const list: Record<string, unknown>[] = [];
+      let truncated = false;
+      if (source === "od") {
+        const root = await cloudJson("od_root", token, `${GRAPH}/me/drive/root?$select=id`);
+        if (!validItemId(root.id)) throw new Fail(502, "cloud_unavailable");
+        let url: string | null = parent === null
+          ? `${GRAPH}/me/drive/root/children?$select=${OD_SELECT}&$top=200`
+          : `${GRAPH}/me/drive/items/${encodeURIComponent(parent as string)}/children?$select=${OD_SELECT}&$top=200`;
+        for (let page = 0; url && page < FOLDER_MAX_PAGES; page++) {
+          const safe = safeGraph(url);
+          if (!safe) throw new Fail(502, "cloud_unavailable");
+          const d = await cloudJson("od_children", token, safe);
+          for (const it of Array.isArray(d.value) ? d.value as Record<string, unknown>[] : []) {
+            const row = odRow(ws, root.id as string, it, stamp);
+            if (row && (row.parent_id ?? null) === parent) list.push(row);
+          }
+          url = safeGraph(d["@odata.nextLink"]);
+        }
+        truncated = !!url;
+      } else {
+        const root = await cloudJson("gd_root", token, `${DRIVE}/files/root?fields=id`);
+        if (!isGdId(root.id)) throw new Fail(502, "cloud_unavailable");
+        const pid = parent === null ? (root.id as string) : (parent as string);
+        let pageToken = "";
+        for (let page = 0; page < FOLDER_MAX_PAGES; page++) {
+          const u = new URL(`${DRIVE}/files`);
+          u.searchParams.set("q", `'${pid}' in parents and 'me' in owners and trashed=false`);
+          u.searchParams.set("spaces", "drive");
+          u.searchParams.set("pageSize", "1000");
+          u.searchParams.set("fields", `nextPageToken,files(${GD_FIELDS})`);
+          if (pageToken) u.searchParams.set("pageToken", pageToken);
+          const d = await cloudJson("gd_children", token, u.toString());
+          for (const f of Array.isArray(d.files) ? d.files as Record<string, unknown>[] : []) {
+            const row = gdRow(ws, root.id as string, f, stamp);
+            if (row && (row.parent_id ?? null) === parent) list.push(row);
+          }
+          pageToken = typeof d.nextPageToken === "string" && d.nextPageToken.length < 3990 ? d.nextPageToken : "";
+          if (!pageToken) break;
+          if (page === FOLDER_MAX_PAGES - 1) truncated = true;
+        }
+      }
+      // 이미 색인에 같은 값으로 있는 줄은 되돌려 주지 않는다(바뀐 것·새로 찾은 것만 → 화면이 빈틈을 알아챔).
+      const same = (r: Record<string, unknown>) =>
+        [r.name, r.parent_id ?? "", r.trashed, r.modified_at ? Date.parse(String(r.modified_at)) : "", r.mime ?? "", r.size_bytes ?? "", r.hash ?? ""].join("|");
+      const have = new Map<string, string>();
+      for (let i = 0; i < list.length; i += IN_CHUNK) {
+        const ids = list.slice(i, i + IN_CHUNK).map((r) => String(r.item_id));
+        for (const r of await rows("folder_have", `app_cloud_items?workspace_id=eq.${ws}&source=eq.${source}&item_id=${inList(ids)}&select=item_id,name,parent_id,trashed,modified_at,mime,size_bytes,hash`)) {
+          have.set(String(r.item_id), same(r));
+        }
+      }
+      const fresh = list.filter((r) => have.get(String(r.item_id)) !== same(r));
+      await upsertRows("folder_upsert", list);
+      return json({ ok: true, found: list.length, added: fresh.length, truncated, changed: fresh.slice(0, CHANGED_MAX).map(pickRow), reload: fresh.length > CHANGED_MAX });
     },
     // 원본(서버 중계, Range 그대로). 색인 안 파일만. 그림·동영상·소리·PDF·글만 그 종류로, 나머지는 받기로.
     async media({ workspaceId, body: b, req }) {

@@ -106,7 +106,9 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
     if(u.searchParams.get('addParents')){assert.deepEqual(u.searchParams.get('removeParents').split(','),f.parents);f.parents=[u.searchParams.get('addParents')];}
     return ok({...f});}
    if(wm&&u.searchParams.get('fields')==='parents,ownedByMe'){const f=gdFile(wm[1]);return ok({parents:f.parents,ownedByMe:f.ownedByMe});}
-   if(P==='/files'){assert.equal(u.searchParams.get('q'),"'me' in owners and trashed=false");const tok=u.searchParams.get('pageToken');const i=tok?Number(tok):0;
+   if(P==='/files'&&/ in parents/.test(u.searchParams.get('q')||'')){const m=/^'([^']+)' in parents and 'me' in owners and trashed=false$/.exec(u.searchParams.get('q'));assert.ok(m,'children q');
+    return ok({files:(gd.children||[]).filter(f=>f.parents[0]===m[1])});}
+   if(P==='/files'){assert.equal(u.searchParams.get('q'),"'me' in owners and trashed=false");const tok=u.searchParams.get('pageToken');const i=tok?Number(tok):0;gd.callMs&&(clock+=gd.callMs);
     return ok({files:gd.pages[i],...(i+1<gd.pages.length?{nextPageToken:String(i+1)}:{})});}
    if(P==='/changes'){assert.equal(u.searchParams.get('restrictToMyDrive'),'true');if(u.searchParams.get('pageToken')==='bad')return ok({error:{}},400);
     return ok({changes:gd.changes,newStartPageToken:'101'});}
@@ -120,8 +122,12 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    assert.equal(h.Authorization,'Bearer '+OD_ACCESS);
    const P=u.pathname.replace('/v1.0','');
    if(P==='/me/drive/root')return ok({id:od.root});
+   if(/\/children$/.test(P)&&method==='GET'){const par=/items\/([^/]+)\/children/.exec(P)?.[1];const pid=par?decodeURIComponent(par):od.root;
+    return ok({value:(od.children||[]).filter(x=>x.parentReference.id===pid)});}
    if(P==='/me/drive/root/delta'){
     if(u.searchParams.get('token')==='expired'){if(od.gone410){od.gone410=false;return ok({error:{code:'resyncRequired'}},410);}}
+    if(od.multi){od.callMs&&(clock+=od.callMs);const tk=u.searchParams.get('token')||'p0',n=Number(tk.slice(1));
+     if(tk.startsWith('p'))return ok({value:od.multi[n],...(n+1<od.multi.length?{'@odata.nextLink':'https://graph.microsoft.com/v1.0/me/drive/root/delta?token=p'+(n+1)}:{'@odata.deltaLink':'https://graph.microsoft.com/v1.0/me/drive/root/delta?token=later'})});}
     if(u.searchParams.get('token')==='later')return ok({value:od.next,'@odata.deltaLink':'https://graph.microsoft.com/v1.0/me/drive/root/delta?token=later'});
     return ok({value:od.pages[0],'@odata.deltaLink':'https://graph.microsoft.com/v1.0/me/drive/root/delta?token='+(od.gone410?'expired':'later')});
    }
@@ -436,4 +442,48 @@ test('deploy table: cloud-files registered once with verify_jwt true, first depl
  const rows=read('docs/web2-env6b-edge-source.md').split('\n').filter(l=>/^\| \d+ \| `cloud-files` \|/.test(l));
  assert.equal(rows.length,1);
  assert.match(rows[0],/\| 배포 대기 \| 없음 \| \*\*true\*\* \|/);
+});
+
+// S48-65: 쪽이 3개 넘게 이어지는 큰 드라이브(시간 상한으로 끊겨 여러 번 이어 받기)도 끝까지 훑는지.
+const sampleOd=(pages,per)=>Array.from({length:pages},(_,p)=>Array.from({length:per},(_,i)=>{const n=p*per+i;
+ return n%5===0?{id:'F'+n+'!1',name:'폴더'+n,folder:{childCount:1},parentReference:{id:'ODROOT!1'}}
+  :{id:'X'+n+'!1',name:'파일'+n+'.txt',size:10,file:{mimeType:'text/plain',hashes:{sha1Hash:'B'.repeat(40)}},parentReference:{id:'F'+(n-n%5)+'!1'}};}));
+test('onedrive: 5-page drive is scanned to the end across resumed calls (budget cut), no page skipped, nothing swept',async()=>{
+ const w=world();w.od.multi=sampleOd(5,10);w.od.callMs=3000;
+ let calls=0,last;
+ do{last=(await j(await w.post({action:'sync',source:'od'}))).body.od;calls++;w.tick(1000);}while(last.more&&calls<10);
+ assert.ok(calls>1,'시간 상한으로 여러 번에 나눠 받음');assert.equal(last.done,true);
+ assert.equal(w.db.items.filter(x=>x.source==='od').length,50);
+ assert.ok(w.db.sync.find(x=>x.source==='od').index_done_at);assert.equal(w.db.sync.find(x=>x.source==='od').next_page,null);
+});
+test('google: 5-page drive is scanned to the end across resumed calls (budget cut)',async()=>{
+ const w=world();w.gd.callMs=3000;
+ w.gd.pages=Array.from({length:5},(_,p)=>Array.from({length:10},(_,i)=>{const n=p*10+i;
+  return n%5===0?{id:'GF'+n,name:'폴더'+n,mimeType:'application/vnd.google-apps.folder',parents:['ROOTG'],ownedByMe:true}
+   :{id:'GX'+n,name:'파일'+n,mimeType:'text/plain',parents:['GF'+(n-n%5)],size:'3',ownedByMe:true};}));
+ let calls=0,last;
+ do{last=(await j(await w.post({action:'sync',source:'gd'}))).body.gd;calls++;w.tick(1000);}while(last.more&&calls<10);
+ assert.ok(calls>1);assert.equal(last.done,true);
+ assert.equal(w.db.items.filter(x=>x.source==='gd').length,50);
+});
+
+test('folder: 폴더만 클라우드에서 바로 읽어 색인에 합침 — 새로 찾은 줄만 돌려주고, 색인 밖 폴더·남의 파일은 거절/제외',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const before=w.db.items.length;
+ w.od.children=[{id:'OX!3',name:'회의.docx',size:900,file:{mimeType:'text/plain',hashes:{}},parentReference:{id:'OF!2'}},
+  {id:'ONEW!5',name:'새 파일.txt',size:7,file:{mimeType:'text/plain',hashes:{sha1Hash:'C'.repeat(40)}},parentReference:{id:'OF!2'}}];
+ const r=await j(await w.post({action:'folder',source:'od',id:'OF!2'}));
+ assert.equal(r.status,200);assert.equal(r.body.found,2);assert.equal(r.body.added,2,'OX!3은 이름은 같아도 수정 시각 칸이 달라져 바뀐 줄로 봄');
+ assert.ok(w.db.items.find(x=>x.item_id==='ONEW!5'));assert.equal(w.db.items.length,before+1);
+ const again=await j(await w.post({action:'folder',source:'od',id:'OF!2'}));
+ assert.equal(again.body.added,0,'두 번째는 새로 찾은 것 없음');
+ w.gd.children=[{id:'GNEW2',name:'직접 읽은.txt',mimeType:'text/plain',parents:['GF1'],ownedByMe:true,size:'4'},{id:'GOTHER',name:'남의것',mimeType:'text/plain',parents:['GF1'],ownedByMe:false}];
+ const g=await j(await w.post({action:'folder',source:'gd',id:'GF1'}));
+ assert.equal(g.body.found,1);assert.ok(w.db.items.find(x=>x.item_id==='GNEW2'));assert.ok(!w.db.items.find(x=>x.item_id==='GOTHER'));
+ const bad=await j(await w.post({action:'folder',source:'gd',id:'NOT_INDEXED'}));
+ assert.equal(bad.status,404);
+ assert.equal((await j(await w.post({action:'folder',source:'od',id:'bad id!'}))).status,400);
+ assert.equal((await j(await w.post({action:'folder',source:'od',id:'OF!2'},JWT2))).status>=400,true,'다른 사용자 거절');
+ assert.ok(!w.calls.some(c=>['POST','PATCH','DELETE','PUT'].includes(c.method)&&['graph.microsoft.com','www.googleapis.com'].includes(c.host)),'클라우드에는 쓰지 않음');
 });
