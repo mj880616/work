@@ -233,7 +233,9 @@ test('an already filed memo (no record link) is not 미분류 on load, and follo
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 2');
  // UI-바구니거르기: it leaves [분류] and is back in [미분류].
  await expect(only).toHaveCount(0);
- await page.locator('[data-basket-filter="unclassified"]').click();await expect(only.locator('.basket-row')).toContainText('미분류');
+ await page.locator('[data-basket-filter="unclassified"]').click();await expect(only.locator('.basket-row')).toBeVisible();
+ // UI-화면정리 C4(S48-46): [미분류] 칩을 고른 동안은 줄에 '미분류'를 또 쓰지 않는다(칩이 이미 말함).
+ await expect(only.locator('.basket-row')).not.toContainText('미분류');
  expect(f.calls('app_documents','PATCH')).toEqual([]);
  expect(f.errors).toEqual([]);
 });

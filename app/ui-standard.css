@@ -1032,16 +1032,18 @@
 #appView #basketView .note-row-item > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
 #appView #basketView .note-row-item:has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
 #appView #basketView button:is([data-note-row-more],[data-basket-row-more]){ font-size:22px; line-height:1; }
-/* UI-업데이트목록메뉴: 업데이트 줄도 오른쪽 위에 [복사]·[⋯](각 44px). 복사할 글이 없으면 [복사]만 빠지고 [⋯]는 그 자리 그대로. */
-#appView #basketView .basket-row-item:has(> [data-basket-row-more]) > button.basket-row-copy{ right:var(--kptu-touch-target,44px); }
-#appView #basketView .basket-row-item:has(> [data-basket-row-more]) > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
-#appView #basketView .basket-row-item:has(> [data-basket-row-more]):has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
+/* UI-업데이트목록메뉴 → UI-화면정리 C4(S48-46): 업데이트 줄은 오른쪽 위 [⋯](44px) 하나. 줄의 [복사] 아이콘은 없고 [복사]는 ⋯·우클릭 메뉴 맨 위(노트 줄과 같음),
+   줄 글은 ⋯ 바로 왼쪽까지(위 .basket-row-item > .basket-row 48px). PC(마우스)는 노트 줄처럼 마우스를 올리거나 키보드로 갔을 때만 ⋯가 보인다(누르는 자리는 그대로). */
+@media (hover:hover) and (pointer:fine){
+  #appView #basketView #basketRows .basket-row-item > button.basket-row-more{ opacity:0; transition:opacity .12s; }
+  #appView #basketView #basketRows .basket-row-item:is(:hover,:focus-within) > button.basket-row-more,
+  #appView #basketView #basketRows .basket-row-item > button.basket-row-more[aria-expanded="true"]{ opacity:1; }
+}
 /* UI-모바일노트복사메뉴: 폰(760px 이하)에서는 목록 줄의 [복사] 버튼을 없애고(⋯ 메뉴 맨 위 [복사]로 이동), 줄 글은 ⋯ 바로 왼쪽까지 넓게 쓴다. ⋯ 아래 세로 줄은 비워 둔다. PC는 그대로. */
 @media(max-width:760px){
   #appView #basketView .basket-row-item > button.basket-row-copy{ display:none; }
   #appView #basketView .basket-row-item > .basket-row,
-  #appView #basketView .note-row-item > .basket-row,
-  #appView #basketView .basket-row-item:has(> [data-basket-row-more]) > .basket-row{ padding-right:48px; }
+  #appView #basketView .note-row-item > .basket-row{ padding-right:48px; }
 }
 #appView #basketView .note-row-item + .note-row-item{ border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #basketView .note-row .basket-title{ display:flex; align-items:center; gap:6px; min-width:0; }
