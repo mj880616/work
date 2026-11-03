@@ -97,7 +97,8 @@ test('DESK-전체현황표 화면 연결: 소탭 [목록|전체 표]는 org-over
   assert.match(so, /import\('\.\/org-overview\.js'\)/);
   assert.match(ov, /data-so-view="list"[^>]*>목록</);assert.match(ov, /data-so-view="table"[^>]*>전체 표</);
   assert.match(ov, /import \{[^}]*patchStatusRow[^}]*createStatusRow[^}]*\} from '\.\/org-status-table\.js'/);
-  assert.doesNotMatch(ov, /app_org_status_rows|localStorage|sessionStorage/);
+  assert.doesNotMatch(ov, /app_org_status_rows/);
+  assert.doesNotMatch(ov, /\b(?:local|session)Stor/, '브라우저 저장소를 쓰지 않는다');
   assert.match(ov, /name: 'orgall'/);assert.match(st, /name: 'orgst'/);
   assert.match(st, /<textarea data-st-field="body"/, '고치기 칸은 늘어나는 여러 줄 칸');
   assert.doesNotMatch(st, /data-reorder-handle>⠿/, '⠿ 손잡이 버튼과 [고치기] 버튼 칸은 없다');
