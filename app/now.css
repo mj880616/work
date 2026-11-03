@@ -2,7 +2,7 @@
    + [보관] 탭(now-saved.js) + 관심 주제 칸(now-interests.js). 콤팩트·톤다운(색은 theme-tokens.css 토큰만), 제목 16px·본문 13~14px·꼬리 12px. */
 
 /* 껍데기: 폰·중간 폭은 한 칸(상세가 열리면 목록 대신 상세 전체 화면), PC(761px~)는 목록 | 상세 두 칸(split-resize.js가 --ds-split-* fr 값). */
-#appView #outsideView .os.now{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px; max-width:none; align-items:start; }
+#appView #outsideView .os.now{ display:grid; grid-template-columns:minmax(0,1fr); gap:4px 12px; max-width:none; align-items:start; }
 #appView #outsideView .now-main{ display:flex; flex-direction:column; gap:4px; min-width:0; max-width:860px; }
 #appView #outsideView .now-detail{ display:none; min-width:0; }
 #appView #outsideView .os.now[data-detail="open"] > .now-detail{ display:block; }
@@ -12,7 +12,15 @@
   #appView #outsideView .now-main,#appView #outsideView .os.now[data-detail="open"] > .now-main{ display:flex; max-width:none; }
   #appView #outsideView .now-detail{ display:block; position:sticky; top:8px; max-height:calc(100vh - 16px); overflow:auto; padding-left:12px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
   #appView #outsideView .nd-back{ display:none; }
+  /* UI-Now PC정돈: 탭 줄은 두 칸 위로 가로 전체(아래선이 왼쪽 칸에서만 끊기지 않게). 상세가 안 열린 때(글 없는 탭 포함)는 안내 상자 없이 목록이 폭 전체를 쓴다. */
+  #appView #outsideView .os.now > .os-tabs{ grid-column:1 / -1; }
+  #appView #outsideView .os.now[data-detail="closed"]{ grid-template-columns:minmax(0,1fr); }
+  #appView #outsideView .os.now[data-detail="closed"] > .now-detail{ display:none; }
+  /* [문장 찾기] 거르기 줄: 넓은 화면에서는 기간 | 묶음 | 찾기 방식을 엷은 세로선으로 나눠 한 줄로(좁으면 줄바꿈) */
+  #appView #outsideView .osq-filters{ display:flex; flex-wrap:wrap; align-items:center; row-gap:4px; }
+  #appView #outsideView .osq-filters > .osq-row + .osq-row{ margin-left:8px; padding-left:8px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
 }
+@media(max-width:760px){ #appView #outsideView .os.now[data-detail="open"] > .os-tabs{ display:none; } }
 #appView #outsideView [data-now-panel-news][hidden],#appView #outsideView [data-now-panel-saved][hidden],#appView #outsideView .now-interests[hidden],#appView #outsideView .now-cand[hidden]{ display:none; }
 #appView #outsideView .now-cand{ display:flex; align-items:center; gap:8px; margin:2px 0 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 

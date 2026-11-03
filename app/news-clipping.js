@@ -224,7 +224,7 @@ function paint() {
   const list = $('[data-nc-list]'), panel = $('[data-nc-panel]');
   if (state.mode === 'keywords') { panel.innerHTML = keywordsHtml(); list.replaceChildren(); }
   else if (state.mode === 'sources') { panel.innerHTML = sourcesHtml(); list.replaceChildren(); }
-  else { list.innerHTML = listHtml(); panel.replaceChildren(); }
+  else { list.innerHTML = listHtml(); panel.replaceChildren(); now()?.listed?.(); }
 }
 // 기사 한 줄만 다시 그린다(다른 줄의 펼침·스크롤은 그대로).
 function paintItem(id) {

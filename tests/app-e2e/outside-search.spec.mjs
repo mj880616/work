@@ -77,7 +77,8 @@ for (const width of [412, 1280]) {
     await expect(root.getByRole('tab', { name: '문장 찾기' })).toHaveAttribute('aria-selected', 'true');
     await expect(root.locator('[data-os-panel-new]')).toBeHidden();
     const box = root.locator('[data-os-search]');
-    await expect(box.locator('[data-osq-empty="start"]')).toBeVisible();
+    await expect(box.locator('[data-osq-empty="start"]')).toHaveCount(0); // 안내 문구는 입력칸 흐린 글자와 같아 뺐다
+    await expect(box.locator('[data-osq-input]')).toHaveAttribute('placeholder', '찾을 낱말·문장');
     await expect(box.locator('[data-osq-period]')).toHaveText(['1달', '6달', '1년', '전체', '날짜']);
     await expect(box.locator('[data-osq-chip]')).toHaveText(['전체', '노동', '정당']);
     expect(s.calls.filter(c => c.what === 'search')).toHaveLength(0);

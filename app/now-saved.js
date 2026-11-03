@@ -14,7 +14,7 @@ const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetch
 const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id';
 
 // describe(type, row) → {meta, title, ...} 상세 머리(Now 껍데기가 준다). onOpen(item, head).
-export function createNowSaved({box, describe, topics = () => [], onOpen, selected = () => '', onChanged} = {}) {
+export function createNowSaved({box, describe, topics = () => [], onOpen, selected = () => '', onChanged, onListed} = {}) {
   let rows = [], loaded = false, failed = false, chip = 'all', seq = 0;
   async function load() {
     const w = workspaceOf(), my = ++seq;
@@ -42,6 +42,7 @@ export function createNowSaved({box, describe, topics = () => [], onOpen, select
       const marks = `${r.star ? '<span class="ns-mark">★</span>' : ''}${r.archive ? '<span class="ns-mark">보관</span>' : ''}`;
       return `<article class="now-row ns-row${sel === itemKey(r) ? ' is-open' : ''}" data-ns-row="${esc(itemKey(r))}"><p class="os-meta"><span class="ns-side">${r.type === 'news' ? '뉴스' : '사회운동'}</span>${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${marks}</p><h4 class="os-title"><button type="button" class="now-open" data-ns-open="${esc(itemKey(r))}">${esc(h.title)}</button></h4>${h.lead ? `<p class="os-lead">${esc(h.lead)}</p>` : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}${hoverActsHtml({saved: true})}</article>`;
     }).join('')}</div>`;
+    onListed?.();
   }
   box?.addEventListener('click', event => {
     const b = event.target.closest('button');

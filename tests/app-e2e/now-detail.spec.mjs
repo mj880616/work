@@ -104,9 +104,10 @@ for (const width of [412, 1280]) {
     await expect.poll(() => server.calls.some(c => c.what === 'ai' && c.body?.kind === 'now_interests')).toBe(true);
     expect(server.calls.find(c => c.body?.kind === 'now_interests').body).toEqual({ kind: 'now_interests' });
 
-    // PC는 처음부터 오른쪽 상세 칸(빈 안내 한 줄) + 폭 끌기 경계, 폰은 상세 칸이 없다.
+    // PC는 목록 맨 위 글이 바로 열려 빈 안내 칸이 없고(UI-Now PC정돈) 폭 끌기 경계가 있다, 폰은 상세 칸이 없다.
     if (width > 760) {
-      await expect(detail(page).locator('[data-nd-empty]')).toBeVisible();
+      await expect(detail(page).locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대');
+      await expect(detail(page).locator('[data-nd-empty]')).toHaveCount(0);
       await expect(root(page).locator('.split-resize-handle')).toHaveCount(1);
     } else await expect(detail(page)).toBeHidden();
 

@@ -44,8 +44,8 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="outsideView" class="view-panel hidden" aria-labelledby="osTitle">
 <h2 id="osTitle" class="screen-title">Now</h2>
 <div id="outsideRoot" class="os now" data-mode="list" data-tab="outside" data-detail="closed">
-<div class="now-main" id="nowMain">
 <div class="os-tabs" role="tablist" aria-label="Now 보기" data-os-tabs>${TABS_HTML}</div>
+<div class="now-main" id="nowMain">
 <p class="now-cand" data-now-cand hidden></p>
 <div id="osPanelNew" role="tabpanel" aria-labelledby="osTab-outside" data-os-panel-new>
 <p class="os-when" data-os-when hidden></p>
@@ -140,7 +140,7 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
   onRead: (item, row) => { const c = detail.current(); if (c && itemKey(c) === itemKey(item)) detail.setHead(describe('news', row)); window.KPTUNews?.refresh?.(); },
   onRelated: r => openRelated(r)});
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, topics: () => interests.topics(),
-  onOpen: (item, head) => openDetail(item, head), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
+  onOpen: (item, head) => openDetail(item, head), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; }, onListed: () => autoOpenTop(),
   onChanged: item => { if (item.type === 'news') window.KPTUNews?.refresh?.(); else loadMarks().then(() => { if (state.mode === 'list' && state.tab === 'outside') paintList(); }); }});
 const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { paintCand(); if (state.mode === 'list' && state.tab === 'outside') paintList(); detail.paint(); }});
 // 환류 기록이 쌓이면 서버가 후보를 만들지 정한다(10건 또는 저녁 6시 뒤 그날 처음 — 서버 규칙, AI를 안 부르면 한도도 안 씀). 화면은 1분에 한 번만 묻는다.
@@ -154,6 +154,7 @@ function openDetail(item, head) {
   if (!item || !head) return;
   detail.open(item, head);
   if (root) root.dataset.detail = 'open';
+  mountSplit();
   // 폰(좁은 화면): 상세가 전체 화면 — 뒤로가기 한 번 = 목록(라우터 겹). PC·폴드 펼침은 오른쪽 칸이라 겹 없음.
   if (!PC.matches) { detailLayer ||= window.KPTURouter?.layer?.open('now-detail', {reopen: () => openDetail(item, head), close: () => { detailLayer = null; closeDetail({fromLayer: true}); return true; }}) || null; window.scrollTo({top: 0, behavior: 'instant'}); }
   markOpen();
@@ -162,6 +163,7 @@ function closeDetail({fromLayer = false} = {}) {
   const was = detail.current();
   detail.close();
   if (root) root.dataset.detail = 'closed';
+  mountSplit();
   if (!fromLayer) { const l = detailLayer; detailLayer = null; l?.close(); }
   markOpen();
   if (was) root?.querySelector(`[data-now-open="${CSS.escape(was.id)}"], [data-nc-open="${CSS.escape(was.id)}"], [data-ns-open="${CSS.escape(itemKey(was))}"]`)?.focus({preventScroll: true});
@@ -194,7 +196,7 @@ function mountSplit() {
   mountSplitResize({container: root, name: 'now', label: '목록과 상세 칸 폭 조절', columns: [
     {el: () => mainBox, varName: '--ds-split-list', minVar: '--ds-split-list-min', minFallback: 320, share: 3, id: 'nowMain'},
     {el: () => detailBox, varName: '--ds-split-detail', minVar: '--ds-split-detail-min', minFallback: 320, share: 2},
-  ], active: () => PC.matches && root.isConnected && !document.getElementById('outsideView')?.classList.contains('hidden')});
+  ], active: () => PC.matches && root.dataset.detail === 'open' && root.isConnected && !document.getElementById('outsideView')?.classList.contains('hidden')});
 }
 
 // ---------- 관심 주제 칸(같은 화면 안, 뒤로가기 한 번 = 목록) ----------
@@ -304,7 +306,7 @@ function setTab(tab, {focus = false, save = true} = {}) {
   const changed = state.tab !== tab;
   state.tab = tab; state.tabSet = true;
   paintTabs();
-  if (changed && tab === 'search') search.paint();
+  if (changed && tab === 'search') { if (detail.current() && PC.matches) closeDetail(); search.paint(); }
   if (changed && tab === 'news') window.KPTUNews?.enter?.();
   if (changed && tab === 'saved') { saved.paint(); saved.load(); }
   if (save && viewPrefs.get('now_tab') !== tab) { viewPrefs.set('now_tab', tab, {rejectable: true}); void viewPrefs.flush?.(); }
@@ -350,7 +352,17 @@ function paint() {
   else { list.innerHTML = state.mode === 'list' ? listHtml() : ''; sources.replaceChildren(); }
   mountSplit();
 }
-function paintList() { const list = $('[data-os-list]'); if (list && state.mode === 'list') list.innerHTML = listHtml(); }
+function paintList() { const list = $('[data-os-list]'); if (list && state.mode === 'list') { list.innerHTML = listHtml(); autoOpenTop(); } }
+// UI-Now PC정돈(명진 11/03 09:39): PC·폴드 펼침에서 상세 칸이 비어 안내문만 있지 않게 — 목록이 보이면 맨 위 글을 바로 연다(탭마다 이 화면에 들어온 뒤 한 번,
+// 닫으면 다시 열지 않음). 글이 없는 탭([문장 찾기]·빈 목록)은 상세 칸을 열지 않고 목록이 폭을 쓴다(CSS가 data-detail="closed"일 때 한 칸).
+const autoOpened = new Set();
+function autoOpenTop() {
+  if (!PC.matches || state.mode !== 'list' || detail.current() || autoOpened.has(state.tab)) return;
+  const sel = {outside: '[data-os-list] .now-open', news: '[data-nc-list] .now-open', saved: '.now-saved-list .now-open'}[state.tab];
+  const btn = sel && root?.querySelector(sel);
+  if (!btn) return;
+  autoOpened.add(state.tab); btn.click();
+}
 // 펼친 본문 한 칸만 다시 그린다(같은 그리기 함수, 다른 글의 펼침·스크롤은 그대로).
 function paintBody(id) {
   const p = state.posts.find(x => x.id === id), box = root?.querySelector(`[data-os-body="${CSS.escape(id)}"]`);
@@ -617,7 +629,7 @@ bindNowRows(root?.querySelector('[data-os-list]'), {row: '[data-os-post]', itemO
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'outside') return;
   // 다른 화면으로 가면 켜고 끄기 칸은 닫힌 것으로(라우터가 그 화면의 겹을 정리한다). 다음에 들어오면 목록부터, 새 표시는 다시 읽는다.
-  layer = null; detailLayer = null; interestsLayer = null;
+  layer = null; detailLayer = null; interestsLayer = null; autoOpened.clear();
   if (state.mode !== 'list') { state.mode = 'list'; listDirty = false; }
   state.seenRead = false; state.open.clear();
   if (detail.current()) { detail.close(); if (root) root.dataset.detail = 'closed'; }
@@ -630,7 +642,7 @@ window.addEventListener('kptu:view-prefs-ready', () => {
 window.KPTUOutside = {refresh: () => load(), showNew: () => setTab('outside')}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js)
 // [뉴스] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭.
 window.KPTUNow = {
-  open: (item, head) => openDetail(item, head), describe, topics: () => interests.topics(), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
+  open: (item, head) => openDetail(item, head), listed: () => autoOpenTop(), describe, topics: () => interests.topics(), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
   signaled: () => askInterests(), tab: () => state.tab, openInterests: () => openInterests(),
 };
 if (window.KPTURouter?.current === 'outside') enter();
