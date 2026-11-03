@@ -462,7 +462,10 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 �
   const viewer = root(page).locator('[data-diary-viewer]');
   await expect(viewer).toBeVisible();
   const act = await measureActBar(page, '#photosRoot [data-diary-viewer] .diary-viewer-actions');
-  checkActBar(act, check, `크게 보기 줄 ${width}`);
+  // S49-23: 크게 보기 줄도 고르기 줄 목록(9개 안팎)이라 폭 412에서는 칸 몫(≈44px)보다 긴 이름([업데이트])의 칸만 글자 폭만큼 넓다(공용 규칙 min-width:min-content).
+  // 그 한 칸 말고는 같은 폭이고, 칸이 더 많아지면 줄이 옆으로 밀린다(overflow-x:auto) — 폭이 넉넉한 폭에서는 예전처럼 모두 같다.
+  const viewerCheck = (a, e, l) => { if (/칸 폭 같음/.test(l) && act.n >= 9) { expect(act.widthSpread, l).toBeLessThanOrEqual(6); return; } check(a, e, l); };
+  checkActBar(act, viewerCheck, `크게 보기 줄 ${width}`);
   if (act.maxWidth < 119.5) { expect(act.leftGap).toBeLessThanOrEqual(6); expect(act.rightGap).toBeLessThanOrEqual(6); }
   else expect(Math.abs(act.leftGap - act.rightGap)).toBeLessThanOrEqual(2);
   expect(act.svgCount, '선 아이콘 버튼(일기·업데이트·앨범은 글자 모양 아이콘)').toBe(act.n - 3);
