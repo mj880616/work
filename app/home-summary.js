@@ -6,7 +6,7 @@
 // - 업데이트 입력줄: home-quick.js 그대로([업데이트 ▾ | 할 일], 폰은 하단 탭 위 고정). 고르기 시트 목록 읽기(dependencies)만 여기서 준다.
 // - 챙길 것 찾기(D7): 이 탭에서 그날 처음 홈을 열 때 서버에 한 번(todo-radar.js autoFindToday).
 // 이 파일이 요약 줄의 유일한 renderer다. 기기 저장 없음.
-import {readInboxCount} from './inbox-count.js';
+import {readInboxCount, readInboxParts} from './inbox-count.js';
 import {readRecordPages} from './basket-link-records.js';
 import {mountQuick} from './home-quick.js';
 import {autoFindToday} from './todo-radar.js';
@@ -48,10 +48,11 @@ export function mountHomeSummary({root, line, rt = window.KPTURuntime, onTasksCh
       + `<span class="home-summary-rest"> · 챙길 것 <span data-home-summary-todos>${parts.todos}</span> · 정리 안 된 것 <span data-home-summary-unsorted>${parts.unsorted}</span> ›</span></button>`
       + (promises > 0 ? `<span class="home-summary-sep" aria-hidden="true"> · </span><button type="button" class="home-summary-open home-summary-promise" data-goto="ledger" data-home-summary-promises aria-label="${esc(`내일 약속 ${promises}. 원장 열기`)}">내일 약속 ${promises} ›</button>` : '');
   }
-  async function refresh() {
+  // early: 들어올 때 미리 시작한 읽기(PERF-첫로딩 요청 합치기, S48-59). 빼야 할 할 일 제목은 할 일을 읽은 뒤에야 알므로 세기만 그 뒤에 한다.
+  async function refresh(early = null) {
     const mine = ++run, owner = scope();
     const titles = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
-    const [out, promises] = await Promise.all([readInboxCount(rt, {taskTitles: titles}), readTomorrowPromises(rt)]);
+    const [out, promises] = await Promise.all([readInboxCount(rt, {taskTitles: titles, parts: early?.parts}), early?.promises || readTomorrowPromises(rt)]);
     if (mine !== run || owner !== scope()) return;
     paint(out?.ok ? summaryParts(out) : null, promises);
   }
@@ -77,7 +78,14 @@ export function mountHomeSummary({root, line, rt = window.KPTURuntime, onTasksCh
     // 홈에 들어올 때마다: 숫자 다시 읽기 + 그날 첫 찾기.
     // 옛 홈처럼 들어올 때 Google 할 일 목록을 한 번 읽어 공용 사본(달력 하루 목록·정리함 '이미 할 일' 거르기·요약 숫자)이 최신이 되게 한다.
     //   숫자는 그 뒤 한 번 센다('이미 할 일로 만든 것'을 빼려고). 할 일을 못 읽어도 센다.
-    enter() { void autoFindToday(); void dependencies.google().then(g => g?.listTasks?.({publish: true})).catch(() => {}).finally(() => refresh()); },
+    //   PERF-첫로딩 요청 합치기(S48-59): 숫자 재료(정리함·챙길 것·내일 약속) 읽기는 할 일 읽기를 기다리지 않고 바로 시작한다 — 업무일지가 같은 때
+    //   정리함을 읽으므로 같은 주소 요청이 한 번만 나간다(runtime single flight). 세기는 전처럼 할 일 읽기 뒤.
+    enter() {
+      void autoFindToday();
+      const parts = readInboxParts(rt), promises = readTomorrowPromises(rt);
+      parts.catch(() => {}); // 실패는 refresh가 받는다(그 전에 끝나도 처리되지 않은 실패로 남지 않게)
+      void dependencies.google().then(g => g?.listTasks?.({publish: true})).catch(() => {}).finally(() => refresh({parts, promises}));
+    },
     refresh,
   };
 }
