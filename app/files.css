@@ -28,7 +28,7 @@
 .fx-list { flex:1 1 auto; min-width:0; }
 /* S49-4 FILES-칸폭: 폴드 펼침·PC는 두 칸(폴더 나무 | 목록+미리보기) 그리드 — 폭은 split-resize.js가 변수(fr)로 넣고 서버에 기억. 폰은 나무가 없어 그대로. */
 @media (min-width:761px) {
-  .fx-cols { display:grid; grid-template-columns:var(--ds-split-files-tree,22fr) var(--ds-split-files-main,78fr); --ds-split-files-tree-min:160px; --ds-split-files-main-min:440px; }
+  .fx-cols { --ds-split-files-tree:22fr; --ds-split-files-main:78fr; --ds-split-files-tree-min:160px; --ds-split-files-main-min:440px; display:grid; grid-template-columns:minmax(var(--ds-split-files-tree-min), var(--ds-split-files-tree)) minmax(0, var(--ds-split-files-main)); }
   .fx-tree { flex:none; width:auto; min-width:0; }
 }
 .fx-prev { flex:0 0 320px; width:320px; border-left:.5px solid var(--kptu-border); padding:8px 12px; position:sticky; top:var(--follow-top,8px); align-self:start; max-height:calc(100vh - var(--follow-top,8px) - 16px); overflow:auto; }
