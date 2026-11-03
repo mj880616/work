@@ -5,6 +5,7 @@
 // - 같은 사진이 폰과 원드라이브에 다 있으면(파일 이름·크기·찍은 시각) 한 장만 보인다(원드라이브 것을 남김).
 // S46-24 ④: 구글 드라이브(Edge gdrive-photos, 운영자 기능 gdrive_photos가 있는 작업공간만). 같은 사진 규칙은 원드라이브 > 구글 드라이브 > 폰 사진 순서로 남긴다.
 import {sortCompare} from './photos-model.mjs';
+import {parseFlags, toggleFlag} from './source-flags.mjs';
 
 export const SOURCES = Object.freeze(['onedrive', 'gdrive', 'phone']);
 export const SOURCE_DEFAULT = Object.freeze({onedrive:true, gdrive:false, phone:true});
@@ -26,19 +27,9 @@ export const DEVICE_SOURCE_DEFAULT = Object.freeze({
 export const deviceSourcesKey = isPhoneApp => (isPhoneApp ? DEVICE_SOURCE_KEY.phone : DEVICE_SOURCE_KEY.pc);
 export const deviceSourcesDefault = isPhoneApp => (isPhoneApp ? DEVICE_SOURCE_DEFAULT.phone : DEVICE_SOURCE_DEFAULT.pc);
 // 서버 값 → {onedrive, gdrive, phone}. 모양이 틀린 칸은 기본값(defaults, 없으면 SOURCE_DEFAULT).
-export function parseSources(value, defaults = SOURCE_DEFAULT) {
-  const v = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const out = {};
-  for (const name of SOURCES) out[name] = typeof v[name] === 'boolean' ? v[name] : defaults[name];
-  return out;
-}
+export function parseSources(value, defaults = SOURCE_DEFAULT) { return parseFlags(value, SOURCES, defaults); }
 export const sourcesValue = state => Object.fromEntries(SOURCES.map(name => [name, parseSources(state)[name]]));
-export function toggleSource(state, name) {
-  const next = parseSources(state);
-  if (!SOURCES.includes(name)) return next;
-  next[name] = !next[name];
-  return next;
-}
+export function toggleSource(state, name) { return toggleFlag(state, SOURCES, SOURCE_DEFAULT, name); }
 // 아이콘 줄: 폰 사진은 폰 앱에서만(PC·폰 브라우저는 없음), 구글 드라이브는 운영자 기능이 있는 작업공간에서만(gdrive:true).
 // gdriveProblem: 권한이 없거나(scope_missing) 연결이 풀렸으면(drive_auth_expired) 그 이유 — 칩은 '권한 없음'이고 누르면 [Drive 다시 연결].
 export function sourceButtons(state, {phone = false, gdrive = false, gdriveProblem = ''} = {}) {

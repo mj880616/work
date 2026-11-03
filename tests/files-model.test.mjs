@@ -150,7 +150,7 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   const rest = defaultLayout().rest;
   assert.equal(rest[rest.indexOf('library') + 1], 'files');
   assert.match(read('app/index.html'), /data-view="library" type="button">자료실<\/button>\n\s*<button class="nav-btn" data-view="files" type="button">파일<\/button>/);
-  assert.match(read('app/view-loader.js'), /files:\['\.\/folder-tree\.css','\.\/files\.css'/);
+  assert.match(read('app/view-loader.js'), /files:\['\.\/od-link\.css','\.\/folder-tree\.css','\.\/source-chips\.css','\.\/files\.css'/);
   assert.match(read('app/view-loader.js'), /async function files\(\)\{ await module\('\.\/files\.js'\)/);
   assert.match(read('app/app-router.js'), /files:\['at','shelf'\]/);
   const js = read('app/files.js'), model = read('app/files-model.mjs');

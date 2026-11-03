@@ -59,6 +59,9 @@ export const TG_VIEWS = Object.freeze(['day', 'room']);
 // photo_level = 사진 보기 단계 'year'·'month'·'day'(없으면 일). migration 20261103190000. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(출처는 기본값, 보기 단계는 이번 접속만).
 // REPORT-기간고르기(S49-11): report_period = 사업 보고 목록 기간 보기 {mode:'all'|'week'|'range', from?, to?}. range일 때만 from·to(YYYY-MM-DD, from<=to). 주간 보기(week)는 저장하지 않고 비운다(기본). migration 20261103200000.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다.
+// FILES-출처켜고끄기(S49-21): files_sources = [파일] 위 줄 출처 아이콘 켜기/끄기 {od, gd}(둘 다 선택, 참·거짓, 없으면 둘 다 켜짐). migration 20261104090000. 뜻은 files-sources-model.mjs.
+// 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
+export const FILES_SOURCE_NAMES = Object.freeze(['od', 'gd']);
 export const REPORT_PERIOD_MODES = Object.freeze(['all', 'week', 'range']);
 export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
 export const NOTE_BOARDS_MAX = 12;
@@ -84,7 +87,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -128,6 +131,8 @@ export function validValue(key, value) {
     case 'report_period': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => name === 'mode' || name === 'from' || name === 'to') && REPORT_PERIOD_MODES.includes(value.mode)
       && (value.mode === 'range' ? DATE_RE.test(String(value.from)) && DATE_RE.test(String(value.to)) && typeof value.from === 'string' && typeof value.to === 'string' && value.from <= value.to : !('from' in value) && !('to' in value));
+    case 'files_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
+      && Object.keys(value).every(name => FILES_SOURCE_NAMES.includes(name) && typeof value[name] === 'boolean');
     case 'photo_sources_phone':
     case 'photo_sources_pc':
     case 'photo_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
