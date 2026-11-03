@@ -7,7 +7,8 @@ import {readFileSync,statSync,createReadStream} from 'node:fs';
 import {resolve,extname,sep} from 'node:path';
 // LIB-편집열기느림 실측: 자료실 [편집]이 여는 칸막이 편집기(hwp-frame.js)를 같은 브라우저에서 두 번(앱을 다시 연 것처럼) 띄우고,
 // 편집기 부품을 서버에서 몇 바이트 받았는지와 걸린 시간을 잰다.
-// - GitHub Pages처럼 답하는 작은 서버를 이 시험 안에서 띄운다(Access-Control-Allow-Origin: *, Cache-Control: max-age=600, ETag·304).
+// - 운영(bokdoong.com, cloudflare/bokdoong-router.mjs가 GitHub Pages 앞에서 답함)처럼 답하는 작은 서버를 이 시험 안에서 띄운다:
+//   Access-Control-Allow-Origin: *, 번호 없는 파일은 Cache-Control: no-cache, must-revalidate(매번 확인), ETag·304.
 //   page.route는 브라우저 HTTP 캐시를 끄므로 쓰지 않는다(캐시가 실제로 쓰이는지가 이 시험의 대상이다).
 // - 실제 브라우저처럼 디스크 캐시를 쓰도록 사용자 폴더가 있는 브라우저(launchPersistentContext)로 연다(기본 시험 창은 메모리 캐시라 큰 파일을 담지 않는다).
 // - 고치기 전(before): 서버가 편집기 HTML에서 studio-assets.js 줄을 빼고 준다. 고친 뒤(after): 그대로 준다. 단계마다 새 사용자 폴더.
@@ -26,7 +27,7 @@ function pagesLikeServer(log,state){
     let stat;
     try{stat=statSync(file);if(!stat.isFile())throw 0}catch{res.writeHead(404).end();return}
     const etag=`"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
-    const headers={'content-type':TYPES[extname(file)]||'application/octet-stream','access-control-allow-origin':'*','cache-control':'max-age=600',etag};
+    const headers={'content-type':TYPES[extname(file)]||'application/octet-stream','access-control-allow-origin':'*','cache-control':'no-cache, must-revalidate',etag};
     const editorPart=path.startsWith('/app/hwp-lab/');
     const by=req.headers.origin==='null'?'frame':'page';
     if(editorPart&&state.before&&path.endsWith('/studio/index.html')){
