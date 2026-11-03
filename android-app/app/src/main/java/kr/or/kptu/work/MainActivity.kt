@@ -1159,7 +1159,7 @@ class MainActivity : ComponentActivity() {
             ShareOutRules.Message.Clip -> saveWorker.execute {
                 val b = outBatch
                 outBatch = null
-                val clip = b?.let { try { ShareOut.clip(it) } catch (_: Exception) { null } }
+                val clip = b?.let { try { ShareOut.clip(it, contentResolver) } catch (_: Exception) { null } }
                 ui.post {
                     if (!alive) return@post
                     if (clip == null) {

@@ -94,9 +94,10 @@ object ShareOut {
     }
 
     /** 클립보드에 넣을 그림 한 장(PHOTO-꾹누르기메뉴). 한 장짜리 묶음이 다 찼을 때만, 아니면 null. */
-    fun clip(batch: Batch): ClipData? {
+    fun clip(batch: Batch, resolver: android.content.ContentResolver): ClipData? {
         if (!batch.rules.ready || batch.items.size != 1) return null
-        return ClipData.newUri(null, "photo", batch.items[0].uri)
+        // resolver를 넘겨야 클립에 image/* 종류가 붙어 받는 앱이 그림으로 붙여넣는다(null이면 text/uri-list로만 보임).
+        return ClipData.newUri(resolver, "photo", batch.items[0].uri)
     }
 
     /** 공유 창 의도(고르기 창으로 감쌈). 묶음이 다 차지 않았으면 null. */
