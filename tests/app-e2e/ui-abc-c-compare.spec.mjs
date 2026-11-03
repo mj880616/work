@@ -8,7 +8,15 @@ import {clickView} from './helpers/shell-navigation.mjs';
 
 const WIDTHS = [[412, 915], [884, 1000], [1440, 900]];
 const DIR = 'test-results/ui-audit';
-const go = async (page, view) => { await clickView(page, view); await expect(page.locator(`#${view}View`)).toBeVisible(); await page.waitForTimeout(600); await page.evaluate(() => window.scrollTo(0, 0)); };
+// 폰 일기는 [일정] 탭 → 위 [달력|할 일|업무일지|일기] 줄의 [일기](diary.spec openDiary와 같은 길).
+const openView = async (page, view) => {
+  if (view === 'diary' && await page.locator('.mobile-tabs [data-mobile-schedule-tab]:visible').count()) {
+    await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
+    await expect(page.locator('#calendarView')).toBeVisible();
+    await page.locator('#calendarView .schedule-switch [data-view="diary"]').click();
+  } else await clickView(page, view);
+};
+const go = async (page, view) => { await openView(page, view); await expect(page.locator(`#${view}View`)).toBeVisible(); await page.waitForTimeout(600); await page.evaluate(() => window.scrollTo(0, 0)); };
 
 for (const [width, height] of WIDTHS) {
   test(`UI-화면정리 C 세 폭 비교 ${width}px`, async ({page}) => {
