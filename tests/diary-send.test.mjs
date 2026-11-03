@@ -101,7 +101,7 @@ test('사진 화면 [일기로]: 찍은 날별로 묶고(날짜 없으면 오늘
 test('같은 부품만 씀: 새 저장 경로·기기 저장 없음, 메뉴 세 곳이 같은 함수', async () => {
   const fs = await import('node:fs');
   const src = fs.readFileSync(new URL('../app/diary-send.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(src, new RegExp(['local', 'session'].map(x => x + 'Storage').concat('indexed' + 'DB').join('|')), '기기 저장 없음');
   assert.doesNotMatch(src, /functions\/v1\//, 'Edge 주소를 직접 부르지 않고 일기·노트의 기존 부품을 부른다');
   const notes = fs.readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
   const basket = fs.readFileSync(new URL('../app/basket.js', import.meta.url), 'utf8');
