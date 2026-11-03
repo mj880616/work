@@ -112,7 +112,7 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   await showOutside(page, width);
   // Row ⋯: [선택] first, [복사] in the menu, then [폴더로 옮기기] opens the shared folder list; the note gets the folder id and name, nothing else changes.
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
-  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', 'AI에 보내지 않기', '삭제']);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '일기로 보내기', 'AI에 보내지 않기', '삭제']);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await expect(picker(page)).toBeVisible();
   await press(page, picker(page).locator('.lu-move-item', { hasText: '회의' }), width);

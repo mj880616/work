@@ -154,3 +154,10 @@ export async function askSendToDiary(anchor, id, {rt = window.KPTURuntime, kind 
   else if (result.status !== 'stale') notify(result.message || '일기로 보내지 못했어요.', {error:true, ms:7000});
   return result;
 }
+
+// 사진 화면 [일기로]: 고른 사진을 찍은 날(item.day)별로 묶는다(날짜 없는 사진은 오늘). 날짜 순.
+export function diaryDayGroups(list, today) {
+  const by = new Map();
+  for (const item of list) { const day = /^\d{4}-\d{2}-\d{2}$/.test(item.day || '') ? item.day : today; if (!by.has(day)) by.set(day, []); by.get(day).push(item); }
+  return [...by.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, items]) => ({day, items}));
+}

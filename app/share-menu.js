@@ -14,7 +14,7 @@ import {appShare} from './app-share.js';
 
 export const WIDE_SHARE_QUERY = '(min-width:761px)';
 export const wideShare = (mm = globalThis.matchMedia) => !!(typeof mm === 'function' && mm(WIDE_SHARE_QUERY)?.matches);
-export const SHARE_ROW_TEXT = Object.freeze({copy: '사진 복사', basket: '정리함에 넣기', download: '다운로드', native: '다른 앱으로 공유…'});
+export const SHARE_ROW_TEXT = Object.freeze({copy: '사진 복사', basket: '정리함에 넣기', diary: '일기에 넣기', download: '다운로드', native: '다른 앱으로 공유…'});
 export const SHARE_NOTE = Object.freeze({
   copied: '복사했어요',
   copyFail: '복사하지 못했어요. [다운로드]로 받아 주세요.',
@@ -26,10 +26,12 @@ export const SHARE_NOTE = Object.freeze({
 });
 
 // 메뉴 줄: 동영상은 복사·정리함 없음, 여러 장이면 복사 없음(클립보드는 그림 한 장), 기기 공유 창이 없으면 그 줄 없음.
-export function shareRows({video = false, count = 1, native = false} = {}) {
+// S48-56: [일기에 넣기]는 부르는 쪽이 diary()를 줄 때만(찍은 날 일기에 넣는 일은 사진 화면이 안다).
+export function shareRows({video = false, count = 1, native = false, diary = false} = {}) {
   const rows = [];
   if (!video && count === 1) rows.push('copy');
   if (!video) rows.push('basket');
+  if (!video && diary) rows.push('diary');
   rows.push('download');
   if (native) rows.push('native');
   return rows;
@@ -90,6 +92,7 @@ async function runRow(id) {
   const c = ctx; if (!c) return;
   const say = c.note || ((text, ms) => notify(text, {ms}));
   if (id === 'native') return c.native?.();
+  if (id === 'diary') return c.diary?.();
   if (id === 'copy') {
     const result = await copyImage(async () => (await c.getFiles())?.[0] || null);
     say(result === 'copied' ? SHARE_NOTE.copied : result === 'none' ? SHARE_NOTE.none : result === 'unsupported' ? SHARE_NOTE.copyUnsupported : SHARE_NOTE.copyFail, 4000);
@@ -113,12 +116,12 @@ async function runRow(id) {
 }
 
 // [공유]를 눌렀을 때 하나의 입구. 넓은 화면이면 메뉴를 열고 'menu', 좁은 화면이면 native()를 그대로 부르고 'native'.
-// opts: {video, count, getFiles: () => Promise<File[]>, native: () => void, download?: () => void, note?: (text, ms) => void}
+// opts: {video, count, getFiles: () => Promise<File[]>, native: () => void, download?: () => void, diary?: () => void, note?: (text, ms) => void}
 // PHOTO-폰앱공유: 폰 앱(0.4.7+)은 navigator.share 대신 앱 다리로 안드로이드 공유 창을 띄우므로, 펼친 폴드 메뉴에도 [다른 앱으로 공유…]가 있다.
 export function shareFrom(trigger, opts = {}, {wide = wideShare(), nav = globalThis.navigator, app = appShare()} = {}) {
   if (!wide || !trigger) { opts.native?.(); return 'native'; }
   const canNative = typeof opts.native === 'function' && (typeof nav?.share === 'function' || app.known());
-  ctx = {...opts, rows:shareRows({video:!!opts.video, count:opts.count ?? 1, native:canNative})};
+  ctx = {...opts, rows:shareRows({video:!!opts.video, count:opts.count ?? 1, native:canNative, diary:typeof opts.diary === 'function'})};
   ensureMenu().open(trigger);
   return 'menu';
 }
