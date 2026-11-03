@@ -153,7 +153,7 @@ test('Edge: 조각 길이를 고정으로 쓰는 곳 없음, 공용 이어 붙�
   assert.match(index,/mapLimit\(ids, REC_DRIVE_PARALLEL/);
   assert.match(index,/mapLimit\(seg\.piece_ids \|\| \[\], REC_DRIVE_PARALLEL/);
   assert.match(index,/mapLimit\(p\.row\.piece_ids \|\| \[\], REC_DRIVE_PARALLEL, \(id: string\) => untrashDriveFile\(id, folder, token\)\)/);
-  assert.match(index,/combineWithin\(pending, \(seg: Job\) => combineSegment\(user\.id, seg, token, pieces, target\), started\)/);
+  assert.match(index,/combineWithin\(pending, \(seg: Job\) => combineSegment\(userId, seg, token, pieces, target\), started\)/);
   assert.match(index,/piece_seconds: REC_PIECE_SECONDS, segment_seconds: REC_SEGMENT_SECONDS, max_pieces: REC_ROLL_PIECES/);
   // REC_PIECE_SECONDS는 화면에 알려 주는 데만 쓴다(계산에 쓰지 않음).
   assert.equal([...index.matchAll(/REC_PIECE_SECONDS/g)].length,2);

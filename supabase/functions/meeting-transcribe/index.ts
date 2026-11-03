@@ -315,9 +315,10 @@ async function transcribe(user: { id: string }, userDb: ReturnType<typeof userCl
   if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
   if (!started?.length) throw new Fail('busy');
   try {
-    const result = await runTranscription(key, job);
-    await setJob(job.id, { status: 'done', error_code: null, model: result.model, finished_at: new Date().toISOString() });
-    return json({ ok: true, job_id: job.id, text: result.text, speaker_split: result.speakerSplit, model: result.model });
+    const out = await runTranscription(key, job);
+    const model = out.model;
+    await setJob(job.id, { status: 'done', error_code: null, model, finished_at: new Date().toISOString() });
+    return json({ ok: true, job_id: job.id, text: out.text, speaker_split: out.speakerSplit, model });
   } catch (e) {
     const code = failCode(e);
     await setJob(job.id, { status: 'failed', error_code: code, finished_at: new Date().toISOString() }).catch(() => undefined);
@@ -836,9 +837,10 @@ async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
   if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
   if (!started?.length) throw new Fail('busy');
   try {
-    const result = await runTranscription(key, job);
-    await setJob(job.id, { status: 'done', error_code: null, model: result.model, finished_at: new Date().toISOString() });
-    return result.text;
+    const out = await runTranscription(key, job);
+    const model = out.model;
+    await setJob(job.id, { status: 'done', error_code: null, model, finished_at: new Date().toISOString() });
+    return out.text;
   } catch (e) {
     await setJob(job.id, { status: 'failed', error_code: failCode(e), finished_at: new Date().toISOString() }).catch(() => undefined);
     throw e;
