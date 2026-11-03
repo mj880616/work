@@ -54,20 +54,39 @@ export function insertRow(rows, row) {
   all.splice(at, 0, row);
   return all.map((r, k) => ({...r, sort_order: k}));
 }
+// 같은 줄 판정(DESK-전체현황표 ⑩): 날짜가 하루 안쪽이고 내용이 비슷하면 같은 일로 본다. 서버(supabase/functions/ai-assist/org-status-rows.ts)도 같은 규칙으로 한 번 더 거른다.
+// 내용: 글자·숫자만 남긴 글이 서로 들어 있거나(4자 이상, 끝맺음 '승인'/'승인함'), 두 글자 조각이 60% 이상 겹치면 비슷하다.
+const squash = t => String(t ?? '').normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+const pairs = t => { const out = new Set(); for (let i = 0; i + 1 < t.length; i++) out.add(t.slice(i, i + 2)); return out; };
+export function similarBody(a, b) {
+  const x = squash(a), y = squash(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  if (short.length >= 4 && long.includes(short)) return true;
+  const p = pairs(x), q = pairs(y);
+  if (p.size < 3 || q.size < 3) return false;
+  let both = 0;
+  for (const k of p) if (q.has(k)) both++;
+  return both / (p.size + q.size - both) >= 0.6;
+}
+const dayGap = (a, b) => (validDay(a) && validDay(b) ? Math.abs(Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 86400000 : Infinity);
+export const sameLine = (x, y) => dayGap(x?.day, y?.day) <= 1 && similarBody(x?.body, y?.body);
+
 // 다시 채우기 계획. ai = [{day, text, evidence}](서버 답). 반환 {remove:[id], add:[{day, body, evidence, sort_order}], order:[{id, sort_order}], rows(결과 순서)}
+// 사람이 넣거나 고친 줄(source!=ai)과 같은 일(sameLine)인 AI 줄, 이번 답 안에서 서로 같은 일인 AI 줄은 더하지 않는다.
 export function refillPlan(rows, ai) {
   const keep = sortRows(rows).filter(r => r.source !== 'ai');
   const remove = (rows ?? []).filter(r => r.source === 'ai').map(r => r.id);
-  const same = new Set(keep.map(r => r.day + '|' + cleanBody(r.body)));
   let list = keep.map(r => ({...r}));
-  const seen = new Set();
+  const seen = [];
   for (const a of ai ?? []) {
     const body = cleanBody(a?.text), day = a?.day;
     if (!body || !validDay(day)) continue;
-    const key = day + '|' + body;
-    if (same.has(key) || seen.has(key)) continue;
+    const cand = {day, body};
+    if (keep.some(r => sameLine(r, cand)) || seen.some(r => sameLine(r, cand))) continue;
     if (list.length >= ROWS_MAX) break;
-    seen.add(key);
+    seen.push(cand);
     const evidence = Array.isArray(a.evidence) ? a.evidence.filter(v => typeof v === 'string').slice(0, 10) : [];
     list.splice(placeByDay(list, {day}), 0, {id: null, day, body, source: 'ai', evidence});
   }
@@ -79,6 +98,8 @@ export function refillPlan(rows, ai) {
     rows: list,
   };
 }
+// 전체 표 한 조직 칸: 보이는 줄 중 처음 limit줄(최신 순).
+export const overviewRows = (rows, limit = 3) => splitRows(rows).shown.slice(0, limit);
 // 주간보고: 조직(id) → 표 줄들. 표가 있는 조직의 칸은 [단계 줄(있으면)] + 표 줄로 시작한다(바탕의 지난 확정본 줄 대신).
 export function siteLinesFromTable(stageLines, tableRows, isStageLine = () => false) {
   const table = weeklyLines(tableRows);
