@@ -199,7 +199,7 @@ test('입력 창: 원문 없이도 저장된다 / 안내는 [선택]',async({pag
   const s=kindState();await open(page,s,1280);
   await chip(page,'교육').click();await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
-  await expect(page.locator('#meetingTextLabel').locator('xpath=..')).toContainText('선택');
+  await expect(page.locator('#meetingTextLabel').locator('xpath=..')).toContainText('안 써도 됨');
   await page.locator('#meetingTitle').fill('합성 교육 행사');await fillDateTime(page,'#meetingAt','2026-10-22T10:00');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('education');

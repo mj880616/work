@@ -92,7 +92,7 @@ test('PC 수정 화면: 결과 칸에 결과 파일을 끌어 놓으면 본문�
   await expect.poll(()=>state.uploads.length).toBe(1);
   expect(state.uploads[0].path).toBe('/functions/v1/library-files');
   expect(state.uploads[0].raw).toContain('name="meeting_id"');expect(state.uploads[0].raw).toContain('drop-result.pdf');
-  await expect(modal.locator('#mrdEditAttach #mrdMaterials .mrd-file-row')).toHaveCount(3);
+  await expect(modal.locator('#mrdAttach #mrdMaterials .mrd-file-row')).toHaveCount(3);
   await modal.locator('#mrdSaveEdit').click();
   await expect.poll(()=>state.patches.length).toBe(1);
   expect(state.patches[0].transcript_text).toContain('Dropped result body');

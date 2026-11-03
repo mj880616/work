@@ -56,11 +56,11 @@ test('세 번째 칸 고치는 중 [취소][저장]은 맨 위 오른쪽의 작�
   assert.match(detail,/mrdSaveLabel=\(\)=>mrdDocked\?'저장':'수정 저장'/);
 });
 
-// HOTFIX-회의첨부칸(S48-51): 고치는 화면에도 첨부 칸이 있다. 사진·회의자료 줄은 한 벌이며, 고치는 동안만 #mrdEditAttach로 옮겨진다.
-test('고치는 화면 첨부 칸: #mrdEditAttach가 저장 줄 앞에 있고, 사진·회의자료 줄은 한 벌을 옮긴다',()=>{
-  assert.equal((detail.match(/id="mrdEditAttach"/g)||[]).length,1);
-  assert.ok(detail.indexOf('id="mrdEditAttach"')>detail.indexOf('id="mrdEditor"')&&detail.indexOf('id="mrdEditAttach"')<detail.indexOf('id="mrdEditFoot"'));
+// HOTFIX2-회의칸깨짐(S48-63): 첨부 칸(사진·회의자료)은 #mrdAttach 한 곳에 항상 있고 옮기지 않는다(예전 #mrdEditAttach 틀·옮기기 폐기).
+test('첨부 칸: #mrdAttach 한 곳, 보기·고치기 옆에 한 벌, 요소 옮기기 없음',()=>{
+  assert.equal((detail.match(/id="mrdAttach"/g)||[]).length,1);
+  assert.ok(!/mrdEditAttach|mrdPlaceAttach/.test(detail.replace(/\/\/[^\n]*/g,'')));
+  assert.ok(detail.indexOf('id="mrdAttach"')>detail.indexOf('id="mrdEditor"'));
   assert.equal((detail.match(/id="mrdPickFiles"/g)||[]).length,1);assert.equal((detail.match(/id="mrdMaterials"/g)||[]).length,1);assert.equal((detail.match(/id="mrdPhotoSection"/g)||[]).length,1);
-  assert.match(detail,/function mrdSetEdit\(on\)\{[^\n]*mrdPlaceAttach\(on\)\}/);
-  assert.match(detail,/function mrdPlaceAttach\(on\)\{/);
+  assert.ok(detail.indexOf('id="mrdPhotoSection"')>detail.indexOf('id="mrdAttach"'));
 });
