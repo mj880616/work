@@ -114,13 +114,6 @@
   #appView #homeView.view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 22px + env(safe-area-inset-bottom))!important; }
 }
 
-/* 노트로 옮긴 업데이트: 그날 칸의 "노트: (제목)" 한 줄. 줄 전체가 버튼이라 누르면 그 노트가 열린다. */
-#appView #homeView .journal-group ul.journal-moved-list{ list-style:none; padding-left:0; gap:0; }
-#appView #homeView .journal-note-open{ display:flex; align-items:center; gap:6px; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:0; text-align:left; font:inherit; color:var(--kptu-ink); background:transparent; border:0; border-radius:0; cursor:pointer; overflow-wrap:anywhere; }
-#appView #homeView .journal-note-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-#appView #homeView .journal-note-mark{ display:inline-flex; flex:0 0 auto; }
-#appView #homeView .journal-note-mark svg{ display:block; }
-@media(hover:hover){ #appView #homeView .journal-note-open:hover{ text-decoration:underline; } }
 
 /* JOURNAL-주간보고허브 2단계: [하루 | 주간 정리] 전환(작은 세그먼트, 고른 쪽 회색 — ui-standard.css ①과 같은 모양)과 [주간 정리] 칸.
    주간 정리는 상집보고 순서(1. 요청사항(재료 없음 자리) → 2. 기본·영역·의제 사업 요약 표·회의 → 4. 산하 조직 현황 → 참고). PC는 넓게, 큰 버튼 없음. */
@@ -323,14 +316,12 @@
 #appView #homeView .journal-tasks .journal-line-status:empty{ display:none; }
 #appView #homeView ul.journal-items{ list-style:none; padding-left:0; gap:0; }
 #appView #homeView .journal-item{ display:flex; align-items:flex-start; gap:6px; min-height:32px; }
-#appView #homeView .journal-item::before{ content:"•"; flex:0 0 auto; width:10px; line-height:32px; color:var(--kptu-ink); }
 #appView #homeView .journal-item-body{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
 #appView #homeView .journal-item-open{ display:block; box-sizing:border-box; width:100%; min-height:32px; height:auto; margin:0; padding:5px 0; text-align:left; white-space:normal;
   overflow-wrap:anywhere; font:inherit; font-size:var(--kptu-text-body); line-height:1.5; color:var(--kptu-ink); background:transparent; border:0; border-radius:0; box-shadow:none; }
 #appView #homeView button.journal-item-open{ cursor:pointer; }
 #appView #homeView button.journal-item-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView button.journal-item-open:hover{ text-decoration:underline; } }
-#appView #homeView .journal-item-open .journal-note-mark{ display:inline-flex; vertical-align:middle; margin-right:6px; }
 #appView #homeView .journal-item-summary{ margin:0 0 4px; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.5; overflow-wrap:anywhere; }
 #appView #homeView .journal-no-result{ opacity:.75; }
 /* 주간보고에 안 올리는 회의 종류: 흐리게 + '보고 안 함' */
@@ -527,7 +518,8 @@
 #appView #homeView .journal-done-day > h4{ margin:0; }
 #appView #homeView .journal-done-col:empty{ display:none; }
 /* D-day 주요 일정(그날 일정 칸 맨 위, 오늘만): 작은 테두리 칩 한 줄, 3일 안은 진한 테두리. */
-#appView #homeView .journal-dday{ display:flex; flex-wrap:wrap; gap:4px; margin:2px 0 4px; }
+#appView #homeView .journal-dday{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:6px 0 2px; }
+#appView #homeView .journal-dday-label{ flex:0 0 100%; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-dday-chip{ position:relative; box-sizing:border-box; max-width:100%; overflow:hidden; text-overflow:ellipsis; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:0 8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px); background:transparent; box-shadow:none; font:inherit; font-size:var(--ds-text-meta,12px); color:var(--kptu-ink); white-space:nowrap; cursor:pointer; }
 #appView #homeView .journal-dday-chip.is-soon{ border-color:var(--kptu-muted); }
 #appView #homeView .journal-dday-chip::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
