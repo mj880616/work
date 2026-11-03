@@ -31,11 +31,11 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {odStatusCached, odPhotoElement, odDelete, odDeleteMany, forgetOdPhoto, odErrorText, odSync, odSyncDelay, odLibrary, odMonths, odDays, odMediaUrl,
   odTrashList, odTrashRestore, odTrashPurge, odPhotoBlob, readOdStars, readPhoneStars, addStar, removeStar, starKey, takenLabel, takeOdReturn,
   odCopyCheck, odTrashLog, odTrashWatch, odTrashSeen, odKeptList, odKeptDrop} from './diary-onedrive.js';
-import {keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, twinPairs} from './photo-keep-model.mjs';
+import {keptItems, keptFilter, keptInFolder, keptMerge, deletePlan, deleteChoices, keepLogRows, keptIdsFor, twinPairs, nearWindows, readNear, DEL_CHECK_MS} from './photo-keep-model.mjs';
 import {phonePhotos} from './phone-photos.js';
 import {createPhotoTidy} from './photo-tidy.js';
 import {createThumbHasher} from './photo-hash.js';
-import {keptText, sizeText, COPY_BATCH, LOG_BATCH} from './photo-tidy-model.mjs';
+import {keptText, sizeText, COPY_BATCH, LOG_BATCH, copyPairs} from './photo-tidy-model.mjs';
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, knownAfterOff, remapPhoneKnown, knownWith, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText} from './phone-folders-model.mjs';
 import {syncPhoneFolders, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
@@ -1211,18 +1211,62 @@ const sayDel = (text, o) => (photoStripOpen() ? photoStripNote(text) : notify(te
 // S48-32: 고른 원드라이브 칸(비운 사진 아님) — 폰 원본 짝이 있을 수 있어 폰 앱에서는 두 갈래 판단부터(사진 목록에서 폰·원드라이브 같은 사진은 원드라이브 칸으로 보임).
 const odPlain = all => all.filter(x => x.kind !== 'phone' && x.kind !== 'gdrive' && !x.kept);
 const needTwoWay = all => phone.usable && (deletePlan(all, null).twoWay || (odPlain(all).length > 0 && ready() && !!phone.state().trash));
+// S48-52 PHOTO-지우기멈춤(요청함 11/03 07:41 ★급★): 짝 확인은 고른 사진의 찍은 시각 근처만 읽는다(사진 전체 다시 읽기 없음).
+// 사진 정리가 10분 안에 읽어 둔 결과가 있으면 그것을 그대로 쓴다(읽기 없음).
+// 답: {pairs(폰 사진의 원드라이브 사본 짝, 원드라이브를 못 읽으면 null), twins(고른 원드라이브 칸의 폰 원본 짝, 폰을 못 읽으면 null)}.
+async function pairCheck(phonePart, odPart, alive) {
+  if (tidy.fresh()) return {pairs:phonePart.length ? tidy.copyPairs(phonePart) : null, twins:odPart.length ? twinPairs(tidy.phoneItems(), odPart) : []};
+  const odNear = async () => {
+    try {
+      const near = await readNear(nearWindows(phonePart), async (w, cursor) => {
+        const page = await odLibrary(rt, {filter:'all', cursor:cursor || {t:new Date(w.hi + 1).toISOString(), id:'!'}, limit:200});
+        return {items:page.items.map(toItem), next:page.next};
+      }, {alive});
+      return near ? copyPairs(phonePart, near) : null;
+    } catch { return null; }
+  };
+  const phoneNear = async () => {
+    try {
+      // 폰 사진첩 전부(끈 폴더 포함 — 사진 정리와 같음)에서 찍은 시각 근처만. 쪽 자리(offset)는 before 자리부터 센다.
+      const near = await readNear(nearWindows(odPart), async (w, offset) => phone.page({sort:'taken_desc', filter:'all', before:w.hi + 1, offset:offset || 0, limit:200}), {alive});
+      return near ? twinPairs(near, odPart) : null;
+    } catch { return null; }
+  };
+  const [pairs, twins] = await Promise.all([phonePart.length ? odNear() : null, odPart.length ? phoneNear() : []]);
+  return {pairs, twins};
+}
+// 확인 중(deleting)에 다시 누르면 조용히 무시하지 않고 한 줄 + [취소]. cancelCheck = 지금 확인을 멈춤(지우지 않음).
+let cancelCheck = null;
+const cancelAction = {label:'취소', run:({close}) => { close(); cancelCheck?.(); }};
 // plain = 두 갈래가 아닐 때(고른 원드라이브 칸에 폰 짝이 없음) 할 예전 지우기.
 async function chooseDelete(anchor, all, plain = null) {
-  if (deleting) return;
+  if (deleting) { if (cancelCheck) sayDel('확인 중이에요', {ms:3000, record:false, actions:[cancelAction]}); return; }
   deleting = true;
+  let waitNote = null;
   try {
     const phonePart = all.filter(x => x.kind === 'phone'), odPart = odPlain(all);
     let pairs = null, twins = null;
     if ((phonePart.length || odPart.length) && ready() && phone.state().trash) {
-      // 원드라이브에 원본이 있는지·폰에 같은 사진이 있는지: 사진 정리와 같은 읽기(10분 안이면 그대로).
-      if (!tidy.fresh()) { sayDel('원드라이브에 원본이 있는지 확인하는 중…', {ms:180000, record:false}); await tidy.rescan(); sayDel('확인했어요', {ms:1500, record:false}); }
-      pairs = phonePart.length ? tidy.copyPairs(phonePart) : null;
-      twins = odPart.length ? twinPairs(tidy.phoneItems(), odPart) : [];
+      // 고른 사진의 짝만 확인한다(15초 넘기면 멈추고 지우지 않음, [취소]도 같음).
+      let stop = '', timer = 0;
+      const alive = () => !stop;
+      const ended = new Promise(ok => {
+        timer = setTimeout(() => { stop ||= 'slow'; ok(); }, DEL_CHECK_MS);
+        cancelCheck = () => { stop ||= 'cancel'; ok(); };
+      });
+      if (!tidy.fresh()) waitNote = photoStripOpen() ? (photoStripNote('원드라이브 원본 확인 중…'), null)
+        : notify('원드라이브 원본 확인 중…', {ms:DEL_CHECK_MS + 5000, record:false, actions:[cancelAction]});
+      const got = await Promise.race([pairCheck(phonePart, odPart, alive), ended.then(() => null)]);
+      clearTimeout(timer); cancelCheck = null;
+      waitNote?.close(); waitNote = null;
+      if (stop === 'cancel') { sayDel('지우지 않았어요', {ms:1500, record:false}); return; }
+      if (stop || !got) {
+        const again = {label:'다시', run:({close}) => { close(); chooseDelete(anchor, all, plain); }};
+        sayDel(photoStripOpen() ? '확인이 오래 걸려 지우지 않았어요. 다시 눌러 주세요.' : '확인이 오래 걸려 지우지 않았어요', {error:true, record:false, actions:[again]});
+        return;
+      }
+      ({pairs, twins} = got);
+      if (photoStripOpen()) photoStripNote('');
       // 폰 사진을 못 읽었으면 원드라이브만 지우지 않는다(폰 원본만 남고 백업이 사라질 수 있어서).
       if (twins === null) { sayDel('폰에 같은 사진이 있는지 확인하지 못해 지우지 않았어요. 잠시 뒤 다시 눌러 주세요.', {error:true}); return; }
     }
@@ -1236,7 +1280,7 @@ async function chooseDelete(anchor, all, plain = null) {
     if (pick === 'space') await spaceFree(plan);
     else if (pick === 'full') await fullDelete(plan, anchor);
     if (pick && photoStripOpen()) photoStripReload(null);
-  } finally { deleting = false; }
+  } finally { deleting = false; cancelCheck = null; waitNote?.close(); }
 }
 // 폰 공간만 비우기: 서버 사본 확인 → 폰 휴지통 → 비운 기록(keep) → 목록에서 폰 칸을 빼고 비운 사진 칸으로 다시 섞는다.
 async function spaceFree(plan) {
