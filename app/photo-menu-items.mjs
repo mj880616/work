@@ -14,6 +14,16 @@ export const PHOTO_ACT_TEXT = Object.freeze({
   native: '다른 앱으로 공유…',
   // PHOTO-정보수정버튼(S49-18): 사진 정보(찍은 시각·위치) 고치기 — 아래 줄·우클릭 메뉴·크게 보기 모두 이 이름 하나.
   info: '정보수정',
+  // PHOTO-크게보기메뉴통일(S49-23): 고르기 아래 줄과 크게 보기 아래 줄이 같은 버튼 목록(PHOTO_MENUS.selectBar·viewBar)을 이 이름으로 그린다.
+  down: '받기',
+  move: '옮기기',
+  tag: '앨범',
+  untag: '앨범에서 빼기',
+  restore: '폰으로 되돌리기',
+  rename: '이름',
+  edit: '편집',
+  detail: '정보',
+  delete: '지우기',
 });
 
 // 아이콘 줄(여러 장 고르기 줄)처럼 칸이 좁은 곳에서 보이는 앞부분(같은 이름의 앞). 읽어 주는 이름·마우스 올림 이름은 PHOTO_ACT_TEXT 온이름.
@@ -51,5 +61,8 @@ export const releaseAfter = (act, ok) => !!ok && RELEASE_AFTER[act] === true;
 export const PHOTO_MENUS = Object.freeze({
   viewerShare: Object.freeze(['copy', ...SEND_ROWS, 'download', 'native']),
   context: Object.freeze(['star', 'share', ...SEND_ROWS, 'info']),
-  selectBar: Object.freeze(['star', 'share', 'download', ...SEND_ROWS, 'info']),
+  // 아래 줄 버튼 목록(순서 그대로 한 줄, 조건에 안 맞는 버튼은 숨김). 고르기 줄(selectBar)과 크게 보기 줄(viewBar)은 같은 목록이고,
+  // 크게 보기에만 [정보](보기 판 펼치기)가 더해진다. 그리는 코드는 photo-act-bar.mjs 하나, 보이는 조건은 photos.js actAvail 하나.
+  selectBar: Object.freeze(['star', 'share', 'down', ...SEND_ROWS, 'rename', 'move', 'tag', 'untag', 'restore', 'edit', 'info', 'delete']),
+  viewBar: Object.freeze(['star', 'share', 'down', ...SEND_ROWS, 'rename', 'move', 'tag', 'untag', 'restore', 'edit', 'info', 'detail', 'delete']),
 });

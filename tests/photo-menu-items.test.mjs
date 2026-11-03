@@ -59,3 +59,25 @@ test('사진 메뉴들은 공용 목록을 읽고 옛 이름이 남지 않는다
   assert.equal((manifest.match(/android:label="웹2 업데이트로 보내기"/g) || []).length, 2);
   assert.doesNotMatch(manifest, /android:label="웹2 정리함"/);
 });
+
+// PHOTO-크게보기메뉴통일(S49-23, 요청함 11/04 07:36): 크게 보기 아래 줄 = 고르기 아래 줄(같은 목록·같은 이름·같은 그리기 코드), 크게 보기에만 [정보].
+test('크게 보기 줄(viewBar)은 고르기 줄(selectBar) 그대로 + [정보] 하나, 이름은 공용 목록 하나', async () => {
+  const {PHOTO_ACT_DEF, photoActButton, photoActButtons} = await import('../app/photo-act-bar.mjs');
+  assert.deepEqual(PHOTO_MENUS.viewBar.filter(id => id !== 'detail'), [...PHOTO_MENUS.selectBar]);
+  assert.equal(PHOTO_MENUS.viewBar.filter(id => id === 'detail').length, 1);
+  assert.equal(PHOTO_MENUS.selectBar.includes('detail'), false);
+  assert.deepEqual(PHOTO_MENUS.selectBar.slice(0, 5), ['star', 'share', 'down', 'diary', 'basket']);
+  assert.equal(PHOTO_MENUS.selectBar.at(-1), 'delete');
+  for (const id of PHOTO_MENUS.viewBar) { assert.ok(PHOTO_ACT_DEF[id], id); assert.ok(PHOTO_ACT_TEXT[id], id); }
+  const html = photoActButtons(PHOTO_MENUS.viewBar, id => `data-x="${id}"`);
+  for (const id of PHOTO_MENUS.viewBar) assert.equal((html.match(new RegExp(`data-x="${id}"`, 'g')) || []).length, 1, id);
+  // 좁은 칸 글자는 앞부분, 읽는 이름·마우스 올림은 온이름(일기에 넣기·업데이트로 보내기).
+  assert.match(photoActButton('basket', 'data-x'), /aria-label="업데이트로 보내기" title="업데이트로 보내기"[^>]*>.*kptu-act-tx">업데이트</);
+  assert.match(photoActButton('delete', 'data-x'), /class="kptu-act kptu-act-danger"/);
+  // 그리기 코드는 한 곳: 두 화면에 버튼 모양을 따로 쓰지 않는다.
+  const photos = read('app/photos.js'), strip = read('app/photo-strip.js');
+  assert.match(photos, /photoActButtons\(PHOTO_MENUS\.selectBar/);
+  assert.match(strip, /photoActButtons\(barIds, barAttr\)/);
+  assert.doesNotMatch(strip, /actInner\(/);
+  assert.doesNotMatch(photos, /data-photos-act-(star|move|tag|delete|diary)[^>]*>\$\{actInner/);
+});
