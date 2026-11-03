@@ -266,9 +266,7 @@ for(const width of [412,1280])test(`정리함: 할 일 모듈이 아직 안 불�
 });
 
 test('정리함: 할 일을 정말 못 읽으면 "할 일을 못 읽었어요 [다시]"가 뜨고 [다시]로 다시 읽는다',async({page})=>{
- const f=await fixture(page,{width:412,rows:[cand(1,{summary:'오늘 항목 정리'})],routes:async()=>{
-  await page.addInitScript(()=>{try{Object.keys(localStorage).filter(k=>/google-?tasks|gt-?cache/i.test(k)).forEach(k=>localStorage.removeItem(k));}catch{}});
- }});
+ const f=await fixture(page,{width:412,rows:[cand(1,{summary:'오늘 항목 정리'})]});
  await openInbox(page);
  await page.evaluate(()=>{window.__gtReal=window.KPTUGoogleTasks;window.KPTUGoogleTasks={peekTasks:()=>null,listTasks:async()=>window.__gtFail?{status:'error',tasks:[]}:window.__gtReal.listTasks()};window.__gtFail=true;});
  const row=inbox(page).locator(`[data-inbox-todo-row="${id(1)}"]`);
@@ -279,4 +277,5 @@ test('정리함: 할 일을 정말 못 읽으면 "할 일을 못 읽었어요 [�
  await page.evaluate(()=>{window.__gtFail=false;});
  await box.getByRole('button',{name:'다시',exact:true}).click();
  await expect(box.locator('[data-inbox-todo-link-task]').first()).toHaveText('오늘 항목');
+ expect(f.errors).toEqual([]);
 });
