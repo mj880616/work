@@ -2,30 +2,30 @@ begin;
 -- S49-5 PHOTO-기기별출처 + PHOTO-연월이동(요청함 11/03 10:44·10:47): 사진 출처 켜기·끄기를 폰과 PC가 따로 서버에 기억하고, 사진 보기 단계(연·월·일)를 서버에 기억한다.
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"으로만 한다(이 브랜치는 적용 직전 정지).
 --
--- 무엇: app_profiles_view_prefs_check 하나만 바꾼다(지우고 같은 이름으로 다시 만듦). 받는 칸 스물아홉 개에 photo_sources_phone·photo_sources_pc·photo_level 셋을 더해 서른두 개로.
+-- 무엇: app_profiles_view_prefs_check 하나만 바꾼다(지우고 같은 이름으로 다시 만듦). 받는 칸 서른 개에 photo_sources_phone·photo_sources_pc·photo_level 셋을 더해 서른세 개로.
 --   photo_sources_phone / photo_sources_pc = {onedrive, gdrive, phone} 중 일부, 값은 참·거짓(기존 photo_sources와 같은 모양, 기존 칸은 그대로 두고 화면이 더는 읽지 않는다).
---   photo_level = 'year'·'month'·'day' 중 하나. 다른 칸 규칙·전체 4000바이트 상한은 글자 그대로 같다. 기존 행은 건드리지 않는다.
+--   photo_level = 'year'·'month'·'day' 중 하나. 다른 칸 규칙(S49-4의 split_ratio.files·col_widths 포함)·전체 4000바이트 상한은 글자 그대로 같다. 기존 행은 건드리지 않는다.
 -- 권한: 표 grant·정책·RLS·함수·트리거 변경 없음, 새 칸(열) 없음. 화면은 기존처럼 내 행만 PATCH한다(task12a owner 정책 그대로).
--- 앞 단계: 20261102213000_profile_view_prefs_phone_known(S48-31) 기록이 있어야 한다(없으면 멈춘다). 이 검사는 그 단계의 phone_folders_known까지 그대로 담고 있다.
+-- 앞 단계: 20261103160000_profile_view_prefs_files_cols(S49-4, 운영 적용됨) 기록이 있어야 한다(없으면 멈춘다). 이 검사는 그 단계의 col_widths·split_ratio.files까지 그대로 담고 있어 순서가 바뀌면 사전 확인에서 멈춘다.
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 lock table public.app_profiles in access exclusive mode;
 
--- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다: 이번 기록 없음, 앞선 기록(profile_view_prefs_ed_more) 있음, view_prefs 칸 있음,
--- 검사 1개(검증됨, ed_more·link_hidden_on 있음, 아직 phone_folders_known 없음), RLS 켜짐, anon·PUBLIC 표 권한 없음, 정책은 task12a 두 개 그대로.
+-- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다: 이번 기록 없음, 앞선 기록(profile_view_prefs_files_cols) 있음, view_prefs 칸 있음,
+-- 검사 1개(검증됨, col_widths·phone_folders_known 있음, 아직 photo_sources_phone·photo_level 없음), RLS 켜짐, anon·PUBLIC 표 권한 없음, 정책은 task12a 두 개 그대로.
 
 do $$
 begin
   if exists (select 1 from supabase_migrations.schema_migrations where version = '20261103190000')
      or (select count(*) from supabase_migrations.schema_migrations
-         where version = '20261102213000' and name = 'profile_view_prefs_phone_known') <> 1
+         where version = '20261103160000' and name = 'profile_view_prefs_files_cols') <> 1
      or (select count(*) from pg_attribute
          where attrelid = 'public.app_profiles'::regclass and not attisdropped and attname = 'view_prefs') <> 1
      or (select count(*) from pg_constraint where conrelid = 'public.app_profiles'::regclass and conname = 'app_profiles_view_prefs_check'
          and contype = 'c' and convalidated) <> 1
      or (select count(*) from information_schema.check_constraints
          where constraint_schema = 'public' and constraint_name = 'app_profiles_view_prefs_check'
-           and check_clause ~ 'phone_folders_known' and check_clause ~ 'ed_more' and check_clause !~ 'photo_sources_phone' and check_clause !~ 'photo_level') <> 1
+           and check_clause ~ 'col_widths' and check_clause ~ 'phone_folders_known' and check_clause !~ 'photo_sources_phone' and check_clause !~ 'photo_level') <> 1
      or exists (select 1 from pg_class where oid = 'public.app_profiles'::regclass and not relrowsecurity)
      or exists (select 1 from pg_class where oid = 'public.app_profiles'::regclass and relacl::text ~ '(^|[{,])(anon)?=')
      or (select count(*) from pg_policy where polrelid = 'public.app_profiles'::regclass) <> 2
@@ -48,8 +48,8 @@ alter table public.app_profiles
       when jsonb_typeof(view_prefs) <> 'object' then false
       else
         octet_length(view_prefs::text) <= 4000
-        -- 칸은 아래 서른두 개뿐(20261102213000 phone_folders_known의 스물아홉 개 + photo_sources_phone·photo_sources_pc·photo_level).
-        and not jsonb_path_exists(view_prefs, 'strict $.keyvalue() ? (!(@.key == "theme" || @.key == "nav_collapsed" || @.key == "calendar_view" || @.key == "home_quick_mode" || @.key == "note_folder" || @.key == "split_ratio" || @.key == "collect_hidden_on" || @.key == "report_view" || @.key == "menu_layout" || @.key == "home_cards" || @.key == "photo_cols" || @.key == "photo_cols_wide" || @.key == "diary_view" || @.key == "diary_onedrive" || @.key == "photo_view" || @.key == "quiet_weeks" || @.key == "note_view" || @.key == "note_boards" || @.key == "note_board" || @.key == "photo_hint" || @.key == "photo_sources" || @.key == "org_tab" || @.key == "tg_view" || @.key == "phone_folders_off" || @.key == "album_view" || @.key == "now_tab" || @.key == "link_hidden_on" || @.key == "ed_more" || @.key == "phone_folders_known" || @.key == "photo_sources_phone" || @.key == "photo_sources_pc" || @.key == "photo_level"))')
+        -- 칸은 아래 서른세 개뿐(20261103160000 col_widths의 서른 개 + photo_sources_phone·photo_sources_pc·photo_level).
+        and not jsonb_path_exists(view_prefs, 'strict $.keyvalue() ? (!(@.key == "theme" || @.key == "nav_collapsed" || @.key == "calendar_view" || @.key == "home_quick_mode" || @.key == "note_folder" || @.key == "split_ratio" || @.key == "collect_hidden_on" || @.key == "report_view" || @.key == "menu_layout" || @.key == "home_cards" || @.key == "photo_cols" || @.key == "photo_cols_wide" || @.key == "diary_view" || @.key == "diary_onedrive" || @.key == "photo_view" || @.key == "quiet_weeks" || @.key == "note_view" || @.key == "note_boards" || @.key == "note_board" || @.key == "photo_hint" || @.key == "photo_sources" || @.key == "org_tab" || @.key == "tg_view" || @.key == "phone_folders_off" || @.key == "album_view" || @.key == "now_tab" || @.key == "link_hidden_on" || @.key == "ed_more" || @.key == "phone_folders_known" || @.key == "col_widths" || @.key == "photo_sources_phone" || @.key == "photo_sources_pc" || @.key == "photo_level"))')
         and case when not (view_prefs ? 'theme') then true
               else jsonb_typeof(view_prefs -> 'theme') = 'string' and view_prefs ->> 'theme' in ('olive', 'navy', 'ink', 'lavender', 'teal', 'sky', 'mint', 'coral', 'lemon', 'red') end
         and case when not (view_prefs ? 'nav_collapsed') then true
@@ -62,10 +62,10 @@ alter table public.app_profiles
         and case when not (view_prefs ? 'note_folder') then true
               when jsonb_typeof(view_prefs -> 'note_folder') <> 'string' then false
               else jsonb_path_exists(view_prefs, 'lax $.note_folder ? (@ like_regex "^(all|none|f:[^[:cntrl:]]{1,20})$")') end
-        -- 화면 분할 비율: 객체, 아는 화면 이름만, 값은 0 초과 1 미만 숫자. 화면 이름 열세 개(20261029010000의 여덟 + 20261031030000 사진 폴더·아스날·노트 폴더·노트 보드 + Now 두 칸).
+        -- 화면 분할 비율: 객체, 아는 화면 이름만, 값은 0 초과 1 미만 숫자. 화면 이름 열네 개(20261029010000의 여덟 + 20261031030000 사진 폴더·아스날·노트 폴더·노트 보드 + Now 두 칸 + 파일 files).
         and case when not (view_prefs ? 'split_ratio') then true
               when jsonb_typeof(view_prefs -> 'split_ratio') <> 'object' then false
-              else not jsonb_path_exists(view_prefs, 'strict $.split_ratio.keyvalue() ? (!(@.key == "tasks" || @.key == "projects" || @.key == "team" || @.key == "reports" || @.key == "telegram" || @.key == "calls" || @.key == "refs" || @.key == "reports3" || @.key == "photos" || @.key == "arsenal" || @.key == "notes" || @.key == "noteboard" || @.key == "now"))')
+              else not jsonb_path_exists(view_prefs, 'strict $.split_ratio.keyvalue() ? (!(@.key == "tasks" || @.key == "projects" || @.key == "team" || @.key == "reports" || @.key == "telegram" || @.key == "calls" || @.key == "refs" || @.key == "reports3" || @.key == "photos" || @.key == "arsenal" || @.key == "notes" || @.key == "noteboard" || @.key == "now" || @.key == "files"))')
                and not jsonb_path_exists(view_prefs, 'strict $.split_ratio.* ? (@.type() != "number" || @ <= 0 || @ >= 1)') end
         -- 사업 보고 보기: 목록·달력·사진 셋 중 하나(글자여야 한다).
         and case when not (view_prefs ? 'report_view') then true
@@ -173,6 +173,14 @@ alter table public.app_profiles
               when jsonb_typeof(view_prefs -> 'phone_folders_known') <> 'array' then false
               else jsonb_array_length(view_prefs -> 'phone_folders_known') <= 120
                and not jsonb_path_exists(view_prefs, 'strict $.phone_folders_known[*] ? (@.type() != "string" || !(@ like_regex "^[0-9a-f]{8}$"))') end
+        -- 표 칸 폭(S49-4 FILES-칸폭): 객체(화면 이름 12개까지), 화면 이름·칸 이름은 소문자 영문으로 시작하는 소문자 영문·숫자·_ 1~20자,
+        -- 화면마다 객체이고 칸 값은 40 이상 800 이하 숫자(px). 없으면 화면 기본 폭.
+        and case when not (view_prefs ? 'col_widths') then true
+              when jsonb_typeof(view_prefs -> 'col_widths') <> 'object' then false
+              when jsonb_path_exists(view_prefs, 'strict $.col_widths.* ? (@.type() != "object")') then false
+              else jsonb_array_length(jsonb_path_query_array(view_prefs, 'strict $.col_widths.keyvalue().key')) <= 12
+               and not jsonb_path_exists(view_prefs, 'strict $.col_widths.keyvalue() ? (!(@.key like_regex "^[a-z][a-z0-9_]{0,19}$"))')
+               and not jsonb_path_exists(view_prefs, 'strict $.col_widths.*.keyvalue() ? (!(@.key like_regex "^[a-z][a-z0-9_]{0,19}$") || @.value.type() != "number" || @.value < 40 || @.value > 800)') end
         -- 사진 출처 켜기·끄기를 폰과 PC가 따로 기억(PHOTO-기기별출처): photo_sources_phone·photo_sources_pc = {onedrive, gdrive, phone} 중 일부, 값은 참·거짓(photo_sources와 같은 모양).
         and case when not (view_prefs ? 'photo_sources_phone') then true
               when jsonb_typeof(view_prefs -> 'photo_sources_phone') <> 'object' then false
@@ -198,7 +206,7 @@ begin
          and convalidated) <> 1
      or (select count(*) from information_schema.check_constraints
          where constraint_schema = 'public' and constraint_name = 'app_profiles_view_prefs_check'
-           and check_clause ~ 'photo_sources_phone' and check_clause ~ 'photo_sources_pc' and check_clause ~ 'photo_level' and check_clause ~ 'phone_folders_known' and check_clause ~ 'ed_more' and check_clause ~ 'link_hidden_on' and check_clause ~ 'collect_hidden_on' and check_clause ~ 'now_tab' and check_clause ~ '"now"' and check_clause ~ 'album_view' and check_clause ~ 'phone_folders_off' and check_clause ~ 'arsenal' and check_clause ~ 'noteboard' and check_clause ~ 'tg_view' and check_clause ~ 'org_tab' and check_clause ~ 'photo_sources' and check_clause ~ 'photo_hint' and check_clause ~ 'note_boards' and check_clause ~ 'quiet_weeks' and check_clause ~ 'reports3' and check_clause ~ 'home_cards') <> 1 then
+           and check_clause ~ 'photo_sources_phone' and check_clause ~ 'photo_sources_pc' and check_clause ~ 'photo_level' and check_clause ~ 'col_widths' and check_clause ~ 'phone_folders_known' and check_clause ~ 'ed_more' and check_clause ~ 'link_hidden_on' and check_clause ~ 'collect_hidden_on' and check_clause ~ 'now_tab' and check_clause ~ '"now"' and check_clause ~ '"files"' and check_clause ~ 'album_view' and check_clause ~ 'phone_folders_off' and check_clause ~ 'arsenal' and check_clause ~ 'noteboard' and check_clause ~ 'tg_view' and check_clause ~ 'org_tab' and check_clause ~ 'photo_sources' and check_clause ~ 'photo_hint' and check_clause ~ 'note_boards' and check_clause ~ 'quiet_weeks' and check_clause ~ 'reports3' and check_clause ~ 'home_cards') <> 1 then
     raise exception 'PROFILE_VIEW_PREFS_PHOTO_DEVICE_POSTCHECK_FAILED; stop';
   end if;
 end

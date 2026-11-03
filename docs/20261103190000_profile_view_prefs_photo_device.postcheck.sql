@@ -1,11 +1,11 @@
--- SELECT only. Works after apply (record + check accepting photo_sources_phone/pc and photo_level) and after rollback/dry-run (no record + phone_folders_known check without them).
+-- SELECT only. Works after apply (record + check accepting photo_sources_phone/pc and photo_level) and after rollback/dry-run (no record + col_widths check without them).
 -- The hash/count items must equal the precheck values of the same name (no grant, policy, trigger or index change; no row added or removed).
 with history as (
   select count(*) as n,count(*) filter(where name='profile_view_prefs_photo_device') as named from supabase_migrations.schema_migrations where version='20261103190000'
 ), checks as (
   select count(*) filter(where c.convalidated) as valid,count(*) as n,
     count(*) filter(where pg_get_constraintdef(c.oid) ~ 'photo_sources_phone' and pg_get_constraintdef(c.oid) ~ 'photo_level') as with_hint,
-    count(*) filter(where pg_get_constraintdef(c.oid) ~ 'phone_folders_known' and pg_get_constraintdef(c.oid) ~ 'ed_more') as with_sort
+    count(*) filter(where pg_get_constraintdef(c.oid) ~ 'col_widths' and pg_get_constraintdef(c.oid) ~ 'phone_folders_known') as with_sort
   from pg_constraint c where c.conrelid=to_regclass('public.app_profiles') and c.conname='app_profiles_view_prefs_check'
 )
 select 'view prefs check and history agree' as item,case when checks.n=1 and checks.valid=1 and checks.with_sort=1 and (

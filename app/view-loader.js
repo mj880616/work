@@ -40,7 +40,7 @@ const routeStyles={
   photos:['./diary.css','./od-link.css','./photos.css','./folder-tree.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./ui-standard.css'],
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
-  outside:['./outside-statements.css','./news-clipping.css','./library-upload.css','./now.css','./ui-standard.css'],
+  outside:['./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./ui-standard.css'],
   files:['./folder-tree.css','./files.css','./ui-standard.css'],
   updates:['./release-notes.css','./ui-standard.css']
 };

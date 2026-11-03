@@ -195,6 +195,21 @@ function askDraft(rt,workspaceId,{text,stage='',part=0,parts=0}){
   }});
 }
 
+// 요약 답 → 입력 창 칸(일시·결과 원문·후속 할 일). 화면 요약([초안 채우기])과 서버 정리 결과(fillResult) 공용.
+function applyDraft(data,text,at){
+  const draft=normalizeDraft(data);
+  if(!draft)throw new Error('invalid_meeting_draft');
+  const next=pickMeetingAt({current:at,file:fileInfo,aiDate:draft.meetingDate,textDate:dateFromText(text)});
+  if(next&&$('#meetingAt'))$('#meetingAt').value=next;
+  const area=$('#meetingTranscript');
+  if(area){area.value=mergeText(area.value,draftText(draft));area.dispatchEvent(new Event('input',{bubbles:true}))}
+  const rows=actionRows(draft);let added=0;
+  for(const row of rows)if(addAction(row))added++;
+  const warn=(data?.warnings||[]).length;
+  status(`초안을 채웠어요${added?` · 후속 할 일 ${added}개`:''}${warn?` · 확인할 것 ${warn}건`:''} · 전사 전문은 '회의록 전문' 칸에. 고친 뒤 [사업 보고 저장]을 누르세요.`,'ok');
+  toggle(false);
+}
+
 async function run(){
   if(busy)return false;
   let ok=false;
@@ -230,17 +245,7 @@ async function run(){
     }
     // 창을 닫았거나 다시 연 뒤에 온 답은 버린다.
     if(gone())return false;
-    const draft=normalizeDraft(data);
-    if(!draft)throw new Error('invalid_meeting_draft');
-    const next=pickMeetingAt({current:at,file:fileInfo,aiDate:draft.meetingDate,textDate:dateFromText(text)});
-    if(next&&$('#meetingAt'))$('#meetingAt').value=next;
-    const area=$('#meetingTranscript');
-    if(area){area.value=mergeText(area.value,draftText(draft));area.dispatchEvent(new Event('input',{bubbles:true}))}
-    const rows=actionRows(draft);let added=0;
-    for(const row of rows)if(addAction(row))added++;
-    const warn=(data?.warnings||[]).length;
-    status(`초안을 채웠어요${added?` · 후속 할 일 ${added}개`:''}${warn?` · 확인할 것 ${warn}건`:''} · 전사 전문은 '회의록 전문' 칸에. 고친 뒤 [사업 보고 저장]을 누르세요.`,'ok');
-    toggle(false);
+    applyDraft(data,text,at);
     ok=true;
   }catch(e){
     if(mine!==epoch)return false;
@@ -266,7 +271,24 @@ async function fill({text='',jobs=[],name=''}={}){
   toggle(true);
   return run();
 }
-window.KPTUMeetingTranscriptDraft={fill};
+// REC-서버정리(S49-2): 서버가 이미 전사·요약을 끝낸 결과를 넣는다(AI를 다시 부르지 않음). 전문은 '회의록 전문' 칸, 요약은 기존 칸.
+// 요약이 없으면(서버 요약 실패) 전문만 넣고 [초안 채우기]를 누를 수 있게 둔다. 채웠으면 true.
+function fillResult({text='',draft=null,jobs=[],name=''}={}){
+  if(!install()||$('#meetingModal')?.classList.contains('hidden'))return false;
+  stop();
+  audio=null;audioSeconds=null;audioJob='';
+  recJobs=(Array.isArray(jobs)?jobs:[]).filter(Boolean);
+  const attach=$('#mtdAttach');if(attach)attach.checked=recJobs.length>0;
+  syncAttach();
+  fileName=name||'녹음';fileInfo={date:'',time:''};paintFile();paintAudio();
+  const full=cleanTranscript(String(text||''));
+  $('#mtdText').value=full;
+  keepFull(full);
+  if(!draft){toggle(true);status("전사 전문은 '회의록 전문' 칸에 넣었어요. 요약은 [초안 채우기]를 누르세요.",'error');return false}
+  try{applyDraft({draft},full,$('#meetingAt')?.value||'');return true}
+  catch{toggle(true);status("전사 전문은 '회의록 전문' 칸에 넣었어요. 요약은 [초안 채우기]를 누르세요.",'error');return false}
+}
+window.KPTUMeetingTranscriptDraft={fill,fillResult};
 
 // 창이 열릴 때(team.js openMeetingModal이 칸 글자를 칠하며 알림)와 칸을 바꿀 때. [회의] 칸에서만 보인다.
 window.addEventListener('kptu:report-entry-kind',e=>{

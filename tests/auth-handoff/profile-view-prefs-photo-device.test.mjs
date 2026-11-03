@@ -1,6 +1,6 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
 // S49-5 PHOTO-기기별출처+연월이동: app_profiles_view_prefs_check accepts photo_sources_phone, photo_sources_pc (booleans) and photo_level (year|month|day) through the approved DB workflow runner.
-// - 다른 칸 규칙 그대로(앞선 스물아홉 칸을 그대로 받고, 전에 거절하던 값은 계속 거절).
+// - 다른 칸 규칙 그대로(앞선 서른 칸(S49-4 col_widths·split_ratio.files 포함)을 그대로 받고, 전에 거절하던 값은 계속 거절).
 // - 권한 그대로: 프로필은 내 행만, anon은 못 읽는다. 표 권한·정책 수 그대로.
 // - 승인형 workflow의 plan·dry-run·apply가 통과하고, rollback은 기기별 출처·보기 단계가 저장돼 있으면 멈춘 뒤 비우면 원래 모양으로 돌아간다.
 import test from 'node:test';
@@ -58,7 +58,7 @@ const EARLIER=['20261023180000_profile_view_prefs','20261027020000_profile_view_
  '20261027070000_profile_view_prefs_theme_refresh','20261028020000_profile_view_prefs_menu_home','20261028090000_profile_view_prefs_photo_cols',
  '20261028100000_profile_view_prefs_diary_view','20261028150000_profile_view_prefs_diary_onedrive','20261026140000_diary_onedrive_db','20261028010000_onedrive_photo_index',
  '20261028220000_photo_menu_index','20261029010000_profile_view_prefs_split_screens','20261029103000_profile_view_prefs_quiet_weeks','20261029183000_profile_view_prefs_note_view',
- '20261030091000_profile_view_prefs_note_boards','20261030150000_photo_sort','20261029150000_photo_tags','20261030190000_profile_view_prefs_photo_hint','20261030230000_photo_sources','20261030233000_profile_view_prefs_org_tab','20261031010000_profile_view_prefs_tg_view','20261031030000_profile_view_prefs_split_more','20261031060000_profile_view_prefs_phone_folders','20261031235000_profile_view_prefs_album_view','20261102141000_profile_view_prefs_now_tab','20261102170000_profile_view_prefs_link_hidden','20261102190000_profile_view_prefs_ed_more','20261102213000_profile_view_prefs_phone_known'];
+ '20261030091000_profile_view_prefs_note_boards','20261030150000_photo_sort','20261029150000_photo_tags','20261030190000_profile_view_prefs_photo_hint','20261030230000_photo_sources','20261030233000_profile_view_prefs_org_tab','20261031010000_profile_view_prefs_tg_view','20261031030000_profile_view_prefs_split_more','20261031060000_profile_view_prefs_phone_folders','20261031235000_profile_view_prefs_album_view','20261102141000_profile_view_prefs_now_tab','20261102170000_profile_view_prefs_link_hidden','20261102190000_profile_view_prefs_ed_more','20261102213000_profile_view_prefs_phone_known','20261103160000_profile_view_prefs_files_cols'];
 
 test('view prefs photo device: plan, dry-run, apply, own-row writes, CHECK and guarded rollback',{timeout:150000},async t=>{
  const directory=await mkdtemp(join(tmpdir(),'view-prefs-photo-device-pg-')),sock=createServer();await new Promise(r=>sock.listen(0,'127.0.0.1',r));const port=sock.address().port;await new Promise(r=>sock.close(r));
@@ -82,10 +82,10 @@ test('view prefs photo device: plan, dry-run, apply, own-row writes, CHECK and g
   const before=(await pool.query(snapshot)).rows,beforeCheck=(await pool.query(precheck)).rows;
   const base={theme:'lemon',split_ratio:{tasks:0.4,telegram:0.3,reports3:0.25,photos:0.3,noteboard:0.2},home_cards:['quiet','todo'],diary_view:'list',photo_view:{filter:'star',cols:4,sort:'name_asc'},quiet_weeks:3,note_view:'board',note_boards:[{id:'b1a2b3c4',name:'보드'}],note_board:'b1a2b3c4',photo_hint:2,photo_sources:{onedrive:true,phone:false},org_tab:'table',tg_view:'room',phone_folders_off:['DCIM/Camera/'],album_view:'thumb',now_tab:'news',collect_hidden_on:'2026-11-01',link_hidden_on:'2026-11-01',ed_more:true};
   const NEW={photo_sources_phone:{phone:true,onedrive:false},photo_sources_pc:{onedrive:true},photo_level:'month'};
-  const with_=v=>({...base,phone_folders_known:['0a1b2c3d'],photo_sources_phone:v,photo_sources_pc:{onedrive:true,gdrive:false,phone:false},photo_level:'year',split_ratio:{...base.split_ratio,now:0.42}});
+  const with_=v=>({...base,phone_folders_known:['0a1b2c3d'],photo_sources_phone:v,photo_sources_pc:{onedrive:true,gdrive:false,phone:false},photo_level:'year',col_widths:{files:{day:132}},split_ratio:{...base.split_ratio,now:0.42,files:0.25}});
   const GOOD=[{},{phone:true},{onedrive:false,gdrive:false,phone:true}];
 
-  await t.test('before apply the CHECK refuses phone_folders_known and accepts the old keys',async()=>{
+  await t.test('before apply the CHECK refuses the device keys and accepts the old keys (col_widths included)',async()=>{
    const v=Object.fromEntries(beforeCheck.map(r=>[r.item,r.value]));
    assert.deepEqual([v['prerequisite recorded'],v['new migration absent'],v['view prefs check without photo device'],v['saved photo device'],v['RLS enabled'],v['anon or public table privilege'],v['two owner policies'],v['profiles rows']],
     ['예','예','예','0','예','아니오','예','3']);
@@ -117,8 +117,8 @@ test('view prefs photo device: plan, dry-run, apply, own-row writes, CHECK and g
    await assert.rejects(as('anon','',c=>c.query('select view_prefs from public.app_profiles limit 1')),{code:'42501'});
   });
   await t.test('the CHECK refuses badly shaped device sources and photo level and still refuses what it refused before',async()=>{
-   assert.equal((await write(OWNER,OWNER,with_({phone:true}))).rowCount,1,'all thirty-two keys together');
-   const bad=[{photo_sources_phone:true},{photo_sources_phone:{phone:1}},{photo_sources_phone:{other:true}},{photo_sources_pc:[true]},{photo_sources_pc:{onedrive:'true'}},{photo_sources_pc:null},{photo_level:'week'},{photo_level:1},{photo_level:null},{photo_level:['year']},{phone_folders_known:'0a1b2c3d'},
+   assert.equal((await write(OWNER,OWNER,with_({phone:true}))).rowCount,1,'all thirty-three keys together');
+   const bad=[{col_widths:{files:{day:39}}},{split_ratio:{files:1}},{photo_sources_phone:true},{photo_sources_phone:{phone:1}},{photo_sources_phone:{other:true}},{photo_sources_pc:[true]},{photo_sources_pc:{onedrive:'true'}},{photo_sources_pc:null},{photo_level:'week'},{photo_level:1},{photo_level:null},{photo_level:['year']},{phone_folders_known:'0a1b2c3d'},
     {photo_view:{sort:'newest'}},{photo_view:{hint:1}},{note_board:'b12'},{note_view:'grid'},{quiet_weeks:13},{split_ratio:{chat:0.3}},
     {theme:'dark'},{extra:'x'},[],'x',{photo_view:{cols:2}},{diary_onedrive:'true'}];
    for(const value of bad)await assert.rejects(write(OWNER,OWNER,value),{code:'23514'},JSON.stringify(value));

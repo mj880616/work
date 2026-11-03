@@ -34,7 +34,10 @@ test('summary-writing instructions carry the one shared rule: telegram news, led
   for (const [name, text] of [['telegram', telegram.TELEGRAM_INSTRUCTIONS], ['ledger_auto', auto.LEDGER_AUTO_INSTRUCTIONS], ['ledger_candidates', candidates.LEDGER_CANDIDATES_INSTRUCTIONS], ['ledger_fix', fix.LEDGER_FIX_INSTRUCTIONS], ['journal_draft', journal.JOURNAL_DRAFT_INSTRUCTIONS], ['next_week_sheet', nextWeek.NEXT_WEEK_SHEET_INSTRUCTIONS], ['pre_meeting_sheet', preMeeting.PRE_MEETING_INSTRUCTIONS]]) {
     assert.equal(text.split(RULE).length - 1, 1, `${name}: rule appears exactly once, as the shared text`);
   }
-  assert.ok(read('meeting-ai-draft/index.ts').includes('${AI_TONE_RULE}'), 'meeting draft puts the shared rule into its developer text');
+  // S49-2: 회의 초안 지시문은 _shared/meeting-draft-prompt.mjs 한 곳(화면 요약·서버 정리 공용). 말투 규칙은 부르는 쪽이 넘긴다.
+  assert.ok(read('_shared/meeting-draft-prompt.mjs').includes('${toneRule}'), 'meeting draft puts the shared rule into its developer text');
+  assert.ok(read('meeting-ai-draft/index.ts').includes('meetingDraftDeveloper(AI_TONE_RULE)'), 'meeting draft passes the shared rule');
+  assert.ok(read('meeting-transcribe/index.ts').includes('meetingDraftDeveloper(AI_TONE_RULE)'), 'server summary passes the shared rule');
   assert.match(read('meeting-ai-draft/index.ts'), /import \{[^}]*AI_TONE_RULE[^}]*\} from '\.\.\/_shared\/ai-model\.ts'/);
 });
 

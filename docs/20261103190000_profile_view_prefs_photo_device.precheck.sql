@@ -1,5 +1,5 @@
 -- SELECT only. Aggregates and hashes; no profile text. Run before dry-run/apply (also the dry-run before/after comparison).
--- 적용 전 기대: 앞 단계 기록 예 / 이번 기록 없음 예 / 화면 기억 검사에 phone_folders_known 있고 photo_sources_phone·photo_level 없음 예 / 저장된 기기별 출처·보기 단계 0 /
+-- 적용 전 기대: 앞 단계 기록 예 / 이번 기록 없음 예 / 화면 기억 검사에 col_widths 있고 photo_sources_phone·photo_level 없음 예 / 저장된 기기별 출처·보기 단계 0 /
 --   RLS 예 / anon 아니오 / 정책 2개 예. 그 밖의 해시·개수는 사후 확인과 같은 값이어야 한다(기록만).
 -- 이 값이 다르면 적용하지 않고 멈춘다(권한·정책을 넓히지 않는다).
 -- read_only 요청은 표 소유자가 아닌 역할로 돈다. pg_constraint·pg_get_constraintdef로 읽는다(information_schema 안 씀).
@@ -18,10 +18,10 @@
 -- expect: column grants hash = 기록
 -- expect: triggers hash = 기록
 -- expect: indexes hash = 기록
-select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261102213000' and name='profile_view_prefs_phone_known')=1 then '예' else '아니오' end as value
+select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261103160000' and name='profile_view_prefs_files_cols')=1 then '예' else '아니오' end as value
 union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261103190000') then '예' else '아니오' end
 union all select 'view prefs check without photo device',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_profiles') and conname='app_profiles_view_prefs_check' and contype='c' and convalidated
-  and pg_get_constraintdef(oid) ~ 'phone_folders_known' and pg_get_constraintdef(oid) !~ 'photo_sources_phone' and pg_get_constraintdef(oid) !~ 'photo_level')=1 then '예' else '아니오' end
+  and pg_get_constraintdef(oid) ~ 'col_widths' and pg_get_constraintdef(oid) !~ 'photo_sources_phone' and pg_get_constraintdef(oid) !~ 'photo_level')=1 then '예' else '아니오' end
 union all select 'saved photo device',count(*)::text from public.app_profiles where view_prefs ? 'photo_sources_phone' or view_prefs ? 'photo_sources_pc' or view_prefs ? 'photo_level'
 union all select 'RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.app_profiles') and relrowsecurity) then '예' else '아니오' end
 union all select 'anon or public table privilege',case when has_table_privilege('anon','public.app_profiles','select,insert,update,delete')

@@ -31,9 +31,19 @@ test('모든 max_output_tokens에 생각 토큰 여유가 더해진다',()=>{
   for(const fn of FUNCTIONS){
     const t=src(fn);
     const at=[...t.matchAll(/max_output_tokens:/g)].map(m=>t.slice(m.index,m.index+110));
+    // S49-2: 회의 초안 요청 몸통은 _shared/meeting-draft-prompt.mjs meetingDraftRequest 한 곳(여유는 headroom으로 받음).
+    if(fn==='meeting-ai-draft'){assert.equal(at.length,0,fn);assert.match(t,/meetingDraftRequest\(\{[^}]*headroom:AI_REASONING_TOKEN_HEADROOM/,fn);continue}
     assert.ok(at.length>0,fn);
     for(const c of at)assert.match(c,/AI_REASONING_TOKEN_HEADROOM/,fn+' '+c);
   }
+  const shared=readFileSync(ROOT+'_shared/meeting-draft-prompt.mjs','utf8');
+  assert.match(shared,/max_output_tokens: Math\.min\(Number\(maxOutput \|\| 3000\), 3500\) \+ headroom/);
+  // 서버 정리(meeting-transcribe, S49-2)도 같은 몸통·여유·생각 수준·공용 outputText를 쓴다.
+  const server=src('meeting-transcribe');
+  assert.match(server,/meetingDraftRequest\(\{[^}]*headroom: AI_REASONING_TOKEN_HEADROOM/);
+  assert.match(server,/JSON\.stringify\(withReasoning\(body\)\)/);
+  assert.match(server,/import \{ outputText \} from '\.\.\/_shared\/openai-responses\.ts'/);
+  assert.match(server,/set\.default_model \|\| DEFAULT_AI_MODEL/);
   assert.ok(AI_REASONING_TOKEN_HEADROOM>=1000);
 });
 
@@ -95,7 +105,7 @@ test('collector-feed: 텔레그램 호출 상한에 생각 여유가 더해져 �
 
 test('새 Edge 함수가 OpenAI를 부르면서 여유·공용 길을 빠뜨리지 못한다(전체 함수 폴더 검사)',async()=>{
   const {readdirSync,statSync,existsSync}=await import('node:fs');
-  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed','outside-feed','news-feed']);
+  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed','outside-feed','news-feed','meeting-transcribe']);  // meeting-transcribe: 위 '여유' 시험에서 따로 본다(S49-2)
   const missing=[];
   for(const d of readdirSync(ROOT)){
     if(d.startsWith('_')||!statSync(ROOT+d).isDirectory()||known.has(d))continue;

@@ -25,7 +25,7 @@ export const QUICK_MODES = Object.freeze(['update', 'task']);
 // (migration 20261029010000_profile_view_prefs_split_screens. 적용 전에는 새 이름 쓰기가 400이라 이 화면은 그 DB 적용 뒤 merge).
 // UI-칸폭끌기전수(요청함 10/30 10:29): 사진 폴더·아스날·노트 폴더·노트 보드 넷을 더함(migration 20261031030000_profile_view_prefs_split_more).
 // 적용 전에는 새 이름 쓰기가 400이라 칸 폭은 rejectable로 보내 그 칸만 되돌린다(다른 화면 기억은 그대로 저장, 새로고침하면 기본 폭).
-export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard', 'now']);
+export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3', 'photos', 'arsenal', 'notes', 'noteboard', 'now', 'files']);
 const LEGACY_SPLIT_SCREENS = ['tasks', 'projects', 'team', 'reports']; // 옛 기기 저장 키가 있던 화면(새 이름은 기기에 쓴 적 없음)
 export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사업 보고 [목록|달력|사진] (ACT-사진 6단계). 일정 탭 calendar_view와 다른 칸
 // MENU-HOME-편집: menu_layout = {bar, rest} (하단바 칸·그 밖 메뉴의 순서, 항목 이름 목록), home_cards = 홈에 보이는 칸의 이름 순서. 항목 이름의 뜻(어느 메뉴·어느 칸인지)은
@@ -74,9 +74,14 @@ export const NOW_TABS = Object.freeze(['outside', 'news', 'saved', 'search']);
 // S48-31 새 폰 폴더는 꺼진 채: phone_folders_known = 이미 본(보이는) 폰 폴더 경로의 지문(소문자 16진수 8자) 배열, 120개까지. 경로 원문은 담지 않는다.
 // migration 20261102213000. 뜻·계산은 phone-folders-model.mjs(phoneFolderKey·reconcilePhoneFolders). 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(알림 없음, 새 폴더는 지금처럼 켜진 채).
 export const PHONE_FOLDERS_KNOWN_MAX = 120;
+// S49-4 FILES-칸폭: col_widths = 표 칸 폭(px) {화면: {칸: 40~800 숫자}}. 지금은 files(path·day·size·kind)뿐이고, 화면 이름·칸 이름은 소문자 영문·숫자·_ 1~20자.
+// split_ratio.files = [파일] 왼쪽 폴더 나무 | 오른쪽 목록 칸 비율. migration 20261103160000_profile_view_prefs_files_cols. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
+export const COL_NAME_RE = /^[a-z][a-z0-9_]{0,19}$/;
+export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
+const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -126,6 +131,8 @@ export function validValue(key, value) {
       && (!('filter' in value) || PHOTO_VIEW_FILTERS.includes(value.filter))
       && (!('sort' in value) || PHOTO_VIEW_SORTS.includes(value.sort))
       && (!('cols' in value) || (Number.isInteger(value.cols) && value.cols >= 3 && value.cols <= 12));
+    case 'col_widths': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length <= 12
+      && Object.keys(value).every(name => COL_NAME_RE.test(name) && colWidthsOk(value[name]));
     case 'split_ratio': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => SPLIT_SCREENS.includes(name) && ratioOk(value[name]));
     default: return false;
@@ -143,6 +150,17 @@ export function parsePrefs(value) {
       const kept = {};
       for (const name of SPLIT_SCREENS) if (ratioOk(src[name])) kept[name] = src[name];
       if (Object.keys(kept).length) out[key] = kept;
+    } else if (key === 'col_widths') {
+      const src = value[key];
+      if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
+      const kept = {};
+      for (const name of Object.keys(src)) {
+        if (!COL_NAME_RE.test(name) || !src[name] || typeof src[name] !== 'object' || Array.isArray(src[name])) continue;
+        const cols = {};
+        for (const col of Object.keys(src[name])) if (colWidthsOk({ [col]: src[name][col] })) cols[col] = src[name][col];
+        if (Object.keys(cols).length) kept[name] = cols;
+      }
+      if (Object.keys(kept).length) out[key] = kept;
     } else if (validValue(key, value[key])) out[key] = value[key];
   }
   return out;
@@ -155,14 +173,22 @@ export function applyChanges(base, changes) {
       const name = path.slice('split_ratio.'.length), next = { ...(out.split_ratio || {}) };
       if (value === null) delete next[name]; else next[name] = value;
       if (Object.keys(next).length) out.split_ratio = next; else delete out.split_ratio;
+    } else if (path.startsWith('col_widths.')) {
+      const name = path.slice('col_widths.'.length), next = { ...(out.col_widths || {}) };
+      if (value === null) delete next[name]; else next[name] = value;
+      if (Object.keys(next).length) out.col_widths = next; else delete out.col_widths;
     } else if (value === null) delete out[path];
     else out[path] = value;
   }
   return out;
 }
+const NESTED = ['split_ratio', 'col_widths'];
+const colScreen = path => path.slice('col_widths.'.length);
 const changeOk = (path, value) => value === null
-  ? KEYS.includes(path) && path !== 'split_ratio' || (path.startsWith('split_ratio.') && SPLIT_SCREENS.includes(path.slice(12)))
-  : path.startsWith('split_ratio.') ? SPLIT_SCREENS.includes(path.slice(12)) && ratioOk(value) : KEYS.includes(path) && path !== 'split_ratio' && validValue(path, value);
+  ? KEYS.includes(path) && !NESTED.includes(path) || (path.startsWith('split_ratio.') && SPLIT_SCREENS.includes(path.slice(12))) || (path.startsWith('col_widths.') && COL_NAME_RE.test(colScreen(path)))
+  : path.startsWith('split_ratio.') ? SPLIT_SCREENS.includes(path.slice(12)) && ratioOk(value)
+    : path.startsWith('col_widths.') ? COL_NAME_RE.test(colScreen(path)) && colWidthsOk(value)
+      : KEYS.includes(path) && !NESTED.includes(path) && validValue(path, value);
 // 저장할 값(비어 있으면 null = 기본값으로 돌아감).
 export const serialize = prefs => Object.keys(prefs).length ? prefs : null;
 
@@ -181,7 +207,7 @@ const LEGACY = [
 // 고른 적 없을 때 화면이 보여 주는 값: 이 값으로 "바꾸는" 호출은 저장할 것이 없다.
 const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card', ed_more: false, now_tab: 'outside' };
 const defaultStorage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
-const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : prefs[path];
+const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : path.startsWith('col_widths.') ? prefs.col_widths?.[colScreen(path)] : prefs[path];
 
 export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime, storage = defaultStorage, setTimer = setTimeout, clearTimer = clearTimeout, delay = 400, retryDelay = 5000, loadTimeout = 4000 } = {}) {
   let prefs = {};          // 화면이 쓰는 값(이번 접속). 서버 값 + 옮긴 기기 값 + 이번 접속에서 바꾼 값.
@@ -288,7 +314,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
         retried = false; state = 'ok'; lastRead = merged;
         for (const path of Object.keys(batch)) { const keys = written.get(path); if (keys && !rejected.includes(path)) { removeKeys(keys); written.delete(path); } }
         // 서버가 거절한 칸은 서버가 아는 값으로 되돌리고(기기 옛 값은 그대로 둔다) 화면에 알린다. 그 사이 사용자가 또 바꿨으면(이미 다른 값) 건드리지 않는다.
-        const reverted = rejected.filter(path => getPath(prefs, path) === batch[path]);
+        const same = (a, b) => a === b || (!!a && !!b && typeof a === 'object' && typeof b === 'object' && JSON.stringify(a) === JSON.stringify(b)); // 칸 폭(col_widths)은 객체라 값으로 비교
+        const reverted = rejected.filter(path => same(getPath(prefs, path), batch[path]));
         if (reverted.length) {
           prefs = applyChanges(prefs, Object.fromEntries(reverted.map(path => [path, getPath(merged, path) ?? null])));
           try { globalThis.window?.dispatchEvent?.(new CustomEvent('kptu:view-prefs-rejected', { detail: { paths: reverted } })); } catch { /* 알림만 */ }
@@ -329,10 +356,12 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
   }
   return {
     load,
-    get: key => (KEYS.includes(key) && key !== 'split_ratio' ? prefs[key] : undefined),
+    get: key => (KEYS.includes(key) && !NESTED.includes(key) ? prefs[key] : undefined),
     set: (key, value, options) => set(key, value, options),
     getSplit: name => prefs.split_ratio?.[name],
     setSplit: (name, ratio) => set('split_ratio.' + name, ratio, {rejectable: true}),
+    getCols: name => prefs.col_widths?.[name],
+    setCols: (name, widths) => set('col_widths.' + name, widths, {rejectable: true}),
     flush,
     flushHidden,
     status: () => state,

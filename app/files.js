@@ -7,6 +7,8 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, PHONE_TABS, PHONE_TAB_NAME, S
   recentGroups, syncText, sortRows, validSort, rowKey, applyChanges, touchesCounts, trailNames, trailIds, pathText, folderKey, treeRows,
   placeOf, whereOf, tabAt, cleanQuery, findSummary, errorText, moveCheck, pickRange, groupBySource, touchedFolders, moveTargetOk,
   trashAsk, writeDoneText, writeErrorText, twinRows, TWIN_LIMIT} from './files-model.mjs';
+import {mountSplitResize} from './split-resize.js';
+import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
 import {checkFileBase, splitFileName, FILE_BASE_MAX} from './file-rename-name.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
@@ -42,7 +44,7 @@ function install() {
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="고른 것" hidden></div>
 <div class="fx-tabs" data-fx-tabs role="tablist" aria-label="파일 보기">${PHONE_TABS.map(t => `<button type="button" role="tab" data-fx-tab="${t}" aria-selected="false">${PHONE_TAB_NAME[t]}</button>`).join('')}</div>
 <p class="fx-note" data-fx-note role="status" hidden></p>
-<div class="fx-cols"><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><section class="fx-list" data-fx-list aria-label="파일 목록"></section><aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div>
+<div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main><section class="fx-list" data-fx-list aria-label="파일 목록"></section><aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
 </div></section>`);
 }
 install();
@@ -272,9 +274,23 @@ function rowHtml(r, {withPath = false} = {}) {
     + `<span class="fx-day">${esc(day)}</span><span class="fx-size">${esc(size)}</span><span class="fx-kind">${esc(kindLabel(r))}</span>`
     + `<span class="fx-sub">${esc([withPath ? where : day, size].filter(Boolean).join(' · '))}</span></button>`;
 }
+// S49-4 FILES-칸폭: 폴더 나무 | 목록 경계(split_ratio.files)와 표 머리 칸(위치·바뀐 날·크기·종류, col_widths.files)을 끌어 조절 — 둘 다 서버에 기억.
+const COL_VARS = {path: '--fx-w-path', day: '--fx-w-day', size: '--fx-w-size', kind: '--fx-w-kind'};
+function mountWidths(list) {
+  const cols = $('[data-fx-cols]');
+  if (cols) {
+    mountSplitResize({container: cols, name: 'files', label: '폴더와 목록 칸 폭 조절', columns: [
+      {el: () => $('[data-fx-tree]'), varName: '--ds-split-files-tree', minVar: '--ds-split-files-tree-min', minFallback: 160, share: 22},
+      {el: () => $('[data-fx-main]'), varName: '--ds-split-files-main', minVar: '--ds-split-files-main-min', minFallback: 440, share: 78},
+    ], active: () => !PHONE.matches});
+  }
+  mountColResize({host: list, name: 'files', vars: COL_VARS,
+    fit: key => Math.ceil(Math.max(0, ...[...list.querySelectorAll(`.fx-row .fx-${key}`)].map(el => el.scrollWidth))) });
+}
 function paintList() {
   const list = $('[data-fx-list]');
   if (!list) return;
+  mountWidths(list);
   if (state.statusFailed && !state.status) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed)}); return; }
   if (state.query) {
     if (state.findFailed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(state.findFailed)}); return; }
@@ -294,7 +310,7 @@ function paintList() {
     list.innerHTML = `<div class="fx-rows fx-with-path" role="list">${recentGroups(rows).map(g => `<div class="fx-day-head">${esc(g.label)}</div>${g.rows.map(r => rowHtml(r, {withPath: true})).join('')}`).join('')}</div>`;
     return;
   }
-  list.innerHTML = `<div class="fx-head" aria-hidden="true"><span>이름</span>${w.shelf ? '<span>위치</span>' : ''}<span>바뀐 날</span><span>크기</span><span>종류</span></div>`
+  list.innerHTML = `<div class="fx-head"><span>이름</span>${w.shelf ? `<span>위치${gripHtml('path', '위치')}</span>` : ''}<span>바뀐 날${gripHtml('day', '바뀐 날')}</span><span>크기${gripHtml('size', '크기')}</span><span>종류${gripHtml('kind', '종류')}</span></div>`
     + `<div class="fx-rows${w.shelf ? ' fx-with-path' : ''}" role="list">${rows.map(r => rowHtml(r, {withPath: !!w.shelf})).join('')}</div>`;
 }
 

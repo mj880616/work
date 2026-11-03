@@ -1,5 +1,5 @@
 begin;
--- 20261103190000_profile_view_prefs_photo_device의 짝 되돌리기. 화면 기억 검사를 photo_sources_phone·photo_sources_pc·photo_level 없는 20261102213000 profile_view_prefs_phone_known 모양으로
+-- 20261103190000_profile_view_prefs_photo_device의 짝 되돌리기. 화면 기억 검사를 photo_sources_phone·photo_sources_pc·photo_level 없는 20261103160000 profile_view_prefs_files_cols 모양으로
 -- 되돌리고 이번 기록 1행만 지운다. 어떤 프로필이라도 그 세 칸이 저장돼 있으면 멈춘다(값을 지워서 통과시키지 않는다 —
 -- 먼저 화면 PR을 이전 판으로 되돌리고, 남은 값을 어떻게 할지 정한 뒤 다시 계획한다). 표 권한·정책·함수·다른 칸에는 손대지 않는다.
 set local lock_timeout = '5s';
@@ -26,8 +26,8 @@ alter table public.app_profiles
       when jsonb_typeof(view_prefs) <> 'object' then false
       else
         octet_length(view_prefs::text) <= 4000
-        -- 칸은 아래 스물아홉 개뿐(20261102190000 ed_more의 스물여덟 개 + phone_folders_known).
-        and not jsonb_path_exists(view_prefs, 'strict $.keyvalue() ? (!(@.key == "theme" || @.key == "nav_collapsed" || @.key == "calendar_view" || @.key == "home_quick_mode" || @.key == "note_folder" || @.key == "split_ratio" || @.key == "collect_hidden_on" || @.key == "report_view" || @.key == "menu_layout" || @.key == "home_cards" || @.key == "photo_cols" || @.key == "photo_cols_wide" || @.key == "diary_view" || @.key == "diary_onedrive" || @.key == "photo_view" || @.key == "quiet_weeks" || @.key == "note_view" || @.key == "note_boards" || @.key == "note_board" || @.key == "photo_hint" || @.key == "photo_sources" || @.key == "org_tab" || @.key == "tg_view" || @.key == "phone_folders_off" || @.key == "album_view" || @.key == "now_tab" || @.key == "link_hidden_on" || @.key == "ed_more" || @.key == "phone_folders_known"))')
+        -- 칸은 아래 서른 개뿐(20261102213000 phone_folders_known의 스물아홉 개 + col_widths).
+        and not jsonb_path_exists(view_prefs, 'strict $.keyvalue() ? (!(@.key == "theme" || @.key == "nav_collapsed" || @.key == "calendar_view" || @.key == "home_quick_mode" || @.key == "note_folder" || @.key == "split_ratio" || @.key == "collect_hidden_on" || @.key == "report_view" || @.key == "menu_layout" || @.key == "home_cards" || @.key == "photo_cols" || @.key == "photo_cols_wide" || @.key == "diary_view" || @.key == "diary_onedrive" || @.key == "photo_view" || @.key == "quiet_weeks" || @.key == "note_view" || @.key == "note_boards" || @.key == "note_board" || @.key == "photo_hint" || @.key == "photo_sources" || @.key == "org_tab" || @.key == "tg_view" || @.key == "phone_folders_off" || @.key == "album_view" || @.key == "now_tab" || @.key == "link_hidden_on" || @.key == "ed_more" || @.key == "phone_folders_known" || @.key == "col_widths"))')
         and case when not (view_prefs ? 'theme') then true
               else jsonb_typeof(view_prefs -> 'theme') = 'string' and view_prefs ->> 'theme' in ('olive', 'navy', 'ink', 'lavender', 'teal', 'sky', 'mint', 'coral', 'lemon', 'red') end
         and case when not (view_prefs ? 'nav_collapsed') then true
@@ -40,10 +40,10 @@ alter table public.app_profiles
         and case when not (view_prefs ? 'note_folder') then true
               when jsonb_typeof(view_prefs -> 'note_folder') <> 'string' then false
               else jsonb_path_exists(view_prefs, 'lax $.note_folder ? (@ like_regex "^(all|none|f:[^[:cntrl:]]{1,20})$")') end
-        -- 화면 분할 비율: 객체, 아는 화면 이름만, 값은 0 초과 1 미만 숫자. 화면 이름 열세 개(20261029010000의 여덟 + 20261031030000 사진 폴더·아스날·노트 폴더·노트 보드 + Now 두 칸).
+        -- 화면 분할 비율: 객체, 아는 화면 이름만, 값은 0 초과 1 미만 숫자. 화면 이름 열네 개(20261029010000의 여덟 + 20261031030000 사진 폴더·아스날·노트 폴더·노트 보드 + Now 두 칸 + 파일 files).
         and case when not (view_prefs ? 'split_ratio') then true
               when jsonb_typeof(view_prefs -> 'split_ratio') <> 'object' then false
-              else not jsonb_path_exists(view_prefs, 'strict $.split_ratio.keyvalue() ? (!(@.key == "tasks" || @.key == "projects" || @.key == "team" || @.key == "reports" || @.key == "telegram" || @.key == "calls" || @.key == "refs" || @.key == "reports3" || @.key == "photos" || @.key == "arsenal" || @.key == "notes" || @.key == "noteboard" || @.key == "now"))')
+              else not jsonb_path_exists(view_prefs, 'strict $.split_ratio.keyvalue() ? (!(@.key == "tasks" || @.key == "projects" || @.key == "team" || @.key == "reports" || @.key == "telegram" || @.key == "calls" || @.key == "refs" || @.key == "reports3" || @.key == "photos" || @.key == "arsenal" || @.key == "notes" || @.key == "noteboard" || @.key == "now" || @.key == "files"))')
                and not jsonb_path_exists(view_prefs, 'strict $.split_ratio.* ? (@.type() != "number" || @ <= 0 || @ >= 1)') end
         -- 사업 보고 보기: 목록·달력·사진 셋 중 하나(글자여야 한다).
         and case when not (view_prefs ? 'report_view') then true
@@ -151,6 +151,14 @@ alter table public.app_profiles
               when jsonb_typeof(view_prefs -> 'phone_folders_known') <> 'array' then false
               else jsonb_array_length(view_prefs -> 'phone_folders_known') <= 120
                and not jsonb_path_exists(view_prefs, 'strict $.phone_folders_known[*] ? (@.type() != "string" || !(@ like_regex "^[0-9a-f]{8}$"))') end
+        -- 표 칸 폭(S49-4 FILES-칸폭): 객체(화면 이름 12개까지), 화면 이름·칸 이름은 소문자 영문으로 시작하는 소문자 영문·숫자·_ 1~20자,
+        -- 화면마다 객체이고 칸 값은 40 이상 800 이하 숫자(px). 없으면 화면 기본 폭.
+        and case when not (view_prefs ? 'col_widths') then true
+              when jsonb_typeof(view_prefs -> 'col_widths') <> 'object' then false
+              when jsonb_path_exists(view_prefs, 'strict $.col_widths.* ? (@.type() != "object")') then false
+              else jsonb_array_length(jsonb_path_query_array(view_prefs, 'strict $.col_widths.keyvalue().key')) <= 12
+               and not jsonb_path_exists(view_prefs, 'strict $.col_widths.keyvalue() ? (!(@.key like_regex "^[a-z][a-z0-9_]{0,19}$"))')
+               and not jsonb_path_exists(view_prefs, 'strict $.col_widths.*.keyvalue() ? (!(@.key like_regex "^[a-z][a-z0-9_]{0,19}$") || @.value.type() != "number" || @.value < 40 || @.value > 800)') end
     end
   );
 
