@@ -783,3 +783,28 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 }
+
+// PERF-첫로딩 '연 화면 유지'(S48-50, first-load.md 12절): 다른 화면에 갔다 같은 달의 일기로 돌아오면 기다림 표시 없이 보던 달력·목록을
+// 바로 보이고, 뒤에서 다시 읽은 새 일기(다른 기기에서 쓴 것)는 읽기가 끝나면 그 칸만 바뀐다.
+test('[일기] 연 화면 유지: 탭을 갔다 오면 보던 달 그대로, 새 일기는 뒤에서 바뀐다 390',async({page})=>{
+ const f=await fixture(page,{width:390});await openDiary(page,390);
+ const items=page.locator('#diaryRoot [data-diary-list-day]');
+ await expect(items).toHaveCount(2);
+ const waits=page.locator('#diaryRoot [data-wait]');
+ await expect.poll(()=>waits.count()).toBe(0);
+ await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();
+ f.rows.push({id:'d5',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-05',raw_text:'다른 기기 일기',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}});
+ let release;const held=new Promise(resolve=>{release=resolve;});
+ const notes=u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',hold=async r=>{await held;await r.fallback();};
+ await page.route(notes,hold);
+ await openDiary(page,390);
+ // 읽기가 붙잡혀 있는 동안에도 보던 목록 그대로, 기다림 표시 없음.
+ await expect(items).toHaveCount(2);
+ expect(await waits.count()).toBe(0);
+ release();
+ await expect(items).toHaveCount(3);
+ await expect(page.locator('#diaryRoot [data-diary-list-day="2026-10-05"]')).toContainText('다른 기기 일기');
+ expect(await waits.count()).toBe(0);
+ await page.unroute(notes,hold);
+ expect(f.errors).toEqual([]);
+});
