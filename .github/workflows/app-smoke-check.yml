@@ -404,6 +404,9 @@ jobs:
       - name: Check journal evening AI draft rules (today line draft, work calls only)
         run: node --test tests/journal-draft-model.test.mjs
 
+      - name: Check journal memorable calls/telegram block (rows, as-of label, edit rule, server-saved only)
+        run: node --test tests/journal-memorable.test.mjs
+
       - name: Check today-done work/personal split for the weekly report (drop personal lines, re-ask when lines change)
         run: node --test tests/work-scope-model.test.mjs
 
