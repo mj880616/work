@@ -2499,7 +2499,7 @@ const gdMenu = createAnchoredMenu({id:'photosGdMenu', className:'od-link-menu', 
 function sendMenuBtns(id) {
   const it = (shownList() || []).find(x => x.id === id);
   if (tab === 'trash' || !it || it.video) return [];
-  return [menuBtn('data-pm-star', '별표'), canShare() || wideShare() ? menuBtn('data-pm-share', '공유') : '', menuBtn('data-pm-diary', '일기에 넣기'), menuBtn('data-pm-basket', '업데이트로')];
+  return [String(id).startsWith('gd:') ? '' : menuBtn('data-pm-star', '별표'), canShare() || wideShare() ? menuBtn('data-pm-share', '공유') : '', menuBtn('data-pm-diary', '일기에 넣기'), menuBtn('data-pm-basket', '업데이트로')];
 }
 const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
   key:t => t.dataset.photosId || '',
