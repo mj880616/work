@@ -8,6 +8,7 @@ export const fileSize = size => size >= 1048576 ? `${(size / 1048576).toFixed(1)
 export function driveFileUrl(id) {
   return typeof id === 'string' && /^[A-Za-z0-9_-]+$/.test(id) ? `https://drive.google.com/file/d/${id}/view` : null;
 }
+const EAGER_BYTES = 120 * 1048576;
 export function createUploadBatch(note_id = null, attachments = []) {
   return {note_id, attachments, entries:[], blocked:null};
 }
@@ -59,7 +60,8 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
     entry.kind = 'uploading'; entry.label = '업로드 중'; onChange();
     let fd;
     try {
-      const copy = await rt.copyUploadFile(entry.file);
+      // UPD-사진여러장: a file read as soon as it was chosen (mountBasketPicker) is used as is; the rest are read now.
+      const copy = entry.copy || await (entry.read || rt.copyUploadFile(entry.file));
       if (!isCurrent()) throw uploadError('입력 세션이 변경되었습니다.', 'session_changed', 401);
       fd = new FormData(); fd.append('file', copy);
       if (batch.note_id) fd.append('note_id', batch.note_id);
@@ -68,7 +70,7 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
       if (!isCurrent()) throw uploadError('입력 세션이 변경되었습니다.', 'session_changed', 401);
       if (!result?.ok || typeof result.note_id !== 'string' || !result.note_id || !Array.isArray(result.attachments) || (batch.note_id && result.note_id !== batch.note_id)) throw uploadError(UNKNOWN, 'note_save_result_unknown');
       batch.note_id = result.note_id; batch.attachments = result.attachments;
-      entry.kind = 'success'; entry.label = '완료'; entry.file = {name:entry.file.name,size:entry.file.size};
+      entry.kind = 'success'; entry.label = '완료'; entry.file = {name:entry.file.name,size:entry.file.size}; entry.copy = entry.read = null;
       // Multipart uses native fetch, so publish the same safe event as runtime.api
       // only after response, note ID and current input session validation succeed.
       try { globalThis.window?.dispatchEvent(new CustomEvent('kptu:api-saved', {detail:{path:'/functions/v1/basket-files',method:'POST',fields:['attachments'],action:'',projectLinked:false}})); } catch { /* A subscriber cannot turn a saved attachment into a failed upload. */ }
@@ -139,12 +141,35 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, is
     hint.hidden = !batch.entries.length; filesHost.hidden = !batch.entries.length;
     rows.innerHTML = batch.entries.map((entry, index) => `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
   }
+  // UPD-사진여러장: on the phone app a chosen photo is only a pointer the system picker lent for a moment, and the upload used to
+  // read file 2, 3… minutes later, one request after another. Read each one into memory right away (within EAGER_BYTES in all);
+  // one that cannot be read leaves the list at once with a plain line instead of failing in the middle of the upload.
+  function readNow(batch, added) {
+    const rt = window.KPTURuntime;
+    if (typeof rt?.copyUploadFile !== 'function') return;
+    let used = batch.entries.reduce((sum, e) => sum + (e.copy ? e.copy.size : 0), 0);
+    for (const entry of added) {
+      if (used + entry.file.size > EAGER_BYTES) continue;
+      used += entry.file.size;
+      entry.read = rt.copyUploadFile(entry.file).then(copy => { entry.copy = copy; return copy; });
+      entry.read.catch(() => {
+        const at = getBatch().entries.indexOf(entry);
+        if (at < 0 || entry.kind !== 'pending') return;
+        getBatch().entries.splice(at, 1);
+        render(); onChange();
+        onError(`사진을 못 받았어요 · 다시 골라 주세요 (${entry.file.name || '이름 없음'})`);
+      });
+    }
+  }
   function add(files) {
     if (!isActive() || isBusy() || getBatch().blocked) return false;
     const batch = getBatch(), old = batch.entries;
-    batch.entries = [...old, ...Array.from(files || []).map(file => ({file,kind:'pending',label:'대기'}))];
+    const added = Array.from(files || []).map(file => ({file,kind:'pending',label:'대기'}));
+    batch.entries = [...old, ...added];
     try { validateBatch(batch); } catch(e) { batch.entries = old; render(); onError(e.message); return false; }
-    input.value = ''; render(); onChange(); return true;
+    input.value = ''; render(); onChange();
+    readNow(batch, added);
+    return true;
   }
   input.addEventListener('change', () => add(input.files));
   // Native button activation covers touch, click, Enter and Space.
