@@ -4,6 +4,7 @@ export const innerScrollers = (page, root) => page.evaluate(sel => {
   const out = [];
   for (const el of document.querySelectorAll(`${sel}, ${sel} *`)) {
     if (!el.getClientRects().length) continue;
+    if (el.classList.contains('kptu-follow-pane')) continue; // UI-상세칸고정(2026-11-03): 붙어 있는 옆 칸(상세·나무)만 길면 따로 스크롤한다
     const oy = getComputedStyle(el).overflowY;
     if (/(auto|scroll)/.test(oy) && el.scrollHeight > el.clientHeight + 4) out.push(`${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}.${[...el.classList].join('.')}`);
   }

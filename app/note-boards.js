@@ -20,7 +20,7 @@ import { fitChipRows } from './chip-rows.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 
 // wide: PC 왼쪽 목록을 보일 너비(노트 화면과 같은 761px~). get/set: basket-notes.js의 노트 배열. folderOf·folders·matches: 지금 노트 화면의 값.
-export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope}) {
+export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}}) {
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
   let openSet = new Set(), menu = null, picker = null;
   const named = () => current !== ALL && boards.some(b => b.id === current);
@@ -216,6 +216,15 @@ export function createNoteBoards({esc, rt, wide, bar, side, notes, folderOf, fol
     if (f) { const id = f.dataset.nbbFolder; if (openSet.has(id)) openSet.delete(id); else openSet.add(id); paintSide(); side.querySelector(`[data-nbb-folder="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); return; }
     const n = e.target.closest('[data-nbb-note]');
     if (n && n.getAttribute('aria-disabled') !== 'true') attach([n.dataset.nbbNote]);
+  });
+  // UI-우클릭전수(2026-11-03): 왼쪽 노트 목록 우클릭(PC) = 브라우저 메뉴 대신 웹2 노트·폴더 메뉴. 글자 칸 안·Shift·터치는 그대로.
+  side.addEventListener('contextmenu', e => {
+    if (e.defaultPrevented || e.pointerType === 'touch' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const f = e.target.closest?.('[data-nbb-folder]'), n = e.target.closest?.('[data-nbb-note]');
+    if (!f && !n) return;
+    e.preventDefault(); e.stopPropagation();
+    if (n) openNoteMenu(n, n.dataset.nbbNote, e.clientX, e.clientY);
+    else openFolderMenu(f, f.dataset.nbbFolder === OUTSIDE ? null : f.dataset.nbbFolder, e.clientX, e.clientY);
   });
   side.addEventListener('dragstart', e => {
     const n = e.target.closest?.('[data-nbb-note]');
