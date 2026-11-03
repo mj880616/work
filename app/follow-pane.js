@@ -12,5 +12,10 @@ export function followPane(el, { top = GAP, reset = true } = {}) {
   el.classList.add('kptu-follow-pane');
   const v = `${Math.round(top)}px`;
   if (el.style.getPropertyValue('--follow-top') !== v) el.style.setProperty('--follow-top', v);
-  if (reset) el.scrollTop = 0;
+  if (reset) {
+    el.scrollTop = 0;
+    // 칸 머리가 자기 자리(top) 위로 지나가 있으면(칸을 품은 줄 끝 가까이에서 새 항목을 연 때) 그만큼만 화면을 올려 머리를 보인다.
+    const over = el.getBoundingClientRect().top - top;
+    if (over < -1) window.scrollBy({ top: over, behavior: 'instant' });
+  }
 }
