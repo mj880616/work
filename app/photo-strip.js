@@ -73,7 +73,7 @@ export const stripPrio = d => (d === 0 ? -2 : Math.abs(d) === 1 ? -1 : 0);
 export function openPhotoStrip(opts) {
   const {host, list, index, title, layerName = 'diary-photo', element, label, when, caption = () => '', info, original, isStarred, toggleStar,
     deletable, take, restore, commit, errorText = () => '지우지 못했어요.', onError, onClose, play = null, download = null, badge = () => '', hires = null,
-    editable = null, edit = null, choose = null} = opts;
+    editable = null, edit = null, choose = null, diary = null} = opts;
   const first = list();
   if (!first[index] || viewer) return null;
   let items = first.slice(), at = index, noteTimer = null;
@@ -197,7 +197,9 @@ export function openPhotoStrip(opts) {
     shareFrom(trigger, {video:!!item.video, count:1, note,
       getFiles:() => photoFilesFor(el, nameOf, {alive, note}),
       native:() => sharePhotoElement(el, nameOf, {alive, note}),
-      download:item.video && download ? () => download(item) : null});
+      download:item.video && download ? () => download(item) : null,
+      // S49-9 PHOTO-메뉴항목통일: 부르는 화면이 diary(item, trigger)를 주면 [일기에 넣기](그 사진 찍은 날 일기)도 보인다.
+      diary:diary && !item.video ? () => diary(item, trigger) : undefined});
   }
   const star = item => { if (!item) return; if (viewer) viewer.starChanged = true; return toggleStar(item); };
   // 별 움직임: on = 지금 별표됨. 큰 별이 '톡' 커졌다가 [별표] 버튼 자리로 날아가 작아지며 사라진다 / 풀면 빈 별이 흐려진다.
