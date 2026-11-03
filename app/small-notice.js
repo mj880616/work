@@ -243,6 +243,24 @@ export function askText(anchor,{text='',value='',ok='확인',cancel='취소',pla
     return field;
   }});
 }
+// S48-56 작은 날짜 고르기창: askText와 같은 자리·같은 닫기, 칸만 날짜(폰·PC 달력). 반환: 'YYYY-MM-DD' 또는 null(취소).
+export function askDate(anchor,{text='',value='',note='',ok='확인',cancel='취소',doc=globalThis.document}={}){
+  return askPanel(anchor,{doc,none:null,build:(panel,finish)=>{
+    panel.classList.add('kptu-ask-input');
+    const msg=doc.createElement('label');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);
+    const field=doc.createElement('input');field.type='date';field.className='kptu-ask-field';field.value=String(value??'');field.required=true;field.setAttribute('data-enter-field','off');
+    msg.htmlFor=field.id='kptuAskField';panel.append(msg,field);
+    if(note){const n=doc.createElement('small');n.className='kptu-ask-note';n.textContent=noticeText(note);panel.append(n)}
+    const row=doc.createElement('div');row.className='kptu-ask-actions';
+    const no=doc.createElement('button');no.type='button';no.className='secondary';no.textContent=cancel;
+    const yes=doc.createElement('button');yes.type='button';yes.className='primary';yes.textContent=ok;
+    row.append(no,yes);panel.append(row);
+    const done=()=>{const v=String(field.value||'');if(/^\d{4}-\d{2}-\d{2}$/.test(v))finish(v);else field.focus?.()};
+    no.addEventListener('click',()=>finish(null));yes.addEventListener('click',done);
+    field.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();done()}});
+    return yes;
+  }});
+}
 // S48-17 작은 고르기창: 줄마다 [아이콘 + 굵은 글 + 작은 설명] 버튼, 맨 아래 흐린 글자 한 줄. 고른 값(value) 또는 null(닫음).
 // choices = [{value, label, note, icon(SVG 글), danger, disabled}]. 아이콘은 이 파일을 부르는 쪽이 만든 고정 SVG만 넣는다(사용자 글은 textContent).
 export function askChoice(anchor,{text='',choices=[],foot='',doc=globalThis.document}={}){

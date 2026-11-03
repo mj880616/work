@@ -358,6 +358,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '정리함으로 돌리기']] : []),
+      ['data-note-to-diary', '일기로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
       ['data-note-ai-off', noteAiOff(note) ? 'AI 제외 풀기' : 'AI에 보내지 않기'],
       ['data-note-delete', '삭제', 'basket-menu-danger']];
   };
@@ -1012,6 +1013,23 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       say(/정리함/.test(error?.message || '') ? error.message : '정리함으로 돌리지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch && selected) lock(false); else busy = false; }
   }
+  // S48-56 [일기로 보내기]: 날짜를 묻고(기본 = 노트를 만든 날) 그날 일기에 글·사진을 더한 뒤 노트는 휴지통(알림의 [되돌리기]). diary-send.js 한 곳.
+  async function toDiary(id, anchor) {
+    if (!id || editing || busy) return;
+    const fromList = !selected, run = ++epoch, owner = scope(); lock(true); report('');
+    const current = () => run === epoch && owner === scope() && (fromList ? !selected : selected?.id === id);
+    let result;
+    try { const {askSendToDiary} = await import('./diary-send.js'); result = await askSendToDiary(anchor?.isConnected ? anchor : document.activeElement, id, {rt, isCurrent:current}); }
+    catch { result = {status:'failed'}; }
+    finally { busy = false; }
+    if (!current()) return;
+    if (result.status === 'sent' && result.trash === 'deleted') {
+      notes = notes.filter(n => n.id !== id); links = links.filter(l => l.note_id !== id);
+      if (fromList) renderList(); else close({force:true});
+      return;
+    }
+    lock(false);
+  }
   // [삭제] from the open note or from a list row: the same confirmation (what goes with it) and the same delete path.
   async function remove(id = selected?.id, {confirmed = false} = {}) {
     if (!id || editing || busy) return;
@@ -1076,6 +1094,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
     else if (b.hasAttribute('data-basket-link-open')) { const id = selected?.id; void manual.open('link', b).then(message => { if (selected?.id === id) say(message || ''); }); }
     else if (b.hasAttribute('data-note-to-basket')) void toBasket();
+    else if (b.hasAttribute('data-note-to-diary')) void toDiary(note.id, from.trigger);
     else if (b.hasAttribute('data-note-delete')) void remove(note.id);
   }
   host.addEventListener('click', e => {

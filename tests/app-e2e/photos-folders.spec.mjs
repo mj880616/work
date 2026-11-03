@@ -175,11 +175,11 @@ test('사진 메뉴 ② 폴더 PC 1440: 고른 사진을 왼쪽 폴더로 끌어
   const tree = root(page).locator('[data-photos-fx-tree]');
   await tree.locator('[data-photos-fx-open="S1"]').click();
   await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
-  // 사진 우클릭 = [선택] [폴더로 옮기기…] [앨범에 넣기…] [지우기].
+  // 사진 우클릭 = [선택] [별표] [공유] [일기에 넣기] [업데이트로](S48-56) [폴더로 옮기기…] [앨범에 넣기…] [지우기].
   await items(page).nth(2).click({ button: 'right' });
   const pm = page.locator('#photosPhotoMenu');
   await expect(pm).toBeVisible();
-  await expect(pm.locator('button')).toHaveText(['선택', '폴더로 옮기기…', '앨범에 넣기…', '지우기']);
+  await expect(pm.locator('button')).toHaveText(['선택', '별표', '공유', '일기에 넣기', '업데이트로', '폴더로 옮기기…', '앨범에 넣기…', '지우기']);
   await pm.locator('button', { hasText: '선택' }).click();
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 골랐음');
   await items(page).nth(1).click();
