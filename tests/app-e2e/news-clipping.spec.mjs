@@ -162,3 +162,38 @@ test('Now [사회운동] ⋯ [지금 채우기]: 켠 단체만 read_now로 하�
   expect(server.calls.find(c => c.action === 'read_now').body).toEqual({ source: 'kctu' });
   expect(errors).toEqual([]);
 });
+
+// S48-66 NOW-뉴스상세: 아직 안 읽은 기사는 상세 전에 그 기사 하나를 먼저 읽는다(news-feed open → ai-assist now_detail 순서).
+// 읽지 못하면 AI를 부르지 않고 이유·[다시]·[원문]만 보인다.
+const NOW_DETAIL = { ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가짜 기사 한 줄 요약입니다.', key_sentences: [{ orig: '가짜 본문 첫 문단.', ko: null }], relevance: null, implications: null, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false };
+for (const width of [412, 1440]) {
+  test(`뉴스 상세 ${width}: 제목 읽기 전 기사를 누르면 먼저 읽고 요약 상세가 뜬다`, async ({ page }) => {
+    test.setTimeout(60000);
+    const { errors, server } = await start(page, width);
+    const order = [];
+    await page.route('**/functions/v1/ai-assist', async route => { order.push('detail'); await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
+    page.on('request', r => { if (/news-feed\?action=open/.test(r.url())) order.push('open'); });
+    await openNews(page, width);
+    await item(page, 'w1').locator('[data-nc-open="w1"]').click();
+    await expect(page.locator('[data-nd-summary]')).toContainText('가짜 기사 한 줄 요약입니다.');
+    expect(order.slice(0, 2)).toEqual(['open', 'detail']);
+    expect(server.calls.find(c => c.action === 'open')).toMatchObject({ body: { id: 'w1' } });
+    await expect(page.locator('[data-nd-unread]')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+  test(`뉴스 상세 ${width}: 읽지 못한 기사는 AI를 부르지 않고 이유·다시·원문`, async ({ page }) => {
+    test.setTimeout(60000);
+    const { errors } = await start(page, width);
+    let detailCalls = 0;
+    await page.route('**/functions/v1/ai-assist', async route => { detailCalls++; await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
+    await page.route('**/functions/v1/news-feed?action=open', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: 'robots' }) }));
+    await openNews(page, width);
+    await item(page, 'w1').locator('[data-nc-open="w1"]').click();
+    const bad = page.locator('[data-nd-unread]');
+    await expect(bad).toContainText('기사를 읽지 못했어요');
+    await expect(bad.getByRole('button', { name: '다시' })).toBeVisible();
+    await expect(bad.getByRole('link', { name: /원문/ })).toBeVisible();
+    expect(detailCalls).toBe(0);
+    expect(errors).toEqual([]);
+  });
+}
