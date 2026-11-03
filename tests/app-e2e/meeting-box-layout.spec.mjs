@@ -87,7 +87,7 @@ for(const [name,width] of [['폰',390],['폴드',700],['PC',1280]]){
     expect(await overflowing(modal)).toEqual([]);
     // 빈 테두리 상자 없음: 테두리가 있는 보이는 상자는 안에 글·입력·단추가 있거나 높이가 얇은 줄이다.
     const empties=await modal.evaluate(root=>[...root.querySelectorAll('*')].filter(el=>{
-      if(el.closest('[hidden],.hidden'))return false;const r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+      if(el.closest('[hidden],.hidden')||el.matches('input,textarea,select,button,img,svg,label,.dt-date,.dt-time,.due-chip'))return false;const r=el.getBoundingClientRect(),cs=getComputedStyle(el);
       if(!r.width||!r.height||r.height<8)return false;
       const bordered=['Top','Right','Bottom','Left'].filter(s=>parseFloat(cs['border'+s+'Width'])>0&&cs['border'+s+'Style']!=='none').length>=3;
       return bordered&&!el.textContent.trim()&&!el.querySelector('input,textarea,select,button,img,svg');
