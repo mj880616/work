@@ -35,7 +35,7 @@ function makeState() {
   };
 }
 
-async function mock(page, state, { onedrive = false } = {}) {
+async function mock(page, state, { onedrive = false, days = OD_DAYS } = {}) {
   page.on('pageerror', e => state.errors.push(e.message));
   await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
   await page.route(`${SB}/**`, async route => {
@@ -57,7 +57,7 @@ async function mock(page, state, { onedrive = false } = {}) {
       state.od.push(body.action);
       if (!onedrive) return ok({ configured: false, connected: false });
       if (body.action === 'status') return ok({ configured: true, connected: true, folder: { name: '카메라' }, whole: true, can_delete: true });
-      if (body.action === 'photos') return ok({ days: body.month === '2026-10' ? OD_DAYS : {} });
+      if (body.action === 'photos') return ok({ days: body.month === '2026-10' ? days : {} });
       if (body.action === 'photo-urls') return ok({ urls: Object.fromEntries(body.ids.map(id => [id, `${CDN}/${body.size}/${id}.png`])), failed: {} });
       if (body.action === 'media-url') return ok({ url: `${CDN}/orig/${body.id}.png`, kind: 'photo', name: 'od_a.jpg', expires_in: 3000 });
       return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'action_invalid' }) });
@@ -183,6 +183,35 @@ test.describe('PC 1280', () => {
     expect(state.uploads.length).toBe(1);
     expect(state.uploads[0]).toContain('od_a.jpg');
     expect(state.od).toContain('media-url');
+    expect(state.errors).toEqual([]);
+  });
+});
+
+// S48-58 그 장소: 원드라이브 색인의 찍은 곳(lat·lon, 합성 좌표)으로 그날 같은 장소 사진을 3시간 밖이어도 더하고 📍를 단다.
+// A(14:00 근처, 그 장소)·C(09:10, 그 장소, 3시간 밖) → 보임·📍, D(18:30, 4km 떨어진 곳, 3시간 밖) → 빠짐.
+const HALL = { lat: 37.52971, lon: 126.96499 }, FAR = { lat: 37.5665, lon: 126.978 };
+const OD_PLACE_DAYS = { '2026-10-24': [
+  { id: 'C', name: 'od_c.jpg', taken_at: '2026-10-24T00:10:00Z', approx: false, ...HALL },
+  { id: 'A', name: 'od_a.jpg', taken_at: '2026-10-24T06:00:00Z', approx: false, ...HALL },
+  { id: 'D', name: 'od_d.jpg', taken_at: '2026-10-24T09:30:00Z', approx: false, ...FAR },
+] };
+test.describe('PC 1280 · 그 장소', () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+  test('그 장소 사진: 그날 같은 곳에서 찍은 사진은 3시간 밖이어도 📍로 보이고, 먼 곳 사진은 빠지며, 고른 것만 올린다', async ({ page }) => {
+    const state = makeState();
+    await mock(page, state, { onedrive: true, days: OD_PLACE_DAYS });
+    await openDetail(page);
+    const line = page.locator('#mrdTimePhotos');
+    await line.locator('[data-tp-open]').click();
+    await expect.poll(() => itemIds(page)).toEqual(['C', 'A']);
+    await expect(line.locator('[data-tp-head]')).toHaveText('그 시각 사진 2장 · 📍그 장소 2장');
+    await expect(line.locator('.tp-here')).toHaveCount(2);
+    await expect(strip(page).first()).toHaveAttribute('aria-label', /그 장소/);
+    expect(state.uploads.length).toBe(0);
+    await strip(page).first().click();
+    await line.locator('[data-tp-attach]').click();
+    await expect(page.locator('#mrdPhotoStatus')).toContainText('1장을 올렸어요', { timeout: 10000 });
+    expect(state.uploads.length).toBe(1);
     expect(state.errors).toEqual([]);
   });
 });

@@ -1374,6 +1374,7 @@ html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-prim
 .tp-item[aria-pressed="true"]{outline:2px solid var(--ds-select-line);outline-offset:-2px}
 .tp-item[aria-pressed="true"]::after{content:"✓";position:absolute;top:2px;right:2px;z-index:2;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--ds-select-bg);border:1px solid var(--ds-select-line);color:var(--ds-select-ink);font-size:11px;line-height:1}
 .tp-time{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:0 2px;background:color-mix(in srgb,var(--kptu-surface) 80%,transparent);color:var(--kptu-muted);font-size:10px;line-height:14px;text-align:center}
+.tp-here{position:absolute;top:2px;left:2px;z-index:1;padding:0 2px;border-radius:7px;background:color-mix(in srgb,var(--kptu-surface) 80%,transparent);font-size:10px;line-height:14px}
 .tp-item:focus-visible{outline:2px solid var(--kptu-focus,currentColor);outline-offset:1px}
 .tp-foot{display:flex;align-items:center;gap:6px;min-height:28px}
 .tp-note{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}

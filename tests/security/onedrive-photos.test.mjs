@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // JOURNAL-일기원드라이브 1~2단계: 실제 onedrive-photos handler를 지어낸 Supabase와 지어낸 Microsoft Graph로 돌린다. 네트워크 없음.
 // 비밀값·토큰·계정은 모두 고정 가짜 글자다.
-const {createOneDriveHandler}=await import('../../supabase/functions/onedrive-photos/handler.ts');
+const {createOneDriveHandler,placeOf}=await import('../../supabase/functions/onedrive-photos/handler.ts');
 const {memTables}=await import('./onedrive-fake-db.mjs');
 const {insideFolder,folderPathOf,safeDownloadUrl,seoulDay,graphNextLink,scopeAllowed,normalizeScopes,SCOPE}=await import('../../supabase/functions/onedrive-photos/graph.ts');
 
@@ -318,7 +318,7 @@ test('photos: read from the server index, grouped by Seoul day, photos only (vid
   const top={id:'F1!100',name:'카메라',folder:{},parentReference:{id:'ROOT!1'}};
   const ms=fakeMicrosoft({deltaPages:[[top,
       {id:'A1',name:'a.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-13T00:30:00Z'},parentReference:{id:'F1!100'}}, // 카메라 벽시계 서울 10-13 00:30(UTC로는 10-12)
-      {id:'A2',name:'b.heic',file:{mimeType:'image/heic'},photo:{takenDateTime:'2026-10-13T01:00:00Z'},parentReference:{id:'F1!100'}},
+      {id:'A2',name:'b.heic',file:{mimeType:'image/heic'},photo:{takenDateTime:'2026-10-13T01:00:00Z'},location:{latitude:37.529712345,longitude:126.964987654},parentReference:{id:'F1!100'}},
       {id:'A3',name:'c.mp4',file:{mimeType:'video/mp4'},photo:{takenDateTime:'2026-10-13T01:00:00Z'},parentReference:{id:'F1!100'}},
       {id:'A4',name:'d.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-01T05:00:00Z'},parentReference:{id:'F1!100'}}, // 카메라 벽시계 서울 10-01 05:00(UTC로는 09-30)
       {id:'A5',name:'e.jpg',file:{mimeType:'image/jpeg'},fileSystemInfo:{createdDateTime:'2026-10-20T00:00:00Z'},parentReference:{id:'F1!100'}},
@@ -332,6 +332,9 @@ test('photos: read from the server index, grouped by Seoul day, photos only (vid
   assert.deepEqual(Object.keys(out.days).sort(),['2026-10-01','2026-10-13','2026-10-20']);
   assert.deepEqual(out.days['2026-10-13'].map(p=>p.id),['A1','A2','A7','B1']);
   assert.equal(out.days['2026-10-20'][0].approx,true);assert.equal(out.days['2026-10-13'][0].approx,false);assert.equal(out.truncated,false);
+  // S48-58: 찍은 곳이 있는 사진만 lat·lon(소수 다섯째 자리)을 함께 준다. 없는 사진에는 칸 자체가 없다.
+  assert.deepEqual([out.days['2026-10-13'][1].lat,out.days['2026-10-13'][1].lon],[37.52971,126.96499]);
+  assert.equal('lat' in out.days['2026-10-13'][0],false);assert.equal('lon' in out.days['2026-10-13'][0],false);
   // 저장한 것은 목록 정보뿐: 사진 표 칸은 정해진 것만
   for(const r of ctx.admin.state.mem.tables.app_onedrive_photos)assert.deepEqual(Object.keys(r).sort(),['approx','duration_ms','enabled','height','item_id','kind','lat','lon','mime','name','orig_parent_id','parent_id',
     'screenshot','sha1','size_bytes','taken_at','taken_day','trashed_at','updated_at','uploaded_at','width','workspace_id'].filter(k=>k!=='enabled'||'enabled' in r).sort());
@@ -1317,4 +1320,9 @@ test('trash-watch keeps old keep rows (still listed) and checks them; removes ol
   assert.deepEqual(Object.keys(rows).sort(),['k1','k2']);
   assert.equal(rows.k1.gone_at,null);assert.ok(rows.k2.gone_at,'old keep row still checked');
   assert.equal(out.checked,2);
+});
+
+test('S48-58 placeOf: 둘 다 숫자이고 범위 안일 때만 찍은 곳을 준다',()=>{
+  assert.deepEqual(placeOf({lat:37.123456,lon:127.000004}),{lat:37.12346,lon:127});
+  for(const r of [{},{lat:null,lon:null},{lat:37},{lat:91,lon:0},{lat:0,lon:181},{lat:'37',lon:'127'},{lat:Number.NaN,lon:1}])assert.deepEqual(placeOf(r),{},JSON.stringify(r));
 });
