@@ -45,12 +45,12 @@ export async function readResultText(files,{read=readFileText}={}){
 }
 
 // 놓은 파일 중 결과 파일의 본문을 결과 칸에 넣을지 묻는다. 넣기로 하면 그 글을, 아니면 ''을 돌려준다.
-export async function resultBodyFor(files,{zone='',anchor=null,ask=askChoice,confirm=askConfirm,read=readFileText}={}){
+export async function resultBodyFor(files,{zone='',anchor=null,ask=askChoice,askOk=askConfirm,read=readFileText}={}){
   const {results}=await sortDropped(files,{zone,anchor,ask});
   if(!results.length)return '';
   const text=await readResultText(results,{read});
   if(!text)return '';
-  const ok=await confirm(anchor,{text:'결과 파일 본문을 결과 칸에 넣을까요?',note:results.map(f=>f.name).join(', '),ok:'넣기',cancel:'파일만'});
+  const ok=await askOk(anchor,{text:'결과 파일 본문을 결과 칸에 넣을까요?',note:results.map(f=>f.name).join(', '),ok:'넣기',cancel:'파일만'});
   return ok?text:'';
 }
 
