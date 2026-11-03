@@ -41,7 +41,7 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   await expect(page.locator('#appView>.app-nav')).toBeVisible({visible:!mobile});
   if(mobile){
     expect(await page.locator('.mobile-tabs [data-view]').evaluateAll(ns=>ns.map(n=>n.dataset.view))).toEqual(tabs);
-    const box=await page.locator('.mobile-tabs').boundingBox();expect(box.y+box.height).toBe(844);expect(box.height).toBe(44); // S48-6 UI-폰하단고정: 하단바 44px
+    const box=await page.locator('.mobile-tabs').boundingBox();expect(box.y+box.height).toBe(844);expect(box.height).toBe(48); // S48-6 하단바 44px → S49-8 UI-하단바위여백: 아이콘 위 4px 더해 48px
     for(const view of tabs){
       const tab=page.locator(`.mobile-tabs [data-view="${view}"]`),r=await tab.boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
       await tab.click();await expect(page.locator('#'+view+'View')).toBeVisible();await expect(tab).toHaveAttribute('aria-current','page');
@@ -92,7 +92,7 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
   await page.route(/\.css(?:\?|$)/,async route=>{let r,body;try{r=await route.fetch();body=await r.text()}catch{await route.abort().catch(()=>{});return}await route.fulfill({response:r,body:body.replaceAll('env(safe-area-inset-bottom)','20px')}).catch(()=>{})});
   await serveBuiltShell(page,testOrigin);
   await open(page,app);
-  await expect(page.locator('.mobile-tabs')).toHaveCSS('height','64px'); // S48-6: 44px + 바닥 여백 20px
+  await expect(page.locator('.mobile-tabs')).toHaveCSS('height','68px'); // S49-8: 48px + 바닥 여백 20px
   const tabs=await page.locator('.mobile-tabs').boundingBox();expect(tabs.y+tabs.height).toBe(844);
   await page.route('**/app/index.html',r=>r.fulfill({contentType:'text/html',body:'<script src="./app.js?v=999999"></script>'}));
   await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
