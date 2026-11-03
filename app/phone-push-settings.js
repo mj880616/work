@@ -8,7 +8,7 @@
 // - startDeviceSync: 폰 앱이 웹2를 열 때마다(loader-v2.js) 이 폰이 '켜짐'이면 다시 등록해 바뀐 토큰·마지막 시각을 맞춘다.
 // - 최근 알림 7일(UI-앱안알림 5단계, 설계 6절 A6): 폰 알림과 맨 위 알림 줄이 같은 기록(app_push_log)에서 phone-push recent로 읽어
 //   '시각 · 무엇' 한 줄씩. 누르면 그 자리(notice-place.js goPlace)로 가고 아직 안 연 것은 '열었음'을 남긴다.
-import {waitInlineHtml, failHtml} from './wait-state.js';
+import {barHtml, failHtml} from './wait-state.js';
 import {goPlace} from './notice-place.js';
 import {KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems} from './phone-push-model.mjs';
 
@@ -146,7 +146,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
   function render() {
     if (!host.isConnected) return;
     const head = `<div class="ps-panel-head"><h3>폰 알림</h3><span class="ps-state" data-ps-push-state role="status" aria-live="polite">${esc(state.note)}</span></div>`;
-    if (state.phase === 'loading') { host.innerHTML = `${head}<div class="ps-calref">${waitInlineHtml()}</div>`; return; }
+    if (state.phase === 'loading') { host.innerHTML = `${head}${barHtml()}`; return; }
     if (state.phase === 'failed') { host.innerHTML = `${head}<div class="ps-calref">${failHtml()}</div>`; return; }
     const busy = state.busy ? ' disabled' : '';
     const {prefs} = state;

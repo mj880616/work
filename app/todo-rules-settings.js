@@ -1,4 +1,4 @@
-import {waitInlineHtml, failHtml} from './wait-state.js';
+import {barHtml, failHtml} from './wait-state.js';
 // TODO-내일만 4·5번: 내 프로필의 '챙길 것 기준' 칸. profile-settings.js가 칸 자리를 만들고 이 모듈이 그 안을 그린다.
 // - 전체 부탁도 올릴 방: 단체방 '다들 ~해 주세요' 같은 부탁은 기본으로 챙길 것에 올리지 않고, 여기 고른 방만 올린다.
 //   방은 방 열쇠(room_key)로 서버(app_todo_ask_rooms)에 저장하고, 이름은 텔레그램 방 목록(app_feed_rooms)의 이름을 보여 준다.
@@ -42,7 +42,7 @@ export function mountTodoRulesSettings(host, {rt}) {
     const resultLine = result ? `<p class="ps-calref-line ps-todo-result" data-ps-todo-result>${esc(result)}</p>` : '';
     const weekLine = state.week ? `<p class="ps-calref-line" data-ps-todo-week>${esc(state.week)}</p>` : '';
     const recheck = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-todo-open${known ? `="${open.count}"` : ''}>${esc(label)}</span>${button}</div>${resultLine}${weekLine}${rulesHtml()}`;
-    if (phase === 'loading') { host.innerHTML = `${head}<div class="ps-calref">${waitInlineHtml()}</div>`; return; }
+    if (phase === 'loading') { host.innerHTML = `${head}${barHtml()}`; return; }
     if (phase === 'failed') { host.innerHTML = `${head}<div class="ps-calref">${failHtml()}${recheck}</div>`; return; }
     const groups = rooms.filter(r => r.kind !== 'user');
     const name = key => rooms.find(r => r.key === key)?.name || '목록에 없는 방';

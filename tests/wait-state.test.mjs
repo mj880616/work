@@ -218,3 +218,29 @@ test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
     assert.match(read(rel), /globalThis\.KPTUWait\?\.emptyHtml\?\.\(/, rel);
   }
 });
+
+// UI-로딩자리전수(S49-15 A, 명진 요청 11/03 10:37): 로딩 표시는 불러오는 칸의 맨 위·칸 폭 가득 한 줄. 전수 표는 docs/design/loading-places.md.
+test('로딩 줄 자리 규칙: 칸 폭 가득(글줄 안 한 칸만 예외), 칸 한가운데·구석에 뜨지 않는다', () => {
+  const css = read('base-ui.css');
+  assert.match(css, /\.wait:not\(\.wait-inline\)\{[^}]*width:100%[^}]*align-self:stretch[^}]*justify-self:stretch/);
+  assert.match(css, /\.wait:not\(\.wait-inline\)>\.wait-bar\{width:100%\}/);
+  // 칸(목록·미리보기·설정 칸) 자리의 기다림은 칸 맨 위 줄(waitHtml·barHtml)이고, 글줄 안 작은 막대(waitInline)가 아니다.
+  for (const rel of ['files.js', 'todo-rules-settings.js', 'phone-push-settings.js']) assert.doesNotMatch(read(rel), /waitInline(Html|El)\(/, `${rel}: 칸 자리에 글줄용 작은 막대를 쓰지 않는다`);
+  assert.match(read('files.js'), /view = barHtml\(\)/, '[파일] 미리보기 기다림은 칸 맨 위 줄');
+});
+
+test('[파일]: 두 번째 로딩 글자(맞추는 중) 없음, 불러오는 동안 빈 결과 글 없음', () => {
+  const src = read('files.js');
+  assert.doesNotMatch(src.split('\n').filter(l => !/^\s*(\/\/|\/\*|\*)/.test(l.replace(/\/\/ UI-로딩자리전수.*$/, ''))).join('\n').replace(/\/\/[^\n]*/g, ''), /맞추는 중/);
+  assert.match(src, /if \(!rows\.length && scanningNow\(\)\) \{ list\.innerHTML = waitHtml/, '맞추는 중에는 빈 폴더·최근 없음 대신 기다림');
+  assert.ok(src.indexOf('scanningNow()') < src.indexOf("emptyHtml(w.shelf ?"), '기다림 판정이 빈 결과 글보다 먼저');
+});
+
+test('전수 도구: 로딩 확인 없이 빈 결과 글을 그리는 곳은 기준표(검토 끝난 곳)보다 늘지 않는다', async () => {
+  const {audit} = await import('../scripts/ops/loading-audit.mjs');
+  // 검토 끝: 모두 읽은 뒤에만 부르는 그리기 함수(호출한 쪽이 기다림·실패를 먼저 처리). 새 곳이 생기면 호출하는 쪽의 로딩 처리를 확인하고 여기에 올린다.
+  const REVIEWED = {'calendar-tasks.js': 1, 'google-tasks.js': 1, 'library-folders.js': 1, 'meeting-columns.js': 2, 'note-boards.js': 1, 'project-system-v3.js': 1, 'report-views.js': 3, 'team.js': 1};
+  const over = [];
+  for (const r of audit()) if (r.suspects.length > (REVIEWED[r.file] || 0)) over.push(`${r.file}: 로딩 확인 없는 빈 결과 글 ${r.suspects.length}곳(줄 ${r.suspects.join(', ')}) — 불러오는 동안 '없음'이 뜨지 않는지 확인하세요.`);
+  assert.deepEqual(over, []);
+});

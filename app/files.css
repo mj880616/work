@@ -10,6 +10,9 @@
 .fx-crumb-sep { color:var(--kptu-faint); }
 .fx-up { font-size:15px; padding:0 6px; }
 .fx-search { height:28px; width:240px; max-width:100%; border:.5px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-sm); background:var(--kptu-surface-subtle); color:var(--kptu-ink); padding:0 8px; font:inherit; font-size:12.5px; }
+.fx-listcol { flex:1 1 auto; min-width:0; }
+.fx-wait { margin:0; }
+.fx-wait[hidden] { display:none; }
 .fx-sort { height:28px; border:.5px solid var(--kptu-border); border-radius:var(--kptu-radius-sm); background:var(--kptu-surface); color:var(--kptu-muted); font:inherit; font-size:12px; padding:0 4px; }
 .fx-sync { border:0; background:none; color:var(--kptu-faint); font:inherit; font-size:11px; padding:2px 4px; cursor:pointer; white-space:nowrap; }
 .fx-sync:hover:not(:disabled) { color:var(--kptu-ink); }
@@ -92,6 +95,8 @@
 }
 @media (min-width:761px) and (max-width:1199px) { .fx-prev { left:max(0px, calc(100vw - 560px)); border-left:.5px solid var(--kptu-border); } }
 /* 폰: 한 칸 + 탭, 나무 없음(폴더 탭이 목록에서 들어가기), 두 줄 줄 */
+/* 정렬 기준은 작은 칩(PC): 칸 머리에서 따로 상자처럼 보이지 않게 */
+@media (min-width:761px) { .fx-sort { height:24px; max-width:96px; padding:0 8px; font-size:11.5px; border-color:transparent; border-radius:999px; background:var(--kptu-surface-subtle); } }
 @media (max-width:760px) {
   .fx-top { flex-wrap:wrap; }
   .fx-search { flex:1 1 100%; width:auto; order:3; height:32px; }
