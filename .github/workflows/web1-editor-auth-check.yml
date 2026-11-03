@@ -12,6 +12,11 @@ on:
       - 'tests/security/web1-email-login-removed.test.mjs'
       - '.github/workflows/web1-editor-auth-check.yml'
 
+# 같은 PR에 다시 push하면 옛 시험 실행을 취소한다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
