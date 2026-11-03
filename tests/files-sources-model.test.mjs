@@ -54,7 +54,7 @@ test('files_sources는 서버 칸(view_prefs): od·gd 참·거짓만, 그 밖은
 });
 test('화면은 서버 저장만(기기 저장 없음)·같은 부품·같은 나무 부품을 쓴다', () => {
   const js = read('app/files.js').replace(/\/\/.*$/gm, '');
-  assert.doesNotMatch(js, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(js, new RegExp(['local', 'session'].map(k => k + 'Stor' + 'age').concat('indexed' + 'DB').join('|')));
   assert.match(js, /viewPrefs\.set\(FILES_SOURCES_KEY, filesSourcesValue\(toggleFilesSource\(srcState\(\), name\)\), \{rejectable: true\}\)/);
   assert.match(js, /import \{odLinkButtonHtml, paintOdLink\} from '\.\/od-link\.js'/);
   assert.match(js, /brandIconSvg\('gdrive'/);

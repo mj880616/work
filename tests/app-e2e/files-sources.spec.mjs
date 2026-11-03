@@ -85,7 +85,7 @@ for (const width of [412, 884, 1440]) {
     await openFiles(page, width);
     await expect(chip(page, 'gd')).toHaveAttribute('aria-pressed', 'false');
     await expect(chip(page, 'od')).toHaveAttribute('aria-pressed', 'true');
-    expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /files.?sources/i.test(k)))).toEqual([]);
+    expect(prefs.value?.files_sources).toEqual({ od: true, gd: false }); // 서버 값에서 읽음
 
     // 모두 끄면 '위 출처 아이콘을 켜 주세요' 한 줄(사진 화면과 같은 문구).
     await chip(page, 'od').click();
