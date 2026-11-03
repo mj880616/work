@@ -154,7 +154,7 @@ export function openPhotoStrip(opts) {
   };
   const slidePhoto = i => strip.children[i]?.querySelector('.diary-photo') || null;
   const prepareShown = () => { const el = slidePhoto(at); if (el) preparePhotoBlob(el); };
-  // 버튼마다 보일지·눌릴지: 별표·정보 판은 늘 보이고, 지우기·편집은 이 화면 규칙(deletable·editable), 나머지는 부르는 화면의 고르기 줄과 같은 규칙(acts.avail).
+  // 버튼마다 보일지·눌릴지: 별표·공유(안 되는 기기는 누르면 안내)·정보 판은 늘 보이고, 지우기·편집은 이 화면 규칙(deletable·editable), 나머지는 부르는 화면의 고르기 줄과 같은 규칙(acts.avail).
   const paintBar = () => {
     const item = items[at]; if (!item) return;
     for (const id of barIds) {
@@ -162,7 +162,7 @@ export function openPhotoStrip(opts) {
       let a = {hidden:false};
       if (id === 'delete') { const d = deletable(item); a = {hidden:false, disabled:!d.ok}; b.title = d.title; }
       else if (id === 'edit') a = {hidden:!(editable && edit && editable(item))};
-      else if (acts && id !== 'star' && id !== 'detail') a = {hidden:false, ...acts.avail(id, item)};
+      else if (acts && id !== 'star' && id !== 'share' && id !== 'detail') a = {hidden:false, ...acts.avail(id, item)};
       b.hidden = !!a.hidden; b.disabled = !!a.disabled;
     }
   };

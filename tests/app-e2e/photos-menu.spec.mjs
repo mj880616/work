@@ -115,7 +115,7 @@ for (const width of [390, 1280]) {
     const viewer = root(page).locator('[data-diary-viewer]');
     await expect(viewer).toBeVisible();
     await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('1 / 7');
-    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['별표', '공유', '지우기', '정보']);
+    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['별표', '공유', '받기', '✚ 일기', '↥ 업데이트', '옮기기', '# 앨범', '정보', '지우기']); // S49-23: 고르기 줄과 같은 목록 + [정보]
     await viewer.locator('[data-diary-info]').click();
     await expect(viewer.locator('[data-strip-original]')).toHaveText('⤓ 원본 받기');
     await page.keyboard.press('s');
@@ -465,7 +465,7 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 사진 고르기 �
   checkActBar(act, check, `크게 보기 줄 ${width}`);
   if (act.maxWidth < 119.5) { expect(act.leftGap).toBeLessThanOrEqual(6); expect(act.rightGap).toBeLessThanOrEqual(6); }
   else expect(Math.abs(act.leftGap - act.rightGap)).toBeLessThanOrEqual(2);
-  expect(act.svgCount, '버튼마다 선 아이콘').toBe(act.n);
+  expect(act.svgCount, '선 아이콘 버튼(일기·업데이트·앨범은 글자 모양 아이콘)').toBe(act.n - 3);
   await page.screenshot({ path: `${DIR}/s48-54-photos-viewer-${width}.png` });
   const esc = t => t.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
   process.stdout.write(`::notice title=s48-54 photos ${width}::${esc(JSON.stringify({select: {n: sel.n, widths: sel.widths, left: Math.round(sel.leftGap), right: Math.round(sel.rightGap), bar: sel.barWidth}, viewer: {n: act.n, widths: act.widths, left: Math.round(act.leftGap), right: Math.round(act.rightGap)}}))}\n`);
