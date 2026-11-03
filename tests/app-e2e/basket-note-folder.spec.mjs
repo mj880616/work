@@ -312,7 +312,7 @@ for (const width of [412, 768, 1280]) test(`UI-고르기줄: 노트 고르기 �
   const m = await measureActBar(page, '[data-nx-select-bar] .nx-sel-acts');
   checkActBar(m, (a, e, l) => expect(a, l).toEqual(e), `노트 고르기 줄 ${width}`);
   expect(m.n).toBe(3);
-  expect(m.dangerText, '지우기 글자 빨강').not.toBe(await page.locator('[data-nx-sel-move]').evaluate(b => getComputedStyle(b).color));
+  expect(m.dangerText, '지우기 글자도 다른 버튼과 같은 색').toBe(await page.locator('[data-nx-sel-move]').evaluate(b => getComputedStyle(b).color));
   for (const b of await page.locator('[data-nx-select-bar] .kptu-act').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(26);
   await page.screenshot({ path: `${DIR}/s48-54-notes-select-${width}.png` });
   process.stdout.write(`::notice title=s48-54 notes ${width}::${JSON.stringify({n: m.n, widths: m.widths, rows: m.rows, bar: m.barWidth})}\n`);
