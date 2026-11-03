@@ -43,3 +43,39 @@ test('handIdeas: [+ 추가]로 더한 내 개선 생각만(손), 다른 동작�
   const picks = withPick(withPick(null, {kind:'review', from:'hand', cell:'개선 제안', text:'가상 내 생각'}, 'add', AT), {kind:'review', from:'ai', cell:'개선 제안', text:'가상 AI 제안'}, 'take', AT);
   assert.deepEqual(handIdeas([{week_start:'2026-10-05', picks}]), [{week:'2026-10-05', text:'가상 내 생각', hand:true}]);
 });
+
+// WEEKLY-개발후보연결(S48-49): [만들기] 저장 뒤 요청함 전달 — {week_start, id}만 보내고, 결과를 알림 한 마디로. sent는 서버만 쓰고 화면은 다시 실어 보낸다.
+test('sent: readReview가 남기고, 답을 바꿔도 지우지 않는다(같은 제안은 한 번만)', () => {
+  const fb = {at:'2026-10-05T01:00:00.000Z', week:'2026-10-05', review:{at:'2026-10-05T01:00:00.000Z', suggestions:[{id:'s1', text:'가상 제안', answer:'yes', sent:'2026-10-05T02:00:00.000Z'}, {id:'s2', text:'둘', sent:{bad:1}}]}};
+  const r = readFeedback(fb).review.suggestions;
+  assert.equal(r[0].sent, '2026-10-05T02:00:00.000Z'); assert.equal('sent' in r[1], false);
+  assert.equal(withAnswer(fb, 's1', 'no').review.suggestions[0].sent, '2026-10-05T02:00:00.000Z');
+  assert.equal(withAnswer(fb, 's1', 'yes', {text:'고친 제안'}).review.suggestions[0].sent, '2026-10-05T02:00:00.000Z');
+});
+
+test('sendDevInbox·devInboxNotice: 저장 성공 뒤 한 건만, 결과별 알림 한 마디, 운영자 아님·배포 전은 조용히', async () => {
+  const {sendDevInbox, devInboxNotice, DEV_INBOX_TEXT} = await import('../app/weekly-learn-panel.js');
+  const calls = [];
+  const rt = reply => ({api: async (path, opts) => { calls.push({path, opts}); if (reply instanceof Error) throw reply; return reply; }});
+  const err = status => Object.assign(new Error('x'), {status});
+  assert.equal(await sendDevInbox('2026-10-05', 's1', rt({ok:true, result:'sent'})), 'sent');
+  assert.deepEqual(calls[0], {path:'/functions/v1/document-actions', opts:{method:'POST', body:{action:'dev-inbox', week_start:'2026-10-05', id:'s1'}, refreshSession:false, singleFlight:false}});
+  assert.equal(await sendDevInbox('2026-10-05', 's1', rt({ok:true, result:'already'})), 'already');
+  assert.equal(await sendDevInbox('2026-10-05', 's1', rt({ok:true, result:'not_ready'})), 'not_ready');
+  assert.equal(await sendDevInbox('2026-10-05', 's1', rt({ok:true, result:'odd'})), 'failed');
+  for (const s of [400, 401, 403, 404]) assert.equal(await sendDevInbox('2026-10-05', 's1', rt(err(s))), 'quiet');
+  for (const s of [0, 503]) assert.equal(await sendDevInbox('2026-10-05', 's1', rt(err(s))), 'failed');
+  const n = calls.length;
+  assert.equal(await sendDevInbox('bad', 's1', rt({ok:true, result:'sent'})), 'quiet');
+  assert.equal(await sendDevInbox('2026-10-05', 's9', rt({ok:true, result:'sent'})), 'quiet');
+  assert.equal(calls.length, n, '모양이 틀리면 부르지 않는다');
+  const yes = {week:'2026-10-05', id:'s1', answer:'yes', done:'만들기로 보냈어요.'};
+  assert.equal(await devInboxNotice(yes, rt({ok:true, result:'sent'})), `만들기로 보냈어요. ${DEV_INBOX_TEXT.sent}`);
+  assert.equal(await devInboxNotice(yes, rt({ok:true, result:'not_ready'})), '만들기로 보냈어요. 요청함 전달 준비 중');
+  assert.equal(await devInboxNotice(yes, rt({ok:true, result:'already'})), '만들기로 보냈어요.');
+  assert.equal(await devInboxNotice(yes, rt(err(403))), '만들기로 보냈어요.');
+  assert.equal(await devInboxNotice(yes, rt(err(503))), `만들기로 보냈어요. ${DEV_INBOX_TEXT.failed}`);
+  const before = calls.length;
+  assert.equal(await devInboxNotice({...yes, answer:'no', done:'뺐어요.'}, rt({ok:true, result:'sent'})), '뺐어요.');
+  assert.equal(calls.length, before, "'no' 답은 부르지 않는다");
+});

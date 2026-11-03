@@ -588,3 +588,16 @@ rules:    {v:2, at, week?, lines:[{text, from:'auto'|'edited'|'added'}], candida
 
 위험: 요청함 문서 쓰기·읽기는 운영자 작업공간만, 서버가 저장값을 다시 확인한 뒤에만. `made` 는 번호뿐이라 화면에 공개 저장소 주소를 넣지 않는다(링크 없이 글자만).
 남는 것: 서버가 새 환류 정리(`weekly_review`)를 받으면 화면이 review 를 통째 바꿔(`journal-hwpx.js`) 지난 답·`made` 가 그 정리 판에서는 사라진다 — 지금도 답(answer)이 같은 모양이라 이 PR 범위 밖, 발견사항.
+
+### 25.4 25.2 (가) 구현 (S48-49, 명진 결정 11/03 09:37 "모두 추천대로")
+
+| 항목 | 내용 | 파일 |
+| --- | --- | --- |
+| 화면 | [만들기]·[고쳐서 만들기] 저장이 성공한 뒤에만 `{action:'dev-inbox', week_start, id}`를 한 번 보낸다(재시도 없음). 알림 글 뒤에 결과 한 마디: 보냄 '요청함에 전했어요.' · 문서 설정 전 '요청함 전달 준비 중' · 실패 '요청함 전달은 못 했어요.' · 운영자 아님·함수 배포 전(400·401·403·404)은 아무 말 없음 | `app/weekly-learn-panel.js` `sendDevInbox`·`devInboxNotice`(두 곳 — [주간 정리] '주간보고 규칙·환류', 한글 파일 상자 환류 보고 — 가 같이 씀), `app/journal-hwpx.js` |
+| 서버 | `document-actions` action=`dev-inbox`: 로그인 → owner 작업공간 정확히 하나 → 운영자 기능 `dev_inbox`(내 `app_my_features` + `app_operator_feature_workspace`가 내 작업공간) → 비밀값 `WEB2_DEV_INBOX_DOC_ID`(없으면 `not_ready`) → 그 주 행을 내 로그인 토큰으로 다시 읽어 answer='yes'·sent 없음 확인 → Google Docs 문서 끝에 `[MM/DD HH:MM] 주간보고 개발 후보 (w:<주>/<id>) — <무엇이 좋아지나>` + `- 어떻게: <어떻게>` (25.3 1.의 열쇠 포함, 줄바꿈·'→'·'★' 지움, 접수 줄 없음) → 그 제안에 `sent`(draft_saved_at 조건, 판 번호 올림) | `supabase/functions/document-actions/dev-inbox.ts`, `index.ts` |
+| 모양 | 제안의 `sent`(보낸 시각)는 서버만 쓰고 화면은 다시 실어 보낸다. 답을 바꿔도 지우지 않는다(같은 제안은 한 번만, 다시 누르면 `already`) | `app/weekly-feedback.mjs` `readReview` |
+| DB | `20261103100000_dev_inbox_feature`: 검사에 `dev_inbox` + calls 작업공간 1행. 새 표·함수·정책·권한 없음. 앞 단계 `20261102160000_cloud_files_index` 필요 | migration + 짝 파일 5개, `tests/auth-handoff/dev-inbox-feature-db.test.mjs` |
+
+적용 순서: DB(dry-run → apply) → 명진 비밀값 `WEB2_DEV_INBOX_DOC_ID` 등록(없어도 배포 가능 — 그동안 '전달 준비 중') → Edge `document-actions` 배포(verify_jwt=true 그대로, 되돌리기 ref = 배포 전 운영 소스).
+Drive 토큰이 `drive` 전체 권한이 아니면(파일 단위 권한만) Docs 쓰기가 403 → '요청함 전달은 못 했어요.'(아무것도 안 씀). 25.3('만듦 #PR' 번호 읽기)은 아직 만들지 않았다.
+

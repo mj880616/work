@@ -62,7 +62,7 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, compareTest, whereOf, TEST_STATUS, readFeedback, readRules} from './weekly-feedback.mjs';
-import {reviewCard, readLearnRows, learnPress, learnKeys} from './weekly-learn-panel.js';
+import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
 import {materialLine} from './weekly-ai-material.mjs';
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
@@ -1170,7 +1170,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (s.store) s.store.extras = {...(s.store.extras ?? {}), rules:readRules(r.row?.draft?.rules) ?? s.store.extras?.rules};
       v.feedback = readFeedback(r.row?.draft?.feedback) ?? v.feedback;
       // 성공 알림은 화면에 남기지 않고 작은 알림 부품으로(2초 뒤 사라짐, WEEKLY-개발후보연결 4). 오류만 그 자리에 남는다.
-      v.fixing = null; v.dropping = null; v.sfix = null; v.sdrop = null; v.sadd = false; v.value = null; v.msg = ''; notify(rc.done);
+      const done = rc.answer === 'yes' ? await devInboxNotice(rc, rt) : rc.done; // 저장이 성공한 뒤에만 요청함 전달(S48-49)
+      v.fixing = null; v.dropping = null; v.sfix = null; v.sdrop = null; v.sadd = false; v.value = null; v.msg = ''; notify(done);
       void syncDraft(s);
       try { window.dispatchEvent(new CustomEvent('kptu:weekly-learn-changed', {detail:{start:s.start}})); } catch { /* 다시 그리기만 못 함 */ }
     } catch (error) { v.msg = error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 눌러 주세요.'; }

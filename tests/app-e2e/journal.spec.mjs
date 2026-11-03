@@ -1244,7 +1244,7 @@ function multipartBody(request){
  return parts;
 }
 async function hwpxFixture(page,options={}){
- const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[],personal:[]},bytes=teamHwpx(options.team);
+ const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[],personal:[],inbox:[]},bytes=teamHwpx(options.team);
  // WEEKLY-환류학습 1: 자료실 '주간보고 개인본'(내가 올린 것). 없으면 [] — 그때는 지금처럼 팀 확정본이 바탕이다. files: 자료 id → 가짜 보고서(그 id로 열면 그 파일).
  const files=Object.fromEntries(Object.entries(options.files??{}).map(([id,report])=>[id,teamHwpx(report)]));
  const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};
@@ -1253,7 +1253,10 @@ async function hwpxFixture(page,options={}){
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();if(q.get('category')==='in.("주간보고 개인본","주간보고›개인본")'){sent.personal.push(Object.fromEntries(q));return r.fulfill({json:(options.personal??[]).filter(d=>!q.has('document_date')||q.get('document_date')===`eq.${d.document_date}`)});}sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
  await page.route(SB+'/functions/v1/document-actions',r=>{
   if(r.request().method()==='OPTIONS')return r.fulfill({status:200,headers:cors});
-  const body=r.request().postDataJSON();sent.open.push(body);
+  const body=r.request().postDataJSON();
+  // S48-49: [만들기] 뒤 요청함 전달(dev-inbox)은 따로 모은다. 기본 답은 '요청함 문서 설정 전'(not_ready).
+  if(body?.action==='dev-inbox'){sent.inbox.push(body);return r.fulfill({headers:cors,json:options.devInbox??{ok:true,result:'not_ready'}});}
+  sent.open.push(body);
   const file=files[body.document_id]??bytes,fileName=file===bytes?'team.hwpx':`${body.document_id}.hwpx`;
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
@@ -1536,7 +1539,9 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  expect(ai.find(x=>x.kind==='weekly_review')).toEqual({kind:'weekly_review',week_start:'2026-10-05'});
  await card.locator('[data-learn-suggestion="s1"]').getByRole('button',{name:/^만들기로 보내기/}).click();
  await expect.poll(()=>row().draft.feedback.review.suggestions[0].answer,{timeout:15000}).toBe('yes');
- await expect(page.locator('#kptuNotice')).toContainText('만들기로 보냈어요.');
+ // S48-49: 저장이 성공한 뒤에만 그 제안 한 건을 요청함 전달로({week_start, id}만, 글 없음). 문서 설정 전이면 '요청함 전달 준비 중'.
+ await expect(page.locator('#kptuNotice')).toContainText('만들기로 보냈어요. 요청함 전달 준비 중');
+ expect(f.sent.inbox).toEqual([{action:'dev-inbox',week_start:'2026-10-05',id:'s1'}]);
  await expect(card.locator('[data-learn-suggestion="s1"] [data-learn-answer-state="yes"]')).toHaveText('만들기로 보냄');
  await expect(hwpx(page).locator('[data-hwpx-review]')).not.toContainText('만들기로 보냈어요.'); // 성공 알림은 화면에 남지 않는다
  // WEEKLY-규칙합의 + 환류 전 칸 ⑤: 새 규칙 후보는 줄 끝 [넣기] · ⋯([고쳐서 넣기]·[빼기]). [빼기]는 그 자리 이유 한 줄(안 써도 됨) → [빼기 확인].
@@ -1589,12 +1594,18 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안','가상 내 개선 생각']);
  expect(row().draft.picks.items.find(i=>i.act==='add'&&i.cell==='개선 제안')).toMatchObject({kind:'review',from:'hand',text:'가상 내 개선 생각'});
  // 보낸 개선 제안도 ⋯ [고쳐서 만들기]: 고친 글로 바뀌고 원래 글은 before, 동작 기록은 'edit'.
+ // S48-49: 요청함 전달이 되면 알림에 한 마디. 규칙·후보·내 생각 저장은 전달을 부르지 않는다(지금까지 1건).
+ expect(f.sent.inbox).toHaveLength(1);
+ await page.route(SB+'/functions/v1/document-actions',r=>r.request().method()==='POST'&&r.request().postDataJSON()?.action==='dev-inbox'
+  ?(f.sent.inbox.push(r.request().postDataJSON()),r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,result:'sent'}})):r.fallback());
  const sug=learn.locator('[data-learn-suggestion="s1"]');
  await pressMore(sug,'[data-learn-answer-fix]');
  const fixIn=sug.locator('input[data-learn-answer-fix-input]');
  await expect(fixIn).toBeFocused();await fixIn.fill('가상 개선 제안(고침)');await fixIn.press('Enter');
  await expect.poll(()=>row().draft.feedback.review.suggestions[0]).toMatchObject({answer:'yes',text:'가상 개선 제안(고침)',before:'가상 개선 제안'});
  expect(row().draft.picks.items.find(i=>i.cell==='개선 제안'&&i.from==='ai')).toMatchObject({act:'edit',text:'가상 개선 제안(고침)',before:'가상 개선 제안'});
+ await expect(page.locator('#kptuNotice')).toContainText('고쳐서 만들기로 보냈어요. 요청함에 전했어요.');
+ expect(f.sent.inbox).toEqual([{action:'dev-inbox',week_start:'2026-10-05',id:'s1'},{action:'dev-inbox',week_start:'2026-10-05',id:'s1'}]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
