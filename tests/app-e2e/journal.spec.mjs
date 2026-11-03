@@ -342,11 +342,8 @@ for(const width of [390,1280]){
   await expectTodo(page,['남은 할 일']);
   // 다음 주 월요일 0시(한국 시간)에 올린 자료는 이번 주 일요일에 오지 않는다.
   await date(page,'2026-10-11').click();await expect(group(page,'docs')).toHaveCount(0);
-  // app_notes 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 업데이트는 basket). 노트(note)는 '노트로 옮긴 업데이트' 표시가 있는 것만,
-  // id·제목·날·표시만 읽는다(본문 raw_text·다른 metadata 없음).
-  const noteReads=f.reads.filter(q=>!q.table&&q.kind==='eq.note');
-  expect(noteReads).toHaveLength(1);
-  expect(noteReads[0]).toMatchObject({'metadata->>moved_from_update_at':'not.is.null',select:'id,title,occurred_at,moved_at:metadata->>moved_from_update_at'});
+  // app_notes 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 업데이트는 basket). S49-12: 하루 카드는 노트(note)를 더 읽지 않는다.
+  expect(f.reads.filter(q=>!q.table&&q.kind==='eq.note')).toHaveLength(0);
   expect(f.reads.filter(q=>!q.table&&q.kind!=='eq.note').every(q=>/^eq\.(work|basket)$/.test(q.kind||''))).toBe(true);
   // 조직·회의 읽기는 이 업무 공간·이번 주(한국 시간)로 가린다.
   expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2)',occurred_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
@@ -973,7 +970,7 @@ async function weeklyFixture(page,options={}){
   {id:'p4',project_id:'wa1',summary:'가-1 목요일 기록',effective_on:'2026-10-08',created_at:'2026-10-08T03:00:00Z'},
   {id:'p5',project_id:'wa2',summary:'가-2 화요일 기록',effective_on:'2026-10-06',created_at:'2026-10-06T04:00:00Z'},
  );
- // A note moved from the basket ([노트로 옮기기]) shows on the day card but is not weekly material.
+ // A note moved from the basket ([노트로 옮기기]) is neither on the day card (S49-12) nor weekly material.
  f.rows.push({id:'n-moved',workspace_id:'w',kind:'note',title:'옮긴 합성 노트',journal_day:null,raw_text:'본문',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],moved_at:'2026-10-07T00:00:00.000Z',metadata:{moved_from_update_at:'2026-10-07T00:00:00.000Z'}});
  const catalog={fail:!!options.failCatalog};
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_spaces',async r=>{
@@ -1003,8 +1000,8 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-mode]')).toHaveText(['하루','주간 정리']);
  await expect(page.locator('#journalRoot [data-journal-mode="day"]')).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeHidden();
- // 하루 카드에는 옮긴 노트가 보인다(주간 정리에는 없다).
- await expect(page.locator('#journalRoot')).toContainText('옮긴 합성 노트');
+ // S49-12: 하루 카드에도 옮긴 노트가 없다(주간 정리에도 없다).
+ await expect(page.locator('#journalRoot')).not.toContainText('옮긴 합성 노트');
  await openWeekly(page);
  // HOME-업무일지홈: [주간 정리]면 머리줄 제목은 그 주 범위(하루면 고른 날).
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');

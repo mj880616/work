@@ -31,7 +31,7 @@ import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // and the same scroll and focus.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
-  workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, readOrgUpdates, readProjectUpdates,
+  workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, readScheduleEvents, DONE_TASK_DAYS, WEEK_READ_CAP,
   dayCard, othersCount, DAY_SOURCES, dueDay, dayRangeNote, readWeekDrafts, requestDayDraft, readWeekCalls, readTaskMeetingNames, readUpcomingMilestones} from './journal-data.js';
 import {dueLabel} from './task-due.mjs';
@@ -43,7 +43,6 @@ import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
-import {recordMark} from './basket-link-records.js';
 import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
 import {scopeKey, hasLines, keepLines} from './work-scope-model.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
@@ -283,8 +282,7 @@ function itemRow(item) {
   const main = document.createElement(key ? 'button' : 'span');
   main.className = 'journal-item-open';
   if (key) { main.type = 'button'; main.dataset.journalOpen = key; main.setAttribute('aria-label', `${item.text} (원본 열기)`); }
-  if (item.noteMark) main.innerHTML = recordMark({note_kind:'note'}, 'journal-note-mark');
-  else main.innerHTML = requestTagsHtml(item.requests, esc);
+  main.innerHTML = requestTagsHtml(item.requests, esc);
   main.append(item.text);
   if (normalizeRequests(item.requests).length) li.dataset.journalRequests = normalizeRequests(item.requests).join(' ');
   const body = document.createElement('div'); body.className = 'journal-item-body'; body.append(main);
@@ -412,20 +410,21 @@ function renderSchedule(card) {
   const head = document.createElement('div'); head.className = 'journal-schedule-head';
   head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">그날 일정</h4><small class="journal-head-count" data-journal-events-count>${part.loading ? '' : part.items.length}</small></span><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>`;
   host.replaceChildren(head);
-  const dday = ddayLine();
-  if (dday) host.append(dday);
   if (part.loading) { host.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return; }
   if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); host.append(ul); }
   else if (!part.failed) host.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-events-empty'}));
   partNotes(host, part);
+  // S49-12: 앞으로 다가오는 큰 일(D-n)은 그날 일정이 아니므로 일정 목록·'없음' 아래에 '다가오는 일' 작은 이름표와 따로 둔다.
+  const dday = ddayLine();
+  if (dday) host.append(dday);
 }
 // HOME-업무일지홈: 옛 홈 '주요 일정' D-day 칩(사업영역 주요 일정, 오늘부터 3개)은 오늘을 볼 때 그날 일정 칸 맨 위 한 줄. 3일 안은 진한 테두리.
 // 달력에 이어진 것은 그 일정 수정 창(event-open.js), 아니면 그 사업영역 창. 못 읽거나 없으면 줄 없음.
 function ddayLine() {
   const read = materials.milestones;
   if (selected !== todayKey() || read?.status !== 'ok' || !read.items?.length) return null;
-  const line = document.createElement('div'); line.className = 'journal-dday'; line.dataset.journalDday = ''; line.setAttribute('aria-label', '주요 일정');
-  line.innerHTML = read.items.map(m => `<button type="button" class="journal-dday-chip${m.days <= 3 ? ' is-soon' : ''}" data-journal-dday-project="${esc(m.project_id)}" ${m.google_event_id ? eventAttrs(m.google_event_id, m.google_calendar_id) : ''}>${m.days === 0 ? 'D-day' : 'D-' + m.days} ${esc(m.title)}</button>`).join('');
+  const line = document.createElement('div'); line.className = 'journal-dday'; line.dataset.journalDday = ''; line.setAttribute('aria-label', '다가오는 일');
+  line.innerHTML = '<small class="journal-dday-label">다가오는 일</small>' + read.items.map(m => `<button type="button" class="journal-dday-chip${m.days <= 3 ? ' is-soon' : ''}" data-journal-dday-project="${esc(m.project_id)}" ${m.google_event_id ? eventAttrs(m.google_event_id, m.google_calendar_id) : ''}>${m.days === 0 ? 'D-day' : 'D-' + m.days} ${esc(m.title)}</button>`).join('');
   return line;
 }
 function renderDay() {
@@ -448,9 +447,11 @@ function renderDay() {
   const loading = card.others.some(part => part.loading), count = othersCount(card.others), failed = card.others.some(part => part.failed);
   // Folded, the summary still says when a part could not be read (its [다시 시도] is inside).
   others.innerHTML = `<summary><span class="journal-heading">그 밖의 기록</span> <small class="journal-others-count" data-journal-others-count>${count ? esc(count) : loading ? waitInlineHtml() : '없음'}</small>${failed ? '<small class="journal-failed" data-journal-others-failed>· 못 읽은 묶음 있음</small>' : ''}</summary>`;
-  const body = document.createElement('div'); body.className = 'journal-others-parts';
+  // S49-12: 묶음 칸(flex·grid)을 <details>의 바로 아래 자식으로 두면 일부 브라우저에서 접어도 안쪽 제목이 보여, 꾸밈 없는 껍데기 하나를 사이에 둔다.
+  const shell = document.createElement('div'), body = document.createElement('div'); body.className = 'journal-others-parts';
   body.append(...shown.map(part => partBox(part, {heading:'h5'})));
-  others.append(body);
+  shell.append(body);
+  others.append(shell);
   others.addEventListener('toggle', () => { othersOpen = others.open; });
   // LEDGER-자동기록: 그날 원장에 자동으로 기록된 약속이 있을 때만 한 줄(누르면 원장 화면의 약속 목록). 0건·못 읽음은 줄 없음.
   const promises = materials.ledgerPromises?.status === 'ok' ? materials.ledgerPromises.items.get(selected) || 0 : 0;
@@ -680,7 +681,6 @@ const readers = {
   // HOME-업무일지홈: 그날 일정 칸 안 D-day 주요 일정(오늘을 볼 때만 그린다).
   milestones: () => readUpcomingMilestones(rt),
   basket: () => readBasketUpdates(rt),
-  movedNotes: () => readMovedNotes(rt),
   orgUpdates: () => readOrgUpdates(start, rt),
   projectUpdates: () => readProjectUpdates(start, rt),
   meetings: () => readWeekMeetings(start, rt),
@@ -718,7 +718,7 @@ async function loadTaskMeetings(run, scope) {
     taskMeetings = names; renderDay();
   } catch { /* 이름 없이 그대로 */ }
 }
-const SHARED_KEYS = new Set(['tasks', 'basket', 'movedNotes', 'catalog', 'milestones']);
+const SHARED_KEYS = new Set(['tasks', 'basket', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
 const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'orgSummaries', 'execRequests', 'orgRefs']);
@@ -1127,8 +1127,8 @@ async function copyDraft() {
   await Promise.race([weekReadsFlight, new Promise(ok => setTimeout(ok, 5000))]);
   const text = W.weeklyReportText(W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}));
   const ok = await copyText(text);
-  // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
+  // catalog (the project order) and this week's events (the day card's 일정) are not draft material.
+  const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }
