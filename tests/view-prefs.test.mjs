@@ -147,3 +147,26 @@ test('the four new split screens are accepted, and a server that does not know t
     assert.deepEqual(ok.row,{split_ratio:{photos:0.25,arsenal:0.25,notes:0.25,noteboard:0.25}});
   }finally{if(had===undefined)delete globalThis.window;else globalThis.window=had}
 });
+
+// S49-4 FILES-칸폭: split_ratio.files(폴더 나무 | 목록)와 col_widths(표 칸 폭 px, 화면별)를 서버에만 기억한다.
+test('files split ratio and col_widths: shape, merge by screen, and a server that does not know them yet only drops that width', async()=>{
+  assert.equal(validValue('split_ratio',{files:0.25}),true);
+  assert.equal(validValue('col_widths',{files:{day:132,path:180}}),true);
+  for(const bad of [{files:{day:39}},{files:{day:801}},{files:{Day:100}},{files:{day:'100'}},{files:{}},{Files:{day:100}},{files:[100]},[],'x'])assert.equal(validValue('col_widths',bad),false,JSON.stringify(bad));
+  assert.deepEqual(parsePrefs({col_widths:{files:{day:132,bad:5},other:'x'}}),{col_widths:{files:{day:132}}},'a bad column is dropped, the others are kept');
+  assert.deepEqual(applyChanges({col_widths:{files:{day:100}}},{'col_widths.files':{day:120,kind:90}}),{col_widths:{files:{day:120,kind:90}}});
+  assert.deepEqual(applyChanges({col_widths:{files:{day:100}}},{'col_widths.files':null}),{});
+  const heard=[];const had=globalThis.window;
+  globalThis.window={dispatchEvent:event=>{heard.push([event.type,event.detail]);return true}};
+  try{
+    const ok=env({server:{}});await ok.api.load();
+    assert.equal(ok.api.setCols('files',{day:140}),true);assert.equal(ok.api.setCols('files',{day:5}),false,'out of range is refused before sending');
+    ok.api.setSplit('files',0.3);await ok.api.flush();
+    assert.deepEqual(ok.row,{split_ratio:{files:0.3},col_widths:{files:{day:140}}});
+    assert.deepEqual(ok.api.getCols('files'),{day:140});
+    const old=env({server:{nav_collapsed:false},refuse:v=>!!v?.col_widths});await old.api.load();heard.length=0;
+    old.api.setCols('files',{day:140});old.api.set('nav_collapsed',true);await old.api.flush();
+    assert.equal(old.api.getCols('files'),undefined,'back to the default widths');
+    assert.deepEqual(old.row,{nav_collapsed:true},'the other change was still saved');
+  }finally{if(had===undefined)delete globalThis.window;else globalThis.window=had}
+});
