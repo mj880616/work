@@ -115,7 +115,7 @@ for (const width of [390, 1280]) {
     const viewer = root(page).locator('[data-diary-viewer]');
     await expect(viewer).toBeVisible();
     await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('1 / 7');
-    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['☆ 별표', '⇪ 공유', '🗑 지우기', 'ⓘ 정보']);
+    await expect(viewer.locator('.diary-viewer-actions button:not([hidden])')).toHaveText(['☆ 별표', '⇪ 공유', '지우기', 'ⓘ 정보']);
     await viewer.locator('[data-diary-info]').click();
     await expect(viewer.locator('[data-strip-original]')).toHaveText('⤓ 원본 받기');
     await page.keyboard.press('s');

@@ -285,6 +285,24 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-notice-undo,.kptu-notice-close{border:0;background:transparent;color:inherit;font:inherit;font-weight:700;padding:2px 4px;min-height:24px;cursor:pointer}
 .kptu-notice-undo{text-decoration:underline;text-underline-offset:2px}
 .kptu-notice-close{opacity:.7;font-weight:400}
+/* UI-고르기줄 (S48-54, 요청함 11/03 07:43·07:44): 여러 개 고르기 줄·크게 보기 아래 줄의 공용 부품(app/action-bar.mjs). 이 화면들은 이 규칙 하나를 쓴다:
+   사진 여러 장 고르기·휴지통 고르기(.photos-act), 크게 보기(.diary-viewer-actions, 사진·일기), 노트 고르기(.nx-select-bar), 자료실 고르기(.lu-select-bar).
+   ① 버튼(.kptu-act)은 줄 폭을 같은 너비 칸으로 나눠 쓰고 칸 사이 간격이 같다. 넓은 화면(폴드 펼침·PC)은 칸 최대 120px이라 너무 벌어지지 않는다.
+   ② 칸은 가장 긴 낱말보다 좁아지지 않는다(낱말 단위 줄바꿈 keep-all) — 폴드 접음 폭에서도 글자가 잘리지 않고, 모자라면 다음 줄(위쪽 글자 줄만).
+   ③ 아이콘 줄(-icon): 폰은 아이콘 위·글자 아래, 761px~는 한 줄 나란히. 아이콘은 글자와 같은 색의 글자 모양·선 아이콘. 글자 줄(-text): 테두리 없는 작은 글자.
+   ④ 지우기(.kptu-act-danger)는 글자만 빨강(아이콘은 다른 버튼과 같은 색). 누르는 범위는 늘 44px(::after). 줄의 자리(아래 붙기·위 붙기)·바탕은 화면 CSS가 맡는다. */
+.kptu-actbar{display:flex;align-items:center;justify-content:space-evenly;min-width:0}
+#appView .kptu-actbar>button.kptu-act{position:relative;box-sizing:border-box;flex:1 1 0;min-width:min-content;max-width:120px;justify-content:center;margin:0;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;box-shadow:none;font-weight:400;text-align:center;white-space:normal;word-break:keep-all;-webkit-tap-highlight-color:transparent}
+#appView .kptu-actbar>button.kptu-act::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView .kptu-actbar>button.kptu-act[hidden]{display:none}
+#appView .kptu-actbar>button.kptu-act:disabled{opacity:.45;cursor:default}
+#appView .kptu-actbar>button.kptu-act:focus-visible{outline:2px solid currentColor;outline-offset:-2px}
+#appView .kptu-actbar>button.kptu-act.kptu-act-danger:not(:disabled) .kptu-act-tx,#appView .kptu-actbar-text>button.kptu-act.kptu-act-danger:not(:disabled){color:var(--kptu-danger)}
+#appView .kptu-actbar-icon>button.kptu-act{display:flex;flex-direction:column;align-items:center;gap:1px;height:auto;min-height:40px;padding:2px;color:inherit;font-size:11px;line-height:1.2}
+#appView .kptu-actbar-icon .kptu-act-ic{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;font-size:16px;line-height:1}
+#appView .kptu-actbar-icon .kptu-act-ic svg{display:block;width:16px;height:16px}
+#appView .kptu-actbar-text>button.kptu-act{display:inline-flex;align-items:center;height:auto;min-height:var(--ds-compact-height-sm,28px);padding:2px 4px;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1.25}
+@media(min-width:761px){#appView .kptu-actbar-icon>button.kptu-act{flex-direction:row;gap:4px;min-height:var(--ds-compact-height,32px);padding:0 4px;font-size:var(--ds-compact-text,13px)}}
 .kptu-notice-note{flex:1 0 100%;order:5;font-size:11px;opacity:.75}
 /* SHARE-바로넣기: 알림 안 한 줄 입력칸([메모 달기]). 알림 글처럼 촘촘하게, 눌러서 쓸 수 있게(바탕 알림은 누르기를 통과시킴). */
 .kptu-notice input.kptu-notice-input{pointer-events:auto;flex:1 1 160px;min-width:0;height:28px;box-sizing:border-box;margin:0;padding:0 8px;font:inherit;font-size:13px;color:var(--kptu-ink);background:var(--kptu-surface);border:0;border-radius:var(--kptu-radius-sm,6px)}
