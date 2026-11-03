@@ -102,3 +102,45 @@
 #soOrganizationList .so-reference-entry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 /* UI-기다림표시통일 3차: 담당조직이 하나도 없을 때의 공용 '없음'(.wait-empty)은 목록 한 줄 높이 — 오른쪽 위 ⋯ 와 아래 [참고 묶음] 줄이 겹치지 않게. */
 #soOrganizationList>.wait-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target);margin:0;padding:0 calc(var(--kptu-space-2) + var(--ds-compact-height) + var(--kptu-space-2)) 0 var(--kptu-space-4)}
+
+/* DESK-전체현황표(요청함 11/03 07:48): 담당조직 맨 위 소탭 [목록 | 전체 표]와 전체 표(org-overview.js). 작고 낮게(UI-버튼기준), 새 색 없음. */
+.so-team-tabs{display:flex;gap:4px;margin:0 0 8px}
+.so-team-tab{position:relative;height:var(--ds-compact-height);min-height:0;padding:0 12px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-button);font-weight:500}
+.so-team-tab::after{content:"";position:absolute;inset:-6px 0}
+.so-team-tab[aria-selected="true"]{background:var(--ds-select-bg);border-color:var(--kptu-border-strong);color:var(--kptu-ink)}
+.so-team-tab:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.so-team-tabs[hidden]{display:none}
+#soTeamSection.so-view-table>#soOrganizationList,#soTeamSection.so-view-table>#wdDetailPane{display:none!important}
+#soTeamSection.so-view-table>.so-team-head .so-team-title{display:none}
+.oa{--oa-w-org:11em;--oa-w-stage:10em;min-width:0}
+.oa[hidden]{display:none}
+.oa-bar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.oa-group{margin:0 0 12px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);overflow:hidden}
+.oa-group-h{display:flex;align-items:baseline;justify-content:space-between;margin:0;padding:6px var(--kptu-space-3);font-size:12px;line-height:18px;font-weight:400;color:var(--kptu-muted);border-bottom:1px solid var(--kptu-border)}
+.oa-group-h small{font-size:var(--ds-text-meta)}
+.oa-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.oa-table th,.oa-table td{padding:6px var(--kptu-space-3);border-bottom:1px solid var(--kptu-border);text-align:left;vertical-align:top;font-weight:400;line-height:1.45}
+.oa-table tbody tr:last-child>*{border-bottom:0}
+.oa-table thead th{position:relative;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+.oa-c-org{width:var(--oa-w-org)}.oa-c-stage{width:var(--oa-w-stage);font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.oa-name{max-width:100%;padding:0;border:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);font-weight:500;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.oa-name:hover{text-decoration:underline}
+.oa-name:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.oa-line{display:flex;gap:8px;align-items:baseline;min-width:0;padding:1px 0}
+.oa-day{flex:0 0 auto;min-width:5.6em;white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+.oa-text{min-width:0;overflow-wrap:anywhere;color:var(--kptu-ink)}
+.oa-text.is-edit{cursor:text}.oa-text.is-edit:hover{background:var(--kptu-surface-subtle)}
+.oa-text.is-edit:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.oa-empty,.oa-more,.oa-none{color:var(--kptu-muted);font-size:var(--ds-text-meta)}.oa-empty{margin-right:8px}
+.oa-add{margin-top:4px}
+.oa-edit{padding:2px 0;scroll-margin-bottom:45vh}
+@media(max-width:760px){
+  /* 폰: 표 대신 조직마다 한 덩이(이름·쟁의 단계 한 줄 + 현황 줄). 칸 폭 손잡이는 폰에서 숨김(col-resize.js). */
+  .oa-table,.oa-table tbody,.oa-table tr,.oa-table th,.oa-table td{display:block;width:auto}
+  .oa-table thead{display:none}
+  .oa-table tbody tr{padding:6px 0;border-bottom:1px solid var(--kptu-border)}
+  .oa-table tbody tr:last-child{border-bottom:0}
+  .oa-table th,.oa-table td{padding:2px var(--kptu-space-3);border-bottom:0}
+  .oa-c-org{display:inline-block!important;width:auto;max-width:62%}
+  .oa-c-stage{display:inline-block!important;width:auto;margin-left:6px}
+}

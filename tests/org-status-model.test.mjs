@@ -70,3 +70,35 @@ test('화면 연결: 소탭은 view_prefs.org_tab 하나, 현황 표 자리는 o
   assert.match(st, /type="date"/, 'date is picked on the shared calendar field');
   assert.match(hw, /readStatusRows\(/);assert.match(hw, /siteLinesFromTable\(/);
 });
+
+test('DESK-전체현황표 ⑩ 다시 채우기: 사람이 고친 줄과 같은 날(±1일)·비슷한 내용의 AI 줄은 더하지 않는다', async () => {
+  const m = await import('../app/org-status-model.mjs');
+  const rows = [
+    {id: 'u1', day: '2026-10-29', body: '하반기 임단협 투쟁계획 승인', source: 'user', sort_order: 0},
+    {id: 'u2', day: '2026-10-15', body: '쟁의행위 찬반투표 가결', source: 'user', sort_order: 1},
+    {id: 'a1', day: '2026-10-01', body: '옛 AI 줄', source: 'ai', sort_order: 2},
+  ];
+  const ai = [
+    {day: '2026-10-29', text: '하반기 임단협 투쟁계획 승인함', evidence: []},      // 끝맺음만 다른 같은 줄
+    {day: '2026-10-30', text: '11.14 쟁의행위 찬반투표 가결 예정', evidence: []},  // 하루 차이 + 내용 겹침이지만 10-15와는 15일 차이 → 새 줄
+    {day: '2026-10-16', text: '쟁의행위 찬반투표 결과 가결', evidence: []},        // 10-15 줄과 하루 차이 + 같은 일
+    {day: '2026-11-05', text: '출력결의대회 개최', evidence: []},
+    {day: '2026-11-05', text: '출력 결의대회 개최', evidence: []},                // 이번 답 안의 중복
+  ];
+  const plan = m.refillPlan(rows, ai);
+  assert.deepEqual(plan.remove, ['a1']);
+  assert.deepEqual(plan.add.map(a => a.body).sort(), ['11.14 쟁의행위 찬반투표 가결 예정', '출력결의대회 개최'].sort());
+  assert.equal(m.sameLine({day: '2026-10-29', body: '중노위 조정 신청'}, {day: '2026-10-29', body: '중노위 조정 결정'}), false);
+  assert.equal(m.sameLine({day: '2026-10-29', body: '중노위 조정 신청'}, {day: '2026-11-29', body: '중노위 조정 신청'}), false);
+});
+
+test('DESK-전체현황표 화면 연결: 소탭 [목록|전체 표]는 org-overview.js 하나, 줄 쓰기는 org-status-table.js 함수를 같이 쓴다(새 저장 자리 없음)', () => {
+  const ov = read('app/org-overview.js'), so = read('app/suborganizations.js'), st = read('app/org-status-table.js');
+  assert.match(so, /import\('\.\/org-overview\.js'\)/);
+  assert.match(ov, /data-so-view="list"[^>]*>목록</);assert.match(ov, /data-so-view="table"[^>]*>전체 표</);
+  assert.match(ov, /import \{[^}]*patchStatusRow[^}]*createStatusRow[^}]*\} from '\.\/org-status-table\.js'/);
+  assert.doesNotMatch(ov, /app_org_status_rows|localStorage|sessionStorage/);
+  assert.match(ov, /name: 'orgall'/);assert.match(st, /name: 'orgst'/);
+  assert.match(st, /<textarea data-st-field="body"/, '고치기 칸은 늘어나는 여러 줄 칸');
+  assert.doesNotMatch(st, /data-reorder-handle>⠿/, '⠿ 손잡이 버튼과 [고치기] 버튼 칸은 없다');
+});
