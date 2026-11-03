@@ -98,7 +98,7 @@ for (const width of [1440, 390]) test(`${width}: 기간 칩 세 개 한 줄 — 
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
 });
 
-test('기간 설정: 달력으로 시작·끝 날을 고르면 그 기간 보고만 보이고, 서버에 기억해 다시 열어도 같다', async ({page}) => {
+test('기간 설정: 달력으로 시작·끝 날을 고르면 그 기간 보고만 보이고, 서버에 기억해 다시 열어도 같다', async ({page, browser}) => {
   const state = makeState();
   const prefs = await open(page, state, 1440);
   const from = daysAgo(41), to = daysAgo(39);
@@ -124,7 +124,8 @@ test('기간 설정: 달력으로 시작·끝 날을 고르면 그 기간 보고
   await expect.poll(() => prefs.value?.report_period).toEqual({mode: 'range', from, to});
   // 다시 열어도 고른 기간 그대로(서버 기억).
   const saved = prefs.value;
-  const page2 = await page.context().newPage();
+  // 새 브라우저 창(로그인 기억이 없는 새 환경)에서 열어, 서버에 기억한 값만으로 같은 기간이 나오는지 본다.
+  const context2 = await browser.newContext(), page2 = await context2.newPage();
   await open(page2, makeState(), 1440, saved);
   await expect(chip(page2, 'range')).toHaveAttribute('aria-checked', 'true');
   await expect(page2.locator('#meetingList')).toContainText('지난 회의');
@@ -132,6 +133,7 @@ test('기간 설정: 달력으로 시작·끝 날을 고르면 그 기간 보고
   // × 로 지우면 주간 보기로 돌아가고 기억도 비운다.
   await page2.locator('#reportWeekFilter [data-report-week="clear"]').click();
   await expect(chip(page2, 'week')).toHaveAttribute('aria-checked', 'true');
+  await context2.close();
 });
 
 test('빠른 칩 [최근 3달]은 바로 적용된다', async ({page}) => {
