@@ -109,7 +109,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
   const boards = createNoteBoards({esc, rt, wide:window.matchMedia('(min-width:761px)'), bar:host.querySelector('[data-nbb]'), side:host.querySelector('[data-nbb-side]'),
     notes:{get:() => notes, set:fn => { notes = fn(notes); }}, folderOf:note => folderOf(note), folders:() => folders, matches:() => (query ? matches : null),
-    rerender:() => { if (loaded && !selected && view === 'board') renderList(); }, toast:showToast, refresh:() => refresh(), scope:() => scope()});
+    rerender:() => { if (loaded && !selected && view === 'board') renderList(); }, toast:showToast, refresh:() => refresh(), scope:() => scope(),
+    // UI-우클릭전수(2026-11-03): 포스트잇 왼쪽 노트 목록 우클릭 = 폴더·목록 보기와 같은 노트·폴더 메뉴(보드 메뉴 항목 포함).
+    openNoteMenu:(anchor, id, x, y) => { const n = notes.find(row => row.id === id); if (busy || selected || !n) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); openMenu(anchor, n, 'list'); },
+    openFolderMenu:(anchor, id, x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(anchor, x, y); if (id) openMenu(anchor, null, 'folder', null, id); else openMenu(anchor, null, 'head'); }});
   // NOTE-읽생기아이디어 ①: 열린 노트의 댓글 칸(note-comments-ui.js가 그 칸의 유일한 renderer). 저장·지우기 뒤 목록 쪽 수만 다시 맞춘다.
   const noteComments = createNoteComments({esc, rt, list:{get:() => comments, set:fn => { comments = fn(comments); }},
     state:() => ({ready:commentsReady, missing:commentsMissing}), scope:() => scope()});
@@ -202,7 +205,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     board ??= mountNoteBoard(box, {esc, cardText:boardText, moreIcon:MORE_ICON,
       onMove:(id, next, before) => { if (boards.isNamed()) boards.move(id, next); else void saveBoard(id, next, before); },
       onDrop:(id, point, places) => boards.attach([id], point, places),
-      onMenu:(btn, x, y) => { window.KPTUContextMenu?.pinAt?.(btn, x, y); rowMenu(btn); }});
+      onMenu:(btn, x, y) => { window.KPTUContextMenu?.pinAt?.(btn, x, y); rowMenu(btn); },
+      onBackgroundMenu:(x, y) => { if (busy || selected) return; window.KPTUContextMenu?.pinAt?.(box, x, y); openMenu(box, null, 'board'); }});
     boards.paint();
     const named = boards.boardView(), shown = named ? named.notes : notes;
     board.paint({notes:shown, folderOf, visible:m ? new Set(shown.filter(m).map(n => n.id)) : null, pickActive:!!pick.active, isPicked:id => isPicked('n:' + id),
@@ -346,6 +350,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const canEditFolders = () => foldersReady;
   const menuItems = (note, from) => {
     if (from === 'file') return [['data-note-file-detach', '빼기']];
+    // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
+    if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '지우기', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
     if (from === 'folder') return [['data-nx-select', '선택'], ['data-nx-enter', '이 폴더로 들어가기'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-move-folder', '옮기기…'], ['data-nx-delete-folder', '폴더 지우기', 'basket-menu-danger']] : [])];
     // FEAT-1029 ④: [성명·보도자료 초안] opens the draft window (press-draft.js); it saves a note only when [노트로 저장] is pressed.
@@ -356,6 +362,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'list' && noteCopyPayload(note) ? [['data-note-copy', '복사']] : []),
       // NOTE-보드여러개 ③: 이름 붙은 보드의 칸 메뉴 맨 위 [보드에서 빼기](노트는 그대로).
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
+      ...(from === 'list' && view === 'board' && boards.isNamed() && !onBoard(note, boards.current()) ? [['data-nbb-attach', '보드에 붙이기']] : []),
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '정리함으로 돌리기']] : []),
       ['data-note-to-diary', '일기로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
@@ -380,11 +387,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     return closed;
   }
   function openMenu(trigger, note, from, fileId = null, folderId = null) {
-    if (!note && !['folder', 'head', 'picked'].includes(from)) return;
+    if (!note && !['folder', 'head', 'picked', 'board'].includes(from)) return;
     if (menu?.trigger === trigger) { closeMenu({focus: true}); return; }
     closeMenu();
     const el = menuEl();
-    el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '고른 것 메뉴' : '노트 메뉴');
+    el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'board' ? '보드 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '고른 것 메뉴' : '노트 메뉴');
     el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuItems(note, from).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
     el.hidden = false;
     // UI-메뉴잘림: 높이를 묶지 않는다(창 높이까지 다 보임, 정말 길 때만 스크롤 + 아래 흐림 — anchored-popup.js).
@@ -1070,6 +1077,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-sel-close')) endSelect();
       return;
     }
+    if (from.from === 'board') { if (b.hasAttribute('data-nbb-newnote')) { const input = host.querySelector('[data-note-list] textarea[data-quick-input]'); input?.scrollIntoView({block:'nearest'}); input?.focus({preventScroll:true}); } return; }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
       if (b.hasAttribute('data-press-draft-open')) { const trigger = from.trigger; void import('./press-draft.js').then(m => m.openPressDraft({trigger})); return; }
@@ -1086,6 +1094,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
     if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
     else if (b.hasAttribute('data-nbb-detach')) boards.detach(note.id);
+    else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
     else if (b.hasAttribute('data-note-copy')) void telegram(note, from.trigger); // UI-눌림느낌: the menu is closed, so the row's ⋯ shows the ✓
     else if (b.hasAttribute('data-note-ai-off')) void toggleAiOff(note);
     else if (b.hasAttribute('data-note-pin')) void pin(note);

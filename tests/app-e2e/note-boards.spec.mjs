@@ -141,6 +141,25 @@ test('PC: 서버에 기억한 마지막 보드로 열리고, 보드 칸 우클�
   expect(errors).toEqual([]);
 });
 
+test('PC: 왼쪽 노트 목록·빈 보드 우클릭은 브라우저 메뉴 대신 웹2 메뉴, 노트 줄 메뉴에 [보드에 붙이기] (1440)', async ({ page }) => {
+  const id = 'b1a2b3c4';
+  const { rows, errors } = await fixture(page, 1440, { note_view: 'board', note_boards: [{ id, name: '교섭' }], note_board: id });
+  await page.locator('[data-nbb-side] [data-nbb-folder]', { hasText: '폴더 없음' }).click();
+  const menu = page.locator('#noteDocMenu');
+  await page.locator('[data-nbb-side] [data-nbb-note="n2"]').click({ button: 'right' });
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('[data-nbb-attach]')).toHaveText('보드에 붙이기');
+  await menu.locator('[data-nbb-attach]').click();
+  await expect(cards(page)).toHaveCount(1);
+  await expect.poll(() => rows[1].metadata.boards?.[id]).toBeTruthy();
+  await page.locator('[data-nbb-side] [data-nbb-folder]', { hasText: '폴더 없음' }).click({ button: 'right' });
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.locator('[data-note-board]').click({ button: 'right', position: { x: 600, y: 400 } });
+  await expect(menu.locator('[data-nbb-newnote]')).toHaveText('새 노트 쓰기');
+  expect(errors).toEqual([]);
+});
+
 for (const width of [412, 760]) {
   test(`폰: [+ 노트 붙이기] 고르기 창으로 붙이기, 꾹 누르기 메뉴 (${width})`, async ({ page }) => {
     const id = 'b1a2b3c4';
