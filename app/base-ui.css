@@ -353,6 +353,9 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 /* UI-기다림표시통일(2026-10-29 명진 A안): 기다림·실패·없음 공용 부품(wait-state.js) 하나. 기다림 = 위쪽 가는 줄 + 실제 줄 높이 회색 빈 줄, 글자 없음.
    0.4초 안에 끝나면 아무것도 보이지 않는다(늦은 표시). 회색 빈 줄은 그림 칸(.img-slot 받는 중)과 같은 색. 민트(.notice)는 완료 알림에만. */
 .wait{display:grid;gap:6px;padding:4px 0;animation:wait-show 0s linear .4s both}
+/* UI-로딩자리전수: 기다림 표시는 불러오는 그 칸의 맨 위, 칸 폭 가득(가운데 정렬·칸 안 구석에 뜨지 않게). 글줄 안 한 칸(.wait-inline)만 예외. */
+.wait:not(.wait-inline){box-sizing:border-box;width:100%;align-self:stretch;justify-self:stretch;margin:0}
+.wait:not(.wait-inline)>.wait-bar{width:100%}
 @keyframes wait-show{from{visibility:hidden}to{visibility:visible}}
 .wait-bar{position:relative;display:block;height:2px;overflow:hidden;border-radius:1px}
 .wait-bar::after{content:"";position:absolute;top:0;bottom:0;left:0;width:30%;background:var(--kptu-muted);opacity:.4;animation:wait-run 1.2s ease-in-out infinite}

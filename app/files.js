@@ -1,4 +1,4 @@
-import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, barHtml, failHtml, emptyHtml} from './wait-state.js';
 import {claimedSince} from './row-swipe.js';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {slotBox, slotImg, slotFailed} from './img-slot.js';
@@ -44,7 +44,7 @@ function install() {
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="고른 것" hidden></div>
 <div class="fx-tabs" data-fx-tabs role="tablist" aria-label="파일 보기">${PHONE_TABS.map(t => `<button type="button" role="tab" data-fx-tab="${t}" aria-selected="false">${PHONE_TAB_NAME[t]}</button>`).join('')}</div>
 <p class="fx-note" data-fx-note role="status" hidden></p>
-<div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main><section class="fx-list" data-fx-list aria-label="파일 목록"></section><aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
+<div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main><div class="fx-listcol"><div class="fx-wait" data-fx-wait hidden></div><section class="fx-list" data-fx-list aria-label="파일 목록"></section></div><aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
 </div></section>`);
 }
 install();
@@ -201,7 +201,7 @@ async function sync({force = false} = {}) {
     const next = applyChanges(state.rows, where, changed, removed);
     if (next !== state.rows) { state.rows = next; state.children.set(folderKey(where.source, where.parent), next.filter(r => r.is_folder)); paintList(); paintTree(); }
   } catch { /* 맞추기 실패는 다음 차례에 다시. 목록은 색인 그대로 */ }
-  finally { if (state.scope === scope) { state.syncing = false; paintTop(); } }
+  finally { if (state.scope === scope) { state.syncing = false; paintTop(); if (!shown().length) paintList(); } }
 }
 function startTimer() { clearInterval(syncTimer); syncTimer = setInterval(() => { if (visible()) sync(); else paintTop(); }, SYNC_EVERY_MS); }
 const visible = () => window.KPTURouter?.current === 'files' && document.visibilityState === 'visible';
@@ -230,8 +230,12 @@ function paintTop() {
   const s = $('[data-fx-sync]');
   if (s) {
     const scanning = SOURCES.some(x => state.status?.[x]?.scanning);
-    s.textContent = state.syncing ? '맞추는 중' : scanning ? '목록 맞추는 중' : syncText(state.syncedAt) || '맞추기';
+    // UI-로딩자리전수: 맞추는 동안의 두 번째 글자('맞추는 중')는 없다. 목록 칸 맨 위 가는 줄(공용 부품) 하나로만 알린다.
+    s.textContent = syncText(state.syncedAt) || '맞추기';
     s.disabled = state.syncing;
+    s.setAttribute('aria-busy', String(state.syncing || scanning));
+    const bar = $('[data-fx-wait]');
+    if (bar) { const on = (state.syncing || scanning) && state.loaded && !state.failed; if (on && bar.hidden) bar.innerHTML = barHtml(); bar.hidden = !on; if (!on) bar.replaceChildren(); }
     s.hidden = !state.status || !connected().length;
   }
   const mk = $('[data-fx-mkdir]');
@@ -287,6 +291,7 @@ function mountWidths(list) {
   mountColResize({host: list, name: 'files', vars: COL_VARS,
     fit: key => Math.ceil(Math.max(0, ...[...list.querySelectorAll(`.fx-row .fx-${key}`)].map(el => el.scrollWidth))) });
 }
+const scanningNow = () => state.syncing || SOURCES.some(x => state.status?.[x]?.scanning);
 function paintList() {
   const list = $('[data-fx-list]');
   if (!list) return;
@@ -305,6 +310,8 @@ function paintList() {
   if (!state.loaded) { list.innerHTML = waitHtml({rows: 4}); return; }
   const rows = shown();
   list.dataset.fxMode = w.shelf || 'folder';
+  // 불러오는 동안(처음 목록 맞추는 중 포함)에는 '최근 없음'·'빈 폴더'를 보이지 않는다. 다 읽은 뒤에만.
+  if (!rows.length && scanningNow()) { list.innerHTML = waitHtml({rows: 4}); return; }
   if (!rows.length) { list.innerHTML = emptyHtml(w.shelf ? `${SHELF_NAME[w.shelf]} 없음` : '빈 폴더'); return; }
   if (w.shelf === 'recent' && PHONE.matches && state.sort === 'modified' && state.dir === 'desc') {
     list.innerHTML = `<div class="fx-rows fx-with-path" role="list">${recentGroups(rows).map(g => `<div class="fx-day-head">${esc(g.label)}</div>${g.rows.map(r => rowHtml(r, {withPath: true})).join('')}`).join('')}</div>`;
@@ -415,7 +422,7 @@ function paintPreview() {
   const r = p.row, where = state.where?.source === r.source && !state.query && !state.where?.shelf ? trailNames(r.source, state.trail).join(' › ') : pathText(r.source, r.folder_path);
   let view = '';
   if (p.kind === 'image') view = '<div class="fx-pv-imgbox" data-fx-img></div>';
-  else if (p.status === 'wait') view = waitInlineHtml();
+  else if (p.status === 'wait') view = barHtml(); // 미리보기 칸 맨 위 가는 줄(칸 한가운데 회색 막대가 아니라)
   else if (p.status === 'fail') view = `<p class="fx-pv-note">${esc(errorText(p.err))}</p>`;
   else if (p.kind === 'text') view = `<pre class="fx-pv-text">${esc(p.text)}</pre>`;
   else if (p.kind === 'pdf' || p.kind === 'office') view = `<div class="fx-pages" data-fx-pages></div><button type="button" class="fx-btn" data-fx-more-pages hidden></button>`;
