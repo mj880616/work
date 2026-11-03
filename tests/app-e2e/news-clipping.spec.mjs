@@ -171,7 +171,7 @@ for (const width of [412, 1440]) {
     test.setTimeout(60000);
     const { errors, server } = await start(page, width);
     const order = [];
-    await page.route('**/functions/v1/ai-assist', async route => { order.push('detail'); await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
+    await page.route('**/functions/v1/ai-assist', async route => { if (route.request().postDataJSON()?.kind !== 'now_detail') return route.fallback(); order.push('detail'); await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
     page.on('request', r => { if (/news-feed\?action=open/.test(r.url())) order.push('open'); });
     await openNews(page, width);
     await item(page, 'w1').locator('[data-nc-open="w1"]').click();
@@ -185,7 +185,7 @@ for (const width of [412, 1440]) {
     test.setTimeout(60000);
     const { errors } = await start(page, width);
     let detailCalls = 0;
-    await page.route('**/functions/v1/ai-assist', async route => { detailCalls++; await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
+    await page.route('**/functions/v1/ai-assist', async route => { if (route.request().postDataJSON()?.kind !== 'now_detail') return route.fallback(); detailCalls++; await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOW_DETAIL) }); });
     await page.route('**/functions/v1/news-feed?action=open', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: 'robots' }) }));
     await openNews(page, width);
     await item(page, 'w1').locator('[data-nc-open="w1"]').click();
