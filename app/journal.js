@@ -162,6 +162,11 @@ let orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
 const freshExec = () => ({editing:null, draft:{}, status:'', error:false, invalid:'', saving:false, where:'weekly'});
 let execUi = freshExec();
 const current = (run, scope) => run === epoch && scope === ownerScope(rt);
+// PERF-첫로딩 '연 화면 유지'(요청함 11/02 00:13 2)): 같은 주를 다시 열면(다른 탭에 갔다 옴) 보던 화면을 그대로 두고 뒤에서 새 자료만 읽어 바꾼다.
+// refreshing = 그렇게 조용히 다시 읽는 중인 칸(자료 열쇠·'lines'·'kinds'). 기다림 표시는 내지 않지만, 자동으로 하는 일(초안 묻기·겹침 확인)은
+// 새 자료가 다 온 뒤에만 한다. 탭 메모리뿐(기기 저장 없음).
+let refreshing = new Set();
+const waiting = key => !materials[key] || materials[key].status === 'loading' || refreshing.has(key);
 
 function renderWeek() {
   const list = weekDays(start), today = todayKey(), last = list[6];
@@ -611,7 +616,7 @@ function preMeetingAuto() {
 async function maybeDraft() {
   const day = todayKey(), key = `${ownerScope(rt)}:${day}`, read = materials.journalDrafts;
   if (mode !== 'day' || selected !== day || linesState !== 'ok' || read?.status !== 'ok') return;
-  if (DRAFT_SOURCES.some(source => !materials[source] || materials[source].status === 'loading')) return;
+  if (refreshing.has('lines') || DRAFT_SOURCES.some(waiting)) return;
   if (!shouldAskDraft({day, today:day, hour:seoulParts(new Date()).hour, hasLine:!!lines.get(day), drafts:read.items, asked:draftAsked.has(key)})) return;
   draftAsked.add(key);
   const card = dayCard(materials, day, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
@@ -715,16 +720,12 @@ const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch 
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
 const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'orgSummaries', 'execRequests', 'orgRefs']);
 const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
-async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner) {
-  materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_();
-  try {
-    const items = await readers[key]();
-    if (!liveRun(key, run, scope)) return;
-    materials[key] = {status:'ok', items};
-  } catch {
-    if (!liveRun(key, run, scope)) return;
-    materials[key] = {status:'failed'};
-  }
+async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner, quiet = false) {
+  if (!quiet) { materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_(); }
+  let read;
+  try { read = {status:'ok', items:await readers[key]()}; } catch { read = {status:'failed'}; }
+  if (!liveRun(key, run, scope)) return;
+  materials[key] = read; refreshing.delete(key);
   renderDayFor(key); renderWeekly_();
   if (key === 'tasks' && materials.tasks?.status === 'ok') void loadTaskMeetings(run, scope);
   void checkOverlaps();
@@ -732,8 +733,8 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
   maybeNextWeek();
   preMeetingAuto();
 }
-async function loadLines(run, scope) {
-  linesState = 'loading'; renderLine();
+async function loadLines(run, scope, quiet = false) {
+  if (!quiet) { linesState = 'loading'; renderLine(); }
   try {
     const rows = await readWorkWeek(start, rt);
     if (!current(run, scope)) return;
@@ -742,38 +743,46 @@ async function loadLines(run, scope) {
     if (!current(run, scope)) return;
     lines = new Map(); linesState = 'failed';
   }
+  refreshing.delete('lines');
   renderWeek(); renderLine(); renderWeekly_();
   void maybeDraft();
 }
 // A new week reads its lines and that week's events (and the two weeks after it, 5. 주요 일정), organization/project records,
 // meetings, new documents and changed share pages; Google tasks (done and pending) and basket updates are read once per visit (not per week).
-async function loadKinds(run, scope) {
-  kinds = {status:'loading'};
+async function loadKinds(run, scope, quiet = false) {
+  if (!quiet) kinds = {status:'loading'};
   const read = await readKinds(rt);
   if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
-  kinds = read; renderDay(); renderWeekly_();
+  kinds = read; refreshing.delete('kinds'); renderDay(); renderWeekly_();
   void checkOverlaps();
 }
-async function loadMemory(run, scope) {
-  memory = {status:'loading'};
+async function loadMemory(run, scope, quiet = false) {
+  if (!quiet) memory = {status:'loading'};
   const read = await weeklyKit().then(kit => kit.readMemory(rt), () => ({status:'unknown'}));
   if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
   memory = read; renderWeekly_(); hwpx?.refresh();
 }
-function loadWeek({shared = false} = {}) {
+// quiet = 연 화면 유지(같은 주인·같은 주를 다 그린 뒤 다시 열 때만): 보던 자료·펼침 상태를 그대로 그리고, 칸마다 새 자료가 오면 그 칸만 다시 그린다.
+function loadWeek({shared = false, quiet = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
+  quiet = quiet && !changedOwner && linesState === 'ok';
   const run = ++epoch, scope = owner = ownerScope(rt);
   const sharedRun = shared || changedOwner ? ++sharedEpoch : sharedEpoch;
-  overlapUi = freshOverlapUi(); nextUi = {busy:false, message:'', error:false, open:nextUi.open};
-  lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
+  if (!quiet) {
+    overlapUi = freshOverlapUi(); nextUi = {busy:false, message:'', error:false, open:nextUi.open};
+    lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
+  }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
   const keys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
-  for (const key of keys) materials[key] = {status:'loading'};
-  delete materials.overlaps;
-  if (shared || changedOwner) { loadKinds(sharedRun, scope); loadMemory(sharedRun, scope); memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
+  refreshing = quiet ? new Set([...keys, 'lines', ...(shared ? ['kinds'] : [])]) : new Set();
+  if (!quiet) {
+    for (const key of keys) materials[key] = {status:'loading'};
+    delete materials.overlaps;
+  }
+  if (shared || changedOwner) { loadKinds(sharedRun, scope, quiet); loadMemory(sharedRun, scope, quiet); if (!quiet) memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
   render();
-  loadLines(run, scope);
-  for (const key of keys) loadGroup(key, SHARED_KEYS.has(key) ? sharedRun : run, scope);
+  loadLines(run, scope, quiet);
+  for (const key of keys) loadGroup(key, SHARED_KEYS.has(key) ? sharedRun : run, scope, quiet);
 }
 function moveWeek(step) {
   const index = weekDays(start).indexOf(selected);
@@ -1100,11 +1109,12 @@ async function copyDraft() {
 // 표를 못 읽으면 빼는 것 없이 그대로 둔다.
 async function checkOverlaps() {
   if (mode !== 'week' || !W || overlapFor === epoch) return;
-  if (['basket', 'projectUpdates', 'orgUpdates', 'meetings'].some(key => !materials[key] || materials[key].status === 'loading') || kinds?.status === 'loading') return;
+  if (refreshing.has('lines') || ['basket', 'projectUpdates', 'orgUpdates', 'meetings'].some(waiting) || kinds?.status === 'loading' || refreshing.has('kinds')) return;
   const run = epoch, scope = owner;
   overlapFor = run;
   const source = W.weeklySummary({start, ...reportLines(), materials: {...materials, overlaps: undefined}, doneDays, kinds, memory}).overlapSource;
-  materials.overlaps = {status:'loading'}; renderWeekly_();
+  // 연 화면 유지: 이미 그린 겹침 결과는 다시 확인하는 동안 그대로 둔다.
+  if (materials.overlaps?.status !== 'ok') { materials.overlaps = {status:'loading'}; renderWeekly_(); }
   try {
     let read = await W.readOverlapRows(source.refs, rt);
     if (!current(run, scope)) return;
@@ -1565,13 +1575,14 @@ function enter(detail) {
     writePlace();
     return;
   }
-  const place = window.KPTURouter?.place?.('home') || {};
+  const place = window.KPTURouter?.place?.('home') || {}, shownStart = start;
   if (/^\d{4}-\d{2}-\d{2}$/.test(place.day || '')) { selected = place.day; start = weekStart(place.day); }
   // HOME-업무일지홈: 홈 메뉴·로고·하단 탭으로 들어오면(주소에 날짜 없음) 오늘. 뒤로 가기로 돌아올 때는 보던 날 그대로.
   else if (!['popstate', 'back'].includes(detail?.source)) { selected = todayKey(); start = weekStart(selected); }
   if (place.mode === 'week') { mode = 'week'; editing = null; }
   else if (!['popstate', 'back'].includes(detail?.source) && !place.day) { mode = 'day'; editing = null; }
-  loadWeek({shared:true});
+  // 연 화면 유지: 같은 주로 돌아오면 기다림 표시 없이 보던 화면을 바로 그리고 뒤에서 새로 읽는다(다른 주·다른 주인이면 처음처럼).
+  loadWeek({shared:true, quiet:start === shownStart});
 }
 window.KPTURouter?.on?.('home', enter);
 // LEDGER-자동기록: "새로 기록된 약속 N" → 원장 화면(약속만).
