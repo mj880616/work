@@ -183,6 +183,28 @@ export function monthAt(bar, ratio) {
   const r = Math.max(0, Math.min(1, ratio));
   return bar.find(m => r < m.to) || bar.at(-1);
 }
+// PHOTO-연월이동(S49-5, 요청함 11/03 10:47 명진 결정 A+B 둘 다): 화면 없이 시험하는 규칙.
+// A 오른쪽 끝 날짜 막대: 막대 위 연도 눈금(해마다 그 해 가장 최근 달 자리, 사진 많은 쪽이 길다)과 '2025년 3월' 말풍선.
+export const monthLabelKo = key => { const ym = parseMonth(key); return ym ? `${ym.year}년 ${ym.month + 1}월` : ''; };
+export function yearTicks(bar) {
+  const seen = new Set(), out = [];
+  for (const m of bar || []) { const y = String(m.key).slice(0, 4); if (seen.has(y)) continue; seen.add(y); out.push({year:Number(y), from:m.from}); }
+  return out;
+}
+// B 보기 단계 [연·월·일]: 연 = 사진 있는 해(최근 먼저) 칸, 월 = 그 해 열두 달 칸, 일 = 지금의 달력. months = {'2025-03': 장수}.
+export const PHOTO_LEVELS_ORDER = Object.freeze(['year', 'month', 'day']);
+export const LEVEL_TEXT = Object.freeze({year:'연', month:'월', day:'일'});
+export function yearCells(months) {
+  const by = new Map();
+  for (const [k, n] of Object.entries(months || {})) {
+    const ym = parseMonth(k); if (!ym || !(n > 0)) continue;
+    const cur = by.get(ym.year) || {year:ym.year, n:0, latest:k};
+    cur.n += n; if (k > cur.latest) cur.latest = k; by.set(ym.year, cur);
+  }
+  return [...by.values()].sort((a, b) => b.year - a.year);
+}
+// 그 해 열두 달(1월 → 12월), 사진 없는 달은 n 0(칸은 비어 있고 누를 수 없다).
+export const monthCells = (months, year) => Array.from({length:12}, (_, i) => { const key = monthKey(year, i); return {key, month:i, n:Number(months?.[key]) > 0 ? months[key] : 0}; });
 // 그 달 끝(다음 달 1일 0시, 서울)에서 시작하는 cursor. id '!'은 어떤 원드라이브 id보다 앞이라 그 시각 사진은 넘긴다(다음 달 것).
 export function monthCursor(key) {
   const ym = parseMonth(key); if (!ym) return null;

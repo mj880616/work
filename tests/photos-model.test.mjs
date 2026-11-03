@@ -233,3 +233,27 @@ test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(
   const stores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|'));
   for (const f of ['app/photos.js', 'app/photo-tags.js']) assert.doesNotMatch(read(f), stores, f);
 });
+
+// PHOTO-연월이동(S49-5, 명진 결정 A+B 둘 다): 연도 눈금·말풍선 글·연/월 칸.
+import {monthLabelKo, yearTicks, yearCells, monthCells, LEVEL_TEXT, PHOTO_LEVELS_ORDER} from '../app/photos-model.mjs';
+test('연월 이동: 말풍선 글, 연도 눈금(해마다 한 번, 가장 최근 달 자리)', () => {
+  assert.equal(monthLabelKo('2025-03'), '2025년 3월');
+  assert.equal(monthLabelKo('bad'), '');
+  const bar = monthBar({'2026-10': 3, '2026-08': 1, '2025-12': 2, '2025-03': 4, '2024-01': 10});
+  const ticks = yearTicks(bar);
+  assert.deepEqual(ticks.map(t => t.year), [2026, 2025, 2024]);
+  assert.equal(ticks[0].from, 0);
+  assert.ok(ticks[1].from > ticks[0].from && ticks[2].from > ticks[1].from);
+  assert.deepEqual(yearTicks([]), []);
+});
+test('연월 이동: 연 칸(사진 있는 해, 최근 먼저)과 월 칸(열두 달, 빈 달은 0)', () => {
+  const months = {'2026-10': 3, '2026-08': 1, '2025-12': 2, '2025-03': 4, 'bad': 9, '2024-01': 0};
+  assert.deepEqual(yearCells(months), [{year:2026, n:4, latest:'2026-10'}, {year:2025, n:6, latest:'2025-12'}]);
+  const m = monthCells(months, 2025);
+  assert.equal(m.length, 12);
+  assert.deepEqual(m[2], {key:'2025-03', month:2, n:4});
+  assert.deepEqual(m[0], {key:'2025-01', month:0, n:0});
+  assert.equal(m[11].n, 2);
+  assert.deepEqual(PHOTO_LEVELS_ORDER, ['year', 'month', 'day']);
+  assert.deepEqual(LEVEL_TEXT, {year:'연', month:'월', day:'일'});
+});

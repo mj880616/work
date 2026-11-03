@@ -66,12 +66,12 @@ import {photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, pho
   cleanTagName, sameTag, albumCards, albumForSources, folderPlaceLabels, odFolderPlace, phoneFolderPlace,
   validAlbumView, stepAlbumView, albumPeriod, ALBUM_VIEW_TEXT, gdriveFolderTree, folderCountText, GDRIVE_TOP} from './photos-model.mjs';
 import {notify, askConfirm, askChoice} from './small-notice.js';
-import {viewPrefs} from './view-prefs.js';
+import {viewPrefs, validValue} from './view-prefs.js';
 import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
-  colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
+  colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearCells, monthCells, LEVEL_TEXT, PHOTO_LEVELS_ORDER, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
 
 (() => {
@@ -120,7 +120,7 @@ let gdAt = null, gdFFor = null, gdFItems = [], gdFLoading = null, gdFFailed = ''
 // PHOTO-폴더스위치: 끈 폰 폴더(view_prefs.phone_folders_off, 서버). 앱 0.4.1+만 스위치·바꾸기(phone.state().hide·ops). 새 폴더(사진을 옮겨 넣기 전)는 이 화면 메모리에만.
 let phoneOff = new Set(), pPending = [], manageAsked = false;
 const phone = phonePhotos();
-let bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, dayLayer = null, syncing = false, syncAt = 0;
+let level = 'day', bar = [], monthsFor = '', calCursor = null, calData = new Map(), tabLayer = null, dayLayer = null, syncing = false, syncAt = 0;
 let trash = null, trashFailed = '', trashBusy = false;
 // S48-17 PHOTO-지우기두갈래: '폰 공간만 비우기'로 비운 사진(서버 kept-list → 원드라이브 칸 + kept 표시). null = 아직 안 읽음. 폰 앱 + 원드라이브 연결일 때만.
 let kept = null, keptLoading = null;
@@ -381,6 +381,7 @@ function readPrefs() {
   const v = parsePhotoView(viewPrefs.get('photo_view'));
   filter = v.filter; colsSaved = v.cols; sort = v.sort;
   sources = readDeviceSources();
+  level = validValue('photo_level', viewPrefs.get('photo_level')) ? viewPrefs.get('photo_level') : 'day';
   phoneOff = parsePhoneOff(viewPrefs.get('phone_folders_off'));
   $('[data-photos-filter]').value = filter; paintSortButton();
 }
@@ -709,34 +710,48 @@ function watchFoot(foot) {
   io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) loadMore(); }, {rootMargin:'600px 0px'});
   io.observe(foot);
 }
+// 한 달의 날별 장수·대표 사진(달력·월 칸 대표 사진이 같이 쓴다). 같은 달·거르기·출처는 한 번만 받는다.
+async function monthDays(key, want, r) {
+  const u = useSrc(), cacheKey = `${want}:${key}:${u.onedrive ? 'o' : ''}${u.phone ? 'p' : ''}`;
+  let days = calData.get(cacheKey);
+  if (days) return days;
+  await ensureStars(r);
+  // 대표 사진은 별표한 것 먼저: 그 달 별표 id만 보낸다(500개까지).
+  let odD = {}, phD = {};
+  if (u.onedrive) {
+    const ids = starIds().filter(id => (starDay.get(id) || '').startsWith(key + '-')).slice(0, STAR_CHUNK);
+    if (!(want === 'star' && !ids.length)) odD = (await odDays(rt, key, {filter:want, starIds:ids.length || want === 'star' ? ids : null})).days;
+  }
+  if (u.phone) {
+    if (want === 'star') phD = daysFromItems(await phoneStarList(r), key);
+    else phD = await phone.days(key, {filter:want, prefer:phoneStarIds(), ...(await hideArg())});
+  }
+  days = mergeDays(odD, phD);
+  calData.set(cacheKey, days);
+  return days;
+}
+// PHOTO-연월이동 B: [연·월·일] 보기 단계 줄. 일 = 아래 달력, 월 = 그 해 열두 달, 연 = 사진 있는 해. 고른 단계는 서버(view_prefs.photo_level)에 기억한다.
+const levelBar = () => `<div class="photos-lv" role="group" aria-label="보기 단계">${PHOTO_LEVELS_ORDER.map(k => `<button type="button" class="mini photos-lv-btn" data-photos-lv="${k}" aria-pressed="${level === k}">${LEVEL_TEXT[k]}</button>`).join('')}</div>`;
+function setLevel(next) {
+  if (!PHOTO_LEVELS_ORDER.includes(next) || next === level) return;
+  level = next; viewPrefs.set('photo_level', next, {rejectable:true});
+  renderCalendar();
+}
 async function renderCalendar() {
   io?.disconnect();
   const g = listGate();
   if (g) { body.innerHTML = g; return; }
   calCursor ||= thisMonth();
+  if (level !== 'day') return renderLevel();
   const ym = calCursor, r = run, key = monthKey(ym.year, ym.month), want = filter;
-  const headHtml = `<div class="photos-cal-head"><button type="button" class="mini" data-photos-cal="-1" aria-label="이전 달">‹</button><b>${ym.year}년 ${ym.month + 1}월</b><button type="button" class="mini" data-photos-cal="1" aria-label="다음 달">›</button></div>`
+  const headHtml = `${levelBar()}<div class="photos-cal-head"><button type="button" class="mini" data-photos-cal="-1" aria-label="이전 달">‹</button><b>${ym.year}년 ${ym.month + 1}월</b><button type="button" class="mini" data-photos-cal="1" aria-label="다음 달">›</button></div>`
     + (useSrc().gdrive ? '<p class="photos-muted photos-top" data-photos-gd-cal>구글 드라이브 사진은 달력에 아직 안 나와요</p>' : '');
-  const u = useSrc(), cacheKey = `${want}:${key}:${u.onedrive ? 'o' : ''}${u.phone ? 'p' : ''}`;
-  let days = calData.get(cacheKey);
+  let days = calData.get(`${want}:${key}:${useSrc().onedrive ? 'o' : ''}${useSrc().phone ? 'p' : ''}`);
   if (!days) {
     body.innerHTML = `${headHtml}${waitHtml({rows:4, h:72})}`;
-    try {
-      await ensureStars(r);
-      // 대표 사진은 별표한 것 먼저: 그 달 별표 id만 보낸다(500개까지).
-      let odD = {}, phD = {};
-      if (u.onedrive) {
-        const ids = starIds().filter(id => (starDay.get(id) || '').startsWith(key + '-')).slice(0, STAR_CHUNK);
-        if (!(want === 'star' && !ids.length)) odD = (await odDays(rt, key, {filter:want, starIds:ids.length || want === 'star' ? ids : null})).days;
-      }
-      if (u.phone) {
-        if (want === 'star') phD = daysFromItems(await phoneStarList(r), key);
-        else phD = await phone.days(key, {filter:want, prefer:phoneStarIds(), ...(await hideArg())});
-      }
-      days = mergeDays(odD, phD);
-      calData.set(cacheKey, days);
-    } catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(readErrorText(error))}</p>`; return; }
-    if (!current(r) || tab !== 'calendar' || calCursor !== ym || filter !== want) return;
+    try { days = await monthDays(key, want, r); }
+    catch (error) { if (current(r) && tab === 'calendar' && calCursor === ym) body.innerHTML = `${headHtml}<p class="photos-muted">사진을 읽지 못했어요: ${esc(readErrorText(error))}</p>`; return; }
+    if (!current(r) || tab !== 'calendar' || calCursor !== ym || filter !== want || level !== 'day') return;
   }
   const {lead, cells} = calendarFromDays(ym, days), today = seoulDateKey(new Date());
   const grid = document.createElement('div');
@@ -752,6 +767,37 @@ async function renderCalendar() {
     grid.append(el);
   }
   body.innerHTML = headHtml; body.append(grid);
+}
+// 월·연 단계: 칸마다 대표 사진 하나(그 달 가장 최근 날 대표). 대표 사진은 칸이 보이는 대로 하나씩 받아 끼운다(달력과 같은 읽기).
+async function renderLevel() {
+  const r = run, want = filter, lv = level, ym = calCursor;
+  body.innerHTML = `${levelBar()}${waitHtml({rows:3, h:72})}`;
+  await loadBar(r);
+  if (!current(r) || tab !== 'calendar' || level !== lv || filter !== want) return;
+  const months = Object.fromEntries(bar.map(m => [m.key, m.n]));
+  const cells = lv === 'year' ? yearCells(months).map(c => ({go:c.latest, key:c.latest, label:`${c.year}년`, n:c.n})) : monthCells(months, ym.year).map(c => ({go:c.key, key:c.key, label:`${c.month + 1}월`, n:c.n}));
+  const head = lv === 'month' ? `<div class="photos-cal-head"><button type="button" class="mini" data-photos-yr="-1" aria-label="이전 해">‹</button><b>${ym.year}년</b><button type="button" class="mini" data-photos-yr="1" aria-label="다음 해">›</button></div>` : '';
+  if (!cells.some(c => c.n)) { body.innerHTML = `${levelBar()}${head}${emptyHtml(lv === 'year' ? '사진 있는 해 없음' : `${ym.year}년 사진 없음`)}`; return; }
+  const grid = document.createElement('div');
+  grid.className = 'photos-lvgrid';
+  const reps = [];
+  for (const c of cells) {
+    const el = document.createElement(c.n ? 'button' : 'span');
+    el.className = 'photos-lv-cell';
+    if (c.n) { el.type = 'button'; el.dataset.photosLvGo = c.go; el.setAttribute('aria-label', `${lv === 'year' ? c.label : monthLabelKo(c.key)}, 사진 ${c.n}장`); reps.push({el, key: c.key}); }
+    el.append(Object.assign(document.createElement('span'), {className:'photos-lv-name', textContent:c.label}));
+    if (c.n) el.append(Object.assign(document.createElement('span'), {className:'photos-lv-n', textContent:String(c.n)}));
+    grid.append(el);
+  }
+  body.innerHTML = `${levelBar()}${head}`; body.append(grid);
+  for (const {el, key} of reps) {
+    if (!current(r) || tab !== 'calendar' || level !== lv || filter !== want) return;
+    try {
+      const ymk = parseMonth(key), days = await monthDays(key, want, r);
+      const rep = calendarFromDays(ymk, days).cells.filter(c => c.count).at(-1)?.rep;
+      if (rep && el.isConnected) el.prepend(photoEl(rep, 'small', {label:'', retry:false}));
+    } catch { /* 대표 사진을 못 받아도 칸(이름·장수)은 그대로 눌러서 갈 수 있다 */ }
+  }
 }
 // [휴지통]: Web2에서 지운 사진. 열 때마다 서버가 30일 지난 것을 조금씩 원드라이브 휴지통으로 보낸다.
 async function renderTrash({reload = false} = {}) {
@@ -873,7 +919,10 @@ function paintStars() {
 function paintRail() {
   const on = tab === 'all' && anyUse() && bar.length > 1 && !select.active && listSort() === DEFAULT_SORT;
   rail.hidden = !on;
+  rail.querySelectorAll('.photos-rail-year').forEach(el => el.remove());
   if (!on) return;
+  // PHOTO-연월이동 A: 막대 옆 연도 눈금(해마다 한 번, 그 해 가장 최근 달 자리). 눈금은 읽어 주는 말에서 뺀다.
+  for (const t of yearTicks(bar)) rail.append(Object.assign(document.createElement('span'), {className:'photos-rail-year', textContent:String(t.year), style:`top:${Math.round(t.from * 1000) / 10}%`}));
   const top = items.length ? items[0].day.slice(0, 7) : (from ? from.cursor.t.slice(0, 7) : '');
   const at = bar.find(m => m.key === top) || bar[0];
   railAt(bar.indexOf(at));
@@ -882,15 +931,15 @@ function paintRail() {
 function railAt(k) {
   const m = bar[k]; if (!m) return;
   thumb.style.top = `${Math.round(m.from * 1000) / 10}%`;
-  rail.setAttribute('aria-valuemax', String(bar.length - 1)); rail.setAttribute('aria-valuenow', String(k)); rail.setAttribute('aria-valuetext', m.label);
+  rail.setAttribute('aria-valuemax', String(bar.length - 1)); rail.setAttribute('aria-valuenow', String(k)); rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
 let railDrag = null;
 const railMonth = y => { const r = rail.getBoundingClientRect(); return monthAt(bar, (y - r.top) / Math.max(1, r.height)); };
 function showBubble(m, y) {
   if (!m) return;
   const r = rail.getBoundingClientRect();
-  bubble.hidden = false; bubble.textContent = m.label; bubble.style.top = `${Math.max(0, Math.min(r.height - 20, y - r.top - 10))}px`;
-  rail.setAttribute('aria-valuetext', m.label);
+  bubble.hidden = false; bubble.textContent = monthLabelKo(m.key); bubble.style.top = `${Math.max(0, Math.min(r.height - 20, y - r.top - 10))}px`;
+  rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
 rail.addEventListener('pointerdown', e => { e.preventDefault(); rail.setPointerCapture?.(e.pointerId); railDrag = railMonth(e.clientY); showBubble(railDrag, e.clientY); });
 rail.addEventListener('pointermove', e => { if (!railDrag) return; railDrag = railMonth(e.clientY); showBubble(railDrag, e.clientY); });
@@ -2763,6 +2812,9 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-trash-retry]')) return renderTrash({reload:true});
   if (b.matches('[data-photos-cal]')) { calCursor = Number(b.dataset.photosCal) < 0 ? prevMonth(calCursor) : nextMonth(calCursor); return renderCalendar(); }
   if (b.matches('[data-photos-cal-day]')) return goDay(b.dataset.photosCalDay);
+  if (b.matches('[data-photos-lv]')) return setLevel(b.dataset.photosLv);
+  if (b.matches('[data-photos-yr]')) { calCursor = {year:calCursor.year + Number(b.dataset.photosYr), month:calCursor.month}; return renderCalendar(); }
+  if (b.matches('[data-photos-lv-go]')) { const ym = parseMonth(b.dataset.photosLvGo); if (!ym) return; calCursor = ym; return setLevel(level === 'year' ? 'month' : 'day'); }
   if (b.matches('[data-photos-name-cancel]')) return nameDone(null);
   if (b.matches('[data-photos-newest]')) { resetList(); render(); return window.scrollTo?.(0, 0); }
   if (b.matches('[data-photos-more]')) { failed = ''; paintList(); return loadMore(); }

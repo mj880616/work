@@ -4,7 +4,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // PHOTO-출처 ①(요청함 10/30 17:30): 사진 메뉴 위 줄 오른쪽 출처 아이콘 + 폰 사진 섞어 보기.
 // - PC(1440, 웹 브라우저): 원드라이브 아이콘만(구글 드라이브는 운영자 기능이 있을 때만 — photos-gdrive.spec.mjs), 폰 사진 아이콘 없음, 출처 표시 없음.
 // - 폰 앱(412, 앱 다리 흉내 + __phone 가로채기 흉내): 폰 사진이 원드라이브 사진과 찍은 날 순서로 섞이고 칸 오른쪽 아래 출처 표시,
-//   같은 사진(이름·크기 같음)은 한 장만. 폰 아이콘을 누르면 꺼지고(서버 view_prefs.photo_sources) 원드라이브 사진만 남는다.
+//   같은 사진(이름·크기 같음)은 한 장만. 폰 아이콘을 누르면 꺼지고(서버 view_prefs.photo_sources_phone) 원드라이브 사진만 남는다.
 // 네트워크 없음(지어낸 서버·지어낸 앱), 사진은 1×1 그림.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const CDN = 'https://od-thumb.example.test';
@@ -45,7 +45,8 @@ async function fixture(page, { app = false } = {}) {
       };
     }, KEY);
   }
-  const prefs = await installViewPrefsServer(page);
+  // PHOTO-기기별출처(S49-5): 폰 앱은 photo_sources_phone, 그 밖은 photo_sources_pc. 폰 앱 시험은 원드라이브·폰 둘 다 켠 채 시작한다.
+  const prefs = await installViewPrefsServer(page, app ? { photo_sources_phone: { onedrive: true, gdrive: false, phone: true } } : null);
   await openHome(page, { beforeLoad: async () => {
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', r => r.fulfill({ json: [] }));
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_photo_tags', r => r.fulfill({ json: [] }));
@@ -126,12 +127,12 @@ test.describe('폰 앱 412', () => {
     await expect(page.locator('#photosRoot [data-photos-id="ph:1"] .diary-photo')).toHaveAttribute('data-img-state', 'shown');
     expect(state.phoneReads.some(p => p.startsWith(`${KEY}/page?`))).toBe(true);
     expect(await page.evaluate(() => window.__photoSent.filter(m => m.startsWith('photos:')))).toContain('photos:hello');
-    // 끄기: 원드라이브 사진만, 출처 표시 없음, 서버에 photo_sources.phone=false.
+    // 끄기: 원드라이브 사진만, 출처 표시 없음, 서버에 photo_sources_phone.phone=false.
     await phoneBtn.click();
     await expect(phoneBtn).toHaveAttribute('aria-pressed', 'false');
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
     await expect(page.locator('#photosRoot .photos-src-mark')).toHaveCount(0);
-    await expect.poll(() => prefs.patches.at(-1)?.photo_sources).toEqual({ onedrive: true, gdrive: false, phone: false });
+    await expect.poll(() => prefs.patches.at(-1)?.photo_sources_phone).toEqual({ onedrive: true, gdrive: false, phone: false });
     // 크게 보기는 폰 사진도 같은 부품.
     await phoneBtn.click();
     await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);

@@ -147,7 +147,7 @@
 #appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"]{ background:transparent; color:var(--kptu-faint); }
 #appView #photosView .photos-srcs [data-photos-src][aria-pressed="false"] svg{ filter:grayscale(1); opacity:.45; }
 /* PHOTO-폴더출처컬러(S49-5, 요청함 11/03 15:02): 폰 폴더 칩도 원드라이브·구글 드라이브와 같은 규칙 — 켜짐 = 색(노란 폴더, 안을 칠함), 꺼짐 = 회색·엷게(위 규칙). */
-#appView #photosView .photos-srcs [data-photos-src="phone"][aria-pressed="true"]{ color:var(--photos-folder-on,#c9961f); }
+#appView #photosView .photos-srcs [data-photos-src="phone"][aria-pressed="true"]{ color:var(--ds-project-yellow); }
 #appView #photosView .photos-srcs [data-photos-src="phone"][aria-pressed="true"] .photos-src-ic path{ fill:currentColor; fill-opacity:.35; }
 #appView #photosView .photos-srcs [data-photos-src][aria-disabled="true"]{ opacity:.45; cursor:default; }
 /* S46-24 ④: 구글 드라이브 칩이 권한 없음·못 읽음이면 오른쪽 위 작은 빨간 점(원드라이브 아이콘과 같은 모양). 이유는 작은 글자.
@@ -253,3 +253,17 @@
 .photo-info-dialog .pi-foot{justify-content:space-between;border-top:1px solid var(--kptu-border)}
 .photo-info-dialog .pi-foot .status{margin:0;font-size:12px;flex:1;min-width:0}
 @media (max-width:760px){.photo-info-dialog{margin:12px auto auto}}
+
+/* PHOTO-연월이동(S49-5, 명진 결정 A+B 둘 다): A 오른쪽 막대 연도 눈금, B [연·월·일] 보기 단계 줄과 월·연 칸. */
+#appView #photosView .photos-rail-year{ position:absolute; right:12px; margin-top:-6px; font-size:10px; line-height:12px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; pointer-events:none; }
+#appView #photosView .photos-lv{ display:flex; justify-content:center; gap:4px; padding:2px 0 4px; }
+#appView #photosView .photos-lv-btn{ min-width:40px; }
+#appView #photosView .photos-lv-btn[aria-pressed="true"]{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+#appView #photosView .photos-lvgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:4px; }
+#appView #photosView .photos-lv-cell{ position:relative; display:block; aspect-ratio:1/1; min-width:0; min-height:0; height:auto; margin:0; padding:0; overflow:hidden; border:0; border-radius:6px; background:var(--kptu-surface-subtle); box-shadow:none; color:var(--kptu-ink); }
+#appView #photosView .photos-lv-cell .diary-photo{ position:absolute; inset:0; display:block; }
+#appView #photosView .photos-lv-cell img{ width:100%; height:100%; object-fit:cover; display:block; }
+#appView #photosView .photos-lv-name{ position:absolute; left:6px; top:4px; z-index:1; font-size:var(--ds-text-row,14px); font-weight:var(--ds-weight-medium,500); line-height:1.1; padding:1px 5px; border-radius:4px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); }
+#appView #photosView .photos-lv-cell:not(button) .photos-lv-name{ color:var(--kptu-faint); background:transparent; }
+#appView #photosView .photos-lv-n{ position:absolute; right:5px; bottom:4px; z-index:1; font-size:10px; line-height:1; font-variant-numeric:tabular-nums; padding:1px 4px; border-radius:4px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); }
+#appView #photosView .photos-lv-cell:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
