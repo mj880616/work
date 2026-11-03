@@ -172,8 +172,8 @@
 
 /* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
-/* LIB-거르기전체: [전체]가 일부만 켜진 상태(aria-pressed="mixed")는 반쯤 찬 칩 — 왼쪽 절반만 고른 색, 나머지는 흰 바탕. 글자는 기본 글자색. */
-#appView #libraryView #libraryCategoryFilter button[aria-pressed="mixed"]{color:var(--kptu-ink);background-color:var(--kptu-surface);background-image:linear-gradient(90deg,var(--ds-kind-other-soft) 50%,transparent 50%);border-color:var(--ds-kind-other-soft)}
+/* LIB-거르기전체 → UI-자료실걸러줄(2026-11-03): [전체]가 일부만 켜진 상태(aria-pressed="mixed")는 반쪽 칠 대신 '고르지 않은 칩'과 같은 흰 바탕. 색 바탕은 켜진 칩 하나뿐(고름 표시 한 가지). */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="mixed"]{color:var(--kptu-ink);background:var(--kptu-surface);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
 /* 꺼진 분류 칩은 흐리게: 글자는 보조 글자색(대비 4.5:1 이상), 테두리는 반쯤 옅게. 초점 표시는 공용 규칙 그대로. */
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="false"]{color:var(--kptu-muted);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
 .lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
@@ -473,3 +473,10 @@
 /* 빠짐12: 파일 이름 그대로인 자료 줄의 [이름 바꾸기]는 첨부 공용 고치는 칸(file-rename.css .fr-box)이 제목 자리에 들어온다. */
 #appView #libraryView #documentList .lu-row > .fr-box{flex:1 1 auto;min-width:0}
 @media(max-width:760px){#appView #libraryView #documentList .lu-row > .fr-box{grid-area:title}}
+
+/* UI-자료실걸러줄(2026-11-03): ① 검색·묶기·분류 줄이 한 덩이로 위에 모이고, '최근 올린 파일' 칸은 그 아래·목록 칸 위. 줄 사이 간격은 거르는 줄 사이와 같은 8px(toolbar gap).
+   ② [편집]은 칩과 같은 높이·글자 크기. ③ 맨 위 ⋯는 검색 줄 오른쪽 끝([+ 자료 등록] 옆)이라 목록 칸 머리 빈 줄이 없다. */
+#appView #libraryView .library-filter-toolbar .lu-recent{margin:0}
+#appView #libraryView .lu-filter-row > .lu-category-edit{height:var(--ds-chip-row-height,26px);min-height:0;padding:0 var(--ds-chip-row-pad-x,8px);font-size:12px;line-height:1}
+#appView #libraryView #libraryListCard > .add-list-head.add-list-head{height:0;min-height:0;margin:0;padding:0}
+#appView #libraryView .lu-search-row > #libraryTopMenuBtn{margin-left:0}

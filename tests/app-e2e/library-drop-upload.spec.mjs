@@ -107,6 +107,8 @@ test('PC: files dropped on the library screen upload at once with nothing set, a
   await dragFiles(page,'drop',['a-요구안.hwpx','b-보도자료.pdf'],'#documentList');
   await expect(overlay).toBeHidden();
   await expect(page.locator('#libraryDropStatus')).toHaveText('2개 올렸어요');
+  // LIB-업로드완료알림: 같은 끝에 공용 작은 알림 한 줄도 뜬다.
+  await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('2개 올렸어요');
   expect(state.uploads.map(u=>u.file_name)).toEqual(['a-요구안.hwpx','b-보도자료.pdf']);
   // Same request as an empty [+ 자료 등록]: only the file, no title / category / project fields.
   for(const names of state.forms)expect(names).toEqual(['file']);

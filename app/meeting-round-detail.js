@@ -1,4 +1,5 @@
 import { markRenameHost, renameButtonHtml } from './file-rename.js'; // ATT-이름고치기
+import {announceUploaded} from './upload-done.js';
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {notify,askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
@@ -194,6 +195,7 @@ async function mrdAddPhotos(files){
       catch(err){failed++;why=err?.message||why;console.warn('report photo upload failed',file.name,err)}
     }
     if(done){if(m.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:m.project_id||null,meeting_id:m.id}}))}
+    announceUploaded({done,failed,names:done===1?['사진 1장']:[]});
     say(failed?`사진 ${done}장 올림 · ${failed}장 실패${why?' · '+why:''}`:`사진 ${done}장을 올렸어요.`,failed?'status error':'status ok');
   }finally{mrdPhotoBusy=false}
 }
