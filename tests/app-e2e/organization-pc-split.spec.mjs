@@ -210,9 +210,11 @@ test('PC 1440: 담당조직 목록·상세 칸 안에 따로 스크롤이 없고
  await expect(pane(page).locator('#wdModal')).toBeVisible();
  expect(await innerScrollers(page,'#teamView')).toEqual([]);
  await expect(page.locator('#soOrganizationList')).toHaveCSS('overflow-y','visible');
- await expect(pane(page)).toHaveCSS('overflow-y','visible');await expect(pane(page)).toHaveCSS('position','sticky');
+ await expect(pane(page)).toHaveCSS('overflow-y','auto');await expect(pane(page)).toHaveCSS('position','sticky');// UI-상세칸고정: 상세 칸은 제자리, 길면 칸만 스크롤
  const d=await docScroll(page);expect(d.over).toBeGreaterThan(100);expect(d.wide).toBeLessThanOrEqual(0);
  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
  expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(100);await expect(pane(page)).toBeInViewport();
+ // UI-상세칸고정(2026-11-03): 목록을 끝까지 내려도 상세 칸은 화면 위쪽(12px)에 제자리다.
+ const bb=await pane(page).boundingBox();expect(bb.y).toBeGreaterThanOrEqual(0);expect(bb.y).toBeLessThanOrEqual(16);
  expect(errors).toEqual([]);
 });

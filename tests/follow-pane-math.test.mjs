@@ -1,18 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clampFollowTop } from '../app/follow-pane.js';
+import {readFileSync} from 'node:fs';
 
-test('짧은 칸은 늘 위쪽 자리(top)에 붙는다', () => {
-  assert.equal(clampFollowTop(-500, { top: 12, view: 800, height: 300 }), 12);
-  assert.equal(clampFollowTop(12, { top: 48, view: 800, height: 300 }), 48);
+// UI-상세칸고정(2026-11-03, S49-8): 붙은 옆 칸(.kptu-follow-pane)은 화면 위쪽에 제자리(sticky)이고, 길면 그 칸만 스크롤한다.
+// 모양은 desktop-ui.css 한 곳이 정하고 follow-pane.js는 이름과 --follow-top만 정한다(스크롤에 따라 움직이는 계산 없음).
+const css = readFileSync(new URL('../app/desktop-ui.css', import.meta.url), 'utf8');
+const js = readFileSync(new URL('../app/follow-pane.js', import.meta.url), 'utf8');
+const rule = css.match(/\.kptu-follow-pane\{[^}]*\}/)?.[0] ?? '';
+
+test('붙은 칸은 위쪽에 sticky, 화면보다 길면 칸 안에서만 스크롤', () => {
+  assert.match(rule, /position:sticky/);
+  assert.match(rule, /top:var\(--follow-top,12px\)/);
+  assert.match(rule, /max-height:calc\(100dvh - var\(--follow-top,12px\) - 12px\)/);
+  assert.match(rule, /overflow-y:auto/);
 });
-test('긴 칸은 머리(top)와 끝(화면 높이 - 칸 높이 - 12) 사이에서만 움직인다', () => {
-  const o = { top: 12, view: 800, height: 2000 };
-  assert.equal(clampFollowTop(12, o), 12);
-  assert.equal(clampFollowTop(-400, o), -400);
-  assert.equal(clampFollowTop(-5000, o), 800 - 2000 - 12);
-  assert.equal(clampFollowTop(300, o), 12);
-});
-test('화면 높이와 거의 같은 칸도 끝이 화면 안에 들어온다', () => {
-  assert.equal(clampFollowTop(-100, { top: 12, view: 800, height: 790 }), 800 - 790 - 12);
+test('follow-pane.js는 스크롤을 듣지 않고 이름과 위 자리만 정한다', () => {
+  assert.doesNotMatch(js, /addEventListener\(/);
+  assert.match(js, /classList\.add\('kptu-follow-pane'\)/);
+  assert.match(js, /--follow-top/);
 });

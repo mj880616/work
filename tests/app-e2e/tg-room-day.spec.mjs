@@ -201,7 +201,7 @@ test('텔레그램 1440: 목록·방 상세 칸 안에 따로 스크롤이 없�
  await rd(view,A6).locator('.feed-rdb').click();
  await expect(detail.locator('[data-tg-daybox]')).toBeVisible();
  expect(await innerScrollers(page,'#telegramView')).toEqual([]);
- await expect(list).toHaveCSS('overflow-y','visible');await expect(detail).toHaveCSS('overflow-y','visible');await expect(detail).toHaveCSS('position','sticky');
+ await expect(list).toHaveCSS('overflow-y','visible');await expect(detail).toHaveCSS('overflow-y','auto');await expect(detail).toHaveCSS('position','sticky');
  const d=await docScroll(page);expect(d.wide).toBeLessThanOrEqual(0);
  // 화면이 낮아 문서가 넘치면 문서만 넘어가고, 끝까지 내려도 상세 칸 일부는 화면 안에 있다.
  if(d.over>0){await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));await expect(detail).toBeInViewport();}

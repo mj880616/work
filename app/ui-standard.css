@@ -486,6 +486,8 @@
 .account-panel{ border-radius:var(--ds-radius-box); box-shadow:var(--kptu-shadow-float); }
 .account-panel .account-action{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
 .account-panel [data-kptu-logout]{ color:var(--kptu-danger); }
+/* S49-8 UI-로그아웃자리: PC 계정 메뉴에서도 [로그아웃]은 맨 끝·오른쪽·작게(폭 가득 줄 아님). */
+.account-panel > [data-kptu-logout]{ width:fit-content; min-height:32px; margin-left:auto; padding:4px 10px; }
 
 /* 메뉴 판(폰 [메뉴] 탭): 제목 18px, 항목은 메뉴 줄(44px·13px·400, 줄 사이 0.5px), "계정"은 섹션 이름. */
 #appView .mobile-menu-panel .mobile-menu-head b{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
@@ -598,6 +600,8 @@
   #appView .mobile-menu-panel #mobileAccountGroup{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 4px; margin-top:10px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button.account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; }
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button.account-action::after{ content:""; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
+  /* S49-8 UI-로그아웃자리(2026-11-03 명진): [로그아웃]은 계정 줄 맨 오른쪽 끝(하단바 [메뉴] 칸 바로 위). 줄이 넘치면 다음 줄 오른쪽에 혼자 선다. */
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button[data-kptu-logout]{ margin-left:auto; }
 }
 @media(max-width:760px) and (prefers-reduced-motion:reduce){ #appView .mobile-menu-panel{ animation:none; transition:none; } }
 

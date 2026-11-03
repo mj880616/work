@@ -254,14 +254,14 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #ps3DetailPane{display:none}
 @media(min-width:761px){
   /* MTG-프로젝트합치기 ①·UI-칸안스크롤하나로(시안 A): 창 안 스크롤은 창 몸통 하나(칸마다 스크롤 없음). 목록은 몸통과 같이 내려가고,
-     상세 칸도 몸통과 같이 내려간다(창 안에서는 붙여 따라오지 않음, project-system-v3.js followDetail). */
+     상세 칸은 UI-상세칸고정(2026-11-03)으로 창 몸통 위쪽에 붙어 제자리에 있고, 길면 그 칸만 따로 스크롤한다(project-system-v3.js followDetail은 새 사업영역을 열 때 머리를 보이는 일만). */
   #appView #areaWindow .area-window-body{display:flex;flex-direction:column;overflow-y:auto}
   #appView #projectsView>.section-head{flex:none}
   #appView #projectsView>.section-head.actions-only:not(:has(button)){display:none}
   #appView #projectsView>#projectGrid[data-ps3-ready="1"]{grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto;align-items:start;column-gap:var(--kptu-space-3);margin:0}
   #appView #projectsView #projectGrid>.ps3-plist{grid-column:1;grid-row:1;align-self:start;box-sizing:border-box}
   #appView #projectsView #projectGrid>.ps3-plist>.add-list-head{position:sticky;top:0;z-index:1;background:var(--kptu-surface)}
-  #appView #projectsView #projectGrid>#ps3DetailPane{grid-column:2;grid-row:1;display:block;min-width:0;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #appView #projectsView #projectGrid>#ps3DetailPane{grid-column:2;grid-row:1;display:block;position:sticky;top:0;align-self:start;max-height:calc(100dvh - var(--area-window-top,0px) - 96px);overflow-y:auto;overscroll-behavior:contain;min-width:0;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   #ps3DetailPane .ps3-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
   #ps3DetailPane.has-project .ps3-pane-empty{display:none}
   /* 고른 프로젝트 줄: 연한 초록(고르기 창의 고른 줄과 같음). */

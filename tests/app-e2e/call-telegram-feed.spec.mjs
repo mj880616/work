@@ -295,7 +295,7 @@ test('통화 PC 1440: 목록이 길어도 칸 안 스크롤 없이 화면 스크
  await expect(view.locator('#cfDetail [data-cf-meta]')).toBeVisible();
  expect(await innerScrollers(page,'#callsView')).toEqual([]);
  const d=await docScroll(page);expect(d.over).toBeGreaterThan(300);expect(d.wide).toBeLessThanOrEqual(0);
- await expect(view.locator('#cfList')).toHaveCSS('overflow-y','visible');await expect(view.locator('#cfDetail')).toHaveCSS('position','sticky');
+ await expect(view.locator('#cfList')).toHaveCSS('overflow-y','visible');await expect(view.locator('#cfDetail')).toHaveCSS('position','sticky');await expect(view.locator('#cfDetail')).toHaveCSS('overflow-y','auto');
  const last=view.locator('[data-cf-row]').last();await last.scrollIntoViewIfNeeded();await last.click();
  await expect(view.locator('#cfDetail [data-cf-meta]')).toContainText('10. 4. (일)');
  expect(await page.evaluate(()=>window.scrollY)).toBeGreaterThan(200);

@@ -387,7 +387,12 @@
 #appView #homeView .journal-others > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #homeView .journal-others-parts{ display:flex; flex-direction:column; gap:8px; }
 #appView #homeView .journal-others-parts > .journal-group{ border-top:0; padding-top:4px; }
-@media(min-width:761px){ #appView #homeView .journal-others-parts{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 16px; } }
+@media(min-width:761px){
+  #appView #homeView .journal-others-parts{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 0; }
+  /* S49-8 JOURNAL-두칸구분선: 그 밖의 기록 두 칸도 사이에 엷은 세로선 */
+  #appView #homeView .journal-others-parts > :nth-child(odd){ padding-right:16px; }
+  #appView #homeView .journal-others-parts > :nth-child(even){ padding-left:16px; border-left:var(--ds-line-width) solid var(--ds-line); }
+}
 /* JOURNAL-조직현황AI요약: 4. 산하 조직 현황 > 1) 요약의 조직별 요약. [요약 만들기]는 묶음 제목 줄 오른쪽 작은 글자 버튼, 조직마다
    [요약 고치기]는 이름 줄 끝 ⋯ 안(WEEKLY-화면디자인정리, 아래 묶음). [원문 N건]은 낮은 글자 버튼(--ds-compact-height-sm).
    요약 줄은 일반 목록과 같은 글자, 원문은 <details>로 접어 둔다. 새 크기 값 없음. */
@@ -508,6 +513,14 @@
 #appView #homeView .journal-top-cols{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px 16px; }
 @media(min-width:761px){ #appView #homeView .journal-top-cols{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
 #appView #homeView .journal-top-cols > *{ min-width:0; }
+/* S49-8 JOURNAL-두칸구분선(2026-11-03 명진): 두 칸으로 나란할 때(761px~) 사이에 엷은 세로선(다른 구분선과 같은 색·두께), 오른쪽 칸 위 가로선은 빼서
+   두 칸 제목(그날 일정 / 할 일)이 같은 높이. 폰 한 칸일 때는 지금처럼 할 일 칸 위 가로선. */
+@media(min-width:761px){
+  #appView #homeView .journal-top-cols{ column-gap:0; }
+  #appView #homeView .journal-top-cols > :first-child{ padding-right:16px; }
+  #appView #homeView .journal-top-cols > .journal-tasks{ padding-left:16px; border-left:var(--ds-line-width) solid var(--ds-line); }
+  #appView #homeView .journal-top-cols > .journal-tasks > .journal-task-col{ border-top:0; padding-top:0; }
+}
 #appView #homeView .journal-head-name{ display:inline-flex; align-items:baseline; gap:4px; min-width:0; }
 #appView #homeView .journal-head-count{ font-weight:var(--ds-weight-regular,400); color:var(--kptu-muted); }
 #appView #homeView .journal-done-day{ display:flex; flex-direction:column; gap:6px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }

@@ -43,7 +43,8 @@
 @media(max-width:760px){
   /* S48-6 UI-폰하단고정(2026-11-02 명진 결정, #1708 질문 3): 하단바 56px → 44px. 그림 22px·글자 12px는 그대로, 위아래 여백만 줄인다(누르는 범위 44px).
      이 한 값을 [+]·빠른 입력·전환 줄·시트·알림 자리가 함께 읽는다. */
-  html:has(body.kptu-workspace-shell){--kptu-mobile-tab-height:44px}
+  html:has(body.kptu-workspace-shell){--kptu-mobile-tab-height:48px}
+  /* S49-8 UI-하단바위여백(2026-11-03 명진): 아이콘 위에 4px 여백. 그 만큼만 높이를 올리고(44→48) 같은 변수를 읽는 팝업·+ 버튼·시트는 자동으로 따라간다. */
   html:has(body.kptu-mobile-keyboard){--kptu-mobile-tab-height:0px}
   /* S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 5): 폰 쓰기 창(ed-window.js가 html.ed-window-open 하나를 켬)이 열리면 하단바를 숨기고 창이 화면 끝까지 쓴다.
      자판 상태와 같은 길: 이 한 값을 0으로 받아 창·창 안 고르기 시트가 함께 따라온다. 나가기는 ✕·뒤로 가기. */
@@ -53,8 +54,8 @@
   /* APP-위여백: 머리줄은 화면 이름이 있을 때만 자리를 차지한다(홈은 본문 맨 위 날짜가 제목이라 이름이 없다). 소유는 topbar-actions.js. */
   .mobile-shell-header[hidden]{display:none}
   [data-mobile-view-name]{font-size:16px;font-weight:700}
-  .mobile-tabs{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(var(--kptu-tab-count,6),minmax(0,1fr));height:calc(44px + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:border-box;background:var(--kptu-surface);border-top:1px solid var(--kptu-border)}
-  .mobile-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:44px;min-width:44px;border:0;padding:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;font-weight:400;line-height:1.2;cursor:pointer}
+  .mobile-tabs{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(var(--kptu-tab-count,6),minmax(0,1fr));height:calc(var(--kptu-mobile-tab-height,48px) + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:border-box;background:var(--kptu-surface);border-top:1px solid var(--kptu-border)}
+  .mobile-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:44px;min-width:44px;border:0;padding:4px 0 0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;font-weight:400;line-height:1.2;cursor:pointer}
   .mobile-tabs button[aria-current="page"]{color:var(--kptu-primary-ink);font-weight:700}
   .mobile-tabs svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
   .mobile-tabs [aria-current="page"] svg{stroke-width:2.2}
