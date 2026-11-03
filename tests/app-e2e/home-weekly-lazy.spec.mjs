@@ -125,12 +125,15 @@ test('하루 화면은 [주간 정리] 전용 자료를 읽지 않고, [주간 �
   await expect.poll(() => weekOnly.filter(u => /app_journal_next_week_sheets/.test(u)).length).toBeGreaterThan(0);
   await expect.poll(() => events.length).toBe(dayEvents + 1);
   await expect(page.locator('#journalRoot [data-journal-next-week]')).not.toBeEmpty();
-  // 하루로 돌아갔다 다시 열어도 같은 주는 다시 읽지 않는다(미룬 읽기는 한 번).
-  const after = weekOnly.length;
+  // 하루로 돌아갔다 다시 열어도 같은 주는 업무일지가 다시 읽지 않는다(미룬 읽기는 한 번). 임원 요청 표는 한글 파일 상자도 제 몫으로 읽으므로 뺀다.
+  const mine = () => weekOnly.filter(u => /app_journal_next_week_sheets|app_weekly_org_summaries|select=weekly_schedule_memory|select=ledger_calendar/.test(u)).length;
+  await page.waitForTimeout(1000);
+  const after = mine(), eventsAfter = events.length;
   await page.locator('#journalRoot [data-journal-mode="day"]').click();
   await page.locator('#journalRoot [data-journal-mode="week"]').click();
   await expect(chapters(page)).toHaveCount(5);
-  await page.waitForTimeout(500);
-  expect(weekOnly.length).toBe(after);
+  await page.waitForTimeout(800);
+  expect(mine()).toBe(after);
+  expect(events.length).toBe(eventsAfter);
   expect(errors).toEqual([]);
 });
