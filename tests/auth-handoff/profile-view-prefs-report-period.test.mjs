@@ -51,7 +51,7 @@ const prerequisites=`
   grant select, update on public.app_profiles to authenticated;
   insert into public.app_workspace_members values ('${WS_A}', '${OUTSIDER}', 'viewer');
   insert into public.app_profiles(user_id,display_name) values ('${OWNER}','소유자'),('${STRANGER}','남'),('${OUTSIDER}','다른 구성원');
-  insert into supabase_migrations.schema_migrations(version,name) values('20261018112943','doc_categories_profile'),('20261022163000','profile_quick_links'),('20261023150000','profile_library_view');
+  insert into supabase_migrations.schema_migrations(version,name) values('20261018112943','doc_categories_profile'),('20261022163000','profile_quick_links'),('20261023150000','profile_library_view'),('20261103190000','profile_view_prefs_photo_device');
 `;
 
 const EARLIER=['20261023180000_profile_view_prefs','20261027020000_profile_view_prefs_report_view','20261027040000_profile_view_prefs_theme10',
