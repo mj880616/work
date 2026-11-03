@@ -119,7 +119,8 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
 // file-actions.js의 [Drive에서 열기]·[내려받기](menuItemsHtml, 누르면 file-actions.js 전역 클릭 처리)를 둔다. 줄 누르기 동작은 그대로다.
 // 결과 창(meeting-round-detail.js)도 이 함수를 쓴다. 두 항목이 다 없으면(열 길·내려받을 길 없음) ⋯를 그리지 않는다.
 export function meetingFileFile(d){return {name:d?.file_name||d?.title||'',mime:d?.mime_type||'',documentId:d?.file_id?d.id:'',driveId:d?.file_id||'',driveUrl:d?.drive_url||''}}
-export function fileMoreHtml(d,name=d?.file_name||d?.title||'파일'){
-  const fa=meetingFileFile(d),items=menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu'});
+// extra: 부른 화면이 더하는 메뉴 단추 글(이미 이스케이프된 HTML, 예: 회의 결과 창의 [전사해서 결과에 넣기]).
+export function fileMoreHtml(d,name=d?.file_name||d?.title||'파일',extra=''){
+  const fa=meetingFileFile(d),items=menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu'})+String(extra||'');
   return items?`<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: ${esc(name)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="file-line-more-panel" role="group" aria-label="파일 메뉴">${items}</div></details>`:'';
 }

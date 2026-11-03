@@ -312,17 +312,35 @@ async function serverFinish(opts,known=null){
       onProgress:job=>{jobId=job.id;step=STAGE_STEP[job.stage]||step;note=progressNote(job)||'화면을 닫아도 서버에서 계속 정리해요';paint()},
     },opts);
     if(r.kind==='gone')return;
-    if(r.kind==='unavailable'){await finishOnScreen(known);return}
+    if(r.kind==='unavailable'){
+      if(opts?.start?.kind==='attached'){fail('붙은 녹음 전사는 서버 준비가 끝나면 쓸 수 있어요.',false);return}
+      await finishOnScreen(known);return;
+    }
     if(r.kind==='failed'){fail(serverFailText(r.job?.error_code),serverCanRetry(r.job?.error_code));return}
     await openServerResult(r.job);
   }catch(e){
     if(mine!==watchEpoch)return;
     console.warn('recording server finish failed',e?.status||'',e?.code||'');
+    if(!jobId&&opts?.start?.kind==='attached'){fail(e?.code&&e.code!=='failed'?serverFailText(e.code):'전사를 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.',false);return}
     fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [다시]를 눌러 주세요.':'정리 상태를 확인하지 못했어요. 서버는 계속 정리 중일 수 있어요. [다시]를 누르세요.',true);
   }
 }
 // 서버가 끝낸 결과 → 사업 보고 › 회의 입력 창(전문·요약을 채운 채). 저장은 명진이 [사업 보고 저장].
+// 회의자료 그 자리 전사(kind attached)는 그 회의 [수정] 창에 넣는다(meeting-round-detail.js fillTranscript).
 async function openServerResult(job){
+  if(job?.kind==='attached'){
+    try{
+      step='초안 열림';note='';paint();
+      const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
+      if(loader)await loader('meetings');
+      const ok=await window.KPTUMeetingRoundDetail?.fillTranscript?.(job.meeting_id,{text:job.transcript_text,draft:job.draft});
+      if(!ok)throw stopError('그 회의를 열지 못했어요. [초안 열기]를 다시 누르세요.',true);
+      void call('job_opened',{job_id:job.id}).catch(()=>{});
+      readyJob=null;jobId='';state='done';paint();
+      setTimeout(()=>{if(state==='done')closeBand()},8000);
+    }catch(e){console.warn('attached result open failed',e?.status||'',e?.code||'');readyJob=job;state='ready';paint()}
+    return;
+  }
   try{
     step='초안 열림';note='';paint();
     // 회의 시각 = 녹음을 시작한 때(이 창에서 녹음했으면 그 시각, 아니면 정리를 맡긴 때에서 녹음 길이만큼 앞).
@@ -422,7 +440,7 @@ async function finishOnScreen(known=null){
   }
 }
 function stopError(text,retry){const e=new Error('');e.recText=text;e.recRetry=retry;return e}
-function fail(text,retry){state='error';errorText=text;canRetry=!!retry&&!!sessionId;step='';note='';clearInterval(ticker);paint()}
+function fail(text,retry){state='error';errorText=text;canRetry=!!retry&&(!!sessionId||!!jobId);step='';note='';clearInterval(ticker);paint()}
 
 // 사업 보고 › 회의 입력 창을 열고 기존 [초안 채우기] 흐름에 글을 넣는다(meeting-transcript-draft.js).
 async function openDraft(text,jobs){
@@ -484,6 +502,17 @@ window.addEventListener('kptu:session-changed',e=>{
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){paintButton();void loadPending()}});
 PC?.addEventListener?.('change',()=>{paintButton();paintPending();if(PC.matches&&onMeetings())void loadPending()});
 
+// MTG-첨부녹음전사(S49-2): 회의 결과 창의 회의자료 소리 파일 ⋯ [전사해서 결과에 넣기]. 서버 정리(kind attached)로 맡기고 같은 띠로 진행을 보인다.
+// 같은 파일을 전에 정리했으면 서버가 앞 결과를 바로 돌려준다(비용 없음).
+function transcribeAttached({documentId='',meetingId=''}={}){
+  if(!documentId)return false;
+  if(active()||state==='finishing'||discarding){notify('다른 녹음을 정리하는 중이에요. 끝난 뒤 다시 눌러 주세요.',{error:true});return false}
+  const id=ws();if(!id||!rt()?.api){notify('로그인 상태를 확인하지 못했어요.',{error:true});return false}
+  jobId='';sessionId='';readyJob=null;accum=0;runSince=0;
+  state='finishing';step='전사';errorText='';canRetry=false;note='화면을 닫아도 서버에서 계속 정리해요';paint();
+  void serverFinish({start:{workspace_id:id,kind:'attached',document_id:documentId}});
+  return true;
+}
 // 폰 녹음(phone-recorder.js)이 서버에 정리를 맡긴 뒤 진행 띠를 넘긴다(띠·알림·[초안 열기]의 주인은 이 모듈 하나).
 function watch(job){
   if(!job?.id||active()||discarding)return false;
@@ -492,7 +521,7 @@ function watch(job){
   void serverFinish({jobId:job.id});
   return true;
 }
-window.KPTUMeetingRecorder={state:()=>state,mime:MIME,watch};
+window.KPTUMeetingRecorder={state:()=>state,mime:MIME,watch,transcribeAttached};
 paint();
 // 첫 화면 요청과 겹치지 않게 조금 뒤에 한 번 묻는다(서버 정리 중·끝난 녹음이 있을 때만 띠가 뜬다).
 setTimeout(()=>void loadServerJobs(),2500);
