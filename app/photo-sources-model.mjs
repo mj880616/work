@@ -15,11 +15,21 @@ export const GDRIVE_FEATURE = 'gdrive_photos';
 // app_my_features() 답(기능 키 목록) → 구글 드라이브 칩을 보일지. 모양이 틀리면 안 보인다(서버가 어차피 403).
 export const gdriveAllowed = features => GDRIVE_READY && Array.isArray(features) && features.includes(GDRIVE_FEATURE);
 
-// 서버 값 → {onedrive, gdrive, phone}. 모양이 틀린 칸은 기본값.
-export function parseSources(value) {
+// PHOTO-기기별출처(S49-5, 요청함 11/03 10:44): 출처 켜기·끄기를 폰 앱과 그 밖(PC·브라우저)이 따로 서버에 기억한다
+// (view_prefs.photo_sources_phone / photo_sources_pc, migration 20261103190000). 옛 photo_sources 한 칸은 두 쪽 시작값으로 복사하지 않고 더는 읽지 않는다.
+// 처음 기본값: PC = 원드라이브만, 폰 앱 = 폰 폴더만. 그 뒤는 각자 기억한다.
+export const DEVICE_SOURCE_KEY = Object.freeze({phone:'photo_sources_phone', pc:'photo_sources_pc'});
+export const DEVICE_SOURCE_DEFAULT = Object.freeze({
+  phone:Object.freeze({onedrive:false, gdrive:false, phone:true}),
+  pc:Object.freeze({onedrive:true, gdrive:false, phone:false}),
+});
+export const deviceSourcesKey = isPhoneApp => (isPhoneApp ? DEVICE_SOURCE_KEY.phone : DEVICE_SOURCE_KEY.pc);
+export const deviceSourcesDefault = isPhoneApp => (isPhoneApp ? DEVICE_SOURCE_DEFAULT.phone : DEVICE_SOURCE_DEFAULT.pc);
+// 서버 값 → {onedrive, gdrive, phone}. 모양이 틀린 칸은 기본값(defaults, 없으면 SOURCE_DEFAULT).
+export function parseSources(value, defaults = SOURCE_DEFAULT) {
   const v = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const out = {};
-  for (const name of SOURCES) out[name] = typeof v[name] === 'boolean' ? v[name] : SOURCE_DEFAULT[name];
+  for (const name of SOURCES) out[name] = typeof v[name] === 'boolean' ? v[name] : defaults[name];
   return out;
 }
 export const sourcesValue = state => Object.fromEntries(SOURCES.map(name => [name, parseSources(state)[name]]));

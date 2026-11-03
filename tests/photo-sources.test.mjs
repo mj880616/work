@@ -153,3 +153,25 @@ test('폰 사진 다리: 폰 앱(KPTUAndroid + 다리)에서만, 옛 앱(답 없
   await old.hello();
   assert.equal(old.available(), false);
 });
+
+// PHOTO-기기별출처(S49-5): 폰 앱과 PC가 출처 켜기·끄기를 따로 기억하고, 처음 기본값이 다르다.
+import {DEVICE_SOURCE_KEY, deviceSourcesKey, deviceSourcesDefault} from '../app/photo-sources-model.mjs';
+test('기기별 출처: 칸 이름·처음 기본값(PC = 원드라이브만, 폰 앱 = 폰 폴더만)', () => {
+  assert.equal(deviceSourcesKey(true), 'photo_sources_phone');
+  assert.equal(deviceSourcesKey(false), 'photo_sources_pc');
+  assert.deepEqual(DEVICE_SOURCE_KEY, {phone:'photo_sources_phone', pc:'photo_sources_pc'});
+  assert.deepEqual(parseSources(null, deviceSourcesDefault(false)), {onedrive:true, gdrive:false, phone:false});
+  assert.deepEqual(parseSources(undefined, deviceSourcesDefault(true)), {onedrive:false, gdrive:false, phone:true});
+  // 한쪽에서 저장한 값은 그 기기 기본값 위에 얹힌다(없는 칸만 기본값).
+  assert.deepEqual(parseSources({gdrive:true}, deviceSourcesDefault(false)), {onedrive:true, gdrive:true, phone:false});
+  // 기본값을 안 주면 예전 그대로.
+  assert.deepEqual(parseSources(null), {onedrive:true, gdrive:false, phone:true});
+});
+test('기기별 출처·보기 단계 칸은 DB 검사와 같은 모양만 받는다', () => {
+  for (const key of ['photo_sources_phone', 'photo_sources_pc']) {
+    for (const v of [{}, {phone:true}, {onedrive:false, gdrive:false, phone:true}]) assert.ok(validValue(key, v), key + JSON.stringify(v));
+    for (const v of [null, [], 'phone', {phone:1}, {icloud:true}, {onedrive:'true'}]) assert.equal(validValue(key, v), false, key + JSON.stringify(v));
+  }
+  for (const v of ['year', 'month', 'day']) assert.ok(validValue('photo_level', v), v);
+  for (const v of ['week', '', 1, null, ['year']]) assert.equal(validValue('photo_level', v), false, JSON.stringify(v));
+});

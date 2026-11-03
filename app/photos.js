@@ -67,6 +67,7 @@ import {photoFolderRows, photoFolderTrail, photoSubfolders, photoFolderById, pho
   validAlbumView, stepAlbumView, albumPeriod, ALBUM_VIEW_TEXT, gdriveFolderTree, folderCountText, GDRIVE_TOP} from './photos-model.mjs';
 import {notify, askConfirm, askChoice} from './small-notice.js';
 import {viewPrefs} from './view-prefs.js';
+import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
@@ -379,7 +380,7 @@ function readPrefs() {
   prefsRead = true;
   const v = parsePhotoView(viewPrefs.get('photo_view'));
   filter = v.filter; colsSaved = v.cols; sort = v.sort;
-  sources = parseSources(viewPrefs.get('photo_sources'));
+  sources = readDeviceSources();
   phoneOff = parsePhoneOff(viewPrefs.get('phone_folders_off'));
   $('[data-photos-filter]').value = filter; paintSortButton();
 }
@@ -2809,7 +2810,7 @@ function sourceClick(b) {
 }
 function toggleSourceName(name) {
   sources = toggleSource(sources, name);
-  viewPrefs.set('photo_sources', sourcesValue(sources), {rejectable:true});
+  viewPrefs.set(deviceSourcesPref(), sourcesValue(sources), {rejectable:true});
   if (name === 'phone' && sources.phone && !phoneUsable()) phone.ask();
   sourcesChanged();
   if (name === 'gdrive' && sources.gdrive) startGdSync(run);
@@ -2831,8 +2832,8 @@ root.addEventListener('pointermove', e => { if (srcHold && Math.hypot(e.clientX 
 for (const t of ['pointerup', 'pointercancel']) root.addEventListener(t, () => { if (srcHold) { clearTimeout(srcHold.timer); srcHold = null; } });
 root.addEventListener('click', e => { if (srcAte && e.target.closest?.('[data-photos-src]')) { srcAte = false; e.preventDefault(); e.stopPropagation(); } }, true);
 window.addEventListener('kptu:view-prefs-rejected', e => {
-  if (!(e.detail?.paths || []).includes('photo_sources')) return;
-  sources = parseSources(viewPrefs.get('photo_sources'));
+  if (!(e.detail?.paths || []).includes(deviceSourcesPref())) return;
+  sources = readDeviceSources();
   notify('출처 켜기/끄기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true});
   if (window.KPTURouter?.current === 'photos') sourcesChanged();
 });
