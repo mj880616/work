@@ -76,7 +76,7 @@ const others=()=>({
 });
 // ORG-담당13기준: the organization read also asks for my assignment rows; o1·o2 are mine. outside:true adds two organizations
 // that are not mine (one active and unassigned, one assigned but inactive), each with a Tuesday record (fake names only).
-async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old',outside=false,extraEvents=[]}={}){
+async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old',outside=false,extraEvents=[],beforeLoad=null}={}){
  const rows=store(),writes=[],reads=[],errors=[],taskCalls=[],calendarReads=[],more=others();
  more.assignees=['o1','o2'].map(organization_id=>({organization_id,user_id:'home-test'}));
  if(outside){
@@ -88,7 +88,7 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width,height});
- await openHome(page);
+ await openHome(page,{beforeLoad});
  // PostgREST or=(and(col.op.val,…),…) — only the shape the journal sends (WEEKLY-자료날짜: put in the library in the week, or dated in the week).
  const orSplit=v=>{const out=[];let depth=0,cur='';for(const ch of v){if(ch==='(')depth++;if(ch===')')depth--;if(ch===','&&depth===0){out.push(cur);cur='';continue}cur+=ch}if(cur)out.push(cur);return out};
  const orCond=(row,c)=>{const [col,...rest]=c.split('.');if(row[col]==null)return false;const one=new URLSearchParams([[col,rest.join('.')]]);return match(instants(row,one),one)};
@@ -3852,12 +3852,12 @@ test('[업무일지] 연 화면 유지: 탭을 갔다 오면 기다림 표시 �
 // S49-13 JOURNAL-기억할통화텔레그램: 하루 카드 주간보고 재료의 네 번째 묶음. 서버가 고른 줄(표 app_journal_memorable)이 보이고,
 // 넣기·고쳐서 넣기·빼기(이유 선택)는 서버 표에 저장되며, 운영자 기능이 없으면 묶음이 없고, 화면을 열 때마다 AI를 부르는 것은 서버가 1시간으로 막는다.
 test('[하루] 기억할 통화·텔레그램: 줄·"10:00 기준"이 보이고, 넣기·고쳐서 넣기·빼기가 서버 표에 저장된다',async({page})=>{
- await fixture(page,{width:1280});
  const table=[
   {id:'m1',source:'call',feed_item_id:'f1',org_name:'가상지부',line:'교섭 일정 확정함.',status:'suggested',final_line:null},
   {id:'m2',source:'telegram',feed_item_id:'f2',org_name:null,line:'파업 찬반투표 일정 공유됨.',status:'suggested',final_line:null},
  ];
  const patches=[],asked=[];
+ const routes=async()=>{
  await page.route(SB+'/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['calls','telegram']}));
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_journal_memorable',async r=>{
   if(r.request().method()==='PATCH'){
@@ -3872,6 +3872,8 @@ test('[하루] 기억할 통화·텔레그램: 줄·"10:00 기준"이 보이고,
   const body=r.request().postDataJSON();if(body.kind!=='journal_memorable')return r.fallback();
   asked.push(body);return r.fulfill({json:{ok:true,kind:'journal_memorable',day:body.day,skipped:'fresh'}});
  });
+ };
+ await fixture(page,{width:1280,beforeLoad:routes});
  await openJournal(page,1280);
  const box=group(page,'memorable');
  await expect(box).toBeVisible();
@@ -3900,10 +3902,12 @@ test('[하루] 기억할 통화·텔레그램: 줄·"10:00 기준"이 보이고,
  await expect(box.locator('[data-journal-memorable]')).toHaveCount(1);
 });
 test('[하루] 기억할 통화·텔레그램: 운영자 기능이 없는 작업공간에는 묶음도 AI 요청도 없다',async({page})=>{
- await fixture(page,{width:1280});
  const asked=[];
+ const routes=async()=>{
  await page.route(SB+'/rest/v1/rpc/app_my_features',r=>r.fulfill({json:[]}));
  await page.route(SB+'/functions/v1/ai-assist',async r=>{const body=r.request().postDataJSON();if(body.kind!=='journal_memorable')return r.fallback();asked.push(body);return r.fulfill({json:{ok:true,kind:'journal_memorable',day:body.day,skipped:'not_allowed'}});});
+ };
+ await fixture(page,{width:1280,beforeLoad:routes});
  await openJournal(page,1280);
  await expect(page.locator('#journalRoot [data-journal-report]')).toBeVisible();
  await expect(group(page,'memorable')).toHaveCount(0);
