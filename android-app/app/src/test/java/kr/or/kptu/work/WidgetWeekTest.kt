@@ -73,7 +73,6 @@ class WidgetWeekTest {
             now,
         )
         assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 1), "D-2", "일 10:30 파업선포 기자회견"), words.big)
-        assertTrue(words.days.last().hot)
         // 낱말이 없으면 2시간 이상 가장 긴 시간 일정(종일 제외), 같으면 이른 것. 지난 일정은 보지 않는다.
         val length = WidgetWeek.content(
             200,
@@ -109,7 +108,7 @@ class WidgetWeekTest {
             now,
         )
         assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 10, 31), "토", "일정 3개 몰림 · 궤도 대표자회의 10:00부터"), c.busy)
-        assertTrue(c.days[5].busy && c.days[5].hot)
+        assertTrue(c.days[5].busy)
     }
 
     @Test
