@@ -204,20 +204,6 @@ export function yearLabels(bar, heightPx, minGap = RAIL_YEAR_GAP, labelH = RAIL_
   }
   return out;
 }
-// B 보기 단계 [연·월·일]: 연 = 사진 있는 해(최근 먼저) 칸, 월 = 그 해 열두 달 칸, 일 = 지금의 달력. months = {'2025-03': 장수}.
-export const PHOTO_LEVELS_ORDER = Object.freeze(['year', 'month', 'day']);
-export const LEVEL_TEXT = Object.freeze({year:'연', month:'월', day:'일'});
-export function yearCells(months) {
-  const by = new Map();
-  for (const [k, n] of Object.entries(months || {})) {
-    const ym = parseMonth(k); if (!ym || !(n > 0)) continue;
-    const cur = by.get(ym.year) || {year:ym.year, n:0, latest:k};
-    cur.n += n; if (k > cur.latest) cur.latest = k; by.set(ym.year, cur);
-  }
-  return [...by.values()].sort((a, b) => b.year - a.year);
-}
-// 그 해 열두 달(1월 → 12월), 사진 없는 달은 n 0(칸은 비어 있고 누를 수 없다).
-export const monthCells = (months, year) => Array.from({length:12}, (_, i) => { const key = monthKey(year, i); return {key, month:i, n:Number(months?.[key]) > 0 ? months[key] : 0}; });
 // 그 달 끝(다음 달 1일 0시, 서울)에서 시작하는 cursor. id '!'은 어떤 원드라이브 id보다 앞이라 그 시각 사진은 넘긴다(다음 달 것).
 export function monthCursor(key) {
   const ym = parseMonth(key); if (!ym) return null;

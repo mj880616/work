@@ -7,11 +7,11 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // MENU-HOME-편집: 메뉴 순서(menu_layout)·홈 칸(home_cards)을 서버 칸으로 두는 규칙. 화면 쪽 모양 검사는 DB 검사와 같아야 한다.
 // DB에는 있지만 화면 허용 목록에는 아직 없는 칸: 없음(now_tab은 S48-27 Now 화면이 KEYS에 더함).
 const DB_ONLY = [];
-test('허용 칸 서른여덟 개가 DB 검사(마지막 migration, S49-30 files_two 위에 S49-38 note_sort 더함)와 같다', () => {
-  const sql = read('supabase/migrations/20261104201000_profile_view_prefs_note_sort.sql');
+test('허용 칸 서른아홉 개가 DB 검사(마지막 migration, S49-38 note_sort 위에 S49-48 photo_zoom 더함)와 같다', () => {
+  const sql = read('supabase/migrations/20261104221000_profile_view_prefs_photo_zoom.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 38);
+  assert.equal(KEYS.length, 39);
 });
 test('phone_folders_known은 16진수 8자 글자 배열 120개까지(S48-31, DB 검사와 같음)', () => {
   for (const v of [[], ['0a1b2c3d'], ['00000000', 'ffffffff'], Array.from({length:120}, (_, i) => i.toString(16).padStart(8, '0'))]) assert.equal(validValue('phone_folders_known', v), true, JSON.stringify(v).slice(0, 40));
@@ -125,4 +125,9 @@ test('MENU-세칸: 편집 창은 세 칸 + PC 왼쪽 메뉴 미리보기, 맨 �
 test('note_sort는 changed·manual 글자만(S49-38 FOLDER-순서·색, DB 20261104201000과 같음)', () => {
   for (const v of ['changed', 'manual']) assert.equal(validValue('note_sort', v), true, v);
   for (const v of ['', 'Manual', 'name', 1, true, null, ['manual'], {v: 'manual'}]) assert.equal(validValue('note_sort', v), false, JSON.stringify(v));
+});
+test('photo_zoom은 기기 칸(app·phone·pc)마다 year·month·day 글자만(S49-48 PHOTO-연월보기, DB 20261104221000과 같음)', () => {
+  assert.equal(validValue('photo_zoom', {phone: 'month', pc: 'year', app: 'day'}), true);
+  assert.equal(validValue('photo_zoom', {}), true);
+  for (const v of ['month', null, [], {tablet: 'month'}, {phone: 'week'}, {phone: 1}, {phone: {v: 'month'}}, {pc: ''}]) assert.equal(validValue('photo_zoom', v), false, JSON.stringify(v));
 });

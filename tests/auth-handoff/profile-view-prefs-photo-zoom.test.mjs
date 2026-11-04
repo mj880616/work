@@ -1,0 +1,147 @@
+// Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
+// S49-48 PHOTO-연월보기: app_profiles_view_prefs_check accepts photo_zoom (object by device app|phone|pc, year|month|day) through the approved DB workflow runner.
+// - 다른 칸 규칙 그대로(앞선 서른여덟 칸(note_sort 포함)을 그대로 받고, 전에 거절하던 값은 계속 거절).
+// - 권한 그대로: 프로필은 내 행만, anon은 못 읽는다. 표 권한·정책 수 그대로.
+// - 승인형 workflow의 plan·dry-run·apply가 통과하고, rollback은 photo_zoom가 저장돼 있으면 멈춘 뒤 비우면 원래 모양으로 돌아간다.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomBytes} from 'node:crypto';
+import {createServer} from 'node:net';
+import EmbeddedPostgres from 'embedded-postgres';
+import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
+import {fixture,OWNER,STRANGER,WS_A} from './basket4-fixture.mjs';
+import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
+import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
+const version='20261104221000',name='profile_view_prefs_photo_zoom',stem=version+'_'+name;
+const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
+const root=new URL('../../',import.meta.url).pathname;
+const OUTSIDER='20000000-0000-4000-8000-000000000003';
+for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
+
+// Production-like prerequisites (task12a + doc_categories_profile already recorded): app_profiles with owner RLS,
+// authenticated SELECT/UPDATE only, anon revoked.
+const prerequisites=`
+  create function private.app_is_owner_profile(p_user uuid)
+  returns boolean language sql stable security definer
+  set search_path = pg_catalog, public
+  as $$
+    select exists (
+      select 1
+      from public.app_workspace_members subject
+      join public.app_workspace_members owner
+        on owner.workspace_id = subject.workspace_id
+       and owner.role = 'owner'
+       and owner.user_id = (select auth.uid())
+      where subject.user_id = p_user
+    )
+  $$;
+  revoke all on function private.app_is_owner_profile(uuid) from public, anon, authenticated;
+  grant execute on function private.app_is_owner_profile(uuid) to authenticated, service_role;
+  create table public.app_profiles(user_id uuid primary key,display_name text,job_title text,created_at timestamptz default now(),updated_at timestamptz default now());
+  alter table public.app_profiles enable row level security;
+  create policy task12a_owner_all on public.app_profiles for all to authenticated
+    using (private.app_is_owner_profile(user_id)) with check (private.app_is_owner_profile(user_id));
+  create policy task12a_profile_self_select on public.app_profiles for select to authenticated
+    using (user_id = (select auth.uid()));
+  revoke all on public.app_profiles from public, anon, authenticated;
+  grant select, update on public.app_profiles to authenticated;
+  insert into public.app_workspace_members values ('${WS_A}', '${OUTSIDER}', 'viewer');
+  insert into public.app_profiles(user_id,display_name) values ('${OWNER}','소유자'),('${STRANGER}','남'),('${OUTSIDER}','다른 구성원');
+  insert into supabase_migrations.schema_migrations(version,name) values('20261018112943','doc_categories_profile'),('20261022163000','profile_quick_links'),('20261023150000','profile_library_view');
+`;
+
+const EARLIER=['20261023180000_profile_view_prefs','20261027020000_profile_view_prefs_report_view','20261027040000_profile_view_prefs_theme10',
+ '20261027070000_profile_view_prefs_theme_refresh','20261028020000_profile_view_prefs_menu_home','20261028090000_profile_view_prefs_photo_cols',
+ '20261028100000_profile_view_prefs_diary_view','20261028150000_profile_view_prefs_diary_onedrive','20261026140000_diary_onedrive_db','20261028010000_onedrive_photo_index',
+ '20261028220000_photo_menu_index','20261029010000_profile_view_prefs_split_screens','20261029103000_profile_view_prefs_quiet_weeks','20261029183000_profile_view_prefs_note_view',
+ '20261030091000_profile_view_prefs_note_boards','20261030150000_photo_sort','20261029150000_photo_tags','20261030190000_profile_view_prefs_photo_hint','20261030230000_photo_sources','20261030233000_profile_view_prefs_org_tab','20261031010000_profile_view_prefs_tg_view','20261031030000_profile_view_prefs_split_more','20261031060000_profile_view_prefs_phone_folders','20261031235000_profile_view_prefs_album_view','20261102141000_profile_view_prefs_now_tab','20261102170000_profile_view_prefs_link_hidden','20261102190000_profile_view_prefs_ed_more','20261102213000_profile_view_prefs_phone_known','20261103160000_profile_view_prefs_files_cols','20261103190000_profile_view_prefs_photo_device','20261103200000_profile_view_prefs_report_period','20261104090000_profile_view_prefs_files_sources','20261104130000_profile_view_prefs_files_dest','20261104190000_profile_view_prefs_files_two','20261104201000_profile_view_prefs_note_sort'];
+
+test('view prefs photo zoom: plan, dry-run, apply, own-row writes, CHECK and guarded rollback',{timeout:150000},async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'view-prefs-photo-zoom-pg-')),sock=createServer();await new Promise(r=>sock.listen(0,'127.0.0.1',r));const port=sock.address().port;await new Promise(r=>sock.close(r));
+ const password=randomBytes(24).toString('hex'),cluster=new EmbeddedPostgres({databaseDir:directory,user:'postgres',password,port,persistent:false,createPostgresUser:false,initdbFlags:['--encoding=UTF8','--locale=C'],postgresFlags:['-h','127.0.0.1','-c','log_statement=none','-c','log_min_error_statement=panic'],onLog:()=>{},onError:()=>{}});
+ let pool;
+ try{
+  await cluster.initialise();await cluster.start();pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
+  await pool.query(fixture);
+  await pool.query(prerequisites);
+  // The earlier view_prefs and OneDrive migrations are applied from the repository files as they were.
+  for(const f of EARLIER)await pool.query(await read('supabase/migrations/'+f+'.sql'));
+  const rollbackSQL=await read('docs/'+stem+'.rollback.sql'),snapshot=await read('docs/'+stem+'.snapshot.sql');
+  const precheck=await read('docs/'+stem+'.precheck.sql'),postcheck=await read('docs/'+stem+'.postcheck.sql');
+  const query=async(sql,options={})=>{const c=await pool.connect();try{if(options.readOnly)await c.query('begin read only');const r=await c.query(sql);if(options.readOnly)await c.query('commit');return Array.isArray(r)?[]:r.rows;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+  const plan=(mode,run)=>prepareMigration({mode,version,runId:run,root});
+  const saveSnapshot=async()=>{};
+  const run=(mode,id)=>runMigrationPlan(plan(mode,id),query,{saveSnapshot});
+  async function as(role,sub,fn){const c=await pool.connect();try{await c.query('begin');await c.query("select set_config('request.jwt.claim.sub',$1,true)",[sub||'']);await c.query('set local role '+role);const r=await fn(c);await c.query('commit');return r;}catch(e){await c.query('rollback');throw e;}finally{c.release();}}
+  const write=(sub,user,value)=>as('authenticated',sub,c=>c.query('update public.app_profiles set view_prefs=$1::jsonb where user_id=$2',[value===null?null:JSON.stringify(value),user]));
+  const saved_=async user=>(await pool.query('select view_prefs from public.app_profiles where user_id=$1',[user])).rows[0].view_prefs;
+  const before=(await pool.query(snapshot)).rows,beforeCheck=(await pool.query(precheck)).rows;
+  const base={theme:'lemon',split_ratio:{tasks:0.4,telegram:0.3,reports3:0.25,photos:0.3,noteboard:0.2},home_cards:['quiet','todo'],diary_view:'list',photo_view:{filter:'star',cols:4,sort:'name_asc'},quiet_weeks:3,note_view:'board',note_boards:[{id:'b1a2b3c4',name:'보드'}],note_board:'b1a2b3c4',photo_hint:2,photo_sources:{onedrive:true,phone:false},org_tab:'table',tg_view:'room',phone_folders_off:['DCIM/Camera/'],album_view:'thumb',now_tab:'news',collect_hidden_on:'2026-11-01',link_hidden_on:'2026-11-01',ed_more:true};
+
+  // 앞 판(20261104201000)까지 받던 서른여덟 칸을 모두 담은 값: 적용 뒤에도 통째로 받아야 한다(앞 판 키가 다 남는지).
+  const ALL_OLD={...base,nav_collapsed:true,calendar_view:'week',home_quick_mode:'task',note_folder:'all',report_view:'calendar',menu_layout:{bar:['home','tasks'],rest:['notes']},photo_cols:4,photo_cols_wide:8,diary_onedrive:false,
+   phone_folders_known:['0123abcd'],col_widths:{files:{name:240,day:90}},photo_sources_phone:{phone:true,onedrive:false},photo_sources_pc:{onedrive:true,gdrive:false},photo_level:'month',report_period:{mode:'range',from:'2026-10-01',to:'2026-10-31'},files_sources:{app:{od:true,gd:false},pc:{gd:true}},files_dest_recent:[{source:'gd',id:'gdFolder1',name:'가짜 업무 공간'}],files_two:{pc:{fold:true}},note_sort:'manual'};
+  const RANGE={photo_zoom:{app:'day',phone:'month',pc:'year'}};
+  const GOOD=[{photo_zoom:{pc:'month'}},{photo_zoom:{}},RANGE];
+  const BAD=[{photo_zoom:'month'},{photo_zoom:null},{photo_zoom:[]},{photo_zoom:{tablet:'month'}},{photo_zoom:{pc:'week'}},{photo_zoom:{pc:1}},{photo_zoom:{pc:''}},{photo_zoom:{pc:{v:'month'}}},{photo_zoom:{pc:'MONTH'}}];
+
+  await t.test('before apply the CHECK refuses photo_zoom and accepts the old keys (files_two included)',async()=>{
+   assert.equal(beforeCheck.find(r=>r.item==='prerequisite recorded').value,'예');
+   assert.equal(beforeCheck.find(r=>r.item==='new migration absent').value,'예');
+   assert.equal(beforeCheck.find(r=>r.item==='view prefs check without photo zoom').value,'예');
+   assert.equal(beforeCheck.find(r=>r.item==='saved photo zoom').value,'0');
+   await assert.rejects(write(OWNER,OWNER,RANGE),{code:'23514'});
+   assert.equal((await write(OWNER,OWNER,ALL_OLD)).rowCount,1,'every previous key is accepted before');
+   await write(OWNER,OWNER,null);
+  });
+  await t.test('plan accepts the migration and its companion files',()=>{
+   const p=plan('apply','9970');assert.ok(p&&!p.rejected,JSON.stringify(p).slice(0,300));
+   assert.ok(plan('rollback','9971'));
+  });
+  await t.test('dry-run leaves schema, rows and history unchanged',async()=>{
+   const dry=await run('dry-run','9972');assert.equal(dry.ok,true,dry.summary);
+   assert.deepEqual((await pool.query(snapshot)).rows,before);assert.deepEqual((await pool.query(precheck)).rows,beforeCheck);
+  });
+  await t.test('apply passes postcheck; grants, policies and rows unchanged',async()=>{
+   const apply=await run('apply','9973');assert.equal(apply.ok,true,apply.summary);
+   assert.ok((await pool.query(postcheck)).rows.filter(r=>/^(예|아니오)$/.test(r.value)).every(r=>r.value==='예'));
+   assert.equal((await pool.query("select count(*)::int n from supabase_migrations.schema_migrations where version=$1 and name=$2",[version,name])).rows[0].n,1);
+   assert.equal((await pool.query("select relacl::text acl from pg_class where oid='public.app_profiles'::regclass")).rows[0].acl.match(/authenticated=[a-z]*/)[0],'authenticated=rw');
+   assert.equal((await pool.query("select count(*)::int n from pg_policy where polrelid='public.app_profiles'::regclass")).rows[0].n,2);
+  });
+  await t.test('the owner saves photo_zoom together with the old keys; other rows, outsiders and anon cannot',async()=>{
+   assert.equal(Object.keys(ALL_OLD).length,38,'all keys of the previous check');
+   assert.equal((await write(OWNER,OWNER,ALL_OLD)).rowCount,1,'every previous key is still accepted');assert.deepEqual(await saved_(OWNER),ALL_OLD);
+   for(const v of GOOD){assert.equal((await write(OWNER,OWNER,v)).rowCount,1,JSON.stringify(v));assert.deepEqual(await saved_(OWNER),v);assert.equal((await write(OWNER,OWNER,{...ALL_OLD,...v})).rowCount,1,JSON.stringify(v))}
+   assert.equal((await write(OWNER,STRANGER,RANGE)).rowCount,0,'another profile row is not writable');
+   assert.equal((await write(OUTSIDER,OUTSIDER,RANGE)).rowCount,0,'a non-owner member cannot write even the own row');
+   assert.equal(await saved_(OUTSIDER),null);
+   await assert.rejects(as('anon','',c=>c.query('select view_prefs from public.app_profiles limit 1')),{code:'42501'});
+  });
+  await t.test('the CHECK refuses badly shaped photo_zoom and still refuses what it refused before',async()=>{
+   for(const v of BAD)await assert.rejects(write(OWNER,OWNER,v),{code:'23514'},JSON.stringify(v));
+   for(const v of [{photo_level:'week'},{photo_sources_phone:true},{report_period:{mode:'month'}},{files_sources:{pc:{od:'yes'}}},{files_two:{pc:{fold:1}}},{files_dest_recent:[{source:'ph',id:'',name:'폰'}]},{col_widths:{files:{day:39}}},{theme:'dark'},{extra:'x'},[],'x'])await assert.rejects(write(OWNER,OWNER,v),{code:'23514'},JSON.stringify(v));
+  });
+  await t.test('rollback refuses while photo_zoom is saved, and keeps it',async()=>{
+   await write(OWNER,OWNER,RANGE);
+   const result=await run('rollback','9974');assert.equal(result.ok,false,result.summary);
+   const c=await pool.connect();try{await assert.rejects(c.query(rollbackSQL),/PROFILE_VIEW_PREFS_PHOTO_ZOOM_ROLLBACK_BLOCKED: photo zoom choice saved/);await c.query('rollback');}finally{c.release();}
+   assert.deepEqual(await saved_(OWNER),RANGE);
+  });
+  await t.test('rollback restores the previous schema once no photo_zoom remains; re-apply works',async()=>{
+   await write(OWNER,OWNER,base);
+   await pool.query(rollbackSQL);
+   assert.equal((await pool.query("select count(*)::int n from supabase_migrations.schema_migrations where version=$1",[version])).rows[0].n,0);
+   assert.deepEqual((await pool.query(snapshot)).rows,before);
+   await assert.rejects(write(OWNER,OWNER,RANGE),{code:'23514'});
+   assert.deepEqual(await saved_(OWNER),base,'other saved values survive the rollback');
+   const again=await run('apply','9975');assert.equal(again.ok,true,again.summary);
+  });
+ }finally{
+  await closePool(pool);await cluster.stop().catch(()=>{});
+ }
+});
