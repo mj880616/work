@@ -87,3 +87,10 @@ export function sortNotesManual(notes, pinnedAt = () => null) {
 export const NOTE_SORTS = Object.freeze(['changed', 'manual']);
 export const NOTE_SORT_NAMES = Object.freeze({changed: '고친 날', manual: '내가 정한 순서'});
 export const isNoteSort = v => NOTE_SORTS.includes(v);
+
+// ---- 칠한 폴더 그림(FOLDER-순서·색 ③): 노트·자료실·[파일]·사진 줄이 같은 그림을 쓴다. 열린 폴더는 앞판이 비스듬히 열린 모양. 색은 부모의 data-fc(--fl-ico)가 입힌다. ----
+const SHAPE = {
+  closed: '<path d="M1.5 4.2c0-.7.6-1.2 1.2-1.2h3.1c.4 0 .7.2.9.4l.8.9h5.8c.7 0 1.2.5 1.2 1.2v6.3c0 .7-.5 1.2-1.2 1.2H2.7c-.7 0-1.2-.5-1.2-1.2z"/>',
+  open: '<path d="M1.5 4.2c0-.7.6-1.2 1.2-1.2h3.1c.4 0 .7.2.9.4l.8.9h4.8c.7 0 1.2.5 1.2 1.2v.9H3.6c-.6 0-1.1.4-1.3 1l-.8 3.9z"/><path d="M3.6 7.6h11.3c.5 0 .8.5.7 1l-1.1 4.4c-.1.5-.6.9-1.2.9H2.7c-.7 0-1.1-.5-1-1.1l.8-4.3c.2-.5.7-.9 1.1-.9z"/>'
+};
+export const folderShapeHtml = kind => `<svg viewBox="0 0 16 16" width="15" height="15" focusable="false" aria-hidden="true">${kind === 'open' ? SHAPE.open : SHAPE.closed}</svg>`;

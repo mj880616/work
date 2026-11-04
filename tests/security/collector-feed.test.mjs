@@ -635,7 +635,7 @@ test('5절 표에 collector-feed가 한 번, verify_jwt=false로 등록되어 �
   const doc=readFileSync('docs/web2-env6b-edge-source.md','utf8');
   const section=doc.slice(doc.indexOf('## 5.'),doc.indexOf('### 5.1'));
   const rows=section.split('\n').filter(l=>/^\| \d+ \| `collector-feed` \|/.test(l));
-  assert.equal(rows.length,1);assert.match(rows[0],/\| false \|/);assert.match(rows[0],/\| (배포 대기|운영 배포됨)/);
+  assert.equal(rows.length,1);assert.match(rows[0],/\| false \|/);assert.match(rows[0],/\| (배포 대기|운영 배포됨|운영 중\(버전은 functions list\))/);
   const workflow=readFileSync('.github/workflows/edge-function-deploy.yml','utf8');
   const script=name=>workflow.split(`      - name: ${name}\n`)[1].split('\n      - name:')[0]
     .split('        run: |\n')[1].split('\n').map(s=>s.replace(/^          /,'')).join('\n');

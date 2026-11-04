@@ -5,6 +5,7 @@
 // source는 나중에 Drive 폴더 보기(DRIVE-자료트리)를 더할 자리다(결정 D10). 지금은 늘 'library'.
 
 import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-limits.mjs';
+import {folderShapeHtml} from './folder-look-model.mjs';
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
 export const GROUP_LABELS=Object.freeze({project:'사업영역',organization:'담당조직',category:'분류',month:'월별',folder:'폴더'});
 // 결정 D12: 한 토글에 파일이 20개를 넘으면 20개만 보이고 [N건 더].
@@ -59,7 +60,7 @@ function folderForest(folders,frame){return forestOf(folders.filter(f=>(f.projec
 // 폴더 보기(LIB-폴더탐색기)는 프로젝트 틀을 보지 않고 parent_id만 따라 한 나무로 잇는다. 상위가 없으면 맨 위.
 function forestOf(list){
   const mine=[...list].sort(folderOrder),ids=new Set(mine.map(f=>f.id)),made=new Map();
-  for(const f of mine)made.set(f.id,node('folder','f:'+f.id,String(f.name||'이름 없는 폴더'),{id:f.id,projectId:f.project_id||null,parentId:f.parent_id||null}));
+  for(const f of mine)made.set(f.id,node('folder','f:'+f.id,String(f.name||'이름 없는 폴더'),{id:f.id,projectId:f.project_id||null,parentId:f.parent_id||null,fc:Number.isInteger(f.color)&&f.color>=1&&f.color<=8?f.color:null}));
   const roots=[];
   for(const f of mine){const n=made.get(f.id),parent=f.parent_id&&ids.has(f.parent_id)&&f.parent_id!==f.id?made.get(f.parent_id):null;(parent?parent.children:roots).push(n)}
   // 순환 고리 안의 폴더는 roots에 닿지 않는다: 닿지 않은 폴더를 맨 위로 올린다.
@@ -164,8 +165,10 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,can
   const head=n=>{
     const dots=n.kinds.map(k=>`<i class="lu-kdot" data-lu-kind="${esc(kindKey(k))}"></i>`).join('');
     const face=emoji&&(n.kind==='folder'||n.key==='x:out');
-    const mark=face?(n.key==='x:out'?'<span class="lu-folder-emoji" aria-hidden="true">\u{1F5C2}</span>':'<span class="lu-folder-emoji" aria-hidden="true"><span class="lu-fe-closed">\u{1F4C1}</span><span class="lu-fe-open">\u{1F4C2}</span></span>')
-      :n.kind==='folder'?'<svg class="lu-folder-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25a1 1 0 0 1 1-1h3.1l1.4 1.5h5.999a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H2.75a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
+    // FOLDER-순서·색 ③: 색을 고른 폴더(n.fc 1~8)는 칠한 폴더 그림(닫힘·열림을 CSS가 바꿈), 안 고른 폴더는 지금 모양 그대로.
+    const fcls=n.kind==='folder'&&n.fc?` data-fc="${n.fc}"`:'';
+    const mark=face?(n.key==='x:out'?'<span class="lu-folder-emoji" aria-hidden="true">\u{1F5C2}</span>':n.fc?`<span class="lu-folder-emoji fl-ico"${fcls} aria-hidden="true"><span class="lu-fe-closed">${folderShapeHtml('closed')}</span><span class="lu-fe-open">${folderShapeHtml('open')}</span></span>`:'<span class="lu-folder-emoji" aria-hidden="true"><span class="lu-fe-closed">\u{1F4C1}</span><span class="lu-fe-open">\u{1F4C2}</span></span>')
+      :n.kind==='folder'?`<svg class="lu-folder-icon"${fcls} viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25a1 1 0 0 1 1-1h3.1l1.4 1.5h5.999a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H2.75a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`
       :n.color?`<span class="lu-pdot" data-color="${esc(n.color)}"${n.tone?` data-tone="${esc(n.tone)}"`:''} aria-hidden="true"></span>`:'';
     const more=menu?.(n);
     const rest=folderChain(n);

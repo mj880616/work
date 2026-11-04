@@ -1,0 +1,14 @@
+/* 폴더 모양 공용 규칙(FOLDER-순서·색 ③, S49-47): 폴더를 보여 주는 모든 화면(노트·자료실·[파일]·사진)이 같은 한 곳에서 부른다. ②에서 folder-tree.css에 있던 것을 옮겼다.
+   폴더 줄·아이콘·꼬리표·포스트잇·고르기 창이 data-fc="1~8"만 달면 같은 색이 입혀진다(값은 theme-tokens.css --ds-folder-N-*). 안 고른 폴더(속성 없음)는 지금 모양 그대로. */
+[data-fc="1"] { --fl-ico:var(--ds-folder-1-ico); --fl-tag:var(--ds-folder-1-tag); --fl-paper:var(--ds-folder-1-paper); }
+[data-fc="2"] { --fl-ico:var(--ds-folder-2-ico); --fl-tag:var(--ds-folder-2-tag); --fl-paper:var(--ds-folder-2-paper); }
+[data-fc="3"] { --fl-ico:var(--ds-folder-3-ico); --fl-tag:var(--ds-folder-3-tag); --fl-paper:var(--ds-folder-3-paper); }
+[data-fc="4"] { --fl-ico:var(--ds-folder-4-ico); --fl-tag:var(--ds-folder-4-tag); --fl-paper:var(--ds-folder-4-paper); }
+[data-fc="5"] { --fl-ico:var(--ds-folder-5-ico); --fl-tag:var(--ds-folder-5-tag); --fl-paper:var(--ds-folder-5-paper); }
+[data-fc="6"] { --fl-ico:var(--ds-folder-6-ico); --fl-tag:var(--ds-folder-6-tag); --fl-paper:var(--ds-folder-6-paper); }
+[data-fc="7"] { --fl-ico:var(--ds-folder-7-ico); --fl-tag:var(--ds-folder-7-tag); --fl-paper:var(--ds-folder-7-paper); }
+[data-fc="8"] { --fl-ico:var(--ds-folder-8-ico); --fl-tag:var(--ds-folder-8-tag); --fl-paper:var(--ds-folder-8-paper); }
+.fl-ico { display:inline-flex; align-items:center; justify-content:center; color:var(--fl-ico); }
+.fl-ico svg { display:block; fill:currentColor; }
+.lu-move-ico { flex:none; margin-right:6px; }
+.fl-choice { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 10px; max-width:220px; }

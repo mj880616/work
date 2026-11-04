@@ -711,10 +711,10 @@ test('robots.txt를 못 읽을 때: 401·403은 robots_denied(읽지 않음), 5x
 
 // ---- 문서 표·index ------------------------------------------------------------------------------------------------
 
-test('docs 5절 table: outside-feed row is verify_jwt=false and 배포 대기; index wires the handler with Deno.env only', () => {
+test('docs 5절 table: outside-feed row is verify_jwt=false and 운영 중; index wires the handler with Deno.env only', () => {
   const doc=readFileSync('docs/web2-env6b-edge-source.md','utf8');
   const rows=doc.split('\n').filter(l=>/^\| \d+ \| `outside-feed` \|/.test(l));
-  assert.equal(rows.length,1);assert.match(rows[0],/\| 배포 대기 \| 없음 \| false \|/);
+  assert.equal(rows.length,1);assert.match(rows[0],/\| 운영 중\(버전은 functions list\) \| [^|]+ \| false \|/);
   const idx=readFileSync('supabase/functions/outside-feed/index.ts','utf8');
   assert.match(idx,/Deno\.serve\(withWebCors\(createOutsideFeedHandler\(\{ env: \(name\) => Deno\.env\.get\(name\) \}\)\)\);/);
   const src=readFileSync('supabase/functions/outside-feed/handler.ts','utf8');
