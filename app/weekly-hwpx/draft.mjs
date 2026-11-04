@@ -387,6 +387,8 @@ export function assembleDraft(base, edits = {}) {
   };
   const entries = effectiveOwners(out.summary);
   for (const [index, lines] of edits.summary ?? []) { const e = entries[index]; if (e) mark(e.row, 'progress', lines); }
+  // 사업요약표 담당 칸 직접 쓴 값(draft.owners): 쓴 글 그대로 담당 칸에(고치지 않음). 위 칸과 합친 칸(owner null)이면 그 줄만 따로 담당을 갖는다.
+  for (const [index, text] of edits.owners ?? []) { const e = entries[index]; if (e && String(text ?? '').trim()) e.row.owner = [String(text).trim()]; }
   for (const section of ['orgs', 'sites']) for (const [index, lines] of edits[section] ?? []) { const r = out[section]?.[index]; if (r) mark(r, 'status', lines); }
   return out;
 }

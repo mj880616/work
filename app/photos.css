@@ -64,11 +64,17 @@
 /* PHOTO-사진메뉴 2차: 동영상 표시·빠른 이동 막대·휴지통 위 줄·설정 창(일기와 같은 공용 부품 od-settings.js, 모양은 diary.css의 :is(#diaryView,#photosView) .diary-od-*). */
 #appView #photosView .photos-dur{ position:absolute; right:3px; bottom:2px; z-index:1; padding:0 3px; border-radius:3px; font-size:10px; line-height:14px; font-variant-numeric:tabular-nums; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
 #appView #photosView .photos-top{ display:flex; align-items:center; gap:6px; margin:4px 0; }
-#appView #photosView .photos-rail{ position:fixed; right:0; z-index:4; top:calc(var(--kptu-topbar-height,56px) + 56px); bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + 16px); width:22px; touch-action:none; cursor:ns-resize; }
+/* PHOTO-연도막대겹침(S49-45): 막대는 보기 칩·출처 버튼 줄 아래(top은 photos.js가 줄 바닥에 맞춤)부터. 누르는 폭 44px·손잡이 높이 44px(눈에 보이는 것은 가늘게).
+   평소엔 감춰져 있다가 스크롤·끌기·(PC) 마우스를 대면 나타난다. 감췄을 땐 터치를 받지 않아 사진 누르기·꾹 누르기와 겹치지 않는다. */
+#appView #photosView .photos-rail{ position:fixed; right:0; z-index:4; top:calc(var(--kptu-topbar-height,56px) + 72px); bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + 16px); width:44px; touch-action:none; cursor:ns-resize; opacity:0; pointer-events:none; transition:opacity .2s; -webkit-tap-highlight-color:transparent; user-select:none; }
+#appView #photosView .photos-rail.is-awake,#appView #photosView .photos-rail:focus-visible{ opacity:1; pointer-events:auto; }
+@media (hover:hover) and (pointer:fine){ #appView #photosView .photos-rail{ width:16px; pointer-events:auto; } #appView #photosView .photos-rail.is-awake,#appView #photosView .photos-rail:focus-visible{ width:44px; } }
 #appView #photosView .photos-rail[hidden]{ display:none; }
-#appView #photosView .photos-rail::before{ content:""; position:absolute; top:0; bottom:0; right:6px; width:2px; border-radius:1px; background:var(--ds-line); }
-#appView #photosView .photos-rail-thumb{ position:absolute; right:3px; width:8px; height:24px; margin-top:-2px; border-radius:4px; background:var(--kptu-muted); opacity:.6; }
-#appView #photosView .photos-rail-bubble{ position:absolute; right:26px; padding:1px 8px; border-radius:var(--kptu-radius-pill,999px); font-size:var(--ds-compact-text,13px); line-height:20px; white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #photosView .photos-rail::before{ content:""; position:absolute; top:0; bottom:0; right:8px; width:2px; border-radius:1px; background:var(--ds-line); }
+#appView #photosView .photos-rail-thumb{ position:absolute; right:0; left:0; height:44px; }
+#appView #photosView .photos-rail-thumb::after{ content:""; position:absolute; right:3px; top:6px; bottom:6px; width:8px; border-radius:4px; background:var(--kptu-muted); opacity:.7; transition:background .15s,opacity .15s; }
+#appView #photosView .photos-rail.is-drag .photos-rail-thumb::after{ background:var(--kptu-primary); opacity:1; }
+#appView #photosView .photos-rail-bubble{ position:absolute; right:52px; padding:4px 12px; border-radius:var(--kptu-radius-pill,999px); font-size:16px; font-weight:600; line-height:24px; white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); box-shadow:0 1px 6px color-mix(in srgb,var(--kptu-ink) 20%,transparent); pointer-events:none; }
 #appView #photosView .photos-rail-bubble[hidden]{ display:none; }
 #appView #photosView .photos-rail:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
 #appView #photosView .diary-viewer .diary-viewer-video{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:var(--ds-photo-stage); }
@@ -245,7 +251,7 @@
 @media (max-width:760px){.photo-info-dialog{margin:12px auto auto}}
 
 /* PHOTO-연월이동(S49-5, 명진 결정 A+B 둘 다): A 오른쪽 막대 연도 눈금, B [연·월·일] 보기 단계 줄과 월·연 칸. */
-#appView #photosView .photos-rail-year{ position:absolute; right:12px; margin-top:-6px; font-size:10px; line-height:12px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; pointer-events:none; }
+#appView #photosView .photos-rail-year{ position:absolute; right:16px; margin-top:-6px; padding:0 3px; border-radius:3px; font-size:10px; line-height:12px; color:var(--kptu-ink); background:color-mix(in srgb,var(--kptu-surface) 78%,transparent); font-variant-numeric:tabular-nums; pointer-events:none; }
 #appView #photosView .photos-lv{ display:flex; justify-content:center; gap:4px; padding:2px 0 4px; }
 #appView #photosView .photos-lv-btn{ min-width:40px; }
 #appView #photosView .photos-lv-btn[aria-pressed="true"]{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }

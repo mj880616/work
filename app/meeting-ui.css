@@ -372,7 +372,7 @@
 .biz-sum-table thead th{font-weight:700;text-align:center;background:var(--kptu-surface-subtle)}
 .biz-sum-table th:nth-child(1),.biz-sum-table td:nth-child(1){width:18%}
 .biz-sum-table thead th:nth-child(2){width:18%}
-.biz-sum-table thead th:nth-child(4){width:10%}
+.biz-sum-table thead th:nth-child(4){width:14%}
 .biz-cell-line{display:block;width:100%;padding:1px 0;border:0;background:none;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .biz-cell-line:hover,.biz-cell-line:focus-visible{text-decoration:underline}
 .biz-cell-plan{margin:2px 0 0;color:var(--kptu-muted)}
@@ -382,14 +382,14 @@
 .biz-day{color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 .biz-preview-foot{justify-content:space-between;border-top:1px solid var(--kptu-border)}
 .biz-preview-foot .status{margin:0;font-size:12px}
-/* 사업영역 AI 한 줄(설계 13절): 위 줄 작은 안내, 표 칸 안 한 줄 + 작은 글자 버튼 [고치기], 보고 줄은 접기. 작고 낮게. */
-.biz-ai-note{font-size:12px;color:var(--kptu-muted);min-width:0}
-.biz-ai-line{margin:0 0 2px}
-.biz-ai-add{position:relative;padding:0 2px;border:0;background:none;font:inherit;font-size:12px;color:var(--kptu-muted);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.biz-ai-add::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-.biz-ai-more>summary{cursor:pointer;font-size:12px;color:var(--kptu-muted)}
-.biz-ai-edit{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:2px}
-.biz-ai-edit input{flex:1 1 160px;min-width:0;font-size:13px}
+/* 사업요약표 직접 쓰기(S49-39): 진행·담당 칸 끝 작은 글자 버튼 [쓰기]/[고치기], 누르면 글 칸 + 작은 [저장]·[취소]. 작고 낮게. */
+.biz-hand-line{margin:0 0 2px;overflow-wrap:anywhere}
+.biz-write-open{position:relative;display:inline-block;margin-top:2px;padding:0 2px;border:0;background:none;font:inherit;font-size:12px;color:var(--kptu-muted);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.biz-write-open::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.biz-write{display:grid;gap:4px}
+.biz-write textarea,.biz-write input{width:100%;box-sizing:border-box;min-width:0;font-size:13px}
+.biz-write-btns{display:flex;gap:4px}
+.biz-write-hint{font-size:11px;color:var(--kptu-muted)}
 
 /* MTG-프로젝트합치기 3단계: 사업 보고 [목록]의 주 넘기기 줄(‹ 10.26(월)~11.1(일) n건 › [전체]). 작고 낮은 버튼, 한 줄. */
 #meetingsView .report-week-bar{flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0;margin-bottom:var(--kptu-space-1)}

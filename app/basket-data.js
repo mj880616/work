@@ -366,6 +366,17 @@ export function setNoteFolderRef(note, folder, rt = window.KPTURuntime, {fromId}
     return metadata;
   }, rt);
 }
+// FOLDER-순서·색 ②(S49-38 설계 3-3): '내가 정한 순서'는 노트 행의 기존 metadata.order(정수) 하나(새 칸·DB 변경 없음, 고정·폴더·보드와 같은 읽고-지키며-쓰기).
+// 순서 바꾸기는 고치기가 아니라 updated_at(고친 날)을 건드리지 않는다. 값의 뜻·계산은 folder-look-model.mjs(placeAt·sortNotesManual).
+export function setNoteOrder(note, order, rt = window.KPTURuntime) {
+  if (order !== null && (!Number.isInteger(order) || Math.abs(order) > 1e12)) return Promise.reject(new Error('노트 순서 값을 확인하지 못했어요.'));
+  return patchNoteMetadata(note, metadata => {
+    if (order === null) { if (!Object.hasOwn(metadata, 'order')) return null; delete metadata.order; return metadata; } // null = 순서 값 비움(되돌리기용)
+    if (metadata.order === order) return null;
+    metadata.order = order;
+    return metadata;
+  }, rt);
+}
 export function moveToBasket(note, rt = window.KPTURuntime) {
   const text = String(note?.raw_text || '');
   if (!text.trim() && !note?.attachments?.length) throw new Error('본문과 첨부가 없는 노트는 정리함으로 돌릴 수 없어요. 본문을 먼저 써 주세요.');

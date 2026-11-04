@@ -1,6 +1,8 @@
 // DESK-현황표: 담당조직 상세 [현황 표] 소탭과 주간보고 '3. 2) 투쟁 사업장 현황' 그 조직 칸이 함께 쓰는 판정(순수 함수만).
 // 자료는 app_org_status_rows 한 곳(migration 20261030234000). 화면 그리기·서버 읽기/쓰기는 org-status-table.js.
-// - 줄 순서: sort_order 오름차순, 같으면 날짜 최신 먼저. 처음 SHOWN줄만 보이고 나머지는 '지난 줄 펼치기'.
+// - 줄 순서(DESK-현황오름차순, 정렬 규칙은 sortRows 한 곳): 시작일(day) 오름차순, 같은 날이면 sort_order 적은 순, 그래도 같으면 id. 손으로 순서를 바꾸는 기능은 없다.
+//   보이는 줄은 가장 최근 SHOWN줄(맨 끝 쪽)이고, 그 앞의 오래된 줄은 '펼치기'로 본다. 화면·[복사]·주간보고가 모두 이 함수들을 쓴다.
+// - 날짜 표기(DESK-일정기간, periodLabel 한 곳): 하루 '10.29.(목)', 기간 '11.2.~11.5.'(요일 없음, 해가 다르면 해를 붙임). end_day(끝나는 날)는 비어 있거나 시작일 이후.
 // - 주간보고 칸: 보이는 SHOWN줄을 '- 10.29.(목) 내용' 꼴로(표에 보이는 그대로). 표가 비면 주간보고는 예전처럼 직전 확정본 줄.
 // - [기록에서 다시 채우기 (AI)]: AI가 뽑은 그대로인 줄(source=ai)만 지우고 새 줄로 바꾼다. 사람이 넣거나 고친 줄(source=user)은 그대로 두고,
 //   같은 날·같은 글의 AI 줄은 다시 넣지 않는다. 새 AI 줄은 날짜 순서에 맞춰 사람 줄 사이에 끼운다(사람이 정한 순서는 유지).
@@ -21,38 +23,30 @@ export function dayLabel(day) {
   const d = new Date(day + 'T00:00:00Z');
   return `${d.getUTCMonth() + 1}.${d.getUTCDate()}.(${WEEK[d.getUTCDay()]})`;
 }
+// 끝나는 날 판정: 비어 있으면 하루 일정(통과), 있으면 실제 날짜이고 시작일과 같거나 뒤.
+export const validEnd = (day, end) => end == null || end === '' || (validDay(end) && validDay(day) && end >= day);
+// 날짜 표기 한 곳(화면·[복사]·주간보고 공통): 하루 '10.29.(목)', 기간 '11.2.~11.5.'(요일 없음). 끝이 비었거나 시작일과 같으면 하루.
+export function periodLabel(day, end) {
+  if (!validDay(day)) return '';
+  if (!validDay(end) || end <= day) return dayLabel(day);
+  const yearDiff = day.slice(0, 4) !== end.slice(0, 4);
+  const md = d => `${yearDiff ? `${d.slice(0, 4)}.` : ''}${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}.`;
+  return `${md(day)}~${md(end)}`;
+}
+// 정렬 규칙 한 곳: 시작일 오름차순 → 같은 날은 sort_order 적은 순 → id.
 export function sortRows(rows) {
-  return [...(rows ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(b.day).localeCompare(String(a.day)) || String(a.id).localeCompare(String(b.id)));
+  return [...(rows ?? [])].sort((a, b) => String(a.day).localeCompare(String(b.day)) || (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(a.id).localeCompare(String(b.id)));
 }
-export function splitRows(rows) {
-  const all = sortRows(rows);
-  return {shown: all.slice(0, SHOWN), older: all.slice(SHOWN)};
+// 보이는 줄 = 가장 최근 limit줄(오름차순 그대로), 나머지 오래된 줄 = older(오름차순).
+export function splitRows(rows, limit = SHOWN) {
+  const all = sortRows(rows), cut = Math.max(0, all.length - limit);
+  return {shown: all.slice(cut), older: all.slice(0, cut)};
 }
+// 새 줄의 sort_order: 지금 가장 큰 값 다음(같은 날 줄은 넣은 순서). DB 검사 0..1000.
+export const nextOrder = rows => Math.min(1000, (rows ?? []).reduce((m, r) => Math.max(m, r.sort_order ?? 0), -1) + 1);
 // 주간보고 칸 줄(표에 보이는 줄 그대로).
 export function weeklyLines(rows) {
-  return splitRows(rows).shown.map(r => `- ${dayLabel(r.day)} ${cleanBody(r.body)}`.replace(/\s+$/, '')).filter(l => l !== '-');
-}
-// 순서 바꾸기: index 줄을 dir(-1 위, +1 아래)로. 반환 = 새 순서의 줄 목록(sort_order 0..n-1을 붙임). 바뀐 것이 없으면 null.
-export function moveRow(rows, id, dir) {
-  const all = sortRows(rows), i = all.findIndex(r => r.id === id), j = i + dir;
-  if (i < 0 || j < 0 || j >= all.length) return null;
-  [all[i], all[j]] = [all[j], all[i]];
-  return all.map((r, k) => ({...r, sort_order: k}));
-}
-// 순서를 0..n-1로 다시 붙였을 때 sort_order가 바뀌는 줄만(PATCH할 것).
-export function orderChanges(next, prev) {
-  const old = new Map((prev ?? []).map(r => [r.id, r.sort_order]));
-  return next.filter(r => r.id && old.get(r.id) !== r.sort_order).map(r => ({id: r.id, sort_order: r.sort_order}));
-}
-// 새 줄을 넣을 자리: 날짜가 가장 최신이면 맨 위(0)…, 사람이 정한 순서 사이에서 그 날짜보다 오래된 첫 줄 앞.
-function placeByDay(list, row) {
-  const i = list.findIndex(r => String(r.day) < String(row.day));
-  return i < 0 ? list.length : i;
-}
-export function insertRow(rows, row) {
-  const all = sortRows(rows), at = placeByDay(all, row);
-  all.splice(at, 0, row);
-  return all.map((r, k) => ({...r, sort_order: k}));
+  return splitRows(rows).shown.map(r => `- ${periodLabel(r.day, r.end_day)} ${cleanBody(r.body)}`.replace(/\s+$/, '')).filter(l => l !== '-');
 }
 // 같은 줄 판정(DESK-전체현황표 ⑩): 날짜가 하루 안쪽이고 내용이 비슷하면 같은 일로 본다. 서버(supabase/functions/ai-assist/org-status-rows.ts)도 같은 규칙으로 한 번 더 거른다.
 // 내용: 글자·숫자만 남긴 글이 서로 들어 있거나(4자 이상, 끝맺음 '승인'/'승인함'), 두 글자 조각이 60% 이상 겹치면 비슷하다.
@@ -73,33 +67,33 @@ export function similarBody(a, b) {
 const dayGap = (a, b) => (validDay(a) && validDay(b) ? Math.abs(Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 86400000 : Infinity);
 export const sameLine = (x, y) => dayGap(x?.day, y?.day) <= 1 && similarBody(x?.body, y?.body);
 
-// 다시 채우기 계획. ai = [{day, text, evidence}](서버 답). 반환 {remove:[id], add:[{day, body, evidence, sort_order}], order:[{id, sort_order}], rows(결과 순서)}
-// 사람이 넣거나 고친 줄(source!=ai)과 같은 일(sameLine)인 AI 줄, 이번 답 안에서 서로 같은 일인 AI 줄은 더하지 않는다.
+// 다시 채우기 계획. ai = [{day, end_day?, text, evidence}](서버 답). 반환 {remove:[id], add:[{day, end_day, body, evidence, sort_order}], rows(결과 줄들)}
+// 사람이 넣거나 고친 줄(source!=ai)과 같은 일(sameLine)인 AI 줄, 이번 답 안에서 서로 같은 일인 AI 줄은 더하지 않는다. 순서는 날짜가 정하므로 사람 줄의 sort_order는 건드리지 않는다.
 export function refillPlan(rows, ai) {
   const keep = sortRows(rows).filter(r => r.source !== 'ai');
   const remove = (rows ?? []).filter(r => r.source === 'ai').map(r => r.id);
-  let list = keep.map(r => ({...r}));
+  const list = keep.map(r => ({...r}));
   const seen = [];
+  let order = nextOrder(keep);
   for (const a of ai ?? []) {
-    const body = cleanBody(a?.text), day = a?.day;
+    const body = cleanBody(a?.text), day = a?.day, end_day = validEnd(day, a?.end_day) && validDay(a?.end_day) && a.end_day > day ? a.end_day : null;
     if (!body || !validDay(day)) continue;
     const cand = {day, body};
     if (keep.some(r => sameLine(r, cand)) || seen.some(r => sameLine(r, cand))) continue;
     if (list.length >= ROWS_MAX) break;
     seen.push(cand);
     const evidence = Array.isArray(a.evidence) ? a.evidence.filter(v => typeof v === 'string').slice(0, 10) : [];
-    list.splice(placeByDay(list, {day}), 0, {id: null, day, body, source: 'ai', evidence});
+    list.push({id: null, day, end_day, body, source: 'ai', evidence, sort_order: Math.min(1000, order++)});
   }
-  list = list.map((r, k) => ({...r, sort_order: k}));
   return {
     remove,
-    add: list.filter(r => !r.id).map(({day, body, evidence, sort_order}) => ({day, body, evidence, sort_order})),
-    order: orderChanges(list.filter(r => r.id), keep),
-    rows: list,
+    add: list.filter(r => !r.id).map(({day, end_day, body, evidence, sort_order}) => ({day, end_day, body, evidence, sort_order})),
+    rows: sortRows(list),
   };
 }
-// 전체 표 한 조직 칸: 보이는 줄 중 처음 limit줄(최신 순).
-export const overviewRows = (rows, limit = 3) => splitRows(rows).shown.slice(0, limit);
+// 전체 표 한 조직 칸: 가장 최근 limit줄(오름차순)과 그 앞의 오래된 줄(펼치기로 보임, 오름차순).
+export const overviewRows = (rows, limit = 3) => splitRows(rows, limit).shown;
+export const overviewOlder = (rows, limit = 3) => splitRows(rows, limit).older;
 // 주간보고: 조직(id) → 표 줄들. 표가 있는 조직의 칸은 [단계 줄(있으면)] + 표 줄로 시작한다(바탕의 지난 확정본 줄 대신).
 export function siteLinesFromTable(stageLines, tableRows, isStageLine = () => false) {
   const table = weeklyLines(tableRows);

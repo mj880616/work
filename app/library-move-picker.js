@@ -1,3 +1,4 @@
+import {pickIconHtml} from './folder-look.js';
 import {emptyHtml} from './wait-state.js';
 // LIB-폴더로옮기기 (2026-10-27 17:01 사용자 요청): [폴더로 옮기기 ›]를 누르면 뜨는 작은 폴더 목록(PC·폰 공통, 그리는 곳은 여기 하나).
 // 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기]·[폴더 밖으로].
@@ -48,7 +49,7 @@ export function createMovePicker({esc}){
     },true);
   }
   const items=()=>[...(list?.querySelectorAll('.lu-move-item')||[])];
-  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}"><span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?'<span class="lu-move-tag">지금 여기</span>':''}</button>`;
+  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${pickIconHtml(r)}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?'<span class="lu-move-tag">지금 여기</span>':''}</button>`;
 
   function paint(){
     if(!state)return;

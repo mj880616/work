@@ -74,7 +74,7 @@ import {readDeviceSources, deviceSourcesPref} from './photo-sources-device.js';
 import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
-  colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearCells, monthCells, LEVEL_TEXT, PHOTO_LEVELS_ORDER, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
+  colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, yearCells, monthCells, LEVEL_TEXT, PHOTO_LEVELS_ORDER, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
 
 (() => {
@@ -917,21 +917,40 @@ function paintStars() {
 }
 
 // ---- 빠른 이동 막대(오른쪽 끝, [사진]에서 달이 둘 이상일 때) ----
+// PHOTO-연도막대겹침(S49-45): 막대는 위 두 줄(보기 칩·출처 버튼 줄) 아래부터 시작하고, 연도 글자는 겹치지 않는 해만 보인다.
+// 삼성·아이폰 갤러리처럼 스크롤하면 손잡이가 나타나 잠시 뒤 사라지고(PC는 마우스를 대면), 끌면 옆에 '2025년 10월' 말풍선이 뜨며 놓으면 그 달로 간다.
+// 손잡이·막대는 누르는 폭 44px 이상(CSS), 이 막대 위에서는 아래 사진이 열리지 않는다(막대가 위에서 받는다).
+const RAIL_THUMB_H = 44, RAIL_AWAKE_MS = 1800;
+let railSleepT = 0, railHover = false;
+function railWake(ms = RAIL_AWAKE_MS) {
+  if (rail.hidden) return;
+  rail.classList.add('is-awake'); clearTimeout(railSleepT);
+  if (!railDrag && !railHover) railSleepT = setTimeout(() => rail.classList.remove('is-awake'), ms);
+}
+function placeRail() {
+  const barEl = root.querySelector('[data-photos-bar]');
+  if (barEl) rail.style.top = `${Math.round(barEl.getBoundingClientRect().bottom + 4)}px`;
+}
 function paintRail() {
   const on = tab === 'all' && anyUse() && bar.length > 1 && !select.active && listSort() === DEFAULT_SORT;
   rail.hidden = !on;
   rail.querySelectorAll('.photos-rail-year').forEach(el => el.remove());
-  if (!on) return;
-  // PHOTO-연월이동 A: 막대 옆 연도 눈금(해마다 한 번, 그 해 가장 최근 달 자리). 눈금은 읽어 주는 말에서 뺀다.
-  for (const t of yearTicks(bar)) rail.append(Object.assign(document.createElement('span'), {className:'photos-rail-year', textContent:String(t.year), style:`top:${Math.round(t.from * 1000) / 10}%`}));
+  if (!on) { rail.classList.remove('is-awake'); return; }
+  placeRail();
+  // PHOTO-연월이동 A: 막대 옆 연도 눈금(해마다 한 번, 그 해 가장 최근 달 자리). 눈금은 읽어 주는 말에서 뺀다. 겹치는 해는 생략(yearLabels).
+  const h = rail.getBoundingClientRect().height;
+  for (const t of yearLabels(bar, h)) rail.append(Object.assign(document.createElement('span'), {className:'photos-rail-year', textContent:String(t.year), style:`top:${Math.round(t.pos)}px`}));
   const top = items.length ? items[0].day.slice(0, 7) : (from ? from.cursor.t.slice(0, 7) : '');
   const at = bar.find(m => m.key === top) || bar[0];
   railAt(bar.indexOf(at));
+  railWake(RAIL_AWAKE_MS + 700);
 }
+// 손잡이를 막대 위 y(px)에 둔다(위·아래 끝에서 삐져나오지 않게).
+const thumbTo = px => { const h = rail.getBoundingClientRect().height; thumb.style.top = `${Math.round(Math.max(0, Math.min(Math.max(0, h - RAIL_THUMB_H), px - RAIL_THUMB_H / 2)))}px`; };
 // 막대 손잡이 자리와 읽어 주는 값(달 순서 0 = 최신 달).
 function railAt(k) {
   const m = bar[k]; if (!m) return;
-  thumb.style.top = `${Math.round(m.from * 1000) / 10}%`;
+  thumbTo(m.from * rail.getBoundingClientRect().height);
   rail.setAttribute('aria-valuemax', String(bar.length - 1)); rail.setAttribute('aria-valuenow', String(k)); rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
 let railDrag = null;
@@ -939,17 +958,37 @@ const railMonth = y => { const r = rail.getBoundingClientRect(); return monthAt(
 function showBubble(m, y) {
   if (!m) return;
   const r = rail.getBoundingClientRect();
-  bubble.hidden = false; bubble.textContent = monthLabelKo(m.key); bubble.style.top = `${Math.max(0, Math.min(r.height - 20, y - r.top - 10))}px`;
+  bubble.hidden = false; bubble.textContent = monthLabelKo(m.key); bubble.style.top = `${Math.max(0, Math.min(r.height - 32, y - r.top - 16))}px`;
+  thumbTo(y - r.top);
   rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
-rail.addEventListener('pointerdown', e => { e.preventDefault(); rail.setPointerCapture?.(e.pointerId); railDrag = railMonth(e.clientY); showBubble(railDrag, e.clientY); });
-rail.addEventListener('pointermove', e => { if (!railDrag) return; railDrag = railMonth(e.clientY); showBubble(railDrag, e.clientY); });
-const railEnd = () => { const m = railDrag; railDrag = null; bubble.hidden = true; if (m) jumpMonth(m.key); };
+const railPoint = e => { const m = railMonth(e.clientY); if (m && railDrag && m.key !== railDrag.key) navigator.vibrate?.(6); railDrag = m; showBubble(m, e.clientY); };
+rail.addEventListener('pointerdown', e => { e.preventDefault(); rail.setPointerCapture?.(e.pointerId); rail.classList.add('is-drag'); railWake(); railPoint(e); });
+rail.addEventListener('pointermove', e => { if (railDrag) railPoint(e); });
+const railEnd = () => { const m = railDrag; railDrag = null; bubble.hidden = true; rail.classList.remove('is-drag'); if (m) jumpMonth(m.key); railWake(); };
 rail.addEventListener('pointerup', railEnd);
-rail.addEventListener('pointercancel', () => { railDrag = null; bubble.hidden = true; });
+rail.addEventListener('pointercancel', () => { railDrag = null; bubble.hidden = true; rail.classList.remove('is-drag'); railWake(); });
+rail.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); }); // 막대 위 누르기는 아래 사진을 열지 않는다
+rail.addEventListener('pointerenter', e => { if (e.pointerType !== 'mouse') return; railHover = true; railWake(); });
+rail.addEventListener('pointerleave', () => { railHover = false; railWake(); });
+rail.addEventListener('focus', () => railWake(6000));
+// 스크롤하면 손잡이가 나타나고 지금 보는 달 자리로 간다.
+let railScrollRaf = 0;
+function railSync() {
+  railScrollRaf = 0;
+  if (rail.hidden || railDrag || !bar.length) return;
+  const barEl = root.querySelector('[data-photos-bar]'), edge = barEl ? barEl.getBoundingClientRect().bottom : 0;
+  const days = body.querySelectorAll('[data-photos-day]');
+  let key = '';
+  for (const d of days) { if (d.getBoundingClientRect().bottom > edge + 1) { key = String(d.dataset.photosDay).slice(0, 7); break; } }
+  const k = bar.findIndex(m => m.key === key);
+  if (k >= 0) railAt(k);
+}
+window.addEventListener('scroll', () => { if (rail.hidden || railDrag) return; railWake(); if (!railScrollRaf) railScrollRaf = requestAnimationFrame(railSync); }, {passive:true, capture:true});
+window.addEventListener('resize', () => { if (!rail.hidden) paintRail(); });
 rail.addEventListener('keydown', e => {
   if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key) || !bar.length) return;
-  e.preventDefault();
+  e.preventDefault(); railWake(6000);
   let k = Math.max(0, Math.min(bar.length - 1, Number(rail.getAttribute('aria-valuenow')) || 0));
   if (e.key === 'Enter') return jumpMonth(bar[k].key);
   k = Math.max(0, Math.min(bar.length - 1, k + (e.key === 'ArrowDown' ? 1 : -1)));

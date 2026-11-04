@@ -1,0 +1,72 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {dropZone, placeAt, stepPlan, isSamePlace, colorOf, isFolderColor, orderedSiblings, sortNotesManual, noteOrderOf, FOLDER_COLORS, ORDER_GAP} from '../app/folder-look-model.mjs';
+
+test('색: 1~8 정수만, 나머지는 기본(null)', () => {
+  assert.equal(FOLDER_COLORS.length, 8);
+  for (const v of [1, 8]) assert.equal(isFolderColor(v), true);
+  for (const v of [0, 9, 1.5, '3', null, undefined, NaN]) assert.equal(isFolderColor(v), false);
+  assert.equal(colorOf({color: 4}), 4);
+  assert.equal(colorOf({color: 12}), null);
+  assert.equal(colorOf(null), null);
+});
+
+test('끌기 자리: 위 25%·가운데 50%·아래 25%', () => {
+  const rect = {top: 100, height: 40};
+  assert.equal(dropZone(rect, 105), 'before');
+  assert.equal(dropZone(rect, 109.9), 'before');
+  assert.equal(dropZone(rect, 110), 'inside');
+  assert.equal(dropZone(rect, 120), 'inside');
+  assert.equal(dropZone(rect, 130), 'inside');
+  assert.equal(dropZone(rect, 130.1), 'after');
+  assert.equal(dropZone(rect, 139), 'after');
+  assert.equal(dropZone(rect, 119, {canInside: false}), 'before');
+  assert.equal(dropZone(rect, 121, {canInside: false}), 'after');
+  assert.equal(dropZone({top: 0, height: 0}, 5), 'after');
+});
+
+const rows = (...orders) => orders.map((o, i) => ({id: 'r' + i, sort_order: o}));
+test('순서 값: 사이·맨 앞·맨 뒤·틈 없음', () => {
+  const s = rows(1024, 2048, 3072);
+  assert.deepEqual(placeAt(s, 'x', 0), [{id: 'x', order: 0}]);
+  assert.deepEqual(placeAt(s, 'x', 1), [{id: 'x', order: 1536}]);
+  assert.deepEqual(placeAt(s, 'x', 3), [{id: 'x', order: 4096}]);
+  const tight = rows(10, 11, 12);
+  const plan = placeAt(tight, 'x', 1);
+  assert.equal(plan.length, 4);
+  assert.deepEqual(plan.map(p => p.id), ['r0', 'x', 'r1', 'r2']);
+  assert.deepEqual(plan.map(p => p.order), [1, 2, 3, 4].map(n => n * ORDER_GAP));
+  assert.deepEqual(placeAt([], 'x', 0), [{id: 'x', order: ORDER_GAP}]);
+});
+test('순서 값: 끌고 있는 줄을 뺀 목록 기준, 값 없는 줄이 있으면 전체 다시 매김', () => {
+  const s = rows(1024, 2048, 3072);
+  // r0을 r1 뒤로(빼고 보면 [r1, r2]에서 자리 1)
+  assert.deepEqual(placeAt(s, 'r0', 1), [{id: 'r0', order: 2560}]);
+  const mixed = [{id: 'a', sort_order: 5}, {id: 'b'}, {id: 'c', sort_order: 9}];
+  const plan = placeAt(mixed, 'c', 0);
+  assert.deepEqual(plan.map(p => p.id), ['c', 'a', 'b']);
+  assert.deepEqual(plan.map(p => p.order), [1024, 2048, 3072]);
+});
+test('위로·아래로, 제자리', () => {
+  const s = rows(1024, 2048, 3072);
+  assert.deepEqual(stepPlan(s, 'r1', -1), [{id: 'r1', order: 0}]);
+  assert.deepEqual(stepPlan(s, 'r1', 1), [{id: 'r1', order: 4096}]);
+  assert.deepEqual(stepPlan(s, 'r0', -1), []);
+  assert.deepEqual(stepPlan(s, 'r2', 1), []);
+  assert.deepEqual(stepPlan(s, 'none', 1), []);
+  assert.equal(isSamePlace(s, 'r1', 1), true);
+  assert.equal(isSamePlace(s, 'r1', 0), false);
+});
+test('형제 줄 세우기', () => {
+  const list = [{id: 'b', sort_order: 2, created_at: '1'}, {id: 'a', sort_order: 1}, {id: 'c', sort_order: 2, created_at: '0'}];
+  assert.deepEqual(orderedSiblings(list).map(r => r.id), ['a', 'c', 'b']);
+});
+test('노트 순서: 고정 위, 값 있는 노트 순서대로, 값 없는 노트는 고친 날 순으로 뒤', () => {
+  const n = (id, order, updated, pin) => ({id, updated_at: updated, metadata: {...(order === undefined ? {} : {order}), ...(pin ? {pinned_at: pin} : {})}});
+  const notes = [n('a', 3072, '2026-01-01'), n('b', 1024, '2026-01-02'), n('c', undefined, '2026-01-05'), n('d', undefined, '2026-01-09'), n('p', 5, '2026-01-01', '2026-02-01T00:00:00Z')];
+  const pinned = x => x.metadata.pinned_at || null;
+  assert.deepEqual(sortNotesManual(notes, pinned).map(x => x.id), ['p', 'b', 'a', 'd', 'c']);
+  assert.equal(noteOrderOf({metadata: {order: 1.5}}), null);
+  assert.equal(noteOrderOf({metadata: {order: '7'}}), null);
+  assert.equal(noteOrderOf({metadata: {order: 7}}), 7);
+});

@@ -31,6 +31,10 @@ const GRANTS={
   app_feed_days:{select:'*',insert:['workspace_id','day','source','total_count','kept_count','room_count','personal_count','unsure_count','failed_count','batch_count','ai_requests','ai_input_tokens','ai_output_tokens','updated_at'],update:['total_count','kept_count','room_count','personal_count','unsure_count','failed_count','batch_count','ai_requests','ai_input_tokens','ai_output_tokens','updated_at']},
   // migration 20261025200000_call_personal_box.sql: 개인 통화함은 칸별 넣기 + 중복 확인 두 칸 읽기뿐(전문 읽기·고치기·지우기 없음).
   app_call_personal:{select:['workspace_id','source_ref'],insert:['workspace_id','kind','day','occurred_at','title','summary','points','counterpart','speaker_split','raw_text','source_ref','drive_url','model','judged_at'],update:[]},
+  // migration 20261104200000_call_contact_choice.sql: 서버는 세 칸 읽기만(쓰기는 app_call_move 함수만).
+  app_call_contact_choice:{select:['workspace_id','contact_key','choice'],insert:[],update:[]},
+  // 통화 한 건↔상대 열쇠: 서버는 넣기만(읽기 없음).
+  app_call_contact_ref:{select:[],insert:['workspace_id','source_ref','contact_key'],update:[]},
   app_workspaces:{select:'*'},app_suborganizations:{select:'*'},app_spaces:{select:'*'},
 };
 const COUNTERS=['total_count','kept_count','room_count','personal_count','unsure_count','failed_count','batch_count','ai_requests','ai_input_tokens','ai_output_tokens'];
@@ -38,9 +42,9 @@ const COUNTERS=['total_count','kept_count','room_count','personal_count','unsure
 // 명진의 통화 분석 v3.2(분석 앱 스크립트 analysisRenderMarkdown_)가 만드는 모양을 따른 지어낸 분석 파일.
 // work: is_work_related 값('true'|'false'|null=칸 없음). counterpart: 옛 모양 `## 상대 이름·직책` 절(null이면 절 없음).
 function analysis({version='3.2',work='true',status='검토대기',title='가상노조 위원장 · 3차 교섭 일정 변경',when='2026-10-24 09:30:00',ref='SRCFAKE0001aa',
-  counterpart=null,head='- 상대 이름: 홍길동\n- 상대 직책: 위원장\n- 주체 확인필요: 아니오',related='["가상노동조합"]',extraFront='',
+  counterpart=null,txt='통화 홍길동_261024_093000.txt',head='- 상대 이름: 홍길동\n- 상대 직책: 위원장\n- 주체 확인필요: 아니오',related='["가상노동조합"]',extraFront='',
   summary='- 3차 교섭을 10. 28.(화) 14:00로 미루기로 함.\n- 사측 안은 서면으로 받기로 함.'}={}){
-  return ['---',`analysis_version: "${version}"`,`status: "${status}"`,'source_type: "통화녹음"',`source_txt_id: "${ref}"`,'source_txt_name: "통화 홍길동_261024_093000.txt"',
+  return ['---',`analysis_version: "${version}"`,`status: "${status}"`,'source_type: "통화녹음"',`source_txt_id: "${ref}"`,`source_txt_name: "${txt}"`,
     `recording_datetime: "${when}"`,'analysis_model: "gemini-fake"','analysis_at: "2026-10-24 09:45:00"','has_candidates: true',
     work===null?null:`is_work_related: ${work}`,title===null?null:`call_title: "${title}"`,related===null?null:`related_organizations: [${related.slice(1,-1)}]`,extraFront,'---','',
     `# ${title??'전사 분석 검토'}`,'','- 원본 전사: 통화 홍길동_261024_093000.txt','- 자료유형: 통화녹음',head,'',
@@ -53,7 +57,7 @@ function analysis({version='3.2',work='true',status='검토대기',title='가상
 const openaiOk=(items)=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:5000,output_tokens:600}});
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변경',summary:'가상지부 교섭이 다음 주 화요일로 미뤄졌다.',refs:['m1','m2'],organization:'o1',project:'p1'}]))],days=[],items=[],personal=[],dbFail=null,featureWs=undefined}={}){
+function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변경',summary:'가상지부 교섭이 다음 주 화요일로 미뤄졌다.',refs:['m1','m2'],organization:'o1',project:'p1'}]))],days=[],items=[],personal=[],choices=[],dbFail=null,featureWs=undefined}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={
     app_workspaces:[{id:WS,slug:'kptu-work'},{id:OTHER_WS,slug:'other-work'}],
@@ -61,6 +65,8 @@ function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변
     app_spaces:[{id:PROJECT,workspace_id:WS,name:'가상 교섭 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'}},{id:FOREIGN_PROJECT,workspace_id:OTHER_WS,name:'남의 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'}},{id:'e0000000-0000-4000-8000-000000000003',workspace_id:WS,name:'가상 휴지통 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'},deleted_at:'2026-10-24T01:00:00Z',deleted_root_id:'e0000000-0000-4000-8000-000000000003'}],
     app_feed_items:structuredClone(items),
     app_call_personal:structuredClone(personal),
+    app_call_contact_choice:structuredClone(choices),
+    app_call_contact_ref:[],
     app_feed_days:structuredClone(days),
   };
   const filters=url=>{const f=[];for(const [k,v] of url.searchParams){if(['select','limit','order','offset'].includes(k))continue;f.push([k,v]);}return f;};
@@ -680,4 +686,95 @@ test('MULTI 단계 ①: 허용 표에 통화가 허용된 작업공간이 정확
 test('MULTI 단계 ①: 텔레그램은 텔레그램 기능, 통화·통화 건너뜀은 통화 기능으로 작업공간을 찾는다',async()=>{
   const t=harness();const r=await t.send('telegram',tgBody());assert.equal(r.status,200);assert.deepEqual(t.calls.features,['telegram']);
   const c=harness();assert.equal((await c.send('call',callBody())).status,200);assert.deepEqual(c.calls.features,['calls']);
+});
+
+// ---- CALL-업무기본: 애매 통화를 서버 규칙으로 다시 가른다(새 AI 호출 없음). 이름·번호는 모두 지어낸 것. -----------------------------------------------
+const unsureMd=(o={})=>personalMd({status:'애매',work:'""',...o});
+const hex64=/^[0-9a-f]{64}$/;
+const sendUnsure=async(h,txt,extra={})=>(await h.send('call',callBody({body:{analysis_md:unsureMd({txt,...extra}),transcript:PERSONAL_TR}}))).json();
+const {contactIsWork,contactRaw,contactNorm,contactDigest}=await import('../../supabase/functions/collector-feed/call-analysis.ts');
+const ORGS=[{id:ORG,name:'가상노동조합',aliases:['가상노조'],active:true},{id:ORG2,name:'예시지부',aliases:[],active:true},{id:'x',name:'쓰지않는모임',aliases:[],active:false}];
+
+test('CALL-업무기본: contactIsWork — 조직 이름·약칭이 들어 있거나 업무 꼬리표가 있는 이름만 업무, 번호·짧은 이름·쓰지 않는 조직은 아님',()=>{
+  assert.equal(contactIsWork('가상노조 김가상 위원장',ORGS),true,'약칭');
+  assert.equal(contactIsWork('가상 노동조합 김가상',ORGS),true,'띄어쓰기 달라도');
+  assert.equal(contactIsWork('예시지부',ORGS),true,'조직 이름만 있는 대표번호');
+  assert.equal(contactIsWork('예시 김가상',ORGS),false,'지부 접미를 뗀 두 글자만 겹치면 아님');
+  assert.equal(contactIsWork('가상 의원실 최비서관',[]),true,'업무 꼬리표(의원실)');
+  assert.equal(contactIsWork('한겨레 홍기자',[]),true,'기자 꼬리표 낱말');
+  assert.equal(contactIsWork('기자촌 김가상',[]),false,'꼬리표가 낱말 끝이 아니면 아님');
+  assert.equal(contactIsWork('김가상',ORGS),false,'조직 없는 이름');
+  assert.equal(contactIsWork('의원실',[]),false,'꼬리표 하나만 있는 이름은 아님(두 낱말 이상)');
+  assert.equal(contactIsWork('쓰지않는모임 김가상',ORGS),false,'쓰지 않는 조직은 건너뜀');
+  assert.equal(contactIsWork('010-1234-5678',ORGS),false);
+  assert.equal(contactIsWork(null,ORGS),false);
+});
+
+test('CALL-업무기본: 연락처 열쇠 — 번호는 숫자만, 이름은 띄어쓰기 무시, 작업공간별 SHA-256이고 원문이 열쇠에 남지 않는다',async()=>{
+  assert.equal(contactRaw('통화 가상노조 김가상_261024_093000.txt'),'가상노조 김가상');
+  assert.equal(contactNorm('010-1234-5678'),contactNorm('01012345678'));
+  assert.equal(contactNorm('가상노조 김가상'),contactNorm('가상노조김가상'));
+  const a=await contactDigest(WS,contactNorm('가상노조 김가상')),b=await contactDigest(OTHER_WS,contactNorm('가상노조 김가상'));
+  assert.match(a,hex64);assert.notEqual(a,b,'작업공간마다 다른 열쇠');
+  assert.equal(await contactDigest(WS,null),null);
+});
+
+test('CALL-업무기본: 연락처가 조직+이름인 애매 통화는 묻지 않고 업무 통화함에 저장, 열쇠만 별도 표에 남긴다(이름·번호 원문은 저장·응답·로그에 없음)',async()=>{
+  const h=harness();
+  const r=await sendUnsure(h,'통화 가상노조 김가상_261024_093000.txt');
+  assert.deepEqual(r,{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false,boxed:0});
+  assert.equal(h.db.app_feed_items.length,1);assert.equal(h.db.app_call_personal.length,0);
+  assert.equal(h.db.app_call_contact_ref.length,1);assert.match(h.db.app_call_contact_ref[0].contact_key,hex64);assert.equal(h.db.app_call_contact_ref[0].source_ref,'SRCFAKE0001aa');
+  const dump=JSON.stringify(h.db)+JSON.stringify(r)+h.calls.logs.join('');
+  assert.doesNotMatch(dump,/김가상_|통화 가상노조|source_txt_name/,'연락처 글자가 저장·로그에 없다');
+  assert.equal(h.calls.openai.length,0,'AI를 부르지 않는다');
+});
+
+test('CALL-업무기본: 조직도 아는 이름도 없는 애매 통화는 그대로 확인할 통화(개인 통화함 unsure)에 남고 열쇠가 남는다',async()=>{
+  const h=harness();
+  const r=await sendUnsure(h,'통화 김가상_261024_093000.txt');
+  assert.deepEqual(r,{ok:true,kept:0,personal:0,unsure:1,failed:0,duplicate:false,boxed:1});
+  assert.equal(h.db.app_call_personal[0].kind,'unsure');assert.match(h.db.app_call_contact_ref[0].contact_key,hex64);
+  assert.equal(h.db.app_feed_items.length,0);
+  const n=harness();
+  await sendUnsure(n,'통화 01012345678_261024_093000.txt');
+  assert.equal(n.db.app_call_personal[0].kind,'unsure','번호만 있는 상대는 규칙 대상이 아님');
+});
+
+test('CALL-업무기본: 명진이 고른 상대는 기억한 대로 갈린다(업무/개인), 다른 상대·다른 작업공간은 영향 없음',async()=>{
+  const key=await contactDigest(WS,contactNorm('김가상'));
+  const work=harness({choices:[{workspace_id:WS,contact_key:key,choice:'work'}]});
+  assert.equal((await sendUnsure(work,'통화 김가상_261024_093000.txt')).kept,1);assert.equal(work.db.app_call_personal.length,0);
+  const personal=harness({choices:[{workspace_id:WS,contact_key:key,choice:'personal'}]});
+  const pr=await sendUnsure(personal,'통화 김가상_261024_093000.txt');
+  assert.equal(pr.unsure,0);assert.equal(pr.boxed,1);assert.equal(personal.db.app_call_personal[0].kind,'personal');
+  // 기억한 선택이 조직 이름 규칙보다 먼저다(조직+이름이어도 개인으로 골랐으면 개인)
+  const orgKey=await contactDigest(WS,contactNorm('가상노조 김가상'));
+  const first=harness({choices:[{workspace_id:WS,contact_key:orgKey,choice:'personal'}]});
+  assert.equal((await sendUnsure(first,'통화 가상노조 김가상_261024_093000.txt')).personal,1);
+  // 다른 상대·다른 작업공간 선택은 무관
+  const other=harness({choices:[{workspace_id:WS,contact_key:await contactDigest(WS,contactNorm('박가상')),choice:'work'},{workspace_id:OTHER_WS,contact_key:key,choice:'work'}]});
+  assert.equal((await sendUnsure(other,'통화 김가상_261024_093000.txt')).unsure,1);
+});
+
+test('CALL-업무기본: 분석이 개인으로 본 통화·status 애매가 아닌 구분 없음은 규칙을 타지 않는다',async()=>{
+  const h=harness();
+  const r=await (await h.send('call',callBody({body:{analysis_md:personalMd({txt:'통화 가상노조 김가상_261024_093000.txt'}),transcript:PERSONAL_TR}}))).json();
+  assert.equal(r.boxed,1);assert.equal(h.db.app_call_personal[0].kind,'personal');assert.equal(h.db.app_feed_items.length,0);
+  const old=harness();
+  const r2=await (await old.send('call',callBody({body:{analysis_md:analysis({version:'3.1',work:null,status:'검토대기',txt:'통화 가상노조 김가상_261024_093000.txt'}),transcript:''}}))).json();
+  assert.equal(r2.kept,0);assert.equal(old.db.app_feed_items.length,0,'구분 없음 옛 분석은 규칙으로 업무가 되지 않는다');
+});
+
+test('CALL-업무기본: 규칙으로 업무가 됐는데 업무 줄 재료(녹음 시각)가 없으면 원래대로 애매로 남고 판정 실패로 세지 않는다',async()=>{
+  const h=harness();
+  const md=unsureMd({txt:'통화 가상노조 김가상_261024_093000.txt',when:'모름'});
+  const r=await (await h.send('call',callBody({body:{analysis_md:md.replace(/통화 가상노조 김가상_261024_093000/g,'통화 가상노조 김가상_자료없음'),transcript:''}}))).json();
+  assert.equal(r.failed,0);assert.equal(r.unsure,1);assert.equal(h.db.app_feed_items.length,0);
+});
+
+test('CALL-업무기본: 열쇠 표 쓰기가 실패해도 통화 저장은 성공으로 끝난다(그 통화만 기억에서 빠짐)',async()=>{
+  const h=harness({dbFail:(m,t)=>m==='POST'&&t==='app_call_contact_ref'});
+  const r=await sendUnsure(h,'통화 가상노조 김가상_261024_093000.txt');
+  assert.equal(r.kept,1);assert.equal(h.db.app_feed_items.length,1);assert.equal(h.db.app_call_contact_ref.length,0);
 });
