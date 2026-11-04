@@ -221,8 +221,8 @@ create index on public.app_weekly_org_lines(workspace_id, week_start, organizati
 | P0 | 이 PR | 설계·시안 | — | — |
 | (급) | S49-39 | 사업요약표 수기·내부회의 빼기·AI 제안 삭제 | `report-summary-preview.js`, `journal-weekly.js`, `ai-assist/business-area.ts` | Edge 배포 |
 | (먼저) | S49-40 | [전체 표] 오름차순·시작~끝 날짜·펼치기 | `org-overview.js`, `org-status-table.js`, `app_org_status_rows`(end_day 추정) | DB |
-| P1 | DB: `app_weekly_org_lines` | 5절 표·가드 트리거 + 짝 파일 5개 | S49-40 DB 뒤(같은 날 두 DB 변경을 겹치지 않게) | DB dry-run → apply |
-| P2 | Edge: `ai-assist` `org_week_lines` | 기록 번호 → 정돈 → 제안 줄 넣기, 하루 상한 `org_week_lines: 40` | P1 뒤. `ai-assist/handler.ts` | Edge 배포(되돌리기 ref) |
+| P1 | DB: `app_weekly_org_lines`(S49-46 #1867, `20261104211500`) | 5절 표·가드 트리거 + 짝 파일 5개 | S49-40 DB 뒤(같은 날 두 DB 변경을 겹치지 않게) | DB dry-run → apply |
+| P2 | Edge: `ai-assist` `org_week_lines`(S49-46 #1868, 순수 규칙 `ai-assist/org-week-lines.ts`) | 기록 번호 → 정돈 → 제안 줄 넣기, 하루 상한 `org_week_lines: 40` | P1 뒤. `ai-assist/handler.ts` | Edge 배포(되돌리기 ref) |
 | P3 | 공용 부품 + 담당조직 '이번 주 조직보고' | `week-pick.js`, `weekly-org-lines*.{js,mjs}`, `org-overview.js`를 주별 표로, [AI로 채우기] 버튼 지움 | S49-40 PR 브랜치 위(줄 세우기), P2 뒤 | — |
 | P4 | 제안 부르는 자리 | `workplace-detail.js`·`basket-classification.js`·`org-status-table.js` 저장 뒤 호출, 열 때 빠진 것 채우기 | P3 뒤 | — |
 | P5 | 사업 보고 '이번 주 주간보고' | 팝업 → 접는 칸, `weekly-summary-table.js` 떼어 냄, HWP 버튼 지움 | S49-39 뒤. `team.js`·`report-summary-preview.js` — P3·P4와 파일이 안 겹쳐 같이 돌 수 있음 | — |
