@@ -122,12 +122,12 @@ const mainBox = root?.querySelector('#nowMain'), detailBox = root?.querySelector
 function describe(type, row) {
   if (type === 'news') {
     const v = itemView(row || {});
-    return {meta: [v.publisher, v.foreign ? '외국' : '국내', '기사', dateText(row?.published_at || row?.created_at)], title: v.title, origTitle: v.origTitle, titleLang: v.titleLang, lang: row?.lang || 'ko', url: v.url, lead: v.summary};
+    return {meta: [v.publisher, v.foreign ? '외국' : '국내', '기사', dateText(row?.published_at || row?.created_at)], title: v.title, origTitle: v.origTitle, titleLang: v.titleLang, lang: row?.lang || 'ko', url: v.url, lead: v.summary, body: v.canOpen ? 'news' : ''};
   }
   const v = postView(row || {});
-  return {meta: [nameOf(row?.source_key), row?.lang === 'en' ? '외국' : '국내', v.kind, dateText(row?.published_at)], title: v.title, origTitle: v.origTitle, titleLang: row?.lang === 'en' && !row?.title_ko ? 'en' : '', lang: row?.lang || 'ko', url: v.url, lead: v.lead};
+  return {meta: [nameOf(row?.source_key), row?.lang === 'en' ? '외국' : '국내', v.kind, dateText(row?.published_at)], title: v.title, origTitle: v.origTitle, titleLang: row?.lang === 'en' && !row?.title_ko ? 'en' : '', lang: row?.lang || 'ko', url: v.url, lead: v.lead, body: v.body === 'sentences' ? 'outside' : ''};
 }
-let detailLayer = null, interestsLayer = null, interestsAsk = 0;
+let detailLayer = null, readerLayer = null, interestsLayer = null, interestsAsk = 0;
 const detail = createNowDetail({box: detailBox, topics: () => interests.topics(),
   onClose: () => closeDetail(),
   onChanged: (item, act) => {
@@ -138,7 +138,8 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
   },
   onSignal: () => askInterests(),
   onRead: (item, row) => { const c = detail.current(); if (c && itemKey(c) === itemKey(item)) detail.setHead(describe('news', row)); window.KPTUNews?.refresh?.(); },
-  onRelated: r => openRelated(r)});
+  onRelated: r => openRelated(r),
+  onReader: on => toggleReaderLayer(on)});
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, topics: () => interests.topics(),
   onOpen: (item, head) => openDetail(item, head), selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; }, onListed: () => autoOpenTop(),
   onChanged: item => { if (item.type === 'news') window.KPTUNews?.refresh?.(); else loadMarks().then(() => { if (state.mode === 'list' && state.tab === 'outside') paintList(); }); }});
@@ -149,6 +150,13 @@ function askInterests() {
   interestsAsk = Date.now();
   rt().api('/functions/v1/ai-assist', {method: 'POST', body: {kind: 'now_interests'}, singleFlight: false, timeoutMs: 60000})
     .then(r => { if (r?.added) interests.load(); }).catch(() => {});
+}
+// [본문] 읽기 화면: 폰은 상세 위에 겹을 하나 더(뒤로가기 한 번 = 상세로). PC·폴드 펼침은 오른쪽 칸 안에서 바뀌므로 겹 없음.
+function toggleReaderLayer(on) {
+  if (on) {
+    if (!PC.matches) readerLayer ||= window.KPTURouter?.layer?.open('now-reader', {reopen: () => detail.openReader(), close: () => { readerLayer = null; detail.closeReader({quiet: true}); return true; }}) || null;
+    if (!PC.matches) window.scrollTo({top: 0, behavior: 'instant'});
+  } else { const l = readerLayer; readerLayer = null; l?.close(); }
 }
 function openDetail(item, head) {
   if (!item || !head) return;

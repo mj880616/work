@@ -11,7 +11,7 @@ const q = v => encodeURIComponent(v);
 const rt = () => window.KPTURuntime;
 const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body';
-const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id';
+const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id,state,body_kind';
 
 // describe(type, row) → {meta, title, ...} 상세 머리(Now 껍데기가 준다). onOpen(item, head).
 export function createNowSaved({box, describe, topics = () => [], onOpen, selected = () => '', onChanged, onListed} = {}) {
