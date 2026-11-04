@@ -123,3 +123,45 @@
   .fx-prev { top:0; left:0; z-index:60; }
   .fx-pv-img { max-height:55vh; }
 }
+
+/* FILES-통합 2-① 복사(S49-27, 시안 files-unified-mockup.html ③④⑤). 고르기 막대는 옅은 강조 바탕(시안 ③), 받을 곳 창은 하단바 위로 열리는 창(④),
+   전송 줄은 하단바 바로 위 얇은 줄(⑤ 아래 줄). 위치는 공용 하단바 높이 변수(--kptu-mobile-tab-height·--kptu-switch-dock)로만 띄운다. */
+.fx-bar:has(> [data-fx-copy]) { background:var(--kptu-primary-soft); border-bottom-color:var(--kptu-border-strong); padding:3px 4px 3px 10px; }
+.fx-bar:has(> [data-fx-copy]) .fx-bar-t { color:var(--kptu-primary-text); font-weight:600; font-size:13px; }
+.fx-pri { background:var(--kptu-primary); border-color:var(--kptu-primary); color:var(--kptu-on-primary); }
+.fx-pri:hover:not(:disabled) { background:var(--kptu-primary); filter:brightness(1.05); }
+.fx-dim { position:fixed; inset:0 0 calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)); z-index:54; background:color-mix(in srgb,var(--kptu-ink) 28%,transparent); }
+.fx-dim[hidden], .fx-dest[hidden], .fx-askbox[hidden], .fx-xfer[hidden] { display:none; }
+.fx-dest { position:fixed; z-index:55; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px));
+  max-height:min(72dvh, 600px); display:flex; flex-direction:column; background:var(--kptu-surface); color:var(--kptu-ink); border-radius:12px 12px 0 0; box-shadow:var(--kptu-shadow-float); font-size:13px; }
+@media (min-width:761px) { .fx-dest { left:50%; right:auto; width:min(520px, calc(100vw - 32px)); transform:translateX(-50%); bottom:calc(var(--kptu-mobile-tab-height,0px) + 16px); border-radius:12px; } }
+.fx-dest-h { display:flex; align-items:center; gap:6px; padding:10px 8px 6px 12px; font-size:14px; font-weight:600; }
+.fx-dest-h span { flex:1; min-width:0; }
+.fx-dest-sub { padding:0 12px 6px; font-size:12px; color:var(--kptu-muted); }
+.fx-dest-recent { display:flex; gap:6px; flex-wrap:wrap; padding:0 12px 8px; }
+.fx-dest-chip { display:inline-flex; align-items:center; gap:4px; height:26px; max-width:100%; padding:0 10px; border:.5px solid var(--kptu-border); border-radius:999px; background:none; color:var(--kptu-muted); font:inherit; font-size:12px; cursor:pointer; white-space:nowrap; overflow:hidden; }
+.fx-dest-chip span { overflow:hidden; text-overflow:ellipsis; }
+.fx-dest-chip.on { background:var(--kptu-primary-soft); border-color:var(--kptu-border-strong); color:var(--kptu-primary-text); }
+.fx-dest-tree { flex:1 1 auto; min-height:120px; overflow:auto; border-top:.5px solid var(--kptu-border); padding:4px 4px 4px 0; }
+.fx-dest-tree .nx-main { min-height:32px; font-size:13px; padding:0 4px; }
+.fx-dest-tree .fx-root .nx-main { font-weight:600; }
+.fx-dest-tree .fx-twist { width:32px; align-self:stretch; }
+.fx-dest-f { display:flex; align-items:center; gap:6px; padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)); border-top:.5px solid var(--kptu-border); }
+.fx-dest-at { flex:1; min-width:0; font-size:12px; color:var(--kptu-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fx-dest-f .fx-btn { height:32px; padding:0 12px; font-size:13px; }
+/* 같은 이름·큰 파일 묻기(H-3·H-4): 받을 곳 창 안, 창이 없으면 하단바 위 작은 칸 */
+.fx-ask { margin:8px 12px; padding:8px 10px; border:.5px solid var(--kptu-warning); background:var(--kptu-warning-soft); border-radius:var(--kptu-radius-md); font-size:12px; }
+.fx-ask p { margin:0 0 6px; color:var(--kptu-ink); line-height:1.45; overflow-wrap:anywhere; }
+.fx-ask .fx-ask-note { color:var(--kptu-muted); }
+.fx-ask-opts { display:flex; gap:4px; flex-wrap:wrap; }
+.fx-ask-opts .fx-btn { height:30px; }
+.fx-ask-all { display:flex; align-items:center; gap:4px; margin-top:6px; color:var(--kptu-muted); }
+.fx-askbox { position:fixed; z-index:56; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 30px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); }
+@media (min-width:761px) { .fx-askbox { left:50%; right:auto; width:min(460px, calc(100vw - 32px)); transform:translateX(-50%); border-radius:var(--kptu-radius-md); } }
+/* 전송 줄: 하단바 바로 위 30px 한 줄, 맨 위 가는 막대 = 끝난 몫 */
+.fx-xfer { position:fixed; z-index:53; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)); height:30px; display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--kptu-surface); border-top:.5px solid var(--kptu-border); font-size:12px; color:var(--kptu-muted); }
+.fx-xfer b { color:var(--kptu-ink); font-weight:600; white-space:nowrap; }
+.fx-xfer-nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fx-xfer-bar { position:absolute; left:0; top:-1px; height:2px; background:var(--kptu-primary); transition:width .2s; }
+.fx.fx-xfer-on .fx-cols { padding-bottom:30px; }
+.fx-dest-tree.nx-tree:not([hidden]) { position:static; border-right:0; padding-right:4px; }

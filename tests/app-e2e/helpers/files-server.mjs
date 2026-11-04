@@ -1,6 +1,6 @@
 // FILES-클라우드탐색기 ④ E2E 공용 흉내 서버(파일 화면). 파일·폴더 이름과 id는 모두 가짜.
 // 색인 읽기 함수(app_cloud_list·app_cloud_trail·app_cloud_find_in(켜진 출처만, S49-26)·옛 app_cloud_find)와 Edge cloud-files(status·sync·folder·thumb·media·preview·open-url,
-// S48-45 쓰기 rename·mkdir·move·trash·across)를 흉내 낸다.
+// S48-45 쓰기 rename·mkdir·move·trash·across, S49-27 copy)를 흉내 낸다.
 import { expect } from '@playwright/test';
 import { openHome } from './home-entry.mjs';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -71,12 +71,22 @@ export async function filesServer(page, { connected = { od: true, gd: true } } =
       }
       if (a === 'open-url') return ok({ ok: true, url: 'https://example.org/fake-open' });
       // S48-45 쓰기: confirm:true 없으면 거절(서버와 같음). 결과는 바뀐 줄·지운 줄.
-      if (['rename', 'mkdir', 'move', 'trash', 'across'].includes(a)) {
+      if (['rename', 'mkdir', 'move', 'trash', 'across', 'copy'].includes(a)) {
         if (body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
         const find = (src, id) => server.items.find(i => i.source === src && i.item_id === id && !i.trashed);
         if (a === 'rename') { const it = find(body.source, body.id); if (server.items.some(i => i !== it && i.source === it.source && i.parent_id === it.parent_id && i.name === body.name)) return ok({ ok: false, error: 'name_taken' }, 409); it.name = body.name; return ok({ ok: true, changed: [view(it)], removed: [] }); }
         if (a === 'mkdir') { const it = item({ source: body.source, item_id: body.source === 'od' ? 'OD!90' : 'gdNew90', parent_id: body.parent ?? null, name: body.name, is_folder: true, size_bytes: null }); server.items.push(it); return ok({ ok: true, changed: [view(it)], removed: [] }); }
-        if (a === 'move') { const changed = body.ids.map(id => { const it = find(body.source, id); it.parent_id = body.to ?? null; return view(it); }); return ok({ ok: true, changed, removed: [], failed: [], left: [] }); }
+        // 같은 이름: copy·across는 늘, move는 numbered:true일 때 번호를 붙인다(Edge와 같은 규칙, 공용 numberedName).
+        const taken = (src, parent) => server.items.filter(i => i.source === src && (i.parent_id ?? null) === (parent ?? null) && !i.trashed).map(i => i.name);
+        const numbered = (name, list) => { if (!list.some(n => n.toLowerCase() === name.toLowerCase())) return name; const m = /^(.*?)(\.[A-Za-z0-9]{1,10})?$/.exec(name); for (let i = 2; ; i++) { const n = `${m[1]} (${i})${m[2] || ''}`; if (!list.some(x => x.toLowerCase() === n.toLowerCase())) return n; } };
+        if (a === 'move') { const changed = body.ids.map(id => { const it = find(body.source, id); if (body.numbered && (it.parent_id ?? null) !== (body.to ?? null)) it.name = numbered(it.name, taken(body.source, body.to)); it.parent_id = body.to ?? null; return view(it); }); return ok({ ok: true, changed, removed: [], failed: [], left: [] }); }
+        if (a === 'copy') {
+          if (server.copyDelayMs) await new Promise(r => setTimeout(r, server.copyDelayMs));
+          const it = find(body.source, body.id), dest = body.to_source || body.source;
+          server.copySeq = (server.copySeq || 0) + 1;
+          const copy = item({ ...view(it), source: dest, item_id: dest === 'od' ? 'OD!C' + server.copySeq : 'gdCopy' + server.copySeq, parent_id: body.to ?? null, name: numbered(it.name, taken(dest, body.to)), trashed: false, starred: false });
+          server.items.push(copy); return ok({ ok: true, changed: [view(copy)], removed: [] });
+        }
         if (a === 'trash') { for (const id of body.ids) find(body.source, id).trashed = true; return ok({ ok: true, changed: [], removed: body.ids.map(id => ({ source: body.source, id })), failed: [], left: [] }); }
         if (a === 'across') { const it = find(body.source, body.id); it.trashed = true; const copy = item({ ...view(it), source: body.to_source, item_id: body.to_source === 'od' ? 'OD!91' : 'gdNew91', parent_id: body.to ?? null, trashed: false }); server.items.push(copy); return ok({ ok: true, changed: [view(copy)], removed: [{ source: body.source, id: body.id }], kept_original: false }); }
       }

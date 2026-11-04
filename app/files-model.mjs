@@ -350,6 +350,9 @@ export function writeErrorText(code) {
   if (c === 'verify_failed') return '옮긴 파일이 원본과 달라 원본을 그대로 두었습니다';
   if (c === 'upload_failed') return '보내지 못했습니다. 원본은 그대로입니다';
   if (c === 'not_owner') return '내 파일이 아니라 옮길 수 없습니다';
+  if (c === 'copy_into_self') return '폴더를 자기 안으로 복사할 수 없습니다';
+  if (c === 'copy_failed') return '복사하지 못했습니다. 원본은 그대로입니다';
+  if (c === 'folder_too_big') return '폴더 안이 200개가 넘어 통째로 복사하지 않습니다. 안을 열어 골라 주세요';
   return errorText(c);
 }
 // ⑦ 같은 파일 보기: 같은 해시(같은 클라우드 안 — 원드라이브 sha1·구글 md5라 클라우드 사이는 비교하지 않음)인 다른 줄. 자기 자신·휴지통 뺌.
@@ -358,4 +361,76 @@ export function twinRows(rows, self) {
   if (!self?.hash) return [];
   return (rows || []).filter(r => r && r.hash === self.hash && !r.trashed && !(r.source === self.source && r.item_id === self.item_id))
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko') || String(a.item_id).localeCompare(String(b.item_id)));
+}
+
+// ---------- FILES-통합 2-① 복사·옮기기(받을 곳 창, 명진 결정 H-3·H-4·H-5, 11/04) ----------
+export const XFER_MODES = Object.freeze(['copy', 'move']);
+export const XFER_VERB = Object.freeze({copy: '복사', move: '옮기기'});
+// 클라우드 사이 한 파일 기본 상한(H-4). 넘는 파일은 묻고, 이 판에서는 '다음 판(2-②)에서 됩니다'로 멈춘다.
+export const XFER_BIG_BYTES = MOVE_ACROSS_MAX_BYTES;
+export const XFER_BIG_HOW = '서버가 10MB씩 나눠 이어 보내요. 폰 데이터는 쓰지 않아요. 끊겨도 끊긴 곳부터 다시.';
+export const XFER_BIG_LATER = '200MB가 넘는 파일은 다음 판에서 보낼 수 있어요. 이번엔 건너뛰었어요.';
+export const RECENT_DEST_MAX = 3;
+export const RECENT_DEST_NAME_MAX = 40;
+const gdDoc = r => r?.source === 'gd' && /^application\/vnd\.google-apps\./.test(String(r?.mime || ''));
+// 받을 곳으로 보낼 수 있는지 줄마다 가른다. {ok: 보낼 줄, blocked: [{row, reason}], reason: 하나도 못 보낼 때 한 줄}.
+//   같은 저장소: 복사는 파일·폴더(폴더째, H-5), 옮기기는 지금 규칙(같은 자리·자기 안 빼고 200개까지는 move가 나눠 보냄).
+//   다른 저장소: 파일만(폴더는 막고 안내), 크기를 모르는 것·구글 문서는 막음. 200MB 넘는 것은 여기서 막지 않는다(묻는 창이 따로, big()).
+export function xferPlan(rows, dest, mode = 'copy') {
+  const list = (rows || []).filter(Boolean), ok = [], blocked = [];
+  if (!dest?.source) return {ok, blocked, reason: '받을 곳을 고르세요'};
+  const verb = mode === 'move' ? '옮겨요' : '복사돼요';
+  for (const r of list) {
+    const across = r.source !== dest.source;
+    if (across && r.is_folder) blocked.push({row: r, reason: `폴더는 같은 저장소 안에서만 통째로 ${verb}. 다른 저장소로는 폴더를 열어 파일을 골라 주세요`});
+    else if (across && gdDoc(r)) blocked.push({row: r, reason: '구글 문서는 다른 저장소로 보내지 않습니다'});
+    else if (across && (r.size_bytes === null || r.size_bytes === undefined || !Number.isFinite(Number(r.size_bytes)))) blocked.push({row: r, reason: '크기를 모르는 파일은 다른 저장소로 보내지 않습니다'});
+    else if (!across && r.is_folder && r.item_id === (dest.parent ?? null)) blocked.push({row: r, reason: `폴더를 자기 안으로 ${mode === 'move' ? '옮길' : '복사할'} 수 없습니다`});
+    else if (mode === 'move' && !across && (r.parent_id ?? null) === (dest.parent ?? null)) blocked.push({row: r, reason: '이미 이 폴더에 있습니다'});
+    else ok.push(r);
+  }
+  const reason = ok.length ? '' : blocked[0]?.reason || '고른 것이 없습니다';
+  return {ok, blocked, reason};
+}
+// 200MB 넘는 클라우드 사이 파일인가(H-4).
+export const xferBig = (r, dest) => !!r && !!dest && r.source !== dest.source && Number(r.size_bytes) > XFER_BIG_BYTES;
+// 같은 이름(대소문자 무시 — 원드라이브 규칙)이 받을 곳에 있는 줄. destRows = 받을 폴더의 색인 줄.
+//   같은 폴더로 복사하면 자기 자신도 같은 이름이다(옮기기는 같은 폴더로 가는 것을 xferPlan이 먼저 막는다).
+export function sameNameRows(rows, destRows) {
+  const names = new Set();
+  for (const d of destRows || []) if (d && !d.trashed) names.add(String(d.name).toLowerCase());
+  return (rows || []).filter(r => r && names.has(String(r.name).toLowerCase()));
+}
+// 같은 이름 묻는 한 줄(H-3). mode copy·move·down(받기).
+export function sameNameAsk(mode) {
+  return `같은 이름이 있어요. 그래도 ${mode === 'move' ? '옮길까요' : mode === 'down' ? '받을까요' : '복사할까요'}?`;
+}
+// 200MB 넘는 파일 묻는 한 줄(H-4).
+export const bigAsk = r => `200MB가 넘어요(${sizeText(r?.size_bytes)}). 그래도 보낼까요?`;
+// 받을 곳 창 제목·버튼.
+export const destTitle = (n, mode) => `${n}개 ${mode === 'move' ? '옮길' : '복사할'} 곳`;
+export const destButton = mode => `여기에 ${mode === 'move' ? '옮기기' : '복사'}`;
+// 받을 곳 이름(칩·창 아래 줄): 맨 위면 저장소 이름, 아니면 폴더 이름(40자로 자름).
+export function destName(dest, folderName = '') {
+  const n = dest?.parent ? String(folderName || '').trim() : SOURCE_NAME[dest?.source] || '';
+  return [...(n || SOURCE_NAME[dest?.source] || '')].slice(0, RECENT_DEST_NAME_MAX).join('');
+}
+// 최근 보낸 곳(서버 view_prefs.files_dest_recent, 모든 기기 같게): 방금 보낸 곳을 맨 앞에, 같은 곳은 하나만, 3개까지.
+export function pushRecentDest(list, dest, name) {
+  if (!dest?.source || !SOURCES.includes(dest.source)) return Array.isArray(list) ? list.slice(0, RECENT_DEST_MAX) : [];
+  const id = dest.parent || '';
+  if (!/^[A-Za-z0-9!_.-]{0,120}$/.test(id)) return Array.isArray(list) ? list.slice(0, RECENT_DEST_MAX) : [];
+  const nm = destName(dest, name) || SOURCE_NAME[dest.source];
+  const rest = (Array.isArray(list) ? list : []).filter(d => d && !(d.source === dest.source && d.id === id));
+  return [{source: dest.source, id, name: nm}, ...rest].slice(0, RECENT_DEST_MAX);
+}
+export const recentDestOf = d => d && SOURCES.includes(d.source) ? {source: d.source, parent: d.id || null} : null;
+// 전송 줄(하단바 위 얇은 줄, 시안 ⑤ 아래 줄): '2/5 보내는 중'. 가는 막대 폭은 끝난 몫.
+export const xferLine = (at, total) => `${Math.min(at, total)}/${total} 보내는 중`;
+export const xferPercent = (done, total) => total > 0 ? Math.max(0, Math.min(100, Math.round(done / total * 100))) : 0;
+// 끝 한 줄.
+export function xferDoneText(mode, {done = 0, failed = 0, skipped = 0} = {}) {
+  const verb = mode === 'move' ? '옮김' : '복사함';
+  const parts = [done ? `${done}개 ${verb}` : '', skipped ? `${skipped}개 건너뜀` : '', failed ? `${failed}개 못 함` : ''].filter(Boolean);
+  return parts.join(' · ') || `${mode === 'move' ? '옮긴' : '복사한'} 것 없음`;
 }
