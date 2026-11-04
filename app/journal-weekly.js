@@ -321,8 +321,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   });
 
   // JOURNAL-조직현황AI요약: a named organization section (its id found by name in the organization read) carries the week's
-  // saved summary (journal-org-summary.js) when there is one. `summaries`: 'loading' | 'ok' | 'failed' | 'missing' (no table yet —
-  // the part shows the records as before, without the summary button).
+  // (WEEKLY-메뉴짝짓기 P6·P7: 저장된 AI 요약은 읽지 않고 그 모듈은 지웠다 — 4. 1) 칸은 주별 조직보고 표.)
   const orgs = part('orgs', s => {
     const read = {basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')};
     const sections = new Map();
@@ -451,7 +450,6 @@ function weekFiles(m, days) {
   return {orgs:placed.orgs, projects:placed.projects, placed:placedIds, attachedOrgs, attachedProjects};
 }
 
-export const orgSummaryLines = text => String(text ?? '').split('\n').map(line => line.trim()).filter(Boolean);
 
 // ---- [주간보고 초안 복사] (2026-10-21 사용자 승인: 날짜순이 아니라 양식 순서) ----
 // The same grouping as the tab, as text in the form's order: 1. 요청사항 → 2. 사업 → 4. 산하 조직 → 5. 주요 일정 → 참고. A part
@@ -529,8 +527,7 @@ export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸
 // 1. 2) 주요 일정: 기준은 weekly-major-schedule.mjs 한 곳(WEEKLY-주요일정기준, 명진 11/01 확정). 화면 안내 문구는 두지 않는다 — 적는 칸·기준 제안은
 // 수기 표(weekly-hq-schedule.js)가 그린다.
 const rangeTitle = calendar => `${shortDay(calendar.days[0])} ~ ${shortDay(calendar.days.at(-1))} · 다음 주 월요일부터 2주`;
-// orgUi (JOURNAL-조직현황AI요약, journal.js keeps it): {busy, status, error, editing:{id, value, status, invalid, saving}, open:Set(names)}.
-export const ORG_EDIT_MAX_LINES = 8;
+// orgUi (journal.js keeps it): 4. 산하 조직 현황 화면 상태(P6부터 AI 요약 칸 없음).
 // execUi (WEEKLY-임원요청정리, journal.js keeps it): {editing:null | 'new' | row id, draft:{day, until, time, what, place, who},
 // status, error, invalid (field name), saving}.
 export const EXEC_FIELDS = Object.freeze([['day', '일', 'date'], ['until', '끝 날(여러 날이면)', 'date'], ['time', '시간', 'text'], ['what', '내용', 'text'], ['place', '장소', 'text'], ['who', '참석 요청', 'text']]);
