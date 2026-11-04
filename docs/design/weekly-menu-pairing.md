@@ -179,7 +179,7 @@ create index on public.app_weekly_org_lines(workspace_id, week_start, organizati
 
 ### 5.4 짝 파일 (AGENTS.md 7절)
 
-`supabase/migrations/<ts>_weekly_org_lines.sql` + `docs/<ts>_weekly_org_lines.{precheck,snapshot,postcheck,rollback}.sql` + `.summary.md`, `commit;` 앞 `schema_migrations` 1행. 승인형 workflow로 dry-run(tx-probe) → apply → postcheck. rollback = 표·트리거 함수 drop(새 표라 기존 자료 영향 없음).
+`supabase/migrations/20261104211500_weekly_org_lines.sql` + `docs/20261104211500_weekly_org_lines.{precheck,snapshot,postcheck,rollback}.sql` + `.summary.md`(S49-46 #1867, 시험 `tests/auth-handoff/weekly-org-lines-db.test.mjs`), `commit;` 앞 `schema_migrations` 1행. 승인형 workflow로 dry-run(tx-probe) → apply → postcheck. rollback = 표·트리거 함수 drop(새 표라 기존 자료 영향 없음).
 
 ---
 
