@@ -227,3 +227,18 @@ test('외줄 폴더: 접힌 줄에 이어진 경로, 펼치면 CSS가 뒤 경로
   assert.doesNotMatch(html,/data-lu-node="f:h1"[^>]*data-lu-chain/);
   assert.equal((html.match(/lu-chain-rest/g)||[]).length,2);
 });
+
+// FOLDER-순서·색 ③-1(S49-47): 폴더 노드가 색 번호(fc)를 달고 머리 그림이 색을 따른다. 안 고른 폴더(색 없음·틀린 값)는 지금 모양 그대로.
+test('폴더 색: 노드 fc는 1~8만, 머리 그림은 칠한 폴더(폴더 보기)·테두리 폴더(프로젝트 보기)에 data-fc가 붙고 안 고른 폴더는 그대로',()=>{
+  const folders=[{id:'f1',project_id:null,parent_id:null,name:'가상 1',sort_order:1,color:4},{id:'f2',project_id:null,parent_id:null,name:'가상 2',sort_order:2,color:null},{id:'f3',project_id:null,parent_id:null,name:'가상 3',sort_order:3,color:9},{id:'f4',project_id:null,parent_id:null,name:'가상 4',sort_order:4}];
+  const nodes=m.buildTree({groupBy:'folder',docs:[],folders,items:[],kindOf,sortKey,filtering:false});
+  const byKey=Object.fromEntries(nodes.map(n=>[n.key,n]));
+  assert.equal(byKey['f:f1'].fc,4);assert.equal(byKey['f:f2'].fc,null);assert.equal(byKey['f:f3'].fc,null);assert.equal(byKey['f:f4'].fc,null);
+  const opts={isOpen:()=>false,showAll:()=>false,fileHtml:()=>'',esc:s=>String(s),kindKey:k=>k};
+  const emoji=m.treeHtml(nodes,{...opts,emoji:true});
+  assert.match(emoji,/<span class="lu-folder-emoji fl-ico" data-fc="4"[^>]*><span class="lu-fe-closed"><svg/);
+  assert.equal((emoji.match(/data-fc=/g)||[]).length,1);
+  assert.equal((emoji.match(/\u{1F4C1}/gu)||[]).length,3,'안 고른 폴더 셋은 노란 폴더 글자 그대로');
+  const outline=m.treeHtml(nodes,{...opts,emoji:false});
+  assert.match(outline,/<svg class="lu-folder-icon" data-fc="4" /);assert.equal((outline.match(/data-fc=/g)||[]).length,1);
+});

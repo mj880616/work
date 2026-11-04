@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯아스날맞춤 C: 최근 경기 '무' 동그라미. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+<!-- 최근 경기 승·무·패 칸(APP-아스날위젯알차게 ⑥: 글자 든 작은 네모). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="@color/widget_zero_bg" />
+    <corners android:radius="4dp" />
 </shape>

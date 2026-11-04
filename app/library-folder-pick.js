@@ -4,8 +4,9 @@
 // 폴더 묶기와 같이 프로젝트 틀을 보지 않는다(LIB-폴더탐색기, DB 20261026170000_library_folders_free). 기기 저장 없음.
 import {createMovePicker} from './library-move-picker.js';
 import {pickerRows} from './library-move.mjs';
+import {readLibraryFolders} from './library-folder-data.js';
 
-const T_FOLDERS = '/rest/v1/app_library_folders', T_ITEMS = '/rest/v1/app_library_folder_items';
+const T_ITEMS = '/rest/v1/app_library_folder_items';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const enc = encodeURIComponent;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,7 +26,7 @@ export async function loadLibraryFolders(ids, rt = window.KPTURuntime) {
   const good = (ids || []).filter(id => UUID.test(id || ''));
   try {
     const [folders, items] = await Promise.all([
-      rt.api(`${T_FOLDERS}?workspace_id=eq.${enc(ws)}&select=id,project_id,parent_id,name,sort_order,created_at&order=sort_order.asc,created_at.asc`),
+      readLibraryFolders(rt.api.bind(rt), ws),
       good.length ? rt.api(`${T_ITEMS}?workspace_id=eq.${enc(ws)}&document_id=in.(${good.map(enc).join(',')})&select=document_id,folder_id`) : Promise.resolve([]),
     ]);
     const list = Array.isArray(folders) ? folders : [];

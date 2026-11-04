@@ -244,6 +244,7 @@
 #appView #libraryView .lu-pdot[data-color="red"]{background:var(--ds-project-red)}#appView #libraryView .lu-pdot[data-color="red"][data-tone="soft"]{background:var(--ds-project-red-soft)}
 #appView #libraryView .lu-pdot[data-tone="soft"]:not([data-color]){background:var(--ds-project-gray-soft)}
 #appView #libraryView .lu-folder-icon{flex:none;color:var(--kptu-muted)}
+#appView #libraryView .lu-folder-icon[data-fc]{color:var(--fl-ico)} /* FOLDER-순서·색 ③: 색을 고른 폴더(값은 folder-look.css) */
 #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px)}
 #appView #libraryView .lu-node-body > .lu-row:first-child{border-top:0}
 /* 'N건 더': 작은 글자 버튼(UI-버튼기준, 28px·12px·테두리 없음, 누르는 범위 44px). */
@@ -419,6 +420,7 @@
 /* LIB-폴더보기 (2026-10-28 명진 요청 08:25 ③): 폴더로 묶었을 때 폴더 줄은 ▸ 대신 📁(닫힘)/📂(열림) 글자, '폴더 밖'은 🗂 + 흐린 글자. 다른 묶기는 그대로. */
 #appView #libraryView .lu-node-head.lu-node-emoji::before{content:none;display:none}
 #appView #libraryView .lu-folder-emoji{flex:none;margin:0 4px 0 1px;font-size:14px;line-height:1}
+#appView #libraryView .lu-folder-emoji.fl-ico{font-size:0}
 #appView #libraryView .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-closed{display:none}
 #appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-open{display:inline}
 #appView #libraryView .lu-node-out .lu-node-name{color:var(--kptu-muted)}
