@@ -136,7 +136,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         +(enter&&s().free?'<button type="button" data-lu-folder-action="enter">이 폴더로 들어가기</button>':'')
         +(i>0?'<button type="button" data-lu-folder-action="up">위로</button>':'')+(i>=0&&i<sib.length-1?'<button type="button" data-lu-folder-action="down">아래로</button>':'')
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
-        +'<button type="button" data-lu-folder-action="color">색 고르기…</button>'
+        +'<button type="button" data-lu-folder-action="paint">색 고르기…</button>'
         +sep+'<button type="button" class="lu-menu-danger" data-lu-folder-action="delete">폴더 지우기</button>';
     },
     onClose:()=>{if(!colorReopen)colorFor=null},
@@ -150,7 +150,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='toggle')toggleNode('f:'+id);
     else if(action==='up'||action==='down')void reorderFolder(id,action).then(()=>focusHead('f:'+id));
     else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 고르세요.`:`${f.name}을(를) 옮길 곳을 고르세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
-    else if(action==='color'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
+    else if(action==='paint'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
     else if(action==='delete')void trashFolder(f);
   }
   const headOf=key=>[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode===key);
