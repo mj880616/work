@@ -123,8 +123,10 @@ test('연결: 사진 ⋯ 메뉴에 [정보 고치기…](폰 사진·앱 meta), 
   assert.match(photos, /data-photos-act-more/); // PHOTO-아래줄정돈(S49-34): 정보수정은 [더보기] 안 글자 항목
   assert.match(photos, /import\('\.\/photo-info-edit\.js'\)/);
   const gradle = readFileSync(new URL('../android-app/app/build.gradle', import.meta.url), 'utf8');
-  assert.match(gradle, /versionCode 55/);
-  assert.match(gradle, /versionName '0\.4\.15'/);
+  // 0.4.15에서 [정보 고치기]가 들어왔다 — 그 뒤 판(0.4.16+)이어야 한다(판 번호를 하나로 고정하지 않음).
+  assert.ok(Number(gradle.match(/versionCode (\d+)/)?.[1]) >= 55);
+  const [maj, min, pat] = (gradle.match(/versionName '(\d+)\.(\d+)\.(\d+)'/) || []).slice(1).map(Number);
+  assert.ok(maj > 0 || min > 4 || (min === 4 && pat >= 15));
   assert.match(gradle, /androidx\.exifinterface:exifinterface:/);
   const manifest = readFileSync(new URL('../android-app/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8');
   assert.match(manifest, /android\.permission\.ACCESS_MEDIA_LOCATION/);
