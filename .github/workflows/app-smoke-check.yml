@@ -156,7 +156,14 @@ on:
       - 'tests/files-model.test.mjs'
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
+      - 'tests/phone-files-model.test.mjs'
       - 'scripts/package-lock.json'
+      - 'about/**'
+      - 'tests/about-privacy-page.test.mjs'
+      - 'supabase/functions/google-calendar/index.ts'
+      - 'supabase/functions/google-tasks/index.ts'
+      - 'supabase/functions/public-policy-drive/index.ts'
+      - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
     branches: [main]
@@ -313,7 +320,14 @@ on:
       - 'tests/files-model.test.mjs'
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
+      - 'tests/phone-files-model.test.mjs'
       - 'scripts/package-lock.json'
+      - 'about/**'
+      - 'tests/about-privacy-page.test.mjs'
+      - 'supabase/functions/google-calendar/index.ts'
+      - 'supabase/functions/google-tasks/index.ts'
+      - 'supabase/functions/public-policy-drive/index.ts'
+      - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
 
@@ -336,6 +350,9 @@ jobs:
           set -e
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
+      - name: Check public privacy page matches requested Google scopes (MULTI D4)
+        run: node --test tests/about-privacy-page.test.mjs
+
       - name: Check attachment file rename rules (ATT-이름고치기)
         run: node --test tests/file-rename.test.mjs
 
@@ -344,6 +361,9 @@ jobs:
 
       - name: Check library folder read and color write (FOLDER-순서·색 ③-1)
         run: node --test tests/library-folder-data.test.mjs
+
+      - name: Check cloud folder and album color and order storage (FOLDER-순서·색 ③-2)
+        run: node --test tests/folder-prefs-data.test.mjs
 
       - name: Check meeting Korea time conversions
         run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/select-menu.test.mjs tests/calendar-week-timeline.test.mjs tests/calendar-drag-model.test.mjs tests/calendar-create-slot.test.mjs
@@ -397,6 +417,12 @@ jobs:
       - name: Check organization status table sub-tab (DESK-현황표)
         run: node --test tests/org-status-model.test.mjs
 
+      - name: Check weekly org report lines model (WEEKLY-메뉴짝짓기 P3)
+        run: node --test tests/weekly-org-lines-model.test.mjs
+
+      - name: Check weekly org report suggestion calls (WEEKLY-메뉴짝짓기 P4)
+        run: node --test tests/weekly-org-suggest.test.mjs
+
       - name: Check document plus button keyboard (UI-플러스키보드)
         run: node --test tests/plus-keyboard.test.mjs
 
@@ -418,7 +444,7 @@ jobs:
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
         run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/now-model.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
-        run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs
+        run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/phone-files-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs

@@ -1,75 +1,60 @@
 import {emptyHtml} from './wait-state.js';
-// MTG-프로젝트합치기 2단계: 사업 보고 화면 위 [사업요약표 미리보기] (docs/design/project-into-report.md 5절).
-// 기간(기본 이번 주, 서울 월~일)의 사업 보고로 한글 문서 모양 미리보기: 위 '1) 요약' 표(사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당),
-// 아래 '2) 세부 내용 — 회의·활동 결과'(날짜순). 줄 세우기는 주간보고 ②와 같은 placeRecords, 보고 한 줄은 주간보고 meetingLine.
-// WEEKLY-요약표수기(S49-39, 요청함 11/04 16:38 · 명진 16:45 "아예 지우자"):
-//  - 내부 정례 회의(노조 상집·중집, 본부 집행위, 궤도 집행국)와 내가 '늘 빼기'로 정한 회의 종류는 표·세부 내용 어디에도 안 나온다. 목록은
-//    journal-meeting-kinds.js reportsMeeting 한 곳(주간 정리와 같음). '뺀 n건' 안내 없음.
-//  - AI 제안은 없다(AI 한 줄·[고치기]·(고침) 삭제). 표에는 명진이 쓴 글 + 그 주 사업 보고 제목(사실 기록)만. 예전에 저장된 AI 값은 보이지 않게만 두고 지우지 않는다.
-//  - '진행 상황 및 이후 계획'·'담당' 칸을 누르면 글 칸(Ctrl+Enter 저장). 진행 칸은 홈 [주간 정리] 1) 요약의 같은 칸(그 주 임시저장 summary 칸)에 저장되어 두 곳이 같다.
-//    담당은 그 주 임시저장 owners 칸(한글 파일 담당 칸에 그대로 들어감). 보고가 없는 사업영역·세부 과제 줄도 쓸 수 있다. 한 주(월~일)를 볼 때만 쓸 수 있다.
-//  - 한 줄 업데이트(칸 oneline)는 쓴 문장 그대로 칸 맨 위, 2) 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
-// [HWP로 내려받기]는 그 주 [주간 정리]의 기존 한글 파일 상자를 연다. 기기에 아무것도 저장하지 않는다. 글은 로그에 쓰지 않는다.
+// WEEKLY-메뉴짝짓기 P5(요청함 11/04 16:48 결정 B, 설계 docs/design/weekly-menu-pairing.md 3.2): 사업 보고 화면 위 접는 칸 '이번 주 주간보고'(팝업이 아님).
+// (전 report-summary-preview.js — MTG-프로젝트합치기 2단계 [사업요약표 미리보기] 팝업을 이 칸으로 옮김. 팝업·기간 바꾸기·[HWP로 내려받기]는 없앴다.)
+// - 주 고르기는 공용 부품 week-pick.js(월~일, 담당조직 '이번 주 조직보고'와 같은 모양). 한글 파일은 홈 [주간 정리] 한 곳에서만 만든다 → 맨 아래 [주간 정리에서 보기 ›].
+// - 1) 사업요약표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당. '진행'·'담당' 칸을 누르면 글 칸(진행은 Ctrl+Enter, 담당은 Enter 저장, Esc 취소).
+//   진행 = 그 주 임시저장 summary 칸(홈 [주간 정리] 1) 요약과 같은 칸), 담당 = 그 주 임시저장 owners 칸(한글 파일 담당 칸) — 저장 자리 하나(weekly-draft-store.js).
+//   칸 아래 그 주 사업 보고 제목(사실 기록)은 누르면 그 보고가 열린다. AI 제안 없음(WEEKLY-요약표수기 S49-39). 예전에 저장된 AI 값은 보이지 않게만 두고 지우지 않는다.
+// - 2) 주요 사업·회의결과: 그 주 사업 보고 줄(날짜순). 내부 정례 회의와 내가 '늘 빼기'로 정한 종류는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
+//   한 줄 업데이트(칸 oneline)는 표 칸 맨 위, 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
+// - 기기에 아무것도 저장하지 않는다. 글은 로그에 쓰지 않는다.
 import {previewRecords,weekOf,shiftDays,nextPlanLines,fullTable} from './business-area-model.mjs';
 import {summaryCellKey} from './weekly-summary-hand.mjs';
+import {weekPickHtml,bindWeekPick,currentWeek} from './week-pick.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const todaySeoul=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
 const shortDay=day=>{const [,m,d]=day.split('-');return `${Number(m)}.${Number(d)}`};
-let dialog=null,state=null;
+let box=null,state=null;
+const $in=sel=>box?.querySelector(sel);
 
-function ensureDialog(){
-  if(dialog)return dialog;
-  dialog=document.createElement('dialog');dialog.id='reportPreviewDialog';dialog.className='biz-preview';dialog.setAttribute('aria-labelledby','reportPreviewTitle');
-  dialog.innerHTML=`<header class="biz-preview-head"><h2 id="reportPreviewTitle">사업요약표 미리보기</h2><button type="button" class="icon-btn" data-bp-close aria-label="닫기">×</button></header>
-<div class="biz-preview-bar"><button type="button" class="mini" data-bp-week="-1" aria-label="지난 주">‹</button><span data-bp-period></span><button type="button" class="mini" data-bp-week="1" aria-label="다음 주">›</button></div>
-<details class="biz-preview-range"><summary>기간 바꾸기</summary><label>시작<input type="date" data-bp-from></label><label>끝<input type="date" data-bp-to></label><button type="button" class="mini" data-bp-apply>적용</button></details>
-<div class="biz-preview-scroll"><div class="biz-paper" data-bp-paper></div></div>
-<footer class="biz-preview-foot"><p class="status" data-bp-status role="status" aria-live="polite"></p><button type="button" class="mini secondary" data-bp-hwpx>HWP로 내려받기</button></footer>`;
-  document.body.append(dialog);
-  dialog.addEventListener('click',onClick);
-  dialog.addEventListener('cancel',e=>{e.preventDefault();if(state?.editing){state.editing=null;renderPaper();return}close()});
-  // 글 칸: Ctrl+Enter(맥은 ⌘+Enter) = 저장, 담당 한 줄 칸은 Enter = 저장(Esc는 위 cancel이 쓰기만 닫는다).
-  dialog.addEventListener('keydown',e=>{
-    if(e.key!=='Enter'||e.isComposing||!state?.editing)return;
+function ensureBox(el){
+  if(box===el)return box;
+  box=el;
+  box.querySelector('[data-bw-body]').innerHTML=`<div class="biz-week-bar btn-row" data-bw-bar></div><div class="biz-paper biz-week-paper" data-bp-paper></div>
+<p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p><div class="biz-week-foot"><button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button></div>`;
+  box.addEventListener('click',onClick);
+  bindWeekPick(box.querySelector('[data-bw-bar]'),()=>state?.from,week=>{if(!state)return;state.from=week;state.to=shiftDays(week,6);void paint()});
+  // 글 칸: 진행 = Ctrl+Enter(맥은 ⌘+Enter), 담당 한 줄 칸 = Enter 저장. Esc = 쓰던 칸만 닫기(저장 안 함).
+  box.addEventListener('keydown',e=>{
+    if(!state?.editing)return;
     const field=e.target.closest?.('[data-bp-field]');if(!field)return;
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();state.editing=null;renderPaper();return}
+    if(e.key!=='Enter'||e.isComposing)return;
     if(field.tagName==='TEXTAREA'&&!(e.ctrlKey||e.metaKey))return;
     e.preventDefault();void saveEdit();
   });
-  return dialog;
+  return box;
 }
-// UI-뒤로가기겹규칙: 맨 <dialog>라 라우터 겹 하나를 연다(뒤로가기 = 쓰던 칸이 있으면 그것만, 아니면 이 창 닫기).
-// 닫고 다른 화면으로 갈 때는 겹의 뒤로가기가 도착한 뒤 간다(늦게 온 뒤로가기가 새 화면 기록을 지우지 않게).
-let layer=null;
-function close(){
-  const l=layer;layer=null;
-  const done=Promise.resolve(l?.close());
-  if(dialog?.open)dialog.close();state?.trigger?.focus?.({preventScroll:true});state=null;
-  return done;
-}
-function say(text){const el=dialog?.querySelector('[data-bp-status]');if(el)el.textContent=text||''}
+function say(text){const el=$in('[data-bp-status]');if(el)el.textContent=text||''}
 
 async function onClick(e){
   if(!state)return;
-  if(e.target===dialog||e.target.closest('[data-bp-close]'))return close();
-  const week=e.target.closest('[data-bp-week]');if(week){const n=Number(week.dataset.bpWeek)*7;state.from=shiftDays(state.from,n);state.to=shiftDays(state.to,n);return paint()}
-  if(e.target.closest('[data-bp-apply]')){const from=dialog.querySelector('[data-bp-from]').value,to=dialog.querySelector('[data-bp-to]').value;if(!from||!to||from>to)return say('시작과 끝 날짜를 확인해 주세요.');state.from=from;state.to=to;dialog.querySelector('.biz-preview-range').open=false;return paint()}
   if(e.target.closest('[data-bp-edit-cancel]')){state.editing=null;return renderPaper()}
   if(e.target.closest('[data-bp-edit-save]'))return saveEdit();
-  const open=e.target.closest('[data-bp-open]');if(open){const id=open.dataset.bpOpen;await close();const mod=await import('./report-open.js');return mod.openReport(id)}
-  if(e.target.closest('[data-bp-hwpx]')){const day=state.from;await close();window.KPTURouter?.go?.('journal',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day,{hwpx:true}))}
+  const open=e.target.closest('[data-bp-open]');if(open){const mod=await import('./report-open.js');return mod.openReport(open.dataset.bpOpen)}
+  if(e.target.closest('[data-bw-journal]')){const day=state.from;window.KPTURouter?.go?.('journal',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day))}
   // 칸을 누르면 글 칸(보고 줄 버튼·쓰는 중인 칸 안은 빼고).
   const cell=e.target.closest('[data-bp-cell]');
-  if(cell&&!e.target.closest('[data-bp-field],[data-bp-open],summary,details'))return startEdit(cell.dataset.bpCell,Number(cell.dataset.bpRow));
+  const inner=e.target.closest('summary,details');
+  if(cell&&!e.target.closest('[data-bp-field],[data-bp-open]')&&(!inner||inner===box))return startEdit(cell.dataset.bpCell,Number(cell.dataset.bpRow));
 }
 // 업무일지 부품이 아직 안 불러와졌으면 잠깐(최대 5초) 기다린다.
 async function waitJournal(){for(let i=0;i<50&&!window.KPTUJournal?.showWeek;i++)await new Promise(r=>setTimeout(r,100));return window.KPTUJournal}
 
 const isWeek=(from,to)=>weekOf(from).from===from&&shiftDays(from,6)===to;
 async function paint(){
-  const paper=dialog.querySelector('[data-bp-paper]'),{from,to}=state;
-  dialog.querySelector('[data-bp-period]').textContent=`${shortDay(from)} ~ ${shortDay(to)}`;
-  dialog.querySelector('[data-bp-from]').value=from;dialog.querySelector('[data-bp-to]').value=to;say('');
+  const paper=$in('[data-bp-paper]'),{from,to}=state;
+  $in('[data-bw-bar]').innerHTML=weekPickHtml(from);say('');
   const run=++state.run;state.editing=null;
   try{
     const [{placeRecords},{meetingLine},sheet,kinds,store]=await Promise.all([import('./journal-weekly.js'),import('./journal-data.js'),import('./report-places-sheet.js'),import('./journal-meeting-kinds.js'),import('./weekly-draft-store.js')]);
@@ -96,8 +81,8 @@ async function paint(){
 function renderPaper(){
   if(!state?.view)return;
   const {placed,records,untagged,all,lineOf}=state.view;
-  dialog.querySelector('[data-bp-paper]').innerHTML=paperHtml(placed,records,untagged,all,lineOf);
-  const field=dialog.querySelector('[data-bp-field]');if(field){field.focus({preventScroll:true});if(field.select&&field.tagName==='INPUT')field.select()}
+  $in('[data-bp-paper]').innerHTML=paperHtml(placed,records,untagged,all,lineOf);
+  const field=$in('[data-bp-field]');if(field){field.focus({preventScroll:true});if(field.select&&field.tagName==='INPUT')field.select()}
 }
 
 // ---- 직접 쓰기(진행 상황 및 이후 계획 · 담당) ----
@@ -114,15 +99,15 @@ function savedOwner(area,task){
   return state.store.draftOwners(state.draft)[cellKeyOf(area,task)]||'';
 }
 function startEdit(kind,row){
-  if(!state?.editable){say(dialog.querySelector('[data-bp-status]')?.textContent||'지금은 쓸 수 없어요.');return}
+  if(!state?.editable){say($in('[data-bp-status]')?.textContent||'지금은 쓸 수 없어요.');return}
   const ref=rowRefs()[row];if(!ref)return;
   state.editing={kind,row};renderPaper();
 }
 async function saveEdit(){
   const ed=state?.editing;if(!ed)return;
-  const field=dialog.querySelector('[data-bp-field]'),ref=rowRefs()[ed.row];if(!field||!ref)return;
+  const field=$in('[data-bp-field]'),ref=rowRefs()[ed.row];if(!field||!ref)return;
   const text=String(field.value||''),run=state.run,week=state.from;
-  for(const b of dialog.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=true;
+  for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=true;
   say('저장 중…');
   try{
     const store=state.store;
@@ -130,7 +115,7 @@ async function saveEdit(){
     if(!state||run!==state.run)return;
     if(r.missing){say('저장 칸이 아직 준비 중이에요.');state.editing=null;return renderPaper()}
     state.draft=r.row?.draft??state.draft;state.editing=null;say('저장했어요.');renderPaper();
-  }catch(err){if(state&&run===state.run){say(err?.code==='too_long'?err.message:'저장하지 못했어요. 잠시 뒤 다시 해 주세요.');for(const b of dialog.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=false}}
+  }catch(err){if(state&&run===state.run){say(err?.code==='too_long'?err.message:'저장하지 못했어요. 잠시 뒤 다시 해 주세요.');for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=false}}
 }
 
 // 표의 한 칸: 쓴 글이 있으면 그 줄들, 없으면 그 주 사업 보고 제목(사실 기록)들 + 이후 계획(다음 할 일, 중복 없이). 한 줄 업데이트는 맨 위.
@@ -173,14 +158,16 @@ function paperHtml(placed,records,untagged,all,lineOf){
   const table=rows.length?`<table class="biz-sum-table"><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음');
   const miss=untagged.length?`<details class="biz-untagged"><summary>사업영역 안 단 보고 ${untagged.length}건</summary>${untagged.map(m=>`<button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}">${esc(lineOf(m))}</button>`).join('')}</details>`:'';
   const details=all.length?all.map(m=>{const day=new Date(Date.parse(m.meeting_at)+9*3600e3).toISOString().slice(0,10),plan=nextPlanLines(m.next_plan);return `<li><button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}"><span class="biz-day">${shortDay(day)}</span> ${esc(lineOf(m))}</button>${plan.length?`<p class="biz-cell-plan">→ 이후: ${plan.map(esc).join(' / ')}</p>`:''}</li>`}).join(''):`<li>${emptyHtml('사업 보고 없음')}</li>`;
-  return `<h3>1) 요약</h3>${table}${miss}<h3>2) 세부 내용 — 회의·활동 결과</h3><ul class="biz-detail-list">${details}</ul>`;
+  return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list">${details}</ul>`;
 }
 
 // meetings(): 사업 보고 화면이 읽어 둔 사업 보고 전체(select=*). 화면의 읽기를 그대로 쓰고 따로 읽지 않는다.
-export function openReportPreview(trigger,{meetings}){
-  ensureDialog();const week=weekOf(todaySeoul());
-  state={trigger,meetings,from:week.from,to:week.to,run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[]};
-  if(!dialog.open)dialog.showModal();void paint();
-  if(!layer)layer=window.KPTURouter?.layer?.open('report-preview',{close:()=>{if(state?.editing){state.editing=null;renderPaper();return false}layer=null;close();return true}})||null;
-  dialog.querySelector('[data-bp-close]').focus({preventScroll:true});
+// el = 사업 보고 화면의 접는 칸 #bizWeekBox(<details>). 처음 펼칠 때 이번 주로 그린다.
+export function mountWeekSummary(el,{meetings}){
+  ensureBox(el);
+  if(!state){const week=weekOf(currentWeek());state={meetings,from:week.from,to:week.to,run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[]};}
+  else state.meetings=meetings;
+  void paint();
 }
+// 사업 보고가 바뀌면(펼쳐 있고 쓰는 칸이 없을 때만) 다시 그린다.
+export function refreshWeekSummary(){if(box?.open&&state&&!state.editing)void paint()}

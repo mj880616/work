@@ -10,7 +10,7 @@ export function ocrHarness(options={}){
  const admin={auth:{getUser:async jwt=>({data:{user:jwt==='owner'?{id:'user'}:null},error:null})},from(table){
   if(table==='app_notes'&&options.adminNotes)return options.adminNotes();
   assert.notEqual(table,'app_notes','OCR must use caller RLS rather than admin note reads/writes');
-  const q={select(){return q;},eq(){return q;},maybeSingle:async()=>({data:table==='app_workspace_members'?{role:options.nonOwner?'member':'owner',workspace_id:WS}:{basket_folder_id:options.settingsCleared&&++settingsReads>1?null:'folder'},error:null}),single:async()=>({data:{google_client_id:'client',google_client_secret:'secret',google_refresh_token:'refresh'},error:null})};return q;
+  const q={select(){return q;},eq(){return q;},maybeSingle:async()=>({data:table==='app_workspace_members'?{role:options.nonOwner?'member':'owner',workspace_id:WS}:table==='public_policy_drive_config'?{google_client_id:'client',google_client_secret:'secret'}:table==='app_drive_connections'?{workspace_id:WS,google_refresh_token:'refresh'}:{basket_folder_id:options.settingsCleared&&++settingsReads>1?null:'folder'},error:null}),single:async()=>({data:{google_client_id:'client',google_client_secret:'secret',google_refresh_token:'refresh'},error:null})};return q;
  }};
  const user={from(table){assert.equal(table,'app_notes');const filters={};const q={select(){return q;},eq(k,v){filters[k]=v;return q;},maybeSingle:async()=>({data:filters.id===NOTE&&filters.workspace_id===WS?structuredClone(note):null,error:null})};return q;},async rpc(name,args){
   assert.equal(name,'app_basket_update_attachment_ocr');calls.rpc.push(structuredClone(args));

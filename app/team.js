@@ -269,7 +269,9 @@ function followResult(box,resetList){if(!meetingPc?.matches)return;const pane=bo
 // 그리는 곳은 여기 하나(renderMeetings가 부름), [달기] 창·저장은 report-area-tag.js(기존 app_meetings 저장 길).
 function paintUntagged(){const line=$('#areaUntaggedLine');if(!line)return;const n=weekOn()&&meetings.length?untaggedInWeek(meetings,currentWeek()).length:0;line.hidden=!n;line.innerHTML=n?`<span class="area-untagged-text">사업영역 안 단 보고 <b>${n}</b>건</span><button type="button" class="area-untagged-btn" data-area-untagged aria-haspopup="dialog">달기</button>`:''}
 function untaggedClick(e){const b=e.target.closest('[data-area-untagged]');if(!b)return;import('./report-area-tag.js').then(m=>m.openAreaTag(b,{meetings,from:currentWeek(),onSaved:n=>{paintUntagged();toast(`사업영역을 ${n}건 달았어요.`)},onMessage:toast}),err=>toast(err?.message||'사업영역 달기 창을 열지 못했습니다.'))}
-function renderMeetings(opts){const box=$('#meetingList');if(!box||!reportKitLoaded)return;undockReport();if(!reportViewChosen)reportView=reportViewOf(viewPrefs.get('report_view'));applyPeriodPref();renderReportChips();renderAreaChips();renderReportViewChips();renderReportWeek();paintUntagged();const pc=!!meetingPc?.matches,listView=reportView==='list',columns=pc&&listView&&reportChip===DEFAULT_KIND;box.classList.toggle('meeting-columns',pc&&listView);box.dataset.reportKind=reportChip;box.dataset.reportView=reportView;if(reportView==='calendar')renderReportCalendar(box);else if(reportView==='photo')renderReportPhotos(box);else if(columns)renderMeetingColumns(box,opts);else if(pc)renderReportList(box,opts);else renderMeetingRows(box)}
+// WEEKLY-메뉴짝짓기 P5: 사업 보고 위 접는 칸 '이번 주 주간보고'(weekly-summary-table.js). 처음 펼칠 때 부품을 부르고, 보고가 바뀌면 펼쳐 있을 때만 다시 그린다.
+function syncWeekBox(){const el=$('#bizWeekBox');if(!el)return;el.hidden=false;if(!el.dataset.bwBound){el.dataset.bwBound='1';el.addEventListener('toggle',()=>{if(el.open)import('./weekly-summary-table.js').then(m=>m.mountWeekSummary(el,{meetings:()=>meetings}),err=>toast(err?.message||'주간보고 칸을 열지 못했습니다.'))})}else if(el.open)import('./weekly-summary-table.js').then(m=>m.refreshWeekSummary()).catch(()=>{})}
+function renderMeetings(opts){const box=$('#meetingList');if(!box||!reportKitLoaded)return;syncWeekBox();undockReport();if(!reportViewChosen)reportView=reportViewOf(viewPrefs.get('report_view'));applyPeriodPref();renderReportChips();renderAreaChips();renderReportViewChips();renderReportWeek();paintUntagged();const pc=!!meetingPc?.matches,listView=reportView==='list',columns=pc&&listView&&reportChip===DEFAULT_KIND;box.classList.toggle('meeting-columns',pc&&listView);box.dataset.reportKind=reportChip;box.dataset.reportView=reportView;if(reportView==='calendar')renderReportCalendar(box);else if(reportView==='photo')renderReportPhotos(box);else if(columns)renderMeetingColumns(box,opts);else if(pc)renderReportList(box,opts);else renderMeetingRows(box)}
 // NAV-새로고침제자리(S48-30): 사업 보고의 고른 칸 칩(?chip=, [회의]면 생략)과 고른 보고(?report=)를 주소에 적어 새로고침 뒤 같은 자리. 사용자가 칸·회의명·보고를 고를 때만 적고(그릴 때마다 적지 않음 — 기록 이동 중 주소를 건드리지 않게), 자료를 처음 읽을 때 한 번 주소에서 되살린다.
 function restoreReportPlace(){if(reportPlaceReady)return;reportPlaceReady=true;const q=new URLSearchParams(location.search),raw=['reports','meetings'].includes(q.get('view'))?{chip:q.get('chip'),report:q.get('report')}:{},placed=window.KPTURouter?.place?.('meetings')||{},at=placed.chip||placed.report?placed:raw;if(at.chip&&isReportChip(at.chip))reportChip=at.chip;if(!at.report)return;const m=meetings.find(x=>String(x.id)===String(at.report));if(!m)return;if(reportChip!==ALL_KINDS&&reportKindOf(m)!==reportChip)reportChip=reportKindOf(m);weekFor(m);meetingSelectedId=m.id;if(reportChip===DEFAULT_KIND){const n=meetingName(m);meetingSelectedKind=n?meetingNameKey(n):NONE_KEY;if(meetingType!=='all'&&meetingType!==(n||'__none__'))meetingType='all'}}
 function writeReportPlace(){if(!reportPlaceReady||window.KPTURouter?.current!=='meetings')return;window.KPTURouter.setPlace?.('meetings',{chip:reportChip===DEFAULT_KIND?null:reportChip,report:meetingSelectedId!=null?String(meetingSelectedId):null})}
@@ -419,7 +421,7 @@ window.__KPTU_TEAM_READY__=init().then(result=>{const state=result==='error'?'er
 
 // MEET-결과3단: 오른쪽 후속 할 일은 할 일·회의가 바뀌거나 회의 결과 창을 닫으면 다시 읽는다(창 안에서 고친 할 일 반영).
 window.addEventListener('kptu:documents-changed',()=>{if(workspace?.id&&teamViewLoaded.has('meetings'))reload(['documents'],renderMeetings).catch(err=>console.error('meeting document count refresh failed',err))});
-/* BIZ-버튼줄정리(10/29 시안 B): 사업 보고 위쪽 줄 ⋯ 메뉴 두 줄 — 사업요약표 미리보기 · 사업영역 관리. 공용 메뉴 부품(anchored-menu.js: ⋯ 바로 아래 오른쪽 맞춤,
+/* BIZ-버튼줄정리(10/29 시안 B): 사업 보고 위쪽 줄 ⋯ 메뉴 — 사업영역 관리(WEEKLY-메뉴짝짓기 P5: [사업요약표 미리보기]는 위 접는 칸 '이번 주 주간보고'로 옮김). 공용 메뉴 부품(anchored-menu.js: ⋯ 바로 아래 오른쪽 맞춤,
    바깥 누르기·Esc·뒤로가기로 닫힘)과 공용 글자 줄 모양(.topline-add-menu). 미리보기는 ⋯를 기준 자리로 연다(전에는 줄의 [사업요약표 미리보기] 버튼).
    [사업영역 관리]는 메뉴가 닫힌 뒤 사업 보고 위의 창으로 연다(area-window.js, MTG-프로젝트합치기 ①: 닫으면 보던 주·거르기 그대로). */
 function bindReportMore(){
@@ -428,9 +430,8 @@ function bindReportMore(){
   more.addEventListener('click',async()=>{
     if(!menu){const {createAnchoredMenu}=await import('./anchored-menu.js');
       menu=createAnchoredMenu({id:'reportMoreMenu',className:'topline-add-menu report-more-menu',label:'사업 보고 더 보기',historyKey:'kptuReportMore',key:()=>'report',
-        render:()=>'<button type="button" data-report-preview>사업요약표 미리보기</button><button type="button" data-report-areas>사업영역 관리</button>',
+        render:()=>'<button type="button" data-report-areas>사업영역 관리</button>',
         onAction:(b,{trigger})=>{
-          if(b.matches('[data-report-preview]'))return void import('./report-summary-preview.js').then(m=>m.openReportPreview(trigger,{meetings:()=>meetings}),err=>toast(err?.message||'미리보기를 열지 못했습니다.'));
           if(b.matches('[data-report-areas]'))return void window.KPTUAreaWindow?.open?.({trigger});
         }});}
     menu.open(more);

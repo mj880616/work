@@ -241,8 +241,146 @@ object PhoneFilesRules {
      * 열쇠는 켜져 있을 때만 준다. v = 다리 판(화면이 아는 것만 쓰게).
      */
     fun stateMessage(all: Boolean, can: Boolean, key: String): String {
-        val sb = StringBuilder("pfiles:state:{\"v\":1,\"can\":").append(can).append(",\"all\":").append(all && can)
+        // v2(3-③): write = 받기·새 폴더·이름·휴지통(pfiles:op·pfiles:save)을 안다.
+        val sb = StringBuilder("pfiles:state:{\"v\":2,\"write\":true,\"can\":").append(can).append(",\"all\":").append(all && can)
         if (all && can) sb.append(",\"key\":").append(ShellRules.jsonString(key))
+        return sb.append('}').toString()
+    }
+
+    // ── 쓰기(3-③, S49-51): 사람이 누른 것만(웹이 confirm:true를 붙인 것만 받는다). 덮어쓰기 없음(같은 이름은 '이름 (2)'). ──
+    // - pfiles:op:{"op":"mkdir","dir":"Download","name":"새 폴더","confirm":true} / {"op":"rename","path":"Download/a.txt","name":"b.txt",…}
+    //   / {"op":"trash","paths":["Download/a.txt"],…}(파일만, 안드로이드 휴지통 — 시스템 확인 창) → pfiles:done:{ok,op,path?,count?,error?}
+    // - 클라우드 → 폰 받기: pfiles:save:begin:{"dir","name","size","confirm":true} → pfiles:save:part:<base64>… → pfiles:save:end → pfiles:save:{ok,step,got,path?,error?}
+    //   받는 동안은 그 폴더의 숨긴 임시 파일(점으로 시작, 목록에 안 보임)에 쓰고, 다 받고 크기가 맞을 때만 번호 붙인 이름으로 바꾼다. 그만두면 임시 파일을 지운다.
+
+    const val SAVE_MAX = 1024L * 1024 * 1024
+    /** 한 조각(base64 글자 수). 웹은 384KB 바이트씩 보낸다(base64 512KB). */
+    const val PART_MAX = 700_000
+    const val TRASH_MAX = 50
+    const val NAME_MAX = 255
+    const val TEMP_PREFIX = ".web2-part-"
+
+    sealed class Write {
+        data class Mkdir(val dir: String, val name: String) : Write()
+        data class Rename(val path: String, val name: String) : Write()
+        data class Trash(val paths: kotlin.collections.List<String>) : Write()
+        data class Begin(val dir: String, val name: String, val size: Long) : Write()
+        data class Part(val base64: String) : Write()
+        object End : Write()
+        object Cancel : Write()
+    }
+
+    private val BAD_NAME = Regex("[/\\\\:*?\"<>|]")
+    private val B64 = Regex("^[A-Za-z0-9+/]*={0,2}$")
+
+    /** 새 이름 하나: 경로 칸 규칙 + 윈도·SD 카드가 못 받는 글자 없음 + 앞뒤 빈칸·끝 점 없음. */
+    fun nameOk(name: String?): Boolean =
+        name != null && segmentOk(name) && name.length <= NAME_MAX && !BAD_NAME.containsMatchIn(name) && name.trim() == name && !name.endsWith(".")
+
+    /** 폴더 값: 빈 글(맨 위) 또는 막히지 않은 상대 경로. */
+    fun dirOk(dir: String?): Boolean = dir != null && (dir.isEmpty() || segments(dir) != null)
+
+    fun write(data: String?): Write? {
+        if (data == null || data.length > PART_MAX + 40) return null
+        return when {
+            data.startsWith("pfiles:op:") -> op(data.substring("pfiles:op:".length))
+            data.startsWith("pfiles:save:begin:") -> begin(data.substring("pfiles:save:begin:".length))
+            data.startsWith("pfiles:save:part:") -> data.substring("pfiles:save:part:".length)
+                .takeIf { it.isNotEmpty() && it.length <= PART_MAX && it.length % 4 == 0 && B64.matches(it) }?.let { Write.Part(it) }
+            data == "pfiles:save:end" -> Write.End
+            data == "pfiles:save:cancel" -> Write.Cancel
+            else -> null
+        }
+    }
+
+    private fun obj(raw: String): Map<String, Any?>? {
+        if (raw.length > 40_000) return null
+        val o = try { MiniJson.obj(MiniJson.parse(raw)) } catch (_: Exception) { null } ?: return null
+        return if (o["confirm"] == true) o else null
+    }
+
+    private fun op(raw: String): Write? {
+        val o = obj(raw) ?: return null
+        return when (MiniJson.str(o["op"])) {
+            "mkdir" -> {
+                val dir = MiniJson.str(o["dir"]) ?: ""
+                val name = MiniJson.str(o["name"])
+                if (!dirOk(dir) || !nameOk(name) || segments(if (dir.isEmpty()) name!! else "$dir/$name") == null) null else Write.Mkdir(dir, name!!)
+            }
+            "rename" -> {
+                val path = MiniJson.str(o["path"]) ?: return null
+                val name = MiniJson.str(o["name"])
+                if (segments(path) == null || !nameOk(name)) return null
+                val parent = path.substringBeforeLast('/', "")
+                if (segments(if (parent.isEmpty()) name!! else "$parent/$name") == null) null else Write.Rename(path, name!!)
+            }
+            "trash" -> {
+                val list = MiniJson.list(o["paths"]) ?: return null
+                if (list.isEmpty() || list.size > TRASH_MAX) return null
+                val paths = list.map { (it as? String)?.takeIf { p -> segments(p) != null } ?: return null }.distinct()
+                Write.Trash(paths)
+            }
+            else -> null
+        }
+    }
+
+    private fun begin(raw: String): Write.Begin? {
+        val o = obj(raw) ?: return null
+        val dir = MiniJson.str(o["dir"]) ?: ""
+        val name = MiniJson.str(o["name"])
+        val size = MiniJson.num(o["size"])?.takeIf { it == Math.floor(it) && it >= 0 && it <= SAVE_MAX }?.toLong() ?: return null
+        if (!dirOk(dir) || !nameOk(name)) return null
+        if (segments(if (dir.isEmpty()) name!! else "$dir/$name") == null) return null
+        return Write.Begin(dir, name!!, size)
+    }
+
+    /** 받은 크기 세기: 선언한 크기를 넘으면 거절, 같아야 끝. */
+    class Saving(val size: Long) {
+        var got = 0L
+            private set
+        fun add(n: Int): Boolean {
+            if (n <= 0 || got + n > size) return false
+            got += n
+            return true
+        }
+        val complete: Boolean get() = got == size
+    }
+
+    private val EXT = Regex("\\.([A-Za-z0-9]{1,10})$")
+    private val NUMBERED = Regex("^(.*\\S) \\((\\d{1,4})\\)$")
+
+    /**
+     * 같은 이름이면 '이름 (2).확장자'처럼 번호(웹 app/file-rename-name.mjs numberedName과 같은 규칙, 대소문자 무시).
+     * taken = 그 폴더에 이미 있는 이름들.
+     */
+    fun numbered(name: String, taken: Collection<String>): String {
+        val lower = taken.map { it.lowercase() }.toSet()
+        if (name.lowercase() !in lower) return name
+        val m = EXT.find(name)
+        val (full, ext) = if (m == null || m.range.first == 0) name to "" else name.substring(0, m.range.first) to name.substring(m.range.first)
+        val n = NUMBERED.matchEntire(full)
+        val base = n?.groupValues?.get(1) ?: full
+        var i = n?.groupValues?.get(2)?.toInt()?.plus(1) ?: 2
+        while (i < 10000) {
+            val c = "$base ($i)$ext"
+            if (c.lowercase() !in lower) return c
+            i++
+        }
+        return "$base (${System.currentTimeMillis()})$ext"
+    }
+
+    fun doneMessage(ok: Boolean, op: String, path: String? = null, count: Int = 0, error: String = ""): String {
+        val sb = StringBuilder("pfiles:done:{\"ok\":").append(ok).append(",\"op\":").append(ShellRules.jsonString(op))
+        if (path != null) sb.append(",\"path\":").append(ShellRules.jsonString(path))
+        sb.append(",\"count\":").append(count)
+        if (error.isNotEmpty()) sb.append(",\"error\":").append(ShellRules.jsonString(error))
+        return sb.append('}').toString()
+    }
+
+    fun saveMessage(ok: Boolean, step: String, got: Long = 0, path: String? = null, error: String = ""): String {
+        val sb = StringBuilder("pfiles:save:{\"ok\":").append(ok).append(",\"step\":").append(ShellRules.jsonString(step)).append(",\"got\":").append(got)
+        if (path != null) sb.append(",\"path\":").append(ShellRules.jsonString(path))
+        if (error.isNotEmpty()) sb.append(",\"error\":").append(ShellRules.jsonString(error))
         return sb.append('}').toString()
     }
 

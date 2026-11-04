@@ -1,8 +1,11 @@
 // FILES-클라우드탐색기 ④ 화면 모델(설계 docs/design/files-explorer.md, 명진 결정 F1~F9 11/02). DOM·네트워크 없음.
 // 화면(files.js)은 여기서 계산한 값으로 그리기만 한다. 색인 줄 모양은 DB 읽기 함수 app_cloud_list·app_cloud_find와 Edge cloud-files sync 응답.
 
+import {phoneErrorText} from './phone-files-model.mjs';
+
 export const SOURCES = Object.freeze(['od', 'gd']);
-export const SOURCE_NAME = Object.freeze({od: '원드라이브', gd: '구글 드라이브'});
+// 'ph' = 이 폰 저장 공간(S49-51 FILES-통합 3단계, 폰 앱에서만). 클라우드 목록(SOURCES)에는 넣지 않는다 — 서버 색인·맞추기·쓰기는 클라우드 둘만.
+export const SOURCE_NAME = Object.freeze({od: '원드라이브', gd: '구글 드라이브', ph: '이 폰'});
 // 묶음(나무 맨 위): 최근(F9 폰 첫 화면) · 별표 · 큰 파일. 서버 app_cloud_find의 p_shelf와 같은 이름.
 export const SHELVES = Object.freeze(['recent', 'starred', 'big']);
 export const SHELF_NAME = Object.freeze({recent: '최근', starred: '별표', big: '큰 파일'});
@@ -214,7 +217,7 @@ export const pathText = (source, folderPath) => [SOURCE_NAME[source] || '', ...(
 // 폴더 나무 줄: 묶음 3개 → 연결된 클라우드 뿌리 → 펼친 폴더의 하위 폴더(읽어 둔 것만). 계산만 하고 그리기는 화면.
 // children: Map(`${source}:${parentId || ''}` → 폴더 줄 목록), open: Set(같은 열쇠). 깊이는 40단계까지.
 export const folderKey = (source, id) => `${source}:${id || ''}`;
-export function treeRows({sources = SOURCES, children = new Map(), open = new Set()} = {}) {
+export function treeRows({sources = SOURCES, children = new Map(), open = new Set(), order = (source, rows) => rows} = {}) {
   const out = SHELVES.map(shelf => ({type: 'shelf', shelf, key: 'shelf:' + shelf, depth: 0}));
   for (const source of sources) {
     const rootKey = folderKey(source, null), isOpen = open.has(rootKey);
@@ -222,7 +225,7 @@ export function treeRows({sources = SOURCES, children = new Map(), open = new Se
     if (!isOpen) continue;
     const walk = (parent, depth) => {
       if (depth > 40) return;
-      for (const f of children.get(folderKey(source, parent)) || []) {
+      for (const f of order(source, children.get(folderKey(source, parent)) || [])) { // FOLDER-순서·색 ③-2: 정한 순서(없으면 받은 순서 그대로)
         const key = folderKey(source, f.item_id), known = children.has(key), kids = known ? (children.get(key) || []).length > 0 : true;
         const o = open.has(key);
         out.push({type: 'folder', source, id: f.item_id, name: f.name, count: f.child_count, key, depth, open: o, hasKids: kids});
@@ -269,6 +272,7 @@ export function findSummary(rows) {
 // 서버 오류 코드 → 한 줄.
 export function errorText(code) {
   const c = String(code || '');
+  if (c.startsWith('phone_')) return phoneErrorText(c.slice(6));
   if (c === 'feature_required' || c === 'forbidden' || c === 'drive_owner_mismatch' || c === 'http_403') return '이 작업공간에서는 쓰지 않는 기능입니다';
   if (/not_connected|not_configured|reconnect|auth_expired|scope_missing|cloud_denied/.test(c)) return '클라우드 연결을 다시 해야 합니다';
   if (c === 'cloud_throttled') return '클라우드가 잠시 바쁩니다. 조금 뒤 다시 보세요';

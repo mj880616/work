@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 
 // DESK-현황표: the real ai-assist handler, kind=org_status_rows, with a synthetic Supabase (Auth + PostgREST with owner RLS)
@@ -97,42 +98,13 @@ function harness({openai=null}={}){
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{...(token?{Authorization:`Bearer ${token}`}:{}),'Content-Type':'application/json'},body:JSON.stringify(body)}));
 const expectError=async(res,status,code)=>{assert.equal(res.status,status);const b=await res.json();assert.equal(b.ok,false);assert.equal(b.error,code);};
 
-test('owner: one AI call with the last 60 days of that organization; at most 4 checked rows with evidence ids; nothing saved',async()=>{
-  const {handler,calls}=harness();
-  const res=await post(handler,{kind:'org_status_rows',organization_id:ORG_A});
-  assert.equal(res.status,200);
-  const body=await res.json();
-  assert.equal(body.ok,true);assert.equal(body.kind,'org_status_rows');
-  assert.deepEqual(body.rows,[
-    {day:'2026-10-29',text:'지노위 2차 조정회의 — 조정 종료(쟁의권 확보)',evidence:[U1]},
-    {day:'2026-10-24',text:'업데이트 공지',evidence:[N1]},
-  ],'phone rows, unknown refs, far dates, duplicates and tags are dropped; lead marks removed; a line the table already has (even one the user typed, worded differently) is not offered again');
-  assert.equal(calls.openai.length,1);assert.equal(calls.openai[0].store,false);
-  const sent=calls.openai[0].input[1].content;
-  assert.match(sent,/UPDATE_ONE/);assert.match(sent,/NOTE_ONE/);
-  assert.match(sent,/existing_rows/);assert.match(sent,/총력 결의대회 개최 예정/);
-  const rules=calls.openai[0].input[0].content;
-  assert.match(rules,/보고서 명사형/);assert.match(rules,/승인/);assert.doesNotMatch(rules,/'~함\.'/,'no summary tone rule: report lines end in a noun');
-  for(const no of ['OLD_RECORD','FOREIGN_RECORD','DIARY_SECRET','010-1111-2222',U1,N1])assert.doesNotMatch(sent,new RegExp(no),no);
-  assert.ok(!calls.rest.some(r=>r.method!=='GET'&&r.table!=='app_ai_daily_usage'),'no writes except the usage counter');
-  assert.ok(!calls.logs.some(l=>JSON.stringify(l).includes('지노위')),'logs carry counts only');
-});
-
-test('an organization with no recent records returns an empty list without an AI call',async()=>{
-  const {handler,calls}=harness();
-  const b=await (await post(handler,{kind:'org_status_rows',organization_id:ORG_B})).json();
-  assert.equal(b.ok,true);assert.equal(b.empty,true);assert.deepEqual(b.rows,[]);assert.equal(calls.openai.length,0);
-});
-
-test('other workspace organization, bad input and bad AI answers are refused',async()=>{
-  const {handler,calls}=harness();
-  await expectError(await post(handler,{kind:'org_status_rows',organization_id:FOREIGN_ORG}),404,'not_found');
-  await expectError(await post(handler,{kind:'org_status_rows',organization_id:ORG_A},'stranger-token'),404,'not_found');
-  await expectError(await post(handler,{kind:'org_status_rows',organization_id:'nope'}),400,'invalid_request');
-  await expectError(await post(handler,{kind:'org_status_rows',organization_id:ORG_A,rows:[]}),400,'invalid_request');
-  assert.equal(calls.openai.length,0);
-  const bad=harness({openai:()=>respond(answer({lines:[]}))});
-  await expectError(await post(bad.handler,{kind:'org_status_rows',organization_id:ORG_A}),502,'ai_invalid_response');
+test('WEEKLY-메뉴짝짓기 P7: org_status_rows 쓰임은 지웠다 — 400 unsupported_kind, OpenAI 호출 없음(현황 표 자료는 그대로)',async()=>{
+  for(const body of [{kind:'org_status_rows',organization_id:ORG_A},{kind:'org_status_rows'}]){
+    const {handler,calls}=harness();
+    await expectError(await post(handler,body),400,'unsupported_kind');
+    assert.equal(calls.openai.length,0);
+  }
+  assert.doesNotMatch(readFileSync('supabase/functions/ai-assist/handler.ts','utf8'),/runOrgStatusRows/);
 });
 
 test('pure rules: packing order, material refs only, answer cleanup',()=>{

@@ -2,6 +2,7 @@
 // 지금 서버(Edge onedrive-photos)는 달 단위 사진 목록(action 'photos')만 준다. 그래서 최신순 격자는 이번 달부터 한 달씩 거슬러 받아 잇는다.
 // 사진이 없는 달이 EMPTY_STOP번 이어지면 끝으로 본다(일기 미리 받기의 PREFETCH.emptyStop과 같은 기준).
 
+import {orderByPrefs, colorOf, albumOrderOf} from './folder-look-model.mjs';
 import {folderIndent} from './folder-limits.mjs';
 export const EMPTY_STOP = 24;
 export const MAX_MONTHS = 240;
@@ -261,8 +262,12 @@ export function putItems(list, taken) {
 // tree = {top:{id,name,count,total}, folders:[{id,name,parent_id,enabled,count,total,more?}]}. 폴더 순서는 이름(가나다), 같으면 id.
 // 원드라이브(서버 folders-tree)와 구글 드라이브(gdriveFolderTree, 연 층만) 모두 이 모양 하나로 나무를 그린다(PHOTO-드라이브폴더통일).
 const byName = (a, b) => a.name.localeCompare(b.name, 'ko') || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+// FOLDER-순서·색 ③-2: 직접 정한 순서(서버 app_folder_prefs)가 있는 폴더가 앞, 나머지는 이름순 그대로 뒤. tree.src('gd'면 구글 드라이브, 없으면 원드라이브)로 출처를 가른다.
+let folderOrderLook = () => null;
+export const setFolderOrderLook = fn => { folderOrderLook = typeof fn === 'function' ? fn : () => null; };
 export function photoSubfolders(tree, id) {
-  return (tree?.folders || []).filter(f => f.parent_id === id).sort(byName);
+  const src = tree?.src === 'gd' ? 'gd' : 'od';
+  return orderByPrefs((tree?.folders || []).filter(f => f.parent_id === id).sort(byName), f => folderOrderLook(src, f.id));
 }
 export function photoFolderById(tree, id) {
   if (!tree) return null;
@@ -375,9 +380,9 @@ export function albumCards(tags, links) {
     // PHOTO-출처 ①: keys = 원드라이브 사진 열쇠(서버 library로 읽음), phoneKeys = 폰 사진 열쇠('ms:<번호>', 앱에서 읽음). 장수는 둘을 더한다.
     const od = list.filter(l => (l.source || 'onedrive') === 'onedrive'), phone = list.filter(l => l.source === 'phone');
     const cover = t.cover_key && od.some(l => l.item_key === t.cover_key) ? t.cover_key : od[0]?.item_key || null;
-    return {id: t.id, name: t.name, count: list.length, cover, phoneCover: cover ? null : phone[0]?.item_key || null, keys: od.map(l => l.item_key), phoneKeys: phone.map(l => l.item_key),
+    return {id: t.id, name: t.name, color: colorOf(t), sort_order: albumOrderOf(t), count: list.length, cover, phoneCover: cover ? null : phone[0]?.item_key || null, keys: od.map(l => l.item_key), phoneKeys: phone.map(l => l.item_key),
       odDays: od.map(l => l.taken_day).filter(Boolean), phoneDays: phone.map(l => l.taken_day).filter(Boolean)};
-  }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  }).sort((a, b) => a.name.localeCompare(b.name, 'ko')).sort((a, b) => (a.sort_order === null) - (b.sort_order === null) || (a.sort_order !== null && b.sort_order !== null ? a.sort_order - b.sort_order : 0)); // 정한 순서가 있는 앨범이 앞, 나머지는 이름순
 }
 
 // ---- PHOTO-폴더스위치(요청함 10/31 11:04): 같은 이름 폴더 구분 · 위치 이름 ----

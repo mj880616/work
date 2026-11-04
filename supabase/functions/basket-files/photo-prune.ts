@@ -173,7 +173,7 @@ export function createPhotoPruneHandler(
       let token = "", folder = "";
       const open = async () => {
         try {
-          token = await upload.driveToken();
+          token = await upload.driveToken(workspace);
           // The stored, verified private root only; never create a folder.
           folder = await upload.ensurePrivateRootFolder(workspace, token, { existingOnly: true });
         } catch {

@@ -10,8 +10,10 @@ const list = keys => `(${keys.map(k => `"${String(k).replace(/["\\]/g, '')}"`).j
 
 export async function readPhotoTags(rt = window.KPTURuntime) {
   const ws = encode(workspace(rt));
+  // FOLDER-순서·색 ③-2: 색·순서 칸(DB 20261104223000)은 적용 전 서버가 읽기를 거절(400)하므로 그 칸 없이 다시 읽는다(앨범은 모두 안 고른 앨범·이름순).
+  const readTags = columns => rt.api(`/rest/v1/app_photo_tags?workspace_id=eq.${ws}&select=${columns}&order=name.asc&limit=1000`);
   const [tags, links] = await Promise.all([
-    rt.api(`/rest/v1/app_photo_tags?workspace_id=eq.${ws}&select=id,name,cover_key&order=name.asc&limit=1000`),
+    readTags('id,name,cover_key,color,sort_order').catch(error => { if (!/(^|\D)400(\D|$)|42703|color|sort_order/.test(`${error?.status || ''} ${error?.code || ''} ${error?.message || ''}`)) throw error; return readTags('id,name,cover_key'); }),
     rt.api(`/rest/v1/app_photo_tag_items?workspace_id=eq.${ws}&source=in.(onedrive,phone)&select=tag_id,source,item_key,taken_day&limit=20000`),
   ]);
   if (!Array.isArray(tags) || !Array.isArray(links)) throw new Error('tags');

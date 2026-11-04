@@ -36,6 +36,7 @@ import {
 } from './recording.mjs';
 import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
 import { withWebCors } from "../_shared/web-cors.ts";
+import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
 import { outputText } from '../_shared/openai-responses.ts';
@@ -105,17 +106,15 @@ async function setJob(id: string, patch: Record<string, unknown>) {
   if (error) throw new Fail('failed');
 }
 
-// ---- Drive(이미 있는 Web2 Drive 연결: public_policy_drive_config의 갱신 열쇠, meeting-files와 같음) ----
-async function driveToken() {
-  const { data: c, error } = await admin.from('public_policy_drive_config').select('google_client_id,google_client_secret,google_refresh_token').eq('id', 1).single();
-  if (error || !c?.google_refresh_token) throw new Fail('drive_failed');
-  const r = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: c.google_client_id, client_secret: c.google_client_secret, refresh_token: c.google_refresh_token, grant_type: 'refresh_token' }),
-  });
-  const d = await r.json().catch(() => null);
-  if (!r.ok || !d?.access_token) throw new Fail('drive_failed');
-  return d.access_token as string;
+// ---- Drive(MULTI ②-2: 작업공간별 연결, _shared/workspace-drive-token.ts). 넘기는 작업공간은 늘 requireOwner·본인 행으로 확인한 값.
+//      연결이 없으면 drive_not_connected(424)로 거절한다. id=1의 갱신 열쇠는 읽지 않는다. ----
+async function driveToken(workspaceId: string) {
+  try {
+    return await workspaceDriveToken(admin, workspaceId, { fetch, log: (code) => console.warn('meeting-transcribe drive token', code) });
+  } catch (e) {
+    if (e instanceof WorkspaceDriveError && e.code === 'drive_not_connected') throw new Fail('drive_not_connected');
+    throw new Fail('drive_failed');
+  }
 }
 async function createFolder(token: string, name: string, parent?: string) {
   const r = await fetch(`${DRIVE}?fields=id`, {
@@ -249,7 +248,7 @@ async function sweep(workspaceId: string) {
     const { data: old } = await admin.from(TABLE).select('id,drive_file_id').eq('workspace_id', workspaceId).is('meeting_id', null).is('trashed_at', null)
       .lt('created_at', trashBefore(now)).neq('status', 'running').order('created_at', { ascending: true }).limit(SWEEP_LIMIT);
     if (!old?.length) return;
-    const token = await driveToken();
+    const token = await driveToken(workspaceId);
     const folder = await recordingFolder(workspaceId, token, false);
     if (!folder) return;
     for (const job of old) {
@@ -283,7 +282,7 @@ async function upload(req: Request, user: { id: string }, userDb: ReturnType<typ
   });
   if (!req.body) throw new Fail('bad_request');
   if (overLimit(await monthUsed(userDb, workspaceId))) throw new Fail('monthly_limit');
-  const token = await driveToken();
+  const token = await driveToken(workspaceId);
   const folder = await recordingFolder(workspaceId, token, true);
   if (!folder) throw new Fail('drive_failed');
   const driveId = await driveUpload(token, folder, req.body, file.fileName, file.mime, file.size);
@@ -332,7 +331,7 @@ const failCode = (e: unknown) => e instanceof Fail ? e.code : (e instanceof DOME
 async function runTranscription(key: string, job: Job) {
   let geminiFile: string | null = null;
   try {
-    const token = await driveToken();
+    const token = await driveToken(job.workspace_id);
     const media = await fetch(`${DRIVE}/${encodeURIComponent(job.drive_file_id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
     if (!media.ok || !media.body) throw new Fail('drive_failed');
     const audio = await audioForGemini(job, media);
@@ -487,7 +486,7 @@ async function sweepRecordings(workspaceId: string) {
     const { data: dropped } = await admin.from(REC_TABLE).select(REC_COLUMNS).eq('workspace_id', workspaceId).eq('status', 'failed')
       .like('error_code', 'discarded%').is('pieces_trashed_at', null).order('created_at', { ascending: true }).limit(SWEEP_LIMIT);
     if (!done?.length && !old?.length && !dropped?.length) return;
-    const token = await driveToken();
+    const token = await driveToken(workspaceId);
     const folder = await pieceFolder(workspaceId, token, false);
     for (const seg of done || []) await trashPieces(seg, token, folder);
     for (const seg of dropped || []) await trashPieces(seg, token, folder);
@@ -538,7 +537,7 @@ async function recPiece(req: Request, user: { id: string }) {
     await req.body.cancel().catch(() => undefined);
     return json({ ok: true, already: true, pieces: (rec.piece_ids || []).length });
   }
-  const token = await driveToken();
+  const token = await driveToken(rec.workspace_id);
   const folder = await pieceFolder(rec.workspace_id, token, true);
   if (!folder) throw new Fail('drive_failed');
   const driveId = await driveUpload(token, folder, req.body, pieceFileName(rec.id, piece.seq, rec.mime_type), rec.mime_type, piece.size);
@@ -567,7 +566,7 @@ async function finishSegments(userId: string, sessionId: unknown) {
   let more = false;
   const pending = toCombine(rows);
   if (pending.length) {
-    const token = await driveToken();
+    const token = await driveToken(ws);
     const pieces = await pieceFolder(ws, token, false);
     const target = await recordingFolder(ws, token, true);
     if (!target) throw new Fail('drive_failed');
@@ -658,7 +657,7 @@ async function recDiscard(user: { id: string }, body: Record<string, unknown>) {
   // 2) Drive 휴지통(영구 삭제 아님). 일부 실패해도 버림 표시는 그대로이고, 남은 것은 rec_pending 정리가 다시 넣는다.
   let trashed = true;
   try {
-    const token = await driveToken();
+    const token = await driveToken(ws);
     const folder = await pieceFolder(ws, token, false);
     const target = await recordingFolder(ws, token, false);
     for (const p of plan) {
@@ -683,7 +682,7 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
   const ws = rows[0].workspace_id as string;
   const plan = restorePlan(rows);
   const jobs = new Map((await sessionJobs(rows)).map(j => [j.id, j]));
-  const token = await driveToken();
+  const token = await driveToken(ws);
   const folder = await pieceFolder(ws, token, false);
   const target = await recordingFolder(ws, token, false);
   const ok = (r: string) => r === 'restored' || r === 'ok';
@@ -948,7 +947,7 @@ async function jobStart(user: { id: string }, userDb: ReturnType<typeof userClie
     const checked = audioDocument(doc, MAX_BYTES);
     if (!checked.ok) throw new Fail(checked.code as string);
     const audio = { fileId: checked.fileId as string, name: checked.name as string };
-    const token = await driveToken();
+    const token = await driveToken(start.workspaceId);
     const r = await fetch(`${DRIVE}/${encodeURIComponent(audio.fileId)}?fields=id,name,mimeType,size,md5Checksum,trashed`, { headers: { Authorization: `Bearer ${token}` } });
     const meta = await r.json().catch(() => null);
     if (!r.ok || meta?.id !== audio.fileId || meta?.trashed) throw new Fail(r.status === 404 ? 'not_found' : 'drive_failed');

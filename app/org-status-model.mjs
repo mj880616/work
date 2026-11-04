@@ -4,8 +4,7 @@
 //   보이는 줄은 가장 최근 SHOWN줄(맨 끝 쪽)이고, 그 앞의 오래된 줄은 '펼치기'로 본다. 화면·[복사]·주간보고가 모두 이 함수들을 쓴다.
 // - 날짜 표기(DESK-일정기간, periodLabel 한 곳): 하루 '10.29.(목)', 기간 '11.2.~11.5.'(요일 없음, 해가 다르면 해를 붙임). end_day(끝나는 날)는 비어 있거나 시작일 이후.
 // - 주간보고 칸: 보이는 SHOWN줄을 '- 10.29.(목) 내용' 꼴로(표에 보이는 그대로). 표가 비면 주간보고는 예전처럼 직전 확정본 줄.
-// - [기록에서 다시 채우기 (AI)]: AI가 뽑은 그대로인 줄(source=ai)만 지우고 새 줄로 바꾼다. 사람이 넣거나 고친 줄(source=user)은 그대로 두고,
-//   같은 날·같은 글의 AI 줄은 다시 넣지 않는다. 새 AI 줄은 날짜 순서에 맞춰 사람 줄 사이에 끼운다(사람이 정한 순서는 유지).
+// - (WEEKLY-메뉴짝짓기 P7: [기록에서 다시 채우기 (AI)]와 그 계획 함수는 지웠다.)
 export const SHOWN = 4;
 export const ROWS_MAX = 30;
 export const BODY_MAX = 200;
@@ -67,30 +66,6 @@ export function similarBody(a, b) {
 const dayGap = (a, b) => (validDay(a) && validDay(b) ? Math.abs(Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 86400000 : Infinity);
 export const sameLine = (x, y) => dayGap(x?.day, y?.day) <= 1 && similarBody(x?.body, y?.body);
 
-// 다시 채우기 계획. ai = [{day, end_day?, text, evidence}](서버 답). 반환 {remove:[id], add:[{day, end_day, body, evidence, sort_order}], rows(결과 줄들)}
-// 사람이 넣거나 고친 줄(source!=ai)과 같은 일(sameLine)인 AI 줄, 이번 답 안에서 서로 같은 일인 AI 줄은 더하지 않는다. 순서는 날짜가 정하므로 사람 줄의 sort_order는 건드리지 않는다.
-export function refillPlan(rows, ai) {
-  const keep = sortRows(rows).filter(r => r.source !== 'ai');
-  const remove = (rows ?? []).filter(r => r.source === 'ai').map(r => r.id);
-  const list = keep.map(r => ({...r}));
-  const seen = [];
-  let order = nextOrder(keep);
-  for (const a of ai ?? []) {
-    const body = cleanBody(a?.text), day = a?.day, end_day = validEnd(day, a?.end_day) && validDay(a?.end_day) && a.end_day > day ? a.end_day : null;
-    if (!body || !validDay(day)) continue;
-    const cand = {day, body};
-    if (keep.some(r => sameLine(r, cand)) || seen.some(r => sameLine(r, cand))) continue;
-    if (list.length >= ROWS_MAX) break;
-    seen.push(cand);
-    const evidence = Array.isArray(a.evidence) ? a.evidence.filter(v => typeof v === 'string').slice(0, 10) : [];
-    list.push({id: null, day, end_day, body, source: 'ai', evidence, sort_order: Math.min(1000, order++)});
-  }
-  return {
-    remove,
-    add: list.filter(r => !r.id).map(({day, end_day, body, evidence, sort_order}) => ({day, end_day, body, evidence, sort_order})),
-    rows: sortRows(list),
-  };
-}
 // 전체 표 한 조직 칸: 가장 최근 limit줄(오름차순)과 그 앞의 오래된 줄(펼치기로 보임, 오름차순).
 export const overviewRows = (rows, limit = 3) => splitRows(rows, limit).shown;
 export const overviewOlder = (rows, limit = 3) => splitRows(rows, limit).older;

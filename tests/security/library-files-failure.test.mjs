@@ -51,7 +51,8 @@ function harness({
       if (spacesThrow) throw new Error('raw internal detail');
       return b.inserted ? { data: null } : { data: b._list ? [] : project };
     },
-    public_policy_drive_config: () => ({ data: { google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }, error: null }),
+    public_policy_drive_config: () => ({ data: { google_client_id: 'c', google_client_secret: 's' }, error: null }),
+    app_drive_connections: () => ({ data: { google_refresh_token: 'r' }, error: null }),
     app_drive_settings: () => ({ data: { library_folder_id: 'folder-1', root_folder_id: 'root-1' } }),
     app_ai_workspace_settings: () => ({ data: null }),
     app_ai_daily_usage: b => { if (b.upserted) { calls.usage.push(b.upserted); return { error: usageError }; } return { data: null, error: null }; },

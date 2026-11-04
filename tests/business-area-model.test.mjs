@@ -73,10 +73,13 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   // BIZ-버튼줄정리: 미리보기·사업영역 관리는 줄 끝 ⋯(공용 메뉴 부품) 안 두 줄이다.
   assert.match(html, /<div class="report-head-actions"><button id="reportRecordBtn"[^>]*hidden>녹음<\/button><button id="newMeetingBtn"[^>]*>\+ 사업 보고<\/button><button id="reportMore"[^>]*aria-haspopup="true"/);
   assert.doesNotMatch(html, /id="reportPreviewBtn"/);
-  assert.match(team, /data-report-preview>사업요약표 미리보기<\/button><button type="button" data-report-areas>사업영역 관리</);
+  // WEEKLY-메뉴짝짓기 P5: 미리보기 팝업 → 사업 보고 위 접는 칸 '이번 주 주간보고'. ⋯ 메뉴에는 사업영역 관리만.
+  assert.match(team, /render:\(\)=>'<button type="button" data-report-areas>사업영역 관리<\/button>'/);
+  assert.doesNotMatch(team, /data-report-preview/);
+  assert.match(html, /<details id="bizWeekBox" class="biz-week" hidden><summary>이번 주 주간보고<\/summary>/);
   assert.match(team, /createAnchoredMenu\(\{id:'reportMoreMenu',className:'topline-add-menu report-more-menu'/);
   assert.match(team, /activity_kind:entryKind\(\),project_id:projectId,\.\.\.areaBody,/);
-  assert.match(team, /openReportPreview\(trigger,\{meetings:\(\)=>meetings\}\)/);
+  assert.match(team, /m\.mountWeekSummary\(el,\{meetings:\(\)=>meetings\}\)/);
   assert.match(mrd, /id="mrdEditArea"/); assert.match(mrd, /id="mrdAreaView"/);
   assert.match(mrd, /Object\.assign\(body,await \(mrdAreaFields\?\.body\(\{only:true\}\)/);
   // [할 일로]는 기존 할 일 만들기 길(google-tasks create)만 쓴다(기기 저장 금지는 audit 검사가 본다).

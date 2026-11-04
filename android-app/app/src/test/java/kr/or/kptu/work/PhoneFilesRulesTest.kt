@@ -150,9 +150,9 @@ class PhoneFilesRulesTest {
         assertNull(PhoneFilesRules.message("pfiles:write:x"))
         assertNull(PhoneFilesRules.message(null))
         // 열쇠는 켜져 있을 때만.
-        assertEquals("pfiles:state:{\"v\":1,\"can\":true,\"all\":false}", PhoneFilesRules.stateMessage(false, true, key))
-        assertEquals("pfiles:state:{\"v\":1,\"can\":false,\"all\":false}", PhoneFilesRules.stateMessage(true, false, key))
-        assertEquals("pfiles:state:{\"v\":1,\"can\":true,\"all\":true,\"key\":\"$key\"}", PhoneFilesRules.stateMessage(true, true, key))
+        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"can\":true,\"all\":false}", PhoneFilesRules.stateMessage(false, true, key))
+        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"can\":false,\"all\":false}", PhoneFilesRules.stateMessage(true, false, key))
+        assertEquals("pfiles:state:{\"v\":2,\"write\":true,\"can\":true,\"all\":true,\"key\":\"$key\"}", PhoneFilesRules.stateMessage(true, true, key))
     }
 
     @Test
@@ -162,7 +162,80 @@ class PhoneFilesRulesTest {
         for (bad in listOf("OkHttp", "HttpURLConnection", "URL(", "Log.d", "Log.i", "Log.e", "printStackTrace", "e.message")) assertFalse(bad, text.contains(bad))
         val logs = Regex("Log\\.w\\(TAG, \"([^\"]*)\"").findAll(text).map { it.groupValues[1] }.toList()
         assertEquals(listOf("fail stage=\$stage kind=\${f.code} cls=\${PhoneMediaRules.safeDetail(detail)}"), logs)
-        // 쓰기 길은 이 판에 없다.
+        // 읽기 다리에는 쓰기 길이 없다(쓰기는 PhoneFilesWrite 한 곳).
         for (bad in listOf("FileOutputStream", ".delete(", ".renameTo(", ".mkdir")) assertFalse(bad, text.contains(bad))
+    }
+
+    // ── 3-③ 쓰기 ──
+
+    @Test
+    fun writesNeedConfirmAndSafeNames() {
+        assertEquals(PhoneFilesRules.Write.Mkdir("Download", "새 폴더"), PhoneFilesRules.write("pfiles:op:{\"op\":\"mkdir\",\"dir\":\"Download\",\"name\":\"새 폴더\",\"confirm\":true}"))
+        assertEquals(PhoneFilesRules.Write.Mkdir("", "가짜"), PhoneFilesRules.write("pfiles:op:{\"op\":\"mkdir\",\"name\":\"가짜\",\"confirm\":true}"))
+        assertEquals(PhoneFilesRules.Write.Rename("Download/a.txt", "b (2).txt"), PhoneFilesRules.write("pfiles:op:{\"op\":\"rename\",\"path\":\"Download/a.txt\",\"name\":\"b (2).txt\",\"confirm\":true}"))
+        assertEquals(PhoneFilesRules.Write.Trash(listOf("Download/a.txt")), PhoneFilesRules.write("pfiles:op:{\"op\":\"trash\",\"paths\":[\"Download/a.txt\",\"Download/a.txt\"],\"confirm\":true}"))
+        assertEquals(PhoneFilesRules.Write.Begin("Download", "가짜.pdf", 10), PhoneFilesRules.write("pfiles:save:begin:{\"dir\":\"Download\",\"name\":\"가짜.pdf\",\"size\":10,\"confirm\":true}"))
+        assertEquals(PhoneFilesRules.Write.Part("QUJD"), PhoneFilesRules.write("pfiles:save:part:QUJD"))
+        assertEquals(PhoneFilesRules.Write.End, PhoneFilesRules.write("pfiles:save:end"))
+        assertEquals(PhoneFilesRules.Write.Cancel, PhoneFilesRules.write("pfiles:save:cancel"))
+        // confirm 없음·모양 틀림·막힌 곳·나쁜 이름은 받지 않는다.
+        for (bad in listOf(
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"Download\",\"name\":\"x\"}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"Download\",\"name\":\"x\",\"confirm\":\"yes\"}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"Android\",\"name\":\"data\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"Android/data\",\"name\":\"x\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"../x\",\"name\":\"x\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"\",\"name\":\".hidden\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"\",\"name\":\"a/b\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"\",\"name\":\"a:b\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"\",\"name\":\"끝점.\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"mkdir\",\"dir\":\"\",\"name\":\" 앞빈칸\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"rename\",\"path\":\"Android/obb/x\",\"name\":\"y\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"rename\",\"path\":\"Android/x\",\"name\":\"data\",\"confirm\":true}",
+            "pfiles:op:{\"op\":\"trash\",\"paths\":[],\"confirm\":true}",
+            "pfiles:op:{\"op\":\"trash\",\"paths\":[\"../x\"],\"confirm\":true}",
+            "pfiles:op:{\"op\":\"trash\",\"paths\":[1],\"confirm\":true}",
+            "pfiles:op:{\"op\":\"purge\",\"paths\":[\"a\"],\"confirm\":true}",
+            "pfiles:save:begin:{\"dir\":\"Download\",\"name\":\"a\",\"size\":-1,\"confirm\":true}",
+            "pfiles:save:begin:{\"dir\":\"Download\",\"name\":\"a\",\"size\":1.5,\"confirm\":true}",
+            "pfiles:save:begin:{\"dir\":\"Download\",\"name\":\"a\",\"size\":2000000000000,\"confirm\":true}",
+            "pfiles:save:begin:{\"dir\":\"Download\",\"name\":\"a\",\"size\":1}",
+            "pfiles:save:part:QUJ",
+            "pfiles:save:part:",
+            "pfiles:save:part:QU!D",
+        )) assertNull(bad, PhoneFilesRules.write(bad))
+        val trash = "pfiles:op:{\"op\":\"trash\",\"paths\":[" + (1..51).joinToString(",") { "\"a$it\"" } + "],\"confirm\":true}"
+        assertNull(PhoneFilesRules.write(trash))
+    }
+
+    @Test
+    fun numberedNameMatchesWebRule() {
+        assertEquals("a.pdf", PhoneFilesRules.numbered("a.pdf", listOf("b.pdf")))
+        assertEquals("a (2).pdf", PhoneFilesRules.numbered("a.pdf", listOf("A.PDF")))
+        assertEquals("a (3).pdf", PhoneFilesRules.numbered("a.pdf", listOf("a.pdf", "a (2).pdf")))
+        assertEquals("a (3).pdf", PhoneFilesRules.numbered("a (2).pdf", listOf("a (2).pdf")))
+        assertEquals("폴더 (2)", PhoneFilesRules.numbered("폴더", listOf("폴더")))
+        assertEquals(".x (2)", PhoneFilesRules.numbered(".x", listOf(".x")))
+    }
+
+    @Test
+    fun savingCountsAndMessages() {
+        val s = PhoneFilesRules.Saving(5)
+        assertTrue(s.add(3)); assertFalse(s.complete); assertFalse(s.add(3)); assertTrue(s.add(2)); assertTrue(s.complete); assertFalse(s.add(0))
+        assertEquals("pfiles:done:{\"ok\":true,\"op\":\"mkdir\",\"path\":\"Download/x\",\"count\":1}", PhoneFilesRules.doneMessage(true, "mkdir", "Download/x", 1))
+        assertEquals("pfiles:done:{\"ok\":false,\"op\":\"trash\",\"count\":0,\"error\":\"refused\"}", PhoneFilesRules.doneMessage(false, "trash", error = "refused"))
+        assertEquals("pfiles:save:{\"ok\":true,\"step\":\"end\",\"got\":0,\"path\":\"a (2).pdf\"}", PhoneFilesRules.saveMessage(true, "end", path = "a (2).pdf"))
+        // 받는 동안 임시 파일은 점으로 시작해 목록·다리에서 보이지 않는다.
+        assertFalse(PhoneFilesRules.visibleChild(listOf("Download"), PhoneFilesRules.TEMP_PREFIX + "abc"))
+    }
+
+    @Test
+    fun writeCodeKeepsSecretsAndNeverPurges() {
+        val text = File("src/main/java/kr/or/kptu/work/PhoneFilesWrite.kt").readText()
+        for (bad in listOf("OkHttp", "HttpURLConnection", "URL(", "Log.d", "Log.i", "Log.e", "printStackTrace", "e.message", "deleteRecursively", "contentResolver.delete")) assertFalse(bad, text.contains(bad))
+        // 지우는 것은 받다 만 임시 파일뿐(나머지는 안드로이드 휴지통 요청).
+        assertEquals(listOf("s.temp.delete()", "s.temp.delete()", "s.temp.delete()"), Regex("[A-Za-z.]+\\.delete\\(\\)").findAll(text).map { it.value }.toList())
+        val logs = Regex("Log\\.w\\(TAG, \"([^\"]*)\"").findAll(text).map { it.groupValues[1] }.toList()
+        assertEquals(listOf("fail stage=\$stage cls=\${PhoneMediaRules.detailOf(e)}"), logs)
     }
 }

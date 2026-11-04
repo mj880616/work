@@ -155,7 +155,7 @@ let editing = null;
 let taskMeetings = new Map();
 // 'day' (the day card) or 'week' ([주간 정리]); memory only.
 let mode = 'day';
-// JOURNAL-조직현황AI요약: the 4. 산하 조직 현황 summary controls of [주간 정리] (memory only; the summaries live in their table).
+// [주간 정리] 4. 산하 조직 현황 화면 상태(WEEKLY-메뉴짝짓기 P6: AI 요약 버튼·고치기는 없앰 — 줄은 주별 조직보고 표).
 let orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
 // WEEKLY-임원요청정리: the request table's edit row (memory only; the rows themselves are saved on the server).
 // where: 고치기를 연 자리('weekly' = [주간 정리], 'box' = 한글 파일 상자 1. 요청사항, S46-27). 고치는 줄은 그 자리에만 그린다.
@@ -496,9 +496,6 @@ function renderWeekly_({refreshBox = true} = {}) {
   const was = document.activeElement, keep = was && was.id && host.contains(was) && /^(INPUT|TEXTAREA|SELECT)$/.test(was.tagName) ? {id:was.id, at:[was.selectionStart, was.selectionEnd]} : null;
   // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
   // (a fold not drawn right now — its summary is being read again — keeps its last state.)
-  for (const d of host.querySelectorAll('[data-journal-org-raw]')) { if (d.open) orgUi.open.add(d.dataset.journalOrgRaw); else orgUi.open.delete(d.dataset.journalOrgRaw); }
-  const typing = host.querySelector('[data-journal-org-edit-input]'), focused = typing && typing === document.activeElement;
-  if (typing && orgUi.editing?.id === typing.dataset.journalOrgEditInput) orgUi.editing.value = typing.value;
   // The request edit row keeps what is being typed and which field has the focus across redraws too.
   const execFocus = execDraftFromScreen(root);
   const memoryFold = host.querySelector('[data-journal-weekly-memory]'); if (memoryFold) memoryUi.open = memoryFold.open;
@@ -509,6 +506,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (fileInput && fileUi.editing === fileInput.dataset.journalFileEditInput) fileUi.value = fileInput.value;
   const weekModel = W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory});
   weekModel.picks = picksModel(start);
+  weekModel.orgLines = weekOrgLines();
   lastWeekModel = weekModel;
   W.renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
   // WEEKLY-주요일정칸 B: 1. 2) 주요 일정 수기 표(weekly-hq-schedule.js가 그 자리만 그림). 쓰면 그 주 임시저장 행을 바꾸고 열린 한글 파일 상자도 맞춘다.
@@ -525,7 +523,6 @@ function renderWeekly_({refreshBox = true} = {}) {
   W.paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js)
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
   renderNextWeek_();
-  if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
   if (execFocus) root.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   // 상자가 임시저장한 뒤 다시 그릴 때(onDraft)는 상자를 건드리지 않는다(칸 옆 재료 버튼이 고치는 중에 바뀌지 않게).
   if (refreshBox) hwpx?.refresh();
@@ -550,7 +547,10 @@ function paintFlow(host, model) {
   const row = status === 'ok' ? w.items.row : null;
   if (status === 'ok' && !row?.draft?.proposed && flowBase.start !== start) prepareFlow();
   const team = hwpx.team(start);
+  // WEEKLY-메뉴짝짓기 P6: 4. 1) 칸은 주별 조직보고 표(paintWeekLines). 표가 아직 없으면(DB 적용 전, 404) 예전 칸 줄 그대로.
+  const weekTable = paintWeekLines(host, model);
   for (const section of W.FLOW_SECTIONS) {
+    if (section === 'orgs' && weekTable) continue;
     W.paintFlowCells(host.querySelector(`[data-weekly-flow-cells="${section}"]`), {section, start, row, status, model, rt, team:team?.diff ?? null, teamTitle:team?.title ?? '', onSaved:draftSaved(start), redraw:redrawFlow,
       reload:() => void loadGroup('weekDraft'), prepare:() => {}, baseNote:flowBase.start === start ? flowBase.note : ''});
   }
@@ -559,6 +559,41 @@ function paintFlow(host, model) {
   host.querySelector('[data-weekly-flow-confirm]')?.append(hwpxHost);
   hwpx.paint();
 }
+// WEEKLY-메뉴짝짓기 P6(설계 3.3): 4. 조직보고 = 담당조직 '이번 주 조직보고'와 같은 부품·같은 줄(weekly-org-lines.js, 결정 B).
+// 넣은 줄이 1줄 이하인 조직은 지난주 줄(처음 쓰는 주는 현황 표 최근 줄)을 흐리게 펼쳐 [가져오기]·[지난주 모두 가져오기]. 한글 파일은 이 표의 넣은 줄을 읽는다.
+let weekLines = null, weekLinesMod = null, weekLinesMsg = {text:'', error:false}, weekLinesOrgs = [];
+const weekLinesSlot = () => $('[data-journal-weekly] [data-weekly-flow-cells="orgs"]');
+function drawWeekLines() {
+  const slot = weekLinesSlot(); if (!slot || !weekLines || !weekLinesMod) return;
+  weekLines.bind(slot);
+  slot.innerHTML = weekLinesMod.weekTableHtml(weekLines, weekLinesOrgs, weekLinesMsg);
+  weekLines.afterPaint();
+}
+// 넣은 줄(조직 id → '- 11.2. 글' 줄들) — 복사·캘린더 추천 거르기가 읽는다. 표를 아직 못 읽었으면 null(예전처럼 기록).
+function weekOrgLines() {
+  if (!weekLines || weekLines.status !== 'ready' || weekLines.week !== start || !weekLinesMod) return null;
+  return new Map(weekLinesOrgs.map(o => [o.id, weekLines.reportLines(o.id).map(weekLinesMod.lineText)]));
+}
+// 반환 true = 이 자리를 주별 표가 그림, false = 표가 없어(missing) 예전 칸 줄을 그려야 함.
+function paintWeekLines(host, model) {
+  const slot = host.querySelector('[data-weekly-flow-cells="orgs"]'); if (!slot) return false;
+  weekLinesOrgs = model?.orgs?.mine ?? [];
+  if (!weekLinesMod) { slot.innerHTML = waitHtml({rows:2}); void import('./weekly-org-lines.js').then(m => { weekLinesMod = m; paintWeekLines_(); }).catch(() => { slot.textContent = '조직보고를 불러오지 못했어요.'; }); return true; }
+  const workspaceId = rt.context.read()?.workspace?.id;
+  if (!weekLines || weekLines.workspaceId !== workspaceId) {
+    weekLines = weekLinesMod.createWeekLines({rt, workspaceId, week:start, mode:'weekly', repaint:() => { if (weekLines.status === 'missing') { redrawFlow(); return; } drawWeekLines(); if (weekLines.status === 'ready') redrawOrgText(); },
+      say:(text, error = false) => { weekLinesMsg = {text, error}; const el = weekLinesSlot()?.querySelector('[data-wl-status]'); if (el) { el.textContent = text; el.classList.toggle('is-error', error); } }});
+  }
+  const ids = weekLinesOrgs.map(o => o.id), same = ids.length === weekLines.orgIds.length && ids.every((id, i) => id === weekLines.orgIds[i]);
+  if (weekLines.week !== start) { weekLines.orgIds = ids; weekLines.setWeek(start); }
+  else if (!same || weekLines.status === 'idle') void weekLines.load(ids, {quiet:weekLines.status === 'ready'});
+  if (weekLines.status === 'missing') return false;
+  drawWeekLines();
+  return true;
+}
+function paintWeekLines_() { if (lastWeekModel) redrawFlow(); }
+// 표 줄이 바뀌면 캘린더 추천 거르기·복사 글만 맞춘다(주간 정리 전체를 다시 그리지 않음 — 표 안 입력 초점이 빠지지 않게).
+function redrawOrgText() { if (lastWeekModel) lastWeekModel.orgLines = weekOrgLines(); }
 function draftSaved(week) { return row => { if (week !== start) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_(); hwpx?.sync(week); }; }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
 // WEEKLY-임원요청정리: it also gets the active project names (carry-over matching) and hands back last week's filtered request rows.
@@ -701,8 +736,6 @@ const readers = {
   meetings: () => readWeekMeetings(start, rt),
   documents: () => { void loadDocumentCategories({rt}).catch(() => {}); return readWeekDocuments(start, rt); },
   sharePages: () => readWeekSharePages(start, rt),
-  // JOURNAL-조직현황AI요약: the week's saved organization summaries (a missing table reads as {missing:true}).
-  orgSummaries: async () => { const week = start; return (await weeklyKit()).readOrgSummaries(week, rt); },
   // WEEKLY-임원요청정리: the week's request rows ({missing:true} before the table exists).
   execRequests: async () => { const week = start; return (await weeklyKit()).readExecRequests(week, rt); },
   // WEEKLY-자료요약 화면 ②: 그 주 임시저장 행(자료 줄 고침 docs). 칸이 없으면 {missing:true} — 고침 버튼 없이 지금처럼.
@@ -736,7 +769,7 @@ async function loadTaskMeetings(run, scope) {
 const SHARED_KEYS = new Set(['tasks', 'basket', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
-const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'orgSummaries', 'execRequests', 'orgRefs']);
+const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'execRequests', 'orgRefs']);
 const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
 async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner, quiet = false) {
   if (!quiet) { materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_(); }
@@ -783,7 +816,7 @@ async function loadMemory(run, scope, quiet = false) {
 // PERF-첫로딩 요청 합치기(S48-59, docs/design/first-load.md 14절): [주간 정리]에만 쓰는 읽기(다음 주 장·5. 주요 일정 두 주·조직 요약·
 // 임원 요청·임시저장·조직 참고 캘린더·주간보고 기억)는 하루 화면에서는 보내지 않고, 그 주 [주간 정리]를 처음 열 때 보낸다.
 // 묶음 프로그램은 전처럼 앱이 보인 뒤 미리 받아 두므로(맨 아래 weeklyKit), 열 때는 읽기만 기다린다(칸마다 기다림 표시 → 채움).
-const WEEK_READS = ['nextWeek', 'upcoming', 'orgSummaries', 'execRequests', 'weekDraft', 'orgRefs'];
+const WEEK_READS = ['nextWeek', 'upcoming', 'execRequests', 'weekDraft', 'orgRefs'];
 let weekReads = null; // 미룬 읽기 {run, sharedRun, scope, quiet, memory}; 탭 메모리만
 let weekReadsFlight = Promise.resolve(); // 그 읽기들이 다 끝나면 풀림([주간보고 초안 복사]가 기다림)
 function startWeekReads() {
@@ -807,7 +840,7 @@ function loadWeek({shared = false, quiet = false} = {}) {
     lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
+  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft', 'ledgerPromises', 'orgRefs'];
   // 하루 화면: [주간 정리] 전용 읽기는 미뤄 둔다(startWeekReads). 주를 넘겨도 기억 읽기는 방문(sharedEpoch)에 묶여 있으므로 함께 넘긴다.
   const defer = mode !== 'week', memoryRead = shared || changedOwner || (!!weekReads?.memory && weekReads.sharedRun === sharedRun);
   const keys = defer ? allKeys.filter(key => !WEEK_READS.includes(key)) : allKeys;
@@ -1140,10 +1173,10 @@ async function copyDraft() {
   await scopeSettled();
   // [주간 정리]를 막 열어 미룬 읽기(5. 주요 일정 등)가 오는 중이면 끝날 때까지(길어도 5초) 기다린 뒤 복사한다.
   await Promise.race([weekReadsFlight, new Promise(ok => setTimeout(ok, 5000))]);
-  const text = W.weeklyReportText(W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}));
+  const text = W.weeklyReportText({...W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}), orgLines:weekOrgLines()});
   const ok = await copyText(text);
   // catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
+  const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }
@@ -1288,79 +1321,17 @@ function undoMemory() {
   clearTimeout(undoTimer);
   return changeMemoryFromList(list => W.withRestored(list, entry), () => { memoryUi.status = `‘${entry.origin}’ 기억을 되돌렸어요.`; memoryUi.undo = null; });
 }
-// JOURNAL-조직현황AI요약 ----
-// [요약 만들기]: one ai-assist call with the week and the shown organizations' ids; then the saved summaries are read again.
-async function makeOrgSummaries() {
-  const model = W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory});
-  const ids = (model.orgs.sections || []).map(section => section.id).filter(Boolean);
-  if (orgUi.busy || !ids.length) return;
-  const run = epoch, scope = owner, week = start;
-  orgUi.busy = true; orgUi.status = ''; orgUi.error = false; renderWeekly_();
-  const result = await W.requestOrgSummaries({start:week, organizationIds:ids, calendar:W.summaryCalendar(model.orgRefs, ids)});
-  if (!current(run, scope)) return;
-  orgUi.busy = false; orgUi.status = W.resultMessage(result); orgUi.error = !result.ok;
-  if (result.ok) await loadGroup('orgSummaries', run, scope); else renderWeekly_();
-  root.querySelector('[data-journal-org-ai-run]')?.focus();
-}
-function openOrgEdit(id) {
-  const section = W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}).orgs.sections?.find(s => s.id === id);
-  if (!section || orgUi.editing?.saving) return;
-  orgUi.editing = {id, name:section.name, value:section.summary?.text || '', status:'', invalid:false, saving:false};
-  renderWeekly_();
-  const box = root.querySelector('[data-journal-org-edit-input]');
-  box?.focus(); box?.setSelectionRange(box.value.length, box.value.length);
-}
-// CAL-조직참고캘린더: 그 조직 칸의 '캘린더 추천' [+] — 요약 고치기 칸 끝에 그 줄을 넣는다(열려 있지 않으면 지금 요약으로 연다).
-// 저장은 하지 않는다: [저장]을 눌러야 그 조직 요약(보고)에 들어간다. 같은 줄이 이미 있으면 다시 넣지 않는다.
+// CAL-조직참고캘린더: 그 조직 칸의 '캘린더 추천' [+] — WEEKLY-메뉴짝짓기 P6부터 그 주 조직보고 표에 넣은 줄로 바로 들어간다(같은 글이면 다시 넣지 않음).
 function addOrgRef(id, line) {
   const text = String(line ?? '').trim();
-  if (!text || orgUi.editing?.saving) return;
-  if (orgUi.editing?.id !== id) {
-    const box = root.querySelector('[data-journal-org-edit-input]'); if (box && orgUi.editing) orgUi.editing.value = box.value;
-    const section = W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}).orgs.sections?.find(s => s.id === id);
-    if (!section) return;
-    orgUi.editing = {id, name:section.name, value:section.summary?.text || '', status:'', invalid:false, saving:false};
-  } else {
-    const box = root.querySelector('[data-journal-org-edit-input]'); if (box) orgUi.editing.value = box.value;
-  }
-  const edit = orgUi.editing, have = edit.value.split('\n').map(l => l.trim()).filter(Boolean);
-  if (!have.includes(text)) have.push(text);
-  edit.value = have.join('\n'); edit.invalid = false;
-  edit.status = '캘린더 추천을 넣었어요. [저장]을 누르면 이 조직 요약(보고)에 들어가요.';
-  // 다시 그릴 때 화면 칸 글을 읽어 오므로(renderWeekly_), 그 칸에도 같은 글을 먼저 넣는다.
-  const cur = root.querySelector('[data-journal-org-edit-input]'); if (cur && cur.dataset.journalOrgEditInput === id) cur.value = edit.value;
-  renderWeekly_();
-  const box = root.querySelector('[data-journal-org-edit-input]');
-  box?.focus(); box?.setSelectionRange(box.value.length, box.value.length);
-}
-function closeOrgEdit() {
-  const id = orgUi.editing?.id; orgUi.editing = null; renderWeekly_();
-  root.querySelector(`[data-journal-org-more="${id}"] > summary`)?.focus();
-}
-async function saveOrgEdit() {
-  const edit = orgUi.editing; if (!edit || edit.saving) return;
-  const box = root.querySelector('[data-journal-org-edit-input]'); if (box) edit.value = box.value;
-  try { W.cleanEdited(edit.value); } catch (error) { edit.status = error.message; edit.invalid = true; renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus(); return; }
-  const run = epoch, scope = owner, week = start, saved = materials.orgSummaries?.items?.get?.(edit.id) || null;
-  edit.saving = true; edit.invalid = false; edit.status = '저장하는 중…'; renderWeekly_();
-  try {
-    await W.saveEditedSummary({start:week, organizationId:edit.id, row:saved, text:edit.value}, rt);
-    if (!current(run, scope)) return;
-    orgUi.editing = null; orgUi.status = `${edit.name} 요약을 저장했어요. 다시 만들어도 이 요약은 그대로예요.`; orgUi.error = false;
-    await loadGroup('orgSummaries', run, scope);
-    root.querySelector(`[data-journal-org-more="${edit.id}"] > summary`)?.focus();
-  } catch (error) {
-    if (!current(run, scope)) return;
-    edit.saving = false; edit.status = error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : '저장하지 못했어요. 다시 시도해 주세요.';
-    renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus();
-  }
+  if (!text || !weekLines || weekLines.status !== 'ready' || weekLines.week !== start) return;
+  void weekLines.addLine(id, text).then(ok => { if (ok) { redrawOrgText(); renderWeekly_({refreshBox:false}); } });
 }
 root.addEventListener('keydown', event => {
   if (event.target.matches?.('[data-journal-file-edit-input]') && !event.isComposing && event.keyCode !== 229) {
     if (event.key === 'Escape') { event.preventDefault(); closeFileEdit(); }
     else if (event.key === 'Enter') { event.preventDefault(); void saveFileEdit(); }
   }
-  if (event.target.matches?.('[data-journal-org-edit-input]') && event.key === 'Escape' && !event.isComposing) { event.preventDefault(); closeOrgEdit(); }
   if (event.target.matches?.('[data-journal-exec-field]') && !event.isComposing && event.keyCode !== 229) {
     if (event.key === 'Escape') { event.preventDefault(); closeExecEdit(); }
     else if (event.key === 'Enter') { event.preventDefault(); void saveExecEdit(); }
@@ -1501,13 +1472,9 @@ root.addEventListener('click', event => {
     }
     return;
   }
-  if (button.matches('[data-journal-org-ai-run]')) return makeOrgSummaries();
-  if (button.matches('[data-journal-org-edit-open]')) return openOrgEdit(button.dataset.journalOrgEditOpen);
   if (button.matches('[data-journal-org-ref-add]')) return addOrgRef(button.dataset.journalOrgRefAdd, button.dataset.journalOrgRefText);
   if (button.matches('[data-journal-pick-drop], [data-journal-pick-put], [data-journal-pick-undo]')) return pickAct(button);
   if (button.matches('[data-journal-pick-release]')) return pickRelease(button.dataset.journalPickRelease);
-  if (button.matches('[data-journal-org-edit-save]')) return saveOrgEdit();
-  if (button.matches('[data-journal-org-edit-cancel]')) return closeOrgEdit();
   if (button.matches('[data-journal-exec-add]')) return openExecEdit('new', execWhere(button));
   if (button.matches('[data-journal-exec-edit]')) return openExecEdit(button.dataset.journalExecEdit, execWhere(button));
   if (button.matches('[data-journal-exec-save]')) return void saveExecEdit();

@@ -122,8 +122,9 @@ function actions({ role = 'owner', doc = { id: DOC, workspace_id: 'ws-1', file_i
     if (u.pathname === '/auth/v1/user') return Response.json({ id: 'owner-1' });
     if (u.pathname === '/token') return Response.json({ access_token: 'drive-token' });
     const table = u.pathname.startsWith('/rest/v1/') ? u.pathname.split('/').at(-1) : null;
-    if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }]);
-    if (table === 'app_workspace_members') return Response.json(role ? [{ role }] : []);
+    if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's' }]);
+    if (table === 'app_drive_connections') return Response.json([{ google_refresh_token: 'r' }]);
+    if (table === 'app_workspace_members') return Response.json(role ? [{ role, workspace_id: 'ws-1' }] : []);
     if (table === 'app_documents' && method === 'GET') return Response.json(doc ? [doc] : []);
     if (table === 'app_documents' && method === 'PATCH') return new Response(null, { status: 204 });
     if (u.pathname.endsWith('/copy')) return Response.json({ id: 'temp-9', mimeType: 'application/vnd.google-apps.document' });
@@ -299,8 +300,9 @@ test('document-text action: a library photo goes through the drive-ocr path and 
     if (u.pathname === '/auth/v1/user') return Response.json({ id: 'owner-1' });
     if (u.pathname === '/token') return Response.json({ access_token: 't' });
     const table = u.pathname.split('/').pop();
-    if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }]);
-    if (table === 'app_workspace_members') return Response.json([{ role: 'owner' }]);
+    if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's' }]);
+    if (table === 'app_drive_connections') return Response.json([{ google_refresh_token: 'r' }]);
+    if (table === 'app_workspace_members') return Response.json([{ role: 'owner', workspace_id: 'ws-1' }]);
     if (table === 'app_documents' && method === 'GET') return Response.json([{ id: DOC, workspace_id: 'ws-1', file_id: 'photo-1', file_name: '현장.jpg', mime_type: 'image/jpeg', file_size: 4, extraction_status: null }]);
     if (table === 'app_documents' && method === 'PATCH') return new Response(null, { status: 204 });
     throw Error(`Unexpected ${method} ${u.pathname}`);

@@ -52,6 +52,11 @@
 .fx-ico { color:var(--kptu-faint); font-size:11px; text-align:center; }
 .fx-folder .fx-ico { font-size:13px; }
 .fx-nm { min-width:0; display:flex; align-items:center; gap:6px; }
+/* S49-51 '이 폰'(H-7): [최근]·찾기처럼 섞어 보일 때 줄마다 작은 출처 점(테마 색: 원드라이브 = 정보, 구글 = 성공, 이 폰 = 경고 톤). */
+.fx-dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--kptu-faint); }
+.fx-dot[data-src="od"] { background:var(--kptu-info); }
+.fx-dot[data-src="gd"] { background:var(--kptu-success); }
+.fx-dot[data-src="ph"] { background:var(--kptu-warning); }
 .fx-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fx-tag { flex:none; font-size:10.5px; color:var(--kptu-accent); }
 .fx-star { flex:none; font-size:11px; color:var(--kptu-muted); }
@@ -229,3 +234,6 @@
 .fx-row.fx-drop-up { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
 .fx-star-btn { flex:none; margin-left:auto; color:var(--kptu-muted); font-size:14px; line-height:1; }
 .fx-star-btn.on { color:var(--kptu-warning); }
+/* FOLDER-순서·색 ③-2: 색을 고른 폴더 줄의 그림(folder-look.css의 data-fc가 --fl-ico를 준다). .fx-ico의 흐린 글자색보다 앞서도록 한 번 더 지정. 안 고른 폴더는 지금의 📁 글자 그대로. */
+.fx-ico.fl-ico { color:var(--fl-ico); }
+.fx-ico.fl-ico svg { width:14px; height:14px; }

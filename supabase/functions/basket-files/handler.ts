@@ -176,7 +176,7 @@ export function createBasketHandler(
         throw new UploadError(409, "duplicate_attachment", "validate");
       }
       stage = "drive_token";
-      token = await drive.driveToken();
+      token = await drive.driveToken(member.workspace_id);
       stage = "drive_folder";
       const root = await drive.ensurePrivateRootFolder(
         member.workspace_id,

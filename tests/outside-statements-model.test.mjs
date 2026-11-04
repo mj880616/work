@@ -52,8 +52,12 @@ test('날짜 묶음: 오늘·어제·그 밖 날짜, 서버 순서 유지, 게�
     {id: 'f', published_at: null, fetched_at: '2026-10-31T02:23:00Z'},
   ];
   assert.deepEqual(groupPosts(posts, NOW).map(g => [g.label, g.items.map(p => p.id).join('')]), [['오늘', 'a'], ['어제', 'b'], ['10. 29. (목)', 'c'], ['2025. 12. 29. (월)', 'd'], ['날짜 모름', 'ef']]);
+  // 서버 순서가 어떻든 날짜 모름 묶음은 맨 아래(S50-1).
+  const mixed = [{id: 'x', published_at: null, fetched_at: '2026-10-31T02:23:00Z'}, ...posts.slice(0, 2)];
+  assert.deepEqual(groupPosts(mixed, NOW).map(g => g.label), ['오늘', '어제', '날짜 모름']);
   const unknown = postView({lang: 'ko', kind: 'comment', title: 't', published_at: null, fetched_at: '2026-10-31T13:23:00Z'}, NOW);
-  assert.equal(unknown.time, '날짜 모름', '읽은 시각(22:23)을 게시 시각처럼 보이지 않음');
+  assert.equal(unknown.time, '들어온 날 10.31.', '읽은 시각(22:23)을 게시 시각처럼 보이지 않고 들어온 날만 작게');
+  assert.equal(postView({lang: 'ko', title: 't', published_at: null}, NOW).time, '날짜 모름', '받은 시각도 없으면 날짜 모름');
   assert.equal(postView({lang: 'ko', title: 't', published_at: '2026-10-29T15:00:00.000Z'}, NOW).time, '', '날짜만 아는 글은 시각 칸 비움(00:00이라고 쓰지 않음)');
 });
 

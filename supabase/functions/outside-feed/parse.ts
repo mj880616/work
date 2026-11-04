@@ -75,16 +75,46 @@ export function feedDate(raw: string | null, nowMs: number, localKst = false): s
   if (!Number.isFinite(t) || t > nowMs + 86400000 || t < Date.UTC(1990, 0, 1)) return null;
   return new Date(t).toISOString();
 }
-// 글 페이지 글자에서 처음 나오는 날짜(2026-10-31·2026.10.31·2026/10/31·2026년 10월 31일)를 서울 자정으로.
-export function textDate(text: string, nowMs: number): string | null {
-  const m = /(20\d{2})\s*(?:[-./]|년)\s*(\d{1,2})\s*(?:[-./]|월)\s*(\d{1,2})(?!\d)/.exec(text);
-  if (!m) return null;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+// 연·월·일 → 서울 자정 ISO. 없는 날짜·미래(하루 넘게)·20년 넘게 옛날이면 null.
+function ymdKst(y: number, mo: number, d: number, nowMs: number): string | null {
   const t = Date.UTC(y, mo - 1, d) - 9 * 3600000;
   const back = new Date(t + 9 * 3600000);
   if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) return null;
   if (t > nowMs + 86400000 || t < nowMs - 20 * 365 * 86400000) return null;
   return new Date(t).toISOString();
+}
+// 글 페이지 글자에서 처음 나오는 날짜(2026-10-31·2026.10.31·2026/10/31·2026년 10월 31일)를 서울 자정으로.
+export function textDate(text: string, nowMs: number): string | null {
+  const m = /(20\d{2})\s*(?:[-./]|년)\s*(\d{1,2})\s*(?:[-./]|월)\s*(\d{1,2})(?!\d)/.exec(text);
+  return m ? ymdKst(Number(m[1]), Number(m[2]), Number(m[3]), nowMs) : null;
+}
+// 게시판 날짜 칸이 두 자리 연도('19.03.08'·'19-03-08')일 때. 오탐을 막으려고 줄 전체가 그 날짜(앞에 '작성일' 같은 이름표, 뒤에 시각은 허용)인 줄만 본다.
+const SHORT_DATE_LINE = /^(?:(?:작성일자?|등록일자?|게시일|입력일|날짜|일자|date)\s*[:：]?\s*)?(\d{2})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})\.?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/i;
+export function shortDate(text: string, nowMs: number): string | null {
+  for (const l of text.split("\n")) {
+    const m = SHORT_DATE_LINE.exec(l.trim());
+    const d = m ? ymdKst(2000 + Number(m[1]), Number(m[2]), Number(m[3]), nowMs) : null;
+    if (d) return d;
+  }
+  return null;
+}
+// 이름표가 붙은 날짜('작성일 2019.03.08'·'등록일: 19-03-08'·'Date 2019/3/8')를 글 어디서든. 연도 두 자리도 받는다.
+const LABELED_DATE = /(?:작성일자?|등록일자?|게시일|입력일|발행일|날짜|일자|date|posted(?:\s+on)?)\s*[:：]?\s*(\d{4}|\d{2})\s*(?:[-./]|년)\s*(\d{1,2})\s*(?:[-./]|월)\s*(\d{1,2})(?!\d)/i;
+export function labeledDate(text: string, nowMs: number): string | null {
+  const m = LABELED_DATE.exec(text);
+  if (!m) return null;
+  return ymdKst(m[1].length === 2 ? 2000 + Number(m[1]) : Number(m[1]), Number(m[2]), Number(m[3]), nowMs);
+}
+// 줄 가운데 마지막으로 나오는 날짜(글 끝 서명 날짜 '2019년 3월 8일'). 끝에서 tail줄 안만 본다.
+function signatureDate(lines: string[], tail: number, nowMs: number): string | null {
+  for (const l of lines.slice(-tail).reverse()) {
+    const all = [...l.matchAll(/(20\d{2})\s*(?:[-./]|년)\s*(\d{1,2})\s*(?:[-./]|월)\s*(\d{1,2})(?!\d)/g)];
+    for (const m of all.reverse()) {
+      const d = ymdKst(Number(m[1]), Number(m[2]), Number(m[3]), nowMs);
+      if (d) return d;
+    }
+  }
+  return null;
 }
 
 // ---- 글 주소·제목 확인 -----------------------------------------------------------------------------------------
@@ -295,7 +325,7 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
     if (len(title) > len(best.get(url) ?? "")) { best.set(url, title); if (h.sub) subs.set(url, h.sub); else subs.delete(url); }
     if (dates.has(url)) continue;
     let d: string | null = null;
-    if (source.dateClass) { const t = innerTitle(h.inner, source.dateClass); d = t ? textDate(t, nowMs) : null; }
+    if (source.dateClass) { const t = innerTitle(h.inner, source.dateClass); d = t ? textDate(t, nowMs) ?? shortDate(t, nowMs) : null; }
     if (!d && !source.dateClass) {
       // 같은 줄: 앞 글 링크 끝 ~ 다음 글 링크 시작 사이에서, 줄 칸(<tr>·<li>·<article>·<dl>) 안쪽만.
       const prevEnd = hits.slice(0, i).reverse().find((x) => x.url !== url)?.end ?? Math.max(0, h.start - 4000);
@@ -306,8 +336,9 @@ export function parseListHtml(source: OutsideSource, html: string, base: string,
       let after = body.slice(h.end, Math.min(nextStart, h.end + 4000));
       const close = /<\/(tr|li|article|dl)\s*>/i.exec(after);
       after = close ? after.slice(0, close.index) : after.slice(0, 600);
-      d = textDate(htmlToText(pre.replace(/<a\b[\s\S]*?<\/a\s*>/gi, " ") + "\n" + after), nowMs)
-        ?? textDate(linkLines(h.inner).slice(1).join("\n"), nowMs);
+      const rowText = htmlToText(pre.replace(/<a\b[\s\S]*?<\/a\s*>/gi, " ") + "\n" + after);
+      d = textDate(rowText, nowMs) ?? textDate(linkLines(h.inner).slice(1).join("\n"), nowMs)
+        ?? shortDate(rowText, nowMs) ?? shortDate(linkLines(h.inner).slice(1).join("\n"), nowMs);
     }
     if (d) dates.set(url, d);
   }
@@ -385,7 +416,8 @@ export function bodyBlocks(html: string, re: RegExp): string {
 }
 
 // 글 페이지에서 본문 글자만: 단체 규칙 bodyClass 칸 → <article>(또는 흔한 본문 칸) → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
-export function extractBody(html: string, title: string, bodyClass?: RegExp): string {
+// 본문 칸 줄들(필터 전): 단체 본문 칸 → <article> → 흔한 본문 칸 → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
+function bodyScope(html: string, title: string, bodyClass?: RegExp): string[] {
   const own = bodyClass ? bodyBlocks(html, bodyClass) : "";
   const scoped = (own.trim() ? own : null)
     ?? /<article\b[^>]*>([\s\S]*?)<\/article\s*>/i.exec(html)?.[1]
@@ -395,9 +427,17 @@ export function extractBody(html: string, title: string, bodyClass?: RegExp): st
   const lines = htmlToText(cleaned).split("\n");
   // 단체 본문 칸 안은 처음부터 본문이다(제목 찾기를 하면 '…규탄한다.hwp' 같은 첨부 이름 줄 뒤부터 읽게 된다).
   const start = own.trim() ? 0 : afterTitle(lines, title);
-  const body: string[] = [];
+  const out: string[] = [];
   for (const l of lines.slice(start)) {
     if (END_MARK.test(l)) break;
+    out.push(l);
+  }
+  return out;
+}
+// 글 페이지에서 본문 글자만.
+export function extractBody(html: string, title: string, bodyClass?: RegExp): string {
+  const body: string[] = [];
+  for (const l of bodyScope(html, title, bodyClass)) {
     if (DATE_ONLY.test(l) || FILE_LINE.test(l) || isNoiseLine(l)) continue; // 글 머리의 날짜·시각 줄, 첨부 파일 이름 줄, 메뉴·공유·조회수 같은 짧은 덧줄은 본문이 아니다
     body.push(l);
   }
@@ -425,13 +465,26 @@ export function metaDate(html: string, nowMs: number): string | null {
   const ld = /"datePublished"\s*:\s*"([^"]{4,64})"/.exec(html)?.[1];
   return ld ? feedDate(ld, nowMs) : null;
 }
-export function pageDate(html: string, title: string, nowMs: number): string | null {
+// 순서: ① 글 쪽 메타 ② 제목 뒤 15줄 안 날짜 ③ 이름표 붙은 날짜(작성일·등록일…, 두 자리 연도 포함) ④ 두 자리 연도 날짜 줄(15줄 안) ⑤ <time datetime>
+// ⑥ 본문 끝 서명 날짜 ⑦ 본문 안 처음 나오는 날짜. 사이드 글 목록의 날짜에 속지 않도록 ⑥⑦은 본문 칸 안만 본다. 못 읽으면 null.
+export function pageDate(html: string, title: string, nowMs: number, bodyClass?: RegExp): string | null {
   const meta = metaDate(html, nowMs);
   if (meta) return meta;
-  const lines = htmlToText(html).split("\n");
+  const text = htmlToText(html);
+  const lines = text.split("\n");
   const start = afterTitle(lines, title);
+  const head = lines.slice(start, start + 15).join("\n");
+  const direct = textDate(head, nowMs);
+  if (direct) return direct;
+  const labeled = labeledDate(text, nowMs);
+  if (labeled) return labeled;
+  const short = shortDate(head, nowMs);
+  if (short) return short;
   const t = /<time\b[^>]*\bdatetime\s*=\s*["']([^"']{4,64})["']/i.exec(html)?.[1];
-  return textDate(lines.slice(start, start + 15).join("\n"), nowMs) ?? (t ? feedDate(t, nowMs) : null);
+  const timeTag = t ? feedDate(t, nowMs) : null;
+  if (timeTag) return timeTag;
+  const body = bodyScope(html, title, bodyClass);
+  return signatureDate(body, 8, nowMs) ?? textDate(body.slice(0, 60).join("\n"), nowMs);
 }
 
 // 문장 나누기: 문단(줄) → 문장 끝(. ! ? … 。 다음 빈칸)으로. 500자 넘는 문장은 잘라 여러 줄로. 3001개까지.

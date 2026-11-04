@@ -40,6 +40,8 @@ export const MESSAGES = Object.freeze({
   not_found: '전사 작업을 찾지 못했어요.',
   not_done: '전사가 끝난 녹음만 붙일 수 있어요.',
   drive_failed: '녹음 파일을 Drive에서 읽거나 저장하지 못했어요.',
+  // MULTI ②-2: 이 작업공간에 Drive 연결이 없을 때(다른 작업공간 연결로 넘어가지 않음).
+  drive_not_connected: 'Google Drive가 아직 연결되지 않았어요. 자료실에서 Drive를 연결해 주세요.',
   // 전사 실패는 원인별로 나눈다(MTG-폰녹음전사, 요청함 10/30 15:29). 화면은 GEMINI_KIND로 세 갈래(전사 서비스·파일 형식) + 연결 끊김(화면 쪽).
   gemini_failed: '전사 서비스(Gemini)가 실패했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   gemini_upload: '전사 서비스(Gemini)에 녹음을 올리지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
@@ -58,7 +60,7 @@ export const MESSAGES = Object.freeze({
 });
 export const STATUS = Object.freeze({
   not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
-  not_found: 404, not_done: 409, drive_failed: 502, gemini_failed: 502,
+  not_found: 404, not_done: 409, drive_failed: 502, drive_not_connected: 424, gemini_failed: 502,
   gemini_upload: 502, gemini_timeout: 504, gemini_file_failed: 422, gemini_rejected: 422, bad_format: 422, empty_transcript: 422, usage_unavailable: 503, failed: 500,
   draft_failed: 502, daily_limit: 429, jobs_unavailable: 503, too_many_steps: 409,
 });

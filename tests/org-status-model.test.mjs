@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {dayLabel, periodLabel, validEnd, nextOrder, overviewRows, overviewOlder, cleanBody, sortRows, splitRows, weeklyLines, refillPlan, siteLinesFromTable, SHOWN, ROWS_MAX} from '../app/org-status-model.mjs';
+import {dayLabel, periodLabel, validEnd, nextOrder, overviewRows, overviewOlder, cleanBody, sortRows, splitRows, weeklyLines, siteLinesFromTable, SHOWN, ROWS_MAX} from '../app/org-status-model.mjs';
 
 // DESK-현황표: 담당조직 [현황 표]와 주간보고 '3. 2) 투쟁 사업장 현황' 그 조직 칸이 같은 판정을 쓴다.
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -52,22 +52,6 @@ test('새 줄 번호: 지금 가장 큰 번호 다음(같은 날은 넣은 순�
   assert.equal(nextOrder([R('a', '2026-10-29', 'A', 1000)]), 1000);
 });
 
-test('다시 채우기: AI 줄만 바꾸고 명진이 넣거나 고친 줄은 그대로·같은 줄은 다시 안 넣음·순서는 날짜가 정함', () => {
-  const rows = [R('u1', '2026-10-29', '지노위 2차 조정회의 — 조정 종료', 0, 'user'), R('a1', '2026-10-24', '옛 AI 줄', 1, 'ai'), R('u2', '2026-10-10', '조정 신청', 2, 'user')];
-  const plan = refillPlan(rows, [
-    {day: '2026-10-29', text: '지노위 2차 조정회의 — 조정 종료', evidence: ['x']},
-    {day: '2026-10-26', end_day: '2026-10-28', text: '조합원 총력 결의대회', evidence: ['e1']},
-    {day: '2026-10-26', text: '조합원 총력 결의대회', evidence: ['e1']},
-    {day: 'bad', text: '날짜 틀림'},
-    {day: '2026-10-05', end_day: '2026-10-01', text: ' - 쟁의 결의 ', evidence: 'nope'},
-  ]);
-  assert.deepEqual(plan.remove, ['a1']);
-  assert.deepEqual(plan.add, [{day: '2026-10-26', end_day: '2026-10-28', body: '조합원 총력 결의대회', evidence: ['e1'], sort_order: 3}, {day: '2026-10-05', end_day: null, body: '- 쟁의 결의', evidence: [], sort_order: 4}]);
-  assert.deepEqual(plan.rows.map(r => r.body), ['- 쟁의 결의', '조정 신청', '조합원 총력 결의대회', '지노위 2차 조정회의 — 조정 종료'], '날짜 오름차순');
-  const full = Array.from({length: ROWS_MAX}, (_, i) => R('u' + i, '2026-10-01', '줄' + i, i));
-  assert.equal(refillPlan(full, [{day: '2026-10-29', text: '넘침'}]).add.length, 0);
-});
-
 test('주간보고 칸: 표가 있으면 [쟁의 단계 줄] + 표 줄, 없으면 null(직전 확정본 그대로)', () => {
   const stage = t => /^- 쟁의발생 결의\(/.test(t);
   const rows = [R('b', '2026-10-29', '지노위 2차 조정회의', 0)];
@@ -81,51 +65,41 @@ test('화면 연결: 소탭은 view_prefs.org_tab 하나, 현황 표 자리는 o
   assert.match(wd, /data-wd-sub="log"[^>]*>기록</);assert.match(wd, /data-wd-sub="table"[^>]*>현황 표</);
   assert.match(wd, /viewPrefs\.set\('org_tab'/);
   assert.match(wd, /paintStatusTable\(/);
-  assert.match(st, /app_org_status_rows/);assert.match(st, /kind: 'org_status_rows'/);
-  assert.match(st, /기록에서 다시 채우기 \(AI\)/);assert.doesNotMatch(st, /그대로 들어감/);
+  assert.match(st, /app_org_status_rows/);assert.doesNotMatch(st, /kind: 'org_status_rows'|data-st-refill|maybeFirstFill/, 'P7: AI 다시 채우기·처음 자동 채우기 없음');
+  assert.doesNotMatch(st, /그대로 들어감/);
   assert.match(st, /type="date"/, 'date is picked on the shared calendar field');assert.match(st, /data-st-field="end_day"/, 'end day is a second calendar field');
   assert.match(hw, /readStatusRows\(/);assert.match(hw, /siteLinesFromTable\(/);
 });
 
-test('DESK-전체현황표 ⑩ 다시 채우기: 사람이 고친 줄과 같은 날(±1일)·비슷한 내용의 AI 줄은 더하지 않는다', async () => {
+test('같은 줄 판정(sameLine·similarBody): 같은 날(±1일)·비슷한 내용 — 지난주 가져오기·제안 거르기가 쓴다', async () => {
   const m = await import('../app/org-status-model.mjs');
-  const rows = [
-    {id: 'u1', day: '2026-10-29', body: '하반기 임단협 투쟁계획 승인', source: 'user', sort_order: 0},
-    {id: 'u2', day: '2026-10-15', body: '쟁의행위 찬반투표 가결', source: 'user', sort_order: 1},
-    {id: 'a1', day: '2026-10-01', body: '옛 AI 줄', source: 'ai', sort_order: 2},
-  ];
-  const ai = [
-    {day: '2026-10-29', text: '하반기 임단협 투쟁계획 승인함', evidence: []},      // 끝맺음만 다른 같은 줄
-    {day: '2026-10-30', text: '11.14 쟁의행위 찬반투표 가결 예정', evidence: []},  // 하루 차이 + 내용 겹침이지만 10-15와는 15일 차이 → 새 줄
-    {day: '2026-10-16', text: '쟁의행위 찬반투표 결과 가결', evidence: []},        // 10-15 줄과 하루 차이 + 같은 일
-    {day: '2026-11-05', text: '출력결의대회 개최', evidence: []},
-    {day: '2026-11-05', text: '출력 결의대회 개최', evidence: []},                // 이번 답 안의 중복
-  ];
-  const plan = m.refillPlan(rows, ai);
-  assert.deepEqual(plan.remove, ['a1']);
-  assert.deepEqual(plan.add.map(a => a.body).sort(), ['11.14 쟁의행위 찬반투표 가결 예정', '출력결의대회 개최'].sort());
+  assert.equal(m.sameLine({day: '2026-10-29', body: '하반기 임단협 투쟁계획 승인'}, {day: '2026-10-29', body: '하반기 임단협 투쟁계획 승인함'}), true);
+  assert.equal(m.sameLine({day: '2026-10-15', body: '쟁의행위 찬반투표 가결'}, {day: '2026-10-16', body: '쟁의행위 찬반투표 결과 가결'}), true);
   assert.equal(m.sameLine({day: '2026-10-29', body: '중노위 조정 신청'}, {day: '2026-10-29', body: '중노위 조정 결정'}), false);
   assert.equal(m.sameLine({day: '2026-10-29', body: '중노위 조정 신청'}, {day: '2026-11-29', body: '중노위 조정 신청'}), false);
+  assert.equal(m.refillPlan, undefined, '[기록에서 다시 채우기 (AI)]는 지웠다(WEEKLY-메뉴짝짓기 P7)');
 });
 
-test('DESK-전체현황표 화면 연결: 소탭 [목록|전체 표]는 org-overview.js 하나, 줄 쓰기는 org-status-table.js 함수를 같이 쓴다(새 저장 자리 없음)', () => {
-  const ov = read('app/org-overview.js'), so = read('app/suborganizations.js'), st = read('app/org-status-table.js');
+test('DESK-전체현황표 → WEEKLY-메뉴짝짓기 P3 화면 연결: 소탭 [목록|전체 표]는 org-overview.js 하나, 줄은 주별 조직보고 공용 부품(weekly-org-lines.js)으로 읽고 쓴다', () => {
+  const ov = read('app/org-overview.js'), so = read('app/suborganizations.js'), st = read('app/org-status-table.js'), wl = read('app/weekly-org-lines.js');
   assert.match(so, /import\('\.\/org-overview\.js'\)/);
   assert.match(ov, /data-so-view="list"[^>]*>목록</);assert.match(ov, /data-so-view="table"[^>]*>전체 표</);
-  assert.match(ov, /import \{[^}]*patchStatusRow[^}]*createStatusRow[^}]*\} from '\.\/org-status-table\.js'/);
-  assert.doesNotMatch(ov, /app_org_status_rows/);
-  assert.doesNotMatch(ov, /\b(?:local|session)Stor/, '브라우저 저장소를 쓰지 않는다');
+  assert.match(ov, /import \{[^}]*createWeekLines[^}]*\} from '\.\/weekly-org-lines\.js'/);
+  assert.match(ov, /import \{[^}]*weekPickHtml[^}]*\} from '\.\/week-pick\.js'/);
+  assert.doesNotMatch(ov, /app_org_status_rows|app_weekly_org_lines/, '표 이름은 부품 안에만');
+  assert.doesNotMatch(ov, /data-oa-fill|data-oa-refill-all|AI로 채우기|모두 다시 채우기/, '[AI로 채우기]·[모두 다시 채우기 (AI)]는 없앴다(설계 3.1)');
+  assert.doesNotMatch(ov + wl, /\b(?:local|session)Stor/, '브라우저 저장소를 쓰지 않는다');
   assert.match(ov, /name: 'orgall'/);assert.match(st, /name: 'orgst'/);
-  assert.match(st, /<textarea data-st-field="body"/, '고치기 칸은 늘어나는 여러 줄 칸');
+  assert.match(st, /<textarea data-st-field="body"/, '조직 상세 [현황 표] 고치기 칸은 늘어나는 여러 줄 칸');
   assert.doesNotMatch(st, /data-reorder-handle>⠿/, '⠿ 손잡이 버튼과 [고치기] 버튼 칸은 없다');
   assert.doesNotMatch(st, /mountReorder/, '순서는 날짜가 정하므로 손으로 옮기는 기능이 없다');
-  assert.match(ov, /data-oa-toggle/);assert.match(ov, /외 \$\{older\.length\}줄/);
+  assert.match(wl, /data-wl-toggle/);assert.match(wl, /외 \$\{parts\.older\.length\}줄/);
 });
 
 test('UI-버튼간격: 공용 간격은 토큰 하나(--ds-button-gap)이고 .btn-row가 쓰며, 나란한 버튼은 .btn-row 줄 안에 둔다(담당조직 표)', () => {
   assert.match(read('app/theme-tokens.css'), /--ds-button-gap:\s*8px/);
   assert.match(read('app/ui-standard.css'), /\.btn-row\{[^}]*gap:var\(--ds-button-gap,\s*8px\)/);
-  for (const f of ['app/org-overview.js', 'app/org-status-table.js']) {
+  for (const f of ['app/org-overview.js', 'app/org-status-table.js', 'app/weekly-org-lines.js']) {
     const src = read(f);
     // 템플릿 안에서 </button> 바로 뒤에 <button 또는 <span 이 붙는 줄(사이 간격 0): 같은 줄 앞쪽에 btn-row 클래스가 있어야 한다.
     const all = src.split('\n');
@@ -135,8 +109,8 @@ test('UI-버튼간격: 공용 간격은 토큰 하나(--ds-button-gap)이고 .bt
       assert.match(all.slice(i, i + 3).join('\n'), /btn-row/, `${f}:${i + 1} 나란한 버튼이 .btn-row 밖에 있다`);
     }
   }
-  // 맨 아래 [+ 줄]과 위쪽 [AI로 채우기]·[모두 다시 채우기]·[복사] 줄은 모두 btn-row
+  // 위쪽 [주 고르기]·[복사] 줄과 제안 줄 버튼은 btn-row
   const ov = read('app/org-overview.js');
-  assert.match(ov, /class="oa-actions btn-row"/);assert.match(ov, /class="oa-bar btn-row"/);
+  assert.match(ov, /class="oa-bar btn-row"/);assert.match(read('app/weekly-org-lines.js'), /class="wl-btns btn-row"/);
   assert.match(read('app/org-status-table.js'), /class="wd-st-bar btn-row"/);
 });
