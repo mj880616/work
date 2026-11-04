@@ -139,8 +139,9 @@ export function parseOrgWeek(raw: unknown, groups: string[][]): { text: string; 
   if (typeof o.text !== "string" || !Array.isArray(o.same_as)) return null;
   const line = oneLine(o.text, ORG_WEEK_LINE_MAX);
   if (!line) return null;
+  const same = o.same_as as unknown[];
   const sameAs = groups.map((lines, g) => {
-    const n = o.same_as[g];
+    const n = same[g];
     const max = Math.min(lines.length, ORG_WEEK_EXISTING_MAX);
     return Number.isInteger(n) && (n as number) >= 1 && (n as number) <= max ? (n as number) : 0;
   });
