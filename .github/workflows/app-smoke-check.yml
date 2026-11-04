@@ -157,6 +157,12 @@ on:
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
       - 'scripts/package-lock.json'
+      - 'about/**'
+      - 'tests/about-privacy-page.test.mjs'
+      - 'supabase/functions/google-calendar/index.ts'
+      - 'supabase/functions/google-tasks/index.ts'
+      - 'supabase/functions/public-policy-drive/index.ts'
+      - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
     branches: [main]
@@ -314,6 +320,12 @@ on:
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
       - 'scripts/package-lock.json'
+      - 'about/**'
+      - 'tests/about-privacy-page.test.mjs'
+      - 'supabase/functions/google-calendar/index.ts'
+      - 'supabase/functions/google-tasks/index.ts'
+      - 'supabase/functions/public-policy-drive/index.ts'
+      - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
 
@@ -335,6 +347,9 @@ jobs:
         run: |
           set -e
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Check public privacy page matches requested Google scopes (MULTI D4)
+        run: node --test tests/about-privacy-page.test.mjs
 
       - name: Check attachment file rename rules (ATT-이름고치기)
         run: node --test tests/file-rename.test.mjs
