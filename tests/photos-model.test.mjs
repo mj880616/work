@@ -79,7 +79,7 @@ test('메뉴 한 줄·화면 연결: [사진]은 [메뉴] 창 안, 크게 보기
   assert.match(strip, /\[data-diary-star\][^`]*\[data-diary-share\][^`]*\[data-od-delete\][^`]*\[data-diary-info\]|data-diary-star[\s\S]*data-diary-share[\s\S]*data-od-delete[\s\S]*data-diary-info/);
   const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'caches' + '\\.'].join('|'));
   for (const f of ['app/photos.js', 'app/photos-model.mjs', 'app/photo-strip.js']) assert.doesNotMatch(read(f), deviceStores, f);
-  assert.match(read('app/view-loader.js'), /photos:\['\.\/diary\.css','\.\/od-link\.css','\.\/photos\.css'/);
+  assert.match(read('app/view-loader.js'), /photos:\['\.\/diary\.css','\.\/od-link\.css','\.\/source-chips\.css','\.\/photos\.css'/);
   assert.match(read('app/app-router.js'), /photos:\['tab'\]/);
   assert.match(read('app/index.html'), /data-view="photos" type="button">사진<\/button>/);
 });

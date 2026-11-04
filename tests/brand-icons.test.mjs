@@ -30,8 +30,10 @@ test('웹2 안 원드라이브·구글 드라이브 아이콘 자리는 모두 �
   // 옛 단색 구름·삼각 모양 path가 남지 않음.
   assert.doesNotMatch(photos + od, /M9\.6 2\.2a5 5 0 0 1 4\.6|M8\.6 3\.5h6\.8l6\.1 10\.6|M5\.6 2\.5h4\.8l4\.1 7\.1|M4\.5 12\.5h7\.2a2\.8/);
   // 꺼짐은 같은 아이콘을 회색조로 엷게, 켜짐을 공식 색 바탕으로 칠하지 않음. CSS에 새 색값 없음.
+  // S49-21: 켜짐/꺼짐 모양은 사진·[파일]이 같이 쓰는 source-chips.css 한 곳.
+  const chips = read('app/source-chips.css');
+  assert.match(chips, /\[data-src-chip\]\[aria-pressed="false"\] svg \{ filter:grayscale\(1\); opacity:\.45; \}/);
+  assert.match(chips, /\[data-src-chip\]\[aria-pressed="true"\] \{ background:transparent; color:var\(--kptu-ink\); \}/);
   const css = read('app/photos.css');
-  assert.match(css, /\[data-photos-src\]\[aria-pressed="false"\] svg\{ filter:grayscale\(1\); opacity:\.45; \}/);
-  assert.match(css, /\[data-photos-src\]\[aria-pressed="true"\]\{ background:transparent; color:var\(--kptu-ink\); \}/);
   assert.match(css, /\.photos-src-mark:is\(\[data-src="onedrive"\],\[data-src="gdrive"\]\)\{ background:var\(--kptu-surface\); \}/);
 });

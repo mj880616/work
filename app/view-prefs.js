@@ -59,6 +59,13 @@ export const TG_VIEWS = Object.freeze(['day', 'room']);
 // photo_level = 사진 보기 단계 'year'·'month'·'day'(없으면 일). migration 20261103190000. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(출처는 기본값, 보기 단계는 이번 접속만).
 // REPORT-기간고르기(S49-11): report_period = 사업 보고 목록 기간 보기 {mode:'all'|'week'|'range', from?, to?}. range일 때만 from·to(YYYY-MM-DD, from<=to). 주간 보기(week)는 저장하지 않고 비운다(기본). migration 20261103200000.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다.
+// FILES-출처켜고끄기(S49-21) + 기기마다 따로(S49-26, 명진 결정 H-8): files_sources = [파일] 위 줄 출처 아이콘 켜기/끄기를 기기 종류별로
+// {app?: {od?, gd?}, phone?: {...}, pc?: {...}}(app = 폰 앱, phone = 폰 브라우저, pc = 그 밖; 칸마다 참·거짓, 없으면 둘 다 켜짐). migration 20261104090000. 뜻은 files-sources-model.mjs.
+// 쓰기는 'files_sources.<기기>' 한 칸씩(split_ratio처럼): 보내기 직전 서버 값과 합쳐 다른 기기 칸을 덮지 않는다.
+// 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
+export const FILES_SOURCE_NAMES = Object.freeze(['od', 'gd']);
+export const FILES_SOURCE_DEVICES = Object.freeze(['app', 'phone', 'pc']);
+const filesFlagsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_SOURCE_NAMES.includes(name) && typeof v[name] === 'boolean');
 export const REPORT_PERIOD_MODES = Object.freeze(['all', 'week', 'range']);
 export const PHOTO_LEVELS = Object.freeze(['year', 'month', 'day']);
 export const NOTE_BOARDS_MAX = 12;
@@ -84,7 +91,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -128,6 +135,8 @@ export function validValue(key, value) {
     case 'report_period': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => name === 'mode' || name === 'from' || name === 'to') && REPORT_PERIOD_MODES.includes(value.mode)
       && (value.mode === 'range' ? DATE_RE.test(String(value.from)) && DATE_RE.test(String(value.to)) && typeof value.from === 'string' && typeof value.to === 'string' && value.from <= value.to : !('from' in value) && !('to' in value));
+    case 'files_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
+      && Object.keys(value).every(dev => FILES_SOURCE_DEVICES.includes(dev) && filesFlagsOk(value[dev]));
     case 'photo_sources_phone':
     case 'photo_sources_pc':
     case 'photo_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -167,6 +176,12 @@ export function parsePrefs(value) {
         if (Object.keys(cols).length) kept[name] = cols;
       }
       if (Object.keys(kept).length) out[key] = kept;
+    } else if (key === 'files_sources') {
+      const src = value[key];
+      if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
+      const kept = {};
+      for (const dev of FILES_SOURCE_DEVICES) if (filesFlagsOk(src[dev])) kept[dev] = src[dev];
+      if (Object.keys(kept).length) out[key] = kept;
     } else if (validValue(key, value[key])) out[key] = value[key];
   }
   return out;
@@ -183,18 +198,25 @@ export function applyChanges(base, changes) {
       const name = path.slice('col_widths.'.length), next = { ...(out.col_widths || {}) };
       if (value === null) delete next[name]; else next[name] = value;
       if (Object.keys(next).length) out.col_widths = next; else delete out.col_widths;
+    } else if (path.startsWith('files_sources.')) {
+      const dev = path.slice('files_sources.'.length), next = { ...(out.files_sources || {}) };
+      if (value === null) delete next[dev]; else next[dev] = value;
+      if (Object.keys(next).length) out.files_sources = next; else delete out.files_sources;
     } else if (value === null) delete out[path];
     else out[path] = value;
   }
   return out;
 }
-const NESTED = ['split_ratio', 'col_widths'];
+const NESTED = ['split_ratio', 'col_widths', 'files_sources'];
 const colScreen = path => path.slice('col_widths.'.length);
+const filesDevice = path => path.slice('files_sources.'.length);
 const changeOk = (path, value) => value === null
   ? KEYS.includes(path) && !NESTED.includes(path) || (path.startsWith('split_ratio.') && SPLIT_SCREENS.includes(path.slice(12))) || (path.startsWith('col_widths.') && COL_NAME_RE.test(colScreen(path)))
+    || (path.startsWith('files_sources.') && FILES_SOURCE_DEVICES.includes(filesDevice(path)))
   : path.startsWith('split_ratio.') ? SPLIT_SCREENS.includes(path.slice(12)) && ratioOk(value)
     : path.startsWith('col_widths.') ? COL_NAME_RE.test(colScreen(path)) && colWidthsOk(value)
-      : KEYS.includes(path) && !NESTED.includes(path) && validValue(path, value);
+      : path.startsWith('files_sources.') ? FILES_SOURCE_DEVICES.includes(filesDevice(path)) && filesFlagsOk(value)
+        : KEYS.includes(path) && !NESTED.includes(path) && validValue(path, value);
 // 저장할 값(비어 있으면 null = 기본값으로 돌아감).
 export const serialize = prefs => Object.keys(prefs).length ? prefs : null;
 
@@ -213,7 +235,8 @@ const LEGACY = [
 // 고른 적 없을 때 화면이 보여 주는 값: 이 값으로 "바꾸는" 호출은 저장할 것이 없다.
 const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list', photo_cols: 4, photo_cols_wide: 6, diary_view: 'calendar', diary_onedrive: true, quiet_weeks: 3, note_view: 'folder', tg_view: 'day', album_view: 'card', ed_more: false, now_tab: 'outside' };
 const defaultStorage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
-const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : path.startsWith('col_widths.') ? prefs.col_widths?.[colScreen(path)] : prefs[path];
+const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : path.startsWith('col_widths.') ? prefs.col_widths?.[colScreen(path)]
+  : path.startsWith('files_sources.') ? prefs.files_sources?.[filesDevice(path)] : prefs[path];
 
 export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime, storage = defaultStorage, setTimer = setTimeout, clearTimer = clearTimeout, delay = 400, retryDelay = 5000, loadTimeout = 4000 } = {}) {
   let prefs = {};          // 화면이 쓰는 값(이번 접속). 서버 값 + 옮긴 기기 값 + 이번 접속에서 바꾼 값.
@@ -368,6 +391,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     setSplit: (name, ratio) => set('split_ratio.' + name, ratio, {rejectable: true}),
     getCols: name => prefs.col_widths?.[name],
     setCols: (name, widths) => set('col_widths.' + name, widths, {rejectable: true}),
+    getFilesSources: device => prefs.files_sources?.[device],
+    setFilesSources: (device, flags) => set('files_sources.' + device, flags, {rejectable: true}),
     flush,
     flushHidden,
     status: () => state,

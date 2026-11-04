@@ -59,7 +59,7 @@ test('썸네일 대기열: 한 번에 4장까지, 차례 전 거두기, 같은 �
 test('사진 화면: 칩은 운영자 기능이 있을 때만, 지우기는 확인 창 한 번 + 30일 안내, 권한 없음 안내·다시 연결', () => {
   const s = read('app/photos.js');
   assert.match(s, /const allowed = gdriveAllowed\(await myFeatures\(rt\)\);/);
-  assert.match(s, /data-photos-src="gdrive" aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>/);
+  assert.match(s, /data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>/);
   assert.match(s, /sourceButtons\(sources, \{phone:phone\.available\(\), gdrive:gd\.allowed, gdriveProblem:gd\.problem\}\)/);
   const trash = s.slice(s.indexOf('async function gdTrashPicked'), s.indexOf('const gdName'));
   assert.ok(trash.indexOf('askConfirm') >= 0 && trash.indexOf('askConfirm') < trash.indexOf('gdTrash(rt'), '사진 지우기는 확인 뒤에만');

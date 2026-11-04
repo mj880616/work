@@ -11,8 +11,8 @@ const edgeCalls = (server, action) => server.calls.filter(c => c.what === 'edge'
 
 async function intoDocs(page, width) {
   await openFiles(page, width);
-  if (width >= 761) await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
-  else await root(page).locator('[data-fx-tab="folders"]').click();
+  if (width < 761) await root(page).locator('[data-fx-tab="folders"]').click(); // S49-21: 폰 [폴더] 탭 첫 화면은 나무
+  await root(page).locator('[data-fx-tree] [data-fx-go="od"][data-fx-id=""]').click();
   await row(page, 'od:OD!1').click();
   await expect.poll(() => names(page)).toEqual(['가짜 2026', '가짜 메모.txt', '가짜 안내문.pdf', '가짜 예산표.xlsx']);
 }

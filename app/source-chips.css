@@ -1,0 +1,12 @@
+/* 출처 아이콘 켜짐/꺼짐 공용 모양(S49-21 FILES-출처켜고끄기): 사진 화면 위 줄(photos.js)과 [파일] 위 줄(files.js)이 같이 쓴다.
+   줄 = .src-chips, 단추 = [data-src-chip]. 원드라이브 단추는 od-link.js(odLinkButtonHtml) 그대로, 구글 드라이브는 brand-icons.js 공식 아이콘.
+   PHOTO-실제아이콘(11/03): 공식 아이콘 원래 색 그대로(공식 색을 바탕에 칠하지 않음). 꺼짐 = 같은 아이콘을 회색조로 엷게. 바탕색으로 켜짐을 칠하지 않는다. */
+#appView :is(#photosView, #filesView) .src-chips { display:inline-flex; align-items:center; gap:2px; }
+#appView :is(#photosView, #filesView) .src-chips[hidden] { display:none; }
+#appView :is(#photosView, #filesView) .src-chips [data-src-chip] { min-width:32px; padding:0 6px; border-radius:6px; }
+#appView :is(#photosView, #filesView) .src-chips [data-src-chip]:not(.od-link) { display:inline-grid; place-items:center; color:var(--kptu-muted); }
+#appView :is(#photosView, #filesView) .src-chips [data-src-chip][hidden] { display:none; }
+#appView :is(#photosView, #filesView) .src-chips [data-src-chip][aria-pressed="true"] { background:transparent; color:var(--kptu-ink); }
+#appView :is(#photosView, #filesView) .src-chips [data-src-chip][aria-pressed="false"] { background:transparent; color:var(--kptu-faint); }
+#appView :is(#photosView, #filesView) .src-chips [data-src-chip][aria-pressed="false"] svg { filter:grayscale(1); opacity:.45; }
+#appView :is(#photosView, #filesView) .src-chips [data-src-chip][aria-disabled="true"] { opacity:.45; cursor:default; }
