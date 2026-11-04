@@ -181,11 +181,20 @@ export async function start(page, width, opts) {
   const server = await filesServer(page, opts);
   return { errors, server };
 }
-export async function openFiles(page, width) {
+// S49-30: 폴드 펼침(761~1199)은 기본이 두 칸(명진 결정 H-2). 한 칸 화면을 보는 시험은 위 줄 [두 칸]을 눌러 끈 뒤 시작한다({two: true}면 두 칸 그대로).
+export async function openFiles(page, width, { two = false } = {}) {
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav button:visible', { hasText: '파일' }).click();
   } else await page.locator('#appView>.app-nav').getByRole('button', { name: '파일', exact: true }).click();
   await expect(page.locator('#filesView')).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('files');
+  if (width > 760 && width < 1200 && !two) {
+    const btn = page.locator('#filesRoot [data-fx-two]');
+    await expect(btn).toBeVisible();
+    // 서버에 '끔'이 이미 기억돼 있으면(다시 열기) 그대로 둔다.
+    if (await btn.getAttribute('aria-pressed') === 'true') await btn.click();
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#filesRoot [data-fx-pane-i="1"]')).toHaveCount(0);
+  }
 }
