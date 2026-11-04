@@ -465,13 +465,12 @@ async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clo
   const since = new Date(nowMs - TITLE_WINDOW_DAYS * 86400000).toISOString();
   // ① 제목 번역이 아직 없는 외국어 기사 ② 제목은 있지만 소개(summary)가 아직 외국어 그대로인 기사(11/04: 해외 기사 본문 줄이 영어로 보임).
   // 소개 원문은 body(앞부분)에 그대로 남아 있어서 summary만 한국어로 바꿔도 원문은 [본문]·[번역]에서 본다.
-  const rows = await db.get(`app_news_items?lang=neq.ko&title=not.is.null&created_at=gte.${encodeURIComponent(since)}${only}&select=id,workspace_id,title,title_ko,summary&order=created_at.desc&limit=1000`);
+  const base = `lang=neq.ko&title=not.is.null&created_at=gte.${encodeURIComponent(since)}${only}&select=id,workspace_id,title,title_ko,summary&order=created_at.desc&limit=1000`;
+  const titleRows = await db.get(`app_news_items?title_ko=is.null&${base}`);
+  const sumRows = (await db.get(`app_news_items?title_ko=not.is.null&summary=not.is.null&${base}`)).filter((r) => typeof r.summary === "string" && r.summary.trim() && !HANGUL.test(r.summary));
   const byWs = new Map<string, Row[]>();
-  for (const r of rows) {
+  for (const r of [...titleRows, ...sumRows]) {
     if (typeof r.title !== "string" || !r.title.trim()) continue;
-    const needTitle = !r.title_ko;
-    const needSum = typeof r.summary === "string" && r.summary.trim() && !HANGUL.test(r.summary);
-    if (!needTitle && !needSum) continue;
     byWs.set(String(r.workspace_id), [...(byWs.get(String(r.workspace_id)) ?? []), r]);
   }
   const dayStart = new Date(`${kstDay(nowMs)}T00:00:00+09:00`).toISOString();
