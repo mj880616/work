@@ -40,6 +40,7 @@ export const SEND_NOTE = Object.freeze({
   diaryDone: '일기에 넣었어요',
   diaryOpen: '일기 보기',
   retry: '다시',
+  basketOpen: '정리함 보기',
 });
 
 // '11.3' 꼴 짧은 날짜(알림 한 줄용). YYYY-MM-DD가 아니면 그대로.

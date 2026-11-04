@@ -1247,6 +1247,10 @@ async function itemFile(item) {
 let sendBusy = false;
 const sendablePicked = () => pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
 function sendPickedTo(where, trigger) { return sendItemsTo(where, sendablePicked(), trigger, {fromPick:true}); }
+function openBasketView() {
+  if (photoStripOpen()) closePhotoStrip({restore:false});
+  window.KPTURouter?.go?.('basket', {source:'delegated'});
+}
 function openDiaryDay(day) {
   if (!day) return;
   requestDiaryDay(day);
@@ -1275,7 +1279,7 @@ async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} 
       catch (error) { notify(error?.message || SEND_NOTE.basketFail, {error:true, ms:8000, actions:[retry(list)]}); return; }
       if (missed.length) { notify(basketDoneText(files.length, list.length), {error:true, ms:8000, actions:[retry(missed)]}); return; }
       release();
-      notify(basketDoneText(files.length));
+      notify(basketDoneText(files.length), {ms:6000, actions:[{label:SEND_NOTE.basketOpen, run:({close}) => { close(); openBasketView(); }}]});
       return;
     }
     const done = [], missed = [], failedItems = [];

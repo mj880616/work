@@ -81,3 +81,13 @@ test('크게 보기 줄(viewBar)은 고르기 줄(selectBar) 그대로 + [정보
   assert.doesNotMatch(strip, /actInner\(/);
   assert.doesNotMatch(photos, /data-photos-act-(star|move|tag|delete|diary)[^>]*>\$\{actInner/);
 });
+
+// PHOTO-업데이트반응없음(S49-34): 작은 알림(#kptuNotice)이 크게 보기(z-index 1000) 뒤에 깔려 아래 줄 버튼을 눌러도 아무 반응이 없어 보였다.
+test('크게 보기가 열려 있으면 작은 알림·되돌리기 알림·확인창이 크게 보기보다 위에 뜬다', () => {
+  const css = read('app/diary.css');
+  const viewer = Number(/\.diary-viewer\{[^}]*?z-index:(\d+)/.exec(css)?.[1]);
+  const over = Number(/body:has\(\[data-diary-viewer\]\) > :is\(([^)]*)\)\{\s*z-index:(\d+)/.exec(css)?.[2]);
+  assert.ok(viewer > 0 && over > viewer, `viewer ${viewer} / over ${over}`);
+  for (const sel of ['.kptu-ask', '.kptu-notice', '.kptu-undo-notice', '.toast']) assert.match(css, new RegExp(`body:has\\(\\[data-diary-viewer\\]\\) > :is\\([^)]*${sel.replace('.', '\\.')}`), sel);
+  assert.equal(SEND_NOTE.basketOpen, '정리함 보기');
+});
