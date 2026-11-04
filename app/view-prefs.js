@@ -63,6 +63,12 @@ export const TG_VIEWS = Object.freeze(['day', 'room']);
 // {app?: {od?, gd?}, phone?: {...}, pc?: {...}}(app = 폰 앱, phone = 폰 브라우저, pc = 그 밖; 칸마다 참·거짓, 없으면 둘 다 켜짐). migration 20261104090000. 뜻은 files-sources-model.mjs.
 // 쓰기는 'files_sources.<기기>' 한 칸씩(split_ratio처럼): 보내기 직전 서버 값과 합쳐 다른 기기 칸을 덮지 않는다.
 // 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(이번 접속만 기억).
+// FILES-통합 2-① 복사(S49-27): files_dest_recent = [파일] 받을 곳 창 위 '최근 보낸 곳' 칩, 배열 3개까지 [{source:'od'|'gd', id: 폴더 id(''= 맨 위), name: 1~40자}]
+// (모든 기기 같게). migration 20261104120000. 뜻·계산은 files-model.mjs(pushRecentDest). 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다(알림 없음).
+export const FILES_DEST_RECENT_MAX = 3;
+const filesDestOk = d => !!d && typeof d === 'object' && !Array.isArray(d) && Object.keys(d).length === 3 && ['source', 'id', 'name'].every(k => k in d)
+  && (d.source === 'od' || d.source === 'gd') && typeof d.id === 'string' && /^[A-Za-z0-9!_.-]{0,120}$/.test(d.id)
+  && typeof d.name === 'string' && d.name.length > 0 && [...d.name].length <= 40 && !/[\p{Cc}]/u.test(d.name);
 export const FILES_SOURCE_NAMES = Object.freeze(['od', 'gd']);
 export const FILES_SOURCE_DEVICES = Object.freeze(['app', 'phone', 'pc']);
 const filesFlagsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_SOURCE_NAMES.includes(name) && typeof v[name] === 'boolean');
@@ -91,7 +97,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
 const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
@@ -135,6 +141,7 @@ export function validValue(key, value) {
     case 'report_period': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => name === 'mode' || name === 'from' || name === 'to') && REPORT_PERIOD_MODES.includes(value.mode)
       && (value.mode === 'range' ? DATE_RE.test(String(value.from)) && DATE_RE.test(String(value.to)) && typeof value.from === 'string' && typeof value.to === 'string' && value.from <= value.to : !('from' in value) && !('to' in value));
+    case 'files_dest_recent': return Array.isArray(value) && value.length <= FILES_DEST_RECENT_MAX && value.every(filesDestOk);
     case 'files_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(dev => FILES_SOURCE_DEVICES.includes(dev) && filesFlagsOk(value[dev]));
     case 'photo_sources_phone':

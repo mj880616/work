@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 
 // S48-12b ③: 실제 cloud-files handler를 지어낸 Supabase(PostgREST)·원드라이브(Graph)·구글 드라이브로 돌린다. 네트워크 없음.
 // 비밀값·토큰·계정·파일 이름은 모두 고정 가짜 글자다.
-const {createCloudFilesHandler,odRow,gdRow,safeOpenUrl,servedType,FRESH_MS,cleanName,idList,uniqueName,safeUploadUrl,ACROSS_MAX_BYTES}=await import('../../supabase/functions/cloud-files/handler.ts');
+const {createCloudFilesHandler,odRow,gdRow,safeOpenUrl,servedType,FRESH_MS,cleanName,idList,uniqueName,safeUploadUrl,safeMonitorUrl,ACROSS_MAX_BYTES,COPY_TREE_MAX}=await import('../../supabase/functions/cloud-files/handler.ts');
 const {createHash}=await import('node:crypto');
 const root=new URL('../../',import.meta.url);
 const read=p=>readFileSync(new URL(p,root),'utf8');
@@ -99,7 +99,10 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
     const loc='https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=U'+(Object.keys(uploads).length+1);
     uploads[loc]={dest:'gd',name:b.name,parents:b.parents,bytes:Buffer.alloc(0),corrupt:gd.corrupt};return new Response(null,{status:200,headers:{location:loc}});}
    if(P==='/files'&&method==='POST'){const b=JSON.parse(init.body);assert.equal(b.mimeType,'application/vnd.google-apps.folder');
-    return ok({id:'GNEW',name:b.name,mimeType:b.mimeType,parents:b.parents,ownedByMe:true});}
+    gd.mk=(gd.mk||0)+1;const f={id:gd.mk===1?'GNEW':'GNEW'+gd.mk,name:b.name,mimeType:b.mimeType,parents:b.parents,ownedByMe:true};(gd.made||=[]).push(f);return ok(f);}
+   const cp=/^\/files\/([A-Za-z0-9_-]+)\/copy$/.exec(P);
+   if(cp&&method==='POST'){const src=gdFile(cp[1])||(gd.children||[]).find(x=>x.id===cp[1]);assert.ok(src,'copy known file');const b=JSON.parse(init.body);
+    gd.cp=(gd.cp||0)+1;const f={...src,id:'GCP'+gd.cp,name:b.name,parents:b.parents,trashed:false};(gd.made||=[]).push(f);return ok(f);}
    const wm=/^\/files\/([A-Za-z0-9_-]+)$/.exec(P);
    if(wm&&method==='PATCH'){const f=gdFile(wm[1]);assert.ok(f,'patch known file');const b=JSON.parse(init.body);
     if(b.name)f.name=b.name;if(b.trashed===true)f.trashed=true;
@@ -117,6 +120,8 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    if(m&&u.searchParams.get('alt')==='media'){const b=gd.media?.[m[1]]||new Uint8Array([9,9]);return new Response(b,{headers:{'content-type':'application/pdf','content-length':String(b.length)}});}
    if(m)return ok({id:m[1],webViewLink:'https://drive.google.com/file/d/'+m[1]+'/view',thumbnailLink:'https://lh3.googleusercontent.com/t=s220',trashed:false});
   }
+  if(u.host==='api.onedrive.com'&&u.pathname.startsWith('/v1.0/monitor/')){assert.equal(h.Authorization,undefined,'monitor URL gets no token');
+   const n=u.pathname.split('/m').pop();return ok(od.copyFails?{status:'failed'}:{status:'completed',resourceId:'OCP!'+n},202);}
   if(u.host==='lh3.googleusercontent.com')return new Response(new Uint8Array([1,2,3]),{headers:{'content-type':'image/jpeg'}});
   if(u.host==='graph.microsoft.com'){
    assert.equal(h.Authorization,'Bearer '+OD_ACCESS);
@@ -137,7 +142,14 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
     uploads[loc]={dest:'od',name:JSON.parse(init.body).item.name,parent:par?decodeURIComponent(par):od.root,bytes:Buffer.alloc(0),corrupt:od.corrupt};return ok({uploadUrl:loc});}
    if(method==='POST'&&/\/children$/.test(P)){const b=JSON.parse(init.body);assert.equal(b['@microsoft.graph.conflictBehavior'],'fail');
     const par=/items\/([^/]+)\/children/.exec(P)?.[1];return ok({id:'ONEW!9',name:b.name,folder:{childCount:0},parentReference:{id:par?decodeURIComponent(par):od.root}},201);}
+   if(P==='/me/drive'&&method==='GET')return ok({id:'DRIVE1'});
+   const oc=/^\/me\/drive\/items\/([^/]+)\/copy$/.exec(P);
+   if(oc&&method==='POST'){const src=odItem(decodeURIComponent(oc[1]));assert.ok(src);const b=JSON.parse(init.body);assert.equal(b.parentReference.driveId,'DRIVE1');
+    assert.equal(u.searchParams.get('@microsoft.graph.conflictBehavior'),'rename','never replace');
+    od.cp=(od.cp||0)+1;const nid='OCP!'+od.cp;(od.copies||={})[nid]={...src,id:nid,name:b.name,parentReference:{id:b.parentReference.id}};
+    return new Response(null,{status:202,headers:{location:od.monitorHost===undefined?'https://api.onedrive.com/v1.0/monitor/m'+od.cp:od.monitorHost+od.cp}});}
    const im=/^\/me\/drive\/items\/([^/]+)$/.exec(P);
+   if(im&&method==='GET'&&od.copies?.[decodeURIComponent(im[1])])return ok(od.copies[decodeURIComponent(im[1])]);
    if(im&&method==='DELETE'){assert.ok(odItem(decodeURIComponent(im[1])));return new Response(null,{status:204});}
    if(im&&method==='PATCH'){const it=odItem(decodeURIComponent(im[1]));assert.ok(it);const b=JSON.parse(init.body);
     if(b.name){if(od.taken===b.name)return ok({error:{code:'nameAlreadyExists'}},409);it.name=b.name;}
@@ -298,7 +310,7 @@ test('static: no permanent delete, trash emptying, sharing links, permission or 
  assert.match(code,/od_trash", token, `\$\{GRAPH\}\/me\/drive\/items\/\$\{encodeURIComponent\(id\)\}`, "DELETE"\)/);
  assert.match(code,/gd_trash", token, `\$\{DRIVE\}\/files\/[^`]+`, "PATCH", \{ trashed: true \}\)/);
  // 모든 쓰기 action은 confirm:true를 먼저 본다.
- for(const a of ['rename','mkdir','move','trash','across'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
+ for(const a of ['rename','mkdir','move','trash','across','copy'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
  assert.match(code,/FEATURE = "files"/);
  assert.match(code,/includes\(FEATURE\)/);
  assert.match(read('supabase/functions/cloud-files/index.ts'),/verify_jwt=true/);
@@ -435,6 +447,9 @@ test('write helpers: names, id lists, unique names, upload hosts',()=>{
  assert.equal(cleanName('a/b'),null);assert.equal(cleanName(3),null);
  assert.deepEqual(idList(['A','B'],'gd'),['A','B']);assert.equal(idList(['A!1'],'gd'),null);assert.deepEqual(idList(['A!1'],'od'),['A!1']);
  assert.equal(uniqueName('a.pdf',['A.PDF','a (2).pdf']),'a (3).pdf');assert.equal(uniqueName('폴더',['x']),'폴더');assert.equal(uniqueName('.env',['.env']),'.env (2)');
+ assert.equal(uniqueName('a (2).pdf',['a (2).pdf']),'a (3).pdf','already numbered keeps counting');assert.equal(uniqueName('보고서.hwp',['보고서.hwp','보고서 (2).hwp']),'보고서 (3).hwp');
+ assert.equal(safeMonitorUrl('https://api.onedrive.com/v1.0/monitor/x'),'https://api.onedrive.com/v1.0/monitor/x');assert.equal(safeMonitorUrl('https://evil.example/monitor'),null);
+ assert.equal(safeMonitorUrl('http://api.onedrive.com/m'),null);
  assert.equal(safeUploadUrl('gd','https://www.googleapis.com/upload/drive/v3/files?upload_id=1'),'https://www.googleapis.com/upload/drive/v3/files?upload_id=1');
  assert.equal(safeUploadUrl('gd','https://evil.example/upload/drive/v3/files'),null);
  assert.equal(safeUploadUrl('od','https://sn1.up.1drv.com/up/1'),'https://sn1.up.1drv.com/up/1');
@@ -490,4 +505,103 @@ test('folder: 폴더만 클라우드에서 바로 읽어 색인에 합침 — �
  assert.equal((await j(await w.post({action:'folder',source:'od',id:'bad id!'}))).status,400);
  assert.equal((await j(await w.post({action:'folder',source:'od',id:'OF!2'},JWT2))).status>=400,true,'다른 사용자 거절');
  assert.ok(!w.calls.some(c=>['POST','PATCH','DELETE','PUT'].includes(c.method)&&['graph.microsoft.com','www.googleapis.com'].includes(c.host)),'클라우드에는 쓰지 않음');
+});
+
+// FILES-통합 2-① 복사: 쓰기 문(confirm·주인·운영자 기능·색인 안)은 다른 쓰기와 같다. 원본은 그대로, 같은 이름은 번호를 붙여 둘 다 둔다(H-3).
+test('copy gate: confirm:true required, other workspace and missing files feature refused, only indexed items; nothing written',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const n=w.writes.length;
+ assert.deepEqual(await j(await w.post({action:'copy',source:'od',id:'OX!3',to:null})),{status:400,body:{ok:false,error:'confirm_required'}});
+ assert.equal((await w.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:'yes'})).status,400);
+ assert.deepEqual(await j(await w.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:true},JWT2)),{status:403,body:{ok:false,error:'feature_required'}},'not the owner of this workspace');
+ assert.equal((await w.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:true},'nope')).status,401);
+ const nf=world({features:['calls','gdrive_photos']});
+ assert.deepEqual(await j(await nf.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:true})),{status:403,body:{ok:false,error:'feature_required'}},'operator feature files required');
+ assert.equal((await w.post({action:'copy',source:'od',id:'NOPE!1',to:null,confirm:true})).status,404);
+ assert.equal((await w.post({action:'copy',source:'od',id:'OX!3',to:'OH!4',confirm:true})).status,400,'destination must be a folder');
+ assert.equal((await j(await w.post({action:'copy',source:'od',id:'OX!3',to_source:'zz',to:null,confirm:true}))).body.error,'dest_invalid');
+ w.db.items.push({workspace_id:WS2,source:'gd',item_id:'GZ',parent_id:null,name:'남의 것',is_folder:false,trashed:false,size_bytes:4});
+ assert.equal((await w.post({action:'copy',source:'gd',id:'GZ',to:null,confirm:true})).status,404,'another workspace index row is not a target');
+ assert.equal((await w.post({action:'copy',source:'gd',id:'GA',to_source:'od',to:'NOPE!9',confirm:true})).status,404,'destination outside the index');
+ assert.equal(w.writes.length,n,'nothing was written to any cloud');
+});
+
+test('copy within OneDrive: copy + monitor (no token), same name gets (2), original untouched, new row indexed',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const r=await j(await w.post({action:'copy',source:'od',id:'OX!3',to:'OF!2',confirm:true}));
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal(r.body.changed[0].name,'회의 (2).docx');assert.equal(r.body.changed[0].parent_id,'OF!2');assert.deepEqual(r.body.removed,[]);
+ const post=w.writes.find(x=>x.method==='POST'&&x.path.endsWith('/copy'));
+ assert.deepEqual(post.body,{parentReference:{driveId:'DRIVE1',id:'OF!2'},name:'회의 (2).docx'});
+ assert.ok(!w.writes.some(x=>x.method==='DELETE'||x.method==='PATCH'),'original never moved or trashed');
+ assert.ok(w.db.items.some(x=>x.item_id==='OCP!1'&&x.name==='회의 (2).docx'));assert.ok(w.db.items.some(x=>x.item_id==='OX!3'&&!x.trashed));
+ // 폴더째(같은 클라우드 안)는 된다. 안쪽 줄은 다음 맞추기가 들여온다(reload).
+ const f=await j(await w.post({action:'copy',source:'od',id:'OF!2',to:null,confirm:true}));
+ assert.equal(f.status,200);assert.equal(f.body.changed[0].name,'문서 (2)');assert.equal(f.body.reload,true);
+ assert.equal((await j(await w.post({action:'copy',source:'od',id:'OF!2',to:'OF!2',confirm:true}))).body.error,'copy_into_self');
+ // 진행 확인 주소가 원드라이브 주소가 아니면 따라가지 않는다(pending — 다음 맞추기가 들여온다).
+ w.od.monitorHost='https://evil.example/m';
+ const p=await j(await w.post({action:'copy',source:'od',id:'OH!4',to:null,confirm:true}));
+ assert.equal(p.body.pending,true);assert.ok(!w.calls.some(c=>c.host==='evil.example'));
+ w.od.monitorHost=undefined;w.od.copyFails=true;
+ assert.equal((await j(await w.post({action:'copy',source:'od',id:'OH!4',to:null,confirm:true}))).body.error,'copy_failed');
+});
+
+test('copy within Google: files.copy for a file, folder copied by making folders and copying inside; big folders refused before writing',async()=>{
+ const w=world();
+ await w.post({action:'sync'});
+ const r=await j(await w.post({action:'copy',source:'gd',id:'GA',to:'GF1',confirm:true}));
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal(r.body.changed[0].name,'가상 초안 (2).pdf');assert.equal(r.body.changed[0].parent_id,'GF1');
+ assert.ok(!w.writes.some(x=>x.host==='www.googleapis.com'&&(x.method==='PATCH'||x.method==='DELETE')),'original untouched');
+ // 폴더째: GF1(안에 GA) → 맨 위. 맨 위에 같은 이름 폴더가 있으니 '가상폴더 (2)'.
+ w.gd.children=[{id:'GA',name:'가상 초안.pdf',mimeType:'application/pdf',parents:['GF1'],size:'12',ownedByMe:true},
+  {id:'GSUB',name:'안쪽',mimeType:'application/vnd.google-apps.folder',parents:['GF1'],ownedByMe:true},
+  {id:'GIN',name:'안쪽 파일.txt',mimeType:'text/plain',parents:['GSUB'],size:'3',ownedByMe:true}];
+ const f=await j(await w.post({action:'copy',source:'gd',id:'GF1',to:null,confirm:true}));
+ assert.equal(f.status,200,JSON.stringify(f.body));
+ assert.equal(f.body.changed[0].name,'가상폴더 (2)');assert.equal(f.body.changed[0].parent_id,null);assert.equal(f.body.copied,4);assert.equal(f.body.partial,false);
+ const made=w.gd.made.slice(-4);
+ assert.deepEqual(made.map(x=>x.name).sort(),['가상 초안.pdf','가상폴더 (2)','안쪽','안쪽 파일.txt'].sort());
+ assert.equal(made.find(x=>x.name==='안쪽 파일.txt').parents[0],made.find(x=>x.name==='안쪽').id,'inside the new sub folder');
+ assert.ok(w.db.items.some(x=>x.name==='안쪽 파일.txt'),'all made rows indexed');
+ assert.equal((await j(await w.post({action:'copy',source:'gd',id:'GF1',to:'GF1',confirm:true}))).body.error,'copy_into_self');
+ w.gd.children=Array.from({length:COPY_TREE_MAX+1},(_,i)=>({id:'GK'+i,name:'k'+i,mimeType:'text/plain',parents:['GF1'],size:'1',ownedByMe:true}));
+ const before=w.writes.length;
+ assert.equal((await j(await w.post({action:'copy',source:'gd',id:'GF1',to:null,confirm:true}))).body.error,'folder_too_big');
+ assert.equal(w.writes.length,before,'counted before writing anything');
+});
+
+test('copy across clouds: same check as across but the original stays; folders and over 200MB refused',async()=>{
+ const bytes=Buffer.from(Array.from({length:3000},(_,i)=>(i*3)&255));
+ const w=world();
+ w.gd.pages[0].push({id:'GB',name:'회의.docx',mimeType:'application/pdf',parents:['GF1'],size:String(bytes.length),md5Checksum:createHash('md5').update(bytes).digest('hex'),ownedByMe:true},
+  {id:'GH',name:'큰 파일.zip',mimeType:'application/zip',parents:['ROOTG'],size:String(ACROSS_MAX_BYTES+1),ownedByMe:true});
+ w.gd.media={GB:bytes};
+ await w.post({action:'sync'});
+ const r=await j(await w.post({action:'copy',source:'gd',id:'GB',to_source:'od',to:'OF!2',confirm:true}));
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal(r.body.changed[0].source,'od');assert.equal(r.body.changed[0].name,'회의 (2).docx','same name in OF!2 gets a number');assert.deepEqual(r.body.removed,[]);
+ assert.notEqual(w.gd.pages[0].find(x=>x.id==='GB').trashed,true,'original not trashed');
+ assert.ok(w.db.items.some(x=>x.item_id==='GB'&&!x.trashed));
+ const e=async b=>(await j(await w.post({confirm:true,action:'copy',to_source:'od',to:null,...b}))).body.error;
+ assert.equal(await e({source:'gd',id:'GF1'}),'across_folder','folder only within the same cloud (H-5)');
+ assert.equal(await e({source:'gd',id:'GH'}),'too_large','over 200MB waits for 2-②');
+ assert.equal(await e({source:'gd',id:'GDOC'}),'across_unsupported');
+});
+
+test('move numbered:true: same name in the destination gets a number instead of failing (H-3)',async()=>{
+ const w=world();
+ w.gd.pages[0].push({id:'GA2',name:'가상 초안.pdf',mimeType:'application/pdf',parents:['ROOTG'],size:'1',ownedByMe:true});
+ await w.post({action:'sync'});
+ const r=await j(await w.post({action:'move',source:'gd',ids:['GA'],to:null,numbered:true,confirm:true}));
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ const pw=w.writes.find(x=>x.method==='PATCH'&&x.path.endsWith('/files/GA'));
+ assert.deepEqual(pw.body,{name:'가상 초안 (2).pdf'});assert.equal(r.body.changed[0].name,'가상 초안 (2).pdf');
+ // 없으면 이름을 바꾸지 않는다(지금 그대로).
+ const o=await j(await w.post({action:'move',source:'od',ids:['OX!3'],to:null,confirm:true}));
+ assert.equal(o.status,200);
+ assert.deepEqual(w.writes.find(x=>x.method==='PATCH'&&x.path.endsWith('/items/OX!3')).body,{parentReference:{id:'ODROOT!1'}});
 });

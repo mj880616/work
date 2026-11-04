@@ -159,8 +159,10 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   // 읽기: 색인 읽기 함수 3개 + Edge 읽기 동작. 쓰기(S48-45): Edge write()로 다섯 가지만(confirm:true를 붙임). 표에 직접 쓰지 않는다.
   assert.deepEqual([...new Set([...js.matchAll(/rpc\('(\w+)'/g)].map(m => m[1]))].sort(), ['app_cloud_find', 'app_cloud_list', 'app_cloud_trail']);
   assert.deepEqual([...new Set([...js.matchAll(/(?:edge\('|action: (?:kind === 'office' \? )?')([\w-]+)'/g)].map(m => m[1]))].sort(), ['folder', 'media', 'open-url', 'preview', 'status', 'sync', 'thumb']);
-  assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['across', 'mkdir', 'move', 'rename', 'trash']);
-  assert.match(js, /body: \{action, \.\.\.body, confirm: true\}/);
+  // FILES-통합 2-①: 복사·옮기기 차례 보내기(xferRun의 call)는 move·across·copy 세 가지. 둘 다 confirm:true를 붙인다.
+  assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['mkdir', 'rename', 'trash']);
+  assert.deepEqual([...new Set([...js.matchAll(/await call\('(\w+)'/g), ...js.matchAll(/await call\(mode === 'move' \? '(\w+)' : '(\w+)'/g)].flatMap(m => m.slice(1)))].sort(), ['across', 'copy', 'move']);
+  assert.equal([...js.matchAll(/body: \{action, \.\.\.body, confirm: true\}/g)].length, 2);
   assert.match(js, /action: kind === 'office' \? 'preview' : 'media'/);
   // 표 직접 읽기는 같은 파일 보기(app_cloud_items GET) 하나뿐, 직접 쓰기 없음.
   assert.deepEqual([...js.matchAll(/\/rest\/v1\/(app_cloud_\w+)/g)].map(m => m[1]), ['app_cloud_items']);
@@ -229,4 +231,68 @@ test('S49-17 폴더 개수: 읽은 값이 있을 때만 글, 모르면 빈 글 �
   assert.equal(isLockedItem(row({mime: null, size_bytes: 12})), false);
   assert.equal(isLockedItem(row({is_folder: true, mime: null, size_bytes: 0})), false);
   assert.equal(isLockedItem(row({source: 'gd', mime: null, size_bytes: 0})), false);
+});
+
+// ---------- FILES-통합 2-① 복사(S49-27, 명진 결정 H-3·H-4·H-5) ----------
+test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·크기 모름은 막고 안내, 같은 저장소 폴더째 복사는 됨', async () => {
+  const m = await import('../app/files-model.mjs');
+  const f = {source: 'od', item_id: 'F1', parent_id: null, name: '폴더', is_folder: true, size_bytes: null};
+  const a = {source: 'od', item_id: 'A', parent_id: 'F1', name: 'a.pdf', is_folder: false, size_bytes: 10};
+  const g = {source: 'gd', item_id: 'G', parent_id: null, name: '문서', is_folder: false, mime: 'application/vnd.google-apps.document', size_bytes: null};
+  const across = m.xferPlan([f, a, g], {source: 'gd', parent: null}, 'copy');
+  assert.deepEqual(across.ok.map(r => r.item_id), ['A', 'G'], 'file across, Google doc stays in Google (same cloud)');
+  assert.match(across.blocked.find(b => b.row === f).reason, /폴더는 같은 저장소 안에서만 통째로 복사돼요/);
+  const toOd = m.xferPlan([g], {source: 'od', parent: null}, 'copy');
+  assert.equal(toOd.ok.length, 0); assert.match(toOd.reason, /구글 문서/);
+  const same = m.xferPlan([f, a], {source: 'od', parent: null}, 'copy');
+  assert.deepEqual(same.ok.map(r => r.item_id), ['F1', 'A'], 'same cloud: folder and file both go');
+  assert.match(m.xferPlan([f], {source: 'od', parent: 'F1'}, 'copy').reason, /자기 안으로 복사할 수 없습니다/);
+  assert.match(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'move').reason, /이미 이 폴더에 있습니다/);
+  assert.deepEqual(m.xferPlan([a], {source: 'od', parent: 'F1'}, 'copy').ok, [a], 'copy into the same folder is allowed (gets a number)');
+  assert.match(m.xferPlan([f], {source: 'gd', parent: null}, 'move').reason, /통째로 옮겨요/);
+  assert.equal(m.xferPlan([a], null).reason, '받을 곳을 고르세요');
+});
+test('같은 이름·큰 파일 묻는 글(H-3·H-4), 전송 줄·끝 한 줄', async () => {
+  const m = await import('../app/files-model.mjs');
+  assert.equal(m.sameNameAsk('move'), '같은 이름이 있어요. 그래도 옮길까요?');
+  assert.equal(m.sameNameAsk('copy'), '같은 이름이 있어요. 그래도 복사할까요?');
+  assert.equal(m.sameNameAsk('down'), '같은 이름이 있어요. 그래도 받을까요?');
+  const big = {source: 'od', item_id: 'B', size_bytes: Math.round(1.2 * 1024 ** 3)};
+  assert.equal(m.bigAsk(big), '200MB가 넘어요(1.2GB). 그래도 보낼까요?');
+  assert.equal(m.XFER_BIG_HOW, '서버가 10MB씩 나눠 이어 보내요. 폰 데이터는 쓰지 않아요. 끊겨도 끊긴 곳부터 다시.');
+  assert.equal(m.xferBig(big, {source: 'gd'}), true); assert.equal(m.xferBig(big, {source: 'od'}), false, 'same cloud is not limited');
+  assert.equal(m.xferBig({...big, size_bytes: 200 * 1024 * 1024}, {source: 'gd'}), false, '200MB exactly is fine');
+  const rows = [{source: 'od', item_id: 'A', name: '가짜.PDF'}, {source: 'od', item_id: 'B', name: 'b.txt'}];
+  assert.deepEqual(m.sameNameRows(rows, [{source: 'gd', item_id: 'X', name: '가짜.pdf'}, {source: 'gd', item_id: 'Y', name: 'c', trashed: true}]).map(r => r.item_id), ['A'], 'case-insensitive');
+  assert.deepEqual(m.sameNameRows(rows, [{source: 'od', item_id: 'A', name: '가짜.PDF'}]).map(r => r.item_id), ['A'], 'copy into its own folder: same name too');
+  assert.equal(m.xferLine(2, 5), '2/5 보내는 중'); assert.equal(m.xferPercent(1, 4), 25);
+  assert.equal(m.xferDoneText('copy', {done: 4, failed: 1}), '4개 복사함 · 1개 못 함');
+  assert.equal(m.xferDoneText('move', {done: 2, skipped: 1}), '2개 옮김 · 1개 건너뜀');
+  assert.equal(m.destTitle(2, 'copy'), '2개 복사할 곳'); assert.equal(m.destButton('copy'), '여기에 복사'); assert.equal(m.destButton('move'), '여기에 옮기기');
+});
+test('최근 보낸 곳: 맨 앞에, 같은 곳은 하나만, 3개까지, 이름 40자, 서버 화면 기억 모양과 같음', async () => {
+  const m = await import('../app/files-model.mjs');
+  const {validValue} = await import('../app/view-prefs.js');
+  let l = m.pushRecentDest([], {source: 'gd', parent: 'g1'}, '연습 자료');
+  l = m.pushRecentDest(l, {source: 'od', parent: null});
+  l = m.pushRecentDest(l, {source: 'od', parent: 'O!2'}, '가'.repeat(50));
+  l = m.pushRecentDest(l, {source: 'gd', parent: 'g1'}, '연습 자료');
+  assert.deepEqual(l.map(d => d.id), ['g1', 'O!2', '']);
+  assert.equal(l[1].name.length, 40); assert.equal(l[2].name, '원드라이브');
+  assert.equal(m.pushRecentDest(l, {source: 'gd', parent: 'g2'}, 'x').length, 3);
+  assert.equal(validValue('files_dest_recent', l), true);
+  assert.deepEqual(m.recentDestOf(l[2]), {source: 'od', parent: null});
+  for (const bad of [[{source: 'ph', id: '', name: 'x'}], [{source: 'od', id: '', name: ''}], [{source: 'od', name: 'x'}], [{source: 'od', id: 'a/b', name: 'x'}],
+    [{source: 'od', id: '', name: 'x', extra: 1}], [1, 2], 'od', Array(4).fill({source: 'od', id: '', name: 'x'})]) assert.equal(validValue('files_dest_recent', bad), false, JSON.stringify(bad));
+});
+test('번호 붙이기 규칙은 공용 함수 하나(화면·Edge 같은 numberedName)', async () => {
+  const {numberedName} = await import('../app/file-rename-name.mjs');
+  assert.equal(numberedName('보고서.hwp', ['보고서.hwp']), '보고서 (2).hwp');
+  assert.equal(numberedName('보고서.hwp', ['보고서.HWP', '보고서 (2).hwp']), '보고서 (3).hwp');
+  assert.equal(numberedName('보고서 (2).hwp', ['보고서 (2).hwp']), '보고서 (3).hwp');
+  assert.equal(numberedName('폴더', ['폴더']), '폴더 (2)');
+  assert.equal(numberedName('새.pdf', []), '새.pdf');
+  const edge = read('supabase/functions/cloud-files/handler.ts');
+  assert.match(edge, /return numberedName\(name, taken\);/);
+  assert.match(read('app/files.js'), /sameNameAsk\(mode\)/);
 });

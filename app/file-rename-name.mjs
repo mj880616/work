@@ -45,3 +45,20 @@ export function tidySuggestedBase(text) {
   s = [...s].slice(0, FILE_BASE_MAX).join('').trim().replace(/[.\s]+$/, '');
   return checkFileBase(s).ok ? s : '';
 }
+
+// FILES-통합 2-① 같은 이름(명진 결정 H-3, 11/04): [그래도 하기]는 덮어쓰지 않고 번호를 붙여 둘 다 둔다. 번호 붙이는 규칙은 이 함수 하나
+// (화면 app/files-model.mjs와 Edge cloud-files가 같이 쓴다). 확장자 앞에 ' (2)', 이미 '이름 (2)'가 있으면 ' (3)'처럼 비는 번호를 찾는다.
+// 대소문자는 가리지 않는다(원드라이브 규칙). 고른 파일 이름이 이미 '이름 (2).pdf'이면 '이름 (3).pdf'로 잇는다('이름 (2) (2)'로 만들지 않음).
+export function numberedName(name, taken) {
+  const s = String(name ?? '');
+  const lower = new Set([...(taken || [])].map(n => String(n).toLowerCase()));
+  if (!lower.has(s.toLowerCase())) return s;
+  const { base: full, ext } = splitFileName(s);
+  const m = full.match(/^(.*\S) \((\d{1,4})\)$/);
+  const base = m ? m[1] : full;
+  for (let i = m ? Number(m[2]) + 1 : 2; i < 10000; i++) {
+    const n = `${base} (${i})${ext}`;
+    if (!lower.has(n.toLowerCase())) return n;
+  }
+  return `${base} (${Date.now()})${ext}`;
+}
