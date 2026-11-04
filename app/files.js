@@ -1323,7 +1323,7 @@ async function phoneToCloud(rows, dest) {
   if (!files.length) { notify('폴더는 보내지 않아요(파일만). 폴더를 열어 파일을 골라 주세요.', {record: false}); return; }
   if (files.length > PHONE_UP_MAX) notify(`폰 파일은 한 번에 ${PHONE_UP_MAX}개까지 보내요. 앞 ${PHONE_UP_MAX}개만 보냅니다.`, {record: false});
   const scope = state.scope, out = [];
-  state.busy = '폰 파일 읽는 중'; paintBar();
+  state.busy = '폰 파일 가져오는 중'; paintBar();
   try {
     for (const r of files.slice(0, PHONE_UP_MAX)) {
       try {
