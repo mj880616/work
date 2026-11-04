@@ -210,13 +210,14 @@ test('tab navigation waits for deferred feature data on first click',async({page
   try{
     await loginWithMock(page);
     await clickView(page,'tasks');
-    await expect(page.locator('#deferredFeatureStatus')).toBeVisible();
+    await expect(page.locator('#deferredFeatureStatus')).toBeAttached();
     await expect(page.locator('#deferredFeatureStatus')).toHaveAttribute('role','status');
     // UI-기다림표시통일: 글자 없이 위쪽 가는 줄 하나(민트 상자 아님).
     await expect(page.locator('#deferredFeatureStatus')).toHaveText('');
     await expect(page.locator('#deferredFeatureStatus')).toHaveAttribute('aria-label','불러오는 중');
     await expect(page.locator('#deferredFeatureStatus')).not.toHaveClass(/\bnotice\b/);
-    await expect(page.locator('#deferredFeatureStatus .wait-bar')).toHaveCount(1);
+    await expect(page.locator('.top-wait')).toHaveCount(1); // UI-로딩맨위: 막대는 화면 맨 위 한 곳
+    await expect(page.locator('.wait-bar')).toHaveCount(0);
     await expect(page.locator('#homeView')).toBeVisible();
     await expect(page.locator('#tasksView')).toBeHidden();
   }finally{release();}
