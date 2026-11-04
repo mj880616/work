@@ -155,7 +155,7 @@ for (const width of [412, 884, 1440]) {
       await root(page).locator('[data-photos-fx-more="S2"]').click();
     }
     await expect(fm).toBeVisible();
-    await expect(fm.locator('button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '지우기']);
+    await expect(fm.locator('button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 고르기…', '위로', '지우기']);
     await page.keyboard.press('Escape');
     await expect(fm).toBeHidden();
     // + 새 폴더: 지금 폴더(PC 2026, 폰 맨 위 카메라) 안에. 이름 줄에 쓰고 Enter.

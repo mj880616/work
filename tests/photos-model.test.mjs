@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {EMPTY_STOP, validTab, monthKey, prevMonth, nextMonth, parseMonth, monthItems, groupByDay, dayHead, applyFilter, calendarMonth, starPlan, takePhoto, putPhoto} from '../app/photos-model.mjs';
+import {EMPTY_STOP, validTab, monthKey, prevMonth, nextMonth, parseMonth, monthItems, groupByDay, dayHead, applyFilter, calendarMonth, starPlan, takePhoto, putPhoto, setFolderOrderLook} from '../app/photos-model.mjs';
 import {ITEMS, defaultLayout} from '../app/menu-model.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -200,7 +200,23 @@ test('앨범 카드: 이름순, 장수, 대표 = 정한 대표(앨범 안일 때
   const links = [{tag_id: 't1', item_key: 'k1', taken_day: '2026-01-01'}, {tag_id: 't1', item_key: 'k2', taken_day: '2026-05-01'},
     {tag_id: 't2', item_key: 'k3', taken_day: '2026-03-01'}, {tag_id: 't2', item_key: 'k4', taken_day: '2026-09-01'}];
   assert.deepEqual(albumCards(tags, links).map(c => [c.name, c.count, c.cover]), [['가족', 2, 'k1'], ['여행', 2, 'k4']]);
-  assert.deepEqual(albumCards([{id: 'e', name: '빈', cover_key: null}], []), [{id: 'e', name: '빈', count: 0, cover: null, phoneCover: null, keys: [], phoneKeys: [], odDays: [], phoneDays: []}]);
+  assert.deepEqual(albumCards([{id: 'e', name: '빈', cover_key: null}], []), [{id: 'e', name: '빈', color: null, sort_order: null, count: 0, cover: null, phoneCover: null, keys: [], phoneKeys: [], odDays: [], phoneDays: []}]);
+});
+
+test('FOLDER-순서·색 ③-2: 앨범 카드는 색·정한 순서를 싣고, 정한 앨범이 앞·나머지는 이름순', () => {
+  const tags = [{id: 'a', name: '가', color: 3, sort_order: 0}, {id: 'b', name: '나', color: 9, sort_order: 2048}, {id: 'c', name: '다', sort_order: 1024}, {id: 'd', name: '라'}];
+  const cards = albumCards(tags, []);
+  assert.deepEqual(cards.map(c => [c.name, c.color, c.sort_order]), [['다', null, 1024], ['나', null, 2048], ['가', 3, null], ['라', null, null]]);
+});
+test('FOLDER-순서·색 ③-2: 폴더 나무는 정한 순서(출처별)가 앞, 나머지 이름순', () => {
+  const tree = {top: {id: 'T', name: '맨위'}, folders: [{id: 'a', name: '가', parent_id: 'T'}, {id: 'b', name: '나', parent_id: 'T'}, {id: 'c', name: '다', parent_id: 'T'}]};
+  const orders = {'od:c': 1, 'od:a': 2, 'gd:b': 1};
+  setFolderOrderLook((src, key) => orders[src + ':' + key] ?? null);
+  try {
+    assert.deepEqual(photoSubfolders(tree, 'T').map(f => f.id), ['c', 'a', 'b']);
+    assert.deepEqual(photoSubfolders({...tree, src: 'gd'}, 'T').map(f => f.id), ['b', 'a', 'c']);
+  } finally { setFolderOrderLook(null); }
+  assert.deepEqual(photoSubfolders(tree, 'T').map(f => f.id), ['a', 'b', 'c']);
 });
 
 test('PHOTO-위쪽두줄앨범보기: 앨범 보기 세 단계 [－][＋]·기간 글자·켜진 출처만 기간', () => {

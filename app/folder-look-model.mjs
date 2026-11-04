@@ -94,3 +94,31 @@ const SHAPE = {
   open: '<path d="M1.5 4.2c0-.7.6-1.2 1.2-1.2h3.1c.4 0 .7.2.9.4l.8.9h4.8c.7 0 1.2.5 1.2 1.2v.9H3.6c-.6 0-1.1.4-1.3 1l-.8 3.9z"/><path d="M3.6 7.6h11.3c.5 0 .8.5.7 1l-1.1 4.4c-.1.5-.6.9-1.2.9H2.7c-.7 0-1.1-.5-1-1.1l.8-4.3c.2-.5.7-.9 1.1-.9z"/>'
 };
 export const folderShapeHtml = kind => `<svg viewBox="0 0 16 16" width="15" height="15" focusable="false" aria-hidden="true">${kind === 'open' ? SHAPE.open : SHAPE.closed}</svg>`;
+
+// ---- 클라우드 폴더·앨범 색·순서(FOLDER-순서·색 ③-2, 표 app_folder_prefs·app_photo_tags 칸): [파일]·사진 폴더·앨범이 같은 계산을 쓴다. ----
+// 폴더 하나의 열쇠 = 출처('od'|'gd'|'phone') + 그 출처의 폴더 id. 순서는 '같은 부모 안' 형제끼리만 뜻이 있다.
+export const prefKey = (source, key) => `${source}:${key}`;
+// 서버 줄들 → Map(prefKey → {color, sort_order}). 틀린 줄(출처·열쇠 없음)은 무시, 값은 검사해서만 담는다.
+export function prefsMapFrom(rows) {
+  const map = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!row || typeof row.source !== 'string' || typeof row.folder_key !== 'string' || !row.folder_key) continue;
+    map.set(prefKey(row.source, row.folder_key), {color: colorOf(row), sort_order: Number.isInteger(row.sort_order) ? row.sort_order : null});
+  }
+  return map;
+}
+// 정한 순서가 있는 폴더가 앞(순서값 순, 같으면 원래 순서), 없는 폴더는 원래 순서(이름순) 그대로 뒤에 붙는다(설계 2-2).
+export function orderByPrefs(list, getOrder) {
+  const keyed = list.map((row, i) => ({row, i, o: getOrder(row)}));
+  const set = keyed.filter(x => Number.isInteger(x.o)).sort((a, b) => a.o - b.o || a.i - b.i);
+  return [...set, ...keyed.filter(x => !Number.isInteger(x.o))].map(x => x.row);
+}
+// 한 칸 위(-1)·아래(+1): 보이는 순서의 열쇠들(keys)에서 key를 옆으로. 쓸 줄들 [{k, o}] (끝이면 빈 배열). 순서 값이 없는 형제가 있으면 형제 전체를 다시 매긴다.
+export function prefStepPlan(keys, key, dir, getOrder) {
+  return stepPlan(keys.map(id => ({id})), key, dir, row => getOrder(row.id)).map(p => ({k: p.id, o: p.order}));
+}
+// 앨범(이름순 목록 + 정한 순서): sort_order 0 = 아직 안 정함. 정한 앨범이 앞, 나머지는 이름순 그대로.
+export const albumOrderOf = tag => (Number.isInteger(tag?.sort_order) && tag.sort_order !== 0 ? tag.sort_order : null);
+export function albumStepPlan(ids, id, dir, getOrder) {
+  return stepPlan(ids.map(x => ({id: x})), id, dir, row => getOrder(row.id)).map(p => ({id: p.id, o: p.order}));
+}
