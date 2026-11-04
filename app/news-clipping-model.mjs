@@ -1,17 +1,13 @@
 // NEWS-클리핑 화면 계산(설계 docs/design/news-clipping.md, 명진 11/01 22:34): 그리기 없는 순수 함수만. app/news-clipping.js가 쓴다.
-// - 한 목록: 채널 기사(lane=channel) + 서버가 찾은 기사(lane=keyword·media) = 하나의 스크랩. 꼬리표는 '채널'/'자동' 두 가지뿐.
+// - 한 목록: 채널 기사(lane=channel) + 서버가 찾은 기사(lane=keyword·media) = 하나의 스크랩. 어디서 왔는지(채널/자동) 칩·꼬리표는 화면에 없다(11/04 명진: 굳이 구분 안 해도 됨). lane 값·수집 방식은 그대로.
 // - 한 문장 요약은 늘 보이고 본문은 접는다. 외국어 기사 제목은 서버가 수집 때 한국어로 미리 번역해 두고(한국어 제목 + 원제 작게),
 //   본문은 [번역]을 누를 때만 서버가 번역해 저장한다(저장본 재사용, S47-57 명진 결정).
 // - 하루 횟수 같은 기본값은 서버(supabase/functions/news-feed/handler.ts) 상수 한 곳이 정하고, 화면은 catalog 응답 limits로 받는다.
 export const ALL = 'all';
-export const CHANNEL = 'channel';
-export const AUTO = 'auto';
 // C2: 별표한 기사는 폴더 트리(폴더 안 폴더)로 본다.
 export const STAR = 'star';
 export const TABS = Object.freeze([
   {id: ALL, label: '전체'},
-  {id: CHANNEL, label: '채널'},
-  {id: AUTO, label: '자동'},
   {id: STAR, label: '별표'},
 ]);
 export const PAGE_SIZE = 40;
@@ -21,13 +17,10 @@ export const DEFAULT_LIMITS = Object.freeze({fill: 10, translate: 20, keyword_it
 
 // 목록 읽기 걸러내기(PostgREST 조건 조각). 지운 줄(hidden_at)은 늘 뺀다.
 export function laneFilter(tab) {
-  if (tab === CHANNEL) return '&lane=eq.channel';
-  if (tab === AUTO) return '&lane=in.(keyword,media)';
   if (tab === STAR) return '&starred_at=not.is.null';
   return '';
 }
 export const orderOf = tab => (tab === STAR ? 'starred_at.desc,id.desc' : 'created_at.desc,id.desc');
-export const tagOf = item => (item?.lane === 'channel' ? '채널' : '자동');
 export const tabAt = (tab, step) => {
   const i = TABS.findIndex(t => t.id === tab) + step;
   return i >= 0 && i < TABS.length ? TABS[i].id : null;
@@ -39,6 +32,24 @@ export function domainOf(url) {
 }
 // 주소·도메인뿐인 제목('https://…', 'www.…', 'naver.me/abc', 'labortoday.co.kr').
 export const isAddressTitle = t => /^(?:(?:https?:\/\/|www\.)\S+|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/\S*)?)…?$/i.test(String(t ?? '').trim());
+// 이미 저장된 글에 태그·&nbsp;가 글자로 남은 것(11/04 ITF)을 화면에서 글자만으로 — 서버 feedText와 같은 순서(풀기 → 태그 걷기 → 다시 풀기).
+const ENT = {amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', middot: '·', hellip: '…', ndash: '–', mdash: '—', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”'};
+const unescapeText = s => String(s).replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{2,8});/gi, (m, e) => {
+  if (e[0] === '#') {
+    const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+    return Number.isFinite(n) && n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : ' ';
+  }
+  return ENT[e.toLowerCase()] ?? m;
+});
+export function plainText(raw) {
+  const s = String(raw ?? '');
+  if (!/[<&]/.test(s)) return s;
+  const t = unescapeText(s)
+    .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, ' ')
+    .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6])\s*>/gi, '\n')
+    .replace(/<\/?[a-z][^>]*>/gi, ' ');
+  return unescapeText(t).split('\n').map(l => l.replace(/[\s\u00a0]+/g, ' ').trim()).filter(Boolean).join('\n');
+}
 export const isForeign = item => !!item && typeof item.lang === 'string' && item.lang !== 'ko';
 
 // 상태 글(제목 아래 작은 줄). 정상(ok)은 없음.
@@ -89,19 +100,19 @@ export function itemView(item, {showKo = false} = {}) {
   const foreign = isForeign(item);
   const ko = foreign && showKo;
   const t = whenOf(item);
-  const koTitle = foreign && typeof item.title_ko === 'string' && item.title_ko.trim() ? item.title_ko : '';
+  const koTitle = foreign && typeof item.title_ko === 'string' && item.title_ko.trim() ? plainText(item.title_ko).replace(/\s+/g, ' ').trim() : '';
   // 제목이 없거나 주소·도메인뿐이면 도메인을 제목으로 보이지 않는다(NEWS-채널밀림 ②, 11/02): '제목 읽기 전 · 도메인' / '제목 없음 · 도메인'.
-  const own = typeof item.title === 'string' && item.title.trim() && !isAddressTitle(item.title) ? item.title : '';
+  const rawTitle = plainText(item.title).replace(/\s+/g, ' ').trim();
+  const own = rawTitle && !isAddressTitle(rawTitle) ? rawTitle : '';
   const host = domainOf(item.url);
   const title = koTitle || own || `${item.state === 'pending' ? '제목 읽기 전' : '제목 없음'}${host ? ` · ${host}` : ''}`;
   return {
-    tag: tagOf(item),
     publisher: item.publisher || domainOf(item.url),
     time: t === null ? '' : hhmm(t),
     title,
-    origTitle: koTitle && item.title && item.title !== koTitle ? item.title : '',
+    origTitle: koTitle && rawTitle && rawTitle !== koTitle ? rawTitle : '',
     titleLang: foreign && !koTitle ? item.lang : '',
-    summary: item.summary || '',
+    summary: plainText(item.summary).replace(/\s+/g, ' ').trim(),
     note: stateNote(item.state),
     foreign,
     showingKo: ko,
