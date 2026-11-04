@@ -32,33 +32,61 @@ const PHONE = {
 const RECENT = [PHONE.Download[0], PHONE.Download[1]];
 const TEXT = '폰 안 가짜 글';
 
-async function phoneApp(page, { granted = false } = {}) {
-  const st = { reads: [], granted };
-  await page.addInitScript(({ key, granted }) => {
+// write = 앱 3-③ 판 흉내(새 폴더·이름·휴지통·받기). 폰 쪽 상태는 Node(st.fs)에 두고 __phone 읽기와 같은 것을 본다.
+async function phoneApp(page, { granted = false, write = false } = {}) {
+  const st = { reads: [], granted, ops: [], fs: JSON.parse(JSON.stringify(PHONE)), saved: {} };
+  if (write) {
+    let saving = null;
+    const numbered = (dir, name) => { const taken = st.fs[dir].map(e => e.n.toLowerCase()); if (!taken.includes(name.toLowerCase())) return name; const m = /^(.*?)(\.[A-Za-z0-9]{1,10})?$/.exec(name); for (let i = 2; ; i++) { const n = `${m[1]} (${i})${m[2] || ''}`; if (!taken.includes(n.toLowerCase())) return n; } };
+    await page.exposeFunction('__pfilesWrite', text => {
+      st.ops.push(text.length > 300 ? text.slice(0, 40) + '…' : text);
+      const done = o => `pfiles:done:${JSON.stringify({ count: 0, ...o })}`, save = o => `pfiles:save:${JSON.stringify({ got: 0, ...o })}`;
+      if (text.startsWith('pfiles:op:')) {
+        const o = JSON.parse(text.slice(10));
+        if (o.confirm !== true) return done({ ok: false, op: o.op, error: 'bad' });
+        if (o.op === 'mkdir') { const p = o.dir ? `${o.dir}/${o.name}` : o.name; st.fs[o.dir || ''].push({ p, n: o.name, d: true, s: 0, m: ms('2026-10-06T00:40:00Z') }); st.fs[p] = []; return done({ ok: true, op: 'mkdir', path: p, count: 1 }); }
+        if (o.op === 'rename') { const dir = o.path.replace(/\/[^/]*$/, ''); const e = st.fs[dir].find(x => x.p === o.path); e.n = o.name; e.p = `${dir}/${o.name}`; return done({ ok: true, op: 'rename', path: e.p, count: 1 }); }
+        if (o.op === 'trash') { for (const p of o.paths) { const dir = p.replace(/\/[^/]*$/, ''); st.fs[dir] = st.fs[dir].filter(x => x.p !== p); } return done({ ok: true, op: 'trash', count: o.paths.length }); }
+        return done({ ok: false, op: o.op, error: 'bad' });
+      }
+      if (text.startsWith('pfiles:save:begin:')) { const o = JSON.parse(text.slice(18)); if (o.confirm !== true) return save({ ok: false, step: 'begin', error: 'bad' }); saving = { ...o, parts: [] }; return save({ ok: true, step: 'begin' }); }
+      if (text.startsWith('pfiles:save:part:')) { saving.parts.push(Buffer.from(text.slice(17), 'base64')); return save({ ok: true, step: 'part', got: Buffer.concat(saving.parts).length }); }
+      if (text === 'pfiles:save:end') {
+        const body = Buffer.concat(saving.parts), name = numbered(saving.dir, saving.name), p = saving.dir ? `${saving.dir}/${name}` : name;
+        if (body.length !== saving.size) return save({ ok: false, step: 'end', error: 'size' });
+        st.fs[saving.dir].push({ p, n: name, d: false, s: body.length, m: ms('2026-10-06T00:50:00Z'), t: 'text/plain' }); st.saved[p] = body.toString('utf8'); saving = null;
+        return save({ ok: true, step: 'end', got: body.length, path: p });
+      }
+      if (text === 'pfiles:save:cancel') { saving = null; return ''; }
+      return '';
+    });
+  }
+  await page.addInitScript(({ key, granted, write }) => {
     const listeners = [];
     window.__pfilesSent = [];
     let all = granted;
-    const tell = () => setTimeout(() => listeners.forEach(fn => fn({ data: `pfiles:state:${JSON.stringify(all ? { v: 1, can: true, all: true, key } : { v: 1, can: true, all: false })}` })), 0);
+    const tell = () => setTimeout(() => listeners.forEach(fn => fn({ data: `pfiles:state:${JSON.stringify(all ? { v: write ? 2 : 1, write, can: true, all: true, key } : { v: 1, can: true, all: false })}` })), 0);
     // 설정에서 '모든 파일 접근'을 켜고 돌아온 것처럼(앱 onResume): 시험이 부르면 켜짐을 알린다.
     window.__pfilesGrant = () => { all = true; tell(); };
     const prev = window.KPTUAppShell;
     window.KPTUAppShell = {
       postMessage(m) {
-        window.__pfilesSent.push(String(m));
+        window.__pfilesSent.push(String(m).slice(0, 200));
         if (m === 'pfiles:hello') tell();
+        if (write && /^pfiles:(op|save):/.test(m)) window.__pfilesWrite(String(m)).then(reply => { if (reply) listeners.forEach(fn => fn({ data: reply })); });
         prev?.postMessage?.(m);
       },
       addEventListener(type, fn) { if (type === 'message') listeners.push(fn); prev?.addEventListener?.(type, fn); },
     };
-  }, { key: KEY, granted });
+  }, { key: KEY, granted, write });
   await page.route('**/__phone/**', r => {
     const u = new URL(r.request().url());
     st.reads.push(u.pathname.replace(/^.*__phone\/[^/]+\//, '') + u.search);
     if (!u.pathname.includes(`/__phone/${KEY}/files/`)) return r.fulfill({ status: 403, json: { error: 'key' } });
     if (u.pathname.endsWith('/files/list')) {
       const dir = u.searchParams.get('dir') || '';
-      if (!(dir in PHONE)) return r.fulfill({ status: 404, json: { error: 'not_found' } });
-      return r.fulfill({ json: { dir, items: PHONE[dir], more: false } });
+      if (!(dir in st.fs)) return r.fulfill({ status: 404, json: { error: 'not_found' } });
+      return r.fulfill({ json: { dir, items: st.fs[dir], more: false } });
     }
     if (u.pathname.endsWith('/files/recent')) return r.fulfill({ json: { items: RECENT } });
     if (u.pathname.endsWith('/files/raw')) {
@@ -157,6 +185,77 @@ test.describe('폰 앱 412', () => {
     await root(page).locator('[data-fx-tab="recent"]').click();
     await expect(list(page).locator('[data-fx-row^="od:"]').first()).toBeVisible();
     await expect(list(page).locator('[data-fx-row^="ph:"]')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('앱 3-③ 판: 폰 새 폴더 · 이름 바꾸기 · 휴지통(확인 한 번) · 원드라이브 → 폰 받기(같은 이름 번호)', async ({ page }) => {
+    test.setTimeout(120000);
+    const { errors, server } = await start(page, 412);
+    const st = await phoneApp(page, { granted: true, write: true });
+    await installViewPrefsServer(page);
+    await page.reload();
+    await openFiles(page, 412);
+    await expect(chip(page, 'ph')).toHaveAttribute('aria-pressed', 'true');
+    await root(page).locator('[data-fx-tab="folders"]').click();
+    await tree(page).locator('[data-fx-twist="ph:"]').click();
+    await tree(page).locator('[data-fx-go="ph"][data-fx-id="Download"]').click();
+    await expect(list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]')).toBeVisible();
+    const ask = page.locator('.kptu-ask');
+    // 새 폴더: 폰 폴더에서도 [새 폴더] → 이름 → 앱에 confirm:true로.
+    await root(page).locator('[data-fx-mkdir]').click();
+    await ask.locator('.kptu-ask-field').fill('가짜 새 폴더');
+    await ask.getByRole('button', { name: '만들기' }).click();
+    await expect(list(page).locator('[data-fx-row="ph:Download/가짜 새 폴더"]')).toBeVisible();
+    expect(st.ops[0]).toBe('pfiles:op:{"op":"mkdir","dir":"Download","name":"가짜 새 폴더","confirm":true}');
+    // 이름 바꾸기(미리보기 [이름]).
+    await list(page).locator('[data-fx-row="ph:Download/가짜 메모장.txt"]').click();
+    const prev = root(page).locator('[data-fx-prev]');
+    await prev.locator('[data-fx-rename-one]').click();
+    await ask.locator('.kptu-ask-field').fill('가짜 새 메모');
+    await ask.getByRole('button', { name: '바꾸기' }).click();
+    await expect(list(page).locator('[data-fx-row="ph:Download/가짜 새 메모.txt"]')).toBeVisible();
+    await expect(prev).toBeHidden();
+    expect(st.ops[1]).toBe('pfiles:op:{"op":"rename","path":"Download/가짜 메모장.txt","name":"가짜 새 메모.txt","confirm":true}');
+    // 휴지통: 확인 한 번(폰 휴지통 안내) → 앱 휴지통 요청.
+    await list(page).locator('[data-fx-row="ph:Download/가짜 회의자료.hwp"]').click();
+    await prev.locator('[data-fx-trash-one]').click();
+    await expect(ask).toContainText("'가짜 회의자료.hwp'을(를) 휴지통으로 보낼까요?");
+    await expect(ask).toContainText('폰 휴지통');
+    await ask.getByRole('button', { name: '휴지통으로' }).click();
+    await expect(list(page).locator('[data-fx-row="ph:Download/가짜 회의자료.hwp"]')).toHaveCount(0);
+    expect(st.ops[2]).toBe('pfiles:op:{"op":"trash","paths":["Download/가짜 회의자료.hwp"],"confirm":true}');
+    await shot(page, 'files-phone-write-412');
+
+    // 원드라이브 → 폰 받기: 원드라이브 '가짜 메모.txt'를 폰 Download로 두 번(두 번째는 같은 이름 → [그래도 하기] → 번호).
+    for (const round of [1, 2]) {
+      await root(page).locator('[data-fx-tab="folders"]').click();
+      if (await root(page).locator('[data-fx-up]').count()) await root(page).locator('[data-fx-up]').click();
+      if (await root(page).locator('[data-fx-up]').count()) await root(page).locator('[data-fx-up]').click();
+      await tree(page).locator('[data-fx-go="od"][data-fx-id=""]').click();
+      await list(page).locator('[data-fx-row="od:OD!1"]').click();
+      await list(page).locator('[data-fx-row="od:OD!13"]').click();
+      await prev.locator('[data-fx-copy-one]').click();
+      const sheet = root(page).locator('[data-fx-dest]');
+      await expect(sheet.locator('[data-fx-dest-pick="ph:"]')).toBeVisible();
+      // 받을 곳 창은 켜진 저장소 맨 위를 펼친 채 연다('이 폰'도).
+      await sheet.locator('[data-fx-dest-pick="ph:Download"]').click();
+      await sheet.locator('[data-fx-dest-go]').click();
+      if (round === 2) {
+        const box = root(page).locator('[data-fx-askbox] .fx-ask');
+        await expect(box).toContainText('가짜 메모.txt — 같은 이름이 있어요. 그래도 받을까요?');
+        await box.getByRole('button', { name: '그래도 하기' }).click();
+      }
+      await expect.poll(() => Object.keys(st.saved).length).toBe(round);
+      await prev.locator('[data-fx-close]').click();
+    }
+    expect(st.saved).toEqual({ 'Download/가짜 메모.txt': '가짜 메모 첫 줄\n둘째 줄', 'Download/가짜 메모 (2).txt': '가짜 메모 첫 줄\n둘째 줄' });
+    expect(edgeCalls(server, 'media').length).toBe(4); // 미리보기(글 앞부분) 2번 + 받기 2번
+    // 폰 폴더 경로는 서버에 기억하지 않는다('최근 보낸 곳'은 클라우드만), 클라우드 쓰기도 없음.
+    expect(JSON.stringify(server.calls)).not.toContain('Download');
+    expect(edgeCalls(server, 'job_add')).toEqual([]);
+    expect(st.ops.filter(o => o.startsWith('pfiles:save:begin:'))).toEqual([
+      'pfiles:save:begin:{"dir":"Download","name":"가짜 메모.txt","size":' + Buffer.byteLength('가짜 메모 첫 줄\n둘째 줄') + ',"confirm":true}',
+      'pfiles:save:begin:{"dir":"Download","name":"가짜 메모.txt","size":' + Buffer.byteLength('가짜 메모 첫 줄\n둘째 줄') + ',"confirm":true}']);
     expect(errors).toEqual([]);
   });
 

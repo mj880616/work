@@ -66,7 +66,8 @@ export function phoneState(text) {
   try { v = JSON.parse(text.slice('pfiles:state:'.length)); } catch { return null; }
   if (!v || typeof v !== 'object') return null;
   const all = v.all === true && /^[A-Za-z0-9_-]{22,64}$/.test(v.key || '');
-  return {known: true, can: v.can === true, all, key: all ? v.key : ''};
+  // write = 앱이 받기·새 폴더·이름·휴지통을 안다(앱 3-③ 판부터).
+  return {known: true, can: v.can === true, all, key: all ? v.key : '', write: v.write === true};
 }
 
 // 실패 글(앱 다리 {error}) → 화면 한 줄.
@@ -80,7 +81,37 @@ export function phoneErrorText(code) {
     default: return '폰 파일을 읽지 못했어요';
   }
 }
-// '이 폰'에서 아직 안 되는 일(이 판은 읽기·보내기만).
+// 다리 답(pfiles:done·pfiles:save) 모양 맞추기. 글자는 정해 둔 짧은 말만.
+const code = v => (typeof v === 'string' && /^[a-z_]{1,20}$/.test(v) ? v : '');
+export function phoneDone(text) {
+  if (typeof text !== 'string' || !text.startsWith('pfiles:done:')) return null;
+  let v = null; try { v = JSON.parse(text.slice('pfiles:done:'.length)); } catch { return null; }
+  return {ok: v?.ok === true, op: code(v?.op), path: typeof v?.path === 'string' && phonePathOk(v.path) ? v.path : '', count: Number.isInteger(v?.count) ? v.count : 0, error: code(v?.error)};
+}
+export function phoneSaved(text) {
+  if (typeof text !== 'string' || !text.startsWith('pfiles:save:')) return null;
+  let v = null; try { v = JSON.parse(text.slice('pfiles:save:'.length)); } catch { return null; }
+  return {ok: v?.ok === true, step: code(v?.step), got: Number.isFinite(v?.got) ? v.got : 0, path: typeof v?.path === 'string' && phonePathOk(v.path) ? v.path : '', error: code(v?.error)};
+}
+export const PHONE_SAVE_MAX = 1024 * 1024 * 1024;
+// 폰 쓰기 실패 글.
+export function phoneWriteText(code) {
+  switch (code) {
+    case 'exists': return '같은 이름이 이미 있어요';
+    case 'space': return '폰 저장 공간이 모자라요';
+    case 'refused': return '폰에서 지우기를 그만뒀어요';
+    case 'missing': return '폰 색인에 없는 파일은 휴지통으로 보내지 못했어요';
+    case 'unsupported': return '이 폰에서는 휴지통으로 보낼 수 없어요';
+    case 'permission': return phoneErrorText('permission');
+    case 'blocked': return phoneErrorText('blocked');
+    case 'not_found': return phoneErrorText('not_found');
+    case 'timeout': return '폰 앱이 답하지 않아요. 다시 해 주세요';
+    default: return '폰에 쓰지 못했어요';
+  }
+}
+// '이 폰'에서 아직 안 되는 일. 옛 앱(쓰기 모름)은 보기·클라우드로 복사만.
 export const PHONE_READONLY_TEXT = '폰 파일은 지금은 보기·받기만 돼요';
+export const PHONE_OLD_APP_TEXT = '폰에 쓰려면 웹2 앱을 새 판으로 올려 주세요';
+export const PHONE_MOVE_TEXT = '폰이 낀 옮기기는 아직 안 돼요. 복사한 뒤 원본을 지워 주세요';
 export const PHONE_ASK_TEXT = "설정에서 '모든 파일 접근 허용'을 켜고 돌아오세요";
 export const PHONE_CANNOT_TEXT = '이 폰(안드로이드 10 이하)에서는 폰 저장 공간을 열 수 없어요';

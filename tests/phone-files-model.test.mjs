@@ -1,7 +1,7 @@
 // S49-51 FILES-통합 3단계 '이 폰': 앱 다리 줄 → [파일] 줄 모양, 경로 검사(앱 PhoneFilesRules와 같은 규칙), 위치 줄, [최근] 섞기(H-7), 상태 글. 화면·네트워크 없음.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {phonePathOk, phoneRow, phoneRows, phoneTrail, mergeRecent, phoneState, phoneErrorText, PHONE_SOURCE} from '../app/phone-files-model.mjs';
+import {phonePathOk, phoneRow, phoneRows, phoneTrail, mergeRecent, phoneState, phoneErrorText, phoneDone, phoneSaved, phoneWriteText, PHONE_SOURCE} from '../app/phone-files-model.mjs';
 import {createPhoneFiles} from '../app/phone-files.js';
 import {errorText, SOURCE_NAME, SOURCES, rowKey, folderKey, trailNames} from '../app/files-model.mjs';
 
@@ -44,9 +44,10 @@ test('[최근] 섞기(H-7): 바뀐 날 새것부터, 같은 줄 한 번, 한도�
 });
 
 test('상태 글: 열쇠는 켜져 있을 때만, 모양이 틀리면 null', () => {
-  assert.deepEqual(phoneState(`pfiles:state:{"v":1,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY});
-  assert.deepEqual(phoneState('pfiles:state:{"v":1,"can":true,"all":false}'), {known: true, can: true, all: false, key: ''});
-  assert.deepEqual(phoneState('pfiles:state:{"all":true,"key":"short"}'), {known: true, can: false, all: false, key: ''});
+  assert.deepEqual(phoneState(`pfiles:state:{"v":1,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY, write: false});
+  assert.deepEqual(phoneState(`pfiles:state:{"v":2,"write":true,"can":true,"all":true,"key":"${KEY}"}`), {known: true, can: true, all: true, key: KEY, write: true});
+  assert.deepEqual(phoneState('pfiles:state:{"v":1,"can":true,"all":false}'), {known: true, can: true, all: false, key: '', write: false});
+  assert.deepEqual(phoneState('pfiles:state:{"all":true,"key":"short"}'), {known: true, can: false, all: false, key: '', write: false});
   assert.equal(phoneState('photos:state:{}'), null);
   assert.equal(phoneState('pfiles:state:nope'), null);
 });
@@ -87,4 +88,50 @@ test('다리: 폰 앱이 아니면 쓰지 않고, 켜진 뒤에만 열쇠 주소
   win.fetch = async () => ({ok: false, json: async () => ({error: 'key'})});
   await assert.rejects(ph.recent(), /phone_key/);
   assert.equal(sent.filter(m => m === 'pfiles:hello').length, 2);
+});
+
+test('쓰기 답 모양: 정해 둔 짧은 글만, 경로는 검사한 것만', () => {
+  assert.deepEqual(phoneDone('pfiles:done:{"ok":true,"op":"mkdir","path":"Download/x","count":1}'), {ok: true, op: 'mkdir', path: 'Download/x', count: 1, error: ''});
+  assert.deepEqual(phoneDone('pfiles:done:{"ok":false,"op":"trash","count":0,"error":"<b>x</b>"}'), {ok: false, op: 'trash', path: '', count: 0, error: ''});
+  assert.equal(phoneDone('pfiles:done:{"ok":true,"path":"Android/data/x"}').path, '');
+  assert.equal(phoneDone('pfiles:save:{}'), null);
+  assert.deepEqual(phoneSaved('pfiles:save:{"ok":true,"step":"end","got":5,"path":"a (2).pdf"}'), {ok: true, step: 'end', got: 5, path: 'a (2).pdf', error: ''});
+  assert.equal(phoneWriteText('exists'), '같은 이름이 이미 있어요');
+  assert.equal(phoneWriteText('zzz'), '폰에 쓰지 못했어요');
+});
+
+test('다리 쓰기: confirm:true를 붙이고, 받기는 begin → 384KB 조각 → end, 옛 앱(쓰기 모름)은 보내지 않음', async () => {
+  const listeners = [], sent = [];
+  let write = false;
+  const reply = d => setTimeout(() => listeners.forEach(fn => fn({data: d})), 0);
+  const win = {
+    navigator: {userAgent: 'KPTUAndroid/0.5.0'}, document: {baseURI: 'https://bokdoong.com/work/app/'}, btoa: s => Buffer.from(s, 'binary').toString('base64'),
+    KPTUAppShell: {
+      postMessage(m) {
+        sent.push(m.length > 80 ? m.slice(0, 80) : m);
+        if (m === 'pfiles:hello') reply(`pfiles:state:{"v":2,"write":${write},"can":true,"all":true,"key":"${KEY}"}`);
+        if (m.startsWith('pfiles:op:')) reply('pfiles:done:{"ok":true,"op":"mkdir","path":"Download/x","count":1}');
+        if (m.startsWith('pfiles:save:begin:')) reply('pfiles:save:{"ok":true,"step":"begin","got":0}');
+        if (m.startsWith('pfiles:save:part:')) reply(`pfiles:save:{"ok":true,"step":"part","got":${Buffer.from(m.slice(17), 'base64').length}}`);
+        if (m === 'pfiles:save:end') reply('pfiles:save:{"ok":true,"step":"end","got":0,"path":"Download/a.bin"}');
+      },
+      addEventListener(t, fn) { listeners.push(fn); },
+    },
+  };
+  const ph = createPhoneFiles(win);
+  await ph.hello();
+  assert.deepEqual(await ph.op({op: 'mkdir', dir: 'Download', name: 'x'}), {ok: false, op: 'mkdir', path: '', count: 0, error: 'permission'});
+  assert.equal(sent.filter(m => m.startsWith('pfiles:op:')).length, 0);
+  write = true; await ph.hello();
+  const d = await ph.op({op: 'mkdir', dir: 'Download', name: 'x'});
+  assert.equal(d.ok, true);
+  assert.equal(sent.at(-1), 'pfiles:op:{"op":"mkdir","dir":"Download","name":"x","confirm":true}');
+  const blob = new Blob([new Uint8Array(384 * 1024 + 10)]);
+  const steps = [];
+  const r = await ph.save('Download', 'a.bin', blob, got => steps.push(got));
+  assert.equal(r.ok, true); assert.equal(r.path, 'Download/a.bin');
+  assert.deepEqual(steps, [384 * 1024, 10]);
+  assert.equal(sent.filter(m => m.startsWith('pfiles:save:part:')).length, 2);
+  assert.ok(sent.some(m => m.startsWith('pfiles:save:begin:{"dir":"Download","name":"a.bin","size":393226,"confirm":true}')));
+  assert.equal((await ph.save('Android/data', 'a', blob)).error, 'blocked');
 });
