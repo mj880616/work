@@ -171,7 +171,8 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   assert.deepEqual([...new Set([...js.matchAll(/await write\('(\w+)'/g)].map(m => m[1]))].sort(), ['mkdir', 'rename', 'star', 'trash']);
   assert.deepEqual([...new Set([...js.matchAll(/await call\('(\w+)'/g), ...js.matchAll(/await call\(mode === 'move' \? '(\w+)' : '(\w+)'/g)].flatMap(m => m.slice(1)))].sort(), ['move']);
   assert.equal([...js.matchAll(/body: \{action, \.\.\.body, confirm: true\}/g)].length, 2);
-  assert.match(js, /action: kind === 'office' \? 'preview' : 'media'/);
+  // S49-51: 미리보기 바이트는 rowBlob 한 곳(클라우드는 Edge thumb·preview·media, 이 폰은 앱 다리).
+  assert.match(js, /rowBlob\(r, kind === 'office' \? 'preview' : 'media'\)/);
   // 표 직접 읽기는 같은 파일 보기(app_cloud_items GET) 하나뿐, 직접 쓰기 없음.
   assert.deepEqual([...js.matchAll(/\/rest\/v1\/(app_cloud_\w+)/g)].map(m => m[1]), ['app_cloud_items']);
   assert.doesNotMatch(js, /method: '(PATCH|DELETE)'/);
