@@ -60,7 +60,9 @@ for(const width of [412,884,1440])test(`[전체 표] 묶음별 표·줄 누르�
  // 내 담당조직 둘 다 보이고, 줄은 조직 [현황 표] 줄 그대로(최신 순), 빈 조직은 '비어 있음' + [AI로 채우기].
  await expect(oa(page)).toContainText('합성 가 지부');await expect(ob(page)).toContainText('합성 나 지회');
  await expect(oa(page).locator('.oa-line')).toHaveCount(2);
- await expect(oa(page).locator('.oa-line').first()).toContainText('10.29.');
+ // 날짜 오름차순: 10.15가 위, 10.29가 아래.
+ await expect(oa(page).locator('.oa-line').first()).toContainText('10.15.');
+ await expect(oa(page).locator('.oa-line').last()).toContainText('10.29.');
  await expect(ob(page).locator('[data-oa-empty]')).toHaveText('비어 있음');
  // 줄을 누르면 한 줄 칸이 아니라 글 전체가 보이는 여러 줄 칸.
  await oa(page).locator('[data-oa-edit="r1"]').click();
@@ -71,7 +73,7 @@ for(const width of [412,884,1440])test(`[전체 표] 묶음별 표·줄 누르�
  await area.fill(LONG+' 추가 메모');
  await area.press('Enter');
  await expect(page.locator('#soOverview [data-oa-status]')).toHaveText('저장했어요.');
- await expect(oa(page).locator('.oa-line').first()).toContainText('추가 메모');
+ await expect(oa(page).locator('.oa-line').last()).toContainText('추가 메모');
  expect(db.patches.some(p=>p.source==='user'&&String(p.body).endsWith('추가 메모'))).toBe(true);
  // 버튼은 같은 크기(빼기·취소·저장).
  await oa(page).locator('[data-oa-edit="r2"]').click();
@@ -106,4 +108,66 @@ test('[전체 표] 표가 없으면(DB 적용 전) 준비 중 한 줄',async({pa
  await fixture(page,{width:412,missing:true});
  await openTable(page);
  await expect(page.locator('#soOverview [data-oa-missing]')).toHaveText('현황 표는 준비 중이에요.');
+});
+
+const MANY=[
+ {id:'m1',organization_id:'oa',day:'2026-09-03',body:'합성 옛 줄 하나',sort_order:0,source:'user',evidence:[],updated_at:stamp},
+ {id:'m2',organization_id:'oa',day:'2026-09-20',body:'합성 옛 줄 둘',sort_order:1,source:'user',evidence:[],updated_at:stamp},
+ {id:'m3',organization_id:'oa',day:'2026-11-11',body:'합성 셋째 줄',sort_order:2,source:'user',evidence:[],updated_at:stamp},
+ {id:'m4',organization_id:'oa',day:'2026-10-15',body:'합성 첫째 줄',sort_order:3,source:'user',evidence:[],updated_at:stamp},
+ {id:'m5',organization_id:'oa',day:'2026-10-29',end_day:'2026-11-02',body:'합성 둘째 줄 기간',sort_order:4,source:'user',evidence:[],updated_at:stamp},
+];
+for(const width of [412,1440])test(`[전체 표] 가장 최근 3줄을 날짜 오름차순으로 · 외 n줄 ▾ 그 자리 펼침 · 기간 표기 · 버튼 간격 ${width}px`,async({page})=>{
+ const {db,errors}=await fixture(page,{width,seed:MANY});
+ await openTable(page);
+ const lines=oa(page).locator('.oa-line');
+ await expect(lines).toHaveCount(3);
+ await expect(lines.nth(0)).toContainText('10.15.');
+ await expect(lines.nth(1)).toContainText('10.29.~11.2.');
+ await expect(lines.nth(2)).toContainText('11.11.');
+ // 외 n줄 ▾: 누르면 그 자리(맨 위)에서 오래된 줄이 오름차순으로 펼쳐지고, 다시 누르면 접힌다.
+ const more=oa(page).locator('[data-oa-toggle="oa"]');
+ await expect(more).toHaveText('외 2줄 ▾');await expect(more).toHaveAttribute('aria-expanded','false');
+ await more.click();
+ await expect(oa(page).locator('[data-oa-toggle="oa"]')).toHaveText('외 2줄 ▴');
+ await expect(lines).toHaveCount(5);
+ expect(await lines.evaluateAll(els=>els.map(e=>e.querySelector('.oa-day').textContent.split('(')[0]))).toEqual(['9.3.','9.20.','10.15.','10.29.~11.2.','11.11.']);
+ // 펼친 줄도 바로 고칠 수 있다.
+ await oa(page).locator('[data-oa-edit="m1"]').click();
+ await expect(page.locator('#soOverview textarea[data-st-field="body"]')).toHaveValue('합성 옛 줄 하나');
+ await page.locator('#soOverview [data-st-cancel]').click();
+ await expect(lines).toHaveCount(5);
+ await oa(page).locator('[data-oa-toggle="oa"]').click();
+ await expect(lines).toHaveCount(3);
+ // [+ 줄]은 펼침과 상관없이 맨 아래 한 자리.
+ const add=oa(page).locator('[data-oa-add="oa"]');
+ expect(await add.evaluate(el=>el.getBoundingClientRect().top)).toBeGreaterThan(await lines.last().evaluate(el=>el.getBoundingClientRect().bottom)-1);
+ // [AI로 채우기]·[+ 줄]이 한 줄에 나란히 있는 곳은 버튼 사이가 공용 간격(8px) 이상.
+ await expect(ob(page).locator('[data-oa-fill="ob"]')).toBeVisible();
+ const gap=await ob(page).locator('[data-oa-fill="ob"]').evaluate(el=>{const a=el.getBoundingClientRect(),b=el.nextElementSibling.getBoundingClientRect();return Math.round((b.left-a.right)*10)/10});
+ expect(gap).toBeGreaterThanOrEqual(8);
+ const empty=await ob(page).locator('[data-oa-empty]').evaluate(el=>{const a=el.getBoundingClientRect(),b=el.nextElementSibling.getBoundingClientRect();return Math.round((b.left-a.right)*10)/10});
+ expect(empty).toBeGreaterThanOrEqual(8);
+ expect(db.posts).toHaveLength(0);
+ expect(errors).toEqual([]);
+});
+
+test('[전체 표] 시작일~끝나는 날 두 칸: 끝이 앞이면 저장 안 됨, 기간으로 저장하면 11.2.~11.5.',async({page})=>{
+ const {db,errors}=await fixture(page,{width:1440,seed:SEED});
+ await openTable(page);
+ await ob(page).locator('[data-oa-add="ob"]').click();
+ const p=page.locator('#soOverview');
+ await expect(p.locator('[data-st-field="end_day"]')).toBeVisible();
+ await p.locator('[data-st-field="day"]').fill('2026-11-02');
+ await p.locator('textarea[data-st-field="body"]').fill('합성 파업 찬반투표');
+ await p.locator('[data-st-field="end_day"]').fill('2026-11-01');
+ await p.locator('[data-st-save]').click();
+ await expect(p.locator('[data-oa-status]')).toHaveText('끝나는 날은 시작일과 같거나 뒤여야 해요.');
+ expect(db.posts).toHaveLength(0);
+ await p.locator('[data-st-field="end_day"]').fill('2026-11-05');
+ await p.locator('[data-st-save]').click();
+ await expect(p.locator('[data-oa-status]')).toHaveText('줄을 넣었어요.');
+ expect(db.posts.at(-1)).toMatchObject({day:'2026-11-02',end_day:'2026-11-05'});
+ await expect(ob(page).locator('.oa-day')).toHaveText('11.2.~11.5.');
+ expect(errors).toEqual([]);
 });

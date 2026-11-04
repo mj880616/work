@@ -114,7 +114,7 @@
 #soTeamSection.so-view-table>.so-team-head .so-team-title{display:none}
 .oa{--oa-w-org:11em;--oa-w-stage:10em;min-width:0}
 .oa[hidden]{display:none}
-.oa-bar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.oa-bar{margin:0 0 8px}
 .oa-group{margin:0 0 12px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);overflow:hidden}
 .oa-group-h{display:flex;align-items:baseline;justify-content:space-between;margin:0;padding:6px var(--kptu-space-3);font-size:12px;line-height:18px;font-weight:400;color:var(--kptu-muted);border-bottom:1px solid var(--kptu-border)}
 .oa-group-h small{font-size:var(--ds-text-meta)}
@@ -131,8 +131,12 @@
 .oa-text{min-width:0;overflow-wrap:anywhere;color:var(--kptu-ink)}
 .oa-text.is-edit{cursor:text}.oa-text.is-edit:hover{background:var(--kptu-surface-subtle)}
 .oa-text.is-edit:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
-.oa-empty,.oa-more,.oa-none{color:var(--kptu-muted);font-size:var(--ds-text-meta)}.oa-empty{margin-right:8px}
-.oa-add{margin-top:4px}
+.oa-empty,.oa-none{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+.oa-actions{margin-top:4px}
+/* DESK-주별표 ①: '외 n줄 ▾' 글자 버튼(누르는 범위 44px은 ::after) */
+.oa-more{position:relative;display:block;margin:0 0 2px;padding:0;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);text-align:left;cursor:pointer}
+.oa-more::after{content:"";position:absolute;inset:-8px -6px}
+.oa-more:hover{color:var(--kptu-ink)}.oa-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .oa-edit{padding:2px 0;scroll-margin-bottom:45vh}
 @media(max-width:760px){
   /* 폰: 표 대신 조직마다 한 덩이(이름·쟁의 단계 한 줄 + 현황 줄). 칸 폭 손잡이는 폰에서 숨김(col-resize.js). */

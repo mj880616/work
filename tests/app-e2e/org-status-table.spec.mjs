@@ -62,8 +62,10 @@ for(const width of [412,1440])test(`[현황 표] 처음 AI 채움·줄 추가·�
  const table=page.locator('#wdStatusTable [data-st-table]');
  await expect(table.locator('tbody tr[data-st-row]')).toHaveCount(2);
  expect(db.ai).toEqual([{kind:'org_status_rows',organization_id:'oa'}]);
- await expect(table.locator('tbody tr').first()).toContainText('10.5.(월)');
- await expect(table.locator('tbody tr').first()).toContainText('합성 지노위 2차 조정회의 — 조정 종료(쟁의권 확보)');
+ // 날짜 오름차순(DESK-현황오름차순): 오래된 10.2가 위, 10.5가 아래.
+ await expect(table.locator('tbody tr[data-st-row]').first()).toContainText('10.2.(금)');
+ await expect(table.locator('tbody tr[data-st-row]').last()).toContainText('10.5.(월)');
+ await expect(table.locator('tbody tr[data-st-row]').last()).toContainText('합성 지노위 2차 조정회의 — 조정 종료(쟁의권 확보)');
  expect(db.posts.every(p=>p.source==='ai'&&p.workspace_id==='w'&&p.organization_id==='oa')).toBe(true);
  await expect(page.locator('#wdStatusTable')).not.toContainText('그대로 들어감'); // UI-당연한안내삭제
  // 줄 추가(날짜는 달력 칸).
@@ -72,10 +74,11 @@ for(const width of [412,1440])test(`[현황 표] 처음 AI 채움·줄 추가·�
  await page.locator('#wdStatusTable [data-st-field="body"]').fill('합성 교섭 재개 요청');
  await page.locator('#wdStatusTable [data-st-save]').click();
  await expect(page.locator('#wdStatusTable [data-st-status]')).toHaveText('줄을 넣었어요.');
- await expect(table.locator('tbody tr[data-st-row]').first()).toContainText('합성 교섭 재개 요청');
- expect(db.posts.at(-1)).toMatchObject({day:'2026-10-06',body:'합성 교섭 재개 요청',source:'user',sort_order:0});
+ await expect(table.locator('tbody tr[data-st-row]').last()).toContainText('합성 교섭 재개 요청');
+ expect(db.posts.at(-1)).toMatchObject({day:'2026-10-06',body:'합성 교섭 재개 요청',source:'user',sort_order:2});
+ expect('end_day' in db.posts.at(-1)).toBe(false); // 끝나는 날을 비우면 보내지 않는다(하루 일정)
  // AI 줄을 고치면 내 줄이 된다.
- const second=table.locator('tbody tr[data-st-row]').nth(1);
+ const second=table.locator('tbody tr[data-st-row]').nth(0);
  await second.getByRole('button',{name:/고치기$/}).click();
  await page.locator('#wdStatusTable [data-st-field="body"]').fill('합성 지노위 조정 종료 — 쟁의권 확보');
  await page.locator('#wdStatusTable [data-st-save]').click();
@@ -101,6 +104,37 @@ for(const width of [412,1440])test(`[현황 표] 처음 AI 채움·줄 추가·�
  try{await expect(page.locator('#wdTitle')).toHaveText(orgs[0].name,{timeout:5000});await expect(page.locator('#wdModal')).toBeVisible({timeout:1000})}catch{await openOrg(page)}
  await expect(sub(page,'현황 표')).toHaveAttribute('aria-selected','true');
  await expect(page.locator('#wdStatusTable [data-st-table] tbody tr[data-st-row]')).toHaveCount(2);
+ expect(errors).toEqual([]);
+});
+
+test('[현황 표] 시작일~끝나는 날: 달력 두 칸으로 저장하면 11.2.~11.5.로 보이고, 끝이 앞이면 저장 안 됨',async({page})=>{
+ const {db,errors}=await fixture(page,{width:1440,prefs:{org_tab:'table'}});
+ db.rows=[];
+ await openOrg(page);
+ await expect(sub(page,'현황 표')).toHaveAttribute('aria-selected','true');
+ await expect(page.locator('#wdStatusTable [data-st-table] tbody tr[data-st-row]')).toHaveCount(2); // 처음 열 때 AI가 두 줄을 채운 뒤부터 센다
+ const n0=db.posts.length;
+ await page.locator('#wdStatusTable [data-st-add]').click();
+ const f=page.locator('#wdStatusTable');
+ await expect(f.locator('[data-st-field="day"]')).toBeVisible();await expect(f.locator('[data-st-field="end_day"]')).toBeVisible();
+ await f.locator('[data-st-field="day"]').fill('2026-11-02');
+ await f.locator('textarea[data-st-field="body"]').fill('합성 파업 찬반투표');
+ await f.locator('[data-st-field="end_day"]').fill('2026-11-01');
+ await f.locator('[data-st-save]').click();
+ await expect(f.locator('[data-st-status]')).toHaveText('끝나는 날은 시작일과 같거나 뒤여야 해요.');
+ expect(db.posts).toHaveLength(n0);
+ await f.locator('[data-st-field="end_day"]').fill('2026-11-05');
+ await f.locator('[data-st-save]').click();
+ await expect(f.locator('[data-st-status]')).toHaveText('줄을 넣었어요.');
+ expect(db.posts.at(-1)).toMatchObject({day:'2026-11-02',end_day:'2026-11-05',body:'합성 파업 찬반투표'});
+ await expect(f.locator('tbody tr[data-st-row]').filter({hasText:'합성 파업'}).locator('.wd-st-day-text')).toHaveText('11.2.~11.5.');
+ // 고쳐서 끝나는 날을 비우면 하루 일정으로 돌아간다.
+ await f.locator('tbody tr[data-st-row]').filter({hasText:'합성 파업'}).getByRole('button',{name:/고치기$/}).click();
+ await f.locator('[data-st-field="end_day"]').fill('');
+ await f.locator('[data-st-save]').click();
+ await expect(f.locator('[data-st-status]')).toHaveText('저장했어요.');
+ expect(db.patches.at(-1)).toMatchObject({end_day:null});
+ await expect(f.locator('tbody tr[data-st-row]').filter({hasText:'합성 파업'}).locator('.wd-st-day-text')).toHaveText('11.2.(월)');
  expect(errors).toEqual([]);
 });
 

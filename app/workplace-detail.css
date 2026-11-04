@@ -218,7 +218,6 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 .wd-st-table thead th{position:relative;padding-top:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 /* 일 칸: 폭을 끌어 바꾼다(col_widths.orgst, 서버 기억). 날짜('10.29.(목)')는 한 줄. 줄 손잡이 역할이라 PC에서 잡으면 끌린다. */
 .wd-st-day{width:var(--st-w-day);white-space:nowrap;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-.wd-st-table tbody .wd-st-day[data-reorder-handle]{cursor:grab;touch-action:none}
 .wd-st-day-text{display:inline-block}
 .wd-st-body{overflow-wrap:anywhere;color:var(--kptu-ink)}
 .wd-st-text{display:inline;cursor:text}
@@ -235,15 +234,15 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 .wd-st-ev>summary{cursor:pointer;width:max-content}
 .wd-st-ev ul{margin:2px 0 0;padding-left:14px}
 .wd-st-older{margin-top:4px}.wd-st-older>summary{cursor:pointer;padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-.wd-st-bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.wd-st-bar{margin-top:8px}
 .wd-st-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .wd-st-status{margin:2px 0 0;min-height:1em;color:var(--kptu-muted);font-size:var(--ds-text-meta)}.wd-st-status:empty{display:none}.wd-st-status.is-error{color:var(--kptu-danger)}
 /* 고치기 칸: 일 + 여러 줄 글 칸(글 길이만큼 늘어남). 키보드가 올라와도 칸·[저장]이 가려지지 않게 아래 여백(scroll-margin). */
-.wd-st-form{display:grid;grid-template-columns:9.5em minmax(0,1fr);gap:6px 8px;align-items:start;scroll-margin-bottom:45vh}
+.wd-st-form{display:grid;grid-template-columns:minmax(0,1fr);gap:6px 8px;align-items:start;scroll-margin-bottom:45vh}
 .wd-st-edit{scroll-margin-bottom:45vh}
 .wd-st-form label{display:grid;gap:2px;min-width:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
 .wd-st-form input{width:100%;min-width:0;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-row)}
 .wd-st-form textarea{box-sizing:border-box;width:100%;min-width:0;min-height:calc(2 * 1.45em + 10px);padding:4px 6px;font:inherit;font-size:var(--ds-text-row);line-height:1.45;resize:none;overflow:hidden}
-.wd-st-actions{grid-column:1/-1;display:flex;gap:6px;justify-content:flex-end}.wd-st-del{margin-right:auto}
-.wd-st-table tr.re-dragging{opacity:.5}.wd-st-table tr.re-drop-before>td,.wd-st-table tr.re-drop-before>th{border-top:2px solid var(--kptu-ink)}
-@media(max-width:650px){.wd-st-form{grid-template-columns:minmax(0,1fr)}.wd-st{--st-w-day:5.6em}}
+.wd-st-f-days{display:flex;align-items:flex-end;gap:6px;min-width:0}.wd-st-f-days .wd-st-f-day{flex:1 1 0;min-width:0;max-width:11em}.wd-st-f-tilde{padding-bottom:6px;color:var(--kptu-muted)}
+.wd-st-actions{grid-column:1/-1;justify-content:flex-end}.wd-st-del{margin-right:auto}
+@media(max-width:650px){.wd-st{--st-w-day:5.6em}}
