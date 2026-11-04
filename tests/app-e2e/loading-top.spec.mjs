@@ -23,7 +23,7 @@ for (const width of WIDTHS) {
     const { errors } = await start(page, width);
     let release;
     const gate = new Promise(ok => { release = ok; });
-    await page.route('**/rest/v1/rpc/app_cloud_find', async route => { await gate; await route.fallback(); });
+    await page.route('**/rest/v1/rpc/app_cloud_find_in', async route => { await gate; await route.fallback(); });
     await page.route('**/rest/v1/rpc/app_cloud_list', async route => { await gate; await route.fallback(); });
     await openFiles(page, width).catch(() => {});
     await expect(page.locator('#filesRoot .wait').first()).toBeVisible({ timeout: 10000 });
@@ -45,7 +45,7 @@ for (const width of WIDTHS) {
     let release;
     const gate = new Promise(ok => { release = ok; });
     await page.route('**/rest/v1/rpc/app_cloud_list', async route => { await gate; await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"fail"}' }); });
-    await page.route('**/rest/v1/rpc/app_cloud_find', async route => { await gate; await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"fail"}' }); });
+    await page.route('**/rest/v1/rpc/app_cloud_find_in', async route => { await gate; await route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"fail"}' }); });
     await openFiles(page, width).catch(() => {});
     await expect(page.locator('.top-wait')).toHaveCount(1, { timeout: 10000 });
     release();
