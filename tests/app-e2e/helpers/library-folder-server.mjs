@@ -29,7 +29,11 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
   await page.route(`${SB}/rest/v1/app_library_folders*`,route=>{
     const req=route.request(),url=new URL(req.url()),m=req.method(),body=bodyOf(req);
     if(m!=='GET')s.writes.push({table:'folders',method:m,id:eq(url,'id')||null,body});
-    if(m==='GET')return route.fulfill({json:s.folders});
+    if(m==='GET'){
+      // FOLDER-순서·색 ③-1: s.colorMissing = DB 적용 전(color 칸이 없어 칸을 고르면 400/42703). 읽기에 color가 없으면 줄에서도 뺀다.
+      if(s.colorMissing&&/(^|,)color(,|$)/.test(url.searchParams.get('select')||''))return route.fulfill(reject('42703','column app_library_folders.color does not exist'));
+      return route.fulfill({json:s.colorMissing?s.folders.map(({color,...rest})=>rest):s.folders});
+    }
     if(m==='POST'){
       if(body.parent_id&&depth(body.parent_id)>=100)return route.fulfill(reject('23514','LIB_FOLDER_DEPTH: folders are limited to 100 levels'));
       if(body.parent_id&&!s.dbFree&&(byId(body.parent_id)?.project_id||null)!==(body.project_id||null))return route.fulfill(scope);
@@ -55,6 +59,14 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     if(fn==='app_trash_list')return route.fulfill({json:s.trash.map(t=>{const r=t.folders.find(x=>x.id===t.root);return {kind:'library_folder',id:t.root,workspace_id:'workspace-1',name:r.name,project_id:r.project_id,project_name:'',parent_id:r.parent_id,deleted_at:t.deleted_at,child_count:t.folders.length-1,file_count:s.items.filter(x=>t.folders.some(f=>f.id===x.folder_id)).length,parent_in_trash:false}})});
     const t=s.trash.find(x=>x.root===body.p_id);if(!t)return route.fulfill(reject('P0002','TRASH_NOT_FOUND'));
     s.trash=s.trash.filter(x=>x!==t);s.folders.push(...t.folders);return route.fulfill({json:{ok:true,kind:'library_folder',id:t.root,restored:t.folders.length}});
+  });
+  // FOLDER-순서·색 ③-1: 폴더 색은 서버 함수(owner만)로만 쓴다. s.colorCalls에 쌓고, s.colorFail이면 실패, s.colorMissing이면 함수가 아직 없음(404).
+  await page.route(`${SB}/rest/v1/rpc/app_library_folder_set_color`,route=>{
+    const body=route.request().postDataJSON()||{};(s.colorCalls||(s.colorCalls=[])).push(body);
+    if(s.colorMissing)return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST202',message:'function not found'})});
+    if(s.colorFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({code:'XX000',message:'boom'})});
+    const f=byId(body.p_id);if(!f||(body.p_color!==null&&!(Number.isInteger(body.p_color)&&body.p_color>=1&&body.p_color<=8)))return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({code:'42501',message:'LIBRARY_FOLDER_COLOR_FORBIDDEN'})});
+    f.color=body.p_color;return route.fulfill({json:{ok:true,id:f.id,color:f.color}});
   });
   const docOf=id=>s.docs.find(d=>d.id===id);
   await page.route(`${SB}/rest/v1/app_library_folder_items*`,route=>{

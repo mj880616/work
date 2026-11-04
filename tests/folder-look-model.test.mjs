@@ -70,3 +70,10 @@ test('노트 순서: 고정 위, 값 있는 노트 순서대로, 값 없는 노�
   assert.equal(noteOrderOf({metadata: {order: '7'}}), null);
   assert.equal(noteOrderOf({metadata: {order: 7}}), 7);
 });
+test('칠한 폴더 그림 공용: 닫힘·열림 모양이 다르고 색 글자는 그림 안에 없다(색은 data-fc 한 곳)', async () => {
+  const {folderShapeHtml} = await import('../app/folder-look-model.mjs');
+  const closed = folderShapeHtml('closed'), open = folderShapeHtml('open');
+  assert.notEqual(closed, open);
+  assert.match(closed, /^<svg viewBox="0 0 16 16"/);
+  assert.doesNotMatch(closed + open, /#[0-9a-f]{3,6}|rgb\(/i);
+});
