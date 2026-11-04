@@ -394,6 +394,9 @@ jobs:
       - name: Check organization status table sub-tab (DESK-현황표)
         run: node --test tests/org-status-model.test.mjs
 
+      - name: Check weekly org report lines model (WEEKLY-메뉴짝짓기 P3)
+        run: node --test tests/weekly-org-lines-model.test.mjs
+
       - name: Check document plus button keyboard (UI-플러스키보드)
         run: node --test tests/plus-keyboard.test.mjs
 
